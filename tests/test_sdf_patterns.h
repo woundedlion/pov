@@ -341,6 +341,64 @@ inline float octet4_segment_reference(const math::Vec4 &p) {
   return best;
 }
 
+inline math::Vec4 octet4_offset_reference(const SDF::OctetFramework4 &geometry,
+                                          const math::Vec4 &p,
+                                          uint32_t &feature) {
+  const float SCALE = SDF::OctetFramework4::HALF_CUBE * geometry.cell_size;
+  const float INVERSE_SCALE = 1.0f / SCALE;
+  math::Vec4 q, rounded, residual, result;
+  for (int i = 0; i < 4; ++i) {
+    q[i] = (p[i] - geometry.origin[i]) * INVERSE_SCALE;
+    rounded[i] = roundf(q[i]);
+    residual[i] = q[i] - rounded[i];
+  }
+  float best = INFINITY;
+  uint32_t pair = 0;
+  feature = 0;
+  for (int i = 0; i < 4; ++i)
+    for (int j = i + 1; j < 4; ++j)
+      for (int sign : {-1, 1}) {
+        const float U = q[i] - sign * q[j];
+        const float PLANE = roundf(U);
+        float along = U - PLANE;
+        float parity = PLANE;
+        float squared = 0.0f;
+        float flip_cost = 0.5f - fabsf(along);
+        int flip_axis = -1;
+        math::Vec4 offset = residual;
+        for (int k = 0; k < 4; ++k) {
+          if (k == i || k == j)
+            continue;
+          parity += rounded[k];
+          squared += residual[k] * residual[k];
+          const float COST = 1.0f - 2.0f * fabsf(residual[k]);
+          if (COST < flip_cost) {
+            flip_cost = COST;
+            flip_axis = k;
+          }
+        }
+        squared += 0.5f * along * along;
+        // D4 requires an even sum of the line invariant and fixed coordinates.
+        if (fabsf(parity - 2.0f * roundf(parity * 0.5f)) > 0.5f) {
+          squared += flip_cost;
+          if (flip_axis < 0)
+            along -= copysignf(1.0f, along);
+          else
+            offset[flip_axis] -= copysignf(1.0f, offset[flip_axis]);
+        }
+        if (squared < best) {
+          best = squared;
+          offset[i] = 0.5f * along;
+          offset[j] = -0.5f * sign * along;
+          for (int k = 0; k < 4; ++k)
+            result[k] = offset[k] * SCALE;
+          feature = pair;
+        }
+        ++pair;
+      }
+  return result;
+}
+
 inline void test_octet4_edges_parity_and_symmetry() {
   SDF::OctetFramework4 octet;
   HS_EXPECT_TRUE(octet.valid());
@@ -402,6 +460,40 @@ inline void test_octet4_edges_parity_and_symmetry() {
   }
   octet.origin[3] = INFINITY;
   HS_EXPECT_FALSE(octet.valid());
+}
+
+inline void test_octet4_nearest_edge_matches_line_search() {
+  SDF::OctetFramework4 geometry;
+  geometry.cell_size =
+      nextafterf(1.0f / SDF::OctetFramework4::HALF_CUBE, INFINITY);
+  HS_EXPECT_EQ(SDF::OctetFramework4::HALF_CUBE * geometry.cell_size, 1.0f);
+  const auto VERIFY = [&](const math::Vec4 &point, bool exact) {
+    uint32_t expected_feature;
+    uint32_t feature;
+    const auto EXPECTED =
+        octet4_offset_reference(geometry, point, expected_feature);
+    const auto OFFSET = geometry.edge_offset(point, feature);
+    HS_EXPECT_NEAR(SDF::OctetFramework4::magnitude(OFFSET),
+                   SDF::OctetFramework4::magnitude(EXPECTED), 4e-6f);
+    HS_EXPECT_EQ(feature, expected_feature);
+    for (int axis = 0; axis < 4; ++axis)
+      HS_EXPECT_NEAR(OFFSET[axis], EXPECTED[axis], exact ? 0.0f : 4e-6f);
+  };
+  for (int x = -8; x <= 8; ++x)
+    for (int y = -8; y <= 8; ++y)
+      for (int z = -8; z <= 8; ++z)
+        for (int w = -8; w <= 8; ++w)
+          VERIFY({{x * 0.125f, y * 0.125f, z * 0.125f, w * 0.125f}}, true);
+  uint32_t state = 0x19770425;
+  for (int sample = 0; sample < 10000; ++sample) {
+    math::Vec4 point;
+    for (int axis = 0; axis < 4; ++axis) {
+      state = state * 1664525u + 1013904223u;
+      point[axis] =
+          static_cast<float>(state >> 8) * (20.0f / 16777216.0f) - 10.0f;
+    }
+    VERIFY(point, false);
+  }
 }
 
 inline void test_octet4_ambient_events_and_limits() {
@@ -511,6 +603,7 @@ inline int run_sdf_pattern_tests() {
   test_octet_events_ties_limits_and_invalid_inputs();
   test_octet_struts_have_one_angle_correct_coverage_layer();
   test_octet4_edges_parity_and_symmetry();
+  test_octet4_nearest_edge_matches_line_search();
   test_octet4_ambient_events_and_limits();
   test_periodic_surface_bounds_and_gradients();
   return hs_test::end_module(MODULE);

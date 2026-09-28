@@ -244,57 +244,60 @@ struct OctetFramework4 {
                                              uint32_t &feature) const {
     const float SCALE = HALF_CUBE * cell_size;
     const float INVERSE_SCALE = 1.0f / SCALE;
-    math::Vec4 q, rounded, residual, result;
-    for (int i = 0; i < 4; ++i) {
-      q[i] = (p[i] - origin[i]) * INVERSE_SCALE;
-      rounded[i] = roundf(q[i]);
-      residual[i] = q[i] - rounded[i];
+    math::Vec4 residual, absolute;
+    float parity = 0.0f;
+    int halves = 0;
+    for (int k = 0; k < 4; ++k) {
+      const float Q = (p[k] - origin[k]) * INVERSE_SCALE;
+      const float ROUNDED = roundf(Q);
+      parity += ROUNDED;
+      residual[k] = Q - ROUNDED;
+      absolute[k] = fabsf(residual[k]);
+      halves += absolute[k] == 0.5f;
     }
-    float best = INFINITY;
-    uint32_t pair = 0;
-    feature = 0;
-    for (int i = 0; i < 4; ++i)
-      for (int j = i + 1; j < 4; ++j)
-        for (int sign : {-1, 1}) {
-          const float U = q[i] - sign * q[j];
-          const float PLANE = roundf(U);
-          float along = U - PLANE;
-          float parity = PLANE;
-          float squared = 0.0f;
-          float flip_cost = 0.5f - fabsf(along);
-          int flip_axis = -1;
-          math::Vec4 offset = residual;
-          for (int k = 0; k < 4; ++k) {
-            if (k == i || k == j)
-              continue;
-            parity += rounded[k];
-            squared += residual[k] * residual[k];
-            const float COST = 1.0f - 2.0f * fabsf(residual[k]);
-            if (COST < flip_cost) {
-              flip_cost = COST;
-              flip_axis = k;
-            }
+    const bool ODD = fabsf(parity - 2.0f * roundf(parity * 0.5f)) > 0.5f;
+    // The nearest strut uses the two largest fractional coordinates.
+    int i = 0;
+    int j = 1;
+    if (absolute[j] > absolute[i])
+      std::swap(i, j);
+    for (int k = 2; k < 4; ++k) {
+      if (absolute[k] > absolute[i]) {
+        j = i;
+        i = k;
+      } else if (absolute[k] > absolute[j]) {
+        j = k;
+      }
+    }
+    if (i > j)
+      std::swap(i, j);
+    feature = 2 * (i * (7 - i) / 2 + j - i - 1);
+    if (halves >= 3) {
+      // Three half-grid coordinates tie both strut orientations.
+      if (ODD != (residual[i] + residual[j] != 0.0f))
+        for (int k = 0; k < 4; ++k)
+          if (k != i && k != j && absolute[k] == 0.5f) {
+            residual[k] = -residual[k];
+            break;
           }
-          squared += 0.5f * along * along;
-          // D4 requires an even sum of the line invariant and fixed coordinates.
-          if (fabsf(parity - 2.0f * roundf(parity * 0.5f)) > 0.5f) {
-            squared += flip_cost;
-            if (flip_axis < 0)
-              along -= copysignf(1.0f, along);
-            else
-              offset[flip_axis] -= copysignf(1.0f, offset[flip_axis]);
-          }
-          if (squared < best) {
-            best = squared;
-            offset[i] = 0.5f * along;
-            offset[j] = -0.5f * sign * along;
-            for (int k = 0; k < 4; ++k)
-              result[k] = offset[k] * SCALE;
-            feature = pair;
-          }
-          ++pair;
-        }
-    return result;
+      residual[i] = 0.0f;
+      residual[j] = 0.0f;
+    } else {
+      const bool SAME_SIGN = (residual[i] < 0.0f) == (residual[j] < 0.0f);
+      const float SIGN =
+          absolute[i] != 0.0f && absolute[j] != 0.0f && SAME_SIGN != ODD
+              ? 1.0f
+              : -1.0f;
+      float along = residual[i] - SIGN * residual[j];
+      if (ODD)
+        along -= copysignf(1.0f, along);
+      residual[i] = 0.5f * along;
+      residual[j] = -0.5f * SIGN * along;
+      feature += SIGN > 0.0f;
+    }
+    for (int k = 0; k < 4; ++k)
+      residual[k] *= SCALE;
+    return residual;
   }
 
   static float magnitude(const math::Vec4 &p) {
