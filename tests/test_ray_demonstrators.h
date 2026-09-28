@@ -15,6 +15,67 @@
 
 namespace hs_test::ray_demonstrator_tests {
 
+inline void test_octet_crossing_coverage_against_ray_line_distance() {
+  for (int sample = 0; sample < 600; ++sample) {
+    SDF::OctetFramework geometry;
+    geometry.cell_size = sample % 3 == 0   ? .25f
+                         : sample % 3 == 1 ? 1.5f
+                                           : 10.0f;
+    geometry.wire_radius = geometry.cell_size * .055f;
+    geometry.origin = {.3f, -.2f, .7f};
+    const Raycast::Ray RAY{{sinf(sample * .43f) * 5, cosf(sample * .71f) * 5,
+                            sinf(sample * .19f) * 5},
+                           math::Vector{cosf(sample * .31f),
+                                        sinf(sample * .57f),
+                                        cosf(sample * .23f)}
+                               .normalized(),
+                           {.1f, 16.0f}};
+    const Raycast::Footprint FOOTPRINT{sample % 5 == 0 ? 0.0f : .02f, .3f};
+    const auto PLANES = geometry.plane_families();
+    SDF::OctetEvents events(geometry, RAY, FOOTPRINT);
+    for (size_t stream = 0; stream < PLANES.size(); ++stream) {
+      for (int crossing = 0; crossing < 8 && events.active(stream);
+           ++crossing) {
+        const auto HIT = events.candidate(stream);
+        const auto POINT = RAY.at(HIT.t) - geometry.origin;
+        float best = INFINITY;
+        uint32_t feature = 0;
+        uint32_t pair = 0;
+        for (size_t i = 0; i < PLANES.size(); ++i)
+          for (size_t j = i + 1; j < PLANES.size(); ++j, ++pair) {
+            const float A = math::dot(RAY.direction, PLANES[i].normal);
+            const float B = math::dot(RAY.direction, PLANES[j].normal);
+            const size_t OWNER = fabsf(A) >= fabsf(B) ? i : j;
+            if (OWNER != stream)
+              continue;
+            const size_t OTHER = OWNER == i ? j : i;
+            const float U = math::dot(POINT, PLANES[OTHER].normal);
+            const float RESIDUAL =
+                U - PLANES[OTHER].spacing * roundf(U / PLANES[OTHER].spacing);
+            const auto CROSS = math::cross(
+                RAY.direction, math::cross(PLANES[i].normal, PLANES[j].normal));
+            const float DISTANCE =
+                fabsf(RESIDUAL * (OWNER == i ? A : B)) / CROSS.magnitude();
+            if (DISTANCE < best) {
+              best = DISTANCE;
+              feature = pair;
+            }
+          }
+        const float WIDTH = FOOTPRINT.at(HIT.t);
+        const float COVERAGE =
+            WIDTH > 0 ? std::clamp(.5f - (best - geometry.wire_radius) / WIDTH,
+                                   0.0f, 1.0f)
+            : best <= geometry.wire_radius ? 1.0f
+                                           : 0.0f;
+        HS_EXPECT_NEAR(HIT.coverage, COVERAGE, 3e-4f);
+        if (COVERAGE > 0)
+          HS_EXPECT_EQ(HIT.feature, feature);
+        events.advance(stream);
+      }
+    }
+  }
+}
+
 inline void test_framework_generic_event_rendering() {
   SDF::TriangularFramework geometry;
   Raycast::TraceLimits limits;
@@ -307,6 +368,7 @@ inline void test_verified_filter_off_slice_geometry_and_projected_normal() {
 
 inline int run_ray_demonstrator_tests() {
   const auto MODULE = hs_test::begin_module("ray_demonstrators");
+  test_octet_crossing_coverage_against_ray_line_distance();
   test_framework_generic_event_rendering();
   test_repeated_stream_grouping_preserves_order_and_endpoints();
   test_lattice_volume_camera_demonstrators();
