@@ -101,8 +101,7 @@ public:
 
   /**
    * @brief Advances the phase and draws one frame of rings and longitudes.
-   * @details Recomputes the counter-rotation that keeps the two holes
-   *          diametrically opposed under the Möbius warp before drawing.
+   * @details Recomputes the holes' counter-rotation before drawing.
    */
   void draw_frame() override {
     Canvas canvas(*this);
