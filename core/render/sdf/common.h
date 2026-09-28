@@ -884,8 +884,51 @@ inline bool annular_band_angles(float cos_outer, float cos_inner, float ny,
 }
 
 /**
+ * @brief The horizontal scanline span(s) where a row crosses an annular band,
+ * handling the two pole-wraparound degeneracies.
+ * @tparam W Canvas width in columns.
+ * @param cos_outer Great-circle cosine of the band's far edge.
+ * @param cos_inner Great-circle cosine of the band's near edge.
+ * @param ny y-component of the band axis.
+ * @param cos_phi Cosine of the row's polar angle.
+ * @param denom Row scale factor R·sinφ.
+ * @param alpha_angle Azimuth of the band axis (radians).
+ * @param spans Receives the spans, in unwrapped column space.
+ * @return Span count: 0 for a missed row, 1 when the band touches the near or
+ * far pole and its two arcs collapse, else 2.
+ */
+template <int W>
+HS_NOINLINE_NOCLONE int
+annular_band_spans(float cos_outer, float cos_inner, float ny, float cos_phi,
+                   float denom, float alpha_angle, Interval (&spans)[2]) {
+  float angle_min, angle_max;
+  if (!annular_band_angles(cos_outer, cos_inner, ny, cos_phi, denom, angle_min,
+                           angle_max))
+    return 0;
+
+  float scale = W / math::TWO_PI_F;
+  float safe_threshold = math::TWO_PI_F / W;
+
+  if (angle_min <= safe_threshold) {
+    spans[0] = {floorf((alpha_angle - angle_max) * scale),
+                ceilf((alpha_angle + angle_max) * scale)};
+    return 1;
+  }
+  if (angle_max >= math::PI_F - safe_threshold) {
+    spans[0] = {floorf((alpha_angle + angle_min) * scale),
+                ceilf((alpha_angle + math::TWO_PI_F - angle_min) * scale)};
+    return 1;
+  }
+  spans[0] = {floorf((alpha_angle - angle_max) * scale),
+              ceilf((alpha_angle - angle_min) * scale)};
+  spans[1] = {floorf((alpha_angle + angle_min) * scale),
+              ceilf((alpha_angle + angle_max) * scale)};
+  return 2;
+}
+
+/**
  * @brief Emit the horizontal scanline interval(s) where a row crosses an
- * annular band, handling the two pole-wraparound degeneracies.
+ * annular band.
  * @tparam W Canvas width in columns.
  * @tparam OutputIt Sink type invoked as out(float start, float end).
  * @param cos_outer Great-circle cosine of the band's far edge.
@@ -895,35 +938,19 @@ inline bool annular_band_angles(float cos_outer, float cos_inner, float ny,
  * @param denom Row scale factor R·sinφ.
  * @param alpha_angle Azimuth of the band axis (radians).
  * @param out Sink accepting (float start, float end).
- * @details A band touching the near/far pole collapses its two arcs into a
- * single span. Shared by Ring and DistortedRing, whose annular scanline math is
- * otherwise byte-identical. Emits nothing for a missed row; the caller reports
- * the row handled either way.
+ * @details Shared by Ring and DistortedRing, whose annular scanline math is
+ * otherwise byte-identical; see annular_band_spans. Emits nothing for a missed
+ * row; the caller reports the row handled either way.
  */
 template <int W, typename OutputIt>
 inline void emit_annular_band(float cos_outer, float cos_inner, float ny,
                               float cos_phi, float denom, float alpha_angle,
                               OutputIt out) {
-  float angle_min, angle_max;
-  if (!annular_band_angles(cos_outer, cos_inner, ny, cos_phi, denom, angle_min,
-                           angle_max))
-    return;
-
-  float scale = W / math::TWO_PI_F;
-  float safe_threshold = math::TWO_PI_F / W;
-
-  if (angle_min <= safe_threshold) {
-    out(floorf((alpha_angle - angle_max) * scale),
-        ceilf((alpha_angle + angle_max) * scale));
-  } else if (angle_max >= math::PI_F - safe_threshold) {
-    out(floorf((alpha_angle + angle_min) * scale),
-        ceilf((alpha_angle + math::TWO_PI_F - angle_min) * scale));
-  } else {
-    out(floorf((alpha_angle - angle_max) * scale),
-        ceilf((alpha_angle - angle_min) * scale));
-    out(floorf((alpha_angle + angle_min) * scale),
-        ceilf((alpha_angle + angle_max) * scale));
-  }
+  Interval spans[2];
+  const int count = annular_band_spans<W>(cos_outer, cos_inner, ny, cos_phi,
+                                          denom, alpha_angle, spans);
+  for (int i = 0; i < count; ++i)
+    out(spans[i].start, spans[i].end);
 }
 
 } // namespace SDF
