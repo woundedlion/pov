@@ -3442,13 +3442,9 @@ inline void test_screen_trails_forwards_aged_emission() {
 }
 
 /**
- * @brief Verifies an at-capacity plot() evicts slot 0 and keeps every other
- *        buffered point exactly once.
- * @details The eviction moves the last live point into slot 0 and then writes
- *          the new point over the slot it vacated, so a mis-ordered swap would
- *          either duplicate or drop the point that was last.
+ * @brief Capacity overflow replaces the last slot and preserves the others.
  */
-inline void test_screen_trails_at_capacity_evicts_slot_zero() {
+inline void test_screen_trails_at_capacity_replaces_last_slot() {
   constexpr int W = 32, MAXP = 4;
   static uint8_t buf[MAXP * 32];
   Arena arena(buf, sizeof(buf));
@@ -3458,7 +3454,6 @@ inline void test_screen_trails_at_capacity_evicts_slot_zero() {
   hs_test::StubEffect fx(W, 8);
   Canvas c(fx);
   auto noop = [](float, float, const Pixel &, float, float) {};
-  // x identifies the point; slot 0 holds x = 1 when the buffer fills.
   for (int i = 0; i < MAXP + 1; ++i)
     trails.plot(static_cast<float>(i + 1), 2.0f, Pixel(1, 1, 1), 0.0f, 1.0f,
                 noop);
@@ -3474,8 +3469,9 @@ inline void test_screen_trails_at_capacity_evicts_slot_zero() {
 
   HS_EXPECT_SIZE_OR_RETURN(emitted, MAXP);
   std::sort(emitted.begin(), emitted.end());
-  for (int i = 0; i < MAXP; ++i)
-    HS_EXPECT_NEAR(emitted[i], static_cast<float>(i + 2), 1e-6f);
+  for (int i = 0; i < MAXP - 1; ++i)
+    HS_EXPECT_EQ(emitted[i], static_cast<float>(i + 1));
+  HS_EXPECT_EQ(emitted[MAXP - 1], static_cast<float>(MAXP + 1));
 }
 
 /**
@@ -3885,7 +3881,7 @@ inline int run_filter_tests() {
   test_screen_trails_store_emit_decay();
   test_screen_trails_set_lifetime_shrink_clamps_t();
   test_screen_trails_forwards_aged_emission();
-  test_screen_trails_at_capacity_evicts_slot_zero();
+  test_screen_trails_at_capacity_replaces_last_slot();
   test_mixed_domain_flush_drains_both_buffers();
 
   test_effect_needs_full_frame_default_false();

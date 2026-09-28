@@ -90,8 +90,9 @@ public:
    * @tparam PassFnT Downstream callback type; a forwarding reference so the
    * filter chain inlines with no per-point indirect call.
    * @param pass Downstream 2D callback.
-   * @details At MAX_PIXELS the slot at index 0 is evicted; decay()'s unordered
-   * compaction leaves that point's age arbitrary. A fresh sample is forwarded
+   * @details At MAX_PIXELS the last occupied slot is replaced, as in
+   * World::Trails. Decay compacts slots without preserving age order.
+   * A fresh sample is forwarded
    * immediately and emitted again by flush() in the same frame, so both
    * contributions composite at its position.
    */
@@ -108,10 +109,8 @@ public:
       HS_CHECK(points,
                "Screen::Trails needs init_storage() from effect init()");
       check_storage_alive();
-      if (num_pixels == MAX_PIXELS) {
-        num_pixels--;
-        points[0] = points[num_pixels];
-      }
+      if (num_pixels == MAX_PIXELS)
+        --num_pixels;
       points[num_pixels++] = {x, y, ttl};
     }
   }
