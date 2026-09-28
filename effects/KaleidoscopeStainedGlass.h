@@ -34,14 +34,18 @@ class KaleidoscopeStainedGlass
 
 public:
   using Params = KaleidoscopeStainedGlassParams;
+  // Generated identity: scripts/generate_composed_presets.mjs
+  // clang-format off
   static constexpr std::string_view EFFECT_ID = "kaleidoscope-stained-glass";
-  static constexpr std::string_view DESCRIPTOR_DIGEST =
-      "dec7ed0755dbb3565429dcb17644a21d2b285cf2318797855d2e091dcadce7ac";
-  static constexpr std::string_view PRESET_BANK_DIGEST =
-      "0fccbe4ac4eb7acdba557f03c8ddadb4f974cb7400470e5e67951d2e7f2f7713";
-  static constexpr std::array<std::string_view, 1> PRESET_IDS{"vector-mirror"};
-  static constexpr uint32_t PARAMETER_SCHEMA_VERSION = 1;
+  static constexpr std::string_view DESCRIPTOR_DIGEST = "dec7ed0755dbb3565429dcb17644a21d2b285cf2318797855d2e091dcadce7ac";
+  static constexpr std::string_view PRESET_BANK_DIGEST = "0fccbe4ac4eb7acdba557f03c8ddadb4f974cb7400470e5e67951d2e7f2f7713";
+  static constexpr std::array<std::string_view, 1> PRESET_IDS{
+      "vector-mirror"
+  };
   static constexpr uint16_t PRESET_DWELL_FRAMES = 600;
+  // clang-format on
+  // End generated identity.
+  static constexpr uint32_t PARAMETER_SCHEMA_VERSION = 1;
 
   // Cold entry trampoline and pipeline body.
   static HS_FLASH_MEMBER Color4
@@ -49,23 +53,43 @@ public:
         const typename KaleidoscopeStainedGlass::Frame &frame) {
     return KaleidoscopeStainedGlass::RenderPipeline::shade(view, frame);
   }
+  // Generated params: scripts/generate_composed_presets.mjs
+  // clang-format off
   static constexpr Params initial_params() {
     Params value;
-    value.source = {.pattern_freq = 4.9755f,
-                    .speed = 0.04f,
-                    .complexity = 1.704f,
-                    .pattern_mix = 0.0f,
-                    .secondary_rate = 0.8f,
-                    .angle_rate = 0.027f};
-    value.projection.singularity_fade = 2.311f;
     value.projection.camera_wander = 1.0f;
-    value.outer_warp.strength = 0.138f;
-    value.outer_warp.speed = -0.00005f;
-    value.inner_warp.speed = 0.00327999983f;
-    value.color.hue_shift_amount = 0.721f;
-    value.color.palette_chroma = 1.0f;
     value.color.brightness_bottom = 0.345f;
+    value.color.brightness_top = 1.0f;
+    value.color.hue_noise_scale = 1.0f;
+    value.color.hue_noise_speed = 0.0f;
+    value.color.hue_shift_amount = 0.721f;
+    value.color.mapping_frequency = 1.0f;
+    value.color.mapping_phase = 0.0f;
+    value.color.palette_chroma = 1.0f;
     value.color.palette_mapping = Pullback::Color::PaletteMapping::CUP;
+    value.color.phase_oscillation_depth = 0.0f;
+    value.color.phase_oscillation_speed = 0.0f;
+    value.color.opacity_high = 1.0f;
+    value.color.opacity_low = 1.0f;
+    value.projection.singularity_fade = 2.311f;
+    value.source.angle_rate = 0.027f;
+    value.source.complexity = 1.704f;
+    value.source.secondary_rate = 0.8f;
+    value.source.pattern_freq = 4.9755f;
+    value.source.pattern_mix = 0.0f;
+    value.source.speed = 0.04f;
+    value.outer_warp.scale = 1.0f;
+    value.outer_warp.speed = -0.00005f;
+    value.outer_warp.strength = 0.138f;
+    value.outer_warp.vector_angle = 0.0f;
+    value.inner_warp.cell_x = 1.0f;
+    value.inner_warp.cell_y = 1.0f;
+    value.inner_warp.offset_x = 0.0f;
+    value.inner_warp.offset_y = 0.0f;
+    value.inner_warp.rotation = 0.0f;
+    value.inner_warp.speed = 0.0032799998f;
     return value;
   }
+  // clang-format on
+  // End generated params.
 };

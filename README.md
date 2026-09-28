@@ -453,6 +453,7 @@ files define line-ending policy and working-artifact exclusions.
 │   ├── shader_workbench.test.mjs Node contract tests for the shader workbench
 │   ├── pattern_documents.mjs   Shared patterns/*.shader.json discovery and compilation
 │   ├── generate_promoted_shader_documents.mjs Generates canonical promoted-effect documents
+│   ├── generate_composed_presets.mjs / generate_composed_presets.test.mjs Generates and verifies composed preset values and identities from patterns
 │   ├── promoted_digests.test.mjs Pins each promoted header's descriptor/preset-bank digest to its document
 │   ├── engine_catalog.json     wasm32 operator ABI catalog the browser workbench budgets against
 │   ├── export_engine_catalog.mjs / export_engine_catalog.test.mjs  Exports and validates the WASM operator catalog; CLI failure fixtures
