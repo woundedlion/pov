@@ -450,13 +450,13 @@ private:
   static constexpr float GAP_MAX = 20.0f;
   static_assert(2.0f * GAP_MAX < static_cast<float>(W),
                 "Gap max must stay below W/2 so drag() terminates");
+  static constexpr float WIPE_BLEND_WIDTH = math::PI_F / 4;
   /**
    * @brief Sentinel a completed wipe writes into its boundary slot so
    *        reap_completed_wipes() can collapse it.
    * @details Set well above the live boundary range [0, PI] so it can never
    *          collide with an in-flight value.
    */
-  static constexpr float WIPE_BLEND_WIDTH = math::PI_F / 4;
   static constexpr float WIPE_COMPLETE = 100.0f;
 #if HS_RUNTIME_DISPLAY_GEOMETRY
   static constexpr size_t NODE_CAPACITY = 2 * (H - 1) + 1;
