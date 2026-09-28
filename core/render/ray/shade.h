@@ -11,32 +11,20 @@
 
 namespace Raycast {
 
-enum class ColorMode : uint8_t { DEPTH, AXIS };
-
 struct Appearance {
   float inv_far = .1f;
   float near_start = 0;
   float near_inv_span = 1;
-  ColorMode mode = ColorMode::DEPTH;
-  const BakedPalette *depth_palette = nullptr;
-  const BakedPalette *feature_palette = nullptr;
-  float feature_count = 4;
+  const BakedPalette *palette = nullptr;
 
   __attribute__((always_inline)) float opacity(float t) const {
     const float fog = std::max(0.0f, 1.0f - t * inv_far);
     return fog * fog * math::cubic_kernel((t - near_start) * near_inv_span);
   }
-  /** @brief Samples depth coloring when DEPTH_ONLY, otherwise the selected mode. */
-  template <bool DEPTH_ONLY = false>
-  __attribute__((always_inline)) Pixel color(const Contribution &hit) const {
-    const float depth = hit.t * inv_far;
-    const bool DEPTH = DEPTH_ONLY || mode == ColorMode::DEPTH;
-    const float value =
-        DEPTH
-            ? 1 - depth
-            : (static_cast<float>(hit.feature) + .75f * depth) / feature_count;
-    const auto &palette = *(DEPTH ? depth_palette : feature_palette);
-    return palette.get_color_unit(value) * (.45f + .55f * (1 - depth));
+  /** @brief Depth-graded palette color at distance t. */
+  __attribute__((always_inline)) Pixel color(float t) const {
+    const float nearness = 1 - t * inv_far;
+    return palette->get_color_unit(nearness) * (.45f + .55f * nearness);
   }
 };
 
@@ -45,7 +33,7 @@ struct ShadedTrace {
   TraceResult trace;
 };
 
-template <bool DEPTH_ONLY = false, typename Adapter>
+template <typename Adapter>
 __attribute__((always_inline)) inline ShadedTrace
 shade_events(Adapter &adapter, Interval interval, const TraceLimits &limits,
              const Appearance &appearance) {
@@ -54,7 +42,7 @@ shade_events(Adapter &adapter, Interval interval, const TraceLimits &limits,
       trace_events(adapter, interval, limits,
                    [&](const Contribution &hit) __attribute__((always_inline)) {
                      HS_PROFILE_DEEP(hl_layer_composite);
-                     composite.add(appearance.color<DEPTH_ONLY>(hit),
+                     composite.add(appearance.color(hit.t),
                                    hit.coverage * appearance.opacity(hit.t));
                      return !composite.saturated();
                    });
@@ -70,7 +58,7 @@ HS_HOT_FLASH_MEMBER ShadedTrace shade_surface(const Query &query,
   auto trace = surface_search(query, ray, footprint, limits);
   LayerComposite composite;
   if (trace.has_surface)
-    composite.add(appearance.color(trace.contribution),
+    composite.add(appearance.color(trace.contribution.t),
                   trace.contribution.coverage *
                       appearance.opacity(trace.contribution.t));
   return {composite.finish(), trace};

@@ -25,37 +25,6 @@ struct SingleGroupStreams : Streams {
   static constexpr size_t GROUP_CAPACITY = 1;
 };
 
-inline void test_static_depth_appearance() {
-  struct Source {
-    Color4 get(float t) const {
-      return {Pixel(round_linear_channel(t * 1000), 200, 300), 1};
-    }
-  };
-  alignas(16) uint8_t storage[BakedPalette::required_arena_bytes()];
-  Arena arena(storage, sizeof(storage));
-  BakedPaletteStorage palette;
-  palette.bake(arena, Source{});
-  Raycast::Appearance appearance;
-  appearance.depth_palette = &palette.view();
-  SingleGroupStreams dynamic_streams;
-  Raycast::Contribution hit;
-  hit.t = 1.0f;
-  hit.coverage = .5f;
-  dynamic_streams.heads.fill(hit);
-  auto static_streams = dynamic_streams;
-  const auto DYNAMIC =
-      Raycast::shade_events(dynamic_streams, {0, 2}, {}, appearance);
-  appearance.mode = Raycast::ColorMode::AXIS;
-  appearance.feature_count = 0;
-  const auto STATIC =
-      Raycast::shade_events<true>(static_streams, {0, 2}, {}, appearance);
-  HS_EXPECT_EQ(STATIC.color.color.r, DYNAMIC.color.color.r);
-  HS_EXPECT_EQ(STATIC.color.color.g, DYNAMIC.color.color.g);
-  HS_EXPECT_EQ(STATIC.color.color.b, DYNAMIC.color.color.b);
-  HS_EXPECT_EQ(STATIC.color.alpha, DYNAMIC.color.alpha);
-  HS_EXPECT_EQ(STATIC.trace.status, DYNAMIC.trace.status);
-}
-
 inline void test_single_group_capacity() {
   SingleGroupStreams streams;
   for (size_t i = 0; i < streams.STREAM_COUNT; ++i) {
@@ -148,7 +117,6 @@ inline void test_failure_status_survives_flush() {
 
 inline int run_ray_event_tests() {
   const auto MODULE = hs_test::begin_module("ray_events");
-  test_static_depth_appearance();
   test_single_group_capacity();
   test_failure_status_survives_flush();
   Streams streams;
