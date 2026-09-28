@@ -85,7 +85,7 @@ public:
   /**
    * @brief Advances one frame: steps animations, records and renders trails.
    * @details Steps the timeline, refreshes cached tumble/phase values, records
-   * each fiber's projected world-space point into its trail, then renders all
+   * each fiber's projected model-space point into its trail, then renders all
    * trails.
    */
   void draw_frame() override {
@@ -296,7 +296,7 @@ private:
   /**
    * @brief Renders all fiber trails as anti-aliased polylines.
    * @param canvas Target canvas to rasterize the trail polylines onto.
-   * @details Orients each trail's stored world-space points into the current
+   * @details Orients each trail's stored model-space points into the current
    * view and shades them with the sunset palette so the tail fades from newest
    * (opaque) to oldest (transparent). Under an active segment clip each staged
    * polyline is gated in place by Plot::gate_trail_edges: a trail with no
