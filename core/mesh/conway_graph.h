@@ -17,7 +17,7 @@
 
 /**
  * @brief Edge graph for animated Conway-operator transitions between the
- * simple-registry solids (docs/specs/conway_morph_spec.md).
+ * simple-registry solids (docs/specs/opchain_morph_spec.md).
  * @details A node is a simple-registry solid; an edge is one animated operator
  * sweep between two parameter values on one seed. The table plus the pure walk
  * and seed-reconciliation helpers here are consumed by Animation::OpLeg
@@ -77,7 +77,7 @@ static_assert(NUM_NODES == static_cast<int>(std::size(Solids::simple_registry)),
 enum class MorphOp : uint8_t { TRUNCATE, EXPAND, SNUB, CHAMFER };
 
 /**
- * @brief Reseed primitive tabled on an edge (spec section 2.1).
+ * @brief Reseed primitive tabled on an edge.
  * @details ADOPT replaces the held family seed with the arrived solid at leg
  * completion. The consumer gates it on a Platonic arrival, so only the bridge
  * rows table it. An ambo chain's leg seed instead comes from seed_fix_at_start
@@ -181,7 +181,7 @@ struct EdgeSpec {
   bool bridge;      /**< Crosses symmetry families (walk weighting). */
 };
 
-/** The 23 edges (spec section 3); every simple-registry solid is a node. */
+/** The 23 edges; every simple-registry solid is a node. */
 inline constexpr EdgeSpec EDGES[] = {
     // Octahedral family (seed: cube, octahedron)
     {CUBE, TRUNCATED_CUBE, CUBE, MorphOp::TRUNCATE, 0.0f, Solids::T_TRUNC_CUBE,
