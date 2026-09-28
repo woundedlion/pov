@@ -934,14 +934,18 @@ private:
   register_value_transfer_controls(Workbench::ValueTransfer transfer,
                                    Workbench::ValueParams &params) {
     if (transfer == Workbench::ValueTransfer::ISO_CONTOUR) {
-      register_animated_param("Iso Level", &params.iso_level, 0.0f, 1.0f);
+      register_animated_param("Iso Level", &params.iso_level,
+                              Workbench::VALUE_ISO_LEVEL_MIN,
+                              Workbench::VALUE_ISO_LEVEL_MAX);
       register_animated_param("Iso Width", &params.iso_width,
-                              Workbench::SOFTNESS_MIN, 0.5f);
+                              Workbench::SOFTNESS_MIN,
+                              Workbench::VALUE_ISO_WIDTH_MAX);
     } else if (transfer == Workbench::ValueTransfer::SMOOTH_BANDS) {
-      register_animated_int_param("Band Count", &params.band_count, 1,
+      register_animated_int_param("Band Count", &params.band_count,
+                                  Workbench::VALUE_BAND_COUNT_MIN,
                                   Workbench::BAND_COUNT_MAX);
-      register_animated_param("Band Phase", &params.band_phase, 0.0f,
-                              math::TWO_PI_F);
+      register_animated_param("Band Phase", &params.band_phase,
+                              Workbench::VALUE_BAND_PHASE_MIN, math::TWO_PI_F);
     }
   }
 
@@ -950,12 +954,15 @@ private:
                              Workbench::ValueParams &params) {
     if (coverage == Workbench::CoveragePolicy::VALUE_CUTOUT) {
       register_animated_param("Cutout Threshold", &params.cutout_threshold,
-                              0.0f, 1.0f);
+                              Workbench::VALUE_CUTOUT_THRESHOLD_MIN,
+                              Workbench::VALUE_CUTOUT_THRESHOLD_MAX);
       register_animated_param("Cutout Softness", &params.cutout_softness,
-                              Workbench::SOFTNESS_MIN, 0.5f);
+                              Workbench::SOFTNESS_MIN,
+                              Workbench::VALUE_CUTOUT_SOFTNESS_MAX);
     } else if (coverage == Workbench::CoveragePolicy::EDGE_FADE) {
-      register_animated_param("Edge Fade Width", &params.edge_width, 0.0f,
-                              0.5f);
+      register_animated_param("Edge Fade Width", &params.edge_width,
+                              Workbench::VALUE_EDGE_WIDTH_MIN,
+                              Workbench::VALUE_EDGE_WIDTH_MAX);
     }
   }
 
@@ -996,48 +1003,71 @@ private:
                                                Workbench::SourceParams &params,
                                                float domain_scale) {
     if (function == Workbench::Function::SPHERICAL_RINGS) {
-      register_animated_int_param("Ring Count", &params.ring_count, 1, 32);
+      register_animated_int_param("Ring Count", &params.ring_count,
+                                  Workbench::SOURCE_RING_COUNT_MIN,
+                                  Workbench::SOURCE_RING_COUNT_MAX);
       register_clamped_animated_param("Ring Thickness", &params.ring_thickness,
-                                      1.0f / 512.0f, 0.5f);
+                                      Workbench::SOURCE_RING_THICKNESS_MIN,
+                                      Workbench::SOURCE_RING_THICKNESS_MAX);
       register_clamped_animated_param("Ring Softness", &params.ring_softness,
-                                      Workbench::SOFTNESS_MIN, 0.25f);
-      register_clamped_animated_param("Ring Speed", &params.speed, -0.5f, 0.5f);
+                                      Workbench::SOFTNESS_MIN,
+                                      Workbench::SOURCE_RING_SOFTNESS_MAX);
+      register_clamped_animated_param("Ring Speed", &params.speed,
+                                      Workbench::SPEED_MIN,
+                                      Workbench::SPEED_MAX);
       register_clamped_animated_param("Ring Spin Speed", &params.angle_rate,
-                                      -0.05f, 0.05f);
-      register_clamped_animated_param("Ring Wander", &params.ring_wander, 0.0f,
-                                      1.0f);
+                                      Workbench::WAVE_SPIN_MIN,
+                                      Workbench::WAVE_SPIN_MAX);
+      register_clamped_animated_param("Ring Wander", &params.ring_wander,
+                                      Workbench::SOURCE_RING_WANDER_MIN,
+                                      Workbench::SOURCE_RING_WANDER_MAX);
       return;
     }
     if (function == Workbench::Function::FRACTAL) {
       register_clamped_animated_param("Fractal Scale", &params.fractal_scale,
-                                      1.0f / 64.0f, 8.0f);
+                                      Workbench::SOURCE_FRACTAL_SCALE_MIN,
+                                      Workbench::SOURCE_FRACTAL_SCALE_MAX);
       register_animated_int_param("Fractal Iterations",
-                                  &params.fractal_iterations, 2, 16);
-      register_clamped_animated_param("Julia Mix", &params.julia_mix, 0.0f,
-                                      1.0f);
-      register_clamped_animated_param("Julia Real", &params.julia_real, -1.5f,
-                                      1.5f);
+                                  &params.fractal_iterations,
+                                  Workbench::SOURCE_FRACTAL_ITERATIONS_MIN,
+                                  Workbench::SOURCE_FRACTAL_ITERATIONS_MAX);
+      register_clamped_animated_param("Julia Mix", &params.julia_mix,
+                                      Workbench::SOURCE_JULIA_MIX_MIN,
+                                      Workbench::SOURCE_JULIA_MIX_MAX);
+      register_clamped_animated_param("Julia Real", &params.julia_real,
+                                      Workbench::SOURCE_JULIA_REAL_MIN,
+                                      Workbench::SOURCE_JULIA_REAL_MAX);
       register_clamped_animated_param("Julia Imaginary",
-                                      &params.julia_imaginary, -1.5f, 1.5f);
+                                      &params.julia_imaginary,
+                                      Workbench::SOURCE_JULIA_IMAGINARY_MIN,
+                                      Workbench::SOURCE_JULIA_IMAGINARY_MAX);
       register_clamped_animated_param("Fractal Contours",
-                                      &params.fractal_contours, 0.0f, 16.0f);
+                                      &params.fractal_contours,
+                                      Workbench::SOURCE_FRACTAL_CONTOURS_MIN,
+                                      Workbench::SOURCE_FRACTAL_CONTOURS_MAX);
       register_clamped_animated_param("Fractal Speed", &params.speed, -0.05f,
                                       0.05f);
       register_clamped_animated_param("Fractal Spin Speed", &params.angle_rate,
-                                      -0.05f, 0.05f);
+                                      Workbench::WAVE_SPIN_MIN,
+                                      Workbench::WAVE_SPIN_MAX);
       return;
     }
     if (function == Workbench::Function::TESSELLATION) {
       register_clamped_animated_param(
-          "Cell Scale", &params.tessellation_cell_scale, 1.0f / 64.0f, 8.0f);
-      register_clamped_animated_param("Line Thickness",
-                                      &params.tessellation_line_thickness,
-                                      Workbench::SOFTNESS_MIN, 0.25f);
-      register_clamped_animated_param("Line Softness",
-                                      &params.tessellation_line_softness,
-                                      Workbench::SOFTNESS_MIN, 0.25f);
-      register_clamped_animated_param("Tessellation Spin Speed",
-                                      &params.angle_rate, -0.05f, 0.05f);
+          "Cell Scale", &params.tessellation_cell_scale,
+          Workbench::SOURCE_TESSELLATION_CELL_SCALE_MIN,
+          Workbench::SOURCE_TESSELLATION_CELL_SCALE_MAX);
+      register_clamped_animated_param(
+          "Line Thickness", &params.tessellation_line_thickness,
+          Workbench::SOFTNESS_MIN,
+          Workbench::SOURCE_TESSELLATION_LINE_THICKNESS_MAX);
+      register_clamped_animated_param(
+          "Line Softness", &params.tessellation_line_softness,
+          Workbench::SOFTNESS_MIN,
+          Workbench::SOURCE_TESSELLATION_LINE_SOFTNESS_MAX);
+      register_clamped_animated_param(
+          "Tessellation Spin Speed", &params.angle_rate,
+          Workbench::WAVE_SPIN_MIN, Workbench::WAVE_SPIN_MAX);
       register_animated_param("Tessellation Kind", &params.tessellation_kind,
                               Workbench::TESSELLATION_KIND_OPTIONS, nullptr,
                               Workbench::NUM_TESSELLATION_KINDS);
@@ -1050,7 +1080,8 @@ private:
           domain_scaled_max(Workbench::SOURCE_NOISE_SCALE_MAX, 0.5f,
                             domain_scale));
       register_animated_param("Source Noise Contrast", &params.noise_contrast,
-                              0.0f, 8.0f);
+                              Workbench::SOURCE_NOISE_CONTRAST_MIN,
+                              Workbench::SOURCE_NOISE_CONTRAST_MAX);
       register_clamped_animated_param(
           "Source Noise Speed", &params.noise_time_rate,
           -domain_scaled_max(Workbench::SOURCE_NOISE_RATE_MAX, 1.0f / 4096.0f,
@@ -1067,11 +1098,14 @@ private:
                                       &params.lattice_cell_scale,
                                       Workbench::CELL_MIN, Workbench::CELL_MAX);
       register_animated_param("Lattice Shape", &params.lattice_shape_blend,
-                              0.0f, 1.0f);
+                              Workbench::SOURCE_LATTICE_SHAPE_BLEND_MIN,
+                              Workbench::SOURCE_LATTICE_SHAPE_BLEND_MAX);
       register_animated_param("Lattice Softness", &params.lattice_softness,
-                              Workbench::SOFTNESS_MIN, 1.0f);
+                              Workbench::SOFTNESS_MIN,
+                              Workbench::SOURCE_LATTICE_SOFTNESS_MAX);
       register_animated_param("Lattice Radius", &params.lattice_radius,
-                              1.0f / 64.0f, 0.49f);
+                              Workbench::SOURCE_LATTICE_RADIUS_MIN,
+                              Workbench::SOURCE_LATTICE_RADIUS_MAX);
       return;
     }
     register_clamped_animated_param("Pattern Freq", &params.pattern_freq,
@@ -1116,13 +1150,15 @@ private:
     if (slots.projection == Workbench::Projection::SINUSOIDAL ||
         slots.projection == Workbench::Projection::EQUIRECTANGULAR ||
         strict_projection(slots.projection)) {
-      register_animated_param("Central Meridian",
-                              &params.projection.central_meridian, 0.0f,
-                              math::TWO_PI_F);
+      register_animated_param(
+          "Central Meridian", &params.projection.central_meridian,
+          Workbench::PROJECTION_CENTRAL_MERIDIAN_MIN, math::TWO_PI_F);
     }
     if (strict_projection(slots.projection)) {
       register_animated_param("Projection Scale",
-                              &params.projection.coordinate_scale, 0.25f, 4.0f);
+                              &params.projection.coordinate_scale,
+                              Workbench::PROJECTION_COORDINATE_SCALE_MIN,
+                              Workbench::PROJECTION_COORDINATE_SCALE_MAX);
     }
     if (slots.projection == Workbench::Projection::BONNE)
       register_animated_param("Bonne Hemisphere", &slots.bonne_hemisphere,
@@ -1133,14 +1169,17 @@ private:
                               Workbench::GNOMONIC_HEMISPHERE_OPTIONS, nullptr,
                               Workbench::NUM_GNOMONIC_HEMISPHERES);
     if (slots.projection == Workbench::Projection::BONNE)
-      register_animated_param("Bonne Standard Parallel",
-                              &params.projection.bonne_standard_parallel, 1e-3f,
-                              0.5f * math::PI_F);
+      register_animated_param(
+          "Bonne Standard Parallel", &params.projection.bonne_standard_parallel,
+          Workbench::PROJECTION_BONNE_STANDARD_PARALLEL_MIN,
+          Workbench::PROJECTION_BONNE_STANDARD_PARALLEL_MAX);
     if (slots.projection == Workbench::Projection::PEIRCE_QUINCUNCIAL &&
         (slots.peirce_layout == Workbench::PeirceLayout::HORIZONTAL ||
          slots.peirce_layout == Workbench::PeirceLayout::VERTICAL))
       register_animated_param("Projection Layout Scroll",
-                              &params.projection.layout_scroll, -1.0f, 1.0f);
+                              &params.projection.layout_scroll,
+                              Workbench::PROJECTION_LAYOUT_SCROLL_MIN,
+                              Workbench::PROJECTION_LAYOUT_SCROLL_MAX);
   }
 
   HS_COLD_MEMBER void
@@ -1201,13 +1240,17 @@ private:
                                     Workbench::LENS_NOISE_SCALE_MIN,
                                     Workbench::LENS_NOISE_SCALE_MAX);
     const float strength_min =
-        slots.surface_noise == Workbench::SurfaceNoise::CURL ? -0.5f : 0.0f;
+        slots.surface_noise == Workbench::SurfaceNoise::CURL
+            ? Workbench::SURFACE_NOISE_STRENGTH_MIN
+            : 0.0f;
 #if HS_ENABLE_PARAM_GUI_BRIDGE
     register_animated_param_preserving_value(
-        "Surface Noise Strength", &params.strength, strength_min, 0.5f);
+        "Surface Noise Strength", &params.strength, strength_min,
+        Workbench::SURFACE_NOISE_STRENGTH_MAX);
 #else
     register_animated_param("Surface Noise Strength", &params.strength,
-                            strength_min, 0.5f);
+                            strength_min,
+                            Workbench::SURFACE_NOISE_STRENGTH_MAX);
 #endif
     const float speed_max =
         domain_scaled_max(Workbench::NOISE_RATE_MAX, 0.002f, domain_scale);
@@ -1215,7 +1258,8 @@ private:
                                     -speed_max, speed_max);
     if (slots.surface_noise == Workbench::SurfaceNoise::DIRECT)
       register_animated_param("Surface Noise Direction", &params.direction,
-                              0.0f, 1.0f);
+                              Workbench::SURFACE_NOISE_DIRECTION_MIN,
+                              Workbench::SURFACE_NOISE_DIRECTION_MAX);
     else
       register_animated_param("Surface Noise Integrator", &params.integrator,
                               Workbench::SURFACE_CURL_INTEGRATOR_OPTIONS,
