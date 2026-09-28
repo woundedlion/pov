@@ -1,0 +1,12 @@
+effect=HyperLattice  windows=22
+  [PASS] captured >=3 windows (22)
+  [PASS] every window names one effect and resolution (HyperLattice 288x144)
+  [PASS] frame numbers monotonic (no epoch reset) (0 resets)
+  [PASS] fixed profile preset 2/5
+  [PASS] per-frame render is render, not wall (0 of 22 windows have render == wall)
+  [PASS] per-frame rows cover every frame of their window (0 of 22 windows are short)
+  [PASS] scope 'hl_shader_draw' appears in at least one window
+  [PASS] richest window carries a root 'frame' counter and a wall sum
+  [PASS] root cyc/600 vs wall sum within 5 ppm (0.0 ppm, frames 81-96)
+
+VALID: HyperLattice

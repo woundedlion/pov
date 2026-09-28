@@ -82,3 +82,12 @@ probe and are independent of the on-device timing tables.
 
 
 ● HyperLattice refreshed on 2026-09-27: both presets and transitions; setup frame 1 excluded.
+
+## Supplemental experimental presets
+
+Historical fixed opt-in captures; these do not change the normal firmware
+roster ranking. Triangular was subsequently selected for removal.
+
+| Preset | Dominant scope | Ship peak ms | O3 peak ms | Ship spilled | O3 spilled | FLASH Δ | ITCM Δ | Captured |
+| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | --- |
+| [HyperLattice Triangular](hyperlattice_triangular_2026-09-27.md) | `hl_shader_draw` | 🔴 134.620 | 🔴 141.587 | 🔴 441/441 (100%) | 🔴 366/366 (100%) | +10,440 B | +8,208 B | ship 2026-09-27 21:59<br>O3 2026-09-27 22:01 |

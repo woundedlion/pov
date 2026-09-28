@@ -1,0 +1,209 @@
+{
+  "source_sha": "167fb6e02fe6b5e6c9e04db7639ee755ce01951d",
+  "log_sha256": "0e39bce3ec706f1b76976115c6e443fb34b4261695818445517ced1d83220e81",
+  "captured": "2026-09-27 22:01",
+  "preset": "2/5 (zero based), experimental-triangular-flight",
+  "first": 2,
+  "last": 367,
+  "frames": 366,
+  "minimum_ms": 126.21,
+  "mean_ms": 134.86477322404372,
+  "peak_ms": 141.587,
+  "wall_mean_ms": 187.32860109289615,
+  "spills": 366,
+  "setup_ms": 243.096,
+  "scope_first": 17,
+  "scope_last": 352,
+  "scope_frames": 336,
+  "scope_windows": 21,
+  "totals": {
+    "frame": {
+      "cyc": 37793253501,
+      "us": 62988749,
+      "calls": 336
+    },
+    "pov_preserve_half": {
+      "cyc": 27241086,
+      "us": 45392,
+      "calls": 336
+    },
+    "hl_shader_draw": {
+      "cyc": 26828301609,
+      "us": 44713825,
+      "calls": 336
+    },
+    "hl_timeline_step": {
+      "cyc": 2226547,
+      "us": 3701,
+      "calls": 336
+    },
+    "canvas_clear": {
+      "cyc": 17444545,
+      "us": 29065,
+      "calls": 336
+    },
+    "canvas_buffer_wait": {
+      "cyc": 10560950518,
+      "us": 17601572,
+      "calls": 336
+    }
+  },
+  "isrs": {
+    "isr_wake": {
+      "count": 1161372,
+      "total_us": 1794366,
+      "min_ns": 391,
+      "max_ns": 19860,
+      "calls_per_frame": 3456.464285714286,
+      "average_us": 1.5450398321984686,
+      "cpu_pct": 2.848147829165161
+    },
+    "isr_pack": {
+      "count": 145162,
+      "total_us": 975678,
+      "min_ns": 5990,
+      "max_ns": 9558,
+      "calls_per_frame": 432.0297619047619,
+      "average_us": 6.721304473622573,
+      "cpu_pct": 1.5486668704512936
+    },
+    "isr_dma_submit": {
+      "count": 145162,
+      "total_us": 136046,
+      "min_ns": 605,
+      "max_ns": 4155,
+      "calls_per_frame": 432.0297619047619,
+      "average_us": 0.9372011959052645,
+      "cpu_pct": 0.21594207623561942
+    }
+  },
+  "fastest": {
+    "first": 17,
+    "last": 32,
+    "wall": [
+      184867,
+      187403,
+      189954,
+      2998453
+    ],
+    "render_ms": 128.0485,
+    "counters": {
+      "frame": {
+        "us": 2998451,
+        "pct": 100,
+        "calls": 16,
+        "cyc": 1799070732,
+        "depth": 0,
+        "tags": []
+      },
+      "pov_preserve_half": {
+        "us": 2194,
+        "pct": 0,
+        "calls": 16,
+        "cyc": 1316741,
+        "depth": 1,
+        "tags": []
+      },
+      "hl_shader_draw": {
+        "us": 2016829,
+        "pct": 67,
+        "calls": 16,
+        "cyc": 1210097856,
+        "depth": 1,
+        "tags": []
+      },
+      "hl_timeline_step": {
+        "us": 169,
+        "pct": 0,
+        "calls": 16,
+        "cyc": 101905,
+        "depth": 1,
+        "tags": []
+      },
+      "canvas_clear": {
+        "us": 1383,
+        "pct": 0,
+        "calls": 16,
+        "cyc": 830238,
+        "depth": 1,
+        "tags": []
+      },
+      "canvas_buffer_wait": {
+        "us": 949675,
+        "pct": 31,
+        "calls": 16,
+        "cyc": 569805444,
+        "depth": 1,
+        "tags": []
+      }
+    }
+  },
+  "worst": {
+    "first": 81,
+    "last": 96,
+    "wall": [
+      182153,
+      187499,
+      192740,
+      2999989
+    ],
+    "render_ms": 137.635375,
+    "counters": {
+      "frame": {
+        "us": 2999989,
+        "pct": 100,
+        "calls": 16,
+        "cyc": 1799993471,
+        "depth": 0,
+        "tags": []
+      },
+      "pov_preserve_half": {
+        "us": 2153,
+        "pct": 0,
+        "calls": 16,
+        "cyc": 1291865,
+        "depth": 1,
+        "tags": []
+      },
+      "hl_shader_draw": {
+        "us": 2170164,
+        "pct": 72,
+        "calls": 16,
+        "cyc": 1302098510,
+        "depth": 1,
+        "tags": []
+      },
+      "hl_timeline_step": {
+        "us": 202,
+        "pct": 0,
+        "calls": 16,
+        "cyc": 121480,
+        "depth": 1,
+        "tags": []
+      },
+      "canvas_clear": {
+        "us": 1387,
+        "pct": 0,
+        "calls": 16,
+        "cyc": 832609,
+        "depth": 1,
+        "tags": []
+      },
+      "canvas_buffer_wait": {
+        "us": 797823,
+        "pct": 26,
+        "calls": 16,
+        "cyc": 478694198,
+        "depth": 1,
+        "tags": []
+      }
+    }
+  },
+  "exact": {
+    "first": 81,
+    "last": 96,
+    "cycles": 1799993471,
+    "wall_sum_us": 2999989,
+    "ppm": 0.03944458902079444
+  }
+}
