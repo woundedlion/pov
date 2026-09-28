@@ -34,6 +34,7 @@ struct Prepared {
   Raycast::Appearance appearance;
   Raycast::TraceLimits limits;
   SDF::OctetFramework octet;
+  SDF::OctetEvents::PreparedProjection octet_projection;
   SDF::OctetFramework4 octet4;
   bool valid = false;
 };
@@ -78,6 +79,28 @@ HS_FLASH_INLINE inline Prepared prepare(const Settings &settings) {
                  (settings.domain == Raycast::SamplingDomain::SLICE_4D
                       ? result.octet4.valid()
                       : result.octet.valid());
+  if (result.valid && settings.domain == Raycast::SamplingDomain::SPATIAL_3D) {
+    const auto FAMILIES = result.octet.plane_families();
+    auto &projection = result.octet_projection;
+    projection.spacing = FAMILIES[0].spacing;
+    projection.inverse_spacing = 1.0f / projection.spacing;
+    projection.wire_radius = result.octet.wire_radius;
+    const math::Vector ORIGIN(settings.center[0], settings.center[1],
+                              settings.center[2]);
+    for (size_t i = 0; i < FAMILIES.size(); ++i) {
+      const auto &NORMAL = FAMILIES[i].normal;
+      projection.offsets[i] = math::dot(ORIGIN - result.octet.origin, NORMAL);
+      projection.normals[i] = {NORMAL.x * settings.embedding.m[0][0] +
+                                   NORMAL.y * settings.embedding.m[1][0] +
+                                   NORMAL.z * settings.embedding.m[2][0],
+                               NORMAL.x * settings.embedding.m[0][1] +
+                                   NORMAL.y * settings.embedding.m[1][1] +
+                                   NORMAL.z * settings.embedding.m[2][1],
+                               NORMAL.x * settings.embedding.m[0][2] +
+                                   NORMAL.y * settings.embedding.m[1][2] +
+                                   NORMAL.z * settings.embedding.m[2][2]};
+    }
+  }
   return result;
 }
 
@@ -92,20 +115,18 @@ HS_HOT_FLASH_MEMBER Raycast::ShadedTrace shade(const math::Vector &direction,
     result.trace.status = Raycast::TraceStatus::INVALID_QUERY;
     return result;
   }
-  const auto AMBIENT_DIRECTION = prepared.camera.embedding.apply(
-      {{direction.x, direction.y, direction.z, 0.0f}});
   if constexpr (SLICE_4D) {
+    const auto AMBIENT_DIRECTION = prepared.camera.embedding.apply(
+        {{direction.x, direction.y, direction.z, 0.0f}});
     SDF::OctetEvents4 events(
         prepared.octet4, prepared.camera.point4(RAY.origin), AMBIENT_DIRECTION,
         RAY.interval, prepared.footprint);
     return Raycast::shade_events(events, RAY.interval, prepared.limits,
                                  prepared.appearance);
   } else {
-    const Raycast::Ray WORLD_RAY{
-        prepared.camera.point3(RAY.origin),
-        {AMBIENT_DIRECTION[0], AMBIENT_DIRECTION[1], AMBIENT_DIRECTION[2]},
-        RAY.interval};
-    SDF::OctetEvents events(prepared.octet, WORLD_RAY, prepared.footprint);
+    SDF::OctetEvents events(prepared.octet_projection, direction,
+                            prepared.camera.radial_start, RAY.interval,
+                            prepared.footprint);
     return Raycast::shade_events(events, RAY.interval, prepared.limits,
                                  prepared.appearance);
   }
