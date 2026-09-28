@@ -634,18 +634,24 @@ private:
           },
           std::true_type{});
     } else if (feedback_style->color_fn == &::Feedback::hue_fade) {
-      auto plain = [&](float r, float g, float b) {
-        return ::Pixel(quantize16(r * fade), quantize16(g * fade),
-                       quantize16(b * fade));
+      auto plain_path = [&]() HS_FLASH_MEMBER __attribute__((flatten)) {
+        auto plain = [&](float r, float g, float b) {
+          return ::Pixel(quantize16(r * fade), quantize16(g * fade),
+                         quantize16(b * fade));
+        };
+        composite_scalar(plain);
       };
-      composite_scalar(plain);
+      plain_path();
     } else {
-      auto general = [&](float r, float g, float b) {
-        return feedback_style->color_fn(
-            ::Pixel(quantize16(r), quantize16(g), quantize16(b)), fade,
-            *feedback_style);
+      auto general_path = [&]() HS_FLASH_MEMBER __attribute__((flatten)) {
+        auto general = [&](float r, float g, float b) {
+          return feedback_style->color_fn(
+              ::Pixel(quantize16(r), quantize16(g), quantize16(b)), fade,
+              *feedback_style);
+        };
+        composite_scalar(general);
       };
-      composite_scalar(general);
+      general_path();
     }
   }
   HS_O3_END
@@ -736,8 +742,7 @@ private:
    * @param g Out: interpolated green.
    * @param b Out: interpolated blue.
    */
-  HS_O3_FN
-  void
+  HS_O3_FN __attribute__((noinline)) void
   sample_bilinear_prev(const SphereField &field, const ::Pixel *prev,
                        const ::Pixel (&poles)[SphereField::POLE_STORAGE_COUNT],
                        float bx, float by, float &r, float &g, float &b) const {
