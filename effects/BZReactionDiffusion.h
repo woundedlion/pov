@@ -113,7 +113,6 @@ public:
     register_param("Speed", &params.dt, 0.0f, 1.0f);
 
     allocate_state();
-    cube_lut.build(persistent_arena);
     init_lattice();
     seed_spiral_nuclei();
 

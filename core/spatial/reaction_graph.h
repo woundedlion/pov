@@ -135,6 +135,16 @@ struct CubemapLUT {
     math::Vector *lattice = arena.allocate_n<math::Vector>(RD_N);
     for (int i = 0; i < RD_N; ++i)
       lattice[i] = node(i);
+    fill(lattice);
+  }
+
+  /** @brief Builds from a resident lattice whose neighbors are validated. */
+  HS_COLD_MEMBER void build(Arena &arena, const math::Vector *lattice) {
+    data.bind(arena, 6 * RES * RES);
+    fill(lattice);
+  }
+
+  HS_COLD_MEMBER void fill(const math::Vector *lattice) {
     for (int face = 0; face < 6; ++face) {
       for (int y = 0; y < RES; ++y) {
         for (int x = 0; x < RES; ++x) {
