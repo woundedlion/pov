@@ -21,14 +21,14 @@ full-roster image.
 
 ## Paired shipping/O3 captures
 
-Rows rank by shipping spill fraction, then shipping peak render. Both peaks
+Rows rank by shipping spill fraction, then shipping peak render. The IslamicStars row is an unlanded candidate measurement with no retained raw capture; it is not a verified shipping baseline. Both peaks
 are worst-frame render, never wall time; spilled is the number of frames whose
 render exceeded one 62.5 ms window. Colours are strict per config: 🟢 zero spill, 🟡 under 25% spill, 🔴 at least 25% spill. Image deltas are raw global-O3
 minus shipping bytes from each pair's own image-size reports.
 
 | Effect | Dominant scope | Ship peak ms | O3 peak ms | Ship spilled | O3 spilled | FLASH code Δ | ITCM Δ | Captured |
 |---|---|--:|--:|--:|--:|--:|--:|---|
-| [IslamicStars](shipping/profile_islamicstars_teensy_2026-09-24.md) / [O3](O3/profile_islamicstars_teensy_2026-09-24.md) § | `is_timeline_step` | 🟢 60.695 (23) | 🟢 55.674 (23) | 🟢 0/3327 (0.0%) | 🟢 0/3327 (0.0%) | +23,472 B | +12,240 B | ship 2026-09-24 11:01<br>O3 2026-09-24 11:12 |
+| [IslamicStars (unverified candidate)](shipping/profile_islamicstars_teensy_2026-09-24.md) / [O3](O3/profile_islamicstars_teensy_2026-09-24.md) § | `is_timeline_step` | 🟢 60.695 (23) | 🟢 55.674 (23) | 🟢 0/3327 (0.0%) | 🟢 0/3327 (0.0%) | +23,472 B | +12,240 B | ship 2026-09-24 11:01<br>O3 2026-09-24 11:12 |
 | [ShapeShifter](shipping/profile_shapeshifter_teensy_2026-09-25.md) / [O3](O3/profile_shapeshifter_teensy_2026-09-25.md) § ● | `ss_draw_all` | 🟢 58.40 (9) | 🟢 60.05 (9) | 🟢 0/2457 (0.00%) | 🟢 0/2457 (0.00%) | +29,288 B | +24,496 B | ship 2026-09-25 07:33<br>O3 2026-09-25 07:29 |
 | [MeshFeedback](shipping/profile_meshfeedback_teensy_2026-08-26.md) / [O3](O3/profile_meshfeedback_teensy_2026-08-26.md) § | `mf_feedback_flush` | 🟢 58.30 (13) | 🟢 58.32 (13) | 🟢 0/6688 (0.0%) | 🟢 0/6688 (0%) | +34,144 B | +21,776 B | ship 2026-08-26 03:31<br>O3 2026-08-26 02:10 |
 | [DisplacementField](shipping/profile_displacementfield_teensy_2026-09-19.md) / [O3](O3/profile_displacementfield_teensy_2026-09-19.md) | `df_timeline_step` | 🟢 58.18 | 🟢 57.45 | 🟢 0/1088 (0.0%) | 🟢 0/1088 (0%) | +25,856 B | +22,144 B | ship 2026-09-19 22:17<br>O3 2026-09-19 22:19 |

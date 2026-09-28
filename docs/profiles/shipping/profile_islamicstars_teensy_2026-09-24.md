@@ -1,6 +1,6 @@
 # IslamicStars on-device profile — Teensy 4.0, segmented mode (2026-09-24, **selective -O3**)
 
-Point-in-time snapshot (regenerate with the Harness command below). Unlanded finding 2 candidate. Runtime excludes setup frame 1.
+Historical, unverified candidate measurement; not a shipping baseline. The measured source was never landed and the raw capture is unavailable, so the Harness command cannot reproduce this candidate from the current tree. Runtime excludes setup frame 1.
 
 The finding 2 baseline/candidate comparison and raw capture archive are no longer retained.
 
