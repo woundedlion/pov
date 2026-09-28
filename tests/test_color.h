@@ -1141,7 +1141,7 @@ inline void test_srgb_linear_lut_vs_float_reference() {
   for (int s = 0; s <= 255; ++s) {
     float ref = srgb_to_linear_float(s / 255.0f) * 65535.0f;
     float lut = static_cast<float>(srgb_to_linear(static_cast<uint8_t>(s)));
-    HS_EXPECT_NEAR(lut, ref, 2.0f);
+    HS_EXPECT_NEAR(lut, ref, 0.5f);
   }
 }
 
