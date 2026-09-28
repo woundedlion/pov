@@ -456,6 +456,14 @@ struct FrameworkEvents : FrameworkPlaneEvents {
 
 /** @brief Single-owner strut coverage at monotone octet plane crossings. */
 struct OctetEvents : FrameworkPlaneStreams<4> {
+  /** @brief Validated frame projections into the four octet plane families. */
+  struct PreparedProjection {
+    std::array<math::Vector, STREAM_COUNT> normals;
+    std::array<float, STREAM_COUNT> offsets;
+    float spacing;
+    float inverse_spacing;
+    float wire_radius;
+  };
   struct Pair {
     float scale = 0.0f;
     uint8_t owner = 0;
@@ -479,13 +487,32 @@ struct OctetEvents : FrameworkPlaneStreams<4> {
     inverse_spacing = 1.0f / spacing;
     wire_radius = geometry.wire_radius;
     const math::Vector ORIGIN = ray.origin - geometry.origin;
-    std::array<FrameworkPlaneCursor::Projection, STREAM_COUNT> projections;
     for (size_t i = 0; i < STREAM_COUNT; ++i) {
       positions[i] = math::dot(ORIGIN, FAMILIES[i].normal);
       speeds[i] = math::dot(ray.direction, FAMILIES[i].normal);
-      projections[i] = {positions[i] + ray.interval.near * speeds[i], speeds[i],
-                        spacing};
     }
+    initialize(ray.interval.near);
+  }
+
+  /** @brief Initializes a validated unit ray from validated frame projections. */
+  HS_HOT_FLASH_MEMBER
+  OctetEvents(const PreparedProjection &prepared, const math::Vector &direction,
+              float radial_start, Raycast::Interval interval,
+              Raycast::Footprint footprint = {})
+      : FrameworkPlaneStreams(footprint), spacing(prepared.spacing),
+        inverse_spacing(prepared.inverse_spacing),
+        wire_radius(prepared.wire_radius) {
+    for (size_t i = 0; i < STREAM_COUNT; ++i) {
+      speeds[i] = math::dot(direction, prepared.normals[i]);
+      positions[i] = prepared.offsets[i] + radial_start * speeds[i];
+    }
+    initialize(interval.near);
+  }
+
+  __attribute__((always_inline)) inline void initialize(float near) {
+    std::array<FrameworkPlaneCursor::Projection, STREAM_COUNT> projections;
+    for (size_t i = 0; i < STREAM_COUNT; ++i)
+      projections[i] = {positions[i] + near * speeds[i], speeds[i], spacing};
     size_t pair = 0;
     std::array<bool, STREAM_COUNT> owned{};
     for (uint8_t i = 0; i < STREAM_COUNT; ++i)
@@ -502,7 +529,7 @@ struct OctetEvents : FrameworkPlaneStreams<4> {
         owned[OWNER] = true;
       }
     FrameworkPlaneCursor::initialize(cursors.data(), projections.data(),
-                                     STREAM_COUNT, ray.interval.near);
+                                     STREAM_COUNT, near);
     for (size_t i = 0; i < STREAM_COUNT; ++i) {
       cursors[i].active = cursors[i].active && owned[i];
       positions[i] *= inverse_spacing;
