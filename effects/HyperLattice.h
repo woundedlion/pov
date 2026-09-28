@@ -272,13 +272,14 @@ public:
       value.mode =
           index == 2 ? LatticeMode::THREE_D : LatticeMode::FOUR_D_SLICE;
       value.sphere_radius = 0;
-      value.cell_size = 1.5f;
-      value.wire_radius = .055f;
+      value.cell_size = index == 2 ? 1.74175f : 1.5f;
+      value.wire_radius = index == 2 ? .015f : .055f;
       value.softness = .012f;
       value.far_distance = 4.5f;
-      value.near_fade = .08f;
-      value.speed = .008f;
-      value.spin_3d = .0024f;
+      value.near_fade = index == 2 ? 2.0f : .08f;
+      value.aa_strength = index == 2 ? 2.0f : 1.0f;
+      value.speed = index == 2 ? .078f : .008f;
+      value.spin_3d = index == 2 ? .008265f : .0024f;
       value.spin_4d = index == 3 ? .0024f : 0.0f;
       value.color = ColorMode::DEPTH;
       break;
