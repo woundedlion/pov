@@ -72,14 +72,11 @@ constexpr int strip_opposite_col(int x, int w) { return (x + w / 2) % w; }
 /**
  * @brief Column-sweep timer period, in µs.
  * @param cols_per_min Columns swept per minute: RPM × canvas width.
- * @return Microseconds per column, rounded to nearest.
+ * @return Fractional microseconds per column.
  * @pre cols_per_min > 0; the driver traps a zero before calling.
- * @details One revolution is 60 s / RPM, split into `width` columns. Rounded
- *          rather than truncated so the sweep does not run systematically fast
- *          and drift the image against the rotation.
  */
-constexpr unsigned long column_interval_us(unsigned long cols_per_min) {
-  return (60000000UL + cols_per_min / 2) / cols_per_min;
+constexpr float column_interval_us(unsigned long cols_per_min) {
+  return 60000000.0f / static_cast<float>(cols_per_min);
 }
 
 /**
