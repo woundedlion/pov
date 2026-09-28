@@ -92,3 +92,8 @@ Current experimental [Octet measurements](../hyperlattice_experimental_presets_2
 are separate from the default roster: shipping peak 103.733 ms in 3D
 (548/548 spills) and 549.828 ms in 4D (120/120 spills). Captured
 2026-09-27 at 22:16 and 22:18 local time; no Octet global-O3 capture.
+
+[Cubic Wide Flight](../hyperlattice_experimental_presets_2026-09-27.md#cubic-wide-flight)
+has a separate fixed-preset shipping check: peak 50.804 ms, 0/616 spills,
+captured 2026-09-27 22:25. The earlier HyperLattice cycle rows above cover
+its two original presets; they predate this third default preset.
