@@ -532,6 +532,58 @@ inline void test_octet4_scalar_distance_matches_offset() {
   }
 }
 
+inline void test_octet4_normalized_events_match_world_samples() {
+  size_t covered = 0;
+  for (float cell_size : {0.125f, 1.0f, 8.0f})
+    for (float radius : {0.05f, 0.0005f})
+      for (float near : {0.0f, 0.37f, 2.1f})
+        for (bool grazing : {false, true}) {
+          SDF::OctetFramework4 geometry;
+          geometry.cell_size = cell_size;
+          geometry.wire_radius = radius * cell_size;
+          geometry.origin = {{3.2f * cell_size, -1.7f * cell_size,
+                              0.6f * cell_size, -2.4f * cell_size}};
+          math::Vec4 origin{{0.173f, -0.219f, 0.317f, 0.071f}};
+          math::Vec4 direction{{0.31f, -0.57f, 0.23f, 0.69f}};
+          if (grazing) {
+            origin = {{0.5f * SDF::OctetFramework4::HALF_CUBE,
+                       0.5f * SDF::OctetFramework4::HALF_CUBE, 0.9f * radius,
+                       -0.6f}};
+            direction = {{0, 0, 0, 1}};
+          }
+          const float LENGTH = SDF::OctetFramework4::magnitude(direction);
+          for (int k = 0; k < 4; ++k) {
+            direction[k] /= LENGTH;
+            origin[k] = geometry.origin[k] + cell_size * origin[k];
+          }
+          const Raycast::Interval INTERVAL{near * cell_size,
+                                           (near + 5.0f) * cell_size};
+          const Raycast::Footprint FOOTPRINT{radius, cell_size};
+          SDF::OctetEvents4 events(geometry, origin, direction, INTERVAL,
+                                   FOOTPRINT);
+          for (size_t stream = 0; stream < events.STREAM_COUNT; ++stream)
+            for (int crossing = 0; crossing < 16 && events.active(stream) &&
+                                   events.distance(stream) <= INTERVAL.far;
+                 ++crossing) {
+              const float T = events.distance(stream);
+              math::Vec4 point;
+              for (int k = 0; k < 4; ++k)
+                point[k] = origin[k] + direction[k] * T;
+              const auto EXPECTED =
+                  events.contribution(stream, geometry.sample(point));
+              const auto ACTUAL = events.candidate(stream);
+              HS_EXPECT_EQ(ACTUAL.t, EXPECTED.t);
+              HS_EXPECT_NEAR(ACTUAL.coverage, EXPECTED.coverage, 0.002f);
+              if (ACTUAL.coverage > 0.0f || EXPECTED.coverage > 0.0f) {
+                HS_EXPECT_EQ(ACTUAL.feature, EXPECTED.feature);
+                ++covered;
+              }
+              events.advance(stream);
+            }
+        }
+  HS_EXPECT_GT(covered, size_t{0});
+}
+
 inline void test_octet4_ambient_events_and_limits() {
   const SDF::OctetFramework4 OCTET;
   const Raycast::Interval INTERVAL{0, 1.5f};
@@ -641,6 +693,7 @@ inline int run_sdf_pattern_tests() {
   test_octet4_edges_parity_and_symmetry();
   test_octet4_nearest_edge_matches_line_search();
   test_octet4_scalar_distance_matches_offset();
+  test_octet4_normalized_events_match_world_samples();
   test_octet4_ambient_events_and_limits();
   test_periodic_surface_bounds_and_gradients();
   return hs_test::end_module(MODULE);

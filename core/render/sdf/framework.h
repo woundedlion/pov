@@ -240,16 +240,16 @@ struct OctetFramework4 {
     return result;
   }
 
-  template <bool WithOffset>
+  template <bool WithOffset, bool Normalized = false>
   HS_HOT_FLASH_MEMBER auto edge_query(const math::Vec4 &p,
                                       uint32_t &feature) const {
-    const float SCALE = HALF_CUBE * cell_size;
+    const float SCALE = Normalized ? 1.0f : HALF_CUBE * cell_size;
     const float INVERSE_SCALE = 1.0f / SCALE;
     math::Vec4 residual, absolute;
     float parity = 0.0f;
     int halves = 0;
     for (int k = 0; k < 4; ++k) {
-      const float Q = (p[k] - origin[k]) * INVERSE_SCALE;
+      const float Q = Normalized ? p[k] : (p[k] - origin[k]) * INVERSE_SCALE;
       const float ROUNDED = roundf(Q);
       parity += ROUNDED;
       residual[k] = Q - ROUNDED;
@@ -571,14 +571,14 @@ struct OctetEvents : FrameworkPlaneStreams<4> {
 /** @brief Approximate D4 strut coverage evaluated along an ambient 4D ray. */
 struct OctetEvents4 : FrameworkPlaneStreams<8> {
   const OctetFramework4 &geometry;
-  math::Vec4 origin;
-  math::Vec4 direction;
+  math::Vec4 local_origin;
+  math::Vec4 local_direction;
+  float scale = 0.0f;
 
   OctetEvents4(const OctetFramework4 &geometry, const math::Vec4 &origin,
                const math::Vec4 &direction, Raycast::Interval interval,
                Raycast::Footprint footprint = {})
-      : FrameworkPlaneStreams(footprint), geometry(geometry), origin(origin),
-        direction(direction) {
+      : FrameworkPlaneStreams(footprint), geometry(geometry) {
     if (!geometry.valid() || !interval.valid())
       return;
     float length2 = 0.0f;
@@ -591,6 +591,12 @@ struct OctetEvents4 : FrameworkPlaneStreams<8> {
     }
     if (fabsf(length2 - 1.0f) >= 1e-4f)
       return;
+    scale = OctetFramework4::HALF_CUBE * geometry.cell_size;
+    const float INVERSE_SCALE = 1.0f / scale;
+    for (int i = 0; i < 4; ++i) {
+      local_origin[i] = (origin[i] - geometry.origin[i]) * INVERSE_SCALE;
+      local_direction[i] = direction[i] * INVERSE_SCALE;
+    }
     const auto FAMILIES = geometry.plane_families();
     std::array<FrameworkPlaneCursor::Projection, STREAM_COUNT> projections{};
     for (size_t i = 0; i < STREAM_COUNT; ++i) {
@@ -608,8 +614,11 @@ struct OctetEvents4 : FrameworkPlaneStreams<8> {
     math::Vec4 p;
     const float T = distance(index);
     for (int i = 0; i < 4; ++i)
-      p[i] = origin[i] + direction[i] * T;
-    return contribution(index, geometry.sample(p));
+      p[i] = local_origin[i] + local_direction[i] * T;
+    uint32_t feature;
+    const float VALUE = scale * geometry.edge_query<false, true>(p, feature) -
+                        geometry.wire_radius;
+    return contribution(index, {VALUE, 0.0f, false, 0, feature});
   }
 };
 
