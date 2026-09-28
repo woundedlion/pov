@@ -6400,7 +6400,7 @@ struct GuardGapAllowance {
  *          directions, so pinning or deleting a guard forces the row down.
  */
 inline constexpr GuardGapAllowance GUARD_GAP_ALLOW[] = {
-    {"core/animation/animation.h", 3},
+    {"core/animation/animation.h", 2},
     {"core/animation/carousel.h", 4},
     {"core/animation/motion.h", 6},
     {"core/animation/opleg.h", 41},
