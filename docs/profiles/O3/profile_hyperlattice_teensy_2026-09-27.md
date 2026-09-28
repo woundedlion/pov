@@ -202,3 +202,129 @@ the normal two-preset roster and do not replace its measurements above.
 The [paired experimental report](../hyperlattice_triangular_2026-09-27.md)
 contains both image sizes, scope trees, ISR costs, exact frame ranges, matched
 comparison, and portable evidence.
+
+## Supplemental Octet 3D single-owner correction
+
+Point-in-time snapshot of the corrected single-owner strut renderer.
+This fixed experimental preset is separate from the normal HyperLattice cycle.
+Its [shipping](../shipping/profile_hyperlattice_teensy_2026-09-27.md#supplemental-octet-3d-single-owner-correction) and
+[global-O3](../O3/profile_hyperlattice_teensy_2026-09-27.md#supplemental-octet-3d-single-owner-correction) captures use the same source.
+[Raw capture](../evidence/hyperlattice_octet_single_owner_2026-09-27/o3.txt),
+[provenance](../evidence/hyperlattice_octet_single_owner_2026-09-27/o3.provenance),
+[summary](../evidence/hyperlattice_octet_single_owner_2026-09-27/o3_summary.json),
+[validation](../evidence/hyperlattice_octet_single_owner_2026-09-27/o3_validate.txt).
+Captured 2026-09-27 22:53 local time.
+
+### Setup
+
+| | |
+| --- | --- |
+| Hardware | Teensy 4.0, 600 MHz, COM3, flywheel and DMA ISRs live |
+| Image | `profile_o3`, -O3; shipping retains HS_O3 shader helpers and HS_HOT_FLASH_MEMBER placement |
+| Driver | `POVSegmented<288,4,480>`, segment 0 master |
+| Effect | HyperLattice, 288×144, fixed `experimental-octet-flight`, clean source `3c0ad6dcaad361db1dea671933e4e931e91faba0` |
+| Method | 70 seconds, 16-frame windows; runtime frames 2–549; setup frame 1 excluded; scope windows 17–544 |
+| Reproduce | `HS_PROFILE_TREE=<checkout> HS_TEENSY_PORT=COM3 bash tools/profile_one.sh HyperLattice profile_o3 70 16 '-DHS_ENABLE_HYPERLATTICE_EXPERIMENTS=1 -DHS_PROFILE_PRESET=2'` |
+
+```text
+teensy_size:   FLASH: code:87872, data:148900, headers:8988   free for files:1785856
+teensy_size:    RAM1: variables:315008, code:28504, padding:4264   free for local variables:176512
+teensy_size:    RAM2: variables:520064  free for malloc/new:4224
+```
+
+Exactness cross-check: frames 321–336, root 1,199,723,503
+cycles / 600 MHz versus 1,999,539 μs wall sum: **0.086 ppm**.
+Build logs and environment dumps are retained beside the raw capture.
+
+### Frame cadence
+
+Runtime render minimum/mean/peak: **82.325/86.675/95.710 ms**.
+Spills: **548/548 (100.0%)**.
+Startup frame 1 took 164.226 ms and is excluded.
+Mean wall time: 124.889 ms, approximately 8.01 fps.
+The display budget is 62.5 ms. Peak render exceeds it by 33.210 ms.
+`canvas_buffer_wait` is alignment idle before the next display flip.
+
+### Phase-by-phase readout
+
+The preset is held while its camera and palette continue moving. No preset
+cycle or transition coverage is claimed. Worst complete shader window:
+
+#### Fixed Octet 3D (frames 529–544)
+
+```text
+frame                       124.908 ms 74.945 Mcyc 100.0%
+  pov_preserve_half           0.141 ms  0.084 Mcyc   0.1%
+  hl_shader_draw             93.453 ms 56.072 Mcyc  74.8%
+  hl_timeline_step            0.002 ms  0.001 Mcyc   0.0%
+  canvas_clear                0.090 ms  0.054 Mcyc   0.1%
+  canvas_buffer_wait         29.453 ms 17.672 Mcyc  23.6%
+```
+
+Wall minimum/mean/maximum: 124.745/124.907/125.050 ms.
+Mean render in this window is 95.455 ms. All listed leaf scopes
+run once per frame; their frame costs also give milliseconds per call.
+The shader includes traversal, coverage and color without a finer breakdown.
+
+#### Per-pixel figures
+
+The nominal quadrant is 144×72 = 10,368 pixels; the shader margin evaluates
+146×73 = 10,658 samples. Across the complete runtime windows, the shader
+averages 84.618 ms/frame or 4763.6 cycles/sample.
+Direct writes have no `filter_blend` calls. Candidate/layer counts were not captured.
+
+### Column-ISR / DMA marshaling cost
+
+```text
+isr_wake        2304.5/f 0.393/1.579/26.201 us 2.91%
+isr_pack         288.0/f 5.991/6.949/10.568 us 1.60%
+isr_dma_submit   288.0/f 0.593/0.938/1.201 us 0.22%
+```
+
+Times are per-call minimum/mean/maximum, followed by CPU share.
+Pack averages 6.949 μs versus
+0.938 μs for submit. The 600-byte LED
+image and black strobe take approximately 400 μs asynchronously at 12 MHz.
+ISR share totals 4.73%, leaving approximately 59.545 ms
+of foreground time per interval. Render already includes interrupts; its
+mean/peak need 1.39×/1.53× reduction to fit.
+
+### Summary ranking
+
+1. `hl_shader_draw`: 84.618 ms/frame, 67.7% of root cycles.
+2. `canvas_buffer_wait`: 38.351 ms/frame of display synchronization.
+3. Preserve, clear and unscoped preparation account for the remainder.
+
+The previous shipping capture averaged 90.406 ms and peaked at
+103.733 ms. Matching frame indices 2–549 gives mean render
+90.406 ms before and 88.700 ms after: **1.9% less render time**,
+or **1.02× speedup**. Camera motion advances per frame;
+the equally long captures can reach different frame indices. The previous
+capture is source `39225587612b`; the intervening preset/UI and group-storage
+changes mean this is a historical comparison, not an isolated rebuild A/B.
+Both use the same fixed Octet 3D settings, board, driver, and compiler.
+
+
+### Caveats
+
+- All scopes include ISR time. No per-pixel profiling overhead is added.
+- Direct writes have no `filter_blend` parenting artifact.
+- Shipping uses selective-O3 shader traversal and cached-flash placement;
+  global-O3 changes compiler flags, not the placement annotations.
+- These measurements cover one authored preset and camera-frame range.
+  WASM/native correctness tests are not comparable device timings.
+- Both images were built from clean source; no engine or instrumentation
+  changes were made for these captures. Setup is excluded, with no warmup cut.
+
+### Harness
+
+`targets/Profile/Profile.ino` supplies the existing HS_PROFILE scopes.
+Use the locked reproduce command above; `just profile HyperLattice` without
+the experimental/fixed-preset flags measures the normal roster.
+
+### Global -O3 versus selective -O3
+
+Shipping/global-O3 mean render is 88.700/86.675 ms,
+a 1.023× ratio over these 70-second captures.
+Global-O3 minus shipping image sizes: FLASH code +11,688 B;
+ITCM code +8,128 B.
