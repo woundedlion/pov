@@ -4,13 +4,16 @@
  */
 
 #include "core/engine/memory.h"
+#include "tests/mindsplatter_replay_corpus.h"
 #include "tests/mindsplatter_replay_metrics.h"
 #include "tests/mindsplatter_whitebox.h"
 
 #include <cstdint>
 #include <cstdio>
+#include <cstring>
 #include <fstream>
 #include <optional>
+#include <span>
 #include <string>
 #include <vector>
 
@@ -183,24 +186,47 @@ void emit_golden(std::ostream &out, const std::vector<GoldenPixel> &pixels) {
 } // namespace
 
 int main(int argc, char **argv) {
-  if (argc != 2) {
-    std::fprintf(stderr, "usage: mindsplatter_replay_gen <output-header>\n");
+  const bool refresh =
+      argc == 3 && std::strcmp(argv[2], "--refresh-framebuffer") == 0;
+  if (argc != 2 && !refresh) {
+    std::fprintf(
+        stderr,
+        "usage: mindsplatter_replay_gen <output-header> [--refresh-framebuffer]\n");
     return 2;
   }
 
-  std::optional<SearchResult> selected = search_corpus();
+  const auto &frozen = mindsplatter_replay::HEAVY_SEARCH_V1;
+  std::optional<SearchResult> selected;
+  if (refresh) {
+    selected.emplace();
+    selected->frame = frozen.search_frame;
+    selected->preset = static_cast<uint8_t>(frozen.preset);
+    selected->peak_clip = frozen.peak_clip;
+    selected->aggregate.score = frozen.selection_score;
+    selected->aggregate.adaptive_samples = frozen.search_adaptive_samples;
+    selected->aggregate.long_edges = frozen.search_long_edges;
+  } else {
+    selected = search_corpus();
+  }
   if (!selected) {
     std::fprintf(stderr, "MindSplatter replay search produced no candidates\n");
     return 1;
   }
 
   const std::vector<unsigned char> state =
-      WhiteBox::serialize_render(selected->snapshot);
+      refresh ? std::vector<unsigned char>(frozen.state,
+                                           frozen.state + frozen.state_size)
+              : WhiteBox::serialize_render(selected->snapshot);
   hs::random().seed(SEARCH_SEED);
   configure_arenas_default();
   ReplayEffect effect;
   effect.init();
-  WhiteBox::restore(effect, selected->snapshot);
+  if (refresh) {
+    WhiteBox::restore_render(effect, std::span(state));
+    selected->snapshot = WhiteBox::capture(effect);
+  } else {
+    WhiteBox::restore(effect, selected->snapshot);
+  }
   effect.set_clip(0, HEIGHT, 0, WIDTH);
   WhiteBox::draw_particles(effect);
   effect.advance_display();
@@ -228,16 +254,18 @@ int main(int argc, char **argv) {
 
   const ClipRegion peak_clip =
       mindsplatter_replay::search_clip<WIDTH, HEIGHT>(selected->peak_clip);
-  const std::string corpus_id = "heavy_search_v1_p" +
-                                std::to_string(selected->preset) + "_f" +
-                                std::to_string(selected->frame);
+  const std::string corpus_id =
+      refresh ? frozen.id
+              : "heavy_search_v1_p" + std::to_string(selected->preset) + "_f" +
+                    std::to_string(selected->frame);
   // No compiler identity here: it would pin the corpus to the machine that
   // baked it, so a regenerate-and-diff check could never reproduce the file.
   const std::string source =
-      "seed=1337 presets=0..3 frames=136..384/8 clips=quadrants "
-      "renderer=generic-reference "
-      "score=64*adaptive+512*long+8*shader+taps";
-  uint32_t traits = TRAIT_MEASURED_WORST;
+      refresh ? frozen.source
+              : "seed=1337 presets=0..3 frames=136..384/8 clips=quadrants "
+                "renderer=generic-reference "
+                "score=64*adaptive+512*long+8*shader+taps";
+  uint32_t traits = refresh ? frozen.traits : TRAIT_MEASURED_WORST;
   if (selected->aggregate.long_edges > 0)
     traits |= TRAIT_LONG_EDGE;
   if (selected->snapshot.particles.size() ==
