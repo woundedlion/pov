@@ -129,7 +129,6 @@ public:
 
     palette.bake(persistent_arena, make_palette());
 
-    cube_lut.build(persistent_arena);
     init_lattice();
     seed_blobs(state.B, NUM_SEED_CLUSTERS);
     reaction_edited(); // latch the defaults; frame 1 is not an edit

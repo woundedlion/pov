@@ -370,9 +370,6 @@ protected:
    * cubemap LUT, the species state and the node array.
    * @tparam SCRATCH_PEAK_BYTES Largest of render()'s disjoint scratch phases.
    * @tparam SCRATCH_PEAK_TENANTS Separate allocations that phase makes.
-   * @details The node-array term also bounds the equal-size transient lattice
-   * cube_lut.build() carves and rewinds before init_lattice() allocates the
-   * resident one, so the build() peak is covered by the same assert.
    */
   template <typename StateT, size_t NSPECIES, size_t PERSISTENT_BYTES,
             size_t EXTRA_PERSISTENT_BYTES, size_t SCRATCH_PEAK_BYTES,
@@ -468,6 +465,7 @@ protected:
     nodes = static_cast<math::Vector *>(persistent_arena.allocate(
         RD_N * sizeof(math::Vector), alignof(math::Vector)));
     build_nodes(nodes);
+    cube_lut.build(persistent_arena, nodes);
     init_orientation_animation();
   }
 
