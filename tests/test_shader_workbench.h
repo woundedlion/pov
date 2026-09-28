@@ -4775,7 +4775,7 @@ inline void test_shader_workbench_fast_peirce_square() {
   }
 }
 
-/** @brief The inverse manifest has unique, canonical, selectable programs. */
+/** @brief Pins catalog enum counts, legacy sentinels and stateless stages. */
 inline void test_shader_workbench_operator_catalog_census() {
   using WB = ShaderWorkbenchWhiteBox;
   static_assert(WB::NUM_FUNCTIONS == 10);
