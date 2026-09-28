@@ -1274,6 +1274,8 @@ export function expandV1Document(document, catalog) {
   const parameters = array(descriptor.parameters, '$.descriptor.parameters').map((parameter, index) => {
     const path = `$.descriptor.parameters[${index}]`;
     object(parameter, path);
+    object(parameter.domain, `${path}.domain`);
+    object(parameter.interpolation, `${path}.interpolation`);
     const target = v1ParameterTarget(id(parameter.id, `${path}.id`), slotsByLabel);
     parameterIds[parameter.id] = target;
     const { binding: droppedBinding, ...kept } = parameter;
@@ -1475,15 +1477,16 @@ export function compileShaderDocument(source, options = {}) {
       : checkDecodedDocumentLimits(source, options.limits);
     object(document, '$');
     let parameterIds = null;
-    let v1Digest = null;
+    let v1Source = null;
     if (document.schema_version === 1) {
       const expansion = expandV1Document(document, options.catalog);
-      v1Digest = v1DescriptorDigest(document);
+      v1Source = document;
       document = expansion.document;
       parameterIds = expansion.parameter_ids;
     }
     const diagnostics = validateShaderDocument(document, options);
     if (diagnostics.length > 0) return { status: 'INVALID', diagnostics };
+    const v1Digest = v1Source === null ? null : v1DescriptorDigest(v1Source);
     const descriptor = canonicalDescriptor(document);
     const descriptor_json = stableStringify(descriptorIdentity(descriptor));
     const descriptor_digest = sha256Hex(descriptor_json);
