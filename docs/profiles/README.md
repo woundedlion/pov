@@ -109,7 +109,8 @@ its two original presets; they predate this third default preset.
 
 | Preset | Ship peak ms | O3 peak ms | Ship spilled | O3 spilled | FLASH code Δ | ITCM Δ | Captured |
 |---|---:|---:|---:|---:|---:|---:|---|
-| [3: Octet 3D](shipping/profile_hyperlattice_octet_preset3_teensy_2026-09-28.md) / [O3](O3/profile_hyperlattice_octet_preset3_teensy_2026-09-28.md) ● | 🔴 76.566 | 🔴 74.692 | 🔴 549/549 (100.00%) | 🔴 549/549 (100.00%) | +10144 B | +8128 B | ship 2026-09-28 00:17<br>O3 2026-09-28 00:19 |
-| [5: Octet wide](shipping/profile_hyperlattice_octet_preset5_teensy_2026-09-28.md) / [O3](O3/profile_hyperlattice_octet_preset5_teensy_2026-09-28.md) ● | 🔴 76.425 | 🔴 74.925 | 🔴 549/549 (100.00%) | 🔴 549/549 (100.00%) | +10160 B | +8144 B | ship 2026-09-28 00:22<br>O3 2026-09-28 00:24 |
+| [4: Octet 4D](shipping/profile_hyperlattice_octet4d_teensy_2026-09-28.md) ● | 🔴 143.318 | — | 🔴 233/233 (100.00%) | — | — | — | ship 2026-09-28 09:53 |
+| [3: Octet 3D](shipping/profile_hyperlattice_octet_preset3_teensy_2026-09-28.md) ● | 🟢 45.688 | — | 🟢 0/1096 (0.00%) | — | — | — | ship 2026-09-28 09:56 |
+| [5: Octet wide](shipping/profile_hyperlattice_octet_preset5_teensy_2026-09-28.md) ● | 🟢 45.242 | — | 🟢 0/1096 (0.00%) | — | — | — | ship 2026-09-28 09:53 |
 
-● Updated 2026-09-28. Opt-in held presets, with startup excluded. [Earlier optimization and 4D evidence](hyperlattice_octet_optimization_2026-09-27.md).
+● Updated 2026-09-28 09:53–09:56 after the Octet 58 ms Tiers 1–2 (`1bb522211`). Opt-in held presets, startup excluded; 4D on COM3, 3D on COM4. [Earlier optimization and 4D evidence](hyperlattice_octet_optimization_2026-09-27.md). No global-O3 twins or size deltas were captured for this code.
