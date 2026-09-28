@@ -777,6 +777,10 @@ test('malformed v1 containers report diagnostics instead of raw TypeErrors', () 
     [(document) => {
       document.descriptor.path_policies[0] = { kind: 'STAGGERED_ORDERED' };
     }, '$.descriptor.path_policies[0].groups'],
+    [(document) => { delete document.descriptor.parameters[0].domain; },
+      '$.descriptor.parameters[0].domain'],
+    [(document) => { document.descriptor.parameters[0].interpolation = null; },
+      '$.descriptor.parameters[0].interpolation'],
     [(document) => { document.descriptor.parameters[0] = null; },
       '$.descriptor.parameters[0]'],
     [(document) => {
