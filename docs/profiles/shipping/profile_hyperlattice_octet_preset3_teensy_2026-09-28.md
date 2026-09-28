@@ -1,111 +1,88 @@
-# HyperLattice preset 3 on-device profile (2026-09-28, selective-O3)
+# HyperLattice Octet 3D (preset 3) on-device profile — Teensy 4.0, segmented mode (2026-09-28, **selective -O3**)
 
-This is experimental-octet-flight, preset 3 (internal index 2), held with continuous camera and palette motion. It supersedes the 3D settings in the [optimization snapshot](../hyperlattice_octet_optimization_2026-09-27.md); that snapshot remains historical evidence for its optimization comparisons. This pair was captured before the wide-flight preset was added; source provenance identifies each image. The 4D preset is unchanged.
-
-[Shipping report](../shipping/profile_hyperlattice_octet_preset3_teensy_2026-09-28.md) and [global-O3 report](../O3/profile_hyperlattice_octet_preset3_teensy_2026-09-28.md).
+Point-in-time snapshot after Tiers 1 and 2 of the Octet 58 ms spec (`29305dfe2`, `f130ee632`, `1bb522211`).
+Raw capture: `build/prof/octet58/preset2_ship.log`. Replaces the 00:17 capture of the same name (pre-Tier-1 code, `b60fe925b`).
 
 ## Setup
 
-| Item | Value |
+| | |
 |---|---|
-| Hardware | Teensy 4.0, 600 MHz, COM4, live flywheel and DMA ISRs |
-| Driver | POVSegmented<288,4,480>, segment 0 master |
-| Build | profile; -Os base, selective O3 shader and octet geometry |
-| Source | b60fe925b98ef6fecb009ab81cd854e6374ea52a; firmware source committed; any report edits preserved in source.diff evidence |
-| Captured | 2026-09-28 00:17, America/Los_Angeles |
-| Method | 70 seconds, 16-frame windows, held preset; no choreography compression, preset cycle or epoch crossing |
-| Geometry | OCTET, THREE_D; sphere radius 0, cell size 1.74175, wire radius 0.015 (relative to cell size) |
-| Appearance | Near fade 2.0, far distance 4.5, AA strength 2.0, DEPTH color |
-| Motion | Speed 0.078, 3D spin 0.008265, 4D spin 0 |
+| Hardware | Teensy 4.0 @ 600 MHz, COM4, POV segmented mode, flywheel + DMA ISRs live |
+| Image | `profile` env: `-Os` base, newlib-nano, DMA LEDs, selective O3; `HyperLatticeExperimental::shade<false>` runs from cached flash as one `HS_HOT_FLASH_MEMBER` unit |
+| Driver | `POVSegmented<288, 4, 480>`, board = segment 0 master |
+| Effect | HyperLattice 288×144, experimental-octet-flight held (`HS_PROFILE_PRESET=2`), tip `1bb522211` |
+| Method | `HS_PROFILE` cycle scopes, window = 16 frames, 70 s capture; startup frame 1 and its window excluded; camera and palette motion live; no preset cycle or epoch crossing |
+| Reproduce | `HS_PROFILE_TREE=<tree> HS_TEENSY_PORT=COM4 bash tools/profile_one.sh HyperLattice profile 70 16 "-DHS_ENABLE_HYPERLATTICE_EXPERIMENTS=1 -DHS_PROFILE_PRESET=2"` |
 
-[Raw capture](../evidence/hyperlattice_octet_preset3_2026-09-28/octet_preset3_ship.txt), [provenance](../evidence/hyperlattice_octet_preset3_2026-09-28/octet_preset3_ship.provenance), [validation](../evidence/hyperlattice_octet_preset3_2026-09-28/octet_preset3_ship_validate.txt), [summary](../evidence/hyperlattice_octet_preset3_2026-09-28/octet_preset3_ship_summary.json). The evidence directory preserves SHA-256-wrapped build logs and environment dumps. Full ELF/map artifacts are archived locally in C:/work/Holosphere/build/prof/octet_preset3_20260928.
+Image size (instrumented single-effect image): `FLASH: code:71736, data:148748, headers:8892` / `RAM1: variables:315008, code:20168, padding:12600, free:176512` / `RAM2: variables:520064, free:4224`. The harness-attested default Phantasm image passes its size/layout gate.
 
-Instrumented single-effect image sizes:
-
-| Region | Bytes |
-|---|---:|
-| FLASH code | 75176 |
-| FLASH data | 148708 |
-| FLASH headers | 8564 |
-| FLASH free for files | 1799168 |
-| RAM1 variables | 315008 |
-| RAM1 code | 20376 |
-| RAM1 padding | 12392 |
-| RAM1 free for local variables | 176512 |
-| RAM2 variables | 520064 |
-| RAM2 free for malloc/new | 4224 |
-
-Delta from the previous optimized image in the same build configuration: RAM1 code +0 bytes, RAM1 variables +0 bytes, FLASH data +0 bytes, FLASH code +32 bytes.
-
-The harness also builds and attests the default full-roster Phantasm image with profiling compiled out. Its size/layout gates pass.
-
-Exactness cross-check: frames 177–192, 1,199,674,692 root cycles / 600 MHz versus 1,999,458 µs wall sum: **0.090 ppm** difference.
+Exactness cross-check: window frames 913–928 root cyc ÷ 600 MHz matches the wall sum within **4.0 ppm** (`tools/parse_profile.py ... validate`: VALID).
 
 ## Frame cadence
 
-| Runtime frames | Mean render ms | Peak render ms | Spilled/live | Observed fps |
-|---|---:|---:|---:|---:|
-| 2–550 | 69.841 | 76.566 | 549/549 (100.00%) | 8.01 |
+Frames after startup: mean render **39.120 ms**, peak **45.688 ms**, spilled **0/1096 (0.00%)** — 16 fps (every frame). Worst window (913–928) `hl_shader_draw` 38.772 ms/f.
 
-Startup frame 1 renders in 129.607 ms and is excluded. Scope and ISR summaries use complete windows over frames 17–544; runtime statistics retain the trailing per-frame telemetry. The display interval is 62.5 ms; canvas_buffer_wait is alignment idle.
+A display window is 62.5 ms; the shader evaluates the 144×72 quadrant plus its one-pixel margin, 146×73 = 10,658 samples. `canvas_buffer_wait` is the round-up idle to the next display flip.
+
+| | Before (spec §1) | Now |
+|---|--:|--:|
+| Render mean / peak | 69.841 / 76.566 ms | 39.120 / 45.688 ms |
+| Shader cycles/sample (worst window) | 3,819 | 2,183 |
+| Spilled | 549/549 (100%) | 0/1096 (0.00%) |
 
 ## Phase-by-phase readout
 
-The capture has one held-preset regime. Worst shader window: frames 65–80. Each listed scope runs once per frame.
+One held-preset regime.
 
-```text
-frame                       124.877 ms  74.926 Mcyc 100.0%
-  pov_preserve_half           0.138 ms   0.083 Mcyc   0.1%
-  hl_shader_draw             70.536 ms  42.322 Mcyc  56.5%
-  hl_timeline_step            0.016 ms   0.009 Mcyc   0.0%
-  canvas_clear                0.086 ms   0.052 Mcyc   0.1%
-  canvas_buffer_wait         52.304 ms  31.382 Mcyc  41.9%
+### Held preset (window frames 913–928, worst of the capture)
+
+```
+frame                   62.615 ms  37.569 Mcyc 100.0%
+  pov_preserve_half      0.138 ms   0.083 Mcyc   0.2%
+  hl_shader_draw        38.772 ms  23.263 Mcyc  61.9%
+  hl_timeline_step       0.015 ms   0.009 Mcyc   0.0%
+  canvas_clear           0.088 ms   0.053 Mcyc   0.1%
+  canvas_buffer_wait    21.847 ms  13.108 Mcyc  34.9%
 ```
 
-Wall minimum/mean/maximum is 124.486/124.877/125.073 ms. Shader traversal and coverage dominate rendering.
+Wall min/avg/max = 56.2/62.6/67.6 ms. The shader is the whole render; preserve, clear and timeline together take under 0.25 ms.
 
-### Per-preset figures
+### Deep counters (`HS_PROFILE_DEEP=1`, 45 s, `build/prof/octet58/preset2_deep.log`)
 
-| Preset | Complete windows | Shader ms/frame | Evaluated samples/frame | Cycles/sample |
-|---|---:|---:|---:|---:|
-| 3: experimental-octet-flight | 33 | 67.840 | 10658 | 3819.1 |
+Counts only; the deep image is slower and its timing is not a shipping figure.
 
-The nominal quadrant is 144×72; the shader margin evaluates 146×73 samples. Pixels are written directly, with no filter_blend calls or per-pixel profiling scopes.
+```
+frame                   62.507 ms  37.504 Mcyc 100.0%
+  pov_preserve_half      0.139 ms   0.084 Mcyc   0.2%
+  hl_shader_draw        44.345 ms  26.607 Mcyc  70.9%
+    hl_event_step       29.975 ms  17.985 Mcyc  48.0%
+      hl_layer_composite 3.274 ms   1.965 Mcyc   5.2%
+      hl_event_miss      0.940 ms   0.564 Mcyc   1.5%
+  canvas_buffer_wait    16.148 ms   9.689 Mcyc  25.8%
+```
+
+5.68 candidates, 4.75 misses and 0.92 layers per ray (spec §2.1 model: 5.78 / 4.86 / 0.92). `hl_event_step` counts 6.68 loop iterations per ray; one per ray is the loop exit. Per-ray setup outside the loop is about 810 cycles, and each loop iteration about 250 cycles (deep image, scope overhead included).
+
+### Per-pixel figures
+
+10,658 samples per frame, written directly by a premultiplied `Pixel` shader (no `filter_blend`). 2,183 shader cycles per sample in the worst window.
 
 ## Column-ISR / DMA marshaling cost
 
-```text
-isr_wake        2304.1/f 0.573/1.628/20.693 us  3.00%
-isr_pack         288.0/f 6.227/6.682/10.825 us  1.54%
-isr_dma_submit   288.0/f 0.603/0.945/ 3.263 us  0.22%
-```
-
-Columns show calls/frame, minimum/mean/maximum per-call time, and CPU share. Combined ISR share is 4.76%, leaving approximately 59.525 ms foreground time per display interval. Render measurements already include interrupts. Mean/peak render divided by the 62.5 ms interval is 1.117/1.225.
-
-Pack performs CPU-side LED marshaling; submit launches asynchronous DMA. The 600-byte payload occupies about 400 µs of wire time at 12 MHz.
+`isr_wake` 3.04%, `isr_pack` 1.54%, `isr_dma_submit` 0.21% of CPU, about 4.8% combined, leaving about 59.5 ms of foreground time per 62.5 ms window. Pack is the CPU-side LED marshaling; submit launches the asynchronous 600-byte DMA (about 400 µs on the wire at 12 MHz).
 
 ## Summary ranking
 
-1. hl_shader_draw dominates render time: plane events, strut coverage and compositing.
-2. canvas_buffer_wait aligns completed frames to the next display flip.
-3. Preserve/clear and timeline preparation account for the remaining work.
-
-The previous shipping 3D settings measured 81.407 ms mean and 87.013 ms peak. Changes in this report are preset workload changes, not further code optimizations; the faster motion also samples a different camera trajectory. No matched host timing is claimed.
+1. `hl_shader_draw`: plane-crossing traversal, strut coverage and compositing; the entire render.
+2. `canvas_buffer_wait`: display alignment idle.
 
 ## Caveats
 
-- Fixed preset pinning leaves camera/palette animation active; there is no full-cycle or transition-cost claim.
-- CYCCNT includes ISR time. Startup and its scope window are excluded.
-- Shipping uses selective O3 in the shader and octet geometry, executing from cached flash.
-- Results cover the recorded trajectory and settings; later camera positions can cost more.
-- The experimental preset remains opt-in; the regular cubic roster ranking is unchanged.
+- CYCCNT includes ISR time. Startup frame 1 and its window are excluded.
+- Fixed preset pinning keeps camera and palette motion live; results cover the recorded trajectory.
+- No global-O3 twin was captured for this code.
+- The experimental presets are opt-in (`HS_ENABLE_HYPERLATTICE_EXPERIMENTS=1`).
 
-## Harness and validation
+## Harness
 
-The existing targets/Profile/Profile.ino harness runs HyperLattice with HS_PROFILE_WINDOW=16. Native unit_hyper_lattice passes with 67094 assertions, including continuous motion for all three Octet presets. Firmware builds, memory gates, and both capture validators pass.
-
-```sh
-export HS_PROFILE_TREE="$PWD" HS_TEENSY_PORT=COM4
-bash tools/profile_one.sh HyperLattice profile 70 16 \
-  "-DHS_ENABLE_HYPERLATTICE_EXPERIMENTS=1 -DHS_PROFILE_PRESET=2"
-```
+`targets/Profile/Profile.ino` with `HS_PROFILE_TARGET=HyperLattice`, `HS_PROFILE_WINDOW=16` and `HS_PROFILE_PRESET=<index>`; command in Setup.
