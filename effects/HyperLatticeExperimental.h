@@ -534,7 +534,8 @@ trace_octet_4d(const math::Vector &direction, const Prepared &prepared) {
                         const std::array<Pair, CLASSES>
                             &pairs) __attribute__((always_inline)) {
     std::array<float, CLASSES> transverses, denominators, dks, dls;
-    bool owned = false;
+    // Bit c marks a class not parallel to the ray (positive denominator).
+    uint32_t owned = 0;
     for (size_t c = 0; c < CLASSES; ++c) {
       const auto &PAIR = pairs[c];
       const float ALONG = components[PAIR.i] + sign * components[PAIR.j];
@@ -542,7 +543,9 @@ trace_octet_4d(const math::Vector &direction, const Prepared &prepared) {
       transverses[c] = 0.5f * (components[PAIR.i] - sign * components[PAIR.j]);
       dks[c] = components[PAIR.k];
       dls[c] = components[PAIR.l];
-      owned |= denominators[c] > 0.0f;
+      uint32_t bits;
+      std::memcpy(&bits, &denominators[c], sizeof(bits));
+      owned |= static_cast<uint32_t>(bits - 1 < 0x7F7FFFFFu) << c;
     }
     if (!owned)
       return true;
@@ -633,12 +636,12 @@ trace_octet_4d(const math::Vector &direction, const Prepared &prepared) {
         float rl = residual[PAIR.l];
         // A class the plane bound clears cannot reach the support, and
         // neither can a farther class it would otherwise have beaten.
-        if (!(denominators[c] > 0.0f) || bounds[c] > THRESHOLD)
+        if (!(owned & (1u << c)) || bounds[c] > THRESHOLD)
           continue;
         float across = residual[PAIR.i] - sign * residual[PAIR.j];
-        const float SHIFT = across > 0.5f    ? 1.0f
-                            : across < -0.5f ? -1.0f
-                                             : 0.0f;
+        // |across| <= 1, and ties round to even: -1, 0 or 1 as the
+        // strict half-way comparisons give.
+        const float SHIFT = rintf(across);
         across -= SHIFT;
         if ((SHIFT != 0.0f) != ODD) {
           const float COST = 0.5f - fabsf(across);
