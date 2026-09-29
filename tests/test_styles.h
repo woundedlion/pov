@@ -396,12 +396,24 @@ inline void test_hue_rotate_lms_matrix_identity() {
 
 /**
  * @brief Parity sweep: hue_fade's folded cbrt-LMS path vs the reference
- *        fade-then-hue_rotate composition.
+ *        fade-then-rotate composition through the tabulated gamut clip.
  * @details Allows 64 u16-channel LSBs across preset fades, hue rotations,
- * saturated primaries, dark and gray tones, using the flash gamut grid.
+ * saturated primaries, dark and gray tones. The reference rotates in OKLab
+ * with exact trig and, when the rotated color leaves the cube, rescales its
+ * chroma onto the flash grid's cell minimum, the clip hue_fade applies.
  */
 inline void test_hue_fade_matches_rotate_reference() {
   constexpr float HUE_FADE_TOL = 64.0f;
+  const auto rotate_reference = [](const Pixel &faded, float ca, float sa) {
+    const LinRGB in = pixel_to_linrgb(faded);
+    const OKLab lab = linear_rgb_to_oklab(in.r, in.g, in.b);
+    const OKLab rotated{lab.L, lab.a * ca - lab.b * sa,
+                        lab.a * sa + lab.b * ca};
+    LinRGB out = oklab_to_linear_rgb(rotated);
+    if (!linear_rgb_in_gamut(out.r, out.g, out.b))
+      out = oklab_to_linear_rgb(gamut_scale_to_boundary_lut(rotated));
+    return linrgb_to_pixel(out);
+  };
   alignas(uint16_t) static uint8_t
       lut_buf[gamut_lut_bytes(GAMUT_LUT_ANGLE_STEPS, GAMUT_LUT_L_STEPS)];
   Arena lut_arena(lut_buf, sizeof(lut_buf));
@@ -420,8 +432,7 @@ inline void test_hue_fade_matches_rotate_reference() {
         s.hue_shift = shift;
         s.sync_hue();
         Pixel got = Feedback::hue_fade(c, fade, s);
-        Pixel ref =
-            hue_rotate(Color4(c * fade, 1.0f), s.hue_ca, s.hue_sa).color;
+        Pixel ref = rotate_reference(c * fade, s.hue_ca, s.hue_sa);
         HS_EXPECT_NEAR((float)got.r, (float)ref.r, HUE_FADE_TOL);
         HS_EXPECT_NEAR((float)got.g, (float)ref.g, HUE_FADE_TOL);
         HS_EXPECT_NEAR((float)got.b, (float)ref.b, HUE_FADE_TOL);
