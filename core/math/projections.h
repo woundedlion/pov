@@ -160,7 +160,7 @@ inline float wrap_longitude(float longitude) {
  * hemispheres onto one image, so the antimeridian carries no seam; the
  * cos(latitude) taper collapses each pole to a point.
  */
-HS_FLASH_INLINE inline math::Complex
+HS_O3_FN inline math::Complex
 folded_sinusoidal(const math::Vector &v, float central_meridian = 0.0f,
                   float *signed_longitude = nullptr) {
   const float longitude =
@@ -181,8 +181,8 @@ folded_sinusoidal(const math::Vector &v, float central_meridian = 0.0f,
  * @details Longitude is periodic, so the image is cut at the antimeridian and
  * each pole spreads across a full image row.
  */
-HS_FLASH_INLINE inline math::Complex
-equirectangular(const math::Vector &v, float central_meridian = 0.0f) {
+HS_O3_FN inline math::Complex equirectangular(const math::Vector &v,
+                                              float central_meridian = 0.0f) {
   return {wrap_longitude(math::fast_atan2(v.z, v.x) - central_meridian),
           0.5f * math::PI_F - math::fast_acos(v.y)};
 }
@@ -198,7 +198,7 @@ equirectangular(const math::Vector &v, float central_meridian = 0.0f) {
  * @return Plane coordinates in radians, with `fade_edge_distance` set to the
  *         along-parallel arc distance to the antimeridian cut.
  */
-HS_FLASH_INLINE inline ProjectionKernelResult
+HS_O3_FN inline ProjectionKernelResult
 bonne_projection(const math::Vector &v, float central_meridian,
                  float standard_parallel) {
   const float longitude = wrap_longitude(atan2f(v.z, v.x) - central_meridian);
@@ -306,7 +306,7 @@ enum class PeirceLayout : uint8_t { DIAMOND, SQUARE, HORIZONTAL, VERTICAL };
  * reflection holds fixed; the other pair tears, so HORIZONTAL and VERTICAL carry CUT
  * alongside GLUED and measure the torn side's distance to the equator.
  */
-HS_FLASH_INLINE inline ProjectionKernelResult
+HS_O3_FN inline ProjectionKernelResult
 peirce_projection(const math::Vector &v, float central_meridian,
                   PeirceLayout layout, float scroll,
                   bool calculate_edge_distance = true) {
@@ -444,7 +444,7 @@ peirce_projection(const math::Vector &v, float central_meridian,
  * @return Square-layout coordinates and seam metadata with approximate angular
  *         terms.
  */
-HS_FLASH_INLINE inline ProjectionKernelResult
+HS_O3_FN inline ProjectionKernelResult
 peirce_projection_fast_square(const math::Vector &v) {
   constexpr float INV_SQRT_TWO = 0.7071067811865475f;
   constexpr float K = 1.8540746773013719f;
@@ -989,7 +989,7 @@ inline float point_segment_distance(const AiroceanPoint &p,
  * cut distance runs to face 18's vertex and its identity switches partway
  * along.
  */
-HS_FLASH_INLINE inline ProjectionKernelResult
+HS_O3_FN inline ProjectionKernelResult
 airocean_projection(const math::Vector &v, float c, float s, bool horizontal,
                     bool calculate_edge_distance) {
   const AiroceanVector p{v.x * c + v.z * s, v.z * c - v.x * s, v.y};
@@ -1079,7 +1079,7 @@ airocean_projection(const math::Vector &v, float c, float s, bool horizontal,
           .edge_class = edge_identity};
 }
 
-HS_FLASH_INLINE inline ProjectionKernelResult
+HS_O3_FN inline ProjectionKernelResult
 airocean_projection_meridian(const math::Vector &v, float central_meridian,
                              bool horizontal,
                              bool calculate_edge_distance = true) {

@@ -128,8 +128,7 @@ __attribute__((always_inline)) inline float cubic_kernel(float t) {
  * @param value Argument to ramp.
  * @return cubic_kernel of the normalized position, clamped to 0.0 - 1.0.
  */
-HS_FLASH_INLINE inline float smooth_ramp(float edge0, float edge1,
-                                         float value) {
+HS_O3_FN inline float smooth_ramp(float edge0, float edge1, float value) {
   return cubic_kernel((value - edge0) / (edge1 - edge0));
 }
 

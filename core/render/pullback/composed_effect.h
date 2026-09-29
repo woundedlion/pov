@@ -1030,8 +1030,7 @@ public:
    * @param view Unit view direction for the pixel.
    * @param frame Per-frame transforms, params and LUTs from the runtime.
    */
-  static HS_FLASH_INLINE Color4 shade(const math::Vector &view,
-                                      const Frame &frame) {
+  static HS_O3_FN Color4 shade(const math::Vector &view, const Frame &frame) {
     return RenderPipeline::shade(view, frame);
   }
 

@@ -357,8 +357,8 @@ concept StateProvider = Detail::ParamsProvider<State, Binding> &&
                         };
 
 template <typename Prepared>
-HS_FLASH_MEMBER inline float twin_wave(const math::Complex &input,
-                                       const Prepared &prepared) {
+HS_HOT_FLASH_MEMBER inline float twin_wave(const math::Complex &input,
+                                           const Prepared &prepared) {
   const float rotated =
       input.re * prepared.angle_cos + input.im * prepared.angle_sin;
   return 0.5f * (math::fast_sinf(input.re + prepared.primary) +
@@ -366,13 +366,13 @@ HS_FLASH_MEMBER inline float twin_wave(const math::Complex &input,
 }
 
 template <typename Prepared>
-HS_FLASH_MEMBER inline float rings(const math::Complex &input,
-                                   const Prepared &prepared) {
+HS_HOT_FLASH_MEMBER inline float rings(const math::Complex &input,
+                                       const Prepared &prepared) {
   return math::fast_sinf(input.magnitude() - prepared.primary);
 }
 
 template <typename Params>
-HS_FLASH_MEMBER inline float
+HS_HOT_FLASH_MEMBER inline float
 spherical_rings(const math::Vector &input, const Params &params,
                 const PreparedSphericalRings &prepared) {
   const float axis_height =
@@ -391,8 +391,8 @@ spherical_rings(const math::Vector &input, const Params &params,
 }
 
 template <typename Prepared>
-HS_FLASH_MEMBER inline float spiral(const math::Complex &input,
-                                    const Prepared &prepared) {
+HS_HOT_FLASH_MEMBER inline float spiral(const math::Complex &input,
+                                        const Prepared &prepared) {
   const float radius = input.magnitude();
   const float azimuth = math::fast_atan2(input.im, input.re);
   return math::fast_sinf(radius - 3.0f * (azimuth + prepared.angle) -
@@ -400,9 +400,9 @@ HS_FLASH_MEMBER inline float spiral(const math::Complex &input,
 }
 
 template <typename Params, typename Prepared>
-HS_FLASH_MEMBER inline float grid(const math::Complex &input,
-                                  const Params &params,
-                                  const Prepared &prepared) {
+HS_HOT_FLASH_MEMBER inline float grid(const math::Complex &input,
+                                      const Params &params,
+                                      const Prepared &prepared) {
   const float x = input.re * prepared.angle_cos + input.im * prepared.angle_sin;
   const float y =
       -input.re * prepared.angle_sin + input.im * prepared.angle_cos;
@@ -424,8 +424,8 @@ HS_FLASH_MEMBER inline float grid(const math::Complex &input,
 }
 
 template <typename Params>
-HS_FLASH_MEMBER inline float primitive_lattice(const math::Complex &input,
-                                               const Params &params) {
+HS_HOT_FLASH_MEMBER inline float primitive_lattice(const math::Complex &input,
+                                                   const Params &params) {
   const float x =
       math::wrap_t(params.lattice_cell_scale * input.re + 0.5f) - 0.5f;
   const float y =
@@ -442,9 +442,9 @@ HS_FLASH_MEMBER inline float primitive_lattice(const math::Complex &input,
 }
 
 template <typename Params, typename Prepared>
-HS_FLASH_MEMBER inline float escape_fractal(const math::Complex &input,
-                                            const Params &params,
-                                            const Prepared &prepared) {
+HS_HOT_FLASH_MEMBER inline float escape_fractal(const math::Complex &input,
+                                                const Params &params,
+                                                const Prepared &prepared) {
   const float x = params.scale * (input.re * prepared.angle_cos +
                                   input.im * prepared.angle_sin);
   const float y = params.scale * (-input.re * prepared.angle_sin +
@@ -470,7 +470,7 @@ HS_FLASH_MEMBER inline float escape_fractal(const math::Complex &input,
   return 1.0f;
 }
 
-HS_FLASH_INLINE inline float distance_to_lattice_line(float coordinate) {
+HS_O3_FN inline float distance_to_lattice_line(float coordinate) {
   return fabsf(math::wrap_t(coordinate + 0.5f) - 0.5f);
 }
 
@@ -517,7 +517,7 @@ tessellation_distance(float x, float y, TessellationKind kind) {
 }
 
 template <typename Params, typename Prepared>
-HS_FLASH_MEMBER inline float
+HS_HOT_FLASH_MEMBER inline float
 tessellation(const math::Complex &input, const Params &params,
              TessellationKind kind, const Prepared &prepared) {
   const float x = params.cell_scale * (input.re * prepared.angle_cos +
@@ -531,10 +531,10 @@ tessellation(const math::Complex &input, const Params &params,
   return 1.0f - 2.0f * edge;
 }
 
-HS_FLASH_INLINE inline float noise_contour(const FastNoiseLite &noise,
-                                           math::NoiseBasis basis,
-                                           const math::Vector &coordinate,
-                                           float contrast) {
+HS_O3_FN inline float noise_contour(const FastNoiseLite &noise,
+                                    math::NoiseBasis basis,
+                                    const math::Vector &coordinate,
+                                    float contrast) {
   const float sample = hs::clamp(
       math::sample_noise_octaves(noise, basis, coordinate), -1.0f, 1.0f);
   return sample * (1.0f + contrast) / (1.0f + contrast * fabsf(sample));

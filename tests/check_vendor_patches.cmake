@@ -19,7 +19,7 @@ set(VENDORED_VERSION "1.1.1")
 #   cmake -E sha256sum core/vendor/FastNoiseLite.h
 # on a checkout whose line endings are LF.
 set(VENDORED_SHA256
-    "11276071067d992e810069e29bcb781b1cb9dccfc71c1f5554dece13f0dce94a")
+    "ae24d9f391bb47f632b55f923cae6a006d53f88f9f4a22947ef35fdbd26019dc")
 
 file(READ "${HEADER}" _header)
 file(READ "${CONFIG}" _config)
@@ -65,7 +65,7 @@ if(NOT _header MATCHES "HS_HOT_FLASH_MEMBER void GetVectorNoiseSingle\\(" OR
   list(APPEND _missing "FastNoiseLite has lost its raw vector-noise path")
 endif()
 
-if(NOT _header MATCHES "HS_FLASH_MEMBER void GetNoiseGradientSingle\\(" OR
+if(NOT _header MATCHES "HS_HOT_FLASH_MEMBER void GetNoiseGradientSingle\\(" OR
    NOT _header MATCHES "HS_O3_FN void SingleOpenSimplex2Gradient\\(")
   list(APPEND _missing "FastNoiseLite has lost its analytic gradient path")
 endif()

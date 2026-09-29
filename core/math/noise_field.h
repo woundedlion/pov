@@ -173,7 +173,7 @@ inline math::Vector noise_sphere_coordinate(const math::Vector &v, float scale,
  * @param loop_offset Point on the loop, hoisted out of a per-pixel walk.
  * @return The sampling coordinate.
  */
-HS_FLASH_INLINE inline math::Vector
+HS_O3_FN inline math::Vector
 noise_sphere_coordinate(const math::Vector &v, float scale,
                         const math::Vector &loop_offset) {
   return scale * v + loop_offset;
@@ -200,7 +200,7 @@ HS_FLASH_INLINE inline math::Vector noise_projected_loop_offset(float phase) {
  * @param loop_offset Point on the loop, hoisted out of a per-pixel walk.
  * @return The sampling coordinate.
  */
-HS_FLASH_INLINE inline math::Vector
+HS_O3_FN inline math::Vector
 noise_projected_coordinate(const math::Complex &p, float scale,
                            const math::Vector &loop_offset) {
   return math::Vector(scale * p.re + loop_offset.x,
@@ -214,7 +214,7 @@ noise_projected_coordinate(const math::Complex &p, float scale,
  * @param phase Position on the time loop, in turns.
  * @return The sampling coordinate.
  */
-HS_FLASH_INLINE inline math::Vector
+HS_O3_FN inline math::Vector
 noise_projected_coordinate(const math::Complex &p, float scale, float phase) {
   return noise_projected_coordinate(p, scale,
                                     noise_projected_loop_offset(phase));
@@ -228,9 +228,9 @@ noise_projected_coordinate(const math::Complex &p, float scale, float phase) {
  * @return Noise value in [-1, 1].
  * @details Costs one generator sample for SIMPLEX and three for the others.
  */
-HS_FLASH_INLINE inline float sample_noise_octaves(const FastNoiseLite &noise,
-                                                  NoiseBasis basis,
-                                                  const math::Vector &q) {
+HS_O3_FN inline float sample_noise_octaves(const FastNoiseLite &noise,
+                                           NoiseBasis basis,
+                                           const math::Vector &q) {
   const float first = noise.GetNoiseSingle(q.x, q.y, q.z);
   if (basis == NoiseBasis::SIMPLEX)
     return first;
@@ -255,9 +255,10 @@ HS_FLASH_INLINE inline float sample_noise_octaves(const FastNoiseLite &noise,
  * ridged stacks read at independent offsets — six generator samples against
  * the other bases' one or three.
  */
-HS_FLASH_INLINE inline float
-sample_noise_vector_channel(const FastNoiseLite &noise, NoiseBasis basis,
-                            const math::Vector &q, size_t channel) {
+HS_O3_FN inline float sample_noise_vector_channel(const FastNoiseLite &noise,
+                                                  NoiseBasis basis,
+                                                  const math::Vector &q,
+                                                  size_t channel) {
   if (basis != NoiseBasis::RIDGED3)
     return sample_noise_octaves(noise, basis,
                                 q + NOISE_CHANNEL_OFFSETS[channel]);
@@ -312,7 +313,7 @@ clamp_tangent_to_unit(math::Vector &u) {
  * @details Takes the DIRECT_VECTOR_V2 path for SIMPLEX and DIRECT_V1
  * otherwise.
  */
-HS_FLASH_INLINE inline math::Vector
+HS_O3_FN inline math::Vector
 sample_direct_tangent(const FastNoiseLite &noise, NoiseBasis basis,
                       const math::Vector &q, const math::Vector &v,
                       float direction_cos, float direction_sin) {
@@ -337,10 +338,11 @@ sample_direct_tangent(const FastNoiseLite &noise, NoiseBasis basis,
  * @param direction In-plane rotation applied to the tangent, in turns.
  * @return A tangent at @p v, clamped by clamp_tangent_to_unit().
  */
-HS_FLASH_INLINE inline math::Vector
-sample_direct_tangent(const FastNoiseLite &noise, NoiseBasis basis,
-                      const math::Vector &q, const math::Vector &v,
-                      float direction) {
+HS_O3_FN inline math::Vector sample_direct_tangent(const FastNoiseLite &noise,
+                                                   NoiseBasis basis,
+                                                   const math::Vector &q,
+                                                   const math::Vector &v,
+                                                   float direction) {
   const float angle = math::TWO_PI_F * direction;
   return sample_direct_tangent(noise, basis, q, v, cosf(angle), sinf(angle));
 }
@@ -394,8 +396,8 @@ inline math::Vector tetrahedral_gradient(const math::Vector &q, Sample sample) {
  * @param v Unit point the tangent is taken at.
  * @return A tangent at @p v, clamped by clamp_tangent_to_unit().
  */
-HS_FLASH_INLINE inline math::Vector
-curl_from_gradient(const math::Vector &gradient, const math::Vector &v) {
+HS_O3_FN inline math::Vector curl_from_gradient(const math::Vector &gradient,
+                                                const math::Vector &v) {
   math::Vector u = math::cross(v, gradient);
   clamp_tangent_to_unit(u);
   return u;
@@ -410,7 +412,7 @@ curl_from_gradient(const math::Vector &gradient, const math::Vector &v) {
  * @details The CURL_ANALYTIC_V2 path: one generator call, against the twelve
  * samples the stencil costs. Simplex only.
  */
-HS_FLASH_INLINE inline math::Vector
+HS_O3_FN inline math::Vector
 sample_simplex_curl_tangent(const FastNoiseLite &noise, const math::Vector &q,
                             const math::Vector &v) {
   math::Vector gradient;
@@ -429,9 +431,10 @@ sample_simplex_curl_tangent(const FastNoiseLite &noise, const math::Vector &q,
  * @details SIMPLEX takes the analytic CURL_ANALYTIC_V2 path at one generator
  * sample; the three-octave bases take the CURL_V1 stencil at twelve.
  */
-HS_FLASH_INLINE inline math::Vector
-sample_curl_tangent(const FastNoiseLite &noise, NoiseBasis basis,
-                    const math::Vector &q, const math::Vector &v) {
+HS_O3_FN inline math::Vector sample_curl_tangent(const FastNoiseLite &noise,
+                                                 NoiseBasis basis,
+                                                 const math::Vector &q,
+                                                 const math::Vector &v) {
   if (basis == NoiseBasis::SIMPLEX)
     return sample_simplex_curl_tangent(noise, q, v);
   const math::Vector gradient =
@@ -480,7 +483,7 @@ inline constexpr float EXP_MAP_HALF_RADIAN_ARC_SQ_LIMIT = 0.250001f;
  *   Strength" field is registered over [-0.5, 0.5]. Widening that range, or
  *   feeding a tangent from anywhere else, breaks the approximation silently.
  */
-HS_FLASH_INLINE inline math::Vector
+HS_O3_FN inline math::Vector
 sphere_exp_map_half_radian(const math::Vector &v, const math::Vector &tangent) {
   const float distance_sq = math::dot(tangent, tangent);
   assert(distance_sq <= EXP_MAP_HALF_RADIAN_ARC_SQ_LIMIT &&

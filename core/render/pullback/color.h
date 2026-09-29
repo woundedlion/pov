@@ -355,9 +355,8 @@ template <typename State> struct GeneratedPalette : ApproximationDefaults {
   }
 
   template <typename FrameState>
-  HS_FLASH_INLINE static Color4 apply(const FieldSample &sample,
-                                      const FrameState &,
-                                      const Prepared &prepared) {
+  HS_O3_FN static Color4 apply(const FieldSample &sample, const FrameState &,
+                               const Prepared &prepared) {
     return apply_generated_palette(sample, prepared);
   }
 };

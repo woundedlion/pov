@@ -652,7 +652,7 @@ struct BoundPlaced<CodeEmission::OUT_OF_LINE_FLASH, Binding, Children...>
       BoundPlacedBase<CodeEmission::OUT_OF_LINE_FLASH, Binding, Children...>;
   static constexpr CodeEmission EMISSION = CodeEmission::OUT_OF_LINE_FLASH;
 
-  __attribute__((noinline)) HS_FLASH_MEMBER static typename Base::Output
+  __attribute__((noinline)) HS_HOT_FLASH_MEMBER static typename Base::Output
   run(const typename Base::Input &input, const typename Base::FrameState &frame,
       const typename Base::Prepared &prepared) {
     return Base::template run_children<0>(input, frame, prepared);
@@ -1070,15 +1070,15 @@ public:
   }
 
   /** @brief Shades a view direction using a frame returned by prepare(). */
-  HS_FLASH_MEMBER static Color4 shade(const math::Vector &view,
-                                      const Frame &frame) {
+  HS_HOT_FLASH_MEMBER static Color4 shade(const math::Vector &view,
+                                          const Frame &frame) {
     return evaluate(view, frame.ctx, frame.prepared);
   }
 
   /** @brief Type-erased shade over prepare_into()'s storage. */
-  HS_FLASH_MEMBER static Color4 shade_prepared(const math::Vector &view,
-                                               const FrameState &ctx,
-                                               const void *storage) {
+  HS_HOT_FLASH_MEMBER static Color4 shade_prepared(const math::Vector &view,
+                                                   const FrameState &ctx,
+                                                   const void *storage) {
     return evaluate(view, ctx,
                     *std::launder(static_cast<const PreparedTuple *>(storage)));
   }
