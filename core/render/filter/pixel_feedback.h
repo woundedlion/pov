@@ -727,9 +727,9 @@ private:
       const int row1 = field_y1 * coarse_columns;
 
       if (field_y1 < polar.north_rings || field_y0 >= polar.south_ring) {
-        composite_polar_row<PAIR_PIXELS>(
-            ctx, y, field_y0, field_y1, wy0, wy1, output, stride, lane_offset,
-            half_res, defer_filter, transform_pixel, transform_pair);
+        composite_polar_row(ctx, y, field_y0, field_y1, wy0, wy1, output,
+                            stride, lane_offset, half_res, defer_filter,
+                            transform_pixel);
       } else {
         for (int r = 0; r < runs.count; ++r) {
           const int xs = runs.items[r].begin;
@@ -791,7 +791,8 @@ private:
                 ::Pixel p0(0, 0, 0), p1(0, 0, 0);
                 if (!(black0 && black1)) {
                   HS_PROFILE_DEEP(fb_comp_color);
-                  transform_pair(s0.r, s0.g, s0.b, s1.r, s1.g, s1.b, p0, p1);
+                  transform_pair_call(transform_pair, s0.r, s0.g, s0.b, s1.r,
+                                      s1.g, s1.b, p0, p1);
                   p0 = black0 ? ::Pixel(0, 0, 0) : p0;
                   p1 = black1 ? ::Pixel(0, 0, 0) : p1;
                 }
@@ -866,16 +867,15 @@ private:
 
   /**
    * @brief Composites one polar row from its cap-plane offsets.
-   * @details Each lane converts its own target back to field coordinates.
-   * Out of line so the equirect rows' loop keeps its registers.
+   * @details Each lane converts its own target back to field coordinates, one
+   * lane per step. Out of line so the equirect rows' loop keeps its registers.
    */
-  template <bool PAIR_PIXELS, typename TransformPixelT, typename TransformPairT>
+  template <typename TransformPixelT>
   __attribute__((noinline)) void
   composite_polar_row(const FlushContext &ctx, int y, int field_y0,
                       int field_y1, float wy0, float wy1, ::Pixel *output,
                       int stride, float lane_offset, bool half_res,
-                      bool defer_filter, TransformPixelT &transform_pixel,
-                      TransformPairT &transform_pair) {
+                      bool defer_filter, TransformPixelT &transform_pixel) {
     const CoarseGrid &grid = ctx.grid;
     const PolarRings &polar = grid.polar;
     const int downsample = grid.downsample;
@@ -914,42 +914,6 @@ private:
                (caps0[cx1].v * wy0 + caps1[cx1].v * wy1) * INVERSE_CAP -
                    left_v}};
           cell_stale = false;
-        }
-
-        if constexpr (PAIR_PIXELS) {
-          if (downsample - sub >= 2 * stride && xe - x >= 2 * stride) {
-            const CoordinatePair at =
-                polar_pair(cell, x, x + stride, cap_angle, north, half_res,
-                           (sub + lane_offset) * inverse_downsample,
-                           (sub + stride + lane_offset) * inverse_downsample);
-            const Sample s0 = sample_bilinear_prev(grid.field, ctx.previous,
-                                                   ctx.poles, at.x0, at.y0);
-            const Sample s1 = sample_bilinear_prev(grid.field, ctx.previous,
-                                                   ctx.poles, at.x1, at.y1);
-            const bool black0 = black_skips_color && s0.r < NEAR_BLACK &&
-                                s0.g < NEAR_BLACK && s0.b < NEAR_BLACK;
-            const bool black1 = black_skips_color && s1.r < NEAR_BLACK &&
-                                s1.g < NEAR_BLACK && s1.b < NEAR_BLACK;
-            ::Pixel p0(0, 0, 0), p1(0, 0, 0);
-            if (!(black0 && black1)) {
-              transform_pair(s0.r, s0.g, s0.b, s1.r, s1.g, s1.b, p0, p1);
-              p0 = black0 ? ::Pixel(0, 0, 0) : p0;
-              p1 = black1 ? ::Pixel(0, 0, 0) : p1;
-            }
-            ::Pixel &dst0 = output[x];
-            dst0 = plain_store ? p0 : blend(dst0, p0);
-            ::Pixel &dst1 = output[x + stride];
-            dst1 = plain_store ? p1 : blend(dst1, p1);
-
-            x += 2 * stride;
-            sub += 2 * stride;
-            if (sub >= downsample) {
-              sub -= downsample;
-              ++cx0;
-              cell_stale = true;
-            }
-            continue;
-          }
         }
 
         const auto at = polar_lane(cell, x, cap_angle, north, half_res,
@@ -1039,14 +1003,6 @@ private:
     CapPoint slope;
   };
 
-  /** @brief Two lanes' field coordinates, returned in registers. */
-  struct CoordinatePair {
-    float x0;
-    float y0;
-    float x1;
-    float y1;
-  };
-
   /** @brief One arctangent's ratio terms and the octant folds it needs. */
   struct AtanTerms {
     float numerator;
@@ -1112,27 +1068,6 @@ private:
     const float angle = length_sq * math::fast_rsqrt(length_sq);
     return SphereField::Geometry::phi_to_row(north ? angle
                                                    : math::PI_F - angle);
-  }
-
-  /**
-   * @brief Source coordinates of two lanes of a polar row.
-   * @details The two longitudes' arctangent ratios share one reciprocal.
-   */
-  static __attribute__((always_inline)) CoordinatePair
-  polar_pair(const CapCell &cell, int x0, int x1, float cap_angle, bool north,
-             bool midpoint, float fx0, float fx1) {
-    const CapPoint p0 = cap_lane(cell, x0, cap_angle, midpoint, fx0);
-    const CapPoint p1 = cap_lane(cell, x1, cap_angle, midpoint, fx1);
-    const AtanTerms a = atan_terms(p0.v, p0.u);
-    const AtanTerms b = atan_terms(p1.v, p1.u);
-    const float inverse = 1.0f / (a.denominator * b.denominator);
-    constexpr float COLUMNS_PER_RADIAN = W / (2.0f * math::PI_F);
-    return {atan_fold(a.numerator * b.denominator * inverse, a) *
-                COLUMNS_PER_RADIAN,
-            cap_row(p0, north),
-            atan_fold(b.numerator * a.denominator * inverse, b) *
-                COLUMNS_PER_RADIAN,
-            cap_row(p1, north)};
   }
 
   /** @brief Source coordinates of one lane of a polar row. */
@@ -1309,6 +1244,18 @@ private:
     Sample out;
     field.sample_bilinear_rgb(prev, poles, bx, by, out.r, out.g, out.b);
     return out;
+  }
+
+  /**
+   * @brief Calls @p transform out of line.
+   * @details The equirect rows' pair loop runs faster calling the colour pair
+   * than with it inlined, which GCC does once this is its only call site.
+   */
+  template <typename TransformPairT>
+  __attribute__((noinline)) static void
+  transform_pair_call(TransformPairT &transform, float r0, float g0, float b0,
+                      float r1, float g1, float b1, ::Pixel &p0, ::Pixel &p1) {
+    transform(r0, g0, b0, r1, g1, b1, p0, p1);
   }
 
   /** @brief Quantizes an unclamped [0, 65535]-scale channel to a ::Pixel
