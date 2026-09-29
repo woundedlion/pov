@@ -199,65 +199,92 @@ inline PreparedTrace prepare_trace(const FrameState &frame) {
 }
 /**
  * @brief Composites one ray's plane crossings front to back.
- * @details Matches Raycast::shade_events over SDF::Lattice::Events: crossings
- * merge in distance order, lower axes first on ties, and crossings within the
- * relative tolerance of a group's first distance form one layer with that
- * distance and the group's largest coverage. The stream capacity bounds every
- * ray below the candidate and layer budgets, so neither is tracked.
+ * @details Matches Raycast::shade_events over SDF::Lattice::Events. Each axis
+ * evaluates its crossings with the axis fixed, and only covered crossings enter
+ * the distance-ordered layer list: an uncovered crossing never closes a merge
+ * group, so the groups are runs of covered crossings within the relative
+ * tolerance of their first distance, each one layer at that distance with the
+ * run's largest coverage. The stream capacity bounds every ray below the
+ * candidate and layer budgets, so neither is tracked.
  */
 template <bool SLICE_4D, uint8_t SHELLS>
 __attribute__((always_inline)) inline LayerComposite
 composite_crossings(const math::Vector &normal, const PreparedTrace &prepared) {
   HS_PROFILE_DEEP(hl_shade);
+  using SDF::Lattice::DIRECTION_EPSILON;
   constexpr float RELATIVE_TOLERANCE = 1.0e-4f;
-  static_assert(DIMENSIONS * SDF::Lattice::MAX_SHELLS <=
-                Raycast::TraceLimits{}.max_layers);
-  SDF::Lattice::Events<SLICE_4D, SHELLS> events(normal, prepared.lattice);
-  std::array<float, DIMENSIONS> next;
-  for (int axis = 0; axis < DIMENSIONS; ++axis)
-    next[axis] =
-        events.cursors[axis].active ? events.cursors[axis].distance : INFINITY;
-  LayerComposite composite;
-  bool pending = false;
-  float pending_t = 0.0f;
-  float pending_coverage = 0.0f;
-  float group_end = 0.0f;
-  while (true) {
-    HS_PROFILE_DEEP(hl_event_step);
-    int first = 0;
-    for (int axis = 1; axis < DIMENSIONS; ++axis)
-      if (next[axis] < next[first])
-        first = axis;
-    const float T = next[first];
-    if (!(T < INFINITY))
-      break;
-    if (pending && T > group_end) {
-      HS_PROFILE_DEEP(hl_layer_composite);
-      composite.add(prepared.appearance.color(pending_t),
-                    pending_coverage * prepared.appearance.opacity(pending_t));
-      pending = false;
-      if (composite.saturated())
-        return composite;
-    }
-    const float COVERAGE = events.candidate(first).coverage;
-    if (COVERAGE > 0.0f) {
-      if (!pending) {
-        pending = true;
-        pending_t = T;
-        pending_coverage = COVERAGE;
-        group_end = T + RELATIVE_TOLERANCE * std::max(1.0f, T);
-      } else if (COVERAGE > pending_coverage) {
-        pending_coverage = COVERAGE;
-      }
-    }
-    events.advance(first);
-    next[first] = events.cursors[first].active ? events.cursors[first].distance
-                                               : INFINITY;
+  constexpr int CAPACITY = DIMENSIONS * SDF::Lattice::MAX_SHELLS;
+  static_assert(CAPACITY <= Raycast::TraceLimits{}.max_layers);
+  const auto &lattice = prepared.lattice;
+  const math::Vec4 direction =
+      lattice.world_to_lattice.apply({{normal.x, normal.y, normal.z, 0}});
+  math::Vec4 origin = lattice.origin;
+  std::array<float, DIMENSIONS> magnitude;
+  float product = 1.0f;
+  for (int axis = 0; axis < DIMENSIONS; ++axis) {
+    origin[axis] += lattice.sphere_radius_world * direction[axis];
+    magnitude[axis] =
+        !SLICE_4D && axis == 3 && lattice.mode == LatticeMode::THREE_D
+            ? 0.0f
+            : fabsf(direction[axis]);
+    if (magnitude[axis] >= DIRECTION_EPSILON)
+      product *= magnitude[axis];
   }
-  if (pending) {
+  // One division serves every axis: each step is the product of the other
+  // magnitudes over the product of all of them.
+  const float INVERSE_PRODUCT = 1.0f / product;
+  const uint8_t SHELL_COUNT =
+      SHELLS ? SHELLS : static_cast<uint8_t>(lattice.params.shells) + 1;
+  std::array<float, CAPACITY> distances;
+  std::array<float, CAPACITY> coverages;
+  int count = 0;
+  const auto cross = [&](int axis) __attribute__((always_inline)) {
+    if (!(magnitude[axis] >= DIRECTION_EPSILON))
+      return;
+    float step = INVERSE_PRODUCT;
+    for (int other = 0; other < DIMENSIONS; ++other)
+      if (other != axis && magnitude[other] >= DIRECTION_EPSILON)
+        step *= magnitude[other];
+    float distance =
+        SDF::Lattice::next_plane_offset(origin[axis], direction[axis] > 0) *
+        step;
+    for (uint8_t shell = 0;
+         shell < SHELL_COUNT && distance < lattice.far_distance;
+         ++shell, distance += step) {
+      HS_PROFILE_DEEP(hl_event_step);
+      const float COVERAGE =
+          SDF::Lattice::trace_plane<SLICE_4D, SHELLS>(origin, direction, axis,
+                                                      distance, step, lattice)
+              .coverage *
+          SDF::Lattice::shell_horizon_coverage(shell, SHELL_COUNT, distance,
+                                               magnitude[axis]);
+      if (!(COVERAGE > 0.0f))
+        continue;
+      int slot = count++;
+      for (; slot > 0 && distances[slot - 1] > distance; --slot) {
+        distances[slot] = distances[slot - 1];
+        coverages[slot] = coverages[slot - 1];
+      }
+      distances[slot] = distance;
+      coverages[slot] = COVERAGE;
+    }
+  };
+  cross(0);
+  cross(1);
+  cross(2);
+  cross(3);
+  LayerComposite composite;
+  for (int layer = 0; layer < count;) {
     HS_PROFILE_DEEP(hl_layer_composite);
-    composite.add(prepared.appearance.color(pending_t),
-                  pending_coverage * prepared.appearance.opacity(pending_t));
+    const float T = distances[layer];
+    const float GROUP_END = T + RELATIVE_TOLERANCE * std::max(1.0f, T);
+    float coverage = coverages[layer];
+    for (++layer; layer < count && distances[layer] <= GROUP_END; ++layer)
+      coverage = std::max(coverage, coverages[layer]);
+    composite.add(prepared.appearance.color(T),
+                  coverage * prepared.appearance.opacity(T));
+    if (composite.saturated())
+      break;
   }
   return composite;
 }
