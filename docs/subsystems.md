@@ -616,6 +616,8 @@ The clip reads the 256 × 128 flash master by default. An effect that clips per 
 
 `MeshFeedback::init()` is the only production call site that arms an arena copy. It takes the full 256 × 128 grid, `gamut_lut_bytes(256, 128)` = 131,074 B of persistent arena. The Shader workbench, `ShaderChain`, and composed effects clip against the flash master without allocating a gamut copy.
 
+The feedback flush's colour path (`hue_fade_apply`, `hue_fade_apply2`) does not walk the bracket: `lms_cbrt_transform_rgb_lut` rescales an out-of-gamut pixel's chroma straight onto the armed grid's cell minimum through `lms_cbrt_scale_to_gamut_lut`, so a clipped trail pixel costs one grid read and sits at most one cell's chroma deficit inside the boundary. The feedback loop re-clips every bright trail pixel each frame, which is where the per-pixel walk was spent.
+
 ### Palette Modifiers
 
 Modifiers compose around any palette source at compile time via
