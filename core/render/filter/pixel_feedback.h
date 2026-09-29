@@ -35,7 +35,7 @@ namespace Pixel {
   * The warp is stored as equirect pixel offsets, so it is anisotropic near the
  * poles: trails pinch and a low-frequency noise cap lenses over a few rows.
  * Rows whose columns outnumber the row pitch two to one composite every other
- * column (POLE_HALF_RES_PITCH_RATIO).
+ * column (Style::pole_half_res).
  */
 template <int W, int H> class Feedback : public Is2DWithHistory {
   using SphereField = hs::SphericalFieldLayout<W, H>;
@@ -57,19 +57,6 @@ public:
   static constexpr int domain_rank = IsPixel::domain_rank;
   /** @brief Marks this as terminal: flush() writes the Canvas directly. */
   static constexpr bool is_terminal = true;
-  /**
-   * @brief Column pairs per row pitch above which a row composites every
-   *        other column.
-   * @details A row at latitude sine s spans 2*pi*s / W radians per column and
-   * RADIANS_PER_ROW per row, so two columns subtend less than one row pitch
-   * once s < W * RADIANS_PER_ROW / (4*pi), about 0.5 at 288x144. Such a row
-   * samples each column pair once at its midpoint, the pair's box average,
-   * and expands the pairs back with a 3:1 blend toward each neighbouring
-   * pair, a one-column blur under one row pitch in angle. Rows the longitude
-   * filter reconstructs keep every column. 0 composites every row at full
-   * resolution.
-   */
-  static constexpr float POLE_HALF_RES_PITCH_RATIO = 1.0f;
   /** @brief Opaque store owns the frame: no history stage may precede it. */
   static constexpr bool terminal_replaces = true;
 
@@ -300,6 +287,7 @@ private:
     int control_y0 = 0;
     float alpha = 0.0f;
     float fade = 0.0f;
+    float pole_half_res = 0.0f;
     bool black_skips_color = false;
     FlushMode mode = FlushMode::SKIP;
     float hue_k[9] = {};
@@ -514,6 +502,7 @@ private:
     feedback_style->sync_hue();
     const bool hue_fade = feedback_style->color_fn == &::Feedback::hue_fade;
     ctx.black_skips_color = hue_fade;
+    ctx.pole_half_res = feedback_style->pole_half_res;
     ctx.previous = cv.prev_data();
     ctx.current = cv.data();
     if (SphereField::HAS_NORTH_POLE)
@@ -581,7 +570,7 @@ private:
     int control_y0 = ctx.control_y0;
     int control_y1 = control_ring1.y;
     // Latitude sine under which two columns subtend less than one row pitch.
-    const float half_res_sine = POLE_HALF_RES_PITCH_RATIO * W *
+    const float half_res_sine = ctx.pole_half_res * W *
                                 SphereField::Geometry::RADIANS_PER_ROW *
                                 (1.0f / (4.0f * math::PI_F));
     for (int y = row_begin; y < row_end; ++y) {

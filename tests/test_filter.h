@@ -2184,6 +2184,21 @@ inline void test_feedback_polar_rows_use_spherical_footprint() {
   expect_reconstructed(H - 2);
   expect_reconstructed(H - 5);
   expect_stripe(H - 9);
+
+  // A zero pole_half_res composites every column, so row 4 keeps the stripe.
+  style.pole_half_res = 0.0f;
+  {
+    Canvas c(fx);
+    for (int x = 0; x < W; ++x)
+      c(x, 4) = Pixel((x & 1) ? 60000 : 0, 0, 0);
+  }
+  fx.advance_display();
+  {
+    Canvas c(fx);
+    (void)pipe.begin_frame(c, 1.0f);
+  }
+  fx.advance_display();
+  expect_stripe(4);
 }
 
 /**

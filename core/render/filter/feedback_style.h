@@ -114,6 +114,17 @@ struct Style {
    * reserve Feedback<W,H>::UNCACHED_SCRATCH_BYTES(downsample) explicitly.
    */
   int downsample = 4;
+  /**
+   * Column pairs per row pitch under which a row composites every other
+   * column. A row at latitude sine s spans 2*pi*s / W radians per column and
+   * RADIANS_PER_ROW per row, so at 1 the rows where two columns subtend less
+   * than one row pitch (s below about 0.5 at 288x144) sample each column pair
+   * once at its midpoint and expand the pairs back with a 3:1 blend toward each
+   * neighbouring pair, a one-column blur. Larger values widen the band toward
+   * the equator; 0 composites every row at full resolution. Rows the longitude
+   * filter reconstructs keep every column.
+   */
+  float pole_half_res = 1.0f;
 
   // --- Bound state (set by effect at init, NOT part of presets) ---
   Animation::NoiseParams *noise = nullptr;
@@ -147,6 +158,7 @@ struct Style {
     space_fn = t < 0.5f ? a.space_fn : b.space_fn;
     color_fn = t < 0.5f ? a.color_fn : b.color_fn;
     downsample = t < 0.5f ? a.downsample : b.downsample;
+    pole_half_res = t < 0.5f ? a.pole_half_res : b.pole_half_res;
     sync_noise();
   }
 
