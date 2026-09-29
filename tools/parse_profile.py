@@ -489,6 +489,16 @@ def initial_preset_key(windows):
     return (first["key"], str((first["idx"] - base - 1) % total + base))
 
 
+def straddles_advance(w):
+    """The window holds frames of two presets, so its counters mix them.
+
+    The modal draw-call gate cannot see this when both presets draw alike,
+    as a fade does: only the per-frame owners tell the halves apart.
+    """
+    return len({None if f[3] is None else (f[3]["key"], f[3].get("name"))
+                for f in w.frame_rows}) > 1
+
+
 def clean_hold_rows(windows, scope, gate):
     """Per-preset clean-hold rows: (name, holds, clean, ms, calls/f, meta)."""
     gate = gate or scope
@@ -503,12 +513,12 @@ def clean_hold_rows(windows, scope, gate):
 
     rows = []
     for key, ws in groups.items():
-        gate_counts = [w.counters[gate]["calls"] for w in ws
+        clean = [w for w in ws if not straddles_advance(w)] or ws
+        gate_counts = [w.counters[gate]["calls"] for w in clean
                        if gate in w.counters]
-        clean = ws
         if gate_counts:
             modal = Counter(gate_counts).most_common(1)[0][0]
-            clean = [w for w in ws
+            clean = [w for w in clean
                      if gate in w.counters
                      and w.counters[gate]["calls"] == modal]
         vals = [(w.per_frame_ms(scope), w) for w in clean
