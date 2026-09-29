@@ -58,6 +58,11 @@ struct PreparedPeriodicShells {
    *        rounding cell for every ray direction.
    */
   bool single_owner = false;
+  /**
+   * @brief Whether trace_periodic_shells_4d() may serve this frame: a 4D
+   *        slice whose widest filtered sphere stays within half a cell.
+   */
+  bool slice_march = false;
   bool valid = false;
 };
 
@@ -86,6 +91,8 @@ prepare_periodic_shells(const Raycast::PreparedCamera &camera, float cell_size,
     prepared.single_owner =
         camera.domain == Raycast::SamplingDomain::SPATIAL_3D &&
         1.7320508f * WIDEST < .499f;
+    prepared.slice_march =
+        camera.domain == Raycast::SamplingDomain::SLICE_4D && WIDEST < .499f;
   }
   return prepared;
 }
@@ -216,6 +223,206 @@ __attribute__((always_inline)) inline ShellSample trace_periodic_shells_3d(
     }
     y += DY;
     z += DZ;
+    tau += STEP;
+    reach += REACH_STEP;
+  }
+  result.color = composite.premultiplied();
+  return result;
+}
+
+/**
+ * @brief 4D-slice shell composite by a march over the lattice layers across
+ *        the ambient ray's dominant axis.
+ * @details Requires PreparedPeriodicShells::slice_march. A contributing sphere
+ * lies within half a cell of the ambient ray, so its closest approach and roots
+ * stay inside its own cell, and its center lies within twice that clearance of
+ * the ray's crossing of its layer: the crossing's rounded lattice point, or a
+ * neighbor one step across each coordinate whose rounding offset leaves it
+ * within reach. A layer's candidates composite in distance order. Matches
+ * shade_periodic_shells_dimension<4>, with the step budget counting layers.
+ * @return The premultiplied composite.
+ */
+__attribute__((always_inline)) inline ShellSample trace_periodic_shells_4d(
+    const PreparedPeriodicShells &prepared,
+    const Raycast::PreparedCamera &camera, const math::Vector &direction,
+    const Raycast::TraceLimits &limits, const Raycast::Appearance &appearance) {
+  const auto &E = camera.embedding.m;
+  float D[4];
+  for (int axis = 0; axis < 4; ++axis)
+    D[axis] = E[axis][0] * direction.x + E[axis][1] * direction.y +
+              E[axis][2] * direction.z;
+  const float CELL = prepared.geometry.cell_size;
+  const float INVERSE_CELL = prepared.inverse_cell;
+  const float RADIAL_START = camera.radial_start;
+  int k = 0;
+  for (int axis = 1; axis < 4; ++axis)
+    if (fabsf(D[axis]) > fabsf(D[k]))
+      k = axis;
+  int other[3];
+  for (int axis = 0, n = 0; axis < 4; ++axis)
+    if (axis != k)
+      other[n++] = axis;
+  const float A = D[0] * D[0] + D[1] * D[1] + D[2] * D[2] + D[3] * D[3];
+  // A is 1 to rounding, so one Newton step from 1 is its reciprocal.
+  const float INVERSE_A = 2 - A;
+  const float INVERSE_DK = 1 / D[k];
+  const float STEP = fabsf(INVERSE_DK);
+  const float NEAR = camera.interval.near;
+  const float FAR = camera.interval.far;
+  const float LAST = FAR * INVERSE_CELL + .5f * STEP;
+  const float ORIGIN_K =
+      (camera.center[k] + D[k] * RADIAL_START) * INVERSE_CELL;
+  float tau =
+      (rintf(ORIGIN_K + NEAR * INVERSE_CELL * D[k]) - ORIGIN_K) * INVERSE_DK;
+  float position[3], rate[3], d[3];
+  for (int n = 0; n < 3; ++n) {
+    const int AXIS = other[n];
+    d[n] = D[AXIS];
+    rate[n] = D[AXIS] * STEP;
+    position[n] =
+        (camera.center[AXIS] + D[AXIS] * RADIAL_START) * INVERSE_CELL +
+        tau * D[AXIS];
+  }
+  // Clearance bound in cells at the layer, padded by the farthest a closest
+  // approach can sit from its layer crossing; over |D_k| it bounds the
+  // in-layer offset of a contributing center.
+  const float HALF_RATE = .5f * prepared.footprint.angular_radius;
+  float reach = prepared.geometry.shell_radius + 1e-4f +
+                HALF_RATE * (RADIAL_START * INVERSE_CELL + tau + .9f);
+  const float REACH_STEP = HALF_RATE * STEP;
+  const float RADIUS = prepared.geometry.shell_radius * CELL;
+  const bool FILTERED = prepared.footprint.angular_radius > 0;
+
+  ShellSample result;
+  LayerComposite composite;
+  int layers = 0;
+  struct Layer {
+    float t, coverage;
+  };
+  std::array<Layer, 16> pending;
+  const auto projected_length2 = [&](const float (&gradient)[4]) __attribute__((
+                                     always_inline)) {
+    float length2 = 0;
+    for (int j = 0; j < 3; ++j) {
+      const float COMPONENT = E[0][j] * gradient[0] + E[1][j] * gradient[1] +
+                              E[2][j] * gradient[2] + E[3][j] * gradient[3];
+      length2 += COMPONENT * COMPONENT;
+    }
+    return length2;
+  };
+  for (int step = 0; tau <= LAST; ++step) {
+    if (step >= limits.max_steps) {
+      result.status = Raycast::TraceStatus::BUDGET_EXHAUSTED;
+      break;
+    }
+    float offset[3];
+    float farthest = 0;
+    for (int n = 0; n < 3; ++n) {
+      offset[n] = position[n] - rintf(position[n]);
+      farthest = std::max(farthest, fabsf(offset[n]));
+    }
+    const float REACH2 = reach * reach;
+    const float SPREAD = reach * STEP;
+    int count = 0;
+    const auto candidate = [&](float ey, float ez,
+                               float ew) __attribute__((always_inline)) {
+      const float OFFSET2 = ey * ey + ez * ez + ew * ew;
+      const float ALONG = ey * d[0] + ez * d[1] + ew * d[2];
+      if (!(OFFSET2 - ALONG * ALONG < REACH2))
+        return;
+      const float CROSSING = tau * CELL;
+      const float B = ALONG * CELL;
+      const float C = OFFSET2 * CELL * CELL - prepared.radius_squared;
+      const float DISCRIMINANT = B * B - A * C;
+      float gradient[4];
+      gradient[k] = 0;
+      gradient[other[0]] = ey * CELL;
+      gradient[other[1]] = ez * CELL;
+      gradient[other[2]] = ew * CELL;
+      const auto at = [&](float u, float (&point)[4])
+                          __attribute__((always_inline)) {
+                            for (int axis = 0; axis < 4; ++axis)
+                              point[axis] = gradient[axis] + u * D[axis];
+                          };
+      if (DISCRIMINANT >= 0) {
+        const float ROOT = sqrtf(DISCRIMINANT);
+        const float TIMES[2] = {CROSSING + (-B - ROOT) * INVERSE_A,
+                                CROSSING + (-B + ROOT) * INVERSE_A};
+        for (int root = 0; root < 2; ++root) {
+          const float T = TIMES[root];
+          if (T < NEAR || T > FAR || (root == 1 && T == TIMES[0]))
+            continue;
+          const float WIDTH = prepared.footprint.at(T);
+          float coverage = 1.0f;
+          if (WIDTH > 0) {
+            float point[4];
+            at(T - CROSSING, point);
+            const float LENGTH2 = projected_length2(point);
+            const float INVERSE_LENGTH =
+                LENGTH2 > 1e-20f && Raycast::finite(LENGTH2)
+                    ? 1 / sqrtf(LENGTH2)
+                    : 0;
+            const float DEPTH = .5f * DISCRIMINANT * INVERSE_A * INVERSE_LENGTH;
+            coverage = std::clamp(.5f + DEPTH / WIDTH, 0.0f, 1.0f);
+          }
+          pending[count++] = {T, coverage};
+        }
+      } else if (FILTERED) {
+        const float U = -B * INVERSE_A;
+        const float T = CROSSING + U;
+        const float SQUARED = C + prepared.radius_squared - B * B * INVERSE_A;
+        const float WIDTH = prepared.footprint.at(T);
+        if (T >= NEAR && T <= FAR && SQUARED > 0 && WIDTH > 0) {
+          float point[4];
+          at(U, point);
+          const float LENGTH = sqrtf(SQUARED);
+          const float PROJECTED2 = projected_length2(point);
+          const float DISTANCE =
+              PROJECTED2 > 0 ? (LENGTH - RADIUS) * LENGTH / sqrtf(PROJECTED2)
+                             : INFINITY;
+          const float COVERAGE = std::clamp(.5f - DISTANCE / WIDTH, 0.0f, 1.0f);
+          if (COVERAGE > 0)
+            pending[count++] = {T, COVERAGE};
+        }
+      }
+    };
+    candidate(offset[0], offset[1], offset[2]);
+    if (farthest > 1 - SPREAD) {
+      // Neighbors one step across each coordinate the reach can cross.
+      float across[3];
+      bool crosses[3];
+      for (int n = 0; n < 3; ++n) {
+        across[n] = offset[n] - copysignf(1.0f, offset[n]);
+        crosses[n] = fabsf(across[n]) < SPREAD;
+      }
+      for (int mask = 1; mask < 8; ++mask)
+        if ((!(mask & 1) || crosses[0]) && (!(mask & 2) || crosses[1]) &&
+            (!(mask & 4) || crosses[2]))
+          candidate(mask & 1 ? across[0] : offset[0],
+                    mask & 2 ? across[1] : offset[1],
+                    mask & 4 ? across[2] : offset[2]);
+    }
+    for (int layer = 1; layer < count; ++layer)
+      for (int slot = layer; slot > 0 && pending[slot - 1].t > pending[slot].t;
+           --slot)
+        std::swap(pending[slot - 1], pending[slot]);
+    for (int layer = 0; layer < count; ++layer) {
+      if (layers >= limits.max_candidates || layers >= limits.max_layers) {
+        result.status = Raycast::TraceStatus::BUDGET_EXHAUSTED;
+        result.color = composite.premultiplied();
+        return result;
+      }
+      ++layers;
+      appearance.composite(composite, pending[layer].t,
+                           pending[layer].coverage);
+      if (composite.saturated()) {
+        result.status = Raycast::TraceStatus::SATURATED;
+        result.color = composite.premultiplied();
+        return result;
+      }
+    }
+    for (int n = 0; n < 3; ++n)
+      position[n] += rate[n];
     tau += STEP;
     reach += REACH_STEP;
   }
