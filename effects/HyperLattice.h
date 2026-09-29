@@ -79,14 +79,14 @@ struct Params {
   float stretch = 1.4f;
   float shell_radius = .30f;
 
+  /**
+   * @brief Interpolates every continuous field; the pattern, view and shell
+   *        count switch together at the midpoint.
+   */
   void lerp(const Params &start, const Params &target, float amount) {
-    if (start.mode != target.mode || start.pattern != target.pattern) {
-      *this = amount < 0.5f ? start : target;
-      near_fade = hs::lerp(start.near_fade, target.near_fade, amount);
-      return;
-    }
-    mode = start.mode;
-    pattern = start.pattern;
+    const Params &NEAREST = amount < 0.5f ? start : target;
+    mode = NEAREST.mode;
+    pattern = NEAREST.pattern;
     sphere_radius = hs::lerp(start.sphere_radius, target.sphere_radius, amount);
     cell_size = hs::lerp(start.cell_size, target.cell_size, amount);
     wire_radius = hs::lerp(start.wire_radius, target.wire_radius, amount);
@@ -97,7 +97,7 @@ struct Params {
     speed = hs::lerp(start.speed, target.speed, amount);
     spin_3d = hs::lerp(start.spin_3d, target.spin_3d, amount);
     spin_4d = hs::lerp(start.spin_4d, target.spin_4d, amount);
-    shells = amount < 0.5f ? start.shells : target.shells;
+    shells = NEAREST.shells;
     shear = hs::lerp(start.shear, target.shear, amount);
     stretch = hs::lerp(start.stretch, target.stretch, amount);
     shell_radius = hs::lerp(start.shell_radius, target.shell_radius, amount);
@@ -333,56 +333,50 @@ public:
 
   static constexpr auto PRESET_IDS = std::to_array<std::string_view>({
       "cubic-flight",
+      "cubic-wide-flight",
       "hypercube-flight",
 #if HS_ENABLE_HYPERLATTICE_EXPERIMENTS
       "experimental-octet-flight",
       "experimental-octet-wide-flight",
-#endif
-      "cubic-wide-flight",
-#if HS_ENABLE_HYPERLATTICE_EXPERIMENTS
+      "experimental-octet-4d-flight",
       "experimental-shell-flight",
       "experimental-shell-close-flight",
+      "experimental-shell-4d-flight",
 #endif
   });
-  static constexpr size_t WIDE_PRESET_INDEX =
-      HS_ENABLE_HYPERLATTICE_EXPERIMENTS ? 4 : 2;
+  static constexpr size_t CUBIC_PRESET_INDEX = 0;
+  static constexpr size_t WIDE_PRESET_INDEX = 1;
+  static constexpr size_t HYPERCUBE_PRESET_INDEX = 2;
+  static constexpr size_t OCTET_PRESET_INDEX = 3;
+  static constexpr size_t OCTET_WIDE_PRESET_INDEX = 4;
+  static constexpr size_t OCTET_4D_PRESET_INDEX = 5;
+  static constexpr size_t SHELL_PRESET_INDEX = 6;
+  static constexpr size_t SHELL_CLOSE_PRESET_INDEX = 7;
+  static constexpr size_t SHELL_4D_PRESET_INDEX = 8;
   static constexpr Segue::Preset::Lerp PRESET_SEGUE{240, math::ease_in_out_sin,
                                                     /*pausable=*/true};
   static constexpr uint16_t PRESET_DWELL_FRAMES = 320;
   static constexpr uint32_t PARAMETER_SCHEMA_VERSION = 14;
 
-  static constexpr Params octet_slice_params() {
-    Params value;
-    value.pattern = Pattern::OCTET;
-    value.mode = LatticeMode::FOUR_D_SLICE;
-    value.sphere_radius = 0;
-    value.cell_size = 1.5f;
-    value.far_distance = 4.5f;
-    value.near_fade = .08f;
-    value.speed = .008f;
-    value.spin_4d = .0024f;
-    return value;
-  }
-
   HS_COLD_MEMBER static constexpr Params preset_params(size_t index) {
     Params value;
     switch (index) {
-    case 0:
+    case CUBIC_PRESET_INDEX:
     case WIDE_PRESET_INDEX:
       value.mode = LatticeMode::THREE_D;
-      value.sphere_radius = index == 0 ? 1.0f : 0.0f;
-      value.cell_size = index == 0 ? 1.0f : 2.38525f;
+      value.sphere_radius = index == CUBIC_PRESET_INDEX ? 1.0f : 0.0f;
+      value.cell_size = index == CUBIC_PRESET_INDEX ? 1.0f : 2.38525f;
       value.wire_radius = 0.055f;
       value.softness = 0.08f;
-      value.near_fade = index == 0 ? 0.5f : 2.0f;
-      value.far_distance = index == 0 ? 4.198f : 11.66f;
+      value.near_fade = index == CUBIC_PRESET_INDEX ? 0.5f : 2.0f;
+      value.far_distance = index == CUBIC_PRESET_INDEX ? 4.198f : 11.66f;
       value.aa_strength = 1.0f;
       value.speed = 0.05f;
       value.spin_3d = 0.015f;
       value.spin_4d = 0.0f;
       value.shells = ShellCount::TWO;
       break;
-    case 1:
+    case HYPERCUBE_PRESET_INDEX:
       value.mode = LatticeMode::FOUR_D_SLICE;
       value.sphere_radius = 0.0f;
       value.cell_size = 1.0f;
@@ -396,7 +390,7 @@ public:
       value.shells = ShellCount::TWO;
       break;
 #if HS_ENABLE_HYPERLATTICE_EXPERIMENTS
-    case 2:
+    case OCTET_PRESET_INDEX:
       value.pattern = Pattern::OCTET;
       value.mode = LatticeMode::THREE_D;
       value.sphere_radius = 0;
@@ -409,7 +403,7 @@ public:
       value.speed = .078f;
       value.spin_3d = .008265f;
       break;
-    case 3:
+    case OCTET_WIDE_PRESET_INDEX:
       value.pattern = Pattern::OCTET;
       value.mode = LatticeMode::THREE_D;
       value.sphere_radius = 1.0f;
@@ -421,19 +415,48 @@ public:
       value.speed = .12750001f;
       value.spin_3d = .010155f;
       break;
-    case 5:
-    case 6:
+    case OCTET_4D_PRESET_INDEX:
+      value.pattern = Pattern::OCTET;
+      value.mode = LatticeMode::FOUR_D_SLICE;
+      value.sphere_radius = 0;
+      value.cell_size = 3.448f;
+      value.wire_radius = .02919f;
+      value.near_fade = 2.0f;
+      value.far_distance = 16.0f;
+      value.aa_strength = 2.0f;
+      value.speed = .008f;
+      value.spin_3d = .01146f;
+      value.spin_4d = .010875f;
+      break;
+    case SHELL_PRESET_INDEX:
+    case SHELL_CLOSE_PRESET_INDEX: {
+      const bool FLIGHT = index == SHELL_PRESET_INDEX;
       value.pattern = Pattern::SHELLS;
       value.mode = LatticeMode::THREE_D;
       value.sphere_radius = 0;
-      value.cell_size = index == 5 ? .78625f : .4645f;
-      value.near_fade = index == 5 ? 2.0f : .6f;
-      value.far_distance = index == 5 ? 10.736f : 5.836f;
+      value.cell_size = FLIGHT ? .78625f : .4645f;
+      value.near_fade = FLIGHT ? 2.0f : .6f;
+      value.far_distance = FLIGHT ? 10.736f : 5.836f;
       value.aa_strength = 2.0f;
       value.speed = .025f;
-      value.spin_3d = index == 5 ? .015f : .003f;
+      value.spin_3d = FLIGHT ? .015f : .003f;
       value.stretch = 1.0f;
-      value.shell_radius = index == 5 ? .1f : .15f;
+      value.shell_radius = FLIGHT ? .1f : .15f;
+      break;
+    }
+    case SHELL_4D_PRESET_INDEX:
+      value.pattern = Pattern::SHELLS;
+      value.mode = LatticeMode::FOUR_D_SLICE;
+      value.sphere_radius = 0;
+      value.cell_size = 1.0f;
+      value.near_fade = 2.0f;
+      value.far_distance = 16.0f;
+      value.aa_strength = 2.0f;
+      value.speed = .05f;
+      value.spin_3d = .005f;
+      value.spin_4d = .005f;
+      value.stretch = 1.0f;
+      value.shell_radius = .15f;
       break;
 #endif
     default:
@@ -443,13 +466,15 @@ public:
   }
 
   static constexpr Params pattern_defaults(Pattern pattern, LatticeMode mode) {
+    const bool SLICE = mode == LatticeMode::FOUR_D_SLICE;
     if (pattern == Pattern::CUBIC_WIRE)
-      return preset_params(mode == LatticeMode::FOUR_D_SLICE ? 1 : 0);
+      return preset_params(SLICE ? HYPERCUBE_PRESET_INDEX : CUBIC_PRESET_INDEX);
+#if HS_ENABLE_HYPERLATTICE_EXPERIMENTS
     if (pattern == Pattern::OCTET)
-      return mode == LatticeMode::FOUR_D_SLICE ? octet_slice_params()
-                                               : preset_params(2);
-    if (pattern == Pattern::SHELLS && mode == LatticeMode::THREE_D)
-      return preset_params(5);
+      return preset_params(SLICE ? OCTET_4D_PRESET_INDEX : OCTET_PRESET_INDEX);
+    if (pattern == Pattern::SHELLS)
+      return preset_params(SLICE ? SHELL_4D_PRESET_INDEX : SHELL_PRESET_INDEX);
+#endif
     Params value;
     value.pattern = pattern;
     value.mode = mode;
@@ -543,8 +568,9 @@ public:
    * @brief Whether a parameter set matches a specialized slice pipeline.
    * @param value Parameters to test.
    * @return true when the parameters match the specialized trace assumptions.
-   * @details The shape is preset 1's; the assert in draw_frame() ties the two,
-   *          so retuning that preset cannot leave the gate behind.
+   * @details The shape is the hypercube preset's; the assert in draw_frame()
+   *          ties the two, so retuning that preset cannot leave the gate
+   *          behind.
    */
   static constexpr bool uses_specialized_slice(const Params &value) {
     return value.pattern == Pattern::CUBIC_WIRE &&
@@ -619,8 +645,9 @@ public:
     const auto prepared = HyperLatticeDetail::prepare_trace(context);
     {
       HS_PROFILE(hl_shader_draw);
-      static_assert(uses_specialized_slice(preset_params(1)),
-                    "preset 1 no longer selects the specialized slice trace");
+      static_assert(
+          uses_specialized_slice(preset_params(HYPERCUBE_PRESET_INDEX)),
+          "the hypercube preset no longer selects the specialized slice trace");
       if (uses_specialized_slice(params) && params.shells == ShellCount::TWO) {
         Scan::Shader::draw_cached<W, H, 1>(
             canvas, [&prepared](const math::Vector &view) HS_HOT_FLASH_MEMBER {
