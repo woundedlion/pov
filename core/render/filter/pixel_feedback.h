@@ -32,8 +32,10 @@ namespace Pixel {
  * the frame's plot() calls (see `terminal_replaces`); flushing last, as a
  * non-replacing terminal permits, blanks the frame at alpha >= 1.
  *
- * The warp is stored as equirect pixel offsets, so it is anisotropic near the
+  * The warp is stored as equirect pixel offsets, so it is anisotropic near the
  * poles: trails pinch and a low-frequency noise cap lenses over a few rows.
+ * Rows whose columns outnumber the row pitch two to one composite every other
+ * column (POLE_HALF_RES_PITCH_RATIO).
  */
 template <int W, int H> class Feedback : public Is2DWithHistory {
   using SphereField = hs::SphericalFieldLayout<W, H>;
@@ -54,6 +56,19 @@ public:
   static constexpr int domain_rank = IsPixel::domain_rank;
   /** @brief Marks this as terminal: flush() writes the Canvas directly. */
   static constexpr bool is_terminal = true;
+  /**
+   * @brief Column pairs per row pitch above which a row composites every
+   *        other column.
+   * @details A row at latitude sine s spans 2*pi*s / W radians per column and
+   * RADIANS_PER_ROW per row, so two columns subtend less than one row pitch
+   * once s < W * RADIANS_PER_ROW / (4*pi), about 0.5 at 288x144. Such a row
+   * samples each column pair once at its midpoint, the pair's box average,
+   * and expands the pairs back with a 3:1 blend toward each neighbouring
+   * pair, a one-column blur under one row pitch in angle. Rows the longitude
+   * filter reconstructs keep every column. 0 composites every row at full
+   * resolution.
+   */
+  static constexpr float POLE_HALF_RES_PITCH_RATIO = 1.0f;
   /** @brief Opaque store owns the frame: no history stage may precede it. */
   static constexpr bool terminal_replaces = true;
 
@@ -564,6 +579,10 @@ private:
     auto control_ring1 = ctx.control_ring1;
     int control_y0 = ctx.control_y0;
     int control_y1 = control_ring1.y;
+    // Latitude sine under which two columns subtend less than one row pitch.
+    const float half_res_sine = POLE_HALF_RES_PITCH_RATIO * W *
+                                SphereField::Geometry::RADIANS_PER_ROW *
+                                (1.0f / (4.0f * math::PI_F));
     for (int y = row_begin; y < row_end; ++y) {
       const int row = y * W;
       const bool infill_band =
@@ -573,6 +592,14 @@ private:
                                  grid.field.longitude_filter_width(y) > 1;
       const bool defer_filter = filter_output && !opaque;
       ::Pixel *output = defer_filter ? filtered_row : current + row;
+      // The pair expansion needs plain stores, and a longitude-filtered row
+      // is reconstructed at its footprint already.
+      const bool half_res = opaque && !filter_output &&
+                            SphereField::latitude_sine(y) < half_res_sine;
+      const int stride = half_res ? 2 : 1;
+      // A half-resolution sample sits between its column pair, so it is the
+      // pair's box average rather than the even column alone.
+      const float lane_offset = half_res ? 0.5f : 0.0f;
       while (y > control_y1 && field_y1 < band.field_y_end) {
         field_y0 = field_y1;
         control_y0 = control_y1;
@@ -601,6 +628,7 @@ private:
         const int xe = runs.items[r].end;
         int cx0 = xs / downsample;
         int sub = xs - cx0 * downsample;
+        bool cell_stale = true;
         float leftx = 0.0f, slopex = 0.0f;
         float lefty = 0.0f, slopey = 0.0f;
         auto cell = [&]() {
@@ -624,17 +652,16 @@ private:
                        INVERSE_WARP_SCALE -
                    lefty;
         };
-        if (sub != 0)
-          cell();
-
         for (int x = xs; x < xe;) {
-          if (sub == 0)
+          if (cell_stale) {
             cell();
+            cell_stale = false;
+          }
 
           if constexpr (PAIR_PIXELS) {
-            if (downsample - sub >= 2 && xe - x >= 2) {
+            if (downsample - sub >= 2 * stride && xe - x >= 2 * stride) {
               const float fx0 = sub * inverse_downsample;
-              const float fx1 = (sub + 1) * inverse_downsample;
+              const float fx1 = (sub + stride) * inverse_downsample;
               const float ddx0 = leftx + slopex * fx0;
               const float ddy0 = lefty + slopey * fx0;
               const float ddx1 = leftx + slopex * fx1;
@@ -643,10 +670,11 @@ private:
               Sample s0, s1;
               {
                 HS_PROFILE_DEEP(fb_comp_sample);
-                s0 = sample_bilinear_prev(grid.field, previous, poles, x + ddx0,
-                                          y + ddy0);
+                s0 = sample_bilinear_prev(grid.field, previous, poles,
+                                          x + lane_offset + ddx0, y + ddy0);
                 s1 = sample_bilinear_prev(grid.field, previous, poles,
-                                          x + 1 + ddx1, y + ddy1);
+                                          x + stride + lane_offset + ddx1,
+                                          y + ddy1);
               }
               const bool black0 = black_skips_color && s0.r < NEAR_BLACK &&
                                   s0.g < NEAR_BLACK && s0.b < NEAR_BLACK;
@@ -663,14 +691,15 @@ private:
               HS_PROFILE_DEEP(fb_comp_write);
               ::Pixel &dst0 = output[x];
               dst0 = (opaque || defer_filter) ? p0 : blend(dst0, p0);
-              ::Pixel &dst1 = output[x + 1];
+              ::Pixel &dst1 = output[x + stride];
               dst1 = (opaque || defer_filter) ? p1 : blend(dst1, p1);
 
-              x += 2;
-              sub += 2;
-              if (sub == downsample) {
-                sub = 0;
+              x += 2 * stride;
+              sub += 2 * stride;
+              if (sub >= downsample) {
+                sub -= downsample;
                 ++cx0;
+                cell_stale = true;
               }
               continue;
             }
@@ -683,8 +712,8 @@ private:
           Sample s;
           {
             HS_PROFILE_DEEP(fb_comp_sample);
-            s = sample_bilinear_prev(grid.field, previous, poles, x + ddx,
-                                     y + ddy);
+            s = sample_bilinear_prev(grid.field, previous, poles,
+                                     x + lane_offset + ddx, y + ddy);
           }
           ::Pixel p(0, 0, 0);
           if (!(black_skips_color && s.r < NEAR_BLACK && s.g < NEAR_BLACK &&
@@ -698,12 +727,20 @@ private:
           ::Pixel &dst = output[x];
           dst = (opaque || defer_filter) ? p : blend(dst, p);
 
-          ++x;
-          if (++sub == downsample) {
-            sub = 0;
+          x += stride;
+          sub += stride;
+          while (sub >= downsample) {
+            sub -= downsample;
             ++cx0;
+            cell_stale = true;
           }
         }
+      }
+      if (half_res) {
+        HS_PROFILE_DEEP(fb_comp_fill);
+        for (int r = 0; r < runs.count; ++r)
+          reconstruct_half_res_run(output, runs.items[r].begin,
+                                   runs.items[r].end);
       }
       if (filter_output) {
         HS_PROFILE_DEEP(fb_comp_filter);
@@ -745,6 +782,39 @@ private:
   static constexpr float WARP_SCALE = 128.0f;
   /** @brief Column offsets in WARP_SCALE units, one full turn apart. */
   static constexpr float WRAP_PERIOD = static_cast<float>(W) * WARP_SCALE;
+
+  /**
+   * @brief Expands a half-resolution run's pair samples back to every column.
+   * @param output Row whose even columns in [begin, end) hold their pair's
+   *        box average, sampled at the pair's midpoint.
+   * @param begin First column of the run.
+   * @param end One past the run's last column.
+   * @details Each column takes three quarters of its own pair's sample and a
+   * quarter of the neighbouring pair's on its side, the linear reconstruction
+   * between pair midpoints, so a row keeps its centroid instead of drifting a
+   * column per frame. A full row wraps across the seam; a clipped run repeats
+   * its end pairs.
+   */
+  static void reconstruct_half_res_run(::Pixel *output, int begin, int end) {
+    const bool full_row = begin == 0 && end == W;
+    auto blend = [](const ::Pixel &own, const ::Pixel &other) {
+      return ::Pixel(static_cast<uint16_t>((3u * own.r + other.r + 2u) >> 2),
+                     static_cast<uint16_t>((3u * own.g + other.g + 2u) >> 2),
+                     static_cast<uint16_t>((3u * own.b + other.b + 2u) >> 2));
+    };
+    // The last pair's right neighbour wraps onto the first sample, which the
+    // loop overwrites first.
+    const ::Pixel first = output[begin];
+    ::Pixel previous = full_row ? output[W - 2 + (W & 1)] : first;
+    for (int x = begin; x < end; x += 2) {
+      const ::Pixel own = output[x];
+      const ::Pixel next = x + 2 < end ? output[x + 2] : full_row ? first : own;
+      output[x] = blend(own, previous);
+      if (x + 1 < end)
+        output[x + 1] = blend(own, next);
+      previous = own;
+    }
+  }
 
   /**
    * @brief Lifts @p v onto the wrap branch nearest @p reference.
