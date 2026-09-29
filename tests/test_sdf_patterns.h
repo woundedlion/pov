@@ -4,6 +4,8 @@
  */
 #pragma once
 
+#include <limits>
+
 #include "core/render/sdf/framework.h"
 #include "core/render/sdf/lattice_field.h"
 #include "core/render/sdf/periodic_surface.h"
@@ -283,21 +285,35 @@ inline void test_octet_struts_have_one_angle_correct_coverage_layer() {
                   DIRECTION,
                   {0, 0.4f}};
               const Raycast::Footprint FOOTPRINT{aa * octet.wire_radius, 0.2f};
-              const float DISTANCE =
-                  fabsf(math::dot(RAY.origin - MIDPOINT, CROSS)) /
-                  CROSS.magnitude();
+              const double CX =
+                  double(DIRECTION.y) * edge.z - double(DIRECTION.z) * edge.y;
+              const double CY =
+                  double(DIRECTION.z) * edge.x - double(DIRECTION.x) * edge.z;
+              const double CZ =
+                  double(DIRECTION.x) * edge.y - double(DIRECTION.y) * edge.x;
+              const double DISTANCE =
+                  fabs((double(RAY.origin.x) - MIDPOINT.x) * CX +
+                       (double(RAY.origin.y) - MIDPOINT.y) * CY +
+                       (double(RAY.origin.z) - MIDPOINT.z) * CZ) /
+                  sqrt(CX * CX + CY * CY + CZ * CZ);
               SDF::OctetEvents events(octet, RAY, FOOTPRINT);
               size_t count = 0;
               const auto RESULT = Raycast::trace_events(
                   events, RAY.interval, {}, [&](const auto &hit) {
                     const float WIDTH = FOOTPRINT.at(hit.t);
-                    const float EXPECTED =
+                    const double EXPECTED =
                         WIDTH > 0
-                            ? std::clamp(0.5f - (DISTANCE - octet.wire_radius) /
-                                                    WIDTH,
-                                         0.0f, 1.0f)
+                            ? std::clamp(0.5 - (DISTANCE - octet.wire_radius) /
+                                                   WIDTH,
+                                         0.0, 1.0)
                             : 1.0f;
-                    HS_EXPECT_NEAR(hit.coverage, EXPECTED, 2e-4f);
+                    // Plane-coordinate rounding is amplified by the AA width.
+                    const double TOLERANCE =
+                        WIDTH > 0
+                            ? 2e-4 + std::numeric_limits<float>::epsilon() *
+                                         octet.cell_size / WIDTH
+                            : 2e-4;
+                    HS_EXPECT_NEAR(hit.coverage, EXPECTED, TOLERANCE);
                     HS_EXPECT_FALSE(hit.verified);
                     ++count;
                     return true;
