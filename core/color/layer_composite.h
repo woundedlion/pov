@@ -42,6 +42,21 @@ struct LayerComposite {
   }
 
   /**
+   * @brief add() for a color given as unrounded channels.
+   * @param rgb Layer red, green and blue channels.
+   * @param coverage Fraction of the remaining transmittance the layer covers,
+   *        in [0, 1].
+   */
+  void add(const float (&rgb)[3], float coverage) {
+    assert(coverage >= 0.0f && coverage <= 1.0f);
+    const float weight = remaining * coverage;
+    red += rgb[0] * weight;
+    green += rgb[1] * weight;
+    blue += rgb[2] * weight;
+    remaining *= 1.0f - coverage;
+  }
+
+  /**
    * @brief Whether remaining transmittance is too small for a later layer to matter.
    * @return True once the remaining transmittance is below the smallest
    *   encodable alpha. Further layers can still change a rounded output code.

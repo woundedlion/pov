@@ -103,6 +103,30 @@ public:
     return sample_color_index(t * (LUT_SIZE - 1));
   }
 
+  /**
+   * @brief get_color_unit() channels times @p scale, before any rounding.
+   * @param t Finite lookup coordinate in [0, 1].
+   * @param scale Factor applied to every channel.
+   * @param rgb Receives the scaled red, green and blue channels.
+   */
+  __attribute__((always_inline)) void
+  get_color_unit_scaled(float t, float scale, float (&rgb)[3]) const {
+    assert(colors != nullptr &&
+           "BakedPalette::get_color_unit_scaled before bake()");
+    assert(t >= 0.0f && t <= 1.0f);
+    const float IDX = t * (LUT_SIZE - 1);
+    const int LO = std::min(lut_index_lo(IDX), LUT_SIZE - 2);
+    const float FRAC = (IDX - static_cast<float>(LO)) * scale;
+    const Pixel &BELOW = colors[LO];
+    const Pixel &ABOVE = colors[LO + 1];
+    const float RED = static_cast<float>(BELOW.r);
+    const float GREEN = static_cast<float>(BELOW.g);
+    const float BLUE = static_cast<float>(BELOW.b);
+    rgb[0] = RED * scale + (static_cast<float>(ABOVE.r) - RED) * FRAC;
+    rgb[1] = GREEN * scale + (static_cast<float>(ABOVE.g) - GREEN) * FRAC;
+    rgb[2] = BLUE * scale + (static_cast<float>(ABOVE.b) - BLUE) * FRAC;
+  }
+
   /** @brief Returns a read-only handle to this arena-backed table. */
   BakedPalette view() const { return *this; }
 

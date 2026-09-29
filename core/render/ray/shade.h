@@ -26,6 +26,17 @@ struct Appearance {
     const float nearness = 1 - t * inv_far;
     return palette->get_color_unit(nearness) * (.45f + .55f * nearness);
   }
+  /**
+   * @brief Adds the depth-graded color at distance t as one layer of
+   *        coverage times opacity(t), without rounding the color first.
+   */
+  __attribute__((always_inline)) void composite(LayerComposite &layers, float t,
+                                                float coverage) const {
+    const float nearness = 1 - t * inv_far;
+    float rgb[3];
+    palette->get_color_unit_scaled(nearness, .45f + .55f * nearness, rgb);
+    layers.add(rgb, coverage * opacity(t));
+  }
 };
 
 struct ShadedTrace {

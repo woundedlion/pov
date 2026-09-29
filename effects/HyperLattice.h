@@ -281,8 +281,7 @@ composite_crossings(const math::Vector &normal, const PreparedTrace &prepared) {
     float coverage = coverages[layer];
     for (++layer; layer < count && distances[layer] <= GROUP_END; ++layer)
       coverage = std::max(coverage, coverages[layer]);
-    composite.add(prepared.appearance.color(T),
-                  coverage * prepared.appearance.opacity(T));
+    prepared.appearance.composite(composite, T, coverage);
     if (composite.saturated())
       break;
   }
