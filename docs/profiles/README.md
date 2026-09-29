@@ -124,3 +124,12 @@ they do not satisfy the required canonical shipping coverage.
 | [5: Octet wide](shipping/profile_hyperlattice_octet_preset5_teensy_2026-09-28.md) ● | 🟢 45.242 | — | 🟢 0/1096 (0.00%) | — | — | — | ship 2026-09-28 09:53 |
 
 ● Updated 2026-09-28 09:53–09:56 after the Octet 58 ms Tiers 1–2 (`1bb522211`). Opt-in held presets, startup excluded; 4D on COM3, 3D on COM4. [Earlier optimization and 4D evidence](hyperlattice_octet_optimization_2026-09-27.md). No global-O3 twins or size deltas were captured for this code.
+
+## Shell flight supplement
+
+Two opt-in fixed presets, captured on COM4; startup excluded. [Shipping report](shipping/profile_hyperlattice_shell_flight_teensy_2026-09-28.md) and [global-O3 report](O3/profile_hyperlattice_shell_flight_teensy_2026-09-28.md).
+
+| Preset | Ship peak ms | O3 peak ms | Ship spilled | O3 spilled | FLASH Δ | ITCM Δ | Captured local |
+|---|--:|--:|--:|--:|--:|--:|---|
+| 5: Shell Flight | 🔴 144.076 | 🔴 142.252 | 🔴 153/153 (100.00%) | 🔴 153/153 (100.00%) | +13,344 B | +4,736 B | ship 2026-09-28 23:20<br>O3 2026-09-28 23:24 |
+| 6: Shell Close Flight | 🔴 139.113 | 🔴 137.024 | 🔴 153/153 (100.00%) | 🔴 153/153 (100.00%) | +13,344 B | +4,736 B | ship 2026-09-28 23:25<br>O3 2026-09-28 23:27 |
