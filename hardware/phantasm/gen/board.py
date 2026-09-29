@@ -1,7 +1,7 @@
 """Generate phantasm.kicad_sch — PHANTASM per-segment carrier board.
 
 Run from this directory:  python board.py
-Writes the project files into the parent (hardware/phantasm/).
+Writes the project files into hardware/phantasm/<revision>/.
 Requires KiCad's stock symbol libs (see sexp.KICAD_SHARE / env KICAD_SYMBOL_DIR).
 
 Layout: left-to-right signal flow in labelled blocks. Power distribution uses
@@ -19,15 +19,13 @@ from constraints import (DEFAULT_CLASS_MINIMUMS, NEW_LAYOUT_RULES, RULE_MINIMUMS
 from kicad_common import atomic_write_text
 from kicad_common import require_writable, reset_uid_sequence
 
-OUT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+OUT = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+                   B.REVISION)
 SCH = os.path.join(OUT, "phantasm.kicad_sch")
 
 SCH_REASON = (
-    "KiCad wrote the committed schematic last, not this generator: it holds\n"
-    "  annotation and hand edits, and random v4 uuids that regeneration replaces\n"
-    "  with deterministic v5 ids -- dangling every (path ...) link\n"
-    "  phantasm.kicad_pcb holds into it. Re-annotating, re-placing and re-routing\n"
-    "  follow.")
+    "Regeneration replaces this revision's schematic, including any KiCad\n"
+    "  edits. Regenerate its board afterward to keep their symbol links aligned.")
 
 
 def parse_args(argv=None):
@@ -71,6 +69,8 @@ def write_project(path, root_uuid="", unplaced=False):
     if root_uuid:
         sheets = [entry for entry in project.get("sheets", []) if entry[1] != "Root"]
         project["sheets"] = [[root_uuid, "Root"], *sheets]
+    project.setdefault("text_variables", {})["PHANTASM_LAYOUT"] = (
+        "unplaced" if unplaced else "placed")
     apply_project_floors(project, UNPLACED_RULES if unplaced else RULE_MINIMUMS,
                          UNPLACED_DEFAULT_CLASS if unplaced else DEFAULT_CLASS_MINIMUMS)
     atomic_write_text(path, json.dumps(project, indent=2) + "\n")
@@ -98,12 +98,14 @@ def main(force=False):
 
 
     def make_teensy():
-        """Teensy 4.0 symbol with the twelve connected pads and matching footprint."""
+        """Teensy 4.0 symbol with every numbered pad in the carrier footprint."""
         # (display-name, pad number), grouped by side.
         LEFT = [("D11/MOSI", "11"), ("D13/SCK", "13"), ("D3", "3"),
                 ("D4", "4"), ("D5", "5"),
                 ("D1/TX1", "1"), ("D21", "21"), ("D22", "22"), ("D23", "23")]
         RIGHT = [("VIN", "VIN"), ("3V3", "3V3"), ("GND", "GND")]
+        UNUSED = ["0", "2", "6", "7", "8", "9", "10", "12",
+                  "14", "15", "16", "17", "18", "19", "20"]
         bodyx = 13.97
         pitch = 5.08
         name2num = {}
@@ -124,7 +126,12 @@ def main(force=False):
             et = {"VIN": "power_in", "GND": "power_in", "3V3": "power_out"}[name]
             addpin(name, num, (bodyx + 5.08), topR - i * pitch, 180, et)
 
-        half = topL + pitch
+        unused_y = [30.48 - i * 2.54 for i in range(7)]
+        unused_y += [-17.78 - i * 2.54 for i in range(8)]
+        for num, y in zip(UNUSED, unused_y):
+            addpin(f"D{num}", num, bodyx + 5.08, round(y, 2), 180, "passive")
+
+        half = 40.64
         text = (
             '(symbol "phantasm:Teensy4.0"\n'
             '\t(pin_names (offset 1.016))\n'
@@ -143,11 +150,11 @@ def main(force=False):
             '\t(symbol "Teensy4.0_1_1"\n'
             + "\n".join(pins) + ")\n)\n")
         node = sexp.parse(text)[0]
-        return b.register_custom(node, "phantasm:Teensy4.0"), name2num
+        return b.register_custom(node, "phantasm:Teensy4.0"), name2num, UNUSED
 
 
     make_power("+5V_RAW"); make_power("+5V_LOGIC")
-    TEENSY, TPN = make_teensy()
+    TEENSY, TPN, UNUSED_TEENSY_PINS = make_teensy()
 
     for lib, name in [("power", "GND"), ("power", "+3V3"), ("power", "PWR_FLAG"),
                       ("Device", "R"), ("Device", "C"), ("Device", "C_Polarized"),
@@ -312,7 +319,7 @@ def main(force=False):
 
     # ============================================================ BLOCK 2: LOGIC
     b.text((25, 116), "TEENSY 4.0  +  74AHCT125 LEVEL SHIFTER  ->  LED STRIP", 2.2)
-    # --- Teensy (compact symbol, only used pins) ---
+    # --- Teensy ---
     U = place(TEENSY, "U_MCU", "Teensy4.0", 60.96, 165.1,
               fp="phantasm:Teensy4.0", in_bom=False)
     tn = lambda d: TPN[d]
@@ -328,6 +335,8 @@ def main(force=False):
     to_label(U, tn("D22"), "ID1")
     to_label(U, tn("D23"), "ID2")   # read by the N=8 firmware profile
     to_label(U, tn("D1/TX1"), "SERIAL1_TX")
+    for num in UNUSED_TEENSY_PINS:
+        b.no_connect(U.pin(num))
 
     # --- U1 buffer units (A/B/C/D) + power unit (E) ---
     ux = 152.4
@@ -437,6 +446,7 @@ def main(force=False):
     flag(GND, 317.5, fy)
 
     # ---------------------------------------------------------------- write files
+    os.makedirs(OUT, exist_ok=True)
     atomic_write_text(SCH, b.dumps())
 
     lib_lines = ['(kicad_symbol_lib', f'\t(version {sexp.SYMBOL_LIB_FORMAT})',

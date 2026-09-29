@@ -11,7 +11,7 @@ from kicad_common import F
 FLAG_NET = "PWR_FLAG"
 
 DEFAULT_SCH = os.path.join(
-    os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "phantasm.kicad_sch")
+    os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "1.1", "phantasm.kicad_sch")
 
 def R(v):
     return (round(float(v[0]), 3), round(float(v[1]), 3))

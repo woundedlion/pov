@@ -130,7 +130,7 @@ def check(got, revision=builder.REVISION):
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("schematic", nargs="?", default=os.path.join(
-        os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+        os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "1.1",
         "phantasm.kicad_sch"))
     args = parser.parse_args(argv)
     root = export_netlist(kicad_cli(), args.schematic)

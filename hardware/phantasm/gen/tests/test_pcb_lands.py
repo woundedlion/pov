@@ -12,9 +12,9 @@ import pcb  # noqa: E402
 import sexp  # noqa: E402
 from kicad_common import F  # noqa: E402
 
-UNPLACED = GEN_DIR.parent / "unplaced" / "phantasm_unplaced.kicad_pcb"
-ROUTED = GEN_DIR.parent / "phantasm.kicad_pcb"
-TEENSY_LIBRARY = GEN_DIR.parent / "phantasm.pretty" / "Teensy4.0.kicad_mod"
+UNPLACED = GEN_DIR.parent / "1.2" / "phantasm.kicad_pcb"
+ROUTED = GEN_DIR.parent / "1.1" / "phantasm.kicad_pcb"
+TEENSY_LIBRARY = GEN_DIR.parent / "1.1" / "phantasm.pretty" / "Teensy4.0.kicad_mod"
 
 # Every reference the generator embeds straight from its footprint library.
 LIBRARY_LAND_REFS = ("R1", "R2", "R_PD", "R_S", "R_MEN", "R_D1", "R_D2",
@@ -90,7 +90,8 @@ def reference(node):
         if (isinstance(child, list) and child and child[0] == "property"
                 and child[1] == "Reference"):
             return child[2]
-    return None
+    return next((child[2] for child in F(node, "fp_text")
+                 if child[1] == "reference"), None)
 
 
 def is_chip_passive(node):
@@ -178,7 +179,8 @@ class PowerInletTests(unittest.TestCase):
                  "phantasm:TerminalBlock_GCT_TBC05-03-1-G-G")
 
     def test_schematic_ships_the_unkeyed_header(self):
-        footprints = {ref: fp for ref, fp, _, _ in pcb.schematic_components()}
+        with unittest.mock.patch.object(pcb, "SCH", str(ROUTED.with_suffix(".kicad_sch"))):
+            footprints = {ref: fp for ref, fp, _, _ in pcb.schematic_components()}
         self.assertEqual(footprints["J1"], self.SHIPPED)
 
     def test_routed_board_ships_the_unkeyed_header(self):

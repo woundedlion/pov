@@ -80,6 +80,7 @@ class Builder:
         self.wires = []
         self.labels = []
         self.junctions = []
+        self.no_connects = []
         self.junction_keys = set()
         self.texts = []          # (point, string, size, uuid)
         self.lib_defs = {}       # lib_id -> symbol node (for lib_symbols)
@@ -165,6 +166,9 @@ class Builder:
     def text(self, p, s, size=2.0):
         self.texts.append((p, s, size, uid()))
 
+    def no_connect(self, p):
+        self.no_connects.append((p, uid()))
+
     def junction(self, p):
         key = (round(p[0], 3), round(p[1], 3))
         if key in self.junction_keys:
@@ -198,6 +202,9 @@ class Builder:
             out.append('\t\t(color 0 0 0 0)')
             out.append(f'\t\t(uuid "{node_uuid}")')
             out.append('\t)')
+        for p, node_uuid in self.no_connects:
+            out.append(f'\t(no_connect (at {fmt(p[0])} {fmt(p[1])}) '
+                       f'(uuid "{node_uuid}"))')
         # wires
         for (p1, p2, node_uuid) in self.wires:
             out.append('\t(wire')

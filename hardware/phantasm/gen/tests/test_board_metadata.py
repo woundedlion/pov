@@ -15,7 +15,7 @@ import fab   # noqa: E402
 
 class BoardMetadataTests(unittest.TestCase):
     def test_knockout_silkscreen_does_not_change_outline(self):
-        source = (GEN_DIR.parent / "phantasm.kicad_pcb").read_text(encoding="utf-8")
+        source = (GEN_DIR.parent / "1.1" / "phantasm.kicad_pcb").read_text(encoding="utf-8")
         baseline = board_metadata.parse_board(source)
         source = source.replace('(kicad_pcb', '(kicad_pcb (gr_text "X" '
                                 '(at 0 0) (layer "F.SilkS" knockout))', 1)
@@ -23,7 +23,7 @@ class BoardMetadataTests(unittest.TestCase):
 
     def test_cross_arm_width_is_capped_independently_of_arm_length(self):
         metadata = board_metadata.load_board(
-            GEN_DIR.parent / "phantasm.kicad_pcb")
+            GEN_DIR.parent / "1.1" / "phantasm.kicad_pcb")
         board_metadata.validate_mechanical_width(metadata)
         board_metadata.validate_mechanical_width(replace(
             metadata, width_mm=Decimal("100"), height_mm=Decimal("35")))
@@ -56,7 +56,7 @@ class BoardMetadataTests(unittest.TestCase):
 
     def test_extracts_committed_routed_board(self):
         metadata = board_metadata.load_board(
-            REPO_ROOT / "hardware" / "phantasm" / "phantasm.kicad_pcb"
+            REPO_ROOT / "hardware" / "phantasm" / "1.1" / "phantasm.kicad_pcb"
         )
 
         self.assertEqual(
@@ -87,7 +87,7 @@ class BoardMetadataTests(unittest.TestCase):
 
     def test_pour_count_matches_the_fab_gate(self):
         """The facts block and gen/fab.py must count copper the same way."""
-        board = REPO_ROOT / "hardware" / "phantasm" / "phantasm.kicad_pcb"
+        board = REPO_ROOT / "hardware" / "phantasm" / "1.1" / "phantasm.kicad_pcb"
         metadata = board_metadata.load_board(board)
 
         self.assertEqual(metadata.copper_pours,
@@ -186,10 +186,10 @@ class BoardMetadataTests(unittest.TestCase):
 
     def test_rejects_readme_drift(self):
         metadata = board_metadata.load_board(
-            REPO_ROOT / "hardware" / "phantasm" / "phantasm.kicad_pcb"
+            REPO_ROOT / "hardware" / "phantasm" / "1.1" / "phantasm.kicad_pcb"
         )
         facts = board_metadata.render_facts(metadata)
-        readme = (REPO_ROOT / "hardware" / "phantasm" / "README.md").read_text(encoding="utf-8")
+        readme = (REPO_ROOT / "hardware" / "phantasm" / "1.1" / "README.md").read_text(encoding="utf-8")
         current = f"| Track segments | {metadata.track_segments} |"
         stale = readme.replace(
             current,

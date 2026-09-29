@@ -45,7 +45,7 @@ import sexp
 from kicad_common import F, kicad_cli, net_name
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-PROJ = os.path.dirname(HERE)
+PROJ = os.path.join(os.path.dirname(HERE), "1.1")
 
 # clearance/hole errors against a pour usually clear on a KiCad zone refill (Quilter
 # exports pours without antipads around signal vias) -- flagged separately from real

@@ -44,7 +44,7 @@ from heal_clearance import rule_shortfalls
 from kicad_common import F, is_copper_pour, kicad_cli, require_annotated_export
 
 GEN = os.path.dirname(os.path.abspath(__file__))
-PROJ = os.path.dirname(GEN)                       # hardware/phantasm
+PROJ = os.path.join(os.path.dirname(GEN), "1.1")
 PCB = os.path.join(PROJ, "phantasm.kicad_pcb")
 SCH = os.path.join(PROJ, "phantasm.kicad_sch")
 PRO = os.path.join(PROJ, "phantasm.kicad_pro")

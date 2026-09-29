@@ -12,8 +12,8 @@ from kicad_common import F  # noqa: E402
 
 
 BOARDS = {
-    "routed": GEN.parent / "phantasm.kicad_pcb",
-    "unplaced": GEN.parent / "unplaced" / "phantasm_unplaced.kicad_pcb",
+    "routed": GEN.parent / "1.1" / "phantasm.kicad_pcb",
+    "unplaced": GEN.parent / "1.2" / "phantasm.kicad_pcb",
 }
 
 

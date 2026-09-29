@@ -125,7 +125,7 @@ class TestDocumentationChecker(unittest.TestCase):
             PurePosixPath("tools/phantasm.ld"),
             PurePosixPath("hardware"),
             PurePosixPath("hardware/phantasm"),
-            PurePosixPath("hardware/phantasm/phantasm.kicad_pcb"),
+            PurePosixPath("hardware/phantasm/1.1/phantasm.kicad_pcb"),
             PurePosixPath("docs"),
         }
         issues = dc.check_text(PurePosixPath("docs/readme.md"), text, entries)
