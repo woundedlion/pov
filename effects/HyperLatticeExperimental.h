@@ -433,17 +433,194 @@ trace_octet_3d(const math::Vector &direction, const Prepared &prepared) {
   return covered.composite(prepared.limits, prepared.appearance);
 }
 
+/**
+ * @brief The 4D octet trace in the ray's canonical frame.
+ * @details The D4 lattice is invariant under coordinate permutations and sign
+ * changes, both exact in floating point. Reflecting the ray so each direction
+ * component is non-negative and ordering the components by magnitude fixes
+ * SDF::OctetEvents4's ownership: the all-positive family owns the six
+ * difference classes and the families flipping coordinates 0, 1 and 2 own the
+ * sum classes whose smaller coordinate they flip. Each crossing then evaluates
+ * a fixed class list with OctetEvents4's arithmetic.
+ *
+ * A class's lines lie in its owner's planes. A ray meets a line in the plane
+ * of its crossing Q no closer than |n . v| times the line's distance from Q,
+ * and that distance is at least the residual length of the class's two free
+ * coordinates, so a crossing whose every owned class fails that bound against
+ * the support is skipped before the class search.
+ */
+__attribute__((always_inline)) inline Sample
+trace_octet_4d(const math::Vector &direction, const Prepared &prepared) {
+  struct Pair {
+    uint8_t i, j, k, l;
+  };
+  const auto &camera = prepared.camera;
+  const auto &projection = prepared.octet4_projection;
+  const auto &footprint = prepared.footprint;
+  const float NEAR = camera.interval.near;
+  const float FAR = camera.interval.far;
+  const float INVERSE_SCALE = projection.inverse_scale;
+  const float SCALE =
+      SDF::OctetFramework4::HALF_CUBE * prepared.octet4.cell_size;
+  const float WIRE_RADIUS = prepared.octet4.wire_radius;
+  std::array<float, 4> ambient;
+  for (int axis = 0; axis < 4; ++axis)
+    ambient[axis] = math::dot(direction, projection.embedding[axis]);
+  std::array<uint8_t, 4> order;
+  for (uint8_t axis = 0; axis < 4; ++axis) {
+    uint8_t rank = 0;
+    for (uint8_t other = 0; other < 4; ++other)
+      rank += other < axis ? fabsf(ambient[other]) <= fabsf(ambient[axis])
+                           : fabsf(ambient[other]) < fabsf(ambient[axis]);
+    order[rank] = axis;
+  }
+  std::array<float, 4> components, rates, origins;
+  for (int m = 0; m < 4; ++m) {
+    const uint8_t AXIS = order[m];
+    const float LOCAL = ambient[AXIS] * INVERSE_SCALE;
+    const float START = projection.origin[AXIS] + camera.radial_start * LOCAL;
+    components[m] = fabsf(ambient[AXIS]);
+    rates[m] = fabsf(LOCAL);
+    origins[m] = ambient[AXIS] < 0.0f ? -START : START;
+  }
+  CoveredCrossings covered;
+  int crossings = 0;
+  const int BUDGET =
+      std::min(prepared.limits.max_candidates, CoveredCrossings::CAPACITY);
+  const auto walk = [&]<size_t CLASSES>(
+                        int flipped, float sign,
+                        const std::array<Pair, CLASSES>
+                            &pairs) __attribute__((always_inline)) {
+    std::array<float, CLASSES> transverses, denominators, dks, dls;
+    bool owned = false;
+    for (size_t c = 0; c < CLASSES; ++c) {
+      const auto &PAIR = pairs[c];
+      const float ALONG = components[PAIR.i] + sign * components[PAIR.j];
+      denominators[c] = 1.0f - 0.5f * ALONG * ALONG;
+      transverses[c] = 0.5f * (components[PAIR.i] - sign * components[PAIR.j]);
+      dks[c] = components[PAIR.k];
+      dls[c] = components[PAIR.l];
+      owned |= denominators[c] > 0.0f;
+    }
+    if (!owned)
+      return true;
+    float position = 0.0f;
+    float speed = 0.0f;
+    for (int m = 0; m < 4; ++m) {
+      const float P = origins[m] + NEAR * rates[m];
+      position += m == flipped ? -P : P;
+      speed += m == flipped ? -rates[m] : rates[m];
+    }
+    position *= 0.5f;
+    speed *= 0.5f;
+    if (speed == 0.0f)
+      return true;
+    const float PLANE = speed > 0.0f ? ceilf(position) : floorf(position);
+    const float INVERSE = 1.0f / speed;
+    const float STEP = fabsf(INVERSE);
+    const float FIRST = NEAR + (PLANE - position) * INVERSE;
+    if (!Raycast::finite(FIRST) || !Raycast::finite(STEP) || !(STEP > 0.0f))
+      return true;
+    // Squared |n . v| over the unit ray, with a margin for rounding.
+    const float PLANE_SHARE = 0.9999f * (speed * SCALE) * (speed * SCALE);
+    for (float t = FIRST; t <= FAR; t += STEP) {
+      if (++crossings > BUDGET)
+        return false;
+      if (t < NEAR)
+        continue;
+      std::array<float, 4> residual;
+      std::array<float, 4> rounded;
+      for (int m = 0; m < 4; ++m) {
+        const float Q = origins[m] + rates[m] * t;
+        rounded[m] = roundf(Q);
+        residual[m] = Q - rounded[m];
+      }
+      const float SUPPORT =
+          (WIRE_RADIUS + .5f * footprint.at(t)) * INVERSE_SCALE;
+      const float SUPPORT2 = SUPPORT * SUPPORT;
+      float nearest = INFINITY;
+      for (size_t c = 0; c < CLASSES; ++c)
+        nearest =
+            std::min(nearest, residual[pairs[c].k] * residual[pairs[c].k] +
+                                  residual[pairs[c].l] * residual[pairs[c].l]);
+      if (PLANE_SHARE * nearest > SUPPORT2)
+        continue;
+      int parity = 0;
+      for (int m = 0; m < 4; ++m)
+        parity += static_cast<int>(rounded[m]);
+      const bool ODD = parity & 1;
+      float numerator = INFINITY;
+      float denominator = 1.0f;
+      for (size_t c = 0; c < CLASSES; ++c) {
+        const auto &PAIR = pairs[c];
+        float rk = residual[PAIR.k];
+        float rl = residual[PAIR.l];
+        // A class the plane bound clears cannot reach the support, and
+        // neither can a farther class it would otherwise have beaten.
+        if (!(denominators[c] > 0.0f) ||
+            PLANE_SHARE * (rk * rk + rl * rl) > SUPPORT2)
+          continue;
+        float across = residual[PAIR.i] - sign * residual[PAIR.j];
+        const float SHIFT = across > 0.5f    ? 1.0f
+                            : across < -0.5f ? -1.0f
+                                             : 0.0f;
+        across -= SHIFT;
+        if ((SHIFT != 0.0f) != ODD) {
+          const float COST = 0.5f - fabsf(across);
+          const float COST_K = 1.0f - 2.0f * fabsf(rk);
+          const float COST_L = 1.0f - 2.0f * fabsf(rl);
+          if (COST <= COST_K && COST <= COST_L)
+            across -= copysignf(1.0f, across);
+          else if (COST_K <= COST_L)
+            rk -= copysignf(1.0f, rk);
+          else
+            rl -= copysignf(1.0f, rl);
+        }
+        const float OFFSET2 = 0.5f * across * across + rk * rk + rl * rl;
+        const float DOT = across * transverses[c] + rk * dks[c] + rl * dls[c];
+        const float N = std::max(0.0f, OFFSET2 * denominators[c] - DOT * DOT);
+        if (N * denominator < numerator * denominators[c]) {
+          numerator = N;
+          denominator = denominators[c];
+        }
+      }
+      if (numerator > SUPPORT2 * denominator)
+        continue;
+      const float FIELD = SCALE * sqrtf(numerator / denominator) - WIRE_RADIUS;
+      const float WIDTH = footprint.at(t);
+      const float COVERAGE = WIDTH > 0.0f
+                                 ? std::clamp(0.5f - FIELD / WIDTH, 0.0f, 1.0f)
+                                 : (FIELD <= 0.0f ? 1.0f : 0.0f);
+      if (COVERAGE > 0.0f)
+        covered.insert(t, COVERAGE);
+    }
+    return true;
+  };
+  constexpr std::array<Pair, 6> DIFFERENCES{{{0, 1, 2, 3},
+                                             {0, 2, 1, 3},
+                                             {0, 3, 1, 2},
+                                             {1, 2, 0, 3},
+                                             {1, 3, 0, 2},
+                                             {2, 3, 0, 1}}};
+  constexpr std::array<Pair, 3> FIRST_SUMS{
+      {{0, 1, 2, 3}, {0, 2, 1, 3}, {0, 3, 1, 2}}};
+  constexpr std::array<Pair, 2> SECOND_SUMS{{{1, 2, 0, 3}, {1, 3, 0, 2}}};
+  constexpr std::array<Pair, 1> THIRD_SUM{{{2, 3, 0, 1}}};
+  if (!walk(-1, -1.0f, DIFFERENCES) || !walk(0, 1.0f, FIRST_SUMS) ||
+      !walk(1, 1.0f, SECOND_SUMS) || !walk(2, 1.0f, THIRD_SUM)) {
+    const SDF::OctetEvents4 events(prepared.octet4, projection, direction,
+                                   camera.radial_start, NEAR, footprint);
+    return trace(events, camera.interval, prepared.limits, prepared.appearance);
+  }
+  return covered.composite(prepared.limits, prepared.appearance);
+}
+
 /** @brief shade() for a valid octet frame of the matching domain. */
 template <bool SLICE_4D>
 __attribute__((always_inline)) inline Sample
 shade_octet(const math::Vector &direction, const Prepared &prepared) {
   if constexpr (SLICE_4D) {
-    const auto &camera = prepared.camera;
-    const SDF::OctetEvents4 events(prepared.octet4, prepared.octet4_projection,
-                                   direction, camera.radial_start,
-                                   camera.interval.near, prepared.footprint);
-    return trace_sorted(events, camera.interval, prepared.limits,
-                        prepared.appearance);
+    return trace_octet_4d(direction, prepared);
   } else {
     return trace_octet_3d(direction, prepared);
   }
