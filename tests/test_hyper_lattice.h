@@ -760,11 +760,11 @@ inline void test_presets_and_pipeline() {
   for (size_t index = 0; index < Effect::PRESET_IDS.size(); ++index)
     HS_EXPECT_TRUE(Effect::valid_params(Effect::preset_params(index)));
   static_assert(Effect::PRESET_IDS.size() ==
-                (HS_ENABLE_HYPERLATTICE_EXPERIMENTS ? 6 : 3));
+                (HS_ENABLE_HYPERLATTICE_EXPERIMENTS ? 7 : 3));
   static_assert(Effect::PRESET_IDS[0] == "cubic-flight");
   static_assert(Effect::PRESET_IDS[1] == "hypercube-flight");
   static_assert(Effect::WIDE_PRESET_INDEX ==
-                (HS_ENABLE_HYPERLATTICE_EXPERIMENTS ? 5 : 2));
+                (HS_ENABLE_HYPERLATTICE_EXPERIMENTS ? 4 : 2));
   static_assert(Effect::PRESET_IDS[Effect::WIDE_PRESET_INDEX] ==
                 "cubic-wide-flight");
 
@@ -1065,7 +1065,8 @@ inline void test_experimental_presets() {
   const auto initial = effect.serialize_parameters();
   for (size_t i : {size_t{2}, size_t{3}}) {
     HL::FrameState frame{};
-    frame.params = Effect::preset_params(i);
+    frame.params =
+        i == 3 ? Effect::octet_slice_params() : Effect::preset_params(i);
     frame.params.sphere_radius = .7f;
     frame.depth_palette = HyperLatticeWhiteBox::depth_palette(effect);
     const auto before = HyperLatticeExperimental::prepare(
@@ -1098,7 +1099,10 @@ inline void test_experimental_presets() {
     HS_EXPECT_EQ(before.camera.radial_start, .7f);
     HS_EXPECT_EQ(before.camera.radial_start, after.camera.radial_start);
     HS_EXPECT_TRUE(Effect::PRESET_IDS[i].starts_with("experimental-"));
-    HS_EXPECT_TRUE(effect.selectPreset(i));
+    auto selected = initial;
+    selected.params =
+        i == 3 ? Effect::octet_slice_params() : Effect::preset_params(i);
+    HS_EXPECT_TRUE(effect.restore_parameters(selected));
     HS_EXPECT_EQ(effect.getParameters().find("Pattern")->get(), 1);
     HS_EXPECT_EQ(effect.getParameters().find("View")->get(), float(i - 2));
     HS_EXPECT_EQ(effect.getParameters().find("4D Spin")->readonly, i == 2);
@@ -1124,7 +1128,7 @@ inline void test_experimental_presets() {
         HS_EXPECT_GT(changed, 0);
       HS_EXPECT_GE(effect.getParameters().find("Unfinished Rays")->get(), 0);
     }
-    const auto target = Effect::preset_params(i);
+    const auto target = selected.params;
     HL::Params blend;
     blend.lerp(initial.params, target, .49f);
     HS_EXPECT_EQ(blend.pattern, initial.params.pattern);
@@ -1157,7 +1161,7 @@ inline void test_pattern_view_controls() {
   const auto *view = effect.getParameters().find("View");
   HS_EXPECT_TRUE(pattern != nullptr && view != nullptr);
   HS_EXPECT_EQ(pattern->option_count,
-               HS_ENABLE_HYPERLATTICE_EXPERIMENTS ? 2 : 1);
+               HS_ENABLE_HYPERLATTICE_EXPERIMENTS ? 7 : 1);
   HS_EXPECT_EQ(view->option_count, 2);
   HS_EXPECT_EQ(effect.updateParameter("View", 1), ParamSetResult::APPLIED);
   HS_EXPECT_EQ(pattern->get(), 0);
@@ -1168,14 +1172,13 @@ inline void test_pattern_view_controls() {
   HS_EXPECT_EQ(effect.serialize_parameters().params.cell_size, 3);
   HS_EXPECT_EQ(view->get(), 1);
   auto invalid = effect.serialize_parameters();
-  invalid.params.pattern = static_cast<Effect::Pattern>(2);
+  invalid.params.pattern = static_cast<Effect::Pattern>(255);
   HS_EXPECT_FALSE(effect.restore_parameters(invalid));
   HS_EXPECT_EQ(pattern->get(), 0);
   HS_EXPECT_EQ(view->get(), 1);
 #if HS_ENABLE_HYPERLATTICE_EXPERIMENTS
   static_assert(Effect::PRESET_IDS[2] == "experimental-octet-flight");
-  static_assert(Effect::PRESET_IDS[3] == "experimental-octet-4d-slice");
-  static_assert(Effect::PRESET_IDS[4] == "experimental-octet-wide-flight");
+  static_assert(Effect::PRESET_IDS[3] == "experimental-octet-wide-flight");
   HS_EXPECT_EQ(std::string_view(pattern->export_options[1]),
                std::string_view("Pattern::OCTET"));
   const auto four_d = effect.serialize_parameters();
@@ -1185,7 +1188,7 @@ inline void test_pattern_view_controls() {
   const auto octet4 = effect.serialize_parameters();
   HS_EXPECT_EQ(octet4.params.pattern, Effect::Pattern::OCTET);
   HS_EXPECT_EQ(octet4.params.mode, HL::LatticeMode::FOUR_D_SLICE);
-  HS_EXPECT_EQ(octet4.params.cell_size, Effect::preset_params(3).cell_size);
+  HS_EXPECT_EQ(octet4.params.cell_size, Effect::octet_slice_params().cell_size);
   HS_EXPECT_EQ(octet4.params.near_fade, .37f);
   HS_EXPECT_FALSE(effect.getParameters().find("4D Spin")->readonly);
   HS_EXPECT_EQ(effect.updateParameter("View", 0), ParamSetResult::APPLIED);
@@ -1210,6 +1213,73 @@ inline void test_pattern_view_controls() {
 #endif
 }
 
+inline void test_new_patterns() {
+#if HS_ENABLE_HYPERLATTICE_EXPERIMENTS
+  using Effect = HyperLatticeWhiteBox::Effect;
+  reset_globals();
+  Effect effect;
+  effect.init();
+  effect.setAnimationsPaused(true);
+  for (auto id : Effect::PRESET_IDS)
+    HS_EXPECT_NE(id, std::string_view("experimental-octet-4d-slice"));
+  for (size_t i = 4; i < Effect::CONFIGURATIONS.size(); ++i) {
+    const auto &configuration = Effect::CONFIGURATIONS[i];
+    auto snapshot = effect.serialize_parameters();
+    snapshot.params =
+        Effect::pattern_defaults(configuration.pattern, configuration.domain);
+    HS_EXPECT_TRUE(effect.restore_parameters(snapshot));
+    const auto &p = snapshot.params;
+    HS_EXPECT_TRUE(Effect::supported_combination(p));
+    HS_EXPECT_TRUE(effect.getParameters().find("Softness")->readonly);
+    HS_EXPECT_TRUE(effect.getParameters().find("Lattice Planes")->readonly);
+    HS_EXPECT_EQ(effect.getParameters().find("Shear")->readonly,
+                 p.pattern != Effect::Pattern::AFFINE_CUBIC);
+    HS_EXPECT_EQ(effect.getParameters().find("Shell Radius")->readonly,
+                 p.pattern != Effect::Pattern::SHELLS);
+    HS_EXPECT_EQ(effect.getParameters().find("Wire Radius")->readonly,
+                 p.pattern == Effect::Pattern::SHELLS);
+    effect.draw_frame();
+    effect.advance_display();
+    size_t lit = 0;
+    for (int y = 0; y < 20; ++y)
+      for (int x = 0; x < 96; ++x) {
+        const auto pixel = effect.get_pixel(x, y);
+        lit += pixel.r || pixel.g || pixel.b;
+      }
+    HS_EXPECT_GT(lit, size_t{0});
+    HS_EXPECT_TRUE(effect.restore_parameters(snapshot));
+    HL::Params blend;
+    blend.lerp(Effect::preset_params(0), p, .49f);
+    HS_EXPECT_EQ(blend.pattern, Effect::Pattern::CUBIC_WIRE);
+    blend.lerp(Effect::preset_params(0), p, .5f);
+    HS_EXPECT_EQ(blend.pattern, p.pattern);
+    HS_EXPECT_EQ(blend.shell_radius, p.shell_radius);
+    auto invalid = snapshot;
+    invalid.params.stretch = 1.6f;
+    HS_EXPECT_FALSE(effect.restore_parameters(invalid));
+    invalid = snapshot;
+    invalid.params.shell_radius = .33f;
+    HS_EXPECT_FALSE(effect.restore_parameters(invalid));
+    if (i <= 6) {
+      invalid = snapshot;
+      invalid.params.mode = HL::LatticeMode::FOUR_D_SLICE;
+      HS_EXPECT_FALSE(effect.restore_parameters(invalid));
+      HS_EXPECT_TRUE(effect.getParameters().find("View")->readonly);
+    }
+  }
+  HS_EXPECT_EQ(effect.getParameters().find("View")->get(), 1);
+  HS_EXPECT_EQ(effect.updateParameter("Pattern", 2), ParamSetResult::APPLIED);
+  HS_EXPECT_EQ(effect.serialize_parameters().params.mode,
+               HL::LatticeMode::THREE_D);
+  HS_EXPECT_EQ(effect.serialize_parameters().params.pattern,
+               Effect::Pattern::DIAMOND);
+  HS_EXPECT_TRUE(effect.getParameters().find("View")->readonly);
+  HS_EXPECT_EQ(effect.updateParameter("Pattern", 5), ParamSetResult::APPLIED);
+  HS_EXPECT_FALSE(effect.getParameters().find("View")->readonly);
+  HS_EXPECT_EQ(effect.updateParameter("View", 1), ParamSetResult::APPLIED);
+#endif
+}
+
 inline void test_speed_range() {
   using Effect = HyperLatticeWhiteBox::Effect;
   reset_globals();
@@ -1227,7 +1297,7 @@ inline void test_speed_range() {
 inline void test_octet_continuous_flight() {
 #if HS_ENABLE_HYPERLATTICE_EXPERIMENTS
   using Effect = HyperLatticeWhiteBox::Effect;
-  for (size_t preset : {size_t{2}, size_t{3}, size_t{4}}) {
+  for (size_t preset : {size_t{2}, size_t{3}}) {
     reset_globals();
     Effect effect;
     effect.init();
@@ -1326,6 +1396,7 @@ inline int run_hyper_lattice_tests() {
   test_single_shell();
   test_octet_prepared_projection();
   test_experimental_presets();
+  test_new_patterns();
   test_pattern_view_controls();
   test_speed_range();
   test_octet_continuous_flight();

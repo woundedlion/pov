@@ -5,6 +5,7 @@
 #pragma once
 
 #include "render/ray/shade.h"
+#include "tests/test_cellular_wire.h"
 #include "render/pullback/ray.h"
 #include "tests/test_harness.h"
 
@@ -117,6 +118,7 @@ inline void test_failure_status_survives_flush() {
 
 inline int run_ray_event_tests() {
   const auto MODULE = hs_test::begin_module("ray_events");
+  cellular_wire_tests::run();
   test_single_group_capacity();
   test_failure_status_survives_flush();
   Streams streams;

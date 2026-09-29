@@ -8,8 +8,20 @@
 #include "core/render/ray/camera.h"
 #include "core/render/ray/shade.h"
 #include "core/render/sdf/framework.h"
+#include "core/render/sdf/cellular_wire.h"
+#include "core/render/sdf/affine_lattice.h"
+#include "core/render/sdf/periodic_shells.h"
 
 namespace HyperLatticeExperimental {
+
+enum class Geometry : uint8_t {
+  OCTET,
+  DIAMOND,
+  HEXAGONAL,
+  RHOMBIC,
+  AFFINE_CUBIC,
+  SHELLS
+};
 
 /** @brief Frame settings; camera distances and near fading use world units. */
 struct Settings {
@@ -24,6 +36,10 @@ struct Settings {
   math::Mat4 embedding = math::Mat4::identity();
   float pixel_half_angle = 0.0f;
   const BakedPalette *palette = nullptr;
+  Geometry geometry = Geometry::OCTET;
+  float shear = .55f;
+  float stretch = 1.4f;
+  float shell_radius = .30f;
 };
 
 struct Prepared {
@@ -35,7 +51,13 @@ struct Prepared {
   SDF::OctetEvents::PreparedProjection octet_projection{};
   SDF::OctetFramework4 octet4;
   SDF::OctetEvents4::PreparedProjection octet4_projection{};
+  const SDF::CellularWire::Geometry *cellular = nullptr;
+  SDF::PreparedPeriodicShells periodic_shells;
   bool valid = false;
+  Geometry geometry = Geometry::OCTET;
+  float shear = .55f;
+  float stretch = 1.4f;
+  float shell_radius = .30f;
 };
 
 /** @brief Premultiplied ray color and how its traversal ended. */
@@ -68,6 +90,10 @@ HS_FLASH_INLINE inline Prepared prepare(const Settings &settings) {
   result.octet.wire_radius = settings.wire_radius;
   result.octet4.cell_size = settings.cell_size;
   result.octet4.wire_radius = settings.wire_radius;
+  result.geometry = settings.geometry;
+  result.shear = settings.shear;
+  result.stretch = settings.stretch;
+  result.shell_radius = settings.shell_radius;
   result.valid = result.camera.valid() &&
                  Raycast::finite(result.footprint.angular_radius) &&
                  Raycast::finite(result.appearance.inv_far) &&
@@ -77,6 +103,29 @@ HS_FLASH_INLINE inline Prepared prepare(const Settings &settings) {
                       : result.octet.valid());
   if (!result.valid)
     return result;
+  if (settings.geometry != Geometry::OCTET) {
+    const bool CELLULAR = settings.geometry == Geometry::DIAMOND ||
+                          settings.geometry == Geometry::HEXAGONAL ||
+                          settings.geometry == Geometry::RHOMBIC;
+    result.valid =
+        (CELLULAR && settings.domain == Raycast::SamplingDomain::SPATIAL_3D) ||
+        settings.geometry == Geometry::AFFINE_CUBIC ||
+        settings.geometry == Geometry::SHELLS;
+    if (CELLULAR)
+      result.cellular = &SDF::CellularWire::geometry(
+          settings.geometry == Geometry::DIAMOND
+              ? SDF::CellularWire::Kind::DIAMOND
+          : settings.geometry == Geometry::HEXAGONAL
+              ? SDF::CellularWire::Kind::HEXAGONAL
+              : SDF::CellularWire::Kind::RHOMBIC);
+    if (settings.geometry == Geometry::SHELLS) {
+      result.periodic_shells = SDF::prepare_periodic_shells(
+          result.camera, settings.cell_size, settings.shell_radius,
+          result.footprint, settings.stretch);
+      result.valid = result.periodic_shells.valid;
+    }
+    return result;
+  }
   const auto &E = settings.embedding.m;
   if (settings.domain == Raycast::SamplingDomain::SPATIAL_3D) {
     const auto FAMILIES = result.octet.plane_families();
@@ -202,6 +251,25 @@ HS_HOT_FLASH_MEMBER Sample shade(const math::Vector &direction,
   if (!prepared.valid ||
       (camera.domain == Raycast::SamplingDomain::SLICE_4D) != SLICE_4D)
     return {{}, Raycast::TraceStatus::INVALID_QUERY};
+  if (prepared.geometry != Geometry::OCTET) {
+    Raycast::ShadedTrace sample;
+    if (prepared.geometry == Geometry::AFFINE_CUBIC)
+      sample = SDF::shade_affine_lattice(
+          camera, direction, prepared.octet.cell_size,
+          prepared.octet.wire_radius, prepared.footprint, prepared.limits,
+          prepared.appearance, prepared.shear, prepared.stretch);
+    else if (prepared.geometry == Geometry::SHELLS)
+      sample = SDF::shade_periodic_shells(prepared.periodic_shells, camera,
+                                          direction, prepared.limits,
+                                          prepared.appearance);
+    else {
+      sample = SDF::CellularWire::shade(
+          *prepared.cellular, prepared.octet.cell_size,
+          prepared.octet.wire_radius, camera, prepared.footprint,
+          prepared.limits, prepared.appearance, direction);
+    }
+    return {sample.color.color * sample.color.alpha, sample.trace.status};
+  }
   if constexpr (SLICE_4D) {
     const SDF::OctetEvents4 events(prepared.octet4, prepared.octet4_projection,
                                    direction, camera.radial_start,
