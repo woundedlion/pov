@@ -16,6 +16,7 @@ set(HS_OFF_ROSTER_HEADER_NAMES
   "mindsplatter_whitebox.h"
   "pixel_test_util.h"
   "pov_tiling_test_util.h"
+  "test_cellular_wire.h"
   "test_fixture.h"
   "test_generative_palette.h"
   "test_h_offset_renorm.h"

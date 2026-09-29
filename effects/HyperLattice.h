@@ -7,7 +7,7 @@
 
 /**
  * @file HyperLattice.h
- * @brief Analytic flight through cubic and octet lattices in 3D and 4D.
+ * @brief Analytic flight through periodic lattices and shells in 3D and 4D.
  */
 
 #include <array>
@@ -38,8 +38,29 @@ namespace HyperLatticeDetail {
 constexpr int DIMENSIONS = math::VEC4_DIMENSIONS;
 using LatticeMode = SDF::Lattice::Domain;
 using ShellCount = SDF::Lattice::ShellCount;
-enum class Pattern : uint8_t { CUBIC_WIRE, OCTET };
-enum class ConfigurationId : uint8_t { CUBIC_3D, CUBIC_4D, OCTET_3D, OCTET_4D };
+enum class Pattern : uint8_t {
+  CUBIC_WIRE,
+  OCTET,
+  DIAMOND,
+  HEXAGONAL,
+  RHOMBIC,
+  AFFINE_CUBIC,
+  SHELLS
+};
+enum class ConfigurationId : uint8_t {
+  CUBIC_3D,
+  CUBIC_4D,
+  OCTET_3D,
+  OCTET_4D,
+  DIAMOND_3D,
+  HEXAGONAL_3D,
+  RHOMBIC_3D,
+  AFFINE_3D,
+  AFFINE_4D,
+  SHELLS_3D,
+  SHELLS_4D,
+  INVALID
+};
 struct Params {
   LatticeMode mode = LatticeMode::THREE_D;
   Pattern pattern = Pattern::CUBIC_WIRE;
@@ -54,6 +75,9 @@ struct Params {
   float spin_3d = 0.0024f;
   float spin_4d = 0.0f;
   ShellCount shells = ShellCount::TWO;
+  float shear = .55f;
+  float stretch = 1.4f;
+  float shell_radius = .30f;
 
   void lerp(const Params &start, const Params &target, float amount) {
     if (start.mode != target.mode || start.pattern != target.pattern) {
@@ -74,6 +98,9 @@ struct Params {
     spin_3d = hs::lerp(start.spin_3d, target.spin_3d, amount);
     spin_4d = hs::lerp(start.spin_4d, target.spin_4d, amount);
     shells = amount < 0.5f ? start.shells : target.shells;
+    shear = hs::lerp(start.shear, target.shear, amount);
+    stretch = hs::lerp(start.stretch, target.stretch, amount);
+    shell_radius = hs::lerp(start.shell_radius, target.shell_radius, amount);
   }
 
   /**
@@ -88,17 +115,17 @@ struct Params {
   static void pin_field_set(const Params &p) {
     const auto &[mode, pattern, sphere_radius, cell_size, wire_radius, softness,
                  near_fade, far_distance, aa_strength, speed, spin_3d, spin_4d,
-                 shells] = p;
+                 shells, shear, stretch, shell_radius] = p;
     (void)mode, (void)pattern, (void)sphere_radius, (void)cell_size,
         (void)wire_radius, (void)softness, (void)near_fade, (void)far_distance,
         (void)aa_strength, (void)speed, (void)spin_3d, (void)spin_4d,
-        (void)shells;
+        (void)shells, (void)shear, (void)stretch, (void)shell_radius;
   }
 };
 
 // Width pin; pin_field_set() is what catches an added or removed field. Every
 // enum has a fixed uint8_t base, so the size holds under ARM -fshort-enums.
-static_assert(sizeof(Params) == 48, "HyperLattice::Params width changed");
+static_assert(sizeof(Params) == 60, "HyperLattice::Params width changed");
 
 struct FrameState {
   Params params;
@@ -150,7 +177,12 @@ experimental_settings(const FrameState &frame, math::Vec4 center) {
           center,
           view_embedding(frame),
           frame.pixel_half_angle,
-          frame.depth_palette};
+          frame.depth_palette,
+          static_cast<HyperLatticeExperimental::Geometry>(
+              static_cast<uint8_t>(p.pattern) - 1),
+          p.shear,
+          p.stretch,
+          p.shell_radius};
 }
 #endif
 inline PreparedTrace prepare_trace(const FrameState &frame) {
@@ -190,7 +222,7 @@ using SpecializedRenderPipeline =
 } // namespace HyperLatticeDetail
 
 /**
- * @brief Flights through cubic and octet lattices and their 4D slices.
+ * @brief Flights through periodic lattices, shells, and their 4D slices.
  * @tparam W Canvas width in pixels.
  * @tparam H Canvas height in pixels.
  */
@@ -213,16 +245,33 @@ public:
       "hypercube-flight",
 #if HS_ENABLE_HYPERLATTICE_EXPERIMENTS
       "experimental-octet-flight",
-      "experimental-octet-4d-slice",
       "experimental-octet-wide-flight",
 #endif
       "cubic-wide-flight",
+#if HS_ENABLE_HYPERLATTICE_EXPERIMENTS
+      "experimental-shell-flight",
+      "experimental-shell-close-flight",
+#endif
   });
-  static constexpr size_t WIDE_PRESET_INDEX = PRESET_IDS.size() - 1;
+  static constexpr size_t WIDE_PRESET_INDEX =
+      HS_ENABLE_HYPERLATTICE_EXPERIMENTS ? 4 : 2;
   static constexpr Segue::Preset::Lerp PRESET_SEGUE{240, math::ease_in_out_sin,
                                                     /*pausable=*/true};
   static constexpr uint16_t PRESET_DWELL_FRAMES = 320;
-  static constexpr uint32_t PARAMETER_SCHEMA_VERSION = 13;
+  static constexpr uint32_t PARAMETER_SCHEMA_VERSION = 14;
+
+  static constexpr Params octet_slice_params() {
+    Params value;
+    value.pattern = Pattern::OCTET;
+    value.mode = LatticeMode::FOUR_D_SLICE;
+    value.sphere_radius = 0;
+    value.cell_size = 1.5f;
+    value.far_distance = 4.5f;
+    value.near_fade = .08f;
+    value.speed = .008f;
+    value.spin_4d = .0024f;
+    return value;
+  }
 
   HS_COLD_MEMBER static constexpr Params preset_params(size_t index) {
     Params value;
@@ -257,22 +306,19 @@ public:
       break;
 #if HS_ENABLE_HYPERLATTICE_EXPERIMENTS
     case 2:
-    case 3:
       value.pattern = Pattern::OCTET;
-      value.mode =
-          index == 2 ? LatticeMode::THREE_D : LatticeMode::FOUR_D_SLICE;
+      value.mode = LatticeMode::THREE_D;
       value.sphere_radius = 0;
-      value.cell_size = index == 2 ? 1.74175f : 1.5f;
-      value.wire_radius = index == 2 ? .015f : .055f;
+      value.cell_size = 1.74175f;
+      value.wire_radius = .015f;
       value.softness = .012f;
       value.far_distance = 4.5f;
-      value.near_fade = index == 2 ? 2.0f : .08f;
-      value.aa_strength = index == 2 ? 2.0f : 1.0f;
-      value.speed = index == 2 ? .078f : .008f;
-      value.spin_3d = index == 2 ? .008265f : .0024f;
-      value.spin_4d = index == 3 ? .0024f : 0.0f;
+      value.near_fade = 2.0f;
+      value.aa_strength = 2.0f;
+      value.speed = .078f;
+      value.spin_3d = .008265f;
       break;
-    case 4:
+    case 3:
       value.pattern = Pattern::OCTET;
       value.mode = LatticeMode::THREE_D;
       value.sphere_radius = 1.0f;
@@ -284,10 +330,47 @@ public:
       value.speed = .12750001f;
       value.spin_3d = .010155f;
       break;
+    case 5:
+    case 6:
+      value.pattern = Pattern::SHELLS;
+      value.mode = LatticeMode::THREE_D;
+      value.sphere_radius = 0;
+      value.cell_size = index == 5 ? .78625f : .4645f;
+      value.near_fade = index == 5 ? 2.0f : .6f;
+      value.far_distance = index == 5 ? 10.736f : 5.836f;
+      value.aa_strength = 2.0f;
+      value.speed = .025f;
+      value.spin_3d = index == 5 ? .015f : .003f;
+      value.stretch = 1.0f;
+      value.shell_radius = index == 5 ? .1f : .15f;
+      break;
 #endif
     default:
       break;
     }
+    return value;
+  }
+
+  static constexpr Params pattern_defaults(Pattern pattern, LatticeMode mode) {
+    if (pattern == Pattern::CUBIC_WIRE)
+      return preset_params(mode == LatticeMode::FOUR_D_SLICE ? 1 : 0);
+    if (pattern == Pattern::OCTET)
+      return mode == LatticeMode::FOUR_D_SLICE ? octet_slice_params()
+                                               : preset_params(2);
+    if (pattern == Pattern::SHELLS && mode == LatticeMode::THREE_D)
+      return preset_params(5);
+    Params value;
+    value.pattern = pattern;
+    value.mode = mode;
+    value.sphere_radius = 0;
+    value.cell_size = pattern == Pattern::HEXAGONAL ? 1.4f : 2.0f;
+    value.wire_radius = .025f;
+    value.far_distance = 6.0f;
+    value.near_fade = .6f;
+    value.speed = .025f;
+    value.spin_3d = .003f;
+    value.spin_4d = mode == LatticeMode::FOUR_D_SLICE ? .004f : 0;
+    value.stretch = pattern == Pattern::SHELLS ? 1.0f : 1.4f;
     return value;
   }
 
@@ -298,38 +381,46 @@ public:
     LatticeMode domain;
     Backend backend;
     Policy policy;
-    uint8_t default_preset;
     uint8_t max_candidates;
     uint8_t max_layers;
   };
   static constexpr auto CONFIGURATIONS = std::to_array<Configuration>({
       {Pattern::CUBIC_WIRE, LatticeMode::THREE_D, Backend::ANALYTIC_EVENTS,
-       Policy::LEGACY_COVERAGE, 0, 9, 9},
+       Policy::LEGACY_COVERAGE, 9, 9},
       {Pattern::CUBIC_WIRE, LatticeMode::FOUR_D_SLICE, Backend::ANALYTIC_EVENTS,
-       Policy::LEGACY_COVERAGE, 1, 12, 12},
+       Policy::LEGACY_COVERAGE, 12, 12},
 #if HS_ENABLE_HYPERLATTICE_EXPERIMENTS
       {Pattern::OCTET, LatticeMode::THREE_D, Backend::ANALYTIC_EVENTS,
-       Policy::EXPERIMENTAL, 2, 64, 32},
+       Policy::EXPERIMENTAL, 64, 32},
       {Pattern::OCTET, LatticeMode::FOUR_D_SLICE, Backend::ANALYTIC_EVENTS,
-       Policy::EXPERIMENTAL, 3, 64, 32},
+       Policy::EXPERIMENTAL, 64, 32},
+      {Pattern::DIAMOND, LatticeMode::THREE_D, Backend::ANALYTIC_EVENTS,
+       Policy::EXPERIMENTAL, 192, 32},
+      {Pattern::HEXAGONAL, LatticeMode::THREE_D, Backend::ANALYTIC_EVENTS,
+       Policy::EXPERIMENTAL, 192, 32},
+      {Pattern::RHOMBIC, LatticeMode::THREE_D, Backend::ANALYTIC_EVENTS,
+       Policy::EXPERIMENTAL, 192, 32},
+      {Pattern::AFFINE_CUBIC, LatticeMode::THREE_D, Backend::ANALYTIC_EVENTS,
+       Policy::EXPERIMENTAL, 96, 32},
+      {Pattern::AFFINE_CUBIC, LatticeMode::FOUR_D_SLICE,
+       Backend::ANALYTIC_EVENTS, Policy::EXPERIMENTAL, 96, 32},
+      {Pattern::SHELLS, LatticeMode::THREE_D, Backend::ANALYTIC_EVENTS,
+       Policy::EXPERIMENTAL, 64, 32},
+      {Pattern::SHELLS, LatticeMode::FOUR_D_SLICE, Backend::ANALYTIC_EVENTS,
+       Policy::EXPERIMENTAL, 64, 32},
 #endif
   });
 
   static constexpr ConfigurationId configuration_id(const Params &value) {
-    return static_cast<ConfigurationId>(
-        2 * static_cast<uint8_t>(value.pattern) +
-        static_cast<uint8_t>(value.mode));
+    for (size_t i = 0; i < CONFIGURATIONS.size(); ++i)
+      if (CONFIGURATIONS[i].pattern == value.pattern &&
+          CONFIGURATIONS[i].domain == value.mode)
+        return static_cast<ConfigurationId>(i);
+    return ConfigurationId::INVALID;
   }
 
   static constexpr bool supported_combination(const Params &value) {
-    const auto index = static_cast<size_t>(configuration_id(value));
-    return static_cast<uint8_t>(value.pattern) <=
-               static_cast<uint8_t>(Pattern::OCTET) &&
-           static_cast<uint8_t>(value.mode) <=
-               static_cast<uint8_t>(LatticeMode::FOUR_D_SLICE) &&
-           index < CONFIGURATIONS.size() &&
-           CONFIGURATIONS[index].pattern == value.pattern &&
-           CONFIGURATIONS[index].domain == value.mode;
+    return configuration_id(value) != ConfigurationId::INVALID;
   }
 
   static constexpr bool valid_params(const Params &value) {
@@ -351,7 +442,10 @@ public:
            value.spin_3d <= SPIN_3D_MAX && value.spin_4d >= SPIN_4D_MIN &&
            value.spin_4d <= SPIN_4D_MAX &&
            static_cast<uint8_t>(value.shells) <=
-               static_cast<uint8_t>(ShellCount::THREE);
+               static_cast<uint8_t>(ShellCount::THREE) &&
+           value.shear >= -1.0f && value.shear <= 1.0f &&
+           value.stretch >= 1.0f && value.stretch <= 1.5f &&
+           value.shell_radius >= .10f && value.shell_radius <= .32f;
   }
 
   /**
@@ -398,8 +492,13 @@ public:
     register_animated_param("Lattice Planes", &params.shells, SHELL_OPTIONS,
                             SHELL_EXPORT_OPTIONS, std::size(SHELL_OPTIONS));
 #if HS_ENABLE_HYPERLATTICE_EXPERIMENTS
+    register_animated_param("Shear", &params.shear, -1.0f, 1.0f);
+    register_animated_param("Stretch", &params.stretch, 1.0f, 1.5f);
+    register_animated_param("Shell Radius", &params.shell_radius, .10f, .32f);
+#if HS_ENABLE_PARAM_GUI_BRIDGE
     this->register_readonly_param("Unfinished Rays", &unfinished_rays, 0,
                                   (W + 2) * (H + 2));
+#endif
 #endif
     refresh_configuration_schema();
     depth_palette.init_generated(persistent_arena, next_depth_palette, nullptr,
@@ -470,9 +569,11 @@ private:
   HS_COLD_MEMBER bool parameter_write_admitted(const ParamDef &parameter,
                                                float value) override {
     Params candidate = params;
-    if (parameter.target == &params.pattern)
+    if (parameter.target == &params.pattern) {
       candidate.pattern = static_cast<Pattern>(value);
-    else if (parameter.target == &params.mode)
+      if (!supported_combination(candidate))
+        candidate.mode = LatticeMode::THREE_D;
+    } else if (parameter.target == &params.mode)
       candidate.mode = static_cast<LatticeMode>(value);
     else
       return true;
@@ -482,11 +583,12 @@ private:
 
   HS_COLD_MEMBER void parameter_written() override {
     Choreography::parameter_written();
+    if (!supported_combination(params))
+      params.mode = LatticeMode::THREE_D;
     const auto configuration = configuration_id(params);
     if (selected_configuration != configuration) {
       const float near_fade = params.near_fade;
-      params = preset_params(
-          CONFIGURATIONS[static_cast<size_t>(configuration)].default_preset);
+      params = pattern_defaults(params.pattern, params.mode);
       params.near_fade = near_fade;
       selected_configuration = configuration;
       refresh_configuration_schema();
@@ -518,6 +620,15 @@ private:
     const bool CUBIC = params.pattern == Pattern::CUBIC_WIRE;
     this->mark_readonly("Lattice Planes", !CUBIC);
     this->mark_readonly("Softness", !CUBIC);
+    const bool AFFINE = params.pattern == Pattern::AFFINE_CUBIC;
+    const bool SHELLS = params.pattern == Pattern::SHELLS;
+    this->mark_readonly("Shear", !AFFINE);
+    this->mark_readonly("Stretch", !AFFINE && !SHELLS);
+    this->mark_readonly("Shell Radius", !SHELLS);
+    this->mark_readonly("Wire Radius", SHELLS);
+    this->mark_readonly("View", params.pattern == Pattern::DIAMOND ||
+                                    params.pattern == Pattern::HEXAGONAL ||
+                                    params.pattern == Pattern::RHOMBIC);
 #endif
   }
 
@@ -528,11 +639,23 @@ private:
                                       1.0f, 0.707f, 0.419f};
 #if HS_ENABLE_HYPERLATTICE_EXPERIMENTS
     if (params.pattern != Pattern::CUBIC_WIRE) {
-      // A coordinate period of sqrt(2) * cell_size translates D3 and D4.
-      const float PERIOD = 1.4142135623730951f * params.cell_size;
       for (int axis = 0; axis < HyperLatticeDetail::DIMENSIONS; ++axis)
-        experimental_center[axis] = math::wrap(
-            experimental_center[axis] + params.speed * VELOCITY[axis], PERIOD);
+        experimental_center[axis] += params.speed * VELOCITY[axis];
+      if (params.pattern == Pattern::AFFINE_CUBIC) {
+        experimental_center =
+            SDF::AffineLattice{params.cell_size, params.shear, params.stretch}
+                .wrap(experimental_center);
+      } else {
+        for (int axis = 0; axis < HyperLatticeDetail::DIMENSIONS; ++axis) {
+          float period = params.cell_size;
+          if (params.pattern == Pattern::OCTET)
+            period *= 1.4142135623730951f;
+          else if (params.pattern == Pattern::HEXAGONAL && axis < 2)
+            period *= axis == 0 ? 3.0f : 1.7320508075688772f;
+          experimental_center[axis] =
+              math::wrap(experimental_center[axis], period);
+        }
+      }
     } else
 #endif
       for (int axis = 0; axis < HyperLatticeDetail::DIMENSIONS; ++axis)
@@ -555,7 +678,11 @@ private:
     using namespace HyperLatticeExperimental;
     const auto SETTINGS =
         HyperLatticeDetail::experimental_settings(context, experimental_center);
-    const auto prepared = prepare(SETTINGS);
+    auto prepared = prepare(SETTINGS);
+    const auto &configuration =
+        CONFIGURATIONS[static_cast<size_t>(configuration_id(params))];
+    prepared.limits.max_candidates = configuration.max_candidates;
+    prepared.limits.max_layers = configuration.max_layers;
     using Shade = Sample (*)(const math::Vector &, const Prepared &);
     const Shade shade_ray =
         params.mode == LatticeMode::FOUR_D_SLICE ? &shade<true> : &shade<false>;
@@ -601,12 +728,18 @@ private:
       "Cubic",
 #if HS_ENABLE_HYPERLATTICE_EXPERIMENTS
       "Experimental / Octet Truss",
+      "Experimental / Diamond",
+      "Experimental / Honeycomb",
+      "Experimental / Rhombic Cells",
+      "Experimental / Sheared Cubic",
+      "Experimental / Shells",
 #endif
   };
   static constexpr const char *PATTERN_EXPORT_OPTIONS[] = {
       "Pattern::CUBIC_WIRE",
 #if HS_ENABLE_HYPERLATTICE_EXPERIMENTS
-      "Pattern::OCTET",
+      "Pattern::OCTET",      "Pattern::DIAMOND",      "Pattern::HEXAGONAL",
+      "Pattern::RHOMBIC",    "Pattern::AFFINE_CUBIC", "Pattern::SHELLS",
 #endif
   };
   static constexpr const char *VIEW_OPTIONS[] = {"3D perspective", "4D slice"};

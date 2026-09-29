@@ -324,7 +324,8 @@ files define line-ending policy and working-artifact exclusions.
 │   │   ├── sdf.h                   SDF shapes, CSG operators and volumes: umbrella over sdf/
 │   │   ├── sdf/                    Per-family SDF headers (common, shapes, rings,
 │   │   │                            csg, face, volume, lattice, framework, lattice_field,
-│   │   │                            periodic_surface)
+│   │   │                            periodic_surface, affine_lattice, periodic_shells)
+│   │   │   ├── cellular_wire.h     Analytic periodic diamond, honeycomb and rhombic struts
 │   │   │   ├── face_classes.h       Congruence-class ids and rasterizer records
 │   │   │   └── face_class_bake.h    Congruence clustering and canonical distance-LUT bake
 │   │   ├── ray.h                   Spherical ray rendering umbrella

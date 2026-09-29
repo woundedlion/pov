@@ -334,7 +334,7 @@ inline void check_hyper_lattice_pattern_view_dropdowns() {
   HS_EXPECT_FALSE(pattern->is_bool);
   HS_EXPECT_TRUE(pattern->is_integer);
   HS_EXPECT_EQ(pattern->option_count,
-               (HS_ENABLE_HYPERLATTICE_EXPERIMENTS ? 2 : 1));
+               (HS_ENABLE_HYPERLATTICE_EXPERIMENTS ? 7 : 1));
   HS_EXPECT_EQ(std::string_view(pattern->options[0]),
                std::string_view("Cubic"));
   HS_EXPECT_EQ(std::string_view(pattern->export_options[0]),

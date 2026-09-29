@@ -492,12 +492,24 @@ engine-wide registry.
 Expose separate **Pattern** and **View** enums through the existing
 `ParamHost` registration and admission hooks. Pattern chooses the geometry;
 View chooses 3D perspective or a three-dimensional slice through 4D geometry.
-The selectable patterns are cubic and experimental octet, each defined in
-both ambient dimensions. Octet uses the nearest-neighbor edge graph of the
-D3/FCC lattice in 3D and D4 in 4D. Unsupported combinations and invalid enum
-values are rejected before mutation. Backend and
-policy remain properties of each admitted tuple, not user-selected aliases
-for different geometry. Experimental patterns are labeled explicitly.
+The selectable patterns are cubic, octet, diamond, hexagonal-prism honeycomb,
+rhombic-dodecahedral cell edges, affine cubic wires, and periodic ellipsoidal
+shells. Cubic, octet, affine cubic, and shells support both ambient dimensions;
+the remaining cellular graphs admit only 3D. Configuration IDs index the
+admitted table, not an arithmetic product of pattern and domain. Selecting a
+3D-only pattern from a 4D view adopts its 3D defaults. Unsupported restores
+are rejected. The octet 4D view remains manually selectable but has no preset.
+
+Cellular wires use finite-strut closest-approach contributions and rectangular
+cell traversal with bounded neighbors and world-space antialiasing. Sheared
+cubic wires transform the lattice basis while evaluating coverage in the
+ambient Euclidean metric. Shells use analytic ellipsoid boundary roots; a 4D
+slice intersects the actual hypersurface. Shear, stretch, and shell radius
+are geometry parameters and follow the same atomic transition policy.
+Camera translation wraps by each geometry's translation lattice. The shell
+radius range, multiplied by the maximum stretch, stays below half a cell.
+Traversal exhaustion preserves previously composited layers and is reflected
+in Unfinished Rays.
 
 Use one bounded, trivially copyable effect `Params` with stable storage for
 registered fields. A configuration change adopts that row's geometry defaults
