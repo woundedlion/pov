@@ -119,9 +119,9 @@ HS_FLASH_INLINE inline Prepared prepare(const Settings &settings) {
               ? SDF::CellularWire::Kind::HEXAGONAL
               : SDF::CellularWire::Kind::RHOMBIC);
     if (settings.geometry == Geometry::SHELLS) {
-      result.periodic_shells = SDF::prepare_periodic_shells(
-          result.camera, settings.cell_size, settings.shell_radius,
-          result.footprint, settings.stretch);
+      result.periodic_shells =
+          SDF::prepare_periodic_shells(result.camera, settings.cell_size,
+                                       settings.shell_radius, result.footprint);
       result.valid = result.periodic_shells.valid;
     }
     return result;

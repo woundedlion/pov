@@ -1234,6 +1234,8 @@ inline void test_new_patterns() {
     HS_EXPECT_TRUE(effect.getParameters().find("Lattice Planes")->readonly);
     HS_EXPECT_EQ(effect.getParameters().find("Shear")->readonly,
                  p.pattern != Effect::Pattern::AFFINE_CUBIC);
+    HS_EXPECT_EQ(effect.getParameters().find("Stretch")->readonly,
+                 p.pattern != Effect::Pattern::AFFINE_CUBIC);
     HS_EXPECT_EQ(effect.getParameters().find("Shell Radius")->readonly,
                  p.pattern != Effect::Pattern::SHELLS);
     HS_EXPECT_EQ(effect.getParameters().find("Wire Radius")->readonly,
