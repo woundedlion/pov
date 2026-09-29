@@ -763,9 +763,8 @@ inline void lms_cbrt_transform_rgb2(const float k[9], float l0, float m0,
   }
 }
 
-HS_O3_FN __attribute__((noinline)) inline void
-lms_cbrt_scale_to_gamut_lut(float l_cbrt, float m_cbrt, float s_cbrt, float &r,
-                            float &g, float &b);
+void lms_cbrt_scale_to_gamut_lut(float l_cbrt, float m_cbrt, float s_cbrt,
+                                 float &r, float &g, float &b);
 
 /**
  * @brief lms_cbrt_transform_rgb with the tabulated chroma clip.
