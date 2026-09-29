@@ -3545,6 +3545,41 @@ inline void case_sdf_distorted_ring_two_knots() {
     std::printf("x");
 }
 
+inline void case_scan_ring_stack_too_many_rings() {
+  constexpr int W = 32, H = 16;
+  const math::Basis b{math::Vector(1, 0, 0), math::Vector(0, 1, 0),
+                      math::Vector(0, 0, 1)};
+  const float knots[4] = {0.0f, 0.01f, 0.0f, -0.01f};
+  SDF::DistortedRing ring(b, 1.0f, 0.05f, knots, 4, 0.0f, nullptr);
+  int8_t slot_by_ring[256];
+  for (int8_t &s : slot_by_ring)
+    s = -1;
+  slot_by_ring[0] = 0;
+  hs_test::StubEffect fx(W, H);
+  Pipeline<W, H> pipeline;
+  Canvas canvas(fx);
+  static Scan::DistortedRingStack::CandidateTable<W, H> table;
+  Scan::DistortedRingStack::draw<W, H>(
+      pipeline, canvas, opaque(256), &ring, slot_by_ring, 1, table,
+      [](int, const math::Vector &, Fragment &) {}); // 256 > 255 -> trap
+}
+
+inline void case_scan_ring_stack_callback_ring() {
+  constexpr int W = 32, H = 16;
+  const math::Basis b{math::Vector(1, 0, 0), math::Vector(0, 1, 0),
+                      math::Vector(0, 0, 1)};
+  SDF::DistortedRing ring(
+      b, 1.0f, 0.05f, [](float) { return 0.0f; }, opaque(0.01f), 0.0f);
+  const int8_t slot_by_ring[1] = {0};
+  hs_test::StubEffect fx(W, H);
+  Pipeline<W, H> pipeline;
+  Canvas canvas(fx);
+  static Scan::DistortedRingStack::CandidateTable<W, H> table;
+  Scan::DistortedRingStack::draw<W, H>(
+      pipeline, canvas, 1, &ring, slot_by_ring, 1, table,
+      [](int, const math::Vector &, Fragment &) {}); // no knots -> trap
+}
+
 /**
  * @brief Death case: a twist warp around a zero-radius torus must trap.
  * @details SDF warp surface — the Lipschitz bound scales by 2/R, so a zero
@@ -5732,6 +5767,12 @@ inline const Case *all_cases(int &n) {
           {"sdf_distorted_ring_two_knots", case_sdf_distorted_ring_two_knots,
            "core/render/sdf/rings.h",
            "(kn != nullptr && n >= 3) DistortedRing: knot storage requires at least three knots"},
+          {"scan_ring_stack_too_many_rings",
+           case_scan_ring_stack_too_many_rings, "core/render/scan/shapes.h",
+           "(n_rings <= Table::MAX_RINGS) ring stack exceeds the candidate table's ring index range"},
+          {"scan_ring_stack_callback_ring", case_scan_ring_stack_callback_ring,
+           "core/render/scan/shapes.h",
+           "(shapes[s].knots != nullptr) ring stack rings must be knot rings"},
           {"sdf_twist_zero_major_radius", case_sdf_twist_zero_major_radius,
            "core/render/sdf/volume.h",
            "(R > 0.0f) SDF Volume: radius must be positive"},
@@ -6450,7 +6491,7 @@ inline constexpr GuardGapAllowance GUARD_GAP_ALLOW[] = {
     {"core/render/scan/mesh.h", 4},
     {"core/render/scan/raster.h", 1},
     {"core/render/scan/shader.h", 2},
-    {"core/render/scan/shapes.h", 10},
+    {"core/render/scan/shapes.h", 9},
     {"core/render/scan/volume.h", 4},
     {"core/render/sdf/common.h", 4},
     {"core/render/sdf/csg.h", 2},

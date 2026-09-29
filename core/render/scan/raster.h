@@ -517,6 +517,46 @@ walk_clip_columns(ClipRegion::XClip xc, BodyFn &&body) {
 }
 
 /**
+ * @brief walk_clip_columns() for a large always-inline body.
+ * @tparam W Canvas width in pixels.
+ * @tparam BodyFn Callable (int x).
+ * @param xc Column-arc clip.
+ * @param body Sink receiving each surviving column, in the same order
+ *        walk_clip_columns() visits them.
+ * @details Walks both arc pieces in one loop. -O3 fully unrolls
+ * walk_clip_columns()' two-piece loop, which copies an always-inline body once
+ * per piece.
+ */
+template <int W, typename BodyFn>
+__attribute__((always_inline)) inline void
+walk_clip_columns_once(ClipRegion::XClip xc, BodyFn &&body) {
+  int lo[2];
+  int hi[2];
+  int pieces = 0;
+  clip_run(0, W, xc, [&](int x1, int x2) {
+    if (x1 >= x2)
+      return;
+    lo[pieces] = x1;
+    hi[pieces] = x2;
+    ++pieces;
+  });
+  if (pieces == 0)
+    return;
+  int x = lo[0];
+  int end = hi[0];
+  for (;;) {
+    if (x == end) {
+      if (--pieces == 0)
+        return;
+      x = lo[1];
+      end = hi[1];
+    }
+    body(x);
+    ++x;
+  }
+}
+
+/**
  * @brief Turns one row's emitted spans into clipped integer column runs.
  * @tparam W Canvas width in pixels.
  * @tparam IntervalBufT Source span buffer type.
