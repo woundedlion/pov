@@ -11,10 +11,10 @@ of the optimization campaign is kept under
 
 | | |
 |---|---|
-| Hardware | Teensy 4.0 @ 600 MHz, POV segmented mode, flywheel + DMA ISRs live; standard cycle on COM4, experimental cycle and pinned presets on COM3 (paired captures of one image on both boards agree within 0.06%) |
+| Hardware | Teensy 4.0 @ 600 MHz, POV segmented mode, flywheel + DMA ISRs live; both cycles on COM4, pinned presets on COM3 (paired captures of one image on both boards agree within 0.06%) |
 | Image | `profile` env; the traced paths run from cached flash (`HS_HOT_FLASH_MEMBER` scans) and cross no `HS_O3` region |
 | Driver | `POVSegmented<288, 4, 480>`, board = segment 0 master |
-| Effect | HyperLattice 288×144, single-entry playlist, landed tip `4d1bb7368` (captures from the pre-rebase branch; the rebase added only other effects' peer commits and a palette-rebake placement fix) |
+| Effect | HyperLattice 288×144, single-entry playlist; cycles captured at `b1ccbfa39`, pinned presets at the campaign branch before its rebase onto `67f935538` |
 | Method | `HS_PROFILE` cycle scopes, window 16. Standard cycle: 120 s, `-D HS_PROFILE_EPOCH_REVS=1200`. Experimental cycle: 345 s, `-D HS_ENABLE_HYPERLATTICE_EXPERIMENTS=1 -D HS_PROFILE_EPOCH_REVS=2800`. Per-preset A/B: 30 s pinned captures, `-D HS_PROFILE_PRESET=<i>` |
 | Reproduce | `bash tools/profile_one.sh HyperLattice profile 120 16 "-D HS_PROFILE_EPOCH_REVS=1200"` |
 
@@ -30,13 +30,13 @@ inlining moved as the unit grew), FLASH code +88,720 B. RAM1 variables and the
 12,896 B stack floor are unchanged in both.
 
 Exactness cross-check: window frames 1185–1200 root counter cyc ÷ 600 MHz
-matches the measured wall sum within **0.7 ppm**.
+matches the measured wall sum within **2.9 ppm**.
 
 ## Frame cadence
 
-**Pass aggregate** (standard cycle): `hl_shader_draw` avg 23.86 ms/f, worst
-window 28.09 ms/f (frames 1185–1200), peak frame render **37.46 ms** (frame
-1198), spilled **0/1887**. Setup frame 1 (43.32 ms) is excluded.
+**Pass aggregate** (standard cycle): `hl_shader_draw` avg 23.76 ms/f, worst
+window 28.09 ms/f (frames 1185–1200), peak frame render **36.65 ms** (frame
+1198), spilled **0/1887**. Setup frame 1 is excluded.
 
 A display window is 62.5 ms; the effect renders one quadrant, 146×73 = 10,658
 rays per frame. Every frame of the standard cycle holds 16 fps with at least
@@ -46,48 +46,49 @@ next display flip, by design.
 ## Phase-by-phase readout
 
 Phase schedule: three presets, each a 320-frame hold followed by a 240-frame
-segue that now interpolates every continuous control; the pattern, view and
-shell count switch at the segue midpoint.
+segue. Cubic Flight and Cubic Wide Flight share a pattern and view, so that
+segue interpolates every continuous control. The segues into and out of
+Hypercube Flight change the view: each holds the outgoing preset while it dims
+to black, switches in the dark, and brightens the incoming one.
 
-### Segue into the hypercube (frames 1185–1200, worst window)
+### Fade into the hypercube (frames 1185–1200, worst window)
 
 ```
-frame                  62.79 ms  37.67 Mcyc  100%
-  hl_shader_draw       28.09 ms  16.86 Mcyc   45%  x1.0
+frame                  62.84 ms  37.70 Mcyc  100%
+  hl_shader_draw       28.09 ms  16.85 Mcyc   45%  x1.0
   pov_preserve_half     0.14 ms   0.09 Mcyc    0%
   canvas_clear          0.09 ms   0.05 Mcyc    0%
-  hl_timeline_step      6.4 us    3.9 kcyc     0%
-  canvas_buffer_wait   32.68 ms  19.61 Mcyc   52%
+  hl_timeline_step     15.6 us    9.4 kcyc     0%
+  canvas_buffer_wait   32.76 ms  19.66 Mcyc   52%
 ```
 
-Wall min/avg/max = 58.18/62.79/67.42 ms. The segue from Cubic Wide Flight into
-Hypercube Flight carries the pass peak: its first half grows the cubic cell
-toward the hypercube's while the far distance shrinks, and after the midpoint
-the 4D slice starts with the lerped wider wires. Holds run 25–27 ms mean.
+Wall min/avg/max = 57.57/62.84/68.31 ms. The window sits in the second half of
+the dip into Hypercube Flight, which renders the hypercube's own parameters;
+its peak is a hold-cost camera position. Holds run 25–27 ms mean.
 
 ### Per-preset table
 
 Pinned 30 s captures at the final code, frame 1 excluded, and the full
-experimental cycle's buckets. A bucket opens at its preset's marker, so it
-holds the segue into that preset and then its hold.
+experimental cycle's buckets (captured 2026-09-29 14:51, COM4). A bucket
+opens at its preset's marker, so it holds the segue into that preset and then
+its hold.
 
 | # | Preset | Pinned peak ms | Pinned mean ms | Cycle bucket peak ms | Cycle spilled |
 |---|---|--:|--:|--:|--:|
-| 6 | Shell Flight | 27.88 | 23.55 | 🔴 65.49 | 9/559 |
-| 5 | Octet 4D Flight | 56.12 | 47.00 | 🟢 49.24 | 0/559 |
-| 8 | Shell 4D Flight | 51.17 | 35.04 | 🟢 51.00 | 0/559 |
-| 3 | Octet Flight | 31.92 | 28.12 | 🟢 42.33 | 0/559 |
-| 2 | Hypercube Flight | 34.36 | 26.90 | 🟢 37.34 | 0/559 |
-| 7 | Shell Close Flight | 31.64 | 27.20 | 🟢 31.97 | 0/559 |
-| 4 | Octet Wide Flight | 31.26 | 29.77 | 🟢 31.65 | 0/559 |
-| 1 | Cubic Wide Flight | 29.15 | 25.59 | 🟢 29.58 | 0/681 |
-| 0 | Cubic Flight | 26.37 | 24.72 | 🟢 43.30 | 0/878 |
+| 5 | Octet 4D Flight | 56.12 | 47.00 | 🟢 51.14 | 0/559 |
+| 6 | Shell Flight | 27.88 | 23.55 | 🟢 56.03 | 0/559 |
+| 8 | Shell 4D Flight | 51.17 | 35.04 | 🟢 35.00 | 0/559 |
+| 2 | Hypercube Flight | 34.36 | 26.90 | 🟢 36.68 | 0/559 |
+| 3 | Octet Flight | 31.92 | 28.12 | 🟢 32.24 | 0/559 |
+| 7 | Shell Close Flight | 31.64 | 27.20 | 🟢 31.28 | 0/559 |
+| 4 | Octet Wide Flight | 31.26 | 29.77 | 🟢 31.72 | 0/559 |
+| 1 | Cubic Wide Flight | 29.15 | 25.59 | 🟢 29.44 | 0/697 |
+| 0 | Cubic Flight | 26.37 | 24.72 | 🟢 43.23 | 0/878 |
 
-The experimental cycle wrapped to preset 1 (nine `Preset:` markers). Cubic
-Flight's bucket peak is setup frame 1. The only spilling frames are 3162–3234,
-the first half of the segue from Octet 4D Flight into Shell Flight: the lerped
-cell size shrinks toward the shell preset's, and each ray crosses about 36%
-more octet planes before the pattern switches, 9 of 5,471 live frames.
+The experimental cycle wrapped to preset 1 (nine `Preset:` markers) and held
+16 fps on every one of its 5,487 live frames. Shell Flight's bucket peak,
+56.03 ms at frame 3209, is the outgoing Octet 4D Flight at its own parameters
+while it dims. Cubic Flight's bucket peak is setup frame 1.
 
 ### Per-pixel figures
 
@@ -106,8 +107,7 @@ isr_dma_submit    145/frame  min/avg/max 0.7/0.9/1.0 us   cpu 0.21%
 - Packing marshals the LED data on the CPU; submission only launches the DMA.
 - A 600-byte transfer takes about 400 µs at 12 MHz, asynchronously.
 - The ISRs take 4.7% of the CPU, leaving about 59.5 ms of render budget per
-  62.5 ms window: the standard cycle needs no further speedup; the Octet 4D
-  segue needs about 9% on its worst frames.
+  62.5 ms window; neither cycle needs further speedup.
 
 ## Summary ranking
 
@@ -116,7 +116,7 @@ isr_dma_submit    145/frame  min/avg/max 0.7/0.9/1.0 us   cpu 0.21%
 3. `canvas_clear` — 0.1%, 0.09 ms/f.
 
 Against the previous shipping report the standard cycle's peak fell from 56.12
-to 37.46 ms, and every experimental preset now holds 16 fps pinned.
+to 36.65 ms, and both cycles hold 16 fps on every frame.
 
 ## Optimization ledger
 
@@ -158,6 +158,8 @@ throughout except where listed (the traced paths all run from cached flash).
 | Branch-free class mask and across shift | Octet 4D | 60.0 → 56.1 | 0 |
 | 32-bit fixed-point fractions (reverted) | Octet 4D | 56.1 → 61.4 | 0 |
 | 3D neighbor march for wide lerped shells | Shell Close → Shell 4D segue | 142.7 → 51.0 (cycle bucket) | 0 |
+| Midpoint switch for controls one side ignores (not landed) | Octet 4D → Shell segue | frozen pre-switch 68.0 → 64.6; cycle 65.5 → 76.7 (4D orientation moved) | 0 |
+| Fade through black between pattern/view families | experimental cycle / standard cycle | 65.5 (9 spilled) → 56.0 (0 spilled) / 37.46 → 36.65 | 0 |
 
 Octet 4D Flight and Shell 4D Flight joined the cycle with new parameters
 during the campaign; each row measures the parameters current at its time.
@@ -170,8 +172,8 @@ during the campaign; each row measures the parameters current at its time.
 - The traced paths run from cached flash; no `HS_O3` region is on them.
 - The experimental presets require `HS_ENABLE_HYPERLATTICE_EXPERIMENTS=1`;
   epoch stretches only lengthen the effect instance, never a frame's cost.
-- The pinned captures and both cycle captures ran the pre-rebase branch; the
-  rebase onto master added peer commits outside HyperLattice.
+- The pinned captures ran the campaign branch before its rebase onto master,
+  which added peer commits outside HyperLattice; both cycles ran `b1ccbfa39`.
 
 ## Harness
 
