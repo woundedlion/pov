@@ -162,7 +162,7 @@ __attribute__((always_inline)) inline ShellSample trace_periodic_shells_3d(
       return false;
     }
     ++layers;
-    composite.add(appearance.color(t), coverage * appearance.opacity(t));
+    appearance.composite(composite, t, coverage);
     if (composite.saturated()) {
       result.status = Raycast::TraceStatus::SATURATED;
       return false;

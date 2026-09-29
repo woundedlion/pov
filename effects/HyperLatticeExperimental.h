@@ -195,8 +195,7 @@ trace(const Events &events, Raycast::Interval interval,
     }
     ++layers;
     HS_PROFILE_DEEP(hl_layer_composite);
-    composite.add(appearance.color(pending_t),
-                  pending_coverage * appearance.opacity(pending_t));
+    appearance.composite(composite, pending_t, pending_coverage);
     pending = false;
     if (composite.saturated()) {
       result.status = Raycast::TraceStatus::SATURATED;
@@ -301,7 +300,7 @@ trace_sorted(const Events &events, Raycast::Interval interval,
     float coverage = coverages[index];
     for (++index; index < covered && distances[index] <= GROUP_END; ++index)
       coverage = std::max(coverage, coverages[index]);
-    composite.add(appearance.color(T), coverage * appearance.opacity(T));
+    appearance.composite(composite, T, coverage);
     if (composite.saturated()) {
       result.status = Raycast::TraceStatus::SATURATED;
       break;
