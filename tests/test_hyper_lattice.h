@@ -1041,7 +1041,15 @@ inline void test_octet_prepared_projection() {
                                       : HyperLatticeExperimental::shade<false>(
                                             DIRECTION, prepared);
               HS_EXPECT_EQ(SHADED.status, traced.status);
-              HS_EXPECT_EQ(SHADED.color, traced.color);
+              // The 4D trace sums plane positions in its canonical frame's
+              // order, which moves crossing distances by an ulp.
+              if (domain == Domain::SLICE_4D) {
+                HS_EXPECT_NEAR(SHADED.color.r, traced.color.r, 1);
+                HS_EXPECT_NEAR(SHADED.color.g, traced.color.g, 1);
+                HS_EXPECT_NEAR(SHADED.color.b, traced.color.b, 1);
+              } else {
+                HS_EXPECT_EQ(SHADED.color, traced.color);
+              }
               lit += traced.color != Pixel{};
             }
           }
@@ -1050,6 +1058,64 @@ inline void test_octet_prepared_projection() {
     }
   }
   HS_EXPECT_GT(lit, size_t{0});
+}
+
+/**
+ * @brief The canonical-frame 4D octet trace against OctetEvents4 over random
+ *        flights, including its plane-share crossing skip.
+ */
+inline void test_octet_4d_canonical_trace() {
+  using Effect = HyperLatticeWhiteBox::Effect;
+  reset_globals();
+  Effect effect;
+  effect.init();
+  HyperLatticeExperimental::Settings settings;
+  settings.palette = HyperLatticeWhiteBox::depth_palette(effect);
+  settings.pixel_half_angle = HL::pixel_half_angle<288, 144>();
+  settings.domain = Raycast::SamplingDomain::SLICE_4D;
+  uint32_t state = 0x0c7e74du;
+  const auto uniform = [&state](float low, float high) {
+    state = state * 1664525u + 1013904223u;
+    return low + (high - low) * static_cast<float>(state >> 8) * 0x1p-24f;
+  };
+  size_t compared = 0, lit = 0, differing = 0;
+  for (int frame = 0; frame < 40; ++frame) {
+    settings.cell_size = uniform(.6f, 3.0f);
+    settings.wire_radius = uniform(.015f, .09f) * settings.cell_size;
+    settings.far_distance = uniform(3.0f, 9.0f);
+    settings.aa_strength = uniform(0.0f, 2.0f);
+    settings.radial_start = frame % 3 ? 0.0f : uniform(0.0f, 1.5f);
+    settings.center = {
+        {uniform(-3, 3), uniform(-3, 3), uniform(-3, 3), uniform(-3, 3)}};
+    settings.embedding = math::Mat4::identity();
+    for (int a = 0; a < 4; ++a)
+      for (int b = a + 1; b < 4; ++b)
+        math::rotate_plane(settings.embedding, a, b, uniform(0.0f, 6.3f));
+    const auto prepared = HyperLatticeExperimental::prepare(settings);
+    HS_EXPECT_TRUE(prepared.valid);
+    const auto &camera = prepared.camera;
+    for (int ray = 0; ray < 400; ++ray) {
+      const math::Vector DIRECTION =
+          math::Vector{uniform(-1, 1), uniform(-1, 1), uniform(-1, 1)}
+              .normalized();
+      const SDF::OctetEvents4 events(
+          prepared.octet4, prepared.octet4_projection, DIRECTION,
+          camera.radial_start, camera.interval.near, prepared.footprint);
+      const auto EXPECTED = HyperLatticeExperimental::trace(
+          events, camera.interval, prepared.limits, prepared.appearance);
+      const auto ACTUAL =
+          HyperLatticeExperimental::trace_octet_4d(DIRECTION, prepared);
+      HS_EXPECT_EQ(ACTUAL.status, EXPECTED.status);
+      const int DELTA = std::max({abs(ACTUAL.color.r - EXPECTED.color.r),
+                                  abs(ACTUAL.color.g - EXPECTED.color.g),
+                                  abs(ACTUAL.color.b - EXPECTED.color.b)});
+      differing += DELTA > 1;
+      ++compared;
+      lit += EXPECTED.color != Pixel{};
+    }
+  }
+  HS_EXPECT_GT(lit, compared / 10);
+  HS_EXPECT_EQ(differing, size_t{0});
 }
 
 inline void test_experimental_presets() {
@@ -1397,6 +1463,7 @@ inline int run_hyper_lattice_tests() {
   test_dimension_dropdown_and_mode_lerp();
   test_single_shell();
   test_octet_prepared_projection();
+  test_octet_4d_canonical_trace();
   test_experimental_presets();
   test_new_patterns();
   test_pattern_view_controls();

@@ -800,16 +800,21 @@ private:
           });
       return;
     }
-    if (prepared.valid && prepared.geometry == Geometry::OCTET &&
-        params.mode == LatticeMode::THREE_D) {
+    const auto draw_octet = [&]<bool SLICE_4D>() {
       Scan::Shader::draw_cached<W, H, 1>(
           canvas,
           [&prepared, this](const math::Vector &view) HS_HOT_FLASH_MEMBER {
-            const auto result = shade_octet<false>(view, prepared);
+            const auto result = shade_octet<SLICE_4D>(view, prepared);
             if (result.status == Raycast::TraceStatus::BUDGET_EXHAUSTED)
               unfinished_rays += 1;
             return result.color;
           });
+    };
+    if (prepared.valid && prepared.geometry == Geometry::OCTET) {
+      if (params.mode == LatticeMode::FOUR_D_SLICE)
+        draw_octet.template operator()<true>();
+      else
+        draw_octet.template operator()<false>();
       return;
     }
     using Shade = Sample (*)(const math::Vector &, const Prepared &);
