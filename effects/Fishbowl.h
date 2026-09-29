@@ -62,7 +62,7 @@ class Fishbowl : public ChoreographedEffect<Fishbowl<W, H>, FishbowlParams> {
 
 public:
   using Params = FishbowlParams;
-  static constexpr Segue::Preset::Snap PRESET_SEGUE{};
+  static constexpr Segue::Preset::Snap DEPARTURE{};
   static constexpr uint32_t PARAMETER_SCHEMA_VERSION = 1;
   static constexpr uint16_t PRESET_DWELL_FRAMES = 1;
   static constexpr float ALPHA_MIN = 0.0f, ALPHA_MAX = 1.0f;
@@ -402,7 +402,8 @@ private:
                                  .scale_factor = 84.832001f,
                                  .cycle_speed = 0.672f,
                                  .duty_cycle = 0.5f};
-  static constexpr std::array<PresetEntry<Params>, 1> PRESETS{{{PRESET}}};
+  static constexpr std::array<PresetEntry<Params>, 1> PRESETS{
+      {{PRESET, DEPARTURE}}};
   static_assert(all_presets_in_ranges(PRESETS, [](const Params &p) {
     return valid_params(p);
   }));

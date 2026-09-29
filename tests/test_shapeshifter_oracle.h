@@ -332,12 +332,14 @@ struct ShapeShifterWhiteBox {
     return preset_params(index).spacing;
   }
 
-  static void next_preset(OracleEffect &effect) {
-    HS_CHECK(effect.advance_preset(), "ShapeShifter preset advance refused");
+  /** @brief Steps the timeline and the preset choreography one frame. */
+  static void step_choreography(OracleEffect &effect, Canvas &canvas) {
+    effect.timeline.step(canvas);
+    effect.step_choreography();
   }
 
-  static void step_timeline(OracleEffect &effect, Canvas &canvas) {
-    effect.timeline.step(canvas);
+  static OracleEffect::ShapeType shape(const OracleEffect &effect) {
+    return effect.params.shape;
   }
 
   static float preset_opacity(const OracleEffect &effect) {
@@ -349,7 +351,8 @@ struct ShapeShifterWhiteBox {
   }
 
   static int preset_frames() { return OracleEffect::PRESET_FRAMES; }
-  static int preset_segue_frames() { return OracleEffect::PRESET_SEGUE_FRAMES; }
+  static int preset_dwell_frames() { return OracleEffect::PRESET_DWELL_FRAMES; }
+  static int preset_segue_frames() { return OracleEffect::DEPARTURE.frames; }
 };
 
 /** @brief Captures one renderer callable from a fresh deterministic effect. */
@@ -1007,9 +1010,12 @@ inline void test_preset_transition_snaps() {
   {
     OracleEffect effect;
     effect.init();
+    Canvas canvas(effect);
     HS_EXPECT_EQ(effect.updateParameter("Alpha", 0.42f),
                  ParamSetResult::APPLIED);
-    ShapeShifterWhiteBox::next_preset(effect);
+    for (int frame = 0; frame < ShapeShifterWhiteBox::preset_frames(); ++frame)
+      ShapeShifterWhiteBox::step_choreography(effect, canvas);
+    HS_EXPECT_EQ(ShapeShifterWhiteBox::preset_index(effect), size_t{1});
 
     auto value = [&](const char *name) {
       for (const auto &def : effect.getParameters())
@@ -1039,37 +1045,55 @@ inline void test_preset_transition_snaps() {
   Timeline().clear();
 }
 
-/** @brief Pins ShapeShifter's eight-frame fade-out and fade-in preset seam. */
+/**
+ * @brief Pins ShapeShifter's 240-frame preset cadence: a 224-frame dwell, then
+ *        eight frames fading out, the next preset adopted in the dark, and
+ *        eight frames fading back in.
+ */
 inline void test_preset_transition_fades_through_black_in_16_frames() {
   {
     OracleEffect effect;
     effect.init();
     Canvas canvas(effect);
     HS_EXPECT_EQ(ShapeShifterWhiteBox::preset_segue_frames(), 16);
+    HS_EXPECT_EQ(ShapeShifterWhiteBox::preset_dwell_frames() +
+                     ShapeShifterWhiteBox::preset_segue_frames(),
+                 ShapeShifterWhiteBox::preset_frames());
+    const auto FIRST = ShapeShifterWhiteBox::preset_shape(0);
+    const auto SECOND = ShapeShifterWhiteBox::preset_shape(1);
+    HS_EXPECT_NE(static_cast<int>(FIRST), static_cast<int>(SECOND));
+    auto step = [&] {
+      ShapeShifterWhiteBox::step_choreography(effect, canvas);
+    };
 
-    for (int frame = 0; frame < ShapeShifterWhiteBox::preset_frames() - 8;
+    for (int frame = 0; frame < ShapeShifterWhiteBox::preset_dwell_frames();
          ++frame)
-      ShapeShifterWhiteBox::step_timeline(effect, canvas);
+      step();
     HS_EXPECT_NEAR(ShapeShifterWhiteBox::preset_opacity(effect), 1.0f, 1e-6f);
-    HS_EXPECT_EQ(ShapeShifterWhiteBox::preset_index(effect), size_t{0});
+    HS_EXPECT_EQ(static_cast<int>(ShapeShifterWhiteBox::shape(effect)),
+                 static_cast<int>(FIRST));
 
-    for (int frame = 0; frame < 7; ++frame)
-      ShapeShifterWhiteBox::step_timeline(effect, canvas);
-    HS_EXPECT_NEAR(ShapeShifterWhiteBox::preset_opacity(effect), 0.125f, 1e-6f);
-    HS_EXPECT_EQ(ShapeShifterWhiteBox::preset_index(effect), size_t{0});
+    for (int frame = 1; frame < 8; ++frame) {
+      step();
+      HS_EXPECT_NEAR(ShapeShifterWhiteBox::preset_opacity(effect),
+                     1.0f - static_cast<float>(frame) / 8.0f, 1e-6f);
+      HS_EXPECT_EQ(static_cast<int>(ShapeShifterWhiteBox::shape(effect)),
+                   static_cast<int>(FIRST));
+    }
 
-    ShapeShifterWhiteBox::step_timeline(effect, canvas);
+    step();
     HS_EXPECT_NEAR(ShapeShifterWhiteBox::preset_opacity(effect), 0.0f, 1e-6f);
+    HS_EXPECT_EQ(static_cast<int>(ShapeShifterWhiteBox::shape(effect)),
+                 static_cast<int>(SECOND));
     HS_EXPECT_EQ(ShapeShifterWhiteBox::preset_index(effect), size_t{1});
 
-    ShapeShifterWhiteBox::step_timeline(effect, canvas);
-    HS_EXPECT_NEAR(ShapeShifterWhiteBox::preset_opacity(effect), 0.125f, 1e-6f);
-    HS_EXPECT_EQ(ShapeShifterWhiteBox::preset_index(effect), size_t{1});
-
-    for (int frame = 0; frame < 7; ++frame)
-      ShapeShifterWhiteBox::step_timeline(effect, canvas);
-    HS_EXPECT_NEAR(ShapeShifterWhiteBox::preset_opacity(effect), 1.0f, 1e-6f);
-    HS_EXPECT_EQ(ShapeShifterWhiteBox::preset_index(effect), size_t{1});
+    for (int frame = 1; frame <= 8; ++frame) {
+      step();
+      HS_EXPECT_NEAR(ShapeShifterWhiteBox::preset_opacity(effect),
+                     static_cast<float>(frame) / 8.0f, 1e-6f);
+    }
+    HS_EXPECT_EQ(static_cast<int>(ShapeShifterWhiteBox::shape(effect)),
+                 static_cast<int>(SECOND));
   }
   Timeline().clear();
 }

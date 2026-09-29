@@ -30,7 +30,7 @@ struct KaleidoscopeSmoothWhiteBox {
   }
   static bool advance_preset(FX &effect) { return effect.advance_preset(); }
   static void drive_transition(FX &effect, float progress) {
-    effect.run_blend(progress);
+    effect.run_transition(progress);
   }
 };
 
@@ -92,29 +92,30 @@ inline void test_kaleidoscope_smooth_transition_contract() {
 
   WB::drive_transition(effect, 0.0f);
   HS_EXPECT_NEAR(WB::params(effect).source.complexity,
-                 FX::preset_params(0).source.complexity, 0.0f);
+                 FX::preset(0).params.source.complexity, 0.0f);
 
   WB::drive_transition(effect, 0.25f);
   HS_EXPECT_NEAR(WB::params(effect).source.complexity,
-                 interp::linear(FX::preset_params(0).source.complexity,
-                                FX::preset_params(1).source.complexity, 0.25f),
+                 interp::linear(FX::preset(0).params.source.complexity,
+                                FX::preset(1).params.source.complexity, 0.25f),
                  1e-6f);
 
   WB::drive_transition(effect, 0.5f);
   HS_EXPECT_NEAR(WB::params(effect).source.complexity,
-                 interp::linear(FX::preset_params(0).source.complexity,
-                                FX::preset_params(1).source.complexity, 0.5f),
+                 interp::linear(FX::preset(0).params.source.complexity,
+                                FX::preset(1).params.source.complexity, 0.5f),
                  1e-6f);
 
   WB::drive_transition(effect, 1.0f);
   HS_EXPECT_NEAR(WB::params(effect).source.complexity,
-                 FX::preset_params(1).source.complexity, 0.0f);
+                 FX::preset(1).params.source.complexity, 0.0f);
   HS_EXPECT_TRUE(WB::transition_active(effect));
 
-  for (uint16_t frame = 4; frame < FX::TRANSITION_DURATION; ++frame)
+  for (uint16_t frame = 4;
+       frame < Segue::Preset::frames(FX::preset_departure(0)); ++frame)
     WB::drive_transition(effect, 0.5f);
   HS_EXPECT_NEAR(WB::params(effect).source.complexity,
-                 FX::preset_params(1).source.complexity, 0.0f);
+                 FX::preset(1).params.source.complexity, 0.0f);
   HS_EXPECT_FALSE(WB::transition_active(effect));
 }
 

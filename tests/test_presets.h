@@ -103,7 +103,7 @@ struct BootParams {
 };
 
 /**
- * @brief Effect declaring PRESET_IDS and a static preset_params, no
+ * @brief Effect declaring PRESET_IDS and a static preset(index), no
  *        initial_params().
  * @details Preset 0 carries a value the struct default cannot produce, so the
  * parameters the base boots with name which resolver supplied them.
@@ -112,12 +112,11 @@ struct PresetZeroBootEffect
     : public ChoreographedEffect<PresetZeroBootEffect, BootParams> {
   static constexpr std::array<std::string_view, 2> PRESET_IDS{"first",
                                                               "second"};
-  static constexpr Segue::Preset::Snap PRESET_SEGUE{};
   static constexpr uint16_t PRESET_DWELL_FRAMES = 60;
   static constexpr uint32_t PARAMETER_SCHEMA_VERSION = 1;
 
-  static constexpr BootParams preset_params(size_t index) {
-    return {index == 0 ? 7.0f : 9.0f};
+  static constexpr PresetEntry<BootParams> preset(size_t index) {
+    return {{index == 0 ? 7.0f : 9.0f}, Segue::Preset::Snap{}};
   }
   static constexpr bool valid_params(const BootParams &value) {
     return value.value >= 0.0f;
@@ -130,7 +129,7 @@ struct PresetZeroBootEffect
 };
 
 /**
- * @brief Verifies a PRESET_IDS-shaped effect boots at preset_params(0).
+ * @brief Verifies a PRESET_IDS-shaped effect boots at preset(0).
  * @details The base reports preset 0 from construction, so starting at the
  * struct defaults instead would render parameters no preset names while
  * claiming to be on the first one.
@@ -140,7 +139,7 @@ inline void test_preset_zero_supplies_startup_params() {
   PresetZeroBootEffect effect;
   HS_EXPECT_EQ(effect.getPresetIndex(), size_t{0});
   HS_EXPECT_EQ(effect.boot_value(),
-               PresetZeroBootEffect::preset_params(0).value);
+               PresetZeroBootEffect::preset(0).params.value);
   HS_EXPECT_NE(effect.boot_value(), BootParams{}.value);
 }
 
@@ -159,12 +158,11 @@ struct HoldParams {
 struct HoldEffect : public ChoreographedEffect<HoldEffect, HoldParams> {
   static constexpr std::array<std::string_view, 2> PRESET_IDS{"first",
                                                               "second"};
-  static constexpr Segue::Preset::Snap PRESET_SEGUE{};
   static constexpr uint16_t PRESET_DWELL_FRAMES = 40;
   static constexpr uint32_t PARAMETER_SCHEMA_VERSION = 1;
 
-  static constexpr HoldParams preset_params(size_t index) {
-    return {index == 0 ? 1.0f : 2.0f};
+  static constexpr PresetEntry<HoldParams> preset(size_t index) {
+    return {{index == 0 ? 1.0f : 2.0f}, Segue::Preset::Snap{}};
   }
   static constexpr bool valid_params(const HoldParams &) { return true; }
 
@@ -197,7 +195,7 @@ inline void test_hold_initial_preset_overrides_first_dwell() {
   HS_EXPECT_EQ(effect.getPresetIndex(), size_t{0});
   effect.tick();
   HS_EXPECT_EQ(effect.getPresetIndex(), size_t{1});
-  HS_EXPECT_EQ(effect.value(), HoldEffect::preset_params(1).value);
+  HS_EXPECT_EQ(effect.value(), HoldEffect::preset(1).params.value);
 
   // The advance restored the authored dwell, so the next move is a full
   // PRESET_DWELL_FRAMES away rather than another three frames.
@@ -217,12 +215,12 @@ struct SaturatedPresetEffect
     : ChoreographedEffect<SaturatedPresetEffect, HoldParams> {
   static constexpr std::array<std::string_view, 2> PRESET_IDS{"first",
                                                               "second"};
-  static constexpr Segue::Preset::Lerp PRESET_SEGUE{4, math::ease_linear};
   static constexpr uint16_t PRESET_DWELL_FRAMES = 40;
   static constexpr uint32_t PARAMETER_SCHEMA_VERSION = 1;
   SaturatedPresetEffect() : ChoreographedEffect(8, 8) {}
-  static constexpr HoldParams preset_params(size_t index) {
-    return {index == 0 ? 1.0f : 2.0f};
+  static constexpr PresetEntry<HoldParams> preset(size_t index) {
+    return {{index == 0 ? 1.0f : 2.0f},
+            Segue::Preset::Lerp{4, math::ease_linear}};
   }
   static constexpr bool valid_params(const HoldParams &) { return true; }
   void draw_frame() override {}

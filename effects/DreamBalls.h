@@ -70,12 +70,12 @@ public:
   using BaseMesh = Solids::BaseMesh;
   using WeaveTopology = Params::WeaveTopology;
 
-  /** Preset policy: every origin snaps. The sprite chain owns the automatic
+  /** Every preset departs by snapping. The sprite chain owns the automatic
       cadence — a preset advances at each sprite hand-off, so the dwell
       countdown never runs and step_choreography() is never called. */
-  static constexpr Segue::Preset::Snap PRESET_SEGUE{};
+  static constexpr Segue::Preset::Snap DEPARTURE{};
   static constexpr uint32_t PARAMETER_SCHEMA_VERSION = 1;
-  /** Bookkeeping only (see PRESET_SEGUE); mirrors the sprite hand-off period. */
+  /** Bookkeeping only (see DEPARTURE); mirrors the sprite hand-off period. */
   static constexpr uint16_t PRESET_DWELL_FRAMES = 320;
 
   static bool valid_params(const Params &p) { return preset_in_ranges(p); }
@@ -314,25 +314,35 @@ private:
 
   static constexpr std::array<PresetEntry<Params>, PRESET_COUNT> PRESETS = {{
       {{BaseMesh::RHOMBICUBOCTAHEDRON, WeaveTopology::AUTOMATIC,
-        WEAVE_GAP_DEFAULT, 18.0f, 0.3f, 0.4f, 0.7f}},
+        WEAVE_GAP_DEFAULT, 18.0f, 0.3f, 0.4f, 0.7f},
+       DEPARTURE},
       {{BaseMesh::RHOMBICOSIDODECAHEDRON, WeaveTopology::AUTOMATIC,
-        WEAVE_GAP_DEFAULT, 6.0f, 0.05f, 1.0f, 0.7f}},
+        WEAVE_GAP_DEFAULT, 6.0f, 0.05f, 1.0f, 0.7f},
+       DEPARTURE},
       {{BaseMesh::TRUNCATED_CUBOCTAHEDRON, WeaveTopology::AUTOMATIC,
-        WEAVE_GAP_DEFAULT, 6.0f, 0.16f, 1.0f, 0.3f}},
+        WEAVE_GAP_DEFAULT, 6.0f, 0.16f, 1.0f, 0.3f},
+       DEPARTURE},
       {{BaseMesh::ICOSIDODECAHEDRON, WeaveTopology::AUTOMATIC,
-        WEAVE_GAP_DEFAULT, 10.0f, 0.16f, 1.0f, 0.3f}},
+        WEAVE_GAP_DEFAULT, 10.0f, 0.16f, 1.0f, 0.3f},
+       DEPARTURE},
       {{BaseMesh::SNUB_CUBE, WeaveTopology::AUTOMATIC, WEAVE_GAP_DEFAULT,
-        4.534f, 0.153f, 2.025f, 0.3f}},
+        4.534f, 0.153f, 2.025f, 0.3f},
+       DEPARTURE},
       {{BaseMesh::TRUNCATED_DODECAHEDRON, WeaveTopology::AUTOMATIC, 0.18f,
-        4.515f, 0.179f, 1.89f, 0.7f}},
+        4.515f, 0.179f, 1.89f, 0.7f},
+       DEPARTURE},
       {{BaseMesh::TRIAKIS_ICOSAHEDRON, WeaveTopology::AUTOMATIC, 0.18f, 4.515f,
-        0.131f, 1.89f, 0.7f}},
+        0.131f, 1.89f, 0.7f},
+       DEPARTURE},
       {{BaseMesh::TRIAKIS_ICOSAHEDRON, WeaveTopology::AUTOMATIC, 0.18f, 6.0f,
-        0.078f, 1.0f, 0.3f}},
+        0.078f, 1.0f, 0.3f},
+       DEPARTURE},
       {{BaseMesh::DISDYAKIS_TRIACONTAHEDRON, WeaveTopology::AUTOMATIC, 0.18f,
-        6.0f, 0.03f, 1.0f, 0.3f}},
+        6.0f, 0.03f, 1.0f, 0.3f},
+       DEPARTURE},
       {{BaseMesh::TRIAKIS_ICOSAHEDRON, WeaveTopology::AUTOMATIC, 0.18f, 6.0f,
-        0.03f, 1.0f, 0.3f}},
+        0.03f, 1.0f, 0.3f},
+       DEPARTURE},
   }};
 
   /** @brief Per-preset palette, patched at init(); kept beside PRESETS rather

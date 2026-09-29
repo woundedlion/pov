@@ -14,12 +14,15 @@
 #include <array>
 #include <cstddef>
 
+#include "animation/animation.h"
+
 /**
- * @brief Standalone entry wrapping a single Params preset.
+ * @brief One preset: its parameters and the policy it departs by.
  * @tparam Params The preset parameter type stored in each entry.
  */
 template <typename Params> struct PresetEntry {
-  Params params; /**< The stored preset parameters. */
+  Params params;                    /**< The stored preset parameters. */
+  Segue::Preset::Departure segue{}; /**< How an automatic change leaves. */
 };
 
 /**

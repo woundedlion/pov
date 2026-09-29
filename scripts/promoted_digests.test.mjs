@@ -59,11 +59,6 @@ test('every promoted header digest matches its pattern document', async () => {
   const promoted = [...headers.values()].flatMap(header => header.types);
   assert.equal(names.length, new Set(names).size, 'duplicate product group effect');
   assert.deepEqual(names.sort(), promoted.sort(), 'product group differs from digest-carrying effects');
-  const composedEffect = await readFile(
-    resolve(ROOT, 'core/render/pullback/composed_effect.h'), 'utf8');
-  const segue = /PRESET_SEGUE\s*\{\s*(\d+)/.exec(composedEffect);
-  assert.ok(segue, 'composed_effect.h carries no PRESET_SEGUE duration');
-  const segueDuration = Number(segue[1]);
   assert.ok(headers.size > 0, 'no promoted effect header carries a digest');
 
   for (const [effectId, header] of headers) {
@@ -81,9 +76,6 @@ test('every promoted header digest matches its pattern document', async () => {
     for (const dwell of dwells)
       assert.equal(dwell, header.dwell,
         `patterns/${entry.name} choreography dwell differs from effects/${header.name}`);
-    for (const edge of entry.compiled.document.preset_bank.edges)
-      assert.equal(edge.duration, segueDuration,
-        `patterns/${entry.name} edge duration differs from PRESET_SEGUE`);
   }
 
   for (const [effectId, entry] of documents) {
