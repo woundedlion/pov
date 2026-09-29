@@ -264,6 +264,7 @@ public:
    * kept across frames (e.g. TransformerPool::spawn, whose finite animations are
    * compacted normally and whose return is typically discarded).
    * @param paused Optional event-level pause gate.
+   * @param owner Optional lifetime owner used by cancel_owner().
    * @return Typed pointer to the inline-stored animation, or nullptr if full.
    */
   template <typename A>
