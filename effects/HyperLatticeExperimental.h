@@ -244,26 +244,71 @@ trace(const Events &events, Raycast::Interval interval,
 }
 
 /**
- * @brief trace() by per-stream walks and a distance-ordered covered list.
+ * @brief Covered crossings in distance order, composited as trace() groups.
+ * @details An uncovered crossing never closes a merge group, so the groups are
+ * runs of covered crossings within the relative tolerance of their first
+ * distance, each one layer at that distance with the run's largest coverage.
+ */
+struct CoveredCrossings {
+  static constexpr int CAPACITY = 64;
+  std::array<float, CAPACITY> distances;
+  std::array<float, CAPACITY> coverages;
+  int count = 0;
+
+  __attribute__((always_inline)) void insert(float t, float coverage) {
+    int slot = count++;
+    for (; slot > 0 && distances[slot - 1] > t; --slot) {
+      distances[slot] = distances[slot - 1];
+      coverages[slot] = coverages[slot - 1];
+    }
+    distances[slot] = t;
+    coverages[slot] = coverage;
+  }
+
+  __attribute__((always_inline)) Sample
+  composite(const Raycast::TraceLimits &limits,
+            const Raycast::Appearance &appearance) const {
+    constexpr float RELATIVE_TOLERANCE = 1.0e-4f;
+    Sample result;
+    LayerComposite layers;
+    int composited = 0;
+    for (int index = 0; index < count;) {
+      if (composited >= limits.max_layers) {
+        result.status = Raycast::TraceStatus::BUDGET_EXHAUSTED;
+        break;
+      }
+      ++composited;
+      const float T = distances[index];
+      const float GROUP_END = T + RELATIVE_TOLERANCE * std::max(1.0f, T);
+      float coverage = coverages[index];
+      for (++index; index < count && distances[index] <= GROUP_END; ++index)
+        coverage = std::max(coverage, coverages[index]);
+      appearance.composite(layers, T, coverage);
+      if (layers.saturated()) {
+        result.status = Raycast::TraceStatus::SATURATED;
+        break;
+      }
+    }
+    result.color = layers.premultiplied();
+    return result;
+  }
+};
+
+/**
+ * @brief trace() by per-stream walks over CoveredCrossings.
  * @details Each stream walks its own crossings with the same accumulated
- * distances trace() pops, and only covered crossings are insertion-sorted.
- * An uncovered crossing never closes a merge group, so the groups are runs of
- * covered crossings within the relative tolerance of their first distance. A
- * ray with more crossings than the candidate budget defers to trace(), which
- * truncates them in distance order.
+ * distances trace() pops. A ray with more crossings than the candidate budget
+ * defers to trace(), which truncates them in distance order.
  */
 template <typename Events>
 __attribute__((always_inline)) inline Sample
 trace_sorted(const Events &events, Raycast::Interval interval,
              const Raycast::TraceLimits &limits,
              const Raycast::Appearance &appearance) {
-  constexpr float RELATIVE_TOLERANCE = 1.0e-4f;
-  constexpr int CAPACITY = 64;
-  std::array<float, CAPACITY> distances;
-  std::array<float, CAPACITY> coverages;
-  int covered = 0;
+  CoveredCrossings covered;
   int crossings = 0;
-  const int BUDGET = std::min(limits.max_candidates, CAPACITY);
+  const int BUDGET =
+      std::min(limits.max_candidates, CoveredCrossings::CAPACITY);
   for (uint8_t stream = 0; stream < Events::STREAM_COUNT; ++stream) {
     if (!events.active(stream))
       continue;
@@ -275,58 +320,132 @@ trace_sorted(const Events &events, Raycast::Interval interval,
         continue;
       uint32_t feature;
       const float COVERAGE = events.coverage(stream, t, feature);
-      if (!(COVERAGE > 0.0f))
-        continue;
-      int slot = covered++;
-      for (; slot > 0 && distances[slot - 1] > t; --slot) {
-        distances[slot] = distances[slot - 1];
-        coverages[slot] = coverages[slot - 1];
-      }
-      distances[slot] = t;
-      coverages[slot] = COVERAGE;
+      if (COVERAGE > 0.0f)
+        covered.insert(t, COVERAGE);
     }
   }
-  Sample result;
-  LayerComposite composite;
-  int layers = 0;
-  for (int index = 0; index < covered;) {
-    if (layers >= limits.max_layers) {
-      result.status = Raycast::TraceStatus::BUDGET_EXHAUSTED;
-      break;
-    }
-    ++layers;
-    const float T = distances[index];
-    const float GROUP_END = T + RELATIVE_TOLERANCE * std::max(1.0f, T);
-    float coverage = coverages[index];
-    for (++index; index < covered && distances[index] <= GROUP_END; ++index)
-      coverage = std::max(coverage, coverages[index]);
-    appearance.composite(composite, T, coverage);
-    if (composite.saturated()) {
-      result.status = Raycast::TraceStatus::SATURATED;
-      break;
-    }
+  return covered.composite(limits, appearance);
+}
+
+/**
+ * @brief The 3D octet trace with every owner's strut pairs in registers.
+ * @details SDF::OctetEvents gives a pair of plane families to the family the
+ * ray crosses faster, the lower family on ties. Ranking the families that way
+ * fixes each owner's share: the fastest owns three pairs, the next two and the
+ * third one. Each owner walks its crossings over its pairs in family order,
+ * with OctetEvents' arithmetic, so the covered crossings are OctetEvents'.
+ */
+__attribute__((always_inline)) inline Sample
+trace_octet_3d(const math::Vector &direction, const Prepared &prepared) {
+  const auto &camera = prepared.camera;
+  const auto &projection = prepared.octet_projection;
+  const auto &footprint = prepared.footprint;
+  const float NEAR = camera.interval.near;
+  const float FAR = camera.interval.far;
+  const float WIRE_RADIUS = projection.wire_radius;
+  std::array<float, 4> speeds;
+  std::array<float, 4> positions;
+  for (int family = 0; family < 4; ++family) {
+    speeds[family] = math::dot(direction, projection.normals[family]);
+    positions[family] =
+        projection.offsets[family] + camera.radial_start * speeds[family];
   }
-  result.color = composite.premultiplied();
-  return result;
+  std::array<uint8_t, 4> order;
+  for (uint8_t family = 0; family < 4; ++family) {
+    uint8_t rank = 0;
+    for (uint8_t other = 0; other < 4; ++other)
+      rank += other < family ? fabsf(speeds[other]) >= fabsf(speeds[family])
+                             : fabsf(speeds[other]) > fabsf(speeds[family]);
+    order[rank] = family;
+  }
+  CoveredCrossings covered;
+  int crossings = 0;
+  const int BUDGET =
+      std::min(prepared.limits.max_candidates, CoveredCrossings::CAPACITY);
+  const auto walk =
+      [&]<size_t PAIRS>(uint8_t owner, const std::array<uint8_t, PAIRS> &others)
+          __attribute__((always_inline)) {
+            const float SPEED = speeds[owner];
+            if (SPEED == 0.0f)
+              return true;
+            std::array<float, PAIRS> numerators, denominators, bases, rates;
+            for (size_t pair = 0; pair < PAIRS; ++pair) {
+              const uint8_t OTHER = others[pair];
+              const float A = speeds[std::min(owner, OTHER)];
+              const float B = speeds[std::max(owner, OTHER)];
+              numerators[pair] = SPEED * SPEED * projection.spacing2;
+              denominators[pair] = A * A + B * B + (2.0f / 3.0f) * A * B;
+              bases[pair] = positions[OTHER];
+              rates[pair] = speeds[OTHER];
+            }
+            const float POSITION = positions[owner] + NEAR * SPEED;
+            const float PLANE =
+                SPEED > 0.0f ? ceilf(POSITION) : floorf(POSITION);
+            const float INVERSE = 1.0f / SPEED;
+            const float STEP = fabsf(INVERSE);
+            const float FIRST = NEAR + (PLANE - POSITION) * INVERSE;
+            if (!Raycast::finite(FIRST) || !Raycast::finite(STEP) ||
+                !(STEP > 0.0f))
+              return true;
+            for (float t = FIRST; t <= FAR; t += STEP) {
+              if (++crossings > BUDGET)
+                return false;
+              if (t < NEAR)
+                continue;
+              float numerator = INFINITY;
+              float denominator = 1.0f;
+              for (size_t pair = 0; pair < PAIRS; ++pair) {
+                const float U = bases[pair] + t * rates[pair];
+                const float RESIDUAL = U - roundf(U);
+                const float N = RESIDUAL * RESIDUAL * numerators[pair];
+                if (N * denominator < numerator * denominators[pair]) {
+                  numerator = N;
+                  denominator = denominators[pair];
+                }
+              }
+              const float SUPPORT = WIRE_RADIUS + .5f * footprint.at(t);
+              if (numerator > SUPPORT * SUPPORT * denominator)
+                continue;
+              const float FIELD = sqrtf(numerator / denominator) - WIRE_RADIUS;
+              const float WIDTH = footprint.at(t);
+              const float COVERAGE =
+                  WIDTH > 0.0f ? std::clamp(0.5f - FIELD / WIDTH, 0.0f, 1.0f)
+                               : (FIELD <= 0.0f ? 1.0f : 0.0f);
+              if (COVERAGE > 0.0f)
+                covered.insert(t, COVERAGE);
+            }
+            return true;
+          };
+  constexpr uint8_t OTHERS[4][3] = {{1, 2, 3}, {0, 2, 3}, {0, 1, 3}, {0, 1, 2}};
+  const uint8_t FASTEST = order[0];
+  const std::array<uint8_t, 3> FASTEST_PAIRS{
+      OTHERS[FASTEST][0], OTHERS[FASTEST][1], OTHERS[FASTEST][2]};
+  const std::array<uint8_t, 2> SECOND_PAIRS{std::min(order[2], order[3]),
+                                            std::max(order[2], order[3])};
+  const std::array<uint8_t, 1> THIRD_PAIR{order[3]};
+  if (!walk.template operator()<3>(FASTEST, FASTEST_PAIRS) ||
+      !walk.template operator()<2>(order[1], SECOND_PAIRS) ||
+      !walk.template operator()<1>(order[2], THIRD_PAIR)) {
+    const SDF::OctetEvents events(projection, direction, camera.radial_start,
+                                  NEAR, footprint);
+    return trace(events, camera.interval, prepared.limits, prepared.appearance);
+  }
+  return covered.composite(prepared.limits, prepared.appearance);
 }
 
 /** @brief shade() for a valid octet frame of the matching domain. */
 template <bool SLICE_4D>
 __attribute__((always_inline)) inline Sample
 shade_octet(const math::Vector &direction, const Prepared &prepared) {
-  const auto &camera = prepared.camera;
   if constexpr (SLICE_4D) {
+    const auto &camera = prepared.camera;
     const SDF::OctetEvents4 events(prepared.octet4, prepared.octet4_projection,
                                    direction, camera.radial_start,
                                    camera.interval.near, prepared.footprint);
     return trace_sorted(events, camera.interval, prepared.limits,
                         prepared.appearance);
   } else {
-    const SDF::OctetEvents events(prepared.octet_projection, direction,
-                                  camera.radial_start, camera.interval.near,
-                                  prepared.footprint);
-    return trace_sorted(events, camera.interval, prepared.limits,
-                        prepared.appearance);
+    return trace_octet_3d(direction, prepared);
   }
 }
 
