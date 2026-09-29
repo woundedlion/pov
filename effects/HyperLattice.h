@@ -40,97 +40,6 @@ using LatticeMode = SDF::Lattice::Domain;
 using ShellCount = SDF::Lattice::ShellCount;
 enum class Pattern : uint8_t { CUBIC_WIRE, OCTET };
 enum class ConfigurationId : uint8_t { CUBIC_3D, CUBIC_4D, OCTET_3D, OCTET_4D };
-
-struct FaceFlight {
-  math::Vec4 start{{0, .5f, .5f, .5f}};
-  math::Vec4 finish{{1, .5f, .5f, .5f}};
-  math::Vec4 incoming{{1, 0, 0, 0}};
-  math::Vec4 outgoing{{1, 0, 0, 0}};
-  math::Vec4 center{{.5f, .5f, .5f, .5f}};
-  float progress = 0;
-  uint32_t segment = 0;
-  bool tetrahedron = false;
-
-  explicit FaceFlight(bool octet = false) {
-    if (octet) {
-      center = {{1, 0, 0, 0}};
-      for (int axis = 0; axis < 3; ++axis) {
-        start[axis] = center[axis] - 1.0f / 3.0f;
-        finish[axis] = center[axis] + 1.0f / 3.0f;
-        incoming[axis] = outgoing[axis] = .577350269f;
-      }
-      start[3] = finish[3] = 0;
-    }
-  }
-
-  HS_FLASH_MEMBER void next(bool octet, int dimensions) {
-    ++segment;
-    start = finish;
-    incoming = outgoing;
-    const float NOISE_PHASE = static_cast<float>(segment % 4096) * .754877666f;
-    const float CHOICE = math::value_noise_1d(NOISE_PHASE, 731);
-    if (octet) {
-      for (int axis = 0; axis < 3; ++axis)
-        center[axis] += copysignf(.5f, incoming[axis]);
-      tetrahedron = !tetrahedron;
-      const int TURN = std::min(2, static_cast<int>(CHOICE * 3));
-      if (tetrahedron) {
-        // A tetrahedron's other exits reverse exactly one normal component.
-        outgoing[TURN] = -outgoing[TURN];
-      } else if (math::value_noise_1d(NOISE_PHASE, 193) > .58f) {
-        outgoing[TURN] = -outgoing[TURN];
-      }
-      for (int axis = 0; axis < 3; ++axis)
-        finish[axis] =
-            center[axis] +
-            copysignf(tetrahedron ? 1.0f / 6.0f : 1.0f / 3.0f, outgoing[axis]);
-    } else {
-      for (int axis = 0; axis < 4; ++axis)
-        center[axis] += incoming[axis];
-      if (math::value_noise_1d(NOISE_PHASE, 193) > .58f) {
-        int old_axis = 0;
-        for (int axis = 1; axis < 4; ++axis)
-          if (incoming[axis] != 0)
-            old_axis = axis;
-        const int OFFSET =
-            1 + std::min(dimensions - 2,
-                         static_cast<int>(CHOICE * (dimensions - 1)));
-        outgoing = {};
-        outgoing[(old_axis + OFFSET) % dimensions] =
-            math::value_noise_1d(NOISE_PHASE, 991) < .5f ? -1.0f : 1.0f;
-      }
-      for (int axis = 0; axis < 4; ++axis)
-        finish[axis] = center[axis] + .5f * outgoing[axis];
-    }
-    const float PERIOD = octet ? 2.0f : 1.0f;
-    for (int axis = 0; axis < 4; ++axis) {
-      const float SHIFT = floorf(center[axis] / PERIOD) * PERIOD;
-      center[axis] -= SHIFT;
-      start[axis] -= SHIFT;
-      finish[axis] -= SHIFT;
-    }
-  }
-
-  HS_FLASH_MEMBER math::Vec4 advance(float step, bool octet, int dimensions) {
-    progress += step;
-    while (progress >= 1) {
-      progress -= 1;
-      next(octet, dimensions);
-    }
-    const float T = progress, U = 1 - T;
-    const float HANDLE = octet ? .16f : 1.0f / 3.0f;
-    math::Vec4 result;
-    for (int axis = 0; axis < 4; ++axis) {
-      result[axis] = U * U * U * start[axis] +
-                     3 * U * U * T * (start[axis] + HANDLE * incoming[axis]) +
-                     3 * U * T * T * (finish[axis] - HANDLE * outgoing[axis]) +
-                     T * T * T * finish[axis];
-      result[axis] = math::wrap(result[axis], octet ? 2.0f : 1.0f);
-    }
-    return result;
-  }
-};
-
 struct Params {
   LatticeMode mode = LatticeMode::THREE_D;
   Pattern pattern = Pattern::CUBIC_WIRE;
@@ -613,19 +522,22 @@ private:
   }
 
   HS_FLASH_MEMBER void advance_state() {
+    static constexpr float VELOCITY[HyperLatticeDetail::DIMENSIONS] = {
+        0.4815434f, 0.2993373f, 0.4034555f, 0.7223151f};
     static constexpr float RATE[6] = {1.0f, 0.731f, 0.517f,
                                       1.0f, 0.707f, 0.419f};
 #if HS_ENABLE_HYPERLATTICE_EXPERIMENTS
     if (params.pattern != Pattern::CUBIC_WIRE) {
-      const float SCALE = .7071067811865475f * params.cell_size;
-      const auto POSITION = octet_flight.advance(params.speed / SCALE, true, 3);
+      // A coordinate period of sqrt(2) * cell_size translates D3 and D4.
+      const float PERIOD = 1.4142135623730951f * params.cell_size;
       for (int axis = 0; axis < HyperLatticeDetail::DIMENSIONS; ++axis)
-        experimental_center[axis] = POSITION[axis] * SCALE;
+        experimental_center[axis] = math::wrap(
+            experimental_center[axis] + params.speed * VELOCITY[axis], PERIOD);
     } else
 #endif
-      origin = params.mode == LatticeMode::THREE_D
-                   ? cubic_flight.advance(params.speed, false, 3)
-                   : cubic_flight_4d.advance(params.speed, false, 4);
+      for (int axis = 0; axis < HyperLatticeDetail::DIMENSIONS; ++axis)
+        origin[axis] =
+            math::wrap_t(origin[axis] + params.speed * VELOCITY[axis]);
     for (int plane = 0; plane < 3; ++plane)
       rotation_phase[plane] = math::wrap(
           rotation_phase[plane] + params.spin_3d * RATE[plane], math::TWO_PI_F);
@@ -660,8 +572,7 @@ private:
                     });
   }
 
-  HyperLatticeDetail::FaceFlight octet_flight{true};
-  math::Vec4 experimental_center{{.47140452f, 1.1785113f, 1.1785113f, 0}};
+  math::Vec4 experimental_center{{.255f, .465f, .645f, .375f}};
   float unfinished_rays = 0;
 #endif
 
@@ -706,9 +617,7 @@ private:
       "ShellCount::ONE", "ShellCount::TWO", "ShellCount::THREE"};
 
   ConfigurationId selected_configuration = ConfigurationId::CUBIC_3D;
-  HyperLatticeDetail::FaceFlight cubic_flight;
-  HyperLatticeDetail::FaceFlight cubic_flight_4d;
-  math::Vec4 origin{{0, .5f, .5f, .5f}};
+  math::Vec4 origin{{0.17f, 0.31f, 0.43f, 0.59f}};
   std::array<float, 6> rotation_phase{};
   PaletteCycler depth_palette;
 
