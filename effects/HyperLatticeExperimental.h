@@ -252,6 +252,14 @@ HS_HOT_FLASH_MEMBER Sample shade(const math::Vector &direction,
       (camera.domain == Raycast::SamplingDomain::SLICE_4D) != SLICE_4D)
     return {{}, Raycast::TraceStatus::INVALID_QUERY};
   if (prepared.geometry != Geometry::OCTET) {
+    if constexpr (!SLICE_4D)
+      if (prepared.geometry == Geometry::SHELLS &&
+          prepared.periodic_shells.single_owner) {
+        const auto SHELLS = SDF::trace_periodic_shells_3d(
+            prepared.periodic_shells, camera, direction, prepared.limits,
+            prepared.appearance);
+        return {SHELLS.color, SHELLS.status};
+      }
     Raycast::ShadedTrace sample;
     if (prepared.geometry == Geometry::AFFINE_CUBIC)
       sample = SDF::shade_affine_lattice(
