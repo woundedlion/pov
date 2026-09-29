@@ -7,7 +7,7 @@ Rows rank by any spill, then peak render. 🟢 is zero spill, 🟡 is under 25% 
 
 | Effect | Dominant scope | Peak ms | Spilled | Captured |
 |---|---|--:|--:|---|
-| [MeshFeedback](profile_meshfeedback_teensy_2026-09-28.md) § | `mf_feedback_flush` | 🟢 61.87 (12) | 🟢 0/6687 (0.00%) | 2026-09-28 18:36 |
+| [MeshFeedback](profile_meshfeedback_teensy_2026-09-29.md) § | `mf_feedback_flush` | 🟢 61.87 (12) | 🟢 0/6687 (0.00%) | 2026-09-28 18:36 |
 | [ShapeShifter](profile_shapeshifter_teensy_2026-09-28.md) § | `ss_draw_all` | 🟢 58.24 (9) | 🟢 0/2447 (0.00%) | 2026-09-28 18:48 |
 | [HyperLattice](profile_hyperlattice_teensy_2026-09-28.md) § | `hl_shader_draw` | 🟢 56.12 (3) | 🟢 0/2687 (0.00%) | 2026-09-28 18:43 |
 | [MindSplatter](profile_mindsplatter_teensy_2026-09-28.md) § | `msp_draw_particles` | 🟢 56.11 (8) | 🟢 0/1727 (0.00%) | 2026-09-28 18:51 |

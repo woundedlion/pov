@@ -1,6 +1,6 @@
 # MeshFeedback on-device profile — Teensy 4.0, segmented mode (2026-08-26, **-O3**)
 
-Global-O3 twin of the 2026-08-26 shipping capture; the current shipping report is [profile_meshfeedback_teensy_2026-09-28.md](../shipping/profile_meshfeedback_teensy_2026-09-28.md).
+Global-O3 twin of the 2026-08-26 shipping capture; the current shipping report is [profile_meshfeedback_teensy_2026-09-29.md](../shipping/profile_meshfeedback_teensy_2026-09-29.md).
 Point-in-time snapshot (regenerate with `bash tools/profile_one.sh MeshFeedback profile_o3 420 16 "-D HS_PROFILE_EPOCH_REVS=3400"`). Raw capture:
 `build/prof/meshfeedback_o3.log`, captured 2026-08-26 02:10 local. This is the first archived global-O3 report for this effect.
 
