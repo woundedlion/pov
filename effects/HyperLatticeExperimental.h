@@ -232,7 +232,7 @@ trace(const Events &events, Raycast::Interval interval,
         pending = true;
         pending_t = T;
         pending_coverage = COVERAGE;
-        group_end = T + RELATIVE_TOLERANCE * std::max(1.0f, T);
+        group_end = T + RELATIVE_TOLERANCE * fmaxf(1.0f, T);
       } else if (COVERAGE > pending_coverage) {
         pending_coverage = COVERAGE;
       }
@@ -281,10 +281,10 @@ struct CoveredCrossings {
       }
       ++composited;
       const float T = distances[index];
-      const float GROUP_END = T + RELATIVE_TOLERANCE * std::max(1.0f, T);
+      const float GROUP_END = T + RELATIVE_TOLERANCE * fmaxf(1.0f, T);
       float coverage = coverages[index];
       for (++index; index < count && distances[index] <= GROUP_END; ++index)
-        coverage = std::max(coverage, coverages[index]);
+        coverage = fmaxf(coverage, coverages[index]);
       appearance.composite(layers, T, coverage);
       if (layers.saturated()) {
         result.status = Raycast::TraceStatus::SATURATED;
@@ -411,7 +411,7 @@ trace_octet_3d(const math::Vector &direction, const Prepared &prepared) {
               const float FIELD = sqrtf(numerator / denominator) - WIRE_RADIUS;
               const float WIDTH = footprint.at(t);
               const float COVERAGE =
-                  WIDTH > 0.0f ? std::clamp(0.5f - FIELD / WIDTH, 0.0f, 1.0f)
+                  WIDTH > 0.0f ? hs::clamp(0.5f - FIELD / WIDTH, 0.0f, 1.0f)
                                : (FIELD <= 0.0f ? 1.0f : 0.0f);
               if (COVERAGE > 0.0f)
                 covered.insert(t, COVERAGE);
@@ -653,7 +653,7 @@ trace_octet_4d(const math::Vector &direction, const Prepared &prepared) {
         }
         const float OFFSET2 = 0.5f * across * across + rk * rk + rl * rl;
         const float DOT = across * transverses[c] + rk * dks[c] + rl * dls[c];
-        const float N = std::max(0.0f, OFFSET2 * denominators[c] - DOT * DOT);
+        const float N = fmaxf(0.0f, OFFSET2 * denominators[c] - DOT * DOT);
         if (N * denominator < numerator * denominators[c]) {
           numerator = N;
           denominator = denominators[c];
@@ -664,7 +664,7 @@ trace_octet_4d(const math::Vector &direction, const Prepared &prepared) {
       const float FIELD = SCALE * sqrtf(numerator / denominator) - WIRE_RADIUS;
       const float WIDTH = footprint.at(t);
       const float COVERAGE = WIDTH > 0.0f
-                                 ? std::clamp(0.5f - FIELD / WIDTH, 0.0f, 1.0f)
+                                 ? hs::clamp(0.5f - FIELD / WIDTH, 0.0f, 1.0f)
                                  : (FIELD <= 0.0f ? 1.0f : 0.0f);
       if (COVERAGE > 0.0f)
         covered.insert(t, COVERAGE);

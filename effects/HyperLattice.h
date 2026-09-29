@@ -277,10 +277,10 @@ composite_crossings(const math::Vector &normal, const PreparedTrace &prepared) {
   for (int layer = 0; layer < count;) {
     HS_PROFILE_DEEP(hl_layer_composite);
     const float T = distances[layer];
-    const float GROUP_END = T + RELATIVE_TOLERANCE * std::max(1.0f, T);
+    const float GROUP_END = T + RELATIVE_TOLERANCE * fmaxf(1.0f, T);
     float coverage = coverages[layer];
     for (++layer; layer < count && distances[layer] <= GROUP_END; ++layer)
-      coverage = std::max(coverage, coverages[layer]);
+      coverage = fmaxf(coverage, coverages[layer]);
     prepared.appearance.composite(composite, T, coverage);
     if (composite.saturated())
       break;

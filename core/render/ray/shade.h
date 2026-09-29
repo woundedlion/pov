@@ -18,7 +18,7 @@ struct Appearance {
   const BakedPalette *palette = nullptr;
 
   __attribute__((always_inline)) float opacity(float t) const {
-    const float fog = std::max(0.0f, 1.0f - t * inv_far);
+    const float fog = fmaxf(0.0f, 1.0f - t * inv_far);
     return fog * fog * math::cubic_kernel((t - near_start) * near_inv_span);
   }
   /** @brief Depth-graded palette color at distance t. */
