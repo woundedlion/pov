@@ -669,7 +669,8 @@ trace_octet_4d(const math::Vector &direction, const Prepared &prepared) {
       const float COVERAGE = WIDTH > 0.0f
                                  ? hs::clamp(0.5f - FIELD / WIDTH, 0.0f, 1.0f)
                                  : (FIELD <= 0.0f ? 1.0f : 0.0f);
-      if (COVERAGE > 0.0f)
+      // The counted walk can round its last crossing past FAR.
+      if (COVERAGE > 0.0f && t <= FAR)
         covered.insert(t, COVERAGE);
     }
     return true;
