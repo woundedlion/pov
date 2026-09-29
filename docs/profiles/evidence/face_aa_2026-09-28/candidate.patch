@@ -1,0 +1,165 @@
+diff --git a/core/render/sdf/face.h b/core/render/sdf/face.h
+index 4c9448de4..df0ee62de 100644
+--- a/core/render/sdf/face.h
++++ b/core/render/sdf/face.h
+@@ -763,12 +763,8 @@ struct Face {
+    * @brief Detects a convex 2D projection and builds its edge half-planes.
+    * @param scratch Scratch storage receiving half_planes.
+    * @param area2 Twice the polygon's signed area, from the collapsed-face cull.
+-   * @details The maximum edge half-plane distance is exact inside a convex
+-   * polygon and in exterior edge slabs. In a vertex's exterior normal cone it
+-   * underestimates Euclidean distance; an offset w reaches w / sin(alpha / 2)
+-   * along the bisector of a corner with interior angle alpha. Concave,
+-   * degenerate-edged, or wrongly-oriented polygons leave convex false and
+-   * distance() on the exact walk.
++   * @details Concave, degenerate-edged, or wrongly-oriented polygons leave
++   * convex false and distance() on the exact walk.
+    */
+   __attribute__((always_inline)) void
+   build_half_planes(FaceScratchBuffer &scratch, float area2) {
+@@ -1385,7 +1381,7 @@ struct Face {
+   }
+ 
+   /**
+-   * @brief Signed planar distance via the convex half-plane max.
++   * @brief Signed planar distance via convex half-planes and vertex cones.
+    * @param px Gnomonic x of the query point.
+    * @param py Gnomonic y of the query point.
+    * @return Signed distance in the tangent plane (negative inside).
+@@ -1398,6 +1394,19 @@ struct Face {
+       float di = hp.nx * px + hp.ny * py + hp.off;
+       d = __builtin_fmaxf(di, d);
+     }
++    if (d > 0.0f) {
++      const auto *before = &packed_edges[count - 1];
++      for (int i = 0; i < count; ++i) {
++        const auto &after = packed_edges[i];
++        const float vx = px - after.vx, vy = py - after.vy;
++        // The projection origin is strictly interior, including collinear edges.
++        if (vx * after.vx + vy * after.vy > 0.0f &&
++            vx * before->ex + vy * before->ey >= 0.0f &&
++            vx * after.ex + vy * after.ey <= 0.0f)
++          return __builtin_fmaxf(d, sqrtf(vx * vx + vy * vy));
++        before = &after;
++      }
++    }
+     return d;
+   }
+ 
+diff --git a/tests/test_sdf.h b/tests/test_sdf.h
+index 0f4231b42..17321a2f1 100644
+--- a/tests/test_sdf.h
++++ b/tests/test_sdf.h
+@@ -2999,11 +2999,7 @@ inline std::pair<int, int> face_fringe_misses(const SDF::Face &face) {
+ }
+ 
+ /**
+- * @brief Pins the reduction from converting Face's AA reach to azimuth by row.
+- * @details The widened mask closes at least 92% of the fixed-pad misses in this
+- * deterministic sample and no configuration in it regresses. The bounds are
+- * one-sided, so a cull that drops fewer pixels still passes, down to a residual
+- * of zero.
++ * @brief Verifies that latitude-widened Face culling preserves the AA fringe.
+  */
+ inline void test_face_latitude_pad_reduces_fringe_drops() {
+   constexpr int W = 288, H = 144, HV = H + hs::H_OFFSET;
+@@ -3038,13 +3034,13 @@ inline void test_face_latitude_pad_reduces_fringe_drops() {
+     SDF::Face face(std::span<const math::Vector>(verts, cfg.sides),
+                    std::span<const uint16_t>(idx, cfg.sides), scratch, HV, H);
+     const auto misses = face_fringe_misses<W, H>(face);
+-    HS_EXPECT_LE(misses.second, misses.first);
++    HS_EXPECT_EQ(misses.second, 0);
+     fixed_misses += misses.first;
+     widened_misses += misses.second;
+   }
+-  HS_EXPECT_GE(fixed_misses, 100);
++  HS_EXPECT_GT(fixed_misses, 0);
+   HS_EXPECT_LT(widened_misses, fixed_misses);
+-  HS_EXPECT_LE(widened_misses * 100, fixed_misses * 8);
++  HS_EXPECT_EQ(widened_misses, 0);
+ }
+ 
+ /**
+@@ -3205,9 +3201,7 @@ inline float exact_plane_distance(std::span<const math::Vector> verts,
+  * @param rho Angular circumradius of the face, in radians.
+  * @param axis Pole direction the face's basis is built around.
+  * @param rho_inner Inner-vertex radius; > 0 interleaves star points (concave).
+- * @details A convex face must match the oracle exactly inside and stay within
+- * [0, oracle] outside (the half-plane path underestimates in vertex cones); a
+- * concave face must match the oracle everywhere via the exact walk.
++ * @details Convex and concave faces must match the oracle inside and outside.
+  */
+ inline void check_face_distance_oracle(int &sample_total, int sides, float rho,
+                                        const math::Vector &axis,
+@@ -3258,15 +3252,7 @@ inline void check_face_distance_oracle(int &sample_total, int sides, float rho,
+       const float expected = exact_plane_distance(
+           std::span<const math::Vector>(verts3d, n_verts), p, face.linear_dist);
+ 
+-      // fast_atan2 preserves sign, so the oracle's sign is the plane sign.
+-      if (face.convex && expected > 0.0f) {
+-        // Outside a convex face the half-plane max is a lower bound (line
+-        // distance, not vertex distance) that never crosses zero.
+-        HS_EXPECT_TRUE(res.raw_dist >= -1e-4f);
+-        HS_EXPECT_TRUE(res.raw_dist <= expected + 1e-4f);
+-      } else {
+-        HS_EXPECT_NEAR(res.raw_dist, expected, 1e-4f);
+-      }
++      HS_EXPECT_NEAR(res.raw_dist, expected, 1e-4f);
+       ++samples;
+     }
+   }
+@@ -3274,6 +3260,46 @@ inline void check_face_distance_oracle(int &sample_total, int sides, float rho,
+   HS_EXPECT_GT(samples, 100);
+ }
+ 
++/** @brief Checks acute and collinear vertex cones in both polygon windings. */
++inline void test_face_convex_vertex_distance() {
++  const math::Vector acute[] = {math::Vector(0.8f, 0.0f, 1.0f).normalized(),
++                                math::Vector(-0.4f, 0.08f, 1.0f).normalized(),
++                                math::Vector(-0.4f, -0.08f, 1.0f).normalized()};
++  const math::Vector collinear[] = {
++      math::Vector(-0.5f, -0.5f, 1.0f).normalized(),
++      math::Vector(0.0f, -0.5f, 1.0f).normalized(),
++      math::Vector(0.5f, -0.5f, 1.0f).normalized(),
++      math::Vector(0.5f, 0.0f, 1.0f).normalized(),
++      math::Vector(0.5f, 0.5f, 1.0f).normalized(),
++      math::Vector(0.0f, 0.5f, 1.0f).normalized(),
++      math::Vector(-0.5f, 0.5f, 1.0f).normalized(),
++      math::Vector(-0.5f, 0.0f, 1.0f).normalized()};
++  for (const auto vertices : {std::span<const math::Vector>(acute),
++                              std::span<const math::Vector>(collinear)}) {
++    for (bool reverse : {false, true}) {
++      uint16_t indices[8];
++      for (size_t i = 0; i < vertices.size(); ++i)
++        indices[i] =
++            static_cast<uint16_t>(reverse ? vertices.size() - 1 - i : i);
++      SDF::FaceScratchBuffer scratch;
++      SDF::Face face(vertices,
++                     std::span<const uint16_t>(indices, vertices.size()),
++                     scratch, 144 + hs::H_OFFSET, 144);
++      HS_EXPECT_TRUE(face.convex);
++      for (int x = -40; x <= 40; ++x) {
++        for (int y = -40; y <= 40; ++y) {
++          const float px = x * 0.03f, py = y * 0.03f;
++          const math::Vector p =
++              (face.basis_v + face.basis_u * px + face.basis_w * py)
++                  .normalized();
++          const float expected = exact_plane_distance(vertices, p, true);
++          HS_EXPECT_NEAR(face.plane_dist_convex(px, py), expected, 1e-5f);
++        }
++      }
++    }
++  }
++}
++
+ /** @brief Checks inside/outside signs across a backtracking sector. */
+ inline void test_face_sector_backtrack_sign() {
+   int checked = 0;
+@@ -3646,6 +3672,7 @@ inline int run_sdf_tests() {
+   test_face_cull_covers_aa_fringe();
+   test_face_vertical_margin_tracks_pixel_width();
+   test_face_latitude_pad_reduces_fringe_drops();
++  test_face_convex_vertex_distance();
+   test_star_polygon_cull_covers_aa_fringe();
+   test_face_pole_vertex_matches_full_scan();
+   test_face_sector_backtrack_sign();

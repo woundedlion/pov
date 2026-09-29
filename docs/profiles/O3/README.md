@@ -17,19 +17,19 @@ whose render exceeded one 62.5 ms display interval. Rows rank by spill fraction,
 | [DisplacementField](profile_displacementfield_teensy_2026-09-19.md) | `df_timeline_step` | 🟢 57.45 | 🟢 0/1088 (0%) | 2026-09-19 22:19 |
 | [GSReactionDiffusion](profile_gsreactiondiffusion_teensy_2026-08-26.md) | `grd_render` | 🟢 56.16 | 🟢 0/2048 (0%) | 2026-08-26 01:25 |
 | [Raymarch](profile_raymarch_teensy_2026-09-20.md) | `rm_shader_draw` | 🟢 56.04 | 🟢 0/1736 (0.00%) | 2026-09-20 23:07 |
-| [IslamicStars](profile_islamicstars_teensy_2026-09-24.md) § | `is_timeline_step` | 🟢 55.674 (23) | 🟢 0/3327 (0.0%) | 2026-09-24 11:12 |
 | [HyperLattice](profile_hyperlattice_teensy_2026-09-27.md) § ● | `hl_shader_draw` | 🟢 54.817 (2) | 🟢 0/1576 (0.00%) | 2026-09-27 01:05 |
 | [MermaidSkin](profile_mermaidskin_teensy_2026-08-26.md) | `fx_shader_draw` | 🟢 54.55 | 🟢 0/1088 (0%) | 2026-08-26 02:43 |
 | [MindSplatter](profile_mindsplatter_teensy_2026-08-26.md)§ | `msp_draw_particles` | 🟢 52.79 (9) | 🟢 0/1728 (0%) | 2026-08-26 07:45 |
 | [RingSpin](profile_ringspin_teensy_2026-09-24.md) | `rs_draw_rings` | 🟢 50.750 | 🟢 0/1087 (0.0%) | 2026-09-24 20:18 |
+| [IslamicStars](profile_islamicstars_teensy_2026-09-28.md) § ● | `is_timeline_step` | 🟢 49.112 (23) | 🟢 0/3336 (0.00%) | 2026-09-28 16:50 |
 | [BZReactionDiffusion](profile_bzreactiondiffusion_teensy_2026-08-26.md) | `bz_render` | 🟢 48.65 | 🟢 0/2048 (0%) | 2026-08-26 01:16 |
 | [KaleidoscopeStainedGlass](profile_kaleidoscopestainedglass_teensy_2026-08-26.md) | `fx_shader_draw` | 🟢 46.99 | 🟢 0/1088 (0%) | 2026-08-26 02:51 |
 | [HopfFibration](profile_hopffibration_teensy_2026-08-26.md) | `hf_render_trails` | 🟢 46.52 | 🟢 0/1088 (0%) | 2026-08-26 01:27 |
-| [HankinSolids](profile_hankinsolids_teensy_2026-08-26.md)§ | `hk_timeline_step` | 🟢 42.04 (19) | 🟢 0/3328 (0%) | 2026-08-26 01:53 |
 | [KaleidoscopeHexOil](profile_kaleidoscopehexoil_teensy_2026-08-26.md)§ | `fx_shader_draw` | 🟢 38.94 (3) | 🟢 0/2208 (0%) | 2026-08-26 02:49 |
 | [KaleidoscopeMandala](profile_kaleidoscopemandala_teensy_2026-08-26.md)§ | `fx_shader_draw` | 🟢 36.86 (3) | 🟢 0/2368 (0%) | 2026-08-26 03:17 |
 | [DreamBalls](profile_dreamballs_teensy_2026-08-26.md)§ | `db_timeline_step` | 🟢 34.32 (11) | 🟢 0/3648 (0%) | 2026-08-26 02:19 |
 | [KaleidoscopeFlowers](profile_kaleidoscopeflowers_teensy_2026-08-26.md)§ | `fx_shader_draw` | 🟢 33.38 (4) | 🟢 0/4128 (0%) | 2026-08-26 03:03 |
+| [HankinSolids](profile_hankinsolids_teensy_2026-09-28.md) § ● | `hk_timeline_step` | 🟢 32.865 (18) | 🟢 0/4137 (0.00%) | 2026-09-28 16:45 |
 | [KaleidoscopeSmooth](profile_kaleidoscopesmooth_teensy_2026-08-26.md)§ | `fx_shader_draw` | 🟢 32.58 (5) | 🟢 0/4128 (0%) | 2026-08-26 02:56 |
 | [KaleidoscopeHexBright](profile_kaleidoscopehexbright_teensy_2026-08-26.md)§ | `fx_shader_draw` | 🟢 32.41 (3) | 🟢 0/2368 (0%) | 2026-08-26 03:14 |
 | [KaleidoscopePentBright](profile_kaleidoscopepentbright_teensy_2026-08-26.md) | `fx_shader_draw` | 🟢 29.53 | 🟢 0/1088 (0%) | 2026-08-26 02:46 |
@@ -48,6 +48,10 @@ whose render exceeded one 62.5 ms display interval. Rows rank by spill fraction,
 | [Voronoi](profile_voronoi_teensy_2026-08-26.md) | `vo_shade` | 🟢 7.71 | 🟢 0/1088 (0%) | 2026-08-26 01:39 |
 | [RingShower](profile_ringshower_teensy_2026-08-26.md) | `rsh_draw_rings` | 🟢 3.86 | 🟢 0/1088 (0%) | 2026-08-26 01:36 |
 
+● IslamicStars refreshed on 2026-09-28 from current baseline source; setup frame 1 excluded. Unlanded convex-face AA measurements are in the separate comparison.
+
+● HankinSolids refreshed on 2026-09-28 from current baseline source; setup frame 1 excluded. Unlanded convex-face AA measurements are in the separate comparison.
+
 ● ShapeShifter refreshed on 2026-09-25: N counts nine distinct presets, merging repeated visits after wrap. Its runtime buckets exclude setup frame 1 and include transitions.
 
 § Cyclers carry one aligned line per colour bucket, worst first.
@@ -55,7 +59,7 @@ whose render exceeded one 62.5 ms display interval. Rows rank by spill fraction,
 Bucket frames include transitions and are stricter than the clean-hold table in each report.
 
 **Colour:** 🟢 no spills; 🟡 under 25% spill; 🔴 at least 25% spill.
-IslamicStars refreshed on 2026-09-24 (unlanded finding 2 candidate); Raymarch on 2026-09-20; DisplacementField on 2026-09-19; RingSpin on 2026-09-24; other rows on 2026-08-26.
+Raymarch on 2026-09-20; DisplacementField on 2026-09-19; RingSpin on 2026-09-24; other rows on 2026-08-26.
 Captured timestamps are local raw-log mtimes.
 
 

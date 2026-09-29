@@ -1,0 +1,143 @@
+Processing profile_o3 (board: teensy40; platform: teensy@5.2.0; framework: arduino)
+--------------------------------------------------------------------------------
+Verbose mode can be enabled via `-v, --verbose` option
+CONFIGURATION: https://docs.platformio.org/page/boards/teensy/teensy40.html
+PLATFORM: Teensy (5.2.0) > Teensy 4.0
+HARDWARE: IMXRT1062 600MHz, 512KB RAM, 1.94MB Flash
+DEBUG: Current (jlink) External (jlink)
+PACKAGES:
+ - framework-arduinoteensy @ 1.162.0 (1.62)
+ - tool-teensy @ 1.162.0 (1.62)
+ - toolchain-gccarmnoneeabi-teensy @ 1.150201.0 (15.2.1)
+Converting Profile.ino
+LDF: Library Dependency Finder -> https://bit.ly/configure-pio-ldf
+LDF Modes: Finder ~ chain, Compatibility ~ soft
+Found 93 compatible libraries
+Scanning dependencies...
+Dependency Graph
+|-- FastLED @ 3.4.0
+|-- SPI @ 1.0
+|-- DmxSimple @ 3.1
+|-- SoftwareSerial @ 1.0
+Building in release mode
+Retrieved `.pio\build\profile_o3\libb86\FastLED\FastLED.cpp.o' from cache
+Retrieved `.pio\build\profile_o3\libb86\FastLED\bitswap.cpp.o' from cache
+Retrieved `.pio\build\profile_o3\libb86\FastLED\colorpalettes.cpp.o' from cache
+Retrieved `.pio\build\profile_o3\libb86\FastLED\colorutils.cpp.o' from cache
+Retrieved `.pio\build\profile_o3\libb86\FastLED\hsv2rgb.cpp.o' from cache
+Retrieved `.pio\build\profile_o3\libb86\FastLED\lib8tion.cpp.o' from cache
+Retrieved `.pio\build\profile_o3\libb86\FastLED\noise.cpp.o' from cache
+Retrieved `.pio\build\profile_o3\libb86\FastLED\platforms.cpp.o' from cache
+Retrieved `.pio\build\profile_o3\libb86\FastLED\platforms\esp\32\clockless_rmt_esp32.cpp.o' from cache
+Retrieved `.pio\build\profile_o3\libb86\FastLED\power_mgt.cpp.o' from cache
+Retrieved `.pio\build\profile_o3\libb86\FastLED\wiring.cpp.o' from cache
+Retrieved `.pio\build\profile_o3\src\core\engine\memory.cpp.o' from cache
+Retrieved `.pio\build\profile_o3\src\core\engine\static_storage.cpp.o' from cache
+Retrieved `.pio\build\profile_o3\src\core\spatial\reaction_graph.cpp.o' from cache
+Compiling .pio\build\profile_o3\src\targets\Profile\Profile.ino.cpp.o
+Retrieved `.pio\build\profile_o3\libd0c\DmxSimple\DmxSimple.cpp.o' from cache
+Retrieved `.pio\build\profile_o3\lib475\SoftwareSerial\SoftwareSerial.cpp.o' from cache
+Retrieved `.pio\build\profile_o3\lib374\SPI\SPI.cpp.o' from cache
+Retrieved `.pio\build\profile_o3\lib475\libSoftwareSerial.a' from cache
+Retrieved `.pio\build\profile_o3\lib374\libSPI.a' from cache
+Retrieved `.pio\build\profile_o3\libd0c\libDmxSimple.a' from cache
+Retrieved `.pio\build\profile_o3\FrameworkArduino\AudioStream.cpp.o' from cache
+Retrieved `.pio\build\profile_o3\FrameworkArduino\CrashReport.cpp.o' from cache
+Retrieved `.pio\build\profile_o3\FrameworkArduino\DMAChannel.cpp.o' from cache
+Retrieved `.pio\build\profile_o3\FrameworkArduino\EventResponder.cpp.o' from cache
+Retrieved `.pio\build\profile_o3\FrameworkArduino\HardwareSerial.cpp.o' from cache
+Retrieved `.pio\build\profile_o3\FrameworkArduino\HardwareSerial1.cpp.o' from cache
+Retrieved `.pio\build\profile_o3\FrameworkArduino\HardwareSerial2.cpp.o' from cache
+Retrieved `.pio\build\profile_o3\FrameworkArduino\HardwareSerial3.cpp.o' from cache
+Retrieved `.pio\build\profile_o3\FrameworkArduino\HardwareSerial4.cpp.o' from cache
+Retrieved `.pio\build\profile_o3\FrameworkArduino\HardwareSerial5.cpp.o' from cache
+Retrieved `.pio\build\profile_o3\FrameworkArduino\HardwareSerial6.cpp.o' from cache
+Retrieved `.pio\build\profile_o3\FrameworkArduino\HardwareSerial7.cpp.o' from cache
+Retrieved `.pio\build\profile_o3\FrameworkArduino\HardwareSerial8.cpp.o' from cache
+Retrieved `.pio\build\profile_o3\FrameworkArduino\IPAddress.cpp.o' from cache
+Retrieved `.pio\build\profile_o3\FrameworkArduino\IntervalTimer.cpp.o' from cache
+Retrieved `.pio\build\profile_o3\FrameworkArduino\MTP_Storage.cpp.o' from cache
+Retrieved `.pio\build\profile_o3\FrameworkArduino\MTP_Teensy.cpp.o' from cache
+Retrieved `.pio\build\profile_o3\FrameworkArduino\Print.cpp.o' from cache
+Retrieved `.pio\build\profile_o3\FrameworkArduino\Stream.cpp.o' from cache
+Retrieved `.pio\build\profile_o3\FrameworkArduino\Time.cpp.o' from cache
+Retrieved `.pio\build\profile_o3\FrameworkArduino\Tone.cpp.o' from cache
+Retrieved `.pio\build\profile_o3\FrameworkArduino\WMath.cpp.o' from cache
+Retrieved `.pio\build\profile_o3\FrameworkArduino\WString.cpp.o' from cache
+Retrieved `.pio\build\profile_o3\FrameworkArduino\analog.c.o' from cache
+Retrieved `.pio\build\profile_o3\FrameworkArduino\bootdata.c.o' from cache
+Retrieved `.pio\build\profile_o3\FrameworkArduino\clockspeed.c.o' from cache
+Retrieved `.pio\build\profile_o3\FrameworkArduino\debugprintf.c.o' from cache
+Retrieved `.pio\build\profile_o3\FrameworkArduino\delay.c.o' from cache
+Retrieved `.pio\build\profile_o3\FrameworkArduino\digital.c.o' from cache
+Retrieved `.pio\build\profile_o3\FrameworkArduino\eeprom.c.o' from cache
+Retrieved `.pio\build\profile_o3\FrameworkArduino\extmem.c.o' from cache
+Retrieved `.pio\build\profile_o3\FrameworkArduino\fuse.c.o' from cache
+Retrieved `.pio\build\profile_o3\FrameworkArduino\interrupt.c.o' from cache
+Retrieved `.pio\build\profile_o3\FrameworkArduino\keylayouts.c.o' from cache
+Retrieved `.pio\build\profile_o3\FrameworkArduino\main.cpp.o' from cache
+Retrieved `.pio\build\profile_o3\FrameworkArduino\memcpy-armv7m.S.o' from cache
+Retrieved `.pio\build\profile_o3\FrameworkArduino\memset.S.o' from cache
+Retrieved `.pio\build\profile_o3\FrameworkArduino\new.cpp.o' from cache
+Retrieved `.pio\build\profile_o3\FrameworkArduino\nonstd.c.o' from cache
+Retrieved `.pio\build\profile_o3\FrameworkArduino\pwm.c.o' from cache
+Retrieved `.pio\build\profile_o3\FrameworkArduino\rtc.c.o' from cache
+Retrieved `.pio\build\profile_o3\FrameworkArduino\serialEvent.cpp.o' from cache
+Retrieved `.pio\build\profile_o3\FrameworkArduino\serialEvent1.cpp.o' from cache
+Retrieved `.pio\build\profile_o3\FrameworkArduino\serialEvent2.cpp.o' from cache
+Retrieved `.pio\build\profile_o3\FrameworkArduino\serialEvent3.cpp.o' from cache
+Retrieved `.pio\build\profile_o3\FrameworkArduino\serialEvent4.cpp.o' from cache
+Retrieved `.pio\build\profile_o3\FrameworkArduino\serialEvent5.cpp.o' from cache
+Retrieved `.pio\build\profile_o3\FrameworkArduino\serialEvent6.cpp.o' from cache
+Retrieved `.pio\build\profile_o3\FrameworkArduino\serialEvent7.cpp.o' from cache
+Retrieved `.pio\build\profile_o3\FrameworkArduino\serialEvent8.cpp.o' from cache
+Retrieved `.pio\build\profile_o3\FrameworkArduino\serialEventUSB1.cpp.o' from cache
+Retrieved `.pio\build\profile_o3\FrameworkArduino\serialEventUSB2.cpp.o' from cache
+Retrieved `.pio\build\profile_o3\FrameworkArduino\sm_alloc_valid.c.o' from cache
+Retrieved `.pio\build\profile_o3\FrameworkArduino\sm_calloc.c.o' from cache
+Retrieved `.pio\build\profile_o3\FrameworkArduino\sm_free.c.o' from cache
+Retrieved `.pio\build\profile_o3\FrameworkArduino\sm_hash.c.o' from cache
+Retrieved `.pio\build\profile_o3\FrameworkArduino\sm_malloc.c.o' from cache
+Retrieved `.pio\build\profile_o3\FrameworkArduino\sm_malloc_stats.c.o' from cache
+Retrieved `.pio\build\profile_o3\FrameworkArduino\sm_pool.c.o' from cache
+Retrieved `.pio\build\profile_o3\FrameworkArduino\sm_realloc.c.o' from cache
+Retrieved `.pio\build\profile_o3\FrameworkArduino\sm_realloc_i.c.o' from cache
+Retrieved `.pio\build\profile_o3\FrameworkArduino\sm_realloc_move.c.o' from cache
+Retrieved `.pio\build\profile_o3\FrameworkArduino\sm_szalloc.c.o' from cache
+Retrieved `.pio\build\profile_o3\FrameworkArduino\sm_util.c.o' from cache
+Retrieved `.pio\build\profile_o3\FrameworkArduino\sm_zalloc.c.o' from cache
+Retrieved `.pio\build\profile_o3\FrameworkArduino\startup.c.o' from cache
+Retrieved `.pio\build\profile_o3\FrameworkArduino\tempmon.c.o' from cache
+Retrieved `.pio\build\profile_o3\FrameworkArduino\usb.c.o' from cache
+Retrieved `.pio\build\profile_o3\FrameworkArduino\usb_audio.cpp.o' from cache
+Retrieved `.pio\build\profile_o3\FrameworkArduino\usb_desc.c.o' from cache
+Retrieved `.pio\build\profile_o3\FrameworkArduino\usb_flightsim.cpp.o' from cache
+Retrieved `.pio\build\profile_o3\FrameworkArduino\usb_inst.cpp.o' from cache
+Retrieved `.pio\build\profile_o3\FrameworkArduino\usb_joystick.c.o' from cache
+Retrieved `.pio\build\profile_o3\FrameworkArduino\usb_keyboard.c.o' from cache
+Retrieved `.pio\build\profile_o3\FrameworkArduino\usb_midi.c.o' from cache
+Retrieved `.pio\build\profile_o3\FrameworkArduino\usb_mouse.c.o' from cache
+Retrieved `.pio\build\profile_o3\FrameworkArduino\usb_mtp.c.o' from cache
+Retrieved `.pio\build\profile_o3\FrameworkArduino\usb_rawhid.c.o' from cache
+Retrieved `.pio\build\profile_o3\FrameworkArduino\usb_seremu.c.o' from cache
+Retrieved `.pio\build\profile_o3\FrameworkArduino\usb_serial.c.o' from cache
+Retrieved `.pio\build\profile_o3\FrameworkArduino\usb_serial2.c.o' from cache
+Retrieved `.pio\build\profile_o3\FrameworkArduino\usb_serial3.c.o' from cache
+Retrieved `.pio\build\profile_o3\FrameworkArduino\usb_touch.c.o' from cache
+Retrieved `.pio\build\profile_o3\FrameworkArduino\yield.cpp.o' from cache
+Retrieved `.pio\build\profile_o3\libFrameworkArduino.a' from cache
+Linking .pio\build\profile_o3\firmware.elf
+Calculating size .pio\build\profile_o3\firmware.elf
+Checking size .pio\build\profile_o3\firmware.elf
+Advanced Memory Usage is available via "PlatformIO Home > Project Inspect"
+teensy_size: Memory Usage on Teensy 4.0:
+teensy_size:   FLASH: code:149504, data:200520, headers:8376   free for files:1673216
+teensy_size:    RAM1: variables:315456, code:45080, padding:20456   free for local variables:143296
+teensy_size:    RAM2: variables:520064  free for malloc/new:4224
+Building .pio\build\profile_o3\firmware.hex
+========================= [SUCCESS] Took 18.28 seconds =========================
+
+Environment    Status    Duration
+-------------  --------  ------------
+profile_o3     SUCCESS   00:00:18.278
+========================= 1 succeeded in 00:00:18.278 =========================

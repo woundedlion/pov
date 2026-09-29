@@ -1,0 +1,10 @@
+profile provenance: version=1
+profile provenance: source_sha=0c02f3912a98677184d3cf43b31a5d468d4b8ba3
+profile provenance: compiler=GCC: (Arm GNU Toolchain 15.2.Rel1 (Build arm-15.86)) 15.2.1 20251203
+profile provenance: profile_elf_sha256=ec009fd363518d1d6ab7540cd89296f2ad3002b42d539a901fcbf6e7aff6dd24
+profile provenance: phantasm_elf_sha256=78a2342f86f14f5b95cc5c12b393bd42229f39dfa645b437dbe6f6e01e34001b
+profile provenance: profile_envdump_sha256=4c7093dff94e32d390fd6cbe8c08a74a19bea0be49f825c325a199f4ada1e973
+profile provenance: phantasm_envdump_sha256=8f9b5dee19d9e9dc268a896e2a5811e0a1e64402f550296c48040e3c436362c5
+profile provenance: artifact_profile_elf=build/prof/artifacts/islamicstars_o3_0c02f3912a98_ec009fd36351/profile.elf
+profile provenance: artifact_phantasm_elf=build/prof/artifacts/islamicstars_o3_0c02f3912a98_ec009fd36351/phantasm.elf
+profile provenance: artifact_dir=build/prof/artifacts/islamicstars_o3_0c02f3912a98_ec009fd36351

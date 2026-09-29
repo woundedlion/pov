@@ -21,7 +21,7 @@ full-roster image.
 
 ## Paired shipping/O3 captures
 
-Rows rank by shipping spill fraction, then shipping peak render. The IslamicStars row is an unlanded candidate measurement with no retained raw capture; it is not a verified shipping baseline. Both peaks
+Rows rank by shipping spill fraction, then shipping peak render. Both peaks
 are worst-frame render, never wall time; spilled is the number of frames whose
 render exceeded one 62.5 ms window. Colours are strict per config: 🟢 zero spill, 🟡 under 25% spill, 🔴 at least 25% spill. Image deltas are raw global-O3
 minus shipping bytes from each pair's own image-size reports.
@@ -29,20 +29,19 @@ minus shipping bytes from each pair's own image-size reports.
 | Effect | Dominant scope | Ship peak ms | O3 peak ms | Ship spilled | O3 spilled | FLASH code Δ | ITCM Δ | Captured |
 |---|---|--:|--:|--:|--:|--:|--:|---|
 | [MeshFeedback](shipping/profile_meshfeedback_teensy_2026-09-28.md) / [O3](O3/profile_meshfeedback_teensy_2026-08-26.md) § ● | `mf_feedback_flush` | 🟢 61.85 (12) | 🟢 58.32 (13) | 🟢 0/6688 (0.00%) | 🟢 0/6688 (0%) | +34,144 B | +21,776 B | ship 2026-09-28 14:46<br>O3 2026-08-26 02:10 |
-| [IslamicStars (unverified candidate)](shipping/profile_islamicstars_teensy_2026-09-24.md) / [O3](O3/profile_islamicstars_teensy_2026-09-24.md) § | `is_timeline_step` | 🟢 60.695 (23) | 🟢 55.674 (23) | 🟢 0/3327 (0.0%) | 🟢 0/3327 (0.0%) | +23,472 B | +12,240 B | ship 2026-09-24 11:01<br>O3 2026-09-24 11:12 |
 | [ShapeShifter](shipping/profile_shapeshifter_teensy_2026-09-25.md) / [O3](O3/profile_shapeshifter_teensy_2026-09-25.md) § ● | `ss_draw_all` | 🟢 58.40 (9) | 🟢 60.05 (9) | 🟢 0/2457 (0.00%) | 🟢 0/2457 (0.00%) | +29,288 B | +24,496 B | ship 2026-09-25 07:33<br>O3 2026-09-25 07:29 |
 | [DisplacementField](shipping/profile_displacementfield_teensy_2026-09-19.md) / [O3](O3/profile_displacementfield_teensy_2026-09-19.md) | `df_timeline_step` | 🟢 58.18 | 🟢 57.45 | 🟢 0/1088 (0.0%) | 🟢 0/1088 (0%) | +25,856 B | +22,144 B | ship 2026-09-19 22:17<br>O3 2026-09-19 22:19 |
 | [Raymarch](shipping/profile_raymarch_teensy_2026-09-20.md) / [O3](O3/profile_raymarch_teensy_2026-09-20.md) | `rm_shader_draw` | 🟢 56.07 | 🟢 56.04 | 🟢 0/1736 (0.00%) | 🟢 0/1736 (0.00%) | +12,568 B | +7,904 B | ship 2026-09-20 22:51<br>O3 2026-09-20 23:07 |
 | [HyperLattice](shipping/profile_hyperlattice_teensy_2026-09-27.md) / [O3](O3/profile_hyperlattice_teensy_2026-09-27.md) § ● | `hl_shader_draw` | 🟢 55.509 (2) | 🟢 54.817 (2) | 🟢 0/1576 (0.00%) | 🟢 0/1576 (0.00%) | +9,736 B | +8,240 B | ship 2026-09-27 01:02<br>O3 2026-09-27 01:05 |
 | [GSReactionDiffusion](shipping/profile_gsreactiondiffusion_teensy_2026-08-26.md) / [O3](O3/profile_gsreactiondiffusion_teensy_2026-08-26.md) | `grd_render` | 🟢 55.26 | 🟢 56.16 | 🟢 0/2048 (0.0%) | 🟢 0/2048 (0%) | +13,224 B | +11,280 B | ship 2026-08-26 01:28<br>O3 2026-08-26 01:25 |
 | [MindSplatter](shipping/profile_mindsplatter_teensy_2026-08-26.md) / [O3](O3/profile_mindsplatter_teensy_2026-08-26.md) § | `msp_draw_particles` | 🟢 52.77 (9) | 🟢 52.79 (9) | 🟢 0/1728 (0.0%) | 🟢 0/1728 (0%) | +22,800 B | +20,400 B | ship 2026-08-26 07:40<br>O3 2026-08-26 07:45 |
+| [IslamicStars](shipping/profile_islamicstars_teensy_2026-09-28.md) / [O3](O3/profile_islamicstars_teensy_2026-09-28.md) § ● | `is_timeline_step` | 🟢 50.500 (23) | 🟢 49.112 (23) | 🟢 0/3336 (0.00%) | 🟢 0/3336 (0.00%) | +23,904 B | +8,240 B | ship 2026-09-28 16:50<br>O3 2026-09-28 16:50 |
 | [AshCloud](shipping/profile_ashcloud_teensy_2026-08-26.md) / [O3](O3/profile_ashcloud_teensy_2026-08-26.md) | `fx_shader_draw` | 🟢 50.09 | 🔴 79.81 | 🟢 0/1088 (0.0%) | 🔴 544/544 (100%) | +16,608 B | +12,112 B | ship 2026-08-26 02:47<br>O3 2026-08-26 02:45 |
 | [RingSpin](shipping/profile_ringspin_teensy_2026-09-24.md) / [O3](O3/profile_ringspin_teensy_2026-09-24.md) | `rs_draw_rings` | 🟢 49.920 | 🟢 50.750 | 🟢 0/1087 (0.0%) | 🟢 0/1087 (0.0%) | +15,400 B | +12,880 B | ship 2026-09-24 20:15<br>O3 2026-09-24 20:18 |
 | [BZReactionDiffusion](shipping/profile_bzreactiondiffusion_teensy_2026-08-26.md) / [O3](O3/profile_bzreactiondiffusion_teensy_2026-08-26.md) | `bz_render` | 🟢 48.91 | 🟢 48.65 | 🟢 0/2048 (0.0%) | 🟢 0/2048 (0%) | +12,760 B | +10,224 B | ship 2026-08-26 01:20<br>O3 2026-08-26 01:16 |
 | [HopfFibration](shipping/profile_hopffibration_teensy_2026-08-26.md) / [O3](O3/profile_hopffibration_teensy_2026-08-26.md) | `hf_render_trails` | 🟢 48.50 | 🟢 46.52 | 🟢 0/1088 (0.0%) | 🟢 0/1088 (0%) | +19,616 B | +18,272 B | ship 2026-08-26 01:30<br>O3 2026-08-26 01:27 |
 | [KaleidoscopeStainedGlass](shipping/profile_kaleidoscopestainedglass_teensy_2026-08-26.md) / [O3](O3/profile_kaleidoscopestainedglass_teensy_2026-08-26.md) | `fx_shader_draw` | 🟢 47.91 | 🟢 46.99 | 🟢 0/1088 (0.0%) | 🟢 0/1088 (0%) | +13,784 B | +11,632 B | ship 2026-08-26 03:23<br>O3 2026-08-26 02:51 |
 | [MermaidSkin](shipping/profile_mermaidskin_teensy_2026-08-26.md) / [O3](O3/profile_mermaidskin_teensy_2026-08-26.md) | `fx_shader_draw` | 🟢 45.60 | 🟢 54.55 | 🟢 0/1088 (0.0%) | 🟢 0/1088 (0%) | +16,544 B | +11,952 B | ship 2026-08-26 02:46<br>O3 2026-08-26 02:43 |
-| [HankinSolids](shipping/profile_hankinsolids_teensy_2026-08-26.md) / [O3](O3/profile_hankinsolids_teensy_2026-08-26.md) § | `hk_timeline_step` | 🟢 45.01 (19) | 🟢 42.04 (19) | 🟢 0/3328 (0.0%) | 🟢 0/3328 (0%) | +17,752 B | +8,752 B | ship 2026-08-26 01:56<br>O3 2026-08-26 01:53 |
 | [LatticeMelt](shipping/profile_latticemelt_teensy_2026-08-26.md) / [O3](O3/profile_latticemelt_teensy_2026-08-26.md) § | `fx_shader_draw` | 🟢 43.73 (3) | 🔴 104.75 (3) | 🟢 0/1728 (0.0%) | 🔴 1824/1824 (100%) | +16,592 B | +11,952 B | ship 2026-08-26 02:42<br>O3 2026-08-26 03:22 |
 | [ChromaticLichen](shipping/profile_chromaticlichen_teensy_2026-08-26.md) / [O3](O3/profile_chromaticlichen_teensy_2026-08-26.md) | `fx_shader_draw` | 🟢 42.87 | 🟢 61.87 | 🟢 0/1088 (0.0%) | 🟢 0/1088 (0%) | +16,576 B | +11,952 B | ship 2026-08-26 02:44<br>O3 2026-08-26 02:41 |
 | [KaleidoscopeMandala](shipping/profile_kaleidoscopemandala_teensy_2026-08-26.md) / [O3](O3/profile_kaleidoscopemandala_teensy_2026-08-26.md) § | `fx_shader_draw` | 🟢 40.29 (3) | 🟢 36.86 (3) | 🟢 0/2368 (0.0%) | 🟢 0/2368 (0%) | +13,656 B | +11,440 B | ship 2026-08-26 03:22<br>O3 2026-08-26 03:17 |
@@ -51,6 +50,7 @@ minus shipping bytes from each pair's own image-size reports.
 | [KaleidoscopeFlowers](shipping/profile_kaleidoscopeflowers_teensy_2026-08-26.md) / [O3](O3/profile_kaleidoscopeflowers_teensy_2026-08-26.md) § | `fx_shader_draw` | 🟢 36.69 (4) | 🟢 33.38 (4) | 🟢 0/4128 (0.0%) | 🟢 0/4128 (0%) | +14,576 B | +11,712 B | ship 2026-08-26 03:06<br>O3 2026-08-26 03:03 |
 | [KaleidoscopeSmooth](shipping/profile_kaleidoscopesmooth_teensy_2026-08-26.md) / [O3](O3/profile_kaleidoscopesmooth_teensy_2026-08-26.md) § | `fx_shader_draw` | 🟢 35.85 (5) | 🟢 32.58 (5) | 🟢 0/4128 (0.0%) | 🟢 0/4128 (0%) | +14,560 B | +11,712 B | ship 2026-08-26 02:59<br>O3 2026-08-26 02:56 |
 | [KaleidoscopeHexBright](shipping/profile_kaleidoscopehexbright_teensy_2026-08-26.md) / [O3](O3/profile_kaleidoscopehexbright_teensy_2026-08-26.md) § | `fx_shader_draw` | 🟢 35.55 (3) | 🟢 32.41 (3) | 🟢 0/2368 (0.0%) | 🟢 0/2368 (0%) | +14,520 B | +11,712 B | ship 2026-08-26 03:19<br>O3 2026-08-26 03:14 |
+| [HankinSolids](shipping/profile_hankinsolids_teensy_2026-09-28.md) / [O3](O3/profile_hankinsolids_teensy_2026-09-28.md) § ● | `hk_timeline_step` | 🟢 34.837 (18) | 🟢 32.865 (18) | 🟢 0/4137 (0.00%) | 🟢 0/4137 (0.00%) | +17,088 B | +2,144 B | ship 2026-09-28 16:45<br>O3 2026-09-28 16:45 |
 | [Comets](shipping/profile_comets_teensy_2026-08-26.md) / [O3](O3/profile_comets_teensy_2026-08-26.md) § | `cm_draw_trail` | 🟢 33.91 (13) | 🟢 28.71 (13) | 🟢 0/4128 (0.0%) | 🟢 0/4128 (0%) | +15,432 B | +12,944 B | ship 2026-08-26 02:05<br>O3 2026-08-26 02:02 |
 | [KaleidoscopePentBright](shipping/profile_kaleidoscopepentbright_teensy_2026-08-26.md) / [O3](O3/profile_kaleidoscopepentbright_teensy_2026-08-26.md) | `fx_shader_draw` | 🟢 33.37 | 🟢 29.53 | 🟢 0/1088 (0.0%) | 🟢 0/1088 (0%) | +14,464 B | +11,712 B | ship 2026-08-26 02:49<br>O3 2026-08-26 02:46 |
 | [AlienBrain](shipping/profile_alienbrain_teensy_2026-08-26.md) / [O3](O3/profile_alienbrain_teensy_2026-08-26.md) § | `fx_shader_draw` | 🟢 31.61 (5) | 🟢 27.90 (5) | 🟢 0/4768 (0.0%) | 🟢 0/4768 (0%) | +14,560 B | +11,712 B | ship 2026-08-26 02:27<br>O3 2026-08-26 02:24 |
@@ -67,6 +67,10 @@ minus shipping bytes from each pair's own image-size reports.
 | [Voronoi](shipping/profile_voronoi_teensy_2026-08-26.md) / [O3](O3/profile_voronoi_teensy_2026-08-26.md) | `vo_shade` | 🟢 8.96 | 🟢 7.71 | 🟢 0/1088 (0.0%) | 🟢 0/1088 (0%) | +15,568 B | +12,688 B | ship 2026-08-26 01:43<br>O3 2026-08-26 01:39 |
 | [RingShower](shipping/profile_ringshower_teensy_2026-08-26.md) / [O3](O3/profile_ringshower_teensy_2026-08-26.md) | `rsh_draw_rings` | 🟢 3.98 | 🟢 3.86 | 🟢 0/1088 (0.0%) | 🟢 0/1088 (0%) | +16,336 B | +15,136 B | ship 2026-08-26 01:39<br>O3 2026-08-26 01:36 |
 
+● IslamicStars refreshed on 2026-09-28 from current baseline source; setup frame 1 excluded. Unlanded convex-face AA measurements are in the separate comparison.
+
+● HankinSolids refreshed on 2026-09-28 from current baseline source; setup frame 1 excluded. Unlanded convex-face AA measurements are in the separate comparison.
+
 ● ShapeShifter refreshed on 2026-09-25: N counts nine distinct presets, merging repeated visits after wrap. Its runtime buckets exclude setup frame 1 and include transitions.
 
 ● MeshFeedback shipping refreshed on 2026-09-28 after the ITCM-reduction commits; its O3 column and ITCM/FLASH deltas are the 2026-08-26 capture.
@@ -74,7 +78,7 @@ minus shipping bytes from each pair's own image-size reports.
 § Cyclers carry one aligned line per parser-owned colour bucket, worst first;
 (N) counts parser-owned preset, shape, or mode entries in that colour bucket.
 Bucket frames include the following transition, so they are stricter than clean holds.
-IslamicStars refreshed on 2026-09-24 (unlanded finding 2 candidate); Raymarch on 2026-09-20; DisplacementField on 2026-09-19; RingSpin on 2026-09-24; other rows on 2026-08-26.
+Raymarch on 2026-09-20; DisplacementField on 2026-09-19; RingSpin on 2026-09-24; other rows on 2026-08-26.
 Captured timestamps are local raw-log mtimes.
 
 ## Memory captures
