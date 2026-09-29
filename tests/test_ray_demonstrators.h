@@ -703,6 +703,78 @@ inline void test_shell_layer_march_matches_cell_traversal() {
       SDF::prepare_periodic_shells(camera, 1, .1f, {}).single_owner);
 }
 
+/**
+ * @brief The 4D-slice layer march reproduces the per-cell traversal's
+ *        composite for every frame it accepts.
+ */
+inline void test_shell_slice_march_matches_cell_traversal() {
+  alignas(Pixel) std::array<uint8_t, BakedPalette::required_arena_bytes()>
+      buffer;
+  Arena arena(buffer.data(), buffer.size());
+  BakedPaletteStorage palette;
+  palette.bake(arena, GradientPalette{});
+  struct Case {
+    float cell, radius, far, near_fade, angular, radial_start;
+  };
+  const Case CASES[] = {{1, .15f, 16, 2, .0218f, 0},
+                        {1, .3f, 6, .5f, .0218f, 0},
+                        {.6f, .2f, 8, 1, .01f, .4f},
+                        {1, .45f, 4, .5f, 0, 0}};
+  uint32_t state = 0x4d511u;
+  const auto uniform = [&state](float low, float high) {
+    state = state * 1664525u + 1013904223u;
+    return low + (high - low) * static_cast<float>(state >> 8) * 0x1p-24f;
+  };
+  int compared = 0, hits = 0, mismatched = 0;
+  for (const auto &CASE : CASES) {
+    for (int frame = 0; frame < 24; ++frame) {
+      Raycast::PreparedCamera camera;
+      camera.domain = Raycast::SamplingDomain::SLICE_4D;
+      camera.center = {
+          {uniform(-2, 2), uniform(-2, 2), uniform(-2, 2), uniform(-2, 2)}};
+      camera.radial_start = CASE.radial_start;
+      camera.interval = {0, CASE.far};
+      for (int a = 0; a < 4; ++a)
+        for (int b = a + 1; b < 4; ++b)
+          math::rotate_plane(camera.embedding, a, b, uniform(0, 6.3f));
+      const Raycast::Footprint FOOTPRINT{CASE.angular, CASE.radial_start};
+      const auto PREPARED = SDF::prepare_periodic_shells(
+          camera, CASE.cell, CASE.radius, FOOTPRINT);
+      HS_EXPECT_TRUE(PREPARED.slice_march);
+      HS_EXPECT_FALSE(PREPARED.single_owner);
+      const Raycast::Appearance APPEARANCE{1 / CASE.far, 0, 1 / CASE.near_fade,
+                                           &palette.view()};
+      const Raycast::TraceLimits LIMITS;
+      for (int ray = 0; ray < 200; ++ray) {
+        const math::Vector VIEW =
+            math::Vector{uniform(-1, 1), uniform(-1, 1), uniform(-1, 1)}
+                .normalized();
+        const auto CELLS = SDF::shade_periodic_shells(PREPARED, camera, VIEW,
+                                                      LIMITS, APPEARANCE);
+        const auto LAYERS = SDF::trace_periodic_shells_4d(
+            PREPARED, camera, VIEW, LIMITS, APPEARANCE);
+        const Pixel EXPECTED = CELLS.color.color * CELLS.color.alpha;
+        HS_EXPECT_EQ(LAYERS.status, CELLS.trace.status);
+        // A silhouette graze sits on the reference's own jump between one
+        // filtered layer and two tangent roots; rounding picks the side.
+        mismatched += !(abs(LAYERS.color.r - EXPECTED.r) <= 24 &&
+                        abs(LAYERS.color.g - EXPECTED.g) <= 24 &&
+                        abs(LAYERS.color.b - EXPECTED.b) <= 24);
+        ++compared;
+        hits += CELLS.trace.counters.layers > 0;
+      }
+    }
+  }
+  HS_EXPECT_TRUE(hits > compared / 20);
+  HS_EXPECT_TRUE(mismatched <= compared / 2000);
+
+  Raycast::PreparedCamera camera;
+  camera.domain = Raycast::SamplingDomain::SLICE_4D;
+  camera.interval = {0, 16};
+  HS_EXPECT_FALSE(
+      SDF::prepare_periodic_shells(camera, .5f, .3f, {.0218f, 0}).slice_march);
+}
+
 inline int run_ray_demonstrator_tests() {
   const auto MODULE = hs_test::begin_module("ray_demonstrators");
   test_octet_crossing_coverage_against_ray_line_distance();
@@ -712,6 +784,7 @@ inline int run_ray_demonstrator_tests() {
   test_periodic_shell_traversal_budgets();
   test_prepared_shells_match_sphere_roots();
   test_shell_layer_march_matches_cell_traversal();
+  test_shell_slice_march_matches_cell_traversal();
   test_framework_generic_event_rendering();
   test_repeated_stream_grouping_preserves_order_and_endpoints();
   test_lattice_volume_camera_demonstrators();
