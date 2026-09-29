@@ -189,9 +189,9 @@ inline float shell_horizon_coverage(uint8_t shell, uint8_t shell_count,
                                     float distance, float magnitude) {
   if (shell + 1 < shell_count)
     return 1.0f;
-  return 1.0f - lattice_ramp(static_cast<float>(shell_count - 1),
-                             static_cast<float>(shell_count),
-                             distance * magnitude);
+  // The ramp spans one unit, so it needs no normalizing division.
+  return 1.0f - math::cubic_kernel(distance * magnitude -
+                                   static_cast<float>(shell_count - 1));
 }
 
 inline float next_plane_offset(float origin, bool positive) {
