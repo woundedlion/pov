@@ -211,6 +211,23 @@ public:
   }
 
   /**
+   * @brief sin(phi) at row y.
+   * @param y Latitude row in the rendered domain.
+   * @return The row's latitude sine, from a Taylor series because sinf is not
+   *   constexpr; the longitude density of the row relative to the equator.
+   */
+  static constexpr float latitude_sine(int y) {
+    float phi = Geometry::row_to_phi(static_cast<float>(y));
+    if (phi > math::PI_F * 0.5f)
+      phi = math::PI_F - phi;
+    const float phi2 = phi * phi;
+    return phi *
+           (1.0f + phi2 * (-1.0f / 6.0f +
+                           phi2 * (1.0f / 120.0f + phi2 * (-1.0f / 5040.0f +
+                                                           phi2 / 362880.0f))));
+  }
+
+  /**
    * @brief Returns an odd longitude footprint with equatorial pixel width.
    * @param y Latitude row in the rendered domain.
    * @return Odd width; pole rows, where every longitude collapses onto one
@@ -601,19 +618,6 @@ private:
                                                spacing +
                                            0.5f),
                           1);
-  }
-
-  /** @brief sin(phi) at row y, as a Taylor series because sinf is not
-   *  constexpr. */
-  static constexpr float latitude_sine(int y) {
-    float phi = Geometry::row_to_phi(static_cast<float>(y));
-    if (phi > math::PI_F * 0.5f)
-      phi = math::PI_F - phi;
-    const float phi2 = phi * phi;
-    return phi *
-           (1.0f + phi2 * (-1.0f / 6.0f +
-                           phi2 * (1.0f / 120.0f + phi2 * (-1.0f / 5040.0f +
-                                                           phi2 / 362880.0f))));
   }
 
   constexpr int samples_on_ring(int y) const {

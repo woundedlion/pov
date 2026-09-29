@@ -2120,9 +2120,13 @@ inline void test_feedback_south_pole_uses_single_physical_sample() {
 /**
  * @brief Verifies polar reconstruction suppresses longitude aliasing.
  * @details Rows 1 and H-2 sit in the dense infill bands and reconstruct at
- *          their spherical footprint; rows 4 and H-5 have a one-pixel footprint
- *          and pass the stripe through. The southern half only holds when
- *          hs::H_OFFSET is 0, where row H-1 is a pole.
+ *          their spherical footprint; rows 4 and H-5 lie under the half-
+ *          resolution latitude outside that band, where each column pair
+ *          composites as its box average, so the stripe flattens to its mean
+ *          there too; rows 8 and H-9 have a one-pixel footprint and pass the
+ *          stripe through. The
+ *          southern half only holds when hs::H_OFFSET is 0, where row H-1 is
+ *          a pole.
  */
 inline void test_feedback_polar_rows_use_spherical_footprint() {
   constexpr int W = 64, H = 34;
@@ -2141,8 +2145,10 @@ inline void test_feedback_polar_rows_use_spherical_footprint() {
       const Pixel stripe((x & 1) ? 60000 : 0, 0, 0);
       c(x, 1) = stripe;
       c(x, 4) = stripe;
+      c(x, 8) = stripe;
       c(x, H - 2) = stripe;
       c(x, H - 5) = stripe;
+      c(x, H - 9) = stripe;
     }
   }
   fx.advance_display();
@@ -2173,9 +2179,11 @@ inline void test_feedback_polar_rows_use_spherical_footprint() {
   };
 
   expect_reconstructed(1);
-  expect_stripe(4);
+  expect_reconstructed(4);
+  expect_stripe(8);
   expect_reconstructed(H - 2);
-  expect_stripe(H - 5);
+  expect_reconstructed(H - 5);
+  expect_stripe(H - 9);
 }
 
 /**
