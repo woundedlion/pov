@@ -29,7 +29,8 @@ def _window(renders=(), wall_sum=None, frames=None):
     """
     n = frames if frames is not None else len(renders)
     w = pp.Window("Fx", 288, 144, 1, n, 1)
-    w.frame_rows = [(i + 1, r + 1_000, r) for i, r in enumerate(renders)]
+    w.frame_rows = [(i + 1, r + 1_000, r, None)
+                    for i, r in enumerate(renders)]
     w.counters = {"fx_buffer_wait": {"us": 1_000 * n, "calls": n,
                                      "cyc": 0, "pct": 1}}
     if wall_sum is not None:
@@ -300,6 +301,19 @@ class StraddleWindowAttribution(unittest.TestCase):
                              ("second", 182, [5_000] + [40_000] * 5)])
         self.assertIn(5_000, got["second"])
         self.assertNotIn(5_000, got["first"])
+
+    def test_clean_hold_skips_a_window_two_shapes_share(self):
+        # 6 frames each over windows of 4: the window at frames 5-8 holds two
+        # frames of "cheap" and two of "expensive" at an equal draw-call count.
+        import tempfile
+        with tempfile.TemporaryDirectory() as d:
+            p = _synth_log(Path(d) / "cap.log",
+                           [("cheap", 182, [10_000] * 6),
+                            ("expensive", 1082, [90_000] * 6)])
+            windows, _ = pp.parse_capture(p)[:2]
+        rows = {row[0]: row for row in pp.clean_hold_rows(windows, "frame", None)}
+        self.assertEqual(rows["cheap"][1], 2)
+        self.assertEqual(rows["cheap"][2], 1)
 
 
 class ScanMetricsLines(unittest.TestCase):
