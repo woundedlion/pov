@@ -201,7 +201,7 @@ __attribute__((always_inline)) inline ShellSample trace_periodic_shells_3d(
             continue;
           const float WIDTH = prepared.footprint.at(T);
           const float COVERAGE =
-              WIDTH > 0 ? std::clamp(.5f + DEPTH / WIDTH, 0.0f, 1.0f) : 1.0f;
+              WIDTH > 0 ? hs::clamp(.5f + DEPTH / WIDTH, 0.0f, 1.0f) : 1.0f;
           if (!emit(T, COVERAGE)) {
             result.color = composite.premultiplied();
             return result;
@@ -213,7 +213,7 @@ __attribute__((always_inline)) inline ShellSample trace_periodic_shells_3d(
         const float WIDTH = prepared.footprint.at(T);
         if (T >= NEAR && T <= FAR && SQUARED > 0 && WIDTH > 0) {
           const float COVERAGE =
-              std::clamp(.5f - (sqrtf(SQUARED) - RADIUS) / WIDTH, 0.0f, 1.0f);
+              hs::clamp(.5f - (sqrtf(SQUARED) - RADIUS) / WIDTH, 0.0f, 1.0f);
           if (COVERAGE > 0 && !emit(T, COVERAGE)) {
             result.color = composite.premultiplied();
             return result;
@@ -365,7 +365,7 @@ __attribute__((always_inline)) inline ShellSample trace_periodic_shells_4d(
                     ? 1 / sqrtf(LENGTH2)
                     : 0;
             const float DEPTH = .5f * DISCRIMINANT * INVERSE_A * INVERSE_LENGTH;
-            coverage = std::clamp(.5f + DEPTH / WIDTH, 0.0f, 1.0f);
+            coverage = hs::clamp(.5f + DEPTH / WIDTH, 0.0f, 1.0f);
           }
           pending[count++] = {T, coverage};
         }
@@ -382,7 +382,7 @@ __attribute__((always_inline)) inline ShellSample trace_periodic_shells_4d(
           const float DISTANCE =
               PROJECTED2 > 0 ? (LENGTH - RADIUS) * LENGTH / sqrtf(PROJECTED2)
                              : INFINITY;
-          const float COVERAGE = std::clamp(.5f - DISTANCE / WIDTH, 0.0f, 1.0f);
+          const float COVERAGE = hs::clamp(.5f - DISTANCE / WIDTH, 0.0f, 1.0f);
           if (COVERAGE > 0)
             pending[count++] = {T, COVERAGE};
         }

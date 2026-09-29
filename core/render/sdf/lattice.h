@@ -82,7 +82,7 @@ __attribute__((always_inline)) EdgeMetric edge_metric_3d_axes(
       periodic_distance_at(ray_origin, direction, AXIS1, distance);
   const float component0_sq = component0 * component0;
   const float component1_sq = component1 * component1;
-  return {std::min(component0_sq, component1_sq),
+  return {fminf(component0_sq, component1_sq),
           static_cast<uint8_t>(component1_sq > component0_sq ? AXIS1 : AXIS0)};
 }
 
@@ -126,9 +126,8 @@ edge_metric_4d_axes_bounded(const math::Vec4 &ray_origin,
   const float component2_sq = component2 * component2;
   const float sum = component0_sq + component1_sq + component2_sq;
   if constexpr (!NEED_AXIS) {
-    result = {
-        sum - std::max(component0_sq, std::max(component1_sq, component2_sq)),
-        0};
+    result = {sum - fmaxf(component0_sq, fmaxf(component1_sq, component2_sq)),
+              0};
     return result.distance_sq < limit_sq;
   }
   float largest = component0_sq;
