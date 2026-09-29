@@ -306,7 +306,7 @@ image is separately identified by the layout audit and build log above.
 
 The corrected renderer on `3c0ad6dca` was measured with the same fixed Octet 3D
 preset and original oscillating camera path, on COM3 for 70 seconds per build.
-The [shipping report](shipping/profile_hyperlattice_teensy_2026-09-27.md#supplemental-octet-3d-single-owner-correction)
+The [shipping report](shipping/profile_hyperlattice_teensy_2026-09-28.md#supplemental-octet-3d-single-owner-correction)
 and [global-O3 report](O3/profile_hyperlattice_teensy_2026-09-27.md#supplemental-octet-3d-single-owner-correction)
 retain full scope, ISR, build and raw-capture evidence.
 

@@ -1,6 +1,6 @@
 # KaleidoscopeSmooth on-device profile — Teensy 4.0, segmented mode (2026-08-26, **-O3**)
 
-Global-O3 twin of the [shipping report](../shipping/profile_kaleidoscopesmooth_teensy_2026-08-26.md).
+Global-O3 twin of the [shipping report](../shipping/profile_kaleidoscopesmooth_teensy_2026-09-28.md).
 Point-in-time snapshot (regenerate with `bash tools/profile_one.sh KaleidoscopeSmooth profile_o3 260 16 "-D HS_PROFILE_EPOCH_REVS=2400"`). Raw capture:
 `build/prof/kaleidoscopesmooth_o3.log`, captured 2026-08-26 02:56 local. This is the first archived global-O3 report for this effect.
 

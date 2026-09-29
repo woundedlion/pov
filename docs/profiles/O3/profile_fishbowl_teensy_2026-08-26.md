@@ -1,6 +1,6 @@
 # Fishbowl on-device profile — Teensy 4.0, segmented mode (2026-08-26, **-O3**)
 
-Global-O3 twin of the [shipping report](../shipping/profile_fishbowl_teensy_2026-08-26.md).
+Global-O3 twin of the [shipping report](../shipping/profile_fishbowl_teensy_2026-09-28.md).
 Point-in-time snapshot (regenerate with `bash tools/profile_one.sh Fishbowl profile_o3 70 32`). Raw capture:
 `build/prof/fishbowl_o3.log`, captured 2026-08-26 01:18 local. This replaces the historical 2026-08-02 capture (report no longer retained).
 
