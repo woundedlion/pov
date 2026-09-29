@@ -66,6 +66,7 @@ public:
   static constexpr float SPEED_MIN = 0.0f, SPEED_MAX = 5.0f;
   static constexpr float SCALE_MIN = 0.1f, SCALE_MAX = 50.0f;
   static constexpr float HUE_SHIFT_MIN = 0.0f, HUE_SHIFT_MAX = 0.5f;
+  static constexpr float POLE_RES_MIN = 0.0f, POLE_RES_MAX = 2.0f;
 
   /** @brief True iff every preset-driven field of @p p lies within its
    *  registered slider range (see the range constants above). */
@@ -159,6 +160,8 @@ public:
                             HUE_SHIFT_MAX);
     register_param("Feedback", &feedback_enabled);
     mark_global("Feedback");
+    register_param("Pole Half-Res", &pole_half_res, POLE_RES_MIN, POLE_RES_MAX);
+    mark_global("Pole Half-Res");
 
     filters.init_storage(persistent_arena);
     init_gamut_lut(persistent_arena, GAMUT_ANGLE_STEPS, GAMUT_L_STEPS);
@@ -261,18 +264,21 @@ private:
 
   /**
    * @brief Pushes UI-tunable state into the live style/filters each frame.
-   * @details Refreshes the noise binding and toggles the feedback filter from
-   * `feedback_enabled`.
+   * @details Refreshes the noise binding, applies the pole resolution knob,
+   * and toggles the feedback filter from `feedback_enabled`.
    */
   void apply_params() {
     if (!mesh_ready || params.base_mesh != active_base_mesh)
       rebuild_mesh(params.base_mesh);
     params.style.sync_noise();
+    params.style.pole_half_res = pole_half_res;
     filters.template get<Filter::Pixel::Feedback<W, H>>().set_enabled(
         feedback_enabled);
   }
 
   bool feedback_enabled = true;
+  /** Feedback::Style::pole_half_res; global, so preset snaps keep it. */
+  float pole_half_res = 1.0f;
   Animation::NoiseParams noise_params;
   // Dedicated walk generator: RandomWalk's ctor takes exclusive control of its
   // frequency and seed, and noise_params.sync() runs every frame off the

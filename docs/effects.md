@@ -471,7 +471,7 @@ Duty Cycle 0 hides the trail; positive values control its visible fraction.
 
 A selectable Platonic, Archimedean, or Catalan wireframe rendered with `Plot::Mesh`, given a noise-distorted, feedback-loop appearance via `Filter::Pixel::Feedback`. An orientation random-walk tumbles the solid while a `Segue::Preset::Snap` preset choreography hard-cuts both the base mesh and feedback/distortion style parameters.
 
-**Parameters**: Base Mesh, Fade, Distort Amp, Distort Freq, Distort Speed, Noise Scale, Hue Shift, Feedback
+**Parameters**: Base Mesh, Fade, Distort Amp, Distort Freq, Distort Speed, Noise Scale, Hue Shift, Feedback, Pole Half-Res
 
 </td></tr></table>
 
