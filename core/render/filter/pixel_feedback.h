@@ -47,10 +47,11 @@ template <int W, int H> class Feedback : public Is2DWithHistory {
   static constexpr int CACHE_COLUMNS = W / CACHE_DOWNSAMPLE;
   static constexpr SphereField CACHE_FIELD{CACHE_DOWNSAMPLE, CACHE_DOWNSAMPLE,
                                            CACHE_SOUTH_INFILL, CACHE_COLUMNS};
-  /** @brief Cell count of the cached spherical warp field. */
+  /** @brief Cell count of the cached spherical warp field, and the bound on
+   *  its lattice samples: no ring carries more samples than the grid has
+   *  columns. The live sample count depends on the display geometry, which a
+   *  runtime-geometry build only knows after startup. */
   static constexpr int CACHE_CELLS = CACHE_COLUMNS * CACHE_FIELD.ring_count();
-  /** @brief Lattice samples the cached layout evaluates space_fn at. */
-  static constexpr int CACHE_SAMPLES = CACHE_FIELD.sample_count();
 
 public:
   static constexpr int domain_rank = IsPixel::domain_rank;
@@ -110,10 +111,10 @@ public:
   void set_enabled(bool value) { enabled = value; }
 
   /** @brief Persistent bytes init_storage() reserves: two int16 warp fields
-   *  and the lattice's projected origins. */
+   *  and the lattice's projected origins, both over CACHE_CELLS. */
   static constexpr size_t STORAGE_BYTES =
-      2 * CACHE_CELLS * sizeof(int16_t) +
-      CACHE_SAMPLES * sizeof(typename SphereField::Coordinates);
+      CACHE_CELLS *
+      (2 * sizeof(int16_t) + sizeof(typename SphereField::Coordinates));
 
   /** @brief Scratch bytes for a full-width uncached flush at downsample ds. */
   static constexpr size_t UNCACHED_SCRATCH_BYTES(int ds) {
@@ -143,7 +144,7 @@ public:
     cached_warp_x = arena.allocate_n<int16_t>(CACHE_CELLS);
     cached_warp_y = arena.allocate_n<int16_t>(CACHE_CELLS);
     cached_origin =
-        arena.allocate_n<typename SphereField::Coordinates>(CACHE_SAMPLES);
+        arena.allocate_n<typename SphereField::Coordinates>(CACHE_CELLS);
     warp_cache_valid = false;
 #ifndef NDEBUG
     stamp.record(arena);
