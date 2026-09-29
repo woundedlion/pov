@@ -127,9 +127,9 @@ they do not satisfy the required canonical shipping coverage.
 
 ## Shell flight supplement
 
-Two opt-in fixed presets, captured on COM4; startup excluded. [Shipping report](shipping/profile_hyperlattice_shell_flight_teensy_2026-09-28.md) and [global-O3 report](O3/profile_hyperlattice_shell_flight_teensy_2026-09-28.md).
+Sphere-only renderer; two authored fixed presets on COM4, startup excluded. [Shipping report](shipping/profile_hyperlattice_shell_flight_teensy_2026-09-29.md) and [global-O3 report](O3/profile_hyperlattice_shell_flight_teensy_2026-09-29.md).
 
 | Preset | Ship peak ms | O3 peak ms | Ship spilled | O3 spilled | FLASH Δ | ITCM Δ | Captured local |
 |---|--:|--:|--:|--:|--:|--:|---|
-| 5: Shell Flight | 🔴 144.076 | 🔴 142.252 | 🔴 153/153 (100.00%) | 🔴 153/153 (100.00%) | +13,344 B | +4,736 B | ship 2026-09-28 23:20<br>O3 2026-09-28 23:24 |
-| 6: Shell Close Flight | 🔴 139.113 | 🔴 137.024 | 🔴 153/153 (100.00%) | 🔴 153/153 (100.00%) | +13,344 B | +4,736 B | ship 2026-09-28 23:25<br>O3 2026-09-28 23:27 |
+| 5: Shell Flight | 🔴 123.553 | 🔴 117.363 | 🔴 228/228 (100.00%) | 🔴 228/228 (100.00%) | +13,352 B | +4,736 B | ship 2026-09-29 08:03<br>O3 2026-09-29 08:04 |
+| 6: Shell Close Flight | 🔴 125.186 | 🔴 121.337 | 🔴 228/228 (100.00%) | 🔴 228/228 (100.00%) | +13,352 B | +4,736 B | ship 2026-09-29 08:06<br>O3 2026-09-29 08:07 |
