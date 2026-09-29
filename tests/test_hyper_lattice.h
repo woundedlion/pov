@@ -424,7 +424,8 @@ inline void test_surface_origin_parallax() {
 
 inline void test_hyperplane_event() {
   HL::FrameState frame{};
-  frame.params = HyperLattice<96, 20>::preset_params(1);
+  frame.params = HyperLattice<96, 20>::preset_params(
+      HyperLattice<96, 20>::HYPERCUBE_PRESET_INDEX);
   frame.params.sphere_radius = 0.4f;
   frame.origin = {{0.0f, 0.0f, 0.31f, 0.25f}};
   frame.rotation_phase[3] = 0.5f * math::PI_F;
@@ -587,9 +588,12 @@ inline void test_render_signature() {
   effect.init();
   ShadeSample rendered[std::size(GOLDEN)];
   size_t row = 0;
+  static constexpr size_t PRESETS[] = {
+      HyperLatticeWhiteBox::Effect::CUBIC_PRESET_INDEX,
+      HyperLatticeWhiteBox::Effect::HYPERCUBE_PRESET_INDEX};
   for (size_t preset = 0; preset < std::size(ORIGINS); ++preset) {
     const HL::FrameState frame{
-        HyperLatticeWhiteBox::Effect::preset_params(preset),
+        HyperLatticeWhiteBox::Effect::preset_params(PRESETS[preset]),
         ORIGINS[preset],
         ROTATIONS[preset],
         HL::pixel_half_angle<288, 144>(),
@@ -614,7 +618,8 @@ inline void test_specialized_slice_transition() {
   HyperLatticeWhiteBox::Effect effect;
   effect.init();
   const HL::Params start = HyperLatticeWhiteBox::Effect::preset_params(0);
-  const HL::Params target = HyperLatticeWhiteBox::Effect::preset_params(1);
+  const HL::Params target = HyperLatticeWhiteBox::Effect::preset_params(
+      HyperLatticeWhiteBox::Effect::HYPERCUBE_PRESET_INDEX);
   const auto compare_shells = [&]<uint8_t SHELL_COUNT>(HL::ShellCount shells) {
     float max_visible_error = 0.0f;
     float max_alpha_error = 0.0f;
@@ -724,7 +729,8 @@ inline void test_specialized_render_signature() {
   size_t row = 0;
   for (size_t index = 0; index < std::size(ORIGINS); ++index) {
     const HL::FrameState context{
-        HyperLatticeWhiteBox::Effect::preset_params(1),
+        HyperLatticeWhiteBox::Effect::preset_params(
+            HyperLatticeWhiteBox::Effect::HYPERCUBE_PRESET_INDEX),
         ORIGINS[index],
         ROTATIONS[index],
         HL::pixel_half_angle<288, 144>(),
@@ -760,19 +766,20 @@ inline void test_presets_and_pipeline() {
   for (size_t index = 0; index < Effect::PRESET_IDS.size(); ++index)
     HS_EXPECT_TRUE(Effect::valid_params(Effect::preset_params(index)));
   static_assert(Effect::PRESET_IDS.size() ==
-                (HS_ENABLE_HYPERLATTICE_EXPERIMENTS ? 7 : 3));
-  static_assert(Effect::PRESET_IDS[0] == "cubic-flight");
-  static_assert(Effect::PRESET_IDS[1] == "hypercube-flight");
-  static_assert(Effect::WIDE_PRESET_INDEX ==
-                (HS_ENABLE_HYPERLATTICE_EXPERIMENTS ? 4 : 2));
+                (HS_ENABLE_HYPERLATTICE_EXPERIMENTS ? 9 : 3));
+  static_assert(Effect::PRESET_IDS[Effect::CUBIC_PRESET_INDEX] ==
+                "cubic-flight");
   static_assert(Effect::PRESET_IDS[Effect::WIDE_PRESET_INDEX] ==
                 "cubic-wide-flight");
+  static_assert(Effect::PRESET_IDS[Effect::HYPERCUBE_PRESET_INDEX] ==
+                "hypercube-flight");
 
   constexpr HL::Params CUBIC_PRESET = Effect::preset_params(0);
   static_assert(CUBIC_PRESET.mode == HL::LatticeMode::THREE_D);
   static_assert(CUBIC_PRESET.shells == HL::ShellCount::TWO);
 
-  constexpr HL::Params SLICE_PRESET = Effect::preset_params(1);
+  constexpr HL::Params SLICE_PRESET =
+      Effect::preset_params(Effect::HYPERCUBE_PRESET_INDEX);
   static_assert(SLICE_PRESET.mode == HL::LatticeMode::FOUR_D_SLICE);
   static_assert(SLICE_PRESET.shells == HL::ShellCount::TWO);
 
@@ -817,33 +824,36 @@ inline void test_configuration_adoption_and_snapshots() {
   HS_EXPECT_EQ(effect.updateParameter("Cell Size", 5), ParamSetResult::APPLIED);
   HS_EXPECT_EQ(effect.updateParameter("View", 1), ParamSetResult::APPLIED);
   HS_EXPECT_EQ(effect.serialize_parameters().params.cell_size,
-               Effect::preset_params(1).cell_size);
-  HS_EXPECT_EQ(effect.serialize_parameters().params.wire_radius,
-               Effect::preset_params(1).wire_radius);
+               Effect::preset_params(Effect::HYPERCUBE_PRESET_INDEX).cell_size);
+  HS_EXPECT_EQ(
+      effect.serialize_parameters().params.wire_radius,
+      Effect::preset_params(Effect::HYPERCUBE_PRESET_INDEX).wire_radius);
   HS_EXPECT_GT(effect.getParameterSchemaGeneration(), schema);
   HS_EXPECT_EQ(effect.updateParameter("4D Spin", .01f),
                ParamSetResult::APPLIED);
   HS_EXPECT_TRUE(effect.restore_parameters(initial));
   HS_EXPECT_TRUE(effect.getParameters().find("4D Spin")->readonly);
   HL::Params start = Effect::preset_params(0);
-  HL::Params target = Effect::preset_params(1);
+  HL::Params target = Effect::preset_params(Effect::HYPERCUBE_PRESET_INDEX);
   target.cell_size = 4;
   HL::Params mixed;
+  target.shells = HL::ShellCount::THREE;
   for (float t : {.0f, .1f, .49f, .5f, .75f, 1.f}) {
     mixed.lerp(start, target, t);
     const auto &expected = t < .5f ? start : target;
-    HS_EXPECT_EQ(mixed.cell_size, expected.cell_size);
-    HS_EXPECT_EQ(mixed.sphere_radius, expected.sphere_radius);
-    HS_EXPECT_EQ(mixed.wire_radius, expected.wire_radius);
-    HS_EXPECT_EQ(mixed.speed, expected.speed);
-    HS_EXPECT_EQ(mixed.spin_3d, expected.spin_3d);
-    HS_EXPECT_EQ(mixed.spin_4d, expected.spin_4d);
+    HS_EXPECT_EQ(mixed.mode, expected.mode);
+    HS_EXPECT_EQ(mixed.pattern, expected.pattern);
     HS_EXPECT_EQ(mixed.shells, expected.shells);
+    HS_EXPECT_EQ(mixed.cell_size,
+                 hs::lerp(start.cell_size, target.cell_size, t));
+    HS_EXPECT_EQ(mixed.sphere_radius,
+                 hs::lerp(start.sphere_radius, target.sphere_radius, t));
+    HS_EXPECT_EQ(mixed.wire_radius,
+                 hs::lerp(start.wire_radius, target.wire_radius, t));
+    HS_EXPECT_EQ(mixed.speed, hs::lerp(start.speed, target.speed, t));
+    HS_EXPECT_EQ(mixed.spin_3d, hs::lerp(start.spin_3d, target.spin_3d, t));
+    HS_EXPECT_EQ(mixed.spin_4d, hs::lerp(start.spin_4d, target.spin_4d, t));
   }
-  target.mode = start.mode;
-  mixed.lerp(start, target, .25f);
-  HS_EXPECT_EQ(mixed.cell_size,
-               hs::lerp(start.cell_size, target.cell_size, .25f));
 }
 
 inline void test_dimension_dropdown_and_mode_lerp() {
@@ -907,7 +917,7 @@ inline void test_single_shell() {
   Effect effect;
   effect.init();
   HL::FrameState frame{};
-  frame.params = Effect::preset_params(1);
+  frame.params = Effect::preset_params(Effect::HYPERCUBE_PRESET_INDEX);
   frame.params.sphere_radius = 0.0f;
   frame.origin = {{0.25f, 0.02f, 0.01f, 0.43f}};
   frame.pixel_half_angle = HL::pixel_half_angle<96, 20>();
@@ -1129,10 +1139,10 @@ inline void test_experimental_presets() {
 #if HS_ENABLE_HYPERLATTICE_EXPERIMENTS
   effect.setAnimationsPaused(true);
   const auto initial = effect.serialize_parameters();
-  for (size_t i : {size_t{2}, size_t{3}}) {
+  for (size_t i : {Effect::OCTET_PRESET_INDEX, Effect::OCTET_4D_PRESET_INDEX}) {
+    const bool SLICE = i == Effect::OCTET_4D_PRESET_INDEX;
     HL::FrameState frame{};
-    frame.params =
-        i == 3 ? Effect::octet_slice_params() : Effect::preset_params(i);
+    frame.params = Effect::preset_params(i);
     frame.params.sphere_radius = .7f;
     frame.depth_palette = HyperLatticeWhiteBox::depth_palette(effect);
     const auto before = HyperLatticeExperimental::prepare(
@@ -1144,13 +1154,13 @@ inline void test_experimental_presets() {
                                                   {{.4f, .7f, .2f, .8f}}));
     HS_EXPECT_TRUE(before.valid && after.valid);
     const auto wrong_domain =
-        i == 2 ? HyperLatticeExperimental::shade<true>(math::X_AXIS, before)
+        !SLICE ? HyperLatticeExperimental::shade<true>(math::X_AXIS, before)
                : HyperLatticeExperimental::shade<false>(math::X_AXIS, before);
     HS_EXPECT_EQ(wrong_domain.status, Raycast::TraceStatus::INVALID_QUERY);
-    HS_EXPECT_EQ(before.camera.domain, i == 2
+    HS_EXPECT_EQ(before.camera.domain, !SLICE
                                            ? Raycast::SamplingDomain::SPATIAL_3D
                                            : Raycast::SamplingDomain::SLICE_4D);
-    if (i == 3) {
+    if (SLICE) {
       HS_EXPECT_NE(before.camera.center[3], 0);
       frame.rotation_phase[3] = .7f;
       const auto rotated = HyperLatticeExperimental::prepare(
@@ -1166,12 +1176,11 @@ inline void test_experimental_presets() {
     HS_EXPECT_EQ(before.camera.radial_start, after.camera.radial_start);
     HS_EXPECT_TRUE(Effect::PRESET_IDS[i].starts_with("experimental-"));
     auto selected = initial;
-    selected.params =
-        i == 3 ? Effect::octet_slice_params() : Effect::preset_params(i);
+    selected.params = Effect::preset_params(i);
     HS_EXPECT_TRUE(effect.restore_parameters(selected));
     HS_EXPECT_EQ(effect.getParameters().find("Pattern")->get(), 1);
-    HS_EXPECT_EQ(effect.getParameters().find("View")->get(), float(i - 2));
-    HS_EXPECT_EQ(effect.getParameters().find("4D Spin")->readonly, i == 2);
+    HS_EXPECT_EQ(effect.getParameters().find("View")->get(), float(SLICE));
+    HS_EXPECT_EQ(effect.getParameters().find("4D Spin")->readonly, !SLICE);
     HS_EXPECT_TRUE(effect.getParameters().find("Lattice Planes")->readonly);
     HS_EXPECT_FALSE(effect.getParameters().find("Wire Radius")->readonly);
     HS_EXPECT_FALSE(effect.getParameters().find("AA Strength")->readonly);
@@ -1198,10 +1207,12 @@ inline void test_experimental_presets() {
     HL::Params blend;
     blend.lerp(initial.params, target, .49f);
     HS_EXPECT_EQ(blend.pattern, initial.params.pattern);
-    HS_EXPECT_EQ(blend.cell_size, initial.params.cell_size);
+    HS_EXPECT_EQ(blend.cell_size,
+                 hs::lerp(initial.params.cell_size, target.cell_size, .49f));
     blend.lerp(initial.params, target, .5f);
     HS_EXPECT_EQ(blend.pattern, target.pattern);
-    HS_EXPECT_EQ(blend.cell_size, target.cell_size);
+    HS_EXPECT_EQ(blend.cell_size,
+                 hs::lerp(initial.params.cell_size, target.cell_size, .5f));
   }
   HS_EXPECT_TRUE(effect.restore_parameters(initial));
   HS_EXPECT_EQ(effect.getParameters().find("View")->get(), 0);
@@ -1243,8 +1254,10 @@ inline void test_pattern_view_controls() {
   HS_EXPECT_EQ(pattern->get(), 0);
   HS_EXPECT_EQ(view->get(), 1);
 #if HS_ENABLE_HYPERLATTICE_EXPERIMENTS
-  static_assert(Effect::PRESET_IDS[2] == "experimental-octet-flight");
-  static_assert(Effect::PRESET_IDS[3] == "experimental-octet-wide-flight");
+  static_assert(Effect::PRESET_IDS[Effect::OCTET_PRESET_INDEX] ==
+                "experimental-octet-flight");
+  static_assert(Effect::PRESET_IDS[Effect::OCTET_WIDE_PRESET_INDEX] ==
+                "experimental-octet-wide-flight");
   HS_EXPECT_EQ(std::string_view(pattern->export_options[1]),
                std::string_view("Pattern::OCTET"));
   const auto four_d = effect.serialize_parameters();
@@ -1254,7 +1267,8 @@ inline void test_pattern_view_controls() {
   const auto octet4 = effect.serialize_parameters();
   HS_EXPECT_EQ(octet4.params.pattern, Effect::Pattern::OCTET);
   HS_EXPECT_EQ(octet4.params.mode, HL::LatticeMode::FOUR_D_SLICE);
-  HS_EXPECT_EQ(octet4.params.cell_size, Effect::octet_slice_params().cell_size);
+  HS_EXPECT_EQ(octet4.params.cell_size,
+               Effect::preset_params(Effect::OCTET_4D_PRESET_INDEX).cell_size);
   HS_EXPECT_EQ(octet4.params.near_fade, .37f);
   HS_EXPECT_FALSE(effect.getParameters().find("4D Spin")->readonly);
   HS_EXPECT_EQ(effect.updateParameter("View", 0), ParamSetResult::APPLIED);
@@ -1273,8 +1287,9 @@ inline void test_pattern_view_controls() {
   HS_EXPECT_EQ(view->get(), 1);
   HS_EXPECT_EQ(effect.updateParameter("Pattern", 0), ParamSetResult::APPLIED);
   HS_EXPECT_EQ(view->get(), 1);
-  HS_EXPECT_EQ(effect.serialize_parameters().params.wire_radius,
-               Effect::preset_params(1).wire_radius);
+  HS_EXPECT_EQ(
+      effect.serialize_parameters().params.wire_radius,
+      Effect::preset_params(Effect::HYPERCUBE_PRESET_INDEX).wire_radius);
   HS_EXPECT_FALSE(effect.getParameters().find("Lattice Planes")->readonly);
 #endif
 }
@@ -1321,7 +1336,9 @@ inline void test_new_patterns() {
     HS_EXPECT_EQ(blend.pattern, Effect::Pattern::CUBIC_WIRE);
     blend.lerp(Effect::preset_params(0), p, .5f);
     HS_EXPECT_EQ(blend.pattern, p.pattern);
-    HS_EXPECT_EQ(blend.shell_radius, p.shell_radius);
+    HS_EXPECT_EQ(
+        blend.shell_radius,
+        hs::lerp(Effect::preset_params(0).shell_radius, p.shell_radius, .5f));
     auto invalid = snapshot;
     invalid.params.stretch = 1.6f;
     HS_EXPECT_FALSE(effect.restore_parameters(invalid));
@@ -1365,7 +1382,8 @@ inline void test_speed_range() {
 inline void test_octet_continuous_flight() {
 #if HS_ENABLE_HYPERLATTICE_EXPERIMENTS
   using Effect = HyperLatticeWhiteBox::Effect;
-  for (size_t preset : {size_t{2}, size_t{3}}) {
+  for (size_t preset :
+       {Effect::OCTET_PRESET_INDEX, Effect::OCTET_WIDE_PRESET_INDEX}) {
     reset_globals();
     Effect effect;
     effect.init();
