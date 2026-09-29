@@ -86,6 +86,13 @@ struct HyperLatticeWhiteBox {
     return effect.rotation_phase;
   }
   static HL::Params &params(Effect &effect) { return effect.params; }
+  static void blend(Effect &effect, const HL::Params &from,
+                    const HL::Params &to, float progress) {
+    effect.transition.from = from;
+    effect.transition.to = to;
+    effect.blend_params(progress);
+  }
+  static float preset_gain(const Effect &effect) { return effect.preset_gain; }
 #if HS_ENABLE_HYPERLATTICE_EXPERIMENTS
   static math::Vec4 experimental_center(const Effect &effect) {
     return effect.experimental_center;
@@ -856,6 +863,36 @@ inline void test_configuration_adoption_and_snapshots() {
   }
 }
 
+/**
+ * @brief Segues within one pattern and view morph at full brightness; any
+ *        other segue holds each preset whole and dims through black.
+ */
+inline void test_family_segues() {
+  using Effect = HyperLatticeWhiteBox::Effect;
+  reset_globals();
+  Effect effect;
+  effect.init();
+  const auto &params = HyperLatticeWhiteBox::params(effect);
+  const auto CUBIC = Effect::preset_params(Effect::CUBIC_PRESET_INDEX);
+  const auto WIDE = Effect::preset_params(Effect::WIDE_PRESET_INDEX);
+  const auto HYPERCUBE = Effect::preset_params(Effect::HYPERCUBE_PRESET_INDEX);
+  HyperLatticeWhiteBox::blend(effect, CUBIC, WIDE, .25f);
+  HS_EXPECT_EQ(params.cell_size,
+               hs::lerp(CUBIC.cell_size, WIDE.cell_size, .25f));
+  HS_EXPECT_EQ(HyperLatticeWhiteBox::preset_gain(effect), 1.0f);
+  for (float progress : {.1f, .25f, .49f, .5f, .75f, .9f}) {
+    HyperLatticeWhiteBox::blend(effect, WIDE, HYPERCUBE, progress);
+    const auto &expected = progress < .5f ? WIDE : HYPERCUBE;
+    HS_EXPECT_EQ(params.mode, expected.mode);
+    HS_EXPECT_EQ(params.cell_size, expected.cell_size);
+    HS_EXPECT_EQ(params.far_distance, expected.far_distance);
+    HS_EXPECT_NEAR(HyperLatticeWhiteBox::preset_gain(effect),
+                   fabsf(1.0f - 2.0f * progress), 1e-6f);
+  }
+  HyperLatticeWhiteBox::blend(effect, CUBIC, WIDE, .5f);
+  HS_EXPECT_EQ(HyperLatticeWhiteBox::preset_gain(effect), 1.0f);
+}
+
 inline void test_dimension_dropdown_and_mode_lerp() {
   reset_globals();
   using Effect = HyperLatticeWhiteBox::Effect;
@@ -1483,6 +1520,7 @@ inline int run_hyper_lattice_tests() {
   test_configuration_adoption_and_snapshots();
   test_dimension_dropdown_and_mode_lerp();
   test_single_shell();
+  test_family_segues();
   test_octet_prepared_projection();
   test_octet_4d_canonical_trace();
   test_experimental_presets();

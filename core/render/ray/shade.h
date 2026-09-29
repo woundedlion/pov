@@ -16,6 +16,7 @@ struct Appearance {
   float near_start = 0;
   float near_inv_span = 1;
   const BakedPalette *palette = nullptr;
+  float gain = 1; /**< Brightness scale applied to every layer's color. */
 
   __attribute__((always_inline)) float opacity(float t) const {
     const float fog = fmaxf(0.0f, 1.0f - t * inv_far);
@@ -24,7 +25,8 @@ struct Appearance {
   /** @brief Depth-graded palette color at distance t. */
   __attribute__((always_inline)) Pixel color(float t) const {
     const float nearness = 1 - t * inv_far;
-    return palette->get_color_unit(nearness) * (.45f + .55f * nearness);
+    return palette->get_color_unit(nearness) *
+           (gain * (.45f + .55f * nearness));
   }
   /**
    * @brief Adds the depth-graded color at distance t as one layer of
@@ -34,7 +36,8 @@ struct Appearance {
                                                 float coverage) const {
     const float nearness = 1 - t * inv_far;
     float rgb[3];
-    palette->get_color_unit_scaled(nearness, .45f + .55f * nearness, rgb);
+    palette->get_color_unit_scaled(nearness, gain * (.45f + .55f * nearness),
+                                   rgb);
     layers.add(rgb, coverage * opacity(t));
   }
 };

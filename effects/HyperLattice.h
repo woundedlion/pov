@@ -133,6 +133,7 @@ struct FrameState {
   std::array<float, 6> rotation_phase;
   float pixel_half_angle;
   const BakedPalette *depth_palette;
+  float gain = 1.0f; /**< Brightness scale of the whole frame. */
 };
 
 struct Binding {
@@ -182,7 +183,8 @@ experimental_settings(const FrameState &frame, math::Vec4 center) {
               static_cast<uint8_t>(p.pattern) - 1),
           p.shear,
           p.stretch,
-          p.shell_radius};
+          p.shell_radius,
+          frame.gain};
 }
 #endif
 inline PreparedTrace prepare_trace(const FrameState &frame) {
@@ -195,7 +197,7 @@ inline PreparedTrace prepare_trace(const FrameState &frame) {
   return {SDF::Lattice::prepare(settings, frame.origin, embedding,
                                 p.far_distance, frame.pixel_half_angle),
           {1.0f / p.far_distance, 1.5f * p.wire_radius * near_scale,
-           1.0f / (p.near_fade * near_scale), frame.depth_palette}};
+           1.0f / (p.near_fade * near_scale), frame.depth_palette, frame.gain}};
 }
 /**
  * @brief Composites one ray's plane crossings front to back.
@@ -632,8 +634,12 @@ public:
     advance_state();
     depth_palette.step();
     const HyperLatticeDetail::FrameState context{
-        params, origin, rotation_phase,
-        HyperLatticeDetail::pixel_half_angle<W, H>(), &depth_palette.palette()};
+        params,
+        origin,
+        rotation_phase,
+        HyperLatticeDetail::pixel_half_angle<W, H>(),
+        &depth_palette.palette(),
+        preset_gain};
 #if HS_ENABLE_HYPERLATTICE_EXPERIMENTS
     unfinished_rays = 0;
     if (params.pattern != Pattern::CUBIC_WIRE) {
@@ -726,13 +732,27 @@ private:
   }
   void adopt_params(const Params &target) {
     params = target;
+    preset_gain = 1.0f;
     if (configuration_id(params) != selected_configuration) {
       selected_configuration = configuration_id(params);
       refresh_configuration_schema();
     }
   }
+  /**
+   * @brief Presets of one pattern and view morph through their parameters;
+   *        any other change dims the outgoing preset to black, switches in the
+   *        dark, and brightens the incoming one.
+   */
   void blend_params(float progress) {
-    params.lerp(transition.from, transition.to, progress);
+    const Params &FROM = transition.from;
+    const Params &TO = transition.to;
+    if (FROM.pattern == TO.pattern && FROM.mode == TO.mode) {
+      params.lerp(FROM, TO, progress);
+      preset_gain = 1.0f;
+    } else {
+      params = progress < 0.5f ? FROM : TO;
+      preset_gain = fabsf(1.0f - 2.0f * progress);
+    }
     if (configuration_id(params) != selected_configuration) {
       selected_configuration = configuration_id(params);
       refresh_configuration_schema();
@@ -931,6 +951,7 @@ private:
       "ShellCount::ONE", "ShellCount::TWO", "ShellCount::THREE"};
 
   ConfigurationId selected_configuration = ConfigurationId::CUBIC_3D;
+  float preset_gain = 1.0f;
   math::Vec4 origin{{0.17f, 0.31f, 0.43f, 0.59f}};
   std::array<float, 6> rotation_phase{};
   PaletteCycler depth_palette;
