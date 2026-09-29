@@ -271,7 +271,7 @@ An affine primitive lattice rendered as soft iso contours through a folded gnomo
 
 ### HyperLattice
 
-An analytic flight through periodic wire lattices and curved shells. **Pattern** selects the geometry; **View** selects 3D perspective or a 4D slice. Cubic, octet, sheared cubic, and shells support both views. Diamond, honeycomb, and rhombic cells support 3D perspective; selecting one adopts its 3D view and makes **View** read-only. Invalid configurations are rejected without changing live state. Valid changes adopt the selected geometry's defaults. Automatic transitions interpolate every continuous control; the pattern, view, and Lattice Planes switch together at the midpoint.
+An analytic flight through periodic wire lattices and curved shells. **Pattern** selects the geometry; **View** selects 3D perspective or a 4D slice. Cubic, octet, sheared cubic, and shells support both views. Diamond, honeycomb, and rhombic cells support 3D perspective; selecting one adopts its 3D view and makes **View** read-only. Invalid configurations are rejected without changing live state. Valid changes adopt the selected geometry's defaults. Automatic transitions between presets of one pattern and view interpolate every continuous control, with Lattice Planes switching at the midpoint; a transition that changes the pattern or view fades the outgoing preset to black, switches, and fades the incoming one in.
 
 The core analytic adapter walks approximate plane-crossing coverage events. **Lattice Planes** limits crossings per axis; it is not a spherical shell count. The original preset IDs remain `cubic-flight` and `hypercube-flight`. Parameter schema 14 rejects older snapshots without changing live state. The 4D Spin control is read-only in 3D.
 
