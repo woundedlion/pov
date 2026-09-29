@@ -774,6 +774,20 @@ private:
         CONFIGURATIONS[static_cast<size_t>(configuration_id(params))];
     prepared.limits.max_candidates = configuration.max_candidates;
     prepared.limits.max_layers = configuration.max_layers;
+    if (prepared.valid && prepared.geometry == Geometry::SHELLS &&
+        prepared.periodic_shells.single_owner) {
+      Scan::Shader::draw_cached<W, H, 1>(
+          canvas,
+          [&prepared, this](const math::Vector &view) HS_HOT_FLASH_MEMBER {
+            const auto result = SDF::trace_periodic_shells_3d(
+                prepared.periodic_shells, prepared.camera, view,
+                prepared.limits, prepared.appearance);
+            if (result.status == Raycast::TraceStatus::BUDGET_EXHAUSTED)
+              unfinished_rays += 1;
+            return result.color;
+          });
+      return;
+    }
     using Shade = Sample (*)(const math::Vector &, const Prepared &);
     const Shade shade_ray =
         params.mode == LatticeMode::FOUR_D_SLICE ? &shade<true> : &shade<false>;
