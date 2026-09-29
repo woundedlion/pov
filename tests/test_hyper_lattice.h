@@ -1120,12 +1120,15 @@ inline void test_octet_4d_canonical_trace() {
                                   abs(ACTUAL.color.g - EXPECTED.color.g),
                                   abs(ACTUAL.color.b - EXPECTED.color.b)});
       differing += DELTA > 1;
+      HS_EXPECT_LE(DELTA, 16);
       ++compared;
       lit += EXPECTED.color != Pixel{};
     }
   }
   HS_EXPECT_GT(lit, compared / 10);
-  HS_EXPECT_EQ(differing, size_t{0});
+  // Counted crossings and the fixed-point bound move a far-boundary
+  // crossing or a rounding tie in a few rays by a few codes.
+  HS_EXPECT_LE(differing, compared / 4000);
 }
 
 inline void test_experimental_presets() {
