@@ -25,8 +25,8 @@ Rows rank by any spill, then peak render. 🟢 is zero spill, 🟡 is under 25% 
 | [LatticeMelt](profile_latticemelt_teensy_2026-09-28.md) § | `fx_shader_draw` | 🟢 37.18 (2) | 🟢 0/1727 (0.00%) | 2026-09-28 18:45 |
 | [ChromaticLichen](profile_chromaticlichen_teensy_2026-09-28.md) | `fx_shader_draw` | 🟢 36.63 | 🟢 0/1087 (0.00%) | 2026-09-28 18:47 |
 | [KaleidoscopeMandala](profile_kaleidoscopemandala_teensy_2026-09-28.md) § | `fx_shader_draw` | 🟢 35.40 (2) | 🟢 0/2367 (0.00%) | 2026-09-28 18:39 |
+| [DisplacementField](profile_displacementfield_teensy_2026-09-29.md) | `df_timeline_step` | 🟢 35.27 | 🟢 0/2368 (0.00%) | 2026-09-29 09:09 |
 | [HankinSolids](profile_hankinsolids_teensy_2026-09-28.md) § | `hk_timeline_step` | 🟢 34.81 (19) | 🟢 0/4447 (0.00%) | 2026-09-28 19:27 |
-| [DisplacementField](profile_displacementfield_teensy_2026-09-29.md) | `df_timeline_step` | 🟢 34.70 | 🟢 0/2368 (0.00%) | 2026-09-29 00:06 |
 | [KaleidoscopeSmooth](profile_kaleidoscopesmooth_teensy_2026-09-28.md) § | `fx_shader_draw` | 🟢 32.93 (4) | 🟢 0/4127 (0.00%) | 2026-09-28 18:59 |
 | [KaleidoscopeFlowers](profile_kaleidoscopeflowers_teensy_2026-09-28.md) § | `fx_shader_draw` | 🟢 32.52 (3) | 🟢 0/4127 (0.00%) | 2026-09-28 19:07 |
 | [KaleidoscopeHexBright](profile_kaleidoscopehexbright_teensy_2026-09-28.md) § | `fx_shader_draw` | 🟢 31.64 (2) | 🟢 0/2367 (0.00%) | 2026-09-28 19:02 |
