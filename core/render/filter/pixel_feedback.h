@@ -5,6 +5,8 @@
 #pragma once
 #include <algorithm>
 #include <bitset>
+#include <cstdint>
+#include <cstring>
 #include "math/spherical_field.h"
 #include "engine/memory.h"
 #include "render/filter/feedback_style.h"
@@ -32,8 +34,12 @@ namespace Pixel {
  * the frame's plot() calls (see `terminal_replaces`); flushing last, as a
  * non-replacing terminal permits, blanks the frame at alpha >= 1.
  *
-  * The warp is stored as equirect pixel offsets, so it is anisotropic near the
- * poles: trails pinch and a low-frequency noise cap lenses over a few rows.
+ * Away from the poles the warp is stored as equirect pixel offsets. Rows whose
+ * latitude sine is under POLAR_TARGET_SINE interpolate offsets in the cap plane
+ * of their pole instead (angle from the pole along the longitude, smooth
+ * through the pole) and convert each pixel's own target back, since longitude
+ * offsets grow as 1/sin(phi) there and interpolating them across rings lands
+ * pixels degrees away from their targets.
  * Rows whose columns outnumber the row pitch two to one composite every other
  * column (Style::pole_half_res).
  */
@@ -57,6 +63,9 @@ public:
   static constexpr int domain_rank = IsPixel::domain_rank;
   /** @brief Marks this as terminal: flush() writes the Canvas directly. */
   static constexpr bool is_terminal = true;
+  /** @brief Latitude sine under which lattice rings carry cap-plane offsets
+   *  and rows between two such rings convert each pixel's own target. */
+  static constexpr float POLAR_TARGET_SINE = 0.5f;
   /** @brief Opaque store owns the frame: no history stage may precede it. */
   static constexpr bool terminal_replaces = true;
 
@@ -97,18 +106,21 @@ public:
    */
   void set_enabled(bool value) { enabled = value; }
 
-  /** @brief Persistent bytes init_storage() reserves: two int16 warp fields
-   *  and the lattice's projected origins, both over CACHE_CELLS. */
+  /** @brief Persistent bytes init_storage() reserves over CACHE_CELLS: two
+   *  int16 warp fields, the lattice's projected origins, and the polar cells'
+   *  int16 cap-plane offsets. */
   static constexpr size_t STORAGE_BYTES =
       CACHE_CELLS *
-      (2 * sizeof(int16_t) + sizeof(typename SphereField::Coordinates));
+      (4 * sizeof(int16_t) + sizeof(typename SphereField::Coordinates));
 
   /** @brief Scratch bytes for a full-width uncached flush at downsample ds. */
-  static constexpr size_t UNCACHED_SCRATCH_BYTES(int ds) {
+  static size_t UNCACHED_SCRATCH_BYTES(int ds) {
     const int COLUMNS = W / ds;
     const SphereField FIELD(ds, ds, ds, COLUMNS);
-    return (2 * FIELD.ring_count() * COLUMNS + 2 * FIELD.sample_count()) *
-               sizeof(int16_t) +
+    const int RINGS = FIELD.ring_count();
+    const PolarRings POLAR = polar_rings(FIELD, RINGS);
+    return (2 * RINGS * COLUMNS + 2 * FIELD.sample_count()) * sizeof(int16_t) +
+           (POLAR.rows() * COLUMNS + POLAR.samples) * sizeof(CapOffset) +
            (ds > 1 ? W * sizeof(::Pixel) : 0);
   }
 
@@ -132,6 +144,7 @@ public:
     cached_warp_y = arena.allocate_n<int16_t>(CACHE_CELLS);
     cached_origin =
         arena.allocate_n<typename SphereField::Coordinates>(CACHE_CELLS);
+    cached_cap = arena.allocate_n<CapOffset>(CACHE_CELLS);
     warp_cache_valid = false;
 #ifndef NDEBUG
     stamp.record(arena);
@@ -206,11 +219,36 @@ private:
   }
 
 private:
+  /** @brief The lattice rings carrying 3D targets: rings [0, north_rings) and
+   *  [south_ring, field_rows), with the sample index where each run ends or
+   *  starts. */
+  struct PolarRings {
+    int north_rings;
+    int north_samples;
+    int south_ring;
+    int south_sample;
+    int samples;
+    int ring_count;
+
+    int rows() const { return north_rings + ring_count - south_ring; }
+    /** @brief Compacted row of a polar ring. */
+    int row(int field_y) const {
+      return field_y < north_rings ? field_y
+                                   : north_rings + field_y - south_ring;
+    }
+    /** @brief Compacted slot of a polar ring's lattice sample. */
+    int slot(int sample) const {
+      return sample < north_samples ? sample
+                                    : north_samples + sample - south_sample;
+    }
+  };
+
   struct CoarseGrid {
     int downsample;
     SphereField field;
     int columns;
     int field_rows;
+    PolarRings polar;
   };
 
   struct RenderBand {
@@ -227,10 +265,18 @@ private:
     int16_t y;
   };
 
+  /** @brief An offset in a pole's cap plane, CAP_SCALE units per radian. */
+  struct CapOffset {
+    int16_t u;
+    int16_t v;
+  };
+
   struct WarpField {
     int16_t *x_offsets;
     int16_t *y_offsets;
     WarpControl *controls;
+    CapOffset *cell_caps;
+    CapOffset *sample_caps;
     bool needs_population;
   };
 
@@ -308,7 +354,36 @@ private:
     const int columns = W / downsample;
     const int south_infill = downsample;
     const SphereField field(downsample, downsample, south_infill, columns);
-    return {downsample, field, columns, field.ring_count()};
+    const int rings = field.ring_count();
+    return {downsample, field, columns, rings, polar_rings(field, rings)};
+  }
+
+  static PolarRings polar_rings(const SphereField &field, int rings) {
+    PolarRings polar{0, 0, rings, 0, 0, rings};
+    bool leading = true;
+    int total = 0;
+    auto ring = field.ring(0);
+    for (int i = 0; i < rings; ++i, ring = field.next_ring(ring)) {
+      const bool is_polar =
+          SphereField::latitude_sine(ring.y) < POLAR_TARGET_SINE;
+      if (leading && is_polar) {
+        polar.north_rings = i + 1;
+        polar.north_samples = ring.offset + ring.samples;
+      } else {
+        leading = false;
+        if (!is_polar) {
+          polar.south_ring = rings;
+        } else if (polar.south_ring == rings) {
+          polar.south_ring = i;
+          polar.south_sample = ring.offset;
+        }
+      }
+      total = ring.offset + ring.samples;
+    }
+    if (polar.south_ring == rings)
+      polar.south_sample = total;
+    polar.samples = polar.north_samples + total - polar.south_sample;
+    return polar;
   }
 
   static __attribute__((always_inline)) RenderBand
@@ -370,9 +445,16 @@ private:
                "uncached feedback needs more scratch: missing cache, custom "
                "SpaceFn, nondefault downsample, or x clip");
       const int cells = grid.field_rows * grid.columns;
+      const int polar_cells = grid.polar.rows() * grid.columns;
       return {scratch.allocate_n<int16_t>(cells),
               scratch.allocate_n<int16_t>(cells),
-              scratch.allocate_n<WarpControl>(grid.field.sample_count()), true};
+              scratch.allocate_n<WarpControl>(grid.field.sample_count()),
+              polar_cells > 0 ? scratch.allocate_n<CapOffset>(polar_cells)
+                              : nullptr,
+              grid.polar.samples > 0
+                  ? scratch.allocate_n<CapOffset>(grid.polar.samples)
+                  : nullptr,
+              true};
     }
 
     const Animation::NoiseParams *noise = feedback_style->noise;
@@ -385,9 +467,14 @@ private:
     const bool needs_population = !(warp_cache_valid && key == cached_warp_key);
     cached_warp_key = key;
     warp_cache_valid = true;
-    return {cached_warp_x, cached_warp_y,
+    return {cached_warp_x,
+            cached_warp_y,
             needs_population
                 ? scratch.allocate_n<WarpControl>(grid.field.sample_count())
+                : nullptr,
+            cached_cap,
+            needs_population && grid.polar.samples > 0
+                ? scratch.allocate_n<CapOffset>(grid.polar.samples)
                 : nullptr,
             needs_population};
   }
@@ -415,6 +502,14 @@ private:
             distorted = feedback_style->space_fn(position, *feedback_style);
           }
           HS_PROFILE_DEEP(fb_pop_project);
+          const PolarRings &polar = grid.polar;
+          if (index < polar.north_samples || index >= polar.south_sample) {
+            const bool south = index >= polar.south_sample;
+            const CapPoint from = cap_point(position, south);
+            const CapPoint to = cap_point(distorted, south);
+            warp.sample_caps[polar.slot(index)] =
+                encode_cap(to.u - from.u, to.v - from.v);
+          }
           const auto projected = grid.field.project(distorted);
           const auto origin = origins
                                   ? origins[index]
@@ -451,6 +546,20 @@ private:
               static_cast<int16_t>(unwrap_near(offset_x, 0.0f, WRAP_PERIOD));
           warp.y_offsets[index] = static_cast<int16_t>(hs::lerp(
               static_cast<float>(a.y), static_cast<float>(b.y), longitude.mix));
+          if (field_y < grid.polar.north_rings ||
+              field_y >= grid.polar.south_ring) {
+            const CapOffset da =
+                warp.sample_caps[grid.polar.slot(longitude.left)];
+            const CapOffset db =
+                warp.sample_caps[grid.polar.slot(longitude.right)];
+            warp.cell_caps[grid.polar.row(field_y) * grid.columns + coarse_x] =
+                {static_cast<int16_t>(hs::lerp(static_cast<float>(da.u),
+                                               static_cast<float>(db.u),
+                                               longitude.mix)),
+                 static_cast<int16_t>(hs::lerp(static_cast<float>(da.v),
+                                               static_cast<float>(db.v),
+                                               longitude.mix))};
+          }
         }
       }
     }
@@ -503,6 +612,8 @@ private:
     const bool hue_fade = feedback_style->color_fn == &::Feedback::hue_fade;
     ctx.black_skips_color = hue_fade;
     ctx.pole_half_res = feedback_style->pole_half_res;
+    if (grid.polar.rows() > 0 && !math::TrigLUT<W, H>::initialized)
+      math::TrigLUT<W, H>::init();
     ctx.previous = cv.prev_data();
     ctx.current = cv.data();
     if (SphereField::HAS_NORTH_POLE)
@@ -552,6 +663,7 @@ private:
     const int row_end = band.y_end;
     const int16_t *x_offsets = ctx.warp.x_offsets;
     const int16_t *y_offsets = ctx.warp.y_offsets;
+    const PolarRings polar = grid.polar;
     constexpr float INVERSE_WARP_SCALE = 1.0f / WARP_SCALE;
     const float inverse_downsample = 1.0f / grid.downsample;
     const bool black_skips_color = ctx.black_skips_color;
@@ -613,116 +725,122 @@ private:
       const int row0 = field_y0 * coarse_columns;
       const int row1 = field_y1 * coarse_columns;
 
-      for (int r = 0; r < runs.count; ++r) {
-        const int xs = runs.items[r].begin;
-        const int xe = runs.items[r].end;
-        int cx0 = xs / downsample;
-        int sub = xs - cx0 * downsample;
-        bool cell_stale = true;
-        float leftx = 0.0f, slopex = 0.0f;
-        float lefty = 0.0f, slopey = 0.0f;
-        auto cell = [&]() {
-          HS_PROFILE_DEEP(fb_comp_cell);
-          const int cx1 = (cx0 + 1 < coarse_columns) ? cx0 + 1 : 0;
-          const int i00 = row0 + cx0, i10 = row0 + cx1;
-          const int i01 = row1 + cx0, i11 = row1 + cx1;
-          const int d00 = x_offsets[i00];
-          const float d10 =
-              static_cast<float>(unwrap_near(x_offsets[i10], d00));
-          const float d01 =
-              static_cast<float>(unwrap_near(x_offsets[i01], d00));
-          const float d11 =
-              static_cast<float>(unwrap_near(x_offsets[i11], d00));
-          leftx =
-              (static_cast<float>(d00) * wy0 + d01 * wy1) * INVERSE_WARP_SCALE;
-          slopex = (d10 * wy0 + d11 * wy1) * INVERSE_WARP_SCALE - leftx;
-          lefty = (y_offsets[i00] * wy0 + y_offsets[i01] * wy1) *
-                  INVERSE_WARP_SCALE;
-          slopey = (y_offsets[i10] * wy0 + y_offsets[i11] * wy1) *
-                       INVERSE_WARP_SCALE -
-                   lefty;
-        };
-        for (int x = xs; x < xe;) {
-          if (cell_stale) {
-            cell();
-            cell_stale = false;
-          }
-
-          if constexpr (PAIR_PIXELS) {
-            if (downsample - sub >= 2 * stride && xe - x >= 2 * stride) {
-              const float fx0 = sub * inverse_downsample;
-              const float fx1 = (sub + stride) * inverse_downsample;
-              const float ddx0 = leftx + slopex * fx0;
-              const float ddy0 = lefty + slopey * fx0;
-              const float ddx1 = leftx + slopex * fx1;
-              const float ddy1 = lefty + slopey * fx1;
-
-              Sample s0, s1;
-              {
-                HS_PROFILE_DEEP(fb_comp_sample);
-                s0 = sample_bilinear_prev(grid.field, previous, poles,
-                                          x + lane_offset + ddx0, y + ddy0);
-                s1 = sample_bilinear_prev(grid.field, previous, poles,
-                                          x + stride + lane_offset + ddx1,
-                                          y + ddy1);
-              }
-              const bool black0 = black_skips_color && s0.r < NEAR_BLACK &&
-                                  s0.g < NEAR_BLACK && s0.b < NEAR_BLACK;
-              const bool black1 = black_skips_color && s1.r < NEAR_BLACK &&
-                                  s1.g < NEAR_BLACK && s1.b < NEAR_BLACK;
-              ::Pixel p0(0, 0, 0), p1(0, 0, 0);
-              if (!(black0 && black1)) {
-                HS_PROFILE_DEEP(fb_comp_color);
-                transform_pair(s0.r, s0.g, s0.b, s1.r, s1.g, s1.b, p0, p1);
-                p0 = black0 ? ::Pixel(0, 0, 0) : p0;
-                p1 = black1 ? ::Pixel(0, 0, 0) : p1;
-              }
-
-              HS_PROFILE_DEEP(fb_comp_write);
-              ::Pixel &dst0 = output[x];
-              dst0 = (opaque || defer_filter) ? p0 : blend(dst0, p0);
-              ::Pixel &dst1 = output[x + stride];
-              dst1 = (opaque || defer_filter) ? p1 : blend(dst1, p1);
-
-              x += 2 * stride;
-              sub += 2 * stride;
-              if (sub >= downsample) {
-                sub -= downsample;
-                ++cx0;
-                cell_stale = true;
-              }
-              continue;
+      if (field_y1 < polar.north_rings || field_y0 >= polar.south_ring) {
+        composite_polar_row<PAIR_PIXELS>(
+            ctx, y, field_y0, field_y1, wy0, wy1, output, stride, lane_offset,
+            half_res, defer_filter, transform_pixel, transform_pair);
+      } else {
+        for (int r = 0; r < runs.count; ++r) {
+          const int xs = runs.items[r].begin;
+          const int xe = runs.items[r].end;
+          int cx0 = xs / downsample;
+          int sub = xs - cx0 * downsample;
+          bool cell_stale = true;
+          float leftx = 0.0f, slopex = 0.0f;
+          float lefty = 0.0f, slopey = 0.0f;
+          auto cell = [&]() {
+            HS_PROFILE_DEEP(fb_comp_cell);
+            const int cx1 = (cx0 + 1 < coarse_columns) ? cx0 + 1 : 0;
+            const int i00 = row0 + cx0, i10 = row0 + cx1;
+            const int i01 = row1 + cx0, i11 = row1 + cx1;
+            const int d00 = x_offsets[i00];
+            const float d10 =
+                static_cast<float>(unwrap_near(x_offsets[i10], d00));
+            const float d01 =
+                static_cast<float>(unwrap_near(x_offsets[i01], d00));
+            const float d11 =
+                static_cast<float>(unwrap_near(x_offsets[i11], d00));
+            leftx = (static_cast<float>(d00) * wy0 + d01 * wy1) *
+                    INVERSE_WARP_SCALE;
+            slopex = (d10 * wy0 + d11 * wy1) * INVERSE_WARP_SCALE - leftx;
+            lefty = (y_offsets[i00] * wy0 + y_offsets[i01] * wy1) *
+                    INVERSE_WARP_SCALE;
+            slopey = (y_offsets[i10] * wy0 + y_offsets[i11] * wy1) *
+                         INVERSE_WARP_SCALE -
+                     lefty;
+          };
+          for (int x = xs; x < xe;) {
+            if (cell_stale) {
+              cell();
+              cell_stale = false;
             }
-          }
 
-          const float fx = sub * inverse_downsample;
-          const float ddx = leftx + slopex * fx;
-          const float ddy = lefty + slopey * fx;
+            if constexpr (PAIR_PIXELS) {
+              if (downsample - sub >= 2 * stride && xe - x >= 2 * stride) {
+                const float fx0 = sub * inverse_downsample;
+                const float fx1 = (sub + stride) * inverse_downsample;
+                const float ddx0 = leftx + slopex * fx0;
+                const float ddy0 = lefty + slopey * fx0;
+                const float ddx1 = leftx + slopex * fx1;
+                const float ddy1 = lefty + slopey * fx1;
 
-          Sample s;
-          {
-            HS_PROFILE_DEEP(fb_comp_sample);
-            s = sample_bilinear_prev(grid.field, previous, poles,
-                                     x + lane_offset + ddx, y + ddy);
-          }
-          ::Pixel p(0, 0, 0);
-          if (!(black_skips_color && s.r < NEAR_BLACK && s.g < NEAR_BLACK &&
-                s.b < NEAR_BLACK)) {
-            HS_PROFILE_DEEP(fb_comp_color);
-            p = transform_pixel(s.r, s.g, s.b);
-          }
+                Sample s0, s1;
+                {
+                  HS_PROFILE_DEEP(fb_comp_sample);
+                  s0 = sample_bilinear_prev(grid.field, previous, poles,
+                                            x + lane_offset + ddx0, y + ddy0);
+                  s1 = sample_bilinear_prev(grid.field, previous, poles,
+                                            x + stride + lane_offset + ddx1,
+                                            y + ddy1);
+                }
+                const bool black0 = black_skips_color && s0.r < NEAR_BLACK &&
+                                    s0.g < NEAR_BLACK && s0.b < NEAR_BLACK;
+                const bool black1 = black_skips_color && s1.r < NEAR_BLACK &&
+                                    s1.g < NEAR_BLACK && s1.b < NEAR_BLACK;
+                ::Pixel p0(0, 0, 0), p1(0, 0, 0);
+                if (!(black0 && black1)) {
+                  HS_PROFILE_DEEP(fb_comp_color);
+                  transform_pair(s0.r, s0.g, s0.b, s1.r, s1.g, s1.b, p0, p1);
+                  p0 = black0 ? ::Pixel(0, 0, 0) : p0;
+                  p1 = black1 ? ::Pixel(0, 0, 0) : p1;
+                }
 
-          // Black must overwrite the stale double-buffer frame.
-          HS_PROFILE_DEEP(fb_comp_write);
-          ::Pixel &dst = output[x];
-          dst = (opaque || defer_filter) ? p : blend(dst, p);
+                HS_PROFILE_DEEP(fb_comp_write);
+                ::Pixel &dst0 = output[x];
+                dst0 = (opaque || defer_filter) ? p0 : blend(dst0, p0);
+                ::Pixel &dst1 = output[x + stride];
+                dst1 = (opaque || defer_filter) ? p1 : blend(dst1, p1);
 
-          x += stride;
-          sub += stride;
-          while (sub >= downsample) {
-            sub -= downsample;
-            ++cx0;
-            cell_stale = true;
+                x += 2 * stride;
+                sub += 2 * stride;
+                if (sub >= downsample) {
+                  sub -= downsample;
+                  ++cx0;
+                  cell_stale = true;
+                }
+                continue;
+              }
+            }
+
+            const float fx = sub * inverse_downsample;
+            const float ddx = leftx + slopex * fx;
+            const float ddy = lefty + slopey * fx;
+
+            Sample s;
+            {
+              HS_PROFILE_DEEP(fb_comp_sample);
+              s = sample_bilinear_prev(grid.field, previous, poles,
+                                       x + lane_offset + ddx, y + ddy);
+            }
+            ::Pixel p(0, 0, 0);
+            if (!(black_skips_color && s.r < NEAR_BLACK && s.g < NEAR_BLACK &&
+                  s.b < NEAR_BLACK)) {
+              HS_PROFILE_DEEP(fb_comp_color);
+              p = transform_pixel(s.r, s.g, s.b);
+            }
+
+            // Black must overwrite the stale double-buffer frame.
+            HS_PROFILE_DEEP(fb_comp_write);
+            ::Pixel &dst = output[x];
+            dst = (opaque || defer_filter) ? p : blend(dst, p);
+
+            x += stride;
+            sub += stride;
+            while (sub >= downsample) {
+              sub -= downsample;
+              ++cx0;
+              cell_stale = true;
+            }
           }
         }
       }
@@ -741,6 +859,116 @@ private:
               ::Pixel &dst = current[row + x];
               dst = opaque ? pixel : blend(dst, pixel);
             });
+      }
+    }
+  }
+
+  /**
+   * @brief Composites one polar row from its cap-plane offsets.
+   * @details Each lane converts its own target back to field coordinates.
+   * Out of line so the equirect rows' loop keeps its registers.
+   */
+  template <bool PAIR_PIXELS, typename TransformPixelT, typename TransformPairT>
+  __attribute__((noinline)) void
+  composite_polar_row(const FlushContext &ctx, int y, int field_y0,
+                      int field_y1, float wy0, float wy1, ::Pixel *output,
+                      int stride, float lane_offset, bool half_res,
+                      bool defer_filter, TransformPixelT &transform_pixel,
+                      TransformPairT &transform_pair) {
+    const CoarseGrid &grid = ctx.grid;
+    const PolarRings &polar = grid.polar;
+    const int downsample = grid.downsample;
+    const int coarse_columns = grid.columns;
+    const float inverse_downsample = 1.0f / downsample;
+    const CapOffset *caps0 =
+        ctx.warp.cell_caps + polar.row(field_y0) * coarse_columns;
+    const CapOffset *caps1 =
+        ctx.warp.cell_caps + polar.row(field_y1) * coarse_columns;
+    const bool north = field_y1 < polar.north_rings;
+    const float colatitude =
+        SphereField::Geometry::row_to_phi(static_cast<float>(y));
+    const float cap_angle = north ? colatitude : math::PI_F - colatitude;
+    const bool black_skips_color = ctx.black_skips_color;
+    constexpr float NEAR_BLACK = 64.0f;
+    constexpr float INVERSE_CAP = 1.0f / CAP_SCALE;
+    const auto blend = blend_alpha(ctx.alpha);
+    const bool plain_store = ctx.alpha >= 1.0f || defer_filter;
+    for (int r = 0; r < ctx.runs.count; ++r) {
+      const int xs = ctx.runs.items[r].begin;
+      const int xe = ctx.runs.items[r].end;
+      int cx0 = xs / downsample;
+      int sub = xs - cx0 * downsample;
+      bool cell_stale = true;
+      CapCell cell{};
+      for (int x = xs; x < xe;) {
+        if (cell_stale) {
+          const int cx1 = (cx0 + 1 < coarse_columns) ? cx0 + 1 : 0;
+          const float left_u =
+              (caps0[cx0].u * wy0 + caps1[cx0].u * wy1) * INVERSE_CAP;
+          const float left_v =
+              (caps0[cx0].v * wy0 + caps1[cx0].v * wy1) * INVERSE_CAP;
+          cell = {
+              {left_u, left_v},
+              {(caps0[cx1].u * wy0 + caps1[cx1].u * wy1) * INVERSE_CAP - left_u,
+               (caps0[cx1].v * wy0 + caps1[cx1].v * wy1) * INVERSE_CAP -
+                   left_v}};
+          cell_stale = false;
+        }
+
+        if constexpr (PAIR_PIXELS) {
+          if (downsample - sub >= 2 * stride && xe - x >= 2 * stride) {
+            const CoordinatePair at =
+                polar_pair(cell, x, x + stride, cap_angle, north, half_res,
+                           (sub + lane_offset) * inverse_downsample,
+                           (sub + stride + lane_offset) * inverse_downsample);
+            const Sample s0 = sample_bilinear_prev(grid.field, ctx.previous,
+                                                   ctx.poles, at.x0, at.y0);
+            const Sample s1 = sample_bilinear_prev(grid.field, ctx.previous,
+                                                   ctx.poles, at.x1, at.y1);
+            const bool black0 = black_skips_color && s0.r < NEAR_BLACK &&
+                                s0.g < NEAR_BLACK && s0.b < NEAR_BLACK;
+            const bool black1 = black_skips_color && s1.r < NEAR_BLACK &&
+                                s1.g < NEAR_BLACK && s1.b < NEAR_BLACK;
+            ::Pixel p0(0, 0, 0), p1(0, 0, 0);
+            if (!(black0 && black1)) {
+              transform_pair(s0.r, s0.g, s0.b, s1.r, s1.g, s1.b, p0, p1);
+              p0 = black0 ? ::Pixel(0, 0, 0) : p0;
+              p1 = black1 ? ::Pixel(0, 0, 0) : p1;
+            }
+            ::Pixel &dst0 = output[x];
+            dst0 = plain_store ? p0 : blend(dst0, p0);
+            ::Pixel &dst1 = output[x + stride];
+            dst1 = plain_store ? p1 : blend(dst1, p1);
+
+            x += 2 * stride;
+            sub += 2 * stride;
+            if (sub >= downsample) {
+              sub -= downsample;
+              ++cx0;
+              cell_stale = true;
+            }
+            continue;
+          }
+        }
+
+        const auto at = polar_lane(cell, x, cap_angle, north, half_res,
+                                   (sub + lane_offset) * inverse_downsample);
+        const Sample s = sample_bilinear_prev(grid.field, ctx.previous,
+                                              ctx.poles, at.x, at.y);
+        ::Pixel p(0, 0, 0);
+        if (!(black_skips_color && s.r < NEAR_BLACK && s.g < NEAR_BLACK &&
+              s.b < NEAR_BLACK))
+          p = transform_pixel(s.r, s.g, s.b);
+        ::Pixel &dst = output[x];
+        dst = plain_store ? p : blend(dst, p);
+
+        x += stride;
+        sub += stride;
+        while (sub >= downsample) {
+          sub -= downsample;
+          ++cx0;
+          cell_stale = true;
+        }
       }
     }
   }
@@ -772,6 +1000,149 @@ private:
   static constexpr float WARP_SCALE = 128.0f;
   /** @brief Column offsets in WARP_SCALE units, one full turn apart. */
   static constexpr float WRAP_PERIOD = static_cast<float>(W) * WARP_SCALE;
+
+  /** @brief Cap-plane offset units per radian. */
+  static constexpr float CAP_SCALE = 8192.0f;
+
+  /** @brief A point in a pole's cap plane: the angle from that pole, in
+   *  radians, laid along the point's longitude. */
+  struct CapPoint {
+    float u;
+    float v;
+  };
+
+  /** @brief Cap-plane coordinates of a direction, from the north pole or,
+   *  with @p south, from the south pole. */
+  static CapPoint cap_point(const math::Vector &v, bool south) {
+    const float horizontal = sqrtf(v.x * v.x + v.z * v.z);
+    if (!(horizontal > 1e-9f))
+      return {0.0f, 0.0f};
+    const float scale =
+        math::precise_atan2(horizontal, south ? -v.y : v.y) / horizontal;
+    return {v.x * scale, v.z * scale};
+  }
+
+  static CapOffset encode_cap(float u, float v) {
+    auto quantize = [](float c) {
+      const float scaled = hs::clamp(c * CAP_SCALE, -32767.0f, 32767.0f);
+      return static_cast<int16_t>(scaled + (scaled < 0.0f ? -0.5f : 0.5f));
+    };
+    return {quantize(u), quantize(v)};
+  }
+
+  /** @brief A polar cell's cap-plane offset at its left edge and its change
+   *  across the cell, both blended between the cell's two rings. */
+  struct CapCell {
+    CapPoint left;
+    CapPoint slope;
+  };
+
+  /** @brief Two lanes' field coordinates, returned in registers. */
+  struct CoordinatePair {
+    float x0;
+    float y0;
+    float x1;
+    float y1;
+  };
+
+  /** @brief One arctangent's ratio terms and the octant folds it needs. */
+  struct AtanTerms {
+    float numerator;
+    float denominator;
+    bool steep;
+    bool negative_x;
+    bool negative_y;
+  };
+
+  static __attribute__((always_inline)) AtanTerms atan_terms(float y, float x) {
+    uint32_t y_bits, x_bits;
+    std::memcpy(&y_bits, &y, sizeof(y_bits));
+    std::memcpy(&x_bits, &x, sizeof(x_bits));
+    // Sign-cleared bit patterns order like the magnitudes, so the octant tests
+    // stay in the integer pipeline.
+    const bool steep = (y_bits & 0x7fffffffu) > (x_bits & 0x7fffffffu);
+    const float abs_y = fabsf(y), abs_x = fabsf(x);
+    // A floor on the denominator keeps a pair's shared product normal; only
+    // the undefined longitude at an exact pole reaches it.
+    return {steep ? abs_x : abs_y, std::max(steep ? abs_y : abs_x, 1e-6f),
+            steep, (x_bits >> 31) != 0, (y_bits >> 31) != 0};
+  }
+
+  static __attribute__((always_inline)) float atan_fold(float ratio,
+                                                        const AtanTerms &t) {
+    float angle = math::atan_unit(ratio);
+    if (t.steep)
+      angle = 1.57079633f - angle;
+    if (t.negative_x)
+      angle = 3.14159265f - angle;
+    return t.negative_y ? -angle : angle;
+  }
+
+  /**
+   * @brief A polar lane's target in the cap plane: its own column at the
+   *        row's cap angle plus the cell's offset at @p fx.
+   * @details A half-resolution lane stands for its column pair, so its
+   * column turns half a column past the even column.
+   */
+  static __attribute__((always_inline)) CapPoint cap_lane(
+      const CapCell &cell, int x, float cap_angle, bool midpoint, float fx) {
+    constexpr float HALF = math::PI_F / W;
+    constexpr float HALF_COS =
+        1.0f - HALF * HALF * 0.5f + HALF * HALF * HALF * HALF * (1.0f / 24.0f);
+    constexpr float HALF_SIN =
+        HALF - HALF * HALF * HALF * (1.0f / 6.0f) +
+        HALF * HALF * HALF * HALF * HALF * (1.0f / 120.0f);
+    float cosine = math::TrigLUT<W, H>::cos_theta(x);
+    float sine = math::TrigLUT<W, H>::sin_theta[x];
+    if (midpoint) {
+      const float turned = cosine * HALF_COS - sine * HALF_SIN;
+      sine = cosine * HALF_SIN + sine * HALF_COS;
+      cosine = turned;
+    }
+    return {cap_angle * cosine + cell.left.u + cell.slope.u * fx,
+            cap_angle * sine + cell.left.v + cell.slope.v * fx};
+  }
+
+  /** @brief Field row of a cap angle from the north or the south pole. */
+  static __attribute__((always_inline)) float cap_row(const CapPoint &p,
+                                                      bool north) {
+    const float length_sq = std::max(p.u * p.u + p.v * p.v, 1e-12f);
+    const float angle = length_sq * math::fast_rsqrt(length_sq);
+    return SphereField::Geometry::phi_to_row(north ? angle
+                                                   : math::PI_F - angle);
+  }
+
+  /**
+   * @brief Source coordinates of two lanes of a polar row.
+   * @details The two longitudes' arctangent ratios share one reciprocal.
+   */
+  static __attribute__((always_inline)) CoordinatePair
+  polar_pair(const CapCell &cell, int x0, int x1, float cap_angle, bool north,
+             bool midpoint, float fx0, float fx1) {
+    const CapPoint p0 = cap_lane(cell, x0, cap_angle, midpoint, fx0);
+    const CapPoint p1 = cap_lane(cell, x1, cap_angle, midpoint, fx1);
+    const AtanTerms a = atan_terms(p0.v, p0.u);
+    const AtanTerms b = atan_terms(p1.v, p1.u);
+    const float inverse = 1.0f / (a.denominator * b.denominator);
+    constexpr float COLUMNS_PER_RADIAN = W / (2.0f * math::PI_F);
+    return {atan_fold(a.numerator * b.denominator * inverse, a) *
+                COLUMNS_PER_RADIAN,
+            cap_row(p0, north),
+            atan_fold(b.numerator * a.denominator * inverse, b) *
+                COLUMNS_PER_RADIAN,
+            cap_row(p1, north)};
+  }
+
+  /** @brief Source coordinates of one lane of a polar row. */
+  static __attribute__((always_inline)) typename SphereField::Coordinates
+  polar_lane(const CapCell &cell, int x, float cap_angle, bool north,
+             bool midpoint, float fx) {
+    const CapPoint p = cap_lane(cell, x, cap_angle, midpoint, fx);
+    const AtanTerms a = atan_terms(p.v, p.u);
+    return {atan_fold(a.numerator / a.denominator, a) *
+                (W / (2.0f * math::PI_F)),
+            cap_row(p, north)};
+  }
 
   /**
    * @brief Expands a half-resolution run's pair samples back to every column.
@@ -985,6 +1356,8 @@ private:
   int16_t *cached_warp_y = nullptr; /**< Arena-owned cached row deltas. */
   /** @brief Arena-owned projected origin of every cached-layout lattice sample. */
   typename SphereField::Coordinates *cached_origin = nullptr;
+  /** @brief Arena-owned cap-plane offset of every polar-ring cell. */
+  CapOffset *cached_cap = nullptr;
 #ifndef NDEBUG
   ArenaBlockStamp
       stamp; /**< Arena state when the warp fields were allocated. */
@@ -1001,6 +1374,8 @@ private:
     HS_ASSERT_BLOCK_ALIVE(stamp, cached_warp_x, CACHE_CELLS * sizeof(int16_t),
                           "Pixel::Feedback warp cache");
     HS_ASSERT_BLOCK_ALIVE(stamp, cached_warp_y, CACHE_CELLS * sizeof(int16_t),
+                          "Pixel::Feedback warp cache");
+    HS_ASSERT_BLOCK_ALIVE(stamp, cached_cap, CACHE_CELLS * sizeof(CapOffset),
                           "Pixel::Feedback warp cache");
   }
 };

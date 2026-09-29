@@ -207,6 +207,29 @@ inline void test_fast_acos() {
 }
 
 /**
+ * @brief Verifies precise_atan2 against std::atan2 around the full circle and
+ *        at the axes, and returns 0 at the origin.
+ */
+inline void test_precise_atan2() {
+  HS_EXPECT_EQ(math::precise_atan2(0.0f, 0.0f), 0.0f);
+  float worst = 0.0f;
+  for (int i = 0; i < 4096; ++i) {
+    const double angle = -3.14159265358979 + i * (6.28318530717958 / 4096.0);
+    for (float radius : {1e-3f, 1.0f, 250.0f}) {
+      const float x = static_cast<float>(std::cos(angle)) * radius;
+      const float y = static_cast<float>(std::sin(angle)) * radius;
+      float error = std::abs(math::precise_atan2(y, x) - std::atan2(y, x));
+      // -pi and pi name the same direction.
+      error = std::min(error, std::abs(error - 2.0f * math::PI_F));
+      worst = std::max(worst, error);
+    }
+  }
+  HS_EXPECT_LT(worst, 2e-5f);
+  HS_EXPECT_NEAR(math::precise_atan2(1.0f, 0.0f), math::PI_F * 0.5f, 1e-5f);
+  HS_EXPECT_NEAR(math::precise_atan2(0.0f, -1.0f), math::PI_F, 1e-5f);
+}
+
+/**
  * @brief Verifies fast_cbrt anchors, the x<=0 -> 0 clamp, and the documented
  *        ~2.3e-5 peak relative error over [0,8] (plus a few values past 8).
  */
@@ -1952,6 +1975,7 @@ inline int run_3dmath_tests() {
   test_fast_sinf_cosf();
   test_fast_sincosf_0_pi();
   test_fast_cbrt();
+  test_precise_atan2();
   test_fast_cbrt3();
   test_fast_cbrt6();
   test_fast_expf();

@@ -2385,21 +2385,12 @@ expected_feedback_source_row(int y, int downsample,
       W / downsample);
   std::array<float, W> source{};
   std::array<float, W> reconstructed{};
-  auto control_y = [&](int x) {
-    const auto point = layout.project(
-        style.space_fn(math::pixel_to_vector<W, H>(x, y), style));
-    const float offset = point.y - y;
-    const int16_t quantized =
-        static_cast<int16_t>(hs::clamp(offset * 128.0f, -32767.0f, 32767.0f));
-    return y + quantized / 128.0f;
-  };
-
-  for (int x = 0; x < W; ++x) {
-    const int x0 = (x / downsample) * downsample;
-    const int x1 = (x0 + downsample) % W;
-    const float mix = static_cast<float>(x - x0) / downsample;
-    source[x] = hs::lerp(control_y(x0), control_y(x1), mix);
-  }
+  // Cap rows reconstruct each pixel's own target, so the reference is the
+  // exact warp target row before the infill filter.
+  for (int x = 0; x < W; ++x)
+    source[x] =
+        layout.project(style.space_fn(math::pixel_to_vector<W, H>(x, y), style))
+            .y;
   // The render only longitude-filters the dense infill rows.
   const bool north_infill = y > 0 && y < downsample;
   const bool south_infill =
@@ -2588,10 +2579,11 @@ inline void test_feedback_spherical_ring_control_rows() {
     HS_EXPECT_NEAR(sampled_y, expected_y, 0.02f);
   }
 
-  // Two int16 offset fields plus one projected origin per grid cell.
+  // Two int16 offset fields, one projected origin and one int16 cap-plane
+  // offset per grid cell.
   constexpr size_t BYTES_PER_ROW =
       (W / DOWNSAMPLE) *
-      (2 * sizeof(int16_t) + sizeof(decltype(layout)::Coordinates));
+      (4 * sizeof(int16_t) + sizeof(decltype(layout)::Coordinates));
   constexpr size_t STORAGE = Filter::Pixel::Feedback<W, H>::STORAGE_BYTES;
   constexpr size_t EXPECTED =
       BYTES_PER_ROW * static_cast<size_t>(layout.ring_count());
@@ -2826,11 +2818,17 @@ inline void test_feedback_seam_warp_keeps_its_latitude_row() {
   }
   fx.advance_display();
 
-  for (int y = 1; y < H - 1; ++y)
+  // Polar rows interpolate cap-plane offsets rather than column offsets, and
+  // this warp's alternating half-turns put their targets across the pole.
+  for (int y = 1; y < H - 1; ++y) {
+    if (hs::SphericalFieldLayout<W, H>::latitude_sine(y) <
+        Filter::Pixel::Feedback<W, H>::POLAR_TARGET_SINE)
+      continue;
     for (int x = 0; x < W; ++x) {
       const float sampled_row = fx.get_pixel(x, y).r / ROW_SCALE;
       HS_EXPECT_NEAR(sampled_row, static_cast<float>(y), 0.25f);
     }
+  }
 }
 
 /**
@@ -2867,12 +2865,13 @@ inline void test_feedback_cached_north_cap_clips_share_control_rows() {
     }
     fx.advance_display();
   };
+  // The reference is the exact target row; the lattice interpolates it.
   auto expect_rows = [&](int begin, int end) {
     for (int y = begin; y < end; ++y) {
       const auto expected =
           expected_feedback_source_row<W, H>(y, DOWNSAMPLE, style);
       const float sampled_y = fx.get_pixel(0, y).r / ROW_SCALE;
-      HS_EXPECT_NEAR(sampled_y, expected[0], 0.02f);
+      HS_EXPECT_NEAR(sampled_y, expected[0], 0.03f);
     }
   };
 
@@ -2894,6 +2893,68 @@ inline void test_feedback_cached_north_cap_clips_share_control_rows() {
   }
   fx.advance_display();
   expect_rows(2, 4);
+}
+
+/**
+ * @brief Verifies the polar rows land every pixel on its warp target.
+ * @details Encodes each pixel's own direction into the previous frame, flushes
+ * once through the identity colour path, and decodes where each output pixel
+ * sampled from. A strong static twist near the poles moves targets far in
+ * longitude between lattice rings, where interpolating equirect offsets missed
+ * by several degrees; the 3D target reconstruction stays within a fraction of
+ * the 1.26 degree row pitch.
+ */
+inline void test_feedback_polar_rows_hit_their_targets() {
+  constexpr int W = 288, H = 144;
+  hs_test::StubEffect fx(W, H);
+  ScratchScope persistent_scope(persistent_arena);
+  Animation::NoiseParams noise;
+  noise.noise.SetNoiseType(FastNoiseLite::NoiseType_OpenSimplex2);
+  noise.set_seed(12345);
+  ::Feedback::Style style = ::Feedback::Style::LooseWormhole();
+  style.noise = &noise;
+  style.sync_noise();
+  style.hue_shift = 0.0f;
+  style.fade = 1.0f;
+  style.pole_half_res = 0.0f;
+  Pipeline<W, H, Filter::Pixel::Feedback<W, H>> pipe{
+      Filter::Pixel::Feedback<W, H>(style)};
+  pipe.get<Filter::Pixel::Feedback<W, H>>().init_storage(persistent_arena);
+
+  auto encode = [](float c) {
+    return static_cast<uint16_t>((c + 1.0f) * 0.5f * 65535.0f + 0.5f);
+  };
+  auto decode = [](uint16_t c) { return c / 65535.0f * 2.0f - 1.0f; };
+  {
+    Canvas c(fx);
+    for (int y = 0; y < H; ++y)
+      for (int x = 0; x < W; ++x) {
+        const math::Vector v = math::pixel_to_vector<W, H>(x, y);
+        c(x, y) = Pixel(encode(v.x), encode(v.y), encode(v.z));
+      }
+  }
+  fx.advance_display();
+  {
+    Canvas c(fx);
+    (void)pipe.begin_frame(c, 1.0f);
+  }
+  fx.advance_display();
+
+  float worst = 0.0f;
+  for (int y = 1; y < H - 1; ++y) {
+    if (hs::SphericalFieldLayout<W, H>::latitude_sine(y) >= 0.45f)
+      continue;
+    for (int x = 0; x < W; ++x) {
+      const Pixel p = fx.get_pixel(x, y);
+      const math::Vector got =
+          math::Vector(decode(p.r), decode(p.g), decode(p.b)).normalized();
+      const math::Vector want =
+          style.space_fn(math::pixel_to_vector<W, H>(x, y), style).normalized();
+      worst = std::max(worst,
+                       std::acos(hs::clamp(math::dot(got, want), -1.0f, 1.0f)));
+    }
+  }
+  HS_EXPECT_LT(worst * 180.0f / math::PI_F, 0.5f);
 }
 
 /**
@@ -3896,6 +3957,7 @@ inline int run_filter_tests() {
   test_feedback_seam_warp_keeps_its_latitude_row();
   test_feedback_cached_north_cap_clips_share_control_rows();
   test_feedback_warp_cache_matches_uncached();
+  test_feedback_polar_rows_hit_their_targets();
   test_feedback_flush_straddled_taps_stay_on_branch();
 
   test_world_trails_int16_quantization_roundtrip();
