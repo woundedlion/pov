@@ -42,7 +42,7 @@ minus shipping bytes from each pair's own image-size reports.
 | [DreamBalls](shipping/profile_dreamballs_teensy_2026-09-28.md) / [O3](O3/profile_dreamballs_teensy_2026-08-26.md) § | `db_timeline_step` | 🟢 42.66 (10) | 🟢 34.32 (11) | 🟢 0/3647 (0.00%) | 🟢 0/3648 (0%) | +26,896 B | +12,352 B | ship 2026-09-28 18:45<br>O3 2026-08-26 02:19 |
 | [MermaidSkin](shipping/profile_mermaidskin_teensy_2026-09-28.md) / [O3](O3/profile_mermaidskin_teensy_2026-08-26.md) | `fx_shader_draw` | 🟢 39.57 | 🟢 54.55 | 🟢 0/1087 (0.00%) | 🟢 0/1088 (0%) | +16,544 B | +11,952 B | ship 2026-09-28 18:49<br>O3 2026-08-26 02:43 |
 | [KaleidoscopeHexOil](shipping/profile_kaleidoscopehexoil_teensy_2026-09-28.md) / [O3](O3/profile_kaleidoscopehexoil_teensy_2026-08-26.md) § | `fx_shader_draw` | 🟢 38.51 (2) | 🟢 38.94 (3) | 🟢 0/2207 (0.00%) | 🟢 0/2208 (0%) | +13,456 B | +10,608 B | ship 2026-09-28 18:54<br>O3 2026-08-26 02:49 |
-| [HyperLattice](shipping/profile_hyperlattice_teensy_2026-09-29.md) ● / [O3](O3/profile_hyperlattice_teensy_2026-09-27.md) § | `hl_shader_draw` | 🟢 37.46 (3) | 🟢 54.817 (2) | 🟢 0/1887 (0.00%) | 🟢 0/1576 (0.00%) | +9,736 B | +8,240 B | ship 2026-09-29 12:46<br>O3 2026-09-27 01:05 |
+| [HyperLattice](shipping/profile_hyperlattice_teensy_2026-09-29.md) ● / [O3](O3/profile_hyperlattice_teensy_2026-09-27.md) § | `hl_shader_draw` | 🟢 36.65 (3) | 🟢 54.817 (2) | 🟢 0/1887 (0.00%) | 🟢 0/1576 (0.00%) | +9,736 B | +8,240 B | ship 2026-09-29 14:54<br>O3 2026-09-27 01:05 |
 | [LatticeMelt](shipping/profile_latticemelt_teensy_2026-09-28.md) / [O3](O3/profile_latticemelt_teensy_2026-08-26.md) § | `fx_shader_draw` | 🟢 37.18 (2) | 🔴 104.75 (3) | 🟢 0/1727 (0.00%) | 🔴 1824/1824 (100%) | +16,592 B | +11,952 B | ship 2026-09-28 18:45<br>O3 2026-08-26 03:22 |
 | [ChromaticLichen](shipping/profile_chromaticlichen_teensy_2026-09-28.md) / [O3](O3/profile_chromaticlichen_teensy_2026-08-26.md) | `fx_shader_draw` | 🟢 36.63 | 🟢 61.87 | 🟢 0/1087 (0.00%) | 🟢 0/1088 (0%) | +16,576 B | +11,952 B | ship 2026-09-28 18:47<br>O3 2026-08-26 02:41 |
 | [KaleidoscopeMandala](shipping/profile_kaleidoscopemandala_teensy_2026-09-28.md) / [O3](O3/profile_kaleidoscopemandala_teensy_2026-08-26.md) § | `fx_shader_draw` | 🟢 35.40 (2) | 🟢 36.86 (3) | 🟢 0/2367 (0.00%) | 🟢 0/2368 (0%) | +13,656 B | +11,440 B | ship 2026-09-28 18:39<br>O3 2026-08-26 03:17 |
@@ -80,7 +80,7 @@ Captured timestamps are local raw-log mtimes.
 probe and are independent of the on-device timing tables.
 
 
-● HyperLattice refreshed on 2026-09-29 after its optimization campaign: all three presets and their lerped segues; setup frame 1 excluded. Its O3 column predates the campaign.
+● HyperLattice refreshed on 2026-09-29 after its optimization campaign: all three presets and their segues; setup frame 1 excluded. Its O3 column predates the campaign.
 
 ## Supplemental experimental presets
 
@@ -107,21 +107,21 @@ its two original presets; they predate this third default preset.
 ## HyperLattice experimental cycle
 
 Opt-in image (`HS_ENABLE_HYPERLATTICE_EXPERIMENTS=1`), full nine-preset cycle
-with lerped segues, 345 s on COM3; setup frame 1 excluded. A bucket holds the
+with family segues (lerp within a pattern and view, fade through black across), 345 s on COM4; setup frame 1 excluded. A bucket holds the
 segue into its preset and the hold. Supersedes the octet and shell supplements
 below. [Report](shipping/profile_hyperlattice_teensy_2026-09-29.md#per-preset-table).
 
 | Preset | Ship peak ms | Ship spilled | Captured |
 |---|--:|--:|---|
-| 6: Shell Flight | 🔴 65.49 | 🔴 9/559 (1.61%) | 2026-09-29 13:25 |
-| 8: Shell 4D Flight | 🟢 51.00 | 🟢 0/559 (0.00%) | 2026-09-29 13:25 |
-| 5: Octet 4D Flight | 🟢 49.24 | 🟢 0/559 (0.00%) | 2026-09-29 13:25 |
-| 0: Cubic Flight | 🟢 43.30 | 🟢 0/878 (0.00%) | 2026-09-29 13:25 |
-| 3: Octet Flight | 🟢 42.33 | 🟢 0/559 (0.00%) | 2026-09-29 13:25 |
-| 2: Hypercube Flight | 🟢 37.34 | 🟢 0/559 (0.00%) | 2026-09-29 13:25 |
-| 7: Shell Close Flight | 🟢 31.97 | 🟢 0/559 (0.00%) | 2026-09-29 13:25 |
-| 4: Octet Wide Flight | 🟢 31.65 | 🟢 0/559 (0.00%) | 2026-09-29 13:25 |
-| 1: Cubic Wide Flight | 🟢 29.58 | 🟢 0/681 (0.00%) | 2026-09-29 13:25 |
+| 6: Shell Flight | 🟢 56.03 | 🟢 0/559 (0.00%) | 2026-09-29 14:51 |
+| 5: Octet 4D Flight | 🟢 51.14 | 🟢 0/559 (0.00%) | 2026-09-29 14:51 |
+| 0: Cubic Flight | 🟢 43.23 | 🟢 0/878 (0.00%) | 2026-09-29 14:51 |
+| 2: Hypercube Flight | 🟢 36.68 | 🟢 0/559 (0.00%) | 2026-09-29 14:51 |
+| 8: Shell 4D Flight | 🟢 35.00 | 🟢 0/559 (0.00%) | 2026-09-29 14:51 |
+| 3: Octet Flight | 🟢 32.24 | 🟢 0/559 (0.00%) | 2026-09-29 14:51 |
+| 4: Octet Wide Flight | 🟢 31.72 | 🟢 0/559 (0.00%) | 2026-09-29 14:51 |
+| 7: Shell Close Flight | 🟢 31.28 | 🟢 0/559 (0.00%) | 2026-09-29 14:51 |
+| 1: Cubic Wide Flight | 🟢 29.44 | 🟢 0/697 (0.00%) | 2026-09-29 14:51 |
 
 ## Octet optimization supplement
 
