@@ -1,0 +1,10 @@
+profile provenance: version=1
+profile provenance: source_sha=4056013a883d869a00aec38ee0f6c949b664f141
+profile provenance: compiler=GCC: (Arm GNU Toolchain 15.2.Rel1 (Build arm-15.86)) 15.2.1 20251203
+profile provenance: profile_elf_sha256=ff30fc46a8fcdbb0ee271a8f255dbd5ed763636ebe6b43cd90b94a12dad0c621
+profile provenance: phantasm_elf_sha256=acf36497f2dc8679a8fd74efa86929bda158b3cf65b658a2067fbf080d36a48b
+profile provenance: profile_envdump_sha256=5eb8bc4b9f32b387705e82c96652165b69875e96243ec456d6b31ba387e1e437
+profile provenance: phantasm_envdump_sha256=47348338426cd578605e602bcbd4cba27c9153031852579b84d571a4465c1a50
+profile provenance: artifact_profile_elf=build/prof/hyper-shell-final/artifacts/hyperlattice_shells_o3_4056013a883d_ff30fc46a8fc/profile.elf
+profile provenance: artifact_phantasm_elf=build/prof/hyper-shell-final/artifacts/hyperlattice_shells_o3_4056013a883d_ff30fc46a8fc/phantasm.elf
+profile provenance: artifact_dir=build/prof/hyper-shell-final/artifacts/hyperlattice_shells_o3_4056013a883d_ff30fc46a8fc

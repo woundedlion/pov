@@ -1,0 +1,111 @@
+{
+  "preset": 6,
+  "name": "Shell Close Flight",
+  "config": "o3",
+  "captured": "2026-09-28T23:27:00-07:00",
+  "log": "C:\\work\\hs-hyper-measure\\build\\prof\\hyper-shell-final\\hyperlattice_shells_close_o3.log",
+  "sha": "4056013a883d869a00aec38ee0f6c949b664f141",
+  "frames": [
+    2,
+    154
+  ],
+  "count": 153,
+  "mean_render_ms": 133.90964052287583,
+  "peak_render_ms": 137.024,
+  "mean_wall_ms": 187.11581045751635,
+  "spilled": 153,
+  "startup_ms": 254.711,
+  "clean_windows": 8,
+  "window_frames": 16,
+  "worst_frames": [
+    113,
+    128
+  ],
+  "worst_render_ms": 134.6454375,
+  "worst_wall_ms": [
+    186.278,
+    187.454,
+    188.667
+  ],
+  "exactness_ppm": 0.9157793109402904,
+  "root_cycles": 1799558552,
+  "wall_sum_us": 2999267,
+  "counters": {
+    "frame": {
+      "us": 2999264,
+      "pct": 100,
+      "calls": 16,
+      "cyc": 1799558552,
+      "depth": 0,
+      "tags": [],
+      "cycles_per_frame": 112472409.5,
+      "calls_per_frame": 1.0,
+      "us_per_frame": 187454.01583333334
+    },
+    "pov_preserve_half": {
+      "us": 2189,
+      "pct": 0,
+      "calls": 16,
+      "cyc": 1313907,
+      "depth": 1,
+      "tags": [],
+      "cycles_per_frame": 82119.1875,
+      "calls_per_frame": 1.0,
+      "us_per_frame": 136.8653125
+    },
+    "hl_shader_draw": {
+      "us": 2122599,
+      "pct": 70,
+      "calls": 16,
+      "cyc": 1273559405,
+      "depth": 1,
+      "tags": [],
+      "cycles_per_frame": 79597462.8125,
+      "calls_per_frame": 1.0,
+      "us_per_frame": 132662.43802083333
+    },
+    "hl_timeline_step": {
+      "us": 60,
+      "pct": 0,
+      "calls": 16,
+      "cyc": 36424,
+      "depth": 1,
+      "tags": [],
+      "cycles_per_frame": 2276.5,
+      "calls_per_frame": 1.0,
+      "us_per_frame": 3.7941666666666665
+    },
+    "canvas_clear": {
+      "us": 1405,
+      "pct": 0,
+      "calls": 16,
+      "cyc": 843376,
+      "depth": 1,
+      "tags": [],
+      "cycles_per_frame": 52711.0,
+      "calls_per_frame": 1.0,
+      "us_per_frame": 87.85166666666667
+    },
+    "canvas_buffer_wait": {
+      "us": 844937,
+      "pct": 28,
+      "calls": 16,
+      "cyc": 506962354,
+      "depth": 1,
+      "tags": [],
+      "cycles_per_frame": 31685147.125,
+      "calls_per_frame": 1.0,
+      "us_per_frame": 52808.57854166667
+    }
+  },
+  "isr": [
+    "isr_wake       n=55300 cyc min/avg/max=216/942/7225 ns min/avg/max=360/1570/12041 total=86851 us cpu=2.89%",
+    "isr_pack       n=6912 cyc min/avg/max=3609/4085/5609 ns min/avg/max=6015/6808/9348 total=47069 us cpu=1.56%",
+    "isr_dma_submit n=6912 cyc min/avg/max=451/562/610 ns min/avg/max=751/936/1016 total=6481 us cpu=0.21%"
+  ],
+  "size_lines": [
+    "teensy_size:   FLASH: code:105416, data:153344, headers:8504   free for files:1764352",
+    "teensy_size:    RAM1: variables:315008, code:19960, padding:12808   free for local variables:176512",
+    "teensy_size:    RAM2: variables:520064  free for malloc/new:4224"
+  ]
+}
