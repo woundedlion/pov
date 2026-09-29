@@ -1,6 +1,6 @@
 # GSReactionDiffusion on-device profile — Teensy 4.0, segmented mode (2026-08-26, **-O3**)
 
-Global-O3 twin of the [shipping report](../shipping/profile_gsreactiondiffusion_teensy_2026-08-26.md).
+Global-O3 twin of the [shipping report](../shipping/profile_gsreactiondiffusion_teensy_2026-09-28.md).
 Point-in-time snapshot (regenerate with `bash tools/profile_one.sh GSReactionDiffusion profile_o3 130 32 "-D HS_PROFILE_EPOCH_REVS=1200"`). Raw capture:
 `build/prof/gsreactiondiffusion_o3.log`, captured 2026-08-26 01:25 local. This replaces the historical 2026-08-09 capture (report no longer retained).
 
