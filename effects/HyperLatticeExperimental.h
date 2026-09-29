@@ -610,8 +610,8 @@ trace_octet_4d(const math::Vector &direction, const Prepared &prepared) {
         nearest = std::min(nearest, bounds[c]);
       }
       // Clamped below 2^32; any threshold at or past 2^31 rejects nothing.
-      const uint32_t THRESHOLD = static_cast<uint32_t>(std::min(
-          SUPPORT2 * THRESHOLD_SCALE + THRESHOLD_MARGIN, 4294967040.0f));
+      const uint32_t THRESHOLD = static_cast<uint32_t>(
+          fminf(SUPPORT2 * THRESHOLD_SCALE + THRESHOLD_MARGIN, 4294967040.0f));
       if (nearest > THRESHOLD)
         continue;
       std::array<float, 4> residual;
