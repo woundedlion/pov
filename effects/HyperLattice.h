@@ -827,18 +827,24 @@ private:
           });
       return;
     }
-    if (prepared.valid && prepared.geometry == Geometry::SHELLS &&
-        prepared.periodic_shells.slice_march) {
+    const auto draw_march = [&]<int DIMENSIONS>() {
       Scan::Shader::draw_cached<W, H, 1>(
           canvas,
           [&prepared, this](const math::Vector &view) HS_HOT_FLASH_MEMBER {
-            const auto result = SDF::trace_periodic_shells_4d(
+            const auto result = SDF::trace_periodic_shells_march<DIMENSIONS>(
                 prepared.periodic_shells, prepared.camera, view,
                 prepared.limits, prepared.appearance);
             if (result.status == Raycast::TraceStatus::BUDGET_EXHAUSTED)
               unfinished_rays += 1;
             return result.color;
           });
+    };
+    if (prepared.valid && prepared.geometry == Geometry::SHELLS &&
+        prepared.periodic_shells.march) {
+      if (params.mode == LatticeMode::FOUR_D_SLICE)
+        draw_march.template operator()<4>();
+      else
+        draw_march.template operator()<3>();
       return;
     }
     const auto draw_octet = [&]<bool SLICE_4D>() {
