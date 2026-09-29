@@ -254,7 +254,7 @@ inline void test_crosses_segments_trait_and_fold() {
   HS_EXPECT_FALSE(WarpStack::requires_unit_world_input);
   HS_EXPECT_TRUE(WarpStack::emits_pixel_centers);
   HS_EXPECT_FALSE(WarpStack::requires_subpixel_input);
-  HS_EXPECT_FALSE(WarpStack::world_transform_is_identity);
+  HS_EXPECT_TRUE(WarpStack::world_transform_is_identity);
   HS_EXPECT_FALSE(WarpStack::terminal_replaces);
 
   HS_EXPECT_TRUE(MeshStack::emits_pixel_centers);

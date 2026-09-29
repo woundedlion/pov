@@ -29,6 +29,7 @@ public:
   static_assert(Capacity > 0, "World::Trails capacity must be positive");
   static constexpr bool emits_nonunit_world = true;
   static constexpr bool reads_outside_band = false;
+  static constexpr bool world_transform_is_identity = true;
 
   /** @brief One quantized trail sample: unit vector plus remaining lifetime. */
   struct Item {
