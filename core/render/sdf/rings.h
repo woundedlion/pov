@@ -683,6 +683,12 @@ private:
     return FAR_SENTINEL;
   }
 
+  /** @brief polyline_search<false>() kept out of the window's inline body. */
+  HS_HOT_FLASH_MEMBER float polyline_search_far(float t_norm, float polar,
+                                                float sin_polar) const {
+    return polyline_search<false>(t_norm, polar, sin_polar);
+  }
+
   /**
    * @brief polyline_search<false>() over a fixed knot window.
    * @details Once a knot cell spans at least half the stroke reach, the
@@ -697,7 +703,7 @@ private:
   polyline_window(float t_norm, float polar, float sin_polar) const {
     const float cell_u = knot_cell_angle * sin_polar;
     if (2.0f * cell_u < thickness || lut_n < 8)
-      return polyline_search<false>(t_norm, polar, sin_polar);
+      return polyline_search_far(t_norm, polar, sin_polar);
     const float base = target_angle - polar;
     const float x = t_norm * knot_count;
     int j = static_cast<int>(x);
