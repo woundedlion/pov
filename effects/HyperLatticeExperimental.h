@@ -310,6 +310,26 @@ trace_sorted(const Events &events, Raycast::Interval interval,
   return result;
 }
 
+/** @brief shade() for a valid octet frame of the matching domain. */
+template <bool SLICE_4D>
+__attribute__((always_inline)) inline Sample
+shade_octet(const math::Vector &direction, const Prepared &prepared) {
+  const auto &camera = prepared.camera;
+  if constexpr (SLICE_4D) {
+    const SDF::OctetEvents4 events(prepared.octet4, prepared.octet4_projection,
+                                   direction, camera.radial_start,
+                                   camera.interval.near, prepared.footprint);
+    return trace_sorted(events, camera.interval, prepared.limits,
+                        prepared.appearance);
+  } else {
+    const SDF::OctetEvents events(prepared.octet_projection, direction,
+                                  camera.radial_start, camera.interval.near,
+                                  prepared.footprint);
+    return trace_sorted(events, camera.interval, prepared.limits,
+                        prepared.appearance);
+  }
+}
+
 template <bool SLICE_4D>
 HS_HOT_FLASH_MEMBER Sample shade(const math::Vector &direction,
                                  const Prepared &prepared) {
@@ -344,19 +364,7 @@ HS_HOT_FLASH_MEMBER Sample shade(const math::Vector &direction,
     }
     return {sample.color.color * sample.color.alpha, sample.trace.status};
   }
-  if constexpr (SLICE_4D) {
-    const SDF::OctetEvents4 events(prepared.octet4, prepared.octet4_projection,
-                                   direction, camera.radial_start,
-                                   camera.interval.near, prepared.footprint);
-    return trace_sorted(events, camera.interval, prepared.limits,
-                        prepared.appearance);
-  } else {
-    const SDF::OctetEvents events(prepared.octet_projection, direction,
-                                  camera.radial_start, camera.interval.near,
-                                  prepared.footprint);
-    return trace_sorted(events, camera.interval, prepared.limits,
-                        prepared.appearance);
-  }
+  return shade_octet<SLICE_4D>(direction, prepared);
 }
 
 } // namespace HyperLatticeExperimental
