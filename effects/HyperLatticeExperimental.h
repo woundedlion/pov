@@ -483,6 +483,9 @@ trace_octet_4d(const math::Vector &direction, const Prepared &prepared) {
     rates[m] = fabsf(LOCAL);
     origins[m] = ambient[AXIS] < 0.0f ? -START : START;
   }
+  const float SUPPORT_RATE = .5f * footprint.angular_radius * INVERSE_SCALE;
+  const float SUPPORT_BASE =
+      WIRE_RADIUS * INVERSE_SCALE + SUPPORT_RATE * footprint.radial_start;
   CoveredCrossings covered;
   int crossings = 0;
   const int BUDGET =
@@ -528,6 +531,23 @@ trace_octet_4d(const math::Vector &direction, const Prepared &prepared) {
         return false;
       if (t < NEAR)
         continue;
+      const float SUPPORT = SUPPORT_BASE + SUPPORT_RATE * t;
+      const float SUPPORT2 = SUPPORT * SUPPORT;
+      {
+        // The plane bound alone keeps no state past a rejected crossing.
+        std::array<float, 4> residual;
+        for (int m = 0; m < 4; ++m) {
+          const float Q = origins[m] + rates[m] * t;
+          residual[m] = Q - roundf(Q);
+        }
+        float nearest = INFINITY;
+        for (size_t c = 0; c < CLASSES; ++c)
+          nearest = std::min(nearest,
+                             residual[pairs[c].k] * residual[pairs[c].k] +
+                                 residual[pairs[c].l] * residual[pairs[c].l]);
+        if (PLANE_SHARE * nearest > SUPPORT2)
+          continue;
+      }
       std::array<float, 4> residual;
       std::array<float, 4> rounded;
       for (int m = 0; m < 4; ++m) {
@@ -535,16 +555,6 @@ trace_octet_4d(const math::Vector &direction, const Prepared &prepared) {
         rounded[m] = roundf(Q);
         residual[m] = Q - rounded[m];
       }
-      const float SUPPORT =
-          (WIRE_RADIUS + .5f * footprint.at(t)) * INVERSE_SCALE;
-      const float SUPPORT2 = SUPPORT * SUPPORT;
-      float nearest = INFINITY;
-      for (size_t c = 0; c < CLASSES; ++c)
-        nearest =
-            std::min(nearest, residual[pairs[c].k] * residual[pairs[c].k] +
-                                  residual[pairs[c].l] * residual[pairs[c].l]);
-      if (PLANE_SHARE * nearest > SUPPORT2)
-        continue;
       int parity = 0;
       for (int m = 0; m < 4; ++m)
         parity += static_cast<int>(rounded[m]);
