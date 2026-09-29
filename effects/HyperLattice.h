@@ -633,6 +633,12 @@ public:
               return HyperLatticeDetail::Renderer<true>::shade_premultiplied(
                   view, prepared);
             });
+      } else if (params.shells == ShellCount::TWO) {
+        Scan::Shader::draw_cached<W, H, 1>(
+            canvas, [&prepared](const math::Vector &view) HS_HOT_FLASH_MEMBER {
+              return HyperLatticeDetail::Renderer<
+                  false, 2>::shade_premultiplied(view, prepared);
+            });
       } else {
         Scan::Shader::draw_cached<W, H, 1>(
             canvas, [&prepared](const math::Vector &view) HS_HOT_FLASH_MEMBER {
