@@ -69,26 +69,32 @@ its peak is a hold-cost camera position. Holds run 25–27 ms mean.
 ### Per-preset table
 
 Pinned 30 s captures at the final code, frame 1 excluded, and the full
-experimental cycle's buckets (captured 2026-09-29 14:51, COM4). A bucket
-opens at its preset's marker, so it holds the segue into that preset and then
-its hold.
+experimental cycle's buckets (captured 2026-09-29 16:11 on COM3, after presets
+began carrying their own departures). A preset's marker fires when its
+parameters are adopted: at the start of a morph, and at the dark midpoint of
+a fade. So a bucket holds the morph into its preset, or the second half of the
+fade into it, then its hold and the first half of any fade out of it.
 
 | # | Preset | Pinned peak ms | Pinned mean ms | Cycle bucket peak ms | Cycle spilled |
 |---|---|--:|--:|--:|--:|
-| 5 | Octet 4D Flight | 56.12 | 47.00 | 🟢 51.14 | 0/559 |
-| 6 | Shell Flight | 27.88 | 23.55 | 🟢 56.03 | 0/559 |
-| 8 | Shell 4D Flight | 51.17 | 35.04 | 🟢 35.00 | 0/559 |
-| 2 | Hypercube Flight | 34.36 | 26.90 | 🟢 36.68 | 0/559 |
-| 3 | Octet Flight | 31.92 | 28.12 | 🟢 32.24 | 0/559 |
-| 7 | Shell Close Flight | 31.64 | 27.20 | 🟢 31.28 | 0/559 |
-| 4 | Octet Wide Flight | 31.26 | 29.77 | 🟢 31.72 | 0/559 |
-| 1 | Cubic Wide Flight | 29.15 | 25.59 | 🟢 29.44 | 0/697 |
-| 0 | Cubic Flight | 26.37 | 24.72 | 🟢 43.23 | 0/878 |
+| 5 | Octet 4D Flight | 56.12 | 47.00 | 🟢 55.87 | 0/559 |
+| 8 | Shell 4D Flight | 51.17 | 35.04 | 🟢 36.76 | 0/559 |
+| 2 | Hypercube Flight | 34.36 | 26.90 | 🟢 36.70 | 0/559 |
+| 3 | Octet Flight | 31.92 | 28.12 | 🟢 32.23 | 0/439 |
+| 7 | Shell Close Flight | 31.64 | 27.20 | 🟢 31.22 | 0/679 |
+| 4 | Octet Wide Flight | 31.26 | 29.77 | 🟢 31.75 | 0/679 |
+| 1 | Cubic Wide Flight | 29.15 | 25.59 | 🟢 29.64 | 0/817 |
+| 6 | Shell Flight | 27.88 | 23.55 | 🟢 28.03 | 0/439 |
+| 0 | Cubic Flight | 26.37 | 24.72 | 🟢 43.34 | 0/758 |
 
-The experimental cycle wrapped to preset 1 (nine `Preset:` markers) and held
-16 fps on every one of its 5,487 live frames. Shell Flight's bucket peak,
-56.03 ms at frame 3209, is the outgoing Octet 4D Flight at its own parameters
-while it dims. Cubic Flight's bucket peak is setup frame 1.
+The experimental cycle wrapped to preset 1 (ten `Preset:` markers) and held
+16 fps on every one of its 5,487 live frames. Octet 4D Flight's bucket peak,
+55.87 ms at frame 3209, is that preset dimming at its own parameters; the 14:51
+capture credited the same frame to Shell Flight, when the marker fired at the
+start of the fade. Cubic Flight's bucket peak is setup frame 1; its peak past
+setup is 26.41 ms. The wrap's morph into Cubic Wide Flight joins that preset's
+bucket, hence its 817 frames. Root cycles match the wall sum within 0.6 ppm
+(frames 3089–3104).
 
 ### Per-pixel figures
 

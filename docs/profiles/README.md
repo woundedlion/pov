@@ -28,7 +28,7 @@ minus shipping bytes from each pair's own image-size reports.
 
 | Effect | Dominant scope | Ship peak ms | O3 peak ms | Ship spilled | O3 spilled | FLASH code Δ | ITCM Δ | Captured |
 |---|---|--:|--:|--:|--:|--:|--:|---|
-| [ShapeShifter](shipping/profile_shapeshifter_teensy_2026-09-29.md) ● / [O3](O3/profile_shapeshifter_teensy_2026-09-25.md) § | `ss_draw_all` | 🟢 58.16 (9) | 🟢 60.05 (9) | 🟢 0/2447 (0.00%) | 🟢 0/2457 (0.00%) | +30,872 B | +26,336 B | ship 2026-09-29 14:41<br>O3 2026-09-25 07:29 |
+| [ShapeShifter](shipping/profile_shapeshifter_teensy_2026-09-29.md) ● / [O3](O3/profile_shapeshifter_teensy_2026-09-25.md) § | `ss_draw_all` | 🟢 58.88 (9) | 🟢 60.05 (9) | 🟢 0/2447 (0.00%) | 🟢 0/2457 (0.00%) | +31,208 B | +26,576 B | ship 2026-09-29 16:05<br>O3 2026-09-25 07:29 |
 | [GSReactionDiffusion](shipping/profile_gsreactiondiffusion_teensy_2026-09-28.md) / [O3](O3/profile_gsreactiondiffusion_teensy_2026-08-26.md) | `grd_render` | 🟢 55.53 | 🟢 56.16 | 🟢 0/2047 (0.00%) | 🟢 0/2048 (0%) | +13,224 B | +11,280 B | ship 2026-09-28 19:21<br>O3 2026-08-26 01:25 |
 | [MindSplatter](shipping/profile_mindsplatter_teensy_2026-09-29.md) ● / [O3](O3/profile_mindsplatter_teensy_2026-08-26.md) § | `msp_draw_particles` | 🟢 54.94 (8) | 🟢 52.79 (9) | 🟢 0/1727 (0.00%) | 🟢 0/1728 (0%) | +23,632 B | +21,232 B | ship 2026-09-29 14:48<br>O3 2026-08-26 07:45 |
 | [Raymarch](shipping/profile_raymarch_teensy_2026-09-28.md) / [O3](O3/profile_raymarch_teensy_2026-09-20.md) | `rm_shader_draw` | 🟢 54.87 | 🟢 56.04 | 🟢 0/1087 (0.00%) | 🟢 0/1736 (0.00%) | +12,568 B | +7,904 B | ship 2026-09-28 19:09<br>O3 2026-09-20 23:07 |
@@ -82,7 +82,7 @@ probe and are independent of the on-device timing tables.
 
 ● HyperLattice refreshed on 2026-09-29 after its optimization campaign: all three presets and their segues; setup frame 1 excluded. Its O3 column predates the campaign.
 
-● ShapeShifter and MindSplatter refreshed on 2026-09-29 after the Plot float min/max sweep (`c40c1def8`); setup frame 1 excluded. Their O3 columns predate the sweep; the image deltas use the new shipping sizes.
+● ShapeShifter refreshed on 2026-09-29 16:05 after presets began carrying their own departures, and MindSplatter after the Plot float min/max sweep (`c40c1def8`); setup frame 1 excluded. Their O3 columns predate the sweep; the image deltas use the new shipping sizes.
 
 ## Supplemental experimental presets
 
@@ -109,21 +109,22 @@ its two original presets; they predate this third default preset.
 ## HyperLattice experimental cycle
 
 Opt-in image (`HS_ENABLE_HYPERLATTICE_EXPERIMENTS=1`), full nine-preset cycle
-with family segues (lerp within a pattern and view, fade through black across), 345 s on COM4; setup frame 1 excluded. A bucket holds the
-segue into its preset and the hold. Supersedes the octet and shell supplements
+with family segues (lerp within a pattern and view, fade through black across), 345 s on COM3; setup frame 1 excluded. A bucket opens when
+its preset's parameters are adopted: the morph into it, or the dark midpoint
+of a fade. Supersedes the octet and shell supplements
 below. [Report](shipping/profile_hyperlattice_teensy_2026-09-29.md#per-preset-table).
 
 | Preset | Ship peak ms | Ship spilled | Captured |
 |---|--:|--:|---|
-| 6: Shell Flight | 🟢 56.03 | 🟢 0/559 (0.00%) | 2026-09-29 14:51 |
-| 5: Octet 4D Flight | 🟢 51.14 | 🟢 0/559 (0.00%) | 2026-09-29 14:51 |
-| 0: Cubic Flight | 🟢 43.23 | 🟢 0/878 (0.00%) | 2026-09-29 14:51 |
-| 2: Hypercube Flight | 🟢 36.68 | 🟢 0/559 (0.00%) | 2026-09-29 14:51 |
-| 8: Shell 4D Flight | 🟢 35.00 | 🟢 0/559 (0.00%) | 2026-09-29 14:51 |
-| 3: Octet Flight | 🟢 32.24 | 🟢 0/559 (0.00%) | 2026-09-29 14:51 |
-| 4: Octet Wide Flight | 🟢 31.72 | 🟢 0/559 (0.00%) | 2026-09-29 14:51 |
-| 7: Shell Close Flight | 🟢 31.28 | 🟢 0/559 (0.00%) | 2026-09-29 14:51 |
-| 1: Cubic Wide Flight | 🟢 29.44 | 🟢 0/697 (0.00%) | 2026-09-29 14:51 |
+| 5: Octet 4D Flight | 🟢 55.87 | 🟢 0/559 (0.00%) | 2026-09-29 16:11 |
+| 0: Cubic Flight | 🟢 43.34 | 🟢 0/758 (0.00%) | 2026-09-29 16:11 |
+| 8: Shell 4D Flight | 🟢 36.76 | 🟢 0/559 (0.00%) | 2026-09-29 16:11 |
+| 2: Hypercube Flight | 🟢 36.70 | 🟢 0/559 (0.00%) | 2026-09-29 16:11 |
+| 3: Octet Flight | 🟢 32.23 | 🟢 0/439 (0.00%) | 2026-09-29 16:11 |
+| 4: Octet Wide Flight | 🟢 31.75 | 🟢 0/679 (0.00%) | 2026-09-29 16:11 |
+| 7: Shell Close Flight | 🟢 31.22 | 🟢 0/679 (0.00%) | 2026-09-29 16:11 |
+| 1: Cubic Wide Flight | 🟢 29.64 | 🟢 0/817 (0.00%) | 2026-09-29 16:11 |
+| 6: Shell Flight | 🟢 28.03 | 🟢 0/439 (0.00%) | 2026-09-29 16:11 |
 
 ## Octet optimization supplement
 
