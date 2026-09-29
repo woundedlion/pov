@@ -483,6 +483,37 @@ trace_octet_4d(const math::Vector &direction, const Prepared &prepared) {
     rates[m] = fabsf(LOCAL);
     origins[m] = ambient[AXIS] < 0.0f ? -START : START;
   }
+  // Plane coordinates and speeds of the all-positive family (index 0) and
+  // the families flipping coordinates 0, 1 and 2, with one division for the
+  // four inverse speeds when none is zero.
+  std::array<float, 4> positions, speeds, inverses;
+  {
+    float position = 0.0f, speed = 0.0f;
+    std::array<float, 4> near;
+    for (int m = 0; m < 4; ++m) {
+      near[m] = origins[m] + NEAR * rates[m];
+      position += near[m];
+      speed += rates[m];
+    }
+    positions[0] = 0.5f * position;
+    speeds[0] = 0.5f * speed;
+    for (int m = 0; m < 3; ++m) {
+      positions[m + 1] = positions[0] - near[m];
+      speeds[m + 1] = speeds[0] - rates[m];
+    }
+    const float PRODUCT = speeds[0] * speeds[1] * speeds[2] * speeds[3];
+    if (PRODUCT > 1e-30f) {
+      const float INVERSE = 1.0f / PRODUCT;
+      const float FIRST_PAIR = speeds[0] * speeds[1];
+      const float SECOND_PAIR = speeds[2] * speeds[3];
+      inverses = {
+          INVERSE * speeds[1] * SECOND_PAIR, INVERSE * speeds[0] * SECOND_PAIR,
+          INVERSE * FIRST_PAIR * speeds[3], INVERSE * FIRST_PAIR * speeds[2]};
+    } else {
+      for (int f = 0; f < 4; ++f)
+        inverses[f] = 1.0f / speeds[f];
+    }
+  }
   const float SUPPORT_RATE = .5f * footprint.angular_radius * INVERSE_SCALE;
   const float SUPPORT_BASE =
       WIRE_RADIUS * INVERSE_SCALE + SUPPORT_RATE * footprint.radial_start;
@@ -507,19 +538,12 @@ trace_octet_4d(const math::Vector &direction, const Prepared &prepared) {
     }
     if (!owned)
       return true;
-    float position = 0.0f;
-    float speed = 0.0f;
-    for (int m = 0; m < 4; ++m) {
-      const float P = origins[m] + NEAR * rates[m];
-      position += m == flipped ? -P : P;
-      speed += m == flipped ? -rates[m] : rates[m];
-    }
-    position *= 0.5f;
-    speed *= 0.5f;
+    const float position = positions[flipped + 1];
+    const float speed = speeds[flipped + 1];
     if (speed == 0.0f)
       return true;
     const float PLANE = speed > 0.0f ? ceilf(position) : floorf(position);
-    const float INVERSE = 1.0f / speed;
+    const float INVERSE = inverses[flipped + 1];
     const float STEP = fabsf(INVERSE);
     const float FIRST = NEAR + (PLANE - position) * INVERSE;
     if (!Raycast::finite(FIRST) || !Raycast::finite(STEP) || !(STEP > 0.0f))
