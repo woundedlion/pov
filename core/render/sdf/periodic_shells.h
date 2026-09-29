@@ -176,11 +176,11 @@ __attribute__((always_inline)) inline ShellSample trace_periodic_shells_3d(
     }
     return true;
   };
-  for (int step = 0; tau <= LAST; ++step) {
-    if (step >= limits.max_steps) {
-      result.status = Raycast::TraceStatus::BUDGET_EXHAUSTED;
-      break;
-    }
+  // Counting the layers once keeps float compares out of the march; a layer
+  // within rounding of LAST holds nothing nearer than FAR.
+  const int LAYERS =
+      tau <= LAST ? static_cast<int>((LAST - tau) * fabsf(D[k])) + 1 : 0;
+  for (int step = 0; step < std::min(LAYERS, limits.max_steps); ++step) {
     const float EY = y - rintf(y);
     const float EZ = z - rintf(z);
     const float OFFSET2 = EY * EY + EZ * EZ;
@@ -226,6 +226,8 @@ __attribute__((always_inline)) inline ShellSample trace_periodic_shells_3d(
     tau += STEP;
     reach += REACH_STEP;
   }
+  if (LAYERS > limits.max_steps)
+    result.status = Raycast::TraceStatus::BUDGET_EXHAUSTED;
   result.color = composite.premultiplied();
   return result;
 }
@@ -310,11 +312,11 @@ __attribute__((always_inline)) inline ShellSample trace_periodic_shells_4d(
     }
     return length2;
   };
-  for (int step = 0; tau <= LAST; ++step) {
-    if (step >= limits.max_steps) {
-      result.status = Raycast::TraceStatus::BUDGET_EXHAUSTED;
-      break;
-    }
+  // Counting the layers once keeps float compares out of the march; a layer
+  // within rounding of LAST holds nothing nearer than FAR.
+  const int LAYERS =
+      tau <= LAST ? static_cast<int>((LAST - tau) * fabsf(D[k])) + 1 : 0;
+  for (int step = 0; step < std::min(LAYERS, limits.max_steps); ++step) {
     float offset[3];
     float farthest = 0;
     for (int n = 0; n < 3; ++n) {
@@ -426,6 +428,8 @@ __attribute__((always_inline)) inline ShellSample trace_periodic_shells_4d(
     tau += STEP;
     reach += REACH_STEP;
   }
+  if (LAYERS > limits.max_steps)
+    result.status = Raycast::TraceStatus::BUDGET_EXHAUSTED;
   result.color = composite.premultiplied();
   return result;
 }
