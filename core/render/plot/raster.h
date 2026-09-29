@@ -76,7 +76,7 @@ inline constexpr float BALANCED_REUSE_STEP_TOLERANCE = 0.1f;
  */
 static inline float balanced_sample_alpha(float alpha, float step_ratio) {
   const float gain = 1.0f + (step_ratio - 1.0f) * (0.88f - 0.20f * alpha);
-  return std::min(1.0f, alpha * gain);
+  return fminf(1.0f, alpha * gain);
 }
 
 #if HS_ENABLE_TEST_HOOKS
@@ -330,8 +330,8 @@ static bool gate_trail_edges(const PipelineT &, const ClipRegion &cr,
       const math::Vector d = eb - ea;
       const float margin = sqrtf(math::dot(d, d)) *
                            (math::ROWS_PER_RADIAN<H> * math::PI_F * 0.25f);
-      if (!cr.could_intersect_y(std::min(rows[e], rows[e + 1]) - margin,
-                                std::max(rows[e], rows[e + 1]) + margin +
+      if (!cr.could_intersect_y(fminf(rows[e], rows[e + 1]) - margin,
+                                fmaxf(rows[e], rows[e + 1]) + margin +
                                     GEODESIC_ROW_AA_PAD)) {
         bits[e] = 0;
         continue;
@@ -898,7 +898,7 @@ static void rasterize(PipelineT &source_pipeline, Canvas &canvas,
       current_dist += step;
 
       // total_dist > 0 here (HS_CHECK(sim_dist > 0) implies >=1 sim step).
-      float t = std::min(current_dist / total_dist, 1.0f);
+      float t = fminf(current_dist / total_dist, 1.0f);
 
       if (plot_window && (t < plot_t_start || t > plot_t_hi))
         continue;
