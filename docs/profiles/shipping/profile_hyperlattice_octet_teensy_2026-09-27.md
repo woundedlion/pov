@@ -1,4 +1,4 @@
-# HyperLattice Octet on-device profile — Teensy 4.0, segmented mode (2026-09-27, **selective -O3**)
+# HyperLattice on-device profile — Octet — Teensy 4.0, segmented mode (2026-09-27, **selective -O3**)
 
 Point-in-time snapshot of the opt-in Octet 3D and 4D presets. These fixed-preset captures supplement the normal HyperLattice roster report; they do not replace its cubic-preset ranking.
 

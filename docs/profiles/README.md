@@ -113,6 +113,17 @@ its two original presets; they predate this third default preset.
 
 ## Octet optimization supplement
 
+Historical captures: [2026-09-27 shipping](shipping/profile_hyperlattice_octet_teensy_2026-09-27.md),
+[2026-09-27 global-O3](O3/profile_hyperlattice_octet_teensy_2026-09-27.md),
+[2026-09-28 global-O3 preset 3](O3/profile_hyperlattice_octet_preset3_teensy_2026-09-28.md),
+and [2026-09-28 global-O3 preset 5](O3/profile_hyperlattice_octet_preset5_teensy_2026-09-28.md).
+
+Timing sets contain one canonical report per effect, with optional supplemental
+reports identified by underscore-separated variant suffixes before `_teensy_`.
+Each effect/variant pair has one dated report per set. Supplemental reports use
+the same title, date, section, roster, and index checks as canonical reports;
+they do not satisfy the required canonical shipping coverage.
+
 | Preset | Ship peak ms | O3 peak ms | Ship spilled | O3 spilled | FLASH code Δ | ITCM Δ | Captured |
 |---|---:|---:|---:|---:|---:|---:|---|
 | [4: Octet 4D](shipping/profile_hyperlattice_octet4d_teensy_2026-09-28.md) ● | 🔴 143.318 | — | 🔴 233/233 (100.00%) | — | — | — | ship 2026-09-28 09:53 |

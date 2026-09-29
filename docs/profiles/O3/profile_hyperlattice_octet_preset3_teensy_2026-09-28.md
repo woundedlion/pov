@@ -1,4 +1,4 @@
-# HyperLattice preset 3 on-device profile (2026-09-28, global-O3)
+# HyperLattice on-device profile — preset 3 (2026-09-28, global-O3)
 
 This is experimental-octet-flight, preset 3 (internal index 2), held with continuous camera and palette motion. It supersedes the 3D settings in the [optimization snapshot](../hyperlattice_octet_optimization_2026-09-27.md); that snapshot remains historical evidence for its optimization comparisons. This pair was captured before the wide-flight preset was added; source provenance identifies each image. The 4D preset is unchanged.
 
@@ -100,7 +100,7 @@ The previous shipping 3D settings measured 81.407 ms mean and 87.013 ms peak. Ch
 - Results cover the recorded trajectory and settings; later camera positions can cost more.
 - The experimental preset remains opt-in; the regular cubic roster ranking is unchanged.
 
-## Harness and validation
+## Harness
 
 The existing targets/Profile/Profile.ino harness runs HyperLattice with HS_PROFILE_WINDOW=16. Native unit_hyper_lattice passes with 67094 assertions, including continuous motion for all three Octet presets. Firmware builds, memory gates, and both capture validators pass.
 

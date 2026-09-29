@@ -109,6 +109,27 @@ test('reportsIn keeps both reports when two share an effect key', async t => {
   assert.deepEqual(errors, ['O3 has multiple reports for example']);
 });
 
+test('reportsIn separates supplemental variants and rejects duplicate variants', async t => {
+  const root = await mkdtemp(join(tmpdir(), 'holosphere-profiles-'));
+  t.after(() => rm(root, { recursive: true, force: true }));
+  await mkdir(join(root, 'O3'));
+  for (const name of [
+    'example_teensy_2026-08-24',
+    'example_preset3_teensy_2026-08-24',
+    'example_octet_preset5_teensy_2026-08-23',
+    'example_octet_preset5_teensy_2026-08-24',
+  ]) {
+    await writeFile(join(root, 'O3', `profile_${name}.md`), validReport);
+  }
+  const errors = [];
+  const reports = await reportsIn(root, 'O3', errors);
+  assert.equal(reports.length, 4);
+  assert.ok(reports.every(report => report.key === 'example'));
+  assert.deepEqual(new Set(reports.map(report => report.variant)),
+    new Set(['', 'preset3', 'octet_preset5']));
+  assert.deepEqual(errors, ['O3 has multiple reports for example_octet_preset5']);
+});
+
 test('profileDirectories derives timing sets from their local indexes', async t => {
   const root = await mkdtemp(join(tmpdir(), 'holosphere-profiles-'));
   t.after(() => rm(root, { recursive: true, force: true }));
@@ -161,6 +182,10 @@ test('checkProfiles validates cross-roster and index contracts', async t => {
   assert.deepEqual((await checkProfiles()).errors, []);
   const reports = await reportsIn(PROFILES_DIR, 'shipping', []);
   const first = reports[0];
+  const supplement = reports.find(report => report.variant);
+  const canonical = reports.find(report =>
+    report.key === supplement.key && !report.variant);
+  assert.ok(canonical);
   const cases = [
     ['missing shipping directory', async root => {
       await rm(join(root, 'shipping'), { recursive: true });
@@ -171,6 +196,26 @@ test('checkProfiles validates cross-roster and index contracts', async t => {
     ['missing shipping report', async root => {
       await rm(join(root, 'shipping', first.file));
     }, 'shipping profiles is missing: ' + first.key],
+    ['supplement cannot replace canonical shipping report', async root => {
+      await rm(join(root, 'shipping', canonical.file));
+    }, 'shipping profiles is missing: ' + canonical.key],
+    ['supplement names an unknown effect', async root => {
+      await writeFile(join(root, 'shipping',
+        'profile_example_preset3_teensy_2026-08-24.md'), validReport);
+    }, 'shipping profile names a non-Phantasm effect: example'],
+    ['supplement has a wrong title', async root => {
+      await writeFile(join(root, 'shipping', supplement.file), validReport);
+    }, 'shipping/' + supplement.file + ' title does not match its filename'],
+    ['supplement missing main index link', async root => {
+      const path = join(root, 'README.md');
+      const text = await readFile(path, 'utf8');
+      await writeFile(path, text.replaceAll('shipping/' + supplement.file, 'removed.md'));
+    }, 'main shipping index is missing: ' + supplement.file],
+    ['supplement missing local index link', async root => {
+      const path = join(root, 'shipping', 'README.md');
+      const text = await readFile(path, 'utf8');
+      await writeFile(path, text.replaceAll(supplement.file, 'removed.md'));
+    }, 'shipping index is missing: ' + supplement.file],
     ['orphan shipping report', async root => {
       await writeFile(join(root, 'shipping',
         'profile_example_teensy_2026-08-24.md'), validReport);
