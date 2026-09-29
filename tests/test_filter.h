@@ -2565,9 +2565,15 @@ inline void test_feedback_spherical_ring_control_rows() {
     HS_EXPECT_NEAR(sampled_y, expected_y, 0.02f);
   }
 
+  // Two int16 offset fields over the ring grid plus one projected origin per
+  // lattice sample.
   constexpr size_t BYTES_PER_ROW = 2 * (W / DOWNSAMPLE) * sizeof(int16_t);
-  HS_EXPECT_EQ((Filter::Pixel::Feedback<W, H>::STORAGE_BYTES / BYTES_PER_ROW),
-               static_cast<size_t>(layout.ring_count()));
+  constexpr size_t STORAGE = Filter::Pixel::Feedback<W, H>::STORAGE_BYTES;
+  constexpr size_t EXPECTED =
+      BYTES_PER_ROW * static_cast<size_t>(layout.ring_count()) +
+      static_cast<size_t>(layout.sample_count()) *
+          sizeof(decltype(layout)::Coordinates);
+  HS_EXPECT_EQ(STORAGE, EXPECTED);
 }
 
 /**

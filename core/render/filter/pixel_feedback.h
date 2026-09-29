@@ -43,11 +43,12 @@ template <int W, int H> class Feedback : public Is2DWithHistory {
   static constexpr int CACHE_DOWNSAMPLE = ::Feedback::Style{}.downsample;
   static constexpr int CACHE_SOUTH_INFILL = CACHE_DOWNSAMPLE;
   static constexpr int CACHE_COLUMNS = W / CACHE_DOWNSAMPLE;
+  static constexpr SphereField CACHE_FIELD{CACHE_DOWNSAMPLE, CACHE_DOWNSAMPLE,
+                                           CACHE_SOUTH_INFILL, CACHE_COLUMNS};
   /** @brief Cell count of the cached spherical warp field. */
-  static constexpr int CACHE_CELLS =
-      CACHE_COLUMNS * SphereField(CACHE_DOWNSAMPLE, CACHE_DOWNSAMPLE,
-                                  CACHE_SOUTH_INFILL, CACHE_COLUMNS)
-                          .ring_count();
+  static constexpr int CACHE_CELLS = CACHE_COLUMNS * CACHE_FIELD.ring_count();
+  /** @brief Lattice samples the cached layout evaluates space_fn at. */
+  static constexpr int CACHE_SAMPLES = CACHE_FIELD.sample_count();
 
 public:
   static constexpr int domain_rank = IsPixel::domain_rank;
@@ -93,8 +94,11 @@ public:
    */
   void set_enabled(bool value) { enabled = value; }
 
-  /** @brief Persistent bytes init_storage() reserves (two int16 warp fields). */
-  static constexpr size_t STORAGE_BYTES = 2 * CACHE_CELLS * sizeof(int16_t);
+  /** @brief Persistent bytes init_storage() reserves: two int16 warp fields
+   *  and the lattice's projected origins. */
+  static constexpr size_t STORAGE_BYTES =
+      2 * CACHE_CELLS * sizeof(int16_t) +
+      CACHE_SAMPLES * sizeof(typename SphereField::Coordinates);
 
   /** @brief Scratch bytes for a full-width uncached flush at downsample ds. */
   static constexpr size_t UNCACHED_SCRATCH_BYTES(int ds) {
@@ -123,10 +127,21 @@ public:
 #endif
     cached_warp_x = arena.allocate_n<int16_t>(CACHE_CELLS);
     cached_warp_y = arena.allocate_n<int16_t>(CACHE_CELLS);
+    cached_origin =
+        arena.allocate_n<typename SphereField::Coordinates>(CACHE_SAMPLES);
     warp_cache_valid = false;
 #ifndef NDEBUG
     stamp.record(arena);
 #endif
+    // Projected from the same incremental-rotation positions populate() hands
+    // out, so the per-frame offset subtracts them exactly.
+    hs::SphericalField<typename SphereField::Coordinates, W, H> origins(
+        cached_origin, CACHE_FIELD);
+    origins.populate(0, CACHE_FIELD.ring_count() - 1,
+                     [](const math::Vector &position,
+                        const typename SphereField::Coordinates &point) {
+                       return lattice_origin(CACHE_FIELD, position, point);
+                     });
   }
 
   /**
@@ -381,33 +396,33 @@ private:
       return;
 
     hs::SphericalField<WarpControl, W, H> compact(warp.controls, grid.field);
+    // The cached origins belong to the cached layout.
+    const typename SphereField::Coordinates *origins =
+        grid.downsample == CACHE_DOWNSAMPLE ? cached_origin : nullptr;
     // noinline keeps the per-sample warp out of flash-resident prepare_flush.
     compact.populate(
         band.field_y_begin, band.field_y_end,
         [&](const math::Vector &position,
-            const typename SphereField::Coordinates &point)
-            __attribute__((noinline)) {
-              math::Vector distorted;
-              {
-                HS_PROFILE_DEEP(fb_pop_warp);
-                distorted = feedback_style->space_fn(position, *feedback_style);
-              }
-              HS_PROFILE_DEEP(fb_pop_project);
-              const bool pole_row =
-                  (SphereField::HAS_NORTH_POLE && point.y == 0.0f) ||
-                  (SphereField::HAS_SOUTH_POLE && point.y == H - 1);
-              const auto projected = grid.field.project(distorted);
-              const auto origin =
-                  pole_row ? point : grid.field.project(position);
-              float x_offset = projected.x - origin.x;
-              const float y_offset = projected.y - origin.y;
-              x_offset = unwrap_near(x_offset, 0.0f, static_cast<float>(W));
-              return WarpControl{
-                  static_cast<int16_t>(
-                      hs::clamp(x_offset * WARP_SCALE, -32767.0f, 32767.0f)),
-                  static_cast<int16_t>(
-                      hs::clamp(y_offset * WARP_SCALE, -32767.0f, 32767.0f))};
-            });
+            const typename SphereField::Coordinates &point,
+            int index) __attribute__((noinline)) {
+          math::Vector distorted;
+          {
+            HS_PROFILE_DEEP(fb_pop_warp);
+            distorted = feedback_style->space_fn(position, *feedback_style);
+          }
+          HS_PROFILE_DEEP(fb_pop_project);
+          const auto projected = grid.field.project(distorted);
+          const auto origin = origins
+                                  ? origins[index]
+                                  : lattice_origin(grid.field, position, point);
+          float x_offset = projected.x - origin.x;
+          const float y_offset = projected.y - origin.y;
+          x_offset = unwrap_near(x_offset, 0.0f, static_cast<float>(W));
+          return WarpControl{static_cast<int16_t>(hs::clamp(
+                                 x_offset * WARP_SCALE, -32767.0f, 32767.0f)),
+                             static_cast<int16_t>(hs::clamp(
+                                 y_offset * WARP_SCALE, -32767.0f, 32767.0f))};
+        });
 
     {
       HS_PROFILE_DEEP(fb_pop_expand);
@@ -593,11 +608,15 @@ private:
           const int cx1 = (cx0 + 1 < coarse_columns) ? cx0 + 1 : 0;
           const int i00 = row0 + cx0, i10 = row0 + cx1;
           const int i01 = row1 + cx0, i11 = row1 + cx1;
-          const float d00 = x_offsets[i00];
-          const float d10 = unwrap_near(x_offsets[i10], d00, WRAP_PERIOD);
-          const float d01 = unwrap_near(x_offsets[i01], d00, WRAP_PERIOD);
-          const float d11 = unwrap_near(x_offsets[i11], d00, WRAP_PERIOD);
-          leftx = (d00 * wy0 + d01 * wy1) * INVERSE_WARP_SCALE;
+          const int d00 = x_offsets[i00];
+          const float d10 =
+              static_cast<float>(unwrap_near(x_offsets[i10], d00));
+          const float d01 =
+              static_cast<float>(unwrap_near(x_offsets[i01], d00));
+          const float d11 =
+              static_cast<float>(unwrap_near(x_offsets[i11], d00));
+          leftx =
+              (static_cast<float>(d00) * wy0 + d01 * wy1) * INVERSE_WARP_SCALE;
           slopex = (d10 * wy0 + d11 * wy1) * INVERSE_WARP_SCALE - leftx;
           lefty = (y_offsets[i00] * wy0 + y_offsets[i01] * wy1) *
                   INVERSE_WARP_SCALE;
@@ -621,26 +640,25 @@ private:
               const float ddx1 = leftx + slopex * fx1;
               const float ddy1 = lefty + slopey * fx1;
 
-              float sr0, sg0, sb0, sr1, sg1, sb1;
+              Sample s0, s1;
               {
                 HS_PROFILE_DEEP(fb_comp_sample);
-                sample_bilinear_prev(grid.field, previous, poles, x + ddx0,
-                                     y + ddy0, sr0, sg0, sb0);
-                sample_bilinear_prev(grid.field, previous, poles, x + 1 + ddx1,
-                                     y + ddy1, sr1, sg1, sb1);
+                s0 = sample_bilinear_prev(grid.field, previous, poles, x + ddx0,
+                                          y + ddy0);
+                s1 = sample_bilinear_prev(grid.field, previous, poles,
+                                          x + 1 + ddx1, y + ddy1);
               }
+              const bool black0 = black_skips_color && s0.r < NEAR_BLACK &&
+                                  s0.g < NEAR_BLACK && s0.b < NEAR_BLACK;
+              const bool black1 = black_skips_color && s1.r < NEAR_BLACK &&
+                                  s1.g < NEAR_BLACK && s1.b < NEAR_BLACK;
               ::Pixel p0(0, 0, 0), p1(0, 0, 0);
-              {
+              if (!(black0 && black1)) {
                 HS_PROFILE_DEEP(fb_comp_color);
-                transform_pair(sr0, sg0, sb0, sr1, sg1, sb1, p0, p1);
+                transform_pair(s0.r, s0.g, s0.b, s1.r, s1.g, s1.b, p0, p1);
+                p0 = black0 ? ::Pixel(0, 0, 0) : p0;
+                p1 = black1 ? ::Pixel(0, 0, 0) : p1;
               }
-              // Keep both lanes on the paired transform path.
-              const bool black0 = black_skips_color && sr0 < NEAR_BLACK &&
-                                  sg0 < NEAR_BLACK && sb0 < NEAR_BLACK;
-              const bool black1 = black_skips_color && sr1 < NEAR_BLACK &&
-                                  sg1 < NEAR_BLACK && sb1 < NEAR_BLACK;
-              p0 = black0 ? ::Pixel(0, 0, 0) : p0;
-              p1 = black1 ? ::Pixel(0, 0, 0) : p1;
 
               HS_PROFILE_DEEP(fb_comp_write);
               ::Pixel &dst0 = output[x];
@@ -662,17 +680,17 @@ private:
           const float ddx = leftx + slopex * fx;
           const float ddy = lefty + slopey * fx;
 
-          float sr, sg, sb;
+          Sample s;
           {
             HS_PROFILE_DEEP(fb_comp_sample);
-            sample_bilinear_prev(grid.field, previous, poles, x + ddx, y + ddy,
-                                 sr, sg, sb);
+            s = sample_bilinear_prev(grid.field, previous, poles, x + ddx,
+                                     y + ddy);
           }
           ::Pixel p(0, 0, 0);
-          if (!(black_skips_color && sr < NEAR_BLACK && sg < NEAR_BLACK &&
-                sb < NEAR_BLACK)) {
+          if (!(black_skips_color && s.r < NEAR_BLACK && s.g < NEAR_BLACK &&
+                s.b < NEAR_BLACK)) {
             HS_PROFILE_DEEP(fb_comp_color);
-            p = transform_pixel(sr, sg, sb);
+            p = transform_pixel(s.r, s.g, s.b);
           }
 
           // Black must overwrite the stale double-buffer frame.
@@ -742,6 +760,42 @@ private:
     const float delta = v - reference;
     return delta > half ? v - period : (delta < -half ? v + period : v);
   }
+
+  /**
+   * @brief unwrap_near() for stored column offsets, in WARP_SCALE units.
+   * @param v Stored column offset to unwrap.
+   * @param reference Stored offset whose branch the result must share.
+   * @return @p v shifted by at most one period, within half a period of
+   *         @p reference; identical to the float form on these integers.
+   */
+  static __attribute__((always_inline)) int unwrap_near(int v, int reference) {
+    constexpr int PERIOD = static_cast<int>(WRAP_PERIOD);
+    constexpr int HALF = PERIOD / 2;
+    const int delta = v - reference;
+    return delta > HALF ? v - PERIOD : (delta < -HALF ? v + PERIOD : v);
+  }
+  static_assert(static_cast<float>(static_cast<int>(WRAP_PERIOD)) ==
+                        WRAP_PERIOD &&
+                    static_cast<int>(WRAP_PERIOD) % 2 == 0,
+                "Feedback<W,H>: the integer unwrap needs an even, exact "
+                "period");
+
+  /**
+   * @brief Projected field coordinates of one lattice sample.
+   * @param field Spherical layout the lattice belongs to.
+   * @param position Lattice position as populate() hands it out.
+   * @param point Exact field coordinates of the same sample.
+   * @return @p point on a pole row, where the projection is degenerate,
+   *         otherwise the projection of @p position, so the offset subtraction
+   *         cancels the projection's approximation.
+   */
+  static typename SphereField::Coordinates
+  lattice_origin(const SphereField &field, const math::Vector &position,
+                 const typename SphereField::Coordinates &point) {
+    const bool pole_row = (SphereField::HAS_NORTH_POLE && point.y == 0.0f) ||
+                          (SphereField::HAS_SOUTH_POLE && point.y == H - 1);
+    return pole_row ? point : field.project(position);
+  }
   // populate_warp_field() canonicalizes the stored column offset onto
   // [-W*WARP_SCALE/2, W*WARP_SCALE/2] and casts it to int16_t unclamped.
   static_assert(W * WARP_SCALE * 0.5f <= 32767.0f,
@@ -799,6 +853,13 @@ private:
     return selected;
   }
 
+  /** @brief One bilinear sample on the [0, 65535] scale, unquantized. */
+  struct Sample {
+    float r;
+    float g;
+    float b;
+  };
+
   /**
    * @brief Bilinearly samples the Canvas front buffer (previous frame).
    * @param field Spherical topology and interpolation policy.
@@ -806,15 +867,15 @@ private:
    * @param poles Shared values for every aliased column of the pole rows.
    * @param bx Fractional column in [-W, 2W).
    * @param by Fractional row; north crossings reflect with a half-turn.
-   * @param r Out: interpolated red on the [0, 65535] scale, unquantized.
-   * @param g Out: interpolated green.
-   * @param b Out: interpolated blue.
+   * @return The interpolated channels, returned in registers.
    */
-  HS_O3_FN __attribute__((noinline)) void
+  HS_O3_FN __attribute__((noinline)) Sample
   sample_bilinear_prev(const SphereField &field, const ::Pixel *prev,
                        const ::Pixel (&poles)[SphereField::POLE_STORAGE_COUNT],
-                       float bx, float by, float &r, float &g, float &b) const {
-    field.sample_bilinear_rgb(prev, poles, bx, by, r, g, b);
+                       float bx, float by) const {
+    Sample out;
+    field.sample_bilinear_rgb(prev, poles, bx, by, out.r, out.g, out.b);
+    return out;
   }
 
   /** @brief Quantizes an unclamped [0, 65535]-scale channel to a ::Pixel
@@ -862,6 +923,8 @@ private:
   bool warp_cache_valid = false;    /**< True when the cached field is valid. */
   int16_t *cached_warp_x = nullptr; /**< Arena-owned cached column deltas. */
   int16_t *cached_warp_y = nullptr; /**< Arena-owned cached row deltas. */
+  /** @brief Arena-owned projected origin of every cached-layout lattice sample. */
+  typename SphereField::Coordinates *cached_origin = nullptr;
 #ifndef NDEBUG
   ArenaBlockStamp
       stamp; /**< Arena state when the warp fields were allocated. */
