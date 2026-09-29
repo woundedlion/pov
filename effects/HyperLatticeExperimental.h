@@ -714,15 +714,14 @@ HS_HOT_FLASH_MEMBER Sample shade(const math::Vector &direction,
     return {{}, Raycast::TraceStatus::INVALID_QUERY};
   if (prepared.geometry != Geometry::OCTET) {
     if (prepared.geometry == Geometry::SHELLS) {
-      if constexpr (SLICE_4D) {
-        if (prepared.periodic_shells.slice_march) {
-          const auto SHELLS = SDF::trace_periodic_shells_4d(
-              prepared.periodic_shells, camera, direction, prepared.limits,
-              prepared.appearance);
-          return {SHELLS.color, SHELLS.status};
-        }
-      } else if (prepared.periodic_shells.single_owner) {
+      if (!SLICE_4D && prepared.periodic_shells.single_owner) {
         const auto SHELLS = SDF::trace_periodic_shells_3d(
+            prepared.periodic_shells, camera, direction, prepared.limits,
+            prepared.appearance);
+        return {SHELLS.color, SHELLS.status};
+      }
+      if (prepared.periodic_shells.march) {
+        const auto SHELLS = SDF::trace_periodic_shells_march<SLICE_4D ? 4 : 3>(
             prepared.periodic_shells, camera, direction, prepared.limits,
             prepared.appearance);
         return {SHELLS.color, SHELLS.status};
