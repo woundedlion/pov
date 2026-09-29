@@ -13,6 +13,7 @@
 #include <algorithm>
 #include <cassert>
 #include <cmath>
+#include <cstdint>
 #include <type_traits>
 #include <utility>
 
@@ -320,6 +321,9 @@ public:
    * @param b Out: interpolated blue channel.
    * @note Out-of-domain taps are black; use sample_bilinear() to supply a
    *   different outside value.
+   * @details Inside the direct band, 16-bit unsigned channels blend with Q15
+   *   integer weights (combine_rgb_q15) and other channel types in float; rows
+   *   that need the seam or pole substitution always blend in float.
    */
   template <typename Pixel>
   __attribute__((always_inline)) void
@@ -335,9 +339,15 @@ public:
     }
     const int row = tap.y0 * W;
     const int next_row = row + W;
-    combine_rgb(source[row + tap.x0], source[row + tap.x1],
-                source[next_row + tap.x0], source[next_row + tap.x1], tap.fx,
-                tap.fy, r, g, b);
+    if constexpr (sizeof(source->r) == 2 &&
+                  std::is_unsigned_v<decltype(source->r)>)
+      combine_rgb_q15(source[row + tap.x0], source[row + tap.x1],
+                      source[next_row + tap.x0], source[next_row + tap.x1],
+                      tap.fx, tap.fy, r, g, b);
+    else
+      combine_rgb(source[row + tap.x0], source[row + tap.x1],
+                  source[next_row + tap.x0], source[next_row + tap.x1], tap.fx,
+                  tap.fy, r, g, b);
   }
 
   /**
@@ -515,6 +525,37 @@ private:
       }
     }
     return load(sample_x, sample_y);
+  }
+
+  /**
+   * @brief Bilinearly blends four 16-bit taps with Q15 integer weights.
+   * @details The weights are the truncated Q15 fractions, so they sum to one
+   * exactly and each channel accumulates in 31 bits. Against combine_rgb the
+   * result differs by the weight truncation, under two channel units on the
+   * u16 scale, and carries the same unquantized fraction.
+   */
+  template <typename Pixel>
+  __attribute__((always_inline)) static void
+  combine_rgb_q15(const Pixel &p00, const Pixel &p10, const Pixel &p01,
+                  const Pixel &p11, float fx, float fy, float &r, float &g,
+                  float &b) {
+    static_assert(sizeof(p00.r) == 2 && std::is_unsigned_v<decltype(p00.r)>,
+                  "combine_rgb_q15 blends 16-bit unsigned channels");
+    static_assert(sizeof(p00.g) == 2 && sizeof(p00.b) == 2);
+    constexpr uint32_t ONE = 1u << 15;
+    const uint32_t wx = static_cast<uint32_t>(fx * static_cast<float>(ONE));
+    const uint32_t wy = static_cast<uint32_t>(fy * static_cast<float>(ONE));
+    const uint32_t w11 = (wx * wy) >> 15;
+    const uint32_t w10 = wx - w11;
+    const uint32_t w01 = wy - w11;
+    const uint32_t w00 = ONE - wx - wy + w11;
+    const uint32_t rs = p00.r * w00 + p10.r * w10 + p01.r * w01 + p11.r * w11;
+    const uint32_t gs = p00.g * w00 + p10.g * w10 + p01.g * w01 + p11.g * w11;
+    const uint32_t bs = p00.b * w00 + p10.b * w10 + p01.b * w01 + p11.b * w11;
+    constexpr float INVERSE_ONE = 1.0f / static_cast<float>(ONE);
+    r = static_cast<float>(rs) * INVERSE_ONE;
+    g = static_cast<float>(gs) * INVERSE_ONE;
+    b = static_cast<float>(bs) * INVERSE_ONE;
   }
 
   /** @brief Bilinearly blends four taps into unclamped float channels. */
