@@ -623,7 +623,7 @@ private:
     const bool AFFINE = params.pattern == Pattern::AFFINE_CUBIC;
     const bool SHELLS = params.pattern == Pattern::SHELLS;
     this->mark_readonly("Shear", !AFFINE);
-    this->mark_readonly("Stretch", !AFFINE && !SHELLS);
+    this->mark_readonly("Stretch", !AFFINE);
     this->mark_readonly("Shell Radius", !SHELLS);
     this->mark_readonly("Wire Radius", SHELLS);
     this->mark_readonly("View", params.pattern == Pattern::DIAMOND ||

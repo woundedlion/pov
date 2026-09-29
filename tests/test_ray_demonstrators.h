@@ -404,16 +404,11 @@ inline void test_affine_lattice_world_metric_and_periods() {
 }
 
 inline void test_periodic_shell_roots_and_slices() {
-  SDF::PeriodicShells geometry{2, .3f, 1};
+  SDF::PeriodicShells geometry{2, .3f};
   const auto SPHERE = geometry.intersect({{-2, 0, 0, 0}}, {{1, 0, 0, 0}}, 3);
   HS_EXPECT_TRUE(SPHERE.hit);
   HS_EXPECT_NEAR(SPHERE.near, 1.4f, 1e-6f);
   HS_EXPECT_NEAR(SPHERE.far, 2.6f, 1e-6f);
-  geometry.aspect = 1.5f;
-  const auto ELLIPSOID = geometry.intersect({{-2, 0, 0, 0}}, {{1, 0, 0, 0}}, 3);
-  HS_EXPECT_NEAR(ELLIPSOID.near, 1.1f, 1e-6f);
-  HS_EXPECT_NEAR(ELLIPSOID.far, 2.9f, 1e-6f);
-  geometry.aspect = 1;
   const auto SLICE = geometry.intersect({{-2, 0, 0, .36f}}, {{1, 0, 0, 0}}, 4);
   HS_EXPECT_NEAR(SLICE.near, 1.52f, 1e-6f);
   HS_EXPECT_NEAR(SLICE.far, 2.48f, 1e-6f);
@@ -545,16 +540,47 @@ inline void test_periodic_shell_traversal_budgets() {
   const auto UNFILTERED = SDF::shade_periodic_shells(camera, {1, 0, 0}, 1, .3f,
                                                      {}, limits, APPEARANCE);
   HS_EXPECT_EQ(UNFILTERED.trace.counters.layers, 0);
+
+  camera.domain = Raycast::SamplingDomain::SLICE_4D;
+  camera.center = {{-.5f, .245f, 0, .18f}};
+  const Raycast::Footprint FOOTPRINT{.08f, 0};
+  const auto SLICE_FILTERED = SDF::shade_periodic_shells(
+      camera, {1, 0, 0}, 1, .3f, FOOTPRINT, limits, APPEARANCE);
+  const float AMBIENT_DISTANCE = sqrtf(.245f * .245f + .18f * .18f);
+  const float PROJECTED_DISTANCE =
+      (AMBIENT_DISTANCE - .3f) * AMBIENT_DISTANCE / .245f;
+  HS_EXPECT_EQ(SLICE_FILTERED.trace.counters.layers, 1);
+  HS_EXPECT_FALSE(SLICE_FILTERED.trace.contribution.verified);
+  HS_EXPECT_NEAR(SLICE_FILTERED.trace.contribution.coverage,
+                 .5f - PROJECTED_DISTANCE / FOOTPRINT.at(.5f), 1e-5f);
+  HS_EXPECT_NEAR(SLICE_FILTERED.trace.contribution.normal.y, 1, 1e-6f);
+
+  camera.center = {{-.5f, .235f, 0, .18f}};
+  const auto SLICE_HIT = SDF::shade_periodic_shells(
+      camera, {1, 0, 0}, 1, .3f, FOOTPRINT, limits, APPEARANCE);
+  const float HALF_CHORD = sqrtf(.3f * .3f - .18f * .18f - .235f * .235f);
+  HS_EXPECT_EQ(SLICE_HIT.trace.counters.layers, 2);
+  HS_EXPECT_TRUE(SLICE_HIT.trace.contribution.verified);
+  HS_EXPECT_NEAR(SLICE_HIT.trace.contribution.t, .5f + HALF_CHORD, 1e-6f);
+  HS_EXPECT_NEAR(SLICE_HIT.trace.contribution.coverage,
+                 .5f + .5f * HALF_CHORD * HALF_CHORD /
+                           (.24f * FOOTPRINT.at(.5f + HALF_CHORD)),
+                 1e-5f);
+
+  camera.center = {{-.5f, 0, 0, .305f}};
+  const auto OFF_SLICE = SDF::shade_periodic_shells(
+      camera, {1, 0, 0}, 1, .3f, FOOTPRINT, limits, APPEARANCE);
+  HS_EXPECT_EQ(OFF_SLICE.trace.counters.layers, 0);
 }
 
-inline void test_prepared_shells_match_ellipsoid_roots() {
+inline void test_prepared_shells_match_sphere_roots() {
   alignas(Pixel) std::array<uint8_t, BakedPalette::required_arena_bytes()>
       buffer;
   Arena arena(buffer.data(), buffer.size());
   BakedPaletteStorage palette;
   palette.bake(arena, WhitePalette{});
   const Raycast::Appearance APPEARANCE{.1f, 0, 1, &palette.view()};
-  static_assert(sizeof(SDF::PreparedPeriodicShells) <= 40);
+  static_assert(sizeof(SDF::PreparedPeriodicShells) <= 24);
   for (int sample = 0; sample < 120; ++sample) {
     Raycast::PreparedCamera camera;
     camera.domain = sample % 2 ? Raycast::SamplingDomain::SLICE_4D
@@ -564,9 +590,9 @@ inline void test_prepared_shells_match_ellipsoid_roots() {
     math::rotate_plane(camera.embedding, 0, 2, sample * .37f);
     if (sample % 2)
       math::rotate_plane(camera.embedding, 1, 3, sample * .21f);
-    const SDF::PeriodicShells GEOMETRY{1, .3f, 1 + (sample % 6) * .1f};
+    const SDF::PeriodicShells GEOMETRY{1, .12f + (sample % 6) * .05f};
     const auto PREPARED = SDF::prepare_periodic_shells(
-        camera, GEOMETRY.cell_size, GEOMETRY.shell_radius, {}, GEOMETRY.aspect);
+        camera, GEOMETRY.cell_size, GEOMETRY.shell_radius, {});
     HS_EXPECT_TRUE(PREPARED.valid);
     const math::Vector VIEW =
         math::Vector{cosf(sample * .51f), sinf(sample * .41f), .43f}
@@ -601,7 +627,7 @@ inline int run_ray_demonstrator_tests() {
   test_affine_cached_metric_against_ray_line_oracle();
   test_periodic_shell_roots_and_slices();
   test_periodic_shell_traversal_budgets();
-  test_prepared_shells_match_ellipsoid_roots();
+  test_prepared_shells_match_sphere_roots();
   test_framework_generic_event_rendering();
   test_repeated_stream_grouping_preserves_order_and_endpoints();
   test_lattice_volume_camera_demonstrators();
