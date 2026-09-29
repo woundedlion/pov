@@ -109,3 +109,12 @@ its two original presets; they predate this third default preset.
 | [5: Octet wide](profile_hyperlattice_octet_preset5_teensy_2026-09-28.md) ● | 🟢 45.242 | 🟢 0/1096 (0.00%) | 2026-09-28 09:53 |
 
 ● Updated 2026-09-28 09:53–09:56 after the Octet 58 ms Tiers 1–2 (`1bb522211`). Opt-in held presets, startup excluded; 4D on COM3, 3D on COM4. [Earlier optimization and 4D evidence](../hyperlattice_octet_optimization_2026-09-27.md).
+
+## Shell flight supplement
+
+Two opt-in fixed presets, captured on COM4 with startup excluded. [Paired surface report](profile_hyperlattice_shell_flight_teensy_2026-09-28.md).
+
+| Preset | Peak render ms | Spilled/live frames | Captured local |
+|---|--:|--:|---|
+| 5: Shell Flight | 🔴 144.076 | 🔴 153/153 (100.00%) | 2026-09-28 23:20 |
+| 6: Shell Close Flight | 🔴 139.113 | 🔴 153/153 (100.00%) | 2026-09-28 23:25 |
