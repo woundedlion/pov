@@ -397,9 +397,9 @@ HS_O3_FN inline Pixel hue_fade_apply(const float k[9], float r, float g,
  * The shared reciprocal changes rounding; gamut clipping can amplify it.
  * test_hue_fade_apply2_tracks_scalar bounds final u16-channel differences.
  */
-HS_O3_FN inline void hue_fade_apply2(const float k[9], float r0, float g0,
-                                     float b0, float r1, float g1, float b1,
-                                     Pixel &p0, Pixel &p1) {
+HS_O3_FN __attribute__((always_inline)) inline void
+hue_fade_apply2(const float k[9], float r0, float g0, float b0, float r1,
+                float g1, float b1, Pixel &p0, Pixel &p1) {
   LMS lms0 = linear_rgb_to_lms(r0, g0, b0);
   LMS lms1 = linear_rgb_to_lms(r1, g1, b1);
   const float lms6[6] = {lms0.l, lms0.m, lms0.s, lms1.l, lms1.m, lms1.s};

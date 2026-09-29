@@ -515,6 +515,44 @@ __attribute__((always_inline)) inline float fast_atan2(float y, float x) {
 }
 
 /**
+ * @brief Arctangent of a ratio in [0, 1], accurate to about 1e-5 rad.
+ * @param r Ratio in [0, 1].
+ * @return atan(r) in [0, pi/4].
+ * @details Odd degree-11 minimax polynomial; precise_atan2 folds the other
+ * octants onto it.
+ */
+__attribute__((always_inline)) inline float atan_unit(float r) {
+  const float r2 = r * r;
+  return r * (0.99997726f +
+              r2 * (-0.33262347f +
+                    r2 * (0.19354346f +
+                          r2 * (-0.11643287f +
+                                r2 * (0.05265332f + r2 * -0.01172120f)))));
+}
+
+/**
+ * @brief atan2 accurate to about 1e-5 rad.
+ * @param y Y (numerator) coordinate.
+ * @param x X (denominator) coordinate.
+ * @return The angle of (x, y) in [-pi, pi]; 0 at the origin.
+ * @details One divide and an odd degree-11 minimax arctangent on [0, 1], two
+ * orders tighter than fast_atan2 for callers that cannot cancel its bias.
+ */
+__attribute__((always_inline)) inline float precise_atan2(float y, float x) {
+  const float abs_y = std::abs(y);
+  const float abs_x = std::abs(x);
+  const float most = std::max(abs_x, abs_y);
+  if (!(most > 0.0f))
+    return 0.0f;
+  float angle = atan_unit(std::min(abs_x, abs_y) / most);
+  if (abs_y > abs_x)
+    angle = 1.57079633f - angle;
+  if (x < 0.0f)
+    angle = 3.14159265f - angle;
+  return y < 0.0f ? -angle : angle;
+}
+
+/**
  * @brief Diamond pseudo-angle of (x, y) in [0, 4), monotonic with atan2.
  * @param y Y (numerator) coordinate.
  * @param x X (denominator) coordinate.
