@@ -241,7 +241,7 @@ curl_midpoint_step(const math::Vector &input, const FastNoiseLite &noise,
       path_length_required);
 }
 
-HS_FLASH_INLINE inline SurfaceResult
+HS_O3_FN inline SurfaceResult
 curl_noise(const math::Vector &input, const FastNoiseLite &noise,
            math::NoiseBasis basis, Integrator integrator, float scale,
            const math::Vector &loop_offset, float strength,
@@ -339,9 +339,9 @@ struct CurlNoise : ApproximationDefaults {
     return State::prepare(frame);
   }
 
-  HS_FLASH_INLINE static SurfaceResult apply(const math::Vector &input,
-                                             const FrameState &frame,
-                                             const Prepared &prepared) {
+  HS_O3_FN static SurfaceResult apply(const math::Vector &input,
+                                      const FrameState &frame,
+                                      const Prepared &prepared) {
     return curl_noise(input, State::noise(frame), Basis,
                       IntegratorPolicy::VALUE, State::scale(frame),
                       prepared.loop_offset, State::strength(frame),
@@ -372,9 +372,9 @@ template <typename State> struct PeriodicRipple : ApproximationDefaults {
     return prepare_ripple(State::params(frame), State::phase(frame));
   }
 
-  HS_FLASH_INLINE static SurfaceResult apply(const math::Vector &input,
-                                             const FrameState &frame,
-                                             const Prepared &prepared) {
+  HS_O3_FN static SurfaceResult apply(const math::Vector &input,
+                                      const FrameState &frame,
+                                      const Prepared &prepared) {
     return periodic_ripple(input, prepared, State::path_length_required(frame));
   }
 };
