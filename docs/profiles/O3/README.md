@@ -100,9 +100,9 @@ its two original presets; they predate this third default preset.
 
 ## Shell flight supplement
 
-Two opt-in fixed presets, captured on COM4 with startup excluded. [Paired surface report](profile_hyperlattice_shell_flight_teensy_2026-09-28.md).
+Sphere-only renderer; two authored fixed presets on COM4, startup excluded. [Paired surface report](profile_hyperlattice_shell_flight_teensy_2026-09-29.md).
 
 | Preset | Peak render ms | Spilled/live frames | Captured local |
 |---|--:|--:|---|
-| 5: Shell Flight | 🔴 142.252 | 🔴 153/153 (100.00%) | 2026-09-28 23:24 |
-| 6: Shell Close Flight | 🔴 137.024 | 🔴 153/153 (100.00%) | 2026-09-28 23:27 |
+| 5: Shell Flight | 🔴 117.363 | 🔴 228/228 (100.00%) | 2026-09-29 08:04 |
+| 6: Shell Close Flight | 🔴 121.337 | 🔴 228/228 (100.00%) | 2026-09-29 08:07 |
