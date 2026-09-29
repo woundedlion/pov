@@ -1,0 +1,111 @@
+{
+  "preset": 6,
+  "name": "Shell Close Flight",
+  "config": "ship",
+  "log": "C:\\work\\hs-shells-profile\\build\\prof\\spheres\\shells_6_ship.log",
+  "sha": "5ebb5655c52ddc654b899935af5c5574035b3c82",
+  "captured": "2026-09-29T08:06:10-07:00",
+  "frames": [
+    2,
+    229
+  ],
+  "count": 228,
+  "mean_render_ms": 120.83895175438597,
+  "peak_render_ms": 125.186,
+  "mean_wall_ms": 125.19349122807017,
+  "spilled": 228,
+  "over_125ms": 1,
+  "startup_ms": 229.531,
+  "clean_windows": 13,
+  "worst_frames": [
+    193,
+    208
+  ],
+  "worst_render_ms": 122.5101875,
+  "worst_wall_ms": [
+    124.747,
+    124.934,
+    125.096
+  ],
+  "root_cycles": 1199374611,
+  "wall_sum_us": 1998959,
+  "exactness_ppm": 0.6578424069448752,
+  "counters": {
+    "frame": {
+      "us": 1998957,
+      "pct": 100,
+      "calls": 16,
+      "cyc": 1199374611,
+      "depth": 0,
+      "tags": [],
+      "cycles_per_frame": 74960913.1875,
+      "calls_per_frame": 1.0,
+      "us_per_frame": 124934.8553125
+    },
+    "pov_preserve_half": {
+      "us": 2281,
+      "pct": 0,
+      "calls": 16,
+      "cyc": 1368885,
+      "depth": 1,
+      "tags": [],
+      "cycles_per_frame": 85555.3125,
+      "calls_per_frame": 1.0,
+      "us_per_frame": 142.5921875
+    },
+    "hl_shader_draw": {
+      "us": 1927763,
+      "pct": 96,
+      "calls": 16,
+      "cyc": 1156658326,
+      "depth": 1,
+      "tags": [],
+      "cycles_per_frame": 72291145.375,
+      "calls_per_frame": 1.0,
+      "us_per_frame": 120485.24229166667
+    },
+    "hl_timeline_step": {
+      "us": 109,
+      "pct": 0,
+      "calls": 16,
+      "cyc": 65891,
+      "depth": 1,
+      "tags": [],
+      "cycles_per_frame": 4118.1875,
+      "calls_per_frame": 1.0,
+      "us_per_frame": 6.863645833333333
+    },
+    "canvas_clear": {
+      "us": 1489,
+      "pct": 0,
+      "calls": 16,
+      "cyc": 893499,
+      "depth": 1,
+      "tags": [],
+      "cycles_per_frame": 55843.6875,
+      "calls_per_frame": 1.0,
+      "us_per_frame": 93.0728125
+    },
+    "canvas_buffer_wait": {
+      "us": 38794,
+      "pct": 1,
+      "calls": 16,
+      "cyc": 23276413,
+      "depth": 1,
+      "tags": [],
+      "cycles_per_frame": 1454775.8125,
+      "calls_per_frame": 1.0,
+      "us_per_frame": 2424.6263541666667
+    }
+  },
+  "isr": [
+    "isr_wake       n=36866 cyc min/avg/max=336/1020/8206 ns min/avg/max=560/1700/13676 total=62710 us cpu=3.13%",
+    "isr_pack       n=4608 cyc min/avg/max=3739/4197/6446 ns min/avg/max=6231/6995/10743 total=32240 us cpu=1.61%",
+    "isr_dma_submit n=4608 cyc min/avg/max=446/573/1165 ns min/avg/max=743/955/1941 total=4403 us cpu=0.22%"
+  ],
+  "size_lines": [
+    "teensy_size:   FLASH: code:91608, data:153244, headers:9100   free for files:1777664",
+    "teensy_size:    RAM1: variables:315008, code:15224, padding:17544   free for local variables:176512",
+    "teensy_size:    RAM2: variables:520064  free for malloc/new:4224"
+  ]
+}
