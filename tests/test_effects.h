@@ -4708,11 +4708,38 @@ struct DisplacementFieldWhiteBox {
   template <int W, int H>
   static int noise_lut_samples(const DisplacementField<W, H> &effect,
                                float sin_theta) {
-    const float feature_scale = effect.params.scale1 + effect.params.scale2;
-    return hs::clamp(
-        static_cast<int>(ceilf(DisplacementField<W, H>::LUT_SAMPLES_PER_UNIT *
-                               2.0f * math::PI_F * feature_scale * sin_theta)),
-        DisplacementField<W, H>::LUT_MIN_SAMPLES, W);
+    return noise_lut_samples(
+        effect, effect.params.scale1 + effect.params.scale2, sin_theta);
+  }
+
+  /** @brief Knots a noise-displaced ring bakes at a feature scale. */
+  template <int W, int H>
+  static int noise_lut_samples(const DisplacementField<W, H> &,
+                               float feature_scale, float sin_theta) {
+    using Effect = DisplacementField<W, H>;
+    const int lut_n = hs::clamp(
+        static_cast<int>(ceilf(Effect::LUT_SAMPLES_PER_UNIT * 2.0f *
+                               math::PI_F * feature_scale * sin_theta)),
+        Effect::LUT_MIN_SAMPLES, W);
+    return (lut_n + Effect::OCTAVE_GRID - 1) / Effect::OCTAVE_GRID *
+           Effect::OCTAVE_GRID;
+  }
+
+  template <int W, int H>
+  static int octave_grid(const DisplacementField<W, H> &) {
+    return DisplacementField<W, H>::OCTAVE_GRID;
+  }
+
+  /** @brief Bakes one fully visible ring through the octave-grid noise path. */
+  template <int W, int H>
+  static void bake_noise_octaves(DisplacementField<W, H> &effect,
+                                 const Animation::NoiseProductParams &np,
+                                 const math::Basis &basis, float theta,
+                                 int lut_n, float *slut) {
+    const float dphi = 2.0f * math::PI_F / lut_n;
+    effect.bake_noise_octaves(np, basis, theta, cosf(theta), sinf(theta),
+                              cosf(dphi), sinf(dphi), lut_n,
+                              DisplacementField<W, H>::CHUNK_MASK, 0, slut);
   }
 };
 
@@ -4933,6 +4960,63 @@ inline void test_displacement_field_hue_table_frame_fidelity() {
               max_srgb_delta);
   HS_EXPECT_LE(max_delta_e, 0.01f);
   HS_EXPECT_LE(max_srgb_delta, 3);
+}
+
+/**
+ * @brief Bounds DisplacementField's octave-grid noise bake against the exact
+ *        noise field.
+ * @details The bake evaluates each noise octave on every other knot and
+ *          fills the rest with a Catmull-Rom spline. Knots on both octave
+ *          grids reproduce the exact product field up to the recurrence's
+ *          knot-position drift, and every knot stays within half a canvas
+ *          column of it: the spline error is well inside the linear polyline's
+ *          own deviation from the field between knots.
+ */
+inline void test_displacement_field_octave_bake_tracks_noise() {
+  constexpr int W = DEFAULT_W;
+  constexpr int H = DEFAULT_H;
+  reset_effect_globals();
+  DisplacementField<W, H> effect;
+  effect.init();
+  Animation::NoiseProductParams np;
+  np.noise.SetSeed(1234);
+  np.amplitude = 0.2f;
+  np.scale1 = 1.5f;
+  np.scale2 = 3.0f;
+  const int grid = DisplacementFieldWhiteBox::octave_grid(effect);
+  std::vector<float> slut(W + 1);
+  float worst = 0.0f;
+  for (int trial = 0; trial < 12; ++trial) {
+    np.time = 0.37f * trial;
+    const math::Basis basis = math::make_basis(
+        math::make_rotation(math::Vector(0.3f, 0.5f, 0.8f).normalized(),
+                            0.9f * trial),
+        math::X_AXIS);
+    for (int ring = 0; ring < 24; ++ring) {
+      const float theta = math::PI_F * (ring + 1) / 25.0f;
+      const int lut_n = DisplacementFieldWhiteBox::noise_lut_samples(
+          effect, np.scale1 + np.scale2, sinf(theta));
+      DisplacementFieldWhiteBox::bake_noise_octaves(effect, np, basis, theta,
+                                                    lut_n, slut.data());
+      for (int x = 0; x < lut_n; ++x) {
+        const float a = 2.0f * math::PI_F * x / lut_n;
+        const math::Vector p =
+            (basis.v * cosf(theta)) +
+            ((basis.u * cosf(a)) + (basis.w * sinf(a))) * sinf(theta);
+        const float exact = noise_product_field(p, np);
+        const float err = std::fabs(slut[x] - exact);
+        if (x % grid == 0) {
+          HS_CONTEXT("trial / knot", trial, (ring << 16) | x);
+          HS_EXPECT_NEAR(slut[x], exact, 1e-4f);
+        }
+        worst = std::max(worst, err);
+      }
+    }
+  }
+  const float half_column = 0.5f * math::RADIANS_PER_COLUMN<W>;
+  std::printf("  [octave bake] worst %g rad (half column %g)\n", worst,
+              half_column);
+  HS_EXPECT_LE(worst, half_column);
 }
 
 /**
@@ -6258,6 +6342,7 @@ inline int run_effects_tests() {
   run_case(test_gnomonicstars_spiral_cache_invalidation);
   run_case(test_displacement_field_lazy_hue_table_matches_eager);
   run_case(test_displacement_field_zero_hue_scale_is_exact);
+  run_case(test_displacement_field_octave_bake_tracks_noise);
   run_case(test_shader_workbench_glitch_lens_unit_norm);
   run_case(test_mobius_rings_conformal_and_counter_rotation);
   run_case(test_islamicstars_seed_sprite_fade_in);
