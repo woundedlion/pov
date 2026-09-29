@@ -528,13 +528,14 @@ trace_octet_4d(const math::Vector &direction, const Prepared &prepared) {
     const float PLANE_SHARE = 0.9999f * (speed * SCALE) * (speed * SCALE);
     // The plane bound runs in 16-bit fixed point: the low 16 bits of Q * 2^16
     // wrap exactly as Q mod 1, so their signed value is Q's residual to the
-    // nearest integer. Quantizing the start and step, and float drift in t,
+    // nearest integer, and a wrapped sum or difference of two is a class's
+    // across residual. Quantizing the start and step, and float drift in t,
     // move a residual by under FIXED_ERROR over the candidate budget, which
-    // loosens each squared residual by at most that much.
+    // loosens each squared term by at most that much.
     constexpr float FIXED_ONE = 65536.0f;
     constexpr float FIXED_ERROR = 1.5e-3f;
     const float THRESHOLD_SCALE = FIXED_ONE * FIXED_ONE / PLANE_SHARE;
-    const float THRESHOLD_MARGIN = 2 * FIXED_ERROR * FIXED_ONE * FIXED_ONE;
+    const float THRESHOLD_MARGIN = 3 * FIXED_ERROR * FIXED_ONE * FIXED_ONE;
     std::array<uint32_t, 4> starts, advances;
     for (int m = 0; m < 4; ++m) {
       starts[m] = static_cast<uint32_t>(static_cast<int32_t>(
@@ -555,15 +556,27 @@ trace_octet_4d(const math::Vector &direction, const Prepared &prepared) {
       t += STEP;
       const float SUPPORT = SUPPORT_BASE + SUPPORT_RATE * t;
       const float SUPPORT2 = SUPPORT * SUPPORT;
+      std::array<uint32_t, 4> fixed;
       std::array<uint32_t, 4> squares;
       for (int m = 0; m < 4; ++m) {
-        const int32_t RESIDUAL = static_cast<int16_t>(
-            static_cast<uint16_t>(starts[m] + index * advances[m]));
+        fixed[m] = starts[m] + index * advances[m];
+        const int32_t RESIDUAL =
+            static_cast<int16_t>(static_cast<uint16_t>(fixed[m]));
         squares[m] = static_cast<uint32_t>(RESIDUAL * RESIDUAL);
       }
+      // Each class's line lies no nearer than half its squared across
+      // residual plus its free coordinates' squared residuals.
+      std::array<uint32_t, CLASSES> bounds;
       uint32_t nearest = UINT32_MAX;
-      for (size_t c = 0; c < CLASSES; ++c)
-        nearest = std::min(nearest, squares[pairs[c].k] + squares[pairs[c].l]);
+      for (size_t c = 0; c < CLASSES; ++c) {
+        const auto &PAIR = pairs[c];
+        const int32_t ACROSS = static_cast<int16_t>(
+            static_cast<uint16_t>(sign > 0.0f ? fixed[PAIR.i] - fixed[PAIR.j]
+                                              : fixed[PAIR.i] + fixed[PAIR.j]));
+        bounds[c] = (static_cast<uint32_t>(ACROSS * ACROSS) >> 1) +
+                    squares[PAIR.k] + squares[PAIR.l];
+        nearest = std::min(nearest, bounds[c]);
+      }
       // Clamped below 2^32; any threshold at or past 2^31 rejects nothing.
       const uint32_t THRESHOLD = static_cast<uint32_t>(std::min(
           SUPPORT2 * THRESHOLD_SCALE + THRESHOLD_MARGIN, 4294967040.0f));
@@ -588,8 +601,7 @@ trace_octet_4d(const math::Vector &direction, const Prepared &prepared) {
         float rl = residual[PAIR.l];
         // A class the plane bound clears cannot reach the support, and
         // neither can a farther class it would otherwise have beaten.
-        if (!(denominators[c] > 0.0f) ||
-            squares[PAIR.k] + squares[PAIR.l] > THRESHOLD)
+        if (!(denominators[c] > 0.0f) || bounds[c] > THRESHOLD)
           continue;
         float across = residual[PAIR.i] - sign * residual[PAIR.j];
         const float SHIFT = across > 0.5f    ? 1.0f
