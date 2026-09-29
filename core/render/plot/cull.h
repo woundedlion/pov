@@ -249,8 +249,8 @@ struct PlanarEdgeSampler {
     const float seg = arc_cumul[k + 1] - arc_cumul[k];
     const float frac =
         seg > math::EPS_GEOMETRIC ? (target - arc_cumul[k]) / seg : 0.0f;
-    return std::min(1.0f, std::max(0.0f, (static_cast<float>(k) + frac) /
-                                             PLANAR_LEN_SAMPLES));
+    return hs::clamp((static_cast<float>(k) + frac) / PLANAR_LEN_SAMPLES, 0.0f,
+                     1.0f);
   }
 
   /** @brief Maps increasing arc fractions without rescanning prior intervals. */
@@ -264,8 +264,8 @@ struct PlanarEdgeSampler {
     const float seg = arc_cumul[interval + 1] - arc_cumul[interval];
     const float frac =
         seg > math::EPS_GEOMETRIC ? (target - arc_cumul[interval]) / seg : 0.0f;
-    return std::min(1.0f, std::max(0.0f, (static_cast<float>(interval) + frac) /
-                                             PLANAR_LEN_SAMPLES));
+    return hs::clamp((static_cast<float>(interval) + frac) / PLANAR_LEN_SAMPLES,
+                     0.0f, 1.0f);
   }
 
   /**
@@ -684,20 +684,20 @@ static __attribute__((always_inline)) inline void
 geodesic_row_span_rows(float ra, float rb, const math::Vector &a,
                        const math::Vector &b, const GeodesicEdgeSpan &es,
                        float &row_lo, float &row_hi) {
-  row_lo = std::min(ra, rb);
-  row_hi = std::max(ra, rb);
+  row_lo = fminf(ra, rb);
+  row_hi = fmaxf(ra, rb);
   if (!es.have_axis)
     return;
   float t0 = math::cross(es.axis, a).y; // forward tangent y at a
   float t1 = math::cross(es.axis, b).y; // forward tangent y at b
   if ((t0 > 0.0f) != (t1 > 0.0f)) {
-    // std::max(0, ...) absorbs the tiny negative that fast-math
+    // fmaxf(0, ...) absorbs the tiny negative that fast-math
     // renormalization of the axis can produce when |axis.y| ≈ 1 (a
     // near-polar arc pole), keeping the sqrt domain-safe.
-    float peak = sqrtf(std::max(0.0f, 1.0f - es.axis.y * es.axis.y));
+    float peak = sqrtf(fmaxf(0.0f, 1.0f - es.axis.y * es.axis.y));
     float rp = y_to_screen_row<H>(t0 > 0.0f ? peak : -peak);
-    row_lo = std::min(row_lo, rp);
-    row_hi = std::max(row_hi, rp);
+    row_lo = fminf(row_lo, rp);
+    row_hi = fmaxf(row_hi, rp);
   }
 }
 
@@ -741,12 +741,12 @@ static inline void planar_row_span(const math::Vector &a, const math::Vector &b,
                                    float &row_hi) {
   float ra = y_to_screen_row<H>(a.y);
   float rb = y_to_screen_row<H>(b.y);
-  row_lo = std::min(ra, rb);
-  row_hi = std::max(ra, rb);
+  row_lo = fminf(ra, rb);
+  row_hi = fmaxf(ra, rb);
   for (const math::Vector &s : es.interior) {
     float r = y_to_screen_row<H>(newton_unit(s).y);
-    row_lo = std::min(row_lo, r);
-    row_hi = std::max(row_hi, r);
+    row_lo = fminf(row_lo, r);
+    row_hi = fmaxf(row_hi, r);
   }
   float margin = es.gap_arc * math::ROWS_PER_RADIAN<H> + 1.0f;
   row_lo -= margin;
@@ -1375,17 +1375,17 @@ static inline float screen_step_components(float pos_y, float tan_y,
   const float KY = math::ROWS_PER_RADIAN<H>; // rows per radian of colatitude
   // sin²φ = 1 - y²; floored so the pole (sin φ → 0) yields a finite, large
   // velocity (hence the min-clamped step) rather than a divide-by-zero.
-  const float sin2 = std::max(1e-7f, 1.0f - pos_y * pos_y);
+  const float sin2 = fmaxf(1e-7f, 1.0f - pos_y * pos_y);
   const float vx_num = KX * cross_y;
   const float vy_num = KY * tan_y;
   // Factoring the common sin(phi) denominator avoids a separate reciprocal
   // square root while preserving the screen-speed floor.
   const float speed2_num =
-      std::max(vx_num * vx_num + vy_num * vy_num * sin2, 1e-12f * sin2 * sin2);
+      fmaxf(vx_num * vx_num + vy_num * vy_num * sin2, 1e-12f * sin2 * sin2);
   // Degenerate-speed floor: guards 1/speed when a zero/near-zero tangent stalls
   // the curve, yielding base_step rather than an unbounded step.
   const float step = SCREEN_STEP_PX * sin2 * screen_rsqrt(speed2_num);
-  return std::max(base_step * MIN_POLE_SCALE, std::min(step, base_step));
+  return hs::clamp(step, base_step * MIN_POLE_SCALE, base_step);
 }
 
 template <int W, int H>
@@ -1984,12 +1984,12 @@ trail_gate_prologue(const ClipRegion &cr, const ClipRegion::XClip &xc,
   for (size_t k = 0; k < n; ++k) {
     const math::Vector &pt = trail[k].pos;
     rows[k] = y_to_screen_row<H>(pt.y);
-    row_lo_t = std::min(row_lo_t, rows[k]);
-    row_hi_t = std::max(row_hi_t, rows[k]);
-    min_sp2 = std::min(min_sp2, 1.0f - pt.y * pt.y);
+    row_lo_t = fminf(row_lo_t, rows[k]);
+    row_hi_t = fmaxf(row_hi_t, rows[k]);
+    min_sp2 = fminf(min_sp2, 1.0f - pt.y * pt.y);
     if (k > 0) {
       const math::Vector d = pt - trail[k - 1].pos;
-      max_chord2 = std::max(max_chord2, math::dot(d, d));
+      max_chord2 = fmaxf(max_chord2, math::dot(d, d));
     }
 #ifdef HS_PROFILE_MINDSPLATTER_STALLS
     gate_batch.step();
@@ -2040,8 +2040,8 @@ trail_gate_prologue(const ClipRegion &cr, const ClipRegion::XClip &xc,
       if (std::abs(ca_pos.z * cb_pos.x - ca_pos.x * cb_pos.z) < AXIS_Y_EPS)
         walk_safe = false;
       cum += d;
-      cum_lo = std::min(cum_lo, cum);
-      cum_hi = std::max(cum_hi, cum);
+      cum_lo = fminf(cum_lo, cum);
+      cum_hi = fmaxf(cum_hi, cum);
 #ifdef HS_PROFILE_MINDSPLATTER_STALLS
       gate_batch.step();
 #endif
@@ -2049,7 +2049,7 @@ trail_gate_prologue(const ClipRegion &cr, const ClipRegion::XClip &xc,
     // Near a pole the plotted column is float noise (same caution as the
     // per-edge spans), so only cull by the column arc when the whole trail
     // provably stays clear.
-    if (walk_safe && sqrtf(std::max(0.0f, min_sp2)) - max_arc >= MIN_SIN_PHI) {
+    if (walk_safe && sqrtf(fmaxf(0.0f, min_sp2)) - max_arc >= MIN_SIN_PHI) {
       int col_s, col_len;
       finish_col_span<W>(cols[0] + cum_lo, cum_hi - cum_lo, col_s, col_len);
       if (!ClipRegion::arcs_overlap(xc.rs, xc.length(W), col_s, col_len, W)) {

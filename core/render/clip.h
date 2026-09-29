@@ -178,8 +178,8 @@ struct ClipRegion {
    * downstream filters before testing overlap.
    */
   bool could_intersect_y(float y1, float y2) const {
-    float lo = y1 < y2 ? y1 : y2;
-    float hi = y1 > y2 ? y1 : y2;
+    float lo = fminf(y1, y2);
+    float hi = fmaxf(y1, y2);
     return hi >= render_y_start() && lo < render_y_end();
   }
 
