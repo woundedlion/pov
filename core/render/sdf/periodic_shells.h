@@ -9,17 +9,15 @@
 
 namespace SDF {
 
-/** @brief Analytic intersections with disjoint periodic ellipsoid sheets. */
+/** @brief Analytic intersections with disjoint periodic spherical sheets. */
 struct PeriodicShells {
   float cell_size = 1;
   float shell_radius = .3f;
-  float aspect = 1;
 
   bool valid() const {
     return Raycast::finite(cell_size) && cell_size > 0 &&
            Raycast::finite(shell_radius) && shell_radius > 0 &&
-           Raycast::finite(aspect) && aspect >= 1 && aspect <= 1.5f &&
-           shell_radius * aspect <= .480001f;
+           shell_radius <= .480001f;
   }
   struct Intersections {
     float near = 0;
@@ -32,8 +30,7 @@ struct PeriodicShells {
     float a = 0, b = 0,
           c = -shell_radius * shell_radius * cell_size * cell_size;
     for (int k = 0; k < dimensions; ++k) {
-      const float SCALE = k == 0 ? 1 / aspect : 1;
-      const float O = origin[k] * SCALE, D = direction[k] * SCALE;
+      const float O = origin[k], D = direction[k];
       a += D * D;
       b += O * D;
       c += O * O;
@@ -53,18 +50,15 @@ struct PeriodicShells {
 struct PreparedPeriodicShells {
   PeriodicShells geometry;
   Raycast::Footprint footprint;
-  float inverse_aspect = 1;
-  float inverse_aspect_squared = 1;
   float radius_squared = 0;
   bool valid = false;
 };
 
 inline PreparedPeriodicShells
 prepare_periodic_shells(const Raycast::PreparedCamera &camera, float cell_size,
-                        float shell_radius, Raycast::Footprint footprint,
-                        float aspect = 1) {
+                        float shell_radius, Raycast::Footprint footprint) {
   PreparedPeriodicShells prepared;
-  prepared.geometry = {cell_size, shell_radius, aspect};
+  prepared.geometry = {cell_size, shell_radius};
   prepared.footprint = footprint;
   prepared.valid = camera.valid() && prepared.geometry.valid() &&
                    Raycast::finite(footprint.angular_radius) &&
@@ -72,8 +66,6 @@ prepare_periodic_shells(const Raycast::PreparedCamera &camera, float cell_size,
                    Raycast::finite(footprint.radial_start) &&
                    footprint.radial_start >= 0;
   if (prepared.valid) {
-    prepared.inverse_aspect = 1 / aspect;
-    prepared.inverse_aspect_squared = 1 / (aspect * aspect);
     prepared.radius_squared =
         shell_radius * shell_radius * cell_size * cell_size;
   }
@@ -99,14 +91,10 @@ HS_HOT_FLASH_MEMBER Raycast::ShadedTrace shade_periodic_shells_dimension(
   const auto DIRECTION =
       camera.embedding.apply({{direction.x, direction.y, direction.z, 0}});
   const auto ORIGIN = camera.point4(direction * camera.radial_start);
-  math::Vec4 scaled_direction{};
-  float a = 0, filter_a = 0;
-  for (int k = 0; k < DIMENSIONS; ++k) {
-    scaled_direction[k] = DIRECTION[k] * (k == 0 ? prepared.inverse_aspect : 1);
-    a += scaled_direction[k] * scaled_direction[k];
-    filter_a += DIRECTION[k] * DIRECTION[k] *
-                (k == 0 ? prepared.inverse_aspect_squared : 1);
-  }
+  float a = 0;
+  for (int k = 0; k < DIMENSIONS; ++k)
+    a += DIRECTION[k] * DIRECTION[k];
+  const float INVERSE_A = 1 / a;
   math::Vec4 cell{}, boundary{}, step{};
   for (int k = 0; k < DIMENSIONS; ++k) {
     const float P = ORIGIN[k] + camera.interval.near * DIRECTION[k];
@@ -136,49 +124,47 @@ HS_HOT_FLASH_MEMBER Raycast::ShadedTrace shade_periodic_shells_dimension(
     }
     float b = 0, c = -prepared.radius_squared;
     for (int k = 0; k < DIMENSIONS; ++k) {
-      const float O = local[k] * (k == 0 ? prepared.inverse_aspect : 1);
-      b += O * scaled_direction[k];
+      const float O = local[k];
+      b += O * DIRECTION[k];
       c += O * O;
     }
     const float DISCRIMINANT = b * b - a * c;
     PeriodicShells::Intersections roots;
     if (DISCRIMINANT >= 0 && a > 0) {
       const float Q = -b - copysignf(sqrtf(DISCRIMINANT), b);
-      const float FIRST = Q == 0 ? 0 : Q / a;
+      const float FIRST = Q == 0 ? 0 : Q * INVERSE_A;
       const float SECOND = Q == 0 ? 0 : c / Q;
       roots = {std::min(FIRST, SECOND), std::max(FIRST, SECOND), true};
     }
     const bool VERIFIED = roots.hit;
     float filtered_coverage = 0;
     if (!roots.hit && footprint.angular_radius > 0) {
-      float filter_b = 0;
-      for (int k = 0; k < DIMENSIONS; ++k) {
-        const float METRIC = k == 0 ? prepared.inverse_aspect_squared : 1;
-        filter_b += local[k] * DIRECTION[k] * METRIC;
-      }
-      const float T = -filter_b / filter_a;
+      const float T = -b * INVERSE_A;
       if (T >= start && T <= end) {
         float squared = 0;
         math::Vec4 gradient{};
         for (int k = 0; k < DIMENSIONS; ++k) {
           const float P = local[k] + T * DIRECTION[k];
-          const float METRIC = k == 0 ? prepared.inverse_aspect_squared : 1;
-          squared += P * P * METRIC;
-          gradient[k] = P * METRIC;
-        }
-        float projected_squared = 0;
-        for (int j = 0; j < 3; ++j) {
-          float component = 0;
-          for (int k = 0; k < DIMENSIONS; ++k)
-            component += camera.embedding.m[k][j] * gradient[k];
-          projected_squared += component * component;
+          squared += P * P;
+          gradient[k] = P;
         }
         const float WIDTH = footprint.at(T);
-        if (projected_squared > 0 && WIDTH > 0) {
+        if (squared > 0 && WIDTH > 0) {
           const float LENGTH = sqrtf(squared);
-          const float DISTANCE = (LENGTH - shell_radius * cell_size) * LENGTH /
-                                 sqrtf(projected_squared);
-          filtered_coverage = std::clamp(.5f - DISTANCE / WIDTH, 0.0f, 1.0f);
+          float distance = LENGTH - shell_radius * cell_size;
+          if constexpr (DIMENSIONS == 4) {
+            float projected_squared = 0;
+            for (int j = 0; j < 3; ++j) {
+              float component = 0;
+              for (int k = 0; k < DIMENSIONS; ++k)
+                component += camera.embedding.m[k][j] * gradient[k];
+              projected_squared += component * component;
+            }
+            distance = projected_squared > 0
+                           ? distance * LENGTH / sqrtf(projected_squared)
+                           : INFINITY;
+          }
+          filtered_coverage = std::clamp(.5f - distance / WIDTH, 0.0f, 1.0f);
           if (filtered_coverage > 0)
             roots = {T, T, true};
         }
@@ -203,8 +189,7 @@ HS_HOT_FLASH_MEMBER Raycast::ShadedTrace shade_periodic_shells_dimension(
         hit.verified = VERIFIED;
         math::Vec4 gradient{};
         for (int k = 0; k < DIMENSIONS; ++k)
-          gradient[k] = (local[k] + T * DIRECTION[k]) *
-                        (k == 0 ? prepared.inverse_aspect_squared : 1);
+          gradient[k] = local[k] + T * DIRECTION[k];
         float components[3]{};
         for (int j = 0; j < 3; ++j)
           for (int k = 0; k < DIMENSIONS; ++k)
@@ -221,12 +206,9 @@ HS_HOT_FLASH_MEMBER Raycast::ShadedTrace shade_periodic_shells_dimension(
         if (!VERIFIED) {
           hit.coverage = filtered_coverage;
         } else if (WIDTH > 0) {
-          float incidence = 0;
-          for (int k = 0; k < DIMENSIONS; ++k) {
-            incidence += gradient[k] * DIRECTION[k];
-          }
+          const float INCIDENCE = b + T * a;
           const float DEPTH = .25f * (roots.far - roots.near) *
-                              fabsf(incidence) * INVERSE_LENGTH;
+                              fabsf(INCIDENCE) * INVERSE_LENGTH;
           hit.coverage = std::clamp(.5f + DEPTH / WIDTH, 0.0f, 1.0f);
         }
         result.trace.has_surface = true;
@@ -268,16 +250,13 @@ inline Raycast::ShadedTrace shade_periodic_shells(
                                                   limits, appearance);
 }
 
-inline Raycast::ShadedTrace
-shade_periodic_shells(const Raycast::PreparedCamera &camera,
-                      const math::Vector &direction, float cell_size,
-                      float shell_radius, Raycast::Footprint footprint,
-                      const Raycast::TraceLimits &limits,
-                      const Raycast::Appearance &appearance, float aspect = 1) {
-  return shade_periodic_shells(prepare_periodic_shells(camera, cell_size,
-                                                       shell_radius, footprint,
-                                                       aspect),
-                               camera, direction, limits, appearance);
+inline Raycast::ShadedTrace shade_periodic_shells(
+    const Raycast::PreparedCamera &camera, const math::Vector &direction,
+    float cell_size, float shell_radius, Raycast::Footprint footprint,
+    const Raycast::TraceLimits &limits, const Raycast::Appearance &appearance) {
+  return shade_periodic_shells(
+      prepare_periodic_shells(camera, cell_size, shell_radius, footprint),
+      camera, direction, limits, appearance);
 }
 
 } // namespace SDF

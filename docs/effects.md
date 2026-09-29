@@ -285,11 +285,11 @@ The additional experimental patterns use bounded analytic traversal:
 | Honeycomb | None | Cell Size, Wire Radius |
 | Rhombic Cells | None | Cell Size, Wire Radius |
 | Sheared Cubic | None | Cell Size, Wire Radius, Shear, Stretch |
-| Shells | Shell Flight, Shell Close Flight (3D) | Cell Size, Shell Radius, Stretch |
+| Shells | Shell Flight, Shell Close Flight (3D) | Cell Size, Shell Radius |
 
-Shear skews the cubic basis; Stretch elongates it or turns spherical shells into ellipsoids. Shell Radius is a fraction of Cell Size and is separate from Sphere Radius, which controls the camera's radial start. Softness and Lattice Planes apply only to the original cubic renderer. Wire Radius is read-only for shells. New geometry parameters switch together at cross-pattern transition midpoints. Experimental device builds remain opt-in; simulator availability is not a frame-rate guarantee.
+Shear skews the cubic basis; Stretch elongates it. Shells are spherical. Shell Radius is a fraction of Cell Size and is separate from Sphere Radius, which controls the camera's radial start. Softness and Lattice Planes apply only to the original cubic renderer. Wire Radius and Stretch are read-only for shells. New geometry parameters switch together at cross-pattern transition midpoints. Experimental device builds remain opt-in; simulator availability is not a frame-rate guarantee.
 
-Shell Flight defaults to a zero-radius camera, Cell Size 0.78625, Near Fade 2.0, Far Distance 10.736, AA Strength 2.0, Speed 0.025, 3D Spin 0.015, Stretch 1.0, and Shell Radius 0.1. The 4D shell view remains available through the View control, without a preset.
+Shell Flight defaults to a zero-radius camera, Cell Size 0.78625, Near Fade 2.0, Far Distance 10.736, AA Strength 2.0, Speed 0.025, 3D Spin 0.015, and Shell Radius 0.1. The 4D shell view remains available through the View control, without a preset.
 
 Shell Close Flight uses Cell Size 0.4645, Near Fade 0.6, Far Distance 5.836, 3D Spin 0.003, and Shell Radius 0.15; its other active controls match Shell Flight.
 
