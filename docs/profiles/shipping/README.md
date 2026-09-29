@@ -7,7 +7,6 @@ Rows rank by any spill, then peak render. 🟢 is zero spill, 🟡 is under 25% 
 
 | Effect | Dominant scope | Peak ms | Spilled | Captured |
 |---|---|--:|--:|---|
-| [MeshFeedback](profile_meshfeedback_teensy_2026-09-29.md) § | `mf_feedback_flush` | 🟢 61.87 (12) | 🟢 0/6687 (0.00%) | 2026-09-28 18:36 |
 | [ShapeShifter](profile_shapeshifter_teensy_2026-09-28.md) § | `ss_draw_all` | 🟢 58.24 (9) | 🟢 0/2447 (0.00%) | 2026-09-28 18:48 |
 | [HyperLattice](profile_hyperlattice_teensy_2026-09-28.md) § | `hl_shader_draw` | 🟢 56.12 (3) | 🟢 0/2687 (0.00%) | 2026-09-28 18:43 |
 | [MindSplatter](profile_mindsplatter_teensy_2026-09-28.md) § | `msp_draw_particles` | 🟢 56.11 (8) | 🟢 0/1727 (0.00%) | 2026-09-28 18:51 |
@@ -16,6 +15,7 @@ Rows rank by any spill, then peak render. 🟢 is zero spill, 🟡 is under 25% 
 | [HopfFibration](profile_hopffibration_teensy_2026-09-28.md) | `hf_render_trails` | 🟢 51.52 | 🟢 0/1087 (0.00%) | 2026-09-28 19:02 |
 | [IslamicStars](profile_islamicstars_teensy_2026-09-28.md) § | `is_timeline_step` | 🟢 50.51 (23) | 🟢 0/3327 (0.00%) | 2026-09-28 18:40 |
 | [BZReactionDiffusion](profile_bzreactiondiffusion_teensy_2026-09-28.md) | `bz_render` | 🟢 48.84 | 🟢 0/2047 (0.00%) | 2026-09-28 19:12 |
+| [MeshFeedback](profile_meshfeedback_teensy_2026-09-29.md) § | `mf_feedback_flush` | 🟢 48.61 (12) | 🟢 0/6688 (0.00%) | 2026-09-29 10:03 |
 | [RingSpin](profile_ringspin_teensy_2026-09-28.md) | `rs_draw_rings` | 🟢 47.04 | 🟢 0/1087 (0.00%) | 2026-09-28 19:13 |
 | [AshCloud](profile_ashcloud_teensy_2026-09-28.md) | `fx_shader_draw` | 🟢 44.57 | 🟢 0/1087 (0.00%) | 2026-09-28 17:33 |
 | [KaleidoscopeStainedGlass](profile_kaleidoscopestainedglass_teensy_2026-09-28.md) | `fx_shader_draw` | 🟢 43.50 | 🟢 0/1087 (0.00%) | 2026-09-28 17:35 |
@@ -52,7 +52,7 @@ For cyclers, each row summarizes the parser-owned preset, shape, or mode entries
 (N) gives the entry count; the linked report contains the individual buckets.
 Spill fractions include the transition following an entry and are stricter than clean holds.
 
-- **MeshFeedback**: 12 parser ownership buckets spanning 51.55–61.87 ms.
+- **MeshFeedback**: 12 parser ownership buckets spanning 40.88–48.61 ms.
 - **ShapeShifter**: 9 parser ownership buckets spanning 9.47–58.24 ms.
 - **HyperLattice**: 3 parser ownership buckets spanning 47.35–56.12 ms.
 - **MindSplatter**: 8 parser ownership buckets spanning 22.79–56.11 ms.
