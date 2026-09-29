@@ -1,6 +1,6 @@
 # ShapeShifter on-device profile — Teensy 4.0, segmented mode (2026-09-25, **-O3**)
 
-Shipping sibling: [selective-O3 report](../shipping/profile_shapeshifter_teensy_2026-09-28.md).
+Shipping sibling: [selective-O3 report](../shipping/profile_shapeshifter_teensy_2026-09-29.md).
 
 Point-in-time snapshot (regenerate with `just profile ShapeShifter`).
 Raw capture: `after-o3.log.txt` (archive removed). Replaces `profile_shapeshifter_teensy_2026-08-26.md`. The current roster has nine presets; the old report and skill's four-shape schedule describe earlier versions.
