@@ -42,6 +42,7 @@ struct Settings {
   float shear = .55f;
   float stretch = 1.4f;
   float shell_radius = .30f;
+  float gain = 1.0f; /**< Brightness scale of the whole frame. */
 };
 
 struct Prepared {
@@ -85,7 +86,8 @@ HS_FLASH_INLINE inline Prepared prepare(const Settings &settings) {
   result.footprint = {settings.pixel_half_angle * settings.aa_strength,
                       settings.radial_start};
   result.appearance = {1.0f / settings.far_distance, 0.0f,
-                       1.0f / settings.near_fade, settings.palette};
+                       1.0f / settings.near_fade, settings.palette,
+                       settings.gain};
   result.limits.max_candidates = 64;
   result.limits.max_layers = 32;
   result.octet.cell_size = settings.cell_size;
