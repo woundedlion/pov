@@ -823,7 +823,6 @@ inline void test_distorted_ring_stack_matches_sequential() {
     alignas(SDF::DistortedRing) unsigned char
         mem[N_RINGS * sizeof(SDF::DistortedRing)];
     auto *shapes = reinterpret_cast<SDF::DistortedRing *>(mem);
-    SDF::KnotPrefilter prefilters[N_RINGS];
     int8_t slot_by_ring[N_RINGS];
     Color4 slot_color[N_RINGS];
     int n_slots = 0;
@@ -832,9 +831,8 @@ inline void test_distorted_ring_stack_matches_sequential() {
         slot_by_ring[i] = -1;
         continue;
       }
-      new (&shapes[n_slots])
-          SDF::DistortedRing(basis, ring_radius(i), ths[i], knots[i], LUT_N,
-                             0.0f, prefilters[n_slots]);
+      new (&shapes[n_slots]) SDF::DistortedRing(basis, ring_radius(i), ths[i],
+                                                knots[i], LUT_N, 0.0f, nullptr);
       slot_color[n_slots] = colors[i];
       slot_by_ring[i] = static_cast<int8_t>(n_slots);
       ++n_slots;
@@ -879,10 +877,11 @@ inline void test_distorted_ring_stack_matches_sequential() {
       fused.set_margin(0);
     }
     Pipeline<W, H> pipeline;
+    Scan::DistortedRingStack::CandidateTable<W, H> table;
     {
       Canvas canvas(fused);
       Scan::DistortedRingStack::draw<W, H>(
-          pipeline, canvas, N_RINGS, shapes, slot_by_ring, n_slots,
+          pipeline, canvas, N_RINGS, shapes, slot_by_ring, n_slots, table,
           [&](int s, const math::Vector &, Fragment &f) { shade(s, f); });
     }
     fused.advance_display();
@@ -980,20 +979,20 @@ inline void test_fused_walks_ignore_pole_lod() {
     alignas(
         SDF::DistortedRing) unsigned char mem[N * sizeof(SDF::DistortedRing)];
     auto *shapes = reinterpret_cast<SDF::DistortedRing *>(mem);
-    SDF::KnotPrefilter prefilters[N];
     int8_t slot_by_ring[N];
     for (int i = 0; i < N; ++i) {
       new (&shapes[i])
           SDF::DistortedRing(basis, 2.0f * (i + 1) / (N + 1), ths[i], knots[i],
-                             LUT_N, 0.0f, prefilters[i]);
+                             LUT_N, 0.0f, nullptr);
       slot_by_ring[i] = static_cast<int8_t>(i);
     }
     hs_test::StubEffect fx(W, H);
     Pipeline<W, H> pipeline;
+    Scan::DistortedRingStack::CandidateTable<W, H> table;
     {
       Canvas canvas(fx);
       Scan::DistortedRingStack::draw<W, H>(pipeline, canvas, N, shapes,
-                                           slot_by_ring, N, shader);
+                                           slot_by_ring, N, table, shader);
     }
     fx.advance_display();
     for (int i = 0; i < N; ++i)
@@ -3265,9 +3264,9 @@ inline void test_scan_epilogue_contract() {
   const auto basis = math::make_basis(math::Quaternion(), math::X_AXIS);
   SDF::Ring ring(basis, 1.0f, 0.18f);
   float knots[9]{};
-  SDF::KnotPrefilter prefilter;
-  SDF::DistortedRing distorted(basis, 1.0f, 0.18f, knots, 8, 0.0f, prefilter);
+  SDF::DistortedRing distorted(basis, 1.0f, 0.18f, knots, 8, 0.0f, nullptr);
   const int8_t slots[1] = {0};
+  Scan::DistortedRingStack::CandidateTable<W, H> stack_table;
   math::Vector vertices[4];
   const uint16_t indices[4] = {0, 1, 2, 3};
   for (int i = 0; i < 4; ++i) {
@@ -3315,7 +3314,7 @@ inline void test_scan_epilogue_contract() {
         Scan::rasterize_face<W, H>(capture, canvas, face, shader);
       else if (path == 3)
         Scan::DistortedRingStack::draw<W, H>(
-            capture, canvas, 1, &distorted, slots, 1,
+            capture, canvas, 1, &distorted, slots, 1, stack_table,
             [&](int, const math::Vector &point, Fragment &fragment) {
               shader(point, fragment);
             });

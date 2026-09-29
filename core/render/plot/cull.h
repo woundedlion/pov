@@ -1733,6 +1733,8 @@ edge_visible_in_clip(PipelineT &pipeline, const ClipRegion &cr,
  * contains the ring's band); a ring chunk passes its midpoint with
  * half_angle = chunk half-arc + displacement bound.
  * @param half_angle Cap angular radius including stroke/AA pad (radians).
+ * @param sin_half_angle sinf(min(half_angle, PI)), hoisted by callers testing
+ * many caps of one radius.
  * @return False only when no fragment inside the cap can land in the clip's
  * render region; true is always safe.
  * @details Rows: the cap's polar range about the display's Y axis is
@@ -1740,16 +1742,21 @@ edge_visible_in_clip(PipelineT &pipeline, const ClipRegion &cr,
  * reaches either display pole spans all longitudes; otherwise its longitude
  * half-width about the center longitude is asin(sin t2 / sin beta), compared
  * against the clip's column wedge with the clip margin plus one pixel of
- * slack.
+ * slack. The angles come from fast_acos and fast_atan2, each comparison
+ * widened past their error bounds.
  */
 template <int H>
 inline bool cap_may_touch_clip(const ClipRegion &cr, const math::Vector &dir,
-                               float half_angle) {
+                               float half_angle, float sin_half_angle) {
+  // fast_acos errs by ~5e-5 rad and fast_atan2 by ~0.0038 rad.
+  constexpr float ACOS_PAD = 1e-3f;
+  constexpr float ATAN2_PAD = 5e-3f;
   float t2 = std::min(half_angle, math::PI_F);
-  float beta = acosf(hs::clamp(dir.y, -1.0f, 1.0f));
+  const float y = hs::clamp(dir.y, -1.0f, 1.0f);
+  float beta = math::fast_acos(y);
 
-  float phi_lo = std::max(beta - t2, 0.0f);
-  float phi_hi = std::min(beta + t2, math::PI_F);
+  float phi_lo = std::max(beta - t2 - ACOS_PAD, 0.0f);
+  float phi_hi = std::min(beta + t2 + ACOS_PAD, math::PI_F);
   if (!cr.could_intersect_y(math::phi_to_y<H>(phi_lo),
                             math::phi_to_y<H>(phi_hi)))
     return false;
@@ -1757,10 +1764,13 @@ inline bool cap_may_touch_clip(const ClipRegion &cr, const math::Vector &dir,
   const ClipRegion::XClip columns = cr.x_clip();
   if (!columns.active)
     return true;
-  if (beta <= t2 || math::PI_F - beta <= t2)
+  if (beta <= t2 + ACOS_PAD || math::PI_F - beta <= t2 + ACOS_PAD)
     return true;
-  float dlam = asinf(hs::clamp(sinf(t2) / sinf(beta), 0.0f, 1.0f));
-  float lam_v = atan2f(dir.z, dir.x);
+  const float sin_beta = sqrtf(1.0f - y * y);
+  const float dlam =
+      math::PI_F / 2.0f -
+      math::fast_acos(hs::clamp(sin_half_angle / sin_beta, 0.0f, 1.0f));
+  float lam_v = math::fast_atan2(dir.z, dir.x);
   float width_px = static_cast<float>(columns.length(cr.w));
   float half_w = (width_px * 0.5f + 1.0f) * (2.0f * math::PI_F) / cr.w;
   float lam_c = (columns.rs + width_px * 0.5f) * (2.0f * math::PI_F) / cr.w;
@@ -1768,7 +1778,15 @@ inline bool cap_may_touch_clip(const ClipRegion &cr, const math::Vector &dir,
       std::fabs(math::wrap_t((lam_v - lam_c) / (2.0f * math::PI_F) + 0.5f) -
                 0.5f) *
       (2.0f * math::PI_F);
-  return d <= dlam + half_w;
+  return d <= dlam + half_w + ACOS_PAD + ATAN2_PAD;
+}
+
+/** @brief cap_may_touch_clip() for a single cap, deriving sin(half_angle). */
+template <int H>
+inline bool cap_may_touch_clip(const ClipRegion &cr, const math::Vector &dir,
+                               float half_angle) {
+  return cap_may_touch_clip<H>(cr, dir, half_angle,
+                               sinf(std::min(half_angle, math::PI_F)));
 }
 
 enum class CartesianTrailGateResult : uint8_t {
