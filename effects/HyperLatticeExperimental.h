@@ -5,6 +5,8 @@
  */
 #pragma once
 
+#include <cstring>
+
 #include "core/render/ray/camera.h"
 #include "core/render/ray/shade.h"
 #include "core/render/sdf/framework.h"
@@ -466,12 +468,18 @@ trace_octet_4d(const math::Vector &direction, const Prepared &prepared) {
   std::array<float, 4> ambient;
   for (int axis = 0; axis < 4; ++axis)
     ambient[axis] = math::dot(direction, projection.embedding[axis]);
+  // Magnitudes rank by their IEEE bits, which order non-negative floats.
+  std::array<uint32_t, 4> magnitudes;
+  for (int axis = 0; axis < 4; ++axis) {
+    std::memcpy(&magnitudes[axis], &ambient[axis], sizeof(float));
+    magnitudes[axis] &= 0x7FFFFFFFu;
+  }
   std::array<uint8_t, 4> order;
   for (uint8_t axis = 0; axis < 4; ++axis) {
     uint8_t rank = 0;
     for (uint8_t other = 0; other < 4; ++other)
-      rank += other < axis ? fabsf(ambient[other]) <= fabsf(ambient[axis])
-                           : fabsf(ambient[other]) < fabsf(ambient[axis]);
+      rank += other < axis ? magnitudes[other] <= magnitudes[axis]
+                           : magnitudes[other] < magnitudes[axis];
     order[rank] = axis;
   }
   std::array<float, 4> components, rates, origins;
