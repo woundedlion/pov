@@ -95,6 +95,94 @@ class PreCommitHook(unittest.TestCase):
         done = self.run_hook()
         self.assertEqual(done.returncode, 0, done.stdout + done.stderr)
 
+    def profile_fixture(self):
+        if shutil.which("node") is None:
+            self.skipTest("node unavailable")
+        scripts = self.repo / "scripts"
+        scripts.mkdir()
+        for name in ["check_profiles.mjs", "effect_roster.mjs"]:
+            shutil.copyfile(REPO / "scripts" / name, scripts / name)
+        targets = self.repo / "targets"
+        (targets / "Phantasm").mkdir(parents=True)
+        (targets / "effects.h").write_text(
+            "#define HS_EFFECT_LIST(X) X(Example)\n", encoding="utf-8", newline="\n")
+        (targets / "Phantasm" / "phantasm_playlist.h").write_text(
+            "#define HS_PHANTASM_EFFECT_LIST(X) X(Example, 1)\n",
+            encoding="utf-8", newline="\n")
+        profiles = self.repo / "docs" / "profiles"
+        filename = "profile_example_teensy_2026-09-28.md"
+        for timing_set in ["shipping", "O3"]:
+            directory = profiles / timing_set
+            directory.mkdir(parents=True)
+            (directory / filename).write_text(
+                "# Example on-device profile (2026-09-28)\n\n"
+                "## Setup\n\nHardware.\n\n## Frame cadence\n\nCadence.\n\n"
+                "## Summary ranking\n\nRanking.\n\n## Harness\n\nHarness.\n",
+                encoding="utf-8", newline="\n")
+            (directory / "README.md").write_text(
+                f"Reports covering the 1 effects.\n\n[Example]({filename})\n",
+                encoding="utf-8", newline="\n")
+        (profiles / "README.md").write_text(
+            "On-device timing for the **1 effects in the Phantasm image**\n\n"
+            f"[Shipping](shipping/{filename})\n[O3](O3/{filename})\n",
+            encoding="utf-8", newline="\n")
+        self.git("add", "scripts", "targets", "docs/profiles")
+        self.git("commit", "--quiet", "-m", "profile fixture")
+        return profiles
+
+    def test_profile_archive_reads_the_index(self):
+        profiles = self.profile_fixture()
+        index = profiles / "README.md"
+        valid = index.read_bytes()
+        broken = valid.replace(b"shipping/profile_", b"shipping/missing_")
+        index.write_bytes(broken)
+        self.git("add", "docs/profiles/README.md")
+        index.write_bytes(valid)
+        done = self.run_hook()
+        self.assertNotEqual(done.returncode, 0)
+        self.assertIn("main shipping index is missing", done.stdout + done.stderr)
+
+        index.write_bytes(valid + b"\nCapture notes.\n")
+        self.git("add", "docs/profiles/README.md")
+        index.write_bytes(broken)
+        done = self.run_hook()
+        self.assertEqual(done.returncode, 0, done.stdout + done.stderr)
+        self.assertIn("Profile archive structure covers all 1", done.stdout)
+
+    def test_profile_inputs_trigger_validation_when_deleted(self):
+        self.profile_fixture()
+        for filename, diagnostic in [
+            ("docs/profiles/shipping/profile_example_teensy_2026-09-28.md",
+             "shipping profiles is missing: example"),
+            ("targets/effects.h", "ENOENT"),
+            ("targets/Phantasm/phantasm_playlist.h", "ENOENT"),
+            ("scripts/effect_roster.mjs", "ERR_MODULE_NOT_FOUND"),
+            ("scripts/check_profiles.mjs", "MODULE_NOT_FOUND"),
+        ]:
+            with self.subTest(filename=filename):
+                self.git("rm", "--cached", "--", filename)
+                done = self.run_hook()
+                self.assertNotEqual(done.returncode, 0)
+                self.assertIn(diagnostic, done.stdout + done.stderr)
+                self.git("add", "--", filename)
+
+    def test_unrelated_changes_do_not_run_profile_validation(self):
+        profiles = self.profile_fixture()
+        (profiles / "README.md").write_bytes(b"broken unstaged index\n")
+        (self.repo / "README.md").write_bytes(b"unrelated change\n")
+        self.git("add", "README.md")
+        done = self.run_hook()
+        self.assertEqual(done.returncode, 0, done.stdout + done.stderr)
+        self.assertNotIn("Profile archive structure", done.stdout)
+
+    def test_moving_a_profile_outside_the_archive_triggers_validation(self):
+        self.profile_fixture()
+        self.git("mv", "docs/profiles/shipping/profile_example_teensy_2026-09-28.md",
+                 "moved-report.md")
+        done = self.run_hook()
+        self.assertNotEqual(done.returncode, 0)
+        self.assertIn("shipping profiles is missing: example", done.stdout + done.stderr)
+
     def test_whitespace_errors_fail_before_documentation(self):
         (self.repo / "README.md").write_bytes(b"trailing  \n")
         self.git("add", "README.md")

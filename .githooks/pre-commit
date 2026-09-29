@@ -4,7 +4,7 @@ set -eu
 
 HS_CLANG_FORMAT_MAJOR=22
 
-CHANGED="$(git diff --cached --name-only --diff-filter=ACMRD)"
+CHANGED="$(git diff --cached --name-only --no-renames --diff-filter=ACMRD)"
 PRESENT="$(git diff --cached --name-only --diff-filter=ACMR)"
 [ -n "$CHANGED" ] || exit 0
 
@@ -134,6 +134,15 @@ EOF
   "$PYTHON_BIN" "$SNAPSHOT/tools/docs_images.py" --root "$SNAPSHOT"
   "$PYTHON_BIN" "$SNAPSHOT/tools/build_pins.py" --check
   "$PYTHON_BIN" "$SNAPSHOT/tools/license_check.py" --root "$SNAPSHOT"
+
+  if printf '%s\n' "$CHANGED" | grep -Eq '^docs/profiles/|^scripts/(check_profiles|effect_roster)\.mjs$|^targets/(effects\.h|Phantasm/phantasm_playlist\.h)$|^\.githooks/pre-commit$'; then
+    if ! command -v node >/dev/null 2>&1; then
+      echo "[pre-commit] node not found; profile archive checks need the pinned Node version."
+      exit 1
+    fi
+    "$PYTHON_BIN" "$SNAPSHOT/tools/build_pins.py" --check-tool node
+    node "$SNAPSHOT/scripts/check_profiles.mjs"
+  fi
 )
 
 echo "[pre-commit] staged formatting, lint, and documentation checks passed."
