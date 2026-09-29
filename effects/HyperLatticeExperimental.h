@@ -526,7 +526,24 @@ trace_octet_4d(const math::Vector &direction, const Prepared &prepared) {
       return true;
     // Squared |n . v| over the unit ray, with a margin for rounding.
     const float PLANE_SHARE = 0.9999f * (speed * SCALE) * (speed * SCALE);
-    for (float t = FIRST; t <= FAR; t += STEP) {
+    // The plane bound runs in 16-bit fixed point: the low 16 bits of Q * 2^16
+    // wrap exactly as Q mod 1, so their signed value is Q's residual to the
+    // nearest integer. Quantizing the start and step, and float drift in t,
+    // move a residual by under FIXED_ERROR over the candidate budget, which
+    // loosens each squared residual by at most that much.
+    constexpr float FIXED_ONE = 65536.0f;
+    constexpr float FIXED_ERROR = 1.5e-3f;
+    const float THRESHOLD_SCALE = FIXED_ONE * FIXED_ONE / PLANE_SHARE;
+    const float THRESHOLD_MARGIN = 2 * FIXED_ERROR * FIXED_ONE * FIXED_ONE;
+    std::array<uint32_t, 4> starts, advances;
+    for (int m = 0; m < 4; ++m) {
+      starts[m] = static_cast<uint32_t>(static_cast<int32_t>(
+          roundf((origins[m] + rates[m] * FIRST) * FIXED_ONE)));
+      advances[m] = static_cast<uint32_t>(
+          static_cast<int32_t>(roundf(rates[m] * STEP * FIXED_ONE)));
+    }
+    uint32_t index = 0;
+    for (float t = FIRST; t <= FAR; t += STEP, ++index) {
       if (++crossings > BUDGET)
         return false;
       if (t < NEAR)
@@ -534,18 +551,19 @@ trace_octet_4d(const math::Vector &direction, const Prepared &prepared) {
       const float SUPPORT = SUPPORT_BASE + SUPPORT_RATE * t;
       const float SUPPORT2 = SUPPORT * SUPPORT;
       {
-        // The plane bound alone keeps no state past a rejected crossing.
-        std::array<float, 4> residual;
+        std::array<uint32_t, 4> squares;
         for (int m = 0; m < 4; ++m) {
-          const float Q = origins[m] + rates[m] * t;
-          residual[m] = Q - roundf(Q);
+          const int32_t RESIDUAL = static_cast<int16_t>(
+              static_cast<uint16_t>(starts[m] + index * advances[m]));
+          squares[m] = static_cast<uint32_t>(RESIDUAL * RESIDUAL);
         }
-        float nearest = INFINITY;
+        uint32_t nearest = UINT32_MAX;
         for (size_t c = 0; c < CLASSES; ++c)
-          nearest = std::min(nearest,
-                             residual[pairs[c].k] * residual[pairs[c].k] +
-                                 residual[pairs[c].l] * residual[pairs[c].l]);
-        if (PLANE_SHARE * nearest > SUPPORT2)
+          nearest =
+              std::min(nearest, squares[pairs[c].k] + squares[pairs[c].l]);
+        const float THRESHOLD = SUPPORT2 * THRESHOLD_SCALE + THRESHOLD_MARGIN;
+        if (THRESHOLD < 2147483648.0f &&
+            nearest > static_cast<uint32_t>(THRESHOLD))
           continue;
       }
       std::array<float, 4> residual;
