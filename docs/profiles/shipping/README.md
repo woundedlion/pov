@@ -8,20 +8,19 @@ Rows rank by any spill, then peak render. 🟢 is zero spill, 🟡 is under 25% 
 | Effect | Dominant scope | Peak ms | Spilled | Captured |
 |---|---|--:|--:|---|
 | [MeshFeedback](profile_meshfeedback_teensy_2026-09-28.md) § ● | `mf_feedback_flush` | 🟢 61.85 (12) | 🟢 0/6688 (0.00%) | 2026-09-28 14:46 |
-| [IslamicStars](profile_islamicstars_teensy_2026-09-24.md) § | `is_timeline_step` | 🟢 60.695 (23) | 🟢 0/3327 (0.0%) | 2026-09-24 11:01 |
 | [ShapeShifter](profile_shapeshifter_teensy_2026-09-25.md) § ● | `ss_draw_all` | 🟢 58.40 (9) | 🟢 0/2457 (0.00%) | 2026-09-25 07:33 |
 | [DisplacementField](profile_displacementfield_teensy_2026-09-19.md) | `df_timeline_step` | 🟢 58.18 | 🟢 0/1088 (0.0%) | 2026-09-19 22:17 |
 | [Raymarch](profile_raymarch_teensy_2026-09-20.md) | `rm_shader_draw` | 🟢 56.07 | 🟢 0/1736 (0.00%) | 2026-09-20 22:51 |
 | [HyperLattice](profile_hyperlattice_teensy_2026-09-27.md) § ● | `hl_shader_draw` | 🟢 55.509 (2) | 🟢 0/1576 (0.00%) | 2026-09-27 01:02 |
 | [GSReactionDiffusion](profile_gsreactiondiffusion_teensy_2026-08-26.md) | `grd_render` | 🟢 55.26 | 🟢 0/2048 (0.0%) | 2026-08-26 01:28 |
 | [MindSplatter](profile_mindsplatter_teensy_2026-08-26.md) § | `msp_draw_particles` | 🟢 52.77 (9) | 🟢 0/1728 (0.0%) | 2026-08-26 07:40 |
+| [IslamicStars](profile_islamicstars_teensy_2026-09-28.md) § ● | `is_timeline_step` | 🟢 50.500 (23) | 🟢 0/3336 (0.00%) | 2026-09-28 16:50 |
 | [AshCloud](profile_ashcloud_teensy_2026-08-26.md) | `fx_shader_draw` | 🟢 50.09 | 🟢 0/1088 (0.0%) | 2026-08-26 02:47 |
 | [RingSpin](profile_ringspin_teensy_2026-09-24.md) | `rs_draw_rings` | 🟢 49.920 | 🟢 0/1087 (0.0%) | 2026-09-24 20:15 |
 | [BZReactionDiffusion](profile_bzreactiondiffusion_teensy_2026-08-26.md) | `bz_render` | 🟢 48.91 | 🟢 0/2048 (0.0%) | 2026-08-26 01:20 |
 | [HopfFibration](profile_hopffibration_teensy_2026-08-26.md) | `hf_render_trails` | 🟢 48.50 | 🟢 0/1088 (0.0%) | 2026-08-26 01:30 |
 | [KaleidoscopeStainedGlass](profile_kaleidoscopestainedglass_teensy_2026-08-26.md) | `fx_shader_draw` | 🟢 47.91 | 🟢 0/1088 (0.0%) | 2026-08-26 03:23 |
 | [MermaidSkin](profile_mermaidskin_teensy_2026-08-26.md) | `fx_shader_draw` | 🟢 45.60 | 🟢 0/1088 (0.0%) | 2026-08-26 02:46 |
-| [HankinSolids](profile_hankinsolids_teensy_2026-08-26.md) § | `hk_timeline_step` | 🟢 45.01 (19) | 🟢 0/3328 (0.0%) | 2026-08-26 01:56 |
 | [LatticeMelt](profile_latticemelt_teensy_2026-08-26.md) § | `fx_shader_draw` | 🟢 43.73 (3) | 🟢 0/1728 (0.0%) | 2026-08-26 02:42 |
 | [ChromaticLichen](profile_chromaticlichen_teensy_2026-08-26.md) | `fx_shader_draw` | 🟢 42.87 | 🟢 0/1088 (0.0%) | 2026-08-26 02:44 |
 | [KaleidoscopeMandala](profile_kaleidoscopemandala_teensy_2026-08-26.md) § | `fx_shader_draw` | 🟢 40.29 (3) | 🟢 0/2368 (0.0%) | 2026-08-26 03:22 |
@@ -30,6 +29,7 @@ Rows rank by any spill, then peak render. 🟢 is zero spill, 🟡 is under 25% 
 | [KaleidoscopeFlowers](profile_kaleidoscopeflowers_teensy_2026-08-26.md) § | `fx_shader_draw` | 🟢 36.69 (4) | 🟢 0/4128 (0.0%) | 2026-08-26 03:06 |
 | [KaleidoscopeSmooth](profile_kaleidoscopesmooth_teensy_2026-08-26.md) § | `fx_shader_draw` | 🟢 35.85 (5) | 🟢 0/4128 (0.0%) | 2026-08-26 02:59 |
 | [KaleidoscopeHexBright](profile_kaleidoscopehexbright_teensy_2026-08-26.md) § | `fx_shader_draw` | 🟢 35.55 (3) | 🟢 0/2368 (0.0%) | 2026-08-26 03:19 |
+| [HankinSolids](profile_hankinsolids_teensy_2026-09-28.md) § ● | `hk_timeline_step` | 🟢 34.837 (18) | 🟢 0/4137 (0.00%) | 2026-09-28 16:45 |
 | [Comets](profile_comets_teensy_2026-08-26.md) § | `cm_draw_trail` | 🟢 33.91 (13) | 🟢 0/4128 (0.0%) | 2026-08-26 02:05 |
 | [KaleidoscopePentBright](profile_kaleidoscopepentbright_teensy_2026-08-26.md) | `fx_shader_draw` | 🟢 33.37 | 🟢 0/1088 (0.0%) | 2026-08-26 02:49 |
 | [AlienBrain](profile_alienbrain_teensy_2026-08-26.md) § | `fx_shader_draw` | 🟢 31.61 (5) | 🟢 0/4768 (0.0%) | 2026-08-26 02:27 |
@@ -46,9 +46,13 @@ Rows rank by any spill, then peak render. 🟢 is zero spill, 🟡 is under 25% 
 | [Voronoi](profile_voronoi_teensy_2026-08-26.md) | `vo_shade` | 🟢 8.96 | 🟢 0/1088 (0.0%) | 2026-08-26 01:43 |
 | [RingShower](profile_ringshower_teensy_2026-08-26.md) | `rsh_draw_rings` | 🟢 3.98 | 🟢 0/1088 (0.0%) | 2026-08-26 01:39 |
 
+● IslamicStars refreshed on 2026-09-28 from current baseline source; setup frame 1 excluded. Unlanded convex-face AA measurements are in the separate comparison.
+
+● HankinSolids refreshed on 2026-09-28 from current baseline source; setup frame 1 excluded. Unlanded convex-face AA measurements are in the separate comparison.
+
 ● ShapeShifter refreshed on 2026-09-25: N counts nine distinct presets, merging repeated visits after wrap. Its runtime buckets exclude setup frame 1 and include transitions.
 
-IslamicStars refreshed on 2026-09-24 (unlanded finding 2 candidate); Raymarch on 2026-09-20; DisplacementField on 2026-09-19; RingSpin on 2026-09-24; other rows on 2026-08-26.
+Raymarch on 2026-09-20; DisplacementField on 2026-09-19; RingSpin on 2026-09-24; other rows on 2026-08-26.
 Captured timestamps are local raw-log mtimes.
 Each row links to the report generated from its capture log.
 
@@ -57,10 +61,10 @@ For cyclers, each row summarizes the parser-owned preset, shape, or mode entries
 Spill fractions include the transition following an entry and are stricter than clean holds.
 
 - **MindSplatter**: 9 parser ownership buckets spanning 21.61–52.77 ms; the sequence closes back to its first entry.
-- **IslamicStars**: 23 shape ownership buckets including transitions; setup frame 1 excluded. The unlanded finding 2 candidate completes the full cycle. The controlled baseline comparison is no longer retained.
+- **IslamicStars**: 23 authored recipes, including builds and transitions, with the complete carousel return captured.
 - **MeshFeedback**: 13 parser ownership buckets spanning 47.02–58.30 ms; the sequence closes back to its first entry.
 - **ShapeShifter**: 9 distinct presets with live peaks spanning 10.007–58.395 ms; repeated visits after wrap are merged.
-- **HankinSolids**: 19 parser ownership buckets spanning 19.66–45.01 ms; the sequence closes back to its first entry.
+- **HankinSolids**: 18 distinct solids over the full 30-leg ordered tour; initial tetrahedron frames and repeated visits share their actual node.
 - **LatticeMelt**: 3 parser ownership buckets spanning 42.00–43.73 ms; the sequence closes back to its first entry.
 - **KaleidoscopeMandala**: 3 parser ownership buckets spanning 35.91–40.29 ms; the sequence closes back to its first entry.
 - **KaleidoscopeHexOil**: 3 parser ownership buckets spanning 38.63–39.04 ms; the sequence closes back to its first entry.
