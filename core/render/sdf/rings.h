@@ -340,10 +340,12 @@ public:
    *           full stroke width with no slope approximation.
    * @param n Number of knot cells; at least 3.
    * @param ph Azimuth phase offset (radians).
-   * @param pf Prefilter storage filled here; must outlive the shape.
+   * @param pf Prefilter storage filled here; must outlive the shape. nullptr
+   *           skips the per-pixel prefilter, for callers that cull candidate
+   *           pixels themselves (Scan::DistortedRingStack).
    */
   DistortedRing(const math::Basis &b, float r, float th, const float *kn, int n,
-                float ph, KnotPrefilter &pf)
+                float ph, KnotPrefilter *pf)
       : DistortedRing(b, r, th, 0.0f, ph) {
     HS_CHECK(kn != nullptr && n >= 3,
              "DistortedRing: knot storage requires at least three knots");
@@ -351,29 +353,36 @@ public:
     lut_n = n;
     knot_count = static_cast<float>(n);
     knot_cell_angle = math::TWO_PI_F / n;
-    prefilter = &pf;
+    prefilter = pf;
     float min_shift = kn[0];
     float max_shift = kn[0];
-    // Per-chunk knot ranges for the per-pixel prefilter. A segment registers
-    // its endpoints in every chunk its azimuth extent touches (a straddling
-    // segment spans two), so the polyline inside a chunk never leaves
-    // [pf.lo, pf.hi].
-    for (int c = 0; c < KnotPrefilter::CHUNKS; ++c) {
-      pf.lo[c] = 1e9f;
-      pf.hi[c] = -1e9f;
-    }
-    for (int k = 0; k < n; ++k) {
-      const float next = kn[k + 1 == n ? 0 : k + 1];
-      float lo = std::min(kn[k], next);
-      float hi = std::max(kn[k], next);
-      min_shift = std::min(min_shift, lo);
-      max_shift = std::max(max_shift, hi);
-      int c1 = k * KnotPrefilter::CHUNKS / n;
-      int c2 = std::min((k + 1) * KnotPrefilter::CHUNKS / n,
-                        KnotPrefilter::CHUNKS - 1);
-      for (int c = c1; c <= c2; ++c) {
-        pf.lo[c] = std::min(pf.lo[c], lo);
-        pf.hi[c] = std::max(pf.hi[c], hi);
+    if (pf) {
+      // Per-chunk knot ranges for the per-pixel prefilter. A segment registers
+      // its endpoints in every chunk its azimuth extent touches (a straddling
+      // segment spans two), so the polyline inside a chunk never leaves
+      // [pf->lo, pf->hi].
+      for (int c = 0; c < KnotPrefilter::CHUNKS; ++c) {
+        pf->lo[c] = 1e9f;
+        pf->hi[c] = -1e9f;
+      }
+      for (int k = 0; k < n; ++k) {
+        const float next = kn[k + 1 == n ? 0 : k + 1];
+        float lo = std::min(kn[k], next);
+        float hi = std::max(kn[k], next);
+        min_shift = std::min(min_shift, lo);
+        max_shift = std::max(max_shift, hi);
+        int c1 = k * KnotPrefilter::CHUNKS / n;
+        int c2 = std::min((k + 1) * KnotPrefilter::CHUNKS / n,
+                          KnotPrefilter::CHUNKS - 1);
+        for (int c = c1; c <= c2; ++c) {
+          pf->lo[c] = std::min(pf->lo[c], lo);
+          pf->hi[c] = std::max(pf->hi[c], hi);
+        }
+      }
+    } else {
+      for (int k = 1; k < n; ++k) {
+        min_shift = std::min(min_shift, kn[k]);
+        max_shift = std::max(max_shift, kn[k]);
       }
     }
 
@@ -390,6 +399,19 @@ public:
     if (cos_min_limit == -1.0f)
       cos_min_limit = -2.0f;
   }
+
+  /**
+   * @brief Deleted constructor from a temporary Basis.
+   * @details The ring retains its basis by reference, so binding a temporary
+   * would leave every later read of basis dangling.
+   */
+  DistortedRing(const math::Basis &&, float, float, const float *, int, float,
+                KnotPrefilter *) = delete;
+
+  /** @brief The knot constructor with its prefilter storage attached. */
+  DistortedRing(const math::Basis &b, float r, float th, const float *kn, int n,
+                float ph, KnotPrefilter &pf)
+      : DistortedRing(b, r, th, kn, n, ph, &pf) {}
 
   /**
    * @brief Deleted constructor from a temporary Basis.
@@ -482,30 +504,31 @@ public:
   }
 
   /**
-   * @brief distance<true>() from a precomputed pixel frame.
+   * @brief distance<true>() of a knot ring from a precomputed pixel frame.
    * @param d Pixel dot ring axis (= dot(p, normal)).
    * @param polar fast_acos(clamp(d, -1, 1)).
    * @param sin_polar sqrtf(max(1 - d * d, POLE_SIN2_FLOOR)).
    * @param t_norm Pixel azimuth in [0, 1), phase applied.
-   * @param res Output result, identical to distance<true>() except for
-   *        undisplaced knot rings, which take the exact polar distance (the
-   *        zero-knot polyline agrees only to within an ulp).
+   * @param res Output result. Wherever the stroke can light (dist < 0) it is
+   *        identical to distance<true>() except for undisplaced rings, which
+   *        take the exact polar distance (the zero-knot polyline agrees only to
+   *        within an ulp); elsewhere dist is only known to be non-negative.
+   * @pre The ring is in knot mode.
    * @details Same-axis ring stacks share d/polar/sin_polar/t_norm across every
    * ring at a pixel; hoisting them there drops the per-ring dot/acos/atan2
-   * recompute.
+   * recompute. The chunk prefilter is skipped: the stack's candidate table
+   * already culls the pixels it would reject.
    */
-  HS_O3_FN void distance_from_frame(float d, float polar, float sin_polar,
-                                    float t_norm, DistanceResult &res) const {
+  __attribute__((always_inline)) void
+  distance_from_frame(float d, float polar, float sin_polar, float t_norm,
+                      DistanceResult &res) const {
     if (d < cos_min_limit || d > cos_max_limit) {
       res = DistanceResult(FAR_SENTINEL, 0.0f, FAR_SENTINEL, 0.0f, thickness);
       return;
     }
-    float dist;
-    if (knots)
-      dist = max_distortion > 0.0f ? polyline_distance(t_norm, polar, sin_polar)
-                                   : std::abs(polar - target_angle);
-    else
-      dist = std::abs(polar - (target_angle + shift_fn(t_norm)));
+    const float dist = max_distortion > 0.0f
+                           ? polyline_window(t_norm, polar, sin_polar)
+                           : std::abs(polar - target_angle);
     res = DistanceResult(dist - thickness, t_norm, dist, 0.0f, thickness);
   }
 
@@ -513,11 +536,11 @@ public:
       1e-6f; /**< sin^2 floor keeping the chart's azimuth scale positive at the
                 poles. */
 
-private:
   static constexpr int MAX_SEARCH_CELLS =
       64; /**< Outward search budget per side; only near-pole chart compression
              approaches it. */
 
+private:
   /**
    * @brief Distance from a pixel to the knot polyline.
    * @param t_norm Pixel azimuth in [0, 1) (phase applied).
@@ -541,6 +564,16 @@ private:
    */
   HS_O3_FN float polyline_distance(float t_norm, float polar,
                                    float sin_polar) const {
+    return polyline_search<true>(t_norm, polar, sin_polar);
+  }
+
+  /**
+   * @brief polyline_distance()'s body, inlined into each caller.
+   * @tparam UsePrefilter Consult the chunk prefilter when one is attached.
+   */
+  template <bool UsePrefilter>
+  __attribute__((always_inline)) float
+  polyline_search(float t_norm, float polar, float sin_polar) const {
     const float base =
         target_angle - polar; // knot m sits at v = base + knots[m]
 
@@ -550,7 +583,7 @@ private:
     // skips the segment search (most band pixels, in a displaced ring).
     constexpr int CHUNKS = KnotPrefilter::CHUNKS;
     const float chunk_u = (math::TWO_PI_F / CHUNKS) * sin_polar;
-    if (chunk_u >= thickness) {
+    if (UsePrefilter && prefilter && chunk_u >= thickness) {
       const KnotPrefilter &pf = *prefilter;
       int c = static_cast<int>(t_norm * CHUNKS);
       if (c >= CHUNKS)
@@ -647,6 +680,94 @@ private:
     // report the reject band's far sentinel and skip the sqrt. Returning
     // thickness instead would land dist on exactly 0, which a CSG parent reads
     // as on-surface across the whole bounding annulus.
+    return FAR_SENTINEL;
+  }
+
+  /**
+   * @brief polyline_search<false>() over a fixed knot window.
+   * @details Once a knot cell spans at least half the stroke reach, the
+   * outward search never passes the straddling cell's neighbours plus one more
+   * cell on a side whose frontier knot sits inside the reach, so that window is
+   * evaluated straight through: the running minimum is a fraction compared by
+   * cross-multiplication, and only a hit pays the division and square root.
+   * Narrower cells (near the stack's poles) take the full search. Agrees with
+   * polyline_search<false>() to float rounding.
+   */
+  __attribute__((always_inline)) float
+  polyline_window(float t_norm, float polar, float sin_polar) const {
+    const float cell_u = knot_cell_angle * sin_polar;
+    if (2.0f * cell_u < thickness || lut_n < 8)
+      return polyline_search<false>(t_norm, polar, sin_polar);
+    const float base = target_angle - polar;
+    const float x = t_norm * knot_count;
+    int j = static_cast<int>(x);
+    if (j >= lut_n)
+      j = lut_n - 1;
+    const float f = x - j;
+    const float cell_u2 = cell_u * cell_u;
+    const float th2 = thickness2;
+
+    float k[6];
+    if (j >= 2 && j + 3 < lut_n) {
+      for (int i = 0; i < 6; ++i)
+        k[i] = knots[j - 2 + i];
+    } else {
+      for (int i = 0; i < 6; ++i) {
+        int m = j - 2 + i;
+        m = m < 0 ? m + lut_n : m >= lut_n ? m - lut_n : m;
+        k[i] = knots[m];
+      }
+    }
+
+    // Best squared distance so far, as num / den.
+    float num, den = 1.0f;
+    auto interior = [&](float u0, float v0, float v1) {
+      const float dv = v1 - v0;
+      const float numer = -(u0 * cell_u + v0 * dv);
+      const float len2 = cell_u2 + dv * dv;
+      const float cross = u0 * dv - v0 * cell_u;
+      const float c2 = cross * cross;
+      const bool better = numer > 0.0f && numer < len2 && c2 * den < num * len2;
+      num = better ? c2 : num;
+      den = better ? len2 : den;
+    };
+
+    const float ul = -f * cell_u;
+    const float ur = (1.0f - f) * cell_u;
+    const float vl = base + k[2];
+    const float vr = base + k[3];
+    const float ur1 = ur + cell_u;
+    const float vr1 = base + k[4];
+    const float ul1 = ul - cell_u;
+    const float vl1 = base + k[1];
+    num = std::min(std::min(ul * ul + vl * vl, ur * ur + vr * vr),
+                   std::min(ur1 * ur1 + vr1 * vr1, ul1 * ul1 + vl1 * vl1));
+    interior(ul, vl, vr);
+    interior(ur, vr, vr1);
+    interior(ul1, vl1, vl);
+    // One more cell on a side whose frontier still sits inside the bound.
+    if (ur1 * ur1 < th2 && ur1 * ur1 * den < num) {
+      const float un = ur1 + cell_u;
+      const float vn = base + k[5];
+      const float e = un * un + vn * vn;
+      if (e * den < num) {
+        num = e;
+        den = 1.0f;
+      }
+      interior(ur1, vr1, vn);
+    }
+    if (ul1 * ul1 < th2 && ul1 * ul1 * den < num) {
+      const float un = ul1 - cell_u;
+      const float vn = base + k[0];
+      const float e = un * un + vn * vn;
+      if (e * den < num) {
+        num = e;
+        den = 1.0f;
+      }
+      interior(un, vn, vl1);
+    }
+    if (num < th2 * den)
+      return sqrtf(num / den);
     return FAR_SENTINEL;
   }
 };

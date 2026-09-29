@@ -126,37 +126,58 @@ struct DistortedRing {
  */
 HS_O3_BEGIN
 struct DistortedRingStack {
-  /** @brief Candidate-window pad and the even-spacing tolerance it affords. */
-  static constexpr float WINDOW_PAD = 1e-3f;
+  /** @brief Stroke-reach pad in the candidate table's bounds, absorbing
+   *  fast_acos error and float slop. */
+  static constexpr float REACH_PAD = 1e-3f;
 
   /**
-   * @brief Traps unless every occupied ring sits on its even-spacing slot with
-   *        zero phase and slot 0's basis.
+   * @brief Caller-owned map from a pixel's (polar, azimuth) cell to the range
+   *        of stack rings that can light it, rebuilt by every draw.
+   * @tparam W Canvas width; sets the azimuth chunk count.
+   * @tparam H Canvas height; sets the polar bin count.
+   * @details Each cell holds the lowest and highest ring index whose stroke can
+   * reach some pixel in the cell. The range is a superset: rings inside it are
+   * still tested exactly, so the map only skips rings that cannot light.
+   */
+  template <int W, int H> struct CandidateTable {
+    static constexpr int CHUNKS =
+        W / 3 > 4 ? W / 3 : 4;     /**< Azimuth chunks over the full turn. */
+    static constexpr int BINS = H; /**< Polar bins over [0, PI]. */
+    static constexpr int MAX_RINGS = 255; /**< Ring indices fit a byte. */
+    /** @brief Inclusive ring-index range; lo > hi when no ring reaches. */
+    struct Range {
+      uint8_t lo;
+      uint8_t hi;
+    };
+    Range cells[BINS * CHUNKS]; /**< Row-major [bin][chunk]. */
+  };
+
+  /**
+   * @brief Traps unless every occupied ring is a knot ring with zero phase and
+   *        slot 0's basis.
    * @param n_rings Stack size.
    * @param shapes Ring shapes indexed by slot.
    * @param slot_by_ring n_rings entries mapping ring index -> slot, -1 if
    *        culled.
    * @param n_slots Number of shapes; every occupied entry must index below it.
-   * @details A spacing deviation within WINDOW_PAD still lands inside the
-   * shared candidate window, so geometry survives; beyond it the ring is
-   * windowed out and silently disappears. The fused scan derives one
-   * phase-free azimuth per pixel for the whole stack, so a non-zero ring phase
-   * would index the wrong knot cell and mislabel v0. That frame is read from
-   * slot 0 alone, so a divergent basis would silently render its ring at slot
-   * 0's orientation.
+   * @details The fused scan derives one phase-free azimuth per pixel for the
+   * whole stack, so a non-zero ring phase would index the wrong knot cell and
+   * mislabel v0. That frame is read from slot 0 alone, so a divergent basis
+   * would silently render its ring at slot 0's orientation. Not cold: a cold
+   * call on draw's entry path marks the whole scan unlikely, which moves it to
+   * flash and compiles it for size.
    */
   template <typename ShapeRange>
-  HS_COLD_MEMBER static void
+  HS_NOINLINE_NOCLONE static void
   check_stack_preconditions(int n_rings, ShapeRange shapes,
                             const int8_t *slot_by_ring, int n_slots) {
-    const float delta = math::PI_F / (n_rings + 1);
     for (int i = 0; i < n_rings; ++i) {
       const int s = slot_by_ring[i];
       if (s < 0)
         continue;
       HS_CHECK(s < n_slots, "ring stack slot index out of range");
-      HS_CHECK(std::abs(shapes[s].target_angle - delta * (i + 1)) <= WINDOW_PAD,
-               "ring stack colatitudes must be evenly spaced");
+      HS_CHECK(shapes[s].knots != nullptr,
+               "ring stack rings must be knot rings");
       HS_CHECK(shapes[s].phase == 0.0f, "ring stack rings must have no phase");
       HS_CHECK(math::dot(shapes[s].normal, shapes[0].normal) >=
                    1.0f - math::TOLERANCE,
@@ -169,28 +190,126 @@ struct DistortedRingStack {
   }
 
   /**
-   * @brief Rasterizes every ring of an evenly spaced same-axis stack in one
-   *        scan over the union band.
+   * @brief Fills the candidate table for one frame's stack.
+   * @param n_rings Stack size.
+   * @param shapes Ring shapes indexed by slot.
+   * @param slot_by_ring n_rings entries mapping ring index -> slot, -1 if
+   *        culled.
+   * @param table Table to fill.
+   * @details A ring lights a pixel only through a polyline point within its
+   * thickness in the pixel's (azimuth * sin(polar), polar) chart. Within one
+   * azimuth chunk the polyline stays inside the chunk's knot range (a segment
+   * registers in every chunk it touches), and at the narrowest circle of the
+   * ring's band the stroke reaches k chunks sideways, so a chunk's span is the
+   * knot range of the chunk and its k neighbours on each side, widened by the
+   * thickness. Where the chart compresses past the search budget, the search
+   * reports its frontier rather than a curve point, so the ring claims its
+   * whole band instead.
+   */
+  template <int W, int H, typename ShapeRange>
+  static void build_candidate_table(int n_rings, ShapeRange shapes,
+                                    const int8_t *slot_by_ring,
+                                    CandidateTable<W, H> &table) {
+    using Table = CandidateTable<W, H>;
+    constexpr int C = Table::CHUNKS;
+    constexpr float bin_scale = Table::BINS / math::PI_F;
+    for (auto &cell : table.cells)
+      cell = typename Table::Range{255, 0};
+    float clo[C], chi[C];
+    for (int i = 0; i < n_rings; ++i) {
+      const int s = slot_by_ring[i];
+      if (s < 0)
+        continue;
+      const SDF::DistortedRing &ring = shapes[s];
+      const float *kn = ring.knots;
+      const int n = ring.lut_n;
+      // Chunk c holds segments k with floor(k * C / n) <= c <=
+      // floor((k + 1) * C / n), i.e. knots ceil(c * n / C) - 1 through
+      // ceil((c + 1) * n / C), the last wrapping to knot 0.
+      float gmin = 1e9f, gmax = -1e9f;
+      int k_begin = 0;
+      for (int c = 0; c < C; ++c) {
+        const int k_next = ((c + 1) * n + C - 1) / C;
+        float lo = kn[k_next == n ? 0 : k_next];
+        float hi = lo;
+        for (int k = k_begin; k < k_next; ++k) {
+          lo = __builtin_fminf(lo, kn[k]);
+          hi = __builtin_fmaxf(hi, kn[k]);
+        }
+        clo[c] = lo;
+        chi[c] = hi;
+        gmin = __builtin_fminf(gmin, lo);
+        gmax = __builtin_fmaxf(gmax, hi);
+        k_begin = k_next - 1;
+      }
+      const float reach = ring.thickness + REACH_PAD;
+      const float band_lo = std::max(0.0f, ring.target_angle + gmin - reach);
+      const float band_hi =
+          std::min(math::PI_F, ring.target_angle + gmax + reach);
+      const float sin_min = std::min(sinf(band_lo), sinf(band_hi));
+      bool whole = sin_min * SDF::DistortedRing::MAX_SEARCH_CELLS *
+                       ring.knot_cell_angle <
+                   reach;
+      int k_chunks = C;
+      if (!whole) {
+        const float kf = reach / (math::TWO_PI_F * sin_min) * C;
+        whole = kf >= C / 2;
+        if (!whole)
+          k_chunks = static_cast<int>(kf) + 1;
+      }
+      for (int c = 0; c < C; ++c) {
+        float lo = gmin, hi = gmax;
+        if (!whole) {
+          lo = clo[c];
+          hi = chi[c];
+          for (int j = 1; j <= k_chunks; ++j) {
+            const int cl = c - j < 0 ? c - j + C : c - j;
+            const int cr = c + j >= C ? c + j - C : c + j;
+            lo = std::min(lo, std::min(clo[cl], clo[cr]));
+            hi = std::max(hi, std::max(chi[cl], chi[cr]));
+          }
+        }
+        const float p0 = ring.target_angle + lo - reach;
+        const float p1 = ring.target_angle + hi + reach;
+        const int b0 = static_cast<int>(std::max(0.0f, p0) * bin_scale);
+        int b1 = static_cast<int>(std::min(math::PI_F, p1) * bin_scale);
+        if (b1 > Table::BINS - 1)
+          b1 = Table::BINS - 1;
+        // Rings arrive in ascending order: the first to reach a cell sets its
+        // lo (255 until then), the latest its hi.
+        typename Table::Range *cell = &table.cells[b0 * C + c];
+        for (int b = b0; b <= b1; ++b, cell += C) {
+          cell->lo = cell->lo < i ? cell->lo : static_cast<uint8_t>(i);
+          cell->hi = static_cast<uint8_t>(i);
+        }
+      }
+    }
+  }
+
+  /**
+   * @brief Rasterizes every ring of a same-axis stack in one scan over the
+   *        union band.
    * @tparam W Canvas width in pixels.
    * @tparam H Canvas height in pixels.
    * @tparam PipelineT Plotting pipeline type.
    * @tparam RingShaderT Per-ring shader: shader(int slot, const Vector &p,
    *         Fragment &f), with f populated as by process_pixel (v0 = azimuth
-   *         t, v1 = raw distance, v2 = stroke coverage).
+   *         t in [0, 1), v1 = raw distance, v2 = stroke coverage).
    * @param pipeline Plotting pipeline receiving the final colors.
    * @param canvas Destination canvas.
-   * @param n_rings Stack size: ring i's centerline colatitude about the shared
-   *        axis must be PI * (i + 1) / (n_rings + 1).
+   * @param n_rings Stack size; at most CandidateTable::MAX_RINGS.
    * @param shapes n_slots knot-mode rings sharing one Basis and zero phase, in
-   *        ascending ring order; culled rings are simply absent.
+   *        ascending ring order; culled rings are simply absent. Their knot
+   *        prefilters go unused and may be null.
    * @param slot_by_ring n_rings entries mapping ring index -> slot in shapes,
    *        -1 for culled rings.
    * @param n_slots Number of shapes; at least 1.
+   * @param table Candidate map storage, rebuilt here.
    * @param shader Per-ring fragment shader (see RingShaderT).
    * @details The per-pixel frame shared by every ring at a pixel (axis dot,
-   * fast_acos, fast_atan2) is computed once, the candidate rings fall out of
-   * the frame's polar angle by arithmetic (the stack is evenly spaced), and
-   * each candidate runs its own cos reject + exact polyline distance via
+   * fast_acos, fast_atan2) is computed once, the frame's (polar, azimuth) cell
+   * in the candidate table names the rings that can reach the pixel, and each
+   * candidate runs its own cos reject + exact polyline distance via
    * SDF::DistortedRing::distance_from_frame. Candidates evaluate in ascending
    * ring index, so the pixels plotted, their per-pixel blend order and their
    * colors match rasterizing the rings one by one at pole_lod_aggressiveness 0;
@@ -208,7 +327,8 @@ struct DistortedRingStack {
             typename ShapeRange>
   static void draw(PipelineT &pipeline, Canvas &canvas, int n_rings,
                    ShapeRange shapes, const int8_t *slot_by_ring, int n_slots,
-                   RingShaderT &&shader) {
+                   CandidateTable<W, H> &table, RingShaderT &&shader) {
+    using Table = CandidateTable<W, H>;
     // Spelled inline rather than through check_canvas_dims: the helper is
     // HS_NOINLINE_NOCLONE, and calling out to it from inside this HS_O3 region
     // costs 1,616 B of ITCM.
@@ -216,30 +336,30 @@ struct DistortedRingStack {
              "canvas size differs from the scan's W/H");
     check_pipeline_prepared(pipeline, canvas);
     HS_CHECK(n_slots >= 1, "ring stack needs at least one slot");
+    HS_CHECK(n_rings <= Table::MAX_RINGS,
+             "ring stack exceeds the candidate table's ring index range");
     check_stack_preconditions(n_rings, shapes, slot_by_ring, n_slots);
     if (!math::TrigLUT<W, H>::initialized)
       math::TrigLUT<W, H>::init();
     const float *cos_theta = math::TrigLUT<W, H>::sin_theta.data() + W / 4;
     const float *sin_theta = math::TrigLUT<W, H>::sin_theta.data();
 
-    // Union band and the global candidate half-width.
     int y_lo = H, y_hi = -1;
-    float b_max = 0.0f;
     for (int s = 0; s < n_slots; ++s) {
       auto b = shapes[s].template get_vertical_bounds<H>();
       y_lo = std::min(y_lo, b.y_min);
       y_hi = std::max(y_hi, b.y_max);
-      b_max = std::max(b_max, shapes[s].max_thickness);
     }
     const auto &cr = source_clip<W, H>(pipeline, canvas);
     const auto xc = cr.x_clip();
     y_lo = std::max(y_lo, cr.render_y_start());
     y_hi = std::min(y_hi, cr.render_y_end() - 1);
 
-    // Window pad: fast_acos error plus float theta/index inversion slop; a
-    // ring wrongly windowed in is discarded by its own exact cos reject.
-    const float b_win = b_max + WINDOW_PAD;
-    const float inv_delta = (n_rings + 1) / math::PI_F;
+    {
+      HS_PROFILE(ring_stack_table);
+      build_candidate_table<W, H>(n_rings, shapes, slot_by_ring, table);
+    }
+    constexpr float bin_scale = Table::BINS / math::PI_F;
 
     // The per-ring path suppresses the aliased exact-pole rows
     // (suppress_pole_fill); its full-scan fallback for a near-canvas-pole
@@ -251,37 +371,40 @@ struct DistortedRingStack {
     const math::Vector axis_u = shapes[0].u;
     const math::Vector axis_w = shapes[0].w;
 
-    SDF::DistanceResult res;
-    Fragment frag;
     for (int y = y_lo; y <= y_hi; ++y) {
       const float sp = math::TrigLUT<W, H>::sin_phi[y];
       const float cp = math::TrigLUT<W, H>::cos_phi[y];
       if (skip_pole_rows && std::abs(ap.r_val * sp) < SDF::INTERVAL_DENOM_EPS)
         continue;
-      walk_clip_columns<W>(xc, [&](int x) {
+      walk_clip_columns_once<W>(xc, [&](int x) __attribute__((always_inline)) {
         math::Vector p(sp * cos_theta[x], cp, sp * sin_theta[x]);
         const float d = math::dot(p, axis_v);
         const float polar = math::fast_acos(hs::clamp(d, -1.0f, 1.0f));
-        int ilo = static_cast<int>(ceilf((polar - b_win) * inv_delta)) - 1;
-        int ihi = static_cast<int>(floorf((polar + b_win) * inv_delta)) - 1;
-        if (ilo < 0)
-          ilo = 0;
-        if (ihi > n_rings - 1)
-          ihi = n_rings - 1;
-        if (ilo > ihi)
-          return;
         const float dot_u = math::dot(p, axis_u);
         const float dot_w = math::dot(p, axis_w);
         float azimuth = math::fast_atan2(dot_w, dot_u);
         if (azimuth < 0)
           azimuth += 2 * math::PI_F;
-        const float t_norm = math::wrap_t(azimuth / (2 * math::PI_F));
+        // azimuth is in [0, 2 PI], so wrap_t reduces to folding 1 onto 0.
+        float t_norm = azimuth / (2 * math::PI_F);
+        t_norm = t_norm >= 1.0f ? 0.0f : t_norm;
+        int bin = static_cast<int>(polar * bin_scale);
+        if (bin > Table::BINS - 1)
+          bin = Table::BINS - 1;
+        int chunk = static_cast<int>(t_norm * Table::CHUNKS);
+        if (chunk > Table::CHUNKS - 1)
+          chunk = Table::CHUNKS - 1;
+        const typename Table::Range cell =
+            table.cells[bin * Table::CHUNKS + chunk];
+        if (cell.lo > cell.hi)
+          return;
         const float sin_polar =
             sqrtf(std::max(1.0f - d * d, SDF::DistortedRing::POLE_SIN2_FLOOR));
-        for (int i = ilo; i <= ihi; ++i) {
+        for (int i = cell.lo; i <= cell.hi; ++i) {
           const int s = slot_by_ring[i];
           if (s < 0)
             continue;
+          SDF::DistanceResult res;
           shapes[s].distance_from_frame(d, polar, sin_polar, t_norm, res);
           const float dd = res.dist;
           if (dd >= 0.0f)
@@ -291,7 +414,7 @@ struct DistortedRingStack {
           const float alpha = aa > 0.0f ? math::quintic_kernel(-dd / aa) : 0.0f;
           if (alpha <= MIN_ALPHA)
             continue;
-          frag.color = Color4(0, 0, 0, 0);
+          Fragment frag;
           frag.pos = p;
           frag.v0 = res.t;
           frag.v1 = res.raw_dist;
@@ -300,9 +423,18 @@ struct DistortedRingStack {
           frag.size = res.size;
           frag.age = 0;
           shader(s, p, frag);
-          if (frag.color.alpha > MIN_ALPHA)
-            pipeline.plot(canvas, x, y, frag.color.color, frag.age,
-                          frag.color.alpha * alpha);
+          if (frag.color.alpha <= MIN_ALPHA)
+            continue;
+          // The walk visits only clip-admitted columns of render rows.
+          const float a = frag.color.alpha * alpha;
+          if constexpr (requires {
+                          pipeline.plot_in_bounds(
+                              canvas, x, y, frag.color.color, frag.age, a);
+                        })
+            pipeline.plot_in_bounds(canvas, x, y, frag.color.color, frag.age,
+                                    a);
+          else
+            pipeline.plot(canvas, x, y, frag.color.color, frag.age, a);
         }
       });
     }

@@ -7,7 +7,8 @@
  * Coverage:
  *   - clamp_phi and the centered-sector angle helper
  *   - Spherical SDF primitives: Ring, DistortedRing and FlatDistortedRing
- *     (polyline distance vs brute force, knot extrema, far sentinel),
+ *     (polyline distance vs brute force, knot extrema, far sentinel, the
+ *     ring-stack frame distance vs distance()),
  *     PlanarPolygon, SphericalPolygon (exact vs sine distance), Star, Flower,
  *     Line (arc, endpoints, degenerate and near-coincident), and the inverted
  *     (complement) fill
@@ -522,6 +523,69 @@ inline void test_distorted_ring_past_reach_reports_far_sentinel() {
   const float solid = SDF::distance_of(poly, p).dist;
   HS_EXPECT_LT(solid, -0.1f);
   HS_EXPECT_NEAR(SDF::distance_of(carved, p).dist, solid, 1e-6f);
+}
+
+/**
+ * @brief Verifies distance_from_frame() lights exactly where distance() does,
+ *        at the same distance.
+ * @details The ring-stack scan evaluates rings through distance_from_frame(),
+ *          which skips the chunk prefilter and runs a fixed-window search when
+ *          a knot cell spans at least half the stroke; distance() runs the
+ *          prefiltered outward search. Sweeps a band of pixels around knot
+ *          rings whose cells range from a sliver of the stroke to several
+ *          strokes wide, and down to the axis where the search budget caps, so
+ *          both paths and the fallback run. Where either lights (dist < 0) both
+ *          must, with raw distances equal to float rounding.
+ */
+inline void test_distorted_ring_frame_distance_matches_distance() {
+  const math::Basis basis = math::make_basis(
+      math::Quaternion(), math::Vector(0.3f, 1.0f, 0.2f).normalized());
+  size_t lit = 0;
+  for (int lut_n : {16, 97, 288}) {
+    std::vector<float> knots(lut_n + 1);
+    for (int k = 0; k <= lut_n; ++k) {
+      const float t = static_cast<float>(k % lut_n) / lut_n;
+      knots[k] = 0.08f * sinf(2.0f * math::PI_F * 3.0f * t) +
+                 0.03f * cosf(2.0f * math::PI_F * 7.0f * t);
+    }
+    for (float thickness : {0.01f, 0.03f, 0.12f}) {
+      for (float radius : {0.02f, 0.5f, 1.0f, 1.9f}) {
+        SDF::KnotPrefilter prefilter;
+        const SDF::DistortedRing ring(basis, radius, thickness, knots.data(),
+                                      lut_n, 0.0f, prefilter);
+        const float target = radius * (math::PI_F / 2.0f);
+        for (int i = 0; i <= 64; ++i) {
+          const float polar =
+              hs::clamp(target - 0.25f + 0.5f * i / 64.0f, 0.0f, math::PI_F);
+          for (int k = 0; k < 256; ++k) {
+            const float a = 2.0f * math::PI_F * (k + 0.37f) / 256.0f;
+            const math::Vector p =
+                (basis.v * cosf(polar)) +
+                ((basis.u * cosf(a)) + (basis.w * sinf(a))) * sinf(polar);
+            SDF::DistanceResult full;
+            ring.distance<true>(p, full);
+            const float d = math::dot(p, ring.normal);
+            const float frame_polar =
+                math::fast_acos(hs::clamp(d, -1.0f, 1.0f));
+            const float t_norm = math::wrap_t(
+                SDF::basis_azimuth(p, ring.u, ring.w, 0.0f) / math::TWO_PI_F);
+            const float sin_polar = sqrtf(
+                std::max(1.0f - d * d, SDF::DistortedRing::POLE_SIN2_FLOOR));
+            SDF::DistanceResult frame;
+            ring.distance_from_frame(d, frame_polar, sin_polar, t_norm, frame);
+            if (full.dist < 0.0f || frame.dist < 0.0f) {
+              HS_CONTEXT("lut_n / sample", lut_n, (i << 8) | k);
+              HS_EXPECT_LT(full.dist, 0.0f);
+              HS_EXPECT_LT(frame.dist, 0.0f);
+              HS_EXPECT_NEAR(frame.raw_dist, full.raw_dist, 1e-6f);
+              ++lit;
+            }
+          }
+        }
+      }
+    }
+  }
+  HS_EXPECT_GT(lit, static_cast<size_t>(10000));
 }
 
 // ============================================================================
@@ -3548,6 +3612,7 @@ inline int run_sdf_tests() {
   test_distorted_ring_closes_without_a_sentinel();
   test_distorted_ring_knot_extrema_tighten_band();
   test_distorted_ring_past_reach_reports_far_sentinel();
+  test_distorted_ring_frame_distance_matches_distance();
 
   test_polygon_at_center_inside();
   test_polygon_far_point_outside();

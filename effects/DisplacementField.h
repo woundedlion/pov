@@ -69,10 +69,10 @@ public:
     // Zeroed, not raw: a culled azimuth chunk leaves its columns unbaked.
     hue_pool = persistent_arena.make_n<Pixel>(RING_SLOTS * (W + 1));
     slot_frag_alpha = persistent_arena.allocate_n<float>(RING_SLOTS);
-    slot_lut_n = persistent_arena.allocate_n<int>(RING_SLOTS);
+    slot_lut_nf = persistent_arena.allocate_n<float>(RING_SLOTS);
     slot_by_ring = persistent_arena.allocate_n<int8_t>(RING_SLOTS);
     shape_storage = persistent_arena.make<ShapeStorage>();
-    prefilters = persistent_arena.allocate_n<SDF::KnotPrefilter>(RING_SLOTS);
+    candidates = persistent_arena.allocate_n<CandidateTable>(1);
     chunk_cos = persistent_arena.allocate_n<float>(BAKE_CHUNKS);
     chunk_sin = persistent_arena.allocate_n<float>(BAKE_CHUNKS);
     for (int c = 0; c < BAKE_CHUNKS; ++c) {
@@ -216,12 +216,13 @@ private:
                      float sin_t, float band_r) const {
     HS_PROFILE(df_chunk_cull);
     const float chunk_reach = (math::PI_F / BAKE_CHUNKS) * sin_t + band_r;
+    const float sin_reach = sinf(std::min(chunk_reach, math::PI_F));
     uint32_t raw = 0u;
     for (int c = 0; c < BAKE_CHUNKS; ++c) {
       math::Vector mid =
           (basis.v * cos_t) +
           ((basis.u * chunk_cos[c]) + (basis.w * chunk_sin[c])) * sin_t;
-      if (Plot::cap_may_touch_clip<H>(clip(), mid, chunk_reach))
+      if (Plot::cap_may_touch_clip<H>(clip(), mid, chunk_reach, sin_reach))
         raw |= 1u << c;
     }
     if (!raw)
@@ -467,8 +468,8 @@ private:
 
       ::new (static_cast<void *>(&(*shape_storage)[n_slots].ring))
           SDF::DistortedRing(basis, radius, params.thickness, slut, lut_n, 0.0f,
-                             prefilters[n_slots]);
-      slot_lut_n[n_slots] = lut_n;
+                             nullptr);
+      slot_lut_nf[n_slots] = static_cast<float>(lut_n);
       slot_frag_alpha[n_slots] = ring_color.alpha * opacity * params.alpha;
       slot_by_ring[i] = static_cast<int8_t>(n_slots);
       ++n_slots;
@@ -478,10 +479,10 @@ private:
       return;
 
     // v2 is the stroke coverage the scan applies again on plot, so the ring
-    // edge ramps as coverage squared.
+    // edge ramps as coverage squared. The stack hands v0 over in [0, 1).
     auto ring_shader = [this](int s, const math::Vector &, Fragment &f) {
       const Pixel *hue = hue_pool + s * (W + 1);
-      float x = math::wrap_t(f.v0) * slot_lut_n[s];
+      float x = f.v0 * slot_lut_nf[s];
       int j = static_cast<int>(x);
       f.color = Color4(
           hue[j].lerp16(hue[j + 1], frac_to_q16(math::quintic_kernel(x - j))),
@@ -489,7 +490,8 @@ private:
     };
     HS_PROFILE(df_fused_scan);
     Scan::DistortedRingStack::draw<W, H>(filters, canvas, n_rings, shapes,
-                                         slot_by_ring, n_slots, ring_shader);
+                                         slot_by_ring, n_slots, *candidates,
+                                         ring_shader);
 
     // ScalarFn's inplace_function member is not trivially destructible;
     // placement-built shapes must be destroyed before the storage is reused.
@@ -716,7 +718,7 @@ private:
       nullptr; /**< RING_SLOTS x (W + 1) pooled hue-rotated ring colors, aligned with shift_pool. */
   float *slot_frag_alpha =
       nullptr; /**< Per-slot fragment alpha (ring alpha x sprite fade x Alpha slider). */
-  int *slot_lut_n = nullptr; /**< Per-slot bake column count. */
+  float *slot_lut_nf = nullptr; /**< Per-slot bake column count. */
   int8_t *slot_by_ring =
       nullptr; /**< Ring index -> slot, -1 for culled rings; rebuilt per frame. */
   union RingSlot {
@@ -734,8 +736,9 @@ private:
     }
   };
   ShapeStorage *shape_storage = nullptr;
-  SDF::KnotPrefilter *prefilters =
-      nullptr; /**< RING_SLOTS knot prefilters, one per shape slot. */
+  using CandidateTable = Scan::DistortedRingStack::CandidateTable<W, H>;
+  CandidateTable *candidates =
+      nullptr; /**< Fused scan's per-frame ring candidate map. */
   float *chunk_cos =
       nullptr; /**< cos of each bake chunk's mid-azimuth; baked once at init. */
   float *chunk_sin =
@@ -800,12 +803,13 @@ private:
                 "W-scaled slider range at this build resolution");
 
   // init() allocates the per-slot bake pools, the ball prefilter scratch, the
-  // hue table, the chunk-azimuth table, the ring shapes, and both transformer
-  // pools from the persistent arena.
+  // hue table, the chunk-azimuth table, the ring shapes, the scan's candidate
+  // table, and both transformer pools from the persistent arena.
   static constexpr size_t FOOTPRINT_BYTES =
       RING_SLOTS * (W + 1) * (sizeof(float) + sizeof(Pixel)) +
-      RING_SLOTS * (sizeof(float) + sizeof(int) + sizeof(int8_t) +
-                    sizeof(SDF::DistortedRing) + sizeof(SDF::KnotPrefilter)) +
+      RING_SLOTS *
+          (2 * sizeof(float) + sizeof(int8_t) + sizeof(SDF::DistortedRing)) +
+      sizeof(CandidateTable) +
       MAX_BALLS * (3 * sizeof(float) + sizeof(int) +
                    sizeof(const Animation::BumpParams *)) +
       (HUE_TABLE_SIZE + 1) * sizeof(Pixel) + 2 * BAKE_CHUNKS * sizeof(float) +
