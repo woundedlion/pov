@@ -197,6 +197,71 @@ inline PreparedTrace prepare_trace(const FrameState &frame) {
           {1.0f / p.far_distance, 1.5f * p.wire_radius * near_scale,
            1.0f / (p.near_fade * near_scale), frame.depth_palette}};
 }
+/**
+ * @brief Composites one ray's plane crossings front to back.
+ * @details Matches Raycast::shade_events over SDF::Lattice::Events: crossings
+ * merge in distance order, lower axes first on ties, and crossings within the
+ * relative tolerance of a group's first distance form one layer with that
+ * distance and the group's largest coverage. The stream capacity bounds every
+ * ray below the candidate and layer budgets, so neither is tracked.
+ */
+template <bool SLICE_4D, uint8_t SHELLS>
+__attribute__((always_inline)) inline LayerComposite
+composite_crossings(const math::Vector &normal, const PreparedTrace &prepared) {
+  HS_PROFILE_DEEP(hl_shade);
+  constexpr float RELATIVE_TOLERANCE = 1.0e-4f;
+  static_assert(DIMENSIONS * SDF::Lattice::MAX_SHELLS <=
+                Raycast::TraceLimits{}.max_layers);
+  SDF::Lattice::Events<SLICE_4D, SHELLS> events(normal, prepared.lattice);
+  std::array<float, DIMENSIONS> next;
+  for (int axis = 0; axis < DIMENSIONS; ++axis)
+    next[axis] =
+        events.cursors[axis].active ? events.cursors[axis].distance : INFINITY;
+  LayerComposite composite;
+  bool pending = false;
+  float pending_t = 0.0f;
+  float pending_coverage = 0.0f;
+  float group_end = 0.0f;
+  while (true) {
+    HS_PROFILE_DEEP(hl_event_step);
+    int first = 0;
+    for (int axis = 1; axis < DIMENSIONS; ++axis)
+      if (next[axis] < next[first])
+        first = axis;
+    const float T = next[first];
+    if (!(T < INFINITY))
+      break;
+    if (pending && T > group_end) {
+      HS_PROFILE_DEEP(hl_layer_composite);
+      composite.add(prepared.appearance.color(pending_t),
+                    pending_coverage * prepared.appearance.opacity(pending_t));
+      pending = false;
+      if (composite.saturated())
+        return composite;
+    }
+    const float COVERAGE = events.candidate(first).coverage;
+    if (COVERAGE > 0.0f) {
+      if (!pending) {
+        pending = true;
+        pending_t = T;
+        pending_coverage = COVERAGE;
+        group_end = T + RELATIVE_TOLERANCE * std::max(1.0f, T);
+      } else if (COVERAGE > pending_coverage) {
+        pending_coverage = COVERAGE;
+      }
+    }
+    events.advance(first);
+    next[first] = events.cursors[first].active ? events.cursors[first].distance
+                                               : INFINITY;
+  }
+  if (pending) {
+    HS_PROFILE_DEEP(hl_layer_composite);
+    composite.add(prepared.appearance.color(pending_t),
+                  pending_coverage * prepared.appearance.opacity(pending_t));
+  }
+  return composite;
+}
+
 template <bool SLICE_4D = false, uint8_t SHELLS = 0> struct Renderer {
   static PreparedTrace prepare(const FrameState &frame) {
     return prepare_trace(frame);
@@ -204,14 +269,14 @@ template <bool SLICE_4D = false, uint8_t SHELLS = 0> struct Renderer {
   __attribute__((always_inline)) static Color4
   shade(const math::Vector &normal, const FrameState &,
         const PreparedTrace &prepared) {
-    HS_PROFILE_DEEP(hl_shade);
-    SDF::Lattice::Events<SLICE_4D, SHELLS> events(normal, prepared.lattice);
-    Raycast::TraceLimits limits;
-    limits.max_candidates =
-        DIMENSIONS * (SHELLS ? SHELLS : SDF::Lattice::MAX_SHELLS);
-    return Raycast::shade_events(events, {0, prepared.lattice.far_distance},
-                                 limits, prepared.appearance)
-        .color;
+    return composite_crossings<SLICE_4D, SHELLS>(normal, prepared).finish();
+  }
+  /** @brief shade() premultiplied by its alpha, without the round trip. */
+  __attribute__((always_inline)) static Pixel
+  shade_premultiplied(const math::Vector &normal,
+                      const PreparedTrace &prepared) {
+    return composite_crossings<SLICE_4D, SHELLS>(normal, prepared)
+        .premultiplied();
   }
 };
 using RenderPipeline =
@@ -525,22 +590,22 @@ public:
       return;
     }
 #endif
-    const auto frame = HyperLatticeDetail::RenderPipeline::prepare(context);
+    const auto prepared = HyperLatticeDetail::prepare_trace(context);
     {
       HS_PROFILE(hl_shader_draw);
       static_assert(uses_specialized_slice(preset_params(1)),
                     "preset 1 no longer selects the specialized slice trace");
-      if (uses_specialized_slice(frame.ctx.params)) {
+      if (uses_specialized_slice(params)) {
         Scan::Shader::draw_cached<W, H, 1>(
-            canvas, [&frame](const math::Vector &view) HS_HOT_FLASH_MEMBER {
-              return HyperLatticeDetail::SpecializedRenderPipeline<2>::evaluate(
-                  view, frame.ctx, frame.prepared);
+            canvas, [&prepared](const math::Vector &view) HS_HOT_FLASH_MEMBER {
+              return HyperLatticeDetail::Renderer<true>::shade_premultiplied(
+                  view, prepared);
             });
       } else {
         Scan::Shader::draw_cached<W, H, 1>(
-            canvas, [&frame](const math::Vector &view) HS_HOT_FLASH_MEMBER {
-              return HyperLatticeDetail::RenderPipeline::evaluate(
-                  view, frame.ctx, frame.prepared);
+            canvas, [&prepared](const math::Vector &view) HS_HOT_FLASH_MEMBER {
+              return HyperLatticeDetail::Renderer<>::shade_premultiplied(
+                  view, prepared);
             });
       }
     }
