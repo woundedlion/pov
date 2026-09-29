@@ -64,6 +64,9 @@ protected branch's `CI green` status is the authoritative correctness gate.
   required tool missing for an applicable change fails the commit rather than
   skipping the check. Configuring the `tests` preset points `core.hooksPath` at
   `.githooks` for you.
+  Changes to the profile archive, its validator, or its effect roster inputs
+  also run the archive structure and coverage gate on that staged snapshot,
+  using the pinned Node version.
 - **Shell edits:** the pre-commit hook runs `shellcheck -x` on staged `.sh` files and `.githooks/` scripts. Install its pinned prerequisite with `pip install --require-hashes -r requirements/shellcheck.txt`.
 - **clang-format is pinned to major 22.** A different major reflows unrelated
   code, so the hook fails rather than trusting an off-major verdict. Install the
