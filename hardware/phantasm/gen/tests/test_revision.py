@@ -11,7 +11,7 @@ import pcb  # noqa: E402
 import sexp  # noqa: E402
 from kicad_common import F  # noqa: E402
 
-PROJ = GEN.parent
+PROJ = GEN.parent / "1.1"
 ROUTED = PROJ / "phantasm.kicad_pcb"
 SCH = PROJ / "phantasm.kicad_sch"
 

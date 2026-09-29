@@ -394,14 +394,8 @@ files define line-ending policy and working-artifact exclusions.
 │   ├── pov_segmented.h         Multi-Teensy segmented POV driver (Phantasm)
 │   └── phantasm/               KiCad 10 project for the per-segment carrier board
 │       ├── README.md               Project entry point and validation matrix
-│       ├── phantasm.kicad_sch      Schematic — parts, values, footprints, full connectivity
-│       ├── phantasm.kicad_pcb      Routed PCB (fabrication source of truth)
-│       ├── phantasm.kicad_pro      KiCad project configuration
-│       ├── phantasm.kicad_sym      Project symbol library
-│       ├── phantasm.pretty/        Project footprint library and 3D model
-│       ├── fp-lib-table / sym-lib-table  KiCad library mappings
-│       ├── quilter_incremental/    Independently tracked incremental-router board project
-│       ├── unplaced/               Net-assigned, unrouted board staged for an autoplacer
+│       ├── 1.1/                    Routed rev 1.1 board, schematic, and project libraries
+│       ├── 1.2/                    Matching rev 1.2 schematic and unplaced Quilter input
 │       └── gen/                    Python design/fabrication tools (`just pcb` runs `fab.py` only)
 │
 ├── targets/                    Per-target entry points

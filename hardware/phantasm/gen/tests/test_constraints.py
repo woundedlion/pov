@@ -4,8 +4,8 @@ import unittest
 from pathlib import Path
 
 GEN = Path(__file__).resolve().parent.parent
-PROJECT = GEN.parent / "phantasm.kicad_pro"
-UNPLACED_PROJECT = GEN.parent / "unplaced" / "phantasm_unplaced.kicad_pro"
+PROJECT = GEN.parent / "1.1" / "phantasm.kicad_pro"
+UNPLACED_PROJECT = GEN.parent / "1.2" / "phantasm.kicad_pro"
 sys.path.insert(0, str(GEN))
 
 from constraints import (DEFAULT_CLASS_MINIMUMS, NEW_LAYOUT_RULES, RULE_MINIMUMS,  # noqa: E402

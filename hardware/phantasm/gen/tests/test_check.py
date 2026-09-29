@@ -42,7 +42,7 @@ def netlist(nets):
 
 
 def committed_board_nets():
-    path = REPO_ROOT / "hardware" / "phantasm" / "phantasm.kicad_pcb"
+    path = REPO_ROOT / "hardware" / "phantasm" / "1.1" / "phantasm.kicad_pcb"
     root = sexp.parse(path.read_text(encoding="utf-8"))[0]
     nets = {}
     for footprint in (

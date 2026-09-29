@@ -5,7 +5,7 @@ from pathlib import Path
 from unittest import mock
 
 GEN = Path(__file__).resolve().parent.parent
-ROUTED = GEN.parent / "phantasm.kicad_pcb"
+ROUTED = GEN.parent / "1.1" / "phantasm.kicad_pcb"
 sys.path.insert(0, str(GEN))
 
 import sexp  # noqa: E402

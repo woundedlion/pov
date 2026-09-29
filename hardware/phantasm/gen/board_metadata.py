@@ -316,7 +316,7 @@ def validate_mechanical_width(metadata):
 
 
 def main(argv=None):
-    base = Path(__file__).resolve().parent.parent
+    base = Path(__file__).resolve().parent.parent / "1.1"
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--board", type=Path, default=base / "phantasm.kicad_pcb")
     parser.add_argument("--readme", type=Path, default=base / "README.md")

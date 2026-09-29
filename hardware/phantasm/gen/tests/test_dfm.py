@@ -99,7 +99,8 @@ class NewProjectMarginsTests(unittest.TestCase):
             rules = updated["board"]["design_settings"]["rules"]
             self.assertEqual(rules["min_silk_clearance"], 0.15)
             self.assertEqual(rules["min_track_width"], 0.4)
-            self.assertEqual(updated["text_variables"], {"CUSTOM": "preserved"})
+            self.assertEqual(updated["text_variables"],
+                         {"CUSTOM": "preserved", "PHANTASM_LAYOUT": "placed"})
             self.assertEqual(updated["sheets"], [["new-root", "Root"]])
 
     def test_changed_footprints_do_not_inherit_fixed_placements(self):
