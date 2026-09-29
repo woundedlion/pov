@@ -96,10 +96,10 @@ public:
   using BaseMesh = Solids::BaseMesh;
   using Params = MindSplatterParams;
 
-  /** Preset policy: an automatic change crossfades the live parameters over
-      48 frames; pause freezes an in-flight crossfade. */
-  static constexpr Segue::Preset::Lerp PRESET_SEGUE{48, math::ease_linear,
-                                                    /*pausable=*/true};
+  /** Every preset departs by crossfading the live parameters over 48
+      frames; pause freezes an in-flight crossfade. */
+  static constexpr Segue::Preset::Lerp DEPARTURE{48, math::ease_linear,
+                                                 /*pausable=*/true};
   static constexpr uint32_t PARAMETER_SCHEMA_VERSION = 1;
   /** Dwell + blend = the 160-frame preset cadence. */
   static constexpr uint16_t PRESET_DWELL_FRAMES = 112;
@@ -165,7 +165,7 @@ public:
 
     // First dwell spans a full cadence period, so the opening preset holds as
     // long as every later one (dwell + blend).
-    hold_initial_preset(PRESET_DWELL_FRAMES + PRESET_SEGUE.frames);
+    hold_initial_preset(PRESET_DWELL_FRAMES + DEPARTURE.frames);
 
     build_particle_system();
     schedule_warp();
@@ -375,44 +375,52 @@ private:
         .friction = 0.85f,
         .well_strength = 0.85f,
         .initial_speed = 0.025f,
-        .angular_speed = 0.2f}},
+        .angular_speed = 0.2f},
+       DEPARTURE},
       {{.base_mesh = BaseMesh::CUBE,
         .friction = 1.0f,
         .well_strength = 9.06f,
         .initial_speed = 0.5f,
-        .angular_speed = 0.069f}},
+        .angular_speed = 0.069f},
+       DEPARTURE},
       {{.base_mesh = BaseMesh::CUBE,
         .friction = 0.9645f,
         .well_strength = 16.280001f,
         .initial_speed = 0.1f,
-        .angular_speed = 1.0f}},
+        .angular_speed = 1.0f},
+       DEPARTURE},
       {{.base_mesh = BaseMesh::OCTAHEDRON,
         .friction = 0.93f,
         .well_strength = 1.74f,
         .initial_speed = 0.1f,
-        .angular_speed = 1.0f}},
+        .angular_speed = 1.0f},
+       DEPARTURE},
       {{.base_mesh = BaseMesh::TETRAHEDRON,
         .friction = 1.0f,
         .well_strength = 4.6f,
         .initial_speed = 0.5f,
         .angular_speed = 0.055f,
-        .warp_scale = 0.0f}},
+        .warp_scale = 0.0f},
+       DEPARTURE},
       {{.base_mesh = BaseMesh::DODECAHEDRON,
         .friction = 1.0f,
         .well_strength = 15.32f,
         .initial_speed = 0.5f,
-        .angular_speed = 0.361f}},
+        .angular_speed = 0.361f},
+       DEPARTURE},
       {{.base_mesh = BaseMesh::CUBE,
         .friction = 0.7465f,
         .well_strength = 1.54f,
         .initial_speed = 0.5f,
-        .angular_speed = 0.164f}},
+        .angular_speed = 0.164f},
+       DEPARTURE},
       {{.base_mesh = BaseMesh::CUBE,
         .friction = 1.0f,
         .well_strength = 4.6f,
         .initial_speed = 0.5f,
         .angular_speed = 0.164f,
-        .warp_scale = 0.0f}},
+        .warp_scale = 0.0f},
+       DEPARTURE},
   }};
   static_assert(all_presets_in_ranges(PRESETS, preset_in_ranges),
                 "a MindSplatter preset drives a param outside its registered "

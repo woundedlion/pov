@@ -77,14 +77,14 @@ public:
     return value;
   }
 
-  /** @brief Params for the preset at index in PRESET_IDS. */
-  static constexpr Params preset_params(size_t index) {
+  /** @brief The preset at index in PRESET_IDS and how it departs. */
+  HS_COLD_MEMBER static constexpr PresetEntry<Params> preset(size_t index) {
     Params value = initial_params();
     if (index == 1) {
       value.color.mapping_frequency = 1.2f;
       value.surface.scale = 3.6627343f;
     }
-    return value;
+    return {value, Segue::Preset::Lerp{480, math::ease_in_out_sin}};
   }
   // clang-format on
   // End generated params.

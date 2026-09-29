@@ -37,7 +37,7 @@ struct LatticeMeltWhiteBox {
   }
   static void clear_timeline(FX &effect) { effect.timeline.clear(); }
   static void drive_transition(FX &effect, float progress) {
-    effect.run_blend(progress);
+    effect.run_transition(progress);
   }
 };
 
@@ -57,8 +57,8 @@ inline void test_lattice_melt_identity_and_presets() {
   shift.hue_shift_amount = 0.25f;
   HS_EXPECT_TRUE(
       (Pullback::hue_rotation_active<Pullback::HueMode::NOISE>(shift)));
-  HS_EXPECT_TRUE(FX::preset_params(0).color.hue_shift_amount != 0.0f);
-  HS_EXPECT_TRUE(FX::preset_params(1).color.hue_shift_amount != 0.0f);
+  HS_EXPECT_TRUE(FX::preset(0).params.color.hue_shift_amount != 0.0f);
+  HS_EXPECT_TRUE(FX::preset(1).params.color.hue_shift_amount != 0.0f);
 
   reset_effect_globals();
   FX effect;
@@ -98,31 +98,32 @@ inline void test_lattice_melt_transition_contract() {
 
   WB::drive_transition(effect, 0.0f);
   HS_EXPECT_NEAR(WB::params(effect).surface.scale,
-                 FX::preset_params(0).surface.scale, 0.0f);
+                 FX::preset(0).params.surface.scale, 0.0f);
 
   WB::drive_transition(effect, 0.25f);
   HS_EXPECT_NEAR(WB::params(effect).surface.scale,
-                 FX::preset_params(0).surface.scale *
-                     powf(FX::preset_params(1).surface.scale /
-                              FX::preset_params(0).surface.scale,
+                 FX::preset(0).params.surface.scale *
+                     powf(FX::preset(1).params.surface.scale /
+                              FX::preset(0).params.surface.scale,
                           0.25f),
                  1e-6f);
 
   WB::drive_transition(effect, 0.5f);
   HS_EXPECT_NEAR(WB::params(effect).surface.scale,
-                 sqrtf(FX::preset_params(0).surface.scale *
-                       FX::preset_params(1).surface.scale),
+                 sqrtf(FX::preset(0).params.surface.scale *
+                       FX::preset(1).params.surface.scale),
                  1e-6f);
 
   WB::drive_transition(effect, 1.0f);
   HS_EXPECT_NEAR(WB::params(effect).surface.scale,
-                 FX::preset_params(1).surface.scale, 0.0f);
+                 FX::preset(1).params.surface.scale, 0.0f);
   HS_EXPECT_TRUE(WB::transition_active(effect));
 
-  for (uint16_t frame = 4; frame < FX::TRANSITION_DURATION; ++frame)
+  for (uint16_t frame = 4;
+       frame < Segue::Preset::frames(FX::preset_departure(0)); ++frame)
     WB::drive_transition(effect, 0.5f);
   HS_EXPECT_NEAR(WB::params(effect).surface.scale,
-                 FX::preset_params(1).surface.scale, 0.0f);
+                 FX::preset(1).params.surface.scale, 0.0f);
   HS_EXPECT_FALSE(WB::transition_active(effect));
 }
 
@@ -168,9 +169,11 @@ inline void test_lattice_melt_overshoot_finishes_on_frame_count() {
   HS_EXPECT_TRUE(WB::advance_preset(effect));
 
   bool saw_overshoot = false;
-  for (uint16_t frame = 1; frame < FX::TRANSITION_DURATION; ++frame) {
-    const float progress = math::ease_out_elastic(static_cast<float>(frame) /
-                                                  FX::TRANSITION_DURATION);
+  for (uint16_t frame = 1;
+       frame < Segue::Preset::frames(FX::preset_departure(0)); ++frame) {
+    const float progress =
+        math::ease_out_elastic(static_cast<float>(frame) /
+                               Segue::Preset::frames(FX::preset_departure(0)));
     WB::drive_transition(effect, progress);
     saw_overshoot |= progress > 1.0f;
     HS_EXPECT_TRUE(WB::transition_active(effect));
@@ -180,7 +183,7 @@ inline void test_lattice_melt_overshoot_finishes_on_frame_count() {
   WB::drive_transition(effect, math::ease_out_elastic(1.0f));
   HS_EXPECT_FALSE(WB::transition_active(effect));
   HS_EXPECT_NEAR(WB::params(effect).surface.scale,
-                 FX::preset_params(1).surface.scale, 0.0f);
+                 FX::preset(1).params.surface.scale, 0.0f);
 }
 
 /**

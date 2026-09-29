@@ -773,8 +773,9 @@ struct FieldCoverageStageFor<FieldCoverageKind::VALUE_CUTOUT, B> {
  * constants; every stage typedef, the render pipeline, shade() and the shared
  * lifecycle — parameter registration, preset choreography, palette cycling,
  * camera walks and noise clocks — are assembled here. Required `Derived`
- * members are the identity constants. Presets resolve through `preset_params`,
- * then `PRESETS`; only single-preset effects may fall back to startup params.
+ * members are the identity constants. Presets and their departures resolve
+ * through `preset(index)`, then `PRESETS`; only single-preset effects may fall
+ * back to startup params.
  * `initial_params` is optional. Other optional members are `ANIMATED_MOBIUS`,
  * `CAMERA_SPIN_RATE` and an `after_composed_init()` hook; `OUTER_NOISE_SEED` /
  * `SOURCE_NOISE_SEED` / `SURFACE_NOISE_SEED` are inherited members an effect
@@ -841,9 +842,6 @@ public:
       "value-cutout coverage requires threshold and softness");
   using FrameState = Pullback::FrameState<ParamsT>;
   using Binding = Pullback::Binding<FrameState>;
-  /** Preset policy: an automatic change crossfades the parameters; pause
-      never freezes an in-flight crossfade. */
-  static constexpr Segue::Preset::Lerp PRESET_SEGUE{480, math::ease_in_out_sin};
   static constexpr bool ANIMATED_PROJECTION = AnimatedProjection;
   /** Whether the effect owns a surface-noise field and seed. */
   static constexpr bool HAS_SURFACE_NOISE =

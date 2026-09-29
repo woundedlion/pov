@@ -564,8 +564,7 @@ inline void test_mindsplatter_full_timeline_retries_transition() {
   WB::saturate_timeline(effect, sink);
   const uint32_t dropped_before = Timeline::dropped_events();
 
-  constexpr int INITIAL_DWELL =
-      MS::PRESET_DWELL_FRAMES + MS::PRESET_SEGUE.frames;
+  constexpr int INITIAL_DWELL = MS::PRESET_DWELL_FRAMES + MS::DEPARTURE.frames;
   for (int f = 0; f < INITIAL_DWELL; ++f)
     WB::tick_choreography(effect);
   HS_EXPECT_EQ(Timeline::dropped_events(), dropped_before + 1);

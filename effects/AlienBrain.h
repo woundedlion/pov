@@ -84,8 +84,8 @@ public:
     return value;
   }
 
-  /** @brief Params for the preset at index in PRESET_IDS. */
-  static constexpr Params preset_params(size_t index) {
+  /** @brief The preset at index in PRESET_IDS and how it departs. */
+  HS_COLD_MEMBER static constexpr PresetEntry<Params> preset(size_t index) {
     Params value = initial_params();
     if (index == 1) {
       value.source.pattern_freq = 3.1447f;
@@ -104,7 +104,7 @@ public:
       value.outer_warp.speed = 0.00559375f;
       value.outer_warp.strength = 1.376f;
     }
-    return value;
+    return {value, Segue::Preset::Lerp{480, math::ease_in_out_sin}};
   }
   // clang-format on
   // End generated params.

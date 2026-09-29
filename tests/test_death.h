@@ -786,80 +786,6 @@ inline void case_timeline_clear_during_step() {
   tl.step(canvas); // t=1: completes -> callback -> clear() while stepping
 }
 
-/** @brief Parameter set of the Segue::Preset::Fade preset-choreography
- * fixture. */
-struct FadeChoreoDeathParams {
-  float level = 0.0f;
-};
-
-/**
- * @brief Segue::Preset::Fade effect for the preset-choreography capacity death
- *        case.
- * @details begin_preset_choreography() is private to the base and reached only
- *          through begin_choreography(), so the fixture exposes arm(); fill()
- *          sets the shared timeline capacity for initial-arm and re-arm traps.
- */
-struct FadeChoreoDeathEffect
-    : public ChoreographedEffect<FadeChoreoDeathEffect, FadeChoreoDeathParams> {
-  using Choreography =
-      ChoreographedEffect<FadeChoreoDeathEffect, FadeChoreoDeathParams>;
-  using Params = FadeChoreoDeathParams;
-
-  static constexpr uint32_t PARAMETER_SCHEMA_VERSION = 1;
-  static constexpr Segue::Preset::Fade PRESET_SEGUE{12, 4};
-  static constexpr uint16_t PRESET_DWELL_FRAMES = 12;
-  static constexpr std::array<PresetEntry<Params>, 2> PRESETS = {
-      {{{0.0f}}, {{1.0f}}}};
-
-  static bool valid_params(const Params &p) {
-    return p.level >= 0.0f && p.level <= 1.0f;
-  }
-
-  FadeChoreoDeathEffect() : Choreography(32, 16) {}
-
-  void draw_frame() override {}
-  void set_preset_opacity(float) {}
-
-  /** @brief Fills the timeline down to @p free slots. */
-  void fill(int free) {
-    while (Timeline::remaining() > free)
-      timeline.add(0,
-                   Animation::Transition(sink, 1.0f, 1000, math::ease_linear));
-  }
-
-  /** @brief Arms the choreography, which the Fade policy routes into the
-      envelope loop. */
-  void arm() { begin_choreography(); }
-  void tick(Canvas &canvas) { timeline.step(canvas); }
-
-  float sink = 0.0f; /**< Sink the filler animations write. */
-};
-
-/**
- * @brief Death case: arming a Segue::Preset::Fade preset choreography without
- *        four free timeline slots must trap.
- * @details Animation surface — the envelope loop re-arms itself from its own
- *          advance timer, so a dropped add would end the choreography for good
- *          instead of degrading it. The budget guard traps at the arm.
- */
-inline void case_preset_choreography_no_slots() {
-  effects_tests::reset_effect_globals();
-  FadeChoreoDeathEffect effect;
-  effect.fill(opaque(3));
-  effect.arm();
-}
-
-/** @brief Death case: a full timeline rejects a Fade loop's re-arm. */
-inline void case_preset_choreography_rearm_no_slots() {
-  effects_tests::reset_effect_globals();
-  FadeChoreoDeathEffect effect;
-  effect.arm();
-  effect.fill(opaque(1));
-  Canvas canvas(effect);
-  for (int i = 0; i < 13; ++i)
-    effect.tick(canvas);
-}
-
 /** @brief Death case: finite parameter animations reject the -1 sentinel. */
 inline void case_finite_param_perpetual_duration() {
   float value = 0.0f;
@@ -5007,15 +4933,6 @@ inline const Case *all_cases(int &n) {
            "core/animation/timeline.h",
            "(!stepping) clear() from inside step() would destroy the animation "
            "whose callback is running"},
-          {"preset_choreography_no_slots", case_preset_choreography_no_slots,
-           "core/control/choreography.h",
-           "(Timeline::remaining() >= 4) preset choreography: the steady-state peak "
-           "needs four timeline slots, "},
-          {"preset_choreography_rearm_no_slots",
-           case_preset_choreography_rearm_no_slots,
-           "core/control/choreography.h",
-           "(Timeline::remaining() >= 2) preset choreography: the envelope sprite "
-           "and its advance timer need two timeline slots, "},
           {"timeline_clear_hook_adds_event",
            case_timeline_clear_hook_adds_event, "core/animation/timeline.h",
            "(global_timeline_num_events == event_count) clear hook added or "
@@ -5687,8 +5604,7 @@ inline const Case *all_cases(int &n) {
           {"sdf_line_negative_thickness", case_sdf_line_negative_thickness,
            "core/render/sdf/shapes.h",
            "(thickness >= 0.0f) Line: negative stroke half-width"},
-          {"chain_zero_alignment",
-           case_chain_zero_alignment, "core/render/pullback/interpreter.h", "(layout.align != 0 && (layout.align & (layout.align - 1)) == 0 && layout.align <= alignof(std::max_align_t)) ChainProgram::bind_storage: invalid block alignment"},
+          {"chain_zero_alignment", case_chain_zero_alignment, "core/render/pullback/interpreter.h", "(layout.align != 0 && (layout.align & (layout.align - 1)) == 0 && layout.align <= alignof(std::max_align_t)) ChainProgram::bind_storage: invalid block alignment"},
           {"chain_non_power_alignment", case_chain_non_power_alignment,
            "core/render/pullback/interpreter.h",
            "(layout.align != 0 && (layout.align & (layout.align - 1)) == 0 && layout.align <= alignof(std::max_align_t)) ChainProgram::bind_storage: invalid block alignment"},
@@ -6457,7 +6373,6 @@ inline constexpr GuardGapAllowance GUARD_GAP_ALLOW[] = {
     {"core/color/generative_palette.h", 4},
     {"core/color/palette_cycler.h", 8},
     {"core/containers/static_circular_buffer.h", 3},
-    {"core/control/choreography.h", 1},
     {"core/control/param_host.h", 15},
     {"core/control/preset_host.h", 2},
     {"core/engine/memory.h", 1},

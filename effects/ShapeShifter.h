@@ -152,6 +152,7 @@ public:
       HS_PROFILE(ss_timeline_step);
       timeline.step(canvas);
     }
+    step_choreography();
     advance_phase();
     plot_filters.prepare(canvas);
     draw_all(canvas);
@@ -181,6 +182,7 @@ private:
   using Choreography::params;
   using Choreography::register_animated_param;
   using Choreography::register_param;
+  using Choreography::step_choreography;
   using Choreography::timeline;
 
   /** @brief Adopts a snap target; the radial sweep restarts at phase zero. */
@@ -190,7 +192,7 @@ private:
     phase = 0.0f;
   }
 
-  /** @brief Receives the Fade policy's envelope each frame. */
+  /** @brief Receives a fading departure's opacity each frame. */
   void set_preset_opacity(float value) { preset_opacity = value; }
 
   static constexpr float ALPHA_MIN = 0.0f;
@@ -202,15 +204,13 @@ private:
   static constexpr float SPEED_MIN = 0.0f;
   static constexpr float SPEED_MAX = 0.16f;
   static constexpr int PRESET_FRAMES = 240;
-  static constexpr int PRESET_SEGUE_FRAMES = 16;
-  /** Fade preset policy: params snap inside the envelope's dark frame, so the
-      two parameter sets never render on the same frame. */
-  static constexpr Segue::Preset::Fade PRESET_SEGUE{PRESET_FRAMES,
-                                                    PRESET_SEGUE_FRAMES / 2};
+  /** Every preset departs through black over 16 frames, so the two parameter
+      sets never render on the same frame. */
+  static constexpr Segue::Preset::Fade DEPARTURE{16};
   static constexpr uint32_t PARAMETER_SCHEMA_VERSION = 1;
-  /** Required by the base's snap path; the dwell countdown never runs under a
-      Fade policy. */
-  static constexpr uint16_t PRESET_DWELL_FRAMES = PRESET_FRAMES;
+  /** Dwell + departure = the 240-frame preset cadence. */
+  static constexpr uint16_t PRESET_DWELL_FRAMES =
+      PRESET_FRAMES - DEPARTURE.frames;
 
   static bool valid_params(const Params &p) { return preset_in_ranges(p); }
 
@@ -800,26 +800,35 @@ private:
   static constexpr std::array<PresetEntry<Params>, PRESET_COUNT> PRESETS = {{
       {{ShapeType::PLANAR_STAR, 208.0f, 7.745f, PhaseFunction::SINE, 1.0f,
         0.016f, 0.0f, AlphaFalloff::TOWARD_EQUATOR,
-        RadiusSpacing::SCREEN_BALANCED}},
+        RadiusSpacing::SCREEN_BALANCED},
+       DEPARTURE},
       {{ShapeType::SPHERICAL_POLYGON, 74.644997f, 3.0f, PhaseFunction::SINE,
         1.0f, 0.0318f, 0.0f, AlphaFalloff::CONSTANT_HALF,
-        RadiusSpacing::UNIFORM}},
+        RadiusSpacing::UNIFORM},
+       DEPARTURE},
       {{ShapeType::PLANAR_STAR, 43.327999f, 6.562f, PhaseFunction::SINE, 1.0f,
-        0.0142f, 0.0f, AlphaFalloff::TOWARD_EQUATOR, RadiusSpacing::UNIFORM}},
+        0.0142f, 0.0f, AlphaFalloff::TOWARD_EQUATOR, RadiusSpacing::UNIFORM},
+       DEPARTURE},
       {{ShapeType::FLOWER, 70.0f, 3.0f, PhaseFunction::SINE, 1.0f, 0.0186f,
-        0.0f, AlphaFalloff::CONSTANT_HALF, RadiusSpacing::UNIFORM}},
+        0.0f, AlphaFalloff::CONSTANT_HALF, RadiusSpacing::UNIFORM},
+       DEPARTURE},
       {{ShapeType::PLANAR_STAR, 72.0f, 4.417f, PhaseFunction::SINE, 1.0f,
-        0.0077f, 0.0f, AlphaFalloff::TOWARD_EQUATOR, RadiusSpacing::UNIFORM}},
+        0.0077f, 0.0f, AlphaFalloff::TOWARD_EQUATOR, RadiusSpacing::UNIFORM},
+       DEPARTURE},
       {{ShapeType::SPHERICAL_POLYGON, 128.0f, 5.561f, PhaseFunction::SINE, 4.0f,
-        0.0405f, 1.0f, AlphaFalloff::CONSTANT_HALF, RadiusSpacing::UNIFORM}},
+        0.0405f, 1.0f, AlphaFalloff::CONSTANT_HALF, RadiusSpacing::UNIFORM},
+       DEPARTURE},
       {{ShapeType::SPHERICAL_POLYGON, 144.0f, 4.001f, PhaseFunction::SINE,
         2.377f, 0.027086f, 0.0f, AlphaFalloff::CONSTANT_HALF,
-        RadiusSpacing::UNIFORM}},
+        RadiusSpacing::UNIFORM},
+       DEPARTURE},
       {{ShapeType::SPHERICAL_POLYGON, 144.0f, 3.195f, PhaseFunction::SINE,
         7.0696f, 0.0113f, 0.0f, AlphaFalloff::CONSTANT_HALF,
-        RadiusSpacing::UNIFORM}},
+        RadiusSpacing::UNIFORM},
+       DEPARTURE},
       {{ShapeType::FLOWER, 72.0f, 3.0f, PhaseFunction::SINE, 1.8721f, 0.00752f,
-        1.0f, AlphaFalloff::CONSTANT_HALF, RadiusSpacing::UNIFORM}},
+        1.0f, AlphaFalloff::CONSTANT_HALF, RadiusSpacing::UNIFORM},
+       DEPARTURE},
   }};
 
   static constexpr bool preset_in_ranges(const Params &preset) {
