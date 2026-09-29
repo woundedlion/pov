@@ -8,7 +8,7 @@ This is a supplemental experiment on clean source
 `167fb6e02fe6b5e6c9e04db7639ee755ce01951d`, before the Octet implementation.
 The user subsequently requested removal of the Triangular, Cosine, and Gyroid
 previews; this report preserves the requested historical Triangular measurement.
-It does not replace the [shipping](shipping/profile_hyperlattice_teensy_2026-09-27.md)
+It does not replace the [shipping](shipping/profile_hyperlattice_teensy_2026-09-28.md)
 or [O3](O3/profile_hyperlattice_teensy_2026-09-27.md) two-preset full-cycle
 captures. Those use the normal firmware roster; Triangular is opt-in.
 

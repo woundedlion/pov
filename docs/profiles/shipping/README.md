@@ -7,75 +7,68 @@ Rows rank by any spill, then peak render. 🟢 is zero spill, 🟡 is under 25% 
 
 | Effect | Dominant scope | Peak ms | Spilled | Captured |
 |---|---|--:|--:|---|
-| [MeshFeedback](profile_meshfeedback_teensy_2026-09-28.md) § ● | `mf_feedback_flush` | 🟢 61.85 (12) | 🟢 0/6688 (0.00%) | 2026-09-28 14:46 |
-| [ShapeShifter](profile_shapeshifter_teensy_2026-09-25.md) § ● | `ss_draw_all` | 🟢 58.40 (9) | 🟢 0/2457 (0.00%) | 2026-09-25 07:33 |
-| [DisplacementField](profile_displacementfield_teensy_2026-09-19.md) | `df_timeline_step` | 🟢 58.18 | 🟢 0/1088 (0.0%) | 2026-09-19 22:17 |
-| [Raymarch](profile_raymarch_teensy_2026-09-20.md) | `rm_shader_draw` | 🟢 56.07 | 🟢 0/1736 (0.00%) | 2026-09-20 22:51 |
-| [HyperLattice](profile_hyperlattice_teensy_2026-09-27.md) § ● | `hl_shader_draw` | 🟢 55.509 (2) | 🟢 0/1576 (0.00%) | 2026-09-27 01:02 |
-| [GSReactionDiffusion](profile_gsreactiondiffusion_teensy_2026-08-26.md) | `grd_render` | 🟢 55.26 | 🟢 0/2048 (0.0%) | 2026-08-26 01:28 |
-| [MindSplatter](profile_mindsplatter_teensy_2026-08-26.md) § | `msp_draw_particles` | 🟢 52.77 (9) | 🟢 0/1728 (0.0%) | 2026-08-26 07:40 |
-| [IslamicStars](profile_islamicstars_teensy_2026-09-28.md) § ● | `is_timeline_step` | 🟢 50.500 (23) | 🟢 0/3336 (0.00%) | 2026-09-28 16:50 |
-| [AshCloud](profile_ashcloud_teensy_2026-08-26.md) | `fx_shader_draw` | 🟢 50.09 | 🟢 0/1088 (0.0%) | 2026-08-26 02:47 |
-| [RingSpin](profile_ringspin_teensy_2026-09-24.md) | `rs_draw_rings` | 🟢 49.920 | 🟢 0/1087 (0.0%) | 2026-09-24 20:15 |
-| [BZReactionDiffusion](profile_bzreactiondiffusion_teensy_2026-08-26.md) | `bz_render` | 🟢 48.91 | 🟢 0/2048 (0.0%) | 2026-08-26 01:20 |
-| [HopfFibration](profile_hopffibration_teensy_2026-08-26.md) | `hf_render_trails` | 🟢 48.50 | 🟢 0/1088 (0.0%) | 2026-08-26 01:30 |
-| [KaleidoscopeStainedGlass](profile_kaleidoscopestainedglass_teensy_2026-08-26.md) | `fx_shader_draw` | 🟢 47.91 | 🟢 0/1088 (0.0%) | 2026-08-26 03:23 |
-| [MermaidSkin](profile_mermaidskin_teensy_2026-08-26.md) | `fx_shader_draw` | 🟢 45.60 | 🟢 0/1088 (0.0%) | 2026-08-26 02:46 |
-| [LatticeMelt](profile_latticemelt_teensy_2026-08-26.md) § | `fx_shader_draw` | 🟢 43.73 (3) | 🟢 0/1728 (0.0%) | 2026-08-26 02:42 |
-| [ChromaticLichen](profile_chromaticlichen_teensy_2026-08-26.md) | `fx_shader_draw` | 🟢 42.87 | 🟢 0/1088 (0.0%) | 2026-08-26 02:44 |
-| [KaleidoscopeMandala](profile_kaleidoscopemandala_teensy_2026-08-26.md) § | `fx_shader_draw` | 🟢 40.29 (3) | 🟢 0/2368 (0.0%) | 2026-08-26 03:22 |
-| [KaleidoscopeHexOil](profile_kaleidoscopehexoil_teensy_2026-08-26.md) § | `fx_shader_draw` | 🟢 39.04 (3) | 🟢 0/2208 (0.0%) | 2026-08-26 02:52 |
-| [DreamBalls](profile_dreamballs_teensy_2026-08-26.md) § | `db_timeline_step` | 🟢 38.73 (11) | 🟢 0/3648 (0.0%) | 2026-08-26 02:21 |
-| [KaleidoscopeFlowers](profile_kaleidoscopeflowers_teensy_2026-08-26.md) § | `fx_shader_draw` | 🟢 36.69 (4) | 🟢 0/4128 (0.0%) | 2026-08-26 03:06 |
-| [KaleidoscopeSmooth](profile_kaleidoscopesmooth_teensy_2026-08-26.md) § | `fx_shader_draw` | 🟢 35.85 (5) | 🟢 0/4128 (0.0%) | 2026-08-26 02:59 |
-| [KaleidoscopeHexBright](profile_kaleidoscopehexbright_teensy_2026-08-26.md) § | `fx_shader_draw` | 🟢 35.55 (3) | 🟢 0/2368 (0.0%) | 2026-08-26 03:19 |
-| [HankinSolids](profile_hankinsolids_teensy_2026-09-28.md) § ● | `hk_timeline_step` | 🟢 34.837 (18) | 🟢 0/4137 (0.00%) | 2026-09-28 16:45 |
-| [Comets](profile_comets_teensy_2026-08-26.md) § | `cm_draw_trail` | 🟢 33.91 (13) | 🟢 0/4128 (0.0%) | 2026-08-26 02:05 |
-| [KaleidoscopePentBright](profile_kaleidoscopepentbright_teensy_2026-08-26.md) | `fx_shader_draw` | 🟢 33.37 | 🟢 0/1088 (0.0%) | 2026-08-26 02:49 |
-| [AlienBrain](profile_alienbrain_teensy_2026-08-26.md) § | `fx_shader_draw` | 🟢 31.61 (5) | 🟢 0/4768 (0.0%) | 2026-08-26 02:27 |
-| [GnomonicStars](profile_gnomonicstars_teensy_2026-08-26.md) | `gn_draw_stars` | 🟢 29.64 | 🟢 0/1088 (0.0%) | 2026-08-26 01:25 |
-| [GridSpace](profile_gridspace_teensy_2026-08-26.md) | `fx_shader_draw` | 🟢 28.38 | 🟢 0/1088 (0.0%) | 2026-08-26 02:36 |
-| [AlienOcean](profile_alienocean_teensy_2026-08-26.md) | `fx_shader_draw` | 🟢 27.79 | 🟢 0/1088 (0.0%) | 2026-08-26 02:31 |
-| [KaleidoscopeHexSoft](profile_kaleidoscopehexsoft_teensy_2026-08-26.md) | `fx_shader_draw` | 🟢 27.30 | 🟢 0/1088 (0.0%) | 2026-08-26 02:29 |
-| [CosmicEyeball](profile_cosmiceyeball_teensy_2026-08-26.md) | `fx_shader_draw` | 🟢 24.01 | 🟢 0/1088 (0.0%) | 2026-08-26 03:07 |
-| [Fishbowl](profile_fishbowl_teensy_2026-08-26.md) | `fish_build_vertices` | 🟢 23.22 | 🟢 0/1088 (0.0%) | 2026-08-26 01:22 |
-| [MobiusGrid](profile_mobiusgrid_teensy_2026-08-26.md) § | `fx_shader_draw` | 🟢 22.37 (3) | 🟢 0/2688 (0.0%) | 2026-08-26 01:34 |
-| [AlienCore](profile_aliencore_teensy_2026-08-26.md) | `fx_shader_draw` | 🟢 21.09 | 🟢 0/1088 (0.0%) | 2026-08-26 02:32 |
-| [SphericalHarmonics](profile_sphericalharmonics_teensy_2026-08-26.md) § | `sh_rasterize` | 🟢 12.64 (24) | 🟢 0/3488 (0.0%) | 2026-08-26 02:00 |
-| [PetalFlow](profile_petalflow_teensy_2026-08-26.md) | `pf_draw_rings` | 🟢 11.85 | 🟢 0/1088 (0.0%) | 2026-08-26 01:35 |
-| [Voronoi](profile_voronoi_teensy_2026-08-26.md) | `vo_shade` | 🟢 8.96 | 🟢 0/1088 (0.0%) | 2026-08-26 01:43 |
-| [RingShower](profile_ringshower_teensy_2026-08-26.md) | `rsh_draw_rings` | 🟢 3.98 | 🟢 0/1088 (0.0%) | 2026-08-26 01:39 |
+| [MeshFeedback](profile_meshfeedback_teensy_2026-09-28.md) § | `mf_feedback_flush` | 🟢 61.87 (12) | 🟢 0/6687 (0.00%) | 2026-09-28 18:36 |
+| [DisplacementField](profile_displacementfield_teensy_2026-09-28.md) | `df_timeline_step` | 🟢 59.42 | 🟢 0/1087 (0.00%) | 2026-09-28 19:16 |
+| [ShapeShifter](profile_shapeshifter_teensy_2026-09-28.md) § | `ss_draw_all` | 🟢 58.24 (9) | 🟢 0/2447 (0.00%) | 2026-09-28 18:48 |
+| [HyperLattice](profile_hyperlattice_teensy_2026-09-28.md) § | `hl_shader_draw` | 🟢 56.12 (3) | 🟢 0/2687 (0.00%) | 2026-09-28 18:43 |
+| [MindSplatter](profile_mindsplatter_teensy_2026-09-28.md) § | `msp_draw_particles` | 🟢 56.11 (8) | 🟢 0/1727 (0.00%) | 2026-09-28 18:51 |
+| [GSReactionDiffusion](profile_gsreactiondiffusion_teensy_2026-09-28.md) | `grd_render` | 🟢 55.53 | 🟢 0/2047 (0.00%) | 2026-09-28 19:21 |
+| [Raymarch](profile_raymarch_teensy_2026-09-28.md) | `rm_shader_draw` | 🟢 54.87 | 🟢 0/1087 (0.00%) | 2026-09-28 19:09 |
+| [HopfFibration](profile_hopffibration_teensy_2026-09-28.md) | `hf_render_trails` | 🟢 51.52 | 🟢 0/1087 (0.00%) | 2026-09-28 19:02 |
+| [IslamicStars](profile_islamicstars_teensy_2026-09-28.md) § | `is_timeline_step` | 🟢 50.51 (23) | 🟢 0/3327 (0.00%) | 2026-09-28 18:40 |
+| [BZReactionDiffusion](profile_bzreactiondiffusion_teensy_2026-09-28.md) | `bz_render` | 🟢 48.84 | 🟢 0/2047 (0.00%) | 2026-09-28 19:12 |
+| [RingSpin](profile_ringspin_teensy_2026-09-28.md) | `rs_draw_rings` | 🟢 47.04 | 🟢 0/1087 (0.00%) | 2026-09-28 19:13 |
+| [AshCloud](profile_ashcloud_teensy_2026-09-28.md) | `fx_shader_draw` | 🟢 44.57 | 🟢 0/1087 (0.00%) | 2026-09-28 17:33 |
+| [KaleidoscopeStainedGlass](profile_kaleidoscopestainedglass_teensy_2026-09-28.md) | `fx_shader_draw` | 🟢 43.50 | 🟢 0/1087 (0.00%) | 2026-09-28 17:35 |
+| [DreamBalls](profile_dreamballs_teensy_2026-09-28.md) § | `db_timeline_step` | 🟢 42.66 (10) | 🟢 0/3647 (0.00%) | 2026-09-28 18:45 |
+| [MermaidSkin](profile_mermaidskin_teensy_2026-09-28.md) | `fx_shader_draw` | 🟢 39.57 | 🟢 0/1087 (0.00%) | 2026-09-28 18:49 |
+| [KaleidoscopeHexOil](profile_kaleidoscopehexoil_teensy_2026-09-28.md) § | `fx_shader_draw` | 🟢 38.51 (2) | 🟢 0/2207 (0.00%) | 2026-09-28 18:54 |
+| [LatticeMelt](profile_latticemelt_teensy_2026-09-28.md) § | `fx_shader_draw` | 🟢 37.18 (2) | 🟢 0/1727 (0.00%) | 2026-09-28 18:45 |
+| [ChromaticLichen](profile_chromaticlichen_teensy_2026-09-28.md) | `fx_shader_draw` | 🟢 36.63 | 🟢 0/1087 (0.00%) | 2026-09-28 18:47 |
+| [KaleidoscopeMandala](profile_kaleidoscopemandala_teensy_2026-09-28.md) § | `fx_shader_draw` | 🟢 35.40 (2) | 🟢 0/2367 (0.00%) | 2026-09-28 18:39 |
+| [HankinSolids](profile_hankinsolids_teensy_2026-09-28.md) § | `hk_timeline_step` | 🟢 34.81 (19) | 🟢 0/4447 (0.00%) | 2026-09-28 19:27 |
+| [KaleidoscopeSmooth](profile_kaleidoscopesmooth_teensy_2026-09-28.md) § | `fx_shader_draw` | 🟢 32.93 (4) | 🟢 0/4127 (0.00%) | 2026-09-28 18:59 |
+| [KaleidoscopeFlowers](profile_kaleidoscopeflowers_teensy_2026-09-28.md) § | `fx_shader_draw` | 🟢 32.52 (3) | 🟢 0/4127 (0.00%) | 2026-09-28 19:07 |
+| [KaleidoscopeHexBright](profile_kaleidoscopehexbright_teensy_2026-09-28.md) § | `fx_shader_draw` | 🟢 31.64 (2) | 🟢 0/2367 (0.00%) | 2026-09-28 19:02 |
+| [Comets](profile_comets_teensy_2026-09-28.md) § | `cm_draw_trail` | 🟢 30.66 (12) | 🟢 0/4127 (0.00%) | 2026-09-28 18:28 |
+| [KaleidoscopePentBright](profile_kaleidoscopepentbright_teensy_2026-09-28.md) | `fx_shader_draw` | 🟢 27.24 | 🟢 0/1087 (0.00%) | 2026-09-28 18:51 |
+| [AlienBrain](profile_alienbrain_teensy_2026-09-28.md) § | `fx_shader_draw` | 🟢 25.89 (4) | 🟢 0/4767 (0.00%) | 2026-09-28 18:30 |
+| [GridSpace](profile_gridspace_teensy_2026-09-28.md) | `fx_shader_draw` | 🟢 25.31 | 🟢 0/1087 (0.00%) | 2026-09-28 17:38 |
+| [KaleidoscopeHexSoft](profile_kaleidoscopehexsoft_teensy_2026-09-28.md) | `fx_shader_draw` | 🟢 24.52 | 🟢 0/1087 (0.00%) | 2026-09-28 18:32 |
+| [CosmicEyeball](profile_cosmiceyeball_teensy_2026-09-28.md) | `fx_shader_draw` | 🟢 24.11 | 🟢 0/1087 (0.00%) | 2026-09-28 19:09 |
+| [Fishbowl](profile_fishbowl_teensy_2026-09-28.md) | `fish_build_vertices` | 🟢 23.98 | 🟢 0/1087 (0.00%) | 2026-09-28 19:14 |
+| [AlienOcean](profile_alienocean_teensy_2026-09-28.md) | `fx_shader_draw` | 🟢 22.56 | 🟢 0/1087 (0.00%) | 2026-09-28 18:34 |
+| [MobiusGrid](profile_mobiusgrid_teensy_2026-09-28.md) § | `fx_shader_draw` | 🟢 22.05 (2) | 🟢 0/2687 (0.00%) | 2026-09-28 19:05 |
+| [GnomonicStars](profile_gnomonicstars_teensy_2026-09-28.md) | `gn_draw_stars` | 🟢 21.86 | 🟢 0/1087 (0.00%) | 2026-09-28 19:18 |
+| [AlienCore](profile_aliencore_teensy_2026-09-28.md) | `fx_shader_draw` | 🟢 18.03 | 🟢 0/1087 (0.00%) | 2026-09-28 18:36 |
+| [PetalFlow](profile_petalflow_teensy_2026-09-28.md) | `pf_draw_rings` | 🟢 13.61 | 🟢 0/1087 (0.00%) | 2026-09-28 19:07 |
+| [SphericalHarmonics](profile_sphericalharmonics_teensy_2026-09-28.md) § | `sh_rasterize` | 🟢 12.89 (24) | 🟢 0/3487 (0.00%) | 2026-09-28 19:00 |
+| [Voronoi](profile_voronoi_teensy_2026-09-28.md) | `vo_shade` | 🟢 8.51 | 🟢 0/1087 (0.00%) | 2026-09-28 19:15 |
+| [RingShower](profile_ringshower_teensy_2026-09-28.md) | `rsh_draw_rings` | 🟢 4.33 | 🟢 0/1087 (0.00%) | 2026-09-28 19:11 |
 
-● IslamicStars refreshed on 2026-09-28 from current baseline source; setup frame 1 excluded. Unlanded convex-face AA measurements are in the separate comparison.
-
-● HankinSolids refreshed on 2026-09-28 from current baseline source; setup frame 1 excluded. Unlanded convex-face AA measurements are in the separate comparison.
-
-● ShapeShifter refreshed on 2026-09-25: N counts nine distinct presets, merging repeated visits after wrap. Its runtime buckets exclude setup frame 1 and include transitions.
-
-Raymarch on 2026-09-20; DisplacementField on 2026-09-19; RingSpin on 2026-09-24; other rows on 2026-08-26.
-Captured timestamps are local raw-log mtimes.
-Each row links to the report generated from its capture log.
+Every row was refreshed on 2026-09-28 after the finding-10 placement change `97eb0bf78`. AshCloud, KaleidoscopeStainedGlass and GridSpace come from the placement A/B's variant-6 arm, which carries the same kernel attributes. Setup frame 1 is excluded from every peak and spill figure; each report states its frame-1 render. Boards are named per report.
 
 For cyclers, each row summarizes the parser-owned preset, shape, or mode entries.
 (N) gives the entry count; the linked report contains the individual buckets.
 Spill fractions include the transition following an entry and are stricter than clean holds.
 
-- **MindSplatter**: 9 parser ownership buckets spanning 21.61–52.77 ms; the sequence closes back to its first entry.
-- **IslamicStars**: 23 authored recipes, including builds and transitions, with the complete carousel return captured.
-- **MeshFeedback**: 13 parser ownership buckets spanning 47.02–58.30 ms; the sequence closes back to its first entry.
-- **ShapeShifter**: 9 distinct presets with live peaks spanning 10.007–58.395 ms; repeated visits after wrap are merged.
-- **HankinSolids**: 18 distinct solids over the full 30-leg ordered tour; initial tetrahedron frames and repeated visits share their actual node.
-- **LatticeMelt**: 3 parser ownership buckets spanning 42.00–43.73 ms; the sequence closes back to its first entry.
-- **KaleidoscopeMandala**: 3 parser ownership buckets spanning 35.91–40.29 ms; the sequence closes back to its first entry.
-- **KaleidoscopeHexOil**: 3 parser ownership buckets spanning 38.63–39.04 ms; the sequence closes back to its first entry.
-- **DreamBalls**: 11 parser ownership buckets spanning 13.21–38.73 ms; the sequence closes back to its first entry.
-- **KaleidoscopeFlowers**: 4 parser ownership buckets spanning 35.92–36.69 ms; the sequence closes back to its first entry.
-- **KaleidoscopeSmooth**: 5 parser ownership buckets spanning 31.33–35.85 ms; the sequence closes back to its first entry.
-- **KaleidoscopeHexBright**: 3 parser ownership buckets spanning 34.66–35.55 ms; the sequence closes back to its first entry.
-- **Comets**: 13 parser ownership buckets spanning 16.67–33.91 ms; the sequence closes back to its first entry.
-- **AlienBrain**: 5 parser ownership buckets spanning 29.12–31.61 ms; the sequence closes back to its first entry.
-- **MobiusGrid**: 3 parser ownership buckets spanning 21.73–22.37 ms; the sequence closes back to its first entry.
-- **SphericalHarmonics**: 24 parser ownership buckets spanning 8.05–12.64 ms; the sequence closes back to its first entry.
+- **MeshFeedback**: 12 parser ownership buckets spanning 51.55–61.87 ms.
+- **ShapeShifter**: 9 parser ownership buckets spanning 9.47–58.24 ms.
+- **HyperLattice**: 3 parser ownership buckets spanning 47.35–56.12 ms.
+- **MindSplatter**: 8 parser ownership buckets spanning 22.79–56.11 ms.
+- **IslamicStars**: 23 parser ownership buckets spanning 19.92–50.51 ms.
+- **DreamBalls**: 10 parser ownership buckets spanning 14.41–42.66 ms.
+- **KaleidoscopeHexOil**: 2 parser ownership buckets spanning 38.03–38.51 ms.
+- **LatticeMelt**: 2 parser ownership buckets spanning 37.18–37.18 ms.
+- **KaleidoscopeMandala**: 2 parser ownership buckets spanning 34.88–35.40 ms.
+- **HankinSolids**: 19 parser ownership buckets spanning 14.52–34.81 ms.
+- **KaleidoscopeSmooth**: 4 parser ownership buckets spanning 28.62–32.93 ms.
+- **KaleidoscopeFlowers**: 3 parser ownership buckets spanning 32.31–32.52 ms.
+- **KaleidoscopeHexBright**: 2 parser ownership buckets spanning 31.44–31.64 ms.
+- **Comets**: 12 parser ownership buckets spanning 16.48–30.66 ms.
+- **AlienBrain**: 4 parser ownership buckets spanning 25.80–25.89 ms.
+- **MobiusGrid**: 2 parser ownership buckets spanning 22.05–22.05 ms.
+- **SphericalHarmonics**: 24 parser ownership buckets spanning 8.30–12.89 ms.
 
 Shipping reports in this directory correspond exactly to
 `HS_PHANTASM_EFFECT_LIST`.
@@ -91,7 +84,7 @@ roster ranking. Triangular was subsequently selected for removal.
 | Preset | Dominant scope | Peak render ms | Spilled | Captured |
 | --- | --- | ---: | ---: | --- |
 | [HyperLattice Triangular](../hyperlattice_triangular_2026-09-27.md) | `hl_shader_draw` | 🔴 134.620 | 🔴 441/441 (100%) | 2026-09-27 21:59 |
-| [HyperLattice Octet 3D ●](profile_hyperlattice_teensy_2026-09-27.md#supplemental-octet-3d-single-owner-correction) | `hl_shader_draw` | 🔴 96.869 | 🔴 548/548 (100%) | 2026-09-27 22:50 |
+| [HyperLattice Octet 3D ●](profile_hyperlattice_teensy_2026-09-28.md#supplemental-octet-3d-single-owner-correction) | `hl_shader_draw` | 🔴 96.869 | 🔴 548/548 (100%) | 2026-09-27 22:50 |
 
 ● Octet 3D refreshed on 2026-09-27 after the single-owner strut correction.
 These fixed-preset captures retain the original oscillating camera path.

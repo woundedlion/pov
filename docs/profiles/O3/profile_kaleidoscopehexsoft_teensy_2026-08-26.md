@@ -1,6 +1,6 @@
 # KaleidoscopeHexSoft on-device profile — Teensy 4.0, segmented mode (2026-08-26, **-O3**)
 
-Global-O3 twin of the [shipping report](../shipping/profile_kaleidoscopehexsoft_teensy_2026-08-26.md).
+Global-O3 twin of the [shipping report](../shipping/profile_kaleidoscopehexsoft_teensy_2026-09-28.md).
 Point-in-time snapshot (regenerate with `bash tools/profile_one.sh KaleidoscopeHexSoft profile_o3 70 32`). Raw capture:
 `build/prof/kaleidoscopehexsoft_o3.log`, captured 2026-08-26 02:26 local. This is the first archived global-O3 report for this effect.
 

@@ -1,195 +1,121 @@
 # IslamicStars on-device profile — Teensy 4.0, segmented mode (2026-09-28, **selective -O3**)
 
 Point-in-time snapshot (regenerate with `just profile IslamicStars`).
-Raw capture: `build/prof/islamicstars_ship.log`; [retained raw evidence](../evidence/face_aa_2026-09-28/before_islamicstars_ship.txt).
-Replaces the prior 2026-09-24 unverified candidate report with a clean committed-source capture.
-This standard report measures the current baseline. The unlanded convex-face
-AA candidate is measured separately in the [matched comparison](../face_aa_2026-09-28.md).
+Raw capture: `build/prof/islamicstars_ship.log`, captured 2026-09-28 18:40 on COM3.
+Replaces the earlier 2026-09-28 report of the same name, which predated `97eb0bf78`.
 
 ## Setup
 
 | | |
 |---|---|
-| Hardware | Teensy 4.0 @ 600 MHz, COM3, flywheel + DMA ISRs live |
-| Image | `profile`: -Os base with selective-O3 mesh transforms, SDF Face setup/distance and scan hot paths |
-| Driver | `POVSegmented<288, 4, 480>`, segment 0 master |
-| Effect | IslamicStars, 288×144, single-entry playlist, source `0c02f3912a98677184d3cf43b31a5d468d4b8ba3` |
-| Method | 210 s, window 16, `HS_PROFILE_EPOCH_REVS=4000`, `-D HS_PROFILE_TRANS_SPEED=4`; runtime frames 2–3337; scope/ISR windows 17–3328; captured 2026-09-28 16:50 local time |
-| Reproduce | `HS_PROFILE_TREE=<tree> HS_TEENSY_PORT=COM3 bash tools/profile_one.sh IslamicStars profile 210 16 "-D HS_PROFILE_TRANS_SPEED=4 -D HS_PROFILE_EPOCH_REVS=4000"` |
+| Hardware | Teensy 4.0 @ 600 MHz, POV segmented mode, flywheel + DMA ISRs live, COM3 |
+| Image | `profile` env: `-Os` base with the landed `HS_O3` regions; clean tree at the tip |
+| Driver | `POVSegmented<288, 4, 480>`, board = segment 0 master |
+| Effect | IslamicStars 288×144, single-entry playlist, tip `97eb0bf78` |
+| Method | `HS_PROFILE` cycle scopes, window = 16 frames, 210 s capture, `-D HS_PROFILE_TRANS_SPEED=4 -D HS_PROFILE_EPOCH_REVS=1920` |
+| Reproduce | `bash tools/profile_one.sh IslamicStars profile 210 16 "-D HS_PROFILE_TRANS_SPEED=4 -D HS_PROFILE_EPOCH_REVS=1920"` |
 
-Image size: `FLASH: code:125392, data:201084, headers:8372` /
-`RAM1: variables:315424, code:36632, padding:28904, free:143328` /
-`RAM2: variables:520064, free:4224`.
+Image size (`profile` env, this effect only): `FLASH: code:125392, data:201084, headers:8372` / `RAM1: variables:315424, code:36632, padding:28904, free:143328` / `RAM2: variables:520064, free:4224`.
 
-Exactness cross-check: window 2577–2592 root cycles ÷
-600 MHz match the measured wall sum within **2.36 ppm**. The untouched
-capture passes `tools/parse_profile.py ... validate`, with no epoch reset,
-complete per-window frame telemetry, and the expected effect/resolution.
+Exactness cross-check: window frames 2577–2592 root counter cyc ÷ 600 MHz matches the measured wall sum within **4.3 ppm** (`tools/parse_profile.py ... validate`, VALID).
 
 ## Frame cadence
 
-**Peak live render: 50.500 ms**, frame 2811, marker-owned
-shape `truncatedIcosidodecahedron_truncate50d_ambo_dual`. Spilled **0/3336
-(0.00%)**; mean render 22.790 ms,
-mean wall 62.423 ms. Exact telemetry includes all live
-transitions and trailing rows after the final complete scope window.
+**Pass aggregate**: `is_timeline_step` averages 22.61 ms/f; its worst window is 44.69 ms/f (frames 2577–2592). Peak frame render is **50.51 ms** (frame 2811), and **0/3327** frames spilled. Setup frame 1 is excluded from both; it rendered 15.63 ms.
 
-Setup frame 1 renders in 15.628 ms before publication; it is excluded
-from runtime means, peaks, spill counts and denominators. Scope summaries
-exclude the whole first window. `is_timeline_step` averages
-22.615 ms/frame across the retained complete windows.
+The previous shipping report (2026-09-28 16:50) recorded peak 🟢 50.500 (23) and spilled 🟢 0/3336 (0.00%).
 
-One display window is 62.5 ms. The effect renders one 288×36 quadrant,
-10,368 pixels, of the 288×144 canvas. `canvas_buffer_wait` is synchronization
-idle, not render work. Peak render retains
-12.000 ms of margin; all live frames fit the 16 fps budget.
+A display window is 62.5 ms, so render at or under it holds 16 fps. The `canvas_buffer_wait` scope is the round-up idle to the next display flip, by design.
 
 ## Phase-by-phase readout
 
-The carousel visits 23 authored recipes. Each shape builds through operator
-legs, then holds, ripples, settles and exits. Trans Speed 4 shortens both
-holds and build/ripple animation sampling; these are matched TS4 measurements.
+Phase schedule: 23 preset entries; each owns its hold and the transition that follows it. The block below is the window holding the pass's peak frame.
 
-### Finished geometry/ripple (frames 2577–2592)
+### Peak window (frames 2801–2816)
 
-```text
-frame                      62.36 ms 37.42 Mcyc 100%
-  pov_preserve_half        142.1 us  85.3 kcyc   0% x1 142.1us/c
-  is_timeline_step         44.69 ms 26.81 Mcyc  72%
-    is_draw_shape          44.62 ms 26.77 Mcyc  72%
-      is_mesh_scan         40.58 ms 24.35 Mcyc  65%
-        scan_mesh_raster   28.84 ms 17.30 Mcyc  46%
-          filter_blend      1.29 ms 772.7 kcyc   2% x18491 41.8cyc/b
-        scan_face_setup    11.33 ms  6.80 Mcyc  18% x1082 10.5us/c
-      is_face_offsets      517.3 us 310.4 kcyc   1% x1 517.3us/c
-      is_mesh_transform     3.52 ms  2.11 Mcyc   6% x1 3522.4us/c
-  is_ripple_prepare          7.1 us   4.2 kcyc   0% x1 7.1us/c
-  canvas_clear              84.7 us  50.8 kcyc   0% x1 84.7us/c
-  canvas_buffer_wait       17.44 ms 10.46 Mcyc  28% x1 17437.7us/c
+```
+frame                     65.06 ms   39.04 Mcyc   100%
+  pov_preserve_half       143.7 us    86.2 kcyc     0%
+  is_timeline_step        28.54 ms   17.12 Mcyc    44%
+    is_build_draw         23.48 ms   14.09 Mcyc    36%
+      is_build_scan       23.45 ms   14.07 Mcyc    36%
+      is_mesh_transform     2.1 us     1.3 kcyc     0%
+    hk_conway_compile     187.0 us   112.2 kcyc     0%
+    hk_conway_sweep       553.1 us   331.9 kcyc     1%
+    is_draw_shape          2.66 ms    1.60 Mcyc     4%
+      is_mesh_scan         2.65 ms    1.59 Mcyc     4%
+        scan_mesh_raster  23.37 ms   14.02 Mcyc    36%  x287  48857 cyc/c
+          filter_blend     1.08 ms   650.7 kcyc     2%  x16060  41 cyc/c
+        scan_face_setup    2.59 ms    1.56 Mcyc     4%  x287  5418 cyc/c
+      is_face_offsets       6.8 us     4.1 kcyc     0%
+  is_ripple_prepare         0.9 us      583 cyc     0%
+  canvas_clear             84.7 us    50.8 kcyc     0%
+  canvas_buffer_wait      36.29 ms   21.77 Mcyc    56%
 ```
 
-Wall min/avg/max = 58.903/62.358/67.667 ms.
-Render averages 44.922 ms. This is the highest render-mean complete
-window of this regime; the root includes synchronization idle. Tagged
-mixed-parent counters are inclusive shared totals, not exclusive phase costs.
-
-### Build or transition (frames 2561–2576)
-
-```text
-frame                      62.63 ms 37.58 Mcyc 100%
-  pov_preserve_half        141.2 us  84.7 kcyc   0% x1 141.2us/c
-  is_timeline_step         40.20 ms 24.12 Mcyc  64%
-    is_build_draw          14.15 ms  8.49 Mcyc  23%
-      is_build_scan        14.08 ms  8.45 Mcyc  22% x0 37539.2us/c
-      is_mesh_transform     72.6 us  43.6 kcyc   0% x0 193.7us/c
-    hk_conway_compile      357.3 us 214.4 kcyc   1% x0 952.7us/c
-    hk_conway_sweep        571.3 us 342.8 kcyc   1% x0 1523.4us/c
-    is_draw_shape          24.85 ms 14.91 Mcyc  40%
-      is_mesh_scan         23.97 ms 14.38 Mcyc  38%
-        scan_mesh_raster   26.44 ms 15.87 Mcyc  42%
-          filter_blend      1.28 ms 768.9 kcyc   2% x18265 42.1cyc/b
-        scan_face_setup    11.20 ms  6.72 Mcyc  18% x1082 10.3us/c
-      is_face_offsets      325.5 us 195.3 kcyc   1% x1 520.8us/c
-      is_mesh_transform    559.5 us 335.7 kcyc   1% x1 895.3us/c
-  is_ripple_prepare          2.8 us   1.7 kcyc   0% x1 2.8us/c
-  canvas_clear              84.7 us  50.8 kcyc   0% x1 84.7us/c
-  canvas_buffer_wait       22.19 ms 13.32 Mcyc  35% x1 22193.6us/c
-```
-
-Wall min/avg/max = 59.267/62.627/66.059 ms.
-Render averages 40.434 ms. This is the highest render-mean complete
-window of this regime; the root includes synchronization idle. Tagged
-mixed-parent counters are inclusive shared totals, not exclusive phase costs.
+Wall min/avg/max = 50.48/65.06/73.90 ms. Per-frame values are window averages; `xN` is calls per frame.
 
 ### Per-preset table
 
-Rows are ranked by the worst clean-hold mesh-scan window. Render and blend
-figures come from that same window; a missing blend row is unavailable,
-not zero. Windows are clean/owned complete windows. Runtime peak includes
-all live frames attributed to the shape, including boundary work.
+Buckets from the per-frame owner stamps, setup frame 1 excluded; clean-hold `is_timeline_step` is the costliest modal-call-count window of each entry.
 
-All 23 recipes appear and wrap at frame 1776. Geometry is the finished
-`Built Shape` V/E/F/I, not the spawned seed counts.
-
-Clean holds require no build draw, one owner, no spawn/build-complete marker,
-and `scan_mesh_raster` calls equal to 16 × finished face count.
-
-| Shape | V/E/F/I | Windows | Blended px/f | Scan ms | Render ms | Peak ms | fps |
-|---|---|---:|---:|---:|---:|---:|---:|
-| `dodecahedron_hk35_ambo_hk62_ambo_relax_hk42` | 3240/4320/1082/8640 | 4/12 | 18,490.8 | 40.585 | 44.922 | 49.443 | 16.04 |
-| `truncatedIcosidodecahedron_bevel5_relax_hk77` | 2160/2880/722/5760 | 4/8 | 18,671.3 | 37.063 | 39.141 | 43.097 | 15.88 |
-| `truncatedOctahedron_gyro_kis_hk17` | 1620/2160/542/4320 | 4/12 | 18,253.2 | 35.887 | 37.972 | 44.549 | 15.98 |
-| `truncatedIcosahedron_ambo_relax_truncate001_hankin59` | 1620/2160/542/4320 | 2/8 | 15,946.7 | 35.675 | 37.929 | 41.868 | 16.11 |
-| `truncatedIcosahedron_ambo_relax_truncate001_hankin73` | 1620/2160/542/4320 | 4/10 | 17,519.3 | 34.666 | 36.749 | 40.246 | 15.95 |
-| `truncatedIcosahedron_hk54_ambo_hk72` | 1620/2160/542/4320 | 4/8 | 17,771.8 | 31.260 | 33.395 | 38.062 | 16.07 |
-| `truncatedIcosahedron_ambo_relax_truncate33_hk64` | 1620/2160/542/4320 | 4/8 | 16,659.3 | 29.214 | 30.847 | 33.075 | 15.95 |
-| `icosahedron_snub_relax_truncate033_hankin62` | 1350/1800/452/3600 | 1/4 | 16,488.2 | 27.786 | 29.781 | 31.150 | 16.04 |
-| `truncatedIcosahedron_hk58_chamfer63` | 990/1440/452/2880 | 4/8 | 16,489.2 | 26.545 | 28.092 | 29.832 | 16.02 |
-| `dodecahedron_ambo_bevel33_relax_hk66` | 1080/1440/362/2880 | 4/10 | 16,026.6 | 26.068 | 27.718 | 30.080 | 15.99 |
-| `truncatedIcosidodecahedron_truncate50d_ambo_dual` | 542/1080/540/2160 | 2/10 | 18,883.2 | 25.423 | 26.520 | 50.500 | 16.06 |
-| `rhombicuboctahedron_hk63_ambo_hk63` | 864/1152/290/2304 | 4/10 | 15,132.6 | 24.213 | 25.468 | 27.568 | 15.97 |
-| `dodecahedron_hk72_ambo_dual_hk20` | 540/720/182/1440 | 2/5 | 14,711.4 | 23.830 | 24.680 | 29.701 | 16.02 |
-| `dodecahedron_hk54_ambo_hk72` | 540/720/182/1440 | 4/10 | 14,646.4 | 21.829 | 22.803 | 23.378 | 16.00 |
-| `dodecahedron_hk62_ambo_hk62` | 540/720/182/1440 | 4/9 | 14,125.8 | 21.143 | 22.039 | 23.193 | 15.99 |
-| `icosahedron_ambo_truncate033_hankin59` | 540/720/182/1440 | 4/8 | 13,943.4 | 20.705 | 21.462 | 23.258 | 15.97 |
-| `snubDodecahedron_truncate5d_ambo_dual` | 452/900/450/1800 | 4/10 | 16,833.3 | 19.108 | 19.979 | 40.601 | 16.02 |
-| `octahedron_hk17_ambo_hk73` | 216/288/74/576 | 4/8 | 13,070.6 | 19.036 | 19.537 | 21.643 | 16.01 |
-| `octahedron_hk34_ambo_hk72` | 216/288/74/576 | 2/8 | 13,039.8 | 18.109 | 18.683 | 19.914 | 16.02 |
-| `dodecahedron_bevel2_relax_gyro` | 542/900/360/1800 | 4/12 | 15,809.7 | 18.083 | 18.690 | 40.282 | 16.02 |
-| `truncatedIcosahedron_truncate50d_ambo_dual` | 272/540/270/1080 | 2/5 | 16,020.9 | 18.050 | 18.684 | 38.654 | 16.00 |
-| `icosahedron_kis_gyro` | 272/450/180/900 | 2/14 | 14,427.8 | 15.617 | 16.299 | 31.822 | 16.00 |
-| `icosidodecahedron_truncate5d_ambo_dual` | 182/360/180/720 | 4/10 | 14,570.6 | 14.380 | 14.940 | 24.548 | 15.99 |
+| Entry | Meta | Peak render ms | Spilled/frames | Clean `is_timeline_step` ms/f | Clean windows |
+|---|---|--:|--:|--:|--:|
+| truncatedIcosidodecahedron_truncate50d_ambo_dual | V=120 E=180 F=62 I=360 | 🟢 50.51 | 0/156 | 36.58 | 10/10 |
+| dodecahedron_hk35_ambo_hk62_ambo_relax_hk42 | V=20 E=30 F=12 I=60 | 🟢 49.44 | 0/176 | 44.69 | 12/12 |
+| truncatedOctahedron_gyro_kis_hk17 | V=24 E=36 F=14 I=72 | 🟢 44.58 | 0/184 | 37.73 | 12/12 |
+| truncatedIcosidodecahedron_bevel5_relax_hk77 | V=120 E=180 F=62 I=360 | 🟢 43.09 | 0/144 | 38.91 | 8/8 |
+| truncatedIcosahedron_ambo_relax_truncate001_hankin59 | V=60 E=90 F=32 I=180 | 🟢 41.87 | 0/144 | 37.69 | 8/8 |
+| snubDodecahedron_truncate5d_ambo_dual | V=60 E=150 F=92 I=300 | 🟢 40.62 | 0/156 | 29.62 | 10/10 |
+| dodecahedron_bevel2_relax_gyro | V=20 E=30 F=12 I=60 | 🟢 40.39 | 0/176 | 29.37 | 12/12 |
+| truncatedIcosahedron_ambo_relax_truncate001_hankin73 | V=60 E=90 F=32 I=180 | 🟢 40.24 | 0/144 | 36.51 | 10/10 |
+| truncatedIcosahedron_truncate50d_ambo_dual | V=60 E=90 F=32 I=180 | 🟢 38.61 | 0/78 | 28.07 | 5/5 |
+| truncatedIcosahedron_hk54_ambo_hk72 | V=60 E=90 F=32 I=180 | 🟢 38.06 | 0/140 | 33.16 | 8/8 |
+| truncatedIcosahedron_ambo_relax_truncate33_hk64 | V=60 E=90 F=32 I=180 | 🟢 33.08 | 0/144 | 30.84 | 8/8 |
+| icosahedron_kis_gyro | V=12 E=30 F=20 I=60 | 🟢 31.82 | 0/240 | 23.26 | 14/14 |
+| icosahedron_snub_relax_truncate033_hankin62 | V=12 E=30 F=20 I=60 | 🟢 31.15 | 0/72 | 29.54 | 4/4 |
+| dodecahedron_ambo_bevel33_relax_hk66 | V=20 E=30 F=12 I=60 | 🟢 30.08 | 0/156 | 27.47 | 10/10 |
+| truncatedIcosahedron_hk58_chamfer63 | V=60 E=90 F=32 I=180 | 🟢 29.84 | 0/124 | 27.85 | 8/8 |
+| dodecahedron_hk72_ambo_dual_hk20 | V=20 E=30 F=12 I=60 | 🟢 29.68 | 0/103 | 24.44 | 5/5 |
+| rhombicuboctahedron_hk63_ambo_hk63 | V=24 E=48 F=26 I=96 | 🟢 27.56 | 0/140 | 25.23 | 10/10 |
+| icosidodecahedron_truncate5d_ambo_dual | V=30 E=60 F=32 I=120 | 🟢 24.55 | 0/156 | 20.02 | 10/10 |
+| dodecahedron_hk54_ambo_hk72 | V=20 E=30 F=12 I=60 | 🟢 23.38 | 0/140 | 22.56 | 10/10 |
+| icosahedron_ambo_truncate033_hankin59 | V=12 E=30 F=20 I=60 | 🟢 23.26 | 0/136 | 21.22 | 8/8 |
+| dodecahedron_hk62_ambo_hk62 | V=20 E=30 F=12 I=60 | 🟢 23.20 | 0/138 | 21.80 | 10/10 |
+| octahedron_hk17_ambo_hk73 | V=6 E=12 F=8 I=24 | 🟢 21.64 | 0/140 | 19.30 | 8/8 |
+| octahedron_hk34_ambo_hk72 | V=6 E=12 F=8 I=24 | 🟢 19.92 | 0/140 | 18.44 | 8/8 |
 
 ### Per-pixel figures
 
-Window 2577–2592 records 18,490.8 blended pixels/frame,
-1.78× quadrant coverage, at 41.79 cycles/blend.
-Inclusive `is_mesh_scan` costs 1316.92 cycles per blended pixel.
-Shared-counter parenting can hide `filter_blend` on other draw paths; this
-window-local figure is not an invented whole-run blend total.
+`filter_blend` ran 16,060 times per frame in the peak window at 41 cycles per blend.
 
 ## Column-ISR / DMA marshaling cost
 
-```text
-isr_wake         1152.1/frame 0.46/1.70/32.63 us CPU 3.14%
-isr_pack          144.0/frame 6.23/7.12/21.14 us CPU 1.64%
-isr_dma_submit    144.0/frame 0.58/0.93/9.29 us CPU 0.22%
+```
+isr_wake         1201/frame  min/avg/max 0.5/1.7/11.9 us  cpu 3.12%
+isr_pack          150/frame  min/avg/max 6.2/7.0/9.8 us  cpu 1.62%
+isr_dma_submit    150/frame  min/avg/max 0.7/0.9/3.7 us  cpu 0.21%
 ```
 
-Times are per-call min/weighted-average/max. Pack averages
-7.12 µs/call; submit 0.93 µs/call.
-The 600-byte image/black-strobe transfer is asynchronous; its 24 MHz SPI
-bound including byte framing is 230 µs, not CPU submit time. ISR share
-5.00% leaves approximately 59.38 ms foreground CPU per
-62.5 ms window. Render already includes ISRs; peak render needs
-1.000× speedup to fit the display budget.
+The ISR share is included in every scope above, since CYCCNT free-runs.
 
 ## Summary ranking
 
-1. `is_timeline_step` — 22.615 ms/frame, 36.2% of root time (inclusive).
-2. `scan_mesh_raster` — 18.215 ms/frame, 29.2% of root time (inclusive).
-3. `is_build_scan` — 7.196 ms/frame, 11.5% of root time (inclusive).
+1. `is_timeline_step` — 44% of the peak window, 28.54 ms/f.
+2. `pov_preserve_half` — 0% of the peak window, 0.14 ms/f.
+3. `canvas_clear` — 0% of the peak window, 0.08 ms/f.
+4. `is_ripple_prepare` — 0% of the peak window, 0.00 ms/f.
 
-No matched WASM/native timing is used; this is the live device result.
+README cells: peak 🟢 50.51 (23), spilled 🟢 0/3327 (0.00%).
 
 ## Caveats
 
-- CYCCNT free-runs, so every scope includes ISR time.
-- `filter_blend` is registered under its first caller and can be hidden when
-  that parent has zero calls. Its per-pixel instrumentation adds overhead.
-- Duplicate-name rows represent individual counters with the same label;
-  they are not a combined total for every caller of that label.
-- Shipping uses the landed selective-O3 transform/SDF/scan regions; global
-  O3 is a single-effect reference. Neither relaxes the shipping memory gates.
-- Source provenance attests a clean commit. Each before/after pair uses the
-  same board; cross-config comparisons use different boards.
-- Every live frame is retained, including geometry builds and transitions.
-  One capture per revision/config does not establish a confidence interval.
-- Trans Speed 4 changes build/ripple sample counts as well as dwell. The
-  comparison holds it fixed and does not claim default-speed peak coverage.
+- All scopes absorb ISR time (CYCCNT free-runs).
+- `filter_blend` parents under whichever scope first enters it; calls ≈ blended pixels.
+- Setup frame 1 is excluded from the peak and spill figures and reported separately.
+- Selective-O3: `97eb0bf78` changed placement only for the per-pixel pullback, noise and projection kernels; this effect's own `HS_O3` regions are unchanged.
+- Dwell-compression knobs change how long an entry holds, not its per-frame cost.
 
 ## Harness
 
-`targets/Profile/Profile.ino`, `HS_PROFILE_TARGET=IslamicStars`,
-`HS_PROFILE_WINDOW=16`; `just profile IslamicStars` runs locked build/flash/capture.
-Use the Setup reproduction command for this complete cycle and its flags.
+`targets/Profile/Profile.ino` + `HS_PROFILE_TARGET=IslamicStars`, `HS_PROFILE_WINDOW=16`; `bash tools/profile_one.sh IslamicStars profile 210 16 "-D HS_PROFILE_TRANS_SPEED=4 -D HS_PROFILE_EPOCH_REVS=1920"` builds, flashes and captures under the device lock.

@@ -1,6 +1,6 @@
 # HyperLattice on-device profile — Teensy 4.0, segmented mode (2026-09-27, **-O3**)
 
-[Shipping selective-O3 sibling](../shipping/profile_hyperlattice_teensy_2026-09-27.md).
+[Shipping selective-O3 sibling](../shipping/profile_hyperlattice_teensy_2026-09-28.md).
 
 Point-in-time snapshot (regenerate with `just profile HyperLattice`).
 Replaces the 2026-09-26 standard report with a fresh full-cycle capture of the
@@ -207,7 +207,7 @@ comparison, and portable evidence.
 
 Point-in-time snapshot of the corrected single-owner strut renderer.
 This fixed experimental preset is separate from the normal HyperLattice cycle.
-Its [shipping](../shipping/profile_hyperlattice_teensy_2026-09-27.md#supplemental-octet-3d-single-owner-correction) and
+Its [shipping](../shipping/profile_hyperlattice_teensy_2026-09-28.md#supplemental-octet-3d-single-owner-correction) and
 [global-O3](../O3/profile_hyperlattice_teensy_2026-09-27.md#supplemental-octet-3d-single-owner-correction) captures use the same source.
 [Raw capture](../evidence/hyperlattice_octet_single_owner_2026-09-27/o3.txt),
 [provenance](../evidence/hyperlattice_octet_single_owner_2026-09-27/o3.provenance),

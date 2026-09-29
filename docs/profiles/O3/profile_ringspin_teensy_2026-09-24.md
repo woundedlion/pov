@@ -1,6 +1,6 @@
 # RingSpin on-device profile — Teensy 4.0, segmented mode (2026-09-24, **-O3**)
 
-Global-O3 twin of the [shipping report](../shipping/profile_ringspin_teensy_2026-09-24.md).
+Global-O3 twin of the [shipping report](../shipping/profile_ringspin_teensy_2026-09-28.md).
 
 Point-in-time snapshot (regenerate with `just profile RingSpin`).
 Raw capture: `ringspin_o3.log.txt` (archive removed), captured 2026-09-24 20:18 local on COM4.
