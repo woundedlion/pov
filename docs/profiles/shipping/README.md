@@ -8,7 +8,7 @@ Rows rank by any spill, then peak render. 🟢 is zero spill, 🟡 is under 25% 
 | Effect | Dominant scope | Peak ms | Spilled | Captured |
 |---|---|--:|--:|---|
 | [ShapeShifter](profile_shapeshifter_teensy_2026-09-28.md) § | `ss_draw_all` | 🟢 58.24 (9) | 🟢 0/2447 (0.00%) | 2026-09-28 18:48 |
-| [HyperLattice](profile_hyperlattice_teensy_2026-09-29.md) § | `hl_shader_draw` | 🟢 37.46 (3) | 🟢 0/1887 (0.00%) | 2026-09-29 12:46 |
+| [HyperLattice](profile_hyperlattice_teensy_2026-09-29.md) § | `hl_shader_draw` | 🟢 36.65 (3) | 🟢 0/1887 (0.00%) | 2026-09-29 14:54 |
 | [MindSplatter](profile_mindsplatter_teensy_2026-09-28.md) § | `msp_draw_particles` | 🟢 56.11 (8) | 🟢 0/1727 (0.00%) | 2026-09-28 18:51 |
 | [GSReactionDiffusion](profile_gsreactiondiffusion_teensy_2026-09-28.md) | `grd_render` | 🟢 55.53 | 🟢 0/2047 (0.00%) | 2026-09-28 19:21 |
 | [Raymarch](profile_raymarch_teensy_2026-09-28.md) | `rm_shader_draw` | 🟢 54.87 | 🟢 0/1087 (0.00%) | 2026-09-28 19:09 |
@@ -54,7 +54,7 @@ Spill fractions include the transition following an entry and are stricter than 
 
 - **MeshFeedback**: 12 parser ownership buckets spanning 40.88–48.61 ms.
 - **ShapeShifter**: 9 parser ownership buckets spanning 9.47–58.24 ms.
-- **HyperLattice**: 3 parser ownership buckets spanning 29.62–37.46 ms (setup frame excluded).
+- **HyperLattice**: 3 parser ownership buckets spanning 29.60–36.65 ms (setup frame excluded).
 - **MindSplatter**: 8 parser ownership buckets spanning 22.79–56.11 ms.
 - **IslamicStars**: 23 parser ownership buckets spanning 19.92–50.51 ms.
 - **DreamBalls**: 10 parser ownership buckets spanning 14.41–42.66 ms.
@@ -74,7 +74,7 @@ Shipping reports in this directory correspond exactly to
 `HS_PHANTASM_EFFECT_LIST`.
 
 
-● HyperLattice refreshed on 2026-09-29 after its optimization campaign: all three presets and their lerped segues; setup frame 1 excluded.
+● HyperLattice refreshed on 2026-09-29 after its optimization campaign: all three presets and their segues; setup frame 1 excluded.
 
 ## Supplemental experimental presets
 
