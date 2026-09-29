@@ -621,7 +621,13 @@ public:
       HS_PROFILE(hl_shader_draw);
       static_assert(uses_specialized_slice(preset_params(1)),
                     "preset 1 no longer selects the specialized slice trace");
-      if (uses_specialized_slice(params)) {
+      if (uses_specialized_slice(params) && params.shells == ShellCount::TWO) {
+        Scan::Shader::draw_cached<W, H, 1>(
+            canvas, [&prepared](const math::Vector &view) HS_HOT_FLASH_MEMBER {
+              return HyperLatticeDetail::Renderer<true, 2>::shade_premultiplied(
+                  view, prepared);
+            });
+      } else if (uses_specialized_slice(params)) {
         Scan::Shader::draw_cached<W, H, 1>(
             canvas, [&prepared](const math::Vector &view) HS_HOT_FLASH_MEMBER {
               return HyperLatticeDetail::Renderer<true>::shade_premultiplied(
