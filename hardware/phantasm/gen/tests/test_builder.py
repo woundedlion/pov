@@ -8,7 +8,7 @@ sys.path.insert(0, str(GEN))
 import builder  # noqa: E402
 import sexp  # noqa: E402
 
-SCHEMATIC = GEN.parent / "phantasm.kicad_sch"
+SCHEMATIC = GEN.parent / "1.1" / "phantasm.kicad_sch"
 
 ORIGIN = (10.0, 20.0)
 LOCAL = (2.0, 1.0)  # library frame, y up

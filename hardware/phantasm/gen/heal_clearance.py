@@ -3,8 +3,7 @@
 Quilter rejects an upload whose project has min_clearance == 0 ("min clearance must
 be greater than zero"). KiCad re-zeroes that field every time the project is opened
 in the GUI, so this heal must run as the LAST step before any Quilter upload --
-for either the placed board (phantasm.kicad_pro) or the unplaced board
-(unplaced/phantasm_unplaced.kicad_pro). Idempotent; safe to run anytime.
+for any revision's phantasm.kicad_pro. Idempotent; safe to run anytime.
 
 The unplaced board is restored to the wider constraints its candidate boards were
 produced under (constraints.UNPLACED_RULES / UNPLACED_DEFAULT_CLASS); every other
@@ -37,27 +36,28 @@ def is_manifested(path):
 def project_files(paths=()):
     if paths:
         return [os.path.abspath(path) for path in paths if not is_manifested(path)]
-    candidates = glob.glob(os.path.join(OUT, "phantasm*.kicad_pro")) \
-        + glob.glob(os.path.join(OUT, "unplaced", "phantasm*.kicad_pro")) \
-        + glob.glob(os.path.join(OUT, "quilter_incremental", "phantasm*.kicad_pro"))
+    candidates = glob.glob(os.path.join(OUT, "[0-9]*", "phantasm*.kicad_pro")) \
+        + glob.glob(os.path.join(OUT, "phantasm*.kicad_pro")) \
+        + glob.glob(os.path.join(OUT, "unplaced", "phantasm*.kicad_pro"))
     return sorted(p for p in candidates if not is_manifested(p))
 
 
-def minimums_for(p):
+def minimums_for(p, project=None):
     """The (rule, Default net class) floors project p must be restored to."""
-    if os.path.basename(os.path.dirname(p)) == "unplaced":
+    layout = (project or {}).get("text_variables", {}).get("PHANTASM_LAYOUT")
+    if layout == "unplaced" or os.path.basename(os.path.dirname(p)) == "unplaced":
         return UNPLACED_RULES, UNPLACED_DEFAULT_CLASS
     return RULE_MINIMUMS, DEFAULT_CLASS_MINIMUMS
 
 
 
 def heal_project(p, dry_run=False):
-    rule_minimums, class_minimums = minimums_for(p)
     with open(p, encoding="utf-8") as project_file:
         d = json.load(project_file)
         # Rewrite in the file's own convention; a mixed file gets the repo's.
         seen = project_file.newlines
         newline = seen if isinstance(seen, str) else "\n"
+    rule_minimums, class_minimums = minimums_for(p, d)
     changes = rule_shortfalls(d, rule_minimums, class_minimums)
 
     if changes:

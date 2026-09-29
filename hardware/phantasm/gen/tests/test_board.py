@@ -71,7 +71,7 @@ def generate(out):
 
 
 def dangling_pins(root):
-    """[(ref, pin number, point)] for pins touching no wire, junction or label.
+    """[(ref, pin number, point)] for pins with no wiring or no-connect marker.
 
     Pin coordinates come from the schematic's own lib_symbols, so a stock
     symbol whose pin moved is measured where the generated file placed it.
@@ -81,6 +81,8 @@ def dangling_pins(root):
             if isinstance(node, list) and node and node[0] == "symbol"}
     named, wires, junctions = shorts.geometry(root)
     anchors = set(named) | set(junctions)
+    anchors.update(shorts.R(tuple(map(float, sexp.val(node, "at"))))
+                   for node in F(root, "no_connect"))
     for a, b in wires:
         anchors.add(a)
         anchors.add(b)
@@ -155,6 +157,11 @@ class DanglingPinTests(unittest.TestCase):
         self.assertEqual(dangling_pins(sexp.parse(DANGLING)[0]),
                          [("R1", "2", (100.0, 103.81))])
 
+    def test_an_explicit_no_connect_is_not_reported(self):
+        root = sexp.parse(DANGLING)[0]
+        root.append(["no_connect", ["at", "100", "103.81"]])
+        self.assertEqual(dangling_pins(root), [])
+
     def test_a_wire_crossing_a_pin_does_not_connect_it(self):
         self.assertEqual(dangling_pins(sexp.parse(WIRE_OVER_PIN)[0]),
                          [("R1", "2", (100.0, 103.81))])
@@ -189,6 +196,33 @@ class GeneratedSchematicTests(unittest.TestCase):
     def test_writes_every_project_file(self):
         for name in PROJECT_FILES:
             self.assertTrue(os.path.exists(os.path.join(self.out.name, name)), name)
+
+    def test_teensy_pins_match_footprint_and_unused_pins_are_no_connect(self):
+        footprint = GEN.parent / "1.2" / "phantasm.pretty" / "Teensy4.0.kicad_mod"
+        pads = F(sexp.parse(footprint.read_text(encoding="utf-8"))[0], "pad")
+        pad_numbers = {pad[1] for pad in pads if pad[1]}
+        lib = next(node for node in sexp.val(self.root, "lib_symbols")
+                   if node[0:2] == ["symbol", "phantasm:Teensy4.0"])
+        pins = builder._index_unit_pins(lib)[1]
+        self.assertEqual(set(pins), pad_numbers)
+        inst = next(node for node in F(self.root, "symbol")
+                    if sexp.val(node, "lib_id") == ["phantasm:Teensy4.0"])
+        self.assertEqual({node[1] for node in F(inst, "pin")}, pad_numbers)
+        x, y, rot = map(float, sexp.val(inst, "at"))
+        positions = {number: builder.transform(x, y, rot, None, pin["x"], pin["y"])
+                     for number, pin in pins.items()}
+        self.assertEqual(len(set(positions.values())), len(pins))
+        markers = {tuple(map(float, sexp.val(node, "at")))
+                   for node in F(self.root, "no_connect")}
+        connected = {"VIN", "3V3", "GND", "1", "3", "4", "5", "11", "13",
+                     "21", "22", "23"}
+        self.assertEqual(markers, {positions[number] for number in pad_numbers - connected})
+        named, wires, junctions = shorts.geometry(self.root)
+        self.assertTrue(markers.isdisjoint(set(named) | set(junctions)))
+        for start, end in wires:
+            for point in markers:
+                self.assertFalse(min(start[0], end[0]) <= point[0] <= max(start[0], end[0])
+                                 and min(start[1], end[1]) <= point[1] <= max(start[1], end[1]))
 
     def test_project_uses_fabrication_rule_minimums(self):
         project = Path(self.out.name, "phantasm.kicad_pro")

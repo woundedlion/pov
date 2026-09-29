@@ -34,7 +34,7 @@ import pcb              # noqa: E402
 import sexp             # noqa: E402
 from kicad_common import F, export_netlist, is_copper_pour, kicad_cli  # noqa: E402
 
-COMMITTED_PCB = GEN.parent / pcb.PCB_FILE
+COMMITTED_PCB = GEN.parent / "1.1" / pcb.PCB_FILE
 
 STOCK_SYMBOLS = os.path.isdir(sexp.KICAD_SHARE)
 STOCK_FOOTPRINTS = os.path.isdir(pcb.FP_DIR)
@@ -323,7 +323,8 @@ class GeneratedBoardTests(TerminalBodyChecks, unittest.TestCase):
 
     def test_old_schematic_cannot_be_stamped_with_the_new_revision(self):
         with tempfile.TemporaryDirectory() as directory, \
-                mock.patch.object(pcb, "OUT", directory):
+                mock.patch.object(pcb, "OUT", directory), \
+                mock.patch.object(pcb, "SCH", str(COMMITTED_PCB.with_suffix(".kicad_sch"))):
             with self.assertRaisesRegex(SystemExit, "regenerate the schematic first"):
                 pcb.main()
 

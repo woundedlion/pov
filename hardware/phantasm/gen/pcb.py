@@ -11,6 +11,7 @@ import argparse
 import copy
 import math
 import os
+import shutil
 import sys
 import board as schematic_generator
 import builder
@@ -23,18 +24,18 @@ from kicad_common import (uid, reset_uid_sequence, fmt, F, arc_extrema,
                           export_netlist, kicad_cli, require_writable)
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-OUT = os.path.dirname(HERE)
-LOCAL_FOOTPRINT_DIR = os.path.join(os.path.dirname(HERE), "phantasm.pretty")
+OUT = schematic_generator.OUT
+LOCAL_FOOTPRINT_DIR = os.path.join(OUT, "phantasm.pretty")
 TERMINAL_LIBIDS = tuple(
     f"phantasm:TerminalBlock_GCT_TBC05-0{pins}-1-G-G" for pins in (2, 3))
 SCH = os.path.join(OUT, "phantasm.kicad_sch")
 PCB_FILE = "phantasm.kicad_pcb"
-UNPLACED_FILE = os.path.join("unplaced", "phantasm_unplaced.kicad_pcb")
+UNPLACED_FILE = PCB_FILE
 #: The revision stamp on the bottom silkscreen. builder.REVISION owns it.
 SILK_REVISION = f"Phantasm Rev {builder.REVISION}"
 UNPLACED_REASON = (
-    "The committed unplaced board is the Quilter upload input and carries\n"
-    "  KiCad GUI edits these generators do not reproduce.")
+    "Regeneration replaces this revision's board, including any placement\n"
+    "  and routing saved in KiCad.")
 FP_DIR = sexp.find_kicad_data_dir("footprints", "KICAD_FOOTPRINT_DIR")
 #: R-MECH-6 board-width cap (mm).
 PCB_W_MAX = MAX_BOARD_WIDTH_MM
@@ -805,8 +806,7 @@ def main(unplaced=False, force=False, force_teensy_library=False):
                  + ", ".join(clashes))
 
     HOLES = mounting_holes(L)
-    teensy_model_path = "${KIPRJMOD}/../phantasm.pretty/Teensy4.0.wrl" if unplaced else \
-        "${KIPRJMOD}/phantasm.pretty/Teensy4.0.wrl"
+    teensy_model_path = "${KIPRJMOD}/phantasm.pretty/Teensy4.0.wrl"
     foot_nodes = []
     consumed = set()
     for ref, (x, y, rot) in PLACE.items():
@@ -988,6 +988,10 @@ def main(unplaced=False, force=False, force_teensy_library=False):
         if os.path.abspath(source) != os.path.abspath(destination):
             with open(source, encoding="utf-8") as f:
                 atomic_write_text(destination, f.read())
+    model_source = os.path.join(LOCAL_FOOTPRINT_DIR, "Teensy4.0.wrl")
+    model_target = os.path.join(pretty, "Teensy4.0.wrl")
+    if os.path.abspath(model_source) != os.path.abspath(model_target):
+        shutil.copyfile(model_source, model_target)
     fplt = os.path.join(OUT, "fp-lib-table")
     if not os.path.exists(fplt):
         atomic_write_text(fplt, '(fp_lib_table\n\t(version 7)\n'
@@ -999,7 +1003,7 @@ def main(unplaced=False, force=False, force_teensy_library=False):
 def parse_args(argv=None):
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--unplaced", action="store_true",
-                        help="write unplaced/phantasm_unplaced.kicad_pcb for "
+                        help="write the revisioned unplaced project for "
                              "the autoplacer instead")
     parser.add_argument("--force", action="store_true",
                         help=f"overwrite the committed {PCB_FILE} / "

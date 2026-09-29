@@ -15,9 +15,9 @@ sync pin map, channel-C input, BOM and net table below:
 - The rev 1.2 GND net additionally contains R_TX. The receive divider and
   220 pF filter, switched bus pulldown, and bus connectors retain their values.
 
-The rev 1.2 schematic and PCB drafts require regeneration and routing. Current
+The rev 1.2 project in `hardware/phantasm/1.2/` requires placement and routing. Current
 firmware and the committed routed fabrication artifacts remain rev 1.1; see
-[the hardware revision notes](../../hardware/phantasm/README.md#revision-12).
+[the hardware revision notes](../../hardware/phantasm/1.1/README.md#revision-12).
 
 **Status: SPECIFIED; the routed board is committed, with two recorded deviations.** The
 schematic and layout this document specifies ship in `hardware/phantasm/` and pass the gates
@@ -592,7 +592,7 @@ added under the ceramic body, where it would invite solder wicking and tombstoni
 Every other chip passive uses the stock IPC-nominal land; D_BUS uses the Bourns land pattern (§9).
 
 > **This requirement is not met by the committed routed board.**
-> `hardware/phantasm/phantasm.kicad_pcb` carries the *stock* footprint id on all four with the pads
+> `hardware/phantasm/1.1/phantasm.kicad_pcb` carries the *stock* footprint id on all four with the pads
 > widened in place instead — 1.20 mm (0603) / 1.40 mm (0805) on unchanged ±0.825 / ±0.9125 mm
 > centres — so the inter-pad gap is **0.450 mm** / **0.425 mm** and copper does reach under the bare
 > ceramic body of a reflow-placed part. `gen/board.py` names the lands this section requires, so a

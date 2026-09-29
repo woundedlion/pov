@@ -14,6 +14,22 @@ from constraints import NEW_LAYOUT_RULES, UNPLACED_DEFAULT_CLASS, UNPLACED_RULES
 
 
 class MainTests(unittest.TestCase):
+    def test_revision_project_retains_unplaced_rules(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            project = root / "1.2" / "phantasm.kicad_pro"
+            project.parent.mkdir()
+            data = json.loads(self.ZEROED)
+            data["text_variables"] = {"PHANTASM_LAYOUT": "unplaced"}
+            project.write_text(json.dumps(data), encoding="utf-8")
+            with mock.patch.object(heal_clearance, "OUT", directory):
+                self.assertEqual(heal_clearance.project_files(), [str(project)])
+                with contextlib.redirect_stdout(io.StringIO()):
+                    self.assertEqual(heal_clearance.main([]), 0)
+            result = json.loads(project.read_text(encoding="utf-8"))
+            self.assertEqual(result["board"]["design_settings"]["rules"],
+                             {**UNPLACED_RULES, **NEW_LAYOUT_RULES})
+
     def test_missing_projects_fails(self):
         with tempfile.TemporaryDirectory() as temp_dir:
             with mock.patch.object(heal_clearance, "OUT", temp_dir):

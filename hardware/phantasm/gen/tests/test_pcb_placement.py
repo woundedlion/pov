@@ -9,8 +9,7 @@ import pcb  # noqa: E402
 import sexp  # noqa: E402
 from kicad_common import F  # noqa: E402
 
-ROUTED = GEN_DIR.parent / pcb.PCB_FILE
-UNPLACED = GEN_DIR.parent / pcb.UNPLACED_FILE
+ROUTED = GEN_DIR.parent / "1.1" / pcb.PCB_FILE
 
 
 def placements(path):
@@ -31,14 +30,12 @@ class LockedPlacementTests(unittest.TestCase):
     so a constant that disagrees with the committed boards hands Quilter a
     different mechanical placement than the routing was produced under."""
 
-    def test_every_locked_placement_matches_the_committed_boards(self):
+    def test_captured_placements_match_the_routed_board(self):
         routed = placements(ROUTED)
-        unplaced = placements(UNPLACED)
         self.assertTrue(pcb.QUILTER_FIXED)
         for ref, (x, y, rot) in sorted(pcb.QUILTER_FIXED.items()):
             with self.subTest(ref=ref):
                 self.assertEqual(routed.get(ref), (float(x), float(y), float(rot)))
-                self.assertEqual(unplaced.get(ref), (float(x), float(y), float(rot)))
 
 
 class OutlineBoundsTests(unittest.TestCase):

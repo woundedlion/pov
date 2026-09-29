@@ -378,7 +378,7 @@ def report(broken):
 
 def main(argv=None):
     default = os.path.join(
-        os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+        os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "1.1",
         "phantasm.kicad_pcb")
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("board", nargs="?", default=default)
