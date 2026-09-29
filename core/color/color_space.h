@@ -308,10 +308,11 @@ inline constexpr int GAMUT_LUT_MIN_L_STEPS = 64;
  *        least GAMUT_LUT_MIN_L_STEPS.
  * @details Optional, and only worth its arena bytes at per-pixel clip rates:
  * the flash master already serves the clip correctly and at higher resolution.
- * gamut_max_chroma() is the only reader it accelerates;
- * gamut_continuous_chroma_sample() and gamut_scale_to_boundary_lut() consume
- * the stored minima directly and stay on the flash master, so an effect that
- * uses only those two spends the arena for nothing.
+ * gamut_max_chroma() and lms_cbrt_scale_to_gamut_lut() are the readers it
+ * accelerates; gamut_continuous_chroma_sample() and the one-argument
+ * gamut_scale_to_boundary_lut() consume the stored minima directly and stay on
+ * the flash master, so an effect that uses only those two spends the arena for
+ * nothing.
  * Call after the arenas are configured, from the owning effect's init(). A
  * coarse cell takes the minimum of the merged minima and the maximum of the
  * merged maxima, so the true boundary of every ray in the cell still lies
@@ -762,6 +763,80 @@ inline void lms_cbrt_transform_rgb2(const float k[9], float l0, float m0,
   }
 }
 
+HS_O3_FN __attribute__((noinline)) inline void
+lms_cbrt_scale_to_gamut_lut(float l_cbrt, float m_cbrt, float s_cbrt, float &r,
+                            float &g, float &b);
+
+/**
+ * @brief lms_cbrt_transform_rgb with the tabulated chroma clip.
+ * @param k Row-major 3x3 acting on cube-rooted LMS.
+ * @param l_cbrt Cube-rooted l cone response.
+ * @param m_cbrt Cube-rooted m cone response.
+ * @param s_cbrt Cube-rooted s cone response.
+ * @param r Out: linear red on or inside the tabulated boundary.
+ * @param g Out: linear green.
+ * @param b Out: linear blue.
+ * @details Same in-gamut path as lms_cbrt_transform_rgb; an out-of-gamut color
+ * goes through lms_cbrt_scale_to_gamut_lut() instead of the bracket bisection.
+ */
+HS_O3_FN
+inline void lms_cbrt_transform_rgb_lut(const float k[9], float l_cbrt,
+                                       float m_cbrt, float s_cbrt, float &r,
+                                       float &g, float &b) {
+  float ul = k[0] * l_cbrt + k[1] * m_cbrt + k[2] * s_cbrt;
+  float um = k[3] * l_cbrt + k[4] * m_cbrt + k[5] * s_cbrt;
+  float us = k[6] * l_cbrt + k[7] * m_cbrt + k[8] * s_cbrt;
+  lms_cbrt_to_linear_rgb(ul, um, us, r, g, b);
+  if (!linear_rgb_in_gamut(r, g, b)) {
+    HS_PROFILE_DEEP(gamut_clip);
+    lms_cbrt_scale_to_gamut_lut(ul, um, us, r, g, b);
+  }
+}
+
+/**
+ * @brief Two-pixel lms_cbrt_transform_rgb_lut sharing one code path.
+ * @param k Row-major 3x3 acting on cube-rooted LMS.
+ * @param l0 Cube-rooted l cone response of the first pixel.
+ * @param m0 Cube-rooted m of the first pixel.
+ * @param s0 Cube-rooted s of the first pixel.
+ * @param l1 Cube-rooted l of the second pixel.
+ * @param m1 Cube-rooted m of the second pixel.
+ * @param s1 Cube-rooted s of the second pixel.
+ * @param r0 Out: linear red of the first pixel.
+ * @param g0 Out: linear green of the first pixel.
+ * @param b0 Out: linear blue of the first pixel.
+ * @param r1 Out: linear red of the second pixel.
+ * @param g1 Out: linear green of the second pixel.
+ * @param b1 Out: linear blue of the second pixel.
+ * @details Results match two lms_cbrt_transform_rgb_lut calls bit for bit;
+ * only the statement order differs, so an in-order FPU can overlap the two
+ * independent chains.
+ */
+HS_O3_FN
+inline void lms_cbrt_transform_rgb2_lut(const float k[9], float l0, float m0,
+                                        float s0, float l1, float m1, float s1,
+                                        float &r0, float &g0, float &b0,
+                                        float &r1, float &g1, float &b1) {
+  float ul0 = k[0] * l0 + k[1] * m0 + k[2] * s0;
+  float ul1 = k[0] * l1 + k[1] * m1 + k[2] * s1;
+  float um0 = k[3] * l0 + k[4] * m0 + k[5] * s0;
+  float um1 = k[3] * l1 + k[4] * m1 + k[5] * s1;
+  float us0 = k[6] * l0 + k[7] * m0 + k[8] * s0;
+  float us1 = k[6] * l1 + k[7] * m1 + k[8] * s1;
+  lms_cbrt_to_linear_rgb(ul0, um0, us0, r0, g0, b0);
+  lms_cbrt_to_linear_rgb(ul1, um1, us1, r1, g1, b1);
+  bool ok0 = linear_rgb_in_gamut(r0, g0, b0);
+  bool ok1 = linear_rgb_in_gamut(r1, g1, b1);
+  if (!ok0) {
+    HS_PROFILE_DEEP(gamut_clip);
+    lms_cbrt_scale_to_gamut_lut(ul0, um0, us0, r0, g0, b0);
+  }
+  if (!ok1) {
+    HS_PROFILE_DEEP(gamut_clip);
+    lms_cbrt_scale_to_gamut_lut(ul1, um1, us1, r1, g1, b1);
+  }
+}
+
 /**
  * @brief Quantizes a [0,1] linear channel to a 16-bit Pixel component.
  * @param v Linear channel value; clamped to [0, 1].
@@ -919,8 +994,9 @@ inline Color4 hue_rotate(const HueRotateBase &hb, float amount) {
 }
 
 /**
- * @brief Rescales an OKLab color onto the tabulated sRGB gamut boundary.
+ * @brief Rescales an OKLab color onto a tabulated sRGB gamut boundary.
  * @param lab Source color; lightness is clamped to [0, 1] first.
+ * @param lut Boundary grid to read: the flash master or an arena copy.
  * @return The color scaled to the tabulated boundary chroma for its hue and
  *         lightness cell, or the neutral axis when chroma underflows.
  * @details Scales unconditionally, so an in-gamut color is pushed outward to
@@ -930,7 +1006,8 @@ inline Color4 hue_rotate(const HueRotateBase &hb, float amount) {
  * seed. That single step is one-sided low, so the rescale lands at or inside
  * the boundary; fast_rsqrt()'s second step would only cost cycles here.
  */
-HS_FLASH_INLINE inline OKLab gamut_scale_to_boundary_lut(OKLab lab) {
+__attribute__((always_inline)) inline OKLab
+gamut_scale_to_boundary_lut(OKLab lab, const GamutLut &lut) {
   lab.L = hs::clamp(lab.L, 0.0f, 1.0f);
   const float chroma_sq = lab.a * lab.a + lab.b * lab.b;
   if (!(chroma_sq > 1e-12f))
@@ -941,9 +1018,6 @@ HS_FLASH_INLINE inline OKLab gamut_scale_to_boundary_lut(OKLab lab) {
   float inverse_chroma;
   std::memcpy(&inverse_chroma, &inverse_bits, sizeof(inverse_chroma));
   inverse_chroma *= 1.5f - 0.5f * chroma_sq * inverse_chroma * inverse_chroma;
-  // Not g_gamut_lut: this path consumes the stored minima directly, so a
-  // coarse grid's width is never narrowed back.
-  const GamutLut &lut = GAMUT_LUT_MASTER;
   const GamutCell cell = gamut_cell(lut, lab.L, lab.a, lab.b);
   const uint16_t stored =
       lut.table[(cell.lightness_index * lut.angle_steps + cell.angle_index) *
@@ -953,6 +1027,38 @@ HS_FLASH_INLINE inline OKLab gamut_scale_to_boundary_lut(OKLab lab) {
                          GAMUT_CLIP_MARGIN);
   const float scale = max_chroma * inverse_chroma;
   return {lab.L, lab.a * scale, lab.b * scale};
+}
+
+/**
+ * @brief Rescales an OKLab color onto the flash master's gamut boundary.
+ * @param lab Source color; lightness is clamped to [0, 1] first.
+ * @return The color scaled to the tabulated boundary chroma for its hue and
+ *         lightness cell, or the neutral axis when chroma underflows.
+ * @details Reads the flash master rather than g_gamut_lut, so a coarse arena
+ * copy's merged minima never narrow the result.
+ */
+HS_FLASH_INLINE inline OKLab gamut_scale_to_boundary_lut(OKLab lab) {
+  return gamut_scale_to_boundary_lut(lab, GAMUT_LUT_MASTER);
+}
+
+/**
+ * @brief Cube-rooted LMS to linear RGB, chroma-scaled onto the live gamut grid.
+ * @param l_cbrt Cube-rooted l cone response of an out-of-gamut color.
+ * @param m_cbrt Cube-rooted m cone response.
+ * @param s_cbrt Cube-rooted s cone response.
+ * @param r Out: linear red on or inside the tabulated boundary.
+ * @param g Out: linear green.
+ * @param b Out: linear blue.
+ * @details The stored cell minimum stands in for gamut_clip_preserve_chroma()'s
+ * bracket refinement, so the result sits at most one cell's chroma deficit
+ * inside the true boundary. Reads g_gamut_lut.
+ */
+HS_O3_FN __attribute__((noinline)) inline void
+lms_cbrt_scale_to_gamut_lut(float l_cbrt, float m_cbrt, float s_cbrt, float &r,
+                            float &g, float &b) {
+  const OKLab lab = gamut_scale_to_boundary_lut(
+      lms_to_oklab(l_cbrt, m_cbrt, s_cbrt), g_gamut_lut);
+  oklab_to_linear_rgb(lab, r, g, b);
 }
 
 /**

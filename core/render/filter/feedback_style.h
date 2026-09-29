@@ -354,7 +354,9 @@ inline math::Vector melt_warp(const math::Vector &v, const Style &s) {
  * @param b Linear blue channel.
  * @return The rotated, faded pixel.
  * @details Single source for the built-in hue-fade color math so hue_fade() and
- *          the flush() fast path that bypasses it cannot drift.
+ *          the flush() fast path that bypasses it cannot drift. Out-of-gamut
+ *          results are chroma-scaled onto the tabulated gamut grid
+ *          (lms_cbrt_transform_rgb_lut), not bisected.
  */
 HS_O3_FN inline Pixel hue_fade_apply(const float k[9], float r, float g,
                                      float b) {
@@ -362,7 +364,7 @@ HS_O3_FN inline Pixel hue_fade_apply(const float k[9], float r, float g,
   float cl, cm, cs;
   math::fast_cbrt3(lms.l, lms.m, lms.s, cl, cm, cs);
   float rr, gg, bb;
-  lms_cbrt_transform_rgb(k, cl, cm, cs, rr, gg, bb);
+  lms_cbrt_transform_rgb_lut(k, cl, cm, cs, rr, gg, bb);
   return Pixel(float_to_pixel16(rr), float_to_pixel16(gg),
                float_to_pixel16(bb));
 }
@@ -392,8 +394,8 @@ HS_O3_FN inline void hue_fade_apply2(const float k[9], float r0, float g0,
   float c6[6];
   math::fast_cbrt6(lms6, c6);
   float rr0, gg0, bb0, rr1, gg1, bb1;
-  lms_cbrt_transform_rgb2(k, c6[0], c6[1], c6[2], c6[3], c6[4], c6[5], rr0, gg0,
-                          bb0, rr1, gg1, bb1);
+  lms_cbrt_transform_rgb2_lut(k, c6[0], c6[1], c6[2], c6[3], c6[4], c6[5], rr0,
+                              gg0, bb0, rr1, gg1, bb1);
   p0 = Pixel(float_to_pixel16(rr0), float_to_pixel16(gg0),
              float_to_pixel16(bb0));
   p1 = Pixel(float_to_pixel16(rr1), float_to_pixel16(gg1),
