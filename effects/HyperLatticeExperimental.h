@@ -244,6 +244,73 @@ trace(const Events &events, Raycast::Interval interval,
   return result;
 }
 
+/**
+ * @brief trace() by per-stream walks and a distance-ordered covered list.
+ * @details Each stream walks its own crossings with the same accumulated
+ * distances trace() pops, and only covered crossings are insertion-sorted.
+ * An uncovered crossing never closes a merge group, so the groups are runs of
+ * covered crossings within the relative tolerance of their first distance. A
+ * ray with more crossings than the candidate budget defers to trace(), which
+ * truncates them in distance order.
+ */
+template <typename Events>
+__attribute__((always_inline)) inline Sample
+trace_sorted(const Events &events, Raycast::Interval interval,
+             const Raycast::TraceLimits &limits,
+             const Raycast::Appearance &appearance) {
+  constexpr float RELATIVE_TOLERANCE = 1.0e-4f;
+  constexpr int CAPACITY = 64;
+  std::array<float, CAPACITY> distances;
+  std::array<float, CAPACITY> coverages;
+  int covered = 0;
+  int crossings = 0;
+  const int BUDGET = std::min(limits.max_candidates, CAPACITY);
+  for (uint8_t stream = 0; stream < Events::STREAM_COUNT; ++stream) {
+    if (!events.active(stream))
+      continue;
+    const float STEP = events.step[stream];
+    for (float t = events.next[stream]; t <= interval.far; t += STEP) {
+      if (++crossings > BUDGET)
+        return trace(events, interval, limits, appearance);
+      if (t < interval.near)
+        continue;
+      uint32_t feature;
+      const float COVERAGE = events.coverage(stream, t, feature);
+      if (!(COVERAGE > 0.0f))
+        continue;
+      int slot = covered++;
+      for (; slot > 0 && distances[slot - 1] > t; --slot) {
+        distances[slot] = distances[slot - 1];
+        coverages[slot] = coverages[slot - 1];
+      }
+      distances[slot] = t;
+      coverages[slot] = COVERAGE;
+    }
+  }
+  Sample result;
+  LayerComposite composite;
+  int layers = 0;
+  for (int index = 0; index < covered;) {
+    if (layers >= limits.max_layers) {
+      result.status = Raycast::TraceStatus::BUDGET_EXHAUSTED;
+      break;
+    }
+    ++layers;
+    const float T = distances[index];
+    const float GROUP_END = T + RELATIVE_TOLERANCE * std::max(1.0f, T);
+    float coverage = coverages[index];
+    for (++index; index < covered && distances[index] <= GROUP_END; ++index)
+      coverage = std::max(coverage, coverages[index]);
+    composite.add(appearance.color(T), coverage * appearance.opacity(T));
+    if (composite.saturated()) {
+      result.status = Raycast::TraceStatus::SATURATED;
+      break;
+    }
+  }
+  result.color = composite.premultiplied();
+  return result;
+}
+
 template <bool SLICE_4D>
 HS_HOT_FLASH_MEMBER Sample shade(const math::Vector &direction,
                                  const Prepared &prepared) {
@@ -282,12 +349,14 @@ HS_HOT_FLASH_MEMBER Sample shade(const math::Vector &direction,
     const SDF::OctetEvents4 events(prepared.octet4, prepared.octet4_projection,
                                    direction, camera.radial_start,
                                    camera.interval.near, prepared.footprint);
-    return trace(events, camera.interval, prepared.limits, prepared.appearance);
+    return trace_sorted(events, camera.interval, prepared.limits,
+                        prepared.appearance);
   } else {
     const SDF::OctetEvents events(prepared.octet_projection, direction,
                                   camera.radial_start, camera.interval.near,
                                   prepared.footprint);
-    return trace(events, camera.interval, prepared.limits, prepared.appearance);
+    return trace_sorted(events, camera.interval, prepared.limits,
+                        prepared.appearance);
   }
 }
 
