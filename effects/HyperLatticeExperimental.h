@@ -542,30 +542,33 @@ trace_octet_4d(const math::Vector &direction, const Prepared &prepared) {
       advances[m] = static_cast<uint32_t>(
           static_cast<int32_t>(roundf(rates[m] * STEP * FIXED_ONE)));
     }
-    uint32_t index = 0;
-    for (float t = FIRST; t <= FAR; t += STEP, ++index) {
-      if (++crossings > BUDGET)
-        return false;
-      if (t < NEAR)
-        continue;
+    // The first plane lies at or past NEAR. Counting the crossings up front
+    // keeps float compares out of the walk; one within rounding of FAR
+    // carries no fog-weighted opacity either way.
+    const int COUNT =
+        FIRST <= FAR ? static_cast<int>((FAR - FIRST) * fabsf(speed)) + 1 : 0;
+    crossings += COUNT;
+    if (crossings > BUDGET)
+      return false;
+    float t = FIRST - STEP;
+    for (uint32_t index = 0; index < static_cast<uint32_t>(COUNT); ++index) {
+      t += STEP;
       const float SUPPORT = SUPPORT_BASE + SUPPORT_RATE * t;
       const float SUPPORT2 = SUPPORT * SUPPORT;
-      {
-        std::array<uint32_t, 4> squares;
-        for (int m = 0; m < 4; ++m) {
-          const int32_t RESIDUAL = static_cast<int16_t>(
-              static_cast<uint16_t>(starts[m] + index * advances[m]));
-          squares[m] = static_cast<uint32_t>(RESIDUAL * RESIDUAL);
-        }
-        uint32_t nearest = UINT32_MAX;
-        for (size_t c = 0; c < CLASSES; ++c)
-          nearest =
-              std::min(nearest, squares[pairs[c].k] + squares[pairs[c].l]);
-        const float THRESHOLD = SUPPORT2 * THRESHOLD_SCALE + THRESHOLD_MARGIN;
-        if (THRESHOLD < 2147483648.0f &&
-            nearest > static_cast<uint32_t>(THRESHOLD))
-          continue;
+      std::array<uint32_t, 4> squares;
+      for (int m = 0; m < 4; ++m) {
+        const int32_t RESIDUAL = static_cast<int16_t>(
+            static_cast<uint16_t>(starts[m] + index * advances[m]));
+        squares[m] = static_cast<uint32_t>(RESIDUAL * RESIDUAL);
       }
+      uint32_t nearest = UINT32_MAX;
+      for (size_t c = 0; c < CLASSES; ++c)
+        nearest = std::min(nearest, squares[pairs[c].k] + squares[pairs[c].l]);
+      // Clamped below 2^32; any threshold at or past 2^31 rejects nothing.
+      const uint32_t THRESHOLD = static_cast<uint32_t>(std::min(
+          SUPPORT2 * THRESHOLD_SCALE + THRESHOLD_MARGIN, 4294967040.0f));
+      if (nearest > THRESHOLD)
+        continue;
       std::array<float, 4> residual;
       std::array<float, 4> rounded;
       for (int m = 0; m < 4; ++m) {
@@ -586,7 +589,7 @@ trace_octet_4d(const math::Vector &direction, const Prepared &prepared) {
         // A class the plane bound clears cannot reach the support, and
         // neither can a farther class it would otherwise have beaten.
         if (!(denominators[c] > 0.0f) ||
-            PLANE_SHARE * (rk * rk + rl * rl) > SUPPORT2)
+            squares[PAIR.k] + squares[PAIR.l] > THRESHOLD)
           continue;
         float across = residual[PAIR.i] - sign * residual[PAIR.j];
         const float SHIFT = across > 0.5f    ? 1.0f
