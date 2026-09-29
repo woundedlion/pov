@@ -51,6 +51,13 @@ struct PreparedPeriodicShells {
   PeriodicShells geometry;
   Raycast::Footprint footprint;
   float radius_squared = 0;
+  float inverse_cell = 0;
+  /**
+   * @brief Whether trace_periodic_shells_3d() may serve this frame: a 3D
+   *        camera whose widest filtered sphere stays inside one lattice layer's
+   *        rounding cell for every ray direction.
+   */
+  bool single_owner = false;
   bool valid = false;
 };
 
@@ -68,8 +75,152 @@ prepare_periodic_shells(const Raycast::PreparedCamera &camera, float cell_size,
   if (prepared.valid) {
     prepared.radius_squared =
         shell_radius * shell_radius * cell_size * cell_size;
+    prepared.inverse_cell = 1 / cell_size;
+    // A contributing sphere lies within shell_radius plus half the footprint
+    // at the far distance of the ray. Seen from the ray's crossing of the
+    // sphere's layer across the dominant axis, that clearance grows by at most
+    // sqrt(3); below half a cell the crossing rounds to the sphere's center.
+    const float WIDEST = shell_radius + .5f *
+                                            footprint.at(camera.interval.far) *
+                                            prepared.inverse_cell;
+    prepared.single_owner =
+        camera.domain == Raycast::SamplingDomain::SPATIAL_3D &&
+        1.7320508f * WIDEST < .499f;
   }
   return prepared;
+}
+
+/** @brief Premultiplied shell color and how its traversal ended. */
+struct ShellSample {
+  Pixel color;
+  Raycast::TraceStatus status = Raycast::TraceStatus::RANGE_COMPLETE;
+};
+
+/**
+ * @brief 3D shell composite by a march over the lattice layers across the
+ *        ray's dominant axis.
+ * @details Requires PreparedPeriodicShells::single_owner. Each layer crossing
+ * then has one candidate sphere, centered at the crossing's rounded lattice
+ * point, and a sphere's roots and filtered closest approach both lie inside its
+ * own cell, so a crossing whose ray-to-center clearance exceeds the widest
+ * contribution is rejected before any root solve. Matches
+ * shade_periodic_shells_dimension<3>, with the step budget counting layers.
+ * @return The premultiplied composite.
+ */
+__attribute__((always_inline)) inline ShellSample trace_periodic_shells_3d(
+    const PreparedPeriodicShells &prepared,
+    const Raycast::PreparedCamera &camera, const math::Vector &direction,
+    const Raycast::TraceLimits &limits, const Raycast::Appearance &appearance) {
+  const auto &E = camera.embedding.m;
+  const float D[3] = {
+      E[0][0] * direction.x + E[0][1] * direction.y + E[0][2] * direction.z,
+      E[1][0] * direction.x + E[1][1] * direction.y + E[1][2] * direction.z,
+      E[2][0] * direction.x + E[2][1] * direction.y + E[2][2] * direction.z};
+  const float CELL = prepared.geometry.cell_size;
+  const float INVERSE_CELL = prepared.inverse_cell;
+  const float RADIAL_START = camera.radial_start;
+  int k = fabsf(D[1]) > fabsf(D[0]) ? 1 : 0;
+  if (fabsf(D[2]) > fabsf(D[k]))
+    k = 2;
+  const int I = k == 0 ? 1 : 0;
+  const int J = k == 2 ? 1 : 2;
+  const float A = D[0] * D[0] + D[1] * D[1] + D[2] * D[2];
+  // A is 1 to rounding, so one Newton step from 1 is its reciprocal.
+  const float INVERSE_A = 2 - A;
+  const float ORIGIN_K =
+      (camera.center[k] + D[k] * RADIAL_START) * INVERSE_CELL;
+  const float INVERSE_DK = 1 / D[k];
+  const float STEP = fabsf(INVERSE_DK);
+  const float NEAR = camera.interval.near;
+  const float FAR = camera.interval.far;
+  const float LAST = FAR * INVERSE_CELL + .5f * STEP;
+  float tau =
+      (rintf(ORIGIN_K + NEAR * INVERSE_CELL * D[k]) - ORIGIN_K) * INVERSE_DK;
+  float y =
+      (camera.center[I] + D[I] * RADIAL_START) * INVERSE_CELL + tau * D[I];
+  float z =
+      (camera.center[J] + D[J] * RADIAL_START) * INVERSE_CELL + tau * D[J];
+  const float DY = D[I] * STEP;
+  const float DZ = D[J] * STEP;
+  // Clearance bound in cells at the layer, padded by the farthest a closest
+  // approach can sit from its layer crossing.
+  const float HALF_RATE = .5f * prepared.footprint.angular_radius;
+  float reach = prepared.geometry.shell_radius + 1e-4f +
+                HALF_RATE * (RADIAL_START * INVERSE_CELL + tau + .75f);
+  const float REACH_STEP = HALF_RATE * STEP;
+  const float RADIUS = prepared.geometry.shell_radius * CELL;
+  const float HALF_INVERSE_RADIUS = .5f / RADIUS;
+  const bool FILTERED = prepared.footprint.angular_radius > 0;
+
+  ShellSample result;
+  LayerComposite composite;
+  int layers = 0;
+  const auto emit = [&](float t,
+                        float coverage) __attribute__((always_inline)) {
+    if (layers >= limits.max_candidates || layers >= limits.max_layers) {
+      result.status = Raycast::TraceStatus::BUDGET_EXHAUSTED;
+      return false;
+    }
+    ++layers;
+    composite.add(appearance.color(t), coverage * appearance.opacity(t));
+    if (composite.saturated()) {
+      result.status = Raycast::TraceStatus::SATURATED;
+      return false;
+    }
+    return true;
+  };
+  for (int step = 0; tau <= LAST; ++step) {
+    if (step >= limits.max_steps) {
+      result.status = Raycast::TraceStatus::BUDGET_EXHAUSTED;
+      break;
+    }
+    const float EY = y - rintf(y);
+    const float EZ = z - rintf(z);
+    const float OFFSET2 = EY * EY + EZ * EZ;
+    const float ALONG = EY * D[I] + EZ * D[J];
+    if (OFFSET2 - ALONG * ALONG < reach * reach) {
+      const float CROSSING = tau * CELL;
+      const float B = ALONG * CELL;
+      const float C = OFFSET2 * CELL * CELL - prepared.radius_squared;
+      const float DISCRIMINANT = B * B - A * C;
+      if (DISCRIMINANT >= 0) {
+        const float ROOT = sqrtf(DISCRIMINANT);
+        const float TIMES[2] = {CROSSING + (-B - ROOT) * INVERSE_A,
+                                CROSSING + (-B + ROOT) * INVERSE_A};
+        const float DEPTH = DISCRIMINANT * HALF_INVERSE_RADIUS;
+        for (int root = 0; root < 2; ++root) {
+          const float T = TIMES[root];
+          if (T < NEAR || T > FAR || (root == 1 && T == TIMES[0]))
+            continue;
+          const float WIDTH = prepared.footprint.at(T);
+          const float COVERAGE =
+              WIDTH > 0 ? std::clamp(.5f + DEPTH / WIDTH, 0.0f, 1.0f) : 1.0f;
+          if (!emit(T, COVERAGE)) {
+            result.color = composite.premultiplied();
+            return result;
+          }
+        }
+      } else if (FILTERED) {
+        const float T = CROSSING - B * INVERSE_A;
+        const float SQUARED = C + prepared.radius_squared - B * B * INVERSE_A;
+        const float WIDTH = prepared.footprint.at(T);
+        if (T >= NEAR && T <= FAR && SQUARED > 0 && WIDTH > 0) {
+          const float COVERAGE =
+              std::clamp(.5f - (sqrtf(SQUARED) - RADIUS) / WIDTH, 0.0f, 1.0f);
+          if (COVERAGE > 0 && !emit(T, COVERAGE)) {
+            result.color = composite.premultiplied();
+            return result;
+          }
+        }
+      }
+    }
+    y += DY;
+    z += DZ;
+    tau += STEP;
+    reach += REACH_STEP;
+  }
+  result.color = composite.premultiplied();
+  return result;
 }
 
 template <int DIMENSIONS>
