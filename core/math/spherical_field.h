@@ -13,6 +13,7 @@
 #include <algorithm>
 #include <cassert>
 #include <cmath>
+#include <type_traits>
 #include <utility>
 
 #include "math/geometry.h"
@@ -617,7 +618,8 @@ public:
   /**
    * @brief Fills an inclusive range of rings from a per-sample callback.
    * @tparam Populate Callable
-   *   (const Vector &position, const Layout::Coordinates &).
+   *   (const Vector &position, const Layout::Coordinates &), or the same with
+   *   a trailing int receiving the sample's absolute index into data().
    * @param ring_begin First ring index to fill.
    * @param ring_end Last ring index to fill; must be below ring_count().
    * @param populate_sample Returns the Value stored at each sample.
@@ -646,8 +648,15 @@ public:
       for (int sample = 0; sample < ring.samples; ++sample) {
         const math::Vector position(meridian.x * theta_cos, meridian.y,
                                     meridian.x * theta_sin);
-        values[ring.offset + sample] =
-            populate_sample(position, layout.sample_coordinates(ring, sample));
+        const int index = ring.offset + sample;
+        if constexpr (std::is_invocable_v<Populate &, const math::Vector &,
+                                          const typename Layout::Coordinates &,
+                                          int>)
+          values[index] = populate_sample(
+              position, layout.sample_coordinates(ring, sample), index);
+        else
+          values[index] = populate_sample(
+              position, layout.sample_coordinates(ring, sample));
         const float next_cos = theta_cos * step_cos - theta_sin * step_sin;
         theta_sin = theta_sin * step_cos + theta_cos * step_sin;
         theta_cos = next_cos;
