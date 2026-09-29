@@ -11,6 +11,8 @@
  *        displacement-field stack.
  */
 
+#include <numeric>
+
 #include "core/animation/orientation.h"
 #include "core/color/effect_palette_recipes.h"
 #include "core/engine/engine.h"
@@ -65,6 +67,9 @@ public:
     ball_params =
         persistent_arena.allocate_n<const Animation::BumpParams *>(MAX_BALLS);
     ball_local = persistent_arena.allocate_n<int>(MAX_BALLS);
+    ball_cv = persistent_arena.allocate_n<float>(MAX_BALLS);
+    ball_rho = persistent_arena.allocate_n<float>(MAX_BALLS);
+    ball_azimuth = persistent_arena.allocate_n<float>(MAX_BALLS);
     shift_pool = persistent_arena.allocate_n<float>(RING_SLOTS * (W + 1));
     // Zeroed, not raw: a culled azimuth chunk leaves its columns unbaked.
     hue_pool = persistent_arena.make_n<Pixel>(RING_SLOTS * (W + 1));
@@ -73,6 +78,11 @@ public:
     slot_by_ring = persistent_arena.allocate_n<int8_t>(RING_SLOTS);
     shape_storage = persistent_arena.make<ShapeStorage>();
     candidates = persistent_arena.allocate_n<CandidateTable>(1);
+    octave1 = persistent_arena.allocate_n<float>(W + 1);
+    octave2 = persistent_arena.allocate_n<float>(W + 1);
+    knot_visible = persistent_arena.allocate_n<uint8_t>(W + 1);
+    knot_pos = persistent_arena.allocate_n<math::Vector>(W + 1);
+    knot_near = persistent_arena.allocate_n<uint8_t>(W + 1);
     chunk_cos = persistent_arena.allocate_n<float>(BAKE_CHUNKS);
     chunk_sin = persistent_arena.allocate_n<float>(BAKE_CHUNKS);
     for (int c = 0; c < BAKE_CHUNKS; ++c) {
@@ -299,17 +309,18 @@ private:
    * @details Per ring, the displacement stack is baked per azimuth column into
    * a pooled slot: the centerline shift knots together with the hue-rotated
    * ring color. The bake evaluates only the balls whose support can reach the
-   * ring's colatitude (centers and rings share the stack axis); a ring nothing
-   * can displace takes a constant LUT. The LUT resolution is adaptive: enough
-   * samples for the finest active feature along the ring's actual
-   * circumference. Under a partial clip, rings whose displaced band cannot
-   * touch the clip are skipped whole, and invisible azimuth chunks skip the
-   * field/hue bake. The baked rings then rasterize as soft SDF strokes with a
-   * quintic cross-section falloff against the exact distance to each knot
-   * polyline, in a single fused scan (Scan::DistortedRingStack) that hoists
-   * the shared-axis pixel frame out of the per-ring distance evaluation.
-   * Debug visuals fall back to per-ring rasterizes so the bounding-box tint
-   * keeps per-shape scan bounds.
+   * ring's colatitude (centers and rings share the stack axis), each only
+   * across the azimuth arc its cap covers; the noise octaves are sampled on
+   * every other knot and spline-filled between. A ring nothing can displace
+   * takes a constant LUT. The LUT resolution is adaptive: enough samples for
+   * the finest active feature along the ring's actual circumference. Under a
+   * partial clip, rings whose displaced band cannot touch the clip are skipped
+   * whole, and invisible azimuth chunks skip the field/hue bake. The hue table
+   * is filled only up to the largest shift the ring actually reaches. The
+   * baked rings then rasterize as soft SDF strokes with a quintic
+   * cross-section falloff against the exact distance to each knot polyline, in
+   * a single fused scan (Scan::DistortedRingStack) that hoists the shared-axis
+   * pixel frame out of the per-ring distance evaluation.
    */
   HS_O3_FN void draw_rings(Canvas &canvas, float opacity) {
     HS_PROFILE(df_draw_rings);
@@ -327,10 +338,16 @@ private:
     for (int b = 0; b < n_balls; ++b) {
       const auto &sp = balls.active_params(b);
       ball_params[b] = &sp;
-      ball_colat[b] = math::fast_acos(
-          hs::clamp(math::dot(basis.v, sp.center), -1.0f, 1.0f));
+      const float cv = math::dot(basis.v, sp.center);
+      ball_colat[b] = math::fast_acos(hs::clamp(cv, -1.0f, 1.0f));
       ball_reach[b] = sp.field_bound();
       ball_scale[b] = 2.0f / sp.radius;
+      const float cu = math::dot(basis.u, sp.center);
+      const float cw = math::dot(basis.w, sp.center);
+      ball_cv[b] = cv;
+      ball_rho[b] = sqrtf(cu * cu + cw * cw);
+      const float a0 = atan2f(cw, cu);
+      ball_azimuth[b] = a0 < 0.0f ? a0 + 2.0f * math::PI_F : a0;
     }
 
     const float noise_feature =
@@ -388,6 +405,13 @@ private:
             static_cast<int>(ceilf(LUT_SAMPLES_PER_UNIT * 2.0f * math::PI_F *
                                    feature_scale * sin_t)),
             LUT_MIN_SAMPLES, W);
+        const Animation::NoiseProductParams *octaves =
+            noise_field.active_count() == 1 &&
+                    std::fabs(noise_field.active_params(0).amplitude) > 0.001f
+                ? &noise_field.active_params(0)
+                : nullptr;
+        if (octaves)
+          lut_n = (lut_n + OCTAVE_GRID - 1) / OCTAVE_GRID * OCTAVE_GRID;
 
         uint32_t visible = CHUNK_MASK;
         if (try_cull) {
@@ -395,6 +419,39 @@ private:
           visible = visible_chunk_mask(basis, theta, cos_t, sin_t, band_r);
           if (!visible)
             continue;
+        }
+
+        HS_PROFILE(df_lut_bake);
+
+        const float dphi = 2.0f * math::PI_F / lut_n;
+        const float cos_d = cosf(dphi);
+        const float sin_d = sinf(dphi);
+
+        if (octaves) {
+          bake_noise_octaves(*octaves, basis, theta, cos_t, sin_t, cos_d, sin_d,
+                             lut_n, visible, n_local, slut);
+        } else {
+          bake_ball_spans(basis, theta, cos_t, sin_t, cos_d, sin_d, lut_n,
+                          visible, n_local, slut);
+        }
+
+        // Culled chunks keep hlut stale; the pad_chunks widening of `visible`
+        // above keeps a rasterized pixel from ever sampling their columns.
+        // Their shifts are zeroed, since DistortedRing's constructor scans
+        // every knot and stale cells would perturb its shift bounds.
+        float max_shift = 0.0f;
+        {
+          int x = 0;
+          for (int c = 0; c < BAKE_CHUNKS; ++c) {
+            const int x_end = ((c + 1) * lut_n + BAKE_CHUNKS - 1) / BAKE_CHUNKS;
+            if (visible & (1u << c)) {
+              for (; x < x_end; ++x)
+                max_shift = std::max(max_shift, std::fabs(slut[x]));
+            } else {
+              for (; x < x_end; ++x)
+                slut[x] = 0.0f;
+            }
+          }
         }
 
         bool use_hue_table;
@@ -407,7 +464,9 @@ private:
                         cyclic_hue_table);
         if (precompute_hue_table) {
           HS_PROFILE(df_hue_table_prep);
-          prepare_hue_table(hue_base, hue_domain);
+          prepare_hue_table(hue_base, hue_domain,
+                            hue_table_cells(max_shift * params.hue_scale,
+                                            hue_domain, cyclic_hue_table));
         }
         Pixel zero_hue;
         if (params.hue_scale == 0.0f)
@@ -425,40 +484,15 @@ private:
           return hue_rotate(hue_base, amount).color;
         };
 
-        HS_PROFILE(df_lut_bake);
-
-        const float dphi = 2.0f * math::PI_F / lut_n;
-        const float cos_d = cosf(dphi);
-        const float sin_d = sinf(dphi);
-        float cos_a = 1.0f;
-        float sin_a = 0.0f;
-
-        int x = 0;
-        for (int c = 0; c < BAKE_CHUNKS; ++c) {
-          const int x_end = ((c + 1) * lut_n + BAKE_CHUNKS - 1) / BAKE_CHUNKS;
-          if (visible & (1u << c)) {
-            for (; x < x_end; ++x) {
-              math::Vector p = (basis.v * cos_t) +
-                               ((basis.u * cos_a) + (basis.w * sin_a)) * sin_t;
-              float s = ball_field(p, ball_local, n_local, theta) +
-                        noise_field.field(p);
-              slut[x] = s;
-              hlut[x] = hue_for_shift(s);
-              float next_cos = cos_a * cos_d - sin_a * sin_d;
-              sin_a = sin_a * cos_d + cos_a * sin_d;
-              cos_a = next_cos;
-            }
-          } else {
-            // hlut stays stale here; the pad_chunks widening of `visible` above
-            // is what keeps a rasterized pixel from ever sampling a culled
-            // chunk's columns.
-            for (; x < x_end; ++x) {
-              // DistortedRing's constructor scans every knot, including
-              // skipped cells; leaving them stale perturbs its shift bounds.
-              slut[x] = 0.0f;
-              float next_cos = cos_a * cos_d - sin_a * sin_d;
-              sin_a = sin_a * cos_d + cos_a * sin_d;
-              cos_a = next_cos;
+        {
+          int x = 0;
+          for (int c = 0; c < BAKE_CHUNKS; ++c) {
+            const int x_end = ((c + 1) * lut_n + BAKE_CHUNKS - 1) / BAKE_CHUNKS;
+            if (visible & (1u << c)) {
+              for (; x < x_end; ++x)
+                hlut[x] = hue_for_shift(slut[x]);
+            } else {
+              x = x_end;
             }
           }
         }
@@ -499,9 +533,216 @@ private:
       shapes[s].~DistortedRing();
   }
 
+  /**
+   * @brief Bakes one ring's centerline shifts with each noise octave sampled on
+   *        its own knot grid.
+   * @param np The noise field's single active entity.
+   * @param basis Ring frame; basis.v is the stack axis.
+   * @param theta Ring colatitude.
+   * @param cos_t Cosine of theta.
+   * @param sin_t Sine of theta.
+   * @param cos_d Cosine of one knot cell's azimuth step.
+   * @param sin_d Sine of one knot cell's azimuth step.
+   * @param lut_n Knot count, a multiple of OCTAVE_GRID.
+   * @param visible Chunk mask from visible_chunk_mask.
+   * @param n_local Balls that can reach the ring (ball_local).
+   * @param slut Receives the shift of every knot in a visible chunk.
+   * @details Octave k is evaluated every OCTAVE_STRIDE[k] knots and filled in
+   * between by a Catmull-Rom spline over the four surrounding grid knots, so a
+   * grid knot is evaluated when any visible knot lies within two strides of it.
+   * Knot positions come from the same azimuth recurrence as the exact bake.
+   */
+  HS_O3_FN void bake_noise_octaves(const Animation::NoiseProductParams &np,
+                                   const math::Basis &basis, float theta,
+                                   float cos_t, float sin_t, float cos_d,
+                                   float sin_d, int lut_n, uint32_t visible,
+                                   int n_local, float *slut) {
+    constexpr int D1 = OCTAVE1_STRIDE;
+    constexpr int D2 = OCTAVE2_STRIDE;
+    int x = 0;
+    for (int c = 0; c < BAKE_CHUNKS; ++c) {
+      const int x_end = ((c + 1) * lut_n + BAKE_CHUNKS - 1) / BAKE_CHUNKS;
+      const uint8_t v = static_cast<uint8_t>((visible >> c) & 1u);
+      for (; x < x_end; ++x)
+        knot_visible[x] = v;
+    }
+    auto wrap = [lut_n](int k) {
+      return k < 0 ? k + lut_n : k >= lut_n ? k - lut_n : k;
+    };
+    // knot_near[x]: a visible knot lies within the widest spline reach of x.
+    constexpr int REACH = 2 * (D1 > D2 ? D1 : D2) - 1;
+    int in_window = 0;
+    for (int o = -REACH; o <= REACH; ++o)
+      in_window += knot_visible[wrap(o)];
+    for (x = 0; x < lut_n; ++x) {
+      knot_near[x] = in_window > 0;
+      in_window +=
+          knot_visible[wrap(x + REACH + 1)] - knot_visible[wrap(x - REACH)];
+    }
+
+    HS_PROFILE(df_octave_noise);
+    float cos_a = 1.0f;
+    float sin_a = 0.0f;
+    for (x = 0; x < lut_n; ++x) {
+      const bool vis = knot_visible[x] != 0;
+      const bool near = knot_near[x] != 0;
+      const bool g1 = near && x % D1 == 0;
+      const bool g2 = D2 == 1 ? vis : near && x % D2 == 0;
+      if (vis || g1 || g2) {
+        math::Vector p =
+            (basis.v * cos_t) + ((basis.u * cos_a) + (basis.w * sin_a)) * sin_t;
+        if (g1)
+          octave1[x] = np.noise.GetNoise(p.x * np.scale1, p.y * np.scale1,
+                                         p.z * np.scale1 + np.time);
+        if (g2)
+          octave2[x] = np.noise.GetNoise(
+              p.x * np.scale2 + Animation::NoiseProductParams::OCTAVE2_OFFSET,
+              p.y * np.scale2, p.z * np.scale2 + np.time);
+        if (vis)
+          slut[x] = ball_field(p, ball_local, n_local, theta);
+      }
+      float next_cos = cos_a * cos_d - sin_a * sin_d;
+      sin_a = sin_a * cos_d + cos_a * sin_d;
+      cos_a = next_cos;
+    }
+
+    auto sample = [&](const float *oct, int d, int k) {
+      const int r = k % d;
+      if (r == 0)
+        return oct[k];
+      const int b = k - r;
+      const float t = static_cast<float>(r) / d;
+      const float p0 = oct[wrap(b - d)], p1 = oct[b], p2 = oct[wrap(b + d)],
+                  p3 = oct[wrap(b + 2 * d)];
+      return p1 + 0.5f * t *
+                      (p2 - p0 +
+                       t * (2.0f * p0 - 5.0f * p1 + 4.0f * p2 - p3 +
+                            t * (3.0f * (p1 - p2) + p3 - p0)));
+    };
+    for (x = 0; x < lut_n; ++x)
+      if (knot_visible[x])
+        slut[x] = slut[x] + np.amplitude * sample(octave1, D1, x) *
+                                sample(octave2, D2, x);
+  }
+
+  /**
+   * @brief Counts the hue-table knots a ring's samples can read.
+   * @param max_amount Largest hue offset (turns) any sample asks for.
+   * @param domain Hue-turn interval covered by the table.
+   * @param cyclic Whether amounts past the domain wrap.
+   * @return Knots 0..count - 1 are the only ones sample_hue_table() reads.
+   * @details Samples at amount <= max_amount land at or below its cell, so the
+   * table past that cell's upper knot is never read. A wrapping lookup that
+   * can reach a full turn, or a domain that is not positive, reads anywhere.
+   */
+  static int hue_table_cells(float max_amount, float domain, bool cyclic) {
+    if (!(domain > 0.0f) || (cyclic && max_amount >= domain))
+      return HUE_TABLE_SIZE + 1;
+    const float x = hs::clamp(max_amount / domain, 0.0f, 1.0f) * HUE_TABLE_SIZE;
+    return std::min(static_cast<int>(x) + 2, HUE_TABLE_SIZE + 1);
+  }
+
+  /**
+   * @brief Bakes one ring's centerline shifts from the balls, each evaluated
+   *        only across the knots its cap can cover.
+   * @param basis Ring frame; basis.v is the stack axis.
+   * @param theta Ring colatitude.
+   * @param cos_t Cosine of theta.
+   * @param sin_t Sine of theta.
+   * @param cos_d Cosine of one knot cell's azimuth step.
+   * @param sin_d Sine of one knot cell's azimuth step.
+   * @param lut_n Knot count.
+   * @param visible Chunk mask from visible_chunk_mask.
+   * @param n_local Balls that can reach the ring (ball_local).
+   * @param slut Receives the shift of every knot in a visible chunk.
+   * @details On the ring, a ball's cap test dot(p, center) > cos_radius reads
+   * cos_t * cv + sin_t * rho * cos(a - a0) > cos_radius, which holds on one
+   * azimuth arc around a0. Knots off every padded arc get exactly the zero a
+   * rejected ball adds, and each knot folds its balls in ball_local order, so
+   * the shifts match evaluating every ball at every knot.
+   */
+  HS_O3_FN void bake_ball_spans(const math::Basis &basis, float theta,
+                                float cos_t, float sin_t, float cos_d,
+                                float sin_d, int lut_n, uint32_t visible,
+                                int n_local, float *slut) {
+    // Covers the recurrence's drift from the analytic knot azimuth and the
+    // float slop in the cap dot product.
+    constexpr float COS_MARGIN = 2e-4f;
+    float *num = octave1;
+    float *den = octave2;
+    int x = 0;
+    for (int c = 0; c < BAKE_CHUNKS; ++c) {
+      const int x_end = ((c + 1) * lut_n + BAKE_CHUNKS - 1) / BAKE_CHUNKS;
+      const uint8_t v = static_cast<uint8_t>((visible >> c) & 1u);
+      for (; x < x_end; ++x)
+        knot_visible[x] = v;
+    }
+    float cos_a = 1.0f;
+    float sin_a = 0.0f;
+    for (x = 0; x < lut_n; ++x) {
+      if (knot_visible[x]) {
+        knot_pos[x] =
+            (basis.v * cos_t) + ((basis.u * cos_a) + (basis.w * sin_a)) * sin_t;
+        num[x] = 0.0f;
+        den[x] = 0.0f;
+      }
+      float next_cos = cos_a * cos_d - sin_a * sin_d;
+      sin_a = sin_a * cos_d + cos_a * sin_d;
+      cos_a = next_cos;
+    }
+
+    const float cells_per_radian = lut_n / (2.0f * math::PI_F);
+    for (int j = 0; j < n_local; ++j) {
+      const int k = ball_local[j];
+      const Animation::BumpParams &bp = *ball_params[k];
+      const float a_term = cos_t * ball_cv[k];
+      const float b_term = sin_t * ball_rho[k];
+      int first = 0;
+      int count = lut_n;
+      if (b_term > COS_MARGIN) {
+        const float q = (bp.cos_radius - COS_MARGIN - a_term) / b_term;
+        if (q >= 1.0f)
+          continue;
+        if (q > -1.0f) {
+          const float half = acosf(q) * cells_per_radian;
+          const float center = ball_azimuth[k] * cells_per_radian;
+          first = static_cast<int>(floorf(center - half)) - 1;
+          count = static_cast<int>(ceilf(center + half)) + 1 - first + 1;
+          if (count > lut_n)
+            count = lut_n;
+          first = first % lut_n;
+          if (first < 0)
+            first += lut_n;
+        }
+      }
+      const float y = theta - ball_colat[k];
+      for (int i = 0, xi = first; i < count; ++i) {
+        if (knot_visible[xi]) {
+          const float f = bump_field_with_y(knot_pos[xi], bp, y);
+          num[xi] += f * f * f;
+          den[xi] += f * f;
+        }
+        if (++xi == lut_n)
+          xi = 0;
+      }
+    }
+
+    for (x = 0; x < lut_n; ++x)
+      if (knot_visible[x])
+        slut[x] = (den[x] > FIELD_DOMINANT_DEN_EPS ? num[x] / den[x] : 0.0f) +
+                  noise_field.field(knot_pos[x]);
+  }
+
+  /**
+   * @brief Fills the first @p count knots of the hue table.
+   * @param base Ring color's precomputed OKLab base.
+   * @param domain Hue-turn interval the full table covers.
+   * @param count Knots to fill, at most HUE_TABLE_SIZE + 1.
+   */
   HS_O3_FN __attribute__((noinline)) void
-  prepare_hue_table(const HueRotateBase &base, float domain) {
-    for (int i = 0; i <= HUE_TABLE_SIZE; ++i)
+  prepare_hue_table(const HueRotateBase &base, float domain,
+                    int count = HUE_TABLE_SIZE + 1) {
+    for (int i = 0; i < count; ++i)
       hue_table[i] =
           hue_rotate(base, domain * (static_cast<float>(i) / HUE_TABLE_SIZE))
               .color;
@@ -692,6 +933,15 @@ private:
       8.0f; /**< Bake columns per feature-space unit of ring circumference. */
   static constexpr int LUT_MIN_SAMPLES =
       16; /**< Bake-column floor for tiny/low-scale rings. */
+  static constexpr int OCTAVE1_STRIDE =
+      2; /**< Knots between envelope-octave noise samples. */
+  static constexpr int OCTAVE2_STRIDE =
+      2; /**< Knots between detail-octave noise samples. */
+  static constexpr int OCTAVE_GRID = std::lcm(
+      OCTAVE1_STRIDE, OCTAVE2_STRIDE); /**< Knot-count multiple holding both
+                                          octave grids. */
+  static_assert(W % OCTAVE_GRID == 0 && LUT_MIN_SAMPLES % OCTAVE_GRID == 0,
+                "rounding lut_n up to the octave grid must stay within W");
   static constexpr float THICKNESS_PX = math::RADIANS_PER_COLUMN<
       W>; /**< One pixel of azimuth in ring-space; the Thickness
                             slider range is authored in multiples of it. */
@@ -739,6 +989,22 @@ private:
   using CandidateTable = Scan::DistortedRingStack::CandidateTable<W, H>;
   CandidateTable *candidates =
       nullptr; /**< Fused scan's per-frame ring candidate map. */
+  float *octave1 =
+      nullptr; /**< W + 1 envelope-octave samples on its knot grid. */
+  float *octave2 =
+      nullptr; /**< W + 1 detail-octave samples on its knot grid. */
+  uint8_t *knot_visible =
+      nullptr; /**< W + 1 flags: knot lies in a visible bake chunk. */
+  math::Vector *knot_pos =
+      nullptr; /**< W + 1 knot positions of the ring being ball-baked. */
+  float *ball_cv =
+      nullptr; /**< MAX_BALLS ball-center components along the stack axis. */
+  float *ball_rho =
+      nullptr; /**< MAX_BALLS ball-center distances from the stack axis. */
+  float *ball_azimuth =
+      nullptr; /**< MAX_BALLS ball-center azimuths in the ring frame. */
+  uint8_t *knot_near =
+      nullptr; /**< W + 1 flags: a visible knot lies within spline reach. */
   float *chunk_cos =
       nullptr; /**< cos of each bake chunk's mid-azimuth; baked once at init. */
   float *chunk_sin =
@@ -810,7 +1076,8 @@ private:
       RING_SLOTS *
           (2 * sizeof(float) + sizeof(int8_t) + sizeof(SDF::DistortedRing)) +
       sizeof(CandidateTable) +
-      MAX_BALLS * (3 * sizeof(float) + sizeof(int) +
+      (W + 1) * (2 * sizeof(float) + 2 + sizeof(math::Vector)) +
+      MAX_BALLS * (6 * sizeof(float) + sizeof(int) +
                    sizeof(const Animation::BumpParams *)) +
       (HUE_TABLE_SIZE + 1) * sizeof(Pixel) + 2 * BAKE_CHUNKS * sizeof(float) +
       MAX_BALLS * (sizeof(typename decltype(balls)::Entity) + sizeof(int)) +
