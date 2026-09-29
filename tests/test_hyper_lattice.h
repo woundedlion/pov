@@ -1234,47 +1234,40 @@ inline void test_octet_continuous_flight() {
     HS_EXPECT_TRUE(effect.selectPreset(preset));
     auto &params = HyperLatticeWhiteBox::params(effect);
     params.spin_3d = params.spin_4d = 0;
-    const float INITIAL_SPEED = params.speed;
-    const auto initial = HyperLatticeWhiteBox::experimental_center(effect);
+    HyperLatticeWhiteBox::advance_state(effect);
     const float period = std::sqrt(2.0f) * params.cell_size;
-    math::Vec4 previous = initial;
-    math::Vec4 increment{};
-    int wraps = 0;
-    for (int frame = 0; frame < 2000; ++frame) {
+    auto previous = HyperLatticeWhiteBox::experimental_center(effect);
+    SDF::OctetFramework octet{params.cell_size, .18f * params.cell_size};
+    SDF::OctetFramework4 octet4{params.cell_size, .18f * params.cell_size};
+    for (int frame = 0; frame < 4000; ++frame) {
       HyperLatticeWhiteBox::advance_state(effect);
       const auto current = HyperLatticeWhiteBox::experimental_center(effect);
+      float distance_sq = 0;
       for (int axis = 0; axis < 4; ++axis) {
         float delta = current[axis] - previous[axis];
-        if (delta < 0) {
-          delta += period;
-          ++wraps;
-        }
-        HS_EXPECT_GT(delta, 0);
-        if (frame == 0)
-          increment[axis] = delta;
-        else
-          HS_EXPECT_NEAR(delta, increment[axis], 3e-7f);
+        delta -= period * std::round(delta / period);
+        distance_sq += delta * delta;
+        HS_EXPECT_GE(current[axis], 0);
+        HS_EXPECT_LT(current[axis], period);
       }
+      HS_EXPECT_GT(distance_sq, 0);
+      HS_EXPECT_LT(distance_sq, 4 * params.speed * params.speed);
+      HS_EXPECT_GT(octet.sample({current[0], current[1], current[2]}).field, 0);
+      HS_EXPECT_GT(octet4.sample(current).field, 0);
       previous = current;
     }
-    HS_EXPECT_GT(wraps, 4);
     params.speed = 0;
     HyperLatticeWhiteBox::advance_state(effect);
     for (int axis = 0; axis < 4; ++axis)
       HS_EXPECT_EQ(HyperLatticeWhiteBox::experimental_center(effect)[axis],
                    previous[axis]);
-    params.speed = 0.3f;
+    params.speed = .3f;
     params.cell_size = .25f;
-    const float small_period = std::sqrt(2.0f) * params.cell_size;
     HyperLatticeWhiteBox::advance_state(effect);
     const auto fast = HyperLatticeWhiteBox::experimental_center(effect);
     for (int axis = 0; axis < 4; ++axis) {
-      const float expected =
-          std::fmod(previous[axis] + increment[axis] * (.3f / INITIAL_SPEED),
-                    small_period);
-      HS_EXPECT_NEAR(fast[axis], expected, 3e-5f);
       HS_EXPECT_GE(fast[axis], 0);
-      HS_EXPECT_LT(fast[axis], small_period);
+      HS_EXPECT_LT(fast[axis], std::sqrt(2.0f) * params.cell_size);
     }
   }
   for (float cell_size : {.25f, 1.5f, 10.0f}) {
@@ -1297,6 +1290,49 @@ inline void test_octet_continuous_flight() {
     }
   }
 #endif
+}
+
+inline void test_face_flight() {
+  for (bool octet : {false, true}) {
+    for (int dimensions : {3, 4}) {
+      HyperLatticeDetail::FaceFlight flight{octet};
+      int turns = 0;
+      for (int segment = 0; segment < 500; ++segment) {
+        const auto incoming = flight.incoming;
+        for (int sample = 0; sample <= 100; ++sample) {
+          flight.progress = sample * .01f;
+          if (sample == 100)
+            flight.progress = .99999f;
+          const auto point = flight.advance(0, octet, dimensions);
+          if (!octet) {
+            float distances[4];
+            for (int axis = 0; axis < dimensions; ++axis)
+              distances[axis] = HL::periodic_distance(point[axis]);
+            std::sort(distances, distances + dimensions);
+            float edge_distance_sq = 0;
+            for (int axis = 0; axis < dimensions - 1; ++axis)
+              edge_distance_sq += distances[axis] * distances[axis];
+            HS_EXPECT_GT(edge_distance_sq, .18f * .18f);
+          }
+        }
+        const auto end = flight.finish;
+        const auto tangent = flight.outgoing;
+        flight.next(octet, dimensions);
+        const float PERIOD = octet ? 2 : 1;
+        for (int axis = 0; axis < 4; ++axis) {
+          const float DELTA = flight.start[axis] - end[axis];
+          HS_EXPECT_NEAR(DELTA - PERIOD * std::round(DELTA / PERIOD), 0, 1e-6f);
+          HS_EXPECT_EQ(flight.incoming[axis], tangent[axis]);
+          if (flight.outgoing[axis] != incoming[axis])
+            ++turns;
+          if (!octet && flight.outgoing[axis] == 0)
+            HS_EXPECT_NEAR(HL::periodic_distance(flight.finish[axis]), .5f,
+                           1e-6f);
+        }
+      }
+      HS_EXPECT_GT(turns, 20);
+    }
+  }
 }
 
 inline int run_hyper_lattice_tests() {
@@ -1329,6 +1365,7 @@ inline int run_hyper_lattice_tests() {
   test_pattern_view_controls();
   test_speed_range();
   test_octet_continuous_flight();
+  test_face_flight();
   return fixture.result();
 }
 
