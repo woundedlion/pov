@@ -223,7 +223,7 @@ public:
       loops = source.loops_domain();
     bake_palette_schedule<BakedPalette::LUT_SIZE>(
         mirrors, loops,
-        [&](int i, float t) {
+        [&](int i, float t) HS_FLASH_MEMBER {
           const Color4 sample = source.get(t);
           table.colors[i] = sample.color;
           table.alpha_q16[i] = frac_to_q16(sample.alpha);
