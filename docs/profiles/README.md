@@ -28,9 +28,9 @@ minus shipping bytes from each pair's own image-size reports.
 
 | Effect | Dominant scope | Ship peak ms | O3 peak ms | Ship spilled | O3 spilled | FLASH code Δ | ITCM Δ | Captured |
 |---|---|--:|--:|--:|--:|--:|--:|---|
-| [ShapeShifter](shipping/profile_shapeshifter_teensy_2026-09-28.md) / [O3](O3/profile_shapeshifter_teensy_2026-09-25.md) § | `ss_draw_all` | 🟢 58.24 (9) | 🟢 60.05 (9) | 🟢 0/2447 (0.00%) | 🟢 0/2457 (0.00%) | +29,288 B | +24,496 B | ship 2026-09-28 18:48<br>O3 2026-09-25 07:29 |
-| [MindSplatter](shipping/profile_mindsplatter_teensy_2026-09-28.md) / [O3](O3/profile_mindsplatter_teensy_2026-08-26.md) § | `msp_draw_particles` | 🟢 56.11 (8) | 🟢 52.79 (9) | 🟢 0/1727 (0.00%) | 🟢 0/1728 (0%) | +22,800 B | +20,400 B | ship 2026-09-28 18:51<br>O3 2026-08-26 07:45 |
+| [ShapeShifter](shipping/profile_shapeshifter_teensy_2026-09-29.md) ● / [O3](O3/profile_shapeshifter_teensy_2026-09-25.md) § | `ss_draw_all` | 🟢 58.16 (9) | 🟢 60.05 (9) | 🟢 0/2447 (0.00%) | 🟢 0/2457 (0.00%) | +30,872 B | +26,336 B | ship 2026-09-29 14:41<br>O3 2026-09-25 07:29 |
 | [GSReactionDiffusion](shipping/profile_gsreactiondiffusion_teensy_2026-09-28.md) / [O3](O3/profile_gsreactiondiffusion_teensy_2026-08-26.md) | `grd_render` | 🟢 55.53 | 🟢 56.16 | 🟢 0/2047 (0.00%) | 🟢 0/2048 (0%) | +13,224 B | +11,280 B | ship 2026-09-28 19:21<br>O3 2026-08-26 01:25 |
+| [MindSplatter](shipping/profile_mindsplatter_teensy_2026-09-29.md) ● / [O3](O3/profile_mindsplatter_teensy_2026-08-26.md) § | `msp_draw_particles` | 🟢 54.94 (8) | 🟢 52.79 (9) | 🟢 0/1727 (0.00%) | 🟢 0/1728 (0%) | +23,632 B | +21,232 B | ship 2026-09-29 14:48<br>O3 2026-08-26 07:45 |
 | [Raymarch](shipping/profile_raymarch_teensy_2026-09-28.md) / [O3](O3/profile_raymarch_teensy_2026-09-20.md) | `rm_shader_draw` | 🟢 54.87 | 🟢 56.04 | 🟢 0/1087 (0.00%) | 🟢 0/1736 (0.00%) | +12,568 B | +7,904 B | ship 2026-09-28 19:09<br>O3 2026-09-20 23:07 |
 | [HopfFibration](shipping/profile_hopffibration_teensy_2026-09-28.md) / [O3](O3/profile_hopffibration_teensy_2026-08-26.md) | `hf_render_trails` | 🟢 51.52 | 🟢 46.52 | 🟢 0/1087 (0.00%) | 🟢 0/1088 (0%) | +19,616 B | +18,272 B | ship 2026-09-28 19:02<br>O3 2026-08-26 01:27 |
 | [IslamicStars](shipping/profile_islamicstars_teensy_2026-09-28.md) / [O3](O3/profile_islamicstars_teensy_2026-09-28.md) § | `is_timeline_step` | 🟢 50.51 (23) | 🟢 49.112 (23) | 🟢 0/3327 (0.00%) | 🟢 0/3336 (0.00%) | +23,904 B | +8,240 B | ship 2026-09-28 18:40<br>O3 2026-09-28 16:50 |
@@ -81,6 +81,8 @@ probe and are independent of the on-device timing tables.
 
 
 ● HyperLattice refreshed on 2026-09-29 after its optimization campaign: all three presets and their segues; setup frame 1 excluded. Its O3 column predates the campaign.
+
+● ShapeShifter and MindSplatter refreshed on 2026-09-29 after the Plot float min/max sweep (`c40c1def8`); setup frame 1 excluded. Their O3 columns predate the sweep; the image deltas use the new shipping sizes.
 
 ## Supplemental experimental presets
 

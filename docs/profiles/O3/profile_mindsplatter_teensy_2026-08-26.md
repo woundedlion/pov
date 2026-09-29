@@ -1,6 +1,6 @@
 # MindSplatter on-device profile — Teensy 4.0, segmented mode (2026-08-26, **-O3**)
 
-Global-O3 twin of the [shipping report](../shipping/profile_mindsplatter_teensy_2026-09-28.md).
+Global-O3 twin of the [shipping report](../shipping/profile_mindsplatter_teensy_2026-09-29.md).
 Point-in-time snapshot (regenerate with `bash tools/profile_one.sh MindSplatter profile_o3 110 16`). Raw capture:
 `build/prof/mindsplatter_o3.log`, captured 2026-08-26 07:45 local. This refresh replaces the
 earlier 01:49 capture with the final clean cadence-reclaim image.
