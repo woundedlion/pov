@@ -187,9 +187,8 @@ sample_hue_rotation_lut(const HueRotationLutView &view, float value,
  * @param direction Finite, nonzero direction; normalization is not required.
  * @return Noise value in [-1, 1].
  */
-HS_FLASH_INLINE inline float
-sample_hue_noise_lut(const HueNoiseLutView &view,
-                     const math::Vector &direction) {
+HS_O3_FN inline float sample_hue_noise_lut(const HueNoiseLutView &view,
+                                           const math::Vector &direction) {
   assert(math::dot(direction, direction) > 0.0f &&
          "sample_hue_noise_lut needs a non-zero direction!");
   const float ax = fabsf(direction.x);

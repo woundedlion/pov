@@ -350,9 +350,9 @@ public:
     return GenNoiseSingle(mSeed, x, y, z);
   }
 
-  HS_FLASH_MEMBER void GetNoiseGradientSingle(float x, float y, float z,
-                                               float &xg, float &yg,
-                                               float &zg) const {
+  HS_HOT_FLASH_MEMBER void GetNoiseGradientSingle(float x, float y, float z,
+                                                   float &xg, float &yg,
+                                                   float &zg) const {
     TransformNoiseCoordinate(x, y, z);
     SingleOpenSimplex2Gradient(mSeed, x, y, z, xg, yg, zg);
     TransformNoiseGradient(xg, yg, zg);

@@ -48,7 +48,7 @@ public:
   static constexpr uint32_t PARAMETER_SCHEMA_VERSION = 1;
 
   // Cold entry trampoline and pipeline body.
-  static HS_FLASH_MEMBER Color4
+  static HS_HOT_FLASH_MEMBER Color4
   shade(const math::Vector &view,
         const typename KaleidoscopeStainedGlass::Frame &frame) {
     return KaleidoscopeStainedGlass::RenderPipeline::shade(view, frame);

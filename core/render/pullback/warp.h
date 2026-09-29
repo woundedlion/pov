@@ -542,10 +542,10 @@ vortex(const math::Complex &input, const Prepared &prepared,
 
 inline constexpr float CURL_VECTOR_COMPONENT_MAX = 4.0f;
 
-HS_FLASH_INLINE inline math::Complex
-curl_vector(const math::Complex &input, const FastNoiseLite &noise,
-            math::NoiseBasis basis, float scale,
-            const math::Vector &loop_offset) {
+HS_O3_FN inline math::Complex curl_vector(const math::Complex &input,
+                                          const FastNoiseLite &noise,
+                                          math::NoiseBasis basis, float scale,
+                                          const math::Vector &loop_offset) {
   const math::Vector q =
       math::noise_projected_coordinate(input, scale, loop_offset);
   const float dx =
@@ -568,7 +568,7 @@ curl_vector(const math::Complex &input, const FastNoiseLite &noise,
           hs::clamp(dx, -CURL_VECTOR_COMPONENT_MAX, CURL_VECTOR_COMPONENT_MAX)};
 }
 
-HS_FLASH_INLINE inline WarpStepResult
+HS_O3_FN inline WarpStepResult
 curl_flow(const math::Complex &input, const FastNoiseLite &noise,
           math::NoiseBasis basis, uint8_t intervals, float scale,
           float distance, const math::Vector &loop_offset,
@@ -616,7 +616,7 @@ polar_chart(const math::Complex &input, const Params &params, float phase,
 }
 
 template <math::NoiseBasis BasisV, typename Params, typename Prepared>
-HS_FLASH_MEMBER inline WarpStepResult
+HS_HOT_FLASH_MEMBER inline WarpStepResult
 vector_noise_fixed(const math::Complex &input, const Params &params,
                    float amplitude, const FastNoiseLite &noise,
                    const Prepared &prepared, bool path_length_required) {
@@ -643,7 +643,7 @@ vector_noise_fixed(const math::Complex &input, const Params &params,
 }
 
 template <typename Params, typename Prepared>
-HS_FLASH_MEMBER inline WarpStepResult
+HS_HOT_FLASH_MEMBER inline WarpStepResult
 vector_noise(const math::Complex &input, const Params &params, float amplitude,
              const FastNoiseLite &noise, math::NoiseBasis basis,
              const Prepared &prepared, bool path_length_required) {

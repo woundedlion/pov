@@ -152,7 +152,7 @@ inline Basis make_basis(const Quaternion &orientation, const Vector &normal) {
  * @param normal Unit vertex normal.
  * @return A unit tangent at @p normal.
  */
-HS_FLASH_INLINE inline Vector tangent_axis(const Vector &normal) {
+HS_O3_FN inline Vector tangent_axis(const Vector &normal) {
   constexpr float POLE_REFERENCE_COS = 0.99f;
   const Vector axis = std::abs(normal.y) > POLE_REFERENCE_COS ? X_AXIS : Y_AXIS;
   return cross(normal, axis).normalized();
