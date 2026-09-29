@@ -1,4 +1,4 @@
-# HyperLattice Octet wide (preset 5) on-device profile — Teensy 4.0, segmented mode (2026-09-28, **selective -O3**)
+# HyperLattice on-device profile — Octet wide (preset 5) — Teensy 4.0, segmented mode (2026-09-28, **selective -O3**)
 
 Point-in-time snapshot after Tiers 1 and 2 of the Octet 58 ms spec (`29305dfe2`, `f130ee632`, `1bb522211`).
 Raw capture: `build/prof/octet58/preset4_ship.com4.log`. Replaces the 00:22 capture of the same name (pre-Tier-1 code). An orphaned run of the same batch took this capture from the main checkout; its provenance (source `1bb522211`, COM4, `Profile preset: 4/6`) was checked.

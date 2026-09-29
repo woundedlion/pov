@@ -1,4 +1,4 @@
-# HyperLattice Octet 3D (preset 3) on-device profile — Teensy 4.0, segmented mode (2026-09-28, **selective -O3**)
+# HyperLattice on-device profile — Octet 3D (preset 3) — Teensy 4.0, segmented mode (2026-09-28, **selective -O3**)
 
 Point-in-time snapshot after Tiers 1 and 2 of the Octet 58 ms spec (`29305dfe2`, `f130ee632`, `1bb522211`).
 Raw capture: `build/prof/octet58/preset2_ship.log`. Replaces the 00:17 capture of the same name (pre-Tier-1 code, `b60fe925b`).

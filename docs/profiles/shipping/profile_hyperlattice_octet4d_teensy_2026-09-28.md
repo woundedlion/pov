@@ -1,4 +1,4 @@
-# HyperLattice Octet 4D slice (preset 4) on-device profile — Teensy 4.0, segmented mode (2026-09-28, **selective -O3**)
+# HyperLattice on-device profile — Octet 4D slice (preset 4) — Teensy 4.0, segmented mode (2026-09-28, **selective -O3**)
 
 Point-in-time snapshot after Tiers 1 and 2 of the Octet 58 ms spec (`29305dfe2`, `f130ee632`, `1bb522211`).
 Raw capture: `build/prof/octet58/preset3_ship.com3.log`. Supersedes the 4D rows of [the 2026-09-27 octet report](profile_hyperlattice_octet_teensy_2026-09-27.md), which stays as the pre-optimization record the optimization ledger cites. Captured on COM3 (identical board) from a worktree at the same commit.

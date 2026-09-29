@@ -10,7 +10,7 @@ import {
 
 export const PROFILES_DIR = join(REPO_ROOT, 'docs', 'profiles');
 export const REPORT_RE =
-  /^profile_([a-z0-9]+)_teensy_(\d{4}-\d{2}-\d{2})\.md$/;
+  /^profile_([a-z0-9]+)(?:_([a-z0-9]+(?:_[a-z0-9]+)*))?_teensy_(\d{4}-\d{2}-\d{2})\.md$/;
 const REQUIRED_SECTIONS = [
   '## Setup',
   '## Frame cadence',
@@ -52,10 +52,12 @@ export async function reportsIn(profilesDir, directory, errors) {
       continue;
     }
     const key = match[1];
-    if (keys.has(key))
-      errors.push(`${directory} has multiple reports for ${key}`);
-    keys.add(key);
-    reports.push({ key, date: match[2], file });
+    const variant = match[2] ?? '';
+    const identity = variant ? `${key}_${variant}` : key;
+    if (keys.has(identity))
+      errors.push(`${directory} has multiple reports for ${identity}`);
+    keys.add(identity);
+    reports.push({ key, variant, date: match[3], file });
   }
   if (reports.length === 0)
     errors.push(`${directory} has no profile reports`);
@@ -103,7 +105,7 @@ function compareSets(subject, actual, expected, errors) {
 function linkedReports(text, prefix) {
   const escaped = prefix.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   const pattern = new RegExp(
-    `\\]\\(${escaped}(profile_[a-z0-9]+_teensy_\\d{4}-\\d{2}-\\d{2}\\.md)\\)`,
+    `\\]\\(${escaped}(${REPORT_RE.source.slice(1, -1)})\\)`,
     'g');
   return new Set([...text.matchAll(pattern)].map(match => match[1]));
 }
@@ -134,8 +136,15 @@ export async function checkProfiles(profilesDir = PROFILES_DIR) {
   const o3 = reportSets.get('O3');
   const retired = reportSets.get('retired');
   if (!shipping) errors.push('shipping profile directory is missing');
-  else compareSets('shipping profiles',
-    new Set(shipping.map(report => report.key)), phantasmKeys, errors);
+  else {
+    compareSets('shipping profiles',
+      new Set(shipping.filter(report => !report.variant).map(report => report.key)),
+      phantasmKeys, errors);
+    for (const { key, variant } of shipping) {
+      if (variant && !phantasmKeys.has(key))
+        errors.push(`shipping profile names a non-Phantasm effect: ${key}`);
+    }
+  }
   if (!o3) errors.push('O3 profile directory is missing');
   else {
     for (const { key } of o3) {

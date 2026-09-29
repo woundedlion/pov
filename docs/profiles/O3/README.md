@@ -89,6 +89,8 @@ its two original presets; they predate this third default preset.
 
 ## Octet optimization supplement
 
+[2026-09-27 Octet snapshot](profile_hyperlattice_octet_teensy_2026-09-27.md).
+
 | Preset | Peak ms | Spilled | Captured |
 |---|---:|---:|---|
 | [3: Octet 3D](profile_hyperlattice_octet_preset3_teensy_2026-09-28.md) ● | 🔴 74.692 | 🔴 549/549 (100.00%) | 2026-09-28 00:19 |
