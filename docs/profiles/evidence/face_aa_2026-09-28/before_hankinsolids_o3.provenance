@@ -1,0 +1,10 @@
+profile provenance: version=1
+profile provenance: source_sha=0c02f3912a98677184d3cf43b31a5d468d4b8ba3
+profile provenance: compiler=GCC: (Arm GNU Toolchain 15.2.Rel1 (Build arm-15.86)) 15.2.1 20251203
+profile provenance: profile_elf_sha256=b69c06c1e96747c8b27e5f727f59f6f3e4a92ac144bc78f7c90293a58459a4ab
+profile provenance: phantasm_elf_sha256=d641c8b742c8e104e48f55d8405c0a1e79fdeb81002b2444432d20acfe597edf
+profile provenance: profile_envdump_sha256=3673bfced08214d0e310e2a2757187ef712dba06ed060bef2d099000c8e188d7
+profile provenance: phantasm_envdump_sha256=571a3d4a8dfe6bb607bea98f319d550c64245f04225685f26165d26171d97caf
+profile provenance: artifact_profile_elf=build/prof/artifacts/hankinsolids_o3_0c02f3912a98_b69c06c1e967/profile.elf
+profile provenance: artifact_phantasm_elf=build/prof/artifacts/hankinsolids_o3_0c02f3912a98_b69c06c1e967/phantasm.elf
+profile provenance: artifact_dir=build/prof/artifacts/hankinsolids_o3_0c02f3912a98_b69c06c1e967

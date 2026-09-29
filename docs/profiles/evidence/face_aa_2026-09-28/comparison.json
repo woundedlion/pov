@@ -1,0 +1,1282 @@
+{
+  "HankinSolids_ship": {
+    "before": {
+      "frames": 4137,
+      "first": 2,
+      "last": 4138,
+      "mean_ms": 12.739228184674884,
+      "peak_ms": 34.837,
+      "peak_frame": 2252,
+      "peak_shape": "truncatedIcosidodecahedron",
+      "spilled": 0,
+      "wall_mean_ms": 62.42323374425912
+    },
+    "after": {
+      "frames": 4137,
+      "first": 2,
+      "last": 4138,
+      "mean_ms": 14.55950713077109,
+      "peak_ms": 40.643,
+      "peak_frame": 2252,
+      "peak_shape": "truncatedIcosidodecahedron",
+      "spilled": 0,
+      "wall_mean_ms": 62.42407034082669
+    },
+    "scope_range": [
+      17,
+      4128
+    ],
+    "before_scopes": {
+      "hk_conway_sweep": {
+        "ms": 0.036050375324254216,
+        "calls": 0.44357976653696496
+      },
+      "hk_conway_compile": {
+        "ms": 0.011259842331387809,
+        "calls": 0.44357976653696496
+      },
+      "canvas_buffer_wait": {
+        "ms": 49.71826793206874,
+        "calls": 1.0
+      },
+      "filter_blend": {
+        "ms": 0.7436781626945526,
+        "calls": 11819.071011673152
+      },
+      "hk_draw_mesh": {
+        "ms": 11.11513260538262,
+        "calls": 0.8715953307392996
+      },
+      "pov_preserve_half": {
+        "ms": 0.14730722722114137,
+        "calls": 1.0
+      },
+      "hk_mesh_scan": {
+        "ms": 11.108774008998054,
+        "calls": 0.8715953307392996
+      },
+      "scan_face_setup": {
+        "ms": 0.38161443498702985,
+        "calls": 38.815661478599225
+      },
+      "hk_timeline_step": {
+        "ms": 12.484887699416342,
+        "calls": 1.0
+      },
+      "hk_update_hankin": {
+        "ms": 0.10402768563553826,
+        "calls": 0.556420233463035
+      },
+      "canvas_clear": {
+        "ms": 0.08422549286640725,
+        "calls": 1.0
+      },
+      "scan_mesh_raster": {
+        "ms": 11.776739117623217,
+        "calls": 38.815661478599225
+      },
+      "hk_mesh_transform": {
+        "ms": 0.0055286616407263295,
+        "calls": 0.8715953307392996
+      },
+      "frame": {
+        "ms": 62.4356206570201,
+        "calls": 1.0
+      }
+    },
+    "after_scopes": {
+      "hk_conway_sweep": {
+        "ms": 0.036167967736705574,
+        "calls": 0.44357976653696496
+      },
+      "hk_conway_compile": {
+        "ms": 0.011285325470168613,
+        "calls": 0.44357976653696496
+      },
+      "canvas_buffer_wait": {
+        "ms": 47.90363888983463,
+        "calls": 1.0
+      },
+      "filter_blend": {
+        "ms": 0.7445397940985732,
+        "calls": 11811.917071984435
+      },
+      "hk_draw_mesh": {
+        "ms": 12.713042308690012,
+        "calls": 0.8715953307392996
+      },
+      "pov_preserve_half": {
+        "ms": 0.14662151872568094,
+        "calls": 1.0
+      },
+      "hk_mesh_scan": {
+        "ms": 12.706725496514268,
+        "calls": 0.8715953307392996
+      },
+      "scan_face_setup": {
+        "ms": 0.38181082928015564,
+        "calls": 38.815661478599225
+      },
+      "hk_timeline_step": {
+        "ms": 14.301115927367055,
+        "calls": 1.0
+      },
+      "hk_update_hankin": {
+        "ms": 0.10407622487029831,
+        "calls": 0.556420233463035
+      },
+      "canvas_clear": {
+        "ms": 0.08423180852788587,
+        "calls": 1.0
+      },
+      "scan_mesh_raster": {
+        "ms": 13.595750471789882,
+        "calls": 38.815661478599225
+      },
+      "hk_mesh_transform": {
+        "ms": 0.005495473411154345,
+        "calls": 0.8715953307392996
+      },
+      "frame": {
+        "ms": 62.436544416747736,
+        "calls": 1.0
+      }
+    },
+    "cycle": {
+      "before": {
+        "frames": 3520,
+        "first": 2,
+        "last": 3521,
+        "mean_ms": 12.886012215909092,
+        "peak_ms": 34.837,
+        "peak_frame": 2252,
+        "peak_shape": "truncatedIcosidodecahedron",
+        "spilled": 0,
+        "wall_mean_ms": 62.417917045454544
+      },
+      "after": {
+        "frames": 3520,
+        "first": 2,
+        "last": 3521,
+        "mean_ms": 14.781388352272726,
+        "peak_ms": 40.643,
+        "peak_frame": 2252,
+        "peak_shape": "truncatedIcosidodecahedron",
+        "spilled": 0,
+        "wall_mean_ms": 62.417950852272725
+      },
+      "scope_range": [
+        17,
+        3520
+      ],
+      "before_scopes": {
+        "hk_conway_sweep": {
+          "ms": 0.03788968702435312,
+          "calls": 0.4480593607305936
+        },
+        "hk_conway_compile": {
+          "ms": 0.011826819824961947,
+          "calls": 0.4480593607305936
+        },
+        "canvas_buffer_wait": {
+          "ms": 49.545615733447484,
+          "calls": 1.0
+        },
+        "filter_blend": {
+          "ms": 0.7497947583713851,
+          "calls": 11891.36158675799
+        },
+        "hk_draw_mesh": {
+          "ms": 11.252633830384323,
+          "calls": 0.8715753424657534
+        },
+        "pov_preserve_half": {
+          "ms": 0.1473183756659056,
+          "calls": 1.0
+        },
+        "hk_mesh_scan": {
+          "ms": 11.245901527777779,
+          "calls": 0.8715753424657534
+        },
+        "scan_face_setup": {
+          "ms": 0.40871204956240487,
+          "calls": 41.919520547945204
+        },
+        "hk_timeline_step": {
+          "ms": 12.653832986111112,
+          "calls": 1.0
+        },
+        "hk_update_hankin": {
+          "ms": 0.110435375761035,
+          "calls": 0.5519406392694064
+        },
+        "canvas_clear": {
+          "ms": 0.08421875380517503,
+          "calls": 1.0
+        },
+        "scan_mesh_raster": {
+          "ms": 11.9064820119863,
+          "calls": 41.919520547945204
+        },
+        "hk_mesh_transform": {
+          "ms": 0.00591123049847793,
+          "calls": 0.8715753424657534
+        },
+        "frame": {
+          "ms": 62.431919322678844,
+          "calls": 1.0
+        }
+      },
+      "after_scopes": {
+        "hk_conway_sweep": {
+          "ms": 0.03806312690258752,
+          "calls": 0.4480593607305936
+        },
+        "hk_conway_compile": {
+          "ms": 0.011863175418569254,
+          "calls": 0.4480593607305936
+        },
+        "canvas_buffer_wait": {
+          "ms": 47.64535211710426,
+          "calls": 1.0
+        },
+        "filter_blend": {
+          "ms": 0.7506925099885845,
+          "calls": 11883.266837899544
+        },
+        "hk_draw_mesh": {
+          "ms": 12.924762736872145,
+          "calls": 0.8715753424657534
+        },
+        "pov_preserve_half": {
+          "ms": 0.14656964611872147,
+          "calls": 1.0
+        },
+        "hk_mesh_scan": {
+          "ms": 12.918074935312024,
+          "calls": 0.8715753424657534
+        },
+        "scan_face_setup": {
+          "ms": 0.40902091086377473,
+          "calls": 41.919520547945204
+        },
+        "hk_timeline_step": {
+          "ms": 14.55458110350076,
+          "calls": 1.0
+        },
+        "hk_update_hankin": {
+          "ms": 0.11041599029680366,
+          "calls": 0.5519406392694064
+        },
+        "canvas_clear": {
+          "ms": 0.08423781868340943,
+          "calls": 1.0
+        },
+        "scan_mesh_raster": {
+          "ms": 13.809913138318112,
+          "calls": 41.919520547945204
+        },
+        "hk_mesh_transform": {
+          "ms": 0.005872624143835616,
+          "calls": 0.8715753424657534
+        },
+        "frame": {
+          "ms": 62.43167845414764,
+          "calls": 1.0
+        }
+      }
+    }
+  },
+  "HankinSolids_o3": {
+    "before": {
+      "frames": 4137,
+      "first": 2,
+      "last": 4138,
+      "mean_ms": 12.823422044960116,
+      "peak_ms": 32.865,
+      "peak_frame": 2252,
+      "peak_shape": "truncatedIcosidodecahedron",
+      "spilled": 0,
+      "wall_mean_ms": 62.428728063814354
+    },
+    "after": {
+      "frames": 4137,
+      "first": 2,
+      "last": 4138,
+      "mean_ms": 14.68531520425429,
+      "peak_ms": 40.475,
+      "peak_frame": 2252,
+      "peak_shape": "truncatedIcosidodecahedron",
+      "spilled": 0,
+      "wall_mean_ms": 62.43161348803481
+    },
+    "scope_range": [
+      17,
+      4128
+    ],
+    "before_scopes": {
+      "hk_conway_sweep": {
+        "ms": 0.035298542071984434,
+        "calls": 0.44357976653696496
+      },
+      "hk_conway_compile": {
+        "ms": 0.009626348897535667,
+        "calls": 0.44357976653696496
+      },
+      "canvas_buffer_wait": {
+        "ms": 49.63896432190337,
+        "calls": 1.0
+      },
+      "filter_blend": {
+        "ms": 0.7455864319876784,
+        "calls": 11829.036721789884
+      },
+      "hk_draw_mesh": {
+        "ms": 11.189494577253566,
+        "calls": 0.8715953307392996
+      },
+      "pov_preserve_half": {
+        "ms": 0.14722865191309986,
+        "calls": 1.0
+      },
+      "hk_mesh_scan": {
+        "ms": 11.167473404669261,
+        "calls": 0.8715953307392996
+      },
+      "scan_face_setup": {
+        "ms": 0.37240543895914396,
+        "calls": 38.815661478599225
+      },
+      "hk_timeline_step": {
+        "ms": 12.57007521279183,
+        "calls": 1.0
+      },
+      "hk_update_hankin": {
+        "ms": 0.10443536681258106,
+        "calls": 0.556420233463035
+      },
+      "canvas_clear": {
+        "ms": 0.08410223289559014,
+        "calls": 1.0
+      },
+      "scan_mesh_raster": {
+        "ms": 11.852864099383916,
+        "calls": 38.815661478599225
+      },
+      "hk_mesh_transform": {
+        "ms": 0.0194799829766537,
+        "calls": 0.8715953307392996
+      },
+      "frame": {
+        "ms": 62.4409996716926,
+        "calls": 1.0
+      }
+    },
+    "after_scopes": {
+      "hk_conway_sweep": {
+        "ms": 0.03429894536316472,
+        "calls": 0.44357976653696496
+      },
+      "hk_conway_compile": {
+        "ms": 0.01060326969844358,
+        "calls": 0.44357976653696496
+      },
+      "canvas_buffer_wait": {
+        "ms": 47.78468494487679,
+        "calls": 1.0
+      },
+      "filter_blend": {
+        "ms": 0.7425789441472115,
+        "calls": 11821.78137159533
+      },
+      "hk_draw_mesh": {
+        "ms": 12.815155624189366,
+        "calls": 0.8715953307392996
+      },
+      "pov_preserve_half": {
+        "ms": 0.14591461454280155,
+        "calls": 1.0
+      },
+      "hk_mesh_scan": {
+        "ms": 12.793897339088845,
+        "calls": 0.8715953307392996
+      },
+      "scan_face_setup": {
+        "ms": 0.3737921437256809,
+        "calls": 38.815661478599225
+      },
+      "hk_timeline_step": {
+        "ms": 14.428301151913098,
+        "calls": 1.0
+      },
+      "hk_update_hankin": {
+        "ms": 0.10534209346627757,
+        "calls": 0.556420233463035
+      },
+      "canvas_clear": {
+        "ms": 0.0842435489623865,
+        "calls": 1.0
+      },
+      "scan_mesh_raster": {
+        "ms": 13.694683260376134,
+        "calls": 38.815661478599225
+      },
+      "hk_mesh_transform": {
+        "ms": 0.018743971708819713,
+        "calls": 0.8715953307392996
+      },
+      "frame": {
+        "ms": 62.443756823524645,
+        "calls": 1.0
+      }
+    },
+    "cycle": {
+      "before": {
+        "frames": 3520,
+        "first": 2,
+        "last": 3521,
+        "mean_ms": 12.951842045454544,
+        "peak_ms": 32.865,
+        "peak_frame": 2252,
+        "peak_shape": "truncatedIcosidodecahedron",
+        "spilled": 0,
+        "wall_mean_ms": 62.42346420454545
+      },
+      "after": {
+        "frames": 3520,
+        "first": 2,
+        "last": 3521,
+        "mean_ms": 14.882561363636363,
+        "peak_ms": 40.475,
+        "peak_frame": 2252,
+        "peak_shape": "truncatedIcosidodecahedron",
+        "spilled": 0,
+        "wall_mean_ms": 62.42571988636364
+      },
+      "scope_range": [
+        17,
+        3520
+      ],
+      "before_scopes": {
+        "hk_conway_sweep": {
+          "ms": 0.036799762652207,
+          "calls": 0.4480593607305936
+        },
+        "hk_conway_compile": {
+          "ms": 0.010321032629375951,
+          "calls": 0.4480593607305936
+        },
+        "canvas_buffer_wait": {
+          "ms": 49.485273298611105,
+          "calls": 1.0
+        },
+        "filter_blend": {
+          "ms": 0.7517176679033486,
+          "calls": 11899.386415525114
+        },
+        "hk_draw_mesh": {
+          "ms": 11.309255323915526,
+          "calls": 0.8715753424657534
+        },
+        "pov_preserve_half": {
+          "ms": 0.1471830194063927,
+          "calls": 1.0
+        },
+        "hk_mesh_scan": {
+          "ms": 11.286750538432269,
+          "calls": 0.8715753424657534
+        },
+        "scan_face_setup": {
+          "ms": 0.39945142218417046,
+          "calls": 41.919520547945204
+        },
+        "hk_timeline_step": {
+          "ms": 12.720475297754948,
+          "calls": 1.0
+        },
+        "hk_update_hankin": {
+          "ms": 0.11072520262557077,
+          "calls": 0.5519406392694064
+        },
+        "canvas_clear": {
+          "ms": 0.08411358114535769,
+          "calls": 1.0
+        },
+        "scan_mesh_raster": {
+          "ms": 11.964734716038812,
+          "calls": 41.919520547945204
+        },
+        "hk_mesh_transform": {
+          "ms": 0.01996490154109589,
+          "calls": 0.8715753424657534
+        },
+        "frame": {
+          "ms": 62.43767099219939,
+          "calls": 1.0
+        }
+      },
+      "after_scopes": {
+        "hk_conway_sweep": {
+          "ms": 0.03578703196347032,
+          "calls": 0.4480593607305936
+        },
+        "hk_conway_compile": {
+          "ms": 0.011319059170471841,
+          "calls": 0.4480593607305936
+        },
+        "canvas_buffer_wait": {
+          "ms": 47.55192039811644,
+          "calls": 1.0
+        },
+        "filter_blend": {
+          "ms": 0.7485867451484018,
+          "calls": 11891.185787671233
+        },
+        "hk_draw_mesh": {
+          "ms": 13.002411728976409,
+          "calls": 0.8715753424657534
+        },
+        "pov_preserve_half": {
+          "ms": 0.1458338513127854,
+          "calls": 1.0
+        },
+        "hk_mesh_scan": {
+          "ms": 12.980657066685692,
+          "calls": 0.8715753424657534
+        },
+        "scan_face_setup": {
+          "ms": 0.40083441923515983,
+          "calls": 41.919520547945204
+        },
+        "hk_timeline_step": {
+          "ms": 14.657006337519025,
+          "calls": 1.0
+        },
+        "hk_update_hankin": {
+          "ms": 0.11160748668188737,
+          "calls": 0.5519406392694064
+        },
+        "canvas_clear": {
+          "ms": 0.08426639697488585,
+          "calls": 1.0
+        },
+        "scan_mesh_raster": {
+          "ms": 13.88469098030822,
+          "calls": 41.919520547945204
+        },
+        "hk_mesh_transform": {
+          "ms": 0.019238936929223745,
+          "calls": 0.8715753424657534
+        },
+        "frame": {
+          "ms": 62.43964135321537,
+          "calls": 1.0
+        }
+      }
+    }
+  },
+  "IslamicStars_ship": {
+    "before": {
+      "frames": 3334,
+      "first": 2,
+      "last": 3335,
+      "mean_ms": 22.79339652069586,
+      "peak_ms": 50.5,
+      "peak_frame": 2811,
+      "peak_shape": "truncatedIcosidodecahedron_truncate50d_ambo_dual",
+      "spilled": 0,
+      "wall_mean_ms": 62.42281523695261
+    },
+    "after": {
+      "frames": 3334,
+      "first": 2,
+      "last": 3335,
+      "mean_ms": 27.160918116376724,
+      "peak_ms": 63.39,
+      "peak_frame": 783,
+      "peak_shape": "dodecahedron_hk35_ambo_hk62_ambo_relax_hk42",
+      "spilled": 3,
+      "wall_mean_ms": 62.46815206958608
+    },
+    "scope_range": [
+      17,
+      3328
+    ],
+    "before_scopes": {
+      "is_mesh_transform": {
+        "ms": 0.331997857789855,
+        "calls": 0.7986111111111112
+      },
+      "hk_conway_sweep": {
+        "ms": 0.18020942280595814,
+        "calls": 0.37681159420289856
+      },
+      "is_mesh_scan": {
+        "ms": 14.302608249798713,
+        "calls": 0.6102053140096618
+      },
+      "hk_conway_compile": {
+        "ms": 0.07965523953301128,
+        "calls": 0.37681159420289856
+      },
+      "canvas_buffer_wait": {
+        "ms": 39.58835416062802,
+        "calls": 1.0
+      },
+      "is_build_draw": {
+        "ms": 7.2102930958132045,
+        "calls": 0.37681159420289856
+      },
+      "is_draw_shape": {
+        "ms": 14.730871492049115,
+        "calls": 0.6102053140096618
+      },
+      "filter_blend": {
+        "ms": 1.0111229076086956,
+        "calls": 14885.195350241545
+      },
+      "pov_preserve_half": {
+        "ms": 0.14567405142914655,
+        "calls": 1.0
+      },
+      "scan_face_setup": {
+        "ms": 3.1261652828099837,
+        "calls": 332.1219806763285
+      },
+      "is_build_scan": {
+        "ms": 7.196445128824476,
+        "calls": 0.37681159420289856
+      },
+      "is_ripple_prepare": {
+        "ms": 0.00308014442431562,
+        "calls": 1.0
+      },
+      "canvas_clear": {
+        "ms": 0.08440921547906602,
+        "calls": 1.0
+      },
+      "is_timeline_step": {
+        "ms": 22.614732110507248,
+        "calls": 1.0
+      },
+      "scan_mesh_raster": {
+        "ms": 18.2153292919686,
+        "calls": 332.1219806763285
+      },
+      "is_face_offsets": {
+        "ms": 0.10258005233494365,
+        "calls": 0.6102053140096618
+      },
+      "frame": {
+        "ms": 62.437279794685985,
+        "calls": 1.0
+      }
+    },
+    "after_scopes": {
+      "is_mesh_transform": {
+        "ms": 0.3319613375603865,
+        "calls": 0.7986111111111112
+      },
+      "hk_conway_sweep": {
+        "ms": 0.1797414739331723,
+        "calls": 0.37681159420289856
+      },
+      "is_mesh_scan": {
+        "ms": 16.964331625905796,
+        "calls": 0.6102053140096618
+      },
+      "hk_conway_compile": {
+        "ms": 0.09359782659017712,
+        "calls": 0.37681159420289856
+      },
+      "canvas_buffer_wait": {
+        "ms": 35.25054906048712,
+        "calls": 1.0
+      },
+      "is_build_draw": {
+        "ms": 8.91824351952496,
+        "calls": 0.37681159420289856
+      },
+      "is_draw_shape": {
+        "ms": 17.39245325030193,
+        "calls": 0.6102053140096618
+      },
+      "filter_blend": {
+        "ms": 1.0078318981481482,
+        "calls": 14800.08484299517
+      },
+      "pov_preserve_half": {
+        "ms": 0.1448471875,
+        "calls": 1.0
+      },
+      "scan_face_setup": {
+        "ms": 3.1241430907809984,
+        "calls": 332.1219806763285
+      },
+      "is_build_scan": {
+        "ms": 8.904327802938809,
+        "calls": 0.37681159420289856
+      },
+      "is_ripple_prepare": {
+        "ms": 0.00374530998389694,
+        "calls": 1.0
+      },
+      "canvas_clear": {
+        "ms": 0.0843526177536232,
+        "calls": 1.0
+      },
+      "is_timeline_step": {
+        "ms": 26.996304996477456,
+        "calls": 1.0
+      },
+      "scan_mesh_raster": {
+        "ms": 22.58740898047504,
+        "calls": 332.1219806763285
+      },
+      "is_face_offsets": {
+        "ms": 0.10251005585748792,
+        "calls": 0.6102053140096618
+      },
+      "frame": {
+        "ms": 62.480794554649755,
+        "calls": 1.0
+      }
+    },
+    "cycle": {
+      "before": {
+        "frames": 1774,
+        "first": 2,
+        "last": 1775,
+        "mean_ms": 22.77162683201804,
+        "peak_ms": 50.023,
+        "peak_frame": 1035,
+        "peak_shape": "truncatedIcosidodecahedron_truncate50d_ambo_dual",
+        "spilled": 0,
+        "wall_mean_ms": 62.41687373167982
+      },
+      "after": {
+        "frames": 1774,
+        "first": 2,
+        "last": 1775,
+        "mean_ms": 27.17135343855693,
+        "peak_ms": 63.39,
+        "peak_frame": 783,
+        "peak_shape": "dodecahedron_hk35_ambo_hk62_ambo_relax_hk42",
+        "spilled": 2,
+        "wall_mean_ms": 62.47701296505073
+      },
+      "scope_range": [
+        17,
+        1760
+      ],
+      "before_scopes": {
+        "is_mesh_transform": {
+          "ms": 0.3286038474770642,
+          "calls": 0.801605504587156
+        },
+        "hk_conway_sweep": {
+          "ms": 0.18118129587155965,
+          "calls": 0.37844036697247707
+        },
+        "is_mesh_scan": {
+          "ms": 14.204207755160551,
+          "calls": 0.6089449541284404
+        },
+        "hk_conway_compile": {
+          "ms": 0.07988414659785932,
+          "calls": 0.37844036697247707
+        },
+        "canvas_buffer_wait": {
+          "ms": 39.63190240443425,
+          "calls": 1.0
+        },
+        "is_build_draw": {
+          "ms": 7.27646907396789,
+          "calls": 0.37844036697247707
+        },
+        "is_draw_shape": {
+          "ms": 14.627055481651377,
+          "calls": 0.6089449541284404
+        },
+        "filter_blend": {
+          "ms": 1.0117869810779816,
+          "calls": 14898.767775229358
+        },
+        "pov_preserve_half": {
+          "ms": 0.14560917813455657,
+          "calls": 1.0
+        },
+        "scan_face_setup": {
+          "ms": 3.08748063264526,
+          "calls": 328.9346330275229
+        },
+        "is_build_scan": {
+          "ms": 7.262570175840978,
+          "calls": 0.37844036697247707
+        },
+        "is_ripple_prepare": {
+          "ms": 0.003087721712538226,
+          "calls": 1.0
+        },
+        "canvas_clear": {
+          "ms": 0.08440725344036698,
+          "calls": 1.0
+        },
+        "is_timeline_step": {
+          "ms": 22.578212600344038,
+          "calls": 1.0
+        },
+        "scan_mesh_raster": {
+          "ms": 18.22282377675841,
+          "calls": 328.9346330275229
+        },
+        "is_face_offsets": {
+          "ms": 0.10062334575688073,
+          "calls": 0.6089449541284404
+        },
+        "frame": {
+          "ms": 62.44424496081804,
+          "calls": 1.0
+        }
+      },
+      "after_scopes": {
+        "is_mesh_transform": {
+          "ms": 0.328559506880734,
+          "calls": 0.801605504587156
+        },
+        "hk_conway_sweep": {
+          "ms": 0.18073626146788993,
+          "calls": 0.37844036697247707
+        },
+        "is_mesh_scan": {
+          "ms": 16.87687084957951,
+          "calls": 0.6089449541284404
+        },
+        "hk_conway_compile": {
+          "ms": 0.09392831613149846,
+          "calls": 0.37844036697247707
+        },
+        "canvas_buffer_wait": {
+          "ms": 35.267734651185016,
+          "calls": 1.0
+        },
+        "is_build_draw": {
+          "ms": 9.016246328363914,
+          "calls": 0.37844036697247707
+        },
+        "is_draw_shape": {
+          "ms": 17.299540436735473,
+          "calls": 0.6089449541284404
+        },
+        "filter_blend": {
+          "ms": 1.009351244266055,
+          "calls": 14812.266628440368
+        },
+        "pov_preserve_half": {
+          "ms": 0.1447031880733945,
+          "calls": 1.0
+        },
+        "scan_face_setup": {
+          "ms": 3.0858430217889907,
+          "calls": 328.9346330275229
+        },
+        "is_build_scan": {
+          "ms": 9.002277475152905,
+          "calls": 0.37844036697247707
+        },
+        "is_ripple_prepare": {
+          "ms": 0.003767285932721713,
+          "calls": 1.0
+        },
+        "canvas_clear": {
+          "ms": 0.08436485760703365,
+          "calls": 1.0
+        },
+        "is_timeline_step": {
+          "ms": 27.00275764430428,
+          "calls": 1.0
+        },
+        "scan_mesh_raster": {
+          "ms": 22.637327689220186,
+          "calls": 328.9346330275229
+        },
+        "is_face_offsets": {
+          "ms": 0.10051116876911316,
+          "calls": 0.6089449541284404
+        },
+        "frame": {
+          "ms": 62.504325694763,
+          "calls": 1.0
+        }
+      }
+    }
+  },
+  "IslamicStars_o3": {
+    "before": {
+      "frames": 3336,
+      "first": 2,
+      "last": 3337,
+      "mean_ms": 22.418675059952037,
+      "peak_ms": 49.112,
+      "peak_frame": 2811,
+      "peak_shape": "truncatedIcosidodecahedron_truncate50d_ambo_dual",
+      "spilled": 0,
+      "wall_mean_ms": 62.40689958033573
+    },
+    "after": {
+      "frames": 3336,
+      "first": 2,
+      "last": 3337,
+      "mean_ms": 26.7642353117506,
+      "peak_ms": 62.988,
+      "peak_frame": 2559,
+      "peak_shape": "dodecahedron_hk35_ambo_hk62_ambo_relax_hk42",
+      "spilled": 1,
+      "wall_mean_ms": 62.42577697841726
+    },
+    "scope_range": [
+      17,
+      3328
+    ],
+    "before_scopes": {
+      "is_mesh_transform": {
+        "ms": 0.32834574677938805,
+        "calls": 0.7986111111111112
+      },
+      "hk_conway_sweep": {
+        "ms": 0.15492159369967795,
+        "calls": 0.37681159420289856
+      },
+      "is_mesh_scan": {
+        "ms": 14.113613113425927,
+        "calls": 0.6102053140096618
+      },
+      "hk_conway_compile": {
+        "ms": 0.0743112882447665,
+        "calls": 0.37681159420289856
+      },
+      "canvas_buffer_wait": {
+        "ms": 39.94600632447665,
+        "calls": 1.0
+      },
+      "is_build_draw": {
+        "ms": 7.117922250402577,
+        "calls": 0.37681159420289856
+      },
+      "is_draw_shape": {
+        "ms": 14.539599483192431,
+        "calls": 0.6102053140096618
+      },
+      "filter_blend": {
+        "ms": 1.0082599723228662,
+        "calls": 14870.527777777777
+      },
+      "pov_preserve_half": {
+        "ms": 0.14686510768921096,
+        "calls": 1.0
+      },
+      "scan_face_setup": {
+        "ms": 3.009037899053945,
+        "calls": 332.1219806763285
+      },
+      "is_build_scan": {
+        "ms": 7.103264152073269,
+        "calls": 0.37681159420289856
+      },
+      "is_ripple_prepare": {
+        "ms": 0.0038056697866344605,
+        "calls": 1.0
+      },
+      "canvas_clear": {
+        "ms": 0.08455693236714977,
+        "calls": 1.0
+      },
+      "is_timeline_step": {
+        "ms": 22.239016967592594,
+        "calls": 1.0
+      },
+      "scan_mesh_raster": {
+        "ms": 18.055439277375203,
+        "calls": 332.1219806763285
+      },
+      "is_face_offsets": {
+        "ms": 0.10410317381239936,
+        "calls": 0.6102053140096618
+      },
+      "frame": {
+        "ms": 62.42093714170692,
+        "calls": 1.0
+      }
+    },
+    "after_scopes": {
+      "is_mesh_transform": {
+        "ms": 0.3283597846215781,
+        "calls": 0.7986111111111112
+      },
+      "hk_conway_sweep": {
+        "ms": 0.15509263083735908,
+        "calls": 0.37681159420289856
+      },
+      "is_mesh_scan": {
+        "ms": 16.770341811090983,
+        "calls": 0.6102053140096618
+      },
+      "hk_conway_compile": {
+        "ms": 0.07431146135265701,
+        "calls": 0.37681159420289856
+      },
+      "canvas_buffer_wait": {
+        "ms": 35.604653748993556,
+        "calls": 1.0
+      },
+      "is_build_draw": {
+        "ms": 8.822730472524155,
+        "calls": 0.37681159420289856
+      },
+      "is_draw_shape": {
+        "ms": 17.195886713969404,
+        "calls": 0.6102053140096618
+      },
+      "filter_blend": {
+        "ms": 1.001538056058776,
+        "calls": 14785.680555555555
+      },
+      "pov_preserve_half": {
+        "ms": 0.14482481179549114,
+        "calls": 1.0
+      },
+      "scan_face_setup": {
+        "ms": 3.00818678442029,
+        "calls": 332.1219806763285
+      },
+      "is_build_scan": {
+        "ms": 8.807669854569243,
+        "calls": 0.37681159420289856
+      },
+      "is_ripple_prepare": {
+        "ms": 0.003801274154589372,
+        "calls": 1.0
+      },
+      "canvas_clear": {
+        "ms": 0.0846497378220612,
+        "calls": 1.0
+      },
+      "is_timeline_step": {
+        "ms": 26.600004593900966,
+        "calls": 1.0
+      },
+      "scan_mesh_raster": {
+        "ms": 22.41740461352657,
+        "calls": 332.1219806763285
+      },
+      "is_face_offsets": {
+        "ms": 0.10367987973027376,
+        "calls": 0.6102053140096618
+      },
+      "frame": {
+        "ms": 62.43862865589775,
+        "calls": 1.0
+      }
+    },
+    "cycle": {
+      "before": {
+        "frames": 1774,
+        "first": 2,
+        "last": 1775,
+        "mean_ms": 22.381350056369786,
+        "peak_ms": 48.157,
+        "peak_frame": 1035,
+        "peak_shape": "truncatedIcosidodecahedron_truncate50d_ambo_dual",
+        "spilled": 0,
+        "wall_mean_ms": 62.39991939120631
+      },
+      "after": {
+        "frames": 1774,
+        "first": 2,
+        "last": 1775,
+        "mean_ms": 26.741354002254795,
+        "peak_ms": 61.959,
+        "peak_frame": 783,
+        "peak_shape": "dodecahedron_hk35_ambo_hk62_ambo_relax_hk42",
+        "spilled": 0,
+        "wall_mean_ms": 62.400675310033826
+      },
+      "scope_range": [
+        17,
+        1760
+      ],
+      "before_scopes": {
+        "is_mesh_transform": {
+          "ms": 0.32497846425840976,
+          "calls": 0.801605504587156
+        },
+        "hk_conway_sweep": {
+          "ms": 0.15580082473241588,
+          "calls": 0.37844036697247707
+        },
+        "is_mesh_scan": {
+          "ms": 14.026012976873089,
+          "calls": 0.6089449541284404
+        },
+        "hk_conway_compile": {
+          "ms": 0.07464363054281346,
+          "calls": 0.37844036697247707
+        },
+        "canvas_buffer_wait": {
+          "ms": 40.005984521215595,
+          "calls": 1.0
+        },
+        "is_build_draw": {
+          "ms": 7.156070849579511,
+          "calls": 0.37844036697247707
+        },
+        "is_draw_shape": {
+          "ms": 14.446608402140672,
+          "calls": 0.6089449541284404
+        },
+        "filter_blend": {
+          "ms": 1.007277849770642,
+          "calls": 14866.439220183487
+        },
+        "pov_preserve_half": {
+          "ms": 0.14690088589449543,
+          "calls": 1.0
+        },
+        "scan_face_setup": {
+          "ms": 2.97325216456422,
+          "calls": 328.9346330275229
+        },
+        "is_build_scan": {
+          "ms": 7.141358839831804,
+          "calls": 0.37844036697247707
+        },
+        "is_ripple_prepare": {
+          "ms": 0.0038230561926605507,
+          "calls": 1.0
+        },
+        "canvas_clear": {
+          "ms": 0.08456835818042813,
+          "calls": 1.0
+        },
+        "is_timeline_step": {
+          "ms": 22.185950828555043,
+          "calls": 1.0
+        },
+        "scan_mesh_raster": {
+          "ms": 18.042724267010705,
+          "calls": 328.9346330275229
+        },
+        "is_face_offsets": {
+          "ms": 0.10214907205657493,
+          "calls": 0.6089449541284404
+        },
+        "frame": {
+          "ms": 62.427907999808866,
+          "calls": 1.0
+        }
+      },
+      "after_scopes": {
+        "is_mesh_transform": {
+          "ms": 0.32498965022935783,
+          "calls": 0.801605504587156
+        },
+        "hk_conway_sweep": {
+          "ms": 0.1560020107033639,
+          "calls": 0.37844036697247707
+        },
+        "is_mesh_scan": {
+          "ms": 16.693182935779816,
+          "calls": 0.6089449541284404
+        },
+        "hk_conway_compile": {
+          "ms": 0.07451448298929664,
+          "calls": 0.37844036697247707
+        },
+        "canvas_buffer_wait": {
+          "ms": 35.61869943711773,
+          "calls": 1.0
+        },
+        "is_build_draw": {
+          "ms": 8.878383935397554,
+          "calls": 0.37844036697247707
+        },
+        "is_draw_shape": {
+          "ms": 17.113340299120797,
+          "calls": 0.6089449541284404
+        },
+        "filter_blend": {
+          "ms": 1.0010572725535167,
+          "calls": 14780.973623853211
+        },
+        "pov_preserve_half": {
+          "ms": 0.14487343176605505,
+          "calls": 1.0
+        },
+        "scan_face_setup": {
+          "ms": 2.972953284594801,
+          "calls": 328.9346330275229
+        },
+        "is_build_scan": {
+          "ms": 8.863236446865443,
+          "calls": 0.37844036697247707
+        },
+        "is_ripple_prepare": {
+          "ms": 0.003827123470948012,
+          "calls": 1.0
+        },
+        "canvas_clear": {
+          "ms": 0.08464182243883793,
+          "calls": 1.0
+        },
+        "is_timeline_step": {
+          "ms": 26.574870071674315,
+          "calls": 1.0
+        },
+        "scan_mesh_raster": {
+          "ms": 22.43201781154434,
+          "calls": 328.9346330275229
+        },
+        "is_face_offsets": {
+          "ms": 0.10172812786697248,
+          "calls": 0.6089449541284404
+        },
+        "frame": {
+          "ms": 62.427602517201834,
+          "calls": 1.0
+        }
+      }
+    }
+  },
+  "roster_memory": {
+    "before": {
+      "FLASH": {
+        "code": 486856,
+        "data": 735360,
+        "headers": 8632
+      },
+      "RAM1": {
+        "variables": 314784,
+        "code": 163480,
+        "padding": 360
+      },
+      "RAM2": {
+        "variables": 520064
+      }
+    },
+    "after": {
+      "FLASH": {
+        "code": 487032,
+        "data": 735360,
+        "headers": 8456
+      },
+      "RAM1": {
+        "variables": 314784,
+        "code": 163592,
+        "padding": 248
+      },
+      "RAM2": {
+        "variables": 520064
+      }
+    }
+  }
+}
