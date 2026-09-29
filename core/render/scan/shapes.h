@@ -168,7 +168,7 @@ struct DistortedRingStack {
    * flash and compiles it for size.
    */
   template <typename ShapeRange>
-  HS_NOINLINE_NOCLONE static void
+  HS_HOT_FLASH_MEMBER static void
   check_stack_preconditions(int n_rings, ShapeRange shapes,
                             const int8_t *slot_by_ring, int n_slots) {
     for (int i = 0; i < n_rings; ++i) {
@@ -207,9 +207,10 @@ struct DistortedRingStack {
    * whole band instead.
    */
   template <int W, int H, typename ShapeRange>
-  static void build_candidate_table(int n_rings, ShapeRange shapes,
-                                    const int8_t *slot_by_ring,
-                                    CandidateTable<W, H> &table) {
+  HS_HOT_FLASH_MEMBER static void
+  build_candidate_table(int n_rings, ShapeRange shapes,
+                        const int8_t *slot_by_ring,
+                        CandidateTable<W, H> &table) {
     using Table = CandidateTable<W, H>;
     constexpr int C = Table::CHUNKS;
     constexpr float bin_scale = Table::BINS / math::PI_F;

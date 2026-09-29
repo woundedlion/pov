@@ -552,11 +552,11 @@ private:
    * grid knot is evaluated when any visible knot lies within two strides of it.
    * Knot positions come from the same azimuth recurrence as the exact bake.
    */
-  HS_O3_FN void bake_noise_octaves(const Animation::NoiseProductParams &np,
-                                   const math::Basis &basis, float theta,
-                                   float cos_t, float sin_t, float cos_d,
-                                   float sin_d, int lut_n, uint32_t visible,
-                                   int n_local, float *slut) {
+  HS_HOT_FLASH_MEMBER void
+  bake_noise_octaves(const Animation::NoiseProductParams &np,
+                     const math::Basis &basis, float theta, float cos_t,
+                     float sin_t, float cos_d, float sin_d, int lut_n,
+                     uint32_t visible, int n_local, float *slut) {
     constexpr int D1 = OCTAVE1_STRIDE;
     constexpr int D2 = OCTAVE2_STRIDE;
     int x = 0;
@@ -661,10 +661,10 @@ private:
    * rejected ball adds, and each knot folds its balls in ball_local order, so
    * the shifts match evaluating every ball at every knot.
    */
-  HS_O3_FN void bake_ball_spans(const math::Basis &basis, float theta,
-                                float cos_t, float sin_t, float cos_d,
-                                float sin_d, int lut_n, uint32_t visible,
-                                int n_local, float *slut) {
+  HS_HOT_FLASH_MEMBER void
+  bake_ball_spans(const math::Basis &basis, float theta, float cos_t,
+                  float sin_t, float cos_d, float sin_d, int lut_n,
+                  uint32_t visible, int n_local, float *slut) {
     // Covers the recurrence's drift from the analytic knot azimuth and the
     // float slop in the cap dot product.
     constexpr float COS_MARGIN = 2e-4f;
