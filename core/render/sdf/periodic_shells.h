@@ -321,7 +321,7 @@ __attribute__((always_inline)) inline ShellSample trace_periodic_shells_4d(
     float farthest = 0;
     for (int n = 0; n < 3; ++n) {
       offset[n] = position[n] - rintf(position[n]);
-      farthest = std::max(farthest, fabsf(offset[n]));
+      farthest = fmaxf(farthest, fabsf(offset[n]));
     }
     const float REACH2 = reach * reach;
     const float SPREAD = reach * STEP;
