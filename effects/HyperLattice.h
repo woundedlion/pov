@@ -355,12 +355,22 @@ public:
   static constexpr size_t SHELL_PRESET_INDEX = 6;
   static constexpr size_t SHELL_CLOSE_PRESET_INDEX = 7;
   static constexpr size_t SHELL_4D_PRESET_INDEX = 8;
-  static constexpr Segue::Preset::Lerp PRESET_SEGUE{240, math::ease_in_out_sin,
-                                                    /*pausable=*/true};
   static constexpr uint16_t PRESET_DWELL_FRAMES = 320;
   static constexpr uint32_t PARAMETER_SCHEMA_VERSION = 14;
 
-  HS_COLD_MEMBER static constexpr Params preset_params(size_t index) {
+  /**
+   * @brief The preset at @p index and how it departs.
+   * @details A preset morphs through its parameters into the next preset of
+   * its pattern and view; any other departure fades through black, since the
+   * geometry cannot interpolate across a pattern or view.
+   */
+  HS_COLD_MEMBER static constexpr PresetEntry<Params> preset(size_t index) {
+    constexpr Segue::Preset::Lerp MORPH{240, math::ease_in_out_sin,
+                                        /*pausable=*/true};
+    constexpr Segue::Preset::Fade FADE{240};
+    const bool MORPHS = index == CUBIC_PRESET_INDEX ||
+                        index == OCTET_PRESET_INDEX ||
+                        index == SHELL_PRESET_INDEX;
     Params value;
     switch (index) {
     case CUBIC_PRESET_INDEX:
@@ -464,18 +474,19 @@ public:
     default:
       break;
     }
-    return value;
+    return {value, MORPHS ? Segue::Preset::Departure{MORPH}
+                          : Segue::Preset::Departure{FADE}};
   }
 
   static constexpr Params pattern_defaults(Pattern pattern, LatticeMode mode) {
     const bool SLICE = mode == LatticeMode::FOUR_D_SLICE;
     if (pattern == Pattern::CUBIC_WIRE)
-      return preset_params(SLICE ? HYPERCUBE_PRESET_INDEX : CUBIC_PRESET_INDEX);
+      return preset(SLICE ? HYPERCUBE_PRESET_INDEX : CUBIC_PRESET_INDEX).params;
 #if HS_ENABLE_HYPERLATTICE_EXPERIMENTS
     if (pattern == Pattern::OCTET)
-      return preset_params(SLICE ? OCTET_4D_PRESET_INDEX : OCTET_PRESET_INDEX);
+      return preset(SLICE ? OCTET_4D_PRESET_INDEX : OCTET_PRESET_INDEX).params;
     if (pattern == Pattern::SHELLS)
-      return preset_params(SLICE ? SHELL_4D_PRESET_INDEX : SHELL_PRESET_INDEX);
+      return preset(SLICE ? SHELL_4D_PRESET_INDEX : SHELL_PRESET_INDEX).params;
 #endif
     Params value;
     value.pattern = pattern;
@@ -652,7 +663,7 @@ public:
     {
       HS_PROFILE(hl_shader_draw);
       static_assert(
-          uses_specialized_slice(preset_params(HYPERCUBE_PRESET_INDEX)),
+          uses_specialized_slice(preset(HYPERCUBE_PRESET_INDEX).params),
           "the hypercube preset no longer selects the specialized slice trace");
       if (uses_specialized_slice(params) && params.shells == ShellCount::TWO) {
         Scan::Shader::draw_cached<W, H, 1>(
@@ -732,27 +743,13 @@ private:
   }
   void adopt_params(const Params &target) {
     params = target;
-    preset_gain = 1.0f;
     if (configuration_id(params) != selected_configuration) {
       selected_configuration = configuration_id(params);
       refresh_configuration_schema();
     }
   }
-  /**
-   * @brief Presets of one pattern and view morph through their parameters;
-   *        any other change dims the outgoing preset to black, switches in the
-   *        dark, and brightens the incoming one.
-   */
-  void blend_params(float progress) {
-    const Params &FROM = transition.from;
-    const Params &TO = transition.to;
-    if (FROM.pattern == TO.pattern && FROM.mode == TO.mode) {
-      params.lerp(FROM, TO, progress);
-      preset_gain = 1.0f;
-    } else {
-      params = progress < 0.5f ? FROM : TO;
-      preset_gain = fabsf(1.0f - 2.0f * progress);
-    }
+  HS_COLD_MEMBER void blend_params(float progress) {
+    params.lerp(transition.from, transition.to, progress);
     if (configuration_id(params) != selected_configuration) {
       selected_configuration = configuration_id(params);
       refresh_configuration_schema();
@@ -952,6 +949,9 @@ private:
 
   ConfigurationId selected_configuration = ConfigurationId::CUBIC_3D;
   float preset_gain = 1.0f;
+
+  /** @brief Receives a fading departure's opacity as the frame's gain. */
+  void set_preset_opacity(float value) { preset_gain = value; }
   math::Vec4 origin{{0.17f, 0.31f, 0.43f, 0.59f}};
   std::array<float, 6> rotation_phase{};
   PaletteCycler depth_palette;
@@ -969,7 +969,7 @@ static_assert(
     [] {
       using Effect = HyperLattice<1, 1>;
       for (size_t index = 0; index < Effect::PRESET_IDS.size(); ++index)
-        if (!Effect::valid_params(Effect::preset_params(index)))
+        if (!Effect::valid_params(Effect::preset(index).params))
           return false;
       return true;
     }(),

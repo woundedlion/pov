@@ -86,11 +86,10 @@ struct HyperLatticeWhiteBox {
     return effect.rotation_phase;
   }
   static HL::Params &params(Effect &effect) { return effect.params; }
-  static void blend(Effect &effect, const HL::Params &from,
-                    const HL::Params &to, float progress) {
-    effect.transition.from = from;
-    effect.transition.to = to;
-    effect.blend_params(progress);
+  /** @brief Steps the timeline and the preset choreography one frame. */
+  static void step_choreography(Effect &effect, Canvas &canvas) {
+    effect.timeline.step(canvas);
+    effect.step_choreography();
   }
   static float preset_gain(const Effect &effect) { return effect.preset_gain; }
 #if HS_ENABLE_HYPERLATTICE_EXPERIMENTS
@@ -363,7 +362,7 @@ inline void test_next_plane_is_strict() {
 
 inline void test_trace_layers_are_front_to_back() {
   HL::FrameState frame{};
-  frame.params = HyperLattice<96, 20>::preset_params(0);
+  frame.params = HyperLattice<96, 20>::preset(0).params;
   frame.origin = {{0.25f, 0.0f, 0.31f, 0.43f}};
   const HL::PreparedTrace prepared = HL::prepare_trace(frame);
   float previous_distance = 0.0f;
@@ -408,7 +407,7 @@ inline void test_layer_composite_reveals_background() {
 
 inline void test_surface_origin_parallax() {
   HL::FrameState frame{};
-  frame.params = HyperLattice<96, 20>::preset_params(0);
+  frame.params = HyperLattice<96, 20>::preset(0).params;
   frame.params.sphere_radius = 0.0f;
   frame.origin = {{0.25f, 0.0f, 0.31f, 0.43f}};
   const HL::TraceHit centered =
@@ -431,8 +430,9 @@ inline void test_surface_origin_parallax() {
 
 inline void test_hyperplane_event() {
   HL::FrameState frame{};
-  frame.params = HyperLattice<96, 20>::preset_params(
-      HyperLattice<96, 20>::HYPERCUBE_PRESET_INDEX);
+  frame.params =
+      HyperLattice<96, 20>::preset(HyperLattice<96, 20>::HYPERCUBE_PRESET_INDEX)
+          .params;
   frame.params.sphere_radius = 0.4f;
   frame.origin = {{0.0f, 0.0f, 0.31f, 0.25f}};
   frame.rotation_phase[3] = 0.5f * math::PI_F;
@@ -445,7 +445,7 @@ inline void test_hyperplane_event() {
 
 inline void test_coincident_planes_form_one_layer() {
   HL::FrameState frame{};
-  frame.params = HyperLattice<96, 20>::preset_params(0);
+  frame.params = HyperLattice<96, 20>::preset(0).params;
   frame.params.sphere_radius = 0.0f;
   frame.origin = {{0.25f, 0.25f, 0.31f, 0.43f}};
   const HL::PreparedTrace prepared = HL::prepare_trace(frame);
@@ -600,7 +600,7 @@ inline void test_render_signature() {
       HyperLatticeWhiteBox::Effect::HYPERCUBE_PRESET_INDEX};
   for (size_t preset = 0; preset < std::size(ORIGINS); ++preset) {
     const HL::FrameState frame{
-        HyperLatticeWhiteBox::Effect::preset_params(PRESETS[preset]),
+        HyperLatticeWhiteBox::Effect::preset(PRESETS[preset]).params,
         ORIGINS[preset],
         ROTATIONS[preset],
         HL::pixel_half_angle<288, 144>(),
@@ -624,9 +624,11 @@ inline void test_specialized_slice_transition() {
 
   HyperLatticeWhiteBox::Effect effect;
   effect.init();
-  const HL::Params start = HyperLatticeWhiteBox::Effect::preset_params(0);
-  const HL::Params target = HyperLatticeWhiteBox::Effect::preset_params(
-      HyperLatticeWhiteBox::Effect::HYPERCUBE_PRESET_INDEX);
+  const HL::Params start = HyperLatticeWhiteBox::Effect::preset(0).params;
+  const HL::Params target =
+      HyperLatticeWhiteBox::Effect::preset(
+          HyperLatticeWhiteBox::Effect::HYPERCUBE_PRESET_INDEX)
+          .params;
   const auto compare_shells = [&]<uint8_t SHELL_COUNT>(HL::ShellCount shells) {
     float max_visible_error = 0.0f;
     float max_alpha_error = 0.0f;
@@ -736,8 +738,9 @@ inline void test_specialized_render_signature() {
   size_t row = 0;
   for (size_t index = 0; index < std::size(ORIGINS); ++index) {
     const HL::FrameState context{
-        HyperLatticeWhiteBox::Effect::preset_params(
-            HyperLatticeWhiteBox::Effect::HYPERCUBE_PRESET_INDEX),
+        HyperLatticeWhiteBox::Effect::preset(
+            HyperLatticeWhiteBox::Effect::HYPERCUBE_PRESET_INDEX)
+            .params,
         ORIGINS[index],
         ROTATIONS[index],
         HL::pixel_half_angle<288, 144>(),
@@ -771,7 +774,7 @@ inline void test_presets_and_pipeline() {
   static_assert(HL::RenderPipeline::Validation::ENTRY);
   static_assert(HL::RenderPipeline::Validation::EXIT);
   for (size_t index = 0; index < Effect::PRESET_IDS.size(); ++index)
-    HS_EXPECT_TRUE(Effect::valid_params(Effect::preset_params(index)));
+    HS_EXPECT_TRUE(Effect::valid_params(Effect::preset(index).params));
   static_assert(Effect::PRESET_IDS.size() ==
                 (HS_ENABLE_HYPERLATTICE_EXPERIMENTS ? 9 : 3));
   static_assert(Effect::PRESET_IDS[Effect::CUBIC_PRESET_INDEX] ==
@@ -781,12 +784,12 @@ inline void test_presets_and_pipeline() {
   static_assert(Effect::PRESET_IDS[Effect::HYPERCUBE_PRESET_INDEX] ==
                 "hypercube-flight");
 
-  constexpr HL::Params CUBIC_PRESET = Effect::preset_params(0);
+  constexpr HL::Params CUBIC_PRESET = Effect::preset(0).params;
   static_assert(CUBIC_PRESET.mode == HL::LatticeMode::THREE_D);
   static_assert(CUBIC_PRESET.shells == HL::ShellCount::TWO);
 
   constexpr HL::Params SLICE_PRESET =
-      Effect::preset_params(Effect::HYPERCUBE_PRESET_INDEX);
+      Effect::preset(Effect::HYPERCUBE_PRESET_INDEX).params;
   static_assert(SLICE_PRESET.mode == HL::LatticeMode::FOUR_D_SLICE);
   static_assert(SLICE_PRESET.shells == HL::ShellCount::TWO);
 
@@ -831,17 +834,17 @@ inline void test_configuration_adoption_and_snapshots() {
   HS_EXPECT_EQ(effect.updateParameter("Cell Size", 5), ParamSetResult::APPLIED);
   HS_EXPECT_EQ(effect.updateParameter("View", 1), ParamSetResult::APPLIED);
   HS_EXPECT_EQ(effect.serialize_parameters().params.cell_size,
-               Effect::preset_params(Effect::HYPERCUBE_PRESET_INDEX).cell_size);
+               Effect::preset(Effect::HYPERCUBE_PRESET_INDEX).params.cell_size);
   HS_EXPECT_EQ(
       effect.serialize_parameters().params.wire_radius,
-      Effect::preset_params(Effect::HYPERCUBE_PRESET_INDEX).wire_radius);
+      Effect::preset(Effect::HYPERCUBE_PRESET_INDEX).params.wire_radius);
   HS_EXPECT_GT(effect.getParameterSchemaGeneration(), schema);
   HS_EXPECT_EQ(effect.updateParameter("4D Spin", .01f),
                ParamSetResult::APPLIED);
   HS_EXPECT_TRUE(effect.restore_parameters(initial));
   HS_EXPECT_TRUE(effect.getParameters().find("4D Spin")->readonly);
-  HL::Params start = Effect::preset_params(0);
-  HL::Params target = Effect::preset_params(Effect::HYPERCUBE_PRESET_INDEX);
+  HL::Params start = Effect::preset(0).params;
+  HL::Params target = Effect::preset(Effect::HYPERCUBE_PRESET_INDEX).params;
   target.cell_size = 4;
   HL::Params mixed;
   target.shells = HL::ShellCount::THREE;
@@ -869,28 +872,44 @@ inline void test_configuration_adoption_and_snapshots() {
  */
 inline void test_family_segues() {
   using Effect = HyperLatticeWhiteBox::Effect;
+  constexpr size_t COUNT = Effect::PRESET_IDS.size();
+  for (size_t index = 0; index < COUNT; ++index) {
+    const auto FROM = Effect::preset(index).params;
+    const auto TO = Effect::preset((index + 1) % COUNT).params;
+    const bool SAME_FAMILY = FROM.pattern == TO.pattern && FROM.mode == TO.mode;
+    const auto DEPARTURE = Effect::preset(index).segue;
+    HS_EXPECT_EQ(std::holds_alternative<Segue::Preset::Lerp>(DEPARTURE),
+                 SAME_FAMILY);
+    HS_EXPECT_EQ(std::holds_alternative<Segue::Preset::Fade>(DEPARTURE),
+                 !SAME_FAMILY);
+  }
+
   reset_globals();
   Effect effect;
   effect.init();
   const auto &params = HyperLatticeWhiteBox::params(effect);
-  const auto CUBIC = Effect::preset_params(Effect::CUBIC_PRESET_INDEX);
-  const auto WIDE = Effect::preset_params(Effect::WIDE_PRESET_INDEX);
-  const auto HYPERCUBE = Effect::preset_params(Effect::HYPERCUBE_PRESET_INDEX);
-  HyperLatticeWhiteBox::blend(effect, CUBIC, WIDE, .25f);
-  HS_EXPECT_EQ(params.cell_size,
-               hs::lerp(CUBIC.cell_size, WIDE.cell_size, .25f));
+  const auto WIDE = Effect::preset(Effect::WIDE_PRESET_INDEX).params;
+  const auto HYPERCUBE = Effect::preset(Effect::HYPERCUBE_PRESET_INDEX).params;
+  HS_EXPECT_TRUE(effect.selectPreset(Effect::WIDE_PRESET_INDEX));
+  effect.setAnimationsPaused(false);
+  Canvas canvas(effect);
+  for (int frame = 0; frame < Effect::PRESET_DWELL_FRAMES; ++frame)
+    HyperLatticeWhiteBox::step_choreography(effect, canvas);
   HS_EXPECT_EQ(HyperLatticeWhiteBox::preset_gain(effect), 1.0f);
-  for (float progress : {.1f, .25f, .49f, .5f, .75f, .9f}) {
-    HyperLatticeWhiteBox::blend(effect, WIDE, HYPERCUBE, progress);
-    const auto &expected = progress < .5f ? WIDE : HYPERCUBE;
+  const int FADE =
+      Segue::Preset::frames(Effect::preset(Effect::WIDE_PRESET_INDEX).segue);
+  float darkest = 1.0f;
+  for (int frame = 1; frame <= FADE; ++frame) {
+    HyperLatticeWhiteBox::step_choreography(effect, canvas);
+    const float GAIN = HyperLatticeWhiteBox::preset_gain(effect);
+    darkest = fminf(darkest, GAIN);
+    const auto &expected = frame < FADE / 2 ? WIDE : HYPERCUBE;
     HS_EXPECT_EQ(params.mode, expected.mode);
     HS_EXPECT_EQ(params.cell_size, expected.cell_size);
-    HS_EXPECT_EQ(params.far_distance, expected.far_distance);
-    HS_EXPECT_NEAR(HyperLatticeWhiteBox::preset_gain(effect),
-                   fabsf(1.0f - 2.0f * progress), 1e-6f);
   }
-  HyperLatticeWhiteBox::blend(effect, CUBIC, WIDE, .5f);
+  HS_EXPECT_EQ(darkest, 0.0f);
   HS_EXPECT_EQ(HyperLatticeWhiteBox::preset_gain(effect), 1.0f);
+  HS_EXPECT_EQ(effect.getPresetIndex(), Effect::HYPERCUBE_PRESET_INDEX);
 }
 
 inline void test_dimension_dropdown_and_mode_lerp() {
@@ -954,7 +973,7 @@ inline void test_single_shell() {
   Effect effect;
   effect.init();
   HL::FrameState frame{};
-  frame.params = Effect::preset_params(Effect::HYPERCUBE_PRESET_INDEX);
+  frame.params = Effect::preset(Effect::HYPERCUBE_PRESET_INDEX).params;
   frame.params.sphere_radius = 0.0f;
   frame.origin = {{0.25f, 0.02f, 0.01f, 0.43f}};
   frame.pixel_half_angle = HL::pixel_half_angle<96, 20>();
@@ -1182,7 +1201,7 @@ inline void test_experimental_presets() {
   for (size_t i : {Effect::OCTET_PRESET_INDEX, Effect::OCTET_4D_PRESET_INDEX}) {
     const bool SLICE = i == Effect::OCTET_4D_PRESET_INDEX;
     HL::FrameState frame{};
-    frame.params = Effect::preset_params(i);
+    frame.params = Effect::preset(i).params;
     frame.params.sphere_radius = .7f;
     frame.depth_palette = HyperLatticeWhiteBox::depth_palette(effect);
     const auto before = HyperLatticeExperimental::prepare(
@@ -1216,7 +1235,7 @@ inline void test_experimental_presets() {
     HS_EXPECT_EQ(before.camera.radial_start, after.camera.radial_start);
     HS_EXPECT_TRUE(Effect::PRESET_IDS[i].starts_with("experimental-"));
     auto selected = initial;
-    selected.params = Effect::preset_params(i);
+    selected.params = Effect::preset(i).params;
     HS_EXPECT_TRUE(effect.restore_parameters(selected));
     HS_EXPECT_EQ(effect.getParameters().find("Pattern")->get(), 1);
     HS_EXPECT_EQ(effect.getParameters().find("View")->get(), float(SLICE));
@@ -1308,7 +1327,7 @@ inline void test_pattern_view_controls() {
   HS_EXPECT_EQ(octet4.params.pattern, Effect::Pattern::OCTET);
   HS_EXPECT_EQ(octet4.params.mode, HL::LatticeMode::FOUR_D_SLICE);
   HS_EXPECT_EQ(octet4.params.cell_size,
-               Effect::preset_params(Effect::OCTET_4D_PRESET_INDEX).cell_size);
+               Effect::preset(Effect::OCTET_4D_PRESET_INDEX).params.cell_size);
   HS_EXPECT_EQ(octet4.params.near_fade, .37f);
   HS_EXPECT_FALSE(effect.getParameters().find("4D Spin")->readonly);
   HS_EXPECT_EQ(effect.updateParameter("View", 0), ParamSetResult::APPLIED);
@@ -1329,7 +1348,7 @@ inline void test_pattern_view_controls() {
   HS_EXPECT_EQ(view->get(), 1);
   HS_EXPECT_EQ(
       effect.serialize_parameters().params.wire_radius,
-      Effect::preset_params(Effect::HYPERCUBE_PRESET_INDEX).wire_radius);
+      Effect::preset(Effect::HYPERCUBE_PRESET_INDEX).params.wire_radius);
   HS_EXPECT_FALSE(effect.getParameters().find("Lattice Planes")->readonly);
 #endif
 }
@@ -1372,13 +1391,13 @@ inline void test_new_patterns() {
     HS_EXPECT_GT(lit, size_t{0});
     HS_EXPECT_TRUE(effect.restore_parameters(snapshot));
     HL::Params blend;
-    blend.lerp(Effect::preset_params(0), p, .49f);
+    blend.lerp(Effect::preset(0).params, p, .49f);
     HS_EXPECT_EQ(blend.pattern, Effect::Pattern::CUBIC_WIRE);
-    blend.lerp(Effect::preset_params(0), p, .5f);
+    blend.lerp(Effect::preset(0).params, p, .5f);
     HS_EXPECT_EQ(blend.pattern, p.pattern);
     HS_EXPECT_EQ(
         blend.shell_radius,
-        hs::lerp(Effect::preset_params(0).shell_radius, p.shell_radius, .5f));
+        hs::lerp(Effect::preset(0).params.shell_radius, p.shell_radius, .5f));
     auto invalid = snapshot;
     invalid.params.stretch = 1.6f;
     HS_EXPECT_FALSE(effect.restore_parameters(invalid));

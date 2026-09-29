@@ -48,10 +48,10 @@ public:
   using Style = Feedback::Style;
   using BaseMesh = Solids::BaseMesh;
 
-  /** Preset policy: snap the target parameters on every origin, AUTOMATIC
-      included — Style embeds a noise binding and base_mesh drives an
-      arena-rewinding mesh rebuild, so parameter blending is never legal. */
-  static constexpr Segue::Preset::Snap PRESET_SEGUE{};
+  /** Every preset departs by snapping — Style embeds a noise binding and
+      base_mesh drives an arena-rewinding mesh rebuild, so parameter blending
+      is never legal. */
+  static constexpr Segue::Preset::Snap DEPARTURE{};
   static constexpr uint32_t PARAMETER_SCHEMA_VERSION = 1;
   static constexpr uint16_t PRESET_DWELL_FRAMES = 241;
 
@@ -82,18 +82,19 @@ public:
   }
   static constexpr size_t PRESET_COUNT = 12;
   static constexpr std::array<PresetEntry<Params>, PRESET_COUNT> PRESETS = {{
-      {{BaseMesh::ICOSAHEDRON, Style::ArcingLightning()}},
-      {{BaseMesh::DODECAHEDRON, Style::SlowFire()}},
-      {{BaseMesh::TRUNCATED_ICOSAHEDRON, Style::EnergeticFire()}},
-      {{BaseMesh::CUBE, Style::Smoke()}},
-      {{BaseMesh::RHOMBICUBOCTAHEDRON, Style::SlowDust()}},
-      {{BaseMesh::ICOSIDODECAHEDRON, Style::WavyTrails()}},
-      {{BaseMesh::OCTAHEDRON, Style::MeltingHi()}},
-      {{BaseMesh::TRIAKIS_OCTAHEDRON, Style::MeltingLo()}},
-      {{BaseMesh::RHOMBIC_TRIACONTAHEDRON, Style::Miasma()}},
-      {{BaseMesh::TRUNCATED_CUBOCTAHEDRON, Style::LooseWormhole()}},
-      {{BaseMesh::SNUB_CUBE, Style::TightWormhole()}},
-      {{BaseMesh::PENTAGONAL_HEXECONTAHEDRON, Style::WigglingWormhole()}},
+      {{BaseMesh::ICOSAHEDRON, Style::ArcingLightning()}, DEPARTURE},
+      {{BaseMesh::DODECAHEDRON, Style::SlowFire()}, DEPARTURE},
+      {{BaseMesh::TRUNCATED_ICOSAHEDRON, Style::EnergeticFire()}, DEPARTURE},
+      {{BaseMesh::CUBE, Style::Smoke()}, DEPARTURE},
+      {{BaseMesh::RHOMBICUBOCTAHEDRON, Style::SlowDust()}, DEPARTURE},
+      {{BaseMesh::ICOSIDODECAHEDRON, Style::WavyTrails()}, DEPARTURE},
+      {{BaseMesh::OCTAHEDRON, Style::MeltingHi()}, DEPARTURE},
+      {{BaseMesh::TRIAKIS_OCTAHEDRON, Style::MeltingLo()}, DEPARTURE},
+      {{BaseMesh::RHOMBIC_TRIACONTAHEDRON, Style::Miasma()}, DEPARTURE},
+      {{BaseMesh::TRUNCATED_CUBOCTAHEDRON, Style::LooseWormhole()}, DEPARTURE},
+      {{BaseMesh::SNUB_CUBE, Style::TightWormhole()}, DEPARTURE},
+      {{BaseMesh::PENTAGONAL_HEXECONTAHEDRON, Style::WigglingWormhole()},
+       DEPARTURE},
   }};
 
   static_assert(

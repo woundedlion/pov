@@ -56,6 +56,20 @@ export function presetAssignments(document, values) {
   return assignments;
 }
 
+const EASINGS = { LINEAR: 'math::ease_linear', EASE_IN_OUT_SIN: 'math::ease_in_out_sin' };
+
+/** The C++ departure of a preset: the document edge leaving it, or a snap. */
+export function departureLiteral(bank, presetId) {
+  const edges = bank.edges.filter((edge) => edge.from === presetId);
+  if (edges.length === 0) return 'Segue::Preset::Snap{}';
+  if (edges.length > 1) throw new Error(`Preset ${presetId} departs by several edges`);
+  const [edge] = edges;
+  if (edge.path_policy !== 'parallel') throw new Error(`Unmapped path policy: ${edge.path_policy}`);
+  const easing = EASINGS[edge.easing];
+  if (!easing) throw new Error(`Unmapped easing: ${edge.easing}`);
+  return `Segue::Preset::Lerp{${edge.duration}, ${easing}}`;
+}
+
 export function generatedSections(compiled) {
   if (compiled.status !== 'VALID') throw new Error(JSON.stringify(compiled.diagnostics));
   const document = compiled.document;
@@ -83,14 +97,19 @@ export function generatedSections(compiled) {
     '    Params value;', ...[...initial].map(assignment), '    return value;', '  }',
   ];
   if (presets.length > 1) {
-    params.push('', '  /** @brief Params for the preset at index in PRESET_IDS. */', '  static constexpr Params preset_params(size_t index) {', '    Params value = initial_params();');
+    const departures = order.map((id) => departureLiteral(bank, id));
+    const uniform = departures.every((departure) => departure === departures[0]);
+    params.push('', '  /** @brief The preset at index in PRESET_IDS and how it departs. */',
+      '  HS_COLD_MEMBER static constexpr PresetEntry<Params> preset(size_t index) {', '    Params value = initial_params();');
+    if (!uniform) params.push(`    Segue::Preset::Departure segue = ${departures[0]};`);
     for (let i = 1; i < presets.length; ++i) {
       params.push(`    if (index == ${i}) {`);
       for (const entry of presetAssignments(document, presets[i].values))
         if (initial.get(entry[0]) !== entry[1]) params.push(`  ${assignment(entry)}`);
+      if (!uniform && departures[i] !== departures[0]) params.push(`      segue = ${departures[i]};`);
       params.push('    }');
     }
-    params.push('    return value;', '  }');
+    params.push(`    return {value, ${uniform ? departures[0] : 'segue'}};`, '  }');
   }
   return { identity, params: params.join('\n') };
 }

@@ -144,10 +144,8 @@ inline constexpr int HS_PRESET_WINDOW_H = 20;
 template <template <int, int> class EffectT, int W, int H>
 constexpr size_t hs_preset_window_frames() {
   using Effect = EffectT<W, H>;
-  constexpr size_t PRESET_COUNT = Effect::authored_preset_count();
-  static_assert(PRESET_COUNT > 0);
-  return PRESET_COUNT * Effect::PRESET_DWELL_FRAMES +
-         (PRESET_COUNT - 1) * Effect::TRANSITION_DURATION;
+  static_assert(Effect::authored_preset_count() > 0);
+  return Effect::cycle_frames();
 }
 
 /**

@@ -460,7 +460,8 @@ inline void check_preset_choreography(const char *name) {
   using FX = E<SMALL_W, SMALL_H>;
   HS_CONTEXT(name);
 
-  HS_EXPECT_GT(FX::TRANSITION_DURATION, uint16_t{0});
+  if (FX::PRESET_IDS.size() > 1)
+    HS_EXPECT_GT(Segue::Preset::frames(FX::preset_departure(0)), uint16_t{0});
   HS_EXPECT_GT(FX::PRESET_DWELL_FRAMES, uint16_t{0});
   HS_EXPECT_GT(FX::PRESET_IDS.size(), size_t{0});
   HS_EXPECT_TRUE(FX::valid_params(FX::initial_params()));
@@ -1046,7 +1047,7 @@ apply_document_value(typename FX::Params &built, const DocumentSlot &slot,
  * @param name Effect name, for the failure context.
  * @details The digests pin the promoted header to the document's canonical
  * JSON, but both are computed from the JSON, so a value edited in
- * initial_params()/preset_params() alone would leave them green. This check
+ * initial_params()/preset() alone would leave them green. This check
  * closes that gap: every preset in patterns/<effect_id>.shader.json is rebuilt
  * into a Params through the engine's own field tables and compared bit-exactly,
  * family by family, against the effect's authored preset. The comparison is
@@ -1160,9 +1161,20 @@ inline void check_document_values(const char *name) {
   const JsonValue *edges = bank->find("edges");
   if (edges != nullptr)
     for (const JsonValue &edge : edges->items) {
+      const JsonValue *from = edge.find("from");
       const JsonValue *duration = edge.find("duration");
-      HS_EXPECT_TRUE(duration != nullptr &&
-                     duration->number == double{FX::TRANSITION_DURATION});
+      HS_EXPECT_TRUE(from != nullptr && duration != nullptr);
+      if (from == nullptr || duration == nullptr)
+        continue;
+      size_t departing = 0;
+      while (departing < FX::PRESET_IDS.size() &&
+             FX::PRESET_IDS[departing] != from->text)
+        ++departing;
+      HS_EXPECT_TRUE(departing < FX::PRESET_IDS.size());
+      if (departing < FX::PRESET_IDS.size())
+        HS_EXPECT_EQ(duration->number,
+                     static_cast<double>(Segue::Preset::frames(
+                         FX::preset_departure(departing))));
     }
 
   for (size_t index = 0; index < FX::PRESET_IDS.size(); ++index) {
@@ -1782,10 +1794,10 @@ struct ChoreoProbeParams {
 };
 
 /**
- * @brief Probe pinning the Segue::Preset::Fade envelope loop.
- * @details Records every set_preset_opacity sample the base's sprite feeds it,
- * so the test can see the envelope reach both edges and the advance timer
- * re-arm the loop.
+ * @brief Probe pinning a Segue::Preset::Fade departure.
+ * @details Records every set_preset_opacity sample the base feeds it and the
+ * level on screen while the opacity falls and rises, so the test can see the
+ * departing preset hold until dark and the next one brighten in.
  */
 template <int W, int H>
 class FadeChoreoProbe
@@ -1797,11 +1809,10 @@ class FadeChoreoProbe
 public:
   using Params = ChoreoProbeParams;
   static constexpr uint32_t PARAMETER_SCHEMA_VERSION = 1;
-  static constexpr int PRESET_FRAMES = 12;
-  static constexpr Segue::Preset::Fade PRESET_SEGUE{PRESET_FRAMES, 4};
-  static constexpr uint16_t PRESET_DWELL_FRAMES = PRESET_FRAMES;
+  static constexpr Segue::Preset::Fade DEPARTURE{8};
+  static constexpr uint16_t PRESET_DWELL_FRAMES = 12;
   static constexpr std::array<PresetEntry<Params>, 3> PRESETS = {
-      {{{0.25f}}, {{0.5f}}, {{0.75f}}}};
+      {{{0.25f}, DEPARTURE}, {{0.5f}, DEPARTURE}, {{0.75f}, DEPARTURE}}};
 
   static bool valid_params(const Params &p) {
     return p.level >= 0.0f && p.level <= 1.0f;
@@ -1820,17 +1831,21 @@ public:
   /** @brief Live level, which a preset change snaps. */
   float level() const { return this->params.level; }
 
-  int opacity_samples = 0;    /**< Envelope samples the sprite fed. */
-  float min_opacity = 2.0f;   /**< Lowest envelope sample seen. */
-  float max_opacity = -1.0f;  /**< Highest envelope sample seen. */
-  float last_opacity = -1.0f; /**< Most recent envelope sample. */
+  int opacity_samples = 0;     /**< Opacity samples the base fed. */
+  float min_opacity = 2.0f;    /**< Lowest opacity sample seen. */
+  float last_opacity = -1.0f;  /**< Most recent opacity sample. */
+  float dimming_level = -1.0f; /**< Level while the opacity last fell. */
+  float rising_level = -1.0f;  /**< Level while the opacity last rose. */
 
 private:
   void set_preset_opacity(float value) {
     ++opacity_samples;
+    if (value < last_opacity && value > 0.0f)
+      dimming_level = this->params.level;
+    else if (value > last_opacity)
+      rising_level = this->params.level;
     last_opacity = value;
     min_opacity = std::min(min_opacity, value);
-    max_opacity = std::max(max_opacity, value);
   }
 };
 
@@ -1851,11 +1866,11 @@ class LerpChoreoProbe
 public:
   using Params = ChoreoProbeParams;
   static constexpr uint32_t PARAMETER_SCHEMA_VERSION = 1;
-  static constexpr Segue::Preset::Lerp PRESET_SEGUE{8, math::ease_linear,
-                                                    Pausable};
+  static constexpr Segue::Preset::Lerp DEPARTURE{8, math::ease_linear,
+                                                 Pausable};
   static constexpr uint16_t PRESET_DWELL_FRAMES = 12;
   static constexpr std::array<PresetEntry<Params>, 2> PRESETS = {
-      {{{0.0f}}, {{1.0f}}}};
+      {{{0.0f}, DEPARTURE}, {{1.0f}, DEPARTURE}}};
 
   static bool valid_params(const Params &p) {
     return p.level >= 0.0f && p.level <= 1.0f;
@@ -1906,51 +1921,54 @@ template <typename FX> void run_probe_frames(FX &effect, int frames) {
 }
 
 /**
- * @brief Pins the Segue::Preset::Fade preset-choreography loop.
- * @details The envelope has to reach both edges, the advance timer has to
- * re-arm it every PRESET_FRAMES, and each advance has to snap the preset the
- * envelope just faded through.
+ * @brief Pins a Segue::Preset::Fade departure.
+ * @details After the dwell the departing preset holds while the opacity falls,
+ * the next preset is adopted in the dark and holds while it rises back to
+ * full, the cadence wraps the table, and a pause shows full opacity.
  */
-inline void test_choreography_fade_envelope() {
+inline void test_choreography_fade_departure() {
   using FX = FadeChoreoProbe<SMALL_W, SMALL_H>;
-  constexpr int FRAMES = FX::PRESET_FRAMES;
+  constexpr int DWELL = FX::PRESET_DWELL_FRAMES;
+  constexpr int FADE = FX::DEPARTURE.frames;
 
   reset_effect_globals();
   FX effect;
   effect.init();
   HS_EXPECT_EQ(effect.getPresetCount(), size_t{3});
+  run_probe_frames(effect, DWELL);
   HS_EXPECT_EQ(effect.opacity_samples, 0);
-
-  // One sprite per preset, one envelope sample per frame, and the advance lands
-  // on the sprite's last frame.
-  run_probe_frames(effect, FRAMES - 1);
-  HS_EXPECT_EQ(effect.opacity_samples, FRAMES - 1);
-  HS_EXPECT_EQ(effect.getPresetIndex(), size_t{0});
-  HS_EXPECT_EQ(effect.level(), 0.25f);
-  HS_EXPECT_LE(effect.min_opacity, 0.5f);
-  HS_EXPECT_GE(effect.max_opacity, 0.99f);
-  HS_EXPECT_LE(effect.max_opacity, 1.0f);
-
-  run_probe_frames(effect, 1);
   HS_EXPECT_EQ(effect.getPresetIndex(), size_t{1});
+  HS_EXPECT_EQ(effect.level(), 0.25f);
+
+  run_probe_frames(effect, FADE + 1);
+  HS_EXPECT_EQ(effect.opacity_samples, FADE);
+  HS_EXPECT_EQ(effect.dimming_level, 0.25f);
+  HS_EXPECT_EQ(effect.rising_level, 0.5f);
+  HS_EXPECT_LE(effect.min_opacity, 0.25f);
+  HS_EXPECT_EQ(effect.last_opacity, 1.0f);
   HS_EXPECT_EQ(effect.level(), 0.5f);
 
-  // The loop re-arms itself, so the cadence survives a full wrap of the table.
-  run_probe_frames(effect, 2 * FRAMES);
+  // The cadence wraps the table back to the first preset.
+  int frames = 0;
+  while (effect.getPresetIndex() != 0 && frames < 4 * (DWELL + FADE)) {
+    run_probe_frames(effect, 1);
+    ++frames;
+  }
   HS_EXPECT_EQ(effect.getPresetIndex(), size_t{0});
+  run_probe_frames(effect, FADE + 1);
   HS_EXPECT_EQ(effect.level(), 0.25f);
 
-  // Paused mid-envelope: the sprite holds its phase and the advance never
-  // fires, so the preset the envelope faded in stays up.
-  run_probe_frames(effect, 3);
+  // Paused mid-fade: full opacity, and no advance while paused.
+  run_probe_frames(effect, DWELL + 2);
+  HS_EXPECT_LT(effect.last_opacity, 1.0f);
+  const size_t HELD = effect.getPresetIndex();
   effect.setAnimationsPaused(true);
-  run_probe_frames(effect, 2 * FRAMES);
+  run_probe_frames(effect, 2 * (DWELL + FADE));
   HS_EXPECT_EQ(effect.last_opacity, 1.0f);
-  HS_EXPECT_TRUE(effect.selectPreset(1));
-  run_probe_frames(effect, 2 * FRAMES);
-  HS_EXPECT_EQ(effect.last_opacity, 1.0f);
+  HS_EXPECT_EQ(effect.getPresetIndex(), HELD);
   HS_EXPECT_TRUE(effect.selectPreset(0));
-  HS_EXPECT_EQ(effect.getPresetIndex(), size_t{0});
+  run_probe_frames(effect, 1);
+  HS_EXPECT_EQ(effect.last_opacity, 1.0f);
   HS_EXPECT_EQ(effect.level(), 0.25f);
 }
 
@@ -1976,7 +1994,7 @@ inline void test_choreography_lerp_transition_hooks() {
     HS_EXPECT_EQ(effect.getPresetIndex(), size_t{1});
 
     // Mid-crossfade the level is strictly between the endpoints.
-    run_probe_frames(effect, FX::PRESET_SEGUE.frames / 2);
+    run_probe_frames(effect, FX::DEPARTURE.frames / 2);
     HS_EXPECT_GT(effect.blend_calls, 0);
     HS_EXPECT_GT(effect.level(), 0.0f);
     HS_EXPECT_LT(effect.level(), 1.0f);
@@ -1986,8 +2004,8 @@ inline void test_choreography_lerp_transition_hooks() {
     const int blends = effect.blend_calls;
     HS_EXPECT_EQ(effect.updateParameter("Level", 0.3f),
                  ParamSetResult::APPLIED);
-    run_probe_frames(effect, Animated ? 2 * FX::PRESET_SEGUE.frames
-                                      : FX::PRESET_SEGUE.frames / 2);
+    run_probe_frames(effect, Animated ? 2 * FX::DEPARTURE.frames
+                                      : FX::DEPARTURE.frames / 2);
     HS_EXPECT_EQ(effect.blend_calls, blends);
     HS_EXPECT_EQ(effect.level(), 0.3f);
     HS_EXPECT_EQ(effect.armed_count, 1);
@@ -2008,10 +2026,10 @@ inline void test_choreography_lerp_pause_policy() {
     HS_EXPECT_GT(held, 0.0f);
     HS_EXPECT_LT(held, 1.0f);
     effect.setAnimationsPaused(true);
-    run_probe_frames(effect, FX::PRESET_SEGUE.frames);
+    run_probe_frames(effect, FX::DEPARTURE.frames);
     HS_EXPECT_EQ(effect.level(), Pausable ? held : 1.0f);
     effect.setAnimationsPaused(false);
-    run_probe_frames(effect, FX::PRESET_SEGUE.frames);
+    run_probe_frames(effect, FX::DEPARTURE.frames);
     HS_EXPECT_EQ(effect.level(), 1.0f);
   };
   check.template operator()<true>();
@@ -2175,7 +2193,7 @@ inline void test_composed_parameter_schema_pins() {
 inline void test_flowers_longitude_seam() {
   using FX = KaleidoscopeFlowers<SMALL_W, SMALL_H>;
   for (size_t preset = 0; preset < FX::PRESET_IDS.size(); ++preset) {
-    const auto params = FX::preset_params(preset);
+    const auto params = FX::preset(preset).params;
     for (int step = 0; step <= 128; ++step) {
       const auto prepared =
           Pullback::Warp::prepare(params.inner_warp, step / 128.0f);
@@ -2212,7 +2230,7 @@ inline int run_composed_effect_tests() {
   test_composed_projection_walk_storage();
   test_composed_periodic_ripple_surface();
   test_composed_noise_sources();
-  test_choreography_fade_envelope();
+  test_choreography_fade_departure();
   test_choreography_lerp_transition_hooks();
   test_choreography_lerp_pause_policy();
   return fixture.result();

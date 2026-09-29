@@ -64,9 +64,10 @@ public:
       TRAIL_ORIENTATION_SUBSTEPS; /**< Interpolation slots per Orientation, shared by the recorded trail
                and Motion. */
 
-  /** Preset policy: a path function swap has no meaningful interpolation, so
-      every origin snaps; the palette rolls over separately via a ColorWipe. */
-  static constexpr Segue::Preset::Snap PRESET_SEGUE{};
+  /** Every preset departs by snapping: a path function swap has no
+      meaningful interpolation; the palette rolls over separately via a
+      ColorWipe. */
+  static constexpr Segue::Preset::Snap DEPARTURE{};
   static constexpr uint32_t PARAMETER_SCHEMA_VERSION = 1;
   /** Preset cadence: two default-duration motion cycles. */
   static constexpr uint16_t PRESET_DWELL_FRAMES = 160;
@@ -335,18 +336,18 @@ private:
    *           curve closes). */
   static constexpr std::array<PresetEntry<math::LissajousParams>, 12> PRESETS =
       {{// {m1, m2, a, domain}
-        {{1.06f, 1.06f, 0, 5.909f}},
-        {{6.06f, 1.0f, 0, 2 * math::PI_F}},
-        {{6.02f, 4.01f, 0, 3.132f}},
-        {{46.62f, 62.16f, 0, 0.404f}},
-        {{46.26f, 69.39f, 0, 0.272f}},
-        {{19.44f, 9.72f, 0, 0.646f}},
-        {{8.51f, 17.01f, 0, 0.739f}},
-        {{7.66f, 6.38f, 0, 4.924f}},
-        {{8.75f, 5.0f, 0, 5.027f}},
-        {{11.67f, 14.58f, 0, 2.154f}},
-        {{11.67f, 8.75f, 0, 2.154f}},
-        {{10.94f, 8.75f, 0, 2.872f}}}};
+        {{1.06f, 1.06f, 0, 5.909f}, DEPARTURE},
+        {{6.06f, 1.0f, 0, 2 * math::PI_F}, DEPARTURE},
+        {{6.02f, 4.01f, 0, 3.132f}, DEPARTURE},
+        {{46.62f, 62.16f, 0, 0.404f}, DEPARTURE},
+        {{46.26f, 69.39f, 0, 0.272f}, DEPARTURE},
+        {{19.44f, 9.72f, 0, 0.646f}, DEPARTURE},
+        {{8.51f, 17.01f, 0, 0.739f}, DEPARTURE},
+        {{7.66f, 6.38f, 0, 4.924f}, DEPARTURE},
+        {{8.75f, 5.0f, 0, 5.027f}, DEPARTURE},
+        {{11.67f, 14.58f, 0, 2.154f}, DEPARTURE},
+        {{11.67f, 8.75f, 0, 2.154f}, DEPARTURE},
+        {{10.94f, 8.75f, 0, 2.872f}, DEPARTURE}}};
   Node *node = nullptr; /**< Arena-allocated comet head state. */
   PaletteWipe wipe;     /**< Cross-fade state of the palette rollover. */
   Animation::Motion<W, ORIENTATION_SUBSTEPS> *motion =
