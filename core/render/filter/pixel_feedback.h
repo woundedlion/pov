@@ -358,7 +358,8 @@ private:
     return {downsample, field, columns, rings, polar_rings(field, rings)};
   }
 
-  static PolarRings polar_rings(const SphereField &field, int rings) {
+  static __attribute__((always_inline)) PolarRings
+  polar_rings(const SphereField &field, int rings) {
     PolarRings polar{0, 0, rings, 0, 0, rings};
     bool leading = true;
     int total = 0;
@@ -1013,7 +1014,8 @@ private:
 
   /** @brief Cap-plane coordinates of a direction, from the north pole or,
    *  with @p south, from the south pole. */
-  static CapPoint cap_point(const math::Vector &v, bool south) {
+  __attribute__((noinline)) static CapPoint cap_point(const math::Vector &v,
+                                                      bool south) {
     const float horizontal = sqrtf(v.x * v.x + v.z * v.z);
     if (!(horizontal > 1e-9f))
       return {0.0f, 0.0f};
