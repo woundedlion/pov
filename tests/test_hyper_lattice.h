@@ -1025,6 +1025,7 @@ inline void test_single_shell() {
                  1e-6f);
 }
 
+#if HS_ENABLE_HYPERLATTICE_EXPERIMENTS
 inline void test_octet_prepared_projection() {
   using Effect = HyperLatticeWhiteBox::Effect;
   using Domain = Raycast::SamplingDomain;
@@ -1205,6 +1206,8 @@ inline void test_octet_4d_canonical_trace() {
   // crossing or a rounding tie in a few rays by a few codes.
   HS_EXPECT_LE(differing, compared / 4000);
 }
+
+#endif
 
 inline void test_experimental_presets() {
   using Effect = HyperLatticeWhiteBox::Effect;
@@ -1559,8 +1562,10 @@ inline int run_hyper_lattice_tests() {
   test_dimension_dropdown_and_mode_lerp();
   test_single_shell();
   test_family_segues();
+#if HS_ENABLE_HYPERLATTICE_EXPERIMENTS
   test_octet_prepared_projection();
   test_octet_4d_canonical_trace();
+#endif
   test_experimental_presets();
   test_new_patterns();
   test_pattern_view_controls();

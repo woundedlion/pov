@@ -622,6 +622,17 @@ add_test(NAME unit_relax_bake_form COMMAND ${CMAKE_COMMAND}
 # energy-conservation oracle. It MUST be its own TU: an offset-3 and an offset-0
 # PhiLUT<H>/TrigLUT<W,H> instantiation would clash under ODR (see core/platform/platform.h
 # and tests/test_h_offset_renorm.h).
+add_executable(hyper_lattice_shipping_check
+  ${CMAKE_CURRENT_SOURCE_DIR}/hyper_lattice_shipping_check.cpp
+  ${HS_ENGINE_SOURCES})
+target_compile_definitions(hyper_lattice_shipping_check PRIVATE
+  HS_ENABLE_HYPERLATTICE_EXPERIMENTS=0)
+target_link_libraries(hyper_lattice_shipping_check PRIVATE hs_test_support)
+target_include_directories(hyper_lattice_shipping_check PRIVATE ${HS_ENGINE_INCLUDES})
+_hs_warnings(hyper_lattice_shipping_check)
+_hs_sanitize(hyper_lattice_shipping_check)
+add_test(NAME unit_hyper_lattice_shipping COMMAND hyper_lattice_shipping_check)
+
 add_executable(h_offset_renorm_check
   ${CMAKE_CURRENT_SOURCE_DIR}/h_offset_renorm_check.cpp
   ${HS_ENGINE_SOURCES})
