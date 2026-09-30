@@ -33,7 +33,7 @@ struct RingSpinWhiteBox;
  *       record + deep_tween skeleton; draw primitive, transform chain and
  *       colour/fade are hand-propagated. Ring carries a palette and noise
  *       alongside the orientation + trail, so it does not use their
- *       `Animation::TrailBody`. Differences here: no `Screen::AntiAlias`, and
+ *       `Animation::TrailBody`. Differences here: no `Screen::AntiAlias` (unlike Fishbowl), and
  *       `Orientation<>` (CAP 4) not `Orientation<16>` — a great-circle ring's
  *       successive trail frames overlap almost completely, so 4 sub-frames read
  *       identically to 16.
