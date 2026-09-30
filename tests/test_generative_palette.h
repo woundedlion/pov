@@ -53,7 +53,7 @@ inline void test_generative_palette_deterministic() {
       {3228, 28254, 35424}, {28456, 48750, 60539}, {4818, 24745, 55520},
       {9819, 2840, 51712},  {6742, 467, 6101},     {807, 48, 375}};
   const auto tolerance = [](uint16_t value) {
-    return std::fmax(8.0f, 0.01f * static_cast<float>(value));
+    return std::fmax(4.0f, 0.001f * static_cast<float>(value));
   };
   for (int i = 0; i < 9; ++i) {
     const Pixel got = palette.get(i / 8.0f).color;
