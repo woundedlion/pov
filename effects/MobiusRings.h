@@ -106,12 +106,12 @@ public:
   void draw_frame() override {
     Canvas canvas(*this);
     {
-      HS_PROFILE(mg_timeline_step);
+      HS_PROFILE(mr_timeline_step);
       timeline.step(canvas);
     }
 
     {
-      HS_PROFILE(mg_wipe_rebake);
+      HS_PROFILE(mr_wipe_rebake);
       wipe.step(baked_palette, palette);
     }
 
@@ -130,13 +130,13 @@ public:
         math::normalized_or(math::rotate(s_trans, q), math::Vector(1, 0, 0)));
 
     {
-      HS_PROFILE(mg_draw_grid);
+      HS_PROFILE(mr_draw_grid);
       {
-        HS_PROFILE(mg_rings_draw);
+        HS_PROFILE(mr_rings_draw);
         draw_axis_rings(canvas, math::Y_AXIS, params.num_rings, phase, q);
       }
       {
-        HS_PROFILE(mg_lines_draw);
+        HS_PROFILE(mr_lines_draw);
         draw_longitudes(canvas, params.num_lines, phase, q);
       }
     }
