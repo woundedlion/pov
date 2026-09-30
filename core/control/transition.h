@@ -88,12 +88,13 @@ enum class EffectRestoreCapability : uint8_t {
  * @details The controller tests only OK versus not-OK; the specific failure is
  *   what request() returns to the caller and what
  *   EffectTransitionController::failure() reports afterwards. BUSY and
- *   UNAVAILABLE are raised by request() itself, the rest by the adapter.
+ *   UNAVAILABLE may originate in request() or the adapter's preflight();
+ *   the remaining failures originate in the adapter.
  */
 enum class EffectTransitionStatus : uint8_t {
   OK,          /**< Step accepted. */
-  BUSY,        /**< A transition is already in flight past its fade-out. */
-  UNAVAILABLE, /**< Request malformed: empty effect_id or zero fade_ticks. */
+  BUSY,        /**< A transition is past fade-out, or the adapter is busy. */
+  UNAVAILABLE, /**< Malformed request, or the adapter is unavailable. */
   INVALID_RESTORE,      /**< Restore token unusable. */
   INVALID_HANDOFF,      /**< Handoff state unusable. */
   RESOURCE_REJECTED,    /**< Incoming effect could not be constructed. */
