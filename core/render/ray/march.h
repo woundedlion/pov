@@ -63,7 +63,7 @@ closest_approach(const Shape &shape, const math::Vector &origin,
     }
     if (d < -aa_width)
       return false;
-    step_len = std::max(d * 0.9f * omega, 1e-5f);
+    step_len = fmaxf(d * 0.9f * omega, 1e-5f);
     t += step_len;
     local_p = advance(local_p, direction, step_len);
     return true;
