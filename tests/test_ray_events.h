@@ -9,6 +9,7 @@
 #include "tests/test_lattice_trace.h"
 #include "render/pullback/ray.h"
 #include "tests/test_harness.h"
+#include "tests/test_fixture.h"
 
 namespace hs_test::ray_event_tests {
 
@@ -118,7 +119,7 @@ inline void test_failure_status_survives_flush() {
 }
 
 inline int run_ray_event_tests() {
-  const auto MODULE = hs_test::begin_module("ray_events");
+  hs_test::ModuleFixture fixture("ray_events");
   cellular_wire_tests::run_cellular_wire_cases();
   lattice_trace_tests::run_lattice_trace_cases();
   test_single_group_capacity();
@@ -209,7 +210,7 @@ inline int run_ray_event_tests() {
   HS_EXPECT_EQ(filtered.trace.counters.candidates, 12);
   HS_EXPECT_EQ(filtered.trace.counters.layers, 4);
   HS_EXPECT_EQ(filtered.trace.status, Raycast::TraceStatus::UNRESOLVED);
-  return hs_test::end_module(MODULE);
+  return fixture.result();
 }
 
 } // namespace hs_test::ray_event_tests
