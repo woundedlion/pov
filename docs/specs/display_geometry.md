@@ -1,5 +1,7 @@
 # Display geometry
 
+**Status: IMPLEMENTED.**
+
 The display samples a complete mathematical sphere at the physical LED-center
 latitudes. The north and south shaft caps contain no display rows. Row zero and
 the last row are ordinary latitude rings when their centers are away from the
