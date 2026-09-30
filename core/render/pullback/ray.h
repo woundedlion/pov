@@ -6,9 +6,14 @@
 
 #include "render/pullback/contract.h"
 
+/** @file ray.h
+ * @brief Spherical ray renderer adapter for pullback stage pipelines. */
+
 namespace Pullback {
 
-/** @brief Frame-prepared spherical ray rendering without a new carrier. */
+/** @brief Frame-prepared spherical ray rendering without a new carrier.
+ * @tparam Renderer Supplies prepare(frame) and shade(direction, frame,
+ * prepared), returning Color4 from shade(). */
 template <typename Renderer>
 struct RayStage : Stage::Contract<RayStage<Renderer>, SphereSample, Color4> {
   using Policies = std::tuple<>;

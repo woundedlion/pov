@@ -25,8 +25,8 @@ namespace Source {
 
 /** @brief Parameters of the concentric ring source. */
 struct RingsSourceParams {
-  float pattern_freq = 1.0f;
-  float speed = 0.0f;
+  float pattern_freq = 1.0f; /**< Radial pattern frequency. */
+  float speed = 0.0f;        /**< Phase advance per frame, in radians. */
   static constexpr auto FIELDS = std::array{
       Field<RingsSourceParams>{"pattern-freq", &RingsSourceParams::pattern_freq,
                                "Pattern Freq", 0.1f, 20.0f, FieldCurve::LERP},

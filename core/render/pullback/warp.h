@@ -27,9 +27,9 @@ namespace Warp {
 
 /** @brief Continuous parameters of the planar curl flow. */
 struct CurlFlowParams {
-  float speed = 0.0f;
-  float strength = 0.0f;
-  float scale = 1.0f;
+  float speed = 0.0f;    /**< Loop phase advance per frame. */
+  float strength = 0.0f; /**< Signed curl displacement strength. */
+  float scale = 1.0f;    /**< Spatial frequency of the curl field. */
   static constexpr auto FIELDS = std::array{
       Field<CurlFlowParams>{"speed", &CurlFlowParams::speed, nullptr, -0.02f,
                             0.02f, FieldCurve::LERP},
