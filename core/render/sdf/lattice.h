@@ -357,10 +357,9 @@ composite_crossings(const math::Vector &normal,
   float product = 1.0f;
   for (int axis = 0; axis < DIMENSIONS; ++axis) {
     origin[axis] += lattice.sphere_radius_world * direction[axis];
-    magnitude[axis] =
-        !SLICE_4D && axis == 3 && lattice.mode == LatticeMode::THREE_D
-            ? 0.0f
-            : fabsf(direction[axis]);
+    magnitude[axis] = !SLICE_4D && axis == 3 && lattice.mode == Domain::THREE_D
+                          ? 0.0f
+                          : fabsf(direction[axis]);
     if (magnitude[axis] >= DIRECTION_EPSILON)
       product *= magnitude[axis];
   }
