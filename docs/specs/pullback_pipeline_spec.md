@@ -504,7 +504,7 @@ require a generated negative-translation-unit harness.
 Topology admission is not a core-stage concern. A core stage describes what it
 does; an effect decides which configuration selects it.
 
-ShaderWorkbench supplies empty derived wrappers or aliases that add:
+ShaderWorkbench supplies topology wrappers that re-derive `Stage::Contract` and add:
 
 ```cpp
 static constexpr bool implements(const TopologyKey &);
@@ -514,10 +514,10 @@ static constexpr bool implements(const TopologyKey &);
 provides a compatible predicate. The member is instantiated only when used.
 `TopologyKey` therefore remains private to ShaderWorkbench.
 
-A thin matching wrapper may inherit `run`, carriers, and metadata from a core
-stage, but it shall add no data and no alternate rendering code. Core may
-provide a generic decorator for this pattern only if it remains independent of
-the key type; it is not required by this revision.
+A matching wrapper must re-derive `Stage::Contract` with its own descriptor
+identity and forward to the core stage. Inheriting a core stage is rejected by
+`DESCRIPTOR_IDENTITY`. ShaderWorkbench uses `TopologyStage<Self, CoreStage>`
+in `workbench/shader/pipelines.h`; wrappers add no rendering state.
 
 ShaderWorkbench's cross-stage rule that edge-fade coverage requires a projection
 exporting edge distance is expressed in `Binding::ExtraValidation`. Coverage enums and
