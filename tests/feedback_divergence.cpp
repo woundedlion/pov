@@ -33,6 +33,8 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <filesystem>
+#include <limits>
 #include <vector>
 
 namespace {
@@ -208,7 +210,21 @@ std::vector<uint16_t> load(const char *path, int &frames, int &np) {
     printf("%s: truncated header\n", path);
     exit(1);
   }
-  std::vector<uint16_t> data((size_t)frames * np * CHANS);
+  std::error_code error;
+  const auto bytes = std::filesystem::file_size(path, error);
+  constexpr size_t HEADER_BYTES = 3 * sizeof(int);
+  constexpr size_t FRAME_BYTES = CHANS * sizeof(uint16_t);
+  if (error || frames <= 0 || np != NPRESET || bytes < HEADER_BYTES ||
+      (bytes - HEADER_BYTES) % FRAME_BYTES != 0 ||
+      (bytes - HEADER_BYTES) / FRAME_BYTES !=
+          static_cast<uint64_t>(frames) * static_cast<uint64_t>(np) ||
+      bytes - HEADER_BYTES > std::numeric_limits<size_t>::max()) {
+    printf("%s: invalid dump dimensions or file size\n", path);
+    fclose(f);
+    exit(1);
+  }
+  std::vector<uint16_t> data(static_cast<size_t>(bytes - HEADER_BYTES) /
+                             sizeof(uint16_t));
   if (fread(data.data(), sizeof(uint16_t), data.size(), f) != data.size()) {
     printf("%s: truncated body\n", path);
     exit(1);
