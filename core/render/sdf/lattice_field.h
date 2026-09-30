@@ -100,8 +100,11 @@ template <int Dimensions> struct WireLattice {
 
   Raycast::QuerySample sample(const Point &p) const {
     int axis;
-    edge_offset(p, axis);
-    const float VALUE = distance(p);
+    const math::Vec4 OFFSET = edge_offset(p, axis);
+    float sum = 0.0f;
+    for (int i = 0; i < Dimensions; ++i)
+      sum += OFFSET[i] * OFFSET[i];
+    const float VALUE = cell_size * sqrtf(sum) - wire_radius;
     return {VALUE, fabsf(VALUE), VALUE == 0.0f, 0, static_cast<uint32_t>(axis)};
   }
 };
