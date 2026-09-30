@@ -71,6 +71,12 @@ inline uint32_t fnv1a_step(uint32_t hash, uint32_t word) {
   return (hash ^ word) * 16777619u;
 }
 
+/** @brief Folds one vertex's coordinate bits into an output hash. */
+inline uint32_t relax_output_hash(uint32_t hash, uint32_t x, uint32_t y,
+                                  uint32_t z) {
+  return fnv1a_step(fnv1a_step(fnv1a_step(hash, x), y), z);
+}
+
 /** @brief Hashes platform-independent relax topology and dimensions. */
 inline uint32_t relax_topology_hash(const PolyMesh &mesh) {
   uint32_t hash = FNV1A_BASIS;

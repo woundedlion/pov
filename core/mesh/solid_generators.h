@@ -503,12 +503,9 @@ public:
     mesh = MeshOps::relax(mesh, *output_arena, *scratch_arena, bake.iterations);
     uint32_t output_hash = MeshOps::FNV1A_BASIS;
     for (const math::Vector &v : mesh.vertices) {
-      output_hash =
-          MeshOps::fnv1a_step(output_hash, std::bit_cast<uint32_t>(v.x));
-      output_hash =
-          MeshOps::fnv1a_step(output_hash, std::bit_cast<uint32_t>(v.y));
-      output_hash =
-          MeshOps::fnv1a_step(output_hash, std::bit_cast<uint32_t>(v.z));
+      output_hash = MeshOps::relax_output_hash(
+          output_hash, std::bit_cast<uint32_t>(v.x),
+          std::bit_cast<uint32_t>(v.y), std::bit_cast<uint32_t>(v.z));
     }
 #if defined(HS_RELAX_BAKE_VERIFY)
     HS_CHECK(mesh.vertices.size() == bake.vertex_count &&

@@ -1359,9 +1359,7 @@ relax_baked(const PolyMesh &mesh, Arena &target, const RelaxBake &bake) {
     const uint32_t x = bake.vertex_bits[3 * i];
     const uint32_t y = bake.vertex_bits[3 * i + 1];
     const uint32_t z = bake.vertex_bits[3 * i + 2];
-    output_hash = fnv1a_step(output_hash, x);
-    output_hash = fnv1a_step(output_hash, y);
-    output_hash = fnv1a_step(output_hash, z);
+    output_hash = relax_output_hash(output_hash, x, y, z);
     out_mesh.vertices.push_back(math::Vector(std::bit_cast<float>(x),
                                              std::bit_cast<float>(y),
                                              std::bit_cast<float>(z)));
