@@ -2,18 +2,22 @@
 
 **Revision scope:** the body below describes the committed rev 1.1 artifacts.
 The generators target **rev 1.2**, with the following changes superseding the
-sync pin map, channel-C input, BOM and net table below:
+pin map, connector list, channel-C input, BOM and net table below:
 
 - Teensy **D3 / FRAME_SYNC** is receive-only on every board, connected to R1,
   R2 and C_SYNC; it is disconnected from U1 pin 9.
 - Teensy **D4 / SYNC_TX** drives U1 pin 9. Populate **R_TX = 10 kΩ, 0603,
   C25804** from SYNC_TX to GND on every board, defining the input during reset.
 - All master/follower boards remain identical. ID straps select the role;
-  MASTER_EN and its pull-up retain their existing connections. Firmware must
+  MASTER_EN and its pull-up retain their sync-control connections. Firmware must
   initialize D4 LOW as an output before enabling the master, hold it LOW on
   followers, and emit master pulses on D4. D3 remains an input with HYS.
 - The rev 1.2 GND net additionally contains R_TX. The receive divider and
   220 pF filter, switched bus pulldown, and bus connectors retain their values.
+- J4 is omitted, along with its SERIAL1_TX connection. Teensy pin 1 is explicitly
+  unconnected. The +3V3, GND and MASTER_EN nets lose only their J4 connections;
+  R_MEN remains required. Power probing uses the Teensy pins and diagnostics
+  use USB, with no replacement debug header or test pads.
 
 The rev 1.2 placement input fixes J1 at the left edge and J2/J3A/J3B in a
 right-end column inboard of the mounting holes, with hub-facing wire entries.

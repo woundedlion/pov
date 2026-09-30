@@ -214,7 +214,7 @@ class GeneratedSchematicTests(unittest.TestCase):
         self.assertEqual(len(set(positions.values())), len(pins))
         markers = {tuple(map(float, sexp.val(node, "at")))
                    for node in F(self.root, "no_connect")}
-        connected = {"VIN", "3V3", "GND", "1", "3", "4", "5", "11", "13",
+        connected = {"VIN", "3V3", "GND", "3", "4", "5", "11", "13",
                      "21", "22", "23"}
         self.assertEqual(markers, {positions[number] for number in pad_numbers - connected})
         named, wires, junctions = shorts.geometry(self.root)
@@ -242,8 +242,9 @@ class GeneratedSchematicTests(unittest.TestCase):
     def test_places_the_whole_schematic(self):
         refs = {p[2] for inst in F(self.root, "symbol")
                 for p in F(inst, "property") if p[1] == "Reference"}
-        self.assertTrue({"U_MCU", "U1", "J1", "J2", "J3A", "J3B", "J4",
+        self.assertTrue({"U_MCU", "U1", "J1", "J2", "J3A", "J3B",
                          "D_BUS", "Q_REV", "F1", "FB"} <= refs, sorted(refs))
+        self.assertNotIn("J4", refs)
 
     def test_d_bus_uses_a_polarized_symbol(self):
         instances = [

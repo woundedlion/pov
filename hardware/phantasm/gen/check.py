@@ -62,6 +62,9 @@ EXPECT = {name: set(nodes) for name, nodes in EXPECT_REV_1_1.items()}
 EXPECT["FRAME_SYNC"].remove("U1.9")
 EXPECT["SYNC_TX"] = {"U_MCU.4", "U1.9", "R_TX"}
 EXPECT["GND"].add("R_TX")
+del EXPECT["SERIAL1_TX"]
+for nodes in EXPECT.values():
+    nodes.difference_update({"J4.1", "J4.2", "J4.3"})
 
 
 def expected_nets(revision):
