@@ -8,10 +8,13 @@ import {
 } from './pattern_documents.mjs';
 import {
   compileShaderDocument,
+  declarationFromCatalogField,
+  expandV1Document,
   exportShaderDocumentJson,
 } from './shader_workbench.mjs';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
+const TAU = Math.fround(Math.PI * 2);
 
 // --check compiles the specs and compares them against the committed
 // documents, exiting non-zero on drift; the default rewrites patterns/.
@@ -23,7 +26,6 @@ if (unknown.length) {
   console.error('usage: generate_promoted_shader_documents.mjs [--check]');
   await exitAfterStderr(2);
 }
-const TAU = Math.fround(Math.PI * 2);
 
 // Choreography mirrors the shared ComposedEffect cadence.
 const PRESET_DWELL_FRAMES = 600;
@@ -77,82 +79,6 @@ const defaults = Object.freeze({
 const prefix = (name, values) => Object.fromEntries(
   Object.entries(values).map(([key, value]) => [`${name}-${key}`, value]),
 );
-
-const parameterSpec = (id, value, source) => {
-  if (id === 'palette-mapping') return {
-    id, classification: 'preset',
-    storage: 'enum8', unit: 'mapping',
-    domain: { values: ['cup', 'bell', 'linear', 'reverse'] },
-    interpolation: { kind: 'MIXED_ENUM' }, default: value,
-  };
-  // The polar phases offset a chart coordinate: radian-valued, not periodic.
-  const phase = id.endsWith('radial-phase') || id.endsWith('angular-phase');
-  const angle = id.endsWith('rotation') || id.endsWith('field-angle') ||
-    id.endsWith('vector-angle') || phase || id === 'central-meridian';
-  const positive = id.endsWith('cell-x') || id.endsWith('cell-y') ||
-    id.endsWith('scale-x') || id.endsWith('scale-y') || id.endsWith('radial-scale') ||
-    id === 'lattice-cell-scale' || id === 'lattice-softness' ||
-    id === 'iso-width' || id.endsWith('frequency') || id === 'hue-noise-scale' ||
-    id.endsWith('-scale') || id.endsWith('lattice-period');
-  let domain = { minimum: -30, maximum: 30 };
-  let unit = 'ratio';
-  if (id === 'pattern-freq')
-    domain = { minimum: source === 'grid' ? 0.01 : 0.1,
-      maximum: source === 'grid' ? 64 : 20 };
-  else if (id === 'speed') domain = { minimum: 0, maximum: 0.5 };
-  else if (id === 'source-angle-speed') domain = { minimum: 0, maximum: Math.fround(0.05) };
-  else if (id === 'phase-oscillation-speed') domain = { minimum: -0.01, maximum: 0.01 };
-  else if (id.endsWith('-speed')) domain = id === 'hue-noise-speed'
-    ? { minimum: -0.001, maximum: 0.001 }
-    : id === 'projection-spin-speed'
-      ? { minimum: 0, maximum: 0.05 }
-      : { minimum: -0.02, maximum: 0.02 };
-  else if (id === 'drift') domain = { minimum: 0, maximum: 1.25 };
-  else if (id === 'complexity') domain = { minimum: 0, maximum: 3 };
-  else if (id === 'pattern-mix' || id.endsWith('wander') || id.endsWith('depth') ||
-           id.endsWith('opacity-low') || id.endsWith('opacity-high') ||
-           id === 'brightness-bottom' || id === 'brightness-top' ||
-           id === 'lattice-shape' || id === 'iso-level' || id === 'edge-width')
-    domain = { minimum: 0, maximum: 1 };
-  else if (id === 'pole-fade') domain = { minimum: 1, maximum: 20 };
-  else if (id.endsWith('cell-x') || id.endsWith('cell-y'))
-    domain = { minimum: 1 / 64, maximum: 8 };
-  else if (id.endsWith('offset-x') || id.endsWith('offset-y'))
-    domain = { minimum: -8, maximum: 8 };
-  else if (id.endsWith('scale-x') || id.endsWith('scale-y') ||
-           id.endsWith('radial-scale')) domain = { minimum: 1 / 64, maximum: 64 };
-  else if (id.endsWith('lattice-period')) domain = { minimum: 1 / 8, maximum: 64 };
-  else if (id === 'lattice-cell-scale') domain = { minimum: 1 / 64, maximum: 8 };
-  else if (id === 'lattice-softness' || id === 'iso-width')
-    domain = { minimum: 1 / 1024, maximum: 1 };
-  else if (id === 'lattice-radius') domain = { minimum: 1 / 64, maximum: 0.49 };
-  else if (id === 'mapping-frequency') domain = { minimum: 1, maximum: 32 };
-  else if (id === 'hue-noise-scale') domain = { minimum: 1 / 64, maximum: 8 };
-  else if (id.endsWith('frequency')) domain = { minimum: 0.01, maximum: 32 };
-  else if (id.endsWith('-scale')) domain = { minimum: 1 / 64, maximum: 64 };
-  else if (id.endsWith('rotation-rate')) domain = { minimum: -TAU, maximum: TAU };
-  else if (id.endsWith('translation-x') || id.endsWith('translation-y') ||
-           id.endsWith('shear')) domain = { minimum: -4, maximum: 4 };
-  else if (angle) domain = phase
-    ? { minimum: -TAU, maximum: TAU } : { minimum: 0, maximum: TAU };
-  else if (id === 'palette-chroma') domain = { minimum: 0, maximum: 1 };
-  else if (id === 'mapping-phase') domain = { minimum: -1, maximum: 1 };
-  else if (id === 'hue-shift-amount') domain = { minimum: -4, maximum: 4 };
-  else if (id.startsWith('mobius-')) domain = { minimum: -4, maximum: 4 };
-  if (['speed', 'angle-speed', 'source-angle-speed', 'projection-spin-speed', 'camera-spin-speed'].includes(id)) unit = 'radian-per-frame';
-  else if (id.includes('speed')) unit = 'turn-per-frame';
-  else if (angle || id.endsWith('rotation-rate')) unit = 'radian';
-  return {
-    id, classification: 'preset',
-    storage: 'binary32', unit, domain,
-    interpolation: id.startsWith('mobius-')
-      ? { kind: 'SNAP' }
-      : angle && !phase
-        ? { kind: 'SHORTEST_PERIODIC', period: TAU }
-        : { kind: positive ? 'LOG_POSITIVE' : 'LINEAR' },
-    default: value,
-  };
-};
 
 const stageGraph = (spec) => {
   const resources = [`${spec.palette}-palette`];
@@ -256,7 +182,7 @@ const bank = (spec, base) => {
 const documentFor = (spec) => {
   const values = baseValues(spec);
   const parameters = Object.entries(values)
-    .map(([id, value]) => parameterSpec(id, value, spec.source));
+    .map(([id, value]) => ({ id, default: value, domain: {}, interpolation: {} }));
   return {
     schema_version: 1,
     catalog_version: 1,
@@ -529,14 +455,23 @@ const effects = [
   },
 ];
 
-// The specs above stay in the v1 six-role shape; compileShaderDocument runs
-// them through expandV1Document against the operator catalog — the single code
-// path every schema_version 1 document shares — so the committed output is the
-// expansion's canonical v2 export.
+// The six-role specs expand to canonical v2 documents against the catalog.
 const catalog = await loadOperatorCatalog();
 const stale = [];
 for (const spec of effects) {
-  const compiled = compileShaderDocument(documentFor(spec), { catalog });
+  const { document } = expandV1Document(documentFor(spec), catalog);
+  document.descriptor.parameters = document.descriptor.parameters.map((parameter) => {
+    const [label, fieldId] = parameter.id.split('.');
+    const slot = document.descriptor.chain.find((entry) => entry.label === label);
+    const operator = catalog.operators.find((entry) => entry.id === slot.operator);
+    const field = operator.params.find((entry) => entry.id === fieldId);
+    return {
+      ...declarationFromCatalogField(label, field, operator.id),
+      default: parameter.default,
+      ...(parameter.interpolation.kind === 'SNAP' ? { interpolation: { kind: 'SNAP' } } : {}),
+    };
+  });
+  const compiled = compileShaderDocument(document, { catalog });
   if (compiled.status !== 'VALID') {
     console.error(`${spec.id}:`, JSON.stringify(compiled.diagnostics, null, 2));
     await exitAfterStderr(1);

@@ -150,7 +150,7 @@
           "kind": "MIXED_ENUM"
         },
         "storage": "enum8",
-        "unit": "mapping"
+        "unit": "mode"
       },
       {
         "classification": "preset",
