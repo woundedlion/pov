@@ -110,11 +110,8 @@ struct Params {
   /**
    * @brief Compile-time field-set pin for lerp() and valid_params(); never
    *        called.
-   * @details The binding names every member, so adding or removing a field is a
-   *          build error here. sizeof() cannot stand in: the trailing enums
-   *          leave tail padding that absorbs an added small field and leaves
-   *          the size unchanged, after which the new field holds at the
-   *          departing preset's value across every crossfade.
+   * @details The binding names every member. Interior padding after pattern
+   *          and shells can absorb small fields without changing sizeof().
    */
   static void pin_field_set(const Params &p) {
     const auto &[mode, pattern, sphere_radius, cell_size, wire_radius, softness,
