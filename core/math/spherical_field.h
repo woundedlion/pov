@@ -106,7 +106,7 @@ public:
              equator_samples);
   }
 
-  /** @brief Number of endpoint rings that coincide with true poles. */
+  /** @brief Pole-value storage capacity; runtime geometry reserves both poles. */
 #if HS_RUNTIME_DISPLAY_GEOMETRY
   static constexpr int POLE_STORAGE_COUNT = 2;
 #else
@@ -298,8 +298,8 @@ public:
    * poles.
    * @param x Fractional longitude in [-W, 2W).
    * @param y Fractional latitude row.
-   * @param poles Shared values for the longitude-aliased pole rows: [0] for
-   *   row 0, [1] for row H-1 where that row is the south pole.
+   * @param poles Shared values for true pole rows, north then south when present.
+   *   The south pole uses slot [0] when no north pole is present.
    * @param outside Value returned where the rendered domain has no sample.
    * @param load Loads an in-domain, non-pole lattice sample.
    * @param combine Combines four topology-correct taps and fractional
@@ -329,8 +329,8 @@ public:
   /**
    * @brief Bilinearly samples a row-major three-channel field.
    * @param source Dense W-by-H source field.
-   * @param poles Shared values for the longitude-aliased pole rows: [0] for
-   *   row 0, [1] for row H-1 where that row is the south pole.
+   * @param poles Shared values for true pole rows, north then south when present.
+   *   The south pole uses slot [0] when no north pole is present.
    * @param x Fractional longitude in [-W, 2W).
    * @param y Fractional latitude row.
    * @param r Out: interpolated red channel.
