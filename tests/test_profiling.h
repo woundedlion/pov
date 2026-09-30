@@ -355,8 +355,8 @@ inline void test_second_caller_flags_mixed_parent() {
 }
 
 /**
- * @brief Verifies a top-level counter later entered under another counter is
- *        flagged rather than re-parented, so both stay on the root walk.
+ * @brief Verifies parent retirement keeps the child rooted and flags the
+ *        descendant when it later runs at the root.
  */
 inline void test_parent_retirement_prevents_cycle() {
   hs::CycleCounter child("prof_cycle_child");
@@ -373,6 +373,8 @@ inline void test_parent_retirement_prevents_cycle() {
   }
   HS_EXPECT_TRUE(child.parent == nullptr);
   HS_EXPECT_EQ(descendant.parent, &child);
+  HS_EXPECT_TRUE(descendant.mixed_parent);
+  HS_EXPECT_FALSE(child.mixed_parent);
   child.cycles = 100;
   descendant.cycles = 50;
   char report[4096];
