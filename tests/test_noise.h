@@ -237,8 +237,8 @@ inline void test_noise2d_golden_grid() {
 
 /**
  * @brief Pins noise_transform's displaced output for fixed params and inputs.
- * @details An oracle for the whole noise_transform pipeline (3-channel sampling,
- *          tangent projection, soft-cap, renormalize), not just its on-sphere
+ * @details An oracle for 3-channel sampling, tangent projection and normalization
+ *          with the displacement cap inactive, not just its on-sphere
  *          invariant: a regression that still produced a unit vector but a
  *          different one would slip past the existing test_transformers checks.
  */
