@@ -332,19 +332,20 @@ static_assert(std::size(CURL_INTEGRATOR_IDS) ==
               static_cast<size_t>(CurlIntegrator::MIDPOINT4) + 1);
 
 /** @brief Parameter family of warp.curl-flow.v2. */
-struct CurlFlowParams : Warp::CurlFlowParams {
+struct CurlFlowWarpParams : Warp::CurlFlowParams {
   uint8_t basis = static_cast<uint8_t>(math::NoiseBasis::SIMPLEX);
   uint8_t integrator = static_cast<uint8_t>(CurlIntegrator::EULER1);
   static constexpr auto TOPOLOGY = std::array{
-      TopologyField<CurlFlowParams>{
-          "basis", &CurlFlowParams::basis, NOISE_BASIS_IDS,
+      TopologyField<CurlFlowWarpParams>{
+          "basis", &CurlFlowWarpParams::basis, NOISE_BASIS_IDS,
           static_cast<uint8_t>(math::NoiseBasis::SIMPLEX)},
-      TopologyField<CurlFlowParams>{"integrator", &CurlFlowParams::integrator,
-                                    CURL_INTEGRATOR_IDS, 0},
+      TopologyField<CurlFlowWarpParams>{"integrator",
+                                        &CurlFlowWarpParams::integrator,
+                                        CURL_INTEGRATOR_IDS, 0},
   };
 };
-static_assert(field_ids_unique<CurlFlowParams>());
-static_assert(field_defaults_in_range<CurlFlowParams>());
+static_assert(field_ids_unique<CurlFlowWarpParams>());
+static_assert(field_defaults_in_range<CurlFlowWarpParams>());
 
 /** @brief The curl flow's prepared block: the owned noise field, this frame's
     point on the loop, and the sub-step count decoded from the integrator. */
@@ -363,7 +364,7 @@ struct WarpCurlFlow : PhaseClockModel<NoisePhaseState> {
   static constexpr const char *NAME = "Curl Flow";
   using Input = PlaneSample;
   using Output = PlaneSample;
-  using Params = CurlFlowParams;
+  using Params = CurlFlowWarpParams;
   using Prepared = PreparedCurlFlow;
 
   static const char *validate(const Params &params) {

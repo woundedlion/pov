@@ -1747,7 +1747,7 @@ inline void case_pullback_mobius_degenerate() {
 }
 
 inline void case_pullback_curl_unstable() {
-  Pullback::Interp::Op::CurlFlowParams params;
+  Pullback::Interp::Op::CurlFlowWarpParams params;
   params.scale = opaque(100.0f);
   params.strength = opaque(100.0f);
   params.integrator = 0;
@@ -4437,7 +4437,7 @@ inline void case_pullback_operator_invalid_polar_harmonic() {
 
 /** @brief Death case: the curl-flow operator rejects an unknown integrator. */
 inline void case_pullback_operator_invalid_curl_integrator() {
-  Pullback::Interp::Op::CurlFlowParams params;
+  Pullback::Interp::Op::CurlFlowWarpParams params;
   params.integrator = opaque<uint8_t>(0xff);
   Pullback::Interp::Op::NoisePhaseState state;
   Pullback::Interp::FrameContext context{};

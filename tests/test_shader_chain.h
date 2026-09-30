@@ -931,7 +931,7 @@ inline void test_shader_chain_schema_and_field_ids() {
   HS_EXPECT_EQ(vector_noise.schema[VECTOR_NOISE_FIELDS + 1].enum_count, 3);
   const In::OperatorDescriptor &curl_flow =
       *In::find_operator("warp.curl-flow.v2");
-  constexpr size_t CURL_FLOW_FIELDS = In::Op::CurlFlowParams::FIELDS.size();
+  constexpr size_t CURL_FLOW_FIELDS = In::Op::CurlFlowWarpParams::FIELDS.size();
   HS_EXPECT_EQ(curl_flow.schema_count, CURL_FLOW_FIELDS + 2);
   HS_EXPECT_TRUE(std::string_view(curl_flow.schema[CURL_FLOW_FIELDS].id) ==
                  "basis");
@@ -1604,7 +1604,7 @@ struct WarpMirrorFrame {
   In::Op::VectorNoiseWarpParams vector_noise;
   In::Op::MirrorWarpParams mirror;
   In::Op::PolarChartParams polar;
-  In::Op::CurlFlowParams curl;
+  In::Op::CurlFlowWarpParams curl;
   float phase = 0.0f;
   float rotation = 0.0f;
 };
@@ -1692,7 +1692,7 @@ struct PolarChartMirrorProvider {
 struct CurlFlowMirrorProvider {
   using Binding = WarpMirrorBinding;
   using FrameState = WarpMirrorFrame;
-  static const In::Op::CurlFlowParams &params(const FrameState &frame) {
+  static const In::Op::CurlFlowWarpParams &params(const FrameState &frame) {
     return frame.curl;
   }
   static float phase(const FrameState &frame) { return frame.phase; }
@@ -1782,7 +1782,7 @@ inline WarpMirrorFrame warp_mirror(In::ChainProgram &program) {
     if (id == In::Op::WarpVectorNoise::ID)
       mirror.vector_noise = param_as<In::Op::VectorNoiseWarpParams>(program, 2);
     else
-      mirror.curl = param_as<In::Op::CurlFlowParams>(program, 2);
+      mirror.curl = param_as<In::Op::CurlFlowWarpParams>(program, 2);
   } else {
     mirror.phase = state_as<In::Op::WarpPhaseState>(program, 2).phase;
     if (id == In::Op::WarpWaveShear::ID)
@@ -1995,7 +1995,7 @@ template <math::NoiseBasis Basis, typename Integrator>
 inline void run_curl_flow_variant(In::ChainProgram &program,
                                   const In::FrameContext &ctx,
                                   uint8_t integrator) {
-  auto &params = param_as<In::Op::CurlFlowParams>(program, 2);
+  auto &params = param_as<In::Op::CurlFlowWarpParams>(program, 2);
   params.basis = static_cast<uint8_t>(Basis);
   params.integrator = integrator;
   const float strength_limit =
@@ -2024,8 +2024,8 @@ inline void test_shader_chain_parity_warp_curl_flow() {
     HS_CONTEXT(value_set_name(set));
     auto fixture = std::make_unique<ProgramFixture>();
     In::ChainProgram &program = fixture->program;
-    arm_warp_op_chain<In::Op::CurlFlowParams>(program, In::Op::WarpCurlFlow::ID,
-                                              4, set);
+    arm_warp_op_chain<In::Op::CurlFlowWarpParams>(
+        program, In::Op::WarpCurlFlow::ID, 4, set);
     const In::FrameContext ctx = shared_resources().context();
     run_curl_flow_basis<math::NoiseBasis::SIMPLEX>(program, ctx);
     run_curl_flow_basis<math::NoiseBasis::FBM3>(program, ctx);
@@ -2952,7 +2952,7 @@ inline void test_shader_chain_noise_operator_domain() {
     vector_params.basis = static_cast<uint8_t>(basis);
     const auto vector_prepared =
         In::Op::WarpVectorNoise::prepare(ctx, vector_params, state);
-    In::Op::CurlFlowParams curl_params;
+    In::Op::CurlFlowWarpParams curl_params;
     curl_params.scale = 4.0f;
     curl_params.strength = 1.0f / 32.0f;
     curl_params.basis = static_cast<uint8_t>(basis);
