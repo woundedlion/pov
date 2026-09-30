@@ -315,7 +315,7 @@ class TestRegionCeilingsFail(unittest.TestCase):
         self.assertTrue(any("RAM1 free for local variables (stack) -1,024 B" in v.message
                             for v in result.violations))
 
-    def test_over_cap_trips_every_region(self):
+    def test_over_cap_trips_flash_and_ram2(self):
         # Good symbols (layout fine) + over-cap totals: only region checks fire.
         result = _eval("holosphere", "broken_over_cap_teensy_size.txt",
                        "good_readelf_syms.txt")
