@@ -194,7 +194,7 @@ public:
    * @param block_b Second arena block, same size.
    * @param block_capacity One arena's capacity; the budget compile() checks.
    * @param operator_table Resolution table; defaults to OPERATOR_TABLE.
-   * @details Blocks must be max_align-aligned and outlive the program. Bind
+   * @details Blocks must be disjoint, max_align-aligned and outlive the program. Bind
    * once, before the first compile(). No table entry may decrease carrier
    * family rank, the invariant make_operator_descriptor() static_asserts and a
    * hand-built table would otherwise slip past compile()'s carrier matching.
@@ -211,6 +211,10 @@ public:
     HS_CHECK(reinterpret_cast<uintptr_t>(block_b) % alignof(std::max_align_t) ==
                  0,
              "ChainProgram::bind_storage: block_b misaligned");
+    const uintptr_t A = reinterpret_cast<uintptr_t>(block_a);
+    const uintptr_t B = reinterpret_cast<uintptr_t>(block_b);
+    HS_CHECK(A < B ? B - A >= block_capacity : A - B >= block_capacity,
+             "ChainProgram::bind_storage: overlapping blocks");
     HS_CHECK(blocks[0] == nullptr, "ChainProgram::bind_storage: rebinding");
     HS_CHECK(block_capacity < std::numeric_limits<uint32_t>::max(),
              "ChainProgram::bind_storage: capacity exceeds offset range");
