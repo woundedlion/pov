@@ -121,6 +121,7 @@ protected:
     uint16_t frames = 0;         /**< Steps the departure spans. */
     bool fades = false;          /**< A Fade departure rather than a Lerp. */
     bool adopted = false;        /**< A fade has adopted its target. */
+    size_t from_index = 0;       /**< Preset before an unadopted fade. */
   };
 
   HS_COLD_MEMBER ChoreographedEffect(int W, int H, EffectConfig cfg = {})
@@ -175,7 +176,8 @@ protected:
         preset_dwell_remaining = Derived::PRESET_DWELL_FRAMES;
         return false;
       }
-      transition = {params, target, true, 0, FRAMES, LERP == nullptr, false};
+      transition = {params, target,          true,  0,
+                    FRAMES, LERP == nullptr, false, change.from};
       if (LERP)
         derived().transition_armed(target);
       return true;
@@ -288,8 +290,11 @@ private:
 
   /** @brief Cancels any in-flight transition, restoring a fade's opacity. */
   void end_transition() {
-    if (transition.active && transition.fades)
+    if (transition.active && transition.fades) {
+      if (!transition.adopted)
+        preset_index = transition.from_index;
       set_opacity(1.0f);
+    }
     transition.active = false;
   }
 

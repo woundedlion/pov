@@ -260,6 +260,43 @@ inline void test_preset_saturation_veto_restarts_dwell() {
   HS_EXPECT_TRUE(effect.blending());
 }
 
+struct FadePresetEffect : ChoreographedEffect<FadePresetEffect, HoldParams> {
+  static constexpr std::array<std::string_view, 2> PRESET_IDS{"first",
+                                                              "second"};
+  static constexpr uint16_t PRESET_DWELL_FRAMES = 40;
+  static constexpr uint32_t PARAMETER_SCHEMA_VERSION = 1;
+  FadePresetEffect() : ChoreographedEffect(8, 8) {}
+  static constexpr PresetEntry<HoldParams> preset(size_t index) {
+    return {{index == 0 ? 1.0f : 2.0f}, Segue::Preset::Fade{4}};
+  }
+  static constexpr bool valid_params(const HoldParams &) { return true; }
+  void draw_frame() override {}
+  void arm() { begin_choreography(); }
+  bool attempt() { return advance_preset(); }
+  void progress(float value) { run_transition(value); }
+  void cancel() { parameter_written(); }
+  void set_preset_opacity(float value) { opacity = value; }
+  float value() const { return params.value; }
+  float opacity = 1.0f;
+};
+
+inline void test_cancelled_fade_names_visible_preset() {
+  hs_test::reset_globals();
+  FadePresetEffect effect;
+  effect.arm();
+  HS_EXPECT_TRUE(effect.attempt());
+  effect.progress(0.25f);
+  effect.cancel();
+  HS_EXPECT_EQ(effect.getPresetIndex(), size_t{0});
+  HS_EXPECT_EQ(effect.value(), 1.0f);
+  HS_EXPECT_EQ(effect.opacity, 1.0f);
+  HS_EXPECT_TRUE(effect.attempt());
+  effect.progress(0.5f);
+  effect.cancel();
+  HS_EXPECT_EQ(effect.getPresetIndex(), size_t{1});
+  HS_EXPECT_EQ(effect.value(), 2.0f);
+}
+
 inline void test_preset_crossfade_rejects_rearming() {
   hs_test::reset_globals();
   SaturatedPresetEffect effect;
@@ -283,6 +320,7 @@ inline int run_presets_tests() {
   test_hold_initial_preset_overrides_first_dwell();
   test_preset_saturation_veto_restarts_dwell();
   test_preset_crossfade_rejects_rearming();
+  test_cancelled_fade_names_visible_preset();
 
   return fixture.result();
 }
