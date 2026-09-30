@@ -58,3 +58,16 @@ test('missing departure edges require automatic snap fallback', () => {
   bank.absent_edge_fallback.automatic = 'SNAP';
   assert.equal(departureLiteral(bank, id), 'Segue::Preset::Snap{}');
 });
+
+
+test('composed topology cannot vary between presets', () => {
+  const edited = structuredClone(document);
+  assert.ok(edited.preset_bank.presets.length >= 2);
+  const id = 'colorize.palette-mode';
+  const parameter = edited.descriptor.parameters.find((entry) => entry.id === id);
+  const first = edited.preset_bank.presets[0].values[id];
+  edited.preset_bank.presets[1].values[id] = parameter.domain.values.find((value) => value !== first);
+  const compiled = compileShaderDocument(edited, { catalog });
+  assert.equal(compiled.status, 'VALID');
+  assert.throws(() => generatedSections(compiled), /topology must be uniform: colorize.palette-mode/);
+});
