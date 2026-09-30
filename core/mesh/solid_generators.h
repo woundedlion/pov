@@ -935,6 +935,8 @@ inline constexpr float TRUNCATE_T_NEAR = 0.0872664601f;
  * and named for it, consumed by truncate as a dimensionless edge fraction past
  * the ambo pinch, where the cut faces self-intersect by design. */
 inline constexpr float TRUNCATE_T_FAR = 0.87266463f;
+static_assert(TRUNCATE_T_NEAR == 5.0f * D2R);
+static_assert(TRUNCATE_T_FAR == 50.0f * D2R);
 
 /**
  * @brief Builds the truncatedIcosahedron_hk58_chamfer63 star pattern.
