@@ -1943,7 +1943,7 @@ inline void test_choreography_fade_departure() {
   HS_EXPECT_EQ(effect.opacity_samples, FADE);
   HS_EXPECT_EQ(effect.dimming_level, 0.25f);
   HS_EXPECT_EQ(effect.rising_level, 0.5f);
-  HS_EXPECT_LE(effect.min_opacity, 0.25f);
+  HS_EXPECT_LE(effect.min_opacity, 1e-3f);
   HS_EXPECT_EQ(effect.last_opacity, 1.0f);
   HS_EXPECT_EQ(effect.level(), 0.5f);
 
