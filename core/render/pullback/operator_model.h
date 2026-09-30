@@ -210,26 +210,6 @@ struct OperatorDescriptor {
   }
 };
 
-/**
- * @brief Rebuilds a base family's field table over a derived family.
- * @details A `float Base::*` converts implicitly to `float Combined::*`, so
- * the concatenation stays a homogeneous Field<Combined> array.
- */
-template <typename Combined, typename BaseOwner, size_t N, size_t M>
-consteval std::array<Field<Combined>, N + M>
-concat_fields(const std::array<Field<BaseOwner>, N> &base,
-              const std::array<Field<Combined>, M> &extra) {
-  std::array<Field<Combined>, N + M> out{};
-  for (size_t index = 0; index < N; ++index)
-    out[index] = Field<Combined>{base[index].id,   base[index].member,
-                                 base[index].name, base[index].min,
-                                 base[index].max,  base[index].curve,
-                                 base[index].gate, base[index].topology_gate};
-  for (size_t index = 0; index < M; ++index)
-    out[N + index] = extra[index];
-  return out;
-}
-
 namespace Detail {
 
 /** @brief The family's TOPOLOGY table, or an empty one when it declares none. */

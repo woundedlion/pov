@@ -118,15 +118,8 @@ static_assert(field_defaults_in_range<ColorControls>());
 /** @brief Composed-effect controls with a snapped palette mapping curve. */
 struct ColorParams : ColorControls {
   PaletteMapping palette_mapping = PaletteMapping::LINEAR;
-  static constexpr auto FIELDS = [] {
-    std::array<Field<ColorParams>, ColorControls::FIELDS.size()> out{};
-    for (size_t index = 0; index < out.size(); ++index) {
-      const auto &field = ColorControls::FIELDS[index];
-      out[index] = {field.id,  field.member, field.name, field.min,
-                    field.max, field.curve,  field.gate, field.topology_gate};
-    }
-    return out;
-  }();
+  static constexpr auto FIELDS = concat_fields<ColorParams>(
+      ColorControls::FIELDS, std::array<Field<ColorParams>, 0>{});
   constexpr bool operator==(const ColorParams &) const = default;
 };
 static_assert(field_ids_unique<ColorParams>());
