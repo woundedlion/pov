@@ -99,7 +99,7 @@ template <int W, int H> struct ClipBand {
 };
 
 /**
- * @brief Cuts a closed polyline's chart-straight edges into equal chart pieces
+ * @brief Cuts a polyline's chart-straight edges into equal chart pieces
  *        and flags the runs of pieces that cannot reach a clip band, so
  *        Plot::rasterize never simulates them.
  * @tparam W Canvas width in pixels.
@@ -132,9 +132,9 @@ public:
 
   /**
    * @brief Splits @p ring into @p out and flags each output edge.
-   * @param out Receives the split polyline; bound for max_points(edges,
-   * pieces) points.
-   * @param ring Closed polyline: @p edges vertices plus the closing repeat.
+   * @param out Receives positions only; registers are dropped. Bound for
+   * max_points(edges, pieces) points.
+   * @param ring Open or closed polyline with @p edges + 1 points.
    * @param edges Edge count.
    * @param pieces Chart pieces per edge.
    * @param planar_basis Azimuthal-equidistant chart the edges are straight in.
@@ -228,9 +228,9 @@ inline constexpr RasterConfig PLANAR_CHORD_RASTER_CONFIG{
  * where the unclipped walk puts it. Anchor intervals within POLE_PIECE_ROWS of
  * a pole, where the rasterizer's pole scaling is what closes the gaps, are
  * handed to Plot::rasterize under PLANAR_CHORD_RASTER_CONFIG with balanced
- * sampling, band-split by PlanarBandSplit into POLE_RUN_PIECES pieces, so a
- * clipped pole run matches the unclipped one to a fraction of a pixel. Chart coordinates and scratch live in arena storage bound once by
- * init_storage().
+ * sampling. When band.x_active, PlanarBandSplit divides pole runs into
+ * POLE_RUN_PIECES pieces; the clipped run matches to a fraction of a pixel.
+ * Chart coordinates and scratch live in arena storage bound by init_storage().
  */
 template <int W, int H> class PlanarChords {
 public:
