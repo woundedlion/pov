@@ -39,8 +39,8 @@ struct BZWhiteBox;
  * indefinitely. State is stored as Q16 (uint16_t): at the low end of the Diff
  * slider the diffusion term moves a node by only ~3e-4 of full scale per
  * substep, and a store coarser than that rounds the spatial coupling away
- * entirely, leaving uncoupled per-node ODEs. Per-pixel rendering uses Wendland
- * C2 kernel interpolation for smooth cell boundaries between lattice nodes.
+ * entirely, leaving uncoupled per-node ODEs. Rendering interpolates with a
+ * compact biweight kernel (C1 at the support edge) between lattice nodes.
  *
  * Shared lattice/orientation/kernel scaffolding lives in ReactionDiffusionBase.
  *
@@ -138,7 +138,7 @@ private:
 
   /**
    * @brief Concentration-sum floor below which a location is treated as empty.
-   * @details Distinct from KERNEL_MIN_TOTAL_WEIGHT: that guards the Wendland
+   * @details Distinct from KERNEL_MIN_TOTAL_WEIGHT: that guards the biweight
    * weight sum, this the blended concentration; a full-weight kernel can still
    * average to ~0 if all species are absent.
    */
@@ -280,7 +280,7 @@ private:
   }
 
   // ---------------------------------------------------------------------------
-  // Rendering: Wendland C2 kernel interpolation
+  // Rendering: compact biweight kernel interpolation
   // ---------------------------------------------------------------------------
 
   /**
@@ -297,7 +297,7 @@ private:
    * @return The finished, alpha-premultiplied pixel.
    * @details The four ±0.25 px sub-samples share one interpolation stencil (the
    * nearest node and its neighbors), refined and gathered once at the pixel
-   * center; only the Wendland weights vary per sub-sample. A sub-sample
+   * center; only the biweight weights vary per sub-sample. A sub-sample
    * straddling a Voronoi boundary reuses the center's stencil rather than its
    * own. Whether that difference stays below one node spacing is
    * resolution-dependent: the ±0.25 px row offset is
