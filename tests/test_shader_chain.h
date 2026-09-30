@@ -3382,8 +3382,6 @@ inline void expect_refusal(In::ChainProgram &program,
   const In::ChainRefusal refusal = program.compile(request);
   HS_EXPECT_EQ(static_cast<int>(refusal.code), static_cast<int>(expected));
   HS_EXPECT_EQ(refusal.entry_index, expected_index);
-  // Transactional: the live program, its params, prepared state and render
-  // are all byte-identical after the refusal.
   HS_EXPECT_EQ(program.ops().size(), 4u);
   std::array<Color4, 14> after;
   snapshot_render(program, ctx, after);
