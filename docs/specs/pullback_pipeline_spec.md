@@ -515,8 +515,8 @@ provides a compatible predicate. The member is instantiated only when used.
 `TopologyKey` therefore remains private to ShaderWorkbench.
 
 A matching wrapper must re-derive `Stage::Contract` with its own descriptor
-identity and forward to the core stage. Inheriting a core stage is rejected by
-`DESCRIPTOR_IDENTITY`. ShaderWorkbench uses `TopologyStage<Self, CoreStage>`
+identity and forward to the core stage. Inheriting a core stage without
+re-deriving `Bind` is rejected by `DESCRIPTOR_IDENTITY`. ShaderWorkbench uses `TopologyStage<Self, CoreStage>`
 in `workbench/shader/pipelines.h`; wrappers add no rendering state.
 
 ShaderWorkbench's cross-stage rule that edge-fade coverage requires a projection
