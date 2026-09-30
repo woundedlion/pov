@@ -226,7 +226,7 @@ private:
   colorize_harmonic(float val, const HarmonicMaterialState &material) {
     const float abs_val = std::abs(val);
     Color4 pos =
-        material.palette->get(std::min(1.0f, abs_val * material.amplitude));
+        material.palette->get(fminf(1.0f, abs_val * material.amplitude));
 
     constexpr float NEG_LOBE_GREEN_SCALE = 0.8f;
     const Color4 neg = Color4(
