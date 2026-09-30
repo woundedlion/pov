@@ -559,9 +559,7 @@ jobs:
           key: ccache-wasm-${{ github.run_id }}
           restore-keys: ccache-wasm-
 
-      # Zero only the statistics counters (not the cached objects, so hits still
-      # work) so the ccache-stats gate below measures THIS run's compilations,
-      # not the cumulative counts restored from a prior run.
+      # Reset counters so the informational ccache stats report covers this run.
       - name: Zero ccache stats
         run: ccache -z
 
