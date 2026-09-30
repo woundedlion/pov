@@ -26,6 +26,9 @@ centers. Each terminal reserves its full plastic body plus 0.5 mm assembly
 clearance against component placement, so SMD parts cannot obstruct flush
 seating. J1's wire-access reservation extends outside the left edge. The Teensy
 shifts 3.5 mm left; D_BUS is released for placement outside the terminal keepouts.
+Insert and secure the J2/J3A/J3B wires before installing the Teensy module;
+the locked hub-facing terminal entries do not reserve wire-access clearance
+against the module. Verify J1 polarity before connecting any powered harness.
 
 The rev 1.2 project in `hardware/phantasm/1.2/` requires placement and routing. Current
 firmware and the committed routed fabrication artifacts remain rev 1.1; see
