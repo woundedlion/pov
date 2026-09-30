@@ -309,6 +309,11 @@ protected:
         name, static_cast<unsigned long>(std::bit_cast<uint32_t>(*ptr)),
         static_cast<unsigned long>(std::bit_cast<uint32_t>(min)),
         static_cast<unsigned long>(std::bit_cast<uint32_t>(max)));
+    HS_CHECK((options == nullptr) == (option_count == 0),
+             "register_param: inconsistent options and count");
+    if (options != nullptr)
+      HS_CHECK(option_count > 0 && min == 0 && max == option_count - 1,
+               "register_param: option range does not match labels");
     auto &def = append_parameter(name);
     def.target = ptr;
     def.min = min;
