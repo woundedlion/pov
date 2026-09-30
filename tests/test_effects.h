@@ -5520,16 +5520,10 @@ inline void test_shapeshifter_slider_selections_render() {
 }
 
 /**
- * @brief Verifies the segmented-mode full-frame gate on the real effect roster.
- * @details Effect::needs_full_frame() must report true for exactly the effects
- *          whose filter pipeline crosses segment bands (its trait-derived
- *          override surfaces the compile-time any_crosses_segments fold), and
- *          false otherwise so non-stateful effects keep the segment clipping
- *          win. Cross-segment today: MeshFeedback (Pixel::Feedback) and the
- *          World::Trails effect Dynamo. This pins the gate end to
- *          end on constructed effects — the WASM driver reads exactly this query
- *          (targets/wasm/engine_bindings.h setClip). See
- *          docs/specs/segmented_stateful_effects_spec.md.
+ * @brief Checks the full-frame query on four constructed effects.
+ * @details MeshFeedback and Dynamo fold any_crosses_segments true; the two
+ *          sampled non-crossing effects keep segment clipping. The WASM
+ *          setClip bridge reads this non-virtual Effect accessor.
  */
 inline void test_needs_full_frame_gate() {
   // Each effect aliases the same static double buffer (single-live guard) and
