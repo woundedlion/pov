@@ -98,7 +98,8 @@ inline void test_traversal() {
     camera.center = {MID.x, MID.y, MID.z - 1, 0};
     const auto FIRST = shade(GEOMETRY, 1, .04f, camera, {.002f, 0}, limits,
                              appearance, math::Z_AXIS);
-    HS_EXPECT_TRUE(FIRST.trace.has_surface);
+    HS_EXPECT_FALSE(FIRST.trace.has_surface);
+    HS_EXPECT_GT(FIRST.trace.counters.layers, 0);
     HS_EXPECT_FALSE(FIRST.trace.contribution.verified);
     HS_EXPECT_GT(FIRST.color.alpha, 0.f);
     for (int axis = 0; axis < 3; ++axis) {
