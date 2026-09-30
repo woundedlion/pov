@@ -1898,6 +1898,8 @@ struct SimBoard {
   // Probes.
   uint64_t flips = 0;
   bool dark_now = true;
+  float envelope = 0.0f;
+  int32_t envelope_column = -1;
 
   /**
    * @brief Constructs a board wrapping a SyncBoard engine for config @p c.
@@ -2168,7 +2170,11 @@ private:
             for (size_t j = 1; j < boards.size(); ++j)
               deliver_edge(static_cast<int>(j), tg);
         },
-        [&] { b.trapped = true; }, [](SimEffect *, int32_t) {},
+        [&] { b.trapped = true; },
+        [&](SimEffect *, int32_t column) {
+          b.envelope = b.board.effect_envelope(column, cfg.W);
+          b.envelope_column = column;
+        },
         [](pov::SubmitAction, SimEffect *, int32_t) { return true; });
     const auto &w = b.handoff.last;
     if (w.adopted) {
@@ -2344,12 +2350,36 @@ inline void test_sim_epoch_commit() {
 
   HS_EXPECT_TRUE(boot_join(sim, cfg));
 
+  auto expect_envelopes = [&](int32_t column) {
+    HS_EXPECT_TRUE(sim.run_until(
+        [=](Sim &s) {
+          for (const auto &board : s.boards)
+            if (board.envelope_column != column)
+              return false;
+          return true;
+        },
+        1.1));
+    for (const auto &board : sim.boards)
+      HS_EXPECT_EQ(board.envelope, sim.boards[0].envelope);
+  };
+  HS_EXPECT_TRUE(sim.run_until(
+      [](Sim &s) {
+        return content(s.boards[0].board).rev_in_effect ==
+               s.cfg.revs_per_effect - 1;
+      },
+      double(cfg.revs_per_effect)));
+  expect_envelopes(72);
+  HS_EXPECT_GT(sim.boards[0].envelope, 0.0f);
+  HS_EXPECT_LT(sim.boards[0].envelope, 1.0f);
+
   // Run to the train start. Through the announce phase (the first R revs of
   // the B+R+K countdown) every board keeps playing the outgoing effect…
   HS_EXPECT_TRUE(sim.run_until(
       [](Sim &s) { return content(s.boards[0].board).commit_pending; },
       double(cfg.revs_per_effect) + 2));
   sim.run_revs(1.0); // mid-announce
+  expect_envelopes(72);
+  HS_EXPECT_EQ(sim.boards[0].envelope, 0.0f);
   for (auto &b : sim.boards) {
     HS_EXPECT_TRUE(content(b.board).commit_pending);
     HS_EXPECT_FALSE(b.dark_now);
@@ -2382,6 +2412,9 @@ inline void test_sim_epoch_commit() {
     HS_EXPECT_LE(dg < 0 ? -dg : dg, int64_t(3) * COL);
     HS_EXPECT_FALSE(sim.boards[i].trapped);
   }
+  expect_envelopes(72);
+  HS_EXPECT_GT(sim.boards[0].envelope, 0.0f);
+  HS_EXPECT_LT(sim.boards[0].envelope, 1.0f);
   // Post-epoch: full content coherence (index AND t) including the master.
   sim.run_revs(3.0);
   HS_EXPECT_TRUE(
@@ -2623,7 +2656,7 @@ inline void test_sim_emi() {
 /**
  * @brief Verifies dropped-symbol recovery (§6.3): a multi-rev symbol gap is a
  *        coast on the crystal that silently re-snaps, and a board that misses
- *        an entire EPOCH train stays visibly stale on the old effect until the
+ *        an entire EPOCH train freezes, then clears after its fade-out until the
  *        next index beacon corrects it and it rejoins on the join grid — never
  *        a wrong frame, never a trap.
  */
@@ -2664,7 +2697,8 @@ inline void test_sim_drops_and_missed_epoch() {
         return s.boards[0].live_index == 1 && s.boards[1].live_index == 1;
       },
       8.0));
-  HS_EXPECT_EQ(sim.boards[3].live_index, 0); // visibly stale, as budgeted
+  HS_EXPECT_EQ(sim.boards[3].live_index, 0);
+  HS_EXPECT_EQ(sim.boards[3].envelope, 0.0f);
   // Correction: ≤ one beacon period + join grid after the wire returns.
   HS_EXPECT_TRUE(
       sim.run_until([](Sim &s) { return s.boards[3].live_index == 1; },
@@ -3529,7 +3563,7 @@ inline void test_beacon_two_edge_substitution() {
  * @brief Verifies the §9.1 "sync wire dead" and "master dead" budget rows
  *        (identical for downstream — the master is only the symbol source):
  *        flywheels free-run and keep flipping 2/rev, the playlist freezes on
- *        the current effect (visibly stale, never wrong), and boards precess
+ *        the current effect, then clears after its fade-out, and boards precess
  *        apart at the §4.5 crystal rate.
  * @details The precession constant τ = T0/δ_rel ≈ one column per 87 revs at 40
  *          ppm — a slow smear, never a break — and the §4.1 rebase rule keeps
@@ -3571,6 +3605,7 @@ inline void test_budget_wire_dead() {
     HS_EXPECT_LE(df, 2 * static_cast<uint64_t>(coast) + 5);
     // Layer 3 freezes on the current effect.
     HS_EXPECT_EQ(sim.boards[i].live_index, 0);
+    HS_EXPECT_EQ(sim.boards[i].envelope, 0.0f);
     HS_EXPECT_FALSE(sim.boards[i].trapped);
   }
   // The master alone walks its playlist (3 epochs in 150 revs at the
