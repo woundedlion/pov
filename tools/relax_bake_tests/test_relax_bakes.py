@@ -127,6 +127,12 @@ class ParseDump(unittest.TestCase):
         with self.assertRaises(ValueError):
             relax_bakes.parse_dump(head + "\n" + b)
 
+    def test_rejects_long_begin_line_with_its_location(self):
+        dump, _ = make_dump("foo", 8, [(1, 1, 1)], 0x1)
+        dump = dump.replace("\n", " unexpected\n", 1)
+        with self.assertRaisesRegex(ValueError, "line 1: RELAX_BAKE_BEGIN"):
+            relax_bakes.parse_dump(dump)
+
     def test_rejects_short_begin_line_with_its_location(self):
         dump, _ = make_dump("foo", 8, [(1, 1, 1)], 0x1)
         head, rest = dump.split("\n", 1)
