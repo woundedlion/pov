@@ -270,7 +270,8 @@ run_wake_sequence(SyncPulseGate &sync_pulse, SubmitGate &submit_gate,
                             ? submit(action, effect, actions.render_column)
                             : false;
   const bool did_render = submit_gate.settle(action, accepted);
-  if (sync_pulse.settle(actions.pulse, did_render))
+  const bool widened = did_render && action != SubmitAction::RESUBMIT;
+  if (sync_pulse.settle(actions.pulse, widened))
     drive_sync(false);
 }
 
