@@ -364,7 +364,7 @@ private:
   friend struct ::hs_test::pov_sync_tests::SyncBoardTestAccess;
 
   /**
-   * @brief Device-side accessor for the IRQ-off mailbox handoff.
+   * @brief Mailbox access (test-only).
    * @pre Interrupts must be disabled while accessing the returned mailbox.
    * @return Reference to the edge mailbox.
    */
