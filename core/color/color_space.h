@@ -266,8 +266,8 @@ gamut_cell(const GamutLut &lut, float L, float a, float b) {
   const float angle = math::diamond_angle(b, a) * lut.angle_scale;
   const float lightness = L * lut.l_scale;
   return {angle, lightness,
-          hs::clamp(static_cast<int>(angle), 0, lut.angle_steps - 1),
-          hs::clamp(static_cast<int>(lightness), 0, lut.l_steps - 1)};
+          static_cast<int>(hs::clamp(angle, 0.0f, float(lut.angle_steps - 1))),
+          static_cast<int>(hs::clamp(lightness, 0.0f, float(lut.l_steps - 1)))};
 }
 
 /**

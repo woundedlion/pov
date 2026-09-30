@@ -874,6 +874,17 @@ inline void test_gamut_lut_downsample_preserves_bracket() {
   release_gamut_lut();
 }
 
+inline void test_gamut_cell_nonfinite_coordinates() {
+  const auto cell = gamut_cell(g_gamut_lut, NAN, NAN, NAN);
+  HS_EXPECT_EQ(cell.angle_index, g_gamut_lut.angle_steps - 1);
+  HS_EXPECT_EQ(cell.lightness_index, g_gamut_lut.l_steps - 1);
+  for (float lightness : {-INFINITY, INFINITY}) {
+    const auto boundary = gamut_cell(g_gamut_lut, lightness, 1.0f, 0.0f);
+    HS_EXPECT_EQ(boundary.lightness_index,
+                 lightness < 0 ? 0 : g_gamut_lut.l_steps - 1);
+  }
+}
+
 /**
  * @brief Verifies an in-gamut color survives the arena-copy clip untouched and
  *        that releasing the copy leaves the clip working off the flash master.
@@ -2829,6 +2840,7 @@ inline int run_color_tests() {
   test_gamut_lut_clip_lands_on_first_exit();
   test_gamut_lut_downsample_preserves_bracket();
   test_gamut_lut_release_and_passthrough();
+  test_gamut_cell_nonfinite_coordinates();
   test_gamut_lut_boundary_scale_rounding();
   test_configure_arenas_releases_gamut_lut();
   test_oklch_to_pixel_holds_hue_out_of_gamut();
