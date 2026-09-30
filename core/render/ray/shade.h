@@ -64,7 +64,7 @@ shade_events(Adapter &adapter, Interval interval, const TraceLimits &limits,
 }
 
 /** @brief Shades one verified boundary.
- * @param footprint Validated footprint reserved for coverage-aware queries.
+ * @details The footprint is validated and reserved for coverage-aware queries.
  */
 template <typename Query>
 HS_HOT_FLASH_MEMBER ShadedTrace shade_surface(const Query &query,

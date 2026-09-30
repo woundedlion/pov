@@ -78,7 +78,7 @@ inline bool valid_sample(const QuerySample &sample) {
 }
 
 /** @brief Finds one verified boundary; proximity never creates coverage.
- * @param footprint Validated footprint reserved for coverage-aware queries.
+ * @details The footprint is validated and reserved for coverage-aware queries.
  */
 template <typename Query>
 HS_HOT_FLASH_MEMBER TraceResult surface_search(const Query &query,
