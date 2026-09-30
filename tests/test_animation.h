@@ -1720,23 +1720,14 @@ inline void test_particle_system_signed_axis_boundaries() {
     const float DX = x - 1.0f;
     return math::Vector(x, sqrtf(distance * distance - DX * DX), 0.0f);
   };
-  auto boundary_positions = [&](float radius) {
-    math::Vector outside = at_chord_distance(radius);
-    const float DX = outside.x - 1.0f;
-    const float RADIUS_SQ = radius * radius;
-    auto distance_sq = [&](float y) { return DX * DX + y * y; };
-    while (distance_sq(outside.y) < RADIUS_SQ)
-      outside.y =
-          std::nextafter(outside.y, std::numeric_limits<float>::infinity());
-    math::Vector inside = outside;
-    do {
-      inside.y = std::nextafter(inside.y, 0.0f);
-    } while (distance_sq(inside.y) >= RADIUS_SQ);
-    outside.y =
-        std::nextafter(inside.y, std::numeric_limits<float>::infinity());
-    HS_EXPECT_LT(distance_sq(inside.y), RADIUS_SQ);
-    HS_EXPECT_GE(distance_sq(outside.y), RADIUS_SQ);
-    return std::array<math::Vector, 2>{inside, outside};
+  auto boundary_positions = [](float radius) {
+    return std::array<math::Vector, 3>{
+        math::Vector(1.0f, std::nextafter(radius, 0.0f), 0.0f),
+        math::Vector(1.0f, radius, 0.0f),
+        math::Vector(
+            1.0f,
+            std::nextafter(radius, std::numeric_limits<float>::infinity()),
+            0.0f)};
   };
 
   constexpr float KILL = 0.003f;
@@ -1747,10 +1738,9 @@ inline void test_particle_system_signed_axis_boundaries() {
     math::Vector tangent = math::cross(axis, math::X_AXIS);
     if (math::dot(tangent, tangent) < 0.5f)
       tangent = math::cross(axis, math::Y_AXIS);
-    tangent.normalize();
     for (float radius : {KILL, HORIZON}) {
       const auto boundary = boundary_positions(radius);
-      for (int side = 0; side < 2; ++side) {
+      for (int side = 0; side < 3; ++side) {
         const auto &local = boundary[side];
         compare(axis * local.x + tangent * local.y, math::Vector(), KILL,
                 HORIZON, radius == KILL && side == 0 ? 0 : 1);
@@ -3626,12 +3616,12 @@ inline void test_random_walk_stays_unit_and_travels() {
 }
 
 /**
- * @brief The stable-rotation walk recurrence RandomWalk steps tracks the
- * make_rotation one from the same seed.
+ * @brief Compares rotation updates and their composition under identical inputs.
  */
-inline void test_random_walk_stable_rotation_tracks_default() {
+inline void test_random_walk_stable_rotation_matches_same_state() {
   constexpr int FRAMES = 50;
-  constexpr double ANGULAR_DRIFT_RADIANS = 1e-4;
+  constexpr double ANGULAR_ERROR_RADIANS = 1e-6;
+  constexpr double COMPOSED_DRIFT_RADIANS = 1e-4;
   const Animation::RandomWalkOptions options =
       Animation::RandomWalkOptions::Energetic();
 
@@ -3643,14 +3633,16 @@ inline void test_random_walk_stable_rotation_tracks_default() {
     noise->SetSeed(1234);
   }
   math::Vector default_position = math::Y_AXIS;
-  math::Vector stable_position = math::Y_AXIS;
   math::Vector default_direction = math::perpendicular_axis(math::Y_AXIS);
-  math::Vector stable_direction = default_direction;
   float default_velocity = 0.0f;
-  float stable_velocity = 0.0f;
+  math::Vector default_probe = math::X_AXIS;
+  math::Vector stable_probe = default_probe;
 
   for (uint32_t frame = 1; frame <= FRAMES; ++frame) {
     HS_CONTEXT("frame", static_cast<long long>(frame));
+    math::Vector stable_position = default_position;
+    math::Vector stable_direction = default_direction;
+    float stable_velocity = default_velocity;
     const Animation::RandomWalkDelta expected =
         Animation::step_random_walk<false>(default_position, default_direction,
                                            default_velocity, default_noise,
@@ -3659,11 +3651,15 @@ inline void test_random_walk_stable_rotation_tracks_default() {
         stable_position, stable_direction, stable_velocity, stable_noise,
         options, frame);
     HS_EXPECT_LE(small_angle_between(stable_position, default_position),
-                 ANGULAR_DRIFT_RADIANS);
+                 ANGULAR_ERROR_RADIANS);
     HS_EXPECT_LE(small_angle_between(stable_direction, default_direction),
-                 ANGULAR_DRIFT_RADIANS);
+                 ANGULAR_ERROR_RADIANS);
     HS_EXPECT_LE(small_angle_between(actual.axis, expected.axis),
-                 ANGULAR_DRIFT_RADIANS);
+                 ANGULAR_ERROR_RADIANS);
+    default_probe = math::rotate(default_probe, expected.rotation).normalized();
+    stable_probe = math::rotate(stable_probe, actual.rotation).normalized();
+    HS_EXPECT_LE(small_angle_between(stable_probe, default_probe),
+                 COMPOSED_DRIFT_RADIANS);
     HS_EXPECT_NEAR(stable_position.length(), 1.0f, 1e-4f);
   }
 }
@@ -4141,7 +4137,7 @@ inline int run_animation_tests() {
   test_noise_publishes_time_and_is_perpetual();
 
   test_random_walk_stays_unit_and_travels();
-  test_random_walk_stable_rotation_tracks_default();
+  test_random_walk_stable_rotation_matches_same_state();
 
   test_random_timer_fires_within_range();
   test_one_shot_timer_ends_by_completion_not_cancel();
