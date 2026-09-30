@@ -2902,6 +2902,10 @@ inline void test_distorted_ring_cull_covers_interior_high_freq() {
 template <int W, int H>
 inline int expect_face_cull_covers_fringe(int sides, float rho,
                                           const math::Vector &axis) {
+  HS_CONTEXT("face fringe", sides, rho);
+  HS_EXPECT_TRUE(sides >= 3 && sides <= 8);
+  if (sides < 3 || sides > 8)
+    return 0;
   constexpr int HV = H + hs::H_OFFSET;
   if (!math::TrigLUT<W, H>::initialized)
     math::TrigLUT<W, H>::init();
@@ -3281,7 +3285,9 @@ inline void check_face_distance_oracle(int &sample_total, int sides, float rho,
                                        float rho_inner = 0.0f) {
   constexpr int H = 144;
   constexpr int HV = H + hs::H_OFFSET;
-  HS_EXPECT_TRUE(sides <= 8);
+  HS_EXPECT_TRUE(sides >= 3 && sides <= 8);
+  if (sides < 3 || sides > 8)
+    return;
 
   math::Basis basis = math::make_basis(math::Quaternion(), axis);
   math::Vector verts3d[16];
