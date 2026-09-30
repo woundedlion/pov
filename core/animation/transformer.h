@@ -868,10 +868,10 @@ inline math::Vector noise_transform(const math::Vector &v,
 inline float bump_field_profile(const Animation::BumpParams &params,
                                 float r_eff, float d, float y) {
   float abs_y = std::fabs(y);
-  float x_sq = std::max(d * d - y * y, 0.0f);
-  float depth = sqrtf(std::max(r_eff * r_eff - x_sq, 0.0f)) - abs_y;
+  float x_sq = fmaxf(d * d - y * y, 0.0f);
+  float depth = sqrtf(fmaxf(r_eff * r_eff - x_sq, 0.0f)) - abs_y;
   float drape =
-      std::min(params.amplitude * sinf(math::PI_F * abs_y / r_eff), 1.0f);
+      fminf(params.amplitude * sinf(math::PI_F * abs_y / r_eff), 1.0f);
   return copysignf(depth * drape, y);
 }
 
