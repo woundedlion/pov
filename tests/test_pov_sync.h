@@ -24,7 +24,7 @@
  */
 #pragma once
 
-#include "core/math/rng.h"
+#include "core/platform/rng.h"
 #include "hardware/pov_handoff.h"
 #include "hardware/pov_submit_gate.h"
 #include "hardware/pov_sync.h"
