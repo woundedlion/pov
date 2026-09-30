@@ -8,7 +8,7 @@ Its consumers are `workbench/shader/shader_host.h` and the composed-effect base
 `core/render/pullback/composed_effect.h` — and through the latter, the eighteen
 single-effect composed headers in `effects/` (`patterns/README.md` maps
 each to its document). The interpreter host `workbench/shader/chain_host.h`
-uses the runtime operator library; `effects/HyperLattice.h` supplies a custom `Stage::Contract` stage, and `effects/Raymarch.h` uses the shared runtime seeds. The
+uses the runtime operator library; `effects/HyperLattice.h` uses the core `Pullback::RayStage` in `core/render/pullback/ray.h`, and `effects/Raymarch.h` uses the shared runtime seeds. The
 verification artifacts (`tests/test_pullback.h`, `tests/pullback_manifest_check.cpp`,
 `tests/data/pullback/`, `tools/pullback_capture.py`) ship with it. Sections 2,
 5.1, 8, 9.1, 9.3, 11, 12, 13, 14, 15 and 16 retain superseded design material; their local
