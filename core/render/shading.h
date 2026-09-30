@@ -316,7 +316,7 @@ inline float shade_blinn_phong(const math::Vector &normal_w,
   float half_lam = ndotv * 0.5f + 0.5f;
   float diffuse = half_lam * half_lam;
 
-  float ndoth = std::max(0.0f, math::dot(normal_w, half_w));
+  float ndoth = fmaxf(0.0f, math::dot(normal_w, half_w));
   static_assert(BLINN_PHONG_SPECULAR_EXP == 32,
                 "the squaring chain below spells exactly ^32");
   float spec = ndoth * ndoth;

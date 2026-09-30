@@ -236,7 +236,7 @@ struct Volume {
       prev_s = s;
       float floor = bounds_radius *
                     (i < PROBE_NEAR_STEPS ? PROBE_FLOOR_NEAR : PROBE_FLOOR_FAR);
-      float step = std::max(pd * 0.9f, floor);
+      float step = fmaxf(pd * 0.9f, floor);
       probe =
           math::Vector(probe.x + local_vd.x * step, probe.y + local_vd.y * step,
                        probe.z + local_vd.z * step);
