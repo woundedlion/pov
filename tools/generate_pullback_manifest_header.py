@@ -72,10 +72,20 @@ def _reject_json_constant(token: str):
     raise ValueError(f"non-JSON numeric constant {token}")
 
 
+def _unique_object(pairs):
+    result = {}
+    for key, value in pairs:
+        if key in result:
+            raise ValueError(f"duplicate JSON key: {key}")
+        result[key] = value
+    return result
+
+
 def _load(path: Path) -> dict:
     try:
         value = json.loads(path.read_text(encoding="utf-8"),
-                           parse_constant=_reject_json_constant)
+                           parse_constant=_reject_json_constant,
+                           object_pairs_hook=_unique_object)
     except (OSError, ValueError) as error:
         raise ManifestError(f"{path}: {error}") from error
     _require(isinstance(value, dict), f"{path}: root must be an object")

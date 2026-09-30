@@ -141,6 +141,17 @@ UNPARSEABLE_TEENSY_SIZE = (
     "teensy_size:   RAM2: variables=497920   free for malloc/new: 26368\n")
 
 
+class DuplicateJsonKeys(unittest.TestCase):
+    def test_duplicate_keys_are_rejected(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "duplicate.json"
+            for content in ('{"key": 1, "key": 2}', '{"nested": {"key": 1, "key": 2}}'):
+                with self.subTest(content=content):
+                    path.write_text(content, encoding="utf-8")
+                    with self.assertRaisesRegex(tg.BudgetSchemaError, "duplicate JSON key"):
+                        tg.load_budgets(path)
+
+
 class TestAddressClassifier(unittest.TestCase):
     """The load-bearing replacement for nm — the easiest place for an off-by-one."""
 
