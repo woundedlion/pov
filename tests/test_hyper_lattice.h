@@ -533,7 +533,7 @@ inline void expect_shade_samples(const char *label, const ShadeSample *rendered,
     HS_EXPECT_NEAR(got.r, want.r, MAX_SHADE_CHANNEL_DELTA);
     HS_EXPECT_NEAR(got.g, want.g, MAX_SHADE_CHANNEL_DELTA);
     HS_EXPECT_NEAR(got.b, want.b, MAX_SHADE_CHANNEL_DELTA);
-    HS_EXPECT_NEAR(got.alpha, want.alpha, MAX_SHADE_CHANNEL_DELTA);
+    HS_EXPECT_NEAR(got.alpha, want.alpha, 1);
   }
 }
 
