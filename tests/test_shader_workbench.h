@@ -333,7 +333,7 @@ struct ShaderWorkbenchWhiteBox {
     return shader(view);
   }
   static void begin_blend(SB &sb) {
-    sb.preset_dwell_armed = false;
+    sb.next_blend_armed = false;
     sb.begin_blend();
   }
   static void step_param_morph(SB &sb) {

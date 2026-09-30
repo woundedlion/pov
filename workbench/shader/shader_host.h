@@ -2731,22 +2731,22 @@ private:
 
   HS_COLD_MEMBER void enter_preset() {
     if (preset_count_for_view() < 2) {
-      preset_dwell_armed = false;
+      next_blend_armed = false;
       return;
     }
-    preset_dwell_armed = true;
+    next_blend_armed = true;
   }
 
   HS_COLD_MEMBER void advance_preset_choreography() {
-    if (anims_paused || !preset_dwell_armed)
+    if (anims_paused || !next_blend_armed)
       return;
-    preset_dwell_armed = false;
+    next_blend_armed = false;
     begin_blend();
   }
 
   HS_COLD_MEMBER void begin_blend() {
     if (!advance_preset()) {
-      preset_dwell_armed = true;
+      next_blend_armed = true;
     }
   }
 
@@ -2788,7 +2788,7 @@ private:
 #endif
   bool requested_schema_bound = false;
   bool registered_range_clamped = false;
-  bool preset_dwell_armed = false;
+  bool next_blend_armed = false;
   Workbench::Blend blend{
       Workbench::PRESETS[0].config.params,
       Workbench::palette_mapping_weights(
