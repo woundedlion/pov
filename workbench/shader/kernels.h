@@ -796,8 +796,7 @@ apply_frame_free_lens(const math::Vector &v, SurfaceLens lens) {
   case SurfaceLens::MOBIUS:
   case SurfaceLens::TANGENT_NOISE:
     HS_CHECK(false, "frame-parameterized lens needs the FrameState overload");
-    HS_CHECK(false, "project_point: unsupported projection");
-    return {};
+    __builtin_unreachable();
   }
   __builtin_unreachable();
 }
