@@ -1971,7 +1971,7 @@ inline void test_drift_modifier() {
   float expected =
       (math::value_noise_1d(time * 0.5f, 11u) - 0.5f) * 2.0f * 0.2f;
   HS_EXPECT_NEAR(drift.modify(0.0f), expected, 1e-6f);
-  HS_EXPECT_LE(std::fabs(expected), 0.2f);
+  HS_EXPECT_LE(std::fabs(drift.modify(0.0f)), 0.2f);
 
   // Same frame: every coordinate shifts by the identical offset.
   HS_EXPECT_NEAR(drift.modify(0.7f) - 0.7f, drift.modify(0.1f) - 0.1f, 1e-6f);

@@ -510,7 +510,6 @@ inline void check_preset_interpolation(const char *name) {
       Params b = preset_params_or_initial<FX>(to);
       if constexpr (FX::PRESET_IDS.size() == 1) {
         b.color.opacity_low = a.color.opacity_low == 0.0f ? 1.0f : 0.0f;
-        HS_EXPECT_NE(a.color.opacity_low, b.color.opacity_low);
         HS_EXPECT_NEAR(Pullback::interpolate(a, b, 0.5f).color.opacity_low,
                        0.5f * (a.color.opacity_low + b.color.opacity_low),
                        1e-6f);
