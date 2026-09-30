@@ -124,7 +124,7 @@ inline void test_node_ordered_and_distinct() {
  * @brief Pins the frozen D_AVG literal to its analytic value sqrt(4π / RD_N).
  * @details D_AVG is a hand-pasted constant (std::sqrt isn't constexpr here) that
  *          KERNEL_R / INV_R2 in ReactionDiffusionBase derive from, so a stale
- *          value silently mistunes the Wendland kernel support radius. Nothing
+ *          value silently mistunes the biweight kernel support radius. Nothing
  *          else links it to RD_N: bumping RD_N (which also requires regenerating
  *          neighbors[]) would leave D_AVG quietly wrong. This recomputes the
  *          spacing and fails loudly if the literal and RD_N ever diverge.
