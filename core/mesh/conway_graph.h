@@ -87,9 +87,8 @@ enum class MorphOp : uint8_t { TRUNCATE, EXPAND, SNUB, CHAMFER };
  */
 enum class Reseed : uint8_t { NONE, ADOPT };
 
-/** Sweep parameter clamp: legs run inside [T_EPS, t_end], and truncate legs
- * additionally stay below 0.5 - T_EPS_AMBO (the ambo short-circuit changes
- * emission order and face count). */
+/** Graph-edge sweep floor. Recipe truncate legs start at TRUNCATE_BIRTH_FRAC;
+ * far-side legs can extend to 0.995 rather than 0.5 - T_EPS_AMBO. */
 inline constexpr float T_EPS = 0.02f;
 /** Truncate clamp at the ambo (t = 0.5) end. Tighter than T_EPS: near 0.5 no
  * face degenerates (only the residual seed-edge segments shrink), and the
