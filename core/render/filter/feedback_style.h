@@ -107,7 +107,7 @@ struct Style {
    * Coarse-grid downsample factor for the warp field. Higher = cheaper
    * (~DS^2 fewer space_fn / atan2 / acos calls), lower = more detail. Uncached
    * flushes hold the offset grid, spherical controls and one W-pixel row in
-   * scratch (288x144: DS=4 ≈ 22 KiB, DS=2 ≈ 71 KiB). With init_storage() at
+   * scratch (288x144: DS=4 ≈ 30 KiB, DS=2 ≈ 91 KiB). With init_storage() at
    * the default DS, the grid lives in the persistent warp cache; scratch holds
    * only the controls and a row on frames that repopulate the cache.
    * Uncached full-resolution flushes exceed the default 16 KiB scratch split;
