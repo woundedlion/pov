@@ -7,6 +7,9 @@
  */
 #pragma once
 
+#include <algorithm>
+#include <cmath>
+
 #include "core/math/3dmath.h"
 #include "tests/test_harness.h"
 
