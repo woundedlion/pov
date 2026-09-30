@@ -5488,6 +5488,7 @@ inline void test_shader_workbench_stable_preset_transition() {
   HS_EXPECT_FALSE(WB::transition_active(sb));
   HS_EXPECT_TRUE(WB::live_params(sb) == from);
 
+  bool checked_midpoint = false;
   float previous_phase = WB::clocks(sb).source_primary;
   for (int step = 0; step <= 480; ++step) {
     WB::step_param_morph(sb);
@@ -5497,6 +5498,7 @@ inline void test_shader_workbench_stable_preset_transition() {
                    1e-6f);
     previous_phase = phase;
     if (WB::param_morph_elapsed(sb) == 6) {
+      checked_midpoint = true;
       HS_EXPECT_GT(WB::live_params(sb).surface_noise.scale,
                    from.surface_noise.scale);
       HS_EXPECT_LT(WB::live_params(sb).surface_noise.scale,
@@ -5504,6 +5506,7 @@ inline void test_shader_workbench_stable_preset_transition() {
       HS_EXPECT_EQ(WB::live_params(sb).warp, from.warp);
     }
   }
+  HS_EXPECT_TRUE(checked_midpoint);
   HS_EXPECT_FALSE(WB::param_morph_active(sb));
   HS_EXPECT_TRUE(WB::live_params(sb) == to);
 
