@@ -3002,6 +3002,13 @@ inline void test_opleg_dual_bridge_seam_correspondence() {
     }
     fx.advance_display();
     snap(snaps[2]);
+    HS_EXPECT_EQ(drawn, 2);
+    for (const auto &frame : snaps) {
+      size_t lit = 0;
+      for (const Pixel &pixel : frame)
+        lit += !is_black(pixel);
+      HS_EXPECT_GT(lit, static_cast<size_t>(RW * RH / 100));
+    }
 
     auto diff = [&](const std::vector<Pixel> &a, const std::vector<Pixel> &b,
                     long long &sumabs, int &changed) {
@@ -3023,6 +3030,9 @@ inline void test_opleg_dual_bridge_seam_correspondence() {
 
     const int seam_quiet = RW * RH - seam_px;
     const int ctrl_quiet = RW * RH - ctrl_px;
+    HS_EXPECT_GT(ctrl_quiet, 0);
+    if (ctrl_quiet == 0)
+      continue;
     const float quiet_ratio =
         static_cast<float>(seam_quiet) / static_cast<float>(ctrl_quiet);
     HS_EXPECT_GT(quiet_ratio, SEAM_QUIET_RATIO);
