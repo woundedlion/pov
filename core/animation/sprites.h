@@ -484,7 +484,6 @@ private:
       float dist_sq = math::distance_squared(pos, attr.position);
 
       if (dist_sq < attr.kill_radius * attr.kill_radius) {
-        // Stay dead; a live `life` resurrects the particle next frame.
         p.life = 0;
         return false;
       }
