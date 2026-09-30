@@ -51,6 +51,9 @@ PREDEFINED             = FLASHMEM= \
                          "__attribute__(x)=" \
                          __EMSCRIPTEN__=1 \
                          DOXYGEN=1 \
+                         HS_RUNTIME_DISPLAY_GEOMETRY=1 \
+                         HS_ENABLE_HYPERLATTICE_EXPERIMENTS=1 \
+                         HS_DISPLAY_PROFILE=0 \
                          HS_ENABLE_EFFECT_REGISTRY=1 \
                          HS_ENABLE_EFFECT_CONTROL_API=1 \
                          HS_ENABLE_PARAM_GUI_BRIDGE=1 \
