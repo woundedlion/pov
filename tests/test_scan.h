@@ -2457,9 +2457,8 @@ inline void test_overlapping_fills_composite_blend() {
   // Sample an interior column at the pole row, where both fills are fully
   // covered (AA alpha 1) so plot alpha is exactly frag.alpha 0.5.
   const Pixel &p = fx.get_pixel(W / 2, 0);
-  // dst.lerp16 rounds to nearest; allow a few LSB of quantization slack.
-  HS_EXPECT_NEAR((int)p.r, (int)(red * 0.25f), 64);
-  HS_EXPECT_NEAR((int)p.g, (int)(green * 0.5f), 64);
+  HS_EXPECT_NEAR((int)p.r, (int)(red * 0.25f), 2);
+  HS_EXPECT_NEAR((int)p.g, (int)(green * 0.5f), 2);
   HS_EXPECT_EQ((int)p.b, 0);
 }
 
