@@ -1240,9 +1240,7 @@ private:
                                     Workbench::LENS_NOISE_SCALE_MIN,
                                     Workbench::LENS_NOISE_SCALE_MAX);
     const float strength_min =
-        slots.surface_noise == Workbench::SurfaceNoise::CURL
-            ? Workbench::SURFACE_NOISE_STRENGTH_MIN
-            : 0.0f;
+        Workbench::surface_noise_strength_min(slots.surface_noise);
 #if HS_ENABLE_PARAM_GUI_BRIDGE
     register_animated_param_preserving_value(
         "Surface Noise Strength", &params.strength, strength_min,
@@ -1339,7 +1337,8 @@ private:
       register_current(names[Workbench::WARP_NAME_FIELD_ANGLE],
                        &params.field_angle, 0.0f, math::TWO_PI_F);
       register_current(names[Workbench::WARP_NAME_EDGE_WIDTH],
-                       &params.edge_width, Workbench::SOFTNESS_MIN, 0.5f);
+                       &params.edge_width, Workbench::SOFTNESS_MIN,
+                       Workbench::WARP_EDGE_WIDTH_MAX);
       break;
     case Workbench::WarpStageKind::VORTEX:
       register_current(names[Workbench::WARP_NAME_CENTER_X], &params.center_x,
@@ -1371,7 +1370,8 @@ private:
         register_current(names[Workbench::WARP_NAME_VECTOR_ANGLE],
                          &params.vector_angle, 0.0f, math::TWO_PI_F);
       register_current(names[Workbench::WARP_NAME_EDGE_WIDTH],
-                       &params.edge_width, Workbench::SOFTNESS_MIN, 0.5f);
+                       &params.edge_width, Workbench::SOFTNESS_MIN,
+                       Workbench::WARP_EDGE_WIDTH_MAX);
       break;
     case Workbench::WarpStageKind::MIRROR_TILE:
       register_current(names[Workbench::WARP_NAME_ROTATION], &params.rotation,
@@ -2644,16 +2644,16 @@ private:
     const Workbench::SurfaceNoiseParams &surface_noise =
         candidate.params.surface_noise;
     const float minimum_surface_strength =
-        candidate.slots.surface_noise == Workbench::SurfaceNoise::CURL ? -0.5f
-                                                                       : 0.0f;
+        Workbench::surface_noise_strength_min(candidate.slots.surface_noise);
     if (candidate.slots.surface_noise != Workbench::SurfaceNoise::NONE &&
         (surface_noise.scale < Workbench::LENS_NOISE_SCALE_MIN ||
          surface_noise.scale > Workbench::LENS_NOISE_SCALE_MAX ||
          surface_noise.strength < minimum_surface_strength ||
-         surface_noise.strength > 0.5f ||
+         surface_noise.strength > Workbench::SURFACE_NOISE_STRENGTH_MAX ||
          surface_noise.rate < Workbench::NOISE_RATE_MIN ||
          surface_noise.rate > Workbench::NOISE_RATE_MAX ||
-         surface_noise.direction < 0.0f || surface_noise.direction > 1.0f)) {
+         surface_noise.direction < Workbench::SURFACE_NOISE_DIRECTION_MIN ||
+         surface_noise.direction > Workbench::SURFACE_NOISE_DIRECTION_MAX)) {
       begin_warning("Surface Noise %s rejected.",
                     Workbench::SURFACE_NOISE_OPTIONS[static_cast<uint8_t>(
                         candidate.slots.surface_noise)]);
@@ -2661,12 +2661,14 @@ private:
                            Workbench::LENS_NOISE_SCALE_MIN,
                            Workbench::LENS_NOISE_SCALE_MAX);
       append_range_warning("Surface Noise Strength", surface_noise.strength,
-                           minimum_surface_strength, 0.5f);
+                           minimum_surface_strength,
+                           Workbench::SURFACE_NOISE_STRENGTH_MAX);
       append_range_warning("Surface Noise Rate", surface_noise.rate,
                            Workbench::NOISE_RATE_MIN,
                            Workbench::NOISE_RATE_MAX);
       append_range_warning("Surface Noise Direction", surface_noise.direction,
-                           0.0f, 1.0f);
+                           Workbench::SURFACE_NOISE_DIRECTION_MIN,
+                           Workbench::SURFACE_NOISE_DIRECTION_MAX);
       append_warning(" Set the named Surface Noise control within its range.");
       return warning_text.data();
     }
