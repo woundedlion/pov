@@ -3,6 +3,8 @@
  * Licensed under the PolyForm Noncommercial License 1.0.0
  */
 #pragma once
+
+#include <algorithm>
 #include <cmath>
 
 #include "math/noise_field.h"

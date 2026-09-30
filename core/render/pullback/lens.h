@@ -5,7 +5,6 @@
 #pragma once
 
 #include "math/lenses.h"
-#include "math/stereographic.h"
 
 #include "math/mobius.h"
 #include "render/pullback/contract.h"
