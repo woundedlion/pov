@@ -552,7 +552,8 @@ using RenderPipeline =
     Pullback::Pipeline<Binding, Pullback::RayStage<Renderer<>>>;
 template <uint8_t SHELL_COUNT>
 using SpecializedRenderPipeline =
-    Pullback::Pipeline<Binding, Pullback::RayStage<Renderer<true>>>;
+    Pullback::Pipeline<Binding,
+                       Pullback::RayStage<Renderer<true, SHELL_COUNT>>>;
 } // namespace HyperLatticeDetail
 
 /**
