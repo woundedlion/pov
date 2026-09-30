@@ -306,7 +306,7 @@ struct Twist {
 
   /**
    * @brief Maximum possible inflation of the bounding volume.
-   * @return The displacement amplitude (radians of XYZ space).
+   * @return The displacement amplitude in Cartesian length units.
    */
   float bounding_inflation() const { return amplitude; }
 
