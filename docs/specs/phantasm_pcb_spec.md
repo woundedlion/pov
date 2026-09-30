@@ -36,7 +36,7 @@ schematic and layout this document specifies ship in `hardware/phantasm/` and pa
 that project's README lists, but the committed copper does not meet every requirement here:
 the §11.1 hand-solder lands and R-PWR-7's J1 keying are both unmet, each recorded in a
 deviation block beside the requirement it qualifies. §11.2 collects the order/layout items
-owed before fab. `hardware/phantasm/README.md` is the as-built record.
+owed before fab. `hardware/phantasm/1.1/README.md` is the as-built record.
 
 Source of truth for the KiCad schematic + layout of the per-segment carrier board.
 The qualified configuration builds one identical PCB **×4**; a 2-bit solder
@@ -155,7 +155,7 @@ clean to **≥30 MHz** so headroom exists.
   > The generator reserves its full body and uses 1.3 mm drills; this does not
   > repair the shipped board. The assembly gate excludes headers and terminal
   > blocks as hand-soldered. Full as-built detail is in
-  > `hardware/phantasm/README.md`.
+  > `hardware/phantasm/1.1/README.md`.
 - **R-PWR-8 — Per-card overcurrent.** The card's ~0.15 A logic feed wants only a **small fuse/PTC (F1,
   ~0.5–1 A)** at J1, or documentation that it's covered upstream. (Strip overcurrent lives with the
   power harness — §2.3, R-PWR-12.)
@@ -609,7 +609,7 @@ Every other chip passive uses the stock IPC-nominal land; D_BUS uses the Bourns 
 > centres — so the inter-pad gap is **0.450 mm** / **0.425 mm** and copper does reach under the bare
 > ceramic body of a reflow-placed part. `gen/board.py` names the lands this section requires, so a
 > regenerated board would satisfy it; the shipped copper needs a re-place and a re-route to get
-> there. Full as-built geometry is in the lands note in `hardware/phantasm/README.md`.
+> there. Full as-built geometry is in the lands note in `hardware/phantasm/1.1/README.md`.
 
 ### 11.2 Order/layout action items (do before fab)
 
