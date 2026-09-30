@@ -266,6 +266,8 @@ public:
 
   /** @brief Peak transient bytes used by rasterize_run(). */
   static constexpr size_t scratch_a_bytes() {
+    static_assert(PLANAR_CHORD_RASTER_CONFIG.single_pass &&
+                  !PLANAR_CHORD_RASTER_CONFIG.derive_planar_arc_registers);
     return (2 + POLE_RUN_POINTS) * sizeof(Fragment) + 2 * alignof(Fragment);
   }
 
