@@ -197,7 +197,7 @@ sys.exit(0 if lock.update_claim(sys.argv[2], "break", "stale") else 1)
                 recovery = '_hs_break_lock "$D" stale || :; ' if name == "B" else ""
                 body = (f'. "{LOCK_SH}"; D="{self.d}"; echo started; '
                         f'{recovery}_hs_try_claim "$D" COM3 {name} test 60; '
-                        'rc=$?; echo "CLAIM=$rc"; read -r done; exit "$rc"')
+                        'rc=$?; echo "CLAIM=$rc"; exit "$rc"')
                 peer = subprocess.Popen(
                     ["bash", "-c", body], stdin=subprocess.PIPE,
                     stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
@@ -217,7 +217,7 @@ sys.exit(0 if lock.update_claim(sys.argv[2], "break", "stale") else 1)
                 retire.kill()
             retire.communicate(timeout=10)
             for peer in peers:
-                peer.communicate("done\n", timeout=10)
+                peer.communicate(timeout=10)
 
     def test_break_leaves_no_scratch_directory_behind(self):
         self._claim("stale")
