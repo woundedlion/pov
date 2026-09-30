@@ -1706,19 +1706,33 @@ inline void test_composed_periodic_ripple_surface() {
   using FX = RippleProbe<SMALL_W, SMALL_H>;
   static_assert(!FX::HAS_SURFACE_NOISE);
 
-  reset_effect_globals();
-  FX effect;
-  effect.init();
-  HS_EXPECT_TRUE(effect.getParameters().find("Ripple Strength") != nullptr);
-  HS_EXPECT_TRUE(effect.getParameters().find("Ripple Period") != nullptr);
-  effect.draw_frame();
-  effect.advance_display();
-  size_t lit = 0;
-  for (int i = 0; i < SMALL_W * SMALL_H; ++i) {
-    const Pixel &pixel = effect.display_buffer()[i];
-    lit += pixel.r != 0 || pixel.g != 0 || pixel.b != 0;
-  }
-  HS_EXPECT_GT(lit, size_t(0));
+  const auto RENDER = [](float strength) {
+    reset_effect_globals();
+    pin_frame_clock(0);
+    FX effect;
+    effect.init();
+    HS_EXPECT_TRUE(effect.getParameters().find("Ripple Strength") != nullptr);
+    HS_EXPECT_TRUE(effect.getParameters().find("Ripple Period") != nullptr);
+    auto snapshot = effect.serialize_parameters();
+    snapshot.params.surface.strength = strength;
+    HS_EXPECT_TRUE(effect.restore_parameters(snapshot));
+    for (int frame = 0; frame < 20; ++frame) {
+      pin_frame_clock(frame);
+      effect.draw_frame();
+      effect.advance_display();
+    }
+    std::vector<Pixel> pixels;
+    capture_frame<SMALL_W, SMALL_H>(effect, pixels);
+    return pixels;
+  };
+  const auto FLAT = RENDER(0.0f);
+  const auto RIPPLE = RENDER(0.15f);
+  size_t changed = 0;
+  for (size_t i = 0; i < FLAT.size(); ++i)
+    changed += FLAT[i].r != RIPPLE[i].r || FLAT[i].g != RIPPLE[i].g ||
+               FLAT[i].b != RIPPLE[i].b;
+  HS_EXPECT_GT(changed, size_t{0});
+  hs::clear_mock_time();
 }
 
 template <typename SourceT>
