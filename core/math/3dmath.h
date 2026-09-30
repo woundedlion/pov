@@ -485,6 +485,7 @@ private:
  * @return The angle in radians in [-π, π]. Matches std::atan2 except at
  * negative zero: `-0.0f < 0.0f` is false, so `x<0, y==-0.0f` returns +π where
  * std::atan2 gives -π; -π is reached only for strictly negative y.
+ * At the origin it returns π/2.
  * @details Peak abs error ~0.0038 rad (~0.22°), worst near r ~= 0.7 in each
  * octant. That bound holds only for |(x, y)| above ~1e-7: the 1e-10 origin
  * nudge is added to |y| unconditionally, so below that magnitude the result is
