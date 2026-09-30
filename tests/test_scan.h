@@ -19,7 +19,7 @@
  *     thickness of the winning child.
  *   - Filled-shape placement oracles for Star, PlanarPolygon and Flower;
  *     SphericalPolygon's sine-distance framebuffer error; over-operator
- *     compositing of overlapping strokes.
+ *     compositing of overlapping fills.
  *   - Scan::Circle and Scan::Point, the radius-0 ring regime.
  *   - Scan::Volume / TransformedVolume: orthographic ray-march silhouette,
  *     registers, occlusion, and the trace's closest-approach guarantees.
@@ -2410,7 +2410,7 @@ inline void test_spherical_sine_distance_framebuffer_error() {
 }
 
 /**
- * @brief Verifies overlapping strokes composite via the over operator at the
+ * @brief Verifies overlapping fills composite via the over operator at the
  *        shared pixel.
  * @details The 2D sink blends dst.lerp16(src, alpha) = dst*(1-a) + src*a. Two
  *          filled polygons both capping the +Y pole are drawn in order over a
@@ -2421,7 +2421,7 @@ inline void test_spherical_sine_distance_framebuffer_error() {
  *          replacing instead of blending, or doubling coverage) moves the pole
  *          pixel off this composite.
  */
-inline void test_overlapping_strokes_composite_blend() {
+inline void test_overlapping_fills_composite_blend() {
   constexpr int W = 96, H = 64;
   hs_test::StubEffect fx(W, H);
   Pipeline<W, H> pipe;
@@ -3449,7 +3449,7 @@ inline int run_scan_tests() {
   test_flower_pixel_placement();
   test_solid_color_path_matches_generic();
   test_spherical_sine_distance_framebuffer_error();
-  test_overlapping_strokes_composite_blend();
+  test_overlapping_fills_composite_blend();
 
   test_point_draws_the_analytic_cap();
   test_pole_centred_cap_takes_the_full_row_scan();
