@@ -67,9 +67,8 @@ template <typename Query> struct PlacedQuery {
     result.error *= scale;
     return result;
   }
+  /** @brief Samples a placement for which valid() returned true. */
   QuerySample sample(const math::Vector &p) const {
-    if (!valid())
-      return {std::numeric_limits<float>::quiet_NaN(), 0.0f};
     auto result = query.sample(
         math::rotate((p - center) * (1.0f / scale), inverse_rotation));
     result.field *= scale;
@@ -95,10 +94,8 @@ template <typename Query, bool FOUR_DIMENSIONAL> struct DomainQuery {
     if constexpr (requires { query.check_trace_preconditions(); })
       query.check_trace_preconditions();
   }
+  /** @brief Samples a domain for which valid() returned true. */
   QuerySample sample(const math::Vector &p) const {
-    if (!camera.valid() ||
-        (camera.domain == SamplingDomain::SLICE_4D) != FOUR_DIMENSIONAL)
-      return {std::numeric_limits<float>::quiet_NaN(), 0.0f};
     if constexpr (FOUR_DIMENSIONAL)
       return query.sample(camera.point4(p));
     else
