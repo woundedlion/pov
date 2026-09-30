@@ -223,9 +223,9 @@ jobs:
           HS_SKIPS_ARE_ERRORS: &skips_forbidden 1
           HS_BUFFER_FREE_WATCHDOG_US: *deep_smoke_watchdog
           TSAN_OPTIONS: halt_on_error=1
-        run: >
-          ctest --preset tests --output-on-failure --no-tests=error
-          -R "^unit_(canvas|pov_segmented)$"
+        run: |
+          ctest --preset tests --output-on-failure --no-tests=error -R "^unit_canvas$"
+          ctest --preset tests --output-on-failure --no-tests=error -R "^unit_pov_segmented$"
 
   optimized-tests:
     name: Native unit tests (Clang, optimized) / ${{ matrix.flavor }}
