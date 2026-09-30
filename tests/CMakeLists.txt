@@ -294,9 +294,8 @@ add_test(NAME unit_mindsplatter_palette_form COMMAND ${CMAKE_COMMAND}
   -DGENERATED=${CMAKE_CURRENT_BINARY_DIR}/mindsplatter_palette_luts.generated.h
   -P ${CMAKE_CURRENT_SOURCE_DIR}/check_mindsplatter_palette_form.cmake)
 
-# Tolerance pin for the bank mindsplatter_palette_gen emits. Its own TU rather
-# than a run_tests module: the committed bank is 393,216 B of static data no
-# other test reads.
+# Standalone tolerance check for all 393,216 bytes of palette data,
+# with its own error report and provenance gate.
 add_executable(mindsplatter_palette_check
   ${CMAKE_CURRENT_SOURCE_DIR}/mindsplatter_palette_check.cpp
   ${HS_ENGINE_SOURCES})
