@@ -4553,7 +4553,7 @@ inline void test_shader_workbench_projection_catalog() {
                    0);
     HS_EXPECT_NEAR(mapped.coords.re, cut_coords[index].re, 5e-5f);
     HS_EXPECT_NEAR(mapped.coords.im, cut_coords[index].im, 5e-5f);
-    HS_EXPECT_NEAR(mapped.fade_edge_distance, cut_distances[index], 5e-5f);
+    HS_EXPECT_NEAR(mapped.fade_edge_distance, cut_distances[index], 1e-6f);
   }
   for (uint8_t face = 0; face < 23; ++face) {
     const auto &face_center = projections::AIROCEAN_CENTERS[face];
