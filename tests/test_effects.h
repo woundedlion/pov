@@ -2440,8 +2440,10 @@ inline void test_bz_substep_diffuses() {
   int spread = 0;
   for (int k = 0; k < ReactionGraph::RD_K; ++k) {
     int nb = ReactionGraph::neighbors[seed][k];
-    if (nb >= 0 && sA[nb] > 0)
-      ++spread;
+    if (nb >= 0) {
+      HS_EXPECT_GE(sA[nb], BZWhiteBox::advance_species(bz, 0, 0, 1.0f));
+      spread += sA[nb] > 0;
+    }
   }
   HS_EXPECT_GT(spread, 0); // A diffused into at least one empty neighbor
 }
