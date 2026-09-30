@@ -22,6 +22,10 @@ left edge. The outline remains **58.28 x 32 mm**, and all four mounting holes
 retain the rev 1.1 coordinates. The Teensy shifts 3.5 mm left to clear the
 terminal bodies; D_BUS is released for placement outside their keepouts.
 
+Rev 1.2 omits the J4 debug header and SERIAL1_TX connection; Teensy pin 1 is
+unconnected. R_MEN and MASTER_EN remain part of the sync control circuit.
+Probe power directly at the Teensy; diagnostics use its USB connector.
+
 Replace the uploaded files in Quilter with this complete revision pair and
 confirm all four connectors appear inside the outline as pre-placed parts.
 [Quilter preserves their positions and rotations](https://docs.quilter.ai/design-parameters/pre-placed-components).
