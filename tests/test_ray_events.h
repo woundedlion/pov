@@ -119,7 +119,7 @@ inline void test_failure_status_survives_flush() {
 
 inline int run_ray_event_tests() {
   const auto MODULE = hs_test::begin_module("ray_events");
-  cellular_wire_tests::run();
+  cellular_wire_tests::run_cellular_wire_cases();
   lattice_trace_tests::run_lattice_trace_cases();
   test_single_group_capacity();
   test_failure_status_survives_flush();

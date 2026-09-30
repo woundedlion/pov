@@ -132,7 +132,7 @@ inline void test_traversal() {
   }
 }
 
-inline void run() {
+inline void run_cellular_wire_cases() {
   test_geometry();
   test_box_slabs();
   test_traversal();
