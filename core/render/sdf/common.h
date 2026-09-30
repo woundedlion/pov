@@ -731,7 +731,7 @@ inline CapBounds cap_bounds(const math::Vector &axis, float radius,
  * @brief Emit the single horizontal interval where a row crosses a great-circle
  * "cap" of half-angle `acos(cos_cap)` centred on an axis whose projection onto
  * the scan plane is (ny, r_val, alpha_angle). Shared by PlanarPolygon /
- * SphericalPolygon / Star, whose scanline math is otherwise identical.
+ * SphericalPolygon / Star / Flower / Line.
  *
  * @tparam W Canvas width in columns.
  * @tparam OutputIt Sink type invoked as out(float start, float end).
@@ -788,7 +788,7 @@ inline bool emit_cap_interval(float cos_cap, float ny, float r_val,
  * @return False to request a full-width fallback scan, true if the (possibly
  *         empty) interval was handled.
  * @details The complement wraps every row, so sign < 0 always requests the full
- * scan. Shared by PlanarPolygon / SphericalPolygon / Star.
+ * scan. Shared by PlanarPolygon / SphericalPolygon / Star / Flower / Line.
  */
 template <int W, int H, typename OutputIt>
 inline bool emit_padded_cap_row(float sign, float cos_cap, float sin_cap,
