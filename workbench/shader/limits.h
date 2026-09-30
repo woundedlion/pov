@@ -29,6 +29,7 @@ inline constexpr float CURL_WARP_SCALE_MAX = 2.0f;
 inline constexpr float CURL_WARP_STRENGTH_MAX = 1.0f;
 inline constexpr float CURL_VECTOR_COMPONENT_MAX =
     Pullback::Warp::CURL_VECTOR_COMPONENT_MAX;
+inline constexpr float WARP_EDGE_WIDTH_MAX = 0.5f;
 inline constexpr float AFFINE_TRANSLATION_MAX = 4.0f;
 inline constexpr float AFFINE_SCALE_MIN = 0.25f;
 inline constexpr float AFFINE_SCALE_MAX = 4.0f;
@@ -128,6 +129,11 @@ inline constexpr float PROJECTION_LAYOUT_SCROLL_MIN = -1.0f;
 inline constexpr float PROJECTION_LAYOUT_SCROLL_MAX = 1.0f;
 inline constexpr float SURFACE_NOISE_STRENGTH_MIN = -0.5f;
 inline constexpr float SURFACE_NOISE_STRENGTH_MAX = 0.5f;
+
+inline constexpr float surface_noise_strength_min(SurfaceNoise slot) {
+  return slot == SurfaceNoise::CURL ? SURFACE_NOISE_STRENGTH_MIN : 0.0f;
+}
+
 inline constexpr float SURFACE_NOISE_DIRECTION_MIN = 0.0f;
 inline constexpr float SURFACE_NOISE_DIRECTION_MAX = 1.0f;
 inline constexpr float VALUE_ISO_LEVEL_MIN = 0.0f;
@@ -220,20 +226,23 @@ warp_stage_params_in_ranges(WarpStageKind kind, const WarpStageParams &params) {
            params.frequency >= WAVE_FREQUENCY_MIN &&
            params.frequency <= WAVE_FREQUENCY_MAX &&
            params.field_angle >= 0.0f && params.field_angle <= math::TWO_PI_F &&
-           params.edge_width >= SOFTNESS_MIN && params.edge_width <= 0.5f;
+           params.edge_width >= SOFTNESS_MIN &&
+           params.edge_width <= WARP_EDGE_WIDTH_MAX;
   case WarpStageKind::VECTOR_NOISE:
     return params.scale >= WARP_SCALE_MIN &&
            params.scale <= VECTOR_WARP_SCALE_MAX && params.strength >= 0.0f &&
            params.strength <= VECTOR_WARP_STRENGTH_MAX &&
            params.vector_angle >= 0.0f &&
            params.vector_angle <= math::TWO_PI_F &&
-           params.edge_width >= SOFTNESS_MIN && params.edge_width <= 0.5f;
+           params.edge_width >= SOFTNESS_MIN &&
+           params.edge_width <= WARP_EDGE_WIDTH_MAX;
   case WarpStageKind::CURL_FLOW:
     return params.scale >= WARP_SCALE_MIN &&
            params.scale <= CURL_WARP_SCALE_MAX &&
            params.strength >= -CURL_WARP_STRENGTH_MAX &&
            params.strength <= CURL_WARP_STRENGTH_MAX &&
-           params.edge_width >= SOFTNESS_MIN && params.edge_width <= 0.5f;
+           params.edge_width >= SOFTNESS_MIN &&
+           params.edge_width <= WARP_EDGE_WIDTH_MAX;
   case WarpStageKind::VORTEX:
     return params.center_x >= -VORTEX_CENTER_MAX &&
            params.center_x <= VORTEX_CENTER_MAX &&

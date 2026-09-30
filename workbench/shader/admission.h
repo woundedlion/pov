@@ -83,7 +83,7 @@ affine_has_translation(const WarpStageSpec &spec,
 }
 
 HS_COLD_MEMBER inline constexpr bool whole_affine_winding(float value) {
-  if (!(value >= -4.0f && value <= 4.0f))
+  if (!(value >= -AFFINE_TRANSLATION_MAX && value <= AFFINE_TRANSLATION_MAX))
     return false;
   return value == static_cast<float>(static_cast<int>(value));
 }
@@ -194,18 +194,9 @@ valid_config(const RequestedConfig &candidate) {
   if (slots.surface_lens == SurfaceLens::MOBIUS &&
       !valid_mobius(candidate.params.surface_lens.mobius))
     return false;
-  const SurfaceNoiseParams &surface_noise = candidate.params.surface_noise;
-  if (!enum_at_most(surface_noise.basis, math::NoiseBasis::RIDGED3) ||
-      !enum_at_most(surface_noise.integrator,
-                    SurfaceCurlIntegrator::MIDPOINT_2X) ||
-      (slots.surface_noise != SurfaceNoise::NONE &&
-       (surface_noise.scale < LENS_NOISE_SCALE_MIN ||
-        surface_noise.scale > LENS_NOISE_SCALE_MAX ||
-        surface_noise.strength <
-            (slots.surface_noise == SurfaceNoise::CURL ? -0.5f : 0.0f) ||
-        surface_noise.strength > 0.5f || surface_noise.rate < NOISE_RATE_MIN ||
-        surface_noise.rate > NOISE_RATE_MAX || surface_noise.direction < 0.0f ||
-        surface_noise.direction > 1.0f)))
+  if (slots.surface_noise != SurfaceNoise::NONE &&
+      candidate.params.surface_noise.strength <
+          surface_noise_strength_min(slots.surface_noise))
     return false;
   return true;
 }
