@@ -173,13 +173,11 @@ concept PipelineFoldSurface = requires {
   requires std::is_same_v<decltype(T::total_segment_margin), const int>;
 };
 
-/** @brief Lifecycle shared by owning pipelines and direct sinks. */
+/** @brief Arena storage initialization shared by pipelines and direct sinks. */
 template <typename T>
-concept PipelineLifecycleSurface =
-    PipelineFoldSurface<T> && requires(T &sink, Arena &arena, Canvas &canvas) {
-      sink.init_storage(arena);
-      sink.prepare(canvas);
-    };
+concept PipelineStorageSurface =
+    PipelineFoldSurface<T> &&
+    requires(T &sink, Arena &arena) { sink.init_storage(arena); };
 
 /**
  * @brief Probe callable for the has_world_cull detection below.
@@ -457,9 +455,6 @@ public:
   /** @brief Terminates the recursive arena-storage walk. */
   void init_storage(Arena &) {}
 
-  /** @brief Prepares a stateless pipeline for the current canvas. */
-  void prepare(Canvas &) {}
-
 private:
   /** @brief Terminates the recursive screen-trail flush walk. */
   void flush_stages(Canvas &, const ScreenTrailFn &, float) {}
@@ -631,9 +626,6 @@ struct Pipeline<W, H, Head, Tail...>
       Head::init_storage(arena);
     next.init_storage(arena);
   }
-
-  /** @brief Prepares the pipeline for the current canvas. */
-  void prepare(Canvas &canvas) { next.prepare(canvas); }
 
   /** @brief Plots at pixel coordinates through the prepared pipeline. */
   void plot(Canvas &cv, float x, float y, const ::Pixel &c, float age,
