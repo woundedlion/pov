@@ -13,6 +13,7 @@
 #pragma once
 
 #include <array>
+#include <vector>
 
 #include "core/control/choreography.h"
 #include "core/control/params.h"
@@ -264,6 +265,13 @@ inline void test_preset_saturation_veto_restarts_dwell() {
 }
 
 struct FadePresetEffect : ChoreographedEffect<FadePresetEffect, HoldParams> {
+  using Origin = PresetChangeOrigin;
+  struct Notification {
+    PresetChange change;
+    size_t visible_index;
+    bool active;
+    float opacity;
+  };
   static constexpr std::array<std::string_view, 2> PRESET_IDS{"first",
                                                               "second"};
   static constexpr uint16_t PRESET_DWELL_FRAMES = 40;
@@ -278,10 +286,83 @@ struct FadePresetEffect : ChoreographedEffect<FadePresetEffect, HoldParams> {
   bool attempt() { return advance_preset(); }
   void progress(float value) { run_transition(value); }
   void cancel() { parameter_written(); }
+  void edit(float value) {
+    params.value = value;
+    parameter_written();
+  }
   void set_preset_opacity(float value) { opacity = value; }
+  void preset_changed(const PresetChange &change) override {
+    notifications.push_back(
+        {change, getPresetIndex(), transition.active, opacity});
+    if (cancel_from_notification)
+      cancel();
+  }
   float value() const { return params.value; }
   float opacity = 1.0f;
+  bool cancel_from_notification = false;
+  std::vector<Notification> notifications;
 };
+
+inline void test_cancelled_fade_notifies_committed_index() {
+  enum class Cancel { EDIT, RESTORE, MANUAL_FROM, MANUAL_TO, SYNCHRONIZED };
+  for (const bool adopted : {false, true}) {
+    for (const Cancel action :
+         {Cancel::EDIT, Cancel::RESTORE, Cancel::MANUAL_FROM, Cancel::MANUAL_TO,
+          Cancel::SYNCHRONIZED}) {
+      hs_test::reset_globals();
+      FadePresetEffect effect;
+      effect.arm();
+      HS_EXPECT_TRUE(effect.attempt());
+      effect.progress(adopted ? 0.5f : 0.25f);
+      HS_EXPECT_EQ(effect.notifications.size(), size_t{1});
+      const bool REPLACEMENT = action == Cancel::MANUAL_FROM ||
+                               action == Cancel::MANUAL_TO ||
+                               action == Cancel::SYNCHRONIZED;
+      const size_t INDEX =
+          REPLACEMENT ? size_t(action == Cancel::MANUAL_TO) : size_t(adopted);
+      float expected_value = float(INDEX + 1);
+      switch (action) {
+      case Cancel::EDIT:
+        effect.cancel_from_notification = true;
+        effect.edit(3.0f);
+        expected_value = 3.0f;
+        break;
+      case Cancel::RESTORE:
+        HS_EXPECT_TRUE(effect.restore_parameters({1, {4.0f}}));
+        expected_value = 4.0f;
+        break;
+      case Cancel::MANUAL_FROM:
+      case Cancel::MANUAL_TO:
+        HS_EXPECT_TRUE(effect.selectPreset(INDEX));
+        break;
+      case Cancel::SYNCHRONIZED:
+        HS_EXPECT_TRUE(effect.synchronizePreset(INDEX));
+        break;
+      }
+      const size_t COUNT = REPLACEMENT || !adopted ? 2 : 1;
+      HS_EXPECT_EQ(effect.notifications.size(), COUNT);
+      if (COUNT == 2 && effect.notifications.size() == COUNT) {
+        const auto &notification = effect.notifications.back();
+        HS_EXPECT_EQ(notification.change.from, size_t{1});
+        HS_EXPECT_EQ(notification.change.to, INDEX);
+        const auto ORIGIN = action == Cancel::SYNCHRONIZED
+                                ? FadePresetEffect::Origin::SYNCHRONIZED
+                            : REPLACEMENT ? FadePresetEffect::Origin::MANUAL
+                                          : FadePresetEffect::Origin::AUTOMATIC;
+        HS_EXPECT_TRUE(notification.change.origin == ORIGIN);
+        HS_EXPECT_EQ(notification.visible_index, INDEX);
+        HS_EXPECT_FALSE(notification.active);
+        HS_EXPECT_EQ(notification.opacity, 1.0f);
+      }
+      effect.cancel();
+      effect.progress(1.0f);
+      HS_EXPECT_EQ(effect.notifications.size(), COUNT);
+      HS_EXPECT_EQ(effect.getPresetIndex(), INDEX);
+      HS_EXPECT_EQ(effect.value(), expected_value);
+      HS_EXPECT_EQ(effect.opacity, 1.0f);
+    }
+  }
+}
 
 inline void test_cancelled_fade_names_visible_preset() {
   hs_test::reset_globals();
@@ -337,6 +418,7 @@ inline int run_presets_tests() {
   test_preset_saturation_veto_restarts_dwell();
   test_preset_crossfade_rejects_rearming();
   test_cancelled_fade_names_visible_preset();
+  test_cancelled_fade_notifies_committed_index();
   test_cancelled_crossfade_event_cannot_step_replacement();
 
   return fixture.result();

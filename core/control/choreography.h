@@ -187,7 +187,7 @@ protected:
         derived().transition_armed(target);
       return true;
     }
-    end_transition();
+    end_transition(false);
     derived().adopt_params(target);
     preset_dwell_remaining = Derived::PRESET_DWELL_FRAMES;
     return true;
@@ -293,14 +293,23 @@ private:
 #endif
   }
 
-  /** @brief Cancels any in-flight transition, restoring a fade's opacity. */
-  void end_transition() {
-    if (transition.active && transition.fades) {
-      if (!transition.adopted)
-        preset_index = transition.from_index;
-      set_opacity(1.0f);
-    }
+  /** @brief Cancels any in-flight transition, restoring a fade's opacity.
+   * @param restore_preset Restore an unadopted fade's index and notify observers;
+   *        false when a replacement preset will commit its own notification.
+   */
+  void end_transition(bool restore_preset = true) {
+    const bool FADING = transition.active && transition.fades;
+    const bool RESTORE = FADING && !transition.adopted && restore_preset &&
+                         preset_index != transition.from_index;
+    const PresetChange change{preset_index, transition.from_index,
+                              PresetChangeOrigin::AUTOMATIC};
     transition.active = false;
+    if (RESTORE)
+      preset_index = change.to;
+    if (FADING)
+      set_opacity(1.0f);
+    if (RESTORE)
+      preset_changed(change);
   }
 
   /** @brief Preset count: `PRESET_IDS` when present, else the `PRESETS`
