@@ -169,11 +169,10 @@ loop; this removes nine of twelve divides.
 
 ### 3.5 Colour mode and premultiplied finish
 
-Template the shader on `ColorMode` and dispatch once per frame next to the
-existing 3D/4D dispatch, so the DEPTH instantiation carries no feature
-divide or conversion. Have the compositor return premultiplied colour so the
-scan loop does not un-premultiply with a divide and three rounds and then
-re-premultiply with three more. Rounding once instead of twice can move a
+The shader uses runtime colour-mode selection within the 3D/4D dispatch.
+The compositor returns premultiplied colour, so the scan loop does not
+un-premultiply with a divide and three rounds and then re-premultiply with
+three more. Rounding once instead of twice can move a
 channel by one code value; the existing rendering oracle tolerance of two
 code values covers it.
 
