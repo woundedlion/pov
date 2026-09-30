@@ -241,9 +241,6 @@ value_cutout(float value, float threshold, float width) {
  * @brief Value-dependent coverage cut for Stage::ApplyCoverage.
  * @details Reads the current FIELD value and nothing else, so a chain may
  * legally place it before, between, or after transfers.
- */
-/**
- * @brief ValueCutout material policy.
  * @tparam State Provider with Binding and FrameState types and
  * cutout_threshold(frame), cutout_softness(frame) accessors.
  */
