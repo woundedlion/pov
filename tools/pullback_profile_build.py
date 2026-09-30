@@ -1,11 +1,9 @@
 """Inject the profile image's Git SHA into pullback telemetry."""
 
-# ruff: noqa: F821
-
 import subprocess
 
 
-Import("env")  # noqa: F821
+Import("env")
 
 if env["PIOENV"] in ("profile", "profile_o3"):
     project_dir = env["PROJECT_DIR"]
