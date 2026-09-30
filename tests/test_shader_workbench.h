@@ -131,21 +131,6 @@ struct ShaderWorkbenchWhiteBox {
              "ShaderWorkbench test preset resources must fit");
     return sb.prepare_frame(preset, sb.runtime);
   }
-  static Color4 sinusoidal_curl_shade(const math::Vector &view,
-                                      const FrameState &frame) {
-    using Pipeline = Workbench::SinusoidalLatticeMeltPipeline;
-    const typename Pipeline::PreparedTuple prepared =
-        Pipeline::prepare_stages(frame);
-    return Pipeline::shade_prepared(view, frame, &prepared);
-  }
-  static Color4 stereographic_dodecahedral_grid_shade(const math::Vector &view,
-                                                      const FrameState &frame) {
-    using Pipeline =
-        Workbench::StereographicDodecahedralGridInnerMirrorPipeline;
-    const typename Pipeline::PreparedTuple prepared =
-        Pipeline::prepare_stages(frame);
-    return Pipeline::shade_prepared(view, frame, &prepared);
-  }
   /**
    * @brief Frame snapshot for an arbitrary config, bypassing GUI admission.
    * @details Kernel coverage sweeps combinations the authored roster does not
@@ -196,11 +181,6 @@ struct ShaderWorkbenchWhiteBox {
              {0.0f, 1.0f, 0.0f},
              {0.25f},
              {}}};
-  }
-  static void request_slots(SB &sb, const Slots &slots) {
-    sb.requested_config.slots = slots;
-    sb.requested_schema_bound = false;
-    sb.apply_requested_config();
   }
   static Slots requested_slots(const SB &sb) {
     return sb.requested_config.slots;
@@ -291,12 +271,6 @@ struct ShaderWorkbenchWhiteBox {
   static const RequestedConfig &transition_from_config(const SB &sb) {
     return sb.state->transition.from_config;
   }
-  static const RequestedConfig &transition_to_config(const SB &sb) {
-    return sb.state->transition.to_config;
-  }
-  static bool transition_continues_choreo(const SB &sb) {
-    return sb.state->transition.continue_choreo;
-  }
   static uint16_t transition_elapsed(const SB &sb) {
     return sb.state->transition.elapsed;
   }
@@ -323,7 +297,6 @@ struct ShaderWorkbenchWhiteBox {
     sb.state->transition.to_pipeline =
         to_program == nullptr ? InversePipelineId::NONE : to_program->id;
   }
-  static const EndpointRuntime &runtime(const SB &sb) { return sb.runtime; }
   static math::Quaternion projection_walk(const SB &sb) {
     return sb.projection_walk.get();
   }
@@ -709,21 +682,9 @@ struct ShaderWorkbenchWhiteBox {
                                     const FrameState &frame) {
     return Workbench::apply_surface_noise(v, frame);
   }
-  static math::Vector surface_curl_field(const math::Vector &v,
-                                         const FrameState &frame) {
-    return Workbench::surface_curl_field(v, frame);
-  }
   static math::Vector dodecahedral_reference(const math::Vector &v) {
     return lenses::polyhedral_kaleidoscope_lens(v,
                                                 lenses::DODECAHEDRAL_MIRRORS);
-  }
-  static float sample_function(Function function, const math::Complex &p,
-                               const SourceState &source) {
-    return Workbench::sample_function(function, p, source);
-  }
-  static float grid(const math::Complex &p, const SourceParams &params,
-                    const SourceState &source) {
-    return Workbench::grid(p, params, source);
   }
   static constexpr auto presets() {
     std::array<RequestedConfig, Workbench::PRESETS.size()> configs{};
