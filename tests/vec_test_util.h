@@ -3,8 +3,7 @@
  * Licensed under the PolyForm Noncommercial License 1.0.0
  *
  * Geodesic arc-distance oracle, tolerant-equality predicates, and assertions for Vector,
- * Quaternion and Complex — the 3dmath, geometry, sdf, spatial, effects and
- * reaction_graph suites all assert on these types.
+ * Quaternion and Complex.
  */
 #pragma once
 
