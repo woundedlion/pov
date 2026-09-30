@@ -40,6 +40,10 @@ done
 if [ -z "$PY" ]; then
   exit 0
 fi
+if ! "$PY" -c 'import sys; sys.exit(sys.version_info < (3, 11))'; then
+  echo "[post-commit] Python 3.11 or newer is required; size trail not updated (set HS_PYTHON)."
+  exit 0
+fi
 
 "$PY" "$TRAIL" commit --pending "$PENDING" --trail "$COMMON/teensy-size-trail.tsv" \
   || echo "[post-commit] size trail not updated — continuing."
