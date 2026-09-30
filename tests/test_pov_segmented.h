@@ -1251,6 +1251,31 @@ inline void test_sync_pulse_render_without_pulse_is_silent() {
   HS_EXPECT_FALSE(g.take_deferred_low());
 }
 
+inline void test_sync_pulse_resubmit_defers_low() {
+  SyncPinTrace t;
+  SubmitGate submit_gate;
+  EffectHandoff<WakeEffect> handoff;
+  WakeEffect effect;
+  handoff.publish(&effect, 1u);
+  handoff.apply_wake({.commit = true, .wire_gen = 1u});
+  submit_gate.settle(SubmitAction::COLUMN, false);
+  pov::run_wake_sequence(
+      t.gate, submit_gate, handoff,
+      [] { return WakeActions{.pulse = true, .render_column = -1}; },
+      [] { return 1u; }, [&t](bool level) { t.drive(level); }, [] {},
+      [](WakeEffect *, int32_t) {},
+      [](SubmitAction action, WakeEffect *, int32_t) {
+        HS_EXPECT_EQ(action, SubmitAction::RESUBMIT);
+        return true;
+      });
+  HS_EXPECT_FALSE(submit_gate.resubmit_pending());
+  HS_EXPECT_TRUE(t.high);
+  HS_EXPECT_TRUE(t.gate.low_deferred());
+  t.wake(false, false);
+  HS_EXPECT_FALSE(t.high);
+  HS_EXPECT_EQ(t.writes.size(), static_cast<size_t>(2));
+}
+
 /**
  * @brief Module entry point: run the segmented-POV cases.
  * @return Number of failures recorded by the module.
@@ -1288,6 +1313,7 @@ inline int run_pov_segmented_tests() {
   test_sync_pulse_deferred_across_wake_boundary();
   test_sync_pulse_deferred_drop_precedes_next_pulse();
   test_sync_pulse_render_without_pulse_is_silent();
+  test_sync_pulse_resubmit_defers_low();
 
   // Full-canvas tiling across representative rotation columns, including the
   // x=0 and x=w/2 frame boundaries and the wrap seam.
