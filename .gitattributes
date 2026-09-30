@@ -3,6 +3,4 @@
 docs/screenshots/** binary
 tools/teensy_gate_tests/fixtures/real/** -whitespace
 
-docs/profiles/review20260924finding2/deferred-finding2.patch -whitespace
-
 docs/profiles/evidence/face_aa_2026-09-28/candidate.patch -whitespace
