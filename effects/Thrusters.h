@@ -279,8 +279,7 @@ private:
     math::Basis basis = math::make_basis(ctx.orientation.get(), ctx.point);
     auto fragment_shader = [this, opacity](const math::Vector &, Fragment &f) {
       f.color = Color4(CRGB(255, 255, 255));
-      // Opacity drives both color and alpha (a quadratic edge falloff) for the
-      // alpha-blended thruster fade.
+      // Opacity scales both color and alpha, so the lifetime fade is quadratic.
       f.color.color = f.color.color * opacity;
       f.color.alpha = opacity * params.alpha;
     };
