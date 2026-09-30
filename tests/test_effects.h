@@ -2133,7 +2133,7 @@ struct BZWhiteBox {
       math::Vector v = grid.at(x, i);
       float tw = 0, wa = 0, wb = 0, wc = 0;
       for (int j = 0; j < BZ::RD_K + 1; ++j)
-        BZ::with_wendland_weight(BZ::dist2(v, spos[j]), [&](float w) {
+        BZ::with_biweight_weight(BZ::dist2(v, spos[j]), [&](float w) {
           wa += sa[j] * w;
           wb += sb[j] * w;
           wc += sc[j] * w;
