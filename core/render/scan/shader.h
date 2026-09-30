@@ -54,6 +54,8 @@ struct Shader {
    * offsets from the calibrated integer-pixel lookup tables.
    */
   template <int W, int H> struct SsaaGrid {
+    static constexpr int WIDTH = W;  /**< Column lookup-table extent. */
+    static constexpr int HEIGHT = H; /**< Row lookup-table extent. */
     /** @brief Sub-pixel samples per pixel supplied by the 2×2 grid. */
     static constexpr int SAMPLES = 4;
 

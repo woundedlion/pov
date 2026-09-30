@@ -188,6 +188,7 @@ protected:
   /**
    * @brief Refines a cubemap-LUT seed to the nearest node, skipping the
    *        six-neighbor walk when the seed is provably already nearest.
+   * @tparam Compact Decode neighbors from the indexed run table.
    * @param rv Query direction (unit vector on the sphere).
    * @param nodes Node positions in the same frame as `rv`, indexed by node id.
    * @param seed Seed node id from the cubemap LUT.
@@ -199,6 +200,7 @@ protected:
    * polar band carries its own, smaller certificate because the Fibonacci
    * lattice packs those nodes far tighter than D_AVG.
    */
+  template <bool Compact = false>
   HS_O3_FN static int refine_render_center(const math::Vector &rv,
                                            const math::Vector *nodes,
                                            int seed) {
@@ -209,7 +211,7 @@ protected:
     if (best_d2 < safe_d2)
       return seed;
     int best = seed;
-    for_each_neighbor(seed, [&](int ni) {
+    for_each_neighbor<Compact>(seed, [&](int ni) {
       float d = dist2(rv, nodes[ni]);
       if (d < best_d2) {
         best_d2 = d;
@@ -471,15 +473,24 @@ protected:
 
   /**
    * @brief Invokes `fn(ni)` for each of the RD_K neighbor indices of `node`.
+   * @tparam Compact Decode neighbors from the indexed run table.
    * @tparam Fn Callable accepting a neighbor node id.
    * @param node Center node id whose neighbors are visited.
    * @param fn Callable invoked once per neighbor index.
    * @details Reads all RD_K slots unguarded: the lattice is full-degree, with
    * every slot a valid node index (verified at init_lattice).
    */
-  template <typename Fn> static void for_each_neighbor(int node, Fn &&fn) {
-    for (int k = 0; k < RD_K; ++k)
-      fn(ReactionGraph::neighbors[node][k]);
+  template <bool Compact = false, typename Fn>
+  static void for_each_neighbor(int node, Fn &&fn) {
+    if constexpr (Compact) {
+      const auto &run =
+          ReactionGraph::neighbor_runs[ReactionGraph::neighbor_run_index[node]];
+      for (int k = 0; k < RD_K; ++k)
+        fn(node + run.delta[k]);
+    } else {
+      for (int k = 0; k < RD_K; ++k)
+        fn(ReactionGraph::neighbors[node][k]);
+    }
   }
 
   /**
