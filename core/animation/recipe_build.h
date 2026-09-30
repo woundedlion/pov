@@ -885,10 +885,7 @@ protected:
     {
       ScratchScope a_guard(scratch_arena_a);
       slot.clear();
-      // The seed the closing compile reads is evacuated to scratch and never
-      // restored; the compiled slot is the only form the effect renders. It is
-      // dropped again before the classification, which needs scratch_arena_b in
-      // full.
+      // The closing seed borrows scratch until the compiled slot owns the result.
       {
         ScratchScope seed_guard(scratch_arena_b);
         PolyMesh built;
