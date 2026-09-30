@@ -39,6 +39,8 @@ struct PreparedTrace {
 inline PreparedTrace prepare(const Settings &settings, const math::Vec4 &origin,
                              const math::Mat4 &embedding, float far_distance,
                              float pixel_half_angle) {
+  HS_CHECK(static_cast<uint8_t>(settings.shells) < MAX_SHELLS,
+           "lattice shell count exceeds crossing capacity");
   const float INV_CELL = 1.0f / settings.cell_size;
   PreparedTrace result{settings,
                        origin,
@@ -263,6 +265,7 @@ trace_plane(const math::Vec4 &ray_origin, const math::Vec4 &direction,
 
 /** @brief Approximate plane-crossing coverage for cubic and hypercubic edges. */
 template <bool SLICE_4D = false, uint8_t FIXED_SHELL_COUNT = 0> struct Events {
+  static_assert(FIXED_SHELL_COUNT <= MAX_SHELLS);
   static constexpr size_t STREAM_COUNT = DIMENSIONS;
   static constexpr size_t GROUP_CAPACITY = 1;
   /** @brief Stream state; float fields are read only while active. */
@@ -341,6 +344,7 @@ template <bool SLICE_4D, uint8_t SHELLS>
 __attribute__((always_inline)) inline LayerComposite
 composite_crossings(const math::Vector &normal,
                     const PreparedShading &prepared) {
+  static_assert(SHELLS <= MAX_SHELLS);
   HS_PROFILE_DEEP(hl_shade);
   using SDF::Lattice::DIRECTION_EPSILON;
   constexpr float RELATIVE_TOLERANCE = 1.0e-4f;
