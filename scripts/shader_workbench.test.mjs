@@ -1,3 +1,8 @@
+import { spawnSync } from 'node:child_process';
+import { mkdtempSync, writeFileSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { createHash } from 'node:crypto';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -1152,12 +1157,6 @@ test('document exports sort integer-like metadata keys lexically', () => {
   assert.ok(output.indexOf('"10": 10') < output.indexOf('"2": 2'));
   assert.deepEqual(JSON.parse(output).study_metadata, document.study_metadata);
 });
-
-import { spawnSync } from 'node:child_process';
-import { mkdtempSync, writeFileSync, rmSync } from 'node:fs';
-import { tmpdir } from 'node:os';
-import { join } from 'node:path';
-import { fileURLToPath } from 'node:url';
 
 const cli = fileURLToPath(new URL('./shader_workbench_cli.mjs', import.meta.url));
 const document = fileURLToPath(new URL('../patterns/example.shader.json', import.meta.url));
