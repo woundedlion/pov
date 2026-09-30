@@ -276,6 +276,8 @@ struct DistortedRingStack {
         int b1 = static_cast<int>(std::min(math::PI_F, p1) * bin_scale);
         if (b1 > Table::BINS - 1)
           b1 = Table::BINS - 1;
+        if (b0 > b1)
+          continue;
         // Rings arrive in ascending order: the first to reach a cell sets its
         // lo (255 until then), the latest its hi.
         typename Table::Range *cell = &table.cells[b0 * C + c];
