@@ -15,7 +15,7 @@ trap 'rm -f "$STAGED_BLOB"' EXIT INT TERM
 # straight into one hides its status behind the linter's, so a path the index
 # cannot produce lints as empty input and passes.
 extract_staged() {
-  if ! git show ":$1" >"$STAGED_BLOB"; then
+  if ! GIT_INDEX_FILE="$INDEX_PATH" git show ":$1" >"$STAGED_BLOB"; then
     echo "[pre-commit] cannot read staged $1 from the index."
     exit 1
   fi

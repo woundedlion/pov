@@ -112,6 +112,23 @@ class PreCommitHook(unittest.TestCase):
         self.assertNotEqual(done.returncode, 0)
         self.assertIn("SNAPSHOT_FORMAT_GATE", done.stdout + done.stderr)
 
+    def test_python_lints_temporary_commit_indexes(self):
+        if shutil.which("ruff") is None:
+            self.skipTest("ruff unavailable")
+        source = self.repo / "sample.py"
+        source.write_bytes(b"value = 1\n")
+        self.git("add", "sample.py")
+        self.git("commit", "--quiet", "-m", "source")
+        self.git("config", "core.hooksPath", HOOK.parent.as_posix())
+        source.write_bytes(b"import os\n")
+        for args in [("-a",), ("--", "sample.py")]:
+            with self.subTest(args=args):
+                done = subprocess.run(
+                    ["git", "-C", str(self.repo), "commit", "-m", "invalid", *args],
+                    env=self.env, capture_output=True, text=True, check=False)
+                self.assertNotEqual(done.returncode, 0)
+                self.assertIn("F401", done.stdout + done.stderr)
+
     def test_documentation_reads_the_index(self):
         readme = self.repo / "README.md"
         readme.write_bytes(b"BROKEN\n")
