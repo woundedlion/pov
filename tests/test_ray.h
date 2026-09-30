@@ -161,6 +161,8 @@ inline void test_placement_and_shapes() {
   auto result = Raycast::surface_search(PLACED, RAY, {});
   HS_EXPECT_TRUE(result.status == Raycast::TraceStatus::SURFACE);
   HS_EXPECT_NEAR(result.contribution.t, 3.0f, 1e-4f);
+  HS_EXPECT_NEAR(PLACED.sample(math::Vector()).field, 3.0f, 1e-6f);
+  HS_EXPECT_NEAR(PLACED.sample(math::Vector(5, 0, 0)).field, -2.0f, 1e-6f);
   PLACED.scale = 0.0f;
   HS_EXPECT_TRUE(!PLACED.valid());
   result = Raycast::surface_search(PLACED, RAY, {});
