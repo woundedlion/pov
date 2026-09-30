@@ -62,9 +62,9 @@
         "wasm-release": { "96x20": 2099, "288x144": 2189 },
         "wasm-strict-fp": { "96x20": 2099, "288x144": 2188 }
       },
-      "accepted_limit": 5400,
+      "accepted_limit": 3066,
       "unit": "16-bit channel code",
-      "limit_provenance": "color-stage maximum bounds framebuffer channels",
+      "limit_provenance": "worst recorded configuration/resolution baseline 2810 plus 256 channel codes of margin (3066)",
       "measurement_provenance": "repo-owned native Debug capture with the composed AlienBrain bank plus release/strict-FP WASM captures at base_sha, both roster resolutions and named preset-6/7/10 probes"
     }
   ]
