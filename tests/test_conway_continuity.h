@@ -1610,9 +1610,10 @@ inline StrapSweepStats check_strap_crossfade_arrivals(uint32_t epoch,
   Arena resolve_arena(cc_temp_buf, sizeof(cc_temp_buf));
 
   StrapSweepStats st;
-  std::array<int, PALETTES> prev_display{};
+  std::array<int, PALETTES> prev_display = Probe::palette_idx(fx);
   bool prev_used[PALETTES] = {};
-  bool have_prev = false;
+  for (const auto topology : Probe::mesh(fx).topology)
+    prev_used[MeshPaletteBank::slot_of(topology)] = true;
   int prev_node = Probe::node(fx);
 
   for (int frame = 0; frame < frame_cap && st.arrivals < target_arrivals;
@@ -1675,7 +1676,7 @@ inline StrapSweepStats check_strap_crossfade_arrivals(uint32_t epoch,
         expect_color_eq(strap_by_slot[s]->get(RAMP_SAMPLES[k]),
                         bank.entries[idx[s]].get(RAMP_SAMPLES[k]));
 
-      if (have_prev && prev_used[s]) {
+      if (prev_used[s]) {
         // Continuity across the cycle start: the slot's straps open on the
         // color the slot displayed when the previous cycle closed.
         HS_EXPECT_EQ(from[s], prev_display[s]);
@@ -1727,7 +1728,6 @@ inline StrapSweepStats check_strap_crossfade_arrivals(uint32_t epoch,
     prev_display = idx;
     for (int s = 0; s < PALETTES; ++s)
       prev_used[s] = star[s] || strap[s];
-    have_prev = true;
 
     if (hs_test::stats().failed != failed_before)
       std::printf("    [strap-crossfade] epoch %u arrival %d at '%s' broke\n",
