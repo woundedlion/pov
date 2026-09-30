@@ -278,6 +278,8 @@ verify_family_rejection(FX &effect,
       typename FX::ParameterSnapshot snapshot = captured;
       (snapshot.params.*slot).*(field.member) = poison;
       HS_EXPECT_FALSE(effect.restore_parameters(snapshot));
+      verify_params_equal(effect.serialize_parameters().params,
+                          captured.params);
     }
   }
 }
@@ -411,6 +413,12 @@ inline void check_snapshot_contract(const char *name) {
   fill_midpoints(moved.params.surface);
   fill_midpoints(moved.params.value);
   fill_midpoints(moved.params.color);
+  if constexpr (requires { Params{}.lens.mobius; }) {
+    moved.params.lens.mobius.a = {1.0f, 0.2f};
+    moved.params.lens.mobius.b = {0.3f, 0.4f};
+    moved.params.lens.mobius.c = {0.5f, 0.6f};
+    moved.params.lens.mobius.d = {0.8f, -0.1f};
+  }
   moved.params.color.palette_mapping = Pullback::Color::PaletteMapping::BELL;
   HS_EXPECT_TRUE(effect.restore_parameters(moved));
   verify_params_equal(effect.serialize_parameters().params, moved.params);
@@ -419,6 +427,7 @@ inline void check_snapshot_contract(const char *name) {
   typename FX::ParameterSnapshot bumped = captured;
   bumped.schema_version += 1;
   HS_EXPECT_FALSE(effect.restore_parameters(bumped));
+  verify_params_equal(effect.serialize_parameters().params, captured.params);
 
   verify_family_rejection(effect, captured, &Params::source, "source");
   verify_family_rejection(effect, captured, &Params::projection, "projection");
@@ -433,15 +442,23 @@ inline void check_snapshot_contract(const char *name) {
       static_cast<Pullback::Color::PaletteMapping>(
           static_cast<uint8_t>(Pullback::Color::PaletteMapping::REVERSE) + 1);
   HS_EXPECT_FALSE(effect.restore_parameters(mapping));
+  verify_params_equal(effect.serialize_parameters().params, captured.params);
 
   if constexpr (requires { Params{}.lens.mobius; }) {
     typename FX::ParameterSnapshot lens = captured;
     lens.params.lens.mobius.a.re = std::numeric_limits<float>::quiet_NaN();
     HS_EXPECT_FALSE(effect.restore_parameters(lens));
+    verify_params_equal(effect.serialize_parameters().params, captured.params);
     lens = captured;
     lens.params.lens.mobius.a.re =
         Pullback::MobiusLensParams::COEFFICIENT_LIMIT + 1.0f;
     HS_EXPECT_FALSE(effect.restore_parameters(lens));
+    verify_params_equal(effect.serialize_parameters().params, captured.params);
+    lens = captured;
+    lens.params.lens.mobius.c = lens.params.lens.mobius.a;
+    lens.params.lens.mobius.d = lens.params.lens.mobius.b;
+    HS_EXPECT_FALSE(effect.restore_parameters(lens));
+    verify_params_equal(effect.serialize_parameters().params, captured.params);
   }
 
   verify_params_equal(effect.serialize_parameters().params, captured.params);
