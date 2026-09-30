@@ -72,6 +72,7 @@ template <typename Query> struct PlacedQuery {
       return {std::numeric_limits<float>::quiet_NaN(), 0.0f};
     auto result = query.sample(
         math::rotate((p - center) * (1.0f / scale), inverse_rotation));
+    result.field *= scale;
     result.clearance *= scale;
     return result;
   }
