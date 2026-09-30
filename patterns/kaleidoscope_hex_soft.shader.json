@@ -288,7 +288,7 @@
           "kind": "LINEAR"
         },
         "storage": "binary32",
-        "unit": "turn-per-frame"
+        "unit": "radian-per-frame"
       },
       {
         "classification": "preset",
@@ -390,7 +390,7 @@
           "kind": "LINEAR"
         },
         "storage": "binary32",
-        "unit": "turn-per-frame"
+        "unit": "radian-per-frame"
       },
       {
         "classification": "preset",
