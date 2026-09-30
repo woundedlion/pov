@@ -2,7 +2,7 @@
 
 PlatformIO discovers the Arduino sketch
 ONLY by globbing `$PROJECT_SRC_DIR/*.ino` at the top level (pioino.FindInoNodes)
-and IGNORES build_src_filter. With src_dir = repo root and the two sketches under
+and IGNORES build_src_filter. With src_dir = repo root and the sketches under
 targets/<X>/, that glob finds nothing, so setup()/loop() never link.
 
 We keep src_dir = the repo root — so the shared core/engine/*.cpp build as NORMAL project
@@ -11,7 +11,7 @@ framework's SPI) they need — and simply override FindInoNodes to return exactl
 this env's sketch. PlatformIO then converts it to targets/<X>/<X>.ino.cpp, which
 build_src_filter picks up (see platformio.ini). Selecting the sketch here (keyed
 on $PIOENV) also guarantees only ONE sketch's setup()/loop() is ever compiled,
-even though both .ino files define them.
+even though every .ino file defines them.
 """
 
 import os
