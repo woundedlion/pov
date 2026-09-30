@@ -861,7 +861,8 @@ private:
         continue;
       const size_t offset = target - requested;
       const ConfigFieldId id = config_field_id(offset, size);
-      assert(id != ConfigFieldId::COUNT);
+      HS_CHECK(id != ConfigFieldId::COUNT,
+               "ShaderWorkbench parameter lacks a stable field ID");
       remember_pending_edit(parameter.name, id, offset, size);
       ParamDef writable = parameter;
       write_parameter_unchecked(
