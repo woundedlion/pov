@@ -1506,7 +1506,7 @@ struct Face {
     return d;
   }
 
-  /** @brief Face has a bound polar lookup table. */
+  /** @brief Face has a congruence-class distance LUT (bind_class_lut). */
   static constexpr uint32_t PROBE_HAS_LUT = 1u << 0;
   /** @brief Use convex half-plane distance. */
   static constexpr uint32_t PROBE_CONVEX = 1u << 1;
