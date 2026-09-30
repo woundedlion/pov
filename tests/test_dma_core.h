@@ -54,10 +54,8 @@ inline void test_transfer_len() {
 /**
  * @brief Pin the per-column transfer bound: exact where the division is whole,
  * rounded UP otherwise.
- * @details The POV drivers reject a column period that does not clear this
- * bound, and their column ISRs discard the controller's overrun return with no
- * retry latch, so a bound that rounded down would admit a configuration that
- * freezes the strip on its last accepted frame.
+ * @details The POV drivers reject column periods below this bound. Single-board
+ * overruns drop a column; the segmented driver retries its pending submission.
  */
 inline void test_transfer_us_bound() {
   static_assert(dma::transfer_us(600, 240000000) ==
