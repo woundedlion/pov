@@ -66,7 +66,8 @@ static_assert(!step_column(0, 96).advance);
 inline void check_strip_tiling(int S, int w, int x) {
   const int ROWS = S / 2;
   const int col_top = x;
-  const int col_bot = (x + w / 2) % w;
+  const int col_bot = strip_opposite_col(x, w);
+  HS_EXPECT_EQ(col_bot, (x + w / 2) % w);
 
   std::vector<int> cover(static_cast<size_t>(w) * ROWS, 0);
   std::vector<int> led_hits(static_cast<size_t>(S), 0);
