@@ -24,9 +24,9 @@ namespace Animation {
  * gated partition swap (docs/specs/opchain_morph_spec.md, "Leg kinds").
  * @details Per frame: produce the swept mesh (the edge's single op at
  * t(frame) settle-slerped toward the relaxed endpoint inside the settle
- * window, or the hankin_at slerp from each corner) in scratch, compile, attach the
- * leg's hoisted classification, pre-blend the (from, to) palette ramps at
- * w(frame), and hand the mesh to the draw callback. Exactly one mesh is
+ * window, or the hankin_at slerp from each corner) in scratch, compile, check
+ * the face count against the hoisted classification, pre-blend ramps at
+ * w(frame), and hand the mesh and per-face Shading table to the draw callback. Exactly one mesh is
  * drawn per frame. Bulk state lives in an arena-allocated Transients that no
  * destructor reclaims; the caller compacts the arena between legs.
  */
@@ -1478,9 +1478,8 @@ private:
   }
 
   /**
-   * @brief Kind-agnostic frame tail: compile the swept mesh, attach the
-   * hoisted classification, pre-blend the palette ramps at the crossfade weight,
-   * draw.
+   * @brief Compile the swept mesh, check its face count against the hoisted
+   * classification, pre-blend ramps and pass the mesh and Shading to the callback.
    * @param canvas The canvas passed through to the draw callback.
    * @param swept This frame's swept mesh (scratch-backed).
    * @param w Crossfade weight in [0, 1] the caller already resolved (the leg's
