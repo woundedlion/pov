@@ -421,7 +421,8 @@ class TestDocumentationChecker(unittest.TestCase):
     def test_stale_untracked_allowances_are_named(self):
         allowances = ("tracked.txt", "uncited.txt", "used.txt")
         used = {dc._cited(dc._UNTRACKED_LIST, "used.txt")}
-        with mock.patch.object(dc, "UNTRACKED_ALLOWED", allowances),                 mock.patch.object(dc, "TREE_UNMAPPED", ()):
+        with mock.patch.object(dc, "UNTRACKED_ALLOWED", allowances), \
+                mock.patch.object(dc, "TREE_UNMAPPED", ()):
             stale = dict(item.split(" ", 1) for item in dc._stale_allowances(
                 {PurePosixPath("tracked.txt")}, used))
         self.assertEqual(stale["tracked.txt"], "(now tracked)")
