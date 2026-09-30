@@ -516,8 +516,8 @@ inline void test_ring_long_radius_azimuth_unflipped() {
  * angle is within `thickness` (plus the AA fringe and one row of pixel
  * quantization) of the ring centre `target = radius·π/2`. A pixel far off the
  * band — near the pole (a fill that spilled inward) or in the wrong hemisphere
- * (a projection sign error) — fails this, where the bounded-count check above
- * would not. The interior cap (polar < target − band) staying dark proves the
+ * (a projection sign error) — fails this spatial oracle even if the lit-pixel
+ * count is unchanged. The interior cap (polar < target − band) staying dark proves the
  * ring is a hollow stroke, not a filled disk.
  */
 inline void test_ring_rasterize_lit_pixels_on_band() {
