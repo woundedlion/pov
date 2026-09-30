@@ -18,8 +18,6 @@
 #include "workbench/shader/admission.h"
 #include "workbench/shader/config.h"
 #include "workbench/shader/limits.h"
-#include "workbench/shader/options.h"
-#include "workbench/shader/resources.h"
 
 namespace Workbench {
 

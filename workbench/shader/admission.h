@@ -19,7 +19,6 @@
  */
 
 #include "workbench/shader/config.h"
-#include "workbench/shader/resources.h"
 #include "workbench/shader/frame_state.h"
 #include "workbench/shader/limits.h"
 
