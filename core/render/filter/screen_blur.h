@@ -5,7 +5,6 @@
 #pragma once
 
 #include <array>
-#include <cmath>
 #include "render/filter/pipeline.h"
 #include "render/filter/splat.h"
 #include "color/color.h"

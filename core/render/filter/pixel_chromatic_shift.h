@@ -4,7 +4,6 @@
  */
 #pragma once
 
-#include <cmath>
 #include "render/filter/pipeline.h"
 #include "color/color.h"
 #include "math/geometry.h"
