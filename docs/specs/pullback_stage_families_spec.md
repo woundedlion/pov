@@ -887,7 +887,7 @@ rather than aspirational.
 
 **Status: PARTIAL.** The stable machine `Field::id` and its uniqueness check
 (`core/render/pullback/fields.h`) and `concat_fields`
-(`core/render/pullback/operator_model.h`) ship. `requirements(Topology)`, the
+(`core/render/pullback/fields.h`) ship. `requirements(Topology)`, the
 slot capacities and their matching, `Value::Combine`, the parameter-binding
 table, and the promotion emitter are design.
 

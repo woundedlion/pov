@@ -4,6 +4,7 @@
  */
 #pragma once
 
+#include <array>
 #include <cmath>
 #include <limits>
 #include <string_view>
@@ -85,6 +86,26 @@ template <typename Owner> struct Field {
   FieldGate gate = FieldGate::ALWAYS;
   TopologyGate topology_gate{};
 };
+
+/**
+ * @brief Rebuilds a base family's field table over a derived family.
+ * @details A `float Base::*` converts implicitly to `float Combined::*`, so
+ * the concatenation stays a homogeneous Field<Combined> array.
+ */
+template <typename Combined, typename BaseOwner, size_t N, size_t M>
+consteval std::array<Field<Combined>, N + M>
+concat_fields(const std::array<Field<BaseOwner>, N> &base,
+              const std::array<Field<Combined>, M> &extra) {
+  std::array<Field<Combined>, N + M> out{};
+  for (size_t index = 0; index < N; ++index)
+    out[index] = Field<Combined>{base[index].id,   base[index].member,
+                                 base[index].name, base[index].min,
+                                 base[index].max,  base[index].curve,
+                                 base[index].gate, base[index].topology_gate};
+  for (size_t index = 0; index < M; ++index)
+    out[N + index] = extra[index];
+  return out;
+}
 
 template <typename Owner>
 constexpr Field<Owner> edge_width_field(float Owner::*member,
