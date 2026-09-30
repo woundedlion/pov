@@ -158,6 +158,17 @@ def _replace_framebuffer_maximum(manifest_dir):
         path.write_text(json.dumps(oracle), encoding="utf-8")
 
 
+class DuplicateJsonKeys(unittest.TestCase):
+    def test_duplicate_keys_are_rejected(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "duplicate.json"
+            for content in ('{"key": 1, "key": 2}', '{"nested": {"key": 1, "key": 2}}'):
+                with self.subTest(content=content):
+                    path.write_text(content, encoding="utf-8")
+                    with self.assertRaisesRegex(generator.ManifestError, "duplicate JSON key"):
+                        generator._load(path)
+
+
 class ManifestValidation(unittest.TestCase):
     def test_generator_main_returns_success_for_validation(self):
         self.assertEqual(generator.main([

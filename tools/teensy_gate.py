@@ -785,10 +785,20 @@ def read_capture(path: str | Path) -> str:
     return Path(path).read_text(encoding="utf-8", errors="replace")
 
 
+def _unique_object(pairs):
+    result = {}
+    for key, value in pairs:
+        if key in result:
+            raise BudgetSchemaError(f"duplicate JSON key: {key}")
+        result[key] = value
+    return result
+
+
 def load_budgets(path: str | Path) -> dict:
     """Load tools/teensy_budgets.json, tolerating // and /* */ comments."""
     raw = Path(path).read_text(encoding="utf-8")
-    return validate_budgets(json.loads(_strip_jsonc_comments(raw)))
+    return validate_budgets(json.loads(_strip_jsonc_comments(raw),
+                                       object_pairs_hook=_unique_object))
 
 
 def render_report(result: GateResult, *, github: bool = False) -> str:
