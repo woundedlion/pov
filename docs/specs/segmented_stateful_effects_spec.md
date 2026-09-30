@@ -138,7 +138,8 @@ in the recursive node, with a `false` base case in the terminal
 `total_segment_margin` sums each stage's `segment_margin` (base `0`).
 `Screen::DirectAntiAliasSink`, a terminal pipeline in its own right, declares
 the same three members by hand (`false`, `false`, its own `segment_margin`).
-`pipeline_config<>` reads all three.
+`pipeline_config<>` reads these three traits and folds four config requirements:
+`full_frame`, `reads_outside_band`, `margin`, and `required_margin`.
 
 ### 4.2 Expose it as one runtime query on `Effect`
 
@@ -167,9 +168,12 @@ Choreography(W, H, pipeline_config<decltype(filters)>({.strobe = true}))
 `pipeline_config<PipelineT>` is the single definition of the fold, so no effect
 restates a trait: it widens the config the effect passes in with
 `any_crosses_segments` into `full_frame`, `any_reads_outside_band` into
-`reads_outside_band`, and `total_segment_margin` into `margin`. All three are
+`reads_outside_band`, and `total_segment_margin` into both `margin` and
+`required_margin`. All four are
 "at least this much" requirements — the helper never clears a flag the effect
-set for its own reasons.
+set for its own reasons. `required_margin` remains a lifetime floor:
+`Effect::set_margin` enforces it with `HS_CHECK`; later calls cannot shrink
+filter tap coverage below the folded requirement.
 
 The values are fully trait-derived (no per-effect judgment): they read the
 pipeline's compile-time folds, so adding or removing a filter updates the answer
@@ -265,7 +269,7 @@ ClipRegion default already covers, so every effect's clip margin is 1.
 |---|---|
 | `core/render/filter/pipeline.h` traits | add `crosses_segments` and `reads_outside_band` to `FilterTraits`, both defaulting to `has_history`; override `reads_outside_band = false` on `Screen::Trails` and `World::Trails`, `crosses_segments = true` on `World::Mobius`; the recursive `any_crosses_segments` / `any_reads_outside_band` OR-folds and the `total_segment_margin` sum on `Pipeline`, with `false` / `0` base cases in the terminal `Pipeline<W,H>` and hand-written equivalents on `Screen::DirectAntiAliasSink` |
 | `core/render/canvas.h` `EffectConfig` / `Effect` | `full_frame` config field (default `false`), stored by the constructor and published by the non-virtual `needs_full_frame()` accessor; `margin` config field applied to `ClipRegion::margin` through `set_margin`, widen-only |
-| each filtered effect's constructor | wrap its `EffectConfig` in `pipeline_config<decltype(filters)>(...)` in the `Effect` base initializer, which folds in all three pipeline traits |
+| each filtered effect's constructor | wrap its `EffectConfig` in `pipeline_config<decltype(filters)>(...)` in the `Effect` base initializer, which folds the pipeline traits into all four config requirements |
 | `targets/wasm/engine_bindings.h` `setClip` | gate on `pov::segment_clip_applies(needs_full_frame(), persists_pixels())`; otherwise return `FULL_FRAME_KEPT` |
 | flush / `scan.h` / `plot.h` hot paths | **none** — a full clip already degrades correctly |
 | `hardware/pov_segmented.h` (device) | `clip_to_segment` clips non-stateful effects to the per-frame quadrant; full canvas when `needs_full_frame()` or `persists_pixels()` |
