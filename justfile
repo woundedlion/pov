@@ -9,6 +9,7 @@
 # The [windows] recipes use cmd.exe syntax (copy /y, if not exist); pin the interpreter so they run under cmd regardless of just's default
 # shell (a developer defaulting just to sh/pwsh would otherwise hit a syntax error).
 set windows-shell := ["cmd", "/c"]
+daydream_dir := env_var_or_default("DAYDREAM_DIR", "../daydream")
 
 # Python interpreter for every recipe that runs one. Stock Linux/macOS ship
 # `python3` only; on Windows a `python3` on PATH is usually the Store execution
@@ -25,7 +26,7 @@ default:
 
 # WASM release build of the simulator module (daydream).
 build:
-    cmake --preset wasm-release
+    cmake --preset wasm-release -DDAYDREAM_DIR="{{daydream_dir}}"
     cmake --build --preset wasm-release
 
 # WASM debug build (-O0 -g -sASSERTIONS, 64 KB stack).
@@ -139,7 +140,7 @@ _doxyfile-local:
 # Build, smoke-test, and install WASM into ../daydream.
 install: smoke
     cmake --build --preset wasm-release-install
-    node scripts/wasm_smoke.mjs ../daydream/generated/holosphere_wasm.js
+    node scripts/wasm_smoke.mjs "{{daydream_dir}}/generated/holosphere_wasm.js"
 
 # Windows only: build and flash the bench image under the per-board device lock.
 bench:
