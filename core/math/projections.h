@@ -869,6 +869,20 @@ inline constexpr uint8_t AIROCEAN_CUT_EDGES[] = {0, 1, 2, 1, 2, 0, 2, 0, 2,
 inline constexpr uint8_t AIROCEAN_CUT_MASKS[23] = {
     0, 0, 0, 1, 6, 6, 5, 0, 1, 4, 0, 0, 6, 6, 5, 5, 1, 0, 6, 6, 4, 2, 3};
 
+static_assert(std::size(AIROCEAN_CUT_FACES) == std::size(AIROCEAN_CUT_EDGES));
+static_assert([] {
+  uint8_t masks[23]{};
+  for (size_t i = 0; i < std::size(AIROCEAN_CUT_FACES); ++i) {
+    if (AIROCEAN_CUT_FACES[i] >= 23 || AIROCEAN_CUT_EDGES[i] >= 3)
+      return false;
+    masks[AIROCEAN_CUT_FACES[i]] |= 1u << AIROCEAN_CUT_EDGES[i];
+  }
+  for (size_t i = 0; i < std::size(masks); ++i)
+    if (masks[i] != AIROCEAN_CUT_MASKS[i])
+      return false;
+  return true;
+}());
+
 /**
  * @brief Per (face, edge), the shared identity of that geometric edge.
  * @details The identity is `canonical_face * 3 + canonical_edge`, where the
