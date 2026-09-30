@@ -1119,6 +1119,33 @@ inline void test_palette_cycler_generated_chroma_keeps_morph() {
   HS_EXPECT_GT(provider_calls, 4);
 }
 
+inline void test_palette_cycler_roster_hidden_advance_catches_up() {
+  const GenerativePalette a(PaletteRecipes::balanced_analogous(0.2f));
+  const GenerativePalette b(PaletteRecipes::balanced_analogous(0.7f));
+  const GenerativePalette c(PaletteRecipes::tonal_monochrome(0.4f));
+  HS_EXPECT_TRUE(a.morph_compatible(b));
+  HS_EXPECT_FALSE(a.morph_compatible(c));
+  for (const auto *target : {&b, &c}) {
+    const std::array<PaletteCycler::Entry, 2> entries = {{a, *target}};
+    for (int frames : {1, 3, 4, 5, 8, 17, 50}) {
+      alignas(std::max_align_t)
+          std::array<uint8_t, 2 * PaletteCycler::required_arena_bytes()>
+              buffer{};
+      Arena arena(buffer.data(), buffer.size());
+      PaletteCycler full, hidden;
+      full.init(arena, entries.data(), entries.size(), 3, 4);
+      hidden.init(arena, entries.data(), entries.size(), 3, 4);
+      for (int frame = 0; frame < frames; ++frame) {
+        full.step();
+        hidden.advance_without_display();
+      }
+      full.step();
+      hidden.step();
+      expect_baked_equal(full.palette(), hidden.palette());
+    }
+  }
+}
+
 inline void test_palette_cycler_hidden_advance_catches_up() {
   alignas(std::max_align_t)
       std::array<uint8_t, PaletteCycler::generated_arena_bytes() + 32>
