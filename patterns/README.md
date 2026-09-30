@@ -74,8 +74,10 @@ daydream and are not engine-installed artifacts.
 
 `shaderball_migration.json` is a manifest, not a shader document, and the CLI
 above rejects it as one. `source_documents` maps each `effect_id` to the
-document it is authored in, `product_group` carries the gallery grouping, and `destinations` maps every retired legacy
-`ShaderBall` preset to the effect and preset that replaced it.
+document it is authored in, and `product_group` carries the gallery grouping.
+`legacy_alias` names `ShaderBall`; `authoring_effect` names `Shader`.
+`retired_legacy_presets` lists presets dropped without a replacement;
+`destinations` maps every other legacy preset to its replacement effect and preset.
 `scripts/shader_workbench.test.mjs` gates the tree against it: a document that
 backs an effect must appear in `source_documents`.
 
