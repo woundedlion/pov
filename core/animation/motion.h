@@ -17,7 +17,8 @@
 /**
  * @brief Represents a customizable path.
  * @tparam RESOLUTION Capacity of the internal point ring buffer.
- * @details Retains an internal buffer for state, but draws to the pipeline.
+ * @details Stores sampled points in a fixed ring buffer; Motion samples it
+ * through get_point().
  */
 template <int RESOLUTION = 1024> class Path {
 public:
