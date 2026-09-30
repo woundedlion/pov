@@ -60,3 +60,4 @@ docs/CODE_REVIEW.md
 docs/PROJECT_ASSESSMENT.md
 /.profile-lock/
 /.profile-lock.guard
+.hs-pre-commit.*/
