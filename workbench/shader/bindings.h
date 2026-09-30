@@ -21,20 +21,9 @@
 
 namespace Workbench {
 
-struct ShaderWorkbenchInstrumentation {
-  using Token = Pullback::NoInstrumentation::Token;
-
-  __attribute__((always_inline)) static Token mark() { return {}; }
-
-  template <Pullback::ProfileEvent Event>
-  __attribute__((always_inline)) static void span(Token) {
-    static_cast<void>(Event);
-  }
-};
-
 struct ShaderWorkbenchBinding {
   using FrameState = Workbench::FrameState;
-  using Instrumentation = ShaderWorkbenchInstrumentation;
+  using Instrumentation = Pullback::NoInstrumentation;
 
   template <typename Stage> static constexpr bool edge_available() {
     if constexpr (requires { Stage::EDGE_DISTANCE_AVAILABLE; })
