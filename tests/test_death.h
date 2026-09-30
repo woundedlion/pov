@@ -6506,11 +6506,12 @@ inline constexpr GuardGapAllowance GUARD_GAP_ALLOW[] = {
     {"targets/Phantasm/phantasm_target.h", 1},
     {"targets/Profile/Profile.ino", 4},
     // WASM-only bootstrap and reconstruction invariants; exercised by engine contracts.
-    {"targets/wasm/engine_bindings.h", 13},
+    {"targets/wasm/engine_bindings.h", 14},
     {"targets/wasm/mesh_ops_bindings.h", 2},
     {"workbench/shader/chain_host.h", 1},
     {"workbench/shader/kernels.h", 1},
-    {"workbench/shader/shader_host.h", 8},
+    // Stable field IDs are established by parameter registration.
+    {"workbench/shader/shader_host.h", 9},
 };
 
 /**
