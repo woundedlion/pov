@@ -158,6 +158,8 @@ struct CubemapLUT {
     fill(lattice);
   }
 
+private:
+  /** @brief Fills storage allocated by build(). */
   HS_COLD_MEMBER void fill(const math::Vector *lattice) {
     for (int face = 0; face < 6; ++face) {
       for (int y = 0; y < RES; ++y) {
@@ -171,6 +173,7 @@ struct CubemapLUT {
     }
   }
 
+public:
   /**
    * @brief O(1) cubemap lookup projecting a unit vector to an approximately
    *        nearest lattice node.
