@@ -2773,6 +2773,22 @@ inline void test_lms_transform_pair_matches_scalar() {
 // Runner
 // ============================================================================
 
+inline void test_pixel_quarter_accumulation_rounds_per_sample() {
+  uint32_t sum = 0;
+  Pixel accumulated(0, 0, 0);
+  for (uint32_t channel = 0; channel <= 65535u; ++channel) {
+    Pixel sample(static_cast<uint16_t>(channel), 0, 0);
+    accumulated = Pixel(0, 0, 0);
+    sum = 0;
+    for (int i = 0; i < 4; ++i) {
+      accumulated += sample * 0.25f;
+      sum += (channel + 2u) >> 2;
+    }
+    HS_EXPECT_EQ(accumulated.r,
+                 static_cast<uint16_t>(sum > 65535u ? 65535u : sum));
+  }
+}
+
 /**
  * @brief Runs every color-module test and reports the aggregate result.
  * @return Process exit code from hs_test::end_module: 0 on success, non-zero on
@@ -2780,6 +2796,7 @@ inline void test_lms_transform_pair_matches_scalar() {
  */
 inline int run_color_tests() {
   hs_test::ModuleFixture fixture("color");
+  test_pixel_quarter_accumulation_rounds_per_sample();
   test_lms_transform_pair_matches_scalar();
   test_baked_palette_storage_and_views();
   test_lerp16_endpoints();
