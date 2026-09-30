@@ -609,16 +609,6 @@ add_test(NAME unit_relax_bake_form COMMAND ${CMAKE_COMMAND}
     -DDUMP=${CMAKE_CURRENT_BINARY_DIR}/relax_bakes.dump
     -P ${CMAKE_CURRENT_SOURCE_DIR}/check_relax_bakes.cmake)
 
-# The south-pole Y-clip renormalization in the rasterizer (Screen::AntiAlias's
-# bilinear-tap fold, and the H_VIRT handling threaded through geometry/scan/plot/
-# sdf) only does real work when hs::H_OFFSET > 0 — the hardware value, fixed to 0
-# on every host/WASM build, so the device's most subtle hot-loop path otherwise
-# ships with zero automated coverage on the one platform with no debugger or
-# console. This executable recompiles the same engine with HS_TEST_H_OFFSET=3 so
-# the whole pipeline carries the device offset and the renorm runs against an
-# energy-conservation oracle. It MUST be its own TU: an offset-3 and an offset-0
-# PhiLUT<H>/TrigLUT<W,H> instantiation would clash under ODR (see core/platform/platform.h
-# and tests/test_h_offset_renorm.h).
 add_executable(hyper_lattice_shipping_check
   ${CMAKE_CURRENT_SOURCE_DIR}/hyper_lattice_shipping_check.cpp
   ${HS_ENGINE_SOURCES})
@@ -630,6 +620,8 @@ _hs_warnings(hyper_lattice_shipping_check)
 _hs_sanitize(hyper_lattice_shipping_check)
 add_test(NAME unit_hyper_lattice_shipping COMMAND hyper_lattice_shipping_check)
 
+# Legacy offset mapping needs a separate TU: offset-3 and offset-0
+# PhiLUT/TrigLUT instantiations have incompatible definitions.
 add_executable(h_offset_renorm_check
   ${CMAKE_CURRENT_SOURCE_DIR}/h_offset_renorm_check.cpp
   ${HS_ENGINE_SOURCES})
@@ -642,16 +634,16 @@ _hs_warnings(h_offset_renorm_check)
 _hs_sanitize(h_offset_renorm_check)
 add_test(NAME unit_h_offset_renorm COMMAND h_offset_renorm_check)
 
-add_executable(h_offset_device_check
+add_executable(h_offset_full_resolution_check
   ${CMAKE_CURRENT_SOURCE_DIR}/h_offset_renorm_check.cpp
   ${HS_ENGINE_SOURCES})
-target_compile_definitions(h_offset_device_check PRIVATE
-  HS_TEST_H_OFFSET=3 HS_OFFSET_DEVICE_RESOLUTION=1)
-target_link_libraries(h_offset_device_check PRIVATE hs_host_storage)
-target_include_directories(h_offset_device_check PRIVATE ${HS_ENGINE_INCLUDES})
-_hs_warnings(h_offset_device_check)
-_hs_sanitize(h_offset_device_check)
-add_test(NAME unit_h_offset_device COMMAND h_offset_device_check)
+target_compile_definitions(h_offset_full_resolution_check PRIVATE
+  HS_TEST_H_OFFSET=3 HS_OFFSET_FULL_RESOLUTION=1)
+target_link_libraries(h_offset_full_resolution_check PRIVATE hs_host_storage)
+target_include_directories(h_offset_full_resolution_check PRIVATE ${HS_ENGINE_INCLUDES})
+_hs_warnings(h_offset_full_resolution_check)
+_hs_sanitize(h_offset_full_resolution_check)
+add_test(NAME unit_h_offset_full_resolution COMMAND h_offset_full_resolution_check)
 
 
 add_executable(display_geometry_check
