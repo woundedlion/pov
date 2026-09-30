@@ -87,7 +87,8 @@ enum class MorphOp : uint8_t { TRUNCATE, EXPAND, SNUB, CHAMFER };
  */
 enum class Reseed : uint8_t { NONE, ADOPT };
 
-/** Graph-edge sweep floor. Recipe truncate legs start at TRUNCATE_BIRTH_FRAC;
+/** Graph-edge sweep floor. Recipe truncate legs start at
+ * min(T_EPS, arrival * TRUNCATE_BIRTH_FRAC);
  * far-side legs can extend to 0.995 rather than 0.5 - T_EPS_AMBO. */
 inline constexpr float T_EPS = 0.02f;
 /** Truncate clamp at the ambo (t = 0.5) end. Tighter than T_EPS: near 0.5 no
