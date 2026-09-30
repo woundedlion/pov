@@ -226,7 +226,7 @@ private:
                      float sin_t, float band_r) const {
     HS_PROFILE(df_chunk_cull);
     const float chunk_reach = (math::PI_F / BAKE_CHUNKS) * sin_t + band_r;
-    const float sin_reach = sinf(std::min(chunk_reach, math::PI_F));
+    const float sin_reach = sinf(fminf(chunk_reach, math::PI_F));
     uint32_t raw = 0u;
     for (int c = 0; c < BAKE_CHUNKS; ++c) {
       math::Vector mid =
@@ -241,7 +241,7 @@ private:
     const float th_hi = theta + band_r;
     int pad_chunks = BAKE_CHUNKS;
     if (th_lo > 0.0f && th_hi < math::PI_F) {
-      float sin_lo = std::min(sinf(th_lo), sinf(th_hi));
+      float sin_lo = fminf(sinf(th_lo), sinf(th_hi));
       // A band hugging a pole drives sin_lo to zero; clamp before the cast.
       const float pad_f =
           ceilf(params.thickness * BAKE_CHUNKS / (2.0f * math::PI_F * sin_lo));
@@ -368,8 +368,8 @@ private:
       for (int b = 0; b < n_balls; ++b) {
         if (std::fabs(theta - ball_colat[b]) < ball_reach[b] + BALL_TOUCH_EPS) {
           ball_local[n_local++] = b;
-          band = std::max(band, ball_reach[b]);
-          ball_feature = std::max(ball_feature, ball_scale[b]);
+          band = fmaxf(band, ball_reach[b]);
+          ball_feature = fmaxf(ball_feature, ball_scale[b]);
         }
       }
 
@@ -397,7 +397,7 @@ private:
           hlut[x] = flat;
         }
       } else {
-        float feature_scale = std::max(noise_feature, ball_feature);
+        float feature_scale = fmaxf(noise_feature, ball_feature);
         float cos_t = cosf(theta);
         float sin_t = sinf(theta);
 
@@ -446,7 +446,7 @@ private:
             const int x_end = ((c + 1) * lut_n + BAKE_CHUNKS - 1) / BAKE_CHUNKS;
             if (visible & (1u << c)) {
               for (; x < x_end; ++x)
-                max_shift = std::max(max_shift, std::fabs(slut[x]));
+                max_shift = fmaxf(max_shift, std::fabs(slut[x]));
             } else {
               for (; x < x_end; ++x)
                 slut[x] = 0.0f;
