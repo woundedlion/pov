@@ -62,11 +62,22 @@ int main() {
     check_geometry<96, 48>(north, south);
     check_geometry<288, 144>(north, south);
   }
+  constexpr float NORTH = 0.2f;
+  constexpr float SOUTH = 2.8f;
+  HS_EXPECT_TRUE(math::set_display_geometry(NORTH, SOUTH));
   for (const float invalid :
-       {-0.01f, math::PI_F, std::numeric_limits<float>::quiet_NaN(),
+       {-0.01f, SOUTH, math::PI_F, std::numeric_limits<float>::quiet_NaN(),
         std::numeric_limits<float>::infinity()}) {
-    HS_EXPECT_TRUE(!math::set_display_geometry(invalid, math::PI_F));
-    HS_EXPECT_NEAR(math::DISPLAY_NORTH_PHI, 0.0f, 1e-6f);
+    HS_EXPECT_FALSE(math::set_display_geometry(invalid, SOUTH));
+    HS_EXPECT_EQ(math::DISPLAY_NORTH_PHI, NORTH);
+    HS_EXPECT_EQ(math::DISPLAY_SOUTH_PHI, SOUTH);
+  }
+  for (const float invalid : {-0.01f, NORTH, math::PI_F + 0.01f,
+                              std::numeric_limits<float>::quiet_NaN(),
+                              std::numeric_limits<float>::infinity()}) {
+    HS_EXPECT_FALSE(math::set_display_geometry(NORTH, invalid));
+    HS_EXPECT_EQ(math::DISPLAY_NORTH_PHI, NORTH);
+    HS_EXPECT_EQ(math::DISPLAY_SOUTH_PHI, SOUTH);
   }
   return fixture.result() ? 1 : 0;
 }
