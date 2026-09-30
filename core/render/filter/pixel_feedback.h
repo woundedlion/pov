@@ -1024,8 +1024,8 @@ private:
     const float abs_y = fabsf(y), abs_x = fabsf(x);
     // A floor on the denominator keeps a pair's shared product normal; only
     // the undefined longitude at an exact pole reaches it.
-    return {steep ? abs_x : abs_y, std::max(steep ? abs_y : abs_x, 1e-6f),
-            steep, (x_bits >> 31) != 0, (y_bits >> 31) != 0};
+    return {steep ? abs_x : abs_y, fmaxf(steep ? abs_y : abs_x, 1e-6f), steep,
+            (x_bits >> 31) != 0, (y_bits >> 31) != 0};
   }
 
   static __attribute__((always_inline)) float atan_fold(float ratio,
@@ -1066,7 +1066,7 @@ private:
   /** @brief Field row of a cap angle from the north or the south pole. */
   static __attribute__((always_inline)) float cap_row(const CapPoint &p,
                                                       bool north) {
-    const float length_sq = std::max(p.u * p.u + p.v * p.v, 1e-12f);
+    const float length_sq = fmaxf(p.u * p.u + p.v * p.v, 1e-12f);
     const float angle = length_sq * math::fast_rsqrt(length_sq);
     return SphereField::Geometry::phi_to_row(north ? angle
                                                    : math::PI_F - angle);
