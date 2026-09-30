@@ -407,7 +407,7 @@ def working_tree(cwd: str | Path | None = None) -> str:
         env = dict(os.environ, GIT_INDEX_FILE=str(Path(directory) / "index"))
         _git(["read-tree", "HEAD"], root, env=env)
         paths = _git(["ls-files", "-z", "--cached", "--others", "--exclude-standard",
-                      "--", *BUILD_INPUTS], root).split("\0")
+                      "--", *BUILD_INPUTS], root, env=env).split("\0")
         paths = sorted(set(filter(None, paths)))
         if paths:
             _git(["add", "-A", "--", *paths], root, env=env)
