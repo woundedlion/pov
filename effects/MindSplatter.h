@@ -576,7 +576,8 @@ private:
 
   template <typename Sink>
   void draw_particles_with(Sink &sink, Canvas &canvas, float opacity = 1.0f) {
-    sink.prepare(canvas);
+    if constexpr (requires { sink.prepare(canvas); })
+      sink.prepare(canvas);
 
     const float cos_event_horizon = math::fast_cosf(EVENT_HORIZON);
     const math::RotationMatrix rotation(orientation.get());
