@@ -351,12 +351,6 @@ template <typename A, typename B> struct Subtract {
 
   static_assert(SDFShape<A> && SDFShape<B>,
                 "CSG Subtract children must be SDF shapes (is_solid)");
-  // The minuend is collected into an IntervalBuffer (cap INTERVAL_SPAN_CAP)
-  // before replay, so a minuend that could emit more spans must be
-  // rejected at compile time rather than trapping in push_interval at runtime.
-  static_assert(sdf_max_spans<A>::value <= INTERVAL_SPAN_CAP,
-                "nested CSG Subtract minuend exceeds IntervalBuffer capacity; "
-                "flatten the nesting or raise INTERVAL_SPAN_CAP");
 
   /**
    * @brief Builds a subtraction (shape_a minus shape_b).
@@ -395,24 +389,7 @@ template <typename A, typename B> struct Subtract {
    */
   template <int W, int H, typename OutputIt>
   bool get_horizontal_intervals(int y, OutputIt out) const {
-    ScratchScope scratch(scratch_arena_b);
-    IntervalBuffer &intervals_a = scratch_spans<IntervalBuffer>(scratch);
-
-    bool has_a = a.template get_horizontal_intervals<W, H>(
-        y, [&](float start, float end) {
-          push_interval(intervals_a, start, end);
-        });
-
-    if (!has_a)
-      return false;
-
-    if (intervals_a.is_empty())
-      return true;
-
-    // Bounds include uncovered pixels; subtraction is evaluated per pixel.
-    for (size_t i = 0; i < intervals_a.size(); ++i)
-      out(intervals_a[i].start, intervals_a[i].end);
-    return true;
+    return a.template get_horizontal_intervals<W, H>(y, out);
   }
 
   /**
