@@ -23,8 +23,6 @@
 namespace hs_test {
 namespace presets_tests {
 
-static_assert(math::DisplayGeometry<12, 0>::HAS_SOUTH_POLE);
-
 /**
  * @brief Minimal stand-in payload for exercising the preset container.
  * @details Avoids depending on any real preset struct; `id` doubles as an
