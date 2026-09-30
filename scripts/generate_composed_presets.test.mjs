@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
-import { floatLiteral, generate, generatedSections, presetAssignments, updateHeader } from './generate_composed_presets.mjs';
+import { departureLiteral, floatLiteral, generate, generatedSections, presetAssignments, updateHeader } from './generate_composed_presets.mjs';
 import { compileShaderDocument } from './shader_workbench.mjs';
 import { loadOperatorCatalog } from './pattern_documents.mjs';
 
@@ -35,4 +35,26 @@ test('derived and unmapped values cannot silently enter composed presets', () =>
   assert.throws(() => presetAssignments(document, { 'unknown.value': 1 }), /Unmapped/);
   assert.throws(() => presetAssignments(document, { 'warp1.lattice-period': 1 }), /Invalid derived/);
   assert.throws(() => presetAssignments(document, { 'colorize.palette-mapping': 'unknown' }), /Invalid mapping/);
+});
+
+test('departure edges must target the generated successor', () => {
+  const bank = structuredClone(document.preset_bank);
+  bank.edges[0].to = bank.edges[0].from;
+  assert.throws(() => departureLiteral(bank, bank.edges[0].from, document.descriptor.path_policies), /successor/);
+});
+
+test('departure policy kinds must be parallel', () => {
+  const bank = structuredClone(document.preset_bank);
+  const policies = structuredClone(document.descriptor.path_policies);
+  policies[0].kind = 'SERIAL';
+  assert.throws(() => departureLiteral(bank, bank.edges[0].from, policies), /policy kind/);
+});
+
+test('missing departure edges require automatic snap fallback', () => {
+  const bank = structuredClone(document.preset_bank);
+  bank.edges = [];
+  const id = bank.choreography.generated_order[0];
+  assert.throws(() => departureLiteral(bank, id), /fall back to SNAP/);
+  bank.absent_edge_fallback.automatic = 'SNAP';
+  assert.equal(departureLiteral(bank, id), 'Segue::Preset::Snap{}');
 });
