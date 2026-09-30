@@ -91,6 +91,16 @@ HS_COLD_MEMBER inline math::Vector node(int i) {
  */
 extern HS_PROGMEM_UNIQUE(neighbors) const int16_t neighbors[RD_N][RD_K];
 
+/** @brief Consecutive nodes sharing an ordered tuple of neighbor offsets. */
+struct NeighborRun {
+  uint16_t end;        /**< Exclusive node index; first run starts at zero. */
+  int16_t delta[RD_K]; /**< neighbors[i][k] - i, in nearest-first order. */
+};
+
+/** @brief Generated lossless run encoding for sequential neighbor sweeps. */
+extern HS_PROGMEM_UNIQUE(neighbor_runs) const NeighborRun neighbor_runs[];
+extern HS_PROGMEM_UNIQUE(neighbor_run_count) const unsigned NEIGHBOR_RUN_COUNT;
+
 /**
  * @brief Traps unless every slot of a neighbor table is a lattice node index.
  * @param table Neighbor rows to check, RD_N rows of RD_K indices.

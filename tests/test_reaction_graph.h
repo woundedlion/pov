@@ -165,6 +165,29 @@ inline void test_table_shape_matches_constants() {
   HS_EXPECT_GT(valid, 0); // populated, not a zero-pad row
 }
 
+/** @brief Expands every run and compares all ordered slots to the K-NN table. */
+inline void test_neighbor_runs_match_table() {
+  static_assert(sizeof(ReactionGraph::NeighborRun) == 2 * (RD_K + 1));
+  HS_EXPECT_GT(ReactionGraph::NEIGHBOR_RUN_COUNT, 0u);
+  HS_EXPECT_LE(ReactionGraph::NEIGHBOR_RUN_COUNT, static_cast<unsigned>(RD_N));
+  int start = 0;
+  int first_bad_slot = -1;
+  for (unsigned r = 0; r < ReactionGraph::NEIGHBOR_RUN_COUNT; ++r) {
+    const auto &run = ReactionGraph::neighbor_runs[r];
+    HS_EXPECT_GT(run.end, start);
+    HS_EXPECT_LE(run.end, RD_N);
+    if (run.end <= start || run.end > RD_N)
+      return;
+    for (int i = start; i < run.end; ++i)
+      for (int k = 0; k < RD_K; ++k)
+        if (i + run.delta[k] != neighbors[i][k] && first_bad_slot < 0)
+          first_bad_slot = i * RD_K + k;
+    start = run.end;
+  }
+  HS_EXPECT_EQ(start, RD_N);
+  HS_EXPECT_EQ(first_bad_slot, -1);
+}
+
 // ---------------------------------------------------------------------------
 // Table structural invariants
 //
@@ -525,6 +548,7 @@ inline int run_reaction_graph_tests() {
   test_node_ordered_and_distinct();
   test_d_avg_matches_rd_n();
   test_table_shape_matches_constants();
+  test_neighbor_runs_match_table();
 
   test_indices_in_range();
   test_no_self_loops();
