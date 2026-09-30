@@ -216,7 +216,7 @@ struct ShapeShifterWhiteBox {
     using ShapeType = OracleEffect::ShapeType;
     const int count = hs::clamp(static_cast<int>(effect.params.count), 1,
                                 OracleEffect::MAX_SHAPES);
-    if (count != effect.baked_palette_count ||
+    if (count != effect.prepared_count ||
         effect.params.spacing != effect.prepared_spacing)
       effect.prepare_count(count);
     const auto &palette = effect.selected_palette();

@@ -342,13 +342,13 @@ private:
     constant_source.bind(&Palettes::RICH_SUNSET, &mirror, &constant);
     toward_equator_source.bind(&Palettes::RICH_SUNSET, &mirror,
                                &toward_equator);
-    if (baked_palette_count == 0) {
+    if (prepared_count == 0) {
       baked_constant.bake(persistent_arena, constant_source);
       baked_toward_equator.bake(persistent_arena, toward_equator_source);
     } else {
       baked_toward_equator.rebake(toward_equator_source);
     }
-    baked_palette_count = count;
+    prepared_count = count;
     prepared_spacing = params.spacing;
   }
 
@@ -418,7 +418,7 @@ private:
   void draw_all(Canvas &canvas) {
     HS_PROFILE(ss_draw_all);
     const int count = hs::clamp(static_cast<int>(params.count), 1, DRAW_LIMIT);
-    if (count != baked_palette_count || params.spacing != prepared_spacing)
+    if (count != prepared_count || params.spacing != prepared_spacing)
       prepare_count(count);
     const BakedPalette &palette = selected_palette();
     const int sides =
@@ -826,7 +826,7 @@ private:
   Plot::PlanarChords<W, H> star_chords;
   Plot::PlanarBandSplit<W, H> flower_split;
   Plot::ClipBand<W, H> flower_band;
-  int baked_palette_count = 0;
+  int prepared_count = 0;
   RadiusSpacing prepared_spacing = RadiusSpacing::UNIFORM;
   float alpha = 1.0f;
   float preset_opacity = 1.0f;
