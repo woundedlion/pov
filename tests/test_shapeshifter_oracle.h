@@ -1014,7 +1014,7 @@ inline void test_screen_balanced_spacing_follows_sampling_envelope() {
   }
 }
 
-inline void test_preset_transition_snaps() {
+inline void test_preset_transition_fades() {
   {
     OracleEffect effect;
     effect.init();
@@ -1141,7 +1141,7 @@ inline int run_shapeshifter_oracle_tests() {
   test_opposite_halves_direction();
   test_folded_shapes_draw_from_equator_to_both_poles();
   test_screen_balanced_spacing_follows_sampling_envelope();
-  test_preset_transition_snaps();
+  test_preset_transition_fades();
   test_preset_transition_fades_through_black_in_16_frames();
   return fixture.result();
 }
