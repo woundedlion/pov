@@ -15,10 +15,11 @@ if [ "$#" -ne 0 ]; then
   exit 2
 fi
 
+HS_CLANG_FORMAT_MAJOR=22
 CF="${CLANG_FORMAT:-clang-format}"
 major="$("$CF" --version | sed -n 's/.*version \([0-9][0-9]*\).*/\1/p')"
-if [ "$major" != 22 ]; then
-  echo "clang-format 22 is required; found ${major:-unknown}" >&2
+if [ "$major" != "$HS_CLANG_FORMAT_MAJOR" ]; then
+  echo "clang-format $HS_CLANG_FORMAT_MAJOR is required; found ${major:-unknown}" >&2
   exit 1
 fi
 
