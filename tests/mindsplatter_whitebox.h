@@ -346,12 +346,6 @@ struct MindSplatterWhiteBox {
         p, math::fast_cosf(MindSplatter<W, H>::EVENT_HORIZON));
   }
   template <int W, int H>
-  static float reference_attractor_hole_alpha(const MindSplatter<W, H> &ms,
-                                              const math::Vector &p) {
-    return ms.reference_attractor_hole_alpha(
-        p, math::fast_cosf(MindSplatter<W, H>::EVENT_HORIZON));
-  }
-  template <int W, int H>
   static math::Vector attractor_position(const MindSplatter<W, H> &ms,
                                          size_t i) {
     return ms.particle_system.attractors[i].position;
@@ -379,14 +373,6 @@ struct MindSplatterWhiteBox {
   template <int W, int H>
   static void use_reference_hole_kernel(MindSplatter<W, H> &ms, bool enabled) {
     ms.reference_hole_kernel = enabled;
-  }
-  template <int W, int H>
-  static auto trail_palette(const MindSplatter<W, H> &ms, uint16_t seed) {
-    (void)ms;
-    std::array<Pixel, MINDSPLATTER_PALETTE_LUT_SIZE> colors;
-    for (int i = 0; i < MINDSPLATTER_PALETTE_LUT_SIZE; ++i)
-      colors[i] = MINDSPLATTER_PALETTES[seed >> 8][i];
-    return colors;
   }
   /** @brief Drives one choreography-origin preset advance. */
   template <int W, int H> static void advance_preset(MindSplatter<W, H> &ms) {
@@ -468,12 +454,6 @@ struct MindSplatterWhiteBox {
   static void draw_particles(MindSplatter<W, H> &ms, float opacity = 1.0f) {
     Canvas canvas(ms);
     ms.draw_particles(canvas, opacity);
-  }
-  template <int W, int H, typename Inspect>
-  static void draw_particles_inspect(MindSplatter<W, H> &ms, Inspect inspect) {
-    Canvas canvas(ms);
-    ms.draw_particles(canvas);
-    inspect(canvas, ms.clip());
   }
   template <int W, int H>
   static void draw_particles_candidate(MindSplatter<W, H> &ms, Canvas &canvas) {
