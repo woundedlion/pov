@@ -144,7 +144,7 @@ export const BAKED_CONSTANT_IDS = new Set(['camera.spin-speed']);
  * not know still lands.
  *
  * @param {object} run
- * @param {{document: string, effect: string, parameterIds: string[], presets?: object[]}[]} run.documents
+ * @param {{document: string, effect: string, parameterIds: string[], presets?: object[], descriptor?: object}[]} run.documents
  * @param {Map<string, Set<string>>} run.controls Control names per effect id.
  * @param {Set<string>} run.bakedFields From bakedTopologyFields().
  * @returns {string[]} One message per problem; empty means every id resolves.
