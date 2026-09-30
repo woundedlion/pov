@@ -60,6 +60,8 @@ inline void test_transfer_len() {
  * freezes the strip on its last accepted frame.
  */
 inline void test_transfer_us_bound() {
+  static_assert(dma::transfer_us(600, 240000000) ==
+                dma::transfer_us(600, 120000000));
   // Phantasm segment: 72 px -> 600-byte composite at 24 MHz = 230 µs exactly.
   HS_EXPECT_EQ(dma::transfer_us(HD107SFrame<72>::COMPOSITE_SIZE, 24000000ul),
                230ul);
@@ -70,9 +72,11 @@ inline void test_transfer_us_bound() {
 
   // Swept: the bound never under-counts, and never overshoots by a whole µs.
   for (unsigned long bytes : {1ul, 80ul, 336ul, 600ul, 4096ul}) {
-    for (unsigned long clock : {1000000ul, 6000000ul, 12000000ul, 24000000ul}) {
+    for (unsigned long clock : {1000000ul, 6000000ul, 7000000ul, 12000000ul,
+                                16500000ul, 24000000ul, 240000000ul}) {
       const unsigned long us = dma::transfer_us(bytes, clock);
-      const unsigned long long divider = 240000000ull / clock;
+      const unsigned long long divider =
+          std::max(2ull, (240000000ull + clock - 1) / clock);
       const unsigned long long clocks_us =
           bytes * (8 * divider + 2 * ((divider - 2) / 2) + 4) * 1000000ull;
       HS_EXPECT_TRUE(static_cast<unsigned long long>(us) * 240000000ull >=
