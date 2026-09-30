@@ -4897,7 +4897,7 @@ inline const Case *all_cases(int &n) {
        "(std::isfinite(azimuth)) BallDrop azimuth must be finite"},
       {"bump_offset_outside_cap_distance",
        case_bump_offset_outside_cap_distance, "core/animation/transformer.h",
-       "(std::abs(y) <= d + 1e-5f) bump offset exceeds the angular distance to its center"},
+       "(std::abs(y) <= d + 1e-3f) bump offset exceeds the angular distance to its center"},
       {"field_transfer_outside_range", case_field_transfer_outside_range,
        "core/render/pullback/stage.h",
        "(value >= 0.0f && value <= 1.0f) field transfer must remain in [0, 1]"},
