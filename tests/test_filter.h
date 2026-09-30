@@ -3175,9 +3175,9 @@ inline void test_world_trails_int16_quantization_roundtrip() {
                });
   HS_EXPECT_EQ(emitted, 1);
   // Quantization is v*32767 truncated to int16 then *(1/32767): |err| < 1/32767.
-  HS_EXPECT_NEAR(decoded.x, v0.x, 1e-4f);
-  HS_EXPECT_NEAR(decoded.y, v0.y, 1e-4f);
-  HS_EXPECT_NEAR(decoded.z, v0.z, 1e-4f);
+  HS_EXPECT_NEAR(decoded.x, v0.x, 1.0f / 32767.0f + 1e-7f);
+  HS_EXPECT_NEAR(decoded.y, v0.y, 1.0f / 32767.0f + 1e-7f);
+  HS_EXPECT_NEAR(decoded.z, v0.z, 1.0f / 32767.0f + 1e-7f);
 }
 
 /**
@@ -3240,11 +3240,14 @@ inline void test_world_trails_capacity_evicts_one_slot() {
   HS_EXPECT_SIZE_OR_RETURN(decoded, Cap);
   for (int i = 0; i < Cap; ++i) {
     HS_EXPECT_NEAR(decoded[i].x,
-                   pushed[i == Cap - 1 ? Cap + Overflow - 1 : i].x, 1e-4f);
+                   pushed[i == Cap - 1 ? Cap + Overflow - 1 : i].x,
+                   1.0f / 32767.0f + 1e-7f);
     HS_EXPECT_NEAR(decoded[i].y,
-                   pushed[i == Cap - 1 ? Cap + Overflow - 1 : i].y, 1e-4f);
+                   pushed[i == Cap - 1 ? Cap + Overflow - 1 : i].y,
+                   1.0f / 32767.0f + 1e-7f);
     HS_EXPECT_NEAR(decoded[i].z,
-                   pushed[i == Cap - 1 ? Cap + Overflow - 1 : i].z, 1e-4f);
+                   pushed[i == Cap - 1 ? Cap + Overflow - 1 : i].z,
+                   1.0f / 32767.0f + 1e-7f);
   }
 }
 
