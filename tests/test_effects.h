@@ -1290,8 +1290,24 @@ struct GSWhiteBox {
                              int count, uint16_t threshold) {
     GS::fill_hot_flags(b, hot1, hot2, count, threshold);
   }
-  static Color4 palette_sample(const GS &gs, float t) {
-    return gs.palette.get(t);
+  static Color4 palette_sample(const GS &gs, float t, int seed = 0) {
+    return Color4(gs.palette_color(seed, t), 1.0f);
+  }
+  static constexpr int SEEDS = GS::NUM_SEED_CLUSTERS;
+  static void set_pigment(GS &gs, int node, int seed) {
+    gs.state.pigment[node] = static_cast<uint16_t>(seed | (63u << 10));
+  }
+  static float pigment_weight(const GS &gs, int node, int seed) {
+    float weights[SEEDS] = {};
+    GS::add_pigment(weights, gs.state.pigment[node], 1.0f);
+    return weights[seed];
+  }
+  static void step_pigment(GS &gs, const float *a, const float *b) {
+    std::vector<uint16_t> next(N);
+    gs.step_pigment(a, b, next.data());
+  }
+  static Pixel pigment_color(const GS &gs, int node, float t) {
+    return gs.pigment_color(gs.state.pigment[node], t);
   }
   static void start_reaction(GS &gs) { gs.start_reaction(); }
   static void set_params(GS &gs, float feed, float k, float dA, float dB,
@@ -1352,6 +1368,18 @@ struct GSWhiteBox {
                          float *nB) {
     gs.step_physics(cA, cB, nA, nB);
   }
+
+  static void step_float_inplace(GS &gs, float *a, float *b) {
+    gs.step_physics_inplace(a, b);
+  }
+
+  static void validate_physics_neighbors() { GS::validate_physics_neighbors(); }
+  static void validate_physics_neighbors(const ReactionGraph::NeighborRun *runs,
+                                         unsigned count) {
+    GS::validate_physics_neighbors(runs, count);
+  }
+  static constexpr int PHYSICS_NEIGHBOR_REACH = GS::PHYSICS_NEIGHBOR_REACH;
+  static constexpr int STEPS_PER_FRAME = GS::STEPS_PER_FRAME;
 
   static void step_float_reference(const GS &gs, const float *cA,
                                    const float *cB, float *nA, float *nB) {
@@ -1437,8 +1465,23 @@ struct GSWhiteBox {
             continue;
           float t = hs::clamp((b - GS::B_COLOR_FLOOR) * GS::B_COLOR_SCALE, 0.0f,
                               1.0f);
-          Color4 sample = gs.palette.get(t);
-          expected += sample.color * (sample.alpha * 0.25f);
+          float mass = 0.0f, rgb[3] = {};
+          int center = fixed_stencil
+                           ? shared_center
+                           : gs.refine_center(sample_v, world_nodes, seed);
+          gs.kernel_accumulate(
+              sample_v, world_nodes, center, [&](int ni, float w) {
+                float weight = gs.state.B[ni] * w;
+                Pixel color = gs.pigment_color(gs.state.pigment[ni], t);
+                mass += weight;
+                rgb[0] += color.r * weight;
+                rgb[1] += color.g * weight;
+                rgb[2] += color.b * weight;
+              });
+          if (mass > 0.0f)
+            expected += Pixel(round_linear_channel(rgb[0] / (mass * 4)),
+                              round_linear_channel(rgb[1] / (mass * 4)),
+                              round_linear_channel(rgb[2] / (mass * 4)));
         }
         int dr = std::abs(static_cast<int>(got.r) - expected.r);
         int dg = std::abs(static_cast<int>(got.g) - expected.g);
@@ -1510,6 +1553,55 @@ inline void test_gs_reseed_generates_palette() {
   }
   HS_EXPECT_GT(changed, 0);
   HS_EXPECT_EQ(persistent_arena.get_offset(), arena_offset);
+}
+
+inline void test_gs_seed_palettes_and_pigment_transport() {
+  hs_test::reset_globals();
+  GSWhiteBox::GS gs;
+  gs.init();
+  for (int seed = 1; seed < GSWhiteBox::SEEDS; ++seed) {
+    bool distinct = false;
+    for (int j = 0; j < 9; ++j)
+      distinct |= GSWhiteBox::palette_sample(gs, j / 8.0f, seed).color !=
+                  GSWhiteBox::palette_sample(gs, j / 8.0f, seed - 1).color;
+    HS_EXPECT(distinct, "each seed must receive an independent palette");
+  }
+
+  std::vector<float> a(GSWhiteBox::N, 1.0f), b(GSWhiteBox::N, 0.0f);
+  constexpr int NODE = GSWhiteBox::N / 2;
+  const int NEIGHBOR = ReactionGraph::neighbors[NODE][0];
+  b[NODE] = 0.5f;
+  GSWhiteBox::set_pigment(gs, NODE, 7);
+  GSWhiteBox::step_pigment(gs, a.data(), b.data());
+  HS_EXPECT_NEAR(GSWhiteBox::pigment_weight(gs, NEIGHBOR, 7), 1.0f, 1e-6f);
+  HS_EXPECT_NEAR(GSWhiteBox::pigment_weight(gs, NODE, 7), 1.0f, 1e-6f);
+
+  b[NEIGHBOR] = 0.5f;
+  GSWhiteBox::set_pigment(gs, NEIGHBOR, 12);
+  GSWhiteBox::step_pigment(gs, a.data(), b.data());
+  float mix = GSWhiteBox::pigment_weight(gs, NODE, 12);
+  HS_EXPECT_GT(mix, 0.0f);
+  HS_EXPECT_LT(mix, 1.0f);
+  HS_EXPECT_NEAR(GSWhiteBox::pigment_weight(gs, NODE, 7) + mix, 1.0f, 1e-6f);
+  Pixel first = GSWhiteBox::palette_sample(gs, 0.5f, 7).color;
+  Pixel second = GSWhiteBox::palette_sample(gs, 0.5f, 12).color;
+  Pixel blended = GSWhiteBox::pigment_color(gs, NODE, 0.5f);
+  HS_EXPECT_NEAR(blended.r, first.r * (1.0f - mix) + second.r * mix, 2.0f);
+  HS_EXPECT_NEAR(blended.g, first.g * (1.0f - mix) + second.g * mix, 2.0f);
+  HS_EXPECT_NEAR(blended.b, first.b * (1.0f - mix) + second.b * mix, 2.0f);
+
+  GSWhiteBox::set_params(gs, 0.04f, 0.06f, 0.02f, 0.0f, 2.5f);
+  GSWhiteBox::step_pigment(gs, a.data(), b.data());
+  HS_EXPECT_NEAR(GSWhiteBox::pigment_weight(gs, NODE, 12), mix, 1e-6f);
+
+  const size_t OFFSET = persistent_arena.get_offset();
+  GSWhiteBox::start_reaction(gs);
+  HS_EXPECT_EQ(persistent_arena.get_offset(), OFFSET);
+  for (int i = 0; i < GSWhiteBox::N; ++i) {
+    if (GSWhiteBox::b_field(gs)[i] != 0)
+      continue;
+    HS_EXPECT_EQ(GSWhiteBox::pigment_weight(gs, i, 0), 1.0f);
+  }
 }
 
 /**
@@ -1898,6 +1990,43 @@ inline void test_gs_substep_matches_scalar_reference() {
   HS_EXPECT(
       std::memcmp(gotB.data(), refB.data(), gotB.size() * sizeof(float)) == 0,
       "optimized B substep differs from scalar reference");
+}
+
+/** @brief Pins delayed writes to full float Jacobi across a complete frame. */
+inline void test_gs_inplace_frame_matches_jacobi() {
+  GSWhiteBox::validate_physics_neighbors();
+  for (int i = 0; i < GSWhiteBox::N; ++i)
+    for (int neighbor : ReactionGraph::neighbors[i])
+      HS_EXPECT_LE(i - neighbor, GSWhiteBox::PHYSICS_NEIGHBOR_REACH);
+
+  const float PARAMS[][5] = {{0.04f, 0.06f, 0.02f, 0.01f, 2.5f},
+                             {0.1f, 0.1f, 0.05f, 0.05f, 3.0f},
+                             {0.0f, 0.0f, 0.0f, 0.0f, 0.1f}};
+  GSWhiteBox::GS gs;
+  for (const auto &params : PARAMS) {
+    GSWhiteBox::set_params(gs, params[0], params[1], params[2], params[3],
+                           params[4]);
+    std::vector<float> a(GSWhiteBox::N), b(GSWhiteBox::N);
+    for (int i = 0; i < GSWhiteBox::N; ++i) {
+      a[i] = static_cast<float>((i * 73) & 65535) * (1.0f / 65535.0f);
+      b[i] = static_cast<float>((i * 151 + 17) & 65535) * (1.0f / 65535.0f);
+    }
+    std::vector<float> ref_a = a, ref_b = b;
+    std::vector<float> next_a(GSWhiteBox::N), next_b(GSWhiteBox::N);
+    for (int step = 0; step < GSWhiteBox::STEPS_PER_FRAME; ++step) {
+      GSWhiteBox::step_float(gs, ref_a.data(), ref_b.data(), next_a.data(),
+                             next_b.data());
+      ref_a.swap(next_a);
+      ref_b.swap(next_b);
+      GSWhiteBox::step_float_inplace(gs, a.data(), b.data());
+      HS_EXPECT(std::memcmp(a.data(), ref_a.data(), a.size() * sizeof(float)) ==
+                    0,
+                "delayed A writes differ from full Jacobi");
+      HS_EXPECT(std::memcmp(b.data(), ref_b.data(), b.size() * sizeof(float)) ==
+                    0,
+                "delayed B writes differ from full Jacobi");
+    }
+  }
 }
 
 /**
@@ -6472,12 +6601,14 @@ inline int run_effects_tests() {
   run_case(test_meshfeedback_preset_export_arity);
   run_case(test_meshfeedback_mesh_rebuild_reuses_storage);
   run_case(test_gs_palette_is_opaque);
+  run_case(test_gs_seed_palettes_and_pigment_transport);
   run_case(test_gs_reseed_generates_palette);
   run_case(test_gs_render_certificates_bound_lattice);
   run_case(test_gs_shared_stencil_error_is_bounded);
   run_case(test_gs_symmetric_shader_matches_shared_reference);
   run_case(test_gs_dissolve_frontier_fades_before_clear);
   run_case(test_gs_substep_matches_scalar_reference);
+  run_case(test_gs_inplace_frame_matches_jacobi);
   run_case(test_fishbowl_preset_and_fire_duty_cycle);
   run_case(test_sh_preset_mode_mapping);
   run_case(test_sh_manual_preset_replaces_inflight_morph);

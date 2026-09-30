@@ -512,6 +512,13 @@ inline void case_reaction_graph_slot_out_of_range() {
   ReactionGraph::validate_neighbors(table);
 }
 
+/** @brief Death case: a GS stencil must fit the delayed-write history. */
+inline void case_gs_neighbor_exceeds_history() {
+  ReactionGraph::NeighborRun run{};
+  run.delta[0] = opaque<int16_t>(-145);
+  hs_test::effects_tests::GSWhiteBox::validate_physics_neighbors(&run, 1);
+}
+
 /**
  * @brief Death case: an over-subscribed arena partition must trap.
  * @details Config surface — each request alone fits but the sum exceeds
@@ -5004,6 +5011,9 @@ inline const Case *all_cases(int &n) {
        case_reaction_graph_slot_out_of_range, "core/spatial/reaction_graph.h",
        "(table[i][k] >= 0 && table[i][k] < RD_N) neighbors[] slot is not a "
        "lattice node index"},
+      {"gs_neighbor_exceeds_history", case_gs_neighbor_exceeds_history,
+       "effects/GSReactionDiffusion.h",
+       "(delta >= -PHYSICS_NEIGHBOR_REACH) GS neighbor exceeds delayed-write history"},
       {"arena_oversubscribed", case_arena_oversubscribed,
        "core/engine/memory.cpp", "(total <= GLOBAL_ARENA_SIZE) split_bases: "},
       {"arena_partition_too_large", case_arena_partition_too_large,
@@ -5741,10 +5751,10 @@ inline const Case *all_cases(int &n) {
       {"chain_zero_alignment", case_chain_zero_alignment,
        "core/render/pullback/interpreter.h",
        "(layout.align != 0 && (layout.align & (layout.align - 1)) == 0 && layout.align <= alignof(std::max_align_t)) ChainProgram::bind_storage: invalid block alignment"},
-      {"chain_non_power_alignment", case_chain_non_power_alignment,
+      {"chain_non_power_alignment", case_chain_non_power_alignment, "core/render/pullback/interpreter.h", "(layout.align != 0 && (layout.align & (layout.align - 1)) == 0 && layout.align <= alignof(std::max_align_t)) ChainProgram::bind_storage: invalid block alignment"},
+      {"chain_overaligned_block", case_chain_overaligned_block,
        "core/render/pullback/interpreter.h",
        "(layout.align != 0 && (layout.align & (layout.align - 1)) == 0 && layout.align <= alignof(std::max_align_t)) ChainProgram::bind_storage: invalid block alignment"},
-      {"chain_overaligned_block", case_chain_overaligned_block, "core/render/pullback/interpreter.h", "(layout.align != 0 && (layout.align & (layout.align - 1)) == 0 && layout.align <= alignof(std::max_align_t)) ChainProgram::bind_storage: invalid block alignment"},
       {"chain_zero_size", case_chain_zero_size,
        "core/render/pullback/interpreter.h",
        "(layout.size > 0 && layout.size % layout.align == 0) ChainProgram::bind_storage: invalid block size"},
