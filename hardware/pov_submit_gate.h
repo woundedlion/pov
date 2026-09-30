@@ -19,7 +19,8 @@
  * then costs one flywheel wake (~54 µs at 8× oversampling) rather than a whole
  * column: the flywheel's idempotent wake-up contract (spec §4.1) reports no new
  * column until the arm advances, so the ~7 remaining wakes of a dropped column
- * would otherwise all be no-ops and the column would paint dark.
+ * would otherwise all be no-ops and show the previous transfer: black for
+ * strobed effects, the prior column otherwise.
  *
  * Re-submission needs no repack — an overrun returns before the controller
  * swaps buffers, so the dropped frame's pixels are still packed in back_frame().
