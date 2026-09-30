@@ -119,24 +119,12 @@ if(EMSCRIPTEN)
     target_link_options(${TARGET_NAME} PRIVATE "-O3" "-fno-fast-math"
       "-ffp-contract=off" "-msimd128" "-sSTACK_SIZE=8192")
   else()
-    # -fno-finite-math-only is required AFTER -ffast-math: -ffast-math implies
-    # -ffinite-math-only, which folds std::isfinite() to constant true and lets
-    # the compiler assume no NaN/Inf module-wide. The render sink relies on real
-    # finite semantics (filter.h: a NaN coord must not silently UB-cast and
-    # bypass the clip/wrap guards). We keep the rest of -ffast-math (reassoc,
-    # FMA, reciprocal, -fno-math-errno) for the SIMD float throughput.
-    # The device firmware build carries the SAME -ffast-math -fno-finite-math-only
-    # pair (platformio.ini, shared [env].build_flags) so both targets share float
-    # reassoc/FMA semantics. Note this does NOT make float results bit-identical
-    # across ARM and WASM (different ISA/libm/FMA contraction) — the sim/device
-    # parity contract is the integer wrap guards, not floats.
+    # Preserve LLVM finite checks in parameter admission and debug sink assertions.
+    # ARM and WASM still differ in libm, reassociation and FMA contraction.
     message(STATUS "WASM Release build (-O3 -ffast-math -fno-finite-math-only -msimd128 -flto, 8 KB stack)")
     target_compile_options(${TARGET_NAME} PRIVATE "-O3" "-ffast-math" "-fno-finite-math-only" "-msimd128" "-flto")
-    # The -ffast-math / -fno-finite-math-only pair also rides the link line. With
-    # -flto the math semantics live in per-function IR attributes that the LTO
-    # link consumes (it does not re-derive them from the command line), so the
-    # link-line copy is a no-op for today's toolchain — but it closes the gap if a
-    # future link-time math pass ever keys off the link flags instead.
+    # Link-line -ffast-math enables Binaryen --fast-math module-wide;
+    # -fno-finite-math-only only preserves the LLVM finite-value checks.
     # 8 KB stack: the tight production budget, sized against the inlined -O3 build.
     target_link_options(${TARGET_NAME} PRIVATE "-O3"
       "-ffast-math" "-fno-finite-math-only" "-msimd128" "-flto"
