@@ -633,6 +633,11 @@ public:
     refresh_configuration_schema();
     depth_palette.init_generated(persistent_arena, next_depth_palette, nullptr,
                                  0, PALETTE_FADE_FRAMES, math::ease_in_out_sin);
+#if HS_ENABLE_HYPERLATTICE_EXPERIMENTS
+    crossing_storage =
+        persistent_arena.allocate_n<HyperLatticeExperimental::CrossingStorage>(
+            1);
+#endif
   }
 
   HS_FLASH_MEMBER void draw_frame() override {
@@ -823,9 +828,10 @@ private:
   draw_experimental(Canvas &canvas,
                     const HyperLatticeDetail::FrameState &context) {
     using namespace HyperLatticeExperimental;
-    const auto SETTINGS =
+    auto settings =
         HyperLatticeDetail::experimental_settings(context, experimental_center);
-    auto prepared = prepare(SETTINGS);
+    settings.crossings = crossing_storage;
+    auto prepared = prepare(settings);
     const auto &configuration =
         CONFIGURATIONS[static_cast<size_t>(configuration_id(params))];
     prepared.limits.max_candidates = configuration.max_candidates;
@@ -955,11 +961,19 @@ private:
   math::Vec4 origin{{0.17f, 0.31f, 0.43f, 0.59f}};
   std::array<float, 6> rotation_phase{};
   PaletteCycler depth_palette;
+#if HS_ENABLE_HYPERLATTICE_EXPERIMENTS
+  HyperLatticeExperimental::CrossingStorage *crossing_storage = nullptr;
+#endif
 
   friend struct hs_test::hyper_lattice_tests::HyperLatticeWhiteBox;
 
   static constexpr size_t FOOTPRINT_BYTES =
-      PaletteCycler::generated_arena_bytes();
+      PaletteCycler::generated_arena_bytes()
+#if HS_ENABLE_HYPERLATTICE_EXPERIMENTS
+      + sizeof(HyperLatticeExperimental::CrossingStorage) +
+      alignof(HyperLatticeExperimental::CrossingStorage)
+#endif
+      ;
   static_assert(FOOTPRINT_BYTES <= DEVICE_PERSISTENT_BUDGET,
                 "HyperLattice persistent footprint exceeds the default "
                 "partition");

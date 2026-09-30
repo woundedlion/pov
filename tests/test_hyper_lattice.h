@@ -11,6 +11,16 @@
 namespace hs_test {
 namespace hyper_lattice_tests {
 
+#if HS_ENABLE_HYPERLATTICE_EXPERIMENTS
+/** @brief Prepares an experimental frame over the tests' crossing scratch. */
+inline HyperLatticeExperimental::Prepared
+prepare_experimental(HyperLatticeExperimental::Settings settings) {
+  static HyperLatticeExperimental::CrossingStorage crossings;
+  settings.crossings = &crossings;
+  return HyperLatticeExperimental::prepare(settings);
+}
+#endif
+
 namespace HL {
 using Params = HyperLatticeDetail::Params;
 using FrameState = HyperLatticeDetail::FrameState;
@@ -1050,7 +1060,7 @@ inline void test_octet_prepared_projection() {
         settings.wire_radius = .055f * cell;
         for (float radial : {0.0f, .7f, 2.3f}) {
           settings.radial_start = radial;
-          auto prepared = HyperLatticeExperimental::prepare(settings);
+          auto prepared = prepare_experimental(settings);
           HS_EXPECT_TRUE(prepared.valid);
           const auto &camera = prepared.camera;
           for (float near : {0.0f, .19f}) {
@@ -1157,7 +1167,7 @@ inline void test_octet_4d_canonical_trace() {
     for (int a = 0; a < 4; ++a)
       for (int b = a + 1; b < 4; ++b)
         math::rotate_plane(settings.embedding, a, b, uniform(0.0f, 6.3f));
-    const auto prepared = HyperLatticeExperimental::prepare(settings);
+    const auto prepared = prepare_experimental(settings);
     HS_EXPECT_TRUE(prepared.valid);
     const auto &camera = prepared.camera;
     for (int ray = 0; ray < 400; ++ray) {
@@ -1204,13 +1214,13 @@ inline void test_experimental_presets() {
     frame.params = Effect::preset(i).params;
     frame.params.sphere_radius = .7f;
     frame.depth_palette = HyperLatticeWhiteBox::depth_palette(effect);
-    const auto before = HyperLatticeExperimental::prepare(
-        HyperLatticeDetail::experimental_settings(frame,
-                                                  {{.4f, .7f, .2f, .8f}}));
+    const auto before =
+        prepare_experimental(HyperLatticeDetail::experimental_settings(
+            frame, {{.4f, .7f, .2f, .8f}}));
     frame.params.cell_size *= 2;
-    const auto after = HyperLatticeExperimental::prepare(
-        HyperLatticeDetail::experimental_settings(frame,
-                                                  {{.4f, .7f, .2f, .8f}}));
+    const auto after =
+        prepare_experimental(HyperLatticeDetail::experimental_settings(
+            frame, {{.4f, .7f, .2f, .8f}}));
     HS_EXPECT_TRUE(before.valid && after.valid);
     const auto wrong_domain =
         !SLICE ? HyperLatticeExperimental::shade<true>(math::X_AXIS, before)
@@ -1222,9 +1232,9 @@ inline void test_experimental_presets() {
     if (SLICE) {
       HS_EXPECT_NE(before.camera.center[3], 0);
       frame.rotation_phase[3] = .7f;
-      const auto rotated = HyperLatticeExperimental::prepare(
-          HyperLatticeDetail::experimental_settings(frame,
-                                                    {{.4f, .7f, .2f, .8f}}));
+      const auto rotated =
+          prepare_experimental(HyperLatticeDetail::experimental_settings(
+              frame, {{.4f, .7f, .2f, .8f}}));
       HS_EXPECT_TRUE(rotated.valid);
       HS_EXPECT_NE(rotated.camera.point4(math::X_AXIS)[3],
                    after.camera.point4(math::X_AXIS)[3]);
