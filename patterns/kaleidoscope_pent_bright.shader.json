@@ -182,7 +182,7 @@
           "kind": "MIXED_ENUM"
         },
         "storage": "enum8",
-        "unit": "mapping"
+        "unit": "mode"
       },
       {
         "classification": "preset",
@@ -424,7 +424,7 @@
           "kind": "LINEAR"
         },
         "storage": "binary32",
-        "unit": "radian"
+        "unit": "ratio"
       },
       {
         "classification": "preset",
@@ -454,7 +454,7 @@
           "kind": "LINEAR"
         },
         "storage": "binary32",
-        "unit": "radian"
+        "unit": "ratio"
       },
       {
         "classification": "preset",
