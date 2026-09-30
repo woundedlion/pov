@@ -166,6 +166,7 @@ inline void test_mindsplatter_whitebox_geometry_replay() {
   MS replay;
   replay.init();
   WB::restore_render(replay, state);
+  HS_EXPECT_TRUE(WB::serialize_render(WB::capture(replay)) == state);
   HS_EXPECT_EQ(WB::active_base_mesh(replay), MS::BaseMesh::DODECAHEDRON);
   HS_EXPECT_EQ(WB::active_emitters(replay), static_cast<size_t>(20));
   HS_EXPECT_EQ(WB::active_attractors(replay), static_cast<size_t>(12));
