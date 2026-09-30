@@ -326,6 +326,7 @@ files define line-ending policy and working-artifact exclusions.
 │   │   │                            csg, face, volume, lattice, framework, lattice_field,
 │   │   │                            periodic_surface, affine_lattice, periodic_shells)
 │   │   │   ├── cellular_wire.h     Analytic periodic diamond, honeycomb and rhombic struts
+│   │   │   ├── octet_trace.h       Front-to-back ray traces of the 3D and 4D octet trusses
 │   │   │   ├── face_classes.h       Congruence-class ids and rasterizer records
 │   │   │   └── face_class_bake.h    Congruence clustering and canonical distance-LUT bake
 │   │   ├── ray.h                   Spherical ray rendering umbrella
@@ -350,10 +351,9 @@ files define line-ending policy and working-artifact exclusions.
 │       ├── FastNoiseLite.h         Single-header noise library
 │       └── FastNoiseLite_config.h  FastNoiseLite build configuration
 │
-├── effects/                    43 headers covering 41 effects, all firmware — BZReactionDiffusion.h,
+├── effects/                    42 headers covering 41 effects, all firmware — BZReactionDiffusion.h,
 │                                HopfFibration.h, IslamicStars.h, Raymarch.h, … — plus
-│                                shared base ReactionDiffusionBase.h and optional
-│                                HyperLatticeExperimental.h rendering adapter; the
+│                                shared base ReactionDiffusionBase.h; the
 │                                composed-effect base is
 │                                core/render/pullback/composed_effect.h — see §9
 │

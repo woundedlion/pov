@@ -25,7 +25,11 @@
 #include "core/math/4dmath.h"
 #include "core/render/pullback.h"
 #if HS_ENABLE_HYPERLATTICE_EXPERIMENTS
-#include "effects/HyperLatticeExperimental.h"
+#include "core/render/ray/camera.h"
+#include "core/render/sdf/affine_lattice.h"
+#include "core/render/sdf/cellular_wire.h"
+#include "core/render/sdf/octet_trace.h"
+#include "core/render/sdf/periodic_shells.h"
 #endif
 
 namespace hs_test {
@@ -161,30 +165,244 @@ HS_FLASH_INLINE inline math::Mat4 view_embedding(const FrameState &frame) {
   return embedding;
 }
 #if HS_ENABLE_HYPERLATTICE_EXPERIMENTS
-HS_FLASH_INLINE inline HyperLatticeExperimental::Settings
+/** @brief Experimental patterns: octet trusses, cellular wires and shells. */
+namespace Experiment {
+
+using SDF::OctetTrace::CrossingStorage;
+using SDF::OctetTrace::Sample;
+
+/** @brief Lattice each experimental pattern traces. */
+enum class Geometry : uint8_t {
+  OCTET,
+  DIAMOND,
+  HEXAGONAL,
+  RHOMBIC,
+  AFFINE_CUBIC,
+  SHELLS
+};
+
+/** @brief Frame settings; camera distances and near fading use world units. */
+struct Settings {
+  Raycast::SamplingDomain domain = Raycast::SamplingDomain::SPATIAL_3D;
+  float cell_size = 1.0f;
+  float wire_radius = 0.055f;
+  float radial_start = 0.0f;
+  float far_distance = 7.0f;
+  float near_fade = 0.5f;
+  float aa_strength = 1.0f;
+  math::Vec4 center{};
+  math::Mat4 embedding = math::Mat4::identity();
+  float pixel_half_angle = 0.0f;
+  const BakedPalette *palette = nullptr;
+  Geometry geometry = Geometry::OCTET;
+  float shear = .55f;
+  float stretch = 1.4f;
+  float shell_radius = .30f;
+  float gain = 1.0f; /**< Brightness scale of the whole frame. */
+  /** Scratch the octet traces sort crossings in; required for OCTET. */
+  CrossingStorage *crossings = nullptr;
+};
+
+/** @brief Frame state the traces read, built by prepare(). */
+struct Prepared {
+  Raycast::PreparedCamera camera;
+  Raycast::Footprint footprint;
+  Raycast::Appearance appearance;
+  Raycast::TraceLimits limits;
+  SDF::OctetFramework octet;
+  SDF::OctetEvents::PreparedProjection octet_projection{};
+  SDF::OctetFramework4 octet4;
+  SDF::OctetEvents4::PreparedProjection octet4_projection{};
+  const SDF::CellularWire::Geometry *cellular = nullptr;
+  SDF::PreparedPeriodicShells periodic_shells;
+  bool valid = false;
+  Geometry geometry = Geometry::OCTET;
+  float shear = .55f;
+  float stretch = 1.4f;
+  float shell_radius = .30f;
+  CrossingStorage *crossings = nullptr;
+};
+
+/** @brief Validates settings and precomputes the frame's trace state. */
+HS_FLASH_INLINE inline Prepared prepare(const Settings &settings) {
+  Prepared result;
+  if (!Raycast::finite(settings.cell_size) || settings.cell_size <= 0.0f ||
+      !Raycast::finite(settings.near_fade) || settings.near_fade <= 0.0f ||
+      !Raycast::finite(settings.aa_strength) || settings.aa_strength < 0.0f ||
+      !Raycast::finite(settings.pixel_half_angle) ||
+      settings.pixel_half_angle < 0.0f || !settings.palette)
+    return result;
+
+  result.camera.domain = settings.domain;
+  result.camera.center = settings.center;
+  result.camera.embedding = settings.embedding;
+  result.camera.radial_start = settings.radial_start;
+  result.camera.interval = {0.0f, settings.far_distance};
+  result.footprint = {settings.pixel_half_angle * settings.aa_strength,
+                      settings.radial_start};
+  result.appearance = {1.0f / settings.far_distance, 0.0f,
+                       1.0f / settings.near_fade, settings.palette,
+                       settings.gain};
+  result.limits.max_candidates = 64;
+  result.limits.max_layers = 32;
+  result.octet.cell_size = settings.cell_size;
+  result.octet.wire_radius = settings.wire_radius;
+  result.octet4.cell_size = settings.cell_size;
+  result.octet4.wire_radius = settings.wire_radius;
+  result.geometry = settings.geometry;
+  result.shear = settings.shear;
+  result.stretch = settings.stretch;
+  result.shell_radius = settings.shell_radius;
+  result.crossings = settings.crossings;
+  result.valid = result.camera.valid() &&
+                 (settings.geometry != Geometry::OCTET || settings.crossings) &&
+                 Raycast::finite(result.footprint.angular_radius) &&
+                 Raycast::finite(result.appearance.inv_far) &&
+                 Raycast::finite(result.appearance.near_inv_span) &&
+                 (settings.domain == Raycast::SamplingDomain::SLICE_4D
+                      ? result.octet4.valid()
+                      : result.octet.valid());
+  if (!result.valid)
+    return result;
+  if (settings.geometry != Geometry::OCTET) {
+    const bool CELLULAR = settings.geometry == Geometry::DIAMOND ||
+                          settings.geometry == Geometry::HEXAGONAL ||
+                          settings.geometry == Geometry::RHOMBIC;
+    result.valid =
+        (CELLULAR && settings.domain == Raycast::SamplingDomain::SPATIAL_3D) ||
+        settings.geometry == Geometry::AFFINE_CUBIC ||
+        settings.geometry == Geometry::SHELLS;
+    if (CELLULAR)
+      result.cellular = &SDF::CellularWire::geometry(
+          settings.geometry == Geometry::DIAMOND
+              ? SDF::CellularWire::Kind::DIAMOND
+          : settings.geometry == Geometry::HEXAGONAL
+              ? SDF::CellularWire::Kind::HEXAGONAL
+              : SDF::CellularWire::Kind::RHOMBIC);
+    if (settings.geometry == Geometry::SHELLS) {
+      result.periodic_shells =
+          SDF::prepare_periodic_shells(result.camera, settings.cell_size,
+                                       settings.shell_radius, result.footprint);
+      result.valid = result.periodic_shells.valid;
+    }
+    return result;
+  }
+  const auto &E = settings.embedding.m;
+  if (settings.domain == Raycast::SamplingDomain::SPATIAL_3D) {
+    const auto FAMILIES = result.octet.plane_families();
+    auto &projection = result.octet_projection;
+    const float SPACING = FAMILIES[0].spacing;
+    projection.spacing2 = SPACING * SPACING;
+    projection.wire_radius = result.octet.wire_radius;
+    const math::Vector ORIGIN(settings.center[0], settings.center[1],
+                              settings.center[2]);
+    for (size_t i = 0; i < FAMILIES.size(); ++i) {
+      const math::Vector NORMAL = FAMILIES[i].normal / SPACING;
+      projection.offsets[i] = math::dot(ORIGIN - result.octet.origin, NORMAL);
+      projection.normals[i] = {
+          NORMAL.x * E[0][0] + NORMAL.y * E[1][0] + NORMAL.z * E[2][0],
+          NORMAL.x * E[0][1] + NORMAL.y * E[1][1] + NORMAL.z * E[2][1],
+          NORMAL.x * E[0][2] + NORMAL.y * E[1][2] + NORMAL.z * E[2][2]};
+    }
+  } else {
+    auto &projection = result.octet4_projection;
+    projection.inverse_scale =
+        1.0f / (SDF::OctetFramework4::HALF_CUBE * settings.cell_size);
+    for (int i = 0; i < 4; ++i) {
+      projection.embedding[i] = math::Vector(E[i][0], E[i][1], E[i][2]);
+      projection.origin[i] = (settings.center[i] - result.octet4.origin[i]) *
+                             projection.inverse_scale;
+    }
+  }
+  return result;
+}
+
+/** @brief shade() for a valid octet frame of the matching domain. */
+template <bool SLICE_4D>
+__attribute__((always_inline)) inline Sample
+shade_octet(const math::Vector &direction, const Prepared &prepared) {
+  if constexpr (SLICE_4D) {
+    return SDF::OctetTrace::trace_4d(
+        direction, prepared.camera, prepared.octet4, prepared.octet4_projection,
+        prepared.footprint, prepared.limits, prepared.appearance,
+        *prepared.crossings);
+  } else {
+    return SDF::OctetTrace::trace_3d(direction, prepared.camera,
+                                     prepared.octet_projection,
+                                     prepared.footprint, prepared.limits,
+                                     prepared.appearance, *prepared.crossings);
+  }
+}
+
+/** @brief One ray's premultiplied color for the frame's geometry. */
+template <bool SLICE_4D>
+HS_HOT_FLASH_MEMBER Sample shade(const math::Vector &direction,
+                                 const Prepared &prepared) {
+  const auto &camera = prepared.camera;
+  if (!prepared.valid ||
+      (camera.domain == Raycast::SamplingDomain::SLICE_4D) != SLICE_4D)
+    return {{}, Raycast::TraceStatus::INVALID_QUERY};
+  if (prepared.geometry != Geometry::OCTET) {
+    if (prepared.geometry == Geometry::SHELLS) {
+      if (!SLICE_4D && prepared.periodic_shells.single_owner) {
+        const auto SHELLS = SDF::trace_periodic_shells_3d(
+            prepared.periodic_shells, camera, direction, prepared.limits,
+            prepared.appearance);
+        return {SHELLS.color, SHELLS.status};
+      }
+      if (prepared.periodic_shells.march) {
+        const auto SHELLS = SDF::trace_periodic_shells_march<SLICE_4D ? 4 : 3>(
+            prepared.periodic_shells, camera, direction, prepared.limits,
+            prepared.appearance);
+        return {SHELLS.color, SHELLS.status};
+      }
+    }
+    Raycast::ShadedTrace sample;
+    if (prepared.geometry == Geometry::AFFINE_CUBIC)
+      sample = SDF::shade_affine_lattice(
+          camera, direction, prepared.octet.cell_size,
+          prepared.octet.wire_radius, prepared.footprint, prepared.limits,
+          prepared.appearance, prepared.shear, prepared.stretch);
+    else if (prepared.geometry == Geometry::SHELLS)
+      sample = SDF::shade_periodic_shells(prepared.periodic_shells, camera,
+                                          direction, prepared.limits,
+                                          prepared.appearance);
+    else {
+      sample = SDF::CellularWire::shade(
+          *prepared.cellular, prepared.octet.cell_size,
+          prepared.octet.wire_radius, camera, prepared.footprint,
+          prepared.limits, prepared.appearance, direction);
+    }
+    return {sample.color.color * sample.color.alpha, sample.trace.status};
+  }
+  return shade_octet<SLICE_4D>(direction, prepared);
+}
+
+} // namespace Experiment
+
+HS_FLASH_INLINE inline Experiment::Settings
 experimental_settings(const FrameState &frame, math::Vec4 center) {
   const auto &p = frame.params;
   if (p.mode == LatticeMode::THREE_D)
     center[3] = 0;
-  return {p.mode == LatticeMode::FOUR_D_SLICE
-              ? Raycast::SamplingDomain::SLICE_4D
-              : Raycast::SamplingDomain::SPATIAL_3D,
-          p.cell_size,
-          p.wire_radius * p.cell_size,
-          p.sphere_radius,
-          p.far_distance,
-          p.near_fade,
-          p.aa_strength,
-          center,
-          view_embedding(frame),
-          frame.pixel_half_angle,
-          frame.depth_palette,
-          static_cast<HyperLatticeExperimental::Geometry>(
-              static_cast<uint8_t>(p.pattern) - 1),
-          p.shear,
-          p.stretch,
-          p.shell_radius,
-          frame.gain};
+  return {
+      p.mode == LatticeMode::FOUR_D_SLICE ? Raycast::SamplingDomain::SLICE_4D
+                                          : Raycast::SamplingDomain::SPATIAL_3D,
+      p.cell_size,
+      p.wire_radius * p.cell_size,
+      p.sphere_radius,
+      p.far_distance,
+      p.near_fade,
+      p.aa_strength,
+      center,
+      view_embedding(frame),
+      frame.pixel_half_angle,
+      frame.depth_palette,
+      static_cast<Experiment::Geometry>(static_cast<uint8_t>(p.pattern) - 1),
+      p.shear,
+      p.stretch,
+      p.shell_radius,
+      frame.gain};
 }
 #endif
 inline PreparedTrace prepare_trace(const FrameState &frame) {
@@ -635,8 +853,7 @@ public:
                                  0, PALETTE_FADE_FRAMES, math::ease_in_out_sin);
 #if HS_ENABLE_HYPERLATTICE_EXPERIMENTS
     crossing_storage =
-        persistent_arena.allocate_n<HyperLatticeExperimental::CrossingStorage>(
-            1);
+        persistent_arena.allocate_n<SDF::OctetTrace::CrossingStorage>(1);
 #endif
   }
 
@@ -827,7 +1044,7 @@ private:
   HS_FLASH_MEMBER void
   draw_experimental(Canvas &canvas,
                     const HyperLatticeDetail::FrameState &context) {
-    using namespace HyperLatticeExperimental;
+    using namespace HyperLatticeDetail::Experiment;
     auto settings =
         HyperLatticeDetail::experimental_settings(context, experimental_center);
     settings.crossings = crossing_storage;
@@ -962,7 +1179,7 @@ private:
   std::array<float, 6> rotation_phase{};
   PaletteCycler depth_palette;
 #if HS_ENABLE_HYPERLATTICE_EXPERIMENTS
-  HyperLatticeExperimental::CrossingStorage *crossing_storage = nullptr;
+  SDF::OctetTrace::CrossingStorage *crossing_storage = nullptr;
 #endif
 
   friend struct hs_test::hyper_lattice_tests::HyperLatticeWhiteBox;
@@ -970,8 +1187,8 @@ private:
   static constexpr size_t FOOTPRINT_BYTES =
       PaletteCycler::generated_arena_bytes()
 #if HS_ENABLE_HYPERLATTICE_EXPERIMENTS
-      + sizeof(HyperLatticeExperimental::CrossingStorage) +
-      alignof(HyperLatticeExperimental::CrossingStorage)
+      + sizeof(SDF::OctetTrace::CrossingStorage) +
+      alignof(SDF::OctetTrace::CrossingStorage)
 #endif
       ;
   static_assert(FOOTPRINT_BYTES <= DEVICE_PERSISTENT_BUDGET,
