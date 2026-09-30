@@ -554,6 +554,14 @@ class MindSplatterInstrumentationLines(unittest.TestCase):
         self.assertEqual(window.msp_stalls["history_vertex"]["cyc"], 2000)
         self.assertEqual(window.msp_stalls["aa_weights"]["batches"], 100)
 
+    def test_neutral_plot_labels_match_legacy_captures(self):
+        legacy = self._parse()[0]
+        self.LOG = self.LOG.replace("msp counts", "plot render counts").replace(
+            "msp stall", "plot stall")
+        neutral = self._parse()[0]
+        self.assertEqual(neutral.msp_counts, legacy.msp_counts)
+        self.assertEqual(neutral.msp_stalls, legacy.msp_stalls)
+
     def test_commands_accept_instrumented_capture(self):
         import contextlib
         import io

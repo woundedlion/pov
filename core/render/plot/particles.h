@@ -22,6 +22,51 @@
 
 namespace Plot {
 
+static inline void
+count_cartesian_trail_gate_result(CartesianTrailGateResult result) {
+  if (result == CartesianTrailGateResult::LATITUDE_REJECT)
+    HS_PLOT_RENDER_COUNT(cartesian_latitude_rejects);
+  else if (result == CartesianTrailGateResult::MERIDIAN_REJECT)
+    HS_PLOT_RENDER_COUNT(cartesian_meridian_rejects);
+  else
+    HS_PLOT_RENDER_COUNT(cartesian_fallbacks);
+#if defined(HS_PROFILE_ENABLE) && defined(HS_PROFILE_CARTESIAN_COUNTS)
+  static hs::CycleCounter latitude("plot_ps_cartesian_latitude_reject");
+  static hs::CycleCounter meridian("plot_ps_cartesian_meridian_reject");
+  static hs::CycleCounter fallback("plot_ps_cartesian_fallback");
+  hs::CycleCounter *counter = &fallback;
+  if (result == CartesianTrailGateResult::LATITUDE_REJECT)
+    counter = &latitude;
+  else if (result == CartesianTrailGateResult::MERIDIAN_REJECT)
+    counter = &meridian;
+  ++counter->count;
+#else
+  (void)result;
+#endif
+}
+
+static inline void count_particle_edge_class(bool one_dot) {
+  if (one_dot)
+    HS_PLOT_RENDER_COUNT(one_dot_edges);
+  else
+    HS_PLOT_RENDER_COUNT(long_edges);
+#if defined(HS_PROFILE_ENABLE) && defined(HS_PROFILE_EDGE_CLASS_COUNTS)
+  static hs::CycleCounter one_dot_count("plot_ps_edge_one_dot");
+  static hs::CycleCounter long_count("plot_ps_edge_long");
+  ++(one_dot ? one_dot_count : long_count).count;
+#else
+  (void)one_dot;
+#endif
+}
+
+static inline void count_particle_exact_gate_fallback() {
+  HS_PLOT_RENDER_COUNT(exact_gate_fallbacks);
+#if defined(HS_PROFILE_ENABLE) && defined(HS_PROFILE_EDGE_CLASS_COUNTS)
+  static hs::CycleCounter exact_count("plot_ps_edge_exact_fallback");
+  ++exact_count.count;
+#endif
+}
+
 /**
  * @brief Particle System trails.
  * Registers:
@@ -121,15 +166,15 @@ struct ParticleSystem {
         }
       }();
       const size_t point_count = trail_len + (append_live_tip ? 1 : 0);
-      HS_MSP_COUNT(resident_particles);
+      HS_PLOT_RENDER_COUNT(resident_particles);
       if (p.life == 0)
-        HS_MSP_COUNT(draining_histories);
+        HS_PLOT_RENDER_COUNT(draining_histories);
       else {
-        HS_MSP_COUNT(live_particles);
+        HS_PLOT_RENDER_COUNT(live_particles);
         if (trail_len == static_cast<size_t>(p.history.CAPACITY))
-          HS_MSP_COUNT(full_histories);
+          HS_PLOT_RENDER_COUNT(full_histories);
         else
-          HS_MSP_COUNT(partial_histories);
+          HS_PLOT_RENDER_COUNT(partial_histories);
       }
       if (p.life == 0 || point_count < 2)
         continue;
@@ -150,9 +195,8 @@ struct ParticleSystem {
         orig.bind(scratch_arena_a, point_count);
       {
         HS_PROFILE(plot_ps_tween);
-#ifdef HS_PROFILE_MINDSPLATTER_STALLS
-        hs::DwtStallBatch history_batch(
-            hs::g_mindsplatter_stalls.history_vertex);
+#ifdef HS_PROFILE_PLOT_STALLS
+        hs::DwtStallBatch history_batch(hs::g_plot_stalls.history_vertex);
 #endif
         auto emit = [&](const math::Vector &v, float t) {
           trail.emplace_back(
@@ -161,7 +205,7 @@ struct ParticleSystem {
             vertex_shader(trail.back());
           if (has_deferred_shader)
             orig.push_back(v);
-#ifdef HS_PROFILE_MINDSPLATTER_STALLS
+#ifdef HS_PROFILE_PLOT_STALLS
           history_batch.step();
 #endif
         };
@@ -174,7 +218,7 @@ struct ParticleSystem {
           if (append_live_tip)
             emit(p.position, 1.0f);
         }
-#ifdef HS_PROFILE_MINDSPLATTER_STALLS
+#ifdef HS_PROFILE_PLOT_STALLS
         history_batch.finish();
 #endif
       }
@@ -224,7 +268,7 @@ struct ParticleSystem {
           }
 
           for (size_t e = 0; e < edges; ++e) {
-            HS_MSP_STALL_START(edge_gate_start);
+            HS_PLOT_STALL_START(edge_gate_start);
             const math::Vector &ea = trail[e].pos;
             const math::Vector &eb = trail[e + 1].pos;
             const bool one_dot = edge_fits_one_dot<W, H>(ea, eb);
@@ -240,9 +284,9 @@ struct ParticleSystem {
                         RasterOptions::EDGE_ONE_DOT |
                         (v ? RasterOptions::EDGE_VISIBLE : uint8_t{0});
               if (!v)
-                HS_MSP_COUNT(edge_rejects);
+                HS_PLOT_RENDER_COUNT(edge_rejects);
               any = any || v;
-              HS_MSP_STALL_STOP(trail_gate, edge_gate_start);
+              HS_PLOT_STALL_STOP(trail_gate, edge_gate_start);
               continue;
             }
             bool v;
@@ -260,9 +304,9 @@ struct ParticleSystem {
             bits[e] = RasterOptions::EDGE_CLASSIFIED |
                       (v ? RasterOptions::EDGE_VISIBLE : uint8_t{0});
             if (!v)
-              HS_MSP_COUNT(edge_rejects);
+              HS_PLOT_RENDER_COUNT(edge_rejects);
             any = any || v;
-            HS_MSP_STALL_STOP(trail_gate, edge_gate_start);
+            HS_PLOT_STALL_STOP(trail_gate, edge_gate_start);
           }
         } else {
           for (size_t e = 0; e < edges; ++e) {
@@ -275,11 +319,11 @@ struct ParticleSystem {
         }
         if (!any)
           continue;
-        HS_MSP_COUNT(visible_trails);
+        HS_PLOT_RENDER_COUNT(visible_trails);
         vis = {bits, edges};
       }
       if (!clip_active)
-        HS_MSP_COUNT(visible_trails);
+        HS_PLOT_RENDER_COUNT(visible_trails);
 
       if (has_deferred_shader) {
         HS_PROFILE(plot_ps_deferred);

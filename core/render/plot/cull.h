@@ -549,18 +549,18 @@ static void rasterize_geodesic_strategy(const Fragment &curr,
                                         const Fragment &next,
                                         bool is_last_segment,
                                         ProcessSegmentFn &&process_segment) {
-  HS_MSP_STALL_START(edge_setup_start);
+  HS_PLOT_STALL_START(edge_setup_start);
   math::Vector v1 = curr.pos;
   const GeodesicEdgeSpan es = make_geodesic_edge_span(v1, next.pos);
 
   if (!es.have_axis) {
     HS_PLOT_COUNT(degenerate);
-    HS_MSP_STALL_STOP(edge_setup, edge_setup_start);
+    HS_PLOT_STALL_STOP(edge_setup, edge_setup_start);
     process_segment(DegenerateEdgeSampler{v1}, curr, next, es.total,
                     is_last_segment);
   } else {
     const GeodesicEdgeSampler sampler{v1, math::cross(es.axis, v1), es.total};
-    HS_MSP_STALL_STOP(edge_setup, edge_setup_start);
+    HS_PLOT_STALL_STOP(edge_setup, edge_setup_start);
     process_segment(sampler, curr, next, es.total, is_last_segment);
   }
 }
@@ -1846,8 +1846,8 @@ cartesian_quadrant_trail_gate(const CartesianQuadrantClip &clip,
   if (!clip.active || trail.size() < 2)
     return CartesianTrailGateResult::EXACT_FALLBACK;
 
-#ifdef HS_PROFILE_MINDSPLATTER_STALLS
-  hs::DwtStallBatch gate_batch(hs::g_mindsplatter_stalls.trail_gate);
+#ifdef HS_PROFILE_PLOT_STALLS
+  hs::DwtStallBatch gate_batch(hs::g_plot_stalls.trail_gate);
 #endif
   float latitude_max = -1.0f;
   float max_chord2 = 0.0f;
@@ -1858,7 +1858,7 @@ cartesian_quadrant_trail_gate(const CartesianQuadrantClip &clip,
       const math::Vector d = p - trail[k - 1].pos;
       max_chord2 = fmaxf(max_chord2, math::dot(d, d));
     }
-#ifdef HS_PROFILE_MINDSPLATTER_STALLS
+#ifdef HS_PROFILE_PLOT_STALLS
     gate_batch.step();
 #endif
   }
@@ -1867,7 +1867,7 @@ cartesian_quadrant_trail_gate(const CartesianQuadrantClip &clip,
   // arc <= (pi/2)*chord. A unit-normal dot changes by at most angular distance.
   const float slack = (math::PI_F * 0.25f) * sqrtf(max_chord2);
   if (latitude_max + slack < clip.latitude_threshold - math::EPS_GEOMETRIC) {
-#ifdef HS_PROFILE_MINDSPLATTER_STALLS
+#ifdef HS_PROFILE_PLOT_STALLS
     gate_batch.step();
     gate_batch.finish();
 #endif
@@ -1877,11 +1877,11 @@ cartesian_quadrant_trail_gate(const CartesianQuadrantClip &clip,
   float meridian_max = -1.0f;
   for (const Fragment &f : trail) {
     meridian_max = fmaxf(meridian_max, clip.meridian_sign * f.pos.z);
-#ifdef HS_PROFILE_MINDSPLATTER_STALLS
+#ifdef HS_PROFILE_PLOT_STALLS
     gate_batch.step();
 #endif
   }
-#ifdef HS_PROFILE_MINDSPLATTER_STALLS
+#ifdef HS_PROFILE_PLOT_STALLS
   gate_batch.step();
   gate_batch.finish();
 #endif
@@ -1890,51 +1890,6 @@ cartesian_quadrant_trail_gate(const CartesianQuadrantClip &clip,
   return CartesianTrailGateResult::EXACT_FALLBACK;
 }
 HS_O3_END
-
-static inline void
-count_cartesian_trail_gate_result(CartesianTrailGateResult result) {
-  if (result == CartesianTrailGateResult::LATITUDE_REJECT)
-    HS_MSP_COUNT(cartesian_latitude_rejects);
-  else if (result == CartesianTrailGateResult::MERIDIAN_REJECT)
-    HS_MSP_COUNT(cartesian_meridian_rejects);
-  else
-    HS_MSP_COUNT(cartesian_fallbacks);
-#if defined(HS_PROFILE_ENABLE) && defined(HS_PROFILE_CARTESIAN_COUNTS)
-  static hs::CycleCounter latitude("plot_ps_cartesian_latitude_reject");
-  static hs::CycleCounter meridian("plot_ps_cartesian_meridian_reject");
-  static hs::CycleCounter fallback("plot_ps_cartesian_fallback");
-  hs::CycleCounter *counter = &fallback;
-  if (result == CartesianTrailGateResult::LATITUDE_REJECT)
-    counter = &latitude;
-  else if (result == CartesianTrailGateResult::MERIDIAN_REJECT)
-    counter = &meridian;
-  ++counter->count;
-#else
-  (void)result;
-#endif
-}
-
-static inline void count_particle_edge_class(bool one_dot) {
-  if (one_dot)
-    HS_MSP_COUNT(one_dot_edges);
-  else
-    HS_MSP_COUNT(long_edges);
-#if defined(HS_PROFILE_ENABLE) && defined(HS_PROFILE_EDGE_CLASS_COUNTS)
-  static hs::CycleCounter one_dot_count("plot_ps_edge_one_dot");
-  static hs::CycleCounter long_count("plot_ps_edge_long");
-  ++(one_dot ? one_dot_count : long_count).count;
-#else
-  (void)one_dot;
-#endif
-}
-
-static inline void count_particle_exact_gate_fallback() {
-  HS_MSP_COUNT(exact_gate_fallbacks);
-#if defined(HS_PROFILE_ENABLE) && defined(HS_PROFILE_EDGE_CLASS_COUNTS)
-  static hs::CycleCounter exact_count("plot_ps_edge_exact_fallback");
-  ++exact_count.count;
-#endif
-}
 
 /**
  * @brief Hoisted per-point screen coordinates and whole-trail cull verdict.
@@ -1965,8 +1920,8 @@ trail_gate_prologue(const ClipRegion &cr, const ClipRegion::XClip &xc,
   const size_t n = trail.size();
   auto *rows = static_cast<float *>(
       scratch_arena_a.allocate(n * sizeof(float), alignof(float)));
-#ifdef HS_PROFILE_MINDSPLATTER_STALLS
-  hs::DwtStallBatch gate_batch(hs::g_mindsplatter_stalls.trail_gate);
+#ifdef HS_PROFILE_PLOT_STALLS
+  hs::DwtStallBatch gate_batch(hs::g_plot_stalls.trail_gate);
 #endif
   float row_lo_t = 1e9f, row_hi_t = -1e9f;
   float min_sp2 = 1.0f;
@@ -1981,7 +1936,7 @@ trail_gate_prologue(const ClipRegion &cr, const ClipRegion::XClip &xc,
       const math::Vector d = pt - trail[k - 1].pos;
       max_chord2 = fmaxf(max_chord2, math::dot(d, d));
     }
-#ifdef HS_PROFILE_MINDSPLATTER_STALLS
+#ifdef HS_PROFILE_PLOT_STALLS
     gate_batch.step();
 #endif
   }
@@ -1992,11 +1947,11 @@ trail_gate_prologue(const ClipRegion &cr, const ClipRegion::XClip &xc,
   const float row_margin = (max_arc * 0.5f) * math::ROWS_PER_RADIAN<H>;
   if (!cr.could_intersect_y(row_lo_t - row_margin,
                             row_hi_t + row_margin + GEODESIC_ROW_AA_PAD)) {
-#ifdef HS_PROFILE_MINDSPLATTER_STALLS
+#ifdef HS_PROFILE_PLOT_STALLS
     gate_batch.step();
     gate_batch.finish();
 #endif
-    HS_MSP_COUNT(prologue_row_rejects);
+    HS_PLOT_RENDER_COUNT(prologue_row_rejects);
     return {rows, nullptr, true};
   }
 
@@ -2032,7 +1987,7 @@ trail_gate_prologue(const ClipRegion &cr, const ClipRegion::XClip &xc,
       cum += d;
       cum_lo = fminf(cum_lo, cum);
       cum_hi = fmaxf(cum_hi, cum);
-#ifdef HS_PROFILE_MINDSPLATTER_STALLS
+#ifdef HS_PROFILE_PLOT_STALLS
       gate_batch.step();
 #endif
     }
@@ -2043,16 +1998,16 @@ trail_gate_prologue(const ClipRegion &cr, const ClipRegion::XClip &xc,
       int col_s, col_len;
       finish_col_span<W>(cols[0] + cum_lo, cum_hi - cum_lo, col_s, col_len);
       if (!ClipRegion::arcs_overlap(xc.rs, xc.length(W), col_s, col_len, W)) {
-#ifdef HS_PROFILE_MINDSPLATTER_STALLS
+#ifdef HS_PROFILE_PLOT_STALLS
         gate_batch.step();
         gate_batch.finish();
 #endif
-        HS_MSP_COUNT(prologue_column_rejects);
+        HS_PLOT_RENDER_COUNT(prologue_column_rejects);
         return {rows, cols, true};
       }
     }
   }
-#ifdef HS_PROFILE_MINDSPLATTER_STALLS
+#ifdef HS_PROFILE_PLOT_STALLS
   gate_batch.step();
   gate_batch.finish();
 #endif

@@ -96,26 +96,26 @@ PLOT_FIELDS = ("rings", "edges", "planar", "geodesic", "degenerate",
                "normalizations", "shader_calls", "plotted_samples",
                "steps_peak", "backstops")
 MSP_PARTICLE_RE = re.compile(
-    r"^msp counts particles: resident=(\d+) live=(\d+) full=(\d+) "
+    r"^(?:msp|plot render) counts particles: resident=(\d+) live=(\d+) full=(\d+) "
     r"partial=(\d+) draining=(\d+)\s*$")
 MSP_PARTICLE_FIELDS = ("resident", "live", "full", "partial", "draining")
 MSP_GATE_RE = re.compile(
-    r"^msp counts gate: cart_lat=(\d+) cart_mer=(\d+) cart_fallback=(\d+) "
+    r"^(?:msp|plot render) counts gate: cart_lat=(\d+) cart_mer=(\d+) cart_fallback=(\d+) "
     r"row=(\d+) col=(\d+) edge=(\d+) visible=(\d+) exact=(\d+)\s*$")
 MSP_GATE_FIELDS = ("cart_lat", "cart_mer", "cart_fallback", "row", "col",
                    "edge_reject", "visible", "exact_fallback")
 MSP_RENDER_RE = re.compile(
-    r"^msp counts render: dot=(\d+) long=(\d+) adaptive=(\d+) shader=(\d+) "
+    r"^(?:msp|plot render) counts render: dot=(\d+) long=(\d+) adaptive=(\d+) shader=(\d+) "
     r"pal_end=(\d+) pal_lerp=(\d+) hole_early=(\d+)\s*$")
 MSP_RENDER_FIELDS = ("one_dot", "long", "adaptive", "shader", "pal_end",
                      "pal_lerp", "hole_early")
 MSP_AA_RE = re.compile(
-    r"^msp counts aa: tap0=(\d+) tap1=(\d+) tap2=(\d+) tap3=(\d+) "
+    r"^(?:msp|plot render) counts aa: tap0=(\d+) tap1=(\d+) tap2=(\d+) tap3=(\d+) "
     r"tap4=(\d+) interior=(\d+) boundary=(\d+)\s*$")
 MSP_AA_FIELDS = ("tap0", "tap1", "tap2", "tap3", "tap4", "interior",
                  "boundary")
 MSP_STALL_RE = re.compile(
-    r"^msp stall: stage=(\S+) batches=(\d+) cyc=(\d+) cpi=(\d+) lsu=(\d+) "
+    r"^(?:msp|plot) stall: stage=(\S+) batches=(\d+) cyc=(\d+) cpi=(\d+) lsu=(\d+) "
     r"exc=(\d+)\s*$")
 
 # Preset/shape/mode advance markers. `key` groups them; `idx`/`total`/`name`
@@ -804,10 +804,10 @@ def cmd_plot(windows):
 
 
 def cmd_msp_counts(windows):
-    """Aggregate a dedicated MindSplatter count capture."""
+    """Aggregate a plot-render count capture."""
     have = [w for w in windows if w.msp_counts]
     if not have:
-        print("no 'msp counts' lines: use HS_PROFILE_MINDSPLATTER=counts",
+        print("no plot-render count lines: use HS_PROFILE_MINDSPLATTER=counts",
               file=sys.stderr)
         return 2
     agg = Counter()
@@ -824,10 +824,10 @@ def cmd_msp_counts(windows):
 
 
 def cmd_msp_stalls(windows):
-    """Aggregate MindSplatter short-batch DWT cycle/stall attribution."""
+    """Aggregate plot short-batch DWT cycle/stall attribution."""
     have = [w for w in windows if w.msp_stalls]
     if not have:
-        print("no 'msp stall' lines: use HS_PROFILE_MINDSPLATTER=stalls",
+        print("no plot stall lines: use HS_PROFILE_MINDSPLATTER=stalls",
               file=sys.stderr)
         return 2
     stages = {}

@@ -61,16 +61,15 @@
 //                            one state and reports their pixel error.
 //   HS_MINDSPLATTER_REPLAY_CORPUS
 //                            corpus symbol selected from the generated header.
-//   HS_PROFILE_MINDSPLATTER_COUNTS
-//                            adds count-only MindSplatter path attribution.
-//   HS_PROFILE_MINDSPLATTER_STALLS
+//   HS_PROFILE_PLOT_RENDER_COUNTS
+//                            adds count-only plot path attribution.
+//   HS_PROFILE_PLOT_STALLS
 //                            adds short-batch DWT cycle/stall attribution.
 //   HS_PROFILE_SHADER_WORKBENCH_STAGES
 //                            adds polyhedral reflection counts.
 
-#if defined(HS_PROFILE_MINDSPLATTER_COUNTS) &&                                 \
-    defined(HS_PROFILE_MINDSPLATTER_STALLS)
-#error "MindSplatter count and stall captures require separate images"
+#if defined(HS_PROFILE_PLOT_RENDER_COUNTS) && defined(HS_PROFILE_PLOT_STALLS)
+#error "Plot count and stall captures require separate images"
 #endif
 
 #define HS_PROFILE_STR2(x) #x
@@ -302,11 +301,11 @@ private:
 #ifdef HS_MINDSPLATTER_REPLAY
     dump_replay_stats();
 #endif
-#ifdef HS_PROFILE_MINDSPLATTER_COUNTS
-    dump_mindsplatter_counts();
+#ifdef HS_PROFILE_PLOT_RENDER_COUNTS
+    dump_plot_render_counts();
 #endif
-#ifdef HS_PROFILE_MINDSPLATTER_STALLS
-    dump_mindsplatter_stalls();
+#ifdef HS_PROFILE_PLOT_STALLS
+    dump_plot_stalls();
 #endif
 #ifdef HS_PROFILE_SHADER_WORKBENCH_STAGES
     dump_shader_workbench_stages();
@@ -492,69 +491,70 @@ private:
   }
 #endif
 
-#ifdef HS_PROFILE_MINDSPLATTER_COUNTS
-  static void dump_mindsplatter_counts() {
-    const hs::MindSplatterCounts &t = hs::g_mindsplatter_counts;
-    hs::log("msp counts particles: resident=%lu live=%lu full=%lu partial=%lu "
-            "draining=%lu",
-            (unsigned long)t.resident_particles,
-            (unsigned long)t.live_particles, (unsigned long)t.full_histories,
-            (unsigned long)t.partial_histories,
-            (unsigned long)t.draining_histories);
-    hs::log("msp counts gate: cart_lat=%lu cart_mer=%lu cart_fallback=%lu "
-            "row=%lu col=%lu edge=%lu visible=%lu exact=%lu",
-            (unsigned long)t.cartesian_latitude_rejects,
-            (unsigned long)t.cartesian_meridian_rejects,
-            (unsigned long)t.cartesian_fallbacks,
-            (unsigned long)t.prologue_row_rejects,
-            (unsigned long)t.prologue_column_rejects,
-            (unsigned long)t.edge_rejects, (unsigned long)t.visible_trails,
-            (unsigned long)t.exact_gate_fallbacks);
-    hs::log("msp counts render: dot=%lu long=%lu adaptive=%lu shader=%lu "
-            "pal_end=%lu pal_lerp=%lu hole_early=%lu",
-            (unsigned long)t.one_dot_edges, (unsigned long)t.long_edges,
-            (unsigned long)t.adaptive_samples,
-            (unsigned long)t.fragment_shader_calls,
-            (unsigned long)t.palette_endpoints,
-            (unsigned long)t.palette_interpolated,
-            (unsigned long)t.hole_early_outs);
-    hs::log("msp counts aa: tap0=%lu tap1=%lu tap2=%lu tap3=%lu tap4=%lu "
-            "interior=%lu boundary=%lu",
-            (unsigned long)t.aa_tap_masks[0], (unsigned long)t.aa_tap_masks[1],
-            (unsigned long)t.aa_tap_masks[2], (unsigned long)t.aa_tap_masks[3],
-            (unsigned long)t.aa_tap_masks[4], (unsigned long)t.interior_splats,
-            (unsigned long)t.clip_boundary_splats);
-    hs::g_mindsplatter_counts.reset();
+#ifdef HS_PROFILE_PLOT_RENDER_COUNTS
+  static void dump_plot_render_counts() {
+    const hs::PlotRenderCounts &t = hs::g_plot_render_counts;
+    hs::log(
+        "plot render counts particles: resident=%lu live=%lu full=%lu partial=%lu "
+        "draining=%lu",
+        (unsigned long)t.resident_particles, (unsigned long)t.live_particles,
+        (unsigned long)t.full_histories, (unsigned long)t.partial_histories,
+        (unsigned long)t.draining_histories);
+    hs::log(
+        "plot render counts gate: cart_lat=%lu cart_mer=%lu cart_fallback=%lu "
+        "row=%lu col=%lu edge=%lu visible=%lu exact=%lu",
+        (unsigned long)t.cartesian_latitude_rejects,
+        (unsigned long)t.cartesian_meridian_rejects,
+        (unsigned long)t.cartesian_fallbacks,
+        (unsigned long)t.prologue_row_rejects,
+        (unsigned long)t.prologue_column_rejects, (unsigned long)t.edge_rejects,
+        (unsigned long)t.visible_trails, (unsigned long)t.exact_gate_fallbacks);
+    hs::log(
+        "plot render counts render: dot=%lu long=%lu adaptive=%lu shader=%lu "
+        "pal_end=%lu pal_lerp=%lu hole_early=%lu",
+        (unsigned long)t.one_dot_edges, (unsigned long)t.long_edges,
+        (unsigned long)t.adaptive_samples,
+        (unsigned long)t.fragment_shader_calls,
+        (unsigned long)t.palette_endpoints,
+        (unsigned long)t.palette_interpolated,
+        (unsigned long)t.hole_early_outs);
+    hs::log(
+        "plot render counts aa: tap0=%lu tap1=%lu tap2=%lu tap3=%lu tap4=%lu "
+        "interior=%lu boundary=%lu",
+        (unsigned long)t.aa_tap_masks[0], (unsigned long)t.aa_tap_masks[1],
+        (unsigned long)t.aa_tap_masks[2], (unsigned long)t.aa_tap_masks[3],
+        (unsigned long)t.aa_tap_masks[4], (unsigned long)t.interior_splats,
+        (unsigned long)t.clip_boundary_splats);
+    hs::g_plot_render_counts.reset();
   }
 #endif
 
-#ifdef HS_PROFILE_MINDSPLATTER_STALLS
-  static void log_mindsplatter_stall(const char *stage,
-                                     const hs::DwtStallBucket &b) {
+#ifdef HS_PROFILE_PLOT_STALLS
+  static void log_plot_stall(const char *stage, const hs::DwtStallBucket &b) {
     char c0[21], c1[21], c2[21], c3[21];
-    hs::log("msp stall: stage=%s batches=%lu cyc=%s cpi=%s lsu=%s exc=%s",
+    hs::log("plot stall: stage=%s batches=%lu cyc=%s cpi=%s lsu=%s exc=%s",
             stage, (unsigned long)b.batches, hs::u64_dec(b.cycles, c0),
             hs::u64_dec(b.cpi, c1), hs::u64_dec(b.lsu, c2),
             hs::u64_dec(b.exc, c3));
     if (b.wrapped)
-      hs::log("msp stall aliased: stage=%s intervals=%lu/%lu ran 256+ cycles; "
+      hs::log("plot stall aliased: stage=%s intervals=%lu/%lu ran 256+ cycles; "
               "cpi/lsu/exc understated",
               stage, (unsigned long)b.wrapped, (unsigned long)b.batches);
   }
 
-  static void dump_mindsplatter_stalls() {
-    const hs::MindSplatterStalls &t = hs::g_mindsplatter_stalls;
-    log_mindsplatter_stall("history_vertex", t.history_vertex);
-    log_mindsplatter_stall("trail_gate", t.trail_gate);
-    log_mindsplatter_stall("edge_setup", t.edge_setup);
-    log_mindsplatter_stall("adaptive_sim", t.adaptive_sim);
-    log_mindsplatter_stall("normalized_replay", t.normalized_replay);
-    log_mindsplatter_stall("shade_palette", t.shade_palette);
-    log_mindsplatter_stall("projection", t.projection);
-    log_mindsplatter_stall("aa_weights", t.aa_weights);
-    log_mindsplatter_stall("framebuffer_blend", t.framebuffer_blend);
-    log_mindsplatter_stall("signed_axis_physics", t.signed_axis_physics);
-    hs::g_mindsplatter_stalls.reset();
+  static void dump_plot_stalls() {
+    const hs::PlotStalls &t = hs::g_plot_stalls;
+    log_plot_stall("history_vertex", t.history_vertex);
+    log_plot_stall("trail_gate", t.trail_gate);
+    log_plot_stall("edge_setup", t.edge_setup);
+    log_plot_stall("adaptive_sim", t.adaptive_sim);
+    log_plot_stall("normalized_replay", t.normalized_replay);
+    log_plot_stall("shade_palette", t.shade_palette);
+    log_plot_stall("projection", t.projection);
+    log_plot_stall("aa_weights", t.aa_weights);
+    log_plot_stall("framebuffer_blend", t.framebuffer_blend);
+    log_plot_stall("signed_axis_physics", t.signed_axis_physics);
+    hs::g_plot_stalls.reset();
   }
 #endif
 
@@ -741,8 +741,8 @@ FLASHMEM void setup() {
           HS_PULLBACK_SHORT_SHA);
 #endif
   log_reset_cause();
-#ifdef HS_PROFILE_MINDSPLATTER_STALLS
-  hs::enable_mindsplatter_stall_counters();
+#ifdef HS_PROFILE_PLOT_STALLS
+  hs::enable_plot_stall_counters();
 #endif
   POV::begin();
   // A strapped-nonzero board comes up downstream: dark in ACQUIRE, waiting on a
