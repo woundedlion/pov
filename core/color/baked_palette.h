@@ -132,14 +132,6 @@ public:
 
 private:
   friend class BakedPaletteStorage;
-  static __attribute__((always_inline)) uint16_t lerp_q16(uint16_t a,
-                                                          uint16_t b,
-                                                          uint16_t weight) {
-    const uint32_t inverse = 65535u - weight;
-    const uint32_t x =
-        static_cast<uint32_t>(a) * inverse + static_cast<uint32_t>(b) * weight;
-    return static_cast<uint16_t>((x + (x >> 16) + 32768u) >> 16);
-  }
 
   __attribute__((always_inline)) Pixel sample_color_index(float idx) const {
     if (idx <= 0.0f)
@@ -357,8 +349,7 @@ private:
     const uint16_t weight = frac_to_q16(wc);
     for (int i = 0; i < BakedPalette::LUT_SIZE; ++i) {
       table.colors[i] = from.colors[i].lerp16(to.colors[i], weight);
-      table.alpha_q16[i] =
-          BakedPalette::lerp_q16(from.alpha_q16[i], to.alpha_q16[i], weight);
+      table.alpha_q16[i] = lerp_q16(from.alpha_q16[i], to.alpha_q16[i], weight);
     }
   }
 };

@@ -12,6 +12,14 @@
 #include "platform/platform.h"
 #include "color/srgb_decode.h"
 
+__attribute__((always_inline)) inline uint16_t lerp_q16(uint16_t a, uint16_t b,
+                                                        uint16_t weight) {
+  const uint32_t inverse = 65535u - weight;
+  const uint32_t x =
+      static_cast<uint32_t>(a) * inverse + static_cast<uint32_t>(b) * weight;
+  return static_cast<uint16_t>((x + (x >> 16) + 32768u) >> 16);
+}
+
 /** @brief Rounds and saturates a linear-light channel to [0, 65535]. */
 __attribute__((always_inline)) inline uint16_t
 round_linear_channel(float value) {
@@ -154,14 +162,8 @@ struct Pixel {
    */
   __attribute__((always_inline)) Pixel lerp16(const Pixel &other,
                                               uint16_t frac) const {
-    uint16_t inv = 65535 - frac;
-    uint32_t xr = (uint32_t)r * inv + (uint32_t)other.r * frac;
-    uint32_t xg = (uint32_t)g * inv + (uint32_t)other.g * frac;
-    uint32_t xb = (uint32_t)b * inv + (uint32_t)other.b * frac;
-    uint32_t r32 = (xr + (xr >> 16) + 32768) >> 16;
-    uint32_t g32 = (xg + (xg >> 16) + 32768) >> 16;
-    uint32_t b32 = (xb + (xb >> 16) + 32768) >> 16;
-    return Pixel((uint16_t)r32, (uint16_t)g32, (uint16_t)b32);
+    return Pixel(lerp_q16(r, other.r, frac), lerp_q16(g, other.g, frac),
+                 lerp_q16(b, other.b, frac));
   }
 
   /**
