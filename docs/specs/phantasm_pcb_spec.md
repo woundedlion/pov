@@ -1,6 +1,7 @@
 # PHANTASM Segment Board — PCB Design Specification
 
-**Revision scope:** the body below describes the committed rev 1.1 artifacts.
+**Revision scope:** the body below describes the committed rev 1.1 artifacts,
+with revision-tagged connector and BOM rows for rev 1.2.
 The generators target **rev 1.2**, with the following changes superseding the
 pin map, connector list, channel-C input, BOM and net table below:
 
@@ -382,14 +383,17 @@ relief, and swept envelope are mechanically qualified.
 
 ## 6. Connectors and jumpers
 
-| Ref | Function | Pins | Type / rating | Pinout |
-|---|---|---|---|---|
-| **J1** | Logic power in (light feed) | 2 | GCT TBC05-02-1-G-G TH terminal, unkeyed (R-PWR-7) | `+5 V`, `GND` |
-| **J2** | Strip **signal** out | 3 | GCT TBC05-03-1-G-G TH terminal | `DI` (DATA, post-33 Ω), `SIG_GND`, `CI` (CLK, post-33 Ω) |
-| **J3A** | SYNC daisy — **in** | 3 | GCT TBC05-03-1-G-G TH terminal | `SYNC`, `GND`, `SHLD` (one Belden 8451) |
-| **J3B** | SYNC daisy — **out** | 3 | GCT TBC05-03-1-G-G TH terminal | `SYNC`, `GND`, `SHLD` (one Belden 8451) |
-| **JP_SHLD** | shield ground point | — | solder jumper / 0 Ω | drain net → GND; **stuff master only** |
-| **J4** (opt) | Debug/serial breakout | 4 | 0.1″ TH header | `3V3`, `GND`, `MASTER_EN` (pin 5), `SERIAL1_TX` (pin 1) |
+| Ref | Function | Pins | Type / rating | Pinout | Revision |
+|---|---|---|---|---| --- |
+| **J1** | Logic power in (light feed) | 2 | GCT TBC05-02-1-G-G TH terminal, unkeyed (R-PWR-7) | `+5 V`, `GND` | 1.2 |
+| **J2** | Strip **signal** out | 3 | GCT TBC05-03-1-G-G TH terminal | `DI` (DATA, post-33 Ω), `SIG_GND`, `CI` (CLK, post-33 Ω) | 1.2 |
+| **J3A** | SYNC daisy — **in** | 3 | GCT TBC05-03-1-G-G TH terminal | `SYNC`, `GND`, `SHLD` (one Belden 8451) | 1.2 |
+| **J3B** | SYNC daisy — **out** | 3 | GCT TBC05-03-1-G-G TH terminal | `SYNC`, `GND`, `SHLD` (one Belden 8451) | 1.2 |
+| **JP_SHLD** | shield ground point | — | solder jumper / 0 Ω | drain net → GND; **stuff master only** | 1.1 / 1.2 |
+| **J4** (opt) | Debug/serial breakout | 4 | 0.1″ TH header | `3V3`, `GND`, `MASTER_EN` (pin 5), `SERIAL1_TX` (pin 1) | 1.1 only |
+| **J1** | Logic power in | 2 | 0.1″ TH pin header, unkeyed | `+5 V`, `GND` | 1.1 |
+| **J2** | Strip signal out | 3 | 0.1″ TH pin header | `DI`, `SIG_GND`, `CI` | 1.1 |
+| **J3A**, **J3B** | SYNC daisy in / out | 3 | 0.1″ TH pin header | `SYNC`, `GND`, `SHLD` | 1.1 |
 
 The terminal choices above apply to the rev 1.2 generator; committed rev 1.1
 artifacts retain pin headers. Per the [GCT drawing](https://www.farnell.com/cad/4513152.pdf),
@@ -498,35 +502,38 @@ strain relief, swept envelope, and dynamic-balance acceptance test.
 Assembly column: **SMD** = reflow-placed by the PCBA house (top side, §11); **TH** = through-hole,
 hand-soldered by you.
 
-| Ref | Part | Value / PN | Pkg | Asm |
-|---|---|---|---|---|
-| U_MCU | Teensy 4.0 | — | 2× 0.1″ header rows | TH |
-| U1 | Level shifter | SN74AHCT125 (…DR) | SOIC-14 | **SMD** |
-| C_IN | Electrolytic | ≥100 µF | radial TH | TH (RTV) |
-| C_LF | Ceramic | 22 µF (≥10 µF *effective* after DC-bias derate) | 1206 | **SMD** |
-| R_LF (opt) | Bead-LC damping | 1–2 Ω (≤2 Ω; or lossy bead / ESR cap instead) | 0805 | **SMD** |
-| C_DEC1,2 | Ceramic | 0.1 µF | 0603/0805 | **SMD** |
-| C_SYNC | Ceramic | 220 pF (default-populated; 100 pF–1 nF tunable) | 0603 | **SMD** |
-| R_D1, R_D2 | Series term | 33 Ω | 0603/0805 | **SMD** |
-| R_S | Sync source | 100 Ω | 0805, hand-solder land (§11.1) | **SMD** |
-| R1 | Divider top | 10 kΩ | 0603, hand-solder land (§11.1) | **SMD** |
-| R2 | Divider btm | **15 kΩ** (see §4.2) | 0603, hand-solder land (§11.1) | **SMD** |
-| R_PD | Master-only bus idle pull-down, switched by U1 ch D | 10 kΩ | 0603, hand-solder land (§11.1) | **SMD** |
-| R_MEN | MASTER_EN boot pull-up | 10 kΩ → 3V3 | 0603 | **SMD** |
-| FB | Ferrite bead | ≈600 Ω @ 100 MHz, logic branch (~0.15 A) | 1206 | **SMD** |
-| Q_REV | Reverse protect (logic) | AO3401A P-FET | SOT-23 | **SMD** |
-| D_BUS | Bus transient clamp | Bourns CDSOD323-T08L, JLCPCB C1973344 | SOD-323, Bourns 0.80 × 0.50 mm land pattern | **SMD** |
-| F1 | Fuse / PTC (logic) | ~0.5–1 A | 1206 / TH | **SMD** |
-| J1 | Logic power in | GCT TBC05-02-1-G-G, unkeyed | TH | TH |
-| J2 | Strip signal out | GCT TBC05-03-1-G-G (DI/SIG_GND/CI) | TH | TH |
-| J3A, J3B | SYNC daisy in / out | 2× GCT TBC05-03-1-G-G | TH (one Belden 8451 each) | TH |
-| JP_SHLD | Shield ground jumper | 0 Ω / solder jumper | 0603 or SJ pad | hand, **master only** |
-| J4 (opt) | Debug | 4-pin 0.1″ | TH | TH |
-| H1–H4 | Rotor mounting | 2.7 mm NPTH for M2.5 hardware | four corner holes | — |
-| — | ID strap links | wire / 0 Ω | — | hand, per §5 |
-| — | Inter-board cable | Belden 8451 (STP 2×22 AWG + drain) | per arm/hub run | hand |
-| — | **LED power harness** (off-board) | heavy 5 V/GND, **4.3 A/strip** (§2.3) | busbar / wire | hand |
-| C_BULK | **Injection bulk** (off-board) | 1000 µF / ≥10 V (2200 µF margin) | radial TH | at strip, hand |
+| Ref | Part | Value / PN | Pkg | Asm | Revision |
+|---|---|---|---|---| --- |
+| U_MCU | Teensy 4.0 | — | 2× 0.1″ header rows | TH | 1.1 / 1.2 |
+| U1 | Level shifter | SN74AHCT125 (…DR) | SOIC-14 | **SMD** | 1.1 / 1.2 |
+| C_IN | Electrolytic | ≥100 µF | radial TH | TH (RTV) | 1.1 / 1.2 |
+| C_LF | Ceramic | 22 µF (≥10 µF *effective* after DC-bias derate) | 1206 | **SMD** | 1.1 / 1.2 |
+| R_LF (opt) | Bead-LC damping | 1–2 Ω (≤2 Ω; or lossy bead / ESR cap instead) | 0805 | **SMD** | 1.1 / 1.2 |
+| C_DEC1,2 | Ceramic | 0.1 µF | 0603/0805 | **SMD** | 1.1 / 1.2 |
+| C_SYNC | Ceramic | 220 pF (default-populated; 100 pF–1 nF tunable) | 0603 | **SMD** | 1.1 / 1.2 |
+| R_D1, R_D2 | Series term | 33 Ω | 0603/0805 | **SMD** | 1.1 / 1.2 |
+| R_S | Sync source | 100 Ω | 0805, hand-solder land (§11.1) | **SMD** | 1.1 / 1.2 |
+| R1 | Divider top | 10 kΩ | 0603, hand-solder land (§11.1) | **SMD** | 1.1 / 1.2 |
+| R2 | Divider btm | **15 kΩ** (see §4.2) | 0603, hand-solder land (§11.1) | **SMD** | 1.1 / 1.2 |
+| R_PD | Master-only bus idle pull-down, switched by U1 ch D | 10 kΩ | 0603, hand-solder land (§11.1) | **SMD** | 1.1 / 1.2 |
+| R_MEN | MASTER_EN boot pull-up | 10 kΩ → 3V3 | 0603 | **SMD** | 1.1 / 1.2 |
+| FB | Ferrite bead | ≈600 Ω @ 100 MHz, logic branch (~0.15 A) | 1206 | **SMD** | 1.1 / 1.2 |
+| Q_REV | Reverse protect (logic) | AO3401A P-FET | SOT-23 | **SMD** | 1.1 / 1.2 |
+| D_BUS | Bus transient clamp | Bourns CDSOD323-T08L, JLCPCB C1973344 | SOD-323, Bourns 0.80 × 0.50 mm land pattern | **SMD** | 1.1 / 1.2 |
+| F1 | Fuse / PTC (logic) | ~0.5–1 A | 1206 / TH | **SMD** | 1.1 / 1.2 |
+| J1 | Logic power in | GCT TBC05-02-1-G-G, unkeyed | TH | TH | 1.2 |
+| J2 | Strip signal out | GCT TBC05-03-1-G-G (DI/SIG_GND/CI) | TH | TH | 1.2 |
+| J3A, J3B | SYNC daisy in / out | 2× GCT TBC05-03-1-G-G | TH (one Belden 8451 each) | TH | 1.2 |
+| JP_SHLD | Shield ground jumper | 0 Ω / solder jumper | 0603 or SJ pad | hand, **master only** | 1.1 / 1.2 |
+| J4 (opt) | Debug | 4-pin 0.1″ | TH | TH | 1.1 only |
+| H1–H4 | Rotor mounting | 2.7 mm NPTH for M2.5 hardware | four corner holes | — | 1.1 / 1.2 |
+| — | ID strap links | wire / 0 Ω | — | hand, per §5 | 1.1 / 1.2 |
+| — | Inter-board cable | Belden 8451 (STP 2×22 AWG + drain) | per arm/hub run | hand | 1.1 / 1.2 |
+| — | **LED power harness** (off-board) | heavy 5 V/GND, **4.3 A/strip** (§2.3) | busbar / wire | hand | 1.1 / 1.2 |
+| C_BULK | **Injection bulk** (off-board) | 1000 µF / ≥10 V (2200 µF margin) | radial TH | at strip, hand | 1.1 / 1.2 |
+| J1 | Logic power in | 2-pin 0.1″ header, unkeyed | TH | TH | 1.1 |
+| J2, J3A, J3B | Signal / SYNC | 3-pin 0.1″ headers | TH | TH | 1.1 |
+| R_TX | SYNC_TX reset pull-down | 10 kΩ, C25804 | 0603 | **SMD** | 1.2 |
 
 ---
 
@@ -637,7 +644,8 @@ Every other chip passive uses the stock IPC-nominal land; D_BUS uses the Bourns 
   U1 Vcc and Teensy VIN; C_LF at the bead output. Keep U1 and its decoupling clustered.
 - **R-ASM-6 — Hand-solder thermals.** TH pads on the GND pour (connectors, electrolytics) need
   **thermal-relief spokes** so a hand iron can wet the joint against the copper ground plane.
-- **R-ASM-7 — Sever Teensy VUSB↔VIN.** Each board powers Teensy VIN from the rotor rail and J4
-  exposes serial for USB debug. **Cut the VIN/VUSB pad on every Teensy 4.0** so a live rail can't
-  back-feed a USB host's VBUS (or vice-versa) during bring-up/debug/balancing; VIN is then fed only
-  from the board rail. Known Teensy gotcha — **mandatory** given J4.
+- **R-ASM-7 — Sever Teensy VUSB↔VIN (both revisions).** Each board powers Teensy VIN
+  from the rotor rail. **Cut the VIN/VUSB pad on every Teensy 4.0** so the live rail
+  cannot back-feed a USB host's VBUS (or vice versa) during bring-up/debug/balancing.
+  USB diagnostics use the Teensy's own connector; the optional rev 1.1 J4 exposes
+  UART signals and is absent in rev 1.2.
