@@ -38,8 +38,7 @@ struct Config {
   int segments; /**< N: segment count (power of two <= 8). */
 };
 
-// Every config tests/segment_crosscheck.test.js sweeps, plus the two the host
-// tests in tests/test_pov_segmented.h pin directly.
+// Configurations swept by tests/segment_crosscheck.test.js.
 constexpr Config CONFIGS[] = {
     {288, 2}, {288, 4}, {288, 8}, {8, 4}, {8, 8},
 };
