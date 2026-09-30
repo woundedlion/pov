@@ -185,7 +185,7 @@ struct ParticleSystem {
           return particle_v2(p, i);
       }();
       const float particle_life =
-          std::min(static_cast<float>(p.life) * inv_max_life, 1.0f);
+          fminf(static_cast<float>(p.life) * inv_max_life, 1.0f);
       ScratchScope trail_guard(scratch_arena_a);
       Fragments trail;
       trail.bind(scratch_arena_a, point_count);
