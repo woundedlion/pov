@@ -1150,7 +1150,7 @@ Boundary symbols (`ZERO`/`HALF`) serve **two** layers at once: they snap the fly
 
 ```
  Frame = [ idx_hi  idx_lo  rev_hi  rev_lo  checksum ]   (5 digits, base-8)
-           └── effect index 0–63 ──┘ └ rev mod 64 ┘  └ Σ(i+1)·dᵢ mod 8
+           └── effect index 0–63 ──┘ └ rev mod 64 ┘  └ d0⊕d1⊕d2⊕d3
 
  digit Dk transmitted as (Dk+1) pulses @ 1-col pitch, then a 5-col quiet gap:
 
@@ -1161,7 +1161,7 @@ Boundary symbols (`ZERO`/`HALF`) serve **two** layers at once: they snap the fly
         │←──────────── frame = 55 columns / 23.9 ms (≪ half-rev) ───────────→│
 ```
 
-Any checksum mismatch, wrong digit count, out-of-range digit, or stale partial frame **drops the whole frame** — the next beacon is ≤ 2 s away.  Schedule: revolution 1 of every 16 (`rev ≡ 1 mod 16` — never rev 0, so a just-powered board meets clean isolated boundary symbols first), plus the first revs of a fresh effect; silent during a pending commit.
+Any checksum mismatch, wrong digit count, out-of-range digit, or stale partial frame **drops the whole frame** — the next beacon is ≤ 16 revolutions (2 s) away, or ≤ 21 (~2.6 s) across a commit window.  Schedule: revolution 1 of every 16 (`rev ≡ 1 mod 16` — never rev 0, so a just-powered board meets clean isolated boundary symbols first), plus the first revs of a fresh effect; silent during a pending commit.
 
 **Receiver state machine.** Each downstream board is in one of two states.  The master is born `LOCKED` with identity (effect 0, rev 0) — it *is* the reference and never snaps:
 
