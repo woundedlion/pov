@@ -53,7 +53,7 @@ inline math::Complex project_div(const math::Complex &num,
     // Normalize by the larger component first: a numerator squared far above
     // the sentinel overflows to infinity and one far below it underflows to
     // zero, and either collapses the direction onto the origin.
-    const float peak = std::max(std::abs(num.re), std::abs(num.im));
+    const float peak = fmaxf(std::abs(num.re), std::abs(num.im));
     if (peak == 0.0f)
       return math::Complex(0, 0);
     const float re = num.re / peak;

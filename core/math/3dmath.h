@@ -542,10 +542,10 @@ __attribute__((always_inline)) inline float atan_unit(float r) {
 __attribute__((always_inline)) inline float precise_atan2(float y, float x) {
   const float abs_y = std::abs(y);
   const float abs_x = std::abs(x);
-  const float most = std::max(abs_x, abs_y);
+  const float most = fmaxf(abs_x, abs_y);
   if (!(most > 0.0f))
     return 0.0f;
-  float angle = atan_unit(std::min(abs_x, abs_y) / most);
+  float angle = atan_unit(fminf(abs_x, abs_y) / most);
   if (abs_y > abs_x)
     angle = 1.57079633f - angle;
   if (x < 0.0f)
