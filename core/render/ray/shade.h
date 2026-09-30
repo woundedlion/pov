@@ -114,8 +114,6 @@ ShadedTrace verified_filter(const std::array<math::Vector, COUNT> &directions,
                      round_linear_channel(green / alpha),
                      round_linear_channel(blue / alpha)},
                     alpha / COUNT};
-    if (result.trace.status == TraceStatus::RANGE_COMPLETE)
-      result.trace.status = TraceStatus::SURFACE;
   }
   return result;
 }
