@@ -479,6 +479,13 @@ public:
     return configuration_id(value) != ConfigurationId::INVALID;
   }
 
+  static constexpr float SHEAR_MIN = -1.0f;
+  static constexpr float SHEAR_MAX = 1.0f;
+  static constexpr float STRETCH_MIN = 1.0f;
+  static constexpr float STRETCH_MAX = 1.5f;
+  static constexpr float SHELL_RADIUS_MIN = .10f;
+  static constexpr float SHELL_RADIUS_MAX = .32f;
+
   static constexpr bool valid_params(const Params &value) {
     return supported_combination(value) &&
            value.sphere_radius >= SPHERE_RADIUS_MIN &&
@@ -499,9 +506,10 @@ public:
            value.spin_4d <= SPIN_4D_MAX &&
            static_cast<uint8_t>(value.shells) <=
                static_cast<uint8_t>(ShellCount::THREE) &&
-           value.shear >= -1.0f && value.shear <= 1.0f &&
-           value.stretch >= 1.0f && value.stretch <= 1.5f &&
-           value.shell_radius >= .10f && value.shell_radius <= .32f;
+           value.shear >= SHEAR_MIN && value.shear <= SHEAR_MAX &&
+           value.stretch >= STRETCH_MIN && value.stretch <= STRETCH_MAX &&
+           value.shell_radius >= SHELL_RADIUS_MIN &&
+           value.shell_radius <= SHELL_RADIUS_MAX;
   }
 
   /**
@@ -549,9 +557,11 @@ public:
     register_animated_param("Lattice Planes", &params.shells, SHELL_OPTIONS,
                             SHELL_EXPORT_OPTIONS, std::size(SHELL_OPTIONS));
 #if HS_ENABLE_HYPERLATTICE_EXPERIMENTS
-    register_animated_param("Shear", &params.shear, -1.0f, 1.0f);
-    register_animated_param("Stretch", &params.stretch, 1.0f, 1.5f);
-    register_animated_param("Shell Radius", &params.shell_radius, .10f, .32f);
+    register_animated_param("Shear", &params.shear, SHEAR_MIN, SHEAR_MAX);
+    register_animated_param("Stretch", &params.stretch, STRETCH_MIN,
+                            STRETCH_MAX);
+    register_animated_param("Shell Radius", &params.shell_radius,
+                            SHELL_RADIUS_MIN, SHELL_RADIUS_MAX);
 #if HS_ENABLE_PARAM_GUI_BRIDGE
     this->register_readonly_param("Unfinished Rays", &unfinished_rays, 0,
                                   (W + 2) * (H + 2));
