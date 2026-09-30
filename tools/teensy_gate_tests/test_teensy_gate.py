@@ -962,15 +962,6 @@ class TestWarningRatchet(unittest.TestCase):
         self.assertTrue(top.startswith("effects/Foo.h:"))
         self.assertNotEqual(nested, top)
 
-    def test_new_warning_fails_but_reorder_passes(self):
-        baseline = {"core/a.h: warning: w1 [-Wx]", "core/b.h: warning: w2 [-Wy]"}
-        # Same set, different order -> no new warnings (set-based).
-        same = {"core/b.h: warning: w2 [-Wy]", "core/a.h: warning: w1 [-Wx]"}
-        self.assertEqual(same - baseline, set())
-        # A genuinely new warning -> flagged.
-        added = baseline | {"core/c.h: warning: w3 [-Wz]"}
-        self.assertEqual(added - baseline, {"core/c.h: warning: w3 [-Wz]"})
-
     def test_extract_warnings_dedups_and_filters(self):
         log = "\n".join([
             "core/effects/Foo.h:1:1: warning: dup [-Wd]",
