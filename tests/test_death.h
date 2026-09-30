@@ -1755,6 +1755,12 @@ inline void case_pullback_curl_unstable() {
   (void)Pullback::Interp::Op::WarpCurlFlow::prepare(context, params, state);
 }
 
+/** @brief Death case: a HyperLattice frame without crossing scratch traps. */
+inline void case_hyperlattice_frame_without_crossings() {
+  const HyperLatticeDetail::FrameState frame{};
+  (void)HyperLatticeDetail::prepare_trace(frame);
+}
+
 inline void case_mindsplatter_profile_preset_oob() {
   MindSplatter<96, 20> effect;
   effect.profile_select_preset(opaque<size_t>(SIZE_MAX));
@@ -4764,6 +4770,9 @@ inline const Case *all_cases(int &n) {
           {"planar_band_split_over_capacity",
            case_planar_band_split_over_capacity, "core/render/plot/chords.h",
            "(max_points(edges, pieces) <= capacity) PlanarBandSplit:"},
+          {"hyperlattice_frame_without_crossings",
+           case_hyperlattice_frame_without_crossings, "effects/HyperLattice.h",
+           "(frame.crossings) HyperLattice: frame has no crossing list"},
           {"mindsplatter_profile_preset_oob",
            case_mindsplatter_profile_preset_oob, "effects/MindSplatter.h",
            "(index < PRESETS.size()) MindSplatter profile preset index out of range"},

@@ -743,6 +743,7 @@ inline void test_shell_neighbor_march_matches_cell_traversal() {
       HS_EXPECT_TRUE(PREPARED.march);
       const Raycast::Appearance APPEARANCE{1 / CASE.far, 0, 1, &palette.view()};
       const Raycast::TraceLimits LIMITS;
+      SDF::ShellLayerStorage layers;
       for (int ray = 0; ray < 200; ++ray) {
         const math::Vector VIEW =
             math::Vector{uniform(-1, 1), uniform(-1, 1), uniform(-1, 1)}
@@ -750,7 +751,7 @@ inline void test_shell_neighbor_march_matches_cell_traversal() {
         const auto CELLS = SDF::shade_periodic_shells(PREPARED, camera, VIEW,
                                                       LIMITS, APPEARANCE);
         const auto LAYERS = SDF::trace_periodic_shells_march<3>(
-            PREPARED, camera, VIEW, LIMITS, APPEARANCE);
+            PREPARED, camera, VIEW, LIMITS, APPEARANCE, layers);
         const Pixel EXPECTED = CELLS.color.color * CELLS.color.alpha;
         HS_EXPECT_EQ(LAYERS.status, CELLS.trace.status);
         // A silhouette graze sits on the reference's own jump between one
@@ -805,6 +806,7 @@ inline void test_shell_slice_march_matches_cell_traversal() {
       const Raycast::Appearance APPEARANCE{1 / CASE.far, 0, 1 / CASE.near_fade,
                                            &palette.view()};
       const Raycast::TraceLimits LIMITS;
+      SDF::ShellLayerStorage layers;
       for (int ray = 0; ray < 200; ++ray) {
         const math::Vector VIEW =
             math::Vector{uniform(-1, 1), uniform(-1, 1), uniform(-1, 1)}
@@ -812,7 +814,7 @@ inline void test_shell_slice_march_matches_cell_traversal() {
         const auto CELLS = SDF::shade_periodic_shells(PREPARED, camera, VIEW,
                                                       LIMITS, APPEARANCE);
         const auto LAYERS = SDF::trace_periodic_shells_march<4>(
-            PREPARED, camera, VIEW, LIMITS, APPEARANCE);
+            PREPARED, camera, VIEW, LIMITS, APPEARANCE, layers);
         const Pixel EXPECTED = CELLS.color.color * CELLS.color.alpha;
         HS_EXPECT_EQ(LAYERS.status, CELLS.trace.status);
         // A silhouette graze sits on the reference's own jump between one

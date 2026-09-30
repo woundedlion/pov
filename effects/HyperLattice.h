@@ -131,6 +131,13 @@ struct Params {
 // enum has a fixed uint8_t base, so the size holds under ARM -fshort-enums.
 static_assert(sizeof(Params) == 60, "HyperLattice::Params width changed");
 
+/** @brief One ray's covered plane crossings, sorted by distance. */
+struct CrossingList {
+  static constexpr int CAPACITY = DIMENSIONS * SDF::Lattice::MAX_SHELLS;
+  std::array<float, CAPACITY> distances;
+  std::array<float, CAPACITY> coverages;
+};
+
 struct FrameState {
   Params params;
   math::Vec4 origin;
@@ -138,6 +145,8 @@ struct FrameState {
   float pixel_half_angle;
   const BakedPalette *depth_palette;
   float gain = 1.0f; /**< Brightness scale of the whole frame. */
+  CrossingList *crossings =
+      nullptr; /**< Arena scratch the cubic trace sorts. */
 };
 
 struct Binding {
@@ -148,6 +157,7 @@ struct Binding {
 struct PreparedTrace {
   SDF::Lattice::PreparedTrace lattice;
   Raycast::Appearance appearance;
+  CrossingList *crossings = nullptr;
 };
 template <int W, int H> constexpr float pixel_half_angle() {
   return .5f * math::coarse_pixel_pitch<W, H>();
@@ -201,6 +211,8 @@ struct Settings {
   float gain = 1.0f; /**< Brightness scale of the whole frame. */
   /** Scratch the octet traces sort crossings in; required for OCTET. */
   CrossingStorage *crossings = nullptr;
+  /** Scratch the shell march sorts layers in; required for SHELLS. */
+  SDF::ShellLayerStorage *shell_layers = nullptr;
 };
 
 /** @brief Frame state the traces read, built by prepare(). */
@@ -221,6 +233,7 @@ struct Prepared {
   float stretch = 1.4f;
   float shell_radius = .30f;
   CrossingStorage *crossings = nullptr;
+  SDF::ShellLayerStorage *shell_layers = nullptr;
 };
 
 /** @brief Validates settings and precomputes the frame's trace state. */
@@ -254,6 +267,7 @@ HS_FLASH_INLINE inline Prepared prepare(const Settings &settings) {
   result.stretch = settings.stretch;
   result.shell_radius = settings.shell_radius;
   result.crossings = settings.crossings;
+  result.shell_layers = settings.shell_layers;
   result.valid = result.camera.valid() &&
                  (settings.geometry != Geometry::OCTET || settings.crossings) &&
                  Raycast::finite(result.footprint.angular_radius) &&
@@ -283,7 +297,7 @@ HS_FLASH_INLINE inline Prepared prepare(const Settings &settings) {
       result.periodic_shells =
           SDF::prepare_periodic_shells(result.camera, settings.cell_size,
                                        settings.shell_radius, result.footprint);
-      result.valid = result.periodic_shells.valid;
+      result.valid = result.periodic_shells.valid && settings.shell_layers;
     }
     return result;
   }
@@ -317,10 +331,13 @@ HS_FLASH_INLINE inline Prepared prepare(const Settings &settings) {
   return result;
 }
 
+// shade() calls each trace out of line, so a debug build's shade() frame
+// holds one trace's locals at a time instead of all of them.
+
 /** @brief shade() for a valid octet frame of the matching domain. */
 template <bool SLICE_4D>
-__attribute__((always_inline)) inline Sample
-shade_octet(const math::Vector &direction, const Prepared &prepared) {
+HS_HOT_FLASH_MEMBER Sample shade_octet(const math::Vector &direction,
+                                       const Prepared &prepared) {
   if constexpr (SLICE_4D) {
     return SDF::OctetTrace::trace_4d(
         direction, prepared.camera, prepared.octet4, prepared.octet4_projection,
@@ -334,6 +351,21 @@ shade_octet(const math::Vector &direction, const Prepared &prepared) {
   }
 }
 
+/** @brief shade() for a valid shell frame one of the shell traces serves. */
+template <bool SLICE_4D>
+HS_HOT_FLASH_MEMBER Sample shade_shells(const math::Vector &direction,
+                                        const Prepared &prepared) {
+  const SDF::ShellSample SHELLS =
+      !SLICE_4D && prepared.periodic_shells.single_owner
+          ? SDF::trace_periodic_shells_3d(prepared.periodic_shells,
+                                          prepared.camera, direction,
+                                          prepared.limits, prepared.appearance)
+          : SDF::trace_periodic_shells_march<SLICE_4D ? 4 : 3>(
+                prepared.periodic_shells, prepared.camera, direction,
+                prepared.limits, prepared.appearance, *prepared.shell_layers);
+  return {SHELLS.color, SHELLS.status};
+}
+
 /** @brief One ray's premultiplied color for the frame's geometry. */
 template <bool SLICE_4D>
 HS_HOT_FLASH_MEMBER Sample shade(const math::Vector &direction,
@@ -343,20 +375,10 @@ HS_HOT_FLASH_MEMBER Sample shade(const math::Vector &direction,
       (camera.domain == Raycast::SamplingDomain::SLICE_4D) != SLICE_4D)
     return {{}, Raycast::TraceStatus::INVALID_QUERY};
   if (prepared.geometry != Geometry::OCTET) {
-    if (prepared.geometry == Geometry::SHELLS) {
-      if (!SLICE_4D && prepared.periodic_shells.single_owner) {
-        const auto SHELLS = SDF::trace_periodic_shells_3d(
-            prepared.periodic_shells, camera, direction, prepared.limits,
-            prepared.appearance);
-        return {SHELLS.color, SHELLS.status};
-      }
-      if (prepared.periodic_shells.march) {
-        const auto SHELLS = SDF::trace_periodic_shells_march<SLICE_4D ? 4 : 3>(
-            prepared.periodic_shells, camera, direction, prepared.limits,
-            prepared.appearance);
-        return {SHELLS.color, SHELLS.status};
-      }
-    }
+    if (prepared.geometry == Geometry::SHELLS &&
+        ((!SLICE_4D && prepared.periodic_shells.single_owner) ||
+         prepared.periodic_shells.march))
+      return shade_shells<SLICE_4D>(direction, prepared);
     Raycast::ShadedTrace sample;
     if (prepared.geometry == Geometry::AFFINE_CUBIC)
       sample = SDF::shade_affine_lattice(
@@ -406,6 +428,7 @@ experimental_settings(const FrameState &frame, math::Vec4 center) {
 }
 #endif
 inline PreparedTrace prepare_trace(const FrameState &frame) {
+  HS_CHECK(frame.crossings, "HyperLattice: frame has no crossing list");
   const auto embedding = view_embedding(frame);
   const auto &p = frame.params;
   const SDF::Lattice::Settings settings{
@@ -415,7 +438,8 @@ inline PreparedTrace prepare_trace(const FrameState &frame) {
   return {SDF::Lattice::prepare(settings, frame.origin, embedding,
                                 p.far_distance, frame.pixel_half_angle),
           {1.0f / p.far_distance, 1.5f * p.wire_radius * near_scale,
-           1.0f / (p.near_fade * near_scale), frame.depth_palette, frame.gain}};
+           1.0f / (p.near_fade * near_scale), frame.depth_palette, frame.gain},
+          frame.crossings};
 }
 /**
  * @brief Composites one ray's plane crossings front to back.
@@ -433,8 +457,7 @@ composite_crossings(const math::Vector &normal, const PreparedTrace &prepared) {
   HS_PROFILE_DEEP(hl_shade);
   using SDF::Lattice::DIRECTION_EPSILON;
   constexpr float RELATIVE_TOLERANCE = 1.0e-4f;
-  constexpr int CAPACITY = DIMENSIONS * SDF::Lattice::MAX_SHELLS;
-  static_assert(CAPACITY <= Raycast::TraceLimits{}.max_layers);
+  static_assert(CrossingList::CAPACITY <= Raycast::TraceLimits{}.max_layers);
   const auto &lattice = prepared.lattice;
   const math::Vec4 direction =
       lattice.world_to_lattice.apply({{normal.x, normal.y, normal.z, 0}});
@@ -455,8 +478,8 @@ composite_crossings(const math::Vector &normal, const PreparedTrace &prepared) {
   const float INVERSE_PRODUCT = 1.0f / product;
   const uint8_t SHELL_COUNT =
       SHELLS ? SHELLS : static_cast<uint8_t>(lattice.params.shells) + 1;
-  std::array<float, CAPACITY> distances;
-  std::array<float, CAPACITY> coverages;
+  auto &distances = prepared.crossings->distances;
+  auto &coverages = prepared.crossings->coverages;
   int count = 0;
   const auto cross = [&](int axis) __attribute__((always_inline)) {
     if (!(magnitude[axis] >= DIRECTION_EPSILON))
@@ -851,9 +874,12 @@ public:
     refresh_configuration_schema();
     depth_palette.init_generated(persistent_arena, next_depth_palette, nullptr,
                                  0, PALETTE_FADE_FRAMES, math::ease_in_out_sin);
+    crossing_list =
+        persistent_arena.allocate_n<HyperLatticeDetail::CrossingList>(1);
 #if HS_ENABLE_HYPERLATTICE_EXPERIMENTS
     crossing_storage =
         persistent_arena.allocate_n<SDF::OctetTrace::CrossingStorage>(1);
+    shell_layers = persistent_arena.allocate_n<SDF::ShellLayerStorage>(1);
 #endif
   }
 
@@ -872,7 +898,8 @@ public:
         rotation_phase,
         HyperLatticeDetail::pixel_half_angle<W, H>(),
         &depth_palette.palette(),
-        preset_gain};
+        preset_gain,
+        crossing_list};
 #if HS_ENABLE_HYPERLATTICE_EXPERIMENTS
     unfinished_rays = 0;
     if (params.pattern != Pattern::CUBIC_WIRE) {
@@ -1048,6 +1075,7 @@ private:
     auto settings =
         HyperLatticeDetail::experimental_settings(context, experimental_center);
     settings.crossings = crossing_storage;
+    settings.shell_layers = shell_layers;
     auto prepared = prepare(settings);
     const auto &configuration =
         CONFIGURATIONS[static_cast<size_t>(configuration_id(params))];
@@ -1073,7 +1101,7 @@ private:
           [&prepared, this](const math::Vector &view) HS_HOT_FLASH_MEMBER {
             const auto result = SDF::trace_periodic_shells_march<DIMENSIONS>(
                 prepared.periodic_shells, prepared.camera, view,
-                prepared.limits, prepared.appearance);
+                prepared.limits, prepared.appearance, *prepared.shell_layers);
             if (result.status == Raycast::TraceStatus::BUDGET_EXHAUSTED)
               unfinished_rays += 1;
             return result.color;
@@ -1178,17 +1206,22 @@ private:
   math::Vec4 origin{{0.17f, 0.31f, 0.43f, 0.59f}};
   std::array<float, 6> rotation_phase{};
   PaletteCycler depth_palette;
+  HyperLatticeDetail::CrossingList *crossing_list = nullptr;
 #if HS_ENABLE_HYPERLATTICE_EXPERIMENTS
   SDF::OctetTrace::CrossingStorage *crossing_storage = nullptr;
+  SDF::ShellLayerStorage *shell_layers = nullptr;
 #endif
 
   friend struct hs_test::hyper_lattice_tests::HyperLatticeWhiteBox;
 
   static constexpr size_t FOOTPRINT_BYTES =
-      PaletteCycler::generated_arena_bytes()
+      PaletteCycler::generated_arena_bytes() +
+      sizeof(HyperLatticeDetail::CrossingList) +
+      alignof(HyperLatticeDetail::CrossingList)
 #if HS_ENABLE_HYPERLATTICE_EXPERIMENTS
       + sizeof(SDF::OctetTrace::CrossingStorage) +
-      alignof(SDF::OctetTrace::CrossingStorage)
+      alignof(SDF::OctetTrace::CrossingStorage) +
+      sizeof(SDF::ShellLayerStorage) + alignof(SDF::ShellLayerStorage)
 #endif
       ;
   static_assert(FOOTPRINT_BYTES <= DEVICE_PERSISTENT_BUDGET,
