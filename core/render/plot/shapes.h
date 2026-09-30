@@ -1069,6 +1069,16 @@ public:
                          const math::Basis &edge_chart)
     requires std::same_as<Projection, PlanarProjection>
   {
+#if HS_ENABLE_STRUCTURAL_AUDITS
+    math::Basis chart_storage;
+    const math::Basis &EXPECTED_CHART =
+        *Projection::edge_basis(basis, radius, chart_storage);
+    const bool CHART_MATCHES =
+        (edge_chart.u - EXPECTED_CHART.u).magnitude() < 1e-6f &&
+        (edge_chart.v - EXPECTED_CHART.v).magnitude() < 1e-6f &&
+        (edge_chart.w - EXPECTED_CHART.w).magnitude() < 1e-6f;
+    HS_CHECK(CHART_MATCHES, "Star: edge chart does not match inputs");
+#endif
     sample_positions(points, basis, radius, num_sides, phase, radius_trig,
                      step_trig);
     float m00 = 1.0f, m01 = 0.0f, m10 = 0.0f, m11 = 1.0f;
