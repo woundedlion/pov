@@ -1,4 +1,5 @@
 import { exitAfterStderr } from './exit.mjs';
+import { requireCatalog } from './shader_workbench.mjs';
 import { writeFile } from 'node:fs/promises';
 import { pathToFileURL } from 'node:url';
 
@@ -13,9 +14,9 @@ try {
   const module = await createModule();
   const catalog = module.HolosphereEngine.getShaderChainCatalog();
   const parsed = JSON.parse(catalog);
-  if (!parsed || !Array.isArray(parsed.operators) || !parsed.operators.length
-      || !Array.isArray(parsed.carriers) || !parsed.carriers.length || !parsed.budgets)
-    throw new Error('engine returned an incomplete operator catalog');
+  requireCatalog(parsed);
+  if (!parsed.operators.length || !parsed.carriers.length)
+    throw new Error('engine returned an empty operator catalog');
   await writeFile(outputPath, `${catalog}\n`);
 } catch (error) {
   console.error(`catalog export failed: ${error.message}`);

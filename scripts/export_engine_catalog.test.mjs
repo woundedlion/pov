@@ -12,8 +12,11 @@ test('catalog export validates the result before replacing the output', (t) => {
   const modulePath = join(directory, 'engine.mjs');
   const outputPath = join(directory, 'catalog.json');
   const script = fileURLToPath(new URL('./export_engine_catalog.mjs', import.meta.url));
-  const valid = JSON.stringify({ operators: [{ id: 'fixture' }], carriers: ['sphere'], budgets: {} });
-  for (const catalog of [valid, 'not-json', '{}']) {
+  const valid = readFileSync(new URL('./engine_catalog.json', import.meta.url), 'utf8').trim();
+  const incomplete = JSON.stringify({ ...JSON.parse(valid), budgets: {} });
+  const emptyOperators = JSON.stringify({ ...JSON.parse(valid), operators: [] });
+  const emptyCarriers = JSON.stringify({ ...JSON.parse(valid), carriers: [] });
+  for (const catalog of [valid, incomplete, emptyOperators, emptyCarriers, 'not-json', '{}']) {
     writeFileSync(modulePath, `export default async () => ({ HolosphereEngine: {
       getShaderChainCatalog: () => ${JSON.stringify(catalog)} } });`);
     writeFileSync(outputPath, 'previous');

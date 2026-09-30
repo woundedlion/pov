@@ -345,7 +345,7 @@ const label = (value, path) => {
 
 // scripts/engine_catalog.json is exported from the WASM engine. Validation reads
 // operator existence, carriers, parameter schemas, enum values and budgets.
-const requireCatalog = (catalog) => {
+export const requireCatalog = (catalog) => {
   const invalid = () => fail('semantic', 'CATALOG_REQUIRED', 'catalog',
     'Chain validation needs a complete operator catalog (options.catalog).');
   if (catalog === null || typeof catalog !== 'object' ||
