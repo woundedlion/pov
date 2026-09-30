@@ -1199,11 +1199,20 @@ inline void test_update_parameter_by_name() {
   HS_EXPECT_EQ(fx.updateParameter("Flag", 0.8f), ParamSetResult::APPLIED);
   HS_EXPECT_TRUE(fx.flag);
 
+  HS_EXPECT_EQ(fx.updateParameter("Flag", 0.5f), ParamSetResult::APPLIED);
+  HS_EXPECT_TRUE(fx.flag);
+
   // Unknown name is a no-op reported as UNKNOWN_PARAM.
   HS_EXPECT_EQ(fx.updateParameter("Nope", 99.0f),
                ParamSetResult::UNKNOWN_PARAM);
   HS_EXPECT_NEAR(fx.speed, 7.25f, 1e-6f);
 
+  for (float value : {std::numeric_limits<float>::infinity(),
+                      -std::numeric_limits<float>::infinity()}) {
+    HS_EXPECT_EQ(fx.updateParameter("Speed", value),
+                 ParamSetResult::NON_FINITE);
+    HS_EXPECT_EQ(fx.speed, 7.25f);
+  }
   // Non-finite values are rejected as NON_FINITE.
   HS_EXPECT_EQ(
       fx.updateParameter("Speed", std::numeric_limits<float>::quiet_NaN()),
@@ -1289,6 +1298,11 @@ inline void test_register_and_update_enum_param() {
   HS_EXPECT_NEAR(def->min, 0.0f, 1e-6f);
   HS_EXPECT_NEAR(def->max, 2.0f, 1e-6f);
   HS_EXPECT_NEAR(def->get(), 1.0f, 1e-6f); // captured current value as default
+
+  HS_EXPECT_EQ(fx.updateParameter("Mode", 1.49f), ParamSetResult::APPLIED);
+  HS_EXPECT_EQ(mode, 1.0f);
+  HS_EXPECT_EQ(fx.updateParameter("Mode", 1.5f), ParamSetResult::APPLIED);
+  HS_EXPECT_EQ(mode, 2.0f);
 
   // A fractional write snaps to the nearest option index.
   HS_EXPECT_EQ(fx.updateParameter("Mode", 1.7f), ParamSetResult::APPLIED);

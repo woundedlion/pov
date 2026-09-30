@@ -2145,6 +2145,8 @@ inline void test_hue_wobble_shade() {
                  static_cast<float>(vivid.color.r), OKLAB_ROUND_TRIP_TOL);
   HS_EXPECT_NEAR(static_cast<float>(same.color.g),
                  static_cast<float>(vivid.color.g), OKLAB_ROUND_TRIP_TOL);
+  HS_EXPECT_NEAR(static_cast<float>(same.color.b),
+                 static_cast<float>(vivid.color.b), OKLAB_ROUND_TRIP_TOL);
 }
 
 /**
@@ -2222,6 +2224,8 @@ inline void test_chroma_pulse_shade() {
                  static_cast<float>(mid.color.r), OKLAB_ROUND_TRIP_TOL);
   HS_EXPECT_NEAR(static_cast<float>(same.color.g),
                  static_cast<float>(mid.color.g), OKLAB_ROUND_TRIP_TOL);
+  HS_EXPECT_NEAR(static_cast<float>(same.color.b),
+                 static_cast<float>(mid.color.b), OKLAB_ROUND_TRIP_TOL);
 
   // Gray has no chroma to scale.
   Color4 gray(Pixel(20000, 20000, 20000), 1.0f);

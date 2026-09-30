@@ -461,6 +461,7 @@ inline void test_make_basis_alternate_normals() {
   HS_EXPECT_VEC(b.v, n, 1e-3f);
   HS_EXPECT_NEAR(math::dot(b.u, b.v), 0.0f, 1e-3f);
   HS_EXPECT_NEAR(math::dot(b.u, b.w), 0.0f, 1e-3f);
+  HS_EXPECT_NEAR(math::dot(b.v, b.w), 0.0f, 1e-3f);
   HS_EXPECT_NEAR(b.u.length(), 1.0f, 1e-3f);
   HS_EXPECT_NEAR(b.w.length(), 1.0f, 1e-3f);
 }
