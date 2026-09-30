@@ -132,6 +132,13 @@ struct AffineLatticeEvents {
       }
       metric.active = true;
     }
+    for (int axis = 0; axis < dimensions; ++axis) {
+      bool owned = false;
+      for (int free = 0; free < dimensions; ++free)
+        owned |= metrics[free].active && owner[free] == axis;
+      if (!owned)
+        next[axis] = INFINITY;
+    }
   }
   bool active(size_t axis) const { return Raycast::finite(next[axis]); }
   float distance(size_t axis) const { return next[axis]; }
