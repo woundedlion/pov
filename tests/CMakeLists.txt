@@ -563,7 +563,7 @@ add_test(NAME unit_fastmath_clamp COMMAND fastmath_clamp_check)
 # Relax-bake re-derivation gate. The committed payloads in
 # core/mesh/relax_bakes_generated.h are host-generated and loaded verbatim on
 # both host and device. This harness recompiles every bake-bearing recipe with
-# HS_RELAX_BAKE_VERIFY, which re-runs exactly bake.iterations smoothing steps
+# HS_RELAX_BAKE_VERIFY, which re-runs smoothing with bake.iterations as the iteration cap
 # and asserts the result reproduces the committed bits — so a recipe edit that
 # silently drifts the geometry (even one that leaves topology unchanged) fails
 # the suite instead of shipping a stale asset. It MUST be its own TU: VERIFY

@@ -481,8 +481,8 @@ public:
    * @details The same baked vertex bits load on host and device, so both
    * render bit-identically. The payload's own `iterations` count defines it;
    * there is no per-call-site count. In the two host tooling modes the payload
-   * is instead reproduced live by running exactly `bake.iterations` smoothing
-   * steps: EXTRACT dumps the resulting bits and freshly measured guards, so it
+   * is instead reproduced live by using `bake.iterations` as the smoothing iteration
+   * cap: EXTRACT dumps the resulting bits and freshly measured guards, so it
    * can author a payload or recover from a topology change (generation), while
    * VERIFY asserts both against the committed payload (the native
    * re-derivation test).
