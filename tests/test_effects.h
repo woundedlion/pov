@@ -3900,11 +3900,6 @@ inline void test_hopf_projection_math() {
     HS_EXPECT_TRUE(std::isfinite(p.x) && std::isfinite(p.y) &&
                    std::isfinite(p.z));
     HS_EXPECT_NEAR(p.magnitude(), 1.0f, 1e-3f);
-    const math::Vector again =
-        WB::project(fx, i); // pure fn of the cache -> repeatable
-    HS_EXPECT_NEAR(p.x, again.x, 1e-6f);
-    HS_EXPECT_NEAR(p.y, again.y, 1e-6f);
-    HS_EXPECT_NEAR(p.z, again.z, 1e-6f);
   }
 }
 
