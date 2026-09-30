@@ -182,13 +182,14 @@ inline void test_u64_dec_boundaries() {
  */
 inline void test_u64_dec_powers_of_ten() {
   uint64_t v = 1;
-  for (int digits = 1; digits <= 19; ++digits) {
-    GuardedDecBuf g;
-    const char *s = hs::u64_dec(v, g.buf);
-    HS_EXPECT_EQ(static_cast<int>(std::strlen(s)), digits);
-    HS_EXPECT_EQ(s[0], '1');
-    HS_EXPECT_TRUE(g.guards_intact());
-    v *= 10;
+  char expected[21] = "1";
+  for (int digits = 1; digits <= 20; ++digits) {
+    expect_u64_dec(v, expected);
+    if (digits < 20) {
+      expected[digits] = '0';
+      expected[digits + 1] = '\0';
+      v *= 10;
+    }
   }
 }
 
