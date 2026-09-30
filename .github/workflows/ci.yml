@@ -1063,15 +1063,26 @@ jobs:
             throw "KiCad installer failed: $($process.ExitCode)"
           }
 
-      - name: Require pinned KiCad and stock libraries
+      - name: Configure pinned KiCad and stock libraries
         shell: pwsh
         run: |
+          $env:KICAD_CONFIG_HOME = Join-Path $env:RUNNER_TEMP 'kicad-config'
+          "KICAD_CONFIG_HOME=$env:KICAD_CONFIG_HOME" >> $env:GITHUB_ENV
           @'
+          import os
+          from pathlib import Path
+          import shutil
           import sys
           sys.path.insert(0, 'hardware/phantasm/gen/tests')
           from test_pcb_generation import GENERATES, GENERATES_REASON
+          from kicad_common import KICAD_VERSION, kicad_cli
           if not GENERATES:
               raise SystemExit(GENERATES_REASON)
+          config = Path(os.environ['KICAD_CONFIG_HOME']) / '.'.join(KICAD_VERSION.split('.')[:2])
+          templates = Path(kicad_cli()).resolve().parents[1] / 'share/kicad/template'
+          config.mkdir(parents=True, exist_ok=True)
+          for table in ('fp-lib-table', 'sym-lib-table'):
+              shutil.copyfile(templates / table, config / table)
           '@ | python -
 
       - name: Run PCB generation, DRC, parity and fabrication tests
