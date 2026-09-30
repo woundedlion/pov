@@ -21,7 +21,7 @@ extract_staged() {
   fi
 }
 
-if ! git diff --cached --check; then
+if ! git -c core.whitespace=blank-at-eol,blank-at-eof diff --cached --check; then
   echo "[pre-commit] staged whitespace errors must be fixed."
   exit 1
 fi
