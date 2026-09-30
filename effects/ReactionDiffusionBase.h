@@ -132,7 +132,7 @@ protected:
    */
   template <typename OnWeight>
   static __attribute__((always_inline)) void
-  with_wendland_weight(float d2, OnWeight &&on_weight) {
+  with_biweight_weight(float d2, OnWeight &&on_weight) {
     float u = 1.0f - d2 * INV_R2;
     if (u > 0)
       on_weight(u * u);
@@ -257,7 +257,7 @@ protected:
     });
     if (best == 0) {
       for (int i = 0; i < n; ++i)
-        with_wendland_weight(d2s[i], [&](float w) { on_weight(ids[i], w); });
+        with_biweight_weight(d2s[i], [&](float w) { on_weight(ids[i], w); });
       return;
     }
     kernel_accumulate(rv, nodes, ids[best], on_weight);
@@ -305,7 +305,7 @@ protected:
   accumulate_stencil(const math::Vector &rv, const math::Vector *positions,
                      OnWeight &&on_weight) {
     for (int j = 0; j < RD_K + 1; ++j)
-      with_wendland_weight(
+      with_biweight_weight(
           dist2(rv, positions[j]),
           [&](float w) __attribute__((always_inline)) { on_weight(j, w); });
   }
@@ -527,7 +527,7 @@ private:
                                          const math::Vector *nodes, int center,
                                          OnWeight &&on_weight) {
     auto visit = [&](int i) {
-      with_wendland_weight(dist2(rv, nodes[i]),
+      with_biweight_weight(dist2(rv, nodes[i]),
                            [&](float w) { on_weight(i, w); });
     };
     visit(center);
