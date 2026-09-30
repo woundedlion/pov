@@ -311,6 +311,7 @@ inline void test_chamfer_sweep_holds_topology() {
     // No face turns inside out and no vertex teleports between steps.
     HS_EXPECT_TRUE(min_outward > 0.0f);
     HS_EXPECT_TRUE(min_normal_dot > 0.0f);
+    HS_EXPECT_LT(max_step, 0.1f);
     if (hs_test::stats().failed != failed_before)
       std::printf("    [chamfer-sweep] %s failed (raw F=%zu compiled=%zu)\n",
                   site.name, f0, compiled0);
