@@ -613,8 +613,13 @@ inline void test_blur_factor_zero_is_identity() {
   }
   int outside_taps = 0;
   blur.update(0.0f);
-  blur.plot(8.0f, -3.0f, Pixel(4, 5, 6), 2.0f, 1.0f,
-            [&](float, float, const Pixel &, float, float) { ++outside_taps; });
+  for (float factor : {0.0f, 1e-6f, 1.0f}) {
+    blur.update(factor);
+    for (float y : {-3.0f, -1.2f, H + 0.2f})
+      blur.plot(
+          8.0f, y, Pixel(4, 5, 6), 2.0f, 1.0f,
+          [&](float, float, const Pixel &, float, float) { ++outside_taps; });
+  }
   HS_EXPECT_EQ(outside_taps, 0);
 }
 
