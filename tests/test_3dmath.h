@@ -958,6 +958,20 @@ inline void test_quaternion_from_basis() {
   HS_EXPECT_VEC(math::rotate(math::Vector(0, 0, 1), q), cz, 5e-3f);
   HS_EXPECT_NEAR(q.magnitude(), 1.0f, 1e-3f);
 
+  for (const math::Vector AXIS :
+       {math::Vector(1.0f, 0.2f, 0.3f), math::Vector(0.3f, 1.0f, 0.2f),
+        math::Vector(0.2f, 0.3f, 1.0f)}) {
+    const auto ROTATION = math::make_rotation(AXIS.normalized(), 2.8f);
+    const auto X = math::rotate(math::X_AXIS, ROTATION);
+    const auto Y = math::rotate(math::Y_AXIS, ROTATION);
+    const auto Z = math::rotate(math::Z_AXIS, ROTATION);
+    HS_EXPECT_LT(X.x + Y.y + Z.z, 0.0f);
+    const auto RESTORED = math::quaternion_from_basis(X, Y, Z);
+    HS_EXPECT_VEC(math::rotate(math::X_AXIS, RESTORED), X, 5e-3f);
+    HS_EXPECT_VEC(math::rotate(math::Y_AXIS, RESTORED), Y, 5e-3f);
+    HS_EXPECT_VEC(math::rotate(math::Z_AXIS, RESTORED), Z, 5e-3f);
+  }
+
   // trace <= 0 branch: 180° rotation about Z (diagonal = (-1,-1,1)).
   math::Quaternion qz = math::quaternion_from_basis(
       math::Vector(-1, 0, 0), math::Vector(0, -1, 0), math::Vector(0, 0, 1));
