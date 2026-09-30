@@ -522,8 +522,12 @@ inline void check_determinism_for_index(size_t index) {
  *          bit-identical.
  */
 inline void test_determinism_hardcoded_platonic() {
-  // index 1 = cube
-  check_determinism_for_index(1);
+  const auto *entry = Solids::find_entry("cube");
+  HS_EXPECT_TRUE(entry != nullptr);
+  if (!entry)
+    return;
+  check_determinism_for_index(
+      static_cast<size_t>(entry - Solids::simple_registry));
 }
 
 /**
@@ -531,8 +535,12 @@ inline void test_determinism_hardcoded_platonic() {
  * @details The procedural path must reproduce identical geometry across builds.
  */
 inline void test_determinism_archimedean_with_conway_ops() {
-  // index 6 = cuboctahedron (cube -> ambo)
-  check_determinism_for_index(6);
+  const auto *entry = Solids::find_entry("cuboctahedron");
+  HS_EXPECT_TRUE(entry != nullptr);
+  if (!entry)
+    return;
+  check_determinism_for_index(
+      static_cast<size_t>(entry - Solids::simple_registry));
 }
 
 /**
@@ -785,10 +793,6 @@ inline void test_islamic_recipes_are_morph_feasible() {
   HS_EXPECT_EQ(checked, Solids::Collections::get_islamic_solids().size());
 }
 
-// ---------------------------------------------------------------------------
-// Runner
-// ---------------------------------------------------------------------------
-
 /** @brief Checks vertex directions, rotations and spacing for an octahedron. */
 inline void test_build_vertex_directions() {
   Arena geom(solids_geom_a, sizeof(solids_geom_a));
@@ -798,6 +802,8 @@ inline void test_build_vertex_directions() {
   float spacing[6];
   const auto *entry = Solids::find_entry("octahedron");
   HS_EXPECT_TRUE(entry != nullptr);
+  if (!entry)
+    return;
   const int count = Solids::build_vertex_directions(geom, scratch, *entry, 6,
                                                     points, rotations, spacing);
   HS_EXPECT_EQ(count, 6);
