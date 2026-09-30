@@ -2558,6 +2558,60 @@ inline void test_feedback_poles_resolve_one_source_longitude() {
   }
 }
 
+inline math::Vector midpoint_test_warp(const math::Vector &v,
+                                       const ::Feedback::Style &) {
+  const math::Spherical S(v);
+  return math::Vector(math::Spherical(S.theta + 0.1f * sinf(S.theta),
+                                      S.phi + 0.02f * sinf(S.theta)));
+}
+
+inline void test_feedback_half_res_warp_uses_pair_midpoint() {
+  constexpr int W = 64, H = 34;
+  std::array<Pixel, W> full{};
+  for (bool half_res : {false, true}) {
+    hs_test::StubEffect fx(W, H);
+    ::Feedback::Style style{};
+    style.space_fn = &midpoint_test_warp;
+    style.fade = 1.0f;
+    style.downsample = 4;
+    style.pole_half_res = half_res ? 2.0f : 0.0f;
+    Pipeline<W, H, Filter::Pixel::Feedback<W, H>> pipe{
+        Filter::Pixel::Feedback<W, H>(style)};
+    {
+      Canvas c(fx);
+      for (int y = 0; y < H; ++y)
+        for (int x = 0; x < W; ++x)
+          c(x, y) = Pixel(static_cast<uint16_t>(x * 900),
+                          static_cast<uint16_t>(y * 1500), 0);
+    }
+    fx.advance_display();
+    {
+      Canvas c(fx);
+      (void)pipe.begin_frame(c, 1.0f);
+    }
+    fx.advance_display();
+    if (!half_res) {
+      for (int x = 0; x < W; ++x)
+        full[x] = fx.get_pixel(x, 8);
+    } else {
+      auto midpoint = [&](int x, auto channel) {
+        return (full[x].*channel + full[x + 1].*channel) * 0.5f;
+      };
+      for (int x = 8; x < 24; x += 2) {
+        for (auto channel : {&Pixel::r, &Pixel::g}) {
+          const float OWN = midpoint(x, channel);
+          const float LEFT = midpoint(x - 2, channel);
+          const float RIGHT = midpoint(x + 2, channel);
+          HS_EXPECT_NEAR(fx.get_pixel(x, 8).*channel,
+                         0.75f * OWN + 0.25f * LEFT, 4.0f);
+          HS_EXPECT_NEAR(fx.get_pixel(x + 1, 8).*channel,
+                         0.75f * OWN + 0.25f * RIGHT, 4.0f);
+        }
+      }
+    }
+  }
+}
+
 inline math::Vector metric_row_test_warp(const math::Vector &v,
                                          const ::Feedback::Style &) {
   const math::Spherical s(v);
@@ -3984,6 +4038,7 @@ inline int run_filter_tests() {
   test_feedback_north_cap_uses_exact_control_rows();
   test_feedback_animated_cap_controls_match_compositor_lattice();
   test_feedback_poles_resolve_one_source_longitude();
+  test_feedback_half_res_warp_uses_pair_midpoint();
   test_feedback_spherical_ring_control_rows();
   test_feedback_spherical_field_angular_error();
   test_feedback_seam_warp_keeps_its_latitude_row();

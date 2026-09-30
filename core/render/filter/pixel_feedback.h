@@ -768,8 +768,9 @@ private:
 
             if constexpr (PAIR_PIXELS) {
               if (downsample - sub >= 2 * stride && xe - x >= 2 * stride) {
-                const float fx0 = sub * inverse_downsample;
-                const float fx1 = (sub + stride) * inverse_downsample;
+                const float fx0 = (sub + lane_offset) * inverse_downsample;
+                const float fx1 =
+                    (sub + stride + lane_offset) * inverse_downsample;
                 const float ddx0 = leftx + slopex * fx0;
                 const float ddy0 = lefty + slopey * fx0;
                 const float ddx1 = leftx + slopex * fx1;
@@ -814,7 +815,7 @@ private:
               }
             }
 
-            const float fx = sub * inverse_downsample;
+            const float fx = (sub + lane_offset) * inverse_downsample;
             const float ddx = leftx + slopex * fx;
             const float ddy = lefty + slopey * fx;
 
