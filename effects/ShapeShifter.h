@@ -137,6 +137,7 @@ public:
             .allocate_n<Plot::Star<Plot::PlanarProjection>::RadiusTrig>(
                 MAX_SHAPES);
     star_chords.init_storage(persistent_arena, STAR_VERTICES);
+    flower_split.init_storage(persistent_arena, FLOWER_MAX_POINTS);
     prepare_count(hs::clamp(static_cast<int>(params.count), 1, DRAW_LIMIT));
     timeline.add(0, Animation::RandomWalk<W>(orientation, math::X_AXIS, noise,
                                              {}, hs::rand_int(0, 65536)));
@@ -468,6 +469,8 @@ private:
 
     if (planar_star && dense_contours)
       star_chords.prepare(clip);
+    if (shape == ShapeType::FLOWER)
+      flower_band = Plot::ClipBand<W, H>::of(clip);
 
     Color4 pair_color;
     const float global_alpha = alpha * preset_opacity;
@@ -621,6 +624,48 @@ private:
                             planar_basis, color, fragment_shader);
   }
 
+  /** @brief Chart pieces a flower's edges share for the band split; each edge
+   *  takes FLOWER_PIECE_BUDGET / sides of them. */
+  static constexpr int FLOWER_PIECE_BUDGET = 24;
+  static constexpr int FLOWER_MAX_POINTS =
+      Plot::PlanarBandSplit<W, H>::max_points(2, FLOWER_PIECE_BUDGET);
+  static_assert(2 * static_cast<int>(SIDES_MAX) <= 2 * FLOWER_PIECE_BUDGET);
+
+  /**
+   * @brief Rasterizes a flower with its petal edges split against the clip
+   *        band by Plot::PlanarBandSplit.
+   * @tparam F Fragment-shader callable type.
+   * @param canvas Target canvas.
+   * @param basis Shared shape basis.
+   * @param planar_basis The flower's azimuthal-equidistant chart.
+   * @param radius Shape radius in [0, 2].
+   * @param sides Petal count.
+   * @param fragment_shader Per-fragment shader.
+   * @param phase Flower rotation in radians.
+   */
+  template <typename F>
+  HS_FLASH_MEMBER void
+  draw_banded_flower(Canvas &canvas, const math::Basis &basis,
+                     const math::Basis &planar_basis, float radius, int sides,
+                     const F &fragment_shader, float phase) {
+    const int edges = sides * 2;
+    const int pieces = std::max(1, FLOWER_PIECE_BUDGET / sides);
+    ScratchScope guard(scratch_arena_a);
+    Fragments ring;
+    ring.bind(scratch_arena_a, static_cast<size_t>(edges + 1));
+    Plot::Flower::sample(ring, basis, radius, sides, phase);
+    Fragments path;
+    path.bind(scratch_arena_a,
+              static_cast<size_t>(
+                  Plot::PlanarBandSplit<W, H>::max_points(edges, pieces)));
+    const std::span<const uint8_t> flags = flower_split.split(
+        path, ring, edges, pieces, planar_basis, flower_band);
+    Plot::rasterize<W, H, SAMPLED_RASTER_CONFIG>(
+        plot_filters, canvas, path, fragment_shader,
+        {.projection = Plot::RasterProjection::planar(planar_basis, flags),
+         .omit_end = true});
+  }
+
   /**
    * @brief Samples the selected primitive and draws it.
    * @tparam F Fragment-shader callable type.
@@ -669,6 +714,11 @@ private:
     case ShapeType::FLOWER: {
       math::Basis planar_basis =
           Plot::planar_chart_basis(math::get_antipode(basis, radius).first.v);
+      if (flower_band.x_active) {
+        draw_banded_flower(canvas, basis, planar_basis, radius, sides,
+                           fragment_shader, shape_phase);
+        break;
+      }
       draw_sampled(canvas, static_cast<size_t>(sides * 2 + 2), &planar_basis,
                    false, fragment_shader, [&](Fragments &points) {
                      Plot::Flower::sample(points, basis, radius, sides,
@@ -773,6 +823,8 @@ private:
   Plot::Star<Plot::PlanarProjection>::StepTrig planar_star_step_trig{};
   int prepared_planar_star_sides = 0;
   Plot::PlanarChords<W, H> star_chords;
+  Plot::PlanarBandSplit<W, H> flower_split;
+  Plot::ClipBand<W, H> flower_band;
   int baked_palette_count = 0;
   RadiusSpacing prepared_spacing = RadiusSpacing::UNIFORM;
   float alpha = 1.0f;
@@ -785,15 +837,19 @@ private:
   static_assert(SAMPLED_RASTER_CONFIG.single_pass &&
                 !SAMPLED_RASTER_CONFIG.derive_planar_arc_registers);
   static constexpr size_t SCRATCH_A_PEAK_BYTES =
-      (2 * static_cast<size_t>(SIDES_MAX) + 4) * sizeof(Fragment) +
-      2 * alignof(Fragment);
+      std::max((2 * static_cast<size_t>(SIDES_MAX) + 4) * sizeof(Fragment) +
+                   2 * alignof(Fragment),
+               (2 * static_cast<size_t>(SIDES_MAX) + 1 + FLOWER_MAX_POINTS) *
+                       sizeof(Fragment) +
+                   2 * alignof(Fragment));
   static_assert(SCRATCH_A_PEAK_BYTES <= DEFAULT_SCRATCH_A_SIZE,
                 "ShapeShifter nested contour buffers exceed scratch_a");
   static constexpr size_t FOOTPRINT_BYTES =
       MAX_SHAPES * (4 * sizeof(float) + sizeof(uint16_t) +
                     sizeof(Plot::Star<Plot::PlanarProjection>::RadiusTrig)) +
       2 * BakedPalette::required_arena_bytes() +
-      Plot::PlanarChords<W, H>::storage_bytes(STAR_VERTICES);
+      Plot::PlanarChords<W, H>::storage_bytes(STAR_VERTICES) +
+      Plot::PlanarBandSplit<W, H>::storage_bytes(FLOWER_MAX_POINTS);
   static_assert(FOOTPRINT_BYTES <= DEVICE_PERSISTENT_BUDGET,
                 "ShapeShifter persistent footprint exceeds the default "
                 "partition; retune MAX_SHAPES or carve arenas");
