@@ -175,6 +175,7 @@ inline void test_mesh_palette_bank_lookup() {
  */
 inline void test_mesh_palette_bank_shuffle_is_permutation() {
   auto saved = hs::random();
+  hs::random().seed(1337);
   std::array<int, MeshPaletteBank::N> idx{};
   MeshPaletteBank::shuffle_indices(idx);
   hs::random() = saved;
@@ -185,6 +186,10 @@ inline void test_mesh_palette_bank_shuffle_is_permutation() {
     if (v >= 0 && v < MeshPaletteBank::N)
       seen[v]++;
   }
+  bool changed = false;
+  for (size_t i = 0; i < idx.size(); ++i)
+    changed |= idx[i] != static_cast<int>(i);
+  HS_EXPECT_TRUE(changed);
   for (int count : seen)
     HS_EXPECT_EQ(count, 1);
 }
