@@ -6378,10 +6378,6 @@ inline void test_four_regular_and_medial_edge_extraction() {
 // Runner
 // ============================================================================
 
-/**
- * @brief Runs every plot/scan sampling test in this module.
- * @return Number of failed assertions reported across the module's tests.
- */
 // ============================================================================
 // Plot::PlanarChords  — chord-walked planar polylines
 // ============================================================================
@@ -6722,6 +6718,10 @@ inline void test_planar_chords_pole_split_matches_whole_star() {
   HS_EXPECT_GT(split_changed, size_t{0});
 }
 
+/**
+ * @brief Runs every plot/scan sampling test in this module.
+ * @return Number of failed assertions reported across the module's tests.
+ */
 inline int run_plot_scan_tests() {
   hs_test::ModuleFixture fixture("plot_scan");
 
