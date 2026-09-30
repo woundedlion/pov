@@ -506,8 +506,8 @@ inline void test_mindsplatter_particle_gradients_follow_emission_order() {
 
 /**
  * @brief A manual preset outlasts the automatic blend it interrupts.
- * @details The automatic Lerp is frozen rather than finished while the manual
- *          selection holds animations paused, so it resumes on unpause.
+ * @details Manual selection cancels the active automatic blend; unpausing
+ *          must not restore that blend's target.
  */
 inline void test_mindsplatter_manual_preset_survives_unpause() {
   constexpr size_t MANUAL_PRESET = 5;
@@ -524,6 +524,7 @@ inline void test_mindsplatter_manual_preset_survives_unpause() {
     effect.advance_display();
   }
 
+  HS_EXPECT_TRUE(WB::transition_active(effect));
   HS_EXPECT_TRUE(effect.selectPreset(MANUAL_PRESET));
   HS_EXPECT_TRUE(effect.animations_paused());
   effect.setAnimationsPaused(false);
