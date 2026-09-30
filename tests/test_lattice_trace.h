@@ -41,9 +41,25 @@ void check_cubic(const SDF::Lattice::PreparedShading &prepared,
   const auto expected = Raycast::shade_events(
       events, {0, prepared.lattice.far_distance}, {}, prepared.appearance);
   HS_EXPECT_NEAR(actual.alpha, expected.color.alpha, 3e-4f);
-  HS_EXPECT_EQ(actual.color.r, expected.color.color.r);
-  HS_EXPECT_EQ(actual.color.g, expected.color.color.g);
-  HS_EXPECT_EQ(actual.color.b, expected.color.color.b);
+  LayerComposite reference;
+  SDF::Lattice::Events<SLICE, SHELLS> reference_events(view, prepared.lattice);
+  Raycast::trace_events(reference_events, {0, prepared.lattice.far_distance},
+                        {}, [&](const Raycast::Contribution &hit) {
+                          prepared.appearance.composite(reference, hit.t,
+                                                        hit.coverage);
+                          return !reference.saturated();
+                        });
+  const Color4 REFERENCE = reference.finish();
+  HS_EXPECT_EQ(expected.color.alpha, REFERENCE.alpha);
+  HS_EXPECT_EQ(expected.color.color.r, REFERENCE.color.r);
+  HS_EXPECT_EQ(expected.color.color.g, REFERENCE.color.g);
+  HS_EXPECT_EQ(expected.color.color.b, REFERENCE.color.b);
+  // Independent reciprocal evaluation can cross one final pixel rounding boundary.
+  const Pixel ACTUAL_PIXEL = composite.premultiplied();
+  const Pixel REFERENCE_PIXEL = reference.premultiplied();
+  HS_EXPECT_NEAR(ACTUAL_PIXEL.r, REFERENCE_PIXEL.r, 1);
+  HS_EXPECT_NEAR(ACTUAL_PIXEL.g, REFERENCE_PIXEL.g, 1);
+  HS_EXPECT_NEAR(ACTUAL_PIXEL.b, REFERENCE_PIXEL.b, 1);
   lit += actual.alpha > 0.0f;
 }
 
