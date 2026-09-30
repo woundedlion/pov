@@ -272,6 +272,34 @@ class BoardSelection(unittest.TestCase):
         self.base = Path(tempfile.mkdtemp()) / "lock"
         self.addCleanup(shutil.rmtree, self.base.parent, ignore_errors=True)
 
+    def test_force_claims_first_busy_board(self):
+        self.hold("COM3")
+        self.hold("COM4")
+        result = run_lock('hs_device_acquire E profile 60 && echo "PORT=$HS_TEENSY_PORT"',
+                          self.base, env={"HS_DEVICE_FORCE": "1"})
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn("PORT=COM3", result.stdout)
+        self.assertNotIn("token=peer", (self.lock_dir("COM3") / "info").read_text())
+
+    def test_force_preserves_young_tokenless_claim(self):
+        self.lock_dir("COM3").mkdir()
+        self.hold("COM4")
+        result = run_lock("hs_device_acquire E profile 60", self.base,
+                          env={"HS_DEVICE_FORCE": "1"})
+        self.assertEqual(result.returncode, 1)
+        self.assertTrue(self.lock_dir("COM3").is_dir())
+        self.assertFalse((self.lock_dir("COM3") / "info").exists())
+
+    def test_force_preserves_mid_break_retake(self):
+        self.hold("COM3")
+        self.hold("COM4")
+        script = ('_hs_break_stale() { echo "token=peerB" > "$1/info"; '
+                  '_hs_break_lock "$1" "$2"; }; hs_device_acquire E profile 60')
+        result = run_lock(script, self.base, env={"HS_DEVICE_FORCE": "1"})
+        self.assertEqual(result.returncode, 1)
+        self.assertEqual((self.lock_dir("COM3") / "info").read_text().strip(),
+                         "token=peerB")
+
     def test_no_enumerated_board_fails_without_a_claim(self):
         result = run_lock("hs_device_acquire E profile 60", self.base, ports=())
         self.assertEqual(result.returncode, 1)
