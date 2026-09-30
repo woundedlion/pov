@@ -3694,6 +3694,27 @@ inline void test_random_timer_fires_within_range() {
   HS_EXPECT_EQ(st.fires, 1);
   HS_EXPECT_GE(st.fire_frame, 3);
   HS_EXPECT_LE(st.fire_frame, 7);
+
+  bool saw_minimum = false;
+  bool saw_maximum = false;
+  for (uint32_t seed = 0; seed < 64; ++seed) {
+    hs::random().seed(seed);
+    st.fires = 0;
+    st.fire_frame = -1;
+    tl.add(0, Animation::RandomTimer({.min = 3, .max = 4}, [&st](Canvas &) {
+             ++st.fires;
+             st.fire_frame = st.frame;
+           }));
+    for (st.frame = 1; st.frame <= 6; ++st.frame)
+      tl.step(fake_canvas());
+    HS_EXPECT_EQ(st.fires, 1);
+    HS_EXPECT_GE(st.fire_frame, 3);
+    HS_EXPECT_LE(st.fire_frame, 4);
+    saw_minimum |= st.fire_frame == 3;
+    saw_maximum |= st.fire_frame == 4;
+  }
+  HS_EXPECT_TRUE(saw_minimum);
+  HS_EXPECT_TRUE(saw_maximum);
   hs::random() = saved_rng;
 }
 
