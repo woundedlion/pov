@@ -283,9 +283,11 @@ inline void test_noise_field_curl_tangent() {
         HS_EXPECT_LE(u.length(), 1.00001f);
       }
     }
-    const float mean_magnitude = magnitude_sum / (17.0f * 24.0f);
-    HS_EXPECT_GT(mean_magnitude, 0.1f);
-    HS_EXPECT_LT(mean_magnitude, 0.95f);
+    HS_CONTEXT("curl basis", static_cast<int>(basis));
+    const float MEAN_MAGNITUDE = magnitude_sum / (17.0f * 24.0f);
+    const float EXPECTED_MEAN =
+        basis == math::NoiseBasis::FBM3 ? 0.954f : 0.987f;
+    HS_EXPECT_NEAR(MEAN_MAGNITUDE, EXPECTED_MEAN, 0.005f);
   }
 }
 
