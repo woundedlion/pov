@@ -1,4 +1,4 @@
-﻿import { test } from 'node:test';
+import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { floatLiteral, generate, generatedSections, presetAssignments, updateHeader } from './generate_composed_presets.mjs';
