@@ -66,7 +66,7 @@
 //   HS_PROFILE_MINDSPLATTER_STALLS
 //                            adds short-batch DWT cycle/stall attribution.
 //   HS_PROFILE_SHADER_WORKBENCH_STAGES
-//                            adds raw ShaderWorkbench pipeline cycle totals.
+//                            adds polyhedral reflection counts.
 
 #if defined(HS_PROFILE_MINDSPLATTER_COUNTS) &&                                 \
     defined(HS_PROFILE_MINDSPLATTER_STALLS)
@@ -378,14 +378,6 @@ private:
 
 #ifdef HS_PROFILE_SHADER_WORKBENCH_STAGES
   struct ShaderWorkbenchStageTotals {
-    uint64_t lens = 0;
-    uint64_t surface_noise = 0;
-    uint64_t projection = 0;
-    uint64_t planar_warp = 0;
-    uint64_t source = 0;
-    uint64_t material = 0;
-    uint64_t color = 0;
-    uint64_t mirror_tile = 0;
     uint64_t polyhedral_pixels = 0;
     uint64_t polyhedral_reflections = 0;
     uint32_t polyhedral_max_reflections = 0;
@@ -396,14 +388,6 @@ private:
   void drain_shader_workbench_stages() {
     const hs::ShaderWorkbenchStageCycles &frame =
         hs::g_shader_workbench_stage_cycles;
-    shader_workbench_stage_totals.lens += frame.lens;
-    shader_workbench_stage_totals.surface_noise += frame.surface_noise;
-    shader_workbench_stage_totals.projection += frame.projection;
-    shader_workbench_stage_totals.planar_warp += frame.planar_warp;
-    shader_workbench_stage_totals.source += frame.source;
-    shader_workbench_stage_totals.material += frame.material;
-    shader_workbench_stage_totals.color += frame.color;
-    shader_workbench_stage_totals.mirror_tile += frame.mirror_tile;
     shader_workbench_stage_totals.polyhedral_pixels += frame.polyhedral_pixels;
     shader_workbench_stage_totals.polyhedral_reflections +=
         frame.polyhedral_reflections;
@@ -414,23 +398,12 @@ private:
   }
 
   void dump_shader_workbench_stages() {
-    char c0[21], c1[21], c2[21], c3[21], c4[21], c5[21], c6[21];
-    hs::log("sb stages: lens=%s surface_noise=%s projection=%s warp=%s "
-            "source=%s material=%s color=%s",
-            hs::u64_dec(shader_workbench_stage_totals.lens, c0),
-            hs::u64_dec(shader_workbench_stage_totals.surface_noise, c1),
-            hs::u64_dec(shader_workbench_stage_totals.projection, c2),
-            hs::u64_dec(shader_workbench_stage_totals.planar_warp, c3),
-            hs::u64_dec(shader_workbench_stage_totals.source, c4),
-            hs::u64_dec(shader_workbench_stage_totals.material, c5),
-            hs::u64_dec(shader_workbench_stage_totals.color, c6));
-    char c7[21], c8[21], c9[21];
+    char pixels[21], reflections[21];
     hs::log(
-        "sb detail: mirror=%s poly_pixels=%s poly_reflections=%s "
-        "poly_max=%lu",
-        hs::u64_dec(shader_workbench_stage_totals.mirror_tile, c7),
-        hs::u64_dec(shader_workbench_stage_totals.polyhedral_pixels, c8),
-        hs::u64_dec(shader_workbench_stage_totals.polyhedral_reflections, c9),
+        "polyhedral: pixels=%s reflections=%s max=%lu",
+        hs::u64_dec(shader_workbench_stage_totals.polyhedral_pixels, pixels),
+        hs::u64_dec(shader_workbench_stage_totals.polyhedral_reflections,
+                    reflections),
         (unsigned long)
             shader_workbench_stage_totals.polyhedral_max_reflections);
     shader_workbench_stage_totals.reset();
