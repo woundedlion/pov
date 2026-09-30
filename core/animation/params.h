@@ -541,7 +541,7 @@ public:
     if (scale_ref) {
       float s2 = *scale_ref;
       if (std::isfinite(s2))
-        s = s2;
+        scale = s = s2;
     }
     Derived::write_b(params.get(), s, angle);
   }

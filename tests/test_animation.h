@@ -3362,6 +3362,21 @@ inline void test_mobiuswarp_closes_at_completion() {
   HS_EXPECT_NEAR(params.b.im, 0.0f, 1e-4f);
 }
 
+inline void test_mobiuswarp_retains_last_finite_scale() {
+  math::MobiusParams params, reference;
+  float live = 0.4f;
+  Animation::MobiusWarp warp(params, 0.1f, 8, false, math::ease_linear);
+  Animation::MobiusWarp expected(reference, 0.4f, 8, false, math::ease_linear);
+  warp.bind_scale(live);
+  warp.step(fake_canvas());
+  expected.step(fake_canvas());
+  live = std::numeric_limits<float>::quiet_NaN();
+  warp.step(fake_canvas());
+  expected.step(fake_canvas());
+  HS_EXPECT_EQ(params.b.re, reference.b.re);
+  HS_EXPECT_EQ(params.b.im, reference.b.im);
+}
+
 /**
  * @brief Verifies bind_scale makes step() read the live referent instead of the
  * captured construction-time scale.
@@ -4084,6 +4099,7 @@ inline int run_animation_tests() {
 
   test_mobiuswarp_closes_at_completion();
   test_mobiuswarp_bind_scale_reads_live();
+  test_mobiuswarp_retains_last_finite_scale();
   test_mobiuswarp_circular_traces_radius();
   test_mobiuswarp_circular_bind_scale_reads_live();
   test_mobiuswarp_evolving_bounded_and_perpetual();
