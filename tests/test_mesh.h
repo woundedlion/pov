@@ -323,20 +323,19 @@ inline void test_compile_drops_degenerate_faces() {
   m.vertices.bind(src, /*verts*/ 4);
   m.face_counts.bind(src, /*faces*/ 3);
   m.faces.bind(src, /*indices*/ 7);
-  // The triangle references vertices 0-2; vertex 3 only the degenerate faces.
+  m.vertices.push_back(math::Vector(-1, -1, -1));
   m.vertices.push_back(math::Vector(1, 0, 0));
   m.vertices.push_back(math::Vector(0, 1, 0));
   m.vertices.push_back(math::Vector(0, 0, 1));
-  m.vertices.push_back(math::Vector(-1, -1, -1));
 
   // Face counts: 3 (valid), then two degenerate 2-vertex faces.
   m.face_counts.push_back(3);
   m.face_counts.push_back(2);
   m.face_counts.push_back(2);
 
-  m.faces.push_back(0);
   m.faces.push_back(1);
   m.faces.push_back(2);
+  m.faces.push_back(3);
   m.faces.push_back(0);
   m.faces.push_back(3);
   m.faces.push_back(1);
@@ -348,12 +347,12 @@ inline void test_compile_drops_degenerate_faces() {
   HS_EXPECT_EQ(ms.faces.size(), (size_t)3);
   HS_EXPECT_EQ(ms.face_counts[0], (uint8_t)3);
 
-  // Orphan vertex 3 is compacted out; the kept vertices retain source order so
-  // the surviving triangle's indices are unchanged.
   HS_EXPECT_EQ(ms.vertices.size(), (size_t)3);
   HS_EXPECT_EQ(ms.faces[0], (uint16_t)0);
   HS_EXPECT_EQ(ms.faces[1], (uint16_t)1);
   HS_EXPECT_EQ(ms.faces[2], (uint16_t)2);
+  for (size_t i = 0; i < 3; ++i)
+    HS_EXPECT_EQ(ms.vertices[i], m.vertices[i + 1]);
 }
 
 // ---------------------------------------------------------------------------
