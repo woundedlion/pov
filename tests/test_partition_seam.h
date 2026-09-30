@@ -3,10 +3,8 @@
  * Licensed under the PolyForm Noncommercial License 1.0.0
  *
  * Partition-op rasterizer seam calibration
- * Measures, at the
- * shipping canvas size, the framebuffer delta a `kis` or `dual` swap produces
- * under a single flat fill colour, which isolates the
- * coverage discontinuity from the shading gradient.
+ * Measures the framebuffer delta of a `kis` or `dual` swap at the shipping
+ * canvas size. A flat fill isolates coverage discontinuity from shading.
  *
  * Doubles as the gated swap's seam regression: every swap is asserted against
  * the envelope this calibration fixed. Set HS_SEAM_DUMP=<dir> to write the
@@ -299,8 +297,8 @@ inline SeamStats compare(const std::vector<Pixel> &a,
  * band and a collapsed seam — children that no longer partition the parent, and
  * so leave the capture untouched — are both out of envelope. Each swap's
  * changed fraction is bracketed within ten percent of its measured value.
- * Fraction and energy
- * both count only pixels past DELTA_THRESH, so a uniform sub-threshold shift is
+ * Fraction and energy both count only pixels past DELTA_THRESH, so a
+ * uniform sub-threshold shift is
  * invisible to the gate. */
 constexpr double CHANGED_FRAC_RELATIVE_MARGIN = 0.10;
 constexpr double MEASURED_CHANGED_FRAC_KIS_ICOSA = 0.1533;
@@ -323,8 +321,9 @@ constexpr double MAX_ABS_ENERGY = 0.02;
  * cube). A seam that stopped moving pixels reads as zero energy. */
 constexpr double MIN_ABS_ENERGY = 0.005;
 
-/** Deepest pixel measured over the six IEEE calibration swaps: a seam pixel that both children claim at half
- * coverage composites to 3/4 of the parent's fill. A child that loses its
+/** Deepest pixel measured over the six IEEE calibration swaps: a seam pixel
+ * that both children claim at half coverage composites to 3/4 of the parent's
+ * fill. A child that loses its
  * share of such a pixel leaves half, so the margin stays well under 0.5. All
  * six swaps reach it exactly, so the darkening is bracketed on both sides. */
 constexpr float MAX_MEASURED_PIXEL_DELTA = 0.25f;
@@ -559,7 +558,8 @@ inline void measure_kis(const char *name, double measured_changed_frac,
                 kis.face_counts.size());
   HS_CONTEXT(tag);
   const SeamStats st = compare(a, b, vertex_list(base));
-  report(tag, st);
+  if (seam_dump_dir())
+    report(tag, st);
 
   char png[128];
   std::snprintf(png, sizeof(png), "%s_base_flat", name);
@@ -610,7 +610,8 @@ inline void measure_dual(const char *name, double measured_changed_frac,
                 base.face_counts.size(), dual.face_counts.size());
   HS_CONTEXT(tag);
   const SeamStats st = compare(a, b, vertex_list(base));
-  report(tag, st);
+  if (seam_dump_dir())
+    report(tag, st);
 
   char png[128];
   std::snprintf(png, sizeof(png), "%s_dual_flat", name);
@@ -674,8 +675,9 @@ template <typename Solid> inline void measure_gradient(const char *name) {
  *        spanning face degree (3, 4, 5).
  */
 inline void test_partition_seam_calibration() {
-  std::printf("  [gate6] canvas %dx%d, flat fill, threshold %.1f%% of full\n",
-              PS_W, PS_H, 100.0 * DELTA_THRESH / FILL);
+  if (seam_dump_dir())
+    std::printf("  canvas %dx%d, flat fill, threshold %.1f%% of full\n", PS_W,
+                PS_H, 100.0 * DELTA_THRESH / FILL);
   measure_kis<Solids::Icosahedron>("icosa", MEASURED_CHANGED_FRAC_KIS_ICOSA,
                                    MEASURED_MAX_BAND_KIS_ICOSA);
   measure_kis<Solids::Cube>("cube", MEASURED_CHANGED_FRAC_KIS_CUBE,
