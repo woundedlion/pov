@@ -331,7 +331,7 @@ private:
         [&](int i) -> Curve {
           float theta = (static_cast<float>(i) / num) * math::PI_F;
           math::Vector normal(cosf(theta), 0.0f, -sinf(theta));
-          // Explicit basis construction to match JS texture alignment.
+          // v0 aligns the latitude texture with the Y axis.
           math::Vector v = normal;
           math::Vector w = math::Y_AXIS;
           math::Vector u = math::cross(v, w);
