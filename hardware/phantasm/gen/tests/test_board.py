@@ -167,7 +167,27 @@ class DanglingPinTests(unittest.TestCase):
                          [("R1", "2", (100.0, 103.81))])
 
 
-class CommittedSchematicTests(unittest.TestCase):
+class BypassConnectionChecks:
+    def test_bypass_caps_are_wired_directly_to_their_parent_pins(self):
+        libs = {node[1]: builder._index_unit_pins(node)
+                for node in sexp.val(self.root, "lib_symbols")}
+        positions = {}
+        for inst in F(self.root, "symbol"):
+            ref = next(p[2] for p in F(inst, "property") if p[1] == "Reference")
+            units = libs[sexp.val(inst, "lib_id")[0]]
+            pins = {**units.get(0, {}), **units.get(int(sexp.val(inst, "unit")[0]), {})}
+            x, y, angle = map(float, sexp.val(inst, "at"))
+            mirror = sexp.val(inst, "mirror", [None])[0]
+            for number, pin in pins.items():
+                positions[ref, number] = shorts.R(builder.transform(
+                    x, y, angle, mirror, pin["x"], pin["y"]))
+        _, wires, _ = shorts.geometry(self.root)
+        connections = {frozenset((a, b)) for a, b in wires}
+        for cap, parent, pin in (("C_DEC1", "U_MCU", "VIN"), ("C_DEC2", "U1", "14")):
+            self.assertIn(frozenset((positions[cap, "1"], positions[parent, pin])), connections)
+
+
+class CommittedSchematicTests(BypassConnectionChecks, unittest.TestCase):
     """Both checks read the file's own lib_symbols, so no stock library and no
     kicad-cli is needed: they gate the shipped schematic on every push."""
 
@@ -185,7 +205,7 @@ class CommittedSchematicTests(unittest.TestCase):
 
 @unittest.skipUnless(STOCK_SYMBOLS,
                      f"KiCad stock symbol libraries not found ({sexp.KICAD_SHARE})")
-class GeneratedSchematicTests(unittest.TestCase):
+class GeneratedSchematicTests(BypassConnectionChecks, unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls.out = tempfile.TemporaryDirectory()
