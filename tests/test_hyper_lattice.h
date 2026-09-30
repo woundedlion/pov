@@ -1367,8 +1367,8 @@ inline void test_pattern_view_controls() {
 #endif
 }
 
-inline void test_new_patterns() {
 #if HS_ENABLE_HYPERLATTICE_EXPERIMENTS
+inline void test_new_patterns() {
   using Effect = HyperLatticeWhiteBox::Effect;
   reset_globals();
   Effect effect;
@@ -1439,10 +1439,8 @@ inline void test_new_patterns() {
   HS_EXPECT_EQ(effect.updateParameter("Pattern", 5), ParamSetResult::APPLIED);
   HS_EXPECT_FALSE(effect.getParameters().find("View")->readonly);
   HS_EXPECT_EQ(effect.updateParameter("View", 1), ParamSetResult::APPLIED);
-#else
-  hs_test::skip_case(__func__, "HyperLattice experiments disabled");
-#endif
 }
+#endif
 
 inline void test_speed_range() {
   using Effect = HyperLatticeWhiteBox::Effect;
@@ -1458,8 +1456,8 @@ inline void test_speed_range() {
   HS_EXPECT_FALSE(effect.restore_parameters(snapshot));
 }
 
-inline void test_octet_continuous_flight() {
 #if HS_ENABLE_HYPERLATTICE_EXPERIMENTS
+inline void test_octet_continuous_flight() {
   using Effect = HyperLatticeWhiteBox::Effect;
   for (size_t preset :
        {Effect::OCTET_PRESET_INDEX, Effect::OCTET_WIDE_PRESET_INDEX}) {
@@ -1531,10 +1529,8 @@ inline void test_octet_continuous_flight() {
       }
     }
   }
-#else
-  hs_test::skip_case(__func__, "HyperLattice experiments disabled");
-#endif
 }
+#endif
 
 inline int run_hyper_lattice_tests() {
   hs_test::ModuleFixture fixture("hyper_lattice");
@@ -1565,12 +1561,12 @@ inline int run_hyper_lattice_tests() {
 #if HS_ENABLE_HYPERLATTICE_EXPERIMENTS
   test_octet_prepared_projection();
   test_octet_4d_canonical_trace();
+  test_new_patterns();
+  test_octet_continuous_flight();
 #endif
   test_experimental_presets();
-  test_new_patterns();
   test_pattern_view_controls();
   test_speed_range();
-  test_octet_continuous_flight();
   return fixture.result();
 }
 
