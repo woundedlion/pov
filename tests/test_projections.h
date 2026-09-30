@@ -535,13 +535,31 @@ inline void test_airocean_projection_stays_inside_its_face() {
           net.edge_class == airocean_edge_identity(uint8_t(face), 1) ||
           net.edge_class == airocean_edge_identity(uint8_t(face), 2) ||
           (face == 14 && net.edge_class == airocean_edge_identity(18, 0)));
-      // The mask names the edge the distance ran to, so it is set exactly when
-      // a cut distance was measured, and only on a face that carries a cut.
-      HS_EXPECT_EQ(net.boundary_flags != 0,
-                   net.fade_edge_distance < NO_EDGE_DISTANCE);
-      if (net.boundary_flags != 0)
-        HS_EXPECT_NE(AIROCEAN_CUT_MASKS[face], 0);
+      HS_EXPECT_EQ(net.boundary_flags,
+                   AIROCEAN_CUT_MASKS[face] != 0
+                       ? projection_boundary(ProjectionBoundary::CUT)
+                       : projection_boundary(ProjectionBoundary::NONE));
     }
+  }
+}
+
+inline void test_airocean_face14_half_cut_edge() {
+  const auto &a = AIROCEAN_FACES[14][0];
+  const auto &b = AIROCEAN_FACES[14][1];
+  const auto &c = AIROCEAN_FACES[14][2];
+  for (const float t : {0.25f, 0.75f}) {
+    constexpr float INSET = 1e-4f;
+    const math::Vector point(
+        (1.0f - INSET) * ((1.0f - t) * a.x + t * b.x) + INSET * c.x,
+        (1.0f - INSET) * ((1.0f - t) * a.z + t * b.z) + INSET * c.z,
+        (1.0f - INSET) * ((1.0f - t) * a.y + t * b.y) + INSET * c.y);
+    const auto net =
+        airocean_projection_meridian(point.normalized(), 0.0f, false);
+    HS_EXPECT_EQ(net.region_id, 14);
+    HS_EXPECT_EQ(net.traits,
+                 projection_traits(t < 0.5f ? ProjectionTrait::CUT
+                                            : ProjectionTrait::GLUED));
+    HS_EXPECT_EQ(net.edge_class, airocean_edge_identity(t < 0.5f ? 14 : 18, 0));
   }
 }
 
@@ -657,6 +675,7 @@ inline int run_projections_tests() {
   test_airocean_face_planes();
   test_airocean_unfold_sends_vertices_to_planar_vertices();
   test_airocean_projection_stays_inside_its_face();
+  test_airocean_face14_half_cut_edge();
   test_airocean_projection_face_index_stays_in_range();
   test_point_segment_distance();
   test_projection_trait_packing();
