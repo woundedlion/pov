@@ -2,10 +2,10 @@
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
  * Licensed under the PolyForm Noncommercial License 1.0.0
  */
-// Emits core/color/srgb_decode_lut.h: the two-region split-decode tables for
+// Emits core/color/srgb_decode_lut.h: the two-region linear-to-sRGB encoding tables for
 // linear16->sRGB8, derived from the exact linear_to_srgb_lut. A fine 16-wide
 // low region [0, SRGB_DECODE_VSPLIT) and a coarse 128-wide high region up to
-// 65536, each bucket holding <=1 output step, so the decode is a single
+// 65536, each bucket holding <=1 output step, so the encoding is a single
 // branchless compare per region. Asserts the <=1-step property and self-
 // verifies bit-exactness over all 65536 inputs. Total ~1.5 KB (fits the DTCM
 // slack). Bucket geometry can be retuned without loading the committed tables.

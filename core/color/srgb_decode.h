@@ -6,7 +6,7 @@
 
 /**
  * @file srgb_decode.h
- * @brief Split-region linear16 to sRGB8 decode over the generated bucket
+ * @brief Split-region linear16 to sRGB8 encode over the generated bucket
  *        tables.
  */
 
