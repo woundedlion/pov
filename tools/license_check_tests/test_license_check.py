@@ -119,8 +119,17 @@ class TestHeaderIssue(unittest.TestCase):
 
     def test_a_header_past_the_scanned_window_is_reported(self):
         head = "// " + "x" * lc.HEAD_BYTES + "\n" + POLYFORM_HEADER
-        self.assertIsNotNone(lc.header_issue("core/math/3dmath.h",
-                                             head[:lc.HEAD_BYTES]))
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            subprocess.run(["git", "init", "-q", str(root)], check=True)
+            (root / "sample.h").write_text(head, encoding="utf-8")
+            (root / "LICENSE").write_text(LICENSE_HEADING, encoding="utf-8")
+            subprocess.run(["git", "-C", str(root), "add", "sample.h"], check=True)
+            with mock.patch.object(lc, "EXCEPTIONS", {}), \
+                    contextlib.redirect_stdout(io.StringIO()) as out, \
+                    contextlib.redirect_stderr(io.StringIO()):
+                self.assertEqual(lc.main(["--root", str(root)]), 1)
+            self.assertIn("no copyright notice", out.getvalue())
 
 
 class TestMain(unittest.TestCase):
