@@ -86,7 +86,7 @@
       // The segment LED controller's HD107SFrame buffers are the eDMA TX source and
       // stay in OCRAM to preserve RAM1/DTCM capacity. Cached OCRAM requires
       // arm_dcache_flush() before DMA. Emitted by HS_DEFINE_POV_SEGMENTED_LED_CONTROLLER in
-      // targets/Phantasm/phantasm_target.h:48 because GCC drops DMAMEM on the
+      // targets/Phantasm/phantasm_target.h because GCC drops DMAMEM on the
       // vague-linkage template static member.
       "dma_tx_buffer":  { "name": "_ZN12POVSegmentedILi288ELi4ELi480EE13ledControllerE", "region": "OCRAM" }
     }
