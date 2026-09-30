@@ -2730,18 +2730,14 @@ private:
 
   HS_COLD_MEMBER void enter_preset() {
     if (preset_count_for_view() < 2) {
-      preset_dwell_remaining = 0;
       preset_dwell_armed = false;
       return;
     }
-    preset_dwell_remaining = 0;
     preset_dwell_armed = true;
   }
 
   HS_COLD_MEMBER void advance_preset_choreography() {
     if (anims_paused || !preset_dwell_armed)
-      return;
-    if (preset_dwell_remaining > 0 && --preset_dwell_remaining > 0)
       return;
     preset_dwell_armed = false;
     begin_blend();
@@ -2749,7 +2745,6 @@ private:
 
   HS_COLD_MEMBER void begin_blend() {
     if (!advance_preset()) {
-      preset_dwell_remaining = 1;
       preset_dwell_armed = true;
     }
   }
@@ -2793,7 +2788,6 @@ private:
 #endif
   bool requested_schema_bound = false;
   bool registered_range_clamped = false;
-  uint16_t preset_dwell_remaining = 0;
   bool preset_dwell_armed = false;
   Workbench::Blend blend{
       Workbench::PRESETS[0].config.params,
