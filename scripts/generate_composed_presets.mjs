@@ -148,5 +148,6 @@ export async function generate({ check = false, root = ROOT } = {}) {
 
 if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1])).href) {
   if (process.argv.slice(2).some((arg) => arg !== '--check')) throw new Error('Usage: generate_composed_presets.mjs [--check]');
-  console.log(`Verified ${await generate({ check: process.argv.includes('--check') })} composed preset headers.`);
+  const check = process.argv.includes('--check');
+  console.log(`${check ? 'Verified' : 'Regenerated'} ${await generate({ check })} composed preset headers.`);
 }
