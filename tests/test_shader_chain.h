@@ -4036,12 +4036,13 @@ inline void test_shader_chain_effect_registers_params() {
   HS_EXPECT_TRUE(coverage->is_enum());
   HS_EXPECT_EQ(coverage->option_count, 4);
   HS_EXPECT_TRUE(std::string_view(coverage->options[3]) == "edge-fade");
-  // The value channel reaches the committed param block through the
-  // registered target.
   HS_EXPECT_EQ(
       static_cast<int>(effect.updateParameter("sample.coverage-mode", 3.0f)),
       static_cast<int>(ParamSetResult::APPLIED));
-  HS_EXPECT_EQ(params.find("sample.coverage-mode")->get_requested(), 3.0f);
+  HS_EXPECT_EQ(param_as<In::Op::GridSampleParams>(
+                   ShaderChainWhiteBox::program(effect), 2)
+                   .coverage_mode,
+               static_cast<uint8_t>(In::Op::ProjectionCoverageMode::EDGE_FADE));
 
   uint64_t lit = 0;
   for (int frame = 0; frame < 4; ++frame) {
