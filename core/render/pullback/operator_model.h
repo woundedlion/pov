@@ -33,12 +33,13 @@ namespace Interp {
 /** @brief Carrier identity of a chain endpoint; the CarrierList rank. */
 enum class CarrierId : uint8_t {
   SPHERE = static_cast<uint8_t>(
-      Detail::FamilyRank<SphereSample, CarrierList>::VALUE),
-  PLANE =
-      static_cast<uint8_t>(Detail::FamilyRank<PlaneSample, CarrierList>::VALUE),
-  FIELD =
-      static_cast<uint8_t>(Detail::FamilyRank<FieldSample, CarrierList>::VALUE),
-  COLOR = static_cast<uint8_t>(Detail::FamilyRank<Color4, CarrierList>::VALUE),
+      ::Pullback::Detail::FamilyRank<SphereSample, CarrierList>::VALUE),
+  PLANE = static_cast<uint8_t>(
+      ::Pullback::Detail::FamilyRank<PlaneSample, CarrierList>::VALUE),
+  FIELD = static_cast<uint8_t>(
+      ::Pullback::Detail::FamilyRank<FieldSample, CarrierList>::VALUE),
+  COLOR = static_cast<uint8_t>(
+      ::Pullback::Detail::FamilyRank<Color4, CarrierList>::VALUE),
   COUNT = static_cast<uint8_t>(CarrierList::SIZE)
 };
 
@@ -47,7 +48,8 @@ enum class Status : uint8_t { OK, FAILED };
 
 /** @brief CarrierId of a canonical carrier type. */
 template <CanonicalCarrier T> consteval CarrierId carrier_id_of() {
-  return static_cast<CarrierId>(Detail::FamilyRank<T, CarrierList>::VALUE);
+  return static_cast<CarrierId>(
+      ::Pullback::Detail::FamilyRank<T, CarrierList>::VALUE);
 }
 
 /** @brief Catalog spelling of each carrier, indexed by CarrierId. */
@@ -523,10 +525,11 @@ constexpr OperatorDescriptor make_operator_descriptor() {
   static_assert(CanonicalCarrier<typename Model::Input> &&
                     CanonicalCarrier<typename Model::Output>,
                 "operator model: carriers must be canonical");
-  static_assert(
-      Detail::FamilyRank<typename Model::Input, CarrierList>::VALUE <=
-          Detail::FamilyRank<typename Model::Output, CarrierList>::VALUE,
-      "operator model: family rank may not decrease");
+  static_assert(::Pullback::Detail::FamilyRank<typename Model::Input,
+                                               CarrierList>::VALUE <=
+                    ::Pullback::Detail::FamilyRank<typename Model::Output,
+                                                   CarrierList>::VALUE,
+                "operator model: family rank may not decrease");
   static_assert(std::is_trivially_destructible_v<Params> &&
                     std::is_trivially_destructible_v<Prepared>,
                 "operator model: param and prepared blocks must be trivially "
