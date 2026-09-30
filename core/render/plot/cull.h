@@ -3,6 +3,8 @@
  * Licensed under the PolyForm Noncommercial License 1.0.0
  */
 #pragma once
+
+#include <cassert>
 #include <utility>
 #include <algorithm>
 #include <cmath>

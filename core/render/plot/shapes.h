@@ -4,6 +4,8 @@
  */
 #pragma once
 
+#include <cassert>
+
 #include "render/render_policy.h"
 #include <algorithm>
 #include <concepts>
@@ -11,7 +13,6 @@
 #include <iterator>
 #include "math/geometry.h"
 #include "render/shading.h"
-#include "platform/constants.h"
 #include "render/canvas.h"
 #include "engine/concepts.h"
 #include "engine/memory.h"
