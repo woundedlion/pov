@@ -202,8 +202,8 @@ static_assert(sizeof(void *) != 4 ||
 
 /**
  * @brief Fixed-capacity registry of an effect's runtime parameters.
- * @details Stack-allocated array (no heap) to uphold the WASM no-realloc
- * memory-view invariant; capacity is enforced at registration time.
+ * @details Fixed-capacity inline array (or arena-backed external storage)
+ * that never reallocates; capacity is enforced at registration time.
  */
 struct ParamList {
   // ParamHost is the sole trusted mutator. Outside callers hold the list only
