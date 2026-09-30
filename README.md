@@ -1202,14 +1202,16 @@ Three behaviours the definitions loop above does not show. **Stage folders**: pu
 Phantasm hardware uses N Teensys, each rendering one segment rectangle: an arm's half-width crossed with a Y-band computed by the engine's `segment_map()`/`segment_x_col()` (`pov_segment_map.h`). N=4 is the qualified default; N=8 is the compile-tested firmware profile. Daydream reproduces the *partitioning* in software — its `computeSegmentRange()` (`src/segments/segment_layout.js`) mirrors the engine's arm/Y-band split (a general even-N tiler that also drives the 2–8-way preview), though it does not model southern segments' reversed strip direction (`y_step = -1`) or the hardware's power-of-two segment-count constraint — so the band partition, not the full strip wiring, is exercised before fabrication. A `SegmentController` (`src/segments/segment_controller.js`) owns the worker pool — dispatching renders (`renderParallel()`), fencing stale frames by generation, and compositing results (`composite()`) — while each `src/segments/segment_worker.js` hosts one WASM instance:
 
 ```
-Main thread                  Workers (one WASM each)
-───────────                  ──────────────────────────
-drawFrame() {                postMessage({type:'render'})
-  if (pendingSegmentFrame)
-    controller.composite();    worker N:
-  controller.renderParallel();   engine.setClip(xN0, xN1, yN0, yN1)
-}                                engine.drawFrame()
-                                 postMessage({type:'frame', pixels:Transferable})
+Main thread                         Workers (one WASM each)
+drawFrame() {                       init / setEffect / setDisplayCaps:
+  if (segments.ownsDisplay)           engine.setClip(xN0, xN1, yN0, yN1)
+    segments.tick();
+  else                              render message:
+    engine.drawFrame();               engine.drawFrame()
+}                                     postMessage({type:'frame', pixels:Transferable})
+
+segments.tick() composites the completed generation (or holds the last
+published frame), then dispatches a render if none is in flight.
 ```
 
 Key properties:
