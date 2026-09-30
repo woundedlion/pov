@@ -11,9 +11,7 @@ import pcb  # noqa: E402
 import sexp  # noqa: E402
 from kicad_common import F  # noqa: E402
 
-PROJ = GEN.parent / "1.1"
-ROUTED = PROJ / "phantasm.kicad_pcb"
-SCH = PROJ / "phantasm.kicad_sch"
+REVISIONS = ("1.1", "1.2")
 
 SILK = re.compile(r"^Phantasm Rev (\S+)$")
 
@@ -27,8 +25,8 @@ def title_block_rev(path):
     return None
 
 
-def silk_revisions():
-    root = sexp.parse(ROUTED.read_text(encoding="utf-8"))[0]
+def silk_revisions(board):
+    root = sexp.parse(board.read_text(encoding="utf-8"))[0]
     found = []
     for node in root:
         if not isinstance(node, list) or not node or node[0] != "gr_text":
@@ -47,16 +45,14 @@ class RevisionTests(unittest.TestCase):
     the Gerber X2 ProjectId attribute, which reads `rev?` when it is absent.
     """
 
-    def setUp(self):
-        revisions = silk_revisions()
-        self.assertEqual(len(revisions), 1, revisions)
-        self.revision = revisions[0]
-
-    def test_routed_board_title_block_carries_the_silk_revision(self):
-        self.assertEqual(title_block_rev(ROUTED), self.revision)
-
-    def test_schematic_title_block_carries_the_silk_revision(self):
-        self.assertEqual(title_block_rev(SCH), self.revision)
+    def test_revision_labels(self):
+        for revision in REVISIONS:
+            with self.subTest(revision=revision):
+                project = GEN.parent / revision
+                board = project / "phantasm.kicad_pcb"
+                self.assertEqual(silk_revisions(board), [revision])
+                self.assertEqual(title_block_rev(board), revision)
+                self.assertEqual(title_block_rev(project / "phantasm.kicad_sch"), revision)
 
     def test_generator_targets_revision_1_2(self):
         self.assertEqual(builder.REVISION, "1.2")
