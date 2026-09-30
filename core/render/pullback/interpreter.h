@@ -211,13 +211,13 @@ public:
     HS_CHECK(reinterpret_cast<uintptr_t>(block_b) % alignof(std::max_align_t) ==
                  0,
              "ChainProgram::bind_storage: block_b misaligned");
+    HS_CHECK(blocks[0] == nullptr, "ChainProgram::bind_storage: rebinding");
+    HS_CHECK(block_capacity < std::numeric_limits<uint32_t>::max(),
+             "ChainProgram::bind_storage: capacity exceeds offset range");
     const uintptr_t A = reinterpret_cast<uintptr_t>(block_a);
     const uintptr_t B = reinterpret_cast<uintptr_t>(block_b);
     HS_CHECK(A < B ? B - A >= block_capacity : A - B >= block_capacity,
              "ChainProgram::bind_storage: overlapping blocks");
-    HS_CHECK(blocks[0] == nullptr, "ChainProgram::bind_storage: rebinding");
-    HS_CHECK(block_capacity < std::numeric_limits<uint32_t>::max(),
-             "ChainProgram::bind_storage: capacity exceeds offset range");
     for (const OperatorDescriptor &entry : operator_table) {
       HS_CHECK(entry.input <= entry.output,
                "ChainProgram::bind_storage: operator family rank decreases");

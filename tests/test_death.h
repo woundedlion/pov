@@ -4351,6 +4351,27 @@ inline void case_star_mismatched_chart() {
                                wrong);
 }
 
+inline void case_sdf_distorted_ring_negative_distortion() {
+  const math::Basis basis{math::X_AXIS, math::Y_AXIS, math::Z_AXIS};
+  ScalarFn shift = [](float) { return 0.0f; };
+  SDF::DistortedRing ring(basis, opaque(0.5f), opaque(0.05f), shift,
+                          opaque(-0.1f), 0.0f);
+  if (ring.thickness == opaque(42.0f))
+    std::printf("x");
+}
+
+inline void case_chain_overlapping_storage() {
+  Pullback::Interp::ChainProgram program;
+  alignas(std::max_align_t) uint8_t block[128];
+  program.bind_storage(block, block + alignof(std::max_align_t), 64);
+}
+
+inline void case_chain_identical_storage() {
+  Pullback::Interp::ChainProgram program;
+  alignas(std::max_align_t) uint8_t block[64];
+  program.bind_storage(block, block, sizeof(block));
+}
+
 inline void chain_invalid_layout(unsigned variant) {
   using namespace Pullback::Interp;
   ChainProgram program;
@@ -5675,6 +5696,17 @@ inline const Case *all_cases(int &n) {
       {"star_mismatched_chart", case_star_mismatched_chart,
        "core/render/plot/shapes.h",
        "(CHART_MATCHES) Star: edge chart does not match inputs"},
+      {"sdf_distorted_ring_negative_distortion",
+       case_sdf_distorted_ring_negative_distortion, "core/render/sdf/rings.h",
+       "(md >= 0.0f) DistortedRing: negative maximum distortion"},
+      {"chain_overlapping_storage", case_chain_overlapping_storage,
+       "core/render/pullback/interpreter.h",
+       "(A < B ? B - A >= block_capacity : A - B >= block_capacity) "
+       "ChainProgram::bind_storage: overlapping blocks"},
+      {"chain_identical_storage", case_chain_identical_storage,
+       "core/render/pullback/interpreter.h",
+       "(A < B ? B - A >= block_capacity : A - B >= block_capacity) "
+       "ChainProgram::bind_storage: overlapping blocks"},
       {"sdf_distorted_ring_null_shift", case_sdf_distorted_ring_null_shift,
        "core/render/sdf/rings.h",
        "(sf) DistortedRing: shift_fn must be non-null"},
