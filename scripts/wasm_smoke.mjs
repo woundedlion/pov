@@ -1,9 +1,8 @@
 // Headless Node smoke test for the shipped WASM module.
 //
-// The CI `wasm` job is otherwise compile-and-upload only, so a SIMD/codegen
-// fault, embind signature mismatch, stack overflow, or memory-growth detachment
-// would deploy unseen. Drives every effect at every resolution and asserts the
-// arena/stack high-water marks stay within capacity.
+// Runs in the CI `wasm` job to catch SIMD/codegen faults, embind signature
+// mismatches, stack overflow, and memory-growth detachment. Drives every effect
+// at every resolution and checks arena/stack high-water marks against capacity.
 //
 // Usage (from the Holosphere repo root, after a wasm build):
 //   node scripts/wasm_smoke.mjs [path/to/holosphere_wasm.js]
