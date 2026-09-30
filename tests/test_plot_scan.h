@@ -5337,7 +5337,7 @@ inline void test_planar_one_pass_matches_forward_difference() {
   HS_EXPECT_LE(worst_tan_len, 5e-3f);
   // Same direction, not merely the same line: a flipped sign steps the
   // sub-step sampler backwards.
-  HS_EXPECT_GT(worst_tan_dot, 0.9f);
+  HS_EXPECT_GT(worst_tan_dot, 0.9998f);
 }
 
 /**
