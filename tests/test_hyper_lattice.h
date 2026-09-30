@@ -1435,6 +1435,8 @@ inline void test_new_patterns() {
   HS_EXPECT_EQ(effect.updateParameter("Pattern", 5), ParamSetResult::APPLIED);
   HS_EXPECT_FALSE(effect.getParameters().find("View")->readonly);
   HS_EXPECT_EQ(effect.updateParameter("View", 1), ParamSetResult::APPLIED);
+#else
+  hs_test::skip_case(__func__, "HyperLattice experiments disabled");
 #endif
 }
 
@@ -1525,6 +1527,8 @@ inline void test_octet_continuous_flight() {
       }
     }
   }
+#else
+  hs_test::skip_case(__func__, "HyperLattice experiments disabled");
 #endif
 }
 
