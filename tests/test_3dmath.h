@@ -1287,10 +1287,12 @@ inline void test_stereo_roundtrip() {
 
   // The cap boundary is the crossover where the raw quotient would reach the
   // sentinel, not a step: outside it the projection stays below STEREO_INF.
-  math::Complex zOut =
-      projections::stereo(math::Vector(0.006f, 0.99998f, 0.0021f).normalized());
-  HS_EXPECT_LT(std::sqrt(zOut.re * zOut.re + zOut.im * zOut.im),
-               projections::STEREO_INF);
+  const float Y = std::nextafter(1.0f, 0.0f);
+  const math::Complex Z_OUT =
+      projections::stereo(math::Vector(std::sqrt(1.0f - Y * Y), Y, 0.0f));
+  const float RADIUS = std::sqrt(Z_OUT.re * Z_OUT.re + Z_OUT.im * Z_OUT.im);
+  HS_EXPECT_GT(RADIUS, projections::STEREO_INF_RECOGNIZE);
+  HS_EXPECT_LT(RADIUS, projections::STEREO_INF);
 
   // Large complex magnitude maps back to north pole.
   math::Vector pole =
