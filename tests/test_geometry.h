@@ -546,7 +546,10 @@ inline void test_orientation_orient_round_trips() {
   math::Quaternion q =
       math::make_rotation(math::Vector(0, 1, 0), math::PI_F * 0.5f);
   o.set(q);
+  o.push(math::make_rotation(math::X_AXIS, 0.7f));
   math::Vector v(1, 0, 0);
+  HS_EXPECT_VEC(o.orient(v), math::rotate(v, o.get()), 1e-6f);
+  HS_EXPECT_VEC(o.unorient(v), math::rotate(v, o.get().conjugate()), 1e-6f);
   math::Vector rotated = o.orient(v);
   math::Vector back = o.unorient(rotated);
   HS_EXPECT_VEC(back, v, 1e-3f);
