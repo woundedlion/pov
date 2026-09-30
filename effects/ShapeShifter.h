@@ -136,6 +136,7 @@ public:
         persistent_arena
             .allocate_n<Plot::Star<Plot::PlanarProjection>::RadiusTrig>(
                 MAX_SHAPES);
+    star_chords.init_storage(persistent_arena, STAR_VERTICES);
     prepare_count(hs::clamp(static_cast<int>(params.count), 1, DRAW_LIMIT));
     timeline.add(0, Animation::RandomWalk<W>(orientation, math::X_AXIS, noise,
                                              {}, hs::rand_int(0, 65536)));
@@ -465,6 +466,9 @@ private:
       far_cap_sin_beta = sinf(far_cap_beta);
     }
 
+    if (planar_star && dense_contours)
+      star_chords.prepare(clip);
+
     Color4 pair_color;
     const float global_alpha = alpha * preset_opacity;
     const bool continuous_star = shape == ShapeType::SPHERICAL_STAR;
@@ -518,6 +522,9 @@ private:
     if (planar_star)
       draw_planar_star_pole_caps(canvas, basis, count, sides, palette);
   }
+
+  /** @brief Most vertices a star contour has. */
+  static constexpr int STAR_VERTICES = 2 * static_cast<int>(SIDES_MAX);
 
   /** @brief Returns the selected Plot primitive. */
   ShapeType selected_shape() const { return params.shape; }
@@ -580,138 +587,38 @@ private:
          .balanced_sampling = balanced_sampling});
   }
 
-  template <typename F>
-  HS_FLASH_MEMBER void
-  draw_planar_star_edge(Canvas &canvas, const math::Vector &a,
-                        const math::Vector &b, const math::Basis &planar_basis,
-                        const F &fragment_shader) {
-    draw_sampled(canvas, 2, &planar_basis, true, fragment_shader,
-                 [&](Fragments &points) {
-                   Fragment point;
-                   point.pos = a;
-                   points.push_back(point);
-                   point.pos = b;
-                   points.push_back(point);
-                 });
-  }
-
   /**
-   * @brief Rasterizes a planar star as fixed-step chords between projected
-   *        anchor points.
+   * @brief Strokes a planar star with Plot::PlanarChords.
    * @tparam F Fragment-shader callable type.
    * @param canvas Target canvas.
    * @param basis Shared shape basis.
    * @param radius Shape radius in [0, 2].
    * @param sides Star point count.
-   * @param fragment_shader Per-fragment shader, used by the delegated edges.
-   * @param color Contour color; its alpha is balanced against the step taken.
+   * @param fragment_shader Per-fragment shader, used by the pole runs.
+   * @param color Contour color.
    * @param phase Star rotation in radians.
    * @param contour_index Contour slot in the baked radius-trig table.
    * @details The path taken from DENSE_CONTOUR_COUNT contours up, where the
    * per-edge setup of Plot::rasterize's adaptive walk outweighs the edges
-   * themselves: each edge is subdivided into at most MAX_ANCHOR_INTERVALS
-   * azimuthal anchors and walked at TARGET_STEP screen pixels, with no
-   * per-sample tangent or pole scaling. Edges reaching within POLE_GUARD_ROWS
-   * of a pole, where that scaling is what closes the gaps, are handed back to
-   * Plot::rasterize one at a time.
+   * themselves.
    */
   template <typename F>
   HS_FLASH_MEMBER void
   draw_dense_planar_star(Canvas &canvas, const math::Basis &basis, float radius,
                          int sides, const F &fragment_shader,
                          const Color4 &color, float phase, int contour_index) {
-    constexpr int MAX_ANCHOR_INTERVALS = 6;
-    constexpr float MAX_ANCHOR_ARC = math::PI_F / 36.0f;
-    constexpr float POLE_GUARD_ROWS = 3.0f;
     ScratchScope guard(scratch_arena_a);
     Fragments points;
     points.bind(scratch_arena_a, static_cast<size_t>(sides * 2 + 2));
-    Plot::Star<Plot::PlanarProjection>::sample_positions(
-        points, basis, radius, sides, phase,
-        planar_star_radius_trig[contour_index], planar_star_step_trig);
-
     math::Basis projection_basis;
     const math::Basis &planar_basis =
         *Plot::PlanarProjection::edge_basis(basis, radius, projection_basis);
-    const ClipRegion &clip = canvas.clip();
-    const ClipRegion::XClip x_clip = clip.x_clip();
-    constexpr float TARGET_STEP = 1.2f;
-    // Empirical trim holding this walk's stroke brightness on the adaptive
-    // path's at TARGET_STEP.
-    constexpr float ALPHA_GAIN = 1.028f;
-    for (int edge = 0; edge < sides * 2; ++edge) {
-      const math::Vector &a = points[edge].pos;
-      const math::Vector &b = points[edge + 1].pos;
-      const auto p0 = Plot::azimuthal_project(a, planar_basis);
-      const auto p1 = Plot::azimuthal_project(b, planar_basis);
-      const float dx = p1.first - p0.first;
-      const float dy = p1.second - p0.second;
-      const float edge_arc = sqrtf(dx * dx + dy * dy);
-      const int anchor_intervals =
-          hs::clamp(static_cast<int>(ceilf(edge_arc / MAX_ANCHOR_ARC)), 1,
-                    MAX_ANCHOR_INTERVALS);
-      const float gap_arc = edge_arc / anchor_intervals;
-      std::array<math::PixelCoords, MAX_ANCHOR_INTERVALS + 1> anchors;
-      float row_lo = static_cast<float>(H);
-      float row_hi = 0.0f;
-      for (int k = 0; k <= anchor_intervals; ++k) {
-        math::Vector position;
-        if (k == 0)
-          position = a;
-        else if (k == anchor_intervals)
-          position = b;
-        else {
-          const float t = static_cast<float>(k) / anchor_intervals;
-          position = Plot::azimuthal_unproject(
-              p0.first + dx * t, p0.second + dy * t, planar_basis);
-        }
-        anchors[k] = math::vector_to_pixel<W, H>(position);
-        if (k > 0) {
-          const float delta = anchors[k].x - anchors[k - 1].x;
-          if (delta > W * 0.5f)
-            anchors[k].x -= W;
-          else if (delta < -W * 0.5f)
-            anchors[k].x += W;
-        }
-        row_lo = std::min(row_lo, anchors[k].y);
-        row_hi = std::max(row_hi, anchors[k].y);
-      }
-
-      const float row_margin = gap_arc * math::ROWS_PER_RADIAN<H> + 1.0f;
-      if (row_lo - row_margin < POLE_GUARD_ROWS ||
-          row_hi + row_margin > H - 1.0f - POLE_GUARD_ROWS) {
-        draw_planar_star_edge(canvas, a, b, planar_basis, fragment_shader);
-        continue;
-      }
-
-      for (int k = 0; k < anchor_intervals; ++k) {
-        const float segment_dx = anchors[k + 1].x - anchors[k].x;
-        const float segment_dy = anchors[k + 1].y - anchors[k].y;
-        const float length =
-            sqrtf(segment_dx * segment_dx + segment_dy * segment_dy);
-        const int samples =
-            std::max(1, static_cast<int>(ceilf(length / TARGET_STEP)));
-        const float inv_samples = 1.0f / static_cast<float>(samples);
-        const float step_ratio =
-            std::min(TARGET_STEP, length * inv_samples) / Plot::SCREEN_STEP_PX;
-        const float sample_alpha = std::min(
-            1.0f,
-            ALPHA_GAIN * Plot::balanced_sample_alpha(color.alpha, step_ratio));
-        for (int sample = 0; sample < samples; ++sample) {
-          const float t = static_cast<float>(sample) * inv_samples;
-          const float x = math::fast_wrap(anchors[k].x + segment_dx * t, W);
-          const float y = anchors[k].y + segment_dy * t;
-          const int y0 = static_cast<int>(floorf(y));
-          if (!clip.contains_y(y0) && !clip.contains_y(y0 + 1))
-            continue;
-          const int x0 = static_cast<int>(floorf(x));
-          const int x1 = x0 + 1 == W ? 0 : x0 + 1;
-          if (x_clip.clipped(x0) && x_clip.clipped(x1))
-            continue;
-          plot_filters.plot(canvas, x, y, color.color, 0.0f, sample_alpha);
-        }
-      }
-    }
+    Plot::Star<Plot::PlanarProjection>::sample_chart_positions(
+        points, star_chords.chart_x(), star_chords.chart_y(), basis, radius,
+        sides, phase, planar_star_radius_trig[contour_index],
+        planar_star_step_trig, planar_basis);
+    star_chords.draw_closed(plot_filters, canvas, points, sides * 2,
+                            planar_basis, color, fragment_shader);
   }
 
   /**
@@ -865,14 +772,16 @@ private:
       nullptr;
   Plot::Star<Plot::PlanarProjection>::StepTrig planar_star_step_trig{};
   int prepared_planar_star_sides = 0;
+  Plot::PlanarChords<W, H> star_chords;
   int baked_palette_count = 0;
   RadiusSpacing prepared_spacing = RadiusSpacing::UNIFORM;
   float alpha = 1.0f;
   float preset_opacity = 1.0f;
   float phase = 0.0f;
 
-  // init() allocates the six MAX_SHAPES-sized contour tables and prepare_count()
-  // bakes both alpha-falloff palette LUTs, from the persistent arena.
+  // init() allocates the six MAX_SHAPES-sized contour tables and the planar
+  // chord storage, and prepare_count() bakes both alpha-falloff palette LUTs,
+  // from the persistent arena.
   static_assert(SAMPLED_RASTER_CONFIG.single_pass &&
                 !SAMPLED_RASTER_CONFIG.derive_planar_arc_registers);
   static constexpr size_t SCRATCH_A_PEAK_BYTES =
@@ -883,7 +792,8 @@ private:
   static constexpr size_t FOOTPRINT_BYTES =
       MAX_SHAPES * (4 * sizeof(float) + sizeof(uint16_t) +
                     sizeof(Plot::Star<Plot::PlanarProjection>::RadiusTrig)) +
-      2 * BakedPalette::required_arena_bytes();
+      2 * BakedPalette::required_arena_bytes() +
+      Plot::PlanarChords<W, H>::storage_bytes(STAR_VERTICES);
   static_assert(FOOTPRINT_BYTES <= DEVICE_PERSISTENT_BUDGET,
                 "ShapeShifter persistent footprint exceeds the default "
                 "partition; retune MAX_SHAPES or carve arenas");
