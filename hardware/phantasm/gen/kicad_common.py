@@ -228,14 +228,15 @@ def export_netlist(kcli, sch):
     fd, net = tempfile.mkstemp(suffix=".net")
     os.close(fd)
     try:
-        result = subprocess.run([kcli, "sch", "export", "netlist", "--format", "kicadsexpr",
-                                 "-o", net, sch], check=True, capture_output=True, text=True)
+        try:
+            result = subprocess.run([kcli, "sch", "export", "netlist", "--format", "kicadsexpr",
+                                     "-o", net, sch], check=True, capture_output=True, text=True)
+        except FileNotFoundError:
+            sys.exit(f"kicad-cli not found: {kcli}; install KiCad, put kicad-cli on "
+                     "PATH, or set KICAD_CLI to its full path")
         require_annotated_export(result, sch)
         with open(net, encoding="utf-8") as fh:
             return sexp.parse_one(fh.read())
-    except FileNotFoundError:
-        sys.exit(f"kicad-cli not found: {kcli}; install KiCad, put kicad-cli on "
-                 "PATH, or set KICAD_CLI to its full path")
     except subprocess.CalledProcessError as e:
         sys.stderr.write(e.stderr or "")
         sys.exit(f"netlist export failed: kicad-cli exited {e.returncode} on {sch}")
