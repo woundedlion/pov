@@ -1,12 +1,4 @@
-// Freshness gate for the docs/screenshots gallery — runs in CI with no browser
-// and no rendering (a full re-capture per build is far too slow). It cannot
-// detect a screenshot that has gone visually stale relative to the current
-// renderer, but it DOES catch the cheap, common forms of rot: roster drift and
-// unreadable assets. The gallery is installed into daydream and served live, so
-// a PNG missing for a newly-registered effect (or an orphan PNG for a removed
-// one) ships a broken or misleading gallery. Assert the committed PNG set
-// matches the HS_EFFECT_LIST roster exactly — the one source the capture script
-// itself iterates — and that every file is a valid image of the stored size.
+// Verify gallery membership and PNG dimensions, excluding explicit workbench-only rows.
 import { readdir, readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
