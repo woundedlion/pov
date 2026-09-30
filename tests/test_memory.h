@@ -161,7 +161,7 @@ inline void test_arena_make_lifetime() {
   HS_EXPECT_TRUE(destroyed);
 }
 
-/** @brief Verifies indexed array construction is contiguous and ordered. */
+/** @brief Verifies indexed array construction preserves value order. */
 inline void test_arena_make_n_indexed() {
   Arena a(test_buf_a, sizeof(test_buf_a));
   MoveOnlyValue *values = a.make_n_indexed<MoveOnlyValue>(4, [](size_t index) {
@@ -169,7 +169,6 @@ inline void test_arena_make_n_indexed() {
   });
 
   for (size_t index = 0; index < 4; ++index) {
-    HS_EXPECT_TRUE(&values[index] == values + index);
     HS_EXPECT_EQ(values[index].value, 10 + static_cast<int>(index));
   }
   HS_EXPECT_TRUE(a.get_offset() >= 4 * sizeof(MoveOnlyValue));
