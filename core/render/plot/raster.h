@@ -189,9 +189,8 @@ public:
     return RasterProjection(nullptr, flags);
   }
   /** @brief Selects azimuthal-equidistant interpolation in the supplied chart.
-   * @details Flags, one byte per rasterized edge, combine EDGE_VISIBLE,
-   * EDGE_CLASSIFIED and EDGE_ONE_DOT; they replace the clip cull when the clip
-   * is active.
+   * @details Flags contain one byte per edge; planar rasterization reads only
+   * EDGE_VISIBLE to replace the clip cull when the clip is active.
    */
   static constexpr RasterProjection
   planar(const math::Basis &basis, std::span<const uint8_t> flags = {}) {
