@@ -938,9 +938,8 @@ template <int CAP = 4> class BallDrop : public AnimationBase<BallDrop<CAP>> {
 public:
   /**
    * @brief Constructs a BallDrop animation.
-   * @param params Bump params to animate. `params.amplitude` and
-   *        `params.radius` are read from the spawn-time copy; set them before
-   *        constructing.
+   * @param params Bump params to animate. Radius is spawn-time; amplitude is
+   *        the live drape gain refreshed by prepare_frame().
    * @param orientation Frame whose oriented normal is the displaced stack's
    *        axis (the direction the bump pushes along); retained by pointer, so
    *        it must outlive the animation. The fall path itself is world-fixed.
