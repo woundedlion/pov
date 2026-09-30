@@ -3,7 +3,10 @@
  * Licensed under the PolyForm Noncommercial License 1.0.0
  *
  * Clipped-tile parity for the ShapeShifter oracle: a mosaic of segment renders
- * must reproduce the unclipped frame pixel for pixel.
+ * must reproduce the unclipped frame pixel for pixel. The candidate Flower is
+ * exempt: its band split restarts each visible run at a clip-dependent cut, so
+ * its tiles match only to a fraction of a pixel (pinned in plot_scan by
+ * test_planar_band_split_matches_whole_polyline).
  *
  * Separate from the shapeshifter_oracle module because this is the one property
  * there that holds only under IEEE. An active clip switches Plot::rasterize to
@@ -65,18 +68,22 @@ inline void expect_mosaic_matches(OracleState state, Render render,
 }
 
 template <typename Render>
-inline void expect_segment_tiles_reconstruct_full_frame(Render render) {
+inline void
+expect_segment_tiles_reconstruct_full_frame(Render render,
+                                            bool band_split_flower) {
   const auto matrix = shape_function_matrix();
   for (int shape = 0; shape < 5; ++shape) {
     OracleState state = matrix[shape * 4 + shape % 4];
+    if (band_split_flower && state.shape == OracleEffect::ShapeType::FLOWER)
+      continue;
     state.orientation = math::Quaternion();
     expect_mosaic_matches(state, render, QUADRANTS);
   }
 }
 
 inline void test_segment_tiles_reconstruct_full_frame() {
-  expect_segment_tiles_reconstruct_full_frame(reference_renderer());
-  expect_segment_tiles_reconstruct_full_frame(candidate_renderer());
+  expect_segment_tiles_reconstruct_full_frame(reference_renderer(), false);
+  expect_segment_tiles_reconstruct_full_frame(candidate_renderer(), true);
 
   OracleState state;
   state.shape = OracleEffect::ShapeType::PLANAR_STAR;
