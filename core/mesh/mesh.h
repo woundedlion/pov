@@ -51,7 +51,7 @@ struct PolyMesh {
    * @details Every arena binding survives, so this is the wrong reset for a
    * mesh whose arena has since been reset or rewound: bind()'s reuse path would
    * hand the mesh back blocks the arena has already reclaimed. Replace such a
-   * mesh instead (`mesh = PolyMesh()`), as MeshOps::compile does.
+   * mesh instead (`mesh = PolyMesh()`), as MeshOps::medial and MeshOps::reconcile_vertices do.
    */
   inline void clear() {
     vertices.clear();
