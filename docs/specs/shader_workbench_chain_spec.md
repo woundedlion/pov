@@ -84,8 +84,10 @@ transition scheduling), and `serialization.fields`. Requirements:
 - Expansion is the **single code path** for loading a v1 document. The
   committed v2 pattern documents are engine-owned artifacts, not
   expansion output: each is pinned as its own canonical re-export, and
-  the five identity-frame replacements deliberately differ from what
-  expanding their v1 fixture yields.
+  six replacements differ from their v1 expansion: `alien_core`,
+  `alien_ocean`, `cosmic_eyeball`, `kaleidoscope_mandala`, and
+  `kaleidoscope_stained_glass` use identity frames; `grid_space` adds
+  `warp1.lattice-period`.
 - A v1-digest → document-filename migration table maps each v1 fixture digest
   onto the filename of its committed replacement document. It is
   recomputed by
