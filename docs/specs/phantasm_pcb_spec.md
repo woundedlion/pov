@@ -16,12 +16,12 @@ sync pin map, channel-C input, BOM and net table below:
   220 pF filter, switched bus pulldown, and bus connectors retain their values.
 
 The rev 1.2 placement input fixes J1 at the left edge and J2/J3A/J3B in a
-right-edge column, with hub-facing wire entries. The outline is 70.28 x 32 mm,
-extending the right edge by 12 mm while retaining all four rev 1.1 mounting-hole
-centers. Each terminal reserves its body plus 0.5 mm assembly clearance and a
-5 mm component-free approach in front of the wire opening. This approach is a
-layout allowance, not a connector-manufacturer requirement. The extended outline
-and terminal overhang require swept-envelope and mechanical qualification.
+right-end column inboard of the mounting holes, with hub-facing wire entries.
+The outline remains 58.28 x 32 mm, retaining all four rev 1.1 mounting-hole
+centers. Each terminal reserves its full plastic body plus 0.5 mm assembly
+clearance against component placement, so SMD parts cannot obstruct flush
+seating. J1's wire-access reservation extends outside the left edge. The Teensy
+shifts 3.5 mm left; D_BUS is released for placement outside the terminal keepouts.
 
 The rev 1.2 project in `hardware/phantasm/1.2/` requires placement and routing. Current
 firmware and the committed routed fabrication artifacts remain rev 1.1; see
