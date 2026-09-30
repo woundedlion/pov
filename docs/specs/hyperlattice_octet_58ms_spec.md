@@ -1,7 +1,7 @@
 # HyperLattice Octet 58 ms — Design Spec
 
 Status: LANDED. Section 3 Tier 1 landed in `f130ee632`; section 4 Tier 2
-landed in `1bb522211`. Section 5 fallbacks were not taken. Sections 1?2
+landed in `1bb522211`. Section 5 fallbacks were not taken. Sections 1-2
 record the pre-landing baseline, including historical preset indices and IDs.
 The [optimization ledger](../profiles/hyperlattice_octet_optimization_2026-09-27.md)
 records the preceding arithmetic work.
