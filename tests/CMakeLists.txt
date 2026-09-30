@@ -805,12 +805,7 @@ add_executable(sdf_periodic_benchmark periodic_surface_benchmark.cpp)
 target_include_directories(sdf_periodic_benchmark PRIVATE ${HS_ENGINE_INCLUDES})
 _hs_warnings(sdf_periodic_benchmark)
 
-# Compile coverage for this directory's non-UTILITY EXCLUDE_FROM_ALL targets.
-# They are out of the default build (their run rewrites a committed artifact,
-# or is too noisy to gate), so an API rename breaks their sources while every
-# job stays green. CI builds this one target instead of naming them; the list
-# is read off the directory's final target set, so an excluded target declared
-# anywhere above joins it with no workflow edit.
+# Apply the native display profile to compiled targets in this directory.
 get_property(_hs_dir_targets DIRECTORY PROPERTY BUILDSYSTEM_TARGETS)
 set(_hs_excluded)
 foreach(_hs_target IN LISTS _hs_dir_targets)
@@ -821,6 +816,8 @@ foreach(_hs_target IN LISTS _hs_dir_targets)
     target_compile_definitions(${_hs_target} PRIVATE HS_DISPLAY_PROFILE=0)
   endif()
 endforeach()
+
+# Compile coverage for non-UTILITY EXCLUDE_FROM_ALL targets.
 foreach(_hs_target IN LISTS _hs_dir_targets)
   get_target_property(_hs_is_excluded ${_hs_target} EXCLUDE_FROM_ALL)
   get_target_property(_hs_target_type ${_hs_target} TYPE)

@@ -527,8 +527,7 @@ inline void test_jitterbug_sweep_holds_topology() {
     check_all_unit_vertices(out, 1e-3f);
     conway_tests::check_euler_genus0(out);
 
-    // The collapsing edge shrinks monotonically toward the octa end but the
-    // clamp keeps it a positive sliver.
+    // The clamp keeps the shortest edge above the sliver threshold.
     float min_edge = 1e9f;
     size_t off = 0;
     for (size_t fi = 0; fi < out.face_counts.size(); ++fi) {

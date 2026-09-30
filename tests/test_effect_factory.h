@@ -27,7 +27,7 @@
 namespace hs_test {
 namespace effect_factory_tests {
 
-/** @brief Frames rendered per factory-built effect. */
+/** @brief Minimum frames rendered per factory-built effect. */
 constexpr int FACTORY_FRAMES = 2;
 /** @brief Maximum startup window for a factory-built effect to produce output. */
 constexpr int FACTORY_OUTPUT_WINDOW = 64;
