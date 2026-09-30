@@ -32,7 +32,7 @@ namespace palettes_tests {
  * @details The cosine formula C = a + b*cos(2*PI*(c*t+d)) is exact at the
  *          channels where the argument is an integer multiple of 2*PI: for
  *          darkRainbow (c=1, d_r=0) the red channel reads a+b at both t=0 and
- *          t=1, and for mauveFade (d_r=d_b=0) red and blue saturate at 1.0. The
+ *          t=1, and for mauveFade (d_r=0.175, d_b=0.150) red and blue saturate at 1.0. The
  *          remaining channels carry fast_cosf, so they are pinned as goldens of
  *          the current deterministic output — any drift in the named constants
  *          or the sRGB->linear interpolation fails here.
@@ -50,8 +50,8 @@ inline void test_named_procedural_palette_endpoints() {
   HS_EXPECT_EQ(dr1.color.b, dr0.color.b);
   HS_EXPECT_NEAR(dr0.alpha, 1.0f, 1e-6f);
 
-  // mauveFade: a_r=0.583 b_r=1, a_b=0.583 b_b=1 -> 1.583 clamped to 1.0 at t=0
-  // (cos=1). Green has b_g=0, so it is the constant a_g=0 -> black.
+  // mauveFade: d_r=0.175, d_b=0.150; red and blue clamp to 1 at t=0.
+  // Green has b_g=0 and a_g=0.
   Color4 mf0 = Palettes::MAUVE_FADE.get(0.0f);
   HS_EXPECT_EQ(mf0.color.r, 65535);
   HS_EXPECT_EQ(mf0.color.g, 0);
