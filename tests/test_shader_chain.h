@@ -631,6 +631,8 @@ inline void test_shader_chain_program_lifetime() {
 inline void test_shader_chain_table_behavior() {
   const auto ctx = shared_resources().context();
   for (const auto &op : In::OPERATOR_TABLE) {
+    HS_CONTEXT(op.operator_id);
+    size_t lit = 0;
     auto fixture = std::make_unique<ProgramFixture>();
     std::array<In::ChainEntryRequest, 5> chain{};
     size_t count = 0;
@@ -659,11 +661,16 @@ inline void test_shader_chain_table_behavior() {
       fixture->program.prepare(ctx);
       for (const auto &view : sweep_views()) {
         const auto color = fixture->program.evaluate(view, ctx);
+        lit += color.alpha > 0 && !is_black(color.color);
+        const auto repeated = fixture->program.evaluate(view, ctx);
+        HS_EXPECT_EQ(repeated.color, color.color);
+        HS_EXPECT_EQ(repeated.alpha, color.alpha);
         HS_EXPECT_TRUE(std::isfinite(color.alpha));
         HS_EXPECT_GE(color.alpha, 0.0f);
         HS_EXPECT_LE(color.alpha, 1.0f);
       }
     }
+    HS_EXPECT_GT(lit, size_t{0});
   }
 }
 
@@ -3728,7 +3735,7 @@ inline void test_shader_chain_state_continuity_slice() {
   HS_EXPECT_EQ(camera_after.walk_time, camera_before.walk_time);
   const auto &fresh = state_as<In::Op::SpatialWalkState>(program, 1);
   HS_EXPECT_EQ(fresh.spin_phase, 0.0f);
-  HS_EXPECT_EQ(fresh.walk_time, 0.0f);
+  HS_EXPECT_EQ(fresh.walk_time, uint32_t{0});
   const auto &source_after = state_as<In::Op::SourceClockState>(program, 3);
   HS_EXPECT_EQ(source_after.primary, source_before.primary);
   HS_EXPECT_EQ(source_after.secondary, source_before.secondary);
