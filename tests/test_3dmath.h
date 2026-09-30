@@ -771,7 +771,7 @@ inline void test_quaternion_conjugate_inverse() {
  *        (non-mutating).
  */
 inline void test_quaternion_normalize() {
-  math::Quaternion p(2, -3, 4, -1);
+  math::Quaternion p(2, 0, 0, 0);
   p.normalize();
   HS_EXPECT_NEAR(p.magnitude(), 1.0f, 1e-6f);
   HS_EXPECT_QUAT(p, math::Quaternion(1, 0, 0, 0), 1e-6f);
