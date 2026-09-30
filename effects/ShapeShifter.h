@@ -755,7 +755,7 @@ private:
 
   static constexpr size_t PRESET_COUNT = 9;
   static constexpr std::array<PresetEntry<Params>, PRESET_COUNT> PRESETS = {{
-      {{ShapeType::PLANAR_STAR, 208.0f, 7.745f, PhaseFunction::SINE, 1.0f,
+      {{ShapeType::PLANAR_STAR, 288.0f, 7.745f, PhaseFunction::SINE, 1.0f,
         0.016f, 0.0f, AlphaFalloff::TOWARD_EQUATOR,
         RadiusSpacing::SCREEN_BALANCED},
        DEPARTURE},

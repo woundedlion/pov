@@ -103,7 +103,7 @@ inline void test_segment_tiles_reconstruct_full_frame() {
 
   // The shipping dense star: screen-balanced spacing packs contours at both
   // poles, where edges split between the chord walk and the rasterizer.
-  state.count = 208;
+  state.count = 288;
   state.spacing = OracleEffect::RadiusSpacing::SCREEN_BALANCED;
   state.phase = 0.249f;
   expect_mosaic_matches(state, candidate_renderer(), QUADRANTS);
