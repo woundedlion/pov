@@ -40,7 +40,7 @@ The rasterizer and driver specs:
 
 | Document | Status and scope |
 |---|---|
-| [hyperlattice_octet_58ms_spec.md](hyperlattice_octet_58ms_spec.md) | DESIGN. Where the shipped Octet shader spends its cycles, the 3,236 cycles-per-sample budget behind a 58 ms frame, the exact-output loop and setup rewrite for both domains, and the single-owner strut rule for D4 that the 4D preset needs. Nothing implemented; builds on the [optimization ledger](../profiles/hyperlattice_octet_optimization_2026-09-27.md). |
+| [hyperlattice_octet_58ms_spec.md](hyperlattice_octet_58ms_spec.md) | LANDED: ?3 Tier 1 (`f130ee632`), ?4 Tier 2 (`1bb522211`); ?5 fallbacks not taken. Sections 1?2 retain the pre-landing baseline. |
 
 Related indexes: [on-device effect profiles](../profiles/README.md) and the
 ledgers under [`docs/ledgers/`](../ledgers).

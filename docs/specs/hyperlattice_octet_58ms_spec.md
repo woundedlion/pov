@@ -1,11 +1,10 @@
 # HyperLattice Octet 58 ms — Design Spec
 
-Status: DESIGN. Nothing in this document is implemented. It records where the
-shipped Octet shader spends its cycles, the budget it has to hit, and the
-changes proposed to hit it, ranked by expected yield and by whether they
-preserve the rendered output. The [optimization ledger](../profiles/hyperlattice_octet_optimization_2026-09-27.md)
-is the historical record of the arithmetic work that preceded this spec; that
-work is retained and this spec builds on it.
+Status: LANDED. Section 3 Tier 1 landed in `f130ee632`; section 4 Tier 2
+landed in `1bb522211`. Section 5 fallbacks were not taken. Sections 1?2
+record the pre-landing baseline, including historical preset indices and IDs.
+The [optimization ledger](../profiles/hyperlattice_octet_optimization_2026-09-27.md)
+records the preceding arithmetic work.
 
 Source of truth for the shipped code: `effects/HyperLattice.h`
 (shader entry and per-frame preparation), `core/render/sdf/octet_trace.h`
