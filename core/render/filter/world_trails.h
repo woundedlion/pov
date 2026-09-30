@@ -35,7 +35,7 @@ public:
   struct Item {
     int16_t x, y, z; /**< Quantized unit vector components (6 bytes). */
     uint8_t ttl;     /**< Remaining lifetime in frames (1 byte). */
-    uint8_t pad;     /**< Padding for 8-byte alignment (1 byte). */
+    uint8_t pad;     /**< Pads the item to 8 bytes (1 byte). */
   };
   static_assert(sizeof(Item) == 8, "World::Trails::Item must be 8 bytes");
 
@@ -95,7 +95,7 @@ public:
    * @param age Incoming age (frames), non-negative; ttl = lifetime - age,
    * seeded only if positive.
    * @param alpha Blend alpha in [0, 1], forwarded unchanged and NOT gated: a
-   * transparent sample still consumes a ring slot. Screen::Trails deliberately
+   * transparent sample still consumes a buffer slot. Screen::Trails deliberately
    * differs, dropping samples at its own MIN_TRAIL_ALPHA.
    * @tparam PassFnT Downstream callback type; a forwarding reference so the
    * filter chain inlines with no per-point indirect call.
