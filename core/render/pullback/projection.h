@@ -116,10 +116,10 @@ stereographic(const math::Vector &input, float singularity_fade) {
           {.region_id = 0,
            .component_id = 0,
            .boundary_flags = static_cast<uint8_t>(ProjectionBoundary::SINGULAR),
-           .fade_edge_distance = std::max(0.0f, 1.0f - input.y),
-           .value_weight = singularity_attenuation(
-               std::max(0.0f, 1.0f - input.y), std::max(0.0f, 1.0f + input.y),
-               singularity_fade),
+           .fade_edge_distance = fmaxf(0.0f, 1.0f - input.y),
+           .value_weight = singularity_attenuation(fmaxf(0.0f, 1.0f - input.y),
+                                                   fmaxf(0.0f, 1.0f + input.y),
+                                                   singularity_fade),
            .flags = 0}};
 }
 

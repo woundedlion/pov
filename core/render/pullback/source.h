@@ -378,7 +378,7 @@ spherical_rings(const math::Vector &input, const Params &params,
   const float axis_height =
       hs::clamp(math::dot(input, prepared.axis), -1.0f, 1.0f);
   const float latitude = math::fast_atan2(
-      axis_height, sqrtf(std::max(0.0f, 1.0f - axis_height * axis_height)));
+      axis_height, sqrtf(fmaxf(0.0f, 1.0f - axis_height * axis_height)));
   const float count = std::max(params.ring_count, 1.0f);
   const float cycle =
       math::wrap_t((count * latitude - prepared.phase) / math::PI_F + 0.5f) -
@@ -433,9 +433,9 @@ HS_HOT_FLASH_MEMBER inline float primitive_lattice(const math::Complex &input,
   const float circle = sqrtf(x * x + y * y) - params.lattice_radius;
   const float bx = fabsf(x) - params.lattice_radius;
   const float by = fabsf(y) - params.lattice_radius;
-  const float square = sqrtf(std::max(bx, 0.0f) * std::max(bx, 0.0f) +
-                             std::max(by, 0.0f) * std::max(by, 0.0f)) +
-                       std::min(std::max(bx, by), 0.0f);
+  const float square = sqrtf(fmaxf(bx, 0.0f) * fmaxf(bx, 0.0f) +
+                             fmaxf(by, 0.0f) * fmaxf(by, 0.0f)) +
+                       fminf(fmaxf(bx, by), 0.0f);
   const float distance = hs::lerp(circle, square, params.lattice_shape_blend);
   return 1.0f - 2.0f * ::math::smooth_ramp(-params.lattice_softness,
                                            params.lattice_softness, distance);
@@ -481,10 +481,10 @@ tessellation_distance(float x, float y, TessellationKind kind) {
   constexpr float SQRT_3 = 1.7320508075688772f;
   switch (kind) {
   case TessellationKind::TRIANGULAR:
-    return std::min(
+    return fminf(
         distance_to_lattice_line(x),
-        std::min(distance_to_lattice_line(0.5f * x + 0.5f * SQRT_3 * y),
-                 distance_to_lattice_line(-0.5f * x + 0.5f * SQRT_3 * y)));
+        fminf(distance_to_lattice_line(0.5f * x + 0.5f * SQRT_3 * y),
+              distance_to_lattice_line(-0.5f * x + 0.5f * SQRT_3 * y)));
   case TessellationKind::SQUARE: {
     const float cell_x = math::wrap_t(x + 0.5f) - 0.5f;
     const float cell_y = math::wrap_t(y + 0.5f) - 0.5f;
@@ -511,9 +511,9 @@ tessellation_distance(float x, float y, TessellationKind kind) {
   const float local_x = x - 1.5f * cell_x;
   const float local_y = y - SQRT_3 * (cell_z + 0.5f * cell_x);
   return 0.5f * SQRT_3 -
-         std::max(fabsf(local_y),
-                  std::max(fabsf(0.5f * SQRT_3 * local_x + 0.5f * local_y),
-                           fabsf(0.5f * SQRT_3 * local_x - 0.5f * local_y)));
+         fmaxf(fabsf(local_y),
+               fmaxf(fabsf(0.5f * SQRT_3 * local_x + 0.5f * local_y),
+                     fabsf(0.5f * SQRT_3 * local_x - 0.5f * local_y)));
 }
 
 template <typename Params, typename Prepared>
