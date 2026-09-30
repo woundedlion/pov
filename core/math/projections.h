@@ -323,16 +323,16 @@ peirce_projection(const math::Vector &v, float central_meridian,
   const float sl = sinf(longitude);
   const float cl = cosf(longitude);
   const float y = hs::clamp(v.y, -1.0f, 1.0f);
-  const float cp = sqrtf(std::max(0.0f, 1.0f - y * y));
+  const float cp = sqrtf(fmaxf(0.0f, 1.0f - y * y));
   const float cos_a = hs::clamp(cp * (sl + cl) * INV_SQRT_TWO, -1.0f, 1.0f);
   const float cos_b = hs::clamp(cp * (sl - cl) * INV_SQRT_TWO, -1.0f, 1.0f);
   const float sin_product =
-      sqrtf(std::max(0.0f, (1.0f - cos_a * cos_a) * (1.0f - cos_b * cos_b)));
+      sqrtf(fmaxf(0.0f, (1.0f - cos_a * cos_a) * (1.0f - cos_b * cos_b)));
   const float cos_sum = hs::clamp(cos_a * cos_b - sin_product, -1.0f, 1.0f);
   const float cos_difference =
       hs::clamp(cos_a * cos_b + sin_product, -1.0f, 1.0f);
-  float m = asinf(sqrtf(std::max(0.0f, 1.0f + std::min(0.0f, cos_sum))));
-  float n = asinf(sqrtf(fabsf(1.0f - std::max(0.0f, cos_difference))));
+  float m = asinf(sqrtf(fmaxf(0.0f, 1.0f + fminf(0.0f, cos_sum))));
+  float n = asinf(sqrtf(fabsf(1.0f - fmaxf(0.0f, cos_difference))));
   if (sl < 0.0f)
     m = -m;
   if (cl > 0.0f)
@@ -396,10 +396,10 @@ peirce_projection(const math::Vector &v, float central_meridian,
     boundary = projection_boundary(ProjectionBoundary::SINGULAR);
     // The four singularities are the poles of the two diagonal axes cos_a and
     // cos_b measure from, so the nearest sits at acos of the larger magnitude.
-    edge = acosf(hs::clamp(std::max(fabsf(cos_a), fabsf(cos_b)), 0.0f, 1.0f));
+    edge = acosf(hs::clamp(fmaxf(fabsf(cos_a), fabsf(cos_b)), 0.0f, 1.0f));
     if (v.y < 0.0f && FOLDED_LAYOUT) {
       const float fold_sine = cp * fabsf(fabsf(sl) - fabsf(cl)) * INV_SQRT_TWO;
-      edge = std::min(edge, asinf(hs::clamp(fold_sine, 0.0f, 1.0f)));
+      edge = fminf(edge, asinf(hs::clamp(fold_sine, 0.0f, 1.0f)));
     }
     // HORIZONTAL reflects in x: the |sin| >= |cos| equator quarters stay glued.
     // VERTICAL reflects in y and tears the
@@ -452,16 +452,14 @@ peirce_projection_fast_square(const math::Vector &v) {
   const float cos_a = hs::clamp((v.z + v.x) * INV_SQRT_TWO, -1.0f, 1.0f);
   const float cos_b = hs::clamp((v.z - v.x) * INV_SQRT_TWO, -1.0f, 1.0f);
   const float sin_product =
-      sqrtf(std::max(0.0f, (1.0f - cos_a * cos_a) * (1.0f - cos_b * cos_b)));
+      sqrtf(fmaxf(0.0f, (1.0f - cos_a * cos_a) * (1.0f - cos_b * cos_b)));
   const float cos_sum = hs::clamp(cos_a * cos_b - sin_product, -1.0f, 1.0f);
   const float cos_difference =
       hs::clamp(cos_a * cos_b + sin_product, -1.0f, 1.0f);
-  float m =
-      0.5f * math::PI_F -
-      math::fast_acos(sqrtf(std::max(0.0f, 1.0f + std::min(0.0f, cos_sum))));
-  float n =
-      0.5f * math::PI_F -
-      math::fast_acos(sqrtf(fabsf(1.0f - std::max(0.0f, cos_difference))));
+  float m = 0.5f * math::PI_F -
+            math::fast_acos(sqrtf(fmaxf(0.0f, 1.0f + fminf(0.0f, cos_sum))));
+  float n = 0.5f * math::PI_F -
+            math::fast_acos(sqrtf(fabsf(1.0f - fmaxf(0.0f, cos_difference))));
   uint8_t sector = 0;
   uint8_t edge_class = 0;
   const float horizontal_sq = v.x * v.x + v.z * v.z;
@@ -523,12 +521,11 @@ peirce_projection_fast_square(const math::Vector &v) {
   const float old_x = x;
   x = INV_SQRT_TWO * (x - projected_y);
   projected_y = INV_SQRT_TWO * (old_x + projected_y);
-  float edge = math::fast_acos(
-      hs::clamp(std::max(fabsf(cos_a), fabsf(cos_b)), 0.0f, 1.0f));
+  float edge =
+      math::fast_acos(hs::clamp(fmaxf(fabsf(cos_a), fabsf(cos_b)), 0.0f, 1.0f));
   if (v.y < 0.0f) {
     const float fold_sine = fabsf(fabsf(v.z) - fabsf(v.x)) * INV_SQRT_TWO;
-    edge =
-        std::min(edge, 0.5f * math::PI_F -
+    edge = fminf(edge, 0.5f * math::PI_F -
                            math::fast_acos(hs::clamp(fold_sine, 0.0f, 1.0f)));
   }
   if (fabsf(v.y) >= 1.0f)
@@ -1057,7 +1054,7 @@ airocean_projection(const math::Vector &v, float c, float s, bool horizontal,
                                                AIROCEAN_PLANAR_FACES[18][1])
               : distance_squared;
       cut_edge_distance_squared =
-          std::min(cut_edge_distance_squared, cut_distance_squared);
+          fminf(cut_edge_distance_squared, cut_distance_squared);
     }
   }
   const float edge = calculate_edge_distance && cut_edge_distance_squared <

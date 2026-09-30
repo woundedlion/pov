@@ -161,7 +161,7 @@ inline math::Vector inv_gnomonic(const math::Complex &z,
   if (z.squared_magnitude() >= STEREO_INF_RECOGNIZE * STEREO_INF_RECOGNIZE) {
     // Normalize by the larger component first: squaring a magnitude well past
     // the sentinel would overflow to infinity and yield a zero vector.
-    const float scale = 1.0f / std::max(std::abs(z.re), std::abs(z.im));
+    const float scale = 1.0f / fmaxf(std::abs(z.re), std::abs(z.im));
     const float re = z.re * scale;
     const float im = z.im * scale;
     const math::Complex equator = stereographic_detail::radial_scale(
