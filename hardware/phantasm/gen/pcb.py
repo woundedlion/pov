@@ -614,6 +614,8 @@ def fixed_placements(comps):
     if all(fixed.get(ref) == placement for ref, placement in TERMINAL_EDGE_PLACEMENTS.items()):
         if "U_MCU" in fixed:
             fixed["U_MCU"] = (25.5, 11.7, 0)
+        if "C_DEC1" in fixed:
+            fixed["C_DEC1"] = (9.75, 1.35, 0)
         fixed.pop("D_BUS", None)
     return fixed
 
