@@ -187,10 +187,6 @@ class FormatCoordinateTests(unittest.TestCase):
         self.assertEqual(kicad_common.fmt(12.5), "12.5")
 
 
-if __name__ == "__main__":
-    unittest.main()
-
-
 class AtomicWriteTests(unittest.TestCase):
     def test_failed_replace_keeps_original(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -203,3 +199,7 @@ class AtomicWriteTests(unittest.TestCase):
             self.assertEqual(list(Path(directory).iterdir()), [path])
             kicad_common.atomic_write_text(path, "complete\n")
             self.assertEqual(path.read_bytes(), b"complete\n")
+
+
+if __name__ == "__main__":
+    unittest.main()
