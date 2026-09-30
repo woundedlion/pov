@@ -24,6 +24,7 @@
  */
 #pragma once
 
+#include "core/math/rng.h"
 #include "hardware/pov_handoff.h"
 #include "hardware/pov_submit_gate.h"
 #include "hardware/pov_sync.h"
@@ -31,7 +32,10 @@
 #include "tests/test_harness.h"
 
 #include <algorithm>
+#include <cmath>
 #include <cstdint>
+#include <cstdlib>
+#include <cstring>
 #include <deque>
 #include <limits>
 #include <vector>
