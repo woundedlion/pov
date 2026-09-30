@@ -160,6 +160,22 @@ def drop(root, kind, net):
                     and connectivity.net_name(node) == net)]
 
 
+class CustomPrimitiveBoundsTests(unittest.TestCase):
+    def test_line_rectangle_and_arc_extents(self):
+        for primitive in (
+                "(gr_line (start -2 -1) (end 3 4) (width 0.2))",
+                "(gr_rect (start -2 -1) (end 3 4) (width 0.2))",
+                "(gr_arc (start 2 0) (mid 0 2) (end -2 0) (width 0.2))"):
+            with self.subTest(primitive=primitive):
+                pad = sexp.parse_one(
+                    '(pad "1" smd custom (at 0 0) (size 0.1 0.1) '
+                    '(layers "F.Cu") (primitives ' + primitive + '))')
+                copper = connectivity.pad_copper(pad, (0, 0), 0, ["F.Cu"])
+                xs, ys = zip(*copper.polygon)
+                self.assertLessEqual(min(xs), -2.1)
+                self.assertGreaterEqual(max(ys), 2.1)
+
+
 class SyntheticBoardTests(unittest.TestCase):
     def test_pad_geometry_uses_the_circumscribed_radius(self):
         root = parse(ROUND_PAD_BOARD)

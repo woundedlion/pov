@@ -7,8 +7,8 @@ unions the copper geometry instead: tracks (straight and arc), vias, pads and
 zone fills that touch on a shared layer, per net. A net whose pads land in more than one island is an
 open.
 
-A rectangular land is modelled by its rotated rectangle; every other pad by its
-circumscribed disc, so a marginal touch reads as connected. The error runs
+Rectangular lands use rotated rectangles; custom lands use primitive bounding
+boxes, and circular/oval lands use circumscribed discs. The error runs
 towards passing: this gate answers "is the copper still there", not "does it
 meet clearance" -- kicad-cli DRC owns that.
 """
@@ -187,6 +187,33 @@ def pad_copper(pad, origin, rotation, stack):
                 reach = math.dist(rim, edge) + half_stroke
                 points.extend(((rim[0] - reach, rim[1] - reach),
                                (rim[0] + reach, rim[1] + reach)))
+            elif str(primitive[0]) in {"gr_rect", "gr_line", "gr_arc"}:
+                vertices = [_xy(sexp.val(primitive, key))
+                            for key in ("start", "end")]
+                if str(primitive[0]) == "gr_arc":
+                    start, end = vertices
+                    mid = _xy(sexp.val(primitive, "mid"))
+                    vertices.append(mid)
+                    ax, ay = mid[0] - start[0], mid[1] - start[1]
+                    bx, by = end[0] - start[0], end[1] - start[1]
+                    determinant = 2 * (ax * by - ay * bx)
+                    if determinant:
+                        aa, bb = ax * ax + ay * ay, bx * bx + by * by
+                        cx = start[0] + (by * aa - ay * bb) / determinant
+                        cy = start[1] + (ax * bb - bx * aa) / determinant
+                        reach = math.dist(start, (cx, cy))
+                        first, middle, last = (math.atan2(y - cy, x - cx)
+                                               for x, y in (start, mid, end))
+                        sweep = (last - first) % math.tau
+                        ccw = (middle - first) % math.tau <= sweep
+                        for angle in (0, math.pi / 2, math.pi, 3 * math.pi / 2):
+                            inside = (angle - first) % math.tau <= sweep
+                            if inside == ccw:
+                                vertices.append((cx + reach * math.cos(angle),
+                                                 cy + reach * math.sin(angle)))
+                for x, y in vertices:
+                    points.extend(((x - half_stroke, y - half_stroke),
+                                   (x + half_stroke, y + half_stroke)))
             elif str(primitive[0]) == "gr_poly":
                 for vertex in F(F(primitive, "pts")[0], "xy"):
                     x, y = _xy(vertex[1:])
