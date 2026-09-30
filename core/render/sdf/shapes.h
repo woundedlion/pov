@@ -133,8 +133,8 @@ struct PlanarPolygon {
 
     float local = centered_sector_angle(azimuth, sector, reciprocal_sector);
 
-    float dist_edge = std::max(polar * math::fast_cosf(local) - apothem,
-                               polar - circumradius);
+    float dist_edge =
+        fmaxf(polar * math::fast_cosf(local) - apothem, polar - circumradius);
     float t_val = 0.0f;
     if constexpr (ComputeUVs)
       t_val = polar / circumradius;
@@ -292,10 +292,10 @@ struct SphericalPolygon {
 
     // Angular distance to the nearest great circle edge via precomputed normal
     // cos(local) is even, so sector folding works automatically
-    float sin_p = sqrtf(std::max(0.0f, 1.0f - cos_p * cos_p));
+    float sin_p = sqrtf(fmaxf(0.0f, 1.0f - cos_p * cos_p));
     float dp = edge_nv * cos_p + edge_nu * math::fast_cosf(local) * sin_p;
     float dist_edge =
-        std::max(asinf(hs::clamp(dp, -1.0f, 1.0f)), polar - circumradius);
+        fmaxf(asinf(hs::clamp(dp, -1.0f, 1.0f)), polar - circumradius);
 
     float t_val = 0.0f;
     if constexpr (ComputeUVs)
@@ -315,14 +315,14 @@ struct SphericalPolygon {
    */
   float sine_distance(const math::Vector &p) const {
     float cos_p = hs::clamp(math::dot(p, basis.v), -1.0f, 1.0f);
-    float sin_p = sqrtf(std::max(0.0f, 1.0f - cos_p * cos_p));
+    float sin_p = sqrtf(fmaxf(0.0f, 1.0f - cos_p * cos_p));
 
     float azimuth = basis_azimuth(p, basis.u, basis.w, phase);
 
     float local = centered_sector_angle(azimuth, sector, reciprocal_sector);
     float dp = edge_nv * cos_p + edge_nu * math::fast_cosf(local) * sin_p;
     float disc = sin_p * cos_cap - cos_p * sin_cap;
-    return sign * std::max(hs::clamp(dp, -cos_p, 1.0f), disc);
+    return sign * fmaxf(hs::clamp(dp, -cos_p, 1.0f), disc);
   }
 };
 
@@ -463,8 +463,8 @@ struct Star {
     float px = scan_dist * math::fast_cosf(local_azimuth);
     float py = scan_dist * math::fast_sinf(local_azimuth);
 
-    float dist_edge = std::max(-(px * edge_nx + py * edge_ny + plane_d),
-                               scan_dist - circumradius);
+    float dist_edge = fmaxf(-(px * edge_nx + py * edge_ny + plane_d),
+                            scan_dist - circumradius);
 
     float t = 0.0f;
     if constexpr (ComputeUVs)
@@ -739,7 +739,7 @@ struct Line {
     if (proj_mag < 1e-6f) {
       float d_a = math::angle_between(p, a);
       float d_b = math::angle_between(p, b);
-      float dist = std::min(d_a, d_b);
+      float dist = fminf(d_a, d_b);
       res = DistanceResult(dist - thickness, 0.0f, dist, 0.0f, thickness);
       return;
     }
@@ -758,7 +758,7 @@ struct Line {
     } else {
       float d_a = math::angle_between(p, a);
       float d_b = math::angle_between(p, b);
-      dist_seg = std::min(d_a, d_b);
+      dist_seg = fminf(d_a, d_b);
     }
 
     res = DistanceResult(dist_seg - thickness, 0.0f, dist_seg, 0.0f, thickness);

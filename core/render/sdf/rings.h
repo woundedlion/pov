@@ -494,7 +494,7 @@ public:
     float dist;
     if (knots)
       dist = polyline_distance(t_norm, polar,
-                               sqrtf(std::max(1.0f - d * d, POLE_SIN2_FLOOR)));
+                               sqrtf(fmaxf(1.0f - d * d, POLE_SIN2_FLOOR)));
     else
       dist = std::abs(polar - (target_angle + shift_fn(t_norm)));
 
@@ -591,9 +591,9 @@ private:
         c = CHUNKS - 1;
       int cl = c == 0 ? CHUNKS - 1 : c - 1;
       int cr = c == CHUNKS - 1 ? 0 : c + 1;
-      float lo = std::min(pf.lo[cl], std::min(pf.lo[c], pf.lo[cr]));
-      float hi = std::max(pf.hi[cl], std::max(pf.hi[c], pf.hi[cr]));
-      float gap = std::max(base + lo, -(base + hi));
+      float lo = fminf(pf.lo[cl], fminf(pf.lo[c], pf.lo[cr]));
+      float hi = fmaxf(pf.hi[cl], fmaxf(pf.hi[c], pf.hi[cr]));
+      float gap = fmaxf(base + lo, -(base + hi));
       if (gap > thickness)
         return gap;
     }
@@ -623,7 +623,7 @@ private:
       float len2 = cell_u2 + dv * dv;
       if (numer > 0.0f && numer < len2) {
         float cross = u0 * dv - v0 * cell_u;
-        best2 = std::min(best2, cross * cross / len2);
+        best2 = fminf(best2, cross * cross / len2);
       }
     };
 
@@ -634,11 +634,11 @@ private:
     float ur = (1.0f - f) * cell_u;
     float vl = knot_v(j);
     float vr = knot_v(j + 1);
-    float best2 = std::min(ul * ul + vl * vl, ur * ur + vr * vr);
+    float best2 = fminf(ul * ul + vl * vl, ur * ur + vr * vr);
     interior_d2(ul, vl, vr, best2);
 
     const float th2 = thickness2;
-    float bound2 = std::min(best2, th2);
+    float bound2 = fminf(best2, th2);
     const int sweep_o = lut_n / 2 + 1; // covers every knot on both arms
     const bool budget_capped = MAX_SEARCH_CELLS < sweep_o;
     const int max_o = budget_capped ? MAX_SEARCH_CELLS : sweep_o;
@@ -651,7 +651,7 @@ private:
       if (right) {
         float un = ur + cell_u;
         float vn = knot_v(j + o + 1);
-        best2 = std::min(best2, un * un + vn * vn);
+        best2 = fminf(best2, un * un + vn * vn);
         interior_d2(ur, vr, vn, best2);
         ur = un;
         vr = vn;
@@ -659,12 +659,12 @@ private:
       if (left) {
         float un = ul - cell_u;
         float vn = knot_v(j - o);
-        best2 = std::min(best2, un * un + vn * vn);
+        best2 = fminf(best2, un * un + vn * vn);
         interior_d2(un, vn, vl, best2);
         ul = un;
         vl = vn;
       }
-      bound2 = std::min(bound2, best2);
+      bound2 = fminf(bound2, best2);
     }
     if (best2 < th2)
       return sqrtf(best2);
@@ -673,7 +673,7 @@ private:
     // that bound so near-pole chart compression cannot sentinel a pixel the
     // unreached cells could still light.
     if (budget_capped) {
-      float frontier2 = std::min(ul * ul, ur * ur);
+      float frontier2 = fminf(ul * ul, ur * ur);
       if (frontier2 < th2)
         return sqrtf(frontier2);
     }
@@ -747,8 +747,8 @@ private:
     const float vr1 = base + k[4];
     const float ul1 = ul - cell_u;
     const float vl1 = base + k[1];
-    num = std::min(std::min(ul * ul + vl * vl, ur * ur + vr * vr),
-                   std::min(ur1 * ur1 + vr1 * vr1, ul1 * ul1 + vl1 * vl1));
+    num = fminf(fminf(ul * ul + vl * vl, ur * ur + vr * vr),
+                fminf(ur1 * ur1 + vr1 * vr1, ul1 * ul1 + vl1 * vl1));
     interior(ul, vl, vr);
     interior(ur, vr, vr1);
     interior(ul1, vl1, vl);

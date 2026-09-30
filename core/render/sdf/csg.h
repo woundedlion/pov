@@ -325,7 +325,7 @@ template <typename A, typename B> struct SmoothUnion {
     b.template distance<ComputeUVs>(p, res_b);
 
     // Polynomial smooth min (cubic).
-    float h = std::max(k - std::abs(res.dist - res_b.dist), 0.0f) / k;
+    float h = fmaxf(k - std::abs(res.dist - res_b.dist), 0.0f) / k;
     float m = h * h * h * k * (1.0f / 6.0f);
 
     if (res.dist < res_b.dist) {
