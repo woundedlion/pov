@@ -17,7 +17,7 @@ tmp=$(mktemp)
 trap 'rm -f -- "$tmp"' EXIT
 
 # A lint failure still writes the report; the selection is what is gated here.
-npx eslint . --format json > "$tmp" || true
+npx --no-install eslint . --format json > "$tmp" || true
 
 node --input-type=commonjs - "$tmp" <<'JS'
 const fs = require('node:fs');
