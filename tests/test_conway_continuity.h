@@ -459,10 +459,9 @@ inline void test_bookend_swaps_per_family() {
 }
 
 /**
- * @brief Verifies the §2.5/§2.6 forward palette mapping across real leg
- *        arrivals: every base face of the arrived node displays the palette
- *        its corresponding swept face landed with — carried verbatim.
- * @details Drives HankinSolids through several legs; the in-flight leg's
+ * @brief Verifies palette multiplicities across real leg arrivals.
+ * @details This multiset comparison does not pin per-face provenance.
+ *          Drives HankinSolids through several legs; the in-flight leg's
  *          Landing is snapshotted each frame, and on each arrival the
  *          displayed per-face palettes (node_face_palette) are compared with
  *          the landed ones over the base-face emission prefix, as per-palette

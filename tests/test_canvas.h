@@ -8,8 +8,8 @@
  * preset state machines and PipelineRef.
  *
  * Frame protocol note: a Canvas spins in its ctor while !buffer_free(), so every
- * test that draws a frame MUST advance_display() before constructing the next
- * Canvas (otherwise the host build would spin forever on a still-pending frame).
+ * sequential drawing test must advance_display() before the next Canvas;
+ * a pending frame otherwise reaches the configured spin watchdog.
  */
 #pragma once
 
@@ -985,8 +985,8 @@ inline void test_double_buffer_handoff_no_aliasing() {
  * exactly once — distinct_displayed must reach the full frame count, proving the
  * hand-off really happened rather than frames coalescing. The harness counters
  * are single-threaded, so both threads record into atomics and the main thread
- * runs all HS_EXPECT_* after join(). The Canvas ctor's configured watchdog (at least 30 s in CI) (live under
- * the real wall clock) bounds the producer, and the consumer terminates once it
+ * runs all HS_EXPECT_* after join(). The Canvas ctor's configured watchdog
+ * uses the real wall clock to bound the producer. The consumer terminates once it
  * has promoted every frame, so a logic break traps loudly instead of hanging.
  */
 inline void test_double_buffer_handoff_concurrent() {
@@ -1066,8 +1066,8 @@ inline void test_double_buffer_handoff_concurrent() {
  * writer of prev is advance_display() — which only the helper runs. So the
  * helper's "ctor has not returned yet" assertion holds by construction (it
  * checks before advancing), and an inverted gate (spin while buffer_free())
- * would let the ctor return early and fail it. The ctor's configured watchdog (at least 30 s in CI) bounds
- * the spin, so a logic break traps loudly here rather than hanging the suite.
+ * would let the ctor return early and fail it. The configured watchdog bounds
+ * the spin.
  */
 inline void test_ctor_spin_waits_for_buffer_free() {
   hs::clear_mock_time(); // use the real wall clock so the spin/watchdog are live

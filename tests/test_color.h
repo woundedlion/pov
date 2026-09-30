@@ -169,8 +169,7 @@ inline uint16_t lerp16_reference(uint16_t a, uint16_t b, uint16_t frac) {
  *          behavior, not the instruction.
  */
 inline void test_lerp16_full_range_correct() {
-  // Midpoint of two maximal channels stays maximal — the canonical case a signed
-  // multiply collapses (65535 read as -1 -> product ~0).
+  // The midpoint between maximal and zero channels is half scale.
   Pixel hi(65535, 65535, 65535), lo(0, 0, 0);
   Pixel mid = hi.lerp16(lo, 32768);
   HS_EXPECT_NEAR(static_cast<float>(mid.r), 32768.0f, 2.0f);
