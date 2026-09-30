@@ -7,7 +7,7 @@
 
 /**
  * @file RingShower.h
- * @brief Randomly oriented rings that grow and fade over a short lifetime,
+ * @brief Randomly oriented rings that grow and fade in over a short lifetime,
  *        then recycle their slot.
  */
 
