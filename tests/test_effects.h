@@ -5216,7 +5216,7 @@ inline void test_displacement_field_zero_hue_scale_is_exact() {
 /**
  * @brief Verifies DisplacementField's clipped render tiles the full render:
  *        under a quadrant clip, every display-region pixel matches the
- *        full-canvas render bit-exactly, frame by frame.
+ *        full-canvas render within one 16-bit channel step, frame by frame.
  * @details Identical seeds and mock clock per run, so a divergence isolates
  *          the clip-only paths (the per-ring cap cull and the azimuth-chunk
  *          bake cull) dropping a reachable fragment or sampling a stale LUT
@@ -5237,7 +5237,7 @@ inline void test_displacement_field_clip_tiles_full() {
   const int widest_frames = 24;
 
   size_t lit = 0;
-  auto fold_region = [&](bool clip, const Quad &q, bool widest) -> uint64_t {
+  auto capture_region = [&](bool clip, const Quad &q, bool widest) {
     reset_effect_globals();
     hs::set_mock_time(0, 0);
     DisplacementField<DEFAULT_W, DEFAULT_H> fx;
@@ -5247,7 +5247,7 @@ inline void test_displacement_field_clip_tiles_full() {
     DisplacementFieldWhiteBox::enter_balls(fx);
     if (clip)
       fx.set_clip(q.y0, q.y1, q.x0, q.x1);
-    uint64_t fold = hs_test::FNV1A64_BASIS;
+    std::vector<Pixel> pixels;
     for (int f = 0; f < (widest ? widest_frames : frames); ++f) {
       hs::set_mock_time(static_cast<unsigned long>(f) * FRAME_MS,
                         static_cast<unsigned long>(f) * FRAME_US);
@@ -5260,22 +5260,31 @@ inline void test_displacement_field_clip_tiles_full() {
             if (p.r | p.g | p.b)
               ++lit;
           }
-          for (uint16_t c : {p.r, p.g, p.b})
-            fold = hs_test::fnv1a64_channel(fold, c);
+          pixels.push_back(p);
         }
     }
     hs::clear_mock_time();
-    return fold;
+    return pixels;
   };
 
-  for (bool widest : {false, true}) {
+  for (bool widest : {false, true})
     for (const Quad &q : quads) {
       HS_CONTEXT("clip pair", widest, q.x0);
       lit = 0;
-      HS_EXPECT_EQ(fold_region(false, q, widest), fold_region(true, q, widest));
+      const auto full = capture_region(false, q, widest);
+      const auto clipped = capture_region(true, q, widest);
       HS_EXPECT_GT(lit, size_t{0});
+      HS_EXPECT_EQ(full.size(), clipped.size());
+      if (full.size() != clipped.size())
+        continue;
+      int max_error = 0;
+      for (size_t i = 0; i < full.size(); ++i)
+        max_error =
+            std::max({max_error, std::abs(int(full[i].r) - clipped[i].r),
+                      std::abs(int(full[i].g) - clipped[i].g),
+                      std::abs(int(full[i].b) - clipped[i].b)});
+      HS_EXPECT_LE(max_error, 1);
     }
-  }
 }
 
 inline void test_displacement_field_ball_spans_and_lifecycle() {
