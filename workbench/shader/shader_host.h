@@ -1112,9 +1112,8 @@ private:
     register_clamped_animated_param("Pattern Freq", &params.pattern_freq,
                                     pattern_freq_min(function),
                                     pattern_freq_max(function));
-    register_clamped_animated_param(
-        "Speed", &params.speed, 0.0f,
-        domain_scaled_max(Workbench::SPEED_MAX, 0.5f, domain_scale));
+    register_clamped_animated_param("Speed", &params.speed, 0.0f,
+                                    Workbench::SPEED_MAX);
     register_clamped_animated_param(
         "Source Angle Speed", &params.angle_rate, 0.0f,
         domain_scaled_max(Workbench::WAVE_SPIN_MAX, 0.03f, domain_scale));
