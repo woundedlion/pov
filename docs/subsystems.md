@@ -162,9 +162,10 @@ volume shapes and ambient fields without introducing another framebuffer travers
 
 `surface_search` finds the first verified boundary, with independent exterior
 and interior clearance guarantees and explicit unresolved/exhaustion outcomes.
-Its numerical driver also runs `legacy_closest`, the compatibility policy used
-by `Scan::Volume`; that caller keeps its original approximate silhouette and
-occluder handling. Surface proximity alone never contributes opacity.
+Its bounded driver, `Raycast::march_steps`, is shared with
+`Raycast::closest_approach`, the closest-approach search `Scan::Volume` uses;
+that caller keeps its approximate silhouette and occluder handling. Surface
+proximity alone never contributes opacity.
 
 `trace_events` merges a compile-time bounded set of monotone analytic streams.
 It preserves distinct material/merge identities, coalesces duplicate coverage
