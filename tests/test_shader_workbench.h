@@ -1568,8 +1568,6 @@ inline void test_shader_workbench_pipeline_contract() {
   HS_EXPECT_EQ(warped.coords.re, projected.coords.re);
   HS_EXPECT_EQ(warped.coords.im, projected.coords.im);
 
-  frame.slots.warp_program.outer.kind = WB::WarpStageKind::NONE;
-  frame.slots.warp_program.inner.kind = WB::WarpStageKind::NONE;
   const WB::FieldSample material = WB::material(projected, warped, frame);
   HS_EXPECT_GE(material.value, 0.0f);
   HS_EXPECT_LE(material.value, 1.0f);
