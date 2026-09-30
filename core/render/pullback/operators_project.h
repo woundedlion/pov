@@ -135,16 +135,17 @@ struct RegularProjectChainParams : MeridianProjectChainParams {
 static_assert(field_ids_unique<RegularProjectChainParams>());
 static_assert(field_defaults_in_range<RegularProjectChainParams>());
 
-/** @brief Shared shape of the projection operators: the walk state, the
-    frame-composed conjugate, and the per-family projection call. */
+/** @brief Prepared projection frame conjugate. */
 struct ProjectOrientation {
   math::Quaternion conjugate;
 };
+/** @brief Projection frame with cached meridian trigonometry. */
 struct MeridianProjectOrientation : ProjectOrientation {
   float meridian_cos;
   float meridian_sin;
 };
 
+/** @brief Shared projection walk state, frame conjugate, and family call. */
 template <typename Derived, typename ParamsT, bool CacheMeridian = false>
 struct ProjectOpModel : ValueStateModel<SpatialWalkState> {
   using Input = SphereSample;
