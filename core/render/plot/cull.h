@@ -732,7 +732,7 @@ geodesic_row_span(const math::Vector &a, const math::Vector &b,
  * extended over the shared samples and widened by the arc's Lipschitz bound.
  * The cull and renderer do NOT take bit-identical samples, so gap-freeness
  * comes from the Lipschitz + one-row margin: phi is 1-Lipschitz in angular
- * distance, so between samples |Δrow| ≤ (Δarc)·(H_VIRT−1)/π. The samples take
+ * distance, so between samples |Δrow| ≤ (Δarc)·ROWS_PER_RADIAN<H>. The samples take
  * the renderer's newton_unit() correction first: phi = acos(y) amplifies the
  * fast-trig residual on the raw unprojection past the one-row epsilon once
  * sin(phi) falls under a few hundredths.
@@ -1360,7 +1360,7 @@ static __attribute__((always_inline)) inline float screen_rsqrt(float x) {
  * @param base_step Equatorial step 2π/W; also the maximum returned step.
  * @return Arc-length step that advances ~SCREEN_STEP_PX pixels on screen.
  * @details Converts the object-space tangent to a screen-space velocity (pixels
- * per radian of arc) under the canvas map x = θ·W/2π, y = φ·(H_VIRT-1)/π, then
+ * per radian of arc) under the canvas map x = θ·W/2π, y = (φ - NORTH_PHI)·ROWS_PER_RADIAN<H>, then
  * returns step = SCREEN_STEP_PX / |v_screen|. With φ the colatitude and λ the
  * longitude, dφ/ds = -tan.y/sin(φ) and dλ/ds = (pos.x·tan.z - pos.z·tan.x)/sin²φ.
  * Tracking the full 2-D screen speed (not just longitudinal pole-crowding)
