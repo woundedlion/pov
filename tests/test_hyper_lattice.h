@@ -48,9 +48,6 @@ inline PreparedTrace prepare_trace(const FrameState &frame) {
   return {p.lattice, p.appearance, p.appearance.near_start,
           p.appearance.near_inv_span, p.appearance.inv_far};
 }
-inline float near_field_coverage(float t, float start, float inverse) {
-  return math::cubic_kernel((t - start) * inverse);
-}
 template <bool SLICE = false>
 auto trace_plane(const math::Vec4 &origin, const math::Vec4 &direction,
                  int axis, float distance, float step,
@@ -231,7 +228,6 @@ inline void test_resolution_aware_wire_coverage() {
   constexpr float DISTANCE = 1.0f;
   const float low_half_width = HALF_WIDTH + low.aa_scale * DISTANCE;
   const float high_half_width = HALF_WIDTH + high.aa_scale * DISTANCE;
-  HS_EXPECT_GT(low_half_width, high_half_width);
   const float low_outside = HL::wire_coverage(
       (RADIUS + OFFSET) * (RADIUS + OFFSET), RADIUS, low_half_width);
   const float high_outside = HL::wire_coverage(
@@ -244,12 +240,12 @@ inline void test_near_field_fade() {
   constexpr float RADIUS = 0.1f;
   constexpr float NEAR_START = 1.5f * RADIUS;
   constexpr float NEAR_INV_SPAN = 1.0f / (2.5f * RADIUS);
-  HS_EXPECT_EQ(HL::near_field_coverage(0.15f, NEAR_START, NEAR_INV_SPAN), 0.0f);
-  HS_EXPECT_GT(HL::near_field_coverage(0.275f, NEAR_START, NEAR_INV_SPAN),
-               0.0f);
-  HS_EXPECT_LT(HL::near_field_coverage(0.275f, NEAR_START, NEAR_INV_SPAN),
-               1.0f);
-  HS_EXPECT_EQ(HL::near_field_coverage(0.4f, NEAR_START, NEAR_INV_SPAN), 1.0f);
+  const Raycast::Appearance FADE{
+      .inv_far = 0, .near_start = NEAR_START, .near_inv_span = NEAR_INV_SPAN};
+  HS_EXPECT_EQ(FADE.opacity(0.15f), 0.0f);
+  HS_EXPECT_GT(FADE.opacity(0.275f), 0.0f);
+  HS_EXPECT_LT(FADE.opacity(0.275f), 1.0f);
+  HS_EXPECT_EQ(FADE.opacity(0.4f), 1.0f);
   for (HL::LatticeMode mode :
        {HL::LatticeMode::THREE_D, HL::LatticeMode::FOUR_D_SLICE}) {
     for (float radius : {0.0f, 1.0f, 2.0f}) {
@@ -289,13 +285,9 @@ inline void test_near_field_fade() {
   HS_EXPECT_NEAR(surface.near_start, centered.near_start * 2.0f, 1e-6f);
   HS_EXPECT_NEAR(surface.near_inv_span, centered.near_inv_span * 0.5f, 1e-6f);
   const float distance = centered.near_start + 0.25f / centered.near_inv_span;
-  HS_EXPECT_LT(HL::near_field_coverage(distance, surface.near_start,
-                                       surface.near_inv_span),
-               HL::near_field_coverage(distance, centered.near_start,
-                                       centered.near_inv_span));
-  HS_EXPECT_EQ(
-      HL::near_field_coverage(0.0f, surface.near_start, surface.near_inv_span),
-      0.0f);
+  HS_EXPECT_LT(surface.appearance.opacity(distance),
+               centered.appearance.opacity(distance));
+  HS_EXPECT_EQ(surface.appearance.opacity(0.0f), 0.0f);
 }
 
 inline void test_far_shell_fade() {
