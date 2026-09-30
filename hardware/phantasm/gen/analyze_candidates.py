@@ -26,7 +26,7 @@ What matters here, and why:
   two *same-net* GND planes (benign), but it is still a stub + impedance bump --
   so fewer fast-net vias and shorter fast nets win. DATA/CLK staying on ONE layer
   (zero vias) is ideal: one continuous reference, no return-path transition.
-- Rev 1.2 connectors J1?J3B are locked; J1 is GCT and there is no J4.
+- Rev 1.2 connectors J1-J3B are locked; J1 is GCT and there is no J4.
   Ergonomics depends on their accessibility and grouping (decoupling near U1, terminators near the
   strip connector, the high-Z sync divider kept tight).
 """
