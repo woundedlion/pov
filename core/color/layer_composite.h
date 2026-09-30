@@ -57,7 +57,7 @@ struct LayerComposite {
   }
 
   /**
-   * @brief Whether remaining transmittance is too small for a later layer to matter.
+   * @brief Whether remaining transmittance is below the encodable alpha floor.
    * @return True once the remaining transmittance is below the smallest
    *   encodable alpha. Further layers can still change a rounded output code.
    */
