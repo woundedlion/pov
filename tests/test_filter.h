@@ -612,7 +612,6 @@ inline void test_blur_factor_zero_is_identity() {
     HS_EXPECT_NEAR(total, 0.75f, 1e-5f);
   }
   int outside_taps = 0;
-  blur.update(0.0f);
   for (float factor : {0.0f, 1e-6f, 1.0f}) {
     blur.update(factor);
     for (float y : {-3.0f, -1.2f, H + 0.2f})

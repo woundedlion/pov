@@ -1081,7 +1081,6 @@ inline void test_ctor_spin_waits_for_buffer_free() {
   HS_EXPECT_FALSE(fx.buffer_free());
 
   std::atomic<bool> ctor_returned{false};
-  std::atomic<bool> released{false};
   // The harness counters are single-threaded, so the helper records here and
   // the assertions run on the main thread after join().
   std::atomic<bool> ctor_blocked_when_checked{false};
@@ -1100,7 +1099,6 @@ inline void test_ctor_spin_waits_for_buffer_free() {
     ctor_blocked_when_checked.store(
         !ctor_returned.load(std::memory_order_acquire),
         std::memory_order_relaxed);
-    released.store(true, std::memory_order_relaxed);
     fx.advance_display(); // the "ISR" frees the buffer
   });
 
@@ -1112,7 +1110,6 @@ inline void test_ctor_spin_waits_for_buffer_free() {
 
   display_isr.join();
   HS_EXPECT_TRUE(ctor_blocked_when_checked.load(std::memory_order_relaxed));
-  HS_EXPECT_TRUE(released.load(std::memory_order_relaxed));
   // Frame 0 is now the displayed buffer, so its pixel is live.
   HS_EXPECT_PIXEL(fx.get_pixel(0, 0), 1, 2, 3);
 }
