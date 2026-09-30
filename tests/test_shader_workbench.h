@@ -2706,25 +2706,65 @@ inline void test_shader_workbench_curl_scale_range_rebind() {
     HS_EXPECT_EQ(sb.updateParameter(
                      WARP, static_cast<float>(WB::WarpStageKind::CURL_FLOW)),
                  ParamSetResult::APPLIED);
-    HS_EXPECT_NEAR(sb.getParameters().find(STRENGTH)->max, 0.125f, 1e-7f);
+    {
+      const auto *definition = sb.getParameters().find(STRENGTH);
+      HS_EXPECT_TRUE(definition != nullptr);
+      if (!definition)
+        return;
+      HS_EXPECT_NEAR(definition->max, 0.125f, 1e-7f);
+    }
     const uint32_t CURL_SCHEMA = sb.getParameterSchemaGeneration();
     HS_EXPECT_EQ(sb.updateParameter(SCALE, 0.125f), ParamSetResult::APPLIED);
     HS_EXPECT_TRUE(sb.getParameterSchemaGeneration() > CURL_SCHEMA);
-    HS_EXPECT_NEAR(sb.getParameters().find(STRENGTH)->min, -1.0f, 1e-7f);
-    HS_EXPECT_NEAR(sb.getParameters().find(STRENGTH)->max, 1.0f, 1e-7f);
+    {
+      const auto *definition = sb.getParameters().find(STRENGTH);
+      HS_EXPECT_TRUE(definition != nullptr);
+      if (!definition)
+        return;
+      HS_EXPECT_NEAR(definition->min, -1.0f, 1e-7f);
+    }
+    {
+      const auto *definition = sb.getParameters().find(STRENGTH);
+      HS_EXPECT_TRUE(definition != nullptr);
+      if (!definition)
+        return;
+      HS_EXPECT_NEAR(definition->max, 1.0f, 1e-7f);
+    }
     HS_EXPECT_EQ(sb.updateParameter(STRENGTH, 0.5f), ParamSetResult::APPLIED);
-    HS_EXPECT_NEAR(sb.getParameters().find(STRENGTH)->get_requested(), 0.5f,
-                   1e-7f);
+    {
+      const auto *definition = sb.getParameters().find(STRENGTH);
+      HS_EXPECT_TRUE(definition != nullptr);
+      if (!definition)
+        return;
+      HS_EXPECT_NEAR(definition->get_requested(), 0.5f, 1e-7f);
+    }
     sb.draw_frame();
     sb.advance_display();
     const auto &active = WB::active_config(sb).params.warp;
     HS_EXPECT_NEAR(outer ? active.outer.strength : active.inner.strength, 0.5f,
                    1e-7f);
     HS_EXPECT_EQ(sb.updateParameter(SCALE, 1.0f), ParamSetResult::APPLIED);
-    HS_EXPECT_NEAR(sb.getParameters().find(STRENGTH)->min, -0.125f, 1e-7f);
-    HS_EXPECT_NEAR(sb.getParameters().find(STRENGTH)->max, 0.125f, 1e-7f);
-    HS_EXPECT_NEAR(sb.getParameters().find(STRENGTH)->get_requested(), 0.125f,
-                   1e-7f);
+    {
+      const auto *definition = sb.getParameters().find(STRENGTH);
+      HS_EXPECT_TRUE(definition != nullptr);
+      if (!definition)
+        return;
+      HS_EXPECT_NEAR(definition->min, -0.125f, 1e-7f);
+    }
+    {
+      const auto *definition = sb.getParameters().find(STRENGTH);
+      HS_EXPECT_TRUE(definition != nullptr);
+      if (!definition)
+        return;
+      HS_EXPECT_NEAR(definition->max, 0.125f, 1e-7f);
+    }
+    {
+      const auto *definition = sb.getParameters().find(STRENGTH);
+      HS_EXPECT_TRUE(definition != nullptr);
+      if (!definition)
+        return;
+      HS_EXPECT_NEAR(definition->get_requested(), 0.125f, 1e-7f);
+    }
     sb.draw_frame();
     sb.advance_display();
     const auto &clamped = WB::active_config(sb).params.warp;
@@ -2758,19 +2798,43 @@ inline void test_shader_workbench_dodecahedral_lattice_edit() {
   expected.slots.function = WB::Function::PRIMITIVE_LATTICE;
   HS_EXPECT_TRUE(WB::requested_config(sb) == expected);
   HS_EXPECT_TRUE(WB::parameter_warning(sb, "Function") == nullptr);
-  HS_EXPECT_EQ(sb.getParameters().find("Planar Warp 1")->get(),
-               static_cast<float>(WB::WarpStageKind::VECTOR_NOISE));
-  HS_EXPECT_EQ(sb.getParameters().find("Planar Warp 2")->get(),
-               static_cast<float>(WB::WarpStageKind::MIRROR_TILE));
+  {
+    const auto *definition = sb.getParameters().find("Planar Warp 1");
+    HS_EXPECT_TRUE(definition != nullptr);
+    if (!definition)
+      return;
+    HS_EXPECT_EQ(definition->get(),
+                 static_cast<float>(WB::WarpStageKind::VECTOR_NOISE));
+  }
+  {
+    const auto *definition = sb.getParameters().find("Planar Warp 2");
+    HS_EXPECT_TRUE(definition != nullptr);
+    if (!definition)
+      return;
+    HS_EXPECT_EQ(definition->get(),
+                 static_cast<float>(WB::WarpStageKind::MIRROR_TILE));
+  }
 
   sb.draw_frame();
   sb.advance_display();
   WB::refresh_display(sb);
   HS_EXPECT_TRUE(WB::active_config(sb) == expected);
-  HS_EXPECT_EQ(sb.getParameters().find("Planar Warp 1")->get(),
-               static_cast<float>(WB::WarpStageKind::VECTOR_NOISE));
-  HS_EXPECT_EQ(sb.getParameters().find("Planar Warp 2")->get(),
-               static_cast<float>(WB::WarpStageKind::MIRROR_TILE));
+  {
+    const auto *definition = sb.getParameters().find("Planar Warp 1");
+    HS_EXPECT_TRUE(definition != nullptr);
+    if (!definition)
+      return;
+    HS_EXPECT_EQ(definition->get(),
+                 static_cast<float>(WB::WarpStageKind::VECTOR_NOISE));
+  }
+  {
+    const auto *definition = sb.getParameters().find("Planar Warp 2");
+    HS_EXPECT_TRUE(definition != nullptr);
+    if (!definition)
+      return;
+    HS_EXPECT_EQ(definition->get(),
+                 static_cast<float>(WB::WarpStageKind::MIRROR_TILE));
+  }
 }
 
 /** @brief Both Wave Shear slots expose envelope controls without a noise basis. */
@@ -3390,6 +3454,9 @@ inline void test_shader_workbench_gui_catalog() {
   sb.init();
   HS_EXPECT_LE(sb.getParameters().size(), size_t(80));
   const auto *function = sb.getParameters().find("Function");
+  HS_EXPECT_TRUE(function != nullptr);
+  if (!function)
+    return;
   HS_EXPECT_EQ(function->option_count, 10);
   HS_EXPECT_STREQ(function->options[4], "Noise Contour (Projected)");
   HS_EXPECT_STREQ(function->options[6], "Noise Contour (Sphere)");
@@ -3434,7 +3501,13 @@ inline void test_shader_workbench_gui_catalog() {
                parameter_index("Hue Shift Mode"));
   HS_EXPECT_LT(parameter_index("Hue Shift Mode"),
                parameter_index("Hue Shift Amount"));
-  HS_EXPECT_EQ(sb.getParameters().find("Palette")->option_count, 3);
+  {
+    const auto *definition = sb.getParameters().find("Palette");
+    HS_EXPECT_TRUE(definition != nullptr);
+    if (!definition)
+      return;
+    HS_EXPECT_EQ(definition->option_count, 3);
+  }
   const auto *palette_mapping = sb.getParameters().find("Palette Mapping");
   HS_EXPECT_TRUE(palette_mapping != nullptr);
   HS_EXPECT_EQ(palette_mapping->option_count, 4);
@@ -3564,8 +3637,13 @@ inline void test_shader_workbench_gui_catalog() {
       sb.draw_frame();
       sb.advance_display();
       WB::settle_transition(sb);
-      HS_EXPECT_EQ(sb.getParameters().find(subordinate)->get(),
-                   static_cast<float>(value));
+      {
+        const auto *definition = sb.getParameters().find(subordinate);
+        HS_EXPECT_TRUE(definition != nullptr);
+        if (!definition)
+          return;
+        HS_EXPECT_EQ(definition->get(), static_cast<float>(value));
+      }
     }
   };
   select_and_set_all("Function", 4, "Source Noise Basis");
@@ -4015,68 +4093,200 @@ inline void test_shader_workbench_lens_domain_ranges() {
   config.params.warp.outer.scale = 4.0f;
   WB::request_config(sb, config);
 
-  auto parameter = [&](const char *name) {
-    const auto *definition = sb.getParameters().find(name);
-    HS_EXPECT_TRUE(definition != nullptr);
-    return definition;
-  };
-
   HS_EXPECT_EQ(
       sb.updateParameter("Lens", static_cast<float>(WB::SurfaceLens::NONE)),
       ParamSetResult::APPLIED);
-  HS_EXPECT_EQ(parameter("Pattern Freq")->max, 64.0f);
-  HS_EXPECT_EQ(parameter("Pattern Freq")->min, 0.01f);
-  HS_EXPECT_EQ(parameter("Speed")->max, 0.5f);
-  HS_EXPECT_EQ(parameter("Hue Noise Speed")->max, 0.001f);
+  {
+    const auto *definition = sb.getParameters().find("Pattern Freq");
+    HS_EXPECT_TRUE(definition != nullptr);
+    if (!definition)
+      return;
+    HS_EXPECT_EQ(definition->max, 64.0f);
+  }
+  {
+    const auto *definition = sb.getParameters().find("Pattern Freq");
+    HS_EXPECT_TRUE(definition != nullptr);
+    if (!definition)
+      return;
+    HS_EXPECT_EQ(definition->min, 0.01f);
+  }
+  {
+    const auto *definition = sb.getParameters().find("Speed");
+    HS_EXPECT_TRUE(definition != nullptr);
+    if (!definition)
+      return;
+    HS_EXPECT_EQ(definition->max, 0.5f);
+  }
+  {
+    const auto *definition = sb.getParameters().find("Hue Noise Speed");
+    HS_EXPECT_TRUE(definition != nullptr);
+    if (!definition)
+      return;
+    HS_EXPECT_EQ(definition->max, 0.001f);
+  }
   HS_EXPECT_EQ(sb.updateParameter("Speed", 5.0f), ParamSetResult::APPLIED);
 
   HS_EXPECT_EQ(sb.updateParameter(
                    "Lens", static_cast<float>(
                                WB::SurfaceLens::KALEIDOSCOPE_DODECAHEDRAL)),
                ParamSetResult::APPLIED);
-  HS_EXPECT_EQ(parameter("Pattern Freq")->max, 64.0f);
-  HS_EXPECT_EQ(parameter("Pattern Freq")->min, 0.01f);
-  HS_EXPECT_EQ(parameter("Speed")->max, 0.5f);
-  HS_EXPECT_EQ(parameter("Speed")->get_requested(), 0.5f);
-  HS_EXPECT_EQ(parameter("Source Angle Speed")->max, 0.03f);
-  HS_EXPECT_EQ(parameter("Drift")->max, 1.25f);
-  HS_EXPECT_EQ(parameter("Projection Spin Speed")->max, 0.04f);
-  HS_EXPECT_EQ(parameter("Surface Noise Scale")->max, 8.0f);
-  HS_EXPECT_EQ(parameter("Surface Noise Speed")->max, 0.002f);
-  HS_EXPECT_EQ(parameter("Hue Noise Scale")->max, 2.0f);
-  HS_EXPECT_EQ(parameter("Hue Noise Speed")->max, 0.001f);
+  {
+    const auto *definition = sb.getParameters().find("Pattern Freq");
+    HS_EXPECT_TRUE(definition != nullptr);
+    if (!definition)
+      return;
+    HS_EXPECT_EQ(definition->max, 64.0f);
+  }
+  {
+    const auto *definition = sb.getParameters().find("Pattern Freq");
+    HS_EXPECT_TRUE(definition != nullptr);
+    if (!definition)
+      return;
+    HS_EXPECT_EQ(definition->min, 0.01f);
+  }
+  {
+    const auto *definition = sb.getParameters().find("Speed");
+    HS_EXPECT_TRUE(definition != nullptr);
+    if (!definition)
+      return;
+    HS_EXPECT_EQ(definition->max, 0.5f);
+  }
+  {
+    const auto *definition = sb.getParameters().find("Speed");
+    HS_EXPECT_TRUE(definition != nullptr);
+    if (!definition)
+      return;
+    HS_EXPECT_EQ(definition->get_requested(), 0.5f);
+  }
+  {
+    const auto *definition = sb.getParameters().find("Source Angle Speed");
+    HS_EXPECT_TRUE(definition != nullptr);
+    if (!definition)
+      return;
+    HS_EXPECT_EQ(definition->max, 0.03f);
+  }
+  {
+    const auto *definition = sb.getParameters().find("Drift");
+    HS_EXPECT_TRUE(definition != nullptr);
+    if (!definition)
+      return;
+    HS_EXPECT_EQ(definition->max, 1.25f);
+  }
+  {
+    const auto *definition = sb.getParameters().find("Projection Spin Speed");
+    HS_EXPECT_TRUE(definition != nullptr);
+    if (!definition)
+      return;
+    HS_EXPECT_EQ(definition->max, 0.04f);
+  }
+  {
+    const auto *definition = sb.getParameters().find("Surface Noise Scale");
+    HS_EXPECT_TRUE(definition != nullptr);
+    if (!definition)
+      return;
+    HS_EXPECT_EQ(definition->max, 8.0f);
+  }
+  {
+    const auto *definition = sb.getParameters().find("Surface Noise Speed");
+    HS_EXPECT_TRUE(definition != nullptr);
+    if (!definition)
+      return;
+    HS_EXPECT_EQ(definition->max, 0.002f);
+  }
+  {
+    const auto *definition = sb.getParameters().find("Hue Noise Scale");
+    HS_EXPECT_TRUE(definition != nullptr);
+    if (!definition)
+      return;
+    HS_EXPECT_EQ(definition->max, 2.0f);
+  }
+  {
+    const auto *definition = sb.getParameters().find("Hue Noise Speed");
+    HS_EXPECT_TRUE(definition != nullptr);
+    if (!definition)
+      return;
+    HS_EXPECT_EQ(definition->max, 0.001f);
+  }
 
   HS_EXPECT_EQ(
       sb.updateParameter("Planar Warp 1",
                          static_cast<float>(WB::WarpStageKind::WAVE_SHEAR)),
       ParamSetResult::APPLIED);
-  HS_EXPECT_EQ(parameter("Planar Warp 1 Speed")->max, 0.005f);
-  HS_EXPECT_EQ(parameter("Planar Warp 1 Frequency")->max, 8.0f);
+  {
+    const auto *definition = sb.getParameters().find("Planar Warp 1 Speed");
+    HS_EXPECT_TRUE(definition != nullptr);
+    if (!definition)
+      return;
+    HS_EXPECT_EQ(definition->max, 0.005f);
+  }
+  {
+    const auto *definition = sb.getParameters().find("Planar Warp 1 Frequency");
+    HS_EXPECT_TRUE(definition != nullptr);
+    if (!definition)
+      return;
+    HS_EXPECT_EQ(definition->max, 8.0f);
+  }
 
   HS_EXPECT_EQ(
       sb.updateParameter("Planar Warp 1",
                          static_cast<float>(WB::WarpStageKind::VECTOR_NOISE)),
       ParamSetResult::APPLIED);
-  HS_EXPECT_EQ(parameter("Planar Warp 1 Scale")->max, 1.0f);
-  HS_EXPECT_EQ(parameter("Planar Warp 1 Strength")->max, 1.0f);
+  {
+    const auto *definition = sb.getParameters().find("Planar Warp 1 Scale");
+    HS_EXPECT_TRUE(definition != nullptr);
+    if (!definition)
+      return;
+    HS_EXPECT_EQ(definition->max, 1.0f);
+  }
+  {
+    const auto *definition = sb.getParameters().find("Planar Warp 1 Strength");
+    HS_EXPECT_TRUE(definition != nullptr);
+    if (!definition)
+      return;
+    HS_EXPECT_EQ(definition->max, 1.0f);
+  }
 
   HS_EXPECT_EQ(
       sb.updateParameter("Lens", static_cast<float>(WB::SurfaceLens::NONE)),
       ParamSetResult::APPLIED);
-  HS_EXPECT_EQ(parameter("Planar Warp 1 Scale")->max, 4.0f);
+  {
+    const auto *definition = sb.getParameters().find("Planar Warp 1 Scale");
+    HS_EXPECT_TRUE(definition != nullptr);
+    if (!definition)
+      return;
+    HS_EXPECT_EQ(definition->max, 4.0f);
+  }
 
   HS_EXPECT_EQ(
       sb.updateParameter("Planar Warp 1",
                          static_cast<float>(WB::WarpStageKind::CURL_FLOW)),
       ParamSetResult::APPLIED);
-  HS_EXPECT_EQ(parameter("Planar Warp 1 Scale")->max, 2.0f);
-  HS_EXPECT_EQ(parameter("Planar Warp 1 Strength")->max, 0.125f);
+  {
+    const auto *definition = sb.getParameters().find("Planar Warp 1 Scale");
+    HS_EXPECT_TRUE(definition != nullptr);
+    if (!definition)
+      return;
+    HS_EXPECT_EQ(definition->max, 2.0f);
+  }
+  {
+    const auto *definition = sb.getParameters().find("Planar Warp 1 Strength");
+    HS_EXPECT_TRUE(definition != nullptr);
+    if (!definition)
+      return;
+    HS_EXPECT_EQ(definition->max, 0.125f);
+  }
 
   HS_EXPECT_EQ(
       sb.updateParameter("Function",
                          static_cast<float>(WB::Function::PRIMITIVE_LATTICE)),
       ParamSetResult::APPLIED);
-  HS_EXPECT_EQ(parameter("Lattice Cell Scale")->max, 8.0f);
+  {
+    const auto *definition = sb.getParameters().find("Lattice Cell Scale");
+    HS_EXPECT_TRUE(definition != nullptr);
+    if (!definition)
+      return;
+    HS_EXPECT_EQ(definition->max, 8.0f);
+  }
 }
 
 /** @brief New cartographic kernels preserve landmarks and stay finite. */
