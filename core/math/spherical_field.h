@@ -548,7 +548,7 @@ private:
    * @brief Bilinearly blends four 16-bit taps with Q15 integer weights.
    * @details The weights are the truncated Q15 fractions, so they sum to one
    * exactly and each channel accumulates in 31 bits. Against combine_rgb the
-   * result differs by the weight truncation, under two channel units on the
+   * result differs by the weight truncation, under eight channel units on the
    * u16 scale, and carries the same unquantized fraction.
    */
   template <typename Pixel>

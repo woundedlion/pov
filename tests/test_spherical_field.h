@@ -351,6 +351,34 @@ inline void test_rgb_sampler_matches_generic_sampler() {
   expect_rgb_sampler_matches_generic<3, 1>();
 }
 
+inline void test_u16_rgb_sampler_error_bound() {
+  struct U16Rgb {
+    uint16_t r, g, b;
+  };
+  const hs::SphericalFieldLayout<4, 4, 0> layout(1);
+  U16Rgb packed[16];
+  Rgb floating[16];
+  for (int i = 0; i < 16; ++i) {
+    const uint16_t V = ((i % 4 + i / 4) % 2) ? 65535 : 0;
+    packed[i] = {V, static_cast<uint16_t>(65535 - V), V};
+    floating[i] = Rgb(V, 65535 - V, V);
+  }
+  const U16Rgb packed_poles[2]{};
+  const Rgb floating_poles[2]{};
+  for (int ix = 0; ix < 100; ++ix)
+    for (int iy = 0; iy < 100; ++iy) {
+      float actual[3], expected[3];
+      const float X = ix * .01007f;
+      const float Y = 1 + iy * .01001f;
+      layout.sample_bilinear_rgb(packed, packed_poles, X, Y, actual[0],
+                                 actual[1], actual[2]);
+      layout.sample_bilinear_rgb(floating, floating_poles, X, Y, expected[0],
+                                 expected[1], expected[2]);
+      for (int c = 0; c < 3; ++c)
+        HS_EXPECT_NEAR(actual[c], expected[c], 8.0f);
+    }
+}
+
 inline int run_spherical_field_tests() {
   hs_test::ModuleFixture fixture("spherical_field");
   test_constexpr_layout_counts();
@@ -366,6 +394,7 @@ inline int run_spherical_field_tests() {
   test_sampler_wraps_south_pole_with_virtual_rows();
   test_sampler_collapses_south_pole_without_virtual_rows();
   test_rgb_sampler_matches_generic_sampler();
+  test_u16_rgb_sampler_error_bound();
   return fixture.result();
 }
 
