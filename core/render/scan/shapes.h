@@ -266,8 +266,8 @@ struct DistortedRingStack {
           for (int j = 1; j <= k_chunks; ++j) {
             const int cl = c - j < 0 ? c - j + C : c - j;
             const int cr = c + j >= C ? c + j - C : c + j;
-            lo = std::min(lo, std::min(clo[cl], clo[cr]));
-            hi = std::max(hi, std::max(chi[cl], chi[cr]));
+            lo = fminf(lo, fminf(clo[cl], clo[cr]));
+            hi = fmaxf(hi, fmaxf(chi[cl], chi[cr]));
           }
         }
         const float p0 = ring.target_angle + lo - reach;
