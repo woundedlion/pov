@@ -134,7 +134,7 @@ inline constexpr ChamferSite CHAMFER_SITES[] = {
 };
 
 /** Arrival parameter of the one shipping chamfer leg. */
-inline constexpr float CHAMFER_T_STAR = 0.63f;
+inline constexpr float CHAMFER_T_STAR = Solids::CHAMFER_T_MAX;
 
 /**
  * @brief Measures chamfer's zero-area birth limit: newborn hexagon area and
