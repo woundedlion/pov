@@ -375,9 +375,8 @@ inline void test_face_shader_setup_matches_face_index() {
  * @tparam H Canvas height in pixels.
  * @param mesh Closed mesh whose edges are extracted and drawn.
  * @param geom Arena backing the extracted edge list.
- * @details Each lit pixel's
- *          world direction must fall within a few rows of latitude of the
- *          nearest analytic great-circle edge arc.
+ * @param edge_cap Capacity of the extracted edge list.
+ * @details Each lit pixel must lie within 4*pi/H radians of an edge arc.
  */
 template <int W, int H>
 inline void check_wireframe_pixels_on_edges(PolyMesh &mesh, Arena &geom,
