@@ -242,17 +242,8 @@ struct PlanarEdgeSampler {
 
   /** @brief Maps normalized arc distance to normalized chart distance. */
   float projection_fraction(float s) const {
-    if (dist < math::EPS_GEOMETRIC)
-      return s;
-    const float target = s * dist;
-    int k = 0;
-    while (k < PLANAR_LEN_SAMPLES - 1 && arc_cumul[k + 1] < target)
-      ++k;
-    const float seg = arc_cumul[k + 1] - arc_cumul[k];
-    const float frac =
-        seg > math::EPS_GEOMETRIC ? (target - arc_cumul[k]) / seg : 0.0f;
-    return hs::clamp((static_cast<float>(k) + frac) / PLANAR_LEN_SAMPLES, 0.0f,
-                     1.0f);
+    int interval = 0;
+    return projection_fraction_monotonic(s, interval);
   }
 
   /** @brief Maps increasing arc fractions without rescanning prior intervals. */
