@@ -15,6 +15,14 @@ sync pin map, channel-C input, BOM and net table below:
 - The rev 1.2 GND net additionally contains R_TX. The receive divider and
   220 pF filter, switched bus pulldown, and bus connectors retain their values.
 
+The rev 1.2 placement input fixes J1 at the left edge and J2/J3A/J3B in a
+right-edge column, with hub-facing wire entries. The outline is 70.28 x 32 mm,
+extending the right edge by 12 mm while retaining all four rev 1.1 mounting-hole
+centers. Each terminal reserves its body plus 0.5 mm assembly clearance and a
+5 mm component-free approach in front of the wire opening. This approach is a
+layout allowance, not a connector-manufacturer requirement. The extended outline
+and terminal overhang require swept-envelope and mechanical qualification.
+
 The rev 1.2 project in `hardware/phantasm/1.2/` requires placement and routing. Current
 firmware and the committed routed fabrication artifacts remain rev 1.1; see
 [the hardware revision notes](../../hardware/phantasm/1.1/README.md#revision-12).

@@ -12,6 +12,19 @@ opening it in KiCad 10. Every upload must use the board and schematic from the
 same revision directory. Rev 1.2 requires placement, routing, and validation
 before fabrication.
 
+The upload board fixes **J1 power at the left edge** and **J2 LED, J3A SYNC IN,
+J3B SYNC OUT in a column at the right edge**, in that top-to-bottom order.
+Their wire openings face left toward the hub. Terminal bodies have 0.5 mm
+assembly clearance and a 5 mm component-free wire approach. The outline is
+**70.28 x 32 mm**; all four mounting holes retain the rev 1.1 coordinates.
+The extra 12 mm is a connector overhang beyond the existing right-hand mounts;
+check this longer outline against the rotor's swept envelope before fabrication.
+
+Replace the uploaded files in Quilter with this complete revision pair and
+confirm all four connectors appear inside the outline as pre-placed parts.
+[Quilter preserves their positions and rotations](https://docs.quilter.ai/design-parameters/pre-placed-components).
+Existing routed candidates do not acquire these constraints retroactively.
+
 | Directory | Contents |
 |---|---|
 | `1.2/` | Current complete rev 1.2 project for Quilter |
