@@ -200,31 +200,29 @@ inline float next_plane_offset(float origin, bool positive) {
   return positive ? 1.0f - fraction : fraction;
 }
 
-template <bool SLICE_4D, uint8_t FIXED_SHELL_COUNT = 0>
+template <bool SLICE_4D>
 __attribute__((always_inline)) inline TraceHit
 trace_plane(const math::Vec4 &ray_origin, const math::Vec4 &direction,
             int plane_axis, float distance, float plane_step,
             const PreparedTrace &prepared) {
   HS_PROFILE_DEEP(hl_plane_eval);
-  constexpr bool SPECIALIZED_SLICE = SLICE_4D;
 
   const float coverage_outer_radius =
       prepared.outer_radius_base + prepared.aa_scale * distance * plane_step;
   const float coverage_half_width =
       coverage_outer_radius - prepared.params.wire_radius;
-  const float outer_radius = coverage_outer_radius;
-  const float outer_radius_sq = outer_radius * outer_radius;
+  const float outer_radius_sq = coverage_outer_radius * coverage_outer_radius;
   float metric_sq;
   uint8_t free_axis;
   if constexpr (SLICE_4D) {
     EdgeMetric metric_4d;
-    if (!edge_metric_4d_at_bounded<!SPECIALIZED_SLICE>(
-            ray_origin, direction, plane_axis, distance, outer_radius,
-            outer_radius_sq, metric_4d))
+    if (!edge_metric_4d_at_bounded<!SLICE_4D>(ray_origin, direction, plane_axis,
+                                              distance, coverage_outer_radius,
+                                              outer_radius_sq, metric_4d))
       return {0.0f, distance, 0};
     metric_sq = metric_4d.distance_sq;
     free_axis = metric_4d.free_axis;
-  } else if (prepared.mode == LatticeMode::THREE_D) {
+  } else if (prepared.mode == Domain::THREE_D) {
     const EdgeMetric metric_3d =
         edge_metric_3d_at(ray_origin, direction, plane_axis, distance);
     metric_sq = metric_3d.distance_sq;
@@ -234,18 +232,18 @@ trace_plane(const math::Vec4 &ray_origin, const math::Vec4 &direction,
   } else {
     EdgeMetric metric_4d;
     if (!edge_metric_4d_at_bounded(ray_origin, direction, plane_axis, distance,
-                                   outer_radius, outer_radius_sq, metric_4d))
+                                   coverage_outer_radius, outer_radius_sq,
+                                   metric_4d))
       return {0.0f, distance, 0};
     metric_sq = metric_4d.distance_sq;
     free_axis = metric_4d.free_axis;
   }
 
   const float edge =
-      SPECIALIZED_SLICE
-          ? fast_wire_coverage(metric_sq, prepared.params.wire_radius,
-                               coverage_half_width)
-          : wire_coverage(metric_sq, prepared.params.wire_radius,
-                          coverage_half_width);
+      SLICE_4D ? fast_wire_coverage(metric_sq, prepared.params.wire_radius,
+                                    coverage_half_width)
+               : wire_coverage(metric_sq, prepared.params.wire_radius,
+                               coverage_half_width);
   return {edge, distance, free_axis};
 }
 
@@ -295,9 +293,9 @@ template <bool SLICE_4D = false, uint8_t FIXED_SHELL_COUNT = 0> struct Events {
   __attribute__((always_inline)) Raycast::Contribution
   candidate(size_t i) const {
     const auto &cursor = cursors[i];
-    const auto hit = trace_plane<SLICE_4D, FIXED_SHELL_COUNT>(
-        origin, direction, static_cast<int>(i), cursor.distance, cursor.step,
-        prepared);
+    const auto hit =
+        trace_plane<SLICE_4D>(origin, direction, static_cast<int>(i),
+                              cursor.distance, cursor.step, prepared);
     Raycast::Contribution result;
     result.t = hit.distance;
     result.coverage = hit.coverage *
