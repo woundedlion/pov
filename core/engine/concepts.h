@@ -244,12 +244,8 @@ public:
   StoredFunctionRef(Callable &&) = delete;
 };
 
-// These aliases are plain (borrow-only) FunctionRefs: they accept a temporary so
-// call-scoped parameters stay ergonomic, and are used only as by-value/by-const-ref
-// borrowed parameters. A class member that keeps a callable alive across frames
-// must instead be typed StoredFunctionRef<Signature>, which `= delete`s the rvalue
-// overload so a dangling bind to a temporary fails to compile (see the Timeline's
-// tween members in animation.h for the canonical storing site).
+// Borrow-only aliases. Stored callbacks use StoredFunctionRef, as MorphDrawFn
+// does in animation/opleg.h.
 using ScreenTrailFn = FunctionRef<Color4(float, float, float)>;
 using WorldTrailFn = FunctionRef<Color4(const math::Vector &, float)>;
 using FragmentShaderFn = FunctionRef<void(const math::Vector &, Fragment &)>;
