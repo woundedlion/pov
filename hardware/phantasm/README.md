@@ -51,6 +51,27 @@ Before uploading a project that was opened in KiCad, restore its rule floors:
 python hardware/phantasm/gen/heal_clearance.py hardware/phantasm/1.2/phantasm.kicad_pro
 ```
 
+Upload the `.kicad_pro` with the schematic and PCB so Quilter can import the
+fabrication floors: 0.2 mm trace width and copper clearance, 0.6 mm via diameter,
+0.3 mm drill, and 0.5 mm copper-to-edge clearance. The Default net class uses
+0.3 mm tracks and 0.6/0.3 mm vias. Terminal footprint keepouts include 0.5 mm
+body clearance. Quilter's global component-spacing setting is separate; review
+its 0.5 mm value in the job setup rather than assuming it imports from KiCad.
+
+The schematic wires C_DEC1 directly to U_MCU VIN and C_DEC2 directly to U1 pin 14
+to make their bypass assignments explicit. Both are 100 nF and preplaced on the
+PCB. [Quilter prioritizes direct schematic wires when assigning bypass capacitors](https://docs.quilter.ai/placement-constraints/bypass-capacitors).
+Start a fresh job to redetect the constraints; replacing files can retain an
+existing incorrect assignment. Verify these two rows before submitting.
+
+The intended bypass table contains only those two decouplers. Remove C_IN
+(bulk storage), C_LF (filter damping), and C_SYNC (signal filtering) from that
+table. In Power Nets, keep 500 mA sizing for all five detected supply nets and
+turn off **Attempt Power Pour** for each. These are Quilter job settings;
+there is no documented KiCad property to import these exclusions or pour flags.
+After correcting the job, duplicate it to reuse its design parameters and
+physics constraints for subsequent runs.
+
 In Quilter, preserve the uploaded four-layer stackup and select **Preserve copper
 on internal layers**. The board's schematic links identify related components.
 

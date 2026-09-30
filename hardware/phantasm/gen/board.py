@@ -201,6 +201,14 @@ def main(force=False):
         b.label(end, name)
 
 
+    def bypass(parent, pin, ref):
+        x, y = parent.pin(pin)
+        cap = place("Device:C", ref, "0.1uF", x + 15.24, y + 3.81, fp=C06)
+        b.wire(parent.pin(pin), cap.pin("1"))
+        to_power(cap, "1", "+5V_LOGIC")
+        to_power(cap, "2", GND)
+
+
     def rail_drop(s, num, yrail, span):
         """Drop a pin vertically onto the rail at yrail drawn over x range span.
 
@@ -285,10 +293,10 @@ def main(force=False):
     b.label(QREV.pin("2"), "+5V_PROT")
     to_power(QREV, "1", GND)
 
-    # --- +5V_LOGIC rail (post-bead) and its drops: C_IN, R_LF/C_LF damper, C_DEC1/2 ---
+    # --- +5V_LOGIC rail (post-bead) and its drops: C_IN, R_LF/C_LF damper ---
     # The GND rail is drawn below, after the drops that fix its span.
-    LOG_L, LOG_R = 76.2, 219.71
-    GND_L, GND_R = 88.9, 166.37
+    LOG_L, LOG_R = 76.2, 119.38
+    GND_L, GND_R = 88.9, 119.38
     LOG_SPAN, GND_SPAN = (LOG_L, LOG_R), (GND_L, GND_R)
     b.wire(FB.pin("2"), (LOG_L, Y_LOG))
     hw(LOG_L, LOG_R, Y_LOG)
@@ -305,12 +313,6 @@ def main(force=False):
     b.wire(RLF.pin("2"), CLF.pin("1"))   # CLF_NODE
     b.label(CLF.pin("1"), "LF_DAMP")
     to_gnd_down(CLF, "2", Y_GND, GND_SPAN)
-    # decoupling caps (R-PWR-4): one at Teensy VIN, one at U1 Vcc
-    CD1 = place("Device:C", "C_DEC1", "0.1uF", 140.97, 78.74, fp=C06)
-    CD2 = place("Device:C", "C_DEC2", "0.1uF", 166.37, 78.74, fp=C06)
-    for c in (CD1, CD2):
-        to_rail_up(c, "1", Y_LOG, LOG_SPAN)
-        to_gnd_down(c, "2", Y_GND, GND_SPAN)
 
     # --- GND rail spanning the cap drops + its GND symbol at the right end ---
     hw(GND_L, GND_R, Y_GND)
@@ -322,7 +324,7 @@ def main(force=False):
     U = place(TEENSY, "U_MCU", "Teensy4.0", 60.96, 165.1,
               fp="phantasm:Teensy4.0", in_bom=False)
     tn = lambda d: TPN[d]
-    to_power(U, tn("VIN"), "+5V_LOGIC")
+    bypass(U, tn("VIN"), "C_DEC1")
     to_power(U, tn("3V3"), V3)
     to_power(U, tn("GND"), GND)
     to_label(U, tn("D11/MOSI"), "DATA_IN")
@@ -366,7 +368,8 @@ def main(force=False):
     to_label(U1D, "13", "MASTER_EN")
     to_label(U1D, "11", "SYNC_PULLDOWN")
     # power unit
-    to_power(U1E, "14", "+5V_LOGIC"); to_power(U1E, "7", GND)
+    bypass(U1E, "14", "C_DEC2")
+    to_power(U1E, "7", GND)
 
     # --- J2 strip SIGNAL out (3-pin, no power): DI / SIG_GND / CI (R-CON-1) ---
     # Strip 5 V/GND are injected off-board (spec 2.3); SIG_GND is the card's logic GND,
