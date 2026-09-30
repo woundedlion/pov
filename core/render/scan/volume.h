@@ -153,7 +153,7 @@ struct Volume {
                 const math::Vector &local_vd, float bounds_radius,
                 int max_steps, float aa_width, math::Vector &closest_local) {
     HS_PROFILE_DEEP(vol_trace);
-    return Raycast::legacy_closest(
+    return Raycast::closest_approach(
         shape, local_ro, local_vd,
         bounds_radius - math::dot(local_ro, local_vd), max_steps, aa_width,
         closest_local, OVERRELAX_OMEGA);
