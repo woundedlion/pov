@@ -358,6 +358,29 @@ inline void test_second_caller_flags_mixed_parent() {
  * @brief Verifies a top-level counter later entered under another counter is
  *        flagged rather than re-parented, so both stay on the root walk.
  */
+inline void test_parent_retirement_prevents_cycle() {
+  hs::CycleCounter child("prof_cycle_child");
+  hs::CycleCounter descendant("prof_cycle_descendant");
+  {
+    hs::CycleCounter parent("prof_cycle_parent");
+    hs::CycleScope sp(parent);
+    hs::CycleScope sc(child);
+    hs::CycleScope sd(descendant);
+  }
+  {
+    hs::CycleScope sd(descendant);
+    hs::CycleScope sc(child);
+  }
+  HS_EXPECT_TRUE(child.parent == nullptr);
+  HS_EXPECT_EQ(descendant.parent, &child);
+  child.cycles = 100;
+  descendant.cycles = 50;
+  char report[4096];
+  HS_EXPECT_TRUE(capture_log_all(report, sizeof(report)));
+  HS_EXPECT_TRUE(std::strstr(report, "prof_cycle_child") != nullptr);
+  HS_EXPECT_TRUE(std::strstr(report, "prof_cycle_descendant") != nullptr);
+}
+
 inline void test_mutual_nesting_keeps_a_root() {
   static hs::CycleCounter left("prof_mutual_left");
   static hs::CycleCounter right("prof_mutual_right");
@@ -502,6 +525,7 @@ inline int run_profiling_tests() {
   test_recursive_scope_does_not_self_parent();
   test_second_caller_flags_mixed_parent();
   test_mutual_nesting_keeps_a_root();
+  test_parent_retirement_prevents_cycle();
   test_log_all_reports_tree();
   test_reset_does_not_orphan_subtree();
   test_isr_cycle_stats();
