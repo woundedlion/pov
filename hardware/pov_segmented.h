@@ -63,12 +63,6 @@
 #endif
 
 #include "core/render/canvas.h"
-#include "core/math/geometry.h"
-#include "core/engine/memory.h"
-
-#include <atomic>
-#include <cstring>
-#include <type_traits>
 
 #ifdef HS_PROFILE_ENABLE
 namespace hs {
