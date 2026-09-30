@@ -44,9 +44,9 @@ uint32_t global_timeline_dropped = 0;
  * @details Cleared whenever the event table empties (see timeline.h).
  */
 bool global_timeline_drop_logged = false;
-/** @brief Front pixel buffer for the double-buffered effect framebuffer. */
+/** @brief First rotating pixel buffer for the effect framebuffer. */
 DMAMEM Pixel Effect::buffer_a[MAX_W * MAX_H];
-/** @brief Back pixel buffer for the double-buffered effect framebuffer. */
+/** @brief Second rotating pixel buffer for the effect framebuffer. */
 DMAMEM Pixel Effect::buffer_b[MAX_W * MAX_H];
 /** @brief Single-live-Effect guard for the shared buffer_a/buffer_b (see Effect). */
 bool Effect::s_alive = false;
