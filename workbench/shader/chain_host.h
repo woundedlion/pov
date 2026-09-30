@@ -330,8 +330,7 @@ private:
   HS_FLASH_MEMBER Pullback::Interp::FrameContext
   make_frame_context(const ColorizeTap &tap) {
     Pullback::Interp::FrameContext ctx;
-    ctx.projection_base =
-        math::make_rotation(math::Vector(0, 0, -1), math::Vector(0, -1, 0));
+    ctx.projection_base = Pullback::projection_base_orientation();
     using PaletteMode = Pullback::Interp::Op::PaletteMode;
     ctx.palettes = {&generated_palettes.palette(PaletteMode::TRIADIC),
                     &generated_palettes.palette(PaletteMode::COMPLEMENTARY),
