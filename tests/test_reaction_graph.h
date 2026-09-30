@@ -170,6 +170,8 @@ inline void test_neighbor_runs_match_table() {
   static_assert(sizeof(ReactionGraph::NeighborRun) == 2 * (RD_K + 1));
   HS_EXPECT_GT(ReactionGraph::NEIGHBOR_RUN_COUNT, 0u);
   HS_EXPECT_LE(ReactionGraph::NEIGHBOR_RUN_COUNT, static_cast<unsigned>(RD_N));
+  HS_EXPECT_LE(ReactionGraph::NEIGHBOR_RUN_COUNT, 256u);
+  static_assert(sizeof(ReactionGraph::neighbor_run_index) == RD_N);
   int start = 0;
   int first_bad_slot = -1;
   for (unsigned r = 0; r < ReactionGraph::NEIGHBOR_RUN_COUNT; ++r) {
@@ -178,10 +180,12 @@ inline void test_neighbor_runs_match_table() {
     HS_EXPECT_LE(run.end, RD_N);
     if (run.end <= start || run.end > RD_N)
       return;
-    for (int i = start; i < run.end; ++i)
+    for (int i = start; i < run.end; ++i) {
+      HS_EXPECT_EQ(ReactionGraph::neighbor_run_index[i], r);
       for (int k = 0; k < RD_K; ++k)
         if (i + run.delta[k] != neighbors[i][k] && first_bad_slot < 0)
           first_bad_slot = i * RD_K + k;
+    }
     start = run.end;
   }
   HS_EXPECT_EQ(start, RD_N);

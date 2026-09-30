@@ -101,6 +101,10 @@ struct NeighborRun {
 extern HS_PROGMEM_UNIQUE(neighbor_runs) const NeighborRun neighbor_runs[];
 extern HS_PROGMEM_UNIQUE(neighbor_run_count) const unsigned NEIGHBOR_RUN_COUNT;
 
+/** @brief Node-to-run map for random access to ordered neighbor offsets. */
+extern HS_PROGMEM_UNIQUE(neighbor_run_index) const uint8_t
+    neighbor_run_index[RD_N];
+
 /**
  * @brief Traps unless every slot of a neighbor table is a lattice node index.
  * @param table Neighbor rows to check, RD_N rows of RD_K indices.
