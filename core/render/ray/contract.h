@@ -82,11 +82,13 @@ struct Contribution {
   math::Vector normal;
 };
 
+/** @brief Trace completion status and optional verified single-surface result. */
 struct TraceResult {
   TraceStatus status = TraceStatus::RANGE_COMPLETE;
   TraceCounters counters;
   Contribution contribution;
-  bool has_surface = false;
+  bool has_surface =
+      false; /**< A verified single surface, not layered coverage. */
 };
 
 /** @brief Independent world-distance clearance and membership guarantees. */
