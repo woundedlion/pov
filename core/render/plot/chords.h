@@ -201,6 +201,12 @@ private:
   int capacity = 0;
 };
 
+#if HS_ENABLE_TEST_HOOKS
+/** @brief Whether PlanarChords band-splits its pole runs; tests clear it to
+ *  pin the chord walk's exact clip parity. */
+inline bool g_planar_chords_split_pole_runs = true;
+#endif
+
 /** @brief Raster configuration PlanarChords hands pole runs to. */
 inline constexpr RasterConfig PLANAR_CHORD_RASTER_CONFIG{
     .single_pass = true,
@@ -222,7 +228,8 @@ inline constexpr RasterConfig PLANAR_CHORD_RASTER_CONFIG{
  * where the unclipped walk puts it. Anchor intervals within POLE_PIECE_ROWS of
  * a pole, where the rasterizer's pole scaling is what closes the gaps, are
  * handed to Plot::rasterize under PLANAR_CHORD_RASTER_CONFIG with balanced
- * sampling. Chart coordinates and scratch live in arena storage bound once by
+ * sampling, band-split by PlanarBandSplit into POLE_RUN_PIECES pieces, so a
+ * clipped pole run matches the unclipped one to a fraction of a pixel. Chart coordinates and scratch live in arena storage bound once by
  * init_storage().
  */
 template <int W, int H> class PlanarChords {
@@ -237,6 +244,8 @@ public:
   /** @brief Rows from a pole within which an anchor interval of a pole edge
    *  goes to the rasterizer; the rest of the edge keeps the chord walk. */
   static constexpr float POLE_PIECE_ROWS = 11.0f;
+  /** @brief Chart pieces a pole run is split into against the clip band. */
+  static constexpr int POLE_RUN_PIECES = 8;
   /** @brief Chord sample spacing in screen pixels. */
   static constexpr float TARGET_STEP = 1.2f;
   /** @brief Empirical trim holding the chord walk's stroke brightness on the
@@ -251,7 +260,8 @@ public:
     return static_cast<size_t>(max_vertices + 1) *
                (2 * sizeof(float) + sizeof(math::PixelCoords)) +
            (MAX_ANCHOR_INTERVALS + 1) * sizeof(math::PixelCoords) +
-           3 * alignof(math::PixelCoords);
+           3 * alignof(math::PixelCoords) +
+           PlanarBandSplit<W, H>::storage_bytes(POLE_RUN_POINTS);
   }
 
   /** @brief Binds chart and scratch storage for up to @p max_vertices
@@ -264,6 +274,7 @@ public:
     chart_y_storage = arena.allocate_n<float>(max_vertices + 1);
     pixels = arena.allocate_n<math::PixelCoords>(max_vertices + 1);
     anchors = arena.allocate_n<math::PixelCoords>(MAX_ANCHOR_INTERVALS + 1);
+    pole_split.init_storage(arena, POLE_RUN_POINTS);
   }
 
   /** @brief Chart x coordinates of the next polyline, one per vertex. */
@@ -456,14 +467,34 @@ private:
     run.push_back(point);
     point.pos = b;
     run.push_back(point);
+    bool split = band.x_active;
+#if HS_ENABLE_TEST_HOOKS
+    split = split && g_planar_chords_split_pole_runs;
+#endif
+    if (!split) {
+      rasterize<W, H, PLANAR_CHORD_RASTER_CONFIG>(
+          pipeline, canvas, run, fragment_shader,
+          {.projection = RasterProjection::planar(planar_basis),
+           .omit_end = true,
+           .balanced_sampling = true});
+      return;
+    }
+    Fragments pieces;
+    pieces.bind(scratch_arena_a, static_cast<size_t>(POLE_RUN_POINTS));
+    const std::span<const uint8_t> flags =
+        pole_split.split(pieces, run, 1, POLE_RUN_PIECES, planar_basis, band);
     rasterize<W, H, PLANAR_CHORD_RASTER_CONFIG>(
-        pipeline, canvas, run, fragment_shader,
-        {.projection = RasterProjection::planar(planar_basis),
+        pipeline, canvas, pieces, fragment_shader,
+        {.projection = RasterProjection::planar(planar_basis, flags),
          .omit_end = true,
          .balanced_sampling = true});
   }
 
+  static constexpr int POLE_RUN_POINTS =
+      PlanarBandSplit<W, H>::max_points(1, POLE_RUN_PIECES);
+
   ClipBand<W, H> band;
+  PlanarBandSplit<W, H> pole_split;
   float *chart_x_storage = nullptr;
   float *chart_y_storage = nullptr;
   math::PixelCoords *pixels = nullptr;
