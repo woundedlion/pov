@@ -430,6 +430,15 @@ class CheckTool(unittest.TestCase):
         self.assertEqual(status, 1)
         self.assertIn("apt install clang-22", message)
 
+    def test_clang_format_honors_the_binary_override(self):
+        from types import SimpleNamespace
+
+        with unittest.mock.patch.dict(bp.os.environ, CLANG_FORMAT="/custom/clang-format"), \
+                unittest.mock.patch.object(bp.subprocess, "run") as run:
+            run.return_value = SimpleNamespace(stdout="clang-format version " + bp.INLINE_PINS["clang-format"])
+            self.assertEqual(bp.check_tool("clang-format"), 0)
+        self.assertEqual(run.call_args.args[0], ["/custom/clang-format", "--version"])
+
     def test_a_packaging_suffix_is_not_expected_from_the_binary(self):
         # shellcheck-py's version is the release plus a suffix; shellcheck
         # reports the release, so the pin was unsatisfiable by equality.
