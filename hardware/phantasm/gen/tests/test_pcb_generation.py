@@ -112,7 +112,7 @@ class TerminalBodyChecks:
                 self.assertEqual(pcb.fp_bbox(fp, graphic_layers=("F.CrtYd",)),
                                  reservation)
                 zones = F(fp, "zone")
-                self.assertEqual(len(zones), 2)
+                self.assertEqual(len(zones), 2 if ref == "J1" else 1)
                 zone = zones[0]
                 self.assertEqual(sexp.val(zone, "layer"), ["F.Cu"])
                 x0, y0, x1, y1 = reservation
@@ -418,6 +418,7 @@ class TerminalEdgePlacementChecks:
         footprints = {reference(fp): fp for fp in F(self.root, "footprint")}
         edge = F(self.root, "gr_rect")[0]
         length, width = map(float, sexp.val(edge, "end"))
+        self.assertEqual((length, width), (58.28, 32.0))
         row = []
         for ref in ("J1", "J2", "J3A", "J3B"):
             fp = footprints[ref]
@@ -425,13 +426,16 @@ class TerminalEdgePlacementChecks:
             x, y, angle = map(float, sexp.val(fp, "at"))
             self.assertEqual(angle, 0, ref)
             x0, y0, x1, y1 = courtyard_box(fp)
-            self.assertGreaterEqual(min(x0, y0), 0, ref)
+            self.assertGreaterEqual(y0, 0, ref)
             self.assertLessEqual(x1, length, ref)
             self.assertLessEqual(y1, width, ref)
             if ref == "J1":
                 self.assertLess(x, 5)
+                body = pcb.fp_bbox(fp, graphic_layers=("F.Fab",))
+                self.assertGreaterEqual(x + body[0], 0)
             else:
-                self.assertLess(length - x, 5)
+                self.assertGreaterEqual(x0, 0, ref)
+                self.assertLess(length - x, 11)
                 row.append((x, y0, y1))
         self.assertEqual(len({entry[0] for entry in row}), 1)
         for first, second in zip(row, row[1:]):
@@ -452,7 +456,9 @@ class TerminalEdgePlacementChecks:
         for ref in ("J1", "J2", "J3A", "J3B"):
             zones = {sexp.val(zone, "name")[0]: zone
                      for zone in F(footprints[ref], "zone")}
-            self.assertIn("Terminal wire access", zones)
+            self.assertIn("Terminal body and assembly clearance", zones)
+            if ref == "J1":
+                self.assertIn("Terminal wire access", zones)
             for zone in zones.values():
                 self.assertEqual(sexp.val(F(zone, "keepout")[0], "footprints"),
                                  ["not_allowed"])

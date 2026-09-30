@@ -43,7 +43,7 @@ PCB_W = 32.0  # board width (mm), trimmed to part extent
 if PCB_W > PCB_W_MAX:
     raise ValueError(f"PCB_W {fmt(PCB_W)} mm exceeds the R-MECH-6 cap of "
                      f"{fmt(PCB_W_MAX)} mm")
-QUILTER_LENGTH = 70.28
+QUILTER_LENGTH = 58.28
 QUILTER_MOUNTING_LENGTH = 58.28
 TEENSY_LIBRARY_REASON = (
     "The committed, routed phantasm.kicad_pcb resolves its Teensy pads\n"
@@ -598,10 +598,10 @@ QUILTER_FIXED_FOOTPRINTS = {
 }
 
 TERMINAL_EDGE_PLACEMENTS = {
-    "J1": (4.0, 18.9, 0),
-    "J2": (66.28, 3.96, 0),
-    "J3A": (66.28, 13.46, 0),
-    "J3B": (66.28, 22.96, 0),
+    "J1": (3.25, 18.9, 0),
+    "J2": (48.0, 3.96, 0),
+    "J3A": (48.0, 13.46, 0),
+    "J3B": (48.0, 22.96, 0),
 }
 
 
@@ -611,6 +611,10 @@ def fixed_placements(comps):
                                   comps[ref][1] == QUILTER_FIXED_FOOTPRINTS[ref])}
     fixed.update({ref: placement for ref, placement in TERMINAL_EDGE_PLACEMENTS.items()
                   if ref in comps and comps[ref][1] == TERMINAL_LIBIDS[0 if ref == "J1" else 1]})
+    if all(fixed.get(ref) == placement for ref, placement in TERMINAL_EDGE_PLACEMENTS.items()):
+        if "U_MCU" in fixed:
+            fixed["U_MCU"] = (25.5, 11.7, 0)
+        fixed.pop("D_BUS", None)
     return fixed
 
 
