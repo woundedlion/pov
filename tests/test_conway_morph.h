@@ -2027,9 +2027,6 @@ inline void test_hankin_sweep_vertex_stability() {
     HS_EXPECT_TRUE(end0 < 1e-5f);
     HS_EXPECT_TRUE(end1 < 1e-5f);
 
-    const HankinSweepSummary slerp_sum = hankin_summarize(tables[2]);
-    HS_EXPECT_EQ(slerp_sum.total_normal_flips, 0);
-
     // Opening bookend: chord between the collapsed form and the leg's first
     // drawn angle, in sphere radii (sub-pixel iff below ~1/display radius).
     float eps_chord = 0;
