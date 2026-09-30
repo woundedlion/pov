@@ -198,9 +198,18 @@ struct ShaderWorkbenchWhiteBox {
     return sb.parameter_warning(name);
   }
   static void request_config(SB &sb, const RequestedConfig &config) {
-    sb.requested_config = config;
-    sb.requested_schema_bound = false;
-    sb.apply_requested_config();
+    const auto RUNTIME = sb.runtime;
+    if (sb.state->transition.active)
+      sb.runtime =
+          sb.state->transition.elapsed * 2 < sb.state->transition.duration
+              ? sb.state->transition.from_runtime
+              : sb.state->transition.to_runtime;
+    auto snapshot = sb.capture_full_config_snapshot();
+    sb.runtime = RUNTIME;
+    snapshot.accepted = SB::encode_config_values(config);
+    snapshot.requested = snapshot.accepted;
+    snapshot.pending.fill(0);
+    (void)sb.restore_full_config_snapshot(snapshot);
   }
   static constexpr size_t PARAM_CAPACITY = SB::PARAM_CAPACITY;
   /// Parameters @p config registers, independent of whether it is admissible.

@@ -632,8 +632,7 @@ private:
                             domain_scale);
 #if HS_ENABLE_PARAM_GUI_BRIDGE
     const bool post_registration_clamp = clamp_registered_parameter_ranges();
-    if (requested_schema_bound &&
-        (registered_range_clamped || post_registration_clamp))
+    if (registered_range_clamped || post_registration_clamp)
       refresh_accepted_config();
     for (size_t index = 0; index < pending_edit_count; ++index) {
       PendingEdit &edit = pending_edits[index];
@@ -652,7 +651,6 @@ private:
       if (pending_edits[index].name != nullptr)
         show_requested_parameter_value(pending_edits[index].name);
 #endif
-    requested_schema_bound = true;
   }
 
 #if HS_ENABLE_PARAM_GUI_BRIDGE
@@ -2182,18 +2180,10 @@ private:
 
   __attribute__((noinline)) HS_COLD_MEMBER void apply_requested_config() {
 #if HS_ENABLE_PARAM_GUI_BRIDGE
-    if (!requested_schema_bound) {
-      if (!valid_config(requested_config)) {
-        reject_requested_config();
-        return;
-      }
-      accepted_config = requested_config;
-    } else {
-      const size_t before_count = pending_edit_count;
-      refresh_accepted_config();
-      if (before_count != pending_edit_count)
-        rebind_parameters();
-    }
+    const size_t before_count = pending_edit_count;
+    refresh_accepted_config();
+    if (before_count != pending_edit_count)
+      rebind_parameters();
     const Workbench::Config &next_config = accepted_config;
 #else
     const Workbench::Config &next_config = requested_config;
@@ -2230,8 +2220,6 @@ private:
 #if HS_ENABLE_PARAM_GUI_BRIDGE
     accepted_config = next_config;
 #endif
-    if (!requested_schema_bound)
-      rebind_parameters();
   }
 
   HS_COLD_MEMBER void reject_requested_config() {
@@ -2785,7 +2773,6 @@ private:
 #if HS_ENABLE_PARAM_GUI_BRIDGE
   Workbench::Config accepted_config = Workbench::PRESETS[0].config;
 #endif
-  bool requested_schema_bound = false;
   bool registered_range_clamped = false;
   bool next_blend_armed = false;
   Workbench::Blend blend{
