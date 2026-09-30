@@ -25,6 +25,11 @@
 
 class Effect; // forward decl — defined in canvas.h
 
+/** @brief Storage for a concrete effect type identity. */
+template <typename T> struct EffectTypeTag {
+  static constexpr char id = 0;
+};
+
 /**
  * @brief RTTI-free identity token for one concrete effect type.
  * @tparam T Effect type at a fixed resolution, e.g. Shader<288, 144>.
@@ -33,10 +38,6 @@ class Effect; // forward decl — defined in canvas.h
  *          factory built before downcasting to it, without RTTI and without
  *          trusting a name string.
  */
-template <typename T> struct EffectTypeTag {
-  static constexpr char id = 0;
-};
-
 template <typename T> constexpr const void *effect_type_key() {
   return &EffectTypeTag<T>::id;
 }
