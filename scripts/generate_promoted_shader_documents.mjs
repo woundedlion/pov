@@ -139,7 +139,9 @@ const parameterSpec = (id, value, source) => {
   else if (id === 'mapping-phase') domain = { minimum: -1, maximum: 1 };
   else if (id === 'hue-shift-amount') domain = { minimum: -4, maximum: 4 };
   else if (id.startsWith('mobius-')) domain = { minimum: -4, maximum: 4 };
-  if (id.includes('speed')) unit = 'turn-per-frame';
+  if (['sample.speed', 'sample.angle-speed', 'project.projection-spin-speed',
+       'camera.spin-speed'].includes(id)) unit = 'radian-per-frame';
+  else if (id.includes('speed')) unit = 'turn-per-frame';
   else if (angle || id.endsWith('rotation-rate')) unit = 'radian';
   return {
     id, classification: 'preset',
