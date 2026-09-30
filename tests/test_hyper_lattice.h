@@ -83,7 +83,7 @@ inline TraceHit trace(const math::Vector &normal,
   });
   return result;
 }
-template <bool SLICE = false>
+template <bool SLICE = false, uint8_t SHELLS = 0>
 Color4 shade_mode(const Pullback::SphereSample &input, const FrameState &frame,
                   const PreparedTrace &prepared) {
   return HyperLatticeDetail::Renderer<SLICE, SHELLS>::shade(
