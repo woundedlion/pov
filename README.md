@@ -192,7 +192,8 @@ The rule is deliberate about *where* it goes: `HS_CHECK` guards seams where a vi
 
    Pixel canvas → sphere:
       x ∈ [0, W)  →  θ ∈ [0, 2π)    column wraps around the equator (x=0 at +X)
-      y ∈ [0, H)  →  φ ∈ [0, π]     row descends from north pole (y=0) to south pole
+      y ∈ [0, H)  →  φ ∈ [north, south]     row 0 is the northernmost LED row
+                    ideal profile [0, π]; firmware [3.6°, 176.4°]
 ```
 
 ---
