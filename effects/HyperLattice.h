@@ -188,6 +188,19 @@ enum class Geometry : uint8_t {
   SHELLS
 };
 
+static_assert(static_cast<uint8_t>(Pattern::OCTET) - 1 ==
+              static_cast<uint8_t>(Geometry::OCTET));
+static_assert(static_cast<uint8_t>(Pattern::DIAMOND) - 1 ==
+              static_cast<uint8_t>(Geometry::DIAMOND));
+static_assert(static_cast<uint8_t>(Pattern::HEXAGONAL) - 1 ==
+              static_cast<uint8_t>(Geometry::HEXAGONAL));
+static_assert(static_cast<uint8_t>(Pattern::RHOMBIC) - 1 ==
+              static_cast<uint8_t>(Geometry::RHOMBIC));
+static_assert(static_cast<uint8_t>(Pattern::AFFINE_CUBIC) - 1 ==
+              static_cast<uint8_t>(Geometry::AFFINE_CUBIC));
+static_assert(static_cast<uint8_t>(Pattern::SHELLS) - 1 ==
+              static_cast<uint8_t>(Geometry::SHELLS));
+
 /** @brief Frame settings; camera distances and near fading use world units. */
 struct Settings {
   Raycast::SamplingDomain domain = Raycast::SamplingDomain::SPATIAL_3D;
