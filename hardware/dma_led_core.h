@@ -6,13 +6,9 @@
 
 /**
  * @file dma_led_core.h
- * @brief Pure double-buffer / transfer-length / transfer-duration /
- *        stale-transfer math for the DMA LED controller. No Teensy
- *        peripherals — split out of dma_led.h so the framing and watchdog
- *        decisions are host-unit-testable without a Teensy (see
- *        tests/test_dma_core.h). The Arduino-only TeensySPIDMA /
- *        DMALEDController in dma_led.h derive their behavior from these
- *        functions, so the host tests cover the real arithmetic.
+ * @brief Host-tested double-buffer, transfer-length, transfer-duration and
+ *        stale-transfer math for DMALEDController in dma_led_controller.h.
+ * @details TeensySPIDMA in dma_led.h supplies the Arduino-only transport.
  */
 
 #include <cstddef>
