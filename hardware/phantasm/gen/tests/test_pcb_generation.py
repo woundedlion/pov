@@ -64,7 +64,7 @@ def generate(out, unplaced=False):
             mock.patch.object(pcb, "SCH", schematic), \
             contextlib.redirect_stdout(io.StringIO()):
         pcb.main(unplaced=unplaced, force=True, force_teensy_library=True)
-    return os.path.join(out, pcb.UNPLACED_FILE if unplaced else pcb.PCB_FILE)
+    return os.path.join(out, pcb.UNPLACED_FILE if unplaced else pcb.DRAFT_FILE)
 
 
 def read(path):
@@ -199,7 +199,7 @@ class OverwriteProtectionTests(unittest.TestCase):
     def test_existing_board_is_preserved_without_kicad(self):
         for unplaced in (False, True):
             with self.subTest(unplaced=unplaced), tempfile.TemporaryDirectory() as directory:
-                target = Path(directory) / (pcb.UNPLACED_FILE if unplaced else pcb.PCB_FILE)
+                target = Path(directory) / (pcb.UNPLACED_FILE if unplaced else pcb.DRAFT_FILE)
                 target.parent.mkdir(parents=True, exist_ok=True)
                 target.write_bytes(b"existing routed board\n")
                 with mock.patch.object(pcb, "OUT", directory), \
@@ -212,6 +212,20 @@ class OverwriteProtectionTests(unittest.TestCase):
 @unittest.skipUnless(GENERATES, GENERATES_REASON)
 class GeneratedBoardTests(TerminalBodyChecks, unittest.TestCase):
     """The placed draft `pcb.py --force` emits, read back without KiCad."""
+
+    def test_placed_draft_preserves_the_quilter_board_and_rules(self):
+        with tempfile.TemporaryDirectory() as directory:
+            upload = Path(generate(directory, unplaced=True))
+            project = upload.with_suffix(".kicad_pro")
+            original = {path: path.read_bytes() for path in (upload, project)}
+            draft = Path(generate(directory))
+            self.assertNotEqual(draft, upload)
+            self.assertEqual(draft.name, "phantasm-draft.kicad_pcb")
+            for path, data in original.items():
+                self.assertEqual(path.read_bytes(), data)
+            self.assertEqual(json.loads(project.read_text())["text_variables"]["PHANTASM_LAYOUT"], "unplaced")
+            draft_project = json.loads(draft.with_suffix(".kicad_pro").read_text())
+            self.assertEqual(draft_project["text_variables"]["PHANTASM_LAYOUT"], "placed")
 
     def test_drc_rejects_a_component_under_the_terminal_body(self):
         root = read(self.path)
@@ -237,7 +251,7 @@ class GeneratedBoardTests(TerminalBodyChecks, unittest.TestCase):
 
     def test_generated_pair_passes_schematic_parity(self):
         with tempfile.TemporaryDirectory() as directory:
-            board_path = generate(directory)
+            board_path = generate(directory, unplaced=True)
             warnings = {("lib_footprint_mismatch", ref): 1 for ref in ("D_BUS",)}
             with mock.patch.object(fab, "PCB", board_path), \
                     mock.patch.object(fab, "SCH", str(Path(directory) / "phantasm.kicad_sch")), \
@@ -270,7 +284,7 @@ class GeneratedBoardTests(TerminalBodyChecks, unittest.TestCase):
         cls.length = float(cls.metadata.width_mm)
 
     def test_writes_the_board_and_the_teensy_library(self):
-        for name in (pcb.PCB_FILE, "fp-lib-table",
+        for name in (pcb.DRAFT_FILE, "fp-lib-table",
                      os.path.join("phantasm.pretty", "Teensy4.0.kicad_mod")):
             with self.subTest(artifact=name):
                 self.assertTrue(

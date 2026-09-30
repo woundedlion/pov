@@ -1,4 +1,4 @@
-"""Generate phantasm.kicad_pcb from the schematic + its netlist.
+"""Generate a placed draft or Quilter board from the schematic + its netlist.
 
 Embeds each component's footprint (from KiCad stock libs, or a generated Teensy
 footprint), assigns pad nets by name from the exported netlist, skyline-packs them
@@ -30,6 +30,7 @@ TERMINAL_LIBIDS = tuple(
     f"phantasm:TerminalBlock_GCT_TBC05-0{pins}-1-G-G" for pins in (2, 3))
 SCH = os.path.join(OUT, "phantasm.kicad_sch")
 PCB_FILE = "phantasm.kicad_pcb"
+DRAFT_FILE = "phantasm-draft.kicad_pcb"
 UNPLACED_FILE = PCB_FILE
 #: The revision stamp on the bottom silkscreen. builder.REVISION owns it.
 SILK_REVISION = f"Phantasm Rev {builder.REVISION}"
@@ -44,7 +45,6 @@ if PCB_W > PCB_W_MAX:
     raise ValueError(f"PCB_W {fmt(PCB_W)} mm exceeds the R-MECH-6 cap of "
                      f"{fmt(PCB_W_MAX)} mm")
 QUILTER_LENGTH = 58.28
-QUILTER_MOUNTING_LENGTH = 58.28
 TEENSY_LIBRARY_REASON = (
     "This revision's committed phantasm.kicad_pcb resolves its Teensy pads\n"
     "  against this library file.")
@@ -554,8 +554,8 @@ def _rotatable(ref):
 
 
 # R-CON-4: power/debug at the hub, LED/sync at the far end; wire entries face the hub.
-HUB_CONNS = ("J1", "J4")            # logic power in, debug — hub end (left)
-FAR_CONNS = ("J2", "J3A", "J3B")    # strip signal, sync daisy in/out — far end (right)
+HUB_CONNS = ("J1", "J4")            # logic power in, debug â€” hub end (left)
+FAR_CONNS = ("J2", "J3A", "J3B")    # strip signal, sync daisy in/out â€” far end (right)
 
 QUILTER_FIXED = {
     # J1's body runs along the length; it sits in the hub pocket between the USB
@@ -724,7 +724,7 @@ def pack(bxs, width, edge=1.0, gap=1.2):
             x, yb = bp
             if choice is None or x < choice[0] - 1e-9:
                 choice = (x, yb, rot, rb, wg, hg)
-        if choice is None:        # too tall even rotated — force rot 0 at the end
+        if choice is None:        # too tall even rotated â€” force rot 0 at the end
             rb = _rot_bb(bb, 0)
             wg, hg = rb[2] - rb[0] + gap, rb[3] - rb[1] + gap
             x = max(s[2] for s in sky); yb = 0.0
@@ -772,7 +772,7 @@ def main(unplaced=False, force=False, force_teensy_library=False):
     if unplaced:
         require_writable(os.path.join(OUT, UNPLACED_FILE), force, UNPLACED_REASON)
     else:
-        require_writable(os.path.join(OUT, PCB_FILE), force)
+        require_writable(os.path.join(OUT, DRAFT_FILE), force)
     nlroot = export_netlist(kicad_cli(), SCH)
     revision = check.netlist_revision(nlroot)
     if revision != builder.REVISION:
@@ -810,7 +810,7 @@ def main(unplaced=False, force=False, force_teensy_library=False):
     else:
         PLACE, L = pack(bxs, PCB_W)
         bounded = list(bxs)
-        OUTFILE = PCB_FILE
+        OUTFILE = DRAFT_FILE
         NOTE = (f'PHANTASM segment board  -  {fmt(L)}x{fmt(PCB_W)}mm '
                 f'(width <={fmt(PCB_W_MAX)}mm, R-MECH-6); '
                 'skyline-packed draft, route in Pcbnew')
@@ -820,13 +820,12 @@ def main(unplaced=False, force=False, force_teensy_library=False):
         sys.exit(f"ERROR placements outside the {fmt(L)}x{fmt(PCB_W)}mm outline: "
                  + ", ".join(outside))
 
-    mounting_length = QUILTER_MOUNTING_LENGTH if unplaced else L
-    clashes = keepout_clashes(PLACE, crt_bxs, mounting_length)
+    clashes = keepout_clashes(PLACE, crt_bxs, L)
     if clashes:
         sys.exit("ERROR footprints inside a mounting-hole reservation: "
                  + ", ".join(clashes))
 
-    HOLES = mounting_holes(mounting_length)
+    HOLES = mounting_holes(L)
     teensy_model_path = "${KIPRJMOD}/phantasm.pretty/Teensy4.0.wrl"
     foot_nodes = []
     consumed = set()
@@ -880,7 +879,7 @@ def main(unplaced=False, force=False, force_teensy_library=False):
     # nets
     for nm, i in sorted(netid.items(), key=lambda kv: kv[1]):
         lines.append(f'\t(net {i} {sexp.quote(nm)})')
-    # board outline (Edge.Cuts) — <=35 mm wide strip, length minimised by packer
+    # board outline (Edge.Cuts)
     lines.append(f'\t(gr_rect (start 0 0) (end {fmt(L)} {fmt(PCB_W)}) '
                  '(stroke (width 0.15) (type solid)) (fill none) (layer "Edge.Cuts") '
                  f'(uuid "{uid()}"))')
@@ -903,7 +902,7 @@ def main(unplaced=False, force=False, force_teensy_library=False):
                      f'(xy 0 0) (xy {fmt(L)} 0) '
                      f'(xy {fmt(L)} {fmt(PCB_W)}) (xy 0 {fmt(PCB_W)})))')
         lines.append('\t)')
-    for ref, (kx0, ky0, kx1, ky1) in keepout_rects(mounting_length).items():
+    for ref, (kx0, ky0, kx1, ky1) in keepout_rects(L).items():
         lines.append('\t(zone')
         lines.append('\t\t(net 0)')
         lines.append('\t\t(net_name "")')
@@ -1044,7 +1043,7 @@ def parse_args(argv=None):
                         help="write the revisioned unplaced project for "
                              "the autoplacer instead")
     parser.add_argument("--force", action="store_true",
-                        help=f"overwrite the committed {PCB_FILE} / "
+                        help=f"overwrite {DRAFT_FILE} / "
                              f"{UNPLACED_FILE}")
     parser.add_argument("--force-teensy-library", action="store_true",
                         help="overwrite phantasm.pretty/Teensy4.0.kicad_mod "
