@@ -7,8 +7,8 @@
  * Coverage:
  *   - Named ProceduralPalette endpoints: pinned 16-bit linear colors at t=0/1,
  *     including the cos(0)=1 channels derivable from the cosine coefficients.
- *   - Shortest-arc hue direction across the +/-PI seam, driven by a named
- *     palette whose endpoint hues straddle it.
+ *   - lerp_oklch shortest-arc hue direction across the +/-PI seam, using
+ *     named-palette endpoint colors as inputs.
  *   - MeshPaletteBank: slot 0 reproduces its embers source, every slot bakes a
  *     distinct LUT, and shuffle_indices is a permutation of [0, N).
  */
@@ -111,7 +111,7 @@ inline void test_named_procedural_palette_endpoints() {
  *          long way (through 0). lerp_oklch must drive the midpoint across the
  *          seam (a hue on the negative/|h|>PI/2 side), NOT through ~+0.25 where
  *          a naive average of the two angles would land. This is the hue-arc
- *          contract the named generative palettes rely on.
+ *          contract of lerp_oklch; named palettes themselves use cosine colors.
  */
 inline void test_named_palette_hue_short_arc() {
   OKLCH a = pixel_to_oklch(Palettes::UNDERSEA.get(0.0f).color);
