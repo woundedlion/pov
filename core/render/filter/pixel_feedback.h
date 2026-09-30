@@ -670,8 +670,6 @@ private:
     constexpr float INVERSE_WARP_SCALE = 1.0f / WARP_SCALE;
     const float inverse_downsample = 1.0f / grid.downsample;
     const bool black_skips_color = ctx.black_skips_color;
-    // Round-to-nearest fade leaves channels under ~50 undecayed at fade 0.99.
-    constexpr float NEAR_BLACK = 64.0f;
     const auto blend = blend_alpha(ctx.alpha);
     const bool opaque = ctx.alpha >= 1.0f;
     const ::Pixel *previous = ctx.previous;
@@ -892,7 +890,6 @@ private:
         SphereField::Geometry::row_to_phi(static_cast<float>(y));
     const float cap_angle = north ? colatitude : math::PI_F - colatitude;
     const bool black_skips_color = ctx.black_skips_color;
-    constexpr float NEAR_BLACK = 64.0f;
     constexpr float INVERSE_CAP = 1.0f / CAP_SCALE;
     const auto blend = blend_alpha(ctx.alpha);
     const bool plain_store = ctx.alpha >= 1.0f || defer_filter;
@@ -964,6 +961,8 @@ private:
   }
   HS_O3_END
 
+  // Round-to-nearest fade leaves channels under ~50 undecayed at fade 0.99.
+  static constexpr float NEAR_BLACK = 64.0f;
   static constexpr float WARP_SCALE = 128.0f;
   /** @brief Column offsets in WARP_SCALE units, one full turn apart. */
   static constexpr float WRAP_PERIOD = static_cast<float>(W) * WARP_SCALE;
