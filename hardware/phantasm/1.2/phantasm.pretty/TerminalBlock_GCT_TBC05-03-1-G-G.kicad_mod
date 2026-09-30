@@ -1,5 +1,5 @@
 (footprint "TerminalBlock_GCT_TBC05-03-1-G-G"
- (version 20241229)
+ (version 20240108)
  (generator "phantasm-gen")
  (layer "F.Cu")
  (descr "GCT TBC05-03-1-G-G, 2.54 mm pitch, 6.5 mm body depth, 8.5 mm height; wire entry -X; GCT drawing TBC05, https://www.farnell.com/cad/4513152.pdf")

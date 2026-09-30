@@ -24,7 +24,7 @@ GENERATOR_VERSION = f"{KICAD_MAJOR}.0"
 
 # (version) epochs, one per file format. KiCad revises each format on its own
 # schedule, so these differ from each other and cannot be derived from
-# KICAD_MAJOR; each is the epoch KICAD_MAJOR reads and writes for that format.
+# KICAD_MAJOR. The footprint library retains its older compatible epoch.
 SCHEMATIC_FORMAT = "20250114"
 SYMBOL_LIB_FORMAT = "20251024"
 PCB_FORMAT = "20260206"
