@@ -50,8 +50,9 @@ it.
 
 ## Gates
 
-Every gate below runs in `.github/workflows/ci.yml` behind one aggregate
-`CI green` check. `.githooks/pre-commit` is a fast prefilter over the staged
+The engine CI gates run in `.github/workflows/ci.yml` behind the aggregate
+`CI green` check. Local hooks and the sibling simulator checks below have
+separate entry points. `.githooks/pre-commit` is a fast prefilter over the staged
 tree — format, lint, documentation, build pins and license headers; the
 protected branch's `CI green` status is the authoritative correctness gate.
 
@@ -89,17 +90,18 @@ protected branch's `CI green` status is the authoritative correctness gate.
   `gamut-lut-provenance`, `srgb-decode-provenance` and `patterns-provenance`
   regenerate their artifacts and compare them with committed bytes. Change the
   generator or authored input and regenerate; hand-editing its output fails.
-- **Firmware:** `teensy-gate-tests` tests the gate tooling, `teensy-size` enforces
-  firmware memory budgets, and `teensy-warnings` checks every PlatformIO
-  environment with the pinned toolchain. The local entry points are
-  `just python-test`, `just teensy-size` and `just teensy-warnings`.
+- **Firmware:** `teensy-size` enforces firmware memory and layout budgets, and
+  `teensy-warnings` checks every PlatformIO environment with the pinned toolchain.
+  The local entry points are `just teensy-size` and `just teensy-warnings`.
 - **Published artifacts:** `wasm` builds and verifies the engine bundle;
   `screenshot-gallery` checks capture membership and images. `docs-doxygen`
   builds the API reference with warnings treated as errors. These complement
   the Markdown and image-reference checks below.
-- **Host-Python tool suites:** `just python-test` and CI run
-  `python tools/run_python_tests.py`. It discovers every tracked suite, rejects
-  empty suites, and propagates failures. Install `requirements/numpy.txt` first;
+- **Host-Python tool suites:** `just python-test` and the CI `teensy-gate-tests`
+  job run `python tools/run_python_tests.py` across all tracked Python suites,
+  including firmware gates, profiling tools, build checks and PCB generators.
+  It rejects empty suites and propagates failures. The CI job also checks
+  routed PCB metadata with `hardware/phantasm/gen/board_metadata.py --check`. Install `requirements/numpy.txt` first;
   no ARM toolchain or KiCad is required.
 - **Lint:** `just lint` checks `just --fmt --check`, working-tree whitespace,
   declared line endings, Python selection and ruff, JavaScript selection and
