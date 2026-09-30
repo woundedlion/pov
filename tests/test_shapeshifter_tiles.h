@@ -91,6 +91,16 @@ inline void test_segment_tiles_reconstruct_full_frame() {
   state.phase = 0.125f;
   state.orientation = math::make_rotation(math::X_AXIS, math::Y_AXIS);
   expect_mosaic_matches(state, candidate_renderer(), QUADRANTS);
+
+  // The shipping dense star: screen-balanced spacing packs contours at both
+  // poles, where edges split between the chord walk and the rasterizer.
+  state.count = 208;
+  state.spacing = OracleEffect::RadiusSpacing::SCREEN_BALANCED;
+  state.phase = 0.249f;
+  expect_mosaic_matches(state, candidate_renderer(), QUADRANTS);
+  state.orientation =
+      math::Quaternion(0.72f, -0.41f, 0.18f, 0.53f).normalized();
+  expect_mosaic_matches(state, candidate_renderer(), QUADRANTS);
 }
 
 /**
