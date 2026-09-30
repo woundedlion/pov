@@ -2032,8 +2032,7 @@ inline void test_feedback_flush_blends_prev_frame() {
   // no spill that far).
   const Pixel &band = fx.get_pixel(W / 2, 8);
   HS_EXPECT_FALSE(is_black(band));
-  HS_EXPECT_GT((int)band.r, 30000);
-  HS_EXPECT_LT((int)band.r, 40000);
+  HS_EXPECT_NEAR(band.r, 36000, 400);
   HS_EXPECT_TRUE(is_black(fx.get_pixel(W / 2, 0)));
 
   // Disabled feedback short-circuits flush: a fresh frame stays black.
