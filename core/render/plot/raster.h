@@ -443,8 +443,7 @@ static void rasterize(PipelineT &source_pipeline, Canvas &canvas,
     HS_CHECK(std::isfinite(point.pos.x) && std::isfinite(point.pos.y) &&
                  std::isfinite(point.pos.z),
              "rasterize control points must be finite");
-  // Trap a null shader once per polyline so the per-pixel fragment_shader()
-  // calls below can't invoke a null thunk.
+  // Trap an empty shader once per polyline, even when every edge culls.
   if constexpr (std::same_as<std::decay_t<FragmentShaderT>, FragmentShaderFn>)
     HS_CHECK(fragment_shader, "rasterize requires a non-null fragment_shader");
   HS_CHECK(point_rows == nullptr || opts.point_projections.size() == len,
