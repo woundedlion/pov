@@ -30,6 +30,8 @@
 #include <SPI.h>
 #include <new> // std::nothrow — fail-fast OOM check at the allocation sites
 
+#include "core/math/geometry.h"
+#include "core/engine/memory.h"
 #include "pov_segmented.h"
 #include "targets/effects.h"
 
