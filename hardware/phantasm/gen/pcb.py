@@ -954,6 +954,11 @@ def main(unplaced=False, force=False, force_teensy_library=False):
         if not all(fixed.get(ref) == QUILTER_FIXED[ref] for ref in FAR_CONNS):
             front_silk = [item for item in front_silk
                           if item[0] in ("ID0", "ID1", "ID2", "SHLD")]
+        for ref, pin_marks in (("J2", "DGC"), ("J3A", "SGH"), ("J3B", "SGH")):
+            if fixed.get(ref) == TERMINAL_EDGE_PLACEMENTS[ref]:
+                x, y, _ = fixed[ref]
+                front_silk.extend((mark, x + 4.5, y + pin * 2.54, 0)
+                                  for pin, mark in enumerate(pin_marks))
         for text, x, y, angle in front_silk:
             lines.append(f'\t(gr_text {sexp.quote(text)} (at {fmt(x)} {fmt(y)} {angle})'
                          f' (layer "F.SilkS") (uuid "{uid()}") '
