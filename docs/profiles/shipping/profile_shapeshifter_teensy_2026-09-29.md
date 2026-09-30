@@ -1,29 +1,29 @@
 # ShapeShifter on-device profile — Teensy 4.0, segmented mode (2026-09-29, **selective -O3**)
 
 Point-in-time snapshot (regenerate with `just profile ShapeShifter`).
-Raw capture: `build/prof/shapeshifter_ship.log`, captured 2026-09-29 19:01 on COM3.
-Replaces the 2026-09-29 16:05 capture of `45a733fe6`.
+Raw capture: `build/prof/shapeshifter_ship.log`, captured 2026-09-29 21:00 on COM3.
+Replaces the 2026-09-29 19:01 capture of `b00994c53`.
 
 ## Setup
 
 | | |
 |---|---|
 | Hardware | Teensy 4.0 @ 600 MHz, POV segmented mode, flywheel + DMA ISRs live, COM3 |
-| Image | `profile` env: `-Os` base with the landed `HS_O3` regions; dense stars stroke through `Plot::PlanarChords` (`core/render/plot/chords.h`), whose walk is `HS_HOT_FLASH_MEMBER` (flash, not `cold`) |
+| Image | `profile` env: `-Os` base with the landed `HS_O3` regions; dense stars stroke through `Plot::PlanarChords` (`core/render/plot/chords.h`), whose walk is `HS_HOT_FLASH_MEMBER` (flash, not `cold`); Flowers split petal edges against the clip band through `Plot::PlanarBandSplit` |
 | Driver | `POVSegmented<288, 4, 480>`, board = segment 0 master |
-| Effect | ShapeShifter 288×144, single-entry playlist, master `bf84131e3` + the `Plot::PlanarChords` change in this report |
+| Effect | ShapeShifter 288×144, single-entry playlist, master `d58a55049` + the `Plot::PlanarBandSplit` Flower change in this report |
 | Method | `HS_PROFILE` cycle scopes, window = 16 frames, 155 s capture, `-D HS_PROFILE_EPOCH_REVS=1600` |
 | Reproduce | `bash tools/profile_one.sh ShapeShifter profile 155 16 "-D HS_PROFILE_EPOCH_REVS=1600"` |
 
-Image size (`profile` env, this effect only): `FLASH: code:78128, data:153712, headers:8800` / `RAM1: variables:315040, code:42248, padding:23288, free:143712` / `RAM2: variables:520064, free:4224`.
+Image size (`profile` env, this effect only): `FLASH: code:81536, data:153896, headers:8280` / `RAM1: variables:315040, code:42312, padding:23224, free:143712` / `RAM2: variables:520064, free:4224`.
 
-Exactness cross-check: window frames 1921–1936 root counter cyc ÷ 600 MHz matches the measured wall sum within **3.6 ppm** (`tools/parse_profile.py ... validate`, VALID).
+Exactness cross-check: window frames 2273–2288 root counter cyc ÷ 600 MHz matches the measured wall sum within **2.1 ppm** (`tools/parse_profile.py ... validate`, VALID).
 
 ## Frame cadence
 
-**Pass aggregate**: `ss_draw_all` worst window 36.33 ms/f. Peak frame render is **40.45 ms** (frames 2289–2304), and **0/2448** frames spilled. Setup frame 1 rendered 35.08 ms.
+**Pass aggregate**: `ss_draw_all` worst window 33.62 ms/f (frames 2273–2288). Peak frame render is **40.57 ms** (frames 2289–2304), and **0/2448** frames spilled. Setup frame 1 rendered 35.18 ms.
 
-The previous capture of master `45a733fe6` (2026-09-29 16:05) recorded peak 🟢 58.88 (9) and spilled 🟢 0/2447 (0.00%).
+The capture of `b00994c53` (2026-09-29 19:01) recorded peak 🟢 40.45 (9); master `45a733fe6` before this work (16:05) recorded peak 🟢 58.88 (9). Both spilled 0.
 
 A display window is 62.5 ms, so render at or under it holds 16 fps. The `canvas_buffer_wait` scope is the round-up idle to the next display flip, by design.
 
@@ -34,17 +34,17 @@ Phase schedule: 9 preset entries; each owns its hold and the transition that fol
 ### Peak window (frames 2289–2304)
 
 ```
-frame                     62.20 ms   37.32 Mcyc   100%
-  pov_preserve_half       141.3 us    84.8 kcyc     0%
-  ss_draw_all             32.69 ms   19.61 Mcyc    53%
-    ss_plot_dispatch      32.49 ms   19.49 Mcyc    52%  x161  121256 cyc/c
-  ss_timeline_step         31.6 us    19.0 kcyc     0%
-  ss_buffer_wait          29.33 ms   17.60 Mcyc    47%
-    canvas_clear           84.3 us    50.6 kcyc     0%
-    canvas_buffer_wait    29.25 ms   17.55 Mcyc    47%
+frame                     62.19 ms   37.32 Mcyc   100%
+  pov_preserve_half       138.2 us    82.9 kcyc     0%
+  ss_draw_all             32.79 ms   19.67 Mcyc    53%
+    ss_plot_dispatch      32.52 ms   19.51 Mcyc    52%  x161  121396 cyc/c
+  ss_timeline_step         30.2 us    18.2 kcyc     0%
+  ss_buffer_wait          29.23 ms   17.54 Mcyc    47%
+    canvas_clear           84.4 us    50.7 kcyc     0%
+    canvas_buffer_wait    29.15 ms   17.49 Mcyc    47%
 ```
 
-Wall min/avg/max = 48.84/62.20/75.86 ms; render avg/max = 32.95/40.45 ms. Per-frame values are window averages; `xN` is calls per frame.
+Wall min/avg/max = 48.74/62.19/75.90 ms; render avg/max = 33.05/40.57 ms. Per-frame values are window averages; `xN` is calls per frame.
 
 ### Per-preset table
 
@@ -52,21 +52,30 @@ Buckets from the per-frame owner stamps, setup frame 1 excluded; clean-hold `ss_
 
 | Entry | Shape (count) | Peak render ms | Spilled/frames | Clean `ss_draw_all` ms/f | Clean windows |
 |---|---|--:|--:|--:|--:|
-| 1 | Planar Star (208, screen balanced) | 🟢 40.45 | 0/470 | 33.59 | 28/30 |
-| 9 | Flower (72) | 🟢 37.19 | 0/239 | 36.33 | 14/15 |
-| 4 | Flower (70) | 🟢 35.64 | 0/239 | 34.62 | 14/15 |
-| 8 | Spherical Polygon (144) | 🟢 25.37 | 0/239 | 23.99 | 14/14 |
+| 1 | Planar Star (208, screen balanced) | 🟢 40.57 | 0/470 | 33.62 | 28/30 |
+| 8 | Spherical Polygon (144) | 🟢 25.40 | 0/239 | 24.00 | 14/14 |
+| 9 | Flower (72) | 🟢 24.30 | 0/239 | 23.85 | 14/15 |
+| 4 | Flower (70) | 🟢 23.56 | 0/239 | 22.87 | 14/15 |
 | 7 | Spherical Polygon (144) | 🟢 21.87 | 0/239 | 20.23 | 14/15 |
-| 6 | Spherical Polygon (128) | 🟢 18.23 | 0/239 | 17.55 | 14/15 |
-| 2 | Spherical Polygon (74) | 🟢 15.06 | 0/305 | 13.18 | 18/19 |
-| 5 | Planar Star (72) | 🟢 8.35 | 0/239 | 6.36 | 14/15 |
-| 3 | Planar Star (43) | 🟢 6.87 | 0/239 | 5.28 | 14/15 |
+| 6 | Spherical Polygon (128) | 🟢 18.24 | 0/239 | 17.56 | 14/15 |
+| 2 | Spherical Polygon (74) | 🟢 15.06 | 0/305 | 13.19 | 18/19 |
+| 5 | Planar Star (72) | 🟢 8.42 | 0/239 | 6.43 | 14/15 |
+| 3 | Planar Star (43) | 🟢 6.92 | 0/239 | 5.33 | 14/15 |
 
-The three dense planar-star entries moved (1: 58.88 → 40.45, 5: ~11.4 → 8.35, 3: ~9.5 → 6.87); the Flower and Spherical Polygon entries render through the unchanged `Plot::rasterize` path and match the previous report within run-to-run noise. Entry 1 is still the effect's peak, with the two Flower entries 3–4 ms behind it.
+Against master `45a733fe6`, the dense planar-star entries moved (1: 58.88 → 40.57, 5: ~11.4 → 8.42, 3: ~9.5 → 6.92) and the Flower entries moved (9: 37.19 → 24.30, 4: 35.64 → 23.56). The Spherical Polygon entries render through the unchanged `Plot::rasterize` path and match within run-to-run noise. Entry 1 is still the effect's peak; the next entries sit near 25 ms.
 
 ### Pinned worst case
 
 Entry 1 holds for 240 frames per visit, so the cycle samples a narrow band of orientations. Pinned with `-D HS_PROFILE_PRESET=0` over 45 s (688 frames of the random-walk orientation), the same entry peaked at **63.28 ms with 4/688 frames spilled on master `45a733fe6`** and **42.62 ms with 0/688 spilled** with this change. The peak orientation puts the star's center near a pole, where the innermost contours are small rings the rasterizer has to walk at its pole step floor.
+
+### Entry 1 at 288 contours
+
+`-D HS_PROFILE_PRESET=0 -D HS_PROFILE_SHAPESHIFTER_COUNT=288` pins entry 1 at the Count slider's maximum (two contours per row) for 45 s:
+
+| Build | Peak render ms | Mean render ms | Spilled/frames |
+|---|--:|--:|--:|
+| master `45a733fe6`, before this work | 🔴 87.40 | 64.36 | 263/435 (60%) |
+| this report | 🟢 58.82 | 38.96 | 0/696 |
 
 ### Per-pixel figures
 
@@ -89,23 +98,24 @@ All figures are the pinned entry-1 peak (45 s, `HS_PROFILE_PRESET=0`) and the `p
 | Batching a contour's pole runs into one `rasterize` call | — | −0.37 | 0 | no: within noise |
 | Culling whole pole runs against the band before the call | — | +0.07 | 0 | no: the rasterizer's own cull already does it |
 
-Master to this report, full cycle: peak **58.88 → 40.45 ms (−18.43 ms, −31.3%)**; shipping `phantasm` image: FLASH code +3,920 B, ITCM +16 B, DTCM 0, stack headroom unchanged at 12,896 B; `[teensy-gate] phantasm: PASS`. `Plot::PlanarChords` binds its chart and scratch tables (668 B for a 16-point star) in the persistent arena through `init_storage()`, never on the stack.
+Master `45a733fe6` to this report, full cycle: peak **58.88 → 40.57 ms (−18.31 ms, −31.1%)**; shipping `phantasm` image: FLASH code +6,384 B, ITCM −96 B, DTCM 0, stack headroom unchanged at 12,896 B; `[teensy-gate] phantasm: PASS`. `Plot::PlanarChords` and `Plot::PlanarBandSplit` bind their tables (668 B and 50 B) in the persistent arena through `init_storage()`, never on the stack.
 
-### Not landed: clip-dependent edge cuts (owner decision)
+### Flower band split
 
-Two further levers cut an edge at clip-dependent points and rasterize only the runs that can reach the band:
+Flower petal edges go through `Plot::rasterize`, whose clip cull decides per whole edge, so a long petal edge that touches the band anywhere was walked end to end: 63% of the Flower samples splatted nothing into the band. `Plot::PlanarBandSplit` cuts each chart-straight edge into 24/`sides` chart pieces, tests each piece with `ClipBand::may_reach`, and joins the runs; runs that cannot reach the band go to `Plot::rasterize` as edges flagged invisible through `RasterProjection::planar(basis, flags)`, which it skips unsampled. Masked Flower samples fall to 33%.
 
-| Lever | Measured | Image vs master (segment clips) |
-|---|---|---|
-| Pole runs split into 8 chart pieces, band-culled | entry 1 pinned 43.20 → 41.05 ms | PSNR 48–51 dB, energy ratio 1.000 |
-| Flower edges split into 24/`sides` chart pieces, band-culled through per-edge `RasterProjection::planar` flags (a one-line core API addition); masked Flower samples 63% → 33% | Flower entry 9 pinned 38.83 → 26.33 ms | PSNR 49–51 dB, energy +0.2% |
+| Measure | master `d58a55049` | this report |
+|---|--:|--:|
+| Entry 9 pinned 45 s, peak / mean render | 37.88 / 34.55 ms | 24.52 / 23.22 ms |
+| Entry 9 in the cycle, peak render | 37.19 ms | 24.30 ms |
+| Entry 4 in the cycle, peak render | 35.64 ms | 23.56 ms |
 
-Both restart the adaptive walk at a clip-dependent cut, which moves the sample phase inside the visible run, so a clipped render no longer reproduces the unclipped frame pixel for pixel: `unit_shapeshifter_tiles` fails by design. Splitting at fixed points instead keeps that parity but brightens Flowers by 3–7% (every restart adds the rasterizer's start sample and end half-step), so it is not an option. They land only if the tile-parity invariant is relaxed to a budget for these two paths; together they would take the pinned entry-1 worst case to ~41 ms and the Flower entries from ~38 to ~26 ms.
+A visible run starts at a cut that depends on the clip, which moves the walk's sample phase inside it, so a board's Flower strokes match the unclipped render to a fraction of a pixel, not bit for bit: PSNR 50–52 dB, energy within 0.2%, and no stroke dropped outside the pole rows, where a sub-pixel shift moves a dot by whole columns. `test_planar_band_split_matches_whole_polyline` pins the energy (3.5% per quadrant) and coverage; `unit_shapeshifter_tiles` exempts the candidate Flower from exact parity. The same cut applied to entry 1's pole runs (pinned 43.20 → 41.05 ms) is not included.
 
 ## Column-ISR / DMA marshaling cost
 
 ```
-isr_wake         1148/frame  min/avg/max 0.5/1.6/11.1 us  cpu 3.03%
+isr_wake         1147/frame  min/avg/max 0.5/1.6/11.2 us  cpu 3.02%
 isr_pack          143/frame  min/avg/max 6.2/6.9/9.4 us  cpu 1.58%
 isr_dma_submit    143/frame  min/avg/max 0.6/0.9/1.0 us  cpu 0.21%
 ```
@@ -114,13 +124,13 @@ The ISR share is included in every scope above, since CYCCNT free-runs.
 
 ## Summary ranking
 
-1. `ss_draw_all` — 53% of the peak window, 32.69 ms/f.
+1. `ss_draw_all` — 53% of the peak window, 32.79 ms/f.
 2. `pov_preserve_half` — 0% of the peak window, 0.14 ms/f.
 3. `ss_timeline_step` — 0% of the peak window, 0.05 ms/f.
 
 At the pinned entry-1 peak the remaining cost splits roughly into `Plot::rasterize` samples inside pole pieces (~850 cycles each), chord-walk splats (~370 cycles each, ~270 of them the sink's `plot`), and anchor projection. The rasterizer's per-sample cost is shared core code: it pays roughly five divides and three square roots per sample plus `vmrs` syncs from float `std::min/max` in `screen_step_components`.
 
-README cells: peak 🟢 40.45 (9), spilled 🟢 0/2448 (0.00%).
+README cells: peak 🟢 40.57 (9), spilled 🟢 0/2448 (0.00%).
 
 ## Caveats
 
@@ -129,7 +139,7 @@ README cells: peak 🟢 40.45 (9), spilled 🟢 0/2448 (0.00%).
 - Setup frame 1 is excluded from the peak and spill figures and reported separately.
 - Selective-O3: this effect's own `HS_O3` regions are unchanged; the dense-star walk runs from flash (`.text.hot`), not ITCM.
 - Pole thresholds: the physical display drops ~3.6° at each pole, so measuring the pole bands from the true pole rows moves them ~3 rows outward on device. The ideal-profile oracle is bit-identical; a physical-profile build of the oracle stays inside every dense-star budget but sits closer to it (pole-centered 144-contour cases: MAE 183.1/207.8, high-error pixels 206/270; master 156.0 and 168).
-- Tile parity (`unit_shapeshifter_tiles`) is exact for every kept lever and now covers the shipping 208-contour screen-balanced star at a pole-centered and a general orientation.
+- Tile parity (`unit_shapeshifter_tiles`) is exact for every star lever and covers the shipping 208-contour screen-balanced star at a pole-centered and a general orientation; the Flower band split is exempt (see above).
 - Dwell-compression knobs change how long an entry holds, not its per-frame cost.
 
 ## Harness
