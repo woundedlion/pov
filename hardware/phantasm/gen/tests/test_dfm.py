@@ -92,7 +92,7 @@ class NewProjectMarginsTests(unittest.TestCase):
             settings["rules"]["min_silk_clearance"] = 0
             settings["rules"]["min_track_width"] = 0.4
             settings["rule_severities"]["silk_over_copper"] = "ignore"
-            project["text_variables"] = {"CUSTOM": "preserved"}
+            project["text_variables"] = {"CUSTOM": "preserved", "PHANTASM_LAYOUT": "unplaced"}
             path.write_text(json.dumps(project), encoding="utf-8")
             board.write_project(path, "new-root")
             updated = json.loads(path.read_text(encoding="utf-8"))
@@ -100,7 +100,7 @@ class NewProjectMarginsTests(unittest.TestCase):
             self.assertEqual(rules["min_silk_clearance"], 0.15)
             self.assertEqual(rules["min_track_width"], 0.4)
             self.assertEqual(updated["text_variables"],
-                         {"CUSTOM": "preserved", "PHANTASM_LAYOUT": "placed"})
+                         {"CUSTOM": "preserved", "PHANTASM_LAYOUT": "unplaced"})
             self.assertEqual(updated["sheets"], [["new-root", "Root"]])
 
     def test_changed_footprints_do_not_inherit_fixed_placements(self):
