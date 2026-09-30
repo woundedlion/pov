@@ -199,7 +199,7 @@ inline void test_fast_acos() {
 
   for (int i = 0; i <= 32; ++i) {
     float x = -1.0f + (i / 16.0f);
-    HS_EXPECT_NEAR(math::fast_acos(x), std::acos(x), 2e-4f);
+    HS_EXPECT_NEAR(math::fast_acos(x), std::acos(x), 5.1e-5f);
   }
 
   // Peak error (~5.0e-5) near x = 0.0807, between the sweep's samples.
@@ -762,7 +762,7 @@ inline void test_quaternion_conjugate_inverse() {
   HS_EXPECT_QUAT(q * q.inverse(), math::Quaternion(1, 0, 0, 0), 1e-6f);
 
   // inverse() inverts a non-unit quaternion too.
-  math::Quaternion p(2, 0, 0, 0);
+  math::Quaternion p(2, -3, 4, -1);
   HS_EXPECT_QUAT(p * p.inverse(), math::Quaternion(1, 0, 0, 0), 1e-6f);
 }
 
@@ -771,7 +771,7 @@ inline void test_quaternion_conjugate_inverse() {
  *        (non-mutating).
  */
 inline void test_quaternion_normalize() {
-  math::Quaternion p(2, 0, 0, 0);
+  math::Quaternion p(2, -3, 4, -1);
   p.normalize();
   HS_EXPECT_NEAR(p.magnitude(), 1.0f, 1e-6f);
   HS_EXPECT_QUAT(p, math::Quaternion(1, 0, 0, 0), 1e-6f);

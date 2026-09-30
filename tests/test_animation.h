@@ -2195,6 +2195,7 @@ inline void test_dissolve_segue_overlaps_the_full_fade_window() {
  * face_phase saturates outside a class's window.
  */
 inline void test_breakdown_guards_degenerate_class_inputs() {
+  const auto saved_rng = hs::random();
   Segue::Breakdown bd; // default: one class, no reorder() yet
   const math::Vector any(0.0f, 1.0f, 0.0f);
   HS_EXPECT_EQ(bd.num_classes, 1);
@@ -2215,6 +2216,7 @@ inline void test_breakdown_guards_degenerate_class_inputs() {
     HS_EXPECT_NEAR(bd.face_phase(0.0f, o), 0.0f, 1e-6f);
     HS_EXPECT_NEAR(bd.face_phase(1.0f, o), 1.0f, 1e-6f);
   }
+  hs::random() = saved_rng;
 }
 
 /**
@@ -2448,6 +2450,7 @@ inline void test_terminator_sweep_fade_sliders_apply_without_reschedule() {
  * length.
  */
 inline void test_terminator_sweep_per_face_fade_random_in_range() {
+  const auto saved_rng = hs::random();
   hs::random().seed(1337);
   Timeline tl;
   const int dur = 400, window = 64;
@@ -2470,6 +2473,7 @@ inline void test_terminator_sweep_per_face_fade_random_in_range() {
       varied = true;
   }
   HS_EXPECT_TRUE(varied);
+  hs::random() = saved_rng;
 }
 
 /**
@@ -2690,6 +2694,7 @@ inline void test_segue_policies_forward_pause_gate() {
  * before the next class starts.
  */
 inline void test_breakdown_fades_classes_sequentially() {
+  const auto saved_rng = hs::random();
   hs::random().seed(7u);
   Segue::Breakdown bd;
   constexpr int n = 5;
@@ -2745,6 +2750,7 @@ inline void test_breakdown_fades_classes_sequentially() {
       prev_phase = ph;
     }
   }
+  hs::random() = saved_rng;
 }
 
 /**
@@ -3439,6 +3445,7 @@ inline void test_mobiuswarp_circular_bind_scale_reads_live() {
  * never reports done().
  */
 inline void test_mobiuswarp_evolving_bounded_and_perpetual() {
+  const auto saved_rng = hs::random();
   hs::random().seed(1337);
   math::MobiusParams params(2.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 3.0f, 0.0f);
   const float scale = 0.5f;
@@ -3463,6 +3470,7 @@ inline void test_mobiuswarp_evolving_bounded_and_perpetual() {
   // 50 frames at speed 0.05 sweeps even the slowest channel past half amplitude.
   for (int c = 0; c < 8; ++c)
     HS_EXPECT_GT(peak[c], 0.5f * scale);
+  hs::random() = saved_rng;
 }
 
 // ============================================================================
@@ -3668,6 +3676,7 @@ inline void test_random_walk_stable_rotation_tracks_default() {
  * within the requested inclusive [min, max] delay window.
  */
 inline void test_random_timer_fires_within_range() {
+  const auto saved_rng = hs::random();
   hs::random().seed(1337);
   Timeline tl;
   struct {
@@ -3684,6 +3693,7 @@ inline void test_random_timer_fires_within_range() {
   HS_EXPECT_EQ(st.fires, 1);
   HS_EXPECT_GE(st.fire_frame, 3);
   HS_EXPECT_LE(st.fire_frame, 7);
+  hs::random() = saved_rng;
 }
 
 /**
@@ -3828,6 +3838,7 @@ inline void test_periodic_timer_set_period_unchanged_does_not_defer() {
   for (int frame = 1; frame <= 8; ++frame) {
     timer.set_period(4); // live-slider write with no change
     timer.step(fake_canvas());
+    HS_EXPECT_EQ(st.fires, frame / 4);
   }
   HS_EXPECT_EQ(st.fires, 2);
 }

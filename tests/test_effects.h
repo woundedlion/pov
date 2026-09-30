@@ -3897,6 +3897,7 @@ inline void test_hopf_projection_math() {
   WB::set_twist(fx, 2.0f);
   for (size_t i = 0; i < WB::fiber_count(); ++i) {
     const math::Vector p = WB::project(fx, i);
+    HS_EXPECT_VEC(WB::project(fx, i), p, 0.0f);
     HS_EXPECT_TRUE(std::isfinite(p.x) && std::isfinite(p.y) &&
                    std::isfinite(p.z));
     HS_EXPECT_NEAR(p.magnitude(), 1.0f, 1e-3f);
@@ -4968,8 +4969,8 @@ inline void test_displacement_field_lazy_hue_table_matches_eager() {
 /**
  * @brief Bounds dynamic and periodic hue tables over effect palette colors.
  * @details Every bound below is the measured worst case over the sweep with
- * headroom: peak deltaE is 0.0015 default / 0.0053 cyclic against the 0.01
- * bound, and the paired peaks in encoded space are 8 / 19 sRGB8 codes against
+ * headroom: peak deltaE is 0.0015 default / 0.0053 cyclic against 0.002 / 0.006
+ * bounds, and the paired peaks in encoded space are 8 / 19 sRGB8 codes against
  * 10 / 21. The sRGB8 pair is the looser gate because the encode is non-linear —
  * the same table-interpolation error spans more 8-bit codes where the transfer
  * curve is steep than deltaE weights it — so it is bounded rather than pinned to
@@ -5035,9 +5036,9 @@ inline void test_displacement_field_hue_table_fidelity() {
               "sRGB8=%d\n",
               default_delta_e, default_srgb_delta, cyclic_delta_e,
               cyclic_srgb_delta);
-  HS_EXPECT_LE(default_delta_e, 0.01f);
+  HS_EXPECT_LE(default_delta_e, 0.002f);
   HS_EXPECT_LE(default_srgb_delta, 10);
-  HS_EXPECT_LE(cyclic_delta_e, 0.01f);
+  HS_EXPECT_LE(cyclic_delta_e, 0.006f);
   HS_EXPECT_LE(cyclic_srgb_delta, 21);
 }
 

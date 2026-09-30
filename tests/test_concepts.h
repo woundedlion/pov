@@ -218,11 +218,17 @@ inline void test_callable_return_constraints() {
   static_assert(!std::is_constructible_v<Fn<int(int), 24>, Fn<int(int), 16>>);
   static_assert(!std::is_assignable_v<Fn<int(int), 24> &, Fn<int(int), 16>>);
 
-  ReturnsInt returns_int;
+  int called_with = 0;
+  auto returns_int = [&called_with](int value) {
+    called_with = value;
+    return value + 1;
+  };
   FunctionRef<void(int)> borrowed = returns_int;
   borrowed(1);
+  HS_EXPECT_EQ(called_with, 1);
   Fn<void(int), 16> owned = returns_int;
   owned(2);
+  HS_EXPECT_EQ(called_with, 2);
   HS_EXPECT_TRUE((bool)borrowed);
   HS_EXPECT_TRUE((bool)owned);
 }
