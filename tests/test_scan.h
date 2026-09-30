@@ -757,6 +757,23 @@ inline void test_ring_group_matches_sequential() {
   run_case(math::Vector(0.005f, 1.0f, 0.0f).normalized(), false);
 }
 
+inline void test_distorted_ring_candidates_outside_poles() {
+  constexpr int W = 32, H = 16, KNOTS = 8;
+  const math::Basis basis = math::make_basis(math::Quaternion(), math::Y_AXIS);
+  const int8_t slots[] = {0};
+  for (const float offset : {-4.0f, 4.0f}) {
+    float knots[KNOTS + 1];
+    std::fill_n(knots, KNOTS + 1, offset);
+    const SDF::DistortedRing shapes[] = {
+        SDF::DistortedRing(basis, 1.0f, 0.01f, knots, KNOTS, 0.0f, nullptr)};
+    Scan::DistortedRingStack::CandidateTable<W, H> table;
+    Scan::DistortedRingStack::build_candidate_table<W, H>(1, shapes, slots,
+                                                          table);
+    for (const auto &cell : table.cells)
+      HS_EXPECT_GT(cell.lo, cell.hi);
+  }
+}
+
 /**
  * @brief Verifies DistortedRingStack::draw matches rasterizing the stack's
  *        rings one by one.
@@ -3422,6 +3439,7 @@ inline int run_scan_tests() {
   test_ring_rasterize_empty_clip_draws_nothing();
   test_distorted_ring_flat_matches_zero_knot_raster();
   test_ring_group_matches_sequential();
+  test_distorted_ring_candidates_outside_poles();
   test_distorted_ring_stack_matches_sequential();
   test_fused_walks_ignore_pole_lod();
   test_face_rasterize_matches_scan_region();
