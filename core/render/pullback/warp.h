@@ -609,7 +609,7 @@ polar_chart(const math::Complex &input, const Params &params, float phase,
             bool logarithmic, uint8_t harmonic) {
   const float radius = input.magnitude();
   const float radial =
-      logarithmic ? logf(std::max(radius, 1.0f / 4096.0f)) : radius;
+      logarithmic ? logf(fmaxf(radius, 1.0f / 4096.0f)) : radius;
   const math::Complex output(params.radial_scale * radial + params.radial_phase,
                              static_cast<float>(harmonic) *
                                      math::fast_atan2(input.im, input.re) +
