@@ -16,6 +16,11 @@
 
 namespace Pullback {
 
+/** @brief Canonical base orientation shared by projection hosts. */
+inline math::Quaternion projection_base_orientation() {
+  return math::make_rotation(math::Vector(0, 0, -1), math::Vector(0, -1, 0));
+}
+
 namespace Projection {
 
 /** @brief Projection and camera parameters, shared by every composed effect. */

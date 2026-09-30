@@ -583,8 +583,7 @@ template <> struct ProjectionWalkState<true> {
   math::Quaternion projection_walk_previous;
   math::Quaternion projection_wander;
   math::Quaternion projection_conjugate;
-  math::Quaternion base_orientation =
-      math::make_rotation(math::Vector(0, 0, -1), math::Vector(0, -1, 0));
+  math::Quaternion base_orientation = Pullback::projection_base_orientation();
   float projection_spin = 0.0f;
 
   math::Quaternion frame_conjugate() const { return projection_conjugate; }

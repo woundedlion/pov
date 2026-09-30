@@ -2761,8 +2761,7 @@ private:
   size_t prepared_noise_count = 0;
   StateBundle *state = nullptr;
 
-  math::Quaternion base_orientation =
-      math::make_rotation(math::Vector(0, 0, -1), math::Vector(0, -1, 0));
+  math::Quaternion base_orientation = Pullback::projection_base_orientation();
   math::Quaternion projection_walk_prev;
   math::Quaternion outer_walk_prev;
 
