@@ -1015,7 +1015,7 @@ inline void test_crossfade_exact_at_endpoints_emission() {
 
   // Frame 1: p = 1/SWEEP < 20%, so w == 0 — the mapped from-state, exactly.
   step_and_snapshot(anim, fx, snap);
-  HS_EXPECT_EQ(snap.colors.size(), landing.faces);
+  HS_EXPECT_SIZE_OR_RETURN(snap.colors, landing.faces);
   for (size_t f = 0; f < snap.colors.size(); ++f) {
     const uint8_t to = landing.to_palette[math::wrap(
         static_cast<int>(landing.topology[f]), Animation::OpLeg::PALETTES)];
@@ -1109,7 +1109,7 @@ inline void test_palette_mapping_total_all_edges() {
       HS_EXPECT_EQ(static_cast<int>(perm[i]), i);
 
     step_and_snapshot(anim, fx, snap); // frame 1: w == 0
-    HS_EXPECT_EQ(snap.colors.size(), landing.faces);
+    HS_EXPECT_SIZE_OR_RETURN(snap.colors, landing.faces);
     for (size_t f = 0; f < snap.colors.size(); ++f) {
       const uint8_t to = landing.to_palette[math::wrap(
           static_cast<int>(landing.topology[f]), Animation::OpLeg::PALETTES)];
