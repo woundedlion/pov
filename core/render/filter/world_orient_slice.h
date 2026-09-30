@@ -57,7 +57,7 @@ public:
     }
 
     float projection = v.x * axis.x + v.y * axis.y + v.z * axis.z;
-    float dot_val = std::max(-1.0f, std::min(1.0f, projection));
+    float dot_val = hs::clamp(projection, -1.0f, 1.0f);
     float t =
         hs::clamp(1.0f - math::fast_acos(dot_val) / math::PI_F, 0.0f, 1.0f);
 
