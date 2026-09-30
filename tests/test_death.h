@@ -4340,6 +4340,17 @@ inline void case_chain_table_rank_decreases() {
       std::span<const Pullback::Interp::OperatorDescriptor>(&descriptor, 1));
 }
 
+inline void case_star_mismatched_chart() {
+  using Star = Plot::Star<Plot::PlanarProjection>;
+  Fragments points;
+  float x[10], y[10];
+  const auto basis = math::make_basis(math::Quaternion(), math::X_AXIS);
+  const auto wrong = math::make_basis(math::Quaternion(), math::Y_AXIS);
+  Star::sample_chart_positions(points, x, y, basis, 0.5f, 5, 0.0f,
+                               Star::radius_trig(0.5f), Star::step_trig(5),
+                               wrong);
+}
+
 inline void chain_invalid_layout(unsigned variant) {
   using namespace Pullback::Interp;
   ChainProgram program;
@@ -5661,6 +5672,9 @@ inline const Case *all_cases(int &n) {
        case_sdf_bind_class_lut_offset_out_of_range, "core/render/sdf/face.h",
        "(vert_offset >= 0 && vert_offset < count) bind_class_lut: vertex "
        "offset outside the face"},
+      {"star_mismatched_chart", case_star_mismatched_chart,
+       "core/render/plot/shapes.h",
+       "(CHART_MATCHES) Star: edge chart does not match inputs"},
       {"sdf_distorted_ring_null_shift", case_sdf_distorted_ring_null_shift,
        "core/render/sdf/rings.h",
        "(sf) DistortedRing: shift_fn must be non-null"},

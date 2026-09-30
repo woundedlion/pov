@@ -6424,6 +6424,15 @@ inline std::vector<Pixel> render_planar_chord_star(hs_test::StubEffect &fx,
         points, planar_chords.chart_x(), planar_chords.chart_y(), basis,
         star.radius, star.sides, star.phase, Star::radius_trig(star.radius),
         Star::step_trig(star.sides), planar_basis);
+    for (int i = 0; i < star.sides * 2; ++i) {
+      const float x = math::dot(points[i].pos, planar_basis.u);
+      const float y = math::dot(points[i].pos, planar_basis.w);
+      const float radial = hypotf(x, y);
+      const float angle =
+          atan2f(radial, math::dot(points[i].pos, planar_basis.v));
+      HS_EXPECT_NEAR(planar_chords.chart_x()[i], x * angle / radial, 2e-5f);
+      HS_EXPECT_NEAR(planar_chords.chart_y()[i], y * angle / radial, 2e-5f);
+    }
     Filter::Screen::DirectAntiAliasSink<W, H> sink;
     Canvas canvas(fx);
     initialize_parity_frame<W, H>(canvas);
