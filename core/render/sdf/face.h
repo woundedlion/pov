@@ -367,7 +367,7 @@ struct Face {
   static constexpr int SECTOR_KMAX_MAX =
       2; /**< Widest neighbor walk build_sectors assigns. */
   static_assert(SECTOR_KMAX_MAX < SECTOR_MIN_COUNT,
-                "plane_dist_sector's ring walk applies one wrap correction");
+                "plane_dsq_sector's ring walk applies one wrap correction");
   std::span<const uint32_t>
       sector_keys; /**< angle_key of each unwrapped vertex pseudo-angle times
                       sector_sgn, count+1; weakly increasing (K2 faces dip <=
@@ -824,7 +824,7 @@ struct Face {
    * @details Only concave faces with at least SECTOR_MIN_COUNT vertices
    * qualify. A face that is star-shaped about its projected centroid (the
    * gnomonic origin) has monotonic vertex pseudo-angles spanning a full turn;
-   * that monotonicity is what lets plane_dist_sector bin a query point into one
+   * that monotonicity is what lets plane_dsq_sector bin a query point into one
    * fan sector by angle alone. Strictly monotonic faces bin exactly (K1);
    * mildly-bent faces whose worst vertex backtracks by no more than
    * SECTOR_MONO_TOL still bin to within a neighbor and take the wider K2 walk.
