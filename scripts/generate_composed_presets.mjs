@@ -12,8 +12,12 @@ const RENAMES = { 'sample.angle-speed': 'angle_rate', 'sample.drift': 'secondary
   'sample.lattice-shape': 'lattice_shape_blend', 'project.projection-spin-speed': 'spin_rate',
   'project.projection-wander': 'wander', 'colorize.value-opacity-low': 'opacity_low',
   'colorize.value-opacity-high': 'opacity_high' };
-const TOPOLOGY = new Set(['brightness-envelope', 'hue-shift-mode', 'palette-mode',
-  'coverage-mode', 'weight-mode', 'frame', 'hemisphere', 'symmetry', 'basis', 'integrator', 'mode']);
+const catalog = await loadOperatorCatalog();
+
+const topologyIds = (document) => new Set(document.descriptor.chain.flatMap((slot) =>
+  catalog.operators.find((operator) => operator.id === slot.operator).params
+    .filter((field) => field.topology && field.id !== 'palette-mapping')
+    .map((field) => `${slot.label}.${field.id}`)));
 
 export function floatLiteral(value) {
   const rounded = Math.fround(value);
@@ -29,6 +33,7 @@ export function floatLiteral(value) {
 
 export function presetAssignments(document, values) {
   const assignments = new Map();
+  const topology = topologyIds(document);
   for (const [id, value] of Object.entries(values)) {
     const [label, field] = id.split('.');
     if (field === 'lattice-period') {
@@ -36,7 +41,7 @@ export function presetAssignments(document, values) {
         throw new Error(`Invalid derived binding: ${id}`);
       continue;
     }
-    if (TOPOLOGY.has(field)) continue;
+    if (topology.has(id)) continue;
     if (id === 'camera.spin-speed') continue;
     let member;
     if (id === 'camera.wander') member = 'projection.camera_wander';
@@ -90,6 +95,12 @@ export function generatedSections(compiled) {
   if (!dwell.every((value) => value === dwell[0])) throw new Error('Composed dwell must be uniform');
   const spin = presets.map((preset) => preset.values['camera.spin-speed']);
   if (!spin.every((value) => value === spin[0])) throw new Error('Composed camera spin must be uniform');
+  for (const parameter of document.descriptor.parameters) {
+    if (parameter.storage !== 'enum8' || parameter.id.endsWith('.palette-mapping')) continue;
+    const values = presets.map((preset) => preset.values[parameter.id]);
+    if (!values.every((value) => value === values[0]))
+      throw new Error(`Composed topology must be uniform: ${parameter.id}`);
+  }
   const identity = [
     `  static constexpr std::string_view EFFECT_ID = ${JSON.stringify(document.effect_id)};`,
     `  static constexpr std::string_view DESCRIPTOR_DIGEST = "${compiled.descriptor_digest}";`,
@@ -138,7 +149,6 @@ export function updateHeader(source, compiled) {
 }
 
 export async function generate({ check = false, root = ROOT } = {}) {
-  const catalog = await loadOperatorCatalog();
   let count = 0;
   for (const file of await readdir(resolve(root, 'effects'))) {
     if (!file.endsWith('.h')) continue;
