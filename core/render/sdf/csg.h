@@ -250,12 +250,15 @@ template <typename A, typename B> struct SmoothUnion {
     if (!math::TrigLUT<W, H>::initialized)
       math::TrigLUT<W, H>::init();
     const int PAD = pad_rows<H>();
+    const auto A_BAND = a.template get_vertical_bounds<H>();
     const auto near_edge = [y, PAD](Bounds band) {
       return band.y_min <= band.y_max && (std::abs(y - band.y_min) <= PAD ||
                                           std::abs(y - band.y_max) <= PAD);
     };
-    if (near_edge(a.template get_vertical_bounds<H>()) ||
-        near_edge(b.template get_vertical_bounds<H>()))
+    if (near_edge(A_BAND))
+      return false;
+    const auto B_BAND = b.template get_vertical_bounds<H>();
+    if (near_edge(B_BAND))
       return false;
     ScratchScope scratch(scratch_arena_b);
     MergedIntervalBuffer &merged = scratch_spans<MergedIntervalBuffer>(scratch);
@@ -290,11 +293,8 @@ template <typename A, typename B> struct SmoothUnion {
       // bulges outside both children's bands: a row within the blend reach must
       // be scanned in full or its fringe never renders. Rows beyond the reach of
       // either band hold no surface.
-      const int pad = pad_rows<H>();
-      return !row_within_padded_band(a.template get_vertical_bounds<H>(), y,
-                                     pad) &&
-             !row_within_padded_band(b.template get_vertical_bounds<H>(), y,
-                                     pad);
+      return !row_within_padded_band(A_BAND, y, PAD) &&
+             !row_within_padded_band(B_BAND, y, PAD);
     }
 
     // Emitted spans may straddle θ=0 and are not seam-normalized to [0,W): the
