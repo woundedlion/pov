@@ -105,8 +105,8 @@ rank exceeds its Input rank is a **crossing**. The distinction is
 vocabulary, not machinery — no contract member or validation row depends
 on it. Rank skips are legal, exactly as a World filter may be followed
 directly by a Pixel filter: a 3D-noise source sampled on the sphere is a
-`SPHERE→FIELD` crossing that never projects; a `SPHERE→COLOR` sky shader
-is expressible the day someone writes that combinator.
+`SPHERE→FIELD` crossing that never projects; `Pullback::RayStage<Renderer>` in `core/render/pullback/ray.h` ships the
+`SPHERE→COLOR` crossing.
 
 Family *names* survive as the rank's vocabulary — in diagnostics ("pullback
 pipeline: a stage may not decrease its family rank — families are ordered
@@ -320,6 +320,7 @@ SPHERE  Stage::Rotate<OrientationProvider>    SphereSample -> SphereSample
         Stage::Lens<LensPolicy>               (wraps Lens::*)
 crossing Stage::Project<ProjectionPolicy>     SphereSample -> PlaneSample
          Stage::SampleSphere<SourcePolicy>    SphereSample -> FieldSample
+         RayStage<Renderer>                  SphereSample -> Color4
 PLANE   Stage::Warp<WarpPolicy>               PlaneSample -> PlaneSample
 crossing Stage::Sample<SourcePolicy,
                        WeightPolicy = Weight::Projection,
@@ -421,16 +422,16 @@ the semantics cannot fork between the two execution paths.
   signed field exists only inside the crossing; `Weight::Projection` is
   the default and `Weight::None` the alternative, matching the dynamic
   backend's existing signal-weight slot. A sphere-domain source crossing
-  does the same with neutral weight. The minimal legal chain over the
-  shipped crossings is `SampleSphere -> Colorize`; the plane path requires
+  does the same with neutral weight. `RayStage` is a complete one-stage chain;
+  the field path uses `SampleSphere -> Colorize`, and the plane path requires
   `Project -> Sample -> Colorize`. `Rotate` is optional in either path.
 - `PlanarWarp`'s variadic policy list becomes N consecutive `Warp` stages.
 - `Identity` policies stop appearing in pipelines — absence of a stage
   *is* the identity.
-- The four shipped crossings are not a closed set: any combinator whose
+- The five shipped crossings are not a closed set: any combinator whose
   Output rank exceeds its Input rank is admitted by the same rules, which
-  is how a `SPHERE→FIELD` noise source or a `SPHERE→COLOR` sky stage
-  arrives — as a new combinator, not a schema change.
+  also admits new crossings without a schema change. `RayStage` supplies the
+  shipped `SPHERE→COLOR` crossing.
 - **`Stage::Placed<EMISSION, Stages...>`** is the single grouping
   construct: a contiguous run of stages that is itself a stage (Input =
   first's Input, Output = last's Output, internal adjacency and
@@ -1275,9 +1276,9 @@ workbench interpreter), **immediately, with the shipped vocabulary
 recombined**: lens sandwiches and double Mobius; displacement at any
 depth relative to lenses; any warp count and order; transfer and
 value-cutout chains; projection-free sphere-sampled sources use the
-`SPHERE→FIELD` `Stage::SampleSphere` crossing. **Admitted by the rules but
-awaiting a new combinator**: sky shaders
-(`SPHERE→COLOR`), and COLOR grading stages (the family ships empty).
+`SPHERE→FIELD` `Stage::SampleSphere` crossing, and ray shaders use the shipped
+`SPHERE→COLOR` `RayStage` crossing. **Admitted by the rules but
+awaiting a new combinator**: COLOR grading stages (the family ships empty).
 The rules make these one-combinator additions instead of schema changes;
 they are not day-one capabilities. At the ComposedEffect layer: any
 chain whose provider allocation succeeds (§7) — every shipping effect,
