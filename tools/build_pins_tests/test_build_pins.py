@@ -412,6 +412,17 @@ class CheckTool(unittest.TestCase):
         self.assertEqual(self._check("actionlint", pin.rsplit(".", 1)[0] + "\nbuilt with go")[0], 0)
         self.assertEqual(self._check("actionlint", "0.0.0")[0], 1)
 
+    def test_cmake_checks_the_installed_version_in_every_ci_leg(self):
+        pin = bp.INLINE_PINS["cmake"]
+        self.assertEqual(self._check("cmake", f"cmake version {pin}\n")[0], 0)
+        self.assertEqual(self._check("cmake", "cmake version 0.0.0\n")[0], 1)
+        workflow = (bp.ROOT / ".github/workflows/ci.yml").read_text(encoding="utf-8")
+        installs = workflow.split("- name: Install pinned CMake")[1:]
+        self.assertTrue(installs)
+        for install in installs:
+            self.assertIn("python tools/build_pins.py --check-tool cmake",
+                          install.split("\n      -", 1)[0])
+
     def test_pins_with_no_version_to_report_are_not_targets(self):
         for name in ("daydream", "doxygen-awesome", "doxygen-sha256",
                      "llvm-key-sha256", "emsdk", "kicad"):

@@ -62,7 +62,9 @@ jobs:
           restore-keys: ccache-tests-
 
       - name: Install pinned CMake
-        run: pip install --require-hashes -r requirements/cmake.txt
+        run: |
+          pip install --require-hashes -r requirements/cmake.txt
+          python tools/build_pins.py --check-tool cmake
 
       - name: Configure
         run: >
@@ -138,7 +140,9 @@ jobs:
           restore-keys: ccache-sanitizers-
 
       - name: Install pinned CMake
-        run: pip install --require-hashes -r requirements/cmake.txt
+        run: |
+          pip install --require-hashes -r requirements/cmake.txt
+          python tools/build_pins.py --check-tool cmake
 
       - name: Configure
         run: >
@@ -202,7 +206,9 @@ jobs:
           restore-keys: ccache-tsan-
 
       - name: Install pinned CMake
-        run: pip install --require-hashes -r requirements/cmake.txt
+        run: |
+          pip install --require-hashes -r requirements/cmake.txt
+          python tools/build_pins.py --check-tool cmake
 
       - name: Configure
         run: >
@@ -267,7 +273,9 @@ jobs:
           restore-keys: ccache-optimized-${{ matrix.flavor }}-
 
       - name: Install pinned CMake
-        run: pip install --require-hashes -r requirements/cmake.txt
+        run: |
+          pip install --require-hashes -r requirements/cmake.txt
+          python tools/build_pins.py --check-tool cmake
 
       - name: Configure
         run: >
@@ -327,7 +335,9 @@ jobs:
           restore-keys: ccache-coverage-
 
       - name: Install pinned CMake
-        run: pip install --require-hashes -r requirements/cmake.txt
+        run: |
+          pip install --require-hashes -r requirements/cmake.txt
+          python tools/build_pins.py --check-tool cmake
 
       - name: Configure
         run: >
@@ -425,7 +435,9 @@ jobs:
           actions-cache-folder: emsdk-cache-${{ steps.pins.outputs.emsdk }}
 
       - name: Install pinned CMake
-        run: pip install --require-hashes -r requirements/cmake.txt
+        run: |
+          pip install --require-hashes -r requirements/cmake.txt
+          python tools/build_pins.py --check-tool cmake
 
       - name: Configure
         run: cmake --preset tests -DHS_INSTALL_GIT_HOOKS=OFF -DHS_REQUIRE_GENERATORS=ON
@@ -503,7 +515,9 @@ jobs:
         run: ccache -z
 
       - name: Install pinned CMake
-        run: pip install --require-hashes -r requirements/cmake.txt
+        run: |
+          pip install --require-hashes -r requirements/cmake.txt
+          python tools/build_pins.py --check-tool cmake
 
       - name: Configure + build WASM (compile check)
         shell: bash
@@ -774,7 +788,9 @@ jobs:
           sudo apt-get install -y clang-22 ninja-build
 
       - name: Install pinned CMake
-        run: pip install --require-hashes -r requirements/cmake.txt
+        run: |
+          pip install --require-hashes -r requirements/cmake.txt
+          python tools/build_pins.py --check-tool cmake
 
       - name: Build the generator
         run: |
@@ -837,7 +853,9 @@ jobs:
         run: python tools/build_pins.py --github-output
 
       - name: Install CMake for cache-key integration tests
-        run: pip install --require-hashes -r requirements/cmake.txt
+        run: |
+          pip install --require-hashes -r requirements/cmake.txt
+          python tools/build_pins.py --check-tool cmake
 
       # The suite uses no npm dependencies.
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0

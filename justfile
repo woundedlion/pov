@@ -45,6 +45,7 @@ screenshots:
 
 # Build and run the native suite over the configured smoke window.
 test $HS_SMOKE_FRAMES="120" $HS_SKIPS_ARE_ERRORS="1":
+    {{ python_command }} tools/build_pins.py --check-tool cmake
     cmake --preset tests
     cmake --build --preset tests
     cmake --build --preset tests --target excluded_targets
