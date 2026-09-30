@@ -305,7 +305,6 @@ shade(const Geometry &geometry, float cell_size, float wire_radius,
         goto finished;
       }
       ++trace.counters.layers;
-      trace.has_surface = true;
       trace.contribution = {hit.t, hit.coverage, 0,     hit.feature,
                             0,     false,        false, {}};
       last_t = hit.t;

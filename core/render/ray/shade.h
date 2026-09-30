@@ -78,7 +78,7 @@ HS_HOT_FLASH_MEMBER ShadedTrace shade_surface(const Query &query,
   return {composite.finish(), trace};
 }
 
-/** @brief Averages independently verified subrays in premultiplied space. */
+/** @brief Averages verified single-surface subrays; layered traces are excluded. */
 template <size_t COUNT, typename Trace>
 ShadedTrace verified_filter(const std::array<math::Vector, COUNT> &directions,
                             Trace trace) {
