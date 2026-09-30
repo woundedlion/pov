@@ -1376,8 +1376,10 @@ inline void test_new_patterns() {
   effect.setAnimationsPaused(true);
   for (auto id : Effect::PRESET_IDS)
     HS_EXPECT_NE(id, std::string_view("experimental-octet-4d-slice"));
-  for (size_t i = 4; i < Effect::CONFIGURATIONS.size(); ++i) {
-    const auto &configuration = Effect::CONFIGURATIONS[i];
+  for (const auto &configuration : Effect::CONFIGURATIONS) {
+    if (configuration.pattern == Effect::Pattern::CUBIC_WIRE ||
+        configuration.pattern == Effect::Pattern::OCTET)
+      continue;
     auto snapshot = effect.serialize_parameters();
     snapshot.params =
         Effect::pattern_defaults(configuration.pattern, configuration.domain);
@@ -1418,7 +1420,9 @@ inline void test_new_patterns() {
     invalid = snapshot;
     invalid.params.shell_radius = .33f;
     HS_EXPECT_FALSE(effect.restore_parameters(invalid));
-    if (i <= 6) {
+    if (p.pattern == Effect::Pattern::DIAMOND ||
+        p.pattern == Effect::Pattern::HEXAGONAL ||
+        p.pattern == Effect::Pattern::RHOMBIC) {
       invalid = snapshot;
       invalid.params.mode = HL::LatticeMode::FOUR_D_SLICE;
       HS_EXPECT_FALSE(effect.restore_parameters(invalid));

@@ -711,29 +711,6 @@ inline EndRegime to_end_regime(const ConwayGraph::EdgeSpec &e) {
 }
 
 /**
- * @brief Asserts two meshes are exactly equal: bitwise vertex floats,
- *        identical face_counts and faces arrays.
- */
-inline void check_exactly_equal(const PolyMesh &got, const PolyMesh &want) {
-  HS_EXPECT_EQ(got.vertices.size(), want.vertices.size());
-  HS_EXPECT_EQ(got.face_counts.size(), want.face_counts.size());
-  HS_EXPECT_EQ(got.faces.size(), want.faces.size());
-  if (got.vertices.size() != want.vertices.size() ||
-      got.face_counts.size() != want.face_counts.size() ||
-      got.faces.size() != want.faces.size())
-    return;
-  for (size_t i = 0; i < got.vertices.size(); ++i) {
-    HS_EXPECT_EQ(got.vertices[i].x, want.vertices[i].x);
-    HS_EXPECT_EQ(got.vertices[i].y, want.vertices[i].y);
-    HS_EXPECT_EQ(got.vertices[i].z, want.vertices[i].z);
-  }
-  for (size_t i = 0; i < got.face_counts.size(); ++i)
-    HS_EXPECT_EQ((int)got.face_counts[i], (int)want.face_counts[i]);
-  for (size_t i = 0; i < got.faces.size(); ++i)
-    HS_EXPECT_EQ(got.faces[i], want.faces[i]);
-}
-
-/**
  * @brief Asserts two meshes share a bitwise-identical face list and agree
  *        vertex-for-vertex within the relax convergence gate.
  * @param got Mesh whose settle end ran a live relax.
@@ -853,7 +830,7 @@ inline void test_edge_endpoints_match_registry() {
         if (ConwayGraph::is_jitterbug_edge(e))
           check_regular_form(got, want, 1e-4f);
         else
-          check_exactly_equal(got, want);
+          conway_tests::check_meshes_identical(got, want);
       }
     }
 
@@ -871,7 +848,7 @@ inline void test_edge_endpoints_match_registry() {
 
       switch (to_end_regime(e)) {
       case EndRegime::EXACT:
-        check_exactly_equal(got, want);
+        conway_tests::check_meshes_identical(got, want);
         break;
       case EndRegime::BAKED_RELAX:
         check_equal_within_relax_gate(got, want);
@@ -2058,8 +2035,10 @@ inline void test_hankin_sweep_vertex_stability() {
 inline void test_opleg_hankin_sweep_smoke() {
   for (const HankinSweepSite &site : HANKIN_SWEEP_SITES) {
     reset_globals();
-    const ScopedArenaSplit split(GLOBAL_ARENA_SIZE - 24 * 1024 - 32 * 1024,
-                                 24 * 1024, 32 * 1024);
+    const ScopedArenaSplit split(
+        IslamicStars<288, 144>::GENERATED_BUDGET.persistent(GLOBAL_ARENA_SIZE),
+        IslamicStars<288, 144>::GENERATED_BUDGET.scratch_a,
+        IslamicStars<288, 144>::GENERATED_BUDGET.scratch_b);
     hs::random().seed(2026u);
 
     Arena leg(morph_target_buf, sizeof(morph_target_buf));
@@ -3088,8 +3067,10 @@ inline void check_step_leg_smoke(
   const int failed_before = hs_test::stats().failed;
 
   reset_globals();
-  const ScopedArenaSplit split(GLOBAL_ARENA_SIZE - 24 * 1024 - 32 * 1024,
-                               24 * 1024, 32 * 1024);
+  const ScopedArenaSplit split(
+      IslamicStars<288, 144>::GENERATED_BUDGET.persistent(GLOBAL_ARENA_SIZE),
+      IslamicStars<288, 144>::GENERATED_BUDGET.scratch_a,
+      IslamicStars<288, 144>::GENERATED_BUDGET.scratch_b);
   hs::random().seed(2026u);
 
   Arena leg_arena(morph_target_buf, sizeof(morph_target_buf));
@@ -3241,8 +3222,10 @@ inline void check_gated_leg_smoke(Animation::OpLeg::SwapOp op,
   const bool is_kis = op == OpLeg::SwapOp::KIS;
 
   reset_globals();
-  const ScopedArenaSplit split(GLOBAL_ARENA_SIZE - 24 * 1024 - 32 * 1024,
-                               24 * 1024, 32 * 1024);
+  const ScopedArenaSplit split(
+      IslamicStars<288, 144>::GENERATED_BUDGET.persistent(GLOBAL_ARENA_SIZE),
+      IslamicStars<288, 144>::GENERATED_BUDGET.scratch_a,
+      IslamicStars<288, 144>::GENERATED_BUDGET.scratch_b);
   hs::random().seed(2026u);
 
   Arena leg_arena(morph_target_buf, sizeof(morph_target_buf));
