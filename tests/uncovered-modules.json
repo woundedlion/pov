@@ -5,6 +5,6 @@
   "scripts/generate_promoted_shader_documents.mjs": "Generator entry point requiring the compiled engine catalog; patterns-provenance runs its check mode and promoted_digests.test.mjs validates document identities.",
   "scripts/report_cases.mjs": "Runs in the node:test reporter process outside test-loader instrumentation; run_tests.test.mjs exercises its case tallies through subprocesses.",
   "scripts/run_tests.mjs": "Outer command-line runner executes outside test context; run_tests.test.mjs exercises accepted and rejected subprocess runs.",
-  "scripts/shader_workbench_cli.mjs": "Command-line dispatcher around shader_workbench.mjs; schema, validation and emission helpers are unit tested, while CI drives the CLI generation/check paths.",
+  "scripts/shader_workbench_cli.mjs": "Command-line dispatcher around shader_workbench.mjs; shader_workbench.test.mjs drives CLI subprocesses without the assertion-counting preload, which requires node:test context.",
   "scripts/wasm_smoke.mjs": "Integration entry point requiring the compiled WASM engine; the wasm CI job runs it and wasm_smoke_predicates.test.mjs covers its pure predicates."
 }
