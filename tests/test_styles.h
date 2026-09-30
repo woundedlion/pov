@@ -131,7 +131,7 @@ inline Pixel lerp_probe_fade(const Pixel &p, float fade,
  * @brief Verifies Style::lerp interpolates scalar fields linearly, snaps
  *        discrete fields, and pushes the blend into the subject's bound noise.
  * @details Scalar fields (fade, hue_shift, scale, ...) interpolate linearly;
- *          discrete fields (transform pointers, downsample) snap to b at
+ *          discrete fields (transform pointers, downsample, pole_half_res) snap to b at
  *          t >= 0.5 and stay on a below the midpoint. The subject's bound
  *          noise pointer must never be overwritten by a's or b's noise, and
  *          the NoiseParams it points at must carry the blended scalars, or
@@ -149,6 +149,7 @@ inline void test_lerp_scalars_and_snapping() {
   a.space_fn = &Feedback::melt_warp;
   a.color_fn = &lerp_probe_fade;
   a.downsample = 2;
+  a.pole_half_res = 0;
   a.noise = &na;
 
   Feedback::Style b{};
@@ -164,6 +165,7 @@ inline void test_lerp_scalars_and_snapping() {
   b.space_fn = &Feedback::noise_warp;
   b.color_fn = &Feedback::hue_fade;
   b.downsample = 8;
+  b.pole_half_res = 1;
   b.noise = nullptr;
 
   Animation::NoiseParams subj;
@@ -179,6 +181,7 @@ inline void test_lerp_scalars_and_snapping() {
   HS_EXPECT_TRUE(mid.space_fn == &Feedback::noise_warp);
   HS_EXPECT_TRUE(mid.color_fn == &Feedback::hue_fade);
   HS_EXPECT_EQ(mid.downsample, 8);
+  HS_EXPECT_EQ(mid.pole_half_res, 1);
   HS_EXPECT_TRUE(mid.noise == &subj);
   HS_EXPECT_NEAR(subj.amplitude, 1.5f, 1e-6f);
   HS_EXPECT_NEAR(subj.frequency, 0.35f, 1e-6f);
@@ -190,6 +193,7 @@ inline void test_lerp_scalars_and_snapping() {
   HS_EXPECT_TRUE(lo.space_fn == &Feedback::melt_warp);
   HS_EXPECT_TRUE(lo.color_fn == &lerp_probe_fade);
   HS_EXPECT_EQ(lo.downsample, 2);
+  HS_EXPECT_EQ(lo.pole_half_res, 0);
 }
 
 // --- Transform functions ----------------------------------------------------
