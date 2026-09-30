@@ -632,8 +632,8 @@ struct RingGroup {
           PipelineRef ref(pipeline);
           Scan::rasterize<W, H>(ref, canvas, shapes[s], slot_shader, true);
         } else {
-          Scan::rasterize<W, H, false>(pipeline, canvas, shapes[s], slot_shader,
-                                       true);
+          Scan::rasterize<W, H, true>(pipeline, canvas, shapes[s], slot_shader,
+                                      true);
         }
       }
       return;
