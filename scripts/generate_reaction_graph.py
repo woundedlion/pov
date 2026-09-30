@@ -28,6 +28,7 @@ Lattice (mirrors core/spatial/reaction_graph.h::node):
 neighbors[i] = the RD_K indices j != i minimizing |node(i) - node(j)|^2, sorted
 by (distance, index) so ties break deterministically toward the lower index.
 neighbor_runs[] groups consecutive rows with identical ordered neighbor-i offsets.
+neighbor_run_index[i] selects the run containing node i.
 
 Usage:
   python scripts/generate_reaction_graph.py            # rewrite the table in place
@@ -162,6 +163,8 @@ def emit(table, out):
             runs[-1] = (idx + 1, delta)
         else:
             runs.append((idx + 1, delta))
+    if len(runs) > 256:
+        raise RuntimeError(f"{len(runs)} neighbor runs exceed uint8_t capacity")
     out.write("\nHS_PROGMEM_UNIQUE(neighbor_runs) const "
               "ReactionGraph::NeighborRun ReactionGraph::neighbor_runs[] = {\n")
     for idx, (end, delta) in enumerate(runs):
@@ -172,6 +175,20 @@ def emit(table, out):
     out.write("\nHS_PROGMEM_UNIQUE(neighbor_run_count) const unsigned "
               "ReactionGraph::NEIGHBOR_RUN_COUNT =\n"
               "    sizeof(neighbor_runs) / sizeof(neighbor_runs[0]);\n")
+    out.write("static_assert(sizeof(ReactionGraph::neighbor_runs) /\n"
+              "                  sizeof(ReactionGraph::neighbor_runs[0]) <= 256,\n"
+              '              "neighbor run index must fit uint8_t");\n')
+
+    run_index = []
+    for idx, (end, _) in enumerate(runs):
+        run_index.extend([idx] * (end - len(run_index)))
+    out.write("\nHS_PROGMEM_UNIQUE(neighbor_run_index) const uint8_t "
+              "ReactionGraph::neighbor_run_index[RD_N] = {\n")
+    for start in range(0, len(run_index), 24):
+        chunk = run_index[start:start + 24]
+        comma = "," if start + len(chunk) < len(run_index) else ""
+        out.write("  " + ", ".join(str(v) for v in chunk) + comma + "\n")
+    out.write("};\n")
 
 
 def main(argv=None):
