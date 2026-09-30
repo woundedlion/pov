@@ -274,6 +274,7 @@ struct DistortedRing {
                 float ph)
       : DistortedRing(b, r, th, md, ph) {
     HS_CHECK(sf, "DistortedRing: shift_fn must be non-null");
+    HS_CHECK(md >= 0.0f, "DistortedRing: negative maximum distortion");
     shift_fn = sf;
   }
 
