@@ -314,7 +314,17 @@ stage_coordinate_bound(const WarpStageSpec &spec, const WarpStageParams &params,
   return WARP_COORD_LIMIT + 1.0f;
 }
 
-HS_COLD_MEMBER inline constexpr bool safe_program_bounds(const Config &config) {
+enum class BoundsFailure { NONE, WARP_NOISE, WARP_COORD, SOURCE_NOISE };
+
+struct ProgramBounds {
+  BoundsFailure failure = BoundsFailure::NONE;
+  size_t stage = 0;
+  float input_bound = 0.0f;
+  float bound = 0.0f;
+};
+
+__attribute__((always_inline)) inline constexpr ProgramBounds
+program_bounds(const Config &config) {
   float bound = projection_coordinate_bound(config);
   const math::Complex source_period = source_cartesian_period(config);
   const WarpStageSpec stages[] = {config.slots.warp_program.outer,
@@ -325,16 +335,22 @@ HS_COLD_MEMBER inline constexpr bool safe_program_bounds(const Config &config) {
     if ((stages[index].kind == WarpStageKind::VECTOR_NOISE ||
          stages[index].kind == WarpStageKind::CURL_FLOW) &&
         params[index].scale * (bound + 100.0f) > NOISE_LATTICE_LIMIT)
-      return false;
+      return {BoundsFailure::WARP_NOISE, index, bound,
+              params[index].scale * (bound + 100.0f)};
     bound = stage_coordinate_bound(stages[index], params[index], bound,
                                    source_period);
     if (bound > WARP_COORD_LIMIT)
-      return false;
+      return {BoundsFailure::WARP_COORD, index, 0.0f, bound};
   }
   if (config.slots.function == Function::NOISE_CONTOUR &&
       config.params.source.noise_scale * bound > NOISE_LATTICE_LIMIT)
-    return false;
-  return true;
+    return {BoundsFailure::SOURCE_NOISE, 0, bound,
+            config.params.source.noise_scale * bound};
+  return {};
+}
+
+HS_COLD_MEMBER inline constexpr bool safe_program_bounds(const Config &config) {
+  return program_bounds(config).failure == BoundsFailure::NONE;
 }
 
 HS_COLD_MEMBER inline constexpr bool
