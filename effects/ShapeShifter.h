@@ -832,16 +832,16 @@ private:
   float phase = 0.0f;
 
   // init() allocates the six MAX_SHAPES-sized contour tables and the planar
-  // chord storage, and prepare_count() bakes both alpha-falloff palette LUTs,
+  // chord storage and flower band-split flags; prepare_count() bakes both palettes,
   // from the persistent arena.
   static_assert(SAMPLED_RASTER_CONFIG.single_pass &&
                 !SAMPLED_RASTER_CONFIG.derive_planar_arc_registers);
-  static constexpr size_t SCRATCH_A_PEAK_BYTES =
-      std::max((2 * static_cast<size_t>(SIDES_MAX) + 4) * sizeof(Fragment) +
-                   2 * alignof(Fragment),
-               (2 * static_cast<size_t>(SIDES_MAX) + 1 + FLOWER_MAX_POINTS) *
-                       sizeof(Fragment) +
-                   2 * alignof(Fragment));
+  static constexpr size_t SCRATCH_A_PEAK_BYTES = std::max(
+      (2 * static_cast<size_t>(SIDES_MAX) + 2) * sizeof(Fragment) +
+          alignof(Fragment) + Plot::PlanarChords<W, H>::scratch_a_bytes(),
+      (2 * static_cast<size_t>(SIDES_MAX) + 1 + FLOWER_MAX_POINTS) *
+              sizeof(Fragment) +
+          2 * alignof(Fragment));
   static_assert(SCRATCH_A_PEAK_BYTES <= DEFAULT_SCRATCH_A_SIZE,
                 "ShapeShifter nested contour buffers exceed scratch_a");
   static constexpr size_t FOOTPRINT_BYTES =

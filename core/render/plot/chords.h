@@ -264,6 +264,11 @@ public:
            PlanarBandSplit<W, H>::storage_bytes(POLE_RUN_POINTS);
   }
 
+  /** @brief Peak transient bytes used by rasterize_run(). */
+  static constexpr size_t scratch_a_bytes() {
+    return (2 + POLE_RUN_POINTS) * sizeof(Fragment) + 2 * alignof(Fragment);
+  }
+
   /** @brief Binds chart and scratch storage for up to @p max_vertices
    *  vertices. */
   HS_COLD_MEMBER void init_storage(Arena &arena, int max_vertices) {
