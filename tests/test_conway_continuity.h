@@ -1029,6 +1029,7 @@ inline void test_crossfade_exact_at_endpoints_emission() {
   // Final frame: p = 1, so w == 1 — the landed target assignment, exactly.
   for (int f = 1; f < SWEEP; ++f)
     step_and_snapshot(anim, fx, snap);
+  HS_EXPECT_SIZE_OR_RETURN(snap.colors, landing.faces);
   for (size_t f = 0; f < snap.colors.size(); ++f) {
     const uint8_t to = landing.to_palette[math::wrap(
         static_cast<int>(landing.topology[f]), Animation::OpLeg::PALETTES)];
@@ -1193,7 +1194,9 @@ inline void test_palette_mapping_deterministic() {
   HS_EXPECT_TRUE(to_palette[0] == to_palette[1]);
   HS_EXPECT_TRUE(topo[0] == topo[1]);
   HS_EXPECT_TRUE(snaps[0].face_ramp == snaps[1].face_ramp);
-  HS_EXPECT_EQ(snaps[0].colors.size(), snaps[1].colors.size());
+  HS_EXPECT_GT(topo[0].size(), size_t{0});
+  HS_EXPECT_SIZE_OR_RETURN(snaps[0].colors, topo[0].size());
+  HS_EXPECT_SIZE_OR_RETURN(snaps[1].colors, topo[0].size());
   for (size_t f = 0; f < snaps[0].colors.size(); ++f)
     for (int s = 0; s < NUM_RAMP_SAMPLES; ++s)
       expect_color_eq(snaps[0].colors[f][s], snaps[1].colors[f][s]);
