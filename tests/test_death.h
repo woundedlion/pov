@@ -4149,6 +4149,26 @@ inline void case_planar_chords_over_capacity() {
                      shader);
 }
 
+/** @brief Death case: band-split storage for under two points traps. */
+inline void case_planar_band_split_empty_storage() {
+  static uint8_t arena_buf[64];
+  Arena arena(arena_buf, sizeof(arena_buf));
+  Plot::PlanarBandSplit<16, 8> band_split;
+  band_split.init_storage(arena, opaque(1));
+}
+
+/** @brief Death case: a band split past its bound storage traps. */
+inline void case_planar_band_split_over_capacity() {
+  static uint8_t arena_buf[64];
+  Arena arena(arena_buf, sizeof(arena_buf));
+  Plot::PlanarBandSplit<16, 8> band_split;
+  band_split.init_storage(arena, 5);
+  Fragments out;
+  Fragments ring;
+  band_split.split(out, ring, opaque(2), 4, math::Basis{},
+                   Plot::ClipBand<16, 8>{});
+}
+
 /** @brief Death case: a woven edge whose start vertex is absent must trap. */
 inline void case_dreamballs_woven_owner_vertex_oob() {
   using WB = effects_tests::DreamBallsWhiteBox;
@@ -4738,6 +4758,12 @@ inline const Case *all_cases(int &n) {
           {"planar_chords_over_capacity", case_planar_chords_over_capacity,
            "core/render/plot/chords.h",
            "(vertices >= 1 && vertices <= capacity) PlanarChords:"},
+          {"planar_band_split_empty_storage",
+           case_planar_band_split_empty_storage, "core/render/plot/chords.h",
+           "(max_points >= 2) PlanarBandSplit: max_points"},
+          {"planar_band_split_over_capacity",
+           case_planar_band_split_over_capacity, "core/render/plot/chords.h",
+           "(max_points(edges, pieces) <= capacity) PlanarBandSplit:"},
           {"mindsplatter_profile_preset_oob",
            case_mindsplatter_profile_preset_oob, "effects/MindSplatter.h",
            "(index < PRESETS.size()) MindSplatter profile preset index out of range"},

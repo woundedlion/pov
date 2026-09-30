@@ -98,6 +98,109 @@ template <int W, int H> struct ClipBand {
   }
 };
 
+/**
+ * @brief Cuts a closed polyline's chart-straight edges into equal chart pieces
+ *        and flags the runs of pieces that cannot reach a clip band, so
+ *        Plot::rasterize never simulates them.
+ * @tparam W Canvas width in pixels.
+ * @tparam H Canvas height in pixels.
+ * @details Points are added only where a run begins or ends, so a visible run
+ * is walked in one piece. Its start depends on the clip, which moves the walk's
+ * sample phase inside it: clipped strokes match the unclipped one to a fraction
+ * of a pixel, not bit for bit. Edges touching the chart antipode keep the
+ * rasterizer's geodesic fallback whole. Flag storage lives in arena storage
+ * bound once by init_storage().
+ */
+template <int W, int H> class PlanarBandSplit {
+public:
+  /** @brief Arena bytes init_storage() takes for up to @p max_points points. */
+  static constexpr size_t storage_bytes(int max_points) {
+    return static_cast<size_t>(max_points) + alignof(uint8_t);
+  }
+
+  /** @brief Most points split() emits for @p edges edges of @p pieces each. */
+  static constexpr int max_points(int edges, int pieces) {
+    return edges * pieces + 1;
+  }
+
+  /** @brief Binds flag storage for polylines of up to @p max_points points. */
+  HS_COLD_MEMBER void init_storage(Arena &arena, int max_points) {
+    HS_CHECK(max_points >= 2, "PlanarBandSplit: max_points %d < 2", max_points);
+    capacity = max_points;
+    flag_storage = arena.allocate_n<uint8_t>(max_points);
+  }
+
+  /**
+   * @brief Splits @p ring into @p out and flags each output edge.
+   * @param out Receives the split polyline; bound for max_points(edges,
+   * pieces) points.
+   * @param ring Closed polyline: @p edges vertices plus the closing repeat.
+   * @param edges Edge count.
+   * @param pieces Chart pieces per edge.
+   * @param planar_basis Azimuthal-equidistant chart the edges are straight in.
+   * @param band Clip band the pieces are tested against.
+   * @return Rasterize edge flags for @p out, one per edge.
+   */
+  HS_HOT_FLASH_MEMBER std::span<const uint8_t>
+  split(Fragments &out, const Fragments &ring, int edges, int pieces,
+        const math::Basis &planar_basis, const ClipBand<W, H> &band) {
+    HS_CHECK(max_points(edges, pieces) <= capacity,
+             "PlanarBandSplit: %d edges of %d pieces exceed capacity %d", edges,
+             pieces, capacity);
+    Fragment point;
+    point.pos = ring[0].pos;
+    out.push_back(point);
+    auto push = [&](const math::Vector &position, bool visible)
+                    __attribute__((always_inline)) {
+                      flag_storage[out.size() - 1] =
+                          visible ? RasterOptions::EDGE_VISIBLE : uint8_t{0};
+                      point.pos = position;
+                      out.push_back(point);
+                    };
+    const float inv_pieces = 1.0f / static_cast<float>(pieces);
+    for (int edge = 0; edge < edges; ++edge) {
+      const math::Vector &a = ring[edge].pos;
+      const math::Vector &b = ring[edge + 1].pos;
+      if (math::dot(a, planar_basis.v) < -COS_PLANAR_ANTIPODE ||
+          math::dot(b, planar_basis.v) < -COS_PLANAR_ANTIPODE) {
+        push(b, true);
+        continue;
+      }
+      const auto pa = azimuthal_project(a, planar_basis);
+      const auto pb = azimuthal_project(b, planar_basis);
+      const float dx = pb.first - pa.first;
+      const float dy = pb.second - pa.second;
+      const float piece_arc = sqrtf(dx * dx + dy * dy) * inv_pieces;
+      math::Vector piece_start = a;
+      math::PixelCoords piece_start_px = math::vector_to_pixel<W, H>(a);
+      bool run_visible = false;
+      for (int j = 1; j <= pieces; ++j) {
+        math::Vector piece_end = b;
+        if (j < pieces) {
+          const float t = static_cast<float>(j) * inv_pieces;
+          piece_end = newton_unit(azimuthal_unproject(
+              pa.first + dx * t, pa.second + dy * t, planar_basis));
+        }
+        const math::PixelCoords piece_end_px =
+            math::vector_to_pixel<W, H>(piece_end);
+        const bool visible =
+            band.may_reach(piece_start_px, piece_end_px, piece_arc);
+        if (j > 1 && visible != run_visible)
+          push(piece_start, run_visible);
+        run_visible = visible;
+        piece_start = piece_end;
+        piece_start_px = piece_end_px;
+      }
+      push(b, run_visible);
+    }
+    return {flag_storage, out.size() - 1};
+  }
+
+private:
+  uint8_t *flag_storage = nullptr;
+  int capacity = 0;
+};
+
 /** @brief Raster configuration PlanarChords hands pole runs to. */
 inline constexpr RasterConfig PLANAR_CHORD_RASTER_CONFIG{
     .single_pass = true,
