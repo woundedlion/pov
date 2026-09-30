@@ -238,6 +238,9 @@ struct SaturatedPresetEffect
       timeline.add(10000, Animation::PeriodicTimer(10000, [](Canvas &) {}));
   }
   void clear_events() { timeline.clear(); }
+  void cancel() { parameter_written(); }
+  void step_events(Canvas &canvas) { timeline.step(canvas); }
+  uint16_t elapsed() const { return transition.elapsed_frames; }
 };
 
 inline void test_preset_saturation_veto_restarts_dwell() {
@@ -297,6 +300,19 @@ inline void test_cancelled_fade_names_visible_preset() {
   HS_EXPECT_EQ(effect.value(), 2.0f);
 }
 
+inline void test_cancelled_crossfade_event_cannot_step_replacement() {
+  hs_test::reset_globals();
+  SaturatedPresetEffect effect;
+  Canvas canvas(effect);
+  effect.arm();
+  HS_EXPECT_TRUE(effect.attempt());
+  effect.step_events(canvas);
+  effect.cancel();
+  HS_EXPECT_TRUE(effect.attempt());
+  effect.step_events(canvas);
+  HS_EXPECT_EQ(effect.elapsed(), uint16_t{1});
+}
+
 inline void test_preset_crossfade_rejects_rearming() {
   hs_test::reset_globals();
   SaturatedPresetEffect effect;
@@ -321,6 +337,7 @@ inline int run_presets_tests() {
   test_preset_saturation_veto_restarts_dwell();
   test_preset_crossfade_rejects_rearming();
   test_cancelled_fade_names_visible_preset();
+  test_cancelled_crossfade_event_cannot_step_replacement();
 
   return fixture.result();
 }
