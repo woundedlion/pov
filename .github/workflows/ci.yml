@@ -1058,7 +1058,7 @@ jobs:
           if ((Get-FileHash -LiteralPath $installer -Algorithm SHA256).Hash -ne $expected) {
             throw 'KiCad installer SHA256 does not match the pinned release'
           }
-          $process = Start-Process -FilePath $installer -ArgumentList '/S' -Wait -PassThru -WindowStyle Hidden
+          $process = Start-Process -FilePath $installer -ArgumentList '/allusers', '/S' -Wait -PassThru -WindowStyle Hidden
           if ($process.ExitCode -ne 0) {
             throw "KiCad installer failed: $($process.ExitCode)"
           }
