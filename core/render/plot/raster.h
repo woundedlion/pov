@@ -3,7 +3,6 @@
  * Licensed under the PolyForm Noncommercial License 1.0.0
  */
 #pragma once
-#include <cassert>
 #include <type_traits>
 #include <algorithm>
 #include <cmath>
