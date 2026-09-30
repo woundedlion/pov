@@ -66,7 +66,8 @@ concept LedTransport = std::constructible_from<T, uint32_t> &&
  * Typical ISR usage (per column):
  *   auto& f = controller.back_frame();  // back buffer (not being DMA'd)
  *   // ... pack pixels into f via pack_pixel() ...
- *   controller.submit_frame();          // triggers async DMA, returns immediately
+ *   if (!controller.submit_frame())
+ *     return;                           // drop this column on overrun
  *   // ISR exits → DMA transfers in background → main loop gets more CPU
  */
 template <int N, LedTransport Transport
