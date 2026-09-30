@@ -1047,8 +1047,15 @@ public:
    * @brief Samples positions with caller-cached trigonometric values, plus
    *        each vertex's coordinates in the chart its planar edges are straight
    *        in.
+   * @param points Output fragment list; num_sides*2+1 fragments are appended.
    * @param chart_x Receives num_sides * 2 chart x coordinates.
    * @param chart_y Receives num_sides * 2 chart y coordinates.
+   * @param basis Orientation basis.
+   * @param radius Outer radius.
+   * @param num_sides Number of points.
+   * @param phase Rotation phase (radians).
+   * @param radius_trig Star::radius_trig(radius).
+   * @param step_trig Star::step_trig(num_sides).
    * @param edge_chart The chart PlanarProjection::edge_basis gives @p radius.
    * @details The coordinates follow the vertex angle recurrence, so no vertex
    * needs an azimuthal projection.
