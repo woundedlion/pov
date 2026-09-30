@@ -216,7 +216,7 @@ class Window:
 
 
 def parse_capture(path):
-    """Return (windows, effect_name). Markers are attached to trailing windows.
+    """Return (windows, effect_name, pullback telemetry). Markers are attached to trailing windows.
 
     A marker logged mid-window (the effect advanced during a frame, so frames of
     the OUTGOING preset already streamed into the open window) takes effect at
