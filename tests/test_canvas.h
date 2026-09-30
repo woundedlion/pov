@@ -656,7 +656,10 @@ inline void test_preset_state_machine() {
   HS_EXPECT_FALSE(fx.animations_paused());
   HS_EXPECT_EQ(fx.commit_count, 3);
 
+  fx.accept = true;
+  const auto APPLIED_TO = fx.applied_to;
   HS_EXPECT_FALSE(fx.selectPreset(3));
+  HS_EXPECT_EQ(fx.applied_to, APPLIED_TO);
   HS_EXPECT_EQ(fx.getPresetIndex(), size_t(2));
   HS_EXPECT_EQ(fx.commit_count, 3);
 }
