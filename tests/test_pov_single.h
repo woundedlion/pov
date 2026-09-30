@@ -171,9 +171,8 @@ inline void test_column_interval() {
  * @brief Verify the shipped single-board column period clears the per-column
  * transfer bound.
  * @details run() rejects a configuration whose column period does not clear
- * this bound; show_col() then discards submit_frame()'s overrun return with no
- * retry latch, so a configuration that overran would freeze the strip on its
- * last accepted frame. The bound's own rounding is pinned in test_dma_core.h.
+ * this bound. show_col() drops an overrun column and tries again on the next
+ * tick. The bound's rounding is pinned in test_dma_core.h.
  */
 inline void test_transfer_bound() {
   HS_EXPECT_TRUE(
