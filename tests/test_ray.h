@@ -249,6 +249,25 @@ inline void test_limits_and_nonfinite() {
   HS_EXPECT_TRUE(result.status == Raycast::TraceStatus::INVALID_QUERY);
 }
 
+inline void test_nested_query_validation_once() {
+  struct CountedQuery : ConstantQuery {
+    mutable int validations = 0;
+    bool valid() const {
+      ++validations;
+      return true;
+    }
+  };
+  const CountedQuery query{{1.0f, 0.1f}};
+  const Raycast::PreparedCamera camera;
+  const Raycast::DomainQuery3<CountedQuery> domain{query, camera};
+  const Raycast::PlacedQuery placed{domain, math::Vector(), math::Quaternion(),
+                                    1.0f};
+  const Raycast::Ray ray{math::Vector(), math::Vector(1, 0, 0), {0, 4}};
+  const auto result = Raycast::surface_search(placed, ray, {});
+  HS_EXPECT_GT(result.counters.queries, 1);
+  HS_EXPECT_EQ(query.validations, 1);
+}
+
 inline int run_ray_tests() {
   hs_test::ModuleFixture fixture("ray");
   test_camera();
@@ -256,6 +275,7 @@ inline int run_ray_tests() {
   test_bounded_failures();
   test_slice_no_phantom();
   test_placement_and_shapes();
+  test_nested_query_validation_once();
   test_limits_and_nonfinite();
   test_first_boundary_and_tolerances();
   return fixture.result();
