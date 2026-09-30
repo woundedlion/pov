@@ -194,6 +194,8 @@ inline int run_ray_event_tests() {
   const auto filtered = Raycast::verified_filter(directions, [&](const auto &) {
     Raycast::ShadedTrace trace;
     trace.trace.counters.queries = 2;
+    trace.trace.counters.candidates = 3;
+    trace.trace.counters.layers = 1;
     trace.trace.has_surface = sample < 2;
     trace.trace.contribution.verified = sample < 2;
     trace.trace.status = sample++ == 3 ? Raycast::TraceStatus::UNRESOLVED
@@ -204,6 +206,8 @@ inline int run_ray_event_tests() {
   HS_EXPECT_EQ(filtered.color.alpha, .5f);
   HS_EXPECT_EQ(filtered.color.color.r, 100);
   HS_EXPECT_EQ(filtered.trace.counters.queries, 8);
+  HS_EXPECT_EQ(filtered.trace.counters.candidates, 12);
+  HS_EXPECT_EQ(filtered.trace.counters.layers, 4);
   HS_EXPECT_EQ(filtered.trace.status, Raycast::TraceStatus::UNRESOLVED);
   return hs_test::end_module(MODULE);
 }
