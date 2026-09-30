@@ -111,8 +111,6 @@ inline void restore_interrupts(uint32_t primask) {
   __asm__ volatile("msr primask, %0" ::"r"(primask) : "memory");
 }
 
-/** @brief Legacy offset retained for source compatibility; display geometry owns placement. */
-inline constexpr int H_OFFSET = 3;
 } // namespace hs
 
 #else
