@@ -704,10 +704,6 @@ inline void test_shell_layer_march_matches_cell_traversal() {
 }
 
 /**
- * @brief The 4D-slice layer march reproduces the per-cell traversal's
- *        composite for every frame it accepts.
- */
-/**
  * @brief The 3D neighbor march reproduces the per-cell traversal where
  *        filtered spheres reach past a layer's rounding cell.
  */
@@ -768,6 +764,10 @@ inline void test_shell_neighbor_march_matches_cell_traversal() {
   HS_EXPECT_TRUE(mismatched <= compared / 2000);
 }
 
+/**
+ * @brief The 4D-slice layer march reproduces the per-cell traversal's
+ *        composite for every frame it accepts.
+ */
 inline void test_shell_slice_march_matches_cell_traversal() {
   alignas(Pixel) std::array<uint8_t, BakedPalette::required_arena_bytes()>
       buffer;
