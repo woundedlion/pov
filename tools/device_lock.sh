@@ -128,16 +128,12 @@ _hs_holder_desc() {  # <dir>
   echo "  expected free by $(_hs_lock_field "$d" deadline_h)"
 }
 
-# A live holder mid-capture must never be evicted, so staleness is deliberately
-# conservative: the deadline is the holder's own ETA plus a grace, and a dead
-# PID only counts once the claim is old enough that a just-started peer racing
-# us cannot be mistaken for a corpse. An unreadable claim gets the same benefit
-# of the doubt: acquire mkdirs the lock before it writes info, so a peer that
-# just won the mkdir reads back blank for a moment, and calling that stale
-# hands two sessions the device at once.
+# Live holders retain ownership until release or an explicit forced eviction.
 _hs_lock_is_stale() {  # <dir>
   local d=$1 now deadline pid started born
   now=$(_hs_now)
+  pid=$(_hs_lock_field "$d" pid)
+  if [ -n "$pid" ] && kill -0 "$pid" 2>/dev/null; then return 1; fi
   deadline=$(_hs_lock_field "$d" deadline)
   started=$(_hs_lock_field "$d" started)
   if [ -z "$deadline" ]; then
