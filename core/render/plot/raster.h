@@ -589,8 +589,8 @@ static void rasterize(PipelineT &source_pipeline, Canvas &canvas,
           base_step * MIN_POLE_SCALE * BALANCED_POLE_GUARD_SCALE;
       return default_step <= POLE_GUARD
                  ? default_step
-                 : std::min(base_step, default_step * (BALANCED_SCREEN_STEP_PX /
-                                                       SCREEN_STEP_PX));
+                 : fminf(base_step, default_step * (BALANCED_SCREEN_STEP_PX /
+                                                    SCREEN_STEP_PX));
     };
     auto adaptive_step = [&](const SamplePT &value) {
 #if HS_ENABLE_TEST_ORACLES
