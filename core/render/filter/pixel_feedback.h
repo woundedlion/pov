@@ -31,8 +31,8 @@ namespace Pixel {
  * flush() iterates the full pixel grid within the active clip band. TERMINAL:
  * flush() composites directly into the Canvas rather than re-emitting downstream,
  * so it must be the last Pipeline stage. The effect must call Pipeline::begin_frame() BEFORE
- * the frame's plot() calls (see `terminal_replaces`); flushing last, as a
- * non-replacing terminal permits, blanks the frame at alpha >= 1.
+ * the frame's plot() calls (see `terminal_replaces`); flushing last blanks
+ * the frame at alpha >= 1.
  *
  * Away from the poles the warp is stored as equirect pixel offsets. Rows whose
  * latitude sine is under POLAR_TARGET_SINE interpolate offsets in the cap plane
