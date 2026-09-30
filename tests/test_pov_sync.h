@@ -2338,7 +2338,7 @@ inline void test_sim_eight_board_boot_and_phase() {
  *        wraps mod effect_count).
  */
 inline void test_sim_epoch_commit() {
-  const Config cfg = test_config();
+  const Config cfg = test_config(2);
   const int32_t ppm[4] = {0, 30, -25, 10};
   Sim sim(cfg, 4, ppm);
 
@@ -2395,7 +2395,7 @@ inline void test_sim_epoch_commit() {
   HS_EXPECT_TRUE(sim.run_until(
       [](Sim &s) {
         for (auto &b : s.boards)
-          if (b.live_index != 2)
+          if (b.live_index != 0)
             return false;
         return true;
       },
