@@ -381,7 +381,7 @@ spherical_rings(const math::Vector &input, const Params &params,
       hs::clamp(math::dot(input, prepared.axis), -1.0f, 1.0f);
   const float latitude = math::fast_atan2(
       axis_height, sqrtf(fmaxf(0.0f, 1.0f - axis_height * axis_height)));
-  const float count = std::max(params.ring_count, 1.0f);
+  const float count = fmaxf(params.ring_count, 1.0f);
   const float cycle =
       math::wrap_t((count * latitude - prepared.phase) / math::PI_F + 0.5f) -
       0.5f;
@@ -490,7 +490,7 @@ tessellation_distance(float x, float y, TessellationKind kind) {
   case TessellationKind::SQUARE: {
     const float cell_x = math::wrap_t(x + 0.5f) - 0.5f;
     const float cell_y = math::wrap_t(y + 0.5f) - 0.5f;
-    return 0.5f - std::max(fabsf(cell_x), fabsf(cell_y));
+    return 0.5f - fmaxf(fabsf(cell_x), fabsf(cell_y));
   }
   case TessellationKind::HEXAGONAL:
     break;

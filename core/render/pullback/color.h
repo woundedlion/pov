@@ -169,7 +169,7 @@ palette_mapping_coordinate(float value, PaletteMapping mapping, float frequency,
   if (mapping == PaletteMapping::LINEAR && frequency == 1.0f && offset == 0.0f)
     return value;
   const float phase =
-      math::wrap_t(std::min(value, UNIT_OPEN_MAX) * frequency + offset);
+      math::wrap_t(fminf(value, UNIT_OPEN_MAX) * frequency + offset);
   switch (mapping) {
   case PaletteMapping::CUP:
     return unit_cup(phase);
@@ -191,7 +191,7 @@ palette_mapping_coordinate(float value, const PaletteMappingWeights &weights,
         value, static_cast<PaletteMapping>(weights.exact), frequency, offset);
 
   const float phase =
-      math::wrap_t(std::min(value, UNIT_OPEN_MAX) * frequency + offset);
+      math::wrap_t(fminf(value, UNIT_OPEN_MAX) * frequency + offset);
   const float cup = unit_cup(phase);
   const float bell = 1.0f - cup;
   return weights.values[static_cast<size_t>(PaletteMapping::CUP)] * cup +
