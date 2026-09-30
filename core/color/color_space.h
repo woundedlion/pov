@@ -502,7 +502,7 @@ gamut_max_chroma(float L, float a, float b) {
   const float c_lo = static_cast<float>(entry[0]) * GAMUT_LUT_INV_SCALE;
   const float c_hi = static_cast<float>(entry[1]) * GAMUT_LUT_INV_SCALE;
   const float boundary = gamut_bracket_refine(L, a, b, c_lo, c_hi);
-  return std::max(0.0f, boundary - GAMUT_CLIP_MARGIN);
+  return fmaxf(0.0f, boundary - GAMUT_CLIP_MARGIN);
 }
 
 /**
@@ -1022,8 +1022,8 @@ gamut_scale_to_boundary_lut(OKLab lab, const GamutLut &lut) {
       lut.table[(cell.lightness_index * lut.angle_steps + cell.angle_index) *
                 2];
   const float max_chroma =
-      std::max(0.0f, static_cast<float>(stored) * GAMUT_LUT_INV_SCALE -
-                         GAMUT_CLIP_MARGIN);
+      fmaxf(0.0f, static_cast<float>(stored) * GAMUT_LUT_INV_SCALE -
+                      GAMUT_CLIP_MARGIN);
   const float scale = max_chroma * inverse_chroma;
   return {lab.L, lab.a * scale, lab.b * scale};
 }
