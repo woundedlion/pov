@@ -15,7 +15,7 @@ cleanup() {
 trap cleanup EXIT
 trap 'exit 130' INT
 trap 'exit 143' TERM
-hs_device_acquire upload "$ENV" 900
 acquire_tree_lock
+hs_device_acquire upload "$ENV" 900
 pio run -e "$ENV"
 hs_teensy_flash "$ENV"
