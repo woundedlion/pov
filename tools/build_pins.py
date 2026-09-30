@@ -702,6 +702,8 @@ def check_tool(name: str) -> int:
     pin = (PINS | INLINE_PINS)[name]
     command, install, form = CHECK_TOOLS[name]
     command = [part.format(pin=pin) for part in command]
+    if name == "clang-format":
+        command[0] = os.environ.get("CLANG_FORMAT", command[0])
     want = form(pin).split(".")
     try:
         reported = subprocess.run(
