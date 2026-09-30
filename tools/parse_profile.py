@@ -22,7 +22,7 @@ teensy-profile skill). Reads a capture produced by `profile`/`profile_o3` and:
             -D HS_PLOT_COUNTS. Counts only; timings from this build are perturbed.
   msp-counts MindSplatter particle/gate/raster counts from a dedicated count image.
   msp-stalls MindSplatter short-batch CYCCNT/CPICNT/LSUCNT/EXCCNT attribution.
-  validate  sanity checks a cycling-effect capture: preset markers present,
+  validate  sanity checks a capture: cycling preset markers, when present,
             the cycle wraps back to its first index, the effect instance is
             never torn down mid-capture (frame numbers stay monotonic), and the
             root counter matches the wall clock
