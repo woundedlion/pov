@@ -2864,10 +2864,14 @@ inline void test_shader_workbench_polar_gui_repair() {
                  ParamSetResult::APPLIED);
     HS_EXPECT_TRUE(WB::active_config(sb) == rendered);
     HS_EXPECT_TRUE(WB::parameter_warning(sb, root) != nullptr);
+    if (!WB::parameter_warning(sb, root))
+      return;
     const char *suggestion =
         strstr(WB::parameter_warning(sb, root),
                lattice ? "Cell Scale to " : "Pattern Freq to ");
     HS_EXPECT_TRUE(suggestion != nullptr);
+    if (!suggestion)
+      return;
     const float repaired = strtof(suggestion + (lattice ? 14 : 16), nullptr);
     HS_EXPECT_EQ(sb.updateParameter(density, repaired),
                  ParamSetResult::APPLIED);
@@ -3515,7 +3519,11 @@ inline void test_shader_workbench_gui_catalog() {
       "Signal Weight", "Value Transfer",      "Coverage",
       "Palette",       "Brightness Envelope", "Hue Shift Mode"};
   for (const char *name : ROOT_ENUMS) {
-    const int option_count = sb.getParameters().find(name)->option_count;
+    const auto *parameter = sb.getParameters().find(name);
+    HS_EXPECT_TRUE(parameter != nullptr);
+    if (!parameter)
+      continue;
+    const int option_count = parameter->option_count;
     for (int option = 0; option < option_count; ++option) {
       reset_gui();
       HS_EXPECT_EQ(sb.updateParameter(name, static_cast<float>(option)),
@@ -3523,8 +3531,11 @@ inline void test_shader_workbench_gui_catalog() {
       sb.draw_frame();
       sb.advance_display();
       WB::settle_transition(sb);
-      HS_EXPECT_EQ(sb.getParameters().find(name)->get(),
-                   static_cast<float>(option));
+      const auto *selected = sb.getParameters().find(name);
+      HS_EXPECT_TRUE(selected != nullptr);
+      if (!selected)
+        continue;
+      HS_EXPECT_EQ(selected->get(), static_cast<float>(option));
       HS_EXPECT_FALSE(WB::transition_active(sb));
       HS_EXPECT_FALSE(WB::param_morph_active(sb));
     }
@@ -5944,12 +5955,17 @@ inline void test_shader_workbench_hue_shift_modes() {
   for (const char *name : {"Hue Shift Mode", "Hue Shift Amount",
                            "Hue Noise Scale", "Hue Noise Speed"})
     HS_EXPECT_TRUE(sb.getParameters().find(name) != nullptr);
+  HS_EXPECT_TRUE(sb.getParameters().find("Hue Shift Amount") != nullptr);
+  if (!sb.getParameters().find("Hue Shift Amount"))
+    return;
   HS_EXPECT_EQ(sb.getParameters().find("Hue Shift Amount")->max, 1.0f);
   HS_EXPECT_EQ(sb.updateParameter(
                    "Hue Shift Mode",
                    static_cast<float>(WB::HueShiftMode::WARP_DISPLACEMENT)),
                ParamSetResult::APPLIED);
   HS_EXPECT_TRUE(sb.getParameters().find("Hue Shift Amount") != nullptr);
+  if (!sb.getParameters().find("Hue Shift Amount"))
+    return;
   HS_EXPECT_EQ(sb.getParameters().find("Hue Shift Amount")->max, 4.0f);
   HS_EXPECT_TRUE(sb.getParameters().find("Hue Noise Scale") == nullptr);
   HS_EXPECT_TRUE(sb.getParameters().find("Hue Noise Speed") == nullptr);
@@ -5958,6 +5974,9 @@ inline void test_shader_workbench_hue_shift_modes() {
   HS_EXPECT_EQ(sb.updateParameter("Hue Shift Mode",
                                   static_cast<float>(WB::HueShiftMode::NOISE)),
                ParamSetResult::APPLIED);
+  HS_EXPECT_TRUE(sb.getParameters().find("Hue Shift Amount") != nullptr);
+  if (!sb.getParameters().find("Hue Shift Amount"))
+    return;
   HS_EXPECT_EQ(sb.getParameters().find("Hue Shift Amount")->max, 1.0f);
   HS_EXPECT_EQ(sb.getParameters().find("Hue Shift Amount")->get_requested(),
                1.0f);
