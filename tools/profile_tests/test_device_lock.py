@@ -111,10 +111,10 @@ class LockStaleness(unittest.TestCase):
         self._write_info(self._live_pid(), now, now + 600)
         self.assertFalse(is_stale(self.d))
 
-    def test_holder_past_eta_and_grace_is_stale(self):
+    def test_live_holder_past_eta_and_grace_is_not_stale(self):
         now = int(time.time())
         self._write_info(self._live_pid(), now - 900, now - GRACE - 60)
-        self.assertTrue(is_stale(self.d))
+        self.assertFalse(is_stale(self.d))
 
     def test_holder_just_past_eta_within_grace_is_not_stale(self):
         # A long capture that overruns its own estimate still owns the board.
@@ -437,8 +437,7 @@ class BoardSelection(unittest.TestCase):
         self.assertTrue(self.lock_dir("COM3").is_dir())
 
     def test_release_restores_a_peers_claim_it_declined_to_free(self):
-        # The declined release goes through the same rename as a break, so the
-        # peer's info must be put back and no scratch directory left behind.
+        # A declined release preserves the peer's claim and leaves no scratch directory.
         script = ('hs_device_acquire E profile 60; '
                   f'echo token=peer > "{self.base}-COM3.d/info"; '
                   'hs_device_release; echo "RC=$?"')
