@@ -58,6 +58,9 @@ test('the embind engine API preserves instance and static binding names', () => 
   const bindings = [...source.matchAll(
     /\.(function|class_function)\(\s*"([^"]+)"\s*,\s*&HolosphereEngine::(\w+)\)/gu,
   )];
+  const allNames = [...source.matchAll(/\.(?:function|class_function)\(\s*"([^"]+)"/gu)]
+    .map(([, name]) => name);
+  assert.deepEqual(new Set(allNames), new Set(bindings.map(([, , name]) => name)));
   assert.deepEqual(bindings.filter(([, kind]) => kind === 'function')
     .map(([, , name]) => name).sort(), instance.sort());
   assert.deepEqual(bindings.filter(([, kind]) => kind === 'class_function')
