@@ -271,29 +271,7 @@ An affine primitive lattice rendered as soft iso contours through a folded gnomo
 
 ### HyperLattice
 
-An analytic flight through periodic wire lattices and curved shells. **Pattern** selects the geometry; **View** selects 3D perspective or a 4D slice. Cubic, octet, sheared cubic, and shells support both views. Diamond, honeycomb, and rhombic cells support 3D perspective; selecting one adopts its 3D view and makes **View** read-only. Invalid configurations are rejected without changing live state. Valid changes adopt the selected geometry's defaults. Automatic transitions between presets of one pattern and view interpolate every continuous control, with Lattice Planes switching at the midpoint; a transition that changes the pattern or view fades the outgoing preset to black, switches, and fades the incoming one in.
-
-The core analytic adapter walks approximate plane-crossing coverage events. **Lattice Planes** limits crossings per axis; it is not a spherical shell count. The original preset IDs remain `cubic-flight` and `hypercube-flight`. Parameter schema 14 rejects older snapshots without changing live state. The 4D Spin control is read-only in 3D.
-
-Presets cycle by pattern, 3D before 4D: Cubic Flight, Cubic Wide Flight, and Hypercube Flight, then in experimental builds Octet Flight, Octet Wide Flight, Octet 4D Flight, Shell Flight, Shell Close Flight, and Shell 4D Flight. The simulator offers **Experimental / Octet Truss** with two 3D presets and Octet 4D Flight, whose zero-radius camera uses Cell Size 3.448, Wire Radius 0.02919, Near Fade 2.0, Far Distance 16.0, AA Strength 2.0, Speed 0.008, 3D Spin 0.01146, and 4D Spin 0.010875. In 3D, four equally spaced plane families with tetrahedral normals produce regular tetrahedral and octahedral cells. The 4D version uses the D4 lattice's nearest-neighbor edges, with 24 neighbors per vertex. Both evaluate each strut once, at crossings of the plane family most nearly perpendicular to the ray, with coverage from the ray's closest approach to the strut. **Unfinished Rays** counts traversals that cannot complete; already consumed layers remain visible. Controls that do not apply become read-only. The presets use continuous bounded camera motion. Standard Teensy builds include the two original cubic presets and **Cubic Wide Flight**, with its zero-radius camera, 2.38525 cell size, 2.0 near fade, and 11.66 far distance. Experimental device builds opt in with `HS_ENABLE_HYPERLATTICE_EXPERIMENTS=1`. See the [preset guide](profiles/hyperlattice_experimental_presets_2026-09-27.md) for complete settings, limits, and reproduction.
-
-The additional experimental patterns use bounded analytic traversal:
-
-| Pattern | Presets | Controls |
-|---|---|---|
-| Diamond | None | Cell Size, Wire Radius |
-| Honeycomb | None | Cell Size, Wire Radius |
-| Rhombic Cells | None | Cell Size, Wire Radius |
-| Sheared Cubic | None | Cell Size, Wire Radius, Shear, Stretch |
-| Shells | Shell Flight, Shell Close Flight (3D); Shell 4D Flight (4D slice) | Cell Size, Shell Radius |
-
-Shear skews the cubic basis; Stretch elongates it. Shells are spherical. Shell Radius is a fraction of Cell Size and is separate from Sphere Radius, which controls the camera's radial start. Softness and Lattice Planes apply only to the original cubic renderer. Wire Radius and Stretch are read-only for shells. Experimental device builds remain opt-in; simulator availability is not a frame-rate guarantee.
-
-Shell Flight defaults to a zero-radius camera, Cell Size 0.78625, Near Fade 2.0, Far Distance 10.736, AA Strength 2.0, Speed 0.025, 3D Spin 0.015, and Shell Radius 0.1.
-
-Shell Close Flight uses Cell Size 0.4645, Near Fade 0.6, Far Distance 5.836, 3D Spin 0.003, and Shell Radius 0.15; its other active controls match Shell Flight.
-
-Shell 4D Flight slices the 4D shells with a zero-radius camera, Cell Size 1.0, Near Fade 2.0, Far Distance 16.0, AA Strength 2.0, Speed 0.05, 3D Spin 0.005, 4D Spin 0.005, and Shell Radius 0.15.
+A flight through periodic wire lattices and curved shells in 3D perspective or a rotating 4D slice. See the [preset guide](profiles/hyperlattice_experimental_presets_2026-09-27.md) for geometry options and settings.
 
 **Parameters**: Pattern, View (3D perspective, 4D slice), Sphere Radius, Cell Size, Wire Radius, Softness, Near Fade, Far Distance, AA Strength, Speed, 3D Spin, 4D Spin, Lattice Planes, Shear, Stretch, Shell Radius
 
