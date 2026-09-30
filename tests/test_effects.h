@@ -5001,7 +5001,6 @@ inline DisplacementHueFrame render_displacement_hue_frame(bool exact) {
   constexpr int H = 40;
   constexpr int FRAMES = 64;
   reset_effect_globals();
-  global_timeline_t = 0;
   hs::set_mock_time(0, 0);
   DisplacementField<W, H> effect;
   effect.init();
