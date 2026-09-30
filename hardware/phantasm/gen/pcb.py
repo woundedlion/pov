@@ -46,7 +46,7 @@ if PCB_W > PCB_W_MAX:
 QUILTER_LENGTH = 58.28
 QUILTER_MOUNTING_LENGTH = 58.28
 TEENSY_LIBRARY_REASON = (
-    "The committed, routed phantasm.kicad_pcb resolves its Teensy pads\n"
+    "This revision's committed phantasm.kicad_pcb resolves its Teensy pads\n"
     "  against this library file.")
 TEENSY_LIBID = "phantasm:Teensy4.0"
 MOUNTING_HOLE_FOOTPRINT = "MountingHole:MountingHole_2.7mm_M2.5"
@@ -562,7 +562,7 @@ FAR_CONNS = ("J2", "J3A", "J3B")    # strip signal, sync daisy in/out — far en
 QUILTER_FIXED = {
     # J1's body runs along the length; it sits in the hub pocket between the USB
     # approach corridor and J4, clear of the Teensy courtyard. Measured for the
-    # 0.1in 1x02 header the routed board carries, not board.py's Molex KK-254.
+    # rev 1.1 0.1in 1x02 header; rev 1.2 uses a GCT terminal.
     "J1": (8.5, 18.8, 0),
     "J4": (8.5, 28.5, 90),
     "J2": (49.8, 2.77, 0),
@@ -1045,8 +1045,8 @@ def parse_args(argv=None):
                              f"{UNPLACED_FILE}")
     parser.add_argument("--force-teensy-library", action="store_true",
                         help="overwrite phantasm.pretty/Teensy4.0.kicad_mod "
-                             "when the generated footprint differs; the routed "
-                             "board resolves its Teensy pads against it")
+                             "when the generated footprint differs; this revision's "
+                             "committed phantasm.kicad_pcb resolves its pads against it")
     return parser.parse_args(argv)
 
 
