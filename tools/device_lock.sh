@@ -143,9 +143,8 @@ _hs_lock_is_stale() {  # <dir>
     return 1                                        # mid-write, not abandoned
   fi
   [ "$now" -gt $((deadline + HS_DEVICE_STALE_GRACE)) ] && return 0
-  pid=$(_hs_lock_field "$d" pid)
   if [ -n "$pid" ] && [ -n "$started" ] && [ "$now" -gt $((started + 60)) ]; then
-    kill -0 "$pid" 2>/dev/null || return 0          # holder died mid-run
+    return 0
   fi
   return 1
 }
