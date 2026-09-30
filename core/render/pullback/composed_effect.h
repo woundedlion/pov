@@ -781,7 +781,7 @@ struct FieldCoverageStageFor<FieldCoverageKind::VALUE_CUTOUT, B> {
  * `SOURCE_NOISE_SEED` / `SURFACE_NOISE_SEED` are inherited members an effect
  * shadows to decorrelate one noise field. A shade() shadow that forwards to
  * RenderPipeline::shade changes only the entry trampoline's placement; the
- * pipeline body remains cold. Different body emission requires calling
+ * pipeline body remains in hot flash. Different body emission requires calling
  * RenderPipeline::evaluate(view, frame.ctx, frame.prepared) from the shadow.
  * A surface-noise family places its surface stage out of line in flash.
  *
