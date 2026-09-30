@@ -496,8 +496,8 @@ composite_crossings(const math::Vector &normal, const PreparedTrace &prepared) {
          ++shell, distance += step) {
       HS_PROFILE_DEEP(hl_event_step);
       const float COVERAGE =
-          SDF::Lattice::trace_plane<SLICE_4D, SHELLS>(origin, direction, axis,
-                                                      distance, step, lattice)
+          SDF::Lattice::trace_plane<SLICE_4D>(origin, direction, axis, distance,
+                                              step, lattice)
               .coverage *
           SDF::Lattice::shell_horizon_coverage(shell, SHELL_COUNT, distance,
                                                magnitude[axis]);
