@@ -8,7 +8,6 @@
 
 #if HS_ENABLE_CHAIN_INTERPRETER
 
-#include "render/pullback/material.h"
 #include "render/pullback/operator_model.h"
 #include "render/pullback/operators_common.h"
 #include "render/pullback/operators_field.h"
@@ -16,8 +15,6 @@
 #include "render/pullback/operators_sample.h"
 #include "render/pullback/operators_sphere.h"
 #include "render/pullback/operators_warp.h"
-#include "render/pullback/projection.h"
-#include "render/pullback/source.h"
 #include "render/pullback/stage.h"
 
 /**
