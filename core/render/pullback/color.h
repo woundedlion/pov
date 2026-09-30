@@ -283,7 +283,7 @@ inline constexpr std::array<ApproximationMetric, 3> GENERATED_PALETTE_METRICS{{
     {ApproximationDomain::COLOR_CHANNEL, ApproximationAggregation::MEAN, 256.0f,
      "channel code"},
     {ApproximationDomain::FRAMEBUFFER, ApproximationAggregation::MAXIMUM,
-     5400.0f, "channel code"},
+     3066.0f, "channel code"},
 }};
 
 /**

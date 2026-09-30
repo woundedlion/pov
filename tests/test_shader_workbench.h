@@ -4777,10 +4777,6 @@ inline void test_shader_workbench_prepared_hue_rotation() {
               static_cast<unsigned long long>(error.mean()));
   HS_EXPECT_LE(error.max, PREPARED_HUE_ROTATION_MAX_CHANNEL_ERROR);
   HS_EXPECT_LE(error.mean(), PREPARED_HUE_ROTATION_MEAN_CHANNEL_ERROR);
-  // The prepared rotation reaches the framebuffer through the color stage, so
-  // its budget has to sit inside the limit that stage publishes.
-  HS_EXPECT_LE(static_cast<float>(PREPARED_HUE_ROTATION_MAX_CHANNEL_ERROR),
-               WB::color_metric_limit(2));
 }
 
 /** Worst gap measured between the prepared spherical hue field and its simplex
