@@ -314,6 +314,31 @@ inline void test_history_domain_folds() {
 // Pipeline sink + get<T>()
 // ============================================================================
 
+struct ReplacingTerminalWithoutHistory : Filter::Is2D {
+  static constexpr bool is_terminal = true;
+  static constexpr bool terminal_replaces = true;
+  int flushes = 0;
+  float last_alpha = 0.0f;
+  void flush(Canvas &, float alpha) {
+    ++flushes;
+    last_alpha = alpha;
+  }
+};
+
+inline void test_replacing_terminal_without_history_flushes() {
+  StubEffect effect(32, 16);
+  Canvas canvas(effect);
+  Pipeline<32, 16, ReplacingTerminalWithoutHistory> pipeline;
+  const auto &terminal = pipeline.get<ReplacingTerminalWithoutHistory>();
+  static_assert(!decltype(pipeline)::has_history);
+  (void)pipeline.begin_frame(canvas, 0.25f);
+  HS_EXPECT_EQ(terminal.flushes, 1);
+  HS_EXPECT_EQ(terminal.last_alpha, 0.25f);
+  (void)pipeline.begin_frame(canvas, 0.75f);
+  HS_EXPECT_EQ(terminal.flushes, 2);
+  HS_EXPECT_EQ(terminal.last_alpha, 0.75f);
+}
+
 /**
  * @brief Verifies the bare (filter-free) pipeline sink is 2D.
  */
@@ -3904,6 +3929,7 @@ inline int run_filter_tests() {
   test_crosses_segments_trait_and_fold();
   test_history_domain_folds();
 
+  test_replacing_terminal_without_history_flushes();
   test_pipeline_sink_is_2d();
   test_pipeline_get_returns_correct_filter();
 

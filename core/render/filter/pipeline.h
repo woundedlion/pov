@@ -75,9 +75,8 @@ template <int H> __attribute__((always_inline)) inline int round_row(float y) {
  * (`flush(Canvas&, float)`). `terminal_replaces`: a terminal that
  * overwrites the whole frame (Feedback's opaque store), so no history-bearing
  * stage may precede it — its flush emissions would be clobbered — and the
- * effect must flush BEFORE the frame's plot() calls, not after as a
- * non-replacing terminal allows: at alpha >= 1 the flush writes every
- * destination pixel, erasing anything already plotted.
+ * effect must flush BEFORE the frame's plot() calls: at alpha >= 1 the flush
+ * writes every destination pixel, erasing anything already plotted.
  * `emits_nonunit_world` /
  * `requires_unit_world_input`: a non-unit-emitting world stage must not precede
  * a unit-assuming one. `emits_pixel_centers` / `requires_subpixel_input`: a
@@ -786,9 +785,8 @@ public:
       "2D history filter must define "
       "flush(Canvas&, const ScreenTrailFn&, float, PassFn2D)");
   static_assert(
-      !Head::has_history || !Head::is_terminal || requires(Head h, Canvas &cv) {
-        h.flush(cv, 1.0f);
-      }, "terminal history filter must define flush(Canvas&, float)");
+      !Head::is_terminal || requires(Head h, Canvas &cv) { h.flush(cv, 1.0f); },
+      "terminal filter must define flush(Canvas&, float)");
 
   static_assert(
       !Head::is_terminal || sizeof...(Tail) == 0,
@@ -928,13 +926,13 @@ private:
   }
 
   /**
-   * @brief Flushes a terminal history stage, then recurses into the Tail.
+   * @brief Flushes a terminal stage, then recurses into the Tail.
    * @param cv Target canvas.
    * @param alpha Global blend alpha in [0, 1].
    * @details Recursion target of flush(), below the domain asserts.
    */
   void flush_stages(Canvas &cv, float alpha) {
-    if constexpr (Head::has_history && Head::is_terminal) {
+    if constexpr (Head::is_terminal) {
       Head::flush(cv, alpha);
     }
     next.flush_stages(cv, alpha);
