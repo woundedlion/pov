@@ -557,8 +557,8 @@ inline void test_ripple_threshold_boundary() {
   HS_EXPECT_GT(moved(pt(d_max - eps)), 1e-4f);
   HS_EXPECT_GT(moved(pt(d_min + eps)), 1e-4f);
   // Just outside each edge: fast-rejected → returned exactly unchanged.
-  HS_EXPECT_NEAR(moved(pt(d_max + eps)), 0.0f, 1e-7f);
-  HS_EXPECT_NEAR(moved(pt(d_min - eps)), 0.0f, 1e-7f);
+  HS_EXPECT_EQ(moved(pt(d_max + eps)), 0.0f);
+  HS_EXPECT_EQ(moved(pt(d_min - eps)), 0.0f);
 }
 
 /**
@@ -1753,8 +1753,23 @@ inline void test_ball_drop_traverses_and_reclaims() {
   HS_EXPECT_NEAR(balls.field(above), -half_r, 3e-3f);
   HS_EXPECT_GT(balls.field_bound(), 0.25f);
 
-  for (int i = duration / 2; i <= duration + 2; ++i)
+  const float mid_bound = balls.field_bound();
+  for (int i = duration / 2; i < 3 * duration / 4; ++i)
     tl.step(cv);
+  balls.prepare_frame();
+  const float late_phi = 3.0f * math::PI_F / 4.0f + half_r;
+  HS_EXPECT_NEAR(
+      balls.field(math::Vector(std::sin(late_phi), std::cos(late_phi), 0)),
+      half_r, 3e-3f);
+  for (int i = 3 * duration / 4; i < duration - 2; ++i)
+    tl.step(cv);
+  balls.prepare_frame();
+  HS_EXPECT_GT(balls.field_bound(), 0.0f);
+  HS_EXPECT_LT(balls.field_bound(), mid_bound * 0.5f);
+  for (int i = duration - 2; i <= duration + 2; ++i)
+    tl.step(cv);
+  balls.prepare_frame();
+  HS_EXPECT_EQ(balls.field_bound(), 0.0f);
   HS_EXPECT_TRUE(balls.active_count() == 0);
   HS_EXPECT_TRUE(balls.spawn(0, ori, pole, 1.0f, duration) != nullptr);
 }
