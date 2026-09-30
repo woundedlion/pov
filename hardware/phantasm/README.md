@@ -45,6 +45,8 @@ python hardware/phantasm/gen/pcb.py --unplaced --force --force-teensy-library
 ```
 
 These commands replace the generated rev 1.2 files in `1.2/`.
+Running the PCB generator without `--unplaced` writes a separate
+`phantasm-draft.kicad_pcb` and matching project for placement experiments.
 Before uploading a project that was opened in KiCad, restore its rule floors:
 
 ```sh
