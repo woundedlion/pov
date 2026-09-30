@@ -148,6 +148,11 @@ inline bool check_one(const char *, FieldCoverage &coverage) {
   if (views2.size() != views.size())
     return false;
   HS_EXPECT_NEAR(views2[target].value, newv, 1e-3f);
+  hs_wasm::fill_param_values(effect, values);
+  HS_EXPECT_EQ(values.size(), views2.size());
+  if (values.size() != views2.size())
+    return false;
+  HS_EXPECT_NEAR(values[target], newv, 1e-3f);
   for (size_t k = 0; k < views2.size(); ++k)
     HS_EXPECT_EQ(std::string_view(views2[k].name),
                  std::string_view(views[k].name));
