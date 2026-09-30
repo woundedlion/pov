@@ -233,7 +233,7 @@ struct FaceScratchBuffer {
   std::array<float, MAX_VERTS>
       edge_lengths_sq; /**< Per-edge squared lengths. */
   std::array<math::Vector, MAX_VERTS>
-      planes; /**< Per-edge great-circle normals. */
+      planes; /**< Non-degenerate edge normals, compacted; planes[k] is not edge k. */
   std::array<Interval, MAX_INTERVALS>
       intervals;                       /**< Azimuth coverage intervals. */
   std::array<float, MAX_VERTS> thetas; /**< Per-vertex azimuth angles. */
