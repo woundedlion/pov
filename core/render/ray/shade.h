@@ -63,6 +63,9 @@ shade_events(Adapter &adapter, Interval interval, const TraceLimits &limits,
   return {composite.finish(), trace};
 }
 
+/** @brief Shades one verified boundary.
+ * @param footprint Validated footprint reserved for coverage-aware queries.
+ */
 template <typename Query>
 HS_HOT_FLASH_MEMBER ShadedTrace shade_surface(const Query &query,
                                               const Ray &ray,
