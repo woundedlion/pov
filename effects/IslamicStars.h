@@ -16,6 +16,11 @@
 #include "core/engine/engine.h"
 #include "core/animation/recipe_build.h"
 
+namespace IslamicStarsDetail {
+inline constexpr size_t MAX_BUILD_OPS = 8;
+inline constexpr size_t MAX_BUILD_FACES = 1152;
+} // namespace IslamicStarsDetail
+
 // Unit-test accessor reaching the private build-chain state (pre-init trans
 // speed, build_active, solid_idx) for the effects-module build smoke.
 namespace hs_test {
@@ -38,7 +43,9 @@ struct IslamicBuildProbe;
 template <int W, int H>
 class IslamicStars
     : public Effect,
-      private Animation::RecipeBuild<IslamicStars<W, H>, 8, 1152> {
+      private Animation::RecipeBuild<IslamicStars<W, H>,
+                                     IslamicStarsDetail::MAX_BUILD_OPS,
+                                     IslamicStarsDetail::MAX_BUILD_FACES> {
 
 public:
 #ifdef HS_ISLAMICSTARS_PROFILE_SHAPE
@@ -144,7 +151,9 @@ public:
   }
 
 private:
-  using Builder = Animation::RecipeBuild<IslamicStars<W, H>, 8, 1152>;
+  using Builder = Animation::RecipeBuild<IslamicStars<W, H>,
+                                         IslamicStarsDetail::MAX_BUILD_OPS,
+                                         IslamicStarsDetail::MAX_BUILD_FACES>;
   friend Builder;
   using Builder::build_active;
   using Builder::build_entry;
@@ -162,8 +171,8 @@ private:
   using Builder::build_uses_smooth_bridge;
   using Builder::plan_build_legs;
   using Builder::start_build_leg;
-  static constexpr size_t MAX_BUILD_STEPS = 8;
-  static constexpr size_t MAX_BUILD_FACES = 1152;
+  static constexpr size_t MAX_BUILD_STEPS = IslamicStarsDetail::MAX_BUILD_OPS;
+  static constexpr size_t MAX_BUILD_FACES = IslamicStarsDetail::MAX_BUILD_FACES;
   static_assert(Solids::max_lowered_step_count(Solids::islamic_registry) <=
                 MAX_BUILD_STEPS);
   friend struct ::hs_test::effects_tests::IslamicBuildProbe;
