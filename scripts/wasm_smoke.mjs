@@ -886,33 +886,31 @@ async function main(probe) {
           }
         }
 
-        if (RESOLUTIONS.length > 1) {
-          const [w, h] = RESOLUTIONS[1];
-          const beforeResolution = engine.getParamGeneration();
-          if (engine.setResolution(w, h) !== RS.RESIZED) {
-            fail(`state-seam: setResolution(${w}, ${h}) did not report RESIZED`);
-          } else {
-            if (engine.getParamGeneration() !== beforeResolution + 1) {
-              fail(`state-seam: resolution teardown left generation at ` +
-                `${engine.getParamGeneration()}, expected ${beforeResolution + 1}`);
-            }
-            if (engine.getParameterDefinitions().length !== 0 ||
-                engine.getParamValues().length !== 0) {
-              fail('state-seam: resolution teardown left a non-empty parameter stream');
-            }
-            const noEffectGeneration = engine.getParamGeneration();
-            if (engine.setResolution(w, h) !== RS.ALREADY_ACTIVE) {
-              fail('state-seam: no-op setResolution did not report ALREADY_ACTIVE');
-            }
-            if (engine.getParamGeneration() !== noEffectGeneration) {
-              fail('state-seam: no-op setResolution changed the generation');
-            }
-            if (engine.setEffect(effectNames[0]) !== ES.INSTALLED) {
-              fail(`state-seam: setEffect("${effectNames[0]}") after resolution failed`);
-            } else if (engine.getParamGeneration() !== noEffectGeneration + 1) {
-              fail(`state-seam: post-resolution load generation ` +
-                `${engine.getParamGeneration()}, expected ${noEffectGeneration + 1}`);
-            }
+        const [w, h] = RESOLUTIONS[1];
+        const beforeResolution = engine.getParamGeneration();
+        if (engine.setResolution(w, h) !== RS.RESIZED) {
+          fail(`state-seam: setResolution(${w}, ${h}) did not report RESIZED`);
+        } else {
+          if (engine.getParamGeneration() !== beforeResolution + 1) {
+            fail(`state-seam: resolution teardown left generation at ` +
+              `${engine.getParamGeneration()}, expected ${beforeResolution + 1}`);
+          }
+          if (engine.getParameterDefinitions().length !== 0 ||
+              engine.getParamValues().length !== 0) {
+            fail('state-seam: resolution teardown left a non-empty parameter stream');
+          }
+          const noEffectGeneration = engine.getParamGeneration();
+          if (engine.setResolution(w, h) !== RS.ALREADY_ACTIVE) {
+            fail('state-seam: no-op setResolution did not report ALREADY_ACTIVE');
+          }
+          if (engine.getParamGeneration() !== noEffectGeneration) {
+            fail('state-seam: no-op setResolution changed the generation');
+          }
+          if (engine.setEffect(effectNames[0]) !== ES.INSTALLED) {
+            fail(`state-seam: setEffect("${effectNames[0]}") after resolution failed`);
+          } else if (engine.getParamGeneration() !== noEffectGeneration + 1) {
+            fail(`state-seam: post-resolution load generation ` +
+              `${engine.getParamGeneration()}, expected ${noEffectGeneration + 1}`);
           }
         }
 
