@@ -150,7 +150,15 @@ def _outline_bounds(root):
             ))
             continue
         pts = _one_child(node, "pts")
-        polygon_points = [_point([child], "xy") for child in _children(pts, "xy")]
+        polygon_points = []
+        for child in pts[1:]:
+            kind = str(child[0]) if isinstance(child, list) and child else None
+            if kind == "xy":
+                polygon_points.append(_point([child], "xy"))
+            elif kind == "arc":
+                polygon_points.extend(_arc_points(child))
+            else:
+                raise MetadataError(f"unsupported Edge.Cuts polygon point: {kind}")
         if not polygon_points:
             raise MetadataError("Edge.Cuts polygon has no points")
         points.extend(polygon_points)
