@@ -2611,11 +2611,11 @@ inline void test_medial_dual_bridge_wellformed() {
     HS_EXPECT_EQ(med_a.vertices.size(), ambo_p.vertices.size());
     HS_EXPECT_EQ(med_a.face_counts.size(), ambo_p.face_counts.size());
     HS_EXPECT_EQ(med_a.face_counts.size(), ambo_dual_p.face_counts.size());
-    HS_EXPECT_TRUE(std::equal(med_a.face_counts.begin(),
-                              med_a.face_counts.end(),
-                              ambo_p.face_counts.begin()));
+    HS_EXPECT_TRUE(
+        std::equal(med_a.face_counts.begin(), med_a.face_counts.end(),
+                   ambo_p.face_counts.begin(), ambo_p.face_counts.end()));
     HS_EXPECT_TRUE(std::equal(med_a.faces.begin(), med_a.faces.end(),
-                              ambo_p.faces.begin()));
+                              ambo_p.faces.begin(), ambo_p.faces.end()));
 
     // MeshOps::medial documents out_a as bit-identical to ambo(P), and the
     // bridge's ambo(P)->medial seam depends on it. Pin exact float equality
@@ -3444,11 +3444,12 @@ inline void test_opleg_step_leg_overshooting_easing() {
     check_step_leg_smoke(truncate ? StepLegKind::TRUNCATE : StepLegKind::SNUB,
                          truncate ? NEAR_AMBO : SNUB_LEG_SITES[0], FRAMES, 2.0f,
                          math::ease_out_elastic, &drawn);
-    HS_EXPECT_EQ(drawn.size(), (size_t)FRAMES);
+    HS_EXPECT_SIZE_OR_RETURN(drawn, FRAMES);
     const std::vector<math::Vector> &arrival = drawn.back();
     const std::vector<math::Vector> &peak = drawn[3];
     const std::vector<math::Vector> &opening = drawn[0];
-    HS_EXPECT_EQ(peak.size(), arrival.size());
+    HS_EXPECT_SIZE_OR_RETURN(peak, arrival.size());
+    HS_EXPECT_SIZE_OR_RETURN(opening, arrival.size());
     float worst_peak = 0.0f, worst_opening = 0.0f;
     for (size_t i = 0; i < arrival.size(); ++i) {
       worst_peak =
@@ -3558,6 +3559,8 @@ inline void test_opleg_edge_leg_crossfade() {
                                    .sweep_frames = EDGE_FRAMES},
               leg_arena, cb, handoff);
     run_frames(leg, EDGE_FRAMES);
+    HS_EXPECT_SIZE_OR_RETURN(all_from, EDGE_FRAMES);
+    HS_EXPECT_SIZE_OR_RETURN(all_to, EDGE_FRAMES);
     HS_EXPECT_GT(divergent_faces(), 0);
     HS_EXPECT_TRUE(all_from[0]);
     HS_EXPECT_TRUE(!all_from[EDGE_FRAMES / 2 - 1]);
@@ -4269,6 +4272,9 @@ inline void test_reconcile_bijection_wellposed() {
         break;
       }
     HS_EXPECT_LT(kis, count);
+    HS_EXPECT_TRUE(site.dtd || kis > 0);
+    if (kis >= count || (!site.dtd && kis == 0))
+      continue;
     const size_t x_prefix = site.dtd ? kis : kis - 1; // steps to reach X
 
     PolyMesh X =
