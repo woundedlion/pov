@@ -8,12 +8,10 @@
 #   cmake --build --preset tests
 #   ctest --preset tests
 #
-# The `just test` recipe is a thin wrapper over exactly those three commands.
+# `just test` also builds excluded_targets, with CI smoke-frame and skip settings.
 #
-# The root CMakeLists.txt (a WASM/Emscripten build) does add_subdirectory(tests);
-# the unit tests are native-only, so we no-op under Emscripten to leave the WASM
-# build untouched. (A standalone `cmake -S tests -B build_test` configure also
-# works for CI, but the preset is the supported path.)
+# The root adds tests/ only in its native branch; standalone Emscripten
+# configuration is also excluded here. The tests preset is the supported path.
 if(EMSCRIPTEN)
   return()
 endif()
@@ -169,8 +167,7 @@ target_include_directories(run_tests PRIVATE ${HS_ENGINE_INCLUDES}
 
 _hs_warnings(run_tests)
 
-# Opt-in sanitizers. Default OFF so the pre-commit gate and the default
-# `cmake --preset tests` stay fast (ASan ~2x); enable with -DHS_SANITIZE=ON.
+# Opt-in sanitizers for the native suite; enable with -DHS_SANITIZE=ON.
 # Two CI jobs (.github/workflows/ci.yml) build with it on every push and pull
 # request, one per flavour, because the flavour depends on the runtime the
 # toolchain ships:

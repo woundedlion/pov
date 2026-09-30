@@ -23,7 +23,7 @@ namespace hs_test {
 
 /**
  * @brief Default per-effect frame count for every roster sweep.
- * @details Kept small so the local pre-commit gate stays quick. 8 frames never
+ * @details The default local sweep uses 8 frames, which never
  * reaches the long, cyclic code paths (effect morph cycles, particle/trail
  * wraps, arena compaction, and the effect-lifecycle transitions — RingShower
  * slot reuse and Thrusters fire/FIFO expiry), so CI
