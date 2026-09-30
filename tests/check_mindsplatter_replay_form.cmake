@@ -64,6 +64,17 @@ if(_generated_size LESS 100000)
     "MindSplatter replay generator emitted only ${_generated_size} bytes")
 endif()
 
+foreach(_source IN ITEMS _committed _generated)
+  string(FIND "${${_source}}" "HEAVY_SEARCH_V1_STATE[]" _state_offset)
+  if(_state_offset LESS 0)
+    message(FATAL_ERROR "MindSplatter replay corpus omits the state declaration")
+  endif()
+  string(SUBSTRING "${${_source}}" 0 ${_state_offset} ${_source}_preamble)
+endforeach()
+if(NOT _committed_preamble STREQUAL _generated_preamble)
+  message(FATAL_ERROR "MindSplatter replay corpus preamble differs from generated form")
+endif()
+
 # The replay's RandomWalk orientation uses libm under -ffast-math. CPU-specific
 # low-bit results amplify over the particle simulation, while instrumentation
 # changes can select a different worst-workload frame. Only form and revision
