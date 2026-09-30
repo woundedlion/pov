@@ -300,8 +300,8 @@ inline constexpr int GAMUT_LUT_MIN_L_STEPS = 64;
 
 /**
  * @brief Downsamples GAMUT_LUT into @p arena and points the clip path at it.
- * @param arena Arena to hold the copy; configure_arenas() drops the pointer
- *        before this storage is handed out again.
+ * @param arena Storage must stay valid until release_gamut_lut(); only
+ *        persistent_arena is released automatically by configure_arenas().
  * @param angle_steps Diamond-angle buckets; must divide GAMUT_LUT_ANGLE_STEPS
  *        and be at least GAMUT_LUT_MIN_ANGLE_STEPS.
  * @param l_steps Lightness buckets; must divide GAMUT_LUT_L_STEPS and be at
