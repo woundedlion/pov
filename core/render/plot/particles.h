@@ -179,8 +179,6 @@ struct ParticleSystem {
 #endif
       }
 
-      if (trail.is_empty())
-        continue;
       if constexpr (!FuseVertex) {
         HS_PROFILE(plot_ps_vertex);
         apply_vertex_shader(vertex_shader, trail);
@@ -192,7 +190,7 @@ struct ParticleSystem {
       // skipped whole; the bits feed rasterize so the cull is evaluated once.
       std::span<const uint8_t> vis;
       PointProjections projections;
-      if (clip_active && trail.size() >= 2) {
+      if (clip_active) {
         HS_PROFILE(plot_ps_gate);
         const size_t edges = trail.size() - 1;
         auto *bits = static_cast<uint8_t *>(
