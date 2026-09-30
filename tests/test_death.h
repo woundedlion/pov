@@ -3225,11 +3225,8 @@ struct WedgedStrip {
 /**
  * @brief Death case: submit_frame() consults the watchdog on overrun, so a wedged
  *        channel traps rather than dropping frames forever.
- * @details Controller surface — pins the ordering that the overrun-drop branch
- *          calls check_stale_transfer() before bumping the counter and returning
- *          false. The transfer-stale predicate itself is covered in-process by
- *          test_dma_core.h; this proves the controller wires the drop path into
- *          the watchdog so a permanently in-flight transport fails fast.
+ * @details The overrun-drop branch reaches check_stale_transfer(); the stale
+ *          predicate itself is covered in-process by test_dma_core.h.
  */
 inline void case_dma_controller_wedged_overrun() {
   static DMALEDController<8, WedgedStrip> ctl;
