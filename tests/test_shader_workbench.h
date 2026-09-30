@@ -1584,7 +1584,7 @@ inline void test_shader_workbench_pipeline_contract() {
   HS_EXPECT_EQ(WB::material(projected, warped, frame).coverage,
                projected.provenance.value_weight);
   const Color4 color = WB::colorize(material, frame);
-  HS_EXPECT_TRUE(color.alpha >= 0.0f);
+  HS_EXPECT_NEAR(color.alpha, material.coverage, 1e-6f);
 
   frame.slots.signal_weight = WB::SignalWeight::NONE;
   HS_EXPECT_EQ(WB::shape(3.0f, projected, warped, frame).value, 1.0f);
