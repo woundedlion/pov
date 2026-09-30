@@ -18,6 +18,10 @@
 #include <algorithm>
 #include <array>
 
+namespace DreamBallsDetail {
+inline constexpr float WEAVE_GAP_DEFAULT = 0.18f;
+}
+
 // Unit-test accessor reaching the private preset-cycle bookkeeping; the smoke
 // harness renders ~120 frames, short of the 320-frame re-spawn period, so those
 // paths are driven directly through this seam.
@@ -44,7 +48,7 @@ struct DreamBallsParams {
 
   BaseMesh base_mesh = BaseMesh::TETRAHEDRON;
   WeaveTopology weave_topology = WeaveTopology::AUTOMATIC;
-  float weave_gap = 0.18f;
+  float weave_gap = DreamBallsDetail::WEAVE_GAP_DEFAULT;
   float num_copies = 1.0f;
   float offset_radius = 0.0f;
   float offset_speed = 0.0f;
@@ -187,7 +191,6 @@ private:
   static constexpr float SPEED_MIN = 0.0f, SPEED_MAX = 5.0f;
   static constexpr float ALPHA_MIN = 0.0f, ALPHA_MAX = 1.0f;
   static constexpr float WEAVE_GAP_MIN = 0.02f, WEAVE_GAP_MAX = 0.45f;
-  static constexpr float WEAVE_GAP_DEFAULT = 0.18f;
   static constexpr size_t PRESET_COUNT = 10;
   static constexpr size_t SOLID_COUNT = Solids::BASE_MESH_COUNT;
   static constexpr const char *WEAVE_TOPOLOGY_OPTIONS[] = {
@@ -314,34 +317,34 @@ private:
 
   static constexpr std::array<PresetEntry<Params>, PRESET_COUNT> PRESETS = {{
       {{BaseMesh::RHOMBICUBOCTAHEDRON, WeaveTopology::AUTOMATIC,
-        WEAVE_GAP_DEFAULT, 18.0f, 0.3f, 0.4f, 0.7f},
+        DreamBallsDetail::WEAVE_GAP_DEFAULT, 18.0f, 0.3f, 0.4f, 0.7f},
        DEPARTURE},
       {{BaseMesh::RHOMBICOSIDODECAHEDRON, WeaveTopology::AUTOMATIC,
-        WEAVE_GAP_DEFAULT, 6.0f, 0.05f, 1.0f, 0.7f},
+        DreamBallsDetail::WEAVE_GAP_DEFAULT, 6.0f, 0.05f, 1.0f, 0.7f},
        DEPARTURE},
       {{BaseMesh::TRUNCATED_CUBOCTAHEDRON, WeaveTopology::AUTOMATIC,
-        WEAVE_GAP_DEFAULT, 6.0f, 0.16f, 1.0f, 0.3f},
+        DreamBallsDetail::WEAVE_GAP_DEFAULT, 6.0f, 0.16f, 1.0f, 0.3f},
        DEPARTURE},
       {{BaseMesh::ICOSIDODECAHEDRON, WeaveTopology::AUTOMATIC,
-        WEAVE_GAP_DEFAULT, 10.0f, 0.16f, 1.0f, 0.3f},
+        DreamBallsDetail::WEAVE_GAP_DEFAULT, 10.0f, 0.16f, 1.0f, 0.3f},
        DEPARTURE},
-      {{BaseMesh::SNUB_CUBE, WeaveTopology::AUTOMATIC, WEAVE_GAP_DEFAULT,
-        4.534f, 0.153f, 2.025f, 0.3f},
+      {{BaseMesh::SNUB_CUBE, WeaveTopology::AUTOMATIC,
+        DreamBallsDetail::WEAVE_GAP_DEFAULT, 4.534f, 0.153f, 2.025f, 0.3f},
        DEPARTURE},
-      {{BaseMesh::TRUNCATED_DODECAHEDRON, WeaveTopology::AUTOMATIC, 0.18f,
-        4.515f, 0.179f, 1.89f, 0.7f},
+      {{BaseMesh::TRUNCATED_DODECAHEDRON, WeaveTopology::AUTOMATIC,
+        DreamBallsDetail::WEAVE_GAP_DEFAULT, 4.515f, 0.179f, 1.89f, 0.7f},
        DEPARTURE},
-      {{BaseMesh::TRIAKIS_ICOSAHEDRON, WeaveTopology::AUTOMATIC, 0.18f, 4.515f,
-        0.131f, 1.89f, 0.7f},
+      {{BaseMesh::TRIAKIS_ICOSAHEDRON, WeaveTopology::AUTOMATIC,
+        DreamBallsDetail::WEAVE_GAP_DEFAULT, 4.515f, 0.131f, 1.89f, 0.7f},
        DEPARTURE},
-      {{BaseMesh::TRIAKIS_ICOSAHEDRON, WeaveTopology::AUTOMATIC, 0.18f, 6.0f,
-        0.078f, 1.0f, 0.3f},
+      {{BaseMesh::TRIAKIS_ICOSAHEDRON, WeaveTopology::AUTOMATIC,
+        DreamBallsDetail::WEAVE_GAP_DEFAULT, 6.0f, 0.078f, 1.0f, 0.3f},
        DEPARTURE},
-      {{BaseMesh::DISDYAKIS_TRIACONTAHEDRON, WeaveTopology::AUTOMATIC, 0.18f,
-        6.0f, 0.03f, 1.0f, 0.3f},
+      {{BaseMesh::DISDYAKIS_TRIACONTAHEDRON, WeaveTopology::AUTOMATIC,
+        DreamBallsDetail::WEAVE_GAP_DEFAULT, 6.0f, 0.03f, 1.0f, 0.3f},
        DEPARTURE},
-      {{BaseMesh::TRIAKIS_ICOSAHEDRON, WeaveTopology::AUTOMATIC, 0.18f, 6.0f,
-        0.03f, 1.0f, 0.3f},
+      {{BaseMesh::TRIAKIS_ICOSAHEDRON, WeaveTopology::AUTOMATIC,
+        DreamBallsDetail::WEAVE_GAP_DEFAULT, 6.0f, 0.03f, 1.0f, 0.3f},
        DEPARTURE},
   }};
 
