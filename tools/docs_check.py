@@ -977,7 +977,7 @@ def doxyfile_predefined(text: str) -> list[tuple[int, str]]:
 
 def unreferenced_predefined(root: Path, sources: list[PurePosixPath],
                             names: set[str]) -> set[str]:
-    """Subset of names no documented source mentions."""
+    """Subset of names no supplied repository source mentions."""
     pending = set(names) - _PREDEFINED_UNREFERENCED_ALLOWED
     if not pending:
         return pending
