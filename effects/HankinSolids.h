@@ -88,6 +88,7 @@ public:
     seed_identity = ConwayGraph::TETRAHEDRON;
     ConwayGraph::record_visit(node_visits, node);
 
+    params.hankin_angle = 0.0f;
     MeshPaletteBank::shuffle_indices(palette_idx);
     hs::generate(persistent_arena, [&](Arena &target, Arena &a, Arena &) {
       compiled_hankin = CompiledHankin();
@@ -103,10 +104,6 @@ public:
     // First cycle has no predecessor to crossfade from: every slot opens on
     // its shuffled palette directly (strap_blend_mask stays 0).
     strap_from = palette_idx;
-
-    // Opening bookend: the first drawn sample is exactly angle 0, matching
-    // every later cycle start.
-    params.hankin_angle = 0.0f;
 
     start_hankin_cycle();
   }
