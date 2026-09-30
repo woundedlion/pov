@@ -14,7 +14,9 @@
 #pragma once
 
 #include <algorithm>
+#include <cmath>
 #include <cstdint>
+#include <limits>
 #include <cstring>
 #include <vector>
 #include <iterator>
@@ -148,6 +150,9 @@ inline void test_relax_clamp() {
  * @brief Exercises the [0,1] operator-fraction range check and clamp.
  */
 inline void test_unit_fraction_clamp() {
+  const float NAN_VALUE = std::numeric_limits<float>::quiet_NaN();
+  HS_EXPECT_FALSE(hs_wasm::unit_fraction_out_of_range(NAN_VALUE));
+  HS_EXPECT_TRUE(std::isnan(hs_wasm::clamp_unit_fraction(NAN_VALUE)));
   // In-range fractions, including the boundaries, pass through unchanged.
   HS_EXPECT_TRUE(!hs_wasm::unit_fraction_out_of_range(0.0f));
   HS_EXPECT_TRUE(!hs_wasm::unit_fraction_out_of_range(0.5f));
@@ -170,6 +175,9 @@ inline void test_unit_fraction_clamp() {
  * @brief Exercises the [0,1) operator-fraction range check and clamp.
  */
 inline void test_half_open_fraction_clamp() {
+  const float NAN_VALUE = std::numeric_limits<float>::quiet_NaN();
+  HS_EXPECT_FALSE(hs_wasm::half_open_fraction_out_of_range(NAN_VALUE));
+  HS_EXPECT_TRUE(std::isnan(hs_wasm::clamp_half_open_fraction(NAN_VALUE)));
   // 1 is outside a half-open domain, unlike the inclusive clamp's.
   HS_EXPECT_TRUE(!hs_wasm::half_open_fraction_out_of_range(0.0f));
   HS_EXPECT_TRUE(!hs_wasm::half_open_fraction_out_of_range(0.5f));
@@ -616,6 +624,8 @@ inline void test_mesh_op_growth_near_capacity() {
  * @brief Exercises the Hankin contact-angle domain check.
  */
 inline void test_hankin_angle_domain() {
+  const float NAN_VALUE = std::numeric_limits<float>::quiet_NaN();
+  HS_EXPECT_FALSE(hs_wasm::hankin_angle_out_of_range(NAN_VALUE, 1.5707963f));
   constexpr float MAX = 1.5707963f; // pi/2
   constexpr float FIFTY_FOUR_DEG = 0.9424778f;
 
