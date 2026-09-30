@@ -4124,6 +4124,31 @@ inline void case_shapeshifter_count_over_capacity() {
                                       opaque(OracleEffect::MAX_SHAPES + 1));
 }
 
+/** @brief Death case: planar chord storage for no vertices traps. */
+inline void case_planar_chords_empty_storage() {
+  static uint8_t arena_buf[256];
+  Arena arena(arena_buf, sizeof(arena_buf));
+  Plot::PlanarChords<16, 8> chords;
+  chords.init_storage(arena, opaque(0));
+}
+
+/** @brief Death case: a polyline past the bound chord storage traps. */
+inline void case_planar_chords_over_capacity() {
+  static uint8_t arena_buf[256];
+  Arena arena(arena_buf, sizeof(arena_buf));
+  Plot::PlanarChords<16, 8> chords;
+  chords.init_storage(arena, 2);
+  static hs_test::StubEffect fx(16, 8);
+  Canvas canvas(fx);
+  Filter::Screen::DirectAntiAliasSink<16, 8> sink;
+  sink.prepare(canvas);
+  chords.prepare(canvas.clip());
+  Fragments points;
+  auto shader = [](const math::Vector &, Fragment &) {};
+  chords.draw_closed(sink, canvas, points, opaque(3), math::Basis{}, Color4{},
+                     shader);
+}
+
 /** @brief Death case: a woven edge whose start vertex is absent must trap. */
 inline void case_dreamballs_woven_owner_vertex_oob() {
   using WB = effects_tests::DreamBallsWhiteBox;
@@ -4707,6 +4732,12 @@ inline const Case *all_cases(int &n) {
           {"shapeshifter_count_over_capacity",
            case_shapeshifter_count_over_capacity, "effects/ShapeShifter.h",
            "(count >= 1 && count <= MAX_SHAPES) ShapeShifter: contour count"},
+          {"planar_chords_empty_storage", case_planar_chords_empty_storage,
+           "core/render/plot/chords.h",
+           "(max_vertices >= 1) PlanarChords: max_vertices"},
+          {"planar_chords_over_capacity", case_planar_chords_over_capacity,
+           "core/render/plot/chords.h",
+           "(vertices >= 1 && vertices <= capacity) PlanarChords:"},
           {"mindsplatter_profile_preset_oob",
            case_mindsplatter_profile_preset_oob, "effects/MindSplatter.h",
            "(index < PRESETS.size()) MindSplatter profile preset index out of range"},
