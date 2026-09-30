@@ -42,7 +42,7 @@ The rasterizer and driver specs:
 
 | Document | Status and scope |
 |---|---|
-| [hyperlattice_octet_58ms_spec.md](hyperlattice_octet_58ms_spec.md) | LANDED: ?3 Tier 1 (`f130ee632`), ?4 Tier 2 (`1bb522211`); ?5 fallbacks not taken. Sections 1?2 retain the pre-landing baseline. |
+| [hyperlattice_octet_58ms_spec.md](hyperlattice_octet_58ms_spec.md) | LANDED: section 3 Tier 1 (`f130ee632`), section 4 Tier 2 (`1bb522211`); section 5 fallbacks not taken. Sections 1-2 retain the pre-landing baseline. |
 
 Related indexes: [on-device effect profiles](../profiles/README.md) and the
 ledgers under [`docs/ledgers/`](../ledgers).
