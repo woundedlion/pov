@@ -15,10 +15,8 @@
 namespace math {
 
 /**
- * @brief Squared magnitude below which mobius_transform treats a homogeneous
- * pair (p : s) as the degenerate exact-pole form and substitutes the point at
- * infinity. Tighter than math::EPS_LEN_SQ so only a pair essentially exactly
- * zero loses its direction.
+ * @brief mobius_transform's bound on squared |p|, linear |s|, and its
+ * denominator floor near the homogeneous pole.
  */
 inline constexpr float STEREO_DIV_NUM_EPS_SQ = 1e-12f;
 
