@@ -36,7 +36,7 @@ UNPLACED_RULES = {
     "min_resolved_spokes": 2,
     "min_through_hole_diameter": 0.3,
     "min_via_annular_width": 0.125,
-    "min_via_diameter": 0.5,
+    "min_via_diameter": 0.6,
     "min_track_width": 0.2,
     "min_copper_edge_clearance": 0.5,
 }
