@@ -5087,7 +5087,9 @@ inline void test_displacement_field_hue_table_frame_fidelity() {
   float max_delta_e = 0.0f;
   int max_srgb_delta = 0;
   int changed = 0;
+  size_t lit = 0;
   for (size_t i = 0; i < exact.pixels.size(); ++i) {
+    lit += !is_black(exact.pixels[i]) && !is_black(table.pixels[i]);
     if (exact.pixels[i].r != table.pixels[i].r ||
         exact.pixels[i].g != table.pixels[i].g ||
         exact.pixels[i].b != table.pixels[i].b)
@@ -5121,6 +5123,7 @@ inline void test_displacement_field_hue_table_frame_fidelity() {
   std::printf("  [hue frame] changed=%d/%zu uses=%d deltaE=%g sRGB8=%d\n",
               changed, exact.pixels.size(), table.table_uses, max_delta_e,
               max_srgb_delta);
+  HS_EXPECT_GT(lit, exact.pixels.size() / 100);
   HS_EXPECT_LE(max_delta_e, 0.01f);
   HS_EXPECT_LE(max_srgb_delta, 3);
 }
@@ -5231,7 +5234,7 @@ inline void test_displacement_field_clip_tiles_full() {
   // sits inside the same displacement phase.
   const int widest_frames = 24;
 
-  size_t lit = 0, sampled_pixels = 0;
+  size_t lit = 0;
   auto fold_region = [&](bool clip, const Quad &q, bool widest) -> uint64_t {
     reset_effect_globals();
     hs::set_mock_time(0, 0);
@@ -5254,7 +5257,6 @@ inline void test_displacement_field_clip_tiles_full() {
           if (!clip) {
             if (p.r | p.g | p.b)
               ++lit;
-            ++sampled_pixels;
           }
           for (uint16_t c : {p.r, p.g, p.b})
             fold = hs_test::fnv1a64_channel(fold, c);
@@ -5264,17 +5266,14 @@ inline void test_displacement_field_clip_tiles_full() {
     return fold;
   };
 
-  for (bool widest : {false, true})
-    for (const Quad &q : quads)
+  for (bool widest : {false, true}) {
+    for (const Quad &q : quads) {
+      HS_CONTEXT("clip pair", widest, q.x0);
+      lit = 0;
       HS_EXPECT_EQ(fold_region(false, q, widest), fold_region(true, q, widest));
-
-  // Two all-black folds agree, so the comparison above only means something
-  // once the quadrants have produced output.
-  if (lit == 0)
-    std::printf("  CLIP-TILE DARK DisplacementField no lit pixel over %zu "
-                "sampled pixels\n",
-                sampled_pixels);
-  HS_EXPECT(lit > 0, "clip tiling must compare a lit render");
+      HS_EXPECT_GT(lit, size_t{0});
+    }
+  }
 }
 
 inline void test_displacement_field_ball_spans_and_lifecycle() {
@@ -5837,8 +5836,9 @@ inline void test_voronoi_segment_render_matches_full_frame() {
   const Band bands[] = {
       {0, 100, 0, H}, {100, W, 0, H}, {0, W, 50, H}, {37, 205, 11, 93}};
 
-  size_t lit = 0, compared_pixels = 0;
   for (const Band &b : bands) {
+    HS_CONTEXT("band", b.x0, b.y0);
+    size_t lit = 0;
     const std::vector<Pixel> banded = render(b.x0, b.x1, b.y0, b.y1);
     HS_EXPECT_EQ(banded.size(),
                  static_cast<size_t>(b.x1 - b.x0) * (b.y1 - b.y0));
@@ -5852,19 +5852,13 @@ inline void test_voronoi_segment_render_matches_full_frame() {
         if (reference.r | reference.g | reference.b)
           ++lit;
       }
-    compared_pixels += banded.size();
     if (different)
       std::printf("  VORONOI SEAM band x[%d,%d) y[%d,%d): %zu of %zu pixels "
                   "differ from the full-canvas render\n",
                   b.x0, b.x1, b.y0, b.y1, different, banded.size());
     HS_EXPECT_EQ(different, static_cast<size_t>(0));
+    HS_EXPECT_GT(lit, size_t{0});
   }
-  // Two all-black renders agree pixel for pixel, so the comparison above only
-  // means something once the bands have produced output.
-  if (lit == 0)
-    std::printf("  VORONOI DARK no lit pixel over %zu compared pixels\n",
-                compared_pixels);
-  HS_EXPECT(lit > 0, "segment parity must compare a lit render");
 }
 
 /**
