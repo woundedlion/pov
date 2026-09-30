@@ -46,7 +46,7 @@ inline void test_axis_constants() {
 // ============================================================================
 
 /**
- * @brief Verifies y_to_phi_virtual maps row 0→0, top row→PI, midpoint→PI/2.
+ * @brief Verifies y_to_phi_virtual maps row 0→0, last row (h_virt-1, south pole)→PI, midpoint→PI/2.
  * @details The mapping is phi = y*PI/(h_virt-1).
  */
 inline void test_y_to_phi_virtual() {
@@ -56,8 +56,8 @@ inline void test_y_to_phi_virtual() {
 }
 
 /**
- * @brief Verifies phi_to_y_virtual inverts y_to_phi_virtual: 0→0, PI→top
- *        row, PI/2→midpoint.
+ * @brief Verifies phi_to_y_virtual inverts y_to_phi_virtual: 0→0, PI→last
+ *        row (h_virt-1, south pole), PI/2→midpoint.
  */
 inline void test_phi_to_y_virtual() {
   HS_EXPECT_NEAR(math::phi_to_y_virtual(0.0f, 145), 0.0f, 1e-6f);
