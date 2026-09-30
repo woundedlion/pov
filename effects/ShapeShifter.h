@@ -788,6 +788,7 @@ private:
        DEPARTURE},
   }};
 
+  /** @brief Authored bounds; Count is clamped to the canvas-specific DRAW_LIMIT. */
   static constexpr bool preset_in_ranges(const Params &preset) {
     return static_cast<int>(preset.shape) >= 0 &&
            static_cast<int>(preset.shape) < NUM_SHAPES &&
@@ -806,7 +807,7 @@ private:
   }
 
   static_assert(all_presets_in_ranges(PRESETS, preset_in_ranges),
-                "ShapeShifter preset is outside a registered slider range");
+                "ShapeShifter preset exceeds authored parameter bounds");
 
   FastNoiseLite noise;
   math::Orientation<> orientation;
