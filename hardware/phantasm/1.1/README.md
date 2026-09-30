@@ -90,7 +90,7 @@ committed board directly need no KiCad and run in CI
   eight-board profile; this is firmware validation, not rotor qualification.
 - **ERC: no error-severity violations** — `../gen/fab.py` runs the pinned
   `kicad-cli sch erc` before producing fabrication outputs, then validates every
-  sheet's JSON violation list in `out/phantasm-erc.json`. A missing or malformed
+  sheet's JSON violation list in `../gen/out/phantasm-erc.json`. A missing or malformed
   report, nonzero tool exit, or any reported violation stops fabrication.
   Power symbols have empty footprints; only `U_MCU` carries the Teensy land.
 - **Netlist matches the electrical specification** — `../gen/fab.py` holds the
