@@ -1329,7 +1329,8 @@ def main(argv: list[str] | None = None) -> int:
         revisions = {}
         if args.sync or args.auto_checkout or checkout_roots:
             import docs_sync
-            if args.auto_checkout and "daydream" not in checkout_roots:
+            if (args.auto_checkout and "daydream" not in checkout_roots
+                    and "daydream" not in args.skip_checkout):
                 checkout = docs_sync.discover_daydream(args.root.resolve())
                 if checkout is None:
                     raise ValueError("pinned daydream checkout unavailable; supply --checkout daydream=PATH")
