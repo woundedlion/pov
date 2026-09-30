@@ -306,8 +306,10 @@ private:
 
   static inline float octahedral_hole_alpha(const math::Vector &p,
                                             float cos_event_horizon) {
-    const float m =
-        std::max(std::abs(p.x), std::max(std::abs(p.y), std::abs(p.z)));
+    const float x = fabsf(p.x);
+    const float y = fabsf(p.y);
+    const float yz = std::isnan(y) ? y : fmaxf(y, fabsf(p.z));
+    const float m = std::isnan(x) ? x : fmaxf(x, yz);
     if (m < cos_event_horizon) {
       HS_MSP_COUNT(hole_early_outs);
       return 1.0f;
@@ -610,7 +612,7 @@ private:
     auto fragment_shader = [&](const math::Vector &, Fragment &f) {
       assert(trail_palette != nullptr &&
              "particle palette must precede shading");
-      const float alpha = std::max(0.0f, std::min(f.v0, f.v3));
+      const float alpha = fmaxf(0.0f, fminf(fmaxf(0.0f, f.v0), f.v3));
       const float palette_t = 1.0f - f.v0;
       if (f.v0 <= 0.0f || f.v0 >= 1.0f)
         HS_MSP_COUNT(palette_endpoints);

@@ -320,7 +320,7 @@ private:
     if (has_second && params.sharpness > 0.0f) {
       const Site &sec_site = sites_buffer[i1];
       float diff = d0 - d1;
-      float factor = std::min(1.0f, diff * params.sharpness);
+      float factor = fminf(1.0f, diff * params.sharpness);
       factor = math::quintic_kernel(factor);
       float t = 0.5f + 0.5f * factor;
 
