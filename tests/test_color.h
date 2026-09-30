@@ -2900,6 +2900,7 @@ inline int run_color_tests() {
   test_generated_palette_bank_routes_and_rechromas();
   test_palette_cycler_generated_chroma_keeps_morph();
   test_palette_cycler_hidden_advance_catches_up();
+  test_palette_cycler_roster_hidden_advance_catches_up();
   test_palette_cycler_bake_generation();
   test_shader_ball_palette_rotations_morph_compatible();
   test_palette_modifiers();
