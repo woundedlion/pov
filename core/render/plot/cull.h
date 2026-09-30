@@ -1181,17 +1181,17 @@ raw_geodesic_edge_gate(const ClipRegion &cr, const ClipRegion::XClip &xc,
   if (cy2 <= AXIS_GUARD2 * L2)
     return RawGeodesicGateResult::EXACT_FALLBACK;
 
-  float row_lo = std::min(ra, rb);
-  float row_hi = std::max(ra, rb);
+  float row_lo = fminf(ra, rb);
+  float row_hi = fmaxf(ra, rb);
   const float t0 = c.z * a.x - c.x * a.z;
   const float t1 = c.z * b.x - c.x * b.z;
   if (t0 * t0 <= TANGENT_GUARD2 * L2 || t1 * t1 <= TANGENT_GUARD2 * L2)
     return RawGeodesicGateResult::EXACT_FALLBACK;
   if ((t0 > 0.0f) != (t1 > 0.0f)) {
-    const float peak = sqrtf(std::max(0.0f, (L2 - cy2) / L2));
+    const float peak = sqrtf(fmaxf(0.0f, (L2 - cy2) / L2));
     const float rp = y_to_screen_row<H>(t0 > 0.0f ? peak : -peak);
-    row_lo = std::min(row_lo, rp);
-    row_hi = std::max(row_hi, rp);
+    row_lo = fminf(row_lo, rp);
+    row_hi = fmaxf(row_hi, rp);
   }
 
   const float y_start = static_cast<float>(cr.render_y_start());
@@ -1269,11 +1269,11 @@ planar_col_span(const math::Vector &a, const math::Basis &planar_basis,
       else if (d < -W * 0.5f)
         d += W;
       cum += d;
-      cum_lo = std::min(cum_lo, cum);
-      cum_hi = std::max(cum_hi, cum);
+      cum_lo = fminf(cum_lo, cum);
+      cum_hi = fmaxf(cum_hi, cum);
       prev = c;
       const float sy = newton_unit(s).y;
-      min_sp2 = std::min(min_sp2, 1.0f - sy * sy);
+      min_sp2 = fminf(min_sp2, 1.0f - sy * sy);
     };
     for (const math::Vector &s : es.interior)
       step(s);
@@ -1286,7 +1286,7 @@ planar_col_span(const math::Vector &a, const math::Basis &planar_basis,
     // Worst-case sin(phi) anywhere on the edge: phi is 1-Lipschitz in arc
     // length and sin is 1-Lipschitz in phi, so between samples it drifts by at
     // most gap_arc.
-    const float sin_phi_worst = sqrtf(std::max(0.0f, min_sp2)) - es.gap_arc;
+    const float sin_phi_worst = sqrtf(fmaxf(0.0f, min_sp2)) - es.gap_arc;
     if (sin_phi_worst < MIN_SIN_PHI)
       return false;
     // Column movement inside one gap; also the proof bound for reading each
@@ -1583,10 +1583,9 @@ screen_step_from_axes(const SamplePT &sample, const ScreenStepAxes &axes) {
   float step = BASE_STEP;
   for (int k = 0; k < axes.count; ++k) {
     const math::Vector &u = axes.up[k];
-    step = std::min(step,
-                    screen_step_components<W, H>(math::dot(sample.pos, u),
-                                                 math::dot(sample.tan, u),
-                                                 -math::dot(n, u), BASE_STEP));
+    step = fminf(step, screen_step_components<W, H>(
+                           math::dot(sample.pos, u), math::dot(sample.tan, u),
+                           -math::dot(n, u), BASE_STEP));
   }
   return step;
 }
@@ -1648,7 +1647,7 @@ pipeline_screen_step(PipelineT &pipeline, const SamplePT &sample,
             else
 #endif
               candidate = screen_step<W, H>(pos, tan, BASE_STEP);
-            step = std::min(step, candidate);
+            step = fminf(step, candidate);
             return false;
           });
   return nonrigid ? BASE_STEP * MIN_POLE_SCALE : step;
@@ -1862,10 +1861,10 @@ cartesian_quadrant_trail_gate(const CartesianQuadrantClip &clip,
   float max_chord2 = 0.0f;
   for (size_t k = 0; k < trail.size(); ++k) {
     const math::Vector &p = trail[k].pos;
-    latitude_max = std::max(latitude_max, clip.latitude_sign * p.y);
+    latitude_max = fmaxf(latitude_max, clip.latitude_sign * p.y);
     if (k > 0) {
       const math::Vector d = p - trail[k - 1].pos;
-      max_chord2 = std::max(max_chord2, math::dot(d, d));
+      max_chord2 = fmaxf(max_chord2, math::dot(d, d));
     }
 #ifdef HS_PROFILE_MINDSPLATTER_STALLS
     gate_batch.step();
@@ -1885,7 +1884,7 @@ cartesian_quadrant_trail_gate(const CartesianQuadrantClip &clip,
 
   float meridian_max = -1.0f;
   for (const Fragment &f : trail) {
-    meridian_max = std::max(meridian_max, clip.meridian_sign * f.pos.z);
+    meridian_max = fmaxf(meridian_max, clip.meridian_sign * f.pos.z);
 #ifdef HS_PROFILE_MINDSPLATTER_STALLS
     gate_batch.step();
 #endif
