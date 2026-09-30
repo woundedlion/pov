@@ -415,6 +415,23 @@ class GeneratedBoardTests(TerminalBodyChecks, unittest.TestCase):
 
 
 class TerminalEdgePlacementChecks:
+    def test_locked_decouplers_are_within_three_mm_of_supply_pins(self):
+        footprints = {reference(fp): fp for fp in F(self.root, "footprint")}
+
+        def pad_center(fp, number):
+            pad = next(p for p in F(fp, "pad") if p[1] == number)
+            x, y, angle = map(float, sexp.val(fp, "at"))
+            dx, dy = connectivity._rotate(tuple(map(float, sexp.val(pad, "at")[:2])), angle)
+            return x + dx, y + dy
+
+        for cap, parent, pin in (("C_DEC1", "U_MCU", "VIN"), ("C_DEC2", "U1", "14")):
+            with self.subTest(cap=cap):
+                self.assertEqual(sexp.val(footprints[cap], "locked"), ["yes"])
+                self.assertEqual(sexp.val(footprints[cap], "layer"),
+                                 sexp.val(footprints[parent], "layer"))
+                self.assertLess(math.dist(pad_center(footprints[cap], "1"),
+                                          pad_center(footprints[parent], pin)), 3.0)
+
     def test_debug_header_and_serial_connection_are_absent(self):
         footprints = {reference(fp): fp for fp in F(self.root, "footprint")}
         self.assertNotIn("J4", footprints)

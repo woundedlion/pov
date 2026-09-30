@@ -2988,7 +2988,7 @@
 	)
 	(footprint "Capacitor_SMD:C_0603_1608Metric"
 		(locked yes)
-		(at 12.5 1.35 0)
+		(at 9.75 1.35 0)
 		(uuid "9f31a11b-d48c-5a30-83a6-65d140ab08c8")
 		(path "/363ebe29-96e5-5941-8080-a916c01552ee")
 		(layer "F.Cu")
