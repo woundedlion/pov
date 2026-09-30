@@ -469,7 +469,7 @@ constexpr int PARITY_SEGMENTS = 4;
  * @tparam H Render height in pixels (defaults to DEFAULT_H).
  * @param name Effect name used in the NONDETERMINISTIC diagnostic output.
  * @details The clock seam neutralizes wall-time, so a divergence here is real
- * nondeterminism (uninitialized read, stale global, address-dependent path) —
+ * nondeterminism (uninitialized read or stale global) —
  * the defect class smoke coverage cannot see.
  */
 template <template <int, int> class E, int W = DEFAULT_W, int H = DEFAULT_H>
