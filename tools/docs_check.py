@@ -1363,7 +1363,7 @@ def main(argv: list[str] | None = None) -> int:
     # Warning only: dropping the last citation of an exempt path improves the
     # tree and must not red the build for whoever lands that commit.
     if markdown and stale:
-        print("::warning::UNTRACKED_ALLOWED in tools/docs_check.py is stale - "
+        print("::warning::allowlists in tools/docs_check.py are stale - "
               f"drop these entries: {', '.join(stale)}")
     if issues:
         for issue in issues:
