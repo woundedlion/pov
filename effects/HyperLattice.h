@@ -25,11 +25,7 @@
 #include "core/math/4dmath.h"
 #include "core/render/pullback.h"
 #if HS_ENABLE_HYPERLATTICE_EXPERIMENTS
-#include "core/render/ray/camera.h"
-#include "core/render/sdf/affine_lattice.h"
-#include "core/render/sdf/cellular_wire.h"
-#include "core/render/sdf/octet_trace.h"
-#include "core/render/sdf/periodic_shells.h"
+#include "core/render/sdf/lattice_trace.h"
 #endif
 
 namespace hs_test {
@@ -128,12 +124,7 @@ struct Params {
 // enum has a fixed uint8_t base, so the size holds under ARM -fshort-enums.
 static_assert(sizeof(Params) == 60, "HyperLattice::Params width changed");
 
-/** @brief One ray's covered plane crossings, sorted by distance. */
-struct CrossingList {
-  static constexpr int CAPACITY = DIMENSIONS * SDF::Lattice::MAX_SHELLS;
-  std::array<float, CAPACITY> distances;
-  std::array<float, CAPACITY> coverages;
-};
+using SDF::Lattice::CrossingList;
 
 struct FrameState {
   Params params;
@@ -151,11 +142,9 @@ struct Binding {
   using Instrumentation = Pullback::NoInstrumentation;
 };
 
-struct PreparedTrace {
-  SDF::Lattice::PreparedTrace lattice;
-  Raycast::Appearance appearance;
-  CrossingList *crossings = nullptr;
-};
+using PreparedTrace = SDF::Lattice::PreparedShading;
+using SDF::Lattice::composite_crossings;
+
 template <int W, int H> constexpr float pixel_half_angle() {
   return .5f * math::coarse_pixel_pitch<W, H>();
 }
@@ -172,245 +161,20 @@ HS_FLASH_INLINE inline math::Mat4 view_embedding(const FrameState &frame) {
   return embedding;
 }
 #if HS_ENABLE_HYPERLATTICE_EXPERIMENTS
-/** @brief Experimental patterns: octet trusses, cellular wires and shells. */
-namespace Experiment {
-
-using SDF::OctetTrace::CrossingStorage;
-using SDF::OctetTrace::Sample;
-
-/** @brief Lattice each experimental pattern traces. */
-enum class Geometry : uint8_t {
-  OCTET,
-  DIAMOND,
-  HEXAGONAL,
-  RHOMBIC,
-  AFFINE_CUBIC,
-  SHELLS
-};
+namespace Experiment = SDF::LatticeTrace;
 
 static_assert(static_cast<uint8_t>(Pattern::OCTET) - 1 ==
-              static_cast<uint8_t>(Geometry::OCTET));
+              static_cast<uint8_t>(Experiment::Geometry::OCTET));
 static_assert(static_cast<uint8_t>(Pattern::DIAMOND) - 1 ==
-              static_cast<uint8_t>(Geometry::DIAMOND));
+              static_cast<uint8_t>(Experiment::Geometry::DIAMOND));
 static_assert(static_cast<uint8_t>(Pattern::HEXAGONAL) - 1 ==
-              static_cast<uint8_t>(Geometry::HEXAGONAL));
+              static_cast<uint8_t>(Experiment::Geometry::HEXAGONAL));
 static_assert(static_cast<uint8_t>(Pattern::RHOMBIC) - 1 ==
-              static_cast<uint8_t>(Geometry::RHOMBIC));
+              static_cast<uint8_t>(Experiment::Geometry::RHOMBIC));
 static_assert(static_cast<uint8_t>(Pattern::AFFINE_CUBIC) - 1 ==
-              static_cast<uint8_t>(Geometry::AFFINE_CUBIC));
+              static_cast<uint8_t>(Experiment::Geometry::AFFINE_CUBIC));
 static_assert(static_cast<uint8_t>(Pattern::SHELLS) - 1 ==
-              static_cast<uint8_t>(Geometry::SHELLS));
-
-/** @brief Frame settings; camera distances and near fading use world units. */
-struct Settings {
-  Raycast::SamplingDomain domain = Raycast::SamplingDomain::SPATIAL_3D;
-  float cell_size = 1.0f;
-  float wire_radius = 0.055f;
-  float radial_start = 0.0f;
-  float far_distance = 7.0f;
-  float near_fade = 0.5f;
-  float aa_strength = 1.0f;
-  math::Vec4 center{};
-  math::Mat4 embedding = math::Mat4::identity();
-  float pixel_half_angle = 0.0f;
-  const BakedPalette *palette = nullptr;
-  Geometry geometry = Geometry::OCTET;
-  float shear = .55f;
-  float stretch = 1.4f;
-  float shell_radius = .30f;
-  float gain = 1.0f; /**< Brightness scale of the whole frame. */
-  /** Scratch the octet traces sort crossings in; required for OCTET. */
-  CrossingStorage *crossings = nullptr;
-  /** Scratch the shell march sorts layers in; required for SHELLS. */
-  SDF::ShellLayerStorage *shell_layers = nullptr;
-};
-
-/** @brief Frame state the traces read, built by prepare(). */
-struct Prepared {
-  Raycast::PreparedCamera camera;
-  Raycast::Footprint footprint;
-  Raycast::Appearance appearance;
-  Raycast::TraceLimits limits;
-  SDF::OctetFramework octet;
-  SDF::OctetEvents::PreparedProjection octet_projection{};
-  SDF::OctetFramework4 octet4;
-  SDF::OctetEvents4::PreparedProjection octet4_projection{};
-  const SDF::CellularWire::Geometry *cellular = nullptr;
-  SDF::PreparedPeriodicShells periodic_shells;
-  bool valid = false;
-  Geometry geometry = Geometry::OCTET;
-  float shear = .55f;
-  float stretch = 1.4f;
-  float shell_radius = .30f;
-  CrossingStorage *crossings = nullptr;
-  SDF::ShellLayerStorage *shell_layers = nullptr;
-};
-
-/** @brief Validates settings and precomputes the frame's trace state. */
-HS_FLASH_INLINE inline Prepared prepare(const Settings &settings) {
-  Prepared result;
-  if (!Raycast::finite(settings.cell_size) || settings.cell_size <= 0.0f ||
-      !Raycast::finite(settings.near_fade) || settings.near_fade <= 0.0f ||
-      !Raycast::finite(settings.aa_strength) || settings.aa_strength < 0.0f ||
-      !Raycast::finite(settings.pixel_half_angle) ||
-      settings.pixel_half_angle < 0.0f || !settings.palette)
-    return result;
-
-  result.camera.domain = settings.domain;
-  result.camera.center = settings.center;
-  result.camera.embedding = settings.embedding;
-  result.camera.radial_start = settings.radial_start;
-  result.camera.interval = {0.0f, settings.far_distance};
-  result.footprint = {settings.pixel_half_angle * settings.aa_strength,
-                      settings.radial_start};
-  result.appearance = {1.0f / settings.far_distance, 0.0f,
-                       1.0f / settings.near_fade, settings.palette,
-                       settings.gain};
-  result.limits.max_candidates = 64;
-  result.limits.max_layers = 32;
-  result.octet.cell_size = settings.cell_size;
-  result.octet.wire_radius = settings.wire_radius;
-  result.octet4.cell_size = settings.cell_size;
-  result.octet4.wire_radius = settings.wire_radius;
-  result.geometry = settings.geometry;
-  result.shear = settings.shear;
-  result.stretch = settings.stretch;
-  result.shell_radius = settings.shell_radius;
-  result.crossings = settings.crossings;
-  result.shell_layers = settings.shell_layers;
-  result.valid = result.camera.valid() &&
-                 (settings.geometry != Geometry::OCTET || settings.crossings) &&
-                 Raycast::finite(result.footprint.angular_radius) &&
-                 Raycast::finite(result.appearance.inv_far) &&
-                 Raycast::finite(result.appearance.near_inv_span) &&
-                 (settings.domain == Raycast::SamplingDomain::SLICE_4D
-                      ? result.octet4.valid()
-                      : result.octet.valid());
-  if (!result.valid)
-    return result;
-  if (settings.geometry != Geometry::OCTET) {
-    const bool CELLULAR = settings.geometry == Geometry::DIAMOND ||
-                          settings.geometry == Geometry::HEXAGONAL ||
-                          settings.geometry == Geometry::RHOMBIC;
-    result.valid =
-        (CELLULAR && settings.domain == Raycast::SamplingDomain::SPATIAL_3D) ||
-        settings.geometry == Geometry::AFFINE_CUBIC ||
-        settings.geometry == Geometry::SHELLS;
-    if (CELLULAR)
-      result.cellular = &SDF::CellularWire::geometry(
-          settings.geometry == Geometry::DIAMOND
-              ? SDF::CellularWire::Kind::DIAMOND
-          : settings.geometry == Geometry::HEXAGONAL
-              ? SDF::CellularWire::Kind::HEXAGONAL
-              : SDF::CellularWire::Kind::RHOMBIC);
-    if (settings.geometry == Geometry::SHELLS) {
-      result.periodic_shells =
-          SDF::prepare_periodic_shells(result.camera, settings.cell_size,
-                                       settings.shell_radius, result.footprint);
-      result.valid = result.periodic_shells.valid && settings.shell_layers;
-    }
-    return result;
-  }
-  const auto &E = settings.embedding.m;
-  if (settings.domain == Raycast::SamplingDomain::SPATIAL_3D) {
-    const auto FAMILIES = result.octet.plane_families();
-    auto &projection = result.octet_projection;
-    const float SPACING = FAMILIES[0].spacing;
-    projection.spacing2 = SPACING * SPACING;
-    projection.wire_radius = result.octet.wire_radius;
-    const math::Vector ORIGIN(settings.center[0], settings.center[1],
-                              settings.center[2]);
-    for (size_t i = 0; i < FAMILIES.size(); ++i) {
-      const math::Vector NORMAL = FAMILIES[i].normal / SPACING;
-      projection.offsets[i] = math::dot(ORIGIN - result.octet.origin, NORMAL);
-      projection.normals[i] = {
-          NORMAL.x * E[0][0] + NORMAL.y * E[1][0] + NORMAL.z * E[2][0],
-          NORMAL.x * E[0][1] + NORMAL.y * E[1][1] + NORMAL.z * E[2][1],
-          NORMAL.x * E[0][2] + NORMAL.y * E[1][2] + NORMAL.z * E[2][2]};
-    }
-  } else {
-    auto &projection = result.octet4_projection;
-    projection.inverse_scale =
-        1.0f / (SDF::OctetFramework4::HALF_CUBE * settings.cell_size);
-    for (int i = 0; i < 4; ++i) {
-      projection.embedding[i] = math::Vector(E[i][0], E[i][1], E[i][2]);
-      projection.origin[i] = (settings.center[i] - result.octet4.origin[i]) *
-                             projection.inverse_scale;
-    }
-  }
-  return result;
-}
-
-// shade() calls each trace out of line, so a debug build's shade() frame
-// holds one trace's locals at a time instead of all of them.
-
-/** @brief shade() for a valid octet frame of the matching domain. */
-template <bool SLICE_4D>
-HS_HOT_FLASH_MEMBER Sample shade_octet(const math::Vector &direction,
-                                       const Prepared &prepared) {
-  if constexpr (SLICE_4D) {
-    return SDF::OctetTrace::trace_4d(
-        direction, prepared.camera, prepared.octet4, prepared.octet4_projection,
-        prepared.footprint, prepared.limits, prepared.appearance,
-        *prepared.crossings);
-  } else {
-    return SDF::OctetTrace::trace_3d(direction, prepared.camera,
-                                     prepared.octet_projection,
-                                     prepared.footprint, prepared.limits,
-                                     prepared.appearance, *prepared.crossings);
-  }
-}
-
-/** @brief shade() for a valid shell frame one of the shell traces serves. */
-template <bool SLICE_4D>
-HS_HOT_FLASH_MEMBER Sample shade_shells(const math::Vector &direction,
-                                        const Prepared &prepared) {
-  const SDF::ShellSample SHELLS =
-      !SLICE_4D && prepared.periodic_shells.single_owner
-          ? SDF::trace_periodic_shells_3d(prepared.periodic_shells,
-                                          prepared.camera, direction,
-                                          prepared.limits, prepared.appearance)
-          : SDF::trace_periodic_shells_march<SLICE_4D ? 4 : 3>(
-                prepared.periodic_shells, prepared.camera, direction,
-                prepared.limits, prepared.appearance, *prepared.shell_layers);
-  return {SHELLS.color, SHELLS.status};
-}
-
-/** @brief One ray's premultiplied color for the frame's geometry. */
-template <bool SLICE_4D>
-HS_HOT_FLASH_MEMBER Sample shade(const math::Vector &direction,
-                                 const Prepared &prepared) {
-  const auto &camera = prepared.camera;
-  if (!prepared.valid ||
-      (camera.domain == Raycast::SamplingDomain::SLICE_4D) != SLICE_4D)
-    return {{}, Raycast::TraceStatus::INVALID_QUERY};
-  if (prepared.geometry != Geometry::OCTET) {
-    if (prepared.geometry == Geometry::SHELLS &&
-        ((!SLICE_4D && prepared.periodic_shells.single_owner) ||
-         prepared.periodic_shells.march))
-      return shade_shells<SLICE_4D>(direction, prepared);
-    Raycast::ShadedTrace sample;
-    if (prepared.geometry == Geometry::AFFINE_CUBIC)
-      sample = SDF::shade_affine_lattice(
-          camera, direction, prepared.octet.cell_size,
-          prepared.octet.wire_radius, prepared.footprint, prepared.limits,
-          prepared.appearance, prepared.shear, prepared.stretch);
-    else if (prepared.geometry == Geometry::SHELLS)
-      sample = SDF::shade_periodic_shells(prepared.periodic_shells, camera,
-                                          direction, prepared.limits,
-                                          prepared.appearance);
-    else {
-      sample = SDF::CellularWire::shade(
-          *prepared.cellular, prepared.octet.cell_size,
-          prepared.octet.wire_radius, camera, prepared.footprint,
-          prepared.limits, prepared.appearance, direction);
-    }
-    return {sample.color.color * sample.color.alpha, sample.trace.status};
-  }
-  return shade_octet<SLICE_4D>(direction, prepared);
-}
-
-} // namespace Experiment
+              static_cast<uint8_t>(Experiment::Geometry::SHELLS));
 
 HS_FLASH_INLINE inline Experiment::Settings
 experimental_settings(const FrameState &frame, math::Vec4 center) {
@@ -450,95 +214,6 @@ inline PreparedTrace prepare_trace(const FrameState &frame) {
           {1.0f / p.far_distance, 1.5f * p.wire_radius * near_scale,
            1.0f / (p.near_fade * near_scale), frame.depth_palette, frame.gain},
           frame.crossings};
-}
-/**
- * @brief Composites one ray's plane crossings front to back.
- * @details Matches Raycast::shade_events over SDF::Lattice::Events. Each axis
- * evaluates its crossings with the axis fixed, and only covered crossings enter
- * the distance-ordered layer list: an uncovered crossing never closes a merge
- * group, so the groups are runs of covered crossings within the relative
- * tolerance of their first distance, each one layer at that distance with the
- * run's largest coverage. The stream capacity bounds every ray below the
- * candidate and layer budgets, so neither is tracked.
- */
-template <bool SLICE_4D, uint8_t SHELLS>
-__attribute__((always_inline)) inline LayerComposite
-composite_crossings(const math::Vector &normal, const PreparedTrace &prepared) {
-  HS_PROFILE_DEEP(hl_shade);
-  using SDF::Lattice::DIRECTION_EPSILON;
-  constexpr float RELATIVE_TOLERANCE = 1.0e-4f;
-  static_assert(CrossingList::CAPACITY <= Raycast::TraceLimits{}.max_layers);
-  const auto &lattice = prepared.lattice;
-  const math::Vec4 direction =
-      lattice.world_to_lattice.apply({{normal.x, normal.y, normal.z, 0}});
-  math::Vec4 origin = lattice.origin;
-  std::array<float, DIMENSIONS> magnitude;
-  float product = 1.0f;
-  for (int axis = 0; axis < DIMENSIONS; ++axis) {
-    origin[axis] += lattice.sphere_radius_world * direction[axis];
-    magnitude[axis] =
-        !SLICE_4D && axis == 3 && lattice.mode == LatticeMode::THREE_D
-            ? 0.0f
-            : fabsf(direction[axis]);
-    if (magnitude[axis] >= DIRECTION_EPSILON)
-      product *= magnitude[axis];
-  }
-  // One division serves every axis: each step is the product of the other
-  // magnitudes over the product of all of them.
-  const float INVERSE_PRODUCT = 1.0f / product;
-  const uint8_t SHELL_COUNT =
-      SHELLS ? SHELLS : static_cast<uint8_t>(lattice.params.shells) + 1;
-  auto &distances = prepared.crossings->distances;
-  auto &coverages = prepared.crossings->coverages;
-  int count = 0;
-  const auto cross = [&](int axis) __attribute__((always_inline)) {
-    if (!(magnitude[axis] >= DIRECTION_EPSILON))
-      return;
-    float step = INVERSE_PRODUCT;
-    for (int other = 0; other < DIMENSIONS; ++other)
-      if (other != axis && magnitude[other] >= DIRECTION_EPSILON)
-        step *= magnitude[other];
-    float distance =
-        SDF::Lattice::next_plane_offset(origin[axis], direction[axis] > 0) *
-        step;
-    for (uint8_t shell = 0;
-         shell < SHELL_COUNT && distance < lattice.far_distance;
-         ++shell, distance += step) {
-      HS_PROFILE_DEEP(hl_event_step);
-      const float COVERAGE =
-          SDF::Lattice::trace_plane<SLICE_4D>(origin, direction, axis, distance,
-                                              step, lattice)
-              .coverage *
-          SDF::Lattice::shell_horizon_coverage(shell, SHELL_COUNT, distance,
-                                               magnitude[axis]);
-      if (!(COVERAGE > 0.0f))
-        continue;
-      int slot = count++;
-      for (; slot > 0 && distances[slot - 1] > distance; --slot) {
-        distances[slot] = distances[slot - 1];
-        coverages[slot] = coverages[slot - 1];
-      }
-      distances[slot] = distance;
-      coverages[slot] = COVERAGE;
-    }
-  };
-  cross(0);
-  cross(1);
-  cross(2);
-  cross(3);
-  LayerComposite composite;
-  for (int layer = 0; layer < count;) {
-    HS_PROFILE_DEEP(hl_layer_composite);
-    const float T = distances[layer];
-    const float GROUP_END = T + RELATIVE_TOLERANCE * fmaxf(1.0f, T);
-    float coverage = coverages[layer];
-    for (++layer; layer < count && distances[layer] <= GROUP_END; ++layer)
-      coverage = fmaxf(coverage, coverages[layer]);
-    prepared.appearance.composite(composite, T, coverage);
-    if (composite.saturated())
-      break;
-  }
-  return composite;
 }
 
 template <bool SLICE_4D = false, uint8_t SHELLS = 0> struct Renderer {
