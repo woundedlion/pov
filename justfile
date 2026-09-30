@@ -26,7 +26,7 @@ default:
 
 # WASM release build of the simulator module (daydream).
 build:
-    cmake --preset wasm-release -DDAYDREAM_DIR="{{daydream_dir}}"
+    cmake --preset wasm-release -DDAYDREAM_DIR="{{ daydream_dir }}"
     cmake --build --preset wasm-release
 
 # WASM debug build (-O0 -g -sASSERTIONS, 64 KB stack).
@@ -140,7 +140,7 @@ _doxyfile-local:
 # Build, smoke-test, and install WASM into ../daydream.
 install: smoke
     cmake --build --preset wasm-release-install
-    node scripts/wasm_smoke.mjs "{{daydream_dir}}/generated/holosphere_wasm.js"
+    node scripts/wasm_smoke.mjs "{{ daydream_dir }}/generated/holosphere_wasm.js"
 
 # Windows only: build and flash the bench image under the per-board device lock.
 bench:
