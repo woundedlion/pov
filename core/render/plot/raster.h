@@ -378,6 +378,9 @@ template <int W, int H, RasterConfig Cfg = {}, typename PipelineT = PipelineRef,
 static void rasterize(PipelineT &source_pipeline, Canvas &canvas,
                       const Fragments &points, FragmentShaderT fragment_shader,
                       RasterOptions opts = {}) {
+  static_assert(Cfg.single_pass ||
+                    Cfg.sampling_policy == RasterSamplingPolicy::DEFAULT,
+                "non-default raster sampling requires single_pass");
   constexpr bool SINGLE_PASS = Cfg.single_pass;
   constexpr bool OPEN_GEODESIC = Cfg.open_geodesic;
   constexpr bool DERIVE_PLANAR_ARC_REGISTERS = Cfg.derive_planar_arc_registers;
