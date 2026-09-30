@@ -16,6 +16,7 @@
  */
 
 #include "workbench/shader/config.h"
+#include "core/render/pullback/warp.h"
 
 namespace Workbench {
 
@@ -76,29 +77,10 @@ struct PreparedTransforms {
   math::Quaternion outer_conj;
 };
 
-struct PreparedAffineFrame {
-  float translation_x;
-  float translation_y;
-  float scale_x;
-  float scale_y;
-  float shear;
-};
-
-struct PreparedMirrorTile {
-  float offset_x;
-  float offset_y;
-};
-
-struct PreparedVortex {
-  float center_x;
-  float center_y;
-  float radius_sq;
-  float angle_numerator;
-};
-
-struct PreparedNoiseLoop {
-  math::Vector offset;
-};
+using PreparedAffineFrame = Pullback::Warp::PreparedAffine;
+using PreparedMirrorTile = Pullback::Warp::PreparedMirror;
+using PreparedVortex = Pullback::Warp::PreparedVortex;
+using PreparedNoiseLoop = Pullback::Warp::PreparedNoiseLoop;
 
 union PreparedWarpTransform {
   // Vector's user-provided default ctor deletes the union's; an initialized
@@ -255,34 +237,51 @@ prepare_warp_stage(const WarpStageSpec &spec, const WarpStageParams &params,
   else if (spec.kind == WarpStageKind::WAVE_SHEAR)
     rotation = params.field_angle;
   if (spec.kind == WarpStageKind::AFFINE_FRAME) {
-    const float phase = math::TWO_PI_F * math::wrap_t(stage_phase);
-    const float phase_cos = cosf(phase);
-    rotation = affine_rotation;
-    prepared.transform.affine = {
-        math::wrap_t(stage_phase) * params.translation_x * source_period.re,
-        math::wrap_t(stage_phase) * params.translation_y * source_period.im,
-        powf(params.scale_x, phase_cos),
-        powf(params.scale_y, phase_cos),
-        params.shear * phase_cos,
-    };
+    const auto core = Pullback::Warp::prepare(
+        Pullback::Warp::AffineParams{.translation_x = params.translation_x,
+                                     .translation_y = params.translation_y,
+                                     .scale_x = params.scale_x,
+                                     .scale_y = params.scale_y,
+                                     .shear = params.shear},
+        stage_phase, affine_rotation, 1.0f);
+    prepared.transform.affine = core.transform.affine;
+    prepared.transform.affine.translation_x *= source_period.re;
+    prepared.transform.affine.translation_y *= source_period.im;
+    prepared.rotation_cos = core.rotation_cos;
+    prepared.rotation_sin = core.rotation_sin;
+    return prepared;
   } else if (spec.kind == WarpStageKind::MIRROR_TILE) {
-    prepared.transform.mirror = {
-        math::wrap_t(params.offset_x / params.cell_x + stage_phase) *
-            params.cell_x,
-        math::wrap_t(params.offset_y / params.cell_y) * params.cell_y,
-    };
+    const auto core = Pullback::Warp::prepare(
+        Pullback::Warp::MirrorParams{.rotation = rotation,
+                                     .cell_x = params.cell_x,
+                                     .cell_y = params.cell_y,
+                                     .offset_x = params.offset_x,
+                                     .offset_y = params.offset_y},
+        stage_phase);
+    prepared.transform.mirror = core.transform.mirror;
+    prepared.rotation_cos = core.rotation_cos;
+    prepared.rotation_sin = core.rotation_sin;
+    return prepared;
   } else if (spec.kind == WarpStageKind::VORTEX) {
-    const float orbit_phase = math::TWO_PI_F * stage_phase;
-    prepared.transform.vortex = {
-        params.center_x + params.center_orbit_radius * cosf(orbit_phase),
-        params.center_y + params.center_orbit_radius * sinf(orbit_phase),
-        params.radius * params.radius,
-        math::TWO_PI_F * params.turns,
-    };
+    prepared.transform.vortex =
+        Pullback::Warp::prepare(
+            Pullback::Warp::VortexParams{.center_x = params.center_x,
+                                         .center_y = params.center_y,
+                                         .radius = params.radius,
+                                         .turns = params.turns,
+                                         .center_orbit_radius =
+                                             params.center_orbit_radius},
+            stage_phase)
+            .transform.vortex;
   } else if (spec.kind == WarpStageKind::VECTOR_NOISE ||
              spec.kind == WarpStageKind::CURL_FLOW) {
-    prepared.transform.noise_loop = {
-        math::noise_projected_loop_offset(stage_phase)};
+    const auto core = Pullback::Warp::prepare(
+        Pullback::Warp::VectorNoiseParams{.vector_angle = rotation},
+        stage_phase);
+    prepared.transform.noise_loop = core.transform.noise_loop;
+    prepared.rotation_cos = core.rotation_cos;
+    prepared.rotation_sin = core.rotation_sin;
+    return prepared;
   }
   prepared.rotation_cos = cosf(rotation);
   prepared.rotation_sin = sinf(rotation);
