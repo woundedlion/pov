@@ -372,9 +372,9 @@ struct Pipeline {
   static Color4 evaluate(const Vector &view, const FrameState &ctx,
                          const PreparedTuple &prepared);
 
-  HS_FLASH_MEMBER
+  HS_HOT_FLASH_MEMBER
   static Color4 shade(const Vector &view, const Frame &frame);
-  HS_FLASH_MEMBER
+  HS_HOT_FLASH_MEMBER
   static Color4 shade_prepared(const Vector &view, const FrameState &ctx,
                                const void *storage);
 };
@@ -683,7 +683,7 @@ exactly prepared-state layout and code emission. Binding a pipeline maps it
 `Detail::BoundPlaced<EmissionV, Binding, Stages...>` specialization, which
 holds the group's nested prepared-state tuple and defines the `run` entry:
 `always_inline` for `INLINE_ONLY`, `__attribute__((noinline))
-HS_FLASH_MEMBER` for `OUT_OF_LINE_FLASH` (`HS_FLASH_MEMBER` is empty under
+HS_HOT_FLASH_MEMBER` for `OUT_OF_LINE_FLASH` (`HS_HOT_FLASH_MEMBER` is empty under
 clang, so the explicit `noinline` is what keeps the group out of line there),
 and `FASTRUN HS_NOINLINE_NOCLONE` for `OUT_OF_LINE_ITCM`. The children's runs
 are inlined into that entry, so metadata that disagrees with actual placement
