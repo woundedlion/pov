@@ -1293,6 +1293,26 @@ struct GSWhiteBox {
   static Color4 palette_sample(const GS &gs, float t, int seed = 0) {
     return Color4(gs.palette_color(seed, t), 1.0f);
   }
+  static Pixel modified_palette(const GS &gs, int seed, float t, float hue,
+                                float shimmer) {
+    return gs.modified_palette_color(seed, t, hue, shimmer);
+  }
+  static void set_color_params(GS &gs, float speed, float scale, float hue,
+                               float shimmer) {
+    gs.params.noise_speed = speed;
+    gs.params.noise_scale = scale;
+    gs.params.hue_shift = hue;
+    gs.params.shimmer = shimmer;
+  }
+  static void advance_color_noise(GS &gs) { gs.advance_color_noise(); }
+  static float noise_phase(const GS &gs) { return gs.color_noise_phase; }
+  static void set_noise_phase(GS &gs, float phase) {
+    gs.color_noise_phase = phase;
+  }
+  static float color_noise(const GS &gs, const math::Vector &direction) {
+    return gs.sample_color_noise(direction);
+  }
+  static bool reaction_edited(GS &gs) { return gs.reaction_edited(); }
   static constexpr int SEEDS = GS::NUM_SEED_CLUSTERS;
   static void set_pigment(GS &gs, int node, int seed) {
     gs.state.pigment[node] = static_cast<uint16_t>(seed | (63u << 10));
@@ -1441,6 +1461,10 @@ struct GSWhiteBox {
         if (shared_center != gs.refine_center(frag.pos, world_nodes, seed))
           ++error.center_mismatches;
         Pixel got = gs.shade_pixel(seed, frag.pos, world_nodes, grid, x);
+        float noise =
+            gs.sample_color_noise(gs.inverse_orientation.apply(frag.pos));
+        float shift = noise * gs.params.hue_shift;
+        float lightness = std::max(0.0f, noise) * gs.params.shimmer;
 
         Pixel expected(0, 0, 0);
         for (int i = 0; i < 4; ++i) {
@@ -1472,7 +1496,10 @@ struct GSWhiteBox {
           gs.kernel_accumulate(
               sample_v, world_nodes, center, [&](int ni, float w) {
                 float weight = gs.state.B[ni] * w;
-                Pixel color = gs.pigment_color(gs.state.pigment[ni], t);
+                Pixel color =
+                    GS::mix_pigment(gs.state.pigment[ni], [&](int id) {
+                      return gs.modified_palette_color(id, t, shift, lightness);
+                    });
                 mass += weight;
                 rgb[0] += color.r * weight;
                 rgb[1] += color.g * weight;
@@ -1553,6 +1580,51 @@ inline void test_gs_reseed_generates_palette() {
   }
   HS_EXPECT_GT(changed, 0);
   HS_EXPECT_EQ(persistent_arena.get_offset(), arena_offset);
+}
+
+inline void test_gs_shared_noise_palette_modifiers() {
+  hs_test::reset_globals();
+  GSWhiteBox::GS gs;
+  gs.init();
+  const size_t OFFSET = persistent_arena.get_offset();
+  int rotated = 0;
+  for (int seed = 0; seed < GSWhiteBox::SEEDS; ++seed) {
+    Pixel base = GSWhiteBox::palette_sample(gs, 0.5f, seed).color;
+    HS_EXPECT_EQ(GSWhiteBox::modified_palette(gs, seed, 0.5f, 0.0f, 0.0f),
+                 base);
+    Pixel hue = GSWhiteBox::modified_palette(gs, seed, 0.5f, 0.25f, 0.0f);
+    Pixel expected = hue_rotate_lut_gamut(Color4(base, 1.0f), 0.25f).color;
+    HS_EXPECT_EQ(hue, expected);
+    rotated += hue != base;
+    Pixel shimmer = GSWhiteBox::modified_palette(gs, seed, 0.5f, 0.0f, 0.5f);
+    const LinRGB BEFORE = pixel_to_linrgb(base);
+    const LinRGB AFTER = pixel_to_linrgb(shimmer);
+    HS_EXPECT_GT(linear_rgb_to_oklab(AFTER.r, AFTER.g, AFTER.b).L,
+                 linear_rgb_to_oklab(BEFORE.r, BEFORE.g, BEFORE.b).L);
+  }
+  HS_EXPECT_EQ(rotated, GSWhiteBox::SEEDS);
+
+  GSWhiteBox::set_color_params(gs, 0.0f, 2.0f, 0.35f, 0.25f);
+  const float STILL = GSWhiteBox::color_noise(gs, math::X_AXIS);
+  GSWhiteBox::advance_color_noise(gs);
+  HS_EXPECT_EQ(GSWhiteBox::noise_phase(gs), 0.0f);
+  HS_EXPECT_EQ(GSWhiteBox::color_noise(gs, math::X_AXIS), STILL);
+  GSWhiteBox::set_color_params(gs, 0.001f, 2.0f, 0.35f, 0.25f);
+  for (int i = 0; i < 40; ++i)
+    GSWhiteBox::advance_color_noise(gs);
+  HS_EXPECT_GT(fabsf(GSWhiteBox::color_noise(gs, math::X_AXIS) - STILL), 1e-3f);
+  const float MOVING = GSWhiteBox::color_noise(gs, math::X_AXIS);
+  GSWhiteBox::set_color_params(gs, 0.0f, 4.0f, 0.35f, 0.25f);
+  GSWhiteBox::advance_color_noise(gs);
+  HS_EXPECT_GT(fabsf(GSWhiteBox::color_noise(gs, math::X_AXIS) - MOVING),
+               1e-3f);
+  GSWhiteBox::set_noise_phase(gs, 0.0005f);
+  GSWhiteBox::set_color_params(gs, -0.001f, 4.0f, 0.35f, 0.25f);
+  GSWhiteBox::advance_color_noise(gs);
+  HS_EXPECT_NEAR(GSWhiteBox::noise_phase(gs), 0.9995f, 1e-6f);
+  HS_EXPECT(!GSWhiteBox::reaction_edited(gs),
+            "color controls must not restart the reaction");
+  HS_EXPECT_EQ(persistent_arena.get_offset(), OFFSET);
 }
 
 inline void test_gs_seed_palettes_and_pigment_transport() {
@@ -6602,6 +6674,7 @@ inline int run_effects_tests() {
   run_case(test_meshfeedback_mesh_rebuild_reuses_storage);
   run_case(test_gs_palette_is_opaque);
   run_case(test_gs_seed_palettes_and_pigment_transport);
+  run_case(test_gs_shared_noise_palette_modifiers);
   run_case(test_gs_reseed_generates_palette);
   run_case(test_gs_render_certificates_bound_lattice);
   run_case(test_gs_shared_stencil_error_is_bounded);

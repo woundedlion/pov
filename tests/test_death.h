@@ -62,6 +62,7 @@
 #include "core/render/canvas.h"
 #include "core/color/color.h"
 #include "core/color/noise_hue_palette.h"
+#include "core/color/noise_shimmer_palette.h"
 #include "core/math/geometry.h"
 #include "core/render/filter.h"
 #include "core/render/filter/pixel_feedback.h"
@@ -3122,6 +3123,30 @@ inline void case_generated_palette_bank_unknown_mode() {
 /**
  * @brief Death case: NoiseHuePalette requires a non-null palette source.
  */
+inline void case_noise_hue_palette_direct_null_source() {
+  static int8_t noise_lut[1];
+  NoiseHuePalette<SolidColorPalette> palette;
+  palette.bind(opaque<const SolidColorPalette *>(nullptr), noise_lut);
+}
+
+inline void case_noise_hue_palette_direct_null_noise_lut() {
+  SolidColorPalette source(Color4(Pixel(255, 0, 0), 1.0f));
+  NoiseHuePalette<SolidColorPalette> palette;
+  palette.bind(&source, opaque<const int8_t *>(nullptr));
+}
+
+inline void case_noise_shimmer_palette_null_source() {
+  static int8_t noise_lut[1];
+  NoiseShimmerPalette<SolidColorPalette> palette;
+  palette.bind(opaque<const SolidColorPalette *>(nullptr), noise_lut);
+}
+
+inline void case_noise_shimmer_palette_null_noise_lut() {
+  SolidColorPalette source(Color4(Pixel(255, 0, 0), 1.0f));
+  NoiseShimmerPalette<SolidColorPalette> palette;
+  palette.bind(&source, opaque<const int8_t *>(nullptr));
+}
+
 inline void case_noise_hue_palette_null_source() {
   static Pixel hue_rotation_lut[1];
   static int8_t hue_noise_lut[1];
@@ -5403,6 +5428,22 @@ inline const Case *all_cases(int &n) {
       {"alpha_falloff_null", case_alpha_falloff_null,
        "core/color/composition.h",
        "(fn != nullptr) AlphaFalloffShade: falloff function must not be null"},
+      {"noise_hue_palette_direct_null_source",
+       case_noise_hue_palette_direct_null_source,
+       "core/color/noise_hue_palette.h",
+       "(source != nullptr) NoiseHuePalette direct mode bound to null source"},
+      {"noise_hue_palette_direct_null_noise_lut",
+       case_noise_hue_palette_direct_null_noise_lut,
+       "core/color/noise_hue_palette.h",
+       "(hue_noise_lut != nullptr) NoiseHuePalette direct mode bound to null hue-noise LUT"},
+      {"noise_shimmer_palette_null_source",
+       case_noise_shimmer_palette_null_source,
+       "core/color/noise_shimmer_palette.h",
+       "(source != nullptr) NoiseShimmerPalette bound to null source"},
+      {"noise_shimmer_palette_null_noise_lut",
+       case_noise_shimmer_palette_null_noise_lut,
+       "core/color/noise_shimmer_palette.h",
+       "(noise_lut != nullptr) NoiseShimmerPalette bound to null noise LUT"},
       {"noise_hue_palette_null_source", case_noise_hue_palette_null_source,
        "core/color/noise_hue_palette.h",
        "(source != nullptr) NoiseHuePalette bound to null source"},

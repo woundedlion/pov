@@ -291,6 +291,7 @@ files define line-ending policy and working-artifact exclusions.
 │   │   ├── gamut_lut.h             Generated sRGB gamut-boundary chroma table for OKLab clipping
 │   │   ├── generative_palette.h    GenerativePalette + PaletteRecipe compilation
 │   │   ├── noise_hue_palette.h     Sphere-noise hue LUTs + reusable NoiseHuePalette wrapper
+│   │   ├── noise_shimmer_palette.h Shared sphere-noise lightness lift palette wrapper
 │   │   ├── palette_cycler.h        PaletteCycler: dwell-and-fade display LUT over a palette sequence
 │   │   ├── effect_palette_recipes.h Per-effect authored PaletteRecipe constructors
 │   │   ├── mindsplatter_palette_luts.h  Generated bank of 256 triadic palette LUTs, one per base hue (from tools/mindsplatter_palette_gen.cpp)

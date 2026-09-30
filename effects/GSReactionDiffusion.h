@@ -14,6 +14,7 @@
 #include <cmath>
 #include <utility>
 #include "core/color/effect_palette_recipes.h"
+#include "core/color/noise_shimmer_palette.h"
 #include "core/engine/engine.h"
 #include "effects/ReactionDiffusionBase.h"
 
@@ -45,7 +46,7 @@ struct GSWhiteBox;
  *
  * Each node carries the two strongest seed palettes and their mixing weight.
  * Palette pigment follows B diffusion and autocatalysis; rendering blends RGB
- * in linear light. Persistent storage is 189 KB; raster scratch is 105 KB.
+ * in linear light. Hue and shimmer share one sphere-domain noise field.
  */
 template <int W, int H>
 class GSReactionDiffusion
@@ -83,8 +84,9 @@ public:
    */
   void init() override {
     constexpr size_t PALETTE_BYTES =
-        NUM_SEED_CLUSTERS * PALETTE_SIZE * sizeof(Pixel) + alignof(Pixel);
-    constexpr size_t PERSISTENT_BYTES = 189 * 1024;
+        NUM_SEED_CLUSTERS * PALETTE_SIZE * sizeof(Pixel) + alignof(Pixel) +
+        HueNoiseLutView::SIZE * sizeof(int8_t);
+    constexpr size_t PERSISTENT_BYTES = 192 * 1024 + 32;
     constexpr size_t PHYSICS_SCRATCH_BYTES =
         2u * RD_N * sizeof(float) + RD_N * sizeof(uint16_t);
     constexpr size_t RASTER_SCRATCH_BYTES =
@@ -102,6 +104,10 @@ public:
     register_param("dA", &params.d_a, 0.0f, 0.05f);
     register_param("dB", &params.d_b, 0.0f, 0.05f);
     register_param("Speed", &params.dt, 0.1f, 3.0f);
+    register_param("Noise Speed", &params.noise_speed, -0.001f, 0.001f);
+    register_param("Noise Scale", &params.noise_scale, 1.0f / 64.0f, 8.0f);
+    register_param("Hue Shift", &params.hue_shift, -4.0f, 4.0f);
+    register_param("Shimmer", &params.shimmer, 0.0f, 1.0f);
 
     state.A = static_cast<uint16_t *>(
         persistent_arena.allocate(RD_N * sizeof(uint16_t), alignof(uint16_t)));
@@ -111,6 +117,12 @@ public:
         persistent_arena.allocate(RD_N * sizeof(uint16_t), alignof(uint16_t)));
     palettes = static_cast<Pixel *>(persistent_arena.allocate(
         NUM_SEED_CLUSTERS * PALETTE_SIZE * sizeof(Pixel), alignof(Pixel)));
+    color_noise_lut = static_cast<int8_t *>(
+        persistent_arena.allocate(HueNoiseLutView::SIZE, alignof(int8_t)));
+    color_noise.SetNoiseType(FastNoiseLite::NoiseType_OpenSimplex2);
+    color_noise.SetSeed(6047);
+    color_noise.SetFrequency(1.0f);
+    refresh_color_noise();
 
     validate_physics_neighbors();
     init_lattice();
@@ -262,13 +274,63 @@ private:
                             t * (PALETTE_SIZE - 1));
   }
 
-  Pixel pigment_color(uint16_t pigment, float t) const {
-    Pixel first = palette_color(pigment & 31, t);
+  struct SeedPalette {
+    const Pixel *colors;
+
+    Color4 get(float t) const {
+      return Color4(
+          lut_sample_pixel(colors, PALETTE_SIZE, t * (PALETTE_SIZE - 1)), 1.0f);
+    }
+  };
+
+  struct HueShiftedPalette {
+    const NoiseHuePalette<SeedPalette> &palette;
+    float shift;
+
+    Color4 get(float t) const { return palette.get(t, shift); }
+  };
+
+  Pixel modified_palette_color(int seed, float t, float shift,
+                               float lightness) const {
+    if (shift == 0.0f && lightness == 0.0f)
+      return palette_color(seed, t);
+    SeedPalette source{palettes + seed * PALETTE_SIZE};
+    NoiseHuePalette<SeedPalette> hue(&source, color_noise_lut);
+    HueShiftedPalette shifted{hue, shift};
+    NoiseShimmerPalette<HueShiftedPalette> shimmer(&shifted, color_noise_lut);
+    return shimmer.get(t, lightness).color;
+  }
+
+  void refresh_color_noise() {
+    color_noise_cache.refresh(std::span<int8_t, HueNoiseLutView::SIZE>(
+                                  color_noise_lut, HueNoiseLutView::SIZE),
+                              color_noise, params.noise_scale,
+                              color_noise_phase);
+  }
+
+  void advance_color_noise() {
+    color_noise_phase = math::wrap_t(color_noise_phase + params.noise_speed);
+    if (params.hue_shift != 0.0f || params.shimmer != 0.0f)
+      refresh_color_noise();
+  }
+
+  float sample_color_noise(const math::Vector &direction) const {
+    return sample_hue_noise_lut({color_noise_lut, true}, direction);
+  }
+
+  template <typename Sample>
+  static Pixel mix_pigment(uint16_t pigment, Sample &&sample) {
+    Pixel first = sample(pigment & 31);
     if ((pigment >> 10) == 63)
       return first;
-    Pixel second = palette_color((pigment >> 5) & 31, t);
+    Pixel second = sample((pigment >> 5) & 31);
     return second.lerp16(
         first, static_cast<uint16_t>(((pigment >> 10) * 65535u + 31u) / 63u));
+  }
+
+  Pixel pigment_color(uint16_t pigment, float t) const {
+    return mix_pigment(pigment,
+                       [&](int seed) { return palette_color(seed, t); });
   }
 
   /**
@@ -530,6 +592,12 @@ private:
     if (seed < 0)
       return Pixel(0, 0, 0);
 
+    float noise_value = 0.0f;
+    if (params.hue_shift != 0.0f || params.shimmer != 0.0f)
+      noise_value =
+          sample_color_noise(Base::inverse_orientation.apply(center_rv));
+    const float HUE_SHIFT = noise_value * params.hue_shift;
+    const float LIGHTNESS = std::max(0.0f, noise_value) * params.shimmer;
     int center =
         Base::template refine_render_center<true>(center_rv, world_nodes, seed);
     constexpr uint32_t SAMPLES = Grid::SAMPLES;
@@ -591,12 +659,23 @@ private:
 
       float t = hs::clamp((b - B_COLOR_FLOOR) * B_COLOR_SCALE, 0.0f, 1.0f);
       float scale = 1.0f / (wb * SAMPLES);
+      Pixel color_cache[NUM_SEED_CLUSTERS];
+      uint32_t cached = 0;
+      auto sample_palette = [&](int palette_id) {
+        uint32_t bit = 1u << palette_id;
+        if (!(cached & bit)) {
+          color_cache[palette_id] =
+              modified_palette_color(palette_id, t, HUE_SHIFT, LIGHTNESS);
+          cached |= bit;
+        }
+        return color_cache[palette_id];
+      };
       for (int j = 0; j < RD_K + 1; ++j) {
         float weight = pigment_weights[j][i] * scale;
         if (weight <= 0.0f)
           continue;
         int ni = j == 0 ? center : center + stencil_run.delta[j - 1];
-        Pixel rgb = pigment_color(state.pigment[ni], t);
+        Pixel rgb = mix_pigment(state.pigment[ni], sample_palette);
         accum_r += rgb.r * weight;
         accum_g += rgb.g * weight;
         accum_b += rgb.b * weight;
@@ -659,6 +738,7 @@ private:
    */
   void render(Canvas &canvas) {
     HS_PROFILE(grd_render);
+    advance_color_noise();
     ScratchScope frame_guard(scratch_arena_a);
     float mean_db = 0.0f;
     {
@@ -752,6 +832,10 @@ private:
 
   /** @brief Per-seed linear RGB ramps sampled by B concentration. */
   Pixel *palettes = nullptr;
+  int8_t *color_noise_lut = nullptr;
+  FastNoiseLite color_noise;
+  HueNoiseBakeCache color_noise_cache;
+  float color_noise_phase = 0.0f;
 
   /**
    * @brief GUI-tunable Gray-Scott parameters.
@@ -762,6 +846,10 @@ private:
     float d_a = 0.02f;  /**< Diffusion coefficient of A. */
     float d_b = 0.01f;  /**< Diffusion coefficient of B. */
     float dt = 2.5f;    /**< Integration timestep (Speed slider). */
+    float noise_speed = 0.0002f;
+    float noise_scale = 2.0f;
+    float hue_shift = 0.35f;
+    float shimmer = 0.25f;
   } params;
   static_assert(Params{}.dt == DEFAULT_DT,
                 "the stabilization floor is calibrated at the Speed default");

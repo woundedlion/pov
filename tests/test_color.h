@@ -17,6 +17,7 @@
 #include "core/color/color.h"
 #include "core/color/effect_palette_recipes.h"
 #include "core/color/noise_hue_palette.h"
+#include "core/color/noise_shimmer_palette.h"
 #include "core/color/srgb_decode.h"
 #include "tests/color_test_util.h"
 #include "tests/pixel_test_util.h"
@@ -2588,6 +2589,62 @@ inline void test_noise_hue_palette() {
   HS_EXPECT_NEAR(uv_a, palette.noise_uv(1.0f, -0.0f, 1.0f, -0.0f), 1e-6f);
 }
 
+inline void test_noise_hue_palette_direct() {
+  std::array<int8_t, HueNoiseLutView::SIZE> noise;
+  noise.fill(64);
+  SolidColorPalette source(Color4(Pixel(40000, 12000, 3000), 0.37f));
+  NoiseHuePalette<SolidColorPalette> palette(&source, noise.data());
+  for (float shift : {-0.4f, 0.0f, 0.25f, 1.5f}) {
+    const Color4 original = source.get(0.3f);
+    const Color4 expected =
+        shift == 0.0f ? original : hue_rotate_lut_gamut(original, shift);
+    const Color4 actual = palette.get(0.3f, shift);
+    HS_EXPECT_EQ(actual.color, expected.color);
+    HS_EXPECT_EQ(actual.alpha, original.alpha);
+  }
+  HS_EXPECT_NEAR(palette.hue_shift(math::X_AXIS, 0.5f), 32.0f / 127.0f, 1e-6f);
+  HS_EXPECT_EQ(palette.get(0.3f, math::X_AXIS, 0.5f).color,
+               palette.get(0.3f, 32.0f / 127.0f).color);
+
+  static std::array<Pixel, HueRotationLutView::SIZE> rotation;
+  palette.bind(&source, rotation.data(), noise.data());
+  palette.bind(&source, noise.data());
+  HS_EXPECT_EQ(palette.get(0.3f, 0.0f).color, source.get(0.3f).color);
+}
+
+inline void test_noise_shimmer_palette() {
+  std::array<int8_t, HueNoiseLutView::SIZE> noise;
+  for (Pixel base : {Pixel(4000, 8000, 12000), Pixel(65535, 0, 0),
+                     Pixel(0, 0, 0), Pixel(65535, 65535, 65535)}) {
+    SolidColorPalette source(Color4(base, 0.37f));
+    NoiseShimmerPalette<SolidColorPalette> palette(&source, noise.data());
+    HS_EXPECT_EQ(palette.get(0.3f, 0.0f).color, base);
+    HS_EXPECT_EQ(palette.get(0.3f, -1.0f).color, base);
+    const auto to_lab = [](Pixel pixel) {
+      const LinRGB rgb = pixel_to_linrgb(pixel);
+      return linear_rgb_to_oklab_fast(rgb.r, rgb.g, rgb.b);
+    };
+    const OKLab original = to_lab(base);
+    for (float lift : {0.1f, 0.4f, 1.0f}) {
+      const Color4 raised = palette.get(0.3f, lift);
+      const OKLab actual = to_lab(raised.color);
+      HS_EXPECT_EQ(raised.alpha, 0.37f);
+      HS_EXPECT_NEAR(actual.L, original.L + (1.0f - original.L) * lift, 0.005f);
+      HS_EXPECT_NEAR(actual.a * original.b - actual.b * original.a, 0.0f,
+                     0.001f);
+    }
+    HS_EXPECT_EQ(palette.get(0.3f, 2.0f).color, palette.get(0.3f, 1.0f).color);
+    noise.fill(-127);
+    HS_EXPECT_EQ(palette.get(0.3f, math::X_AXIS, 0.5f).color, base);
+    noise.fill(127);
+    HS_EXPECT_EQ(palette.lightness_shift(math::Y_AXIS, 0.5f), 0.5f);
+    HS_EXPECT_EQ(palette.get(0.3f, math::X_AXIS, 0.5f).color,
+                 palette.get(0.3f, 0.5f).color);
+    NoiseHuePalette<SolidColorPalette> hue(&source, noise.data());
+    HS_EXPECT_EQ(hue.noise(math::Z_AXIS), palette.noise(math::Z_AXIS));
+  }
+}
+
 /**
  * @brief Verifies the shared hue-noise bake cache rebuilds the table exactly
  *        when an input moved, and leaves it untouched otherwise.
@@ -2931,6 +2988,8 @@ inline int run_color_tests() {
   test_palette_wrappers();
   test_palette_shade_coord_policy();
   test_noise_hue_palette();
+  test_noise_hue_palette_direct();
+  test_noise_shimmer_palette();
   test_hue_noise_lut_seamless_across_faces();
   test_hue_noise_bake_cache();
 
