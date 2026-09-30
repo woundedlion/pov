@@ -49,10 +49,10 @@ authored_params(SourceParams source, WarpStageParams outer_warp,
 }
 
 inline constexpr float snap_affine_winding(float value) {
-  if (value <= -4.0f)
-    return -4.0f;
-  if (value >= 4.0f)
-    return 4.0f;
+  if (value <= -AFFINE_TRANSLATION_MAX)
+    return -AFFINE_TRANSLATION_MAX;
+  if (value >= AFFINE_TRANSLATION_MAX)
+    return AFFINE_TRANSLATION_MAX;
   if (value != value)
     return value;
   return value < 0.0f ? static_cast<float>(static_cast<int>(value - 0.5f))
@@ -539,7 +539,7 @@ static_assert(
           return false;
       return true;
     }(),
-    "a ShaderWorkbench preset lies outside its registered range");
+    "a ShaderWorkbench preset is invalid or lacks a pipeline");
 static_assert(
     [] {
       for (size_t index = 0; index < PRESETS.size(); ++index) {

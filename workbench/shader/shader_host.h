@@ -1046,8 +1046,9 @@ private:
                                       &params.fractal_contours,
                                       Workbench::SOURCE_FRACTAL_CONTOURS_MIN,
                                       Workbench::SOURCE_FRACTAL_CONTOURS_MAX);
-      register_clamped_animated_param("Fractal Speed", &params.speed, -0.05f,
-                                      0.05f);
+      register_clamped_animated_param("Fractal Speed", &params.speed,
+                                      Workbench::WAVE_SPIN_MIN,
+                                      Workbench::WAVE_SPIN_MAX);
       register_clamped_animated_param("Fractal Spin Speed", &params.angle_rate,
                                       Workbench::WAVE_SPIN_MIN,
                                       Workbench::WAVE_SPIN_MAX);
@@ -2434,52 +2435,43 @@ private:
     return warning_text.data();
   }
 
-  const char *program_bounds_warning(const Workbench::Config &candidate) const {
-    float bound = projection_coordinate_bound(candidate);
-    const math::Complex source_period = source_cartesian_period(candidate);
+  const char *
+  program_bounds_warning(const Workbench::Config &candidate,
+                         const Workbench::ProgramBounds &bounds) const {
     const Workbench::WarpStageSpec stages[] = {
         candidate.slots.warp_program.outer, candidate.slots.warp_program.inner};
     const Workbench::WarpStageParams params[] = {candidate.params.warp.outer,
                                                  candidate.params.warp.inner};
     const char *positions[] = {"Planar Warp 1", "Planar Warp 2"};
-    for (size_t index = 0; index < 2; ++index) {
-      if (stages[index].kind == Workbench::WarpStageKind::VECTOR_NOISE ||
-          stages[index].kind == Workbench::WarpStageKind::CURL_FLOW) {
-        const float lattice_bound = params[index].scale * (bound + 100.0f);
-        if (lattice_bound > Workbench::NOISE_LATTICE_LIMIT) {
-          const float scale_limit =
-              Workbench::NOISE_LATTICE_LIMIT / (bound + 100.0f);
-          return begin_warning(
-              "%s %s rejected: Warp Scale %.7g produces noise coordinate "
-              "bound %.7g above %.7g. Set Warp Scale <= %.7g or choose a "
-              "projection/lens with a smaller coordinate extent.",
-              positions[index], warp_option(stages[index].kind),
-              static_cast<double>(params[index].scale),
-              static_cast<double>(lattice_bound),
-              static_cast<double>(Workbench::NOISE_LATTICE_LIMIT),
-              static_cast<double>(scale_limit));
-        }
-      }
-      bound = stage_coordinate_bound(stages[index], params[index], bound,
-                                     source_period);
-      if (bound > Workbench::WARP_COORD_LIMIT)
-        return begin_warning(
-            "%s %s rejected: its predicted coordinate bound %.7g exceeds "
-            "%.7g. Reduce this warp's displacement/translation controls or "
-            "choose a projection/lens with a smaller coordinate extent.",
-            positions[index], warp_option(stages[index].kind),
-            static_cast<double>(bound),
-            static_cast<double>(Workbench::WARP_COORD_LIMIT));
-    }
-    const float source_bound = candidate.params.source.noise_scale * bound;
+    const size_t index = bounds.stage;
+    if (bounds.failure == Workbench::BoundsFailure::WARP_NOISE)
+      return begin_warning(
+          "%s %s rejected: Warp Scale %.7g produces noise coordinate "
+          "bound %.7g above %.7g. Set Warp Scale <= %.7g or choose a "
+          "projection/lens with a smaller coordinate extent.",
+          positions[index], warp_option(stages[index].kind),
+          static_cast<double>(params[index].scale),
+          static_cast<double>(bounds.bound),
+          static_cast<double>(Workbench::NOISE_LATTICE_LIMIT),
+          static_cast<double>(Workbench::NOISE_LATTICE_LIMIT /
+                              (bounds.input_bound + 100.0f)));
+    if (bounds.failure == Workbench::BoundsFailure::WARP_COORD)
+      return begin_warning(
+          "%s %s rejected: its predicted coordinate bound %.7g exceeds "
+          "%.7g. Reduce this warp's displacement/translation controls or "
+          "choose a projection/lens with a smaller coordinate extent.",
+          positions[index], warp_option(stages[index].kind),
+          static_cast<double>(bounds.bound),
+          static_cast<double>(Workbench::WARP_COORD_LIMIT));
     return begin_warning(
         "Noise Contour rejected: Source Noise Scale %.7g produces noise "
         "coordinate bound %.7g above %.7g. Set Source Noise Scale <= %.7g "
         "or reduce the preceding warp extent.",
         static_cast<double>(candidate.params.source.noise_scale),
-        static_cast<double>(source_bound),
+        static_cast<double>(bounds.bound),
         static_cast<double>(Workbench::NOISE_LATTICE_LIMIT),
-        static_cast<double>(Workbench::NOISE_LATTICE_LIMIT / bound));
+        static_cast<double>(Workbench::NOISE_LATTICE_LIMIT /
+                            bounds.input_bound));
   }
 
   const char *admission_warning(const Workbench::Config &candidate,
@@ -2688,8 +2680,9 @@ private:
     if (!stage_stability_admitted(inner, candidate.params.warp.inner))
       return stage_stability_warning("Planar Warp 2", inner,
                                      candidate.params.warp.inner);
-    if (!safe_program_bounds(candidate))
-      return program_bounds_warning(candidate);
+    const auto bounds = Workbench::program_bounds(candidate);
+    if (bounds.failure != Workbench::BoundsFailure::NONE)
+      return program_bounds_warning(candidate, bounds);
     if (candidate.slots.surface_lens == Workbench::SurfaceLens::MOBIUS &&
         !Workbench::valid_mobius(candidate.params.surface_lens.mobius)) {
       const math::MobiusParams &m = candidate.params.surface_lens.mobius;
