@@ -10,7 +10,7 @@
 #include "core/engine/engine.h"
 #include "tests/test_h_offset_renorm.h"
 
-#ifdef HS_OFFSET_DEVICE_RESOLUTION
+#ifdef HS_OFFSET_FULL_RESOLUTION
 #include "effects/Comets.h"
 #include "effects/RingSpin.h"
 #include <memory>
@@ -37,8 +37,8 @@ template <template <int, int> class E> void render_offset_effect() {
 #endif
 
 int main() {
-#ifdef HS_OFFSET_DEVICE_RESOLUTION
-  hs_test::ModuleFixture fixture("offset3 device roster");
+#ifdef HS_OFFSET_FULL_RESOLUTION
+  hs_test::ModuleFixture fixture("offset3 full-resolution roster");
   render_offset_effect<Comets>();
   render_offset_effect<RingSpin>();
   if (fixture.result())
