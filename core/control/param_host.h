@@ -279,6 +279,8 @@ protected:
     parameters.bump_schema_generation();
   }
 
+  void register_param(const char *, float *, int, int) = delete;
+
   /**
    * @brief Registers a floating-point parameter.
    * @param name The name to expose.
@@ -290,8 +292,6 @@ protected:
    * @param options Optional enumeration labels.
    * @param option_count Number of enumeration labels.
    */
-  void register_param(const char *, float *, int, int) = delete;
-
   HS_COLD_MEMBER void
   register_param(const char *name, float *ptr, float min = 0.0f,
                  float max = 1.0f, bool animated = false, bool readonly = false,
