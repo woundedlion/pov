@@ -564,6 +564,7 @@ template <> struct OptionalHueRotationLut<true> {
     hue source is the noise field. */
 template <bool Enabled> struct OptionalHueNoiseLut {};
 template <> struct OptionalHueNoiseLut<true> {
+  FastNoiseLite color_noise;
   std::array<int8_t, Pullback::Color::HueNoiseLutView::SIZE> hue_noise_lut;
   Pullback::Color::HueNoiseBakeCache hue_noise_bake;
 };
@@ -963,7 +964,8 @@ public:
     use_parameter_storage(persistent_arena,
                           persistent_arena.allocate_n<ParamDef>(PARAM_CAPACITY),
                           PARAM_CAPACITY);
-    Pullback::init_effect_noise(state->color_noise, HUE_NOISE_SEED);
+    if constexpr (HueV == HueMode::NOISE)
+      Pullback::init_effect_noise(state->color_noise, HUE_NOISE_SEED);
     if constexpr (HAS_OUTER_NOISE)
       Pullback::init_effect_noise(state->outer.noise,
                                   Derived::OUTER_NOISE_SEED);
@@ -1152,7 +1154,6 @@ private:
   struct State : ProjectionWalkNoise<AnimatedProjection>,
                  OptionalHueRotationLut<HueV != HueMode::NONE>,
                  OptionalHueNoiseLut<HueV == HueMode::NOISE> {
-    FastNoiseLite color_noise;
     OptionalNoise<HAS_OUTER_NOISE> outer;
     OptionalNoise<HAS_SOURCE_NOISE> source;
     OptionalNoise<HAS_SURFACE_NOISE> surface;
