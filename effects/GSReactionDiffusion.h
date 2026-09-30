@@ -347,7 +347,7 @@ private:
                              const float *__restrict c_b, float *__restrict n_a,
                              float *__restrict n_b) {
     const float feed = params.feed;
-    const float k = params.k;
+    const float KILL_RATE = params.k;
     const float d_a = params.d_a;
     const float d_b = params.d_b;
     const float dt = params.dt * STEP_DT_SCALE;
@@ -394,8 +394,8 @@ private:
         float abb = a * b * b;
         n_a[i] = hs::clamp(a + (d_a * l_a - abb + feed * (1.0f - a)) * dt, 0.0f,
                            1.0f);
-        n_b[i] =
-            hs::clamp(b + (d_b * l_b + abb - (k + feed) * b) * dt, 0.0f, 1.0f);
+        n_b[i] = hs::clamp(b + (d_b * l_b + abb - (KILL_RATE + feed) * b) * dt,
+                           0.0f, 1.0f);
       }
     }
   }
