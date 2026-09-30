@@ -42,7 +42,6 @@ async function numEnv(name, def, max = Infinity) {
   console.error(`Received: ${JSON.stringify(raw)}`);
   console.error('========================================================');
   process.exitCode = 2;
-  // Drain buffered stderr before the hard exit; a pipe truncates it otherwise.
   await exitAfterStderr();
 }
 
@@ -56,9 +55,6 @@ const BLANK_FLOOR = await numEnv('BLANK_FLOOR', DEFAULT_BLANK_FLOOR, 1);
 // is parsed from the HS_EFFECT_LIST X-macro by scripts/effect_roster.mjs.
 const EFFECTS = await loadEffectRoster();
 
-// argv names index docs/screenshots/<name>.png, so only roster spellings are
-// accepted: a typo stops here instead of after a full resolution descent, and no
-// path fragment ever reaches join().
 const REQUESTED = process.argv.slice(2);
 const OFF_ROSTER = REQUESTED.filter(name => !EFFECTS.includes(name));
 if (OFF_ROSTER.length) {
@@ -69,12 +65,9 @@ if (OFF_ROSTER.length) {
   console.error('arguments to capture the whole gallery.');
   console.error('========================================================');
   process.exitCode = 2;
-  // Drain buffered stderr before the hard exit; a pipe truncates it otherwise.
   await exitAfterStderr();
 }
 
-// Imported after the roster check so an off-roster name still gets the roster
-// message rather than a module-resolution stack.
 let chromium;
 try {
   ({ chromium } = await import('playwright'));
@@ -84,14 +77,11 @@ try {
   console.error('Install the dev dependencies once with:  npm ci');
   console.error('========================================================');
   process.exitCode = 1;
-  // Drain buffered stderr before the hard exit; a pipe truncates it otherwise.
   await exitAfterStderr();
 }
 
 await mkdir(OUT_DIR, { recursive: true });
 
-// A launch failure (browser not installed) would otherwise throw a raw stack
-// past the script's banner summaries; report it through the same actionable path.
 let browser;
 try {
   browser = await chromium.launch({
@@ -111,16 +101,10 @@ try {
   console.warn('Install the browser once with:  npx playwright install chromium');
   console.warn('========================================================');
   process.exitCode = 1;
-  // Drain buffered stderr before the hard exit; a pipe truncates it otherwise.
   await exitAfterStderr();
 }
-// Thrown when the page yields no resolution list, to abort the capture run from
-// inside the browser block without leaking a raw stack past the summaries.
 class UnresolvedResolutions extends Error {}
 
-// Declared out here, not inside the try below: the summary/gating section after
-// the finally reads them, so block-scoping them to the try would leave every run
-// throwing a ReferenceError past browser.close().
 let RESOLUTIONS = [];
 let targets = [];
 let failures = 0;
@@ -307,11 +291,6 @@ try {
   if (browser) await browser.close();
 }
 
-// resolveResolutions() returned [], so the run aborted before capturing: with no
-// resolution param the app's silent fallback cannot be detected, and every PNG
-// would risk carrying the fallback effect under another effect's filename. Its
-// per-failure console.warn fires up front and scrolls away, so restate it in the
-// summary the caller actually reads.
 if (RESOLUTIONS.length === 0) {
   console.warn('========================================================');
   console.warn('capture_screenshots: ERROR — resolutions were NOT resolved;');
@@ -322,11 +301,6 @@ if (RESOLUTIONS.length === 0) {
   process.exitCode = 1;
 }
 
-// An effect that the app offered at no available resolution was SKIPPED (its
-// existing PNG left untouched) rather than overwritten with the fallback effect.
-// The effect is registered in the roster but absent from the app's per-resolution
-// effect lists, so the live app cannot select it either — surface it loudly and
-// fail the run.
 if (wrongRes.length) {
   console.warn('========================================================');
   console.warn(`capture_screenshots: WARNING — ${wrongRes.length} effect(s) offered at NO`);
@@ -349,9 +323,6 @@ if (blanks.length) {
   process.exitCode = 1;
 }
 
-// A failed capture leaves the previous (stale) PNG in place, and that gallery is
-// installed into daydream and served live, so a silent exit-0 would ship stale
-// screenshots. Surface any failure to the caller (mirrors wasm_smoke.mjs).
 if (failures) {
   console.log(`${failures} of ${targets.length} captures failed`);
   process.exitCode = 1;
