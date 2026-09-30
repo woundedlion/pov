@@ -175,6 +175,9 @@ inline void test_easing_in_out_symmetry_midpoint() {
  *          midpoint, matching tri_wave's direction at the same value.
  */
 inline void test_sin_wave_bounds_and_phase() {
+  const auto fast = math::sin_wave(0.0f, 1.0f, 2.0f, 0.0f);
+  HS_EXPECT_NEAR(fast(.25f), 1.0f, 1e-3f);
+  HS_EXPECT_NEAR(fast(.5f), 0.0f, 1e-3f);
   auto w = math::sin_wave(2.0f, 5.0f, 1.0f, 0.0f);
   for (int i = 0; i <= N; ++i) {
     float v = w(frac(i) * 3.0f);
@@ -225,6 +228,9 @@ inline void test_sin_wave_amplitude_period_symmetry() {
  *          across multiple periods.
  */
 inline void test_tri_wave_shape() {
+  const auto fast = math::tri_wave(0.0f, 1.0f, 2.0f, 0.0f);
+  HS_EXPECT_NEAR(fast(.25f), 1.0f, 1e-6f);
+  HS_EXPECT_NEAR(fast(.5f), 0.0f, 1e-6f);
   auto w = math::tri_wave(0.0f, 1.0f, 1.0f, 0.0f);
   HS_EXPECT_NEAR(w(-0.25f), 0.5f, 1e-6f);
   HS_EXPECT_NEAR(w(-0.5f), 1.0f, 1e-6f);
@@ -250,6 +256,10 @@ inline void test_tri_wave_shape() {
  *          distinguishes the duty from its complement, and at both endpoints.
  */
 inline void test_square_wave_binary() {
+  const auto fast = math::square_wave(0.0f, 1.0f, 2.0f, 0.5f, 0.125f);
+  HS_EXPECT_EQ(fast(.2f), 0.0f);
+  HS_EXPECT_EQ(fast(.45f), 1.0f);
+  HS_EXPECT_EQ(fast(.7f), fast(.2f));
   auto w = math::square_wave(0.0f, 1.0f, 1.0f, 0.5f, 0.0f);
   for (int i = 0; i <= N; ++i) {
     float v = w(frac(i) * 2.0f);
