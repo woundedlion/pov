@@ -144,6 +144,7 @@ INLINE_SCAN = (
     ROOT / "justfile",
     # The clang-format gate's pathspec and exclusion regex.
     ROOT / "tools/clang_format_gate.sh",
+    ROOT / "tools/whitespace_gate.sh",
     ROOT / "tools/shellcheck_gate.sh",
     ROOT / "platformio.ini",
     ROOT / "CMakeLists.txt",
@@ -216,6 +217,7 @@ FAST_MATH_TEST_FLAGS = (*FLOAT_FLAGS, "-DHS_TEST_FAST_MATH=1")
 # recipe list and the gate scripts are bash, so none can source a value from
 # another; --check asserts every occurrence matches this one.
 SHARED_LITERALS = {
+    "whitespace-rules": "blank-at-eol,blank-at-eof",
     "shell-selection": r"\.sh$|^\.githooks/",
     # Paths the clang-format gate skips: the vendored FastNoiseLite body and
     # the generated tables. core/vendor/FastNoiseLite_config.h is first-party
@@ -244,6 +246,7 @@ SHARED_LITERALS = {
 
 # Patterns for literals shared across build tools.
 SHARED_LITERAL_USES = (
+    (r"core\.whitespace=([^\s]+)", "whitespace-rules"),
     (r"grep -E '(\\\.sh[^']*)'", "shell-selection"),
     (r"grep -vE '([^']*)'", "format-exclude"),
     (r"git ls-files -- ('\*\.h'(?: '\*\.\w+')*)", "format-globs"),
