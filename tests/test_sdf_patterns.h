@@ -11,6 +11,7 @@
 #include "core/render/sdf/periodic_surface.h"
 #include "core/render/ray/events.h"
 #include "tests/test_harness.h"
+#include "tests/test_fixture.h"
 
 namespace hs_test::sdf_pattern_tests {
 
@@ -829,7 +830,7 @@ inline void test_periodic_surface_bounds_and_gradients() {
 }
 
 inline int run_sdf_pattern_tests() {
-  const auto MODULE = hs_test::begin_module("sdf_patterns");
+  hs_test::ModuleFixture fixture("sdf_patterns");
   test_lattice_world_metric_and_fourth_axis();
   test_lattice_reference_and_lipschitz();
   test_framework_geometry_and_plane_streams();
@@ -842,7 +843,7 @@ inline int run_sdf_pattern_tests() {
   test_octet4_owned_struts_match_ray_line_oracle();
   test_octet4_ambient_events_and_limits();
   test_periodic_surface_bounds_and_gradients();
-  return hs_test::end_module(MODULE);
+  return fixture.result();
 }
 
 } // namespace hs_test::sdf_pattern_tests

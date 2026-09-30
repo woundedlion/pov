@@ -14,6 +14,7 @@
 #include "core/render/sdf/affine_lattice.h"
 #include "core/render/sdf/periodic_shells.h"
 #include "tests/test_harness.h"
+#include "tests/test_fixture.h"
 
 namespace hs_test::ray_demonstrator_tests {
 
@@ -838,7 +839,7 @@ inline void test_shell_slice_march_matches_cell_traversal() {
 }
 
 inline int run_ray_demonstrator_tests() {
-  const auto MODULE = hs_test::begin_module("ray_demonstrators");
+  hs_test::ModuleFixture fixture("ray_demonstrators");
   test_octet_crossing_coverage_against_ray_line_distance();
   test_affine_lattice_world_metric_and_periods();
   test_affine_cached_metric_against_ray_line_oracle();
@@ -853,7 +854,7 @@ inline int run_ray_demonstrator_tests() {
   test_lattice_volume_camera_demonstrators();
   test_torus_and_warped_volume_spherical_stage();
   test_verified_filter_off_slice_geometry_and_projected_normal();
-  return hs_test::end_module(MODULE);
+  return fixture.result();
 }
 
 } // namespace hs_test::ray_demonstrator_tests
