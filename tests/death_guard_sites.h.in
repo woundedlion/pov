@@ -3,7 +3,8 @@
  * Licensed under the PolyForm Noncommercial License 1.0.0
  *
  * GENERATED into the build tree by tests/count_guard_sites.cmake from
- * tests/death_guard_sites.h.in — re-derived at every configure, never edited.
+ * tests/death_guard_sites.h.in — regenerated at build time whenever a
+ * guard-bearing source changes, never edited.
  *
  * Per-source-path census of the engine's HS_CHECK fail-fast sites, consumed by
  * the death harness's coverage report (tests/test_death.h).
