@@ -11,8 +11,8 @@ genuinely fork on a device-only constant are the engine's blind spot, because a 
 build compiles the host value and the device path ships with **zero automated coverage on the
 one platform (Teensy) that has no debugger and no console.**
 
-Each fork carries its own note at the source or in the test that pins it — `core/render/filter/splat.h`,
-`tests/test_conway_morph.h`, `tests/test_filter.h`, and `tests/test_h_offset_renorm.h` all say so locally.
+Fork notes appear in `tests/test_conway_morph.h` and
+`tests/test_h_offset_renorm.h`.
 This ledger collects them in one place so the question *"which forks are reached by a device-value
 test, and which are not?"* has a single, auditable answer.
 
@@ -31,7 +31,7 @@ exists; a red row is a real device-only path that no automated test currently re
 
 | # | Fork | Device vs host | Behavioral? | Device-value test reaches it? | Tracked by |
 |---|------|----------------|-------------|-------------------------------|------------|
-| 1 | **`beat88` phase arithmetic** (`beat88`, `core/platform/arduino_mocks.h`) | `(millis-timebase)*bpm88*280 >> 16` runs in 64-bit on the LP64 native test build; the device (FastLED) and wasm32 wrap the product mod 2³² before the shift. | **No** — the result is narrowed to `uint16_t`, i.e. bits [16,31] of the product. The device's mod-2³² wrap only discards bits ≥ 32, so bits [16,31] are identical to the 64-bit result; the host's larger `millis` enters only via its low 32 bits (`P mod 2³² = (low32(millis)·K) mod 2³²`), exactly what the device sees. | ⚪ **N/A** — no behavioral fork. Verified equal across many `millis` values; a non-vacuity guard confirmed no value makes the two paths differ. | Nothing to track: not a behavioral fork. |
+| 1 | **`beat88` phase arithmetic** (`beat88`, `core/platform/arduino_mocks.h`) | `(millis-timebase)*bpm88*280 >> 16` runs in 64-bit on the LP64 native test build; the device (FastLED) and wasm32 wrap the product mod 2³² before the shift. | **No** — the result is narrowed to `uint16_t`, i.e. bits [16,31] of the product. The device's mod-2³² wrap only discards bits ≥ 32, so bits [16,31] are identical to the 64-bit result; the host's larger `millis` enters only via its low 32 bits (`P mod 2³² = (low32(millis)·K) mod 2³²`), exactly what the device sees. | ⚪ **N/A** — no behavioral fork. Bits [16,31] agree under both arithmetic widths. | Nothing to track: not a behavioral fork. |
 | 2 | **Display latitude profile** | Firmware uses fixed calibrated endpoints; WASM adjusts the same mapping at runtime and defaults to full coverage. Native tests explicitly select the ideal profile; `HS_TEST_H_OFFSET` retains legacy asymmetric-offset coverage. | Explicit build profile, not a host/device fork. | `display_geometry_check` covers both caps; legacy offset executables retain compatibility coverage. | Closed. |
 | 3 | **Conway/SolidBuilder scratch budgets** (`IslamicStars::resplit_for_spawn`, `effects/IslamicStars.h`) | The `scratch_arena_a/b` splits are **GENERATED 116/74 KiB**, **RECIPE 116/72 KiB**, and **BRIDGE 129.5/74 KiB**, selected per spawn. An over-budget recipe traps as a **device-only OOM**. | **Yes** — an over-budget recipe edit OOM-traps only on the device. | ✅ **Yes.** `tests/test_effects.h` gates GENERATED; `tests/test_conway_morph.h` gates RECIPE; `tests/test_effects.h` gates BRIDGE. Each checks host high-water against its device budget; the 64-bit host footprint conservatively bounds the device's 32-bit-pointer footprint. | Closed by all three real-budget high-water guards. |
 | 4 | **Hardware I/O layer** (`#ifdef ARDUINO` guards in `hardware/dma_led.h`, `hardware/dma_led_controller.h`, `hardware/pov_single.h`, `hardware/pov_segmented.h`; `hardware/hd107s_frame.h` calls `arm_dcache_flush` only under `#ifdef ARDUINO`, with a no-op host branch) | eDMA setup and register pokes exist only on the device; the DMA-wedge watchdog decision is host-tested. | **Yes** for the device-side logic; the raw register I/O is not host-observable. | ✅/⚪ **Logic yes, I/O no.** The sync flywheel, segment/column mapping, and epoch scheduler are ported to host and exercised by the `pov_sync` multi-board simulator and the `pov_single`/`pov_segmented` tests. `tests/test_dma_core.h` and `tests/test_dma_controller.h` exercise the watchdog predicate and controller response. The bare DMA/register writes are device-only by nature and not host-reachable. | Logic closed; register I/O is structurally untestable on host. |
@@ -60,9 +60,9 @@ silent (a hang, a zero return) on the one target with no console.
 Row 1 (`beat88`) is not a breach: the `uint16_t` result extracts bits [16,31] of the phase product,
 which the device's mod-2³² wrap cannot change, so the 64-bit native build and the 32-bit
 device/wasm builds produce bit-identical phases. Every behavioral fork other than the two red
-rows above either has device-value coverage (rows 2–4), host model-level coverage with only a
+rows above either has device-value coverage (rows 3–4 and 12), host model-level coverage with only a
 device-only ISA-instruction tail (row 8), or is divergent by design / non-behavioral (rows 5–7,
-10, 12).
+10). Row 2 is an explicit display profile with coverage for both caps.
 
 ## Maintenance rule
 
