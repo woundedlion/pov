@@ -99,7 +99,7 @@ inline void test_easing_endpoints() {
 /**
  * @brief Verifies every easing curve stays finite, and monotone where expected.
  * @details Non-overshooting curves are checked for monotone non-decreasing
- *          behavior; expo/elastic overshoot, so they get finiteness only.
+ *          behavior; elastic overshoots, so it gets finiteness only.
  */
 inline void test_easing_finite_and_monotone() {
   HS_EXPECT_NEAR(math::ease_in_out_cubic(0.25f), 0.0625f, 1e-5f);
@@ -119,8 +119,7 @@ inline void test_easing_finite_and_monotone() {
   check_curve(math::ease_in_circ, true, "ease_in_circ");
   check_curve(math::ease_out_circ, true, "ease_out_circ");
   check_curve(math::ease_linear, true, "ease_linear");
-  // Overshooting / non-monotone curves: finiteness only.
-  check_curve(math::ease_out_expo, false, "ease_out_expo");
+  check_curve(math::ease_out_expo, true, "ease_out_expo");
   check_curve(math::ease_out_elastic, false, "ease_out_elastic");
 }
 
