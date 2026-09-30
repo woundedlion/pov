@@ -323,7 +323,9 @@ HS_O3_FN bool pole_wrap(float &col, float &row) {
   return Geometry::contains_row(row);
 }
 
-/** @brief Resolves a lattice tap only when reflection lands on the lattice. */
+/** @brief Resolves a lattice tap only when reflection lands on the lattice.
+ * @pre The column is already in [0, W).
+ */
 template <int W, int H, int HOffset = -1>
 HS_O3_FN bool pole_wrap(int &col, int &row) {
   if (row >= 0 && row < H)
