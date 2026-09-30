@@ -95,12 +95,14 @@ inline void test_framework_generic_event_rendering() {
   size_t count = 0;
   const auto RESULT = Raycast::trace_events(
       events, RAY.interval, limits, [&](const Raycast::Contribution &hit) {
-        output[count++] = hit;
+        if (count < output.size())
+          output[count] = hit;
+        ++count;
         return true;
       });
   HS_EXPECT_EQ(RESULT.status, Raycast::TraceStatus::RANGE_COMPLETE);
   HS_EXPECT_EQ(count, size_t{3});
-  for (size_t i = 0; i < count; ++i) {
+  for (size_t i = 0; i < count && i < output.size(); ++i) {
     HS_EXPECT_NEAR(output[i].t, 0.3f + static_cast<float>(i), 1e-6f);
     HS_EXPECT_EQ(output[i].coverage, 1.0f);
     HS_EXPECT_FALSE(output[i].verified);
