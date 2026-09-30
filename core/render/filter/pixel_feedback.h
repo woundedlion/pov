@@ -126,7 +126,7 @@ public:
 
   /**
    * @brief Allocates the warp-field cache from the persistent arena.
-   * @param arena Persistent arena supplying 2 * CACHE_CELLS int16 slots.
+   * @param arena Persistent arena supplying STORAGE_BYTES bytes.
    * @details Must be called from effect init(), not the constructor (arenas
    * aren't ready yet), and again after any compaction that resets the arena —
    * the cache is derived data, so it just re-populates on the next flush.
@@ -491,6 +491,8 @@ private:
     // The cached origins belong to the cached layout.
     const typename SphereField::Coordinates *origins =
         grid.downsample == CACHE_DOWNSAMPLE ? cached_origin : nullptr;
+    if (origins)
+      check_storage_alive();
     // noinline keeps the per-sample warp out of flash-resident prepare_flush.
     compact.populate(
         band.field_y_begin, band.field_y_end,
@@ -1314,15 +1316,15 @@ private:
 
   /**
    * @brief Debug-only use-after-free check on the arena-owned warp fields.
-   * @details A compaction that resets or rewinds the persistent arena without a
-   * fresh init_storage() leaves both pointers dangling while warp_cache_valid
-   * still reads true, so flush() reads and writes CACHE_CELLS int16s through
-   * them.
    */
   void check_storage_alive() const {
     HS_ASSERT_BLOCK_ALIVE(stamp, cached_warp_x, CACHE_CELLS * sizeof(int16_t),
                           "Pixel::Feedback warp cache");
     HS_ASSERT_BLOCK_ALIVE(stamp, cached_warp_y, CACHE_CELLS * sizeof(int16_t),
+                          "Pixel::Feedback warp cache");
+    HS_ASSERT_BLOCK_ALIVE(stamp, cached_origin,
+                          CACHE_CELLS *
+                              sizeof(typename SphereField::Coordinates),
                           "Pixel::Feedback warp cache");
     HS_ASSERT_BLOCK_ALIVE(stamp, cached_cap, CACHE_CELLS * sizeof(CapOffset),
                           "Pixel::Feedback warp cache");
