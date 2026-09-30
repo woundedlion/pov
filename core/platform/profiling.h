@@ -758,7 +758,8 @@ struct IsrCycleScope {
  *          (the feedback composite's per-pixel set costs ~8 cyc per entry,
  *          ~2.5% of the flush). Off unless HS_PROFILE_DEEP_ENABLE is defined on
  *          top of HS_PROFILE_ENABLE, so a deep run is opt-in per capture
- *          (HS_PROFILE_DEEP=1 in profile_one.sh, deep=1 in `just profile`).
+ *          (HS_PROFILE_DEEP=1 in profile_one.sh, or the third positional argument
+ *          of `just profile`, e.g. `just profile MeshFeedback 150 1`).
  *          Per-frame scopes stay on plain HS_PROFILE — they are what the
  *          standard reports are built from.
  */
