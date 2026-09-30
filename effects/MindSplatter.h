@@ -594,7 +594,7 @@ private:
       f.pos = rotation.apply(f.pos);
     };
 
-    // Signed-axis event-horizon falloff from the pre-warp position.
+    // Attractor event-horizon falloff from the pre-warp position.
     auto hole_shader = [&](FragmentRegisters f,
                            const math::Vector &original_pos) {
 #if HS_ENABLE_TEST_ORACLES
