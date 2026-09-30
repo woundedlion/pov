@@ -32,13 +32,13 @@ import {
 import { descendToHonoredResolution, loadEffectForCapture } from './screenshot_resolution.mjs';
 
 // Number('') is 0 (finite), so blank/whitespace is rejected explicitly.
-async function numEnv(name, def, max = Infinity) {
+async function numEnv(name, def, max = Infinity, min = Number.MIN_VALUE) {
   const raw = process.env[name];
   if (raw === undefined) return def;
   const v = Number(raw);
-  if (raw.trim() !== '' && Number.isFinite(v) && v > 0 && v <= max) return v;
+  if (raw.trim() !== '' && Number.isFinite(v) && v >= min && v <= max) return v;
   console.error('========================================================');
-  console.error(`capture_screenshots: ERROR — ${name} must be a finite, positive number no greater than ${max}.`);
+  console.error(`capture_screenshots: ERROR — ${name} must be a finite number between ${min} and ${max}.`);
   console.error(`Received: ${JSON.stringify(raw)}`);
   console.error('========================================================');
   process.exitCode = 2;
@@ -47,7 +47,7 @@ async function numEnv(name, def, max = Infinity) {
 
 const BASE_URL = process.env.SIM_URL || 'http://localhost:8000/';
 const OUT_DIR = join(REPO_ROOT, 'docs', 'screenshots');
-const WAIT_MS = await numEnv('WAIT_MS', DEFAULT_CAPTURE_OFFSET_MS);
+const WAIT_MS = await numEnv('WAIT_MS', DEFAULT_CAPTURE_OFFSET_MS, Infinity, 0);
 const WAIT_MS_OVERRIDE = process.env.WAIT_MS === undefined ? null : WAIT_MS;
 const BLANK_FLOOR = await numEnv('BLANK_FLOOR', DEFAULT_BLANK_FLOOR, 1);
 
