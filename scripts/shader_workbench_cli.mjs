@@ -26,32 +26,18 @@ const readText = async (path) => {
   }
 };
 
-// Root fields every shader document carries, v1 six-role and v2 chain alike.
-// Other JSON under patterns/ — shaderball_migration.json, for one — would
-// otherwise compile far enough to report its first stray key as a schema
-// error, which reads as a broken document rather than as the wrong file.
-const DOCUMENT_ROOT = ['descriptor', 'preset_bank'];
-
-const readDocument = async (path) => {
-  const document = parseShaderDocument(await readText(path));
-  if (typeof document !== 'object' || document === null || Array.isArray(document) ||
-      DOCUMENT_ROOT.some((field) => !(field in document)))
-    throw new CliError(
-      `${path} is not a shader document: a document's root carries ` +
-      `${DOCUMENT_ROOT.join(' and ')}.`);
-  return document;
-};
-
 const run = async () => {
-  const [command, documentPath, registryPath, capabilityProfile] = process.argv.slice(2);
-  if (!command || !documentPath) {
+  const args = process.argv.slice(2);
+  const [command, documentPath, registryPath, capabilityProfile] = args;
+  const arity = { check: 2, descriptor: 2, classify: 4 };
+  if (!Object.hasOwn(arity, command) || args.length !== arity[command]) {
     usage();
     process.exitCode = 2;
     return;
   }
   const catalogPath = new URL('./engine_catalog.json', import.meta.url);
   const catalog = JSON.parse(await readText(catalogPath));
-  const compiled = compileShaderDocument(await readDocument(documentPath), { catalog });
+  const compiled = compileShaderDocument(await readText(documentPath), { catalog });
   if (command === 'check') {
     console.log(JSON.stringify({
       status: compiled.status,
