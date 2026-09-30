@@ -59,7 +59,7 @@ def project_seed(root_uuid):
     }, indent=2) + "\n"
 
 
-def write_project(path, root_uuid="", unplaced=False):
+def write_project(path, root_uuid="", unplaced=None):
     if os.path.exists(path):
         with open(path, encoding="utf-8") as file:
             project = json.load(file)
@@ -69,6 +69,8 @@ def write_project(path, root_uuid="", unplaced=False):
     if root_uuid:
         sheets = [entry for entry in project.get("sheets", []) if entry[1] != "Root"]
         project["sheets"] = [[root_uuid, "Root"], *sheets]
+    if unplaced is None:
+        unplaced = project.get("text_variables", {}).get("PHANTASM_LAYOUT") == "unplaced"
     project.setdefault("text_variables", {})["PHANTASM_LAYOUT"] = (
         "unplaced" if unplaced else "placed")
     apply_project_floors(project, UNPLACED_RULES if unplaced else RULE_MINIMUMS,
@@ -462,7 +464,7 @@ def main(force=False):
             '(options "")(descr "PHANTASM custom symbols"))\n)\n')
 
     PRO = os.path.join(OUT, "phantasm.kicad_pro")
-    write_project(PRO, b.uuid)
+    write_project(PRO, b.uuid, unplaced=None)
 
     print("wrote files  symbols:", len(b.symbols), "wires:", len(b.wires),
           "labels:", len(b.labels), "texts:", len(b.texts))
