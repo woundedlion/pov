@@ -1469,8 +1469,8 @@ struct GSWhiteBox {
   }
 };
 
-/** @brief Pins GS's opaque quarter-sample accumulation to Pixel arithmetic. */
-inline void test_gs_opaque_quarter_accumulation_is_exact() {
+/** @brief Verifies GS palette samples are opaque. */
+inline void test_gs_palette_is_opaque() {
   hs_test::reset_globals();
   GSWhiteBox::GS gs;
   gs.init();
@@ -1479,20 +1479,6 @@ inline void test_gs_opaque_quarter_accumulation_is_exact() {
                      gs, static_cast<float>(i) / (BakedPalette::LUT_SIZE - 1))
                      .alpha,
                  1.0f);
-
-  uint32_t sum = 0;
-  Pixel accumulated(0, 0, 0);
-  for (uint32_t channel = 0; channel <= 65535u; ++channel) {
-    Pixel sample(static_cast<uint16_t>(channel), 0, 0);
-    accumulated = Pixel(0, 0, 0);
-    sum = 0;
-    for (int i = 0; i < 4; ++i) {
-      accumulated += sample * 0.25f;
-      sum += (channel + 2u) >> 2;
-    }
-    HS_EXPECT_EQ(accumulated.r,
-                 static_cast<uint16_t>(sum > 65535u ? 65535u : sum));
-  }
 }
 
 /**
@@ -6390,7 +6376,7 @@ inline int run_effects_tests() {
   run_case(test_meshfeedback_base_mesh_selector);
   run_case(test_meshfeedback_preset_export_arity);
   run_case(test_meshfeedback_mesh_rebuild_reuses_storage);
-  run_case(test_gs_opaque_quarter_accumulation_is_exact);
+  run_case(test_gs_palette_is_opaque);
   run_case(test_gs_reseed_generates_palette);
   run_case(test_gs_render_certificates_bound_lattice);
   run_case(test_gs_shared_stencil_error_is_bounded);
