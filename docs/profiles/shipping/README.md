@@ -7,7 +7,6 @@ Rows rank by any spill, then peak render. 🟢 is zero spill, 🟡 is under 25% 
 
 | Effect | Dominant scope | Peak ms | Spilled | Captured |
 |---|---|--:|--:|---|
-| [ShapeShifter](profile_shapeshifter_teensy_2026-09-29.md) § | `ss_draw_all` | 🟢 58.16 (9) | 🟢 0/2447 (0.00%) | 2026-09-29 14:41 |
 | [HyperLattice](profile_hyperlattice_teensy_2026-09-29.md) § | `hl_shader_draw` | 🟢 36.65 (3) | 🟢 0/1887 (0.00%) | 2026-09-29 14:54 |
 | [GSReactionDiffusion](profile_gsreactiondiffusion_teensy_2026-09-28.md) | `grd_render` | 🟢 55.53 | 🟢 0/2047 (0.00%) | 2026-09-28 19:21 |
 | [MindSplatter](profile_mindsplatter_teensy_2026-09-29.md) § | `msp_draw_particles` | 🟢 54.94 (8) | 🟢 0/1727 (0.00%) | 2026-09-29 14:48 |
@@ -20,6 +19,7 @@ Rows rank by any spill, then peak render. 🟢 is zero spill, 🟡 is under 25% 
 | [AshCloud](profile_ashcloud_teensy_2026-09-28.md) | `fx_shader_draw` | 🟢 44.57 | 🟢 0/1087 (0.00%) | 2026-09-28 17:33 |
 | [KaleidoscopeStainedGlass](profile_kaleidoscopestainedglass_teensy_2026-09-28.md) | `fx_shader_draw` | 🟢 43.50 | 🟢 0/1087 (0.00%) | 2026-09-28 17:35 |
 | [DreamBalls](profile_dreamballs_teensy_2026-09-28.md) § | `db_timeline_step` | 🟢 42.66 (10) | 🟢 0/3647 (0.00%) | 2026-09-28 18:45 |
+| [ShapeShifter](profile_shapeshifter_teensy_2026-09-29.md) ● § | `ss_draw_all` | 🟢 40.45 (9) | 🟢 0/2448 (0.00%) | 2026-09-29 19:01 |
 | [MermaidSkin](profile_mermaidskin_teensy_2026-09-28.md) | `fx_shader_draw` | 🟢 39.57 | 🟢 0/1087 (0.00%) | 2026-09-28 18:49 |
 | [KaleidoscopeHexOil](profile_kaleidoscopehexoil_teensy_2026-09-28.md) § | `fx_shader_draw` | 🟢 38.51 (2) | 🟢 0/2207 (0.00%) | 2026-09-28 18:54 |
 | [LatticeMelt](profile_latticemelt_teensy_2026-09-28.md) § | `fx_shader_draw` | 🟢 37.18 (2) | 🟢 0/1727 (0.00%) | 2026-09-28 18:45 |
@@ -53,7 +53,7 @@ For cyclers, each row summarizes the parser-owned preset, shape, or mode entries
 Spill fractions include the transition following an entry and are stricter than clean holds.
 
 - **MeshFeedback**: 12 parser ownership buckets spanning 40.88–48.61 ms.
-- **ShapeShifter**: 9 parser ownership buckets spanning 9.50–58.16 ms.
+- **ShapeShifter**: 9 parser ownership buckets spanning 6.87–40.45 ms.
 - **HyperLattice**: 3 parser ownership buckets spanning 29.60–36.65 ms (setup frame excluded).
 - **MindSplatter**: 8 parser ownership buckets spanning 22.36–54.94 ms.
 - **IslamicStars**: 23 parser ownership buckets spanning 19.92–50.51 ms.
