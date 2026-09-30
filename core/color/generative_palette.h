@@ -811,10 +811,6 @@ private:
       if (!(recipe.falloff_start > 2.0f / 3.0f && recipe.falloff_start < 1.0f))
         return fail(status, PaletteCompileCode::INVALID_FALLOFF_START,
                     PaletteRecipeField::FALLOFF_START);
-    } else if (recipe.falloff_start != 0.90f) {
-      recipe.falloff_start = 0.90f;
-      status.adjustments.canonicalized_fields |=
-          field_bit(PaletteRecipeField::FALLOFF_START);
     }
 
     if (recipe.domain == PaletteDomain::LOOP &&
