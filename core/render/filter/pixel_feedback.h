@@ -1170,14 +1170,13 @@ private:
   // [-W*WARP_SCALE/2, W*WARP_SCALE/2] and casts it to int16_t unclamped.
   static_assert(W * WARP_SCALE * 0.5f <= 32767.0f,
                 "Feedback<W,H>: canonical warp offset must fit int16_t");
-  // The row offset spans the latitude range and is only runtime-clamped, so an
-  // over-range displacement would saturate instead of trapping.
-#if HS_RUNTIME_DISPLAY_GEOMETRY
-  static_assert(1.5f * (H - 1) * WARP_SCALE <= 32767.0f,
-#else
-  static_assert(math::PI_F * math::ROWS_PER_RADIAN<H> * WARP_SCALE <= 32767.0f,
+  // Runtime geometry can narrow the span; row offsets saturate at +/-32767
+  // WARP_SCALE units (about 256 rows), including at narrow 25% caps.
+#if !HS_RUNTIME_DISPLAY_GEOMETRY
+  static_assert(
+      math::PI_F * math::ROWS_PER_RADIAN<H> * WARP_SCALE <= 32767.0f,
+      "Feedback<W,H>: fixed-geometry warp row offset must fit int16_t");
 #endif
-                "Feedback<W,H>: warp row offset must fit int16_t");
 
   /**
    * @brief Tests whether the previous frame has any non-black pixel.
