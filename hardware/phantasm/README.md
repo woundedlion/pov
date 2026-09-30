@@ -13,12 +13,14 @@ same revision directory. Rev 1.2 requires placement, routing, and validation
 before fabrication.
 
 The upload board fixes **J1 power at the left edge** and **J2 LED, J3A SYNC IN,
-J3B SYNC OUT in a column at the right edge**, in that top-to-bottom order.
-Their wire openings face left toward the hub. Terminal bodies have 0.5 mm
-assembly clearance and a 5 mm component-free wire approach. The outline is
-**70.28 x 32 mm**; all four mounting holes retain the rev 1.1 coordinates.
-The extra 12 mm is a connector overhang beyond the existing right-hand mounts;
-check this longer outline against the rotor's swept envelope before fabrication.
+J3B SYNC OUT in a column at the right end**, in that top-to-bottom order.
+The column sits inboard of the right mounting holes, in the rev 1.1 connector
+area. Their wire openings face left toward the hub. Keepouts reserve each
+terminal's full plastic body plus 0.5 mm assembly clearance, preventing SMD
+parts beneath the connector. Power's wire-access reservation extends off the
+left edge. The outline remains **58.28 x 32 mm**, and all four mounting holes
+retain the rev 1.1 coordinates. The Teensy shifts 3.5 mm left to clear the
+terminal bodies; D_BUS is released for placement outside their keepouts.
 
 Replace the uploaded files in Quilter with this complete revision pair and
 confirm all four connectors appear inside the outline as pre-placed parts.
