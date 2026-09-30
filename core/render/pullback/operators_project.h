@@ -128,7 +128,8 @@ struct RegularProjectChainParams : MeridianProjectChainParams {
     for (const auto &field : MeridianProjectChainParams::FIELDS)
       if (std::string_view(field.id) != "singularity-fade")
         out[index++] = field;
-    return out;
+    return concat_fields<RegularProjectChainParams>(
+        out, std::array<Field<RegularProjectChainParams>, 0>{});
   }();
 };
 
