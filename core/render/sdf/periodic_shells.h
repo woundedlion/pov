@@ -102,6 +102,15 @@ struct ShellSample {
   Raycast::TraceStatus status = Raycast::TraceStatus::RANGE_COMPLETE;
 };
 
+/** @brief Layers trace_periodic_shells_march() sorts per ray; the caller owns it. */
+struct ShellLayerStorage {
+  static constexpr int CAPACITY = 16;
+  struct Layer {
+    float t, coverage;
+  };
+  std::array<Layer, CAPACITY> pending;
+};
+
 /**
  * @brief 3D shell composite by a march over the lattice layers across the
  *        ray's dominant axis.
@@ -250,9 +259,11 @@ template <int DIMENSIONS>
 __attribute__((always_inline)) inline ShellSample trace_periodic_shells_march(
     const PreparedPeriodicShells &prepared,
     const Raycast::PreparedCamera &camera, const math::Vector &direction,
-    const Raycast::TraceLimits &limits, const Raycast::Appearance &appearance) {
+    const Raycast::TraceLimits &limits, const Raycast::Appearance &appearance,
+    ShellLayerStorage &storage) {
   static_assert(DIMENSIONS == 3 || DIMENSIONS == 4);
   constexpr int OTHERS = DIMENSIONS - 1;
+  static_assert((2 << OTHERS) <= ShellLayerStorage::CAPACITY);
   const auto &E = camera.embedding.m;
   float D[DIMENSIONS];
   for (int axis = 0; axis < DIMENSIONS; ++axis)
@@ -305,10 +316,7 @@ __attribute__((always_inline)) inline ShellSample trace_periodic_shells_march(
   ShellSample result;
   LayerComposite composite;
   int layers = 0;
-  struct Layer {
-    float t, coverage;
-  };
-  std::array<Layer, 2 << OTHERS> pending;
+  auto &pending = storage.pending;
   const auto projected_length2 =
       [&](const float (&gradient)[DIMENSIONS]) __attribute__((always_inline)) {
         float length2 = 0;
