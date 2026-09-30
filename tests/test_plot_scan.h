@@ -29,6 +29,8 @@
  *   - Plot::Star<Plot::PlanarProjection>::sample / Flower::sample :
  *     unit-length, closed loop, trig parity, the continuous star across the
  *     equator and at the antipode.
+ *   - Plot::PlanarChords        : stroke brightness and coverage against the
+ *                                 balanced adaptive walk.
  *   - Plot::rasterize           : gap-free open and closed segments, planar
  *                                 and geodesic edges, the antipodal seam
  *                                 fallback, register tracking, sampling-policy
@@ -6373,6 +6375,129 @@ inline void test_four_regular_and_medial_edge_extraction() {
  * @brief Runs every plot/scan sampling test in this module.
  * @return Number of failed assertions reported across the module's tests.
  */
+// ============================================================================
+// Plot::PlanarChords  — chord-walked planar polylines
+// ============================================================================
+
+/** @brief One star contour to stroke with PlanarChords and Plot::rasterize. */
+struct PlanarChordStar {
+  math::Quaternion orientation;
+  float radius;
+  int sides;
+  float phase;
+};
+
+/**
+ * @brief Strokes @p star into @p fx, through PlanarChords or, for the
+ *        reference, a balanced Plot::rasterize of the same closed polyline.
+ */
+template <int W, int H>
+inline std::vector<Pixel> render_planar_chord_star(hs_test::StubEffect &fx,
+                                                   const PlanarChordStar &star,
+                                                   bool chords) {
+  using Star = Plot::Star<Plot::PlanarProjection>;
+  const math::Basis basis = math::make_basis(star.orientation, math::X_AXIS);
+  const Color4 color(Pixel(65535, 65535, 65535), 0.3f);
+  auto shader = [&](const math::Vector &, Fragment &f) { f.color = color; };
+  {
+    ScratchScope sc(plot_arena());
+    Plot::PlanarChords<W, H> planar_chords;
+    planar_chords.init_storage(plot_arena(), star.sides * 2);
+    Fragments points;
+    points.bind(plot_arena(), static_cast<size_t>(star.sides * 2 + 2));
+    math::Basis projection_basis;
+    const math::Basis &planar_basis = *Plot::PlanarProjection::edge_basis(
+        basis, star.radius, projection_basis);
+    Star::sample_chart_positions(
+        points, planar_chords.chart_x(), planar_chords.chart_y(), basis,
+        star.radius, star.sides, star.phase, Star::radius_trig(star.radius),
+        Star::step_trig(star.sides), planar_basis);
+    Filter::Screen::DirectAntiAliasSink<W, H> sink;
+    Canvas canvas(fx);
+    initialize_parity_frame<W, H>(canvas);
+    sink.prepare(canvas);
+    if (chords) {
+      planar_chords.prepare(canvas.clip());
+      planar_chords.draw_closed(sink, canvas, points, star.sides * 2,
+                                planar_basis, color, shader);
+    } else {
+      Plot::rasterize<W, H, Plot::PLANAR_CHORD_RASTER_CONFIG>(
+          sink, canvas, points, shader,
+          {.projection = Plot::RasterProjection::planar(planar_basis),
+           .omit_end = true,
+           .balanced_sampling = true});
+    }
+  }
+  fx.advance_display();
+  std::vector<Pixel> frame(static_cast<size_t>(W) * H);
+  for (int y = 0; y < H; ++y)
+    for (int x = 0; x < W; ++x)
+      frame[static_cast<size_t>(y) * W + x] = fx.get_pixel(x, y);
+  return frame;
+}
+
+inline uint64_t planar_chord_energy(const std::vector<Pixel> &frame) {
+  uint64_t energy = 0;
+  for (const Pixel &p : frame)
+    energy += static_cast<uint64_t>(p.r) + p.g + p.b;
+  return energy;
+}
+
+/** @brief Stars away from the poles, near a pole, and past the equator. */
+inline std::array<PlanarChordStar, 4> planar_chord_stars() {
+  return {{
+      {math::Quaternion(0.81f, 0.32f, -0.29f, 0.39f).normalized(), 0.45f, 7,
+       0.3f},
+      {math::Quaternion(0.72f, -0.41f, 0.18f, 0.53f).normalized(), 0.8f, 5,
+       1.1f},
+      {math::make_rotation(math::X_AXIS, math::Y_AXIS), 0.12f, 7, 0.6f},
+      {math::Quaternion(0.93f, -0.11f, 0.24f, 0.25f).normalized(), 1.35f, 9,
+       2.0f},
+  }};
+}
+
+/**
+ * @brief Verifies PlanarChords strokes a star as bright as the balanced
+ *        adaptive walk it stands in for, and covers the same pixels.
+ * @details ALPHA_GAIN trims the chord walk's brightness onto the balanced
+ * walk's; this pins that calibration where it is defined.
+ */
+inline void test_planar_chords_match_rasterize_brightness() {
+  constexpr int W = 288, H = 144;
+  hs_test::StubEffect fx(W, H);
+  for (const PlanarChordStar &star : planar_chord_stars()) {
+    const auto reference = render_planar_chord_star<W, H>(fx, star, false);
+    const auto chords = render_planar_chord_star<W, H>(fx, star, true);
+    const uint64_t reference_energy = planar_chord_energy(reference);
+    const uint64_t chord_energy = planar_chord_energy(chords);
+    HS_EXPECT_GT(reference_energy, uint64_t{0});
+    const double drift = std::fabs(static_cast<double>(chord_energy) -
+                                   static_cast<double>(reference_energy)) /
+                         static_cast<double>(reference_energy);
+    HS_EXPECT_LT(drift, 0.026);
+    size_t uncovered = 0;
+    for (int y = 0; y < H; ++y)
+      for (int x = 0; x < W; ++x) {
+        const Pixel &p = reference[static_cast<size_t>(y) * W + x];
+        if (static_cast<uint32_t>(p.r) + p.g + p.b < 12288)
+          continue;
+        bool covered = false;
+        for (int dy = -1; dy <= 1 && !covered; ++dy)
+          for (int dx = -1; dx <= 1 && !covered; ++dx) {
+            const int sy = y + dy;
+            if (sy < 0 || sy >= H)
+              continue;
+            const Pixel &q =
+                chords[static_cast<size_t>(sy) * W + (x + dx + W) % W];
+            covered = !is_black(q);
+          }
+        if (!covered)
+          ++uncovered;
+      }
+    HS_EXPECT_EQ(uncovered, size_t{0});
+  }
+}
+
 inline int run_plot_scan_tests() {
   hs_test::ModuleFixture fixture("plot_scan");
 
@@ -6420,6 +6545,7 @@ inline int run_plot_scan_tests() {
   test_ring_sample_lut_matches_direct();
   test_ring_draw_stride_tracks_full_grid();
   test_ring_draw_accepts_direct_sink();
+  test_planar_chords_match_rasterize_brightness();
 
   test_distorted_ring_sample_angle_addition_identity();
   test_distorted_ring_shift_matches_fn_point();

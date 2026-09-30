@@ -311,7 +311,7 @@ files define line-ending policy and working-artifact exclusions.
 │   │   │                            shader, volume)
 │   │   ├── plot.h                  Curve rasterizer: umbrella over plot/
 │   │   ├── plot/                   Per-family plot headers (cull, raster, shapes,
-│   │   │                            mesh, particles)
+│   │   │                            mesh, particles, chords)
 │   │   ├── filter.h                Composable render pipeline + all Filter::World/Screen/Pixel:
 │   │   │                            umbrella over filter/
 │   │   ├── filter/                 Pipeline composition (pipeline) and the shared splat
