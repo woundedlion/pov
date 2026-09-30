@@ -80,6 +80,8 @@ Captured timestamps are local raw-log mtimes.
 probe and are independent of the on-device timing tables.
 
 
+HyperLattice, MindSplatter, ShapeShifter, MeshFeedback and DisplacementField were re-captured on 2026-09-29. ShapeShifter uses 288 contours in entry 1 after the dense planar-star and band-split optimizations; MindSplatter includes the Plot float min/max sweep; MeshFeedback includes the polar-row ITCM trims; DisplacementField records tip `e1fd2e1ec`, with a 35.27 ms peak. HyperLattice includes all three presets and their segues after its optimization campaign. Setup frame 1 is excluded.
+
 ● HyperLattice refreshed on 2026-09-29 after its optimization campaign: all three presets and their segues; setup frame 1 excluded. Its O3 column predates the campaign.
 
 ● ShapeShifter refreshed on 2026-09-29 22:38 after the dense planar-star and band-split optimizations, with entry 1 raised from 208 to 288 contours (O3 column predates it), and MindSplatter on 2026-09-29 after the Plot float min/max sweep (`c40c1def8`); setup frame 1 excluded. Their O3 columns predate the sweep; the image deltas use the new shipping sizes.
