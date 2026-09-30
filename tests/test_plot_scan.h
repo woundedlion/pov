@@ -5720,9 +5720,12 @@ inline void test_rasterize_balanced_sampling_scope() {
       auto shader = [](const math::Vector &, Fragment &f) {
         f.color = Color4(Pixel(65535, 65535, 65535), 0.4f);
       };
-      Plot::rasterize<W, H,
-                      Plot::RasterConfig{.single_pass = SinglePass,
-                                         .sampling_policy = Policy}>(
+      Plot::rasterize<
+          W, H,
+          Plot::RasterConfig{
+              .single_pass = SinglePass,
+              .sampling_policy =
+                  SinglePass ? Policy : Plot::RasterSamplingPolicy::DEFAULT}>(
           pipeline, canvas, points, shader,
           {.projection = Plot::RasterProjection::planar(basis),
            .balanced_sampling =
