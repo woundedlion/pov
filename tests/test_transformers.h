@@ -22,8 +22,8 @@
  *                               the exact libm rotation and meets the exact
  *                               branch at the switchover.
  *   - noise_transform         : amplitude≈0 is a no-op; otherwise stays unit; at
- *                               a shipped preset's amplitude the cross-hemisphere
- *                               slide cap binds the displacement at atan(0.5).
+ *                               four times the shipped amplitude the slide cap
+ *                               binds the displacement at atan(0.5).
  *   - Transformer<>           : no active entities → identity; a spawned entity
  *                               applies and multiple entities compose; a recycled
  *                               freed slot composes in spawn order, not slot order;
@@ -743,7 +743,7 @@ inline void test_noise_active_stays_on_sphere() {
 }
 
 /**
- * @brief Verifies the shipped LooseWormhole noise stays within the slide cap.
+ * @brief Verifies the slide cap bounds shipped noise and binds at 4x amplitude.
  */
 inline void test_noise_cross_hemisphere_cap() {
   const auto STYLE = Feedback::Style::LooseWormhole();
