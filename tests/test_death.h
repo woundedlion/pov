@@ -2035,14 +2035,7 @@ inline void case_transformer_pool_arena_reclaimed() {
     std::printf("x");
 }
 
-/**
- * @brief Death case: a pool outliving its Timeline must trap.
- * @details Transformer surface — the destructor reaches back into the timeline
- *          to drop the pool's clear hook, and the spawned completion callbacks
- *          reach back into the pool, so the two lifetimes are ordered. An owner
- *          that declares them the other way gets a dead reference here rather
- *          than at some later step().
- */
+/** @brief Rejects a margin below the filter pipeline requirement. */
 inline void case_effect_margin_below_pipeline() {
   struct MarginEffect : Effect {
     MarginEffect() : Effect(32, 16, {.margin = 3, .required_margin = 3}) {}
@@ -2065,6 +2058,14 @@ inline void case_transformer_pinned_owner_order() {
   first->~Pool();
 }
 
+/**
+ * @brief Death case: a pool outliving its Timeline must trap.
+ * @details Transformer surface — the destructor reaches back into the timeline
+ *          to drop the pool's clear hook, and the spawned completion callbacks
+ *          reach back into the pool, so the two lifetimes are ordered. An owner
+ *          that declares them the other way gets a dead reference here rather
+ *          than at some later step().
+ */
 inline void case_transformer_pool_outlives_timeline() {
   configure_arenas_default();
   alignas(Timeline) static uint8_t tl_storage[sizeof(Timeline)];
@@ -4264,7 +4265,7 @@ inline void case_reconcile_vertices_size_mismatch() {
   MeshOps::reconcile_vertices(identity, authored, out, target, scratch);
 }
 
-/** @brief Death case: reconciling a vertex-less endpoint pair must trap. */
+/** @brief Rejects output aliasing a reconciliation input. */
 inline void case_reconcile_vertices_aliased_output() {
   static uint8_t target_bytes[128], scratch_bytes[128];
   Arena target(target_bytes, sizeof(target_bytes));
@@ -4273,6 +4274,7 @@ inline void case_reconcile_vertices_aliased_output() {
   MeshOps::reconcile_vertices(identity, authored, identity, target, scratch);
 }
 
+/** @brief Death case: reconciling a vertex-less endpoint pair must trap. */
 inline void case_reconcile_vertices_empty() {
   static uint8_t target_buf[64];
   static uint8_t scratch_buf[64];
@@ -4426,7 +4428,7 @@ inline void case_pullback_operator_invalid_surface_integrator() {
     std::printf("x");
 }
 
-/** @brief Death case: the gnomonic projection rejects an unknown hemisphere. */
+/** @brief Rejects an unknown Bonne hemisphere. */
 inline void case_pullback_operator_invalid_bonne_hemisphere() {
   Pullback::Interp::Op::BonneChainParams params;
   params.hemisphere = opaque<uint8_t>(0xff);
@@ -4435,6 +4437,7 @@ inline void case_pullback_operator_invalid_bonne_hemisphere() {
   Pullback::Interp::Op::ProjectBonne::prepare(context, params, state);
 }
 
+/** @brief Death case: the gnomonic projection rejects an unknown hemisphere. */
 inline void case_pullback_operator_invalid_gnomonic_hemisphere() {
   Pullback::Interp::Op::GnomonicChainParams params;
   params.hemisphere = opaque<uint8_t>(0xff);
@@ -4576,7 +4579,7 @@ inline void case_opleg_no_event_slot() {
   Animation::OpLeg::require_event_slot();
 }
 
-/** @brief A cached bump offset must agree with the sample's cap distance. */
+/** @brief Rejects non-finite ball-drop azimuth. */
 inline void case_ball_drop_nonfinite_azimuth() {
   Animation::BumpParams params;
   params.radius = 0.5f;
@@ -4586,6 +4589,7 @@ inline void case_ball_drop_nonfinite_azimuth() {
                              10);
 }
 
+/** @brief A cached bump offset must agree with the sample's cap distance. */
 inline void case_bump_offset_outside_cap_distance() {
   Animation::BumpParams params;
   params.center = math::Y_AXIS;
