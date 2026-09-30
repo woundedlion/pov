@@ -81,7 +81,6 @@
 
 #ifndef HS_INLINE_PARAM_CAPACITY
 #if defined(ARDUINO)
-// The device roster's largest inline registry has 14 parameters.
 #define HS_INLINE_PARAM_CAPACITY 16
 #else
 #define HS_INLINE_PARAM_CAPACITY 32

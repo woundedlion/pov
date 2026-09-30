@@ -710,6 +710,7 @@ add_executable(arena_measure
   ${CMAKE_CURRENT_SOURCE_DIR}/arena_measure.cpp
   ${HS_ENGINE_SOURCES})
 target_link_libraries(arena_measure PRIVATE hs_host_effect_runtime)
+target_compile_definitions(arena_measure PRIVATE HS_INLINE_PARAM_CAPACITY=16)
 target_include_directories(arena_measure PRIVATE ${HS_ENGINE_INCLUDES})
 target_compile_options(arena_measure PRIVATE -Os -ffast-math -fno-finite-math-only)
 _hs_warnings(arena_measure)
