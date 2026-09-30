@@ -59,11 +59,21 @@ export function presetAssignments(document, values) {
 const EASINGS = { LINEAR: 'math::ease_linear', EASE_IN_OUT_SIN: 'math::ease_in_out_sin' };
 
 /** The C++ departure of a preset: the document edge leaving it, or a snap. */
-export function departureLiteral(bank, presetId) {
+export function departureLiteral(bank, presetId, policies) {
   const edges = bank.edges.filter((edge) => edge.from === presetId);
-  if (edges.length === 0) return 'Segue::Preset::Snap{}';
+  if (edges.length === 0) {
+    if (bank.absent_edge_fallback.automatic !== 'SNAP')
+      throw new Error('Absent automatic edge must fall back to SNAP');
+    return 'Segue::Preset::Snap{}';
+  }
   if (edges.length > 1) throw new Error(`Preset ${presetId} departs by several edges`);
   const [edge] = edges;
+  const order = bank.choreography.generated_order;
+  const index = order.indexOf(presetId);
+  if (index < 0 || edge.to !== order[(index + 1) % order.length])
+    throw new Error(`Preset ${presetId} edge does not target its successor`);
+  if (policies.find(policy => policy.id === edge.path_policy)?.kind !== 'PARALLEL')
+    throw new Error(`Unmapped path policy kind: ${edge.path_policy}`);
   if (edge.path_policy !== 'parallel') throw new Error(`Unmapped path policy: ${edge.path_policy}`);
   const easing = EASINGS[edge.easing];
   if (!easing) throw new Error(`Unmapped easing: ${edge.easing}`);
@@ -97,7 +107,7 @@ export function generatedSections(compiled) {
     '    Params value;', ...[...initial].map(assignment), '    return value;', '  }',
   ];
   if (presets.length > 1) {
-    const departures = order.map((id) => departureLiteral(bank, id));
+    const departures = order.map((id) => departureLiteral(bank, id, document.descriptor.path_policies));
     const uniform = departures.every((departure) => departure === departures[0]);
     params.push('', '  /** @brief The preset at index in PRESET_IDS and how it departs. */',
       '  HS_COLD_MEMBER static constexpr PresetEntry<Params> preset(size_t index) {', '    Params value = initial_params();');
