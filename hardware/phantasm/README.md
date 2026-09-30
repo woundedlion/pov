@@ -35,5 +35,12 @@ python hardware/phantasm/gen/heal_clearance.py hardware/phantasm/1.2/phantasm.ki
 In Quilter, preserve the uploaded four-layer stackup and select **Preserve copper
 on internal layers**. The board's schematic links identify related components.
 
+The stackup is **Signal / GND / GND / Signal**. Both inner layers have GND
+pours and the user names `GND` and `Ground`, matching
+[Quilter's ground-layer naming rules](https://docs.quilter.ai/using-quilter/prepare-your-input-board-file).
+Confirm both inner layers are classified as Ground in Quilter's stackup editor.
+Its no-power-layer info is expected: this design uses two ground reference
+planes, with the supply rails routed on the outer layers.
+
 Electrical and mechanical requirements live in the
 [PCB specification](../../docs/specs/phantasm_pcb_spec.md).
