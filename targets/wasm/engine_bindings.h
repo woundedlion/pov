@@ -134,7 +134,7 @@ static_assert(MAX_PARAMS >= ShaderWorkbench::PARAM_CAPACITY,
  * @brief Outcome of a HolosphereEngine::setClip() call.
  * @details Each outcome wants a different caller response, so they are separate
  *          enumerators rather than one bool: NO_EFFECT is the ordinary state
- *          after an init or setResolution that carried no effect name, while
+ *          after setResolution returns RESIZED, while
  *          INVALID_BOUNDS is a caller bug. APPLIED and FULL_FRAME_KEPT are both
  *          successes, but only APPLIED means the band is in force — a segment
  *          pool needs the two apart to tell parallel speedup from N workers each
@@ -842,8 +842,9 @@ public:
 
   /**
    * @brief Builds the GUI's parameter descriptor list.
-   * @return JS array with one {name, value, requestedValue, acceptedValue, warning, animated, readonly, preset} object
-   *         per param in the effect's declaration order, plus {min, max} on
+   * @return JS array with one {name, value, requestedValue, acceptedValue, animated, readonly, preset} object
+   *         per param in the effect's declaration order, with {warning} when present,
+   *         plus {min, max} on
    *         every non-boolean param, {step} on every whole-number param, and
    *         {options} — with {exportOptions} alongside it when the param
    *         declares C++ enum literals — on every enum param; empty array when
