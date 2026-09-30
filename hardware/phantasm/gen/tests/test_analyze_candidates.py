@@ -37,7 +37,7 @@ class CandidateBoardTests(unittest.TestCase):
             prefixed = candidates / "Quilter_phantasm_unplaced.kicad_pcb_Candidate_4"
             prefixed.mkdir()
 
-            with mock.patch.object(analyze_candidates, "PROJ", directory):
+            with mock.patch.object(analyze_candidates, "CANDIDATES", str(candidates)):
                 self.assertEqual(analyze_candidates.default_candidates(),
                                  [str(expected), str(candidates / "Candidate_2"),
                                   str(prefixed)])
