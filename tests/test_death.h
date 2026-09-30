@@ -4937,7 +4937,8 @@ inline const Case *all_cases(int &n) {
       {"arena_set_offset_forward", case_arena_set_offset_forward,
        "core/engine/memory.h", "(new_offset <= offset) Arena::set_offset: "},
       {"scratch_scope_non_lifo", case_scratch_scope_non_lifo,
-       "core/engine/memory.h", "(arena.get_offset() >= saved_offset) "},
+       "core/engine/memory.h",
+       "(arena.get_offset() >= saved_offset) ScratchScope: non-LIFO teardown"},
       {"arena_rewind_history_overflow", case_arena_rewind_history_overflow,
        "core/engine/memory.h",
        "(rewind_history_size < REWIND_HISTORY_CAPACITY) Arena: debug rewind history capacity exceeded"},
@@ -5375,7 +5376,8 @@ inline const Case *all_cases(int &n) {
        "core/animation/params.h",
        "(speed_src != nullptr) Driver: live speed_src is null"},
       {"path_append_zero_samples", case_path_append_zero_samples,
-       "core/animation/motion.h", "(samples >= 1) "},
+       "core/animation/motion.h",
+       "(samples >= 1) Path: samples must be positive"},
       {"motion_empty_path_origin_sample", case_motion_empty_path_origin_sample,
        "core/animation/motion.h",
        "(math::dot(current_v, current_v) >= math::EPS_LEN_SQ && math::dot(target_v, "
@@ -5527,7 +5529,8 @@ inline const Case *all_cases(int &n) {
        "(rec.class_id < bake->classes.size()) mesh class bake face record "
        "names an unknown class"},
       {"plot_mesh_vertex_over_capacity", case_plot_mesh_vertex_over_capacity,
-       "core/render/plot/mesh.h", "(large < DEDUP_CAPACITY) "},
+       "core/render/plot/mesh.h",
+       "(large < DEDUP_CAPACITY) Mesh edge dedup: vertex index "},
       {"plot_four_regular_open_mesh", case_plot_four_regular_open_mesh,
        "core/render/plot/mesh.h",
        "(he.pair != HE_NONE) extract_four_regular_edges: mesh is not closed"},
@@ -5539,7 +5542,7 @@ inline const Case *all_cases(int &n) {
        "(false) find_edge_index: face edge missing from the edge list"},
       {"plot_extract_edges_vertex_over_capacity",
        case_plot_extract_edges_vertex_over_capacity, "core/render/plot/mesh.h",
-       "(large < DEDUP_CAPACITY) "},
+       "(large < DEDUP_CAPACITY) Mesh edge dedup: vertex index "},
       {"feedback_downsample_indivisible", case_feedback_downsample_indivisible,
        "core/render/filter/pixel_feedback.h",
        "(downsample > 0 && W % downsample == 0) feedback downsample 5 must "
@@ -5664,11 +5667,12 @@ inline const Case *all_cases(int &n) {
        "core/math/pixel_mapping.h",
        "(h_virt > 1) y_to_phi_virtual: h_virt must be > 1"},
       {"orientation_frame_index_oob", case_orientation_frame_index_oob,
-       "core/animation/orientation.h", "(i >= 0 && i < num_frames) "},
+       "core/animation/orientation.h",
+       "(i >= 0 && i < num_frames) Orientation: frame index out of range"},
       {"make_basis_nonunit_quaternion", case_make_basis_nonunit_quaternion,
        "core/math/spherical.h",
        "(std::abs(orientation_norm_sq - 1.0f) < "
-       "math::EPS_UNIT_QUAT_SQ) "},
+       "math::EPS_UNIT_QUAT_SQ) make_basis: orientation |q|^2 is "},
       {"parallel_transport_antipodal", case_parallel_transport_antipodal,
        "core/math/spherical.h",
        "(denominator > 1.0f || dot(cross(from, to), cross(from, to)) > "
