@@ -4,6 +4,9 @@
  */
 #pragma once
 
+/** @file framework.h
+ * @brief Signed distance shape concepts and scan interval utilities. */
+
 #include <algorithm>
 #include <array>
 #include <cmath>
