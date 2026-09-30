@@ -3,6 +3,7 @@
 Produces, into ../gen/out/:
   * jlc/        — Gerbers (Protel ext), Excellon drill, and a JLCPCB upload zip
   * jlc/phantasm-BOM.csv / phantasm-CPL.csv — JLCPCB assembly BOM + centroid
+  * phantasm-erc.json — gating schematic ERC report
   * phantasm-drc.json — gating error-severity DRC report
   * phantasm-parity.json — gating board/schematic parity report
   * jlc/SHA256SUMS.txt — digest of every zipped artifact, the assembly
