@@ -6,6 +6,7 @@
 
 #include "render/render_policy.h"
 #include <algorithm>
+#include <concepts>
 #include <cmath>
 #include <iterator>
 #include "math/geometry.h"
@@ -1040,6 +1041,50 @@ public:
     const math::Basis work_basis = math::get_antipode(basis, radius).first;
     sample_positions_impl(points, work_basis, num_sides, phase, radius_trig,
                           step_trig);
+  }
+
+  /**
+   * @brief Samples positions with caller-cached trigonometric values, plus
+   *        each vertex's coordinates in the chart its planar edges are straight
+   *        in.
+   * @param chart_x Receives num_sides * 2 chart x coordinates.
+   * @param chart_y Receives num_sides * 2 chart y coordinates.
+   * @param edge_chart The chart PlanarProjection::edge_basis gives @p radius.
+   * @details The coordinates follow the vertex angle recurrence, so no vertex
+   * needs an azimuthal projection.
+   */
+  HS_HOT_FLASH_MEMBER static void
+  sample_chart_positions(Fragments &points, float *chart_x, float *chart_y,
+                         const math::Basis &basis, float radius, int num_sides,
+                         float phase, const RadiusTrig &radius_trig,
+                         const StepTrig &step_trig,
+                         const math::Basis &edge_chart)
+    requires std::same_as<Projection, PlanarProjection>
+  {
+    sample_positions(points, basis, radius, num_sides, phase, radius_trig,
+                     step_trig);
+    float m00 = 1.0f, m01 = 0.0f, m10 = 0.0f, m11 = 1.0f;
+    if (radius > 1.0f) {
+      const math::Basis work_basis = math::get_antipode(basis, radius).first;
+      m00 = math::dot(work_basis.u, edge_chart.u);
+      m01 = math::dot(work_basis.w, edge_chart.u);
+      m10 = math::dot(work_basis.u, edge_chart.w);
+      m11 = math::dot(work_basis.w, edge_chart.w);
+    }
+    const float work_radius = radius > 1.0f ? 2.0f - radius : radius;
+    const float outer = work_radius * (math::PI_F / 2.0f);
+    const float chart_radius[2] = {outer, outer * STAR_INNER_RATIO};
+    float cos_theta = cosf(phase);
+    float sin_theta = sinf(phase);
+    for (int i = 0; i < num_sides * 2; ++i) {
+      const float r = chart_radius[i & 1];
+      chart_x[i] = r * (m00 * cos_theta + m01 * sin_theta);
+      chart_y[i] = r * (m10 * cos_theta + m11 * sin_theta);
+      const float next_cos =
+          cos_theta * step_trig.cosine - sin_theta * step_trig.sine;
+      sin_theta = sin_theta * step_trig.cosine + cos_theta * step_trig.sine;
+      cos_theta = next_cos;
+    }
   }
 
   /** @brief Samples Star levels that continue to the opposite pole. */
