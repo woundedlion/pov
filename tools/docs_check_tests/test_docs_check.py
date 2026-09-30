@@ -649,7 +649,7 @@ class TestDocumentationChecker(unittest.TestCase):
     def test_matching_compact_effects_row_is_clean(self):
         entries = {PurePosixPath("effects"),
                    PurePosixPath("effects/Comets.h"),
-                   PurePosixPath("effects/PromotedLooks.h")}
+                   PurePosixPath("effects/ComposedEffects.h")}
         row = ("├── effects/  2 headers covering 3 effects plus shared bases\n"
                + self._diagram(3))
         self.assertEqual(
