@@ -6029,9 +6029,18 @@ inline void run_child_case(const char *name) {
   if (std::strcmp(name, DETERMINISM_PROBE_CASE) == 0) {
     std::vector<Pixel> frame;
     uint64_t fold = 0;
-    effects_tests::render_capture<Comets, effects_tests::SMALL_W,
-                                  effects_tests::SMALL_H>(frame, 8, &fold);
-    std::printf("%016llx\n", static_cast<unsigned long long>(fold));
+    uint64_t combined = hs_test::FNV1A64_BASIS;
+    const auto CAPTURE = [&]<template <int, int> class E>() {
+      effects_tests::render_capture<E, effects_tests::SMALL_W,
+                                    effects_tests::SMALL_H>(frame, 8, &fold);
+      for (unsigned shift = 0; shift < 64; shift += 8)
+        combined = hs_test::fnv1a64_byte(combined,
+                                         static_cast<uint8_t>(fold >> shift));
+    };
+    CAPTURE.operator()<Comets>();
+    CAPTURE.operator()<MindSplatter>();
+    CAPTURE.operator()<Shader>();
+    std::printf("%016llx\n", static_cast<unsigned long long>(combined));
     return;
   }
   int n;
