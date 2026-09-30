@@ -1035,6 +1035,48 @@ jobs:
           clang-format --version
           bash tools/clang_format_gate.sh
 
+  pcb-tests:
+    name: PCB generation and fabrication (KiCad 10.0.4)
+    runs-on: windows-2022
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: '3.12'
+
+      - name: Install pinned KiCad and stock libraries
+        shell: pwsh
+        run: |
+          $installer = Join-Path $env:RUNNER_TEMP 'kicad-10.0.4-x86_64.exe'
+          $url = 'https://github.com/KiCad/kicad-source-mirror/releases/download/10.0.4/kicad-10.0.4-x86_64.exe'
+          Invoke-WebRequest -Uri $url -OutFile $installer
+          $expected = '0542f21d8f33d4bc530768c97bfe1ecd495a88050b361d1864c12b1e7c9430cd'
+          if ((Get-FileHash -LiteralPath $installer -Algorithm SHA256).Hash -ne $expected) {
+            throw 'KiCad installer SHA256 does not match the pinned release'
+          }
+          $process = Start-Process -FilePath $installer -ArgumentList '/S' -Wait -PassThru -WindowStyle Hidden
+          if ($process.ExitCode -ne 0) {
+            throw "KiCad installer failed: $($process.ExitCode)"
+          }
+
+      - name: Require pinned KiCad and stock libraries
+        shell: pwsh
+        run: |
+          @'
+          import sys
+          sys.path.insert(0, 'hardware/phantasm/gen/tests')
+          from test_pcb_generation import GENERATES, GENERATES_REASON
+          if not GENERATES:
+              raise SystemExit(GENERATES_REASON)
+          '@ | python -
+
+      - name: Run PCB generation, DRC, parity and fabrication tests
+        run: python tools/run_python_tests.py --suite hardware/phantasm/gen/tests
+
   teensy-gate-tests:
     name: Python unit tests
     runs-on: ubuntu-24.04
@@ -1160,6 +1202,7 @@ jobs:
       - lint
       - clang-format
       - teensy-gate-tests
+      - pcb-tests
       - teensy-size
       - teensy-warnings
     if: always()
