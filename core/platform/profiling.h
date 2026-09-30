@@ -130,9 +130,9 @@ struct PlotCounts {
 inline PlotCounts g_plot_counts;
 #endif
 
-#ifdef HS_PROFILE_MINDSPLATTER_COUNTS
-/** @brief Count-only attribution for the MindSplatter particle render path. */
-struct MindSplatterCounts {
+#ifdef HS_PROFILE_PLOT_RENDER_COUNTS
+/** @brief Count-only attribution for plot rendering. */
+struct PlotRenderCounts {
   uint32_t resident_particles = 0; /**< Allocated particle slots. */
   uint32_t live_particles = 0;     /**< Active particles. */
   uint32_t full_histories = 0;     /**< Trails at full history length. */
@@ -161,12 +161,12 @@ struct MindSplatterCounts {
   void reset() { *this = {}; }
 };
 
-inline MindSplatterCounts g_mindsplatter_counts;
+inline PlotRenderCounts g_plot_render_counts;
 #endif
 
-#ifdef HS_PROFILE_MINDSPLATTER_STALLS
+#ifdef HS_PROFILE_PLOT_STALLS
 #ifndef CORE_TEENSY
-#error "HS_PROFILE_MINDSPLATTER_STALLS requires Teensy DWT registers"
+#error "HS_PROFILE_PLOT_STALLS requires Teensy DWT registers"
 #endif
 
 /** @brief One DWT cycle/stall interval start sample. */
@@ -223,8 +223,8 @@ struct DwtStallBucket {
   void reset() { *this = {}; }
 };
 
-/** @brief MindSplatter DWT cycle and stall buckets. */
-struct MindSplatterStalls {
+/** @brief Plot DWT cycle and stall buckets. */
+struct PlotStalls {
   DwtStallBucket history_vertex;      /**< History vertex generation. */
   DwtStallBucket trail_gate;          /**< Trail visibility gate. */
   DwtStallBucket edge_setup;          /**< Edge preparation. */
@@ -240,16 +240,16 @@ struct MindSplatterStalls {
   void reset() { *this = {}; }
 };
 
-inline MindSplatterStalls g_mindsplatter_stalls;
+inline PlotStalls g_plot_stalls;
 
 /** @brief Enables the Cortex-M7 DWT counters used by stall captures. */
-inline void enable_mindsplatter_stall_counters() {
+inline void enable_plot_stall_counters() {
   ARM_DEMCR |= ARM_DEMCR_TRCENA;
   ARM_DWT_CTRL |= (1u << 17) | (1u << 18) | (1u << 20) | ARM_DWT_CTRL_CYCCNTENA;
 }
 
 /** @brief Reads all four DWT counters at one stage boundary. */
-inline DwtStallSample mindsplatter_stall_sample() {
+inline DwtStallSample plot_stall_sample() {
   return {ARM_DWT_CYCCNT, static_cast<uint8_t>(dwt_cpi_counter()),
           static_cast<uint8_t>(dwt_lsu_counter()),
           static_cast<uint8_t>(dwt_exc_counter())};
@@ -259,14 +259,14 @@ inline DwtStallSample mindsplatter_stall_sample() {
 class DwtStallBatch {
 public:
   explicit DwtStallBatch(DwtStallBucket &target)
-      : bucket(target), start(mindsplatter_stall_sample()) {}
+      : bucket(target), start(plot_stall_sample()) {}
 
   /** @brief Closes each full batch and starts the next interval. */
   void step() {
     if (++operations == OPERATIONS_PER_BATCH) {
       bucket.add(start);
       operations = 0;
-      start = mindsplatter_stall_sample();
+      start = plot_stall_sample();
     }
   }
 
@@ -361,19 +361,19 @@ private:
 #define HS_PLOT_MAX(field, value) ((void)0)
 #endif
 
-#ifdef HS_PROFILE_MINDSPLATTER_COUNTS
-#define HS_MSP_COUNT(field) (++hs::g_mindsplatter_counts.field)
+#ifdef HS_PROFILE_PLOT_RENDER_COUNTS
+#define HS_PLOT_RENDER_COUNT(field) (++hs::g_plot_render_counts.field)
 #else
-#define HS_MSP_COUNT(field) ((void)0)
+#define HS_PLOT_RENDER_COUNT(field) ((void)0)
 #endif
 
-#ifdef HS_PROFILE_MINDSPLATTER_STALLS
-#define HS_MSP_STALL_START(var)                                                \
-  const hs::DwtStallSample var = hs::mindsplatter_stall_sample()
-#define HS_MSP_STALL_STOP(field, var) hs::g_mindsplatter_stalls.field.add(var)
+#ifdef HS_PROFILE_PLOT_STALLS
+#define HS_PLOT_STALL_START(var)                                               \
+  const hs::DwtStallSample var = hs::plot_stall_sample()
+#define HS_PLOT_STALL_STOP(field, var) hs::g_plot_stalls.field.add(var)
 #else
-#define HS_MSP_STALL_START(var)
-#define HS_MSP_STALL_STOP(field, var) ((void)0)
+#define HS_PLOT_STALL_START(var)
+#define HS_PLOT_STALL_STOP(field, var) ((void)0)
 #endif
 
 // ---------------------------------------------------------------------------

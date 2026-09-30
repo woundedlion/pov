@@ -243,7 +243,7 @@ add_executable(mindsplatter_replay_gen
   ${HS_ROOT}/tools/mindsplatter_replay_gen.cpp
   ${HS_ENGINE_SOURCES})
 target_compile_definitions(mindsplatter_replay_gen PRIVATE
-  HS_PROFILE_MINDSPLATTER_COUNTS)
+  HS_PROFILE_PLOT_RENDER_COUNTS)
 target_link_libraries(mindsplatter_replay_gen PRIVATE hs_test_whitebox)
 target_include_directories(mindsplatter_replay_gen PRIVATE ${HS_ENGINE_INCLUDES})
 target_compile_options(mindsplatter_replay_gen PRIVATE

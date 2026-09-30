@@ -91,7 +91,7 @@ public:
     (void)age;
     (void)cv;
 
-    HS_MSP_STALL_START(aa_start);
+    HS_PLOT_STALL_START(aa_start);
     const SplatTaps t = splat_taps<W, H>(x, y);
 
     const bool x0_ok = x_visible[t.x0];
@@ -103,28 +103,28 @@ public:
         ((y0_ok && x1_ok && t.v10 > SPLAT_TAP_CUTOFF) << 1) |
         ((y1_ok && x0_ok && t.v01 > SPLAT_TAP_CUTOFF) << 2) |
         ((y1_ok && x1_ok && t.v11 > SPLAT_TAP_CUTOFF) << 3));
-    HS_MSP_STALL_STOP(aa_weights, aa_start);
+    HS_PLOT_STALL_STOP(aa_weights, aa_start);
 
-#ifdef HS_PROFILE_MINDSPLATTER_COUNTS
+#ifdef HS_PROFILE_PLOT_RENDER_COUNTS
     const unsigned tap_count = static_cast<unsigned>(tap_mask & 0x01) +
                                static_cast<unsigned>((tap_mask >> 1) & 0x01) +
                                static_cast<unsigned>((tap_mask >> 2) & 0x01) +
                                static_cast<unsigned>((tap_mask >> 3) & 0x01);
-    ++hs::g_mindsplatter_counts.aa_tap_masks[tap_count];
+    ++hs::g_plot_render_counts.aa_tap_masks[tap_count];
 #endif
 
-    HS_MSP_STALL_START(blend_start);
+    HS_PLOT_STALL_START(blend_start);
     if (tap_mask == 0x0f) {
-      HS_MSP_COUNT(interior_splats);
+      HS_PLOT_RENDER_COUNT(interior_splats);
       blend_four(base + t.y0 * W, base + t.y1 * W, t.x0, t.x1, c, alpha, t.v00,
                  t.v10, t.v01, t.v11);
-      HS_MSP_STALL_STOP(framebuffer_blend, blend_start);
+      HS_PLOT_STALL_STOP(framebuffer_blend, blend_start);
       return;
     }
-    HS_MSP_COUNT(clip_boundary_splats);
+    HS_PLOT_RENDER_COUNT(clip_boundary_splats);
     blend_masked(base, t.x0, t.x1, t.y0, t.y1, c, alpha, t.v00, t.v10, t.v01,
                  t.v11, tap_mask);
-    HS_MSP_STALL_STOP(framebuffer_blend, blend_start);
+    HS_PLOT_STALL_STOP(framebuffer_blend, blend_start);
   }
 
   /** @brief Integer-coordinate overload matching a filtered Pipeline. */
@@ -136,9 +136,9 @@ public:
   /** @brief Projects a world point, then applies the direct screen-space splat. */
   void plot(Canvas &cv, const math::Vector &v, const ::Pixel &c, float age,
             float alpha) {
-    HS_MSP_STALL_START(projection_start);
+    HS_PLOT_STALL_START(projection_start);
     const math::PixelCoords p = math::vector_to_pixel<W, H>(v);
-    HS_MSP_STALL_STOP(projection, projection_start);
+    HS_PLOT_STALL_STOP(projection, projection_start);
     plot(cv, p.x, p.y, c, age, alpha);
   }
 

@@ -525,10 +525,10 @@ static void rasterize(PipelineT &source_pipeline, Canvas &canvas,
   float seg_base = 0.0f; // rendered arc at the in-flight segment's start
 
   auto shade_fragment = [&](const math::Vector &position, Fragment &fragment) {
-    HS_MSP_STALL_START(shade_start);
-    HS_MSP_COUNT(fragment_shader_calls);
+    HS_PLOT_STALL_START(shade_start);
+    HS_PLOT_RENDER_COUNT(fragment_shader_calls);
     fragment_shader(position, fragment);
-    HS_MSP_STALL_STOP(shade_palette, shade_start);
+    HS_PLOT_STALL_STOP(shade_palette, shade_start);
   };
 
   // Adaptively sub-step and plot one segment. `sample(t)` returns the sphere
@@ -611,7 +611,7 @@ static void rasterize(PipelineT &source_pipeline, Canvas &canvas,
     };
     int planar_arc_interval = 0;
     auto adaptive_sample = [&](float t) -> SamplePT {
-      HS_MSP_STALL_START(adaptive_start);
+      HS_PLOT_STALL_START(adaptive_start);
       SamplePT result;
       if constexpr (SINGLE_PASS && !DERIVE_PLANAR_ARC_REGISTERS &&
                     !INTERPOLATE_REGISTERS && requires {
@@ -625,8 +625,8 @@ static void rasterize(PipelineT &source_pipeline, Canvas &canvas,
         result = sample.one_pass(t);
       else
         result = sample(t);
-      HS_MSP_COUNT(adaptive_samples);
-      HS_MSP_STALL_STOP(adaptive_sim, adaptive_start);
+      HS_PLOT_RENDER_COUNT(adaptive_samples);
+      HS_PLOT_STALL_STOP(adaptive_sim, adaptive_start);
       return result;
     };
     HS_PLOT_COUNT(sim_samples);
@@ -765,11 +765,11 @@ static void rasterize(PipelineT &source_pipeline, Canvas &canvas,
                                                     planar_arc_interval);
                         }) {
             if (balanced_sampling && reuse_step) {
-              HS_MSP_STALL_START(position_start);
+              HS_PLOT_STALL_START(position_start);
               smp.pos =
                   sample.position_monotonic(current_t, planar_arc_interval);
-              HS_MSP_COUNT(adaptive_samples);
-              HS_MSP_STALL_STOP(adaptive_sim, position_start);
+              HS_PLOT_RENDER_COUNT(adaptive_samples);
+              HS_PLOT_STALL_STOP(adaptive_sim, position_start);
 #if HS_ENABLE_TEST_HOOKS
               ++g_planar_position_samples;
 #endif
@@ -874,7 +874,7 @@ static void rasterize(PipelineT &source_pipeline, Canvas &canvas,
     // positions back to unit.
     HS_PROFILE_DEEP(plot_seg_draw);
     if (!plot_window || plot_t_start <= 0.0f) {
-      HS_MSP_STALL_START(replay_start);
+      HS_PLOT_STALL_START(replay_start);
       HS_PLOT_COUNT(replay_samples);
       HS_PLOT_COUNT(normalizations);
       math::Vector start_pos = newton_unit(sample.pos(0.0f));
@@ -884,7 +884,7 @@ static void rasterize(PipelineT &source_pipeline, Canvas &canvas,
       f.pos = start_pos;
       f.color = Color4(0, 0, 0, 0);
       set_arc_uv(f, 0.0f);
-      HS_MSP_STALL_STOP(normalized_replay, replay_start);
+      HS_PLOT_STALL_STOP(normalized_replay, replay_start);
 
       HS_PLOT_COUNT(shader_calls);
       shade_fragment(start_pos, f);
@@ -912,7 +912,7 @@ static void rasterize(PipelineT &source_pipeline, Canvas &canvas,
       // basis set_arc_uv rewrites v0/v1 from the true rendered arc so a shader
       // keying off them as an arc-length proxy tracks the drawn position across
       // the planar bow. Geodesic edges keep the lerped registers.
-      HS_MSP_STALL_START(replay_start);
+      HS_PLOT_STALL_START(replay_start);
       HS_PLOT_COUNT(replay_samples);
       HS_PLOT_COUNT(normalizations);
       math::Vector p = newton_unit(sample.pos(t));
@@ -922,7 +922,7 @@ static void rasterize(PipelineT &source_pipeline, Canvas &canvas,
       f.pos = p;
       f.color = Color4(0, 0, 0, 0);
       set_arc_uv(f, current_dist);
-      HS_MSP_STALL_STOP(normalized_replay, replay_start);
+      HS_PLOT_STALL_STOP(normalized_replay, replay_start);
 
       HS_PLOT_COUNT(shader_calls);
       shade_fragment(p, f);
