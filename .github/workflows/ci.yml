@@ -1029,7 +1029,7 @@ jobs:
         with:
           python-version: '3.12'
       - name: Install Python test dependencies
-        run: pip install --require-hashes -r requirements/numpy.txt
+        run: pip install --require-hashes -r requirements/numpy.txt -r requirements/ruff.txt -r requirements/shellcheck.txt
       - name: Run all Python suites
         run: python tools/run_python_tests.py
       - name: Check routed PCB metadata
