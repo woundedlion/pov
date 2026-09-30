@@ -400,7 +400,7 @@ private:
     // Opened after the OpLeg's blended ramps, which the shader below
     // reads, so only the scan's own scratch_b allocations unwind here.
     ScratchScope b_guard(scratch_arena_b);
-    // The frame-local mesh and its source fill scratch_a at the 1082-face peak.
+    // The frame-local mesh and its source occupy scratch_a.
     OrientTransformer camera(orientation);
     {
       HS_PROFILE(is_mesh_transform);
@@ -410,10 +410,7 @@ private:
 
     {
       HS_PROFILE(is_build_scan);
-      // Rasterize from scratch_b: the swept+compiled mesh fills scratch_a to
-      // ~120.9 KB during a build leg, leaving no room for the scan's per-face
-      // SDF::FaceScratchBuffer. The sprite path scans from scratch_a, where its
-      // transformed copy already lives.
+      // Per-face scan scratch must remain disjoint from the mesh in scratch_a.
       Scan::Mesh::draw_opleg_shading<W, H>(filters, canvas, mesh, sh, 1.0f,
                                            seg.opacity(1.0f), scratch_arena_b);
     }
