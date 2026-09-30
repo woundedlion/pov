@@ -4,7 +4,7 @@
  *
  * Unit tests for core/color/generative_palette.h and
  * core/color/palette_cycler.h. Included by tests/test_color.h, whose
- * run_color_tests() calls these cases and whose roster row counts them.
+ * run_color_tests() calls these cases.
  */
 #pragma once
 
