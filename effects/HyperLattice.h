@@ -741,7 +741,7 @@ public:
     value.speed = .025f;
     value.spin_3d = .003f;
     value.spin_4d = mode == LatticeMode::FOUR_D_SLICE ? .004f : 0;
-    value.stretch = pattern == Pattern::SHELLS ? 1.0f : 1.4f;
+    value.stretch = 1.4f;
     return value;
   }
 
