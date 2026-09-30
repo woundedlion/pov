@@ -6,9 +6,9 @@
  * must reproduce the unclipped frame pixel for pixel. The candidate Flower is
  * exempt: its band split restarts each visible run at a clip-dependent cut, so
  * its tiles match only to a fraction of a pixel (pinned in plot_scan by
- * test_planar_band_split_matches_whole_polyline). The module runs with
- * Plot::PlanarChords' pole-run split off for the same reason, so the star's
- * chord-walk culls stay pinned bit for bit; plot_scan pins the split.
+ * test_planar_band_split_matches_whole_polyline). Exact parity runs with
+ * Plot::PlanarChords' pole-run split off; a separate case enables it and
+ * checks the approximate energy budget.
  *
  * Separate from the shapeshifter_oracle module because this is the one property
  * there that holds only under IEEE. An active clip switches Plot::rasterize to
@@ -171,15 +171,7 @@ inline void test_star_azimuthal_cull_spans_narrow_columns() {
   }
 }
 
-/**
- * @brief Module entry point for the clipped-tile parity sweeps.
- * @return Module result code from hs_test::end_module (0 on success).
- */
-inline int run_shapeshifter_tiles_tests() {
-  ModuleFixture fixture("shapeshifter_tiles");
-  Plot::g_planar_chords_split_pole_runs = false;
-  test_segment_tiles_reconstruct_full_frame();
-  test_star_azimuthal_cull_spans_narrow_columns();
+inline void test_split_pole_runs_tiles_within_energy_budget() {
   Plot::g_planar_chords_split_pole_runs = true;
   OracleState state;
   state.shape = OracleEffect::ShapeType::PLANAR_STAR;
@@ -190,6 +182,18 @@ inline int run_shapeshifter_tiles_tests() {
   state.phase = 0.249f;
   state.orientation = math::make_rotation(math::X_AXIS, math::Y_AXIS);
   expect_mosaic_matches(state, candidate_renderer(), QUADRANTS, true);
+}
+
+/**
+ * @brief Module entry point for the clipped-tile parity sweeps.
+ * @return Module result code from hs_test::end_module (0 on success).
+ */
+inline int run_shapeshifter_tiles_tests() {
+  ModuleFixture fixture("shapeshifter_tiles");
+  Plot::g_planar_chords_split_pole_runs = false;
+  test_segment_tiles_reconstruct_full_frame();
+  test_star_azimuthal_cull_spans_narrow_columns();
+  test_split_pole_runs_tiles_within_energy_budget();
   return fixture.result();
 }
 
