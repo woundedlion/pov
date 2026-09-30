@@ -271,7 +271,21 @@ An affine primitive lattice rendered as soft iso contours through a folded gnomo
 
 ### HyperLattice
 
-A flight through periodic wire lattices and curved shells in 3D perspective or a rotating 4D slice. See the [preset guide](profiles/hyperlattice_experimental_presets_2026-09-27.md) for geometry options and settings.
+A flight through periodic wire lattices and curved shells in 3D perspective or a rotating 4D slice. Schema 14 uses the following preset roster; indices 3–8 require `HS_ENABLE_HYPERLATTICE_EXPERIMENTS`.
+
+| Index | Preset ID |
+| --- | --- |
+| 0 | `cubic-flight` |
+| 1 | `cubic-wide-flight` |
+| 2 | `hypercube-flight` |
+| 3 | `experimental-octet-flight` |
+| 4 | `experimental-octet-wide-flight` |
+| 5 | `experimental-octet-4d-flight` |
+| 6 | `experimental-shell-flight` |
+| 7 | `experimental-shell-close-flight` |
+| 8 | `experimental-shell-4d-flight` |
+
+The [dated preset measurements](profiles/hyperlattice_experimental_presets_2026-09-27.md) describe their capture-time settings.
 
 **Parameters**: Pattern, View (3D perspective, 4D slice), Sphere Radius, Cell Size, Wire Radius, Softness, Near Fade, Far Distance, AA Strength, Speed, 3D Spin, 4D Spin, Lattice Planes, Shear, Stretch, Shell Radius
 
