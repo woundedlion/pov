@@ -72,6 +72,26 @@ inline void test_traversal() {
   limits.max_candidates = 10000;
   Raycast::PreparedCamera camera;
   camera.interval = {0, 2};
+  Geometry bounded_geometry;
+  bounded_geometry.period = {10, 10, 10};
+  bounded_geometry.lower = {0, 0, 0};
+  bounded_geometry.upper = {2, 2, 2};
+  bounded_geometry.count = 1;
+  bounded_geometry.edges[0] = {{1, 1, .5f}, {1.1f, 1, .5f}};
+  camera.center = {1.05f, 1, 0, 0};
+  const auto INSIDE = shade(bounded_geometry, 1, .04f, camera, {1, 0}, limits,
+                            appearance, math::Z_AXIS);
+  HS_EXPECT_EQ(INSIDE.trace.status, Raycast::TraceStatus::BUDGET_EXHAUSTED);
+  HS_EXPECT_GT(INSIDE.color.alpha, 0.f);
+  bounded_geometry.edges[0] = {{1, 1, 1.2f}, {1.1f, 1, 1.2f}};
+  const auto OUTSIDE = shade(bounded_geometry, 1, .04f, camera, {1, 0}, limits,
+                             appearance, math::Z_AXIS);
+  HS_EXPECT_EQ(OUTSIDE.trace.status, Raycast::TraceStatus::BUDGET_EXHAUSTED);
+  HS_EXPECT_EQ(OUTSIDE.color.alpha, 0.f);
+  const auto ZERO_ANGLE = shade(bounded_geometry, 1, .5f, camera, {0, 0},
+                                limits, appearance, math::Z_AXIS);
+  HS_EXPECT_EQ(ZERO_ANGLE.trace.status, Raycast::TraceStatus::BUDGET_EXHAUSTED);
+  HS_EXPECT_EQ(ZERO_ANGLE.trace.counters.candidates, 0);
   for (auto kind : {Kind::DIAMOND, Kind::HEXAGONAL, Kind::RHOMBIC}) {
     const Geometry GEOMETRY(kind);
     const auto MID = (GEOMETRY.edges[0].a + GEOMETRY.edges[0].b) * .5f;
