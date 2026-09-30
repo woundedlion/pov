@@ -591,7 +591,9 @@ inline void test_truncate50d_far_side_sweep_holds_topology() {
         for (size_t f = 0; f < swept.face_counts.size(); ++f) {
           const math::Vector n =
               face_area_vector(swept, off[f], swept.face_counts[f]);
-          min_area_near = std::min(min_area_near, std::sqrt(math::dot(n, n)));
+          const math::Vector c =
+              face_centroid_unit(swept, off[f], swept.face_counts[f]);
+          min_area_near = std::min(min_area_near, math::dot(n, c));
         }
       }
     }
@@ -1024,7 +1026,8 @@ inline size_t check_manifold_landing(const PolyMesh &m, Arena &a, Arena &b) {
   float min_area = 1e9f;
   for (size_t f = 0; f < m.face_counts.size(); ++f) {
     const math::Vector n = face_area_vector(m, off[f], m.face_counts[f]);
-    min_area = std::min(min_area, std::sqrt(math::dot(n, n)));
+    const math::Vector c = face_centroid_unit(m, off[f], m.face_counts[f]);
+    min_area = std::min(min_area, math::dot(n, c));
   }
   for (size_t v = 0; v < m.vertices.size(); ++v)
     HS_EXPECT_TRUE(std::isfinite(m.vertices[v].length()));
