@@ -6498,6 +6498,152 @@ inline void test_planar_chords_match_rasterize_brightness() {
   }
 }
 
+/** @brief One flower to rasterize whole and band-split. */
+struct BandSplitFlower {
+  math::Quaternion orientation;
+  float radius;
+  int sides;
+  float phase;
+};
+
+/** @brief What one band-split render of a flower produced. */
+struct BandSplitFrame {
+  std::vector<Pixel> pixels;
+  size_t skipped_edges = 0; /**< Split edges flagged invisible. */
+};
+
+/**
+ * @brief Rasterizes @p flower into @p fx, whole or through PlanarBandSplit
+ *        against the clip @p clip.
+ */
+template <int W, int H>
+inline BandSplitFrame
+render_band_split_flower(hs_test::StubEffect &fx, const BandSplitFlower &flower,
+                         const ClipRegion &clip, bool split) {
+  constexpr int PIECES = 8;
+  const math::Basis basis = math::make_basis(flower.orientation, math::X_AXIS);
+  const math::Basis planar_basis = Plot::planar_chart_basis(
+      math::get_antipode(basis, flower.radius).first.v);
+  const Color4 color(Pixel(65535, 65535, 65535), 0.3f);
+  auto shader = [&](const math::Vector &, Fragment &f) { f.color = color; };
+  fx.set_clip(clip.y_start, clip.y_end, clip.x_start, clip.x_end);
+  BandSplitFrame frame;
+  {
+    ScratchScope sc(plot_arena());
+    const int edges = flower.sides * 2;
+    const int max_points =
+        Plot::PlanarBandSplit<W, H>::max_points(edges, PIECES);
+    Plot::PlanarBandSplit<W, H> band_split;
+    band_split.init_storage(plot_arena(), max_points);
+    Fragments ring;
+    ring.bind(plot_arena(), static_cast<size_t>(edges + 1));
+    Plot::Flower::sample(ring, basis, flower.radius, flower.sides,
+                         flower.phase);
+    Filter::Screen::DirectAntiAliasSink<W, H> sink;
+    Canvas canvas(fx);
+    initialize_parity_frame<W, H>(canvas);
+    sink.prepare(canvas);
+    constexpr Plot::RasterConfig CONFIG{
+        .single_pass = true,
+        .derive_planar_arc_registers = false,
+        .interpolate_registers = false,
+        .sampling_policy = Plot::RasterSamplingPolicy::SELECTABLE};
+    if (split) {
+      Fragments path;
+      path.bind(plot_arena(), static_cast<size_t>(max_points));
+      const auto flags =
+          band_split.split(path, ring, edges, PIECES, planar_basis,
+                           Plot::ClipBand<W, H>::of(canvas.clip()));
+      for (uint8_t flag : flags)
+        frame.skipped_edges += flag == 0;
+      Plot::rasterize<W, H, CONFIG>(
+          sink, canvas, path, shader,
+          {.projection = Plot::RasterProjection::planar(planar_basis, flags),
+           .omit_end = true});
+    } else {
+      Plot::rasterize<W, H, CONFIG>(
+          sink, canvas, ring, shader,
+          {.projection = Plot::RasterProjection::planar(planar_basis),
+           .omit_end = true});
+    }
+  }
+  fx.advance_display();
+  frame.pixels.resize(static_cast<size_t>(W) * H);
+  for (int y = 0; y < H; ++y)
+    for (int x = 0; x < W; ++x)
+      frame.pixels[static_cast<size_t>(y) * W + x] = fx.get_pixel(x, y);
+  return frame;
+}
+
+/**
+ * @brief Verifies a band-split flower draws each quadrant as the whole flower
+ *        does: the same strokes to a fraction of a pixel, with pieces that
+ *        cannot reach the band skipped.
+ */
+inline void test_planar_band_split_matches_whole_polyline() {
+  constexpr int W = 288, H = 144;
+  constexpr int POLE_ROWS = 3;
+  hs_test::StubEffect fx(W, H);
+  const ClipRegion full{0, H, 0, W, 1, W, H};
+  const ClipRegion quadrants[] = {
+      {0, H / 2, 0, W / 2, 1, W, H},
+      {0, H / 2, W / 2, W, 1, W, H},
+      {H / 2, H, 0, W / 2, 1, W, H},
+      {H / 2, H, W / 2, W, 1, W, H},
+  };
+  const std::array<BandSplitFlower, 4> flowers = {{
+      {math::Quaternion(0.81f, 0.32f, -0.29f, 0.39f).normalized(), 0.6f, 3,
+       0.4f},
+      {math::Quaternion(0.72f, -0.41f, 0.18f, 0.53f).normalized(), 1.2f, 3,
+       1.3f},
+      {math::make_rotation(math::X_AXIS, math::Y_AXIS), 0.9f, 5, 0.2f},
+      {math::Quaternion(0.93f, -0.11f, 0.24f, 0.25f).normalized(), 1.6f, 4,
+       2.1f},
+  }};
+  size_t skipped = 0;
+  for (const BandSplitFlower &flower : flowers) {
+    const auto whole =
+        render_band_split_flower<W, H>(fx, flower, full, false).pixels;
+    for (const ClipRegion &clip : quadrants) {
+      const auto tile = render_band_split_flower<W, H>(fx, flower, clip, true);
+      skipped += tile.skipped_edges;
+      uint64_t whole_energy = 0, tile_energy = 0;
+      size_t uncovered = 0;
+      for (int y = clip.y_start; y < clip.y_end; ++y)
+        for (int x = clip.x_start; x < clip.x_end; ++x) {
+          const Pixel &p = whole[static_cast<size_t>(y) * W + x];
+          const Pixel &q = tile.pixels[static_cast<size_t>(y) * W + x];
+          whole_energy += static_cast<uint64_t>(p.r) + p.g + p.b;
+          tile_energy += static_cast<uint64_t>(q.r) + q.g + q.b;
+          // A pole row's columns span almost no arc, so a sub-pixel shift
+          // in sample phase moves a dot there by whole columns.
+          if (static_cast<uint32_t>(p.r) + p.g + p.b < 12288 || y < POLE_ROWS ||
+              y >= H - POLE_ROWS)
+            continue;
+          bool covered = false;
+          for (int dy = -1; dy <= 1 && !covered; ++dy)
+            for (int dx = -1; dx <= 1 && !covered; ++dx) {
+              const int sy = y + dy;
+              if (sy < 0 || sy >= H)
+                continue;
+              covered = !is_black(
+                  tile.pixels[static_cast<size_t>(sy) * W + (x + dx + W) % W]);
+            }
+          if (!covered)
+            ++uncovered;
+        }
+      HS_EXPECT_EQ(uncovered, size_t{0});
+      if (whole_energy == 0)
+        continue;
+      const double drift = std::fabs(static_cast<double>(tile_energy) -
+                                     static_cast<double>(whole_energy)) /
+                           static_cast<double>(whole_energy);
+      HS_EXPECT_LT(drift, 0.035);
+    }
+  }
+  HS_EXPECT_GT(skipped, size_t{0});
+}
+
 inline int run_plot_scan_tests() {
   hs_test::ModuleFixture fixture("plot_scan");
 
@@ -6546,6 +6692,7 @@ inline int run_plot_scan_tests() {
   test_ring_draw_stride_tracks_full_grid();
   test_ring_draw_accepts_direct_sink();
   test_planar_chords_match_rasterize_brightness();
+  test_planar_band_split_matches_whole_polyline();
 
   test_distorted_ring_sample_angle_addition_identity();
   test_distorted_ring_shift_matches_fn_point();

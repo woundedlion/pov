@@ -188,12 +188,19 @@ public:
   geodesic(std::span<const uint8_t> flags = {}) {
     return RasterProjection(nullptr, flags);
   }
-  /** @brief Selects azimuthal-equidistant interpolation in the supplied chart. */
-  static constexpr RasterProjection planar(const math::Basis &basis) {
-    return RasterProjection(&basis, {});
+  /** @brief Selects azimuthal-equidistant interpolation in the supplied chart.
+   * @details Flags, one byte per rasterized edge, combine EDGE_VISIBLE,
+   * EDGE_CLASSIFIED and EDGE_ONE_DOT; they replace the clip cull when the clip
+   * is active.
+   */
+  static constexpr RasterProjection
+  planar(const math::Basis &basis, std::span<const uint8_t> flags = {}) {
+    return RasterProjection(&basis, flags);
   }
-  static RasterProjection planar(math::Basis &&) = delete;
-  static RasterProjection planar(const math::Basis &&) = delete;
+  static RasterProjection planar(math::Basis &&,
+                                 std::span<const uint8_t> = {}) = delete;
+  static RasterProjection planar(const math::Basis &&,
+                                 std::span<const uint8_t> = {}) = delete;
   constexpr const math::Basis *basis() const { return planar_basis; }
   constexpr std::span<const uint8_t> flags() const { return edge_flags; }
 
