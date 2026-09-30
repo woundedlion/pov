@@ -1,0 +1,121 @@
+#include "core/engine/engine.h"
+#include "effects/GSReactionDiffusion.h"
+#include "tests/test_fixture.h"
+#include <algorithm>
+#include <bit>
+#include <cmath>
+#include <cstdio>
+#include <string>
+#include <vector>
+
+namespace hs_test::effects_tests {
+struct GSWhiteBox {
+  using GS = GSReactionDiffusion<288, 144>;
+  static uint64_t hash(const uint16_t *values) {
+    uint64_t result = 14695981039346656037ull;
+    for (int i = 0; i < GS::RD_N; ++i) {
+      result = (result ^ (values[i] & 255u)) * 1099511628211ull;
+      result = (result ^ (values[i] >> 8)) * 1099511628211ull;
+    }
+    return result;
+  }
+  static uint64_t hash_float(const std::vector<float> &values) {
+    uint64_t result = 14695981039346656037ull;
+    for (float value : values) {
+      uint32_t bits = std::bit_cast<uint32_t>(value);
+      for (int i = 0; i < 4; ++i)
+        result = (result ^ ((bits >> (i * 8)) & 255u)) * 1099511628211ull;
+    }
+    return result;
+  }
+  static void record(const GS &gs, FILE *out, int frame) {
+    std::fprintf(out, "%d,%016llx,%016llx,%d,%d,%d,%u\n", frame,
+                 static_cast<unsigned long long>(hash(gs.state.A)),
+                 static_cast<unsigned long long>(hash(gs.state.B)),
+                 gs.transition.grow_frames, gs.transition.stable_frames,
+                 gs.transition.dissolve_frames, gs.transition.dissolve_seed);
+  }
+  static void reference(const GS &gs, const float *ca, const float *cb,
+                        float *na, float *nb) {
+    const float feed = gs.params.feed, kill = gs.params.k;
+    const float da = gs.params.d_a, db = gs.params.d_b;
+    const float dt = gs.params.dt * GS::STEP_DT_SCALE;
+    for (int i = 0; i < GS::RD_N; ++i) {
+      float a = ca[i], b = cb[i], sa = 0, sb = 0;
+      for (int k = 0; k < 6; ++k) {
+        int n = ReactionGraph::neighbors[i][k];
+        sa += ca[n]; sb += cb[n];
+      }
+      float la = sa - 6 * a, lb = sb - 6 * b;
+      float abb = a * b * b;
+      na[i] = hs::clamp(a + (da * la - abb + feed * (1.0f - a)) * dt, 0.0f, 1.0f);
+      nb[i] = hs::clamp(b + (db * lb + abb - (kill + feed) * b) * dt, 0.0f, 1.0f);
+    }
+  }
+  static int corners(GS &gs, FILE *out) {
+    std::vector<float> ca(GS::RD_N), cb(GS::RD_N), na(GS::RD_N), nb(GS::RD_N),
+                       ra(GS::RD_N), rb(GS::RD_N);
+    hs::Pcg32 rng(0xC0FFEEu);
+    for (int i = 0; i < GS::RD_N; ++i) {
+      ca[i] = hs_test::rand_uniform(rng, 0, 1);
+      cb[i] = hs_test::rand_uniform(rng, 0, 1);
+    }
+    ca[0] = 0; cb[0] = 1; ca[1] = 1; cb[1] = 0;
+    std::fputs("corner,a_float_hash,b_float_hash,changed,max_absolute,max_q16,bad_range\n", out);
+    int failures = 0;
+    for (int test = 0; test < 33; ++test) {
+      gs.params.feed = test == 32 ? 0.04f : ((test & 1) ? 0.1f : 0.0f);
+      gs.params.k = test == 32 ? 0.06f : ((test & 2) ? 0.1f : 0.0f);
+      gs.params.d_a = test == 32 ? 0.02f : ((test & 4) ? 0.05f : 0.0f);
+      gs.params.d_b = test == 32 ? 0.01f : ((test & 8) ? 0.05f : 0.0f);
+      gs.params.dt = test == 32 ? 2.5f : ((test & 16) ? 3.0f : 0.1f);
+      gs.step_physics(ca.data(), cb.data(), na.data(), nb.data());
+      reference(gs, ca.data(), cb.data(), ra.data(), rb.data());
+      int changed = 0, max_q16 = 0, bad = 0;
+      float error = 0;
+      for (int i = 0; i < GS::RD_N; ++i) {
+        changed += na[i] != ra[i]; changed += nb[i] != rb[i];
+        error = std::max(error, std::max(std::abs(na[i] - ra[i]), std::abs(nb[i] - rb[i])));
+        max_q16 = std::max(max_q16, std::abs(int(gs.to_q16(na[i])) - int(gs.to_q16(ra[i]))));
+        max_q16 = std::max(max_q16, std::abs(int(gs.to_q16(nb[i])) - int(gs.to_q16(rb[i]))));
+        bad += !std::isfinite(na[i]) || na[i] < 0 || na[i] > 1;
+        bad += !std::isfinite(nb[i]) || nb[i] < 0 || nb[i] > 1;
+      }
+      std::fprintf(out, "%d,%016llx,%016llx,%d,%.10g,%d,%d\n", test,
+                   static_cast<unsigned long long>(hash_float(na)),
+                   static_cast<unsigned long long>(hash_float(nb)), changed,
+                   error, max_q16, bad);
+      failures += bad != 0 || error > 2e-6f || max_q16 > 1;
+    }
+    return failures;
+  }
+};
+}
+
+int main(int argc, char **argv) {
+  if (argc != 2) return 2;
+  std::string prefix = argv[1];
+  FILE *states = std::fopen((prefix + "-states.csv").c_str(), "wb");
+  FILE *corners = std::fopen((prefix + "-corners.csv").c_str(), "wb");
+  if (!states || !corners) return 2;
+  hs_test::reset_globals();
+  hs::set_mock_time(0, 0);
+  using WB = hs_test::effects_tests::GSWhiteBox;
+  constexpr uint64_t SEED = hs::stable_effect_seed(hs::stable_effect_id<WB::GS>("GSReactionDiffusion"));
+  hs::random().seed(SEED);
+  WB::GS gs;
+  gs.init();
+  std::fputs("frame,a_hash,b_hash,grow,stable,dissolve,dissolve_seed\n", states);
+  WB::record(gs, states, 0);
+  for (int frame = 1; frame <= 2048; ++frame) {
+    hs::set_mock_time(static_cast<unsigned long>(frame * 62500 / 1000),
+                      static_cast<unsigned long>(frame * 62500));
+    gs.draw_frame(); gs.advance_display();
+    WB::record(gs, states, frame);
+  }
+  int failures = WB::corners(gs, corners);
+  std::fclose(states); std::fclose(corners);
+  std::printf("seed=%llu, frame_states=2049, corner_cases=33, corner_failures=%d\n",
+              static_cast<unsigned long long>(SEED), failures);
+  return failures ? 1 : 0;
+}

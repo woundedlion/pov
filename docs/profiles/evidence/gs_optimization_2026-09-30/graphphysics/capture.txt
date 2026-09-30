@@ -1,0 +1,3226 @@
+profile harness: effect=GSReactionDiffusion config=ship segments=4 rpm=480 f_cpu=600000000
+reset cause: 0x001 por
+[Phantasm] Segment 0 arm-A (+y) MASTER | y_base=0 y_step=1 pixels=72
+f 1 w=27793 r=27793
+f 2 w=18834 r=18834
+f 3 w=65765 r=22148
+f 4 w=60760 r=20451
+f 5 w=66294 r=24291
+f 6 w=58932 r=20777
+f 7 w=66075 r=24398
+f 8 w=59431 r=21373
+f 9 w=65965 r=24884
+f 10 w=59725 r=22156
+f 11 w=65284 r=24942
+f 12 w=60653 r=23140
+f 13 w=65310 r=25999
+f 14 w=60434 r=23981
+f 15 w=65871 r=27399
+f 16 w=59963 r=24907
+f 17 w=65993 r=28445
+f 18 w=59154 r=25146
+f 19 w=66171 r=28871
+f 20 w=59024 r=25440
+f 21 w=66323 r=29308
+f 22 w=59563 r=26417
+f 23 w=66308 r=30271
+f 24 w=59382 r=27144
+f 25 w=66767 r=31458
+f 26 w=58825 r=27828
+f 27 w=66671 r=32044
+f 28 w=58876 r=28467
+f 29 w=66553 r=32568
+f 30 w=58901 r=29016
+f 31 w=66149 r=32710
+f 32 w=59219 r=29474
+=== profile GSReactionDiffusion [288x144] frames 1-32 window=2403376 us ===
+frame wall us: min=18834 avg=60342 max=66767 sum=1930968 (32 frames)
+frame render us: avg=26315 max=32710
+--- Cycle Counters ---
+frame                  1930962 us (100%)  32 calls  1158577706 cyc
+  pov_preserve_half    4330 us (0%)  31 calls  2598208 cyc
+  grd_render           833815 us (43%)  32 calls  500289396 cyc
+    grd_rasterize      608558 us (72%)  32 calls  365135222 cyc
+      grd_shader_draw  477992 us (78%)  32 calls  286795672 cyc
+      grd_cull_flags   118609 us (19%)  32 calls  71165618 cyc
+      grd_orient       11939 us (1%)  32 calls  7163741 cyc
+    grd_simulate       225246 us (27%)  32 calls  135147914 cyc
+  rd_timeline_step     1054 us (0%)  32 calls  632412 cyc
+  canvas_clear         2818 us (0%)  32 calls  1691250 cyc
+  canvas_buffer_wait   1088902 us (56%)  32 calls  653341360 cyc
+isr_wake       n=44326 cyc min/avg/max=305/862/12178 ns min/avg/max=508/1436/20296 total=63698 us cpu=2.65%
+isr_pack       n=4390 cyc min/avg/max=3743/4137/6016 ns min/avg/max=6238/6895/10026 total=30273 us cpu=1.25%
+isr_dma_submit n=4390 cyc min/avg/max=398/558/1201 ns min/avg/max=663/930/2001 total=4085 us cpu=0.16%
+f 33 w=65995 r=33264
+f 34 w=59280 r=30090
+f 35 w=65572 r=33210
+f 36 w=59554 r=30311
+f 37 w=65814 r=33672
+f 38 w=59461 r=30626
+f 39 w=66586 r=34757
+f 40 w=58543 r=30848
+f 41 w=67323 r=35717
+f 42 w=57936 r=31208
+f 43 w=67397 r=36161
+f 44 w=57721 r=31429
+f 45 w=67689 r=36666
+f 46 w=57546 r=31757
+f 47 w=67930 r=37235
+f 48 w=57078 r=31859
+f 49 w=68185 r=37592
+f 50 w=56803 r=31939
+f 51 w=68414 r=37844
+f 52 w=57083 r=32474
+f 53 w=68062 r=38094
+f 54 w=57745 r=33383
+f 55 w=66805 r=37743
+f 56 w=58659 r=33954
+f 57 w=66320 r=37820
+f 58 w=59248 r=34613
+f 59 w=65475 r=37634
+f 60 w=60318 r=35499
+f 61 w=64560 r=37606
+f 62 w=60854 r=36005
+f 63 w=64580 r=38142
+f 64 w=60722 r=36421
+=== profile GSReactionDiffusion [288x144] frames 33-64 window=2006689 us ===
+frame wall us: min=56803 avg=62664 max=68414 sum=2005258 (32 frames)
+frame render us: avg=34549 max=38142
+--- Cycle Counters ---
+frame                  2005249 us (100%)  32 calls  1203149402 cyc
+  pov_preserve_half    4345 us (0%)  32 calls  2607226 cyc
+  grd_render           1097259 us (54%)  32 calls  658355601 cyc
+    grd_rasterize      873318 us (79%)  32 calls  523991282 cyc
+      grd_shader_draw  742983 us (85%)  32 calls  445790324 cyc
+      grd_cull_flags   118367 us (13%)  32 calls  71020492 cyc
+      grd_orient       11951 us (1%)  32 calls  7170930 cyc
+    grd_simulate       223930 us (20%)  32 calls  134358107 cyc
+  rd_timeline_step     1215 us (0%)  32 calls  729360 cyc
+  canvas_clear         2697 us (0%)  32 calls  1618447 cyc
+  canvas_buffer_wait   899699 us (44%)  32 calls  539819654 cyc
+isr_wake       n=36994 cyc min/avg/max=365/1010/7466 ns min/avg/max=608/1683/12443 total=62327 us cpu=3.10%
+isr_pack       n=4624 cyc min/avg/max=3743/4234/6063 ns min/avg/max=6238/7056/10105 total=32630 us cpu=1.62%
+isr_dma_submit n=4624 cyc min/avg/max=399/559/2736 ns min/avg/max=665/931/4560 total=4314 us cpu=0.21%
+f 65 w=63715 r=37870
+f 66 w=61394 r=36809
+f 67 w=63312 r=37669
+f 68 w=61750 r=36966
+f 69 w=62868 r=37382
+f 70 w=62566 r=37494
+f 71 w=62184 r=37222
+f 72 w=63036 r=37804
+f 73 w=61554 r=36903
+f 74 w=63798 r=38246
+f 75 w=60856 r=36647
+f 76 w=64469 r=38662
+f 77 w=60468 r=36677
+f 78 w=64553 r=38776
+f 79 w=60401 r=36670
+f 80 w=64754 r=38970
+f 81 w=60484 r=37002
+f 82 w=64400 r=38953
+f 83 w=61009 r=37508
+f 84 w=64127 r=39180
+f 85 w=61269 r=37996
+f 86 w=63677 r=39220
+f 87 w=61676 r=38441
+f 88 w=63262 r=39251
+f 89 w=61972 r=38770
+f 90 w=63192 r=39510
+f 91 w=62075 r=39132
+f 92 w=62965 r=39588
+f 93 w=62392 r=39528
+f 94 w=62641 r=39716
+f 95 w=62436 r=39698
+f 96 w=62630 r=39874
+=== profile GSReactionDiffusion [288x144] frames 65-96 window=2003246 us ===
+frame wall us: min=60401 avg=62558 max=64754 sum=2001885 (32 frames)
+frame render us: avg=38254 max=39874
+--- Cycle Counters ---
+frame                  2001884 us (100%)  32 calls  1201130741 cyc
+  pov_preserve_half    4385 us (0%)  32 calls  2631227 cyc
+  grd_render           1215951 us (60%)  32 calls  729570661 cyc
+    grd_rasterize      992489 us (81%)  32 calls  595493886 cyc
+      grd_shader_draw  863148 us (86%)  32 calls  517889245 cyc
+      grd_cull_flags   117373 us (11%)  32 calls  70423880 cyc
+      grd_orient       11952 us (1%)  32 calls  7171225 cyc
+    grd_simulate       223450 us (18%)  32 calls  134070530 cyc
+  rd_timeline_step     1046 us (0%)  32 calls  627714 cyc
+  canvas_clear         2702 us (0%)  32 calls  1621616 cyc
+  canvas_buffer_wait   777767 us (38%)  32 calls  466660696 cyc
+isr_wake       n=36931 cyc min/avg/max=365/1018/7258 ns min/avg/max=608/1696/12096 total=62719 us cpu=3.13%
+isr_pack       n=4616 cyc min/avg/max=3743/4291/6171 ns min/avg/max=6238/7151/10285 total=33016 us cpu=1.64%
+isr_dma_submit n=4616 cyc min/avg/max=382/560/2305 ns min/avg/max=636/933/3841 total=4310 us cpu=0.21%
+f 97 w=62204 r=39869
+f 98 w=62809 r=40223
+f 99 w=62284 r=40055
+f 100 w=62917 r=40520
+f 101 w=62140 r=40206
+f 102 w=62848 r=40599
+f 103 w=62277 r=40422
+f 104 w=62882 r=40848
+f 105 w=62235 r=40629
+f 106 w=62908 r=41028
+f 107 w=62280 r=40854
+f 108 w=62718 r=41118
+f 109 w=62573 r=41236
+f 110 w=62340 r=41121
+f 111 w=62755 r=41421
+f 112 w=62301 r=41269
+f 113 w=62997 r=41810
+f 114 w=61987 r=41342
+f 115 w=63177 r=42067
+f 116 w=61611 r=41236
+f 117 w=63455 r=42236
+f 118 w=61341 r=41122
+f 119 w=63877 r=42491
+f 120 w=61105 r=41152
+f 121 w=63944 r=42644
+f 122 w=61143 r=41332
+f 123 w=63859 r=42737
+f 124 w=61120 r=41403
+f 125 w=64027 r=42976
+f 126 w=60739 r=41260
+f 127 w=64401 r=43208
+f 128 w=60618 r=41371
+=== profile GSReactionDiffusion [288x144] frames 97-128 window=2001227 us ===
+frame wall us: min=60618 avg=62496 max=64401 sum=1999872 (32 frames)
+frame render us: avg=41306 max=43208
+--- Cycle Counters ---
+frame                  1999866 us (100%)  32 calls  1199919683 cyc
+  pov_preserve_half    4348 us (0%)  32 calls  2608834 cyc
+  grd_render           1313778 us (65%)  32 calls  788266816 cyc
+    grd_rasterize      1090656 us (83%)  32 calls  654394019 cyc
+      grd_shader_draw  962821 us (88%)  32 calls  577692973 cyc
+      grd_cull_flags   115857 us (10%)  32 calls  69514444 cyc
+      grd_orient       11961 us (1%)  32 calls  7177066 cyc
+    grd_simulate       223110 us (16%)  32 calls  133866590 cyc
+  rd_timeline_step     917 us (0%)  32 calls  550745 cyc
+  canvas_clear         2705 us (0%)  32 calls  1623448 cyc
+  canvas_buffer_wait   678085 us (33%)  32 calls  406851034 cyc
+isr_wake       n=36893 cyc min/avg/max=376/1025/7854 ns min/avg/max=626/1708/13090 total=63035 us cpu=3.14%
+isr_pack       n=4611 cyc min/avg/max=3743/4335/6185 ns min/avg/max=6238/7225/10308 total=33314 us cpu=1.66%
+isr_dma_submit n=4611 cyc min/avg/max=403/560/3250 ns min/avg/max=671/933/5416 total=4304 us cpu=0.21%
+f 129 w=63987 r=43129
+f 130 w=60624 r=41298
+f 131 w=64401 r=43247
+f 132 w=60548 r=41341
+f 133 w=64383 r=43217
+f 134 w=60642 r=41398
+f 135 w=64346 r=43291
+f 136 w=60550 r=41387
+f 137 w=64376 r=43308
+f 138 w=60526 r=41381
+f 139 w=64582 r=43510
+f 140 w=60344 r=41403
+f 141 w=64451 r=43401
+f 142 w=60504 r=41450
+f 143 w=64820 r=43816
+f 144 w=59951 r=41323
+f 145 w=64765 r=43636
+f 146 w=60290 r=41418
+f 147 w=64657 r=43623
+f 148 w=60524 r=41695
+f 149 w=64268 r=43510
+f 150 w=60619 r=41674
+f 151 w=64236 r=43456
+f 152 w=60796 r=41797
+f 153 w=63929 r=43273
+f 154 w=60930 r=41751
+f 155 w=63937 r=43235
+f 156 w=61058 r=41840
+f 157 w=64055 r=43441
+f 158 w=60946 r=41934
+f 159 w=64137 r=43617
+f 160 w=60783 r=41890
+=== profile GSReactionDiffusion [288x144] frames 129-160 window=2000329 us ===
+frame wall us: min=59951 avg=62467 max=64820 sum=1998965 (32 frames)
+frame render us: avg=42490 max=43816
+--- Cycle Counters ---
+frame                  1998961 us (100%)  32 calls  1199376750 cyc
+  pov_preserve_half    4328 us (0%)  32 calls  2597273 cyc
+  grd_render           1351565 us (67%)  32 calls  810939095 cyc
+    grd_rasterize      1128621 us (83%)  32 calls  677172816 cyc
+      grd_shader_draw  1002669 us (88%)  32 calls  601601585 cyc
+      grd_cull_flags   113973 us (10%)  32 calls  68384143 cyc
+      grd_orient       11962 us (1%)  32 calls  7177552 cyc
+    grd_simulate       222932 us (16%)  32 calls  133759310 cyc
+  rd_timeline_step     1040 us (0%)  32 calls  624579 cyc
+  canvas_clear         2703 us (0%)  32 calls  1622308 cyc
+  canvas_buffer_wait   639291 us (31%)  32 calls  383574894 cyc
+isr_wake       n=36877 cyc min/avg/max=365/1028/7262 ns min/avg/max=608/1713/12103 total=63206 us cpu=3.15%
+isr_pack       n=4610 cyc min/avg/max=3803/4354/6170 ns min/avg/max=6338/7256/10283 total=33459 us cpu=1.67%
+isr_dma_submit n=4610 cyc min/avg/max=369/560/1910 ns min/avg/max=615/933/3183 total=4303 us cpu=0.21%
+f 161 w=64036 r=43717
+f 162 w=60543 r=41805
+f 163 w=64284 r=43635
+f 164 w=60678 r=41861
+f 165 w=64291 r=43698
+f 166 w=60639 r=41885
+f 167 w=64315 r=43746
+f 168 w=60486 r=41778
+f 169 w=64770 r=44095
+f 170 w=60283 r=41924
+f 171 w=64552 r=44022
+f 172 w=60317 r=41887
+f 173 w=64811 r=44189
+f 174 w=60221 r=41968
+f 175 w=64645 r=44160
+f 176 w=60127 r=41833
+f 177 w=64741 r=44121
+f 178 w=60437 r=42104
+f 179 w=64118 r=43768
+f 180 w=60578 r=41892
+f 181 w=64380 r=43819
+f 182 w=60625 r=41999
+f 183 w=64404 r=43949
+f 184 w=60566 r=42062
+f 185 w=64251 r=43870
+f 186 w=60531 r=41949
+f 187 w=64258 r=43700
+f 188 w=60740 r=41987
+f 189 w=64203 r=43735
+f 190 w=60514 r=41794
+f 191 w=64313 r=43655
+f 192 w=60359 r=41559
+=== profile GSReactionDiffusion [288x144] frames 161-192 window=1999404 us ===
+frame wall us: min=60127 avg=62438 max=64811 sum=1998016 (32 frames)
+frame render us: avg=42880 max=44189
+--- Cycle Counters ---
+frame                  1998016 us (100%)  32 calls  1198809633 cyc
+  pov_preserve_half    4259 us (0%)  32 calls  2555830 cyc
+  grd_render           1364004 us (68%)  32 calls  818402612 cyc
+    grd_rasterize      1141121 us (83%)  32 calls  684672920 cyc
+      grd_shader_draw  1017090 us (89%)  32 calls  610254564 cyc
+      grd_cull_flags   112049 us (9%)  32 calls  67229610 cyc
+      grd_orient       11965 us (1%)  32 calls  7179210 cyc
+    grd_simulate       222871 us (16%)  32 calls  133722670 cyc
+  rd_timeline_step     1152 us (0%)  32 calls  691789 cyc
+  canvas_clear         2702 us (0%)  32 calls  1621296 cyc
+  canvas_buffer_wait   625864 us (31%)  32 calls  375518929 cyc
+isr_wake       n=36860 cyc min/avg/max=365/1030/7262 ns min/avg/max=608/1716/12103 total=63298 us cpu=3.16%
+isr_pack       n=4607 cyc min/avg/max=3825/4371/6177 ns min/avg/max=6375/7285/10295 total=33563 us cpu=1.67%
+isr_dma_submit n=4607 cyc min/avg/max=369/559/1587 ns min/avg/max=615/931/2645 total=4297 us cpu=0.21%
+f 193 w=64184 r=43532
+f 194 w=60525 r=41603
+f 195 w=64481 r=43630
+f 196 w=60328 r=41503
+f 197 w=64526 r=43576
+f 198 w=60396 r=41511
+f 199 w=64504 r=43560
+f 200 w=60507 r=41612
+f 201 w=64137 r=43241
+f 202 w=60804 r=41592
+f 203 w=64268 r=43408
+f 204 w=60506 r=41459
+f 205 w=64384 r=43384
+f 206 w=60251 r=41192
+f 207 w=64622 r=43370
+f 208 w=60470 r=41398
+f 209 w=64401 r=43344
+f 210 w=60225 r=41114
+f 211 w=64444 r=43105
+f 212 w=60504 r=41156
+f 213 w=64260 r=42962
+f 214 w=60551 r=41004
+f 215 w=64460 r=43009
+f 216 w=60387 r=40942
+f 217 w=64465 r=42953
+f 218 w=60463 r=40971
+f 219 w=64469 r=42986
+f 220 w=60423 r=40954
+f 221 w=64367 r=42867
+f 222 w=60516 r=40928
+f 223 w=64387 r=42862
+f 224 w=60534 r=40941
+=== profile GSReactionDiffusion [288x144] frames 193-224 window=1999120 us ===
+frame wall us: min=60225 avg=62429 max=64622 sum=1997749 (32 frames)
+frame render us: avg=42239 max=43630
+--- Cycle Counters ---
+frame                  1997741 us (100%)  32 calls  1198645064 cyc
+  pov_preserve_half    4276 us (0%)  32 calls  2566022 cyc
+  grd_render           1343666 us (67%)  32 calls  806200059 cyc
+    grd_rasterize      1120849 us (83%)  32 calls  672509743 cyc
+      grd_shader_draw  998028 us (89%)  32 calls  598816962 cyc
+      grd_cull_flags   110839 us (9%)  32 calls  66503922 cyc
+      grd_orient       11965 us (1%)  32 calls  7179323 cyc
+    grd_simulate       222805 us (16%)  32 calls  133683369 cyc
+  rd_timeline_step     966 us (0%)  32 calls  580158 cyc
+  canvas_clear         2704 us (0%)  32 calls  1622443 cyc
+  canvas_buffer_wait   646095 us (32%)  32 calls  387657591 cyc
+isr_wake       n=36854 cyc min/avg/max=365/1028/7698 ns min/avg/max=608/1713/12830 total=63166 us cpu=3.15%
+isr_pack       n=4606 cyc min/avg/max=3857/4355/6250 ns min/avg/max=6428/7258/10416 total=33431 us cpu=1.67%
+isr_dma_submit n=4606 cyc min/avg/max=387/561/2909 ns min/avg/max=645/935/4848 total=4311 us cpu=0.21%
+f 225 w=63821 r=42539
+f 226 w=60921 r=41006
+f 227 w=63991 r=42543
+f 228 w=61043 r=41082
+f 229 w=63919 r=42547
+f 230 w=60953 r=41046
+f 231 w=63706 r=42297
+f 232 w=61192 r=41037
+f 233 w=63895 r=42479
+f 234 w=60884 r=40909
+f 235 w=64123 r=42577
+f 236 w=60724 r=40846
+f 237 w=64174 r=42565
+f 238 w=60746 r=40857
+f 239 w=64104 r=42508
+f 240 w=60642 r=40709
+f 241 w=64440 r=42641
+f 242 w=60716 r=40903
+f 243 w=63960 r=42408
+f 244 w=60753 r=40709
+f 245 w=64249 r=42504
+f 246 w=60886 r=40947
+f 247 w=63789 r=42283
+f 248 w=61060 r=40890
+f 249 w=64125 r=42559
+f 250 w=60833 r=40937
+f 251 w=63818 r=42302
+f 252 w=61110 r=40959
+f 253 w=64141 r=42644
+f 254 w=60535 r=40725
+f 255 w=64184 r=42400
+f 256 w=60918 r=40863
+=== profile GSReactionDiffusion [288x144] frames 225-256 window=1999725 us ===
+frame wall us: min=60535 avg=62448 max=64440 sum=1998355 (32 frames)
+frame render us: avg=41694 max=42644
+--- Cycle Counters ---
+frame                  1998346 us (100%)  32 calls  1199007796 cyc
+  pov_preserve_half    4365 us (0%)  32 calls  2619219 cyc
+  grd_render           1326117 us (66%)  32 calls  795670210 cyc
+    grd_rasterize      1103376 us (83%)  32 calls  662025720 cyc
+      grd_shader_draw  981566 us (88%)  32 calls  588939722 cyc
+      grd_cull_flags   109828 us (9%)  32 calls  65897028 cyc
+      grd_orient       11965 us (1%)  32 calls  7179434 cyc
+    grd_simulate       222729 us (16%)  32 calls  133637560 cyc
+  rd_timeline_step     979 us (0%)  32 calls  587603 cyc
+  canvas_clear         2702 us (0%)  32 calls  1621712 cyc
+  canvas_buffer_wait   664150 us (33%)  32 calls  398490320 cyc
+isr_wake       n=36866 cyc min/avg/max=376/1028/7406 ns min/avg/max=626/1713/12343 total=63165 us cpu=3.15%
+isr_pack       n=4608 cyc min/avg/max=3828/4353/6315 ns min/avg/max=6380/7255/10525 total=33436 us cpu=1.67%
+isr_dma_submit n=4608 cyc min/avg/max=378/560/2538 ns min/avg/max=630/933/4230 total=4300 us cpu=0.21%
+f 257 w=63767 r=42408
+f 258 w=60832 r=40785
+f 259 w=64150 r=42492
+f 260 w=60776 r=40824
+f 261 w=64202 r=42573
+f 262 w=60783 r=40903
+f 263 w=64069 r=42517
+f 264 w=60662 r=40734
+f 265 w=64190 r=42469
+f 266 w=60746 r=40760
+f 267 w=64105 r=42423
+f 268 w=60931 r=40846
+f 269 w=64039 r=42431
+f 270 w=60887 r=40863
+f 271 w=63981 r=42390
+f 272 w=60918 r=40855
+f 273 w=64017 r=42418
+f 274 w=60815 r=40778
+f 275 w=63986 r=42322
+f 276 w=60985 r=40852
+f 277 w=63911 r=42310
+f 278 w=60966 r=40821
+f 279 w=63921 r=42288
+f 280 w=60794 r=40628
+f 281 w=64157 r=42332
+f 282 w=60861 r=40684
+f 283 w=63999 r=42229
+f 284 w=60978 r=40753
+f 285 w=63860 r=42162
+f 286 w=61130 r=40838
+f 287 w=63624 r=42007
+f 288 w=61281 r=40836
+=== profile GSReactionDiffusion [288x144] frames 257-288 window=1999719 us ===
+frame wall us: min=60662 avg=62447 max=64202 sum=1998323 (32 frames)
+frame render us: avg=41579 max=42573
+--- Cycle Counters ---
+frame                  1998320 us (100%)  32 calls  1198992217 cyc
+  pov_preserve_half    4329 us (0%)  32 calls  2597411 cyc
+  grd_render           1322232 us (66%)  32 calls  793339200 cyc
+    grd_rasterize      1099521 us (83%)  32 calls  659713083 cyc
+      grd_shader_draw  978917 us (89%)  32 calls  587350262 cyc
+      grd_cull_flags   108625 us (9%)  32 calls  65175448 cyc
+      grd_orient       11963 us (1%)  32 calls  7177837 cyc
+    grd_simulate       222698 us (16%)  32 calls  133619079 cyc
+  rd_timeline_step     1207 us (0%)  32 calls  724411 cyc
+  canvas_clear         2711 us (0%)  32 calls  1627191 cyc
+  canvas_buffer_wait   667808 us (33%)  32 calls  400685275 cyc
+isr_wake       n=36865 cyc min/avg/max=365/1029/9894 ns min/avg/max=608/1715/16490 total=63242 us cpu=3.16%
+isr_pack       n=4608 cyc min/avg/max=3781/4364/6172 ns min/avg/max=6301/7273/10286 total=33521 us cpu=1.67%
+isr_dma_submit n=4608 cyc min/avg/max=370/559/4790 ns min/avg/max=616/931/7983 total=4298 us cpu=0.21%
+f 289 w=63203 r=41814
+f 290 w=61667 r=41028
+f 291 w=63280 r=41854
+f 292 w=61742 r=41141
+f 293 w=62928 r=41615
+f 294 w=62071 r=41240
+f 295 w=62882 r=41670
+f 296 w=62068 r=41240
+f 297 w=62794 r=41579
+f 298 w=62057 r=41184
+f 299 w=62821 r=41556
+f 300 w=62043 r=41144
+f 301 w=62748 r=41438
+f 302 w=62224 r=41207
+f 303 w=62767 r=41531
+f 304 w=62046 r=41125
+f 305 w=62912 r=41583
+f 306 w=62134 r=41263
+f 307 w=62890 r=41700
+f 308 w=62071 r=41319
+f 309 w=63007 r=41820
+f 310 w=62128 r=41493
+f 311 w=62785 r=41824
+f 312 w=62339 r=41709
+f 313 w=62727 r=41982
+f 314 w=62279 r=41806
+f 315 w=62668 r=42020
+f 316 w=62360 r=41928
+f 317 w=62584 r=42058
+f 318 w=62371 r=41975
+f 319 w=62613 r=42134
+f 320 w=62335 r=42017
+=== profile GSReactionDiffusion [288x144] frames 289-320 window=2000933 us ===
+frame wall us: min=61667 avg=62485 max=63280 sum=1999544 (32 frames)
+frame render us: avg=41593 max=42134
+--- Cycle Counters ---
+frame                  1999542 us (100%)  32 calls  1199725578 cyc
+  pov_preserve_half    4295 us (0%)  32 calls  2577020 cyc
+  grd_render           1323031 us (66%)  32 calls  793818982 cyc
+    grd_rasterize      1100343 us (83%)  32 calls  660206102 cyc
+      grd_shader_draw  980970 us (89%)  32 calls  588582169 cyc
+      grd_cull_flags   107392 us (9%)  32 calls  64435437 cyc
+      grd_orient       11964 us (1%)  32 calls  7178960 cyc
+    grd_simulate       222676 us (16%)  32 calls  133605913 cyc
+  rd_timeline_step     912 us (0%)  32 calls  547574 cyc
+  canvas_clear         2706 us (0%)  32 calls  1624125 cyc
+  canvas_buffer_wait   668563 us (33%)  32 calls  401138052 cyc
+isr_wake       n=36888 cyc min/avg/max=365/1029/7262 ns min/avg/max=608/1715/12103 total=63268 us cpu=3.16%
+isr_pack       n=4611 cyc min/avg/max=3835/4363/6136 ns min/avg/max=6391/7271/10226 total=33536 us cpu=1.67%
+isr_dma_submit n=4611 cyc min/avg/max=385/559/2192 ns min/avg/max=641/931/3653 total=4296 us cpu=0.21%
+f 321 w=62401 r=42206
+f 322 w=62277 r=42028
+f 323 w=62690 r=42211
+f 324 w=62414 r=42171
+f 325 w=62505 r=42221
+f 326 w=62515 r=42281
+f 327 w=62361 r=42189
+f 328 w=62627 r=42363
+f 329 w=62286 r=42194
+f 330 w=62706 r=42448
+f 331 w=62203 r=42197
+f 332 w=62670 r=42414
+f 333 w=62253 r=42213
+f 334 w=62740 r=42498
+f 335 w=62176 r=42231
+f 336 w=62702 r=42427
+f 337 w=62147 r=42120
+f 338 w=62923 r=42589
+f 339 w=62029 r=42164
+f 340 w=62991 r=42700
+f 341 w=61820 r=42066
+f 342 w=63003 r=42627
+f 343 w=61876 r=42051
+f 344 w=62983 r=42591
+f 345 w=61908 r=42045
+f 346 w=63010 r=42600
+f 347 w=62066 r=42213
+f 348 w=62785 r=42544
+f 349 w=62111 r=42201
+f 350 w=62679 r=42371
+f 351 w=62195 r=42111
+f 352 w=62852 r=42510
+=== profile GSReactionDiffusion [288x144] frames 321-352 window=2000290 us ===
+frame wall us: min=61820 avg=62465 max=63010 sum=1998904 (32 frames)
+frame render us: avg=42306 max=42700
+--- Cycle Counters ---
+frame                  1998902 us (100%)  32 calls  1199341205 cyc
+  pov_preserve_half    4379 us (0%)  32 calls  2627584 cyc
+  grd_render           1345761 us (67%)  32 calls  807457180 cyc
+    grd_rasterize      1123047 us (83%)  32 calls  673828222 cyc
+      grd_shader_draw  1005209 us (89%)  32 calls  603125688 cyc
+      grd_cull_flags   105857 us (9%)  32 calls  63514552 cyc
+      grd_orient       11964 us (1%)  32 calls  7178446 cyc
+    grd_simulate       222703 us (16%)  32 calls  133621943 cyc
+  rd_timeline_step     893 us (0%)  32 calls  536298 cyc
+  canvas_clear         2711 us (0%)  32 calls  1626623 cyc
+  canvas_buffer_wait   645124 us (32%)  32 calls  387074552 cyc
+isr_wake       n=36876 cyc min/avg/max=365/1030/7250 ns min/avg/max=608/1716/12083 total=63319 us cpu=3.16%
+isr_pack       n=4609 cyc min/avg/max=3803/4373/6166 ns min/avg/max=6338/7288/10276 total=33595 us cpu=1.67%
+isr_dma_submit n=4609 cyc min/avg/max=364/558/606 ns min/avg/max=606/930/1010 total=4286 us cpu=0.21%
+f 353 w=61848 r=42139
+f 354 w=63035 r=42721
+f 355 w=61917 r=42186
+f 356 w=62881 r=42613
+f 357 w=61956 r=42115
+f 358 w=62993 r=42653
+f 359 w=61947 r=42147
+f 360 w=63036 r=42728
+f 361 w=61835 r=42108
+f 362 w=63053 r=42706
+f 363 w=61850 r=42047
+f 364 w=63152 r=42755
+f 365 w=61830 r=42130
+f 366 w=62891 r=42566
+f 367 w=61853 r=41959
+f 368 w=63174 r=42678
+f 369 w=61808 r=42032
+f 370 w=62984 r=42561
+f 371 w=61977 r=42085
+f 372 w=63021 r=42664
+f 373 w=61821 r=42033
+f 374 w=62976 r=42556
+f 375 w=61981 r=42085
+f 376 w=62996 r=42639
+f 377 w=61974 r=42104
+f 378 w=63004 r=42652
+f 379 w=61861 r=42059
+f 380 w=62934 r=42552
+f 381 w=62095 r=42193
+f 382 w=62923 r=42663
+f 383 w=61861 r=42072
+f 384 w=63032 r=42663
+=== profile GSReactionDiffusion [288x144] frames 353-384 window=1999899 us ===
+frame wall us: min=61808 avg=62453 max=63174 sum=1998499 (32 frames)
+frame render us: avg=42370 max=42755
+--- Cycle Counters ---
+frame                  1998491 us (100%)  32 calls  1199094794 cyc
+  pov_preserve_half    4360 us (0%)  32 calls  2616508 cyc
+  grd_render           1347884 us (67%)  32 calls  808730556 cyc
+    grd_rasterize      1125181 us (83%)  32 calls  675108711 cyc
+      grd_shader_draw  1008079 us (89%)  32 calls  604847419 cyc
+      grd_cull_flags   105120 us (9%)  32 calls  63072561 cyc
+      grd_orient       11964 us (1%)  32 calls  7178594 cyc
+    grd_simulate       222691 us (16%)  32 calls  133614878 cyc
+  rd_timeline_step     856 us (0%)  32 calls  513916 cyc
+  canvas_clear         2705 us (0%)  32 calls  1623591 cyc
+  canvas_buffer_wait   642652 us (32%)  32 calls  385591273 cyc
+isr_wake       n=36869 cyc min/avg/max=376/1029/7886 ns min/avg/max=626/1715/13143 total=63280 us cpu=3.16%
+isr_pack       n=4608 cyc min/avg/max=3810/4368/6176 ns min/avg/max=6350/7280/10293 total=33549 us cpu=1.67%
+isr_dma_submit n=4608 cyc min/avg/max=351/559/2968 ns min/avg/max=585/931/4946 total=4299 us cpu=0.21%
+f 385 w=61693 r=42134
+f 386 w=62918 r=42598
+f 387 w=61932 r=42076
+f 388 w=62948 r=42583
+f 389 w=61937 r=42066
+f 390 w=63129 r=42697
+f 391 w=61860 r=42104
+f 392 w=62989 r=42639
+f 393 w=61865 r=42050
+f 394 w=63090 r=42694
+f 395 w=61873 r=42113
+f 396 w=63008 r=42668
+f 397 w=61895 r=42111
+f 398 w=63157 r=42813
+f 399 w=61769 r=42128
+f 400 w=63046 r=42721
+f 401 w=62030 r=42296
+f 402 w=62779 r=42623
+f 403 w=62072 r=42242
+f 404 w=62983 r=42719
+f 405 w=62016 r=42283
+f 406 w=62841 r=42670
+f 407 w=62034 r=42252
+f 408 w=62937 r=42735
+f 409 w=62049 r=42330
+f 410 w=62877 r=42754
+f 411 w=62080 r=42380
+f 412 w=62797 r=42722
+f 413 w=62109 r=42376
+f 414 w=62863 r=42785
+f 415 w=62233 r=42566
+f 416 w=62597 r=42708
+=== profile GSReactionDiffusion [288x144] frames 385-416 window=1999793 us ===
+frame wall us: min=61693 avg=62450 max=63157 sum=1998406 (32 frames)
+frame render us: avg=42457 max=42813
+--- Cycle Counters ---
+frame                  1998403 us (100%)  32 calls  1199042302 cyc
+  pov_preserve_half    4318 us (0%)  32 calls  2591345 cyc
+  grd_render           1350546 us (67%)  32 calls  810327884 cyc
+    grd_rasterize      1127855 us (83%)  32 calls  676713522 cyc
+      grd_shader_draw  1011194 us (89%)  32 calls  606716886 cyc
+      grd_cull_flags   104679 us (9%)  32 calls  62807583 cyc
+      grd_orient       11965 us (1%)  32 calls  7179517 cyc
+    grd_simulate       222678 us (16%)  32 calls  133607031 cyc
+  rd_timeline_step     1017 us (0%)  32 calls  610427 cyc
+  canvas_clear         2702 us (0%)  32 calls  1621311 cyc
+  canvas_buffer_wait   639787 us (32%)  32 calls  383872652 cyc
+isr_wake       n=36867 cyc min/avg/max=376/1030/7666 ns min/avg/max=626/1716/12776 total=63298 us cpu=3.16%
+isr_pack       n=4608 cyc min/avg/max=3799/4370/6146 ns min/avg/max=6331/7283/10243 total=33562 us cpu=1.67%
+isr_dma_submit n=4608 cyc min/avg/max=378/560/2812 ns min/avg/max=630/933/4686 total=4304 us cpu=0.21%
+f 417 w=61961 r=42457
+f 418 w=62940 r=42888
+f 419 w=62360 r=42794
+f 420 w=62457 r=42796
+f 421 w=62266 r=42608
+f 422 w=62426 r=42580
+f 423 w=62576 r=42701
+f 424 w=62457 r=42703
+f 425 w=62700 r=42949
+f 426 w=62062 r=42563
+f 427 w=62744 r=42854
+f 428 w=62419 r=42820
+f 429 w=63003 r=43369
+f 430 w=62140 r=43065
+f 431 w=62851 r=43407
+f 432 w=62089 r=43042
+f 433 w=62887 r=43476
+f 434 w=62010 r=43032
+f 435 w=63055 r=43633
+f 436 w=61862 r=43041
+f 437 w=63104 r=43692
+f 438 w=61704 r=42942
+f 439 w=63183 r=43683
+f 440 w=61833 r=43064
+f 441 w=63066 r=43677
+f 442 w=61771 r=42993
+f 443 w=63265 r=43804
+f 444 w=61770 r=43131
+f 445 w=63406 r=44029
+f 446 w=61325 r=42901
+f 447 w=63589 r=44037
+f 448 w=61565 r=43149
+=== profile GSReactionDiffusion [288x144] frames 417-448 window=2000235 us ===
+frame wall us: min=61325 avg=62463 max=63589 sum=1998846 (32 frames)
+frame render us: avg=43121 max=44037
+--- Cycle Counters ---
+frame                  1998844 us (100%)  32 calls  1199306465 cyc
+  pov_preserve_half    4327 us (0%)  32 calls  2596278 cyc
+  grd_render           1371966 us (68%)  32 calls  823180054 cyc
+    grd_rasterize      1138931 us (83%)  32 calls  683358719 cyc
+      grd_shader_draw  1028098 us (90%)  32 calls  616859206 cyc
+      grd_cull_flags   98858 us (8%)  32 calls  59314877 cyc
+      grd_orient       11958 us (1%)  32 calls  7175100 cyc
+    grd_simulate       222795 us (16%)  32 calls  133677295 cyc
+  rd_timeline_step     833 us (0%)  32 calls  500276 cyc
+  canvas_clear         2702 us (0%)  32 calls  1621566 cyc
+  canvas_buffer_wait   618982 us (30%)  32 calls  371389346 cyc
+isr_wake       n=36875 cyc min/avg/max=365/1029/8650 ns min/avg/max=608/1715/14416 total=63276 us cpu=3.16%
+isr_pack       n=4609 cyc min/avg/max=3869/4364/6187 ns min/avg/max=6448/7273/10311 total=33523 us cpu=1.67%
+isr_dma_submit n=4609 cyc min/avg/max=380/560/3677 ns min/avg/max=633/933/6128 total=4309 us cpu=0.21%
+f 449 w=63393 r=44333
+f 450 w=61209 r=43087
+f 451 w=63647 r=44280
+f 452 w=61355 r=43182
+f 453 w=63658 r=44386
+f 454 w=61169 r=43100
+f 455 w=63898 r=44543
+f 456 w=61073 r=43164
+f 457 w=63538 r=44250
+f 458 w=61437 r=43191
+f 459 w=63629 r=44367
+f 460 w=61248 r=43160
+f 461 w=63637 r=44345
+f 462 w=61228 r=43119
+f 463 w=63800 r=44465
+f 464 w=61331 r=43344
+f 465 w=63565 r=44455
+f 466 w=61385 r=43386
+f 467 w=63303 r=44242
+f 468 w=61376 r=43176
+f 469 w=63709 r=44431
+f 470 w=61148 r=43125
+f 471 w=63855 r=44526
+f 472 w=61104 r=43123
+f 473 w=64096 r=44764
+f 474 w=60924 r=43234
+f 475 w=64001 r=44780
+f 476 w=60919 r=43246
+f 477 w=64113 r=44904
+f 478 w=60909 r=43360
+f 479 w=63863 r=44780
+f 480 w=60843 r=43170
+=== profile GSReactionDiffusion [288x144] frames 449-480 window=1999758 us ===
+frame wall us: min=60843 avg=62448 max=64113 sum=1998363 (32 frames)
+frame render us: avg=43844 max=44904
+--- Cycle Counters ---
+frame                  1998362 us (100%)  32 calls  1199017344 cyc
+  pov_preserve_half    4288 us (0%)  32 calls  2572831 cyc
+  grd_render           1395032 us (69%)  32 calls  837019410 cyc
+    grd_rasterize      1154667 us (82%)  32 calls  692800426 cyc
+      grd_shader_draw  1059450 us (91%)  32 calls  635670566 cyc
+      grd_cull_flags   83242 us (7%)  32 calls  49945638 cyc
+      grd_orient       11957 us (1%)  32 calls  7174686 cyc
+    grd_simulate       223323 us (16%)  32 calls  133994059 cyc
+  rd_timeline_step     944 us (0%)  32 calls  566919 cyc
+  canvas_clear         2703 us (0%)  32 calls  1622232 cyc
+  canvas_buffer_wait   595361 us (29%)  32 calls  357217143 cyc
+isr_wake       n=36866 cyc min/avg/max=365/1035/7910 ns min/avg/max=608/1725/13183 total=63640 us cpu=3.18%
+isr_pack       n=4608 cyc min/avg/max=3942/4409/6225 ns min/avg/max=6570/7348/10375 total=33868 us cpu=1.69%
+isr_dma_submit n=4608 cyc min/avg/max=429/563/3148 ns min/avg/max=715/938/5246 total=4327 us cpu=0.21%
+f 481 w=63812 r=44770
+f 482 w=60712 r=43021
+f 483 w=64100 r=44667
+f 484 w=60930 r=43162
+f 485 w=64488 r=45143
+f 486 w=60684 r=43372
+f 487 w=64540 r=45465
+f 488 w=60367 r=43378
+f 489 w=64691 r=45626
+f 490 w=60159 r=43330
+f 491 w=64609 r=45487
+f 492 w=60522 r=43556
+f 493 w=64561 r=45662
+f 494 w=60047 r=43257
+f 495 w=64714 r=45517
+f 496 w=60088 r=43150
+f 497 w=64762 r=45458
+f 498 w=60082 r=43086
+f 499 w=65035 r=45613
+f 500 w=59662 r=42823
+f 501 w=65091 r=45460
+f 502 w=59772 r=42776
+f 503 w=64756 r=45078
+f 504 w=59896 r=42519
+f 505 w=64692 r=44764
+f 506 w=59962 r=42272
+f 507 w=64940 r=44758
+f 508 w=59655 r=41960
+f 509 w=64624 r=44131
+f 510 w=60294 r=41972
+f 511 w=63973 r=43492
+f 512 w=60586 r=41625
+=== profile GSReactionDiffusion [288x144] frames 481-512 window=1998194 us ===
+frame wall us: min=59655 avg=62400 max=65091 sum=1996806 (32 frames)
+frame render us: avg=43948 max=45662
+--- Cycle Counters ---
+frame                  1996800 us (100%)  32 calls  1198080281 cyc
+  pov_preserve_half    4295 us (0%)  32 calls  2577517 cyc
+  grd_render           1398434 us (70%)  32 calls  839060982 cyc
+    grd_rasterize      1157785 us (82%)  32 calls  694671017 cyc
+      grd_shader_draw  1040778 us (89%)  32 calls  624467228 cyc
+      grd_cull_flags   105033 us (9%)  32 calls  63020192 cyc
+      grd_orient       11956 us (1%)  32 calls  7174061 cyc
+    grd_simulate       223864 us (16%)  32 calls  134318462 cyc
+  rd_timeline_step     850 us (0%)  32 calls  510478 cyc
+  canvas_clear         2712 us (0%)  32 calls  1627611 cyc
+  canvas_buffer_wait   590474 us (29%)  32 calls  354284921 cyc
+isr_wake       n=36838 cyc min/avg/max=377/1025/7294 ns min/avg/max=628/1708/12156 total=62981 us cpu=3.15%
+isr_pack       n=4605 cyc min/avg/max=3790/4330/6201 ns min/avg/max=6316/7216/10335 total=33239 us cpu=1.66%
+isr_dma_submit n=4605 cyc min/avg/max=431/561/2573 ns min/avg/max=718/935/4288 total=4311 us cpu=0.21%
+f 513 w=63094 r=42456
+f 514 w=61105 r=41101
+f 515 w=63654 r=42295
+f 516 w=60575 r=40409
+f 517 w=62968 r=40922
+f 518 w=60271 r=38740
+f 519 w=63834 r=40120
+f 520 w=59509 r=37178
+f 521 w=63785 r=38509
+f 522 w=59223 r=35278
+f 523 w=62459 r=35284
+f 524 w=58866 r=31697
+f 525 w=62152 r=31394
+f 526 w=59834 r=28721
+f 527 w=59919 r=26186
+f 528 w=58908 r=22642
+f 529 w=59727 r=19915
+f 530 w=57892 r=15362
+f 531 w=68255 r=21164
+f 532 w=60963 r=19673
+f 533 w=63345 r=20567
+f 534 w=61743 r=19856
+f 535 w=64971 r=22373
+f 536 w=61555 r=21475
+f 537 w=63456 r=22477
+f 538 w=61756 r=21778
+f 539 w=63078 r=22404
+f 540 w=62151 r=22045
+f 541 w=63117 r=22707
+f 542 w=62274 r=22529
+f 543 w=62989 r=23073
+f 544 w=62461 r=23081
+=== profile GSReactionDiffusion [288x144] frames 513-544 window=1981246 us ===
+frame wall us: min=57892 avg=61871 max=68255 sum=1979889 (32 frames)
+frame render us: avg=28544 max=42456
+--- Cycle Counters ---
+frame                  1979886 us (100%)  32 calls  1187931820 cyc
+  pov_preserve_half    4451 us (0%)  32 calls  2670668 cyc
+  grd_render           905235 us (45%)  32 calls  543141443 cyc
+    grd_palette_rebake 2173 us (0%)  1 calls  1304004 cyc
+    grd_rasterize      667945 us (73%)  32 calls  400767586 cyc
+      grd_shader_draw  537628 us (80%)  32 calls  322577112 cyc
+      grd_cull_flags   118362 us (17%)  32 calls  71017258 cyc
+      grd_orient       11939 us (1%)  32 calls  7163680 cyc
+    grd_simulate       225738 us (24%)  32 calls  135442985 cyc
+  rd_timeline_step     978 us (0%)  32 calls  587248 cyc
+  canvas_clear         2697 us (0%)  32 calls  1618222 cyc
+  canvas_buffer_wait   1066491 us (53%)  32 calls  639895090 cyc
+isr_wake       n=36525 cyc min/avg/max=365/994/7174 ns min/avg/max=608/1656/11956 total=60558 us cpu=3.05%
+isr_pack       n=4565 cyc min/avg/max=3743/4112/6089 ns min/avg/max=6238/6853/10148 total=31288 us cpu=1.57%
+isr_dma_submit n=4565 cyc min/avg/max=463/558/1688 ns min/avg/max=771/930/2813 total=4251 us cpu=0.21%
+f 545 w=63048 r=23910
+f 546 w=62701 r=24155
+f 547 w=62775 r=24469
+f 548 w=63158 r=25180
+f 549 w=61946 r=24671
+f 550 w=63306 r=25525
+f 551 w=61490 r=24560
+f 552 w=63935 r=26042
+f 553 w=61370 r=24903
+f 554 w=64238 r=26686
+f 555 w=60862 r=25094
+f 556 w=65702 r=28341
+f 557 w=59666 r=25554
+f 558 w=66010 r=29109
+f 559 w=59353 r=26009
+f 560 w=66521 r=30087
+f 561 w=58750 r=26383
+f 562 w=66980 r=30909
+f 563 w=58200 r=26655
+f 564 w=67519 r=31720
+f 565 w=57552 r=26818
+f 566 w=67962 r=32325
+f 567 w=57473 r=27290
+f 568 w=68088 r=32934
+f 569 w=57777 r=28265
+f 570 w=68521 r=34332
+f 571 w=57373 r=29251
+f 572 w=68110 r=34907
+f 573 w=57610 r=30063
+f 574 w=67530 r=35138
+f 575 w=58014 r=30708
+f 576 w=66936 r=35193
+=== profile GSReactionDiffusion [288x144] frames 545-576 window=2011856 us ===
+frame wall us: min=57373 avg=62827 max=68521 sum=2010476 (32 frames)
+frame render us: avg=28349 max=35193
+--- Cycle Counters ---
+frame                  2010473 us (100%)  32 calls  1206283869 cyc
+  pov_preserve_half    4398 us (0%)  32 calls  2639143 cyc
+  grd_render           899164 us (44%)  32 calls  539498403 cyc
+    grd_rasterize      675137 us (75%)  32 calls  405082416 cyc
+      grd_shader_draw  544736 us (80%)  32 calls  326842117 cyc
+      grd_cull_flags   118435 us (17%)  32 calls  71061454 cyc
+      grd_orient       11947 us (1%)  32 calls  7168729 cyc
+    grd_simulate       224016 us (24%)  32 calls  134409872 cyc
+  rd_timeline_step     876 us (0%)  32 calls  526080 cyc
+  canvas_clear         2695 us (0%)  32 calls  1617297 cyc
+  canvas_buffer_wait   1103306 us (54%)  32 calls  661984166 cyc
+isr_wake       n=37089 cyc min/avg/max=365/1000/7042 ns min/avg/max=608/1666/11736 total=61872 us cpu=3.07%
+isr_pack       n=4636 cyc min/avg/max=3743/4159/5970 ns min/avg/max=6238/6931/9950 total=32140 us cpu=1.59%
+isr_dma_submit n=4636 cyc min/avg/max=371/558/1939 ns min/avg/max=618/930/3231 total=4315 us cpu=0.21%
+f 577 w=58529 r=31498
+f 578 w=66618 r=35663
+f 579 w=58993 r=32202
+f 580 w=66051 r=35745
+f 581 w=59488 r=32778
+f 582 w=65746 r=36070
+f 583 w=59568 r=33183
+f 584 w=65428 r=36158
+f 585 w=59663 r=33367
+f 586 w=65192 r=36115
+f 587 w=60103 r=33762
+f 588 w=65293 r=36601
+f 589 w=60258 r=34406
+f 590 w=64658 r=36611
+f 591 w=60500 r=34657
+f 592 w=64784 r=36987
+f 593 w=60614 r=35148
+f 594 w=64497 r=37136
+f 595 w=60569 r=35250
+f 596 w=64469 r=37266
+f 597 w=60745 r=35556
+f 598 w=64435 r=37547
+f 599 w=60641 r=35737
+f 600 w=64356 r=37641
+f 601 w=60669 r=35855
+f 602 w=64146 r=37546
+f 603 w=60880 r=35972
+f 604 w=64464 r=37990
+f 605 w=60573 r=36110
+f 606 w=64508 r=38164
+f 607 w=60362 r=36029
+f 608 w=64506 r=38081
+=== profile GSReactionDiffusion [288x144] frames 577-608 window=2002693 us ===
+frame wall us: min=58529 avg=62540 max=66618 sum=2001306 (32 frames)
+frame render us: avg=35713 max=38164
+--- Cycle Counters ---
+frame                  2001303 us (100%)  32 calls  1200781949 cyc
+  pov_preserve_half    4342 us (0%)  32 calls  2605220 cyc
+  grd_render           1134751 us (56%)  32 calls  680850807 cyc
+    grd_rasterize      911623 us (80%)  32 calls  546974002 cyc
+      grd_shader_draw  781654 us (85%)  32 calls  468992421 cyc
+      grd_cull_flags   118004 us (12%)  32 calls  70802790 cyc
+      grd_orient       11948 us (1%)  32 calls  7169255 cyc
+    grd_simulate       223117 us (19%)  32 calls  133870670 cyc
+  rd_timeline_step     983 us (0%)  32 calls  590248 cyc
+  canvas_clear         2703 us (0%)  32 calls  1621809 cyc
+  canvas_buffer_wait   858491 us (42%)  32 calls  515095049 cyc
+isr_wake       n=36921 cyc min/avg/max=365/1014/7182 ns min/avg/max=608/1690/11970 total=62428 us cpu=3.11%
+isr_pack       n=4615 cyc min/avg/max=3743/4253/6093 ns min/avg/max=6238/7088/10155 total=32714 us cpu=1.63%
+isr_dma_submit n=4615 cyc min/avg/max=377/559/1886 ns min/avg/max=628/931/3143 total=4307 us cpu=0.21%
+f 609 w=60309 r=36179
+f 610 w=64796 r=38520
+f 611 w=60129 r=36195
+f 612 w=65127 r=38869
+f 613 w=59891 r=36306
+f 614 w=65676 r=39528
+f 615 w=59369 r=36442
+f 616 w=65648 r=39647
+f 617 w=59225 r=36418
+f 618 w=66192 r=40166
+f 619 w=59193 r=36907
+f 620 w=66029 r=40483
+f 621 w=59296 r=37270
+f 622 w=65684 r=40498
+f 623 w=59820 r=37866
+f 624 w=65365 r=40776
+f 625 w=59738 r=38073
+f 626 w=65187 r=40805
+f 627 w=60383 r=38734
+f 628 w=64560 r=40839
+f 629 w=60586 r=38972
+f 630 w=64586 r=41104
+f 631 w=60566 r=39219
+f 632 w=64419 r=41184
+f 633 w=60884 r=39620
+f 634 w=63995 r=41160
+f 635 w=61238 r=39890
+f 636 w=63573 r=41018
+f 637 w=61549 r=40113
+f 638 w=63399 r=41058
+f 639 w=61714 r=40318
+f 640 w=63628 r=41496
+=== profile GSReactionDiffusion [288x144] frames 609-640 window=2003152 us ===
+frame wall us: min=59193 avg=62554 max=66192 sum=2001754 (32 frames)
+frame render us: avg=39239 max=41496
+--- Cycle Counters ---
+frame                  2001750 us (100%)  32 calls  1201050214 cyc
+  pov_preserve_half    4326 us (0%)  32 calls  2596071 cyc
+  grd_render           1247608 us (62%)  32 calls  748564811 cyc
+    grd_rasterize      1024823 us (82%)  32 calls  614893868 cyc
+      grd_shader_draw  896273 us (87%)  32 calls  537764311 cyc
+      grd_cull_flags   116576 us (11%)  32 calls  69945846 cyc
+      grd_orient       11956 us (1%)  32 calls  7174175 cyc
+    grd_simulate       222774 us (17%)  32 calls  133664674 cyc
+  rd_timeline_step     980 us (0%)  32 calls  588054 cyc
+  canvas_clear         2706 us (0%)  32 calls  1623834 cyc
+  canvas_buffer_wait   746097 us (37%)  32 calls  447658548 cyc
+isr_wake       n=36929 cyc min/avg/max=377/1021/7486 ns min/avg/max=628/1701/12476 total=62879 us cpu=3.13%
+isr_pack       n=4616 cyc min/avg/max=3743/4302/6044 ns min/avg/max=6238/7170/10073 total=33104 us cpu=1.65%
+isr_dma_submit n=4616 cyc min/avg/max=369/560/2870 ns min/avg/max=615/933/4783 total=4310 us cpu=0.21%
+f 641 w=61381 r=40666
+f 642 w=63181 r=41394
+f 643 w=61652 r=40591
+f 644 w=63231 r=41368
+f 645 w=61771 r=40688
+f 646 w=63299 r=41532
+f 647 w=61776 r=40853
+f 648 w=63212 r=41562
+f 649 w=62033 r=41143
+f 650 w=62714 r=41402
+f 651 w=62365 r=41312
+f 652 w=62488 r=41346
+f 653 w=62501 r=41394
+f 654 w=62507 r=41446
+f 655 w=62490 r=41483
+f 656 w=62421 r=41449
+f 657 w=62843 r=41845
+f 658 w=62220 r=41610
+f 659 w=62676 r=41833
+f 660 w=62196 r=41576
+f 661 w=62781 r=41913
+f 662 w=62175 r=41579
+f 663 w=62855 r=41981
+f 664 w=62155 r=41680
+f 665 w=62822 r=42050
+f 666 w=62096 r=41703
+f 667 w=62862 r=42111
+f 668 w=62017 r=41674
+f 669 w=62861 r=42081
+f 670 w=62215 r=41850
+f 671 w=62681 r=42077
+f 672 w=62162 r=41796
+=== profile GSReactionDiffusion [288x144] frames 641-672 window=2000039 us ===
+frame wall us: min=61381 avg=62457 max=63299 sum=1998639 (32 frames)
+frame render us: avg=41530 max=42111
+--- Cycle Counters ---
+frame                  1998637 us (100%)  32 calls  1199182294 cyc
+  pov_preserve_half    4298 us (0%)  32 calls  2578810 cyc
+  grd_render           1320833 us (66%)  32 calls  792500362 cyc
+    grd_rasterize      1098105 us (83%)  32 calls  658863194 cyc
+      grd_shader_draw  973062 us (88%)  32 calls  583837587 cyc
+      grd_cull_flags   113063 us (10%)  32 calls  67837836 cyc
+      grd_orient       11963 us (1%)  32 calls  7178235 cyc
+    grd_simulate       222718 us (16%)  32 calls  133630905 cyc
+  rd_timeline_step     1103 us (0%)  32 calls  662054 cyc
+  canvas_clear         2702 us (0%)  32 calls  1621728 cyc
+  canvas_buffer_wait   669667 us (33%)  32 calls  401800467 cyc
+isr_wake       n=36871 cyc min/avg/max=365/1026/7506 ns min/avg/max=608/1710/12510 total=63103 us cpu=3.15%
+isr_pack       n=4608 cyc min/avg/max=3762/4342/6216 ns min/avg/max=6270/7236/10360 total=33348 us cpu=1.66%
+isr_dma_submit n=4608 cyc min/avg/max=355/559/1808 ns min/avg/max=591/931/3013 total=4297 us cpu=0.21%
+f 673 w=62606 r=42181
+f 674 w=62208 r=41937
+f 675 w=62764 r=42192
+f 676 w=62478 r=42213
+f 677 w=62449 r=42208
+f 678 w=62405 r=42158
+f 679 w=62479 r=42183
+f 680 w=62529 r=42260
+f 681 w=62512 r=42316
+f 682 w=62459 r=42321
+f 683 w=62449 r=42314
+f 684 w=62542 r=42403
+f 685 w=62540 r=42490
+f 686 w=62423 r=42469
+f 687 w=62487 r=42502
+f 688 w=62337 r=42397
+f 689 w=62656 r=42546
+f 690 w=62272 r=42363
+f 691 w=62819 r=42729
+f 692 w=62152 r=42420
+f 693 w=62717 r=42682
+f 694 w=62148 r=42376
+f 695 w=62777 r=42698
+f 696 w=61941 r=42186
+f 697 w=63133 r=42864
+f 698 w=61873 r=42284
+f 699 w=63075 r=42906
+f 700 w=62024 r=42476
+f 701 w=62765 r=42787
+f 702 w=62050 r=42328
+f 703 w=63014 r=42890
+f 704 w=61775 r=42222
+=== profile GSReactionDiffusion [288x144] frames 673-704 window=2000227 us ===
+frame wall us: min=61775 avg=62464 max=63133 sum=1998858 (32 frames)
+frame render us: avg=42415 max=42906
+--- Cycle Counters ---
+frame                  1998850 us (100%)  32 calls  1199310436 cyc
+  pov_preserve_half    4296 us (0%)  32 calls  2577867 cyc
+  grd_render           1349336 us (67%)  32 calls  809601764 cyc
+    grd_rasterize      1126655 us (83%)  32 calls  675993168 cyc
+      grd_shader_draw  1004842 us (89%)  32 calls  602905652 cyc
+      grd_cull_flags   109833 us (9%)  32 calls  65900064 cyc
+      grd_orient       11963 us (1%)  32 calls  7177916 cyc
+    grd_simulate       222669 us (16%)  32 calls  133601835 cyc
+  rd_timeline_step     909 us (0%)  32 calls  545910 cyc
+  canvas_clear         2704 us (0%)  32 calls  1622520 cyc
+  canvas_buffer_wait   641573 us (32%)  32 calls  384943870 cyc
+isr_wake       n=36875 cyc min/avg/max=365/1029/7247 ns min/avg/max=608/1715/12078 total=63263 us cpu=3.16%
+isr_pack       n=4609 cyc min/avg/max=3852/4360/6159 ns min/avg/max=6420/7266/10265 total=33495 us cpu=1.67%
+isr_dma_submit n=4609 cyc min/avg/max=423/559/1797 ns min/avg/max=705/931/2995 total=4300 us cpu=0.21%
+f 705 w=62823 r=42823
+f 706 w=61513 r=41891
+f 707 w=63597 r=43036
+f 708 w=61380 r=41961
+f 709 w=63523 r=43029
+f 710 w=61546 r=42120
+f 711 w=63251 r=42918
+f 712 w=61427 r=41898
+f 713 w=63563 r=43009
+f 714 w=61245 r=41799
+f 715 w=63644 r=42991
+f 716 w=61332 r=41826
+f 717 w=63702 r=43074
+f 718 w=61111 r=41729
+f 719 w=63792 r=43067
+f 720 w=61064 r=41675
+f 721 w=63866 r=43087
+f 722 w=61101 r=41733
+f 723 w=63698 r=42977
+f 724 w=61241 r=41763
+f 725 w=63843 r=43152
+f 726 w=60915 r=41615
+f 727 w=63998 r=43169
+f 728 w=61161 r=41874
+f 729 w=63703 r=43122
+f 730 w=61242 r=41855
+f 731 w=63455 r=42856
+f 732 w=61585 r=41986
+f 733 w=63247 r=42779
+f 734 w=61942 r=42267
+f 735 w=62901 r=42714
+f 736 w=62110 r=42380
+=== profile GSReactionDiffusion [288x144] frames 705-736 window=1999906 us ===
+frame wall us: min=60915 avg=62453 max=63998 sum=1998521 (32 frames)
+frame render us: avg=42442 max=43169
+--- Cycle Counters ---
+frame                  1998516 us (100%)  32 calls  1199110043 cyc
+  pov_preserve_half    4337 us (0%)  32 calls  2602731 cyc
+  grd_render           1349812 us (67%)  32 calls  809887748 cyc
+    grd_rasterize      1127099 us (83%)  32 calls  676259560 cyc
+      grd_shader_draw  1006486 us (89%)  32 calls  603892077 cyc
+      grd_cull_flags   108634 us (9%)  32 calls  65180522 cyc
+      grd_orient       11960 us (1%)  32 calls  7176232 cyc
+    grd_simulate       222701 us (16%)  32 calls  133621132 cyc
+  rd_timeline_step     1265 us (0%)  32 calls  759206 cyc
+  canvas_clear         2707 us (0%)  32 calls  1624784 cyc
+  canvas_buffer_wait   640361 us (32%)  32 calls  384216678 cyc
+isr_wake       n=36869 cyc min/avg/max=365/1028/8862 ns min/avg/max=608/1713/14770 total=63196 us cpu=3.15%
+isr_pack       n=4609 cyc min/avg/max=3797/4348/6140 ns min/avg/max=6328/7246/10233 total=33406 us cpu=1.67%
+isr_dma_submit n=4609 cyc min/avg/max=384/563/3802 ns min/avg/max=640/938/6336 total=4327 us cpu=0.21%
+f 737 w=62229 r=42402
+f 738 w=62425 r=42374
+f 739 w=62689 r=42609
+f 740 w=62432 r=42587
+f 741 w=62702 r=42835
+f 742 w=62247 r=42628
+f 743 w=62723 r=42844
+f 744 w=62212 r=42603
+f 745 w=62857 r=43007
+f 746 w=61892 r=42445
+f 747 w=62841 r=42833
+f 748 w=61878 r=42258
+f 749 w=63133 r=42936
+f 750 w=61864 r=42356
+f 751 w=62959 r=42863
+f 752 w=62025 r=42435
+f 753 w=63076 r=43056
+f 754 w=62127 r=42728
+f 755 w=62768 r=43042
+f 756 w=62275 r=42863
+f 757 w=62513 r=42867
+f 758 w=62415 r=42829
+f 759 w=62332 r=42708
+f 760 w=62684 r=42941
+f 761 w=62415 r=42907
+f 762 w=62444 r=42896
+f 763 w=62600 r=43040
+f 764 w=62349 r=42937
+f 765 w=62579 r=43071
+f 766 w=62373 r=42989
+f 767 w=62695 r=43231
+f 768 w=62302 r=43078
+=== profile GSReactionDiffusion [288x144] frames 737-768 window=2000431 us ===
+frame wall us: min=61864 avg=62470 max=63133 sum=1999055 (32 frames)
+frame render us: avg=42787 max=43231
+--- Cycle Counters ---
+frame                  1999051 us (100%)  32 calls  1199430747 cyc
+  pov_preserve_half    4297 us (0%)  32 calls  2578299 cyc
+  grd_render           1361056 us (68%)  32 calls  816633634 cyc
+    grd_rasterize      1138341 us (83%)  32 calls  683005132 cyc
+      grd_shader_draw  1018104 us (89%)  32 calls  610862884 cyc
+      grd_cull_flags   108255 us (9%)  32 calls  64953385 cyc
+      grd_orient       11965 us (1%)  32 calls  7179327 cyc
+    grd_simulate       222702 us (16%)  32 calls  133621455 cyc
+  rd_timeline_step     1081 us (0%)  32 calls  648965 cyc
+  canvas_clear         2710 us (0%)  32 calls  1626212 cyc
+  canvas_buffer_wait   629874 us (31%)  32 calls  377924814 cyc
+isr_wake       n=36879 cyc min/avg/max=376/1028/7450 ns min/avg/max=626/1713/12416 total=63192 us cpu=3.15%
+isr_pack       n=4609 cyc min/avg/max=3799/4350/6131 ns min/avg/max=6331/7250/10218 total=33417 us cpu=1.67%
+isr_dma_submit n=4609 cyc min/avg/max=369/559/2677 ns min/avg/max=615/931/4461 total=4298 us cpu=0.21%
+f 769 w=62447 r=43304
+f 770 w=62296 r=43090
+f 771 w=62920 r=43556
+f 772 w=62002 r=43104
+f 773 w=62849 r=43500
+f 774 w=62315 r=43361
+f 775 w=62694 r=43610
+f 776 w=62024 r=43180
+f 777 w=62765 r=43490
+f 778 w=62368 r=43403
+f 779 w=62679 r=43628
+f 780 w=62247 r=43421
+f 781 w=62901 r=43869
+f 782 w=61943 r=43359
+f 783 w=62506 r=43412
+f 784 w=62653 r=43567
+f 785 w=62506 r=43619
+f 786 w=62525 r=43689
+f 787 w=62215 r=43452
+f 788 w=62843 r=43841
+f 789 w=62177 r=43562
+f 790 w=62822 r=43929
+f 791 w=62155 r=43631
+f 792 w=62626 r=43805
+f 793 w=62184 r=43547
+f 794 w=62448 r=43539
+f 795 w=62437 r=43521
+f 796 w=62242 r=43310
+f 797 w=62712 r=43513
+f 798 w=62265 r=43323
+f 799 w=62865 r=43745
+f 800 w=61790 r=43081
+=== profile GSReactionDiffusion [288x144] frames 769-800 window=1999804 us ===
+frame wall us: min=61790 avg=62450 max=62920 sum=1998421 (32 frames)
+frame render us: avg=43498 max=43929
+--- Cycle Counters ---
+frame                  1998415 us (100%)  32 calls  1199049009 cyc
+  pov_preserve_half    4334 us (0%)  32 calls  2600865 cyc
+  grd_render           1384012 us (69%)  32 calls  830407718 cyc
+    grd_rasterize      1161313 us (83%)  32 calls  696787813 cyc
+      grd_shader_draw  1041936 us (89%)  32 calls  625161776 cyc
+      grd_cull_flags   107394 us (9%)  32 calls  64436843 cyc
+      grd_orient       11966 us (1%)  32 calls  7179658 cyc
+    grd_simulate       222688 us (16%)  32 calls  133612861 cyc
+  rd_timeline_step     854 us (0%)  32 calls  512963 cyc
+  canvas_clear         2705 us (0%)  32 calls  1623231 cyc
+  canvas_buffer_wait   606475 us (30%)  32 calls  363885157 cyc
+isr_wake       n=36867 cyc min/avg/max=376/1029/7282 ns min/avg/max=626/1715/12136 total=63262 us cpu=3.16%
+isr_pack       n=4608 cyc min/avg/max=3817/4360/6174 ns min/avg/max=6361/7266/10290 total=33492 us cpu=1.67%
+isr_dma_submit n=4608 cyc min/avg/max=390/559/1321 ns min/avg/max=650/931/2201 total=4295 us cpu=0.21%
+f 801 w=62715 r=43576
+f 802 w=62038 r=43153
+f 803 w=62979 r=43679
+f 804 w=61726 r=42952
+f 805 w=63259 r=43764
+f 806 w=61850 r=43158
+f 807 w=63341 r=44046
+f 808 w=61383 r=42974
+f 809 w=63874 r=44394
+f 810 w=61006 r=42946
+f 811 w=64291 r=44729
+f 812 w=60618 r=42893
+f 813 w=64486 r=44924
+f 814 w=60521 r=42990
+f 815 w=64272 r=44810
+f 816 w=60629 r=42984
+f 817 w=64323 r=44853
+f 818 w=60591 r=42990
+f 819 w=64297 r=44833
+f 820 w=60930 r=43311
+f 821 w=64214 r=45071
+f 822 w=60615 r=43232
+f 823 w=63926 r=44704
+f 824 w=60828 r=43024
+f 825 w=64082 r=44652
+f 826 w=60680 r=42886
+f 827 w=63968 r=44400
+f 828 w=60922 r=42868
+f 829 w=63693 r=44107
+f 830 w=61226 r=42880
+f 831 w=63566 r=43993
+f 832 w=61366 r=42904
+=== profile GSReactionDiffusion [288x144] frames 801-832 window=1999570 us ===
+frame wall us: min=60521 avg=62444 max=64486 sum=1998215 (32 frames)
+frame render us: avg=43708 max=45071
+--- Cycle Counters ---
+frame                  1998211 us (100%)  32 calls  1198926929 cyc
+  pov_preserve_half    4298 us (0%)  32 calls  2578868 cyc
+  grd_render           1390636 us (69%)  32 calls  834382082 cyc
+    grd_rasterize      1167965 us (83%)  32 calls  700779330 cyc
+      grd_shader_draw  1049991 us (89%)  32 calls  629994670 cyc
+      grd_cull_flags   105994 us (9%)  32 calls  63596950 cyc
+      grd_orient       11963 us (1%)  32 calls  7178120 cyc
+    grd_simulate       222659 us (16%)  32 calls  133595634 cyc
+  rd_timeline_step     987 us (0%)  32 calls  592757 cyc
+  canvas_clear         2705 us (0%)  32 calls  1623414 cyc
+  canvas_buffer_wait   599550 us (30%)  32 calls  359730305 cyc
+isr_wake       n=36863 cyc min/avg/max=365/1030/8658 ns min/avg/max=608/1716/14430 total=63293 us cpu=3.16%
+isr_pack       n=4608 cyc min/avg/max=3857/4363/7574 ns min/avg/max=6428/7271/12623 total=33514 us cpu=1.67%
+isr_dma_submit n=4608 cyc min/avg/max=364/560/2027 ns min/avg/max=606/933/3378 total=4305 us cpu=0.21%
+f 833 w=63088 r=43783
+f 834 w=61628 r=42967
+f 835 w=63402 r=43915
+f 836 w=61567 r=43028
+f 837 w=63252 r=43826
+f 838 w=61670 r=42987
+f 839 w=63002 r=43537
+f 840 w=61837 r=42922
+f 841 w=63252 r=43724
+f 842 w=61571 r=42840
+f 843 w=63242 r=43628
+f 844 w=61711 r=42884
+f 845 w=63049 r=43479
+f 846 w=61972 r=42998
+f 847 w=62968 r=43513
+f 848 w=61828 r=42887
+f 849 w=63198 r=43632
+f 850 w=61799 r=42977
+f 851 w=62985 r=43508
+f 852 w=61833 r=42833
+f 853 w=62894 r=43275
+f 854 w=61938 r=42760
+f 855 w=63394 r=43701
+f 856 w=61566 r=42814
+f 857 w=62987 r=43348
+f 858 w=61920 r=42824
+f 859 w=62829 r=43201
+f 860 w=62066 r=42824
+f 861 w=62761 r=43132
+f 862 w=62188 r=42866
+f 863 w=62580 r=42992
+f 864 w=62182 r=42719
+=== profile GSReactionDiffusion [288x144] frames 833-864 window=1999552 us ===
+frame wall us: min=61566 avg=62442 max=63402 sum=1998159 (32 frames)
+frame render us: avg=43197 max=43915
+--- Cycle Counters ---
+frame                  1998157 us (100%)  32 calls  1198894779 cyc
+  pov_preserve_half    4312 us (0%)  32 calls  2587423 cyc
+  grd_render           1374354 us (68%)  32 calls  824612888 cyc
+    grd_rasterize      1151664 us (83%)  32 calls  690998514 cyc
+      grd_shader_draw  1033492 us (89%)  32 calls  620095335 cyc
+      grd_cull_flags   106191 us (9%)  32 calls  63714748 cyc
+      grd_orient       11963 us (1%)  32 calls  7178275 cyc
+    grd_simulate       222678 us (16%)  32 calls  133607065 cyc
+  rd_timeline_step     901 us (0%)  32 calls  541171 cyc
+  canvas_clear         2707 us (0%)  32 calls  1624342 cyc
+  canvas_buffer_wait   615849 us (30%)  32 calls  369509999 cyc
+isr_wake       n=36862 cyc min/avg/max=365/1029/7238 ns min/avg/max=608/1715/12063 total=63227 us cpu=3.16%
+isr_pack       n=4607 cyc min/avg/max=3874/4357/6150 ns min/avg/max=6456/7261/10250 total=33458 us cpu=1.67%
+isr_dma_submit n=4607 cyc min/avg/max=351/560/2287 ns min/avg/max=585/933/3811 total=4301 us cpu=0.21%
+f 865 w=62565 r=43008
+f 866 w=62089 r=42644
+f 867 w=63292 r=43482
+f 868 w=61460 r=42489
+f 869 w=63732 r=43771
+f 870 w=61651 r=42967
+f 871 w=63057 r=43569
+f 872 w=61679 r=42794
+f 873 w=63328 r=43668
+f 874 w=61639 r=42852
+f 875 w=63051 r=43448
+f 876 w=61911 r=42904
+f 877 w=62976 r=43425
+f 878 w=61856 r=42827
+f 879 w=63088 r=43408
+f 880 w=61672 r=42626
+f 881 w=63024 r=43196
+f 882 w=61951 r=42695
+f 883 w=62789 r=43030
+f 884 w=62093 r=42672
+f 885 w=62974 r=43191
+f 886 w=61891 r=42626
+f 887 w=62865 r=43035
+f 888 w=62106 r=42688
+f 889 w=63074 r=43308
+f 890 w=61876 r=42730
+f 891 w=62752 r=43030
+f 892 w=62129 r=42652
+f 893 w=62819 r=43017
+f 894 w=62233 r=42796
+f 895 w=62601 r=42942
+f 896 w=62268 r=42768
+=== profile GSReactionDiffusion [288x144] frames 865-896 window=1999862 us ===
+frame wall us: min=61460 avg=62452 max=63732 sum=1998491 (32 frames)
+frame render us: avg=43008 max=43771
+--- Cycle Counters ---
+frame                  1998486 us (100%)  32 calls  1199091977 cyc
+  pov_preserve_half    4342 us (0%)  32 calls  2605511 cyc
+  grd_render           1368115 us (68%)  32 calls  820869499 cyc
+    grd_rasterize      1130817 us (82%)  32 calls  678490786 cyc
+      grd_shader_draw  1026050 us (90%)  32 calls  615630082 cyc
+      grd_cull_flags   92796 us (8%)  32 calls  55677641 cyc
+      grd_orient       11954 us (1%)  32 calls  7172925 cyc
+    grd_simulate       222866 us (16%)  32 calls  133719795 cyc
+  rd_timeline_step     1041 us (0%)  32 calls  625073 cyc
+  canvas_clear         2703 us (0%)  32 calls  1622399 cyc
+  canvas_buffer_wait   622250 us (31%)  32 calls  373350592 cyc
+isr_wake       n=36868 cyc min/avg/max=377/1031/9198 ns min/avg/max=628/1718/15330 total=63409 us cpu=3.17%
+isr_pack       n=4609 cyc min/avg/max=3803/4376/6070 ns min/avg/max=6338/7293/10116 total=33622 us cpu=1.68%
+isr_dma_submit n=4609 cyc min/avg/max=363/562/4574 ns min/avg/max=605/936/7623 total=4321 us cpu=0.21%
+f 897 w=62459 r=43025
+f 898 w=62220 r=42791
+f 899 w=62639 r=42977
+f 900 w=62373 r=42895
+f 901 w=62438 r=42878
+f 902 w=62384 r=42809
+f 903 w=62447 r=42804
+f 904 w=62404 r=42753
+f 905 w=62496 r=42796
+f 906 w=62361 r=42648
+f 907 w=62464 r=42658
+f 908 w=62472 r=42676
+f 909 w=62335 r=42559
+f 910 w=62430 r=42534
+f 911 w=62335 r=42414
+f 912 w=62497 r=42457
+f 913 w=62296 r=42298
+f 914 w=62638 r=42483
+f 915 w=62199 r=42238
+f 916 w=62595 r=42381
+f 917 w=62323 r=42252
+f 918 w=62589 r=42386
+f 919 w=62308 r=42187
+f 920 w=62532 r=42267
+f 921 w=62355 r=42168
+f 922 w=62541 r=42255
+f 923 w=62441 r=42241
+f 924 w=62452 r=42242
+f 925 w=62312 r=42099
+f 926 w=62622 r=42266
+f 927 w=62318 r=42131
+f 928 w=62561 r=42239
+=== profile GSReactionDiffusion [288x144] frames 897-928 window=1999198 us ===
+frame wall us: min=62199 avg=62432 max=62639 sum=1997836 (32 frames)
+frame render us: avg=42493 max=43025
+--- Cycle Counters ---
+frame                  1997821 us (100%)  32 calls  1198692653 cyc
+  pov_preserve_half    4293 us (0%)  32 calls  2576145 cyc
+  grd_render           1351613 us (67%)  32 calls  810967916 cyc
+    grd_rasterize      1111090 us (82%)  32 calls  666654444 cyc
+      grd_shader_draw  1012314 us (91%)  32 calls  607388616 cyc
+      grd_cull_flags   86806 us (7%)  32 calls  52083633 cyc
+      grd_orient       11954 us (1%)  32 calls  7172659 cyc
+    grd_simulate       223477 us (16%)  32 calls  134086584 cyc
+  rd_timeline_step     1131 us (0%)  32 calls  678849 cyc
+  canvas_clear         2705 us (0%)  32 calls  1623175 cyc
+  canvas_buffer_wait   638046 us (31%)  32 calls  382827972 cyc
+isr_wake       n=36857 cyc min/avg/max=365/1037/7958 ns min/avg/max=608/1728/13263 total=63757 us cpu=3.18%
+isr_pack       n=4606 cyc min/avg/max=3924/4429/6334 ns min/avg/max=6540/7381/10556 total=34002 us cpu=1.70%
+isr_dma_submit n=4606 cyc min/avg/max=392/561/3108 ns min/avg/max=653/935/5180 total=4307 us cpu=0.21%
+f 929 w=61960 r=41998
+f 930 w=62616 r=42159
+f 931 w=62230 r=41935
+f 932 w=62575 r=42056
+f 933 w=62303 r=41851
+f 934 w=62570 r=41968
+f 935 w=62252 r=41767
+f 936 w=62525 r=41837
+f 937 w=62229 r=41612
+f 938 w=62511 r=41668
+f 939 w=62241 r=41454
+f 940 w=62533 r=41533
+f 941 w=62179 r=41259
+f 942 w=62564 r=41370
+f 943 w=61994 r=40911
+f 944 w=62701 r=41158
+f 945 w=61974 r=40680
+f 946 w=62687 r=40912
+f 947 w=62092 r=40498
+f 948 w=62686 r=40731
+f 949 w=62014 r=40290
+f 950 w=62641 r=40479
+f 951 w=61941 r=39965
+f 952 w=62714 r=40227
+f 953 w=61570 r=39343
+f 954 w=62749 r=39637
+f 955 w=62152 r=39337
+f 956 w=62129 r=39012
+f 957 w=62338 r=38907
+f 958 w=61448 r=37901
+f 959 w=62196 r=37644
+f 960 w=60684 r=35819
+=== profile GSReactionDiffusion [288x144] frames 929-960 window=1993369 us ===
+frame wall us: min=60684 avg=62249 max=62749 sum=1991998 (32 frames)
+frame render us: avg=40559 max=42159
+--- Cycle Counters ---
+frame                  1991994 us (100%)  32 calls  1195196448 cyc
+  pov_preserve_half    4305 us (0%)  32 calls  2583120 cyc
+  grd_render           1289861 us (64%)  32 calls  773916632 cyc
+    grd_rasterize      1049136 us (81%)  32 calls  629481649 cyc
+      grd_shader_draw  927142 us (88%)  32 calls  556285673 cyc
+      grd_cull_flags   110031 us (10%)  32 calls  66018631 cyc
+      grd_orient       11945 us (1%)  32 calls  7167208 cyc
+    grd_simulate       224097 us (17%)  32 calls  134458209 cyc
+  rd_timeline_step     997 us (0%)  32 calls  598611 cyc
+  canvas_clear         2702 us (0%)  32 calls  1621471 cyc
+  canvas_buffer_wait   694095 us (34%)  32 calls  416457123 cyc
+isr_wake       n=36748 cyc min/avg/max=365/1019/9202 ns min/avg/max=608/1698/15336 total=62442 us cpu=3.13%
+isr_pack       n=4594 cyc min/avg/max=3743/4284/6224 ns min/avg/max=6238/7140/10373 total=32806 us cpu=1.64%
+isr_dma_submit n=4594 cyc min/avg/max=411/560/3965 ns min/avg/max=685/933/6608 total=4291 us cpu=0.21%
+f 961 w=62598 r=36205
+f 962 w=60877 r=34627
+f 963 w=61352 r=33526
+f 964 w=60887 r=31960
+f 965 w=59384 r=28889
+f 966 w=61932 r=28367
+f 967 w=56843 r=22756
+f 968 w=61972 r=22275
+f 969 w=58489 r=18311
+f 970 w=59505 r=15364
+f 971 w=67815 r=20724
+f 972 w=59890 r=18160
+f 973 w=64288 r=19996
+f 974 w=60714 r=18212
+f 975 w=65971 r=21736
+f 976 w=59341 r=18626
+f 977 w=65897 r=22078
+f 978 w=59023 r=18645
+f 979 w=66126 r=22324
+f 980 w=58792 r=18664
+f 981 w=66386 r=22597
+f 982 w=58830 r=18972
+f 983 w=66450 r=22967
+f 984 w=58916 r=19441
+f 985 w=67031 r=24018
+f 986 w=58308 r=19871
+f 987 w=67010 r=24373
+f 988 w=58461 r=20380
+f 989 w=66501 r=24438
+f 990 w=58870 r=20855
+f 991 w=66008 r=24410
+f 992 w=59171 r=21126
+=== profile GSReactionDiffusion [288x144] frames 961-992 window=1985048 us ===
+frame wall us: min=56843 avg=61988 max=67815 sum=1983638 (32 frames)
+frame render us: avg=22965 max=36205
+--- Cycle Counters ---
+frame                  1983632 us (100%)  32 calls  1190179539 cyc
+  pov_preserve_half    4514 us (0%)  32 calls  2708700 cyc
+  grd_render           726712 us (36%)  32 calls  436027790 cyc
+    grd_palette_rebake 2226 us (0%)  1 calls  1335988 cyc
+    grd_rasterize      493149 us (67%)  32 calls  295889542 cyc
+      grd_shader_draw  362492 us (73%)  32 calls  217495653 cyc
+      grd_cull_flags   118706 us (24%)  32 calls  71223826 cyc
+      grd_orient       11933 us (2%)  32 calls  7159919 cyc
+    grd_simulate       226019 us (31%)  32 calls  135611449 cyc
+  rd_timeline_step     917 us (0%)  32 calls  550624 cyc
+  canvas_clear         2695 us (0%)  32 calls  1617439 cyc
+  canvas_buffer_wait   1248760 us (62%)  32 calls  749256019 cyc
+isr_wake       n=36595 cyc min/avg/max=365/988/7050 ns min/avg/max=608/1646/11750 total=60307 us cpu=3.03%
+isr_pack       n=4574 cyc min/avg/max=3743/4074/5942 ns min/avg/max=6238/6790/9903 total=31063 us cpu=1.56%
+isr_dma_submit n=4574 cyc min/avg/max=371/558/2207 ns min/avg/max=618/930/3678 total=4256 us cpu=0.21%
+f 993 w=65641 r=24559
+f 994 w=59305 r=21411
+f 995 w=65973 r=24933
+f 996 w=59607 r=22087
+f 997 w=66063 r=25706
+f 998 w=59328 r=22579
+f 999 w=65924 r=26049
+f 1000 w=59460 r=23054
+f 1001 w=66006 r=26552
+f 1002 w=59442 r=23542
+f 1003 w=65870 r=26958
+f 1004 w=59159 r=23662
+f 1005 w=66160 r=27368
+f 1006 w=59032 r=23947
+f 1007 w=66305 r=27799
+f 1008 w=58751 r=24097
+f 1009 w=66778 r=28422
+f 1010 w=58640 r=24608
+f 1011 w=67448 r=29604
+f 1012 w=57805 r=24957
+f 1013 w=67726 r=30228
+f 1014 w=57656 r=25375
+f 1015 w=67759 r=30679
+f 1016 w=57251 r=25476
+f 1017 w=68023 r=31045
+f 1018 w=57102 r=25694
+f 1019 w=68204 r=31444
+f 1020 w=56970 r=25961
+f 1021 w=68478 r=31987
+f 1022 w=56718 r=26252
+f 1023 w=68508 r=32306
+f 1024 w=56741 r=26594
+=== profile GSReactionDiffusion [288x144] frames 993-1024 window=2005204 us ===
+frame wall us: min=56718 avg=62619 max=68508 sum=2003833 (32 frames)
+frame render us: avg=26404 max=32306
+--- Cycle Counters ---
+frame                  2003832 us (100%)  32 calls  1202299685 cyc
+  pov_preserve_half    4489 us (0%)  32 calls  2693777 cyc
+  grd_render           836576 us (41%)  32 calls  501945837 cyc
+    grd_rasterize      612229 us (73%)  32 calls  367337489 cyc
+      grd_shader_draw  482018 us (78%)  32 calls  289210916 cyc
+      grd_cull_flags   118242 us (19%)  32 calls  70945275 cyc
+      grd_orient       11952 us (1%)  32 calls  7171762 cyc
+    grd_simulate       224336 us (26%)  32 calls  134602161 cyc
+  rd_timeline_step     1126 us (0%)  32 calls  676191 cyc
+  canvas_clear         2692 us (0%)  32 calls  1615610 cyc
+  canvas_buffer_wait   1158915 us (57%)  32 calls  695349426 cyc
+isr_wake       n=36967 cyc min/avg/max=365/995/7158 ns min/avg/max=608/1658/11930 total=61360 us cpu=3.06%
+isr_pack       n=4620 cyc min/avg/max=3743/4124/6072 ns min/avg/max=6238/6873/10120 total=31760 us cpu=1.58%
+isr_dma_submit n=4620 cyc min/avg/max=391/558/1634 ns min/avg/max=651/930/2723 total=4299 us cpu=0.21%
+f 1025 w=68143 r=32516
+f 1026 w=56778 r=26850
+f 1027 w=68428 r=32823
+f 1028 w=57056 r=27372
+f 1029 w=68596 r=33513
+f 1030 w=56614 r=27672
+f 1031 w=69028 r=34245
+f 1032 w=56388 r=28190
+f 1033 w=68632 r=34369
+f 1034 w=56646 r=28562
+f 1035 w=68290 r=34397
+f 1036 w=57201 r=29144
+f 1037 w=67576 r=34264
+f 1038 w=57769 r=29581
+f 1039 w=66849 r=33977
+f 1040 w=58515 r=30038
+f 1041 w=66108 r=33640
+f 1042 w=59482 r=30667
+f 1043 w=65119 r=33331
+f 1044 w=60425 r=31304
+f 1045 w=64079 r=32928
+f 1046 w=61554 r=32027
+f 1047 w=63165 r=32738
+f 1048 w=62595 r=32879
+f 1049 w=61987 r=32412
+f 1050 w=63819 r=33778
+f 1051 w=60859 r=32176
+f 1052 w=65015 r=34737
+f 1053 w=59474 r=31758
+f 1054 w=66759 r=36063
+f 1055 w=58059 r=31616
+f 1056 w=67897 r=37060
+=== profile GSReactionDiffusion [288x144] frames 1025-1056 window=2010268 us ===
+frame wall us: min=56388 avg=62778 max=69028 sum=2008905 (32 frames)
+frame render us: avg=32082 max=37060
+--- Cycle Counters ---
+frame                  2008894 us (100%)  32 calls  1205336771 cyc
+  pov_preserve_half    4375 us (0%)  32 calls  2625126 cyc
+  grd_render           1018316 us (50%)  32 calls  610989605 cyc
+    grd_rasterize      794596 us (78%)  32 calls  476757988 cyc
+      grd_shader_draw  665274 us (83%)  32 calls  399164501 cyc
+      grd_cull_flags   117357 us (14%)  32 calls  70414472 cyc
+      grd_orient       11948 us (1%)  32 calls  7168890 cyc
+    grd_simulate       223708 us (21%)  32 calls  134225355 cyc
+  rd_timeline_step     1178 us (0%)  32 calls  707011 cyc
+  canvas_clear         2700 us (0%)  32 calls  1620198 cyc
+  canvas_buffer_wait   982292 us (48%)  32 calls  589375418 cyc
+isr_wake       n=37060 cyc min/avg/max=365/1004/7658 ns min/avg/max=608/1673/12763 total=62021 us cpu=3.08%
+isr_pack       n=4632 cyc min/avg/max=3743/4178/6046 ns min/avg/max=6238/6963/10076 total=32256 us cpu=1.60%
+isr_dma_submit n=4632 cyc min/avg/max=400/558/1996 ns min/avg/max=666/930/3326 total=4314 us cpu=0.21%
+f 1057 w=56877 r=31728
+f 1058 w=68458 r=37731
+f 1059 w=56654 r=31942
+f 1060 w=68634 r=38123
+f 1061 w=56504 r=32172
+f 1062 w=69192 r=38910
+f 1063 w=56276 r=32730
+f 1064 w=69009 r=39286
+f 1065 w=56466 r=33297
+f 1066 w=68868 r=39710
+f 1067 w=56738 r=33993
+f 1068 w=68616 r=40156
+f 1069 w=56924 r=34572
+f 1070 w=68331 r=40449
+f 1071 w=57082 r=35077
+f 1072 w=67898 r=40520
+f 1073 w=57468 r=35533
+f 1074 w=67424 r=40502
+f 1075 w=58228 r=36276
+f 1076 w=66864 r=40686
+f 1077 w=58469 r=36701
+f 1078 w=66426 r=40674
+f 1079 w=58909 r=37130
+f 1080 w=66121 r=40798
+f 1081 w=59328 r=37673
+f 1082 w=65581 r=40747
+f 1083 w=59784 r=38089
+f 1084 w=65062 r=40699
+f 1085 w=60087 r=38333
+f 1086 w=64733 r=40612
+f 1087 w=60789 r=38948
+f 1088 w=63932 r=40427
+=== profile GSReactionDiffusion [288x144] frames 1057-1088 window=2003102 us ===
+frame wall us: min=56276 avg=62554 max=69192 sum=2001732 (32 frames)
+frame render us: avg=37632 max=40798
+--- Cycle Counters ---
+frame                  2001730 us (100%)  32 calls  1201038329 cyc
+  pov_preserve_half    4280 us (0%)  32 calls  2568555 cyc
+  grd_render           1196249 us (59%)  32 calls  717749456 cyc
+    grd_rasterize      972899 us (81%)  32 calls  583739423 cyc
+      grd_shader_draw  845079 us (86%)  32 calls  507047983 cyc
+      grd_cull_flags   115850 us (11%)  32 calls  69510443 cyc
+      grd_orient       11952 us (1%)  32 calls  7171461 cyc
+    grd_simulate       223339 us (18%)  32 calls  134003804 cyc
+  rd_timeline_step     939 us (0%)  32 calls  563746 cyc
+  canvas_clear         2702 us (0%)  32 calls  1621506 cyc
+  canvas_buffer_wait   797527 us (39%)  32 calls  478516318 cyc
+isr_wake       n=36928 cyc min/avg/max=365/1013/7178 ns min/avg/max=608/1688/11963 total=62374 us cpu=3.11%
+isr_pack       n=4616 cyc min/avg/max=3743/4242/6128 ns min/avg/max=6238/7070/10213 total=32636 us cpu=1.62%
+isr_dma_submit n=4616 cyc min/avg/max=369/558/1219 ns min/avg/max=615/930/2031 total=4299 us cpu=0.21%
+f 1089 w=60900 r=39105
+f 1090 w=63645 r=40295
+f 1091 w=61659 r=39501
+f 1092 w=63191 r=40238
+f 1093 w=62070 r=39854
+f 1094 w=62815 r=40208
+f 1095 w=62263 r=40018
+f 1096 w=62484 r=39997
+f 1097 w=62755 r=40299
+f 1098 w=61805 r=39650
+f 1099 w=63304 r=40500
+f 1100 w=61271 r=39317
+f 1101 w=63804 r=40669
+f 1102 w=60881 r=39097
+f 1103 w=64123 r=40769
+f 1104 w=60584 r=38910
+f 1105 w=64388 r=40844
+f 1106 w=60355 r=38745
+f 1107 w=64332 r=40625
+f 1108 w=60492 r=38661
+f 1109 w=64470 r=40623
+f 1110 w=60349 r=38518
+f 1111 w=64408 r=40472
+f 1112 w=60421 r=38437
+f 1113 w=64421 r=40404
+f 1114 w=60452 r=38403
+f 1115 w=64318 r=40267
+f 1116 w=60664 r=38479
+f 1117 w=64045 r=40070
+f 1118 w=60769 r=38385
+f 1119 w=64126 r=40057
+f 1120 w=60826 r=38431
+=== profile GSReactionDiffusion [288x144] frames 1089-1120 window=1997751 us ===
+frame wall us: min=60349 avg=62387 max=64470 sum=1996390 (32 frames)
+frame render us: avg=39682 max=40844
+--- Cycle Counters ---
+frame                  1996387 us (100%)  32 calls  1197832780 cyc
+  pov_preserve_half    4342 us (0%)  32 calls  2605281 cyc
+  grd_render           1261761 us (63%)  32 calls  757056709 cyc
+    grd_rasterize      1038680 us (82%)  32 calls  623208500 cyc
+      grd_shader_draw  913111 us (87%)  32 calls  547866743 cyc
+      grd_cull_flags   113594 us (10%)  32 calls  68156646 cyc
+      grd_orient       11959 us (1%)  32 calls  7175575 cyc
+    grd_simulate       223069 us (17%)  32 calls  133841977 cyc
+  rd_timeline_step     997 us (0%)  32 calls  598502 cyc
+  canvas_clear         2698 us (0%)  32 calls  1618825 cyc
+  canvas_buffer_wait   726556 us (36%)  32 calls  435933829 cyc
+isr_wake       n=36829 cyc min/avg/max=365/1018/7162 ns min/avg/max=608/1696/11936 total=62509 us cpu=3.12%
+isr_pack       n=4604 cyc min/avg/max=3789/4276/6081 ns min/avg/max=6315/7126/10135 total=32813 us cpu=1.64%
+isr_dma_submit n=4604 cyc min/avg/max=447/560/2402 ns min/avg/max=745/933/4003 total=4297 us cpu=0.21%
+f 1121 w=63638 r=39858
+f 1122 w=61204 r=38607
+f 1123 w=63675 r=39775
+f 1124 w=61447 r=38769
+f 1125 w=63163 r=39479
+f 1126 w=61942 r=38972
+f 1127 w=62820 r=39339
+f 1128 w=62160 r=39044
+f 1129 w=62587 r=39190
+f 1130 w=62538 r=39273
+f 1131 w=62264 r=39083
+f 1132 w=62916 r=39546
+f 1133 w=62002 r=39094
+f 1134 w=63098 r=39737
+f 1135 w=61698 r=38984
+f 1136 w=63371 r=39849
+f 1137 w=61577 r=38983
+f 1138 w=63356 r=39897
+f 1139 w=61569 r=39021
+f 1140 w=63654 r=40231
+f 1141 w=61081 r=38859
+f 1142 w=64119 r=40524
+f 1143 w=60707 r=38777
+f 1144 w=64510 r=40833
+f 1145 w=60382 r=38761
+f 1146 w=64775 r=41081
+f 1147 w=60107 r=38735
+f 1148 w=64933 r=41214
+f 1149 w=59985 r=38751
+f 1150 w=65055 r=41298
+f 1151 w=59744 r=38587
+f 1152 w=65318 r=41462
+=== profile GSReactionDiffusion [288x144] frames 1121-1152 window=2002822 us ===
+frame wall us: min=59744 avg=62543 max=65318 sum=2001395 (32 frames)
+frame render us: avg=39550 max=41462
+--- Cycle Counters ---
+frame                  2001391 us (100%)  32 calls  1200834626 cyc
+  pov_preserve_half    4325 us (0%)  32 calls  2595486 cyc
+  grd_render           1257510 us (62%)  32 calls  754506383 cyc
+    grd_rasterize      1034692 us (82%)  32 calls  620815680 cyc
+      grd_shader_draw  912125 us (88%)  32 calls  547275481 cyc
+      grd_cull_flags   110594 us (10%)  32 calls  66356461 cyc
+      grd_orient       11957 us (1%)  32 calls  7174202 cyc
+    grd_simulate       222806 us (17%)  32 calls  133683757 cyc
+  rd_timeline_step     1023 us (0%)  32 calls  614118 cyc
+  canvas_clear         2705 us (0%)  32 calls  1623417 cyc
+  canvas_buffer_wait   735794 us (36%)  32 calls  441476769 cyc
+isr_wake       n=36923 cyc min/avg/max=377/1016/8794 ns min/avg/max=628/1693/14656 total=62554 us cpu=3.12%
+isr_pack       n=4615 cyc min/avg/max=3743/4262/6104 ns min/avg/max=6238/7103/10173 total=32788 us cpu=1.63%
+isr_dma_submit n=4615 cyc min/avg/max=409/559/2873 ns min/avg/max=681/931/4788 total=4304 us cpu=0.21%
+f 1153 w=59441 r=38691
+f 1154 w=65441 r=41677
+f 1155 w=59531 r=38754
+f 1156 w=65501 r=41810
+f 1157 w=59238 r=38594
+f 1158 w=65685 r=41836
+f 1159 w=59199 r=38580
+f 1160 w=65798 r=41936
+f 1161 w=59153 r=38634
+f 1162 w=65859 r=42038
+f 1163 w=59069 r=38652
+f 1164 w=66033 r=42189
+f 1165 w=58749 r=38485
+f 1166 w=66087 r=42119
+f 1167 w=58832 r=38499
+f 1168 w=66224 r=42271
+f 1169 w=58698 r=38516
+f 1170 w=66129 r=42190
+f 1171 w=58711 r=38449
+f 1172 w=66349 r=42342
+f 1173 w=58555 r=38443
+f 1174 w=66555 r=42543
+f 1175 w=58358 r=38446
+f 1176 w=66536 r=42527
+f 1177 w=58358 r=38377
+f 1178 w=66676 r=42600
+f 1179 w=58329 r=38477
+f 1180 w=66438 r=42460
+f 1181 w=58469 r=38474
+f 1182 w=66459 r=42479
+f 1183 w=58459 r=38483
+f 1184 w=66516 r=42555
+=== profile GSReactionDiffusion [288x144] frames 1153-1184 window=2000832 us ===
+frame wall us: min=58329 avg=62482 max=66676 sum=1999435 (32 frames)
+frame render us: avg=40378 max=42600
+--- Cycle Counters ---
+frame                  1999430 us (100%)  32 calls  1199658488 cyc
+  pov_preserve_half    4323 us (0%)  32 calls  2594137 cyc
+  grd_render           1284019 us (64%)  32 calls  770411604 cyc
+    grd_rasterize      1061291 us (82%)  32 calls  636774866 cyc
+      grd_shader_draw  939818 us (88%)  32 calls  563891200 cyc
+      grd_cull_flags   109494 us (10%)  32 calls  65696628 cyc
+      grd_orient       11961 us (1%)  32 calls  7176878 cyc
+    grd_simulate       222716 us (17%)  32 calls  133629683 cyc
+  rd_timeline_step     1028 us (0%)  32 calls  617366 cyc
+  canvas_clear         2701 us (0%)  32 calls  1620915 cyc
+  canvas_buffer_wait   707326 us (35%)  32 calls  424395958 cyc
+isr_wake       n=36886 cyc min/avg/max=365/1018/7246 ns min/avg/max=608/1696/12076 total=62583 us cpu=3.12%
+isr_pack       n=4610 cyc min/avg/max=3743/4272/6094 ns min/avg/max=6238/7120/10156 total=32829 us cpu=1.64%
+isr_dma_submit n=4610 cyc min/avg/max=410/560/2585 ns min/avg/max=683/933/4308 total=4308 us cpu=0.21%
+f 1185 w=57993 r=38326
+f 1186 w=66628 r=42501
+f 1187 w=58197 r=38256
+f 1188 w=66871 r=42673
+f 1189 w=57980 r=38199
+f 1190 w=67006 r=42752
+f 1191 w=57945 r=38195
+f 1192 w=66949 r=42691
+f 1193 w=57812 r=38050
+f 1194 w=67213 r=42809
+f 1195 w=57726 r=38080
+f 1196 w=67247 r=42872
+f 1197 w=57585 r=38003
+f 1198 w=67418 r=42967
+f 1199 w=57521 r=38033
+f 1200 w=67417 r=42998
+f 1201 w=57383 r=37928
+f 1202 w=67541 r=43014
+f 1203 w=57282 r=37843
+f 1204 w=67743 r=43078
+f 1205 w=57203 r=37828
+f 1206 w=67559 r=42932
+f 1207 w=57493 r=37982
+f 1208 w=67486 r=43013
+f 1209 w=57420 r=37979
+f 1210 w=67392 r=42916
+f 1211 w=57469 r=37940
+f 1212 w=67416 r=42912
+f 1213 w=57575 r=38033
+f 1214 w=67267 r=42846
+f 1215 w=57469 r=37862
+f 1216 w=67414 r=42821
+=== profile GSReactionDiffusion [288x144] frames 1185-1216 window=2000017 us ===
+frame wall us: min=57203 avg=62456 max=67743 sum=1998620 (32 frames)
+frame render us: avg=40447 max=43078
+--- Cycle Counters ---
+frame                  1998622 us (100%)  32 calls  1199173380 cyc
+  pov_preserve_half    4322 us (0%)  32 calls  2593223 cyc
+  grd_render           1286361 us (64%)  32 calls  771816928 cyc
+    grd_rasterize      1063667 us (82%)  32 calls  638200464 cyc
+      grd_shader_draw  942992 us (88%)  32 calls  565795655 cyc
+      grd_cull_flags   108698 us (10%)  32 calls  65218924 cyc
+      grd_orient       11960 us (1%)  32 calls  7176349 cyc
+    grd_simulate       222682 us (17%)  32 calls  133609412 cyc
+  rd_timeline_step     900 us (0%)  32 calls  540045 cyc
+  canvas_clear         2702 us (0%)  32 calls  1621367 cyc
+  canvas_buffer_wait   704305 us (35%)  32 calls  422583035 cyc
+isr_wake       n=36871 cyc min/avg/max=365/1017/7686 ns min/avg/max=608/1695/12810 total=62557 us cpu=3.12%
+isr_pack       n=4609 cyc min/avg/max=3787/4272/6123 ns min/avg/max=6311/7120/10205 total=32819 us cpu=1.64%
+isr_dma_submit n=4609 cyc min/avg/max=455/560/2649 ns min/avg/max=758/933/4415 total=4302 us cpu=0.21%
+f 1217 w=57268 r=37879
+f 1218 w=67453 r=42823
+f 1219 w=57570 r=37941
+f 1220 w=67372 r=42868
+f 1221 w=57611 r=38024
+f 1222 w=67293 r=42863
+f 1223 w=57529 r=37938
+f 1224 w=67383 r=42868
+f 1225 w=57516 r=37930
+f 1226 w=67441 r=42918
+f 1227 w=57292 r=37764
+f 1228 w=67475 r=42786
+f 1229 w=57245 r=37579
+f 1230 w=67710 r=42834
+f 1231 w=57219 r=37546
+f 1232 w=67892 r=42985
+f 1233 w=56662 r=37192
+f 1234 w=68160 r=42899
+f 1235 w=56560 r=37006
+f 1236 w=68301 r=42853
+f 1237 w=56385 r=36785
+f 1238 w=68472 r=42803
+f 1239 w=56294 r=36642
+f 1240 w=68560 r=42749
+f 1241 w=56174 r=36469
+f 1242 w=68456 r=42465
+f 1243 w=56615 r=36627
+f 1244 w=68109 r=42282
+f 1245 w=56862 r=36636
+f 1246 w=67865 r=42047
+f 1247 w=57271 r=36877
+f 1248 w=67328 r=41764
+=== profile GSReactionDiffusion [288x144] frames 1217-1248 window=1998733 us ===
+frame wall us: min=56174 avg=62416 max=68560 sum=1997343 (32 frames)
+frame render us: avg=39988 max=42985
+--- Cycle Counters ---
+frame                  1997339 us (100%)  32 calls  1198403982 cyc
+  pov_preserve_half    4270 us (0%)  32 calls  2562334 cyc
+  grd_render           1271486 us (63%)  32 calls  762891942 cyc
+    grd_rasterize      1048858 us (82%)  32 calls  629315265 cyc
+      grd_shader_draw  928951 us (88%)  32 calls  557370971 cyc
+      grd_cull_flags   107930 us (10%)  32 calls  64758357 cyc
+      grd_orient       11960 us (1%)  32 calls  7176401 cyc
+    grd_simulate       222616 us (17%)  32 calls  133569733 cyc
+  rd_timeline_step     1131 us (0%)  32 calls  678733 cyc
+  canvas_clear         2705 us (0%)  32 calls  1623037 cyc
+  canvas_buffer_wait   717715 us (35%)  32 calls  430629042 cyc
+isr_wake       n=36847 cyc min/avg/max=365/1016/7194 ns min/avg/max=608/1693/11990 total=62422 us cpu=3.12%
+isr_pack       n=4605 cyc min/avg/max=3743/4262/6144 ns min/avg/max=6238/7103/10240 total=32715 us cpu=1.63%
+isr_dma_submit n=4605 cyc min/avg/max=369/559/2145 ns min/avg/max=615/931/3575 total=4295 us cpu=0.21%
+f 1249 w=57629 r=37170
+f 1250 w=66472 r=41187
+f 1251 w=58693 r=37429
+f 1252 w=65980 r=40954
+f 1253 w=59201 r=37701
+f 1254 w=65174 r=40420
+f 1255 w=60092 r=38059
+f 1256 w=64691 r=40297
+f 1257 w=60433 r=38277
+f 1258 w=64082 r=39852
+f 1259 w=61262 r=38670
+f 1260 w=63416 r=39633
+f 1261 w=61930 r=39112
+f 1262 w=62716 r=39373
+f 1263 w=62580 r=39500
+f 1264 w=62257 r=39302
+f 1265 w=62939 r=39787
+f 1266 w=61861 r=39195
+f 1267 w=63576 r=40319
+f 1268 w=61485 r=39353
+f 1269 w=63604 r=40505
+f 1270 w=61477 r=39527
+f 1271 w=63604 r=40676
+f 1272 w=61341 r=39509
+f 1273 w=63800 r=40855
+f 1274 w=61180 r=39582
+f 1275 w=63886 r=41014
+f 1276 w=61088 r=39646
+f 1277 w=64079 r=41272
+f 1278 w=60904 r=39722
+f 1279 w=64039 r=41309
+f 1280 w=60989 r=39845
+=== profile GSReactionDiffusion [288x144] frames 1249-1280 window=1997831 us ===
+frame wall us: min=57629 avg=62389 max=66472 sum=1996460 (32 frames)
+frame render us: avg=39657 max=41309
+--- Cycle Counters ---
+frame                  1996453 us (100%)  32 calls  1197872207 cyc
+  pov_preserve_half    4314 us (0%)  32 calls  2588606 cyc
+  grd_render           1260987 us (63%)  32 calls  756592442 cyc
+    grd_rasterize      1038377 us (82%)  32 calls  623026533 cyc
+      grd_shader_draw  919558 us (88%)  32 calls  551735008 cyc
+      grd_cull_flags   106843 us (10%)  32 calls  64106248 cyc
+      grd_orient       11959 us (1%)  32 calls  7175741 cyc
+    grd_simulate       222598 us (17%)  32 calls  133558859 cyc
+  rd_timeline_step     989 us (0%)  32 calls  593628 cyc
+  canvas_clear         2706 us (0%)  32 calls  1623734 cyc
+  canvas_buffer_wait   727425 us (36%)  32 calls  436455135 cyc
+isr_wake       n=36831 cyc min/avg/max=365/1015/7130 ns min/avg/max=608/1691/11883 total=62363 us cpu=3.12%
+isr_pack       n=4604 cyc min/avg/max=3780/4256/6038 ns min/avg/max=6300/7093/10063 total=32663 us cpu=1.63%
+isr_dma_submit n=4604 cyc min/avg/max=440/560/2481 ns min/avg/max=733/933/4135 total=4300 us cpu=0.21%
+f 1281 w=63658 r=41288
+f 1282 w=61274 r=40107
+f 1283 w=63788 r=41442
+f 1284 w=61487 r=40473
+f 1285 w=63395 r=41414
+f 1286 w=61799 r=40705
+f 1287 w=63124 r=41376
+f 1288 w=61993 r=40916
+f 1289 w=62893 r=41356
+f 1290 w=62481 r=41383
+f 1291 w=62463 r=41392
+f 1292 w=62634 r=41573
+f 1293 w=62156 r=41276
+f 1294 w=62879 r=41701
+f 1295 w=62221 r=41470
+f 1296 w=62812 r=41829
+f 1297 w=61857 r=41232
+f 1298 w=63388 r=42164
+f 1299 w=61685 r=41340
+f 1300 w=63320 r=42205
+f 1301 w=61612 r=41363
+f 1302 w=63406 r=42316
+f 1303 w=61559 r=41420
+f 1304 w=63344 r=42309
+f 1305 w=61645 r=41500
+f 1306 w=63418 r=42463
+f 1307 w=61471 r=41479
+f 1308 w=63409 r=42435
+f 1309 w=61605 r=41587
+f 1310 w=63247 r=42382
+f 1311 w=61648 r=41577
+f 1312 w=63313 r=42437
+=== profile GSReactionDiffusion [288x144] frames 1281-1312 window=2002334 us ===
+frame wall us: min=61274 avg=62530 max=63788 sum=2000984 (32 frames)
+frame render us: avg=41559 max=42463
+--- Cycle Counters ---
+frame                  2000983 us (100%)  32 calls  1200590217 cyc
+  pov_preserve_half    4311 us (0%)  32 calls  2587144 cyc
+  grd_render           1321878 us (66%)  32 calls  793126983 cyc
+    grd_rasterize      1099255 us (83%)  32 calls  659553168 cyc
+      grd_shader_draw  980679 us (89%)  32 calls  588407618 cyc
+      grd_cull_flags   106592 us (9%)  32 calls  63955437 cyc
+      grd_orient       11958 us (1%)  32 calls  7175218 cyc
+    grd_simulate       222611 us (16%)  32 calls  133566863 cyc
+  rd_timeline_step     962 us (0%)  32 calls  577779 cyc
+  canvas_clear         2706 us (0%)  32 calls  1623841 cyc
+  canvas_buffer_wait   671090 us (33%)  32 calls  402654488 cyc
+isr_wake       n=36914 cyc min/avg/max=365/1018/7154 ns min/avg/max=608/1696/11923 total=62664 us cpu=3.12%
+isr_pack       n=4614 cyc min/avg/max=3775/4275/6064 ns min/avg/max=6291/7125/10106 total=32879 us cpu=1.64%
+isr_dma_submit n=4614 cyc min/avg/max=376/559/2302 ns min/avg/max=626/931/3836 total=4299 us cpu=0.21%
+f 1313 w=61467 r=41638
+f 1314 w=63295 r=42485
+f 1315 w=61720 r=41759
+f 1316 w=63294 r=42598
+f 1317 w=61475 r=41619
+f 1318 w=63478 r=42647
+f 1319 w=61550 r=41745
+f 1320 w=63370 r=42661
+f 1321 w=61587 r=41794
+f 1322 w=63336 r=42678
+f 1323 w=61589 r=41813
+f 1324 w=63207 r=42563
+f 1325 w=61888 r=41999
+f 1326 w=62984 r=42474
+f 1327 w=62044 r=42063
+f 1328 w=62885 r=42503
+f 1329 w=62007 r=42067
+f 1330 w=62873 r=42498
+f 1331 w=61956 r=42010
+f 1332 w=63021 r=42577
+f 1333 w=62088 r=42210
+f 1334 w=62799 r=42555
+f 1335 w=62027 r=42129
+f 1336 w=62890 r=42565
+f 1337 w=62227 r=42338
+f 1338 w=62510 r=42395
+f 1339 w=62324 r=42266
+f 1340 w=62594 r=42353
+f 1341 w=62356 r=42257
+f 1342 w=62660 r=42462
+f 1343 w=62309 r=42317
+f 1344 w=62565 r=42427
+=== profile GSReactionDiffusion [288x144] frames 1313-1344 window=1999782 us ===
+frame wall us: min=61467 avg=62449 max=63478 sum=1998375 (32 frames)
+frame render us: avg=42264 max=42678
+--- Cycle Counters ---
+frame                  1998372 us (100%)  32 calls  1199023740 cyc
+  pov_preserve_half    4316 us (0%)  32 calls  2589866 cyc
+  grd_render           1344400 us (67%)  32 calls  806640022 cyc
+    grd_rasterize      1121745 us (83%)  32 calls  673047082 cyc
+      grd_shader_draw  1004101 us (89%)  32 calls  602461124 cyc
+      grd_cull_flags   105667 us (9%)  32 calls  63400667 cyc
+      grd_orient       11959 us (1%)  32 calls  7175755 cyc
+    grd_simulate       222643 us (16%)  32 calls  133585955 cyc
+  rd_timeline_step     992 us (0%)  32 calls  595437 cyc
+  canvas_clear         2705 us (0%)  32 calls  1623444 cyc
+  canvas_buffer_wait   645926 us (32%)  32 calls  387555813 cyc
+isr_wake       n=36867 cyc min/avg/max=365/1021/7122 ns min/avg/max=608/1701/11870 total=62772 us cpu=3.13%
+isr_pack       n=4608 cyc min/avg/max=3775/4299/6071 ns min/avg/max=6291/7165/10118 total=33018 us cpu=1.65%
+isr_dma_submit n=4608 cyc min/avg/max=401/558/740 ns min/avg/max=668/930/1233 total=4292 us cpu=0.21%
+f 1345 w=62091 r=42308
+f 1346 w=62567 r=42420
+f 1347 w=62408 r=42374
+f 1348 w=62417 r=42337
+f 1349 w=62451 r=42336
+f 1350 w=62359 r=42241
+f 1351 w=62459 r=42249
+f 1352 w=62658 r=42453
+f 1353 w=62227 r=42173
+f 1354 w=62815 r=42535
+f 1355 w=62074 r=42156
+f 1356 w=62857 r=42560
+f 1357 w=61912 r=42017
+f 1358 w=63137 r=42699
+f 1359 w=61831 r=42076
+f 1360 w=62998 r=42632
+f 1361 w=61890 r=42067
+f 1362 w=62940 r=42563
+f 1363 w=61939 r=42050
+f 1364 w=62940 r=42544
+f 1365 w=61930 r=42020
+f 1366 w=62909 r=42476
+f 1367 w=62088 r=42055
+f 1368 w=62813 r=42417
+f 1369 w=61927 r=41890
+f 1370 w=62824 r=42261
+f 1371 w=62125 r=41932
+f 1372 w=63216 r=42694
+f 1373 w=62105 r=42344
+f 1374 w=62580 r=42471
+f 1375 w=62206 r=42222
+f 1376 w=62567 r=42337
+=== profile GSReactionDiffusion [288x144] frames 1345-1376 window=1999647 us ===
+frame wall us: min=61831 avg=62445 max=63216 sum=1998260 (32 frames)
+frame render us: avg=42309 max=42699
+--- Cycle Counters ---
+frame                  1998258 us (100%)  32 calls  1198954970 cyc
+  pov_preserve_half    4283 us (0%)  32 calls  2569833 cyc
+  grd_render           1346012 us (67%)  32 calls  807607268 cyc
+    grd_rasterize      1120829 us (83%)  32 calls  672497913 cyc
+      grd_shader_draw  1004065 us (89%)  32 calls  602439368 cyc
+      grd_cull_flags   104786 us (9%)  32 calls  62872140 cyc
+      grd_orient       11961 us (1%)  32 calls  7176869 cyc
+    grd_simulate       222645 us (16%)  32 calls  133587345 cyc
+  rd_timeline_step     852 us (0%)  32 calls  511687 cyc
+  canvas_clear         2708 us (0%)  32 calls  1625259 cyc
+  canvas_buffer_wait   644370 us (32%)  32 calls  386622133 cyc
+isr_wake       n=36864 cyc min/avg/max=365/1023/10714 ns min/avg/max=608/1705/17856 total=62855 us cpu=3.14%
+isr_pack       n=4608 cyc min/avg/max=3843/4309/6286 ns min/avg/max=6405/7181/10476 total=33097 us cpu=1.65%
+isr_dma_submit n=4608 cyc min/avg/max=424/560/6041 ns min/avg/max=706/933/10068 total=4304 us cpu=0.21%
+f 1377 w=62104 r=42229
+f 1378 w=62362 r=42139
+f 1379 w=62562 r=42246
+f 1380 w=62364 r=42154
+f 1381 w=62470 r=42117
+f 1382 w=62571 r=42233
+f 1383 w=62267 r=42047
+f 1384 w=62627 r=42232
+f 1385 w=62225 r=42003
+f 1386 w=62753 r=42301
+f 1387 w=62157 r=42002
+f 1388 w=62777 r=42325
+f 1389 w=62365 r=42237
+f 1390 w=62502 r=42285
+f 1391 w=62462 r=42294
+f 1392 w=62487 r=42328
+f 1393 w=62515 r=42383
+f 1394 w=62428 r=42302
+f 1395 w=62574 r=42422
+f 1396 w=62356 r=42324
+f 1397 w=62585 r=42454
+f 1398 w=62299 r=42300
+f 1399 w=62723 r=42568
+f 1400 w=62160 r=42275
+f 1401 w=62698 r=42519
+f 1402 w=62092 r=42169
+f 1403 w=62652 r=42367
+f 1404 w=62446 r=42358
+f 1405 w=62514 r=42418
+f 1406 w=62358 r=42321
+f 1407 w=62653 r=42519
+f 1408 w=62375 r=42386
+=== profile GSReactionDiffusion [288x144] frames 1377-1408 window=1999842 us ===
+frame wall us: min=62092 avg=62452 max=62777 sum=1998483 (32 frames)
+frame render us: avg=42289 max=42568
+--- Cycle Counters ---
+frame                  1998475 us (100%)  32 calls  1199085488 cyc
+  pov_preserve_half    4263 us (0%)  32 calls  2557982 cyc
+  grd_render           1345282 us (67%)  32 calls  807169561 cyc
+    grd_rasterize      1105622 us (82%)  32 calls  663373312 cyc
+      grd_shader_draw  1010304 us (91%)  32 calls  606182528 cyc
+      grd_cull_flags   83343 us (7%)  32 calls  50006098 cyc
+      grd_orient       11958 us (1%)  32 calls  7175150 cyc
+    grd_simulate       223000 us (16%)  32 calls  133800003 cyc
+  rd_timeline_step     954 us (0%)  32 calls  572565 cyc
+  canvas_clear         2701 us (0%)  32 calls  1620755 cyc
+  canvas_buffer_wait   645241 us (32%)  32 calls  387145112 cyc
+isr_wake       n=36868 cyc min/avg/max=376/1026/10006 ns min/avg/max=626/1710/16676 total=63058 us cpu=3.15%
+isr_pack       n=4608 cyc min/avg/max=3838/4334/6222 ns min/avg/max=6396/7223/10370 total=33289 us cpu=1.66%
+isr_dma_submit n=4608 cyc min/avg/max=401/562/4900 ns min/avg/max=668/936/8166 total=4317 us cpu=0.21%
+f 1409 w=62163 r=42342
+f 1410 w=62589 r=42476
+f 1411 w=62249 r=42270
+f 1412 w=62780 r=42596
+f 1413 w=62256 r=42399
+f 1414 w=62563 r=42507
+f 1415 w=62299 r=42363
+f 1416 w=62607 r=42515
+f 1417 w=62472 r=42545
+f 1418 w=62401 r=42491
+f 1419 w=62497 r=42537
+f 1420 w=62473 r=42555
+f 1421 w=62486 r=42535
+f 1422 w=62359 r=42440
+f 1423 w=62623 r=42610
+f 1424 w=62393 r=42550
+f 1425 w=62562 r=42658
+f 1426 w=62222 r=42428
+f 1427 w=62617 r=42590
+f 1428 w=62411 r=42549
+f 1429 w=62620 r=42715
+f 1430 w=62176 r=42436
+f 1431 w=62468 r=42450
+f 1432 w=62474 r=42471
+f 1433 w=62640 r=42656
+f 1434 w=62277 r=42481
+f 1435 w=62624 r=42596
+f 1436 w=62182 r=42326
+f 1437 w=62742 r=42613
+f 1438 w=62137 r=42298
+f 1439 w=62695 r=42542
+f 1440 w=62138 r=42226
+=== profile GSReactionDiffusion [288x144] frames 1409-1440 window=1999573 us ===
+frame wall us: min=62137 avg=62443 max=62780 sum=1998195 (32 frames)
+frame render us: avg=42492 max=42715
+--- Cycle Counters ---
+frame                  1998191 us (100%)  32 calls  1198915123 cyc
+  pov_preserve_half    4358 us (0%)  32 calls  2615113 cyc
+  grd_render           1351711 us (67%)  32 calls  811026754 cyc
+    grd_rasterize      1111138 us (82%)  32 calls  666682940 cyc
+      grd_shader_draw  1010362 us (90%)  32 calls  606217349 cyc
+      grd_cull_flags   88804 us (7%)  32 calls  53282706 cyc
+      grd_orient       11955 us (1%)  32 calls  7173349 cyc
+    grd_simulate       223524 us (16%)  32 calls  134114730 cyc
+  rd_timeline_step     943 us (0%)  32 calls  566306 cyc
+  canvas_clear         2701 us (0%)  32 calls  1620694 cyc
+  canvas_buffer_wait   638445 us (31%)  32 calls  383067491 cyc
+isr_wake       n=36863 cyc min/avg/max=365/1023/10918 ns min/avg/max=608/1705/18196 total=62872 us cpu=3.14%
+isr_pack       n=4607 cyc min/avg/max=3833/4312/6161 ns min/avg/max=6388/7186/10268 total=33113 us cpu=1.65%
+isr_dma_submit n=4607 cyc min/avg/max=363/561/5986 ns min/avg/max=605/935/9976 total=4308 us cpu=0.21%
+f 1441 w=62500 r=42504
+f 1442 w=62160 r=42222
+f 1443 w=62641 r=42411
+f 1444 w=62196 r=42153
+f 1445 w=62621 r=42320
+f 1446 w=62027 r=41893
+f 1447 w=62866 r=42307
+f 1448 w=62086 r=41885
+f 1449 w=62634 r=42065
+f 1450 w=62114 r=41733
+f 1451 w=62537 r=41816
+f 1452 w=62245 r=41609
+f 1453 w=62318 r=41471
+f 1454 w=62288 r=41306
+f 1455 w=62238 r=41092
+f 1456 w=62457 r=41096
+f 1457 w=62284 r=40925
+f 1458 w=62282 r=40754
+f 1459 w=62115 r=40417
+f 1460 w=62039 r=40002
+f 1461 w=61736 r=39285
+f 1462 w=62086 r=38864
+f 1463 w=61142 r=37552
+f 1464 w=61976 r=37076
+f 1465 w=61185 r=35808
+f 1466 w=61453 r=34813
+f 1467 w=60830 r=33189
+f 1468 w=61946 r=32681
+f 1469 w=58910 r=29138
+f 1470 w=59446 r=26131
+f 1471 w=59555 r=23232
+f 1472 w=58296 r=19074
+=== profile GSReactionDiffusion [288x144] frames 1441-1472 window=1976606 us ===
+frame wall us: min=58296 avg=61725 max=62866 sum=1975209 (32 frames)
+frame render us: avg=38088 max=42504
+--- Cycle Counters ---
+frame                  1975204 us (100%)  32 calls  1185122490 cyc
+  pov_preserve_half    4343 us (0%)  32 calls  2605902 cyc
+  grd_render           1210624 us (61%)  32 calls  726374793 cyc
+    grd_rasterize      969804 us (80%)  32 calls  581882860 cyc
+      grd_shader_draw  842945 us (86%)  32 calls  505767402 cyc
+      grd_cull_flags   114905 us (11%)  32 calls  68943477 cyc
+      grd_orient       11937 us (1%)  32 calls  7162445 cyc
+    grd_simulate       224624 us (18%)  32 calls  134774548 cyc
+  rd_timeline_step     1097 us (0%)  32 calls  658643 cyc
+  canvas_clear         2706 us (0%)  32 calls  1623759 cyc
+  canvas_buffer_wait   756400 us (38%)  32 calls  453840369 cyc
+isr_wake       n=36439 cyc min/avg/max=365/1003/7754 ns min/avg/max=608/1671/12923 total=60923 us cpu=3.08%
+isr_pack       n=4555 cyc min/avg/max=3743/4159/6012 ns min/avg/max=6238/6931/10020 total=31574 us cpu=1.59%
+isr_dma_submit n=4555 cyc min/avg/max=419/560/3206 ns min/avg/max=698/933/5343 total=4254 us cpu=0.21%
+f 1473 w=58467 r=15329
+f 1474 w=66675 r=19551
+f 1475 w=64621 r=21664
+f 1476 w=58660 r=17880
+f 1477 w=66567 r=21993
+f 1478 w=59390 r=18928
+f 1479 w=67841 r=24314
+f 1480 w=57107 r=18968
+f 1481 w=67998 r=24513
+f 1482 w=57011 r=19069
+f 1483 w=68218 r=24840
+f 1484 w=56800 r=19185
+f 1485 w=68460 r=25192
+f 1486 w=56765 r=19502
+f 1487 w=69067 r=26125
+f 1488 w=56750 r=20420
+f 1489 w=69779 r=27691
+f 1490 w=55808 r=21045
+f 1491 w=70377 r=28968
+f 1492 w=54667 r=21181
+f 1493 w=70607 r=29336
+f 1494 w=54532 r=21415
+f 1495 w=70755 r=29718
+f 1496 w=54842 r=22106
+f 1497 w=70632 r=30295
+f 1498 w=54807 r=22648
+f 1499 w=70734 r=30929
+f 1500 w=55280 r=23754
+f 1501 w=70883 r=32183
+f 1502 w=54849 r=24578
+f 1503 w=70423 r=32492
+f 1504 w=55179 r=25215
+=== profile GSReactionDiffusion [288x144] frames 1473-1504 window=2005935 us ===
+frame wall us: min=54532 avg=62642 max=70883 sum=2004551 (32 frames)
+frame render us: avg=23782 max=32492
+--- Cycle Counters ---
+frame                  2004548 us (100%)  32 calls  1202729271 cyc
+  pov_preserve_half    4584 us (0%)  32 calls  2750417 cyc
+  grd_render           752735 us (37%)  32 calls  451641521 cyc
+    grd_palette_rebake 2232 us (0%)  1 calls  1339200 cyc
+    grd_rasterize      524267 us (69%)  32 calls  314560261 cyc
+      grd_shader_draw  393683 us (75%)  32 calls  236210243 cyc
+      grd_cull_flags   118625 us (22%)  32 calls  71175328 cyc
+      grd_orient       11941 us (2%)  32 calls  7165135 cyc
+    grd_simulate       225273 us (29%)  32 calls  135163811 cyc
+  rd_timeline_step     962 us (0%)  32 calls  577748 cyc
+  canvas_clear         2695 us (0%)  32 calls  1617565 cyc
+  canvas_buffer_wait   1243538 us (62%)  32 calls  746122844 cyc
+isr_wake       n=36980 cyc min/avg/max=365/993/7814 ns min/avg/max=608/1655/13023 total=61203 us cpu=3.05%
+isr_pack       n=4622 cyc min/avg/max=3743/4105/6288 ns min/avg/max=6238/6841/10480 total=31628 us cpu=1.57%
+isr_dma_submit n=4622 cyc min/avg/max=430/558/3015 ns min/avg/max=716/930/5025 total=4304 us cpu=0.21%
+f 1505 w=69515 r=32508
+f 1506 w=56178 r=26242
+f 1507 w=69233 r=33019
+f 1508 w=56265 r=26833
+f 1509 w=68725 r=33098
+f 1510 w=56800 r=27443
+f 1511 w=68284 r=33273
+f 1512 w=57503 r=28322
+f 1513 w=67876 r=33744
+f 1514 w=58180 r=29469
+f 1515 w=66824 r=33842
+f 1516 w=58719 r=30064
+f 1517 w=66525 r=34137
+f 1518 w=59008 r=30691
+f 1519 w=66174 r=34409
+f 1520 w=59096 r=31052
+f 1521 w=65944 r=34543
+f 1522 w=59691 r=31779
+f 1523 w=65401 r=34727
+f 1524 w=59862 r=32134
+f 1525 w=65109 r=34800
+f 1526 w=60171 r=32516
+f 1527 w=64805 r=34878
+f 1528 w=60490 r=32913
+f 1529 w=64504 r=34964
+f 1530 w=60809 r=33266
+f 1531 w=64148 r=34962
+f 1532 w=61267 r=33776
+f 1533 w=63748 r=35069
+f 1534 w=61625 r=34241
+f 1535 w=63159 r=34951
+f 1536 w=62254 r=34752
+=== profile GSReactionDiffusion [288x144] frames 1505-1536 window=2009287 us ===
+frame wall us: min=56178 avg=62746 max=69515 sum=2007892 (32 frames)
+frame render us: avg=32575 max=35069
+--- Cycle Counters ---
+frame                  2007888 us (100%)  32 calls  1204732970 cyc
+  pov_preserve_half    4446 us (0%)  32 calls  2667838 cyc
+  grd_render           1034352 us (51%)  32 calls  620611554 cyc
+    grd_rasterize      810703 us (78%)  32 calls  486422274 cyc
+      grd_shader_draw  680631 us (83%)  32 calls  408378910 cyc
+      grd_cull_flags   118106 us (14%)  32 calls  70863974 cyc
+      grd_orient       11949 us (1%)  32 calls  7169854 cyc
+    grd_simulate       223638 us (21%)  32 calls  134183066 cyc
+  rd_timeline_step     870 us (0%)  32 calls  522045 cyc
+  canvas_clear         2697 us (0%)  32 calls  1618466 cyc
+  canvas_buffer_wait   965489 us (48%)  32 calls  579293992 cyc
+isr_wake       n=37042 cyc min/avg/max=365/1008/7814 ns min/avg/max=608/1680/13023 total=62288 us cpu=3.10%
+isr_pack       n=4630 cyc min/avg/max=3743/4214/6275 ns min/avg/max=6238/7023/10458 total=32522 us cpu=1.61%
+isr_dma_submit n=4630 cyc min/avg/max=383/559/3089 ns min/avg/max=638/931/5148 total=4317 us cpu=0.21%
+f 1537 w=62422 r=34952
+f 1538 w=62631 r=35129
+f 1539 w=62062 r=34748
+f 1540 w=63180 r=35476
+f 1541 w=61823 r=34845
+f 1542 w=63398 r=35789
+f 1543 w=61509 r=34792
+f 1544 w=63943 r=36281
+f 1545 w=61058 r=34886
+f 1546 w=64106 r=36537
+f 1547 w=60579 r=34661
+f 1548 w=64628 r=36834
+f 1549 w=60281 r=34661
+f 1550 w=64845 r=37050
+f 1551 w=60231 r=34826
+f 1552 w=64968 r=37340
+f 1553 w=60002 r=34890
+f 1554 w=65068 r=37504
+f 1555 w=60048 r=35099
+f 1556 w=65000 r=37645
+f 1557 w=59888 r=35025
+f 1558 w=65434 r=38004
+f 1559 w=59747 r=35297
+f 1560 w=65383 r=38219
+f 1561 w=59376 r=35143
+f 1562 w=65695 r=38395
+f 1563 w=59310 r=35250
+f 1564 w=66162 r=38959
+f 1565 w=58731 r=35236
+f 1566 w=66261 r=39042
+f 1567 w=58662 r=35260
+f 1568 w=66396 r=39202
+=== profile GSReactionDiffusion [288x144] frames 1537-1568 window=2004193 us ===
+frame wall us: min=58662 avg=62588 max=66396 sum=2002827 (32 frames)
+frame render us: avg=36155 max=39202
+--- Cycle Counters ---
+frame                  2002826 us (100%)  32 calls  1201695864 cyc
+  pov_preserve_half    4391 us (0%)  32 calls  2634751 cyc
+  grd_render           1148770 us (57%)  32 calls  689262406 cyc
+    grd_rasterize      925613 us (80%)  32 calls  555368037 cyc
+      grd_shader_draw  796285 us (86%)  32 calls  477771594 cyc
+      grd_cull_flags   117358 us (12%)  32 calls  70415030 cyc
+      grd_orient       11953 us (1%)  32 calls  7171877 cyc
+    grd_simulate       223146 us (19%)  32 calls  133888139 cyc
+  rd_timeline_step     1057 us (0%)  32 calls  634657 cyc
+  canvas_clear         2707 us (0%)  32 calls  1624527 cyc
+  canvas_buffer_wait   845867 us (42%)  32 calls  507520635 cyc
+isr_wake       n=36948 cyc min/avg/max=365/1015/7278 ns min/avg/max=608/1691/12130 total=62543 us cpu=3.12%
+isr_pack       n=4618 cyc min/avg/max=3743/4261/6136 ns min/avg/max=6238/7101/10226 total=32796 us cpu=1.63%
+isr_dma_submit n=4618 cyc min/avg/max=398/560/2701 ns min/avg/max=663/933/4501 total=4312 us cpu=0.21%
+f 1569 w=58065 r=35038
+f 1570 w=66655 r=39184
+f 1571 w=58372 r=35103
+f 1572 w=66673 r=39338
+f 1573 w=58302 r=35188
+f 1574 w=66646 r=39378
+f 1575 w=58879 r=35803
+f 1576 w=66058 r=39406
+f 1577 w=58957 r=35919
+f 1578 w=65845 r=39309
+f 1579 w=59112 r=35967
+f 1580 w=65818 r=39330
+f 1581 w=59240 r=36116
+f 1582 w=65564 r=39224
+f 1583 w=59526 r=36303
+f 1584 w=65490 r=39284
+f 1585 w=59737 r=36566
+f 1586 w=65094 r=39205
+f 1587 w=59771 r=36522
+f 1588 w=64945 r=39014
+f 1589 w=60087 r=36655
+f 1590 w=64571 r=38771
+f 1591 w=60549 r=36869
+f 1592 w=64160 r=38587
+f 1593 w=60802 r=36945
+f 1594 w=63862 r=38353
+f 1595 w=61186 r=37086
+f 1596 w=63542 r=38174
+f 1597 w=61667 r=37395
+f 1598 w=63040 r=37926
+f 1599 w=62242 r=37716
+f 1600 w=62374 r=37637
+=== profile GSReactionDiffusion [288x144] frames 1569-1600 window=1998246 us ===
+frame wall us: min=58065 avg=62400 max=66673 sum=1996831 (32 frames)
+frame render us: avg=37603 max=39406
+--- Cycle Counters ---
+frame                  1996828 us (100%)  32 calls  1198096876 cyc
+  pov_preserve_half    4314 us (0%)  32 calls  2588589 cyc
+  grd_render           1195305 us (59%)  32 calls  717183035 cyc
+    grd_rasterize      972451 us (81%)  32 calls  583470958 cyc
+      grd_shader_draw  845138 us (86%)  32 calls  507083085 cyc
+      grd_cull_flags   115342 us (11%)  32 calls  69205309 cyc
+      grd_orient       11955 us (1%)  32 calls  7173028 cyc
+    grd_simulate       222843 us (18%)  32 calls  133705889 cyc
+  rd_timeline_step     931 us (0%)  32 calls  558645 cyc
+  canvas_clear         2701 us (0%)  32 calls  1621032 cyc
+  canvas_buffer_wait   793537 us (39%)  32 calls  476122762 cyc
+isr_wake       n=36839 cyc min/avg/max=365/1018/7194 ns min/avg/max=608/1696/11990 total=62548 us cpu=3.13%
+isr_pack       n=4605 cyc min/avg/max=3743/4284/6084 ns min/avg/max=6238/7140/10140 total=32882 us cpu=1.64%
+isr_dma_submit n=4605 cyc min/avg/max=383/558/1642 ns min/avg/max=638/930/2736 total=4288 us cpu=0.21%
+f 1601 w=62428 r=37854
+f 1602 w=62038 r=37438
+f 1603 w=63243 r=38228
+f 1604 w=61449 r=37221
+f 1605 w=63736 r=38504
+f 1606 w=61149 r=37196
+f 1607 w=64260 r=39003
+f 1608 w=60570 r=37118
+f 1609 w=64942 r=39607
+f 1610 w=59879 r=37032
+f 1611 w=65438 r=39962
+f 1612 w=59383 r=36892
+f 1613 w=66012 r=40449
+f 1614 w=58771 r=36767
+f 1615 w=66543 r=40854
+f 1616 w=58367 r=36768
+f 1617 w=67071 r=41383
+f 1618 w=57982 r=36910
+f 1619 w=67262 r=41720
+f 1620 w=57812 r=37077
+f 1621 w=67297 r=41921
+f 1622 w=57767 r=37231
+f 1623 w=67304 r=42082
+f 1624 w=57761 r=37401
+f 1625 w=67161 r=42054
+f 1626 w=58067 r=37671
+f 1627 w=67004 r=42222
+f 1628 w=58189 r=37957
+f 1629 w=66683 r=42186
+f 1630 w=58361 r=38086
+f 1631 w=66712 r=42343
+f 1632 w=58423 r=38313
+=== profile GSReactionDiffusion [288x144] frames 1601-1632 window=2000414 us ===
+frame wall us: min=57761 avg=62470 max=67304 sum=1999064 (32 frames)
+frame render us: avg=38982 max=42343
+--- Cycle Counters ---
+frame                  1999057 us (100%)  32 calls  1199434282 cyc
+  pov_preserve_half    4364 us (0%)  32 calls  2618584 cyc
+  grd_render           1239402 us (61%)  32 calls  743641368 cyc
+    grd_rasterize      1016670 us (82%)  32 calls  610002004 cyc
+      grd_shader_draw  892647 us (87%)  32 calls  535588628 cyc
+      grd_cull_flags   112052 us (11%)  32 calls  67231430 cyc
+      grd_orient       11954 us (1%)  32 calls  7172410 cyc
+    grd_simulate       222721 us (17%)  32 calls  133633041 cyc
+  rd_timeline_step     924 us (0%)  32 calls  554472 cyc
+  canvas_clear         2702 us (0%)  32 calls  1621503 cyc
+  canvas_buffer_wait   751632 us (37%)  32 calls  450979466 cyc
+isr_wake       n=36878 cyc min/avg/max=365/1021/7191 ns min/avg/max=608/1701/11985 total=62808 us cpu=3.13%
+isr_pack       n=4609 cyc min/avg/max=3743/4308/6095 ns min/avg/max=6238/7180/10158 total=33093 us cpu=1.65%
+isr_dma_submit n=4609 cyc min/avg/max=401/558/1242 ns min/avg/max=668/930/2070 total=4290 us cpu=0.21%
+f 1633 w=66266 r=42357
+f 1634 w=58590 r=38493
+f 1635 w=66423 r=42462
+f 1636 w=58836 r=38845
+f 1637 w=66066 r=42458
+f 1638 w=59038 r=38980
+f 1639 w=66164 r=42703
+f 1640 w=58921 r=39170
+f 1641 w=65933 r=42648
+f 1642 w=59339 r=39531
+f 1643 w=65473 r=42550
+f 1644 w=59461 r=39555
+f 1645 w=65610 r=42713
+f 1646 w=59487 r=39747
+f 1647 w=65424 r=42719
+f 1648 w=59650 r=39915
+f 1649 w=65324 r=42794
+f 1650 w=59813 r=40153
+f 1651 w=65103 r=42804
+f 1652 w=60169 r=40464
+f 1653 w=64536 r=42545
+f 1654 w=60557 r=40641
+f 1655 w=64306 r=42492
+f 1656 w=60760 r=40808
+f 1657 w=64102 r=42456
+f 1658 w=60899 r=40899
+f 1659 w=64030 r=42474
+f 1660 w=61086 r=41106
+f 1661 w=63983 r=42633
+f 1662 w=60909 r=41087
+f 1663 w=64003 r=42646
+f 1664 w=61189 r=41380
+=== profile GSReactionDiffusion [288x144] frames 1633-1664 window=2002817 us ===
+frame wall us: min=58590 avg=62545 max=66423 sum=2001450 (32 frames)
+frame render us: avg=41319 max=42804
+--- Cycle Counters ---
+frame                  2001441 us (100%)  32 calls  1200864846 cyc
+  pov_preserve_half    4335 us (0%)  32 calls  2601352 cyc
+  grd_render           1314120 us (65%)  32 calls  788472543 cyc
+    grd_rasterize      1091344 us (83%)  32 calls  654806507 cyc
+      grd_shader_draw  969370 us (88%)  32 calls  581622501 cyc
+      grd_cull_flags   109995 us (10%)  32 calls  65997118 cyc
+      grd_orient       11962 us (1%)  32 calls  7177352 cyc
+    grd_simulate       222764 us (16%)  32 calls  133658950 cyc
+  rd_timeline_step     1012 us (0%)  32 calls  607758 cyc
+  canvas_clear         2703 us (0%)  32 calls  1621910 cyc
+  canvas_buffer_wait   679237 us (33%)  32 calls  407542468 cyc
+isr_wake       n=36922 cyc min/avg/max=377/1026/9906 ns min/avg/max=628/1710/16510 total=63197 us cpu=3.15%
+isr_pack       n=4615 cyc min/avg/max=3809/4342/6093 ns min/avg/max=6348/7236/10155 total=33398 us cpu=1.66%
+isr_dma_submit n=4615 cyc min/avg/max=396/560/4694 ns min/avg/max=660/933/7823 total=4310 us cpu=0.21%
+f 1665 w=63604 r=42717
+f 1666 w=61189 r=41454
+f 1667 w=63799 r=42798
+f 1668 w=61253 r=41597
+f 1669 w=63804 r=42947
+f 1670 w=61231 r=41733
+f 1671 w=63602 r=42881
+f 1672 w=61323 r=41750
+f 1673 w=63672 r=42967
+f 1674 w=61653 r=42165
+f 1675 w=63189 r=42901
+f 1676 w=61577 r=42024
+f 1677 w=63487 r=43059
+f 1678 w=61848 r=42452
+f 1679 w=63121 r=43064
+f 1680 w=61971 r=42581
+f 1681 w=62983 r=43110
+f 1682 w=62061 r=42716
+f 1683 w=62769 r=43032
+f 1684 w=62295 r=42873
+f 1685 w=62529 r=42950
+f 1686 w=62375 r=42881
+f 1687 w=62617 r=43045
+f 1688 w=62494 r=43087
+f 1689 w=62500 r=43134
+f 1690 w=62528 r=43207
+f 1691 w=62259 r=43012
+f 1692 w=62720 r=43223
+f 1693 w=62207 r=42974
+f 1694 w=62772 r=43293
+f 1695 w=61919 r=42758
+f 1696 w=63106 r=43410
+=== profile GSReactionDiffusion [288x144] frames 1665-1696 window=2001833 us ===
+frame wall us: min=61189 avg=62514 max=63804 sum=2000457 (32 frames)
+frame render us: avg=42743 max=43410
+--- Cycle Counters ---
+frame                  2000450 us (100%)  32 calls  1200270231 cyc
+  pov_preserve_half    4343 us (0%)  32 calls  2606052 cyc
+  grd_render           1359698 us (67%)  32 calls  815819206 cyc
+    grd_rasterize      1136985 us (83%)  32 calls  682191444 cyc
+      grd_shader_draw  1016333 us (89%)  32 calls  609799920 cyc
+      grd_cull_flags   108672 us (9%)  32 calls  65203238 cyc
+      grd_orient       11964 us (1%)  32 calls  7178750 cyc
+    grd_simulate       222701 us (16%)  32 calls  133620804 cyc
+  rd_timeline_step     989 us (0%)  32 calls  593823 cyc
+  canvas_clear         2710 us (0%)  32 calls  1626142 cyc
+  canvas_buffer_wait   632676 us (31%)  32 calls  379606052 cyc
+isr_wake       n=36905 cyc min/avg/max=376/1025/7222 ns min/avg/max=626/1708/12036 total=63097 us cpu=3.15%
+isr_pack       n=4613 cyc min/avg/max=3873/4330/6156 ns min/avg/max=6455/7216/10260 total=33295 us cpu=1.66%
+isr_dma_submit n=4613 cyc min/avg/max=382/559/2504 ns min/avg/max=636/931/4173 total=4305 us cpu=0.21%
+f 1697 w=61559 r=42747
+f 1698 w=63225 r=43518
+f 1699 w=61778 r=42841
+f 1700 w=63305 r=43692
+f 1701 w=61379 r=42626
+f 1702 w=63566 r=43735
+f 1703 w=61403 r=42685
+f 1704 w=63319 r=43551
+f 1705 w=61678 r=42776
+f 1706 w=63413 r=43680
+f 1707 w=61447 r=42673
+f 1708 w=63357 r=43577
+f 1709 w=61684 r=42806
+f 1710 w=63157 r=43509
+f 1711 w=61588 r=42643
+f 1712 w=63396 r=43590
+f 1713 w=61609 r=42740
+f 1714 w=63311 r=43596
+f 1715 w=61608 r=42750
+f 1716 w=63174 r=43470
+f 1717 w=61793 r=42808
+f 1718 w=63157 r=43511
+f 1719 w=61705 r=42763
+f 1720 w=63426 r=43683
+f 1721 w=61545 r=42775
+f 1722 w=63236 r=43557
+f 1723 w=61702 r=42805
+f 1724 w=63200 r=43550
+f 1725 w=61594 r=42690
+f 1726 w=63269 r=43504
+f 1727 w=61567 r=42616
+f 1728 w=63537 r=43701
+=== profile GSReactionDiffusion [288x144] frames 1697-1728 window=2000040 us ===
+frame wall us: min=61379 avg=62458 max=63566 sum=1998687 (32 frames)
+frame render us: avg=43161 max=43735
+--- Cycle Counters ---
+frame                  1998677 us (100%)  32 calls  1199206541 cyc
+  pov_preserve_half    4303 us (0%)  32 calls  2582034 cyc
+  grd_render           1372981 us (68%)  32 calls  823789033 cyc
+    grd_rasterize      1150311 us (83%)  32 calls  690187168 cyc
+      grd_shader_draw  1030820 us (89%)  32 calls  618492411 cyc
+      grd_cull_flags   107512 us (9%)  32 calls  64507745 cyc
+      grd_orient       11962 us (1%)  32 calls  7177476 cyc
+    grd_simulate       222658 us (16%)  32 calls  133594843 cyc
+  rd_timeline_step     1120 us (0%)  32 calls  672261 cyc
+  canvas_clear         2707 us (0%)  32 calls  1624371 cyc
+  canvas_buffer_wait   617533 us (30%)  32 calls  370520145 cyc
+isr_wake       n=36871 cyc min/avg/max=365/1026/8306 ns min/avg/max=608/1710/13843 total=63051 us cpu=3.15%
+isr_pack       n=4609 cyc min/avg/max=3835/4331/6132 ns min/avg/max=6391/7218/10220 total=33276 us cpu=1.66%
+isr_dma_submit n=4609 cyc min/avg/max=392/559/3408 ns min/avg/max=653/931/5680 total=4300 us cpu=0.21%
+f 1729 w=61152 r=42644
+f 1730 w=63169 r=43359
+f 1731 w=61682 r=42587
+f 1732 w=63581 r=43721
+f 1733 w=61408 r=42615
+f 1734 w=63436 r=43598
+f 1735 w=61632 r=42777
+f 1736 w=63266 r=43592
+f 1737 w=61446 r=42583
+f 1738 w=63549 r=43677
+f 1739 w=61234 r=42457
+f 1740 w=63633 r=43630
+f 1741 w=61357 r=42533
+f 1742 w=63547 r=43628
+f 1743 w=61328 r=42503
+f 1744 w=63461 r=43522
+f 1745 w=61586 r=42656
+f 1746 w=63362 r=43563
+f 1747 w=61694 r=42749
+f 1748 w=63316 r=43610
+f 1749 w=61572 r=42728
+f 1750 w=63339 r=43613
+f 1751 w=61573 r=42732
+f 1752 w=63239 r=43520
+f 1753 w=61822 r=42888
+f 1754 w=62985 r=43419
+f 1755 w=61922 r=42897
+f 1756 w=63064 r=43507
+f 1757 w=61754 r=42806
+f 1758 w=63166 r=43523
+f 1759 w=61846 r=42908
+f 1760 w=63253 r=43653
+=== profile GSReactionDiffusion [288x144] frames 1729-1760 window=1999742 us ===
+frame wall us: min=61152 avg=62449 max=63633 sum=1998374 (32 frames)
+frame render us: avg=43131 max=43721
+--- Cycle Counters ---
+frame                  1998373 us (100%)  32 calls  1199023903 cyc
+  pov_preserve_half    4327 us (0%)  32 calls  2596215 cyc
+  grd_render           1372237 us (68%)  32 calls  823342313 cyc
+    grd_rasterize      1149581 us (83%)  32 calls  689748847 cyc
+      grd_shader_draw  1032039 us (89%)  32 calls  619223816 cyc
+      grd_cull_flags   105564 us (9%)  32 calls  63338501 cyc
+      grd_orient       11961 us (1%)  32 calls  7176994 cyc
+    grd_simulate       222643 us (16%)  32 calls  133586390 cyc
+  rd_timeline_step     867 us (0%)  32 calls  520688 cyc
+  canvas_clear         2704 us (0%)  32 calls  1622950 cyc
+  canvas_buffer_wait   618191 us (30%)  32 calls  370914915 cyc
+isr_wake       n=36867 cyc min/avg/max=365/1027/7138 ns min/avg/max=608/1711/11896 total=63105 us cpu=3.15%
+isr_pack       n=4608 cyc min/avg/max=3811/4339/6049 ns min/avg/max=6351/7231/10081 total=33327 us cpu=1.66%
+isr_dma_submit n=4608 cyc min/avg/max=431/560/2309 ns min/avg/max=718/933/3848 total=4305 us cpu=0.21%
+f 1761 w=61447 r=42890
+f 1762 w=63137 r=43583
+f 1763 w=61584 r=42714
+f 1764 w=63521 r=43781
+f 1765 w=61574 r=42900
+f 1766 w=63206 r=43653
+f 1767 w=61458 r=42657
+f 1768 w=63598 r=43802
+f 1769 w=61229 r=42588
+f 1770 w=63511 r=43644
+f 1771 w=61599 r=42791
+f 1772 w=63388 r=43724
+f 1773 w=61454 r=42724
+f 1774 w=63489 r=43706
+f 1775 w=61373 r=42625
+f 1776 w=63459 r=43631
+f 1777 w=61541 r=42719
+f 1778 w=63394 r=43658
+f 1779 w=61335 r=42540
+f 1780 w=63605 r=43692
+f 1781 w=61591 r=42831
+f 1782 w=63484 r=43862
+f 1783 w=61377 r=42786
+f 1784 w=63575 r=43908
+f 1785 w=61326 r=42779
+f 1786 w=63359 r=43686
+f 1787 w=61529 r=42708
+f 1788 w=63610 r=43865
+f 1789 w=61284 r=42697
+f 1790 w=63689 r=43931
+f 1791 w=61147 r=42625
+f 1792 w=64027 r=44197
+=== profile GSReactionDiffusion [288x144] frames 1761-1792 window=2000284 us ===
+frame wall us: min=61147 avg=62465 max=64027 sum=1998900 (32 frames)
+frame render us: avg=43246 max=44197
+--- Cycle Counters ---
+frame                  1998892 us (100%)  32 calls  1199335402 cyc
+  pov_preserve_half    4293 us (0%)  32 calls  2575982 cyc
+  grd_render           1375689 us (68%)  32 calls  825413766 cyc
+    grd_rasterize      1153001 us (83%)  32 calls  691800684 cyc
+      grd_shader_draw  1036258 us (89%)  32 calls  621754814 cyc
+      grd_cull_flags   104769 us (9%)  32 calls  62861936 cyc
+      grd_orient       11957 us (1%)  32 calls  7174398 cyc
+    grd_simulate       222676 us (16%)  32 calls  133605864 cyc
+  rd_timeline_step     1159 us (0%)  32 calls  695928 cyc
+  canvas_clear         2700 us (0%)  32 calls  1620344 cyc
+  canvas_buffer_wait   615017 us (30%)  32 calls  369010577 cyc
+isr_wake       n=36875 cyc min/avg/max=377/1029/7870 ns min/avg/max=628/1715/13116 total=63253 us cpu=3.16%
+isr_pack       n=4609 cyc min/avg/max=3896/4357/6791 ns min/avg/max=6493/7261/11318 total=33469 us cpu=1.67%
+isr_dma_submit n=4609 cyc min/avg/max=379/560/2701 ns min/avg/max=631/933/4501 total=4305 us cpu=0.21%
+f 1793 w=60640 r=42617
+f 1794 w=63734 r=43896
+f 1795 w=61160 r=42602
+f 1796 w=63769 r=43917
+f 1797 w=61426 r=42889
+f 1798 w=63365 r=43800
+f 1799 w=61410 r=42767
+f 1800 w=63193 r=43507
+f 1801 w=61930 r=42929
+f 1802 w=63033 r=43517
+f 1803 w=61792 r=42855
+f 1804 w=62930 r=43329
+f 1805 w=62048 r=42923
+f 1806 w=62829 r=43300
+f 1807 w=62476 r=43323
+f 1808 w=62880 r=43751
+f 1809 w=61845 r=43143
+f 1810 w=62935 r=43624
+f 1811 w=62051 r=43222
+f 1812 w=62715 r=43483
+f 1813 w=62057 r=43087
+f 1814 w=62867 r=43500
+f 1815 w=62151 r=43142
+f 1816 w=62675 r=43365
+f 1817 w=62086 r=43005
+f 1818 w=62699 r=43248
+f 1819 w=62228 r=43022
+f 1820 w=62469 r=43039
+f 1821 w=62185 r=42772
+f 1822 w=63136 r=43455
+f 1823 w=61978 r=42978
+f 1824 w=62881 r=43406
+=== profile GSReactionDiffusion [288x144] frames 1793-1824 window=1998956 us ===
+frame wall us: min=60640 avg=62424 max=63769 sum=1997573 (32 frames)
+frame render us: avg=43231 max=43917
+--- Cycle Counters ---
+frame                  1997569 us (100%)  32 calls  1198541434 cyc
+  pov_preserve_half    4354 us (0%)  32 calls  2612652 cyc
+  grd_render           1375088 us (68%)  32 calls  825052938 cyc
+    grd_rasterize      1143118 us (83%)  32 calls  685870985 cyc
+      grd_shader_draw  1032290 us (90%)  32 calls  619374484 cyc
+      grd_cull_flags   98851 us (8%)  32 calls  59311028 cyc
+      grd_orient       11959 us (1%)  32 calls  7175937 cyc
+    grd_simulate       222760 us (16%)  32 calls  133656211 cyc
+  rd_timeline_step     1214 us (0%)  32 calls  728431 cyc
+  canvas_clear         2710 us (0%)  32 calls  1626199 cyc
+  canvas_buffer_wait   614170 us (30%)  32 calls  368502579 cyc
+isr_wake       n=36852 cyc min/avg/max=376/1030/8050 ns min/avg/max=626/1716/13416 total=63267 us cpu=3.16%
+isr_pack       n=4606 cyc min/avg/max=3864/4363/6969 ns min/avg/max=6440/7271/11615 total=33497 us cpu=1.67%
+isr_dma_submit n=4606 cyc min/avg/max=371/561/3109 ns min/avg/max=618/935/5181 total=4310 us cpu=0.21%
+f 1825 w=61552 r=42737
+f 1826 w=62934 r=43218
+f 1827 w=61932 r=42696
+f 1828 w=63104 r=43291
+f 1829 w=61795 r=42633
+f 1830 w=63094 r=43272
+f 1831 w=61837 r=42656
+f 1832 w=63242 r=43445
+f 1833 w=61667 r=42658
+f 1834 w=63113 r=43317
+f 1835 w=61939 r=42801
+f 1836 w=62845 r=43191
+f 1837 w=62038 r=42775
+f 1838 w=63034 r=43356
+f 1839 w=61855 r=42760
+f 1840 w=62779 r=43087
+f 1841 w=62242 r=42875
+f 1842 w=62771 r=43140
+f 1843 w=62141 r=42827
+f 1844 w=62934 r=43310
+f 1845 w=62216 r=43073
+f 1846 w=62713 r=43332
+f 1847 w=62022 r=42899
+f 1848 w=62579 r=43025
+f 1849 w=62443 r=43014
+f 1850 w=62522 r=43081
+f 1851 w=62389 r=43016
+f 1852 w=62413 r=42974
+f 1853 w=62423 r=42944
+f 1854 w=62595 r=43087
+f 1855 w=62396 r=42975
+f 1856 w=62380 r=42899
+=== profile GSReactionDiffusion [288x144] frames 1825-1856 window=1999296 us ===
+frame wall us: min=61552 avg=62435 max=63242 sum=1997939 (32 frames)
+frame render us: avg=43011 max=43445
+--- Cycle Counters ---
+frame                  1997933 us (100%)  32 calls  1198760288 cyc
+  pov_preserve_half    4335 us (0%)  32 calls  2601129 cyc
+  grd_render           1368124 us (68%)  32 calls  820874958 cyc
+    grd_rasterize      1127848 us (82%)  32 calls  676709061 cyc
+      grd_shader_draw  1033142 us (91%)  32 calls  619885534 cyc
+      grd_cull_flags   82733 us (7%)  32 calls  49640079 cyc
+      grd_orient       11955 us (1%)  32 calls  7173307 cyc
+    grd_simulate       223312 us (16%)  32 calls  133987739 cyc
+  rd_timeline_step     1139 us (0%)  32 calls  683943 cyc
+  canvas_clear         2711 us (0%)  32 calls  1626947 cyc
+  canvas_buffer_wait   621590 us (31%)  32 calls  372954415 cyc
+isr_wake       n=36857 cyc min/avg/max=365/1038/7790 ns min/avg/max=608/1730/12983 total=63789 us cpu=3.19%
+isr_pack       n=4607 cyc min/avg/max=3933/4431/6267 ns min/avg/max=6555/7385/10445 total=34028 us cpu=1.70%
+isr_dma_submit n=4607 cyc min/avg/max=382/560/3082 ns min/avg/max=636/933/5136 total=4304 us cpu=0.21%
+f 1857 w=62377 r=43055
+f 1858 w=62261 r=42864
+f 1859 w=62454 r=42865
+f 1860 w=62471 r=42883
+f 1861 w=62517 r=42946
+f 1862 w=62522 r=43014
+f 1863 w=62359 r=42919
+f 1864 w=62429 r=42906
+f 1865 w=62329 r=42780
+f 1866 w=62537 r=42865
+f 1867 w=62246 r=42656
+f 1868 w=62610 r=42813
+f 1869 w=62531 r=42834
+f 1870 w=62450 r=42832
+f 1871 w=62291 r=42669
+f 1872 w=62457 r=42672
+f 1873 w=62317 r=42535
+f 1874 w=62378 r=42457
+f 1875 w=62543 r=42540
+f 1876 w=62289 r=42376
+f 1877 w=62503 r=42425
+f 1878 w=62354 r=42326
+f 1879 w=62515 r=42385
+f 1880 w=62209 r=42141
+f 1881 w=62358 r=42045
+f 1882 w=62401 r=41936
+f 1883 w=62286 r=41769
+f 1884 w=62390 r=41704
+f 1885 w=62314 r=41563
+f 1886 w=62277 r=41387
+f 1887 w=62396 r=41329
+f 1888 w=62130 r=41004
+=== profile GSReactionDiffusion [288x144] frames 1857-1888 window=1997852 us ===
+frame wall us: min=62130 avg=62390 max=62610 sum=1996501 (32 frames)
+frame render us: avg=42421 max=43055
+--- Cycle Counters ---
+frame                  1996497 us (100%)  32 calls  1197898451 cyc
+  pov_preserve_half    4306 us (0%)  32 calls  2584160 cyc
+  grd_render           1349410 us (67%)  32 calls  809646256 cyc
+    grd_rasterize      1108673 us (82%)  32 calls  665204025 cyc
+      grd_shader_draw  993023 us (89%)  32 calls  595813922 cyc
+      grd_cull_flags   103686 us (9%)  32 calls  62212189 cyc
+      grd_orient       11946 us (1%)  32 calls  7167793 cyc
+    grd_simulate       223843 us (16%)  32 calls  134306362 cyc
+  rd_timeline_step     1022 us (0%)  32 calls  613767 cyc
+  canvas_clear         2700 us (0%)  32 calls  1620208 cyc
+  canvas_buffer_wait   639023 us (32%)  32 calls  383414050 cyc
+isr_wake       n=36831 cyc min/avg/max=365/1030/7330 ns min/avg/max=608/1716/12216 total=63249 us cpu=3.16%
+isr_pack       n=4603 cyc min/avg/max=3790/4371/6218 ns min/avg/max=6316/7285/10363 total=33536 us cpu=1.67%
+isr_dma_submit n=4603 cyc min/avg/max=407/558/1505 ns min/avg/max=678/930/2508 total=4285 us cpu=0.21%
+f 1889 w=62152 r=40943
+f 1890 w=62244 r=40734
+f 1891 w=61934 r=40213
+f 1892 w=62622 r=40380
+f 1893 w=61579 r=39505
+f 1894 w=62708 r=39760
+f 1895 w=61041 r=38347
+f 1896 w=63064 r=38902
+f 1897 w=60856 r=37306
+f 1898 w=62712 r=37573
+f 1899 w=60738 r=35859
+f 1900 w=62365 r=35770
+f 1901 w=60314 r=33632
+f 1902 w=61673 r=32849
+f 1903 w=60312 r=30707
+f 1904 w=60763 r=29016
+f 1905 w=59536 r=26097
+f 1906 w=58287 r=21930
+f 1907 w=58565 r=18041
+f 1908 w=59765 r=15352
+f 1909 w=67940 r=20784
+f 1910 w=61570 r=19907
+f 1911 w=62342 r=19794
+f 1912 w=62902 r=20241
+f 1913 w=62942 r=20731
+f 1914 w=63506 r=21784
+f 1915 w=61914 r=21243
+f 1916 w=63451 r=22245
+f 1917 w=61332 r=21124
+f 1918 w=63795 r=22465
+f 1919 w=61257 r=21269
+f 1920 w=63924 r=22739
+=== profile GSReactionDiffusion [288x144] frames 1889-1920 window=1981474 us ===
+frame wall us: min=58287 avg=61878 max=67940 sum=1980105 (32 frames)
+frame render us: avg=28976 max=40943
+--- Cycle Counters ---
+frame                  1980102 us (100%)  32 calls  1188061711 cyc
+  pov_preserve_half    4431 us (0%)  32 calls  2658638 cyc
+  grd_render           919179 us (46%)  32 calls  551507492 cyc
+    grd_palette_rebake 2151 us (0%)  1 calls  1290868 cyc
+    grd_rasterize      680862 us (74%)  32 calls  408517387 cyc
+      grd_shader_draw  550762 us (80%)  32 calls  330457665 cyc
+      grd_cull_flags   118140 us (17%)  32 calls  70884158 cyc
+      grd_orient       11941 us (1%)  32 calls  7164816 cyc
+    grd_simulate       225795 us (24%)  32 calls  135477275 cyc
+  rd_timeline_step     878 us (0%)  32 calls  527366 cyc
+  canvas_clear         2701 us (0%)  32 calls  1620795 cyc
+  canvas_buffer_wait   1052879 us (53%)  32 calls  631727762 cyc
+isr_wake       n=36530 cyc min/avg/max=365/996/7054 ns min/avg/max=608/1660/11756 total=60647 us cpu=3.06%
+isr_pack       n=4566 cyc min/avg/max=3743/4122/5946 ns min/avg/max=6238/6870/9910 total=31368 us cpu=1.58%
+isr_dma_submit n=4566 cyc min/avg/max=371/558/734 ns min/avg/max=618/930/1223 total=4247 us cpu=0.21%
+f 1921 w=61134 r=21666
+f 1922 w=64264 r=23487
+f 1923 w=61072 r=22050
+f 1924 w=64457 r=24055
+f 1925 w=60988 r=22591
+f 1926 w=64154 r=24293
+f 1927 w=61068 r=22917
+f 1928 w=63901 r=24365
+f 1929 w=61443 r=23356
+f 1930 w=64057 r=24957
+f 1931 w=61506 r=24010
+f 1932 w=63890 r=25446
+f 1933 w=61473 r=24466
+f 1934 w=64002 r=26013
+f 1935 w=61567 r=25133
+f 1936 w=63493 r=26184
+f 1937 w=62222 r=25900
+f 1938 w=63287 r=26733
+f 1939 w=62318 r=26598
+f 1940 w=62940 r=27085
+f 1941 w=62504 r=27137
+f 1942 w=63244 r=27925
+f 1943 w=62167 r=27640
+f 1944 w=62948 r=28133
+f 1945 w=62781 r=28460
+f 1946 w=62405 r=28412
+f 1947 w=63488 r=29446
+f 1948 w=62148 r=29141
+f 1949 w=63619 r=30306
+f 1950 w=61600 r=29398
+f 1951 w=64268 r=31212
+f 1952 w=60904 r=29670
+=== profile GSReactionDiffusion [288x144] frames 1921-1952 window=2006719 us ===
+frame wall us: min=60904 avg=62666 max=64457 sum=2005312 (32 frames)
+frame render us: avg=26193 max=31212
+--- Cycle Counters ---
+frame                  2005307 us (100%)  32 calls  1203184438 cyc
+  pov_preserve_half    4394 us (0%)  32 calls  2636931 cyc
+  grd_render           830178 us (41%)  32 calls  498107179 cyc
+    grd_rasterize      605639 us (72%)  32 calls  363383809 cyc
+      grd_shader_draw  475143 us (78%)  32 calls  285086270 cyc
+      grd_cull_flags   118528 us (19%)  32 calls  71117179 cyc
+      grd_orient       11950 us (1%)  32 calls  7170204 cyc
+    grd_simulate       224528 us (27%)  32 calls  134717140 cyc
+  rd_timeline_step     862 us (0%)  32 calls  517760 cyc
+  canvas_clear         2696 us (0%)  32 calls  1617846 cyc
+  canvas_buffer_wait   1167143 us (58%)  32 calls  700286101 cyc
+isr_wake       n=36995 cyc min/avg/max=365/996/7362 ns min/avg/max=608/1660/12270 total=61460 us cpu=3.06%
+isr_pack       n=4624 cyc min/avg/max=3743/4130/6008 ns min/avg/max=6238/6883/10013 total=31833 us cpu=1.58%
+isr_dma_submit n=4624 cyc min/avg/max=377/558/2562 ns min/avg/max=628/930/4270 total=4304 us cpu=0.21%
+f 1953 w=64450 r=31904
+f 1954 w=60765 r=30214
+f 1955 w=64928 r=32689
+f 1956 w=60323 r=30559
+f 1957 w=65208 r=33314
+f 1958 w=60199 r=31058
+f 1959 w=64894 r=33500
+f 1960 w=60252 r=31300
+f 1961 w=65392 r=34237
+f 1962 w=59742 r=31533
+f 1963 w=65474 r=34553
+f 1964 w=59798 r=31842
+f 1965 w=65691 r=35078
+f 1966 w=59328 r=31953
+f 1967 w=65961 r=35460
+f 1968 w=59145 r=32144
+f 1969 w=65947 r=35637
+f 1970 w=59579 r=32760
+f 1971 w=65631 r=35937
+f 1972 w=59449 r=32933
+f 1973 w=65606 r=36094
+f 1974 w=59741 r=33383
+f 1975 w=65012 r=35961
+f 1976 w=60204 r=33710
+f 1977 w=65074 r=36277
+f 1978 w=60393 r=34217
+f 1979 w=64287 r=36049
+f 1980 w=61037 r=34632
+f 1981 w=63865 r=36046
+f 1982 w=61297 r=34889
+f 1983 w=63670 r=36105
+f 1984 w=61528 r=35179
+=== profile GSReactionDiffusion [288x144] frames 1953-1984 window=2005257 us ===
+frame wall us: min=59145 avg=62620 max=65961 sum=2003870 (32 frames)
+frame render us: avg=33785 max=36277
+--- Cycle Counters ---
+frame                  2003865 us (100%)  32 calls  1202319199 cyc
+  pov_preserve_half    4377 us (0%)  32 calls  2626602 cyc
+  grd_render           1072904 us (53%)  32 calls  643742424 cyc
+    grd_rasterize      849301 us (79%)  32 calls  509581180 cyc
+      grd_shader_draw  718891 us (84%)  32 calls  431334670 cyc
+      grd_cull_flags   118442 us (13%)  32 calls  71065221 cyc
+      grd_orient       11952 us (1%)  32 calls  7171753 cyc
+    grd_simulate       223591 us (20%)  32 calls  134154975 cyc
+  rd_timeline_step     1113 us (0%)  32 calls  668367 cyc
+  canvas_clear         2696 us (0%)  32 calls  1617782 cyc
+  canvas_buffer_wait   922741 us (46%)  32 calls  553644929 cyc
+isr_wake       n=36967 cyc min/avg/max=365/1009/7666 ns min/avg/max=608/1681/12776 total=62205 us cpu=3.10%
+isr_pack       n=4621 cyc min/avg/max=3743/4217/6165 ns min/avg/max=6238/7028/10275 total=32478 us cpu=1.61%
+isr_dma_submit n=4621 cyc min/avg/max=419/560/3077 ns min/avg/max=698/933/5128 total=4313 us cpu=0.21%
+f 1985 w=62973 r=35929
+f 1986 w=62117 r=35594
+f 1987 w=62970 r=36109
+f 1988 w=62330 r=35985
+f 1989 w=62626 r=36167
+f 1990 w=62646 r=36357
+f 1991 w=62257 r=36105
+f 1992 w=63026 r=36679
+f 1993 w=61695 r=35919
+f 1994 w=63434 r=36899
+f 1995 w=61577 r=36023
+f 1996 w=63597 r=37165
+f 1997 w=61505 r=36216
+f 1998 w=63347 r=37110
+f 1999 w=61903 r=36560
+f 2000 w=63001 r=37107
+f 2001 w=62144 r=36797
+f 2002 w=63111 r=37455
+f 2003 w=61926 r=36928
+f 2004 w=63146 r=37568
+f 2005 w=61968 r=37084
+f 2006 w=63004 r=37632
+f 2007 w=62206 r=37384
+f 2008 w=62870 r=37801
+f 2009 w=62171 r=37519
+f 2010 w=63053 r=38119
+f 2011 w=62242 r=37909
+f 2012 w=62686 r=38142
+f 2013 w=62452 r=38149
+f 2014 w=62356 r=38053
+f 2015 w=62721 r=38322
+f 2016 w=62216 r=38083
+=== profile GSReactionDiffusion [288x144] frames 1985-2016 window=2002654 us ===
+frame wall us: min=61505 avg=62539 max=63597 sum=2001276 (32 frames)
+frame render us: avg=37027 max=38322
+--- Cycle Counters ---
+frame                  2001274 us (100%)  32 calls  1200764849 cyc
+  pov_preserve_half    4376 us (0%)  32 calls  2626084 cyc
+  grd_render           1176734 us (58%)  32 calls  706040635 cyc
+    grd_rasterize      953625 us (81%)  32 calls  572175436 cyc
+      grd_shader_draw  824039 us (86%)  32 calls  494423426 cyc
+      grd_cull_flags   117613 us (12%)  32 calls  70568142 cyc
+      grd_orient       11957 us (1%)  32 calls  7174332 cyc
+    grd_simulate       223098 us (18%)  32 calls  133859026 cyc
+  rd_timeline_step     1004 us (0%)  32 calls  602788 cyc
+  canvas_clear         2703 us (0%)  32 calls  1622172 cyc
+  canvas_buffer_wait   816423 us (40%)  32 calls  489853812 cyc
+isr_wake       n=36920 cyc min/avg/max=365/1015/7202 ns min/avg/max=608/1691/12003 total=62479 us cpu=3.11%
+isr_pack       n=4615 cyc min/avg/max=3743/4258/6122 ns min/avg/max=6238/7096/10203 total=32754 us cpu=1.63%
+isr_dma_submit n=4615 cyc min/avg/max=376/558/2133 ns min/avg/max=626/930/3555 total=4297 us cpu=0.21%
+f 2017 w=62860 r=38732
+f 2018 w=61726 r=37948
+f 2019 w=63626 r=39122
+f 2020 w=61667 r=38335
+f 2021 w=63422 r=39306
+f 2022 w=61423 r=38276
+f 2023 w=64120 r=39944
+f 2024 w=60752 r=38243
+f 2025 w=64325 r=40114
+f 2026 w=60420 r=38081
+f 2027 w=64783 r=40409
+f 2028 w=60425 r=38379
+f 2029 w=64730 r=40657
+f 2030 w=60145 r=38350
+f 2031 w=65129 r=41025
+f 2032 w=60054 r=38571
+f 2033 w=65026 r=41143
+f 2034 w=60021 r=38710
+f 2035 w=65040 r=41298
+f 2036 w=59986 r=38833
+f 2037 w=64964 r=41343
+f 2038 w=60183 r=39072
+f 2039 w=65065 r=41683
+f 2040 w=59963 r=39191
+f 2041 w=65087 r=41827
+f 2042 w=59831 r=39202
+f 2043 w=65414 r=42162
+f 2044 w=59577 r=39283
+f 2045 w=65522 r=42296
+f 2046 w=59601 r=39445
+f 2047 w=65326 r=42326
+f 2048 w=59632 r=39503
+=== profile GSReactionDiffusion [288x144] frames 2017-2048 window=2001212 us ===
+frame wall us: min=59577 avg=62495 max=65522 sum=1999845 (32 frames)
+frame render us: avg=39775 max=42326
+--- Cycle Counters ---
+frame                  1999846 us (100%)  32 calls  1199907759 cyc
+  pov_preserve_half    4350 us (0%)  32 calls  2610491 cyc
+  grd_render           1264748 us (63%)  32 calls  758849129 cyc
+    grd_rasterize      1041958 us (82%)  32 calls  625174811 cyc
+      grd_shader_draw  914510 us (87%)  32 calls  548706085 cyc
+      grd_cull_flags   115473 us (11%)  32 calls  69283998 cyc
+      grd_orient       11958 us (1%)  32 calls  7175192 cyc
+    grd_simulate       222780 us (17%)  32 calls  133668090 cyc
+  rd_timeline_step     961 us (0%)  32 calls  577031 cyc
+  canvas_clear         2701 us (0%)  32 calls  1621196 cyc
+  canvas_buffer_wait   727051 us (36%)  32 calls  436230926 cyc
+isr_wake       n=36893 cyc min/avg/max=365/1021/7334 ns min/avg/max=608/1701/12223 total=62783 us cpu=3.13%
+isr_pack       n=4611 cyc min/avg/max=3743/4297/6016 ns min/avg/max=6238/7161/10026 total=33027 us cpu=1.65%
+isr_dma_submit n=4611 cyc min/avg/max=378/559/2410 ns min/avg/max=630/931/4016 total=4300 us cpu=0.21%
+f 2049 w=65097 r=42379
+f 2050 w=59979 r=39904
+f 2051 w=64946 r=42407
+f 2052 w=60202 r=40154
+f 2053 w=64741 r=42441
+f 2054 w=60293 r=40280
+f 2055 w=64716 r=42541
+f 2056 w=60534 r=40620
+f 2057 w=64366 r=42533
+profile provenance: version=1
+profile provenance: source_sha=ba390046e0cfaabfa49eb405d233bd125d87651a
+profile provenance: compiler=GCC: (Arm GNU Toolchain 15.2.Rel1 (Build arm-15.86)) 15.2.1 20251203
+profile provenance: profile_elf_sha256=c6e65bcf1fd2f1007340dcc7392f60e0e6e6436b51c99624b475cf671f42cc0c
+profile provenance: phantasm_elf_sha256=f2e6b9d0b7760d4876fffd707be904c84cc7f4b92b4cb32fbfbfed1e96361991
+profile provenance: profile_envdump_sha256=61a21aa541f10e6a30b159d7dcbf4b2cd2ab15fcc9136a43b51218a9846c7b3f
+profile provenance: phantasm_envdump_sha256=5c7c527ab7f130e508745e4b1c9ff7d9e6ffb028dbf0c8f0d2757c0686d2d5aa
+profile provenance: artifact_profile_elf=build/prof/artifacts/gsreactiondiffusion_ship_ba390046e0cf_c6e65bcf1fd2/profile.elf
+profile provenance: artifact_phantasm_elf=build/prof/artifacts/gsreactiondiffusion_ship_ba390046e0cf_c6e65bcf1fd2/phantasm.elf
+profile provenance: artifact_dir=build/prof/artifacts/gsreactiondiffusion_ship_ba390046e0cf_c6e65bcf1fd2

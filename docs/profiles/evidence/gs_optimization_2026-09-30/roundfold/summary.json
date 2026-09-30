@@ -1,0 +1,123 @@
+{
+  "name": "roundfold",
+  "captured": "2026-09-30T01:09:05.876446",
+  "peak_ms": 37.263,
+  "peak_frame": 1450,
+  "mean_ms": 32.572371763556426,
+  "spilled": 0,
+  "frames": 2047,
+  "first": 2,
+  "last": 2048,
+  "sizes": {
+    "profile": [
+      "FLASH: code:61768, data:251868, headers:8924   free for files:1709056",
+      "RAM1: variables:315168, code:24632, padding:8136   free for local variables:176352",
+      "RAM2: variables:520064  free for malloc/new:4224"
+    ],
+    "phantasm": [
+      "FLASH: code:530248, data:746232, headers:8640   free for files:746496",
+      "RAM1: variables:314784, code:167448, padding:29160   free for local variables:12896",
+      "RAM2: variables:520064  free for malloc/new:4224"
+    ]
+  },
+  "peak_window": {
+    "start": 1441,
+    "end": 1472,
+    "counters": {
+      "frame": {
+        "us": 1997855,
+        "pct": 100,
+        "calls": 32,
+        "cyc": 1198713369,
+        "depth": 0,
+        "tags": []
+      },
+      "pov_preserve_half": {
+        "us": 4372,
+        "pct": 0,
+        "calls": 32,
+        "cyc": 2623450,
+        "depth": 1,
+        "tags": []
+      },
+      "grd_render": {
+        "us": 1172518,
+        "pct": 58,
+        "calls": 32,
+        "cyc": 703511175,
+        "depth": 1,
+        "tags": []
+      },
+      "grd_rasterize": {
+        "us": 940371,
+        "pct": 80,
+        "calls": 32,
+        "cyc": 564222930,
+        "depth": 2,
+        "tags": []
+      },
+      "grd_shader_draw": {
+        "us": 917553,
+        "pct": 97,
+        "calls": 32,
+        "cyc": 550531946,
+        "depth": 3,
+        "tags": []
+      },
+      "grd_cull_flags": {
+        "us": 10986,
+        "pct": 1,
+        "calls": 32,
+        "cyc": 6591897,
+        "depth": 3,
+        "tags": []
+      },
+      "grd_orient": {
+        "us": 11814,
+        "pct": 1,
+        "calls": 32,
+        "cyc": 7088425,
+        "depth": 3,
+        "tags": []
+      },
+      "grd_simulate": {
+        "us": 214855,
+        "pct": 18,
+        "calls": 32,
+        "cyc": 128913038,
+        "depth": 2,
+        "tags": []
+      },
+      "rd_timeline_step": {
+        "us": 1102,
+        "pct": 0,
+        "calls": 32,
+        "cyc": 661622,
+        "depth": 1,
+        "tags": []
+      },
+      "canvas_clear": {
+        "us": 2705,
+        "pct": 0,
+        "calls": 32,
+        "cyc": 1623312,
+        "depth": 1,
+        "tags": []
+      },
+      "canvas_buffer_wait": {
+        "us": 817124,
+        "pct": 40,
+        "calls": 32,
+        "cyc": 490274742,
+        "depth": 1,
+        "tags": []
+      }
+    },
+    "wall": [
+      61824,
+      62433,
+      63026,
+      1997857
+    ]
+  }
+}

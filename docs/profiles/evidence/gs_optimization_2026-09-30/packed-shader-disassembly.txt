@@ -1,0 +1,678 @@
+C:/work/hs-gs-deep/.pio/build/profile/firmware.elf:     file format elf32-littlearm
+
+
+Disassembly of section .text.itcm:
+
+000046b4 <Pixel GSReactionDiffusion<288, 144>::shade_pixel<Scan::Shader::SsaaGrid<288, 144> >(int, math::Vector const&, GSReactionDiffusion<288, 144>::PackedNode const*, Scan::Shader::SsaaGrid<288, 144> const&, int) const>:
+    46b4:	e92d 4ff0 	stmdb	sp!, {r4, r5, r6, r7, r8, r9, sl, fp, lr}
+    46b8:	2a00      	cmp	r2, #0
+    46ba:	4683      	mov	fp, r0
+    46bc:	ed2d 8b04 	vpush	{d8-d9}
+    46c0:	b08f      	sub	sp, #60	@ 0x3c
+    46c2:	e9dd 901c 	ldrd	r9, r0, [sp, #112]	@ 0x70
+    46c6:	da0a      	bge.n	46de <Pixel GSReactionDiffusion<288, 144>::shade_pixel<Scan::Shader::SsaaGrid<288, 144> >(int, math::Vector const&, GSReactionDiffusion<288, 144>::PackedNode const*, Scan::Shader::SsaaGrid<288, 144> const&, int) const+0x2a>
+    46c8:	2300      	movs	r3, #0
+    46ca:	4658      	mov	r0, fp
+    46cc:	f8cb 3000 	str.w	r3, [fp]
+    46d0:	f8ab 3004 	strh.w	r3, [fp, #4]
+    46d4:	b00f      	add	sp, #60	@ 0x3c
+    46d6:	ecbd 8b04 	vpop	{d8-d9}
+    46da:	e8bd 8ff0 	ldmia.w	sp!, {r4, r5, r6, r7, r8, r9, sl, fp, pc}
+    46de:	ed93 7a01 	vldr	s14, [r3, #4]
+    46e2:	eb02 0442 	add.w	r4, r2, r2, lsl #1
+    46e6:	edd1 7ab5 	vldr	s15, [r1, #724]	@ 0x2d4
+    46ea:	1f15      	subs	r5, r2, #4
+    46ec:	edd3 5a00 	vldr	s11, [r3]
+    46f0:	ee67 7a27 	vmul.f32	s15, s14, s15
+    46f4:	ed91 5ab4 	vldr	s10, [r1, #720]	@ 0x2d0
+    46f8:	ed91 6ab2 	vldr	s12, [r1, #712]	@ 0x2c8
+    46fc:	ed91 3ab1 	vldr	s6, [r1, #708]	@ 0x2c4
+    4700:	eee5 7a85 	vfma.f32	s15, s11, s10
+    4704:	ed91 5ab8 	vldr	s10, [r1, #736]	@ 0x2e0
+    4708:	ee27 6a06 	vmul.f32	s12, s14, s12
+    470c:	edd1 3ab7 	vldr	s7, [r1, #732]	@ 0x2dc
+    4710:	ee27 7a05 	vmul.f32	s14, s14, s10
+    4714:	edd3 6a02 	vldr	s13, [r3, #8]
+    4718:	ed91 4ab6 	vldr	s8, [r1, #728]	@ 0x2d8
+    471c:	eea3 6a25 	vfma.f32	s12, s6, s11
+    4720:	f8d1 3354 	ldr.w	r3, [r1, #852]	@ 0x354
+    4724:	eea5 7aa3 	vfma.f32	s14, s11, s7
+    4728:	edd1 4ab3 	vldr	s9, [r1, #716]	@ 0x2cc
+    472c:	eee6 7a84 	vfma.f32	s15, s13, s8
+    4730:	eb03 0484 	add.w	r4, r3, r4, lsl #2
+    4734:	ed91 5ab9 	vldr	s10, [r1, #740]	@ 0x2e4
+    4738:	edd4 5a02 	vldr	s11, [r4, #8]
+    473c:	f8df e404 	ldr.w	lr, [pc, #1028]	@ 4b44 <Pixel GSReactionDiffusion<288, 144>::shade_pixel<Scan::Shader::SsaaGrid<288, 144> >(int, math::Vector const&, GSReactionDiffusion<288, 144>::PackedNode const*, Scan::Shader::SsaaGrid<288, 144> const&, int) const+0x490>
+    4740:	eea4 6aa6 	vfma.f32	s12, s9, s13
+    4744:	eea6 7a85 	vfma.f32	s14, s13, s10
+    4748:	edd4 6a01 	vldr	s13, [r4, #4]
+    474c:	ed94 5a00 	vldr	s10, [r4]
+    4750:	f641 54f7 	movw	r4, #7671	@ 0x1df7
+    4754:	ee77 6ae6 	vsub.f32	s13, s15, s13
+    4758:	42a5      	cmp	r5, r4
+    475a:	ee36 5a45 	vsub.f32	s10, s12, s10
+    475e:	ee66 6aa6 	vmul.f32	s13, s13, s13
+    4762:	ee77 5a65 	vsub.f32	s11, s14, s11
+    4766:	eee5 6a05 	vfma.f32	s13, s10, s10
+    476a:	eee5 6aa5 	vfma.f32	s13, s11, s11
+    476e:	bf94      	ite	ls
+    4770:	eddf 5aeb 	vldrls	s11, [pc, #940]	@ 4b20 <Pixel GSReactionDiffusion<288, 144>::shade_pixel<Scan::Shader::SsaaGrid<288, 144> >(int, math::Vector const&, GSReactionDiffusion<288, 144>::PackedNode const*, Scan::Shader::SsaaGrid<288, 144> const&, int) const+0x46c>
+    4774:	eddf 5aeb 	vldrhi	s11, [pc, #940]	@ 4b24 <Pixel GSReactionDiffusion<288, 144>::shade_pixel<Scan::Shader::SsaaGrid<288, 144> >(int, math::Vector const&, GSReactionDiffusion<288, 144>::PackedNode const*, Scan::Shader::SsaaGrid<288, 144> const&, int) const+0x470>
+    4778:	eef4 6ae5 	vcmpe.f32	s13, s11
+    477c:	eef1 fa10 	vmrs	APSR_nzcv, fpscr
+    4780:	f140 834d 	bpl.w	4e1e <Pixel GSReactionDiffusion<288, 144>::shade_pixel<Scan::Shader::SsaaGrid<288, 144> >(int, math::Vector const&, GSReactionDiffusion<288, 144>::PackedNode const*, Scan::Shader::SsaaGrid<288, 144> const&, int) const+0x76a>
+    4784:	4be8      	ldr	r3, [pc, #928]	@ (4b28 <Pixel GSReactionDiffusion<288, 144>::shade_pixel<Scan::Shader::SsaaGrid<288, 144> >(int, math::Vector const&, GSReactionDiffusion<288, 144>::PackedNode const*, Scan::Shader::SsaaGrid<288, 144> const&, int) const+0x474>)
+    4786:	9305      	str	r3, [sp, #20]
+    4788:	f81e 3002 	ldrb.w	r3, [lr, r2]
+    478c:	eeb6 9a00 	vmov.f32	s18, #96	@ 0x3f000000  0.5
+    4790:	ed90 4a00 	vldr	s8, [r0]
+    4794:	eebe 7a00 	vmov.f32	s14, #224	@ 0xbf000000 -0.5
+    4798:	edd0 4a01 	vldr	s9, [r0, #4]
+    479c:	f647 77ff 	movw	r7, #32767	@ 0x7fff
+    47a0:	edd0 3a04 	vldr	s7, [r0, #16]
+    47a4:	eef0 2a49 	vmov.f32	s5, s18
+    47a8:	6884      	ldr	r4, [r0, #8]
+    47aa:	eeb0 3a49 	vmov.f32	s6, s18
+    47ae:	f8d0 c00c 	ldr.w	ip, [r0, #12]
+    47b2:	eeb0 6a49 	vmov.f32	s12, s18
+    47b6:	edd0 6a05 	vldr	s13, [r0, #20]
+    47ba:	eef0 0a49 	vmov.f32	s1, s18
+    47be:	981e      	ldr	r0, [sp, #120]	@ 0x78
+    47c0:	eeb0 1a49 	vmov.f32	s2, s18
+    47c4:	9303      	str	r3, [sp, #12]
+    47c6:	eef0 1a49 	vmov.f32	s3, s18
+    47ca:	4bd8      	ldr	r3, [pc, #864]	@ (4b2c <Pixel GSReactionDiffusion<288, 144>::shade_pixel<Scan::Shader::SsaaGrid<288, 144> >(int, math::Vector const&, GSReactionDiffusion<288, 144>::PackedNode const*, Scan::Shader::SsaaGrid<288, 144> const&, int) const+0x478>)
+    47cc:	eeb0 2a49 	vmov.f32	s4, s18
+    47d0:	eddf 7ad7 	vldr	s15, [pc, #860]	@ 4b30 <Pixel GSReactionDiffusion<288, 144>::shade_pixel<Scan::Shader::SsaaGrid<288, 144> >(int, math::Vector const&, GSReactionDiffusion<288, 144>::PackedNode const*, Scan::Shader::SsaaGrid<288, 144> const&, int) const+0x47c>
+    47d4:	f10d 0a28 	add.w	sl, sp, #40	@ 0x28
+    47d8:	eb03 0080 	add.w	r0, r3, r0, lsl #2
+    47dc:	4dd5      	ldr	r5, [pc, #852]	@ (4b34 <Pixel GSReactionDiffusion<288, 144>::shade_pixel<Scan::Shader::SsaaGrid<288, 144> >(int, math::Vector const&, GSReactionDiffusion<288, 144>::PackedNode const*, Scan::Shader::SsaaGrid<288, 144> const&, int) const+0x480>)
+    47de:	ed90 0a00 	vldr	s0, [r0]
+    47e2:	981e      	ldr	r0, [sp, #120]	@ 0x78
+    47e4:	ee20 5a26 	vmul.f32	s10, s0, s13
+    47e8:	eb03 0380 	add.w	r3, r3, r0, lsl #2
+    47ec:	eeb0 8a45 	vmov.f32	s16, s10
+    47f0:	edd3 5a48 	vldr	s11, [r3, #288]	@ 0x120
+    47f4:	2300      	movs	r3, #0
+    47f6:	ee65 6aa6 	vmul.f32	s13, s11, s13
+    47fa:	ee95 8aa3 	vfnms.f32	s16, s11, s7
+    47fe:	eea5 5aa3 	vfma.f32	s10, s11, s7
+    4802:	eef0 8a66 	vmov.f32	s17, s13
+    4806:	eed0 6a23 	vfnms.f32	s13, s0, s7
+    480a:	eee0 8a23 	vfma.f32	s17, s0, s7
+    480e:	ee28 0a04 	vmul.f32	s0, s16, s8
+    4812:	ee28 8a24 	vmul.f32	s16, s16, s9
+    4816:	e9cd 3306 	strd	r3, r3, [sp, #24]
+    481a:	e9cd 3308 	strd	r3, r3, [sp, #32]
+    481e:	e9cd 330a 	strd	r3, r3, [sp, #40]	@ 0x28
+    4822:	e9cd 330c 	strd	r3, r3, [sp, #48]	@ 0x30
+    4826:	ee10 3a10 	vmov	r3, s0
+    482a:	2b00      	cmp	r3, #0
+    482c:	fe29 9a07 	vselge.f32	s18, s18, s14
+    4830:	2c00      	cmp	r4, #0
+    4832:	eea0 9a27 	vfma.f32	s18, s0, s15
+    4836:	ee00 4a10 	vmov	s0, r4
+    483a:	fe62 2a87 	vselge.f32	s5, s5, s14
+    483e:	eee0 2a27 	vfma.f32	s5, s0, s15
+    4842:	eeb0 0a62 	vmov.f32	s0, s5
+    4846:	eefd 2ac9 	vcvt.s32.f32	s5, s18
+    484a:	ee12 ea90 	vmov	lr, s5
+    484e:	eefd 2ac0 	vcvt.s32.f32	s5, s0
+    4852:	ee24 0a28 	vmul.f32	s0, s8, s17
+    4856:	ee12 4a90 	vmov	r4, s5
+    485a:	ee64 2aa8 	vmul.f32	s5, s9, s17
+    485e:	ee10 3a10 	vmov	r3, s0
+    4862:	ee65 8a04 	vmul.f32	s17, s10, s8
+    4866:	42bc      	cmp	r4, r7
+    4868:	ee25 5a24 	vmul.f32	s10, s10, s9
+    486c:	bfa8      	it	ge
+    486e:	463c      	movge	r4, r7
+    4870:	42ac      	cmp	r4, r5
+    4872:	bfb8      	it	lt
+    4874:	462c      	movlt	r4, r5
+    4876:	2b00      	cmp	r3, #0
+    4878:	ee18 3a90 	vmov	r3, s17
+    487c:	fe26 6a07 	vselge.f32	s12, s12, s14
+    4880:	eea0 6a27 	vfma.f32	s12, s0, s15
+    4884:	ee24 0a26 	vmul.f32	s0, s8, s13
+    4888:	2b00      	cmp	r3, #0
+    488a:	ee64 6aa6 	vmul.f32	s13, s9, s13
+    488e:	ed9f 4aaa 	vldr	s8, [pc, #680]	@ 4b38 <Pixel GSReactionDiffusion<288, 144>::shade_pixel<Scan::Shader::SsaaGrid<288, 144> >(int, math::Vector const&, GSReactionDiffusion<288, 144>::PackedNode const*, Scan::Shader::SsaaGrid<288, 144> const&, int) const+0x484>
+    4892:	fe60 0a87 	vselge.f32	s1, s1, s14
+    4896:	eee8 0aa7 	vfma.f32	s1, s17, s15
+    489a:	ee10 3a10 	vmov	r3, s0
+    489e:	2b00      	cmp	r3, #0
+    48a0:	ee18 3a10 	vmov	r3, s16
+    48a4:	eebd 6ac6 	vcvt.s32.f32	s12, s12
+    48a8:	fe21 1a07 	vselge.f32	s2, s2, s14
+    48ac:	2b00      	cmp	r3, #0
+    48ae:	eea0 1a27 	vfma.f32	s2, s0, s15
+    48b2:	eb09 03c2 	add.w	r3, r9, r2, lsl #3
+    48b6:	ee16 6a10 	vmov	r6, s12
+    48ba:	fe61 1a87 	vselge.f32	s3, s3, s14
+    48be:	ee06 ca10 	vmov	s12, ip
+    48c2:	f1bc 0f00 	cmp.w	ip, #0
+    48c6:	eee8 1a27 	vfma.f32	s3, s16, s15
+    48ca:	f8b3 8004 	ldrh.w	r8, [r3, #4]
+    48ce:	fe22 2a07 	vselge.f32	s4, s4, s14
+    48d2:	eea6 2a27 	vfma.f32	s4, s12, s15
+    48d6:	eebd 6ae0 	vcvt.s32.f32	s12, s1
+    48da:	88db      	ldrh	r3, [r3, #6]
+    48dc:	ee04 3a90 	vmov	s9, r3
+    48e0:	ee16 3a10 	vmov	r3, s12
+    48e4:	eebd 6ac1 	vcvt.s32.f32	s12, s2
+    48e8:	eef8 4a64 	vcvt.f32.u32	s9, s9
+    48ec:	ed8d 6a00 	vstr	s12, [sp]
+    48f0:	eebd 6ae1 	vcvt.s32.f32	s12, s3
+    48f4:	ee16 ca10 	vmov	ip, s12
+    48f8:	eebd 6ac2 	vcvt.s32.f32	s12, s4
+    48fc:	ee16 0a10 	vmov	r0, s12
+    4900:	42b8      	cmp	r0, r7
+    4902:	bfa8      	it	ge
+    4904:	4638      	movge	r0, r7
+    4906:	42a8      	cmp	r0, r5
+    4908:	bfb8      	it	lt
+    490a:	4628      	movlt	r0, r5
+    490c:	9001      	str	r0, [sp, #4]
+    490e:	ee12 0a90 	vmov	r0, s5
+    4912:	2800      	cmp	r0, #0
+    4914:	ee15 0a10 	vmov	r0, s10
+    4918:	fe23 6a07 	vselge.f32	s12, s6, s14
+    491c:	2800      	cmp	r0, #0
+    491e:	ee16 0a90 	vmov	r0, s13
+    4922:	eea2 6aa7 	vfma.f32	s12, s5, s15
+    4926:	fe63 5a07 	vselge.f32	s11, s6, s14
+    492a:	eee5 5a27 	vfma.f32	s11, s10, s15
+    492e:	2800      	cmp	r0, #0
+    4930:	fe23 7a07 	vselge.f32	s14, s6, s14
+    4934:	45be      	cmp	lr, r7
+    4936:	eea6 7aa7 	vfma.f32	s14, s13, s15
+    493a:	bfa8      	it	ge
+    493c:	46be      	movge	lr, r7
+    493e:	42be      	cmp	r6, r7
+    4940:	eefd 7ae5 	vcvt.s32.f32	s15, s11
+    4944:	bfa8      	it	ge
+    4946:	463e      	movge	r6, r7
+    4948:	45ae      	cmp	lr, r5
+    494a:	eefd 6ac6 	vcvt.s32.f32	s13, s12
+    494e:	bfb8      	it	lt
+    4950:	46ae      	movlt	lr, r5
+    4952:	42bb      	cmp	r3, r7
+    4954:	eebd 7ac7 	vcvt.s32.f32	s14, s14
+    4958:	bfa8      	it	ge
+    495a:	463b      	movge	r3, r7
+    495c:	42ae      	cmp	r6, r5
+    495e:	fa1f fe8e 	uxth.w	lr, lr
+    4962:	bfb8      	it	lt
+    4964:	462e      	movlt	r6, r5
+    4966:	45bc      	cmp	ip, r7
+    4968:	ea4e 4004 	orr.w	r0, lr, r4, lsl #16
+    496c:	ee17 ea90 	vmov	lr, s15
+    4970:	b2b6      	uxth	r6, r6
+    4972:	bfa8      	it	ge
+    4974:	46bc      	movge	ip, r7
+    4976:	42ab      	cmp	r3, r5
+    4978:	9004      	str	r0, [sp, #16]
+    497a:	9602      	str	r6, [sp, #8]
+    497c:	9e00      	ldr	r6, [sp, #0]
+    497e:	bfb8      	it	lt
+    4980:	462b      	movlt	r3, r5
+    4982:	42be      	cmp	r6, r7
+    4984:	b29b      	uxth	r3, r3
+    4986:	bfa8      	it	ge
+    4988:	463e      	movge	r6, r7
+    498a:	45ac      	cmp	ip, r5
+    498c:	ea43 4304 	orr.w	r3, r3, r4, lsl #16
+    4990:	f859 4032 	ldr.w	r4, [r9, r2, lsl #3]
+    4994:	bfb8      	it	lt
+    4996:	46ac      	movlt	ip, r5
+    4998:	42ae      	cmp	r6, r5
+    499a:	fad0 f414 	qsub16	r4, r0, r4
+    499e:	bfb8      	it	lt
+    49a0:	462e      	movlt	r6, r5
+    49a2:	45be      	cmp	lr, r7
+    49a4:	fa1f fc8c 	uxth.w	ip, ip
+    49a8:	fb24 f404 	smuad	r4, r4, r4
+    49ac:	bfa8      	it	ge
+    49ae:	46be      	movge	lr, r7
+    49b0:	b2b0      	uxth	r0, r6
+    49b2:	9e02      	ldr	r6, [sp, #8]
+    49b4:	45ae      	cmp	lr, r5
+    49b6:	9000      	str	r0, [sp, #0]
+    49b8:	9801      	ldr	r0, [sp, #4]
+    49ba:	bfb8      	it	lt
+    49bc:	46ae      	movlt	lr, r5
+    49be:	ea4c 4c00 	orr.w	ip, ip, r0, lsl #16
+    49c2:	fa1f fe8e 	uxth.w	lr, lr
+    49c6:	ea4e 4e00 	orr.w	lr, lr, r0, lsl #16
+    49ca:	fad6 f018 	qsub16	r0, r6, r8
+    49ce:	fb20 f000 	smuad	r0, r0, r0
+    49d2:	4404      	add	r4, r0
+    49d4:	ee16 0a90 	vmov	r0, s13
+    49d8:	42b8      	cmp	r0, r7
+    49da:	ee07 4a90 	vmov	s15, r4
+    49de:	bfa8      	it	ge
+    49e0:	4638      	movge	r0, r7
+    49e2:	eef8 7a67 	vcvt.f32.u32	s15, s15
+    49e6:	42a8      	cmp	r0, r5
+    49e8:	eef4 7ac4 	vcmpe.f32	s15, s8
+    49ec:	bfb8      	it	lt
+    49ee:	4628      	movlt	r0, r5
+    49f0:	b280      	uxth	r0, r0
+    49f2:	9001      	str	r0, [sp, #4]
+    49f4:	ee17 0a10 	vmov	r0, s14
+    49f8:	42b8      	cmp	r0, r7
+    49fa:	bfa8      	it	ge
+    49fc:	4638      	movge	r0, r7
+    49fe:	42a8      	cmp	r0, r5
+    4a00:	bfb8      	it	lt
+    4a02:	4628      	movlt	r0, r5
+    4a04:	eef1 fa10 	vmrs	APSR_nzcv, fpscr
+    4a08:	b286      	uxth	r6, r0
+    4a0a:	f140 8203 	bpl.w	4e14 <Pixel GSReactionDiffusion<288, 144>::shade_pixel<Scan::Shader::SsaaGrid<288, 144> >(int, math::Vector const&, GSReactionDiffusion<288, 144>::PackedNode const*, Scan::Shader::SsaaGrid<288, 144> const&, int) const+0x760>
+    4a0e:	eeb7 4a00 	vmov.f32	s8, #112	@ 0x3f800000  1.0
+    4a12:	ed9f 7a4a 	vldr	s14, [pc, #296]	@ 4b3c <Pixel GSReactionDiffusion<288, 144>::shade_pixel<Scan::Shader::SsaaGrid<288, 144> >(int, math::Vector const&, GSReactionDiffusion<288, 144>::PackedNode const*, Scan::Shader::SsaaGrid<288, 144> const&, int) const+0x488>
+    4a16:	eea7 4ac7 	vfms.f32	s8, s15, s14
+    4a1a:	ee24 4a04 	vmul.f32	s8, s8, s8
+    4a1e:	ee64 3a84 	vmul.f32	s7, s9, s8
+    4a22:	ed8d 4a06 	vstr	s8, [sp, #24]
+    4a26:	edcd 3a0a 	vstr	s7, [sp, #40]	@ 0x28
+    4a2a:	9c00      	ldr	r4, [sp, #0]
+    4a2c:	f859 0032 	ldr.w	r0, [r9, r2, lsl #3]
+    4a30:	fad4 f518 	qsub16	r5, r4, r8
+    4a34:	ed9f 7a40 	vldr	s14, [pc, #256]	@ 4b38 <Pixel GSReactionDiffusion<288, 144>::shade_pixel<Scan::Shader::SsaaGrid<288, 144> >(int, math::Vector const&, GSReactionDiffusion<288, 144>::PackedNode const*, Scan::Shader::SsaaGrid<288, 144> const&, int) const+0x484>
+    4a38:	fad3 f410 	qsub16	r4, r3, r0
+    4a3c:	fb25 f505 	smuad	r5, r5, r5
+    4a40:	fb24 f404 	smuad	r4, r4, r4
+    4a44:	442c      	add	r4, r5
+    4a46:	ee07 4a90 	vmov	s15, r4
+    4a4a:	eef8 7a67 	vcvt.f32.u32	s15, s15
+    4a4e:	eef4 7ac7 	vcmpe.f32	s15, s14
+    4a52:	eef1 fa10 	vmrs	APSR_nzcv, fpscr
+    4a56:	d50d      	bpl.n	4a74 <Pixel GSReactionDiffusion<288, 144>::shade_pixel<Scan::Shader::SsaaGrid<288, 144> >(int, math::Vector const&, GSReactionDiffusion<288, 144>::PackedNode const*, Scan::Shader::SsaaGrid<288, 144> const&, int) const+0x3c0>
+    4a58:	eeb7 7a00 	vmov.f32	s14, #112	@ 0x3f800000  1.0
+    4a5c:	eddf 6a37 	vldr	s13, [pc, #220]	@ 4b3c <Pixel GSReactionDiffusion<288, 144>::shade_pixel<Scan::Shader::SsaaGrid<288, 144> >(int, math::Vector const&, GSReactionDiffusion<288, 144>::PackedNode const*, Scan::Shader::SsaaGrid<288, 144> const&, int) const+0x488>
+    4a60:	eea7 7ae6 	vfms.f32	s14, s15, s13
+    4a64:	ee67 7a07 	vmul.f32	s15, s14, s14
+    4a68:	ee24 7aa7 	vmul.f32	s14, s9, s15
+    4a6c:	edcd 7a07 	vstr	s15, [sp, #28]
+    4a70:	ed8d 7a0b 	vstr	s14, [sp, #44]	@ 0x2c
+    4a74:	9d01      	ldr	r5, [sp, #4]
+    4a76:	fadc f410 	qsub16	r4, ip, r0
+    4a7a:	ed9f 7a2f 	vldr	s14, [pc, #188]	@ 4b38 <Pixel GSReactionDiffusion<288, 144>::shade_pixel<Scan::Shader::SsaaGrid<288, 144> >(int, math::Vector const&, GSReactionDiffusion<288, 144>::PackedNode const*, Scan::Shader::SsaaGrid<288, 144> const&, int) const+0x484>
+    4a7e:	fad5 f518 	qsub16	r5, r5, r8
+    4a82:	fb24 f404 	smuad	r4, r4, r4
+    4a86:	fb25 f505 	smuad	r5, r5, r5
+    4a8a:	442c      	add	r4, r5
+    4a8c:	ee07 4a90 	vmov	s15, r4
+    4a90:	eef8 7a67 	vcvt.f32.u32	s15, s15
+    4a94:	eef4 7ac7 	vcmpe.f32	s15, s14
+    4a98:	eef1 fa10 	vmrs	APSR_nzcv, fpscr
+    4a9c:	d50d      	bpl.n	4aba <Pixel GSReactionDiffusion<288, 144>::shade_pixel<Scan::Shader::SsaaGrid<288, 144> >(int, math::Vector const&, GSReactionDiffusion<288, 144>::PackedNode const*, Scan::Shader::SsaaGrid<288, 144> const&, int) const+0x406>
+    4a9e:	eeb7 7a00 	vmov.f32	s14, #112	@ 0x3f800000  1.0
+    4aa2:	eddf 6a26 	vldr	s13, [pc, #152]	@ 4b3c <Pixel GSReactionDiffusion<288, 144>::shade_pixel<Scan::Shader::SsaaGrid<288, 144> >(int, math::Vector const&, GSReactionDiffusion<288, 144>::PackedNode const*, Scan::Shader::SsaaGrid<288, 144> const&, int) const+0x488>
+    4aa6:	eea7 7ae6 	vfms.f32	s14, s15, s13
+    4aaa:	ee67 7a07 	vmul.f32	s15, s14, s14
+    4aae:	ee24 7aa7 	vmul.f32	s14, s9, s15
+    4ab2:	edcd 7a08 	vstr	s15, [sp, #32]
+    4ab6:	ed8d 7a0c 	vstr	s14, [sp, #48]	@ 0x30
+    4aba:	fade f010 	qsub16	r0, lr, r0
+    4abe:	ed9f 7a1e 	vldr	s14, [pc, #120]	@ 4b38 <Pixel GSReactionDiffusion<288, 144>::shade_pixel<Scan::Shader::SsaaGrid<288, 144> >(int, math::Vector const&, GSReactionDiffusion<288, 144>::PackedNode const*, Scan::Shader::SsaaGrid<288, 144> const&, int) const+0x484>
+    4ac2:	fad6 f818 	qsub16	r8, r6, r8
+    4ac6:	fb20 f000 	smuad	r0, r0, r0
+    4aca:	fb28 f808 	smuad	r8, r8, r8
+    4ace:	4440      	add	r0, r8
+    4ad0:	ee07 0a90 	vmov	s15, r0
+    4ad4:	eef8 7a67 	vcvt.f32.u32	s15, s15
+    4ad8:	eef4 7ac7 	vcmpe.f32	s15, s14
+    4adc:	eef1 fa10 	vmrs	APSR_nzcv, fpscr
+    4ae0:	d50d      	bpl.n	4afe <Pixel GSReactionDiffusion<288, 144>::shade_pixel<Scan::Shader::SsaaGrid<288, 144> >(int, math::Vector const&, GSReactionDiffusion<288, 144>::PackedNode const*, Scan::Shader::SsaaGrid<288, 144> const&, int) const+0x44a>
+    4ae2:	eeb7 7a00 	vmov.f32	s14, #112	@ 0x3f800000  1.0
+    4ae6:	eddf 6a15 	vldr	s13, [pc, #84]	@ 4b3c <Pixel GSReactionDiffusion<288, 144>::shade_pixel<Scan::Shader::SsaaGrid<288, 144> >(int, math::Vector const&, GSReactionDiffusion<288, 144>::PackedNode const*, Scan::Shader::SsaaGrid<288, 144> const&, int) const+0x488>
+    4aea:	eea7 7ae6 	vfms.f32	s14, s15, s13
+    4aee:	ee67 7a07 	vmul.f32	s15, s14, s14
+    4af2:	ee64 4aa7 	vmul.f32	s9, s9, s15
+    4af6:	edcd 7a09 	vstr	s15, [sp, #36]	@ 0x24
+    4afa:	edcd 4a0d 	vstr	s9, [sp, #52]	@ 0x34
+    4afe:	9803      	ldr	r0, [sp, #12]
+    4b00:	eef7 4a00 	vmov.f32	s9, #112	@ 0x3f800000  1.0
+    4b04:	9c05      	ldr	r4, [sp, #20]
+    4b06:	ebc0 00c0 	rsb	r0, r0, r0, lsl #3
+    4b0a:	eddf 5a0b 	vldr	s11, [pc, #44]	@ 4b38 <Pixel GSReactionDiffusion<288, 144>::shade_pixel<Scan::Shader::SsaaGrid<288, 144> >(int, math::Vector const&, GSReactionDiffusion<288, 144>::PackedNode const*, Scan::Shader::SsaaGrid<288, 144> const&, int) const+0x484>
+    4b0e:	ed9f 5a0b 	vldr	s10, [pc, #44]	@ 4b3c <Pixel GSReactionDiffusion<288, 144>::shade_pixel<Scan::Shader::SsaaGrid<288, 144> >(int, math::Vector const&, GSReactionDiffusion<288, 144>::PackedNode const*, Scan::Shader::SsaaGrid<288, 144> const&, int) const+0x488>
+    4b12:	eb04 0840 	add.w	r8, r4, r0, lsl #1
+    4b16:	4c0a      	ldr	r4, [pc, #40]	@ (4b40 <Pixel GSReactionDiffusion<288, 144>::shade_pixel<Scan::Shader::SsaaGrid<288, 144> >(int, math::Vector const&, GSReactionDiffusion<288, 144>::PackedNode const*, Scan::Shader::SsaaGrid<288, 144> const&, int) const+0x48c>)
+    4b18:	eb04 0040 	add.w	r0, r4, r0, lsl #1
+    4b1c:	e020      	b.n	4b60 <Pixel GSReactionDiffusion<288, 144>::shade_pixel<Scan::Shader::SsaaGrid<288, 144> >(int, math::Vector const&, GSReactionDiffusion<288, 144>::PackedNode const*, Scan::Shader::SsaaGrid<288, 144> const&, int) const+0x4ac>
+    4b1e:	bf00      	nop
+    4b20:	39ae9681 	.word	0x39ae9681
+    4b24:	38fba882 	.word	0x38fba882
+    4b28:	6002c324 	.word	0x6002c324
+    4b2c:	2004c754 	.word	0x2004c754
+    4b30:	46fffe00 	.word	0x46fffe00
+    4b34:	ffff8001 	.word	0xffff8001
+    4b38:	4a714274 	.word	0x4a714274
+    4b3c:	3487d20d 	.word	0x3487d20d
+    4b40:	6002c330 	.word	0x6002c330
+    4b44:	6002a520 	.word	0x6002a520
+    4b48:	38d1b717 	.word	0x38d1b717
+    4b4c:	37800080 	.word	0x37800080
+    4b50:	3dcccccd 	.word	0x3dcccccd
+    4b54:	437f0000 	.word	0x437f0000
+    4b58:	477fff00 	.word	0x477fff00
+    4b5c:	00000000 	.word	0x00000000
+    4b60:	9003      	str	r0, [sp, #12]
+    4b62:	f938 0f02 	ldrsh.w	r0, [r8, #2]!
+    4b66:	eeb0 7a64 	vmov.f32	s14, s9
+    4b6a:	4410      	add	r0, r2
+    4b6c:	eb09 04c0 	add.w	r4, r9, r0, lsl #3
+    4b70:	f859 5030 	ldr.w	r5, [r9, r0, lsl #3]
+    4b74:	88a0      	ldrh	r0, [r4, #4]
+    4b76:	88e4      	ldrh	r4, [r4, #6]
+    4b78:	ee06 4a90 	vmov	s13, r4
+    4b7c:	9c04      	ldr	r4, [sp, #16]
+    4b7e:	fad4 f715 	qsub16	r7, r4, r5
+    4b82:	9c02      	ldr	r4, [sp, #8]
+    4b84:	eef8 6a66 	vcvt.f32.u32	s13, s13
+    4b88:	fad4 f410 	qsub16	r4, r4, r0
+    4b8c:	fb27 f707 	smuad	r7, r7, r7
+    4b90:	fb24 f404 	smuad	r4, r4, r4
+    4b94:	443c      	add	r4, r7
+    4b96:	ee07 4a90 	vmov	s15, r4
+    4b9a:	eef8 7a67 	vcvt.f32.u32	s15, s15
+    4b9e:	eea7 7ac5 	vfms.f32	s14, s15, s10
+    4ba2:	eef4 7ae5 	vcmpe.f32	s15, s11
+    4ba6:	eef1 fa10 	vmrs	APSR_nzcv, fpscr
+    4baa:	ee27 7a07 	vmul.f32	s14, s14, s14
+    4bae:	d507      	bpl.n	4bc0 <Pixel GSReactionDiffusion<288, 144>::shade_pixel<Scan::Shader::SsaaGrid<288, 144> >(int, math::Vector const&, GSReactionDiffusion<288, 144>::PackedNode const*, Scan::Shader::SsaaGrid<288, 144> const&, int) const+0x50c>
+    4bb0:	eee7 3a26 	vfma.f32	s7, s14, s13
+    4bb4:	ee34 4a07 	vadd.f32	s8, s8, s14
+    4bb8:	ed8d 4a06 	vstr	s8, [sp, #24]
+    4bbc:	edcd 3a0a 	vstr	s7, [sp, #40]	@ 0x28
+    4bc0:	9c00      	ldr	r4, [sp, #0]
+    4bc2:	fad3 f715 	qsub16	r7, r3, r5
+    4bc6:	eeb0 7a64 	vmov.f32	s14, s9
+    4bca:	fad4 f410 	qsub16	r4, r4, r0
+    4bce:	fb27 f707 	smuad	r7, r7, r7
+    4bd2:	fb24 f404 	smuad	r4, r4, r4
+    4bd6:	443c      	add	r4, r7
+    4bd8:	ee07 4a90 	vmov	s15, r4
+    4bdc:	eef8 7a67 	vcvt.f32.u32	s15, s15
+    4be0:	eea7 7ac5 	vfms.f32	s14, s15, s10
+    4be4:	eef4 7ae5 	vcmpe.f32	s15, s11
+    4be8:	eef1 fa10 	vmrs	APSR_nzcv, fpscr
+    4bec:	ee27 7a07 	vmul.f32	s14, s14, s14
+    4bf0:	d50b      	bpl.n	4c0a <Pixel GSReactionDiffusion<288, 144>::shade_pixel<Scan::Shader::SsaaGrid<288, 144> >(int, math::Vector const&, GSReactionDiffusion<288, 144>::PackedNode const*, Scan::Shader::SsaaGrid<288, 144> const&, int) const+0x556>
+    4bf2:	eddd 7a0b 	vldr	s15, [sp, #44]	@ 0x2c
+    4bf6:	ed9d 6a07 	vldr	s12, [sp, #28]
+    4bfa:	eee7 7a26 	vfma.f32	s15, s14, s13
+    4bfe:	ee36 7a07 	vadd.f32	s14, s12, s14
+    4c02:	ed8d 7a07 	vstr	s14, [sp, #28]
+    4c06:	edcd 7a0b 	vstr	s15, [sp, #44]	@ 0x2c
+    4c0a:	9c01      	ldr	r4, [sp, #4]
+    4c0c:	fadc f715 	qsub16	r7, ip, r5
+    4c10:	fade f515 	qsub16	r5, lr, r5
+    4c14:	eeb0 6a64 	vmov.f32	s12, s9
+    4c18:	fad4 f410 	qsub16	r4, r4, r0
+    4c1c:	fb27 f707 	smuad	r7, r7, r7
+    4c20:	fad6 f010 	qsub16	r0, r6, r0
+    4c24:	fb25 f505 	smuad	r5, r5, r5
+    4c28:	fb24 f404 	smuad	r4, r4, r4
+    4c2c:	fb20 f000 	smuad	r0, r0, r0
+    4c30:	443c      	add	r4, r7
+    4c32:	4428      	add	r0, r5
+    4c34:	ee07 4a90 	vmov	s15, r4
+    4c38:	eeb8 7a67 	vcvt.f32.u32	s14, s15
+    4c3c:	ee07 0a90 	vmov	s15, r0
+    4c40:	eef8 7a67 	vcvt.f32.u32	s15, s15
+    4c44:	eea7 6a45 	vfms.f32	s12, s14, s10
+    4c48:	eeb4 7ae5 	vcmpe.f32	s14, s11
+    4c4c:	eeb0 7a64 	vmov.f32	s14, s9
+    4c50:	eef1 fa10 	vmrs	APSR_nzcv, fpscr
+    4c54:	eea7 7ac5 	vfms.f32	s14, s15, s10
+    4c58:	ee26 6a06 	vmul.f32	s12, s12, s12
+    4c5c:	d50b      	bpl.n	4c76 <Pixel GSReactionDiffusion<288, 144>::shade_pixel<Scan::Shader::SsaaGrid<288, 144> >(int, math::Vector const&, GSReactionDiffusion<288, 144>::PackedNode const*, Scan::Shader::SsaaGrid<288, 144> const&, int) const+0x5c2>
+    4c5e:	ed9d 3a0c 	vldr	s6, [sp, #48]	@ 0x30
+    4c62:	eddd 2a08 	vldr	s5, [sp, #32]
+    4c66:	eea6 3a26 	vfma.f32	s6, s12, s13
+    4c6a:	ee32 6a86 	vadd.f32	s12, s5, s12
+    4c6e:	ed8d 6a08 	vstr	s12, [sp, #32]
+    4c72:	ed8d 3a0c 	vstr	s6, [sp, #48]	@ 0x30
+    4c76:	eef4 7ae5 	vcmpe.f32	s15, s11
+    4c7a:	ee27 7a07 	vmul.f32	s14, s14, s14
+    4c7e:	eef1 fa10 	vmrs	APSR_nzcv, fpscr
+    4c82:	d50b      	bpl.n	4c9c <Pixel GSReactionDiffusion<288, 144>::shade_pixel<Scan::Shader::SsaaGrid<288, 144> >(int, math::Vector const&, GSReactionDiffusion<288, 144>::PackedNode const*, Scan::Shader::SsaaGrid<288, 144> const&, int) const+0x5e8>
+    4c84:	eddd 7a0d 	vldr	s15, [sp, #52]	@ 0x34
+    4c88:	ed9d 6a09 	vldr	s12, [sp, #36]	@ 0x24
+    4c8c:	eee7 7a26 	vfma.f32	s15, s14, s13
+    4c90:	ee36 7a07 	vadd.f32	s14, s12, s14
+    4c94:	ed8d 7a09 	vstr	s14, [sp, #36]	@ 0x24
+    4c98:	edcd 7a0d 	vstr	s15, [sp, #52]	@ 0x34
+    4c9c:	9803      	ldr	r0, [sp, #12]
+    4c9e:	4580      	cmp	r8, r0
+    4ca0:	f47f af5f 	bne.w	4b62 <Pixel GSReactionDiffusion<288, 144>::shade_pixel<Scan::Shader::SsaaGrid<288, 144> >(int, math::Vector const&, GSReactionDiffusion<288, 144>::PackedNode const*, Scan::Shader::SsaaGrid<288, 144> const&, int) const+0x4ae>
+    4ca4:	2000      	movs	r0, #0
+    4ca6:	eeb1 5a00 	vmov.f32	s10, #16	@ 0x40800000  4.0
+    4caa:	eef7 4a00 	vmov.f32	s9, #112	@ 0x3f800000  1.0
+    4cae:	ab06      	add	r3, sp, #24
+    4cb0:	4652      	mov	r2, sl
+    4cb2:	ed1f 6a5b 	vldr	s12, [pc, #-364]	@ 4b48 <Pixel GSReactionDiffusion<288, 144>::shade_pixel<Scan::Shader::SsaaGrid<288, 144> >(int, math::Vector const&, GSReactionDiffusion<288, 144>::PackedNode const*, Scan::Shader::SsaaGrid<288, 144> const&, int) const+0x494>
+    4cb6:	ed5f 5a5b 	vldr	s11, [pc, #-364]	@ 4b4c <Pixel GSReactionDiffusion<288, 144>::shade_pixel<Scan::Shader::SsaaGrid<288, 144> >(int, math::Vector const&, GSReactionDiffusion<288, 144>::PackedNode const*, Scan::Shader::SsaaGrid<288, 144> const&, int) const+0x498>
+    4cba:	4604      	mov	r4, r0
+    4cbc:	ed5f 6a5c 	vldr	s13, [pc, #-368]	@ 4b50 <Pixel GSReactionDiffusion<288, 144>::shade_pixel<Scan::Shader::SsaaGrid<288, 144> >(int, math::Vector const&, GSReactionDiffusion<288, 144>::PackedNode const*, Scan::Shader::SsaaGrid<288, 144> const&, int) const+0x49c>
+    4cc0:	4605      	mov	r5, r0
+    4cc2:	ed1f 4a5a 	vldr	s8, [pc, #-360]	@ 4b5c <Pixel GSReactionDiffusion<288, 144>::shade_pixel<Scan::Shader::SsaaGrid<288, 144> >(int, math::Vector const&, GSReactionDiffusion<288, 144>::PackedNode const*, Scan::Shader::SsaaGrid<288, 144> const&, int) const+0x4a8>
+    4cc6:	ed5f 3a5d 	vldr	s7, [pc, #-372]	@ 4b54 <Pixel GSReactionDiffusion<288, 144>::shade_pixel<Scan::Shader::SsaaGrid<288, 144> >(int, math::Vector const&, GSReactionDiffusion<288, 144>::PackedNode const*, Scan::Shader::SsaaGrid<288, 144> const&, int) const+0x4a0>
+    4cca:	ecf3 7a01 	vldmia	r3!, {s15}
+    4cce:	4617      	mov	r7, r2
+    4cd0:	3204      	adds	r2, #4
+    4cd2:	eef4 7ac6 	vcmpe.f32	s15, s12
+    4cd6:	eef1 fa10 	vmrs	APSR_nzcv, fpscr
+    4cda:	d93c      	bls.n	4d56 <Pixel GSReactionDiffusion<288, 144>::shade_pixel<Scan::Shader::SsaaGrid<288, 144> >(int, math::Vector const&, GSReactionDiffusion<288, 144>::PackedNode const*, Scan::Shader::SsaaGrid<288, 144> const&, int) const+0x6a2>
+    4cdc:	ee85 7aa7 	vdiv.f32	s14, s11, s15
+    4ce0:	edd7 7a00 	vldr	s15, [r7]
+    4ce4:	ee27 7a27 	vmul.f32	s14, s14, s15
+    4ce8:	ee77 7a66 	vsub.f32	s15, s14, s13
+    4cec:	eeb4 7ae6 	vcmpe.f32	s14, s13
+    4cf0:	ee67 7a85 	vmul.f32	s15, s15, s10
+    4cf4:	eef1 fa10 	vmrs	APSR_nzcv, fpscr
+    4cf8:	fec7 7ae4 	vminnm.f32	s15, s15, s9
+    4cfc:	fec7 7a84 	vmaxnm.f32	s15, s15, s8
+    4d00:	ee67 7aa3 	vmul.f32	s15, s15, s7
+    4d04:	d427      	bmi.n	4d56 <Pixel GSReactionDiffusion<288, 144>::shade_pixel<Scan::Shader::SsaaGrid<288, 144> >(int, math::Vector const&, GSReactionDiffusion<288, 144>::PackedNode const*, Scan::Shader::SsaaGrid<288, 144> const&, int) const+0x6a2>
+    4d06:	eef5 7ac0 	vcmpe.f32	s15, #0.0
+    4d0a:	f8d1 8380 	ldr.w	r8, [r1, #896]	@ 0x380
+    4d0e:	eebd 7ae7 	vcvt.s32.f32	s14, s15
+    4d12:	eef1 fa10 	vmrs	APSR_nzcv, fpscr
+    4d16:	ee17 7a10 	vmov	r7, s14
+    4d1a:	d935      	bls.n	4d88 <Pixel GSReactionDiffusion<288, 144>::shade_pixel<Scan::Shader::SsaaGrid<288, 144> >(int, math::Vector const&, GSReactionDiffusion<288, 144>::PackedNode const*, Scan::Shader::SsaaGrid<288, 144> const&, int) const+0x6d4>
+    4d1c:	2ffe      	cmp	r7, #254	@ 0xfe
+    4d1e:	eeb6 3ae7 	vrintz.f32	s6, s15
+    4d22:	eeb6 7a00 	vmov.f32	s14, #96	@ 0x3f000000  0.5
+    4d26:	ed5f 2a74 	vldr	s5, [pc, #-464]	@ 4b58 <Pixel GSReactionDiffusion<288, 144>::shade_pixel<Scan::Shader::SsaaGrid<288, 144> >(int, math::Vector const&, GSReactionDiffusion<288, 144>::PackedNode const*, Scan::Shader::SsaaGrid<288, 144> const&, int) const+0x4a4>
+    4d2a:	ee77 7ac3 	vsub.f32	s15, s15, s6
+    4d2e:	eb07 0e47 	add.w	lr, r7, r7, lsl #1
+    4d32:	dd30      	ble.n	4d96 <Pixel GSReactionDiffusion<288, 144>::shade_pixel<Scan::Shader::SsaaGrid<288, 144> >(int, math::Vector const&, GSReactionDiffusion<288, 144>::PackedNode const*, Scan::Shader::SsaaGrid<288, 144> const&, int) const+0x6e2>
+    4d34:	f8b8 e5fa 	ldrh.w	lr, [r8, #1530]	@ 0x5fa
+    4d38:	f8b8 c5fc 	ldrh.w	ip, [r8, #1532]	@ 0x5fc
+    4d3c:	f8b8 75fe 	ldrh.w	r7, [r8, #1534]	@ 0x5fe
+    4d40:	f10e 0e02 	add.w	lr, lr, #2
+    4d44:	f10c 0c02 	add.w	ip, ip, #2
+    4d48:	3702      	adds	r7, #2
+    4d4a:	eb05 059e 	add.w	r5, r5, lr, lsr #2
+    4d4e:	eb04 049c 	add.w	r4, r4, ip, lsr #2
+    4d52:	eb00 0097 	add.w	r0, r0, r7, lsr #2
+    4d56:	459a      	cmp	sl, r3
+    4d58:	d1b7      	bne.n	4cca <Pixel GSReactionDiffusion<288, 144>::shade_pixel<Scan::Shader::SsaaGrid<288, 144> >(int, math::Vector const&, GSReactionDiffusion<288, 144>::PackedNode const*, Scan::Shader::SsaaGrid<288, 144> const&, int) const+0x616>
+    4d5a:	f64f 73ff 	movw	r3, #65535	@ 0xffff
+    4d5e:	429d      	cmp	r5, r3
+    4d60:	bf28      	it	cs
+    4d62:	461d      	movcs	r5, r3
+    4d64:	429c      	cmp	r4, r3
+    4d66:	bf28      	it	cs
+    4d68:	461c      	movcs	r4, r3
+    4d6a:	4298      	cmp	r0, r3
+    4d6c:	f8ab 5000 	strh.w	r5, [fp]
+    4d70:	bf28      	it	cs
+    4d72:	4618      	movcs	r0, r3
+    4d74:	f8ab 4002 	strh.w	r4, [fp, #2]
+    4d78:	f8ab 0004 	strh.w	r0, [fp, #4]
+    4d7c:	4658      	mov	r0, fp
+    4d7e:	b00f      	add	sp, #60	@ 0x3c
+    4d80:	ecbd 8b04 	vpop	{d8-d9}
+    4d84:	e8bd 8ff0 	ldmia.w	sp!, {r4, r5, r6, r7, r8, r9, sl, fp, pc}
+    4d88:	f8b8 e000 	ldrh.w	lr, [r8]
+    4d8c:	f8b8 c002 	ldrh.w	ip, [r8, #2]
+    4d90:	f8b8 7004 	ldrh.w	r7, [r8, #4]
+    4d94:	e7d4      	b.n	4d40 <Pixel GSReactionDiffusion<288, 144>::shade_pixel<Scan::Shader::SsaaGrid<288, 144> >(int, math::Vector const&, GSReactionDiffusion<288, 144>::PackedNode const*, Scan::Shader::SsaaGrid<288, 144> const&, int) const+0x68c>
+    4d96:	eea7 7aa2 	vfma.f32	s14, s15, s5
+    4d9a:	ea4f 0c4e 	mov.w	ip, lr, lsl #1
+    4d9e:	eb08 064e 	add.w	r6, r8, lr, lsl #1
+    4da2:	f838 701e 	ldrh.w	r7, [r8, lr, lsl #1]
+    4da6:	f10c 0c06 	add.w	ip, ip, #6
+    4daa:	9700      	str	r7, [sp, #0]
+    4dac:	eefc 7ac7 	vcvt.u32.f32	s15, s14
+    4db0:	ee17 ea90 	vmov	lr, s15
+    4db4:	fa1f f78e 	uxth.w	r7, lr
+    4db8:	eb08 0e0c 	add.w	lr, r8, ip
+    4dbc:	f838 c00c 	ldrh.w	ip, [r8, ip]
+    4dc0:	f8be 9002 	ldrh.w	r9, [lr, #2]
+    4dc4:	f8be 8004 	ldrh.w	r8, [lr, #4]
+    4dc8:	f64f 7eff 	movw	lr, #65535	@ 0xffff
+    4dcc:	fb07 f909 	mul.w	r9, r7, r9
+    4dd0:	ea87 0e0e 	eor.w	lr, r7, lr
+    4dd4:	fb07 fc0c 	mul.w	ip, r7, ip
+    4dd8:	fb07 f808 	mul.w	r8, r7, r8
+    4ddc:	9f00      	ldr	r7, [sp, #0]
+    4dde:	fb0e cc07 	mla	ip, lr, r7, ip
+    4de2:	8877      	ldrh	r7, [r6, #2]
+    4de4:	fb0e 9707 	mla	r7, lr, r7, r9
+    4de8:	f8b6 9004 	ldrh.w	r9, [r6, #4]
+    4dec:	fb0e 8809 	mla	r8, lr, r9, r8
+    4df0:	f50c 4e00 	add.w	lr, ip, #32768	@ 0x8000
+    4df4:	eb0e 4e1c 	add.w	lr, lr, ip, lsr #16
+    4df8:	f507 4c00 	add.w	ip, r7, #32768	@ 0x8000
+    4dfc:	eb0c 4c17 	add.w	ip, ip, r7, lsr #16
+    4e00:	f508 4700 	add.w	r7, r8, #32768	@ 0x8000
+    4e04:	ea4f 4e1e 	mov.w	lr, lr, lsr #16
+    4e08:	eb07 4718 	add.w	r7, r7, r8, lsr #16
+    4e0c:	ea4f 4c1c 	mov.w	ip, ip, lsr #16
+    4e10:	0c3f      	lsrs	r7, r7, #16
+    4e12:	e795      	b.n	4d40 <Pixel GSReactionDiffusion<288, 144>::shade_pixel<Scan::Shader::SsaaGrid<288, 144> >(int, math::Vector const&, GSReactionDiffusion<288, 144>::PackedNode const*, Scan::Shader::SsaaGrid<288, 144> const&, int) const+0x68c>
+    4e14:	ed5f 3aaf 	vldr	s7, [pc, #-700]	@ 4b5c <Pixel GSReactionDiffusion<288, 144>::shade_pixel<Scan::Shader::SsaaGrid<288, 144> >(int, math::Vector const&, GSReactionDiffusion<288, 144>::PackedNode const*, Scan::Shader::SsaaGrid<288, 144> const&, int) const+0x4a8>
+    4e18:	eeb0 4a63 	vmov.f32	s8, s7
+    4e1c:	e605      	b.n	4a2a <Pixel GSReactionDiffusion<288, 144>::shade_pixel<Scan::Shader::SsaaGrid<288, 144> >(int, math::Vector const&, GSReactionDiffusion<288, 144>::PackedNode const*, Scan::Shader::SsaaGrid<288, 144> const&, int) const+0x376>
+    4e1e:	f81e 4002 	ldrb.w	r4, [lr, r2]
+    4e22:	4d66      	ldr	r5, [pc, #408]	@ (4fbc <Pixel GSReactionDiffusion<288, 144>::shade_pixel<Scan::Shader::SsaaGrid<288, 144> >(int, math::Vector const&, GSReactionDiffusion<288, 144>::PackedNode const*, Scan::Shader::SsaaGrid<288, 144> const&, int) const+0x908>)
+    4e24:	ebc4 04c4 	rsb	r4, r4, r4, lsl #3
+    4e28:	9505      	str	r5, [sp, #20]
+    4e2a:	eb05 0444 	add.w	r4, r5, r4, lsl #1
+    4e2e:	f9b4 5002 	ldrsh.w	r5, [r4, #2]
+    4e32:	f9b4 c004 	ldrsh.w	ip, [r4, #4]
+    4e36:	4415      	add	r5, r2
+    4e38:	4494      	add	ip, r2
+    4e3a:	eb05 0745 	add.w	r7, r5, r5, lsl #1
+    4e3e:	eb03 0787 	add.w	r7, r3, r7, lsl #2
+    4e42:	edd7 5a01 	vldr	s11, [r7, #4]
+    4e46:	edd7 4a00 	vldr	s9, [r7]
+    4e4a:	ee77 5ae5 	vsub.f32	s11, s15, s11
+    4e4e:	ed97 5a02 	vldr	s10, [r7, #8]
+    4e52:	ee76 4a64 	vsub.f32	s9, s12, s9
+    4e56:	eb0c 074c 	add.w	r7, ip, ip, lsl #1
+    4e5a:	ee37 5a45 	vsub.f32	s10, s14, s10
+    4e5e:	ee65 5aa5 	vmul.f32	s11, s11, s11
+    4e62:	eb03 0787 	add.w	r7, r3, r7, lsl #2
+    4e66:	ed97 4a00 	vldr	s8, [r7]
+    4e6a:	eee4 5aa4 	vfma.f32	s11, s9, s9
+    4e6e:	edd7 4a02 	vldr	s9, [r7, #8]
+    4e72:	ee36 4a44 	vsub.f32	s8, s12, s8
+    4e76:	ee77 4a64 	vsub.f32	s9, s14, s9
+    4e7a:	eee5 5a05 	vfma.f32	s11, s10, s10
+    4e7e:	eef4 6ae5 	vcmpe.f32	s13, s11
+    4e82:	eef1 fa10 	vmrs	APSR_nzcv, fpscr
+    4e86:	fe75 5aa6 	vselgt.f32	s11, s11, s13
+    4e8a:	edd7 6a01 	vldr	s13, [r7, #4]
+    4e8e:	f9b4 7006 	ldrsh.w	r7, [r4, #6]
+    4e92:	bfd8      	it	le
+    4e94:	4615      	movle	r5, r2
+    4e96:	ee77 6ae6 	vsub.f32	s13, s15, s13
+    4e9a:	4417      	add	r7, r2
+    4e9c:	ee26 5aa6 	vmul.f32	s10, s13, s13
+    4ea0:	eb07 0847 	add.w	r8, r7, r7, lsl #1
+    4ea4:	eb03 0888 	add.w	r8, r3, r8, lsl #2
+    4ea8:	eea4 5a04 	vfma.f32	s10, s8, s8
+    4eac:	edd8 6a01 	vldr	s13, [r8, #4]
+    4eb0:	ed98 4a00 	vldr	s8, [r8]
+    4eb4:	ee77 6ae6 	vsub.f32	s13, s15, s13
+    4eb8:	ee36 4a44 	vsub.f32	s8, s12, s8
+    4ebc:	eea4 5aa4 	vfma.f32	s10, s9, s9
+    4ec0:	edd8 4a02 	vldr	s9, [r8, #8]
+    4ec4:	ee77 4a64 	vsub.f32	s9, s14, s9
+    4ec8:	eef4 5ac5 	vcmpe.f32	s11, s10
+    4ecc:	eef1 fa10 	vmrs	APSR_nzcv, fpscr
+    4ed0:	fe35 5a25 	vselgt.f32	s10, s10, s11
+    4ed4:	ee66 5aa6 	vmul.f32	s11, s13, s13
+    4ed8:	bfd8      	it	le
+    4eda:	46ac      	movle	ip, r5
+    4edc:	f9b4 5008 	ldrsh.w	r5, [r4, #8]
+    4ee0:	eee4 5a04 	vfma.f32	s11, s8, s8
+    4ee4:	4415      	add	r5, r2
+    4ee6:	eee4 5aa4 	vfma.f32	s11, s9, s9
+    4eea:	eeb4 5ae5 	vcmpe.f32	s10, s11
+    4eee:	eef1 fa10 	vmrs	APSR_nzcv, fpscr
+    4ef2:	bfd8      	it	le
+    4ef4:	4667      	movle	r7, ip
+    4ef6:	eb05 0c45 	add.w	ip, r5, r5, lsl #1
+    4efa:	fe75 5a85 	vselgt.f32	s11, s11, s10
+    4efe:	eb03 0c8c 	add.w	ip, r3, ip, lsl #2
+    4f02:	eddc 6a01 	vldr	s13, [ip, #4]
+    4f06:	eddc 4a00 	vldr	s9, [ip]
+    4f0a:	ee77 6ae6 	vsub.f32	s13, s15, s13
+    4f0e:	ed9c 5a02 	vldr	s10, [ip, #8]
+    4f12:	ee76 4a64 	vsub.f32	s9, s12, s9
+    4f16:	f9b4 c00a 	ldrsh.w	ip, [r4, #10]
+    4f1a:	ee37 5a45 	vsub.f32	s10, s14, s10
+    4f1e:	ee66 6aa6 	vmul.f32	s13, s13, s13
+    4f22:	eee4 6aa4 	vfma.f32	s13, s9, s9
+    4f26:	eee5 6a05 	vfma.f32	s13, s10, s10
+    4f2a:	eef4 5ae6 	vcmpe.f32	s11, s13
+    4f2e:	eef1 fa10 	vmrs	APSR_nzcv, fpscr
+    4f32:	bfd8      	it	le
+    4f34:	463d      	movle	r5, r7
+    4f36:	f9b4 700c 	ldrsh.w	r7, [r4, #12]
+    4f3a:	eb0c 0402 	add.w	r4, ip, r2
+    4f3e:	fe76 6aa5 	vselgt.f32	s13, s13, s11
+    4f42:	443a      	add	r2, r7
+    4f44:	eb04 0744 	add.w	r7, r4, r4, lsl #1
+    4f48:	eb03 0787 	add.w	r7, r3, r7, lsl #2
+    4f4c:	edd7 5a01 	vldr	s11, [r7, #4]
+    4f50:	edd7 4a00 	vldr	s9, [r7]
+    4f54:	ee77 5ae5 	vsub.f32	s11, s15, s11
+    4f58:	ed97 5a02 	vldr	s10, [r7, #8]
+    4f5c:	ee76 4a64 	vsub.f32	s9, s12, s9
+    4f60:	ee37 5a45 	vsub.f32	s10, s14, s10
+    4f64:	ee65 5aa5 	vmul.f32	s11, s11, s11
+    4f68:	eee4 5aa4 	vfma.f32	s11, s9, s9
+    4f6c:	eee5 5a05 	vfma.f32	s11, s10, s10
+    4f70:	eef4 6ae5 	vcmpe.f32	s13, s11
+    4f74:	eef1 fa10 	vmrs	APSR_nzcv, fpscr
+    4f78:	bfd8      	it	le
+    4f7a:	462c      	movle	r4, r5
+    4f7c:	eb02 0542 	add.w	r5, r2, r2, lsl #1
+    4f80:	fe75 5aa6 	vselgt.f32	s11, s11, s13
+    4f84:	eb03 0385 	add.w	r3, r3, r5, lsl #2
+    4f88:	edd3 4a01 	vldr	s9, [r3, #4]
+    4f8c:	ed93 5a00 	vldr	s10, [r3]
+    4f90:	ee77 7ae4 	vsub.f32	s15, s15, s9
+    4f94:	edd3 6a02 	vldr	s13, [r3, #8]
+    4f98:	ee36 6a45 	vsub.f32	s12, s12, s10
+    4f9c:	ee37 7a66 	vsub.f32	s14, s14, s13
+    4fa0:	ee67 7aa7 	vmul.f32	s15, s15, s15
+    4fa4:	eee6 7a06 	vfma.f32	s15, s12, s12
+    4fa8:	eee7 7a07 	vfma.f32	s15, s14, s14
+    4fac:	eef4 5ae7 	vcmpe.f32	s11, s15
+    4fb0:	eef1 fa10 	vmrs	APSR_nzcv, fpscr
+    4fb4:	bfd8      	it	le
+    4fb6:	4622      	movle	r2, r4
+    4fb8:	f7ff bbe6 	b.w	4788 <Pixel GSReactionDiffusion<288, 144>::shade_pixel<Scan::Shader::SsaaGrid<288, 144> >(int, math::Vector const&, GSReactionDiffusion<288, 144>::PackedNode const*, Scan::Shader::SsaaGrid<288, 144> const&, int) const+0xd4>
+    4fbc:	6002c324 	.word	0x6002c324
