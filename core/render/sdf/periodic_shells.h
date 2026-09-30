@@ -603,8 +603,7 @@ HS_HOT_FLASH_MEMBER Raycast::ShadedTrace shade_periodic_shells_dimension(
         }
         result.trace.has_surface = true;
         result.trace.contribution = hit;
-        composite.add(appearance.color(T),
-                      hit.coverage * appearance.opacity(T));
+        appearance.composite(composite, T, hit.coverage);
         if (composite.saturated()) {
           result.trace.status = Raycast::TraceStatus::SATURATED;
           result.color = composite.finish();

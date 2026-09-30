@@ -312,8 +312,7 @@ shade(const Geometry &geometry, float cell_size, float wire_radius,
       trace.contribution = {hit.t, hit.coverage, 0,     hit.feature,
                             0,     false,        false, {}};
       last_t = hit.t;
-      composite.add(appearance.color(hit.t),
-                    hit.coverage * appearance.opacity(hit.t));
+      appearance.composite(composite, hit.t, hit.coverage);
       if (composite.saturated()) {
         trace.status = Raycast::TraceStatus::SATURATED;
         goto finished;
