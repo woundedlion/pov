@@ -12,12 +12,14 @@ namespace hs_test {
 namespace hyper_lattice_tests {
 
 #if HS_ENABLE_HYPERLATTICE_EXPERIMENTS
+namespace Experiment = HyperLatticeDetail::Experiment;
+
 /** @brief Prepares an experimental frame over the tests' crossing scratch. */
-inline HyperLatticeExperimental::Prepared
-prepare_experimental(HyperLatticeExperimental::Settings settings) {
-  static HyperLatticeExperimental::CrossingStorage crossings;
+inline Experiment::Prepared
+prepare_experimental(Experiment::Settings settings) {
+  static SDF::OctetTrace::CrossingStorage crossings;
   settings.crossings = &crossings;
-  return HyperLatticeExperimental::prepare(settings);
+  return Experiment::prepare(settings);
 }
 #endif
 
@@ -1022,7 +1024,7 @@ inline void test_octet_prepared_projection() {
   reset_globals();
   Effect effect;
   effect.init();
-  HyperLatticeExperimental::Settings settings;
+  Experiment::Settings settings;
   settings.palette = HyperLatticeWhiteBox::depth_palette(effect);
   settings.pixel_half_angle = .018f;
   const auto expect_same = [](const Raycast::ShadedTrace &actual,
@@ -1033,15 +1035,14 @@ inline void test_octet_prepared_projection() {
     HS_EXPECT_NEAR(actual.color.color.g, expected.color.color.g, 2);
     HS_EXPECT_NEAR(actual.color.color.b, expected.color.color.b, 2);
   };
-  const auto expect_premultiplied =
-      [](const HyperLatticeExperimental::Sample &actual,
-         const Raycast::ShadedTrace &expected) {
-        HS_EXPECT_EQ(actual.status, expected.trace.status);
-        const Pixel PREMULTIPLIED = expected.color.color * expected.color.alpha;
-        HS_EXPECT_NEAR(actual.color.r, PREMULTIPLIED.r, 1);
-        HS_EXPECT_NEAR(actual.color.g, PREMULTIPLIED.g, 1);
-        HS_EXPECT_NEAR(actual.color.b, PREMULTIPLIED.b, 1);
-      };
+  const auto expect_premultiplied = [](const SDF::OctetTrace::Sample &actual,
+                                       const Raycast::ShadedTrace &expected) {
+    HS_EXPECT_EQ(actual.status, expected.trace.status);
+    const Pixel PREMULTIPLIED = expected.color.color * expected.color.alpha;
+    HS_EXPECT_NEAR(actual.color.r, PREMULTIPLIED.r, 1);
+    HS_EXPECT_NEAR(actual.color.g, PREMULTIPLIED.g, 1);
+    HS_EXPECT_NEAR(actual.color.b, PREMULTIPLIED.b, 1);
+  };
   size_t lit = 0;
   for (Domain domain : {Domain::SPATIAL_3D, Domain::SLICE_4D}) {
     settings.domain = domain;
@@ -1075,7 +1076,7 @@ inline void test_octet_prepared_projection() {
                   {{DIRECTION.x, DIRECTION.y, DIRECTION.z, 0.0f}});
               Raycast::ShadedTrace world;
               Raycast::ShadedTrace projected;
-              HyperLatticeExperimental::Sample traced;
+              SDF::OctetTrace::Sample traced;
               if (domain == Domain::SLICE_4D) {
                 SDF::OctetEvents4 generic(prepared.octet4,
                                           camera.point4(RAY.origin), AMBIENT,
@@ -1089,7 +1090,7 @@ inline void test_octet_prepared_projection() {
                 auto copy = events;
                 projected = Raycast::shade_events(
                     copy, RAY.interval, prepared.limits, prepared.appearance);
-                traced = HyperLatticeExperimental::trace(
+                traced = SDF::OctetTrace::trace_events(
                     events, RAY.interval, prepared.limits, prepared.appearance);
               } else {
                 const Raycast::Ray WORLD{camera.point3(RAY.origin),
@@ -1106,16 +1107,15 @@ inline void test_octet_prepared_projection() {
                 auto copy = events;
                 projected = Raycast::shade_events(
                     copy, RAY.interval, prepared.limits, prepared.appearance);
-                traced = HyperLatticeExperimental::trace(
+                traced = SDF::OctetTrace::trace_events(
                     events, RAY.interval, prepared.limits, prepared.appearance);
               }
               expect_same(projected, world);
               expect_premultiplied(traced, projected);
-              const auto SHADED = domain == Domain::SLICE_4D
-                                      ? HyperLatticeExperimental::shade<true>(
-                                            DIRECTION, prepared)
-                                      : HyperLatticeExperimental::shade<false>(
-                                            DIRECTION, prepared);
+              const auto SHADED =
+                  domain == Domain::SLICE_4D
+                      ? Experiment::shade<true>(DIRECTION, prepared)
+                      : Experiment::shade<false>(DIRECTION, prepared);
               HS_EXPECT_EQ(SHADED.status, traced.status);
               // The 4D trace sums plane positions in its canonical frame's
               // order, which moves crossing distances by an ulp.
@@ -1145,7 +1145,7 @@ inline void test_octet_4d_canonical_trace() {
   reset_globals();
   Effect effect;
   effect.init();
-  HyperLatticeExperimental::Settings settings;
+  Experiment::Settings settings;
   settings.palette = HyperLatticeWhiteBox::depth_palette(effect);
   settings.pixel_half_angle = HL::pixel_half_angle<288, 144>();
   settings.domain = Raycast::SamplingDomain::SLICE_4D;
@@ -1177,10 +1177,12 @@ inline void test_octet_4d_canonical_trace() {
       const SDF::OctetEvents4 events(
           prepared.octet4, prepared.octet4_projection, DIRECTION,
           camera.radial_start, camera.interval.near, prepared.footprint);
-      const auto EXPECTED = HyperLatticeExperimental::trace(
+      const auto EXPECTED = SDF::OctetTrace::trace_events(
           events, camera.interval, prepared.limits, prepared.appearance);
-      const auto ACTUAL =
-          HyperLatticeExperimental::trace_octet_4d(DIRECTION, prepared);
+      const auto ACTUAL = SDF::OctetTrace::trace_4d(
+          DIRECTION, camera, prepared.octet4, prepared.octet4_projection,
+          prepared.footprint, prepared.limits, prepared.appearance,
+          *prepared.crossings);
       HS_EXPECT_EQ(ACTUAL.status, EXPECTED.status);
       const int DELTA = std::max({abs(ACTUAL.color.r - EXPECTED.color.r),
                                   abs(ACTUAL.color.g - EXPECTED.color.g),
@@ -1223,8 +1225,8 @@ inline void test_experimental_presets() {
             frame, {{.4f, .7f, .2f, .8f}}));
     HS_EXPECT_TRUE(before.valid && after.valid);
     const auto wrong_domain =
-        !SLICE ? HyperLatticeExperimental::shade<true>(math::X_AXIS, before)
-               : HyperLatticeExperimental::shade<false>(math::X_AXIS, before);
+        !SLICE ? Experiment::shade<true>(math::X_AXIS, before)
+               : Experiment::shade<false>(math::X_AXIS, before);
     HS_EXPECT_EQ(wrong_domain.status, Raycast::TraceStatus::INVALID_QUERY);
     HS_EXPECT_EQ(before.camera.domain, !SLICE
                                            ? Raycast::SamplingDomain::SPATIAL_3D

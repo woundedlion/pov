@@ -7,8 +7,9 @@ preserve the rendered output. The [optimization ledger](../profiles/hyperlattice
 is the historical record of the arithmetic work that preceded this spec; that
 work is retained and this spec builds on it.
 
-Source of truth for the shipped code: `effects/HyperLatticeExperimental.h`
-(shader entry and per-frame preparation), `core/render/sdf/framework.h`
+Source of truth for the shipped code: `effects/HyperLattice.h`
+(shader entry and per-frame preparation), `core/render/sdf/octet_trace.h`
+(octet traces), `core/render/sdf/framework.h`
 (`OctetEvents`, `OctetEvents4`, `OctetFramework4::edge_query`),
 `core/render/ray/events.h` (`trace_events`) and `core/render/ray/shade.h`
 (`shade_events`, `Appearance`).
