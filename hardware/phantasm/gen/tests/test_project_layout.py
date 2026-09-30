@@ -38,7 +38,8 @@ class RevisionProjectTests(unittest.TestCase):
             reference = properties.get("Reference") or next(
                 text[2] for text in F(footprint, "fp_text") if text[1] == "reference")
             pads[reference] = numbers
-        self.assertEqual(len(pins), 29)
+        self.assertEqual(len(pins), 28)
+        self.assertNotIn("J4", pins)
         self.assertEqual(pins, pads)
 
 

@@ -162,8 +162,8 @@ class GateTests(unittest.TestCase):
         self.assertIn("FAIL GND\n   missing ['J3A.2']", out)
         self.assertIn("FAIL SYNC_BUS\n   missing ['J3A.1']", out)
 
-    def test_rejects_swapped_debug_header_rails(self):
-        ok, out = run(swap_pins(expected_nodes(), "J4", "1", "2"))
+    def test_rejects_swapped_teensy_rails(self):
+        ok, out = run(swap_pins(expected_nodes(), "U_MCU", "3V3", "GND"))
         self.assertFalse(ok)
         self.assertIn("FAIL +3V3", out)
         self.assertIn("FAIL GND", out)

@@ -392,8 +392,9 @@ class GeneratedBoardTests(TerminalBodyChecks, unittest.TestCase):
         self.assertEqual(float(sexp.val(label, "at")[1]), 23.5)
 
     def test_reproduces_the_routed_board_assembly_exclusions(self):
-        self.assertEqual(assembly_exclusions(self.root),
-                         assembly_exclusions(read(COMMITTED_PCB)))
+        expected = assembly_exclusions(read(COMMITTED_PCB))
+        del expected["J4"]
+        self.assertEqual(assembly_exclusions(self.root), expected)
 
     def test_stamps_the_revision_in_the_title_block(self):
         blocks = F(self.root, "title_block")
@@ -414,6 +415,19 @@ class GeneratedBoardTests(TerminalBodyChecks, unittest.TestCase):
 
 
 class TerminalEdgePlacementChecks:
+    def test_debug_header_and_serial_connection_are_absent(self):
+        footprints = {reference(fp): fp for fp in F(self.root, "footprint")}
+        self.assertNotIn("J4", footprints)
+        nets = {sexp.val(pad, "net")[-1]
+                for fp in footprints.values() for pad in F(fp, "pad")
+                if sexp.val(pad, "net")}
+        self.assertNotIn("/SERIAL1_TX", nets)
+        tx = next(pad for pad in F(footprints["U_MCU"], "pad") if pad[1] == "1")
+        tx_net = sexp.val(tx, "net")[-1]
+        self.assertTrue(tx_net.startswith("unconnected-"), tx_net)
+        self.assertEqual(sum(sexp.val(pad, "net", [""])[-1] == tx_net
+                             for fp in footprints.values() for pad in F(fp, "pad")), 1)
+
     def test_connectors_are_locked_inside_the_outline(self):
         footprints = {reference(fp): fp for fp in F(self.root, "footprint")}
         edge = F(self.root, "gr_rect")[0]
@@ -505,7 +519,7 @@ class UnplacedBoardTests(TerminalBodyChecks, TerminalEdgePlacementChecks, unitte
         for ref, (x, y, rot) in fixed.items():
             with self.subTest(ref=ref):
                 self.assertEqual(placed[ref], (float(x), float(y), float(rot)))
-        for ref in pcb.QUILTER_FIXED.keys() - fixed.keys():
+        for ref in (pcb.QUILTER_FIXED.keys() & placed.keys()) - fixed.keys():
             with self.subTest(staged=ref):
                 self.assertGreater(placed[ref][1], pcb.PCB_W)
 
