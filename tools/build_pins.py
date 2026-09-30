@@ -118,6 +118,7 @@ CONSUMERS = {
     ROOT / ".github/workflows/ci.yml": (
         "build_pins.py --github-output",
         "python tools/build_pins.py --check",
+        "python tools/build_pins.py --check-tool cmake",
     ),
     ROOT / ".github/actions/pinned-doxygen/action.yml": (
         "build_pins.py doxygen-awesome",
@@ -127,6 +128,7 @@ CONSUMERS = {
         "build_pins.py --check-tool actionlint",
         "build_pins.py --check-tool just",
         "build_pins.py --check-tool clang-format",
+        "build_pins.py --check-tool cmake",
         "build_pins.py --check-tool doxygen",
         "build_pins.py --check-tool node",
         "build_pins.py --check-tool numpy",
@@ -278,6 +280,7 @@ SHARED_LITERAL_USES = (
 # it (CONSUMERS pins those call sites). The native build reaches clang through
 # the CMake toolchain, which may be emsdk's.
 CHECK_TOOLS = {
+    "cmake": (["cmake", "--version"], "pip install cmake=={pin}", lambda v: v),
     "actionlint": (["actionlint", "-version"],
                    "pip install actionlint-py=={pin}",
                    lambda v: v.rsplit(".", 1)[0]),
