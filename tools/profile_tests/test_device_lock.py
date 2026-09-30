@@ -377,9 +377,13 @@ class BoardSelection(unittest.TestCase):
         # HS_TEENSY_PORT names the board under test; falling back to a free
         # peer board would profile the wrong hardware silently.
         self.hold("COM3")
+        tools = self.base.parent / "empty-tools"
+        tools.mkdir()
         r = run_lock("hs_device_acquire E profile 60", self.base, ports=None,
-                     env={"HS_TEENSY_PORT": "COM3"})
+                     env={"HS_TEENSY_PORT": "COM3", "HS_TEENSY_TOOLS": str(tools)})
         self.assertEqual(r.returncode, 1)
+
+        self.assertIn("ALL DEVICES BUSY", r.stderr)
 
     def test_claim_whose_info_never_landed_is_not_handed_out(self):
         # An unreadable claim is one hs_device_release can never match, so the
