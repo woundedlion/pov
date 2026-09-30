@@ -87,6 +87,10 @@
 
 #include "../Phantasm/phantasm_target.h"
 
+#ifdef HS_PROFILE_SPHERICAL_EXPERIMENT
+#include "tools/profile_spherical_experiment.h"
+#endif
+
 #ifdef HS_MINDSPLATTER_REPLAY
 #include "tests/mindsplatter_replay_corpus.h"
 #include "tests/mindsplatter_whitebox.h"
