@@ -2542,6 +2542,13 @@ struct HankinPauseWhiteBox {
     return effect.pending_landing != nullptr;
   }
   static uint8_t node(const EffectT &effect) { return effect.node; }
+  static void draw_without_topology(EffectT &effect) {
+    effect.hankin_mesh.topology.clear();
+    effect.hankin_mesh.topology_key = 0;
+    const BakedPalette *palettes[EffectT::NUM_PALETTES]{};
+    Canvas canvas(effect);
+    effect.draw_mesh(canvas, effect.hankin_mesh, palettes, palettes);
+  }
 };
 
 /** @brief Verifies a manual Angle edit freezes an in-flight Conway morph. */
