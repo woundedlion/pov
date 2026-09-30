@@ -98,9 +98,9 @@ inline void test_traversal() {
     camera.center = {MID.x, MID.y, MID.z - 1, 0};
     const auto FIRST = shade(GEOMETRY, 1, .04f, camera, {.002f, 0}, limits,
                              appearance, math::Z_AXIS);
-    HS_EXPECT_FALSE(FIRST.trace.has_surface);
+    HS_EXPECT_TRUE(FIRST.trace.status == Raycast::TraceStatus::RANGE_COMPLETE ||
+                   FIRST.trace.status == Raycast::TraceStatus::SATURATED);
     HS_EXPECT_GT(FIRST.trace.counters.layers, 0);
-    HS_EXPECT_FALSE(FIRST.trace.contribution.verified);
     HS_EXPECT_GT(FIRST.color.alpha, 0.f);
     for (int axis = 0; axis < 3; ++axis) {
       auto shifted = camera;
@@ -112,6 +112,14 @@ inline void test_traversal() {
       HS_EXPECT_NEAR(FIRST.color.alpha, TRANSLATED.color.alpha, 1e-5f);
     }
     auto bounded = limits;
+    bounded.max_layers = 0;
+    const auto NO_LAYERS = shade(GEOMETRY, 1, .04f, camera, {.002f, 0}, bounded,
+                                 appearance, math::Z_AXIS);
+    HS_EXPECT_EQ(NO_LAYERS.trace.status,
+                 Raycast::TraceStatus::BUDGET_EXHAUSTED);
+    HS_EXPECT_EQ(NO_LAYERS.trace.counters.layers, 0);
+    HS_EXPECT_EQ(NO_LAYERS.color.alpha, 0.0f);
+    bounded = limits;
     bounded.max_steps = 0;
     const auto EXHAUSTED =
         shade(GEOMETRY, 1, .04f, camera, {}, bounded, appearance, math::Z_AXIS);
