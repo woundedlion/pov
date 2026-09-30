@@ -31,9 +31,6 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 find_package(Python3 REQUIRED COMPONENTS Interpreter)
 
 if(EMSCRIPTEN)
-  add_compile_definitions(
-    HS_RUNTIME_DISPLAY_GEOMETRY=1
-    HS_DISPLAY_PROFILE=0)
   # ===========================================================================
   # WASM simulator build (daydream)
   # ===========================================================================
@@ -70,6 +67,8 @@ if(EMSCRIPTEN)
   # Device-bound effects are still gated against the true device figure by the
   # native unit_arena_budget sweep, which builds without the interpreter.
   target_compile_definitions(${TARGET_NAME} PRIVATE
+    HS_RUNTIME_DISPLAY_GEOMETRY=1
+    HS_DISPLAY_PROFILE=0
     HS_GLOBAL_ARENA_BYTES=524288)
 
   # Warning hygiene for the JS bridge: targets/wasm/ is built by no other target,
