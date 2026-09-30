@@ -272,10 +272,12 @@ struct ShapeShifterWhiteBox {
     return effect.phase;
   }
 
-  static float phase_direction(OracleEffect &effect, bool opposite,
-                               float radius) {
-    effect.params.opposite = opposite;
+  static float phase_direction(const OracleEffect &effect, float radius) {
     return effect.phase_direction(radius);
+  }
+
+  static float star_phase_direction(const OracleEffect &effect, float radius) {
+    return effect.star_phase_direction(radius);
   }
 
   static float alpha_falloff_at(OracleEffect::AlphaFalloff falloff,
@@ -941,16 +943,22 @@ inline void test_opposite_halves_direction() {
   {
     OracleEffect effect;
     effect.init();
-    HS_EXPECT_EQ(ShapeShifterWhiteBox::phase_direction(effect, false, 0.5f),
+    HS_EXPECT_EQ(effect.updateParameter("Opposite", 0.0f),
+                 ParamSetResult::APPLIED);
+    HS_EXPECT_EQ(ShapeShifterWhiteBox::phase_direction(effect, 0.5f), 1.0f);
+    HS_EXPECT_EQ(ShapeShifterWhiteBox::phase_direction(effect, 1.5f), -1.0f);
+    HS_EXPECT_EQ(ShapeShifterWhiteBox::star_phase_direction(effect, 0.5f),
                  1.0f);
-    HS_EXPECT_EQ(ShapeShifterWhiteBox::phase_direction(effect, false, 1.5f),
-                 -1.0f);
+    HS_EXPECT_EQ(ShapeShifterWhiteBox::star_phase_direction(effect, 1.5f),
+                 1.0f);
     HS_EXPECT_EQ(effect.updateParameter("Opposite", 1.0f),
                  ParamSetResult::APPLIED);
-    HS_EXPECT_EQ(ShapeShifterWhiteBox::phase_direction(effect, true, 0.5f),
+    HS_EXPECT_EQ(ShapeShifterWhiteBox::phase_direction(effect, 0.5f), 1.0f);
+    HS_EXPECT_EQ(ShapeShifterWhiteBox::phase_direction(effect, 1.5f), 1.0f);
+    HS_EXPECT_EQ(ShapeShifterWhiteBox::star_phase_direction(effect, 0.5f),
                  1.0f);
-    HS_EXPECT_EQ(ShapeShifterWhiteBox::phase_direction(effect, true, 1.5f),
-                 1.0f);
+    HS_EXPECT_EQ(ShapeShifterWhiteBox::star_phase_direction(effect, 1.5f),
+                 -1.0f);
   }
   Timeline().clear();
 
