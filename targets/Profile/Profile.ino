@@ -362,8 +362,7 @@ private:
     const uint32_t avg = (uint32_t)(s.cycles / s.count);
     const uint32_t total_us =
         (uint32_t)(s.cycles / hs::CycleCounter::CYCLES_PER_US);
-    // CPU share in hundredths of a percent; window_us is far below the
-    // 32-bit ceiling of total_us * 10000.
+    // total_us * 10000 exceeds 32 bits over a multi-second window.
     const uint32_t share_c =
         window_us ? (uint32_t)((uint64_t)total_us * 10000u / window_us) : 0;
     hs::log("%-14s n=%lu cyc min/avg/max=%lu/%lu/%lu "
