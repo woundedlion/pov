@@ -70,9 +70,8 @@ The corrected placement and routing remain in `phantasm.kicad_pcb`. Start a new
 routing job with the current [rev 1.2 project](../README.md). A fresh
 `../gen/pcb.py` run creates a placement draft: it reserves space for reference
 labels, keeps the back legend between the Teensy's pad rows, and separates
-the connector labels from their outlines. Footprints that differ from the
-captured fixed layout (the terminal blocks and hand-solder resistor lands) are
-staged for placement instead of locked at incompatible coordinates. It does
+the connector labels from their outlines. Terminal blocks are locked at `TERMINAL_EDGE_PLACEMENTS`;
+hand-solder resistor lands remain staged for placement. It does
 not reconstruct routing or the four widened resistor lands. Its clearances
 still need checking after placement and routing. The final saved JLCDFM
 report retains pad-spacing dangers and annular-ring, mask-expansion, and
@@ -362,9 +361,8 @@ the strip, the heavy 5 V/GND LED harness, and the Belden 8451 STP for each inter
   logic-GND star (§R-SI-2) is a single `GND` net in the schematic — the
   load-end star tie is a **layout/harness** concern (SIG_GND meets the heavy
   LED return at the strip GND pin, off-board), not a separate schematic net.
-- **Teensy symbol** shows only the **pins this board uses** (VIN, 3V3, GND, D1, D3, D4 (rev 1.2),
-  D5, D11, D13, D21, D22, **D23**); the other ~16 pads are unconnected on this design
-  and omitted for readability. Pin **number = the Teensy pad label** (e.g. `11`, `VIN`),
+- **Rev 1.1 Teensy symbol** shows only the pins this board uses; its unused
+  pads are omitted. The rev 1.2 symbol carries every pad. Pin **number = the Teensy pad label** (e.g. `11`, `VIN`),
   which matches the generated `phantasm:Teensy4.0` footprint pad names. The footprint
   pad map is the **top view (component side up) with the USB end at −X** — the Teensy
   mounts component-side-up.
@@ -445,7 +443,7 @@ facts block above.
 ### Terminal-block clearance
 
 The generator uses **GCT TBC05-02-1-G-G** for J1 (board power) and
-**TBC05-03-1-G-G** for J2 (LED signals), J3A and J3B (sync). J4 remains a header.
+**TBC05-03-1-G-G** for J2 (LED signals), J3A and J3B (sync). J4 is absent from rev 1.2.
 The [GCT mechanical drawing](https://www.farnell.com/cad/4513152.pdf) specifies
 2.54 mm pitch, 1.3 mm PCB holes, and bodies **5.48 × 6.5 mm** (two positions)
 or **8.02 × 6.5 mm** (three positions), 8.5 mm high.
@@ -453,8 +451,8 @@ or **8.02 × 6.5 mm** (three positions), 8.5 mm high.
 Each terminal footprint reserves its body plus 0.5 mm on every side with a
 front courtyard and a footprint-local component keepout. Traces, vias and
 copper pours remain allowed beneath the plastic body. The placed draft packs
-against the larger reservation; the unplaced output stages these connectors
-for placement instead of locking them to the old header positions. Recheck
+against the larger reservation; the unplaced output locks these connectors
+at `TERMINAL_EDGE_PLACEMENTS`. Recheck
 wire entry, screw access and rotor clearance after placement.
 
 The committed rev 1.1 boards still carry pin-header footprints. Matching pin
