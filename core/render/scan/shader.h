@@ -37,7 +37,7 @@ namespace Scan {
  * @details Every entry point assigns the finished premultiplied color to the
  * canvas rather than plotting it, so the destination is overwritten: alpha < 1
  * darkens the pixel instead of blending with what is under it, and no
- * plot-time filter stage (Filter::World / Filter::Pixel) sees it. These entry
+ * plot-time filter stage (Filter::World / Filter::Screen / Filter::Pixel) sees it. These entry
  * points take no pipeline; an effect needing the filter chain must plot
  * through it itself. They take no debug flag and do not read canvas.debug():
  * every pixel is covered, so there is no scan bound for the bounding-box tint
