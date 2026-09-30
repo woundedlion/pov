@@ -972,8 +972,7 @@ static inline ClipCutBounds make_clip_cut_bounds(const ClipRegion &cr,
  * @param ts Output, up to GEODESIC_CLIP_MAX_SPLITS fractions in (0, 1),
  *        ascending and separated enough that no piece is degenerate.
  * @return Number of fractions written.
- * @details Cutting the edge here and gating the pieces replaces a uniform chop:
- * every piece then lies wholly inside or wholly outside the band. The
+ * @details Every resulting piece lies wholly inside or wholly outside the band. The
  * boundaries are the RENDER band's, already widened by the clip margin to cover
  * filter reach; the only spacing added on top is the cull's own footprint
  * (CLIP_CUT_COL_PAD, CLIP_CUT_ROW_PAD), without which the outside piece lands

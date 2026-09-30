@@ -138,10 +138,7 @@ inline constexpr size_t rasterize_scratch_a_bytes(size_t planar_segments = 0,
 
 /**
  * @brief Compile-time rasterize() configuration, passed as one NTTP.
- * @details Named fields, so a call site reads
- * `rasterize<W, H, RasterConfig{.single_pass = true}>` instead of ordering four
- * bare booleans and a policy enum. Every field defaults to the plain
- * cached-replay geodesic polyline.
+ * @details Every field defaults to the plain cached-replay geodesic polyline.
  */
 struct RasterConfig {
   /** Emit adaptive samples immediately instead of replaying a step cache. */
@@ -247,7 +244,7 @@ private:
  * @details Taken BY VALUE, never by const reference: a reference escapes the
  * aggregate's address, so every call site materializes it and no field reaches
  * the callee as a constant. Owned by the callee, IPA-SRA splits it back into
- * scalar arguments — worth 1,376 B of ITCM on the device image.
+ * scalar arguments.
  */
 struct RasterOptions {
   /** edge_flags bit: the edge intersects the clip region. */
