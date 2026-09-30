@@ -434,7 +434,8 @@ mirror_tile(const math::Complex &input, const WarpStageParams &params,
     (HS_ENABLE_TEST_HOOKS && HS_ENABLE_TEST_ORACLES)
 inline math::Complex condition_source_coords(const math::Complex &coords,
                                              const FrameState &frame) {
-  if (is_noise_contour(frame.slots.function) ||
+  if (frame.slots.function == Function::SPHERICAL_RINGS ||
+      is_noise_contour(frame.slots.function) ||
       frame.slots.function == Function::PRIMITIVE_LATTICE ||
       frame.slots.function == Function::FRACTAL ||
       frame.slots.function == Function::TESSELLATION)
