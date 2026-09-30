@@ -18,7 +18,55 @@ export const DEFAULT_LIMITS = Object.freeze({
 // Tick counts land in the engine's uint16_t frame counters.
 const MAX_TICK_COUNT = 65535;
 const ID_PATTERN = /^[a-z][a-z0-9]*(?:[._-][a-z0-9]+)*$/;
-const LABEL_PATTERN = /^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$/;
+export const LABEL_PATTERN = /^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$/;
+export function declarationFromCatalogField(label, field, operator) {
+  if (field.topology) {
+    return {
+      id: `${label}.${field.id}`,
+      classification: 'preset',
+      storage: 'enum8',
+      unit: 'mode',
+      domain: { values: [...field.values] },
+      interpolation: { kind: 'MIXED_ENUM' },
+      default: field.default,
+    };
+  }
+  // Catalog curves are lowercase kebab; document interpolation kinds keep
+  // their own uppercase vocabulary.
+  const minimum = Math.fround(field.min);
+  const maximum = Math.fround(field.max);
+  let periodic = null;
+  let kind;
+  switch (field.curve) {
+    case 'shortest-turn':
+      periodic = { period: 1, unit: 'turn' };
+      kind = 'SHORTEST_PERIODIC';
+      break;
+    case 'shortest-periodic':
+      periodic = { period: Math.fround(2 * Math.PI), unit: 'radian' };
+      kind = 'SHORTEST_PERIODIC';
+      break;
+    case 'log-positive': kind = 'LOG_POSITIVE'; break;
+    case 'snap': kind = 'SNAP'; break;
+    case 'lerp': kind = 'LINEAR'; break;
+    default: throw new Error(`unknown catalog curve "${field.curve}" for "${field.id}"`);
+  }
+  return {
+    id: `${label}.${field.id}`,
+    classification: 'preset',
+    storage: 'binary32',
+    unit: periodic !== null ? periodic.unit
+      : field.id.endsWith('speed')
+        ? ((operator.startsWith('sample.') && ['speed', 'angle-speed'].includes(field.id))
+          || field.id === 'projection-spin-speed' || field.id === 'spin-speed'
+          ? 'radian-per-frame' : 'turn-per-frame') : 'ratio',
+    domain: { minimum, maximum },
+    interpolation: periodic !== null
+      ? { kind, period: periodic.period } : { kind },
+    default: field.default,
+  };
+}
+
 const CLASSIFICATIONS = new Set([
   'semantic',
   'preset',
@@ -1307,15 +1355,7 @@ export function expandV1Document(document, catalog) {
       const parameterId = `colorize.${field}`;
       if (parameterIdSet.has(parameterId)) return null;
       const schema = operatorField(operators.get('colorize.generated-palette.v3'), field);
-      return {
-        id: parameterId,
-        classification: 'preset',
-        storage: 'binary32',
-        unit: 'ratio',
-        domain: { minimum: schema.min, maximum: schema.max },
-        interpolation: { kind: 'LINEAR' },
-        default: schema.default,
-      };
+      return declarationFromCatalogField('colorize', schema, 'colorize.generated-palette.v3');
     })
     .filter(Boolean);
 
@@ -1333,12 +1373,7 @@ export function expandV1Document(document, catalog) {
         failV1('V1_POLICY_UNSUPPORTED', `chain.${slot.label}.${field}`,
           `Operator "${slot.operator}" has no topology value "${field}=${value}".`);
       topologyParameters.push({
-        id: `${slot.label}.${field}`,
-        classification: 'preset',
-        storage: 'enum8',
-        unit: 'mode',
-        domain: { values: [...schema.values] },
-        interpolation: { kind: 'MIXED_ENUM' },
+        ...declarationFromCatalogField(slot.label, schema, slot.operator),
         default: value,
       });
     }

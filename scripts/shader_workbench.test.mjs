@@ -4,6 +4,8 @@ import assert from 'node:assert/strict';
 import { readFile, readdir } from 'node:fs/promises';
 import {
   DEFAULT_LIMITS,
+  LABEL_PATTERN,
+  declarationFromCatalogField,
   ShaderDocumentError,
   applyEasing,
   canonicalPresetBank,
@@ -1237,4 +1239,55 @@ test('a fixed affine warp without a lattice source has unit period', () => {
   assert.equal(fixedDerivedBinding(descriptor, parameter, { [parameter]: 0.5 }).valid, false);
   descriptor.chain[0].operator = 'warp.wave-shear.v2';
   assert.equal(fixedDerivedBinding(descriptor, parameter, { [parameter]: 1 }), null);
+});
+
+test('catalog declarations share the compiler label and topology contracts', () => {
+  for (const label of ['colorize', 'warp2', 'warp-outer']) assert.match(label, LABEL_PATTERN);
+  for (const label of ['Warp', 'warp_outer', 'warp.outer', 'warp--outer'])
+    assert.doesNotMatch(label, LABEL_PATTERN);
+  const operator = CATALOG.operators.find(({ id }) => id === 'colorize.generated-palette.v3');
+  const field = operator.params.find(({ id }) => id === 'palette-mapping');
+  const declaration = declarationFromCatalogField('colorize', field, operator.id);
+  assert.equal(declaration.id, 'colorize.palette-mapping');
+  assert.equal(declaration.storage, 'enum8');
+  assert.equal(declaration.unit, 'mode');
+  assert.equal(declaration.classification, 'preset');
+  assert.deepEqual(declaration.interpolation, { kind: 'MIXED_ENUM' });
+  assert.deepEqual(declaration.domain.values, field.values);
+  assert.notEqual(declaration.domain.values, field.values);
+  assert.equal(declaration.default, field.default);
+});
+
+test('catalog declarations map every numeric interpolation curve', () => {
+  const field = { id: 'amount', min: 0.1, max: 1.3, default: 1 };
+  for (const [curve, interpolation, unit] of [
+    ['lerp', { kind: 'LINEAR' }, 'ratio'],
+    ['snap', { kind: 'SNAP' }, 'ratio'],
+    ['log-positive', { kind: 'LOG_POSITIVE' }, 'ratio'],
+    ['shortest-turn', { kind: 'SHORTEST_PERIODIC', period: 1 }, 'turn'],
+    ['shortest-periodic', { kind: 'SHORTEST_PERIODIC', period: Math.fround(2 * Math.PI) }, 'radian'],
+  ]) {
+    const declaration = declarationFromCatalogField('warp', { ...field, curve }, 'warp.test.v1');
+    assert.deepEqual(declaration.interpolation, interpolation);
+    assert.equal(declaration.unit, unit);
+    assert.equal(declaration.storage, 'binary32');
+    assert.deepEqual(declaration.domain, { minimum: Math.fround(field.min), maximum: Math.fround(field.max) });
+    assert.equal(declaration.default, field.default);
+  }
+  assert.throws(() => declarationFromCatalogField('warp', { ...field, curve: 'unknown' }, 'warp.test.v1'),
+    /unknown catalog curve/);
+});
+
+test('catalog declarations preserve source and clock speed units', () => {
+  for (const [operator, id, unit] of [
+    ['sample.grid.v1', 'speed', 'radian-per-frame'],
+    ['sample.grid.v1', 'angle-speed', 'radian-per-frame'],
+    ['warp.mirror.v1', 'speed', 'turn-per-frame'],
+    ['project.stereographic.v1', 'projection-spin-speed', 'radian-per-frame'],
+    ['sphere.rotate.v1', 'spin-speed', 'radian-per-frame'],
+    ['colorize.generated-palette.v3', 'hue-noise-speed', 'turn-per-frame'],
+  ]) {
+    const field = { id, curve: 'lerp', min: -1, max: 1, default: 0 };
+    assert.equal(declarationFromCatalogField('stage', field, operator).unit, unit);
+  }
 });
