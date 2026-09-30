@@ -402,7 +402,7 @@ struct DistortedRingStack {
         if (cell.lo > cell.hi)
           return;
         const float sin_polar =
-            sqrtf(std::max(1.0f - d * d, SDF::DistortedRing::POLE_SIN2_FLOOR));
+            sqrtf(fmaxf(1.0f - d * d, SDF::DistortedRing::POLE_SIN2_FLOOR));
         for (int i = cell.lo; i <= cell.hi; ++i) {
           const int s = slot_by_ring[i];
           if (s < 0)
