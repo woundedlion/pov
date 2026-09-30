@@ -1478,6 +1478,14 @@ inline void test_bump_field_precomputed_y_parity() {
       HS_EXPECT_NEAR(bump_field_with_y(v, p, y), bump_field(v, p), 2e-3f);
     }
   }
+  p.center = math::Y_AXIS;
+  p.axis = math::Y_AXIS;
+  for (float angle : {0.0001f, 0.0005f, 0.001f}) {
+    const math::Vector point(sinf(angle), cosf(angle), 0.0f);
+    const float field = bump_field_with_y(point, p, angle);
+    HS_EXPECT_TRUE(std::isfinite(field));
+    HS_EXPECT_LE(std::abs(field), p.field_bound());
+  }
 }
 
 /**
