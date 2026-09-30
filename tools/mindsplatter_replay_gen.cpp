@@ -221,12 +221,8 @@ int main(int argc, char **argv) {
   configure_arenas_default();
   ReplayEffect effect;
   effect.init();
-  if (refresh) {
-    WhiteBox::restore_render(effect, std::span(state));
-    selected->snapshot = WhiteBox::capture(effect);
-  } else {
-    WhiteBox::restore(effect, selected->snapshot);
-  }
+  WhiteBox::restore_render(effect, std::span(state));
+  selected->snapshot = WhiteBox::capture(effect);
   effect.set_clip(0, HEIGHT, 0, WIDTH);
   WhiteBox::draw_particles(effect);
   effect.advance_display();
