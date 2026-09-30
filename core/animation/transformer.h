@@ -6,12 +6,11 @@
 
 /**
  * @file transformer.h
- * @brief TransformerPool and its Transformer, FieldTransformer and
- *        OrientTransformer specializations: animation-driven warp and field
- *        composition.
+ * @brief TransformerPool, its Transformer and FieldTransformer specializations,
+ *        and the standalone OrientTransformer adapter.
  * @details Also holds the free warp and field functions those pools compose
  *          over Animation params. The Mobius sphere maps the Mobius pools
- *          compose live in math/stereographic.h alongside their coefficients.
+ *          compose live in math/mobius.h alongside their coefficients.
  */
 
 #include "animation/orientation.h"
