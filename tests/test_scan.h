@@ -657,18 +657,10 @@ constexpr int GROUP_MAX_CHANNEL_DELTA = 512;
 constexpr int GROUP_MAX_DIFF_PIXELS = 16;
 
 /**
- * @brief Verifies RingGroup::draw matches per-ring sequential rasterizes
- *        up to interval-clip AA dust.
- * @details Four near-coincident rings with distinct colors, alphas, and
- * thicknesses, drawn sequentially vs as one fused group. Per-pixel blend
- * order is slot order in both paths; the only permitted divergence is the
- * handful of low-alpha stroke-edge pixels that a ring's own fast-path
- * interval clip drops but the group's covering-ring scan paints (the group
- * is the truer SDF coverage), so mismatches must be both rare and small.
- * Covered: full frame, a partial clip with an x band, and a near-pole axis
- * that forces the group's full-row-scan fallback. The claim is scoped to
- * Render::pole_lod_aggressiveness 0, which the test pins: the fused scan shades every
- * column while the per-ring path decimates near-pole rows.
+ * @brief Compares fused and sequential ring rendering, bit-identical under IEEE.
+ * @details Under -ffast-math, per-loop reassociation differences are bounded by
+ *          GROUP_MAX_* tolerances. Covers full frame, partial clipping and a
+ *          near-pole axis with pole LOD disabled.
  */
 inline void test_ring_group_matches_sequential() {
   constexpr int W = 96, H = 64;
