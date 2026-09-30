@@ -96,16 +96,14 @@ peirce_weight(const math::Vector &input, float meridian_cos, float meridian_sin,
   const float rotated_z = input.z * meridian_cos - input.x * meridian_sin;
   const float singular_cosine =
       (fabsf(rotated_z) + fabsf(rotated_x)) * 0.7071067811865475f;
-  float sin_distance_sq =
-      std::max(0.0f, 1.0f - singular_cosine * singular_cosine);
+  float sin_distance_sq = fmaxf(0.0f, 1.0f - singular_cosine * singular_cosine);
   if (input.y < 0.0f) {
     const float fold_sine =
         fabsf(fabsf(rotated_z) - fabsf(rotated_x)) * 0.7071067811865475f;
-    sin_distance_sq = std::min(sin_distance_sq, fold_sine * fold_sine);
+    sin_distance_sq = fminf(sin_distance_sq, fold_sine * fold_sine);
   }
-  return singularity_attenuation(sin_distance_sq,
-                                 std::max(0.0f, 1.0f - sin_distance_sq),
-                                 singularity_fade);
+  return singularity_attenuation(
+      sin_distance_sq, fmaxf(0.0f, 1.0f - sin_distance_sq), singularity_fade);
 }
 
 __attribute__((always_inline)) inline float
