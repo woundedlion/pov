@@ -75,6 +75,9 @@ inline void test_polymesh_clear_resets_data() {
   HS_EXPECT_TRUE(m.vertices.size() > 0);
 
   m.clear();
+  HS_EXPECT_TRUE(m.vertices.is_bound());
+  HS_EXPECT_TRUE(m.face_counts.is_bound());
+  HS_EXPECT_TRUE(m.faces.is_bound());
   HS_EXPECT_EQ(m.vertices.size(), (size_t)0);
   HS_EXPECT_EQ(m.face_counts.size(), (size_t)0);
   HS_EXPECT_EQ(m.faces.size(), (size_t)0);
