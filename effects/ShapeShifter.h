@@ -65,7 +65,7 @@ struct ShapeShifterParams {
  * @brief Draws phase-modulated concentric shapes across the sphere.
  * @tparam W Canvas width in pixels.
  * @tparam H Canvas height in pixels.
- * @details Evenly spaced Plot primitives share a center and sample a selectable
+ * @details Concentric Plot primitives use the selected Spacing law and sample a selectable
  * waveform at successive radii, producing an animated radial twist. Presets
  * cycle through a Segue::Preset::Fade choreography: the whole effect fades
  * through zero opacity and the parameters snap inside the dark frame.
