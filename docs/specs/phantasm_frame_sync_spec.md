@@ -969,8 +969,8 @@ Invariants:
 | 1 board renders slow (drops a frame) | — | shows prior frame 1 period | stateless and stateful: rendered-frame time offset remains until next epoch (§6.2); same-index beacons only correct revolution bookkeeping |
 | 1 dropped epoch symbol | — | — | R repeats; missed-all-R corrected by the second agreeing beacon (§6.3.4) — the rev-1/rev-2 post-commit pair, ~250 ms |
 | Board reboots mid-show | ACQUIRE: hard-snaps to first valid symbol | flips resume on first accepted boundary | black until rejoin from beacon (≤25 revs, about 3.1 s), then rejoins at the correct effect (frame 0, §6.5 grid; `t` offset until the next epoch) |
-| Sync wire dead *(out of scope — hard line)* | free-runs at T0, precesses on own crystal (≥1 col in ~10–20 s); rebase rule keeps arithmetic valid (§4.1) | crossing still flips 2/rev | playlist freezes on current effect (epoch never arrives); ACQUIRE boards stay dark |
-| Master dead | downstream flywheels free-run at T0, precess on own crystal (same as "sync wire dead" — master is just the symbol source) | crossing still flips 2/rev (no re-snap) | playlist freezes on current effect |
+| Sync wire dead *(out of scope — hard line)* | free-runs at T0, precesses on own crystal (≥1 col in ~10–20 s); rebase rule keeps arithmetic valid (§4.1) | crossing still flips 2/rev | playlist freezes, then clears after its fade-out (fail-dark; epoch never arrives); ACQUIRE boards stay dark |
+| Master dead | downstream flywheels free-run at T0, precess on own crystal (same as "sync wire dead" — master is just the symbol source) | crossing still flips 2/rev (no re-snap) | playlist freezes, then clears after its fade-out (fail-dark) |
 | Master fold stall (its flywheel coasts past 2³¹ cycles, §4.1) | master re-anchors its epoch on the current instant, force-locked, and counts `master_stalls`; downstream boards free-ran meanwhile, as under "master dead" | flip dedup reset with the re-anchor, so the first crossing after recovery flips; downstream crossings kept flipping 2/rev | as "master dead" while it lasts — playlist frozen on the current effect; resumes with the master's next boundary symbol |
 
 No single-glitch event latches a permanent error at any layer, and with the
@@ -1021,7 +1021,7 @@ short entry is a worse case for rejoin visibility than a long one.
 | Missed epoch (all R+1 copies) or corrupted beacon frame | one segment on the old effect ≤4 s; a dropped beacon alone is consequence-free redundancy | 576 col (~250 ms): the post-commit beacons ride consecutive revolutions, so the §6.3.4 confirming frame costs one extra revolution; ≤9,216 col (~4 s, two beacon gaps) if the post-commit train is lost too | ≈0 — requires 4 independent symbol losses; beacon bounds it regardless |
 | Board reboot mid-show | one segment dark (fail-dark, never wrong) | ≤7,200 col (~3.1 s, the enforced 25-rev bound): phase ≤144 col, index at the next beacon — up to a 21-rev gap across a commit window — then the §6.5 grid adds ≤4 revs before it goes live on the correct effect | per external reboot event |
 | Firmware invariant violation (init > K, flywheel stall) | trap (`HS_CHECK` / `buffer_free()` watchdog) | none — fail-fast by design | 0 in correct firmware; a caught bug class, not a runtime mode |
-| Sync wire / master dead | uniform slow smear ~1 col per 10–20 s; playlist freezes; arithmetic stays valid (§4.1 rebase) | physical repair | out of scope — hard line by construction |
+| Sync wire / master dead | uniform slow smear ~1 col per 10–20 s; playlist freezes, then clears after its fade-out (fail-dark); arithmetic stays valid (§4.1 rebase) | physical repair | out of scope — hard line by construction |
 
 Reading by tier: everything the wire can plausibly throw at the design recovers
 sub-column within ≤2 revolutions; the only in-principle-visible stochastic
