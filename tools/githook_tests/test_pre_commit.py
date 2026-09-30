@@ -68,7 +68,9 @@ class PreCommitHook(unittest.TestCase):
         requirements = self.repo / "requirements"
         requirements.mkdir()
         shutil.copyfile(REPO / "requirements" / "ruff.txt", requirements / "ruff.txt")
-        self.git("add", "README.md", "tools", "requirements")
+        shutil.copyfile(REPO / "ruff.toml", self.repo / "ruff.toml")
+        shutil.copyfile(REPO / ".clang-format", self.repo / ".clang-format")
+        self.git("add", "README.md", "tools", "requirements", "ruff.toml", ".clang-format")
         self.git("commit", "--quiet", "-m", "base")
 
     def git(self, *args: str) -> subprocess.CompletedProcess[str]:
@@ -82,6 +84,33 @@ class PreCommitHook(unittest.TestCase):
         return subprocess.run(
             ["sh", HOOK.as_posix()], cwd=self.repo, env=env,
             capture_output=True, text=True, check=False)
+
+    def test_python_uses_staged_lint_configuration(self):
+        if shutil.which("ruff") is None:
+            self.skipTest("ruff unavailable")
+        config = self.repo / "ruff.toml"
+        config.write_text('lint.select = ["F401"]\n', encoding="utf-8", newline="\n")
+        self.git("add", "ruff.toml")
+        self.git("commit", "--quiet", "-m", "strict config")
+        (self.repo / "sample.py").write_text("import os\n", encoding="utf-8", newline="\n")
+        self.git("add", "sample.py")
+        config.write_text('lint.ignore = ["F401"]\n', encoding="utf-8", newline="\n")
+        done = self.run_hook()
+        self.assertNotEqual(done.returncode, 0)
+        self.assertIn("F401", done.stdout + done.stderr)
+
+    def test_clang_config_change_runs_snapshot_whole_tree_gate(self):
+        gate = self.repo / "tools" / "clang_format_gate.sh"
+        gate.write_text('#!/bin/sh\necho SNAPSHOT_FORMAT_GATE\nexit 1\n', encoding="utf-8", newline="\n")
+        self.git("add", "tools/clang_format_gate.sh")
+        self.git("commit", "--quiet", "-m", "format gate fixture")
+        config = self.repo / ".clang-format"
+        config.write_text(config.read_text() + "\n# updated\n", encoding="utf-8", newline="\n")
+        self.git("add", ".clang-format")
+        gate.write_text("exit 0\n", encoding="utf-8", newline="\n")
+        done = self.run_hook()
+        self.assertNotEqual(done.returncode, 0)
+        self.assertIn("SNAPSHOT_FORMAT_GATE", done.stdout + done.stderr)
 
     def test_documentation_reads_the_index(self):
         readme = self.repo / "README.md"
@@ -268,7 +297,7 @@ class PreCommitHook(unittest.TestCase):
         done = self.run_hook(
             PATH=os.pathsep.join([str(bin_dir), self.env["PATH"]]))
         self.assertNotEqual(done.returncode, 0)
-        self.assertIn("cannot read staged sample.py",
+        self.assertIn("cannot materialize staged snapshot",
                       done.stdout + done.stderr)
 
 
