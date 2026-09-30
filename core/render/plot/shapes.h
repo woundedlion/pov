@@ -34,8 +34,8 @@ inline constexpr float STAR_INNER_RATIO = Render::STAR_INNER_RATIO;
 /**
  * @brief Per-primitive geometry/rasterization options for draw_fragments.
  *
- * `close_loop` and `planar_basis` default to the common (geodesic, open) case,
- * so most primitives only spell out `.capacity`.
+ * Every field but `capacity` defaults to an open geodesic line;
+ * closed-ring primitives set `omit_end`.
  */
 struct FragmentDrawParams {
   size_t capacity;         /**< Fragment buffer reservation (per-primitive). */
