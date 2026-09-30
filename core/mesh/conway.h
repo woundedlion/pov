@@ -54,6 +54,18 @@ inline math::Vector face_centroid(const HalfEdgeMesh &he_mesh,
   return c;
 }
 
+/** @brief Unit dual vertex, with a first-vertex fallback for a zero centroid. */
+inline math::Vector dual_vertex(const HalfEdgeMesh &he_mesh,
+                                const PolyMesh &mesh, size_t face) {
+  int count;
+  const math::Vector CENTROID = face_centroid(he_mesh, mesh, face, count);
+  HS_CHECK(he_mesh.faces[face].half_edge != HE_NONE, "dual vertex: empty face");
+  const math::Vector FIRST =
+      mesh.vertices[he_mesh.half_edges[he_mesh.faces[face].half_edge].vertex];
+  return math::normalized_or(CENTROID,
+                             math::normalized_or(FIRST, math::X_AXIS));
+}
+
 /**
  * @brief Newell's method face normal, robust to non-planar faces and collinear
  *   vertex triplets.
@@ -539,17 +551,8 @@ HS_COLD static PolyMesh dual(const PolyMesh &mesh, Arena &target, Arena &temp) {
     HalfEdgeMesh he_mesh(temp, mesh);
     require_closed_manifold(he_mesh, temp, "dual");
 
-    for (size_t i = 0; i < he_mesh.faces.size(); ++i) {
-      int count;
-      math::Vector c = face_centroid(he_mesh, mesh, i, count);
-      // Fall back to the face's first vertex on a zero-length
-      // (centrally-symmetric) centroid, where strict normalized() would trap.
-      HS_CHECK(he_mesh.faces[i].half_edge != HE_NONE, "dual: empty face");
-      math::Vector first_v =
-          mesh.vertices[he_mesh.half_edges[he_mesh.faces[i].half_edge].vertex];
-      out_mesh.vertices.push_back(
-          math::normalized_or(c, math::normalized_or(first_v, math::X_AXIS)));
-    }
+    for (size_t i = 0; i < he_mesh.faces.size(); ++i)
+      out_mesh.vertices.push_back(dual_vertex(he_mesh, mesh, i));
 
     bool *visited_verts = target.allocate_n<bool>(V);
 
@@ -757,15 +760,8 @@ HS_COLD static inline void medial(const PolyMesh &mesh, PolyMesh &out_a,
     // The degenerate-centroid fallback is normalized too, so every dual_pos —
     // and so every out_b entry — is unit even for a non-normalized source mesh.
     math::Vector *dual_pos = temp.allocate_n<math::Vector>(F);
-    for (size_t i = 0; i < he_mesh.faces.size(); ++i) {
-      int count;
-      math::Vector c = face_centroid(he_mesh, mesh, i, count);
-      HS_CHECK(he_mesh.faces[i].half_edge != HE_NONE, "medial: empty face");
-      math::Vector first_v =
-          mesh.vertices[he_mesh.half_edges[he_mesh.faces[i].half_edge].vertex];
-      dual_pos[i] =
-          math::normalized_or(c, math::normalized_or(first_v, math::X_AXIS));
-    }
+    for (size_t i = 0; i < he_mesh.faces.size(); ++i)
+      dual_pos[i] = dual_vertex(he_mesh, mesh, i);
 
     uint16_t *edge_to_vert = target.allocate_n<uint16_t>(I);
     std::fill_n(edge_to_vert, I, HE_NONE);
