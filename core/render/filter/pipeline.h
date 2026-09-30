@@ -206,12 +206,12 @@ inline constexpr bool has_cull_edge =
  * @tparam PipelineT Filter pipeline or direct sink satisfying
  *         Filter::PipelineFoldSurface.
  * @param base Config carrying the effect's own flags, including any full_frame,
- *        reads_outside_band or margin the effect needs for its own reasons.
- * @return @p base with the pipeline's full_frame, reads_outside_band and margin
- *         requirements combined in; the other fields are untouched.
+ *        reads_outside_band, margin or required_margin requirements.
+ * @return @p base with full_frame, reads_outside_band, margin and
+ *         required_margin requirements combined in; other fields are untouched.
  * @details The single definition of the fold: an effect that stacks a filter
  *          crossing segment boundaries gets the full-frame render without
- *          restating the three traits at its base initializer. All three are
+ *          restating the four requirements at its base initializer. All four are
  *          "at least this much" requirements, so the fold widens and never
  *          clears what the caller asked for.
  */
