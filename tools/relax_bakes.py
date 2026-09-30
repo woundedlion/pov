@@ -69,7 +69,7 @@ def parse_dump(text: str) -> list[dict]:
         if parts[0] == "RELAX_BAKE_BEGIN":
             if meta is not None:
                 raise unterminated_block(meta, words)
-            if len(parts) < 13:
+            if len(parts) != 13:
                 raise ValueError(
                     f"line {lineno}: RELAX_BAKE_BEGIN carries {len(parts) - 1} "
                     f"of 12 fields"
