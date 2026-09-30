@@ -38,8 +38,13 @@ struct PreparedTrace : SDF::Lattice::PreparedTrace {
   Raycast::Appearance appearance;
   float near_start, near_inv_span, inv_far;
 };
+/** @brief Crossing scratch the helpers bind to frames that carry none. */
+inline HyperLatticeDetail::CrossingList crossings;
 inline PreparedTrace prepare_trace(const FrameState &frame) {
-  const auto p = HyperLatticeDetail::prepare_trace(frame);
+  FrameState bound = frame;
+  if (!bound.crossings)
+    bound.crossings = &crossings;
+  const auto p = HyperLatticeDetail::prepare_trace(bound);
   return {p.lattice, p.appearance, p.appearance.near_start,
           p.appearance.near_inv_span, p.appearance.inv_far};
 }
@@ -82,7 +87,7 @@ template <bool SLICE = false, uint8_t SHELLS = 0>
 Color4 shade_mode(const Pullback::SphereSample &input, const FrameState &frame,
                   const PreparedTrace &prepared) {
   return HyperLatticeDetail::Renderer<SLICE, SHELLS>::shade(
-      input.dir, frame, {prepared, prepared.appearance});
+      input.dir, frame, {prepared, prepared.appearance, &crossings});
 }
 inline Color4 shade(const Pullback::SphereSample &input,
                     const FrameState &frame, const PreparedTrace &prepared) {
@@ -757,6 +762,8 @@ inline void test_specialized_render_signature() {
         ROTATIONS[index],
         HL::pixel_half_angle<288, 144>(),
         HyperLatticeWhiteBox::depth_palette(effect),
+        1.0f,
+        &HL::crossings,
     };
     const auto frame = HL::SpecializedRenderPipeline<2>::prepare(context);
     for (size_t sample = 0; sample < std::size(DIRECTIONS); ++sample) {
