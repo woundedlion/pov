@@ -328,6 +328,7 @@ files define line-ending policy and working-artifact exclusions.
 │   │   │                            periodic_surface, affine_lattice, periodic_shells)
 │   │   │   ├── cellular_wire.h     Analytic periodic diamond, honeycomb and rhombic struts
 │   │   │   ├── octet_trace.h       Front-to-back ray traces of the 3D and 4D octet trusses
+│   │   │   ├── lattice_trace.h     Prepared ray traces for lattice geometry families
 │   │   │   ├── face_classes.h       Congruence-class ids and rasterizer records
 │   │   │   └── face_class_bake.h    Congruence clustering and canonical distance-LUT bake
 │   │   ├── ray.h                   Spherical ray rendering umbrella

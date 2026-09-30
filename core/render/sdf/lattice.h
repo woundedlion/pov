@@ -7,6 +7,7 @@
 #include <array>
 #include "math/4dmath.h"
 #include "render/ray/contract.h"
+#include "render/ray/shade.h"
 #include "render/sdf/lattice_field.h"
 
 namespace SDF::Lattice {
@@ -53,6 +54,19 @@ inline PreparedTrace prepare(const Settings &settings, const math::Vec4 &origin,
       result.world_to_lattice.m[i][j] *= INV_CELL;
   return result;
 }
+/** @brief One ray's covered plane crossings, sorted by distance. */
+struct CrossingList {
+  static constexpr int CAPACITY = DIMENSIONS * SDF::Lattice::MAX_SHELLS;
+  std::array<float, CAPACITY> distances;
+  std::array<float, CAPACITY> coverages;
+};
+
+struct PreparedShading {
+  SDF::Lattice::PreparedTrace lattice;
+  Raycast::Appearance appearance;
+  CrossingList *crossings = nullptr;
+};
+
 struct TraceHit {
   float coverage = 0;
   float distance = 0;
@@ -313,4 +327,95 @@ template <bool SLICE_4D = false, uint8_t FIXED_SHELL_COUNT = 0> struct Events {
         cursor.shell < shell_count && cursor.distance < prepared.far_distance;
   }
 };
+/**
+ * @brief Composites one ray's plane crossings front to back.
+ * @details Matches Raycast::shade_events over SDF::Lattice::Events. Each axis
+ * evaluates its crossings with the axis fixed, and only covered crossings enter
+ * the distance-ordered layer list: an uncovered crossing never closes a merge
+ * group, so the groups are runs of covered crossings within the relative
+ * tolerance of their first distance, each one layer at that distance with the
+ * run's largest coverage. The stream capacity bounds every ray below the
+ * candidate and layer budgets, so neither is tracked.
+ */
+template <bool SLICE_4D, uint8_t SHELLS>
+__attribute__((always_inline)) inline LayerComposite
+composite_crossings(const math::Vector &normal,
+                    const PreparedShading &prepared) {
+  HS_PROFILE_DEEP(hl_shade);
+  using SDF::Lattice::DIRECTION_EPSILON;
+  constexpr float RELATIVE_TOLERANCE = 1.0e-4f;
+  static_assert(CrossingList::CAPACITY <= Raycast::TraceLimits{}.max_layers);
+  const auto &lattice = prepared.lattice;
+  const math::Vec4 direction =
+      lattice.world_to_lattice.apply({{normal.x, normal.y, normal.z, 0}});
+  math::Vec4 origin = lattice.origin;
+  std::array<float, DIMENSIONS> magnitude;
+  float product = 1.0f;
+  for (int axis = 0; axis < DIMENSIONS; ++axis) {
+    origin[axis] += lattice.sphere_radius_world * direction[axis];
+    magnitude[axis] =
+        !SLICE_4D && axis == 3 && lattice.mode == LatticeMode::THREE_D
+            ? 0.0f
+            : fabsf(direction[axis]);
+    if (magnitude[axis] >= DIRECTION_EPSILON)
+      product *= magnitude[axis];
+  }
+  // One division serves every axis: each step is the product of the other
+  // magnitudes over the product of all of them.
+  const float INVERSE_PRODUCT = 1.0f / product;
+  const uint8_t SHELL_COUNT =
+      SHELLS ? SHELLS : static_cast<uint8_t>(lattice.params.shells) + 1;
+  auto &distances = prepared.crossings->distances;
+  auto &coverages = prepared.crossings->coverages;
+  int count = 0;
+  const auto cross = [&](int axis) __attribute__((always_inline)) {
+    if (!(magnitude[axis] >= DIRECTION_EPSILON))
+      return;
+    float step = INVERSE_PRODUCT;
+    for (int other = 0; other < DIMENSIONS; ++other)
+      if (other != axis && magnitude[other] >= DIRECTION_EPSILON)
+        step *= magnitude[other];
+    float distance =
+        SDF::Lattice::next_plane_offset(origin[axis], direction[axis] > 0) *
+        step;
+    for (uint8_t shell = 0;
+         shell < SHELL_COUNT && distance < lattice.far_distance;
+         ++shell, distance += step) {
+      HS_PROFILE_DEEP(hl_event_step);
+      const float COVERAGE =
+          SDF::Lattice::trace_plane<SLICE_4D>(origin, direction, axis, distance,
+                                              step, lattice)
+              .coverage *
+          SDF::Lattice::shell_horizon_coverage(shell, SHELL_COUNT, distance,
+                                               magnitude[axis]);
+      if (!(COVERAGE > 0.0f))
+        continue;
+      int slot = count++;
+      for (; slot > 0 && distances[slot - 1] > distance; --slot) {
+        distances[slot] = distances[slot - 1];
+        coverages[slot] = coverages[slot - 1];
+      }
+      distances[slot] = distance;
+      coverages[slot] = COVERAGE;
+    }
+  };
+  cross(0);
+  cross(1);
+  cross(2);
+  cross(3);
+  LayerComposite composite;
+  for (int layer = 0; layer < count;) {
+    HS_PROFILE_DEEP(hl_layer_composite);
+    const float T = distances[layer];
+    const float GROUP_END = T + RELATIVE_TOLERANCE * fmaxf(1.0f, T);
+    float coverage = coverages[layer];
+    for (++layer; layer < count && distances[layer] <= GROUP_END; ++layer)
+      coverage = fmaxf(coverage, coverages[layer]);
+    prepared.appearance.composite(composite, T, coverage);
+    if (composite.saturated())
+      break;
+  }
+  return composite;
+}
+
 } // namespace SDF::Lattice
