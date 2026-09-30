@@ -2,7 +2,7 @@
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
  * Licensed under the PolyForm Noncommercial License 1.0.0
  */
-// Tolerance pin for core/color/mindsplatter_palette_luts.h, the 1.6 MB palette bank
+// Tolerance pin for core/color/mindsplatter_palette_luts.h, the 393,216-byte palette bank
 // tools/mindsplatter_palette_gen.cpp emits. Recompiles every entry from the
 // recipe of record (EffectPaletteRecipes::mind_splatter) and compares it to the
 // committed one, so a recipe edit, a GenerativePalette change or a hand-edit of
