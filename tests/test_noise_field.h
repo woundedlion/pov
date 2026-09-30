@@ -283,7 +283,9 @@ inline void test_noise_field_curl_tangent() {
         HS_EXPECT_LE(u.length(), 1.00001f);
       }
     }
-    HS_EXPECT_GT(magnitude_sum, 1.0f);
+    const float mean_magnitude = magnitude_sum / (17.0f * 24.0f);
+    HS_EXPECT_GT(mean_magnitude, 0.1f);
+    HS_EXPECT_LT(mean_magnitude, 0.95f);
   }
 }
 
