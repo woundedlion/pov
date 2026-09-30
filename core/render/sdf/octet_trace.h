@@ -4,6 +4,9 @@
  */
 #pragma once
 
+/** @file octet_trace.h
+ * @brief Prepared octet lattice tracing and compositing. */
+
 #include <algorithm>
 #include <array>
 #include <cmath>

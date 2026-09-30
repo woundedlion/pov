@@ -4,6 +4,9 @@
  */
 #pragma once
 
+/** @file events.h
+ * @brief Ordered ray contribution streams and bounded tracing. */
+
 #include <array>
 #include <cmath>
 #include "render/ray/contract.h"

@@ -4,6 +4,9 @@
  */
 #pragma once
 
+/** @file march.h
+ * @brief Bounded verified surface searches. */
+
 #include <cfloat>
 #include "render/ray/contract.h"
 

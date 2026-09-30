@@ -4,6 +4,9 @@
  */
 #pragma once
 
+/** @file shade.h
+ * @brief Depth appearance, layer compositing and subray filtering. */
+
 #include "color/baked_palette.h"
 #include "color/layer_composite.h"
 #include "render/ray/events.h"

@@ -4,6 +4,9 @@
  */
 #pragma once
 
+/** @file periodic_surface.h
+ * @brief Periodic implicit surface tracing. */
+
 #include <cmath>
 #include "math/3dmath.h"
 #include "render/ray/contract.h"

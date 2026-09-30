@@ -4,6 +4,9 @@
  */
 #pragma once
 
+/** @file lattice_trace.h
+ * @brief Lattice event tracing adapters. */
+
 #include "render/sdf/affine_lattice.h"
 #include "render/sdf/cellular_wire.h"
 #include "render/sdf/octet_trace.h"

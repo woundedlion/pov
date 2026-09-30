@@ -4,6 +4,9 @@
  */
 #pragma once
 
+/** @file lattice.h
+ * @brief Prepared periodic lattice crossings and shading. */
+
 #include <array>
 #include "math/4dmath.h"
 #include "render/ray/contract.h"

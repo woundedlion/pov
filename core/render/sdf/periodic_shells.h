@@ -4,6 +4,9 @@
  */
 #pragma once
 
+/** @file periodic_shells.h
+ * @brief Periodic sphere shells and ray shading. */
+
 #include "render/ray/camera.h"
 #include "render/ray/shade.h"
 

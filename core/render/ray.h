@@ -4,6 +4,9 @@
  */
 #pragma once
 
+/** @file ray.h
+ * @brief Ray casting contracts, queries, tracing and shading. */
+
 #include "render/ray/contract.h"
 #include "render/ray/camera.h"
 #include "render/ray/query.h"

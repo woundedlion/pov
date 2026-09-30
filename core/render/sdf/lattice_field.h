@@ -4,6 +4,9 @@
  */
 #pragma once
 
+/** @file lattice_field.h
+ * @brief Periodic lattice distance fields. */
+
 #include <cmath>
 #include <type_traits>
 #include "math/4dmath.h"
