@@ -1864,8 +1864,8 @@ hankin_summarize(const std::vector<HankinStepStats> &table) {
  * @brief Measures per-frame sweep stability of the four Phase-1 hankin legs
  *        under the shipping slerp-from-corner parameterization.
  * @details Re-solve modes are diagnostic comparisons. The slerp gates bound
- * displacement and face-normal reversals, excluding the collapsed first frame
- * from flat-face measurements.
+ * displacement and face-normal reversals using snorm16 arrival vertices and
+ * the production K_EPS opening fraction.
  */
 inline void test_hankin_sweep_vertex_stability() {
   constexpr int SAMPLES = 32;
@@ -1889,6 +1889,9 @@ inline void test_hankin_sweep_vertex_stability() {
     std::vector<HankinSolve> collapsed, arrival;
     hankin_solve(compiled, 0.0f, collapsed);
     hankin_solve(compiled, site.theta_star, arrival);
+    std::vector<math::Vector> packed_arrival;
+    for (const auto &point : arrival)
+      packed_arrival.push_back(math::Snorm3::encode(point.pos).decode());
 
     // Every metric below reads hankin_solve, not the shipping solver. Pin the
     // two together over both sample grids first, else the whole suite measures
@@ -1948,10 +1951,15 @@ inline void test_hankin_sweep_vertex_stability() {
         const float k = mode == 0 ? u : math::ease_in_out_sin(u);
         HankinStepStats row;
         if (mode == 2) {
+          const float shipping_k =
+              Animation::OpLeg::K_EPS + (1.0f - Animation::OpLeg::K_EPS) * k;
           row.theta = site.theta_star;
           curr.assign(arrival.size(), HankinSolve{});
           for (size_t i = 0; i < arrival.size(); ++i) {
-            curr[i] = {math::slerp(collapsed[i].pos, arrival[i].pos, k),
+            curr[i] = {shipping_k >= 1.0f
+                           ? packed_arrival[i].normalized()
+                           : math::slerp(collapsed[i].pos.normalized(),
+                                         packed_arrival[i], shipping_k),
                        arrival[i].branch, 0.0f};
             path_dev = std::max(path_dev,
                                 (curr[i].pos - resolve_pos[s][i]).magnitude());
@@ -1968,8 +1976,6 @@ inline void test_hankin_sweep_vertex_stability() {
         hankin_face_normals(compiled, curr, curr_normals);
         hankin_step_stats(compiled, prev, prev_normals, curr, curr_normals,
                           row);
-        if (mode == 2 && s == 0)
-          row.flat_faces = 0;
         tables[mode].push_back(row);
         prev = curr;
         prev_normals = curr_normals;
