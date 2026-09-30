@@ -1,76 +1,27 @@
 /*
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
- * LICENSE: ALL RIGHTS RESERVED. No redistribution or use without explicit
- * permission.
+ * Licensed under the PolyForm Noncommercial License 1.0.0
  */
 #pragma once
 
+#include <algorithm>
+#include <array>
+#include <cmath>
+#include <cstdint>
 #include <cstring>
 
-#include "core/render/ray/camera.h"
-#include "core/render/ray/shade.h"
-#include "core/render/sdf/framework.h"
-#include "core/render/sdf/cellular_wire.h"
-#include "core/render/sdf/affine_lattice.h"
-#include "core/render/sdf/periodic_shells.h"
+#include "render/ray/camera.h"
+#include "render/ray/shade.h"
+#include "render/sdf/framework.h"
 
-namespace HyperLatticeExperimental {
+/** @brief Front-to-back ray traces of the 3D and 4D octet trusses. */
+namespace SDF::OctetTrace {
 
-enum class Geometry : uint8_t {
-  OCTET,
-  DIAMOND,
-  HEXAGONAL,
-  RHOMBIC,
-  AFFINE_CUBIC,
-  SHELLS
-};
-
-/** @brief One ray's covered plane crossings; the effect owns it in its arena. */
+/** @brief One ray's covered plane crossings; the caller owns it. */
 struct CrossingStorage {
   static constexpr int CAPACITY = 64;
   std::array<float, CAPACITY> distances;
   std::array<float, CAPACITY> coverages;
-};
-
-/** @brief Frame settings; camera distances and near fading use world units. */
-struct Settings {
-  Raycast::SamplingDomain domain = Raycast::SamplingDomain::SPATIAL_3D;
-  float cell_size = 1.0f;
-  float wire_radius = 0.055f;
-  float radial_start = 0.0f;
-  float far_distance = 7.0f;
-  float near_fade = 0.5f;
-  float aa_strength = 1.0f;
-  math::Vec4 center{};
-  math::Mat4 embedding = math::Mat4::identity();
-  float pixel_half_angle = 0.0f;
-  const BakedPalette *palette = nullptr;
-  Geometry geometry = Geometry::OCTET;
-  float shear = .55f;
-  float stretch = 1.4f;
-  float shell_radius = .30f;
-  float gain = 1.0f; /**< Brightness scale of the whole frame. */
-  /** Scratch the octet traces sort crossings in; required for OCTET. */
-  CrossingStorage *crossings = nullptr;
-};
-
-struct Prepared {
-  Raycast::PreparedCamera camera;
-  Raycast::Footprint footprint;
-  Raycast::Appearance appearance;
-  Raycast::TraceLimits limits;
-  SDF::OctetFramework octet;
-  SDF::OctetEvents::PreparedProjection octet_projection{};
-  SDF::OctetFramework4 octet4;
-  SDF::OctetEvents4::PreparedProjection octet4_projection{};
-  const SDF::CellularWire::Geometry *cellular = nullptr;
-  SDF::PreparedPeriodicShells periodic_shells;
-  bool valid = false;
-  Geometry geometry = Geometry::OCTET;
-  float shear = .55f;
-  float stretch = 1.4f;
-  float shell_radius = .30f;
-  CrossingStorage *crossings = nullptr;
 };
 
 /** @brief Premultiplied ray color and how its traversal ended. */
@@ -79,99 +30,6 @@ struct Sample {
   Raycast::TraceStatus status = Raycast::TraceStatus::RANGE_COMPLETE;
 };
 
-HS_FLASH_INLINE inline Prepared prepare(const Settings &settings) {
-  Prepared result;
-  if (!Raycast::finite(settings.cell_size) || settings.cell_size <= 0.0f ||
-      !Raycast::finite(settings.near_fade) || settings.near_fade <= 0.0f ||
-      !Raycast::finite(settings.aa_strength) || settings.aa_strength < 0.0f ||
-      !Raycast::finite(settings.pixel_half_angle) ||
-      settings.pixel_half_angle < 0.0f || !settings.palette)
-    return result;
-
-  result.camera.domain = settings.domain;
-  result.camera.center = settings.center;
-  result.camera.embedding = settings.embedding;
-  result.camera.radial_start = settings.radial_start;
-  result.camera.interval = {0.0f, settings.far_distance};
-  result.footprint = {settings.pixel_half_angle * settings.aa_strength,
-                      settings.radial_start};
-  result.appearance = {1.0f / settings.far_distance, 0.0f,
-                       1.0f / settings.near_fade, settings.palette,
-                       settings.gain};
-  result.limits.max_candidates = 64;
-  result.limits.max_layers = 32;
-  result.octet.cell_size = settings.cell_size;
-  result.octet.wire_radius = settings.wire_radius;
-  result.octet4.cell_size = settings.cell_size;
-  result.octet4.wire_radius = settings.wire_radius;
-  result.geometry = settings.geometry;
-  result.shear = settings.shear;
-  result.stretch = settings.stretch;
-  result.shell_radius = settings.shell_radius;
-  result.crossings = settings.crossings;
-  result.valid = result.camera.valid() &&
-                 (settings.geometry != Geometry::OCTET || settings.crossings) &&
-                 Raycast::finite(result.footprint.angular_radius) &&
-                 Raycast::finite(result.appearance.inv_far) &&
-                 Raycast::finite(result.appearance.near_inv_span) &&
-                 (settings.domain == Raycast::SamplingDomain::SLICE_4D
-                      ? result.octet4.valid()
-                      : result.octet.valid());
-  if (!result.valid)
-    return result;
-  if (settings.geometry != Geometry::OCTET) {
-    const bool CELLULAR = settings.geometry == Geometry::DIAMOND ||
-                          settings.geometry == Geometry::HEXAGONAL ||
-                          settings.geometry == Geometry::RHOMBIC;
-    result.valid =
-        (CELLULAR && settings.domain == Raycast::SamplingDomain::SPATIAL_3D) ||
-        settings.geometry == Geometry::AFFINE_CUBIC ||
-        settings.geometry == Geometry::SHELLS;
-    if (CELLULAR)
-      result.cellular = &SDF::CellularWire::geometry(
-          settings.geometry == Geometry::DIAMOND
-              ? SDF::CellularWire::Kind::DIAMOND
-          : settings.geometry == Geometry::HEXAGONAL
-              ? SDF::CellularWire::Kind::HEXAGONAL
-              : SDF::CellularWire::Kind::RHOMBIC);
-    if (settings.geometry == Geometry::SHELLS) {
-      result.periodic_shells =
-          SDF::prepare_periodic_shells(result.camera, settings.cell_size,
-                                       settings.shell_radius, result.footprint);
-      result.valid = result.periodic_shells.valid;
-    }
-    return result;
-  }
-  const auto &E = settings.embedding.m;
-  if (settings.domain == Raycast::SamplingDomain::SPATIAL_3D) {
-    const auto FAMILIES = result.octet.plane_families();
-    auto &projection = result.octet_projection;
-    const float SPACING = FAMILIES[0].spacing;
-    projection.spacing2 = SPACING * SPACING;
-    projection.wire_radius = result.octet.wire_radius;
-    const math::Vector ORIGIN(settings.center[0], settings.center[1],
-                              settings.center[2]);
-    for (size_t i = 0; i < FAMILIES.size(); ++i) {
-      const math::Vector NORMAL = FAMILIES[i].normal / SPACING;
-      projection.offsets[i] = math::dot(ORIGIN - result.octet.origin, NORMAL);
-      projection.normals[i] = {
-          NORMAL.x * E[0][0] + NORMAL.y * E[1][0] + NORMAL.z * E[2][0],
-          NORMAL.x * E[0][1] + NORMAL.y * E[1][1] + NORMAL.z * E[2][1],
-          NORMAL.x * E[0][2] + NORMAL.y * E[1][2] + NORMAL.z * E[2][2]};
-    }
-  } else {
-    auto &projection = result.octet4_projection;
-    projection.inverse_scale =
-        1.0f / (SDF::OctetFramework4::HALF_CUBE * settings.cell_size);
-    for (int i = 0; i < 4; ++i) {
-      projection.embedding[i] = math::Vector(E[i][0], E[i][1], E[i][2]);
-      projection.origin[i] = (settings.center[i] - result.octet4.origin[i]) *
-                             projection.inverse_scale;
-    }
-  }
-  return result;
-}
-
 /**
  * @brief Composites an octet adapter's plane crossings front to back.
  * @details Matches Raycast::trace_events over the adapter, whose single merge
@@ -179,9 +37,9 @@ HS_FLASH_INLINE inline Prepared prepare(const Settings &settings) {
  */
 template <typename Events>
 __attribute__((always_inline)) inline Sample
-trace(const Events &events, Raycast::Interval interval,
-      const Raycast::TraceLimits &limits,
-      const Raycast::Appearance &appearance) {
+trace_events(const Events &events, Raycast::Interval interval,
+             const Raycast::TraceLimits &limits,
+             const Raycast::Appearance &appearance) {
   constexpr size_t SLOTS = Events::OWNER_CAPACITY;
   constexpr float RELATIVE_TOLERANCE = 1.0e-4f;
   std::array<float, SLOTS> next;
@@ -260,7 +118,8 @@ trace(const Events &events, Raycast::Interval interval,
 }
 
 /**
- * @brief Covered crossings in distance order, composited as trace() groups.
+ * @brief Covered crossings in distance order, composited in trace_events()
+ *        groups.
  * @details An uncovered crossing never closes a merge group, so the groups are
  * runs of covered crossings within the relative tolerance of their first
  * distance, each one layer at that distance with the run's largest coverage.
@@ -315,10 +174,10 @@ struct CoveredCrossings {
 };
 
 /**
- * @brief trace() by per-stream walks over CoveredCrossings.
+ * @brief trace_events() by per-stream walks over CoveredCrossings.
  * @details Each stream walks its own crossings with the same accumulated
- * distances trace() pops. A ray with more crossings than the candidate budget
- * defers to trace(), which truncates them in distance order.
+ * distances trace_events() pops. A ray with more crossings than the candidate
+ * budget defers to trace_events(), which truncates them in distance order.
  */
 template <typename Events>
 __attribute__((always_inline)) inline Sample
@@ -335,7 +194,7 @@ trace_sorted(const Events &events, Raycast::Interval interval,
     const float STEP = events.step[stream];
     for (float t = events.next[stream]; t <= interval.far; t += STEP) {
       if (++crossings > BUDGET)
-        return trace(events, interval, limits, appearance);
+        return trace_events(events, interval, limits, appearance);
       if (t < interval.near)
         continue;
       uint32_t feature;
@@ -354,12 +213,21 @@ trace_sorted(const Events &events, Raycast::Interval interval,
  * fixes each owner's share: the fastest owns three pairs, the next two and the
  * third one. Each owner walks its crossings over its pairs in family order,
  * with OctetEvents' arithmetic, so the covered crossings are OctetEvents'.
+ * @param direction Unit view direction.
+ * @param camera Camera the projection was prepared for.
+ * @param projection The octet planes projected onto view directions.
+ * @param footprint Pixel footprint widening the struts with distance.
+ * @param limits Candidate and layer budgets.
+ * @param appearance Fog, palette and gain of each composited layer.
+ * @param storage Scratch the covered crossings are sorted in.
+ * @return The premultiplied composite and how the traversal ended.
  */
 __attribute__((always_inline)) inline Sample
-trace_octet_3d(const math::Vector &direction, const Prepared &prepared) {
-  const auto &camera = prepared.camera;
-  const auto &projection = prepared.octet_projection;
-  const auto &footprint = prepared.footprint;
+trace_3d(const math::Vector &direction, const Raycast::PreparedCamera &camera,
+         const OctetEvents::PreparedProjection &projection,
+         const Raycast::Footprint &footprint,
+         const Raycast::TraceLimits &limits,
+         const Raycast::Appearance &appearance, CrossingStorage &storage) {
   const float NEAR = camera.interval.near;
   const float FAR = camera.interval.far;
   const float WIRE_RADIUS = projection.wire_radius;
@@ -378,10 +246,10 @@ trace_octet_3d(const math::Vector &direction, const Prepared &prepared) {
                              : fabsf(speeds[other]) > fabsf(speeds[family]);
     order[rank] = family;
   }
-  CoveredCrossings covered(*prepared.crossings);
+  CoveredCrossings covered(storage);
   int crossings = 0;
   const int BUDGET =
-      std::min(prepared.limits.max_candidates, CoveredCrossings::CAPACITY);
+      std::min(limits.max_candidates, CoveredCrossings::CAPACITY);
   const auto walk =
       [&]<size_t PAIRS>(uint8_t owner, const std::array<uint8_t, PAIRS> &others)
           __attribute__((always_inline)) {
@@ -448,9 +316,9 @@ trace_octet_3d(const math::Vector &direction, const Prepared &prepared) {
       !walk.template operator()<1>(order[2], THIRD_PAIR)) {
     const SDF::OctetEvents events(projection, direction, camera.radial_start,
                                   NEAR, footprint);
-    return trace(events, camera.interval, prepared.limits, prepared.appearance);
+    return trace_events(events, camera.interval, limits, appearance);
   }
-  return covered.composite(prepared.limits, prepared.appearance);
+  return covered.composite(limits, appearance);
 }
 
 /**
@@ -468,21 +336,31 @@ trace_octet_3d(const math::Vector &direction, const Prepared &prepared) {
  * and that distance is at least the residual length of the class's two free
  * coordinates, so a crossing whose every owned class fails that bound against
  * the support is skipped before the class search.
+ * @param direction Unit view direction.
+ * @param camera Camera the projection was prepared for.
+ * @param framework The D4 framework's cell size and strut radius.
+ * @param projection The framework's slice projected onto view directions.
+ * @param footprint Pixel footprint widening the struts with distance.
+ * @param limits Candidate and layer budgets.
+ * @param appearance Fog, palette and gain of each composited layer.
+ * @param storage Scratch the covered crossings are sorted in.
+ * @return The premultiplied composite and how the traversal ended.
  */
 __attribute__((always_inline)) inline Sample
-trace_octet_4d(const math::Vector &direction, const Prepared &prepared) {
+trace_4d(const math::Vector &direction, const Raycast::PreparedCamera &camera,
+         const OctetFramework4 &framework,
+         const OctetEvents4::PreparedProjection &projection,
+         const Raycast::Footprint &footprint,
+         const Raycast::TraceLimits &limits,
+         const Raycast::Appearance &appearance, CrossingStorage &storage) {
   struct Pair {
     uint8_t i, j, k, l;
   };
-  const auto &camera = prepared.camera;
-  const auto &projection = prepared.octet4_projection;
-  const auto &footprint = prepared.footprint;
   const float NEAR = camera.interval.near;
   const float FAR = camera.interval.far;
   const float INVERSE_SCALE = projection.inverse_scale;
-  const float SCALE =
-      SDF::OctetFramework4::HALF_CUBE * prepared.octet4.cell_size;
-  const float WIRE_RADIUS = prepared.octet4.wire_radius;
+  const float SCALE = SDF::OctetFramework4::HALF_CUBE * framework.cell_size;
+  const float WIRE_RADIUS = framework.wire_radius;
   std::array<float, 4> ambient;
   for (int axis = 0; axis < 4; ++axis)
     ambient[axis] = math::dot(direction, projection.embedding[axis]);
@@ -543,10 +421,10 @@ trace_octet_4d(const math::Vector &direction, const Prepared &prepared) {
   const float SUPPORT_RATE = .5f * footprint.angular_radius * INVERSE_SCALE;
   const float SUPPORT_BASE =
       WIRE_RADIUS * INVERSE_SCALE + SUPPORT_RATE * footprint.radial_start;
-  CoveredCrossings covered(*prepared.crossings);
+  CoveredCrossings covered(storage);
   int crossings = 0;
   const int BUDGET =
-      std::min(prepared.limits.max_candidates, CoveredCrossings::CAPACITY);
+      std::min(limits.max_candidates, CoveredCrossings::CAPACITY);
   const auto walk = [&]<size_t CLASSES>(
                         int flipped, float sign,
                         const std::array<Pair, CLASSES>
@@ -705,65 +583,11 @@ trace_octet_4d(const math::Vector &direction, const Prepared &prepared) {
   constexpr std::array<Pair, 1> THIRD_SUM{{{2, 3, 0, 1}}};
   if (!walk(-1, -1.0f, DIFFERENCES) || !walk(0, 1.0f, FIRST_SUMS) ||
       !walk(1, 1.0f, SECOND_SUMS) || !walk(2, 1.0f, THIRD_SUM)) {
-    const SDF::OctetEvents4 events(prepared.octet4, projection, direction,
+    const SDF::OctetEvents4 events(framework, projection, direction,
                                    camera.radial_start, NEAR, footprint);
-    return trace(events, camera.interval, prepared.limits, prepared.appearance);
+    return trace_events(events, camera.interval, limits, appearance);
   }
-  return covered.composite(prepared.limits, prepared.appearance);
+  return covered.composite(limits, appearance);
 }
 
-/** @brief shade() for a valid octet frame of the matching domain. */
-template <bool SLICE_4D>
-__attribute__((always_inline)) inline Sample
-shade_octet(const math::Vector &direction, const Prepared &prepared) {
-  if constexpr (SLICE_4D) {
-    return trace_octet_4d(direction, prepared);
-  } else {
-    return trace_octet_3d(direction, prepared);
-  }
-}
-
-template <bool SLICE_4D>
-HS_HOT_FLASH_MEMBER Sample shade(const math::Vector &direction,
-                                 const Prepared &prepared) {
-  const auto &camera = prepared.camera;
-  if (!prepared.valid ||
-      (camera.domain == Raycast::SamplingDomain::SLICE_4D) != SLICE_4D)
-    return {{}, Raycast::TraceStatus::INVALID_QUERY};
-  if (prepared.geometry != Geometry::OCTET) {
-    if (prepared.geometry == Geometry::SHELLS) {
-      if (!SLICE_4D && prepared.periodic_shells.single_owner) {
-        const auto SHELLS = SDF::trace_periodic_shells_3d(
-            prepared.periodic_shells, camera, direction, prepared.limits,
-            prepared.appearance);
-        return {SHELLS.color, SHELLS.status};
-      }
-      if (prepared.periodic_shells.march) {
-        const auto SHELLS = SDF::trace_periodic_shells_march<SLICE_4D ? 4 : 3>(
-            prepared.periodic_shells, camera, direction, prepared.limits,
-            prepared.appearance);
-        return {SHELLS.color, SHELLS.status};
-      }
-    }
-    Raycast::ShadedTrace sample;
-    if (prepared.geometry == Geometry::AFFINE_CUBIC)
-      sample = SDF::shade_affine_lattice(
-          camera, direction, prepared.octet.cell_size,
-          prepared.octet.wire_radius, prepared.footprint, prepared.limits,
-          prepared.appearance, prepared.shear, prepared.stretch);
-    else if (prepared.geometry == Geometry::SHELLS)
-      sample = SDF::shade_periodic_shells(prepared.periodic_shells, camera,
-                                          direction, prepared.limits,
-                                          prepared.appearance);
-    else {
-      sample = SDF::CellularWire::shade(
-          *prepared.cellular, prepared.octet.cell_size,
-          prepared.octet.wire_radius, camera, prepared.footprint,
-          prepared.limits, prepared.appearance, direction);
-    }
-    return {sample.color.color * sample.color.alpha, sample.trace.status};
-  }
-  return shade_octet<SLICE_4D>(direction, prepared);
-}
-
-} // namespace HyperLatticeExperimental
+} // namespace SDF::OctetTrace
