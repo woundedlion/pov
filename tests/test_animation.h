@@ -1573,8 +1573,9 @@ inline void add_signed_axis_attractors(PS &ps, float strength = 0.85f,
 }
 
 inline float max_component_delta(const math::Vector &a, const math::Vector &b) {
-  return std::max(std::abs(a.x - b.x),
-                  std::max(std::abs(a.y - b.y), std::abs(a.z - b.z)));
+  return hs_test::fold_worst(
+      std::abs(a.x - b.x),
+      hs_test::fold_worst(std::abs(a.y - b.y), std::abs(a.z - b.z)));
 }
 
 /**
@@ -1654,12 +1655,12 @@ inline void test_particle_system_signed_axis_one_step_equivalence() {
     const auto &b = specialized.pool[i];
     color_seed_mismatches += a.color_seed != b.color_seed;
     life_mismatches += a.life != b.life;
-    max_position_error = std::max(max_position_error,
-                                  max_component_delta(a.position, b.position));
-    max_velocity_error = std::max(max_velocity_error,
-                                  max_component_delta(a.velocity, b.velocity));
-    max_angle_error =
-        std::max(max_angle_error, small_angle_between(a.position, b.position));
+    max_position_error = hs_test::fold_worst(
+        max_position_error, max_component_delta(a.position, b.position));
+    max_velocity_error = hs_test::fold_worst(
+        max_velocity_error, max_component_delta(a.velocity, b.velocity));
+    max_angle_error = hs_test::fold_worst(
+        max_angle_error, small_angle_between(a.position, b.position));
     max_norm_drift = fold_worst(
         max_norm_drift, std::abs(math::dot(a.position, a.position) - 1.0f));
     max_norm_drift = fold_worst(

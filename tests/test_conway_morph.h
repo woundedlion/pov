@@ -1690,8 +1690,8 @@ inline float hankin_check_mirror(CompiledHankin &compiled, float angle,
   HS_EXPECT_EQ(ref.vertices.size(), base + mirror.size());
   float max_chord = 0;
   for (size_t i = 0; i < mirror.size() && base + i < ref.vertices.size(); ++i)
-    max_chord = std::max(max_chord,
-                         (ref.vertices[base + i] - mirror[i].pos).magnitude());
+    max_chord = hs_test::fold_worst(
+        max_chord, (ref.vertices[base + i] - mirror[i].pos).magnitude());
   HS_EXPECT_LT(max_chord, HANKIN_MIRROR_TOL);
   return max_chord;
 }
@@ -1760,12 +1760,13 @@ inline void hankin_step_stats(const CompiledHankin &compiled,
                               const std::vector<math::Vector> &curr_normals,
                               HankinStepStats &stats) {
   for (size_t i = 0; i < curr.size(); ++i) {
-    stats.max_far_ratio = std::max(stats.max_far_ratio, curr[i].far_ratio);
+    stats.max_far_ratio =
+        hs_test::fold_worst(stats.max_far_ratio, curr[i].far_ratio);
     const math::Vector cn = math::normalized_or(
         compiled.base_vertices[compiled.dynamic_instructions[i].v_corner],
         curr[i].pos);
-    stats.max_corner_chord =
-        std::max(stats.max_corner_chord, (curr[i].pos - cn).magnitude());
+    stats.max_corner_chord = hs_test::fold_worst(
+        stats.max_corner_chord, (curr[i].pos - cn).magnitude());
   }
   for (const math::Vector &n : curr_normals)
     if (n.magnitude() < HANKIN_FLAT_FACE)
@@ -1778,7 +1779,7 @@ inline void hankin_step_stats(const CompiledHankin &compiled,
       ++stats.branch_flips;
     const float d = (curr[i].pos - prev[i].pos).magnitude();
     sum += d;
-    stats.max_disp = std::max(stats.max_disp, d);
+    stats.max_disp = hs_test::fold_worst(stats.max_disp, d);
   }
   stats.mean_disp = static_cast<float>(sum / curr.size());
   for (size_t f = 0; f < curr_normals.size(); ++f) {
@@ -1815,17 +1816,20 @@ hankin_summarize(const std::vector<HankinStepStats> &table) {
   HankinSweepSummary sum;
   for (const HankinStepStats &r : table) {
     sum.worst_flat_faces = std::max(sum.worst_flat_faces, r.flat_faces);
-    sum.worst_far_ratio = std::max(sum.worst_far_ratio, r.max_far_ratio);
+    sum.worst_far_ratio =
+        hs_test::fold_worst(sum.worst_far_ratio, r.max_far_ratio);
     sum.worst_corner_chord =
-        std::max(sum.worst_corner_chord, r.max_corner_chord);
+        hs_test::fold_worst(sum.worst_corner_chord, r.max_corner_chord);
   }
   for (size_t s = 1; s < table.size(); ++s) {
     sum.total_branch_flips += table[s].branch_flips;
     sum.total_normal_flips += table[s].normal_flips;
     if (table[s].normal_flips > 0)
       ++sum.steps_with_normal_flips;
-    sum.worst_mean_disp = std::max(sum.worst_mean_disp, table[s].mean_disp);
-    if (table[s].max_disp > sum.worst_max_disp) {
+    sum.worst_mean_disp =
+        hs_test::fold_worst(sum.worst_mean_disp, table[s].mean_disp);
+    if (std::isnan(table[s].max_disp) ||
+        table[s].max_disp > sum.worst_max_disp) {
       sum.worst_max_disp = table[s].max_disp;
       sum.worst_step = static_cast<int>(s);
       sum.spike_ratio = table[s].mean_disp > 0
@@ -1992,8 +1996,8 @@ inline void test_hankin_sweep_vertex_stability() {
           math::slerp(collapsed[i].pos, arrival[i].pos, 0.0f);
       const math::Vector s1 =
           math::slerp(collapsed[i].pos, arrival[i].pos, 1.0f);
-      end0 = std::max(end0, (s0 - collapsed[i].pos).magnitude());
-      end1 = std::max(end1, (s1 - arrival[i].pos).magnitude());
+      end0 = hs_test::fold_worst(end0, (s0 - collapsed[i].pos).magnitude());
+      end1 = hs_test::fold_worst(end1, (s1 - arrival[i].pos).magnitude());
       exact0 += std::memcmp(&s0, &collapsed[i].pos, sizeof(math::Vector)) == 0;
       exact1 += std::memcmp(&s1, &arrival[i].pos, sizeof(math::Vector)) == 0;
     }
