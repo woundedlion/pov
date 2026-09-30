@@ -66,9 +66,12 @@ HS_FLASH_MEMBER inline PaletteRecipe dynamo(float base_turns) {
  * @return The recipe.
  */
 HS_FLASH_MEMBER inline PaletteRecipe gs_reaction_diffusion(float base_turns) {
-  return PaletteRecipes::profile(PaletteDomain::STRAIGHT,
-                                 PaletteHarmony::SPLIT_COMPLEMENTARY,
-                                 AxisCurve::ASCENDING, base_turns, 0.50f);
+  PaletteRecipe recipe = PaletteRecipes::profile(
+      PaletteDomain::STRAIGHT, PaletteHarmony::SPLIT_COMPLEMENTARY,
+      AxisCurve::ASCENDING, base_turns, 1.0f);
+  recipe.lightness.center = 0.60f;
+  recipe.lightness.range = 0.32f;
+  return recipe;
 }
 
 /** @brief HyperLattice's indigo-to-cyan depth ramp, with a hue offset in turns. */
