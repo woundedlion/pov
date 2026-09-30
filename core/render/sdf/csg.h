@@ -249,6 +249,14 @@ template <typename A, typename B> struct SmoothUnion {
   bool get_horizontal_intervals(int y, OutputIt out) const {
     if (!math::TrigLUT<W, H>::initialized)
       math::TrigLUT<W, H>::init();
+    const int PAD = pad_rows<H>();
+    const auto near_edge = [y, PAD](Bounds band) {
+      return band.y_min <= band.y_max && (std::abs(y - band.y_min) <= PAD ||
+                                          std::abs(y - band.y_max) <= PAD);
+    };
+    if (near_edge(a.template get_vertical_bounds<H>()) ||
+        near_edge(b.template get_vertical_bounds<H>()))
+      return false;
     ScratchScope scratch(scratch_arena_b);
     MergedIntervalBuffer &merged = scratch_spans<MergedIntervalBuffer>(scratch);
     // Great-circle weld radius k spans k/sin(phi) columns of azimuth; the

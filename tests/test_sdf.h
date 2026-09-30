@@ -2209,8 +2209,10 @@ inline void test_smooth_union_pad_widens_toward_pole() {
 
   auto span_at = [&](int row) {
     std::vector<P> out;
-    su.get_horizontal_intervals<W, H>(
+    const bool HANDLED = su.get_horizontal_intervals<W, H>(
         row, [&](float st, float en) { out.push_back({st, en}); });
+    if (!HANDLED)
+      return static_cast<float>(W);
     return out.empty() ? 0.0f : out[0].second - out[0].first;
   };
   HS_EXPECT_GT(span_at(1), span_at(H / 2));
@@ -2589,7 +2591,7 @@ inline void test_subtract_cull_covers_interior_over_leaf_pairs() {
 }
 
 /**
- * @brief Verifies the SmoothUnion interval cull covers every interior pixel of a
+ * @brief Verifies the SmoothUnion interval cull covers every AA-fringe pixel of a
  *        real leaf pair.
  * @details The weld bulges the surface outside both children, so the cull rests
  *   entirely on the k pad — and the pad is an equatorial column count divided by
@@ -2597,8 +2599,8 @@ inline void test_subtract_cull_covers_interior_over_leaf_pairs() {
  *   put the weld at every latitude the poses reach. The last pose centers both
  *   on +X so the padded spans straddle theta = 0.
  */
-inline void test_smooth_union_cull_covers_interior_over_leaf_pairs() {
-  constexpr int W = 96, H = 48;
+inline void test_smooth_union_cull_covers_fringe_over_leaf_pairs() {
+  constexpr int W = 288, H = 144;
   using Poly = SDF::PlanarPolygon;
 
   struct Pose {
@@ -2606,6 +2608,7 @@ inline void test_smooth_union_cull_covers_interior_over_leaf_pairs() {
     float radius_a, radius_b;
   };
   const Pose poses[] = {
+      {math::Vector(0, 0, 1), math::Vector(0.6f, 0.2f, 1.0f), 0.9f, 0.8f},
       {math::Vector(0, 0, 1), math::Vector(0.6f, 0.2f, 1.0f), 0.5f, 0.4f},
       {math::Vector(0, 1, 0), math::Vector(0.5f, 1.0f, -0.2f), 0.45f, 0.35f},
       {math::Vector(-0.4f, 0.6f, 0.7f), math::Vector(0.1f, 0.9f, 0.4f), 0.6f,
@@ -2621,8 +2624,8 @@ inline void test_smooth_union_cull_covers_interior_over_leaf_pairs() {
     Poly poly_b(basis_b, pose.radius_b / (math::PI_F / 2.0f), /*sides=*/5,
                 0.4f);
 
-    SDF::SmoothUnion<Poly, Poly> welded(poly_a, poly_b, /*k=*/0.15f);
-    expect_cull_covers_interior<W, H>(welded, "smooth union leaf pair");
+    SDF::SmoothUnion<Poly, Poly> welded(poly_a, poly_b, /*k=*/0.25f);
+    expect_cull_covers_fringe<W, H>(welded, "smooth union leaf pair");
   }
 }
 
@@ -3698,7 +3701,7 @@ inline int run_sdf_tests() {
   test_linearized_ring_bounds_cover_visible_rows();
   test_intersection_cull_covers_interior_over_polygon_pairs();
   test_subtract_cull_covers_interior_over_leaf_pairs();
-  test_smooth_union_cull_covers_interior_over_leaf_pairs();
+  test_smooth_union_cull_covers_fringe_over_leaf_pairs();
   test_smooth_union_scans_rows_past_both_children();
   test_angular_repeat_non_y_axis_cull_covers_copies();
   test_angular_repeat_y_axis_cull_narrows_rows();
