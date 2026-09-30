@@ -1,0 +1,197 @@
+{
+  "purpose": "Diagnostic only: per-pixel RAII scope overhead and altered register allocation prevent comparison to standard capture timing.",
+  "effect": "GSReactionDiffusion",
+  "board": "COM4",
+  "clock_mhz": 600,
+  "capture_seconds": 50,
+  "window_frames": 32,
+  "source_tree": "hs-gs-deep",
+  "source_branch": "perf/gs-deep-20260930",
+  "captured": "2026-09-30T00:56:03.623893",
+  "capture_sha256": "9845409d1734f9a27c3243e03d40738702cdfd3b41cef30839fca537faee961c",
+  "frame_count": 767,
+  "first_frame": 2,
+  "last_frame": 768,
+  "diagnostic_peak_ms": 39.676,
+  "diagnostic_peak_frame": 456,
+  "near_standard_peak": {
+    "first_frame": 481,
+    "last_frame": 512,
+    "phases": {
+      "gsd_refine": {
+        "us": 78645,
+        "pct": 8,
+        "calls": 338715,
+        "cyc": 47187117,
+        "depth": 4,
+        "tags": [],
+        "ms_per_frame": 2.45766234375,
+        "calls_per_frame": 10584.84375,
+        "cycles_per_call": 139.31215623754483,
+        "us_per_call": 0.2321869270625747
+      },
+      "gsd_weights": {
+        "us": 544805,
+        "pct": 56,
+        "calls": 338715,
+        "cyc": 326883062,
+        "depth": 4,
+        "tags": [],
+        "ms_per_frame": 17.025159479166668,
+        "calls_per_frame": 10584.84375,
+        "cycles_per_call": 965.0681605479533,
+        "us_per_call": 1.6084469342465888
+      },
+      "gsd_palette": {
+        "us": 193859,
+        "pct": 20,
+        "calls": 338715,
+        "cyc": 116315757,
+        "depth": 4,
+        "tags": [],
+        "ms_per_frame": 6.05811234375,
+        "calls_per_frame": 10584.84375,
+        "cycles_per_call": 343.40302909525707,
+        "us_per_call": 0.5723383818254284
+      },
+      "grd_shader_draw": {
+        "us": 960535,
+        "pct": 97,
+        "calls": 32,
+        "cyc": 576321556,
+        "depth": 3,
+        "tags": [],
+        "ms_per_frame": 30.016747708333334,
+        "calls_per_frame": 1.0,
+        "cycles_per_call": 18010048.625,
+        "us_per_call": 30016.747708333332
+      },
+      "grd_render": {
+        "us": 1219387,
+        "pct": 61,
+        "calls": 32,
+        "cyc": 731632545,
+        "depth": 1,
+        "tags": [],
+        "ms_per_frame": 38.10586171875,
+        "calls_per_frame": 1.0,
+        "cycles_per_call": 22863517.03125,
+        "us_per_call": 38105.86171875
+      },
+      "grd_simulate": {
+        "us": 214818,
+        "pct": 17,
+        "calls": 32,
+        "cyc": 128890815,
+        "depth": 2,
+        "tags": [],
+        "ms_per_frame": 6.71306328125,
+        "calls_per_frame": 1.0,
+        "cycles_per_call": 4027837.96875,
+        "us_per_call": 6713.06328125
+      },
+      "grd_cull_flags": {
+        "us": 15178,
+        "pct": 1,
+        "calls": 32,
+        "cyc": 9106965,
+        "depth": 3,
+        "tags": [],
+        "ms_per_frame": 0.47432109375,
+        "calls_per_frame": 1.0,
+        "cycles_per_call": 284592.65625,
+        "us_per_call": 474.32109375
+      }
+    }
+  },
+  "diagnostic_peak_window": {
+    "first_frame": 449,
+    "last_frame": 480,
+    "phases": {
+      "gsd_refine": {
+        "us": 81915,
+        "pct": 8,
+        "calls": 340911,
+        "cyc": 49149228,
+        "depth": 4,
+        "tags": [],
+        "ms_per_frame": 2.559855625,
+        "calls_per_frame": 10653.46875,
+        "cycles_per_call": 144.1702614465359,
+        "us_per_call": 0.24028376907755983
+      },
+      "gsd_weights": {
+        "us": 551340,
+        "pct": 55,
+        "calls": 340911,
+        "cyc": 330804101,
+        "depth": 4,
+        "tags": [],
+        "ms_per_frame": 17.229380260416665,
+        "calls_per_frame": 10653.46875,
+        "cycles_per_call": 970.3532622883979,
+        "us_per_call": 1.6172554371473298
+      },
+      "gsd_palette": {
+        "us": 221255,
+        "pct": 22,
+        "calls": 340911,
+        "cyc": 132753264,
+        "depth": 4,
+        "tags": [],
+        "ms_per_frame": 6.9142325,
+        "calls_per_frame": 10653.46875,
+        "cycles_per_call": 389.4073937185952,
+        "us_per_call": 0.6490123228643253
+      },
+      "grd_shader_draw": {
+        "us": 998052,
+        "pct": 97,
+        "calls": 32,
+        "cyc": 598831223,
+        "depth": 3,
+        "tags": [],
+        "ms_per_frame": 31.189126197916668,
+        "calls_per_frame": 1.0,
+        "cycles_per_call": 18713475.71875,
+        "us_per_call": 31189.126197916667
+      },
+      "grd_render": {
+        "us": 1252406,
+        "pct": 62,
+        "calls": 32,
+        "cyc": 751443622,
+        "depth": 1,
+        "tags": [],
+        "ms_per_frame": 39.137688645833336,
+        "calls_per_frame": 1.0,
+        "cycles_per_call": 23482613.1875,
+        "us_per_call": 39137.68864583333
+      },
+      "grd_simulate": {
+        "us": 214908,
+        "pct": 17,
+        "calls": 32,
+        "cyc": 128945125,
+        "depth": 2,
+        "tags": [],
+        "ms_per_frame": 6.715891927083334,
+        "calls_per_frame": 1.0,
+        "cycles_per_call": 4029535.15625,
+        "us_per_call": 6715.891927083333
+      },
+      "grd_cull_flags": {
+        "us": 10354,
+        "pct": 1,
+        "calls": 32,
+        "cyc": 6212412,
+        "depth": 3,
+        "tags": [],
+        "ms_per_frame": 0.323563125,
+        "calls_per_frame": 1.0,
+        "cycles_per_call": 194137.875,
+        "us_per_call": 323.563125
+      }
+    }
+  }
+}

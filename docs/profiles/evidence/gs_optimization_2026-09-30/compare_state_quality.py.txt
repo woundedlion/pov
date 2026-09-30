@@ -1,0 +1,21 @@
+import csv
+import pathlib
+import sys
+
+root = pathlib.Path(__file__).parent
+label = sys.argv[1] if len(sys.argv) > 1 else "candidate"
+failed = False
+for suffix, fields in (
+    ("states", ("a_hash", "b_hash", "grow", "stable", "dissolve", "dissolve_seed")),
+    ("corners", ("a_float_hash", "b_float_hash")),
+):
+    with (root / f"state-quality-baseline-{suffix}.csv").open() as file:
+        baseline = list(csv.DictReader(file))
+    with (root / f"state-quality-{label}-{suffix}.csv").open() as file:
+        candidate = list(csv.DictReader(file))
+    mismatches = [i for i, (a, b) in enumerate(zip(baseline, candidate))
+                  if any(a[field] != b[field] for field in fields)]
+    print(f"{suffix}: baseline={len(baseline)}, candidate={len(candidate)}, "
+          f"mismatched={len(mismatches)}, first={mismatches[:10]}")
+    failed |= bool(mismatches) or len(baseline) != len(candidate)
+sys.exit(1 if failed else 0)

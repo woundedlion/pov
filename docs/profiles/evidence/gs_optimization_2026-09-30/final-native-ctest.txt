@@ -1,0 +1,552 @@
+Test project C:/work/hs-gs-opt/build/tests
+        Start  74: unit_death
+        Start  99: unit_feedback_dump_a
+        Start 100: unit_feedback_dump_b
+        Start  54: unit_effects_smoke
+  1/103 Test  #99: unit_feedback_dump_a ........................   Passed    0.05 sec
+        Start  18: unit_conway_continuity
+  2/103 Test #100: unit_feedback_dump_b ........................   Passed    0.03 sec
+        Start  97: unit_stack_budget
+  3/103 Test  #18: unit_conway_continuity ......................   Passed   27.11 sec
+        Start  98: unit_arena_budget
+  4/103 Test  #97: unit_stack_budget ...........................   Passed   39.19 sec
+        Start  84: unit_pullback_capture_determinism
+  5/103 Test  #74: unit_death ..................................***Failed   51.52 sec
+=== death ===
+death child timed out after 100 ms: __timeout_check__
+  [ok] trap fires: noise_hue_bake_invalid_scale (child rc=-1073741795)
+  [ok] trap fires: direct_sink_wrong_dimensions (child rc=-1073741795)
+  [ok] trap fires: recipe_bake_wrong_op       (child rc=-1073741795)
+  [ok] trap fires: vertex_replicate_short_input (child rc=-1073741795)
+  [ok] trap fires: recipe_twist_wrong_op      (child rc=-1073741795)
+  [ok] trap fires: star_mismatched_radius_cache (child rc=-1073741795)
+  [ok] trap fires: star_mismatched_step_cache (child rc=-1073741795)
+  [ok] trap fires: reaction_lattice_uninitialized (child rc=-1073741795)
+  [ok] trap fires: recipe_bake_live_iterations (child rc=-1073741795)
+  [ok] trap fires: pullback_mobius_degenerate (child rc=-1073741795)
+  [ok] trap fires: pullback_curl_unstable     (child rc=-1073741795)
+  [ok] trap fires: shapeshifter_count_over_capacity (child rc=-1073741795)
+  [ok] trap fires: planar_chords_empty_storage (child rc=-1073741795)
+  [ok] trap fires: planar_chords_over_capacity (child rc=-1073741795)
+  [ok] trap fires: planar_band_split_empty_storage (child rc=-1073741795)
+  [ok] trap fires: planar_band_split_over_capacity (child rc=-1073741795)
+  [ok] trap fires: hyperlattice_frame_without_crossings (child rc=-1073741795)
+  [ok] trap fires: mindsplatter_profile_preset_oob (child rc=-1073741795)
+  [ok] trap fires: workbench_lens_missing_frame (child rc=-1073741795)
+  [ok] trap fires: direct_sink_unprepared_plot (child rc=-1073741795)
+  [ok] trap fires: timeline_add_into_live_slot (child rc=-1073741795)
+  [ok] trap fires: feedback_storage_twice     (child rc=-1073741795)
+  [ok] trap fires: world_storage_twice        (child rc=-1073741795)
+  [ok] trap fires: screen_storage_twice       (child rc=-1073741795)
+  [ok] trap fires: sample_sphere_nan          (child rc=-1073741795)
+  [ok] trap fires: sample_plane_nan           (child rc=-1073741795)
+  [ok] trap fires: projection_invalid_frame_prepare (child rc=-1073741795)
+  [ok] trap fires: projection_invalid_frame_advance (child rc=-1073741795)
+  [ok] trap fires: peirce_invalid_layout      (child rc=-1073741795)
+  [ok] trap fires: ball_drop_nonfinite_azimuth (child rc=-1073741795)
+  [ok] trap fires: bump_offset_outside_cap_distance (child rc=-1073741795)
+  [ok] trap fires: field_transfer_outside_range (child rc=-1073741795)
+  [ok] trap fires: field_coverage_increases   (child rc=-1073741795)
+  [ok] trap fires: field_sample_coverage_outside_range (child rc=-1073741795)
+  [ok] trap fires: reconcile_aliased_arenas   (child rc=-1073741795)
+  [ok] trap fires: opleg_no_event_slot        (child rc=-1073741795)
+  [ok] trap fires: arena_oom                  (child rc=-1073741795)
+  [ok] trap fires: arena_make_oom             (child rc=-1073741795)
+  [ok] trap fires: arena_zero_size_alloc      (child rc=-1073741795)
+  [ok] trap fires: arena_allocate_n_overflow  (child rc=-1073741795)
+  [ok] trap fires: arena_bad_alignment        (child rc=-1073741795)
+  [ok] trap fires: resplit_scratch_not_empty  (child rc=-1073741795)
+  [ok] trap fires: resplit_persistent_strands (child rc=-1073741795)
+  [ok] trap fires: arena_set_offset_forward   (child rc=-1073741795)
+  [ok] trap fires: scratch_scope_non_lifo     (child rc=-1073741795)
+  [ok] trap fires: arena_rewind_history_overflow (child rc=-1073741795)
+  [ok] trap fires: scratch_scope_reset        (child rc=-1073741795)
+  [ok] trap fires: arena_vector_overflow      (child rc=-1073741795)
+  [ok] trap fires: arena_vector_emplace_overflow (child rc=-1073741795)
+  [ok] trap fires: generate_target_is_scratch (child rc=-1073741795)
+  [ok] trap fires: generate_recursion_too_deep (child rc=-1073741795)
+  [ok] trap fires: normalize_zero             (child rc=-1073741795)
+  [ok] trap fires: rotate_plane_degenerate    (child rc=-1073741795)
+  [ok] trap fires: angle_between_zero         (child rc=-1073741795)
+  [ok] trap fires: normalize_nan              (child rc=-1073741795)
+  [ok] trap fires: solids_index_oob           (child rc=-1073741795)
+  [ok] trap fires: solids_unknown_name        (child rc=-1073741795)
+  [ok] trap fires: circular_buffer_oob        (child rc=-1073741795)
+  [ok] trap fires: circular_buffer_front_empty (child rc=-1073741795)
+  [ok] trap fires: circular_buffer_back_empty (child rc=-1073741795)
+  [ok] trap fires: circular_buffer_const_back_empty (child rc=-1073741795)
+  [ok] trap fires: arena_vector_append_bulk_overflow (child rc=-1073741795)
+  [ok] trap fires: spatial_knn_over_max       (child rc=-1073741795)
+  [ok] trap fires: reaction_graph_node_index_out_of_range (child rc=-1073741795)
+  [ok] trap fires: reaction_graph_slot_out_of_range (child rc=-1073741795)
+  [ok] trap fires: arena_oversubscribed       (child rc=-1073741795)
+  [ok] trap fires: arena_partition_too_large  (child rc=-1073741795)
+  [ok] trap fires: persist_forgot_reset       (child rc=-1073741795)
+  [ok] trap fires: persist_same_arena         (child rc=-1073741795)
+  [ok] trap fires: triangular_bitset_unordered_pair (child rc=-1073741795)
+  [ok] trap fires: timeline_pinned_relocation (child rc=-1073741795)
+  [ok] trap fires: timeline_move_into_live_destination (child rc=-1073741795)
+  [ok] trap fires: timeline_negative_delay    (child rc=-1073741795)
+  [ok] trap fires: finite_param_perpetual_duration (child rc=-1073741795)
+  [ok] trap fires: transition_nonfinite_target (child rc=-1073741795)
+  [ok] trap fires: timeline_start_overflow    (child rc=-1073741795)
+  [ok] trap fires: timeline_pinned_completion (child rc=-1073741795)
+  [ok] trap fires: timeline_pinned_finite_animation (child rc=-1073741795)
+  [ok] trap fires: timeline_pinned_add_on_full_timeline (child rc=-1073741795)
+  [ok] trap fires: timeline_pinned_one_shot_timer (child rc=-1073741795)
+  [ok] trap fires: timeline_clear_pinned      (child rc=-1073741795)
+  [ok] trap fires: timeline_clear_during_step (child rc=-1073741795)
+  [ok] trap fires: timeline_clear_hook_adds_event (child rc=-1073741795)
+  [ok] trap fires: segue_sprite_no_slot       (child rc=-1073741795)
+  [ok] trap fires: mesh_carousel_unflipped_slot (child rc=-1073741795)
+  [ok] trap fires: timeline_double_construct  (child rc=-1073741795)
+  [ok] trap fires: transformer_pool_init_storage_twice (child rc=-1073741795)
+  [ok] trap fires: transformer_unpinned_full  (child rc=-1073741795)
+  [ok] trap fires: transformer_pool_spawn_before_init (child rc=-1073741795)
+  [ok] trap fires: transformer_pool_prepare_frame_before_init (child rc=-1073741795)
+  [ok] trap fires: transformer_pool_spawn_pausable_null_flag (child rc=-1073741795)
+  [ok] trap fires: transformer_pool_active_index_oob (child rc=-1073741795)
+  [ok] trap fires: transformer_pool_reclaim_storage_moved (child rc=-1073741795)
+  [ok] trap fires: transformer_pool_arena_reclaimed (child rc=-1073741795)
+  [ok] trap fires: transformer_pinned_owner_order (child rc=-1073741795)
+  [ok] trap fires: transformer_pool_outlives_timeline (child rc=-1073741795)
+  [ok] trap fires: effect_margin_below_pipeline (child rc=-1073741795)
+  [ok] trap fires: effect_double_construct    (child rc=-1073741795)
+  [ok] trap fires: effect_width_zero          (child rc=-1073741795)
+  [ok] trap fires: effect_height_zero         (child rc=-1073741795)
+  [ok] trap fires: effect_width_over_max      (child rc=-1073741795)
+  [ok] trap fires: effect_height_over_max     (child rc=-1073741795)
+  [ok] trap fires: particle_lifetime_zero     (child rc=-1073741795)
+  [ok] trap fires: particle_friction_nan      (child rc=-1073741795)
+  [ok] trap fires: particle_gravity_nan       (child rc=-1073741795)
+  [ok] trap fires: particle_lifetime_nan      (child rc=-1073741795)
+  [ok] trap fires: random_walk_nonfinite_options (child rc=-1073741795)
+  [ok] trap fires: particle_lifetime_over_max (child rc=-1073741795)
+  [ok] trap fires: particle_render_zero_lifetime (child rc=-1073741795)
+  [ok] trap fires: correction_guard_double_construct (child rc=-1073741795)
+  [ok] trap fires: correction_guard_cross_type (child rc=-1073741795)
+  [ok] trap fires: mesh_narrow_index          (child rc=-1073741795)
+  [ok] trap fires: medial_aliases_input       (child rc=-1073741795)
+  [ok] trap fires: needle_aliased_arenas      (child rc=-1073741795)
+  [ok] trap fires: zip_aliased_arenas         (child rc=-1073741795)
+  [ok] trap fires: gyro_aliased_arenas        (child rc=-1073741795)
+  [ok] trap fires: bevel_aliased_arenas       (child rc=-1073741795)
+  [ok] trap fires: ambo_aliased_arenas        (child rc=-1073741795)
+  [ok] trap fires: mesh_compile_aliased_arenas (child rc=-1073741795)
+  [ok] trap fires: mesh_ops_clone_aliases_dst (child rc=-1073741795)
+  [ok] trap fires: mesh_state_clone_aliases_dst (child rc=-1073741795)
+  [ok] trap fires: mesh_transform_aliases_source (child rc=-1073741795)
+  [ok] trap fires: chamfer_collapsed_endpoint (child rc=-1073741795)
+  [ok] trap fires: snub_collapsed_endpoint    (child rc=-1073741795)
+  [ok] trap fires: conway_empty_mesh          (child rc=-1073741795)
+  [ok] trap fires: conway_degenerate_mesh     (child rc=-1073741795)
+  [ok] trap fires: conway_target_exhausted    (child rc=-1073741795)
+  [ok] trap fires: relax_baked_dimension_mismatch (child rc=-1073741795)
+  [ok] trap fires: relax_baked_topology_mismatch (child rc=-1073741795)
+  [ok] trap fires: relax_baked_source_mismatch (child rc=-1073741795)
+  [ok] trap fires: relax_baked_output_hash_mismatch (child rc=-1073741795)
+  [ok] trap fires: half_edge_face_counts_short (child rc=-1073741795)
+  [ok] trap fires: half_edge_face_counts_long (child rc=-1073741795)
+  [ok] trap fires: mesh_compile_face_counts_short (child rc=-1073741795)
+  [ok] trap fires: mesh_compile_face_counts_long (child rc=-1073741795)
+  [ok] trap fires: mesh_compile_face_span_over_16bit (child rc=-1073741795)
+  [ok] trap fires: update_hankin_stale_topology (child rc=-1073741795)
+  [ok] trap fires: update_hankin_dual_seed_topology (child rc=-1073741795)
+  [ok] trap fires: update_hankin_borrowed_stale_topology (child rc=-1073741795)
+  [ok] trap fires: update_hankin_nonfinite_angle (child rc=-1073741795)
+  [ok] trap fires: hankin_clone_aliases_dst   (child rc=-1073741795)
+  [ok] trap fires: mesh_state_set_borrowed_offsets_count_mismatch (child rc=-1073741795)
+  [ok] trap fires: mesh_state_set_borrowed_offsets_short_span (child rc=-1073741795)
+  [ok] trap fires: mesh_state_set_borrowed_keyed_empty_topology (child rc=-1073741795)
+  [ok] trap fires: mesh_state_set_borrowed_offsets_not_prefix_sum (child rc=-1073741795)
+  [ok] trap fires: half_edge_zero_side_face   (child rc=-1073741795)
+  [ok] trap fires: half_edge_non_manifold_edge (child rc=-1073741795)
+  [ok] trap fires: half_edge_inconsistent_winding (child rc=-1073741795)
+  [ok] trap fires: mesh_narrow_face_count     (child rc=-1073741795)
+  [ok] trap fires: mesh_require_closed_manifold (child rc=-1073741795)
+  [ok] trap fires: mesh_require_vertex_manifold (child rc=-1073741795)
+  [ok] trap fires: mesh_require_matching_face_sides (child rc=-1073741795)
+  [ok] trap fires: mesh_require_matching_half_edge_census (child rc=-1073741795)
+  [ok] trap fires: mesh_require_matching_half_edge_loops (child rc=-1073741795)
+  [ok] trap fires: apply_step_hankin_no_angle (child rc=-1073741795)
+  [ok] trap fires: apply_step_bevel_no_depth  (child rc=-1073741795)
+  [ok] trap fires: slerp_nan                  (child rc=-1073741795)
+  [ok] trap fires: make_rotation_vectors_nan  (child rc=-1073741795)
+  [ok] trap fires: make_rotation_angle_nan    (child rc=-1073741795)
+  [ok] trap fires: make_rotation_nonunit      (child rc=-1073741795)
+  [ok] trap fires: make_basis_nan             (child rc=-1073741795)
+  [ok] trap fires: noise_transform_nan        (child rc=-1073741795)
+  [ok] trap fires: param_def_unknown_get_target_type (child rc=-1073741795)
+  [ok] trap fires: param_def_unknown_set_target_type (child rc=-1073741795)
+  [ok] trap fires: driver_null_speed_src      (child rc=-1073741795)
+  [ok] trap fires: path_append_zero_samples   (child rc=-1073741795)
+  [ok] trap fires: motion_empty_path_origin_sample (child rc=-1073741795)
+  [ok] trap fires: hue_wobble_depth_out_of_range (child rc=-1073741795)
+  [ok] trap fires: iridescent_weight_negative (child rc=-1073741795)
+  [ok] trap fires: alpha_falloff_null         (child rc=-1073741795)
+  [ok] trap fires: noise_hue_palette_null_source (child rc=-1073741795)
+  [ok] trap fires: noise_hue_palette_null_rotation_lut (child rc=-1073741795)
+  [ok] trap fires: noise_hue_palette_null_noise_lut (child rc=-1073741795)
+  [ok] trap fires: palette_cycler_mutated_policy (child rc=-1073741795)
+  [ok] trap fires: generated_palette_bank_unknown_mode (child rc=-1073741795)
+  [ok] trap fires: baked_palette_clone_from_self (child rc=-1073741795)
+  [ok] trap fires: baked_palette_bake_blend_self (child rc=-1073741795)
+  [ok] trap fires: register_param_overflow    (child rc=-1073741795)
+  [ok] trap fires: register_param_duplicate   (child rc=-1073741795)
+  [ok] trap fires: register_param_default_outside_range (child rc=-1073741795)
+  [ok] trap fires: register_enum_param_range  (child rc=-1073741795)
+  [ok] trap fires: register_enum_param_bound_inexact (child rc=-1073741795)
+  [ok] trap fires: register_int_param_range   (child rc=-1073741795)
+  [ok] trap fires: register_int_param_max_inexact (child rc=-1073741795)
+  [ok] trap fires: register_int_param_min_inexact (child rc=-1073741795)
+  [ok] trap fires: set_clip_out_of_bounds     (child rc=-1073741795)
+  [ok] trap fires: set_clip_mid_frame         (child rc=-1073741795)
+  [ok] trap fires: output_envelope_out_of_range (child rc=-1073741795)
+  [ok] trap fires: set_clip_x_out_of_bounds   (child rc=-1073741795)
+  [ok] trap fires: arcs_overlap_start_out_of_range (child rc=-1073741795)
+  [ok] trap fires: scan_clip_out_of_bounds    (child rc=-1073741795)
+  [ok] trap fires: scan_clip_rows_out_of_bounds (child rc=-1073741795)
+  [ok] trap fires: face_scratch_retargeted    (child rc=-1073741795)
+  [ok] trap fires: face_scratch_retargeted_by_culled_face (child rc=-1073741795)
+  [ok] trap fires: scan_canvas_dim_mismatch   (child rc=-1073741795)
+  [ok] trap fires: plot_canvas_dim_mismatch   (child rc=-1073741795)
+  [ok] trap fires: plot_window_multi_segment  (child rc=-1073741795)
+  [ok] trap fires: scan_pipeline_not_prepared (child rc=-1073741795)
+  [ok] trap fires: pipeline_ref_erase_not_prepared (child rc=-1073741795)
+  [ok] trap fires: scan_mesh_face_index_out_of_range (child rc=-1073741795)
+  [ok] trap fires: scan_mesh_missing_offsets  (child rc=-1073741795)
+  [ok] trap fires: scan_mesh_class_id_out_of_range (child rc=-1073741795)
+  [ok] trap fires: plot_mesh_vertex_over_capacity (child rc=-1073741795)
+  [ok] trap fires: plot_four_regular_open_mesh (child rc=-1073741795)
+  [ok] trap fires: plot_four_regular_non_bipartite (child rc=-1073741795)
+  [ok] trap fires: plot_find_missing_edge     (child rc=-1073741795)
+  [ok] trap fires: plot_extract_edges_vertex_over_capacity (child rc=-1073741795)
+  [ok] trap fires: feedback_downsample_indivisible (child rc=-1073741795)
+  [ok] trap fires: feedback_uncached_scratch_budget (child rc=-1073741795)
+  [ok] trap fires: screen_trails_set_lifetime_nonpositive (child rc=-1073741795)
+  [ok] trap fires: world_trails_lifetime_over_max (child rc=-1073741795)
+  [ok] trap fires: screen_trails_plot_without_storage (child rc=-1073741795)
+  [ok] trap fires: world_trails_plot_without_storage (child rc=-1073741795)
+  [ok] trap fires: plot_open_loop_seam        (child rc=-1073741795)
+  [ok] trap fires: raster_point_projection_pair_mismatch (child rc=-1073741795)
+  [ok] trap fires: raster_nonfinite_point     (child rc=-1073741795)
+  [ok] trap fires: raster_edge_flags_short    (child rc=-1073741795)
+  [ok] trap fires: raster_point_projections_short (child rc=-1073741795)
+  [ok] trap fires: spherical_field_ring_index_oob (child rc=-1073741795)
+  [ok] trap fires: spherical_field_populate_ring_end_oob (child rc=-1073741795)
+  [ok] trap fires: spherical_harmonic_order_over_degree (child rc=-1073741795)
+  [ok] trap fires: spherical_harmonic_decode_negative_index (child rc=-1073741795)
+  [ok] trap fires: spherical_field_infill_over_domain (child rc=-1073741795)
+  [ok] trap fires: spherical_field_negative_equator_samples (child rc=-1073741795)
+  [ok] trap fires: feedback_negative_fade     (child rc=-1073741795)
+  [ok] trap fires: feedback_infinite_fade     (child rc=-1073741795)
+  [ok] trap fires: gradient_no_stops          (child rc=-1073741795)
+  [ok] trap fires: gradient_stop_out_of_range (child rc=-1073741795)
+  [ok] trap fires: gradient_stops_unsorted    (child rc=-1073741795)
+  [ok] trap fires: random_timer_inverted_range (child rc=-1073741795)
+  [ok] trap fires: dma_controller_wedged_overrun (child rc=-1073741795)
+  [ok] trap fires: empty_fn_call              (child rc=-1073741795)
+  [ok] trap fires: empty_function_ref_call    (child rc=-1073741795)
+  [ok] trap fires: effect_registry_duplicate_name (child rc=-1073741795)
+  [ok] trap fires: effect_registry_duplicate_stable_id (child rc=-1073741795)
+  [ok] trap fires: effect_registry_stable_id_matches_name (child rc=-1073741795)
+  [ok] trap fires: effect_registry_name_matches_stable_id (child rc=-1073741795)
+  [ok] trap fires: flywheel_period_zero       (child rc=-1073741795)
+  [ok] trap fires: latitude_geometry_degenerate_height (child rc=-1073741795)
+  [ok] trap fires: latitude_geometry_reversed_span (child rc=-1073741795)
+  [ok] trap fires: y_to_phi_degenerate_height (child rc=-1073741795)
+  [ok] trap fires: orientation_frame_index_oob (child rc=-1073741795)
+  [ok] trap fires: make_basis_nonunit_quaternion (child rc=-1073741795)
+  [ok] trap fires: parallel_transport_antipodal (child rc=-1073741795)
+  [ok] trap fires: polyhedral_kaleidoscope_no_converge (child rc=-1073741795)
+  [ok] trap fires: sdf_polygon_side_count     (child rc=-1073741795)
+  [ok] trap fires: sdf_spherical_polygon_radius_over_hemisphere (child rc=-1073741795)
+  [ok] trap fires: sdf_flower_radius_over_hemisphere (child rc=-1073741795)
+  [ok] trap fires: sdf_flower_zero_radius     (child rc=-1073741795)
+  [ok] trap fires: sdf_class_lut_too_few_vertices (child rc=-1073741795)
+  [ok] trap fires: sdf_class_lut_grid_too_small (child rc=-1073741795)
+  [ok] trap fires: sdf_bind_class_lut_offset_out_of_range (child rc=-1073741795)
+  [ok] trap fires: sdf_distorted_ring_null_shift (child rc=-1073741795)
+  [ok] trap fires: sdf_ring_radius_past_antipode (child rc=-1073741795)
+  [ok] trap fires: sdf_ring_negative_thickness (child rc=-1073741795)
+  [ok] trap fires: sdf_distorted_ring_radius_past_antipode (child rc=-1073741795)
+  [ok] trap fires: sdf_distorted_ring_negative_thickness (child rc=-1073741795)
+  [ok] trap fires: sdf_line_negative_thickness (child rc=-1073741795)
+  [ok] trap fires: chain_zero_alignment       (child rc=-1073741795)
+  [ok] trap fires: chain_non_power_alignment  (child rc=-1073741795)
+  [ok] trap fires: chain_overaligned_block    (child rc=-1073741795)
+  [ok] trap fires: chain_zero_size            (child rc=-1073741795)
+  [ok] trap fires: chain_misaligned_size      (child rc=-1073741795)
+  [ok] trap fires: chain_capacity_overflow    (child rc=-1073741795)
+  [ok] trap fires: chain_table_rank_decreases (child rc=-1073741795)
+  [ok] trap fires: shader_workbench_preset_for_view_out_of_range (child rc=-1073741795)
+  [ok] trap fires: dreamballs_woven_owner_vertex_oob (child rc=-1073741795)
+  [ok] trap fires: dreamballs_woven_owner_edge_oob (child rc=-1073741795)
+  [ok] trap fires: raymarch_placement_solid_oob (child rc=-1073741795)
+  [ok] trap fires: spherical_harmonics_invalid_morph_mode (child rc=-1073741795)
+  [ok] trap fires: islamicstars_build_budget  (child rc=-1073741795)
+  [ok] trap fires: islamicstars_bridge_continuation (child rc=-1073741795)
+  [ok] trap fires: islamicstars_hankin_eager_endpoint (child rc=-1073741795)
+  [ok] trap fires: reconcile_vertices_size_mismatch (child rc=-1073741795)
+  [ok] trap fires: reconcile_vertices_empty   (child rc=-1073741795)
+  [ok] trap fires: reconcile_vertices_aliased_output (child rc=-1073741795)
+  [ok] trap fires: sdf_angular_repeat_nonunit_axis (child rc=-1073741795)
+  [ok] trap fires: sdf_distorted_ring_zero_knots (child rc=-1073741795)
+  [ok] trap fires: sdf_distorted_ring_one_knots (child rc=-1073741795)
+  [ok] trap fires: sdf_distorted_ring_two_knots (child rc=-1073741795)
+  [ok] trap fires: scan_ring_stack_too_many_rings (child rc=-1073741795)
+  [ok] trap fires: scan_ring_stack_callback_ring (child rc=-1073741795)
+  [ok] trap fires: sdf_twist_zero_major_radius (child rc=-1073741795)
+  [ok] trap fires: transformed_torus_invalid_minor_radius (child rc=-1073741795)
+  [ok] trap fires: pick_next_edge_unknown_node (child rc=-1073741795)
+  [ok] trap fires: opleg_edge_sweep_no_edge   (child rc=-1073741795)
+  [ok] trap fires: opleg_rewind_refill        (child rc=-1073741795)
+  [ok] trap fires: opleg_zero_sweep_frames    (child rc=-1073741795)
+  [ok] trap fires: opleg_incomplete_palette_handoff (child rc=-1073741795)
+  [ok] trap fires: opleg_edge_settle_mismatch (child rc=-1073741795)
+  [ok] trap fires: opleg_edge_sweep_incomplete_handoff (child rc=-1073741795)
+  [ok] trap fires: opleg_hankin_incomplete_handoff (child rc=-1073741795)
+  [ok] trap fires: opleg_hankin_backward_theta (child rc=-1073741795)
+  [ok] trap fires: opleg_relax_no_iterations  (child rc=-1073741795)
+  [ok] trap fires: opleg_relax_incomplete_handoff (child rc=-1073741795)
+  [ok] trap fires: opleg_medial_incomplete_handoff (child rc=-1073741795)
+  [ok] trap fires: opleg_reconcile_endpoint_count (child rc=-1073741795)
+  [ok] trap fires: opleg_reconcile_no_endpoints (child rc=-1073741795)
+  [ok] trap fires: opleg_reconcile_incomplete_handoff (child rc=-1073741795)
+  [ok] trap fires: opleg_gated_swap_zero_gate_frames (child rc=-1073741795)
+  [ok] trap fires: opleg_gated_swap_incomplete_handoff (child rc=-1073741795)
+  [ok] trap fires: opleg_shading_face_out_of_range (child rc=-1073741795)
+  [ok] trap fires: pullback_project_nonunit_direction (child rc=-1073741795)
+  [ok] trap fires: pullback_operator_invalid_coverage_mode (child rc=-1073741795)
+  [ok] trap fires: pullback_operator_invalid_weight_mode (child rc=-1073741795)
+  [ok] trap fires: pullback_operator_invalid_warp_envelope (child rc=-1073741795)
+  [ok] trap fires: pullback_operator_invalid_polar_mode (child rc=-1073741795)
+  [ok] trap fires: pullback_operator_invalid_polar_harmonic (child rc=-1073741795)
+  [ok] trap fires: pullback_operator_invalid_surface_integrator (child rc=-1073741795)
+  [ok] trap fires: pullback_operator_invalid_bonne_hemisphere (child rc=-1073741795)
+  [ok] trap fires: pullback_operator_invalid_airocean_layout (child rc=-1073741795)
+  [ok] trap fires: pullback_operator_invalid_gnomonic_hemisphere (child rc=-1073741795)
+  [ok] trap fires: pullback_operator_invalid_curl_integrator (child rc=-1073741795)
+  [ok] trap fires: pullback_operator_invalid_noise_basis (child rc=-1073741795)
+  [ok] trap fires: pullback_operator_invalid_tessellation_kind (child rc=-1073741795)
+  [ok] trap fires: pullback_operator_invalid_kaleidoscope_symmetry (child rc=-1073741795)
+  [ok] trap fires: pullback_operator_invalid_hue_mode (child rc=-1073741795)
+  [ok] trap fires: pullback_operator_invalid_palette_mode (child rc=-1073741795)
+  [ok] trap fires: pullback_operator_invalid_palette_mapping (child rc=-1073741795)
+  [ok] trap fires: pullback_operator_invalid_brightness_envelope (child rc=-1073741795)
+  [FAIL] targets/wasm/engine_bindings.h leaves 14 HS_CHECK site(s) unpinned, 13 approved — add a death case, or write the gap down as {"targets/wasm/engine_bindings.h", 14} in GUARD_GAP_ALLOW
+  [FAIL] workbench/shader/shader_host.h leaves 9 HS_CHECK site(s) unpinned, 8 approved — add a death case, or write the gap down as {"workbench/shader/shader_host.h", 9} in GUARD_GAP_ALLOW
+  guard coverage: 280/745 HS_CHECK sites pinned by a case (37%), 1 case(s) outside the census
+  widest gaps: core/animation/opleg.h 12/53 core/mesh/conway.h 16/49 core/color/composition.h 3/25 core/animation/recipe_build.h 3/24 core/control/param_host.h 7/22
+  FAIL [report_guard_coverage] C:/work/hs-gs-opt/tests/..\tests/test_death.h:6616  unapproved_gaps == 0  (2 vs 0)
+=== death: 770 passed, 1 failed ===
+
+        Start  78: unit_case_calls
+  6/103 Test  #98: unit_arena_budget ...........................   Passed   35.71 sec
+        Start  87: unit_gamut_lut
+  7/103 Test  #87: unit_gamut_lut ..............................   Passed    0.17 sec
+        Start  20: unit_conway_soak
+  8/103 Test  #84: unit_pullback_capture_determinism ...........   Passed   25.53 sec
+        Start  53: unit_mindsplatter
+  9/103 Test  #78: unit_case_calls .............................   Passed   17.12 sec
+        Start  67: unit_pov_sync
+ 10/103 Test  #20: unit_conway_soak ............................   Passed    9.05 sec
+        Start  56: unit_shader_workbench
+ 11/103 Test  #53: unit_mindsplatter ...........................   Passed    8.22 sec
+        Start  23: unit_hankin
+ 12/103 Test  #67: unit_pov_sync ...............................   Passed    6.75 sec
+        Start  43: unit_plot_scan
+ 13/103 Test  #23: unit_hankin .................................   Passed    4.64 sec
+        Start  14: unit_sdf
+ 14/103 Test  #43: unit_plot_scan ..............................   Passed    4.00 sec
+        Start  52: unit_effects
+ 15/103 Test  #56: unit_shader_workbench .......................   Passed    8.99 sec
+        Start  24: unit_hyper_lattice
+ 16/103 Test  #14: unit_sdf ....................................   Passed    4.13 sec
+        Start  60: unit_shapeshifter_oracle
+ 17/103 Test  #52: unit_effects ................................   Passed    3.35 sec
+        Start  17: unit_conway_morph
+ 18/103 Test  #60: unit_shapeshifter_oracle ....................   Passed    1.79 sec
+        Start  85: unit_color_luts
+ 19/103 Test  #17: unit_conway_morph ...........................   Passed    1.67 sec
+        Start  75: unit_death_child_dispatch
+ 20/103 Test  #24: unit_hyper_lattice ..........................   Passed    3.26 sec
+        Start  86: unit_teensy_size_trail
+ 21/103 Test  #75: unit_death_child_dispatch ...................   Passed    0.36 sec
+        Start  65: unit_pov_segmented
+ 22/103 Test  #65: unit_pov_segmented ..........................   Passed    0.08 sec
+        Start  27: unit_sdf_patterns
+ 23/103 Test  #85: unit_color_luts .............................   Passed    1.48 sec
+        Start  45: unit_scan
+ 24/103 Test  #27: unit_sdf_patterns ...........................   Passed    1.09 sec
+        Start  34: unit_color
+ 25/103 Test  #86: unit_teensy_size_trail ......................   Passed    1.62 sec
+        Start  22: unit_opchain_arena_survey
+ 26/103 Test  #45: unit_scan ...................................   Passed    1.19 sec
+        Start   6: unit_mindsplatter_palette_form
+ 27/103 Test  #34: unit_color ..................................   Passed    0.99 sec
+        Start  61: unit_shapeshifter_tiles
+ 28/103 Test  #22: unit_opchain_arena_survey ...................   Passed    1.03 sec
+        Start   3: unit_mindsplatter_replay_refresh
+ 29/103 Test   #6: unit_mindsplatter_palette_form ..............   Passed    0.83 sec
+        Start  69: unit_wasm_predicates
+ 30/103 Test   #3: unit_mindsplatter_replay_refresh ............   Passed    0.55 sec
+        Start  79: unit_anim_pack
+ 31/103 Test  #61: unit_shapeshifter_tiles .....................   Passed    0.75 sec
+        Start  33: unit_reaction_graph
+ 32/103 Test  #69: unit_wasm_predicates ........................   Passed    0.69 sec
+        Start  46: unit_mesh_raster
+ 33/103 Test  #79: unit_anim_pack ..............................   Passed    0.39 sec
+        Start  82: unit_mirrored_screenshot_prune
+ 34/103 Test  #33: unit_reaction_graph .........................   Passed    0.46 sec
+        Start  21: unit_opchain_probe
+ 35/103 Test  #82: unit_mirrored_screenshot_prune ..............   Passed    0.25 sec
+        Start  32: unit_solids
+ 36/103 Test  #46: unit_mesh_raster ............................   Passed    0.58 sec
+        Start   1: unit_death_pins
+ 37/103 Test  #32: unit_solids .................................   Passed    0.43 sec
+        Start   8: unit_mindsplatter_replay
+ 38/103 Test   #1: unit_death_pins .............................   Passed    0.33 sec
+        Start  68: unit_param_marshal
+ 39/103 Test  #21: unit_opchain_probe ..........................   Passed    0.65 sec
+        Start  26: unit_ray_demonstrators
+ 40/103 Test   #8: unit_mindsplatter_replay ....................   Passed    0.10 sec
+        Start  94: unit_h_offset_device
+ 41/103 Test  #26: unit_ray_demonstrators ......................   Passed    0.24 sec
+        Start  51: unit_animation
+ 42/103 Test  #68: unit_param_marshal ..........................   Passed    0.30 sec
+        Start   7: unit_mindsplatter_palette
+ 43/103 Test  #51: unit_animation ..............................   Passed    0.16 sec
+        Start  91: unit_relax_bake_form
+ 44/103 Test   #7: unit_mindsplatter_palette ...................   Passed    0.18 sec
+        Start  55: unit_effect_factory
+ 45/103 Test  #94: unit_h_offset_device ........................   Passed    0.43 sec
+        Start  81: unit_linker_patches
+ 46/103 Test  #81: unit_linker_patches .........................   Passed    0.03 sec
+        Start   4: unit_mindsplatter_replay_revision_missing
+ 47/103 Test   #4: unit_mindsplatter_replay_revision_missing ...   Passed    0.06 sec
+        Start  59: unit_composed_effect
+ 48/103 Test  #59: unit_composed_effect ........................   Passed    0.14 sec
+        Start  19: unit_partition_seam
+ 49/103 Test  #91: unit_relax_bake_form ........................   Passed    0.34 sec
+        Start   5: unit_mindsplatter_replay_revision_drift
+ 50/103 Test  #55: unit_effect_factory .........................   Passed    0.32 sec
+        Start  41: unit_shader_chain
+ 51/103 Test   #5: unit_mindsplatter_replay_revision_drift .....   Passed    0.06 sec
+        Start   9: unit_3dmath
+ 52/103 Test   #9: unit_3dmath .................................   Passed    0.02 sec
+        Start  77: unit_module_includes
+ 53/103 Test  #19: unit_partition_seam .........................   Passed    0.21 sec
+        Start  80: unit_vendor_patches
+ 54/103 Test  #80: unit_vendor_patches .........................   Passed    0.03 sec
+        Start  90: unit_relax_bake_verify
+ 55/103 Test  #41: unit_shader_chain ...........................   Passed    0.22 sec
+        Start  42: unit_filter
+ 56/103 Test  #77: unit_module_includes ........................   Passed    0.18 sec
+        Start  50: unit_projections
+ 57/103 Test  #50: unit_projections ............................   Passed    0.02 sec
+        Start  57: unit_lattice_melt
+ 58/103 Test  #57: unit_lattice_melt ...........................   Passed    0.03 sec
+        Start  71: unit_presets
+ 59/103 Test  #71: unit_presets ................................   Passed    0.01 sec
+        Start  31: unit_mesh
+ 60/103 Test  #42: unit_filter .................................   Passed    0.10 sec
+        Start  40: unit_pullback
+ 61/103 Test  #40: unit_pullback ...............................   Passed    0.01 sec
+        Start  35: unit_palettes
+ 62/103 Test  #35: unit_palettes ...............................   Passed    0.01 sec
+        Start  25: unit_ray_events
+ 63/103 Test  #25: unit_ray_events .............................   Passed    0.01 sec
+        Start  88: unit_pov_segment_map_golden
+ 64/103 Test  #90: unit_relax_bake_verify ......................   Passed    0.18 sec
+        Start  30: unit_spherical_harmonics
+ 65/103 Test  #31: unit_mesh ...................................   Passed    0.11 sec
+        Start  72: unit_styles
+ 66/103 Test  #72: unit_styles .................................   Passed    0.02 sec
+        Start  28: unit_geometry
+ 67/103 Test  #28: unit_geometry ...............................   Passed    0.02 sec
+        Start 103: unit_excluded_targets
+ 68/103 Test  #88: unit_pov_segment_map_golden .................   Passed    0.08 sec
+        Start  64: unit_dma_controller
+ 69/103 Test  #30: unit_spherical_harmonics ....................   Passed    0.08 sec
+        Start  13: unit_scb
+ 70/103 Test  #64: unit_dma_controller .........................   Passed    0.01 sec
+        Start  37: unit_interpolate
+ 71/103 Test  #13: unit_scb ....................................   Passed    0.01 sec
+        Start  44: unit_canvas
+ 72/103 Test #103: unit_excluded_targets .......................   Passed    0.04 sec
+        Start  83: unit_pullback_manifest
+ 73/103 Test  #37: unit_interpolate ............................   Passed    0.02 sec
+        Start  47: unit_transformers
+ 74/103 Test  #44: unit_canvas .................................   Passed    0.02 sec
+        Start  39: unit_profiling
+ 75/103 Test  #83: unit_pullback_manifest ......................   Passed    0.02 sec
+        Start  63: unit_hd107s
+ 76/103 Test  #63: unit_hd107s .................................   Passed    0.01 sec
+        Start  96: unit_runtime_display_geometry
+ 77/103 Test  #39: unit_profiling ..............................   Passed    0.08 sec
+        Start  58: unit_kaleidoscope_smooth
+ 78/103 Test  #47: unit_transformers ...........................   Passed    0.11 sec
+        Start  66: unit_pov_single
+ 79/103 Test  #96: unit_runtime_display_geometry ...............   Passed    0.07 sec
+        Start  73: unit_shading
+ 80/103 Test  #66: unit_pov_single .............................   Passed    0.02 sec
+        Start  48: unit_noise
+ 81/103 Test  #73: unit_shading ................................   Passed    0.02 sec
+        Start  29: unit_spherical_field
+ 82/103 Test  #58: unit_kaleidoscope_smooth ....................   Passed    0.04 sec
+        Start  15: unit_ray
+ 83/103 Test  #48: unit_noise ..................................   Passed    0.02 sec
+        Start  12: unit_spatial
+ 84/103 Test  #29: unit_spherical_field ........................   Passed    0.02 sec
+        Start  16: unit_conway
+ 85/103 Test  #15: unit_ray ....................................   Passed    0.02 sec
+        Start  49: unit_noise_field
+ 86/103 Test  #12: unit_spatial ................................   Passed    0.02 sec
+        Start 102: unit_feedback_io
+ 87/103 Test  #49: unit_noise_field ............................   Passed    0.06 sec
+ 88/103 Test  #16: unit_conway .................................   Passed    0.07 sec
+        Start  70: unit_led
+        Start  95: unit_display_geometry
+ 89/103 Test #102: unit_feedback_io ............................   Passed    0.09 sec
+        Start 101: unit_feedback_compare
+ 90/103 Test  #70: unit_led ....................................   Passed    0.07 sec
+        Start  89: unit_fastmath_clamp
+ 91/103 Test  #95: unit_display_geometry .......................   Passed    0.09 sec
+        Start  38: unit_platform
+ 92/103 Test #101: unit_feedback_compare .......................   Passed    0.07 sec
+        Start  76: unit_module_roster
+ 93/103 Test  #89: unit_fastmath_clamp .........................   Passed    0.05 sec
+        Start  36: unit_easing_waves
+ 94/103 Test  #76: unit_module_roster ..........................   Passed    0.04 sec
+        Start  93: unit_h_offset_renorm
+ 95/103 Test  #38: unit_platform ...............................   Passed    0.11 sec
+        Start  62: unit_dma_core
+ 96/103 Test  #36: unit_easing_waves ...........................   Passed    0.10 sec
+        Start  10: unit_concepts
+ 97/103 Test  #93: unit_h_offset_renorm ........................   Passed    0.05 sec
+        Start  11: unit_memory
+ 98/103 Test  #62: unit_dma_core ...............................   Passed    0.02 sec
+        Start   2: unit_mindsplatter_replay_form
+ 99/103 Test  #10: unit_concepts ...............................   Passed    0.02 sec
+        Start  92: unit_hyper_lattice_shipping
+100/103 Test  #11: unit_memory .................................   Passed    0.07 sec
+101/103 Test   #2: unit_mindsplatter_replay_form ...............***Skipped   0.18 sec
+102/103 Test  #92: unit_hyper_lattice_shipping .................   Passed    2.83 sec
+103/103 Test  #54: unit_effects_smoke ..........................   Passed  103.86 sec
+
+99% tests passed, 1 tests failed out of 103
+
+Total Test time (real) = 104.00 sec
+
+The following tests did not run:
+	  2 - unit_mindsplatter_replay_form (Skipped)
+
+The following tests FAILED:
+	 74 - unit_death (Failed)
+ctest : Errors while running CTest
+At line:2 char:218
++ ... AMES='120'; ctest --preset tests --output-on-failure *> C:/work/hs-gs ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (Errors while running CTest:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
