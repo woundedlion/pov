@@ -74,6 +74,7 @@ TECHNICAL_LAYERS = ((9, "F.Adhes", "user"), (11, "B.Adhes", "user"),
                     (35, "F.Fab", "user"), (33, "B.Fab", "user"))
 GROUND_NET = "GND"
 GROUND_PLANE_LAYERS = ("In1.Cu", "In2.Cu")
+LAYER_NAMES = {"In1.Cu": "GND", "In2.Cu": "Ground"}
 
 # Standard 1.6 mm JLCPCB 4-layer build (JLC04161H-7628): 1 oz outer copper,
 # 0.5 oz inner, thin outer prepreg over a thick core, ENIG. Encoded in the file
@@ -844,7 +845,8 @@ def main(unplaced=False, force=False, force_teensy_library=False):
     lines.append('\t(paper "A2")')
     lines.append("\t(layers")
     for n, nm, ty in COPPER_LAYERS + TECHNICAL_LAYERS:
-        lines.append(f'\t\t({n} "{nm}" {ty})')
+        alias = f' {sexp.quote(LAYER_NAMES[nm])}' if nm in LAYER_NAMES else ""
+        lines.append(f'\t\t({n} "{nm}" {ty}{alias})')
     lines.append("\t)")
     lines.append("\t(setup")
     lines.append("\t\t(stackup")
