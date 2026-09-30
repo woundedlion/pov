@@ -5022,10 +5022,10 @@ inline void test_displacement_field_hue_table_fidelity() {
                                     linear_float_to_srgb8(exact.b * INV16)) -
                                 linear_float_to_srgb8(approx.b * INV16))));
           if (cyclic) {
-            cyclic_delta_e = std::max(cyclic_delta_e, delta_e);
+            cyclic_delta_e = hs_test::fold_worst(cyclic_delta_e, delta_e);
             cyclic_srgb_delta = std::max(cyclic_srgb_delta, srgb_delta);
           } else {
-            default_delta_e = std::max(default_delta_e, delta_e);
+            default_delta_e = hs_test::fold_worst(default_delta_e, delta_e);
             default_srgb_delta = std::max(default_srgb_delta, srgb_delta);
           }
         }
@@ -5104,7 +5104,8 @@ inline void test_displacement_field_hue_table_frame_fidelity() {
     const float dl = a.L - b.L;
     const float da = a.a - b.a;
     const float db = a.b - b.b;
-    max_delta_e = std::max(max_delta_e, sqrtf(dl * dl + da * da + db * db));
+    max_delta_e =
+        hs_test::fold_worst(max_delta_e, sqrtf(dl * dl + da * da + db * db));
     max_srgb_delta = std::max(
         max_srgb_delta,
         std::abs(
@@ -5176,7 +5177,7 @@ inline void test_displacement_field_octave_bake_tracks_noise() {
           HS_CONTEXT("trial / knot", trial, (ring << 16) | x);
           HS_EXPECT_NEAR(slut[x], exact, 1e-4f);
         }
-        worst = std::max(worst, err);
+        worst = hs_test::fold_worst(worst, err);
       }
     }
   }
