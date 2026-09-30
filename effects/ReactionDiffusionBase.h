@@ -21,8 +21,8 @@
  * @tparam H Framebuffer height in pixels.
  * @details Both systems run on the same 7680-node Fibonacci-lattice K-NN graph,
  * share a Languid random-walk view orientation, build the cached node positions
- * once at init (the lattice is static), and interpolate with the same Wendland
- * C2 kernel, and seed their fields with the same saturated blobs. This base
+ * once at init (the lattice is static), interpolate with a compact biweight
+ * kernel (C1 at the support edge), and seed fields with saturated blobs. This base
  * captures exactly that shared scaffolding. The physics (Lotka-Volterra
  * 3-species vs Gray-Scott 2-species), params, palette, and rendering are
  * fundamentally different and stay in the derived classes.
@@ -94,7 +94,7 @@ protected:
     return static_cast<uint16_t>(hs::clamp(v, 0.0f, 1.0f) * Q16_SCALE + 0.5f);
   }
 
-  // Wendland C2 compact kernel: w(d) = max(0, 1 - d²/R²)²
+  // Compact biweight kernel (C1 at the support edge): w(d) = max(0, 1 - d²/R²)²
   static constexpr float D_AVG =
       ReactionGraph::D_AVG; /**< Mean inter-node spacing, sqrt(4π / RD_N). */
   static constexpr float KERNEL_R = 1.5f * D_AVG; /**< Kernel support radius. */
@@ -121,7 +121,7 @@ protected:
   }
 
   /**
-   * @brief Invokes `on_weight(w)` with the Wendland C2 weight of one squared
+   * @brief Invokes `on_weight(w)` with the compact biweight weight of one squared
    *        distance, skipping nodes outside the support radius.
    * @tparam OnWeight Callable accepting the kernel weight.
    * @param d2 Squared distance from the query to the node.
@@ -223,7 +223,7 @@ protected:
 
   /**
    * @brief Refines a cubemap-LUT seed to the nearest node and runs the
-   *        Wendland C2 kernel walk in one stencil pass.
+   *        compact biweight kernel walk in one stencil pass.
    * @tparam OnWeight Callable accepting (node_index, weight).
    * @param rv Query direction (unit vector on the sphere).
    * @param nodes Node positions in the same frame as `rv`, indexed by node id.
@@ -291,7 +291,7 @@ protected:
   }
 
   /**
-   * @brief Runs the Wendland C2 kernel over a gathered stencil.
+   * @brief Runs the compact biweight kernel over a gathered stencil.
    * @tparam OnWeight Callable accepting (slot, weight).
    * @param rv Sub-sample direction (unit vector on the sphere).
    * @param positions Stencil positions from gather_stencil.
@@ -512,7 +512,7 @@ protected:
 
 private:
   /**
-   * @brief Wendland C2 kernel walk over `center` and its neighbors.
+   * @brief compact biweight kernel walk over `center` and its neighbors.
    * @tparam OnWeight Callable accepting (node_index, weight).
    * @param rv Query direction (unit vector on the sphere).
    * @param nodes Node positions in the same frame as `rv`, indexed by node id.
