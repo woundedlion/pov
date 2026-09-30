@@ -2098,6 +2098,9 @@ struct DeathEffect : public Effect {
    * @param p Pointer to the backing float storage.
    */
   void reg(const char *n, float *p) { register_param(n, p, 0.0f, 1.0f); }
+  void reg_float_options(float *p, const char *const *options, int count) {
+    register_param("options", p, 0.0f, 1.0f, false, false, options, count);
+  }
   /** @brief Registers a typed enum with the requested option count. */
   template <typename Enum> void reg_enum(Enum *p, int count) {
     static constexpr const char *OPTIONS[] = {"zero"};
@@ -2246,6 +2249,26 @@ inline void case_correction_guard_cross_type() {
   NoTempCorrection b; // second live guard of a different type -> trap
   if (correction_guard_live() == opaque(true))
     std::printf("x");
+}
+
+inline void case_float_options_missing_labels() {
+  DeathEffect effect;
+  float value = 0;
+  effect.reg_float_options(&value, nullptr, 2);
+}
+
+inline void case_float_options_missing_count() {
+  DeathEffect effect;
+  float value = 0;
+  const char *options[] = {"zero", "one"};
+  effect.reg_float_options(&value, options, 0);
+}
+
+inline void case_float_options_wrong_range() {
+  DeathEffect effect;
+  float value = 0;
+  const char *options[] = {"zero"};
+  effect.reg_float_options(&value, options, 1);
 }
 
 /**
@@ -5367,6 +5390,18 @@ inline const Case *all_cases(int &n) {
            "core/color/baked_palette.h",
            "(&from != &table && &to != &table) BakedPaletteStorage::bake_blend endpoint is "
            "the output"},
+          {"float_options_missing_labels", case_float_options_missing_labels,
+           "core/control/param_host.h",
+           "((options == nullptr) == (option_count == 0)) "
+           "register_param: inconsistent options and count"},
+          {"float_options_missing_count", case_float_options_missing_count,
+           "core/control/param_host.h",
+           "((options == nullptr) == (option_count == 0)) "
+           "register_param: inconsistent options and count"},
+          {"float_options_wrong_range", case_float_options_wrong_range,
+           "core/control/param_host.h",
+           "(option_count > 0 && min == 0 && max == option_count - 1) "
+           "register_param: option range does not match labels"},
           {"register_param_overflow", case_register_param_overflow,
            "core/control/param_host.h",
            "(parameters.count < parameters.capacity()) register_param: "
