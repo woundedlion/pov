@@ -1,0 +1,94 @@
+C:/work/hs-gs-support/baseline/profile.elf:     file format elf32-littlearm
+
+
+Disassembly of section .text.itcm:
+
+000041e4 <_ZN19GSReactionDiffusionILi288ELi144EE12step_physicsEPKfS2_PfS3_>:
+    41e4:	eddf 7a50 	vldr	s15, [pc, #320]	@ 4328 <_ZN19GSReactionDiffusionILi288ELi144EE12step_physicsEPKfS2_PfS3_+0x144>
+    41e8:	eef1 3a08 	vmov.f32	s7, #24	@ 0x40c00000  6.0
+    41ec:	edd0 2ae2 	vldr	s5, [r0, #904]	@ 0x388
+    41f0:	eeb7 5a00 	vmov.f32	s10, #112	@ 0x3f800000  1.0
+    41f4:	edd0 4ae6 	vldr	s9, [r0, #920]	@ 0x398
+    41f8:	ed90 3ae3 	vldr	s6, [r0, #908]	@ 0x38c
+    41fc:	ee64 4aa7 	vmul.f32	s9, s9, s15
+    4200:	edd0 1ae4 	vldr	s3, [r0, #912]	@ 0x390
+    4204:	ee32 3a83 	vadd.f32	s6, s5, s6
+    4208:	ed90 2ae5 	vldr	s4, [r0, #916]	@ 0x394
+    420c:	ed9f 4a47 	vldr	s8, [pc, #284]	@ 432c <_ZN19GSReactionDiffusionILi288ELi144EE12step_physicsEPKfS2_PfS3_+0x148>
+    4210:	e92d 47f0 	stmdb	sp!, {r4, r5, r6, r7, r8, r9, sl, lr}
+    4214:	ed2d 8b04 	vpush	{d8-d9}
+    4218:	461c      	mov	r4, r3
+    421a:	468e      	mov	lr, r1
+    421c:	4616      	mov	r6, r2
+    421e:	4b44      	ldr	r3, [pc, #272]	@ (4330 <_ZN19GSReactionDiffusionILi288ELi144EE12step_physicsEPKfS2_PfS3_+0x14c>)
+    4220:	9d0c      	ldr	r5, [sp, #48]	@ 0x30
+    4222:	f501 47f0 	add.w	r7, r1, #30720	@ 0x7800
+    4226:	f9b3 c000 	ldrsh.w	ip, [r3]
+    422a:	330c      	adds	r3, #12
+    422c:	f933 0c0a 	ldrsh.w	r0, [r3, #-10]
+    4230:	eb02 098c 	add.w	r9, r2, ip, lsl #2
+    4234:	ecbe 6a01 	vldmia	lr!, {s12}
+    4238:	eb02 0880 	add.w	r8, r2, r0, lsl #2
+    423c:	ecf6 6a01 	vldmia	r6!, {s13}
+    4240:	eb01 0c8c 	add.w	ip, r1, ip, lsl #2
+    4244:	edd9 7a00 	vldr	s15, [r9]
+    4248:	eb01 0080 	add.w	r0, r1, r0, lsl #2
+    424c:	ed98 1a00 	vldr	s2, [r8]
+    4250:	ed9c 7a00 	vldr	s14, [ip]
+    4254:	ee66 0a26 	vmul.f32	s1, s12, s13
+    4258:	edd0 5a00 	vldr	s11, [r0]
+    425c:	ee77 7a81 	vadd.f32	s15, s15, s2
+    4260:	f933 cc08 	ldrsh.w	ip, [r3, #-8]
+    4264:	4577      	cmp	r7, lr
+    4266:	ee37 7a25 	vadd.f32	s14, s14, s11
+    426a:	f933 0c06 	ldrsh.w	r0, [r3, #-6]
+    426e:	eee6 7ae3 	vfms.f32	s15, s13, s7
+    4272:	eb01 0a8c 	add.w	sl, r1, ip, lsl #2
+    4276:	eb02 088c 	add.w	r8, r2, ip, lsl #2
+    427a:	ee75 5a46 	vsub.f32	s11, s10, s12
+    427e:	eea6 7a63 	vfms.f32	s14, s12, s7
+    4282:	ed9a 0a00 	vldr	s0, [sl]
+    4286:	ed98 1a00 	vldr	s2, [r8]
+    428a:	eb01 0980 	add.w	r9, r1, r0, lsl #2
+    428e:	eb02 0c80 	add.w	ip, r2, r0, lsl #2
+    4292:	f933 0c04 	ldrsh.w	r0, [r3, #-4]
+    4296:	ed99 9a00 	vldr	s18, [r9]
+    429a:	ee65 5aa2 	vmul.f32	s11, s11, s5
+    429e:	ee77 7a81 	vadd.f32	s15, s15, s2
+    42a2:	eddc 8a00 	vldr	s17, [ip]
+    42a6:	eb01 0880 	add.w	r8, r1, r0, lsl #2
+    42aa:	ee23 1a66 	vnmul.f32	s2, s6, s13
+    42ae:	ee37 7a00 	vadd.f32	s14, s14, s0
+    42b2:	eb02 0c80 	add.w	ip, r2, r0, lsl #2
+    42b6:	f933 0c02 	ldrsh.w	r0, [r3, #-2]
+    42ba:	ee77 7aa8 	vadd.f32	s15, s15, s17
+    42be:	ed98 8a00 	vldr	s16, [r8]
+    42c2:	eee0 5ae6 	vfms.f32	s11, s1, s13
+    42c6:	ee37 7a09 	vadd.f32	s14, s14, s18
+    42ca:	ed9c 0a00 	vldr	s0, [ip]
+    42ce:	eb01 0c80 	add.w	ip, r1, r0, lsl #2
+    42d2:	eea0 1aa6 	vfma.f32	s2, s1, s13
+    42d6:	ee77 7a80 	vadd.f32	s15, s15, s0
+    42da:	eb02 0080 	add.w	r0, r2, r0, lsl #2
+    42de:	ee37 7a08 	vadd.f32	s14, s14, s16
+    42e2:	ed9c 0a00 	vldr	s0, [ip]
+    42e6:	edd0 0a00 	vldr	s1, [r0]
+    42ea:	ee37 7a00 	vadd.f32	s14, s14, s0
+    42ee:	ee77 7aa0 	vadd.f32	s15, s15, s1
+    42f2:	eee1 5a87 	vfma.f32	s11, s3, s14
+    42f6:	eeb0 7a41 	vmov.f32	s14, s2
+    42fa:	eea2 7a27 	vfma.f32	s14, s4, s15
+    42fe:	eea5 6aa4 	vfma.f32	s12, s11, s9
+    4302:	eee7 6a24 	vfma.f32	s13, s14, s9
+    4306:	fe86 6a45 	vminnm.f32	s12, s12, s10
+    430a:	fe86 6a04 	vmaxnm.f32	s12, s12, s8
+    430e:	eca4 6a01 	vstmia	r4!, {s12}
+    4312:	fec6 6ac5 	vminnm.f32	s13, s13, s10
+    4316:	fec6 6a84 	vmaxnm.f32	s13, s13, s8
+    431a:	ece5 6a01 	vstmia	r5!, {s13}
+    431e:	d182      	bne.n	4226 <_ZN19GSReactionDiffusionILi288ELi144EE12step_physicsEPKfS2_PfS3_+0x42>
+    4320:	ecbd 8b04 	vpop	{d8-d9}
+    4324:	e8bd 87f0 	ldmia.w	sp!, {r4, r5, r6, r7, r8, r9, sl, pc}
+    4328:	3fd55555 	.word	0x3fd55555
+    432c:	00000000 	.word	0x00000000
+    4330:	6002a510 	.word	0x6002a510

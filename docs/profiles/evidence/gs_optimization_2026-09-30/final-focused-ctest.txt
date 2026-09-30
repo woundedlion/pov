@@ -1,0 +1,9 @@
+Test project C:/work/hs-gs-opt/build/tests
+    Start 52: unit_effects
+    Start 33: unit_reaction_graph
+1/2 Test #33: unit_reaction_graph ..............   Passed    0.37 sec
+2/2 Test #52: unit_effects .....................   Passed    2.70 sec
+
+100% tests passed, 0 tests failed out of 2
+
+Total Test time (real) =   2.72 sec

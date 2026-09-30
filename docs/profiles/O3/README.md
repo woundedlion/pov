@@ -15,7 +15,6 @@ whose render exceeded one 62.5 ms display interval. Rows rank by spill fraction,
 | [ShapeShifter](profile_shapeshifter_teensy_2026-09-25.md) § ● | `ss_draw_all` | 🟢 60.05 (9) | 🟢 0/2457 (0.00%) | 2026-09-25 07:29 |
 | [MeshFeedback](profile_meshfeedback_teensy_2026-08-26.md)§ | `mf_feedback_flush` | 🟢 58.32 (13) | 🟢 0/6688 (0%) | 2026-08-26 02:10 |
 | [DisplacementField](profile_displacementfield_teensy_2026-09-19.md) | `df_timeline_step` | 🟢 57.45 | 🟢 0/1088 (0%) | 2026-09-19 22:19 |
-| [GSReactionDiffusion](profile_gsreactiondiffusion_teensy_2026-08-26.md) | `grd_render` | 🟢 56.16 | 🟢 0/2048 (0%) | 2026-08-26 01:25 |
 | [Raymarch](profile_raymarch_teensy_2026-09-20.md) | `rm_shader_draw` | 🟢 56.04 | 🟢 0/1736 (0.00%) | 2026-09-20 23:07 |
 | [HyperLattice](profile_hyperlattice_teensy_2026-09-27.md) § ● | `hl_shader_draw` | 🟢 54.817 (2) | 🟢 0/1576 (0.00%) | 2026-09-27 01:05 |
 | [MermaidSkin](profile_mermaidskin_teensy_2026-08-26.md) | `fx_shader_draw` | 🟢 54.55 | 🟢 0/1088 (0%) | 2026-08-26 02:43 |
@@ -27,6 +26,7 @@ whose render exceeded one 62.5 ms display interval. Rows rank by spill fraction,
 | [HopfFibration](profile_hopffibration_teensy_2026-08-26.md) | `hf_render_trails` | 🟢 46.52 | 🟢 0/1088 (0%) | 2026-08-26 01:27 |
 | [KaleidoscopeHexOil](profile_kaleidoscopehexoil_teensy_2026-08-26.md)§ | `fx_shader_draw` | 🟢 38.94 (3) | 🟢 0/2208 (0%) | 2026-08-26 02:49 |
 | [KaleidoscopeMandala](profile_kaleidoscopemandala_teensy_2026-08-26.md)§ | `fx_shader_draw` | 🟢 36.86 (3) | 🟢 0/2368 (0%) | 2026-08-26 03:17 |
+| [GSReactionDiffusion](profile_gsreactiondiffusion_teensy_2026-09-30.md) ● | `grd_render` | 🟢 36.477 | 🟢 0/2047 (0.00%) | 2026-09-30 01:23 |
 | [DreamBalls](profile_dreamballs_teensy_2026-08-26.md)§ | `db_timeline_step` | 🟢 34.32 (11) | 🟢 0/3648 (0%) | 2026-08-26 02:19 |
 | [KaleidoscopeFlowers](profile_kaleidoscopeflowers_teensy_2026-08-26.md)§ | `fx_shader_draw` | 🟢 33.38 (4) | 🟢 0/4128 (0%) | 2026-08-26 03:03 |
 | [HankinSolids](profile_hankinsolids_teensy_2026-09-28.md) § ● | `hk_timeline_step` | 🟢 32.865 (18) | 🟢 0/4137 (0.00%) | 2026-09-28 16:45 |
@@ -106,3 +106,5 @@ Sphere-only renderer; two authored fixed presets on COM4, startup excluded. [Pai
 |---|--:|--:|---|
 | 5: Shell Flight | 🔴 117.363 | 🔴 228/228 (100.00%) | 2026-09-29 08:04 |
 | 6: Shell Close Flight | 🔴 121.337 | 🔴 228/228 (100.00%) | 2026-09-29 08:07 |
+
+● GSReactionDiffusion refreshed 2026-09-30: shipping peak 36.528 ms, global-O3 peak 36.477 ms, zero spills across 2,047 live frames in each capture. [Optimization ledger](../gsreactiondiffusion_optimization_2026-09-30.md).

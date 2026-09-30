@@ -1,0 +1,8 @@
+ M core/render/scan/shader.h
+ M core/spatial/reaction_graph.cpp
+ M core/spatial/reaction_graph.h
+ M effects/GSReactionDiffusion.h
+ M effects/ReactionDiffusionBase.h
+ M scripts/generate_reaction_graph.py
+ M tests/test_effects.h
+ M tests/test_reaction_graph.h

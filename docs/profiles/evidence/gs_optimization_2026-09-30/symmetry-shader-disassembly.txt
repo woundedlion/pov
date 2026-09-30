@@ -1,0 +1,501 @@
+C:/work/hs-gs-support/symmetry/profile.elf:     file format elf32-littlearm
+
+
+Disassembly of section .text.itcm:
+
+0000458c <_ZNK19GSReactionDiffusionILi288ELi144EE11shade_pixelIN4Scan6Shader8SsaaGridILi288ELi144EEEEE5PixeliRKN4math6VectorEPS9_RKT_i>:
+    458c:	e92d 43f0 	stmdb	sp!, {r4, r5, r6, r7, r8, r9, lr}
+    4590:	2a00      	cmp	r2, #0
+    4592:	ed2d 8b0e 	vpush	{d8-d14}
+    4596:	b08d      	sub	sp, #52	@ 0x34
+    4598:	e9dd 5622 	ldrd	r5, r6, [sp, #136]	@ 0x88
+    459c:	da07      	bge.n	45ae <_ZNK19GSReactionDiffusionILi288ELi144EE11shade_pixelIN4Scan6Shader8SsaaGridILi288ELi144EEEEE5PixeliRKN4math6VectorEPS9_RKT_i+0x22>
+    459e:	2300      	movs	r3, #0
+    45a0:	6003      	str	r3, [r0, #0]
+    45a2:	8083      	strh	r3, [r0, #4]
+    45a4:	b00d      	add	sp, #52	@ 0x34
+    45a6:	ecbd 8b0e 	vpop	{d8-d14}
+    45aa:	e8bd 83f0 	ldmia.w	sp!, {r4, r5, r6, r7, r8, r9, pc}
+    45ae:	ed93 7a01 	vldr	s14, [r3, #4]
+    45b2:	f1a2 0c04 	sub.w	ip, r2, #4
+    45b6:	ed93 6a00 	vldr	s12, [r3]
+    45ba:	460c      	mov	r4, r1
+    45bc:	edd3 6a02 	vldr	s13, [r3, #8]
+    45c0:	eb02 0342 	add.w	r3, r2, r2, lsl #1
+    45c4:	0051      	lsls	r1, r2, #1
+    45c6:	eb05 0383 	add.w	r3, r5, r3, lsl #2
+    45ca:	edd3 7a01 	vldr	s15, [r3, #4]
+    45ce:	ed93 5a00 	vldr	s10, [r3]
+    45d2:	ee77 7a67 	vsub.f32	s15, s14, s15
+    45d6:	edd3 5a02 	vldr	s11, [r3, #8]
+    45da:	ee36 5a45 	vsub.f32	s10, s12, s10
+    45de:	f641 53f7 	movw	r3, #7671	@ 0x1df7
+    45e2:	ee76 5ae5 	vsub.f32	s11, s13, s11
+    45e6:	ee67 7aa7 	vmul.f32	s15, s15, s15
+    45ea:	459c      	cmp	ip, r3
+    45ec:	4bd9      	ldr	r3, [pc, #868]	@ (4954 <_ZNK19GSReactionDiffusionILi288ELi144EE11shade_pixelIN4Scan6Shader8SsaaGridILi288ELi144EEEEE5PixeliRKN4math6VectorEPS9_RKT_i+0x3c8>)
+    45ee:	eee5 7a05 	vfma.f32	s15, s10, s10
+    45f2:	eee5 7aa5 	vfma.f32	s15, s11, s11
+    45f6:	bf94      	ite	ls
+    45f8:	eddf 5ad7 	vldrls	s11, [pc, #860]	@ 4958 <_ZNK19GSReactionDiffusionILi288ELi144EE11shade_pixelIN4Scan6Shader8SsaaGridILi288ELi144EEEEE5PixeliRKN4math6VectorEPS9_RKT_i+0x3cc>
+    45fc:	eddf 5ad7 	vldrhi	s11, [pc, #860]	@ 495c <_ZNK19GSReactionDiffusionILi288ELi144EE11shade_pixelIN4Scan6Shader8SsaaGridILi288ELi144EEEEE5PixeliRKN4math6VectorEPS9_RKT_i+0x3d0>
+    4600:	eef4 7ae5 	vcmpe.f32	s15, s11
+    4604:	eef1 fa10 	vmrs	APSR_nzcv, fpscr
+    4608:	f100 80d3 	bmi.w	47b2 <_ZNK19GSReactionDiffusionILi288ELi144EE11shade_pixelIN4Scan6Shader8SsaaGridILi288ELi144EEEEE5PixeliRKN4math6VectorEPS9_RKT_i+0x226>
+    460c:	eb01 0c02 	add.w	ip, r1, r2
+    4610:	f933 c02c 	ldrsh.w	ip, [r3, ip, lsl #2]
+    4614:	eb0c 0e4c 	add.w	lr, ip, ip, lsl #1
+    4618:	eb05 0e8e 	add.w	lr, r5, lr, lsl #2
+    461c:	edde 5a01 	vldr	s11, [lr, #4]
+    4620:	edde 4a00 	vldr	s9, [lr]
+    4624:	ee77 5a65 	vsub.f32	s11, s14, s11
+    4628:	ed9e 5a02 	vldr	s10, [lr, #8]
+    462c:	ee76 4a64 	vsub.f32	s9, s12, s9
+    4630:	ee36 5ac5 	vsub.f32	s10, s13, s10
+    4634:	ee65 5aa5 	vmul.f32	s11, s11, s11
+    4638:	eee4 5aa4 	vfma.f32	s11, s9, s9
+    463c:	eee5 5a05 	vfma.f32	s11, s10, s10
+    4640:	eef4 7ae5 	vcmpe.f32	s15, s11
+    4644:	eef1 fa10 	vmrs	APSR_nzcv, fpscr
+    4648:	f300 830d 	bgt.w	4c66 <_ZNK19GSReactionDiffusionILi288ELi144EE11shade_pixelIN4Scan6Shader8SsaaGridILi288ELi144EEEEE5PixeliRKN4math6VectorEPS9_RKT_i+0x6da>
+    464c:	4694      	mov	ip, r2
+    464e:	eb01 0e02 	add.w	lr, r1, r2
+    4652:	eb03 0e8e 	add.w	lr, r3, lr, lsl #2
+    4656:	f9be 7002 	ldrsh.w	r7, [lr, #2]
+    465a:	eb07 0e47 	add.w	lr, r7, r7, lsl #1
+    465e:	eb05 0e8e 	add.w	lr, r5, lr, lsl #2
+    4662:	edde 5a01 	vldr	s11, [lr, #4]
+    4666:	edde 4a00 	vldr	s9, [lr]
+    466a:	ee77 5a65 	vsub.f32	s11, s14, s11
+    466e:	ed9e 5a02 	vldr	s10, [lr, #8]
+    4672:	ee76 4a64 	vsub.f32	s9, s12, s9
+    4676:	ee36 5ac5 	vsub.f32	s10, s13, s10
+    467a:	ee65 5aa5 	vmul.f32	s11, s11, s11
+    467e:	eee4 5aa4 	vfma.f32	s11, s9, s9
+    4682:	eee5 5a05 	vfma.f32	s11, s10, s10
+    4686:	eef4 5ae7 	vcmpe.f32	s11, s15
+    468a:	eef1 fa10 	vmrs	APSR_nzcv, fpscr
+    468e:	d502      	bpl.n	4696 <_ZNK19GSReactionDiffusionILi288ELi144EE11shade_pixelIN4Scan6Shader8SsaaGridILi288ELi144EEEEE5PixeliRKN4math6VectorEPS9_RKT_i+0x10a>
+    4690:	eef0 7a65 	vmov.f32	s15, s11
+    4694:	46bc      	mov	ip, r7
+    4696:	eb01 0e02 	add.w	lr, r1, r2
+    469a:	eb03 0e8e 	add.w	lr, r3, lr, lsl #2
+    469e:	f9be 7004 	ldrsh.w	r7, [lr, #4]
+    46a2:	eb07 0e47 	add.w	lr, r7, r7, lsl #1
+    46a6:	eb05 0e8e 	add.w	lr, r5, lr, lsl #2
+    46aa:	edde 5a01 	vldr	s11, [lr, #4]
+    46ae:	edde 4a00 	vldr	s9, [lr]
+    46b2:	ee77 5a65 	vsub.f32	s11, s14, s11
+    46b6:	ed9e 5a02 	vldr	s10, [lr, #8]
+    46ba:	ee76 4a64 	vsub.f32	s9, s12, s9
+    46be:	ee36 5ac5 	vsub.f32	s10, s13, s10
+    46c2:	ee65 5aa5 	vmul.f32	s11, s11, s11
+    46c6:	eee4 5aa4 	vfma.f32	s11, s9, s9
+    46ca:	eee5 5a05 	vfma.f32	s11, s10, s10
+    46ce:	eef4 5ae7 	vcmpe.f32	s11, s15
+    46d2:	eef1 fa10 	vmrs	APSR_nzcv, fpscr
+    46d6:	d502      	bpl.n	46de <_ZNK19GSReactionDiffusionILi288ELi144EE11shade_pixelIN4Scan6Shader8SsaaGridILi288ELi144EEEEE5PixeliRKN4math6VectorEPS9_RKT_i+0x152>
+    46d8:	eef0 7a65 	vmov.f32	s15, s11
+    46dc:	46bc      	mov	ip, r7
+    46de:	eb01 0e02 	add.w	lr, r1, r2
+    46e2:	eb03 0e8e 	add.w	lr, r3, lr, lsl #2
+    46e6:	f9be 7006 	ldrsh.w	r7, [lr, #6]
+    46ea:	eb07 0e47 	add.w	lr, r7, r7, lsl #1
+    46ee:	eb05 0e8e 	add.w	lr, r5, lr, lsl #2
+    46f2:	edde 5a01 	vldr	s11, [lr, #4]
+    46f6:	edde 4a00 	vldr	s9, [lr]
+    46fa:	ee77 5a65 	vsub.f32	s11, s14, s11
+    46fe:	ed9e 5a02 	vldr	s10, [lr, #8]
+    4702:	ee76 4a64 	vsub.f32	s9, s12, s9
+    4706:	ee36 5ac5 	vsub.f32	s10, s13, s10
+    470a:	ee65 5aa5 	vmul.f32	s11, s11, s11
+    470e:	eee4 5aa4 	vfma.f32	s11, s9, s9
+    4712:	eee5 5a05 	vfma.f32	s11, s10, s10
+    4716:	eef4 7ae5 	vcmpe.f32	s15, s11
+    471a:	eef1 fa10 	vmrs	APSR_nzcv, fpscr
+    471e:	dd02      	ble.n	4726 <_ZNK19GSReactionDiffusionILi288ELi144EE11shade_pixelIN4Scan6Shader8SsaaGridILi288ELi144EEEEE5PixeliRKN4math6VectorEPS9_RKT_i+0x19a>
+    4720:	eef0 7a65 	vmov.f32	s15, s11
+    4724:	46bc      	mov	ip, r7
+    4726:	eb01 0e02 	add.w	lr, r1, r2
+    472a:	eb03 0e8e 	add.w	lr, r3, lr, lsl #2
+    472e:	f9be 7008 	ldrsh.w	r7, [lr, #8]
+    4732:	eb07 0e47 	add.w	lr, r7, r7, lsl #1
+    4736:	eb05 0e8e 	add.w	lr, r5, lr, lsl #2
+    473a:	edde 5a01 	vldr	s11, [lr, #4]
+    473e:	edde 4a00 	vldr	s9, [lr]
+    4742:	ee77 5a65 	vsub.f32	s11, s14, s11
+    4746:	ed9e 5a02 	vldr	s10, [lr, #8]
+    474a:	ee76 4a64 	vsub.f32	s9, s12, s9
+    474e:	ee36 5ac5 	vsub.f32	s10, s13, s10
+    4752:	ee65 5aa5 	vmul.f32	s11, s11, s11
+    4756:	eee4 5aa4 	vfma.f32	s11, s9, s9
+    475a:	eee5 5a05 	vfma.f32	s11, s10, s10
+    475e:	eef4 5ae7 	vcmpe.f32	s11, s15
+    4762:	eef1 fa10 	vmrs	APSR_nzcv, fpscr
+    4766:	d502      	bpl.n	476e <_ZNK19GSReactionDiffusionILi288ELi144EE11shade_pixelIN4Scan6Shader8SsaaGridILi288ELi144EEEEE5PixeliRKN4math6VectorEPS9_RKT_i+0x1e2>
+    4768:	eef0 7a65 	vmov.f32	s15, s11
+    476c:	46bc      	mov	ip, r7
+    476e:	440a      	add	r2, r1
+    4770:	eb03 0282 	add.w	r2, r3, r2, lsl #2
+    4774:	f9b2 200a 	ldrsh.w	r2, [r2, #10]
+    4778:	eb02 0142 	add.w	r1, r2, r2, lsl #1
+    477c:	eb05 0181 	add.w	r1, r5, r1, lsl #2
+    4780:	edd1 4a01 	vldr	s9, [r1, #4]
+    4784:	ed91 5a00 	vldr	s10, [r1]
+    4788:	ee37 7a64 	vsub.f32	s14, s14, s9
+    478c:	edd1 5a02 	vldr	s11, [r1, #8]
+    4790:	ee36 6a45 	vsub.f32	s12, s12, s10
+    4794:	ee76 6ae5 	vsub.f32	s13, s13, s11
+    4798:	ee27 7a07 	vmul.f32	s14, s14, s14
+    479c:	eea6 7a06 	vfma.f32	s14, s12, s12
+    47a0:	eea6 7aa6 	vfma.f32	s14, s13, s13
+    47a4:	eef4 7ac7 	vcmpe.f32	s15, s14
+    47a8:	eef1 fa10 	vmrs	APSR_nzcv, fpscr
+    47ac:	bfd8      	it	le
+    47ae:	4662      	movle	r2, ip
+    47b0:	0051      	lsls	r1, r2, #1
+    47b2:	4411      	add	r1, r2
+    47b4:	edd6 1a00 	vldr	s3, [r6]
+    47b8:	ed96 6a04 	vldr	s12, [r6, #16]
+    47bc:	edd6 4a02 	vldr	s9, [r6, #8]
+    47c0:	eb05 0c81 	add.w	ip, r5, r1, lsl #2
+    47c4:	ed96 2a01 	vldr	s4, [r6, #4]
+    47c8:	edd6 7a05 	vldr	s15, [r6, #20]
+    47cc:	eef0 ea64 	vmov.f32	s29, s9
+    47d0:	edd6 6a03 	vldr	s13, [r6, #12]
+    47d4:	9f24      	ldr	r7, [sp, #144]	@ 0x90
+    47d6:	ee27 7aa1 	vmul.f32	s14, s15, s3
+    47da:	4e61      	ldr	r6, [pc, #388]	@ (4960 <_ZNK19GSReactionDiffusionILi288ELi144EE11shade_pixelIN4Scan6Shader8SsaaGridILi288ELi144EEEEE5PixeliRKN4math6VectorEPS9_RKT_i+0x3d4>)
+    47dc:	eeb0 ba66 	vmov.f32	s22, s13
+    47e0:	eddc 5a02 	vldr	s11, [ip, #8]
+    47e4:	ee67 7a82 	vmul.f32	s15, s15, s4
+    47e8:	eddc 6a00 	vldr	s13, [ip]
+    47ec:	ee77 2a07 	vadd.f32	s5, s14, s14
+    47f0:	ed9c 5a01 	vldr	s10, [ip, #4]
+    47f4:	eb06 0c87 	add.w	ip, r6, r7, lsl #2
+    47f8:	ee77 baa7 	vadd.f32	s23, s15, s15
+    47fc:	ed9c 9a48 	vldr	s18, [ip, #288]	@ 0x120
+    4800:	ee34 4ac5 	vsub.f32	s8, s9, s10
+    4804:	eddc 8a00 	vldr	s17, [ip]
+    4808:	eef0 da62 	vmov.f32	s27, s5
+    480c:	ee29 3a07 	vmul.f32	s6, s18, s14
+    4810:	eddf 4a54 	vldr	s9, [pc, #336]	@ 4964 <_ZNK19GSReactionDiffusionILi288ELi144EE11shade_pixelIN4Scan6Shader8SsaaGridILi288ELi144EEEEE5PixeliRKN4math6VectorEPS9_RKT_i+0x3d8>
+    4814:	ee66 3a09 	vmul.f32	s7, s12, s18
+    4818:	f8d4 c35c 	ldr.w	ip, [r4, #860]	@ 0x35c
+    481c:	ee28 7a87 	vmul.f32	s14, s17, s14
+    4820:	ee23 3a03 	vmul.f32	s6, s6, s6
+    4824:	f83c 2012 	ldrh.w	r2, [ip, r2, lsl #1]
+    4828:	ee23 1aa1 	vmul.f32	s2, s7, s3
+    482c:	ee62 aa23 	vmul.f32	s21, s4, s7
+    4830:	eea7 3a07 	vfma.f32	s6, s14, s14
+    4834:	ee67 3a89 	vmul.f32	s7, s15, s18
+    4838:	ee26 7a28 	vmul.f32	s14, s12, s17
+    483c:	ee68 7aa7 	vmul.f32	s15, s17, s15
+    4840:	ee63 3aa3 	vmul.f32	s7, s7, s7
+    4844:	ee67 1a21 	vmul.f32	s3, s14, s3
+    4848:	ee22 2a07 	vmul.f32	s4, s4, s14
+    484c:	eee7 3aa7 	vfma.f32	s7, s15, s15
+    4850:	ee31 7a66 	vsub.f32	s14, s2, s13
+    4854:	eef0 7a43 	vmov.f32	s15, s6
+    4858:	ee29 6a65 	vnmul.f32	s12, s18, s11
+    485c:	eeb0 ea41 	vmov.f32	s28, s2
+    4860:	eee7 7a07 	vfma.f32	s15, s14, s14
+    4864:	eea6 6aa8 	vfma.f32	s12, s13, s17
+    4868:	ee31 7ae5 	vsub.f32	s14, s3, s11
+    486c:	eee4 7a04 	vfma.f32	s15, s8, s8
+    4870:	eee7 7a07 	vfma.f32	s15, s14, s14
+    4874:	ee26 7a22 	vmul.f32	s14, s12, s5
+    4878:	ee02 2a90 	vmov	s5, r2
+    487c:	eef8 2a62 	vcvt.f32.u32	s5, s5
+    4880:	ee37 4a87 	vadd.f32	s8, s15, s14
+    4884:	eeb4 4ae4 	vcmpe.f32	s8, s9
+    4888:	eef1 fa10 	vmrs	APSR_nzcv, fpscr
+    488c:	f140 81e6 	bpl.w	4c5c <_ZNK19GSReactionDiffusionILi288ELi144EE11shade_pixelIN4Scan6Shader8SsaaGridILi288ELi144EEEEE5PixeliRKN4math6VectorEPS9_RKT_i+0x6d0>
+    4890:	eeb7 1a00 	vmov.f32	s2, #112	@ 0x3f800000  1.0
+    4894:	eddf 4a34 	vldr	s9, [pc, #208]	@ 4968 <_ZNK19GSReactionDiffusionILi288ELi144EE11shade_pixelIN4Scan6Shader8SsaaGridILi288ELi144EEEEE5PixeliRKN4math6VectorEPS9_RKT_i+0x3dc>
+    4898:	eea4 1a64 	vfms.f32	s2, s8, s9
+    489c:	ee21 1a01 	vmul.f32	s2, s2, s2
+    48a0:	ee22 ca81 	vmul.f32	s24, s5, s2
+    48a4:	ee77 7ac7 	vsub.f32	s15, s15, s14
+    48a8:	ed9f 7a2e 	vldr	s14, [pc, #184]	@ 4964 <_ZNK19GSReactionDiffusionILi288ELi144EE11shade_pixelIN4Scan6Shader8SsaaGridILi288ELi144EEEEE5PixeliRKN4math6VectorEPS9_RKT_i+0x3d8>
+    48ac:	eef4 7ac7 	vcmpe.f32	s15, s14
+    48b0:	eef1 fa10 	vmrs	APSR_nzcv, fpscr
+    48b4:	f140 81cd 	bpl.w	4c52 <_ZNK19GSReactionDiffusionILi288ELi144EE11shade_pixelIN4Scan6Shader8SsaaGridILi288ELi144EEEEE5PixeliRKN4math6VectorEPS9_RKT_i+0x6c6>
+    48b8:	eef7 0a00 	vmov.f32	s1, #112	@ 0x3f800000  1.0
+    48bc:	ed9f 7a2a 	vldr	s14, [pc, #168]	@ 4968 <_ZNK19GSReactionDiffusionILi288ELi144EE11shade_pixelIN4Scan6Shader8SsaaGridILi288ELi144EEEEE5PixeliRKN4math6VectorEPS9_RKT_i+0x3dc>
+    48c0:	eee7 0ac7 	vfms.f32	s1, s15, s14
+    48c4:	ee60 0aa0 	vmul.f32	s1, s1, s1
+    48c8:	ee62 caa0 	vmul.f32	s25, s5, s1
+    48cc:	ee7a 6ae6 	vsub.f32	s13, s21, s13
+    48d0:	eef0 7a63 	vmov.f32	s15, s7
+    48d4:	ee3b 5a45 	vsub.f32	s10, s22, s10
+    48d8:	ee32 7a65 	vsub.f32	s14, s4, s11
+    48dc:	eee6 7aa6 	vfma.f32	s15, s13, s13
+    48e0:	eddf 6a20 	vldr	s13, [pc, #128]	@ 4964 <_ZNK19GSReactionDiffusionILi288ELi144EE11shade_pixelIN4Scan6Shader8SsaaGridILi288ELi144EEEEE5PixeliRKN4math6VectorEPS9_RKT_i+0x3d8>
+    48e4:	ee2b 6a86 	vmul.f32	s12, s23, s12
+    48e8:	eee5 7a05 	vfma.f32	s15, s10, s10
+    48ec:	eee7 7a07 	vfma.f32	s15, s14, s14
+    48f0:	ee37 7a86 	vadd.f32	s14, s15, s12
+    48f4:	eeb4 7ae6 	vcmpe.f32	s14, s13
+    48f8:	eef1 fa10 	vmrs	APSR_nzcv, fpscr
+    48fc:	f140 81a4 	bpl.w	4c48 <_ZNK19GSReactionDiffusionILi288ELi144EE11shade_pixelIN4Scan6Shader8SsaaGridILi288ELi144EEEEE5PixeliRKN4math6VectorEPS9_RKT_i+0x6bc>
+    4900:	eeb7 8a00 	vmov.f32	s16, #112	@ 0x3f800000  1.0
+    4904:	eddf 6a18 	vldr	s13, [pc, #96]	@ 4968 <_ZNK19GSReactionDiffusionILi288ELi144EE11shade_pixelIN4Scan6Shader8SsaaGridILi288ELi144EEEEE5PixeliRKN4math6VectorEPS9_RKT_i+0x3dc>
+    4908:	eea7 8a66 	vfms.f32	s16, s14, s13
+    490c:	ee28 8a08 	vmul.f32	s16, s16, s16
+    4910:	ee28 da22 	vmul.f32	s26, s16, s5
+    4914:	ee77 7ac6 	vsub.f32	s15, s15, s12
+    4918:	ed9f 7a12 	vldr	s14, [pc, #72]	@ 4964 <_ZNK19GSReactionDiffusionILi288ELi144EE11shade_pixelIN4Scan6Shader8SsaaGridILi288ELi144EEEEE5PixeliRKN4math6VectorEPS9_RKT_i+0x3d8>
+    491c:	eef4 7ac7 	vcmpe.f32	s15, s14
+    4920:	eef1 fa10 	vmrs	APSR_nzcv, fpscr
+    4924:	f140 818b 	bpl.w	4c3e <_ZNK19GSReactionDiffusionILi288ELi144EE11shade_pixelIN4Scan6Shader8SsaaGridILi288ELi144EEEEE5PixeliRKN4math6VectorEPS9_RKT_i+0x6b2>
+    4928:	eeb7 0a00 	vmov.f32	s0, #112	@ 0x3f800000  1.0
+    492c:	ed9f 7a0e 	vldr	s14, [pc, #56]	@ 4968 <_ZNK19GSReactionDiffusionILi288ELi144EE11shade_pixelIN4Scan6Shader8SsaaGridILi288ELi144EEEEE5PixeliRKN4math6VectorEPS9_RKT_i+0x3dc>
+    4930:	eea7 0ac7 	vfms.f32	s0, s15, s14
+    4934:	ee20 0a00 	vmul.f32	s0, s0, s0
+    4938:	ee60 2a22 	vmul.f32	s5, s0, s5
+    493c:	4e0b      	ldr	r6, [pc, #44]	@ (496c <_ZNK19GSReactionDiffusionILi288ELi144EE11shade_pixelIN4Scan6Shader8SsaaGridILi288ELi144EEEEE5PixeliRKN4math6VectorEPS9_RKT_i+0x3e0>)
+    493e:	eeb7 4a00 	vmov.f32	s8, #112	@ 0x3f800000  1.0
+    4942:	eb03 0281 	add.w	r2, r3, r1, lsl #2
+    4946:	ed9f 5a07 	vldr	s10, [pc, #28]	@ 4964 <_ZNK19GSReactionDiffusionILi288ELi144EE11shade_pixelIN4Scan6Shader8SsaaGridILi288ELi144EEEEE5PixeliRKN4math6VectorEPS9_RKT_i+0x3d8>
+    494a:	eb06 0681 	add.w	r6, r6, r1, lsl #2
+    494e:	eddf 4a06 	vldr	s9, [pc, #24]	@ 4968 <_ZNK19GSReactionDiffusionILi288ELi144EE11shade_pixelIN4Scan6Shader8SsaaGridILi288ELi144EEEEE5PixeliRKN4math6VectorEPS9_RKT_i+0x3dc>
+    4952:	e019      	b.n	4988 <_ZNK19GSReactionDiffusionILi288ELi144EE11shade_pixelIN4Scan6Shader8SsaaGridILi288ELi144EEEEE5PixeliRKN4math6VectorEPS9_RKT_i+0x3fc>
+    4954:	6002a510 	.word	0x6002a510
+    4958:	39ae9681 	.word	0x39ae9681
+    495c:	38fba882 	.word	0x38fba882
+    4960:	2004c754 	.word	0x2004c754
+    4964:	3b714639 	.word	0x3b714639
+    4968:	4387cfee 	.word	0x4387cfee
+    496c:	6002a51c 	.word	0x6002a51c
+    4970:	38d1b717 	.word	0x38d1b717
+    4974:	37800080 	.word	0x37800080
+    4978:	3dcccccd 	.word	0x3dcccccd
+    497c:	437f0000 	.word	0x437f0000
+    4980:	477fff00 	.word	0x477fff00
+    4984:	00000000 	.word	0x00000000
+    4988:	f932 1b02 	ldrsh.w	r1, [r2], #2
+    498c:	eeb0 aa43 	vmov.f32	s20, s6
+    4990:	eb01 0341 	add.w	r3, r1, r1, lsl #1
+    4994:	f83c 1011 	ldrh.w	r1, [ip, r1, lsl #1]
+    4998:	eb05 0383 	add.w	r3, r5, r3, lsl #2
+    499c:	ee05 1a90 	vmov	s11, r1
+    49a0:	edd3 6a00 	vldr	s13, [r3]
+    49a4:	eef8 5a65 	vcvt.f32.u32	s11, s11
+    49a8:	ed93 6a01 	vldr	s12, [r3, #4]
+    49ac:	ee3e 7a66 	vsub.f32	s14, s28, s13
+    49b0:	edd3 7a02 	vldr	s15, [r3, #8]
+    49b4:	ee7a 9ae6 	vsub.f32	s19, s21, s13
+    49b8:	eea7 aa07 	vfma.f32	s20, s14, s14
+    49bc:	eeb0 7a63 	vmov.f32	s14, s7
+    49c0:	eea9 7aa9 	vfma.f32	s14, s19, s19
+    49c4:	ee7e 9ac6 	vsub.f32	s19, s29, s12
+    49c8:	ee3b 6a46 	vsub.f32	s12, s22, s12
+    49cc:	eea9 aaa9 	vfma.f32	s20, s19, s19
+    49d0:	ee71 9ae7 	vsub.f32	s19, s3, s15
+    49d4:	eea6 7a06 	vfma.f32	s14, s12, s12
+    49d8:	ee27 6ac9 	vnmul.f32	s12, s15, s18
+    49dc:	ee72 7a67 	vsub.f32	s15, s4, s15
+    49e0:	eea8 6aa6 	vfma.f32	s12, s17, s13
+    49e4:	eef0 6a4a 	vmov.f32	s13, s20
+    49e8:	eea7 7aa7 	vfma.f32	s14, s15, s15
+    49ec:	eee9 6aa9 	vfma.f32	s13, s19, s19
+    49f0:	ee66 7a2d 	vmul.f32	s15, s12, s27
+    49f4:	ee2b 6a86 	vmul.f32	s12, s23, s12
+    49f8:	ee77 9aa6 	vadd.f32	s19, s15, s13
+    49fc:	ee76 7ae7 	vsub.f32	s15, s13, s15
+    4a00:	eef0 6a44 	vmov.f32	s13, s8
+    4a04:	eef4 9ac5 	vcmpe.f32	s19, s10
+    4a08:	eee9 6ae4 	vfms.f32	s13, s19, s9
+    4a0c:	eef1 fa10 	vmrs	APSR_nzcv, fpscr
+    4a10:	ee66 6aa6 	vmul.f32	s13, s13, s13
+    4a14:	d507      	bpl.n	4a26 <_ZNK19GSReactionDiffusionILi288ELi144EE11shade_pixelIN4Scan6Shader8SsaaGridILi288ELi144EEEEE5PixeliRKN4math6VectorEPS9_RKT_i+0x49a>
+    4a16:	eef0 9a4c 	vmov.f32	s19, s24
+    4a1a:	ee31 1a26 	vadd.f32	s2, s2, s13
+    4a1e:	eee6 9aa5 	vfma.f32	s19, s13, s11
+    4a22:	eeb0 ca69 	vmov.f32	s24, s19
+    4a26:	eef0 6a44 	vmov.f32	s13, s8
+    4a2a:	eef4 7ac5 	vcmpe.f32	s15, s10
+    4a2e:	eee7 6ae4 	vfms.f32	s13, s15, s9
+    4a32:	eef1 fa10 	vmrs	APSR_nzcv, fpscr
+    4a36:	ee66 6aa6 	vmul.f32	s13, s13, s13
+    4a3a:	d507      	bpl.n	4a4c <_ZNK19GSReactionDiffusionILi288ELi144EE11shade_pixelIN4Scan6Shader8SsaaGridILi288ELi144EEEEE5PixeliRKN4math6VectorEPS9_RKT_i+0x4c0>
+    4a3c:	eef0 7a6c 	vmov.f32	s15, s25
+    4a40:	ee70 0aa6 	vadd.f32	s1, s1, s13
+    4a44:	eee6 7aa5 	vfma.f32	s15, s13, s11
+    4a48:	eef0 ca67 	vmov.f32	s25, s15
+    4a4c:	ee76 6a07 	vadd.f32	s13, s12, s14
+    4a50:	ee77 7a46 	vsub.f32	s15, s14, s12
+    4a54:	eeb0 7a44 	vmov.f32	s14, s8
+    4a58:	eef4 6ac5 	vcmpe.f32	s13, s10
+    4a5c:	eea6 7ae4 	vfms.f32	s14, s13, s9
+    4a60:	eef1 fa10 	vmrs	APSR_nzcv, fpscr
+    4a64:	ee27 7a07 	vmul.f32	s14, s14, s14
+    4a68:	d507      	bpl.n	4a7a <_ZNK19GSReactionDiffusionILi288ELi144EE11shade_pixelIN4Scan6Shader8SsaaGridILi288ELi144EEEEE5PixeliRKN4math6VectorEPS9_RKT_i+0x4ee>
+    4a6a:	eef0 6a4d 	vmov.f32	s13, s26
+    4a6e:	ee38 8a07 	vadd.f32	s16, s16, s14
+    4a72:	eee7 6a25 	vfma.f32	s13, s14, s11
+    4a76:	eeb0 da66 	vmov.f32	s26, s13
+    4a7a:	eeb0 7a44 	vmov.f32	s14, s8
+    4a7e:	eef4 7ac5 	vcmpe.f32	s15, s10
+    4a82:	eea7 7ae4 	vfms.f32	s14, s15, s9
+    4a86:	eef1 fa10 	vmrs	APSR_nzcv, fpscr
+    4a8a:	ee27 7a07 	vmul.f32	s14, s14, s14
+    4a8e:	d503      	bpl.n	4a98 <_ZNK19GSReactionDiffusionILi288ELi144EE11shade_pixelIN4Scan6Shader8SsaaGridILi288ELi144EEEEE5PixeliRKN4math6VectorEPS9_RKT_i+0x50c>
+    4a90:	eee7 2a25 	vfma.f32	s5, s14, s11
+    4a94:	ee30 0a07 	vadd.f32	s0, s0, s14
+    4a98:	42b2      	cmp	r2, r6
+    4a9a:	f47f af75 	bne.w	4988 <_ZNK19GSReactionDiffusionILi288ELi144EE11shade_pixelIN4Scan6Shader8SsaaGridILi288ELi144EEEEE5PixeliRKN4math6VectorEPS9_RKT_i+0x3fc>
+    4a9e:	f04f 0c00 	mov.w	ip, #0
+    4aa2:	ab08      	add	r3, sp, #32
+    4aa4:	eeb1 5a00 	vmov.f32	s10, #16	@ 0x40800000  4.0
+    4aa8:	aa04      	add	r2, sp, #16
+    4aaa:	eef7 4a00 	vmov.f32	s9, #112	@ 0x3f800000  1.0
+    4aae:	ed1f 6a50 	vldr	s12, [pc, #-320]	@ 4970 <_ZNK19GSReactionDiffusionILi288ELi144EE11shade_pixelIN4Scan6Shader8SsaaGridILi288ELi144EEEEE5PixeliRKN4math6VectorEPS9_RKT_i+0x3e4>
+    4ab2:	ed5f 5a50 	vldr	s11, [pc, #-320]	@ 4974 <_ZNK19GSReactionDiffusionILi288ELi144EE11shade_pixelIN4Scan6Shader8SsaaGridILi288ELi144EEEEE5PixeliRKN4math6VectorEPS9_RKT_i+0x3e8>
+    4ab6:	4698      	mov	r8, r3
+    4ab8:	ed5f 6a51 	vldr	s13, [pc, #-324]	@ 4978 <_ZNK19GSReactionDiffusionILi288ELi144EE11shade_pixelIN4Scan6Shader8SsaaGridILi288ELi144EEEEE5PixeliRKN4math6VectorEPS9_RKT_i+0x3ec>
+    4abc:	46e6      	mov	lr, ip
+    4abe:	ed1f 4a4f 	vldr	s8, [pc, #-316]	@ 4984 <_ZNK19GSReactionDiffusionILi288ELi144EE11shade_pixelIN4Scan6Shader8SsaaGridILi288ELi144EEEEE5PixeliRKN4math6VectorEPS9_RKT_i+0x3f8>
+    4ac2:	46e1      	mov	r9, ip
+    4ac4:	ed5f 3a53 	vldr	s7, [pc, #-332]	@ 497c <_ZNK19GSReactionDiffusionILi288ELi144EE11shade_pixelIN4Scan6Shader8SsaaGridILi288ELi144EEEEE5PixeliRKN4math6VectorEPS9_RKT_i+0x3f0>
+    4ac8:	ed8d 0a07 	vstr	s0, [sp, #28]
+    4acc:	edcd 2a0b 	vstr	s5, [sp, #44]	@ 0x2c
+    4ad0:	ed8d 8a06 	vstr	s16, [sp, #24]
+    4ad4:	ed8d da0a 	vstr	s26, [sp, #40]	@ 0x28
+    4ad8:	edcd 0a05 	vstr	s1, [sp, #20]
+    4adc:	edcd ca09 	vstr	s25, [sp, #36]	@ 0x24
+    4ae0:	ed8d 1a04 	vstr	s2, [sp, #16]
+    4ae4:	ed8d ca08 	vstr	s24, [sp, #32]
+    4ae8:	ecf2 7a01 	vldmia	r2!, {s15}
+    4aec:	461e      	mov	r6, r3
+    4aee:	3304      	adds	r3, #4
+    4af0:	eef4 7ac6 	vcmpe.f32	s15, s12
+    4af4:	eef1 fa10 	vmrs	APSR_nzcv, fpscr
+    4af8:	d940      	bls.n	4b7c <_ZNK19GSReactionDiffusionILi288ELi144EE11shade_pixelIN4Scan6Shader8SsaaGridILi288ELi144EEEEE5PixeliRKN4math6VectorEPS9_RKT_i+0x5f0>
+    4afa:	ee85 7aa7 	vdiv.f32	s14, s11, s15
+    4afe:	edd6 7a00 	vldr	s15, [r6]
+    4b02:	ee27 7a27 	vmul.f32	s14, s14, s15
+    4b06:	ee77 7a66 	vsub.f32	s15, s14, s13
+    4b0a:	eeb4 7ae6 	vcmpe.f32	s14, s13
+    4b0e:	ee67 7a85 	vmul.f32	s15, s15, s10
+    4b12:	eef1 fa10 	vmrs	APSR_nzcv, fpscr
+    4b16:	fec7 7ae4 	vminnm.f32	s15, s15, s9
+    4b1a:	fec7 7a84 	vmaxnm.f32	s15, s15, s8
+    4b1e:	ee67 7aa3 	vmul.f32	s15, s15, s7
+    4b22:	d42b      	bmi.n	4b7c <_ZNK19GSReactionDiffusionILi288ELi144EE11shade_pixelIN4Scan6Shader8SsaaGridILi288ELi144EEEEE5PixeliRKN4math6VectorEPS9_RKT_i+0x5f0>
+    4b24:	eef5 7ac0 	vcmpe.f32	s15, #0.0
+    4b28:	f8d4 6380 	ldr.w	r6, [r4, #896]	@ 0x380
+    4b2c:	eebd 7ae7 	vcvt.s32.f32	s14, s15
+    4b30:	eef1 fa10 	vmrs	APSR_nzcv, fpscr
+    4b34:	d93a      	bls.n	4bac <_ZNK19GSReactionDiffusionILi288ELi144EE11shade_pixelIN4Scan6Shader8SsaaGridILi288ELi144EEEEE5PixeliRKN4math6VectorEPS9_RKT_i+0x620>
+    4b36:	ee17 1a10 	vmov	r1, s14
+    4b3a:	eeb6 3a00 	vmov.f32	s6, #96	@ 0x3f000000  0.5
+    4b3e:	ed5f 2a70 	vldr	s5, [pc, #-448]	@ 4980 <_ZNK19GSReactionDiffusionILi288ELi144EE11shade_pixelIN4Scan6Shader8SsaaGridILi288ELi144EEEEE5PixeliRKN4math6VectorEPS9_RKT_i+0x3f4>
+    4b42:	eb01 0741 	add.w	r7, r1, r1, lsl #1
+    4b46:	4639      	mov	r1, r7
+    4b48:	ee17 7a10 	vmov	r7, s14
+    4b4c:	eeb6 7ae7 	vrintz.f32	s14, s15
+    4b50:	ee77 7ac7 	vsub.f32	s15, s15, s14
+    4b54:	2ffe      	cmp	r7, #254	@ 0xfe
+    4b56:	dd2f      	ble.n	4bb8 <_ZNK19GSReactionDiffusionILi288ELi144EE11shade_pixelIN4Scan6Shader8SsaaGridILi288ELi144EEEEE5PixeliRKN4math6VectorEPS9_RKT_i+0x62c>
+    4b58:	f8b6 15fa 	ldrh.w	r1, [r6, #1530]	@ 0x5fa
+    4b5c:	460f      	mov	r7, r1
+    4b5e:	f8b6 15fc 	ldrh.w	r1, [r6, #1532]	@ 0x5fc
+    4b62:	f8b6 65fe 	ldrh.w	r6, [r6, #1534]	@ 0x5fe
+    4b66:	460d      	mov	r5, r1
+    4b68:	3702      	adds	r7, #2
+    4b6a:	3602      	adds	r6, #2
+    4b6c:	eb09 0997 	add.w	r9, r9, r7, lsr #2
+    4b70:	462f      	mov	r7, r5
+    4b72:	eb0c 0c96 	add.w	ip, ip, r6, lsr #2
+    4b76:	3702      	adds	r7, #2
+    4b78:	eb0e 0e97 	add.w	lr, lr, r7, lsr #2
+    4b7c:	4590      	cmp	r8, r2
+    4b7e:	d1b3      	bne.n	4ae8 <_ZNK19GSReactionDiffusionILi288ELi144EE11shade_pixelIN4Scan6Shader8SsaaGridILi288ELi144EEEEE5PixeliRKN4math6VectorEPS9_RKT_i+0x55c>
+    4b80:	f64f 73ff 	movw	r3, #65535	@ 0xffff
+    4b84:	4649      	mov	r1, r9
+    4b86:	4599      	cmp	r9, r3
+    4b88:	bf28      	it	cs
+    4b8a:	4619      	movcs	r1, r3
+    4b8c:	459e      	cmp	lr, r3
+    4b8e:	bf28      	it	cs
+    4b90:	469e      	movcs	lr, r3
+    4b92:	459c      	cmp	ip, r3
+    4b94:	8001      	strh	r1, [r0, #0]
+    4b96:	bf28      	it	cs
+    4b98:	469c      	movcs	ip, r3
+    4b9a:	f8a0 e002 	strh.w	lr, [r0, #2]
+    4b9e:	f8a0 c004 	strh.w	ip, [r0, #4]
+    4ba2:	b00d      	add	sp, #52	@ 0x34
+    4ba4:	ecbd 8b0e 	vpop	{d8-d14}
+    4ba8:	e8bd 83f0 	ldmia.w	sp!, {r4, r5, r6, r7, r8, r9, pc}
+    4bac:	8831      	ldrh	r1, [r6, #0]
+    4bae:	460f      	mov	r7, r1
+    4bb0:	8871      	ldrh	r1, [r6, #2]
+    4bb2:	88b6      	ldrh	r6, [r6, #4]
+    4bb4:	460d      	mov	r5, r1
+    4bb6:	e7d7      	b.n	4b68 <_ZNK19GSReactionDiffusionILi288ELi144EE11shade_pixelIN4Scan6Shader8SsaaGridILi288ELi144EEEEE5PixeliRKN4math6VectorEPS9_RKT_i+0x5dc>
+    4bb8:	eea7 3aa2 	vfma.f32	s6, s15, s5
+    4bbc:	460f      	mov	r7, r1
+    4bbe:	0049      	lsls	r1, r1, #1
+    4bc0:	3106      	adds	r1, #6
+    4bc2:	9103      	str	r1, [sp, #12]
+    4bc4:	eb06 0147 	add.w	r1, r6, r7, lsl #1
+    4bc8:	eefc 7ac3 	vcvt.u32.f32	s15, s6
+    4bcc:	f836 7017 	ldrh.w	r7, [r6, r7, lsl #1]
+    4bd0:	9101      	str	r1, [sp, #4]
+    4bd2:	9702      	str	r7, [sp, #8]
+    4bd4:	ee17 5a90 	vmov	r5, s15
+    4bd8:	b2af      	uxth	r7, r5
+    4bda:	9d03      	ldr	r5, [sp, #12]
+    4bdc:	1971      	adds	r1, r6, r5
+    4bde:	5b76      	ldrh	r6, [r6, r5]
+    4be0:	9103      	str	r1, [sp, #12]
+    4be2:	fb07 f106 	mul.w	r1, r7, r6
+    4be6:	9e03      	ldr	r6, [sp, #12]
+    4be8:	8875      	ldrh	r5, [r6, #2]
+    4bea:	88b6      	ldrh	r6, [r6, #4]
+    4bec:	fb07 f505 	mul.w	r5, r7, r5
+    4bf0:	fb07 f606 	mul.w	r6, r7, r6
+    4bf4:	9603      	str	r6, [sp, #12]
+    4bf6:	f64f 76ff 	movw	r6, #65535	@ 0xffff
+    4bfa:	407e      	eors	r6, r7
+    4bfc:	9f02      	ldr	r7, [sp, #8]
+    4bfe:	fb06 1707 	mla	r7, r6, r7, r1
+    4c02:	9901      	ldr	r1, [sp, #4]
+    4c04:	9702      	str	r7, [sp, #8]
+    4c06:	884f      	ldrh	r7, [r1, #2]
+    4c08:	8889      	ldrh	r1, [r1, #4]
+    4c0a:	fb06 5707 	mla	r7, r6, r7, r5
+    4c0e:	9d03      	ldr	r5, [sp, #12]
+    4c10:	9701      	str	r7, [sp, #4]
+    4c12:	9f02      	ldr	r7, [sp, #8]
+    4c14:	fb06 5601 	mla	r6, r6, r1, r5
+    4c18:	9901      	ldr	r1, [sp, #4]
+    4c1a:	f507 4500 	add.w	r5, r7, #32768	@ 0x8000
+    4c1e:	9603      	str	r6, [sp, #12]
+    4c20:	eb05 4517 	add.w	r5, r5, r7, lsr #16
+    4c24:	0c2f      	lsrs	r7, r5, #16
+    4c26:	f501 4500 	add.w	r5, r1, #32768	@ 0x8000
+    4c2a:	eb05 4611 	add.w	r6, r5, r1, lsr #16
+    4c2e:	9903      	ldr	r1, [sp, #12]
+    4c30:	0c35      	lsrs	r5, r6, #16
+    4c32:	f501 4600 	add.w	r6, r1, #32768	@ 0x8000
+    4c36:	eb06 4611 	add.w	r6, r6, r1, lsr #16
+    4c3a:	0c36      	lsrs	r6, r6, #16
+    4c3c:	e794      	b.n	4b68 <_ZNK19GSReactionDiffusionILi288ELi144EE11shade_pixelIN4Scan6Shader8SsaaGridILi288ELi144EEEEE5PixeliRKN4math6VectorEPS9_RKT_i+0x5dc>
+    4c3e:	ed1f 0aaf 	vldr	s0, [pc, #-700]	@ 4984 <_ZNK19GSReactionDiffusionILi288ELi144EE11shade_pixelIN4Scan6Shader8SsaaGridILi288ELi144EEEEE5PixeliRKN4math6VectorEPS9_RKT_i+0x3f8>
+    4c42:	eef0 2a40 	vmov.f32	s5, s0
+    4c46:	e679      	b.n	493c <_ZNK19GSReactionDiffusionILi288ELi144EE11shade_pixelIN4Scan6Shader8SsaaGridILi288ELi144EEEEE5PixeliRKN4math6VectorEPS9_RKT_i+0x3b0>
+    4c48:	ed1f 8ab2 	vldr	s16, [pc, #-712]	@ 4984 <_ZNK19GSReactionDiffusionILi288ELi144EE11shade_pixelIN4Scan6Shader8SsaaGridILi288ELi144EEEEE5PixeliRKN4math6VectorEPS9_RKT_i+0x3f8>
+    4c4c:	eeb0 da48 	vmov.f32	s26, s16
+    4c50:	e660      	b.n	4914 <_ZNK19GSReactionDiffusionILi288ELi144EE11shade_pixelIN4Scan6Shader8SsaaGridILi288ELi144EEEEE5PixeliRKN4math6VectorEPS9_RKT_i+0x388>
+    4c52:	ed5f 0ab4 	vldr	s1, [pc, #-720]	@ 4984 <_ZNK19GSReactionDiffusionILi288ELi144EE11shade_pixelIN4Scan6Shader8SsaaGridILi288ELi144EEEEE5PixeliRKN4math6VectorEPS9_RKT_i+0x3f8>
+    4c56:	eef0 ca60 	vmov.f32	s25, s1
+    4c5a:	e637      	b.n	48cc <_ZNK19GSReactionDiffusionILi288ELi144EE11shade_pixelIN4Scan6Shader8SsaaGridILi288ELi144EEEEE5PixeliRKN4math6VectorEPS9_RKT_i+0x340>
+    4c5c:	ed1f 1ab7 	vldr	s2, [pc, #-732]	@ 4984 <_ZNK19GSReactionDiffusionILi288ELi144EE11shade_pixelIN4Scan6Shader8SsaaGridILi288ELi144EEEEE5PixeliRKN4math6VectorEPS9_RKT_i+0x3f8>
+    4c60:	eeb0 ca41 	vmov.f32	s24, s2
+    4c64:	e61e      	b.n	48a4 <_ZNK19GSReactionDiffusionILi288ELi144EE11shade_pixelIN4Scan6Shader8SsaaGridILi288ELi144EEEEE5PixeliRKN4math6VectorEPS9_RKT_i+0x318>
+    4c66:	eef0 7a65 	vmov.f32	s15, s11
+    4c6a:	e4f0      	b.n	464e <_ZNK19GSReactionDiffusionILi288ELi144EE11shade_pixelIN4Scan6Shader8SsaaGridILi288ELi144EEEEE5PixeliRKN4math6VectorEPS9_RKT_i+0xc2>

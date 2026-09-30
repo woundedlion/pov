@@ -1,0 +1,1148 @@
+[
+  {
+    "file": "baseline/capture.txt",
+    "operation": "trailing whitespace and outer blank lines removed; UTF-8 LF",
+    "input_sha256": "7f258fbf68a9b4167b6a5345ab257971d5621117e0e1f626488f6bb0ba5ccbba",
+    "portable_sha256": "7f258fbf68a9b4167b6a5345ab257971d5621117e0e1f626488f6bb0ba5ccbba"
+  },
+  {
+    "file": "baseline/phantasm_build.txt",
+    "operation": "trailing whitespace and outer blank lines removed; UTF-8 LF",
+    "input_sha256": "d6a32e71e74ce14c1048418009064838fa2d3984d93552f22cb77b12f505fdb1",
+    "portable_sha256": "0c94ccd627aa4a3471c6451eaa9d6468b1f3baae426b3624560a2b416b56d784"
+  },
+  {
+    "file": "baseline/phantasm_envdump.txt",
+    "operation": "trailing whitespace and outer blank lines removed; UTF-8 LF",
+    "input_sha256": "b6796bedef4064c7097f32c36f452f2d44be82335551e4c5f86bc641570d18b0",
+    "portable_sha256": "ea70c69c5633ffd8894c7b0fa42cdb817aeb58da0ef1e3f6d3359573d4d5eb1f"
+  },
+  {
+    "file": "baseline/profile_build.txt",
+    "operation": "trailing whitespace and outer blank lines removed; UTF-8 LF",
+    "input_sha256": "641a4a496907869d0dd0491ca05db8a6da4f7f6a0d55ea193223a14e8e6580dc",
+    "portable_sha256": "36cc27214df11af9c29e4e532c61386f7c203b752cbc5c3855fe7bacfc3b5d82"
+  },
+  {
+    "file": "baseline/profile_envdump.txt",
+    "operation": "trailing whitespace and outer blank lines removed; UTF-8 LF",
+    "input_sha256": "446aabda3ebf760f417dc2acf6bb9777585ef7c0b073b222031e62f12f98a01f",
+    "portable_sha256": "8c09f10a9cd0fb091a7540327e98f44f56a5ab7abe5ea5f6eae1c90df6eb227e"
+  },
+  {
+    "file": "baseline/source.json",
+    "operation": "original patch text preserved in JSON patch field",
+    "input_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "portable_sha256": "ca3b37b5701a8f06b2f3c8aabcc8d4360a42f4a1f2568d953b0439b9426e94ef"
+  },
+  {
+    "file": "baseline/source_status.txt",
+    "operation": "trailing whitespace and outer blank lines removed; UTF-8 LF",
+    "input_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "portable_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  {
+    "file": "baseline/summary.json",
+    "operation": "trailing whitespace and outer blank lines removed; UTF-8 LF",
+    "input_sha256": "aa47bfa5d275568783d6d8a86bc21a5d898ccf460ebf6c611e5cb90daf6dba2b",
+    "portable_sha256": "658dc0f571a8df73e00d04bb31fe51c68ea4ca379d609f5648b4cd9c12d93dc5"
+  },
+  {
+    "file": "baseline/validate.txt",
+    "operation": "trailing whitespace and outer blank lines removed; UTF-8 LF",
+    "input_sha256": "b424ce23657df7dd0da8e62c1fbc74d3b4fa7a729d92e2723074d4edbe228e15",
+    "portable_sha256": "4bea9761de05ed0d369402ee1ace89e47f77b5720b54900a3309f589d7f7ad84"
+  },
+  {
+    "file": "baseline-physics-disassembly.txt",
+    "operation": "trailing whitespace and outer blank lines removed; UTF-8 LF",
+    "input_sha256": "4e514abe2b03c99b38d36f629d30d945c85956bbe7913e4cd9bf4d777cf0553b",
+    "portable_sha256": "d040e74241a5c7cae0ec21dfbb5c9675b8fa1b33daea022981b866156de4d672"
+  },
+  {
+    "file": "baseline-shader-disassembly.txt",
+    "operation": "trailing whitespace and outer blank lines removed; UTF-8 LF",
+    "input_sha256": "64f649f0b7f66c565e28673a3dfd3c4c5c42a7986d915e38b463da94741f3aa3",
+    "portable_sha256": "ceaf2c6a00478381167251dfa0b49327c739bb579fff3e280edac6ebd12f7f07"
+  },
+  {
+    "file": "branchless/capture.txt",
+    "operation": "trailing whitespace and outer blank lines removed; UTF-8 LF",
+    "input_sha256": "2a9a77af1a3eaeea51e86c953ee67bdfd57a25e1591d6b24eeabc5e2a11ef32d",
+    "portable_sha256": "2a9a77af1a3eaeea51e86c953ee67bdfd57a25e1591d6b24eeabc5e2a11ef32d"
+  },
+  {
+    "file": "branchless/phantasm_build.txt",
+    "operation": "trailing whitespace and outer blank lines removed; UTF-8 LF",
+    "input_sha256": "206bbd7bfa757f05b62a0073cf44efa23dc0eaaf644031850f10bab49d21e5a3",
+    "portable_sha256": "c6d6dd2d83469cf2a4018c22eb6541bd03e354ad9bdd3a318bd50196437dca73"
+  },
+  {
+    "file": "branchless/phantasm_envdump.txt",
+    "operation": "trailing whitespace and outer blank lines removed; UTF-8 LF",
+    "input_sha256": "abb3a5ba8f4b0f72aea5423dea21860d8b2663023bd5317102934462921be0a7",
+    "portable_sha256": "85f2a6e6052fa271be57214cf06699cc95f1b4be498aaa9b9672a0164d515a59"
+  },
+  {
+    "file": "branchless/profile_build.txt",
+    "operation": "trailing whitespace and outer blank lines removed; UTF-8 LF",
+    "input_sha256": "4dd8078f2db755ab3185dcecc7ccb39ee646a3b821ff21f0880d8a822fad3a86",
+    "portable_sha256": "8638cc5805081a7de651d95b69cf56f1eaf7bf331e97f036cb209cef4e1fda0f"
+  },
+  {
+    "file": "branchless/profile_envdump.txt",
+    "operation": "trailing whitespace and outer blank lines removed; UTF-8 LF",
+    "input_sha256": "6e6887bfaff355e2da0984c81f952c49f7929ec964004527420ada4d1b811ca8",
+    "portable_sha256": "4da8966754c8fa90d94b0de66c182c0fc27580519046d16859e8ee3d6ce59bcc"
+  },
+  {
+    "file": "branchless/source.json",
+    "operation": "original patch text preserved in JSON patch field",
+    "input_sha256": "56655ec8e4abd91879720517f271bfb6b41f2920b9b430fb8b55128461898873",
+    "portable_sha256": "b160a1407782a4d308c30f5b4985f4f169f84b6712caeb67739595501498e95d"
+  },
+  {
+    "file": "branchless/source_status.txt",
+    "operation": "trailing whitespace and outer blank lines removed; UTF-8 LF",
+    "input_sha256": "05fae21b8f2605ac0399725674eccce967e3c531e65b26e50b339adf809ea6a7",
+    "portable_sha256": "05fae21b8f2605ac0399725674eccce967e3c531e65b26e50b339adf809ea6a7"
+  },
+  {
+    "file": "branchless/summary.json",
+    "operation": "trailing whitespace and outer blank lines removed; UTF-8 LF",
+    "input_sha256": "20f89d06cae8af42679108c424f8da1c3b162fd0bb0fdd943ed45d242daed2b2",
+    "portable_sha256": "598239584fd28a917179e80c627fe6ebd2295164f0f8f07d894b88e2e62dde17"
+  },
+  {
+    "file": "branchless/validate.txt",
+    "operation": "trailing whitespace and outer blank lines removed; UTF-8 LF",
+    "input_sha256": "f90679916092141202d3a343a29acb7bb4d5420d152db4ad3694d7a62e132d86",
+    "portable_sha256": "8f0c6dd859e2a602feb5a656313c4bec4fb9170faf3a169083fa56c5fa9a7fcc"
+  },
+  {
+    "file": "compare_state_quality.py.txt",
+    "operation": "trailing whitespace and outer blank lines removed; UTF-8 LF",
+    "input_sha256": "1e82825a1f91a96592d710123eccafb70331fc46a05ba921ad8588cbd32c7ede",
+    "portable_sha256": "1e82825a1f91a96592d710123eccafb70331fc46a05ba921ad8588cbd32c7ede"
+  },
+  {
+    "file": "deep/capture.txt",
+    "operation": "trailing whitespace and outer blank lines removed; UTF-8 LF",
+    "input_sha256": "9845409d1734f9a27c3243e03d40738702cdfd3b41cef30839fca537faee961c",
+    "portable_sha256": "9845409d1734f9a27c3243e03d40738702cdfd3b41cef30839fca537faee961c"
+  },
+  {
+    "file": "deep/phantasm_build.txt",
+    "operation": "trailing whitespace and outer blank lines removed; UTF-8 LF",
+    "input_sha256": "68be0b6afafb37ed7c115f670be77b4e9dcca730eeca7f000e6b3091da92de71",
+    "portable_sha256": "ed536e17098cb895a2da2ced9e03806608b9c15a2cb6694d0086f88eb3041252"
+  },
+  {
+    "file": "deep/phantasm_envdump.txt",
+    "operation": "trailing whitespace and outer blank lines removed; UTF-8 LF",
+    "input_sha256": "272595ed73a2818ff8f577cbb73450a58d691fd0bc1cf5ca507dda80b41f79a8",
+    "portable_sha256": "1741d39dbc22ecfb902334612e0642f7bcc1ec9b728cfbd4c3081e0162ec55ad"
+  },
+  {
+    "file": "deep/profile_build.txt",
+    "operation": "trailing whitespace and outer blank lines removed; UTF-8 LF",
+    "input_sha256": "fc9f5eb8ac1e6aeaaacdebefdc9d486867a110e0bb71462e2cdd17cf10daa12a",
+    "portable_sha256": "f85cba28fb09dcf0790dcb43e19dffb56b1cb69eaa6e17ccb7e43b4665f69ada"
+  },
+  {
+    "file": "deep/profile_envdump.txt",
+    "operation": "trailing whitespace and outer blank lines removed; UTF-8 LF",
+    "input_sha256": "133e764e84a1188b06a8071683176d9b9a4aa9b3324394198abc9bf07167f42a",
+    "portable_sha256": "5e0d29cb32569ceb54fb2f2b374e8a4fe61d124225afbccbfb75b711f43e772d"
+  },
+  {
+    "file": "deep/source.json",
+    "operation": "original patch text preserved in JSON patch field",
+    "input_sha256": "7899b08409e2b661b0c19586e4e2d6aad0052f0c8fdd21ad0238ab39177088de",
+    "portable_sha256": "064ced787573ca26d1d3070d8c4bac9a42c44d01b5fbf2c5a8bf6431e898d124"
+  },
+  {
+    "file": "deep/source_status.txt",
+    "operation": "trailing whitespace and outer blank lines removed; UTF-8 LF",
+    "input_sha256": "0b0d9d0a2393fdfc5334120395c3eebad1f3b46ec7fe2cc62b54cdd732ff7a2f",
+    "portable_sha256": "0b0d9d0a2393fdfc5334120395c3eebad1f3b46ec7fe2cc62b54cdd732ff7a2f"
+  },
+  {
+    "file": "deep/summary.json",
+    "operation": "trailing whitespace and outer blank lines removed; UTF-8 LF",
+    "input_sha256": "de4f4a4860bbf8de950136a2f3aacdc52eb6c11eb582cc48dabf1aedb0fa85d3",
+    "portable_sha256": "2f922312fc96f2b63a9bb99b4cff6523821e2dc289c37d305e2fac259da1d289"
+  },
+  {
+    "file": "deep/validate.txt",
+    "operation": "trailing whitespace and outer blank lines removed; UTF-8 LF",
+    "input_sha256": "0b01c4bc0a5a5425ea1a8bce6054af62e3fb2c8f0a59cbc8b40a922d8aa74a8c",
+    "portable_sha256": "2c7f4e2093b5cf35a238b0846e830e5700e38790e6a482e07a3a3a825d490bd0"
+  },
+  {
+    "file": "final-focused-ctest.txt",
+    "operation": "trailing whitespace and outer blank lines removed; UTF-8 LF",
+    "input_sha256": "ade9ecbfc40294430d330bdd32cf8ca66ce63fa008e4cdb358df61fe46fea73e",
+    "portable_sha256": "35dddb334dc4a29e972a7949ede7f8bbd0cbc3805d2d53ad07e73377f4fa193f"
+  },
+  {
+    "file": "final-native-ctest.txt",
+    "operation": "trailing whitespace and outer blank lines removed; UTF-8 LF",
+    "input_sha256": "4c47a32d7b28946809377b0d642c503f54a56c75a5d357253fcd2969934ec436",
+    "portable_sha256": "2e1e3c13bd1eebe747451a8b1ec1c42ac9eadb24bdc2bc32eae45f631fabfb3d"
+  },
+  {
+    "file": "finalo3/capture.txt",
+    "operation": "trailing whitespace and outer blank lines removed; UTF-8 LF",
+    "input_sha256": "fdfe14509412f890757539f06d54696962334b23ade98fc4ebb27dfaf992c0b2",
+    "portable_sha256": "fdfe14509412f890757539f06d54696962334b23ade98fc4ebb27dfaf992c0b2"
+  },
+  {
+    "file": "finalo3/phantasm_build.txt",
+    "operation": "trailing whitespace and outer blank lines removed; UTF-8 LF",
+    "input_sha256": "cbd684114967a6c0d91e4f4813cce3b79e29808848eb2907617e7d151d097870",
+    "portable_sha256": "a5f2f8194952de4aab54d055ca5ff8710cf790dd07a9343a56abde879cf9a9e1"
+  },
+  {
+    "file": "finalo3/phantasm_envdump.txt",
+    "operation": "trailing whitespace and outer blank lines removed; UTF-8 LF",
+    "input_sha256": "631c2943d9806545432850b98acbbcd6dd9365a48ed41b5f981e8c56c346f525",
+    "portable_sha256": "1c942162b150bb2237a00f925684fb54bdbb0190a8e88636912d864fe1ce5df6"
+  },
+  {
+    "file": "finalo3/profile_build.txt",
+    "operation": "trailing whitespace and outer blank lines removed; UTF-8 LF",
+    "input_sha256": "cea5c14c4718f62faea1808504978560f10e1fa53e5462b42362cd7bb30d8f57",
+    "portable_sha256": "f0be9316c6159db93b24713fb29be0f654ef509fb13b20333a4c5992c538adaa"
+  },
+  {
+    "file": "finalo3/profile_envdump.txt",
+    "operation": "trailing whitespace and outer blank lines removed; UTF-8 LF",
+    "input_sha256": "479a9ed8313c6d50bc143e90cd092a0d8b8a7c9b188dcb8156f806b57db0da20",
+    "portable_sha256": "40e008937439a3a581fe8b2ac3e714c5dcaa5b7589ebded623fb6c4bf9223e24"
+  },
+  {
+    "file": "finalo3/source.json",
+    "operation": "original patch text preserved in JSON patch field",
+    "input_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "portable_sha256": "ca3b37b5701a8f06b2f3c8aabcc8d4360a42f4a1f2568d953b0439b9426e94ef"
+  },
+  {
+    "file": "finalo3/source_status.txt",
+    "operation": "trailing whitespace and outer blank lines removed; UTF-8 LF",
+    "input_sha256": "4b9ab45a27cbb78f293a1d155ee205326eb8edf7abd2c1042df494a49ef21aa9",
+    "portable_sha256": "4b9ab45a27cbb78f293a1d155ee205326eb8edf7abd2c1042df494a49ef21aa9"
+  },
+  {
+    "file": "finalo3/summary.json",
+    "operation": "trailing whitespace and outer blank lines removed; UTF-8 LF",
+    "input_sha256": "2a2ba4d33ffc3d5e433dce56b13f3b2a428a8e18c6f0989b1665245d70dd9396",
+    "portable_sha256": "c8ae4ae06e21407fef1dbcc8af9d501c629e60ae7acef49e2a0808ed9f19bfee"
+  },
+  {
+    "file": "finalo3/validate.txt",
+    "operation": "trailing whitespace and outer blank lines removed; UTF-8 LF",
+    "input_sha256": "94295f0be5710cee9e48abb0da0db49822c81bfc6c0ff78de1b65cc9f89347cd",
+    "portable_sha256": "dc7326fd94c974997a0afdddf99efea367545be6be810899bbcfe2834bab2b78"
+  },
+  {
+    "file": "finalship/capture.txt",
+    "operation": "trailing whitespace and outer blank lines removed; UTF-8 LF",
+    "input_sha256": "b384b2b22d1c70e62ebe7c0553baebab96b929d45a03d8cf55f1283a4bb6d324",
+    "portable_sha256": "b384b2b22d1c70e62ebe7c0553baebab96b929d45a03d8cf55f1283a4bb6d324"
+  },
+  {
+    "file": "finalship/phantasm_build.txt",
+    "operation": "trailing whitespace and outer blank lines removed; UTF-8 LF",
+    "input_sha256": "a008d2a8e3fcb3ee000c0f3a494f17ffa440bc5d14e79732bab4098d318c812c",
+    "portable_sha256": "2cf21001bdbec7a98eb8a43ff29c9ad4472d0fd086f9e20cd2ec2dad54db8e1c"
+  },
+  {
+    "file": "finalship/phantasm_envdump.txt",
+    "operation": "trailing whitespace and outer blank lines removed; UTF-8 LF",
+    "input_sha256": "942d94b592aed52670e4817e18bb71516a86b8ed46bd58f941f0623b60088572",
+    "portable_sha256": "fa644211368e55afa7a44cbc29dd6cf84df3baeee8b1e0b94899863b16cb5dca"
+  },
+  {
+    "file": "finalship/profile_build.txt",
+    "operation": "trailing whitespace and outer blank lines removed; UTF-8 LF",
+    "input_sha256": "bc0877e2597248c149222a16f0816a91f236fcf4be2c4367b9f0bb8a32ae8329",
+    "portable_sha256": "47baf59b3a11814fba88a76cf4235fb9b79f6d0f78d4867212e8aec99ef516ab"
+  },
+  {
+    "file": "finalship/profile_envdump.txt",
+    "operation": "trailing whitespace and outer blank lines removed; UTF-8 LF",
+    "input_sha256": "7e42405e1c241534d70543faaf931f0268c264c5946c34d310619b7d862f6c9e",
+    "portable_sha256": "78aaba864f1e0e30bb6461d81acdf867bd7cd91d78541601d7a05146001b4202"
+  },
+  {
+    "file": "finalship/source.json",
+    "operation": "original patch text preserved in JSON patch field",
+    "input_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "portable_sha256": "ca3b37b5701a8f06b2f3c8aabcc8d4360a42f4a1f2568d953b0439b9426e94ef"
+  },
+  {
+    "file": "finalship/source_status.txt",
+    "operation": "trailing whitespace and outer blank lines removed; UTF-8 LF",
+    "input_sha256": "4b9ab45a27cbb78f293a1d155ee205326eb8edf7abd2c1042df494a49ef21aa9",
+    "portable_sha256": "4b9ab45a27cbb78f293a1d155ee205326eb8edf7abd2c1042df494a49ef21aa9"
+  },
+  {
+    "file": "finalship/summary.json",
+    "operation": "trailing whitespace and outer blank lines removed; UTF-8 LF",
+    "input_sha256": "b921b13eb89b0c217419967ca6c56ffa9e399018e5947b9db0173f5cfa19b3f2",
+    "portable_sha256": "7a076e6cd6619effa55417de773bdafa18490bdaf4b9cfb0aea4e0bdd317d563"
+  },
+  {
+    "file": "finalship/validate.txt",
+    "operation": "trailing whitespace and outer blank lines removed; UTF-8 LF",
+    "input_sha256": "bf15d707c88e0ffeaa5a44b4e0f0b6bd6fc930532d927c4a81c7689f37a6a6ad",
+    "portable_sha256": "5aa6787d577bb2079882fd2f70e1a1d6bb0569ae0821851c00dc76f958e0f6b6"
+  },
+  {
+    "file": "floatpalette/capture.txt",
+    "operation": "trailing whitespace and outer blank lines removed; UTF-8 LF",
+    "input_sha256": "329476f11698e51931c0c0bb86012b0c8e3773839f4c6e5b3fbd3f8e72cfee3d",
+    "portable_sha256": "329476f11698e51931c0c0bb86012b0c8e3773839f4c6e5b3fbd3f8e72cfee3d"
+  },
+  {
+    "file": "floatpalette/phantasm_build.txt",
+    "operation": "trailing whitespace and outer blank lines removed; UTF-8 LF",
+    "input_sha256": "43fe696a3a5b0eab0b72a6987bd0d44e475f3788c937dd635753e3cda6e9d277",
+    "portable_sha256": "55d3e5b014f43fa90ef6965e1d6a84e6bb5df0606dd002fe9586e492e813d282"
+  },
+  {
+    "file": "floatpalette/phantasm_envdump.txt",
+    "operation": "trailing whitespace and outer blank lines removed; UTF-8 LF",
+    "input_sha256": "5ac96cb4b045b2af810d8ed10e8ac5676589597b8ee5c1db0b33d053818fb760",
+    "portable_sha256": "c04c61dfdf875f3e9d0474d60c4fcf04b961da6f3a414d66f79df0265fdd9f99"
+  },
+  {
+    "file": "floatpalette/profile_build.txt",
+    "operation": "trailing whitespace and outer blank lines removed; UTF-8 LF",
+    "input_sha256": "e8102d05d976e379228535d5d392d9f0a5e218ab66ba8f6054087241ebc05fef",
+    "portable_sha256": "b5ea9f3867c0dbcd5d793d46874817954a49457850bf11696a67d92fb06c3262"
+  },
+  {
+    "file": "floatpalette/profile_envdump.txt",
+    "operation": "trailing whitespace and outer blank lines removed; UTF-8 LF",
+    "input_sha256": "3698e0d3472866f3bdc0176a5e95836b3e61136c4b57eaa8dda2c98a7287c5c5",
+    "portable_sha256": "5a0f5a33ce3dc728322927f1cf32fc9cc77140dc20ef6639be24151a34d6b410"
+  },
+  {
+    "file": "floatpalette/source.json",
+    "operation": "original patch text preserved in JSON patch field",
+    "input_sha256": "8ac43096ff7b0d44ce4193d79977b9a6b337894291a4bc3e02861271a6d6be4a",
+    "portable_sha256": "a1d5b31d9ef461cfa53d8a7a033b8795b9df4aba5b25e4a74000a796460b125b"
+  },
+  {
+    "file": "floatpalette/source_status.txt",
+    "operation": "trailing whitespace and outer blank lines removed; UTF-8 LF",
+    "input_sha256": "5a16a9ab399830f6186a557462a91a9b104b69d1a0c08b56479caded021af0ee",
+    "portable_sha256": "5a16a9ab399830f6186a557462a91a9b104b69d1a0c08b56479caded021af0ee"
+  },
+  {
+    "file": "floatpalette/summary.json",
+    "operation": "trailing whitespace and outer blank lines removed; UTF-8 LF",
+    "input_sha256": "399f2b5425d781433b3153a0e3ea4a9622873df30b2d8e54afe0cc17706397c3",
+    "portable_sha256": "77f960a5fdaffabd8e6c4e97b3dbdb942fdb4ce44947fac3c6def43d6014cf8e"
+  },
+  {
+    "file": "floatpalette/validate.txt",
+    "operation": "trailing whitespace and outer blank lines removed; UTF-8 LF",
+    "input_sha256": "b424ce23657df7dd0da8e62c1fbc74d3b4fa7a729d92e2723074d4edbe228e15",
+    "portable_sha256": "4bea9761de05ed0d369402ee1ace89e47f77b5720b54900a3309f589d7f7ad84"
+  },
+  {
+    "file": "graphcull/capture.txt",
+    "operation": "trailing whitespace and outer blank lines removed; UTF-8 LF",
+    "input_sha256": "7bfc33b3673771a90728d3b65103027fa3446df6882a95938ec7551b5d29244b",
+    "portable_sha256": "7bfc33b3673771a90728d3b65103027fa3446df6882a95938ec7551b5d29244b"
+  },
+  {
+    "file": "graphcull/phantasm_build.txt",
+    "operation": "trailing whitespace and outer blank lines removed; UTF-8 LF",
+    "input_sha256": "3d5cbff7de9271a4b2466d9b07561916dfc6fe4712e4ed91ea6c67c115b8458b",
+    "portable_sha256": "c8bdd18eb1d272dc898bc5d90a2e4b9a3b90ea29efb276b15e57cd2c00420cd8"
+  },
+  {
+    "file": "graphcull/phantasm_envdump.txt",
+    "operation": "trailing whitespace and outer blank lines removed; UTF-8 LF",
+    "input_sha256": "e7e07ebaf70bb09a7f89a48ae71cbef83f1ae4d4e8bf871ace6e38aae70da652",
+    "portable_sha256": "1f8281a690add327a837e80f7fa2121660e43f5b9a5f47732da2bf32c58021ca"
+  },
+  {
+    "file": "graphcull/profile_build.txt",
+    "operation": "trailing whitespace and outer blank lines removed; UTF-8 LF",
+    "input_sha256": "b9006ddda10477251a316fd2063b0e611e34e53dbe44e7d4c7c8f6f80af9fb05",
+    "portable_sha256": "d1f3e047275e8bf4f8460f7875478fa8687c1bb17cff2eaa9d5b1eaa47c3661c"
+  },
+  {
+    "file": "graphcull/profile_envdump.txt",
+    "operation": "trailing whitespace and outer blank lines removed; UTF-8 LF",
+    "input_sha256": "93319ba9fe10e93e7f748b71caad8a9626f3710dd052831a76f202987938502c",
+    "portable_sha256": "ac92d78c1b2b4772ccc670e8b016fef101a47d8d81fc9df99253c45324127a06"
+  },
+  {
+    "file": "graphcull/source.json",
+    "operation": "original patch text preserved in JSON patch field",
+    "input_sha256": "1ab8c86e6bf40c0de16e7513c33166f6ea4c691a554e352d6615834e8c6d5df9",
+    "portable_sha256": "588a9f9ba0292f288309a52e2287b3e1870b0c0cfb1b9d8b0fc901f914cf6eeb"
+  },
+  {
+    "file": "graphcull/source_status.txt",
+    "operation": "trailing whitespace and outer blank lines removed; UTF-8 LF",
+    "input_sha256": "05fae21b8f2605ac0399725674eccce967e3c531e65b26e50b339adf809ea6a7",
+    "portable_sha256": "05fae21b8f2605ac0399725674eccce967e3c531e65b26e50b339adf809ea6a7"
+  },
+  {
+    "file": "graphcull/summary.json",
+    "operation": "trailing whitespace and outer blank lines removed; UTF-8 LF",
+    "input_sha256": "5f02a2ff486e3f92b03a14e280925de8601f9a4644271549cbc97009a6de65fa",
+    "portable_sha256": "fd634d19afa34772fde262401b555b0d06d21f666b3ae2c122d0bdc5b1e89862"
+  },
+  {
+    "file": "graphcull/validate.txt",
+    "operation": "trailing whitespace and outer blank lines removed; UTF-8 LF",
+    "input_sha256": "32fb283cf9ecddc17f28d12d17228221ee6537dd27cad4477e8f93d152c75459",
+    "portable_sha256": "ba25feaf846c080ea537d298f6bbe3428b37c38bfb3dc18b63f39d048c232fcf"
+  },
+  {
+    "file": "graphphysics/capture.txt",
+    "operation": "trailing whitespace and outer blank lines removed; UTF-8 LF",
+    "input_sha256": "a190016eef2dfa848c419755f160358dbeb40781c598dff24d23144ff43ba0d5",
+    "portable_sha256": "a190016eef2dfa848c419755f160358dbeb40781c598dff24d23144ff43ba0d5"
+  },
+  {
+    "file": "graphphysics/phantasm_build.txt",
+    "operation": "trailing whitespace and outer blank lines removed; UTF-8 LF",
+    "input_sha256": "ba2692b4a636b1b6bf2056de76810a08956e00598f1d140d274cc5c24838a65e",
+    "portable_sha256": "4152df99940ab3431fc0a2d0c9ab8fbe0e9384534b9dd6b5fedd9c6b3037a702"
+  },
+  {
+    "file": "graphphysics/phantasm_envdump.txt",
+    "operation": "trailing whitespace and outer blank lines removed; UTF-8 LF",
+    "input_sha256": "5c7c527ab7f130e508745e4b1c9ff7d9e6ffb028dbf0c8f0d2757c0686d2d5aa",
+    "portable_sha256": "dd7759abfaec48016ec43a22fb5ee8799e739817785c41c09a0c1278d78b3534"
+  },
+  {
+    "file": "graphphysics/profile_build.txt",
+    "operation": "trailing whitespace and outer blank lines removed; UTF-8 LF",
+    "input_sha256": "36455548e6480a111882c28f24ea9e1099c148db972e3d64792e0df9eefa3e2c",
+    "portable_sha256": "1123ee736e8a0553c4a5be53cd4e70c37cc82bd2c8ee263d3dd0bf7f44a7e86f"
+  },
+  {
+    "file": "graphphysics/profile_envdump.txt",
+    "operation": "trailing whitespace and outer blank lines removed; UTF-8 LF",
+    "input_sha256": "61a21aa541f10e6a30b159d7dcbf4b2cd2ab15fcc9136a43b51218a9846c7b3f",
+    "portable_sha256": "191875ad642d78421df18622a32a488bbdf7a16c3ff84c7d727fc4b7210589b1"
+  },
+  {
+    "file": "graphphysics/source.json",
+    "operation": "original patch text preserved in JSON patch field",
+    "input_sha256": "10599071cfb4ccab73c7da3bc8494a816230ecfd01cd69d5162567b4211b9ca2",
+    "portable_sha256": "0f75f59855f6fac8c1b62e182aac5dbb0f988e448ba0230f35d29f3c282b1dde"
+  },
+  {
+    "file": "graphphysics/source_status.txt",
+    "operation": "trailing whitespace and outer blank lines removed; UTF-8 LF",
+    "input_sha256": "05fae21b8f2605ac0399725674eccce967e3c531e65b26e50b339adf809ea6a7",
+    "portable_sha256": "05fae21b8f2605ac0399725674eccce967e3c531e65b26e50b339adf809ea6a7"
+  },
+  {
+    "file": "graphphysics/summary.json",
+    "operation": "trailing whitespace and outer blank lines removed; UTF-8 LF",
+    "input_sha256": "f117577202c25c7a60c66cd6990eb5a695beab0fbf0773c87bd6393432381e90",
+    "portable_sha256": "e7c306e79bb541704f7153f0e7195a45b7a3a3714145765d3d8dedf78910dd1c"
+  },
+  {
+    "file": "graphphysics/validate.txt",
+    "operation": "trailing whitespace and outer blank lines removed; UTF-8 LF",
+    "input_sha256": "bccd2dbe8f45c194d921f4a80999aa6b7be2bf656b1ebc60d8ec5f989c726352",
+    "portable_sha256": "138a20ece45c6815cdbed821c6f7cd1a00adf0a67ccbf99a758d6efa07877bf6"
+  },
+  {
+    "file": "graphshader/capture.txt",
+    "operation": "trailing whitespace and outer blank lines removed; UTF-8 LF",
+    "input_sha256": "32c686e22fa9ddfe6d416eefdb0bde1ac7369e6c3ecfb63489d31b47a8301a4d",
+    "portable_sha256": "32c686e22fa9ddfe6d416eefdb0bde1ac7369e6c3ecfb63489d31b47a8301a4d"
+  },
+  {
+    "file": "graphshader/phantasm_build.txt",
+    "operation": "trailing whitespace and outer blank lines removed; UTF-8 LF",
+    "input_sha256": "0356b088d79a317b9aac5f399181b473b836e9cee1e50ab89c0b53443a5401a7",
+    "portable_sha256": "1314e484caa8820cc5eb6e6e47bf9dabf64868a0516f8749c3f05f2e5a0e1bc4"
+  },
+  {
+    "file": "graphshader/phantasm_envdump.txt",
+    "operation": "trailing whitespace and outer blank lines removed; UTF-8 LF",
+    "input_sha256": "f4403d783f195514bccbe613d81c0102ac8cf06b11ac2e2d8a601f37a481ca60",
+    "portable_sha256": "d0e151e01157933a7e6eb3fce3b6c22cf5fb48329e6aefa6722966062e391433"
+  },
+  {
+    "file": "graphshader/profile_build.txt",
+    "operation": "trailing whitespace and outer blank lines removed; UTF-8 LF",
+    "input_sha256": "bae438d8f824cac244ae9c7b4903c8662801879b47eb050f03a49a5ba919ab7b",
+    "portable_sha256": "881ee11b2e0ea76c6a139124be4515542827733e03a723c0bab41c77f1314a05"
+  },
+  {
+    "file": "graphshader/profile_envdump.txt",
+    "operation": "trailing whitespace and outer blank lines removed; UTF-8 LF",
+    "input_sha256": "987b678b902757af11bfd54e8ba6e8de62c6f162ae048b6eee5abd0bc77ea015",
+    "portable_sha256": "45b2f9aa823a4743ada1238eaecc62af3fbc5d7b933f75d7d3f4bd473db9f7c4"
+  },
+  {
+    "file": "graphshader/source.json",
+    "operation": "original patch text preserved in JSON patch field",
+    "input_sha256": "bf77a5cbe19053ac73440abfbf0def52c453017352e579f078ea876aa213a30c",
+    "portable_sha256": "a4e33b0fb82aaf4a52351fdf846e42aff75185ccc95dd5f6967f8b9d65ccc71e"
+  },
+  {
+    "file": "graphshader/source_status.txt",
+    "operation": "trailing whitespace and outer blank lines removed; UTF-8 LF",
+    "input_sha256": "5a16a9ab399830f6186a557462a91a9b104b69d1a0c08b56479caded021af0ee",
+    "portable_sha256": "5a16a9ab399830f6186a557462a91a9b104b69d1a0c08b56479caded021af0ee"
+  },
+  {
+    "file": "graphshader/summary.json",
+    "operation": "trailing whitespace and outer blank lines removed; UTF-8 LF",
+    "input_sha256": "8a1fe1163ad9e462afa9262ebc1d9e50c1d633b5da370ede7eb639e124aeaae0",
+    "portable_sha256": "ab9658d1ea6b4ee97de2d778f45fe172dc5ca2d357706fdd79a4fc7e7d2659f4"
+  },
+  {
+    "file": "graphshader/validate.txt",
+    "operation": "trailing whitespace and outer blank lines removed; UTF-8 LF",
+    "input_sha256": "fab5fe754af62a980200b267faa9ce8865932023cc144343e0240b0343c8756c",
+    "portable_sha256": "38254a876edb034ccd21db28673b107d3b6b1467b3313731a30f8401fd84e019"
+  },
+  {
+    "file": "holosphere-build.txt",
+    "operation": "trailing whitespace and outer blank lines removed; UTF-8 LF",
+    "input_sha256": "102874d8fdafcbf586a0f2681be7915e721333014b8a5623df8ec4e023f96a82",
+    "portable_sha256": "fc5f99e945f82d3d081b7551cabb5b0900a33ccf04f2e184dbd642bce722f2f9"
+  },
+  {
+    "file": "interchange/capture.txt",
+    "operation": "trailing whitespace and outer blank lines removed; UTF-8 LF",
+    "input_sha256": "a88582acf5d05e2ca74062925e2e6220a2b2b5642aa08ea0666fe7381e60bf48",
+    "portable_sha256": "a88582acf5d05e2ca74062925e2e6220a2b2b5642aa08ea0666fe7381e60bf48"
+  },
+  {
+    "file": "interchange/phantasm_build.txt",
+    "operation": "trailing whitespace and outer blank lines removed; UTF-8 LF",
+    "input_sha256": "b2f2b5f5ed578401b6559c894ad53965c3abc4f2c2608b21cdf49d522d75bb22",
+    "portable_sha256": "b2cdf6be426adc303bc55e6019b721ebbc520d76d110953b6de23953c74cf792"
+  },
+  {
+    "file": "interchange/phantasm_envdump.txt",
+    "operation": "trailing whitespace and outer blank lines removed; UTF-8 LF",
+    "input_sha256": "e9eba28a54b9690aadb53adece6dd98c47e28fd093947dbbe948bb776b32c3cf",
+    "portable_sha256": "526c68e6d963a61cdf6b749a576c4c605db9a744bfbcb32356f3f4bc94f5e5f8"
+  },
+  {
+    "file": "interchange/profile_build.txt",
+    "operation": "trailing whitespace and outer blank lines removed; UTF-8 LF",
+    "input_sha256": "dfdc638e3150b96aad143628a0ab7fed7c1f058d3ca8fe33e117b11ef3f82351",
+    "portable_sha256": "b1bdae4b72bdfa2016cc19a91de0cbb7211cd26d366e72a8d8b3173b844aed3f"
+  },
+  {
+    "file": "interchange/profile_envdump.txt",
+    "operation": "trailing whitespace and outer blank lines removed; UTF-8 LF",
+    "input_sha256": "2e8d38de0a9e12325b41e19909b389d9fe96f34c5398863d2be65abc72202c1c",
+    "portable_sha256": "c175f68135df88cd2e7dd3c3f1d1a85242642fffd8ee1e26f8549231c1ac9a10"
+  },
+  {
+    "file": "interchange/source.json",
+    "operation": "original patch text preserved in JSON patch field",
+    "input_sha256": "56c5189e13ce4ff410572e77316b948f76007db100246d04701770df83213625",
+    "portable_sha256": "fcfe8e82059e8affdda78997eeab97e55f23fb4871dfd2e84a05b167d7e3d979"
+  },
+  {
+    "file": "interchange/source_status.txt",
+    "operation": "trailing whitespace and outer blank lines removed; UTF-8 LF",
+    "input_sha256": "6a1a63d55b5f97d14a9a534c369e66019ef3f548483da8a24d95572b1ff808e8",
+    "portable_sha256": "6a1a63d55b5f97d14a9a534c369e66019ef3f548483da8a24d95572b1ff808e8"
+  },
+  {
+    "file": "interchange/summary.json",
+    "operation": "trailing whitespace and outer blank lines removed; UTF-8 LF",
+    "input_sha256": "72bd21180afc51307bf159492cd0d7c994cb011eb8c76dd5de65aff02b4ba4a5",
+    "portable_sha256": "6905c00a43ea1522b2c3c749f98bdb940a499ea61f610eafb91099a4b75ad608"
+  },
+  {
+    "file": "interchange/validate.txt",
+    "operation": "trailing whitespace and outer blank lines removed; UTF-8 LF",
+    "input_sha256": "54536733514d5be5c5d7e8169dd2777bb66dbfb25480cd6f798e809fd892fc6a",
+    "portable_sha256": "097d9dc475c147c61fb4ca47fc927549bc83da72edd9550f8c30c4f46f538e82"
+  },
+  {
+    "file": "interchange-shader-disassembly.txt",
+    "operation": "trailing whitespace and outer blank lines removed; UTF-8 LF",
+    "input_sha256": "1fd61211e3cc29a7d66cca79db56a84c658e93d0319a90d8bf66dca5b320e7b7",
+    "portable_sha256": "51169b335169d87dbae16f59da943e338d638d959b6d3809ff9402642cbbc2dc"
+  },
+  {
+    "file": "ordered/capture.txt",
+    "operation": "trailing whitespace and outer blank lines removed; UTF-8 LF",
+    "input_sha256": "c64a4d8388f02037090887dfeea9fcc258e0024151b9e737dbf1ad508e494d81",
+    "portable_sha256": "c64a4d8388f02037090887dfeea9fcc258e0024151b9e737dbf1ad508e494d81"
+  },
+  {
+    "file": "ordered/phantasm_build.txt",
+    "operation": "trailing whitespace and outer blank lines removed; UTF-8 LF",
+    "input_sha256": "bcc5894798fe1eabb9f92a8395823f14df20baca8411ec25cea3a5048c75942a",
+    "portable_sha256": "5a643359e5c36007b0c2e04df183795251431ae8861d015b1bd752f5fa51cb18"
+  },
+  {
+    "file": "ordered/phantasm_envdump.txt",
+    "operation": "trailing whitespace and outer blank lines removed; UTF-8 LF",
+    "input_sha256": "8d831b386bd3a5e1f3ac26e9bcc0dda9721a470ca97b81b972171e040b0cdbe0",
+    "portable_sha256": "f98a1215eca0b46b3f57de719ee314b4d552ed2f490b87112a82e04d71b64d86"
+  },
+  {
+    "file": "ordered/profile_build.txt",
+    "operation": "trailing whitespace and outer blank lines removed; UTF-8 LF",
+    "input_sha256": "17b5ca70ed06ac69fba32a3ef6417a26e56d9372706ee3e2caf730cd9f3eac50",
+    "portable_sha256": "9c892b82cf885e37b6782bc43a2d242b5bfc9a4d2e063f36b212320f31254552"
+  },
+  {
+    "file": "ordered/profile_envdump.txt",
+    "operation": "trailing whitespace and outer blank lines removed; UTF-8 LF",
+    "input_sha256": "ee08d203c1ad0281d7456244586d0d8aff64e269d72edcb2f9977927175c4002",
+    "portable_sha256": "8795e4e12db66bc93f236db91065428f3b53841b44e0085ae1d0aa50f0b54504"
+  },
+  {
+    "file": "ordered/source.json",
+    "operation": "original patch text preserved in JSON patch field",
+    "input_sha256": "bea2b9da0876f62ebcf01cce8187afe59680aac4769b700cbe1195ab540f24b7",
+    "portable_sha256": "4226003273d5d9227d7d27d91c3b7930d5ba1f338a36e82fc7972ac8daf38b71"
+  },
+  {
+    "file": "ordered/source_status.txt",
+    "operation": "trailing whitespace and outer blank lines removed; UTF-8 LF",
+    "input_sha256": "bae8af7c7feb44fba3249d2cb752fdf754be558487d2054e4973f69abdb9074c",
+    "portable_sha256": "bae8af7c7feb44fba3249d2cb752fdf754be558487d2054e4973f69abdb9074c"
+  },
+  {
+    "file": "ordered/summary.json",
+    "operation": "trailing whitespace and outer blank lines removed; UTF-8 LF",
+    "input_sha256": "dc51af946e49347d4a466d06c8ffc3bdda87f84ff0466ea08f83ced2f49f9a54",
+    "portable_sha256": "2f828115762b9c89ebcc515017ed2dd4a7fe82b71b4a28c16cf94404e122dd63"
+  },
+  {
+    "file": "ordered/validate.txt",
+    "operation": "trailing whitespace and outer blank lines removed; UTF-8 LF",
+    "input_sha256": "c19324220b9a82570c23f5b946e3353449ac9b6dcec2a75dd1079f5e2d5a59c4",
+    "portable_sha256": "2dda7409a942df09f386ac47e4155f4b735afc1bde7f576ba50377581ee4bc98"
+  },
+  {
+    "file": "ordered-physics-disassembly.txt",
+    "operation": "trailing whitespace and outer blank lines removed; UTF-8 LF",
+    "input_sha256": "ffceff3fbe4b4344be4cf17d5eeab3420f6f0c73491c6f75f9a2414377ff76cc",
+    "portable_sha256": "61956ca3f7070cc4061936c3a5d42bb0ae1dcdf8d0446bc9f692f0ce20c9b3d7"
+  },
+  {
+    "file": "packed-baseline/capture.txt",
+    "operation": "trailing whitespace and outer blank lines removed; UTF-8 LF",
+    "input_sha256": "db3c23235b67efdafe98f441ff62b9448e1bb7093ca756fbc9ecc8de719da7a2",
+    "portable_sha256": "db3c23235b67efdafe98f441ff62b9448e1bb7093ca756fbc9ecc8de719da7a2"
+  },
+  {
+    "file": "packed-baseline/phantasm_build.txt",
+    "operation": "trailing whitespace and outer blank lines removed; UTF-8 LF",
+    "input_sha256": "0742ca6adf9e1630fd33e8943dba91119967706e32895340677383ebe8e20e2d",
+    "portable_sha256": "cdac583f1ee126a2e523ad8e39bee45b916e96c1f69c1632c4cc96f74d094a1c"
+  },
+  {
+    "file": "packed-baseline/phantasm_envdump.txt",
+    "operation": "trailing whitespace and outer blank lines removed; UTF-8 LF",
+    "input_sha256": "e54f3ef923c584bb88dbb802583761d38594050df1eb256b8dbfff3e3ba4da65",
+    "portable_sha256": "b2212a0ef7b1de86ee1d23e50d74648e0ccce9c24e8490a6423bc8eee5f06553"
+  },
+  {
+    "file": "packed-baseline/profile_build.txt",
+    "operation": "trailing whitespace and outer blank lines removed; UTF-8 LF",
+    "input_sha256": "62fdcfcc9f2d0057d7ee842f3927790f44c6f0899366d039faa3a71bbae0d77b",
+    "portable_sha256": "366ee189f061b711596395b1bd4f4bdac3894e54edbe24aa17b6ea5fbc3ad05b"
+  },
+  {
+    "file": "packed-baseline/profile_envdump.txt",
+    "operation": "trailing whitespace and outer blank lines removed; UTF-8 LF",
+    "input_sha256": "a0e337a4665237707978184242e36bdaa93e6a7e7629b045e676b7fb0faa1fa2",
+    "portable_sha256": "b6034068e0d326482f7f5e933ee0fa4f22e59c4b15a404c3a25b0787829d41ee"
+  },
+  {
+    "file": "packed-baseline/source.json",
+    "operation": "original patch text preserved in JSON patch field",
+    "input_sha256": "e29cafc8300e155b0d9b0910facd9a3ef8ebdae8a7be2907ad7022dd51061675",
+    "portable_sha256": "750716f1fb4e90288e299b825ee921424b8d0697ecc67862e20ce2ce7b7b7ca1"
+  },
+  {
+    "file": "packed-baseline/source_status.txt",
+    "operation": "trailing whitespace and outer blank lines removed; UTF-8 LF",
+    "input_sha256": "0b0d9d0a2393fdfc5334120395c3eebad1f3b46ec7fe2cc62b54cdd732ff7a2f",
+    "portable_sha256": "0b0d9d0a2393fdfc5334120395c3eebad1f3b46ec7fe2cc62b54cdd732ff7a2f"
+  },
+  {
+    "file": "packed-baseline/summary.json",
+    "operation": "trailing whitespace and outer blank lines removed; UTF-8 LF",
+    "input_sha256": "8e19cc275e8fc7688e136ee1f3b31fa248f7b2ca505a1749b602c2e8576ae25c",
+    "portable_sha256": "4be1a5cdc4bc63562822d453e7a33ea3f8f1b9a11c161fd9dd2a96b9fd7b400c"
+  },
+  {
+    "file": "packed-baseline/validate.txt",
+    "operation": "trailing whitespace and outer blank lines removed; UTF-8 LF",
+    "input_sha256": "a54600555e7e24587953cea78e8deb2382fe4045ff74e72ce3f468016a68f263",
+    "portable_sha256": "389ef374b4917e35c3087112353cb857f1c4626c797fad9540f046b788f79e99"
+  },
+  {
+    "file": "packed-candidate/capture.txt",
+    "operation": "trailing whitespace and outer blank lines removed; UTF-8 LF",
+    "input_sha256": "96bd85b003c93f8aaf58253f33ecf2b3ef603c17348dab81cd44ee08684c7366",
+    "portable_sha256": "96bd85b003c93f8aaf58253f33ecf2b3ef603c17348dab81cd44ee08684c7366"
+  },
+  {
+    "file": "packed-candidate/experiment-notes.txt",
+    "operation": "trailing whitespace and outer blank lines removed; UTF-8 LF",
+    "input_sha256": "965e54d8669ec87a5bda73db11bb689d7e972c2755feb4a00543e12df0d129dd",
+    "portable_sha256": "8b8749ebd9f1870cc72fd9d1156e35f769433b2135ea9c450bb9fb3c80536b31"
+  },
+  {
+    "file": "packed-candidate/packed-only.json",
+    "operation": "original patch text preserved in JSON patch field",
+    "input_sha256": "a3b5d89db796e4e36c7820198c86c7aa5919eeb971a003ad897afc63c5a41ad4",
+    "portable_sha256": "d05890f0392e0f9a068568d62bb545aef8f7ad9713cb24c4b3e9d6b463622179"
+  },
+  {
+    "file": "packed-candidate/phantasm_build.txt",
+    "operation": "trailing whitespace and outer blank lines removed; UTF-8 LF",
+    "input_sha256": "57f4ba4aac83b78cf8176824a0b637c4fc36972b3cdbce81ba7debae3e1cf9c0",
+    "portable_sha256": "f05720002fc030150a28a17b38174b08a3b0951da5643dcc26373f40a5899291"
+  },
+  {
+    "file": "packed-candidate/phantasm_envdump.txt",
+    "operation": "trailing whitespace and outer blank lines removed; UTF-8 LF",
+    "input_sha256": "b88e4c1bf6095e1c5b57361fa5844c7a90e132fd4f390e0e9a2e78cb877754bc",
+    "portable_sha256": "29bed23afcd006ba01a3d450eccddc244c01b397ffe032b4e1ac74f58dc69403"
+  },
+  {
+    "file": "packed-candidate/profile_build.txt",
+    "operation": "trailing whitespace and outer blank lines removed; UTF-8 LF",
+    "input_sha256": "46d1eed470a1d5db1e7d7ca3130e210a90ab4717b466dabf449fbc7078dd9bd4",
+    "portable_sha256": "a0464a40dec24faa2a55c93dbe1b2392f405c96d43bb64506f46e77f8a815313"
+  },
+  {
+    "file": "packed-candidate/profile_envdump.txt",
+    "operation": "trailing whitespace and outer blank lines removed; UTF-8 LF",
+    "input_sha256": "28ad26700433e571efcdaba11052afdffef32bb52bda9a649026a9d471c87500",
+    "portable_sha256": "4756e7e07cfa397a4f8e85aca332c2e7e75a2ca2cf948592e74fc7ed460a9e19"
+  },
+  {
+    "file": "packed-candidate/quantization-bounds.json",
+    "operation": "trailing whitespace and outer blank lines removed; UTF-8 LF",
+    "input_sha256": "d684454411c46defeb40c281823a209905022012f786a148b05e921e17cb5229",
+    "portable_sha256": "597bc72f6e63402b1a30b2f76b68ce11faed6cd3f8bb27da16e52b7eceb21b3d"
+  },
+  {
+    "file": "packed-candidate/source.json",
+    "operation": "original patch text preserved in JSON patch field",
+    "input_sha256": "d4933198214b042f16391819d8d9023cb82fefacc0816b482b2a49c90dd8efb3",
+    "portable_sha256": "95a3b71772a57b901d97df45fd2dc22fb040b17f7ee9ead206512cddcb6f1da7"
+  },
+  {
+    "file": "packed-candidate/source_status.txt",
+    "operation": "trailing whitespace and outer blank lines removed; UTF-8 LF",
+    "input_sha256": "0b0d9d0a2393fdfc5334120395c3eebad1f3b46ec7fe2cc62b54cdd732ff7a2f",
+    "portable_sha256": "0b0d9d0a2393fdfc5334120395c3eebad1f3b46ec7fe2cc62b54cdd732ff7a2f"
+  },
+  {
+    "file": "packed-candidate/summary.json",
+    "operation": "trailing whitespace and outer blank lines removed; UTF-8 LF",
+    "input_sha256": "752cc891a26b9c09145b2c2cea08c942d99b97e4b207b559f091cc45d9987cc9",
+    "portable_sha256": "6d0133f9e99f926c06dea4a4c02c66d16d0352549f7e43d55e161549ded5b95a"
+  },
+  {
+    "file": "packed-candidate/validate.txt",
+    "operation": "trailing whitespace and outer blank lines removed; UTF-8 LF",
+    "input_sha256": "01ad6540760df3697932374860ccd1529340ec0911cead30cb325ac96192b9f7",
+    "portable_sha256": "c668c2c1cbeb7941024227a2a4f2978753d502b0e23db6219d497d35db413ae9"
+  },
+  {
+    "file": "packed-shader-disassembly.txt",
+    "operation": "trailing whitespace and outer blank lines removed; UTF-8 LF",
+    "input_sha256": "cc924ff55415c5f17575cf301f11de8049bf3effdb4e193110fb264499fbf9ef",
+    "portable_sha256": "604b1d17fd2718d5f5bdab578531e59db3e1c6d5f2083361ec196789cd5097af"
+  },
+  {
+    "file": "paletteloop/capture.txt",
+    "operation": "trailing whitespace and outer blank lines removed; UTF-8 LF",
+    "input_sha256": "a2fc0563a7e2b109d9b31065a7f3071249109e643b77f60be38c2a55a099f5c8",
+    "portable_sha256": "a2fc0563a7e2b109d9b31065a7f3071249109e643b77f60be38c2a55a099f5c8"
+  },
+  {
+    "file": "paletteloop/phantasm_build.txt",
+    "operation": "trailing whitespace and outer blank lines removed; UTF-8 LF",
+    "input_sha256": "57b393e616e0de149289a13669f0888f643e8dfec4c256c12a095460a3025bca",
+    "portable_sha256": "b9e71a3201733e7659089d44f33cbfea80abe8f58ee289f37d7eb4868461f806"
+  },
+  {
+    "file": "paletteloop/phantasm_envdump.txt",
+    "operation": "trailing whitespace and outer blank lines removed; UTF-8 LF",
+    "input_sha256": "ccd69f01f097a5604f14e38180b7e37632086f529cd05ce63742c9de2fb0ee0e",
+    "portable_sha256": "3082281b2e66104d6a9c3c4562a61849d41d7f981bc4dc2099d7ad0aa03c3579"
+  },
+  {
+    "file": "paletteloop/profile_build.txt",
+    "operation": "trailing whitespace and outer blank lines removed; UTF-8 LF",
+    "input_sha256": "5ab0e279b2acb608c431f1cf7a22ae36cecf293d584cfcb60575205d6ce251fb",
+    "portable_sha256": "943bacc595244c7e43b5e4e9d30463217d9b9d64ca7f2bbabccc1993281530a2"
+  },
+  {
+    "file": "paletteloop/profile_envdump.txt",
+    "operation": "trailing whitespace and outer blank lines removed; UTF-8 LF",
+    "input_sha256": "991d169507683174c2bd864b3e5b7ed713551f052498621d40a4576ae71e495e",
+    "portable_sha256": "e020576ef961d52eff26a92cb90c374335ed2520518888c043aee787b5b53b83"
+  },
+  {
+    "file": "paletteloop/source.json",
+    "operation": "original patch text preserved in JSON patch field",
+    "input_sha256": "549af09e5304df8b3dd130f82c1db9e6eb79beece65e945427a548488d069ba2",
+    "portable_sha256": "4c7492cca869e74c93c5d6e727e29f51912e37522c388262559693b8b37de3b7"
+  },
+  {
+    "file": "paletteloop/source_status.txt",
+    "operation": "trailing whitespace and outer blank lines removed; UTF-8 LF",
+    "input_sha256": "5a16a9ab399830f6186a557462a91a9b104b69d1a0c08b56479caded021af0ee",
+    "portable_sha256": "5a16a9ab399830f6186a557462a91a9b104b69d1a0c08b56479caded021af0ee"
+  },
+  {
+    "file": "paletteloop/summary.json",
+    "operation": "trailing whitespace and outer blank lines removed; UTF-8 LF",
+    "input_sha256": "5b917b89e0989ae8453cdb449b9110da32d25f88cb6fd16335fbf32398f9ea78",
+    "portable_sha256": "c4955183494f15d818ed7c3f914fcee0f9b139652b9a6d5ba8e2fc9eca34bff1"
+  },
+  {
+    "file": "paletteloop/validate.txt",
+    "operation": "trailing whitespace and outer blank lines removed; UTF-8 LF",
+    "input_sha256": "6dc7315959b38c6de5e6a9907ae4c6a8e4f37a27673464d5db66a83bf236985e",
+    "portable_sha256": "67879fe3437024b97fc52bed689b80c5f5c6bbd8e012a1d75a1f7e98a8b2411e"
+  },
+  {
+    "file": "paletteloop-shader-disassembly.txt",
+    "operation": "trailing whitespace and outer blank lines removed; UTF-8 LF",
+    "input_sha256": "3127b35bfb02a6b0714c36255a9d08df501cf4b58ce85a9cdffb7bd920a53e23",
+    "portable_sha256": "73d6fcbd6d172dc70477c03a2ae5768d686b5a45d4d7a065639811caef83047b"
+  },
+  {
+    "file": "quality-baseline.csv",
+    "operation": "trailing whitespace and outer blank lines removed; UTF-8 LF",
+    "input_sha256": "33687a63857f467ad1abfd271c6629a757da7e385b0ed9778be26f88a8691929",
+    "portable_sha256": "9044bf4a8ca2eb7203f591d1a582ac95fc2074b28c5657738e44f582cfd30558"
+  },
+  {
+    "file": "quality-branchless.csv",
+    "operation": "trailing whitespace and outer blank lines removed; UTF-8 LF",
+    "input_sha256": "bcb8a027c0c04fd337e1b1b153275b6e3633ebe2e0f41bb3d24a41a09546879a",
+    "portable_sha256": "96e6b5683a04811d853670044fd38c645b8791082463c96843d37423172df788"
+  },
+  {
+    "file": "quality-final.csv",
+    "operation": "trailing whitespace and outer blank lines removed; UTF-8 LF",
+    "input_sha256": "8fe83c2fe4d21fb236a84dd670ed4c542551ceaa854e1f00680f3653c0aadba6",
+    "portable_sha256": "a0823f36c7e6eb2cb57eb618814e020574c603fe9236c684559898c6be5d41ef"
+  },
+  {
+    "file": "quality-floatpalette.csv",
+    "operation": "trailing whitespace and outer blank lines removed; UTF-8 LF",
+    "input_sha256": "4db6e8fc161990ca85c44af5165072eda7898542f6883c8dbfe54fe290183bff",
+    "portable_sha256": "afd61dbaa7614ecce70168db267275d8567a5740178ffa7385a97d02b64e6809"
+  },
+  {
+    "file": "quality-graphshader.csv",
+    "operation": "trailing whitespace and outer blank lines removed; UTF-8 LF",
+    "input_sha256": "e8db6bdd5e60df596a7eb9616821fbc24f70f9a000f27d107e8ae846cbde58d9",
+    "portable_sha256": "13e51e1e7ac85e9169423cf9ae304002ae8b93e73597551defad84fb24cb7810"
+  },
+  {
+    "file": "quality-interchange.csv",
+    "operation": "trailing whitespace and outer blank lines removed; UTF-8 LF",
+    "input_sha256": "33687a63857f467ad1abfd271c6629a757da7e385b0ed9778be26f88a8691929",
+    "portable_sha256": "9044bf4a8ca2eb7203f591d1a582ac95fc2074b28c5657738e44f582cfd30558"
+  },
+  {
+    "file": "quality-packed.csv",
+    "operation": "trailing whitespace and outer blank lines removed; UTF-8 LF",
+    "input_sha256": "e1720ad53b7d5c933134efb3c94fa46b997a79e125f958c96d7ce37aba530c47",
+    "portable_sha256": "355f95124aa8a9f439811cfa94c4981789ed41e0108cda98c18a18115d4cb104"
+  },
+  {
+    "file": "quality-palette-average.csv",
+    "operation": "trailing whitespace and outer blank lines removed; UTF-8 LF",
+    "input_sha256": "7d1b857bc203a4d597e9122d35b1447494f4148c60356d216d94f8e5715e0d54",
+    "portable_sha256": "cc641031537cea32eb5ebf5b9ce000193d8ad35a60533f4ac286fd831512713f"
+  },
+  {
+    "file": "quality-palette-guard002.csv",
+    "operation": "trailing whitespace and outer blank lines removed; UTF-8 LF",
+    "input_sha256": "62b26c68af6690182ab94c2257752ca18aa0d9994b4ad7b308668c536328b651",
+    "portable_sha256": "f23420fc298a368410f4ef3be2141dacc946f6541cf12dd7098c7c1db9d88b29"
+  },
+  {
+    "file": "quality-roundfold.csv",
+    "operation": "trailing whitespace and outer blank lines removed; UTF-8 LF",
+    "input_sha256": "1c429163eb603e6c4a0a225dddf3dee81a7d78d61a16583c305760f4f87188f2",
+    "portable_sha256": "8bdac3db065f0f2c54ceacbb84f9e2123c4ad504e83786724aedb659dded048e"
+  },
+  {
+    "file": "quality-scaled.csv",
+    "operation": "trailing whitespace and outer blank lines removed; UTF-8 LF",
+    "input_sha256": "25dfe6337f64fa1da6d3dbeaa364ea3ea5cf51f60f3f62a7a97281b729108f15",
+    "portable_sha256": "bb2f61f68655c1341cc77f7811e9d4e0df75ec94147ed2f3c9718e3c43f22c46"
+  },
+  {
+    "file": "quality-symmetry.csv",
+    "operation": "trailing whitespace and outer blank lines removed; UTF-8 LF",
+    "input_sha256": "e8db6bdd5e60df596a7eb9616821fbc24f70f9a000f27d107e8ae846cbde58d9",
+    "portable_sha256": "13e51e1e7ac85e9169423cf9ae304002ae8b93e73597551defad84fb24cb7810"
+  },
+  {
+    "file": "quality.cpp.txt",
+    "operation": "trailing whitespace and outer blank lines removed; UTF-8 LF",
+    "input_sha256": "bfae7bcf44663e22f99791bf9794e70488c6ef3ca098c167c923e0cd784ed528",
+    "portable_sha256": "bfae7bcf44663e22f99791bf9794e70488c6ef3ca098c167c923e0cd784ed528"
+  },
+  {
+    "file": "roundfold/capture.txt",
+    "operation": "trailing whitespace and outer blank lines removed; UTF-8 LF",
+    "input_sha256": "a04ad35faa7819f9d639e5b1339f47fd3c037ed999a279318aa7cd87beff00e6",
+    "portable_sha256": "a04ad35faa7819f9d639e5b1339f47fd3c037ed999a279318aa7cd87beff00e6"
+  },
+  {
+    "file": "roundfold/phantasm_build.txt",
+    "operation": "trailing whitespace and outer blank lines removed; UTF-8 LF",
+    "input_sha256": "278f04bc09ad4af22d9c33059d343dad1565de164b200d1bbc0d42c428b853dd",
+    "portable_sha256": "6feb4adb81cfb59eac49ee183ae7bfc42998850a7ca8f3a11d58677c9baf2464"
+  },
+  {
+    "file": "roundfold/phantasm_envdump.txt",
+    "operation": "trailing whitespace and outer blank lines removed; UTF-8 LF",
+    "input_sha256": "58ea4e4d89e360ce9fb20db741a9834a15537bc33fef24dea270d8d98bdc3fc2",
+    "portable_sha256": "8fb0aeb0dde87abc8d1217e14d79f12a014afcfba36bd8f8b133ab55c62cd4c5"
+  },
+  {
+    "file": "roundfold/profile_build.txt",
+    "operation": "trailing whitespace and outer blank lines removed; UTF-8 LF",
+    "input_sha256": "84643f7dac3c7da76087d88f5b71fd98d529d207411054704eeb8963a43c87e7",
+    "portable_sha256": "7e16a3e675e0c281b2e7302ac5080c102622a71ead0e8d6ffb35f751308d8736"
+  },
+  {
+    "file": "roundfold/profile_envdump.txt",
+    "operation": "trailing whitespace and outer blank lines removed; UTF-8 LF",
+    "input_sha256": "e2678948e8f6b0934fcf9aee02b4074627cfd7a1e1b959d19d461c3f76e830ce",
+    "portable_sha256": "060366164c911713d667d16e2b1e0074a66b9bc4cd05f2c9e42e9a3edaaf7f60"
+  },
+  {
+    "file": "roundfold/source.json",
+    "operation": "original patch text preserved in JSON patch field",
+    "input_sha256": "9b1f3fc4a1f6db23dc3902fc1084a590585f8c90716d2207be7068450f663af3",
+    "portable_sha256": "2cebed69a74068a3655bd429fd49e169863002a4a0c3d61e568f4b4471763090"
+  },
+  {
+    "file": "roundfold/source_status.txt",
+    "operation": "trailing whitespace and outer blank lines removed; UTF-8 LF",
+    "input_sha256": "5a16a9ab399830f6186a557462a91a9b104b69d1a0c08b56479caded021af0ee",
+    "portable_sha256": "5a16a9ab399830f6186a557462a91a9b104b69d1a0c08b56479caded021af0ee"
+  },
+  {
+    "file": "roundfold/summary.json",
+    "operation": "trailing whitespace and outer blank lines removed; UTF-8 LF",
+    "input_sha256": "b62ad639b042a62055cfa90dfd8b9c29b135204781285b1dfc4e06235f20e67e",
+    "portable_sha256": "a1d0381ee9cbe69b545bf008f6804fb544a1fec3796e71264ea4ed3c5e9321f8"
+  },
+  {
+    "file": "roundfold/validate.txt",
+    "operation": "trailing whitespace and outer blank lines removed; UTF-8 LF",
+    "input_sha256": "f0fc40897741ebf71e578d1902534968b548720621945acc1cd1193d4aade817",
+    "portable_sha256": "472caab7ae2fb95522a50cee21dbe525bd709a9fe82d00b798435cfdae69f2e9"
+  },
+  {
+    "file": "run_quality.ps1.txt",
+    "operation": "trailing whitespace and outer blank lines removed; UTF-8 LF",
+    "input_sha256": "c2f501c2216ad5c6d7b562f6d986b26a689967e47232e6f12429d661175111af",
+    "portable_sha256": "c2f501c2216ad5c6d7b562f6d986b26a689967e47232e6f12429d661175111af"
+  },
+  {
+    "file": "run_state_quality.ps1.txt",
+    "operation": "trailing whitespace and outer blank lines removed; UTF-8 LF",
+    "input_sha256": "db80dba3cb050a98f90ffdf1f4cae7518a8512cdbc8f6724e7851ce84fd3c87f",
+    "portable_sha256": "db80dba3cb050a98f90ffdf1f4cae7518a8512cdbc8f6724e7851ce84fd3c87f"
+  },
+  {
+    "file": "scaled/capture.txt",
+    "operation": "trailing whitespace and outer blank lines removed; UTF-8 LF",
+    "input_sha256": "d0e50ac78c97994eee6deb7d30a8f96771ad4b1071b0e10fbac1bb5462fbc203",
+    "portable_sha256": "d0e50ac78c97994eee6deb7d30a8f96771ad4b1071b0e10fbac1bb5462fbc203"
+  },
+  {
+    "file": "scaled/phantasm_build.txt",
+    "operation": "trailing whitespace and outer blank lines removed; UTF-8 LF",
+    "input_sha256": "7d479557aac1c0c496b672e672c243574d6b62fbc945d73dc4e5cc76e0013255",
+    "portable_sha256": "f1a970995822b542e414d8c83b89837acc1b7984d4e399e17e10c01b5df70a7d"
+  },
+  {
+    "file": "scaled/phantasm_envdump.txt",
+    "operation": "trailing whitespace and outer blank lines removed; UTF-8 LF",
+    "input_sha256": "9296127490ce5cb737dd3553178db69ed03516f804526b1f0b481554de21ea1c",
+    "portable_sha256": "ce9c6b49342326a4997547f15054848008fe5addab5c9befac4913d489ee6685"
+  },
+  {
+    "file": "scaled/profile_build.txt",
+    "operation": "trailing whitespace and outer blank lines removed; UTF-8 LF",
+    "input_sha256": "ddd4221c5b129fe7395ca0662fc8da96f4c1e219155e7a3cafa4596f2dd7ba91",
+    "portable_sha256": "f5c81ee0e5bfb1b9c72947768cffdfad02d4766f7c5c7e74befbf58a784da568"
+  },
+  {
+    "file": "scaled/profile_envdump.txt",
+    "operation": "trailing whitespace and outer blank lines removed; UTF-8 LF",
+    "input_sha256": "df555b3f922ad093cdb0025c3e2b866b486e86ea2f6db0e49dbfd5f0f23a5057",
+    "portable_sha256": "4fb050145584bb3dc99e22ef0fd545e070351a8e77698d543181fc1ff085e952"
+  },
+  {
+    "file": "scaled/source.json",
+    "operation": "original patch text preserved in JSON patch field",
+    "input_sha256": "639f954a6ddc5d777af674feb593b8cc1909831f064f255faf662f4542f26177",
+    "portable_sha256": "8cef244d2ceb93f82cce0d7da89fe748212e7f3958ac3dcc79ec628f111a0496"
+  },
+  {
+    "file": "scaled/source_status.txt",
+    "operation": "trailing whitespace and outer blank lines removed; UTF-8 LF",
+    "input_sha256": "5a16a9ab399830f6186a557462a91a9b104b69d1a0c08b56479caded021af0ee",
+    "portable_sha256": "5a16a9ab399830f6186a557462a91a9b104b69d1a0c08b56479caded021af0ee"
+  },
+  {
+    "file": "scaled/summary.json",
+    "operation": "trailing whitespace and outer blank lines removed; UTF-8 LF",
+    "input_sha256": "8be647bd621c858b0627ff1bf6d5ae0d44a52fff90859bb44969a5a847a49640",
+    "portable_sha256": "e5cbbad171bcba147406ed55737e45e4c5345fa2f7c48037d50f1ef1337e88a0"
+  },
+  {
+    "file": "scaled/validate.txt",
+    "operation": "trailing whitespace and outer blank lines removed; UTF-8 LF",
+    "input_sha256": "0bea276563279c6beff7333c833f13cb30927d633e0f3442cc599ada8505c5b5",
+    "portable_sha256": "50dbfef46796e50f6f86bf1964e90ca627c4953ffbedd47343e37a2a9dbe3bae"
+  },
+  {
+    "file": "state-quality-baseline-corners.csv",
+    "operation": "trailing whitespace and outer blank lines removed; UTF-8 LF",
+    "input_sha256": "474ae43fe7e8f3dc8f01e00eca9b5bce8972c8be0e7308a1bae1b7107b7df095",
+    "portable_sha256": "474ae43fe7e8f3dc8f01e00eca9b5bce8972c8be0e7308a1bae1b7107b7df095"
+  },
+  {
+    "file": "state-quality-baseline-states.csv",
+    "operation": "trailing whitespace and outer blank lines removed; UTF-8 LF",
+    "input_sha256": "9c4aa2a57adfdfe5da2e1f562b1e645866f3d532dc93de0ad01521fb3156c32f",
+    "portable_sha256": "9c4aa2a57adfdfe5da2e1f562b1e645866f3d532dc93de0ad01521fb3156c32f"
+  },
+  {
+    "file": "state-quality-final-corners.csv",
+    "operation": "trailing whitespace and outer blank lines removed; UTF-8 LF",
+    "input_sha256": "474ae43fe7e8f3dc8f01e00eca9b5bce8972c8be0e7308a1bae1b7107b7df095",
+    "portable_sha256": "474ae43fe7e8f3dc8f01e00eca9b5bce8972c8be0e7308a1bae1b7107b7df095"
+  },
+  {
+    "file": "state-quality-final-states.csv",
+    "operation": "trailing whitespace and outer blank lines removed; UTF-8 LF",
+    "input_sha256": "9c4aa2a57adfdfe5da2e1f562b1e645866f3d532dc93de0ad01521fb3156c32f",
+    "portable_sha256": "9c4aa2a57adfdfe5da2e1f562b1e645866f3d532dc93de0ad01521fb3156c32f"
+  },
+  {
+    "file": "state-quality-graphphysics-corners.csv",
+    "operation": "trailing whitespace and outer blank lines removed; UTF-8 LF",
+    "input_sha256": "4b0e497602773f4a4369b8d603648d2f04c940e12b45dc5f71a3e3653fec9688",
+    "portable_sha256": "4b0e497602773f4a4369b8d603648d2f04c940e12b45dc5f71a3e3653fec9688"
+  },
+  {
+    "file": "state-quality-graphphysics-states.csv",
+    "operation": "trailing whitespace and outer blank lines removed; UTF-8 LF",
+    "input_sha256": "a90afe2754cf5e22738251909369e5afe0c5c097b99ef5767af78b15fb079bcc",
+    "portable_sha256": "a90afe2754cf5e22738251909369e5afe0c5c097b99ef5767af78b15fb079bcc"
+  },
+  {
+    "file": "state-quality-ordered-corners.csv",
+    "operation": "trailing whitespace and outer blank lines removed; UTF-8 LF",
+    "input_sha256": "474ae43fe7e8f3dc8f01e00eca9b5bce8972c8be0e7308a1bae1b7107b7df095",
+    "portable_sha256": "474ae43fe7e8f3dc8f01e00eca9b5bce8972c8be0e7308a1bae1b7107b7df095"
+  },
+  {
+    "file": "state-quality-ordered-states.csv",
+    "operation": "trailing whitespace and outer blank lines removed; UTF-8 LF",
+    "input_sha256": "9c4aa2a57adfdfe5da2e1f562b1e645866f3d532dc93de0ad01521fb3156c32f",
+    "portable_sha256": "9c4aa2a57adfdfe5da2e1f562b1e645866f3d532dc93de0ad01521fb3156c32f"
+  },
+  {
+    "file": "state_quality.cpp.txt",
+    "operation": "trailing whitespace and outer blank lines removed; UTF-8 LF",
+    "input_sha256": "a5b1cc85459bc96c5d49020cead84f3e4d10c08b0640d549ac78df13be2d18c2",
+    "portable_sha256": "a5b1cc85459bc96c5d49020cead84f3e4d10c08b0640d549ac78df13be2d18c2"
+  },
+  {
+    "file": "symmetry/capture.txt",
+    "operation": "trailing whitespace and outer blank lines removed; UTF-8 LF",
+    "input_sha256": "24af67ec7f698aca77d5c7cb0addd32dcfa39f795fa16cbeb75fb4a0dc3d1ec7",
+    "portable_sha256": "24af67ec7f698aca77d5c7cb0addd32dcfa39f795fa16cbeb75fb4a0dc3d1ec7"
+  },
+  {
+    "file": "symmetry/phantasm_build.txt",
+    "operation": "trailing whitespace and outer blank lines removed; UTF-8 LF",
+    "input_sha256": "357b660b099a74c20b3c5ac5f07e2fced1407fb98536e1050d76ffff57737c2e",
+    "portable_sha256": "bf09d2a52766d965923cd9738b1883e1ce9761f0f630d9762342c8da37db95e9"
+  },
+  {
+    "file": "symmetry/phantasm_envdump.txt",
+    "operation": "trailing whitespace and outer blank lines removed; UTF-8 LF",
+    "input_sha256": "254b8add7b50aac9c3d458dd8988583517dcdc2d4dab575ae962733265252239",
+    "portable_sha256": "92619e31913e24bc71cf521a6559d7b10fe001320d61f058507d9e7d176111c6"
+  },
+  {
+    "file": "symmetry/profile_build.txt",
+    "operation": "trailing whitespace and outer blank lines removed; UTF-8 LF",
+    "input_sha256": "f4f96e9dac9d72b4487bb822c498b2d5d37ef8e8161b6bf841e2cbc86cd8a947",
+    "portable_sha256": "8ac0140f53016f60eb61e42fe8ac6e1bc8959a47da015044c5e6f70bdd81a3e6"
+  },
+  {
+    "file": "symmetry/profile_envdump.txt",
+    "operation": "trailing whitespace and outer blank lines removed; UTF-8 LF",
+    "input_sha256": "2929fe07b96e041ad6daaa90691b3ed343400f7943ce007e3cad2c2364cdc1db",
+    "portable_sha256": "567bf2e1618c48958d2069742befdbe13da212369cd185056cbd664cdf42c227"
+  },
+  {
+    "file": "symmetry/source.json",
+    "operation": "original patch text preserved in JSON patch field",
+    "input_sha256": "c074dd5c2520ba62cee7ab3cb4e3f774ba35dd0751699378c57e7a9e0bc09c88",
+    "portable_sha256": "46abe600c75d6246005fc981483fe382e794289b3099f0f4925b805eaa35ea6b"
+  },
+  {
+    "file": "symmetry/source_status.txt",
+    "operation": "trailing whitespace and outer blank lines removed; UTF-8 LF",
+    "input_sha256": "05fae21b8f2605ac0399725674eccce967e3c531e65b26e50b339adf809ea6a7",
+    "portable_sha256": "05fae21b8f2605ac0399725674eccce967e3c531e65b26e50b339adf809ea6a7"
+  },
+  {
+    "file": "symmetry/summary.json",
+    "operation": "trailing whitespace and outer blank lines removed; UTF-8 LF",
+    "input_sha256": "5c3bd3a18c7a5aa1af6f4466666569400b34fd27fb46c08d70f724f84b79bf1d",
+    "portable_sha256": "3a44235589d649f86eb94287083cfa4ee7381b9d8c5b95d8d379a0b707f6df45"
+  },
+  {
+    "file": "symmetry/validate.txt",
+    "operation": "trailing whitespace and outer blank lines removed; UTF-8 LF",
+    "input_sha256": "4146ea9fc9168af48e37a7c000a28e1390d421118948bdd70176912ac3f13cc3",
+    "portable_sha256": "cd5a1174d97349034d818d9a3161f536409e51b21181f825400e92f29c897aa5"
+  },
+  {
+    "file": "symmetry-shader-disassembly.txt",
+    "operation": "trailing whitespace and outer blank lines removed; UTF-8 LF",
+    "input_sha256": "baf65fc09f88d475c4a8bc32d36cb0d78fc678b0c946100b7547189e8a11d246",
+    "portable_sha256": "cc52151e5ba127f9378977e5298f9a51676bc759d88e02a9c9832ee244138c26"
+  }
+]
