@@ -26,6 +26,34 @@ if ! git diff --cached --check; then
   exit 1
 fi
 
+# `command -v python3` is not enough on Windows: the App Execution Alias stub
+# resolves and then refuses to run. Probe with --version.
+PYTHON_BIN=
+for candidate in "${HS_PYTHON:-}" python3 python; do
+  if "$candidate" --version >/dev/null 2>&1; then PYTHON_BIN="$candidate"; break; fi
+done
+if [ -z "$PYTHON_BIN" ]; then
+  echo "[pre-commit] no working Python found; documentation checks need one (set HS_PYTHON)."
+  exit 1
+fi
+
+SNAPSHOT_ROOT="$(mktemp -d "$PWD/.hs-pre-commit.XXXXXX")"
+SNAPSHOT="$SNAPSHOT_ROOT/repo"
+trap 'rm -rf "$SNAPSHOT_ROOT" "$STAGED_BLOB"' EXIT INT TERM
+mkdir "$SNAPSHOT"
+if ! git checkout-index --all --force --prefix="$SNAPSHOT/"; then
+  echo "[pre-commit] cannot materialize staged snapshot."
+  exit 1
+fi
+LOCAL_GIT_ENV="$(git rev-parse --local-env-vars)"
+INDEX_PATH="$(git rev-parse --path-format=absolute --git-path index)"
+
+(
+  for name in $LOCAL_GIT_ENV; do unset "$name"; done
+  git -C "$SNAPSHOT" init --quiet
+  cp "$INDEX_PATH" "$SNAPSHOT/.git/index"
+
+
 FORMAT="$(printf '%s\n' "$PRESENT" \
   | grep -E '\.(h|hpp|cpp|cc|inl|ino)$' \
   | grep -vE '(^|/)core/vendor/FastNoiseLite\.h$|(^|/)core/color/color_luts\.h$|(^|/)core/color/gamut_lut\.h$|(^|/)core/color/srgb_decode_lut\.h$|(^|/)core/color/mindsplatter_palette_luts\.h$|(^|/)core/mesh/relax_bakes_generated\.h$|(^|/)core/spatial/reaction_graph\.cpp$|(^|/)tests/mindsplatter_replay_corpus\.h$' \
@@ -45,7 +73,7 @@ if [ -n "$FORMAT" ]; then
   failed=
   while IFS= read -r file; do
     extract_staged "$file"
-    "$CF" --dry-run --Werror --style=file --assume-filename="$file" \
+    "$CF" --dry-run --Werror --style=file --assume-filename="$SNAPSHOT/$file" \
       <"$STAGED_BLOB" >/dev/null 2>&1 \
       || failed="$failed $file"
   done <<EOF
@@ -63,14 +91,14 @@ if [ -n "$PYTHON_FILES" ]; then
     echo "[pre-commit] ruff not found; pip install -r requirements/ruff.txt"
     exit 1
   fi
-  expected_ruff="$(sed -n 's/^ruff==\([^ ]*\).*/\1/p' requirements/ruff.txt)"
+  expected_ruff="$(sed -n 's/^ruff==\([^ ]*\).*/\1/p' "$SNAPSHOT/requirements/ruff.txt")"
   if [ "$(ruff --version)" != "ruff $expected_ruff" ]; then
     echo "[pre-commit] pinned ruff $expected_ruff is required; pip install -r requirements/ruff.txt"
     exit 1
   fi
   while IFS= read -r file; do
     extract_staged "$file"
-    ruff check --no-cache --stdin-filename "$file" - <"$STAGED_BLOB"
+    ruff check --no-cache --config "$SNAPSHOT/ruff.toml" --stdin-filename "$file" - <"$STAGED_BLOB"
   done <<EOF
 $PYTHON_FILES
 EOF
@@ -84,35 +112,22 @@ if [ -n "$JAVASCRIPT_FILES" ]; then
   fi
   while IFS= read -r file; do
     extract_staged "$file"
-    node_modules/.bin/eslint --stdin --stdin-filename "$file" <"$STAGED_BLOB"
+    node_modules/.bin/eslint --config "$SNAPSHOT/eslint.config.mjs" --stdin --stdin-filename "$file" <"$STAGED_BLOB"
   done <<EOF
 $JAVASCRIPT_FILES
 EOF
 fi
 
-# `command -v python3` is not enough on Windows: the App Execution Alias stub
-# resolves and then refuses to run. Probe with --version.
-PYTHON_BIN=
-for candidate in "${HS_PYTHON:-}" python3 python; do
-  if "$candidate" --version >/dev/null 2>&1; then PYTHON_BIN="$candidate"; break; fi
-done
-if [ -z "$PYTHON_BIN" ]; then
-  echo "[pre-commit] no working Python found; documentation checks need one (set HS_PYTHON)."
-  exit 1
-fi
-
-SNAPSHOT_ROOT="$(mktemp -d "${TMPDIR:-/tmp}/hs-pre-commit.XXXXXX")"
-SNAPSHOT="$SNAPSHOT_ROOT/repo"
-trap 'rm -rf "$SNAPSHOT_ROOT" "$STAGED_BLOB"' EXIT INT TERM
-mkdir "$SNAPSHOT"
-git checkout-index --all --force --prefix="$SNAPSHOT/"
-LOCAL_GIT_ENV="$(git rev-parse --local-env-vars)"
-INDEX_PATH="$(git rev-parse --path-format=absolute --git-path index)"
-
-(
-  for name in $LOCAL_GIT_ENV; do unset "$name"; done
-  git -C "$SNAPSHOT" init --quiet
-  cp "$INDEX_PATH" "$SNAPSHOT/.git/index"
+  if printf '%s\n' "$CHANGED" | grep -qx '.clang-format'; then
+    (cd "$SNAPSHOT" && bash tools/clang_format_gate.sh)
+  fi
+  if printf '%s\n' "$CHANGED" | grep -qx 'ruff.toml'; then
+    (cd "$SNAPSHOT" && ruff check --no-cache .)
+  fi
+  if printf '%s\n' "$CHANGED" | grep -qx 'eslint.config.mjs'; then
+    ESLINT="$PWD/node_modules/.bin/eslint"
+    (cd "$SNAPSHOT" && "$ESLINT" .)
+  fi
 
   SHELL_FILES="$(printf '%s\n' "$PRESENT" | grep -E '\.sh$|^\.githooks/' || true)"
   if [ -n "$SHELL_FILES" ]; then
