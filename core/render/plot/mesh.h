@@ -158,8 +158,8 @@ struct Mesh {
               continue;
             const float lo = i == 0 ? 0.0f : ts[i - 1];
             const float hi = i == cuts ? 1.0f : ts[i];
-            window_start = std::min(window_start, lo);
-            window_end = std::max(window_end, hi);
+            window_start = fminf(window_start, lo);
+            window_end = fmaxf(window_end, hi);
           }
           if (window_start > window_end)
             return;

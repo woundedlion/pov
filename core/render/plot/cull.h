@@ -1037,8 +1037,8 @@ static inline int geodesic_clip_splits(const math::Vector &a,
       const float delta = math::fast_atan2(perp.y, a.y);
       // y folds to radius*cos(ang - delta), so the endpoints bound the arc
       // except where an extremum angle falls inside it.
-      float y_lo = std::min(a.y, b.y);
-      float y_hi = std::max(a.y, b.y);
+      float y_lo = fminf(a.y, b.y);
+      float y_hi = fmaxf(a.y, b.y);
       if (delta > 0.0f && delta < es.total)
         y_hi = radius;
       if (delta + math::PI_F < es.total)
@@ -1741,12 +1741,12 @@ inline bool cap_may_touch_clip(const ClipRegion &cr, const math::Vector &dir,
   // fast_acos errs by ~5e-5 rad and fast_atan2 by ~0.0038 rad.
   constexpr float ACOS_PAD = 1e-3f;
   constexpr float ATAN2_PAD = 5e-3f;
-  float t2 = std::min(half_angle, math::PI_F);
+  float t2 = fminf(half_angle, math::PI_F);
   const float y = hs::clamp(dir.y, -1.0f, 1.0f);
   float beta = math::fast_acos(y);
 
-  float phi_lo = std::max(beta - t2 - ACOS_PAD, 0.0f);
-  float phi_hi = std::min(beta + t2 + ACOS_PAD, math::PI_F);
+  float phi_lo = fmaxf(beta - t2 - ACOS_PAD, 0.0f);
+  float phi_hi = fminf(beta + t2 + ACOS_PAD, math::PI_F);
   if (!cr.could_intersect_y(math::phi_to_y<H>(phi_lo),
                             math::phi_to_y<H>(phi_hi)))
     return false;
@@ -1776,7 +1776,7 @@ template <int H>
 inline bool cap_may_touch_clip(const ClipRegion &cr, const math::Vector &dir,
                                float half_angle) {
   return cap_may_touch_clip<H>(cr, dir, half_angle,
-                               sinf(std::min(half_angle, math::PI_F)));
+                               sinf(fminf(half_angle, math::PI_F)));
 }
 
 enum class CartesianTrailGateResult : uint8_t {
