@@ -244,6 +244,8 @@ inline void test_preset_saturation_veto_restarts_dwell() {
   hs_test::reset_globals();
   SaturatedPresetEffect effect;
   effect.arm();
+  for (int i = 0; i < 10; ++i)
+    effect.tick();
   effect.saturate();
   HS_EXPECT_FALSE(effect.attempt());
   HS_EXPECT_EQ(effect.getPresetIndex(), size_t{0});
