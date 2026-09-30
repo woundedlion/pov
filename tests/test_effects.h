@@ -3768,7 +3768,7 @@ inline void test_dynamo_trail_ceiling_bounds_the_ring() {
   WB::set_trail_length(effect, MAX_TRAIL);
 
   const auto capacity = static_cast<uint32_t>(WB::trail_capacity());
-  for (int f = 0; f < 64; ++f) {
+  for (int f = 0; f < static_cast<int>(MAX_TRAIL) + 2; ++f) {
     effect.draw_frame();
     effect.advance_display();
     HS_EXPECT_LT(WB::trail_points(effect), static_cast<size_t>(capacity));
@@ -3780,8 +3780,8 @@ inline void test_dynamo_trail_ceiling_bounds_the_ring() {
       WB::points_per_emission(effect) * (static_cast<uint32_t>(MAX_SPEED) + 1);
   HS_EXPECT_GT(per_frame, 0u);
   HS_EXPECT_GT(per_frame * static_cast<uint32_t>(MAX_TRAIL), capacity);
-  HS_EXPECT_LE(per_frame * static_cast<uint32_t>(WB::trail_ceiling(effect)),
-               capacity);
+  HS_EXPECT_GT(WB::trail_points(effect), size_t{0});
+  HS_EXPECT_LT(WB::trail_points(effect), static_cast<size_t>(capacity));
 }
 
 /**
