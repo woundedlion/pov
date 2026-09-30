@@ -15,7 +15,7 @@
  * cover them; instead the bookkeeping they key on is exercised in-process here:
  * the bound flag through the construct/bind/move lifecycle
  * (test_arenavec_default_unbound / _bind / _move_construct / _move_assign), and
- * the reset and rewind stamps via test_arenavec_stale_binding_after_reset. A re-bind that grows is a supported pattern (it abandons the
+ * ArenaBlockStamp reset and rewind behavior is tested directly. A re-bind that grows is a supported pattern (it abandons the
  * old block until the next arena reset — see ArenaVector::bind), covered by
  * test_arenavec_rebind_grows. Move-assignment onto a bound handle abandons a
  * block the same way and accounts the bytes for the arena's OOM report, covered
@@ -855,7 +855,7 @@ inline void test_arenavec_rebind_grows() {
 
 /** @brief Pins the block stamp's reset and rewind lifetime checks. */
 #ifndef NDEBUG
-inline void test_arenavec_stale_binding_after_reset() {
+inline void test_arena_block_stamp_reset_and_rewind() {
   Arena a(test_buf_a, sizeof(test_buf_a));
   ArenaBlockStamp stamp;
   stamp.record(a);
@@ -1376,9 +1376,9 @@ inline int run_memory_tests() {
   test_arenavec_rebind_reuses();
   test_arenavec_rebind_grows();
 #ifndef NDEBUG
-  test_arenavec_stale_binding_after_reset();
+  test_arena_block_stamp_reset_and_rewind();
 #else
-  skip_case("test_arenavec_stale_binding_after_reset",
+  skip_case("test_arena_block_stamp_reset_and_rewind",
             "requires debug arena tracking");
 #endif
   test_arenavec_zero_capacity();
