@@ -1200,6 +1200,9 @@ inline void test_update_parameter_by_name() {
   HS_EXPECT_TRUE(fx.flag);
 
   HS_EXPECT_EQ(fx.updateParameter("Flag", 0.5f), ParamSetResult::APPLIED);
+  HS_EXPECT_FALSE(fx.flag);
+  HS_EXPECT_EQ(fx.updateParameter("Flag", std::nextafter(0.5f, 1.0f)),
+               ParamSetResult::APPLIED);
   HS_EXPECT_TRUE(fx.flag);
 
   // Unknown name is a no-op reported as UNKNOWN_PARAM.
