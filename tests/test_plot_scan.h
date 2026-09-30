@@ -1754,6 +1754,8 @@ inline void test_gate_trail_column_cull_honors_unbounded_edge() {
   const math::Vector a(-0.616987944f, -0.142148912f, 0.774028182f);
   const math::Vector b(-0.623163402f, 0.021294117f, 0.78180176f);
 
+  HS_EXPECT_FALSE(Plot::make_geodesic_edge_span(a, b).azimuth_bounded);
+  size_t excluding_bands = 0;
   ScratchScope sc(plot_arena());
   Fragments trail;
   trail.bind(plot_arena(), 2);
@@ -1774,6 +1776,10 @@ inline void test_gate_trail_column_cull_honors_unbounded_edge() {
     cr.x_end = x0 + 96;
     const auto xc = cr.x_clip();
 
+    const auto A = math::vector_to_pixel<TW, TH>(a);
+    const auto B = math::vector_to_pixel<TW, TH>(b);
+    excluding_bands += !cr.contains_x(static_cast<int>(A.x)) &&
+                       !cr.contains_x(static_cast<int>(B.x));
     uint8_t bits[2];
     const bool any =
         Plot::gate_trail_edges<TW, TH>(pipeline, cr, xc, trail, bits);
@@ -1782,6 +1788,7 @@ inline void test_gate_trail_column_cull_honors_unbounded_edge() {
     HS_EXPECT_EQ(any, want);
     HS_EXPECT_EQ(bits[0] != 0, want);
   }
+  HS_EXPECT_GT(excluding_bands, size_t{0});
 }
 
 /**
