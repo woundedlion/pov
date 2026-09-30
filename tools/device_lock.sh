@@ -44,11 +44,11 @@ HS_DEVICE_STALE_GRACE=${HS_DEVICE_STALE_GRACE:-120}
 _hs_lock_base() {
   echo "${HS_DEVICE_LOCK:-${TMPDIR:-${TMP:-/tmp}}/holosphere-teensy-device}"
 }
-# <port> — the lock dir for one board; empty selects the bench status path.
+# <port> names the lock directory for one board.
 _hs_lock_dir() {
   local base; base=$(_hs_lock_base)
   base=${base%.d}
-  [ -n "$1" ] && echo "$base-$1.d" || echo "$base.d"
+  echo "$base-$1.d"
 }
 _hs_now() { date +%s; }
 
@@ -199,7 +199,7 @@ _hs_try_claim() {
     echo "session=${CLAUDE_SESSION_ID:-${HS_SESSION:-local}}"
     echo "pid=$$"
     echo "host=$(hostname)"
-    echo "port=${port:-auto}"
+    echo "port=${port}"
     echo "effect=$effect"
     echo "env=$env"
     echo "started=$now"
@@ -216,7 +216,7 @@ _hs_try_claim() {
     return 2
   fi
   if [ "$(_hs_lock_field "$d" token)" != "$token" ]; then
-    echo "device: cannot record the claim in $d/info — leaving ${port:-auto} unclaimed" >&2
+    echo "device: cannot record the claim in $d/info — leaving ${port} unclaimed" >&2
     _hs_break_lock "$d" "$token" || :
     return 1
   fi
@@ -263,10 +263,10 @@ hs_device_acquire() {
       return 1
     fi
     for p in $ports; do
-      port=$([ "$p" = "-" ] && echo "" || echo "$p")
+      port=$p
       d=$(_hs_lock_dir "$port")
       if _hs_try_claim "$d" "$port" "$effect" "$env" "$eta"; then
-        echo "device: using ${port:-auto-search} (lock $d)" >&2
+        echo "device: using ${port} (lock $d)" >&2
         return 0
       else
         [ "$?" -eq 1 ] || return 2
@@ -275,7 +275,7 @@ hs_device_acquire() {
     # Only once every board is busy: breaking a claim is a last resort, so a
     # stale lock on board A must never be preferred over a free board B.
     for p in $ports; do
-      port=$([ "$p" = "-" ] && echo "" || echo "$p")
+      port=$p
       d=$(_hs_lock_dir "$port")
       local token; token=$(_hs_lock_field "$d" token)
       if _hs_lock_is_stale "$d"; then
@@ -285,7 +285,7 @@ hs_device_acquire() {
           echo "device lock is stale (holder gone or past its ETA) — breaking it" >&2
           echo "$desc" >&2
           _hs_try_claim "$d" "$port" "$effect" "$env" "$eta" && {
-            echo "device: using ${port:-auto-search} (lock $d)" >&2; return 0; }
+            echo "device: using ${port} (lock $d)" >&2; return 0; }
         fi
       fi
     done
@@ -293,7 +293,7 @@ hs_device_acquire() {
       forced=1
       # ports is one board per line; force takes the first.
       p=${ports%%$'\n'*}
-      port=$([ "$p" = "-" ] && echo "" || echo "$p")
+      port=$p
       d=$(_hs_lock_dir "$port")
       if _hs_try_claim "$d" "$port" "$effect" "$env" "$eta"; then
         return 0
@@ -348,16 +348,19 @@ hs_device_release() {
 hs_device_status() {
   local ports p port d free=1
   ports=$(hs_device_ports) || return 2
-  [ -n "$ports" ] || ports="-"
+  if [ -z "$ports" ]; then
+    echo "no Teensy is enumerated"
+    return 1
+  fi
   for p in $ports; do
-    port=$([ "$p" = "-" ] && echo "" || echo "$p")
+    port=$p
     d=$(_hs_lock_dir "$port")
     if [ ! -d "$d" ]; then
-      echo "${port:-auto} free ($d)"; free=0
+      echo "${port} free ($d)"; free=0
     elif _hs_lock_is_stale "$d"; then
-      echo "${port:-auto} lock STALE (breakable): $(_hs_holder_desc "$d")"; free=0
+      echo "${port} lock STALE (breakable): $(_hs_holder_desc "$d")"; free=0
     else
-      echo "${port:-auto} BUSY: $(_hs_holder_desc "$d")"
+      echo "${port} BUSY: $(_hs_holder_desc "$d")"
     fi
   done
   return $free
