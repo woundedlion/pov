@@ -234,9 +234,8 @@ struct ContentTracker {
    * @return True at the single crossing/accept where the construction window —
    * the last K revolutions before the commit boundary — opens.
    * @details commit_in_revs strictly decreases, so == fires exactly once per
-   * window. The announce phase before it is what gives a board that hears only
-   * the last repeat the full K-revolution construction budget; the outgoing
-   * effect keeps playing through it, so the dark window stays K revolutions.
+   * window. The visible blackout spans R+K revolutions; the fail-dark
+   * construction window spans K.
    */
   bool construction_opens(const Config &cfg) const {
     return commit_pending && commit_in_revs == cfg.commit_revs;
