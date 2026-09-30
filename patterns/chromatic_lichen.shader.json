@@ -582,7 +582,7 @@
           "camera.wander": 1,
           "colorize.brightness-envelope": "none",
           "colorize.hue-noise-scale": 0.14453938603401184,
-          "colorize.hue-noise-speed": -1.0416666782475659e-06,
+          "colorize.hue-noise-speed": -0.0000010416666782475659,
           "colorize.hue-shift-amount": 1.5958333015441895,
           "colorize.hue-shift-mode": "noise",
           "colorize.mapping-frequency": 5.375520706176758,
