@@ -47,7 +47,7 @@ public:
   // End generated identity.
   static constexpr uint32_t PARAMETER_SCHEMA_VERSION = 1;
 
-  // Cold entry trampoline; the pipeline body uses hot flash.
+  // Entry trampoline and pipeline body use hot flash.
   static HS_HOT_FLASH_MEMBER Color4
   shade(const math::Vector &view,
         const typename KaleidoscopeStainedGlass::Frame &frame) {
