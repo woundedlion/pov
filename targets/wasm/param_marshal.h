@@ -64,7 +64,7 @@ struct ParamView {
   bool is_bool;          /**< True if the parameter is a boolean toggle. */
   bool is_integer; /**< True if the target stores whole numbers, so the GUI
                        steps by one; set for enums and plain integers alike. */
-  bool animated;   /**< True if the parameter is currently animated. */
+  bool animated;   /**< True if registered as an animated parameter. */
   bool readonly;   /**< True if the parameter is read-only (not editable). */
   bool preset;     /**< True if preset exports include the parameter. */
   const char *const *options; /**< Enum option labels, or null for a plain
