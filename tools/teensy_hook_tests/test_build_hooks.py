@@ -186,9 +186,9 @@ class TestBudgetedEnvsWireTheGate(unittest.TestCase):
 
 
 class TestRequiredHooksReachEveryEnv(unittest.TestCase):
-    """PlatformIO cannot subtract from an inherited list, so the four envs that
+    """PlatformIO cannot subtract from an inherited list, so the envs that
     skip one hook re-type the whole block by hand. Adding a required hook to
-    [env] therefore reaches only the envs that inherit it, and the four that do
+    [env] therefore reaches only the envs that inherit it, and those that do
     not build green without it."""
 
     def test_every_env_resolves_the_required_hooks(self):
