@@ -2,23 +2,12 @@
 name: CI
 
 on:
-  # Restrict push to master: a push to a PR branch already fires the
-  # pull_request event, and the two runs key on different refs
-  # (refs/heads/* vs refs/pull/*/merge) so neither concurrency-cancels the
-  # other. Limiting push avoids that double-run while still covering
-  # direct-to-master pushes that open no PR.
+  # PR branches run through pull_request; direct pushes run on master.
   push:
     branches: [master]
   workflow_dispatch:
-  # No path filter: a docs-only PR must still run the Markdown, image,
-  # license-header, and screenshot-gallery gates.
   pull_request:
 
-# Every actions/checkout step below also passes persist-credentials: false. The
-# token authenticates the fetch and is not wanted afterwards: no job here
-# pushes, calls gh, or reads GITHUB_TOKEN, and leaving it in .git/config would
-# expose it to every third-party lifecycle script a build runs (npm ci, the
-# PlatformIO toolchain downloads, emsdk provisioning).
 permissions:
   contents: read
 
@@ -308,11 +297,7 @@ jobs:
 
   code-coverage:
     name: Native unit tests (Clang) / coverage
-    # Required source-based coverage run. It fails on a broken build or failing
-    # suite, retains an HTML/LCOV report and rejects catastrophic erosion below
-    # a deliberately loose line floor. The current baseline is about 78%.
-    # -DHS_COVERAGE=ON (tests/CMakeLists.txt) instruments run_tests only, and the
-    # gating jobs above stay uninstrumented.
+    # HS_COVERAGE instruments run_tests only; coverage uses the QUICK tier.
     runs-on: ubuntu-24.04
     timeout-minutes: 60
     env:
@@ -331,12 +316,9 @@ jobs:
 
       - name: Install Clang + LLVM + Ninja + ccache
         run: |
-          # llvm-22 supplies llvm-profdata-22 / llvm-cov-22; the profile format is
-          # version-locked to the compiler, so both must be the same major.
+          # LLVM profile tools and compiler must share a major version.
           sudo apt-get install -y clang-22 llvm-22 ninja-build ccache
 
-      # Separate cache prefix: the coverage flags change the compile command, so
-      # this object cache must not collide with the other jobs'.
       - name: Cache ccache
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
@@ -356,12 +338,7 @@ jobs:
         run: cmake --build --preset tests --target run_tests
 
       - name: Run the instrumented suite
-        # No argv = every module in one process, so a single profile covers the
-        # whole roster. The stable QUICK tier keeps reports comparable across
-        # pull requests and master while the separate optimized leg covers FULL.
-        # %p keeps the death harness's re-spawned children off the parent's file.
-        # HS_BUFFER_FREE_WATCHDOG_US for the same reason as the tests job, with
-        # the whole roster instrumented on a 2-vCPU runner.
+        # %p separates death-harness children from the parent profile.
         env:
           HS_SMOKE_FRAMES: *deep_smoke_frames
           HS_EFFECTS_FULL: *quick_effects
@@ -372,15 +349,7 @@ jobs:
         run: build/tests/tests/run_tests
 
       - name: Build coverage reports and enforce the floors
-        # An explicit `shell: bash` is what enables pipefail — GitHub's implicit
-        # shell is `bash -e {0}`, under which tee's status 0 masks a failed
-        # llvm-cov and an empty code fence is published instead.
-        # A repo-wide aggregate holds while a whole subsystem falls to zero, so
-        # the largest core/ subtrees carry their own floors, derived from the
-        # measured coverage. A directory the report names no file under fails
-        # rather than passing vacuously.
-        # The 1% entries for core/spatial, core/platform, hardware and targets
-        # are presence checks, not measured coverage-regression floors.
+        # Explicit bash enables pipefail. The 1% directory floors check presence.
         shell: bash
         run: |
           llvm-profdata-22 merge -sparse -o cov/run_tests.profdata cov/*.profraw
@@ -432,15 +401,7 @@ jobs:
 
   windows-tests:
     name: Native unit tests (Windows / Clang)
-    # The native toolchain file's most intricate logic — the lld-link multicall
-    # alias, CMAKE_LINKER_TYPE LLD, and the Windows SDK rc.exe discovery — only
-    # runs on Windows. This job configures the tests
-    # preset from a plain shell (no Visual Studio Developer Prompt), which is the
-    # "no VS prompt required" promise the README makes.
-    # Explicit label (not windows-latest) so a new Windows Server release cannot
-    # silently re-host the job. The label selects an image family, not a fixed
-    # image: the Windows SDK set behind the rc.exe glob still rolls with GitHub's
-    # image updates.
+    # Exercises Windows toolchain discovery without a VS Developer Prompt.
     runs-on: windows-2025
     timeout-minutes: 90
     steps:
@@ -456,18 +417,13 @@ jobs:
         id: pins
         run: python tools/build_pins.py --github-output
 
-      # emsdk ships the Clang the toolchain prefers AND the lld.exe it aliases to
-      # lld-link.exe — using it (rather than the runner's preinstalled LLVM)
-      # exercises the alias-copy block, not just the linker-type/rc.exe paths.
-      # Same pinned action + version as the wasm job.
+      # emsdk exercises the lld-link alias-copy branch.
       - name: Set up Emscripten
         uses: emscripten-core/setup-emsdk@4528d102f7230f0e7b276855c01ea1159be0e984 # v16
         with:
           version: ${{ steps.pins.outputs.emsdk }}
           actions-cache-folder: emsdk-cache-${{ steps.pins.outputs.emsdk }}
 
-      # No explicit compiler: let the toolchain auto-locate emsdk's Clang and run
-      # its full Windows branch (lld-link alias, rc.exe glob/NATURAL-sort).
       - name: Install pinned CMake
         run: pip install --require-hashes -r requirements/cmake.txt
 
@@ -492,13 +448,7 @@ jobs:
           ctest --preset tests --output-on-failure --no-tests=error
           -E "${{ env.TEST_EXCLUDE }}"
 
-      # _hs_sanitize()'s WIN32 branch (UBSan in trap mode, because emsdk clang
-      # ships no ASan runtime for the MSVC target) is reachable from no other
-      # job: the sanitizers job is Linux and only ever takes the ASan branch. A
-      # second build dir instruments one CTest-registered target rather than the
-      # whole suite — enough to compile the trap flags and the
-      # -fsanitize-ignorelist path, and to run instrumented vendored
-      # FastNoiseLite code, at a fraction of a second sanitized suite build.
+      # Windows uses UBSan trap mode; emsdk provides no MSVC ASan runtime.
       - name: Configure + build the UBSan-trap flavour
         run: |
           cmake --preset tests -B build/tests-ubsan -DHS_INSTALL_GIT_HOOKS=OFF -DHS_SANITIZE=ON
@@ -529,9 +479,6 @@ jobs:
         id: pins
         run: python tools/build_pins.py --github-output
 
-      # The runtime smoke test instantiates the ES-module glue, so the Node that
-      # runs it is part of the shipped contract — pin it rather than inheriting
-      # whatever the runner image carries.
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: ${{ steps.pins.outputs.node }}
@@ -539,19 +486,12 @@ jobs:
       - name: Install Ninja + ccache
         run: sudo apt-get update && sudo apt-get install -y ninja-build ccache
 
-      # Pinned to match the local toolchain. Bump deliberately.
-      # actions-cache-folder persists the emsdk install across runs. This is the
-      # one third-party action and it provisions the toolchain, so it is pinned
-      # to a full commit SHA (not a mutable tag) to prevent a retagged v16 from
-      # silently swapping the compiler.
       - name: Set up Emscripten
         uses: emscripten-core/setup-emsdk@4528d102f7230f0e7b276855c01ea1159be0e984 # v16
         with:
           version: ${{ steps.pins.outputs.emsdk }}
           actions-cache-folder: build/emsdk-cache-${{ steps.pins.outputs.emsdk }}
 
-      # ccache also fronts emcc (CMAKE_CXX_COMPILER_LAUNCHER applies to both
-      # modes), so cache it here too.
       - name: Cache ccache
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
@@ -559,7 +499,6 @@ jobs:
           key: ccache-wasm-${{ github.run_id }}
           restore-keys: ccache-wasm-
 
-      # Reset counters so the informational ccache stats report covers this run.
       - name: Zero ccache stats
         run: ccache -z
 
@@ -567,17 +506,9 @@ jobs:
         run: pip install --require-hashes -r requirements/cmake.txt
 
       - name: Configure + build WASM (compile check)
-        # The build is teed for the warning gate below (2>&1: em++ warnings are on
-        # stderr). An explicit `shell: bash` is what enables pipefail — GitHub's
-        # implicit shell is `bash -e {0}`, under which tee's status 0 masks a
-        # failed build.
         shell: bash
         run: |
-          # Create a throwaway daydream checkout so the install() rules are active
-          # (DAYDREAM_DIR is resolved at configure time and must already exist).
-          # This lets the job exercise the provenance/install path below. The
-          # install refuses a destination without src/app/daydream.js, the marker that
-          # tells a daydream checkout from a mistyped path, so plant one.
+          # DAYDREAM_DIR must exist at configure time and contain the install marker.
           mkdir -p "${{ runner.temp }}/daydream-install/src/app"
           touch "${{ runner.temp }}/daydream-install/src/app/daydream.js"
           mkdir -p "${{ runner.temp }}/daydream-install/docs/screenshots"
@@ -592,13 +523,7 @@ jobs:
           cmake --build --preset wasm-release 2>&1 | tee build/wasm-release-build.log
 
       - name: Configure + build WASM debug (compile check)
-        # The wasm-debug preset (Debug: 64 KB stack, -sASSERTIONS=1) ships no
-        # runtime consumer, so without this it can bit-rot — an assertion or a
-        # debug-only branch that stops compiling would ride a green release build.
-        # Compile-only (no run); reuses the emsdk + ccache provisioned above.
-        # HS_WASM_DEV_BINDINGS=ON rides this build so the dev-only bindings
-        # (MeshOps::getMaxBounds) compile somewhere; no other preset enables them.
-        # `shell: bash` for pipefail, as above.
+        # Compile coverage for debug-only code and developer bindings.
         shell: bash
         run: |
           cmake --preset wasm-debug -DDAYDREAM_DIR="${{ runner.temp }}/daydream-install" \
@@ -606,36 +531,18 @@ jobs:
           cmake --build --preset wasm-debug 2>&1 | tee build/wasm-debug-build.log
 
       - name: Configure + build WASM strict-FP (compile check)
-        # The wasm-strict-fp preset (PullbackStrictFP: -O3 -fno-fast-math
-        # -ffp-contract=off, no LTO) is the configuration tools/pullback_capture.py
-        # and tools/pullback_crosscheck.py build their WASM capture backend under,
-        # and its build type reshapes the shipping holosphere_wasm target too. No
-        # job runs either tool, so without this the whole configuration bit-rots.
-        # Compile-only (no run); reuses the emsdk + ccache provisioned above.
-        # `shell: bash` for pipefail, as above.
+        # Compile coverage for the strict-FP capture configuration.
         shell: bash
         run: |
           cmake --preset wasm-strict-fp -DDAYDREAM_DIR="${{ runner.temp }}/daydream-install"
           cmake --build --preset wasm-strict-fp 2>&1 | tee build/wasm-strict-fp-build.log
 
       - name: First-party WASM warning gate
-        # The WASM target compiles -Wall -Wextra but not -Werror: emscripten's
-        # system headers ride that compile line (CMakeLists.txt). Enforcement is
-        # here instead — fail on any warning whose file sits under a first-party
-        # directory, the same split the firmware ratchet uses
-        # (tools/teensy_warnings.py). A diagnostic raised in a sysroot header
-        # names the sysroot path, which is what makes the path filter sufficient.
-        # No baseline: this target's first-party warning set is empty, so the bar
-        # is zero. All three configurations are checked — -O0 and -O3 diagnose
-        # different things, fast-math and strict FP fold differently, and
-        # HS_WASM_DEV_BINDINGS code compiles only in the debug build. ccache
-        # replays a hit's stored stderr, so a warm cache still surfaces the
-        # warnings.
+        # Reject first-party warnings in all three configurations; sysroot warnings are excluded.
         run: |
           logs=(build/wasm-release-build.log build/wasm-debug-build.log
                 build/wasm-strict-fp-build.log)
-          # A missing log makes grep exit 2, which reads as "no warnings" — assert
-          # the captures exist rather than let a broken tee pass the gate.
+          # grep exits 2 for a missing log, which would otherwise look like no warnings.
           for log in "${logs[@]}"; do
             if [ ! -f "$log" ]; then
               echo "::error::$log missing — the warning capture broke, so the gate proves nothing"
@@ -649,12 +556,7 @@ jobs:
           echo "No first-party warnings in the release, debug or strict-FP WASM build."
 
       - name: Runtime-smoke WASM debug
-        # The debug build carries -sASSERTIONS=1 and a distinct 64 KB stack;
-        # instantiate and drive it so an assertion-guarded or debug-only
-        # regression fails here instead of riding a green compile-only build.
-        # -O0 disables inlining and stack-slot coalescing, so debug frames run
-        # severalfold larger than the -O3 frames the default 2 KB stack-creep
-        # tripwire is calibrated for; give the debug smoke its own 6 KB ceiling.
+        # Debug frames have a 6 KB ceiling; optimized frames use 2 KB.
         env:
           WASM_SMOKE_STACK_CEILING: 6144
         run: node scripts/wasm_smoke.mjs build/wasm-debug/holosphere_wasm.js
@@ -665,27 +567,11 @@ jobs:
         run: ccache -sv
 
       - name: Smoke-test the WASM module at runtime
-        # The build above only proves the module compiles and links. Instantiate
-        # it the way the browser does and drive the engine across every
-        # registered effect at every enumerated resolution, so a SIMD-codegen fault, an
-        # embind signature mismatch, an 8 KB stack overflow, or an
-        # ALLOW_MEMORY_GROWTH detachment regression fails here instead of riding
-        # a green build to deploy. (The script has no dependencies; Node is
-        # pinned above.) The frame depth is the script's own default, so
-        # `just smoke` drives the same run this does.
         run: node scripts/wasm_smoke.mjs build/wasm-release/holosphere_wasm.js
 
       - name: Exercise install + provenance path
         shell: bash
-        # The daydream deploy gate consumes the provenance set (.wasm, .js, .sha,
-        # .wasm.sha256, .toolchain) this install writes, but nothing previously
-        # verified the install rules actually produce them. Run the install target
-        # and assert every installed artifact exists and the recorded hashes
-        # verify (the same sha256 check the gate runs) so a broken provenance step
-        # fails here, not at deploy. The file list is every install() rule in
-        # CMakeLists.txt that names a file, the shader/ document set included;
-        # the gallery and the mirrored patterns are directory installs, diffed
-        # against their sources below.
+        # Verify the installed provenance set and both directory installs.
         run: |
           cmake --build --preset wasm-release-install
           dd="${{ runner.temp }}/daydream-install"
@@ -714,11 +600,7 @@ jobs:
           diff -u \
             <(cd docs/screenshots && find . -type f -name '*.png' | sort) \
             <(cd "$dd/docs/screenshots" && find . -type f -name '*.png' | sort)
-          # The runtime smokes above drive the BUILD tree's glue. The install
-          # rewrites it through file(CONFIGURE ... @ONLY) and then hashes its own
-          # output, so a botched rewrite ships glue whose recorded hash agrees
-          # with it. Instantiate the installed pair — the bytes the deploy gate
-          # verifies and the browser loads.
+          # Exercise installed glue after file(CONFIGURE) rewriting.
           node scripts/wasm_smoke.mjs "$dd/generated/holosphere_wasm.js"
           # A clean CI checkout must record a bare 40-hex SHA (no -dirty marker).
           if grep -q -- '-dirty' "$dd/generated/holosphere_wasm.sha"; then
@@ -732,10 +614,7 @@ jobs:
             echo "::error::release WASM embeds its checkout path and cannot be reproduced in another workspace"
             exit 1
           fi
-          # The toolchain marker must name the emsdk that actually built the
-          # artifacts, otherwise it records nothing the source-pin doesn't already
-          # cover. Compared against the provisioned emcc rather than the pinned
-          # version literal above, so bumping the pin needs no second edit here.
+          # Compare the toolchain marker against the compiler that built the artifact.
           recorded="$(awk '$1 == "emsdk" { print $2 }' "$dd/generated/holosphere_wasm.toolchain")"
           built_with="$("$EMSDK/upstream/emscripten/emcc" -dumpversion)"
           if [ "$recorded" != "$built_with" ]; then
@@ -743,9 +622,7 @@ jobs:
             cat "$dd/generated/holosphere_wasm.toolchain"
             exit 1
           fi
-          # The marker also records the configuration, which the emsdk line does
-          # not distinguish: this install is the wasm-release preset with the dev
-          # bindings off — the shape the deploy gate requires of a shipped module.
+          # The shipped configuration is wasm-release with developer bindings off.
           field() { awk -v k="$1" '$1 == k { print $2 }' "$dd/generated/holosphere_wasm.toolchain"; }
           if [ "$(field build_type)" != "Release" ] || [ "$(field dev_bindings)" != "OFF" ]; then
             echo "::error::holosphere_wasm.toolchain records build_type '$(field build_type)' / dev_bindings '$(field dev_bindings)'; the release install must record Release / OFF"
@@ -774,8 +651,7 @@ jobs:
           )
           (
             cd "$bundle" || exit
-            # The manifest is excluded from the walk, so it is written but never
-            # read by the same pipeline.
+            # The manifest is excluded from the input walk.
             # shellcheck disable=SC2094
             find . -type f ! -name holosphere_engine.sha256 -print0 \
               | sort -z \
@@ -785,9 +661,6 @@ jobs:
 
       - name: Mirrored shader documents match their sources
         shell: bash
-        # The other directory install, checked the way the gallery is above: the
-        # daydream deploy gate reads these documents, so a FILES_MATCHING pattern
-        # that stops selecting one ships a simulator missing a shader.
         run: |
           dd="${{ runner.temp }}/daydream-install"
           out="${{ runner.temp }}"
@@ -845,8 +718,6 @@ jobs:
   reaction-graph-provenance:
     name: Generated reaction-graph table matches committed file
     runs-on: ubuntu-24.04
-    # The generator is O(RD_N*W) with W=1000 and runs in seconds; the bound is a
-    # hang guard for a pathological RD_N/W change, not a budget for today's cost.
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -857,15 +728,6 @@ jobs:
           python-version: '3.12'
 
       - name: Regenerate reaction-graph table and diff the full file
-        # core/spatial/reaction_graph.cpp is the 92 KB Fibonacci-lattice K-NN table,
-        # emitted by scripts/generate_reaction_graph.py (pure Python, no deps).
-        # Diff the FULL text, like the color_luts and srgb_decode gates: the
-        # banner, the array names and the declarations gate alongside the
-        # neighbor indices, and the file is excluded from the clang-format job
-        # (it is emitted, not hand-formatted) so nothing else reads them. The
-        # generator LF-pins its output and reproduces the committed file
-        # byte-for-byte, so any difference is a real divergence — a script edit,
-        # a hand-edit of the table, or a node()-formula change.
         run: |
           python3 scripts/generate_reaction_graph.py -o /tmp/reaction_graph.generated.cpp
           if ! diff -u core/spatial/reaction_graph.cpp \
@@ -880,8 +742,6 @@ jobs:
   gamut-lut-provenance:
     name: Generated gamut LUT matches committed file
     runs-on: ubuntu-24.04
-    # The generator solves ~8.4M first-exit rays and runs ~1-2 min; bound the job
-    # so a resolution change can't hang a runner indefinitely.
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -923,12 +783,6 @@ jobs:
           cmake --build --preset tests --target srgb_decode_gen
 
       - name: Regenerate the decode tables and diff the full header
-        # Diff the FULL text: the banner, the recorded bucket geometry, the
-        # array names and the flash-section marker gate alongside the numbers. The
-        # generator is deterministic integer work over linear_to_srgb_lut, so any
-        # difference is a real divergence — a hand-edit of the table, a
-        # bucket-geometry change, or a color_luts.h regeneration that moved a
-        # step point.
         run: |
           ./build/tests/tests/srgb_decode_gen /tmp/srgb_decode_lut.generated.h
           if ! diff -u core/color/srgb_decode_lut.h \
@@ -961,21 +815,12 @@ jobs:
         with:
           node-version: ${{ steps.pins.outputs.node }}
 
-      # patterns/*.shader.json is compiled from the v1 specs in the generator and
-      # installed into daydream, so a hand edit here is reverted by the next
-      # regeneration. --check recompiles every spec and compares the committed
-      # document after line-ending normalization.
-      # Documents in patterns/ that this generator does not emit are untouched.
+      # --check regenerates owned documents and normalizes line endings.
       - name: Check promoted shader document provenance
         run: node scripts/generate_promoted_shader_documents.mjs --check
 
   scripts-unit-tests:
     name: scripts/*.test.mjs unit suite
-    # The Node unit suite gates the shader-workbench schema and digest
-    # contracts, the WASM smoke predicates, the engine bindings contract, the
-    # profile roster and the PNG probe. It is its own job because ci-green
-    # checks which jobs ran, not which steps they contained: as a step inside
-    # another job, narrowing that job would drop the whole suite silently.
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     steps:
@@ -999,13 +844,7 @@ jobs:
         with:
           node-version: ${{ steps.pins.outputs.node }}
 
-      # Discovered by glob, not enumerated, so a newly added scripts/*.test.mjs
-      # runs here without a workflow edit; require_test_files.sh prevents an
-      # empty match from being reported as green. Driven through
-      # `npm test` so the package.json entry point is the gated command rather
-      # than a second spelling of it. scripts/run_tests.mjs rejects any
-      # discovered test file that executes no cases or no assertions; node
-      # itself counts a file gutted to a comment as one pass.
+      # The runner rejects empty file selections, cases, and assertion counts.
       - name: Every scripts/*.test.mjs unit test runs
         run: |
           bash tools/require_test_files.sh 'scripts/*.test.mjs'
@@ -1013,21 +852,7 @@ jobs:
 
   screenshot-gallery:
     name: Screenshot gallery, profile archive and effect roster
-    # The docs/screenshots gallery is installed into daydream and served live,
-    # but a full headless re-capture per build is far too slow to gate on. This
-    # job is the cheap freshness check instead: it (1) syntax-checks the capture
-    # script — the browser-free decisions it makes are unit-tested by
-    # scripts-unit-tests — (2) asserts the committed PNG
-    # set matches the HS_EFFECT_LIST roster exactly (every effect has a PNG, no
-    # orphans) — catching roster drift like an added/renamed effect whose
-    # screenshot was never captured — and (3) validates each PNG datastream and
-    # its stored dimensions, so a zero-byte or bit-rotted asset cannot ship.
-    # It also checks that the profile archive covers every Phantasm effect.
-    # Profile-command roster validation runs in the lint job.
-    # KNOWN GAP: nothing here compares PNG pixels to what the effect renders, so
-    # a visually-stale image still relies on a manual `npm run screenshots`
-    # re-capture. Driving the real capture would need a Playwright browser and a
-    # served daydream checkout per build.
+    # Checks gallery membership and PNG integrity; pixel freshness requires recapture.
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     steps:
@@ -1043,8 +868,6 @@ jobs:
         id: pins
         run: python tools/build_pins.py --github-output
 
-      # The scripts have no runtime deps (the freshness gate never launches a
-      # browser), but the Node running them is pinned like every other tool.
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: ${{ steps.pins.outputs.node }}
@@ -1061,11 +884,6 @@ jobs:
 
   docs-images:
     name: Documented image references resolve
-    # docs.yml stages these images into the Doxygen artifact, but that workflow
-    # is path-filtered: moving or deleting an image outside docs/screenshots/
-    # matches none of its paths, so the broken reference reaches no run there.
-    # This job needs no Doxygen build — it resolves every `<img>` in the tracked
-    # Markdown against the tracked tree, and ci.yml has no path filter.
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     steps:
@@ -1082,12 +900,6 @@ jobs:
 
   docs-markdown:
     name: Tracked Markdown is valid
-    # Lives here rather than in docs.yml because that workflow is path-filtered
-    # to the Doxygen inputs (**.h, **.cpp, *.md, Doxyfile, justfile, the theme
-    # files). A rename or deletion under scripts/, tools/, .github/ or
-    # platformio.ini breaks a documented link and matches none of those filters,
-    # so the checker never ran on the commit that broke it. ci.yml has no path
-    # filter, so every run of this workflow gates it.
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     steps:
@@ -1103,9 +915,7 @@ jobs:
         id: pins
         run: python tools/build_pins.py --github-output
 
-      # The fence is exhaustive over the daydream tree, so the checkout tracks
-      # the committed pin: daydream's tip moves independently and would red an
-      # unrelated engine change and flip a re-run of an unchanged commit.
+      # The exhaustive daydream file map is checked against its committed pin.
       - name: Check out daydream tree-fence target
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -1115,15 +925,13 @@ jobs:
           persist-credentials: false
           fetch-depth: 0
 
-      # No --sync: it rewrites the maps and counts before checking them, so a
-      # drifted README would pass. `just docs-sync` refreshes generated sections.
+      # --sync would repair drift before the check; CI only validates.
       - name: Validate tracked Markdown
         run: |
           python tools/docs_check.py --checkout daydream=daydream
           python tools/build_pins.py --check
 
-      # An ignore rule is inert against an already-tracked path, so .gitignore
-      # alone cannot keep a session artifact out of the repo.
+      # Ignore rules do not exclude already-tracked session artifacts.
       - name: No tracked-but-ignored paths
         run: |
           tracked_ignored=$(git ls-files -i -c --exclude-standard)
@@ -1135,9 +943,6 @@ jobs:
 
   license-headers:
     name: License headers match LICENSE
-    # LICENSE grants PolyForm outside effects/ and reserves all rights over it,
-    # with a named exception list. Generators emit headers too, so without a
-    # gate the two re-drift on every regeneration.
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     steps:
@@ -1194,12 +999,6 @@ jobs:
 
   clang-format:
     name: Formatting (clang-format)
-    # Cloud counterpart of the .githooks/pre-commit format check. The hook
-    # refuses a missing or mismatched formatter, while CI disables local hooks
-    # and checks the whole tree independently.
-    # Same invocation as the hook (--dry-run --Werror --style=file) over the
-    # same first-party C++ set, but across the whole tracked tree instead of one
-    # commit's staged paths.
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     steps:
@@ -1238,8 +1037,6 @@ jobs:
 
   teensy-size:
     name: Teensy 4 firmware (build + size + layout)
-    # ─── ACTIVE GATE ───────────────────────────────────────────────────────────
-    # Builds all Teensy environments and enforces current memory/layout budgets.
     runs-on: ubuntu-24.04
     timeout-minutes: 60
     steps:
@@ -1253,43 +1050,18 @@ jobs:
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ~/.platformio
-          # Target-agnostic (one toolchain serves all environments). The exact key
-          # rotates on any platformio.ini pin bump; restore-keys then seeds the
-          # restore from the newest prior toolchain cache so a pin bump pays only
-          # for the changed packages, not a full multi-hundred-MB re-download
-          # (mirrors the build-objects cache below). This can't mask a pin change:
-          # `pio run` installs exactly the versions platformio.ini pins on top of
-          # whatever the restore seeded, and the new exact key re-saves the result.
           key: pio-teensy-${{ hashFiles('platformio.ini') }}
           restore-keys: pio-teensy-
       - name: Cache build objects               # mirrors ci.yml's ccache discipline
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
-          # build_cache_dir from platformio.ini — without this the 7,685-line
-          # reaction_graph.cpp + FastLED recompile from scratch in every environment.
           path: .pio/build_cache
-          # Rolling cache (like the toolchain cache above): the github.sha suffix
-          # makes the exact key miss every run, so restore-keys seeds from the
-          # newest prior cache and PlatformIO recompiles only what changed, then
-          # this run saves a fresh entry. The per-commit save trades storage churn
-          # for an always-warm incremental cache independent of branch topology.
           key: pio-objs-${{ hashFiles('platformio.ini') }}-${{ github.sha }}
           restore-keys: pio-objs-${{ hashFiles('platformio.ini') }}-
       - name: Install pinned PlatformIO
         run: pip install --require-hashes -r requirements/platformio.txt
       - name: Build + size + layout gate (shipping targets + compile profiles)
-        # The extra_script (tools/teensy_gate_extra.py) enforces per-env budgets
-        # and sets a non-zero exit on any violation, emitting ::error:: annotations.
-        # holosphere_dma is an ungated compile+link drift check for pov_single.h's
-        # USE_DMA_LEDS path, which no shipping image builds (see platformio.ini).
-        # phantasm8 likewise compiles the optional eight-board firmware profile;
-        # the mechanically qualified N=4 image remains the budgeted target.
-        # profile/profile_o3 are ungated too: they build targets/Profile/Profile.ino
-        # against the HS_PROFILE instrumentation API at both optimization levels,
-        # which no shipping image compiles.
-        # No -e, like the warning ratchet's capture: every environment
-        # platformio.ini declares is built here (it has no default_envs), so a new
-        # budgeted image is size-gated without a second list to edit.
+        # Shipping environments enforce budgets; other environments provide compile coverage.
         run: python tools/teensy_size_table.py
       - name: Upload firmware artifacts
         if: always()
@@ -1301,11 +1073,7 @@ jobs:
 
   teensy-warnings:
     name: Teensy 4 firmware (no first-party warnings)
-    # The warning parser fails on any first-party warning. It needs a
-    # COLD build: a cached/incremental TU emits no warnings, so the object-cached
-    # teensy-size job above cannot feed it. This job is a separate build that does
-    # not restore the build-objects cache and deletes any object cache before
-    # building, so every first-party TU recompiles and emits its warnings.
+    # Warning coverage requires a cold build of every first-party translation unit.
     runs-on: ubuntu-24.04
     timeout-minutes: 60
     steps:
@@ -1316,9 +1084,6 @@ jobs:
         with:
           python-version: '3.12'
 
-      # Toolchain cache is safe to share with teensy-size (it only holds the
-      # downloaded compiler/framework, not built objects). The build-objects
-      # cache is deliberately NOT restored here.
       - name: Cache PlatformIO toolchain
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
@@ -1328,25 +1093,7 @@ jobs:
       - name: Install pinned PlatformIO
         run: pip install --require-hashes -r requirements/platformio.txt
       - name: Cold build + warning ratchet (all targets)
-        # Deleting .pio/build_cache is what makes the build cold. PlatformIO keeps
-        # both the object cache and the SCons signature database under
-        # platformio.ini's build_cache_dir, and there is no env var that disables
-        # it: PLATFORMIO_BUILD_CACHE_DIR is read through a truthiness test, so an
-        # EMPTY value is ignored and build_cache_dir still wins. .pio/build goes
-        # too, so no object is up to date either. Both are absent on a fresh
-        # runner; the removal is what keeps the job cold if a build-objects cache
-        # restore is ever added here.
-        # -v echoes the compiler invocations; warnings go to stderr, so 2>&1 folds
-        # them into the captured log. An explicit `shell: bash` is what enables
-        # pipefail — GitHub's implicit shell is `bash -e {0}`, under which tee's
-        # status 0 masks a failed build.
-        # No -e: every environment platformio.ini declares gets warning coverage,
-        # including profile/profile_o3, the only builds that compile
-        # targets/Profile/Profile.ino and the HS_PROFILE paths in shared render
-        # code. The ratchet expects exactly that same set (platformio.ini has no
-        # default_envs), so an environment that never runs fails the job.
-        # The ratchet re-checks coldness from the log, so a cache reaching this
-        # build fails the job instead of silently shrinking the warning surface.
+        # An empty PLATFORMIO_BUILD_CACHE_DIR is ignored; remove both cache and build outputs.
         shell: bash
         run: |
           bash tools/teensy_cold_build.sh teensy_build.log
@@ -1372,13 +1119,7 @@ jobs:
 
   ci-green:
     name: CI green
-    # The one status branch protection keys on, so a required check covers every
-    # job here instead of a hand-maintained list that a newly added job silently
-    # escapes. `needs` names every other job in this file; the drift check below
-    # fails when one is missing.
-    # `if: always()` is load-bearing: a failed dependency SKIPS a plain job, and
-    # a skipped required check does not block a merge.
-    # Every dependency must report success.
+    # Branch protection requires ci-green; always() prevents failed dependencies from skipping it.
     needs:
       - tests
       - sanitizers
@@ -1417,9 +1158,7 @@ jobs:
         run: |
           WF=.github/workflows/ci.yml
 
-          # Top-level job keys: the two-space-indented `key:` lines after `jobs:`.
-          # Everything inside a job (including block-scalar bodies) is indented
-          # deeper, and the `on:` keys sit above `jobs:`.
+          # Job keys are the two-space-indented keys after jobs:.
           awk '
             /^jobs:[[:space:]]*(#.*)?$/ { injobs = 1; next }
             injobs && /^[^[:space:]]/ { injobs = 0 }
@@ -1433,9 +1172,6 @@ jobs:
             exit 1
           }
 
-          # One "<job> <result>" pair per line. Written to a file rather than
-          # read through a pipeline or process substitution so a failure to
-          # decode the results fails the step instead of reading as "no failures".
           python3 - <<'PY' > /tmp/ci-results.txt
           import json, os
           for job, meta in sorted(json.loads(os.environ["RESULTS"]).items()):
