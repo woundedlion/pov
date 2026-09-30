@@ -1,6 +1,6 @@
 """Rank Quilter autoplace/autoroute candidates by signal integrity + ergonomics.
 
-Parses each candidate's `phantasm_unplaced.kicad_pcb` (KiCad 10 s-expr) directly
+Parses each candidate's `phantasm.kicad_pcb` (KiCad 10 s-expr) directly
 -- no KiCad needed -- and scores the fast nets (the 24 MHz SPI DATA/CLK to the
 strip, DATA_IN/CLK_IN from the Teensy, and the SYNC pair) plus placement quality.
 
@@ -26,7 +26,7 @@ What matters here, and why:
   two *same-net* GND planes (benign), but it is still a stub + impedance bump --
   so fewer fast-net vias and shorter fast nets win. DATA/CLK staying on ONE layer
   (zero vias) is ideal: one continuous reference, no return-path transition.
-- Connectors J2-J4 are locked; the Molex J1 and other loose parts can move.
+- Rev 1.2 connectors J1?J3B are locked; J1 is GCT and there is no J4.
   Ergonomics depends on their accessibility and grouping (decoupling near U1, terminators near the
   strip connector, the high-Z sync divider kept tight).
 """
@@ -45,7 +45,7 @@ import sexp
 from kicad_common import F, kicad_cli, net_name
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-PROJ = os.path.join(os.path.dirname(HERE), "1.1")
+CANDIDATES = os.path.join(os.path.dirname(HERE), "candidates")
 
 # clearance/hole errors against a pour usually clear on a KiCad zone refill (Quilter
 # exports pours without antipads around signal vias) -- flagged separately from real
@@ -325,7 +325,7 @@ def candidate_board(path):
 
 def default_candidates():
     """Return Quilter candidate folders using its supported separators."""
-    pattern = os.path.join(PROJ, "candidates", "*Candidate[ _-]*")
+    pattern = os.path.join(CANDIDATES, "*Candidate[ _-]*")
     return sorted(path for path in glob.glob(pattern) if os.path.isdir(path))
 
 
