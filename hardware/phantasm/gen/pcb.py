@@ -77,9 +77,7 @@ GROUND_NET = "GND"
 GROUND_PLANE_LAYERS = ("In1.Cu", "In2.Cu")
 LAYER_NAMES = {"In1.Cu": "GND", "In2.Cu": "Ground"}
 
-# Standard 1.6 mm JLCPCB 4-layer build (JLC04161H-7628): 1 oz outer copper,
-# 0.5 oz inner, thin outer prepreg over a thick core, ENIG. Encoded in the file
-# so an autoplacer/fab reads the intended stackup without hand-entered values.
+# Rev 1.2: JLC04161H-7628, 1.6 mm, 1 oz outer / 0.5 oz inner copper, ENIG.
 STACKUP = (
     '(layer "F.SilkS" (type "Top Silk Screen"))',
     '(layer "F.Paste" (type "Top Solder Paste"))',

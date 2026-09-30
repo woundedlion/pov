@@ -441,6 +441,9 @@ facts block above.
 
 ## Revision 1.2
 
+Rev 1.2 selects **ENIG** copper finish; the shipped rev 1.1 board uses
+**Lead-Free HASL**. This is a revision-specific fabrication change.
+
 ### Terminal-block clearance
 
 The generator uses **GCT TBC05-02-1-G-G** for J1 (board power) and
