@@ -15,6 +15,7 @@
 #include "render/pullback/surface.h"
 #include "render/pullback/lens.h"
 #include "render/pullback/projection.h"
+#include "render/pullback/ray.h"
 #include "render/pullback/warp.h"
 #include "render/pullback/source.h"
 #include "render/pullback/material.h"
