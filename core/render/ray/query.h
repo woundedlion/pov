@@ -4,6 +4,9 @@
  */
 #pragma once
 
+/** @file query.h
+ * @brief Distance query adapters and placement transforms. */
+
 #include "render/ray/camera.h"
 
 namespace Raycast {

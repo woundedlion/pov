@@ -4,6 +4,9 @@
  */
 #pragma once
 
+/** @file camera.h
+ * @brief Ray camera domains and prepared embeddings. */
+
 #include "math/4dmath.h"
 #include "render/ray/contract.h"
 

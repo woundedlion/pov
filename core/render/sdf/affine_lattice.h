@@ -4,6 +4,9 @@
  */
 #pragma once
 
+/** @file affine_lattice.h
+ * @brief Affine lattice coordinates and traversal. */
+
 #include "render/ray/camera.h"
 #include "render/ray/shade.h"
 

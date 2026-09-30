@@ -4,6 +4,9 @@
  */
 #pragma once
 
+/** @file cellular_wire.h
+ * @brief Cellular wire geometry and ray shading. */
+
 #include "render/ray/camera.h"
 #include "render/ray/shade.h"
 
