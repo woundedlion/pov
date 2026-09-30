@@ -2,12 +2,8 @@
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
  * Licensed under the PolyForm Noncommercial License 1.0.0
  *
- * South-pole Y-clip renormalization coverage for the device H_OFFSET path.
- *
- * Compiled with -DHS_TEST_H_OFFSET=3 so the entire pipeline (PhiLUT / TrigLUT /
- * the AntiAlias renorm) is built with the device geometry. On a host build
- * H_OFFSET == 0, the bottom row maps exactly to the south pole (sin(phi) == 0)
- * and the renorm path is never exercised.
+ * South-pole Y-clip renormalization coverage for the legacy H_OFFSET mapping.
+ * Compiled with HS_TEST_H_OFFSET=3; shipping targets use H_OFFSET == 0.
  */
 #pragma once
 
@@ -24,7 +20,7 @@ namespace h_offset_renorm {
 
 // With HS_TEST_H_OFFSET=3, H_VIRT = H + 3 and the bottom physical row y=H-1
 // lands SHORT of the south pole (sin(phi) > 0).
-#ifdef HS_OFFSET_DEVICE_RESOLUTION
+#ifdef HS_OFFSET_FULL_RESOLUTION
 constexpr int W = 96;
 constexpr int H = 20;
 #else
