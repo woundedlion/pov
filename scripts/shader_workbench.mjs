@@ -162,6 +162,8 @@ class JsonReader {
       fail('parse', 'DEPTH_LIMIT', path, 'The document nesting limit was exceeded.');
     this.space();
     const token = this.source[this.index];
+    if (token === undefined)
+      fail('parse', 'INVALID_JSON', path, 'Unexpected end of input.');
     if (token === '{') return this.object(depth, path);
     if (token === '[') return this.array(depth, path);
     if (token === '"') return this.string(path);
@@ -188,6 +190,8 @@ class JsonReader {
     }
     while (true) {
       this.space();
+      if (this.index === this.source.length)
+        fail('parse', 'INVALID_JSON', path, 'Unexpected end of input.');
       if (this.source[this.index] !== '"')
         fail('parse', 'INVALID_JSON', path, 'An object key must be a JSON string.');
       const key = this.string(path).normalize('NFC');
