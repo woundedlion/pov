@@ -110,8 +110,10 @@ template <typename Surface> void measure(const char *name) {
                 static_cast<double>(M.unresolved) / M.rays,
                 static_cast<double>(M.reference_unresolved) / M.rays,
                 static_cast<double>(M.hit_disagreement) / M.rays,
-                M.image_error / M.rays, M.total_ms / 72.0, M.peak_ms,
-                static_cast<double>(M.inside_starts) / M.rays);
+                M.image_error / M.rays,
+                M.total_ms /
+                    (2.0 * PERIODS.size() * ISOVALUES.size() * CENTERS.size()),
+                M.peak_ms, static_cast<double>(M.inside_starts) / M.rays);
   }
 }
 
