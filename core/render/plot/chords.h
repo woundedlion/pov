@@ -347,7 +347,8 @@ public:
             last = fminf(last, fmaxf(s_lo, s_hi) + 1.0f);
           };
           restrict_range(y_start, segment_dy, band.row_lo, band.row_hi);
-          if (band.x_active && fabsf(segment_dx) < W * 0.25f) {
+          if (band.x_active && fabsf(segment_dx) < W * 0.25f &&
+              fabsf(segment_dx) < W - 2.0f * band.x_half) {
             const float shift =
                 W * rintf((x_start + 0.5f * segment_dx - band.x_center) / W);
             restrict_range(x_start, segment_dx,
