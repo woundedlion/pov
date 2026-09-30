@@ -245,6 +245,22 @@ template <typename Source> class NoiseHuePalette {
 public:
   NoiseHuePalette() = default;
 
+  /** @brief Binds a source for direct hue rotation and a shared noise field. */
+  NoiseHuePalette(const Source *source, const int8_t *hue_noise_lut) {
+    bind(source, hue_noise_lut);
+  }
+
+  /** @brief Binds direct hue rotation without a palette-by-hue LUT. */
+  void bind(const Source *source, const int8_t *hue_noise_lut) {
+    HS_CHECK(source != nullptr,
+             "NoiseHuePalette direct mode bound to null source");
+    HS_CHECK(hue_noise_lut != nullptr,
+             "NoiseHuePalette direct mode bound to null hue-noise LUT");
+    this->source = source;
+    hue_rotation = {nullptr, false};
+    hue_noise = {hue_noise_lut, true};
+  }
+
   /**
    * @brief Constructs a bound noise-hue palette.
    * @param source Base palette.
@@ -317,6 +333,10 @@ public:
    */
   Color4 get(float value, float hue_shift) const {
     assert(source != nullptr && "NoiseHuePalette used before bind()!");
+    if (!hue_rotation.active) {
+      const Color4 color = source->get(value);
+      return hue_shift == 0.0f ? color : hue_rotate_lut_gamut(color, hue_shift);
+    }
     // The rotation LUT supplies the color, so only the source's alpha is read;
     // a source with an alpha-only sampler skips its color interpolation.
     float alpha;
