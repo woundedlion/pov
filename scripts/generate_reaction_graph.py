@@ -27,6 +27,7 @@ Lattice (mirrors core/spatial/reaction_graph.h::node):
 
 neighbors[i] = the RD_K indices j != i minimizing |node(i) - node(j)|^2, sorted
 by (distance, index) so ties break deterministically toward the lower index.
+neighbor_runs[] groups consecutive rows with identical ordered neighbor-i offsets.
 
 Usage:
   python scripts/generate_reaction_graph.py            # rewrite the table in place
@@ -153,6 +154,24 @@ def emit(table, out):
         comma = "," if idx + 1 < len(table) else ""
         out.write("  {" + ", ".join(str(v) for v in row) + "}" + comma + "\n")
     out.write("};\n")
+
+    runs = []
+    for idx, row in enumerate(table):
+        delta = tuple(neighbor - idx for neighbor in row)
+        if runs and runs[-1][1] == delta:
+            runs[-1] = (idx + 1, delta)
+        else:
+            runs.append((idx + 1, delta))
+    out.write("\nHS_PROGMEM_UNIQUE(neighbor_runs) const "
+              "ReactionGraph::NeighborRun ReactionGraph::neighbor_runs[] = {\n")
+    for idx, (end, delta) in enumerate(runs):
+        comma = "," if idx + 1 < len(runs) else ""
+        out.write("  {" + str(end) + ", {" + ", ".join(str(v) for v in delta)
+                  + "}}" + comma + "\n")
+    out.write("};\n")
+    out.write("\nHS_PROGMEM_UNIQUE(neighbor_run_count) const unsigned "
+              "ReactionGraph::NEIGHBOR_RUN_COUNT =\n"
+              "    sizeof(neighbor_runs) / sizeof(neighbor_runs[0]);\n")
 
 
 def main(argv=None):
