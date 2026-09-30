@@ -1075,9 +1075,7 @@ class TestWarningRatchetCaptureEvidence(unittest.TestCase):
 class TestColdCaptureAudit(unittest.TestCase):
     """A partially cached build must FAIL, not pass on a shrunken warning set.
 
-    The old guard only demanded ONE first-party compile, so a build serving 12 of
-    18 TUs from PlatformIO's object cache read as green while two thirds of the
-    warning surface was never compiled. The expectation is derived from
+    Every expected first-party translation unit must compile. The set is derived from
     `build_src_filter` in PlatformIO's own banner, so it tracks a new TU or a new
     environment with nothing to keep in sync.
     """

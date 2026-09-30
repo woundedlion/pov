@@ -12,8 +12,8 @@
 # unprofiled with nothing reporting it.
 # Sequential profile_one.sh calls per group. A failed capture is recorded and
 # the group carries on: the board can drop USB mid-capture, and aborting the
-# group turns one dropped effect into every later one missing (a single hang
-# once cost five captures). The group exits non-zero listing what failed, so
+# group turns one dropped effect into every later one missing.
+# The group exits non-zero listing what failed, so
 # a re-run only needs those effects.
 # A capture must fit inside one epoch: crossing a boundary re-inits the effect
 # mid-run, and an init that overruns the K-revolution commit window traps the

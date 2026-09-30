@@ -62,8 +62,7 @@ class SpilledFrames(unittest.TestCase):
         self.assertEqual(pp.spilled_frames(_window([W])), 0)
 
     def test_heavy_frame_counts_once_not_per_missed_flip(self):
-        # 3.2 windows: 3 missed flips, but one spilled frame. Counting flips
-        # here is what let the aggregate read 532 spilled of 512 frames.
+        # 3.2 windows: 3 missed flips, but one spilled frame.
         self.assertEqual(pp.spilled_frames(_window([W * 3 + W // 5])), 1)
 
     def test_never_exceeds_frame_count(self):
@@ -1057,7 +1056,6 @@ class BucketOrdering(unittest.TestCase):
 
     The bucket holds every frame the preset was on screen for, transitions
     included, so it is a superset of the frames the clean holds average over.
-    Two committed profile rows once reported the inversion.
     """
 
     def _run(self, render_us, shader_us_per_frame, frames=4, scope="shader"):
