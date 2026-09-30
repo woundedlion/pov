@@ -51,12 +51,12 @@ inline PreparedTrace prepare_trace(const FrameState &frame) {
 inline float near_field_coverage(float t, float start, float inverse) {
   return math::cubic_kernel((t - start) * inverse);
 }
-template <bool SLICE = false, uint8_t SHELLS = 0>
+template <bool SLICE = false>
 auto trace_plane(const math::Vec4 &origin, const math::Vec4 &direction,
                  int axis, float distance, float step,
                  const PreparedTrace &prepared) {
-  auto result = SDF::Lattice::trace_plane<SLICE, SHELLS>(
-      origin, direction, axis, distance, step, prepared);
+  auto result = SDF::Lattice::trace_plane<SLICE>(origin, direction, axis,
+                                                 distance, step, prepared);
   result.coverage *= prepared.appearance.opacity(distance);
   return result;
 }
@@ -83,7 +83,7 @@ inline TraceHit trace(const math::Vector &normal,
   });
   return result;
 }
-template <bool SLICE = false, uint8_t SHELLS = 0>
+template <bool SLICE = false>
 Color4 shade_mode(const Pullback::SphereSample &input, const FrameState &frame,
                   const PreparedTrace &prepared) {
   return HyperLatticeDetail::Renderer<SLICE, SHELLS>::shade(
@@ -273,7 +273,7 @@ inline void test_near_field_fade() {
           HS_EXPECT_NEAR(hit.coverage / (fog * fog),
                          fraction * fraction * (3.0f - 2.0f * fraction), 1e-5f);
           if (mode == HL::LatticeMode::FOUR_D_SLICE) {
-            const auto specialized = HL::trace_plane<true, 2>(
+            const auto specialized = HL::trace_plane<true>(
                 origin, direction, 0, distance, cell_size, prepared);
             HS_EXPECT_NEAR(specialized.coverage, hit.coverage, 1e-5f);
           }
