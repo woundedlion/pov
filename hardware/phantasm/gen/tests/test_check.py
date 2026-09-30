@@ -41,8 +41,8 @@ def netlist(nets):
     return sexp.parse("\n".join(out))[0]
 
 
-def committed_board_nets():
-    path = REPO_ROOT / "hardware" / "phantasm" / "1.1" / "phantasm.kicad_pcb"
+def committed_board_nets(revision="1.1"):
+    path = REPO_ROOT / "hardware" / "phantasm" / revision / "phantasm.kicad_pcb"
     root = sexp.parse(path.read_text(encoding="utf-8"))[0]
     nets = {}
     for footprint in (
@@ -115,6 +115,9 @@ class MalformedNetlistTests(unittest.TestCase):
 
 
 class GateTests(unittest.TestCase):
+    def test_accepts_committed_upload_board(self):
+        self.assertTrue(check.check(committed_board_nets("1.2"), "1.2"))
+
     def test_old_shared_input_is_rejected_for_revision_1_2(self):
         output = io.StringIO()
         with contextlib.redirect_stdout(output):
