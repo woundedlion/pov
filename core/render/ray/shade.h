@@ -59,8 +59,7 @@ shade_events(Adapter &adapter, Interval interval, const TraceLimits &limits,
       trace_events(adapter, interval, limits,
                    [&](const Contribution &hit) __attribute__((always_inline)) {
                      HS_PROFILE_DEEP(hl_layer_composite);
-                     composite.add(appearance.color(hit.t),
-                                   hit.coverage * appearance.opacity(hit.t));
+                     appearance.composite(composite, hit.t, hit.coverage);
                      return !composite.saturated();
                    });
   return {composite.finish(), trace};
@@ -78,9 +77,8 @@ HS_HOT_FLASH_MEMBER ShadedTrace shade_surface(const Query &query,
   auto trace = surface_search(query, ray, footprint, limits);
   LayerComposite composite;
   if (trace.has_surface)
-    composite.add(appearance.color(trace.contribution.t),
-                  trace.contribution.coverage *
-                      appearance.opacity(trace.contribution.t));
+    appearance.composite(composite, trace.contribution.t,
+                         trace.contribution.coverage);
   return {composite.finish(), trace};
 }
 

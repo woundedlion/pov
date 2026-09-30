@@ -41,11 +41,9 @@ void check_cubic(const SDF::Lattice::PreparedShading &prepared,
   const auto expected = Raycast::shade_events(
       events, {0, prepared.lattice.far_distance}, {}, prepared.appearance);
   HS_EXPECT_NEAR(actual.alpha, expected.color.alpha, 3e-4f);
-  const Pixel color = composite.premultiplied();
-  const Pixel expected_color = expected.color.color * expected.color.alpha;
-  HS_EXPECT_NEAR(color.r, expected_color.r, 2);
-  HS_EXPECT_NEAR(color.g, expected_color.g, 2);
-  HS_EXPECT_NEAR(color.b, expected_color.b, 2);
+  HS_EXPECT_EQ(actual.color.r, expected.color.color.r);
+  HS_EXPECT_EQ(actual.color.g, expected.color.color.g);
+  HS_EXPECT_EQ(actual.color.b, expected.color.color.b);
   lit += actual.alpha > 0.0f;
 }
 
