@@ -273,9 +273,8 @@ public:
       if (std::isfinite(s))
         speed = s;
     }
-    // Accepted limit: under wrap = false, past mutant == 2^24 (~77 h at 60 fps
-    // and speed 1, sooner at higher speed) float can't represent consecutive
-    // steps and the value freezes.
+    // Without wrapping, float accumulation can freeze after roughly 2^24
+    // frames, when |mutant| approaches |speed| * 2^24.
     mutant.get() += speed;
     if (wrap) {
       mutant.get() = math::wrap_t(mutant.get());
@@ -641,8 +640,8 @@ public:
    */
   void step(Canvas &canvas) override {
     AnimationBase::step(canvas);
-    // Accepted limit: past phase_time == 2^24 float can't represent consecutive
-    // steps and the phase freezes; this animation is perpetual (duration == -1).
+    // Float accumulation can freeze after roughly 2^24 frames, when
+    // |phase_time| approaches |speed| * 2^24.
     phase_time += speed;
     float time = phase_time;
     float s = scale;
@@ -877,9 +876,8 @@ public:
    */
   void step(Canvas &canvas) override {
     AnimationBase::step(canvas);
-    // Accepted limit: past time == 2^24 (~77 h at 60 fps and speed 1, sooner at
-    // higher speed) float can't represent consecutive steps and the noise time
-    // axis freezes.
+    // Float accumulation can freeze after roughly 2^24 frames, when
+    // |time| approaches |speed| * 2^24.
     const float speed = params.get().speed;
     if (std::isfinite(speed))
       params.get().time += speed;
