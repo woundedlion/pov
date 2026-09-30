@@ -6644,6 +6644,77 @@ inline void test_planar_band_split_matches_whole_polyline() {
   HS_EXPECT_GT(skipped, size_t{0});
 }
 
+/**
+ * @brief Verifies PlanarChords' band-split pole runs draw each quadrant as the
+ *        whole stroke does, to a fraction of a pixel.
+ */
+inline void test_planar_chords_pole_split_matches_whole_star() {
+  constexpr int W = 288, H = 144;
+  constexpr int POLE_ROWS = 3;
+  hs_test::StubEffect fx(W, H);
+  const int quadrants[4][4] = {{0, H / 2, 0, W / 2},
+                               {0, H / 2, W / 2, W},
+                               {H / 2, H, 0, W / 2},
+                               {H / 2, H, W / 2, W}};
+  const std::array<PlanarChordStar, 5> stars = {{
+      {math::make_rotation(math::X_AXIS, math::Y_AXIS), 0.12f, 7, 0.6f},
+      {math::make_rotation(math::X_AXIS, math::Y_AXIS), 0.35f, 7, 1.7f},
+      {math::make_rotation(math::X_AXIS, -math::Y_AXIS), 0.22f, 5, 0.9f},
+      {math::Quaternion(0.72f, -0.41f, 0.18f, 0.53f).normalized(), 1.8f, 7,
+       2.4f},
+      {math::Quaternion(0.93f, -0.11f, 0.24f, 0.25f).normalized(), 0.3f, 9,
+       0.2f},
+  }};
+  size_t split_changed = 0;
+  for (const PlanarChordStar &star : stars) {
+    fx.set_clip(0, H, 0, W);
+    const auto whole = render_planar_chord_star<W, H>(fx, star, true);
+    for (const auto &q : quadrants) {
+      fx.set_clip(q[0], q[1], q[2], q[3]);
+      Plot::g_planar_chords_split_pole_runs = false;
+      const auto unsplit = render_planar_chord_star<W, H>(fx, star, true);
+      Plot::g_planar_chords_split_pole_runs = true;
+      const auto tile = render_planar_chord_star<W, H>(fx, star, true);
+      uint64_t whole_energy = 0, tile_energy = 0;
+      size_t uncovered = 0;
+      for (int y = q[0]; y < q[1]; ++y)
+        for (int x = q[2]; x < q[3]; ++x) {
+          const size_t i = static_cast<size_t>(y) * W + x;
+          split_changed += !(tile[i] == unsplit[i]);
+          const Pixel &p = whole[i];
+          whole_energy += static_cast<uint64_t>(p.r) + p.g + p.b;
+          tile_energy +=
+              static_cast<uint64_t>(tile[i].r) + tile[i].g + tile[i].b;
+          // A pole row's columns span almost no arc, so a sub-pixel shift
+          // in sample phase moves a dot there by whole columns.
+          if (static_cast<uint32_t>(p.r) + p.g + p.b < 12288 || y < POLE_ROWS ||
+              y >= H - POLE_ROWS)
+            continue;
+          bool covered = false;
+          for (int dy = -1; dy <= 1 && !covered; ++dy)
+            for (int dx = -1; dx <= 1 && !covered; ++dx) {
+              const int sy = y + dy;
+              if (sy < 0 || sy >= H)
+                continue;
+              covered = !is_black(
+                  tile[static_cast<size_t>(sy) * W + (x + dx + W) % W]);
+            }
+          if (!covered)
+            ++uncovered;
+        }
+      HS_EXPECT_EQ(uncovered, size_t{0});
+      if (whole_energy == 0)
+        continue;
+      const double drift = std::fabs(static_cast<double>(tile_energy) -
+                                     static_cast<double>(whole_energy)) /
+                           static_cast<double>(whole_energy);
+      HS_EXPECT_LT(drift, 0.005);
+    }
+  }
+  fx.set_clip(0, H, 0, W);
+  HS_EXPECT_GT(split_changed, size_t{0});
+}
+
 inline int run_plot_scan_tests() {
   hs_test::ModuleFixture fixture("plot_scan");
 
@@ -6692,6 +6763,7 @@ inline int run_plot_scan_tests() {
   test_ring_draw_stride_tracks_full_grid();
   test_ring_draw_accepts_direct_sink();
   test_planar_chords_match_rasterize_brightness();
+  test_planar_chords_pole_split_matches_whole_star();
   test_planar_band_split_matches_whole_polyline();
 
   test_distorted_ring_sample_angle_addition_identity();
