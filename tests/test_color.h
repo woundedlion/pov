@@ -2751,6 +2751,14 @@ inline void test_lms_transform_pair_matches_scalar() {
                                 paired[0], paired[1], paired[2], paired[3],
                                 paired[4], paired[5]);
         HS_EXPECT_EQ(std::memcmp(scalar, paired, sizeof(scalar)), 0);
+        lms_cbrt_transform_rgb_lut(matrix, a[0], a[1], a[2], scalar[0],
+                                   scalar[1], scalar[2]);
+        lms_cbrt_transform_rgb_lut(matrix, b[0], b[1], b[2], scalar[3],
+                                   scalar[4], scalar[5]);
+        lms_cbrt_transform_rgb2_lut(matrix, a[0], a[1], a[2], b[0], b[1], b[2],
+                                    paired[0], paired[1], paired[2], paired[3],
+                                    paired[4], paired[5]);
+        HS_EXPECT_EQ(std::memcmp(scalar, paired, sizeof(scalar)), 0);
       }
     }
   }
