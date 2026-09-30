@@ -33,7 +33,6 @@ HS_O3_BEGIN
  * rotate(local_p, q). ray_to_local uses q.inverse() to map world→local.
  */
 template <typename SDF> struct TransformedVolume {
-  /** Largest trustworthy clearance report from the underlying shape. */
   const SDF &sdf;         /**< Underlying SDF evaluated in local space. */
   math::Vector center;    /**< World-space origin of the local frame. */
   math::Quaternion q_inv; /**< Precomputed inverse rotation (world→local). */
