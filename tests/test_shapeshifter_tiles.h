@@ -54,13 +54,37 @@ inline constexpr OracleClip QUADRANTS[] = {
 
 template <typename Render>
 inline void expect_mosaic_matches(OracleState state, Render render,
-                                  std::span<const OracleClip> clips) {
+                                  std::span<const OracleClip> clips,
+                                  bool approximate = false) {
   const OracleFrame full = capture_frame(state, render);
   OracleFrame tiled;
   tiled.pixels.resize(static_cast<size_t>(ORACLE_W) * ORACLE_H);
   for (const OracleClip &clip : clips) {
     state.clip = clip;
     copy_clip(tiled, capture_frame(state, render), clip);
+  }
+  if (approximate) {
+    const uint64_t ENERGY = frame_energy(full);
+    HS_EXPECT_GT(ENERGY, uint64_t{0});
+    HS_EXPECT_LT(std::fabs(static_cast<double>(frame_energy(tiled)) - ENERGY) /
+                     ENERGY,
+                 0.035);
+    size_t uncovered = 0;
+    for (int y = 3; y < ORACLE_H - 3; ++y)
+      for (int x = 0; x < ORACLE_W; ++x) {
+        const Pixel &p = full.at(x, y);
+        if (static_cast<uint32_t>(p.r) + p.g + p.b < 12288)
+          continue;
+        bool covered = false;
+        for (int dy = -1; dy <= 1; ++dy)
+          for (int dx = -1; dx <= 1; ++dx) {
+            const Pixel &q = tiled.at((x + dx + ORACLE_W) % ORACLE_W, y + dy);
+            covered |= q.r != 0 || q.g != 0 || q.b != 0;
+          }
+        uncovered += !covered;
+      }
+    HS_EXPECT_EQ(uncovered, size_t{0});
+    return;
   }
   const FrameErrorStats error = compare_buffers(full, tiled);
   HS_EXPECT_GT(frame_energy(full), uint64_t{0});
@@ -76,10 +100,10 @@ expect_segment_tiles_reconstruct_full_frame(Render render,
   const auto matrix = shape_function_matrix();
   for (int shape = 0; shape < 5; ++shape) {
     OracleState state = matrix[shape * 4 + shape % 4];
-    if (band_split_flower && state.shape == OracleEffect::ShapeType::FLOWER)
-      continue;
     state.orientation = math::Quaternion();
-    expect_mosaic_matches(state, render, QUADRANTS);
+    expect_mosaic_matches(state, render, QUADRANTS,
+                          band_split_flower &&
+                              state.shape == OracleEffect::ShapeType::FLOWER);
   }
 }
 
@@ -157,6 +181,15 @@ inline int run_shapeshifter_tiles_tests() {
   test_segment_tiles_reconstruct_full_frame();
   test_star_azimuthal_cull_spans_narrow_columns();
   Plot::g_planar_chords_split_pole_runs = true;
+  OracleState state;
+  state.shape = OracleEffect::ShapeType::PLANAR_STAR;
+  state.count = 288;
+  state.sides = 7;
+  state.alpha = 0.274f;
+  state.spacing = OracleEffect::RadiusSpacing::SCREEN_BALANCED;
+  state.phase = 0.249f;
+  state.orientation = math::make_rotation(math::X_AXIS, math::Y_AXIS);
+  expect_mosaic_matches(state, candidate_renderer(), QUADRANTS, true);
   return fixture.result();
 }
 
