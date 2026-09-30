@@ -6367,11 +6367,21 @@ inline void test_four_regular_and_medial_edge_extraction() {
   }
   Plot::Mesh::extract_medial_edges(mesh, unique, medial);
   HS_EXPECT_SIZE_OR_RETURN(medial, mesh.faces.size());
+  std::vector<int> incidence(unique.size(), 0);
   for (const auto &edge : medial) {
     HS_EXPECT_LT(edge.u, unique.size());
     HS_EXPECT_LT(edge.v, unique.size());
     HS_EXPECT_NE(edge.u, edge.v);
+    if (edge.u >= unique.size() || edge.v >= unique.size())
+      continue;
+    const auto &a = unique[edge.u];
+    const auto &b = unique[edge.v];
+    HS_EXPECT_EQ((a.u == b.u) + (a.u == b.v) + (a.v == b.u) + (a.v == b.v), 1);
+    ++incidence[edge.u];
+    ++incidence[edge.v];
   }
+  for (const int count : incidence)
+    HS_EXPECT_EQ(count, 4);
 }
 
 // ============================================================================
