@@ -1440,11 +1440,24 @@ private:
       parameters_restored = true;
     }
 #endif
-    if (!parameters_restored)
-      for (const auto &[name, value] : parameters)
-        HS_CHECK(current_effect->updateParameter(name.c_str(), value) ==
-                     ParamSetResult::APPLIED,
+    if (!parameters_restored) {
+      while (!parameters.empty()) {
+        const size_t REMAINING = parameters.size();
+        for (auto it = parameters.begin(); it != parameters.end();) {
+          const auto RESULT =
+              current_effect->updateParameter(it->first.c_str(), it->second);
+          if (RESULT == ParamSetResult::APPLIED)
+            it = parameters.erase(it);
+          else {
+            HS_CHECK(RESULT == ParamSetResult::INADMISSIBLE,
+                     "Geometry rebuild must restore the effect parameters");
+            ++it;
+          }
+        }
+        HS_CHECK(parameters.size() < REMAINING,
                  "Geometry rebuild must restore the effect parameters");
+      }
+    }
     setAnimationsPaused(PAUSED);
     setClip(CLIP.x_start, CLIP.x_end, CLIP.y_start, CLIP.y_end);
     param_generation.observe(current_effect->getParameterSchemaGeneration());
