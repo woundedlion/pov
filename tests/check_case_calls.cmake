@@ -1,3 +1,8 @@
+# Every recognized case must also reach an HS_EXPECT assertion, directly or
+# through helpers. Case return types are void, bool, int, or size_t; helper
+# assertion traversal also recognizes ChainPeaks. run_*_cases are case drivers;
+# run_*_tests are module entry points. Indented member definitions are excluded.
+#
 # Require every test case defined in a tests/*.h or tests/*.hpp header to be
 # REACHABLE from the module entry point its header defines: run_*_tests() calls
 # it, or a case run_*_tests() reaches does. Off-roster helpers defined in one

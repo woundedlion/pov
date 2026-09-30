@@ -392,9 +392,9 @@ add_test(NAME unit_module_includes COMMAND ${CMAKE_COMMAND}
     -DTOOLS_DIR=${HS_ROOT}/tools
     -P ${CMAKE_CURRENT_SOURCE_DIR}/check_includes.cmake)
 
-# Require every test case defined in a tests/*.h header to have a call site: in
-# the same header for module cases, or anywhere under tests/ and tools/ for
-# shared helpers.
+# Check reachability and assertion reach for column-0 void/bool/int/size_t
+# cases in tests/*.h and tests/*.hpp, including run_*_cases drivers. Shared
+# helpers resolve across tests/ and tools/; member definitions are excluded.
 add_test(NAME unit_case_calls COMMAND ${CMAKE_COMMAND}
     -DCACHE_FILE=${CMAKE_CURRENT_BINARY_DIR}/case_calls.sha256
     -DTESTS_DIR=${CMAKE_CURRENT_SOURCE_DIR}
