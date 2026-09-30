@@ -16,6 +16,7 @@
 #include "tests/test_fixture.h"
 #include "tests/test_harness.h"
 
+#include <algorithm>
 #include <limits>
 
 namespace hs_test {
