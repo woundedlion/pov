@@ -39,7 +39,7 @@ minus shipping bytes from each pair's own image-size reports.
 | [AshCloud](shipping/profile_ashcloud_teensy_2026-09-28.md) / [O3](O3/profile_ashcloud_teensy_2026-08-26.md) | `fx_shader_draw` | 🟢 44.57 | 🔴 79.81 | 🟢 0/1087 (0.00%) | 🔴 544/544 (100%) | +16,608 B | +12,112 B | ship 2026-09-28 17:33<br>O3 2026-08-26 02:45 |
 | [KaleidoscopeStainedGlass](shipping/profile_kaleidoscopestainedglass_teensy_2026-09-28.md) / [O3](O3/profile_kaleidoscopestainedglass_teensy_2026-08-26.md) | `fx_shader_draw` | 🟢 43.50 | 🟢 46.99 | 🟢 0/1087 (0.00%) | 🟢 0/1088 (0%) | +13,784 B | +11,632 B | ship 2026-09-28 17:35<br>O3 2026-08-26 02:51 |
 | [DreamBalls](shipping/profile_dreamballs_teensy_2026-09-28.md) / [O3](O3/profile_dreamballs_teensy_2026-08-26.md) § | `db_timeline_step` | 🟢 42.66 (10) | 🟢 34.32 (11) | 🟢 0/3647 (0.00%) | 🟢 0/3648 (0%) | +26,896 B | +12,352 B | ship 2026-09-28 18:45<br>O3 2026-08-26 02:19 |
-| [ShapeShifter](shipping/profile_shapeshifter_teensy_2026-09-29.md) ● / [O3](O3/profile_shapeshifter_teensy_2026-09-25.md) § | `ss_draw_all` | 🟢 40.45 (9) | 🟢 60.05 (9) | 🟢 0/2448 (0.00%) | 🟢 0/2457 (0.00%) | +28,272 B | +31,904 B | ship 2026-09-29 19:01<br>O3 2026-09-25 07:29 |
+| [ShapeShifter](shipping/profile_shapeshifter_teensy_2026-09-29.md) ● / [O3](O3/profile_shapeshifter_teensy_2026-09-25.md) § | `ss_draw_all` | 🟢 40.57 (9) | 🟢 60.05 (9) | 🟢 0/2448 (0.00%) | 🟢 0/2457 (0.00%) | +24,864 B | +31,840 B | ship 2026-09-29 21:00<br>O3 2026-09-25 07:29 |
 | [MermaidSkin](shipping/profile_mermaidskin_teensy_2026-09-28.md) / [O3](O3/profile_mermaidskin_teensy_2026-08-26.md) | `fx_shader_draw` | 🟢 39.57 | 🟢 54.55 | 🟢 0/1087 (0.00%) | 🟢 0/1088 (0%) | +16,544 B | +11,952 B | ship 2026-09-28 18:49<br>O3 2026-08-26 02:43 |
 | [KaleidoscopeHexOil](shipping/profile_kaleidoscopehexoil_teensy_2026-09-28.md) / [O3](O3/profile_kaleidoscopehexoil_teensy_2026-08-26.md) § | `fx_shader_draw` | 🟢 38.51 (2) | 🟢 38.94 (3) | 🟢 0/2207 (0.00%) | 🟢 0/2208 (0%) | +13,456 B | +10,608 B | ship 2026-09-28 18:54<br>O3 2026-08-26 02:49 |
 | [HyperLattice](shipping/profile_hyperlattice_teensy_2026-09-29.md) ● / [O3](O3/profile_hyperlattice_teensy_2026-09-27.md) § | `hl_shader_draw` | 🟢 36.65 (3) | 🟢 54.817 (2) | 🟢 0/1887 (0.00%) | 🟢 0/1576 (0.00%) | +9,736 B | +8,240 B | ship 2026-09-29 14:54<br>O3 2026-09-27 01:05 |
@@ -82,7 +82,7 @@ probe and are independent of the on-device timing tables.
 
 ● HyperLattice refreshed on 2026-09-29 after its optimization campaign: all three presets and their segues; setup frame 1 excluded. Its O3 column predates the campaign.
 
-● ShapeShifter refreshed on 2026-09-29 19:01 after the dense planar-star optimization (O3 column predates it), and MindSplatter on 2026-09-29 after the Plot float min/max sweep (`c40c1def8`); setup frame 1 excluded. Their O3 columns predate the sweep; the image deltas use the new shipping sizes.
+● ShapeShifter refreshed on 2026-09-29 21:00 after the dense planar-star and Flower band-split optimizations (O3 column predates it), and MindSplatter on 2026-09-29 after the Plot float min/max sweep (`c40c1def8`); setup frame 1 excluded. Their O3 columns predate the sweep; the image deltas use the new shipping sizes.
 
 ## Supplemental experimental presets
 
