@@ -13,18 +13,27 @@ export function stripComments(src) {
       (match) => match.startsWith('/*') ? ' ' : '');
 }
 
-// Extracts the X() rows from targets/effects.h source text.
+const WORKBENCH_ONLY_ROWS = new Map([
+  ['HS_SHADER_WORKBENCH_EFFECT', 'Shader'],
+  ['HS_CHAIN_INTERPRETER_EFFECT', 'ShaderChain'],
+]);
+
+// Extracts gallery effects from targets/effects.h source text.
 export function parseEffectRoster(src) {
-  // Comments are stripped before the macro is located and the `#define` is
-  // anchored to the start of a line, so neither a commented-out `X(Foo)` row nor
-  // a comment naming the macro reaches the roster. The body runs from
-  // `#define HS_EFFECT_LIST(X)` through the last backslash-continued line rather
-  // than relying on a blank line terminating the block (which a reformat could
-  // remove).
   const block = stripComments(src).match(
     /^#define HS_EFFECT_LIST\(X\)((?:.*\\\r?\n)*.*)/m);
   if (!block) throw new Error('Could not locate HS_EFFECT_LIST in targets/effects.h');
-  const names = [...block[1].matchAll(/X\(\s*(\w+)\s*\)/g)].map(m => m[1]);
+  const names = [];
+  let body = block[1].trim();
+  while (body) {
+    const row = /^(\w+)\s*\(\s*(\w+)\s*\)/u.exec(body);
+    if (!row) throw new Error(`Unknown effect roster row: ${body}`);
+    const [, macro, argument] = row;
+    if (macro === 'X') names.push(argument);
+    else if (argument !== 'X' || !WORKBENCH_ONLY_ROWS.has(macro))
+      throw new Error(`Unknown effect roster row: ${row[0]}`);
+    body = body.slice(row[0].length).trim();
+  }
   if (names.length === 0) throw new Error('HS_EFFECT_LIST parsed to zero effects');
   return names;
 }
