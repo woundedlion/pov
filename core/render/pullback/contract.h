@@ -196,7 +196,8 @@ inline constexpr size_t family_of = Detail::FamilyRank<T, CarrierList>::VALUE;
 
 /** @brief Membership in the closed carrier set. */
 template <typename T>
-concept CanonicalCarrier = family_of<T> != FOREIGN_FAMILY_RANK;
+concept CanonicalCarrier =
+    Detail::FamilyRank<T, CarrierList>::VALUE != FOREIGN_FAMILY_RANK;
 
 enum class ProfileEvent : uint8_t {
   LENS,
@@ -724,7 +725,8 @@ public:
                                       CanonicalCarrier<typename Ls::Output>) &&
                                      ...);
   static constexpr bool MONOTONE =
-      ((family_of<typename Ls::Input> <= family_of<typename Ls::Output>) &&
+      ((Detail::FamilyRank<typename Ls::Input, CarrierList>::VALUE <=
+        Detail::FamilyRank<typename Ls::Output, CarrierList>::VALUE) &&
        ...);
   static constexpr bool CARRIERS =
       adjacent(std::make_index_sequence<sizeof...(Ls) - 1>{});
