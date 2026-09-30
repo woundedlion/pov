@@ -2,8 +2,8 @@
 # profile_sweep.sh <group: g1_ship..g6_ship | check>
 # Phantasm-roster profiling sweep, one group per invocation (see the
 # teensy-profile skill for the per-effect duration/knob rationale).
-# Covers the 288x144 Phantasm playlist. Dynamo and Thrusters are Holosphere
-# 96x20-only (HS_PHANTASM_EFFECT_LIST excludes them), so they are not profiled
+# Covers the 288x144 Phantasm playlist. Dynamo, MobiusRings and Thrusters are Holosphere
+# 96x20-only (HS_PHANTASM_EXCLUDED_EFFECTS), so they are not profiled
 # here.
 # The per-effect duration/window/epoch knobs are hand-tuned, so the groups below
 # cannot be generated from the roster -- but their union is cross-checked
