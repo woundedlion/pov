@@ -13,8 +13,6 @@
  * @brief Animation fragment: MeshCarousel, the double-buffered mesh slot pair.
  */
 
-#include "color/color.h"
-
 /**
  * @brief A double-buffered pair of persistent MeshState slots, the
  *        arena-compaction primitives effects need to swap between them, and a
