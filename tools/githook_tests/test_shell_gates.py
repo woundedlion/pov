@@ -157,6 +157,8 @@ class ShellGateTests(unittest.TestCase):
 
     def test_composite_steps_are_isolated_and_unsupported_scalars_fail(self):
         if shutil.which("shellcheck") is None:
+            if os.environ.get("CI"):
+                self.fail("shellcheck is required in CI")
             self.skipTest("shellcheck is not installed")
         (self.root / "selected.sh").write_text("#!/bin/sh\nexit 0\n", encoding="utf-8", newline="\n")
         action = self.root / ".github/actions/fixture/action.yml"

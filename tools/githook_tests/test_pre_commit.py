@@ -87,6 +87,8 @@ class PreCommitHook(unittest.TestCase):
 
     def test_python_uses_staged_lint_configuration(self):
         if shutil.which("ruff") is None:
+            if os.environ.get("CI"):
+                self.fail("ruff is required in CI")
             self.skipTest("ruff unavailable")
         config = self.repo / "ruff.toml"
         config.write_text('lint.select = ["F401"]\n', encoding="utf-8", newline="\n")
@@ -114,6 +116,8 @@ class PreCommitHook(unittest.TestCase):
 
     def test_python_lints_temporary_commit_indexes(self):
         if shutil.which("ruff") is None:
+            if os.environ.get("CI"):
+                self.fail("ruff is required in CI")
             self.skipTest("ruff unavailable")
         source = self.repo / "sample.py"
         source.write_bytes(b"value = 1\n")
@@ -277,6 +281,8 @@ class PreCommitHook(unittest.TestCase):
 
     def test_shell_lint_reads_the_index(self):
         if shutil.which("shellcheck") is None:
+            if os.environ.get("CI"):
+                self.fail("shellcheck is required in CI")
             self.skipTest("shellcheck unavailable")
         script = self.repo / "sample.sh"
         script.write_text('#!/bin/sh\nprintf "%s" $1\n', encoding="utf-8", newline="\n")
