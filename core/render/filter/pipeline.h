@@ -167,6 +167,7 @@ concept PipelineFoldSurface = requires {
   requires std::is_same_v<decltype(T::any_3d_history), const bool>;
   requires std::is_same_v<decltype(T::has_world_cull), const bool>;
   requires std::is_same_v<decltype(T::has_world_stage), const bool>;
+  requires std::is_same_v<decltype(T::world_transform_is_identity), const bool>;
   requires std::is_same_v<decltype(T::direct_raster_path), const bool>;
   requires std::is_same_v<decltype(T::segment_margin), const int>;
   requires std::is_same_v<decltype(T::total_segment_margin), const int>;
