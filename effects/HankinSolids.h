@@ -419,8 +419,9 @@ private:
 
     // transform borrows the source's per-face classes into the rotated mesh.
     const uint16_t *topology = rotated_mesh.get_topology_data();
-    const int topology_faces =
-        static_cast<int>(rotated_mesh.get_topology_size());
+    const size_t topology_faces = rotated_mesh.get_topology_size();
+    HS_CHECK(topology_faces == rotated_mesh.num_faces(),
+             "Hankin topology must cover every face");
 
     const bool fade_straps = strap_open_fade < 1.0f;
     const bool close_straps =
@@ -439,9 +440,7 @@ private:
     // intensity/inradius gradient scale resolve once per face.
     FacePaletteShader fragment_shader;
     auto select_face = [&](size_t fi, float size) {
-      const int cls = fi < static_cast<size_t>(topology_faces)
-                          ? static_cast<int>(topology[fi])
-                          : 0;
+      const int cls = static_cast<int>(topology[fi]);
       const int slot = MeshPaletteBank::slot_of(cls);
       fragment_shader.scale =
           size > math::TOLERANCE ? params.intensity / size : 0.0f;

@@ -4243,6 +4243,14 @@ inline void case_spherical_harmonics_invalid_morph_mode() {
     WB::step_timeline(effect, canvas);
 }
 
+inline void case_hankinsolids_missing_topology() {
+  using WB = effects_tests::HankinPauseWhiteBox;
+  effects_tests::reset_effect_globals();
+  WB::EffectT effect;
+  effect.init();
+  WB::draw_without_topology(effect);
+}
+
 inline void case_islamicstars_build_budget() {
   configure_arenas_default();
   persistent_arena.allocate_n<uint8_t>(1);
@@ -5748,6 +5756,9 @@ inline const Case *all_cases(int &n) {
            case_spherical_harmonics_invalid_morph_mode,
            "effects/SphericalHarmonics.h",
            "(synchronized) SphericalHarmonics preset synchronization failed"},
+          {"hankinsolids_missing_topology", case_hankinsolids_missing_topology,
+           "effects/HankinSolids.h",
+           "(topology_faces == rotated_mesh.num_faces()) Hankin topology must cover every face"},
           {"islamicstars_build_budget", case_islamicstars_build_budget,
            "core/animation/recipe_build.h",
            "(persistent_arena.get_offset() <= device_persistent_budget) "
