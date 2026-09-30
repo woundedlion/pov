@@ -21,6 +21,7 @@ set(HS_OFF_ROSTER_HEADER_NAMES
   "test_generative_palette.h"
   "test_h_offset_renorm.h"
   "test_harness.h"
+  "test_lattice_trace.h"
   "test_pole_wrap.h"
   "vec_test_util.h"
   "volume_reference.h")
