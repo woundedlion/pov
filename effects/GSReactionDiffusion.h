@@ -43,16 +43,9 @@ struct GSWhiteBox;
  * the sphere and reseeds at new sites, so each cycle grows a different form from
  * the same constants. Editing the constants dissolves the current field too.
  *
- * Memory budget (persistent arena, configured 174 KB):
- *   - Cubemap LUT:                  6 × 64² × 2B = 49,152 B
- *   - State:   2 arrays × 7680 × 2B (Q16)        = 30,720 B
- *   - Node XYZ: 7680 × 12B                       = 92,160 B  (fixed lattice, built once)
- *   - Palette LUT: 256 × 8B + 4B                 =  2,052 B  (the extra tenant vs BZ)
- *   - Total:                                       174,084 B (170 KB)
- *
- * Scratch arena (per frame, disjoint phases):
- *   - Physics: float ping-pong 4 × 7680 × 4B                             = 122,880 B
- *   - Raster:  oriented lattice 7680 × 12B + cull flags 2 × 7680 × 1B    = 107,520 B
+ * Each node carries the two strongest seed palettes and their mixing weight.
+ * Palette pigment follows B diffusion and autocatalysis; rendering blends RGB
+ * in linear light. Persistent storage is 189 KB; raster scratch is 105 KB.
  */
 template <int W, int H>
 class GSReactionDiffusion
@@ -74,7 +67,6 @@ class GSReactionDiffusion
   using Base::refine_and_accumulate;
   using Base::refine_render_center;
   using Base::register_param;
-  using Base::seed_blobs;
   using Base::rasterize_lattice;
   using Base::to_q16;
 
@@ -91,23 +83,16 @@ public:
    */
   void init() override {
     constexpr size_t PALETTE_BYTES =
-        BakedPalette::required_arena_bytes(); // palette.bake
-    constexpr size_t PERSISTENT_BYTES = 174 * 1024;
-    // render()'s scratch peaks at the larger of the physics phase (4 float
-    // ping-pong buffers) and the raster phase (the oriented lattice + cull
-    // flags); the two run under disjoint scopes.
-    constexpr size_t PHYSICS_SCRATCH_BYTES = 4u * RD_N * sizeof(float);
+        NUM_SEED_CLUSTERS * PALETTE_SIZE * sizeof(Pixel) + alignof(Pixel);
+    constexpr size_t PERSISTENT_BYTES = 189 * 1024;
+    constexpr size_t PHYSICS_SCRATCH_BYTES =
+        2u * RD_N * sizeof(float) + RD_N * sizeof(uint16_t);
     constexpr size_t RASTER_SCRATCH_BYTES =
         RD_N * sizeof(math::Vector) + 2u * RD_N * sizeof(uint8_t);
     constexpr size_t SCRATCH_BYTES =
-        PHYSICS_SCRATCH_BYTES > RASTER_SCRATCH_BYTES ? PHYSICS_SCRATCH_BYTES
-                                                     : RASTER_SCRATCH_BYTES;
-    // Blocks carved in the peak phase: 4 physics buffers, or the raster
-    // phase's oriented lattice plus its 2 cull-flag arrays.
-    constexpr size_t SCRATCH_TENANTS = 4;
-    Base::template configure_rd_arenas<uint16_t, 2, PERSISTENT_BYTES,
-                                       PALETTE_BYTES, SCRATCH_BYTES,
-                                       SCRATCH_TENANTS>();
+        std::max(PHYSICS_SCRATCH_BYTES, RASTER_SCRATCH_BYTES);
+    Base::template configure_rd_arenas<uint16_t, 3, PERSISTENT_BYTES,
+                                       PALETTE_BYTES, SCRATCH_BYTES, 3>();
 
     register_param("Feed", &params.feed, 0.0f, 0.1f);
     register_param("Kill", &params.k, 0.0f, 0.1f);
@@ -122,15 +107,14 @@ public:
         persistent_arena.allocate(RD_N * sizeof(uint16_t), alignof(uint16_t)));
     state.B = static_cast<uint16_t *>(
         persistent_arena.allocate(RD_N * sizeof(uint16_t), alignof(uint16_t)));
-    for (int i = 0; i < RD_N; i++) {
-      state.A[i] = 65535;
-      state.B[i] = 0;
-    }
+    state.pigment = static_cast<uint16_t *>(
+        persistent_arena.allocate(RD_N * sizeof(uint16_t), alignof(uint16_t)));
+    palettes = static_cast<Pixel *>(persistent_arena.allocate(
+        NUM_SEED_CLUSTERS * PALETTE_SIZE * sizeof(Pixel), alignof(Pixel)));
 
-    palette.bake(persistent_arena, make_palette());
-
+    validate_physics_neighbors();
     init_lattice();
-    seed_blobs(state.B, NUM_SEED_CLUSTERS);
+    seed_reaction();
     reaction_edited(); // latch the defaults; frame 1 is not an edit
   }
 
@@ -145,6 +129,8 @@ private:
    * the uniform A=1/B=0 field never moves.
    */
   static constexpr int NUM_SEED_CLUSTERS = 30;
+  static constexpr int PALETTE_SIZE = 32;
+  static_assert(NUM_SEED_CLUSTERS <= 32);
   /** @brief Substep budget used to calibrate the stabilization threshold. */
   static constexpr int BASELINE_STEPS_PER_FRAME = 16;
   /** @brief Rendered frames the dissolve takes to convert every node back to
@@ -183,27 +169,6 @@ private:
   static constexpr int STEPS_PER_FRAME = 6;
   static constexpr float STEP_DT_SCALE =
       static_cast<float>(EVOLUTION_STEPS_PER_FRAME) / STEPS_PER_FRAME;
-  static_assert(STEPS_PER_FRAME % 2 == 0,
-                "GS ping-pong state must land in its input buffers");
-
-  /**
-   * @brief Advances the frame-scratch species state through all substeps.
-   * @param state Input buffers receiving the final even-numbered generation.
-   * @param scratch Alternate frame-scratch ping-pong buffers.
-   * @param step Physics kernel invoked for each substep.
-   */
-  template <typename StepFn>
-  static void advance_substeps(const std::array<float *, 2> &state,
-                               const std::array<float *, 2> &scratch,
-                               StepFn &&step) {
-    std::array<float *, 2> cur = state;
-    std::array<float *, 2> nxt = scratch;
-    for (int k = 0; k < STEPS_PER_FRAME; ++k) {
-      step(cur, nxt);
-      std::swap(cur[0], nxt[0]);
-      std::swap(cur[1], nxt[1]);
-    }
-  }
   /**
    * @brief Lower bound of the B render band: below this, pixels are transparent;
    * [B_COLOR_FLOOR, B_COLOR_FLOOR + 1/B_COLOR_SCALE] maps to the full palette
@@ -223,6 +188,87 @@ private:
   HS_COLD_MEMBER static GenerativePalette make_palette() {
     return GenerativePalette{EffectPaletteRecipes::gs_reaction_diffusion(
         EffectPaletteRecipes::random_base_turns())};
+  }
+
+  // Two 5-bit palette indices and a 6-bit weight for the first palette.
+  static void add_pigment(float *weights, uint16_t pigment, float mass) {
+    float first = static_cast<float>(pigment >> 10) * (1.0f / 63.0f);
+    weights[pigment & 31] += mass * first;
+    weights[(pigment >> 5) & 31] += mass * (1.0f - first);
+  }
+
+  static uint16_t pack_pigment(const float *weights) {
+    int first = 0, second = 1;
+    if (weights[second] > weights[first])
+      std::swap(first, second);
+    for (int i = 2; i < NUM_SEED_CLUSTERS; ++i) {
+      if (weights[i] > weights[first]) {
+        second = first;
+        first = i;
+      } else if (weights[i] > weights[second]) {
+        second = i;
+      }
+    }
+    float mass = weights[first] + weights[second];
+    int mix = mass > 0.0f
+                  ? static_cast<int>(63.0f * weights[first] / mass + 0.5f)
+                  : 63;
+    return static_cast<uint16_t>(first | (second << 5) | (mix << 10));
+  }
+
+  HS_COLD_MEMBER void seed_reaction() {
+    for (int i = 0; i < RD_N; ++i) {
+      state.A[i] = 65535;
+      state.B[i] = 0;
+      state.pigment[i] = 63u << 10;
+    }
+    for (int seed = 0; seed < NUM_SEED_CLUSTERS; ++seed) {
+      auto palette = make_palette();
+      for (int j = 0; j < PALETTE_SIZE; ++j)
+        palettes[seed * PALETTE_SIZE + j] =
+            palette.get(static_cast<float>(j) / (PALETTE_SIZE - 1)).color;
+      int center = hs::rand_int(0, RD_N);
+      auto plant = [&](int node) {
+        float weights[NUM_SEED_CLUSTERS] = {};
+        add_pigment(weights, state.pigment[node], from_q16(state.B[node]));
+        weights[seed] += 1.0f;
+        state.pigment[node] = pack_pigment(weights);
+        state.B[node] = 65535;
+      };
+      plant(center);
+      for_each_neighbor(center, plant);
+    }
+  }
+
+  void step_pigment(const float *a, const float *b, uint16_t *next) {
+    const float DT = params.dt * STEP_DT_SCALE;
+    const float DIFFUSION = params.d_b * DT;
+    for (int i = 0; i < RD_N; ++i) {
+      float weights[NUM_SEED_CLUSTERS] = {};
+      float retained = std::max(0.0f, b[i] * (1.0f - RD_K * DIFFUSION -
+                                              (params.k + params.feed) * DT) +
+                                          a[i] * b[i] * b[i] * DT);
+      add_pigment(weights, state.pigment[i], retained);
+      Base::template for_each_neighbor<true>(i, [&](int nb) {
+        add_pigment(weights, state.pigment[nb], b[nb] * DIFFUSION);
+      });
+      next[i] = pack_pigment(weights);
+    }
+    std::copy_n(next, RD_N, state.pigment);
+  }
+
+  Pixel palette_color(int seed, float t) const {
+    return lut_sample_pixel(palettes + seed * PALETTE_SIZE, PALETTE_SIZE,
+                            t * (PALETTE_SIZE - 1));
+  }
+
+  Pixel pigment_color(uint16_t pigment, float t) const {
+    Pixel first = palette_color(pigment & 31, t);
+    if ((pigment >> 10) == 63)
+      return first;
+    Pixel second = palette_color((pigment >> 5) & 31, t);
+    return second.lerp16(
+        first, static_cast<uint16_t>(((pigment >> 10) * 65535u + 31u) / 63u));
   }
 
   /**
@@ -260,11 +306,7 @@ private:
     transition.dissolve_frames = -1;
     transition.grow_frames = 0;
     transition.stable_frames = 0;
-    {
-      HS_PROFILE(grd_palette_rebake);
-      palette.rebake(make_palette());
-    }
-    seed_blobs(state.B, NUM_SEED_CLUSTERS);
+    seed_reaction();
   }
 
   /**
@@ -338,7 +380,7 @@ private:
    * @param n_b Next B field (write target), float in [0, 1] per node.
    * @details Gray-Scott: dA/dt = dA·∇²A - A·B² + feed·(1-A);
    * dB/dt = dB·∇²B + A·B² - (k+feed)·B. Double-buffered Jacobi: reads current
-   * buffers, writes next; the caller owns the ping-pong (see render()). The
+   * buffers, writes next. The
    * [0, 1] clamp saturates explicit-Euler overshoot past the stability bound
    * (see "Speed"); substeps stay in float so the Q16 state quantizes once per
    * frame, not once per substep.
@@ -346,6 +388,46 @@ private:
   HS_O3_FN void step_physics(const float *__restrict c_a,
                              const float *__restrict c_b, float *__restrict n_a,
                              float *__restrict n_b) {
+    step_physics_nodes(c_a, c_b, [&](int i, float a, float b) {
+      n_a[i] = a;
+      n_b[i] = b;
+    });
+  }
+
+  static constexpr int PHYSICS_NEIGHBOR_REACH = 144;
+
+  HS_COLD_MEMBER static void validate_physics_neighbors(
+      const ReactionGraph::NeighborRun *runs = ReactionGraph::neighbor_runs,
+      unsigned count = ReactionGraph::NEIGHBOR_RUN_COUNT) {
+    for (unsigned r = 0; r < count; ++r)
+      for (int delta : runs[r].delta)
+        HS_CHECK(delta >= -PHYSICS_NEIGHBOR_REACH,
+                 "GS neighbor exceeds delayed-write history");
+  }
+
+  /** @brief Advances float A/B in place after their last stencil read. */
+  HS_O3_FN void step_physics_inplace(float *a, float *b) {
+    constexpr int HISTORY_SIZE = PHYSICS_NEIGHBOR_REACH + 1;
+    std::array<float, HISTORY_SIZE> pending_a, pending_b;
+    step_physics_nodes(a, b, [&](int i, float next_a, float next_b) {
+      pending_a[i % HISTORY_SIZE] = next_a;
+      pending_b[i % HISTORY_SIZE] = next_b;
+      // Node i is the last possible reader of i - PHYSICS_NEIGHBOR_REACH.
+      if (i >= PHYSICS_NEIGHBOR_REACH) {
+        int done = i - PHYSICS_NEIGHBOR_REACH;
+        a[done] = pending_a[done % HISTORY_SIZE];
+        b[done] = pending_b[done % HISTORY_SIZE];
+      }
+    });
+    for (int i = RD_N - PHYSICS_NEIGHBOR_REACH; i < RD_N; ++i) {
+      a[i] = pending_a[i % HISTORY_SIZE];
+      b[i] = pending_b[i % HISTORY_SIZE];
+    }
+  }
+
+  template <typename StoreFn>
+  HS_O3_FN void step_physics_nodes(const float *c_a, const float *c_b,
+                                   StoreFn &&store) {
     const float feed = params.feed;
     const float KILL_RATE = params.k;
     const float d_a = params.d_a;
@@ -392,10 +474,11 @@ private:
 #endif
 
         float abb = a * b * b;
-        n_a[i] = hs::clamp(a + (d_a * l_a - abb + feed * (1.0f - a)) * dt, 0.0f,
-                           1.0f);
-        n_b[i] = hs::clamp(b + (d_b * l_b + abb - (KILL_RATE + feed) * b) * dt,
-                           0.0f, 1.0f);
+        float next_a = hs::clamp(a + (d_a * l_a - abb + feed * (1.0f - a)) * dt,
+                                 0.0f, 1.0f);
+        float next_b = hs::clamp(
+            b + (d_b * l_b + abb - (KILL_RATE + feed) * b) * dt, 0.0f, 1.0f);
+        store(i, next_a, next_b);
       }
     }
   }
@@ -467,6 +550,7 @@ private:
       cross_scale[row] = 2.0f * offset * Base::INV_R2;
     }
     float weights[SAMPLES] = {}, weighted_b[SAMPLES] = {};
+    float pigment_weights[RD_K + 1][SAMPLES] = {};
     const auto &stencil_run =
         ReactionGraph::neighbor_runs[ReactionGraph::neighbor_run_index[center]];
     for (int j = 0; j < RD_K + 1; ++j) {
@@ -486,6 +570,7 @@ private:
           float u = col == 0 ? base_u - cross : base_u + cross;
           if (u > 0.0f) {
             float w = u * u;
+            pigment_weights[j][i] = b * w;
             weighted_b[i] += b * w;
             weights[i] += w;
           }
@@ -505,11 +590,17 @@ private:
         continue;
 
       float t = hs::clamp((b - B_COLOR_FLOOR) * B_COLOR_SCALE, 0.0f, 1.0f);
-      float rgb[3];
-      palette.view().get_color_unit_scaled(t, 1.0f / SAMPLES, rgb);
-      accum_r += rgb[0];
-      accum_g += rgb[1];
-      accum_b += rgb[2];
+      float scale = 1.0f / (wb * SAMPLES);
+      for (int j = 0; j < RD_K + 1; ++j) {
+        float weight = pigment_weights[j][i] * scale;
+        if (weight <= 0.0f)
+          continue;
+        int ni = j == 0 ? center : center + stencil_run.delta[j - 1];
+        Pixel rgb = pigment_color(state.pigment[ni], t);
+        accum_r += rgb.r * weight;
+        accum_g += rgb.g * weight;
+        accum_b += rgb.b * weight;
+      }
     }
     return Pixel(
         static_cast<uint16_t>(hs::clamp(accum_r + 0.5f, 0.0f, 65535.0f)),
@@ -571,28 +662,24 @@ private:
     ScratchScope frame_guard(scratch_arena_a);
     float mean_db = 0.0f;
     {
-      // The substeps ping-pong in float; the Q16 state converts in once and
-      // quantizes back once per frame, not once per substep.
+      // Q16 quantization occurs once per frame.
       HS_PROFILE(grd_simulate);
       ScratchScope physics_guard(scratch_arena_a);
       float *cur_a = static_cast<float *>(
           scratch_arena_a.allocate(RD_N * sizeof(float), alignof(float)));
       float *cur_b = static_cast<float *>(
           scratch_arena_a.allocate(RD_N * sizeof(float), alignof(float)));
-      float *nxt_a = static_cast<float *>(
-          scratch_arena_a.allocate(RD_N * sizeof(float), alignof(float)));
-      float *nxt_b = static_cast<float *>(
-          scratch_arena_a.allocate(RD_N * sizeof(float), alignof(float)));
+      uint16_t *next_pigment = static_cast<uint16_t *>(
+          scratch_arena_a.allocate(RD_N * sizeof(uint16_t), alignof(uint16_t)));
 
       for (int i = 0; i < RD_N; i++) {
         cur_a[i] = from_q16(state.A[i]);
         cur_b[i] = from_q16(state.B[i]);
       }
-      advance_substeps(std::array<float *, 2>{cur_a, cur_b},
-                       std::array<float *, 2>{nxt_a, nxt_b},
-                       [&](auto &cur, auto &nxt) {
-                         step_physics(cur[0], cur[1], nxt[0], nxt[1]);
-                       });
+      for (int step = 0; step < STEPS_PER_FRAME; ++step) {
+        step_pigment(cur_a, cur_b, next_pigment);
+        step_physics_inplace(cur_a, cur_b);
+      }
       uint32_t db_sum_q16 = 0;
       for (int i = 0; i < RD_N; i++) {
         state.A[i] = to_q16(cur_a[i]);
@@ -645,6 +732,7 @@ private:
   struct {
     uint16_t *A = nullptr,
              *B = nullptr; /**< Per-node A/B concentrations, Q16. */
+    uint16_t *pigment = nullptr;
   } state;
 
   /**
@@ -662,8 +750,8 @@ private:
     float last_feed = 0.0f, last_k = 0.0f, last_d_a = 0.0f, last_d_b = 0.0f;
   } transition;
 
-  /** @brief 16-bit LUT baked from the generative palette mapping B to RGB. */
-  BakedPaletteStorage palette;
+  /** @brief Per-seed linear RGB ramps sampled by B concentration. */
+  Pixel *palettes = nullptr;
 
   /**
    * @brief GUI-tunable Gray-Scott parameters.
