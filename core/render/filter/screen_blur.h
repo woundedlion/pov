@@ -66,10 +66,11 @@ public:
             PassFnT &&pass) {
     assert(age >= 0.0f && alpha >= 0.0f);
 #if HS_RUNTIME_DISPLAY_GEOMETRY
-    if (math::DisplayGeometry<H>::HAS_SOUTH_POLE && y >= H)
+    if ((math::DisplayGeometry<H>::HAS_NORTH_POLE && y < -1.0f) ||
+        (math::DisplayGeometry<H>::HAS_SOUTH_POLE && y >= H))
       return;
 #elif HS_DISPLAY_PROFILE == 0 || defined(HS_TEST_H_OFFSET)
-    if (y >= H)
+    if (y < -1.0f || y >= H)
       return;
 #endif
     int cx = round_wrap_column<W>(x);
