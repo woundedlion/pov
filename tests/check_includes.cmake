@@ -1,9 +1,7 @@
-# Pin run_tests.cpp's per-module include block against its HS_TEST_MODULE_LIST
-# roster. Every roster row references its run_*_tests function, so a missing
-# include is already a compile error and the include set is a superset of the
-# roster headers. Equal counts therefore prove there is no orphaned include left
-# behind after a module was removed. Convention: every test header include in
-# run_tests.cpp is a roster module.
+# Pin the direct module include count against HS_TEST_MODULE_LIST.
+# Transitive includes can satisfy roster declarations; equal counts alone do
+# not prove a one-to-one mapping between direct includes and roster entries.
+# Convention: every direct test-header include is a roster module.
 #
 # The count comparison alone cannot see a test header that exists on disk but
 # is included nowhere, so the second half of this script walks the directory and
