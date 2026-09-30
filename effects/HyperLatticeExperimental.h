@@ -25,6 +25,13 @@ enum class Geometry : uint8_t {
   SHELLS
 };
 
+/** @brief One ray's covered plane crossings; the effect owns it in its arena. */
+struct CrossingStorage {
+  static constexpr int CAPACITY = 64;
+  std::array<float, CAPACITY> distances;
+  std::array<float, CAPACITY> coverages;
+};
+
 /** @brief Frame settings; camera distances and near fading use world units. */
 struct Settings {
   Raycast::SamplingDomain domain = Raycast::SamplingDomain::SPATIAL_3D;
@@ -43,6 +50,8 @@ struct Settings {
   float stretch = 1.4f;
   float shell_radius = .30f;
   float gain = 1.0f; /**< Brightness scale of the whole frame. */
+  /** Scratch the octet traces sort crossings in; required for OCTET. */
+  CrossingStorage *crossings = nullptr;
 };
 
 struct Prepared {
@@ -61,6 +70,7 @@ struct Prepared {
   float shear = .55f;
   float stretch = 1.4f;
   float shell_radius = .30f;
+  CrossingStorage *crossings = nullptr;
 };
 
 /** @brief Premultiplied ray color and how its traversal ended. */
@@ -98,7 +108,9 @@ HS_FLASH_INLINE inline Prepared prepare(const Settings &settings) {
   result.shear = settings.shear;
   result.stretch = settings.stretch;
   result.shell_radius = settings.shell_radius;
+  result.crossings = settings.crossings;
   result.valid = result.camera.valid() &&
+                 (settings.geometry != Geometry::OCTET || settings.crossings) &&
                  Raycast::finite(result.footprint.angular_radius) &&
                  Raycast::finite(result.appearance.inv_far) &&
                  Raycast::finite(result.appearance.near_inv_span) &&
@@ -254,10 +266,14 @@ trace(const Events &events, Raycast::Interval interval,
  * distance, each one layer at that distance with the run's largest coverage.
  */
 struct CoveredCrossings {
-  static constexpr int CAPACITY = 64;
-  std::array<float, CAPACITY> distances;
-  std::array<float, CAPACITY> coverages;
+  static constexpr int CAPACITY = CrossingStorage::CAPACITY;
+  float *distances;
+  float *coverages;
   int count = 0;
+
+  explicit CoveredCrossings(CrossingStorage &storage)
+      : distances(storage.distances.data()),
+        coverages(storage.coverages.data()) {}
 
   __attribute__((always_inline)) void insert(float t, float coverage) {
     int slot = count++;
@@ -308,8 +324,8 @@ template <typename Events>
 __attribute__((always_inline)) inline Sample
 trace_sorted(const Events &events, Raycast::Interval interval,
              const Raycast::TraceLimits &limits,
-             const Raycast::Appearance &appearance) {
-  CoveredCrossings covered;
+             const Raycast::Appearance &appearance, CrossingStorage &storage) {
+  CoveredCrossings covered(storage);
   int crossings = 0;
   const int BUDGET =
       std::min(limits.max_candidates, CoveredCrossings::CAPACITY);
@@ -362,7 +378,7 @@ trace_octet_3d(const math::Vector &direction, const Prepared &prepared) {
                              : fabsf(speeds[other]) > fabsf(speeds[family]);
     order[rank] = family;
   }
-  CoveredCrossings covered;
+  CoveredCrossings covered(*prepared.crossings);
   int crossings = 0;
   const int BUDGET =
       std::min(prepared.limits.max_candidates, CoveredCrossings::CAPACITY);
@@ -527,7 +543,7 @@ trace_octet_4d(const math::Vector &direction, const Prepared &prepared) {
   const float SUPPORT_RATE = .5f * footprint.angular_radius * INVERSE_SCALE;
   const float SUPPORT_BASE =
       WIRE_RADIUS * INVERSE_SCALE + SUPPORT_RATE * footprint.radial_start;
-  CoveredCrossings covered;
+  CoveredCrossings covered(*prepared.crossings);
   int crossings = 0;
   const int BUDGET =
       std::min(prepared.limits.max_candidates, CoveredCrossings::CAPACITY);
