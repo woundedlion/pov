@@ -69,8 +69,8 @@ HS_FLASH_MEMBER inline PaletteRecipe gs_reaction_diffusion(float base_turns) {
   PaletteRecipe recipe = PaletteRecipes::profile(
       PaletteDomain::STRAIGHT, PaletteHarmony::SPLIT_COMPLEMENTARY,
       AxisCurve::ASCENDING, base_turns, 1.0f);
-  recipe.lightness.center = 0.60f;
-  recipe.lightness.range = 0.32f;
+  recipe.lightness.center = 0.46f;
+  recipe.lightness.range = 0.60f;
   return recipe;
 }
 
