@@ -591,8 +591,8 @@ step_random_walk(math::Vector &position, math::Vector &direction,
   // noise_scale is applied once via SetFrequency() by the caller; the 100x is a
   // fixed base sample scale (scaling coords by noise_scale here too would make
   // the spatial frequency quadratic in it).
-  // Accepted limit: past t == 2^24 (~77 h at 60 fps, sooner at higher drift)
-  // float can't represent consecutive frames and the drift coordinate freezes.
+  // Past t == 2^24 (~77 h at 60 fps), float cannot distinguish every
+  // consecutive frame, regardless of drift speed.
   const float target_pivot =
       noise.GetNoise(position.x * 100.0f, position.y * 100.0f,
                      position.z * 100.0f +
