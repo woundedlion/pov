@@ -13,6 +13,7 @@ ignore = ["E702", "E731", "E741"]
 [lint.per-file-ignores]
 # PlatformIO exec()s these build hooks with `env` / `projenv` injected as SCons
 # globals, so every use reads as undefined to a static scan.
+"tools/pullback_profile_build.py" = ["F821"]
 "tools/teensy_gate_extra.py" = ["F821"]
 "tools/teensy_isystem.py" = ["F821"]
 "tools/teensy_map.py" = ["F821"]

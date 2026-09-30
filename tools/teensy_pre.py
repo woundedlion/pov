@@ -16,7 +16,7 @@ even though every .ino file defines them.
 
 import os
 
-Import("env")  # noqa: F821  (SCons global injected by PlatformIO)
+Import("env")
 
 SKETCH = {
     "holosphere": os.path.join("targets", "Holosphere", "Holosphere.ino"),

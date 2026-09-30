@@ -28,12 +28,12 @@ first-party diagnostic is lost:
 
 import os
 
-Import("env", "projenv")  # noqa: F821  (SCons globals injected by PlatformIO)
+Import("env", "projenv")
 
 # A path is third-party if it lives under PlatformIO's libdeps or packages trees.
 # The repo's own include dirs (., core, effects, hardware) match none of these.
 _THIRD_PARTY_ROOTS = tuple(
-    os.path.normcase(os.path.realpath(env.subst(variable)))  # noqa: F821
+    os.path.normcase(os.path.realpath(env.subst(variable)))
     for variable in ("$PROJECT_PACKAGES_DIR", "$PROJECT_LIBDEPS_DIR")
 )
 
