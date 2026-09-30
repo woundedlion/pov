@@ -15,6 +15,8 @@
 
 #include <algorithm>
 #include <cstdint>
+#include <cstring>
+#include <vector>
 #include <iterator>
 #include "core/mesh/solids.h" // pulls in the MeshOps operators the probes call
 #include "targets/wasm/mesh_op_bounds.h"
