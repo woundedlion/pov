@@ -43,14 +43,14 @@ struct HueNoiseLutView {
 
 /**
  * @brief Bakes all palette-coordinate and hue-rotation combinations.
- * @tparam Palette Palette source exposing Color4 get(float) const.
+ * @tparam Source Palette source exposing Color4 get(float) const.
  * @param output Destination LUT.
  * @param palette Palette source to hue-rotate.
  */
-template <typename Palette>
+template <typename Source>
 HS_FLASH_INLINE inline void
 prepare_hue_rotation_lut(std::span<Pixel, HueRotationLutView::SIZE> output,
-                         const Palette &palette) {
+                         const Source &palette) {
   for (int value_index = 0; value_index < HueRotationLutView::VALUE_STEPS;
        ++value_index) {
     const float value =
