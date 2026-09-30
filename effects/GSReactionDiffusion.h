@@ -436,9 +436,9 @@ private:
    * @return The finished alpha-premultiplied pixel.
    * @details Accepts seeds inside a proven nearest-node radius immediately;
    * boundary pixels check all six neighbors. The center stencil is shared
-   * across the four sub-pixel samples. At 96x20 (host H_OFFSET = 0), the row
-   * offset reaches 1.02 node spacings, so reuse exceeds the one-ring stencil and softens
-   * detail; at 288x144 the offset is 0.13 spacings.
+   * across the four sub-pixel samples. The row offset is
+   * 0.25 * RADIANS_PER_ROW<H>; stencil reuse can exceed one node spacing
+   * at low vertical resolutions.
    */
   template <typename Grid>
   HS_O3_FN Pixel shade_pixel(int seed, const math::Vector &center_rv,
