@@ -18,6 +18,8 @@
 cmake_minimum_required(VERSION 3.29)
 
 file(READ "${SRC}" _text)
+string(REGEX REPLACE "/\\*[^*]*\\*+([^/*][^*]*\\*+)*/" "\n" _text "${_text}")
+string(REGEX REPLACE "//[^\n]*" "" _text "${_text}")
 
 string(REGEX MATCHALL "#include \"tests/test_[A-Za-z0-9_]+\\.h(pp)?\"" _includes "${_text}")
 
@@ -80,6 +82,8 @@ file(GLOB_RECURSE _sources
 set(_included_headers "")
 foreach(_src IN LISTS _sources)
   file(READ "${_src}" _src_text)
+  string(REGEX REPLACE "/\\*[^*]*\\*+([^/*][^*]*\\*+)*/" "\n" _src_text "${_src_text}")
+  string(REGEX REPLACE "//[^\n]*" "" _src_text "${_src_text}")
   string(REGEX MATCHALL "#include \"tests/[A-Za-z0-9_/]+\\.h(pp)?\""
     _src_includes "${_src_text}")
   foreach(_inc IN LISTS _src_includes)
