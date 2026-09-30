@@ -312,7 +312,7 @@ inline void test_compile_polymesh_to_meshstate_basic() {
  * @brief Verifies compile() discards faces with fewer than three vertices and
  *        compacts away the vertices they orphaned.
  * @details Of one triangle and two 2-vertex faces, only the triangle survives
- *          into the MeshState. Vertex 3 is referenced only by the dropped faces,
+ *          into the MeshState. Vertex 0 is referenced only by the dropped faces,
  *          so it is compacted out while the survivor keeps its remapped indices.
  */
 inline void test_compile_drops_degenerate_faces() {
