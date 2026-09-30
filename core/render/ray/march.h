@@ -24,13 +24,13 @@ advance(const math::Vector &p, const math::Vector &direction, float step) {
 }
 
 HS_O3_BEGIN
-/** @brief Orthographic closest-approach policy with approximate coverage. */
+/** @brief Finds the closest sampled approach along a sphere-traced ray. */
 template <typename Shape>
 __attribute__((always_inline)) inline float
-legacy_closest(const Shape &shape, const math::Vector &origin,
-               const math::Vector &direction, float end_t, int max_steps,
-               float aa_width, math::Vector &closest_local,
-               float overrelaxation = 1.3f) {
+closest_approach(const Shape &shape, const math::Vector &origin,
+                 const math::Vector &direction, float end_t, int max_steps,
+                 float aa_width, math::Vector &closest_local,
+                 float overrelaxation = 1.3f) {
   float t = 0.0f;
   math::Vector local_p = origin;
   closest_local = origin;
