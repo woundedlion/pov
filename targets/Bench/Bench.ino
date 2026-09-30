@@ -38,6 +38,7 @@ const POV::EffectFactory EFFECT_FACTORIES[] = {&construct_effect<Pattern>};
 
 // One epoch per colour cycle: the rebuild lands on the cycle's own wrap, and
 // the commit window's blackout marks it on every board at once.
+static_assert(Pattern::CYCLE_FRAMES % WINDOWS_PER_REVOLUTION == 0);
 constexpr uint32_t BENCH_REVOLUTIONS[] = {Pattern::CYCLE_FRAMES /
                                           WINDOWS_PER_REVOLUTION};
 
