@@ -140,17 +140,18 @@ clean to **≥30 MHz** so headroom exists.
   series Schottky or P-FET (Q_REV) on the logic feed** is enough — the 4.4 A ideal-diode problem (and
   its body-diode-orientation / SOA subtleties) is **gone with the LED current**. Still **key/polarize
   J1**. Q_REV blocks a reversed feed from the logic rail, but reversal drives the card's GND plane to
-  +5 V. If USB is attached, the Teensy's USB ground ties that plane to host ground and shorts the
-  supply through the cable; F1 is in the +5 V leg and does not fuse this path. The **LED-power harness
+  +5 V. USB ground, J2 pin 2 (SIG_GND), or J3A/J3B pin 2 can connect that plane to supply
+  return, shorting the supply through the USB cable, strip ground lead, or 22 AWG sync conductor.
+  F1 is in the J1 +5 V leg and does not fuse any of these return paths. The **LED-power harness
   gets its own protection/keying off-board** (§2.3).
   > **This requirement is not met by the committed routed board.**
   > **J1 ships unkeyed.** Both committed artifacts carry
   > `Connector_PinHeader_2.54mm:PinHeader_1x02_P2.54mm_Vertical`, a plain 0.1″ header with no
   > key, no shroud and no locking ramp, so nothing mechanically stops the +5 V/GND feed going on
   > backwards and leaves the unfused GND-plane fault above reachable in practice; cutting
-  > VIN/VUSB per R-ASM-7 does not disconnect USB ground. Until the board is re-worked, the
-  > harness carries the polarity marking — **do not energize J1 with USB attached until its
-  > polarity is verified.** `gen/board.py` selects GCT TBC05-02-1-G-G for J1.
+  > VIN/VUSB per R-ASM-7 does not disconnect USB, J2, or J3 grounds. The
+  > harness carries the polarity marking — **verify J1 polarity before connecting it on any
+  > harnessed card.** `gen/board.py` selects GCT TBC05-02-1-G-G for J1.
   > This screw terminal is also unkeyed, so polarity verification remains required.
   > The generator reserves its full body and uses 1.3 mm drills; this does not
   > repair the shipped board. The assembly gate excludes headers and terminal

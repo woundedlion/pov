@@ -337,10 +337,11 @@ the strip, the heavy 5 V/GND LED harness, and the Belden 8451 STP for each inter
   header with no key, no shroud and no locking ramp, so nothing mechanically stops the
   +5 V/GND feed going on backwards. `Q_REV` is oriented to block that reversed feed from
   the logic rail, so it protects the Teensy and '125. The residual fault is on the return:
-  reversal puts +5 V on the board's GND plane, and a connected Teensy USB cable ties that
-  plane to host ground, shorting the supply through the cable. `F1` is only in J1's +5 V
-  leg, so this fault path is unfused; cutting VIN/VUSB per R-ASM-7 does not disconnect USB
-  ground. Do not energize J1 with USB attached until its polarity is verified.
+  reversal puts +5 V on the board's GND plane. USB ground, J2 pin 2 (SIG_GND), and
+  J3A/J3B pin 2 provide return paths through the USB cable, strip ground lead, and
+  22 AWG sync conductor. `F1` is only in J1's +5 V leg, so these fault paths are unfused;
+  cutting VIN/VUSB per R-ASM-7 does not disconnect them. Verify J1 polarity before
+  connecting it on any harnessed card.
   `../gen/board.py` selects the GCT TBC05-02-1-G-G screw terminal for J1.
   It is also unkeyed: R-PWR-7 still requires polarity verification. Its full body
   reservation and 1.3 mm drills apply to newly generated layouts; they do not
