@@ -140,8 +140,7 @@ CONSUMERS = {
 INLINE_SCAN = (
     *workflow_files(),
     ROOT / "justfile",
-    # The justfile's clang-format recipe body, where the gate's pathspec and
-    # exclusion regex live.
+    # The clang-format gate's pathspec and exclusion regex.
     ROOT / "tools/clang_format_gate.sh",
     ROOT / "tools/shellcheck_gate.sh",
     ROOT / "platformio.ini",
