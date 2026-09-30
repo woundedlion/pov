@@ -1069,7 +1069,7 @@ The rotation table is row-major `[value][hue]` in `Pixel` elements. Preparation
 samples value row `i` at `UNIT_OPEN_MAX * i / 63` and hue column `j` at
 `j / 16`, using the existing gamut-aware hue-rotation base and kernel. Sampling
 linearly interpolates adjacent value rows and wrapping adjacent hue columns
-with `frac_to_q16` weights and `Pixel::lerp16`, in the current arithmetic order.
+with `lut_index_lo` indices, `lut_index_weight` weights and `Pixel::lerp16`, in the current arithmetic order.
 
 The noise table is six consecutive row-major `24 x 24` signed-byte faces in
 `+X, -X, +Y, -Y, +Z, -Z` order. Face directions before normalization are:
