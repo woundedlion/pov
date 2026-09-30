@@ -3626,8 +3626,8 @@ inline void test_mixed_domain_flush_drains_both_buffers() {
 /**
  * @brief The base Effect::needs_full_frame() defaults to false.
  * @details A plain effect with no cross-segment filter keeps the segmented
- *          clipping win; only an effect that overrides the query (MeshFeedback,
- *          covered in test_effects.h) forces full-frame rendering.
+ *          clipping win; effects whose filter pipeline folds any_crosses_segments
+ *          true (MeshFeedback and Dynamo) force full-frame rendering.
  */
 inline void test_effect_needs_full_frame_default_false() {
   constexpr int W = 8, H = 8;
