@@ -1243,7 +1243,7 @@ inline Quaternion make_rotation(const Vector &axis, float theta) {
 }
 
 /**
- * @brief Returns the canonical body axis least parallel to @p v.
+ * @brief Returns +X, or +Y when @p v is near-parallel to +X.
  * @param v Vector to find a well-conditioned reference axis for.
  * @return +X unless @p v is near-parallel to it, in which case +Y.
  * @details Seed for building a cross-product frame around @p v: crossing @p v
