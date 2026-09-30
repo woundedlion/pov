@@ -425,7 +425,7 @@ files define line-ending policy and working-artifact exclusions.
 │       ├── payload_clone.h     Exception-contained snapshots of caller-owned JS payloads
 │       └── wasm_predicates.h   Pure embind boundary validation/clamping predicates (host-testable)
 │
-├── CMakeLists.txt              Emscripten build (outputs holosphere_wasm.js + .wasm)
+├── CMakeLists.txt              Two-mode build: Emscripten WASM (+ daydream install) or native Clang tests + CTest
 ├── CMakePresets.json           Canonical presets: wasm-release, wasm-debug, wasm-strict-fp, tests
 ├── cmake/
 │   ├── prune_mirrored_patterns.cmake     Removes obsolete engine-owned shader documents during install
