@@ -498,14 +498,14 @@ shells. Cubic, octet, affine cubic, and shells support both ambient dimensions;
 the remaining cellular graphs admit only 3D. Configuration IDs index the
 admitted table, not an arithmetic product of pattern and domain. Selecting a
 3D-only pattern from a 4D view adopts its 3D defaults. Unsupported restores
-are rejected. The octet 4D view remains manually selectable but has no preset.
+are rejected. The octet 4D view is available both manually and as a shipped preset.
 
 Cellular wires use finite-strut closest-approach contributions and rectangular
 cell traversal with bounded neighbors and world-space antialiasing. Sheared
 cubic wires transform the lattice basis while evaluating coverage in the
 ambient Euclidean metric. Shells use analytic sphere boundary roots; a 4D
 slice intersects the actual hypersurface. Shear, stretch, and shell radius
-are geometry parameters and follow the same atomic transition policy.
+are continuous geometry parameters and interpolate during transitions.
 Camera translation wraps by each geometry's translation lattice. The shell
 radius range stays below half a cell. Stretch applies only to affine cubic wires.
 Traversal exhaustion preserves previously composited layers and is reflected
@@ -519,11 +519,8 @@ fail validation without mutating live state. Hidden/inapplicable parameters
 must not alter the current configuration; schema refresh uses existing hooks.
 
 Keep `ChoreographedEffect` and its existing transition cancellation semantics.
-Within one tuple, interpolate only declared compatible fields. Between tuples,
-the initial `blend_params` policy holds the complete source geometry until
-progress 0.5, then adopts the complete target geometry; it may interpolate
-shared appearance. It does not independently interpolate shape parameters or
-switch enum members. Manual presets and valid restores snap as they do today;
+`Params::lerp` blends all continuous geometry and appearance fields. Discrete
+configuration and enum members switch at progress 0.5. Manual presets and valid restores snap as they do today;
 a manual parameter edit cancels an in-flight transition. New prepared state
 becomes visible together at a frame boundary, never midway through a segment.
 
