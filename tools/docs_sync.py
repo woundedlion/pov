@@ -215,7 +215,7 @@ def discover_daydream(root: Path) -> Path | None:
     common = subprocess.check_output([
         "git", "-C", str(root), "rev-parse", "--path-format=absolute", "--git-common-dir"],
         text=True, timeout=30).strip()
-    candidates = [Path(os.environ["DAYDREAM_CHECKOUT"])] if os.environ.get("DAYDREAM_CHECKOUT") else [
+    candidates = [Path(os.environ["DAYDREAM_DIR"])] if os.environ.get("DAYDREAM_DIR") else [
         root / "daydream", Path(common).parent.parent / "daydream"]
     revision = checkout_revisions({"daydream": root})["daydream"]
     for candidate in candidates:
@@ -224,5 +224,4 @@ def discover_daydream(root: Path) -> Path | None:
                                     capture_output=True, timeout=30)
             if result.returncode == 0:
                 return candidate.resolve()
-    print(f"[docs-sync] Daydream pin {revision} unavailable locally; leaving its map unchanged")
     return None
