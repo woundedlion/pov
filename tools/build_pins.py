@@ -121,6 +121,8 @@ CONSUMERS = {
     ),
     ROOT / "justfile": (
         "build_pins.py doxygen-awesome",
+        "build_pins.py --check-tool actionlint",
+        "build_pins.py --check-tool just",
         "build_pins.py --check-tool clang-format",
         "build_pins.py --check-tool doxygen",
         "build_pins.py --check-tool node",
@@ -267,9 +269,8 @@ SHARED_LITERAL_USES = (
 # two file digests name no program, and the emsdk and KiCad pins are checked
 # where they are used (the WASM toolchain marker written beside the build,
 # kicad_common.find_kicad_cli). The targets a recipe runs are invoked from
-# it (CONSUMERS pins those call sites); clang, just and python are manual
-# probes, no recipe spelling them -- the native build reaches clang through the
-# CMake toolchain, which may be emsdk's.
+# it (CONSUMERS pins those call sites). The native build reaches clang through
+# the CMake toolchain, which may be emsdk's.
 CHECK_TOOLS = {
     "actionlint": (["actionlint", "-version"],
                    "pip install actionlint-py=={pin}",
