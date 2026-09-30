@@ -3224,7 +3224,7 @@ inline constexpr StepLegSite GATE_LEG_SITES[] = {
 /**
  * @brief Drives one gated-swap leg to completion through OpLeg, gating the
  *        per-side compiled-face-count constancy, the single swap, the ramp
- *        indices and the gain envelope.
+ *        indices.
  * @param op Partition operator the leg swaps to.
  * @param site Seed site.
  * @param gate Half-gate length in frames.
@@ -3322,8 +3322,7 @@ inline void check_gated_leg_smoke(Animation::OpLeg::SwapOp op,
   HS_EXPECT_EQ(landing.primary_faces, prev_faces);
   HS_EXPECT_TRUE(landing.from_palette != nullptr);
 
-  std::printf("  [opleg %s] %s: F %zu -> %zu, swap at frame %d of %d, gain 1 "
-              "throughout%s\n",
+  std::printf("  [opleg %s] %s: F %zu -> %zu, swap at frame %d of %d%s\n",
               is_kis ? "kis" : "dual", site.name, prev_faces, landing.faces,
               swap_frame, frames,
               hs_test::stats().failed != failed_before ? " FAILED" : "");
