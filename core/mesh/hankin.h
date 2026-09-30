@@ -303,7 +303,7 @@ inline constexpr float HANKIN_CONDITIONED_FAR_RATIO_SQ = 9.0f;
  * far-star fallback. A far chord ratio alone is not instability: a large face
  * (hexagon, octagon) legitimately pushes its star point out to raw_ratio_sq ~3
  * while the two contact planes stay well-separated (plane_cross_sq ~0.8).
- * Genuine near-parallel yeets — where the intersection direction is
+ * Near-parallel intersections — where the intersection direction is
  * noise-dominated — sit at plane_cross_sq below 0.01; healthy far points stay
  * above 0.5. plane_cross_sq varies smoothly with the sweep angle, so gating on
  * it keeps the transition continuous. */
