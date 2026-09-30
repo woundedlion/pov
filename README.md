@@ -296,7 +296,7 @@ files define line-ending policy and working-artifact exclusions.
 │   ├── render/                 Canvas, rasterizers, and the filter pipeline
 │   │   ├── canvas.h                Effect base class (framebuffer half) + Canvas RAII write-buffer guard
 │   │   ├── clip.h                  ClipRegion segment clip rectangle + cylindrical render band
-│   │   ├── pullback.h              Typed inverse-render pipeline: umbrella over pullback/'s ten stage headers
+│   │   ├── pullback.h              Typed inverse-render pipeline: umbrella over pullback/'s eleven stage headers
 │   │   ├── pullback/               Per-stage pullback headers (contract, fields, surface,
 │   │   │                            lens, projection, warp, source, material, color,
 │   │   │                            stage, ray), the operator layer (operator_model,
