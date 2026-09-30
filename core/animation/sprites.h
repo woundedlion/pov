@@ -634,7 +634,7 @@ private:
           const float axis_sq = math::dot(axis, axis);
           constexpr float MOTION_MIN_SQ = MOTION_MIN_SPEED * MOTION_MIN_SPEED;
           if (speed_sq > MOTION_MIN_SQ && axis_sq > MOTION_MIN_SQ) {
-            const float speed = std::min(sqrtf(speed_sq), max_delta);
+            const float speed = fminf(sqrtf(speed_sq), max_delta);
             axis *= 1.0f / sqrtf(axis_sq);
             const math::Quaternion dq = math::make_rotation(axis, speed);
             p.position = math::rotate(p.position, dq);
@@ -650,7 +650,7 @@ private:
           if (speed > MOTION_MIN_SPEED && axis.magnitude() > MOTION_MIN_SPEED) {
             // Cap the per-frame surface advance at one column to avoid aliasing;
             // velocity keeps its full magnitude.
-            speed = std::min(speed, max_delta);
+            speed = fminf(speed, max_delta);
             math::Quaternion dq = math::make_rotation(axis.normalized(), speed);
             p.position = math::rotate(p.position, dq);
             p.velocity = math::rotate(p.velocity, dq);
