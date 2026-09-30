@@ -568,6 +568,8 @@ inline void test_truncate_t_over_half_crossed_cuts() {
   HS_EXPECT_TRUE(tr.vertices.size() > 0);
   check_face_counts_consistent(tr);
   check_indices_in_range(tr);
+  HS_EXPECT_EQ(count_same_direction_edge_violations(tr), 0);
+  check_euler_genus0(tr);
   check_all_unit_vertices(tr, 1e-3f); // on-sphere implies finite
 
   HS_EXPECT_EQ(tr.vertices.size(), (size_t)24); // 2 * E
@@ -577,6 +579,8 @@ inline void test_truncate_t_over_half_crossed_cuts() {
   // Each primary face is doubled to count*2 = 8 sides; the 8 vertex faces are 3.
   for (size_t fi = 0; fi < 6; ++fi)
     HS_EXPECT_EQ((int)tr.face_counts[fi], 8);
+  for (size_t fi = 6; fi < 14; ++fi)
+    HS_EXPECT_EQ((int)tr.face_counts[fi], 3);
 }
 
 // ---------------------------------------------------------------------------
