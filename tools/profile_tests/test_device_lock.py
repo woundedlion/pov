@@ -520,9 +520,7 @@ class BoardSelection(unittest.TestCase):
 class MissingLockRoot(unittest.TestCase):
     """A lock base whose parent directory does not exist.
 
-    No claim can be recorded there, and a claim that cannot be recorded looks
-    exactly like a board somebody else holds -- acquire once reported "ALL
-    DEVICES BUSY" over a status listing every board as free.
+    A missing parent must be reported as a claim failure, not a busy device.
     """
 
     def setUp(self):
