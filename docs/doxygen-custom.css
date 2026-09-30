@@ -1,17 +1,9 @@
-/* Fix 1: remove the dark pill background from span.tt inline code/filenames.
-   doxygen.css gives span.tt `background-color: var(--fragment-background-color)`,
-   which renders as near-black in dark mode and is visually inconsistent with
-   plain `code` and `tt` elements that have no background. */
+/* Inline code shares the surrounding background. */
 span.tt {
     background-color: transparent;
 }
 
-/* Fix 2: anchor search results to the viewport, not to #doc-content.
-   #MSearchResultsWindow is position:absolute inside #doc-content, so
-   top:0;right:4px places it at the top of the content area rather than near
-   the nav bar. position:fixed makes it viewport-relative, matching where the
-   search input lives. The earlier overflow:visible on #container is kept for
-   any other dropdowns that may still use absolute positioning. */
+/* Search results are viewport-relative. */
 #MSearchResultsWindow {
     position: fixed;
 }
@@ -19,26 +11,18 @@ span.tt {
     overflow: visible;
 }
 
-/* Fix 2b: doxygen-awesome caps #top at a fixed height that clips the search
-   box. Remove the fixed height so the bar sizes to its content, and add a
-   small gap between the search box and the nav-tree list below. */
+/* The navigation bar grows to fit its search box. */
 #top {
     height: auto;
     padding-bottom: 8px;
 }
 
-/* Fix 3: the right page-nav panel (page outline / member list) falls back to
-   the page background (black in dark mode) instead of the nav background.
-   Explicitly match the left sidebar color. */
+/* Both navigation sidebars share a background. */
 #page-nav {
     background-color: var(--nav-background-color);
 }
 
-/* Fix 4: section heading rows (e.g. "Public Attributes", "Public Methods") and
-   member description rows in memberdecls tables have no explicit background.
-   Only memItemLeft/Right/memTemplParams get --memdecl-background-color; the
-   heading, description, and title cells fall through to the page background
-   (black in dark mode). Anchor them all to the same memdecl background. */
+/* Member table headings and descriptions share a background. */
 tr.heading td,
 td.ititle,
 .inherit_header td,
@@ -47,13 +31,7 @@ td.mdescRight {
     background-color: var(--memdecl-background-color);
 }
 
-/* Fix 5b: member declaration/definition border colors are #233250 in dark mode,
-   essentially indistinguishable from the dark backgrounds and perceived as solid
-   black boxes. Lighten to a visible mid-gray.
-   doxygen-awesome sets these variables in an attribute selector
-   (e.g. html[data-theme="dark"], specificity 0-1-1) which beats :root (0-1-0).
-   Match that specificity pattern plus fall back to direct border-color on the
-   actual cells so the override is guaranteed regardless of which selector wins. */
+/* Member borders use the same specificity as the theme variables. */
 :root,
 html[data-theme="dark"],
 html[data-bs-theme="dark"],
@@ -68,11 +46,7 @@ td.mdescLeft, td.mdescRight, td.ititle,
     border-color: #4a5568;
 }
 
-/* Fix 5: the h2.groupheader inside tr.heading td uses box-shadow with
-   var(--page-background-color) as a "mask" layer on both sides of the text,
-   creating the separator line effect. After Fix 4 the td background is
-   --memdecl-background-color, not --page-background-color, so those mask
-   layers appear as black bars. Match the shadow to the td background. */
+/* Heading shadows match the member table background. */
 td h2.groupheader {
     box-shadow: 13px 0 var(--memdecl-background-color),
                -13px 0 var(--memdecl-background-color),
