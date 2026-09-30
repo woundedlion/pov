@@ -1998,6 +1998,8 @@ inline void test_hankin_sweep_vertex_stability() {
           math::slerp(collapsed[i].pos, arrival[i].pos, 1.0f);
       end0 = hs_test::fold_worst(end0, (s0 - collapsed[i].pos).magnitude());
       end1 = hs_test::fold_worst(end1, (s1 - arrival[i].pos).magnitude());
+      HS_EXPECT_LE(
+          (packed_arrival[i].normalized() - arrival[i].pos).magnitude(), 3e-5f);
       exact0 += std::memcmp(&s0, &collapsed[i].pos, sizeof(math::Vector)) == 0;
       exact1 += std::memcmp(&s1, &arrival[i].pos, sizeof(math::Vector)) == 0;
     }
