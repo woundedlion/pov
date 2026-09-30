@@ -1290,3 +1290,26 @@ test('catalog declarations preserve source and clock speed units', () => {
     assert.equal(declarationFromCatalogField('stage', field, operator).unit, unit);
   }
 });
+
+
+test('CLI validates invocation before reading and reports malformed JSON as diagnostics', () => {
+  for (const args of [['unknown', 'missing'], ['check', 'missing', 'extra'], ['classify', 'missing']]) {
+    const result = run(...args);
+    assert.equal(result.status, 2);
+    assert.match(result.stderr, /Usage:/);
+    assert.doesNotMatch(result.stderr, /cannot read/);
+  }
+  const dir = mkdtempSync(join(tmpdir(), 'shader-cli-malformed-'));
+  try {
+    const path = join(dir, 'malformed.shader.json');
+    writeFileSync(path, '{');
+    const result = run('check', path);
+    assert.equal(result.status, 1, result.stderr);
+    const output = JSON.parse(result.stdout);
+    assert.equal(output.status, 'INVALID');
+    assert.equal(output.diagnostics[0].phase, 'parse');
+    assert.match(output.diagnostics[0].message, /end of input/);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
