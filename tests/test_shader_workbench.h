@@ -3885,6 +3885,7 @@ template <typename FixedEffect>
 void verify_fixed_shader_export(
     const ShaderWorkbenchWhiteBox::RequestedConfig &base, size_t fixed_preset) {
   using WB = ShaderWorkbenchWhiteBox;
+  HS_CONTEXT(__PRETTY_FUNCTION__, static_cast<long long>(fixed_preset));
   reset_effect_globals();
   const auto own = [fixed_preset] {
     FixedEffect effect;
@@ -3917,7 +3918,6 @@ void verify_fixed_shader_export(
   HS_EXPECT_TRUE(reference.outer_conjugate == dynamic.transforms.outer_conj);
   const typename FixedEffect::Frame compiled =
       FixedEffect::RenderPipeline::prepare(reference);
-  HS_CONTEXT("effect preset", static_cast<long long>(fixed_preset));
   for (int latitude_step = -9; latitude_step <= 9; ++latitude_step) {
     const float latitude = latitude_step * (0.5f * math::PI_F / 9.0f);
     const float radius = cosf(latitude);
