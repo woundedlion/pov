@@ -123,6 +123,14 @@ class TestDocsImagesVerify(unittest.TestCase):
         self.track("README.md", '<img src="docs/screenshots/A.png" width="640">')
         self.assertEqual(di.verify(self.repo), ([], 1))
 
+    def test_wrong_case_image_is_rejected(self):
+        self.track("docs/A.png", b"pixels")
+        self.track("README.md", '<img src="docs/a.png">')
+        errors, checked = di.verify(self.repo)
+        self.assertEqual(checked, 1)
+        self.assertEqual(len(errors), 1)
+        self.assertIn("names no file", errors[0])
+
     def test_untracked_image_is_rejected(self):
         self.track("README.md", '<img src="untracked.png">')
         (self.repo / "untracked.png").write_bytes(b"pixels")
