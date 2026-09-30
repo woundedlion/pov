@@ -547,6 +547,15 @@ class UnplacedBoardTests(TerminalBodyChecks, TerminalEdgePlacementChecks, unitte
                         <= set(texts), sorted(texts))
         self.assertTrue({"SYNC IN", "SYNC OUT", "LED OUT"}.isdisjoint(texts))
 
+    def test_labels_terminal_pin_functions(self):
+        marks = {(str(node[1]), tuple(float(v) for v in sexp.val(node, "at")[:2]))
+                 for node in F(self.root, "gr_text")
+                 if str(sexp.val(node, "layer")[0]) == "F.SilkS"}
+        for ref, labels in (("J2", "DGC"), ("J3A", "SGH"), ("J3B", "SGH")):
+            x, y, _ = pcb.TERMINAL_EDGE_PLACEMENTS[ref]
+            for pin, label in enumerate(labels):
+                self.assertIn((label, (x + 4.5, round(y + pin * 2.54, 2))), marks)
+
 
 @unittest.skipUnless(GENERATES, GENERATES_REASON)
 class OrphanPadTests(unittest.TestCase):
