@@ -49,8 +49,10 @@ public:
 #if defined(HS_TEST_H_OFFSET)
   constexpr explicit LatitudeGeometry(int height)
       : LatitudeGeometry(height, 0.0f,
-                         PI_F * (height - 1) /
-                             (height + HS_TEST_H_OFFSET - 1)) {}
+                         HS_TEST_H_OFFSET == 0
+                             ? PI_F
+                             : PI_F * (height - 1) /
+                                   (height + HS_TEST_H_OFFSET - 1)) {}
 #elif HS_RUNTIME_DISPLAY_GEOMETRY
   explicit LatitudeGeometry(int height)
       : LatitudeGeometry(height, DISPLAY_NORTH_PHI, DISPLAY_SOUTH_PHI) {}
@@ -95,8 +97,10 @@ template <int H, int LegacyOffset = -1> struct DisplayGeometry {
   static constexpr int OFFSET = LegacyOffset;
 #endif
   static constexpr float NORTH_PHI = OFFSET >= 0 ? 0.0f : DISPLAY_NORTH_PHI;
-  static constexpr float SOUTH_PHI =
-      OFFSET >= 0 ? PI_F * (H - 1) / (H + OFFSET - 1) : DISPLAY_SOUTH_PHI;
+  static constexpr float SOUTH_PHI = OFFSET == 0 ? PI_F
+                                     : OFFSET > 0
+                                         ? PI_F *(H - 1) / (H + OFFSET - 1)
+                                         : DISPLAY_SOUTH_PHI;
   static_assert(NORTH_PHI >= 0.0f && SOUTH_PHI <= PI_F &&
                 NORTH_PHI < SOUTH_PHI);
   static constexpr float RADIANS_PER_ROW = (SOUTH_PHI - NORTH_PHI) / (H - 1);
