@@ -217,6 +217,7 @@ HS_FLASH_MEMBER inline ProjectedLookup project_branch(const math::Vector &v,
   return {result.coords, result.provenance, local, 0.0f};
 }
 
+#if HS_ENABLE_TEST_HOOKS && HS_ENABLE_TEST_ORACLES
 HS_FLASH_MEMBER inline Pullback::ProjectionResult
 finalize_projection(const math::Vector &local, Projection projection,
                     float singularity_fade,
@@ -240,6 +241,8 @@ finalize_projection(const math::Vector &local, Projection projection,
   HS_CHECK(false, "finalize_projection: unsupported projection");
   return {};
 }
+
+#endif
 
 /**
  * @brief Pulls plane coordinates back through both warp stages.
@@ -410,6 +413,7 @@ inline float warp_envelope(const Pullback::ProjectionProvenance &provenance,
       provenance, edge_width, static_cast<Pullback::Warp::Envelope>(envelope));
 }
 
+#if HS_ENABLE_TEST_HOOKS && HS_ENABLE_TEST_ORACLES
 HS_FLASH_MEMBER inline math::Complex curl_vector(const math::Complex &p,
                                                  const FastNoiseLite &noise,
                                                  math::NoiseBasis basis,
@@ -417,6 +421,8 @@ HS_FLASH_MEMBER inline math::Complex curl_vector(const math::Complex &p,
   return Pullback::Warp::curl_vector(p, noise, basis, scale,
                                      math::noise_projected_loop_offset(phase));
 }
+
+#endif
 
 __attribute__((always_inline)) inline math::Complex
 mirror_tile(const math::Complex &input, const WarpStageParams &params,
@@ -737,10 +743,13 @@ apply_surface_noise_result(const math::Vector &v, const FrameState &frame) {
                                        params.strength, path_length_required);
 }
 
+#if HS_ENABLE_TEST_HOOKS && HS_ENABLE_TEST_ORACLES
 HS_FLASH_MEMBER inline math::Vector
 apply_surface_noise(const math::Vector &v, const FrameState &frame) {
   return apply_surface_noise_result(v, frame).sphere;
 }
+
+#endif
 
 /**
  * @brief Applies a lens whose image depends on the direction alone.
@@ -786,7 +795,8 @@ apply_frame_free_lens(const math::Vector &v, SurfaceLens lens) {
   case SurfaceLens::MOBIUS:
   case SurfaceLens::TANGENT_NOISE:
     HS_CHECK(false, "frame-parameterized lens needs the FrameState overload");
-    __builtin_unreachable();
+    HS_CHECK(false, "project_point: unsupported projection");
+    return {};
   }
   __builtin_unreachable();
 }
@@ -796,6 +806,7 @@ mobius_lens(const math::Vector &v, const math::MobiusParams &params) {
   return Pullback::Lens::mobius(v, params);
 }
 
+#if HS_ENABLE_TEST_HOOKS && HS_ENABLE_TEST_ORACLES
 /**
  * @brief Projects a sphere direction with the projections that take no
  *        `ProjectionParams`.
@@ -822,8 +833,11 @@ HS_FLASH_MEMBER inline math::Complex project_point(const math::Vector &v,
   case Projection::AIROCEAN:
     break;
   }
-  __builtin_unreachable();
+  HS_CHECK(false, "project_point: unsupported projection");
+  return {};
 }
+
+#endif
 
 HS_FLASH_MEMBER inline math::Complex gnomonic(const math::Vector &v) {
   return Pullback::Projection::gnomonic(

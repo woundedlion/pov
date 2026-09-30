@@ -1863,6 +1863,7 @@ private:
     generated_palettes.set_chroma(chroma);
   }
 
+#if HS_ENABLE_TEST_HOOKS && HS_ENABLE_TEST_ORACLES
   HS_COLD_MEMBER Workbench::FrameState prepare_frame() const {
     Workbench::FrameState frame;
     prepare_frame({active_slots, blend.params}, runtime, frame);
@@ -1876,6 +1877,8 @@ private:
     prepare_frame(config, endpoint, frame);
     return frame;
   }
+
+#endif
 
   HS_COLD_MEMBER void prepare_frame(const Workbench::Config &config,
                                     const Workbench::EndpointRuntime &endpoint,
@@ -2021,6 +2024,7 @@ private:
     scan_frame_shader(canvas, shader);
   }
 
+#if HS_ENABLE_TEST_HOOKS && HS_ENABLE_TEST_ORACLES
   static constexpr const char *
   pipeline_name(Workbench::InversePipelineId pipeline) {
     switch (pipeline) {
@@ -2065,6 +2069,8 @@ private:
     }
     return "NONE";
   }
+
+#endif
 
   HS_COLD_MEMBER WalkDeltas sample_walk_deltas() {
 #if HS_ENABLE_TEST_HOOKS

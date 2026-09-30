@@ -1774,6 +1774,11 @@ inline void case_mindsplatter_profile_preset_oob() {
   effect.profile_select_preset(opaque<size_t>(SIZE_MAX));
 }
 
+inline void case_workbench_unsupported_projection() {
+  (void)Workbench::project_point(math::Vector(0, 0, 1),
+                                 Workbench::Projection::AIROCEAN);
+}
+
 inline void case_workbench_lens_missing_frame() {
   (void)Workbench::apply_frame_free_lens(math::Vector{1.0f, 0.0f, 0.0f},
                                          Workbench::SurfaceLens::MOBIUS);
@@ -4848,6 +4853,9 @@ inline const Case *all_cases(int &n) {
       {"mindsplatter_profile_preset_oob", case_mindsplatter_profile_preset_oob,
        "effects/MindSplatter.h",
        "(index < PRESETS.size()) MindSplatter profile preset index out of range"},
+      {"workbench_unsupported_projection",
+       case_workbench_unsupported_projection, "workbench/shader/kernels.h",
+       "(false) project_point: unsupported projection"},
       {"workbench_lens_missing_frame", case_workbench_lens_missing_frame,
        "workbench/shader/kernels.h",
        "(false) frame-parameterized lens needs the FrameState overload"},

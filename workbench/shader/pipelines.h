@@ -731,6 +731,7 @@ resolve_pipeline_id(const Config &config) {
   return program == nullptr ? InversePipelineId::NONE : program->id;
 }
 
+#if HS_ENABLE_TEST_HOOKS && HS_ENABLE_TEST_ORACLES
 HS_COLD_MEMBER inline const ProgramDescriptor *
 resolve_inverse_program(const FrameState &frame) {
   const Config config{frame.slots, frame.params};
@@ -739,6 +740,8 @@ resolve_inverse_program(const FrameState &frame) {
     return nullptr;
   return program;
 }
+
+#endif
 
 } // namespace Workbench
 
