@@ -60,6 +60,7 @@ FORMAT="$(printf '%s\n' "$PRESENT" \
   || true)"
 
 if [ -n "$FORMAT" ]; then
+  "$PYTHON_BIN" "$SNAPSHOT/tools/build_pins.py" --check-tool clang-format
   CF="${CLANG_FORMAT:-clang-format}"
   if ! command -v "$CF" >/dev/null 2>&1; then
     echo "[pre-commit] $CF not found; install clang-format 22."
