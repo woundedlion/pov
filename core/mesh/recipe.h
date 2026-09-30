@@ -33,10 +33,10 @@ inline constexpr float CHAMFER_T_MAX = 0.63f;
  * @details TRUNCATE below ConwayGraph::T_TRUNCATE_ARRIVAL_MIN sweeps too few
  * pixels to read as motion. A sub-T_EPS arrival (0.01) still sweeps: the leg
  * births at the derived per-arrival floor (min(T_EPS, arrival *
- * TRUNCATE_BIRTH_FRAC)) rather than clamping both endpoints to T_EPS. Above 0.5
+ * TRUNCATE_BIRTH_FRAC)). Above 0.5
  * is a far-side leg: it sweeps through the ambo pinch on the constant-topology
  * truncate branch (the two truncate50d recipes arrive at 0.873), up to
- * T_TRUNCATE_FAR_MAX; behaviour in [T_TRUNCATE_ARRIVAL_MIN, 0.5] is unchanged.
+ * T_TRUNCATE_FAR_MAX.
  * CHAMFER is characterized up to CHAMFER_T_MAX. SNUB sweeps only a positive
  * inset, HANKIN only a positive contact angle and RELAX only a baked step or a
  * positive iteration count, the floors apply_step traps on. KIS and DUAL run as

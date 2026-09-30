@@ -108,7 +108,7 @@ inline constexpr float T_JITTERBUG_OCTA_MIN = 0.5104592f;
  * to a still image (t_start == t_end). The 0.2 fraction crosses over to the
  * flat T_EPS birth at arrival = T_EPS / 0.2 = 0.1: only the registry truncate
  * arrivals under that crossover (0.01 and 0.087) are born at the scaled floor;
- * every arrival from 0.33 up keeps a bit-identical T_EPS birth. */
+ * every arrival at or above the crossover has a T_EPS birth. */
 inline constexpr float TRUNCATE_BIRTH_FRAC = 0.2f;
 /** Smallest truncate arrival a recipe-step leg sweeps to; below it the
  * birth-to-arrival span is too few pixels to read as motion. Its birth floor
