@@ -1473,9 +1473,8 @@ static inline bool edge_fits_one_dot(const math::Vector &a,
   // Preserve the fast-path implication under screen_rsqrt's <0.1% undershoot.
   constexpr float SCREEN_RSQRT_MIN2 = 0.999f * 0.999f;
   // chord^2 caps: (2 sin(BASE/2))^2 >= B2*(1 - B2/12) bounds theta <= BASE.
-  // The lower cap keeps 1 - dot(a, b) orders of magnitude above float ULP:
-  // below ~3.5e-4 rad the dot rounds to 1.0f, angle_between collapses to 0,
-  // and the exact path treats the edge as degenerate (no interior dot).
+  // The lower cap stays above process_segment's EPS_GEOMETRIC degenerate
+  // branch, which plots the start dot only on a last segment.
   constexpr float CHORD2_MAX = B2 * (1.0f - B2 / 12.0f);
   constexpr float CHORD2_MIN = 4.0e-6f;
   // (theta/sin(theta))^2 <= F2 for theta <= BASE, plus float-rounding slack.
