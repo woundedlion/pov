@@ -789,10 +789,7 @@ inline void test_islamic_recipes_are_morph_feasible() {
 // Runner
 // ---------------------------------------------------------------------------
 
-/**
- * @brief Runs all solids tests.
- * @return The module's failure count.
- */
+/** @brief Checks vertex directions, rotations and spacing for an octahedron. */
 inline void test_build_vertex_directions() {
   Arena geom(solids_geom_a, sizeof(solids_geom_a));
   Arena scratch(solids_scratch_a, sizeof(solids_scratch_a));
@@ -811,6 +808,10 @@ inline void test_build_vertex_directions() {
   }
 }
 
+/**
+ * @brief Runs all solids tests.
+ * @return The module's failure count.
+ */
 inline int run_solids_tests() {
   hs_test::ModuleFixture fixture("solids");
 
