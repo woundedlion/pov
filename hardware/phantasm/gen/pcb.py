@@ -43,7 +43,8 @@ PCB_W = 32.0  # board width (mm), trimmed to part extent
 if PCB_W > PCB_W_MAX:
     raise ValueError(f"PCB_W {fmt(PCB_W)} mm exceeds the R-MECH-6 cap of "
                      f"{fmt(PCB_W_MAX)} mm")
-QUILTER_LENGTH = 58.28
+QUILTER_LENGTH = 70.28
+QUILTER_MOUNTING_LENGTH = 58.28
 TEENSY_LIBRARY_REASON = (
     "The committed, routed phantasm.kicad_pcb resolves its Teensy pads\n"
     "  against this library file.")
@@ -596,11 +597,21 @@ QUILTER_FIXED_FOOTPRINTS = {
     "R_S": "Resistor_SMD:R_0805_2012Metric",
 }
 
+TERMINAL_EDGE_PLACEMENTS = {
+    "J1": (4.0, 18.9, 0),
+    "J2": (66.28, 3.96, 0),
+    "J3A": (66.28, 13.46, 0),
+    "J3B": (66.28, 22.96, 0),
+}
+
 
 def fixed_placements(comps):
-    return {ref: placement for ref, placement in QUILTER_FIXED.items()
-            if ref in comps and (ref not in QUILTER_FIXED_FOOTPRINTS or
-                                 comps[ref][1] == QUILTER_FIXED_FOOTPRINTS[ref])}
+    fixed = {ref: placement for ref, placement in QUILTER_FIXED.items()
+             if ref in comps and (ref not in QUILTER_FIXED_FOOTPRINTS or
+                                  comps[ref][1] == QUILTER_FIXED_FOOTPRINTS[ref])}
+    fixed.update({ref: placement for ref, placement in TERMINAL_EDGE_PLACEMENTS.items()
+                  if ref in comps and comps[ref][1] == TERMINAL_LIBIDS[0 if ref == "J1" else 1]})
+    return fixed
 
 
 def _column_height(refs, bxs, gap):
@@ -780,6 +791,10 @@ def main(unplaced=False, force=False, force_teensy_library=False):
     if unplaced:
         L = QUILTER_LENGTH
         fixed = fixed_placements(comps)
+        missing_edges = sorted(set(TERMINAL_EDGE_PLACEMENTS) - fixed.keys())
+        if missing_edges:
+            sys.exit("ERROR connectors require verified edge placements: "
+                     + ", ".join(missing_edges))
         staged = unplaced_layout(bxs, L, PCB_W)
         PLACE = {r: fixed.get(r, staged[r]) for r in bxs}
         # the staged grid sits below the outline by design; only locked parts are on it
@@ -801,12 +816,13 @@ def main(unplaced=False, force=False, force_teensy_library=False):
         sys.exit(f"ERROR placements outside the {fmt(L)}x{fmt(PCB_W)}mm outline: "
                  + ", ".join(outside))
 
-    clashes = keepout_clashes(PLACE, crt_bxs, L)
+    mounting_length = QUILTER_MOUNTING_LENGTH if unplaced else L
+    clashes = keepout_clashes(PLACE, crt_bxs, mounting_length)
     if clashes:
         sys.exit("ERROR footprints inside a mounting-hole reservation: "
                  + ", ".join(clashes))
 
-    HOLES = mounting_holes(L)
+    HOLES = mounting_holes(mounting_length)
     teensy_model_path = "${KIPRJMOD}/phantasm.pretty/Teensy4.0.wrl"
     foot_nodes = []
     consumed = set()
@@ -883,7 +899,7 @@ def main(unplaced=False, force=False, force_teensy_library=False):
                      f'(xy 0 0) (xy {fmt(L)} 0) '
                      f'(xy {fmt(L)} {fmt(PCB_W)}) (xy 0 {fmt(PCB_W)})))')
         lines.append('\t)')
-    for ref, (kx0, ky0, kx1, ky1) in keepout_rects(L).items():
+    for ref, (kx0, ky0, kx1, ky1) in keepout_rects(mounting_length).items():
         lines.append('\t(zone')
         lines.append('\t\t(net 0)')
         lines.append('\t\t(net_name "")')
@@ -929,13 +945,24 @@ def main(unplaced=False, force=False, force_teensy_library=False):
             ("ID2", 54.3, 15.3, 90),
             ("SHLD", 54.3, 19.0, 90),
         ]
-        if not all(ref in fixed for ref in FAR_CONNS):
+        if not all(fixed.get(ref) == QUILTER_FIXED[ref] for ref in FAR_CONNS):
             front_silk = [item for item in front_silk
                           if item[0] in ("ID0", "ID1", "ID2", "SHLD")]
         for text, x, y, angle in front_silk:
             lines.append(f'\t(gr_text {sexp.quote(text)} (at {fmt(x)} {fmt(y)} {angle})'
                          f' (layer "F.SilkS") (uuid "{uid()}") '
                          '(effects (font (size 0.8 0.8) (thickness 0.15))))')
+        for ref, label in (("J1", "PWR"), ("J2", "LED OUT"),
+                           ("J3A", "SYNC IN"), ("J3B", "SYNC OUT")):
+            if fixed.get(ref) != TERMINAL_EDGE_PLACEMENTS[ref]:
+                continue
+            x, y, _ = fixed[ref]
+            label_x = x + 2 if ref == "J1" else x - 2
+            label_y = y + (1.27 if ref == "J1" else 2.54)
+            lines.append(f'\t(gr_text {sexp.quote(label)} '
+                         f'(at {fmt(label_x)} {fmt(label_y)} 90) '
+                         f'(layer "B.SilkS") (uuid "{uid()}") '
+                         '(effects (font (size 0.8 0.8) (thickness 0.15)) (justify mirror)))')
     back_silk = [
         ("ID  ID0   ID1   ROLE", 7.0, 0.9),
         ("0   OPEN  OPEN  MASTER", 9.0, 0.9),

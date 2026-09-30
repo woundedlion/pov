@@ -112,7 +112,7 @@ class TerminalBodyChecks:
                 self.assertEqual(pcb.fp_bbox(fp, graphic_layers=("F.CrtYd",)),
                                  reservation)
                 zones = F(fp, "zone")
-                self.assertEqual(len(zones), 1)
+                self.assertEqual(len(zones), 2)
                 zone = zones[0]
                 self.assertEqual(sexp.val(zone, "layer"), ["F.Cu"])
                 x0, y0, x1, y1 = reservation
@@ -413,8 +413,66 @@ class GeneratedBoardTests(TerminalBodyChecks, unittest.TestCase):
         self.assertEqual(overlaps, [])
 
 
+class TerminalEdgePlacementChecks:
+    def test_connectors_are_locked_inside_the_outline(self):
+        footprints = {reference(fp): fp for fp in F(self.root, "footprint")}
+        edge = F(self.root, "gr_rect")[0]
+        length, width = map(float, sexp.val(edge, "end"))
+        row = []
+        for ref in ("J1", "J2", "J3A", "J3B"):
+            fp = footprints[ref]
+            self.assertEqual(sexp.val(fp, "locked"), ["yes"], ref)
+            x, y, angle = map(float, sexp.val(fp, "at"))
+            self.assertEqual(angle, 0, ref)
+            x0, y0, x1, y1 = courtyard_box(fp)
+            self.assertGreaterEqual(min(x0, y0), 0, ref)
+            self.assertLessEqual(x1, length, ref)
+            self.assertLessEqual(y1, width, ref)
+            if ref == "J1":
+                self.assertLess(x, 5)
+            else:
+                self.assertLess(length - x, 5)
+                row.append((x, y0, y1))
+        self.assertEqual(len({entry[0] for entry in row}), 1)
+        for first, second in zip(row, row[1:]):
+            self.assertGreaterEqual(second[1] - first[2], 0.4)
+
+    def test_mounting_centers_match_the_routed_revision(self):
+        routed = {reference(fp): sexp.val(fp, "at")[:2]
+                  for fp in F(read(COMMITTED_PCB), "footprint")}
+        current = {reference(fp): sexp.val(fp, "at")[:2]
+                   for fp in F(self.root, "footprint")}
+        for ref in ("H1", "H2", "H3", "H4"):
+            self.assertEqual(list(map(float, current[ref])),
+                             list(map(float, routed[ref])), ref)
+
+    def test_terminal_body_and_wire_access_keepouts_are_clear(self):
+        footprints = {reference(fp): fp for fp in F(self.root, "footprint")}
+        boxes = {ref: courtyard_box(fp) for ref, fp in footprints.items()}
+        for ref in ("J1", "J2", "J3A", "J3B"):
+            zones = {sexp.val(zone, "name")[0]: zone
+                     for zone in F(footprints[ref], "zone")}
+            self.assertIn("Terminal wire access", zones)
+            for zone in zones.values():
+                self.assertEqual(sexp.val(F(zone, "keepout")[0], "footprints"),
+                                 ["not_allowed"])
+                points = zone_polygon(zone)
+                xs, ys = zip(*points)
+                area = (min(xs), min(ys), max(xs), max(ys))
+                for other, box in boxes.items():
+                    if other != ref and box is not None:
+                        self.assertFalse(pcb._boxes_overlap(area, box),
+                                         f"{ref} access / {other}")
+
+
+class CommittedTerminalEdgeTests(TerminalEdgePlacementChecks, unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls.root = read(GEN.parent / "1.2" / "phantasm.kicad_pcb")
+
+
 @unittest.skipUnless(GENERATES, GENERATES_REASON)
-class UnplacedBoardTests(TerminalBodyChecks, unittest.TestCase):
+class UnplacedBoardTests(TerminalBodyChecks, TerminalEdgePlacementChecks, unittest.TestCase):
     """The autoplacer upload `pcb.py --unplaced` emits."""
 
     @classmethod
@@ -456,6 +514,19 @@ class UnplacedBoardTests(TerminalBodyChecks, unittest.TestCase):
 @unittest.skipUnless(GENERATES, GENERATES_REASON)
 class OrphanPadTests(unittest.TestCase):
     """A netlist pin with no pad of that name would drop its net silently."""
+
+    def test_missing_connector_placement_is_rejected(self):
+        fixed_placements = pcb.fixed_placements
+
+        def without_led(comps):
+            fixed = fixed_placements(comps)
+            fixed.pop("J2")
+            return fixed
+
+        out = self.enterContext(tempfile.TemporaryDirectory())
+        with mock.patch.object(pcb, "fixed_placements", without_led), \
+                self.assertRaisesRegex(SystemExit, "connectors require verified edge placements: J2"):
+            generate(out, unplaced=True)
 
     def test_a_netlist_pin_with_no_pad_is_refused(self):
         build_nets = pcb.build_nets
