@@ -20,7 +20,7 @@ python -m unittest discover -s tools/teensy_gate_tests
 | `broken_reaction_graph_ram_syms.txt` | `const` dropped → `ReactionGraph::neighbors` in DTCM → table→FLASH must fail. |
 | `broken_arena_8mb_syms.txt` | `global_arena_block` at the 8 MiB host-harness size → arena magnitude must fail. |
 | `broken_missing_symbol_syms.txt` | a framebuffer renamed → "symbol not found" hard-fails (never a silent skip). |
-| `broken_over_cap_teensy_size.txt` | FLASH + RAM2 over cap, DTCM headroom under floor → every region check fails. |
+| `broken_over_cap_teensy_size.txt` | FLASH and RAM2 exceed their region caps. |
 | `broken_negative_free_teensy_size.txt` | Negative RAM1 stack headroom remains parseable and fails the configured floor. |
 | `broken_dma_tx_dtcm_syms.txt` | `DMAMEM` dropped from the segment LED controller → its eDMA TX buffers land in DTCM → `dma_tx_buffer`→OCRAM must fail. |
 | `broken_component_missing_teensy_size.txt` | RAM1 line without a `code` figure → a target that budgets that component must fail `component-missing`, never skip. |
