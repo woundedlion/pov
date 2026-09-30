@@ -33,7 +33,7 @@ const EXPECTED_OPERATOR_CATALOG = await loadOperatorCatalog();
  * carry. A document with no `effect_id` backs no effect — the CLI's sample —
  * and is skipped.
  *
- * @returns {Promise<{document: string, effect: string, parameterIds: string[], presets: object[]}[]>}
+ * @returns {Promise<{document: string, effect: string, parameterIds: string[], presets: object[], descriptor?: object}[]>}
  */
 async function promotedDocuments() {
   const documents = [];
