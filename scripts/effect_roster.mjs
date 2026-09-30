@@ -13,15 +13,15 @@ export function stripComments(src) {
       (match) => match.startsWith('/*') ? ' ' : '');
 }
 
-const WORKBENCH_ONLY_ROWS = new Map([
-  ['HS_SHADER_WORKBENCH_EFFECT', 'Shader'],
-  ['HS_CHAIN_INTERPRETER_EFFECT', 'ShaderChain'],
+const WORKBENCH_ONLY_ROWS = new Set([
+  'HS_SHADER_WORKBENCH_EFFECT',
+  'HS_CHAIN_INTERPRETER_EFFECT',
 ]);
 
 // Extracts gallery effects from targets/effects.h source text.
 export function parseEffectRoster(src) {
   const block = stripComments(src).match(
-    /^#define HS_EFFECT_LIST\(X\)((?:.*\\\r?\n)*.*)/m);
+    /^#define HS_EFFECT_LIST\(X\)(.*)/m);
   if (!block) throw new Error('Could not locate HS_EFFECT_LIST in targets/effects.h');
   const names = [];
   let body = block[1].trim();
@@ -45,7 +45,7 @@ export async function loadEffectRoster() {
 
 export function parsePhantasmEffectRoster(src) {
   const block = stripComments(src).match(
-    /^#define HS_PHANTASM_EFFECT_LIST\(X\)((?:.*\\\r?\n)*.*)/m);
+    /^#define HS_PHANTASM_EFFECT_LIST\(X\)(.*)/m);
   if (!block)
     throw new Error(
       'Could not locate HS_PHANTASM_EFFECT_LIST in targets/Phantasm/phantasm_playlist.h');
