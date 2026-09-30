@@ -25,8 +25,8 @@ namespace hd107s_tests {
 
 constexpr int N = 40; // small strip: END_FRAME_BYTES=4, COMPOSITE=336 bytes
 
-// Shipping Phantasm segment: TOTAL_PIXELS 288 over NUM_SEGMENTS 4. First size
-// whose ceil(N/16) end frame clears the 4-byte pad, so END_FRAME_BYTES=8.
+// Shipping Phantasm segment: TOTAL_PIXELS 288 over NUM_SEGMENTS 4.
+// Past N=64, the padded end frame grows to 8 bytes.
 constexpr int PHANTASM_PPS = 72;
 
 using Frame = HD107SFrame<N>;
@@ -79,7 +79,7 @@ inline void test_layout_constants() {
  * @details N=40 and the dma_controller module's N=8 both land on the 4-byte
  * end-frame floor, so a ceil-div slip that only shows past the first
  * multiple-of-4 boundary stays invisible. 72 pixels is the size the device
- * actually instantiates and the first one whose end frame is 8 bytes.
+ * actually instantiates, past the N=64 boundary for an 8-byte end frame.
  */
 inline void test_layout_constants_phantasm() {
   HS_EXPECT_EQ(PhantasmFrame::END_FRAME_BYTES, 8);
