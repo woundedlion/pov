@@ -53,8 +53,9 @@ struct Geometry {
             (equal(a, edges[i].b) && equal(b, edges[i].a)))
           return;
       }
-      if (count < static_cast<int>(edges.size()))
-        edges[count++] = {a, b};
+      HS_CHECK(count < static_cast<int>(edges.size()),
+               "cellular wire edge capacity");
+      edges[count++] = {a, b};
     };
     const math::Vector FCC[] = {
         {0, 0, 0}, {0, .5f, .5f}, {.5f, 0, .5f}, {.5f, .5f, 0}};
