@@ -50,6 +50,9 @@ it.
 
 ## Gates
 
+Host tooling and Git hooks require Python 3.11 or newer. Set `HS_PYTHON` to
+select a supported interpreter; CI uses the version pinned in `tools/build_pins.py`.
+
 The engine CI gates run in `.github/workflows/ci.yml` behind the aggregate
 `CI green` check. Local hooks and the sibling simulator checks below have
 separate entry points. `.githooks/pre-commit` is a fast prefilter over the staged

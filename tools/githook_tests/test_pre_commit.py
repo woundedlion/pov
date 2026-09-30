@@ -145,6 +145,19 @@ class PreCommitHook(unittest.TestCase):
         done = self.run_hook()
         self.assertEqual(done.returncode, 0, done.stdout + done.stderr)
 
+    def test_unsupported_python_reports_the_required_floor(self):
+        old_python = self.repo / "old-python"
+        old_python.write_text(
+            '#!/bin/sh\n[ "$1" = --version ] && exit 0\nexit 1\n',
+            encoding="utf-8", newline="\n")
+        old_python.chmod(0o755)
+        (self.repo / "README.md").write_bytes(b"changed\n")
+        self.git("add", "README.md")
+        done = self.run_hook(HS_PYTHON=old_python.as_posix())
+        self.assertNotEqual(done.returncode, 0)
+        self.assertIn("Python 3.11 or newer", done.stdout + done.stderr)
+        self.assertNotIn("Traceback", done.stdout + done.stderr)
+
     def profile_fixture(self):
         if shutil.which("node") is None:
             self.skipTest("node unavailable")

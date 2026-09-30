@@ -30,6 +30,9 @@ import subprocess
 import sys
 from pathlib import Path
 
+if sys.version_info < (3, 11):
+    raise SystemExit("build_pins requires Python 3.11 or newer")
+
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import teensy_gate  # noqa: E402
 
