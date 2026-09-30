@@ -4737,6 +4737,61 @@ inline void test_petalflow_spawn_gap_bounded() {
  */
 struct DisplacementFieldWhiteBox {
   template <int W, int H>
+  static void enter_balls(DisplacementField<W, H> &effect) {
+    effect.enter_balls();
+    effect.spawn_ball();
+  }
+
+  template <int W, int H>
+  static void fill_ball_pool(DisplacementField<W, H> &effect) {
+    effect.params.ball_speed_min = effect.params.ball_speed_max = 3.0f;
+    effect.enter_balls();
+    for (int i = 0; i <= effect.MAX_BALLS; ++i)
+      effect.spawn_ball();
+    HS_EXPECT_EQ(effect.balls.active_count(), effect.MAX_BALLS);
+    HS_EXPECT_TRUE(effect.logged_pool_full);
+    effect.ball_phase_left = 0;
+  }
+
+  template <int W, int H>
+  static bool in_noise(const DisplacementField<W, H> &effect) {
+    return effect.phase == DisplacementField<W, H>::Phase::NOISE;
+  }
+
+  template <int W, int H, size_t N>
+  static void
+  check_ball_spans(DisplacementField<W, H> &effect,
+                   const std::array<Animation::BumpParams, N> &balls,
+                   const math::Basis &basis, float theta) {
+    for (size_t i = 0; i < N; ++i) {
+      const auto &ball = balls[i];
+      effect.ball_params[i] = &ball;
+      effect.ball_local[i] = static_cast<int>(i);
+      const float cv = math::dot(basis.v, ball.center);
+      const float cu = math::dot(basis.u, ball.center);
+      const float cw = math::dot(basis.w, ball.center);
+      effect.ball_cv[i] = cv;
+      effect.ball_rho[i] = sqrtf(cu * cu + cw * cw);
+      effect.ball_colat[i] = math::fast_acos(hs::clamp(cv, -1.0f, 1.0f));
+      const float azimuth = atan2f(cw, cu);
+      effect.ball_azimuth[i] = azimuth < 0 ? azimuth + math::TWO_PI_F : azimuth;
+    }
+    std::array<float, W> shifts{};
+    const float step = math::TWO_PI_F / W;
+    effect.bake_ball_spans(basis, theta, cosf(theta), sinf(theta), cosf(step),
+                           sinf(step), W, effect.CHUNK_MASK, N, shifts.data());
+    int displaced = 0;
+    for (int x = 0; x < W; ++x) {
+      const float expected =
+          effect.ball_field(effect.knot_pos[x], effect.ball_local, N, theta) +
+          effect.noise_field.field(effect.knot_pos[x]);
+      HS_EXPECT_NEAR(shifts[x], expected, 1e-6f);
+      displaced += std::abs(expected) > 1e-5f;
+    }
+    HS_EXPECT_GT(displaced, 0);
+  }
+
+  template <int W, int H>
   static void prepare_hue_table(DisplacementField<W, H> &effect,
                                 const Color4 &color, float domain) {
     effect.prepare_hue_table(make_hue_rotate_base(color), domain);
@@ -5160,7 +5215,7 @@ inline void test_displacement_field_zero_hue_scale_is_exact() {
  * @details Identical seeds and mock clock per run, so a divergence isolates
  *          the clip-only paths (the per-ring cap cull and the azimuth-chunk
  *          bake cull) dropping a reachable fragment or sampling a stale LUT
- *          entry. The frame window sits inside the ball phase, whose
+ *          entry. The test explicitly enters the ball phase, whose
  *          footprints drive both culls. Both culls widen with the ring band,
  *          so each quadrant runs at the registered defaults and again at the
  *          full ring pool with maximum thickness and displacement amplitudes.
@@ -5184,6 +5239,7 @@ inline void test_displacement_field_clip_tiles_full() {
     fx.init();
     if (widest)
       DisplacementFieldWhiteBox::configure_max_footprint(fx);
+    DisplacementFieldWhiteBox::enter_balls(fx);
     if (clip)
       fx.set_clip(q.y0, q.y1, q.x0, q.x1);
     uint64_t fold = hs_test::FNV1A64_BASIS;
@@ -5219,6 +5275,39 @@ inline void test_displacement_field_clip_tiles_full() {
                 "sampled pixels\n",
                 sampled_pixels);
   HS_EXPECT(lit > 0, "clip tiling must compare a lit render");
+}
+
+inline void test_displacement_field_ball_spans_and_lifecycle() {
+  reset_effect_globals();
+  hs::set_mock_time(0, 0);
+  DisplacementField<SMALL_W, SMALL_H> effect;
+  effect.init();
+  DisplacementFieldWhiteBox::fill_ball_pool(effect);
+  for (int frame = 0; frame < 40; ++frame) {
+    effect.draw_frame();
+    effect.advance_display();
+  }
+  HS_EXPECT_TRUE(DisplacementFieldWhiteBox::in_noise(effect));
+
+  const math::Basis basis = math::make_basis(math::Quaternion(), math::X_AXIS);
+  for (float theta : {0.15f, 1.0f, 1.5f, 2.9f}) {
+    std::array<Animation::BumpParams, 3> balls;
+    for (size_t i = 0; i < balls.size(); ++i) {
+      const float polar = theta + 0.08f;
+      const float azimuth = i == 0 ? 0.0f : i == 1 ? -0.03f : 2.0f;
+      auto &ball = balls[i];
+      ball.center =
+          basis.v * cosf(polar) +
+          (basis.u * cosf(azimuth) + basis.w * sinf(azimuth)) * sinf(polar);
+      ball.axis = basis.v;
+      ball.radius = 0.3f;
+      ball.amplitude = 0.8f;
+      ball.envelope = 1.0f;
+      ball.sync();
+    }
+    DisplacementFieldWhiteBox::check_ball_spans(effect, balls, basis, theta);
+  }
+  hs::clear_mock_time();
 }
 
 /**
@@ -6477,6 +6566,7 @@ inline int run_effects_tests() {
     run_case(test_displacement_field_hue_table_fidelity);
     run_case(test_displacement_field_hue_table_frame_fidelity);
     run_case(test_displacement_field_clip_tiles_full);
+    run_case(test_displacement_field_ball_spans_and_lifecycle);
     run_case(test_islamicstars_recipe_build_smoke);
     run_case(test_islamicstars_roster_cycle_fits_budget);
     run_case(test_islamicstars_dual_bridge_fits_budget);
