@@ -885,7 +885,11 @@ inline void test_arenavec_zero_capacity() {
   v.clear();
   HS_EXPECT_TRUE(v.data() == nullptr);
 
+  const size_t bytes_before = arena_vector_abandoned_bytes();
+  const size_t count_before = arena_vector_abandon_count();
   v.bind(a, 12);
+  HS_EXPECT_EQ(arena_vector_abandoned_bytes(), bytes_before);
+  HS_EXPECT_EQ(arena_vector_abandon_count(), count_before);
   v.push_back(42);
   HS_EXPECT_EQ(v[0], 42);
 }
