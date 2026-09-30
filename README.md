@@ -479,7 +479,7 @@ files define line-ending policy and working-artifact exclusions.
 │   └── report_cases.mjs        node:test reporter tallying per-file case counts
 ├── tools/                      Firmware gates, device profiling, and asset bakes
 │   ├── build_pins.py           Shared external-tool version pins for CI and `just`
-│   ├── check_coverage.py       Catastrophic llvm-cov line-floor gate, repo-wide and per core/ subtree
+│   ├── check_coverage.py       Catastrophic llvm-cov line-floor gate, repo-wide and per-directory
 │   ├── require_test_files.sh   Non-empty guard for glob-discovered test suites (CI)
 │   ├── run_python_tests.py    Discovers and runs every tracked Python suite; rejects empty suites
 │   ├── ruff_selection_guard.sh / eslint_selection_guard.sh  Shared CI and `just lint` anti-vacuity probes
