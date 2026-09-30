@@ -288,7 +288,9 @@ public:
     }
   }
 
-  /** @brief Reflects one lattice coordinate across spherical seams and poles. */
+  /** @brief Reflects one lattice coordinate across poles.
+   * @pre The column is already in [0, W).
+   */
   static bool wrap_sample(int &x, int &y) {
     return ::math::pole_wrap<W, H, HOffset>(x, y);
   }
