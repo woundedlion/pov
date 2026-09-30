@@ -398,15 +398,9 @@ inline void test_cubemap_lut_roundtrip() {
 /**
  * @brief Verifies lookup() on off-lattice query directions against a brute-force
  *        nearest-node oracle.
- * @details test_cubemap_lut_roundtrip only seeds at exact lattice points, which
- *          find_nearest_node's note warns "cannot catch" the equatorial long-hop
- *          or a face-boundary miss "because it seeds at the answer." This samples
- *          random unit directions (no lattice point sits exactly there), finds
- *          the true nearest node by an exhaustive O(RD_N) scan, and requires
- *          lookup() to return that node or one of its direct neighbors for
- *          every probe — the same one-cell tolerance the round-trip test
- *          allows. The generator is local and the draw-to-float mapping
- *          explicit, so every platform samples the same point set.
+ * @details build() exercises nearest-node search for the cubemap texel centers.
+ * Random off-lattice lookup queries check the resulting table against exhaustive
+ * nearest-node search, allowing one neighbor of error.
  */
 inline void test_cubemap_lut_offlattice() {
   static uint8_t buf[6 * ReactionGraph::CubemapLUT::RES *
@@ -468,17 +462,9 @@ inline void test_cubemap_lut_offlattice() {
 }
 
 /**
- * @brief Stresses find_nearest_node's worst-case equatorial long-hop directly.
- * @details find_nearest_node seeds by latitude only, so an equatorial query's
- *          true node can sit many longitude hops from the seed — the chain its
- *          64-iter cap is sized for. The random off-lattice sampler need not hit
- *          that chain; this concentrates queries at the equator (|y| tiny)
- *          across the full longitude circle, where the hop count peaks. Each
- *          lookup() drives find_nearest_node through the LUT build and the
- *          always-on HS_CHECK(converged), so a cap exceeded by a future RD_N
- *          bump traps here at the bench. Results are checked against a
- *          brute-force argmin oracle (exact node or a direct neighbor), at the
- *          one spot on the sphere where that tolerance is not enough.
+ * @brief Checks equatorial cubemap lookups against a brute-force oracle.
+ * @details build() performs nearest-node searches and checks convergence.
+ * Queries across the equator exercise lookup quantization with one-cell tolerance.
  */
 inline void test_cubemap_lut_equatorial() {
   static uint8_t buf[6 * ReactionGraph::CubemapLUT::RES *

@@ -296,8 +296,8 @@ private:
    *          equatorial query's true node can sit dozens of hops around the
    *          longitude circle. A refactor that scanned all RD_K neighbors of a fixed
    *          `cur` before moving would advance one hop per iter, exceed 64 near the
-   *          equator, and trigger the convergence trap. Off-lattice and equatorial
-   *          tests exercise this search beyond queries seeded at the answer.
+   *          equator, and trigger the convergence trap. Cubemap build() exercises
+   *          this search at texel centers; lookup() only reads the built table.
    */
   HS_COLD_MEMBER static int find_nearest_node(const math::Vector &p,
                                               const math::Vector *lattice) {
