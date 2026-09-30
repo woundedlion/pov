@@ -1286,6 +1286,10 @@ struct GSWhiteBox {
 
   static uint16_t to_q16(float v) { return GS::to_q16(v); }
   static float from_q16(uint16_t v) { return GS::from_q16(v); }
+  static void fill_hot_flags(const uint16_t *b, uint8_t *hot1, uint8_t *hot2,
+                             int count, uint16_t threshold) {
+    GS::fill_hot_flags(b, hot1, hot2, count, threshold);
+  }
   static Color4 palette_sample(const GS &gs, float t) {
     return gs.palette.get(t);
   }
@@ -1376,6 +1380,7 @@ struct GSWhiteBox {
 
   struct ShaderError {
     int different = 0;
+    int above_rounding = 0;
     int lit = 0;
     int coverage = 0;
     int hard = 0;
@@ -1386,7 +1391,8 @@ struct GSWhiteBox {
     uint64_t total_channel = 0;
   };
 
-  template <int W, int H> static ShaderError shared_shader_error(GS &gs) {
+  template <int W, int H>
+  static ShaderError shared_shader_error(GS &gs, bool fixed_stencil = false) {
     ScratchScope guard(scratch_arena_a);
     auto lattice = gs.orient_lattice();
     math::Vector *world_nodes = lattice.get();
@@ -1414,7 +1420,19 @@ struct GSWhiteBox {
           ++error.stencil_samples;
           if (gs.refine_center(sample_v, world_nodes, seed) != shared_center)
             ++error.stencil_changes;
-          float b = gs.interpolate_b(sample_v, seed, world_nodes);
+          float b;
+          if (fixed_stencil) {
+            float tw = 0.0f, wb = 0.0f;
+            gs.kernel_accumulate(sample_v, world_nodes, shared_center,
+                                 [&](int ni, float w) {
+                                   wb += gs.state.B[ni] * w;
+                                   tw += w;
+                                 });
+            b = tw <= GS::KERNEL_MIN_TOTAL_WEIGHT ? 0.0f
+                                                  : wb * (GS::Q16_INV / tw);
+          } else {
+            b = gs.interpolate_b(sample_v, seed, world_nodes);
+          }
           if (b < GS::B_CULL_THRESHOLD)
             continue;
           float t = hs::clamp((b - GS::B_COLOR_FLOOR) * GS::B_COLOR_SCALE, 0.0f,
@@ -1430,6 +1448,8 @@ struct GSWhiteBox {
         bool expected_lit = expected.r || expected.g || expected.b;
         if (got != expected)
           ++error.different;
+        if (pixel_max > 2)
+          ++error.above_rounding;
         if (got_lit || expected_lit)
           ++error.lit;
         if (got_lit != expected_lit)
@@ -1441,8 +1461,10 @@ struct GSWhiteBox {
       }
     }
     Pixel culled = gs.shade_pixel(-1, math::Vector(), world_nodes, grid, 0);
-    if (culled != Pixel(0, 0, 0))
+    if (culled != Pixel(0, 0, 0)) {
       ++error.different;
+      ++error.above_rounding;
+    }
     return error;
   }
 };
@@ -1526,6 +1548,75 @@ inline void test_gs_q16_roundtrip() {
   HS_EXPECT_EQ(bad, 0);
 }
 
+/** @brief Compares both cull rings to the original directed adjacency table. */
+inline void test_gs_hot_flags_match_directed_graph() {
+  constexpr int N = GSWhiteBox::N;
+  constexpr uint8_t GUARD = 0xa5;
+  std::vector<uint16_t> b(N);
+  std::vector<uint8_t> hot1(N + 2), hot2(N + 2), ref1(N), ref2(N);
+  const uint16_t THRESHOLDS[] = {0, 1, GSWhiteBox::to_q16(0.1f), 65535};
+  for (uint16_t threshold : THRESHOLDS) {
+    const uint16_t BELOW = threshold == 0 ? 0 : threshold - 1;
+    const uint16_t ABOVE = threshold == 65535 ? 65535 : threshold + 1;
+    for (int pattern = 0; pattern < 9; ++pattern) {
+      for (int i = 0; i < N; ++i) {
+        const uint32_t HASH = static_cast<uint32_t>(i) * 2654435761u;
+        switch (pattern) {
+        case 0:
+          b[i] = 0;
+          break;
+        case 1:
+          b[i] = 65535;
+          break;
+        case 2:
+          b[i] = BELOW;
+          break;
+        case 3:
+          b[i] = threshold;
+          break;
+        case 4:
+          b[i] = HASH % 257 == 0 ? ABOVE : BELOW;
+          break;
+        case 5:
+          b[i] = HASH % 7 != 0 ? ABOVE : BELOW;
+          break;
+        case 6:
+          b[i] = HASH % 3 == 0 ? BELOW : HASH % 3 == 1 ? threshold : ABOVE;
+          break;
+        case 7:
+          b[i] = i == 0 ? ABOVE : BELOW;
+          break;
+        case 8:
+          b[i] = i == N - 1 ? ABOVE : BELOW;
+          break;
+        }
+      }
+      for (int i = 0; i < N; ++i) {
+        ref1[i] = b[i] >= threshold;
+        for (int k = 0; k < ReactionGraph::RD_K; ++k)
+          ref1[i] |= b[ReactionGraph::neighbors[i][k]] >= threshold;
+      }
+      for (int i = 0; i < N; ++i) {
+        ref2[i] = ref1[i];
+        for (int k = 0; k < ReactionGraph::RD_K; ++k)
+          ref2[i] |= ref1[ReactionGraph::neighbors[i][k]];
+      }
+      std::fill(hot1.begin(), hot1.end(), GUARD);
+      std::fill(hot2.begin(), hot2.end(), GUARD);
+      GSWhiteBox::fill_hot_flags(b.data(), hot1.data() + 1, hot2.data() + 1, N,
+                                 threshold);
+      HS_EXPECT(std::equal(ref1.begin(), ref1.end(), hot1.begin() + 1),
+                "GS one-ring flags match directed graph");
+      HS_EXPECT(std::equal(ref2.begin(), ref2.end(), hot2.begin() + 1),
+                "GS two-ring flags match directed graph");
+      HS_EXPECT_EQ(hot1.front(), GUARD);
+      HS_EXPECT_EQ(hot1.back(), GUARD);
+      HS_EXPECT_EQ(hot2.front(), GUARD);
+      HS_EXPECT_EQ(hot2.back(), GUARD);
+    }
+  }
+}
+
 /**
  * @brief Re-measures the lattice and requires refine_render_center's early-out
  *        certificates to bound the true minimum node spacing.
@@ -1598,7 +1689,8 @@ inline void test_gs_render_certificates_bound_lattice() {
  * @brief Bounds the shared stencil against independent SSAA refinement.
  * @details Compares production-resolution pixels after 4, 16, and 40 rendered
  * frames. Near-tie Voronoi samples may change, but coverage and high-amplitude
- * errors remain confined to under 3% of lit pixels.
+ * errors remain confined to under 3% of lit pixels. The spatial-change count
+ * excludes differences of at most two RGB16 quantization units.
  */
 inline void test_gs_shared_stencil_error_is_bounded() {
   hs_test::reset_globals();
@@ -1612,17 +1704,19 @@ inline void test_gs_shared_stencil_error_is_bounded() {
     if (frame != probe_frames[next_probe])
       continue;
     auto error = GSWhiteBox::shared_shader_error<DEFAULT_W, DEFAULT_H>(gs);
-    std::printf("GS shared stencil frame=%d: different=%d lit=%d coverage=%d "
+    std::printf("GS shared stencil frame=%d: different=%d above_rounding=%d "
+                "lit=%d coverage=%d "
                 "hard=%d center_changes=%d/%d center_mismatches=%d max=%d "
                 "total=%llu\n",
-                frame, error.different, error.lit, error.coverage, error.hard,
-                error.stencil_changes, error.stencil_samples,
-                error.center_mismatches, error.max_channel,
+                frame, error.different, error.above_rounding, error.lit,
+                error.coverage, error.hard, error.stencil_changes,
+                error.stencil_samples, error.center_mismatches,
+                error.max_channel,
                 static_cast<unsigned long long>(error.total_channel));
     HS_EXPECT_GT(error.lit, DEFAULT_W * DEFAULT_H / 100);
     HS_EXPECT_EQ(error.center_mismatches, 0);
-    HS_EXPECT(error.different * 2 <= error.lit,
-              "shared stencil changed over half of lit pixels");
+    HS_EXPECT(error.above_rounding * 2 <= error.lit,
+              "shared stencil changed over half of lit pixels beyond rounding");
     HS_EXPECT(error.coverage * 50 <= error.lit,
               "shared stencil moved over 2% of lit coverage");
     HS_EXPECT(error.hard * 100 <= error.lit * 3,
@@ -1634,6 +1728,30 @@ inline void test_gs_shared_stencil_error_is_bounded() {
     if (next_probe < 2)
       ++next_probe;
   }
+}
+
+inline void test_gs_symmetric_shader_matches_shared_reference() {
+  hs_test::reset_globals();
+  GSWhiteBox::GS gs;
+  gs.init();
+  for (int frame = 1; frame <= 40; ++frame) {
+    gs.draw_frame();
+    gs.advance_display();
+    if (frame != 4 && frame != 16 && frame != 40)
+      continue;
+    auto error =
+        GSWhiteBox::shared_shader_error<DEFAULT_W, DEFAULT_H>(gs, true);
+    HS_EXPECT_EQ(error.coverage, 0);
+    HS_EXPECT_LE(error.max_channel, 8);
+    HS_EXPECT_LE(error.total_channel, static_cast<uint64_t>(error.lit) * 3u);
+  }
+  for (int i = 0; i < GSWhiteBox::N; ++i) {
+    uint16_t b = i < GSWhiteBox::N / 2 ? 6554 : 32768;
+    GSWhiteBox::set_node(gs, i, 65535, b);
+  }
+  auto error = GSWhiteBox::shared_shader_error<DEFAULT_W, DEFAULT_H>(gs, true);
+  HS_EXPECT_EQ(error.coverage, 0);
+  HS_EXPECT_LE(error.max_channel, 8);
 }
 
 inline void test_gs_dissolve_frontier_fades_before_clear() {
@@ -6280,6 +6398,7 @@ inline int run_effects_tests() {
   run_case(test_gs_reseed_generates_palette);
   run_case(test_gs_render_certificates_bound_lattice);
   run_case(test_gs_shared_stencil_error_is_bounded);
+  run_case(test_gs_symmetric_shader_matches_shared_reference);
   run_case(test_gs_dissolve_frontier_fades_before_clear);
   run_case(test_gs_substep_matches_scalar_reference);
   run_case(test_fishbowl_preset_and_fire_duty_cycle);
@@ -6302,6 +6421,7 @@ inline int run_effects_tests() {
   run_case(test_sh_cartesian_matches_spherical);
   run_case(test_sh_reduced_legendre_matches_closed_form);
   run_case(test_gs_q16_roundtrip);
+  run_case(test_gs_hot_flags_match_directed_graph);
   run_case(test_gs_rest_state_is_fixed_point);
   run_case(test_gs_substep_signs_and_clamp);
   run_case(test_bz_q16_roundtrip);

@@ -351,23 +351,52 @@ private:
     const float d_a = params.d_a;
     const float d_b = params.d_b;
     const float dt = params.dt * STEP_DT_SCALE;
-    for (int i = 0; i < RD_N; i++) {
-      float a = c_a[i];
-      float b = c_b[i];
+    int i = 0;
+    for (unsigned r = 0; r < ReactionGraph::NEIGHBOR_RUN_COUNT; ++r) {
+      const auto &run = ReactionGraph::neighbor_runs[r];
+      for (; i < run.end; ++i) {
+        float a = c_a[i];
+        float b = c_b[i];
 
-      float sum_a = 0, sum_b = 0;
-      for_each_neighbor(i, [&](int ni) {
-        sum_a += c_a[ni];
-        sum_b += c_b[ni];
-      });
-      float l_a = sum_a - RD_K * a;
-      float l_b = sum_b - RD_K * b;
+        float l_a, l_b;
+#if defined(__arm__)
+        l_a = __builtin_fmaf(-static_cast<float>(RD_K), a,
+                             c_a[i + run.delta[0]] + c_a[i + run.delta[1]]);
+        l_b = __builtin_fmaf(-static_cast<float>(RD_K), b,
+                             c_b[i + run.delta[0]] + c_b[i + run.delta[1]]);
+        for (int k = 2; k < RD_K; ++k) {
+          int ni = i + run.delta[k];
+          l_a += c_a[ni];
+          l_b += c_b[ni];
+          // Preserve the Cortex-M7 Laplacian's floating-point order.
+          if (k < RD_K - 1)
+            asm("" : "+t"(l_a), "+t"(l_b));
+        }
+#elif defined(__FAST_MATH__)
+        l_a = -RD_K * a;
+        l_b = -RD_K * b;
+        for (int k = 0; k < RD_K; ++k) {
+          int ni = i + run.delta[k];
+          l_a += c_a[ni];
+          l_b += c_b[ni];
+        }
+#else
+        float sum_a = 0.0f, sum_b = 0.0f;
+        for (int k = 0; k < RD_K; ++k) {
+          int ni = i + run.delta[k];
+          sum_a += c_a[ni];
+          sum_b += c_b[ni];
+        }
+        l_a = sum_a - RD_K * a;
+        l_b = sum_b - RD_K * b;
+#endif
 
-      float abb = a * b * b;
-      n_a[i] =
-          hs::clamp(a + (d_a * l_a - abb + feed * (1.0f - a)) * dt, 0.0f, 1.0f);
-      n_b[i] =
-          hs::clamp(b + (d_b * l_b + abb - (k + feed) * b) * dt, 0.0f, 1.0f);
+        float abb = a * b * b;
+        n_a[i] = hs::clamp(a + (d_a * l_a - abb + feed * (1.0f - a)) * dt, 0.0f,
+                           1.0f);
+        n_b[i] =
+            hs::clamp(b + (d_b * l_b + abb - (k + feed) * b) * dt, 0.0f, 1.0f);
+      }
     }
   }
 
@@ -420,21 +449,57 @@ private:
     if (seed < 0)
       return Pixel(0, 0, 0);
 
-    int center = refine_render_center(center_rv, world_nodes, seed);
-    math::Vector spos[RD_K + 1];
-    uint16_t sb[RD_K + 1];
-    gather_stencil(world_nodes, center, spos,
-                   [&](int slot, int ni) { sb[slot] = state.B[ni]; });
-
+    int center =
+        Base::template refine_render_center<true>(center_rv, world_nodes, seed);
     constexpr uint32_t SAMPLES = Grid::SAMPLES;
-    uint32_t accum_r = 0, accum_g = 0, accum_b = 0;
+    static_assert(SAMPLES == 4);
+    const float st = math::TrigLUT<Grid::WIDTH, Grid::HEIGHT>::sin_theta[x];
+    const float ct = math::TrigLUT<Grid::WIDTH, Grid::HEIGHT>::cos_theta(x);
+    // Each horizontal pair is m +/- d, with m dot d = 0.
+    math::Vector midpoints[2];
+    float offset_squared[2], cross_scale[2];
+    for (int row = 0; row < 2; ++row) {
+      float sp = grid.sin_phi[row];
+      midpoints[row] =
+          math::Vector(sp * ct * grid.cos_dtheta, grid.cos_phi[row],
+                       sp * st * grid.cos_dtheta);
+      float offset = sp * grid.sin_dtheta;
+      float ox = -st * offset, oz = ct * offset;
+      offset_squared[row] = ox * ox + oz * oz;
+      cross_scale[row] = 2.0f * offset * Base::INV_R2;
+    }
+    float weights[SAMPLES] = {}, weighted_b[SAMPLES] = {};
+    const auto &stencil_run =
+        ReactionGraph::neighbor_runs[ReactionGraph::neighbor_run_index[center]];
+    for (int j = 0; j < RD_K + 1; ++j) {
+      int ni = j == 0 ? center : center + stencil_run.delta[j - 1];
+      const math::Vector &p = world_nodes[ni];
+      float b = state.B[ni];
+      float tangent = st * p.x - ct * p.z;
+      for (int row = 0; row < 2; ++row) {
+        float dx = midpoints[row].x - p.x;
+        float dy = midpoints[row].y - p.y;
+        float dz = midpoints[row].z - p.z;
+        float base = dx * dx + dy * dy + dz * dz + offset_squared[row];
+        float base_u = 1.0f - base * Base::INV_R2;
+        float cross = cross_scale[row] * tangent;
+        for (int col = 0; col < 2; ++col) {
+          int i = 2 * row + col;
+          float u = col == 0 ? base_u - cross : base_u + cross;
+          if (u > 0.0f) {
+            float w = u * u;
+            weighted_b[i] += b * w;
+            weights[i] += w;
+          }
+        }
+      }
+    }
+    float accum_r = 0.0f, accum_g = 0.0f, accum_b = 0.0f;
+#if defined(__GNUC__) && !defined(__clang__)
+#pragma GCC unroll 1
+#endif
     for (int i = 0; i < Grid::SAMPLES; ++i) {
-      math::Vector v = grid.at(x, i);
-      float tw = 0.0f, wb = 0.0f;
-      accumulate_stencil(v, spos, [&](int j, float w) {
-        wb += sb[j] * w;
-        tw += w;
-      });
+      float tw = weights[i], wb = weighted_b[i];
       if (tw <= Base::KERNEL_MIN_TOTAL_WEIGHT)
         continue;
       float b = wb * (Q16_INV / tw);
@@ -442,14 +507,16 @@ private:
         continue;
 
       float t = hs::clamp((b - B_COLOR_FLOOR) * B_COLOR_SCALE, 0.0f, 1.0f);
-      Pixel sample = palette.get_color_unit(t);
-      accum_r += (static_cast<uint32_t>(sample.r) + SAMPLES / 2u) / SAMPLES;
-      accum_g += (static_cast<uint32_t>(sample.g) + SAMPLES / 2u) / SAMPLES;
-      accum_b += (static_cast<uint32_t>(sample.b) + SAMPLES / 2u) / SAMPLES;
+      float rgb[3];
+      palette.view().get_color_unit_scaled(t, 1.0f / SAMPLES, rgb);
+      accum_r += rgb[0];
+      accum_g += rgb[1];
+      accum_b += rgb[2];
     }
-    return Pixel(static_cast<uint16_t>(accum_r > 65535u ? 65535u : accum_r),
-                 static_cast<uint16_t>(accum_g > 65535u ? 65535u : accum_g),
-                 static_cast<uint16_t>(accum_b > 65535u ? 65535u : accum_b));
+    return Pixel(
+        static_cast<uint16_t>(hs::clamp(accum_r + 0.5f, 0.0f, 65535.0f)),
+        static_cast<uint16_t>(hs::clamp(accum_g + 0.5f, 0.0f, 65535.0f)),
+        static_cast<uint16_t>(hs::clamp(accum_b + 0.5f, 0.0f, 65535.0f)));
   }
 
   /**
@@ -469,17 +536,29 @@ private:
   HS_O3_FN static void fill_hot_flags(const uint16_t *b, uint8_t *hot1,
                                       uint8_t *hot2, int count,
                                       uint16_t threshold) {
-    for (int i = 0; i < count; ++i) {
-      bool hot = b[i] >= threshold;
-      for (int k = 0; k < RD_K && !hot; ++k)
-        hot = b[ReactionGraph::neighbors[i][k]] >= threshold;
-      hot1[i] = hot;
+    int i = 0;
+    for (unsigned r = 0; r < ReactionGraph::NEIGHBOR_RUN_COUNT && i < count;
+         ++r) {
+      const auto &run = ReactionGraph::neighbor_runs[r];
+      const int end = std::min<int>(run.end, count);
+      for (; i < end; ++i) {
+        bool hot = b[i] >= threshold;
+        for (int k = 0; k < RD_K && !hot; ++k)
+          hot = b[i + run.delta[k]] >= threshold;
+        hot1[i] = hot;
+      }
     }
-    for (int i = 0; i < count; ++i) {
-      bool hot = hot1[i];
-      for (int k = 0; k < RD_K && !hot; ++k)
-        hot = hot1[ReactionGraph::neighbors[i][k]];
-      hot2[i] = hot;
+    i = 0;
+    for (unsigned r = 0; r < ReactionGraph::NEIGHBOR_RUN_COUNT && i < count;
+         ++r) {
+      const auto &run = ReactionGraph::neighbor_runs[r];
+      const int end = std::min<int>(run.end, count);
+      for (; i < end; ++i) {
+        bool hot = hot1[i];
+        for (int k = 0; k < RD_K && !hot; ++k)
+          hot = hot1[i + run.delta[k]];
+        hot2[i] = hot;
+      }
     }
   }
 
