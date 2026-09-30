@@ -4,6 +4,8 @@
  */
 #pragma once
 
+#include <algorithm>
+
 #include "core/render/ray/march.h"
 #include "core/render/scan/shader.h"
 #include "core/render/sdf/periodic_surface.h"
