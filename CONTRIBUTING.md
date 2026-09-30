@@ -101,9 +101,10 @@ protected branch's `CI green` status is the authoritative correctness gate.
   `python tools/run_python_tests.py`. It discovers every tracked suite, rejects
   empty suites, and propagates failures. Install `requirements/numpy.txt` first;
   no ARM toolchain or KiCad is required.
-- **Lint:** `just lint` checks working-tree whitespace, then declared line endings,
-  Python selection and ruff, JavaScript selection and eslint, actionlint,
-  tracked shell files with shellcheck, and the profiling roster. CI applies the
+- **Lint:** `just lint` checks `just --fmt --check`, working-tree whitespace,
+  declared line endings, Python selection and ruff, JavaScript selection and
+  eslint, tracked shell files with shellcheck, the profiling roster, and
+  actionlint last. CI applies the
   corresponding checks; the hook lints staged Python, JavaScript, and shell files.
 - **Documentation:** the ci.yml docs-markdown job runs `tools/docs_check.py`
   without `--sync`: fences, links, anchors, every backticked repo path, the
