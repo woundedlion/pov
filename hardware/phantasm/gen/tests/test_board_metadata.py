@@ -157,6 +157,25 @@ class BoardMetadataTests(unittest.TestCase):
             (Decimal("10"), Decimal("10")),
         )
 
+    def test_rounded_polygon_includes_arc_extrema(self):
+        root = board_metadata.sexp.parse("""
+            (kicad_pcb
+              (gr_poly (pts (xy 0 10) (xy 40 10)
+                (arc (start 40 0) (mid 20 -40) (end 0 0)))
+                (layer "Edge.Cuts")))
+        """)[0]
+        self.assertEqual(board_metadata._outline_bounds(root),
+                         (Decimal("50"), Decimal("50")))
+
+    def test_polygon_rejects_unknown_point_primitives(self):
+        root = board_metadata.sexp.parse("""
+            (kicad_pcb (gr_poly (pts (xy 0 0) (xy 10 10)
+              (curve (xy 20 20))) (layer "Edge.Cuts")))
+        """)[0]
+        with self.assertRaisesRegex(board_metadata.MetadataError,
+                                    "unsupported Edge.Cuts polygon point: curve"):
+            board_metadata._outline_bounds(root)
+
     def test_rejects_footprint_level_edge_cuts_geometry(self):
         """Board edges drawn as footprint graphics would under-report bounds."""
         root = board_metadata.sexp.parse("""
