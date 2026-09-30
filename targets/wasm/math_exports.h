@@ -170,7 +170,7 @@ static void bind_math_exports() {
             return vector_to_xyz(math::lissajous(m1, m2, a, t));
           }));
 
-  // Mobius sphere map (mobius_transforms.js coefficients), via stereographic.h.
+  // Mobius sphere map (mobius_transforms.js coefficients), via core/math/mobius.h.
   // The eight coefficient floats are taken in the order mobiusCodeString emits
   // them, so the tool's MobiusParams initializer ordering is pinned too.
   emscripten::function(
