@@ -81,11 +81,13 @@ public:
    * (docs/specs/opchain_morph_spec.md, "Leg kinds").
    */
   struct ParamSweepSpec {
-    ConwayGraph::MorphOp op;  /**< Swept operator. */
-    float t_start = 0.0f;     /**< Sweep parameter at frame 0; clamped to the
-                                topology-constant open interval (T_EPS floor;
-                                TRUNCATE capped below the ambo point). */
-    float t_end = 0.0f;       /**< Arrival parameter; same clamp. */
+    ConwayGraph::MorphOp op; /**< Swept operator. */
+    float t_start = 0.0f;    /**< Sweep parameter at frame 0; T_EPS floor except
+                                truncate's min(T_EPS, arrival *
+                                TRUNCATE_BIRTH_FRAC) birth floor. */
+    float t_end = 0.0f;      /**< Arrival parameter; truncate is capped below
+                                ambo for near-side legs, or at
+                                T_TRUNCATE_FAR_MAX for far-side legs. */
     float twist_start = 0.0f; /**< Snub twist at frame 0. */
     float twist_end = 0.0f;   /**< Arrival snub twist. */
     int sweep_frames = 0;     /**< Operator-sweep frames (N). */
