@@ -368,10 +368,7 @@ inline void test_mindsplatter_rotation_matrix_equivalence() {
 
   float max_component_error = 0.0f;
   float max_angular_error = 0.0f;
-  float max_column_error = 0.0f;
-  float max_row_error = 0.0f;
   int coverage_differences = 0;
-  int q16_differences = 0;
   int max_q16_error = 0;
   size_t sample_count = 0;
 
@@ -393,11 +390,6 @@ inline void test_mindsplatter_rotation_matrix_equivalence() {
     const math::PixelCoords reference_pixel =
         math::vector_to_pixel<W, H>(reference);
     const math::PixelCoords matrix_pixel = math::vector_to_pixel<W, H>(matrix);
-    float dx = std::abs(reference_pixel.x - matrix_pixel.x);
-    dx = std::min(dx, static_cast<float>(W) - dx);
-    max_column_error = hs_test::fold_worst(max_column_error, dx);
-    max_row_error = hs_test::fold_worst(
-        max_row_error, std::abs(reference_pixel.y - matrix_pixel.y));
     const auto reference_taps = taps(reference_pixel);
     const auto matrix_taps = taps(matrix_pixel);
     bool same_coverage = reference_taps.second == matrix_taps.second;
@@ -413,8 +405,6 @@ inline void test_mindsplatter_rotation_matrix_equivalence() {
         const int delta =
             std::abs(static_cast<int>(reference_taps.first[j].alpha) -
                      static_cast<int>(matrix_taps.first[j].alpha));
-        if (delta)
-          ++q16_differences;
         max_q16_error = std::max(max_q16_error, delta);
       }
     }
@@ -450,11 +440,10 @@ inline void test_mindsplatter_rotation_matrix_equivalence() {
     }
   }
 
-  std::printf("matrix samples=%zu component=%.9g angle=%.9g dx=%.9g dy=%.9g "
-              "coverage=%d q16=%d max_q16=%d\n",
+  std::printf("matrix samples=%zu component=%.9g angle=%.9g "
+              "coverage=%d max_q16=%d\n",
               sample_count, max_component_error, max_angular_error,
-              max_column_error, max_row_error, coverage_differences,
-              q16_differences, max_q16_error);
+              coverage_differences, max_q16_error);
   HS_EXPECT_EQ(sample_count, static_cast<size_t>(480192));
   HS_EXPECT_LE(max_component_error, 5e-7f);
   HS_EXPECT_LE(max_angular_error, 5e-7f);
