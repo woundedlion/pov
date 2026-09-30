@@ -100,17 +100,17 @@ case "${HS_PROFILE_MINDSPLATTER:-}" in
     [ "$EFFECT" = MindSplatter ] || {
       echo "HS_PROFILE_MINDSPLATTER requires effect MindSplatter" >&2; exit 1;
     }
-    MSP_FLAGS="-D HS_PROFILE_MINDSPLATTER_COUNTS -D HS_PLOT_COUNTS"
+    MSP_FLAGS="-D HS_PROFILE_PLOT_RENDER_COUNTS -D HS_PLOT_COUNTS"
     MSP_SUFFIX="_msp_counts"
-    MSP_MARKER="msp counts particles:"
+    MSP_MARKER="plot render counts particles:"
     ;;
   stalls)
     [ "$EFFECT" = MindSplatter ] || {
       echo "HS_PROFILE_MINDSPLATTER requires effect MindSplatter" >&2; exit 1;
     }
-    MSP_FLAGS="-D HS_PROFILE_MINDSPLATTER_STALLS"
+    MSP_FLAGS="-D HS_PROFILE_PLOT_STALLS"
     MSP_SUFFIX="_msp_stalls"
-    MSP_MARKER="msp stall: stage=history_vertex"
+    MSP_MARKER="plot stall: stage=history_vertex"
     ;;
   *)
     echo "HS_PROFILE_MINDSPLATTER must be counts or stalls" >&2

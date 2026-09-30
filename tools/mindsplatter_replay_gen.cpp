@@ -71,7 +71,7 @@ static_assert(static_cast<size_t>(WIDTH) * HEIGHT <= 65536,
               "GoldenPixel::index is uint16_t");
 
 Workload read_workload() {
-  const hs::MindSplatterCounts &counts = hs::g_mindsplatter_counts;
+  const hs::PlotRenderCounts &counts = hs::g_plot_render_counts;
   Workload workload;
   workload.adaptive_samples = counts.adaptive_samples;
   workload.long_edges = counts.long_edges;
@@ -115,7 +115,7 @@ std::optional<SearchResult> search_corpus() {
         const ClipRegion clip =
             mindsplatter_replay::search_clip<WIDTH, HEIGHT>(clip_index);
         effect.set_clip(clip.y_start, clip.y_end, clip.x_start, clip.x_end);
-        hs::g_mindsplatter_counts.reset();
+        hs::g_plot_render_counts.reset();
         {
           Canvas canvas(effect);
           WhiteBox::draw_particles_replay_reference(effect, canvas);

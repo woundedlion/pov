@@ -311,7 +311,7 @@ private:
     const float yz = std::isnan(y) ? y : fmaxf(y, fabsf(p.z));
     const float m = std::isnan(x) ? x : fmaxf(x, yz);
     if (m < cos_event_horizon) {
-      HS_MSP_COUNT(hole_early_outs);
+      HS_PLOT_RENDER_COUNT(hole_early_outs);
       return 1.0f;
     }
     const float d = math::fast_acos(hs::clamp(m, -1.0f, 1.0f));
@@ -615,9 +615,9 @@ private:
       const float alpha = fmaxf(0.0f, fminf(fmaxf(0.0f, f.v0), f.v3));
       const float palette_t = 1.0f - f.v0;
       if (f.v0 <= 0.0f || f.v0 >= 1.0f)
-        HS_MSP_COUNT(palette_endpoints);
+        HS_PLOT_RENDER_COUNT(palette_endpoints);
       else
-        HS_MSP_COUNT(palette_interpolated);
+        HS_PLOT_RENDER_COUNT(palette_interpolated);
       f.color = Color4(sample_trail_palette(trail_palette, palette_t),
                        alpha * opacity);
     };
