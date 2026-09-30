@@ -807,9 +807,8 @@ inline void lms_cbrt_transform_rgb_lut(const float k[9], float l_cbrt,
  * @param r1 Out: linear red of the second pixel.
  * @param g1 Out: linear green of the second pixel.
  * @param b1 Out: linear blue of the second pixel.
- * @details Results match two lms_cbrt_transform_rgb_lut calls bit for bit;
- * only the statement order differs, so an in-order FPU can overlap the two
- * independent chains.
+ * @details Results match two scalar calls bit for bit when floating-point
+ * reassociation is disabled.
  */
 HS_O3_FN
 inline void lms_cbrt_transform_rgb2_lut(const float k[9], float l0, float m0,

@@ -2758,7 +2758,12 @@ inline void test_lms_transform_pair_matches_scalar() {
         lms_cbrt_transform_rgb2_lut(matrix, a[0], a[1], a[2], b[0], b[1], b[2],
                                     paired[0], paired[1], paired[2], paired[3],
                                     paired[4], paired[5]);
+#if defined(HS_TEST_FAST_MATH)
+        for (int channel = 0; channel < 6; ++channel)
+          HS_EXPECT_NEAR(scalar[channel], paired[channel], 2e-6f);
+#else
         HS_EXPECT_EQ(std::memcmp(scalar, paired, sizeof(scalar)), 0);
+#endif
       }
     }
   }
