@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import posixpath
 import re
 import shutil
 import subprocess
@@ -75,13 +76,13 @@ def verify(repo_root: Path) -> tuple[list[str], int]:
             errors.append(f"{where} has no path component")
             continue
         decoded = unquote(parts.path)
-        if decoded.startswith("/"):
-            target = repo_root.joinpath(*PurePosixPath(decoded).parts[1:]).resolve()
-        else:
-            target = (repo_root.joinpath(*source.parent.parts) / decoded).resolve()
+        relative = posixpath.normpath(
+            decoded.lstrip("/") if decoded.startswith("/")
+            else posixpath.join(source.parent.as_posix(), decoded))
+        target = (repo_root / relative).resolve()
         if not target.is_relative_to(repo_root):
             errors.append(f"{where} resolves outside the repository")
-        elif target.relative_to(repo_root).as_posix() not in tracked or not target.is_file():
+        elif relative not in tracked or not target.is_file():
             errors.append(f"{where} names no file in the repository")
     return errors, checked
 
