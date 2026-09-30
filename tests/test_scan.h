@@ -2,8 +2,8 @@
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
  * Licensed under the PolyForm Noncommercial License 1.0.0
  *
- * Unit tests for the core/render/scan.h rasterizer. Every case drives an entry
- * point end to end into a live Canvas and reads the framebuffer back:
+ * Unit tests for core/render/scan.h using framebuffer readback, recording
+ * callbacks, and pixel sinks:
  *   - Scan::Shader::draw and its SSAA / split-shader variants: constant,
  *     positional, and clip-respecting fills.
  *   - Scan::rasterize through Scan::Ring: bounded output, band placement, the
