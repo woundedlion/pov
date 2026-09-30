@@ -84,8 +84,8 @@ inline constexpr float COLLAPSED_AREA_RATIO = 1e-5f;
 
 /** Squared relative-turn epsilon for the convexity test: a turn registers only
  *  when |sin| between successive edge directions exceeds 1e-6. Shared with
- *  MeshOps::polygon_is_concave so a class is LUT-eligible exactly when its
- *  faces miss Face::build_half_planes' convex fast path. */
+ *  MeshOps::polygon_is_concave and Face::build_half_planes' convexity test;
+ *  LUT eligibility also depends on the other topology checks. */
 inline constexpr float TURN_EPS_SQ = 1e-12f;
 
 /** AA fringe pad in radians applied to a face's azimuth intervals: one pixel
@@ -583,7 +583,7 @@ inline constexpr Bounds BOUNDS_CULLED{1, 0};
  * | Ring              | centerline dist - thickness | azimuth turns in [0,1), phase applied | unsigned centerline distance | thickness |
  * | DistortedRing / FlatDistortedRing | displaced-centerline dist - thickness | azimuth turns in [0,1), phase applied | unsigned distance to the displaced centerline | thickness |
  * | Line              | segment dist - thickness   | 0                | unsigned angular distance to the arc segment | thickness |
- * | Face              | signed edge distance; gnomonic plane units on a small face, radians on a large one (see Face::distance) | 0 | = dist | inradius, in dist's metric |
+ * | Face              | signed edge distance; gnomonic plane units on a small face, radians on a large one (see Face::distance) | 0 | = dist | max(inradius, 0.25 × circumradius), in dist's metric |
  * | PlanarPolygon     | sign * max(polar*cos(local) - apothem, polar - circumradius) | polar / circumradius | polar angle from center | apothem |
  * | SphericalPolygon  | sign * max(angular distance to the nearest great-circle edge, polar - circumradius) | polar / circumradius | polar angle from center | circumradius |
  * | Star              | sign * max(folded edge half-plane distance, scan_dist - circumradius) | azimuth turns in [0,1), phase applied | polar angle from center | circumradius |
