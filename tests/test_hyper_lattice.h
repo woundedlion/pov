@@ -685,7 +685,7 @@ inline void test_specialized_slice_transition() {
 /**
  * @brief Pins the specialized 4D-slice pipeline over the same style of sample.
  * @details Same table and pre-check as test_render_signature(), over
- * SpecializedRenderPipeline<2>'s prepare/evaluate pair at preset 1.
+ * SpecializedRenderPipeline<2>'s prepare/evaluate pair at HYPERCUBE_PRESET_INDEX.
  * Provenance: no generator emits either. Re-derive by printing the RGB and Q16
  * alpha of every sample from an IEEE build of this case and pasting the table
  * and its fold back.
