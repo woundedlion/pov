@@ -88,22 +88,14 @@ inline ProbeBreakdown g_probe_breakdown;
 #endif
 
 #ifdef HS_PROFILE_SHADER_WORKBENCH_STAGES
-/** @brief Raw per-frame ShaderWorkbench pipeline cycle totals. */
+/** @brief Per-frame polyhedral reflection counts. */
 struct ShaderWorkbenchStageCycles {
-  uint32_t lens = 0;              /**< Surface-lens evaluation cycles. */
-  uint32_t surface_noise = 0;     /**< Surface-noise evaluation cycles. */
-  uint32_t projection = 0;        /**< Projection cycles. */
-  uint32_t planar_warp = 0;       /**< Planar-warp cycles. */
-  uint32_t source = 0;            /**< Source-function cycles. */
-  uint32_t material = 0;          /**< Material evaluation cycles. */
-  uint32_t color = 0;             /**< Color mapping cycles. */
-  uint32_t mirror_tile = 0;       /**< Subset of planar_warp cycles. */
   uint32_t polyhedral_pixels = 0; /**< Pixels entering polyhedral projection. */
   uint32_t polyhedral_reflections = 0; /**< Reflection iterations executed. */
   uint32_t polyhedral_max_reflections =
       0; /**< Peak reflections for one pixel. */
 
-  /** @brief Zeroes every stage total. */
+  /** @brief Zeroes every reflection count. */
   void reset() { *this = {}; }
 };
 
@@ -346,20 +338,11 @@ private:
 #endif
 
 #ifdef HS_PROFILE_SHADER_WORKBENCH_STAGES
-#define HS_SB_STAGE_MARK(var) uint32_t var = HS_OS_CYCLES()
-#define HS_SB_STAGE_SPAN(field, var)                                           \
-  do {                                                                         \
-    const uint32_t hs_now = HS_OS_CYCLES();                                    \
-    hs::g_shader_workbench_stage_cycles.field += hs_now - (var);               \
-    (var) = hs_now;                                                            \
-  } while (0)
 #define HS_SB_STAGE_COUNT(stmt)                                                \
   do {                                                                         \
     (stmt);                                                                    \
   } while (0)
 #else
-#define HS_SB_STAGE_MARK(var)
-#define HS_SB_STAGE_SPAN(field, var) ((void)0)
 #define HS_SB_STAGE_COUNT(stmt) ((void)0)
 #endif
 
