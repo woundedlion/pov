@@ -635,13 +635,12 @@ HS_O3_FN inline void cbrt_halley_terms(float x, float &num, float &den) {
 }
 
 /**
- * @brief Fast cube root for x in [0, ~3e28].
- * @param x Input value; the domain is [0, ~3e28] (cbrt(0)=0); negative inputs
- * return 0.
+ * @brief Fast cube root for x in [~1e-29, ~3e28].
+ * @param x Input value; x <= 0 returns 0.
  * @return An approximation of the cube root of `x`.
  * @details Bit-hack initial guess (divide the float exponent by three) refined
- * by ONE Halley step. Peak relative error is ~2.3e-5 against cbrtf over
- * [1e-20, 1].
+ * by one Halley step. Relative error is about 2.3e-5 over [~1e-29, ~3e28].
+ * Accuracy degrades below ~1e-29; results underflow to 0 below ~1e-34.
  */
 HS_O3_FN inline float fast_cbrt(float x) {
   float numerator, denominator;
