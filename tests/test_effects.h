@@ -220,7 +220,7 @@ inline void smoke_one(const char *name) {
 
   {
     if (acc == 0)
-      std::printf("  ALL-BLACK %-20s produced no lit pixel over %d frames "
+      std::printf("  ALL-BLACK %-20s final frame (of %d) has no lit pixel "
                   "@ %dx%d\n",
                   name, frames, W, H);
     HS_EXPECT(acc > 0, "effect must produce non-black output");
