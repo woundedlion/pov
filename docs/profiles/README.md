@@ -97,7 +97,7 @@ HyperLattice, MindSplatter, ShapeShifter, MeshFeedback and DisplacementField wer
 ## Supplemental experimental presets
 
 Historical fixed opt-in captures; these do not change the normal firmware
-roster ranking. Triangular was subsequently selected for removal.
+roster ranking. Triangular has since been removed.
 
 | Preset | Dominant scope | Ship peak ms | O3 peak ms | Ship spilled | O3 spilled | FLASH Δ | ITCM Δ | Captured |
 | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | --- |

@@ -69,7 +69,7 @@ HyperLattice refreshed on 2026-09-27: both presets and transitions; setup frame 
 ## Supplemental experimental presets
 
 Historical fixed opt-in captures; these do not change the normal firmware
-roster ranking. Triangular was subsequently selected for removal.
+roster ranking. Triangular has since been removed.
 
 | Preset | Dominant scope | Peak render ms | Spilled | Captured |
 | --- | --- | ---: | ---: | --- |
