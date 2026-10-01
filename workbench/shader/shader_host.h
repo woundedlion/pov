@@ -5,10 +5,11 @@
  */
 #pragma once
 
-#include "core/animation/orientation.h"
 #include "core/platform/build_features.h"
 
 #if HS_ENABLE_SHADER_WORKBENCH
+
+#include "core/animation/orientation.h"
 
 #include "core/math/mobius.h"
 
