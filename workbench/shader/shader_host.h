@@ -2684,15 +2684,14 @@ private:
     if (candidate.slots.surface_lens == Workbench::SurfaceLens::MOBIUS &&
         !Workbench::valid_mobius(candidate.params.surface_lens.mobius)) {
       const math::MobiusParams &m = candidate.params.surface_lens.mobius;
-      const float det_re =
-          m.a.re * m.d.re - m.a.im * m.d.im - m.b.re * m.c.re + m.b.im * m.c.im;
-      const float det_im =
-          m.a.re * m.d.im + m.a.im * m.d.re - m.b.re * m.c.im - m.b.im * m.c.re;
+      using Mobius = Pullback::Lens::MobiusLensParams;
+      const double MIN_DET = sqrtf(Mobius::MOBIUS_MIN_DET_SQ);
       return begin_warning(
           "Mobius Lens rejected: |A*D - B*C| is %.7g; it must be at least "
-          "0.001. Adjust the requested Mobius coefficient until the "
-          "determinant reaches 0.001 or more.",
-          static_cast<double>(sqrtf(det_re * det_re + det_im * det_im)));
+          "%.7g. Adjust the requested Mobius coefficient until the "
+          "determinant reaches %.7g or more.",
+          static_cast<double>(sqrtf(Mobius::determinant_magnitude_squared(m))),
+          MIN_DET, MIN_DET);
     }
     if (!HS_ENABLE_SHADER_WORKBENCH_DYNAMIC_BACKEND &&
         find_inverse_program(candidate) == nullptr)
