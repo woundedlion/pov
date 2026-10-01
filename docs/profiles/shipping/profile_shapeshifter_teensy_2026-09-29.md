@@ -136,7 +136,6 @@ README cells: peak 🟢 53.22 (9), spilled 🟢 0/2448 (0.00%).
 ## Caveats
 
 - All scopes absorb ISR time (CYCCNT free-runs).
-- `filter_blend` parents under whichever scope first enters it; calls ≈ blended pixels.
 - Setup frame 1 is excluded from the peak and spill figures and reported separately.
 - Selective-O3: this effect's own `HS_O3` regions are unchanged; the dense-star walk runs from flash (`.text.hot`), not ITCM.
 - Pole thresholds: the physical display drops ~3.6° at each pole, so measuring the pole bands from the true pole rows moves them ~3 rows outward on device. The ideal-profile oracle is bit-identical; a physical-profile build of the oracle stays inside every dense-star budget but sits closer to it (pole-centered 144-contour cases: MAE 183.1/207.8, high-error pixels 206/270; master 156.0 and 168).

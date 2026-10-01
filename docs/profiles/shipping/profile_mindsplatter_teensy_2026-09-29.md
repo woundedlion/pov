@@ -92,7 +92,6 @@ README cells: peak 🟢 54.94 (8), spilled 🟢 0/1727 (0.00%).
 ## Caveats
 
 - All scopes absorb ISR time (CYCCNT free-runs).
-- `filter_blend` parents under whichever scope first enters it; calls ≈ blended pixels.
 - Setup frame 1 is excluded from the peak and spill figures and reported separately.
 - Selective-O3: this effect's `HS_O3` regions are unchanged; `c40c1def8` changed only the Plot stroke and trail float extremes.
 - The captured tip `d5ca81403` differs from the landed `c40c1def8` only by an earlier HyperLattice commit, which is not in this single-effect image.
