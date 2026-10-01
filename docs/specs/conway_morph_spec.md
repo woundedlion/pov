@@ -4,7 +4,8 @@
 tracks the tree: the symbol names, module layout and tuning constants below have
 since moved on. The current design of record is `docs/specs/opchain_morph_spec.md`;
 the source of truth for behaviour is `core/animation/opleg.h` and
-`core/mesh/hankin.h`.
+`core/mesh/hankin.h`. The retained references are §2.5–2.6 palette
+continuity/crossfade, the §3 edge table, §6 jitterbug, and the §7 test plan.
 
 Historical implementation: 2026-07-16 (`06c95e93..190a91d8`). Replaces the
 nearest-vertex-slerp `Animation::MeshMorph` + stochastic dissolve between
