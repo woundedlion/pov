@@ -1,6 +1,6 @@
 import { readFile, readdir, writeFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
-import { isMain } from './exit.mjs';
+import { exitAfterStderr, isMain } from './exit.mjs';
 import { resolve } from 'node:path';
 import { BAKED_CONSTANT_IDS, LIVE_TOPOLOGY_FIELD, compileShaderDocument, fixedDerivedBinding } from './shader_workbench.mjs';
 import { loadOperatorCatalog } from './pattern_documents.mjs';
@@ -169,7 +169,10 @@ export async function generate({ check = false, root = ROOT } = {}) {
 }
 
 if (isMain(import.meta.url)) {
-  if (process.argv.slice(2).some((arg) => arg !== '--check')) throw new Error('Usage: generate_composed_presets.mjs [--check]');
+  if (process.argv.slice(2).some((arg) => arg !== '--check')) {
+    console.error('Usage: generate_composed_presets.mjs [--check]');
+    await exitAfterStderr(2);
+  }
   const check = process.argv.includes('--check');
   console.log(`${check ? 'Verified' : 'Regenerated'} ${await generate({ check })} composed preset headers.`);
 }
