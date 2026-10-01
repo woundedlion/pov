@@ -2483,6 +2483,20 @@ inline void case_arcs_overlap_start_out_of_range() {
     std::printf("x");
 }
 
+/** @brief Death case: the coherent shader rejects a zero block edge. */
+inline void case_scan_block_coherent_zero_block() {
+  constexpr int W = 32, H = 16;
+  DeathEffect fx(W, H);
+  Canvas canvas(fx);
+  const math::Vector position = math::UP;
+  Scan::Shader::draw_block_coherent<W, H, 1>(
+      canvas, opaque(0), &position, scratch_arena_a,
+      [](const math::Vector &) { return Scan::Shader::BlockCell<1>{0}; },
+      [](const math::Vector &, const Scan::Shader::BlockCandidates<1> &) {
+        return Color4{};
+      });
+}
+
 /**
  * @brief Death case: the shader rejects a clip beyond its LUT width.
  * @details Direct construction exercises the downstream guard independently
@@ -5701,6 +5715,9 @@ inline const Case *all_cases(int &n) {
        "non-inverted and within canvas width"},
       {"arcs_overlap_start_out_of_range", case_arcs_overlap_start_out_of_range,
        "core/render/clip.h", "(s1 >= 0 && s1 < w && s2 >= 0 && s2 < w) "},
+      {"scan_block_coherent_zero_block", case_scan_block_coherent_zero_block,
+       "core/render/scan/shader.h",
+       "(block > 0) block-coherent shader requires a positive block size"},
       {"scan_clip_out_of_bounds", case_scan_clip_out_of_bounds,
        "core/render/scan/shader.h",
        "(cr.x_start >= 0 && cr.x_end <= W && cr.render_y_start() >= 0 && "

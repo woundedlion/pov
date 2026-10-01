@@ -143,85 +143,30 @@ public:
       });
       return;
     }
-    // Canvas-anchored grid origin (the block boundary at or before the clip):
-    // a clip-anchored one shifts block phase per segment band, so a pixel's
-    // candidate union would depend on which band renders it.
-    const int gx0 = (x0 / B) * B;
-    const int gy0 = (y0 / B) * B;
-    const int nbx = (x1 - 1 - gx0) / B + 2; // corner columns spanning [x0, x1)
-    const int nby = (y1 - 1 - gy0) / B + 2; // corner rows spanning    [y0, y1)
-    const int GAP_BEGIN =
-        columns.active && columns.wrap ? (columns.re + B - 1) / B : nbx;
-    const int GAP_END = columns.active && columns.wrap ? columns.rs / B : nbx;
-    CellId *cells = scratch_arena_a.allocate_n<CellId>(nbx * nby);
-    // Clamp to the last canvas pixel: band-independent, and every classified
-    // point indexes the trig LUT.
-    auto corner_x = [&](int j) { return std::min(gx0 + j * B, W - 1); };
-    auto corner_y = [&](int k) { return std::min(gy0 + k * B, H - 1); };
-
-    for (int k = 0; k < nby; ++k)
-      for (int j = 0; j < nbx; ++j) {
-        if (j > GAP_BEGIN && j < GAP_END)
-          continue;
-        cells[k * nbx + j] = classify(
-            tree, math::pixel_to_vector<W, H>(corner_x(j), corner_y(k)));
-      }
-
-    // One candidate set per block column, rebuilt on each block-row change.
-    // Positions are copied in so the per-pixel scan runs over contiguous data.
-    const int nblk = nbx - 1;
-    CandSet *cands = scratch_arena_a.allocate_n<CandSet>(nblk);
-    auto build_candidate_row = [&](int ky) {
-      for (int jx = 0; jx < nblk; ++jx) {
-        if (jx >= GAP_BEGIN && jx < GAP_END)
-          continue;
-        CandSet &cs = cands[jx];
-        cs.n = 0;
-        auto add = [&](uint16_t s) {
-          for (uint8_t i = 0; i < cs.n; ++i)
-            if (cs.idx[i] == s)
-              return;
-          cs.idx[cs.n] = s;
-          cs.pos[cs.n] = positions[s];
-          ++cs.n;
-        };
-        for (const CellId *c :
-             {&cells[ky * nbx + jx], &cells[ky * nbx + jx + 1],
-              &cells[(ky + 1) * nbx + jx], &cells[(ky + 1) * nbx + jx + 1]}) {
-          add(c->lo);
-          add(c->hi);
-        }
-      }
-    };
-
-    int last_ky = -1;
-    Scan::Shader::draw_cached<W, H>(
-        canvas,
-        [&](const math::Vector &p, int x, int) {
-          const CandSet &cs = cands[(x - gx0) / B];
-          float d0 = NO_DOT, d1 = NO_DOT;
-          uint8_t b0 = 0, b1 = 0;
-          for (uint8_t i = 0; i < cs.n; ++i) {
-            float d = math::dot(p, cs.pos[i]);
-            if (d > d0) {
-              d1 = d0;
-              b1 = b0;
-              d0 = d;
-              b0 = i;
-            } else if (d > d1) {
-              d1 = d;
-              b1 = i;
-            }
-          }
-          return shade(cs.idx[b0], d0, cs.idx[b1], d1);
+    Scan::Shader::draw_block_coherent<W, H, SITES_PER_CORNER>(
+        canvas, B, positions, scratch_arena_a,
+        [&](const math::Vector &p) {
+          const CellId pair = classify(tree, p);
+          return std::array<uint16_t, SITES_PER_CORNER>{pair.lo, pair.hi};
         },
-        [&](int y) {
-          const int ky = (y - gy0) / B;
-          if (ky != last_ky) {
-            build_candidate_row(ky);
-            last_ky = ky;
-          }
-        });
+        [&](const math::Vector &p, const CandSet &cs)
+            __attribute__((always_inline)) {
+              float d0 = NO_DOT, d1 = NO_DOT;
+              uint8_t b0 = 0, b1 = 0;
+              for (uint8_t i = 0; i < cs.n; ++i) {
+                float d = math::dot(p, cs.pos[i]);
+                if (d > d0) {
+                  d1 = d0;
+                  b1 = b0;
+                  d0 = d;
+                  b0 = i;
+                } else if (d > d1) {
+                  d1 = d;
+                  b1 = i;
+                }
+              }
+              return shade(cs.idx[b0], d0, cs.idx[b1], d1);
+            });
   }
 
 private:
@@ -259,10 +204,7 @@ private:
   static_assert(COHERENCE_BLOCK_MIN <= COHERENCE_BLOCK,
                 "Voronoi coherence block bounds are inverted");
 
-  /** @brief Canonical (order-independent) nearest-pair identity at a sample
-   *  point; the coarse-grid corner classifier stores one per corner (see the
-   *  render path). At class scope so the scratch-budget static_assert below can
-   *  size the corner grid against sizeof(CellId). */
+  /** @brief Canonical nearest-pair identity at a sample point. */
   struct CellId {
     uint16_t lo; /**< min(nearest, second) site index. */
     uint16_t hi; /**< max(nearest, second) site index. */
@@ -334,23 +276,8 @@ private:
     return c;
   }
 
-  static constexpr int BLOCK_CORNERS = 4;    /**< Corners bounding one block. */
-  static constexpr int SITES_PER_CORNER = 2; /**< CellId site indices. */
-  static_assert(sizeof(CellId) == SITES_PER_CORNER * sizeof(uint16_t),
-                "Voronoi CellId no longer holds SITES_PER_CORNER indices");
-  /** @brief CandSet capacity. The per-block builder adds one entry per corner
-   *  site with no bounds test, so this is the exact pre-dedup entry count. */
-  static constexpr int MAX_CANDIDATES = BLOCK_CORNERS * SITES_PER_CORNER;
-
-  /** @brief Shading candidates for one block: the deduped union of its four
-   *  corners' CellId pairs, positions copied in for the per-pixel dot scan. */
-  struct CandSet {
-    math::Vector pos[MAX_CANDIDATES]; /**< Candidate site positions (parallel to
-                                       idx). */
-    uint16_t idx[MAX_CANDIDATES];     /**< Candidate site indices into
-                                       sites_buffer. */
-    uint8_t n; /**< Number of distinct candidates (1..MAX_CANDIDATES). */
-  };
+  static constexpr int SITES_PER_CORNER = 2;
+  using CandSet = Scan::Shader::BlockCandidates<SITES_PER_CORNER>;
 
   // Compile-time high-water check for the 64 KB scratch_arena_a reserve. Two
   // transient peaks share that arena, with positions + KD nodes live across both:
@@ -362,21 +289,13 @@ private:
   static constexpr size_t KD_NODES_BYTES = size_t(MAX_SITES) * sizeof(KDNode);
   static constexpr size_t KD_BUILD_SCRATCH_BYTES =
       size_t(MAX_SITES) * sizeof(int);
-  // Corner grid spans the full canvas in block-px steps, +2 for the inclusive
-  // [0,W)/[0,H) end corners (mirrors draw_frame()'s nbx/nby at full clip). Sized at
-  // COHERENCE_BLOCK_MIN — the worst case (most corners) the adaptive block hits.
-  static constexpr size_t CORNER_COLS =
-      size_t((W - 1) / COHERENCE_BLOCK_MIN + 2);
-  static constexpr size_t CORNER_ROWS =
-      size_t((H - 1) / COHERENCE_BLOCK_MIN + 2);
-  static constexpr size_t CELLS_BYTES =
-      CORNER_COLS * CORNER_ROWS * sizeof(CellId);
-  static constexpr size_t CAND_ROW_BYTES = (CORNER_COLS - 1) * sizeof(CandSet);
+  static constexpr size_t WALKER_BYTES =
+      Scan::Shader::block_coherent_scratch_bytes<W, H, SITES_PER_CORNER,
+                                                 COHERENCE_BLOCK_MIN>();
   static constexpr size_t SCRATCH_HIGH_WATER =
       POSITIONS_BYTES + KD_NODES_BYTES +
-      (KD_BUILD_SCRATCH_BYTES > CELLS_BYTES + CAND_ROW_BYTES
-           ? KD_BUILD_SCRATCH_BYTES
-           : CELLS_BYTES + CAND_ROW_BYTES);
+      (KD_BUILD_SCRATCH_BYTES > WALKER_BYTES ? KD_BUILD_SCRATCH_BYTES
+                                             : WALKER_BYTES);
   static_assert(
       SCRATCH_HIGH_WATER <= SCRATCH_A_BYTES,
       "Voronoi scratch_arena_a budget too small for MAX_SITES positions + "
