@@ -124,6 +124,8 @@ struct RaymarchParams {
 template <int W, int H>
 class Raymarch : public ChoreographedEffect<Raymarch<W, H>, RaymarchParams> {
 public:
+  static constexpr const char *EFFECT_ID = "Raymarch";
+
   using Choreography = ChoreographedEffect<Raymarch<W, H>, RaymarchParams>;
   using Params = RaymarchParams;
   using PlacementSolid = RaymarchPlacementSolid;

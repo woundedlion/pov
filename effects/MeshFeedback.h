@@ -42,6 +42,8 @@ template <int W, int H>
 class MeshFeedback
     : public ChoreographedEffect<MeshFeedback<W, H>, MeshFeedbackParams> {
 public:
+  static constexpr const char *EFFECT_ID = "MeshFeedback";
+
   using Choreography =
       ChoreographedEffect<MeshFeedback<W, H>, MeshFeedbackParams>;
   using Params = MeshFeedbackParams;

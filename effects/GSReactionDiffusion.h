@@ -67,6 +67,8 @@ class GSReactionDiffusion
   using Base::to_q16;
 
 public:
+  static constexpr const char *EFFECT_ID = "GSReactionDiffusion";
+
   /**
    * @brief Default-constructs the effect; all setup is deferred to init().
    */

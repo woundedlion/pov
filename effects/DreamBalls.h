@@ -70,6 +70,8 @@ class DreamBalls
   friend Choreography;
 
 public:
+  static constexpr const char *EFFECT_ID = "DreamBalls";
+
   using Params = DreamBallsParams;
   using BaseMesh = Solids::BaseMesh;
   using WeaveTopology = Params::WeaveTopology;

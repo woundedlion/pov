@@ -254,6 +254,8 @@ class HyperLattice : public ChoreographedEffect<HyperLattice<W, H>,
   friend Choreography;
 
 public:
+  static constexpr const char *EFFECT_ID = "HyperLattice";
+
   using Params = HyperLatticeDetail::Params;
   using LatticeMode = HyperLatticeDetail::LatticeMode;
   using ShellCount = HyperLatticeDetail::ShellCount;
