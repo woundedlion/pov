@@ -478,8 +478,9 @@ public:
   }
   /**
    * @brief Applies a host-generated relaxation payload.
-   * @details The same baked vertex bits load on host and device, so both
-   * render bit-identically. The payload's own `iterations` count defines it;
+   * @details The relaxed vertices load bit-identically on host and device;
+   * later stages use each platform's own float semantics.
+   * The payload's own `iterations` count defines it;
    * there is no per-call-site count. In the two host tooling modes the payload
    * is instead reproduced live by using `bake.iterations` as the smoothing iteration
    * cap: EXTRACT dumps the resulting bits and freshly measured guards, so it

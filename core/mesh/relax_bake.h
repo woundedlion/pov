@@ -18,7 +18,8 @@ HS_O3_BEGIN
  * (early-stop on convergence applies, so any count past convergence yields the
  * same converged mesh; a count short of convergence deliberately freezes a
  * pre-converged configuration). The same bits are loaded on host and device, so
- * the two platforms render bit-identically. `source_hash` and `topology_hash`
+ * the relaxed vertices are bit-identical. Later stages use each platform's
+ * own float semantics. `source_hash` and `topology_hash`
  * guard that the live source mesh's quantized vertices and connectivity still
  * match what was baked against.
  */
