@@ -1880,10 +1880,12 @@ inline void test_gs_shared_stencil_error_is_bounded() {
   }
 }
 
+/** @brief Bounds symmetric kernel rounding with linear palette interpolation. */
 inline void test_gs_symmetric_shader_matches_shared_reference() {
   hs_test::reset_globals();
   GSWhiteBox::GS gs;
   gs.init();
+  GSWhiteBox::set_color_params(gs, 0.0f, 2.0f, 0.0f, 0.0f);
   for (int frame = 1; frame <= 40; ++frame) {
     gs.draw_frame();
     gs.advance_display();
