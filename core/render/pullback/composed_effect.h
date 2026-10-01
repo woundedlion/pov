@@ -557,7 +557,7 @@ enum class FieldCoverageKind : uint8_t { NONE, VALUE_CUTOUT };
 
 /**
  * @brief Metadata accompanying an effect's explicit ranked stage pipeline.
- * @details A derived Spec supplies template <typename B> using Pipeline.
+ * @details A derived Spec supplies `template <typename B> using Pipeline`.
  * PROJECTION controls projection sliders; TRANSFER, COVERAGE and FIELD_COVERAGE
  * describe material stages. LensPolicy and SURFACE_PLACEMENT describe lens and
  * displacement ordering. HARMONY, HUE and BRIGHTNESS select color behavior;
