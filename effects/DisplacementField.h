@@ -192,6 +192,10 @@ public:
   }
 
 private:
+  static constexpr int chunk_end(int c, int lut_n) {
+    return ((c + 1) * lut_n + BAKE_CHUNKS - 1) / BAKE_CHUNKS;
+  }
+
   /** @brief Evaluates the active ball fields using cached ring geometry. */
   HS_O3_FN float ball_field(const math::Vector &p, const int *ks, int n,
                             float theta) const {
@@ -289,7 +293,7 @@ private:
     int visible_samples = 0;
     int x_begin = 0;
     for (int c = 0; c < BAKE_CHUNKS; ++c) {
-      const int x_end = ((c + 1) * lut_n + BAKE_CHUNKS - 1) / BAKE_CHUNKS;
+      const int x_end = chunk_end(c, lut_n);
       if (visible & (1u << c))
         visible_samples += x_end - x_begin;
       x_begin = x_end;
@@ -445,7 +449,7 @@ private:
         {
           int x = 0;
           for (int c = 0; c < BAKE_CHUNKS; ++c) {
-            const int x_end = ((c + 1) * lut_n + BAKE_CHUNKS - 1) / BAKE_CHUNKS;
+            const int x_end = chunk_end(c, lut_n);
             if (visible & (1u << c)) {
               for (; x < x_end; ++x)
                 max_shift = fmaxf(max_shift, std::fabs(slut[x]));
@@ -489,7 +493,7 @@ private:
         {
           int x = 0;
           for (int c = 0; c < BAKE_CHUNKS; ++c) {
-            const int x_end = ((c + 1) * lut_n + BAKE_CHUNKS - 1) / BAKE_CHUNKS;
+            const int x_end = chunk_end(c, lut_n);
             if (visible & (1u << c)) {
               for (; x < x_end; ++x)
                 hlut[x] = hue_for_shift(slut[x]);
@@ -563,7 +567,7 @@ private:
     constexpr int D2 = OCTAVE2_STRIDE;
     int x = 0;
     for (int c = 0; c < BAKE_CHUNKS; ++c) {
-      const int x_end = ((c + 1) * lut_n + BAKE_CHUNKS - 1) / BAKE_CHUNKS;
+      const int x_end = chunk_end(c, lut_n);
       const uint8_t v = static_cast<uint8_t>((visible >> c) & 1u);
       for (; x < x_end; ++x)
         knot_visible[x] = v;
@@ -674,7 +678,7 @@ private:
     float *den = octave2;
     int x = 0;
     for (int c = 0; c < BAKE_CHUNKS; ++c) {
-      const int x_end = ((c + 1) * lut_n + BAKE_CHUNKS - 1) / BAKE_CHUNKS;
+      const int x_end = chunk_end(c, lut_n);
       const uint8_t v = static_cast<uint8_t>((visible >> c) & 1u);
       for (; x < x_end; ++x)
         knot_visible[x] = v;
