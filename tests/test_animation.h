@@ -3155,7 +3155,7 @@ inline void build_octahedron(PolyMesh &mesh, Arena &arena) {
  * restored front geometry in the arena.
  */
 inline void test_meshcarousel_compact_keep_front_drops_back() {
-  persistent_arena.reset();
+  reset_persistent_arena();
   static uint8_t polybuf[1 << 14];
   Arena polyarena(polybuf, sizeof(polybuf));
   PolyMesh poly;
@@ -3188,7 +3188,7 @@ inline void test_meshcarousel_compact_keep_front_drops_back() {
  * left in it.
  */
 inline void test_meshcarousel_compact_drop_all_frees_both_slots() {
-  persistent_arena.reset();
+  reset_persistent_arena();
   static uint8_t polybuf[1 << 14];
   Arena polyarena(polybuf, sizeof(polybuf));
   PolyMesh poly;
