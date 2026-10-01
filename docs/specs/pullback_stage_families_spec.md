@@ -927,8 +927,8 @@ interpreter-only or splits into one document per topology.
 `tools/generate_pullback_manifest_header.py` validates the manifests under
 `tests/data/pullback/` and generates the native header,
 `tests/pullback_manifest_check.cpp` (`unit_pullback_manifest`) checks their
-identity properties, and `tests/test_shader_chain.h` asserts that the
-ShaderWorkbench program table and the manifest programs match one-for-one.
+identity properties. No gate currently pairs manifest programs with a live
+program table.
 The registry derived from the composed-effect roster, the `any_approximate`
 fold, the interpreted-chain approximation aggregate, and
 `APPROXIMATION_DOMAINS_DISJOINT` are design.
