@@ -2665,14 +2665,21 @@ inline void test_feedback_spherical_ring_control_rows() {
     HS_EXPECT_NEAR(sampled_y, expected_y, 0.02f);
   }
 
-  // Two int16 offset fields, one projected origin and one int16 cap-plane
-  // offset per grid cell.
+  // Warp fields and projected origins span all cells; cap offsets span polar cells.
   constexpr size_t BYTES_PER_ROW =
       (W / DOWNSAMPLE) *
-      (4 * sizeof(int16_t) + sizeof(decltype(layout)::Coordinates));
+      (2 * sizeof(int16_t) + sizeof(decltype(layout)::Coordinates));
+  size_t cap_rows = 0;
+  for (int i = 0; i < layout.ring_count(); ++i)
+    if (decltype(layout)::latitude_sine(layout.ring(i).y) <
+        Filter::Pixel::Feedback<W, H>::POLAR_TARGET_SINE)
+      ++cap_rows;
+  if constexpr (HS_RUNTIME_DISPLAY_GEOMETRY)
+    cap_rows = static_cast<size_t>(layout.ring_count());
   constexpr size_t STORAGE = Filter::Pixel::Feedback<W, H>::STORAGE_BYTES;
-  constexpr size_t EXPECTED =
-      BYTES_PER_ROW * static_cast<size_t>(layout.ring_count());
+  const size_t EXPECTED =
+      BYTES_PER_ROW * static_cast<size_t>(layout.ring_count()) +
+      cap_rows * (W / DOWNSAMPLE) * 2 * sizeof(int16_t);
   HS_EXPECT_EQ(STORAGE, EXPECTED);
   HS_EXPECT_LE(layout.sample_count(), (W / DOWNSAMPLE) * layout.ring_count());
 }
