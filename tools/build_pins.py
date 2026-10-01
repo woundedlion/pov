@@ -488,13 +488,15 @@ def check_inline_pins() -> list[str]:
 def check_shared_literals() -> list[str]:
     """Validate shared literal values and report patterns with no matches."""
     errors: list[str] = []
+    texts = {}
+    for path in INLINE_SCAN:
+        text = read_scanned(path, errors)
+        if text is not None:
+            texts[path] = text
     for pattern, name in SHARED_LITERAL_USES:
         want = SHARED_LITERALS[name]
         occurrences = 0
-        for path in INLINE_SCAN:
-            text = read_scanned(path, errors)
-            if text is None:
-                continue
+        for path, text in texts.items():
             check_authorities(path, text, ((pattern, name),),
                               LITERAL_AUTHORITIES, errors)
             for index, line in enumerate(text.splitlines(), 1):
