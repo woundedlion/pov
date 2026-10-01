@@ -1118,7 +1118,7 @@ inline void test_needle_gated_swap_builds_on_hankin() {
     ScratchScope fa(a);
     ScratchScope fb(b);
     PolyMesh needle_mesh = MeshOps::needle(seed, a, b);
-    conway_tests::check_meshes_identical(needle_mesh, kis_mesh);
+    check_meshes_identical(needle_mesh, kis_mesh);
   }
 
   if (hs_test::stats().failed != failed_before)
