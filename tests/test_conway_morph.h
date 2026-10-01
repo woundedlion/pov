@@ -2,28 +2,7 @@
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
  * Licensed under the PolyForm Noncommercial License 1.0.0
  *
- * Operator-level tests for the OpLeg transition design
- * (docs/specs/conway_morph_spec.md §7.1–§7.5).
- *
- * Coverage:
- *   - Endpoint exactness: every ConwayGraph edge endpoint on the registry code
- *     path equals the registry generator output exactly; dual-family-seed and
- *     bridge arrivals match within geometric tolerance instead.
- *   - Topology constancy: per edge, samples across the sweep interval hold
- *     constant V/F/I, closed genus-0 manifold, faces >= 3 sides, unit
- *     vertices; per-edge morph-frame scratch peaks fit the HankinSolids
- *     scratch split.
- *   - Settle correspondence: relax output vertex order is the identity over its
- *     input (same counts, byte-identical topology, vertex i stays nearest to
- *     input vertex i), so a relaxed endpoint is per-vertex slerpable.
- *   - Bridge convergence: snub(tetrahedron).relax converges to the regular
- *     icosahedron; ambo(tetrahedron) is the regular octahedron.
- *   - Jitterbug bridge: snub(tetrahedron) at the tabled icosa point is the
- *     regular icosahedron with no relax; at (0.5, -pi/3) its vertices merge
- *     pairwise onto the octahedron; the clamped leg holds V12/F20/E30.
- *   - Clean-swap invisibility: truncate(seed, 0.5 - eps) vertices pairwise
- *     merge onto ambo(seed) vertices, and each parameterized op's primary
- *     faces at t = T_EPS geometrically match the seed's faces.
+ * Conway morph operators, OpLeg transitions, recipe chains, and walk policies.
  */
 #pragma once
 
