@@ -15,7 +15,9 @@
  * cover them; instead the bookkeeping they key on is exercised in-process here:
  * the bound flag through the construct/bind/move lifecycle
  * (test_arenavec_default_unbound / _bind / _move_construct / _move_assign), and
- * ArenaBlockStamp reset and rewind behavior is tested directly. A re-bind that grows is a supported pattern (it abandons the
+ * ArenaBlockStamp reset and rewind behavior is tested directly. Span/source
+ * rebind generations are compared after both reuse and growth by
+ * test_arenaspan_source_rebind_generation. A re-bind that grows is a supported pattern (it abandons the
  * old block until the next arena reset — see ArenaVector::bind), covered by
  * test_arenavec_rebind_grows. Move-assignment onto a bound handle abandons a
  * block the same way and accounts the bytes for the arena's OOM report, covered
@@ -936,6 +938,33 @@ inline void test_arenaspan_from_vector() {
   HS_EXPECT_EQ(sum, 66);
 }
 
+#ifndef NDEBUG
+/** @brief Both allocation growth and capacity reuse invalidate existing spans. */
+inline void test_arenaspan_source_rebind_generation() {
+  Arena arena(test_buf_a, sizeof(test_buf_a));
+  ArenaVector<int> source(arena, 4);
+  source.push_back(17);
+  ArenaSpan<int> before_reuse(source);
+  HS_EXPECT_EQ(before_reuse.debug_binding_generation(),
+               source.debug_binding_generation());
+  source.bind(arena, 4);
+  source.push_back(23);
+  HS_EXPECT_NE(before_reuse.debug_binding_generation(),
+               source.debug_binding_generation());
+  ArenaSpan<int> before_growth(source);
+  HS_EXPECT_EQ(before_growth.debug_binding_generation(),
+               source.debug_binding_generation());
+  source.bind(arena, 8);
+  source.push_back(31);
+  HS_EXPECT_NE(before_growth.debug_binding_generation(),
+               source.debug_binding_generation());
+  ArenaSpan<int> current(source);
+  HS_EXPECT_EQ(current.debug_binding_generation(),
+               source.debug_binding_generation());
+  HS_EXPECT_EQ(current[0], 31);
+}
+#endif
+
 // ============================================================================
 // ScratchScope
 // ============================================================================
@@ -1388,6 +1417,9 @@ inline int run_memory_tests() {
 
   test_arenaspan_default();
   test_arenaspan_from_vector();
+#ifndef NDEBUG
+  test_arenaspan_source_rebind_generation();
+#endif
 
   test_scratch_basic_restore();
   test_scratch_nested();

@@ -738,6 +738,11 @@ public:
     return *this;
   }
 
+#ifndef NDEBUG
+  /** @brief Allocation/reuse generation for debug lifetime diagnostics. */
+  uint32_t debug_binding_generation() const { return rebind_generation; }
+#endif
+
   /**
    * @brief Constructs and binds the vector with an exact capacity.
    * @param arena Arena to allocate the backing block from.
@@ -1081,6 +1086,11 @@ public:
   using const_pointer = const T *;
   using iterator = const T *;
   using const_iterator = const T *;
+
+#ifndef NDEBUG
+  /** @brief Source binding generation snapshotted by this debug view. */
+  uint32_t debug_binding_generation() const { return source_rebind_generation; }
+#endif
 
   /**
    * @brief Default-constructs an empty span.
