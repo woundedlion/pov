@@ -59,6 +59,11 @@ INDEX_PATH="$(git rev-parse --path-format=absolute --git-path index)"
 
 
 require_clang_format() {
+  CF="${CLANG_FORMAT:-clang-format}"
+  if ! command -v "$CF" >/dev/null 2>&1; then
+    echo "[pre-commit] $CF not found; install the pinned formatter."
+    exit 1
+  fi
   # Install clang-format 22 through the pinned requirements.
   "$PYTHON_BIN" "$SNAPSHOT/tools/build_pins.py" --check-tool clang-format
 }
