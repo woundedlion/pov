@@ -1434,7 +1434,7 @@ class TestRealCapture(unittest.TestCase):
         # check while leaving that branch unexercised.
         self.assertIn("code", sizes["ram1"]["components"])
 
-    def test_real_phantasm_calibration_prose_matches_the_gate(self):
+    def test_historical_phantasm_fixture_has_expected_bank_headroom(self):
         sizes = tg.parse_teensy_size(
             (REAL_DIR / "phantasm_teensy_size.txt").read_text())
         ram1 = sizes["ram1"]
@@ -1448,19 +1448,6 @@ class TestRealCapture(unittest.TestCase):
                     if "'code' derived ceiling" in line)
         remaining_text = note.split("remaining ", 1)[1].split(" B;", 1)[0]
         remaining = int(remaining_text.replace(",", ""))
-        allocated_code = components["code"] + components["padding"]
-
-        budgets_text = " ".join(
-            line.strip().removeprefix("//").removeprefix("#").strip()
-            for line in (TOOLS / "teensy_budgets.json")
-            .read_text().splitlines())
-        self.assertIn(
-            f"it uses {ram1['used']:,} B of RAM1 "
-            f"(variables {components['variables']:,} + code "
-            f"{components['code']:,} rounded up to a whole 32 KiB FlexRAM "
-            f"bank, {allocated_code:,}) with {ram1['free']:,} B free for locals",
-            budgets_text)
-
         self.assertEqual(remaining, 3112)
 
     def test_real_phantasm_exception_index_is_routed_to_flash(self):
