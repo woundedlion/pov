@@ -846,10 +846,10 @@ private:
     float d_a = 0.02f;  /**< Diffusion coefficient of A. */
     float d_b = 0.01f;  /**< Diffusion coefficient of B. */
     float dt = 2.5f;    /**< Integration timestep (Speed slider). */
-    float noise_speed = 0.0002f;
-    float noise_scale = 2.0f;
-    float hue_shift = 0.35f;
-    float shimmer = 0.25f;
+    float noise_speed = 0.00040800002f;
+    float noise_scale = 4.941984f;
+    float hue_shift = 0.2f;
+    float shimmer = 0.4f;
   } params;
   static_assert(Params{}.dt == DEFAULT_DT,
                 "the stabilization floor is calibrated at the Speed default");
