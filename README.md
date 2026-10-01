@@ -28,7 +28,7 @@ Building the WASM target in Holosphere installs the `.js`/`.wasm` module and its
 To explore effects, open the [live simulator](https://woundedlion.github.io/daydream/).
 
 For local development, clone Holosphere and daydream as sibling directories.
-Install Python with pip, Node.js with npm (Holosphere uses the pin in `tools/build_pins.py`; 22.23.2 for daydream), CMake 3.29 or newer, Ninja and Emscripten.
+Install Python with pip, Node.js with npm (Holosphere uses the pin in `tools/build_pins.py`; 24.13.0 for daydream), CMake 3.29 or newer, Ninja and Emscripten.
 Install the tested CMake with `python -m pip install --require-hashes -r requirements/cmake.txt`.
 `tools/build_pins.py` records the CI tool versions; each repository's
 `package.json` declares its Node requirement. Install the pinned `just` command
@@ -926,32 +926,53 @@ The shader interface, the SDF/scan and curve rasterizers, the animation system, 
 
 Phantasm limits each effect object to **3,584 bytes** (`HS_PHANTASM_EFFECT_HEAP_BYTES` in `targets/Phantasm/phantasm_target.h`). A compile-time assertion checks `sizeof` against this ceiling; arena allocations have separate budgets.
 
-Every visual effect inherits from `Effect`:
+Every visual effect derives from `Effect`. Choose `ChoreographedEffect` for authored parameters and presets; it supplies snapshot validation and preset transitions. This scaffold has one preset from the default parameters:
 
 ```cpp
-template <int W, int H>
-class MyEffect : public Effect {
-public:
-    MyEffect() : Effect(W, H, {.strobe = true}), filters(...) {}
+#include "core/engine/engine.h"
 
-    void init() override {
-        register_param("Speed", &speed, 0.0f, 10.0f);
-    }
-
-    void draw_frame() override {
-        Canvas canvas(*this);       // acquire write buffer
-        timeline.step(canvas);      // advance all animations
-        // ... custom rendering ...
-    }
-
-private:
-    Pipeline<W, H, ...> filters;
-    Orientation<16> orientation;   // CAP is the sub-frame capacity, not the display width
-    Timeline timeline;
-    float speed = 1.0f;
+struct MyParams {
+  float speed = 1.0f;
 };
 
+template <int W, int H>
+class MyEffect : public ChoreographedEffect<MyEffect<W, H>, MyParams> {
+  using Base = ChoreographedEffect<MyEffect<W, H>, MyParams>;
+  using Base::params;
+
+public:
+  static constexpr const char *EFFECT_ID = "MyEffect";
+  static constexpr uint32_t PARAMETER_SCHEMA_VERSION = 1;
+  static constexpr uint16_t PRESET_DWELL_FRAMES = 600;
+
+  MyEffect()
+      : Base(W, H, pipeline_config<decltype(filters)>({.strobe = true})) {}
+
+  static bool valid_params(const MyParams &p) {
+    return std::isfinite(p.speed) && p.speed >= 0.0f && p.speed <= 10.0f;
+  }
+
+  void init() override {
+    this->register_param("Speed", &params.speed, 0.0f, 10.0f);
+    this->begin_choreography();
+  }
+
+  void draw_frame() override {
+    Canvas canvas(*this);
+    this->step_choreography();
+    timeline.step(canvas);
+    // Render through filters using params.speed.
+  }
+
+private:
+  math::Orientation<> orientation;
+  Pipeline<W, H, Filter::World::Orient, Filter::Screen::AntiAlias<W, H>>
+      filters{Filter::World::Orient{orientation}, Filter::Screen::AntiAlias<W, H>{}};
+  Timeline timeline;
+};
 ```
+
+Use `Effect` directly for an effect that owns its own lifecycle. For an authored pullback chain, use a `Pullback::ComposedEffect` wrapper around its pattern document. `pipeline_config` carries filter segment requirements into the base configuration, and `math::Orientation<>` supplies the four-sample history accepted by `Filter::World::Orient`.
 
 ### Roster-Based Factory (`control/registry.h`)
 
@@ -991,10 +1012,11 @@ Every host-side operation the graph needs is a pure virtual on `EffectTransition
 
 ### Adding an effect
 
-1. Add the effect header under `effects/` and register its class in `HS_EFFECT_LIST` in `targets/effects.h`. The native roster and include tests check registration; `just docs-sync` updates the repository map and counts.
-2. Add the effect to `HS_PHANTASM_EFFECT_LIST`, or explicitly exclude it with `HS_PHANTASM_EXCLUDED_EFFECTS`, in `targets/Phantasm/phantasm_playlist.h`. Compile-time roster assertions check the partition.
-3. Add the effect to the appropriate favorites in `daydream/src/effects/effect_roster.js`. Optionally add a capture offset to `scripts/screenshot_capture_config.mjs` (the default is 30 seconds), capture its PNG with `scripts/capture_screenshots.mjs`, and add its section to `docs/effects.md`. The screenshot and documentation gates check gallery membership, image validity, and documentation structure.
-4. Build Phantasm to check the effect object size budget, then run the native tests and `just teensy-size` to check firmware budgets. Add behavior tests appropriate to the effect.
+1. Choose the base: `Effect` for a custom lifecycle, `ChoreographedEffect` for parameters/presets, or `Pullback::ComposedEffect` for a generated chain. A composed promotion starts with a document under `patterns/` and an effect wrapper defining its `Spec`; run `node scripts/generate_composed_presets.mjs` to refresh the wrapper's generated identity and preset sections, and `node scripts/generate_composed_presets.mjs --check` to verify them. Keep the document as the authored source.
+2. Add the header under `effects/` and declare an explicit stable `EFFECT_ID`. Register its class in `HS_EFFECT_LIST` in `targets/effects.h`; keep the ID stable across class renames. The native roster and include tests check registration; `just docs-sync` updates the repository map and counts.
+3. Add it to `HS_PHANTASM_EFFECT_LIST`, or explicitly exclude it with `HS_PHANTASM_EXCLUDED_EFFECTS`, in `targets/Phantasm/phantasm_playlist.h`. Compile-time roster assertions check the partition.
+4. Add it to the appropriate favorites in `daydream/src/effects/effect_roster.js`. Optionally add a capture offset to `scripts/screenshot_capture_config.mjs` (the default is 30 seconds), capture its PNG with `scripts/capture_screenshots.mjs`, and add its section to `docs/effects.md`. The screenshot and documentation gates check gallery membership, image validity, and documentation structure.
+5. Build Phantasm to check the effect object size budget, then run native tests, the composed generator checks when applicable, and `just teensy-size` for firmware budgets. Add behavior tests appropriate to the effect.
 
 ## 9. Effects Reference
 
