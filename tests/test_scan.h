@@ -317,7 +317,7 @@ inline void test_shader_clip_arc_matches_predicate() {
   };
 
   // 0/1: single-callback draw at 1x and 4x. 2/3: split vertex/fragment draw
-  // at 1x and 4x. 4: draw_grid.
+  // at 1x and 4x. 5/6: draw_cached. Default (4): draw_grid.
   auto draw_variant = [&](Canvas &c, int variant) {
     switch (variant) {
     case 0:
