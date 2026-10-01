@@ -602,6 +602,12 @@ TERMINAL_EDGE_PLACEMENTS = {
     "J3B": (48.0, 22.96, 0),
 }
 
+SYNC_FILTER_PLACEMENTS = {
+    "R1": (15.7, 22.0, 0),
+    "R2": (22.5, 22.0, 0),
+    "C_SYNC": (19.15, 22.0, 0),
+}
+
 
 def fixed_placements(comps):
     fixed = {ref: placement for ref, placement in QUILTER_FIXED.items()
@@ -614,8 +620,60 @@ def fixed_placements(comps):
             fixed["U_MCU"] = (25.5, 11.7, 0)
         if "C_DEC1" in fixed:
             fixed["C_DEC1"] = (9.75, 1.35, 0)
+        fixed.update({ref: placement for ref, placement in SYNC_FILTER_PLACEMENTS.items()
+                      if ref in comps})
         fixed.pop("D_BUS", None)
     return fixed
+
+
+def local_routes(footprints):
+    """Pre-route the locked receive filter on the front copper layer."""
+    by_ref = {str(prop[2]): footprint for footprint in footprints
+              for prop in F(footprint, "property") if prop[1] == "Reference"}
+
+    def terminal(ref, number):
+        footprint = by_ref[ref]
+        if sexp.val(footprint, "locked") != ["yes"]:
+            raise ValueError(f"local route requires locked {ref}")
+        pad = next(pad for pad in F(footprint, "pad") if str(pad[1]) == number)
+        x, y, angle = map(float, sexp.val(footprint, "at"))
+        dx, dy = map(float, sexp.val(pad, "at")[:2])
+        angle = math.radians(angle)
+        point = (x + dx * math.cos(angle) + dy * math.sin(angle),
+                 y - dx * math.sin(angle) + dy * math.cos(angle))
+        return point, sexp.val(pad, "net")
+
+    routes = (
+        (("U_MCU", "3"), ("C_SYNC", "1"), ((19.15, 21.225),)),
+        (("R1", "2"), ("C_SYNC", "1"), ()),
+        (("R2", "1"), ("C_SYNC", "1"),
+         ((20.7875, 21.2), (19.175, 21.2))),
+    )
+    lines = []
+    for source, destination, bends in routes:
+        start, net = terminal(*source)
+        end, other_net = terminal(*destination)
+        if not net or net != other_net:
+            raise ValueError(f"local route net mismatch: {source} / {destination}")
+        points = (start, *bends, end)
+        for a, b in zip(points, points[1:]):
+            lines.append(f'\t(segment (start {fmt(a[0])} {fmt(a[1])}) '
+                         f'(end {fmt(b[0])} {fmt(b[1])}) (width 0.2) '
+                         f'(layer "F.Cu") (net {net[0]}) '
+                         f'(uuid "{uid()}") (locked yes))')
+    for source, end in ((("C_SYNC", "2"), (19.925, 23.0)),
+                        (("R2", "2"), (24.4125, 22.0))):
+        start, net = terminal(*source)
+        if str(net[-1]).lstrip("/") != GROUND_NET:
+            raise ValueError(f"local ground via net mismatch: {source}")
+        lines.append(f'\t(segment (start {fmt(start[0])} {fmt(start[1])}) '
+                     f'(end {fmt(end[0])} {fmt(end[1])}) (width 0.3) '
+                     f'(layer "F.Cu") (net {net[0]}) '
+                     f'(uuid "{uid()}") (locked yes))')
+        lines.append(f'\t(via (at {fmt(end[0])} {fmt(end[1])}) '
+                     '(size 0.6) (drill 0.3) (layers "F.Cu" "B.Cu") '
+                     f'(net {net[0]}) (uuid "{uid()}") (locked yes))')
+    return lines
 
 
 def _column_height(refs, bxs, gap):
@@ -989,6 +1047,8 @@ def main(unplaced=False, force=False, force_teensy_library=False):
                      f' (thickness {fmt(max(0.15, size*0.15))})) (justify mirror)))')
     for fn in foot_nodes:
         lines.append(sexp.dumps(fn, indent=1))
+    if unplaced:
+        lines.extend(local_routes(foot_nodes))
     lines.append(")")
     # --- custom footprint library (Teensy) + fp-lib-table ---
     pretty = os.path.join(OUT, "phantasm.pretty")

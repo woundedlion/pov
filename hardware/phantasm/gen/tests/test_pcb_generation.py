@@ -252,6 +252,10 @@ class GeneratedBoardTests(TerminalBodyChecks, unittest.TestCase):
     def test_generated_pair_passes_schematic_parity(self):
         with tempfile.TemporaryDirectory() as directory:
             board_path = generate(directory, unplaced=True)
+            subprocess.run(
+                [kicad_cli(), "pcb", "drc", "--refill-zones", "--save-board",
+                 "-o", str(Path(directory) / "refill.rpt"), board_path],
+                capture_output=True, text=True, check=True)
             warnings = {("lib_footprint_mismatch", ref): 1 for ref in ("D_BUS",)}
             with mock.patch.object(fab, "PCB", board_path), \
                     mock.patch.object(fab, "SCH", str(Path(directory) / "phantasm.kicad_sch")), \
@@ -429,6 +433,25 @@ class GeneratedBoardTests(TerminalBodyChecks, unittest.TestCase):
 
 
 class TerminalEdgePlacementChecks:
+    def test_receive_filter_is_locked_and_prerouted_at_d3(self):
+        footprints = {reference(fp): fp for fp in F(self.root, "footprint")}
+        for ref in ("R1", "R2", "C_SYNC"):
+            self.assertEqual(sexp.val(footprints[ref], "locked"), ["yes"], ref)
+        self.assertNotIn("/FRAME_SYNC", connectivity.opens(self.root))
+        net_id = sexp.val(next(pad for pad in F(footprints["C_SYNC"], "pad")
+                              if pad[1] == "1"), "net")[0]
+        tracks = [track for track in F(self.root, "segment")
+                  if sexp.val(track, "net") == [net_id]]
+        self.assertTrue(tracks)
+        length = 0.0
+        for track in tracks:
+            self.assertEqual(sexp.val(track, "locked"), ["yes"])
+            self.assertEqual(sexp.val(track, "layer"), ["F.Cu"])
+            a = tuple(map(float, sexp.val(track, "start")))
+            b = tuple(map(float, sexp.val(track, "end")))
+            length += math.dist(a, b)
+        self.assertLess(length, 10.0)
+
     def test_locked_decouplers_are_within_three_mm_of_supply_pins(self):
         footprints = {reference(fp): fp for fp in F(self.root, "footprint")}
 
