@@ -106,13 +106,6 @@ public:
    */
   void set_enabled(bool value) { enabled = value; }
 
-  /** @brief Persistent bytes init_storage() reserves over CACHE_CELLS: two
-   *  int16 warp fields, the lattice's projected origins, and the polar cells'
-   *  int16 cap-plane offsets. */
-  static constexpr size_t STORAGE_BYTES =
-      CACHE_CELLS *
-      (4 * sizeof(int16_t) + sizeof(typename SphereField::Coordinates));
-
   /** @brief Scratch bytes for a full-width uncached flush at downsample ds. */
   static size_t UNCACHED_SCRATCH_BYTES(int ds) {
     const int COLUMNS = W / ds;
@@ -144,7 +137,9 @@ public:
     cached_warp_y = arena.allocate_n<int16_t>(CACHE_CELLS);
     cached_origin =
         arena.allocate_n<typename SphereField::Coordinates>(CACHE_CELLS);
-    cached_cap = arena.allocate_n<CapOffset>(CACHE_CELLS);
+    cached_cap = arena.allocate_n<CapOffset>(
+        polar_rings(CACHE_FIELD, CACHE_FIELD.ring_count()).rows() *
+        CACHE_COLUMNS);
     warp_cache_valid = false;
 #ifndef NDEBUG
     stamp.record(arena);
@@ -230,7 +225,7 @@ private:
     int samples;
     int ring_count;
 
-    int rows() const { return north_rings + ring_count - south_ring; }
+    constexpr int rows() const { return north_rings + ring_count - south_ring; }
     /** @brief Compacted row of a polar ring. */
     int row(int field_y) const {
       return field_y < north_rings ? field_y
@@ -358,7 +353,7 @@ private:
     return {downsample, field, columns, rings, polar_rings(field, rings)};
   }
 
-  static __attribute__((always_inline)) PolarRings
+  static __attribute__((always_inline)) constexpr PolarRings
   polar_rings(const SphereField &field, int rings) {
     PolarRings polar{0, 0, rings, 0, 0, rings};
     bool leading = true;
@@ -1326,9 +1321,29 @@ private:
                           CACHE_CELLS *
                               sizeof(typename SphereField::Coordinates),
                           "Pixel::Feedback warp cache");
-    HS_ASSERT_BLOCK_ALIVE(stamp, cached_cap, CACHE_CELLS * sizeof(CapOffset),
-                          "Pixel::Feedback warp cache");
+    HS_ASSERT_BLOCK_ALIVE(
+        stamp, cached_cap,
+        polar_rings(CACHE_FIELD, CACHE_FIELD.ring_count()).rows() *
+            CACHE_COLUMNS * sizeof(CapOffset),
+        "Pixel::Feedback warp cache");
   }
+
+public:
+  /** @brief Persistent bytes for two warp fields, projected origins and polar caps. */
+#if HS_RUNTIME_DISPLAY_GEOMETRY
+  static constexpr int CACHE_CAP_CELLS = CACHE_CELLS;
+#else
+  static constexpr int CACHE_CAP_CELLS =
+      polar_rings(CACHE_FIELD, CACHE_FIELD.ring_count()).rows() * CACHE_COLUMNS;
+#endif
+
+  /** @brief Persistent bytes init_storage() reserves over CACHE_CELLS: two
+   *  int16 warp fields, the lattice's projected origins, and the polar cells'
+   *  int16 cap-plane offsets. */
+  static constexpr size_t STORAGE_BYTES =
+      CACHE_CELLS *
+          (2 * sizeof(int16_t) + sizeof(typename SphereField::Coordinates)) +
+      CACHE_CAP_CELLS * 2 * sizeof(int16_t);
 };
 
 } // namespace Pixel
