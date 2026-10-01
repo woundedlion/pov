@@ -6138,9 +6138,6 @@ inline constexpr const char *DETERMINISM_PROBE_CASE =
  */
 inline void run_child_case(const char *name) {
 #if defined(_WIN32)
-  SetErrorMode(0x0001u | 0x0002u);
-#endif
-#if defined(_WIN32)
   if (std::strcmp(name, "__literal_trap_exit__") == 0)
     std::exit(static_cast<int>(EXCEPTION_ILLEGAL_INSTRUCTION));
 #endif
