@@ -724,6 +724,22 @@ inline math::Basis basis_from_normal(const math::Vector &n) {
   return {u, v, w};
 }
 
+/** @brief Unit-sphere point on a basis-centered angular disk. */
+inline math::Vector disk_point(const math::Basis &basis, float colat,
+                               float az) {
+  const math::Vector dir = basis.u * cosf(az) + basis.w * sinf(az);
+  return (basis.v * cosf(colat) + dir * sinf(colat)).normalized();
+}
+
+/** @brief Random planar disk edge with the cull sweep's angular limits. */
+inline void random_disk_edge(const math::Basis &basis, math::Vector &a,
+                             math::Vector &b) {
+  const float radius = hs::rand_f(0.2f, 1.4f);
+  const float az = hs::rand_f(0, 2 * math::PI_F);
+  a = disk_point(basis, radius, az);
+  b = disk_point(basis, radius, az + hs::rand_f(0.3f, 2.3f));
+}
+
 /**
  * @brief Verifies the row-span helpers conservatively cover the rendered arc's
  *        screen-row extent, including the interior latitude bulge where the arc
@@ -758,14 +774,7 @@ inline void test_row_span_covers_arc_bulge() {
         continue;
       basis = basis_from_normal(center.normalized());
       pb = &basis;
-      float radius = hs::rand_f(0.2f, 1.4f);
-      auto on_disk = [&](float ang) {
-        math::Vector dir = basis.u * cosf(ang) + basis.w * sinf(ang);
-        return (basis.v * cosf(radius) + dir * sinf(radius)).normalized();
-      };
-      float a0 = hs::rand_f(0, 2 * math::PI_F);
-      a = on_disk(a0);
-      b = on_disk(a0 + hs::rand_f(0.3f, 2.3f));
+      random_disk_edge(basis, a, b);
       // Antipodal-seam edges fall back to the geodesic strategy; skip them.
       if (math::dot(a, basis.v) < -Plot::COS_PLANAR_ANTIPODE ||
           math::dot(b, basis.v) < -Plot::COS_PLANAR_ANTIPODE)
@@ -1110,14 +1119,8 @@ inline void test_col_span_covers_arc() {
   for (int trial = 0; trial < 3000; ++trial) {
     math::Vector center = rand_unit();
     math::Basis basis = basis_from_normal(center);
-    float radius = hs::rand_f(0.2f, 1.4f);
-    auto on_disk = [&](float ang2) {
-      math::Vector dir = basis.u * cosf(ang2) + basis.w * sinf(ang2);
-      return (basis.v * cosf(radius) + dir * sinf(radius)).normalized();
-    };
-    float a0 = hs::rand_f(0, 2 * math::PI_F);
-    math::Vector a = on_disk(a0);
-    math::Vector b = on_disk(a0 + hs::rand_f(0.3f, 2.3f));
+    math::Vector a, b;
+    random_disk_edge(basis, a, b);
     // Antipode-seam segments render geodesic (use_planar is false there).
     if (math::dot(a, basis.v) < -Plot::COS_PLANAR_ANTIPODE ||
         math::dot(b, basis.v) < -Plot::COS_PLANAR_ANTIPODE)
@@ -1259,14 +1262,8 @@ inline void test_edge_visible_in_clip_matches_span_composition() {
     for (int trial = 0; trial < 2000; ++trial) {
       math::Vector center = rand_unit();
       math::Basis basis = basis_from_normal(center);
-      float radius = hs::rand_f(0.2f, 1.4f);
-      auto on_disk = [&](float ang) {
-        math::Vector dir = basis.u * cosf(ang) + basis.w * sinf(ang);
-        return (basis.v * cosf(radius) + dir * sinf(radius)).normalized();
-      };
-      float a0 = hs::rand_f(0, 2 * math::PI_F);
-      math::Vector a = on_disk(a0);
-      math::Vector b = on_disk(a0 + hs::rand_f(0.3f, 2.3f));
+      math::Vector a, b;
+      random_disk_edge(basis, a, b);
       // Antipode-seam segments render geodesic (use_planar is false there).
       if (math::dot(a, basis.v) < -Plot::COS_PLANAR_ANTIPODE ||
           math::dot(b, basis.v) < -Plot::COS_PLANAR_ANTIPODE)
@@ -1426,9 +1423,7 @@ inline void test_mesh_edge_gate_pixel_parity() {
       hs_test::StubEffect fx(W, H);
       render(fx);
       fx.advance_display();
-      for (int y = 0; y < H; ++y)
-        for (int x = 0; x < W; ++x)
-          ref[static_cast<size_t>(y) * W + x] = fx.get_pixel(x, y);
+      hs_test::capture_frame<W, H>(fx, ref);
     }
 
     for (auto &cl : clips) {
@@ -1716,9 +1711,7 @@ inline void test_rasterize_column_cull_pixel_parity() {
       hs_test::StubEffect fx(W, H);
       render(fx);
       fx.advance_display();
-      for (int y = 0; y < H; ++y)
-        for (int x = 0; x < W; ++x)
-          ref[static_cast<size_t>(y) * W + x] = fx.get_pixel(x, y);
+      hs_test::capture_frame<W, H>(fx, ref);
     }
 
     for (auto &cl : clips) {
@@ -3705,13 +3698,9 @@ inline void test_rasterize_planar_segment_gap_free_arclength() {
   // Planar disk about +Y; endpoints sweep colatitude 0.3 -> 1.3 across azimuths
   // so the chord crosses regions of differing azimuthal stretch (r / sin r).
   math::Basis basis = basis_from_normal(math::Vector(0, 1, 0));
-  auto on_disk = [&](float colat, float az) {
-    math::Vector dir = basis.u * cosf(az) + basis.w * sinf(az);
-    return (basis.v * cosf(colat) + dir * sinf(colat)).normalized();
-  };
   Fragment a, b;
-  a.pos = on_disk(0.3f, 0.0f);
-  b.pos = on_disk(1.3f, 1.0f);
+  a.pos = disk_point(basis, 0.3f, 0.0f);
+  b.pos = disk_point(basis, 1.3f, 1.0f);
   // Stays out of the antipodal-seam fallback so the planar strategy is used.
   HS_EXPECT_GT(math::dot(a.pos, basis.v), -Plot::COS_PLANAR_ANTIPODE);
   HS_EXPECT_GT(math::dot(b.pos, basis.v), -Plot::COS_PLANAR_ANTIPODE);
@@ -3755,13 +3744,9 @@ inline void test_rasterize_planar_arc_registers_track_drawn_arc() {
   // Same non-seam planar disk edge as the gap-free test: colatitude 0.3 -> 1.3
   // across azimuths, so the rendered edge bows well clear of its chord.
   math::Basis basis = basis_from_normal(math::Vector(0, 1, 0));
-  auto on_disk = [&](float colat, float az) {
-    math::Vector dir = basis.u * cosf(az) + basis.w * sinf(az);
-    return (basis.v * cosf(colat) + dir * sinf(colat)).normalized();
-  };
   Fragment a, b;
-  a.pos = on_disk(0.3f, 0.0f);
-  b.pos = on_disk(1.3f, 1.0f);
+  a.pos = disk_point(basis, 0.3f, 0.0f);
+  b.pos = disk_point(basis, 1.3f, 1.0f);
   HS_EXPECT_GT(math::dot(a.pos, basis.v), -Plot::COS_PLANAR_ANTIPODE);
   HS_EXPECT_GT(math::dot(b.pos, basis.v), -Plot::COS_PLANAR_ANTIPODE);
   // Bare control points default v0/v1 to 0, so any nonzero arc below comes
@@ -4156,9 +4141,7 @@ render_particle_materialization(const StubParticle &particle,
   fx.advance_display();
 
   std::vector<Pixel> pixels(static_cast<size_t>(W) * H);
-  for (int y = 0; y < H; ++y)
-    for (int x = 0; x < W; ++x)
-      pixels[static_cast<size_t>(y) * W + x] = fx.get_pixel(x, y);
+  hs_test::capture_frame<W, H>(fx, pixels);
   return pixels;
 }
 
@@ -4483,9 +4466,7 @@ inline std::vector<Pixel> particle_reference_frame(StubSystem &sys, Shade shade,
   }
   fx.advance_display();
   std::vector<Pixel> ref(static_cast<size_t>(W) * H);
-  for (int y = 0; y < H; ++y)
-    for (int x = 0; x < W; ++x)
-      ref[static_cast<size_t>(y) * W + x] = fx.get_pixel(x, y);
+  hs_test::capture_frame<W, H>(fx, ref);
   return ref;
 }
 
@@ -5395,13 +5376,9 @@ inline void test_rasterize_single_pass_planar_matches_two_pass() {
   points.bind(plot_arena(), 4);
 
   math::Basis basis = basis_from_normal(math::Vector(0, 1, 0));
-  auto on_disk = [&](float colat, float az) {
-    math::Vector dir = basis.u * cosf(az) + basis.w * sinf(az);
-    return (basis.v * cosf(colat) + dir * sinf(colat)).normalized();
-  };
   Fragment a, b;
-  a.pos = on_disk(0.3f, 0.0f);
-  b.pos = on_disk(1.3f, 1.0f);
+  a.pos = disk_point(basis, 0.3f, 0.0f);
+  b.pos = disk_point(basis, 1.3f, 1.0f);
   points.push_back(a);
   points.push_back(b);
 
@@ -5700,10 +5677,6 @@ inline void test_rasterize_default_sampling_policy_parity() {
 inline void test_rasterize_balanced_sampling_scope() {
   constexpr int W = 128, H = 64;
   const math::Basis basis = basis_from_normal(math::Vector(0, 1, 0));
-  auto on_disk = [&](float colat, float az) {
-    const math::Vector dir = basis.u * cosf(az) + basis.w * sinf(az);
-    return (basis.v * cosf(colat) + dir * sinf(colat)).normalized();
-  };
 
   auto compare = [&]<bool SinglePass>(const math::Vector &start,
                                       const math::Vector &end) {
@@ -5755,9 +5728,10 @@ inline void test_rasterize_balanced_sampling_scope() {
     }
   };
 
-  compare.template operator()<false>(on_disk(0.3f, 0.0f), on_disk(1.3f, 1.0f));
-  compare.template operator()<true>(on_disk(0.7f, 0.0f),
-                                    on_disk(0.702f, 0.001f));
+  compare.template operator()<false>(disk_point(basis, 0.3f, 0.0f),
+                                     disk_point(basis, 1.3f, 1.0f));
+  compare.template operator()<true>(disk_point(basis, 0.7f, 0.0f),
+                                    disk_point(basis, 0.702f, 0.001f));
 }
 
 /** @brief Balanced long edges trade sample density for alpha-weighted coverage. */
@@ -5765,16 +5739,12 @@ inline void test_rasterize_balanced_sampling_density_and_alpha() {
   constexpr int W = 128, H = 64;
   constexpr float BASE_STEP = 2.0f * math::PI_F / W;
   const math::Basis basis = basis_from_normal(math::Vector(0, 1, 0));
-  auto on_disk = [&](float colat, float az) {
-    const math::Vector dir = basis.u * cosf(az) + basis.w * sinf(az);
-    return (basis.v * cosf(colat) + dir * sinf(colat)).normalized();
-  };
   ScratchScope sc(plot_arena());
   Fragments points;
   points.bind(plot_arena(), 2);
   Fragment a, b;
-  a.pos = on_disk(0.35f, -0.2f);
-  b.pos = on_disk(1.4f, 1.1f);
+  a.pos = disk_point(basis, 0.35f, -0.2f);
+  b.pos = disk_point(basis, 1.4f, 1.1f);
   points.push_back(a);
   points.push_back(b);
 
@@ -6084,9 +6054,7 @@ inline void test_rasterize_balanced_star_visual_budget() {
     frame.full_samples = Plot::g_planar_full_samples;
     frame.position_samples = Plot::g_planar_position_samples;
     frame.pixels.resize(static_cast<size_t>(W) * H);
-    for (int y = 0; y < H; ++y)
-      for (int x = 0; x < W; ++x)
-        frame.pixels[static_cast<size_t>(y) * W + x] = fx.get_pixel(x, y);
+    hs_test::capture_frame<W, H>(fx, frame.pixels);
     return frame;
   };
 
@@ -6323,9 +6291,7 @@ inline void test_rasterize_single_pass_geodesic_quadrant_clip_parity() {
     hs_test::StubEffect fx(W, H);
     render(fx);
     fx.advance_display();
-    for (int y = 0; y < H; ++y)
-      for (int x = 0; x < W; ++x)
-        reference[static_cast<size_t>(y) * W + x] = fx.get_pixel(x, y);
+    hs_test::capture_frame<W, H>(fx, reference);
   }
 
   const int quadrants[4][4] = {
@@ -6453,9 +6419,7 @@ inline std::vector<Pixel> render_planar_chord_star(hs_test::StubEffect &fx,
   }
   fx.advance_display();
   std::vector<Pixel> frame(static_cast<size_t>(W) * H);
-  for (int y = 0; y < H; ++y)
-    for (int x = 0; x < W; ++x)
-      frame[static_cast<size_t>(y) * W + x] = fx.get_pixel(x, y);
+  hs_test::capture_frame<W, H>(fx, frame);
   return frame;
 }
 
@@ -6592,9 +6556,7 @@ render_band_split_flower(hs_test::StubEffect &fx, const BandSplitFlower &flower,
   }
   fx.advance_display();
   frame.pixels.resize(static_cast<size_t>(W) * H);
-  for (int y = 0; y < H; ++y)
-    for (int x = 0; x < W; ++x)
-      frame.pixels[static_cast<size_t>(y) * W + x] = fx.get_pixel(x, y);
+  hs_test::capture_frame<W, H>(fx, frame.pixels);
   return frame;
 }
 
