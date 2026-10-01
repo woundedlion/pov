@@ -2306,7 +2306,83 @@ inline void test_flowers_longitude_seam() {
  * @brief Module entry point for the composed-effect base contract.
  * @return Module result code from hs_test::end_module (0 on success).
  */
+inline void test_alien_brain_preset_dwell() {
+  using FX = AlienBrain<SMALL_W, SMALL_H>;
+  reset_effect_globals();
+  FX effect;
+  effect.init();
+
+  HS_EXPECT_EQ(effect.getPresetIndex(), size_t(0));
+  for (uint16_t frame = 1; frame < FX::PRESET_DWELL_FRAMES; ++frame) {
+    effect.draw_frame();
+    effect.advance_display();
+  }
+  HS_EXPECT_EQ(effect.getPresetIndex(), size_t(0));
+
+  effect.draw_frame();
+  effect.advance_display();
+  HS_EXPECT_EQ(effect.getPresetIndex(), size_t(1));
+}
+
+inline void test_mobius_grid_circular_animation() {
+  using FX = MobiusGrid<SMALL_W, SMALL_H>;
+  reset_effect_globals();
+  FX effect;
+  effect.init();
+  HS_EXPECT_EQ(effect.getPresetCount(), size_t(2));
+  HS_EXPECT_TRUE(FX::PRESET_IDS[1] == "mobius-grid-2");
+
+  const math::MobiusParams initial =
+      effect.serialize_parameters().params.lens.mobius;
+  effect.draw_frame();
+  effect.advance_display();
+  const math::MobiusParams animated =
+      effect.serialize_parameters().params.lens.mobius;
+  HS_EXPECT_TRUE(animated.b.re != initial.b.re ||
+                 animated.b.im != initial.b.im);
+  HS_EXPECT_NEAR(animated.b.re * animated.b.re + animated.b.im * animated.b.im,
+                 1.0f, 1e-5f);
+  effect.draw_frame();
+  effect.advance_display();
+  const math::MobiusParams advanced =
+      effect.serialize_parameters().params.lens.mobius;
+  HS_EXPECT_TRUE(advanced.b.re != animated.b.re ||
+                 advanced.b.im != animated.b.im);
+  effect.setAnimationsPaused(true);
+  effect.draw_frame();
+  effect.advance_display();
+  const math::MobiusParams paused =
+      effect.serialize_parameters().params.lens.mobius;
+  HS_EXPECT_EQ(paused.b.re, advanced.b.re);
+  HS_EXPECT_EQ(paused.b.im, advanced.b.im);
+
+  effect.setAnimationsPaused(false);
+  effect.draw_frame();
+  effect.advance_display();
+  const math::MobiusParams resumed =
+      effect.serialize_parameters().params.lens.mobius;
+  HS_EXPECT_TRUE(resumed.b.re != paused.b.re || resumed.b.im != paused.b.im);
+
+  math::MobiusParams previous = resumed;
+  const size_t initial_preset = effect.getPresetIndex();
+  for (int frame = 0; frame < 1400; ++frame) {
+    effect.draw_frame();
+    effect.advance_display();
+    const math::MobiusParams current =
+        effect.serialize_parameters().params.lens.mobius;
+    HS_EXPECT_NEAR(current.b.re * current.b.re + current.b.im * current.b.im,
+                   1.0f, 1e-5f);
+    const float delta_re = current.b.re - previous.b.re;
+    const float delta_im = current.b.im - previous.b.im;
+    HS_EXPECT_TRUE(delta_re * delta_re + delta_im * delta_im < 0.02f);
+    previous = current;
+  }
+  HS_EXPECT_NE(effect.getPresetIndex(), initial_preset);
+}
+
 inline int run_composed_effect_tests() {
+  test_alien_brain_preset_dwell();
+  test_mobius_grid_circular_animation();
   ModuleFixture fixture("composed_effect");
   test_catalog_semantic_export();
   test_composed_hand_registered_families();
