@@ -931,6 +931,12 @@ class TestWarningRatchet(unittest.TestCase):
             "warning: comparison is always true [-Wtype-limits]")
         self.assertTrue(got.startswith("hardware/dma_led.h:"))
 
+    def test_checkout_parent_names_do_not_hide_first_party_warnings(self):
+        for parent in ("/work/packages/repo", "/home/user/lib/Holosphere"):
+            warning = parent + "/hardware/dma_led.h:42:5: warning: unused variable"
+            self.assertEqual(tw.normalize(warning),
+                             "hardware/dma_led.h: warning: unused variable")
+
     def test_fileless_diagnostics_are_normalized(self):
         lines = [
             '<command-line>: warning: "HS_PROFILE" redefined',
