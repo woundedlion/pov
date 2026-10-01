@@ -16,9 +16,11 @@ class ChainSnapshotCodec {
   using Result = ChainSnapshotRestoreResult;
   using Runtime = Pullback::Interp::RuntimeSnapshot;
 
+  static bool array_type(const Val &value) {
+    return Val::global("Array").call<bool>("isArray", value);
+  }
   static bool array(const Val &value, size_t max_count) {
-    return Val::global("Array").call<bool>("isArray", value) &&
-           value["length"].as<size_t>() <= max_count;
+    return array_type(value) && value["length"].as<size_t>() <= max_count;
   }
   static bool object(const Val &value) {
     return !value.isNull() && !value.isUndefined() &&
@@ -273,8 +275,10 @@ public:
       return Result::INVALID_VALUE;
     const auto chain = input["chain"];
     const auto parameters = input["parameters"];
-    if (!array(chain, Pullback::Interp::MAX_CHAIN_OPS) ||
-        !array(parameters, Pullback::Interp::MAX_CHAIN_PARAMS))
+    if (!array_type(chain) || !array_type(parameters))
+      return Result::INVALID_VALUE;
+    if (chain["length"].as<size_t>() > Pullback::Interp::MAX_CHAIN_OPS ||
+        parameters["length"].as<size_t>() > Pullback::Interp::MAX_CHAIN_PARAMS)
       return Result::INVALID_LENGTH;
     for (size_t index = 0; index < chain["length"].as<size_t>(); ++index) {
       ChainSnapshot::Entry entry;
@@ -294,7 +298,9 @@ public:
     }
     const auto runtime = input["runtime"];
     if (!runtime.isUndefined()) {
-      if (!array(runtime, Pullback::Interp::MAX_CHAIN_OPS))
+      if (!array_type(runtime))
+        return Result::INVALID_VALUE;
+      if (runtime["length"].as<size_t>() > Pullback::Interp::MAX_CHAIN_OPS)
         return Result::INVALID_LENGTH;
       out.runtime.emplace();
       for (size_t index = 0; index < runtime["length"].as<size_t>(); ++index) {
@@ -311,10 +317,11 @@ public:
     const auto palette = input["paletteBank"];
     if (!palette.isUndefined()) {
       GeneratedPaletteBank::Snapshot bank;
-      if (!object(palette) || !number(palette, "chroma", bank.chroma) ||
-          !array(palette["hues"], 3) ||
-          palette["hues"]["length"].as<size_t>() != 3 ||
-          !array(palette["cycles"], 3) ||
+      if (!object(palette) || !number(palette, "chroma", bank.chroma))
+        return Result::INVALID_VALUE;
+      if (!array_type(palette["hues"]) || !array_type(palette["cycles"]))
+        return Result::INVALID_VALUE;
+      if (palette["hues"]["length"].as<size_t>() != 3 ||
           palette["cycles"]["length"].as<size_t>() != 3)
         return Result::INVALID_LENGTH;
       for (size_t index = 0; index < 3; ++index) {
