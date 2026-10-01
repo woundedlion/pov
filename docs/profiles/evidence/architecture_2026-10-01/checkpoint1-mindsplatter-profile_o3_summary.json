@@ -1,0 +1,349 @@
+{
+  "tag": "checkpoint1-mindsplatter-profile_o3",
+  "effect": "MindSplatter",
+  "scope": "msp_draw_particles",
+  "sha": "ac4870adb95eecb7130f86dbfd36a86d0b1fb96b",
+  "frames": 1736,
+  "range": [
+    2,
+    1737
+  ],
+  "counter_range": [
+    17,
+    1728
+  ],
+  "startup_us": 298,
+  "mean_ms": 22.131757488479263,
+  "peak_ms": 54.539,
+  "spills": 0,
+  "scope_mean_ms": 19.897684096573208,
+  "worst_scope_ms": 43.8208125,
+  "worst_window": [
+    993,
+    1008
+  ],
+  "ppm": 1.4102885822112317,
+  "ppm_window": [
+    993,
+    1008
+  ],
+  "presets": [
+    {
+      "name": "1",
+      "holds": 19,
+      "clean": 17,
+      "scope_ms": 24.79575,
+      "render_ms": 27.040875,
+      "wall_ms": 62.579,
+      "window": [
+        1313,
+        1328
+      ],
+      "calls": 1.0
+    },
+    {
+      "name": "2",
+      "holds": 20,
+      "clean": 18,
+      "scope_ms": 35.7155,
+      "render_ms": 38.0806875,
+      "wall_ms": 63.62,
+      "window": [
+        1457,
+        1472
+      ],
+      "calls": 1.0
+    },
+    {
+      "name": "3",
+      "holds": 18,
+      "clean": 17,
+      "scope_ms": 23.550875,
+      "render_ms": 25.810625,
+      "wall_ms": 62.552,
+      "window": [
+        321,
+        336
+      ],
+      "calls": 1.0
+    },
+    {
+      "name": "4",
+      "holds": 10,
+      "clean": 9,
+      "scope_ms": 25.5578125,
+      "render_ms": 28.1609375,
+      "wall_ms": 62.301,
+      "window": [
+        529,
+        544
+      ],
+      "calls": 1.0
+    },
+    {
+      "name": "5",
+      "holds": 10,
+      "clean": 9,
+      "scope_ms": 15.4708125,
+      "render_ms": 16.778875,
+      "wall_ms": 62.497,
+      "window": [
+        673,
+        688
+      ],
+      "calls": 1.0
+    },
+    {
+      "name": "6",
+      "holds": 10,
+      "clean": 9,
+      "scope_ms": 35.6630625,
+      "render_ms": 41.80775,
+      "wall_ms": 62.982,
+      "window": [
+        913,
+        928
+      ],
+      "calls": 1.0
+    },
+    {
+      "name": "7",
+      "holds": 10,
+      "clean": 9,
+      "scope_ms": 43.8208125,
+      "render_ms": 46.971875,
+      "wall_ms": 62.265,
+      "window": [
+        993,
+        1008
+      ],
+      "calls": 1.0
+    },
+    {
+      "name": "8",
+      "holds": 10,
+      "clean": 9,
+      "scope_ms": 24.8220625,
+      "render_ms": 27.115375,
+      "wall_ms": 62.402,
+      "window": [
+        1185,
+        1200
+      ],
+      "calls": 1.0
+    }
+  ],
+  "preset_frames": [
+    {
+      "name": "1",
+      "frames": 317,
+      "spills": 0,
+      "peak_ms": 28.777,
+      "bucket": 0
+    },
+    {
+      "name": "2",
+      "frames": 318,
+      "spills": 0,
+      "peak_ms": 48.413,
+      "bucket": 0
+    },
+    {
+      "name": "3",
+      "frames": 306,
+      "spills": 0,
+      "peak_ms": 29.629,
+      "bucket": 0
+    },
+    {
+      "name": "4",
+      "frames": 159,
+      "spills": 0,
+      "peak_ms": 30.677,
+      "bucket": 0
+    },
+    {
+      "name": "5",
+      "frames": 159,
+      "spills": 0,
+      "peak_ms": 20.411,
+      "bucket": 0
+    },
+    {
+      "name": "6",
+      "frames": 159,
+      "spills": 0,
+      "peak_ms": 46.617,
+      "bucket": 0
+    },
+    {
+      "name": "7",
+      "frames": 159,
+      "spills": 0,
+      "peak_ms": 54.539,
+      "bucket": 0
+    },
+    {
+      "name": "8",
+      "frames": 159,
+      "spills": 0,
+      "peak_ms": 30.438,
+      "bucket": 0
+    }
+  ],
+  "buckets": {
+    "0": [
+      {
+        "name": "1",
+        "frames": 317,
+        "spills": 0,
+        "peak_ms": 28.777,
+        "bucket": 0
+      },
+      {
+        "name": "2",
+        "frames": 318,
+        "spills": 0,
+        "peak_ms": 48.413,
+        "bucket": 0
+      },
+      {
+        "name": "3",
+        "frames": 306,
+        "spills": 0,
+        "peak_ms": 29.629,
+        "bucket": 0
+      },
+      {
+        "name": "4",
+        "frames": 159,
+        "spills": 0,
+        "peak_ms": 30.677,
+        "bucket": 0
+      },
+      {
+        "name": "5",
+        "frames": 159,
+        "spills": 0,
+        "peak_ms": 20.411,
+        "bucket": 0
+      },
+      {
+        "name": "6",
+        "frames": 159,
+        "spills": 0,
+        "peak_ms": 46.617,
+        "bucket": 0
+      },
+      {
+        "name": "7",
+        "frames": 159,
+        "spills": 0,
+        "peak_ms": 54.539,
+        "bucket": 0
+      },
+      {
+        "name": "8",
+        "frames": 159,
+        "spills": 0,
+        "peak_ms": 30.438,
+        "bucket": 0
+      }
+    ]
+  },
+  "isrs": {
+    "isr_wake": {
+      "rate": 1152.3072429906542,
+      "min_us": 0.415,
+      "avg_us": 1.491218350019009,
+      "max_us": 18.023333333333333,
+      "cpu": 2.7494538805858135
+    },
+    "isr_pack": {
+      "rate": 144.02920560747663,
+      "min_us": 5.988333333333333,
+      "avg_us": 6.653156404869859,
+      "max_us": 9.47,
+      "cpu": 1.5332578849100942
+    },
+    "isr_dma_submit": {
+      "rate": 144.02920560747663,
+      "min_us": 0.6033333333333334,
+      "avg_us": 0.929077208834527,
+      "max_us": 1.2166666666666666,
+      "cpu": 0.2141111480699762
+    }
+  },
+  "size": [
+    [
+      90840,
+      550952,
+      8448
+    ],
+    [
+      315232,
+      54664,
+      10872,
+      143520
+    ],
+    [
+      520064,
+      4224
+    ]
+  ],
+  "captured": "2026-10-01 09:22",
+  "epoch": null,
+  "window": 16,
+  "tail_frames": 9,
+  "counter_mean_us": {
+    "canvas_buffer_wait": 40152.05331094236,
+    "canvas_clear": 83.9333625389408,
+    "msp_draw_particles": 19897.684096573208,
+    "msp_particle_step": 2151.803886292835,
+    "msp_timeline_step": 44.78899240654206,
+    "pov_preserve_half": 135.27776771806853
+  },
+  "source_dirty": false,
+  "evidence": [
+    {
+      "file": "checkpoint1-mindsplatter-profile_o3.txt",
+      "sha256": "b233839ddd527bd125e7e0021b7afd767f971c97a6b8430cc5cbdac8d3a920f1",
+      "bytes": 184331
+    },
+    {
+      "file": "checkpoint1-mindsplatter-profile_o3.provenance",
+      "sha256": "fc4a6e8a1539fd2328fae3c46c76b6f986c8e2ce15d9669949d88863f26e1306",
+      "bytes": 1067
+    },
+    {
+      "file": "checkpoint1-mindsplatter-profile_o3_build.txt",
+      "sha256": "f47a1571990e973064fd4bcf937a5ef2215be8c200044ee20574b0dd42d399ff",
+      "bytes": 24584
+    },
+    {
+      "file": "checkpoint1-mindsplatter-profile_o3_envdump.txt",
+      "sha256": "a03600519eb4a9acc2470db328aedd018d217ed07d2e72cadf528291b2936d52",
+      "bytes": 33401
+    },
+    {
+      "file": "checkpoint1-mindsplatter-profile_o3_phantasm_build.txt",
+      "sha256": "195fcb4004dbb0246315ec142ceaf2f2cb22f148960cf11b2cc6e5f8e36395de",
+      "bytes": 11056
+    },
+    {
+      "file": "checkpoint1-mindsplatter-profile_o3_phantasm_envdump.txt",
+      "sha256": "d9b4ae94b1978d60813349ce3ccdf2ffdccb5caa1d62f9bae6b72ff50031fdea",
+      "bytes": 33056
+    },
+    {
+      "file": "checkpoint1-mindsplatter-profile_o3_source_status.txt",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    {
+      "file": "checkpoint1-mindsplatter-profile_o3_source.diff",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    }
+  ]
+}

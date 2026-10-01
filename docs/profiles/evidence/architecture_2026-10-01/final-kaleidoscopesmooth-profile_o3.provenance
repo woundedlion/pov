@@ -1,0 +1,10 @@
+profile provenance: version=1
+profile provenance: source_sha=76ea80495cef34aa347431bb0aaabb5aa9d3ee55
+profile provenance: compiler=GCC: (Arm GNU Toolchain 15.2.Rel1 (Build arm-15.86)) 15.2.1 20251203
+profile provenance: profile_elf_sha256=a4c1f2142d7e2b4ab2b11d339a33a606ed39c0a525885dfb5818f7c6525781c5
+profile provenance: phantasm_elf_sha256=9ce371d8516f8000c2dd6c978ea064128454865bc1a805bb14e3e40b0e4ded56
+profile provenance: profile_envdump_sha256=f7c4e3aafc2b9d5ff73c0a80297223356cd7763598d4a05f2e7bc1cd8b32fece
+profile provenance: phantasm_envdump_sha256=13b0974568037a0db8a84d3ff848c705ad9ac1046c2b940c6b04ad15f3af3b96
+profile provenance: artifact_profile_elf=C:/work/temp/architecture01/artifacts/final-kaleidoscopesmooth-profile_o3_76ea80495cef_a4c1f2142d7e/profile.elf
+profile provenance: artifact_phantasm_elf=C:/work/temp/architecture01/artifacts/final-kaleidoscopesmooth-profile_o3_76ea80495cef_a4c1f2142d7e/phantasm.elf
+profile provenance: artifact_dir=C:/work/temp/architecture01/artifacts/final-kaleidoscopesmooth-profile_o3_76ea80495cef_a4c1f2142d7e

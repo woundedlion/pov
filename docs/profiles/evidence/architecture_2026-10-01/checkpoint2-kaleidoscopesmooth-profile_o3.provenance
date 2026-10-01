@@ -1,0 +1,10 @@
+profile provenance: version=1
+profile provenance: source_sha=d25dd85dee17c28d2728f813e1ae00ae64690e1b
+profile provenance: compiler=GCC: (Arm GNU Toolchain 15.2.Rel1 (Build arm-15.86)) 15.2.1 20251203
+profile provenance: profile_elf_sha256=c85973424fcf45aab7845cf9704a732f601f9ee859c2db0fe6bce37dd78600c5
+profile provenance: phantasm_elf_sha256=97dbdf7747e8b181c11242082b62bd358706a9ce0c2e656e02e335c6f60809d4
+profile provenance: profile_envdump_sha256=ebcde24ec4328b00ec31bf2e445439f5cdccfe485adafe35b84ea2cb89c8fb71
+profile provenance: phantasm_envdump_sha256=f2b29e3849336f4e4c1cb8aec9da4a3024055d1999dc6bc31fd7bab306568546
+profile provenance: artifact_profile_elf=C:/work/temp/architecture01/artifacts/checkpoint2-kaleidoscopesmooth-profile_o3_d25dd85dee17_c85973424fcf/profile.elf
+profile provenance: artifact_phantasm_elf=C:/work/temp/architecture01/artifacts/checkpoint2-kaleidoscopesmooth-profile_o3_d25dd85dee17_c85973424fcf/phantasm.elf
+profile provenance: artifact_dir=C:/work/temp/architecture01/artifacts/checkpoint2-kaleidoscopesmooth-profile_o3_d25dd85dee17_c85973424fcf
