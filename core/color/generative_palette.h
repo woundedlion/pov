@@ -690,6 +690,13 @@ private:
       canonicalize_field(recipe.hue.spread_turns, defaults.hue.spread_turns,
                          PaletteRecipeField::SPREAD_TURNS);
     }
+    if (recipe.hue.mode == HueMode::HARMONY &&
+        (recipe.hue.harmony == PaletteHarmony::MONOCHROMATIC ||
+         recipe.hue.harmony == PaletteHarmony::COMPLEMENTARY ||
+         recipe.hue.harmony == PaletteHarmony::TRIADIC ||
+         recipe.hue.harmony == PaletteHarmony::SQUARE))
+      canonicalize_field(recipe.hue.spread_turns, defaults.hue.spread_turns,
+                         PaletteRecipeField::SPREAD_TURNS);
     if (recipe.hue.mode == HueMode::CUSTOM)
       canonicalize_field(recipe.hue.base_turns, defaults.hue.base_turns,
                          PaletteRecipeField::BASE_TURNS);
@@ -702,6 +709,9 @@ private:
           recipe.hue.custom_turns[i], defaults.hue.custom_turns[i],
           static_cast<PaletteRecipeField>(
               static_cast<uint8_t>(PaletteRecipeField::CUSTOM_TURNS_0) + i));
+    if (recipe.lightness.curve == AxisCurve::CONSTANT)
+      canonicalize_field(recipe.lightness.range, defaults.lightness.range,
+                         PaletteRecipeField::LIGHTNESS_RANGE);
     if (recipe.lightness.curve == AxisCurve::CUSTOM) {
       canonicalize_field(recipe.lightness.center, defaults.lightness.center,
                          PaletteRecipeField::LIGHTNESS_CENTER);
@@ -715,6 +725,9 @@ private:
           static_cast<PaletteRecipeField>(
               static_cast<uint8_t>(PaletteRecipeField::LIGHTNESS_CUSTOM_0) +
               i));
+    if (recipe.chroma.axis.curve == AxisCurve::CONSTANT)
+      canonicalize_field(recipe.chroma.axis.range, defaults.chroma.axis.range,
+                         PaletteRecipeField::CHROMA_RANGE);
     if (recipe.chroma.axis.curve == AxisCurve::CUSTOM) {
       canonicalize_field(recipe.chroma.axis.center, defaults.chroma.axis.center,
                          PaletteRecipeField::CHROMA_CENTER);
