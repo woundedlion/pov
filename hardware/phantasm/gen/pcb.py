@@ -444,7 +444,7 @@ def embed(libid, ref, value, x, y, rot, pad_net, netid, path=None, locked=False,
                 c[2] = ref
                 for at in F(c, "at"):
                     local_rotation = float(at[3]) if len(at) > 3 else 0
-                    at[3:] = [(local_rotation + rot) % 360]
+                    at[3:] = [sexp.Sym(fmt((local_rotation + rot) % 360))]
                 if hide_reference and not any(
                         isinstance(d, list) and d and d[0] == "hide" for d in c):
                     c.insert(-1, [sexp.Sym("hide"), sexp.Sym("yes")])
