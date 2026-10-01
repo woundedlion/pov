@@ -4,6 +4,9 @@
  */
 #pragma once
 
+#include <array>
+#include <cstdint>
+
 #include "render/filter/screen_anti_alias.h"
 #include "render/canvas.h"
 #include "engine/concepts.h"
