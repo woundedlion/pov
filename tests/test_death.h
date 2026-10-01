@@ -3744,8 +3744,8 @@ inline void case_opleg_edge_settle_mismatch() {
 
 /**
  * @brief Death case: an edge-sweep leg without a palette handoff must trap.
- * @details OpLeg surface — the edge-sweep constructor carries its own handoff
- *          guard, distinct from the param-sweep one.
+ * @details Pins the edge-sweep constructor routing through the shared
+ * init_transients palette-handoff guard.
  */
 inline void case_opleg_edge_sweep_incomplete_handoff() {
   static uint8_t buf[1024];
@@ -3765,8 +3765,8 @@ inline void case_opleg_edge_sweep_incomplete_handoff() {
 
 /**
  * @brief Death case: a hankin leg without a palette handoff must trap.
- * @details OpLeg surface — the hankin constructor carries its own handoff
- *          guard.
+ * @details Pins the hankin constructor routing through the shared
+ * init_transients palette-handoff guard.
  */
 inline void case_opleg_hankin_incomplete_handoff() {
   static uint8_t buf[1024];
@@ -3826,7 +3826,8 @@ inline void case_opleg_relax_no_iterations() {
 
 /**
  * @brief Death case: a relax leg without a palette handoff must trap.
- * @details OpLeg surface — the relax constructor carries its own handoff guard.
+ * @details Pins the relax constructor routing through the shared
+ * init_transients palette-handoff guard.
  */
 inline void case_opleg_relax_incomplete_handoff() {
   static uint8_t buf[1024];
@@ -3844,8 +3845,8 @@ inline void case_opleg_relax_incomplete_handoff() {
 
 /**
  * @brief Death case: a medial leg without a palette handoff must trap.
- * @details OpLeg surface — the medial constructor carries its own handoff
- *          guard.
+ * @details Pins the medial constructor routing through the shared
+ * init_transients palette-handoff guard.
  */
 inline void case_opleg_medial_incomplete_handoff() {
   static uint8_t buf[1024];
@@ -3896,8 +3897,8 @@ inline void case_opleg_reconcile_endpoint_count() {
 
 /**
  * @brief Death case: a reconcile leg without a palette handoff must trap.
- * @details OpLeg surface — the reconcile constructor carries its own handoff
- *          guard.
+ * @details Pins the reconcile constructor routing through the shared
+ * init_transients palette-handoff guard.
  */
 inline void case_opleg_reconcile_incomplete_handoff() {
   static uint8_t buf[1024];
@@ -3936,8 +3937,8 @@ inline void case_opleg_gated_swap_zero_gate_frames() {
 
 /**
  * @brief Death case: a gated-swap leg without a palette handoff must trap.
- * @details OpLeg surface — the gated-swap constructor carries its own handoff
- *          guard.
+ * @details Pins the gated-swap constructor routing through the shared
+ * init_transients palette-handoff guard.
  */
 inline void case_opleg_gated_swap_incomplete_handoff() {
   static uint8_t buf[1024];
