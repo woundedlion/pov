@@ -299,7 +299,7 @@ enum class PeirceLayout : uint8_t { DIAMOND, SQUARE, HORIZONTAL, VERTICAL };
  * @param calculate_edge_distance When false, `fade_edge_distance` is left at
  *        NO_EDGE_DISTANCE and the inverse-trig calls that compute it are
  *        skipped.
- * @return Plane coordinates in units of the quarter period
+ * @return Plane coordinates in elliptic-integral units; the quarter period is
  *         K = 1.8540746773013719; the southern fold reflects about 2K and the
  *         strip layouts repeat every 4K.
  * @details A strip layout glues only the pair of equator quarters its
