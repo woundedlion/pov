@@ -162,7 +162,8 @@ def run_drc(pcb_path):
         return no_drc(DRC_MISSING)
     try:
         fab.validate_project_rules(os.path.splitext(pcb_path)[0] + ".kicad_pro")
-    except fab.ProjectRulesError as error:
+        fab.validate_zone_geometry(pcb_path)
+    except (fab.ProjectRulesError, fab.ZoneGeometryError) as error:
         print(f"{pcb_path}: {error}", file=sys.stderr)
         return no_drc(DRC_FAILED)
     # Unique report per call + returncode check: a shared fixed path lets a
