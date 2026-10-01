@@ -2746,7 +2746,7 @@ inline void test_transformed_volume_world_local_roundtrip() {
  *        camera-facing cap.
  * @details Pins what the smoke loop never checks: (1) the rendered silhouette is
  * non-empty and strictly smaller than the canvas (a real hit set, not a full
- * clear or an empty frame), and the plotted set is a subset of the shaded set;
+ * clear or an empty frame), and there are no more plots than shades;
  * (2) each hit's frag.pos (closest_local) sits within the AA band of the sphere
  * surface (|pos| ≈ radius) and frag.size (closest_d) is inside the AA width — the
  * registers handed to the shader are genuine surface hits; (3) the hit centroid
