@@ -258,7 +258,8 @@ if(EMSCRIPTEN)
             DESTINATION "${DAYDREAM_DIR}/generated/shader/patterns"
             FILES_MATCHING
             PATTERN "*.shader.json"
-            PATTERN "shaderball_migration.json")
+            PATTERN "shaderball_migration.json"
+            PATTERN "*/" EXCLUDE)
     install(FILES "${CMAKE_CURRENT_SOURCE_DIR}/README.md"
             DESTINATION "${DAYDREAM_DIR}")
     install(CODE "
