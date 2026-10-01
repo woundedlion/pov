@@ -869,6 +869,20 @@ inline void test_shader_workbench_full_config_snapshot() {
         sb.capture_full_config_snapshot(), before_failure));
   }
 
+  for (float payload : {std::numeric_limits<float>::quiet_NaN(),
+                        std::numeric_limits<float>::infinity(),
+                        -std::numeric_limits<float>::infinity()}) {
+    for (bool accepted : {false, true}) {
+      invalid = before_failure;
+      auto &fields = accepted ? invalid.accepted : invalid.requested;
+      fields[inactive_phase] = shader_workbench_float_payload(payload);
+      HS_EXPECT_EQ(sb.restore_full_config_snapshot(invalid),
+                   WB::ConfigRestoreResult::INVALID_VALUE);
+      HS_EXPECT_TRUE(shader_workbench_snapshots_equal(
+          sb.capture_full_config_snapshot(), before_failure));
+    }
+  }
+
   const size_t function =
       static_cast<size_t>(WB::ConfigFieldId::SLOTS_FUNCTION);
   const size_t projection =
@@ -2387,6 +2401,23 @@ inline void test_shader_workbench_config_admission() {
     HS_EXPECT_TRUE(WB::valid_config(high_frequency));
     high_frequency.slots.function = WB::Function::TWIN_WAVE;
     HS_EXPECT_FALSE(WB::valid_config(high_frequency));
+
+    WB::RequestedConfig polar_config = WB::legacy_config();
+    polar_config.slots.function = WB::Function::GRID;
+    polar_config.slots.warp_program.outer.kind = WB::WarpStageKind::POLAR_CHART;
+    polar_config.slots.warp_program.outer.polar_harmonic = 1;
+    polar_config.params.source.pattern_freq = 1.0f;
+    HS_EXPECT_TRUE(Workbench::polar_source_compatible(
+        polar_config, polar_config.slots.warp_program.outer));
+    for (float frequency : {std::numeric_limits<float>::quiet_NaN(),
+                            std::numeric_limits<float>::infinity(),
+                            -std::numeric_limits<float>::infinity(),
+                            2147483648.0f, -2147483904.0f}) {
+      polar_config.params.source.pattern_freq = frequency;
+      HS_EXPECT_FALSE(Workbench::polar_source_compatible(
+          polar_config, polar_config.slots.warp_program.outer));
+      HS_EXPECT_FALSE(WB::valid_config(polar_config));
+    }
 
     WB::RequestedConfig candidate = WB::legacy_config();
     const auto invalid_tag = static_cast<uint8_t>(0xff);
