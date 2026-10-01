@@ -251,7 +251,7 @@ inline void test_noise_field_simplex_curl_approximation() {
       if (length > 1.0f)
         reference /= length;
       const float error = (analytic - reference).length();
-      max_error = std::max(max_error, error);
+      max_error = hs_test::fold_worst(max_error, error);
       total_error += error;
       ++samples;
     }
@@ -323,10 +323,12 @@ inline void test_half_radian_exp_map_approximation() {
         const math::Vector exact = math::sphere_exp_map(v, displacement);
         const math::Vector approximate =
             math::sphere_exp_map_half_radian(v, displacement);
-        max_error = std::max(
-            max_error, std::max(fabsf(exact.x - approximate.x),
-                                std::max(fabsf(exact.y - approximate.y),
-                                         fabsf(exact.z - approximate.z))));
+        max_error =
+            hs_test::fold_worst(max_error, fabsf(exact.x - approximate.x));
+        max_error =
+            hs_test::fold_worst(max_error, fabsf(exact.y - approximate.y));
+        max_error =
+            hs_test::fold_worst(max_error, fabsf(exact.z - approximate.z));
       }
     }
   }
