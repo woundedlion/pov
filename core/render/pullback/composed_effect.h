@@ -337,7 +337,7 @@ template <typename BindingT> struct SourceProvider {
 
 /**
  * @brief Supplies the value-family fields to the Pullback::Transfer and
- *        Pullback::ValueCoverage policies.
+ *        Pullback::ValueCoverage and ProjectionCoverage::EdgeFade policies.
  * @details Names the five shared value-family fields; an effect's material
  * stage instantiates only the accessors its transfer and coverage policies
  * call, so an IsoValueParams effect never touches `edge_width` and vice versa.
