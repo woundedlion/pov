@@ -56,7 +56,8 @@ struct PlanarPolygon {
     HS_CHECK(radius > 0.0f, "SDF PlanarPolygon: radius must be positive");
     // arc_stretch<PlanarPolygon> = 2 holds only within a hemisphere; a wider
     // shape must be built inverted, about its antipode.
-    HS_CHECK(radius <= 1.0f, "SDF PlanarPolygon: radius exceeds unit sphere");
+    HS_CHECK(radius <= 1.0f,
+             "SDF PlanarPolygon: radius exceeds a hemisphere (build inverted)");
     circumradius = radius * (math::PI_F / 2.0f);
     sector = math::TWO_PI_F / sides;
     reciprocal_sector = static_cast<float>(sides) / math::TWO_PI_F;
@@ -186,8 +187,9 @@ struct SphericalPolygon {
     HS_CHECK(radius > 0.0f, "SDF SphericalPolygon: radius must be positive");
     // A shape wider than a hemisphere must be built inverted, about its
     // antipode.
-    HS_CHECK(radius <= 1.0f,
-             "SDF SphericalPolygon: radius exceeds unit sphere");
+    HS_CHECK(
+        radius <= 1.0f,
+        "SDF SphericalPolygon: radius exceeds a hemisphere (build inverted)");
     sector = math::TWO_PI_F / sides;
     reciprocal_sector = static_cast<float>(sides) / math::TWO_PI_F;
     circumradius = radius * (math::PI_F / 2.0f);
@@ -366,7 +368,8 @@ struct Star {
     HS_CHECK(radius > 0.0f, "SDF Star: radius must be positive");
     // arc_stretch<Star> = 2 holds only within a hemisphere; a wider shape must
     // be built inverted, about its antipode.
-    HS_CHECK(radius <= 1.0f, "SDF Star: radius exceeds unit sphere");
+    HS_CHECK(radius <= 1.0f,
+             "SDF Star: radius exceeds a hemisphere (build inverted)");
     sector = math::TWO_PI_F / sides;
     reciprocal_sector = static_cast<float>(sides) / math::TWO_PI_F;
     float outer_radius = radius * (math::PI_F / 2.0f);
@@ -514,7 +517,8 @@ struct Flower {
     HS_CHECK(radius > 0.0f, "SDF Flower: radius must be positive");
     // A shape wider than a hemisphere must be built inverted, about its
     // antipode.
-    HS_CHECK(radius <= 1.0f, "SDF Flower: radius exceeds unit sphere");
+    HS_CHECK(radius <= 1.0f,
+             "SDF Flower: radius exceeds a hemisphere (build inverted)");
     sector = math::TWO_PI_F / sides;
     reciprocal_sector = static_cast<float>(sides) / math::TWO_PI_F;
     float outer = radius * (math::PI_F / 2.0f);
