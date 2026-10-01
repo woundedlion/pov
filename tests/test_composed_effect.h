@@ -2415,9 +2415,9 @@ inline void test_mobius_grid_circular_animation() {
 }
 
 inline int run_composed_effect_tests() {
+  ModuleFixture fixture("composed_effect");
   test_alien_brain_preset_dwell();
   test_mobius_grid_circular_animation();
-  ModuleFixture fixture("composed_effect");
   test_catalog_semantic_export();
   test_composed_hand_registered_families();
   test_composed_direct_surface_placement();
