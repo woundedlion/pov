@@ -1068,7 +1068,7 @@ inline void test_edge_sweeps_hold_topology() {
 
 // ---------------------------------------------------------------------------
 // Morph-frame scratch high-water gate at HankinSolids' shipping split
-// (mirrors the test_solids.h HANKIN_SCRATCH_A/B_BUDGET idiom). A morph frame
+// A morph frame
 // runs one op plus MeshOps::compile in the scratch pair under LIFO scopes;
 // host high-water marks are a conservative upper bound on the device figure.
 // ---------------------------------------------------------------------------
