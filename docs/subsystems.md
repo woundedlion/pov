@@ -217,7 +217,7 @@ The table covers the effect-facing shapes. `sdf.h` also holds internal specializ
 
 ### Volumetric Shapes (`sdf/volume.h`)
 
-The 3D family marched by `Scan::Volume` lives in its own header. It shares the `SDF` namespace but not the scanline contract above: these shapes return a plain `float` distance in Cartesian ray-space, have no vertical bounds or horizontal intervals, and are reached only from the march loop. Everything it declares is a struct or a template, so an effect that draws only 2D shapes emits none of it.
+The 3D family marched by `Scan::Volume` lives in its own header. It shares the `SDF` namespace but not the scanline contract above: these shapes return a plain `float` distance in Cartesian ray-space, have no vertical bounds or horizontal intervals, and are reached from the `Scan::Volume` march loop and `Raycast::VolumeQuery` adapters. Everything it declares is a struct or a template, so an effect that draws only 2D shapes emits none of it.
 
 | Shape | Description |
 |---|---|
