@@ -582,7 +582,7 @@ inline constexpr bool strict_projection(Projection projection) {
 }
 
 enum class InversePipelineId : uint8_t {
-  GLITCH_NOISE_GRID_WAVE_SHEAR,
+  GLITCH_GRID_WAVE_SHEAR,
   KALEIDOSCOPE_TWIN_WAVE_INNER_MIRROR,
   GNOMONIC_KALEIDOSCOPE_GRID_MIRROR,
   GNOMONIC_ALIEN_CORE_MIRROR,
