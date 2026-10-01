@@ -11,7 +11,6 @@
 #include "tests/test_fixture.h"
 
 #include <algorithm>
-#include <bit>
 #include <cstddef>
 #include <cstdint>
 #include <vector>
