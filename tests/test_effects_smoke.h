@@ -59,8 +59,8 @@ inline void test_every_effect_renders_while_paused() {
  * @brief Module entry point for the roster-wide effect sweeps.
  * @return Module result code from hs_test::end_module (0 on success).
  * @details Runs the smoke and determinism passes over every registered effect at
- * the small-aspect resolution, then the clip-clear parity sweep. The FULL tier
- * (HS_EFFECTS_FULL=1; CI on every master push and PR) adds the same smoke and determinism
+ * the small-aspect resolution, then the clip-clear parity and paused-render sweeps. The FULL tier
+ * (HS_EFFECTS_FULL=1; CI on every master push and PR) adds the same smoke, determinism, and paused-render
  * passes at the 288x144 production resolution, which are the bulk of the cost —
  * full-frame software raster over 41,472-pixel frames.
  */
