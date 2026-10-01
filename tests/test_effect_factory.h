@@ -4,7 +4,7 @@
  *
  * Host unit tests for the WASM engine's factory layer
  * (targets/wasm/effect_factory.h): the per-(W,H) FactoryEntry tables built from
- * the self-registering effects, the name lookup setEffect() validates against,
+ * HS_EFFECT_LIST registrations, the name lookup setEffect() validates against,
  * and the HS_RESOLUTIONS runtime dispatch. FactoryEntry::creator is the render
  * path's one std::make_unique; the browser is otherwise its only caller, at
  * -O3 -flto with assertions off, so it is driven here under live HS_CHECK and

@@ -243,8 +243,7 @@ public:
    * @brief Constructs the engine with a valid default resolution and effect.
    * @details Pre-sizes the JS-facing readback buffers to their maximum extent so
    *          their backing storage never moves (the WASM memory-view contract),
-   *          verifies the self-registering effect count against the static
-   *          roster, and installs a default effect that JS overrides almost
+   *          and installs a default effect that JS overrides almost
    *          immediately.
    */
   HolosphereEngine() {
