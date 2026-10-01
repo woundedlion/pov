@@ -480,6 +480,7 @@ public:
 };
 
 using PlotFn = Fn<math::Vector(float), 16>;
+// 16 B: holds two pointers on the 64-bit host, four on device.
 using SpriteFn = Fn<void(Canvas &, float), 16>;
 using TimerFn = Fn<void(Canvas &), 16>;
 // 32: ScalarFn holds the wave/shift builders' captures, larger than 16 B.
