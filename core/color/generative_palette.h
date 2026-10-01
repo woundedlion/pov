@@ -506,7 +506,7 @@ private:
   }
 
   static uint64_t field_bit(PaletteRecipeField field) {
-    static_assert(static_cast<uint8_t>(PaletteRecipeField::INPUT_SPAN) <
+    static_assert(static_cast<uint8_t>(PaletteRecipeField::COUNT) <=
                       8 * sizeof(PaletteAdjustments::wrapped_fields),
                   "field_bit needs one bit per PaletteRecipeField; widen the "
                   "adjustment masks alongside the enum");
