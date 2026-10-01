@@ -72,7 +72,9 @@ routing job with the current [rev 1.2 project](../README.md). A fresh
 labels, keeps the back legend between the Teensy's pad rows, and separates
 the connector labels from their outlines. It packs every part, including terminals
 at the hub and far ends. With `--unplaced`, terminal blocks are locked at
-`TERMINAL_EDGE_PLACEMENTS` and hand-solder resistor lands are staged for placement. It does
+`TERMINAL_EDGE_PLACEMENTS`, the R1/R2/C_SYNC receive filter is locked at
+`SYNC_FILTER_PLACEMENTS`, and remaining parts (including R_S/R_PD hand-solder
+lands) are staged below the outline. It does
 not reconstruct routing or the four widened resistor lands. Its clearances
 still need checking after placement and routing. The final saved JLCDFM
 report retains pad-spacing dangers and annular-ring, mask-expansion, and
