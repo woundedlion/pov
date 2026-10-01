@@ -80,30 +80,30 @@ public:
   // clang-format off
   static constexpr Params initial_params() {
     Params value;
-    value.projection.camera_wander = 1.0f;
-    value.color.hue_noise_scale = 2.4029531f;
-    value.color.hue_noise_speed = 0.00015f;
-    value.color.hue_shift_amount = -3.248f;
-    value.color.mapping_frequency = 3.666f;
-    value.color.mapping_phase = 0.598f;
-    value.color.palette_chroma = 0.314f;
-    value.color.palette_mapping = Pullback::Color::PaletteMapping::CUP;
-    value.color.phase_oscillation_depth = 0.856f;
-    value.color.phase_oscillation_speed = 0.00448f;
-    value.color.opacity_high = 1.0f;
-    value.color.opacity_low = 1.0f;
-    value.value.cutout_softness = 0.31635937f;
-    value.value.cutout_threshold = 0.365f;
-    value.projection.spin_rate = 0.00175f;
-    value.projection.wander = 0.009f;
-    value.projection.singularity_fade = 1.0f;
-    value.source.lattice_cell_scale = 0.98971874f;
-    value.source.lattice_radius = 0.37757313f;
-    value.source.lattice_shape_blend = 0.0f;
-    value.source.lattice_softness = 0.34563965f;
-    value.surface.scale = 5.7742186f;
-    value.surface.speed = 0.00040625f;
-    value.surface.strength = 0.043f;
+    value.template get<"projection">().camera_wander = 1.0f;
+    value.template get<"color">().hue_noise_scale = 2.4029531f;
+    value.template get<"color">().hue_noise_speed = 0.00015f;
+    value.template get<"color">().hue_shift_amount = -3.248f;
+    value.template get<"color">().mapping_frequency = 3.666f;
+    value.template get<"color">().mapping_phase = 0.598f;
+    value.template get<"color">().palette_chroma = 0.314f;
+    value.template get<"color">().palette_mapping = Pullback::Color::PaletteMapping::CUP;
+    value.template get<"color">().phase_oscillation_depth = 0.856f;
+    value.template get<"color">().phase_oscillation_speed = 0.00448f;
+    value.template get<"color">().opacity_high = 1.0f;
+    value.template get<"color">().opacity_low = 1.0f;
+    value.template get<"value">().cutout_softness = 0.31635937f;
+    value.template get<"value">().cutout_threshold = 0.365f;
+    value.template get<"projection">().spin_rate = 0.00175f;
+    value.template get<"projection">().wander = 0.009f;
+    value.template get<"projection">().singularity_fade = 1.0f;
+    value.template get<"source">().lattice_cell_scale = 0.98971874f;
+    value.template get<"source">().lattice_radius = 0.37757313f;
+    value.template get<"source">().lattice_shape_blend = 0.0f;
+    value.template get<"source">().lattice_softness = 0.34563965f;
+    value.template get<"surface">().scale = 5.7742186f;
+    value.template get<"surface">().speed = 0.00040625f;
+    value.template get<"surface">().strength = 0.043f;
     return value;
   }
   // clang-format on

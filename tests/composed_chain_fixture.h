@@ -83,32 +83,22 @@ template <typename FX> void verify_export(size_t preset) {
                          .conjugate();
       state.spin_phase = 0.0f;
     } else if (id == "sphere.displace.curl.v2") {
-      if constexpr (!std::is_void_v<typename FX::Params::surface_type>) {
+      if constexpr (!std::is_void_v<
+                        typename FX::Params::template Family<"surface">>) {
         auto &state = mutable_state<In::Op::NoisePhaseState>(program, index);
-        if constexpr (requires { own.surface_phase; }) {
-          state.phase = own.surface_phase;
-          state.noise = *own.surface_noise;
-        } else {
-          const auto &resource = own.resources.template get<"surface">();
-          state.phase = resource.phase;
-          state.noise = *resource.noise;
-        }
+        const auto &resource = own.resources.template get<"surface">();
+        state.phase = resource.phase;
+        state.noise = *resource.noise;
       }
-    } else if (id == "sample.grid.v2") {
+    } else if (id == "sample.grid.v3") {
       auto &state = mutable_state<In::Op::SourceClockState>(program, index);
-      if constexpr (requires { own.source_primary; })
-        state = {own.source_primary, own.source_secondary, own.source_angle};
-      else {
-        const auto &resource = own.resources.template get<"source">();
-        state = {resource.primary, resource.secondary, resource.angle};
-      }
+      const auto &resource = own.resources.template get<"source">();
+      state = {resource.primary, resource.secondary, resource.angle};
     } else if (id == "warp.mirror-tile.v2") {
-      if constexpr (!std::is_void_v<typename FX::Params::inner_warp_type>) {
+      if constexpr (!std::is_void_v<
+                        typename FX::Params::template Family<"inner_warp">>) {
         auto &state = mutable_state<In::Op::WarpPhaseState>(program, index);
-        if constexpr (requires { own.inner_phase; })
-          state.phase = own.inner_phase;
-        else
-          state.phase = own.resources.template get<"inner_warp">().phase;
+        state.phase = own.resources.template get<"inner_warp">().phase;
       }
     } else if (id == "colorize.generated-palette.v3") {
       mutable_state<In::Op::ColorClockState>(program, index).oscillation_phase =

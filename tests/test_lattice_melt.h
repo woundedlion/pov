@@ -57,8 +57,10 @@ inline void test_lattice_melt_identity_and_presets() {
   shift.hue_shift_amount = 0.25f;
   HS_EXPECT_TRUE(
       (Pullback::hue_rotation_active<Pullback::HueMode::NOISE>(shift)));
-  HS_EXPECT_TRUE(FX::preset(0).params.color.hue_shift_amount != 0.0f);
-  HS_EXPECT_TRUE(FX::preset(1).params.color.hue_shift_amount != 0.0f);
+  HS_EXPECT_TRUE(
+      FX::preset(0).params.template get<"color">().hue_shift_amount != 0.0f);
+  HS_EXPECT_TRUE(
+      FX::preset(1).params.template get<"color">().hue_shift_amount != 0.0f);
 
   reset_effect_globals();
   FX effect;
@@ -97,33 +99,34 @@ inline void test_lattice_melt_transition_contract() {
   HS_EXPECT_EQ(effect.getPresetIndex(), size_t{1});
 
   WB::drive_transition(effect, 0.0f);
-  HS_EXPECT_NEAR(WB::params(effect).surface.scale,
-                 FX::preset(0).params.surface.scale, 0.0f);
+  HS_EXPECT_NEAR(WB::params(effect).template get<"surface">().scale,
+                 FX::preset(0).params.template get<"surface">().scale, 0.0f);
 
   WB::drive_transition(effect, 0.25f);
-  HS_EXPECT_NEAR(WB::params(effect).surface.scale,
-                 FX::preset(0).params.surface.scale *
-                     powf(FX::preset(1).params.surface.scale /
-                              FX::preset(0).params.surface.scale,
-                          0.25f),
-                 1e-6f);
+  HS_EXPECT_NEAR(
+      WB::params(effect).template get<"surface">().scale,
+      FX::preset(0).params.template get<"surface">().scale *
+          powf(FX::preset(1).params.template get<"surface">().scale /
+                   FX::preset(0).params.template get<"surface">().scale,
+               0.25f),
+      1e-6f);
 
   WB::drive_transition(effect, 0.5f);
-  HS_EXPECT_NEAR(WB::params(effect).surface.scale,
-                 sqrtf(FX::preset(0).params.surface.scale *
-                       FX::preset(1).params.surface.scale),
+  HS_EXPECT_NEAR(WB::params(effect).template get<"surface">().scale,
+                 sqrtf(FX::preset(0).params.template get<"surface">().scale *
+                       FX::preset(1).params.template get<"surface">().scale),
                  1e-6f);
 
   WB::drive_transition(effect, 1.0f);
-  HS_EXPECT_NEAR(WB::params(effect).surface.scale,
-                 FX::preset(1).params.surface.scale, 0.0f);
+  HS_EXPECT_NEAR(WB::params(effect).template get<"surface">().scale,
+                 FX::preset(1).params.template get<"surface">().scale, 0.0f);
   HS_EXPECT_TRUE(WB::transition_active(effect));
 
   for (uint16_t frame = 4;
        frame < Segue::Preset::frames(FX::preset_departure(0)); ++frame)
     WB::drive_transition(effect, 0.5f);
-  HS_EXPECT_NEAR(WB::params(effect).surface.scale,
-                 FX::preset(1).params.surface.scale, 0.0f);
+  HS_EXPECT_NEAR(WB::params(effect).template get<"surface">().scale,
+                 FX::preset(1).params.template get<"surface">().scale, 0.0f);
   HS_EXPECT_FALSE(WB::transition_active(effect));
 }
 
@@ -182,8 +185,8 @@ inline void test_lattice_melt_overshoot_finishes_on_frame_count() {
 
   WB::drive_transition(effect, math::ease_out_elastic(1.0f));
   HS_EXPECT_FALSE(WB::transition_active(effect));
-  HS_EXPECT_NEAR(WB::params(effect).surface.scale,
-                 FX::preset(1).params.surface.scale, 0.0f);
+  HS_EXPECT_NEAR(WB::params(effect).template get<"surface">().scale,
+                 FX::preset(1).params.template get<"surface">().scale, 0.0f);
 }
 
 /**

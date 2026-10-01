@@ -3733,8 +3733,8 @@ inline void test_ash_cloud_value_cutout_gates_the_frame() {
     effect.init();
 
     auto snapshot = effect.serialize_parameters();
-    snapshot.params.value.cutout_threshold = threshold;
-    snapshot.params.value.cutout_softness = 1.0f / 1024.0f;
+    snapshot.params.template get<"value">().cutout_threshold = threshold;
+    snapshot.params.template get<"value">().cutout_softness = 1.0f / 1024.0f;
     HS_EXPECT_TRUE(effect.restore_parameters(snapshot));
 
     effect.draw_frame();

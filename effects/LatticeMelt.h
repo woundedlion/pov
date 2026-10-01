@@ -89,30 +89,30 @@ public:
   // clang-format off
   static constexpr Params initial_params() {
     Params value;
-    value.projection.camera_wander = 1.0f;
-    value.color.brightness_bottom = 0.0f;
-    value.color.brightness_top = 1.0f;
-    value.color.hue_noise_scale = 2.0f;
-    value.color.hue_noise_speed = 0.0f;
-    value.color.hue_shift_amount = 0.268f;
-    value.color.mapping_frequency = 1.0f;
-    value.color.mapping_phase = -0.166f;
-    value.color.palette_chroma = 1.0f;
-    value.color.palette_mapping = Pullback::Color::PaletteMapping::CUP;
-    value.color.phase_oscillation_depth = 0.0f;
-    value.color.phase_oscillation_speed = 0.0f;
-    value.color.opacity_high = 1.0f;
-    value.color.opacity_low = 1.0f;
-    value.projection.central_meridian = 0.0f;
-    value.projection.spin_rate = 0.0f;
-    value.projection.wander = 1.0f;
-    value.source.lattice_cell_scale = 0.71026564f;
-    value.source.lattice_radius = 0.2907625f;
-    value.source.lattice_shape_blend = 1.0f;
-    value.source.lattice_softness = 0.45553222f;
-    value.surface.scale = 1.7881563f;
-    value.surface.speed = 0.0f;
-    value.surface.strength = 0.076f;
+    value.template get<"projection">().camera_wander = 1.0f;
+    value.template get<"color">().brightness_bottom = 0.0f;
+    value.template get<"color">().brightness_top = 1.0f;
+    value.template get<"color">().hue_noise_scale = 2.0f;
+    value.template get<"color">().hue_noise_speed = 0.0f;
+    value.template get<"color">().hue_shift_amount = 0.268f;
+    value.template get<"color">().mapping_frequency = 1.0f;
+    value.template get<"color">().mapping_phase = -0.166f;
+    value.template get<"color">().palette_chroma = 1.0f;
+    value.template get<"color">().palette_mapping = Pullback::Color::PaletteMapping::CUP;
+    value.template get<"color">().phase_oscillation_depth = 0.0f;
+    value.template get<"color">().phase_oscillation_speed = 0.0f;
+    value.template get<"color">().opacity_high = 1.0f;
+    value.template get<"color">().opacity_low = 1.0f;
+    value.template get<"projection">().central_meridian = 0.0f;
+    value.template get<"projection">().spin_rate = 0.0f;
+    value.template get<"projection">().wander = 1.0f;
+    value.template get<"source">().lattice_cell_scale = 0.71026564f;
+    value.template get<"source">().lattice_radius = 0.2907625f;
+    value.template get<"source">().lattice_shape_blend = 1.0f;
+    value.template get<"source">().lattice_softness = 0.45553222f;
+    value.template get<"surface">().scale = 1.7881563f;
+    value.template get<"surface">().speed = 0.0f;
+    value.template get<"surface">().strength = 0.076f;
     return value;
   }
 
@@ -120,7 +120,7 @@ public:
   HS_COLD_MEMBER static constexpr PresetEntry<Params> preset(size_t index) {
     Params value = initial_params();
     if (index == 1) {
-      value.surface.scale = 3.297203f;
+      value.template get<"surface">().scale = 3.297203f;
     }
     return {value, Segue::Preset::Lerp{480, math::ease_in_out_sin}};
   }

@@ -293,19 +293,23 @@ inline void check_slider_registration(const char *name) {
       HS_EXPECT_TRUE(slider->target != earlier->target);
   }
 
-  verify_family_sliders<FX, typename Params::source_type>(params, true);
+  verify_family_sliders<FX, typename Params::template Family<"source">>(params,
+                                                                        true);
   verify_family_sliders<FX, Pullback::ProjectionParams>(params, true);
-  verify_family_sliders<FX, typename Params::surface_type>(params, true);
-  verify_family_sliders<FX, typename Params::value_type>(params, true);
-  verify_warp_slot<FX, typename Params::outer_warp_type>(params,
-                                                         "Planar Warp 1 Speed");
-  verify_warp_slot<FX, typename Params::inner_warp_type>(params,
-                                                         "Planar Warp 2 Speed");
+  verify_family_sliders<FX, typename Params::template Family<"surface">>(params,
+                                                                         true);
+  verify_family_sliders<FX, typename Params::template Family<"value">>(params,
+                                                                       true);
+  verify_warp_slot<FX, typename Params::template Family<"outer_warp">>(
+      params, "Planar Warp 1 Speed");
+  verify_warp_slot<FX, typename Params::template Family<"inner_warp">>(
+      params, "Planar Warp 2 Speed");
 
   for (const char *slider : UNGATED_COLOR_SLIDERS)
     HS_EXPECT_TRUE(params.find(slider) != nullptr);
   constexpr bool mobius =
-      std::is_same_v<typename Params::lens_type, Pullback::MobiusLensParams>;
+      std::is_same_v<typename Params::template Family<"lens">,
+                     Pullback::MobiusLensParams>;
   for (const char *slider : MOBIUS_SLIDERS)
     HS_EXPECT_EQ(params.find(slider) != nullptr, mobius);
   constexpr bool brightness =
@@ -340,12 +344,12 @@ inline void check_slider_registration(const char *name) {
   }
 
   const size_t expected =
-      named_field_count<FX, typename Params::source_type>() +
+      named_field_count<FX, typename Params::template Family<"source">>() +
       named_field_count<FX, Pullback::ProjectionParams>() +
-      named_field_count<FX, typename Params::surface_type>() +
-      named_field_count<FX, typename Params::value_type>() +
-      warp_slot_count<FX, typename Params::outer_warp_type>() +
-      warp_slot_count<FX, typename Params::inner_warp_type>() +
+      named_field_count<FX, typename Params::template Family<"surface">>() +
+      named_field_count<FX, typename Params::template Family<"value">>() +
+      warp_slot_count<FX, typename Params::template Family<"outer_warp">>() +
+      warp_slot_count<FX, typename Params::template Family<"inner_warp">>() +
       (mobius ? std::size(MOBIUS_SLIDERS) : size_t{0}) +
       std::size(UNGATED_COLOR_SLIDERS) + (brightness ? size_t{2} : size_t{0}) +
       (hue_noise ? size_t{2} : size_t{0});
@@ -387,13 +391,14 @@ inline void check_snapshot_contract(const char *name) {
     if constexpr (Pullback::HasFields<typename Resource::Family>)
       fill_midpoints(family);
   });
-  if constexpr (requires { Params{}.lens.mobius; }) {
-    moved.params.lens.mobius.a = {1.0f, 0.2f};
-    moved.params.lens.mobius.b = {0.3f, 0.4f};
-    moved.params.lens.mobius.c = {0.5f, 0.6f};
-    moved.params.lens.mobius.d = {0.8f, -0.1f};
+  if constexpr (Params::template HAS<"lens">) {
+    moved.params.template get<"lens">().mobius.a = {1.0f, 0.2f};
+    moved.params.template get<"lens">().mobius.b = {0.3f, 0.4f};
+    moved.params.template get<"lens">().mobius.c = {0.5f, 0.6f};
+    moved.params.template get<"lens">().mobius.d = {0.8f, -0.1f};
   }
-  moved.params.color.palette_mapping = Pullback::Color::PaletteMapping::BELL;
+  moved.params.template get<"color">().palette_mapping =
+      Pullback::Color::PaletteMapping::BELL;
   HS_EXPECT_TRUE(effect.restore_parameters(moved));
   verify_params_equal(effect.serialize_parameters().params, moved.params);
   HS_EXPECT_TRUE(effect.restore_parameters(captured));
@@ -409,25 +414,28 @@ inline void check_snapshot_contract(const char *name) {
   });
 
   typename FX::ParameterSnapshot mapping = captured;
-  mapping.params.color.palette_mapping =
+  mapping.params.template get<"color">().palette_mapping =
       static_cast<Pullback::Color::PaletteMapping>(
           static_cast<uint8_t>(Pullback::Color::PaletteMapping::REVERSE) + 1);
   HS_EXPECT_FALSE(effect.restore_parameters(mapping));
   verify_params_equal(effect.serialize_parameters().params, captured.params);
 
-  if constexpr (requires { Params{}.lens.mobius; }) {
+  if constexpr (Params::template HAS<"lens">) {
     typename FX::ParameterSnapshot lens = captured;
-    lens.params.lens.mobius.a.re = std::numeric_limits<float>::quiet_NaN();
+    lens.params.template get<"lens">().mobius.a.re =
+        std::numeric_limits<float>::quiet_NaN();
     HS_EXPECT_FALSE(effect.restore_parameters(lens));
     verify_params_equal(effect.serialize_parameters().params, captured.params);
     lens = captured;
-    lens.params.lens.mobius.a.re =
+    lens.params.template get<"lens">().mobius.a.re =
         Pullback::MobiusLensParams::COEFFICIENT_LIMIT + 1.0f;
     HS_EXPECT_FALSE(effect.restore_parameters(lens));
     verify_params_equal(effect.serialize_parameters().params, captured.params);
     lens = captured;
-    lens.params.lens.mobius.c = lens.params.lens.mobius.a;
-    lens.params.lens.mobius.d = lens.params.lens.mobius.b;
+    lens.params.template get<"lens">().mobius.c =
+        lens.params.template get<"lens">().mobius.a;
+    lens.params.template get<"lens">().mobius.d =
+        lens.params.template get<"lens">().mobius.b;
     HS_EXPECT_FALSE(effect.restore_parameters(lens));
     verify_params_equal(effect.serialize_parameters().params, captured.params);
   }
@@ -497,9 +505,13 @@ inline void check_preset_interpolation(const char *name) {
       const Params a = preset_params_or_initial<FX>(from);
       Params b = preset_params_or_initial<FX>(to);
       if constexpr (FX::PRESET_IDS.size() == 1) {
-        b.color.opacity_low = a.color.opacity_low == 0.0f ? 1.0f : 0.0f;
-        HS_EXPECT_NEAR(Pullback::interpolate(a, b, 0.5f).color.opacity_low,
-                       0.5f * (a.color.opacity_low + b.color.opacity_low),
+        b.template get<"color">().opacity_low =
+            a.template get<"color">().opacity_low == 0.0f ? 1.0f : 0.0f;
+        HS_EXPECT_NEAR(Pullback::interpolate(a, b, 0.5f)
+                           .template get<"color">()
+                           .opacity_low,
+                       0.5f * (a.template get<"color">().opacity_low +
+                               b.template get<"color">().opacity_low),
                        1e-6f);
       }
       for (float progress : PROGRESS)
@@ -837,8 +849,8 @@ inline bool assign_field(Family &family, std::string_view id, float value) {
 /** @brief Writes one Mobius coefficient addressed by its chain field id. */
 template <typename Params>
 inline bool assign_mobius(Params &params, std::string_view id, float value) {
-  if constexpr (requires { params.lens.mobius; }) {
-    auto &mobius = params.lens.mobius;
+  if constexpr (Params::template HAS<"lens">) {
+    auto &mobius = params.template get<"lens">().mobius;
     const struct {
       std::string_view id;
       float *slot;
@@ -923,7 +935,8 @@ apply_document_value(typename FX::Params &built, const DocumentSlot &slot,
     switch (slot.role) {
     case SlotRole::CAMERA:
       if (field_id == "wander")
-        return assign_field(built.projection, "camera-wander", number);
+        return assign_field(built.template get<"projection">(), "camera-wander",
+                            number);
       if (field_id == "spin-speed") {
         if constexpr (requires { FX::CAMERA_SPIN_RATE; }) {
           HS_EXPECT_EQ(bits(number), bits(FX::CAMERA_SPIN_RATE));
@@ -933,38 +946,40 @@ apply_document_value(typename FX::Params &built, const DocumentSlot &slot,
       }
       return false;
     case SlotRole::PROJECT:
-      return assign_field(built.projection, field_id, number);
+      return assign_field(built.template get<"projection">(), field_id, number);
     case SlotRole::WARP:
       if (slot.warp_side == 0) {
-        if constexpr (requires { built.outer_warp; })
-          return assign_field(built.outer_warp, field_id, number);
+        if constexpr (FX::Params::template HAS<"outer_warp">)
+          return assign_field(built.template get<"outer_warp">(), field_id,
+                              number);
       } else {
-        if constexpr (requires { built.inner_warp; })
-          return assign_field(built.inner_warp, field_id, number);
+        if constexpr (FX::Params::template HAS<"inner_warp">)
+          return assign_field(built.template get<"inner_warp">(), field_id,
+                              number);
       }
       return false;
     case SlotRole::SURFACE:
-      if constexpr (requires { built.surface; })
-        return assign_field(built.surface, field_id, number);
+      if constexpr (FX::Params::template HAS<"surface">)
+        return assign_field(built.template get<"surface">(), field_id, number);
       return false;
     case SlotRole::SAMPLE:
-      if (assign_field(built.source, field_id, number))
+      if (assign_field(built.template get<"source">(), field_id, number))
         return true;
-      if constexpr (requires { built.value; })
-        if (assign_field(built.value, field_id, number))
+      if constexpr (FX::Params::template HAS<"value">)
+        if (assign_field(built.template get<"value">(), field_id, number))
           return true;
       // The sample operators always carry an edge-width; without edge-fade
       // coverage it is inert in the chain and has no composed-effect field.
       return field_id == "edge-width" &&
              Spec::COVERAGE != Pullback::ProjectionCoverageMode::EDGE_FADE;
     case SlotRole::FIELD:
-      if constexpr (requires { built.value; })
-        return assign_field(built.value, field_id, number);
+      if constexpr (FX::Params::template HAS<"value">)
+        return assign_field(built.template get<"value">(), field_id, number);
       return false;
     case SlotRole::LENS:
       return assign_mobius(built, field_id, number);
     case SlotRole::COLORIZE:
-      return assign_field(built.color, field_id, number);
+      return assign_field(built.template get<"color">(), field_id, number);
     default:
       return false;
     }
@@ -978,7 +993,7 @@ apply_document_value(typename FX::Params &built, const DocumentSlot &slot,
       for (uint8_t index = 0; index < std::size(ChainOp::PALETTE_MAPPING_IDS);
            ++index)
         if (text == ChainOp::PALETTE_MAPPING_IDS[index]) {
-          built.color.palette_mapping =
+          built.template get<"color">().palette_mapping =
               static_cast<Pullback::Color::PaletteMapping>(index);
           return true;
         }
@@ -1265,11 +1280,12 @@ inline void check_document_values(const char *name) {
       if constexpr (Pullback::HasFields<typename Resource::Family>)
         poison(family);
     });
-    built.color.palette_mapping =
+    built.template get<"color">().palette_mapping =
         static_cast<Pullback::Color::PaletteMapping>(255);
-    if constexpr (requires { built.lens.mobius; })
-      built.lens.mobius = {MISSING, MISSING, MISSING, MISSING,
-                           MISSING, MISSING, MISSING, MISSING};
+    if constexpr (FX::Params::template HAS<"lens">)
+      built.template get<"lens">().mobius = {MISSING, MISSING, MISSING,
+                                             MISSING, MISSING, MISSING,
+                                             MISSING, MISSING};
     for (size_t member = 0; member < values->member_keys.size(); ++member) {
       const std::string &key = values->member_keys[member];
       const JsonValue &value = values->member_values[member];
@@ -1287,14 +1303,16 @@ inline void check_document_values(const char *name) {
       HS_EXPECT(slot != nullptr, "value key names a chain instance");
       if (slot == nullptr)
         continue;
-      if constexpr (requires { built.source.lattice_cell_scale; }) {
+      if constexpr (requires {
+                      built.template get<"source">().lattice_cell_scale;
+                    }) {
         if (slot->role == SlotRole::WARP && field_id == "lattice-period") {
-          HS_EXPECT_NEAR(
-              static_cast<float>(value.number),
-              1.0f /
-                  preset_params_or_initial<FX>(index).source.lattice_cell_scale,
-              1e-6f);
-          built.source.lattice_cell_scale =
+          HS_EXPECT_NEAR(static_cast<float>(value.number),
+                         1.0f / preset_params_or_initial<FX>(index)
+                                    .template get<"source">()
+                                    .lattice_cell_scale,
+                         1e-6f);
+          built.template get<"source">().lattice_cell_scale =
               1.0f / static_cast<float>(value.number);
           continue;
         }
@@ -1311,10 +1329,14 @@ inline void check_document_values(const char *name) {
       HS_EXPECT_TRUE(camera_spin_present);
     }
     const Params expected = preset_params_or_initial<FX>(index);
-    if constexpr (requires { built.source.lattice_cell_scale; }) {
-      HS_EXPECT_NEAR(built.source.lattice_cell_scale,
-                     expected.source.lattice_cell_scale, 1e-6f);
-      built.source.lattice_cell_scale = expected.source.lattice_cell_scale;
+    if constexpr (requires {
+                    built.template get<"source">().lattice_cell_scale;
+                  }) {
+      HS_EXPECT_NEAR(built.template get<"source">().lattice_cell_scale,
+                     expected.template get<"source">().lattice_cell_scale,
+                     1e-6f);
+      built.template get<"source">().lattice_cell_scale =
+          expected.template get<"source">().lattice_cell_scale;
     }
     verify_params_equal(built, expected);
   }
@@ -1337,7 +1359,7 @@ inline void test_mobius_frame_admission() {
   auto effect = std::make_unique<MobiusFrameProbe>();
   effect->init();
 #if HS_ENABLE_PARAM_GUI_BRIDGE
-  effect->params.lens.mobius = math::MobiusParams{};
+  effect->params.template get<"lens">().mobius = math::MobiusParams{};
   const auto captured = effect->serialize_parameters();
   HS_EXPECT_FALSE(effect->animations_paused());
   HS_EXPECT_EQ(effect->updateParameter("Mobius A Re", 0.0f),
@@ -1356,14 +1378,15 @@ inline void test_mobius_frame_admission() {
        {math::MobiusParams{1, 0, 1, 0, 1, 0, 1, 0},
         math::MobiusParams{std::numeric_limits<float>::quiet_NaN(), 0, 0, 0, 0,
                            0, 1, 0}}) {
-    effect->params.lens.mobius = bad;
+    effect->params.template get<"lens">().mobius = bad;
     const auto frame = effect->frame_for_test();
-    verify_mobius_equal(frame.params.lens.mobius, math::MobiusParams{});
+    verify_mobius_equal(frame.params.template get<"lens">().mobius,
+                        math::MobiusParams{});
     for (const math::Vector view :
          {math::Vector{1, 0, 0}, math::Vector{0, 1, 0},
           math::Vector{0, 0, 1}}) {
-      const auto output =
-          math::mobius_transform(view, frame.params.lens.mobius);
+      const auto output = math::mobius_transform(
+          view, frame.params.template get<"lens">().mobius);
       HS_EXPECT_TRUE(std::isfinite(output.x) && std::isfinite(output.y) &&
                      std::isfinite(output.z));
     }
@@ -1382,7 +1405,9 @@ inline void test_composed_snapshot_contract() {
 /** @brief Sweeps the preset choreography over every specialization. */
 inline void test_composed_preset_choreography() {
   const auto polar = KaleidoscopePentBright<SMALL_W, SMALL_H>::initial_params();
-  HS_EXPECT_NEAR(polar.source.lattice_cell_scale * math::TWO_PI_F, 5.0f, 1e-6f);
+  HS_EXPECT_NEAR(polar.template get<"source">().lattice_cell_scale *
+                     math::TWO_PI_F,
+                 5.0f, 1e-6f);
 #define HS_COMPOSED_PRESETS(name, seconds)                                     \
   check_preset_choreography<name>(#name);
   HS_SHADER_PRODUCT_GROUP(HS_COMPOSED_PRESETS)
@@ -1534,14 +1559,7 @@ constexpr DerivationReach DERIVATION_REACH[] = {
     {"project.peirce-square-fast.v3", nullptr, {}},
     {"project.bonne.v3", nullptr, {}},
     {"project.airocean.v3", nullptr, {}},
-    {"sample.grid.v3", nullptr, {}},
-    {"sample.twin-wave.v3", nullptr, {}},
-    {"warp.affine.v3", nullptr, {}},
     // ProjectionKind has no spelling for these four.
-    {"project.peirce.v2", nullptr, {}},
-    {"project.peirce-square-fast.v2", nullptr, {}},
-    {"project.bonne.v2", nullptr, {}},
-    {"project.airocean.v2", nullptr, {}},
     // SourcePolicyFor has no policy for these plane samplers.
     {"sample.rings.v2", nullptr, {}},
     {"sample.spherical-rings.v3", nullptr, {}},
@@ -1553,8 +1571,6 @@ constexpr DerivationReach DERIVATION_REACH[] = {
     // TransferKind is NONE or ISO_CONTOUR.
     {"field.transfer.ridge.v2", nullptr, {}},
     {"field.transfer.smooth-bands.v2", nullptr, {}},
-    // v2 is retained only to load older chain documents.
-    {"colorize.generated-palette.v2", nullptr, {}},
     // ProjectionKind names the folded gnomonic alone.
     {"project.gnomonic.v2", "hemisphere", {{"folded"}}},
     {"project.stereographic.v2", "frame", {{"identity", "spin-wander"}}},
@@ -1580,12 +1596,12 @@ constexpr DerivationReach DERIVATION_REACH[] = {
     {"warp.polar-chart.v2", "harmonic", {{"h1"}}},
     // SampleStage pins Weight::Projection; no shipped Spec selects the
     // none coverage.
-    {"sample.grid.v2", "weight-mode", {{"projection"}}},
-    {"sample.grid.v2",
+    {"sample.grid.v3", "weight-mode", {{"projection"}}},
+    {"sample.grid.v3",
      "coverage-mode",
      {{"weight", "weight-squared", "edge-fade"}}},
-    {"sample.twin-wave.v2", "weight-mode", {{"projection"}}},
-    {"sample.twin-wave.v2",
+    {"sample.twin-wave.v3", "weight-mode", {{"projection"}}},
+    {"sample.twin-wave.v3",
      "coverage-mode",
      {{"weight", "weight-squared", "edge-fade"}}},
     {"sample.spiral.v2", "weight-mode", {{"projection"}}},
@@ -1715,10 +1731,10 @@ inline void test_composed_derivation_reach() {
     }
   }
 
-  HS_EXPECT_EQ(In::OPERATOR_TABLE.size(), 46u);
-  HS_EXPECT_EQ(unreachable_operators, 20u);
-  HS_EXPECT_EQ(catalog_values, 189u);
-  HS_EXPECT_EQ(unreachable_values, 129u);
+  HS_EXPECT_EQ(In::OPERATOR_TABLE.size(), 38u);
+  HS_EXPECT_EQ(unreachable_operators, 12u);
+  HS_EXPECT_EQ(catalog_values, 150u);
+  HS_EXPECT_EQ(unreachable_values, 90u);
 }
 
 template <bool Animated> struct RippleProbeSpec : Pullback::Spec {
@@ -1754,13 +1770,70 @@ public:
 
   static constexpr Params initial_params() {
     Params value;
-    value.surface.period = 80.0f;
-    value.surface.strength = 0.15f;
-    value.surface.decay = 0.0f;
-    value.surface.thickness = 0.7f;
+    value.template get<"surface">().period = 80.0f;
+    value.template get<"surface">().strength = 0.15f;
+    value.template get<"surface">().decay = 0.0f;
+    value.template get<"surface">().thickness = 0.7f;
     return value;
   }
 };
+
+inline void test_composed_keyed_parameters() {
+  using Params = Pullback::ComposedDetail::ParameterSet<
+      Pullback::ComposedDetail::ResourceList<
+          Pullback::ParameterResource<"value", Pullback::CutoutValueParams,
+                                      Pullback::ResourceKind::VALUE>,
+          Pullback::ParameterResource<"alternate", Pullback::CutoutValueParams,
+                                      Pullback::ResourceKind::VALUE>>>;
+  Params from;
+  Params to;
+  from.template get<"value">().cutout_threshold = 0.2f;
+  from.template get<"alternate">().cutout_threshold = 0.4f;
+  to.template get<"value">().cutout_threshold = 0.6f;
+  to.template get<"alternate">().cutout_threshold = 0.8f;
+  const Params blended = Pullback::interpolate(from, to, 0.5f);
+  HS_EXPECT_NEAR(blended.template get<"value">().cutout_threshold, 0.4f, 1e-6f);
+  HS_EXPECT_NEAR(blended.template get<"alternate">().cutout_threshold, 0.6f,
+                 1e-6f);
+  HS_EXPECT_TRUE(Pullback::valid(blended));
+  size_t visited = 0;
+  blended.visit([&]<typename Resource>(const auto &family) {
+    HS_EXPECT_TRUE(&family == &blended.template get<Resource::KEY>());
+    ++visited;
+  });
+  HS_EXPECT_EQ(visited, 2u);
+}
+
+struct AffineNamedSourceSpec : Pullback::Spec {
+  template <typename B>
+  using Pipeline = Pullback::Pipeline<
+      B,
+      Pullback::Stage::Warp<Pullback::Warp::AffineFrame<Pullback::WarpProvider<
+          B, "affine", Pullback::AffineParams, false, "cells">>>,
+      Pullback::Stage::Sample<Pullback::Source::PrimitiveLattice<
+          Pullback::SourceProvider<B, Pullback::LatticeSourceParams, "cells">>>,
+      Pullback::Stage::Colorize<Pullback::Color::GeneratedPalette<
+          Pullback::ColorProvider<B, HUE, BRIGHTNESS>>>>;
+};
+
+inline void test_composed_affine_named_source() {
+  using Params = Pullback::ParamsFor<AffineNamedSourceSpec>;
+  using Frame = Pullback::FrameState<Params>;
+  using Provider =
+      Pullback::WarpProvider<Pullback::Binding<Frame>, "affine",
+                             Pullback::AffineParams, false, "cells">;
+  static_assert(Params::template HAS<"cells"> &&
+                !Params::template HAS<"source">);
+  Frame frame{};
+  frame.params.template get<"cells">().lattice_cell_scale = 2.0f;
+  auto &warp = frame.params.template get<"affine">();
+  warp.translation_x = 4.0f;
+  warp.translation_y = -8.0f;
+  frame.resources.template get<"affine">().phase = 0.25f;
+  const auto prepared = Provider::prepare(frame);
+  HS_EXPECT_NEAR(prepared.transform.affine.translation_x, 0.5f, 1e-6f);
+  HS_EXPECT_NEAR(prepared.transform.affine.translation_y, -1.0f, 1e-6f);
+}
 
 struct RepeatedStagesSpec : Pullback::Spec {
   static constexpr bool ANIMATED_PROJECTION = false;
@@ -1940,7 +2013,7 @@ inline void test_composed_periodic_ripple_surface() {
     HS_EXPECT_TRUE(effect.getParameters().find("Ripple Strength") != nullptr);
     HS_EXPECT_TRUE(effect.getParameters().find("Ripple Period") != nullptr);
     auto snapshot = effect.serialize_parameters();
-    snapshot.params.surface.strength = strength;
+    snapshot.params.template get<"surface">().strength = strength;
     HS_EXPECT_TRUE(effect.restore_parameters(snapshot));
     for (int frame = 0; frame < 20; ++frame) {
       pin_frame_clock(frame);
@@ -1990,9 +2063,9 @@ public:
 
   static constexpr Params initial_params() {
     Params value;
-    value.source.noise_scale = 8.0f;
-    value.source.noise_contrast = 1.0f;
-    value.source.noise_time_rate = 1.0f / 128.0f;
+    value.template get<"source">().noise_scale = 8.0f;
+    value.template get<"source">().noise_contrast = 1.0f;
+    value.template get<"source">().noise_time_rate = 1.0f / 128.0f;
     return value;
   }
 };
@@ -2450,13 +2523,15 @@ inline void test_flowers_longitude_seam() {
   for (size_t preset = 0; preset < FX::PRESET_IDS.size(); ++preset) {
     const auto params = FX::preset(preset).params;
     for (int step = 0; step <= 128; ++step) {
-      const auto prepared =
-          Pullback::Warp::prepare(params.inner_warp, step / 128.0f);
+      const auto prepared = Pullback::Warp::prepare(
+          params.template get<"inner_warp">(), step / 128.0f);
       for (float latitude : {-1.4f, -0.7f, 0.0f, 0.7f, 1.4f}) {
         const auto left = Pullback::Warp::mirror_tile_coords(
-            math::Complex(-math::PI_F, latitude), params.inner_warp, prepared);
+            math::Complex(-math::PI_F, latitude),
+            params.template get<"inner_warp">(), prepared);
         const auto right = Pullback::Warp::mirror_tile_coords(
-            math::Complex(math::PI_F, latitude), params.inner_warp, prepared);
+            math::Complex(math::PI_F, latitude),
+            params.template get<"inner_warp">(), prepared);
         HS_EXPECT_NEAR(left.re, right.re, 1e-5f);
         HS_EXPECT_NEAR(left.im, right.im, 1e-5f);
       }
@@ -2492,11 +2567,11 @@ inline void test_mobius_grid_circular_animation() {
   HS_EXPECT_TRUE(FX::PRESET_IDS[1] == "mobius-grid-2");
 
   const math::MobiusParams initial =
-      effect.serialize_parameters().params.lens.mobius;
+      effect.serialize_parameters().params.template get<"lens">().mobius;
   effect.draw_frame();
   effect.advance_display();
   const math::MobiusParams animated =
-      effect.serialize_parameters().params.lens.mobius;
+      effect.serialize_parameters().params.template get<"lens">().mobius;
   HS_EXPECT_TRUE(animated.b.re != initial.b.re ||
                  animated.b.im != initial.b.im);
   HS_EXPECT_NEAR(animated.b.re * animated.b.re + animated.b.im * animated.b.im,
@@ -2504,14 +2579,14 @@ inline void test_mobius_grid_circular_animation() {
   effect.draw_frame();
   effect.advance_display();
   const math::MobiusParams advanced =
-      effect.serialize_parameters().params.lens.mobius;
+      effect.serialize_parameters().params.template get<"lens">().mobius;
   HS_EXPECT_TRUE(advanced.b.re != animated.b.re ||
                  advanced.b.im != animated.b.im);
   effect.setAnimationsPaused(true);
   effect.draw_frame();
   effect.advance_display();
   const math::MobiusParams paused =
-      effect.serialize_parameters().params.lens.mobius;
+      effect.serialize_parameters().params.template get<"lens">().mobius;
   HS_EXPECT_EQ(paused.b.re, advanced.b.re);
   HS_EXPECT_EQ(paused.b.im, advanced.b.im);
 
@@ -2519,7 +2594,7 @@ inline void test_mobius_grid_circular_animation() {
   effect.draw_frame();
   effect.advance_display();
   const math::MobiusParams resumed =
-      effect.serialize_parameters().params.lens.mobius;
+      effect.serialize_parameters().params.template get<"lens">().mobius;
   HS_EXPECT_TRUE(resumed.b.re != paused.b.re || resumed.b.im != paused.b.im);
 
   math::MobiusParams previous = resumed;
@@ -2528,7 +2603,7 @@ inline void test_mobius_grid_circular_animation() {
     effect.draw_frame();
     effect.advance_display();
     const math::MobiusParams current =
-        effect.serialize_parameters().params.lens.mobius;
+        effect.serialize_parameters().params.template get<"lens">().mobius;
     HS_EXPECT_NEAR(current.b.re * current.b.re + current.b.im * current.b.im,
                    1.0f, 1e-5f);
     const float delta_re = current.b.re - previous.b.re;
@@ -2559,6 +2634,8 @@ inline int run_composed_effect_tests() {
   test_composed_document_values();
   test_flowers_longitude_seam();
   test_composed_derivation_reach();
+  test_composed_keyed_parameters();
+  test_composed_affine_named_source();
   test_composed_repeated_instances();
   test_composed_projection_walk_storage();
   test_composed_periodic_ripple_surface();
