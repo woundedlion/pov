@@ -22,7 +22,7 @@
 namespace hs_test {
 namespace dma_core_tests {
 
-// Constexpr helpers leave only inlined arithmetic in the column ISR.
+// DMA helpers are constexpr-evaluable.
 static_assert(dma::next_buffer(0) == 1);
 static_assert(dma::next_buffer(1) == 0);
 static_assert(dma::transfer_len(100, 200, false) == 100);
