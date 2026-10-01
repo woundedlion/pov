@@ -28,7 +28,9 @@
 // other toolchains do not have.
 #define _CRT_SECURE_NO_WARNINGS
 
-#include "tests/test_filter.h"
+#include "tests/test_fixture.h"
+#include "core/render/filter.h"
+#include "core/render/filter/pixel_feedback.h"
 
 #include <cstdio>
 #include <cstdlib>
