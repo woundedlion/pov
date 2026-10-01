@@ -1,5 +1,11 @@
 """Shared PHANTASM fabrication constraints (millimeters) and assembly policy."""
 
+ZONE_DEFAULTS = {
+    "min_thickness": 0.25,
+    "thermal_gap": 0.5,
+    "thermal_bridge_width": 0.5,
+}
+
 RULE_MINIMUMS = {
     "min_clearance": 0.1016,
     "min_copper_edge_clearance": 0.3,
