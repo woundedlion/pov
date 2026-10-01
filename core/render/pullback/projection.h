@@ -89,13 +89,13 @@ equirectangular_weight(const math::Vector &input, float singularity_fade) {
 
 __attribute__((always_inline)) inline float
 peirce_weight(const math::Vector &input, float meridian_cos, float meridian_sin,
-              float singularity_fade) {
+              float singularity_fade, bool folded) {
   const float rotated_x = input.x * meridian_cos + input.z * meridian_sin;
   const float rotated_z = input.z * meridian_cos - input.x * meridian_sin;
   const float singular_cosine =
       (fabsf(rotated_z) + fabsf(rotated_x)) * 0.7071067811865475f;
   float sin_distance_sq = fmaxf(0.0f, 1.0f - singular_cosine * singular_cosine);
-  if (input.y < 0.0f) {
+  if (folded && input.y < 0.0f) {
     const float fold_sine =
         fabsf(fabsf(rotated_z) - fabsf(rotated_x)) * 0.7071067811865475f;
     sin_distance_sq = fminf(sin_distance_sq, fold_sine * fold_sine);
@@ -108,7 +108,7 @@ __attribute__((always_inline)) inline float
 peirce_weight(const math::Vector &input, float central_meridian,
               float singularity_fade) {
   return peirce_weight(input, cosf(central_meridian), sinf(central_meridian),
-                       singularity_fade);
+                       singularity_fade, true);
 }
 
 __attribute__((always_inline)) inline ProjectionResult
@@ -221,7 +221,11 @@ peirce(const math::Vector &input, float central_meridian, uint8_t layout,
           static_cast<projections::PeirceLayout>(layout), layout_scroll,
           edge_distance_required),
       coordinate_scale,
-      peirce_weight(input, meridian_cos, meridian_sin, singularity_fade));
+      peirce_weight(
+          input, meridian_cos, meridian_sin, singularity_fade,
+          layout == static_cast<uint8_t>(projections::PeirceLayout::DIAMOND) ||
+              layout ==
+                  static_cast<uint8_t>(projections::PeirceLayout::SQUARE)));
 }
 
 __attribute__((always_inline)) inline ProjectionResult
