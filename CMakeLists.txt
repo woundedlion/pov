@@ -244,6 +244,7 @@ if(EMSCRIPTEN)
     install(FILES "${CMAKE_CURRENT_SOURCE_DIR}/hardware/pov_segment_map.json"
             DESTINATION "${DAYDREAM_DIR}/generated")
     install(FILES
+            "${CMAKE_CURRENT_SOURCE_DIR}/scripts/composed_effect_roster.mjs"
             "${CMAKE_CURRENT_SOURCE_DIR}/scripts/shader_workbench.mjs"
             "${CMAKE_CURRENT_SOURCE_DIR}/scripts/sha256.mjs"
             DESTINATION "${DAYDREAM_DIR}/generated/shader")
