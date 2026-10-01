@@ -359,6 +359,8 @@ struct DistortedRingStack {
     const auto xc = cr.x_clip();
     y_lo = std::max(y_lo, cr.render_y_start());
     y_hi = std::min(y_hi, cr.render_y_end() - 1);
+    if (y_lo > y_hi)
+      return;
 
     {
       HS_PROFILE(ring_stack_table);

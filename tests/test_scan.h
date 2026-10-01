@@ -912,6 +912,33 @@ inline void test_distorted_ring_stack_matches_sequential() {
   run_case(math::Vector(0.005f, 1.0f, 0.0f).normalized(), false, -1);
 }
 
+inline void test_distorted_ring_stack_empty_clip_skips_table() {
+  constexpr int W = 64, H = 48;
+  hs_test::StubEffect effect(W, H);
+  effect.set_clip(30, 30, 0, W);
+  effect.set_margin(0);
+  Pipeline<W, H> pipeline;
+  const auto basis = math::make_basis(math::Quaternion(), math::Y_AXIS);
+  float knots[9]{};
+  SDF::DistortedRing ring(basis, 1.0f, 0.18f, knots, 8, 0.0f, nullptr);
+  const int8_t slots[] = {0};
+  Scan::DistortedRingStack::CandidateTable<W, H> table;
+  for (auto &cell : table.cells)
+    cell = {17, 23};
+  int shaded = 0;
+  {
+    Canvas canvas(effect);
+    Scan::DistortedRingStack::draw<W, H>(
+        pipeline, canvas, 1, &ring, slots, 1, table,
+        [&](int, const math::Vector &, Fragment &) { ++shaded; });
+  }
+  HS_EXPECT_EQ(shaded, 0);
+  for (const auto &cell : table.cells) {
+    HS_EXPECT_EQ(cell.lo, 17);
+    HS_EXPECT_EQ(cell.hi, 23);
+  }
+}
+
 /**
  * @brief Verifies the fused RingGroup and DistortedRingStack walks ignore
  *        Render::pole_lod_aggressiveness.
@@ -3422,6 +3449,7 @@ inline int run_scan_tests() {
   test_ring_group_matches_sequential();
   test_distorted_ring_candidates_outside_poles();
   test_distorted_ring_stack_matches_sequential();
+  test_distorted_ring_stack_empty_clip_skips_table();
   test_fused_walks_ignore_pole_lod();
   test_face_rasterize_matches_scan_region();
   test_scan_shader_v2_contract();
