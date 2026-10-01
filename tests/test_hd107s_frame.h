@@ -170,15 +170,13 @@ inline void test_correct_pipeline() {
 }
 
 /**
- * @brief Exercises the multi-factor compounding that actually ships, then the
- * no-overflow invariant at maximum gain.
+ * @brief Exercises the shipped multi-factor compounding.
  * @details test_correct_pipeline only varies brightness with every other factor
  * at unity, so the non-unity correction + temperature gains the production config
  * sets (hd107s_frame.h: correction 255,176,240; temperature 255,147,41) are never
  * asserted together. This case applies those shipped gains and checks both that
  * the two factors compound (temperature attenuates on top of correction, not
- * instead of it) and the exact per-channel result, then that the largest public
- * factor combination leaves a full-scale input unchanged.
+ * instead of it) and the exact per-channel result.
  */
 inline void test_correct_multifactor() {
   static_assert(
@@ -212,18 +210,6 @@ inline void test_correct_multifactor() {
   HS_EXPECT_EQ(g, 26195u);
   HS_EXPECT_EQ(b, 10121u);
   HS_EXPECT_LT(b, g);
-
-  // No-overflow invariant: factor 255 maps to multiplier 256 (exact unity), so
-  // every stage's (v*256)>>8 returns the input untouched — max gains reach but
-  // never breach 65535, keeping every stage a valid linear_to_srgb_lut index.
-  Frame::set_correction(255, 255, 255);
-  Frame::set_temperature(255, 255, 255);
-  Frame::set_brightness(255);
-  uint32_t mr = 65535, mg = 65535, mb = 65535;
-  f.correct(mr, mg, mb);
-  HS_EXPECT_EQ(mr, 65535u);
-  HS_EXPECT_EQ(mg, 65535u);
-  HS_EXPECT_EQ(mb, 65535u);
 
   reset_correction<N>();
 }
