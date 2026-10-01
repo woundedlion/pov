@@ -45,7 +45,7 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
 
-from teensy_warnings import declared_environments
+from teensy_warnings import CaptureError, declared_environments
 
 # ---------------------------------------------------------------------------
 # ELF32 section-header parsing
@@ -593,7 +593,11 @@ def cmd_backfill(args) -> int:
                 print(f"[size-trail] {sha[:8]}: checkout failed ({exc})",
                       file=sys.stderr)
                 continue
-            available = declared_environments(worktree / "platformio.ini")
+            try:
+                available = declared_environments(worktree / "platformio.ini")
+            except CaptureError as exc:
+                print(f"[size-trail] {sha[:8]} has no usable environments ({exc}) - skipping.")
+                continue
             todo = [env for env in todo if env in available]
             if not todo:
                 print(f"[size-trail] {sha[:8]} has no requested environments - skipping.")
