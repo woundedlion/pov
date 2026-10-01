@@ -311,7 +311,7 @@ class PreCommitHook(unittest.TestCase):
         done = self.run_hook()
         self.assertEqual(done.returncode, 0, done.stdout + done.stderr)
 
-    def test_an_unreadable_staged_blob_fails_the_lint(self):
+    def test_an_unreadable_staged_blob_fails_the_snapshot(self):
         bin_dir = self.repo / "fakebin"
         bin_dir.mkdir()
         ruff = bin_dir / "ruff"
