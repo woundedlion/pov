@@ -1009,7 +1009,7 @@ def _run_ratchet(log_text, *extra, envs=None):
             envs = [s.name for s in tw.parse_env_sections(log_text)]
         ini = Path(d) / "platformio.ini"
         ini.write_text("".join(f"[env:{e}]\n" for e in envs), encoding="utf-8")
-        return tw.main(["--build-log", str(log), "--baseline", str(base),
+        return tw.main(["--build-log", str(log),
                         "--platformio-ini", str(ini), *extra])
 
 
@@ -1202,66 +1202,6 @@ class TestColdCaptureAudit(unittest.TestCase):
             "; platform:", " -<core/engine/memory.cpp>; platform:")
         section, = tw.parse_env_sections(header)
         self.assertEqual(tw.declared_first_party_sources(section), set(self.TUS[1:]))
-
-    def test_update_baseline_is_also_gated_on_a_cold_capture(self):
-        # Regenerating from a partial build would silently drop warnings.
-        log = self._log(("phantasm",), self.TUS[2:], cached=self.TUS[:2])
-        self.assertEqual(_run_ratchet(log, "--update-baseline"), 1)
-
-    def test_update_baseline_refuses_an_env_narrowed_capture(self):
-        # A whole-file rewrite from one environment's warnings would delete the
-        # warnings every other environment carries; the file stays untouched.
-        log = self._log(("phantasm",), self.TUS)
-        with tempfile.TemporaryDirectory() as d:
-            build_log = Path(d) / "build.log"
-            build_log.write_text(log, encoding="utf-8")
-            base = Path(d) / "baseline.txt"
-            base.write_text("core/effects/Foo.h: warning: w [-Wx]\n",
-                            encoding="utf-8")
-            ini = Path(d) / "platformio.ini"
-            ini.write_text("[env:phantasm]\n[env:holosphere]\n",
-                           encoding="utf-8")
-            buf = io.StringIO()
-            with contextlib.redirect_stdout(buf):
-                code = tw.main(["--build-log", str(build_log),
-                                "--baseline", str(base),
-                                "--platformio-ini", str(ini),
-                                "--env", "phantasm", "--update-baseline"])
-            self.assertEqual(code, 1)
-            self.assertIn("refusing to rewrite", buf.getvalue())
-            self.assertIn("holosphere", buf.getvalue())
-            self.assertIn("Foo.h", base.read_text(encoding="utf-8"))
-
-    def test_update_baseline_accepts_a_capture_of_every_environment(self):
-        log = self._log(("holosphere", "phantasm"), self.TUS)
-        self.assertEqual(_run_ratchet(log, "--update-baseline"), 0)
-
-    def test_update_baseline_refuses_to_record_a_warning(self):
-        # The firmware policy is zero first-party warnings, so the rewrite that
-        # would make today's diagnostics permanent is refused outright.
-        log = (self._log(("phantasm",), self.TUS)
-               + "core/engine/memory.cpp:1:1: warning: unused [-Wunused]\n")
-        self.assertEqual(_run_ratchet(log, "--update-baseline"), 1)
-
-    def test_a_non_empty_baseline_fails_the_policy(self):
-        log = self._log(("phantasm",), self.TUS)
-        with tempfile.TemporaryDirectory() as d:
-            build_log = Path(d) / "build.log"
-            build_log.write_text(log, encoding="utf-8")
-            base = Path(d) / "baseline.txt"
-            base.write_text("core/effects/Foo.h: warning: w [-Wx]\n",
-                            encoding="utf-8")
-            ini = Path(d) / "platformio.ini"
-            ini.write_text("[env:phantasm]\n", encoding="utf-8")
-            buf = io.StringIO()
-            with contextlib.redirect_stdout(buf):
-                code = tw.main(["--build-log", str(build_log),
-                                "--baseline", str(base),
-                                "--platformio-ini", str(ini)])
-            self.assertEqual(code, 1)
-            self.assertIn("must be empty", buf.getvalue())
-            self.assertIn("Foo.h", buf.getvalue())
-
 
 class TestExpectedEnvironmentSet(unittest.TestCase):
     """The audited environments must be the ones the build was asked to produce.
@@ -1633,7 +1573,7 @@ class TestNonUtf8Captures(unittest.TestCase):
             ini.write_text("[env:phantasm]\n", encoding="utf-8")
             buf = io.StringIO()
             with contextlib.redirect_stdout(buf):
-                rc = tw.main(["--build-log", str(log), "--baseline", str(base),
+                rc = tw.main(["--build-log", str(log),
                               "--platformio-ini", str(ini)])
             self.assertEqual(rc, 0, msg=buf.getvalue())
 

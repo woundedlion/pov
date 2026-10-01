@@ -1,40 +1,5 @@
 #!/usr/bin/env python3
-"""Teensy firmware warning-hygiene ratchet.
-
-The firmware policy is ZERO first-party warnings, and this script asserts it:
-the committed baseline is empty, a non-empty one fails, and --update-baseline
-refuses to write warnings into it. An allowance is a reviewed edit to both the
-baseline and that refusal, never a command the failure message hands out.
-
-Mechanically it is still a baseline ratchet -- the build's warning set minus the
-baseline -- which is what makes the report name exactly the offending warnings.
-
-Two load-bearing properties:
-  * SET-based, not line-ordered. PlatformIO builds in parallel (-j) so warning
-    emission order is nondeterministic; an ordered diff would flap green/red on
-    identical inputs. We compare normalized SETS.
-  * Normalized to drop volatile bits (absolute path prefix, line:col) so the
-    fingerprint is stable across unrelated edits, while the file + message + flag
-    that identify the warning are kept.
-
-First-party only: warnings outside core/ effects/ workbench/ hardware/ targets/
-(i.e. FastLED and the Teensy core) are dropped — the independent backstop to the
-`-isystem` demotion in tools/teensy_isystem.py.
-
-This ratchet must run on a COLD build: a cached TU emits no warnings, so a warm
-build hides header-introduced warnings. `PLATFORMIO_BUILD_CACHE_DIR=`
-does not achieve that — PlatformIO ignores an empty sysenvvar and falls back to
-platformio.ini's `build_cache_dir` — so the capture must DELETE `.pio/build_cache`
-and `.pio/build` first. The capture audit below enforces coldness from the log
-itself rather than trusting the caller to have done so.
-
-Coldness is audited per environment SECTION of the log, so the set of sections
-must itself be checked: a `pio run` that dies in its first environment prints one
-banner and the rest are simply absent, which would otherwise read as one cold
-environment and PASS. The expected set is every `[env:<name>]` in platformio.ini
-— the same list a bare `pio run` builds — so a new environment raises the bar
-with no second place to edit. `--env` narrows it for a deliberate subset build.
-"""
+"""Gate cold Teensy captures against the zero first-party warning policy."""
 
 from __future__ import annotations
 
@@ -374,38 +339,14 @@ def read_build_log(path: str | Path) -> str:
     return Path(path).read_text(encoding="utf-8", errors="replace")
 
 
-def load_baseline(path: str | Path) -> set[str]:
-    """Read the committed baseline set (ignoring blank and #-comment lines)."""
-    text = Path(path).read_text(encoding="utf-8") if Path(path).exists() else ""
-    return {ln.strip() for ln in text.splitlines()
-            if ln.strip() and not ln.lstrip().startswith("#")}
-
-
-def render_baseline(warnings: set[str]) -> str:
-    """Render a baseline file: header + sorted, deduplicated warning set."""
-    header = [
-        "# Teensy firmware first-party warning baseline (tools/teensy_warnings.py).",
-        "# Sorted, deduplicated, normalized (path:line:col stripped). The firmware",
-        "# policy is zero first-party warnings, so this file stays empty; the",
-        "# ratchet fails on a listed warning as well as on a new one.",
-        "",
-    ]
-    return "\n".join(header + sorted(warnings)) + "\n"
-
-
 def main(argv: list[str] | None = None) -> int:
-    p = argparse.ArgumentParser(description="Teensy warning-baseline ratchet.")
+    p = argparse.ArgumentParser(description="Teensy first-party warning gate.")
     p.add_argument("--build-log", required=True, help="compiler output of a COLD build")
-    p.add_argument("--baseline", default="tools/teensy_warning_baseline.txt")
     p.add_argument("--env", action="append", metavar="NAME",
                    help="environment the capture was expected to cover; "
                         "repeatable. Defaults to every [env:<name>] in "
                         "--platformio-ini")
     p.add_argument("--platformio-ini", default="platformio.ini")
-    p.add_argument("--update-baseline", action="store_true",
-                   help="rewrite the baseline from this build's warning set; "
-                        "refused unless the capture covers every environment in "
-                        "--platformio-ini and the set is empty")
     p.add_argument("--github", action="store_true", help="emit ::error:: annotations")
     args = p.parse_args(argv)
 
@@ -467,61 +408,18 @@ def main(argv: list[str] | None = None) -> int:
         return 1
     current = extract_warnings(build_log)
 
-    if args.update_baseline:
-        # The rewrite is whole-file, so the capture behind it has to cover the
-        # whole firmware: regenerating from an --env-narrowed (or short) build
-        # would drop every warning the absent environments carry, turning a
-        # reviewed baseline into a one-environment snapshot.
-        covered = {section.name for section in audit.envs}
-        uncovered = [name for name in declared if name not in covered]
-        if uncovered:
-            print(f"{prefix}[teensy-warnings] FAIL - refusing to rewrite "
-                  f"{args.baseline} from a capture covering {len(covered)} of "
-                  f"{len(declared)} declared environment(s): "
-                  f"{', '.join(uncovered)} absent from {args.build_log}. The "
-                  f"baseline spans every environment, so this rewrite would "
-                  f"delete the warnings those carry. Regenerate it from a cold, "
-                  f"full `pio run` capture.")
-            return 1
-        if current:
-            print(f"{prefix}[teensy-warnings] FAIL - refusing to write "
-                  f"{len(current)} first-party warning(s) into {args.baseline}: "
-                  f"the firmware policy is zero of them, so this rewrite would "
-                  f"turn today's diagnostics into a permanent allowance. Fix "
-                  f"them, or change the policy in tools/teensy_warnings.py in "
-                  f"its own reviewed commit.")
-            for warning in sorted(current):
-                print(f"  - {warning}")
-            return 1
-        Path(args.baseline).write_text(
-            render_baseline(current), encoding="utf-8", newline="\n"
-        )
-        print(f"[teensy-warnings] wrote {len(current)} warning(s) to {args.baseline}")
-        return 0
-
-    baseline = load_baseline(args.baseline)
-    if baseline:
-        print(f"{prefix}[teensy-warnings] FAIL - {args.baseline} lists "
-              f"{len(baseline)} warning(s); the firmware policy is zero "
-              f"first-party warnings, so the baseline must be empty:")
-        for warning in sorted(baseline):
-            print(f"  - {warning}")
-        return 1
-    new = sorted(current - baseline)
-    if not new:
-        print(f"[teensy-warnings] PASS - {len(current)} warning(s), none new "
-              f"(baseline has {len(baseline)}; cold capture: all {audit.declared} "
-              f"first-party translation unit(s) across {len(audit.envs)} "
-              f"environment(s) compiled, {compiles} invocation(s)).")
+    if not current:
+        print(f"[teensy-warnings] PASS - no first-party warnings "
+              f"(cold capture: all {audit.declared} first-party translation "
+              f"unit(s) across {len(audit.envs)} environment(s) compiled, "
+              f"{compiles} invocation(s)).")
         return 0
 
     item_prefix = "::error::" if args.github else "  - "
-    print(f"[teensy-warnings] FAIL - {len(new)} new first-party warning(s) not in "
-          f"the baseline:")
-    for w in new:
-        print(f"{item_prefix}{w}")
-    print("The firmware policy is zero first-party warnings, so there is no "
-          "baseline entry to add: fix them at the source.")
+    print(f"[teensy-warnings] FAIL - {len(current)} first-party warning(s):")
+    for warning in sorted(current):
+        print(f"{item_prefix}{warning}")
+    print("The firmware policy is zero first-party warnings: fix them at the source.")
     return 1
 
 
