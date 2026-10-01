@@ -2923,6 +2923,14 @@ inline int expect_face_cull_covers_fringe(int sides, float rho,
   SDF::Face face(std::span<const math::Vector>(verts3d, sides),
                  std::span<const uint16_t>(idx, sides), scratch, HV, H);
 
+  const auto bounds = face.get_vertical_bounds<H>();
+  for (int y : {bounds.y_min - 1, bounds.y_max + 1}) {
+    int emitted = 0;
+    HS_EXPECT_TRUE((face.get_horizontal_intervals<W, H>(
+        y, [&](float, float) { ++emitted; })));
+    HS_EXPECT_EQ(emitted, 0);
+  }
+
   std::vector<uint8_t> visited;
   cull_visited<W, H>(face, visited);
 
