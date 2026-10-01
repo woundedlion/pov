@@ -28,6 +28,10 @@ if(CMAKE_SOURCE_DIR STREQUAL CMAKE_CURRENT_SOURCE_DIR)
   find_package(Python3 REQUIRED COMPONENTS Interpreter)
 endif()
 
+# Python is required; optional generator dependencies may skip locally.
+option(HS_REQUIRE_GENERATORS
+    "Fail rather than skip when optional generator dependencies are missing" OFF)
+
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
@@ -431,10 +435,6 @@ add_test(NAME unit_mirrored_screenshot_prune COMMAND ${CMAKE_COMMAND}
     -DTEST_ROOT=${CMAKE_CURRENT_BINARY_DIR}/mirrored_screenshot_prune_fixture
     -DPRUNE_SCRIPT=${HS_ROOT}/cmake/prune_mirrored_screenshots.cmake
     -P ${CMAKE_CURRENT_SOURCE_DIR}/check_mirrored_screenshot_prune.cmake)
-
-# Python is required; optional generator dependencies may skip locally.
-option(HS_REQUIRE_GENERATORS
-    "Fail rather than skip when optional generator dependencies are missing" OFF)
 
 set(HS_PYTHON "${Python3_EXECUTABLE}")
 
