@@ -1307,7 +1307,8 @@ FLASHMEM void configure_arenas_default();
  * (block start), offset, live content, and generation -- only its capacity
  * boundary moves -- so the long-lived carousel slots + palette bank below its
  * offset survive. The scratch arenas hold nothing across the call point
- * (transient, reset every frame), so they rebind to fresh bases. Callers MUST
+ * (each consumer rewinds through ScratchScope), so they rebind to fresh bases.
+ * They are empty between frames. Callers MUST
  * invoke this only when both scratch arenas are empty; a per-shape split at
  * spawn (persistent at its ~baseline, scratch idle) satisfies this.
  */
