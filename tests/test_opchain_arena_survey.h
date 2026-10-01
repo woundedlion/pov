@@ -4,10 +4,8 @@
  */
 #pragma once
 
-// Persistent and scratch arena survey of the Islamic registry built op by op. Every
-// entry is replayed leg by leg through the same harness the morph suite gates
-// with (tests/test_conway_morph.h), off the shipping Recipe that
-// test_solids.h's bitwise gate pins to the entry's generator.
+// Arena survey of registry recipes through individual OpLegs. DUAL/KIS chains
+// approximate production bridges with gated swaps and are excluded from budgets.
 
 #include <algorithm>
 #include <array>
@@ -32,7 +30,7 @@ struct Row {
 
 /**
  * @brief Replays every Islamic registry entry as a build chain and reports the
- *        persistent and scratch high-waters against IslamicStars' split.
+ *        persistent and scratch high-waters. Budget claims exclude DUAL/KIS bridges.
  */
 inline void test_islamic_registry_arena_survey() {
   const std::span<const Solids::Entry> entries =
@@ -55,13 +53,20 @@ inline void test_islamic_registry_arena_survey() {
     return x.peaks.persistent > y.peaks.persistent;
   });
 
-  size_t over = 0, worst_a = 0, worst_b = 0;
+  size_t over = 0, eligible = 0, worst_a = 0, worst_b = 0;
   std::printf("  [survey] persistent budget %zu B (scratch a %zu B, b %zu B)\n",
               (size_t)ISLAMIC_PERSISTENT_BUDGET,
               (size_t)ISLAMIC_SCRATCH_A_BUDGET,
               (size_t)ISLAMIC_SCRATCH_B_BUDGET);
   for (size_t i = 0; i < n; ++i) {
     const ChainPeaks &p = rows[i].peaks;
+    if (!p.supported || !p.production_schedule) {
+      std::printf(
+          "  [survey] %-56s excluded: approximated or unsupported schedule\n",
+          rows[i].name);
+      continue;
+    }
+    ++eligible;
     const bool fits = p.persistent <= ISLAMIC_PERSISTENT_BUDGET;
     over += fits ? 0 : 1;
     worst_a = std::max(worst_a, p.scratch_a);
@@ -76,7 +81,8 @@ inline void test_islamic_registry_arena_survey() {
   }
   std::printf("  [survey] %zu of %zu entries fit; worst scratch a=%zu / %zu, "
               "b=%zu / %zu\n",
-              n - over, n, worst_a, (size_t)ISLAMIC_SCRATCH_A_BUDGET, worst_b,
+              eligible - over, eligible, worst_a,
+              (size_t)ISLAMIC_SCRATCH_A_BUDGET, worst_b,
               (size_t)ISLAMIC_SCRATCH_B_BUDGET);
 }
 
