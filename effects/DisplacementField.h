@@ -31,7 +31,7 @@ struct DisplacementFieldWhiteBox;
  * @tparam H Canvas height in pixels.
  * @details Rings share one axis and are spaced evenly in colatitude across the
  * whole sphere. Each ring vertex is displaced along
- * the stack axis by the summed displacement fields sampled at the vertex's
+ * the stack axis by the dominant blend of active ball fields plus the noise field sampled at the vertex's
  * world-space position. The noise phase opens the effect and fades in from
  * zero before dwelling at full strength, then fades out into a ball phase.
  * Cap-shaped ball bumps fall from world +Y to -Y on random meridians,
