@@ -1846,6 +1846,8 @@ inline void test_shader_workbench_polyhedral_kaleidoscopes() {
   sb.init();
   const auto *lens = sb.getParameters().find("Lens");
   HS_EXPECT_TRUE(lens != nullptr);
+  if (!lens)
+    return;
   HS_EXPECT_EQ(lens->option_count, 13);
   HS_EXPECT_EQ(std::string_view(lens->options[3]),
                std::string_view("Kaleidoscope (Azimuthal 6-fold)"));
@@ -2674,6 +2676,8 @@ inline void test_shader_workbench_mode_specific_parameter_warnings() {
 
   const auto *strength = sb.getParameters().find("Planar Warp 1 Strength");
   HS_EXPECT_TRUE(strength != nullptr);
+  if (!strength)
+    return;
   const float limit = 0.5f / 4.0f;
   HS_EXPECT_NEAR(strength->min, -limit, 1e-7f);
   HS_EXPECT_NEAR(strength->max, limit, 1e-7f);
@@ -2712,6 +2716,8 @@ inline void test_shader_workbench_curl_integrator_range_rebind() {
 
     const auto *before = sb.getParameters().find(strength);
     HS_EXPECT_TRUE(before != nullptr);
+    if (!before)
+      return;
     HS_EXPECT_NEAR(before->max, 0.125f, 1e-7f);
     HS_EXPECT_EQ(
         sb.updateParameter(integrator,
@@ -2719,6 +2725,8 @@ inline void test_shader_workbench_curl_integrator_range_rebind() {
         ParamSetResult::APPLIED);
     const auto *after = sb.getParameters().find(strength);
     HS_EXPECT_TRUE(after != nullptr);
+    if (!after)
+      return;
     HS_EXPECT_NEAR(after->min, -0.5f, 1e-7f);
     HS_EXPECT_NEAR(after->max, 0.5f, 1e-7f);
   }
@@ -2995,6 +3003,8 @@ inline void test_shader_workbench_polar_gui_repair() {
                ParamSetResult::APPLIED);
   const char *shear_warning = WB::parameter_warning(shear, "Function");
   HS_EXPECT_TRUE(shear_warning != nullptr);
+  if (!shear_warning)
+    return;
   HS_EXPECT_TRUE(std::strstr(shear_warning, "polar-periodic Function") !=
                  nullptr);
   HS_EXPECT_TRUE(std::strstr(shear_warning, "Planar Warp 2") == nullptr);
@@ -3312,6 +3322,8 @@ inline void test_shader_workbench_preset_gui_transition() {
   HS_EXPECT_TRUE(WB::param_morph_active(sb));
   const auto *noise_scale = sb.getParameters().find("Surface Noise Scale");
   HS_EXPECT_TRUE(noise_scale != nullptr);
+  if (!noise_scale)
+    return;
   HS_EXPECT_NEAR(noise_scale->get(), 1.78815627f, 1e-6f);
 
   bool saw_intermediate = false;
@@ -3335,6 +3347,8 @@ inline void test_shader_workbench_preset_gui_transition() {
   const auto *projection_wander = sb.getParameters().find("Projection Wander");
   HS_EXPECT_TRUE(function != nullptr);
   HS_EXPECT_TRUE(projection_wander != nullptr);
+  if (!function || !projection_wander)
+    return;
   HS_EXPECT_EQ(function->get(), static_cast<float>(WB::Function::GRID));
   HS_EXPECT_NEAR(projection_wander->get(), 1.0f, 1e-6f);
   saw_intermediate = false;
@@ -3532,24 +3546,34 @@ inline void test_shader_workbench_gui_catalog() {
   }
   const auto *palette_mapping = sb.getParameters().find("Palette Mapping");
   HS_EXPECT_TRUE(palette_mapping != nullptr);
+  if (!palette_mapping)
+    return;
   HS_EXPECT_EQ(palette_mapping->option_count, 4);
   HS_EXPECT_STREQ(palette_mapping->options[2], "Linear");
   const auto *brightness_envelope =
       sb.getParameters().find("Brightness Envelope");
   HS_EXPECT_TRUE(brightness_envelope != nullptr);
+  if (!brightness_envelope)
+    return;
   HS_EXPECT_EQ(brightness_envelope->option_count, 5);
   HS_EXPECT_STREQ(brightness_envelope->options[0], "None");
   HS_EXPECT_STREQ(brightness_envelope->options[3], "Ascending");
   const auto *mapping_frequency = sb.getParameters().find("Mapping Frequency");
   HS_EXPECT_TRUE(mapping_frequency != nullptr);
+  if (!mapping_frequency)
+    return;
   HS_EXPECT_EQ(mapping_frequency->min, 1.0f);
   HS_EXPECT_EQ(mapping_frequency->max, 32.0f);
   const auto *hue_shift = sb.getParameters().find("Hue Shift Mode");
   HS_EXPECT_TRUE(hue_shift != nullptr);
+  if (!hue_shift)
+    return;
   HS_EXPECT_EQ(hue_shift->option_count, 3);
   HS_EXPECT_STREQ(hue_shift->options[2], "Total Warp Displacement");
   const auto *projection = sb.getParameters().find("Projection");
   HS_EXPECT_TRUE(projection != nullptr);
+  if (!projection)
+    return;
   HS_EXPECT_EQ(projection->option_count, 7);
   HS_EXPECT_STREQ(projection->options[0], "Folded Sinusoidal");
   HS_EXPECT_STREQ(projection->options[3], "Bonne");
@@ -3558,6 +3582,8 @@ inline void test_shader_workbench_gui_catalog() {
   HS_EXPECT_STREQ(projection->options[6], "Equirectangular");
   const auto *coverage = sb.getParameters().find("Coverage");
   HS_EXPECT_TRUE(coverage != nullptr);
+  if (!coverage)
+    return;
   HS_EXPECT_EQ(coverage->option_count, 5);
   HS_EXPECT_STREQ(coverage->options[4], "Projection Weight");
   HS_EXPECT_EQ(
@@ -3566,6 +3592,8 @@ inline void test_shader_workbench_gui_catalog() {
       ParamSetResult::APPLIED);
   const auto *lattice_softness = sb.getParameters().find("Lattice Softness");
   HS_EXPECT_TRUE(lattice_softness != nullptr);
+  if (!lattice_softness)
+    return;
   HS_EXPECT_EQ(lattice_softness->max, 1.0f);
   HS_EXPECT_EQ(sb.updateParameter("Lattice Softness", 1.0f),
                ParamSetResult::APPLIED);
@@ -3601,6 +3629,8 @@ inline void test_shader_workbench_gui_catalog() {
       ParamSetResult::APPLIED);
   const auto *edge_fade_width = sb.getParameters().find("Edge Fade Width");
   HS_EXPECT_TRUE(edge_fade_width != nullptr);
+  if (!edge_fade_width)
+    return;
   HS_EXPECT_EQ(edge_fade_width->min, 0.0f);
   HS_EXPECT_EQ(sb.updateParameter("Edge Fade Width", 0.0f),
                ParamSetResult::APPLIED);
@@ -3676,6 +3706,8 @@ inline void test_shader_workbench_gui_catalog() {
   const auto *source_noise_rate = sb.getParameters().find("Source Noise Speed");
   HS_EXPECT_TRUE(source_noise_scale != nullptr);
   HS_EXPECT_TRUE(source_noise_rate != nullptr);
+  if (!source_noise_scale || !source_noise_rate)
+    return;
   HS_EXPECT_EQ(source_noise_scale->min, 0.0f);
   HS_EXPECT_EQ(source_noise_scale->max, 2.0f);
   HS_EXPECT_EQ(source_noise_rate->min, -1.0f / 1024.0f);
@@ -3741,6 +3773,8 @@ inline void test_shader_workbench_gui_catalog() {
     WB::settle_transition(sb);
     const auto *strength = sb.getParameters().find("Planar Warp 1 Strength");
     HS_EXPECT_TRUE(strength != nullptr);
+    if (!strength)
+      return;
     const float limit = strength->max;
     HS_EXPECT_NEAR(limit, 1.0f, 1e-6f);
     HS_EXPECT_EQ(strength->min, -limit);
@@ -6341,6 +6375,8 @@ inline void test_shader_workbench_noise_contour_domains() {
                WB::Function::NOISE_CONTOUR_SPHERE);
   const char *warning = WB::parameter_warning(gui, "Function");
   HS_EXPECT_TRUE(warning != nullptr);
+  if (!warning)
+    return;
   HS_EXPECT_TRUE(std::strstr(warning, "Planar Warp 1 Mirror Tile") != nullptr);
   HS_EXPECT_EQ(gui.updateParameter("Planar Warp 1",
                                    static_cast<float>(WB::WarpStageKind::NONE)),
