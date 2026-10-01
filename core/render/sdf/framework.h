@@ -5,7 +5,7 @@
 #pragma once
 
 /** @file framework.h
- * @brief Signed distance shape concepts and scan interval utilities. */
+ * @brief Lattice framework geometries and monotone plane-crossing event streams. */
 
 #include <algorithm>
 #include <array>
