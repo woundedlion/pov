@@ -28,11 +28,11 @@ inline constexpr float SQRT2 = 1.414213562373095f;
 /** Tribonacci constant t, the real root of t^3 - t^2 - t - 1 = 0 (~1.83928676).
  */
 inline constexpr float TRIBONACCI_CONST = 1.839286755214161f;
-/** Snub-cube truncation parameter. */
+/** Snub-cube inset parameter. */
 inline constexpr float T_SNUB_CUBE = 1.0f / (1.0f + TRIBONACCI_CONST);
 /** Snub-cube twist. */
 inline constexpr float SNUB_CUBE_TWIST = 0.28f;
-/** Truncated-dodecahedron/icosahedron truncation parameter. */
+/** Truncated-dodecahedron / truncated-icosidodecahedron (bevel) truncation parameter. */
 inline constexpr float T_TRUNC_ICOS = 1.0f / (2.0f + math::PHI);
 /** Truncated-cube/cuboctahedron truncation parameter. */
 inline constexpr float T_TRUNC_CUBE = 1.0f / (2.0f + SQRT2);
