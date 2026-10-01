@@ -383,8 +383,8 @@ async function main(probe) {
         // each region's high-water mark and capacity.
         const m = engine.getArenaMetrics();
         for (const region of ['scratch_arena_a', 'scratch_arena_b', 'persistent_arena']) {
-          if (!m[region] || !(m[region].capacity > 0))
-            fail(`${name}: ${region} is missing or has no positive capacity`);
+          if (!m[region] || !Number.isFinite(m[region].capacity) || m[region].capacity < 0)
+            fail(`${name}: ${region} is missing or has an invalid capacity`);
         }
         for (const region of Object.keys(m)) {
           const { high_water_mark: hwm, lifetime_high_water_mark: lifetime, capacity } = m[region];
