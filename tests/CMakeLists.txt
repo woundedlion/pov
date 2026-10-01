@@ -25,6 +25,8 @@ cmake_minimum_required(VERSION 3.29)
 # a native root build.
 if(CMAKE_SOURCE_DIR STREQUAL CMAKE_CURRENT_SOURCE_DIR)
   project(holosphere_tests CXX)
+  set(HS_PULLBACK_CAPTURE_SOURCE_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/.." CACHE PATH
+      "Checkout whose sources a pullback capture build compiles")
   find_package(Python3 REQUIRED COMPONENTS Interpreter)
 endif()
 
@@ -466,8 +468,7 @@ _hs_warnings(pullback_manifest_check)
 _hs_sanitize(pullback_manifest_check)
 add_test(NAME unit_pullback_manifest COMMAND pullback_manifest_check)
 
-set(HS_PULLBACK_CAPTURE_SOURCE_ROOT "${HS_ROOT}" CACHE PATH
-    "Checkout whose ShaderWorkbench sources the pullback capture producer builds")
+
 set(HS_CAPTURE_ENGINE_SOURCES ${HS_ENGINE_SOURCES})
 list(TRANSFORM HS_CAPTURE_ENGINE_SOURCES REPLACE
   "^${HS_ROOT}/" "${HS_PULLBACK_CAPTURE_SOURCE_ROOT}/")
