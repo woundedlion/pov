@@ -263,7 +263,8 @@ public:
    * compacted normally and whose return is typically discarded).
    * @param paused Optional event-level pause gate.
    * @param owner Optional lifetime owner used by cancel_owner().
-   * @return Typed pointer to the inline-stored animation, or nullptr if full.
+   * @return Typed pointer to the inline-stored animation, or nullptr if full
+   * for an UNPINNED add. A PINNED add traps when full.
    */
   template <typename A>
   A *add_get(int in_frames, A animation, Pin pin, const bool *paused = nullptr,
