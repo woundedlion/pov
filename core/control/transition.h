@@ -287,23 +287,21 @@ public:
 
     const bool cleared = state == EffectTransitionState::CLEAR_FAILSAFE;
     const bool refading = state == EffectTransitionState::FADING_OUT;
-    // Fraction of an in-flight fade-out already spent, remapped onto the new
-    // request's tick count so the envelope carries on down instead of jumping
-    // back to full.
-    const float spent = refading
-                            ? static_cast<float>(evaluation) /
-                                  static_cast<float>(destination.fade_ticks)
-                            : 0.0f;
     EffectRestoreToken next_restore;
     const EffectTransitionStatus status = adapter.preflight(next, next_restore);
     if (status != EffectTransitionStatus::OK)
       return status;
 
+    const uint16_t next_evaluation =
+        refading
+            ? static_cast<uint16_t>((uint32_t{evaluation} * next.fade_ticks +
+                                     destination.fade_ticks - 1) /
+                                    destination.fade_ticks)
+            : 0;
     destination = next;
     handoff = next_handoff;
     restore = next_restore;
-    evaluation = static_cast<uint16_t>(
-        std::ceil(spent * static_cast<float>(next.fade_ticks)));
+    evaluation = next_evaluation;
     last_failure = EffectTransitionStatus::OK;
     if (cleared) {
       // post-teardown: output is already clear and no outgoing remains
