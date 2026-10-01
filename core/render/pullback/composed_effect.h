@@ -846,9 +846,8 @@ public:
       std::is_same_v<typename ParamsT::surface_type, SurfaceNoiseParams> ||
       std::is_same_v<typename ParamsT::surface_type, DirectSurfaceParams>;
 
-  /** Whether the effect owns an outer-camera noise field and seed, as
-      implied by a warp slot that samples one. Both warp
-      slots read the outer field (see WarpProvider::noise). */
+  /** Whether the effect owns the warp noise field and its seed: set when
+      either warp slot samples it (see WarpProvider::noise). */
   static constexpr bool HAS_OUTER_NOISE =
       std::is_same_v<typename ParamsT::outer_warp_type, VectorNoiseParams> ||
       std::is_same_v<typename ParamsT::inner_warp_type, VectorNoiseParams>;
