@@ -12,6 +12,7 @@
  */
 
 #include "control/params.h"
+#include "control/param_spec.h"
 #include "engine/memory.h"
 #include "platform/platform.h"
 #include <array>
@@ -279,298 +280,266 @@ protected:
     parameters.bump_schema_generation();
   }
 
+  /**
+   * @brief Registers one typed description without changing its target.
+   * @details Registration appends one descriptor and advances its schema token
+   * once. PRESERVE_REQUESTED_FLOAT admits finite out-of-range GUI requests only
+   * for ordinary float targets; subsequent edits still obey the published bounds.
+   */
+  template <typename T>
+  HS_COLD_MEMBER void register_param(const char *name, T *ptr,
+                                     const ParamSpec<T> &spec) {
+    HS_CHECK(ptr != nullptr, "register_param: null target name=%s", name);
+    const auto min = spec.min;
+    const auto max = spec.max;
+    const char *const *options = spec.options;
+    const int option_count = spec.option_count;
+    HS_CHECK((options == nullptr) == (option_count == 0),
+             "register_param: inconsistent options and count");
+    HS_CHECK(spec.export_options == nullptr || options != nullptr,
+             "register_param: export labels require options name=%s", name);
+    HS_CHECK(spec.initial_value == ParamInitialValue::REQUIRE_IN_RANGE ||
+                 spec.initial_value ==
+                     ParamInitialValue::PRESERVE_REQUESTED_FLOAT,
+             "register_param: invalid initial-value policy name=%s", name);
+    if (options != nullptr)
+      HS_CHECK(option_count > 0 && min == 0 && max == option_count - 1,
+               "register_param: option range does not match labels");
+
+    ParamDef::TargetType target_type;
+    if constexpr (std::is_same_v<T, float>) {
+      HS_CHECK(
+          min <= max,
+          "register_param: min must be <= max name=%s min_bits=%08lx max_bits=%08lx",
+          name, static_cast<unsigned long>(std::bit_cast<uint32_t>(min)),
+          static_cast<unsigned long>(std::bit_cast<uint32_t>(max)));
+      HS_CHECK(std::isfinite(min) && std::isfinite(max),
+               "register_param: bounds must be finite name=%s", name);
+      const bool preserve =
+          spec.initial_value == ParamInitialValue::PRESERVE_REQUESTED_FLOAT;
+#if HS_ENABLE_PARAM_GUI_BRIDGE
+      HS_CHECK(
+          !preserve || options == nullptr,
+          "register_param: preserving requested values requires a non-enum float name=%s",
+          name);
+#else
+      HS_CHECK(
+          !preserve,
+          "register_param: preserving requested values requires the GUI bridge name=%s",
+          name);
+#endif
+      if (preserve)
+        HS_CHECK(std::isfinite(*ptr),
+                 "register_param: requested value must be finite name=%s",
+                 name);
+      else
+        HS_CHECK(
+            *ptr >= min && *ptr <= max,
+            "register_param: default *ptr outside [min,max] name=%s value_bits=%08lx min_bits=%08lx max_bits=%08lx",
+            name, static_cast<unsigned long>(std::bit_cast<uint32_t>(*ptr)),
+            static_cast<unsigned long>(std::bit_cast<uint32_t>(min)),
+            static_cast<unsigned long>(std::bit_cast<uint32_t>(max)));
+      target_type = ParamDef::TargetType::FLOAT;
+    } else {
+      HS_CHECK(
+          spec.initial_value == ParamInitialValue::REQUIRE_IN_RANGE,
+          "register_param: preserving requested values requires a non-enum float name=%s",
+          name);
+      if constexpr (std::is_same_v<T, bool>) {
+        HS_CHECK(
+            options == nullptr && min == 0 && max == 1,
+            "register_param: bool range must be [0,1] without options name=%s",
+            name);
+        target_type = ParamDef::TargetType::BOOL;
+      } else {
+        using Integer = typename ParamInteger<T>::Type;
+        if constexpr (std::is_enum_v<T>) {
+          HS_CHECK(
+              options != nullptr && option_count > 0,
+              "register_param: enum needs at least one option name=%s count=%d",
+              name, option_count);
+          HS_CHECK(
+              static_cast<int64_t>(option_count - 1) <=
+                  static_cast<int64_t>(std::numeric_limits<Integer>::max()),
+              "register_param: options must fit the target enum type name=%s count=%d",
+              name, option_count);
+          HS_CHECK(
+              static_cast<int64_t>(static_cast<float>(option_count - 1)) ==
+                  option_count - 1,
+              "register_param: enum bound must be exactly representable as float name=%s count=%d",
+              name, option_count);
+        }
+        HS_CHECK(
+            min <= max,
+            "register_int_param: min must be <= max name=%s min=%lld max=%lld",
+            name, static_cast<long long>(min), static_cast<long long>(max));
+        const bool range_fits =
+            min >= static_cast<int64_t>(std::numeric_limits<Integer>::min()) &&
+            max <= static_cast<int64_t>(std::numeric_limits<Integer>::max());
+        HS_CHECK(
+            range_fits,
+            "register_int_param: [min,max] must fit the target integer type name=%s min=%lld max=%lld",
+            name, static_cast<long long>(min), static_cast<long long>(max));
+        const bool bounds_exact =
+            static_cast<int64_t>(static_cast<float>(min)) == min &&
+            static_cast<int64_t>(static_cast<float>(max)) == max;
+        HS_CHECK(
+            bounds_exact,
+            "register_int_param: bounds must be exactly representable as float name=%s min=%lld max=%lld",
+            name, static_cast<long long>(min), static_cast<long long>(max));
+        const int64_t value = static_cast<int64_t>(*ptr);
+        HS_CHECK(
+            value >= min && value <= max,
+            "register_int_param: default *ptr outside [min,max] name=%s value=%lld min=%lld max=%lld",
+            name, static_cast<long long>(value), static_cast<long long>(min),
+            static_cast<long long>(max));
+        target_type = integer_target_type<Integer>();
+      }
+    }
+    for (int i = 0; i < option_count; ++i) {
+      HS_CHECK(options[i] != nullptr,
+               "register_param: null option label name=%s index=%d", name, i);
+      HS_CHECK(spec.export_options == nullptr ||
+                   spec.export_options[i] != nullptr,
+               "register_param: null export label name=%s index=%d", name, i);
+    }
+    auto &def = append_parameter(name);
+    def.target = ptr;
+    def.min = static_cast<float>(min);
+    def.max = static_cast<float>(max);
+    def.target_type = target_type;
+    def.options = options;
+    def.export_options = spec.export_options;
+    def.option_count = option_count;
+    def.animated = spec.animated;
+    def.readonly = spec.readonly;
+    def.preset = spec.preset;
+    parameters.bump_schema_generation();
+  }
+
   void register_param(const char *, float *, int, int) = delete;
 
-  /**
-   * @brief Registers a floating-point parameter.
-   * @param name The name to expose.
-   * @param ptr Pointer to the float variable.
-   * @param min Minimum value.
-   * @param max Maximum value.
-   * @param animated Whether writes pause parameter animation.
-   * @param readonly Whether external writes are refused.
-   * @param options Optional enumeration labels.
-   * @param option_count Number of enumeration labels.
-   */
+  /** @brief Registers a float slider, optionally with dropdown labels. */
   HS_COLD_MEMBER void
   register_param(const char *name, float *ptr, float min = 0.0f,
                  float max = 1.0f, bool animated = false, bool readonly = false,
                  const char *const *options = nullptr, int option_count = 0) {
-    HS_CHECK(
-        min <= max,
-        "register_param: min must be <= max name=%s min_bits=%08lx max_bits=%08lx",
-        name, static_cast<unsigned long>(std::bit_cast<uint32_t>(min)),
-        static_cast<unsigned long>(std::bit_cast<uint32_t>(max)));
-    // A starting *ptr outside [min,max] would snap on the first GUI edit (every
-    // updateParameter clamps).
-    HS_CHECK(
-        *ptr >= min && *ptr <= max,
-        "register_param: default *ptr outside [min,max] name=%s value_bits=%08lx min_bits=%08lx max_bits=%08lx",
-        name, static_cast<unsigned long>(std::bit_cast<uint32_t>(*ptr)),
-        static_cast<unsigned long>(std::bit_cast<uint32_t>(min)),
-        static_cast<unsigned long>(std::bit_cast<uint32_t>(max)));
-    HS_CHECK((options == nullptr) == (option_count == 0),
-             "register_param: inconsistent options and count");
-    if (options != nullptr)
-      HS_CHECK(option_count > 0 && min == 0 && max == option_count - 1,
-               "register_param: option range does not match labels");
-    auto &def = append_parameter(name);
-    def.target = ptr;
-    def.min = min;
-    def.max = max;
-    def.animated = animated;
-    def.readonly = readonly;
-    def.options = options;
-    def.option_count = option_count;
-    parameters.bump_schema_generation();
+    register_param(name, ptr,
+                   ParamSpec<float>{.min = min,
+                                    .max = max,
+                                    .animated = animated,
+                                    .readonly = readonly,
+                                    .options = options,
+                                    .option_count = option_count});
   }
 
 #if HS_ENABLE_PARAM_GUI_BRIDGE
-  /**
-   * @brief Registers an animated float while preserving its requested value.
-   * @details The requested value may lie outside the published range.
-   */
+  /** @brief Registers an animated float with a finite requested value. */
   HS_COLD_MEMBER void register_animated_param_preserving_value(const char *name,
                                                                float *ptr,
                                                                float min,
                                                                float max) {
-    HS_CHECK(
-        min <= max,
-        "register_param: min must be <= max name=%s min_bits=%08lx max_bits=%08lx",
-        name, static_cast<unsigned long>(std::bit_cast<uint32_t>(min)),
-        static_cast<unsigned long>(std::bit_cast<uint32_t>(max)));
-    auto &def = append_parameter(name);
-    def.target = ptr;
-    def.min = min;
-    def.max = max;
-    def.animated = true;
-    parameters.bump_schema_generation();
+    register_param(
+        name, ptr,
+        ParamSpec<float>{.min = min,
+                         .max = max,
+                         .animated = true,
+                         .initial_value =
+                             ParamInitialValue::PRESERVE_REQUESTED_FLOAT});
   }
 #endif
 
-  /**
-   * @brief Registers an enumerated parameter, rendered by the GUI as a dropdown.
-   * @param name The name to expose.
-   * @param ptr Pointer to the float variable holding the selected option index.
-   * @param options Array of option labels indexed by the target's value; must
-   *   outlive the effect (string literals).
-   * @param option_count Number of labels; the value range is [0, option_count-1].
-   * @details Preset exports write the selected index as a numeric literal — a
-   * float target names no enum type. Use the Enum* overload to export C++
-   * enumerators instead.
-   */
+  /** @brief Registers a float-backed dropdown with numeric preset exports. */
   HS_COLD_MEMBER void register_param(const char *name, float *ptr,
                                      const char *const *options,
                                      int option_count) {
-    HS_CHECK(options != nullptr && option_count > 0,
-             "register_param: enum needs at least one option name=%s count=%d",
-             name, option_count);
-    register_param(name, ptr, 0.0f, static_cast<float>(option_count - 1), false,
-                   false, options, option_count);
+    register_param(name, ptr,
+                   ParamSpec<float>::enumerated(options, option_count));
   }
 
-  /**
-   * @brief Registers a typed enum parameter, rendered by the GUI as a dropdown.
-   * @tparam Enum Enum type stored by the target.
-   * @param name The name to expose.
-   * @param ptr Pointer to the enum variable.
-   * @param options GUI labels indexed by the enum's underlying value.
-   * @param export_options C++ enum literals indexed like @p options.
-   * @param option_count Number of labels and literals.
-   * @param animated Whether writes engage the effect pause.
-   */
+  /** @brief Registers a typed dropdown with optional C++ export literals. */
   template <typename Enum>
     requires std::is_enum_v<Enum>
   HS_COLD_MEMBER void register_param(const char *name, Enum *ptr,
                                      const char *const *options,
                                      const char *const *export_options,
                                      int option_count, bool animated = false) {
-    HS_CHECK(options != nullptr && option_count > 0,
-             "register_param: enum needs at least one option name=%s count=%d",
-             name, option_count);
-    using Integer = std::underlying_type_t<Enum>;
-    HS_CHECK(
-        static_cast<int64_t>(option_count - 1) <=
-            static_cast<int64_t>(std::numeric_limits<Integer>::max()),
-        "register_param: options must fit the target enum type name=%s count=%d",
-        name, option_count);
-    HS_CHECK(
-        static_cast<int64_t>(static_cast<float>(option_count - 1)) ==
-            option_count - 1,
-        "register_param: enum bound must be exactly representable as float name=%s count=%d",
-        name, option_count);
-    const float value =
-        static_cast<float>(static_cast<std::underlying_type_t<Enum>>(*ptr));
-    HS_CHECK(value >= 0.0f && value < static_cast<float>(option_count),
-             "register_param: default enum outside option range name=%s", name);
-    constexpr auto TARGET_TYPE =
-        integer_target_type<std::underlying_type_t<Enum>>();
-    auto &def = append_parameter(name);
-    def.target = ptr;
-    def.min = 0.0f;
-    def.max = static_cast<float>(option_count - 1);
-    def.options = options;
-    def.option_count = option_count;
-    def.export_options = export_options;
-    def.target_type = TARGET_TYPE;
-    def.animated = animated;
-    parameters.bump_schema_generation();
+    auto spec =
+        ParamSpec<Enum>::enumerated(options, option_count, export_options);
+    spec.animated = animated;
+    register_param(name, ptr, spec);
   }
 
-  /**
-   * @brief Registers an integer parameter, rendered by the GUI as a unit-step
-   *   slider.
-   * @tparam Integer Integral type stored by the target, at most 32 bits.
-   * @param name The name to expose.
-   * @param ptr Pointer to the integer variable.
-   * @param min Minimum value, inclusive.
-   * @param max Maximum value, inclusive.
-   * @param animated Whether writes engage the effect pause.
-   * @pre Both bounds must be exactly representable as float.
-   * @details For a quantity whose target is a count rather than a choice: the
-   * range carries the bound, so no label array is needed and preset exports
-   * write a plain integer literal. A target with one distinct meaning per value
-   * belongs on the Enum* overload, which exports enumerators instead.
-   */
+  /** @brief Registers an integer slider with exactly float-representable bounds. */
   template <typename Integer>
     requires(std::is_integral_v<Integer> && !std::is_same_v<Integer, bool>)
   HS_COLD_MEMBER void register_int_param(const char *name, Integer *ptr,
                                          int min, int max,
                                          bool animated = false) {
-    HS_CHECK(min <= max,
-             "register_int_param: min must be <= max name=%s min=%d max=%d",
-             name, min, max);
-    // write_unchecked() narrows through static_cast<Integer>(float), UB outside
-    // the target's range.
-    const bool range_fits =
-        static_cast<int64_t>(min) >=
-            static_cast<int64_t>(std::numeric_limits<Integer>::min()) &&
-        static_cast<int64_t>(max) <=
-            static_cast<int64_t>(std::numeric_limits<Integer>::max());
-    HS_CHECK(
-        range_fits,
-        "register_int_param: [min,max] must fit the target integer type name=%s min=%d max=%d",
-        name, min, max);
-    const bool bounds_exact =
-        static_cast<int64_t>(static_cast<float>(min)) == min &&
-        static_cast<int64_t>(static_cast<float>(max)) == max;
-    HS_CHECK(
-        bounds_exact,
-        "register_int_param: bounds must be exactly representable as float name=%s min=%d max=%d",
-        name, min, max);
-    const int value = static_cast<int>(*ptr);
-    HS_CHECK(
-        value >= min && value <= max,
-        "register_int_param: default *ptr outside [min,max] name=%s value=%d min=%d max=%d",
-        name, value, min, max);
-    auto &def = append_parameter(name);
-    def.target = ptr;
-    def.min = static_cast<float>(min);
-    def.max = static_cast<float>(max);
-    def.target_type = integer_target_type<Integer>();
-    def.animated = animated;
-    parameters.bump_schema_generation();
+    register_param(
+        name, ptr,
+        ParamSpec<Integer>{.min = min, .max = max, .animated = animated});
   }
 
-  /** @brief Registers an integer param and flags it animation-driven. */
+  /** @brief Registers an animation-driven integer slider. */
   template <typename Integer>
     requires(std::is_integral_v<Integer> && !std::is_same_v<Integer, bool>)
   HS_COLD_MEMBER void register_animated_int_param(const char *name,
                                                   Integer *ptr, int min,
                                                   int max) {
-    register_int_param(name, ptr, min, max, true);
+    register_param(
+        name, ptr,
+        ParamSpec<Integer>{.min = min, .max = max, .animated = true});
   }
 
-  /**
-   * @brief Registers a boolean parameter.
-   * @param name The name to expose.
-   * @param ptr Pointer to the bool variable; registration never mutates the
-   *   target, symmetric with the float overload.
-   * @param animated Whether writes engage the effect pause.
-   */
+  /** @brief Registers a bool without changing its initial value. */
   HS_COLD_MEMBER void register_param(const char *name, bool *ptr,
                                      bool animated = false) {
-    auto &def = append_parameter(name);
-    def.target = ptr;
-    def.max = 1.0f;
-    def.target_type = ParamDef::TargetType::BOOL;
-    def.animated = animated;
-    parameters.bump_schema_generation();
+    register_param(name, ptr, ParamSpec<bool>{.animated = animated});
   }
 
-  /**
-   * @brief Registers a float param and flags it animation-driven in one call.
-   * @details Accepted writes engage the effect pause; the GUI also renders the
-   * flagged param as an auto-pausing slider.
-   */
+  /** @brief Registers an animation-driven float slider. */
   HS_COLD_MEMBER void register_animated_param(const char *name, float *ptr,
                                               float min = 0.0f,
                                               float max = 1.0f) {
-    register_param(name, ptr, min, max, true);
+    register_param(name, ptr,
+                   ParamSpec<float>{.min = min, .max = max, .animated = true});
   }
 
-  /**
-   * @brief Registers a boolean param and flags it animation-driven.
-   * @param name The name to expose.
-   * @param ptr Pointer to the bool variable.
-   */
+  /** @brief Registers an animation-driven bool. */
   HS_COLD_MEMBER void register_animated_param(const char *name, bool *ptr) {
-    register_param(name, ptr, true);
+    register_param(name, ptr, ParamSpec<bool>{.animated = true});
   }
 
-  /** @brief Registers a typed enum param and flags it animation-driven. */
+  /** @brief Registers an animation-driven typed dropdown. */
   template <typename Enum>
     requires std::is_enum_v<Enum>
   HS_COLD_MEMBER void register_animated_param(const char *name, Enum *ptr,
                                               const char *const *options,
                                               const char *const *export_options,
                                               int option_count) {
-    register_param(name, ptr, options, export_options, option_count, true);
+    auto spec =
+        ParamSpec<Enum>::enumerated(options, option_count, export_options);
+    spec.animated = true;
+    register_param(name, ptr, spec);
   }
 
-  /**
-   * @brief Registers a uint8_t-backed enumerated param (GUI dropdown) and
-   *        flags it animation-driven.
-   * @param name The name to expose.
-   * @param ptr Pointer to the uint8_t variable holding the selected index.
-   * @param options GUI labels indexed by the target's value; must outlive the
-   *   effect.
-   * @param option_count Number of labels; the value range is
-   *   [0, option_count - 1].
-   * @details For enum-shaped storage that is not a C++ enum type — the chain
-   * interpreter's topology enum8s, whose option lists exist only as runtime
-   * table data. No export literals: preset export names no enum type.
-   */
+  /** @brief Registers an animation-driven uint8_t-backed dropdown. */
   HS_COLD_MEMBER void register_animated_enum8_param(const char *name,
                                                     uint8_t *ptr,
                                                     const char *const *options,
                                                     int option_count) {
-    HS_CHECK(options != nullptr && option_count > 0,
-             "register_param: enum needs at least one option name=%s count=%d",
-             name, option_count);
-    HS_CHECK(option_count - 1 <= std::numeric_limits<uint8_t>::max(),
-             "register_param: enum options exceed uint8_t range name=%s", name);
-    HS_CHECK(*ptr < option_count,
-             "register_param: default enum outside option range name=%s", name);
-    auto &def = append_parameter(name);
-    def.target = ptr;
-    def.min = 0.0f;
-    def.max = static_cast<float>(option_count - 1);
-    def.options = options;
-    def.option_count = option_count;
-    def.target_type = ParamDef::TargetType::INT_U8;
-    def.animated = true;
-    parameters.bump_schema_generation();
+    auto spec = ParamSpec<uint8_t>::enumerated(options, option_count);
+    spec.animated = true;
+    register_param(name, ptr, spec);
   }
 
-  /**
-   * @brief Registers a float param and flags it engine-written telemetry in one
-   * call.
-   */
+  /** @brief Registers a readonly float slider. */
   HS_COLD_MEMBER void register_readonly_param(const char *name, float *ptr,
                                               float min = 0.0f,
                                               float max = 1.0f) {
-    register_param(name, ptr, min, max, false, true);
+    register_param(name, ptr,
+                   ParamSpec<float>{.min = min, .max = max, .readonly = true});
   }
 
 private:
