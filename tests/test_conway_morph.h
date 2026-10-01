@@ -1037,7 +1037,7 @@ inline void edge_sweep_interval(const ConwayGraph::EdgeSpec &e, float &t_lo,
  * @brief Verifies every edge holds constant topology across its sweep:
  *        fixed V/F/I, closed genus-0 manifold, all faces >= 3 sides, unit
  *        vertices, no traps.
- * @details Snub twist interpolates linearly with t, as a leg sweeps it.
+ * @details Snub twist and clamped t interpolate with the same leg progress.
  */
 inline void test_edge_sweeps_hold_topology() {
   constexpr size_t HALF = sizeof(morph_aux_buf) / 2;
@@ -1056,9 +1056,7 @@ inline void test_edge_sweeps_hold_topology() {
     for (int s = 0; s < SWEEP_SAMPLES; ++s) {
       const float u = static_cast<float>(s) / (SWEEP_SAMPLES - 1);
       const float t = t_lo + (t_hi - t_lo) * u;
-      const float twist =
-          e.twist_from +
-          (e.twist_to - e.twist_from) * ((t - e.t_from) / (e.t_to - e.t_from));
+      const float twist = e.twist_from + (e.twist_to - e.twist_from) * u;
 
       Arena target(morph_target_buf, sizeof(morph_target_buf));
       Arena temp(morph_temp_buf, sizeof(morph_temp_buf));
@@ -1130,10 +1128,9 @@ inline void test_edge_morph_frames_fit_scratch_budget() {
 
     float t_lo, t_hi;
     edge_sweep_interval(e, t_lo, t_hi);
-    const float t = (t_lo + t_hi) * 0.5f;
-    const float twist =
-        e.twist_from +
-        (e.twist_to - e.twist_from) * ((t - e.t_from) / (e.t_to - e.t_from));
+    constexpr float U = 0.5f;
+    const float t = t_lo + (t_hi - t_lo) * U;
+    const float twist = e.twist_from + (e.twist_to - e.twist_from) * U;
 
     Arena a(morph_target_buf, MORPH_SCRATCH_A_BUDGET);
     Arena b(morph_temp_buf, MORPH_SCRATCH_B_BUDGET);
