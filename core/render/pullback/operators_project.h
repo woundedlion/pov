@@ -149,6 +149,7 @@ struct MeridianProjectOrientation : ProjectOrientation {
 /** @brief Shared projection walk state, frame conjugate, and family call. */
 template <typename Derived, typename ParamsT, bool CacheMeridian = false>
 struct ProjectOpModel : ValueStateModel<SpatialWalkState> {
+  static constexpr bool EDGE_DISTANCE_AVAILABLE = true;
   using Input = SphereSample;
   using Output = PlaneSample;
   using Params = ParamsT;
@@ -212,6 +213,7 @@ struct ProjectStereographic
 /** @brief SPHERE→PLANE crossing: the folded sinusoidal projection. */
 struct ProjectFoldedSinusoidal
     : ProjectOpModel<ProjectFoldedSinusoidal, RegularProjectChainParams> {
+  static constexpr bool EDGE_DISTANCE_AVAILABLE = false;
   static constexpr const char *ID = "project.folded-sinusoidal.v2";
   static constexpr const char *NAME = "Folded Sinusoidal";
 
