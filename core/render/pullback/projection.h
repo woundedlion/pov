@@ -4,8 +4,6 @@
  */
 #pragma once
 
-#include <algorithm>
-
 #include "render/pullback/contract.h"
 #include "render/pullback/fields.h"
 
