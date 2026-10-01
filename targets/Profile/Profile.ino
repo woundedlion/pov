@@ -225,7 +225,7 @@ public:
     drain_probe_breakdown();
 #endif
 #ifdef HS_PROFILE_PULLBACK_PROJECTION
-    drain_shader_workbench_stages();
+    drain_pullback_projection();
 #endif
     render_sum += render;
     if (render > render_max)
@@ -301,7 +301,7 @@ private:
     dump_plot_stalls();
 #endif
 #ifdef HS_PROFILE_PULLBACK_PROJECTION
-    dump_shader_workbench_stages();
+    dump_pullback_projection();
 #endif
     dump_isr_stats(now - window_start);
     hs::CycleCounter::reset_all();
@@ -380,7 +380,7 @@ private:
     void reset() { *this = {}; }
   };
 
-  void drain_shader_workbench_stages() {
+  void drain_pullback_projection() {
     const hs::PullbackProjectionCycles &frame =
         hs::g_pullback_projection_cycles;
     pullback_projection_totals.polyhedral_pixels += frame.polyhedral_pixels;
@@ -392,7 +392,7 @@ private:
     hs::g_pullback_projection_cycles.reset();
   }
 
-  void dump_shader_workbench_stages() {
+  void dump_pullback_projection() {
     char pixels[21], reflections[21];
     hs::log(
         "polyhedral: pixels=%s reflections=%s max=%lu",
