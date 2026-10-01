@@ -165,7 +165,7 @@ inline uint16_t lerp16_reference(uint16_t a, uint16_t b, uint16_t frac) {
  * @details A signed 16x16 multiply would misread any operand >= 32768 (a frac,
  *          an inverse-frac, or a bright channel) as negative and corrupt the
  *          whole upper half by up to a full 65535; this pins unsigned-correct
- *          results so the device's MAC path stays bit-exact with the double
+ *          results so the device's MAC path stays within one LSB of the double
  *          reference. The native build can't run the ARM asm, so this guards the
  *          behavior, not the instruction.
  */
