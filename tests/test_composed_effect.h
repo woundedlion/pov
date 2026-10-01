@@ -1175,9 +1175,14 @@ inline void check_document_values(const char *name) {
                    double{FX::PRESET_DWELL_FRAMES});
     }
   const JsonValue *edges = bank->find("edges");
+  if constexpr (FX::PRESET_IDS.size() > 1)
+    HS_EXPECT_TRUE(edges != nullptr &&
+                   edges->items.size() == FX::PRESET_IDS.size());
+  std::array<bool, FX::PRESET_IDS.size()> departures{};
   if (edges != nullptr)
     for (const JsonValue &edge : edges->items) {
       const JsonValue *from = edge.find("from");
+      const JsonValue *to = edge.find("to");
       const JsonValue *duration = edge.find("duration");
       HS_EXPECT_TRUE(from != nullptr && duration != nullptr);
       if (from == nullptr || duration == nullptr)
@@ -1187,11 +1192,22 @@ inline void check_document_values(const char *name) {
              FX::PRESET_IDS[departing] != from->text)
         ++departing;
       HS_EXPECT_TRUE(departing < FX::PRESET_IDS.size());
-      if (departing < FX::PRESET_IDS.size())
+      if (departing < FX::PRESET_IDS.size()) {
+        HS_EXPECT_FALSE(departures[departing]);
+        departures[departing] = true;
+        HS_EXPECT_TRUE(
+            to != nullptr &&
+            to->text ==
+                FX::PRESET_IDS[(departing + 1) % FX::PRESET_IDS.size()]);
         HS_EXPECT_EQ(duration->number,
                      static_cast<double>(Segue::Preset::frames(
                          FX::preset_departure(departing))));
+      }
     }
+
+  if constexpr (FX::PRESET_IDS.size() > 1)
+    for (bool seen : departures)
+      HS_EXPECT_TRUE(seen);
 
   for (size_t index = 0; index < FX::PRESET_IDS.size(); ++index) {
     HS_CONTEXT("preset", static_cast<int>(index));
@@ -1217,6 +1233,45 @@ inline void check_document_values(const char *name) {
         }
 
     Params built{};
+    const float MISSING = std::bit_cast<float>(uint32_t{0x7fc00001});
+    const auto poison = [MISSING]<typename Family>(Family &family) {
+      if constexpr (Pullback::HasFields<Family> &&
+                    !std::is_same_v<Family, Pullback::NoWarpParams>)
+        for (const auto &field : Family::FIELDS) {
+          if (!gate_open<FX>(field.gate))
+            continue;
+          if (std::string_view(field.id) == "edge-width" &&
+              FX::Spec::COVERAGE != Pullback::ProjectionCoverageMode::EDGE_FADE)
+            continue;
+          if constexpr (std::is_same_v<Family, Pullback::ColorParams>) {
+            if ((field.member == &Family::brightness_bottom ||
+                 field.member == &Family::brightness_top) &&
+                TraitsOf<FX>::BRIGHTNESS ==
+                    Pullback::Color::BrightnessEnvelope::NONE)
+              continue;
+            if (field.member == &Family::hue_shift_amount &&
+                TraitsOf<FX>::HUE == Pullback::HueMode::NONE)
+              continue;
+            if ((field.member == &Family::hue_noise_scale ||
+                 field.member == &Family::hue_noise_speed) &&
+                TraitsOf<FX>::HUE != Pullback::HueMode::NOISE)
+              continue;
+          }
+          family.*(field.member) = MISSING;
+        }
+    };
+    poison(built.source);
+    poison(built.projection);
+    poison(built.outer_warp);
+    poison(built.inner_warp);
+    poison(built.surface);
+    poison(built.value);
+    poison(built.color);
+    built.color.palette_mapping =
+        static_cast<Pullback::Color::PaletteMapping>(255);
+    if constexpr (requires { built.lens.mobius; })
+      built.lens.mobius = {MISSING, MISSING, MISSING, MISSING,
+                           MISSING, MISSING, MISSING, MISSING};
     for (size_t member = 0; member < values->member_keys.size(); ++member) {
       const std::string &key = values->member_keys[member];
       const JsonValue &value = values->member_values[member];
@@ -1241,6 +1296,8 @@ inline void check_document_values(const char *name) {
               1.0f /
                   preset_params_or_initial<FX>(index).source.lattice_cell_scale,
               1e-6f);
+          built.source.lattice_cell_scale =
+              1.0f / static_cast<float>(value.number);
           continue;
         }
       }
@@ -1255,7 +1312,13 @@ inline void check_document_values(const char *name) {
               values->find(slot.label + ".spin-speed") != nullptr;
       HS_EXPECT_TRUE(camera_spin_present);
     }
-    verify_params_equal(built, preset_params_or_initial<FX>(index));
+    const Params expected = preset_params_or_initial<FX>(index);
+    if constexpr (requires { built.source.lattice_cell_scale; }) {
+      HS_EXPECT_NEAR(built.source.lattice_cell_scale,
+                     expected.source.lattice_cell_scale, 1e-6f);
+      built.source.lattice_cell_scale = expected.source.lattice_cell_scale;
+    }
+    verify_params_equal(built, expected);
   }
 }
 
