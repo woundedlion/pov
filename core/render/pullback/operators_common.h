@@ -39,13 +39,10 @@ struct SpatialWalkState {
   math::Vector position;
   math::Vector direction;
   math::Quaternion wander;
-  math::Quaternion raw_orientation;
   float angular_velocity = 0.0f;
   float spin_phase = 0.0f;
   uint32_t walk_time = 0;
   int32_t noise_seed = 0;
-  bool legacy = false;
-  Animation::RandomWalkOptions legacy_options;
 };
 
 inline void init_walk(SpatialWalkState &state, int32_t seed) {
@@ -59,23 +56,6 @@ inline void init_walk(SpatialWalkState &state, int32_t seed) {
 inline void advance_walk(SpatialWalkState &state, float wander,
                          float spin_rate) {
   ++state.walk_time;
-  if (state.legacy) {
-    const auto delta = Animation::step_random_walk<true>(
-        state.position, state.direction, state.angular_velocity,
-        state.walk_noise, state.legacy_options, state.walk_time);
-    const auto next = (math::make_rotation(delta.axis.normalized(),
-                                           state.legacy_options.speed) *
-                       state.raw_orientation.normalized())
-                          .normalized();
-    const auto sampled =
-        (next * state.raw_orientation.conjugate()).normalized();
-    state.wander =
-        (math::slerp(math::Quaternion(), sampled, wander) * state.wander)
-            .normalized();
-    state.raw_orientation = next;
-    state.spin_phase = fmodf(state.spin_phase + spin_rate, math::TWO_PI_F);
-    return;
-  }
   const Animation::RandomWalkDelta delta = Animation::step_random_walk<false>(
       state.position, state.direction, state.angular_velocity, state.walk_noise,
       WALK_OPTIONS, state.walk_time);

@@ -167,12 +167,18 @@ struct SourceClockModel : ValueStateModel<SourceClockState> {
   }
 };
 
-/** @brief Parameter family of sample.grid.v2: the grid source fields plus the
+/** @brief Parameter family of sample.grid.v3: the grid source fields plus the
     crossing's union field and topology enum8s. */
 struct GridSampleParams : Source::GridSourceParams, SampleCrossingParams {
-  static constexpr auto FIELDS = concat_fields<GridSampleParams>(
-      Source::GridSourceParams::FIELDS,
-      sample_crossing_fields<GridSampleParams>());
+  static constexpr auto FIELDS = [] {
+    auto fields = concat_fields<GridSampleParams>(
+        Source::GridSourceParams::FIELDS,
+        sample_crossing_fields<GridSampleParams>());
+    for (auto &field : fields)
+      if (std::string_view(field.id) == "drift")
+        field.max = 2.0f;
+    return fields;
+  }();
   static constexpr auto TOPOLOGY = sample_crossing_topology<GridSampleParams>();
 };
 static_assert(field_ids_unique<GridSampleParams>());
@@ -180,9 +186,9 @@ static_assert(field_defaults_in_range<GridSampleParams>());
 
 /** @brief PLANE→FIELD crossing: the coupled sine grid source with topology
     weight and coverage modes. */
-struct SampleGrid : SourceClockModel {
-  static constexpr const char *ID = "sample.grid.v2";
-  static constexpr const char *NAME = "Grid";
+struct SampleGridV3 : SourceClockModel {
+  static constexpr const char *ID = "sample.grid.v3";
+  static constexpr const char *NAME = "Grid Extended Drift";
   using Input = PlaneSample;
   using Output = FieldSample;
   using Params = GridSampleParams;
@@ -197,12 +203,18 @@ struct SampleGrid : SourceClockModel {
   }
 };
 
-/** @brief Parameter family of sample.twin-wave.v2. */
+/** @brief Parameter family of sample.twin-wave.v3. */
 struct TwinWaveSampleParams : Source::TwinWaveSourceParams,
                               SampleCrossingParams {
-  static constexpr auto FIELDS = concat_fields<TwinWaveSampleParams>(
-      Source::TwinWaveSourceParams::FIELDS,
-      sample_crossing_fields<TwinWaveSampleParams>());
+  static constexpr auto FIELDS = [] {
+    auto fields = concat_fields<TwinWaveSampleParams>(
+        Source::TwinWaveSourceParams::FIELDS,
+        sample_crossing_fields<TwinWaveSampleParams>());
+    for (auto &field : fields)
+      if (std::string_view(field.id) == "drift")
+        field.max = 2.0f;
+    return fields;
+  }();
   static constexpr auto TOPOLOGY =
       sample_crossing_topology<TwinWaveSampleParams>();
 };
@@ -210,9 +222,9 @@ static_assert(field_ids_unique<TwinWaveSampleParams>());
 static_assert(field_defaults_in_range<TwinWaveSampleParams>());
 
 /** @brief PLANE→FIELD crossing: the two-wave interference source. */
-struct SampleTwinWave : SourceClockModel {
-  static constexpr const char *ID = "sample.twin-wave.v2";
-  static constexpr const char *NAME = "Twin Wave";
+struct SampleTwinWaveV3 : SourceClockModel {
+  static constexpr const char *ID = "sample.twin-wave.v3";
+  static constexpr const char *NAME = "Twin Wave Extended Drift";
   using Input = PlaneSample;
   using Output = FieldSample;
   using Params = TwinWaveSampleParams;
@@ -225,48 +237,6 @@ struct SampleTwinWave : SourceClockModel {
         prepared);
     return finish_sample(input, raw, params, ctx);
   }
-};
-
-struct ExtendedGridSampleParams : Source::GridSourceParams,
-                                  SampleCrossingParams {
-  static constexpr auto FIELDS = [] {
-    auto fields = concat_fields<ExtendedGridSampleParams>(
-        Source::GridSourceParams::FIELDS,
-        sample_crossing_fields<ExtendedGridSampleParams>());
-    for (auto &field : fields)
-      if (std::string_view(field.id) == "drift")
-        field.max = 2.0f;
-    return fields;
-  }();
-  static constexpr auto TOPOLOGY =
-      sample_crossing_topology<ExtendedGridSampleParams>();
-};
-
-struct ExtendedTwinWaveSampleParams : Source::TwinWaveSourceParams,
-                                      SampleCrossingParams {
-  static constexpr auto FIELDS = [] {
-    auto fields = concat_fields<ExtendedTwinWaveSampleParams>(
-        Source::TwinWaveSourceParams::FIELDS,
-        sample_crossing_fields<ExtendedTwinWaveSampleParams>());
-    for (auto &field : fields)
-      if (std::string_view(field.id) == "drift")
-        field.max = 2.0f;
-    return fields;
-  }();
-  static constexpr auto TOPOLOGY =
-      sample_crossing_topology<ExtendedTwinWaveSampleParams>();
-};
-
-struct SampleGridV3 : SampleGrid {
-  static constexpr const char *ID = "sample.grid.v3";
-  static constexpr const char *NAME = "Grid Extended Drift";
-  using Params = ExtendedGridSampleParams;
-};
-
-struct SampleTwinWaveV3 : SampleTwinWave {
-  static constexpr const char *ID = "sample.twin-wave.v3";
-  static constexpr const char *NAME = "Twin Wave Extended Drift";
-  using Params = ExtendedTwinWaveSampleParams;
 };
 
 /** @brief Parameter family of sample.rings.v2. */

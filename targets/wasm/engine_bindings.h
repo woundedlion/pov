@@ -364,16 +364,12 @@ public:
    *          setEffect(). The engine-owned animation pause state is retained.
    */
   EffectSetResult setEffect(const std::string &name) {
-    const std::string_view canonical_name =
-        name == "Shader" || name == "ShaderBall" || name == "ShaderWorkbench"
-            ? std::string_view{"ShaderChain"}
-            : name;
     // Validate against the current resolution's factory BEFORE tearing anything
     // down, so a typo'd name keeps the prior valid state alive.
     const FactoryEntry *entry = nullptr;
     const bool dispatched = hs_wasm::dispatch_resolution(
         pixel_width, pixel_height, [&]<int W, int H>() {
-          entry = hs_wasm::find_factory_entry<W, H>(canonical_name);
+          entry = hs_wasm::find_factory_entry<W, H>(name);
         });
     if (!dispatched) {
       hs::log("WASM: setEffect at unsupported resolution %dx%d — keeping "

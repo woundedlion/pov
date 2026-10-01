@@ -49,14 +49,14 @@ struct WarpPhaseState {
   float phase = 0.0f;
 };
 
-/** @brief Parameter family of warp.affine.v2; translations are lattice cells. */
+/** @brief Parameter family of warp.affine.v3; translations are lattice cells. */
 struct AffineWarpParams : Warp::AffineParams {
   float lattice_period = 1.0f;
   static constexpr auto FIELDS = concat_fields<AffineWarpParams>(
       Warp::AffineParams::FIELDS,
       std::array{Field<AffineWarpParams>{
           "lattice-period", &AffineWarpParams::lattice_period, "Lattice Period",
-          1.0f / 8.0f, 64.0f, FieldCurve::LOG_POSITIVE}});
+          1.0f / 64.0f, 100.0f, FieldCurve::LOG_POSITIVE}});
 };
 static_assert(field_ids_unique<AffineWarpParams>());
 static_assert(
@@ -64,16 +64,16 @@ static_assert(
     "appended parameter block must have the expected rounded size");
 static_assert(field_defaults_in_range<AffineWarpParams>());
 
-/** @brief Phase clock plus the accumulated frame rotation of warp.affine.v2. */
+/** @brief Phase clock plus the accumulated frame rotation of warp.affine.v3. */
 struct AffineClockState {
   float phase = 0.0f;
   float rotation = 0.0f;
 };
 
 /** @brief PLANE endomorphism: the oscillating affine frame change. */
-struct WarpAffine : ValueStateModel<AffineClockState> {
-  static constexpr const char *ID = "warp.affine.v2";
-  static constexpr const char *NAME = "Affine Warp";
+struct WarpAffineV3 : ValueStateModel<AffineClockState> {
+  static constexpr const char *ID = "warp.affine.v3";
+  static constexpr const char *NAME = "Affine Warp Extended Period";
   using Input = PlaneSample;
   using Output = PlaneSample;
   using Params = AffineWarpParams;
@@ -96,26 +96,6 @@ struct WarpAffine : ValueStateModel<AffineClockState> {
     return Kernel::warp(input,
                         Warp::affine_frame(input.coords, prepared, true));
   }
-};
-
-struct ExtendedAffineWarpParams : AffineWarpParams {
-  static constexpr auto FIELDS = [] {
-    auto fields = concat_fields<ExtendedAffineWarpParams>(
-        AffineWarpParams::FIELDS,
-        std::array<Field<ExtendedAffineWarpParams>, 0>{});
-    for (auto &field : fields)
-      if (std::string_view(field.id) == "lattice-period") {
-        field.min = 1.0f / 64.0f;
-        field.max = 100.0f;
-      }
-    return fields;
-  }();
-};
-
-struct WarpAffineV3 : WarpAffine {
-  static constexpr const char *ID = "warp.affine.v3";
-  static constexpr const char *NAME = "Affine Warp Extended Period";
-  using Params = ExtendedAffineWarpParams;
 };
 
 /** @brief Parameter family of warp.wave-shear.v2. */

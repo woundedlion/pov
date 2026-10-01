@@ -107,10 +107,8 @@ class ChainSnapshotCodec {
     out.set("position", vector(state.position));
     out.set("direction", vector(state.direction));
     out.set("wander", quaternion(state.wander));
-    out.set("rawOrientation", quaternion(state.raw_orientation));
     out.set("angularVelocity", state.angular_velocity);
     out.set("spinPhase", state.spin_phase);
-    out.set("legacy", state.legacy);
     return out;
   }
   static bool spatial(const Val &value,
@@ -120,10 +118,8 @@ class ChainSnapshotCodec {
            vector(value["position"], state.position) &&
            vector(value["direction"], state.direction) &&
            quaternion(value["wander"], state.wander) &&
-           quaternion(value["rawOrientation"], state.raw_orientation) &&
            number(value, "angularVelocity", state.angular_velocity) &&
-           number(value, "spinPhase", state.spin_phase) &&
-           boolean(value, "legacy", state.legacy);
+           number(value, "spinPhase", state.spin_phase);
   }
   static Val runtime_state(const Runtime &snapshot) {
     using namespace Pullback::Interp;
@@ -161,7 +157,7 @@ class ChainSnapshotCodec {
     using namespace Pullback::Interp;
     if (!object(value))
       return false;
-    if (kind == "spatial-walk-v1") {
+    if (kind == "spatial-walk-v2") {
       SpatialWalkSnapshot state;
       if (!spatial(value, state))
         return false;
@@ -192,7 +188,7 @@ class ChainSnapshotCodec {
           !integer(value, "hueNoiseSeed", state.hue_noise_seed))
         return false;
       out = state;
-    } else if (kind == "spherical-rings-v1") {
+    } else if (kind == "spherical-rings-v2") {
       SphericalRingsSnapshot state;
       if (!spatial(value["walk"], state.walk) ||
           !number(value, "phase", state.phase))
@@ -271,7 +267,7 @@ public:
   static Result decode(const Val &input, ChainSnapshot &out) {
     if (!object(input) || !integer(input, "schemaVersion", out.schema_version))
       return Result::INVALID_VALUE;
-    if (out.schema_version != 1)
+    if (out.schema_version != ChainSnapshot::SCHEMA_VERSION)
       return Result::UNSUPPORTED_VERSION;
     if (!boolean(input, "animationsPaused", out.animations_paused))
       return Result::INVALID_VALUE;
