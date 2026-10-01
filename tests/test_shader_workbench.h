@@ -5094,6 +5094,11 @@ inline void test_shader_workbench_projection_and_admission_contracts() {
     frame.clocks.warp_outer_phase = 0.0f;
     const auto at_zero =
         WB::warp_stage(point, projected, spec, periodic_params, frame);
+    frame.clocks.warp_outer_phase = 0.25f;
+    const auto at_quarter =
+        WB::warp_stage(point, projected, spec, periodic_params, frame);
+    HS_EXPECT_TRUE(fabsf(at_zero.coords.re - at_quarter.coords.re) > 1e-4f ||
+                   fabsf(at_zero.coords.im - at_quarter.coords.im) > 1e-4f);
     frame.clocks.warp_outer_phase = 1.0f;
     const auto at_wrap =
         WB::warp_stage(point, projected, spec, periodic_params, frame);
