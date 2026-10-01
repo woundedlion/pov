@@ -4,16 +4,10 @@
   // This file and that module state the gate's ceilings and layout invariants;
   // nothing else is normative. // line comments only (tests/CMakeLists.txt also reads this file).
   //
-  // CALIBRATED FROM REAL BUILDS: teensy@5.2.0 (Teensyduino 1.62.0 / arm-gcc
-  // 15.2.1), PlatformIO 6.1.19, FastLED 3.4.0. Both shipping images pass.
-  // Holosphere keeps the bench-parity -O3 configuration. Phantasm uses -Os,
-  // newlib-nano, a flash-routing linker script, and the measured 298 KiB arena;
-  // it uses 510,368 B of RAM1 (variables 313,760 + code 193,496 rounded up to a
-  // whole 32 KiB FlexRAM bank, 196,608) with 13,920 B free for locals.
-  // These figures move with every code
-  // landing AND with the pinned toolchain; re-measure rather than trusting them
-  // verbatim. Holosphere RAM2 is 44,160 B (its framebuffers are sized to the
-  // 96x20 canvas via -DCANVAS_W/-DCANVAS_H); Phantasm RAM2 is 520,064 B.
+  // RAM1 usage is DTCM variables plus ITCM code rounded to whole 32 KiB banks.
+  // Stack headroom is total FlexRAM minus that usage; current builds supply the
+  // measured components. Fixtures in teensy_gate_tests/fixtures/real preserve
+  // historical builds for parser and layout regression tests.
   //
   // Symbol names are the REAL linkage names from `readelf -s`: the arena is
   // file-scope static, so it mangles to `_ZL18global_arena_block` (NOT the source
