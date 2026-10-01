@@ -184,6 +184,7 @@ pcb:
 
 # Validate generated color lookup tables.
 color-lut-check:
+    {{ python_command }} tools/build_pins.py --check-tool clang-format
     cmake -E make_directory build/provenance
     {{ python_command }} scripts/generate_luts.py -o build/provenance/color_luts.h
     cmake -E compare_files core/color/color_luts.h build/provenance/color_luts.h
@@ -196,6 +197,7 @@ reaction-graph-check:
 
 # Validate the generated sRGB decoder tables.
 srgb-decode-check:
+    {{ python_command }} tools/build_pins.py --check-tool cmake
     cmake --preset tests
     cmake --build --preset tests --target srgb_decode_gen
     cmake -E make_directory build/provenance
