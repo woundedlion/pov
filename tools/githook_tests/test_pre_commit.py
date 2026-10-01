@@ -165,7 +165,7 @@ class PreCommitHook(unittest.TestCase):
             self.skipTest("node unavailable")
         scripts = self.repo / "scripts"
         scripts.mkdir()
-        for name in ["check_profiles.mjs", "effect_roster.mjs"]:
+        for name in ["check_profiles.mjs", "effect_roster.mjs", "exit.mjs"]:
             shutil.copyfile(REPO / "scripts" / name, scripts / name)
         targets = self.repo / "targets"
         (targets / "Phantasm").mkdir(parents=True)
