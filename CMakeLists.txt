@@ -272,9 +272,8 @@ if(EMSCRIPTEN)
             FILES_MATCHING PATTERN "*.png")
     # Record the engine commit this WASM module was built from, the content hashes
     # of the module's two shipped halves (.wasm binary, .js glue), and the toolchain
-    # that produced them. Daydream downloads the CI-published bundle for this SHA
-    # and requires byte identity with the committed artifacts. The provenance and
-    # artifacts are captured together at install time.
+    # that produced them. Daydream local provenance and parity tests consume
+    # this set; deployments use only the CI-published engine bundle.
     install(CODE "
       # Normalize Windows glue to LF; escape literal @ tokens before CONFIGURE.
       set(HS_AT \"@\")
@@ -300,7 +299,7 @@ if(EMSCRIPTEN)
           RESULT_VARIABLE HS_GIT_DIRTY_RC)
         if(NOT HS_GIT_DIRTY_RC EQUAL 0 OR NOT \"\${HS_GIT_DIRTY}\" STREQUAL \"\")
           set(HS_ENGINE_SHA \"\${HS_ENGINE_SHA}-dirty\")
-          message(WARNING \"Engine tree has uncommitted or untracked changes (or git could not report on it); recording ${TARGET_NAME}.sha as \${HS_ENGINE_SHA}. The deploy gate will reject this ref — rebuild from a clean (committed) tree before deploying.\")
+          message(WARNING \"Engine tree has uncommitted or untracked changes (or git could not report on it); recording ${TARGET_NAME}.sha as \${HS_ENGINE_SHA}. Local provenance tests require a clean source ref; deployment uses only CI-published bundles.\")
         endif()
         file(CONFIGURE OUTPUT \"${DAYDREAM_DIR}/generated/${TARGET_NAME}.sha\"
              CONTENT \"\${HS_ENGINE_SHA}\\n\" @ONLY NEWLINE_STYLE LF)
@@ -310,10 +309,9 @@ if(EMSCRIPTEN)
         # from the generated directory. Covers both halves of the module: the binary and the
         # Emscripten glue that instantiates it — stale or hand-edited glue (embind
         # signature drift, wrong memory config) white-screens the live page against an
-        # otherwise byte-verified binary. Kept under the .wasm.sha256 name the deploy
-        # gate already passes to `sha256sum -c`.
+        # otherwise byte-verified binary. Local provenance tests read .wasm.sha256.
         # Written only alongside the .sha so the provenance set is never half-written
-        # (a .wasm.sha256 without a .sha is a partial set the deploy gate rejects).
+        # (a .wasm.sha256 without a .sha is a partial provenance set).
         # The glue hash is taken over the LF-normalized copy written above.
         file(SHA256 \"${DAYDREAM_DIR}/generated/${TARGET_NAME}.wasm\" HS_WASM_SHA256)
         file(SHA256 \"${DAYDREAM_DIR}/generated/${TARGET_NAME}.js\" HS_GLUE_SHA256)
@@ -322,10 +320,7 @@ if(EMSCRIPTEN)
              @ONLY NEWLINE_STYLE LF)
         message(STATUS \"Wrote artifact hashes ${TARGET_NAME}.wasm.sha256: .wasm=\${HS_WASM_SHA256} .js=\${HS_GLUE_SHA256}\")
 
-        # Toolchain identity of the build event. The deploy gate requires byte
-        # identity with the pinned CI bundle; it does not rebuild the engine.
-        # A separate additive file, not extra lines in the two above: the gate feeds
-        # .wasm.sha256 to `sha256sum -c` and requires .sha to be a bare 40-hex ref.
+        # Toolchain identity of the build event, read by local provenance tests.
         # Written with the pair above, keeping the provenance set all-or-nothing.
         #
         # build_type and dev_bindings record the CONFIGURATION as well as the
@@ -338,19 +333,11 @@ if(EMSCRIPTEN)
              @ONLY NEWLINE_STYLE LF)
         message(STATUS \"Wrote toolchain provenance ${TARGET_NAME}.toolchain: emsdk ${EMSCRIPTEN_VERSION}, clang ${CMAKE_CXX_COMPILER_VERSION}, ${CMAKE_BUILD_TYPE}, dev bindings ${HS_WASM_DEV_BINDINGS_STATE}\")
       else()
-        # git is absent or this is not a working tree (an exported tarball /
-        # non-git checkout). A plain 'just install' still succeeds there, but
-        # the marker set is REMOVED, not skipped: an earlier run's markers
-        # describe the artifacts they were written with, and the ones just
-        # installed are different, so leaving them standing hands the deploy
-        # gate provenance for a module that is no longer there.
-        # With the set gone the gate finds nothing to verify and refuses to deploy
-        # an unverifiable artifact — which is correct; deploy only from a git
-        # checkout.
+        # Remove stale markers when the installed artifact has no source identity.
         file(REMOVE \"${DAYDREAM_DIR}/generated/${TARGET_NAME}.sha\"
                     \"${DAYDREAM_DIR}/generated/${TARGET_NAME}.wasm.sha256\"
                     \"${DAYDREAM_DIR}/generated/${TARGET_NAME}.toolchain\")
-        message(WARNING \"git unavailable or not a working tree (rc=\${HS_GIT_RC}); removed ${TARGET_NAME} provenance markers (.sha / .wasm.sha256 / .toolchain). Install completes, but the deploy gate has nothing to verify — deploy only from a git checkout.\")
+        message(WARNING \"git unavailable or not a working tree (rc=\${HS_GIT_RC}); removed ${TARGET_NAME} provenance markers (.sha / .wasm.sha256 / .toolchain). Install completes without local provenance; deployment uses only CI-published bundles.\")
       endif()
     ")
     install(CODE "
