@@ -85,7 +85,7 @@ fade into it, then its hold and the first half of any fade out of it.
 | 4 | Octet Wide Flight | 31.26 | 29.77 | 🟢 31.75 | 0/679 |
 | 1 | Cubic Wide Flight | 29.15 | 25.59 | 🟢 29.64 | 0/817 |
 | 6 | Shell Flight | 27.88 | 23.55 | 🟢 28.03 | 0/439 |
-| 0 | Cubic Flight | 26.37 | 24.72 | 🟢 43.34 | 0/758 |
+| 0 | Cubic Flight | 26.37 | 24.72 | 🟢 26.41 | 0/758 |
 
 The experimental cycle wrapped to preset 1 (ten `Preset:` markers) and held
 16 fps on every one of its 5,487 live frames. Octet 4D Flight's bucket peak,

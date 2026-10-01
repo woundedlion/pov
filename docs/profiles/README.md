@@ -118,7 +118,6 @@ below. [Report](shipping/profile_hyperlattice_teensy_2026-09-29.md#per-preset-ta
 | Preset | Ship peak ms | Ship spilled | Captured |
 |---|--:|--:|---|
 | 5: Octet 4D Flight | 🟢 55.87 | 🟢 0/559 (0.00%) | 2026-09-29 16:11 |
-| 0: Cubic Flight | 🟢 43.34 | 🟢 0/758 (0.00%) | 2026-09-29 16:11 |
 | 8: Shell 4D Flight | 🟢 36.76 | 🟢 0/559 (0.00%) | 2026-09-29 16:11 |
 | 2: Hypercube Flight | 🟢 36.70 | 🟢 0/559 (0.00%) | 2026-09-29 16:11 |
 | 3: Octet Flight | 🟢 32.23 | 🟢 0/439 (0.00%) | 2026-09-29 16:11 |
@@ -126,6 +125,7 @@ below. [Report](shipping/profile_hyperlattice_teensy_2026-09-29.md#per-preset-ta
 | 7: Shell Close Flight | 🟢 31.22 | 🟢 0/679 (0.00%) | 2026-09-29 16:11 |
 | 1: Cubic Wide Flight | 🟢 29.64 | 🟢 0/817 (0.00%) | 2026-09-29 16:11 |
 | 6: Shell Flight | 🟢 28.03 | 🟢 0/439 (0.00%) | 2026-09-29 16:11 |
+| 0: Cubic Flight | 🟢 26.41 | 🟢 0/758 (0.00%) | 2026-09-29 16:11 |
 
 ## Octet optimization supplement
 
