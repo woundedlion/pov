@@ -6,7 +6,6 @@
 
 #include "animation/orientation.h"
 #include <span>
-#include <algorithm>
 #include "render/filter/world_orient.h"
 #include "math/geometry.h"
 #include "color/color.h"
