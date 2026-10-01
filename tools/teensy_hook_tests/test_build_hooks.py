@@ -387,5 +387,20 @@ class TestIsystemDemotion(unittest.TestCase):
         self.assertEqual(env["CCFLAGS"], ["-isystem", FRAMEWORK])
 
 
+class IncludeClassificationTests(unittest.TestCase):
+    def test_checkout_packages_component_stays_first_party(self):
+        env = FakeEnv(PROJECT_PACKAGES_DIR="/pio/packages",
+                      PROJECT_LIBDEPS_DIR="/work/packages/repo/.pio/libdeps",
+                      CPPPATH=["/pio/packages/teensy/core",
+                                   "/work/packages/repo/core"])
+        module = load_hook("teensy_isystem.py", env=env, projenv=env)
+        classify = module._is_third_party
+        self.assertFalse(classify("/work/packages/repo/core"))
+        self.assertFalse(classify("/pio/packages-other/core"))
+        self.assertTrue(classify("/pio/packages/teensy/core"))
+        self.assertTrue(classify("/work/packages/repo/.pio/libdeps/target/FastLED"))
+        self.assertEqual(env["CPPPATH"], ["/work/packages/repo/core"])
+
+
 if __name__ == "__main__":
     unittest.main()
