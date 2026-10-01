@@ -3065,6 +3065,21 @@ inline void test_epoch_same_tick_burst_fold() {
   const uint32_t R = static_cast<uint32_t>(cfg.epoch_repeats);
   const uint32_t K = cfg.commit_revs;
 
+  for (uint32_t j = 1; j <= R; ++j) {
+    SyncBoard board(cfg);
+    constexpr uint32_t START = 1000u;
+    board.seed(START, false);
+    flywheel_mut(board).force_lock();
+    content_mut(board).identity_known = true;
+    content_mut(board).rev_in_effect = RPE + j - 1;
+    const uint32_t ZERO = START + 2u * cfg.cycles_per_half_rev;
+    const uint32_t COL = cfg.cycles_per_column();
+    const BurstSnapshot burst{5, ZERO, ZERO + 4u * COL};
+    board.tick(ZERO + 4u * COL + cfg.gap_timeout_cycles(), &burst);
+    HS_EXPECT_TRUE(content(board).commit_pending);
+    HS_EXPECT_EQ(content(board).commit_in_revs, K + R - j);
+  }
+
   // Drives a content tracker that hears copy j of the train, then counts ZERO
   // crossings to the commit and returns the ABSOLUTE rev at which it fired
   // (on_zero_crossing zeroes rev_in_effect on commit, so it is computed, not
