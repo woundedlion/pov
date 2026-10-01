@@ -7,10 +7,10 @@ Rows rank by any spill, then peak render. 🟢 is zero spill, 🟡 is under 25% 
 
 | Effect | Dominant scope | Peak ms | Spilled | Captured |
 |---|---|--:|--:|---|
-| [GSReactionDiffusion](profile_gsreactiondiffusion_teensy_2026-09-30.md) ● | `grd_render` | 🔴 313.695 | 🔴 443/443 (100.00%) | 2026-09-30 19:21 |
+| [GSReactionDiffusion](profile_gsreactiondiffusion_teensy_2026-09-30.md) | `grd_render` | 🔴 313.695 | 🔴 443/443 (100.00%) | 2026-09-30 19:21 |
 | [MindSplatter](profile_mindsplatter_teensy_2026-09-29.md) § | `msp_draw_particles` | 🟢 54.94 (8) | 🟢 0/1727 (0.00%) | 2026-09-29 14:48 |
 | [Raymarch](profile_raymarch_teensy_2026-09-28.md) | `rm_shader_draw` | 🟢 54.87 | 🟢 0/1087 (0.00%) | 2026-09-28 19:09 |
-| [ShapeShifter](profile_shapeshifter_teensy_2026-09-29.md) ● § | `ss_draw_all` | 🟢 53.22 (9) | 🟢 0/2448 (0.00%) | 2026-09-29 22:38 |
+| [ShapeShifter](profile_shapeshifter_teensy_2026-09-29.md) § | `ss_draw_all` | 🟢 53.22 (9) | 🟢 0/2448 (0.00%) | 2026-09-29 22:38 |
 | [HopfFibration](profile_hopffibration_teensy_2026-09-28.md) | `hf_render_trails` | 🟢 51.52 | 🟢 0/1087 (0.00%) | 2026-09-28 19:02 |
 | [IslamicStars](profile_islamicstars_teensy_2026-09-28.md) § | `is_timeline_step` | 🟢 50.51 (23) | 🟢 0/3327 (0.00%) | 2026-09-28 18:40 |
 | [BZReactionDiffusion](profile_bzreactiondiffusion_teensy_2026-09-28.md) | `bz_render` | 🟢 48.84 | 🟢 0/2047 (0.00%) | 2026-09-28 19:12 |
@@ -46,6 +46,8 @@ Rows rank by any spill, then peak render. 🟢 is zero spill, 🟡 is under 25% 
 | [Voronoi](profile_voronoi_teensy_2026-09-28.md) | `vo_shade` | 🟢 8.51 | 🟢 0/1087 (0.00%) | 2026-09-28 19:15 |
 | [RingShower](profile_ringshower_teensy_2026-09-28.md) | `rsh_draw_rings` | 🟢 4.33 | 🟢 0/1087 (0.00%) | 2026-09-28 19:11 |
 
+GSReactionDiffusion refreshed 2026-09-30 after pigment, hue and shimmer shading changes. Setup frame 1 is excluded; capture provenance is in the linked reports.
+
 The shipping set was refreshed on 2026-09-28 after the kernel-placement change `97eb0bf78`. AshCloud, KaleidoscopeStainedGlass and GridSpace come from the placement A/B's variant-6 arm, which carries the same kernel attributes. Setup frame 1 is excluded from every peak and spill figure; each report states its frame-1 render. Boards are named per report.
 
 For cyclers, each row summarizes the parser-owned preset, shape, or mode entries.
@@ -74,9 +76,7 @@ Shipping reports in this directory correspond exactly to
 `HS_PHANTASM_EFFECT_LIST`.
 
 
-HyperLattice, MindSplatter, ShapeShifter, MeshFeedback and DisplacementField were re-captured on 2026-09-29. ShapeShifter uses 288 contours in entry 1 after the dense planar-star and band-split optimizations; MindSplatter includes the Plot float min/max sweep; MeshFeedback includes the polar-row ITCM trims; DisplacementField records tip `e1fd2e1ec`, with a 35.27 ms peak. HyperLattice includes all three presets and their segues after its optimization campaign. Setup frame 1 is excluded. The ● on ShapeShifter marks its updated capture.
-
-● HyperLattice refreshed on 2026-09-29 after its optimization campaign: all three presets and their segues; setup frame 1 excluded.
+HyperLattice, MindSplatter, ShapeShifter, MeshFeedback and DisplacementField were re-captured on 2026-09-29. ShapeShifter uses 288 contours in entry 1 after the dense planar-star and band-split optimizations; MindSplatter includes the Plot float min/max sweep; MeshFeedback includes the polar-row ITCM trims; DisplacementField records tip `e1fd2e1ec`, with a 35.27 ms peak. HyperLattice includes all three presets and their segues after its optimization campaign. Setup frame 1 is excluded.
 
 ## Supplemental experimental presets
 
@@ -86,9 +86,9 @@ roster ranking. Triangular was subsequently selected for removal.
 | Preset | Dominant scope | Peak render ms | Spilled | Captured |
 | --- | --- | ---: | ---: | --- |
 | [HyperLattice Triangular](../hyperlattice_triangular_2026-09-27.md) | `hl_shader_draw` | 🔴 134.620 | 🔴 441/441 (100%) | 2026-09-27 21:59 |
-| [HyperLattice Octet 3D ●](../hyperlattice_experimental_presets_2026-09-27.md#octet-validation-and-device-measurements) | `hl_shader_draw` | 🔴 96.869 | 🔴 548/548 (100%) | 2026-09-27 22:50 |
+| [HyperLattice Octet 3D](../hyperlattice_experimental_presets_2026-09-27.md#octet-validation-and-device-measurements) | `hl_shader_draw` | 🔴 96.869 | 🔴 548/548 (100%) | 2026-09-27 22:50 |
 
-● Octet 3D refreshed on 2026-09-27 after the single-owner strut correction.
+Octet 3D refreshed on 2026-09-27 after the single-owner strut correction.
 These fixed-preset captures retain the original oscillating camera path.
 The [earlier Octet measurements](../hyperlattice_experimental_presets_2026-09-27.md#octet-validation-and-device-measurements)
 record 3D shipping peak 103.733 ms (548/548 spills) before that correction.
@@ -109,7 +109,7 @@ captured 2026-09-27 22:25.
 | [3: Octet 3D](profile_hyperlattice_octet_preset3_teensy_2026-09-28.md) ● | 🟢 45.688 | 🟢 0/1096 (0.00%) | 2026-09-28 09:56 |
 | [Octet wide (index 5 at capture time)](profile_hyperlattice_octet_preset5_teensy_2026-09-28.md) ● | 🟢 45.242 | 🟢 0/1096 (0.00%) | 2026-09-28 09:53 |
 
-● Updated 2026-09-28 09:53–09:56 after the Octet 58 ms Tiers 1–2 (`1bb522211`). Opt-in held presets, startup excluded; 4D on COM3, 3D on COM4. [Earlier optimization and 4D evidence](../hyperlattice_octet_optimization_2026-09-27.md).
+Updated 2026-09-28 09:53–09:56 after the Octet 58 ms Tiers 1–2 (`1bb522211`). Opt-in held presets, startup excluded; 4D on COM3, 3D on COM4. [Earlier optimization and 4D evidence](../hyperlattice_octet_optimization_2026-09-27.md).
 
 ## Shell flight supplement
 

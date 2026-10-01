@@ -9,19 +9,19 @@ whose render exceeded one 62.5 ms display interval. Rows rank by spill fraction,
 
 | Effect | Dominant scope | Peak ms | Spilled | Captured |
 |---|---|--:|--:|---|
-| [GSReactionDiffusion](profile_gsreactiondiffusion_teensy_2026-09-30.md) ● | `grd_render` | 🔴 279.686 | 🔴 538/538 (100.00%) | 2026-09-30 19:15 |
+| [GSReactionDiffusion](profile_gsreactiondiffusion_teensy_2026-09-30.md) | `grd_render` | 🔴 279.686 | 🔴 538/538 (100.00%) | 2026-09-30 19:15 |
 | [LatticeMelt](profile_latticemelt_teensy_2026-08-26.md)§ | `fx_shader_draw` | 🔴 104.75 (3) | 🔴 1824/1824 (100%) | 2026-08-26 03:22 |
 | [AshCloud](profile_ashcloud_teensy_2026-08-26.md) | `fx_shader_draw` | 🔴 79.81 | 🔴 544/544 (100%) | 2026-08-26 02:45 |
 | [ChromaticLichen](profile_chromaticlichen_teensy_2026-08-26.md) | `fx_shader_draw` | 🟢 61.87 | 🟢 0/1088 (0%) | 2026-08-26 02:41 |
-| [ShapeShifter](profile_shapeshifter_teensy_2026-09-25.md) § ● | `ss_draw_all` | 🟢 60.05 (9) | 🟢 0/2457 (0.00%) | 2026-09-25 07:29 |
+| [ShapeShifter](profile_shapeshifter_teensy_2026-09-25.md) § | `ss_draw_all` | 🟢 60.05 (9) | 🟢 0/2457 (0.00%) | 2026-09-25 07:29 |
 | [MeshFeedback](profile_meshfeedback_teensy_2026-08-26.md)§ | `mf_feedback_flush` | 🟢 58.32 (13) | 🟢 0/6688 (0%) | 2026-08-26 02:10 |
 | [DisplacementField](profile_displacementfield_teensy_2026-09-19.md) | `df_timeline_step` | 🟢 57.45 | 🟢 0/1088 (0%) | 2026-09-19 22:19 |
 | [Raymarch](profile_raymarch_teensy_2026-09-20.md) | `rm_shader_draw` | 🟢 56.04 | 🟢 0/1736 (0.00%) | 2026-09-20 23:07 |
-| [HyperLattice](profile_hyperlattice_teensy_2026-09-27.md) § ● | `hl_shader_draw` | 🟢 54.817 (2) | 🟢 0/1576 (0.00%) | 2026-09-27 01:05 |
+| [HyperLattice](profile_hyperlattice_teensy_2026-09-27.md) § | `hl_shader_draw` | 🟢 54.817 (2) | 🟢 0/1576 (0.00%) | 2026-09-27 01:05 |
 | [MermaidSkin](profile_mermaidskin_teensy_2026-08-26.md) | `fx_shader_draw` | 🟢 54.55 | 🟢 0/1088 (0%) | 2026-08-26 02:43 |
 | [MindSplatter](profile_mindsplatter_teensy_2026-08-26.md)§ | `msp_draw_particles` | 🟢 52.79 (9) | 🟢 0/1728 (0%) | 2026-08-26 07:45 |
 | [RingSpin](profile_ringspin_teensy_2026-09-24.md) | `rs_draw_rings` | 🟢 50.750 | 🟢 0/1087 (0.0%) | 2026-09-24 20:18 |
-| [IslamicStars](profile_islamicstars_teensy_2026-09-28.md) § ● | `is_timeline_step` | 🟢 49.112 (23) | 🟢 0/3336 (0.00%) | 2026-09-28 16:50 |
+| [IslamicStars](profile_islamicstars_teensy_2026-09-28.md) § | `is_timeline_step` | 🟢 49.112 (23) | 🟢 0/3336 (0.00%) | 2026-09-28 16:50 |
 | [BZReactionDiffusion](profile_bzreactiondiffusion_teensy_2026-08-26.md) | `bz_render` | 🟢 48.65 | 🟢 0/2048 (0%) | 2026-08-26 01:16 |
 | [KaleidoscopeStainedGlass](profile_kaleidoscopestainedglass_teensy_2026-08-26.md) | `fx_shader_draw` | 🟢 46.99 | 🟢 0/1088 (0%) | 2026-08-26 02:51 |
 | [HopfFibration](profile_hopffibration_teensy_2026-08-26.md) | `hf_render_trails` | 🟢 46.52 | 🟢 0/1088 (0%) | 2026-08-26 01:27 |
@@ -29,7 +29,7 @@ whose render exceeded one 62.5 ms display interval. Rows rank by spill fraction,
 | [KaleidoscopeMandala](profile_kaleidoscopemandala_teensy_2026-08-26.md)§ | `fx_shader_draw` | 🟢 36.86 (3) | 🟢 0/2368 (0%) | 2026-08-26 03:17 |
 | [DreamBalls](profile_dreamballs_teensy_2026-08-26.md)§ | `db_timeline_step` | 🟢 34.32 (11) | 🟢 0/3648 (0%) | 2026-08-26 02:19 |
 | [KaleidoscopeFlowers](profile_kaleidoscopeflowers_teensy_2026-08-26.md)§ | `fx_shader_draw` | 🟢 33.38 (4) | 🟢 0/4128 (0%) | 2026-08-26 03:03 |
-| [HankinSolids](profile_hankinsolids_teensy_2026-09-28.md) § ● | `hk_timeline_step` | 🟢 32.865 (18) | 🟢 0/4137 (0.00%) | 2026-09-28 16:45 |
+| [HankinSolids](profile_hankinsolids_teensy_2026-09-28.md) § | `hk_timeline_step` | 🟢 32.865 (18) | 🟢 0/4137 (0.00%) | 2026-09-28 16:45 |
 | [KaleidoscopeSmooth](profile_kaleidoscopesmooth_teensy_2026-08-26.md)§ | `fx_shader_draw` | 🟢 32.58 (5) | 🟢 0/4128 (0%) | 2026-08-26 02:56 |
 | [KaleidoscopeHexBright](profile_kaleidoscopehexbright_teensy_2026-08-26.md)§ | `fx_shader_draw` | 🟢 32.41 (3) | 🟢 0/2368 (0%) | 2026-08-26 03:14 |
 | [KaleidoscopePentBright](profile_kaleidoscopepentbright_teensy_2026-08-26.md) | `fx_shader_draw` | 🟢 29.53 | 🟢 0/1088 (0%) | 2026-08-26 02:46 |
@@ -48,11 +48,13 @@ whose render exceeded one 62.5 ms display interval. Rows rank by spill fraction,
 | [Voronoi](profile_voronoi_teensy_2026-08-26.md) | `vo_shade` | 🟢 7.71 | 🟢 0/1088 (0%) | 2026-08-26 01:39 |
 | [RingShower](profile_ringshower_teensy_2026-08-26.md) | `rsh_draw_rings` | 🟢 3.86 | 🟢 0/1088 (0%) | 2026-08-26 01:36 |
 
-● IslamicStars refreshed on 2026-09-28 from current baseline source; setup frame 1 excluded. Unlanded convex-face AA measurements are in the separate comparison.
+GSReactionDiffusion refreshed 2026-09-30 after pigment, hue and shimmer shading changes. Setup frame 1 is excluded; capture provenance is in the linked reports.
 
-● HankinSolids refreshed on 2026-09-28 from current baseline source; setup frame 1 excluded. Unlanded convex-face AA measurements are in the separate comparison.
+IslamicStars refreshed on 2026-09-28 from current baseline source; setup frame 1 excluded. Unlanded convex-face AA measurements are in the separate comparison.
 
-● ShapeShifter refreshed on 2026-09-25: N counts nine distinct presets, merging repeated visits after wrap. Its runtime buckets exclude setup frame 1 and include transitions.
+HankinSolids refreshed on 2026-09-28 from current baseline source; setup frame 1 excluded. Unlanded convex-face AA measurements are in the separate comparison.
+
+ShapeShifter refreshed on 2026-09-25: N counts nine distinct presets, merging repeated visits after wrap. Its runtime buckets exclude setup frame 1 and include transitions.
 
 § Cyclers carry one aligned line per colour bucket, worst first.
 (N) counts parser-owned preset, shape, or mode entries in that colour bucket.
@@ -62,7 +64,7 @@ Bucket frames include transitions and are stricter than the clean-hold table in 
 Captured timestamps are local raw-log mtimes.
 
 
-● HyperLattice refreshed on 2026-09-27: both presets and transitions; setup frame 1 excluded.
+HyperLattice refreshed on 2026-09-27: both presets and transitions; setup frame 1 excluded.
 
 ## Supplemental experimental presets
 
@@ -72,9 +74,9 @@ roster ranking. Triangular was subsequently selected for removal.
 | Preset | Dominant scope | Peak render ms | Spilled | Captured |
 | --- | --- | ---: | ---: | --- |
 | [HyperLattice Triangular](../hyperlattice_triangular_2026-09-27.md) | `hl_shader_draw` | 🔴 141.587 | 🔴 366/366 (100%) | 2026-09-27 22:01 |
-| [HyperLattice Octet 3D ●](profile_hyperlattice_teensy_2026-09-27.md#supplemental-octet-3d-single-owner-correction) | `hl_shader_draw` | 🔴 95.710 | 🔴 548/548 (100%) | 2026-09-27 22:53 |
+| [HyperLattice Octet 3D](profile_hyperlattice_teensy_2026-09-27.md#supplemental-octet-3d-single-owner-correction) | `hl_shader_draw` | 🔴 95.710 | 🔴 548/548 (100%) | 2026-09-27 22:53 |
 
-● Octet 3D refreshed on 2026-09-27 after the single-owner strut correction.
+Octet 3D refreshed on 2026-09-27 after the single-owner strut correction.
 These fixed-preset captures retain the original oscillating camera path.
 The [earlier Octet measurements](../hyperlattice_experimental_presets_2026-09-27.md#octet-validation-and-device-measurements)
 record 3D shipping peak 103.733 ms (548/548 spills) before that correction.
@@ -95,7 +97,7 @@ covers the two original presets and predates this third default preset.
 | [3: Octet 3D](profile_hyperlattice_octet_preset3_teensy_2026-09-28.md) ● | 🔴 74.692 | 🔴 549/549 (100.00%) | 2026-09-28 00:19 |
 | [Octet wide (index 5 at capture time)](profile_hyperlattice_octet_preset5_teensy_2026-09-28.md) ● | 🔴 74.925 | 🔴 549/549 (100.00%) | 2026-09-28 00:24 |
 
-● Updated 2026-09-28. Opt-in held presets, with startup excluded. [Earlier optimization and 4D evidence](../hyperlattice_octet_optimization_2026-09-27.md).
+Updated 2026-09-28. Opt-in held presets, with startup excluded. [Earlier optimization and 4D evidence](../hyperlattice_octet_optimization_2026-09-27.md).
 
 ## Shell flight supplement
 
