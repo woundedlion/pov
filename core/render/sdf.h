@@ -7,7 +7,7 @@
 /**
  * @file sdf.h
  * @brief Signed-distance shapes, the CSG operators that combine them and the
- *        volumetric family: umbrella over the per-family headers in render/sdf/.
+ *        volumetric family: includes common, shapes, rings, csg, face and volume.
  */
 
 #include "render/sdf/common.h"

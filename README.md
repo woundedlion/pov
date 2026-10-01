@@ -325,7 +325,7 @@ files define line-ending policy and working-artifact exclusions.
 │   │   │                            world_trails, screen_anti_alias,
 │   │   │                            screen_direct_aa_sink, screen_trails, screen_blur,
 │   │   │                            pixel_chromatic_shift, pixel_feedback)
-│   │   ├── sdf.h                   SDF shapes, CSG operators and volumes: umbrella over sdf/
+│   │   ├── sdf.h                   Umbrella over six SDF headers: common, shapes, rings, csg, face and volume
 │   │   ├── sdf/                    Per-family SDF headers (common, shapes, rings,
 │   │   │                            csg, face, volume, lattice, framework, lattice_field,
 │   │   │                            periodic_surface, affine_lattice, periodic_shells)
@@ -339,7 +339,7 @@ files define line-ending policy and working-artifact exclusions.
 │   │   ├── render_policy.h         Shape ratios and pole shading policy
 │   │   └── shading.h               Fragment interpolation + mesh-topology shading helpers
 │   ├── animation/              Timeline scheduler + the animation type families
-│   │   ├── animation.h             IAnimation/AnimationBase contract + umbrella over the fragments below
+│   │   ├── animation.h             IAnimation/AnimationBase + nine animation fragments and orientation; recipe_build and transformer are included directly
 │   │   ├── timers.h                RandomTimer / PeriodicTimer callback timers
 │   │   ├── params.h                Parameter-writing animations (Transition, Mutation, Progress, Driver, Lerp, ColorWipe, Mobius*, Ripple, Noise, BallDrop, NoiseProduct)
 │   │   ├── orientation.h           Quaternion history for animation and motion blur
