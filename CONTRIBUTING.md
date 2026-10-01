@@ -36,12 +36,9 @@ component (`scan: clamp the row index before the cast`).
 
 ## Design specs
 
-`docs/specs/` holds the design specifications — the pullback pipeline, its
-stage families and preview interpreter, the shader workbench's chain schema and
-editor, Conway and opchain morphs, congruence-class LUTs, segmented stateful
-effects, Phantasm's frame-sync protocol, and the Phantasm segment board. Each
-is the source of truth for one contract that spans several files, so a change
-that moves such a contract carries the spec update with it.
+[The specifications index](docs/specs/README.md) lists the design contracts
+that span several files. A change that moves such a contract carries the
+corresponding spec update with it.
 
 A change that stays inside one file needs no spec. A new subsystem other code
 will be written against does: land the spec with the implementation, not after
