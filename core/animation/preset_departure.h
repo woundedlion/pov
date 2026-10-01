@@ -15,7 +15,7 @@
 namespace Segue {
 /**
  * @brief Preset-transition policies: the second Segue concept, beside the
- * sprite segues above, stating how ChoreographedEffect carries an AUTOMATIC
+ * sprite segues in segue.h, stating how ChoreographedEffect carries an AUTOMATIC
  * preset change onto its target parameter set.
  * @details Each preset names the policy it departs by (PresetEntry::segue),
  * whichever preset comes next. Every policy runs on one clock: a preset holds
