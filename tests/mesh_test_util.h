@@ -2,9 +2,7 @@
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
  * Licensed under the PolyForm Noncommercial License 1.0.0
  *
- * Shared mesh test fixtures. The conway/mesh/hankin/solids suites all build a
- * PolyMesh from a Solids::* descriptor and check that its vertices land on the
- * unit sphere.
+ * Shared mesh fixtures, vertex checks, morph recipes, probes, and sliver gates.
  */
 #pragma once
 
