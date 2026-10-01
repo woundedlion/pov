@@ -174,7 +174,7 @@ class JsonReader {
         return value;
       }
     }
-    fail('parse', 'INVALID_JSON', path, `Unexpected token at byte ${this.index}.`);
+    fail('parse', 'INVALID_JSON', path, `Unexpected token at character offset ${this.index}.`);
   }
 
   object(depth, path) {
