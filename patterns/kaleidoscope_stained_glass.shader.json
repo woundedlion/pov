@@ -24,7 +24,7 @@
       },
       {
         "label": "sample",
-        "operator": "sample.grid.v2"
+        "operator": "sample.grid.v3"
       },
       {
         "label": "colorize",
@@ -405,7 +405,7 @@
         "classification": "preset",
         "default": 0,
         "domain": {
-          "maximum": 1.25,
+          "maximum": 2,
           "minimum": 0
         },
         "id": "sample.drift",
@@ -685,7 +685,7 @@
       "schema_version": 1
     }
   },
-  "document_id": "kaleidoscope-stained-glass-v1",
+  "document_id": "kaleidoscope-stained-glass",
   "effect_id": "kaleidoscope-stained-glass",
   "effect_metadata": {
     "description": "A vector-noise grid refracted across dodecahedral facets.",

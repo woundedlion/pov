@@ -24,7 +24,7 @@
       },
       {
         "label": "sample",
-        "operator": "sample.grid.v2"
+        "operator": "sample.grid.v3"
       },
       {
         "label": "colorize",
@@ -377,7 +377,7 @@
         "classification": "preset",
         "default": 0,
         "domain": {
-          "maximum": 1.25,
+          "maximum": 2,
           "minimum": 0
         },
         "id": "sample.drift",
@@ -637,7 +637,7 @@
       "schema_version": 1
     }
   },
-  "document_id": "kaleidoscope-mandala-v1",
+  "document_id": "kaleidoscope-mandala",
   "effect_id": "kaleidoscope-mandala",
   "effect_metadata": {
     "description": "A wave-sheared grid moving across dodecahedral facets.",

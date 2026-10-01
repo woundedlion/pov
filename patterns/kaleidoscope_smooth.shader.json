@@ -20,7 +20,7 @@
       },
       {
         "label": "sample",
-        "operator": "sample.grid.v2"
+        "operator": "sample.grid.v3"
       },
       {
         "label": "colorize",
@@ -368,7 +368,7 @@
         "classification": "preset",
         "default": 0.800000011920929,
         "domain": {
-          "maximum": 1.25,
+          "maximum": 2,
           "minimum": 0
         },
         "id": "sample.drift",

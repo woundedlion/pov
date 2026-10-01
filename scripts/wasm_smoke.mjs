@@ -620,12 +620,11 @@ async function main(probe) {
     {
       const R = Module.ChainSnapshotRestoreResult;
       for (const alias of ['Shader', 'ShaderBall', 'ShaderWorkbench']) {
-        if (engine.setEffect(alias) !== ES.INSTALLED)
-          fail(`chain-snapshot: legacy alias ${alias} failed`);
-        const bindings = engine.getShaderChainBindings();
-        if (!bindings) fail(`chain-snapshot: alias ${alias} did not install a chain`);
-        bindings?.delete();
+        if (engine.setEffect(alias) !== ES.UNKNOWN_EFFECT)
+          fail(`chain-snapshot: retired effect ${alias} was accepted`);
       }
+      if (engine.setEffect('ShaderChain') !== ES.INSTALLED)
+        fail('chain-snapshot: ShaderChain failed');
       const bindings = engine.getShaderChainBindings();
       try {
         const saved = bindings.getSnapshot();
@@ -688,7 +687,7 @@ async function main(probe) {
       const DEFAULT_CHAIN = [
         { instance: 'camera', operator: 'sphere.rotate.v2' },
         { instance: 'project', operator: 'project.stereographic.v2' },
-        { instance: 'sample', operator: 'sample.grid.v2' },
+        { instance: 'sample', operator: 'sample.grid.v3' },
         { instance: 'colorize', operator: 'colorize.generated-palette.v3' },
       ];
 

@@ -875,10 +875,10 @@ frame preparation. Each noise-consuming instance owns its own persistent noise
 field. Each affine warp owns its own rotation accumulator.
 
 The standard source, projection and color keys carry the shared composed
-lifecycle's source/camera/palette roles. Existing authored effects retain the
-named members for their present standard instances, including `outer_warp`,
-`inner_warp`, `lens`, `surface` and `value`. Absent instances have no parameter
-members or placeholder families. Legacy instance names retain their storage and
+lifecycle's source/camera/palette roles. All authored effects address parameters
+through `get<"key">()`; `Family<"key">` and `HAS<"key">` describe their blocks.
+Absent instances have no parameter members or placeholder families. Standard
+instance names retain their storage and
 registration order; additional keys follow declaration order within each resource
 kind. New keys and repeated families qualify display controls as
 `<key>.<display-name>` to keep targets distinct. Ordinary controls use the
@@ -1424,8 +1424,7 @@ remain unchanged. Public carriers add no allocation or hidden ownership.
 
 **IMPLEMENTED.** `ShaderChain` is the sole simulator authoring host. The slot
 host, fixed-slot parameter configuration, admission fold and full-configuration
-WASM channel have been removed. Legacy names select a chain scratch program;
-legacy archives convert in daydream with original-data retention on refusal.
+WASM channel have been removed. Only current effect identities and document formats are accepted.
 The program, instance clocks, noise seeds, walk state and all generated palette
 cycles share the typed transactional contract in
 [chain_snapshot_spec.md](chain_snapshot_spec.md). Capture producers execute

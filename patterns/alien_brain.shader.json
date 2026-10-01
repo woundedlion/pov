@@ -20,7 +20,7 @@
       },
       {
         "label": "sample",
-        "operator": "sample.grid.v2"
+        "operator": "sample.grid.v3"
       },
       {
         "label": "colorize",
@@ -345,7 +345,7 @@
         "classification": "preset",
         "default": 0,
         "domain": {
-          "maximum": 1.25,
+          "maximum": 2,
           "minimum": 0
         },
         "id": "sample.drift",
@@ -513,7 +513,7 @@
       "schema_version": 1
     }
   },
-  "document_id": "alien-brain-v1",
+  "document_id": "alien-brain",
   "effect_id": "alien-brain",
   "effect_metadata": {
     "description": "Glitch-folded grids pulled through an animated wave shear.",

@@ -63,7 +63,7 @@ public:
   // Generated identity: scripts/generate_composed_presets.mjs
   // clang-format off
   static constexpr std::string_view EFFECT_ID = "alien-ocean";
-  static constexpr std::string_view DESCRIPTOR_DIGEST = "1bb8a0674b3bee614ef26ab004922cb8022f5c3984884a5bd3c51b7b5beb6490";
+  static constexpr std::string_view DESCRIPTOR_DIGEST = "2ff3688974c2200915e43dcdad54c1c83fea2e0a312b46ad6eecbc409bf90a57";
   static constexpr std::string_view PRESET_BANK_DIGEST = "a9070db6d46b6ed7aaaf3341a43cf3cf2486948e78b55384f5d48877d92e5061";
   static constexpr std::array<std::string_view, 1> PRESET_IDS{
       "folded-grid"

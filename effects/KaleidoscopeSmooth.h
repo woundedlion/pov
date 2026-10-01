@@ -76,7 +76,7 @@ public:
   // Generated identity: scripts/generate_composed_presets.mjs
   // clang-format off
   static constexpr std::string_view EFFECT_ID = "kaleidoscope-smooth";
-  static constexpr std::string_view DESCRIPTOR_DIGEST = "5e5b60bf00084446b125be2ab46e77319bf035dbcf7583a2b43753ad6009a579";
+  static constexpr std::string_view DESCRIPTOR_DIGEST = "48f48e0af5cb2f041007567815457c26824eafd8a4397e605da1d6ba57438b16";
   static constexpr std::string_view PRESET_BANK_DIGEST = "6ce5e7188843b4f091b9c3cc2689798e3f2e77420c9f3d688f5b2ca50485ec4a";
   static constexpr std::array<std::string_view, 4> PRESET_IDS{
       "coupled-grid",

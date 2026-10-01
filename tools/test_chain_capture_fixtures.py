@@ -51,10 +51,13 @@ class ChainCaptureFixtureTests(unittest.TestCase):
             record[field] = value
             with self.subTest(field=field), self.assertRaises(ValueError):
                 generator.generate([record])
-        record = copy.deepcopy(self.records[0])
-        record["snapshot"]["schemaVersion"] = 2
-        with self.assertRaisesRegex(ValueError, "version-one"):
-            generator.generate([record])
+        for version in (0, 1, 3):
+            record = copy.deepcopy(self.records[0])
+            record["snapshot"]["schemaVersion"] = version
+            with self.subTest(version=version), self.assertRaisesRegex(
+                ValueError, "version-two"
+            ):
+                generator.generate([record])
 
     def test_float_payload_is_binary32_exact(self):
         for bits in (0, 0x80000000, 0x3F49BA5E, 1, 0x7F7FFFFF):
