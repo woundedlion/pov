@@ -7,8 +7,8 @@ temporary directory and assert on what it wrote.
 
 Generating needs KiCad's stock symbol libraries (sexp.KICAD_SHARE); the checks
 that do not are kept outside that guard and also run against the committed
-schematic, which is a GUI re-save holding hand edits the generator does not
-reproduce.
+rev 1.2 schematic, which is generator output. The rev 1.1 schematic carries
+KiCad-authored content and is checked by test_shorts and test_builder.
 """
 import contextlib
 import io
