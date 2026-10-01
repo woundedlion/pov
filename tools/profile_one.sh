@@ -3,7 +3,7 @@
 # Builds+flashes the profile image for one effect and captures its serial dump
 # to build/prof/<effect>_<tag>.log. Verifies the capture header, and for a
 # cycling effect that a preset marker appears (guards against a stale build
-# silently flashing old code — see the validation notes in the skill). On a
+# silently flashing old code). On a
 # marker/header mismatch it wipes the env build dir and retries once.
 #
 # Host: Windows + Git Bash. The flash and the ELF attestation shell out to the
@@ -12,7 +12,7 @@
 # before building the images.
 #
 # Takes a per-board device lock (tools/device_lock.sh) around the whole
-# build+flash+capture, so concurrent agents run on different boards, and queue
+# build+flash+capture, so concurrent runs use different boards, and queue
 # instead of clobbering when every board is busy. HS_DEVICE_WAIT=<s> to queue
 # rather than fail fast.
 #
@@ -243,11 +243,14 @@ assert_matching_toolchains() {
 
 build_and_attest() {
   mkdir -p "$ATTEST_DIR"
-  PLATFORMIO_BUILD_FLAGS='' pio run -e phantasm -t envdump >"$PHANTASM_ENVDUMP"
+  _hs_resolve_python
+  PLATFORMIO_BUILD_FLAGS='' pio run -e phantasm -t envdump |
+    "$_HS_LOCK_PYTHON" tools/profile_envdump.py >"$PHANTASM_ENVDUMP"
   PLATFORMIO_BUILD_FLAGS='' build_image phantasm "$PHANTASM_BUILD_LOG"
   cp .pio/build/phantasm/firmware.elf "$PHANTASM_ELF"
   cp .pio/build/phantasm/firmware.map "$PHANTASM_MAP"
-  pio run -e "$ENV" -t envdump >"$PROFILE_ENVDUMP"
+  pio run -e "$ENV" -t envdump |
+    "$_HS_LOCK_PYTHON" tools/profile_envdump.py >"$PROFILE_ENVDUMP"
   build_image "$ENV" "$PROFILE_BUILD_LOG"
   assert_matching_toolchains
 
