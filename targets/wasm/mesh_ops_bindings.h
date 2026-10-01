@@ -906,7 +906,8 @@ public:
    * @brief Reports whether the most recent MeshOps call saturated an argument
    *        into its operator's domain.
    * @return true when the mesh that call produced was rendered from a value
-   *         other than the one passed in.
+   *         other than the one passed in. Meaningful only when the call
+   *         returned a mesh.
    * @details The fraction operators and relax clamp an out-of-domain argument
    *          rather than reject it, so getLastResult() stays OK and the mesh
    *          renders. A caller that only previews the mesh can ignore this; a
