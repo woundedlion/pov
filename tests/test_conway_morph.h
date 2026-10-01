@@ -3580,7 +3580,9 @@ inline void test_unsweepable_recipe_steps_are_gated() {
 // ---------------------------------------------------------------------------
 // Recipe chain build replay (docs/specs/opchain_morph_spec.md, "Validation
 // contract"): test-local partition chains are lowered and replayed leg by leg
-// as IslamicStars builds them. test_opchain_arena_survey.h covers the registry.
+// using individual OpLegs. DUAL/KIS use gated swaps here; RecipeBuild instead
+// schedules bridges/macros, so those chains do not establish production budgets.
+// test_opchain_arena_survey.h covers the registry.
 // Each leg is stepped frame by frame with a recording draw callback.
 // Gates per-leg compiled-face-count constancy, the crossfade colour model
 // (every frame of every leg draws every face's (from, to) ramp bit-exact at
@@ -3616,12 +3618,15 @@ struct ChainPeaks {
   int palettes = 0;       /**< Distinct palettes on the finished shape. */
   int final_classes = 0;  /**< Distinct newborn classes on the final leg. */
   int blend_pairs = 0;    /**< Max distinct (from, to) pairs on any leg. */
-  bool supported = false; /**< Every lowered step has a leg kind. */
+  bool supported = false; /**< Every lowered step has a replay leg kind. */
+  bool production_schedule =
+      true; /**< No approximated DUAL/KIS bridge scheduling. */
 };
 
 /**
- * @brief Replays one recipe leg by leg as IslamicStars builds it and gates
- *        continuity, classification, and the arena high-waters.
+ * @brief Replays recipe legs and gates continuity and classification.
+ * @details DUAL/KIS are gated-swap approximations of production bridges/macros;
+ *          arena budgets are checked only for chains without those steps.
  * @param name Diagnostic label.
  * @param recipe Recipe replayed.
  * @return The chain's arena high-waters.
@@ -3686,6 +3691,7 @@ inline ChainPeaks replay_build_chain(const char *name,
         supported = false;
       gated[k] =
           steps[k].op == Solids::Op::KIS || steps[k].op == Solids::Op::DUAL;
+      peaks.production_schedule &= !gated[k];
       leg_frames[k] = gated[k] ? 2 * GATE_HALF_FRAMES + 1
                       : steps[k].op == Solids::Op::HANKIN ? HANKIN_LEG_FRAMES
                       : steps[k].op == Solids::Op::RELAX  ? RELAX_LEG_FRAMES
@@ -4104,9 +4110,14 @@ inline ChainPeaks replay_build_chain(const char *name,
                 peaks.persistent, (size_t)ISLAMIC_PERSISTENT_BUDGET,
                 peaks.scratch_a, (size_t)ISLAMIC_SCRATCH_A_BUDGET,
                 peaks.scratch_b, (size_t)ISLAMIC_SCRATCH_B_BUDGET);
-    HS_EXPECT_LE(peaks.persistent, ISLAMIC_PERSISTENT_BUDGET);
-    HS_EXPECT_LE(peaks.scratch_a, ISLAMIC_SCRATCH_A_BUDGET);
-    HS_EXPECT_LE(peaks.scratch_b, ISLAMIC_SCRATCH_B_BUDGET);
+    if (peaks.production_schedule) {
+      HS_EXPECT_LE(peaks.persistent, ISLAMIC_PERSISTENT_BUDGET);
+      HS_EXPECT_LE(peaks.scratch_a, ISLAMIC_SCRATCH_A_BUDGET);
+      HS_EXPECT_LE(peaks.scratch_b, ISLAMIC_SCRATCH_B_BUDGET);
+    } else {
+      std::printf(
+          "    [chain] gated-swap approximation; production bridge budget excluded\n");
+    }
 
     if (hs_test::stats().failed != failed_before)
       std::printf("    [chain] %s FAILED\n", name);
