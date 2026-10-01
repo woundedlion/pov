@@ -375,8 +375,7 @@ HS_COLD_MEMBER inline void update_hankin(const CompiledHankin &compiled,
   float cos_ha = cosf(angle * 0.5f);
   float sin_ha = sinf(angle * 0.5f);
   const auto blend_above = [](float value, float start, float end) {
-    const float t =
-        std::max(0.0f, std::min(1.0f, (value - start) / (end - start)));
+    const float t = hs::clamp((value - start) / (end - start), 0.0f, 1.0f);
     return math::quintic_kernel(t);
   };
   HS_CHECK(compiled.corner_src.data() != nullptr,
@@ -430,8 +429,8 @@ HS_COLD_MEMBER inline void update_hankin(const CompiledHankin &compiled,
         intersect * math::dot(intersect, p_corner);
     const math::Vector raw_star =
         math::normalized_or(oriented_intersect, fallback);
-    const float local_sq = std::max(math::distance_squared(m1, cn),
-                                    math::distance_squared(m2, cn));
+    const float local_sq =
+        fmaxf(math::distance_squared(m1, cn), math::distance_squared(m2, cn));
     if (!(local_sq > math::EPS_LEN_SQ)) {
       out_mesh.vertices.push_back(fallback);
       continue;
@@ -441,9 +440,8 @@ HS_COLD_MEMBER inline void update_hankin(const CompiledHankin &compiled,
         blend_above(raw_ratio_sq, HANKIN_CONDITIONED_NEAR_RATIO_SQ,
                     HANKIN_CONDITIONED_FAR_RATIO_SQ);
     const float anchor =
-        std::max(0.0f, HANKIN_PARALLEL_REGULARIZATION_SQ - plane_cross_sq) +
-        conditioned *
-            std::max(0.0f, HANKIN_CONDITIONED_CLEAR_SQ - plane_cross_sq);
+        fmaxf(0.0f, HANKIN_PARALLEL_REGULARIZATION_SQ - plane_cross_sq) +
+        conditioned * fmaxf(0.0f, HANKIN_CONDITIONED_CLEAR_SQ - plane_cross_sq);
     intersect =
         math::normalized_or(oriented_intersect + fallback * anchor, fallback);
     // Near-parallel contact planes fling the intersection geodesically far
