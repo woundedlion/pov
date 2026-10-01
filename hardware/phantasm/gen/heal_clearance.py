@@ -36,16 +36,14 @@ def is_manifested(path):
 def project_files(paths=()):
     if paths:
         return [os.path.abspath(path) for path in paths if not is_manifested(path)]
-    candidates = glob.glob(os.path.join(OUT, "[0-9]*", "phantasm*.kicad_pro")) \
-        + glob.glob(os.path.join(OUT, "phantasm*.kicad_pro")) \
-        + glob.glob(os.path.join(OUT, "unplaced", "phantasm*.kicad_pro"))
+    candidates = glob.glob(os.path.join(OUT, "[0-9]*", "phantasm*.kicad_pro"))
     return sorted(p for p in candidates if not is_manifested(p))
 
 
 def minimums_for(p, project=None):
     """The (rule, Default net class) floors project p must be restored to."""
     layout = (project or {}).get("text_variables", {}).get("PHANTASM_LAYOUT")
-    if layout == "unplaced" or os.path.basename(os.path.dirname(p)) == "unplaced":
+    if layout == "unplaced":
         return UNPLACED_RULES, UNPLACED_DEFAULT_CLASS
     return RULE_MINIMUMS, DEFAULT_CLASS_MINIMUMS
 
