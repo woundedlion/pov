@@ -95,7 +95,7 @@ template <typename T> constexpr bool declared_needs_sync() {
  * composition over the active entities (Transformer composes Vector warps,
  * FieldTransformer sums scalar fields). Each pool claims one of the shared
  * Timeline's Timeline::MAX_CLEAR_HOOKS (4) clear-hook slots at init_storage(),
- * so one Timeline carries at most four live pools.
+ * plus one hook per ChoreographedEffect; a choreographed effect fits three pools.
  */
 template <typename ParamsT, typename AnimT, int CAPACITY = 32>
 class TransformerPool {
@@ -186,8 +186,8 @@ public:
    * @param arena Persistent arena supplying CAPACITY entity slots.
    * @details Must be called from effect init(), not the constructor (arenas
    * aren't ready yet), after any configure_arenas() and before the first spawn.
-   * Also registers the pool's one Timeline clear hook, so at most
-   * Timeline::MAX_CLEAR_HOOKS (4) pools may share a Timeline.
+   * Registers one Timeline clear hook. ChoreographedEffect also claims one,
+   * leaving Timeline::MAX_CLEAR_HOOKS - 1 (3) slots for its pools.
    */
   HS_COLD_MEMBER void init_storage(Arena &arena) {
     HS_CHECK(!entities, "TransformerPool: init_storage() called twice");
