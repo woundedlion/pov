@@ -725,8 +725,7 @@ private:
       for (int i = 0, xi = first; i < count; ++i) {
         if (knot_visible[xi]) {
           const float f = bump_field_with_y(knot_pos[xi], bp, y);
-          num[xi] += f * f * f;
-          den[xi] += f * f;
+          DominantFieldAccumulator::accumulate(num[xi], den[xi], f);
         }
         if (++xi == lut_n)
           xi = 0;
@@ -735,7 +734,7 @@ private:
 
     for (x = 0; x < lut_n; ++x)
       if (knot_visible[x])
-        slut[x] = (den[x] > FIELD_DOMINANT_DEN_EPS ? num[x] / den[x] : 0.0f) +
+        slut[x] = DominantFieldAccumulator::resolve(num[x], den[x]) +
                   noise_field.field(knot_pos[x]);
   }
 
