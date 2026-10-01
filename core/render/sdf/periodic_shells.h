@@ -601,7 +601,6 @@ HS_HOT_FLASH_MEMBER Raycast::ShadedTrace shade_periodic_shells_dimension(
                               fabsf(INCIDENCE) * INVERSE_LENGTH;
           hit.coverage = std::clamp(.5f + DEPTH / WIDTH, 0.0f, 1.0f);
         }
-        result.trace.has_surface = true;
         result.trace.contribution = hit;
         appearance.composite(composite, T, hit.coverage);
         if (composite.saturated()) {

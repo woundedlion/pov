@@ -509,6 +509,7 @@ inline void test_periodic_shell_traversal_budgets() {
                                                    {}, limits, APPEARANCE);
   HS_EXPECT_EQ(COMPLETE.trace.status, Raycast::TraceStatus::RANGE_COMPLETE);
   HS_EXPECT_EQ(COMPLETE.trace.counters.layers, 2);
+  HS_EXPECT_FALSE(COMPLETE.trace.has_surface);
   HS_EXPECT_NEAR(COMPLETE.trace.contribution.t, .8f, 1e-6f);
   limits.max_layers = 1;
   const auto PARTIAL = SDF::shade_periodic_shells(camera, {1, 0, 0}, 1, .3f, {},
