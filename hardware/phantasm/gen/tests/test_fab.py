@@ -1448,9 +1448,6 @@ class NetlistSpecTests(unittest.TestCase):
             self.validate(nets)
 
 
-if __name__ == "__main__":
-    unittest.main()
-
 
 class ElectricalRuleTests(unittest.TestCase):
     def require_report(self, document):
@@ -1493,3 +1490,7 @@ class ElectricalRuleTests(unittest.TestCase):
                     mock.patch.object(fab, "run", side_effect=fake_run):
                 with self.assertRaisesRegex(fab.ElectricalRuleError, "erc exited 5"):
                     fab.run_erc(path)
+
+
+if __name__ == "__main__":
+    unittest.main()
