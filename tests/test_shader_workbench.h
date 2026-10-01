@@ -3637,7 +3637,9 @@ inline void test_shader_workbench_gui_catalog() {
       }
     }
   };
-  select_and_set_all("Function", 4, "Source Noise Basis");
+  select_and_set_all("Function",
+                     static_cast<float>(WB::Function::NOISE_CONTOUR),
+                     "Source Noise Basis");
   const auto *source_noise_scale =
       sb.getParameters().find("Source Noise Scale");
   const auto *source_noise_rate = sb.getParameters().find("Source Noise Speed");
@@ -3647,11 +3649,17 @@ inline void test_shader_workbench_gui_catalog() {
   HS_EXPECT_EQ(source_noise_scale->max, 2.0f);
   HS_EXPECT_EQ(source_noise_rate->min, -1.0f / 1024.0f);
   HS_EXPECT_EQ(source_noise_rate->max, 1.0f / 1024.0f);
-  select_and_set_all("Function", 7, "Ring Count");
-  select_and_set_all("Function", 8, "Fractal Iterations");
-  select_and_set_all("Function", 9, "Tessellation Kind");
-  select_and_set_all("Projection", 2, "Gnomonic Hemisphere");
-  select_and_set_all("Projection", 3, "Bonne Hemisphere");
+  select_and_set_all("Function",
+                     static_cast<float>(WB::Function::SPHERICAL_RINGS),
+                     "Ring Count");
+  select_and_set_all("Function", static_cast<float>(WB::Function::FRACTAL),
+                     "Fractal Iterations");
+  select_and_set_all("Function", static_cast<float>(WB::Function::TESSELLATION),
+                     "Tessellation Kind");
+  select_and_set_all("Projection", static_cast<float>(WB::Projection::GNOMONIC),
+                     "Gnomonic Hemisphere");
+  select_and_set_all("Projection", static_cast<float>(WB::Projection::BONNE),
+                     "Bonne Hemisphere");
   HS_EXPECT_EQ(sb.updateParameter("Bonne Standard Parallel", 0.9f),
                ParamSetResult::APPLIED);
   sb.draw_frame();
@@ -3660,7 +3668,9 @@ inline void test_shader_workbench_gui_catalog() {
   HS_EXPECT_NEAR(
       WB::active_config(sb).params.projection.bonne_standard_parallel, 0.9f,
       1e-6f);
-  select_and_set_all("Projection", 4, "Peirce Layout");
+  select_and_set_all("Projection",
+                     static_cast<float>(WB::Projection::PEIRCE_QUINCUNCIAL),
+                     "Peirce Layout");
   for (int layout = 0; layout < 4; ++layout) {
     HS_EXPECT_EQ(
         sb.updateParameter("Peirce Layout", static_cast<float>(layout)),
@@ -3672,10 +3682,17 @@ inline void test_shader_workbench_gui_catalog() {
     sb.advance_display();
     WB::settle_transition(sb);
   }
-  select_and_set_all("Projection", 5, "Airocean Layout");
-  select_and_set_all("Planar Warp 1", 4, "Planar Warp 1 Noise Basis");
-  select_and_set_all("Planar Warp 1", 4, "Planar Warp 1 Envelope");
-  select_and_set_all("Planar Warp 1", 5, "Planar Warp 1 Curl Integrator");
+  select_and_set_all("Projection", static_cast<float>(WB::Projection::AIROCEAN),
+                     "Airocean Layout");
+  select_and_set_all("Planar Warp 1",
+                     static_cast<float>(WB::WarpStageKind::VECTOR_NOISE),
+                     "Planar Warp 1 Noise Basis");
+  select_and_set_all("Planar Warp 1",
+                     static_cast<float>(WB::WarpStageKind::VECTOR_NOISE),
+                     "Planar Warp 1 Envelope");
+  select_and_set_all("Planar Warp 1",
+                     static_cast<float>(WB::WarpStageKind::CURL_FLOW),
+                     "Planar Warp 1 Curl Integrator");
   {
     reset_gui();
     HS_EXPECT_EQ(
@@ -3703,8 +3720,12 @@ inline void test_shader_workbench_gui_catalog() {
     WB::settle_transition(sb);
     HS_EXPECT_EQ(WB::active_config(sb).params.warp.outer.strength, limit);
   }
-  select_and_set_all("Planar Warp 1", 7, "Planar Warp 1 Polar Mode");
-  select_and_set_all("Planar Warp 1", 7, "Planar Warp 1 Polar Harmonic");
+  select_and_set_all("Planar Warp 1",
+                     static_cast<float>(WB::WarpStageKind::POLAR_CHART),
+                     "Planar Warp 1 Polar Mode");
+  select_and_set_all("Planar Warp 1",
+                     static_cast<float>(WB::WarpStageKind::POLAR_CHART),
+                     "Planar Warp 1 Polar Harmonic");
   HS_EXPECT_TRUE(sb.getParameters().find("Pattern Freq") != nullptr);
   HS_EXPECT_EQ(
       sb.updateParameter("Function", static_cast<float>(WB::Function::RINGS)),
@@ -5489,12 +5510,17 @@ inline void test_shader_workbench_kernel_catalog() {
     config.slots.warp_program.outer.kind =
         static_cast<WB::WarpStageKind>(value);
     config.slots.projection = WB::Projection::SINUSOIDAL;
-    config.params.warp.outer.strength = value == 0   ? 0.0f
-                                        : value == 5 ? 0.005f
-                                                     : 0.35f;
+    config.params.warp.outer.strength =
+        value == static_cast<uint8_t>(WB::WarpStageKind::NONE)        ? 0.0f
+        : value == static_cast<uint8_t>(WB::WarpStageKind::CURL_FLOW) ? 0.005f
+                                                                      : 0.35f;
     config.params.warp.outer.turns = 0.4f;
-    config.params.warp.outer.translation_x = value == 1 ? 1.0f : 0.0f;
-    config.params.warp.outer.translation_y = value == 1 ? -1.0f : 0.0f;
+    config.params.warp.outer.translation_x =
+        value == static_cast<uint8_t>(WB::WarpStageKind::AFFINE_FRAME) ? 1.0f
+                                                                       : 0.0f;
+    config.params.warp.outer.translation_y =
+        value == static_cast<uint8_t>(WB::WarpStageKind::AFFINE_FRAME) ? -1.0f
+                                                                       : 0.0f;
     config.params.warp.outer.speed = 0.0f;
     config.slots.warp_program.outer.basis = WB::NoiseBasis::SIMPLEX;
     check(config);
@@ -5530,8 +5556,11 @@ inline void test_shader_workbench_kernel_catalog() {
   WB::WarpStageParams zero_params;
   zero_params.strength = 0.0f;
   const math::Complex input(0.27f, -0.41f);
-  for (uint8_t value = 0; value <= 5; ++value) {
-    WB::WarpStageSpec spec{static_cast<WB::WarpStageKind>(value)};
+  for (WB::WarpStageKind kind :
+       {WB::WarpStageKind::NONE, WB::WarpStageKind::AFFINE_FRAME,
+        WB::WarpStageKind::WAVE_SHEAR, WB::WarpStageKind::VORTEX,
+        WB::WarpStageKind::VECTOR_NOISE, WB::WarpStageKind::CURL_FLOW}) {
+    WB::WarpStageSpec spec{kind};
     const auto identity = WB::warp_stage(
         input, {input, {0, 0, 0, 1.0f, 1.0f, 0}, math::Vector(), 0.0f}, spec,
         zero_params, frame);
@@ -5543,11 +5572,12 @@ inline void test_shader_workbench_kernel_catalog() {
   // strength, so zero strength is a remap rather than the identity above.
   WB::WarpStageParams driven = zero_params;
   driven.strength = 1.0f;
-  for (uint8_t value = 6; value <= 7; ++value) {
-    HS_CONTEXT("warp kind", value);
+  for (WB::WarpStageKind kind :
+       {WB::WarpStageKind::MIRROR_TILE, WB::WarpStageKind::POLAR_CHART}) {
+    HS_CONTEXT("warp kind", static_cast<uint8_t>(kind));
     const WB::ProjectedLookup lookup{
         input, {0, 0, 0, 1.0f, 1.0f, 0}, math::Vector(), 0.0f};
-    WB::WarpStageSpec spec{static_cast<WB::WarpStageKind>(value)};
+    WB::WarpStageSpec spec{kind};
     const auto mapped = WB::warp_stage(input, lookup, spec, zero_params, frame);
     const auto forced = WB::warp_stage(input, lookup, spec, driven, frame);
     HS_EXPECT_EQ(mapped.coords.re, forced.coords.re);
