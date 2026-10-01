@@ -82,7 +82,7 @@ public:
     static constexpr ChainEntryRequest DEFAULT_CHAIN[] = {
         {"camera", "sphere.rotate.v2"},
         {"project", "project.stereographic.v2"},
-        {"sample", "sample.grid.v2"},
+        {"sample", "sample.grid.v3"},
         {"colorize", "colorize.generated-palette.v3"},
     };
     const ChainRefusal refusal =
@@ -148,7 +148,7 @@ public:
   restore_snapshot(const ChainSnapshot &snapshot) {
     using Result = ChainSnapshotRestoreResult;
     using namespace Pullback::Interp;
-    if (snapshot.schema_version != 1)
+    if (snapshot.schema_version != ChainSnapshot::SCHEMA_VERSION)
       return Result::UNSUPPORTED_VERSION;
     if (snapshot.chain.empty() || snapshot.chain.size() > MAX_CHAIN_OPS ||
         snapshot.parameters.size() > MAX_CHAIN_PARAMS ||
@@ -402,13 +402,6 @@ private:
             static_cast<int>(index),
             reinterpret_cast<
                 const Pullback::Interp::Op::ColorizeGeneratedPaletteV3::Params
-                    *>(program.param_block(index)));
-      else if (std::string_view(ops[index].op->operator_id) ==
-               Pullback::Interp::Op::ColorizeGeneratedPaletteV2::ID)
-        return make_colorize_tap(
-            static_cast<int>(index),
-            reinterpret_cast<
-                const Pullback::Interp::Op::ColorizeGeneratedPaletteV2::Params
                     *>(program.param_block(index)));
     return {};
   }

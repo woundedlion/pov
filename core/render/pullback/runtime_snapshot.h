@@ -15,10 +15,8 @@ struct SpatialWalkSnapshot {
   math::Vector position = math::UP;
   math::Vector direction = math::perpendicular_axis(math::UP);
   math::Quaternion wander;
-  math::Quaternion raw_orientation;
   float angular_velocity = 0;
   float spin_phase = 0;
-  bool legacy = false;
 };
 struct SourceClockSnapshot {
   float primary = 0;
@@ -57,14 +55,14 @@ using RuntimeSnapshot =
 
 inline const char *runtime_snapshot_kind(const RuntimeSnapshot &snapshot) {
   constexpr const char *KINDS[] = {"none",
-                                   "spatial-walk-v1",
+                                   "spatial-walk-v2",
                                    "source-clock-v1",
                                    "noise-clock-v1",
                                    "phase-clock-v1",
                                    "ripple-clock-v1",
                                    "affine-clock-v1",
                                    "color-clock-v1",
-                                   "spherical-rings-v1"};
+                                   "spherical-rings-v2"};
   static_assert(std::size(KINDS) == std::variant_size_v<RuntimeSnapshot>);
   return KINDS[snapshot.index()];
 }

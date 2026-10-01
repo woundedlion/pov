@@ -164,8 +164,7 @@ struct ProjectOpModel : ValueStateModel<SpatialWalkState> {
   }
   static void advance(State &state, const Params &params) {
     validate_frame(params);
-    if (state.legacy ||
-        params.frame == static_cast<uint8_t>(ProjectionFrame::SPIN_WANDER))
+    if (params.frame == static_cast<uint8_t>(ProjectionFrame::SPIN_WANDER))
       advance_walk(state, params.wander, params.spin_rate);
   }
   static Prepared prepare(const FrameContext &ctx, const Params &params,
@@ -278,48 +277,9 @@ struct ProjectGnomonic : ProjectOpModel<ProjectGnomonic, GnomonicChainParams> {
   }
 };
 
-/** Fixed kernel-projection arguments: the chain pins the square Peirce
-    layout, a zero layout scroll, unit plane scale, and unconditional edge
-    distances. */
+/** @brief Default layout of the Peirce projection. */
 inline constexpr uint8_t PEIRCE_SQUARE_LAYOUT =
     static_cast<uint8_t>(projections::PeirceLayout::SQUARE);
-inline constexpr float PROJECT_COORDINATE_SCALE = 1.0f;
-
-/** @brief SPHERE→PLANE crossing: the exact Peirce quincuncial projection on
-    the square layout. */
-struct ProjectPeirce
-    : ProjectOpModel<ProjectPeirce, MeridianProjectChainParams, true> {
-  static constexpr const char *ID = "project.peirce.v2";
-  static constexpr const char *NAME = "Peirce";
-
-  static ProjectionResult project(const math::Vector &local,
-                                  const Params &params,
-                                  const Prepared &prepared) {
-    return Projection::peirce(local, params.central_meridian,
-                              PEIRCE_SQUARE_LAYOUT, 0.0f, true,
-                              PROJECT_COORDINATE_SCALE, params.singularity_fade,
-                              prepared.meridian_cos, prepared.meridian_sin);
-  }
-};
-
-/** @brief SPHERE→PLANE crossing: the fast square-layout Peirce
-    approximation, valid only on a zero central meridian. */
-struct ProjectPeirceSquareFast
-    : ProjectOpModel<ProjectPeirceSquareFast, ProjectChainParams> {
-  static constexpr const char *ID = "project.peirce-square-fast.v2";
-  static constexpr const char *NAME = "Peirce (Fast Square)";
-
-  static constexpr bool APPROXIMATE = true;
-  static constexpr ApproximationOracleId ORACLE =
-      ApproximationOracleId::PEIRCE_FAST_SQUARE;
-  static constexpr auto METRICS = Projection::PEIRCE_FAST_SQUARE_METRICS;
-
-  static ProjectionResult project(const math::Vector &local,
-                                  const Params &params) {
-    return Projection::peirce_fast_square(local, PROJECT_COORDINATE_SCALE,
-                                          params.singularity_fade);
-  }
-};
 
 inline constexpr const char *BONNE_HEMISPHERE_IDS[] = {"north", "south"};
 static_assert(std::size(BONNE_HEMISPHERE_IDS) == 2);
@@ -327,7 +287,7 @@ static_assert(std::size(BONNE_HEMISPHERE_IDS) == 2);
 /** @brief Standard parallel magnitude of the chain's Bonne projection. */
 inline constexpr float BONNE_STANDARD_PARALLEL = math::PI_F * 0.25f;
 
-/** @brief Parameter family of project.bonne.v2. */
+/** @brief Parameter family of project.bonne.v3. */
 struct BonneChainParams : RegularProjectChainParams {
   float standard_parallel = BONNE_STANDARD_PARALLEL;
   uint8_t hemisphere = 0; /**< 0 north, 1 south. */
@@ -348,33 +308,11 @@ static_assert(appended_block_size_matches<BonneChainParams,
               "appended parameter block must have the expected rounded size");
 static_assert(field_defaults_in_range<BonneChainParams>());
 
-/** @brief SPHERE→PLANE crossing: the Bonne projection under a hemisphere
-    topology. */
-struct ProjectBonne : ProjectOpModel<ProjectBonne, BonneChainParams> {
-  static constexpr const char *ID = "project.bonne.v2";
-  static constexpr const char *NAME = "Bonne";
-
-  static Prepared prepare(const FrameContext &ctx, const Params &params,
-                          const State &state) {
-    HS_CHECK(params.hemisphere < std::size(BONNE_HEMISPHERE_IDS),
-             "project.bonne: invalid hemisphere");
-    return ProjectOpModel::prepare(ctx, params, state);
-  }
-
-  static ProjectionResult project(const math::Vector &local,
-                                  const Params &params) {
-    const float hemisphere = params.hemisphere == 0 ? 1.0f : -1.0f;
-    return Projection::bonne(local, params.central_meridian,
-                             hemisphere * params.standard_parallel,
-                             PROJECT_COORDINATE_SCALE);
-  }
-};
-
 inline constexpr const char *AIROCEAN_LAYOUT_IDS[] = {"vertical", "horizontal"};
 
 static_assert(std::size(AIROCEAN_LAYOUT_IDS) == 2);
 
-/** @brief Parameter family of project.airocean.v2. */
+/** @brief Parameter family of project.airocean.v3. */
 struct AiroceanChainParams : RegularProjectChainParams {
   uint8_t layout = 0;
 
@@ -388,28 +326,6 @@ static_assert(appended_block_size_matches<AiroceanChainParams,
                                           RegularProjectChainParams, 1>(),
               "appended parameter block must have the expected rounded size");
 static_assert(field_defaults_in_range<AiroceanChainParams>());
-
-/** @brief SPHERE→PLANE crossing: the airocean projection. */
-struct ProjectAirocean
-    : ProjectOpModel<ProjectAirocean, AiroceanChainParams, true> {
-  static constexpr const char *ID = "project.airocean.v2";
-  static constexpr const char *NAME = "Airocean";
-
-  static Prepared prepare(const FrameContext &ctx, const Params &params,
-                          const State &state) {
-    HS_CHECK(params.layout < std::size(AIROCEAN_LAYOUT_IDS),
-             "project.airocean: invalid layout");
-    return ProjectOpModel::prepare(ctx, params, state);
-  }
-
-  static ProjectionResult project(const math::Vector &local,
-                                  const Params &params,
-                                  const Prepared &prepared) {
-    return Projection::airocean(local, params.layout == 1, true,
-                                PROJECT_COORDINATE_SCALE, prepared.meridian_cos,
-                                prepared.meridian_sin);
-  }
-};
 
 template <typename Base> struct ScaledProjectParams : Base {
   float coordinate_scale = 1.0f;
@@ -476,6 +392,12 @@ struct ProjectBonneV3
     : ProjectOpModel<ProjectBonneV3, ScaledProjectParams<BonneChainParams>> {
   static constexpr const char *ID = "project.bonne.v3";
   static constexpr const char *NAME = "Bonne Scaled";
+  static Prepared prepare(const FrameContext &ctx, const Params &params,
+                          const State &state) {
+    HS_CHECK(params.hemisphere < std::size(BONNE_HEMISPHERE_IDS),
+             "project.bonne: invalid hemisphere");
+    return ProjectOpModel::prepare(ctx, params, state);
+  }
   static ProjectionResult project(const math::Vector &local,
                                   const Params &params) {
     const float hemisphere = params.hemisphere == 0 ? 1.0f : -1.0f;
@@ -490,6 +412,12 @@ struct ProjectAiroceanV3
                      ScaledProjectParams<AiroceanChainParams>, true> {
   static constexpr const char *ID = "project.airocean.v3";
   static constexpr const char *NAME = "Airocean Scaled";
+  static Prepared prepare(const FrameContext &ctx, const Params &params,
+                          const State &state) {
+    HS_CHECK(params.layout < std::size(AIROCEAN_LAYOUT_IDS),
+             "project.airocean: invalid layout");
+    return ProjectOpModel::prepare(ctx, params, state);
+  }
   static ProjectionResult project(const math::Vector &local,
                                   const Params &params,
                                   const Prepared &prepared) {
