@@ -357,8 +357,19 @@ struct PreparedCurlFlow {
 
 /** @brief PLANE endomorphism: the divergence-free curl flow. */
 struct WarpCurlFlow : PhaseClockModel<NoisePhaseState> {
+  static_assert([] {
+    float max_scale = 0.0f;
+    float max_strength = 0.0f;
+    for (const auto &field : Warp::CurlFlowParams::FIELDS) {
+      if (field.member == &Warp::CurlFlowParams::scale)
+        max_scale = field.max;
+      if (field.member == &Warp::CurlFlowParams::strength)
+        max_strength = field.max > -field.min ? field.max : -field.min;
+    }
+    return max_scale * max_strength * Warp::CURL_VECTOR_COMPONENT_MAX <= 0.5f;
+  }());
   static constexpr const char *ADMISSIBILITY_CONVEXITY =
-      "The whole declared box satisfies scale * abs(strength) * 4 <= 0.5; "
+      "The whole declared box satisfies the curl-flow stability bound; "
       "each field curve remains inside its interval.";
   static constexpr const char *ID = "warp.curl-flow.v2";
   static constexpr const char *NAME = "Curl Flow";
