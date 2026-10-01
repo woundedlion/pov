@@ -15,8 +15,7 @@
 
 /**
  * @file operators_sample.h
- * @brief PLANE→FIELD crossing operator models: the scalar sources under the
- *        shared weight and coverage topology enum8s.
+ * @brief PLANE→FIELD and SPHERE→FIELD scalar crossing operator models.
  */
 
 namespace Pullback {
