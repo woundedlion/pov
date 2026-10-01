@@ -37,6 +37,9 @@
 #   HS_DEVICE_LOCK   override the lock path base (per-board suffix still added)
 #   HS_DEVICE_WAIT   seconds to wait for a busy device (default 0 = fail fast)
 #   HS_DEVICE_FORCE  1 = break someone else's lock (see the warning below)
+#   HS_DEVICE_STALE_GRACE  seconds before an incomplete claim expires (default 120)
+#   HS_SESSION      owner label recorded in the claim
+#   HS_PYTHON       Python interpreter for host lock operations
 #   HS_TEENSY_PORT   pin to one board (COMn) instead of searching for a free one
 #   HS_TEENSY_TOOLS  tool-teensy dir holding teensy_ports.exe (board enumeration)
 
@@ -338,8 +341,8 @@ hs_device_release() {
   fi
 }
 
-# Reports every attached board. rc 0 if at least one is claimable, 2 if the
-# boards could not be enumerated or the configured pin is unattached.
+# Reports every attached board. rc 0 if one is claimable, 1 if none is available,
+# and 2 if enumeration fails or the configured pin is unattached.
 hs_device_status() {
   local ports p port d free=1
   ports=$(hs_device_ports) || return 2
