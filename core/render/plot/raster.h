@@ -356,7 +356,7 @@ HS_O3_END
  * Walks consecutive fragment pairs, picks a geodesic or planar interpolation
  * strategy per segment, sub-steps each segment at ≈one-pixel SCREEN-space
  * density (screen_step, clamped near the poles), and plots through the pipeline.
- * Segments whose full screen-row span lies outside the active clip band are
+ * Segments whose row/column reach lies outside the active clip region are
  * culled.
  *
  * @tparam W,H Rasterization resolution (pixel grid).
