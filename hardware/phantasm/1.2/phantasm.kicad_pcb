@@ -211,7 +211,7 @@
 		(descr "GCT TBC05-02-1-G-G, 2.54 mm pitch, 6.5 mm body depth, 8.5 mm height; wire entry -X; GCT drawing TBC05, https://www.farnell.com/cad/4513152.pdf")
 		(tags "terminal block GCT TBC05 side entry")
 		(property "Reference" "J1"
-			(at -2 1.27 90.0)
+			(at -2 1.27 90)
 			(layer "F.SilkS")
 			(hide yes)
 			(effects
@@ -381,7 +381,7 @@
 		(descr "Fuse SMD 1206 (3216 Metric), square (rectangular) end terminal, IPC-7351 nominal, (Body size source: http://www.tortai-tech.com/upload/download/2011102023233369053.pdf)")
 		(tags "fuse")
 		(property "Reference" "F1"
-			(at 0 -1.93 0.0)
+			(at 0 -1.93 0)
 			(layer "F.SilkS")
 			(effects
 				(font
@@ -496,7 +496,7 @@
 		(descr "SOT, 3 Pin (JEDEC TO-236 Var AB https://www.jedec.org/document_search?search_api_views_fulltext=TO-236)")
 		(tags "SOT TO_SOT_SMD")
 		(property "Reference" "Q_REV"
-			(at 0 -2.5 0.0)
+			(at 0 -2.5 0)
 			(layer "F.SilkS")
 			(effects
 				(font
@@ -815,7 +815,7 @@
 		(descr "Inductor SMD 1206 (3216 Metric), square (rectangular) end terminal, IPC-7351 nominal, (Body size source: IPC-SM-782 page 80, https://www.pcb-3d.com/wordpress/wp-content/uploads/ipc-sm-782a_amendment_1_and_2.pdf)")
 		(tags "inductor")
 		(property "Reference" "FB"
-			(at 0 -2 0.0)
+			(at 0 -2 0)
 			(layer "F.SilkS")
 			(effects
 				(font
@@ -931,7 +931,7 @@
 		(descr "CP, Radial series, Radial, pin pitch=3.50mm, diameter=8mm, height=12mm, Electrolytic Capacitor")
 		(tags "CP Radial series Radial pin pitch 3.50mm diameter 8mm height 12mm Electrolytic Capacitor")
 		(property "Reference" "C_IN"
-			(at 1.670151 -5.05 0.0)
+			(at 1.670151 -5.05 0)
 			(layer "F.SilkS")
 			(hide yes)
 			(effects
@@ -2473,7 +2473,7 @@
 		(descr "Resistor SMD 0805 (2012 Metric), square (rectangular) end terminal, IPC-7351 nominal, (Body size source: IPC-SM-782 page 72, https://www.pcb-3d.com/wordpress/wp-content/uploads/ipc-sm-782a_amendment_1_and_2.pdf)")
 		(tags "resistor")
 		(property "Reference" "R_LF"
-			(at 0 -1.75 0.0)
+			(at 0 -1.75 0)
 			(layer "F.SilkS")
 			(effects
 				(font
@@ -2588,7 +2588,7 @@
 		(descr "Capacitor SMD 1206 (3216 Metric), square (rectangular) end terminal, IPC-7351 nominal, (Body size source: IPC-SM-782 page 76, https://www.pcb-3d.com/wordpress/wp-content/uploads/ipc-sm-782a_amendment_1_and_2.pdf)")
 		(tags "capacitor")
 		(property "Reference" "C_LF"
-			(at 0 -1.95 0.0)
+			(at 0 -1.95 0)
 			(layer "F.SilkS")
 			(effects
 				(font
@@ -2703,7 +2703,7 @@
 		(layer "F.Cu")
 		(descr "Teensy 4.0 module, 2x14 0.1in headers")
 		(property "Reference" "U_MCU"
-			(at 0 -10.3 0.0)
+			(at 0 -10.3 0)
 			(layer "F.SilkS")
 			(hide yes)
 			(effects
@@ -3004,7 +3004,7 @@
 		(descr "Capacitor SMD 0603 (1608 Metric), square (rectangular) end terminal, IPC-7351 nominal, (Body size source: IPC-SM-782 page 76, https://www.pcb-3d.com/wordpress/wp-content/uploads/ipc-sm-782a_amendment_1_and_2.pdf)")
 		(tags "capacitor")
 		(property "Reference" "C_DEC1"
-			(at 0 -1.53 0.0)
+			(at 0 -1.53 0)
 			(layer "F.SilkS")
 			(hide yes)
 			(effects
@@ -3121,7 +3121,7 @@
 		(descr "SOIC, 14 Pin (JEDEC MS-012AB, https://www.analog.com/media/en/package-pcb-resources/package/pkg_pdf/soic_narrow-r/r_14.pdf)")
 		(tags "SOIC SO")
 		(property "Reference" "U1"
-			(at 0 -5.585 180.0)
+			(at 0 -5.585 180)
 			(layer "F.SilkS")
 			(hide yes)
 			(effects
@@ -3474,7 +3474,7 @@
 		(descr "Resistor SMD 0805 (2012 Metric), square (rectangular) end terminal, IPC-7351 nominal, (Body size source: IPC-SM-782 page 72, https://www.pcb-3d.com/wordpress/wp-content/uploads/ipc-sm-782a_amendment_1_and_2.pdf)")
 		(tags "resistor")
 		(property "Reference" "R_D1"
-			(at 0 -1.75 180.0)
+			(at 0 -1.75 180)
 			(layer "F.SilkS")
 			(hide yes)
 			(effects
@@ -3591,7 +3591,7 @@
 		(descr "Resistor SMD 0805 (2012 Metric), square (rectangular) end terminal, IPC-7351 nominal, (Body size source: IPC-SM-782 page 72, https://www.pcb-3d.com/wordpress/wp-content/uploads/ipc-sm-782a_amendment_1_and_2.pdf)")
 		(tags "resistor")
 		(property "Reference" "R_D2"
-			(at 0 -1.75 180.0)
+			(at 0 -1.75 180)
 			(layer "F.SilkS")
 			(hide yes)
 			(effects
@@ -3707,7 +3707,7 @@
 		(descr "Resistor SMD 0805 (2012 Metric), square (rectangular) end terminal, IPC-7351 nominal with elongated pad for handsoldering. (Body size source: IPC-SM-782 page 72, https://www.pcb-3d.com/wordpress/wp-content/uploads/ipc-sm-782a_amendment_1_and_2.pdf)")
 		(tags "resistor handsolder")
 		(property "Reference" "R_S"
-			(at 0 -1.75 0.0)
+			(at 0 -1.75 0)
 			(layer "F.SilkS")
 			(effects
 				(font
@@ -3822,7 +3822,7 @@
 		(descr "Resistor SMD 0603 (1608 Metric), square (rectangular) end terminal, IPC-7351 nominal, (Body size source: IPC-SM-782 page 72, https://www.pcb-3d.com/wordpress/wp-content/uploads/ipc-sm-782a_amendment_1_and_2.pdf)")
 		(tags "resistor")
 		(property "Reference" "R_TX"
-			(at 0 -1.53 0.0)
+			(at 0 -1.53 0)
 			(layer "F.SilkS")
 			(effects
 				(font
@@ -3938,7 +3938,7 @@
 		(descr "Capacitor SMD 0603 (1608 Metric), square (rectangular) end terminal, IPC-7351 nominal, (Body size source: IPC-SM-782 page 76, https://www.pcb-3d.com/wordpress/wp-content/uploads/ipc-sm-782a_amendment_1_and_2.pdf)")
 		(tags "capacitor")
 		(property "Reference" "C_DEC2"
-			(at 0 -1.53 180.0)
+			(at 0 -1.53 180)
 			(layer "F.SilkS")
 			(hide yes)
 			(effects
@@ -4055,7 +4055,7 @@
 		(descr "GCT TBC05-03-1-G-G, 2.54 mm pitch, 6.5 mm body depth, 8.5 mm height; wire entry -X; GCT drawing TBC05, https://www.farnell.com/cad/4513152.pdf")
 		(tags "terminal block GCT TBC05 side entry")
 		(property "Reference" "J2"
-			(at -2 2.54 90.0)
+			(at -2 2.54 90)
 			(layer "F.SilkS")
 			(hide yes)
 			(effects
@@ -4170,7 +4170,7 @@
 		(descr "Resistor SMD 0603 (1608 Metric), square (rectangular) end terminal, IPC-7351 nominal with elongated pad for handsoldering. (Body size source: IPC-SM-782 page 72, https://www.pcb-3d.com/wordpress/wp-content/uploads/ipc-sm-782a_amendment_1_and_2.pdf)")
 		(tags "resistor handsolder")
 		(property "Reference" "R1"
-			(at 0 -1.53 0.0)
+			(at 0 -1.53 0)
 			(layer "F.SilkS")
 			(hide yes)
 			(effects
@@ -4287,7 +4287,7 @@
 		(descr "Resistor SMD 0603 (1608 Metric), square (rectangular) end terminal, IPC-7351 nominal with elongated pad for handsoldering. (Body size source: IPC-SM-782 page 72, https://www.pcb-3d.com/wordpress/wp-content/uploads/ipc-sm-782a_amendment_1_and_2.pdf)")
 		(tags "resistor handsolder")
 		(property "Reference" "R2"
-			(at 0 -1.53 0.0)
+			(at 0 -1.53 0)
 			(layer "F.SilkS")
 			(hide yes)
 			(effects
@@ -4404,7 +4404,7 @@
 		(descr "Capacitor SMD 0603 (1608 Metric), square (rectangular) end terminal, IPC-7351 nominal, (Body size source: IPC-SM-782 page 76, https://www.pcb-3d.com/wordpress/wp-content/uploads/ipc-sm-782a_amendment_1_and_2.pdf)")
 		(tags "capacitor")
 		(property "Reference" "C_SYNC"
-			(at 0 -1.53 0.0)
+			(at 0 -1.53 0)
 			(layer "F.SilkS")
 			(hide yes)
 			(effects
@@ -4520,7 +4520,7 @@
 		(descr "Resistor SMD 0603 (1608 Metric), square (rectangular) end terminal, IPC-7351 nominal with elongated pad for handsoldering. (Body size source: IPC-SM-782 page 72, https://www.pcb-3d.com/wordpress/wp-content/uploads/ipc-sm-782a_amendment_1_and_2.pdf)")
 		(tags "resistor handsolder")
 		(property "Reference" "R_PD"
-			(at 0 -1.53 0.0)
+			(at 0 -1.53 0)
 			(layer "F.SilkS")
 			(effects
 				(font
@@ -4635,7 +4635,7 @@
 		(descr "SOD-323")
 		(tags "SOD-323")
 		(property "Reference" "D_BUS"
-			(at -0.005 -1.75 0.0)
+			(at -0.005 -1.75 0)
 			(layer "F.SilkS")
 			(uuid "4c761954-31c9-5005-a33f-56cba78c5e75")
 			(effects
@@ -4900,7 +4900,7 @@
 		(descr "GCT TBC05-03-1-G-G, 2.54 mm pitch, 6.5 mm body depth, 8.5 mm height; wire entry -X; GCT drawing TBC05, https://www.farnell.com/cad/4513152.pdf")
 		(tags "terminal block GCT TBC05 side entry")
 		(property "Reference" "J3A"
-			(at -2 2.54 90.0)
+			(at -2 2.54 90)
 			(layer "F.SilkS")
 			(hide yes)
 			(effects
@@ -5015,7 +5015,7 @@
 		(descr "GCT TBC05-03-1-G-G, 2.54 mm pitch, 6.5 mm body depth, 8.5 mm height; wire entry -X; GCT drawing TBC05, https://www.farnell.com/cad/4513152.pdf")
 		(tags "terminal block GCT TBC05 side entry")
 		(property "Reference" "J3B"
-			(at -2 2.54 90.0)
+			(at -2 2.54 90)
 			(layer "F.SilkS")
 			(hide yes)
 			(effects
@@ -5130,7 +5130,7 @@
 		(descr "SMD Solder Jumper, 1x1.5mm, rounded Pads, 0.3mm gap, open")
 		(tags "solder jumper open")
 		(property "Reference" "JP_SHLD"
-			(at 0 -2.05 90.0)
+			(at 0 -2.05 90)
 			(layer "F.SilkS")
 			(uuid "d8ee4150-8beb-5b4f-8120-25ab9acff732")
 			(hide yes)
@@ -5400,7 +5400,7 @@
 		(descr "Resistor SMD 0603 (1608 Metric), square (rectangular) end terminal, IPC-7351 nominal, (Body size source: IPC-SM-782 page 72, https://www.pcb-3d.com/wordpress/wp-content/uploads/ipc-sm-782a_amendment_1_and_2.pdf)")
 		(tags "resistor")
 		(property "Reference" "R_MEN"
-			(at 0 -1.53 0.0)
+			(at 0 -1.53 0)
 			(layer "F.SilkS")
 			(effects
 				(font
@@ -5516,7 +5516,7 @@
 		(descr "SMD Solder Jumper, 1x1.5mm, rounded Pads, 0.3mm gap, open")
 		(tags "solder jumper open")
 		(property "Reference" "JP_ID0"
-			(at 0 -2.05 90.0)
+			(at 0 -2.05 90)
 			(layer "F.SilkS")
 			(uuid "9c7ef245-787a-5e8d-8e2d-bb88a6f0c507")
 			(hide yes)
@@ -5787,7 +5787,7 @@
 		(descr "SMD Solder Jumper, 1x1.5mm, rounded Pads, 0.3mm gap, open")
 		(tags "solder jumper open")
 		(property "Reference" "JP_ID1"
-			(at 0 -2.05 90.0)
+			(at 0 -2.05 90)
 			(layer "F.SilkS")
 			(uuid "d6a3d58a-ab3d-5d53-bcf2-f54a3fddbc1f")
 			(hide yes)
@@ -6058,7 +6058,7 @@
 		(descr "SMD Solder Jumper, 1x1.5mm, rounded Pads, 0.3mm gap, open")
 		(tags "solder jumper open")
 		(property "Reference" "JP_ID2"
-			(at 0 -2.05 90.0)
+			(at 0 -2.05 90)
 			(layer "F.SilkS")
 			(uuid "3ea61a57-1447-569b-b77b-3b04a98f5076")
 			(hide yes)
@@ -6328,7 +6328,7 @@
 		(descr "Mounting Hole 2.7mm, M2.5, no annular, generated by kicad-footprint-generator mountinghole.py")
 		(tags "mountinghole M2.5")
 		(property "Reference" "H1"
-			(at 0 -3.75 0.0)
+			(at 0 -3.75 0)
 			(layer "F.SilkS")
 			(hide yes)
 			(effects
@@ -6407,7 +6407,7 @@
 		(descr "Mounting Hole 2.7mm, M2.5, no annular, generated by kicad-footprint-generator mountinghole.py")
 		(tags "mountinghole M2.5")
 		(property "Reference" "H2"
-			(at 0 -3.75 0.0)
+			(at 0 -3.75 0)
 			(layer "F.SilkS")
 			(hide yes)
 			(effects
@@ -6486,7 +6486,7 @@
 		(descr "Mounting Hole 2.7mm, M2.5, no annular, generated by kicad-footprint-generator mountinghole.py")
 		(tags "mountinghole M2.5")
 		(property "Reference" "H3"
-			(at 0 -3.75 0.0)
+			(at 0 -3.75 0)
 			(layer "F.SilkS")
 			(hide yes)
 			(effects
@@ -6565,7 +6565,7 @@
 		(descr "Mounting Hole 2.7mm, M2.5, no annular, generated by kicad-footprint-generator mountinghole.py")
 		(tags "mountinghole M2.5")
 		(property "Reference" "H4"
-			(at 0 -3.75 0.0)
+			(at 0 -3.75 0)
 			(layer "F.SilkS")
 			(hide yes)
 			(effects
