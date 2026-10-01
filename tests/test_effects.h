@@ -6050,13 +6050,21 @@ inline void test_voronoi_segment_render_matches_full_frame() {
   constexpr int W = DEFAULT_W;
   constexpr int H = DEFAULT_H;
 
-  auto render = [](int x0, int x1, int y0, int y1) {
+  auto render = [](int x0, int x1, int y0, int y1,
+                   const std::vector<Pixel> *reference = nullptr) {
     reset_effect_globals();
     Voronoi<W, H> effect;
     effect.init();
+    effect.set_margin(3);
     effect.set_clip(y0, y1, x0, x1);
     effect.draw_frame();
     effect.advance_display();
+    if (reference)
+      for (int y = 0; y < H; ++y)
+        for (int x = 0; x < W; ++x)
+          if (effect.clip().contains_y(y) && effect.clip().contains_x(x))
+            HS_EXPECT_EQ(effect.get_pixel(x, y),
+                         (*reference)[static_cast<size_t>(y) * W + x]);
     std::vector<Pixel> band;
     band.reserve(static_cast<size_t>(x1 - x0) * (y1 - y0));
     for (int y = y0; y < y1; ++y)
@@ -6076,7 +6084,7 @@ inline void test_voronoi_segment_render_matches_full_frame() {
   for (const Band &b : bands) {
     HS_CONTEXT("band", b.x0, b.y0);
     size_t lit = 0;
-    const std::vector<Pixel> banded = render(b.x0, b.x1, b.y0, b.y1);
+    const std::vector<Pixel> banded = render(b.x0, b.x1, b.y0, b.y1, &full);
     HS_EXPECT_EQ(banded.size(),
                  static_cast<size_t>(b.x1 - b.x0) * (b.y1 - b.y0));
     size_t different = 0;

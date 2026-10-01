@@ -21,7 +21,7 @@ namespace Scan {
 /**
  * @brief Full-screen per-pixel shaders with SAMPLES× SSAA.
  *
- * Four entry points, in increasing order of caller control:
+ * Entry points:
  * - draw(canvas, shader): one callable ShaderFn(const Vector &v) -> Color4
  *   or premultiplied Pixel, invoked SAMPLES× per pixel at sub-pixel offsets
  *   and averaged.
@@ -121,18 +121,26 @@ struct Shader {
   // --------------------------------------------------------------------------
 
 private:
-  // Shared body of draw() and draw_cached(), which differ only in the code
-  // placement of the traversal.
-  template <int W, int H, int SAMPLES, typename ShaderFn>
+  // Shared traversal for typed shader entry points.
+  template <int W, int H, int SAMPLES, typename ShaderFn,
+            typename RowFn = std::nullptr_t>
   HS_O3_FN __attribute__((always_inline)) static void
-  draw_typed(Canvas &canvas, ShaderFn &&shader) {
+  draw_typed(Canvas &canvas, ShaderFn &&shader, RowFn &&begin_row = nullptr) {
     // The sample-offset table has four distinct sub-pixel positions; only 1 and
     // the 2x2 grid (4) are valid.
     static_assert(SAMPLES == 1 || SAMPLES == 4,
                   "Scan::Shader SSAA supports only SAMPLES == 1 or 4");
-    constexpr bool PREMULTIPLIED = std::is_same_v<
-        std::decay_t<std::invoke_result_t<ShaderFn &, const math::Vector &>>,
-        Pixel>;
+    auto sample = [&](const math::Vector &v, int x, int y) {
+      if constexpr (std::is_invocable_v<ShaderFn &, const math::Vector &, int,
+                                        int>)
+        return shader(v, x, y);
+      else
+        return shader(v);
+    };
+    constexpr bool PREMULTIPLIED =
+        std::is_same_v<std::decay_t<decltype(sample(
+                           std::declval<const math::Vector &>(), 0, 0))>,
+                       Pixel>;
     check_canvas_dims<W, H>(canvas);
     if (!math::TrigLUT<W, H>::initialized)
       math::TrigLUT<W, H>::init();
@@ -142,6 +150,8 @@ private:
 
     if constexpr (SAMPLES == 1) {
       for (int y = cr.render_y_start(); y < cr.render_y_end(); ++y) {
+        if constexpr (!std::is_same_v<RowFn, std::nullptr_t>)
+          begin_row(y);
         const float sp = math::TrigLUT<W, H>::sin_phi[y];
         const float cp = math::TrigLUT<W, H>::cos_phi[y];
         walk_clip_columns<W>(xc, [&](int x) {
@@ -149,10 +159,10 @@ private:
               math::Vector(sp * math::TrigLUT<W, H>::cos_theta(x), cp,
                            sp * math::TrigLUT<W, H>::sin_theta[x]);
           if constexpr (PREMULTIPLIED)
-            canvas(x, y) = shader(v);
+            canvas(x, y) = sample(v, x, y);
           else {
-            Color4 sample = shader(v);
-            canvas(x, y) = sample.color * sample.alpha;
+            Color4 color = sample(v, x, y);
+            canvas(x, y) = color.color * color.alpha;
           }
         });
       }
@@ -161,6 +171,8 @@ private:
       SsaaGrid<W, H> grid;
 
       for (int y = cr.render_y_start(); y < cr.render_y_end(); ++y) {
+        if constexpr (!std::is_same_v<RowFn, std::nullptr_t>)
+          begin_row(y);
         grid.set_row(y);
         walk_clip_columns<W>(xc, [&](int x) {
           // Premultiplied SSAA: accumulate each sample's coverage-weighted color
@@ -169,10 +181,10 @@ private:
 
           for (int i = 0; i < SAMPLES; ++i) {
             if constexpr (PREMULTIPLIED)
-              accum += shader(grid.at(x, i)) * inv_samples;
+              accum += sample(grid.at(x, i), x, y) * inv_samples;
             else {
-              Color4 sample = shader(grid.at(x, i));
-              accum += sample.color * (sample.alpha * inv_samples);
+              Color4 color = sample(grid.at(x, i), x, y);
+              accum += color.color * (color.alpha * inv_samples);
             }
           }
 
@@ -210,13 +222,17 @@ public:
    * @param canvas Destination canvas.
    * @param shader Maps a world-space unit vector to a final color; invoked
    *               SAMPLES× per pixel at sub-pixel offsets and averaged.
+   *               May also accept integer pixel coordinates after the vector.
+   * @param begin_row Optional callable (int y), invoked once before each row.
    * @details The callable remains statically bound and is inlined into this
    * instantiation; only its code placement differs from draw().
    */
-  template <int W, int H, int SAMPLES = 1, typename ShaderFn>
-  HS_HOT_FLASH_MEMBER static void draw_cached(Canvas &canvas,
-                                              ShaderFn &&shader) {
-    draw_typed<W, H, SAMPLES>(canvas, static_cast<ShaderFn &&>(shader));
+  template <int W, int H, int SAMPLES = 1, typename ShaderFn,
+            typename RowFn = std::nullptr_t>
+  HS_HOT_FLASH_MEMBER static void draw_cached(Canvas &canvas, ShaderFn &&shader,
+                                              RowFn &&begin_row = nullptr) {
+    draw_typed<W, H, SAMPLES>(canvas, static_cast<ShaderFn &&>(shader),
+                              static_cast<RowFn &&>(begin_row));
   }
 
   /**
