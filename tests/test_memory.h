@@ -1420,6 +1420,9 @@ inline int run_memory_tests() {
   test_arenaspan_from_vector();
 #ifndef NDEBUG
   test_arenaspan_source_rebind_generation();
+#else
+  skip_case("test_arenaspan_source_rebind_generation",
+            "requires debug arena tracking");
 #endif
 
   test_scratch_basic_restore();
