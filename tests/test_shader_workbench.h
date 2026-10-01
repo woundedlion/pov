@@ -3871,8 +3871,10 @@ fixed_reference_config(ShaderWorkbenchWhiteBox::RequestedConfig destination,
   destination.params.projection.central_meridian =
       source.projection.central_meridian;
   destination.params.outer_camera.wander = source.projection.camera_wander;
-  copy_fixed_warp_to_shader(source.outer_warp, destination.params.warp.outer);
-  copy_fixed_warp_to_shader(source.inner_warp, destination.params.warp.inner);
+  if constexpr (requires { source.outer_warp; })
+    copy_fixed_warp_to_shader(source.outer_warp, destination.params.warp.outer);
+  if constexpr (requires { source.inner_warp; })
+    copy_fixed_warp_to_shader(source.inner_warp, destination.params.warp.inner);
   if constexpr (requires { source.outer_warp.seed; })
     destination.slots.warp_program.outer.seed = source.outer_warp.seed;
   if constexpr (requires { source.inner_warp.seed; })
@@ -3916,25 +3918,41 @@ template <typename FixedEffect>
 Pullback::FrameState<typename FixedEffect::Params>
 fixed_reference_frame(const typename FixedEffect::FrameState &own,
                       const ShaderWorkbenchWhiteBox::FrameState &source) {
-  return {own.projection_conjugate,
-          own.outer_conjugate,
-          source.resources.outer_warp_noise,
-          source.resources.source_noise,
-          source.resources.surface_noise,
-          source.resources.generated_palette,
-          source.prepared_hue_rotation.lut,
-          source.prepared_hue_noise.lut,
-          own.params,
-          own.palette_mapping,
-          source.clocks.source_primary,
-          source.clocks.source_secondary,
-          source.clocks.source_angle,
-          source.clocks.warp_outer_phase,
-          source.clocks.warp_inner_phase,
-          source.clocks.warp_outer_rotation,
-          source.clocks.source_noise_time,
-          source.clocks.surface_noise_time,
-          source.clocks.palette_oscillation_phase};
+  auto frame = own;
+  frame.palette = source.resources.generated_palette;
+  frame.hue_rotation_lut = source.prepared_hue_rotation.lut;
+  frame.hue_noise_lut = source.prepared_hue_noise.lut;
+  frame.palette_oscillation_phase = source.clocks.palette_oscillation_phase;
+  frame.resources.template get<"source">().primary =
+      source.clocks.source_primary;
+  frame.resources.template get<"source">().secondary =
+      source.clocks.source_secondary;
+  frame.resources.template get<"source">().angle = source.clocks.source_angle;
+  frame.resources.template get<"source">().noise_time =
+      source.clocks.source_noise_time;
+  if constexpr (FixedEffect::Params::template HAS<"outer_warp">)
+    frame.resources.template get<"outer_warp">().phase =
+        source.clocks.warp_outer_phase;
+  if constexpr (FixedEffect::Params::template HAS<"inner_warp">)
+    frame.resources.template get<"inner_warp">().phase =
+        source.clocks.warp_inner_phase;
+  frame.params.visit([&]<typename Resource>(const auto &) {
+    auto &resource = frame.resources.template get<Resource::KEY>();
+    if constexpr (Pullback::ComposedDetail::RESOURCE_NOISE<Resource>) {
+      if constexpr (Resource::KIND == Pullback::ResourceKind::SOURCE)
+        resource.noise = source.resources.source_noise;
+      if constexpr (Resource::KIND == Pullback::ResourceKind::WARP)
+        resource.noise = source.resources.outer_warp_noise;
+      if constexpr (Resource::KIND == Pullback::ResourceKind::SURFACE)
+        resource.noise = source.resources.surface_noise;
+    }
+    if constexpr (Resource::KIND == Pullback::ResourceKind::SURFACE)
+      resource.phase = source.clocks.surface_noise_time;
+    if constexpr (std::is_same_v<typename Resource::Family,
+                                 Pullback::AffineParams>)
+      resource.rotation = source.clocks.warp_outer_rotation;
+  });
+  return frame;
 }
 
 template <typename FixedEffect>
@@ -3962,12 +3980,17 @@ void verify_fixed_shader_export(
     WB::advance_fixed_clocks(shader, config);
   const WB::FrameState dynamic = WB::config_frame(shader, config);
   if constexpr (requires { own.params.source.speed; })
-    HS_EXPECT_EQ(own.source_primary, dynamic.clocks.source_primary);
+    HS_EXPECT_EQ(own.resources.template get<"source">().primary,
+                 dynamic.clocks.source_primary);
   if constexpr (requires { own.params.source.secondary_rate; })
-    HS_EXPECT_EQ(own.source_secondary, dynamic.clocks.source_secondary);
+    HS_EXPECT_EQ(own.resources.template get<"source">().secondary,
+                 dynamic.clocks.source_secondary);
   if constexpr (requires { own.params.source.angle_rate; })
-    HS_EXPECT_EQ(own.source_angle, dynamic.clocks.source_angle);
-  HS_EXPECT_EQ(own.inner_phase, dynamic.clocks.warp_inner_phase);
+    HS_EXPECT_EQ(own.resources.template get<"source">().angle,
+                 dynamic.clocks.source_angle);
+  if constexpr (FixedEffect::Params::template HAS<"inner_warp">)
+    HS_EXPECT_EQ(own.resources.template get<"inner_warp">().phase,
+                 dynamic.clocks.warp_inner_phase);
   const auto reference = fixed_reference_frame<FixedEffect>(own, dynamic);
   HS_EXPECT_TRUE(reference.projection_conjugate ==
                  dynamic.transforms.projection_conj);

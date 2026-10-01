@@ -10,14 +10,43 @@
 
 #include "core/render/pullback/composed_effect.h"
 
-using KaleidoscopeFlowersParams =
-    Pullback::Params<Pullback::GridSourceParams, Pullback::NoWarpParams,
-                     Pullback::MirrorParams>;
-using KaleidoscopeFlowersSpec =
-    Pullback::Spec<Pullback::ProjectionKind::EQUIRECTANGULAR,
-                   Pullback::Lens::DodecahedralKaleidoscope,
-                   Pullback::TransferKind::NONE,
-                   Pullback::ProjectionCoverageMode::WEIGHT_SQUARED>;
+struct KaleidoscopeFlowersSpec : Pullback::Spec {
+  static constexpr Pullback::ProjectionKind PROJECTION =
+      Pullback::ProjectionKind::EQUIRECTANGULAR;
+  static constexpr Pullback::TransferKind TRANSFER =
+      Pullback::TransferKind::NONE;
+  static constexpr Pullback::ProjectionCoverageMode COVERAGE =
+      Pullback::ProjectionCoverageMode::WEIGHT_SQUARED;
+  static constexpr Pullback::FieldCoverageKind FIELD_COVERAGE =
+      Pullback::FieldCoverageKind::NONE;
+  static constexpr PaletteHarmony HARMONY = PaletteHarmony::ANALOGOUS;
+  static constexpr Pullback::HueMode HUE = Pullback::HueMode::NOISE;
+  static constexpr Pullback::Color::BrightnessEnvelope BRIGHTNESS =
+      Pullback::Color::BrightnessEnvelope::NONE;
+  static constexpr bool ANIMATED_PROJECTION = true;
+  static constexpr Pullback::SurfacePlacement SURFACE_PLACEMENT =
+      Pullback::SurfacePlacement::BEFORE_LENS;
+  using LensPolicy = Pullback::Lens::DodecahedralKaleidoscope;
+  template <typename B>
+  using Pipeline = Pullback::Pipeline<
+      B, Pullback::Stage::Rotate<Pullback::OuterCameraProvider<B>>,
+      Pullback::Stage::Placed<
+          Pullback::CodeEmission::INLINE_ONLY,
+          Pullback::Stage::Lens<Pullback::Lens::DodecahedralKaleidoscope>,
+          Pullback::Stage::Project<
+              typename Pullback::ProjectionPolicyFor<PROJECTION, B>::Type>>,
+      Pullback::Stage::Warp<typename Pullback::WarpPolicyFor<
+          Pullback::MirrorParams, B, "inner_warp",
+          HUE == Pullback::HueMode::PATH_LENGTH>::Type>,
+      Pullback::Stage::Sample<
+          typename Pullback::SourcePolicyFor<Pullback::GridSourceParams,
+                                             B>::Type,
+          Pullback::Weight::Projection,
+          typename Pullback::CoveragePolicyFor<COVERAGE, B, void>::Type>,
+      Pullback::Stage::Colorize<Pullback::Color::GeneratedPalette<
+          Pullback::ColorProvider<B, HUE, BRIGHTNESS>>>>;
+};
+using KaleidoscopeFlowersParams = Pullback::ParamsFor<KaleidoscopeFlowersSpec>;
 
 /**
  * @brief Dodecahedral grids mapped continuously around the equator.
@@ -26,10 +55,8 @@ using KaleidoscopeFlowersSpec =
  */
 template <int W, int H>
 class KaleidoscopeFlowers
-    : public Pullback::ComposedEffect<
-          W, H, KaleidoscopeFlowers<W, H>, KaleidoscopeFlowersParams,
-          KaleidoscopeFlowersSpec, PaletteHarmony::ANALOGOUS,
-          Pullback::HueMode::NOISE, Pullback::Color::BrightnessEnvelope::NONE> {
+    : public Pullback::ComposedEffect<W, H, KaleidoscopeFlowers<W, H>,
+                                      KaleidoscopeFlowersSpec> {
 
 public:
   using Params = KaleidoscopeFlowersParams;
@@ -46,7 +73,7 @@ public:
   static constexpr uint16_t PRESET_DWELL_FRAMES = 600;
   // clang-format on
   // End generated identity.
-  static constexpr uint32_t PARAMETER_SCHEMA_VERSION = 1;
+  static constexpr uint32_t PARAMETER_SCHEMA_VERSION = 2;
 
   // Generated params: scripts/generate_composed_presets.mjs
   // clang-format off

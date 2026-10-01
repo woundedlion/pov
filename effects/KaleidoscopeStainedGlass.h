@@ -10,14 +10,47 @@
 
 #include "core/render/pullback/composed_effect.h"
 
+struct KaleidoscopeStainedGlassSpec : Pullback::Spec {
+  static constexpr Pullback::ProjectionKind PROJECTION =
+      Pullback::ProjectionKind::GNOMONIC_FOLDED;
+  static constexpr Pullback::TransferKind TRANSFER =
+      Pullback::TransferKind::NONE;
+  static constexpr Pullback::ProjectionCoverageMode COVERAGE =
+      Pullback::ProjectionCoverageMode::WEIGHT_SQUARED;
+  static constexpr Pullback::FieldCoverageKind FIELD_COVERAGE =
+      Pullback::FieldCoverageKind::NONE;
+  static constexpr PaletteHarmony HARMONY = PaletteHarmony::TRIADIC;
+  static constexpr Pullback::HueMode HUE = Pullback::HueMode::NOISE;
+  static constexpr Pullback::Color::BrightnessEnvelope BRIGHTNESS =
+      Pullback::Color::BrightnessEnvelope::CUP;
+  static constexpr bool ANIMATED_PROJECTION = false;
+  static constexpr Pullback::SurfacePlacement SURFACE_PLACEMENT =
+      Pullback::SurfacePlacement::BEFORE_LENS;
+  using LensPolicy = Pullback::Lens::DodecahedralKaleidoscope;
+  template <typename B>
+  using Pipeline = Pullback::Pipeline<
+      B, Pullback::Stage::Rotate<Pullback::OuterCameraProvider<B>>,
+      Pullback::Stage::Placed<
+          Pullback::CodeEmission::INLINE_ONLY,
+          Pullback::Stage::Lens<Pullback::Lens::DodecahedralKaleidoscope>,
+          Pullback::Stage::Project<
+              typename Pullback::ProjectionPolicyFor<PROJECTION, B>::Type>>,
+      Pullback::Stage::Warp<typename Pullback::WarpPolicyFor<
+          Pullback::VectorNoiseParams, B, "outer_warp",
+          HUE == Pullback::HueMode::PATH_LENGTH>::Type>,
+      Pullback::Stage::Warp<typename Pullback::WarpPolicyFor<
+          Pullback::MirrorParams, B, "inner_warp",
+          HUE == Pullback::HueMode::PATH_LENGTH>::Type>,
+      Pullback::Stage::Sample<
+          typename Pullback::SourcePolicyFor<Pullback::GridSourceParams,
+                                             B>::Type,
+          Pullback::Weight::Projection,
+          typename Pullback::CoveragePolicyFor<COVERAGE, B, void>::Type>,
+      Pullback::Stage::Colorize<Pullback::Color::GeneratedPalette<
+          Pullback::ColorProvider<B, HUE, BRIGHTNESS>>>>;
+};
 using KaleidoscopeStainedGlassParams =
-    Pullback::Params<Pullback::GridSourceParams, Pullback::VectorNoiseParams,
-                     Pullback::MirrorParams>;
-using KaleidoscopeStainedGlassSpec =
-    Pullback::Spec<Pullback::ProjectionKind::GNOMONIC_FOLDED,
-                   Pullback::Lens::DodecahedralKaleidoscope,
-                   Pullback::TransferKind::NONE,
-                   Pullback::ProjectionCoverageMode::WEIGHT_SQUARED>;
+    Pullback::ParamsFor<KaleidoscopeStainedGlassSpec>;
 
 /**
  * @brief A vector-noise grid refracted across dodecahedral facets.
@@ -26,11 +59,8 @@ using KaleidoscopeStainedGlassSpec =
  */
 template <int W, int H>
 class KaleidoscopeStainedGlass
-    : public Pullback::ComposedEffect<
-          W, H, KaleidoscopeStainedGlass<W, H>, KaleidoscopeStainedGlassParams,
-          KaleidoscopeStainedGlassSpec, PaletteHarmony::TRIADIC,
-          Pullback::HueMode::NOISE, Pullback::Color::BrightnessEnvelope::CUP,
-          /*AnimatedProjection=*/false> {
+    : public Pullback::ComposedEffect<W, H, KaleidoscopeStainedGlass<W, H>,
+                                      KaleidoscopeStainedGlassSpec> {
 
 public:
   using Params = KaleidoscopeStainedGlassParams;
@@ -45,7 +75,7 @@ public:
   static constexpr uint16_t PRESET_DWELL_FRAMES = 600;
   // clang-format on
   // End generated identity.
-  static constexpr uint32_t PARAMETER_SCHEMA_VERSION = 1;
+  static constexpr uint32_t PARAMETER_SCHEMA_VERSION = 2;
 
   // Entry trampoline and pipeline body use hot flash.
   static HS_HOT_FLASH_MEMBER Color4

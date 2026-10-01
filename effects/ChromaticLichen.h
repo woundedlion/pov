@@ -10,14 +10,43 @@
 
 #include "core/render/pullback/composed_effect.h"
 
-using ChromaticLichenParams =
-    Pullback::Params<Pullback::GridSourceParams, Pullback::NoWarpParams,
-                     Pullback::NoWarpParams, Pullback::NoLensParams,
-                     Pullback::NoValueParams, Pullback::SurfaceNoiseParams>;
-using ChromaticLichenSpec =
-    Pullback::Spec<Pullback::ProjectionKind::GNOMONIC_FOLDED,
-                   Pullback::Lens::Glitch, Pullback::TransferKind::NONE,
-                   Pullback::ProjectionCoverageMode::WEIGHT>;
+struct ChromaticLichenSpec : Pullback::Spec {
+  static constexpr Pullback::ProjectionKind PROJECTION =
+      Pullback::ProjectionKind::GNOMONIC_FOLDED;
+  static constexpr Pullback::TransferKind TRANSFER =
+      Pullback::TransferKind::NONE;
+  static constexpr Pullback::ProjectionCoverageMode COVERAGE =
+      Pullback::ProjectionCoverageMode::WEIGHT;
+  static constexpr Pullback::FieldCoverageKind FIELD_COVERAGE =
+      Pullback::FieldCoverageKind::NONE;
+  static constexpr PaletteHarmony HARMONY = PaletteHarmony::ANALOGOUS;
+  static constexpr Pullback::HueMode HUE = Pullback::HueMode::NOISE;
+  static constexpr Pullback::Color::BrightnessEnvelope BRIGHTNESS =
+      Pullback::Color::BrightnessEnvelope::NONE;
+  static constexpr bool ANIMATED_PROJECTION = true;
+  static constexpr Pullback::SurfacePlacement SURFACE_PLACEMENT =
+      Pullback::SurfacePlacement::AFTER_LENS;
+  using LensPolicy = Pullback::Lens::Glitch;
+  template <typename B>
+  using Pipeline = Pullback::Pipeline<
+      B, Pullback::Stage::Rotate<Pullback::OuterCameraProvider<B>>,
+      Pullback::Stage::Placed<
+          Pullback::CodeEmission::OUT_OF_LINE_FLASH,
+          Pullback::Stage::Lens<Pullback::Lens::Glitch>,
+          Pullback::Stage::Displace<typename Pullback::SurfacePolicyFor<
+              Pullback::SurfaceNoiseParams, B,
+              HUE == Pullback::HueMode::PATH_LENGTH>::Type>,
+          Pullback::Stage::Project<
+              typename Pullback::ProjectionPolicyFor<PROJECTION, B>::Type>>,
+      Pullback::Stage::Sample<
+          typename Pullback::SourcePolicyFor<Pullback::GridSourceParams,
+                                             B>::Type,
+          Pullback::Weight::Projection,
+          typename Pullback::CoveragePolicyFor<COVERAGE, B, void>::Type>,
+      Pullback::Stage::Colorize<Pullback::Color::GeneratedPalette<
+          Pullback::ColorProvider<B, HUE, BRIGHTNESS>>>>;
+};
+using ChromaticLichenParams = Pullback::ParamsFor<ChromaticLichenSpec>;
 
 /**
  * @brief A glitch-folded gnomonic grid displaced by sphere-space curl noise.
@@ -26,11 +55,8 @@ using ChromaticLichenSpec =
  */
 template <int W, int H>
 class ChromaticLichen
-    : public Pullback::ComposedEffect<
-          W, H, ChromaticLichen<W, H>, ChromaticLichenParams,
-          ChromaticLichenSpec, PaletteHarmony::ANALOGOUS,
-          Pullback::HueMode::NOISE, Pullback::Color::BrightnessEnvelope::NONE,
-          /*AnimatedProjection=*/true, Pullback::SurfacePlacement::AFTER_LENS> {
+    : public Pullback::ComposedEffect<W, H, ChromaticLichen<W, H>,
+                                      ChromaticLichenSpec> {
 
 public:
   using Params = ChromaticLichenParams;
@@ -45,7 +71,7 @@ public:
   static constexpr uint16_t PRESET_DWELL_FRAMES = 600;
   // clang-format on
   // End generated identity.
-  static constexpr uint32_t PARAMETER_SCHEMA_VERSION = 1;
+  static constexpr uint32_t PARAMETER_SCHEMA_VERSION = 2;
 
   // Generated params: scripts/generate_composed_presets.mjs
   // clang-format off

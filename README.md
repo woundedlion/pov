@@ -308,7 +308,8 @@ files define line-ending policy and working-artifact exclusions.
 │   │   │                            operators_sphere, operators_warp), the chain
 │   │   │                            interpreter (interpreter) with its catalog export
 │   │   │                            (catalog_export), the shared runtime seeds
-│   │   │                            (runtime_seeds), plus the composed-effect base
+│   │   │                            (runtime_seeds), named per-instance resources (composed_resources),
+│   │   │                            plus the composed-effect base
 │   │   │                            (composed_effect)
 │   │   ├── scan.h                  Scanline rasterizer: umbrella over scan/
 │   │   ├── scan/                   Per-family scan headers (raster, shapes, mesh,
