@@ -6,8 +6,8 @@
 
 /**
  * @file choreography.h
- * @brief ChoreographedEffect: preset choreography, schema-versioned parameter
- *        snapshots and field-table slider registration over one Params type.
+ * @brief ChoreographedEffect: preset choreography and schema-versioned parameter
+ *        snapshots over one Params type.
  */
 
 #include <cmath>
