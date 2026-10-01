@@ -399,6 +399,11 @@ def multi_preset_effects():
                 r"std::array<std::string_view,\s*(\d+)>\s+PRESET_IDS\b", text):
             if int(count) > 1:
                 found.add(header.stem)
+        for entries in re.findall(
+                r"PRESET_IDS\s*=\s*std::to_array<std::string_view>\s*\(\s*\{(.*?)\}\s*\)",
+                text, re.DOTALL):
+            if len(re.findall(r'"[^"\n]*"', entries)) > 1:
+                found.add(header.stem)
     return found
 
 
@@ -417,6 +422,7 @@ class CyclerRoster(unittest.TestCase):
     def test_every_multi_preset_effect_is_a_cycler(self):
         presets = multi_preset_effects()
         self.assertTrue(presets, "no multi-preset effect parsed from effects/")
+        self.assertIn("HyperLattice", presets)
         self.assertEqual(presets - cyclers(), set())
 
 
