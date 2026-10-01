@@ -5923,8 +5923,10 @@ inline void test_shader_workbench_brightness_envelopes() {
     HS_EXPECT_GT(
         live_mapping[static_cast<size_t>(mapping_target.slots.palette_mapping)],
         0.0f);
-    while (WB::param_morph_active(mapping_effect))
+    for (int frame = 0; frame < 1024 && WB::param_morph_active(mapping_effect);
+         ++frame)
       WB::step_param_morph(mapping_effect);
+    HS_EXPECT_FALSE(WB::param_morph_active(mapping_effect));
     HS_EXPECT_EQ(WB::active_slots(mapping_effect).palette_mapping,
                  mapping_target.slots.palette_mapping);
   }
