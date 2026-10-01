@@ -19,9 +19,10 @@ else()
 endif()
 execute_process(
   COMMAND "${PYTHON_EXE}" "${CMAKE_CURRENT_LIST_DIR}/../tools/build_pins.py" clang-format
-  OUTPUT_VARIABLE _required_format_major
+  OUTPUT_VARIABLE _required_format_version
   OUTPUT_STRIP_TRAILING_WHITESPACE
   COMMAND_ERROR_IS_FATAL ANY)
+string(REGEX MATCH "^[0-9]+" _required_format_major "${_required_format_version}")
 
 if(_clang_format)
   execute_process(COMMAND "${_clang_format}" --version
