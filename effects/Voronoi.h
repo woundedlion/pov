@@ -353,7 +353,7 @@ private:
     int num_sites = 200;      /**< Live-tunable site count (GUI slider). */
     float speed = 20.0f;      /**< Site spin rate (GUI slider). */
     float sharpness = 100.0f; /**< Edge sharpening; larger narrows the border
-                                  blend band, while 0 disables it entirely. */
+                                  blend band; 0 gives hard edges, like infinite sharpness. */
     float border_thickness = 0.0f; /**< Cell-seam border width; 0 disables. */
   } params;
 };
