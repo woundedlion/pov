@@ -9,7 +9,6 @@
 #include <concepts>
 #include <type_traits>
 #include "math/3dmath.h"
-#include "render/shading.h"
 #include "platform/platform.h"
 
 /**
