@@ -219,6 +219,15 @@ class TestRequiredHooksReachEveryEnv(unittest.TestCase):
                                   f"env '{name}' re-types extra_scripts and "
                                   f"drops {script}, which [env] declares")
 
+    def test_shipping_family_resolves_nano_specs(self):
+        cfg = _pio_config()
+        for name in _pio_envs():
+            sources = " ".join(_option_lines(cfg, f"env:{name}", "build_src_filter"))
+            if any(f"targets/{target}/" in sources for target in ("Phantasm", "Profile", "Bench")):
+                with self.subTest(env=name):
+                    self.assertIn("pre:tools/teensy_nano.py",
+                                  _option_lines(cfg, f"env:{name}", "extra_scripts"))
+
     def test_base_env_declares_every_required_hook(self):
         # The [env] block is where a new required hook is added; an entry missing
         # here would make the assertion above pass vacuously for the inheritors.
