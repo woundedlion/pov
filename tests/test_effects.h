@@ -4889,6 +4889,14 @@ inline void test_ringspin_trail_hugs_its_great_circles() {
 struct PetalFlowWhiteBox {
   using PF = PetalFlow<DEFAULT_W, DEFAULT_H>;
   static float gap(const PF &pf) { return pf.gap_accumulator; }
+  static float start_rho() { return PF::START_RHO; }
+  static float youngest_rho(const PF &pf) {
+    float youngest = PF::END_RHO;
+    for (const auto &ring : pf.rings)
+      if (ring.active && ring.rho < youngest)
+        youngest = ring.rho;
+    return youngest;
+  }
   static float spacing() { return PF::SPACING; }
   static float next_hue(const PF &pf) { return pf.next_hue; }
   static float live_spacing(const PF &pf) { return pf.spacing(); }
@@ -4924,6 +4932,8 @@ inline void test_petalflow_spawn_gap_bounded() {
   reset_effect_globals();
   WB::PF pf;
   pf.init();
+  HS_EXPECT_NEAR(WB::youngest_rho(pf) - WB::start_rho() + WB::gap(pf),
+                 WB::live_spacing(pf), 1e-5f);
   HS_EXPECT_EQ(pf.updateParameter("Speed", 20.0f), ParamSetResult::APPLIED);
   HS_EXPECT_EQ(pf.updateParameter("Density", 2.5f), ParamSetResult::APPLIED);
 
