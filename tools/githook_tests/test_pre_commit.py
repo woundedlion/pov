@@ -160,6 +160,8 @@ class PreCommitHook(unittest.TestCase):
 
     def profile_fixture(self):
         if shutil.which("node") is None:
+            if os.environ.get("CI"):
+                self.fail("node is required in CI")
             self.skipTest("node unavailable")
         scripts = self.repo / "scripts"
         scripts.mkdir()
