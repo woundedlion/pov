@@ -1,0 +1,309 @@
+{
+  "source_sha": "7baf3cc430753e1a3693134150b282f212aa4e9e",
+  "captured": "2026-09-30 19:21",
+  "tag": "ship",
+  "board": "COM4",
+  "live_frames": [
+    2,
+    444
+  ],
+  "scope_frames": [
+    33,
+    416
+  ],
+  "count": 443,
+  "peak_ms": 313.695,
+  "peak_frame": 366,
+  "mean_render_ms": 262.575927765237,
+  "mean_wall_ms": 289.45228442437923,
+  "spills": 443,
+  "spill_percent": 100.0,
+  "startup_ms": 143.577,
+  "isrs": {
+    "isr_wake": {
+      "calls": 2096095,
+      "total_us": 3534709,
+      "min_ns": 463,
+      "max_ns": 15830,
+      "calls_per_frame": 5458.580729166667,
+      "avg_us": 1.6863305336828722,
+      "cpu_percent": 3.108522867851328
+    },
+    "isr_pack": {
+      "calls": 261995,
+      "total_us": 1853036,
+      "min_ns": 6231,
+      "max_ns": 11043,
+      "calls_per_frame": 682.2786458333334,
+      "avg_us": 7.072791465485983,
+      "cpu_percent": 1.6296121635336187
+    },
+    "isr_dma_submit": {
+      "calls": 261995,
+      "total_us": 245443,
+      "min_ns": 616,
+      "max_ns": 8276,
+      "calls_per_frame": 682.2786458333334,
+      "avg_us": 0.9368232218172102,
+      "cpu_percent": 0.21584950225153854
+    }
+  },
+  "scopes": {
+    "frame": {
+      "mean_ms": 296.08733678385414,
+      "worst_ms": 318.00234375
+    },
+    "pov_preserve_half": {
+      "mean_ms": 0.13034360677083334,
+      "worst_ms": 0.13578125
+    },
+    "grd_render": {
+      "mean_ms": 269.2271451736111,
+      "worst_ms": 301.97859375
+    },
+    "grd_rasterize": {
+      "mean_ms": 159.12316028645833,
+      "worst_ms": 191.96290625
+    },
+    "grd_shader_draw": {
+      "mean_ms": 158.2836566059028,
+      "worst_ms": 191.24278125
+    },
+    "grd_cull_flags": {
+      "mean_ms": 0.46646352864583335,
+      "worst_ms": 0.7808125
+    },
+    "grd_orient": {
+      "mean_ms": 0.37253550781250006,
+      "worst_ms": 0.37353125
+    },
+    "grd_simulate": {
+      "mean_ms": 106.83178215711804,
+      "worst_ms": 107.017
+    },
+    "rd_timeline_step": {
+      "mean_ms": 0.028021757812500003,
+      "worst_ms": 0.03284375
+    },
+    "canvas_clear": {
+      "mean_ms": 0.08506590277777777,
+      "worst_ms": 0.08890625
+    },
+    "canvas_buffer_wait": {
+      "mean_ms": 26.615765776909722,
+      "worst_ms": 44.18940625
+    }
+  },
+  "image": [
+    "FLASH: code:66352, data:252240, headers:9088   free for files:1703936",
+    "RAM1: variables:315136, code:28040, padding:4728   free for local variables:176384",
+    "RAM2: variables:520064  free for malloc/new:4224"
+  ],
+  "roster": [
+    "FLASH: code:535552, data:746852, headers:8860   free for files:740352",
+    "RAM1: variables:314784, code:171928, padding:24680   free for local variables:12896",
+    "RAM2: variables:520064  free for malloc/new:4224"
+  ],
+  "windows": [
+    {
+      "start": 33,
+      "end": 64,
+      "wall": [
+        155566,
+        226287,
+        253163,
+        7241185
+      ],
+      "counters": {
+        "frame": {
+          "us": 7241183,
+          "pct": 100,
+          "calls": 32,
+          "cyc": 4344709806,
+          "depth": 0,
+          "tags": []
+        },
+        "pov_preserve_half": {
+          "us": 4345,
+          "pct": 0,
+          "calls": 32,
+          "cyc": 2607496,
+          "depth": 1,
+          "tags": []
+        },
+        "grd_render": {
+          "us": 6120625,
+          "pct": 84,
+          "calls": 32,
+          "cyc": 3672375207,
+          "depth": 1,
+          "tags": []
+        },
+        "grd_rasterize": {
+          "us": 2591692,
+          "pct": 42,
+          "calls": 32,
+          "cyc": 1555015544,
+          "depth": 2,
+          "tags": []
+        },
+        "grd_shader_draw": {
+          "us": 2554735,
+          "pct": 98,
+          "calls": 32,
+          "cyc": 1532841225,
+          "depth": 3,
+          "tags": []
+        },
+        "grd_cull_flags": {
+          "us": 24986,
+          "pct": 0,
+          "calls": 32,
+          "cyc": 14991839,
+          "depth": 3,
+          "tags": []
+        },
+        "grd_orient": {
+          "us": 11953,
+          "pct": 0,
+          "calls": 32,
+          "cyc": 7172324,
+          "depth": 3,
+          "tags": []
+        },
+        "grd_simulate": {
+          "us": 3424544,
+          "pct": 55,
+          "calls": 32,
+          "cyc": 2054726731,
+          "depth": 2,
+          "tags": []
+        },
+        "rd_timeline_step": {
+          "us": 999,
+          "pct": 0,
+          "calls": 32,
+          "cyc": 599513,
+          "depth": 1,
+          "tags": []
+        },
+        "canvas_clear": {
+          "us": 2719,
+          "pct": 0,
+          "calls": 32,
+          "cyc": 1631639,
+          "depth": 1,
+          "tags": []
+        },
+        "canvas_buffer_wait": {
+          "us": 1112461,
+          "pct": 15,
+          "calls": 32,
+          "cyc": 667476662,
+          "depth": 1,
+          "tags": []
+        }
+      }
+    },
+    {
+      "start": 353,
+      "end": 384,
+      "wall": [
+        293012,
+        318002,
+        374591,
+        10176077
+      ],
+      "counters": {
+        "frame": {
+          "us": 10176075,
+          "pct": 100,
+          "calls": 32,
+          "cyc": 6105645223,
+          "depth": 0,
+          "tags": []
+        },
+        "pov_preserve_half": {
+          "us": 4062,
+          "pct": 0,
+          "calls": 32,
+          "cyc": 2437402,
+          "depth": 1,
+          "tags": []
+        },
+        "grd_render": {
+          "us": 9663315,
+          "pct": 94,
+          "calls": 32,
+          "cyc": 5797989009,
+          "depth": 1,
+          "tags": []
+        },
+        "grd_rasterize": {
+          "us": 6142813,
+          "pct": 63,
+          "calls": 32,
+          "cyc": 3685688294,
+          "depth": 2,
+          "tags": []
+        },
+        "grd_shader_draw": {
+          "us": 6119769,
+          "pct": 99,
+          "calls": 32,
+          "cyc": 3671861498,
+          "depth": 3,
+          "tags": []
+        },
+        "grd_cull_flags": {
+          "us": 11075,
+          "pct": 0,
+          "calls": 32,
+          "cyc": 6645409,
+          "depth": 3,
+          "tags": []
+        },
+        "grd_orient": {
+          "us": 11953,
+          "pct": 0,
+          "calls": 32,
+          "cyc": 7171851,
+          "depth": 3,
+          "tags": []
+        },
+        "grd_simulate": {
+          "us": 3415816,
+          "pct": 35,
+          "calls": 32,
+          "cyc": 2049490096,
+          "depth": 2,
+          "tags": []
+        },
+        "rd_timeline_step": {
+          "us": 836,
+          "pct": 0,
+          "calls": 32,
+          "cyc": 502185,
+          "depth": 1,
+          "tags": []
+        },
+        "canvas_clear": {
+          "us": 2719,
+          "pct": 0,
+          "calls": 32,
+          "cyc": 1631889,
+          "depth": 1,
+          "tags": []
+        },
+        "canvas_buffer_wait": {
+          "us": 505110,
+          "pct": 4,
+          "calls": 32,
+          "cyc": 303066027,
+          "depth": 1,
+          "tags": []
+        }
+      }
+    }
+  ]
+}

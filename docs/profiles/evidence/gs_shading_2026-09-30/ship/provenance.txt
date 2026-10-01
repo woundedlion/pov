@@ -1,0 +1,10 @@
+profile provenance: version=1
+profile provenance: source_sha=7baf3cc430753e1a3693134150b282f212aa4e9e
+profile provenance: compiler=GCC: (Arm GNU Toolchain 15.2.Rel1 (Build arm-15.86)) 15.2.1 20251203
+profile provenance: profile_elf_sha256=2046e3a870d9a132e8c4d66277cd0c480f57b4c0cdebbbe66548a8e13bc71f78
+profile provenance: phantasm_elf_sha256=138f33616f8620325c73a0a5e83fc0aa9ad718eb7c1bfc062c68c07d17d2cb57
+profile provenance: profile_envdump_sha256=1f1d51755d18d5777cd876d62dc644c05757ef504506b38dad9e65998f12575f
+profile provenance: phantasm_envdump_sha256=51c0db7ab8a92af8c390da83d8d8871b96332540eec622f5542dcd94d113588f
+profile provenance: artifact_profile_elf=C:/work/temp/review30/artifacts/gs-final-ship_7baf3cc43075_2046e3a870d9/profile.elf
+profile provenance: artifact_phantasm_elf=C:/work/temp/review30/artifacts/gs-final-ship_7baf3cc43075_2046e3a870d9/phantasm.elf
+profile provenance: artifact_dir=C:/work/temp/review30/artifacts/gs-final-ship_7baf3cc43075_2046e3a870d9
