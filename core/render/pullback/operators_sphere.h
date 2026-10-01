@@ -292,10 +292,13 @@ struct LensMobius : StatelessModel {
     math::MobiusParams mobius;
   };
 
+  static math::MobiusParams coefficients(const Params &params) {
+    return {params.a_re, params.a_im, params.b_re, params.b_im,
+            params.c_re, params.c_im, params.d_re, params.d_im};
+  }
+
   static const char *validate(const Params &params) {
-    const math::MobiusParams mobius{params.a_re, params.a_im, params.b_re,
-                                    params.b_im, params.c_re, params.c_im,
-                                    params.d_re, params.d_im};
+    const math::MobiusParams mobius = coefficients(params);
     return Lens::MobiusLensParams::nondegenerate(mobius)
                ? nullptr
                : Lens::MobiusLensParams::DEGENERATE_WARNING;
@@ -303,9 +306,7 @@ struct LensMobius : StatelessModel {
 
   static Prepared prepare(const FrameContext &, const Params &params,
                           const State &) {
-    const math::MobiusParams mobius{params.a_re, params.a_im, params.b_re,
-                                    params.b_im, params.c_re, params.c_im,
-                                    params.d_re, params.d_im};
+    const math::MobiusParams mobius = coefficients(params);
     HS_CHECK(Lens::MobiusLensParams::nondegenerate(mobius),
              "sphere.lens.mobius: degenerate coefficients");
     return {mobius};

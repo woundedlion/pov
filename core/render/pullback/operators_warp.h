@@ -378,14 +378,18 @@ struct WarpCurlFlow : PhaseClockModel<NoisePhaseState> {
   using Params = CurlFlowWarpParams;
   using Prepared = PreparedCurlFlow;
 
-  static const char *validate(const Params &params) {
-    if (params.integrator > static_cast<uint8_t>(CurlIntegrator::MIDPOINT4))
-      return "Curl Flow requires a valid integrator.";
+  static bool stable(const Params &params) {
     const uint8_t intervals =
         curl_intervals(static_cast<CurlIntegrator>(params.integrator));
     return params.scale * fabsf(params.strength) *
-                       Warp::CURL_VECTOR_COMPONENT_MAX / intervals <=
-                   0.5f
+               Warp::CURL_VECTOR_COMPONENT_MAX / intervals <=
+           0.5f;
+  }
+
+  static const char *validate(const Params &params) {
+    if (params.integrator > static_cast<uint8_t>(CurlIntegrator::MIDPOINT4))
+      return "Curl Flow requires a valid integrator.";
+    return stable(params)
                ? nullptr
                : "Reduce Curl Flow scale or strength, or increase integrator steps.";
   }
@@ -399,9 +403,7 @@ struct WarpCurlFlow : PhaseClockModel<NoisePhaseState> {
              "warp.curl-flow: invalid integrator");
     const uint8_t intervals =
         curl_intervals(static_cast<CurlIntegrator>(params.integrator));
-    HS_CHECK(params.scale * fabsf(params.strength) *
-                     Warp::CURL_VECTOR_COMPONENT_MAX / intervals <=
-                 0.5f,
+    HS_CHECK(stable(params),
              "warp.curl-flow: unstable scale and strength for integrator");
     return {&state.noise, math::noise_projected_loop_offset(state.phase),
             intervals};
