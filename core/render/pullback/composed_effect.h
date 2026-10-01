@@ -1023,7 +1023,7 @@ public:
   }
 
   /**
-   * @brief Shades one pixel through the fully inlined pipeline.
+   * @brief Shades one pixel; forwards to RenderPipeline::shade.
    * @param view Unit view direction for the pixel.
    * @param frame Per-frame transforms, params and LUTs from the runtime.
    */
