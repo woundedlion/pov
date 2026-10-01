@@ -162,12 +162,8 @@ private:
     HS_CHECK(interval_us >= 1,
              "column interval rounded to 0 µs (RPM/width too high)");
 #if defined(USE_DMA_LEDS)
-    // show_col() discards submit_frame()'s overrun return, and unlike the
-    // segmented driver it has no retry latch and no dark fallback — a dropped
-    // column leaves the previous column lit for one extra period, since the
-    // drop returns before the buffer flip. This check rules out the systematic
-    // overrun that would hold the strip on one frame: one composite transfer
-    // must fit inside a column period.
+    // A dropped column holds the last transfer for one period: the prior
+    // column, or black after a strobed column.
     HS_CHECK(interval_us > COLUMN_TRANSFER_US,
              "LED transfer outlasts the column period (S, RPM and canvas width "
              "would overrun the DMA every column)");

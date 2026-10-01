@@ -52,7 +52,7 @@
  *   if (spi.is_complete())
  *     spi.transmit_async(buffer, length);  // returns immediately
  *   else
- *     ...                                 // drop this frame, retry next column
+ *     ...                                 // drop this frame; the caller decides whether to retry
  */
 class TeensySPIDMA {
 public:
