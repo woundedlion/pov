@@ -50,26 +50,9 @@ set -euo pipefail
   exit 1
 }
 EFFECT=$1; ENV=$2; SECONDS_ARG=$3; WINDOW=$4; shift 4
-case "$EFFECT" in
-  alien-brain) EFFECT=AlienBrain;;
-  ash-cloud) EFFECT=AshCloud;;
-  kaleidoscope-hex-oil) EFFECT=KaleidoscopeHexOil;;
-  kaleidoscope-hex-soft) EFFECT=KaleidoscopeHexSoft;;
-  alien-ocean) EFFECT=AlienOcean;;
-  alien-core) EFFECT=AlienCore;;
-  kaleidoscope-mandala) EFFECT=KaleidoscopeMandala;;
-  grid-space) EFFECT=GridSpace;;
-  lattice-melt) EFFECT=LatticeMelt;;
-  chromatic-lichen) EFFECT=ChromaticLichen;;
-  mermaid-skin) EFFECT=MermaidSkin;;
-  kaleidoscope-pent-bright) EFFECT=KaleidoscopePentBright;;
-  kaleidoscope-stained-glass) EFFECT=KaleidoscopeStainedGlass;;
-  kaleidoscope-smooth) EFFECT=KaleidoscopeSmooth;;
-  kaleidoscope-hex-bright) EFFECT=KaleidoscopeHexBright;;
-  kaleidoscope-flowers) EFFECT=KaleidoscopeFlowers;;
-  cosmic-eyeball) EFFECT=CosmicEyeball;;
-  mobius-grid) EFFECT=MobiusGrid;;
-esac
+if [[ "$EFFECT" == *-* ]]; then
+  EFFECT=$(printf '%s' "$EFFECT" | sed -E 's/(^|-)([a-z])/\U\2/g')
+fi
 for n in "$SECONDS_ARG" "$WINDOW"; do
   case $n in
     ''|*[!0-9]*)
