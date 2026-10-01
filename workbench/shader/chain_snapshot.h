@@ -33,7 +33,8 @@ struct ChainSnapshot {
     std::string instance;
     Pullback::Interp::RuntimeSnapshot state;
   };
-  uint32_t schema_version = 1;
+  static constexpr uint32_t SCHEMA_VERSION = 2;
+  uint32_t schema_version = SCHEMA_VERSION;
   std::vector<Entry> chain;
   std::vector<Parameter> parameters;
   std::optional<std::vector<Runtime>> runtime;

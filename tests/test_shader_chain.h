@@ -126,15 +126,8 @@ inline const ColorResources &shared_resources() {
 inline constexpr In::ChainEntryRequest DEFAULT_CHAIN[] = {
     {"camera", "sphere.rotate.v2"},
     {"project", "project.stereographic.v2"},
-    {"sample", "sample.grid.v2"},
+    {"sample", "sample.grid.v3"},
     {"colorize", "colorize.generated-palette.v3"},
-};
-
-inline constexpr In::ChainEntryRequest LEGACY_CHAIN[] = {
-    {"camera", "sphere.rotate.v2"},
-    {"project", "project.stereographic.v2"},
-    {"sample", "sample.grid.v2"},
-    {"colorize", "colorize.generated-palette.v2"},
 };
 
 inline std::array<math::Vector, 14> sweep_views() {
@@ -394,32 +387,6 @@ inline MirrorFrame mirror_from(In::ChainProgram &program,
                      param_as<In::Op::GeneratedPaletteParams>(program, 3));
 }
 
-/** The v2 colorize family in the v3 layout: brightness_depth becomes the
-    bottom endpoint under a fixed top of 1. */
-inline MirrorFrame mirror_from_legacy(In::ChainProgram &program,
-                                      const In::FrameContext &ctx) {
-  const auto &legacy =
-      param_as<In::Op::LegacyGeneratedPaletteParams>(program, 3);
-  In::Op::GeneratedPaletteParams color;
-  color.hue_shift_amount = legacy.hue_shift_amount;
-  color.hue_noise_scale = legacy.hue_noise_scale;
-  color.hue_noise_speed = legacy.hue_noise_speed;
-  color.palette_chroma = legacy.palette_chroma;
-  color.mapping_frequency = legacy.mapping_frequency;
-  color.mapping_phase = legacy.mapping_phase;
-  color.phase_oscillation_depth = legacy.phase_oscillation_depth;
-  color.phase_oscillation_speed = legacy.phase_oscillation_speed;
-  color.brightness_bottom = 1.0f - legacy.brightness_depth;
-  color.brightness_top = 1.0f;
-  color.opacity_low = legacy.opacity_low;
-  color.opacity_high = legacy.opacity_high;
-  color.palette_mode = legacy.palette_mode;
-  color.mapping_mode = legacy.mapping_mode;
-  color.hue_mode = legacy.hue_mode;
-  color.envelope_mode = legacy.envelope_mode;
-  return mirror_from(program, ctx, color);
-}
-
 template <typename Pipe>
 void expect_frame_parity(In::ChainProgram &program, const In::FrameContext &ctx,
                          const MirrorFrame &mirror) {
@@ -452,22 +419,6 @@ inline void arm_default_chain(In::ChainProgram &program, int frames,
   apply_value_set(param_as<In::Op::ProjectChainParams>(program, 1), set);
   apply_value_set(param_as<In::Op::GridSampleParams>(program, 2), set);
   apply_value_set(param_as<In::Op::GeneratedPaletteParams>(program, 3), set);
-  for (int frame = 0; frame < frames; ++frame)
-    program.advance();
-}
-
-/** Compiles the legacy-colorize chain and steps it @p frames times. */
-inline void arm_legacy_chain(In::ChainProgram &program, int frames,
-                             ValueSet set) {
-  const In::ChainRefusal refusal =
-      program.compile(std::span<const In::ChainEntryRequest>(LEGACY_CHAIN));
-  HS_EXPECT_EQ(static_cast<int>(refusal.code),
-               static_cast<int>(In::ChainStatus::OK));
-  apply_value_set(param_as<In::Op::RotateChainParams>(program, 0), set);
-  apply_value_set(param_as<In::Op::ProjectChainParams>(program, 1), set);
-  apply_value_set(param_as<In::Op::GridSampleParams>(program, 2), set);
-  apply_value_set(param_as<In::Op::LegacyGeneratedPaletteParams>(program, 3),
-                  set);
   for (int frame = 0; frame < frames; ++frame)
     program.advance();
 }
@@ -574,7 +525,7 @@ inline constexpr auto FAT_SCHEMA = filler_schema<In::MAX_CHAIN_PARAMS + 1>();
 inline constexpr auto EXACT_FIT_SCHEMA =
     filler_schema<In::MAX_CHAIN_PARAMS -
                   table_entry("project.stereographic.v2").schema_count -
-                  table_entry("sample.grid.v2").schema_count -
+                  table_entry("sample.grid.v3").schema_count -
                   table_entry("colorize.generated-palette.v3").schema_count>();
 
 /** Never run; exists to exercise the schema-field budget alone. */
@@ -593,7 +544,7 @@ inline std::span<const In::OperatorDescriptor> extended_table() {
   static constexpr std::array<In::OperatorDescriptor, 8> TABLE{
       table_entry("sphere.rotate.v2"),
       table_entry("project.stereographic.v2"),
-      table_entry("sample.grid.v2"),
+      table_entry("sample.grid.v3"),
       table_entry("colorize.generated-palette.v3"),
       In::make_operator_descriptor<CountModel<0>>(),
       In::make_operator_descriptor<CountModel<1>>(),
@@ -616,7 +567,7 @@ inline void test_shader_chain_program_lifetime() {
       {"counter", "test.count-a.v2"},
       {"camera", "sphere.rotate.v2"},
       {"project", "project.stereographic.v2"},
-      {"sample", "sample.grid.v2"},
+      {"sample", "sample.grid.v3"},
       {"colorize", "colorize.generated-palette.v3"},
   };
   HS_EXPECT_EQ(static_cast<int>(fixture->program.compile(chain).code),
@@ -642,12 +593,12 @@ inline void test_shader_chain_table_behavior() {
     if (op.input != In::CarrierId::SPHERE)
       append("project", "project.stereographic.v2");
     if (op.input == In::CarrierId::FIELD)
-      append("sample", "sample.grid.v2");
+      append("sample", "sample.grid.v3");
     append("subject", op.operator_id);
     if (op.output == In::CarrierId::SPHERE)
       append("project", "project.stereographic.v2");
     if (op.output == In::CarrierId::SPHERE || op.output == In::CarrierId::PLANE)
-      append("sample", "sample.grid.v2");
+      append("sample", "sample.grid.v3");
     if (op.output != In::CarrierId::COLOR)
       append("colorize", "colorize.generated-palette.v3");
     const auto status = fixture->program.compile(
@@ -677,7 +628,7 @@ inline void test_shader_chain_table_behavior() {
 inline void test_shader_chain_table_integrity() {
   static_assert(In::operator_ids_unique());
   static_assert(In::operator_table_monotone());
-  HS_EXPECT_EQ(In::OPERATOR_TABLE.size(), 46u);
+  HS_EXPECT_EQ(In::OPERATOR_TABLE.size(), 38u);
   for (const In::OperatorDescriptor &op : In::OPERATOR_TABLE) {
     HS_EXPECT_TRUE(op.operator_id != nullptr && op.display_name != nullptr);
     HS_EXPECT_LE(static_cast<int>(op.input), static_cast<int>(op.output));
@@ -714,15 +665,19 @@ inline void test_shader_chain_table_integrity() {
     HS_EXPECT_EQ(op.oracle != PB::ApproximationOracleId::NONE, wants_oracle);
     HS_EXPECT_EQ(op.metric_count > 0, wants_oracle);
   }
-  HS_EXPECT_TRUE(In::find_operator("sample.grid.v2") != nullptr);
+  for (const auto *id :
+       {"project.peirce.v2", "project.peirce-square-fast.v2",
+        "project.bonne.v2", "project.airocean.v2", "warp.affine.v2",
+        "sample.grid.v2", "sample.twin-wave.v2",
+        "colorize.generated-palette.v2"})
+    HS_EXPECT_TRUE(In::find_operator(id) == nullptr);
+  HS_EXPECT_TRUE(In::find_operator("sample.grid.v3") != nullptr);
   HS_EXPECT_TRUE(In::find_operator("sample.grid.v1") == nullptr);
   HS_EXPECT_TRUE(In::find_operator("sphere.displace.curl.v2") != nullptr);
   HS_EXPECT_TRUE(In::find_operator("sphere.displace.ripple.v2") != nullptr);
   HS_EXPECT_TRUE(In::find_operator("sphere.lens.kaleidoscope.v2") != nullptr);
-  // Both colorizer versions share the LUT oracle; fast square Peirce uses its
-  // projection oracle.
   HS_EXPECT_FALSE(In::find_operator("sphere.rotate.v2")->approximate);
-  HS_EXPECT_FALSE(In::find_operator("project.peirce.v2")->approximate);
+  HS_EXPECT_FALSE(In::find_operator("project.peirce.v3")->approximate);
   const In::OperatorDescriptor &colorize =
       *In::find_operator("colorize.generated-palette.v3");
   HS_EXPECT_TRUE(colorize.approximate);
@@ -730,7 +685,7 @@ inline void test_shader_chain_table_integrity() {
       static_cast<int>(colorize.oracle),
       static_cast<int>(PB::ApproximationOracleId::HUE_ROTATION_AND_NOISE_LUTS));
   const In::OperatorDescriptor &peirce_fast =
-      *In::find_operator("project.peirce-square-fast.v2");
+      *In::find_operator("project.peirce-square-fast.v3");
   HS_EXPECT_TRUE(peirce_fast.approximate);
   HS_EXPECT_EQ(static_cast<int>(peirce_fast.oracle),
                static_cast<int>(PB::ApproximationOracleId::PEIRCE_FAST_SQUARE));
@@ -738,7 +693,7 @@ inline void test_shader_chain_table_integrity() {
   size_t approximate_count = 0;
   for (const In::OperatorDescriptor &op : In::OPERATOR_TABLE)
     approximate_count += op.approximate ? 1 : 0;
-  HS_EXPECT_EQ(approximate_count, 4u);
+  HS_EXPECT_EQ(approximate_count, 2u);
 }
 
 /** Schema field of @p op with id @p field_id, or null. */
@@ -762,10 +717,10 @@ inline void test_shader_chain_schema_and_field_ids() {
   static_assert(In::schema_ids_unique(In::SCHEMA<In::Op::Rotate>));
   static_assert(
       In::schema_ids_unique(In::SCHEMA<In::Op::ProjectStereographic>));
-  static_assert(In::schema_ids_unique(In::SCHEMA<In::Op::SampleGrid>));
+  static_assert(In::schema_ids_unique(In::SCHEMA<In::Op::SampleGridV3>));
   static_assert(
       In::schema_ids_unique(In::SCHEMA<In::Op::ColorizeGeneratedPaletteV3>));
-  static_assert(In::topology_wellformed(In::SCHEMA<In::Op::SampleGrid>));
+  static_assert(In::topology_wellformed(In::SCHEMA<In::Op::SampleGridV3>));
   static_assert(
       In::topology_wellformed(In::SCHEMA<In::Op::ColorizeGeneratedPaletteV3>));
 
@@ -780,7 +735,7 @@ inline void test_shader_chain_schema_and_field_ids() {
 
   // Schema order is the family table then the topology enum8s; defaults come
   // from the default-constructed family.
-  const In::OperatorDescriptor &sample = *In::find_operator("sample.grid.v2");
+  const In::OperatorDescriptor &sample = *In::find_operator("sample.grid.v3");
   constexpr size_t GRID_FIELDS = In::Op::GridSampleParams::FIELDS.size();
   HS_EXPECT_EQ(sample.schema_count, GRID_FIELDS + 2);
   HS_EXPECT_TRUE(std::string_view(sample.schema[0].id) == "pattern-freq");
@@ -820,19 +775,6 @@ inline void test_shader_chain_schema_and_field_ids() {
   HS_EXPECT_TRUE(std::string_view(colorize.schema[COLOR_FIELDS + 3].id) ==
                  "brightness-envelope");
   HS_EXPECT_EQ(colorize.schema[COLOR_FIELDS + 3].enum_count, 5);
-
-  const In::OperatorDescriptor &legacy_colorize =
-      *In::find_operator("colorize.generated-palette.v2");
-  HS_EXPECT_EQ(legacy_colorize.schema_count, 15);
-  HS_EXPECT_TRUE(std::string_view(legacy_colorize.schema[8].id) ==
-                 "brightness-depth");
-  In::Op::LegacyGeneratedPaletteParams legacy_params;
-  legacy_params.brightness_depth = 0.25f;
-  legacy_params.envelope_mode = static_cast<uint8_t>(In::Op::EnvelopeMode::CUP);
-  const auto legacy_prepared = In::Op::ColorizeGeneratedPaletteV2::prepare(
-      shared_resources().context(), legacy_params, {});
-  HS_EXPECT_EQ(legacy_prepared.brightness_bottom, 0.75f);
-  HS_EXPECT_EQ(legacy_prepared.brightness_top, 1.0f);
 
   const In::OperatorDescriptor &rotate = *In::find_operator("sphere.rotate.v2");
   HS_EXPECT_EQ(rotate.schema_count, 2);
@@ -907,7 +849,7 @@ inline void test_shader_chain_schema_and_field_ids() {
   // Warp batch: every op is PLANE->PLANE with "speed" first; the polar chart
   // carries the full sixteen-harmonic list; curl-flow is basis-only.
   for (const char *id :
-       {"warp.affine.v2", "warp.wave-shear.v2", "warp.vector-noise.v2",
+       {"warp.affine.v3", "warp.wave-shear.v2", "warp.vector-noise.v2",
         "warp.mirror-tile.v2", "warp.polar-chart.v2", "warp.curl-flow.v2"}) {
     const In::OperatorDescriptor &warp = *In::find_operator(id);
     HS_EXPECT_EQ(static_cast<int>(warp.input),
@@ -966,7 +908,7 @@ inline void test_shader_chain_schema_and_field_ids() {
   // Projected sample batch: every crossing carries the union edge-width field
   // and the weight/coverage topology pair; only projected-noise adds a basis.
   for (const char *id :
-       {"sample.grid.v2", "sample.twin-wave.v2", "sample.rings.v2",
+       {"sample.grid.v3", "sample.twin-wave.v3", "sample.rings.v2",
         "sample.spiral.v2", "sample.lattice.v2", "sample.fractal.v2",
         "sample.tessellation.v2", "sample.projected-noise.v2"}) {
     const In::OperatorDescriptor &crossing = *In::find_operator(id);
@@ -1019,8 +961,8 @@ inline void test_shader_chain_schema_and_field_ids() {
   for (const char *id :
        {"project.stereographic.v2", "project.folded-sinusoidal.v2",
         "project.equirectangular.v2", "project.gnomonic.v2",
-        "project.peirce.v2", "project.peirce-square-fast.v2",
-        "project.bonne.v2", "project.airocean.v2"}) {
+        "project.peirce.v3", "project.peirce-square-fast.v3",
+        "project.bonne.v3", "project.airocean.v3"}) {
     const In::OperatorDescriptor &projection = *In::find_operator(id);
     HS_EXPECT_EQ(static_cast<int>(projection.input),
                  static_cast<int>(In::CarrierId::SPHERE));
@@ -1046,7 +988,7 @@ inline void test_shader_chain_schema_and_field_ids() {
     const std::string_view id_view{id};
     HS_EXPECT_EQ(has_meridian, id_view != "project.stereographic.v2" &&
                                    id_view != "project.gnomonic.v2" &&
-                                   id_view != "project.peirce-square-fast.v2");
+                                   id_view != "project.peirce-square-fast.v3");
   }
   const In::OperatorDescriptor &gnomonic =
       *In::find_operator("project.gnomonic.v2");
@@ -1055,7 +997,7 @@ inline void test_shader_chain_schema_and_field_ids() {
   HS_EXPECT_TRUE(std::string_view(gnomonic_hemisphere.id) == "hemisphere");
   HS_EXPECT_EQ(gnomonic_hemisphere.enum_count, 3);
   HS_EXPECT_TRUE(std::string_view(gnomonic_hemisphere.enum_ids[0]) == "folded");
-  const In::OperatorDescriptor &bonne = *In::find_operator("project.bonne.v2");
+  const In::OperatorDescriptor &bonne = *In::find_operator("project.bonne.v3");
   const In::ParamFieldInfo &bonne_hemisphere =
       bonne.schema[bonne.schema_count - 1];
   HS_EXPECT_TRUE(std::string_view(bonne_hemisphere.id) == "hemisphere");
@@ -1166,7 +1108,7 @@ inline void test_shader_chain_catalog_shape() {
   HS_EXPECT_TRUE(contains("\"id\":\"sphere.rotate.v2\""));
   HS_EXPECT_TRUE(contains("\"id\":\"project.stereographic.v2\""));
   HS_EXPECT_TRUE(contains("\"id\":\"warp.vortex.v2\""));
-  HS_EXPECT_TRUE(contains("\"id\":\"sample.grid.v2\""));
+  HS_EXPECT_TRUE(contains("\"id\":\"sample.grid.v3\""));
   HS_EXPECT_TRUE(contains("\"id\":\"sample.spherical-rings.v3\""));
   HS_EXPECT_TRUE(contains("\"id\":\"sample.fractal.v2\""));
   HS_EXPECT_TRUE(contains("\"id\":\"sample.tessellation.v2\""));
@@ -1404,7 +1346,7 @@ inline void arm_sphere_op_chain(In::ChainProgram &program, const char *op_id,
       {"camera", "sphere.rotate.v2"},
       {"op", op_id},
       {"project", "project.stereographic.v2"},
-      {"sample", "sample.grid.v2"},
+      {"sample", "sample.grid.v3"},
       {"colorize", "colorize.generated-palette.v3"},
   };
   const In::ChainRefusal refusal =
@@ -1751,7 +1693,7 @@ inline void arm_warp_op_chain(In::ChainProgram &program, const char *op_id,
       {"camera", "sphere.rotate.v2"},
       {"project", "project.stereographic.v2"},
       {"warp", op_id},
-      {"sample", "sample.grid.v2"},
+      {"sample", "sample.grid.v3"},
       {"colorize", "colorize.generated-palette.v3"},
   };
   const In::ChainRefusal refusal =
@@ -1809,7 +1751,7 @@ inline WarpMirrorFrame warp_mirror(In::ChainProgram &program) {
   WarpMirrorFrame mirror;
   const In::OperatorDescriptor &op = *program.ops()[2].op;
   const std::string_view id{op.operator_id};
-  if (id == In::Op::WarpAffine::ID) {
+  if (id == In::Op::WarpAffineV3::ID) {
     const auto &state = state_as<In::Op::AffineClockState>(program, 2);
     mirror.phase = state.phase;
     mirror.rotation = state.rotation;
@@ -1844,8 +1786,8 @@ inline void test_shader_chain_parity_warp_affine_mirror() {
     auto fixture = std::make_unique<ProgramFixture>();
     In::ChainProgram &program = fixture->program;
     const In::FrameContext ctx = shared_resources().context();
-    arm_warp_op_chain<In::Op::AffineWarpParams>(program, In::Op::WarpAffine::ID,
-                                                4, set);
+    arm_warp_op_chain<In::Op::AffineWarpParams>(
+        program, In::Op::WarpAffineV3::ID, 4, set);
     using BoundAffine =
         typename PB::Stage::Warp<PB::Warp::AffineFrame<AffineMirrorProvider>>::
             template Bind<WarpMirrorBinding>;
@@ -1966,7 +1908,7 @@ inline void test_shader_chain_noise_instances_decorrelate() {
       {"project", "project.stereographic.v2"},
       {"warp-a", In::Op::WarpVectorNoise::ID},
       {"warp-b", In::Op::WarpVectorNoise::ID},
-      {"sample", "sample.grid.v2"},
+      {"sample", "sample.grid.v3"},
       {"colorize", "colorize.generated-palette.v3"},
   };
   const In::ChainRefusal refusal =
@@ -2117,9 +2059,7 @@ struct PeirceProjMirror : ProjMirrorBase<PeirceProjMirror> {
     return frame.meridian.central_meridian;
   }
   static float layout_scroll(const ProjMirrorFrame &) { return 0.0f; }
-  static float coordinate_scale(const ProjMirrorFrame &) {
-    return In::Op::PROJECT_COORDINATE_SCALE;
-  }
+  static float coordinate_scale(const ProjMirrorFrame &) { return 1.0f; }
   static float singularity_fade(const ProjMirrorFrame &frame) {
     return frame.meridian.singularity_fade;
   }
@@ -2127,9 +2067,7 @@ struct PeirceProjMirror : ProjMirrorBase<PeirceProjMirror> {
 
 struct PeirceFastProjMirror : ProjMirrorBase<PeirceFastProjMirror> {
   static constexpr bool ZERO_CENTRAL_MERIDIAN = true;
-  static float coordinate_scale(const ProjMirrorFrame &) {
-    return In::Op::PROJECT_COORDINATE_SCALE;
-  }
+  static float coordinate_scale(const ProjMirrorFrame &) { return 1.0f; }
   static float singularity_fade(const ProjMirrorFrame &frame) {
     return frame.meridian.singularity_fade;
   }
@@ -2142,18 +2080,14 @@ struct BonneProjMirror : ProjMirrorBase<BonneProjMirror> {
   static float standard_parallel(const ProjMirrorFrame &frame) {
     return frame.bonne.standard_parallel;
   }
-  static float coordinate_scale(const ProjMirrorFrame &) {
-    return In::Op::PROJECT_COORDINATE_SCALE;
-  }
+  static float coordinate_scale(const ProjMirrorFrame &) { return 1.0f; }
 };
 
 struct AiroceanProjMirror : ProjMirrorBase<AiroceanProjMirror> {
   static float central_meridian(const ProjMirrorFrame &frame) {
     return frame.meridian.central_meridian;
   }
-  static float coordinate_scale(const ProjMirrorFrame &) {
-    return In::Op::PROJECT_COORDINATE_SCALE;
-  }
+  static float coordinate_scale(const ProjMirrorFrame &) { return 1.0f; }
 };
 
 /** Compiles a chain with one projection at entry 1 and applies the value set
@@ -2164,7 +2098,7 @@ inline void arm_project_op_chain(In::ChainProgram &program, const char *op_id,
   const In::ChainEntryRequest chain[] = {
       {"camera", "sphere.rotate.v2"},
       {"project", op_id},
-      {"sample", "sample.grid.v2"},
+      {"sample", "sample.grid.v3"},
       {"colorize", "colorize.generated-palette.v3"},
   };
   const In::ChainRefusal refusal =
@@ -2190,9 +2124,9 @@ inline ProjMirrorFrame project_mirror(In::ChainProgram &program,
   const std::string_view id{op.operator_id};
   if (id == In::Op::ProjectGnomonic::ID) {
     mirror.gnomonic = param_as<In::Op::GnomonicChainParams>(program, 1);
-  } else if (id == In::Op::ProjectBonne::ID) {
+  } else if (id == In::Op::ProjectBonneV3::ID) {
     mirror.bonne = param_as<In::Op::BonneChainParams>(program, 1);
-  } else if (id == In::Op::ProjectPeirceSquareFast::ID) {
+  } else if (id == In::Op::ProjectPeirceSquareFastV3::ID) {
     static_cast<In::Op::ProjectChainParams &>(mirror.meridian) =
         param_as<In::Op::ProjectChainParams>(program, 1);
   } else {
@@ -2263,10 +2197,10 @@ inline void test_shader_chain_projection_frame_policy() {
   expect_project_frame_policy<In::Op::ProjectFoldedSinusoidal>();
   expect_project_frame_policy<In::Op::ProjectEquirectangular>();
   expect_project_frame_policy<In::Op::ProjectGnomonic>();
-  expect_project_frame_policy<In::Op::ProjectPeirce>();
-  expect_project_frame_policy<In::Op::ProjectPeirceSquareFast>();
-  expect_project_frame_policy<In::Op::ProjectBonne>();
-  expect_project_frame_policy<In::Op::ProjectAirocean>();
+  expect_project_frame_policy<In::Op::ProjectPeirceV3>();
+  expect_project_frame_policy<In::Op::ProjectPeirceSquareFastV3>();
+  expect_project_frame_policy<In::Op::ProjectBonneV3>();
+  expect_project_frame_policy<In::Op::ProjectAiroceanV3>();
 }
 
 /** Erased-vs-bound parity of the projection at entry 1. */
@@ -2316,17 +2250,17 @@ inline void test_shader_chain_parity_project_ops() {
     run_project_parity<
         PB::Projection::Peirce<PeirceProjMirror, In::Op::PEIRCE_SQUARE_LAYOUT,
                                true>,
-        In::Op::MeridianProjectChainParams>(In::Op::ProjectPeirce::ID, set);
+        In::Op::MeridianProjectChainParams>(In::Op::ProjectPeirceV3::ID, set);
     run_project_parity<PB::Projection::PeirceFastSquare<PeirceFastProjMirror>,
                        In::Op::ProjectChainParams>(
-        In::Op::ProjectPeirceSquareFast::ID, set);
+        In::Op::ProjectPeirceSquareFastV3::ID, set);
     run_project_parity<
         PB::Projection::Airocean<AiroceanProjMirror, false, true>,
-        In::Op::AiroceanChainParams>(In::Op::ProjectAirocean::ID, set);
+        In::Op::AiroceanChainParams>(In::Op::ProjectAiroceanV3::ID, set);
     auto fixture = std::make_unique<ProgramFixture>();
     In::ChainProgram &program = fixture->program;
     arm_project_op_chain<In::Op::AiroceanChainParams>(
-        program, In::Op::ProjectAirocean::ID, 4, set);
+        program, In::Op::ProjectAiroceanV3::ID, 4, set);
     param_as<In::Op::AiroceanChainParams>(program, 1).layout = 1;
     using Horizontal = typename PB::Stage::Project<PB::Projection::Airocean<
         AiroceanProjMirror, true, true>>::template Bind<ProjMirrorBinding>;
@@ -2370,7 +2304,7 @@ inline void test_shader_chain_parity_project_hemispheres() {
     program.clear();
 
     arm_project_op_chain<In::Op::BonneChainParams>(
-        program, In::Op::ProjectBonne::ID, 4, set);
+        program, In::Op::ProjectBonneV3::ID, 4, set);
     run_bonne_variant<true>(program, ctx);
     run_bonne_variant<false>(program, ctx);
     program.clear();
@@ -2432,7 +2366,7 @@ inline void arm_field_op_chain(In::ChainProgram &program, const char *op_id,
   const In::ChainEntryRequest chain[] = {
       {"camera", "sphere.rotate.v2"},
       {"project", "project.stereographic.v2"},
-      {"sample", "sample.grid.v2"},
+      {"sample", "sample.grid.v3"},
       {"op", op_id},
       {"colorize", "colorize.generated-palette.v3"},
   };
@@ -2748,7 +2682,7 @@ inline SampleMirrorFrame sample_mirror(In::ChainProgram &program,
     mirror.primary = state.primary;
     mirror.secondary = state.secondary;
     mirror.angle = state.angle;
-    if (id == In::Op::SampleTwinWave::ID) {
+    if (id == In::Op::SampleTwinWaveV3::ID) {
       mirror.twin_wave =
           param_as<In::Op::TwinWaveSampleParams>(program, source_index);
       mirror.edge_width = mirror.twin_wave.edge_width;
@@ -2894,7 +2828,7 @@ inline void test_shader_chain_parity_sample_twin_wave() {
     auto fixture = std::make_unique<ProgramFixture>();
     In::ChainProgram &program = fixture->program;
     arm_sample_op_chain<In::Op::TwinWaveSampleParams>(
-        program, In::Op::SampleTwinWave::ID, 4, set);
+        program, In::Op::SampleTwinWaveV3::ID, 4, set);
     const In::FrameContext ctx = shared_resources().context();
     run_sample_op_matrix<PB::Source::TwinWave<TwinWaveSampleMirror>>(program,
                                                                      ctx);
@@ -3060,12 +2994,12 @@ inline void test_shader_chain_composed_noise_domain() {
   auto &program = fixture->program;
   const In::ChainEntryRequest chain[] = {
       {"project", In::Op::ProjectStereographic::ID},
-      {"affine-a", In::Op::WarpAffine::ID},
-      {"affine-b", In::Op::WarpAffine::ID},
-      {"affine-c", In::Op::WarpAffine::ID},
-      {"affine-d", In::Op::WarpAffine::ID},
-      {"affine-e", In::Op::WarpAffine::ID},
-      {"affine-f", In::Op::WarpAffine::ID},
+      {"affine-a", In::Op::WarpAffineV3::ID},
+      {"affine-b", In::Op::WarpAffineV3::ID},
+      {"affine-c", In::Op::WarpAffineV3::ID},
+      {"affine-d", In::Op::WarpAffineV3::ID},
+      {"affine-e", In::Op::WarpAffineV3::ID},
+      {"affine-f", In::Op::WarpAffineV3::ID},
       {"sample", In::Op::SampleProjectedNoise::ID},
       {"color", In::Op::ColorizeGeneratedPaletteV3::ID},
   };
@@ -3112,9 +3046,9 @@ inline void test_shader_chain_large_finite_path_length() {
   chain[0] = {"project", In::Op::ProjectStereographic::ID};
   for (int index = 0; index < 11; ++index) {
     ids[index] = "warp" + std::to_string(index);
-    chain[index + 1] = {ids[index], In::Op::WarpAffine::ID};
+    chain[index + 1] = {ids[index], In::Op::WarpAffineV3::ID};
   }
-  chain[12] = {"sample", In::Op::SampleGrid::ID};
+  chain[12] = {"sample", In::Op::SampleGridV3::ID};
   chain[13] = {"color", In::Op::ColorizeGeneratedPaletteV3::ID};
   HS_EXPECT_EQ(program.compile(chain).code, In::ChainStatus::OK);
   for (int index = 1; index <= 11; ++index) {
@@ -3361,51 +3295,6 @@ inline void test_shader_chain_parity_colorize_variants() {
   }
 }
 
-template <In::Op::HueShiftMode HueV, In::Op::EnvelopeMode EnvelopeV>
-void run_legacy_colorize_variant(In::ChainProgram &program,
-                                 const In::FrameContext &ctx) {
-  using Pipe = MirrorPipeline<PB::Weight::Projection,
-                              PB::ProjectionCoverage::Weight, HueV, EnvelopeV>;
-  auto &params = param_as<In::Op::LegacyGeneratedPaletteParams>(program, 3);
-  params.hue_mode = static_cast<uint8_t>(HueV);
-  params.envelope_mode = static_cast<uint8_t>(EnvelopeV);
-  for (uint8_t palette_mode = 0; palette_mode < 3; ++palette_mode) {
-    params.palette_mode = palette_mode;
-    for (uint8_t mapping = 0; mapping < 4; ++mapping) {
-      params.mapping_mode = mapping;
-      program.prepare(ctx);
-      expect_frame_parity<Pipe>(program, ctx, mirror_from_legacy(program, ctx));
-    }
-  }
-}
-
-template <In::Op::HueShiftMode HueV, size_t... Envelopes>
-void run_legacy_colorize_envelopes(In::ChainProgram &program,
-                                   const In::FrameContext &ctx,
-                                   std::index_sequence<Envelopes...>) {
-  (run_legacy_colorize_variant<HueV, static_cast<In::Op::EnvelopeMode>(
-                                         Envelopes)>(program, ctx),
-   ...);
-}
-
-inline void test_shader_chain_parity_colorize_legacy_variants() {
-  for (const ValueSet set :
-       {ValueSet::DEFAULTS, ValueSet::MINIMUMS, ValueSet::MAXIMUMS}) {
-    HS_CONTEXT(value_set_name(set));
-    auto fixture = std::make_unique<ProgramFixture>();
-    In::ChainProgram &program = fixture->program;
-    arm_legacy_chain(program, 4, set);
-    const In::FrameContext ctx = shared_resources().context();
-    run_legacy_colorize_envelopes<In::Op::HueShiftMode::NONE>(
-        program, ctx, COLORIZE_ENVELOPES);
-    run_legacy_colorize_envelopes<In::Op::HueShiftMode::NOISE>(
-        program, ctx, COLORIZE_ENVELOPES);
-    run_legacy_colorize_envelopes<In::Op::HueShiftMode::PATH_LENGTH>(
-        program, ctx, COLORIZE_ENVELOPES);
-    program.clear();
-  }
-}
-
 /** Renders the sweep into @p out for a byte-identity comparison. */
 inline void snapshot_render(In::ChainProgram &program,
                             const In::FrameContext &ctx,
@@ -3472,7 +3361,7 @@ inline void test_shader_chain_refusal_shape() {
                  ctx, baseline);
 
   const In::ChainEntryRequest bad_entry[] = {
-      {"sample", "sample.grid.v2"},
+      {"sample", "sample.grid.v3"},
       {"colorize", "colorize.generated-palette.v3"},
   };
   expect_refusal(program, bad_entry, In::ChainStatus::ENTRY_FAMILY, 0, ctx,
@@ -3481,7 +3370,7 @@ inline void test_shader_chain_refusal_shape() {
   const In::ChainEntryRequest bad_exit[] = {
       {"camera", "sphere.rotate.v2"},
       {"project", "project.stereographic.v2"},
-      {"sample", "sample.grid.v2"},
+      {"sample", "sample.grid.v3"},
   };
   expect_refusal(program, bad_exit, In::ChainStatus::EXIT_FAMILY, 2, ctx,
                  baseline);
@@ -3490,7 +3379,7 @@ inline void test_shader_chain_refusal_shape() {
       {"camera", "sphere.rotate.v2"},
       {"project", "project.stereographic.v2"},
       {"camera2", "sphere.rotate.v2"},
-      {"sample", "sample.grid.v2"},
+      {"sample", "sample.grid.v3"},
       {"colorize", "colorize.generated-palette.v3"},
   };
   expect_refusal(program, mismatch, In::ChainStatus::CARRIER_MISMATCH, 2, ctx,
@@ -3540,7 +3429,7 @@ inline void test_shader_chain_refusal_budget_overflows() {
       {"camera", "sphere.rotate.v2"},
       {"camera2", "sphere.rotate.v2"},
       {"project", "project.stereographic.v2"},
-      {"sample", "sample.grid.v2"},
+      {"sample", "sample.grid.v3"},
       {"colorize", "colorize.generated-palette.v3"},
   };
   const In::ChainRefusal rejected = exact->program.compile(longer);
@@ -3562,7 +3451,7 @@ inline void test_shader_chain_refusal_budget_overflows() {
       {"fat", "test.fat.v2"},
       {"camera", "sphere.rotate.v2"},
       {"project", "project.stereographic.v2"},
-      {"sample", "sample.grid.v2"},
+      {"sample", "sample.grid.v3"},
       {"colorize", "colorize.generated-palette.v3"},
   };
   const In::ChainRefusal params_overflow = fat->program.compile(fat_chain);
@@ -3596,7 +3485,7 @@ inline void test_shader_chain_refusal_budget_overflows() {
   const In::ChainEntryRequest exact_fit_chain[] = {
       {"filler", "test.exact-fit.v2"},
       {"project", "project.stereographic.v2"},
-      {"sample", "sample.grid.v2"},
+      {"sample", "sample.grid.v3"},
       {"colorize", "colorize.generated-palette.v3"},
   };
   size_t field_total = 0;
@@ -3621,7 +3510,7 @@ inline void test_shader_chain_refusal_migrate_failed() {
       {"counter", "test.count-a.v2"},
       {"camera", "sphere.rotate.v2"},
       {"project", "project.stereographic.v2"},
-      {"sample", "sample.grid.v2"},
+      {"sample", "sample.grid.v3"},
       {"colorize", "colorize.generated-palette.v3"},
   };
   const In::ChainRefusal first = program.compile(chain);
@@ -3660,7 +3549,7 @@ inline void test_shader_chain_refusal_migrate_failed() {
       {"counter", "test.count-a.v2"},
       {"camera", "sphere.rotate.v2"},
       {"project", "project.stereographic.v2"},
-      {"sample", "sample.grid.v2"},
+      {"sample", "sample.grid.v3"},
       {"colorize", "colorize.generated-palette.v3"},
   };
   const int inits_before = CountLifecycle::inits;
@@ -3693,7 +3582,7 @@ inline void test_shader_chain_state_identity_migration() {
       {"a", "test.count-a.v2"},
       {"b", "test.count-a.v2"},
       {"project", "project.stereographic.v2"},
-      {"sample", "sample.grid.v2"},
+      {"sample", "sample.grid.v3"},
       {"colorize", "colorize.generated-palette.v3"},
   };
   HS_EXPECT_EQ(static_cast<int>(program.compile(first).code),
@@ -3709,7 +3598,7 @@ inline void test_shader_chain_state_identity_migration() {
       {"a", "test.count-a.v2"},
       {"c", "test.count-a.v2"},
       {"project", "project.stereographic.v2"},
-      {"sample", "sample.grid.v2"},
+      {"sample", "sample.grid.v3"},
       {"colorize", "colorize.generated-palette.v3"},
   };
   const int destroys_before = CountLifecycle::destroys;
@@ -3727,7 +3616,7 @@ inline void test_shader_chain_state_identity_migration() {
       {"a", "test.count-b.v2"},
       {"c", "test.count-a.v2"},
       {"project", "project.stereographic.v2"},
-      {"sample", "sample.grid.v2"},
+      {"sample", "sample.grid.v3"},
       {"colorize", "colorize.generated-palette.v3"},
   };
   const int migrates_before = CountLifecycle::migrates;
@@ -3755,7 +3644,7 @@ inline void test_shader_chain_state_continuity_slice() {
       {"camera", "sphere.rotate.v2"},
       {"camera2", "sphere.rotate.v2"},
       {"project", "project.stereographic.v2"},
-      {"sample", "sample.grid.v2"},
+      {"sample", "sample.grid.v3"},
       {"colorize", "colorize.generated-palette.v3"},
   };
   HS_EXPECT_EQ(static_cast<int>(program.compile(edited).code),
@@ -3785,7 +3674,7 @@ inline void test_shader_chain_operator_state_migration() {
       {"ripple", "sphere.displace.ripple.v2"},
       {"project", "project.stereographic.v2"},
       {"wave", "warp.wave-shear.v2"},
-      {"affine", "warp.affine.v2"},
+      {"affine", "warp.affine.v3"},
       {"sample", "sample.projected-noise.v2"},
       {"colorize", "colorize.generated-palette.v3"}};
   const auto status = program.compile(first).code;
@@ -3880,7 +3769,7 @@ inline void test_shader_chain_determinism() {
   const In::ChainEntryRequest renamed[] = {
       {"camera2", "sphere.rotate.v2"},
       {"project", "project.stereographic.v2"},
-      {"sample", "sample.grid.v2"},
+      {"sample", "sample.grid.v3"},
       {"colorize", "colorize.generated-palette.v3"},
   };
   HS_EXPECT_EQ(static_cast<int>(relabeled->program.compile(renamed).code),
@@ -3995,7 +3884,7 @@ inline void test_shader_chain_composed_frame_parity() {
   using FX = AlienCore<96, 20>;
   reset_globals();
   auto params = FX::initial_params();
-  params.projection.camera_wander = 0.0f;
+  params.template get<"projection">().camera_wander = 0.0f;
   std::array<FX::FrameState, 5> references;
   {
     FX composed;
@@ -4016,27 +3905,30 @@ inline void test_shader_chain_composed_frame_parity() {
       {"lens", "sphere.lens.glitch.v2"},
       {"project", "project.gnomonic.v2"},
       {"warp", "warp.mirror-tile.v2"},
-      {"sample", "sample.grid.v2"},
+      {"sample", "sample.grid.v3"},
       {"colorize", "colorize.generated-palette.v3"},
   };
   HS_EXPECT_EQ(static_cast<int>(chain.set_chain(topology).code),
                static_cast<int>(In::ChainStatus::OK));
   auto &program = ShaderChainWhiteBox::program(chain);
   param_as<In::Op::RotateChainParams>(program, 0).wander =
-      params.projection.camera_wander;
+      params.template get<"projection">().camera_wander;
   auto &projection = param_as<In::Op::GnomonicChainParams>(program, 2);
   projection.frame = static_cast<uint8_t>(In::Op::ProjectionFrame::IDENTITY);
-  projection.singularity_fade = params.projection.singularity_fade;
-  static_cast<PB::MirrorParams &>(
-      param_as<In::Op::MirrorWarpParams>(program, 3)) = params.outer_warp;
+  projection.singularity_fade =
+      params.template get<"projection">().singularity_fade;
+  static_cast<PB::MirrorParams &>(param_as<In::Op::MirrorWarpParams>(
+      program, 3)) = params.template get<"outer_warp">();
   auto &source = param_as<In::Op::GridSampleParams>(program, 4);
-  static_cast<PB::GridSourceParams &>(source) = params.source;
-  source.edge_width = params.value.edge_width;
+  static_cast<PB::GridSourceParams &>(source) = params.template get<"source">();
+  source.edge_width = params.template get<"value">().edge_width;
   source.coverage_mode =
       static_cast<uint8_t>(PB::ProjectionCoverageMode::EDGE_FADE);
   auto &color = ShaderChainWhiteBox::color_params(chain);
-  static_cast<PB::Color::ColorControls &>(color) = params.color;
-  color.mapping_mode = static_cast<uint8_t>(params.color.palette_mapping);
+  static_cast<PB::Color::ColorControls &>(color) =
+      params.template get<"color">();
+  color.mapping_mode =
+      static_cast<uint8_t>(params.template get<"color">().palette_mapping);
 
   size_t visible = 0;
   for (int frame = 1; frame <= 5; ++frame) {
@@ -4114,7 +4006,7 @@ inline void test_shader_chain_parameter_admission() {
       {"lens", "sphere.lens.mobius.v2"},
       {"project", "project.stereographic.v2"},
       {"warp", "warp.curl-flow.v2"},
-      {"sample", "sample.grid.v2"},
+      {"sample", "sample.grid.v3"},
       {"colorize", "colorize.generated-palette.v3"},
   };
   HS_EXPECT_EQ(static_cast<int>(effect.set_chain(chain).code),
@@ -4195,7 +4087,7 @@ inline void test_shader_chain_edge_distance_admission() {
   const In::ChainEntryRequest chain[] = {
       {"project", "project.folded-sinusoidal.v2"},
       {"warp", "warp.wave-shear.v2"},
-      {"sample", "sample.grid.v2"},
+      {"sample", "sample.grid.v3"},
       {"colorize", "colorize.generated-palette.v3"},
   };
   HS_EXPECT_EQ(effect.set_chain(chain).code, In::ChainStatus::OK);
@@ -4217,7 +4109,7 @@ inline void test_shader_chain_effect_rebind_generation() {
   const In::ChainEntryRequest edited[] = {
       {"camera2", "sphere.rotate.v2"},
       {"project", "project.stereographic.v2"},
-      {"sample", "sample.grid.v2"},
+      {"sample", "sample.grid.v3"},
       {"colorize", "colorize.generated-palette.v3"},
   };
   const In::ChainRefusal committed = effect.set_chain(edited);
@@ -4229,35 +4121,6 @@ inline void test_shader_chain_effect_rebind_generation() {
   HS_EXPECT_TRUE(effect.getParameters().find("camera.wander") == nullptr);
   effect.draw_frame();
   effect.advance_display();
-}
-
-inline void test_shader_chain_legacy_colorize_tap() {
-  using WB = ShaderChainWhiteBox;
-  reset_globals();
-  WB::FX effect;
-  effect.init();
-  const In::ChainEntryRequest legacy[] = {
-      {"camera", "sphere.rotate.v2"},
-      {"project", "project.stereographic.v2"},
-      {"sample", "sample.grid.v2"},
-      {"colorize", "colorize.generated-palette.v2"},
-  };
-  HS_EXPECT_EQ(static_cast<int>(effect.set_chain(legacy).code),
-               static_cast<int>(In::ChainStatus::OK));
-  const Pixel before = WB::palette_color(effect, 0.25f);
-  HS_EXPECT_EQ(
-      static_cast<int>(effect.updateParameter("colorize.palette-chroma", 0.1f)),
-      static_cast<int>(ParamSetResult::APPLIED));
-  HS_EXPECT_EQ(static_cast<int>(
-                   effect.updateParameter("colorize.hue-shift-amount", 0.5f)),
-               static_cast<int>(ParamSetResult::APPLIED));
-  effect.draw_frame();
-  const Pixel after = WB::palette_color(effect, 0.25f);
-  HS_EXPECT_TRUE(after.r != before.r || after.g != before.g ||
-                 after.b != before.b);
-  const In::FrameContext ctx = WB::frame_context(effect);
-  HS_EXPECT_TRUE(ctx.hue_rotation_lut != nullptr);
-  HS_EXPECT_TRUE(ctx.hue_noise_lut != nullptr);
 }
 
 inline void test_shader_chain_effect_refusal_keeps_schema() {
@@ -4458,41 +4321,6 @@ inline void test_shader_chain_status_names() {
   }
 }
 
-template <int W> void test_shader_chain_legacy_walk() {
-  HS_CONTEXT("width", W);
-  reset_globals();
-  StubEffect effect(W, 20);
-  Canvas canvas(effect);
-  FastNoiseLite noise;
-  math::Orientation<> orientation;
-  Animation::RandomWalk<W> animation(orientation, math::UP, noise, {},
-                                     -1517021871);
-  In::Op::SpatialWalkState state;
-  In::Op::init_walk(state, -1517021871);
-  state.legacy = true;
-  math::Quaternion previous;
-  math::Quaternion wander;
-  for (size_t frame = 0; frame < 150; ++frame) {
-    HS_CONTEXT("frame", frame);
-    orientation.collapse();
-    animation.step(canvas);
-    const auto latest = orientation.get();
-    const auto delta = (latest * previous.conjugate()).normalized();
-    wander =
-        (math::slerp(math::Quaternion(), delta, 0.7f) * wander).normalized();
-    previous = latest;
-    In::Op::advance_walk(state, 0.7f, 0.0f);
-    HS_EXPECT_TRUE(float_identical(state.raw_orientation.r, latest.r));
-    HS_EXPECT_TRUE(float_identical(state.raw_orientation.v.x, latest.v.x));
-    HS_EXPECT_TRUE(float_identical(state.raw_orientation.v.y, latest.v.y));
-    HS_EXPECT_TRUE(float_identical(state.raw_orientation.v.z, latest.v.z));
-    HS_EXPECT_TRUE(float_identical(state.wander.r, wander.r));
-    HS_EXPECT_TRUE(float_identical(state.wander.v.x, wander.v.x));
-    HS_EXPECT_TRUE(float_identical(state.wander.v.y, wander.v.y));
-    HS_EXPECT_TRUE(float_identical(state.wander.v.z, wander.v.z));
-  }
-}
-
 inline void test_shader_chain_snapshot_roundtrip() {
   using WB = ShaderChainWhiteBox;
   ChainSnapshot saved;
@@ -4505,8 +4333,8 @@ inline void test_shader_chain_snapshot_roundtrip() {
         {"camera", "sphere.rotate.v2"},
         {"project", "project.stereographic.v2"},
         {"noise", "warp.vector-noise.v2"},
-        {"outer", "warp.affine.v2"},
-        {"sample", "sample.grid.v2"},
+        {"outer", "warp.affine.v3"},
+        {"sample", "sample.grid.v3"},
         {"colorize", "colorize.generated-palette.v3"}};
     HS_EXPECT_EQ(effect.set_chain(topology).code, In::ChainStatus::OK);
     auto &program = WB::program(effect);
@@ -4593,7 +4421,7 @@ inline void test_shader_chain_snapshot_refusals() {
         std::get<In::SpatialWalkSnapshot>((*saved.runtime)[0].state).walk_time);
   };
   auto candidate = saved;
-  candidate.schema_version = 2;
+  candidate.schema_version = 1;
   refused(candidate, ChainSnapshotRestoreResult::UNSUPPORTED_VERSION);
   candidate = saved;
   candidate.parameters[0].value = std::numeric_limits<float>::quiet_NaN();
@@ -4664,7 +4492,6 @@ inline int run_shader_chain_tests() {
   test_shader_chain_parity_sample_projected_noise();
   test_shader_chain_parity_sample_spherical_noise();
   test_shader_chain_parity_colorize_variants();
-  test_shader_chain_parity_colorize_legacy_variants();
   test_shader_chain_refusal_shape();
   test_shader_chain_refusal_budget_overflows();
   test_shader_chain_program_lifetime();
@@ -4679,13 +4506,10 @@ inline int run_shader_chain_tests() {
   test_shader_chain_parameter_admission();
   test_shader_chain_edge_distance_admission();
   test_shader_chain_effect_rebind_generation();
-  test_shader_chain_legacy_colorize_tap();
   test_shader_chain_effect_refusal_keeps_schema();
   test_shader_chain_pause_semantics();
   test_shader_chain_hue_lut_bake_cache();
   test_shader_chain_status_names();
-  test_shader_chain_legacy_walk<96>();
-  test_shader_chain_legacy_walk<288>();
   test_shader_chain_snapshot_roundtrip();
   test_shader_chain_snapshot_refusals();
   return fixture.result();

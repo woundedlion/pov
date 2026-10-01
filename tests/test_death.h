@@ -4580,7 +4580,7 @@ inline void case_pullback_operator_invalid_coverage_mode() {
   params.coverage_mode = opaque<uint8_t>(0xff);
   Pullback::Interp::Op::SourceClockState state;
   Pullback::Interp::FrameContext context{};
-  if (Pullback::Interp::Op::SampleGrid::prepare(context, params, state)
+  if (Pullback::Interp::Op::SampleGridV3::prepare(context, params, state)
           .primary != 0.0f)
     std::printf("x");
 }
@@ -4591,7 +4591,7 @@ inline void case_pullback_operator_invalid_weight_mode() {
   params.weight_mode = opaque<uint8_t>(0xff);
   Pullback::Interp::Op::SourceClockState state;
   Pullback::Interp::FrameContext context{};
-  if (Pullback::Interp::Op::SampleGrid::prepare(context, params, state)
+  if (Pullback::Interp::Op::SampleGridV3::prepare(context, params, state)
           .primary != 0.0f)
     std::printf("x");
 }
@@ -4653,11 +4653,11 @@ inline void case_pullback_operator_invalid_surface_integrator() {
 
 /** @brief Rejects an unknown Bonne hemisphere. */
 inline void case_pullback_operator_invalid_bonne_hemisphere() {
-  Pullback::Interp::Op::BonneChainParams params;
+  Pullback::Interp::Op::ProjectBonneV3::Params params;
   params.hemisphere = opaque<uint8_t>(0xff);
-  Pullback::Interp::Op::ProjectBonne::State state;
+  Pullback::Interp::Op::ProjectBonneV3::State state;
   Pullback::Interp::FrameContext context{};
-  Pullback::Interp::Op::ProjectBonne::prepare(context, params, state);
+  Pullback::Interp::Op::ProjectBonneV3::prepare(context, params, state);
 }
 
 /** @brief Death case: the gnomonic projection rejects an unknown hemisphere. */
@@ -4670,11 +4670,11 @@ inline void case_pullback_operator_invalid_gnomonic_hemisphere() {
 }
 
 inline void case_pullback_operator_invalid_airocean_layout() {
-  Pullback::Interp::Op::AiroceanChainParams params;
+  Pullback::Interp::Op::ProjectAiroceanV3::Params params;
   params.layout = opaque<uint8_t>(0xff);
-  Pullback::Interp::Op::ProjectAirocean::State state;
+  Pullback::Interp::Op::ProjectAiroceanV3::State state;
   Pullback::Interp::FrameContext context{};
-  Pullback::Interp::Op::ProjectAirocean::prepare(context, params, state);
+  Pullback::Interp::Op::ProjectAiroceanV3::prepare(context, params, state);
 }
 
 /** @brief Death case: a noise-driven operator rejects an unknown basis. */

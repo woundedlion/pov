@@ -101,84 +101,6 @@ inline constexpr const char *BRIGHTNESS_ENVELOPE_IDS[] = {
 static_assert(std::size(BRIGHTNESS_ENVELOPE_IDS) ==
               static_cast<size_t>(EnvelopeMode::DESCENDING) + 1);
 
-/** @brief Legacy parameter family of colorize.generated-palette.v2. */
-struct LegacyGeneratedPaletteParams {
-  float hue_shift_amount = 0.0f;
-  float hue_noise_scale = 1.0f;
-  float hue_noise_speed = 0.0f;
-  float palette_chroma = 0.62f;
-  float mapping_frequency = 1.0f;
-  float mapping_phase = 0.0f;
-  float phase_oscillation_depth = 0.0f;
-  float phase_oscillation_speed = 0.0f;
-  float brightness_depth = 1.0f;
-  float opacity_low = 1.0f;
-  float opacity_high = 1.0f;
-  uint8_t palette_mode = static_cast<uint8_t>(PaletteMode::TRIADIC);
-  uint8_t mapping_mode = static_cast<uint8_t>(Color::PaletteMapping::LINEAR);
-  uint8_t hue_mode = static_cast<uint8_t>(HueShiftMode::NOISE);
-  uint8_t envelope_mode = static_cast<uint8_t>(EnvelopeMode::NONE);
-
-  static constexpr auto FIELDS = std::array{
-      Field<LegacyGeneratedPaletteParams>{
-          "hue-shift-amount", &LegacyGeneratedPaletteParams::hue_shift_amount,
-          nullptr, -4.0f, 4.0f, FieldCurve::LERP, FieldGate::ALWAYS,
-          Color::HUE_ROTATION_GATE},
-      Field<LegacyGeneratedPaletteParams>{
-          "hue-noise-scale", &LegacyGeneratedPaletteParams::hue_noise_scale,
-          nullptr, 1.0f / 64.0f, 8.0f, FieldCurve::LOG_POSITIVE,
-          FieldGate::ALWAYS, Color::HUE_NOISE_GATE},
-      Field<LegacyGeneratedPaletteParams>{
-          "hue-noise-speed", &LegacyGeneratedPaletteParams::hue_noise_speed,
-          nullptr, -0.001f, 0.001f, FieldCurve::LERP, FieldGate::ALWAYS,
-          Color::HUE_NOISE_GATE},
-      Field<LegacyGeneratedPaletteParams>{
-          "palette-chroma", &LegacyGeneratedPaletteParams::palette_chroma,
-          nullptr, 0.0f, 1.0f, FieldCurve::LERP},
-      Field<LegacyGeneratedPaletteParams>{
-          "mapping-frequency", &LegacyGeneratedPaletteParams::mapping_frequency,
-          nullptr, 1.0f, 32.0f, FieldCurve::LOG_POSITIVE},
-      Field<LegacyGeneratedPaletteParams>{
-          "mapping-phase", &LegacyGeneratedPaletteParams::mapping_phase,
-          nullptr, -1.0f, 1.0f, FieldCurve::LERP},
-      Field<LegacyGeneratedPaletteParams>{
-          "phase-oscillation-depth",
-          &LegacyGeneratedPaletteParams::phase_oscillation_depth, nullptr, 0.0f,
-          1.0f, FieldCurve::LERP},
-      Field<LegacyGeneratedPaletteParams>{
-          "phase-oscillation-speed",
-          &LegacyGeneratedPaletteParams::phase_oscillation_speed, nullptr,
-          -0.01f, 0.01f, FieldCurve::LERP},
-      Field<LegacyGeneratedPaletteParams>{
-          "brightness-depth", &LegacyGeneratedPaletteParams::brightness_depth,
-          nullptr, 0.0f, 1.0f, FieldCurve::LERP, FieldGate::ALWAYS,
-          Color::BRIGHTNESS_ENVELOPE_GATE},
-      Field<LegacyGeneratedPaletteParams>{
-          "value-opacity-low", &LegacyGeneratedPaletteParams::opacity_low,
-          nullptr, 0.0f, 1.0f, FieldCurve::LERP},
-      Field<LegacyGeneratedPaletteParams>{
-          "value-opacity-high", &LegacyGeneratedPaletteParams::opacity_high,
-          nullptr, 0.0f, 1.0f, FieldCurve::LERP},
-  };
-  static constexpr auto TOPOLOGY = std::array{
-      TopologyField<LegacyGeneratedPaletteParams>{
-          "palette-mode", &LegacyGeneratedPaletteParams::palette_mode,
-          PALETTE_MODE_IDS, static_cast<uint8_t>(PaletteMode::TRIADIC)},
-      TopologyField<LegacyGeneratedPaletteParams>{
-          "palette-mapping", &LegacyGeneratedPaletteParams::mapping_mode,
-          PALETTE_MAPPING_IDS,
-          static_cast<uint8_t>(Color::PaletteMapping::LINEAR)},
-      TopologyField<LegacyGeneratedPaletteParams>{
-          "hue-shift-mode", &LegacyGeneratedPaletteParams::hue_mode,
-          HUE_SHIFT_MODE_IDS, static_cast<uint8_t>(HueShiftMode::NOISE)},
-      TopologyField<LegacyGeneratedPaletteParams>{
-          "brightness-envelope", &LegacyGeneratedPaletteParams::envelope_mode,
-          BRIGHTNESS_ENVELOPE_IDS, static_cast<uint8_t>(EnvelopeMode::NONE)},
-  };
-};
-static_assert(field_ids_unique<LegacyGeneratedPaletteParams>());
-static_assert(field_defaults_in_range<LegacyGeneratedPaletteParams>());
-
 /** @brief Parameter family of colorize.generated-palette.v3. */
 struct GeneratedPaletteParams : Color::ColorControls {
   uint8_t palette_mode = static_cast<uint8_t>(PaletteMode::TRIADIC);
@@ -290,17 +212,6 @@ struct GeneratedPaletteModel : ValueStateModel<ColorClockState> {
   static Color4 run(const FieldSample &input, const FrameContext &,
                     const Params &, const Prepared &prepared) {
     return Color::apply_generated_palette(input, prepared);
-  }
-};
-
-/** @brief FIELD→COLOR crossing: the generated-palette colorizer. */
-struct ColorizeGeneratedPaletteV2
-    : GeneratedPaletteModel<ColorizeGeneratedPaletteV2,
-                            LegacyGeneratedPaletteParams> {
-  static constexpr const char *ID = "colorize.generated-palette.v2";
-  static constexpr const char *NAME = "Generated Palette v2";
-  static BrightnessRange brightness_range(const Params &params) {
-    return {1.0f - params.brightness_depth, 1.0f};
   }
 };
 

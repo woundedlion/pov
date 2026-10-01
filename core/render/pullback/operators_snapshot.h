@@ -29,10 +29,10 @@ inline bool snapshot_unit(const math::Quaternion &value) {
 
 template <> struct RuntimeStateCodec<Op::SpatialWalkState> {
   static RuntimeSnapshot capture(const Op::SpatialWalkState &state) {
-    return SpatialWalkSnapshot{
-        state.noise_seed,       state.walk_time,  state.position,
-        state.direction,        state.wander,     state.raw_orientation,
-        state.angular_velocity, state.spin_phase, state.legacy};
+    return SpatialWalkSnapshot{state.noise_seed, state.walk_time,
+                               state.position,   state.direction,
+                               state.wander,     state.angular_velocity,
+                               state.spin_phase};
   }
   static bool restore(Op::SpatialWalkState &state,
                       const RuntimeSnapshot &snapshot) {
@@ -41,7 +41,6 @@ template <> struct RuntimeStateCodec<Op::SpatialWalkState> {
         !Detail::snapshot_unit(value->direction) ||
         fabsf(math::dot(value->position, value->direction)) > 1e-3f ||
         !Detail::snapshot_unit(value->wander) ||
-        !Detail::snapshot_unit(value->raw_orientation) ||
         !std::isfinite(value->angular_velocity) ||
         !Detail::snapshot_angle(value->spin_phase))
       return false;
@@ -50,10 +49,8 @@ template <> struct RuntimeStateCodec<Op::SpatialWalkState> {
     state.position = value->position;
     state.direction = value->direction;
     state.wander = value->wander;
-    state.raw_orientation = value->raw_orientation;
     state.angular_velocity = value->angular_velocity;
     state.spin_phase = value->spin_phase;
-    state.legacy = value->legacy;
     return true;
   }
 };

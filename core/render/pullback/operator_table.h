@@ -21,7 +21,7 @@ namespace Pullback {
 
 namespace Interp {
 
-inline constexpr std::array<OperatorDescriptor, 46> OPERATOR_TABLE{
+inline constexpr std::array<OperatorDescriptor, 38> OPERATOR_TABLE{
     make_operator_descriptor<Op::Rotate>(),
     make_operator_descriptor<Op::DisplaceCurl>(),
     make_operator_descriptor<Op::DisplaceDirect>(),
@@ -34,15 +34,10 @@ inline constexpr std::array<OperatorDescriptor, 46> OPERATOR_TABLE{
     make_operator_descriptor<Op::ProjectFoldedSinusoidal>(),
     make_operator_descriptor<Op::ProjectEquirectangular>(),
     make_operator_descriptor<Op::ProjectGnomonic>(),
-    make_operator_descriptor<Op::ProjectPeirce>(),
-    make_operator_descriptor<Op::ProjectPeirceSquareFast>(),
-    make_operator_descriptor<Op::ProjectBonne>(),
-    make_operator_descriptor<Op::ProjectAirocean>(),
     make_operator_descriptor<Op::ProjectPeirceV3>(),
     make_operator_descriptor<Op::ProjectPeirceSquareFastV3>(),
     make_operator_descriptor<Op::ProjectBonneV3>(),
     make_operator_descriptor<Op::ProjectAiroceanV3>(),
-    make_operator_descriptor<Op::WarpAffine>(),
     make_operator_descriptor<Op::WarpAffineV3>(),
     make_operator_descriptor<Op::WarpWaveShear>(),
     make_operator_descriptor<Op::WarpVortex>(),
@@ -50,8 +45,6 @@ inline constexpr std::array<OperatorDescriptor, 46> OPERATOR_TABLE{
     make_operator_descriptor<Op::WarpMirrorTile>(),
     make_operator_descriptor<Op::WarpPolarChart>(),
     make_operator_descriptor<Op::WarpCurlFlow>(),
-    make_operator_descriptor<Op::SampleGrid>(),
-    make_operator_descriptor<Op::SampleTwinWave>(),
     make_operator_descriptor<Op::SampleGridV3>(),
     make_operator_descriptor<Op::SampleTwinWaveV3>(),
     make_operator_descriptor<Op::SampleRings>(),
@@ -66,7 +59,6 @@ inline constexpr std::array<OperatorDescriptor, 46> OPERATOR_TABLE{
     make_operator_descriptor<Op::TransferIsoContour>(),
     make_operator_descriptor<Op::TransferSmoothBands>(),
     make_operator_descriptor<Op::CoverageValueCutout>(),
-    make_operator_descriptor<Op::ColorizeGeneratedPaletteV2>(),
     make_operator_descriptor<Op::ColorizeGeneratedPaletteV3>(),
 };
 
