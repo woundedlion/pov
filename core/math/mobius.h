@@ -18,7 +18,7 @@ namespace math {
  * @brief mobius_transform's bound on squared |p|, linear |s|, and its
  * denominator floor near the homogeneous pole.
  */
-inline constexpr float STEREO_DIV_NUM_EPS_SQ = 1e-12f;
+inline constexpr float MOBIUS_POLE_EPS = 1e-12f;
 
 /**
  * @brief Projection-domain complex division for the stereographic/Mobius maps.
@@ -137,7 +137,7 @@ inline math::Vector mobius_transform(const math::Vector &v,
   // Exact north pole leaves (p : s) = (0 : 0); its projective image is the
   // point at infinity, (1 : 0). Approaching the pole needs no such nudge:
   // |p| ~ sqrt(2s) dominates s, so the ratio tends to infinity on its own.
-  if (px * px + pz * pz < STEREO_DIV_NUM_EPS_SQ && s < STEREO_DIV_NUM_EPS_SQ) {
+  if (px * px + pz * pz < MOBIUS_POLE_EPS && s < MOBIUS_POLE_EPS) {
     px = 1.0f;
     pz = 0.0f;
     s = 0.0f;
@@ -153,7 +153,7 @@ inline math::Vector mobius_transform(const math::Vector &v,
   const float den = n2 + m2;
   // The absolute floor also catches nonsingular maps with small coefficients
   // near the pole; exact simultaneous zeros require a singular map.
-  if (den < STEREO_DIV_NUM_EPS_SQ)
+  if (den < MOBIUS_POLE_EPS)
     return math::Vector(0.0f, 1.0f, 0.0f);
 
   const float inv = 1.0f / den;
