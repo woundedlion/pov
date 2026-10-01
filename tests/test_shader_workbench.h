@@ -158,7 +158,7 @@ struct ShaderWorkbenchWhiteBox {
     return {sb.active_slots, sb.blend.params};
   }
   static constexpr Slots generated_surface_noise_slots() {
-    return Workbench::GENERATED_SURFACE_NOISE_SLOTS;
+    return Workbench::GENERATED_GLITCH_SLOTS;
   }
   static constexpr Slots legacy_slots() {
     return {Function::TWIN_WAVE,
