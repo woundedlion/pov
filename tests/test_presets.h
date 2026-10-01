@@ -284,6 +284,8 @@ struct FadePresetEffect : ChoreographedEffect<FadePresetEffect, HoldParams> {
   void draw_frame() override {}
   void arm() { begin_choreography(); }
   bool attempt() { return advance_preset(); }
+  void clear_timeline() { timeline.clear(); }
+  bool active() const { return transition.active; }
   void progress(float value) { run_transition(value); }
   void cancel() { parameter_written(); }
   void edit(float value) {
@@ -302,6 +304,23 @@ struct FadePresetEffect : ChoreographedEffect<FadePresetEffect, HoldParams> {
   bool cancel_from_notification = false;
   std::vector<Notification> notifications;
 };
+
+inline void test_timeline_clear_releases_fade() {
+  hs_test::reset_globals();
+  FadePresetEffect effect;
+  effect.arm();
+  HS_EXPECT_TRUE(effect.attempt());
+  effect.progress(0.25f);
+  HS_EXPECT_TRUE(effect.active());
+  HS_EXPECT_EQ(effect.opacity, 0.5f);
+  const size_t notifications = effect.notifications.size();
+  effect.clear_timeline();
+  HS_EXPECT_FALSE(effect.active());
+  HS_EXPECT_EQ(effect.opacity, 1.0f);
+  HS_EXPECT_EQ(effect.notifications.size(), notifications);
+  HS_EXPECT_TRUE(effect.attempt());
+  HS_EXPECT_TRUE(effect.active());
+}
 
 inline void test_cancelled_fade_notifies_committed_index() {
   enum class Cancel { EDIT, RESTORE, MANUAL_FROM, MANUAL_TO, SYNCHRONIZED };
@@ -418,6 +437,7 @@ inline int run_presets_tests() {
   test_preset_saturation_veto_restarts_dwell();
   test_preset_crossfade_rejects_rearming();
   test_cancelled_fade_names_visible_preset();
+  test_timeline_clear_releases_fade();
   test_cancelled_fade_notifies_committed_index();
   test_cancelled_crossfade_event_cannot_step_replacement();
 
