@@ -106,6 +106,9 @@ protected branch's `CI green` status is the authoritative correctness gate.
   It rejects empty suites and propagates failures. The CI job also checks
   routed PCB metadata with `hardware/phantasm/gen/board_metadata.py --check`. Install `requirements/numpy.txt` first;
   no ARM toolchain or KiCad is required.
+- **PCB:** `pcb-tests` runs the KiCad-backed generation, DRC, parity and
+  fabrication suite (`python tools/run_python_tests.py --suite hardware/phantasm/gen/tests`)
+  against pinned KiCad 10.0.4; locally it needs that KiCad install.
 - **Lint:** `just lint` checks `just --fmt --check`, working-tree whitespace,
   declared line endings, Python selection and ruff, JavaScript selection and
   eslint, tracked shell files with shellcheck, the profiling roster, and
