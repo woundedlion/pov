@@ -146,7 +146,7 @@ Plot primitives interpolate registers between control-point Fragments via `Fragm
 
 The finished premultiplied color replaces each canvas pixel directly. No filter pipeline or destination blending is applied; alpha below one darkens the output.
 
-Registers are not pre-populated — the shader receives only `pos` (reconstructed from pixel coordinates). The single-callback overload provides a `Color4(const Vector &)` interface. The two-callback overload separates per-pixel vertex setup from per-subsample fragment evaluation.
+Registers are not pre-populated — the shader receives only `pos` (reconstructed from pixel coordinates). The single-callback overload accepts `shader(const Vector &)` or `shader(const Vector &, int x, int y)` and returns `Color4` or an already premultiplied `Pixel`. The two-callback overload separates per-pixel vertex setup from per-subsample fragment evaluation.
 
 **Volumetric Path** (`Scan::Volume`):
 
