@@ -133,7 +133,8 @@ struct Line {
 
   /**
    * @brief Samples a geodesic line between two points.
-   * @param points Output fragment list; density+1 fragments are appended.
+   * @param points Output fragment list; density+1 fragments are appended
+   * (2 when the edge collapses to a dot).
    * @param f1 Start fragment.
    * @param f2 End fragment.
    * @param density Number of sub-segments (>=1); the line is sampled at
@@ -146,7 +147,8 @@ struct Line {
 
   /**
    * @brief sample() from a precomputed edge span.
-   * @param points Output fragment list; density+1 fragments are appended.
+   * @param points Output fragment list; density+1 fragments are appended
+   * (2 when the edge collapses to a dot).
    * @param f1 Start fragment.
    * @param f2 End fragment.
    * @param es Shared setup from make_geodesic_edge_span(f1.pos, f2.pos).
