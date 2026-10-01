@@ -164,3 +164,11 @@ test('a mismatched document identity cannot rewrite its composed header', async 
   await assert.rejects(generate({ root }), /names effect "other-effect", expected "alien-brain"/);
   assert.equal(await readFile(header, 'utf8'), original);
 });
+
+test('a composed document requires authored dwell', () => {
+  const authored = structuredClone(document);
+  delete authored.preset_bank.choreography.dwell;
+  const compiled = compileShaderDocument(authored, { catalog });
+  assert.equal(compiled.status, 'VALID');
+  assert.throws(() => generatedSections(compiled), /must declare choreography.dwell/);
+});

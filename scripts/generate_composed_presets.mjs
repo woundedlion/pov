@@ -91,6 +91,8 @@ export function generatedSections(compiled) {
   const bank = document.preset_bank;
   const order = bank.choreography.generated_order;
   const presets = order.map((id) => bank.presets.find((preset) => preset.preset_id === id));
+  if (!bank.choreography.dwell)
+    throw new Error('Composed documents must declare choreography.dwell');
   const dwell = order.map((id) => bank.choreography.dwell[id]);
   if (!dwell.every((value) => value === dwell[0])) throw new Error('Composed dwell must be uniform');
   const spin = presets.map((preset) => preset.values['camera.spin-speed']);
