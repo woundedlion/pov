@@ -18,6 +18,24 @@
 
 cmake_minimum_required(VERSION 3.29)
 
+if(DEFINED FIXTURE_DIR)
+  file(MAKE_DIRECTORY "${FIXTURE_DIR}")
+  foreach(_declaration IN ITEMS
+      "class Missing final : public AnimationBase<Missing> {}"
+      "class Missing : public AnimationBase<Missing>, public Other<int> {}"
+      "class Missing final : public AnimationBase<Missing>, public Other<int> {}")
+    file(WRITE "${FIXTURE_DIR}/fixture.h"
+      "class Present : public AnimationBase<Present> {};\n${_declaration};\nLARGEST_CONCRETE_ANIM_SIZE = largest_sizeof<Present>();\n")
+    execute_process(COMMAND "${CMAKE_COMMAND}" "-DCORE_DIR=${FIXTURE_DIR}"
+      "-DANIM_HEADER=${FIXTURE_DIR}/fixture.h" -P "${CMAKE_CURRENT_LIST_FILE}"
+      RESULT_VARIABLE _rc ERROR_VARIABLE _error)
+    if(_rc EQUAL 0 OR NOT _error MATCHES "concrete animation type missing.*Missing")
+      message(FATAL_ERROR "missing animation accepted or wrong diagnostic: ${_error}")
+    endif()
+  endforeach()
+  return()
+endif()
+
 set(_roots "AnimationBase")
 set(_concrete "")
 set(_templated "")
@@ -33,7 +51,7 @@ foreach(_hdr IN LISTS _headers)
   # clang-format wraps a long base-clause onto its own line, so allow newlines
   # around the colon and after `public`.
   string(REGEX MATCHALL
-    "(class|struct)[ \t\r\n]+[A-Za-z0-9_]+[ \t\r\n]*:[ \t\r\n]*public[ \t\r\n]+[A-Za-z0-9_]+[ \t\r\n]*<[^;{]*>"
+    "(class|struct)[ \t\r\n]+[A-Za-z0-9_]+([ \t\r\n]+final)?[ \t\r\n]*:[ \t\r\n]*public[ \t\r\n]+[A-Za-z0-9_]+[ \t\r\n]*<[^;{]*>"
     _matches "${_text}")
   list(APPEND _decls ${_matches})
 endforeach()
@@ -51,13 +69,13 @@ while(_changed)
   set(_changed FALSE)
   foreach(_decl IN LISTS _decls)
     string(REGEX REPLACE "^(class|struct)[ \t\r\n]+([A-Za-z0-9_]+).*" "\\2" _name "${_decl}")
-    string(REGEX REPLACE "^(class|struct)[ \t\r\n]+[A-Za-z0-9_]+[ \t\r\n]*:[ \t\r\n]*public[ \t\r\n]+([A-Za-z0-9_]+).*"
-      "\\2" _base "${_decl}")
+    string(REGEX REPLACE "^(class|struct)[ \t\r\n]+[A-Za-z0-9_]+([ \t\r\n]+final)?[ \t\r\n]*:[ \t\r\n]*public[ \t\r\n]+([A-Za-z0-9_]+).*"
+      "\\3" _base "${_decl}")
     if(NOT _base IN_LIST _roots)
       continue()
     endif()
-    # Base template argument: everything between the outermost <> of the base.
-    string(REGEX REPLACE "^[^<]*<(.*)>$" "\\1" _arg "${_decl}")
+    # Template argument of the first base, allowing one nested template.
+    string(REGEX REPLACE "^[^<]*<([^<>]*(<[^<>]*>)?[^<>]*)>.*$" "\\1" _arg "${_decl}")
     string(STRIP "${_arg}" _arg)
     if(_arg STREQUAL "${_name}")
       if(NOT _name IN_LIST _concrete)
