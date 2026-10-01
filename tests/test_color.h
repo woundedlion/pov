@@ -513,11 +513,11 @@ inline void test_lerp_oklch_extrapolation_clamped() {
 
   OKLCH under = lerp_oklch(dark, bright, -2.0f); // overshoots below dark
   HS_EXPECT_GE(under.L, 0.0f);
-  HS_EXPECT_GE(under.C, 0.0f);
+  HS_EXPECT_EQ(under.C, 0.0f);
 
   OKLCH over = lerp_oklch(bright, dark, 3.0f); // overshoots past dark toward 0
   HS_EXPECT_GE(over.L, 0.0f);
-  HS_EXPECT_GE(over.C, 0.0f);
+  HS_EXPECT_EQ(over.C, 0.0f);
 
   OKLCH high = lerp_oklch(dark, bright, 5.0f); // overshoots above bright
   HS_EXPECT_LE(high.L, 1.0f);
