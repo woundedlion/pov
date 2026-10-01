@@ -1,7 +1,7 @@
 // Verify gallery membership and PNG dimensions, excluding explicit workbench-only rows.
 import { readdir, readFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import { pathToFileURL } from 'node:url';
+import { isMain } from './exit.mjs';
 import { loadEffectRoster, REPO_ROOT } from './effect_roster.mjs';
 import { inspectPng } from './png_probe.mjs';
 import {
@@ -125,5 +125,5 @@ async function main() {
   }
 }
 
-if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href)
+if (isMain(import.meta.url))
   await main();
