@@ -688,6 +688,63 @@ inline void hue_rotate_lms_matrix(float ca, float sa, float k[9]) {
   }
 }
 
+void lms_cbrt_scale_to_gamut_lut(float l_cbrt, float m_cbrt, float s_cbrt,
+                                 float &r, float &g, float &b);
+
+struct LmsChromaClip {
+  HS_O3_FN static inline void apply(float l, float m, float s, float &r,
+                                    float &g, float &b) {
+    const OKLab LAB = lms_to_oklab(l, m, s);
+    oklab_to_linear_rgb(gamut_clip_preserve_chroma(LAB), r, g, b);
+  }
+};
+
+struct LmsLutClip {
+  HS_O3_FN static inline void apply(float l, float m, float s, float &r,
+                                    float &g, float &b) {
+    lms_cbrt_scale_to_gamut_lut(l, m, s, r, g, b);
+  }
+};
+
+template <typename Clip>
+HS_O3_FN inline void lms_cbrt_transform_rgb_impl(const float k[9], float l_cbrt,
+                                                 float m_cbrt, float s_cbrt,
+                                                 float &r, float &g, float &b) {
+  float ul = k[0] * l_cbrt + k[1] * m_cbrt + k[2] * s_cbrt;
+  float um = k[3] * l_cbrt + k[4] * m_cbrt + k[5] * s_cbrt;
+  float us = k[6] * l_cbrt + k[7] * m_cbrt + k[8] * s_cbrt;
+  lms_cbrt_to_linear_rgb(ul, um, us, r, g, b);
+  if (!linear_rgb_in_gamut(r, g, b)) {
+    HS_PROFILE_DEEP(gamut_clip);
+    Clip::apply(ul, um, us, r, g, b);
+  }
+}
+
+template <typename Clip>
+HS_O3_FN inline void
+lms_cbrt_transform_rgb2_impl(const float k[9], float l0, float m0, float s0,
+                             float l1, float m1, float s1, float &r0, float &g0,
+                             float &b0, float &r1, float &g1, float &b1) {
+  float ul0 = k[0] * l0 + k[1] * m0 + k[2] * s0;
+  float ul1 = k[0] * l1 + k[1] * m1 + k[2] * s1;
+  float um0 = k[3] * l0 + k[4] * m0 + k[5] * s0;
+  float um1 = k[3] * l1 + k[4] * m1 + k[5] * s1;
+  float us0 = k[6] * l0 + k[7] * m0 + k[8] * s0;
+  float us1 = k[6] * l1 + k[7] * m1 + k[8] * s1;
+  lms_cbrt_to_linear_rgb(ul0, um0, us0, r0, g0, b0);
+  lms_cbrt_to_linear_rgb(ul1, um1, us1, r1, g1, b1);
+  bool ok0 = linear_rgb_in_gamut(r0, g0, b0);
+  bool ok1 = linear_rgb_in_gamut(r1, g1, b1);
+  if (!ok0) {
+    HS_PROFILE_DEEP(gamut_clip);
+    Clip::apply(ul0, um0, us0, r0, g0, b0);
+  }
+  if (!ok1) {
+    HS_PROFILE_DEEP(gamut_clip);
+    Clip::apply(ul1, um1, us1, r1, g1, b1);
+  }
+}
+
 /**
  * @brief Applies a cbrt-LMS 3x3 (from hue_rotate_lms_matrix, optionally
  * uniformly scaled) and converts to linear RGB with gamut mapping.
@@ -705,15 +762,8 @@ inline void hue_rotate_lms_matrix(float ca, float sa, float k[9]) {
 HS_O3_FN
 inline void lms_cbrt_transform_rgb(const float k[9], float l_cbrt, float m_cbrt,
                                    float s_cbrt, float &r, float &g, float &b) {
-  float ul = k[0] * l_cbrt + k[1] * m_cbrt + k[2] * s_cbrt;
-  float um = k[3] * l_cbrt + k[4] * m_cbrt + k[5] * s_cbrt;
-  float us = k[6] * l_cbrt + k[7] * m_cbrt + k[8] * s_cbrt;
-  lms_cbrt_to_linear_rgb(ul, um, us, r, g, b);
-  if (!linear_rgb_in_gamut(r, g, b)) {
-    HS_PROFILE_DEEP(gamut_clip);
-    OKLab lab = lms_to_oklab(ul, um, us);
-    oklab_to_linear_rgb(gamut_clip_preserve_chroma(lab), r, g, b);
-  }
+  lms_cbrt_transform_rgb_impl<LmsChromaClip>(k, l_cbrt, m_cbrt, s_cbrt, r, g,
+                                             b);
 }
 
 /**
@@ -741,26 +791,8 @@ inline void lms_cbrt_transform_rgb2(const float k[9], float l0, float m0,
                                     float s0, float l1, float m1, float s1,
                                     float &r0, float &g0, float &b0, float &r1,
                                     float &g1, float &b1) {
-  float ul0 = k[0] * l0 + k[1] * m0 + k[2] * s0;
-  float ul1 = k[0] * l1 + k[1] * m1 + k[2] * s1;
-  float um0 = k[3] * l0 + k[4] * m0 + k[5] * s0;
-  float um1 = k[3] * l1 + k[4] * m1 + k[5] * s1;
-  float us0 = k[6] * l0 + k[7] * m0 + k[8] * s0;
-  float us1 = k[6] * l1 + k[7] * m1 + k[8] * s1;
-  lms_cbrt_to_linear_rgb(ul0, um0, us0, r0, g0, b0);
-  lms_cbrt_to_linear_rgb(ul1, um1, us1, r1, g1, b1);
-  bool ok0 = linear_rgb_in_gamut(r0, g0, b0);
-  bool ok1 = linear_rgb_in_gamut(r1, g1, b1);
-  if (!ok0) {
-    HS_PROFILE_DEEP(gamut_clip);
-    OKLab lab = lms_to_oklab(ul0, um0, us0);
-    oklab_to_linear_rgb(gamut_clip_preserve_chroma(lab), r0, g0, b0);
-  }
-  if (!ok1) {
-    HS_PROFILE_DEEP(gamut_clip);
-    OKLab lab = lms_to_oklab(ul1, um1, us1);
-    oklab_to_linear_rgb(gamut_clip_preserve_chroma(lab), r1, g1, b1);
-  }
+  lms_cbrt_transform_rgb2_impl<LmsChromaClip>(k, l0, m0, s0, l1, m1, s1, r0, g0,
+                                              b0, r1, g1, b1);
 }
 
 void lms_cbrt_scale_to_gamut_lut(float l_cbrt, float m_cbrt, float s_cbrt,
@@ -782,14 +814,7 @@ HS_O3_FN
 inline void lms_cbrt_transform_rgb_lut(const float k[9], float l_cbrt,
                                        float m_cbrt, float s_cbrt, float &r,
                                        float &g, float &b) {
-  float ul = k[0] * l_cbrt + k[1] * m_cbrt + k[2] * s_cbrt;
-  float um = k[3] * l_cbrt + k[4] * m_cbrt + k[5] * s_cbrt;
-  float us = k[6] * l_cbrt + k[7] * m_cbrt + k[8] * s_cbrt;
-  lms_cbrt_to_linear_rgb(ul, um, us, r, g, b);
-  if (!linear_rgb_in_gamut(r, g, b)) {
-    HS_PROFILE_DEEP(gamut_clip);
-    lms_cbrt_scale_to_gamut_lut(ul, um, us, r, g, b);
-  }
+  lms_cbrt_transform_rgb_impl<LmsLutClip>(k, l_cbrt, m_cbrt, s_cbrt, r, g, b);
 }
 
 /**
@@ -815,24 +840,8 @@ inline void lms_cbrt_transform_rgb2_lut(const float k[9], float l0, float m0,
                                         float s0, float l1, float m1, float s1,
                                         float &r0, float &g0, float &b0,
                                         float &r1, float &g1, float &b1) {
-  float ul0 = k[0] * l0 + k[1] * m0 + k[2] * s0;
-  float ul1 = k[0] * l1 + k[1] * m1 + k[2] * s1;
-  float um0 = k[3] * l0 + k[4] * m0 + k[5] * s0;
-  float um1 = k[3] * l1 + k[4] * m1 + k[5] * s1;
-  float us0 = k[6] * l0 + k[7] * m0 + k[8] * s0;
-  float us1 = k[6] * l1 + k[7] * m1 + k[8] * s1;
-  lms_cbrt_to_linear_rgb(ul0, um0, us0, r0, g0, b0);
-  lms_cbrt_to_linear_rgb(ul1, um1, us1, r1, g1, b1);
-  bool ok0 = linear_rgb_in_gamut(r0, g0, b0);
-  bool ok1 = linear_rgb_in_gamut(r1, g1, b1);
-  if (!ok0) {
-    HS_PROFILE_DEEP(gamut_clip);
-    lms_cbrt_scale_to_gamut_lut(ul0, um0, us0, r0, g0, b0);
-  }
-  if (!ok1) {
-    HS_PROFILE_DEEP(gamut_clip);
-    lms_cbrt_scale_to_gamut_lut(ul1, um1, us1, r1, g1, b1);
-  }
+  lms_cbrt_transform_rgb2_impl<LmsLutClip>(k, l0, m0, s0, l1, m1, s1, r0, g0,
+                                           b0, r1, g1, b1);
 }
 
 /**
