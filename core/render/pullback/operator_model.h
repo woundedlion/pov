@@ -502,7 +502,7 @@ struct StatelessModel : ValueStateModel<EmptyState> {
  * from Input/Output, block layouts from sizeof/alignof, the schema from the
  * family FIELDS and TOPOLOGY tables, the callbacks as typed-to-erased
  * trampolines, and approximation metadata from the model's declarations.
- * @tparam Model The operator model; see the models in operators.h.
+ * @tparam Model The operator model; see the roster in operator_table.h.
  */
 template <typename Model>
 constexpr OperatorDescriptor make_operator_descriptor() {

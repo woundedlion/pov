@@ -17,7 +17,7 @@
 /**
  * @file operators_common.h
  * @brief Vocabulary the per-family operator headers share: instance-owned
- *        clocks and noise fields, and the topology enum8 value tables.
+ *        clocks and noise fields, and the shared noise-basis value table.
  */
 
 namespace Pullback {
