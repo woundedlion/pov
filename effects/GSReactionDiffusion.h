@@ -88,7 +88,8 @@ public:
         HueNoiseLutView::SIZE * sizeof(int8_t);
     constexpr size_t PERSISTENT_BYTES = 192 * 1024 + 32;
     constexpr size_t PHYSICS_SCRATCH_BYTES =
-        2u * RD_N * sizeof(float) + RD_N * sizeof(uint16_t);
+        2u * RD_N * sizeof(float) + RD_N * sizeof(uint16_t) +
+        2u * (PHYSICS_NEIGHBOR_REACH + 1) * sizeof(float);
     constexpr size_t RASTER_SCRATCH_BYTES =
         RD_N * sizeof(math::Vector) + 2u * RD_N * sizeof(uint8_t);
     constexpr size_t SCRATCH_BYTES =
@@ -461,9 +462,9 @@ private:
   }
 
   /** @brief Advances float A/B in place after their last stencil read. */
-  HS_O3_FN void step_physics_inplace(float *a, float *b) {
+  HS_O3_FN void step_physics_inplace(float *a, float *b, float *pending_a,
+                                     float *pending_b) {
     constexpr int HISTORY_SIZE = PHYSICS_NEIGHBOR_REACH + 1;
-    std::array<float, HISTORY_SIZE> pending_a, pending_b;
     step_physics_nodes(a, b, [&](int i, float next_a, float next_b) {
       pending_a[i % HISTORY_SIZE] = next_a;
       pending_b[i % HISTORY_SIZE] = next_b;
@@ -744,6 +745,10 @@ private:
           scratch_arena_a.allocate(RD_N * sizeof(float), alignof(float)));
       uint16_t *next_pigment = static_cast<uint16_t *>(
           scratch_arena_a.allocate(RD_N * sizeof(uint16_t), alignof(uint16_t)));
+      float *pending_a =
+          scratch_arena_a.allocate_n<float>(PHYSICS_NEIGHBOR_REACH + 1);
+      float *pending_b =
+          scratch_arena_a.allocate_n<float>(PHYSICS_NEIGHBOR_REACH + 1);
 
       for (int i = 0; i < RD_N; i++) {
         cur_a[i] = from_q16(state.A[i]);
@@ -751,7 +756,7 @@ private:
       }
       for (int step = 0; step < STEPS_PER_FRAME; ++step) {
         step_pigment(cur_a, cur_b, next_pigment);
-        step_physics_inplace(cur_a, cur_b);
+        step_physics_inplace(cur_a, cur_b, pending_a, pending_b);
       }
       uint32_t db_sum_q16 = 0;
       for (int i = 0; i < RD_N; i++) {

@@ -1402,7 +1402,12 @@ struct GSWhiteBox {
   }
 
   static void step_float_inplace(GS &gs, float *a, float *b) {
-    gs.step_physics_inplace(a, b);
+    ScratchScope guard(scratch_arena_a);
+    float *pending_a =
+        scratch_arena_a.allocate_n<float>(GS::PHYSICS_NEIGHBOR_REACH + 1);
+    float *pending_b =
+        scratch_arena_a.allocate_n<float>(GS::PHYSICS_NEIGHBOR_REACH + 1);
+    gs.step_physics_inplace(a, b, pending_a, pending_b);
   }
 
   static void validate_physics_neighbors() { GS::validate_physics_neighbors(); }
