@@ -2,8 +2,8 @@
 
 Measured 2026-07-15 with `tests/arena_measure.cpp` (host Clang `-Os`,
 288×144, `init()` + 8 frames per effect, 8 MiB host arena). Values are
-`Arena::get_high_water_mark()` for the three partitions of the one global
-block. Two snapshots below: the survey that motivated the trail
+lifetime high-water marks (`Arena::get_lifetime_high_water_mark()`) for the
+three partitions of the one global block. Two snapshots below: the survey that motivated the trail
 compression, and the post-landing state. Regenerate with:
 
 ```
@@ -14,8 +14,8 @@ Host figures are a conservative **upper bound** on the device: the host is
 64-bit, so pointer-bearing pooled headers inflate vs the 32-bit device (see
 the arena_measure.cpp header). Two further caveats: the probe samples one
 random spawn per effect (shape/preset draws vary run to run), and 8 frames
-does not capture long-run growth — this is the same window the CI arena
-budget gate trusts for device sizing.
+does not capture long-run growth. CI drives a 120-frame window for the arena
+budget gate used for device sizing.
 
 Each snapshot lists the roster of its own commit. Flyby and Liquid2D below
 predate their merge into ShaderWorkbench.
@@ -81,8 +81,8 @@ baseline, and the day-apart global-O3 A/B (pre- vs post-compression)
 reproduces within ~2 % per preset, inside the ±10 % per-preset coverage
 noise. Cadence class unchanged (8 fps steady; worst preset 108.57 ms ship /
 88.92 ms O3). That capture has since been superseded; the current reports are
-[shipping](../shipping/profile_mindsplatter_teensy_2026-09-29.md) and
-[O3](../O3/profile_mindsplatter_teensy_2026-08-26.md).
+[shipping](../shipping/profile_mindsplatter_architecture_teensy_2026-10-01.md) and
+[O3](../O3/profile_mindsplatter_architecture_teensy_2026-10-01.md).
 
 A second bank (budget 272,384 B) would additionally require shrinking both
 reaction-diffusion effects, whose footprints are mutable simulation grids —
