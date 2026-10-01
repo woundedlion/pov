@@ -2542,7 +2542,7 @@ inline void test_feedback_poles_resolve_one_source_longitude() {
     Canvas c(fx);
     for (int y = 0; y < H; ++y)
       for (int x = 0; x < W; ++x)
-        c(x, y) = Pixel(static_cast<uint16_t>(x * 900), 0, 0);
+        c(x, y) = Pixel(static_cast<uint16_t>(x * 900 + 1000), 0, 0);
   }
   fx.advance_display();
   {
@@ -2553,6 +2553,7 @@ inline void test_feedback_poles_resolve_one_source_longitude() {
 
   for (int y : {0, H - 1}) {
     const uint16_t expected = fx.get_pixel(0, y).r;
+    HS_EXPECT_NEAR(expected, y == 0 ? 32 * 900 + 1000 : 1000, 300.0f);
     for (int x = 4; x < W; x += 4)
       HS_EXPECT_NEAR(fx.get_pixel(x, y).r, expected, 2.0f);
   }
