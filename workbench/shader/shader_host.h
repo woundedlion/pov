@@ -840,7 +840,7 @@ private:
 
   static bool parameter_out_of_range(const ParamDef &parameter) {
     const float value = parameter.get_requested();
-    return value < parameter.min || value > parameter.max;
+    return !(value >= parameter.min && value <= parameter.max);
   }
 
   bool clamp_registered_parameter_ranges() {
@@ -1452,6 +1452,8 @@ private:
       if (payload > 1)
         return false;
     std::memcpy(&value, &payload, sizeof(T));
+    if constexpr (std::is_floating_point_v<T>)
+      return std::isfinite(value);
     return true;
   }
 
