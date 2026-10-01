@@ -138,7 +138,7 @@ public:
    * @param new_period New interval in frames; clamped to >= 1.
    * @details Clamps to >= 1: a 0/negative period makes `next = t + period <= t`,
    * which fires the callback every frame (and re-triggers on its own reset).
-   * An unchanged period returns without rescheduling: a PeriodicTimer never
+   * An unchanged period returns without rescheduling: a repeating PeriodicTimer never
    * reaches done(), so a per-frame call that always reset() would defer the
    * callback forever with nothing to record it.
    */
