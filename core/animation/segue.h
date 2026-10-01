@@ -891,7 +891,7 @@ using AllPolicies =
 
 static_assert(AllPolicies::CONFORMING,
               "a segue policy shadows schedule(), visible(), opacity() or "
-              "face_fade_frac() at a drifted signature");
+              "face_fade_frac(), fill() or grade() at a drifted signature");
 
 static_assert(AllPolicies::SEQUENTIAL_PER_FACE,
               "a per-face segue must schedule sequentially: schedule() and "
