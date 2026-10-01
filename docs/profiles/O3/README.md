@@ -64,8 +64,6 @@ Bucket frames include transitions and are stricter than the clean-hold table in 
 Captured timestamps are local raw-log mtimes.
 
 
-HyperLattice refreshed on 2026-09-27: both presets and transitions; setup frame 1 excluded.
-
 ## Supplemental experimental presets
 
 Historical fixed opt-in captures; these do not change the normal firmware
@@ -85,8 +83,7 @@ captured 2026-09-27 at 22:18; no 4D global-O3 capture.
 
 [Cubic Wide Flight](../hyperlattice_experimental_presets_2026-09-27.md#cubic-wide-flight)
 has a separate fixed-preset shipping check: peak 50.804 ms, 0/616 spills,
-captured 2026-09-27 22:25. The 2026-09-27 global-O3 cycle row above
-covers the two original presets and predates this third default preset.
+captured 2026-09-27 22:25.
 
 ## Octet optimization supplement
 
