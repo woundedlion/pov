@@ -26,17 +26,10 @@ inline constexpr int POLE_LOD_MAX_RUN = 32;
 
 /**
  * @brief Aggressiveness of near-pole azimuthal shading decimation; 0 disables.
- * @details A row at colatitude phi has horizontal pixel pitch sin(phi) times
- *          the vertical, so 1/sin(phi) columns share one physical LED
- *          footprint and need only one shade between them. The column run is
- *          `aggressiveness / sin(phi)`, so 1.0 tracks that footprint exactly
- *          and smaller values stay inside it. At 0 every run is one column and
- *          the scan is bit-identical to an undecimated walk.
- *
- *          The true masking width depends on the LED's angular size and the
- *          per-column exposure, so this is a hardware-calibrated knob rather
- *          than a derived constant. Firmware has no setter, so the starting
- *          value comes from HS_POLE_LOD_DEFAULT.
+ * @details Horizontal pixel pitch scales with sin(phi). The column run is
+ * aggressiveness / sin(phi); the footprint depends on the display aspect,
+ * LED angular size and per-column exposure. At 0 every run is one column.
+ * Firmware uses HS_POLE_LOD_DEFAULT as its hardware-calibrated value.
  */
 #ifndef HS_POLE_LOD_DEFAULT
 #define HS_POLE_LOD_DEFAULT 0.0f
