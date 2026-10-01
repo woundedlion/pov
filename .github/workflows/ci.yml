@@ -774,7 +774,7 @@ jobs:
       - name: Install numpy
         run: pip install --require-hashes -r requirements/numpy.txt
 
-      - name: Check gamut LUT provenance and the color.h/3dmath.h mirrors
+      - name: Check gamut LUT provenance and the color_space.h/3dmath.h mirrors
         run: |
           python3 tools/gen_gamut_lut.py --check
 
