@@ -18,12 +18,6 @@ namespace hs {
 
 /** @brief Scanline profiling counters (platform-agnostic). */
 struct ScanMetrics {
-  uint32_t plot = 0;          /**< Cycles spent plotting pixels. */
-  uint32_t sdf_dist = 0;      /**< Cycles spent evaluating SDF distances. */
-  uint32_t frag_shader = 0;   /**< Cycles spent in the fragment shader. */
-  uint32_t bounds = 0;        /**< Cycles spent computing bounds. */
-  uint32_t face_setup = 0;    /**< Cycles spent on per-face setup. */
-  uint32_t scan_loop = 0;     /**< Cycles spent in the scanline loop. */
   uint32_t pixels_tested = 0; /**< Count of pixels tested. */
   uint32_t pixels_culled = 0; /**< Count of pixels culled before shading. */
   uint32_t exact_hits =
