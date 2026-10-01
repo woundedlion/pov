@@ -561,6 +561,13 @@ class CaptureComparison(unittest.TestCase):
                 Path("repository"), Path("controller"), "a" * 40, "a" * 40,
                 Path("output"))
 
+    def test_orchestration_rejects_short_or_named_revisions_before_io(self):
+        for base, candidate in (("main", "b" * 40), ("a" * 40, "abcd"),
+                                ("A" * 40, "b" * 40)):
+            with self.assertRaisesRegex(crosscheck.CrosscheckError, "full lowercase"):
+                crosscheck.orchestrate(Path("missing"), Path("missing"),
+                                      base, candidate, Path("missing-output"))
+
     def test_toolchain_mismatch_is_refused(self):
         programs, digest = _test_manifest()
         base = _capture(programs, digest)
