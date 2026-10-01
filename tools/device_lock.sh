@@ -73,7 +73,7 @@ _hs_now() { date +%s; }
 # flashed. The loader's output is captured first so its own status is the one
 # read; piping it straight into awk reads awk's, and awk is happy with nothing.
 hs_device_ports() {
-  local tools=${HS_TEENSY_TOOLS:-$HOME/.platformio/packages/tool-teensy}
+  local tools=${HS_TEENSY_TOOLS:-${PLATFORMIO_CORE_DIR:-$HOME/.platformio}/packages/tool-teensy}
   local attached="" listing rc=0 enumerated=0
   if [ -x "$tools/teensy_ports.exe" ]; then
     enumerated=1

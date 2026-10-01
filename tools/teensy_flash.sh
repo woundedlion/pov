@@ -3,7 +3,7 @@
 
 hs_teensy_flash() {
   local env=$1
-  local teensy_tools=${HS_TEENSY_TOOLS:-$HOME/.platformio/packages/tool-teensy}
+  local teensy_tools=${HS_TEENSY_TOOLS:-${PLATFORMIO_CORE_DIR:-$HOME/.platformio}/packages/tool-teensy}
   [ -n "${_HS_TOKEN:-}" ] || { echo "flash requires a device lock" >&2; return 1; }
   [ -n "${HS_TEENSY_PORT:-}" ] ||
     { echo "device lock did not pin a Teensy port" >&2; return 1; }

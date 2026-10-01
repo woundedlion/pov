@@ -123,7 +123,7 @@ ARTIFACT_BASE=$(dirname "$STEM")/artifacts/$(basename "$STEM")
 ATTEST_DIR=$(dirname "$STEM")/attest/$(basename "$STEM")
 PHANTASM_ELF=$ATTEST_DIR/phantasm.elf
 PHANTASM_MAP=$ATTEST_DIR/phantasm.map
-ARM_READELF=${HS_ARM_READELF:-$HOME/.platformio/packages/toolchain-gccarmnoneeabi-teensy/bin/arm-none-eabi-readelf.exe}
+ARM_READELF=${HS_ARM_READELF:-${PLATFORMIO_CORE_DIR:-$HOME/.platformio}/packages/toolchain-gccarmnoneeabi-teensy/bin/arm-none-eabi-readelf.exe}
 ATTESTED_COMPILER=
 
 # The checkout containing the invoked script, including a linked worktree.
