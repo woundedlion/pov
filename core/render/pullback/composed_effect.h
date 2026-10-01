@@ -643,22 +643,28 @@ struct Spec {
 
 template <typename Family, typename Binding> struct SourcePolicyFor;
 template <typename B> struct SourcePolicyFor<GridSourceParams, B> {
+  static constexpr bool USES_NOISE = false;
   using Type = Pullback::Source::Grid<SourceProvider<B>>;
 };
 template <typename B> struct SourcePolicyFor<TwinWaveSourceParams, B> {
+  static constexpr bool USES_NOISE = false;
   using Type = Pullback::Source::TwinWave<SourceProvider<B>>;
 };
 template <typename B> struct SourcePolicyFor<SpiralSourceParams, B> {
+  static constexpr bool USES_NOISE = false;
   using Type = Pullback::Source::Spiral<SourceProvider<B>>;
 };
 template <typename B> struct SourcePolicyFor<LatticeSourceParams, B> {
+  static constexpr bool USES_NOISE = false;
   using Type = Pullback::Source::PrimitiveLattice<SourceProvider<B>>;
 };
 template <typename B> struct SourcePolicyFor<ProjectedNoiseSourceParams, B> {
+  static constexpr bool USES_NOISE = true;
   using Type = Pullback::Source::ProjectedNoise<SourceProvider<B>,
                                                 math::NoiseBasis::SIMPLEX>;
 };
 template <typename B> struct SourcePolicyFor<SphericalNoiseSourceParams, B> {
+  static constexpr bool USES_NOISE = true;
   using Type = Pullback::Source::SphericalNoise<SourceProvider<B>,
                                                 math::NoiseBasis::SIMPLEX>;
 };
@@ -667,30 +673,61 @@ template <typename Family, typename Binding, bool Outer, bool TrackPath>
 struct WarpPolicyFor;
 template <typename B, bool O, bool T>
 struct WarpPolicyFor<NoWarpParams, B, O, T> {
+  static constexpr bool USES_NOISE = false;
   using Type = void;
 };
 template <typename B, bool O, bool T>
 struct WarpPolicyFor<MirrorParams, B, O, T> {
+  static constexpr bool USES_NOISE = false;
   using Type = Pullback::Warp::MirrorTile<WarpProvider<B, O, T>>;
 };
 template <typename B, bool O, bool T>
 struct WarpPolicyFor<WaveShearParams, B, O, T> {
+  static constexpr bool USES_NOISE = false;
   using Type = Pullback::Warp::WaveShear<WarpProvider<B, O, T>>;
 };
 template <typename B, bool O, bool T>
 struct WarpPolicyFor<VectorNoiseParams, B, O, T> {
+  static constexpr bool USES_NOISE = true;
   using Type = Pullback::Warp::VectorNoise<WarpProvider<B, O, T>,
                                            math::NoiseBasis::SIMPLEX,
                                            Pullback::Warp::FlatEnvelope>;
 };
 template <typename B, bool O, bool T>
 struct WarpPolicyFor<AffineParams, B, O, T> {
+  static constexpr bool USES_NOISE = false;
   using Type = Pullback::Warp::AffineFrame<WarpProvider<B, O, T>>;
 };
 template <typename B, bool O, bool T>
 struct WarpPolicyFor<PolarParams, B, O, T> {
+  static constexpr bool USES_NOISE = false;
   using Type = Pullback::Warp::PolarChart<WarpProvider<B, O, T>,
                                           Pullback::Warp::LinearPolar, 1>;
+};
+
+template <typename Family, typename Binding, bool TrackPath>
+struct SurfacePolicyFor;
+template <typename B, bool T> struct SurfacePolicyFor<NoSurfaceParams, B, T> {
+  static constexpr bool USES_NOISE = false;
+  using Type = void;
+};
+template <typename B, bool T>
+struct SurfacePolicyFor<SurfaceNoiseParams, B, T> {
+  static constexpr bool USES_NOISE = true;
+  using Type = Pullback::Surface::CurlNoise<SurfaceProvider<B, T>,
+                                            math::NoiseBasis::SIMPLEX,
+                                            Pullback::Surface::Euler>;
+};
+template <typename B, bool T>
+struct SurfacePolicyFor<DirectSurfaceParams, B, T> {
+  static constexpr bool USES_NOISE = true;
+  using Type = Pullback::Surface::DirectNoise<SurfaceProvider<B, T>,
+                                              math::NoiseBasis::SIMPLEX>;
+};
+template <typename B, bool T>
+struct SurfacePolicyFor<PeriodicRippleParams, B, T> {
+  static constexpr bool USES_NOISE = false;
+  using Type = Pullback::Surface::PeriodicRipple<SurfaceProvider<B, T>>;
 };
 
 template <ProjectionKind ProjectionV, typename Binding>
@@ -844,20 +881,15 @@ public:
   static constexpr bool ANIMATED_PROJECTION = AnimatedProjection;
   /** Whether the effect owns a surface-noise field and seed. */
   static constexpr bool HAS_SURFACE_NOISE =
-      std::is_same_v<typename ParamsT::surface_type, SurfaceNoiseParams> ||
-      std::is_same_v<typename ParamsT::surface_type, DirectSurfaceParams>;
-
-  /** Whether the effect owns the warp noise field and its seed: set when
-      either warp slot samples it (see WarpProvider::noise). */
+      SurfacePolicyFor<typename ParamsT::surface_type, Binding,
+                       HueV == HueMode::PATH_LENGTH>::USES_NOISE;
   static constexpr bool HAS_OUTER_NOISE =
-      std::is_same_v<typename ParamsT::outer_warp_type, VectorNoiseParams> ||
-      std::is_same_v<typename ParamsT::inner_warp_type, VectorNoiseParams>;
-
-  /** Whether the source family samples a noise field and owns its seed. */
+      WarpPolicyFor<typename ParamsT::outer_warp_type, Binding, true,
+                    HueV == HueMode::PATH_LENGTH>::USES_NOISE ||
+      WarpPolicyFor<typename ParamsT::inner_warp_type, Binding, false,
+                    HueV == HueMode::PATH_LENGTH>::USES_NOISE;
   static constexpr bool HAS_SOURCE_NOISE =
-      std::is_same_v<typename ParamsT::source_type,
-                     ProjectedNoiseSourceParams> ||
-      std::is_same_v<typename ParamsT::source_type, SphericalNoiseSourceParams>;
+      SourcePolicyFor<typename ParamsT::source_type, Binding>::USES_NOISE;
 
 private:
   static constexpr bool HAS_SURFACE =
@@ -870,23 +902,16 @@ private:
   static constexpr bool SURFACE_AFTER_LENS =
       SurfacePlacementV == SurfacePlacement::AFTER_LENS;
   static_assert(!SURFACE_AFTER_LENS || CURL_SURFACE || DIRECT_SURFACE);
-  using CurlDisplacePolicy =
-      Pullback::Surface::CurlNoise<SurfaceProvider<Binding, TRACK_PATH>,
-                                   math::NoiseBasis::SIMPLEX,
-                                   Pullback::Surface::Euler>;
-  using DirectDisplacePolicy =
-      Pullback::Surface::DirectNoise<SurfaceProvider<Binding, TRACK_PATH>,
-                                     math::NoiseBasis::SIMPLEX>;
-  using RippleDisplacePolicy =
-      Pullback::Surface::PeriodicRipple<SurfaceProvider<Binding, TRACK_PATH>>;
-  using NoiseDisplaceStage = Pullback::Stage::Displace<std::conditional_t<
-      DIRECT_SURFACE, DirectDisplacePolicy, CurlDisplacePolicy>>;
+  using SurfacePolicy =
+      typename SurfacePolicyFor<typename ParamsT::surface_type, Binding,
+                                TRACK_PATH>::Type;
+  using NoiseDisplaceStage = Pullback::Stage::Displace<SurfacePolicy>;
   using PreDisplaceStage = std::conditional_t<
       (CURL_SURFACE || DIRECT_SURFACE) && !SURFACE_AFTER_LENS,
       NoiseDisplaceStage,
       std::conditional_t<
           std::is_same_v<typename ParamsT::surface_type, PeriodicRippleParams>,
-          Pullback::Stage::Displace<RippleDisplacePolicy>, void>>;
+          Pullback::Stage::Displace<SurfacePolicy>, void>>;
   using PostDisplaceStage =
       std::conditional_t<SURFACE_AFTER_LENS, NoiseDisplaceStage, void>;
   using LensPolicy =
