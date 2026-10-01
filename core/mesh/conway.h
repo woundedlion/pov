@@ -1691,8 +1691,6 @@ HS_COLD static inline void reconcile_vertices(const PolyMesh &identity,
                               identity.face_counts.size());
   out.faces.bind(target, identity.faces.size());
   out.faces.append_bulk(identity.faces.data(), identity.faces.size());
-  out.topology = ArenaVector<uint16_t>();
-  out.topology_key = 0;
 }
 
 // TODO: Propeller (Hart's `p`) and whirl/loft are not implemented; their chiral
