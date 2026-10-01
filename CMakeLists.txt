@@ -258,7 +258,7 @@ if(EMSCRIPTEN)
             PATTERN "*.shader.json"
             PATTERN "catalog.json"
             PATTERN "example.shader.json" EXCLUDE
-            PATTERN "*/" EXCLUDE)
+            REGEX "/patterns/[^/.]+$" EXCLUDE)
     install(FILES "${CMAKE_CURRENT_SOURCE_DIR}/README.md"
             DESTINATION "${DAYDREAM_DIR}")
     install(CODE "
