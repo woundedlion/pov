@@ -745,6 +745,69 @@ struct FieldCoverageStageFor<FieldCoverageKind::VALUE_CUTOUT, B, Family> {
 
 namespace ComposedDetail {
 
+template <typename T> struct IsLensStage : std::false_type {};
+template <typename P> struct IsLensStage<Stage::Lens<P>> : std::true_type {};
+template <typename T> struct IsSurfaceStage : std::false_type {};
+template <typename P>
+struct IsSurfaceStage<Stage::Displace<P>> : std::true_type {};
+template <typename T> struct IsProjectStage : std::false_type {};
+template <typename P>
+struct IsProjectStage<Stage::Project<P>> : std::true_type {};
+template <typename T> struct IsTransferStage : std::false_type {};
+template <typename P>
+struct IsTransferStage<Stage::Transfer<P>> : std::true_type {};
+template <typename T> struct IsCoverageStage : std::false_type {};
+template <typename P>
+struct IsCoverageStage<Stage::ApplyCoverage<P>> : std::true_type {};
+template <typename T> struct IsMobiusLens : std::false_type {};
+template <typename P> struct IsMobiusLens<Lens::Mobius<P>> : std::true_type {};
+
+template <typename Pipeline, template <typename> class Predicate,
+          size_t Index = 0>
+consteval size_t stage_index() {
+  if constexpr (Index == Pipeline::STAGE_COUNT)
+    return Index;
+  else if constexpr (Predicate<
+                         typename Pipeline::template stage_at<Index>>::value)
+    return Index;
+  else
+    return stage_index<Pipeline, Predicate, Index + 1>();
+}
+
+template <typename Spec, typename Binding, typename Pipeline>
+struct PipelineMetadata {
+  using LensStage = typename Pipeline::template stage_matching<IsLensStage>;
+  using ProjectStage =
+      typename Pipeline::template stage_matching<IsProjectStage>;
+  static constexpr bool LENS_MATCHES = [] {
+    if constexpr (std::is_void_v<LensStage>)
+      return std::is_void_v<typename Spec::LensPolicy>;
+    else if constexpr (IsMobiusLens<typename LensStage::LensPolicy>::value)
+      return std::is_void_v<typename Spec::LensPolicy>;
+    else
+      return std::is_same_v<typename LensStage::LensPolicy,
+                            typename Spec::LensPolicy>;
+  }();
+  static constexpr bool PROJECTION_MATCHES = [] {
+    if constexpr (std::is_void_v<ProjectStage>)
+      return false;
+    else
+      return std::is_same_v<
+          typename ProjectStage::ProjectionPolicy,
+          typename ProjectionPolicyFor<Spec::PROJECTION, Binding>::Type>;
+  }();
+  static constexpr bool SURFACE_PLACEMENT_MATCHES = [] {
+    constexpr size_t SURFACE = stage_index<Pipeline, IsSurfaceStage>();
+    constexpr size_t LENS = stage_index<Pipeline, IsLensStage>();
+    if constexpr (SURFACE == Pipeline::STAGE_COUNT ||
+                  LENS == Pipeline::STAGE_COUNT)
+      return true;
+    else
+      return (SURFACE < LENS) ==
+             (Spec::SURFACE_PLACEMENT == SurfacePlacement::BEFORE_LENS);
+  }();
+};
+
 template <typename B> struct PolicyResources<OuterCameraProvider<B>> {
   using Type = ResourceList<ParameterResource<"projection", ProjectionParams,
                                               ResourceKind::PROJECTION>>;
@@ -977,6 +1040,22 @@ public:
   static constexpr bool HAS_OUTER_NOISE = has_noise<ResourceKind::WARP>();
   static constexpr bool HAS_SOURCE_NOISE = has_noise<ResourceKind::SOURCE>();
   using RenderPipeline = typename SpecT::template Pipeline<Binding>;
+  using Metadata =
+      ComposedDetail::PipelineMetadata<Spec, Binding, RenderPipeline>;
+  static_assert(Metadata::LENS_MATCHES,
+                "lens policy metadata must match the pipeline");
+  static_assert(Metadata::PROJECTION_MATCHES,
+                "projection metadata must match the pipeline");
+  static_assert(Metadata::SURFACE_PLACEMENT_MATCHES,
+                "surface placement metadata must match the pipeline");
+  static_assert(
+      RenderPipeline::template any_stage<ComposedDetail::IsTransferStage> ==
+          (Spec::TRANSFER != TransferKind::NONE),
+      "transfer metadata must match the pipeline");
+  static_assert(
+      RenderPipeline::template any_stage<ComposedDetail::IsCoverageStage> ==
+          (Spec::FIELD_COVERAGE != FieldCoverageKind::NONE),
+      "field coverage metadata must match the pipeline");
   using Frame = typename RenderPipeline::Frame;
 
   /** @brief Per-field noise seeds; an effect shadows one to decorrelate its
