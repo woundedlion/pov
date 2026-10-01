@@ -136,6 +136,9 @@ the global-O3 twin through the device lock.
 
 ## Global -O3 vs selective -O3
 
+This comparison uses the retired 2026-08-26 same-source shipping capture.
+The current shipping report linked above is a later capture.
+
 The paired shipping capture peaks at 58.30 ms versus
 58.32 ms here: global O3 raises the peak by 0.02 ms (0.0%). O3-image minus shipping-image
 size deltas are **FLASH code +34,144 B** and **ITCM code
