@@ -411,9 +411,7 @@ inline void test_hankin_one_shot_produces_valid_mesh() {
   check_face_counts_consistent(out);
   check_indices_in_range(out);
 
-  // Looser 1e-2: dynamic vertices are ray/segment intersections that land
-  // slightly off the unit sphere by construction.
-  check_all_unit_vertices(out, 1e-2f);
+  check_all_unit_vertices(out, 1e-5f);
 }
 
 /**
