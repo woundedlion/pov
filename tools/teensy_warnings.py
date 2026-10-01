@@ -102,11 +102,14 @@ def _relativize(path: str) -> str | None:
     and not collapsed to the first matching segment.
     """
     segs = path.replace("\\", "/").split("/")
-    if _THIRD_PARTY_DIRS & set(segs):
+    if ".platformio" in segs or "libdeps" in segs:
         return None
     for i, seg in enumerate(segs):
         if seg in _FIRST_PARTY_DIRS:
-            return "/".join(segs[i:])
+            remainder = segs[i:]
+            if _THIRD_PARTY_DIRS & set(remainder):
+                return None
+            return "/".join(remainder)
     return None
 
 
