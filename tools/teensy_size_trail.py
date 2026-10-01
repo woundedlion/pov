@@ -139,8 +139,7 @@ REGIONS: tuple[str, ...] = tuple(r for _, r in _SECTION_REGION) + ("ram1",)
 #: Firmware environments recorded together by default.
 _PLATFORMIO_INI = Path(__file__).resolve().parent.parent / "platformio.ini"
 DEFAULT_ENVIRONMENTS: tuple[str, ...] = (
-    declared_environments(_PLATFORMIO_INI) if _PLATFORMIO_INI.exists()
-    else ("holosphere", "phantasm", "holosphere_dma"))
+    declared_environments(_PLATFORMIO_INI))
 
 ELF_NAME = "firmware.elf"
 BUILD_INPUTS = ("core", "effects", "hardware", "targets", "tools", "platformio.ini")
