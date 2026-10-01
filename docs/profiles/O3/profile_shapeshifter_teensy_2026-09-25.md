@@ -3,7 +3,7 @@
 Shipping sibling: [selective-O3 report](../shipping/profile_shapeshifter_teensy_2026-09-29.md).
 
 Point-in-time snapshot (regenerate with `just profile ShapeShifter`).
-Raw capture: `after-o3.log.txt` (archive removed). Replaces `profile_shapeshifter_teensy_2026-08-26.md`. The current roster has nine presets; the old report and skill's four-shape schedule describe earlier versions.
+Raw capture: `after-o3.log.txt` (archive removed). Replaces `profile_shapeshifter_teensy_2026-08-26.md`. The current roster has nine presets; the old report's four-shape schedule describes an earlier version.
 
 **Finding 77 attribution:** ShapeShifter sets `SAMPLED_RASTER_CONFIG.single_pass = true` in `effects/ShapeShifter.h:548` and passes it to `Plot::rasterize` at line 571. The `if constexpr (SINGLE_PASS)` branch in `core/render/plot/raster.h:648` returns at line 808, before the changed two-pass replay clamp at line 879. Consequently this effect never executes the changed clamp. These measurements describe ShapeShifter's overall image behavior, including run variability and possible compiler/code-layout differences; they do **not** measure the clamp's per-replay-sample execution cost. The hot raster symbols are not all byte-identical (`raster-symbols.json`), so no whole-code identity or statistical-zero claim is made.
 

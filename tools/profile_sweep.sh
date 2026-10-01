@@ -1,7 +1,6 @@
 #!/bin/bash
 # profile_sweep.sh <group: g1_ship..g6_ship | check>
-# Phantasm-roster profiling sweep, one group per invocation (see the
-# teensy-profile skill for the per-effect duration/knob rationale).
+# Phantasm-roster profiling sweep, one group per invocation.
 # Covers the 288x144 Phantasm playlist. Dynamo, MobiusRings and Thrusters are Holosphere
 # 96x20-only (HS_PHANTASM_EXCLUDED_EFFECTS), so they are not profiled
 # here.
