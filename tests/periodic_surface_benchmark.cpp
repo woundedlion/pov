@@ -11,6 +11,7 @@
 
 namespace {
 
+constexpr int SIDES = 2;
 constexpr int WIDTH = 288;
 constexpr int HEIGHT = 144;
 constexpr int LIVE_COLUMNS = WIDTH / 2 + 2;
@@ -49,7 +50,7 @@ template <typename Surface> void measure(const char *name) {
   constexpr std::array<math::Vector, 4> CENTERS = {
       math::Vector{0.0f, 0.0f, 0.0f}, math::Vector{0.23f, 0.41f, -0.17f},
       math::Vector{0.5f, 0.5f, 0.5f}, math::Vector{-0.37f, 0.19f, 0.73f}};
-  for (int side = 0; side < 2; ++side) {
+  for (int side = 0; side < SIDES; ++side) {
     for (int y = 0; y < LIVE_ROWS; ++y)
       for (int x = 0; x < LIVE_COLUMNS; ++x)
         directions[y * LIVE_COLUMNS + x] = math::Vector::from_spherical(
@@ -111,8 +112,8 @@ template <typename Surface> void measure(const char *name) {
                 static_cast<double>(M.reference_unresolved) / M.rays,
                 static_cast<double>(M.hit_disagreement) / M.rays,
                 M.image_error / M.rays,
-                M.total_ms /
-                    (2.0 * PERIODS.size() * ISOVALUES.size() * CENTERS.size()),
+                M.total_ms / (SIDES * PERIODS.size() * ISOVALUES.size() *
+                              CENTERS.size()),
                 M.peak_ms, static_cast<double>(M.inside_starts) / M.rays);
   }
 }
