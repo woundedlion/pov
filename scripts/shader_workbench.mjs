@@ -825,6 +825,27 @@ export function validateShaderDocument(document, options = {}) {
         'Serialization fields must name every parameter exactly once.');
   });
   validatePresetBank(document.preset_bank, parameters, pathPolicies, report, guard);
+  let edgeDistance = false;
+  for (const entry of descriptor.chain) {
+    const operator = chainOperators.get(entry?.label);
+    if (!operator) continue;
+    if (operator.input === 'sphere' && operator.output === 'plane')
+      edgeDistance = operator.edge_distance_available;
+    if (edgeDistance) continue;
+    for (const field of operator.params) {
+      if (!field.topology || !['coverage-mode', 'envelope'].includes(field.id)) continue;
+      const parameterId = `${entry.label}.${field.id}`;
+      const declaration = parameters.get(parameterId);
+      if (declaration?.default === 'edge-fade')
+        report('EDGE_DISTANCE_UNAVAILABLE', `$.descriptor.parameters[${descriptor.parameters.indexOf(declaration)}].default`,
+          'Edge-fade requires an upstream projection with edge distance.');
+      document.preset_bank.presets.forEach((preset, index) => {
+        if (preset.values?.[parameterId] === 'edge-fade')
+          report('EDGE_DISTANCE_UNAVAILABLE', `$.preset_bank.presets[${index}].values.${parameterId}`,
+            'Edge-fade requires an upstream projection with edge distance.');
+      });
+    }
+  }
   return diagnostics;
 }
 
