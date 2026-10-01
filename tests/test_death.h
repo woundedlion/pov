@@ -534,6 +534,11 @@ inline void case_arena_oversubscribed() {
  * @details Config surface — the per-request bound is checked before the sum, so
  *          an oversized persistent request fires split_bases' own HS_CHECK.
  */
+inline void case_arena_split_scratch_too_large() {
+  const ArenaSplit split{opaque<size_t>(GLOBAL_ARENA_SIZE), opaque<size_t>(1)};
+  (void)split.persistent(opaque<size_t>(GLOBAL_ARENA_SIZE));
+}
+
 inline void case_arena_partition_too_large() {
   configure_arenas(opaque(GLOBAL_ARENA_SIZE + 1), opaque<size_t>(0),
                    opaque<size_t>(0));
@@ -5181,6 +5186,9 @@ inline const Case *all_cases(int &n) {
        "(delta >= -PHYSICS_NEIGHBOR_REACH) GS neighbor exceeds delayed-write history"},
       {"arena_oversubscribed", case_arena_oversubscribed,
        "core/engine/memory.cpp", "(total <= GLOBAL_ARENA_SIZE) split_bases: "},
+      {"arena_split_scratch_too_large", case_arena_split_scratch_too_large,
+       "core/engine/memory.h",
+       "(scratch_a <= total && scratch_b <= total - scratch_a) ArenaSplit: "},
       {"arena_partition_too_large", case_arena_partition_too_large,
        "core/engine/memory.cpp",
        "(persistent <= GLOBAL_ARENA_SIZE && scratch_a <= GLOBAL_ARENA_SIZE && "

@@ -1276,6 +1276,11 @@ struct ArenaSplit {
   size_t scratch_b;
 
   constexpr size_t persistent(size_t total = DEVICE_GLOBAL_ARENA_SIZE) const {
+    HS_CHECK(scratch_a <= total && scratch_b <= total - scratch_a,
+             "ArenaSplit: scratch %lu+%lu exceeds %lu B",
+             static_cast<unsigned long>(scratch_a),
+             static_cast<unsigned long>(scratch_b),
+             static_cast<unsigned long>(total));
     return total - scratch_a - scratch_b;
   }
 
