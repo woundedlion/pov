@@ -53,12 +53,19 @@ emitting a topology-breaking truncate sample.
 ## Smooth dual/kis/needle
 
 A lone `dual` uses three legs: truncate to ambo(P), medial slerp to
-ambo(dual(P)), then untruncate to dual(P). The shipped macro paths are smooth too. A trailing `dual,kis` pair uses the dt bridge and a standalone
-`kis` uses the dtd bridge. Each constructs identity connectivity, follows a
-medial path (a `MEDIAL_SLERP` medial leg), then runs a second `MEDIAL_SLERP`
-leg, the reconcile, onto the exact authored
-endpoint positions. `needle` remains authored as a composite and lowers to
-`DUAL,KIS`; the scheduler recognizes and spans that pair as one bridge.
+ambo(dual(P)), then untruncate to dual(P). A trailing `dual,kis` pair uses the
+`dt` bridge and a standalone `kis` uses the `dtd` bridge:
+
+- `dt`: truncate X to depth 1/3, run the full three-leg dual bridge, then
+  reconcile onto the authored endpoint.
+- `dtd`: run a full dual bridge, truncate dual(X) to depth 1/3, run a second
+  full dual bridge, then reconcile onto the authored endpoint.
+
+The identity truncate depth is `MACRO_TRUNCATE_T = 1/3`: on regular seeds,
+`dual(truncate(X, 1/3)) == kis(dual(X))`. The reconcile departs from this
+identity mesh and uses `MEDIAL_SLERP` to reach the exact authored positions.
+`needle` remains authored as a composite and lowers to `DUAL,KIS`; the scheduler
+recognizes and spans that pair as one bridge.
 
 The caller provides a checked nearest-vertex correspondence between the bridge
 and authored endpoint. Connectivity remains fixed during reconciliation, so no

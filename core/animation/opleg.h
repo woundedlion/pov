@@ -602,7 +602,7 @@ public:
   /**
    * @brief Constructs the Conway-dual bridge's medial leg: builds the shared
    * rectified connectivity of P and slerps every vertex from ambo(P) to
-   * ambo(dual(P)) at a fixed emission order (docs/specs/opchain_morph_spec.md, dual bridge leg 2).
+   * ambo(dual(P)) at a fixed emission order (docs/specs/opchain_morph_spec.md, Smooth dual/kis/needle).
    * @param seed Mesh whose dual bridge this leg spans; its medial is built here.
    * @param spec Slerp frame count.
    * @param arena Leg arena backing the medial connectivity and both
@@ -693,7 +693,7 @@ public:
    * every vertex of the topology-exact identity mesh (dt/dtd) onto its
    * counterpart in the authored kis/needle mesh, along the caller's
    * nearest-vertex bijection
-   * (docs/specs/opchain_morph_spec.md, smooth kis/needle).
+   * (docs/specs/opchain_morph_spec.md, Smooth dual/kis/needle).
    * @param from_mesh Identity mesh (dual(truncate(...))): its connectivity and
    * vertex order are the leg's fixed emission order. Cloned, not borrowed.
    * @param spec Authored slerp endpoints and frame count.
