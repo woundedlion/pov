@@ -17,10 +17,16 @@ inline void test_geometry() {
   HS_EXPECT_EQ(DIAMOND.count, 16);
   HS_EXPECT_EQ(HEXAGONAL.count, 10);
   HS_EXPECT_EQ(RHOMBIC.count, 32);
-  for (const auto &geometry : {DIAMOND, HEXAGONAL, RHOMBIC}) {
-    const float LENGTH = geometry.count == 16   ? sqrtf(3.f) * .25f
-                         : geometry.count == 32 ? sqrtf(3.f) * .25f
-                                                : 1.f;
+  struct ExpectedGeometry {
+    Kind kind;
+    float length;
+  };
+  const ExpectedGeometry CASES[] = {{Kind::DIAMOND, sqrtf(3.f) * .25f},
+                                    {Kind::HEXAGONAL, 1.f},
+                                    {Kind::RHOMBIC, sqrtf(3.f) * .25f}};
+  for (const auto &expected : CASES) {
+    const Geometry geometry(expected.kind);
+    const float LENGTH = expected.length;
     for (int i = 0; i < geometry.count; ++i) {
       const auto D = geometry.edges[i].b - geometry.edges[i].a;
       HS_EXPECT_NEAR(sqrtf(math::dot(D, D)), LENGTH, 1e-6f);
