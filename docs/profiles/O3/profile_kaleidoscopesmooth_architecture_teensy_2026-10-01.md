@@ -82,7 +82,7 @@ Wall min/avg/max = 60.564/62.526/64.372 ms. The scope tree includes interrupt pr
 
 All authored presets were visited and the marker sequence wrapped to the first index. Rows use the richest complete subsequent window with one owner and the modal draw-call count. They are ranked by scope cost; parameter morphs can remain within a single-owner window.
 
-| # | Preset | Windows / clean | blended px/f | Scope ms | Render ms | fps |
+| # (one-based marker order) | Preset | Windows / clean | blended px/f | Scope ms | Render ms | fps |
 |---|---|--:|--:|--:|--:|--:|
 | 2 | direct-grid | 67 / 66 | not recorded | 26.438 | 29.720 | 16.03 |
 | 1 | coupled-grid | 55 / 54 | not recorded | 25.575 | 28.554 | 16.03 |
@@ -91,9 +91,9 @@ All authored presets were visited and the marker sequence wrapped to the first i
 
 Cadence buckets in the READMEs use all owner-attributed live frames, including the departure following that preset, rather than only these selected windows.
 
-Worst live owner: preset 2 (direct-grid). Per-preset peaks span 27.012–30.314 ms.
+Worst live owner (one-based marker order): preset 2 (direct-grid). Per-preset peaks span 27.012–30.314 ms.
 
-| # | Live owner | Peak render ms | Spilled / live frames |
+| # (one-based marker order) | Live owner | Peak render ms | Spilled / live frames |
 |---|---|--:|--:|
 | 2 | direct-grid | 30.314 | 0/1079 (0.00%) |
 | 1 | coupled-grid | 29.498 | 0/900 (0.00%) |
