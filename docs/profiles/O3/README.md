@@ -59,7 +59,6 @@ whose render exceeded one 62.5 ms display interval. Rows rank by spill fraction,
 Bucket frames include transitions and are stricter than the clean-hold table in each report.
 
 **Colour:** 🟢 no spills; 🟡 under 25% spill; 🔴 at least 25% spill.
-Raymarch on 2026-09-20; DisplacementField on 2026-09-19; RingSpin on 2026-09-24; other rows on 2026-08-26.
 Captured timestamps are local raw-log mtimes.
 
 
