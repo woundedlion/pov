@@ -252,9 +252,9 @@ private:
     const float DIFFUSION = params.d_b * DT;
     for (int i = 0; i < RD_N; ++i) {
       float weights[NUM_SEED_CLUSTERS] = {};
-      float retained = std::max(0.0f, b[i] * (1.0f - RD_K * DIFFUSION -
-                                              (params.k + params.feed) * DT) +
-                                          a[i] * b[i] * b[i] * DT);
+      float retained = fmaxf(0.0f, b[i] * (1.0f - RD_K * DIFFUSION -
+                                           (params.k + params.feed) * DT) +
+                                       a[i] * b[i] * b[i] * DT);
       add_pigment(weights, state.pigment[i], retained);
       Base::template for_each_neighbor<true>(i, [&](int nb) {
         add_pigment(weights, state.pigment[nb], b[nb] * DIFFUSION);
@@ -585,7 +585,7 @@ private:
       noise_value =
           sample_color_noise(Base::inverse_orientation.apply(center_rv));
     const float HUE_SHIFT = noise_value * params.hue_shift;
-    const float LIGHTNESS = std::max(0.0f, noise_value) * params.shimmer;
+    const float LIGHTNESS = fmaxf(0.0f, noise_value) * params.shimmer;
     int center =
         Base::template refine_render_center<true>(center_rv, world_nodes, seed);
     constexpr uint32_t SAMPLES = Grid::SAMPLES;
