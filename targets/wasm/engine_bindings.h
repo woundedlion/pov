@@ -293,8 +293,7 @@ public:
     HS_CHECK(!snapshot_decode_active,
              "delete() from a caller accessor during engine decode");
 #endif
-    current_effect.reset();
-    configure_arenas_default();
+    teardown_effect();
     engine_alive = false;
   }
 
@@ -382,19 +381,8 @@ public:
     const int count = pixel_width * pixel_height * CHANNELS;
     std::fill_n(pixel_buffer.data(), count, uint16_t{0});
 
-    if (current_effect) {
-      ++effect_generation;
-      param_streams.views.clear();
-      current_effect = nullptr;
-      current_effect_type_key = nullptr;
-      current_factory_entry = nullptr;
-      // Same teardown setEffect() performs: without the re-partition the
-      // destroyed effect's arena usage keeps reading as live from
-      // getArenaMetrics().
-      configure_arenas_default();
-      param_generation.replace(0);
-      stack_paint_canary(); // repaint to reset stack HWM after teardown
-    }
+    if (current_effect)
+      teardown_effect();
     return ResolutionSetResult::RESIZED;
   }
 
@@ -442,14 +430,7 @@ public:
       return EffectSetResult::UNKNOWN_EFFECT;
     }
 
-    ++effect_generation;
-    param_streams.views.clear();
-    current_effect.reset();
-    current_effect_type_key = nullptr;
-    current_factory_entry = nullptr;
-    configure_arenas_default(); // Reset before init so effects can override
-
-    stack_paint_canary(); // reset stack HWM by repainting unused region
+    teardown_effect();
 
     hs_wasm::dispatch_resolution(pixel_width, pixel_height, []<int W, int H>() {
       math::init_geometry_luts<W,
@@ -1365,6 +1346,16 @@ public:
   }
 
 private:
+  void teardown_effect() {
+    ++effect_generation;
+    param_streams.views.clear();
+    current_effect.reset();
+    current_effect_type_key = nullptr;
+    current_factory_entry = nullptr;
+    configure_arenas_default();
+    param_generation.replace(0);
+    stack_paint_canary();
+  }
   static void apply_display_geometry(float north, float south) {
     HS_CHECK(math::set_display_geometry(north, south),
              "Validated display geometry must be accepted");
@@ -1404,7 +1395,7 @@ private:
         chain_entries.emplace_back(entry.instance, entry.op->operator_id);
 #endif
 
-    current_effect.reset();
+    teardown_effect();
     apply_display_geometry(north, south);
     HS_CHECK(setEffect(NAME) == EffectSetResult::INSTALLED,
              "Geometry rebuild must reinstall the current effect");
