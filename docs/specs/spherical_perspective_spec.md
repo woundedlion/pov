@@ -492,13 +492,15 @@ engine-wide registry.
 Expose separate **Pattern** and **View** enums through the existing
 `ParamHost` registration and admission hooks. Pattern chooses the geometry;
 View chooses 3D perspective or a three-dimensional slice through 4D geometry.
-The selectable patterns are cubic, octet, diamond, hexagonal-prism honeycomb,
+The patterns are cubic, octet, diamond, hexagonal-prism honeycomb,
 rhombic-dodecahedral cell edges, affine cubic wires, and periodic spherical
 shells. Cubic, octet, affine cubic, and shells support both ambient dimensions;
 the remaining cellular graphs admit only 3D. Configuration IDs index the
 admitted table, not an arithmetic product of pattern and domain. Selecting a
 3D-only pattern from a 4D view adopts its 3D defaults. Unsupported restores
-are rejected. The octet 4D view is available both manually and as a shipped preset.
+are rejected. Non-cubic patterns and the octet 4D flight preset require
+`HS_ENABLE_HYPERLATTICE_EXPERIMENTS`: they are available in the simulator and
+opted-in device builds, not standard firmware.
 
 Cellular wires use finite-strut closest-approach contributions and rectangular
 cell traversal with bounded neighbors and world-space antialiasing. Sheared
