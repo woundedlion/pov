@@ -1468,8 +1468,11 @@ contains exactly one implementation. Captures are run in `A->B`, `B->A`,
 is arm-stamped and validated before comparison. The switch and legacy arm are
 removed before landing.
 
-Phase P adds profile-only telemetry before this protocol is usable. Each image
-emits exactly one boot record:
+> Historical protocol: current profile builds emit neither pullback arm stamps
+> nor program-change events. The parser's optional pullback validation flags
+> apply only to archived captures of instrumented comparison branches.
+
+Phase P proposed the following boot record:
 
 ```text
 Pullback arm: LEGACY|CORE|LANDED sha=<short-sha>[-dirty]
@@ -1478,9 +1481,8 @@ Pullback arm: LEGACY|CORE|LANDED sha=<short-sha>[-dirty]
 > Historical proposal: the following program-change event was not implemented.
 > Current profiling does not emit `Pullback program` events.
 
-The branch build supplies `LEGACY` or `CORE`; a normal build defaults to
-`LANDED`. The build hook appends `-dirty` when the image came from a modified
-tree; validation reports such a capture as a dirty build. ShaderWorkbench also emits an event whenever the tuple changes:
+The comparison branch supplied `LEGACY` or `CORE`; the retired build hook
+appended `-dirty` for a modified tree. Program-change events were proposed as:
 
 ```text
 Pullback program: preset=<i>/<N> pipeline=<InversePipelineId|NONE> \
