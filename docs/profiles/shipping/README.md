@@ -56,15 +56,15 @@ Spill fractions include the transition following an entry and are stricter than 
 
 - **MeshFeedback**: 12 parser ownership buckets spanning 40.88–48.61 ms.
 - **ShapeShifter**: 9 parser ownership buckets spanning 6.30–53.22 ms (entry 1 at 288 contours).
-- **HyperLattice**: 3 parser ownership buckets spanning 29.60–36.65 ms (setup frame excluded).
-- **MindSplatter**: 8 parser ownership buckets spanning 22.36–54.94 ms.
+- **HyperLattice**: 3 parser ownership buckets spanning 26.686–36.839 ms (setup frame excluded).
+- **MindSplatter**: 8 parser ownership buckets spanning 22.224–54.457 ms (setup frame excluded).
 - **IslamicStars**: 23 parser ownership buckets spanning 19.92–50.51 ms.
 - **DreamBalls**: 10 parser ownership buckets spanning 14.41–42.66 ms.
 - **KaleidoscopeHexOil**: 2 parser ownership buckets spanning 38.03–38.51 ms.
-- **LatticeMelt**: 2 parser ownership buckets spanning 37.18–37.18 ms.
+- **LatticeMelt**: 2 parser ownership buckets spanning 36.535–36.583 ms (setup frame excluded).
 - **KaleidoscopeMandala**: 2 parser ownership buckets spanning 34.88–35.40 ms.
 - **HankinSolids**: 19 parser ownership buckets spanning 14.52–34.81 ms.
-- **KaleidoscopeSmooth**: 4 parser ownership buckets spanning 28.62–32.93 ms.
+- **KaleidoscopeSmooth**: 4 parser ownership buckets spanning 28.432–32.230 ms (setup frame excluded).
 - **KaleidoscopeFlowers**: 3 parser ownership buckets spanning 32.31–32.52 ms.
 - **KaleidoscopeHexBright**: 2 parser ownership buckets spanning 31.44–31.64 ms.
 - **Comets**: 12 parser ownership buckets spanning 16.48–30.66 ms.
