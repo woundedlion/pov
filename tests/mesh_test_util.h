@@ -10,6 +10,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <cstring>
 #include <vector>
 #include "core/mesh/mesh.h"
 #include "core/mesh/solids.h"
@@ -213,18 +214,41 @@ inline void check_no_sliver_edges(const PolyMesh &m) {
  * @details Newell's method is robust for non-planar faces (e.g. curved faces
  *          on the unit sphere) where a simple cross product would be ambiguous.
  */
-inline math::Vector face_newell_normal(const PolyMesh &m,
-                                       size_t face_idx_offset, int count) {
+/** @brief Newell vector of a polygon supplied in cyclic vertex order. */
+template <typename VertexAt>
+inline math::Vector newell_normal(int count, VertexAt vertex_at) {
   math::Vector n(0, 0, 0);
   for (int k = 0; k < count; ++k) {
-    const math::Vector &curr = m.vertices[m.faces[face_idx_offset + k]];
-    const math::Vector &next =
-        m.vertices[m.faces[face_idx_offset + (k + 1) % count]];
+    const math::Vector curr = vertex_at(k);
+    const math::Vector next = vertex_at((k + 1) % count);
     n.x += (curr.y - next.y) * (curr.z + next.z);
     n.y += (curr.z - next.z) * (curr.x + next.x);
     n.z += (curr.x - next.x) * (curr.y + next.y);
   }
   return n;
+}
+
+/** @brief Index-run offset of a PolyMesh face. */
+inline size_t poly_face_offset(const PolyMesh &mesh, size_t face) {
+  size_t offset = 0;
+  for (size_t i = 0; i < face; ++i)
+    offset += mesh.face_counts[i];
+  return offset;
+}
+
+/** @brief Finds a directed graph edge, or -1 if it is absent. */
+template <typename Edges, typename Node>
+inline int find_directed_edge(const Edges &edges, Node from, Node to) {
+  for (size_t e = 0; e < std::size(edges); ++e)
+    if (edges[e].from_node == from && edges[e].to_node == to)
+      return static_cast<int>(e);
+  return -1;
+}
+
+inline math::Vector face_newell_normal(const PolyMesh &m,
+                                       size_t face_idx_offset, int count) {
+  return newell_normal(
+      count, [&](int k) { return m.vertices[m.faces[face_idx_offset + k]]; });
 }
 
 /**
@@ -288,6 +312,74 @@ inline void build_meshstate_solid(MeshState &mesh, Arena &arena,
   mesh.faces.bind(arena, index_count);
   for (size_t i = 0; i < index_count; ++i)
     mesh.faces.push_back(static_cast<uint16_t>(Solid::faces[i]));
+}
+
+/**
+ * @brief Asserts two meshes are bitwise identical: same counts and same bytes
+ *        for vertices, face_counts, and faces.
+ * @param m1,m2 Meshes to compare.
+ */
+inline void check_bitwise_equal_meshes(const PolyMesh &m1, const PolyMesh &m2) {
+  HS_EXPECT_EQ(m1.vertices.size(), m2.vertices.size());
+  HS_EXPECT_EQ(m1.face_counts.size(), m2.face_counts.size());
+  HS_EXPECT_EQ(m1.faces.size(), m2.faces.size());
+  if (m1.vertices.size() != m2.vertices.size() ||
+      m1.face_counts.size() != m2.face_counts.size() ||
+      m1.faces.size() != m2.faces.size())
+    return;
+  HS_EXPECT_EQ(std::memcmp(m1.vertices.data(), m2.vertices.data(),
+                           m1.vertices.size() * sizeof(math::Vector)),
+               0);
+  HS_EXPECT_EQ(std::memcmp(m1.face_counts.data(), m2.face_counts.data(),
+                           m1.face_counts.size() * sizeof(uint8_t)),
+               0);
+  HS_EXPECT_EQ(std::memcmp(m1.faces.data(), m2.faces.data(),
+                           m1.faces.size() * sizeof(uint16_t)),
+               0);
+}
+
+/**
+ * @brief Asserts two meshes agree bit for bit.
+ * @param a First mesh.
+ * @param b Second mesh.
+ * @details Vertices compare exactly: callers pair paths that run the same
+ *          arithmetic in the same emission order, so anything short of equality
+ *          is a divergence.
+ */
+inline void check_meshes_identical(const PolyMesh &a, const PolyMesh &b) {
+  HS_EXPECT_EQ(a.vertices.size(), b.vertices.size());
+  HS_EXPECT_EQ(a.face_counts.size(), b.face_counts.size());
+  HS_EXPECT_EQ(a.faces.size(), b.faces.size());
+  if (a.vertices.size() != b.vertices.size() ||
+      a.face_counts.size() != b.face_counts.size() ||
+      a.faces.size() != b.faces.size())
+    return;
+  for (size_t i = 0; i < a.vertices.size(); ++i) {
+    HS_EXPECT_EQ(a.vertices[i].x, b.vertices[i].x);
+    HS_EXPECT_EQ(a.vertices[i].y, b.vertices[i].y);
+    HS_EXPECT_EQ(a.vertices[i].z, b.vertices[i].z);
+  }
+  for (size_t i = 0; i < a.face_counts.size(); ++i)
+    HS_EXPECT_EQ(a.face_counts[i], b.face_counts[i]);
+  for (size_t i = 0; i < a.faces.size(); ++i)
+    HS_EXPECT_EQ(a.faces[i], b.faces[i]);
+}
+
+/**
+ * @brief Newell-sum area of face fi.
+ */
+inline float poly_face_area(const PolyMesh &m, size_t fi) {
+  const size_t off = poly_face_offset(m, fi);
+  const int n = m.face_counts[fi];
+  math::Vector s(0.0f, 0.0f, 0.0f);
+  for (int k = 1; k + 1 < n; ++k) {
+    const math::Vector e1 =
+        m.vertices[m.faces[off + k]] - m.vertices[m.faces[off]];
+    const math::Vector e2 =
+        m.vertices[m.faces[off + k + 1]] - m.vertices[m.faces[off]];
+    s = s + math::cross(e1, e2);
+  }
+  return 0.5f * s.length();
 }
 
 } // namespace hs_test
