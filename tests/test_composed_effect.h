@@ -18,9 +18,9 @@
  * the derivation layer can reach: the workbench catalog is wider, and the
  * difference is recorded against the live OPERATOR_TABLE rather than restated.
  *
- * Shading is covered by the compiled-to-chain equivalence
- * oracles in
- * tests/test_lattice_melt.h and tests/test_kaleidoscope_smooth.h own that comparison.
+ * Shading parity against the chain interpreter lives in tests/test_lattice_melt.h,
+ * tests/test_kaleidoscope_smooth.h (verify_export), and
+ * test_shader_chain_composed_frame_parity.
  */
 #pragma once
 
