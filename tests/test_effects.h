@@ -4932,8 +4932,7 @@ inline void test_petalflow_spawn_gap_bounded() {
   reset_effect_globals();
   WB::PF pf;
   pf.init();
-  HS_EXPECT_NEAR(WB::youngest_rho(pf) - WB::start_rho() + WB::gap(pf),
-                 WB::live_spacing(pf), 1e-5f);
+  HS_EXPECT_NEAR(WB::youngest_rho(pf) - WB::start_rho(), WB::gap(pf), 1e-5f);
   HS_EXPECT_EQ(pf.updateParameter("Speed", 20.0f), ParamSetResult::APPLIED);
   HS_EXPECT_EQ(pf.updateParameter("Density", 2.5f), ParamSetResult::APPLIED);
 

@@ -229,7 +229,7 @@ private:
       spawn_ring_at_pos(r);
       last_r = r;
     }
-    gap_accumulator = spacing() - (last_r - START_RHO);
+    gap_accumulator = last_r - START_RHO;
   }
 
   /**
