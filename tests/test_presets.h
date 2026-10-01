@@ -2,13 +2,7 @@
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
  * Licensed under the PolyForm Noncommercial License 1.0.0
  *
- * Unit tests for core/control/presets.h — the PresetEntry table row and the
- * all_presets_in_ranges compile-time range check — plus core/control/params.h's
- * apply_if_changed live-value change gate and core/control/choreography.h's
- * preset choreography: preset zero supplies the startup params and
- * hold_initial_preset() overrides the first dwell only.
- *
- * Self-contained header. run_presets_tests() returns the module failure count.
+ * Preset transitions, admission saturation, re-arm rejection, and fade cancellation.
  */
 #pragma once
 
@@ -212,6 +206,7 @@ inline void test_hold_initial_preset_overrides_first_dwell() {
   HS_EXPECT_EQ(effect.getPresetIndex(), size_t{1});
 }
 
+/** @brief Preset fixture with saturated animation admission. */
 struct SaturatedPresetEffect
     : ChoreographedEffect<SaturatedPresetEffect, HoldParams> {
   static constexpr std::array<std::string_view, 2> PRESET_IDS{"first",
@@ -244,6 +239,7 @@ struct SaturatedPresetEffect
   uint16_t elapsed() const { return transition.elapsed_frames; }
 };
 
+/** @brief Pins preset saturation veto restarts dwell. */
 inline void test_preset_saturation_veto_restarts_dwell() {
   hs_test::reset_globals();
   SaturatedPresetEffect effect;
@@ -264,6 +260,7 @@ inline void test_preset_saturation_veto_restarts_dwell() {
   HS_EXPECT_TRUE(effect.blending());
 }
 
+/** @brief Preset fixture for fade cancellation. */
 struct FadePresetEffect : ChoreographedEffect<FadePresetEffect, HoldParams> {
   using Origin = PresetChangeOrigin;
   struct Notification {
@@ -322,6 +319,7 @@ inline void test_timeline_clear_releases_fade() {
   HS_EXPECT_TRUE(effect.active());
 }
 
+/** @brief Pins cancelled fade notifies committed index. */
 inline void test_cancelled_fade_notifies_committed_index() {
   enum class Cancel { EDIT, RESTORE, MANUAL_FROM, MANUAL_TO, SYNCHRONIZED };
   for (const bool adopted : {false, true}) {
@@ -383,6 +381,7 @@ inline void test_cancelled_fade_notifies_committed_index() {
   }
 }
 
+/** @brief Pins cancelled fade names visible preset. */
 inline void test_cancelled_fade_names_visible_preset() {
   hs_test::reset_globals();
   FadePresetEffect effect;
@@ -400,6 +399,7 @@ inline void test_cancelled_fade_names_visible_preset() {
   HS_EXPECT_EQ(effect.value(), 2.0f);
 }
 
+/** @brief Pins cancelled crossfade event cannot step replacement. */
 inline void test_cancelled_crossfade_event_cannot_step_replacement() {
   hs_test::reset_globals();
   SaturatedPresetEffect effect;
@@ -413,6 +413,7 @@ inline void test_cancelled_crossfade_event_cannot_step_replacement() {
   HS_EXPECT_EQ(effect.elapsed(), uint16_t{1});
 }
 
+/** @brief Pins preset crossfade rejects rearming. */
 inline void test_preset_crossfade_rejects_rearming() {
   hs_test::reset_globals();
   SaturatedPresetEffect effect;
