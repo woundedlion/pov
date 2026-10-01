@@ -20,6 +20,7 @@ from generate_pullback_manifest_header import (
     manifest_sha256,
 )
 from pullback_crosscheck import expected_toolchain
+from engine_source_state import changed_sources
 
 
 CASE_OPERATIONS = {
@@ -411,6 +412,8 @@ def produce(
     manifest_dir: Path,
     output: Path,
 ) -> None:
+    if changed_sources(checkout):
+        raise CaptureError("capture checkout has uncommitted or untracked changes")
     programs, oracles, schema = load_and_validate(manifest_dir)
     toolchain = attest_toolchain(build_dir, configuration, programs)
     checkout_sha = subprocess.run(
