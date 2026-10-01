@@ -4443,6 +4443,91 @@ inline void test_shader_chain_snapshot_refusals() {
   candidate.palette_bank->cycles[0].frame = GeneratedPaletteBank::FADE_FRAMES;
   refused(candidate, ChainSnapshotRestoreResult::INVALID_VALUE);
   candidate = saved;
+  candidate.chain.clear();
+  refused(candidate, ChainSnapshotRestoreResult::INVALID_LENGTH);
+  candidate = saved;
+  candidate.chain.resize(In::MAX_CHAIN_OPS + 1, saved.chain[0]);
+  refused(candidate, ChainSnapshotRestoreResult::INVALID_LENGTH);
+  candidate = saved;
+  candidate.parameters.resize(In::MAX_CHAIN_PARAMS + 1, saved.parameters[0]);
+  refused(candidate, ChainSnapshotRestoreResult::INVALID_LENGTH);
+  candidate = saved;
+  candidate.runtime->resize(In::MAX_CHAIN_OPS + 1, (*saved.runtime)[0]);
+  refused(candidate, ChainSnapshotRestoreResult::INVALID_LENGTH);
+  candidate = saved;
+  candidate.parameters.push_back({"camera.nope", 0.0f});
+  refused(candidate, ChainSnapshotRestoreResult::INVALID_VALUE);
+  candidate = saved;
+  candidate.parameters.clear();
+  candidate.parameters.push_back({"camera.wander", 2.0f});
+  refused(candidate, ChainSnapshotRestoreResult::INVALID_VALUE);
+  for (float value : {4.0f, 0.5f}) {
+    candidate = saved;
+    candidate.parameters.clear();
+    candidate.parameters.push_back({"sample.coverage-mode", value});
+    refused(candidate, ChainSnapshotRestoreResult::INVALID_VALUE);
+  }
+  candidate = saved;
+  candidate.chain.insert(candidate.chain.begin() + 1,
+                         {"lens", In::Op::LensMobius::ID});
+  candidate.runtime.reset();
+  candidate.parameters.clear();
+  candidate.parameters.push_back({"lens.mobius-a-re", 0.0f});
+  candidate.parameters.push_back({"lens.mobius-d-re", 0.0f});
+  refused(candidate, ChainSnapshotRestoreResult::INVALID_VALUE);
+  candidate = saved;
+  candidate.chain[1].operator_id = In::Op::ProjectFoldedSinusoidal::ID;
+  candidate.runtime.reset();
+  candidate.parameters.clear();
+  candidate.parameters.push_back({"sample.coverage-mode", 3.0f});
+  refused(candidate, ChainSnapshotRestoreResult::INVALID_VALUE);
+  candidate = saved;
+  candidate.runtime->push_back((*candidate.runtime)[0]);
+  refused(candidate, ChainSnapshotRestoreResult::INVALID_VALUE);
+  candidate = saved;
+  candidate.runtime->push_back({"unknown", (*candidate.runtime)[0].state});
+  refused(candidate, ChainSnapshotRestoreResult::INVALID_VALUE);
+  candidate = saved;
+  (*candidate.runtime)[0].state = In::SourceClockSnapshot{};
+  refused(candidate, ChainSnapshotRestoreResult::INVALID_VALUE);
+  candidate = saved;
+  std::get<In::SpatialWalkSnapshot>((*candidate.runtime)[0].state).direction =
+      std::get<In::SpatialWalkSnapshot>((*candidate.runtime)[0].state).position;
+  refused(candidate, ChainSnapshotRestoreResult::INVALID_VALUE);
+  candidate = saved;
+  std::get<In::SpatialWalkSnapshot>((*candidate.runtime)[0].state).spin_phase =
+      7.0f;
+  refused(candidate, ChainSnapshotRestoreResult::INVALID_VALUE);
+  candidate = saved;
+  for (auto &runtime : *candidate.runtime)
+    if (auto *clock = std::get_if<In::SourceClockSnapshot>(&runtime.state))
+      clock->angle = 7.0f;
+  refused(candidate, ChainSnapshotRestoreResult::INVALID_VALUE);
+  candidate = saved;
+  for (auto &runtime : *candidate.runtime)
+    if (auto *clock = std::get_if<In::ColorClockSnapshot>(&runtime.state))
+      clock->hue_noise_phase = 1.0f;
+  refused(candidate, ChainSnapshotRestoreResult::INVALID_VALUE);
+  In::Op::NoisePhaseState noise_state;
+  HS_EXPECT_FALSE(In::RuntimeStateCodec<In::Op::NoisePhaseState>::restore(
+      noise_state, In::NoiseClockSnapshot{1.0f, 1337}));
+  In::Op::WarpPhaseState warp_state;
+  HS_EXPECT_FALSE(In::RuntimeStateCodec<In::Op::WarpPhaseState>::restore(
+      warp_state, In::PhaseClockSnapshot{1.0f}));
+  In::Op::RipplePhaseState ripple_state;
+  HS_EXPECT_FALSE(In::RuntimeStateCodec<In::Op::RipplePhaseState>::restore(
+      ripple_state, In::RippleClockSnapshot{-1.0f}));
+  In::Op::AffineClockState affine_state;
+  HS_EXPECT_FALSE(In::RuntimeStateCodec<In::Op::AffineClockState>::restore(
+      affine_state, In::AffineClockSnapshot{1.0f, 0.0f}));
+  HS_EXPECT_FALSE(In::RuntimeStateCodec<In::Op::AffineClockState>::restore(
+      affine_state, In::AffineClockSnapshot{0.0f, 7.0f}));
+  In::Op::SphericalRingsState rings_state;
+  const auto walk =
+      std::get<In::SpatialWalkSnapshot>((*saved.runtime)[0].state);
+  HS_EXPECT_FALSE(In::RuntimeStateCodec<In::Op::SphericalRingsState>::restore(
+      rings_state, In::SphericalRingsSnapshot{walk, 7.0f}));
+  candidate = saved;
   candidate.runtime.reset();
   candidate.palette_bank.reset();
   HS_EXPECT_EQ(effect.restore_snapshot(candidate),
