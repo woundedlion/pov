@@ -821,9 +821,14 @@ enum class SlotRole : uint8_t {
 /** @brief One document chain entry, classified by its operator id. */
 struct DocumentSlot {
   std::string label;
+  std::string operator_id;
   SlotRole role = SlotRole::UNKNOWN;
   int warp_side = 0; /**< 0 = outer warp family, 1 = inner warp family. */
 };
+
+inline bool derivation_value_reachable(std::string_view operator_id,
+                                       std::string_view field_id,
+                                       std::string_view value);
 
 inline SlotRole classify_operator(std::string_view operator_id) {
   if (operator_id.starts_with("sphere.rotate."))
@@ -934,9 +939,7 @@ template <typename Lens> constexpr std::string_view lens_symmetry_id() {
  * same descriptors the sliders and the interpolator use), so a document key the
  * engine does not table fails loudly instead of being skipped. String entries
  * are chain topology: the ones with a composed-effect equivalent are checked
- * against the effect's Spec and base-template arguments; the rest (lens
- * symmetry, noise basis/integrator, polar mode) have no per-effect constant to
- * compare and are accepted as covered by the descriptor digest.
+ * against the effect's Spec, base-template arguments and DERIVATION_REACH.
  */
 template <typename FX>
 inline bool
@@ -1049,9 +1052,14 @@ apply_document_value(typename FX::Params &built, const DocumentSlot &slot,
     }
     return false;
   case SlotRole::SURFACE:
-    return field_id == "basis" || field_id == "integrator";
   case SlotRole::WARP:
-    return field_id == "mode" || field_id == "basis";
+    if (field_id == "basis" || field_id == "integrator" || field_id == "mode" ||
+        field_id == "envelope" || field_id == "harmonic") {
+      HS_EXPECT_TRUE(
+          derivation_value_reachable(slot.operator_id, field_id, text));
+      return true;
+    }
+    return false;
   default:
     return false;
   }
@@ -1114,6 +1122,7 @@ inline void check_document_values(const char *name) {
       return;
     DocumentSlot slot;
     slot.label = label->text;
+    slot.operator_id = operator_id->text;
     slot.role = classify_operator(operator_id->text);
     HS_EXPECT(slot.role != SlotRole::UNKNOWN, "chain operator classified");
     if (slot.role == SlotRole::PROJECT) {
@@ -1644,6 +1653,20 @@ inline size_t reach_rows(const char *operator_id, const char *topology_id) {
  * topology enum8 or value reds. The four totals red whenever the catalog gains
  * an operator or a value the table has not classified.
  */
+inline bool derivation_value_reachable(std::string_view operator_id,
+                                       std::string_view field_id,
+                                       std::string_view value) {
+  for (const auto &row : DERIVATION_REACH) {
+    if (row.operator_id != operator_id || row.topology_id == nullptr ||
+        row.topology_id != field_id)
+      continue;
+    for (const char *reachable : row.reachable)
+      if (reachable != nullptr && reachable == value)
+        return true;
+  }
+  return false;
+}
+
 inline void test_composed_derivation_reach() {
   static_assert(AshCloudSpec::FIELD_COVERAGE ==
                 Pullback::FieldCoverageKind::VALUE_CUTOUT);
