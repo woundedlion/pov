@@ -940,6 +940,7 @@ inline void test_alpha_falloff_fades_to_equator() {
 }
 
 inline void test_opposite_halves_direction() {
+  reset_globals();
   {
     OracleEffect effect;
     effect.init();
@@ -1015,6 +1016,7 @@ inline void test_screen_balanced_spacing_follows_sampling_envelope() {
 }
 
 inline void test_preset_transition_fades() {
+  reset_globals();
   {
     OracleEffect effect;
     effect.init();
@@ -1059,6 +1061,7 @@ inline void test_preset_transition_fades() {
  *        eight frames fading back in.
  */
 inline void test_preset_transition_fades_through_black_in_16_frames() {
+  reset_globals();
   {
     OracleEffect effect;
     effect.init();
@@ -1107,6 +1110,7 @@ inline void test_preset_transition_fades_through_black_in_16_frames() {
 }
 
 inline void test_count_slider_matches_draw_limit() {
+  reset_globals();
   {
     ShapeShifter<96, 20> effect;
     effect.init();
