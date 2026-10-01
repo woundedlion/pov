@@ -6212,6 +6212,8 @@ inline void test_hankinsolids_arena_budget_covers_every_solid() {
  */
 struct IslamicBuildProbe {
   using IS = IslamicStars<SMALL_W, SMALL_H>;
+  static_assert(IS::MACRO_TRUNCATE_T ==
+                conway_morph_tests::RECONCILE_TRUNCATE_T);
   static void check_build_budget(IS &e, size_t budget) {
     e.device_persistent_budget = budget;
     e.check_build_budget();
