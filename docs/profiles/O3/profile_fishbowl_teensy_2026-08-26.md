@@ -1,6 +1,6 @@
 # Fishbowl on-device profile — Teensy 4.0, segmented mode (2026-08-26, **-O3**)
 
-Global-O3 twin of the [shipping report](../shipping/profile_fishbowl_teensy_2026-09-28.md).
+Global-O3 capture. Current [shipping report](../shipping/profile_fishbowl_teensy_2026-09-28.md).
 Point-in-time snapshot (regenerate with `bash tools/profile_one.sh Fishbowl profile_o3 70 32`). Raw capture:
 `build/prof/fishbowl_o3.log`, captured 2026-08-26 01:18 local. This replaces the historical 2026-08-02 capture (report no longer retained).
 
@@ -110,6 +110,9 @@ capture is the comparison baseline.
 the global-O3 twin through the device lock.
 
 ## Global -O3 vs selective -O3
+
+This comparison uses the retired 2026-08-26 same-source shipping capture.
+The current shipping report linked above is a later capture.
 
 The paired shipping capture peaks at 23.22 ms versus
 21.29 ms here: global O3 lowers the peak by 1.93 ms (8.3%). O3-image minus shipping-image
