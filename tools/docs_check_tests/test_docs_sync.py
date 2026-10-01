@@ -154,5 +154,52 @@ class RepositorySync(unittest.TestCase):
         self.assertEqual(readme.read_text(encoding="utf-8"), "The playlist contains one effects today.\n")
 
 
+
+class DiscoveryAndCounts(unittest.TestCase):
+    def test_checkout_revisions_reads_the_literal_pin(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / "build_pins.py").write_text("PINS = {'other': 'x', 'daydream': 'abc123'}\n", encoding="utf-8")
+            with mock.patch.object(ds, "__file__", str(root / "docs_sync.py")):
+                self.assertEqual(ds.checkout_revisions({"daydream": root}), {"daydream": "abc123"})
+                self.assertEqual(ds.checkout_revisions({}), {})
+
+    def test_discovery_order_override_and_pinned_tree_probe(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory) / "engine"
+            root.mkdir()
+            subprocess.run(["git", "-C", str(root), "init", "-q"], check=True)
+            candidates = [root / "daydream", root.parent / "daydream"]
+            for candidate in candidates:
+                candidate.mkdir()
+                subprocess.run(["git", "-C", str(candidate), "init", "-q"], check=True)
+            revision = subprocess.check_output(["git", "-C", str(candidates[0]), "write-tree"], text=True).strip()
+            with mock.patch.object(ds, "checkout_revisions", return_value={"daydream": revision}):
+                with mock.patch.dict(ds.os.environ, {"DAYDREAM_DIR": ""}):
+                    self.assertEqual(ds.discover_daydream(root), candidates[0].resolve())
+                with mock.patch.dict(ds.os.environ, {"DAYDREAM_DIR": str(candidates[1])}):
+                    self.assertEqual(ds.discover_daydream(root), candidates[1].resolve())
+                with mock.patch.object(ds, "checkout_revisions", return_value={"daydream": "0" * 40}):
+                    self.assertIsNone(ds.discover_daydream(root))
+
+    def test_auto_checkout_failure_reports_the_missing_pin(self):
+        with tempfile.TemporaryDirectory() as directory:
+            with mock.patch.object(ds, "discover_daydream", return_value=None):
+                error = io.StringIO()
+                with contextlib.redirect_stderr(error):
+                    self.assertEqual(dc.main(["--root", directory, "--auto-checkout"]), 2)
+                self.assertIn("pinned daydream checkout unavailable", error.getvalue())
+
+    def test_effects_rows_and_diagram_rewrite_idempotently(self):
+        before = "effects/ 99 headers covering 88 effects\neffects/ (77 visual algorithms)\n"
+        paths = entries("effects/One.h", "effects/Two.h", "effects/utility.cpp")
+        counts = {"HS_EFFECT_LIST": 3}
+        after = ds.sync_text(PurePosixPath("README.md"), before, paths, {}, counts)
+        self.assertEqual(after, "effects/ 2 headers covering 3 effects\neffects/ (3 visual algorithms)\n")
+        self.assertEqual(ds.sync_text(PurePosixPath("README.md"), after, paths, {}, counts), after)
+        legacy = "effects/ 99 headers: one per effect (88)\n"
+        self.assertEqual(ds.sync_text(PurePosixPath("README.md"), legacy, paths, {}, counts),
+                         "effects/ 2 headers: one per effect (3)\n")
+
 if __name__ == "__main__":
     unittest.main()
