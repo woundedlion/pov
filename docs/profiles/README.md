@@ -67,7 +67,7 @@ minus shipping bytes from each pair's own image-size reports.
 | [Voronoi](shipping/profile_voronoi_teensy_2026-09-28.md) / [O3](O3/profile_voronoi_teensy_2026-08-26.md) | `vo_shade` | 🟢 8.51 | 🟢 7.71 | 🟢 0/1087 (0.00%) | 🟢 0/1088 (0%) | +15,568 B | +12,688 B | ship 2026-09-28 19:15<br>O3 2026-08-26 01:39 |
 | [RingShower](shipping/profile_ringshower_teensy_2026-09-28.md) / [O3](O3/profile_ringshower_teensy_2026-08-26.md) | `rsh_draw_rings` | 🟢 4.33 | 🟢 3.86 | 🟢 0/1087 (0.00%) | 🟢 0/1088 (0%) | +16,336 B | +15,136 B | ship 2026-09-28 19:11<br>O3 2026-08-26 01:36 |
 
-Shipping columns refreshed on 2026-09-28 after the finding-10 placement change `97eb0bf78`; setup frame 1 is excluded. MeshFeedback was re-captured the same evening after its flush changes `b2dc8ecac..5bcd697fd` and the polar warp fix `a6eb6e3fa`, and again on 2026-09-29 (COM4) after its polar-row ITCM trims `05d6cfeb6` and `58f966be9`. The O3 columns and the FLASH/ITCM deltas are each pair's original global-O3 capture, so they predate this shipping image.
+Shipping columns refreshed on 2026-09-28 after the finding-10 placement change `97eb0bf78`; setup frame 1 is excluded. MeshFeedback was re-captured the same evening after its flush changes `b2dc8ecac..5bcd697fd` and the polar warp fix `a6eb6e3fa`, and again on 2026-09-29 (COM4) after its polar-row ITCM trims `05d6cfeb6` and `58f966be9`. The O3 columns retain each pair's original global-O3 capture. FLASH/ITCM deltas retain the original capture sizes except where a refreshed shipping size is explicitly stated below.
 
 § Cyclers carry one aligned line per parser-owned colour bucket, worst first;
 (N) counts parser-owned preset, shape, or mode entries in that colour bucket.
@@ -84,7 +84,7 @@ HyperLattice, MindSplatter, ShapeShifter, MeshFeedback and DisplacementField wer
 
 ● HyperLattice refreshed on 2026-09-29 after its optimization campaign: all three presets and their segues; setup frame 1 excluded. Its O3 column predates the campaign.
 
-● ShapeShifter refreshed on 2026-09-29 22:38 after the dense planar-star and band-split optimizations, with entry 1 raised from 208 to 288 contours (O3 column predates it), and MindSplatter on 2026-09-29 after the Plot float min/max sweep (`c40c1def8`); setup frame 1 excluded. Their O3 columns predate the sweep; the image deltas use the new shipping sizes.
+● ShapeShifter refreshed on 2026-09-29 22:38 after the dense planar-star and band-split optimizations, with entry 1 raised from 208 to 288 contours (O3 column predates it), and MindSplatter on 2026-09-29 after the Plot float min/max sweep (`c40c1def8`); setup frame 1 excluded. Their O3 columns predate the sweep. ShapeShifter's image deltas use its new shipping size; MindSplatter's +23,632 B FLASH / +21,232 B ITCM deltas retain the original capture sizes.
 
 ## Supplemental experimental presets
 
