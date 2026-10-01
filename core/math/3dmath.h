@@ -1551,8 +1551,7 @@ inline Quaternion slerp(const Quaternion &q1, const Quaternion &q2, float t,
   Quaternion p(q1);
   Quaternion q(q2);
 
-  // At d == 0 (orthogonal endpoints) the >=/< split sends long_way to the 270°
-  // arc and short-path to the 90° arc.
+  // At d == 0 both arcs are 90° on S³; long_way reverses the 180° rotation.
   if ((long_way && d >= 0) || (!long_way && d < 0)) {
     p = -p;
     d = -d;
