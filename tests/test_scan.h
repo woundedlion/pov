@@ -2364,8 +2364,8 @@ inline void test_solid_color_path_matches_generic() {
  * @details The two paths' distance gap is fast_acos' ~5e-5 rad wherever the
  *   circumscribed-disc clamp wins (see the sine-domain note on
  *   SphericalPolygon::sine_distance); the coverage ramp scales that by the
- *   quintic kernel's slope over 2*pixel_width, so a channel may swing a few
- *   hundred ppm of full scale on the handful of pixels straddling a vertex.
+ *   quintic kernel's slope over 2*pixel_width, so a channel may swing up to
+ *   ~2e-3 of full scale (about 100 codes at this color) near a vertex.
  *   Identical frames would mean the sine path never ran, so the count is also
  *   floored above zero.
  */
