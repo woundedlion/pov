@@ -112,7 +112,10 @@ export function generatedSections(compiled) {
     ...(spin[0] === undefined ? [] : [`  static constexpr float CAMERA_SPIN_RATE = ${floatLiteral(spin[0])};`]),
   ].join('\n');
   const initial = presetAssignments(document, presets[0].values);
-  const assignment = ([member, literal]) => `    value.${member} = ${literal};`;
+  const assignment = ([member, literal]) => {
+    const [key, ...path] = member.split('.');
+    return `    value.template get<"${key}">().${path.join('.')} = ${literal};`;
+  };
   const params = [
     '  static constexpr Params initial_params() {',
     '    Params value;', ...[...initial].map(assignment), '    return value;', '  }',

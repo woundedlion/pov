@@ -84,31 +84,31 @@ public:
   // clang-format off
   static constexpr Params initial_params() {
     Params value;
-    value.projection.camera_wander = 0.8f;
-    value.color.hue_noise_scale = 0.6304219f;
-    value.color.hue_noise_speed = 0.0f;
-    value.color.hue_shift_amount = 0.292f;
-    value.color.mapping_frequency = 1.0f;
-    value.color.mapping_phase = 0.0f;
-    value.color.palette_chroma = 0.788f;
-    value.color.palette_mapping = Pullback::Color::PaletteMapping::CUP;
-    value.color.phase_oscillation_depth = 0.0f;
-    value.color.phase_oscillation_speed = 0.0f;
-    value.color.opacity_high = 1.0f;
-    value.color.opacity_low = 1.0f;
-    value.projection.spin_rate = 0.0f;
-    value.projection.wander = 0.0f;
-    value.projection.singularity_fade = 1.0f;
-    value.source.angle_rate = 0.0f;
-    value.source.complexity = 0.5f;
-    value.source.secondary_rate = 0.0f;
-    value.source.pattern_freq = 4.439f;
-    value.source.pattern_mix = 0.0f;
-    value.source.speed = 0.245f;
-    value.outer_warp.field_angle = 0.0f;
-    value.outer_warp.frequency = 1.0f;
-    value.outer_warp.speed = 0.015625f;
-    value.outer_warp.strength = 0.5f;
+    value.template get<"projection">().camera_wander = 0.8f;
+    value.template get<"color">().hue_noise_scale = 0.6304219f;
+    value.template get<"color">().hue_noise_speed = 0.0f;
+    value.template get<"color">().hue_shift_amount = 0.292f;
+    value.template get<"color">().mapping_frequency = 1.0f;
+    value.template get<"color">().mapping_phase = 0.0f;
+    value.template get<"color">().palette_chroma = 0.788f;
+    value.template get<"color">().palette_mapping = Pullback::Color::PaletteMapping::CUP;
+    value.template get<"color">().phase_oscillation_depth = 0.0f;
+    value.template get<"color">().phase_oscillation_speed = 0.0f;
+    value.template get<"color">().opacity_high = 1.0f;
+    value.template get<"color">().opacity_low = 1.0f;
+    value.template get<"projection">().spin_rate = 0.0f;
+    value.template get<"projection">().wander = 0.0f;
+    value.template get<"projection">().singularity_fade = 1.0f;
+    value.template get<"source">().angle_rate = 0.0f;
+    value.template get<"source">().complexity = 0.5f;
+    value.template get<"source">().secondary_rate = 0.0f;
+    value.template get<"source">().pattern_freq = 4.439f;
+    value.template get<"source">().pattern_mix = 0.0f;
+    value.template get<"source">().speed = 0.245f;
+    value.template get<"outer_warp">().field_angle = 0.0f;
+    value.template get<"outer_warp">().frequency = 1.0f;
+    value.template get<"outer_warp">().speed = 0.015625f;
+    value.template get<"outer_warp">().strength = 0.5f;
     return value;
   }
 
@@ -116,21 +116,21 @@ public:
   HS_COLD_MEMBER static constexpr PresetEntry<Params> preset(size_t index) {
     Params value = initial_params();
     if (index == 1) {
-      value.source.pattern_freq = 3.1447f;
-      value.outer_warp.speed = 0.00690625f;
-      value.outer_warp.strength = 2.72f;
+      value.template get<"source">().pattern_freq = 3.1447f;
+      value.template get<"outer_warp">().speed = 0.00690625f;
+      value.template get<"outer_warp">().strength = 2.72f;
     }
     if (index == 2) {
-      value.source.complexity = 1.698f;
-      value.source.pattern_freq = 7.5227f;
-      value.outer_warp.speed = 0.00690625f;
-      value.outer_warp.strength = 0.0f;
+      value.template get<"source">().complexity = 1.698f;
+      value.template get<"source">().pattern_freq = 7.5227f;
+      value.template get<"outer_warp">().speed = 0.00690625f;
+      value.template get<"outer_warp">().strength = 0.0f;
     }
     if (index == 3) {
-      value.source.complexity = 1.698f;
-      value.source.pattern_freq = 8.8162f;
-      value.outer_warp.speed = 0.00559375f;
-      value.outer_warp.strength = 1.376f;
+      value.template get<"source">().complexity = 1.698f;
+      value.template get<"source">().pattern_freq = 8.8162f;
+      value.template get<"outer_warp">().speed = 0.00559375f;
+      value.template get<"outer_warp">().strength = 1.376f;
     }
     return {value, Segue::Preset::Lerp{480, math::ease_in_out_sin}};
   }

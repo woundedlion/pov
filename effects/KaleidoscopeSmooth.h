@@ -94,33 +94,33 @@ public:
   // clang-format off
   static constexpr Params initial_params() {
     Params value;
-    value.projection.camera_wander = 1.0f;
-    value.color.hue_noise_scale = 1.4721563f;
-    value.color.hue_noise_speed = 0.0f;
-    value.color.hue_shift_amount = 0.366f;
-    value.color.mapping_frequency = 1.0f;
-    value.color.mapping_phase = 0.0f;
-    value.color.palette_chroma = 1.0f;
-    value.color.palette_mapping = Pullback::Color::PaletteMapping::CUP;
-    value.color.phase_oscillation_depth = 0.0f;
-    value.color.phase_oscillation_speed = 0.0f;
-    value.color.opacity_high = 1.0f;
-    value.color.opacity_low = 1.0f;
-    value.projection.spin_rate = 0.0f;
-    value.projection.wander = 1.0f;
-    value.projection.singularity_fade = 3.432f;
-    value.source.angle_rate = 0.026999999f;
-    value.source.complexity = 0.513f;
-    value.source.secondary_rate = 0.8f;
-    value.source.pattern_freq = 2.8263f;
-    value.source.pattern_mix = 0.0f;
-    value.source.speed = 0.0f;
-    value.inner_warp.cell_x = 1.0f;
-    value.inner_warp.cell_y = 0.99770314f;
-    value.inner_warp.offset_x = 0.0f;
-    value.inner_warp.offset_y = 0.0f;
-    value.inner_warp.rotation = 0.0f;
-    value.inner_warp.speed = 0.00013f;
+    value.template get<"projection">().camera_wander = 1.0f;
+    value.template get<"color">().hue_noise_scale = 1.4721563f;
+    value.template get<"color">().hue_noise_speed = 0.0f;
+    value.template get<"color">().hue_shift_amount = 0.366f;
+    value.template get<"color">().mapping_frequency = 1.0f;
+    value.template get<"color">().mapping_phase = 0.0f;
+    value.template get<"color">().palette_chroma = 1.0f;
+    value.template get<"color">().palette_mapping = Pullback::Color::PaletteMapping::CUP;
+    value.template get<"color">().phase_oscillation_depth = 0.0f;
+    value.template get<"color">().phase_oscillation_speed = 0.0f;
+    value.template get<"color">().opacity_high = 1.0f;
+    value.template get<"color">().opacity_low = 1.0f;
+    value.template get<"projection">().spin_rate = 0.0f;
+    value.template get<"projection">().wander = 1.0f;
+    value.template get<"projection">().singularity_fade = 3.432f;
+    value.template get<"source">().angle_rate = 0.026999999f;
+    value.template get<"source">().complexity = 0.513f;
+    value.template get<"source">().secondary_rate = 0.8f;
+    value.template get<"source">().pattern_freq = 2.8263f;
+    value.template get<"source">().pattern_mix = 0.0f;
+    value.template get<"source">().speed = 0.0f;
+    value.template get<"inner_warp">().cell_x = 1.0f;
+    value.template get<"inner_warp">().cell_y = 0.99770314f;
+    value.template get<"inner_warp">().offset_x = 0.0f;
+    value.template get<"inner_warp">().offset_y = 0.0f;
+    value.template get<"inner_warp">().rotation = 0.0f;
+    value.template get<"inner_warp">().speed = 0.00013f;
     return value;
   }
 
@@ -128,26 +128,26 @@ public:
   HS_COLD_MEMBER static constexpr PresetEntry<Params> preset(size_t index) {
     Params value = initial_params();
     if (index == 1) {
-      value.source.complexity = 3.0f;
-      value.source.pattern_mix = 1.0f;
+      value.template get<"source">().complexity = 3.0f;
+      value.template get<"source">().pattern_mix = 1.0f;
     }
     if (index == 2) {
-      value.color.mapping_frequency = 2.0f;
-      value.projection.wander = 0.165f;
-      value.source.complexity = 3.0f;
-      value.source.pattern_freq = 3.9407f;
-      value.source.pattern_mix = 1.0f;
+      value.template get<"color">().mapping_frequency = 2.0f;
+      value.template get<"projection">().wander = 0.165f;
+      value.template get<"source">().complexity = 3.0f;
+      value.template get<"source">().pattern_freq = 3.9407f;
+      value.template get<"source">().pattern_mix = 1.0f;
     }
     if (index == 3) {
-      value.color.mapping_frequency = 1.558f;
-      value.projection.wander = 0.165f;
-      value.source.complexity = 3.0f;
-      value.source.pattern_freq = 2.9059f;
-      value.source.pattern_mix = 1.0f;
-      value.inner_warp.cell_x = 0.22321875f;
-      value.inner_warp.cell_y = 5.085703f;
-      value.inner_warp.rotation = 3.455752f;
-      value.inner_warp.speed = 0.0027299998f;
+      value.template get<"color">().mapping_frequency = 1.558f;
+      value.template get<"projection">().wander = 0.165f;
+      value.template get<"source">().complexity = 3.0f;
+      value.template get<"source">().pattern_freq = 2.9059f;
+      value.template get<"source">().pattern_mix = 1.0f;
+      value.template get<"inner_warp">().cell_x = 0.22321875f;
+      value.template get<"inner_warp">().cell_y = 5.085703f;
+      value.template get<"inner_warp">().rotation = 3.455752f;
+      value.template get<"inner_warp">().speed = 0.0027299998f;
     }
     return {value, Segue::Preset::Lerp{480, math::ease_in_out_sin}};
   }
