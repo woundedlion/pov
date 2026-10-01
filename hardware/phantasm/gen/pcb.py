@@ -19,7 +19,7 @@ import board as schematic_generator
 import builder
 import check
 import sexp
-from constraints import (EXCLUDE_FP_SUBSTR, EXCLUDE_VAL_SUBSTR, MAX_BOARD_WIDTH_MM,
+from constraints import (ZONE_DEFAULTS, EXCLUDE_FP_SUBSTR, EXCLUDE_VAL_SUBSTR, MAX_BOARD_WIDTH_MM,
                          MIN_SOLDER_MASK_WEB_MM)
 from kicad_common import atomic_write_text
 from kicad_common import (uid, reset_uid_sequence, fmt, F, arc_extrema,
@@ -1000,8 +1000,9 @@ def main(unplaced=False, force=False, force_teensy_library=False):
         lines.append(f'\t\t(name "{GROUND_NET} plane {layer}")')
         lines.append('\t\t(hatch edge 0.5)')
         lines.append('\t\t(connect_pads (clearance 0.5))')
-        lines.append('\t\t(min_thickness 0.25)')
-        lines.append('\t\t(fill yes (thermal_gap 0.5) (thermal_bridge_width 0.5))')
+        lines.append(f'\t\t(min_thickness {ZONE_DEFAULTS["min_thickness"]:g})')
+        lines.append(f'\t\t(fill yes (thermal_gap {ZONE_DEFAULTS["thermal_gap"]:g}) '
+                     f'(thermal_bridge_width {ZONE_DEFAULTS["thermal_bridge_width"]:g}))')
         lines.append('\t\t(polygon (pts '
                      f'(xy 0 0) (xy {fmt(L)} 0) '
                      f'(xy {fmt(L)} {fmt(PCB_W)}) (xy 0 {fmt(PCB_W)})))')
@@ -1016,7 +1017,7 @@ def main(unplaced=False, force=False, force_teensy_library=False):
         lines.append(f'\t\t(name "{ref} screw head")')
         lines.append('\t\t(hatch full 0.5)')
         lines.append('\t\t(connect_pads (clearance 0))')
-        lines.append('\t\t(min_thickness 0.25)')
+        lines.append(f'\t\t(min_thickness {ZONE_DEFAULTS["min_thickness"]:g})')
         lines.append('\t\t(keepout (tracks not_allowed) (vias not_allowed) (pads allowed)'
                      ' (copperpour not_allowed) (footprints allowed))')
         lines.append('\t\t(placement (enabled no) (sheetname ""))')
