@@ -105,7 +105,7 @@
           "kind": "LINEAR"
         },
         "storage": "binary32",
-        "unit": "ratio"
+        "unit": "turn-per-frame"
       },
       {
         "classification": "preset",
@@ -241,7 +241,7 @@
           "kind": "LINEAR"
         },
         "storage": "binary32",
-        "unit": "ratio"
+        "unit": "turn-per-frame"
       },
       {
         "classification": "preset",
@@ -514,7 +514,7 @@
           "kind": "LINEAR"
         },
         "storage": "binary32",
-        "unit": "ratio"
+        "unit": "turn-per-frame"
       },
       {
         "classification": "preset",
