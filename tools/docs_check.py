@@ -204,7 +204,7 @@ TREE_UNMAPPED = (
 
 # Rows a checkout's own repository gitignores, keyed by the directive's name.
 CHECKOUT_UNTRACKED_ALLOWED = {
-    "daydream": ("node_modules/", "three.js/", "vendor/"),
+    "daydream": ("node_modules/", "three.js/", "vendor/", "README.md"),
 }
 
 

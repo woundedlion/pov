@@ -586,9 +586,11 @@ for module ownership and local validation commands.
 ├── site_manifest.txt           Repository-relative publication allowlist
 ├── README.md                   Mirrored from Holosphere (this file)
 ├── LICENSE                     Engine and effect licensing
+├── LICENSE.txt                 Published copy of LICENSE served by Pages
 ├── package.json                npm commands and dependency versions
 ├── package-lock.json           Locked dependency graph
 ├── tsconfig.json               JavaScript typechecking and declaration roster
+├── tsconfig.scripts.json       Node typecheck roster for deployment scripts
 ├── eslint.config.mjs           JavaScript lint configuration
 ├── .github/                    CI, deployment workflows, and dependency updates
 ├── .githooks/                  Staged checks, pre-push gates, and fast-forward guard
