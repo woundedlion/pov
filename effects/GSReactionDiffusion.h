@@ -589,50 +589,21 @@ private:
     int center =
         Base::template refine_render_center<true>(center_rv, world_nodes, seed);
     constexpr uint32_t SAMPLES = Grid::SAMPLES;
-    static_assert(SAMPLES == 4);
-    const float st = math::TrigLUT<Grid::WIDTH, Grid::HEIGHT>::sin_theta[x];
-    const float ct = math::TrigLUT<Grid::WIDTH, Grid::HEIGHT>::cos_theta(x);
-    // Each horizontal pair is m +/- d, with m dot d = 0.
-    math::Vector midpoints[2];
-    float offset_squared[2], cross_scale[2];
-    for (int row = 0; row < 2; ++row) {
-      float sp = grid.sin_phi[row];
-      midpoints[row] =
-          math::Vector(sp * ct * grid.cos_dtheta, grid.cos_phi[row],
-                       sp * st * grid.cos_dtheta);
-      float offset = sp * grid.sin_dtheta;
-      float ox = -st * offset, oz = ct * offset;
-      offset_squared[row] = ox * ox + oz * oz;
-      cross_scale[row] = 2.0f * offset * Base::INV_R2;
-    }
     float weights[SAMPLES] = {}, weighted_b[SAMPLES] = {};
     float pigment_weights[RD_K + 1][SAMPLES] = {};
     const auto &stencil_run =
         ReactionGraph::neighbor_runs[ReactionGraph::neighbor_run_index[center]];
-    for (int j = 0; j < RD_K + 1; ++j) {
-      int ni = j == 0 ? center : center + stencil_run.delta[j - 1];
-      const math::Vector &p = world_nodes[ni];
-      float b = state.B[ni];
-      float tangent = st * p.x - ct * p.z;
-      for (int row = 0; row < 2; ++row) {
-        float dx = midpoints[row].x - p.x;
-        float dy = midpoints[row].y - p.y;
-        float dz = midpoints[row].z - p.z;
-        float base = dx * dx + dy * dy + dz * dz + offset_squared[row];
-        float base_u = 1.0f - base * Base::INV_R2;
-        float cross = cross_scale[row] * tangent;
-        for (int col = 0; col < 2; ++col) {
-          int i = 2 * row + col;
-          float u = col == 0 ? base_u - cross : base_u + cross;
-          if (u > 0.0f) {
-            float w = u * u;
-            pigment_weights[j][i] = b * w;
-            weighted_b[i] += b * w;
-            weights[i] += w;
-          }
-        }
-      }
-    }
+    Base::accumulate_stencil_ssaa2x2(
+        grid, x, center, world_nodes,
+        [&](int slot, int node) __attribute__((always_inline)) {
+          const float b = state.B[node];
+          return [&, slot, b](int sample, float weight)
+                     __attribute__((always_inline)) {
+                       pigment_weights[slot][sample] = b * weight;
+                       weighted_b[sample] += b * weight;
+                       weights[sample] += weight;
+                     };
+        });
     float accum_r = 0.0f, accum_g = 0.0f, accum_b = 0.0f;
 #if defined(__GNUC__) && !defined(__clang__)
 #pragma GCC unroll 1
