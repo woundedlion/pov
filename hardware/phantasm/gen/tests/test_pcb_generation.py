@@ -433,6 +433,25 @@ class GeneratedBoardTests(TerminalBodyChecks, unittest.TestCase):
 
 
 class TerminalEdgePlacementChecks:
+    def test_vin_bypass_has_a_direct_locked_connection(self):
+        footprints = {reference(fp): fp for fp in F(self.root, "footprint")}
+        net_id = sexp.val(next(pad for pad in F(footprints["C_DEC1"], "pad")
+                              if pad[1] == "1"), "net")[0]
+        tracks = [track for track in F(self.root, "segment")
+                  if sexp.val(track, "net") == [net_id]]
+        self.assertTrue(tracks)
+        length = 0.0
+        for track in tracks:
+            self.assertEqual(sexp.val(track, "locked"), ["yes"])
+            self.assertEqual(sexp.val(track, "layer"), ["F.Cu"])
+            a = tuple(map(float, sexp.val(track, "start")))
+            b = tuple(map(float, sexp.val(track, "end")))
+            length += math.dist(a, b)
+        self.assertLess(length, 3.0)
+        groups = connectivity.opens(self.root)["+5V_LOGIC"]
+        self.assertTrue(any({("C_DEC1", "1"), ("U_MCU", "VIN")} <= set(group)
+                            for group in groups), groups)
+
     def test_receive_filter_is_locked_and_prerouted_at_d3(self):
         footprints = {reference(fp): fp for fp in F(self.root, "footprint")}
         for ref in ("R1", "R2", "C_SYNC"):
