@@ -61,9 +61,7 @@ public:
     const LinRGB input = pixel_to_linrgb(color.color);
     OKLab lab = linear_rgb_to_oklab_fast(input.r, input.g, input.b);
     lab.L += (1.0f - lab.L) * lift;
-    LinRGB output = oklab_to_linear_rgb(lab);
-    if (!linear_rgb_in_gamut(output.r, output.g, output.b))
-      output = oklab_to_linear_rgb(gamut_scale_to_boundary_lut(lab));
+    const LinRGB output = oklab_to_linear_rgb_lut_gamut(lab);
     return Color4(linrgb_to_pixel(output), color.alpha);
   }
 

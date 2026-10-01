@@ -1039,6 +1039,16 @@ HS_FLASH_INLINE inline OKLab gamut_scale_to_boundary_lut(OKLab lab) {
   return gamut_scale_to_boundary_lut(lab, GAMUT_LUT_MASTER);
 }
 
+/** @brief Converts OKLab to linear RGB with tabulated gamut clipping. */
+inline LinRGB oklab_to_linear_rgb_lut_gamut(OKLab lab) {
+  LinRGB output = oklab_to_linear_rgb(lab);
+  if (!linear_rgb_in_gamut(output.r, output.g, output.b)) {
+    HS_PROFILE_DEEP(gamut_clip);
+    output = oklab_to_linear_rgb(gamut_scale_to_boundary_lut(lab));
+  }
+  return output;
+}
+
 /**
  * @brief Cube-rooted LMS to linear RGB, chroma-scaled onto the live gamut grid.
  * @param l_cbrt Cube-rooted l cone response of an out-of-gamut color.
@@ -1095,9 +1105,7 @@ inline Color4 hue_rotate_lut_gamut(const HueRotateBase &base, float amount) {
   const float rotated_a = lab.a * cosine - lab.b * sine;
   const float rotated_b = lab.a * sine + lab.b * cosine;
   lab = {lab.L, rotated_a, rotated_b};
-  LinRGB output = oklab_to_linear_rgb(lab);
-  if (!linear_rgb_in_gamut(output.r, output.g, output.b))
-    output = oklab_to_linear_rgb(gamut_scale_to_boundary_lut(lab));
+  const LinRGB output = oklab_to_linear_rgb_lut_gamut(lab);
   return Color4(linrgb_to_pixel(output), base.base.alpha);
 }
 
