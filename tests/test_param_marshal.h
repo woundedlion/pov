@@ -9,7 +9,7 @@
  * run the marshaling against every registered effect and
  * assert the value stream stays index-aligned with the definition stream, the
  * bool/float distinction is preserved, and a write-by-name round-trips to the
- * same index. The emscripten::val translation in wasm.cpp is a thin shell over
+ * same index. The emscripten::val translation in engine_bindings.h is a thin shell over
  * this layer and is exercised by the WASM build, not here.
  */
 #pragma once
@@ -222,9 +222,8 @@ inline void check_stability_one(std::vector<hs_wasm::ParamView> &views,
  * @brief Freezes the effect roster ORDER, not just its count.
  * @details HS_EFFECT_LIST is the single source of truth for the effect ordinal
  *   the WASM factory enumerates and the JS app surfaces (effect-list order, plus
- *   any index-keyed consumer). The startup check (wasm.cpp) and the per-effect
- *   marshaling below both only guarantee the COUNT and within-effect index
- *   alignment; neither notices a reorder. This independent golden list turns any
+ *   any index-keyed consumer). The per-effect marshaling below guarantees
+ *   within-effect index alignment; it does not notice a reorder. This independent golden list turns any
  *   reorder/insertion/removal into a deliberate, reviewable diff — if it fires,
  *   update GOLDEN_ROSTER on purpose to match the new HS_EFFECT_LIST order.
  *   (Sliders bind by parameter name, so a reorder does not mis-bind a slider; it
