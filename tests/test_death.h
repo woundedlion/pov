@@ -2410,6 +2410,13 @@ inline void case_param_spec_float_bound_nonfinite() {
       ParamSpec<float>{.max = std::numeric_limits<float>::infinity()});
 }
 
+/** @brief A null parameter name traps before lookup or diagnostic formatting. */
+inline void case_param_spec_name_null() {
+  DeathEffect fx;
+  float value = 0.0f;
+  fx.register_param(nullptr, &value, ParamSpec<float>{});
+}
+
 inline void case_param_spec_requested_nonfinite() {
   DeathEffect fx;
   float value = std::numeric_limits<float>::quiet_NaN();
@@ -5688,6 +5695,9 @@ inline const Case *all_cases(int &n) {
       {"param_spec_float_bound_nonfinite",
        case_param_spec_float_bound_nonfinite, "core/control/param_host.h",
        "(std::isfinite(min) && std::isfinite(max)) register_param: bounds must be finite"},
+      {"param_spec_name_null", case_param_spec_name_null,
+       "core/control/param_host.h",
+       "(name != nullptr) register_param: null parameter name"},
       {"param_spec_requested_nonfinite", case_param_spec_requested_nonfinite,
        "core/control/param_host.h",
        "(std::isfinite(*ptr)) register_param: requested value must be finite"},

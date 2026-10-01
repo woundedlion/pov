@@ -290,6 +290,7 @@ protected:
   template <typename T>
   HS_COLD_MEMBER void register_param(const char *name, T *ptr,
                                      const ParamSpec<T> &spec) {
+    HS_CHECK(name != nullptr, "register_param: null parameter name");
     HS_CHECK(ptr != nullptr, "register_param: null target name=%s", name);
     const auto min = spec.min;
     const auto max = spec.max;
