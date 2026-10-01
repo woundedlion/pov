@@ -627,7 +627,7 @@ def fixed_placements(comps):
 
 
 def local_routes(footprints):
-    """Pre-route the locked receive filter on the front copper layer."""
+    """Pre-route the locked receive filter and VIN bypass on front copper."""
     by_ref = {str(prop[2]): footprint for footprint in footprints
               for prop in F(footprint, "property") if prop[1] == "Reference"}
 
@@ -644,6 +644,7 @@ def local_routes(footprints):
         return point, sexp.val(pad, "net")
 
     routes = (
+        (("C_DEC1", "1"), ("U_MCU", "VIN"), ()),
         (("U_MCU", "3"), ("C_SYNC", "1"), ((19.15, 21.225),)),
         (("R1", "2"), ("C_SYNC", "1"), ()),
         (("R2", "1"), ("C_SYNC", "1"),
@@ -661,7 +662,8 @@ def local_routes(footprints):
                          f'(end {fmt(b[0])} {fmt(b[1])}) (width 0.2) '
                          f'(layer "F.Cu") (net {net[0]}) '
                          f'(uuid "{uid()}") (locked yes))')
-    for source, end in ((("C_SYNC", "2"), (19.925, 23.0)),
+    for source, end in ((("C_DEC1", "2"), (11.55, 1.35)),
+                        (("C_SYNC", "2"), (19.925, 23.0)),
                         (("R2", "2"), (24.4125, 22.0))):
         start, net = terminal(*source)
         if str(net[-1]).lstrip("/") != GROUND_NET:
