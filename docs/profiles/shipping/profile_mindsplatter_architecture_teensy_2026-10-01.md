@@ -90,7 +90,7 @@ Wall min/avg/max = 59.042/62.854/69.802 ms. The scope tree includes interrupt pr
 
 All authored presets were visited and the marker sequence wrapped to the first index. Rows use the richest complete subsequent window with one owner and the modal draw-call count. They are ranked by scope cost; parameter morphs can remain within a single-owner window.
 
-| # | Preset | Windows / clean | blended px/f | Scope ms | Render ms | fps |
+| # (one-based marker order) | Preset | Windows / clean | blended px/f | Scope ms | Render ms | fps |
 |---|---|--:|--:|--:|--:|--:|
 | 7 | Cube, friction 0.7465 | 10 / 9 | not recorded | 47.302 | 50.537 | 16.09 |
 | 6 | Dodecahedron | 10 / 9 | not recorded | 39.943 | 47.719 | 15.98 |
@@ -103,9 +103,9 @@ All authored presets were visited and the marker sequence wrapped to the first i
 
 Cadence buckets in the READMEs use all owner-attributed live frames, including the departure following that preset, rather than only these selected windows.
 
-Worst live owner: preset 7 (Cube, friction 0.7465). Per-preset peaks span 22.224–54.457 ms.
+Worst live owner (one-based marker order): preset 7 (Cube, friction 0.7465). Per-preset peaks span 22.224–54.457 ms.
 
-| # | Live owner | Peak render ms | Spilled / live frames |
+| # (one-based marker order) | Live owner | Peak render ms | Spilled / live frames |
 |---|---|--:|--:|
 | 7 | Cube, friction 0.7465 | 54.457 | 0/159 (0.00%) |
 | 6 | Dodecahedron | 51.354 | 0/159 (0.00%) |
