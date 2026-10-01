@@ -163,6 +163,12 @@ class TestBudgetedEnvsWireTheGate(unittest.TestCase):
     merge). A budgeted env that loses the line builds green with no ceiling
     enforced -- `pio run` and the teensy-size job both stay silent."""
 
+    def test_configuration_uses_no_unresolved_extends(self):
+        cfg = _pio_config()
+        for section in cfg.sections():
+            self.assertFalse(cfg.has_option(section, "extends"),
+                             f"[{section}] extends requires resolver support")
+
     def test_every_budgeted_env_resolves_the_gate_hook(self):
         budgets = tg.load_budgets(TOOLS / "teensy_budgets.json")
         self.assertTrue(budgets, "teensy_budgets.json names no environments")
