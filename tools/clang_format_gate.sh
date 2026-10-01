@@ -14,6 +14,8 @@ if [ "$#" -ne 0 ]; then
   exit 2
 fi
 
+cd "$(git rev-parse --show-toplevel)"
+
 HS_CLANG_FORMAT_MAJOR=22
 CF="${CLANG_FORMAT:-clang-format}"
 major="$("$CF" --version | sed -n 's/.*version \([0-9][0-9]*\).*/\1/p')"
