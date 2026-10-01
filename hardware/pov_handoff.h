@@ -286,10 +286,10 @@ template <typename T, typename Wait, typename Destroy, typename Build,
 T *rebuild_effect(EffectHandoff<T> &handoff, uint32_t generation,
                   Wait &&wait_release, Destroy &&destroy, Build &&build,
                   PublishBracket &&publish_bracket) {
+  handoff.clear_pending();
   handoff.request_release();
   while (!handoff.release_complete())
     wait_release();
-  handoff.clear_pending();
   destroy();
   T *effect = build();
   publish_bracket([&] { handoff.publish(effect, generation); });
