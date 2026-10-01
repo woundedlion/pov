@@ -24,9 +24,9 @@ class RequireTestFiles(unittest.TestCase):
         self.tree = Path(tmp.name)
         populated = self.tree / "tools" / "sample_tests"
         populated.mkdir(parents=True)
-        (populated / "test_sample.py").write_text("", encoding="utf-8")
-        (populated / "test_other.py").write_text("", encoding="utf-8")
-        (populated / "helper.py").write_text("", encoding="utf-8")
+        (populated / "sample.test.mjs").write_text("", encoding="utf-8")
+        (populated / "other.test.mjs").write_text("", encoding="utf-8")
+        (populated / "helper.mjs").write_text("", encoding="utf-8")
         (self.tree / "tools" / "empty_tests").mkdir(parents=True)
 
     def run_check(self, *args: str) -> subprocess.CompletedProcess:
@@ -35,21 +35,21 @@ class RequireTestFiles(unittest.TestCase):
             capture_output=True, text=True, check=False)
 
     def test_a_populated_glob_passes_and_lists_its_matches(self):
-        done = self.run_check("tools/sample_tests/test*.py")
+        done = self.run_check("tools/sample_tests/*.test.mjs")
         self.assertEqual(done.returncode, 0, done.stdout + done.stderr)
         self.assertIn("2 test file(s) discovered", done.stdout)
-        self.assertIn("tools/sample_tests/test_sample.py", done.stdout)
-        self.assertIn("tools/sample_tests/test_other.py", done.stdout)
+        self.assertIn("tools/sample_tests/sample.test.mjs", done.stdout)
+        self.assertIn("tools/sample_tests/other.test.mjs", done.stdout)
         # Discovery is the glob, not the directory: non-test files stay out.
-        self.assertNotIn("helper.py", done.stdout)
+        self.assertNotIn("helper.mjs", done.stdout)
 
     def test_nested_test_outside_the_glob_fails(self):
         nested = self.tree / "tools" / "sample_tests" / "nested"
         nested.mkdir()
-        (nested / "test_hidden.py").write_text("", encoding="utf-8")
-        done = self.run_check("tools/sample_tests/test*.py")
+        (nested / "hidden.test.mjs").write_text("", encoding="utf-8")
+        done = self.run_check("tools/sample_tests/*.test.mjs")
         self.assertEqual(done.returncode, 1, done.stdout + done.stderr)
-        self.assertIn("test_hidden.py", done.stdout)
+        self.assertIn("hidden.test.mjs", done.stdout)
         self.assertIn("unreachable", done.stdout)
 
     def test_javascript_spec_with_unmatched_extension_fails(self):
@@ -62,12 +62,12 @@ class RequireTestFiles(unittest.TestCase):
         self.assertIn("hidden.spec.js", done.stdout)
 
     def test_an_empty_glob_fails(self):
-        done = self.run_check("tools/empty_tests/test*.py")
+        done = self.run_check("tools/empty_tests/*.test.mjs")
         self.assertEqual(done.returncode, 1, done.stdout + done.stderr)
         self.assertIn("no test files match", done.stdout)
 
     def test_a_missing_directory_fails(self):
-        done = self.run_check("tools/renamed_tests/test*.py")
+        done = self.run_check("tools/renamed_tests/*.test.mjs")
         self.assertEqual(done.returncode, 1, done.stdout + done.stderr)
         self.assertIn("no test files match", done.stdout)
 

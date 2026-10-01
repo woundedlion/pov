@@ -32,7 +32,6 @@ case "$pattern" in
       root=.
     fi
     ;;
-  *.py) family=python ;;
   *) family=other ;;
 esac
 unreachable=0
@@ -42,7 +41,7 @@ find "$root" -type d \( -name node_modules -o -name .git -o -name build \) -prun
 while IFS= read -r -d '' candidate; do
   candidate=${candidate#./}
   case "$family:$candidate" in
-    javascript:*.test.js|javascript:*.test.mjs|javascript:*.test.cjs|javascript:*.test.ts|javascript:*.spec.js|javascript:*.spec.mjs|javascript:*.spec.cjs|javascript:*.spec.ts|python:*/test*.py) ;;
+    javascript:*.test.js|javascript:*.test.mjs|javascript:*.test.cjs|javascript:*.test.ts|javascript:*.spec.js|javascript:*.spec.mjs|javascript:*.spec.cjs|javascript:*.spec.ts) ;;
     *) continue ;;
   esac
   reached=0
