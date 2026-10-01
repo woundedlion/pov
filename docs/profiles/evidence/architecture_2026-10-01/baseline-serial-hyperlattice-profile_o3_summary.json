@@ -1,0 +1,213 @@
+{
+  "tag": "baseline-serial-hyperlattice-profile_o3",
+  "effect": "HyperLattice",
+  "scope": "hl_shader_draw",
+  "sha": "b6d2c0100e10d57b18f9bd749d5ab28b34574dd8",
+  "frames": 2696,
+  "range": [
+    2,
+    2697
+  ],
+  "counter_range": [
+    17,
+    2688
+  ],
+  "startup_us": 42542,
+  "mean_ms": 25.31602522255193,
+  "peak_ms": 37.004,
+  "spills": 0,
+  "scope_mean_ms": 23.299005904441117,
+  "worst_scope_ms": 28.3045625,
+  "worst_window": [
+    1185,
+    1200
+  ],
+  "ppm": 0.787278376954716,
+  "ppm_window": [
+    1185,
+    1200
+  ],
+  "presets": [
+    {
+      "name": "1",
+      "holds": 46,
+      "clean": 44,
+      "scope_ms": 23.2784375,
+      "render_ms": 25.301875,
+      "wall_ms": 62.503,
+      "window": [
+        1761,
+        1776
+      ],
+      "calls": 1.0
+    },
+    {
+      "name": "2",
+      "holds": 86,
+      "clean": 84,
+      "scope_ms": 24.936875,
+      "render_ms": 26.9583125,
+      "wall_ms": 62.139,
+      "window": [
+        2337,
+        2352
+      ],
+      "calls": 1.0
+    },
+    {
+      "name": "3",
+      "holds": 35,
+      "clean": 34,
+      "scope_ms": 28.3045625,
+      "render_ms": 30.2958125,
+      "wall_ms": 62.848,
+      "window": [
+        1185,
+        1200
+      ],
+      "calls": 1.0
+    }
+  ],
+  "preset_frames": [
+    {
+      "name": "1",
+      "frames": 757,
+      "spills": 0,
+      "peak_ms": 26.166,
+      "bucket": 0
+    },
+    {
+      "name": "2",
+      "frames": 1358,
+      "spills": 0,
+      "peak_ms": 30.356,
+      "bucket": 0
+    },
+    {
+      "name": "3",
+      "frames": 581,
+      "spills": 0,
+      "peak_ms": 37.004,
+      "bucket": 0
+    }
+  ],
+  "buckets": {
+    "0": [
+      {
+        "name": "1",
+        "frames": 757,
+        "spills": 0,
+        "peak_ms": 26.166,
+        "bucket": 0
+      },
+      {
+        "name": "2",
+        "frames": 1358,
+        "spills": 0,
+        "peak_ms": 30.356,
+        "bucket": 0
+      },
+      {
+        "name": "3",
+        "frames": 581,
+        "spills": 0,
+        "peak_ms": 37.004,
+        "bucket": 0
+      }
+    ]
+  },
+  "isrs": {
+    "isr_wake": {
+      "rate": 1152.0946856287426,
+      "min_us": 0.455,
+      "avg_us": 1.5517524217961491,
+      "max_us": 13.275,
+      "cpu": 2.8608182980834793
+    },
+    "isr_pack": {
+      "rate": 144.00261976047904,
+      "min_us": 5.976666666666667,
+      "avg_us": 6.545778701838737,
+      "max_us": 9.731666666666667,
+      "cpu": 1.5083821399407882
+    },
+    "isr_dma_submit": {
+      "rate": 144.00261976047904,
+      "min_us": 0.5833333333333334,
+      "avg_us": 0.9318770710155285,
+      "max_us": 4.875,
+      "cpu": 0.21473789362071016
+    }
+  },
+  "size": [
+    [
+      79640,
+      150840,
+      9136
+    ],
+    [
+      314976,
+      18888,
+      13880,
+      176544
+    ],
+    [
+      520064,
+      4224
+    ]
+  ],
+  "captured": "2026-10-01 09:00",
+  "epoch": 1600,
+  "window": 16,
+  "tail_frames": 9,
+  "counter_mean_us": {
+    "canvas_buffer_wait": 37117.76703904691,
+    "canvas_clear": 83.99353917165669,
+    "hl_shader_draw": 23299.005904441117,
+    "hl_timeline_step": 13.458048278443114,
+    "pov_preserve_half": 144.45660366766467
+  },
+  "source_dirty": false,
+  "evidence": [
+    {
+      "file": "baseline-serial-hyperlattice-profile_o3.txt",
+      "sha256": "e2cb2234c2377e03c73278ecfa2db580271447781fdb32dc8bf7b65bfff9f740",
+      "bytes": 210869
+    },
+    {
+      "file": "baseline-serial-hyperlattice-profile_o3.provenance",
+      "sha256": "ae71e3c84da706444f7b0b6efc3480dd4db3212c068cfcfdc3cd4a04607ae6a7",
+      "bytes": 1079
+    },
+    {
+      "file": "baseline-serial-hyperlattice-profile_o3_build.txt",
+      "sha256": "1c108cd96bb33c1a02fe725cdb6410885a4d6c4fcb0869c178c498e0cb5f3d2b",
+      "bytes": 24584
+    },
+    {
+      "file": "baseline-serial-hyperlattice-profile_o3_envdump.txt",
+      "sha256": "93960871ad582680e9f0b6cc5e860a7de54e2b604b7c2c3bd6083085ff889641",
+      "bytes": 33643
+    },
+    {
+      "file": "baseline-serial-hyperlattice-profile_o3_phantasm_build.txt",
+      "sha256": "573ede08496c2b6ff2788cb11a97ef0736edc9b91de3445efcc2b2106c5cbaeb",
+      "bytes": 11056
+    },
+    {
+      "file": "baseline-serial-hyperlattice-profile_o3_phantasm_envdump.txt",
+      "sha256": "c1c11c775e846f38296fb500358e1a59a222992dd2cf81b05f8714891a08655c",
+      "bytes": 33072
+    },
+    {
+      "file": "baseline-serial-hyperlattice-profile_o3_source_status.txt",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    {
+      "file": "baseline-serial-hyperlattice-profile_o3_source.diff",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    }
+  ]
+}

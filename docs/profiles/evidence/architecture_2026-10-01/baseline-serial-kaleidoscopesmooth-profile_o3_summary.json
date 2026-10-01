@@ -1,0 +1,242 @@
+{
+  "tag": "baseline-serial-kaleidoscopesmooth-profile_o3",
+  "effect": "KaleidoscopeSmooth",
+  "scope": "fx_shader_draw",
+  "sha": "b6d2c0100e10d57b18f9bd749d5ab28b34574dd8",
+  "frames": 4136,
+  "range": [
+    2,
+    4137
+  ],
+  "counter_range": [
+    17,
+    4128
+  ],
+  "startup_us": 47672,
+  "mean_ms": 25.541513297872342,
+  "peak_ms": 30.299,
+  "spills": 0,
+  "scope_mean_ms": 22.265570175097277,
+  "worst_scope_ms": 26.5218125,
+  "worst_window": [
+    865,
+    880
+  ],
+  "ppm": 0.6025982836302333,
+  "ppm_window": [
+    865,
+    880
+  ],
+  "presets": [
+    {
+      "name": "1",
+      "holds": 55,
+      "clean": 54,
+      "scope_ms": 25.665375,
+      "render_ms": 28.54475,
+      "wall_ms": 62.4,
+      "window": [
+        3841,
+        3856
+      ],
+      "calls": 1.0
+    },
+    {
+      "name": "2",
+      "holds": 67,
+      "clean": 66,
+      "scope_ms": 26.5218125,
+      "render_ms": 29.7166875,
+      "wall_ms": 62.403,
+      "window": [
+        865,
+        880
+      ],
+      "calls": 1.0
+    },
+    {
+      "name": "3",
+      "holds": 68,
+      "clean": 67,
+      "scope_ms": 23.03375,
+      "render_ms": 26.2593125,
+      "wall_ms": 62.454,
+      "window": [
+        2705,
+        2720
+      ],
+      "calls": 1.0
+    },
+    {
+      "name": "4",
+      "holds": 67,
+      "clean": 66,
+      "scope_ms": 23.0405,
+      "render_ms": 26.589875,
+      "wall_ms": 62.407,
+      "window": [
+        3105,
+        3120
+      ],
+      "calls": 1.0
+    }
+  ],
+  "preset_frames": [
+    {
+      "name": "1",
+      "frames": 899,
+      "spills": 0,
+      "peak_ms": 29.632,
+      "bucket": 0
+    },
+    {
+      "name": "2",
+      "frames": 1079,
+      "spills": 0,
+      "peak_ms": 30.299,
+      "bucket": 0
+    },
+    {
+      "name": "3",
+      "frames": 1079,
+      "spills": 0,
+      "peak_ms": 27.1,
+      "bucket": 0
+    },
+    {
+      "name": "4",
+      "frames": 1079,
+      "spills": 0,
+      "peak_ms": 27.266,
+      "bucket": 0
+    }
+  ],
+  "buckets": {
+    "0": [
+      {
+        "name": "1",
+        "frames": 899,
+        "spills": 0,
+        "peak_ms": 29.632,
+        "bucket": 0
+      },
+      {
+        "name": "2",
+        "frames": 1079,
+        "spills": 0,
+        "peak_ms": 30.299,
+        "bucket": 0
+      },
+      {
+        "name": "3",
+        "frames": 1079,
+        "spills": 0,
+        "peak_ms": 27.1,
+        "bucket": 0
+      },
+      {
+        "name": "4",
+        "frames": 1079,
+        "spills": 0,
+        "peak_ms": 27.266,
+        "bucket": 0
+      }
+    ]
+  },
+  "isrs": {
+    "isr_wake": {
+      "rate": 1152.0870622568093,
+      "min_us": 0.3883333333333333,
+      "avg_us": 1.5690176557431932,
+      "max_us": 19.255,
+      "cpu": 2.8927258085933114
+    },
+    "isr_pack": {
+      "rate": 144.00170233463035,
+      "min_us": 5.976666666666667,
+      "avg_us": 6.875808726050647,
+      "max_us": 10.786666666666667,
+      "cpu": 1.5844755906183516
+    },
+    "isr_dma_submit": {
+      "rate": 144.00170233463035,
+      "min_us": 0.5916666666666667,
+      "avg_us": 0.9348662044972853,
+      "max_us": 11.588333333333333,
+      "cpu": 0.21543250263897198
+    }
+  },
+  "size": [
+    [
+      85320,
+      155172,
+      8340
+    ],
+    [
+      315040,
+      28600,
+      4168,
+      176480
+    ],
+    [
+      520064,
+      4224
+    ]
+  ],
+  "captured": "2026-10-01 09:09",
+  "epoch": 2400,
+  "window": 16,
+  "tail_frames": 9,
+  "counter_mean_us": {
+    "canvas_buffer_wait": 36898.037570119974,
+    "canvas_clear": 84.2534046692607,
+    "fx_advance": 2028.54250364786,
+    "fx_prepare_frame": 847.6790219682231,
+    "fx_shader_draw": 22265.570175097277,
+    "fx_timeline_step": 121.19025899805447,
+    "pov_preserve_half": 145.20462102788585
+  },
+  "source_dirty": false,
+  "evidence": [
+    {
+      "file": "baseline-serial-kaleidoscopesmooth-profile_o3.txt",
+      "sha256": "47556681a535d51b0dd50308adfbd3edb87a0245a6a46fda494db67b78c07fd4",
+      "bytes": 357030
+    },
+    {
+      "file": "baseline-serial-kaleidoscopesmooth-profile_o3.provenance",
+      "sha256": "7b30ce180c19214660ef7c4e41599a69c25cd642bcca127c1d67f8f4acdbf78e",
+      "bytes": 1097
+    },
+    {
+      "file": "baseline-serial-kaleidoscopesmooth-profile_o3_build.txt",
+      "sha256": "3831d2507fd54c221a05a2be10501a985be499e72646e7d043cfceec18b4c425",
+      "bytes": 24582
+    },
+    {
+      "file": "baseline-serial-kaleidoscopesmooth-profile_o3_envdump.txt",
+      "sha256": "407d63791c8947f16cb716f7bf4625b8105075c18478c3d2c014faa29818203a",
+      "bytes": 33667
+    },
+    {
+      "file": "baseline-serial-kaleidoscopesmooth-profile_o3_phantasm_build.txt",
+      "sha256": "cd197e8b8203ea096aae8613e52bc17902338eca26eb3c9d2fdf366f098f8a8c",
+      "bytes": 11056
+    },
+    {
+      "file": "baseline-serial-kaleidoscopesmooth-profile_o3_phantasm_envdump.txt",
+      "sha256": "d9d8bfc6f0fddba943febe20de3990c2cfc87d9ab8b10784aed835a01e3f1b51",
+      "bytes": 33072
+    },
+    {
+      "file": "baseline-serial-kaleidoscopesmooth-profile_o3_source_status.txt",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    {
+      "file": "baseline-serial-kaleidoscopesmooth-profile_o3_source.diff",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    }
+  ]
+}

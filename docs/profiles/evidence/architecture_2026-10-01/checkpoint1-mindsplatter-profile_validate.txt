@@ -1,0 +1,13 @@
+effect=MindSplatter  windows=108
+  [PASS] captured >=3 windows (108)
+  [PASS] every window names one effect and resolution (MindSplatter 288x144)
+  [PASS] frame numbers monotonic (no epoch reset) (0 resets)
+  [PASS] cycle returns to its first index (peak idx 8, 8 distinct)
+  [PASS] all 8 presets visited (8)
+  [PASS] per-frame render is render, not wall (0 of 108 windows have render == wall)
+  [PASS] per-frame rows cover every frame of their window (0 of 108 windows are short)
+  [PASS] scope 'msp_draw_particles' appears in at least one window
+  [PASS] richest window carries a root 'frame' counter and a wall sum
+  [PASS] root cyc/600 vs wall sum within 5 ppm (0.3 ppm, frames 993-1008)
+
+VALID: MindSplatter

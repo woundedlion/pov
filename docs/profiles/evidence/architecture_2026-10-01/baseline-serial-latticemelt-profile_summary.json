@@ -1,0 +1,188 @@
+{
+  "tag": "baseline-serial-latticemelt-profile",
+  "effect": "LatticeMelt",
+  "scope": "fx_shader_draw",
+  "sha": "b6d2c0100e10d57b18f9bd749d5ab28b34574dd8",
+  "frames": 1736,
+  "range": [
+    2,
+    1737
+  ],
+  "counter_range": [
+    17,
+    1728
+  ],
+  "startup_us": 69277,
+  "mean_ms": 36.373662442396316,
+  "peak_ms": 36.908,
+  "spills": 0,
+  "scope_mean_ms": 32.72184479361371,
+  "worst_scope_ms": 32.8773125,
+  "worst_window": [
+    369,
+    384
+  ],
+  "ppm": 4.19358471699071,
+  "ppm_window": [
+    1,
+    16
+  ],
+  "presets": [
+    {
+      "name": "1",
+      "holds": 40,
+      "clean": 39,
+      "scope_ms": 32.8773125,
+      "render_ms": 36.6984375,
+      "wall_ms": 62.428,
+      "window": [
+        369,
+        384
+      ],
+      "calls": 1.0
+    },
+    {
+      "name": "2",
+      "holds": 67,
+      "clean": 66,
+      "scope_ms": 32.822,
+      "render_ms": 36.6839375,
+      "wall_ms": 62.417,
+      "window": [
+        609,
+        624
+      ],
+      "calls": 1.0
+    }
+  ],
+  "preset_frames": [
+    {
+      "name": "1",
+      "frames": 657,
+      "spills": 0,
+      "peak_ms": 36.908,
+      "bucket": 0
+    },
+    {
+      "name": "2",
+      "frames": 1079,
+      "spills": 0,
+      "peak_ms": 36.848,
+      "bucket": 0
+    }
+  ],
+  "buckets": {
+    "0": [
+      {
+        "name": "1",
+        "frames": 657,
+        "spills": 0,
+        "peak_ms": 36.908,
+        "bucket": 0
+      },
+      {
+        "name": "2",
+        "frames": 1079,
+        "spills": 0,
+        "peak_ms": 36.848,
+        "bucket": 0
+      }
+    ]
+  },
+  "isrs": {
+    "isr_wake": {
+      "rate": 1152.0741822429907,
+      "min_us": 0.6166666666666667,
+      "avg_us": 1.693120544973993,
+      "max_us": 20.743333333333332,
+      "cpu": 3.121600208925041
+    },
+    "isr_pack": {
+      "rate": 144.0,
+      "min_us": 6.26,
+      "avg_us": 7.0080396547248185,
+      "max_us": 17.631666666666668,
+      "cpu": 1.6149831665049217
+    },
+    "isr_dma_submit": {
+      "rate": 144.0,
+      "min_us": 0.5916666666666667,
+      "avg_us": 0.9387534073208723,
+      "max_us": 12.923333333333334,
+      "cpu": 0.21633310098355568
+    }
+  },
+  "size": [
+    [
+      71320,
+      154932,
+      8244
+    ],
+    [
+      315040,
+      19960,
+      12808,
+      176480
+    ],
+    [
+      520064,
+      4224
+    ]
+  ],
+  "captured": "2026-10-01 08:46",
+  "epoch": 1200,
+  "window": 16,
+  "tail_frames": 9,
+  "counter_mean_us": {
+    "canvas_buffer_wait": 26043.246706580994,
+    "canvas_clear": 86.94816394080996,
+    "fx_advance": 2322.59156152648,
+    "fx_prepare_frame": 974.3520005841121,
+    "fx_shader_draw": 32721.84479361371,
+    "fx_timeline_step": 96.22642133956386,
+    "pov_preserve_half": 139.84897683021808
+  },
+  "source_dirty": false,
+  "evidence": [
+    {
+      "file": "baseline-serial-latticemelt-profile.txt",
+      "sha256": "0a1b0ab1b2e0ca30e3caefcd3378844cca01b26be49c1241b6fb41d5e852b0bb",
+      "bytes": 148951
+    },
+    {
+      "file": "baseline-serial-latticemelt-profile.provenance",
+      "sha256": "0b68fd36621541d5588cbbfed94f4cee19626263f95c50fa53bd9443dfd36aeb",
+      "bytes": 1067
+    },
+    {
+      "file": "baseline-serial-latticemelt-profile_build.txt",
+      "sha256": "7273f1eae855eef321fe90e9ad07e50f4e4b397d62b0bc5f83fb8eef1bc42487",
+      "bytes": 24250
+    },
+    {
+      "file": "baseline-serial-latticemelt-profile_envdump.txt",
+      "sha256": "5504101cd7ab79e5153e288c537b5f454ca6a29772df0edf427ea7bbd7205bdd",
+      "bytes": 33564
+    },
+    {
+      "file": "baseline-serial-latticemelt-profile_phantasm_build.txt",
+      "sha256": "af27e461737f622ed9523af046445239c4fe3a675f3cc86e5af84e8c8f9b7d89",
+      "bytes": 11056
+    },
+    {
+      "file": "baseline-serial-latticemelt-profile_phantasm_envdump.txt",
+      "sha256": "3a108a487f1e11a0f8f696aceef7da05ef5904562c99183e8c31f95da55e6ab6",
+      "bytes": 33024
+    },
+    {
+      "file": "baseline-serial-latticemelt-profile_source_status.txt",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    {
+      "file": "baseline-serial-latticemelt-profile_source.diff",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    }
+  ]
+}

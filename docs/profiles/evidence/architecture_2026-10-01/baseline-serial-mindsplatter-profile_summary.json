@@ -1,0 +1,349 @@
+{
+  "tag": "baseline-serial-mindsplatter-profile",
+  "effect": "MindSplatter",
+  "scope": "msp_draw_particles",
+  "sha": "b6d2c0100e10d57b18f9bd749d5ab28b34574dd8",
+  "frames": 1736,
+  "range": [
+    2,
+    1737
+  ],
+  "counter_range": [
+    17,
+    1728
+  ],
+  "startup_us": 281,
+  "mean_ms": 24.34176612903226,
+  "peak_ms": 55.278,
+  "spills": 0,
+  "scope_mean_ms": 21.84780796923676,
+  "worst_scope_ms": 48.103625,
+  "worst_window": [
+    993,
+    1008
+  ],
+  "ppm": 2.816436724772337,
+  "ppm_window": [
+    993,
+    1008
+  ],
+  "presets": [
+    {
+      "name": "1",
+      "holds": 19,
+      "clean": 17,
+      "scope_ms": 28.3558125,
+      "render_ms": 30.7311875,
+      "wall_ms": 62.795,
+      "window": [
+        1281,
+        1296
+      ],
+      "calls": 1.0
+    },
+    {
+      "name": "2",
+      "holds": 20,
+      "clean": 18,
+      "scope_ms": 30.4785,
+      "render_ms": 33.045375,
+      "wall_ms": 61.954,
+      "window": [
+        193,
+        208
+      ],
+      "calls": 1.0
+    },
+    {
+      "name": "3",
+      "holds": 18,
+      "clean": 17,
+      "scope_ms": 28.0481875,
+      "render_ms": 30.435625,
+      "wall_ms": 62.385,
+      "window": [
+        1601,
+        1616
+      ],
+      "calls": 1.0
+    },
+    {
+      "name": "4",
+      "holds": 10,
+      "clean": 9,
+      "scope_ms": 27.6804375,
+      "render_ms": 30.8958125,
+      "wall_ms": 62.289,
+      "window": [
+        529,
+        544
+      ],
+      "calls": 1.0
+    },
+    {
+      "name": "5",
+      "holds": 10,
+      "clean": 9,
+      "scope_ms": 17.231625,
+      "render_ms": 19.5590625,
+      "wall_ms": 62.581,
+      "window": [
+        641,
+        656
+      ],
+      "calls": 1.0
+    },
+    {
+      "name": "6",
+      "holds": 10,
+      "clean": 9,
+      "scope_ms": 41.116375,
+      "render_ms": 48.8780625,
+      "wall_ms": 62.573,
+      "window": [
+        913,
+        928
+      ],
+      "calls": 1.0
+    },
+    {
+      "name": "7",
+      "holds": 10,
+      "clean": 9,
+      "scope_ms": 48.103625,
+      "render_ms": 51.389375,
+      "wall_ms": 62.135,
+      "window": [
+        993,
+        1008
+      ],
+      "calls": 1.0
+    },
+    {
+      "name": "8",
+      "holds": 10,
+      "clean": 9,
+      "scope_ms": 30.5255,
+      "render_ms": 32.9460625,
+      "wall_ms": 62.974,
+      "window": [
+        1185,
+        1200
+      ],
+      "calls": 1.0
+    }
+  ],
+  "preset_frames": [
+    {
+      "name": "1",
+      "frames": 317,
+      "spills": 0,
+      "peak_ms": 35.05,
+      "bucket": 0
+    },
+    {
+      "name": "2",
+      "frames": 318,
+      "spills": 0,
+      "peak_ms": 35.801,
+      "bucket": 0
+    },
+    {
+      "name": "3",
+      "frames": 306,
+      "spills": 0,
+      "peak_ms": 37.351,
+      "bucket": 0
+    },
+    {
+      "name": "4",
+      "frames": 159,
+      "spills": 0,
+      "peak_ms": 34.447,
+      "bucket": 0
+    },
+    {
+      "name": "5",
+      "frames": 159,
+      "spills": 0,
+      "peak_ms": 23.035,
+      "bucket": 0
+    },
+    {
+      "name": "6",
+      "frames": 159,
+      "spills": 0,
+      "peak_ms": 52.704,
+      "bucket": 0
+    },
+    {
+      "name": "7",
+      "frames": 159,
+      "spills": 0,
+      "peak_ms": 55.278,
+      "bucket": 0
+    },
+    {
+      "name": "8",
+      "frames": 159,
+      "spills": 0,
+      "peak_ms": 45.1,
+      "bucket": 0
+    }
+  ],
+  "buckets": {
+    "0": [
+      {
+        "name": "1",
+        "frames": 317,
+        "spills": 0,
+        "peak_ms": 35.05,
+        "bucket": 0
+      },
+      {
+        "name": "2",
+        "frames": 318,
+        "spills": 0,
+        "peak_ms": 35.801,
+        "bucket": 0
+      },
+      {
+        "name": "3",
+        "frames": 306,
+        "spills": 0,
+        "peak_ms": 37.351,
+        "bucket": 0
+      },
+      {
+        "name": "4",
+        "frames": 159,
+        "spills": 0,
+        "peak_ms": 34.447,
+        "bucket": 0
+      },
+      {
+        "name": "5",
+        "frames": 159,
+        "spills": 0,
+        "peak_ms": 23.035,
+        "bucket": 0
+      },
+      {
+        "name": "6",
+        "frames": 159,
+        "spills": 0,
+        "peak_ms": 52.704,
+        "bucket": 0
+      },
+      {
+        "name": "7",
+        "frames": 159,
+        "spills": 0,
+        "peak_ms": 55.278,
+        "bucket": 0
+      },
+      {
+        "name": "8",
+        "frames": 159,
+        "spills": 0,
+        "peak_ms": 45.1,
+        "bucket": 0
+      }
+    ]
+  },
+  "isrs": {
+    "isr_wake": {
+      "rate": 1152.3411214953271,
+      "min_us": 0.4816666666666667,
+      "avg_us": 1.667277302200721,
+      "max_us": 18.588333333333335,
+      "cpu": 3.074159399769456
+    },
+    "isr_pack": {
+      "rate": 144.03329439252337,
+      "min_us": 6.251666666666667,
+      "avg_us": 6.873751444735081,
+      "max_us": 9.691666666666666,
+      "cpu": 1.5841423441288587
+    },
+    "isr_dma_submit": {
+      "rate": 144.03329439252337,
+      "min_us": 0.5933333333333334,
+      "avg_us": 0.9371089076788937,
+      "max_us": 1.2133333333333334,
+      "cpu": 0.21596851641348386
+    }
+  },
+  "size": [
+    [
+      66416,
+      549208,
+      9016
+    ],
+    [
+      315200,
+      37368,
+      28168,
+      143552
+    ],
+    [
+      520064,
+      4224
+    ]
+  ],
+  "captured": "2026-10-01 09:13",
+  "epoch": null,
+  "window": 16,
+  "tail_frames": 9,
+  "counter_mean_us": {
+    "canvas_buffer_wait": 37919.26635903427,
+    "canvas_clear": 84.32954633956386,
+    "msp_draw_particles": 21847.80796923676,
+    "msp_particle_step": 2426.5754069314644,
+    "msp_timeline_step": 43.95173968068536,
+    "pov_preserve_half": 135.28159852024922
+  },
+  "source_dirty": false,
+  "evidence": [
+    {
+      "file": "baseline-serial-mindsplatter-profile.txt",
+      "sha256": "ecc3c38252af4d0713a6aaac317f7929a36a235f6c419d8cfeacf3f33f686852",
+      "bytes": 184567
+    },
+    {
+      "file": "baseline-serial-mindsplatter-profile.provenance",
+      "sha256": "fbb6227c991e4e97b10af1d005674612503632d6ae5bc19994086a789a07ffd6",
+      "bytes": 1070
+    },
+    {
+      "file": "baseline-serial-mindsplatter-profile_build.txt",
+      "sha256": "65b988637fe925a703f09a1b16d815d0f1d6dbff892aca9cd3033fadc40e5b5e",
+      "bytes": 9702
+    },
+    {
+      "file": "baseline-serial-mindsplatter-profile_envdump.txt",
+      "sha256": "14805b76b2f358ae3decd2d55ea9b68d25b20c0b77a115313579795c9aba3734",
+      "bytes": 33365
+    },
+    {
+      "file": "baseline-serial-mindsplatter-profile_phantasm_build.txt",
+      "sha256": "1d477ab4279a6b31bf2513ec0538ac15d32b47bdb191a9ddeaa8ab906d618f09",
+      "bytes": 11056
+    },
+    {
+      "file": "baseline-serial-mindsplatter-profile_phantasm_envdump.txt",
+      "sha256": "b1e607dead4957b421ea46ed2b5de6894777662fffe8f83ceb8af85801303edc",
+      "bytes": 33024
+    },
+    {
+      "file": "baseline-serial-mindsplatter-profile_source_status.txt",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    {
+      "file": "baseline-serial-mindsplatter-profile_source.diff",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    }
+  ]
+}

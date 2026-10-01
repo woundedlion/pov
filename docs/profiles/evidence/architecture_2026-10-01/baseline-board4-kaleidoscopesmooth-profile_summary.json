@@ -1,0 +1,242 @@
+{
+  "tag": "baseline-board4-kaleidoscopesmooth-profile",
+  "effect": "KaleidoscopeSmooth",
+  "scope": "fx_shader_draw",
+  "sha": "b6d2c0100e10d57b18f9bd749d5ab28b34574dd8",
+  "frames": 4136,
+  "range": [
+    2,
+    4137
+  ],
+  "counter_range": [
+    17,
+    4128
+  ],
+  "startup_us": 49859,
+  "mean_ms": 26.33571252417795,
+  "peak_ms": 31.997,
+  "spills": 0,
+  "scope_mean_ms": 22.932245053096626,
+  "worst_scope_ms": 27.8129375,
+  "worst_window": [
+    3953,
+    3968
+  ],
+  "ppm": 2.3922511083068865,
+  "ppm_window": [
+    3953,
+    3968
+  ],
+  "presets": [
+    {
+      "name": "1",
+      "holds": 55,
+      "clean": 54,
+      "scope_ms": 27.8129375,
+      "render_ms": 31.1,
+      "wall_ms": 62.441,
+      "window": [
+        3953,
+        3968
+      ],
+      "calls": 1.0
+    },
+    {
+      "name": "2",
+      "holds": 67,
+      "clean": 66,
+      "scope_ms": 27.2145625,
+      "render_ms": 30.6755,
+      "wall_ms": 62.417,
+      "window": [
+        881,
+        896
+      ],
+      "calls": 1.0
+    },
+    {
+      "name": "3",
+      "holds": 68,
+      "clean": 67,
+      "scope_ms": 23.9046875,
+      "render_ms": 26.8843125,
+      "wall_ms": 62.449,
+      "window": [
+        2193,
+        2208
+      ],
+      "calls": 1.0
+    },
+    {
+      "name": "4",
+      "holds": 67,
+      "clean": 66,
+      "scope_ms": 23.847125,
+      "render_ms": 27.695625,
+      "wall_ms": 62.428,
+      "window": [
+        3105,
+        3120
+      ],
+      "calls": 1.0
+    }
+  ],
+  "preset_frames": [
+    {
+      "name": "1",
+      "frames": 899,
+      "spills": 0,
+      "peak_ms": 31.997,
+      "bucket": 0
+    },
+    {
+      "name": "2",
+      "frames": 1079,
+      "spills": 0,
+      "peak_ms": 31.318,
+      "bucket": 0
+    },
+    {
+      "name": "3",
+      "frames": 1079,
+      "spills": 0,
+      "peak_ms": 27.375,
+      "bucket": 0
+    },
+    {
+      "name": "4",
+      "frames": 1079,
+      "spills": 0,
+      "peak_ms": 28.232,
+      "bucket": 0
+    }
+  ],
+  "buckets": {
+    "0": [
+      {
+        "name": "1",
+        "frames": 899,
+        "spills": 0,
+        "peak_ms": 31.997,
+        "bucket": 0
+      },
+      {
+        "name": "2",
+        "frames": 1079,
+        "spills": 0,
+        "peak_ms": 31.318,
+        "bucket": 0
+      },
+      {
+        "name": "3",
+        "frames": 1079,
+        "spills": 0,
+        "peak_ms": 27.375,
+        "bucket": 0
+      },
+      {
+        "name": "4",
+        "frames": 1079,
+        "spills": 0,
+        "peak_ms": 28.232,
+        "bucket": 0
+      }
+    ]
+  },
+  "isrs": {
+    "isr_wake": {
+      "rate": 1152.0921692607003,
+      "min_us": 0.6166666666666667,
+      "avg_us": 1.7009416340556207,
+      "max_us": 25.335,
+      "cpu": 3.1360211073175166
+    },
+    "isr_pack": {
+      "rate": 144.0024319066148,
+      "min_us": 6.251666666666667,
+      "avg_us": 7.057726408371022,
+      "max_us": 23.493333333333332,
+      "cpu": 1.626436029107278
+    },
+    "isr_dma_submit": {
+      "rate": 144.0024319066148,
+      "min_us": 0.595,
+      "avg_us": 0.9328720669843854,
+      "max_us": 11.498333333333333,
+      "cpu": 0.21497811795192232
+    }
+  },
+  "size": [
+    [
+      70256,
+      155184,
+      9056
+    ],
+    [
+      315040,
+      19960,
+      12808,
+      176480
+    ],
+    [
+      520064,
+      4224
+    ]
+  ],
+  "captured": "2026-10-01 11:00",
+  "epoch": 2400,
+  "window": 16,
+  "tail_frames": 9,
+  "counter_mean_us": {
+    "canvas_buffer_wait": 36102.694109111544,
+    "canvas_clear": 85.34642144941634,
+    "fx_advance": 2018.7047636997406,
+    "fx_prepare_frame": 1021.4287175745785,
+    "fx_shader_draw": 22932.245053096627,
+    "fx_timeline_step": 101.84697430285344,
+    "pov_preserve_half": 143.86066999027236
+  },
+  "source_dirty": false,
+  "evidence": [
+    {
+      "file": "baseline-board4-kaleidoscopesmooth-profile.txt",
+      "sha256": "14762eb8284eb8b68125b5fd31e17e151264701db2c782fbe7d13e4f759871d3",
+      "bytes": 357395
+    },
+    {
+      "file": "baseline-board4-kaleidoscopesmooth-profile.provenance",
+      "sha256": "0349d7c1d8b5d05802006f4f05933f8b0d847465193e3a1e9c9b8b3b5c04fe51",
+      "bytes": 1088
+    },
+    {
+      "file": "baseline-board4-kaleidoscopesmooth-profile_build.txt",
+      "sha256": "c7664f7a56af216afc1d6e560e596dbec11ac88d98bff016c7d61656033d907f",
+      "bytes": 9703
+    },
+    {
+      "file": "baseline-board4-kaleidoscopesmooth-profile_envdump.txt",
+      "sha256": "d9b32768c37918c1b0cb071469934d28a1773a24e715fa36334acc65e99969ef",
+      "bytes": 33615
+    },
+    {
+      "file": "baseline-board4-kaleidoscopesmooth-profile_phantasm_build.txt",
+      "sha256": "8df8836c2af062040bce59ed96edd77f50c1f534b7e3a74e7949f80f47f2a82a",
+      "bytes": 11056
+    },
+    {
+      "file": "baseline-board4-kaleidoscopesmooth-profile_phantasm_envdump.txt",
+      "sha256": "ea31bfb6df87ad62288f0eb4f497d2f2e799b2081d4183da032a574dac1893c6",
+      "bytes": 33024
+    },
+    {
+      "file": "baseline-board4-kaleidoscopesmooth-profile_source_status.txt",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    {
+      "file": "baseline-board4-kaleidoscopesmooth-profile_source.diff",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    }
+  ]
+}

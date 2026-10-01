@@ -1,0 +1,3920 @@
+profile harness: effect=MindSplatter config=o3 segments=4 rpm=480 f_cpu=600000000
+reset cause: 0x001 por
+[Phantasm] Segment 0 arm-A (+y) MASTER | y_base=0 y_step=1 pixels=72
+f 1 w=298 r=298
+f 2 w=321 r=321
+f 3 w=62526 r=380
+f 4 w=62528 r=440
+f 5 w=62526 r=498
+f 6 w=62527 r=558
+f 7 w=62533 r=623
+f 8 w=62529 r=687
+f 9 w=62554 r=773
+f 10 w=62526 r=832
+f 11 w=62573 r=950
+f 12 w=62565 r=994
+f 13 w=62586 r=1118
+f 14 w=62508 r=1159
+f 15 w=62637 r=1330
+f 16 w=62492 r=1356
+=== profile MindSplatter [288x144] frames 1-16 window=1375210 us ===
+frame wall us: min=298 avg=54764 max=62637 sum=876229 (16 frames)
+frame render us: avg=769 max=1356
+--- Cycle Counters ---
+frame                  876224 us (100%)  16 calls  525734417 cyc
+  pov_preserve_half    2276 us (0%)  15 calls  1365990 cyc
+  msp_draw_particles   5885 us (0%)  16 calls  3531090 cyc
+    msp_particle_scan  5805 us (98%)  16 calls  3483275 cyc
+      plot_ps_raster   3662 us (63%)  240 calls  2197345 cyc
+      plot_ps_deferred 78 us (1%)  240 calls  47322 cyc
+      plot_ps_gate     982 us (16%)  960 calls  589695 cyc
+        plot_ps_cartesian_gate 211 us (21%)  960 calls  126631 cyc
+      plot_ps_tween    830 us (14%)  960 calls  498077 cyc
+  msp_particle_step    2046 us (0%)  16 calls  1228166 cyc
+  msp_timeline_step    599 us (0%)  16 calls  359652 cyc
+  canvas_clear         1479 us (0%)  16 calls  887885 cyc
+  canvas_buffer_wait   863919 us (98%)  16 calls  518351630 cyc
+isr_wake       n=25375 cyc min/avg/max=241/628/7821 ns min/avg/max=401/1046/13035 total=26566 us cpu=1.93%
+isr_pack       n=2021 cyc min/avg/max=313/3819/5144 ns min/avg/max=521/6365/8573 total=12864 us cpu=0.93%
+isr_dma_submit n=2021 cyc min/avg/max=446/556/814 ns min/avg/max=743/926/1356 total=1873 us cpu=0.13%
+f 17 w=62415 r=1538
+f 18 w=62472 r=1544
+f 19 w=62676 r=1756
+f 20 w=62458 r=1749
+f 21 w=62696 r=1978
+f 22 w=62455 r=1968
+f 23 w=62720 r=2221
+f 24 w=62455 r=2208
+f 25 w=62772 r=2515
+f 26 w=62427 r=2422
+f 27 w=62825 r=2781
+f 28 w=62372 r=2686
+f 29 w=62828 r=3047
+f 30 w=62374 r=2954
+f 31 w=62769 r=3269
+f 32 w=62382 r=3183
+=== profile MindSplatter [288x144] frames 17-32 window=1001580 us ===
+frame wall us: min=62372 avg=62568 max=62828 sum=1001096 (16 frames)
+frame render us: avg=2363 max=3269
+--- Cycle Counters ---
+frame                  1001095 us (100%)  16 calls  600657122 cyc
+  pov_preserve_half    2293 us (0%)  16 calls  1376059 cyc
+  msp_draw_particles   27870 us (2%)  16 calls  16722340 cyc
+    msp_particle_scan  27778 us (99%)  16 calls  16667089 cyc
+      plot_ps_raster   17249 us (62%)  790 calls  10349953 cyc
+      plot_ps_deferred 368 us (1%)  790 calls  220860 cyc
+      plot_ps_gate     5162 us (18%)  3008 calls  3097437 cyc
+        plot_ps_cartesian_gate 897 us (17%)  3008 calls  538381 cyc
+      plot_ps_tween    4252 us (15%)  3008 calls  2551711 cyc
+  msp_particle_step    5606 us (0%)  16 calls  3364178 cyc
+  msp_timeline_step    681 us (0%)  16 calls  408903 cyc
+  canvas_clear         1343 us (0%)  16 calls  806273 cyc
+  canvas_buffer_wait   963284 us (96%)  16 calls  577970658 cyc
+isr_wake       n=18466 cyc min/avg/max=249/841/6858 ns min/avg/max=415/1401/11430 total=25896 us cpu=2.58%
+isr_pack       n=2308 cyc min/avg/max=3593/3831/5290 ns min/avg/max=5988/6385/8816 total=14738 us cpu=1.47%
+isr_dma_submit n=2308 cyc min/avg/max=490/555/604 ns min/avg/max=816/925/1006 total=2136 us cpu=0.21%
+f 33 w=62716 r=3660
+f 34 w=62284 r=3479
+f 35 w=63089 r=4102
+f 36 w=62003 r=3638
+f 37 w=63201 r=4372
+f 38 w=62090 r=3996
+f 39 w=63118 r=4595
+f 40 w=62083 r=4204
+f 41 w=62838 r=4577
+f 42 w=62362 r=4473
+f 43 w=62698 r=4704
+f 44 w=62436 r=4667
+f 45 w=62687 r=4886
+f 46 w=62449 r=4868
+f 47 w=62653 r=5057
+f 48 w=62530 r=5120
+=== profile MindSplatter [288x144] frames 33-48 window=1001702 us ===
+frame wall us: min=62003 avg=62577 max=63201 sum=1001237 (16 frames)
+frame render us: avg=4399 max=5120
+--- Cycle Counters ---
+frame                  1001234 us (100%)  16 calls  600740837 cyc
+  pov_preserve_half    2220 us (0%)  16 calls  1332053 cyc
+  msp_draw_particles   57087 us (5%)  16 calls  34252435 cyc
+    msp_particle_scan  57007 us (99%)  16 calls  34204285 cyc
+      plot_ps_raster   34076 us (59%)  1594 calls  20446134 cyc
+      plot_ps_deferred 892 us (1%)  1594 calls  535513 cyc
+      plot_ps_gate     12183 us (21%)  5056 calls  7309946 cyc
+        plot_ps_cartesian_gate 1772 us (14%)  5056 calls  1063320 cyc
+      plot_ps_tween    8636 us (15%)  5056 calls  5182073 cyc
+  msp_particle_step    9094 us (0%)  16 calls  5456896 cyc
+  msp_timeline_step    627 us (0%)  16 calls  376790 cyc
+  canvas_clear         1341 us (0%)  16 calls  804922 cyc
+  canvas_buffer_wait   930847 us (92%)  16 calls  558508678 cyc
+isr_wake       n=18469 cyc min/avg/max=249/846/6822 ns min/avg/max=415/1410/11370 total=26047 us cpu=2.60%
+isr_pack       n=2309 cyc min/avg/max=3593/3844/5294 ns min/avg/max=5988/6406/8823 total=14795 us cpu=1.47%
+isr_dma_submit n=2309 cyc min/avg/max=433/556/604 ns min/avg/max=721/926/1006 total=2140 us cpu=0.21%
+f 49 w=62336 r=5241
+f 50 w=62597 r=5373
+f 51 w=62523 r=5428
+f 52 w=62699 r=5661
+f 53 w=62546 r=5685
+f 54 w=62721 r=5940
+f 55 w=62425 r=5900
+f 56 w=62700 r=6135
+f 57 w=62546 r=6213
+f 58 w=62526 r=6273
+f 59 w=62675 r=6483
+f 60 w=62665 r=6693
+f 61 w=62611 r=6839
+f 62 w=62601 r=6973
+f 63 w=62652 r=7159
+f 64 w=62438 r=7130
+=== profile MindSplatter [288x144] frames 49-64 window=1001750 us ===
+frame wall us: min=62336 avg=62578 max=62721 sum=1001261 (16 frames)
+frame render us: avg=6195 max=7159
+--- Cycle Counters ---
+frame                  1001258 us (100%)  16 calls  600754864 cyc
+  pov_preserve_half    2203 us (0%)  16 calls  1322169 cyc
+  msp_draw_particles   82187 us (8%)  16 calls  49312763 cyc
+    msp_particle_scan  82108 us (99%)  16 calls  49265129 cyc
+      plot_ps_raster   50116 us (61%)  1948 calls  30069989 cyc
+      plot_ps_deferred 1150 us (1%)  1948 calls  690012 cyc
+      plot_ps_gate     16048 us (19%)  7104 calls  9629324 cyc
+        plot_ps_cartesian_gate 2642 us (16%)  7104 calls  1585442 cyc
+      plot_ps_tween    13075 us (15%)  7104 calls  7845074 cyc
+  msp_particle_step    12631 us (1%)  16 calls  7578748 cyc
+  msp_timeline_step    735 us (0%)  16 calls  441498 cyc
+  canvas_clear         1341 us (0%)  16 calls  804938 cyc
+  canvas_buffer_wait   902142 us (90%)  16 calls  541285679 cyc
+isr_wake       n=18470 cyc min/avg/max=249/851/6874 ns min/avg/max=415/1418/11456 total=26217 us cpu=2.61%
+isr_pack       n=2308 cyc min/avg/max=3593/3862/5340 ns min/avg/max=5988/6436/8900 total=14855 us cpu=1.48%
+isr_dma_submit n=2308 cyc min/avg/max=480/555/606 ns min/avg/max=800/925/1010 total=2138 us cpu=0.21%
+f 65 w=62546 r=7454
+f 66 w=62451 r=7438
+f 67 w=63121 r=8038
+f 68 w=61570 r=7141
+f 69 w=63460 r=8135
+f 70 w=61335 r=7003
+f 71 w=63929 r=8465
+f 72 w=61421 r=7419
+f 73 w=63881 r=8852
+f 74 w=61405 r=7790
+f 75 w=63791 r=9125
+f 76 w=61605 r=8263
+f 77 w=63558 r=9356
+f 78 w=61758 r=8651
+f 79 w=63435 r=9631
+f 80 w=61891 r=9000
+=== profile MindSplatter [288x144] frames 65-80 window=1001669 us ===
+frame wall us: min=61335 avg=62572 max=63929 sum=1001157 (16 frames)
+frame render us: avg=8235 max=9631
+--- Cycle Counters ---
+frame                  1001154 us (100%)  16 calls  600692933 cyc
+  pov_preserve_half    2207 us (0%)  16 calls  1324744 cyc
+  msp_draw_particles   111493 us (11%)  16 calls  66895886 cyc
+    msp_particle_scan  111413 us (99%)  16 calls  66848247 cyc
+      plot_ps_raster   68687 us (61%)  2550 calls  41212212 cyc
+      plot_ps_deferred 1570 us (1%)  2550 calls  942151 cyc
+      plot_ps_gate     21414 us (19%)  9152 calls  12848753 cyc
+        plot_ps_cartesian_gate 3431 us (16%)  9152 calls  2059145 cyc
+      plot_ps_tween    17532 us (15%)  9152 calls  10519468 cyc
+  msp_particle_step    16103 us (1%)  16 calls  9661824 cyc
+  msp_timeline_step    591 us (0%)  16 calls  354631 cyc
+  canvas_clear         1340 us (0%)  16 calls  804103 cyc
+  canvas_buffer_wait   869404 us (86%)  16 calls  521642594 cyc
+isr_wake       n=18469 cyc min/avg/max=250/857/6862 ns min/avg/max=416/1428/11436 total=26388 us cpu=2.63%
+isr_pack       n=2309 cyc min/avg/max=3593/3879/5360 ns min/avg/max=5988/6465/8933 total=14927 us cpu=1.49%
+isr_dma_submit n=2309 cyc min/avg/max=436/555/603 ns min/avg/max=726/925/1005 total=2139 us cpu=0.21%
+f 81 w=63386 r=10168
+f 82 w=61637 r=9354
+f 83 w=63744 r=10632
+f 84 w=61692 r=9856
+f 85 w=63535 r=10927
+f 86 w=61808 r=10269
+f 87 w=63473 r=11287
+f 88 w=61871 r=10691
+f 89 w=63330 r=11554
+f 90 w=62055 r=11142
+f 91 w=63179 r=11854
+f 92 w=62235 r=11624
+f 93 w=63020 r=12177
+f 94 w=62343 r=12011
+f 95 w=62689 r=12233
+f 96 w=62750 r=12518
+=== profile MindSplatter [288x144] frames 81-96 window=1003261 us ===
+frame wall us: min=61637 avg=62671 max=63744 sum=1002747 (16 frames)
+frame render us: avg=11143 max=12518
+--- Cycle Counters ---
+frame                  1002746 us (100%)  16 calls  601648057 cyc
+  pov_preserve_half    2143 us (0%)  16 calls  1286138 cyc
+  msp_draw_particles   154449 us (15%)  16 calls  92669924 cyc
+    msp_particle_scan  154368 us (99%)  16 calls  92621253 cyc
+      plot_ps_raster   98819 us (64%)  3360 calls  59291970 cyc
+      plot_ps_deferred 2115 us (1%)  3360 calls  1269577 cyc
+      plot_ps_gate     28909 us (18%)  11188 calls  17345715 cyc
+        plot_ps_cartesian_gate 4340 us (15%)  11188 calls  2604579 cyc
+      plot_ps_tween    21813 us (14%)  11188 calls  13087903 cyc
+  msp_particle_step    19762 us (1%)  16 calls  11857585 cyc
+  msp_timeline_step    582 us (0%)  16 calls  349589 cyc
+  canvas_clear         1334 us (0%)  16 calls  800791 cyc
+  canvas_buffer_wait   824457 us (82%)  16 calls  494674786 cyc
+isr_wake       n=18498 cyc min/avg/max=250/865/7234 ns min/avg/max=416/1441/12056 total=26680 us cpu=2.65%
+isr_pack       n=2312 cyc min/avg/max=3593/3908/5374 ns min/avg/max=5988/6513/8956 total=15058 us cpu=1.50%
+isr_dma_submit n=2312 cyc min/avg/max=490/557/607 ns min/avg/max=816/928/1011 total=2147 us cpu=0.21%
+f 97 w=62268 r=12566
+f 98 w=62989 r=13101
+f 99 w=62179 r=12815
+f 100 w=63306 r=13653
+f 101 w=61910 r=13090
+f 102 w=62957 r=13581
+f 103 w=62210 r=13326
+f 104 w=63270 r=14130
+f 105 w=62044 r=13710
+f 106 w=63445 r=14689
+f 107 w=61989 r=14157
+f 108 w=63236 r=14926
+f 109 w=62300 r=14759
+f 110 w=63083 r=15375
+f 111 w=62139 r=15048
+f 112 w=62853 r=15436
+=== profile MindSplatter [288x144] frames 97-112 window=1002663 us ===
+frame wall us: min=61910 avg=62636 max=63445 sum=1002178 (16 frames)
+frame render us: avg=14022 max=15436
+--- Cycle Counters ---
+frame                  1002176 us (100%)  16 calls  601305653 cyc
+  pov_preserve_half    2145 us (0%)  16 calls  1287132 cyc
+  msp_draw_particles   196848 us (19%)  16 calls  118108996 cyc
+    msp_particle_scan  196767 us (99%)  16 calls  118060796 cyc
+      plot_ps_raster   128443 us (65%)  4159 calls  77065927 cyc
+      plot_ps_deferred 2998 us (1%)  4159 calls  1799387 cyc
+      plot_ps_gate     36063 us (18%)  13106 calls  21638150 cyc
+        plot_ps_cartesian_gate 5166 us (14%)  13106 calls  3099960 cyc
+      plot_ps_tween    26078 us (13%)  13106 calls  15647019 cyc
+  msp_particle_step    23484 us (2%)  16 calls  14090431 cyc
+  msp_timeline_step    517 us (0%)  16 calls  310330 cyc
+  canvas_clear         1342 us (0%)  16 calls  805218 cyc
+  canvas_buffer_wait   777824 us (77%)  16 calls  466694418 cyc
+isr_wake       n=18486 cyc min/avg/max=250/872/7046 ns min/avg/max=416/1453/11743 total=26868 us cpu=2.67%
+isr_pack       n=2311 cyc min/avg/max=3593/3929/5492 ns min/avg/max=5988/6548/9153 total=15133 us cpu=1.50%
+isr_dma_submit n=2311 cyc min/avg/max=452/556/604 ns min/avg/max=753/926/1006 total=2145 us cpu=0.21%
+f 113 w=62183 r=15399
+f 114 w=62736 r=15668
+f 115 w=62433 r=15635
+f 116 w=62700 r=15868
+f 117 w=62455 r=15857
+f 118 w=62704 r=16106
+f 119 w=62679 r=16319
+f 120 w=62168 r=16019
+f 121 w=62975 r=16473
+f 122 w=62212 r=16229
+f 123 w=63188 r=16950
+f 124 w=62084 r=16582
+f 125 w=63323 r=17438
+f 126 w=61811 r=16783
+f 127 w=63406 r=17724
+f 128 w=61348 r=16606
+=== profile MindSplatter [288x144] frames 113-128 window=1000914 us ===
+frame wall us: min=61348 avg=62525 max=63406 sum=1000405 (16 frames)
+frame render us: avg=16353 max=17724
+--- Cycle Counters ---
+frame                  1000403 us (100%)  16 calls  600241827 cyc
+  pov_preserve_half    2164 us (0%)  16 calls  1298786 cyc
+  msp_draw_particles   230652 us (23%)  16 calls  138391417 cyc
+    msp_particle_scan  230563 us (99%)  16 calls  138338340 cyc
+      plot_ps_raster   153426 us (66%)  4640 calls  92055719 cyc
+      plot_ps_deferred 3743 us (1%)  4640 calls  2246144 cyc
+      plot_ps_gate     40207 us (17%)  14724 calls  24124330 cyc
+        plot_ps_cartesian_gate 5793 us (14%)  14724 calls  3476223 cyc
+      plot_ps_tween    29602 us (12%)  14724 calls  17761767 cyc
+  msp_particle_step    26780 us (2%)  16 calls  16068553 cyc
+  msp_timeline_step    685 us (0%)  16 calls  411074 cyc
+  canvas_clear         1346 us (0%)  16 calls  807696 cyc
+  canvas_buffer_wait   738758 us (73%)  16 calls  443255204 cyc
+isr_wake       n=18455 cyc min/avg/max=250/878/6958 ns min/avg/max=416/1463/11596 total=27010 us cpu=2.69%
+isr_pack       n=2306 cyc min/avg/max=3593/3944/5395 ns min/avg/max=5988/6573/8991 total=15161 us cpu=1.51%
+isr_dma_submit n=2306 cyc min/avg/max=407/557/653 ns min/avg/max=678/928/1088 total=2140 us cpu=0.21%
+f 129 w=63740 r=18115
+f 130 w=60720 r=16368
+f 131 w=64688 r=18590
+f 132 w=59982 r=16100
+f 133 w=65567 r=19203
+f 134 w=59508 r=16189
+f 135 w=65638 r=19362
+f 136 w=59369 r=16264
+f 137 w=65588 r=19388
+f 138 w=59460 r=16383
+f 139 w=65416 r=19332
+f 140 w=59536 r=16404
+f 141 w=65481 r=19419
+f 142 w=59643 r=16594
+f 143 w=65636 r=19764
+f 144 w=59461 r=16758
+=== profile MindSplatter [288x144] frames 129-144 window=999906 us ===
+frame wall us: min=59369 avg=62464 max=65638 sum=999433 (16 frames)
+frame render us: avg=17764 max=19764
+--- Cycle Counters ---
+frame                  999431 us (100%)  16 calls  599658871 cyc
+  pov_preserve_half    2143 us (0%)  16 calls  1286069 cyc
+  msp_draw_particles   250158 us (25%)  16 calls  150095011 cyc
+    msp_particle_scan  250078 us (99%)  16 calls  150047351 cyc
+      plot_ps_raster   165758 us (66%)  4839 calls  99454835 cyc
+      plot_ps_deferred 4052 us (1%)  4839 calls  2431663 cyc
+      plot_ps_gate     43291 us (17%)  16272 calls  25975009 cyc
+        plot_ps_cartesian_gate 6559 us (15%)  16272 calls  3935570 cyc
+      plot_ps_tween    33069 us (13%)  16272 calls  19841799 cyc
+  msp_particle_step    29983 us (3%)  16 calls  17990108 cyc
+  msp_timeline_step    582 us (0%)  16 calls  349544 cyc
+  canvas_clear         1341 us (0%)  16 calls  805134 cyc
+  canvas_buffer_wait   715206 us (71%)  16 calls  429123753 cyc
+isr_wake       n=18436 cyc min/avg/max=250/881/6994 ns min/avg/max=416/1468/11656 total=27085 us cpu=2.70%
+isr_pack       n=2305 cyc min/avg/max=3593/3954/5378 ns min/avg/max=5988/6590/8963 total=15192 us cpu=1.51%
+isr_dma_submit n=2305 cyc min/avg/max=418/557/606 ns min/avg/max=696/928/1010 total=2141 us cpu=0.21%
+f 145 w=65543 r=20078
+f 146 w=58976 r=16587
+f 147 w=66113 r=20235
+f 148 w=59381 r=17095
+f 149 w=66097 r=20726
+f 150 w=59145 r=17403
+f 151 w=66054 r=20993
+f 152 w=59714 r=18241
+f 153 w=65399 r=21172
+f 154 w=61203 r=19908
+f 155 w=63399 r=20840
+f 156 w=62193 r=20566
+f 157 w=62635 r=20735
+f 158 w=62933 r=21200
+f 159 w=62075 r=20811
+Preset: 2/8
+f 160 w=63151 r=21505
+=== profile MindSplatter [288x144] frames 145-160 window=1004495 us ===
+frame wall us: min=58976 avg=62750 max=66113 sum=1004011 (16 frames)
+frame render us: avg=19880 max=21505
+--- Cycle Counters ---
+frame                  1004009 us (100%)  16 calls  602405825 cyc
+  pov_preserve_half    2162 us (0%)  16 calls  1297509 cyc
+  msp_draw_particles   281053 us (27%)  16 calls  168631993 cyc
+    msp_particle_scan  280972 us (99%)  16 calls  168583755 cyc
+      plot_ps_raster   186928 us (66%)  5431 calls  112156800 cyc
+      plot_ps_deferred 4969 us (1%)  5431 calls  2981651 cyc
+      plot_ps_gate     48713 us (17%)  17632 calls  29228399 cyc
+        plot_ps_cartesian_gate 6994 us (14%)  17632 calls  4196662 cyc
+      plot_ps_tween    36108 us (12%)  17632 calls  21665353 cyc
+  msp_particle_step    32865 us (3%)  16 calls  19719341 cyc
+  msp_timeline_step    578 us (0%)  16 calls  347190 cyc
+  canvas_clear         1342 us (0%)  16 calls  805306 cyc
+  canvas_buffer_wait   685924 us (68%)  16 calls  411554461 cyc
+isr_wake       n=18520 cyc min/avg/max=250/885/9038 ns min/avg/max=416/1475/15063 total=27341 us cpu=2.72%
+isr_pack       n=2315 cyc min/avg/max=3593/3955/5393 ns min/avg/max=5988/6591/8988 total=15261 us cpu=1.51%
+isr_dma_submit n=2315 cyc min/avg/max=406/557/604 ns min/avg/max=676/928/1006 total=2149 us cpu=0.21%
+f 161 w=59087 r=18318
+f 162 w=66131 r=21982
+f 163 w=58718 r=18233
+f 164 w=65921 r=21687
+f 165 w=58697 r=17929
+f 166 w=66880 r=22343
+f 167 w=58025 r=17902
+f 168 w=67079 r=22513
+f 169 w=58036 r=18083
+f 170 w=67684 r=23304
+f 171 w=57810 r=18648
+f 172 w=67812 r=24004
+f 173 w=57722 r=19261
+f 174 w=68090 r=24884
+f 175 w=57622 r=19988
+f 176 w=68475 r=25996
+=== profile MindSplatter [288x144] frames 161-176 window=1004289 us ===
+frame wall us: min=57622 avg=62736 max=68475 sum=1003789 (16 frames)
+frame render us: avg=20942 max=25996
+--- Cycle Counters ---
+frame                  1003784 us (100%)  16 calls  602270663 cyc
+  pov_preserve_half    2158 us (0%)  16 calls  1295014 cyc
+  msp_draw_particles   296741 us (29%)  16 calls  178044626 cyc
+    msp_particle_scan  296658 us (99%)  16 calls  177995216 cyc
+      plot_ps_raster   201183 us (67%)  5452 calls  120710106 cyc
+      plot_ps_deferred 4897 us (1%)  5452 calls  2938571 cyc
+      plot_ps_gate     48909 us (16%)  18190 calls  29345685 cyc
+        plot_ps_cartesian_gate 7245 us (14%)  18190 calls  4347086 cyc
+      plot_ps_tween    37277 us (12%)  18190 calls  22366796 cyc
+  msp_particle_step    33953 us (3%)  16 calls  20371857 cyc
+  msp_timeline_step    854 us (0%)  16 calls  512833 cyc
+  canvas_clear         1340 us (0%)  16 calls  804222 cyc
+  canvas_buffer_wait   668722 us (66%)  16 calls  401233703 cyc
+isr_wake       n=18517 cyc min/avg/max=250/889/6966 ns min/avg/max=416/1481/11610 total=27448 us cpu=2.73%
+isr_pack       n=2314 cyc min/avg/max=3593/3967/5408 ns min/avg/max=5988/6611/9013 total=15303 us cpu=1.52%
+isr_dma_submit n=2314 cyc min/avg/max=410/557/669 ns min/avg/max=683/928/1115 total=2149 us cpu=0.21%
+f 177 w=56894 r=20669
+f 178 w=68461 r=26663
+f 179 w=56895 r=21092
+f 180 w=69049 r=27675
+f 181 w=56978 r=22186
+f 182 w=69253 r=28972
+f 183 w=58313 r=24817
+f 184 w=67776 r=30129
+f 185 w=57300 r=24962
+f 186 w=68557 r=31052
+f 187 w=57327 r=25913
+f 188 w=68485 r=31931
+f 189 w=57076 r=26488
+f 190 w=67085 r=31106
+f 191 w=58229 r=26869
+f 192 w=66915 r=31340
+=== profile MindSplatter [288x144] frames 177-192 window=1005081 us ===
+frame wall us: min=56894 avg=62787 max=69253 sum=1004593 (16 frames)
+frame render us: avg=26991 max=31931
+--- Cycle Counters ---
+frame                  1004590 us (100%)  16 calls  602754194 cyc
+  pov_preserve_half    2170 us (0%)  16 calls  1302403 cyc
+  msp_draw_particles   392964 us (39%)  16 calls  235778920 cyc
+    msp_particle_scan  392885 us (99%)  16 calls  235731313 cyc
+      plot_ps_raster   295152 us (75%)  5577 calls  177091679 cyc
+      plot_ps_deferred 5247 us (1%)  5577 calls  3148638 cyc
+      plot_ps_gate     50623 us (12%)  18225 calls  30374025 cyc
+        plot_ps_cartesian_gate 7334 us (14%)  18225 calls  4400835 cyc
+      plot_ps_tween    37454 us (9%)  18225 calls  22472787 cyc
+  msp_particle_step    34438 us (3%)  16 calls  20662951 cyc
+  msp_timeline_step    923 us (0%)  16 calls  554278 cyc
+  canvas_clear         1342 us (0%)  16 calls  805366 cyc
+  canvas_buffer_wait   572736 us (57%)  16 calls  343641896 cyc
+isr_wake       n=18531 cyc min/avg/max=250/910/7066 ns min/avg/max=416/1516/11776 total=28119 us cpu=2.79%
+isr_pack       n=2316 cyc min/avg/max=3593/4044/5513 ns min/avg/max=5988/6740/9188 total=15610 us cpu=1.55%
+isr_dma_submit n=2316 cyc min/avg/max=460/558/614 ns min/avg/max=766/930/1023 total=2154 us cpu=0.21%
+f 193 w=58874 r=27976
+f 194 w=66075 r=31579
+f 195 w=60563 r=29675
+f 196 w=65475 r=32683
+f 197 w=59776 r=29993
+f 198 w=65247 r=32772
+f 199 w=62479 r=32785
+f 200 w=61490 r=31809
+f 201 w=63557 r=32901
+f 202 w=58116 r=28495
+f 203 w=66625 r=32654
+f 204 w=56413 r=26600
+f 205 w=68439 r=32583
+f 206 w=55006 r=25122
+f 207 w=69197 r=31853
+f 208 w=54357 r=23742
+=== profile MindSplatter [288x144] frames 193-208 window=992164 us ===
+frame wall us: min=54357 avg=61980 max=69197 sum=991689 (16 frames)
+frame render us: avg=30201 max=32901
+--- Cycle Counters ---
+frame                  991686 us (100%)  16 calls  595011846 cyc
+  pov_preserve_half    2166 us (0%)  16 calls  1299747 cyc
+  msp_draw_particles   444126 us (44%)  16 calls  266475758 cyc
+    msp_particle_scan  444045 us (99%)  16 calls  266427593 cyc
+      plot_ps_raster   344099 us (77%)  5706 calls  206459723 cyc
+      plot_ps_deferred 6068 us (1%)  5706 calls  3640918 cyc
+      plot_ps_gate     53590 us (12%)  17531 calls  32154283 cyc
+        plot_ps_cartesian_gate 7146 us (13%)  17531 calls  4287695 cyc
+      plot_ps_tween    35968 us (8%)  17531 calls  21580994 cyc
+  msp_particle_step    34569 us (3%)  16 calls  20741892 cyc
+  msp_timeline_step    991 us (0%)  16 calls  594933 cyc
+  canvas_clear         1341 us (0%)  16 calls  805172 cyc
+  canvas_buffer_wait   508476 us (51%)  16 calls  305085985 cyc
+isr_wake       n=18293 cyc min/avg/max=251/917/7198 ns min/avg/max=418/1528/11996 total=27987 us cpu=2.82%
+isr_pack       n=2287 cyc min/avg/max=3593/4076/5628 ns min/avg/max=5988/6793/9380 total=15538 us cpu=1.56%
+isr_dma_submit n=2287 cyc min/avg/max=441/558/604 ns min/avg/max=735/930/1006 total=2129 us cpu=0.21%
+f 209 w=69602 r=31120
+f 210 w=53987 r=22640
+f 211 w=70740 r=30914
+f 212 w=53031 r=21478
+f 213 w=71557 r=30568
+f 214 w=53741 r=21846
+f 215 w=69692 r=29064
+f 216 w=54560 r=21115
+f 217 w=69540 r=28188
+f 218 w=53829 r=19561
+f 219 w=69663 r=26759
+f 220 w=54834 r=19125
+f 221 w=68808 r=25468
+f 222 w=55105 r=18106
+f 223 w=69199 r=24857
+f 224 w=55060 r=17450
+=== profile MindSplatter [288x144] frames 209-224 window=993455 us ===
+frame wall us: min=53031 avg=62059 max=71557 sum=992948 (16 frames)
+frame render us: avg=24266 max=31120
+--- Cycle Counters ---
+frame                  992945 us (100%)  16 calls  595767107 cyc
+  pov_preserve_half    2163 us (0%)  16 calls  1297948 cyc
+  msp_draw_particles   350067 us (35%)  16 calls  210040418 cyc
+    msp_particle_scan  349983 us (99%)  16 calls  209989944 cyc
+      plot_ps_raster   263698 us (75%)  4803 calls  158219162 cyc
+      plot_ps_deferred 5796 us (1%)  4803 calls  3477819 cyc
+      plot_ps_gate     42660 us (12%)  16595 calls  25596571 cyc
+        plot_ps_cartesian_gate 6644 us (15%)  16595 calls  3986563 cyc
+      plot_ps_tween    33796 us (9%)  16595 calls  20277673 cyc
+  msp_particle_step    33939 us (3%)  16 calls  20363526 cyc
+  msp_timeline_step    719 us (0%)  16 calls  431606 cyc
+  canvas_clear         1343 us (0%)  16 calls  805859 cyc
+  canvas_buffer_wait   604697 us (60%)  16 calls  362818591 cyc
+isr_wake       n=18317 cyc min/avg/max=251/898/8830 ns min/avg/max=418/1496/14716 total=27444 us cpu=2.76%
+isr_pack       n=2289 cyc min/avg/max=3593/4004/5456 ns min/avg/max=5988/6673/9093 total=15277 us cpu=1.53%
+isr_dma_submit n=2289 cyc min/avg/max=414/557/607 ns min/avg/max=690/928/1011 total=2126 us cpu=0.21%
+f 225 w=69122 r=24338
+f 226 w=55205 r=17078
+f 227 w=69300 r=23913
+f 228 w=55339 r=16785
+f 229 w=68449 r=22714
+f 230 w=52016 r=12258
+f 231 w=68675 r=18466
+f 232 w=55776 r=11777
+f 233 w=67980 r=17291
+f 234 w=56896 r=11722
+f 235 w=67098 r=16353
+f 236 w=57499 r=11386
+f 237 w=66941 r=15860
+f 238 w=57009 r=10403
+f 239 w=66858 r=14804
+f 240 w=56961 r=9298
+=== profile MindSplatter [288x144] frames 225-240 window=991606 us ===
+frame wall us: min=52016 avg=61945 max=69300 sum=991124 (16 frames)
+frame render us: avg=15902 max=24338
+--- Cycle Counters ---
+frame                  991121 us (100%)  16 calls  594673095 cyc
+  pov_preserve_half    2171 us (0%)  16 calls  1302689 cyc
+  msp_draw_particles   216797 us (21%)  16 calls  130078337 cyc
+    msp_particle_scan  216715 us (99%)  16 calls  130029520 cyc
+      plot_ps_raster   148721 us (68%)  2802 calls  89232924 cyc
+      plot_ps_deferred 3370 us (1%)  2802 calls  2022530 cyc
+      plot_ps_gate     27638 us (12%)  16354 calls  16583046 cyc
+        plot_ps_cartesian_gate 6134 us (22%)  16354 calls  3680970 cyc
+      plot_ps_tween    33153 us (15%)  16354 calls  19892101 cyc
+  msp_particle_step    33312 us (3%)  16 calls  19987344 cyc
+  msp_timeline_step    792 us (0%)  16 calls  475340 cyc
+  canvas_clear         1346 us (0%)  16 calls  807600 cyc
+  canvas_buffer_wait   736687 us (74%)  16 calls  442012240 cyc
+isr_wake       n=18283 cyc min/avg/max=250/875/6914 ns min/avg/max=416/1458/11523 total=26673 us cpu=2.68%
+isr_pack       n=2285 cyc min/avg/max=3593/3927/5494 ns min/avg/max=5988/6545/9156 total=14955 us cpu=1.50%
+isr_dma_submit n=2285 cyc min/avg/max=430/556/606 ns min/avg/max=716/926/1010 total=2118 us cpu=0.21%
+f 241 w=67456 r=14534
+f 242 w=56024 r=8091
+f 243 w=68680 r=14249
+f 244 w=55672 r=7467
+f 245 w=68911 r=13913
+f 246 w=56204 r=7650
+f 247 w=68566 r=13749
+f 248 w=59080 r=10376
+f 249 w=65221 r=13130
+f 250 w=61929 r=12592
+f 251 w=57544 r=7668
+f 252 w=67458 r=12660
+f 253 w=57086 r=7279
+f 254 w=67711 r=12524
+f 255 w=57013 r=7070
+f 256 w=67785 r=12338
+=== profile MindSplatter [288x144] frames 241-256 window=1002839 us ===
+frame wall us: min=55672 avg=62646 max=68911 sum=1002340 (16 frames)
+frame render us: avg=10955 max=14534
+--- Cycle Counters ---
+frame                  1002338 us (100%)  16 calls  601402911 cyc
+  pov_preserve_half    2168 us (0%)  16 calls  1300862 cyc
+  msp_draw_particles   137486 us (13%)  16 calls  82491790 cyc
+    msp_particle_scan  137405 us (99%)  16 calls  82443571 cyc
+      plot_ps_raster   79035 us (57%)  1551 calls  47421099 cyc
+      plot_ps_deferred 2090 us (1%)  1551 calls  1254218 cyc
+      plot_ps_gate     19136 us (13%)  16570 calls  11482158 cyc
+        plot_ps_cartesian_gate 5897 us (30%)  16570 calls  3538359 cyc
+      plot_ps_tween    33434 us (24%)  16570 calls  20060593 cyc
+  msp_particle_step    33589 us (3%)  16 calls  20153745 cyc
+  msp_timeline_step    678 us (0%)  16 calls  406965 cyc
+  canvas_clear         1343 us (0%)  16 calls  806240 cyc
+  canvas_buffer_wait   827057 us (82%)  16 calls  496234321 cyc
+isr_wake       n=18490 cyc min/avg/max=250/859/6814 ns min/avg/max=416/1431/11356 total=26501 us cpu=2.64%
+isr_pack       n=2311 cyc min/avg/max=3593/3860/5338 ns min/avg/max=5988/6433/8896 total=14869 us cpu=1.48%
+isr_dma_submit n=2311 cyc min/avg/max=423/556/587 ns min/avg/max=705/926/978 total=2144 us cpu=0.21%
+f 257 w=57244 r=7363
+f 258 w=67370 r=12278
+f 259 w=57596 r=7409
+f 260 w=67233 r=12174
+f 261 w=57935 r=7645
+f 262 w=66875 r=12053
+f 263 w=58345 r=7930
+f 264 w=65470 r=10933
+f 265 w=59810 r=8278
+f 266 w=60043 r=5854
+f 267 w=65245 r=8633
+f 268 w=59608 r=5773
+f 269 w=65822 r=9130
+f 270 w=59564 r=6173
+f 271 w=65709 r=9416
+f 272 w=59683 r=6632
+=== profile MindSplatter [288x144] frames 257-272 window=994037 us ===
+frame wall us: min=57244 avg=62097 max=67370 sum=993552 (16 frames)
+frame render us: avg=8604 max=12278
+--- Cycle Counters ---
+frame                  993551 us (100%)  16 calls  596130747 cyc
+  pov_preserve_half    2237 us (0%)  16 calls  1342546 cyc
+  msp_draw_particles   99713 us (10%)  16 calls  59828397 cyc
+    msp_particle_scan  99633 us (99%)  16 calls  59780303 cyc
+      plot_ps_raster   47446 us (47%)  925 calls  28468110 cyc
+      plot_ps_deferred 975 us (0%)  925 calls  585482 cyc
+      plot_ps_gate     13820 us (13%)  16693 calls  8292247 cyc
+        plot_ps_cartesian_gate 5840 us (42%)  16693 calls  3504495 cyc
+      plot_ps_tween    33759 us (33%)  16693 calls  20255960 cyc
+  msp_particle_step    33636 us (3%)  16 calls  20182030 cyc
+  msp_timeline_step    721 us (0%)  16 calls  433106 cyc
+  canvas_clear         1339 us (0%)  16 calls  803975 cyc
+  canvas_buffer_wait   855886 us (86%)  16 calls  513531787 cyc
+isr_wake       n=18328 cyc min/avg/max=250/853/6922 ns min/avg/max=416/1421/11536 total=26078 us cpu=2.62%
+isr_pack       n=2291 cyc min/avg/max=3593/3847/5310 ns min/avg/max=5988/6411/8850 total=14692 us cpu=1.47%
+isr_dma_submit n=2291 cyc min/avg/max=382/555/587 ns min/avg/max=636/925/978 total=2122 us cpu=0.21%
+f 273 w=65235 r=9634
+f 274 w=60416 r=7585
+f 275 w=64590 r=9709
+f 276 w=61192 r=8433
+f 277 w=63846 r=9815
+f 278 w=61950 r=9298
+f 279 w=66279 r=13113
+f 280 w=59127 r=9776
+f 281 w=65957 r=13266
+f 282 w=59481 r=10281
+f 283 w=65503 r=13318
+f 284 w=60101 r=10899
+f 285 w=64884 r=13317
+f 286 w=60633 r=11484
+f 287 w=64640 r=13651
+f 288 w=63907 r=15092
+=== profile MindSplatter [288x144] frames 273-288 window=1008216 us ===
+frame wall us: min=59127 avg=62983 max=66279 sum=1007741 (16 frames)
+frame render us: avg=11166 max=15092
+--- Cycle Counters ---
+frame                  1007739 us (100%)  16 calls  604643641 cyc
+  pov_preserve_half    2174 us (0%)  16 calls  1304890 cyc
+  msp_draw_particles   140697 us (13%)  16 calls  84418480 cyc
+    msp_particle_scan  140615 us (99%)  16 calls  84369100 cyc
+      plot_ps_raster   83673 us (59%)  1444 calls  50204163 cyc
+      plot_ps_deferred 1561 us (1%)  1444 calls  937058 cyc
+      plot_ps_gate     17784 us (12%)  16756 calls  10670500 cyc
+        plot_ps_cartesian_gate 5952 us (33%)  16756 calls  3571241 cyc
+      plot_ps_tween    33875 us (24%)  16756 calls  20325087 cyc
+  msp_particle_step    33649 us (3%)  16 calls  20189445 cyc
+  msp_timeline_step    784 us (0%)  16 calls  470466 cyc
+  canvas_clear         1339 us (0%)  16 calls  803814 cyc
+  canvas_buffer_wait   829079 us (82%)  16 calls  497447527 cyc
+isr_wake       n=18589 cyc min/avg/max=250/862/6910 ns min/avg/max=416/1436/11516 total=26717 us cpu=2.64%
+isr_pack       n=2324 cyc min/avg/max=3593/3881/5294 ns min/avg/max=5988/6468/8823 total=15032 us cpu=1.49%
+isr_dma_submit n=2324 cyc min/avg/max=456/556/586 ns min/avg/max=760/926/976 total=2154 us cpu=0.21%
+f 289 w=61719 r=14582
+f 290 w=62962 r=15079
+f 291 w=63177 r=15789
+f 292 w=61999 r=15321
+f 293 w=64446 r=17302
+f 294 w=60793 r=15629
+f 295 w=65089 r=18251
+f 296 w=60456 r=16242
+f 297 w=65533 r=19254
+f 298 w=60377 r=17164
+f 299 w=65560 r=20257
+f 300 w=60304 r=18095
+f 301 w=65400 r=21030
+f 302 w=60587 r=19152
+f 303 w=65024 r=21709
+f 304 w=60617 r=19859
+=== profile MindSplatter [288x144] frames 289-304 window=1004520 us ===
+frame wall us: min=60304 avg=62752 max=65560 sum=1004043 (16 frames)
+frame render us: avg=17794 max=21709
+--- Cycle Counters ---
+frame                  1004041 us (100%)  16 calls  602425038 cyc
+  pov_preserve_half    2175 us (0%)  16 calls  1305378 cyc
+  msp_draw_particles   247803 us (24%)  16 calls  148682225 cyc
+    msp_particle_scan  247721 us (99%)  16 calls  148632889 cyc
+      plot_ps_raster   177106 us (71%)  3110 calls  106263892 cyc
+      plot_ps_deferred 3473 us (1%)  3110 calls  2083906 cyc
+      plot_ps_gate     29992 us (12%)  16380 calls  17995757 cyc
+        plot_ps_cartesian_gate 6177 us (20%)  16380 calls  3706608 cyc
+      plot_ps_tween    33320 us (13%)  16380 calls  19992388 cyc
+  msp_particle_step    32722 us (3%)  16 calls  19633334 cyc
+  msp_timeline_step    651 us (0%)  16 calls  390781 cyc
+  canvas_clear         1339 us (0%)  16 calls  803677 cyc
+  canvas_buffer_wait   719334 us (71%)  16 calls  431600601 cyc
+isr_wake       n=18521 cyc min/avg/max=250/882/7038 ns min/avg/max=416/1470/11730 total=27238 us cpu=2.71%
+isr_pack       n=2315 cyc min/avg/max=3593/3951/5474 ns min/avg/max=5988/6585/9123 total=15246 us cpu=1.51%
+isr_dma_submit n=2315 cyc min/avg/max=436/556/600 ns min/avg/max=726/926/1000 total=2147 us cpu=0.21%
+f 305 w=64289 r=21931
+f 306 w=61004 r=20468
+f 307 w=64107 r=22107
+f 308 w=61187 r=20838
+f 309 w=63520 r=21891
+f 310 w=61446 r=20871
+f 311 w=63469 r=21831
+f 312 w=64578 r=23944
+f 313 w=60154 r=21633
+f 314 w=64797 r=23965
+f 315 w=60286 r=21803
+f 316 w=65155 r=24491
+f 317 w=60051 r=22080
+f 318 w=65263 r=24876
+Preset: 3/8
+f 319 w=59569 r=21979
+f 320 w=65954 r=25466
+=== profile MindSplatter [288x144] frames 305-320 window=1005350 us ===
+frame wall us: min=59569 avg=62801 max=65954 sum=1004829 (16 frames)
+frame render us: avg=22510 max=25466
+--- Cycle Counters ---
+frame                  1004827 us (100%)  16 calls  602896379 cyc
+  pov_preserve_half    2182 us (0%)  16 calls  1309712 cyc
+  msp_draw_particles   324239 us (32%)  16 calls  194543890 cyc
+    msp_particle_scan  324159 us (99%)  16 calls  194495755 cyc
+      plot_ps_raster   245326 us (75%)  4114 calls  147196070 cyc
+      plot_ps_deferred 4553 us (1%)  4114 calls  2731813 cyc
+      plot_ps_gate     37960 us (11%)  15992 calls  22776325 cyc
+        plot_ps_cartesian_gate 6204 us (16%)  15992 calls  3722767 cyc
+      plot_ps_tween    32561 us (10%)  15992 calls  19536911 cyc
+  msp_particle_step    31668 us (3%)  16 calls  19001360 cyc
+  msp_timeline_step    681 us (0%)  16 calls  409198 cyc
+  canvas_clear         1341 us (0%)  16 calls  805105 cyc
+  canvas_buffer_wait   644663 us (64%)  16 calls  386798058 cyc
+isr_wake       n=18536 cyc min/avg/max=250/897/7082 ns min/avg/max=416/1495/11803 total=27718 us cpu=2.75%
+isr_pack       n=2317 cyc min/avg/max=3593/4002/5509 ns min/avg/max=5988/6670/9181 total=15456 us cpu=1.53%
+isr_dma_submit n=2317 cyc min/avg/max=416/557/604 ns min/avg/max=693/928/1006 total=2151 us cpu=0.21%
+f 321 w=58949 r=22197
+f 322 w=66249 r=25979
+f 323 w=58782 r=22293
+f 324 w=66632 r=26404
+f 325 w=58840 r=22778
+f 326 w=66792 r=27103
+f 327 w=60749 r=25387
+f 328 w=64289 r=27208
+f 329 w=61230 r=25973
+f 330 w=63840 r=27346
+f 331 w=61494 r=26373
+f 332 w=63681 r=27587
+f 333 w=61159 r=26280
+f 334 w=63566 r=27381
+f 335 w=60735 r=25650
+f 336 w=63858 r=27042
+=== profile MindSplatter [288x144] frames 321-336 window=1001319 us ===
+frame wall us: min=58782 avg=62552 max=66792 sum=1000845 (16 frames)
+frame render us: avg=25811 max=27587
+--- Cycle Counters ---
+frame                  1000842 us (100%)  16 calls  600505395 cyc
+  pov_preserve_half    2152 us (0%)  16 calls  1291292 cyc
+  msp_draw_particles   376814 us (37%)  16 calls  226088615 cyc
+    msp_particle_scan  376735 us (99%)  16 calls  226041078 cyc
+      plot_ps_raster   287467 us (76%)  5284 calls  172480218 cyc
+      plot_ps_deferred 6076 us (1%)  5284 calls  3645681 cyc
+      plot_ps_gate     46535 us (12%)  16052 calls  27921189 cyc
+        plot_ps_cartesian_gate 6390 us (13%)  16052 calls  3834049 cyc
+      plot_ps_tween    32663 us (8%)  16052 calls  19597944 cyc
+  msp_particle_step    31732 us (3%)  16 calls  19039421 cyc
+  msp_timeline_step    911 us (0%)  16 calls  547179 cyc
+  canvas_clear         1345 us (0%)  16 calls  807289 cyc
+  canvas_buffer_wait   587872 us (58%)  16 calls  352723540 cyc
+isr_wake       n=18462 cyc min/avg/max=250/903/7026 ns min/avg/max=416/1505/11710 total=27788 us cpu=2.77%
+isr_pack       n=2307 cyc min/avg/max=3593/4014/5505 ns min/avg/max=5988/6690/9175 total=15435 us cpu=1.54%
+isr_dma_submit n=2307 cyc min/avg/max=362/557/624 ns min/avg/max=603/928/1040 total=2144 us cpu=0.21%
+f 337 w=60784 r=25595
+f 338 w=63717 r=26803
+f 339 w=61323 r=25659
+f 340 w=63216 r=26407
+f 341 w=61267 r=25208
+f 342 w=61747 r=24489
+f 343 w=63110 r=25136
+f 344 w=60685 r=23367
+f 345 w=64460 r=25363
+f 346 w=59638 r=22534
+f 347 w=64925 r=25004
+f 348 w=59778 r=22315
+f 349 w=65058 r=24907
+f 350 w=59797 r=22236
+f 351 w=65279 r=24995
+f 352 w=59157 r=21687
+=== profile MindSplatter [288x144] frames 337-352 window=994467 us ===
+frame wall us: min=59157 avg=62121 max=65279 sum=993941 (16 frames)
+frame render us: avg=24481 max=26803
+--- Cycle Counters ---
+frame                  993940 us (100%)  16 calls  596364338 cyc
+  pov_preserve_half    2139 us (0%)  16 calls  1283684 cyc
+  msp_draw_particles   355313 us (35%)  16 calls  213188300 cyc
+    msp_particle_scan  355224 us (99%)  16 calls  213134400 cyc
+      plot_ps_raster   265985 us (74%)  5076 calls  159591313 cyc
+      plot_ps_deferred 5906 us (1%)  5076 calls  3544018 cyc
+      plot_ps_gate     46675 us (13%)  16100 calls  28005349 cyc
+        plot_ps_cartesian_gate 6434 us (13%)  16100 calls  3860829 cyc
+      plot_ps_tween    32721 us (9%)  16100 calls  19633051 cyc
+  msp_particle_step    31856 us (3%)  16 calls  19113803 cyc
+  msp_timeline_step    1033 us (0%)  16 calls  619986 cyc
+  canvas_clear         1341 us (0%)  16 calls  804656 cyc
+  canvas_buffer_wait   602242 us (60%)  16 calls  361345569 cyc
+isr_wake       n=18336 cyc min/avg/max=251/901/7010 ns min/avg/max=418/1501/11683 total=27553 us cpu=2.77%
+isr_pack       n=2292 cyc min/avg/max=3593/4012/5486 ns min/avg/max=5988/6686/9143 total=15327 us cpu=1.54%
+isr_dma_submit n=2292 cyc min/avg/max=437/557/604 ns min/avg/max=728/928/1006 total=2129 us cpu=0.21%
+f 353 w=65617 r=25098
+f 354 w=58870 r=21501
+f 355 w=66168 r=25205
+f 356 w=58396 r=21135
+f 357 w=66326 r=24995
+f 358 w=58310 r=20840
+f 359 w=66673 r=25047
+f 360 w=58196 r=20771
+f 361 w=66216 r=24519
+f 362 w=58533 r=20586
+f 363 w=66842 r=24961
+f 364 w=57975 r=20468
+f 365 w=67107 r=25055
+f 366 w=60709 r=23297
+f 367 w=64411 r=25244
+f 368 w=60854 r=23632
+=== profile MindSplatter [288x144] frames 353-368 window=1001676 us ===
+frame wall us: min=57975 avg=62575 max=67107 sum=1001203 (16 frames)
+frame render us: avg=23272 max=25244
+--- Cycle Counters ---
+frame                  1001202 us (100%)  16 calls  600721675 cyc
+  pov_preserve_half    2155 us (0%)  16 calls  1293413 cyc
+  msp_draw_particles   335748 us (33%)  16 calls  201449216 cyc
+    msp_particle_scan  335637 us (99%)  16 calls  201382586 cyc
+      plot_ps_raster   249282 us (74%)  4820 calls  149569688 cyc
+      plot_ps_deferred 5686 us (1%)  4820 calls  3411803 cyc
+      plot_ps_gate     43696 us (13%)  16160 calls  26217644 cyc
+        plot_ps_cartesian_gate 6422 us (14%)  16160 calls  3853594 cyc
+      plot_ps_tween    33013 us (9%)  16160 calls  19808050 cyc
+  msp_particle_step    32150 us (3%)  16 calls  19290320 cyc
+  msp_timeline_step    937 us (0%)  16 calls  562564 cyc
+  canvas_clear         1339 us (0%)  16 calls  803611 cyc
+  canvas_buffer_wait   628856 us (62%)  16 calls  377313912 cyc
+isr_wake       n=18468 cyc min/avg/max=250/898/7034 ns min/avg/max=416/1496/11723 total=27652 us cpu=2.76%
+isr_pack       n=2308 cyc min/avg/max=3593/4007/5458 ns min/avg/max=5988/6678/9096 total=15414 us cpu=1.53%
+isr_dma_submit n=2308 cyc min/avg/max=490/558/690 ns min/avg/max=816/930/1150 total=2147 us cpu=0.21%
+f 369 w=63726 r=25138
+f 370 w=60805 r=23488
+f 371 w=64056 r=25078
+f 372 w=61007 r=23618
+f 373 w=61735 r=22886
+f 374 w=63064 r=23484
+f 375 w=65970 r=26986
+f 376 w=58962 r=23495
+f 377 w=65635 r=26664
+f 378 w=59651 r=23794
+f 379 w=65099 r=26426
+f 380 w=58998 r=22957
+f 381 w=65749 r=26240
+f 382 w=56801 r=20575
+f 383 w=68157 r=26265
+f 384 w=56640 r=20438
+=== profile MindSplatter [288x144] frames 369-384 window=996551 us ===
+frame wall us: min=56640 avg=62253 max=68157 sum=996055 (16 frames)
+frame render us: avg=24220 max=26986
+--- Cycle Counters ---
+frame                  996053 us (100%)  16 calls  597632005 cyc
+  pov_preserve_half    2161 us (0%)  16 calls  1296949 cyc
+  msp_draw_particles   351634 us (35%)  16 calls  210980440 cyc
+    msp_particle_scan  351550 us (99%)  16 calls  210930560 cyc
+      plot_ps_raster   262486 us (74%)  5102 calls  157491950 cyc
+      plot_ps_deferred 6337 us (1%)  5102 calls  3802407 cyc
+      plot_ps_gate     46806 us (13%)  15776 calls  28083886 cyc
+        plot_ps_cartesian_gate 6363 us (13%)  15776 calls  3818139 cyc
+      plot_ps_tween    32014 us (9%)  15776 calls  19208955 cyc
+  msp_particle_step    31710 us (3%)  16 calls  19026151 cyc
+  msp_timeline_step    658 us (0%)  16 calls  394948 cyc
+  canvas_clear         1341 us (0%)  16 calls  804768 cyc
+  canvas_buffer_wait   608532 us (61%)  16 calls  365119584 cyc
+isr_wake       n=18375 cyc min/avg/max=250/902/7078 ns min/avg/max=416/1503/11796 total=27636 us cpu=2.77%
+isr_pack       n=2297 cyc min/avg/max=3593/4023/5498 ns min/avg/max=5988/6705/9163 total=15404 us cpu=1.54%
+isr_dma_submit n=2297 cyc min/avg/max=452/558/604 ns min/avg/max=753/930/1006 total=2138 us cpu=0.21%
+f 385 w=67841 r=26056
+f 386 w=56826 r=20415
+f 387 w=67484 r=25432
+f 388 w=56870 r=19837
+f 389 w=67648 r=25020
+f 390 w=57131 r=19684
+f 391 w=67862 r=25079
+f 392 w=57004 r=19562
+f 393 w=67376 r=24474
+f 394 w=57448 r=19455
+f 395 w=67630 r=24621
+f 396 w=57304 r=19457
+f 397 w=67471 r=24463
+f 398 w=57140 r=19135
+f 399 w=67589 r=24260
+f 400 w=57328 r=19121
+=== profile MindSplatter [288x144] frames 385-400 window=998431 us ===
+frame wall us: min=56826 avg=62372 max=67862 sum=997952 (16 frames)
+frame render us: avg=22254 max=26056
+--- Cycle Counters ---
+frame                  997951 us (100%)  16 calls  598771182 cyc
+  pov_preserve_half    2149 us (0%)  16 calls  1289761 cyc
+  msp_draw_particles   320456 us (32%)  16 calls  192273853 cyc
+    msp_particle_scan  320377 us (99%)  16 calls  192226291 cyc
+      plot_ps_raster   239062 us (74%)  4551 calls  143437737 cyc
+      plot_ps_deferred 5525 us (1%)  4551 calls  3315485 cyc
+      plot_ps_gate     40418 us (12%)  15548 calls  24250997 cyc
+        plot_ps_cartesian_gate 6190 us (15%)  15548 calls  3714267 cyc
+      plot_ps_tween    31599 us (9%)  15548 calls  18959428 cyc
+  msp_particle_step    31563 us (3%)  16 calls  18938345 cyc
+  msp_timeline_step    538 us (0%)  16 calls  322995 cyc
+  canvas_clear         1339 us (0%)  16 calls  803713 cyc
+  canvas_buffer_wait   641887 us (64%)  16 calls  385132218 cyc
+isr_wake       n=18408 cyc min/avg/max=250/895/7078 ns min/avg/max=416/1491/11796 total=27489 us cpu=2.75%
+isr_pack       n=2301 cyc min/avg/max=3594/4005/5475 ns min/avg/max=5990/6675/9125 total=15361 us cpu=1.53%
+isr_dma_submit n=2301 cyc min/avg/max=408/558/608 ns min/avg/max=680/930/1013 total=2140 us cpu=0.21%
+f 401 w=67156 r=24046
+f 402 w=57069 r=18648
+f 403 w=67852 r=24045
+f 404 w=57395 r=18972
+f 405 w=67512 r=24021
+f 406 w=57247 r=18750
+f 407 w=67879 r=24162
+f 408 w=57386 r=19082
+f 409 w=67778 r=24405
+f 410 w=57063 r=19000
+f 411 w=67641 r=24174
+f 412 w=57542 r=19250
+f 413 w=67160 r=23943
+f 414 w=57939 r=19415
+f 415 w=66804 r=23752
+f 416 w=58155 r=19441
+=== profile MindSplatter [288x144] frames 401-416 window=1000075 us ===
+frame wall us: min=57063 avg=62473 max=67879 sum=999578 (16 frames)
+frame render us: avg=21569 max=24405
+--- Cycle Counters ---
+frame                  999575 us (100%)  16 calls  599745323 cyc
+  pov_preserve_half    2139 us (0%)  16 calls  1283420 cyc
+  msp_draw_particles   309361 us (30%)  16 calls  185616747 cyc
+    msp_particle_scan  309280 us (99%)  16 calls  185568506 cyc
+      plot_ps_raster   229251 us (74%)  4437 calls  137551121 cyc
+      plot_ps_deferred 5529 us (1%)  4437 calls  3317990 cyc
+      plot_ps_gate     39371 us (12%)  15496 calls  23622913 cyc
+        plot_ps_cartesian_gate 6160 us (15%)  15496 calls  3696332 cyc
+      plot_ps_tween    31392 us (10%)  15496 calls  18835756 cyc
+  msp_particle_step    31634 us (3%)  16 calls  18980484 cyc
+  msp_timeline_step    603 us (0%)  16 calls  361809 cyc
+  canvas_clear         1343 us (0%)  16 calls  805965 cyc
+  canvas_buffer_wait   654479 us (65%)  16 calls  392687554 cyc
+isr_wake       n=18439 cyc min/avg/max=250/893/6986 ns min/avg/max=416/1488/11643 total=27458 us cpu=2.74%
+isr_pack       n=2305 cyc min/avg/max=3593/3993/5452 ns min/avg/max=5988/6655/9086 total=15340 us cpu=1.53%
+isr_dma_submit n=2305 cyc min/avg/max=430/557/605 ns min/avg/max=716/928/1008 total=2142 us cpu=0.21%
+f 417 w=66293 r=23513
+f 418 w=58280 r=19327
+f 419 w=66417 r=23222
+f 420 w=58551 r=19307
+f 421 w=66352 r=23192
+f 422 w=58648 r=19374
+f 423 w=66182 r=23089
+f 424 w=58807 r=19431
+f 425 w=65957 r=22921
+f 426 w=58970 r=19426
+f 427 w=66105 r=23064
+f 428 w=59577 r=20175
+f 429 w=65477 r=23185
+f 430 w=62903 r=23621
+f 431 w=62253 r=23408
+f 432 w=63010 r=23961
+=== profile MindSplatter [288x144] frames 417-432 window=1004265 us ===
+frame wall us: min=58280 avg=62736 max=66417 sum=1003782 (16 frames)
+frame render us: avg=21888 max=23961
+--- Cycle Counters ---
+frame                  1003781 us (100%)  16 calls  602268664 cyc
+  pov_preserve_half    2140 us (0%)  16 calls  1284043 cyc
+  msp_draw_particles   315183 us (31%)  16 calls  189109989 cyc
+    msp_particle_scan  315102 us (99%)  16 calls  189061361 cyc
+      plot_ps_raster   233432 us (74%)  4643 calls  140059503 cyc
+      plot_ps_deferred 6039 us (1%)  4643 calls  3623542 cyc
+      plot_ps_gate     41296 us (13%)  15143 calls  24777636 cyc
+        plot_ps_cartesian_gate 6077 us (14%)  15143 calls  3646246 cyc
+      plot_ps_tween    30611 us (9%)  15143 calls  18366633 cyc
+  msp_particle_step    30902 us (3%)  16 calls  18541314 cyc
+  msp_timeline_step    620 us (0%)  16 calls  372579 cyc
+  canvas_clear         1343 us (0%)  16 calls  806316 cyc
+  canvas_buffer_wait   653575 us (65%)  16 calls  392145160 cyc
+isr_wake       n=18516 cyc min/avg/max=250/893/6982 ns min/avg/max=416/1488/11636 total=27571 us cpu=2.74%
+isr_pack       n=2314 cyc min/avg/max=3593/3992/5402 ns min/avg/max=5988/6653/9003 total=15396 us cpu=1.53%
+isr_dma_submit n=2314 cyc min/avg/max=418/557/604 ns min/avg/max=696/928/1006 total=2150 us cpu=0.21%
+f 433 w=61855 r=23528
+f 434 w=62569 r=23632
+f 435 w=62171 r=23338
+f 436 w=62429 r=23300
+f 437 w=59788 r=20622
+f 438 w=65093 r=23248
+f 439 w=59514 r=20295
+f 440 w=65282 r=23110
+f 441 w=59825 r=20468
+f 442 w=64854 r=22856
+f 443 w=60239 r=20628
+f 444 w=64776 r=22936
+f 445 w=60372 r=20843
+f 446 w=64301 r=22622
+f 447 w=60883 r=21038
+f 448 w=63885 r=22458
+=== profile MindSplatter [288x144] frames 433-448 window=998309 us ===
+frame wall us: min=59514 avg=62364 max=65282 sum=997836 (16 frames)
+frame render us: avg=22182 max=23632
+--- Cycle Counters ---
+frame                  997834 us (100%)  16 calls  598700691 cyc
+  pov_preserve_half    2160 us (0%)  16 calls  1296005 cyc
+  msp_draw_particles   319479 us (32%)  16 calls  191687803 cyc
+    msp_particle_scan  319400 us (99%)  16 calls  191640170 cyc
+      plot_ps_raster   235453 us (73%)  4803 calls  141272299 cyc
+      plot_ps_deferred 6393 us (2%)  4803 calls  3835810 cyc
+      plot_ps_gate     42772 us (13%)  15344 calls  25663225 cyc
+        plot_ps_cartesian_gate 6164 us (14%)  15344 calls  3698864 cyc
+      plot_ps_tween    31037 us (9%)  15344 calls  18622365 cyc
+  msp_particle_step    31326 us (3%)  16 calls  18795733 cyc
+  msp_timeline_step    587 us (0%)  16 calls  352401 cyc
+  canvas_clear         1341 us (0%)  16 calls  805017 cyc
+  canvas_buffer_wait   642924 us (64%)  16 calls  385754564 cyc
+isr_wake       n=18407 cyc min/avg/max=250/892/6962 ns min/avg/max=416/1486/11603 total=27392 us cpu=2.74%
+isr_pack       n=2301 cyc min/avg/max=3593/3987/5446 ns min/avg/max=5988/6645/9076 total=15290 us cpu=1.53%
+isr_dma_submit n=2301 cyc min/avg/max=364/557/604 ns min/avg/max=606/928/1006 total=2139 us cpu=0.21%
+f 449 w=60911 r=21159
+f 450 w=63858 r=22549
+f 451 w=61332 r=21418
+f 452 w=63842 r=22796
+f 453 w=61281 r=21610
+f 454 w=63404 r=22548
+f 455 w=61729 r=21820
+f 456 w=63251 r=22603
+f 457 w=61461 r=21598
+f 458 w=63423 r=22554
+f 459 w=61055 r=21155
+f 460 w=63942 r=22575
+f 461 w=61535 r=21644
+f 462 w=63790 r=22967
+f 463 w=61106 r=21619
+f 464 w=63464 r=22617
+=== profile MindSplatter [288x144] frames 449-464 window=999892 us ===
+frame wall us: min=60911 avg=62461 max=63942 sum=999384 (16 frames)
+frame render us: avg=22077 max=22967
+--- Cycle Counters ---
+frame                  999385 us (100%)  16 calls  599631046 cyc
+  pov_preserve_half    2170 us (0%)  16 calls  1302259 cyc
+  msp_draw_particles   316813 us (31%)  16 calls  190088092 cyc
+    msp_particle_scan  316712 us (99%)  16 calls  190027349 cyc
+      plot_ps_raster   232884 us (73%)  4773 calls  139730490 cyc
+      plot_ps_deferred 6275 us (1%)  4773 calls  3765404 cyc
+      plot_ps_gate     41660 us (13%)  15765 calls  24996311 cyc
+        plot_ps_cartesian_gate 6320 us (15%)  15765 calls  3792291 cyc
+      plot_ps_tween    32009 us (10%)  15765 calls  19205788 cyc
+  msp_particle_step    32280 us (3%)  16 calls  19368176 cyc
+  msp_timeline_step    601 us (0%)  16 calls  360948 cyc
+  canvas_clear         1344 us (0%)  16 calls  806622 cyc
+  canvas_buffer_wait   646159 us (64%)  16 calls  387695753 cyc
+isr_wake       n=18436 cyc min/avg/max=250/891/9738 ns min/avg/max=416/1485/16230 total=27403 us cpu=2.74%
+isr_pack       n=2304 cyc min/avg/max=3593/3986/5463 ns min/avg/max=5988/6643/9105 total=15308 us cpu=1.53%
+isr_dma_submit n=2304 cyc min/avg/max=423/557/586 ns min/avg/max=705/928/976 total=2141 us cpu=0.21%
+f 465 w=60805 r=21204
+f 466 w=63814 r=22550
+f 467 w=60475 r=20563
+f 468 w=64556 r=22651
+f 469 w=60152 r=20339
+f 470 w=64803 r=22675
+f 471 w=59987 r=20195
+f 472 w=64930 r=22657
+f 473 w=59927 r=20063
+f 474 w=65385 r=22981
+f 475 w=59124 r=19651
+f 476 w=65769 r=22953
+f 477 w=58788 r=19275
+Preset: 4/8
+f 478 w=66132 r=22940
+f 479 w=58920 r=19394
+f 480 w=66064 r=22991
+=== profile MindSplatter [288x144] frames 465-480 window=1000127 us ===
+frame wall us: min=58788 avg=62476 max=66132 sum=999631 (16 frames)
+frame render us: avg=21442 max=22991
+--- Cycle Counters ---
+frame                  999629 us (100%)  16 calls  599777932 cyc
+  pov_preserve_half    2188 us (0%)  16 calls  1312900 cyc
+  msp_draw_particles   307132 us (30%)  16 calls  184279474 cyc
+    msp_particle_scan  307050 us (99%)  16 calls  184230200 cyc
+      plot_ps_raster   225592 us (73%)  4633 calls  135355237 cyc
+      plot_ps_deferred 5881 us (1%)  4633 calls  3529023 cyc
+      plot_ps_gate     40116 us (13%)  15518 calls  24069848 cyc
+        plot_ps_cartesian_gate 6140 us (15%)  15518 calls  3684112 cyc
+      plot_ps_tween    31677 us (10%)  15518 calls  19006768 cyc
+  msp_particle_step    31715 us (3%)  16 calls  19029287 cyc
+  msp_timeline_step    648 us (0%)  16 calls  389245 cyc
+  canvas_clear         1339 us (0%)  16 calls  803799 cyc
+  canvas_buffer_wait   656555 us (65%)  16 calls  393933595 cyc
+isr_wake       n=18440 cyc min/avg/max=250/890/7058 ns min/avg/max=416/1483/11763 total=27375 us cpu=2.73%
+isr_pack       n=2305 cyc min/avg/max=3593/3987/5466 ns min/avg/max=5988/6645/9110 total=15317 us cpu=1.53%
+isr_dma_submit n=2305 cyc min/avg/max=394/557/684 ns min/avg/max=656/928/1140 total=2141 us cpu=0.21%
+f 481 w=58047 r=18816
+f 482 w=66748 r=23098
+f 483 w=58337 r=18970
+f 484 w=66616 r=23120
+f 485 w=58601 r=19255
+f 486 w=66010 r=22797
+f 487 w=59228 r=19504
+f 488 w=65701 r=22750
+f 489 w=59578 r=19863
+f 490 w=65244 r=22639
+f 491 w=59872 r=20046
+f 492 w=64920 r=22500
+f 493 w=60207 r=20243
+f 494 w=64709 r=22485
+f 495 w=61191 r=21209
+f 496 w=63603 r=22344
+=== profile MindSplatter [288x144] frames 481-496 window=999099 us ===
+frame wall us: min=58047 avg=62413 max=66748 sum=998612 (16 frames)
+frame render us: avg=21227 max=23120
+--- Cycle Counters ---
+frame                  998608 us (100%)  16 calls  599165148 cyc
+  pov_preserve_half    2166 us (0%)  16 calls  1299819 cyc
+  msp_draw_particles   303934 us (30%)  16 calls  182360433 cyc
+    msp_particle_scan  303853 us (99%)  16 calls  182311805 cyc
+      plot_ps_raster   222571 us (73%)  4521 calls  133543095 cyc
+      plot_ps_deferred 5876 us (1%)  4521 calls  3526142 cyc
+      plot_ps_gate     40286 us (13%)  15457 calls  24171630 cyc
+        plot_ps_cartesian_gate 6144 us (15%)  15457 calls  3686861 cyc
+      plot_ps_tween    31360 us (10%)  15457 calls  18816009 cyc
+  msp_particle_step    31437 us (3%)  16 calls  18862453 cyc
+  msp_timeline_step    730 us (0%)  16 calls  438158 cyc
+  canvas_clear         1342 us (0%)  16 calls  805784 cyc
+  canvas_buffer_wait   658983 us (65%)  16 calls  395389888 cyc
+isr_wake       n=18420 cyc min/avg/max=250/889/6978 ns min/avg/max=416/1481/11630 total=27315 us cpu=2.73%
+isr_pack       n=2302 cyc min/avg/max=3593/3982/5422 ns min/avg/max=5988/6636/9036 total=15278 us cpu=1.52%
+isr_dma_submit n=2302 cyc min/avg/max=369/557/606 ns min/avg/max=615/928/1010 total=2139 us cpu=0.21%
+f 497 w=63025 r=23154
+f 498 w=61543 r=22231
+f 499 w=63573 r=23338
+f 500 w=62163 r=23034
+f 501 w=66520 r=27044
+f 502 w=64004 r=28582
+f 503 w=64386 r=30502
+f 504 w=61555 r=29589
+f 505 w=63553 r=30677
+f 506 w=59892 r=28103
+f 507 w=64202 r=29838
+f 508 w=61040 r=28411
+f 509 w=63385 r=29330
+f 510 w=61409 r=28273
+f 511 w=60088 r=25895
+f 512 w=64656 r=28086
+=== profile MindSplatter [288x144] frames 497-512 window=1005493 us ===
+frame wall us: min=59892 avg=62812 max=66520 sum=1004994 (16 frames)
+frame render us: avg=27255 max=30677
+--- Cycle Counters ---
+frame                  1004991 us (100%)  16 calls  602994823 cyc
+  pov_preserve_half    2143 us (0%)  16 calls  1285812 cyc
+  msp_draw_particles   393694 us (39%)  16 calls  236216433 cyc
+    msp_particle_scan  393613 us (99%)  16 calls  236168290 cyc
+      plot_ps_raster   291648 us (74%)  5827 calls  174989319 cyc
+      plot_ps_deferred 13569 us (3%)  5827 calls  8141574 cyc
+      plot_ps_gate     53040 us (13%)  15340 calls  31824207 cyc
+        plot_ps_cartesian_gate 6278 us (11%)  15340 calls  3767067 cyc
+      plot_ps_tween    31498 us (8%)  15340 calls  18899305 cyc
+  msp_particle_step    38058 us (3%)  16 calls  22835179 cyc
+  msp_timeline_step    783 us (0%)  16 calls  469935 cyc
+  canvas_clear         1340 us (0%)  16 calls  804223 cyc
+  canvas_buffer_wait   568913 us (56%)  16 calls  341348285 cyc
+isr_wake       n=18540 cyc min/avg/max=250/903/9242 ns min/avg/max=416/1505/15403 total=27930 us cpu=2.77%
+isr_pack       n=2318 cyc min/avg/max=3593/4011/5448 ns min/avg/max=5988/6685/9080 total=15498 us cpu=1.54%
+isr_dma_submit n=2318 cyc min/avg/max=411/558/702 ns min/avg/max=685/930/1170 total=2158 us cpu=0.21%
+f 513 w=59911 r=25777
+f 514 w=64686 r=27941
+f 515 w=60299 r=25773
+f 516 w=64603 r=27910
+f 517 w=60720 r=26165
+f 518 w=64009 r=27708
+f 519 w=60528 r=25769
+f 520 w=64794 r=28095
+f 521 w=61070 r=26698
+f 522 w=63579 r=27811
+f 523 w=62889 r=28232
+f 524 w=62640 r=28407
+f 525 w=63119 r=29061
+f 526 w=62065 r=28665
+f 527 w=62974 r=29174
+f 528 w=61965 r=28620
+=== profile MindSplatter [288x144] frames 513-528 window=1000343 us ===
+frame wall us: min=59911 avg=62490 max=64794 sum=999851 (16 frames)
+frame render us: avg=27612 max=29174
+--- Cycle Counters ---
+frame                  999849 us (100%)  16 calls  599909648 cyc
+  pov_preserve_half    2175 us (0%)  16 calls  1305261 cyc
+  msp_draw_particles   399079 us (39%)  16 calls  239447760 cyc
+    msp_particle_scan  398999 us (99%)  16 calls  239399512 cyc
+      plot_ps_raster   309777 us (77%)  4760 calls  185866475 cyc
+      plot_ps_deferred 12968 us (3%)  4760 calls  7780991 cyc
+      plot_ps_gate     43179 us (10%)  14314 calls  25907413 cyc
+        plot_ps_cartesian_gate 5898 us (13%)  14314 calls  3539253 cyc
+      plot_ps_tween    29503 us (7%)  14314 calls  17702046 cyc
+  msp_particle_step    38373 us (3%)  16 calls  23024234 cyc
+  msp_timeline_step    810 us (0%)  16 calls  486133 cyc
+  canvas_clear         1344 us (0%)  16 calls  806617 cyc
+  canvas_buffer_wait   558052 us (55%)  16 calls  334831208 cyc
+isr_wake       n=18443 cyc min/avg/max=251/911/7648 ns min/avg/max=418/1518/12746 total=28007 us cpu=2.79%
+isr_pack       n=2305 cyc min/avg/max=3593/4043/5553 ns min/avg/max=5988/6738/9255 total=15533 us cpu=1.55%
+isr_dma_submit n=2305 cyc min/avg/max=389/557/606 ns min/avg/max=648/928/1010 total=2143 us cpu=0.21%
+f 529 w=63075 r=29472
+f 530 w=61332 r=28336
+f 531 w=63052 r=28922
+f 532 w=61567 r=28022
+f 533 w=63653 r=29208
+f 534 w=61450 r=28192
+f 535 w=63679 r=29416
+f 536 w=61222 r=28170
+f 537 w=63230 r=28934
+f 538 w=61198 r=27666
+f 539 w=63199 r=28398
+f 540 w=61043 r=26976
+f 541 w=63451 r=27905
+f 542 w=61356 r=26795
+f 543 w=63668 r=27997
+f 544 w=60650 r=26179
+=== profile MindSplatter [288x144] frames 529-544 window=997307 us ===
+frame wall us: min=60650 avg=62301 max=63679 sum=996825 (16 frames)
+frame render us: avg=28161 max=29472
+--- Cycle Counters ---
+frame                  996822 us (100%)  16 calls  598093303 cyc
+  pov_preserve_half    2182 us (0%)  16 calls  1309741 cyc
+  msp_draw_particles   408925 us (41%)  16 calls  245355186 cyc
+    msp_particle_scan  408844 us (99%)  16 calls  245306901 cyc
+      plot_ps_raster   321197 us (78%)  4731 calls  192718270 cyc
+      plot_ps_deferred 12939 us (3%)  4731 calls  7763871 cyc
+      plot_ps_gate     42571 us (10%)  13953 calls  25543129 cyc
+        plot_ps_cartesian_gate 5708 us (13%)  13953 calls  3424982 cyc
+      plot_ps_tween    28689 us (7%)  13953 calls  17213516 cyc
+  msp_particle_step    37454 us (3%)  16 calls  22472418 cyc
+  msp_timeline_step    650 us (0%)  16 calls  390223 cyc
+  canvas_clear         1346 us (0%)  16 calls  807935 cyc
+  canvas_buffer_wait   546247 us (54%)  16 calls  327748526 cyc
+isr_wake       n=18388 cyc min/avg/max=251/915/7178 ns min/avg/max=418/1525/11963 total=28046 us cpu=2.81%
+isr_pack       n=2298 cyc min/avg/max=3593/4075/5577 ns min/avg/max=5988/6791/9295 total=15609 us cpu=1.56%
+isr_dma_submit n=2298 cyc min/avg/max=381/558/605 ns min/avg/max=635/930/1008 total=2140 us cpu=0.21%
+f 545 w=63422 r=27372
+f 546 w=59450 r=24355
+f 547 w=64187 r=26075
+f 548 w=60210 r=23818
+f 549 w=64615 r=25966
+f 550 w=59563 r=23064
+f 551 w=64250 r=24847
+f 552 w=59649 r=22029
+f 553 w=64977 r=24539
+f 554 w=60092 r=22167
+f 555 w=64518 r=24173
+f 556 w=59692 r=21400
+f 557 w=64697 r=23632
+f 558 w=59997 r=21162
+f 559 w=64953 r=23647
+f 560 w=59453 r=20634
+=== profile MindSplatter [288x144] frames 545-560 window=994209 us ===
+frame wall us: min=59450 avg=62107 max=64977 sum=993725 (16 frames)
+frame render us: avg=23680 max=27372
+--- Cycle Counters ---
+frame                  993724 us (100%)  16 calls  596234677 cyc
+  pov_preserve_half    2171 us (0%)  16 calls  1302816 cyc
+  msp_draw_particles   340749 us (34%)  16 calls  204449470 cyc
+    msp_particle_scan  340669 us (99%)  16 calls  204401766 cyc
+      plot_ps_raster   261859 us (76%)  4208 calls  157115658 cyc
+      plot_ps_deferred 11509 us (3%)  4208 calls  6905820 cyc
+      plot_ps_gate     38358 us (11%)  12613 calls  23014996 cyc
+        plot_ps_cartesian_gate 5108 us (13%)  12613 calls  3065172 cyc
+      plot_ps_tween    25795 us (7%)  12613 calls  15477333 cyc
+  msp_particle_step    33965 us (3%)  16 calls  20379398 cyc
+  msp_timeline_step    629 us (0%)  16 calls  377904 cyc
+  canvas_clear         1342 us (0%)  16 calls  805403 cyc
+  canvas_buffer_wait   614850 us (61%)  16 calls  368910385 cyc
+isr_wake       n=18331 cyc min/avg/max=250/901/8834 ns min/avg/max=416/1501/14723 total=27555 us cpu=2.77%
+isr_pack       n=2292 cyc min/avg/max=3593/4027/5498 ns min/avg/max=5988/6711/9163 total=15383 us cpu=1.54%
+isr_dma_submit n=2292 cyc min/avg/max=461/558/605 ns min/avg/max=768/930/1008 total=2133 us cpu=0.21%
+f 561 w=64321 r=22734
+f 562 w=59836 r=20104
+f 563 w=64882 r=22520
+f 564 w=59270 r=19323
+f 565 w=64964 r=21820
+f 566 w=61057 r=20410
+f 567 w=63529 r=21472
+f 568 w=61408 r=20360
+f 569 w=63328 r=21233
+f 570 w=61552 r=20329
+f 571 w=62441 r=20323
+f 572 w=61942 r=19799
+f 573 w=61602 r=18934
+f 574 w=63100 r=19567
+f 575 w=61602 r=18703
+f 576 w=62485 r=18721
+=== profile MindSplatter [288x144] frames 561-576 window=997832 us ===
+frame wall us: min=59270 avg=62332 max=64964 sum=997319 (16 frames)
+frame render us: avg=20397 max=22734
+--- Cycle Counters ---
+frame                  997316 us (100%)  16 calls  598390133 cyc
+  pov_preserve_half    2152 us (0%)  16 calls  1291248 cyc
+  msp_draw_particles   291355 us (29%)  16 calls  174813088 cyc
+    msp_particle_scan  291274 us (99%)  16 calls  174764439 cyc
+      plot_ps_raster   217324 us (74%)  3977 calls  130394804 cyc
+      plot_ps_deferred 10781 us (3%)  3977 calls  6468650 cyc
+      plot_ps_gate     36874 us (12%)  11541 calls  22124783 cyc
+        plot_ps_cartesian_gate 4643 us (12%)  11541 calls  2786322 cyc
+      plot_ps_tween    23420 us (8%)  11541 calls  14052545 cyc
+  msp_particle_step    30950 us (3%)  16 calls  18570561 cyc
+  msp_timeline_step    525 us (0%)  16 calls  315115 cyc
+  canvas_clear         1343 us (0%)  16 calls  806151 cyc
+  canvas_buffer_wait   670974 us (67%)  16 calls  402584788 cyc
+isr_wake       n=18398 cyc min/avg/max=250/889/6986 ns min/avg/max=416/1481/11643 total=27263 us cpu=2.73%
+isr_pack       n=2299 cyc min/avg/max=3593/3973/5396 ns min/avg/max=5988/6621/8993 total=15225 us cpu=1.52%
+isr_dma_submit n=2299 cyc min/avg/max=428/557/620 ns min/avg/max=713/928/1033 total=2135 us cpu=0.21%
+f 577 w=60014 r=16505
+f 578 w=63631 r=17669
+f 579 w=60848 r=16044
+f 580 w=63567 r=17156
+f 581 w=61637 r=16327
+f 582 w=62708 r=16513
+f 583 w=62068 r=16115
+f 584 w=62336 r=15984
+f 585 w=62906 r=16426
+f 586 w=61647 r=15608
+f 587 w=63562 r=16724
+f 588 w=61081 r=15337
+f 589 w=63957 r=16831
+f 590 w=60982 r=15346
+f 591 w=64369 r=17247
+f 592 w=60499 r=15280
+=== profile MindSplatter [288x144] frames 577-592 window=996314 us ===
+frame wall us: min=60014 avg=62238 max=64369 sum=995812 (16 frames)
+frame render us: avg=16319 max=17669
+--- Cycle Counters ---
+frame                  995810 us (100%)  16 calls  597486137 cyc
+  pov_preserve_half    2136 us (0%)  16 calls  1281996 cyc
+  msp_draw_particles   227286 us (22%)  16 calls  136371701 cyc
+    msp_particle_scan  227206 us (99%)  16 calls  136323619 cyc
+      plot_ps_raster   164781 us (72%)  3194 calls  98868898 cyc
+      plot_ps_deferred 8638 us (3%)  3194 calls  5182801 cyc
+      plot_ps_gate     28569 us (12%)  11097 calls  17141576 cyc
+        plot_ps_cartesian_gate 4358 us (15%)  11097 calls  2615393 cyc
+      plot_ps_tween    22479 us (9%)  11097 calls  13487986 cyc
+  msp_particle_step    29774 us (2%)  16 calls  17864912 cyc
+  msp_timeline_step    543 us (0%)  16 calls  326279 cyc
+  canvas_clear         1342 us (0%)  16 calls  805686 cyc
+  canvas_buffer_wait   734710 us (73%)  16 calls  440826328 cyc
+isr_wake       n=18369 cyc min/avg/max=250/880/6987 ns min/avg/max=416/1466/11645 total=26947 us cpu=2.70%
+isr_pack       n=2296 cyc min/avg/max=3593/3948/5380 ns min/avg/max=5988/6580/8966 total=15108 us cpu=1.51%
+isr_dma_submit n=2296 cyc min/avg/max=391/557/586 ns min/avg/max=651/928/976 total=2131 us cpu=0.21%
+f 593 w=65340 r=18388
+f 594 w=58893 r=14815
+f 595 w=68093 r=20386
+f 596 w=56315 r=14244
+f 597 w=69228 r=21007
+f 598 w=53403 r=11943
+f 599 w=71798 r=21274
+f 600 w=52826 r=11633
+f 601 w=72263 r=21444
+f 602 w=52865 r=11854
+f 603 w=73469 r=22858
+f 604 w=51218 r=11610
+f 605 w=73242 r=22385
+f 606 w=51507 r=11425
+f 607 w=75018 r=23976
+f 608 w=49900 r=11409
+=== profile MindSplatter [288x144] frames 593-608 window=995884 us ===
+frame wall us: min=49900 avg=62211 max=75018 sum=995378 (16 frames)
+frame render us: avg=16915 max=23976
+--- Cycle Counters ---
+frame                  995376 us (100%)  16 calls  597225767 cyc
+  pov_preserve_half    2157 us (0%)  16 calls  1294203 cyc
+  msp_draw_particles   239350 us (24%)  16 calls  143610356 cyc
+    msp_particle_scan  239271 us (99%)  16 calls  143562771 cyc
+      plot_ps_raster   172009 us (71%)  4023 calls  103205494 cyc
+      plot_ps_deferred 11039 us (4%)  4023 calls  6623759 cyc
+      plot_ps_gate     33369 us (13%)  10129 calls  20021632 cyc
+        plot_ps_cartesian_gate 4190 us (12%)  10129 calls  2514387 cyc
+      plot_ps_tween    20278 us (8%)  10129 calls  12166944 cyc
+  msp_particle_step    27221 us (2%)  16 calls  16332830 cyc
+  msp_timeline_step    557 us (0%)  16 calls  334320 cyc
+  canvas_clear         1342 us (0%)  16 calls  805480 cyc
+  canvas_buffer_wait   724732 us (72%)  16 calls  434839369 cyc
+isr_wake       n=18362 cyc min/avg/max=250/882/6926 ns min/avg/max=416/1470/11543 total=27017 us cpu=2.71%
+isr_pack       n=2295 cyc min/avg/max=3594/3961/5426 ns min/avg/max=5990/6601/9043 total=15151 us cpu=1.52%
+isr_dma_submit n=2295 cyc min/avg/max=415/557/650 ns min/avg/max=691/928/1083 total=2131 us cpu=0.21%
+f 609 w=75354 r=24477
+f 610 w=49334 r=11344
+f 611 w=76364 r=25241
+f 612 w=48835 r=11609
+f 613 w=76933 r=26075
+f 614 w=48382 r=11991
+f 615 w=77070 r=26593
+f 616 w=47864 r=11991
+f 617 w=77850 r=27373
+f 618 w=47659 r=12564
+f 619 w=79345 r=29454
+f 620 w=46265 r=13252
+f 621 w=76841 r=27626
+f 622 w=52124 r=17282
+f 623 w=69493 r=24257
+f 624 w=55306 r=17096
+=== profile MindSplatter [288x144] frames 609-624 window=1005496 us ===
+frame wall us: min=46265 avg=62813 max=79345 sum=1005019 (16 frames)
+frame render us: avg=19889 max=29454
+--- Cycle Counters ---
+frame                  1005015 us (100%)  16 calls  603009498 cyc
+  pov_preserve_half    2170 us (0%)  16 calls  1302194 cyc
+  msp_draw_particles   287547 us (28%)  16 calls  172528657 cyc
+    msp_particle_scan  287468 us (99%)  16 calls  172481047 cyc
+      plot_ps_raster   210849 us (73%)  4984 calls  126509716 cyc
+      plot_ps_deferred 13542 us (4%)  4984 calls  8125202 cyc
+      plot_ps_gate     40641 us (14%)  9889 calls  24384749 cyc
+        plot_ps_cartesian_gate 4267 us (10%)  9889 calls  2560505 cyc
+      plot_ps_tween    19818 us (6%)  9889 calls  11891384 cyc
+  msp_particle_step    26525 us (2%)  16 calls  15915031 cyc
+  msp_timeline_step    609 us (0%)  16 calls  365978 cyc
+  canvas_clear         1346 us (0%)  16 calls  807600 cyc
+  canvas_buffer_wait   686800 us (68%)  16 calls  412080175 cyc
+isr_wake       n=18539 cyc min/avg/max=250/889/9854 ns min/avg/max=416/1481/16423 total=27483 us cpu=2.73%
+isr_pack       n=2317 cyc min/avg/max=3593/3980/5534 ns min/avg/max=5988/6633/9223 total=15371 us cpu=1.52%
+isr_dma_submit n=2317 cyc min/avg/max=390/557/601 ns min/avg/max=650/928/1001 total=2152 us cpu=0.21%
+f 625 w=67928 r=22805
+f 626 w=56236 r=16576
+f 627 w=67574 r=21684
+f 628 w=57510 r=16738
+f 629 w=66595 r=20867
+f 630 w=58658 r=17058
+f 631 w=65582 r=20174
+f 632 w=60055 r=17762
+f 633 w=63949 r=19256
+f 634 w=61548 r=18337
+f 635 w=62530 r=18400
+f 636 w=62473 r=18352
+Preset: 5/8
+f 637 w=61524 r=17421
+f 638 w=63468 r=18421
+f 639 w=61180 r=17135
+f 640 w=63673 r=18341
+=== profile MindSplatter [288x144] frames 625-640 window=1000987 us ===
+frame wall us: min=56236 avg=62530 max=67928 sum=1000483 (16 frames)
+frame render us: avg=18707 max=22805
+--- Cycle Counters ---
+frame                  1000479 us (100%)  16 calls  600287689 cyc
+  pov_preserve_half    2191 us (0%)  16 calls  1315107 cyc
+  msp_draw_particles   268699 us (26%)  16 calls  161219573 cyc
+    msp_particle_scan  268615 us (99%)  16 calls  161169148 cyc
+      plot_ps_raster   193677 us (72%)  4860 calls  116206210 cyc
+      plot_ps_deferred 12844 us (4%)  4860 calls  7706992 cyc
+      plot_ps_gate     39657 us (14%)  9819 calls  23794767 cyc
+        plot_ps_cartesian_gate 4118 us (10%)  9819 calls  2471169 cyc
+      plot_ps_tween    19861 us (7%)  9819 calls  11916838 cyc
+  msp_particle_step    26354 us (2%)  16 calls  15812645 cyc
+  msp_timeline_step    679 us (0%)  16 calls  407833 cyc
+  canvas_clear         1342 us (0%)  16 calls  805426 cyc
+  canvas_buffer_wait   701163 us (70%)  16 calls  420698145 cyc
+isr_wake       n=18456 cyc min/avg/max=250/888/7006 ns min/avg/max=416/1480/11676 total=27328 us cpu=2.73%
+isr_pack       n=2307 cyc min/avg/max=3593/3982/5436 ns min/avg/max=5988/6636/9060 total=15312 us cpu=1.52%
+isr_dma_submit n=2307 cyc min/avg/max=396/556/603 ns min/avg/max=660/926/1005 total=2139 us cpu=0.21%
+f 641 w=60933 r=17040
+f 642 w=64175 r=18748
+f 643 w=59588 r=15871
+f 644 w=65506 r=18910
+f 645 w=58892 r=15335
+f 646 w=66388 r=19250
+f 647 w=57518 r=14302
+f 648 w=68565 r=20411
+f 649 w=55765 r=13710
+f 650 w=68751 r=19940
+f 651 w=55956 r=13442
+f 652 w=69082 r=20068
+f 653 w=55901 r=13502
+f 654 w=69271 r=20306
+f 655 w=56404 r=14244
+f 656 w=68565 r=20342
+=== profile MindSplatter [288x144] frames 641-656 window=1001758 us ===
+frame wall us: min=55765 avg=62578 max=69271 sum=1001260 (16 frames)
+frame render us: avg=17213 max=20411
+--- Cycle Counters ---
+frame                  1001259 us (100%)  16 calls  600755983 cyc
+  pov_preserve_half    2164 us (0%)  16 calls  1298581 cyc
+  msp_draw_particles   245168 us (24%)  16 calls  147100958 cyc
+    msp_particle_scan  245072 us (99%)  16 calls  147043450 cyc
+      plot_ps_raster   175559 us (71%)  4314 calls  105335847 cyc
+      plot_ps_deferred 11959 us (4%)  4314 calls  7175447 cyc
+      plot_ps_gate     35774 us (14%)  9635 calls  21464558 cyc
+        plot_ps_cartesian_gate 4003 us (11%)  9635 calls  2401968 cyc
+      plot_ps_tween    19289 us (7%)  9635 calls  11573903 cyc
+  msp_particle_step    25879 us (2%)  16 calls  15527635 cyc
+  msp_timeline_step    842 us (0%)  16 calls  505222 cyc
+  canvas_clear         1347 us (0%)  16 calls  808258 cyc
+  canvas_buffer_wait   725844 us (72%)  16 calls  435506995 cyc
+isr_wake       n=18470 cyc min/avg/max=250/882/6958 ns min/avg/max=416/1470/11596 total=27174 us cpu=2.71%
+isr_pack       n=2309 cyc min/avg/max=3593/3957/5436 ns min/avg/max=5988/6595/9060 total=15228 us cpu=1.52%
+isr_dma_submit n=2309 cyc min/avg/max=406/556/604 ns min/avg/max=676/926/1006 total=2141 us cpu=0.21%
+f 657 w=58028 r=16147
+f 658 w=64999 r=18681
+f 659 w=60744 r=16959
+f 660 w=61800 r=16293
+f 661 w=62574 r=16402
+f 662 w=61411 r=15348
+f 663 w=64214 r=17042
+f 664 w=61341 r=15916
+f 665 w=64378 r=17829
+f 666 w=60889 r=16252
+f 667 w=64228 r=18014
+f 668 w=60807 r=16353
+f 669 w=64133 r=18024
+f 670 w=60998 r=16555
+f 671 w=63502 r=17591
+f 672 w=61727 r=16849
+=== profile MindSplatter [288x144] frames 657-672 window=996254 us ===
+frame wall us: min=58028 avg=62235 max=64999 sum=995773 (16 frames)
+frame render us: avg=16890 max=18681
+--- Cycle Counters ---
+frame                  995772 us (100%)  16 calls  597463329 cyc
+  pov_preserve_half    2162 us (0%)  16 calls  1297708 cyc
+  msp_draw_particles   246836 us (24%)  16 calls  148101719 cyc
+    msp_particle_scan  246754 us (99%)  16 calls  148052429 cyc
+      plot_ps_raster   185530 us (75%)  3736 calls  111318430 cyc
+      plot_ps_deferred 7564 us (3%)  3736 calls  4538956 cyc
+      plot_ps_gate     31876 us (12%)  9560 calls  19125838 cyc
+        plot_ps_cartesian_gate 3936 us (12%)  9560 calls  2361614 cyc
+      plot_ps_tween    19307 us (7%)  9560 calls  11584495 cyc
+  msp_particle_step    18988 us (1%)  16 calls  11393088 cyc
+  msp_timeline_step    889 us (0%)  16 calls  533974 cyc
+  canvas_clear         1346 us (0%)  16 calls  807726 cyc
+  canvas_buffer_wait   725524 us (72%)  16 calls  435314582 cyc
+isr_wake       n=18368 cyc min/avg/max=250/882/6982 ns min/avg/max=416/1470/11636 total=27012 us cpu=2.71%
+isr_pack       n=2296 cyc min/avg/max=3594/3961/5470 ns min/avg/max=5990/6601/9116 total=15159 us cpu=1.52%
+isr_dma_submit n=2296 cyc min/avg/max=400/556/606 ns min/avg/max=666/926/1010 total=2129 us cpu=0.21%
+f 673 w=63007 r=17634
+f 674 w=62291 r=17458
+f 675 w=62546 r=17538
+f 676 w=62734 r=17805
+f 677 w=60048 r=15332
+f 678 w=65091 r=17956
+f 679 w=59654 r=15144
+f 680 w=65130 r=17807
+f 681 w=59671 r=15011
+f 682 w=65433 r=17977
+f 683 w=59421 r=14932
+f 684 w=65512 r=17977
+f 685 w=59685 r=15195
+f 686 w=65005 r=17734
+f 687 w=60177 r=15444
+f 688 w=64552 r=17528
+=== profile MindSplatter [288x144] frames 673-688 window=1000425 us ===
+frame wall us: min=59421 avg=62497 max=65512 sum=999957 (16 frames)
+frame render us: avg=16779 max=17977
+--- Cycle Counters ---
+frame                  999955 us (100%)  16 calls  599973028 cyc
+  pov_preserve_half    2151 us (0%)  16 calls  1290817 cyc
+  msp_draw_particles   247533 us (24%)  16 calls  148519993 cyc
+    msp_particle_scan  247452 us (99%)  16 calls  148471334 cyc
+      plot_ps_raster   192447 us (77%)  3193 calls  115468239 cyc
+      plot_ps_deferred 5395 us (2%)  3193 calls  3237339 cyc
+      plot_ps_gate     27973 us (11%)  9420 calls  16783987 cyc
+        plot_ps_cartesian_gate 3847 us (13%)  9420 calls  2308689 cyc
+      plot_ps_tween    19300 us (7%)  9420 calls  11580493 cyc
+  msp_particle_step    16483 us (1%)  16 calls  9890204 cyc
+  msp_timeline_step    939 us (0%)  16 calls  563842 cyc
+  canvas_clear         1340 us (0%)  16 calls  804076 cyc
+  canvas_buffer_wait   731493 us (73%)  16 calls  438896019 cyc
+isr_wake       n=18446 cyc min/avg/max=250/883/7122 ns min/avg/max=416/1471/11870 total=27158 us cpu=2.71%
+isr_pack       n=2305 cyc min/avg/max=3593/3975/5491 ns min/avg/max=5988/6625/9151 total=15273 us cpu=1.52%
+isr_dma_submit n=2305 cyc min/avg/max=453/556/602 ns min/avg/max=755/926/1003 total=2139 us cpu=0.21%
+f 689 w=60525 r=15831
+f 690 w=64206 r=17516
+f 691 w=61091 r=16140
+f 692 w=63721 r=17396
+f 693 w=61227 r=16155
+f 694 w=63560 r=17250
+f 695 w=61364 r=16146
+f 696 w=63648 r=17328
+f 697 w=61365 r=16237
+f 698 w=63359 r=17141
+f 699 w=61306 r=15980
+f 700 w=63332 r=16846
+f 701 w=61557 r=15937
+f 702 w=63556 r=17029
+f 703 w=61398 r=15960
+f 704 w=63460 r=16899
+=== profile MindSplatter [288x144] frames 689-704 window=999182 us ===
+frame wall us: min=60525 avg=62417 max=64206 sum=998675 (16 frames)
+frame render us: avg=16611 max=17516
+--- Cycle Counters ---
+frame                  998672 us (100%)  16 calls  599203671 cyc
+  pov_preserve_half    2163 us (0%)  16 calls  1297856 cyc
+  msp_draw_particles   244899 us (24%)  16 calls  146939715 cyc
+    msp_particle_scan  244820 us (99%)  16 calls  146892198 cyc
+      plot_ps_raster   190251 us (77%)  3121 calls  114150748 cyc
+      plot_ps_deferred 5215 us (2%)  3121 calls  3129403 cyc
+      plot_ps_gate     27483 us (11%)  9503 calls  16489954 cyc
+        plot_ps_cartesian_gate 3911 us (14%)  9503 calls  2346808 cyc
+      plot_ps_tween    19536 us (7%)  9503 calls  11721923 cyc
+  msp_particle_step    16629 us (1%)  16 calls  9977551 cyc
+  msp_timeline_step    724 us (0%)  16 calls  434798 cyc
+  canvas_clear         1348 us (0%)  16 calls  809032 cyc
+  canvas_buffer_wait   732893 us (73%)  16 calls  439735947 cyc
+isr_wake       n=18422 cyc min/avg/max=250/884/7218 ns min/avg/max=416/1473/12030 total=27161 us cpu=2.71%
+isr_pack       n=2303 cyc min/avg/max=3593/3970/5502 ns min/avg/max=5988/6616/9170 total=15239 us cpu=1.52%
+isr_dma_submit n=2303 cyc min/avg/max=451/557/621 ns min/avg/max=751/928/1035 total=2140 us cpu=0.21%
+f 705 w=61152 r=15829
+f 706 w=63539 r=16901
+f 707 w=61395 r=15840
+f 708 w=63513 r=16886
+f 709 w=61451 r=15871
+f 710 w=63509 r=16912
+f 711 w=61276 r=15731
+f 712 w=63492 r=16756
+f 713 w=61297 r=15587
+f 714 w=63710 r=16839
+f 715 w=61139 r=15513
+f 716 w=63889 r=16935
+f 717 w=60781 r=15250
+f 718 w=64045 r=16773
+f 719 w=60914 r=15220
+f 720 w=64303 r=17057
+=== profile MindSplatter [288x144] frames 705-720 window=999904 us ===
+frame wall us: min=60781 avg=62462 max=64303 sum=999405 (16 frames)
+frame render us: avg=16243 max=17057
+--- Cycle Counters ---
+frame                  999402 us (100%)  16 calls  599641281 cyc
+  pov_preserve_half    2159 us (0%)  16 calls  1295625 cyc
+  msp_draw_particles   238821 us (23%)  16 calls  143293038 cyc
+    msp_particle_scan  238736 us (99%)  16 calls  143242083 cyc
+      plot_ps_raster   183596 us (76%)  3047 calls  110157676 cyc
+      plot_ps_deferred 5298 us (2%)  3047 calls  3179329 cyc
+      plot_ps_gate     27528 us (11%)  9637 calls  16517189 cyc
+        plot_ps_cartesian_gate 3940 us (14%)  9637 calls  2364467 cyc
+      plot_ps_tween    19957 us (8%)  9637 calls  11974396 cyc
+  msp_particle_step    16878 us (1%)  16 calls  10127104 cyc
+  msp_timeline_step    672 us (0%)  16 calls  403610 cyc
+  canvas_clear         1341 us (0%)  16 calls  805049 cyc
+  canvas_buffer_wait   739513 us (73%)  16 calls  443708306 cyc
+isr_wake       n=18436 cyc min/avg/max=250/880/6990 ns min/avg/max=416/1466/11650 total=27050 us cpu=2.70%
+isr_pack       n=2304 cyc min/avg/max=3593/3952/5401 ns min/avg/max=5988/6586/9001 total=15179 us cpu=1.51%
+isr_dma_submit n=2304 cyc min/avg/max=403/556/604 ns min/avg/max=671/926/1006 total=2138 us cpu=0.21%
+f 721 w=60161 r=14984
+f 722 w=64822 r=17339
+f 723 w=59975 r=14857
+f 724 w=65063 r=17453
+f 725 w=59538 r=14526
+f 726 w=65216 r=17276
+f 727 w=59606 r=14419
+f 728 w=65299 r=17251
+f 729 w=58924 r=13707
+f 730 w=65637 r=16871
+f 731 w=59017 r=13367
+f 732 w=66162 r=17066
+f 733 w=58455 r=13055
+f 734 w=66371 r=16959
+f 735 w=57865 r=12359
+f 736 w=66749 r=16640
+=== profile MindSplatter [288x144] frames 721-736 window=999342 us ===
+frame wall us: min=57865 avg=62428 max=66749 sum=998860 (16 frames)
+frame render us: avg=15508 max=17453
+--- Cycle Counters ---
+frame                  998857 us (100%)  16 calls  599314786 cyc
+  pov_preserve_half    2146 us (0%)  16 calls  1287850 cyc
+  msp_draw_particles   227116 us (22%)  16 calls  136270146 cyc
+    msp_particle_scan  227029 us (99%)  16 calls  136217959 cyc
+      plot_ps_raster   173910 us (76%)  2884 calls  104346277 cyc
+      plot_ps_deferred 5187 us (2%)  2884 calls  3112602 cyc
+      plot_ps_gate     25895 us (11%)  9568 calls  15537122 cyc
+        plot_ps_cartesian_gate 3848 us (14%)  9568 calls  2308816 cyc
+      plot_ps_tween    19675 us (8%)  9568 calls  11805531 cyc
+  msp_particle_step    16823 us (1%)  16 calls  10093954 cyc
+  msp_timeline_step    674 us (0%)  16 calls  404603 cyc
+  canvas_clear         1343 us (0%)  16 calls  806255 cyc
+  canvas_buffer_wait   750738 us (75%)  16 calls  450443057 cyc
+isr_wake       n=18425 cyc min/avg/max=250/878/8994 ns min/avg/max=416/1463/14990 total=26966 us cpu=2.69%
+isr_pack       n=2303 cyc min/avg/max=3593/3939/5392 ns min/avg/max=5988/6565/8986 total=15122 us cpu=1.51%
+isr_dma_submit n=2303 cyc min/avg/max=428/556/648 ns min/avg/max=713/926/1080 total=2137 us cpu=0.21%
+f 737 w=57597 r=12005
+f 738 w=67040 r=16578
+f 739 w=57771 r=11882
+f 740 w=67229 r=16644
+f 741 w=56961 r=11140
+f 742 w=68029 r=16704
+f 743 w=56700 r=10937
+f 744 w=68386 r=16856
+f 745 w=56601 r=10938
+f 746 w=68661 r=17131
+f 747 w=56171 r=10838
+f 748 w=68987 r=17371
+f 749 w=56090 r=10995
+f 750 w=69047 r=17574
+f 751 w=55891 r=10999
+f 752 w=69051 r=17585
+=== profile MindSplatter [288x144] frames 737-752 window=1000699 us ===
+frame wall us: min=55891 avg=62513 max=69051 sum=1000212 (16 frames)
+frame render us: avg=14136 max=17585
+--- Cycle Counters ---
+frame                  1000208 us (100%)  16 calls  600125239 cyc
+  pov_preserve_half    2145 us (0%)  16 calls  1287212 cyc
+  msp_draw_particles   205028 us (20%)  16 calls  123017359 cyc
+    msp_particle_scan  204945 us (99%)  16 calls  122967428 cyc
+      plot_ps_raster   152753 us (74%)  2827 calls  91652217 cyc
+      plot_ps_deferred 4994 us (2%)  2827 calls  2996939 cyc
+      plot_ps_gate     25240 us (12%)  9594 calls  15144321 cyc
+        plot_ps_cartesian_gate 3839 us (15%)  9594 calls  2303463 cyc
+      plot_ps_tween    19602 us (9%)  9594 calls  11761620 cyc
+  msp_particle_step    16860 us (1%)  16 calls  10116450 cyc
+  msp_timeline_step    771 us (0%)  16 calls  463043 cyc
+  canvas_clear         1341 us (0%)  16 calls  805039 cyc
+  canvas_buffer_wait   774044 us (77%)  16 calls  464426651 cyc
+isr_wake       n=18451 cyc min/avg/max=250/873/6983 ns min/avg/max=416/1455/11638 total=26859 us cpu=2.68%
+isr_pack       n=2307 cyc min/avg/max=3593/3923/5349 ns min/avg/max=5988/6538/8915 total=15087 us cpu=1.50%
+isr_dma_submit n=2307 cyc min/avg/max=490/557/607 ns min/avg/max=816/928/1011 total=2142 us cpu=0.21%
+f 753 w=55985 r=11349
+f 754 w=68512 r=17394
+f 755 w=56700 r=11628
+f 756 w=68101 r=17263
+f 757 w=57114 r=11910
+f 758 w=67916 r=17305
+f 759 w=57183 r=12021
+f 760 w=67587 r=17142
+f 761 w=57367 r=12041
+f 762 w=67338 r=16912
+f 763 w=57594 r=12051
+f 764 w=67267 r=16850
+f 765 w=57924 r=12309
+f 766 w=67097 r=16938
+f 767 w=58074 r=12545
+f 768 w=66806 r=16884
+=== profile MindSplatter [288x144] frames 753-768 window=999043 us ===
+frame wall us: min=55985 avg=62410 max=68512 sum=998565 (16 frames)
+frame render us: avg=14533 max=17394
+--- Cycle Counters ---
+frame                  998562 us (100%)  16 calls  599137474 cyc
+  pov_preserve_half    2131 us (0%)  16 calls  1278980 cyc
+  msp_draw_particles   211387 us (21%)  16 calls  126832649 cyc
+    msp_particle_scan  211305 us (99%)  16 calls  126783344 cyc
+      plot_ps_raster   157760 us (74%)  2940 calls  94656570 cyc
+      plot_ps_deferred 5182 us (2%)  2940 calls  3109249 cyc
+      plot_ps_gate     25993 us (12%)  9679 calls  15596112 cyc
+        plot_ps_cartesian_gate 3903 us (15%)  9679 calls  2342206 cyc
+      plot_ps_tween    20022 us (9%)  9679 calls  12013204 cyc
+  msp_particle_step    17005 us (1%)  16 calls  10203151 cyc
+  msp_timeline_step    645 us (0%)  16 calls  387428 cyc
+  canvas_clear         1344 us (0%)  16 calls  806830 cyc
+  canvas_buffer_wait   766032 us (76%)  16 calls  459619480 cyc
+isr_wake       n=18420 cyc min/avg/max=250/874/6938 ns min/avg/max=416/1456/11563 total=26855 us cpu=2.68%
+isr_pack       n=2302 cyc min/avg/max=3593/3922/5363 ns min/avg/max=5988/6536/8938 total=15049 us cpu=1.50%
+isr_dma_submit n=2302 cyc min/avg/max=490/557/600 ns min/avg/max=816/928/1000 total=2137 us cpu=0.21%
+f 769 w=58027 r=12691
+f 770 w=66658 r=16881
+f 771 w=58408 r=12822
+f 772 w=66646 r=16948
+f 773 w=58518 r=13003
+f 774 w=66555 r=17094
+f 775 w=58532 r=13159
+f 776 w=66420 r=17114
+f 777 w=58766 r=13413
+f 778 w=66431 r=17377
+f 779 w=58836 r=13748
+f 780 w=66302 r=17584
+f 781 w=59480 r=14597
+f 782 w=65503 r=17632
+f 783 w=62672 r=17838
+f 784 w=62543 r=17915
+=== profile MindSplatter [288x144] frames 769-784 window=1000775 us ===
+frame wall us: min=58027 avg=62518 max=66658 sum=1000297 (16 frames)
+frame render us: avg=15613 max=17915
+--- Cycle Counters ---
+frame                  1000294 us (100%)  16 calls  600176476 cyc
+  pov_preserve_half    2167 us (0%)  16 calls  1300655 cyc
+  msp_draw_particles   228631 us (22%)  16 calls  137178681 cyc
+    msp_particle_scan  228548 us (99%)  16 calls  137129323 cyc
+      plot_ps_raster   172776 us (75%)  3042 calls  103665609 cyc
+      plot_ps_deferred 5287 us (2%)  3042 calls  3172661 cyc
+      plot_ps_gate     28227 us (12%)  9635 calls  16936272 cyc
+        plot_ps_cartesian_gate 3928 us (13%)  9635 calls  2357336 cyc
+      plot_ps_tween    19911 us (8%)  9635 calls  11947087 cyc
+  msp_particle_step    16935 us (1%)  16 calls  10161315 cyc
+  msp_timeline_step    713 us (0%)  16 calls  428216 cyc
+  canvas_clear         1341 us (0%)  16 calls  804840 cyc
+  canvas_buffer_wait   750489 us (75%)  16 calls  450293912 cyc
+isr_wake       n=18452 cyc min/avg/max=250/878/7002 ns min/avg/max=416/1463/11670 total=27020 us cpu=2.69%
+isr_pack       n=2306 cyc min/avg/max=3593/3946/5513 ns min/avg/max=5988/6576/9188 total=15166 us cpu=1.51%
+isr_dma_submit n=2306 cyc min/avg/max=379/557/648 ns min/avg/max=631/928/1080 total=2140 us cpu=0.21%
+f 785 w=62769 r=18397
+f 786 w=59558 r=15487
+f 787 w=65789 r=18811
+f 788 w=59250 r=15595
+f 789 w=65998 r=19135
+f 790 w=59142 r=15812
+f 791 w=65815 r=19162
+f 792 w=59459 r=16154
+f 793 w=64960 r=18649
+f 794 w=59930 r=16124
+f 795 w=64803 r=18461
+Preset: 6/8
+f 796 w=60628 r=16622
+f 797 w=63851 r=18007
+f 798 w=61125 r=16665
+f 799 w=63678 r=17823
+f 800 w=61587 r=16944
+=== profile MindSplatter [288x144] frames 785-800 window=998839 us ===
+frame wall us: min=59142 avg=62396 max=65998 sum=998342 (16 frames)
+frame render us: avg=17365 max=19162
+--- Cycle Counters ---
+frame                  998341 us (100%)  16 calls  599004679 cyc
+  pov_preserve_half    2174 us (0%)  16 calls  1304411 cyc
+  msp_draw_particles   257060 us (25%)  16 calls  154236178 cyc
+    msp_particle_scan  256980 us (99%)  16 calls  154188543 cyc
+      plot_ps_raster   200351 us (77%)  3263 calls  120211022 cyc
+      plot_ps_deferred 5749 us (2%)  3263 calls  3449484 cyc
+      plot_ps_gate     29281 us (11%)  9412 calls  17569097 cyc
+        plot_ps_cartesian_gate 3845 us (13%)  9412 calls  2307143 cyc
+      plot_ps_tween    19269 us (7%)  9412 calls  11561714 cyc
+  msp_particle_step    16539 us (1%)  16 calls  9923813 cyc
+  msp_timeline_step    683 us (0%)  16 calls  410186 cyc
+  canvas_clear         1343 us (0%)  16 calls  806306 cyc
+  canvas_buffer_wait   720502 us (72%)  16 calls  432301271 cyc
+isr_wake       n=18416 cyc min/avg/max=250/884/7086 ns min/avg/max=416/1473/11810 total=27154 us cpu=2.71%
+isr_pack       n=2302 cyc min/avg/max=3593/3967/5488 ns min/avg/max=5988/6611/9146 total=15220 us cpu=1.52%
+isr_dma_submit n=2302 cyc min/avg/max=411/556/604 ns min/avg/max=685/926/1006 total=2136 us cpu=0.21%
+f 801 w=62695 r=17406
+f 802 w=61774 r=16713
+f 803 w=63049 r=17295
+f 804 w=62882 r=17713
+f 805 w=62011 r=17258
+f 806 w=63256 r=18047
+f 807 w=61829 r=17409
+f 808 w=63006 r=17948
+f 809 w=61699 r=17180
+f 810 w=62948 r=17664
+f 811 w=61899 r=17098
+f 812 w=62939 r=17516
+f 813 w=61937 r=16986
+f 814 w=62731 r=17249
+f 815 w=62254 r=17035
+f 816 w=62584 r=17153
+=== profile MindSplatter [288x144] frames 801-816 window=999965 us ===
+frame wall us: min=61699 avg=62468 max=63256 sum=999493 (16 frames)
+frame render us: avg=17354 max=18047
+--- Cycle Counters ---
+frame                  999492 us (100%)  16 calls  599695211 cyc
+  pov_preserve_half    2152 us (0%)  16 calls  1291340 cyc
+  msp_draw_particles   256938 us (25%)  16 calls  154163316 cyc
+    msp_particle_scan  256856 us (99%)  16 calls  154114022 cyc
+      plot_ps_raster   199279 us (77%)  3361 calls  119567962 cyc
+      plot_ps_deferred 6193 us (2%)  3361 calls  3716082 cyc
+      plot_ps_gate     29937 us (11%)  9328 calls  17962315 cyc
+        plot_ps_cartesian_gate 3792 us (12%)  9328 calls  2275220 cyc
+      plot_ps_tween    19102 us (7%)  9328 calls  11461698 cyc
+  msp_particle_step    16339 us (1%)  16 calls  9803583 cyc
+  msp_timeline_step    877 us (0%)  16 calls  526773 cyc
+  canvas_clear         1340 us (0%)  16 calls  804515 cyc
+  canvas_buffer_wait   721828 us (72%)  16 calls  433097381 cyc
+isr_wake       n=18437 cyc min/avg/max=250/885/7014 ns min/avg/max=416/1475/11690 total=27224 us cpu=2.72%
+isr_pack       n=2305 cyc min/avg/max=3593/3974/5466 ns min/avg/max=5988/6623/9110 total=15267 us cpu=1.52%
+isr_dma_submit n=2305 cyc min/avg/max=440/556/606 ns min/avg/max=733/926/1010 total=2139 us cpu=0.21%
+f 817 w=61778 r=16710
+f 818 w=62596 r=16839
+f 819 w=62564 r=16938
+f 820 w=64337 r=18809
+f 821 w=62529 r=18872
+f 822 w=62852 r=19257
+f 823 w=62318 r=19108
+f 824 w=63574 r=20215
+f 825 w=61006 r=18754
+f 826 w=64631 r=20865
+f 827 w=61273 r=19671
+f 828 w=65269 r=22473
+f 829 w=60322 r=20327
+f 830 w=65399 r=23262
+f 831 w=60406 r=21204
+f 832 w=64856 r=23592
+=== profile MindSplatter [288x144] frames 817-832 window=1006184 us ===
+frame wall us: min=60322 avg=62856 max=65399 sum=1005710 (16 frames)
+frame render us: avg=19806 max=23592
+--- Cycle Counters ---
+frame                  1005707 us (100%)  16 calls  603424524 cyc
+  pov_preserve_half    2144 us (0%)  16 calls  1286466 cyc
+  msp_draw_particles   277303 us (27%)  16 calls  166381973 cyc
+    msp_particle_scan  277221 us (99%)  16 calls  166333158 cyc
+      plot_ps_raster   211444 us (76%)  3657 calls  126866912 cyc
+      plot_ps_deferred 12088 us (4%)  3657 calls  7253032 cyc
+      plot_ps_gate     31310 us (11%)  10400 calls  18786234 cyc
+        plot_ps_cartesian_gate 4025 us (12%)  10400 calls  2415555 cyc
+      plot_ps_tween    19764 us (7%)  10400 calls  11858510 cyc
+  msp_particle_step    35167 us (3%)  16 calls  21100679 cyc
+  msp_timeline_step    881 us (0%)  16 calls  528936 cyc
+  canvas_clear         1340 us (0%)  16 calls  804426 cyc
+  canvas_buffer_wait   688820 us (68%)  16 calls  413292226 cyc
+isr_wake       n=18552 cyc min/avg/max=250/890/6914 ns min/avg/max=416/1483/11523 total=27530 us cpu=2.73%
+isr_pack       n=2318 cyc min/avg/max=3593/3982/5462 ns min/avg/max=5988/6636/9103 total=15384 us cpu=1.52%
+isr_dma_submit n=2318 cyc min/avg/max=481/557/664 ns min/avg/max=801/928/1106 total=2152 us cpu=0.21%
+f 833 w=60466 r=21826
+f 834 w=65122 r=24483
+f 835 w=60615 r=22631
+f 836 w=65221 r=25385
+f 837 w=60211 r=23129
+f 838 w=65775 r=26439
+f 839 w=59657 r=23641
+f 840 w=65842 r=26963
+f 841 w=59692 r=24189
+f 842 w=65692 r=27414
+f 843 w=59683 r=24631
+f 844 w=66803 r=28967
+f 845 w=59338 r=25838
+f 846 w=66547 r=29918
+f 847 w=59318 r=26781
+f 848 w=66780 r=31094
+=== profile MindSplatter [288x144] frames 833-848 window=1007257 us ===
+frame wall us: min=59318 avg=62922 max=66803 sum=1006762 (16 frames)
+frame render us: avg=25833 max=31094
+--- Cycle Counters ---
+frame                  1006760 us (100%)  16 calls  604056495 cyc
+  pov_preserve_half    2167 us (0%)  16 calls  1300587 cyc
+  msp_draw_particles   357074 us (35%)  16 calls  214244548 cyc
+    msp_particle_scan  356994 us (99%)  16 calls  214196825 cyc
+      plot_ps_raster   273672 us (76%)  4744 calls  164203760 cyc
+      plot_ps_deferred 15989 us (4%)  4744 calls  9593949 cyc
+      plot_ps_gate     38492 us (10%)  14170 calls  23095476 cyc
+        plot_ps_cartesian_gate 5131 us (13%)  14170 calls  3078916 cyc
+      plot_ps_tween    25304 us (7%)  14170 calls  15182794 cyc
+  msp_particle_step    51929 us (5%)  16 calls  31157608 cyc
+  msp_timeline_step    791 us (0%)  16 calls  474783 cyc
+  canvas_clear         1342 us (0%)  16 calls  805266 cyc
+  canvas_buffer_wait   593441 us (58%)  16 calls  356065001 cyc
+isr_wake       n=18571 cyc min/avg/max=250/908/7126 ns min/avg/max=416/1513/11876 total=28119 us cpu=2.79%
+isr_pack       n=2322 cyc min/avg/max=3593/4040/5514 ns min/avg/max=5988/6733/9190 total=15638 us cpu=1.55%
+isr_dma_submit n=2322 cyc min/avg/max=412/557/661 ns min/avg/max=686/928/1101 total=2158 us cpu=0.21%
+f 849 w=59058 r=27934
+f 850 w=66570 r=32036
+f 851 w=58962 r=28533
+f 852 w=66167 r=32234
+f 853 w=59007 r=28719
+f 854 w=65881 r=32136
+f 855 w=59563 r=29234
+f 856 w=65523 r=32289
+f 857 w=59877 r=29699
+f 858 w=65062 r=32295
+f 859 w=60301 r=30141
+f 860 w=64298 r=31972
+f 861 w=61396 r=30903
+f 862 w=63862 r=32297
+f 863 w=61561 r=31393
+f 864 w=63060 r=31987
+=== profile MindSplatter [288x144] frames 849-864 window=1000636 us ===
+frame wall us: min=58962 avg=62509 max=66570 sum=1000148 (16 frames)
+frame render us: avg=30862 max=32297
+--- Cycle Counters ---
+frame                  1000144 us (100%)  16 calls  600086870 cyc
+  pov_preserve_half    2160 us (0%)  16 calls  1296493 cyc
+  msp_draw_particles   426443 us (42%)  16 calls  255866100 cyc
+    msp_particle_scan  426362 us (99%)  16 calls  255817280 cyc
+      plot_ps_raster   324839 us (76%)  5674 calls  194903559 cyc
+      plot_ps_deferred 18821 us (4%)  5674 calls  11292673 cyc
+      plot_ps_gate     46666 us (10%)  17257 calls  27999791 cyc
+        plot_ps_cartesian_gate 6452 us (13%)  17257 calls  3871770 cyc
+      plot_ps_tween    31759 us (7%)  17257 calls  19055813 cyc
+  msp_particle_step    63073 us (6%)  16 calls  37843848 cyc
+  msp_timeline_step    755 us (0%)  16 calls  453357 cyc
+  canvas_clear         1341 us (0%)  16 calls  804735 cyc
+  canvas_buffer_wait   506354 us (50%)  16 calls  303812991 cyc
+isr_wake       n=18450 cyc min/avg/max=251/922/7122 ns min/avg/max=418/1536/11870 total=28353 us cpu=2.83%
+isr_pack       n=2306 cyc min/avg/max=3617/4094/5471 ns min/avg/max=6028/6823/9118 total=15734 us cpu=1.57%
+isr_dma_submit n=2306 cyc min/avg/max=404/558/604 ns min/avg/max=673/930/1006 total=2147 us cpu=0.21%
+f 865 w=61119 r=30889
+f 866 w=63962 r=32385
+f 867 w=62061 r=31925
+f 868 w=63500 r=32959
+f 869 w=61453 r=31957
+f 870 w=63192 r=32681
+f 871 w=62171 r=32386
+f 872 w=62844 r=32763
+f 873 w=60185 r=30482
+f 874 w=65241 r=33255
+f 875 w=59300 r=30088
+f 876 w=68655 r=36278
+f 877 w=56511 r=30324
+f 878 w=70130 r=37987
+f 879 w=55269 r=30789
+f 880 w=68931 r=37210
+=== profile MindSplatter [288x144] frames 865-880 window=1005018 us ===
+frame wall us: min=55269 avg=62782 max=70130 sum=1004524 (16 frames)
+frame render us: avg=32772 max=37987
+--- Cycle Counters ---
+frame                  1004522 us (100%)  16 calls  602713752 cyc
+  pov_preserve_half    2153 us (0%)  16 calls  1291934 cyc
+  msp_draw_particles   448756 us (44%)  16 calls  269254011 cyc
+    msp_particle_scan  448676 us (99%)  16 calls  269205619 cyc
+      plot_ps_raster   336252 us (74%)  5955 calls  201751501 cyc
+      plot_ps_deferred 19278 us (4%)  5955 calls  11567118 cyc
+      plot_ps_gate     51470 us (11%)  19570 calls  30882217 cyc
+        plot_ps_cartesian_gate 7364 us (14%)  19570 calls  4418769 cyc
+      plot_ps_tween    36877 us (8%)  19570 calls  22126546 cyc
+  msp_particle_step    71347 us (7%)  16 calls  42808686 cyc
+  msp_timeline_step    728 us (0%)  16 calls  437323 cyc
+  canvas_clear         1344 us (0%)  16 calls  806940 cyc
+  canvas_buffer_wait   480176 us (47%)  16 calls  288105600 cyc
+isr_wake       n=18530 cyc min/avg/max=251/925/7114 ns min/avg/max=418/1541/11856 total=28589 us cpu=2.84%
+isr_pack       n=2316 cyc min/avg/max=3601/4099/5553 ns min/avg/max=6001/6831/9255 total=15825 us cpu=1.57%
+isr_dma_submit n=2316 cyc min/avg/max=462/558/606 ns min/avg/max=770/930/1010 total=2156 us cpu=0.21%
+f 881 w=55592 r=30585
+f 882 w=69270 r=37389
+f 883 w=55867 r=30789
+f 884 w=69120 r=37453
+f 885 w=56157 r=31145
+f 886 w=68754 r=37432
+f 887 w=56426 r=31391
+f 888 w=69335 r=38261
+f 889 w=55932 r=31726
+f 890 w=69781 r=39042
+f 891 w=55664 r=32254
+f 892 w=69696 r=39483
+f 893 w=55531 r=32558
+f 894 w=69718 r=39754
+f 895 w=55155 r=32444
+f 896 w=69874 r=39852
+=== profile MindSplatter [288x144] frames 881-896 window=1002383 us ===
+frame wall us: min=55155 avg=62617 max=69874 sum=1001872 (16 frames)
+frame render us: avg=35097 max=39852
+--- Cycle Counters ---
+frame                  1001870 us (100%)  16 calls  601122564 cyc
+  pov_preserve_half    2163 us (0%)  16 calls  1298303 cyc
+  msp_draw_particles   477923 us (47%)  16 calls  286754215 cyc
+    msp_particle_scan  477843 us (99%)  16 calls  286705938 cyc
+      plot_ps_raster   353783 us (74%)  6539 calls  212270165 cyc
+      plot_ps_deferred 21150 us (4%)  6539 calls  12690468 cyc
+      plot_ps_gate     55993 us (11%)  21892 calls  33595804 cyc
+        plot_ps_cartesian_gate 8408 us (15%)  21892 calls  5044817 cyc
+      plot_ps_tween    41650 us (8%)  21892 calls  24990567 cyc
+  msp_particle_step    79472 us (7%)  16 calls  47683540 cyc
+  msp_timeline_step    628 us (0%)  16 calls  377252 cyc
+  canvas_clear         1341 us (0%)  16 calls  805068 cyc
+  canvas_buffer_wait   440324 us (43%)  16 calls  264194694 cyc
+isr_wake       n=18482 cyc min/avg/max=251/930/7094 ns min/avg/max=418/1550/11823 total=28673 us cpu=2.86%
+isr_pack       n=2310 cyc min/avg/max=3630/4113/5604 ns min/avg/max=6050/6855/9340 total=15837 us cpu=1.57%
+isr_dma_submit n=2310 cyc min/avg/max=410/558/606 ns min/avg/max=683/930/1010 total=2152 us cpu=0.21%
+f 897 w=55565 r=33207
+f 898 w=69883 r=40623
+f 899 w=57943 r=36100
+f 900 w=67228 r=40860
+f 901 w=58744 r=37138
+f 902 w=66939 r=41610
+f 903 w=61863 r=41006
+f 904 w=59706 r=38244
+f 905 w=65213 r=40989
+f 906 w=59542 r=38064
+f 907 w=65721 r=41266
+f 908 w=57212 r=36012
+f 909 w=67800 r=41355
+f 910 w=57092 r=35979
+f 911 w=68325 r=41837
+f 912 w=56761 r=36131
+=== profile MindSplatter [288x144] frames 897-912 window=996013 us ===
+frame wall us: min=55565 avg=62221 max=69883 sum=995537 (16 frames)
+frame render us: avg=38776 max=41837
+--- Cycle Counters ---
+frame                  995533 us (100%)  16 calls  597320204 cyc
+  pov_preserve_half    2178 us (0%)  16 calls  1307185 cyc
+  msp_draw_particles   528206 us (53%)  16 calls  316923801 cyc
+    msp_particle_scan  528124 us (99%)  16 calls  316874976 cyc
+      plot_ps_raster   385924 us (73%)  7529 calls  231554742 cyc
+      plot_ps_deferred 24628 us (4%)  7529 calls  14777022 cyc
+      plot_ps_gate     64620 us (12%)  24271 calls  38772281 cyc
+        plot_ps_cartesian_gate 9438 us (14%)  24271 calls  5663252 cyc
+      plot_ps_tween    47064 us (8%)  24271 calls  28238642 cyc
+  msp_particle_step    87949 us (8%)  16 calls  52769996 cyc
+  msp_timeline_step    711 us (0%)  16 calls  427137 cyc
+  canvas_clear         1347 us (0%)  16 calls  808453 cyc
+  canvas_buffer_wait   375123 us (37%)  16 calls  225074172 cyc
+isr_wake       n=18364 cyc min/avg/max=251/938/7186 ns min/avg/max=418/1563/11976 total=28728 us cpu=2.88%
+isr_pack       n=2295 cyc min/avg/max=3626/4121/5575 ns min/avg/max=6043/6868/9291 total=15765 us cpu=1.58%
+isr_dma_submit n=2295 cyc min/avg/max=378/559/612 ns min/avg/max=630/931/1020 total=2139 us cpu=0.21%
+f 913 w=68718 r=42619
+f 914 w=56256 r=36410
+f 915 w=69187 r=43130
+f 916 w=55901 r=36564
+f 917 w=70136 r=44234
+f 918 w=55241 r=37018
+f 919 w=70554 r=45105
+f 920 w=54904 r=37567
+f 921 w=70642 r=45691
+f 922 w=55203 r=38426
+f 923 w=69974 r=45935
+f 924 w=55280 r=38750
+f 925 w=70164 r=46459
+f 926 w=55789 r=39781
+f 927 w=69291 r=46617
+f 928 w=60479 r=44629
+=== profile MindSplatter [288x144] frames 913-928 window=1008251 us ===
+frame wall us: min=54904 avg=62982 max=70642 sum=1007719 (16 frames)
+frame render us: avg=41808 max=46617
+--- Cycle Counters ---
+frame                  1007716 us (100%)  16 calls  604629774 cyc
+  pov_preserve_half    2179 us (0%)  16 calls  1307872 cyc
+  msp_draw_particles   570609 us (56%)  16 calls  342365971 cyc
+    msp_particle_scan  570514 us (99%)  16 calls  342308419 cyc
+      plot_ps_raster   417674 us (73%)  7744 calls  250604538 cyc
+      plot_ps_deferred 26360 us (4%)  7744 calls  15816262 cyc
+      plot_ps_gate     68270 us (11%)  26191 calls  40962453 cyc
+        plot_ps_cartesian_gate 10249 us (15%)  26191 calls  6149866 cyc
+      plot_ps_tween    51831 us (9%)  26191 calls  31098978 cyc
+  msp_particle_step    94234 us (9%)  16 calls  56540793 cyc
+  msp_timeline_step    538 us (0%)  16 calls  323309 cyc
+  canvas_clear         1344 us (0%)  16 calls  806741 cyc
+  canvas_buffer_wait   338792 us (33%)  16 calls  203275734 cyc
+isr_wake       n=18590 cyc min/avg/max=251/943/7126 ns min/avg/max=418/1571/11876 total=29218 us cpu=2.89%
+isr_pack       n=2324 cyc min/avg/max=3613/4131/5544 ns min/avg/max=6021/6885/9240 total=16001 us cpu=1.58%
+isr_dma_submit n=2324 cyc min/avg/max=363/558/662 ns min/avg/max=605/930/1103 total=2164 us cpu=0.21%
+f 929 w=61578 r=43989
+f 930 w=62659 r=44181
+f 931 w=58320 r=40036
+f 932 w=66361 r=43930
+f 933 w=58448 r=39913
+f 934 w=65689 r=43147
+f 935 w=59179 r=39808
+f 936 w=65686 r=43029
+f 937 w=58636 r=39198
+f 938 w=66157 r=42888
+f 939 w=58749 r=39172
+f 940 w=66128 r=42833
+f 941 w=58156 r=38523
+f 942 w=66264 r=42320
+f 943 w=58621 r=38474
+f 944 w=66058 r=42065
+=== profile MindSplatter [288x144] frames 929-944 window=997189 us ===
+frame wall us: min=58156 avg=62293 max=66361 sum=996689 (16 frames)
+frame render us: avg=41469 max=44181
+--- Cycle Counters ---
+frame                  996687 us (100%)  16 calls  598012443 cyc
+  pov_preserve_half    2177 us (0%)  16 calls  1306616 cyc
+  msp_draw_particles   564546 us (56%)  16 calls  338728133 cyc
+    msp_particle_scan  564450 us (99%)  16 calls  338670523 cyc
+      plot_ps_raster   405511 us (71%)  7632 calls  243306988 cyc
+      plot_ps_deferred 27066 us (4%)  7632 calls  16239947 cyc
+      plot_ps_gate     71103 us (12%)  26414 calls  42661812 cyc
+        plot_ps_cartesian_gate 10589 us (14%)  26414 calls  6353792 cyc
+      plot_ps_tween    54353 us (9%)  26414 calls  32612143 cyc
+  msp_particle_step    94828 us (9%)  16 calls  56897290 cyc
+  msp_timeline_step    581 us (0%)  16 calls  348964 cyc
+  canvas_clear         1346 us (0%)  16 calls  808034 cyc
+  canvas_buffer_wait   333190 us (33%)  16 calls  199914139 cyc
+isr_wake       n=18385 cyc min/avg/max=251/941/7094 ns min/avg/max=418/1568/11823 total=28836 us cpu=2.89%
+isr_pack       n=2298 cyc min/avg/max=3609/4114/5523 ns min/avg/max=6015/6856/9205 total=15758 us cpu=1.58%
+isr_dma_submit n=2298 cyc min/avg/max=479/559/606 ns min/avg/max=798/931/1010 total=2141 us cpu=0.21%
+f 945 w=61439 r=41285
+f 946 w=66238 r=45056
+f 947 w=58652 r=41241
+f 948 w=66221 r=44940
+f 949 w=58758 r=41232
+f 950 w=61032 r=39796
+f 951 w=63318 r=40649
+f 952 w=61139 r=39321
+f 953 w=60148 r=37003
+f 954 w=64676 r=39212
+Preset: 7/8
+f 955 w=60057 r=36803
+f 956 w=64704 r=39042
+f 957 w=59619 r=36210
+f 958 w=65677 r=39423
+f 959 w=59217 r=36168
+f 960 w=67300 r=40994
+=== profile MindSplatter [288x144] frames 945-960 window=998672 us ===
+frame wall us: min=58652 avg=62387 max=67300 sum=998195 (16 frames)
+frame render us: avg=39898 max=45056
+--- Cycle Counters ---
+frame                  998193 us (100%)  16 calls  598916003 cyc
+  pov_preserve_half    2158 us (0%)  16 calls  1295242 cyc
+  msp_draw_particles   539089 us (54%)  16 calls  323453913 cyc
+    msp_particle_scan  538993 us (99%)  16 calls  323396277 cyc
+      plot_ps_raster   377872 us (70%)  7748 calls  226723438 cyc
+      plot_ps_deferred 27875 us (5%)  7748 calls  16725254 cyc
+      plot_ps_gate     71890 us (13%)  26514 calls  43134148 cyc
+        plot_ps_cartesian_gate 10665 us (14%)  26514 calls  6399502 cyc
+      plot_ps_tween    54981 us (10%)  26514 calls  32989000 cyc
+  msp_particle_step    94895 us (9%)  16 calls  56937140 cyc
+  msp_timeline_step    835 us (0%)  16 calls  501235 cyc
+  canvas_clear         1351 us (0%)  16 calls  810803 cyc
+  canvas_buffer_wait   359826 us (36%)  16 calls  215895705 cyc
+isr_wake       n=18413 cyc min/avg/max=251/930/7338 ns min/avg/max=418/1550/12230 total=28543 us cpu=2.85%
+isr_pack       n=2301 cyc min/avg/max=3601/4056/5562 ns min/avg/max=6001/6760/9270 total=15556 us cpu=1.55%
+isr_dma_submit n=2301 cyc min/avg/max=485/559/604 ns min/avg/max=808/931/1006 total=2143 us cpu=0.21%
+f 961 w=57171 r=35946
+f 962 w=71022 r=44446
+f 963 w=53945 r=35936
+f 964 w=71311 r=44781
+f 965 w=53475 r=35791
+f 966 w=71239 r=44565
+f 967 w=53964 r=36064
+f 968 w=71045 r=44645
+f 969 w=53897 r=36075
+f 970 w=70926 r=44534
+f 971 w=50401 r=32468
+f 972 w=73933 r=43935
+f 973 w=48797 r=30265
+f 974 w=75573 r=43371
+f 975 w=49233 r=30095
+f 976 w=75867 r=43495
+=== profile MindSplatter [288x144] frames 961-976 window=1002300 us ===
+frame wall us: min=48797 avg=62612 max=75867 sum=1001799 (16 frames)
+frame render us: avg=39150 max=44781
+--- Cycle Counters ---
+frame                  1001796 us (100%)  16 calls  601077763 cyc
+  pov_preserve_half    2172 us (0%)  16 calls  1303413 cyc
+  msp_draw_particles   527279 us (52%)  16 calls  316367951 cyc
+    msp_particle_scan  527200 us (99%)  16 calls  316320393 cyc
+      plot_ps_raster   367032 us (69%)  7810 calls  220219662 cyc
+      plot_ps_deferred 26719 us (5%)  7810 calls  16031763 cyc
+      plot_ps_gate     71403 us (13%)  26477 calls  42842163 cyc
+        plot_ps_cartesian_gate 10919 us (15%)  26477 calls  6551509 cyc
+      plot_ps_tween    55624 us (10%)  26477 calls  33374675 cyc
+  msp_particle_step    94732 us (9%)  16 calls  56839484 cyc
+  msp_timeline_step    851 us (0%)  16 calls  510843 cyc
+  canvas_clear         1350 us (0%)  16 calls  810211 cyc
+  canvas_buffer_wait   375395 us (37%)  16 calls  225237062 cyc
+isr_wake       n=18481 cyc min/avg/max=251/927/7070 ns min/avg/max=418/1545/11783 total=28560 us cpu=2.84%
+isr_pack       n=2310 cyc min/avg/max=3593/4039/5449 ns min/avg/max=5988/6731/9081 total=15551 us cpu=1.55%
+isr_dma_submit n=2310 cyc min/avg/max=401/558/603 ns min/avg/max=668/930/1005 total=2151 us cpu=0.21%
+f 977 w=48948 r=30221
+f 978 w=75739 r=43492
+f 979 w=45331 r=26359
+f 980 w=76530 r=40422
+f 981 w=49519 r=27474
+f 982 w=77069 r=42077
+f 983 w=49820 r=29442
+f 984 w=76795 r=43772
+f 985 w=50473 r=31779
+f 986 w=76298 r=45611
+f 987 w=50805 r=33952
+f 988 w=75881 r=47366
+f 989 w=51861 r=36706
+f 990 w=74915 r=49154
+f 991 w=53974 r=40660
+f 992 w=72601 r=50797
+=== profile MindSplatter [288x144] frames 977-992 window=1007048 us ===
+frame wall us: min=45331 avg=62909 max=77069 sum=1006559 (16 frames)
+frame render us: avg=38705 max=50797
+--- Cycle Counters ---
+frame                  1006558 us (100%)  16 calls  603935250 cyc
+  pov_preserve_half    2184 us (0%)  16 calls  1310652 cyc
+  msp_draw_particles   563413 us (55%)  16 calls  338048320 cyc
+    msp_particle_scan  563325 us (99%)  16 calls  337995223 cyc
+      plot_ps_raster   420830 us (74%)  7880 calls  252498435 cyc
+      plot_ps_deferred 7692 us (1%)  7880 calls  4615250 cyc
+      plot_ps_gate     73949 us (13%)  26163 calls  44369726 cyc
+        plot_ps_cartesian_gate 10713 us (14%)  26163 calls  6428311 cyc
+      plot_ps_tween    54495 us (9%)  26163 calls  32697486 cyc
+  msp_particle_step    51474 us (5%)  16 calls  30884620 cyc
+  msp_timeline_step    824 us (0%)  16 calls  494503 cyc
+  canvas_clear         1346 us (0%)  16 calls  807937 cyc
+  canvas_buffer_wait   387282 us (38%)  16 calls  232369376 cyc
+isr_wake       n=18567 cyc min/avg/max=251/932/9626 ns min/avg/max=418/1553/16043 total=28847 us cpu=2.86%
+isr_pack       n=2321 cyc min/avg/max=3593/4080/5526 ns min/avg/max=5988/6800/9210 total=15786 us cpu=1.56%
+isr_dma_submit n=2321 cyc min/avg/max=375/559/607 ns min/avg/max=625/931/1011 total=2163 us cpu=0.21%
+f 993 w=53499 r=42064
+f 994 w=72602 r=52211
+f 995 w=54564 r=44310
+f 996 w=71569 r=53413
+f 997 w=53615 r=44563
+f 998 w=72079 r=54175
+f 999 w=52770 r=44478
+f 1000 w=72528 r=54539
+f 1001 w=51979 r=44051
+f 1002 w=71150 r=52681
+f 1003 w=52265 r=42479
+f 1004 w=69908 r=49919
+f 1005 w=51508 r=38960
+f 1006 w=72249 r=48742
+f 1007 w=50920 r=37198
+f 1008 w=73045 r=47777
+=== profile MindSplatter [288x144] frames 993-1008 window=996730 us ===
+frame wall us: min=50920 avg=62265 max=73045 sum=996250 (16 frames)
+frame render us: avg=46972 max=54539
+--- Cycle Counters ---
+frame                  996248 us (100%)  16 calls  597749157 cyc
+  pov_preserve_half    2185 us (0%)  16 calls  1311150 cyc
+  msp_draw_particles   701133 us (70%)  16 calls  420680166 cyc
+    msp_particle_scan  701053 us (99%)  16 calls  420632062 cyc
+      plot_ps_raster   555994 us (79%)  9008 calls  333596704 cyc
+      plot_ps_deferred 7234 us (1%)  9008 calls  4340816 cyc
+      plot_ps_gate     80425 us (11%)  24591 calls  48255205 cyc
+        plot_ps_cartesian_gate 10189 us (12%)  24591 calls  6113555 cyc
+      plot_ps_tween    51261 us (7%)  24591 calls  30757072 cyc
+  msp_particle_step    45989 us (4%)  16 calls  27593930 cyc
+  msp_timeline_step    874 us (0%)  16 calls  524933 cyc
+  canvas_clear         1352 us (0%)  16 calls  811397 cyc
+  canvas_buffer_wait   244698 us (24%)  16 calls  146819188 cyc
+isr_wake       n=18377 cyc min/avg/max=251/960/7066 ns min/avg/max=418/1600/11776 total=29414 us cpu=2.95%
+isr_pack       n=2297 cyc min/avg/max=3594/4205/5575 ns min/avg/max=5990/7008/9291 total=16101 us cpu=1.61%
+isr_dma_submit n=2297 cyc min/avg/max=385/560/605 ns min/avg/max=641/933/1008 total=2145 us cpu=0.21%
+f 1009 w=49995 r=35532
+f 1010 w=73154 r=46218
+f 1011 w=50137 r=33889
+f 1012 w=73987 r=45410
+f 1013 w=49124 r=32067
+f 1014 w=73542 r=43142
+f 1015 w=49793 r=30468
+f 1016 w=72636 r=40583
+f 1017 w=50283 r=28399
+f 1018 w=71835 r=37769
+f 1019 w=51645 r=26946
+f 1020 w=71473 r=35953
+f 1021 w=52405 r=25892
+f 1022 w=70715 r=34140
+f 1023 w=55127 r=26800
+f 1024 w=68108 r=32441
+=== profile MindSplatter [288x144] frames 1009-1024 window=984428 us ===
+frame wall us: min=49124 avg=61497 max=73987 sum=983959 (16 frames)
+frame render us: avg=34728 max=46218
+--- Cycle Counters ---
+frame                  983955 us (100%)  16 calls  590373430 cyc
+  pov_preserve_half    2138 us (0%)  16 calls  1283127 cyc
+  msp_draw_particles   509795 us (51%)  16 calls  305877302 cyc
+    msp_particle_scan  509706 us (99%)  16 calls  305823640 cyc
+      plot_ps_raster   389543 us (76%)  6795 calls  233725859 cyc
+      plot_ps_deferred 7711 us (1%)  6795 calls  4627168 cyc
+      plot_ps_gate     64087 us (12%)  20872 calls  38452687 cyc
+        plot_ps_cartesian_gate 8490 us (13%)  20872 calls  5094065 cyc
+      plot_ps_tween    43220 us (8%)  20872 calls  25932079 cyc
+  msp_particle_step    41766 us (4%)  16 calls  25059972 cyc
+  msp_timeline_step    576 us (0%)  16 calls  345984 cyc
+  canvas_clear         1345 us (0%)  16 calls  807419 cyc
+  canvas_buffer_wait   428318 us (43%)  16 calls  256991011 cyc
+isr_wake       n=18151 cyc min/avg/max=251/925/7258 ns min/avg/max=418/1541/12096 total=27993 us cpu=2.84%
+isr_pack       n=2269 cyc min/avg/max=3593/4070/5682 ns min/avg/max=5988/6783/9470 total=15391 us cpu=1.56%
+isr_dma_submit n=2269 cyc min/avg/max=436/559/638 ns min/avg/max=726/931/1063 total=2115 us cpu=0.21%
+f 1025 w=55768 r=25991
+f 1026 w=67635 r=31159
+f 1027 w=56528 r=25222
+f 1028 w=66257 r=29011
+f 1029 w=56957 r=23449
+f 1030 w=65144 r=26126
+f 1031 w=57031 r=20690
+f 1032 w=64951 r=23175
+f 1033 w=58336 r=19044
+f 1034 w=65082 r=21658
+f 1035 w=58716 r=17907
+f 1036 w=65467 r=20907
+f 1037 w=58519 r=16962
+f 1038 w=65744 r=20240
+f 1039 w=58629 r=16403
+f 1040 w=65845 r=19782
+=== profile MindSplatter [288x144] frames 1025-1040 window=987084 us ===
+frame wall us: min=55768 avg=61663 max=67635 sum=986609 (16 frames)
+frame render us: avg=22357 max=31159
+--- Cycle Counters ---
+frame                  986607 us (100%)  16 calls  591964431 cyc
+  pov_preserve_half    2151 us (0%)  16 calls  1290623 cyc
+  msp_draw_particles   315543 us (31%)  16 calls  189325963 cyc
+    msp_particle_scan  315462 us (99%)  16 calls  189277715 cyc
+      plot_ps_raster   221115 us (70%)  4700 calls  132669121 cyc
+      plot_ps_deferred 5946 us (1%)  4700 calls  3567906 cyc
+      plot_ps_gate     45162 us (14%)  18847 calls  27097514 cyc
+        plot_ps_cartesian_gate 7330 us (16%)  18847 calls  4398315 cyc
+      plot_ps_tween    38758 us (12%)  18847 calls  23254956 cyc
+  msp_particle_step    38061 us (3%)  16 calls  22837101 cyc
+  msp_timeline_step    600 us (0%)  16 calls  360181 cyc
+  canvas_clear         1343 us (0%)  16 calls  805837 cyc
+  canvas_buffer_wait   628892 us (63%)  16 calls  377335760 cyc
+isr_wake       n=18200 cyc min/avg/max=250/891/6974 ns min/avg/max=416/1485/11623 total=27035 us cpu=2.73%
+isr_pack       n=2275 cyc min/avg/max=3593/3965/5449 ns min/avg/max=5988/6608/9081 total=15037 us cpu=1.52%
+isr_dma_submit n=2275 cyc min/avg/max=378/557/606 ns min/avg/max=630/928/1010 total=2115 us cpu=0.21%
+f 1041 w=57889 r=15459
+f 1042 w=66367 r=19359
+f 1043 w=53605 r=10443
+f 1044 w=71016 r=18994
+f 1045 w=53626 r=10153
+f 1046 w=70290 r=17975
+f 1047 w=54672 r=10182
+f 1048 w=69625 r=17334
+f 1049 w=55734 r=10611
+f 1050 w=68592 r=16737
+f 1051 w=56927 r=11198
+f 1052 w=66533 r=15265
+f 1053 w=58843 r=11642
+f 1054 w=65677 r=14853
+f 1055 w=59485 r=11873
+f 1056 w=64924 r=14330
+=== profile MindSplatter [288x144] frames 1041-1056 window=994284 us ===
+frame wall us: min=53605 avg=62112 max=71016 sum=993805 (16 frames)
+frame render us: avg=14150 max=19359
+--- Cycle Counters ---
+frame                  993801 us (100%)  16 calls  596281070 cyc
+  pov_preserve_half    2156 us (0%)  16 calls  1293791 cyc
+  msp_draw_particles   186745 us (18%)  16 calls  112047217 cyc
+    msp_particle_scan  186664 us (99%)  16 calls  111998962 cyc
+      plot_ps_raster   118243 us (63%)  2295 calls  70945802 cyc
+      plot_ps_deferred 2641 us (1%)  2295 calls  1584806 cyc
+      plot_ps_gate     25829 us (13%)  17717 calls  15497967 cyc
+        plot_ps_cartesian_gate 6534 us (25%)  17717 calls  3920432 cyc
+      plot_ps_tween    35944 us (19%)  17717 calls  21566626 cyc
+  msp_particle_step    35549 us (3%)  16 calls  21329440 cyc
+  msp_timeline_step    588 us (0%)  16 calls  353146 cyc
+  canvas_clear         1342 us (0%)  16 calls  805622 cyc
+  canvas_buffer_wait   767404 us (77%)  16 calls  460442759 cyc
+isr_wake       n=18332 cyc min/avg/max=250/872/7018 ns min/avg/max=416/1453/11696 total=26644 us cpu=2.67%
+isr_pack       n=2291 cyc min/avg/max=3593/3914/5383 ns min/avg/max=5988/6523/8971 total=14948 us cpu=1.50%
+isr_dma_submit n=2291 cyc min/avg/max=433/556/730 ns min/avg/max=721/926/1216 total=2124 us cpu=0.21%
+f 1057 w=61357 r=13426
+f 1058 w=63329 r=14299
+f 1059 w=62790 r=14634
+f 1060 w=61832 r=14001
+f 1061 w=62949 r=14484
+f 1062 w=61627 r=13643
+f 1063 w=63154 r=14332
+f 1064 w=57173 r=9038
+f 1065 w=67538 r=14109
+f 1066 w=57168 r=8810
+f 1067 w=67623 r=13966
+f 1068 w=56756 r=8257
+f 1069 w=68004 r=13794
+f 1070 w=56827 r=8099
+f 1071 w=67935 r=13579
+f 1072 w=56609 r=7733
+=== profile MindSplatter [288x144] frames 1057-1072 window=993189 us ===
+frame wall us: min=56609 avg=62041 max=68004 sum=992671 (16 frames)
+frame render us: avg=12262 max=14634
+--- Cycle Counters ---
+frame                  992668 us (100%)  16 calls  595601382 cyc
+  pov_preserve_half    2183 us (0%)  16 calls  1310301 cyc
+  msp_draw_particles   158652 us (15%)  16 calls  95191214 cyc
+    msp_particle_scan  158569 us (99%)  16 calls  95141795 cyc
+      plot_ps_raster   96546 us (60%)  1931 calls  57927626 cyc
+      plot_ps_deferred 2476 us (1%)  1931 calls  1485777 cyc
+      plot_ps_gate     21823 us (13%)  16707 calls  13093983 cyc
+        plot_ps_cartesian_gate 6074 us (27%)  16707 calls  3644623 cyc
+      plot_ps_tween    33894 us (21%)  16707 calls  20336898 cyc
+  msp_particle_step    33377 us (3%)  16 calls  20026520 cyc
+  msp_timeline_step    624 us (0%)  16 calls  374594 cyc
+  canvas_clear         1340 us (0%)  16 calls  804140 cyc
+  canvas_buffer_wait   796475 us (80%)  16 calls  477885583 cyc
+isr_wake       n=18312 cyc min/avg/max=250/865/6942 ns min/avg/max=416/1441/11570 total=26405 us cpu=2.65%
+isr_pack       n=2289 cyc min/avg/max=3593/3889/5321 ns min/avg/max=5988/6481/8868 total=14839 us cpu=1.49%
+isr_dma_submit n=2289 cyc min/avg/max=451/557/607 ns min/avg/max=751/928/1011 total=2125 us cpu=0.21%
+f 1073 w=68020 r=13533
+f 1074 w=56451 r=7521
+f 1075 w=68468 r=13524
+f 1076 w=56362 r=7419
+f 1077 w=68477 r=13430
+f 1078 w=56227 r=7202
+f 1079 w=68423 r=13159
+f 1080 w=56426 r=7119
+f 1081 w=68644 r=13295
+f 1082 w=56316 r=7143
+f 1083 w=68737 r=13407
+f 1084 w=56276 r=7161
+f 1085 w=68686 r=13381
+f 1086 w=56491 r=7417
+f 1087 w=68620 r=13571
+f 1088 w=56693 r=7796
+=== profile MindSplatter [288x144] frames 1073-1088 window=999816 us ===
+frame wall us: min=56227 avg=62457 max=68737 sum=999317 (16 frames)
+frame render us: avg=10379 max=13571
+--- Cycle Counters ---
+frame                  999311 us (100%)  16 calls  599587117 cyc
+  pov_preserve_half    2195 us (0%)  16 calls  1317135 cyc
+  msp_draw_particles   129915 us (13%)  16 calls  77949089 cyc
+    msp_particle_scan  129835 us (99%)  16 calls  77901444 cyc
+      plot_ps_raster   73511 us (56%)  1556 calls  44107092 cyc
+      plot_ps_deferred 1885 us (1%)  1556 calls  1131193 cyc
+      plot_ps_gate     18341 us (14%)  16097 calls  11005196 cyc
+        plot_ps_cartesian_gate 5804 us (31%)  16097 calls  3482594 cyc
+      plot_ps_tween    32536 us (25%)  16097 calls  19521908 cyc
+  msp_particle_step    31876 us (3%)  16 calls  19125666 cyc
+  msp_timeline_step    717 us (0%)  16 calls  430747 cyc
+  canvas_clear         1343 us (0%)  16 calls  806066 cyc
+  canvas_buffer_wait   833248 us (83%)  16 calls  499949310 cyc
+isr_wake       n=18435 cyc min/avg/max=250/860/6882 ns min/avg/max=416/1433/11470 total=26444 us cpu=2.64%
+isr_pack       n=2304 cyc min/avg/max=3593/3877/5337 ns min/avg/max=5988/6461/8895 total=14890 us cpu=1.48%
+isr_dma_submit n=2304 cyc min/avg/max=461/556/587 ns min/avg/max=768/926/978 total=2135 us cpu=0.21%
+f 1089 w=67843 r=13426
+f 1090 w=56960 r=7931
+f 1091 w=68103 r=13567
+f 1092 w=61020 r=12120
+f 1093 w=64109 r=13773
+f 1094 w=61565 r=12872
+f 1095 w=63760 r=14165
+f 1096 w=61458 r=13156
+f 1097 w=63414 r=14050
+f 1098 w=62021 r=13604
+f 1099 w=63481 r=14620
+f 1100 w=61967 r=14122
+f 1101 w=63573 r=15228
+f 1102 w=61228 r=13992
+f 1103 w=63838 r=15363
+f 1104 w=60880 r=13776
+=== profile MindSplatter [288x144] frames 1089-1104 window=1005717 us ===
+frame wall us: min=56960 avg=62826 max=68103 sum=1005220 (16 frames)
+frame render us: avg=13485 max=15363
+--- Cycle Counters ---
+frame                  1005217 us (100%)  16 calls  603130548 cyc
+  pov_preserve_half    2156 us (0%)  16 calls  1294183 cyc
+  msp_draw_particles   179422 us (17%)  16 calls  107653346 cyc
+    msp_particle_scan  179343 us (99%)  16 calls  107605827 cyc
+      plot_ps_raster   114996 us (64%)  2462 calls  68998117 cyc
+      plot_ps_deferred 3083 us (1%)  2462 calls  1850335 cyc
+      plot_ps_gate     24594 us (13%)  16237 calls  14756471 cyc
+        plot_ps_cartesian_gate 6010 us (24%)  16237 calls  3606246 cyc
+      plot_ps_tween    32968 us (18%)  16237 calls  19781174 cyc
+  msp_particle_step    32154 us (3%)  16 calls  19292997 cyc
+  msp_timeline_step    657 us (0%)  16 calls  394229 cyc
+  canvas_clear         1345 us (0%)  16 calls  807437 cyc
+  canvas_buffer_wait   789465 us (78%)  16 calls  473679365 cyc
+isr_wake       n=18543 cyc min/avg/max=250/867/6898 ns min/avg/max=416/1445/11496 total=26818 us cpu=2.66%
+isr_pack       n=2318 cyc min/avg/max=3593/3899/5340 ns min/avg/max=5988/6498/8900 total=15063 us cpu=1.49%
+isr_dma_submit n=2318 cyc min/avg/max=458/556/586 ns min/avg/max=763/926/976 total=2151 us cpu=0.21%
+f 1105 w=64126 r=15693
+f 1106 w=60775 r=14014
+f 1107 w=65590 r=17141
+f 1108 w=59618 r=14292
+f 1109 w=66854 r=18693
+f 1110 w=58574 r=14800
+f 1111 w=66639 r=18920
+f 1112 w=58761 r=15217
+f 1113 w=66219 r=18971
+Preset: 8/8
+f 1114 w=59400 r=15903
+f 1115 w=65580 r=19016
+f 1116 w=60168 r=16717
+f 1117 w=64922 r=19172
+f 1118 w=60829 r=17534
+f 1119 w=64359 r=19427
+f 1120 w=61918 r=18878
+=== profile MindSplatter [288x144] frames 1105-1120 window=1004833 us ===
+frame wall us: min=58574 avg=62770 max=66854 sum=1004332 (16 frames)
+frame render us: avg=17149 max=19427
+--- Cycle Counters ---
+frame                  1004331 us (100%)  16 calls  602598945 cyc
+  pov_preserve_half    2166 us (0%)  16 calls  1299864 cyc
+  msp_draw_particles   237966 us (23%)  16 calls  142779720 cyc
+    msp_particle_scan  237876 us (99%)  16 calls  142725750 cyc
+      plot_ps_raster   160389 us (67%)  3985 calls  96233737 cyc
+      plot_ps_deferred 4809 us (2%)  3985 calls  2885468 cyc
+      plot_ps_gate     35949 us (15%)  16184 calls  21569787 cyc
+        plot_ps_cartesian_gate 6282 us (17%)  16184 calls  3769429 cyc
+      plot_ps_tween    32902 us (13%)  16184 calls  19741292 cyc
+  msp_particle_step    32079 us (3%)  16 calls  19247552 cyc
+  msp_timeline_step    779 us (0%)  16 calls  467502 cyc
+  canvas_clear         1341 us (0%)  16 calls  804698 cyc
+  canvas_buffer_wait   729951 us (72%)  16 calls  437970791 cyc
+isr_wake       n=18527 cyc min/avg/max=250/879/6974 ns min/avg/max=416/1465/11623 total=27144 us cpu=2.70%
+isr_pack       n=2316 cyc min/avg/max=3593/3938/5477 ns min/avg/max=5988/6563/9128 total=15204 us cpu=1.51%
+isr_dma_submit n=2316 cyc min/avg/max=490/557/603 ns min/avg/max=816/928/1005 total=2151 us cpu=0.21%
+f 1121 w=63047 r=19704
+f 1122 w=64298 r=21534
+f 1123 w=60508 r=19576
+f 1124 w=65238 r=22293
+f 1125 w=58343 r=18169
+f 1126 w=67989 r=23691
+f 1127 w=56573 r=17799
+f 1128 w=69035 r=24367
+f 1129 w=55788 r=17688
+f 1130 w=70118 r=25340
+f 1131 w=55067 r=17940
+f 1132 w=70160 r=25627
+f 1133 w=54848 r=18011
+f 1134 w=70962 r=26506
+f 1135 w=54496 r=18537
+f 1136 w=72429 r=28501
+=== profile MindSplatter [288x144] frames 1121-1136 window=1009367 us ===
+frame wall us: min=54496 avg=63056 max=72429 sum=1008899 (16 frames)
+frame render us: avg=21580 max=28501
+--- Cycle Counters ---
+frame                  1008898 us (100%)  16 calls  605339052 cyc
+  pov_preserve_half    2182 us (0%)  16 calls  1309731 cyc
+  msp_draw_particles   308057 us (30%)  16 calls  184834364 cyc
+    msp_particle_scan  307967 us (99%)  16 calls  184780302 cyc
+      plot_ps_raster   221390 us (71%)  4880 calls  132834420 cyc
+      plot_ps_deferred 5970 us (1%)  4880 calls  3582416 cyc
+      plot_ps_gate     43212 us (14%)  16447 calls  25927580 cyc
+        plot_ps_cartesian_gate 6494 us (15%)  16447 calls  3896711 cyc
+      plot_ps_tween    33408 us (10%)  16447 calls  20045242 cyc
+  msp_particle_step    32724 us (3%)  16 calls  19634412 cyc
+  msp_timeline_step    949 us (0%)  16 calls  569651 cyc
+  canvas_clear         1347 us (0%)  16 calls  808411 cyc
+  canvas_buffer_wait   663623 us (65%)  16 calls  398174213 cyc
+isr_wake       n=18610 cyc min/avg/max=250/891/6990 ns min/avg/max=416/1485/11650 total=27664 us cpu=2.74%
+isr_pack       n=2326 cyc min/avg/max=3593/3988/5468 ns min/avg/max=5988/6646/9113 total=15463 us cpu=1.53%
+isr_dma_submit n=2326 cyc min/avg/max=454/557/605 ns min/avg/max=756/928/1008 total=2159 us cpu=0.21%
+f 1137 w=53115 r=19400
+f 1138 w=72361 r=29240
+f 1139 w=60857 r=27630
+f 1140 w=59325 r=24494
+f 1141 w=66597 r=28626
+f 1142 w=59670 r=25842
+f 1143 w=65992 r=29368
+f 1144 w=58991 r=25894
+f 1145 w=65362 r=28790
+f 1146 w=58957 r=25274
+f 1147 w=64916 r=27723
+f 1148 w=60241 r=25497
+f 1149 w=62708 r=25738
+f 1150 w=62761 r=26047
+f 1151 w=62085 r=25665
+f 1152 w=62865 r=26008
+=== profile MindSplatter [288x144] frames 1137-1152 window=997314 us ===
+frame wall us: min=53115 avg=62300 max=72361 sum=996803 (16 frames)
+frame render us: avg=26327 max=29368
+--- Cycle Counters ---
+frame                  996798 us (100%)  16 calls  598079233 cyc
+  pov_preserve_half    2149 us (0%)  16 calls  1289524 cyc
+  msp_draw_particles   384176 us (38%)  16 calls  230505879 cyc
+    msp_particle_scan  384065 us (99%)  16 calls  230439230 cyc
+      plot_ps_raster   290140 us (75%)  5313 calls  174084484 cyc
+      plot_ps_deferred 6622 us (1%)  5313 calls  3973290 cyc
+      plot_ps_gate     50211 us (13%)  16250 calls  30126620 cyc
+        plot_ps_cartesian_gate 6601 us (13%)  16250 calls  3960719 cyc
+      plot_ps_tween    33079 us (8%)  16250 calls  19847911 cyc
+  msp_particle_step    32627 us (3%)  16 calls  19576293 cyc
+  msp_timeline_step    917 us (0%)  16 calls  550543 cyc
+  canvas_clear         1341 us (0%)  16 calls  805001 cyc
+  canvas_buffer_wait   575572 us (57%)  16 calls  345343640 cyc
+isr_wake       n=18388 cyc min/avg/max=250/901/7102 ns min/avg/max=416/1501/11836 total=27640 us cpu=2.77%
+isr_pack       n=2298 cyc min/avg/max=3593/4014/5522 ns min/avg/max=5988/6690/9203 total=15376 us cpu=1.54%
+isr_dma_submit n=2298 cyc min/avg/max=456/558/602 ns min/avg/max=760/930/1003 total=2139 us cpu=0.21%
+f 1153 w=61697 r=25486
+f 1154 w=62965 r=25986
+f 1155 w=61555 r=25074
+f 1156 w=63594 r=26200
+f 1157 w=61210 r=24943
+f 1158 w=63585 r=26064
+f 1159 w=60106 r=23705
+f 1160 w=64817 r=26054
+f 1161 w=59939 r=23527
+f 1162 w=64727 r=25782
+f 1163 w=59645 r=22959
+f 1164 w=65221 r=25712
+f 1165 w=58669 r=21861
+f 1166 w=66139 r=25533
+f 1167 w=58600 r=21677
+f 1168 w=66367 r=25586
+=== profile MindSplatter [288x144] frames 1153-1168 window=999333 us ===
+frame wall us: min=58600 avg=62427 max=66367 sum=998836 (16 frames)
+frame render us: avg=24759 max=26200
+--- Cycle Counters ---
+frame                  998832 us (100%)  16 calls  599299543 cyc
+  pov_preserve_half    2139 us (0%)  16 calls  1283744 cyc
+  msp_draw_particles   359442 us (35%)  16 calls  215665224 cyc
+    msp_particle_scan  359341 us (99%)  16 calls  215604962 cyc
+      plot_ps_raster   272976 us (75%)  4920 calls  163786168 cyc
+      plot_ps_deferred 6212 us (1%)  4920 calls  3727302 cyc
+      plot_ps_gate     43829 us (12%)  15964 calls  26297605 cyc
+        plot_ps_cartesian_gate 6410 us (14%)  15964 calls  3846068 cyc
+      plot_ps_tween    32420 us (9%)  15964 calls  19452033 cyc
+  msp_particle_step    32413 us (3%)  16 calls  19448137 cyc
+  msp_timeline_step    786 us (0%)  16 calls  471821 cyc
+  canvas_clear         1342 us (0%)  16 calls  805397 cyc
+  canvas_buffer_wait   602694 us (60%)  16 calls  361616648 cyc
+isr_wake       n=18425 cyc min/avg/max=250/898/7766 ns min/avg/max=416/1496/12943 total=27598 us cpu=2.76%
+isr_pack       n=2303 cyc min/avg/max=3593/4001/5408 ns min/avg/max=5988/6668/9013 total=15359 us cpu=1.53%
+isr_dma_submit n=2303 cyc min/avg/max=388/558/607 ns min/avg/max=646/930/1011 total=2142 us cpu=0.21%
+f 1169 w=57890 r=21255
+f 1170 w=66755 r=25556
+f 1171 w=57719 r=20808
+f 1172 w=66483 r=24836
+f 1173 w=58221 r=20592
+f 1174 w=66631 r=24756
+f 1175 w=58201 r=20492
+f 1176 w=66894 r=24921
+f 1177 w=58136 r=20592
+f 1178 w=66890 r=25016
+f 1179 w=57651 r=20145
+f 1180 w=67606 r=25287
+f 1181 w=57660 r=20481
+f 1182 w=67491 r=25506
+f 1183 w=57871 r=20911
+f 1184 w=67086 r=25543
+=== profile MindSplatter [288x144] frames 1169-1184 window=999702 us ===
+frame wall us: min=57651 avg=62449 max=67606 sum=999185 (16 frames)
+frame render us: avg=22918 max=25556
+--- Cycle Counters ---
+frame                  999184 us (100%)  16 calls  599510576 cyc
+  pov_preserve_half    2159 us (0%)  16 calls  1295655 cyc
+  msp_draw_particles   330318 us (33%)  16 calls  198191176 cyc
+    msp_particle_scan  330228 us (99%)  16 calls  198137244 cyc
+      plot_ps_raster   245565 us (74%)  4642 calls  147339460 cyc
+      plot_ps_deferred 6098 us (1%)  4642 calls  3659040 cyc
+      plot_ps_gate     42423 us (12%)  15833 calls  25454006 cyc
+        plot_ps_cartesian_gate 6312 us (14%)  15833 calls  3787248 cyc
+      plot_ps_tween    32242 us (9%)  15833 calls  19345228 cyc
+  msp_particle_step    32282 us (3%)  16 calls  19369783 cyc
+  msp_timeline_step    572 us (0%)  16 calls  343519 cyc
+  canvas_clear         1338 us (0%)  16 calls  803337 cyc
+  canvas_buffer_wait   632496 us (63%)  16 calls  379498141 cyc
+isr_wake       n=18433 cyc min/avg/max=250/893/7030 ns min/avg/max=416/1488/11716 total=27446 us cpu=2.74%
+isr_pack       n=2304 cyc min/avg/max=3593/3979/5392 ns min/avg/max=5988/6631/8986 total=15280 us cpu=1.52%
+isr_dma_submit n=2304 cyc min/avg/max=398/557/600 ns min/avg/max=663/928/1000 total=2142 us cpu=0.21%
+f 1185 w=62688 r=26013
+f 1186 w=62611 r=26167
+f 1187 w=63858 r=27559
+f 1188 w=62435 r=27528
+f 1189 w=65047 r=30110
+f 1190 w=60872 r=28514
+f 1191 w=64390 r=30438
+f 1192 w=60822 r=28738
+f 1193 w=61898 r=28172
+f 1194 w=59215 r=24919
+f 1195 w=65428 r=27881
+f 1196 w=59072 r=24486
+f 1197 w=65343 r=27363
+f 1198 w=59499 r=24395
+f 1199 w=64931 r=26854
+f 1200 w=60333 r=24720
+=== profile MindSplatter [288x144] frames 1185-1200 window=998923 us ===
+frame wall us: min=59072 avg=62402 max=65428 sum=998442 (16 frames)
+frame render us: avg=27116 max=30438
+--- Cycle Counters ---
+frame                  998440 us (100%)  16 calls  599064500 cyc
+  pov_preserve_half    2143 us (0%)  16 calls  1286134 cyc
+  msp_draw_particles   397153 us (39%)  16 calls  238292109 cyc
+    msp_particle_scan  397073 us (99%)  16 calls  238244362 cyc
+      plot_ps_raster   297270 us (74%)  5969 calls  178362045 cyc
+      plot_ps_deferred 8364 us (2%)  5969 calls  5018762 cyc
+      plot_ps_gate     54645 us (13%)  16089 calls  32787194 cyc
+        plot_ps_cartesian_gate 6560 us (12%)  16089 calls  3936467 cyc
+      plot_ps_tween    32760 us (8%)  16089 calls  19656097 cyc
+  msp_particle_step    32627 us (3%)  16 calls  19576293 cyc
+  msp_timeline_step    563 us (0%)  16 calls  337821 cyc
+  canvas_clear         1343 us (0%)  16 calls  805877 cyc
+  canvas_buffer_wait   564594 us (56%)  16 calls  338756846 cyc
+isr_wake       n=18417 cyc min/avg/max=251/905/6930 ns min/avg/max=418/1508/11550 total=27780 us cpu=2.78%
+isr_pack       n=2302 cyc min/avg/max=3593/4022/5432 ns min/avg/max=5988/6703/9053 total=15433 us cpu=1.54%
+isr_dma_submit n=2302 cyc min/avg/max=440/557/606 ns min/avg/max=733/928/1010 total=2140 us cpu=0.21%
+f 1201 w=63611 r=26100
+f 1202 w=60893 r=24526
+f 1203 w=63462 r=25521
+f 1204 w=61550 r=24619
+f 1205 w=63512 r=25665
+f 1206 w=61365 r=24509
+f 1207 w=63040 r=25084
+f 1208 w=59290 r=21908
+f 1209 w=65541 r=24983
+f 1210 w=58835 r=21353
+f 1211 w=66203 r=25091
+f 1212 w=58748 r=21373
+f 1213 w=66525 r=25431
+f 1214 w=58606 r=21572
+f 1215 w=66511 r=25617
+f 1216 w=58441 r=21591
+=== profile MindSplatter [288x144] frames 1201-1216 window=996625 us ===
+frame wall us: min=58441 avg=62258 max=66525 sum=996133 (16 frames)
+frame render us: avg=24058 max=26100
+--- Cycle Counters ---
+frame                  996132 us (100%)  16 calls  597679234 cyc
+  pov_preserve_half    2154 us (0%)  16 calls  1292734 cyc
+  msp_draw_particles   348158 us (34%)  16 calls  208894870 cyc
+    msp_particle_scan  348036 us (99%)  16 calls  208821935 cyc
+      plot_ps_raster   260371 us (74%)  4942 calls  156223187 cyc
+      plot_ps_deferred 6257 us (1%)  4942 calls  3754697 cyc
+      plot_ps_gate     44459 us (12%)  16218 calls  26675686 cyc
+        plot_ps_cartesian_gate 6541 us (14%)  16218 calls  3924656 cyc
+      plot_ps_tween    32933 us (9%)  16218 calls  19759954 cyc
+  msp_particle_step    32657 us (3%)  16 calls  19594775 cyc
+  msp_timeline_step    606 us (0%)  16 calls  363862 cyc
+  canvas_clear         1342 us (0%)  16 calls  805320 cyc
+  canvas_buffer_wait   611197 us (61%)  16 calls  366718711 cyc
+isr_wake       n=18376 cyc min/avg/max=251/898/6954 ns min/avg/max=418/1496/11590 total=27510 us cpu=2.76%
+isr_pack       n=2297 cyc min/avg/max=3593/4005/5472 ns min/avg/max=5988/6675/9120 total=15333 us cpu=1.53%
+isr_dma_submit n=2297 cyc min/avg/max=379/557/606 ns min/avg/max=631/928/1010 total=2133 us cpu=0.21%
+f 1217 w=66367 r=25738
+f 1218 w=58618 r=21889
+f 1219 w=66854 r=26224
+f 1220 w=58492 r=22251
+f 1221 w=66678 r=26462
+f 1222 w=58430 r=22436
+f 1223 w=66382 r=26352
+f 1224 w=58809 r=22713
+f 1225 w=65673 r=25915
+f 1226 w=59002 r=22445
+f 1227 w=66181 r=26178
+f 1228 w=58829 r=22540
+f 1229 w=66341 r=26426
+f 1230 w=58834 r=22793
+f 1231 w=65679 r=26006
+f 1232 w=61776 r=25326
+=== profile MindSplatter [288x144] frames 1217-1232 window=1003480 us ===
+frame wall us: min=58430 avg=62684 max=66854 sum=1002945 (16 frames)
+frame render us: avg=24480 max=26462
+--- Cycle Counters ---
+frame                  1002944 us (100%)  16 calls  601766660 cyc
+  pov_preserve_half    2129 us (0%)  16 calls  1277433 cyc
+  msp_draw_particles   354902 us (35%)  16 calls  212941751 cyc
+    msp_particle_scan  354813 us (99%)  16 calls  212887814 cyc
+      plot_ps_raster   265895 us (74%)  4926 calls  159537091 cyc
+      plot_ps_deferred 5847 us (1%)  4926 calls  3508483 cyc
+      plot_ps_gate     45648 us (12%)  16368 calls  27389133 cyc
+        plot_ps_cartesian_gate 6536 us (14%)  16368 calls  3922158 cyc
+      plot_ps_tween    33423 us (9%)  16368 calls  20054238 cyc
+  msp_particle_step    32690 us (3%)  16 calls  19614412 cyc
+  msp_timeline_step    603 us (0%)  16 calls  362064 cyc
+  canvas_clear         1344 us (0%)  16 calls  806420 cyc
+  canvas_buffer_wait   611259 us (60%)  16 calls  366755516 cyc
+isr_wake       n=18502 cyc min/avg/max=251/901/7062 ns min/avg/max=418/1501/11770 total=27806 us cpu=2.77%
+isr_pack       n=2312 cyc min/avg/max=3593/4033/5550 ns min/avg/max=5988/6721/9250 total=15540 us cpu=1.54%
+isr_dma_submit n=2312 cyc min/avg/max=462/558/607 ns min/avg/max=770/930/1011 total=2153 us cpu=0.21%
+f 1233 w=62835 r=25877
+f 1234 w=62473 r=25883
+f 1235 w=62474 r=25891
+f 1236 w=62817 r=26241
+f 1237 w=61644 r=25419
+f 1238 w=63410 r=26362
+f 1239 w=59703 r=23598
+f 1240 w=65360 r=26491
+f 1241 w=59218 r=23243
+f 1242 w=65865 r=26642
+f 1243 w=58901 r=23077
+f 1244 w=66102 r=26712
+f 1245 w=58945 r=23193
+f 1246 w=66012 r=26685
+f 1247 w=58807 r=23026
+f 1248 w=66066 r=26625
+=== profile MindSplatter [288x144] frames 1233-1248 window=1001108 us ===
+frame wall us: min=58807 avg=62539 max=66102 sum=1000632 (16 frames)
+frame render us: avg=25310 max=26712
+--- Cycle Counters ---
+frame                  1000631 us (100%)  16 calls  600378792 cyc
+  pov_preserve_half    2160 us (0%)  16 calls  1296593 cyc
+  msp_draw_particles   368147 us (36%)  16 calls  220888586 cyc
+    msp_particle_scan  368057 us (99%)  16 calls  220834614 cyc
+      plot_ps_raster   277619 us (75%)  5200 calls  166571452 cyc
+      plot_ps_deferred 5841 us (1%)  5200 calls  3504740 cyc
+      plot_ps_gate     46912 us (12%)  16517 calls  28147281 cyc
+        plot_ps_cartesian_gate 6608 us (14%)  16517 calls  3965191 cyc
+      plot_ps_tween    33578 us (9%)  16517 calls  20147156 cyc
+  msp_particle_step    32730 us (3%)  16 calls  19638336 cyc
+  msp_timeline_step    556 us (0%)  16 calls  333743 cyc
+  canvas_clear         1344 us (0%)  16 calls  806563 cyc
+  canvas_buffer_wait   595676 us (59%)  16 calls  357405665 cyc
+isr_wake       n=18457 cyc min/avg/max=250/905/7022 ns min/avg/max=416/1508/11703 total=27865 us cpu=2.78%
+isr_pack       n=2307 cyc min/avg/max=3601/4050/5540 ns min/avg/max=6001/6750/9233 total=15572 us cpu=1.55%
+isr_dma_submit n=2307 cyc min/avg/max=405/558/605 ns min/avg/max=675/930/1008 total=2146 us cpu=0.21%
+f 1249 w=58524 r=22917
+f 1250 w=66208 r=26659
+f 1251 w=59127 r=23321
+f 1252 w=65707 r=26561
+f 1253 w=59476 r=23572
+f 1254 w=65732 r=26838
+f 1255 w=59220 r=23594
+f 1256 w=65121 r=26248
+f 1257 w=60042 r=23824
+f 1258 w=65207 r=26564
+f 1259 w=60128 r=24225
+f 1260 w=65342 r=27046
+f 1261 w=59679 r=24260
+f 1262 w=65346 r=27139
+f 1263 w=59540 r=24212
+f 1264 w=65378 r=27123
+=== profile MindSplatter [288x144] frames 1249-1264 window=1000254 us ===
+frame wall us: min=58524 avg=62486 max=66208 sum=999777 (16 frames)
+frame render us: avg=25256 max=27139
+--- Cycle Counters ---
+frame                  999777 us (100%)  16 calls  599866495 cyc
+  pov_preserve_half    2148 us (0%)  16 calls  1289180 cyc
+  msp_draw_particles   367808 us (36%)  16 calls  220685178 cyc
+    msp_particle_scan  367729 us (99%)  16 calls  220637589 cyc
+      plot_ps_raster   280669 us (76%)  4961 calls  168401825 cyc
+      plot_ps_deferred 5217 us (1%)  4961 calls  3130698 cyc
+      plot_ps_gate     44487 us (12%)  16394 calls  26692670 cyc
+        plot_ps_cartesian_gate 6643 us (14%)  16394 calls  3985828 cyc
+      plot_ps_tween    33331 us (9%)  16394 calls  19999107 cyc
+  msp_particle_step    32076 us (3%)  16 calls  19246015 cyc
+  msp_timeline_step    705 us (0%)  16 calls  423129 cyc
+  canvas_clear         1340 us (0%)  16 calls  804257 cyc
+  canvas_buffer_wait   595682 us (59%)  16 calls  357409631 cyc
+isr_wake       n=18443 cyc min/avg/max=250/907/7070 ns min/avg/max=416/1511/11783 total=27888 us cpu=2.78%
+isr_pack       n=2306 cyc min/avg/max=3594/4058/5558 ns min/avg/max=5990/6763/9263 total=15600 us cpu=1.55%
+isr_dma_submit n=2306 cyc min/avg/max=370/558/644 ns min/avg/max=616/930/1073 total=2144 us cpu=0.21%
+f 1265 w=59094 r=23998
+f 1266 w=65895 r=27427
+f 1267 w=59059 r=24021
+f 1268 w=65873 r=27428
+f 1269 w=59085 r=24047
+f 1270 w=65647 r=27227
+f 1271 w=59189 r=23949
+f 1272 w=65739 r=27223
+Preset: 1/8
+f 1273 w=59132 r=23889
+f 1274 w=65186 r=26566
+f 1275 w=59837 r=23939
+f 1276 w=64836 r=26307
+f 1277 w=60273 r=24113
+f 1278 w=64932 r=26581
+f 1279 w=60141 r=24255
+f 1280 w=64898 r=26685
+=== profile MindSplatter [288x144] frames 1265-1280 window=999305 us ===
+frame wall us: min=59059 avg=62426 max=65895 sum=998816 (16 frames)
+frame render us: avg=25478 max=27428
+--- Cycle Counters ---
+frame                  998814 us (100%)  16 calls  599288684 cyc
+  pov_preserve_half    2198 us (0%)  16 calls  1319145 cyc
+  msp_draw_particles   371084 us (37%)  16 calls  222650655 cyc
+    msp_particle_scan  370983 us (99%)  16 calls  222590255 cyc
+      plot_ps_raster   284057 us (76%)  4892 calls  170434300 cyc
+      plot_ps_deferred 5003 us (1%)  4892 calls  3002270 cyc
+      plot_ps_gate     43887 us (11%)  16604 calls  26332444 cyc
+        plot_ps_cartesian_gate 6671 us (15%)  16604 calls  4003062 cyc
+      plot_ps_tween    34007 us (9%)  16604 calls  20404550 cyc
+  msp_particle_step    32235 us (3%)  16 calls  19341482 cyc
+  msp_timeline_step    734 us (0%)  16 calls  440439 cyc
+  canvas_clear         1342 us (0%)  16 calls  805703 cyc
+  canvas_buffer_wait   591168 us (59%)  16 calls  354701237 cyc
+isr_wake       n=18425 cyc min/avg/max=250/907/7010 ns min/avg/max=416/1511/11683 total=27860 us cpu=2.78%
+isr_pack       n=2303 cyc min/avg/max=3609/4057/5491 ns min/avg/max=6015/6761/9151 total=15574 us cpu=1.55%
+isr_dma_submit n=2303 cyc min/avg/max=452/558/603 ns min/avg/max=753/930/1005 total=2143 us cpu=0.21%
+f 1281 w=59730 r=24192
+f 1282 w=64726 r=26451
+f 1283 w=60371 r=24366
+f 1284 w=64637 r=26535
+f 1285 w=60406 r=24475
+f 1286 w=64884 r=26892
+f 1287 w=60596 r=24978
+f 1288 w=63947 r=26459
+f 1289 w=60899 r=24904
+f 1290 w=64194 r=26631
+f 1291 w=60872 r=25037
+f 1292 w=63938 r=26509
+f 1293 w=61481 r=25525
+f 1294 w=63319 r=26377
+f 1295 w=61674 r=25585
+f 1296 w=63746 r=26873
+=== profile MindSplatter [288x144] frames 1281-1296 window=999946 us ===
+frame wall us: min=59730 avg=62463 max=64884 sum=999420 (16 frames)
+frame render us: avg=25736 max=26892
+--- Cycle Counters ---
+frame                  999419 us (100%)  16 calls  599651570 cyc
+  pov_preserve_half    2161 us (0%)  16 calls  1296696 cyc
+  msp_draw_particles   375666 us (37%)  16 calls  225400076 cyc
+    msp_particle_scan  375586 us (99%)  16 calls  225351835 cyc
+      plot_ps_raster   288581 us (76%)  4936 calls  173148967 cyc
+      plot_ps_deferred 4936 us (1%)  4936 calls  2962125 cyc
+      plot_ps_gate     44396 us (11%)  16508 calls  26637664 cyc
+        plot_ps_cartesian_gate 6616 us (14%)  16508 calls  3969827 cyc
+      plot_ps_tween    33652 us (8%)  16508 calls  20191464 cyc
+  msp_particle_step    31728 us (3%)  16 calls  19036850 cyc
+  msp_timeline_step    868 us (0%)  16 calls  520924 cyc
+  canvas_clear         1341 us (0%)  16 calls  804746 cyc
+  canvas_buffer_wait   587639 us (58%)  16 calls  352583876 cyc
+isr_wake       n=18436 cyc min/avg/max=250/910/8718 ns min/avg/max=416/1516/14530 total=27973 us cpu=2.79%
+isr_pack       n=2304 cyc min/avg/max=3601/4064/5474 ns min/avg/max=6001/6773/9123 total=15606 us cpu=1.56%
+isr_dma_submit n=2304 cyc min/avg/max=460/558/603 ns min/avg/max=766/930/1005 total=2144 us cpu=0.21%
+f 1297 w=60965 r=25614
+f 1298 w=64106 r=27253
+f 1299 w=61128 r=25916
+f 1300 w=64188 r=27640
+f 1301 w=61043 r=26163
+f 1302 w=64234 r=27930
+f 1303 w=63139 r=28602
+f 1304 w=61824 r=27959
+f 1305 w=63182 r=28676
+f 1306 w=61051 r=27260
+f 1307 w=63353 r=28148
+f 1308 w=59501 r=25182
+f 1309 w=65455 r=28169
+f 1310 w=59000 r=24702
+f 1311 w=65972 r=28218
+f 1312 w=59123 r=24873
+=== profile MindSplatter [288x144] frames 1297-1312 window=997748 us ===
+frame wall us: min=59000 avg=62329 max=65972 sum=997264 (16 frames)
+frame render us: avg=27019 max=28676
+--- Cycle Counters ---
+frame                  997259 us (100%)  16 calls  598355844 cyc
+  pov_preserve_half    2169 us (0%)  16 calls  1301708 cyc
+  msp_draw_particles   396484 us (39%)  16 calls  237890948 cyc
+    msp_particle_scan  396405 us (99%)  16 calls  237843384 cyc
+      plot_ps_raster   306699 us (77%)  5236 calls  184019802 cyc
+      plot_ps_deferred 5177 us (1%)  5236 calls  3106574 cyc
+      plot_ps_gate     47236 us (11%)  16364 calls  28341870 cyc
+        plot_ps_cartesian_gate 6676 us (14%)  16364 calls  4006006 cyc
+      plot_ps_tween    33301 us (8%)  16364 calls  19981024 cyc
+  msp_particle_step    31421 us (3%)  16 calls  18852843 cyc
+  msp_timeline_step    859 us (0%)  16 calls  515536 cyc
+  canvas_clear         1342 us (0%)  16 calls  805230 cyc
+  canvas_buffer_wait   564967 us (56%)  16 calls  338980762 cyc
+isr_wake       n=18396 cyc min/avg/max=251/912/7150 ns min/avg/max=418/1520/11916 total=27991 us cpu=2.80%
+isr_pack       n=2299 cyc min/avg/max=3599/4066/5575 ns min/avg/max=5998/6776/9291 total=15582 us cpu=1.56%
+isr_dma_submit n=2299 cyc min/avg/max=464/558/607 ns min/avg/max=773/930/1011 total=2138 us cpu=0.21%
+f 1313 w=65809 r=28448
+f 1314 w=59443 r=25370
+f 1315 w=65872 r=28777
+f 1316 w=60797 r=27110
+f 1317 w=63832 r=28478
+f 1318 w=62287 r=28297
+f 1319 w=62279 r=28112
+f 1320 w=63059 r=28704
+f 1321 w=59024 r=25260
+f 1322 w=65810 r=28604
+f 1323 w=58888 r=25025
+f 1324 w=65532 r=28090
+f 1325 w=58738 r=24363
+f 1326 w=65496 r=27392
+f 1327 w=58905 r=23830
+f 1328 w=65494 r=26802
+=== profile MindSplatter [288x144] frames 1313-1328 window=1001742 us ===
+frame wall us: min=58738 avg=62579 max=65872 sum=1001265 (16 frames)
+frame render us: avg=27041 max=28777
+--- Cycle Counters ---
+frame                  1001265 us (100%)  16 calls  600759361 cyc
+  pov_preserve_half    2194 us (0%)  16 calls  1316861 cyc
+  msp_draw_particles   396732 us (39%)  16 calls  238039258 cyc
+    msp_particle_scan  396647 us (99%)  16 calls  237988264 cyc
+      plot_ps_raster   306277 us (77%)  5272 calls  183766437 cyc
+      plot_ps_deferred 5469 us (1%)  5272 calls  3281578 cyc
+      plot_ps_gate     47721 us (12%)  16316 calls  28632637 cyc
+        plot_ps_cartesian_gate 6566 us (13%)  16316 calls  3940114 cyc
+      plot_ps_tween    33172 us (8%)  16316 calls  19903645 cyc
+  msp_particle_step    31689 us (3%)  16 calls  19013464 cyc
+  msp_timeline_step    682 us (0%)  16 calls  409382 cyc
+  canvas_clear         1341 us (0%)  16 calls  804611 cyc
+  canvas_buffer_wait   568611 us (56%)  16 calls  341167156 cyc
+isr_wake       n=18470 cyc min/avg/max=250/912/7082 ns min/avg/max=416/1520/11803 total=28086 us cpu=2.80%
+isr_pack       n=2309 cyc min/avg/max=3593/4056/5532 ns min/avg/max=5988/6760/9220 total=15611 us cpu=1.55%
+isr_dma_submit n=2309 cyc min/avg/max=408/558/636 ns min/avg/max=680/930/1060 total=2149 us cpu=0.21%
+f 1329 w=58548 r=23128
+f 1330 w=65771 r=26435
+f 1331 w=57651 r=21631
+f 1332 w=66886 r=26052
+f 1333 w=57341 r=20926
+f 1334 w=66996 r=25456
+f 1335 w=57494 r=20484
+f 1336 w=67044 r=25062
+f 1337 w=56989 r=19584
+f 1338 w=67462 r=24578
+f 1339 w=57001 r=19112
+f 1340 w=67078 r=23729
+f 1341 w=57121 r=18331
+f 1342 w=67283 r=23146
+f 1343 w=56820 r=17500
+f 1344 w=67669 r=22704
+=== profile MindSplatter [288x144] frames 1329-1344 window=995650 us ===
+frame wall us: min=56820 avg=62197 max=67669 sum=995154 (16 frames)
+frame render us: avg=22366 max=26435
+--- Cycle Counters ---
+frame                  995152 us (100%)  16 calls  597091332 cyc
+  pov_preserve_half    2185 us (0%)  16 calls  1311174 cyc
+  msp_draw_particles   321326 us (32%)  16 calls  192795906 cyc
+    msp_particle_scan  321236 us (99%)  16 calls  192741886 cyc
+      plot_ps_raster   236048 us (73%)  4758 calls  141629013 cyc
+      plot_ps_deferred 5234 us (1%)  4758 calls  3140553 cyc
+      plot_ps_gate     42992 us (13%)  16264 calls  25795571 cyc
+        plot_ps_cartesian_gate 6463 us (15%)  16264 calls  3878352 cyc
+      plot_ps_tween    33021 us (10%)  16264 calls  19812924 cyc
+  msp_particle_step    32335 us (3%)  16 calls  19401046 cyc
+  msp_timeline_step    640 us (0%)  16 calls  384492 cyc
+  canvas_clear         1346 us (0%)  16 calls  807620 cyc
+  canvas_buffer_wait   637303 us (64%)  16 calls  382381984 cyc
+isr_wake       n=18357 cyc min/avg/max=250/894/7078 ns min/avg/max=416/1490/11796 total=27377 us cpu=2.74%
+isr_pack       n=2294 cyc min/avg/max=3593/3989/5508 ns min/avg/max=5988/6648/9180 total=15251 us cpu=1.53%
+isr_dma_submit n=2294 cyc min/avg/max=399/557/606 ns min/avg/max=665/928/1010 total=2132 us cpu=0.21%
+f 1345 w=56248 r=16720
+f 1346 w=67807 r=22059
+f 1347 w=56994 r=16588
+f 1348 w=67334 r=21457
+f 1349 w=57408 r=16400
+f 1350 w=66807 r=20751
+f 1351 w=57556 r=15841
+f 1352 w=67015 r=20388
+f 1353 w=57504 r=15436
+f 1354 w=66965 r=19936
+f 1355 w=58100 r=15526
+f 1356 w=66586 r=19646
+f 1357 w=58229 r=15407
+f 1358 w=65981 r=18921
+f 1359 w=58700 r=15157
+f 1360 w=66322 r=19025
+=== profile MindSplatter [288x144] frames 1345-1360 window=996079 us ===
+frame wall us: min=56248 avg=62222 max=67807 sum=995556 (16 frames)
+frame render us: avg=18078 max=22059
+--- Cycle Counters ---
+frame                  995553 us (100%)  16 calls  597332073 cyc
+  pov_preserve_half    2121 us (0%)  16 calls  1272841 cyc
+  msp_draw_particles   253087 us (25%)  16 calls  151852221 cyc
+    msp_particle_scan  252997 us (99%)  16 calls  151798381 cyc
+      plot_ps_raster   170883 us (67%)  4521 calls  102530066 cyc
+      plot_ps_deferred 5398 us (2%)  4521 calls  3239308 cyc
+      plot_ps_gate     40149 us (15%)  16094 calls  24089816 cyc
+        plot_ps_cartesian_gate 6407 us (15%)  16094 calls  3844561 cyc
+      plot_ps_tween    32659 us (12%)  16094 calls  19595524 cyc
+  msp_particle_step    32060 us (3%)  16 calls  19236003 cyc
+  msp_timeline_step    618 us (0%)  16 calls  371124 cyc
+  canvas_clear         1343 us (0%)  16 calls  806322 cyc
+  canvas_buffer_wait   706306 us (70%)  16 calls  423783890 cyc
+isr_wake       n=18366 cyc min/avg/max=250/879/6914 ns min/avg/max=416/1465/11523 total=26934 us cpu=2.70%
+isr_pack       n=2296 cyc min/avg/max=3593/3924/5335 ns min/avg/max=5988/6540/8891 total=15018 us cpu=1.50%
+isr_dma_submit n=2296 cyc min/avg/max=432/556/675 ns min/avg/max=720/926/1125 total=2130 us cpu=0.21%
+f 1361 w=58576 r=15377
+f 1362 w=66042 r=18956
+f 1363 w=59248 r=15738
+f 1364 w=65724 r=18996
+f 1365 w=59413 r=15941
+f 1366 w=64987 r=18461
+f 1367 w=59592 r=15588
+f 1368 w=65210 r=18342
+f 1369 w=59286 r=15107
+f 1370 w=65758 r=18399
+f 1371 w=58895 r=14828
+f 1372 w=65716 r=18078
+f 1373 w=59269 r=14880
+f 1374 w=65814 r=18239
+f 1375 w=59335 r=15107
+f 1376 w=65185 r=17827
+=== profile MindSplatter [288x144] frames 1361-1376 window=998551 us ===
+frame wall us: min=58576 avg=62378 max=66042 sum=998050 (16 frames)
+frame render us: avg=16866 max=18996
+--- Cycle Counters ---
+frame                  998050 us (100%)  16 calls  598830282 cyc
+  pov_preserve_half    2153 us (0%)  16 calls  1291943 cyc
+  msp_draw_particles   233470 us (23%)  16 calls  140082393 cyc
+    msp_particle_scan  233379 us (99%)  16 calls  140027908 cyc
+      plot_ps_raster   151536 us (64%)  4446 calls  90921791 cyc
+      plot_ps_deferred 5175 us (2%)  4446 calls  3105366 cyc
+      plot_ps_gate     39392 us (16%)  16343 calls  23635727 cyc
+        plot_ps_cartesian_gate 6514 us (16%)  16343 calls  3908606 cyc
+      plot_ps_tween    33310 us (14%)  16343 calls  19986067 cyc
+  msp_particle_step    32192 us (3%)  16 calls  19315703 cyc
+  msp_timeline_step    683 us (0%)  16 calls  409979 cyc
+  canvas_clear         1340 us (0%)  16 calls  804599 cyc
+  canvas_buffer_wait   728193 us (72%)  16 calls  436916338 cyc
+isr_wake       n=18410 cyc min/avg/max=250/876/6950 ns min/avg/max=416/1460/11583 total=26895 us cpu=2.69%
+isr_pack       n=2301 cyc min/avg/max=3593/3912/5327 ns min/avg/max=5988/6520/8878 total=15004 us cpu=1.50%
+isr_dma_submit n=2301 cyc min/avg/max=399/556/640 ns min/avg/max=665/926/1066 total=2135 us cpu=0.21%
+f 1377 w=59696 r=15290
+f 1378 w=64721 r=17544
+f 1379 w=60394 r=15473
+f 1380 w=64613 r=17619
+f 1381 w=60886 r=16041
+f 1382 w=63869 r=17394
+f 1383 w=61469 r=16397
+f 1384 w=63346 r=17276
+f 1385 w=61772 r=16583
+f 1386 w=63330 r=17447
+f 1387 w=62235 r=17217
+f 1388 w=62847 r=17597
+f 1389 w=65085 r=20216
+f 1390 w=60023 r=17774
+f 1391 w=64635 r=19954
+f 1392 w=58023 r=15522
+=== profile MindSplatter [288x144] frames 1377-1392 window=997451 us ===
+frame wall us: min=58023 avg=62309 max=65085 sum=996944 (16 frames)
+frame render us: avg=17209 max=20216
+--- Cycle Counters ---
+frame                  996941 us (100%)  16 calls  598164829 cyc
+  pov_preserve_half    2131 us (0%)  16 calls  1278651 cyc
+  msp_draw_particles   238670 us (23%)  16 calls  143202416 cyc
+    msp_particle_scan  238549 us (99%)  16 calls  143129529 cyc
+      plot_ps_raster   154407 us (64%)  4583 calls  92644785 cyc
+      plot_ps_deferred 5111 us (2%)  4583 calls  3066887 cyc
+      plot_ps_gate     40970 us (17%)  16660 calls  24582364 cyc
+        plot_ps_cartesian_gate 6571 us (16%)  16660 calls  3942857 cyc
+      plot_ps_tween    33998 us (14%)  16660 calls  20399383 cyc
+  msp_particle_step    32390 us (3%)  16 calls  19434432 cyc
+  msp_timeline_step    787 us (0%)  16 calls  472520 cyc
+  canvas_clear         1339 us (0%)  16 calls  803510 cyc
+  canvas_buffer_wait   721607 us (72%)  16 calls  432964372 cyc
+isr_wake       n=18391 cyc min/avg/max=250/878/7106 ns min/avg/max=416/1463/11843 total=26935 us cpu=2.70%
+isr_pack       n=2299 cyc min/avg/max=3593/3926/5266 ns min/avg/max=5988/6543/8776 total=15045 us cpu=1.50%
+isr_dma_submit n=2299 cyc min/avg/max=463/556/706 ns min/avg/max=771/926/1176 total=2134 us cpu=0.21%
+f 1393 w=67169 r=20468
+f 1394 w=56209 r=14213
+f 1395 w=68760 r=20505
+f 1396 w=56413 r=14398
+f 1397 w=68180 r=20114
+f 1398 w=57116 r=14763
+f 1399 w=68078 r=20374
+f 1400 w=57073 r=14990
+f 1401 w=68006 r=20528
+f 1402 w=57100 r=15164
+f 1403 w=67424 r=20133
+f 1404 w=57739 r=15404
+f 1405 w=67050 r=19987
+f 1406 w=58354 r=15889
+f 1407 w=66183 r=19605
+f 1408 w=59232 r=16372
+=== profile MindSplatter [288x144] frames 1393-1408 window=1000599 us ===
+frame wall us: min=56209 avg=62505 max=68760 sum=1000086 (16 frames)
+frame render us: avg=17681 max=20528
+--- Cycle Counters ---
+frame                  1000084 us (100%)  16 calls  600050524 cyc
+  pov_preserve_half    2166 us (0%)  16 calls  1299619 cyc
+  msp_draw_particles   245230 us (24%)  16 calls  147138066 cyc
+    msp_particle_scan  245149 us (99%)  16 calls  147089918 cyc
+      plot_ps_raster   157108 us (64%)  4923 calls  94264979 cyc
+      plot_ps_deferred 5213 us (2%)  4923 calls  3128010 cyc
+      plot_ps_gate     43222 us (17%)  17369 calls  25933678 cyc
+        plot_ps_cartesian_gate 6868 us (15%)  17369 calls  4121333 cyc
+      plot_ps_tween    35403 us (14%)  17369 calls  21241805 cyc
+  msp_particle_step    33377 us (3%)  16 calls  20026325 cyc
+  msp_timeline_step    765 us (0%)  16 calls  459392 cyc
+  canvas_clear         1342 us (0%)  16 calls  805351 cyc
+  canvas_buffer_wait   717187 us (71%)  16 calls  430312401 cyc
+isr_wake       n=18449 cyc min/avg/max=250/879/7254 ns min/avg/max=416/1465/12090 total=27044 us cpu=2.70%
+isr_pack       n=2306 cyc min/avg/max=3593/3929/5325 ns min/avg/max=5988/6548/8875 total=15103 us cpu=1.50%
+isr_dma_submit n=2306 cyc min/avg/max=444/556/604 ns min/avg/max=740/926/1006 total=2137 us cpu=0.21%
+f 1409 w=64997 r=19101
+f 1410 w=60069 r=16703
+f 1411 w=64943 r=19180
+f 1412 w=60501 r=17214
+f 1413 w=64385 r=19139
+f 1414 w=60471 r=17143
+f 1415 w=64007 r=18684
+f 1416 w=61317 r=17535
+f 1417 w=63625 r=18693
+f 1418 w=61307 r=17533
+f 1419 w=63609 r=18675
+f 1420 w=61262 r=17471
+f 1421 w=63764 r=18768
+f 1422 w=61167 r=17467
+f 1423 w=63610 r=18556
+f 1424 w=61374 r=17463
+=== profile MindSplatter [288x144] frames 1409-1424 window=1000882 us ===
+frame wall us: min=60069 avg=62525 max=64997 sum=1000408 (16 frames)
+frame render us: avg=18082 max=19180
+--- Cycle Counters ---
+frame                  1000408 us (100%)  16 calls  600245050 cyc
+  pov_preserve_half    2202 us (0%)  16 calls  1321228 cyc
+  msp_draw_particles   250722 us (25%)  16 calls  150433390 cyc
+    msp_particle_scan  250642 us (99%)  16 calls  150385340 cyc
+      plot_ps_raster   160759 us (64%)  4985 calls  96455762 cyc
+      plot_ps_deferred 5023 us (2%)  4985 calls  3013895 cyc
+      plot_ps_gate     43734 us (17%)  18019 calls  26240778 cyc
+        plot_ps_cartesian_gate 7211 us (16%)  18019 calls  4327108 cyc
+      plot_ps_tween    36823 us (14%)  18019 calls  22093850 cyc
+  msp_particle_step    34337 us (3%)  16 calls  20602399 cyc
+  msp_timeline_step    694 us (0%)  16 calls  416875 cyc
+  canvas_clear         1343 us (0%)  16 calls  806141 cyc
+  canvas_buffer_wait   711093 us (71%)  16 calls  426655867 cyc
+isr_wake       n=18454 cyc min/avg/max=250/882/6942 ns min/avg/max=416/1470/11570 total=27137 us cpu=2.71%
+isr_pack       n=2306 cyc min/avg/max=3593/3941/5352 ns min/avg/max=5988/6568/8920 total=15149 us cpu=1.51%
+isr_dma_submit n=2306 cyc min/avg/max=398/556/603 ns min/avg/max=663/926/1005 total=2139 us cpu=0.21%
+f 1425 w=65232 r=20462
+f 1426 w=59711 r=17706
+f 1427 w=66039 r=21278
+f 1428 w=58844 r=17656
+f 1429 w=67007 r=22199
+f 1430 w=57814 r=17546
+f 1431 w=68005 r=23086
+Preset: 2/8
+f 1432 w=58260 r=18880
+f 1433 w=67225 r=23637
+f 1434 w=57041 r=18214
+f 1435 w=68357 r=24116
+f 1436 w=56009 r=17604
+f 1437 w=69276 r=24415
+f 1438 w=55543 r=17491
+f 1439 w=69726 r=24751
+f 1440 w=54998 r=17281
+=== profile MindSplatter [288x144] frames 1425-1440 window=999576 us ===
+frame wall us: min=54998 avg=62442 max=69726 sum=999087 (16 frames)
+frame render us: avg=20395 max=24751
+--- Cycle Counters ---
+frame                  999084 us (100%)  16 calls  599450874 cyc
+  pov_preserve_half    2189 us (0%)  16 calls  1313667 cyc
+  msp_draw_particles   288108 us (28%)  16 calls  172865202 cyc
+    msp_particle_scan  288027 us (99%)  16 calls  172816500 cyc
+      plot_ps_raster   189355 us (65%)  6049 calls  113613395 cyc
+      plot_ps_deferred 6341 us (2%)  6049 calls  3805051 cyc
+      plot_ps_gate     51415 us (17%)  17821 calls  30849059 cyc
+        plot_ps_cartesian_gate 7285 us (14%)  17821 calls  4371456 cyc
+      plot_ps_tween    36485 us (12%)  17821 calls  21891352 cyc
+  msp_particle_step    33677 us (3%)  16 calls  20206439 cyc
+  msp_timeline_step    952 us (0%)  16 calls  571583 cyc
+  canvas_clear         1342 us (0%)  16 calls  805326 cyc
+  canvas_buffer_wait   672773 us (67%)  16 calls  403664016 cyc
+isr_wake       n=18429 cyc min/avg/max=250/889/7022 ns min/avg/max=416/1481/11703 total=27310 us cpu=2.73%
+isr_pack       n=2304 cyc min/avg/max=3593/3966/5428 ns min/avg/max=5988/6610/9046 total=15231 us cpu=1.52%
+isr_dma_submit n=2304 cyc min/avg/max=398/556/670 ns min/avg/max=663/926/1116 total=2137 us cpu=0.21%
+f 1441 w=71055 r=26112
+f 1442 w=53937 r=17584
+f 1443 w=72041 r=27159
+f 1444 w=53295 r=17988
+f 1445 w=72982 r=28506
+f 1446 w=52650 r=18688
+f 1447 w=73935 r=30158
+f 1448 w=51822 r=19514
+f 1449 w=74879 r=31931
+f 1450 w=50975 r=20386
+f 1451 w=76819 r=34750
+f 1452 w=49330 r=21613
+f 1453 w=77685 r=36834
+f 1454 w=48639 r=23006
+f 1455 w=78458 r=38998
+f 1456 w=48210 r=24740
+=== profile MindSplatter [288x144] frames 1441-1456 window=1007207 us ===
+frame wall us: min=48210 avg=62919 max=78458 sum=1006712 (16 frames)
+frame render us: avg=26122 max=38998
+--- Cycle Counters ---
+frame                  1006712 us (100%)  16 calls  604027635 cyc
+  pov_preserve_half    2173 us (0%)  16 calls  1303993 cyc
+  msp_draw_particles   380581 us (37%)  16 calls  228349000 cyc
+    msp_particle_scan  380501 us (99%)  16 calls  228300729 cyc
+      plot_ps_raster   271098 us (71%)  7491 calls  162658898 cyc
+      plot_ps_deferred 7059 us (1%)  7491 calls  4235425 cyc
+      plot_ps_gate     61919 us (16%)  17519 calls  37151866 cyc
+        plot_ps_cartesian_gate 7518 us (12%)  17519 calls  4510834 cyc
+      plot_ps_tween    35975 us (9%)  17519 calls  21585010 cyc
+  msp_particle_step    32892 us (3%)  16 calls  19735282 cyc
+  msp_timeline_step    958 us (0%)  16 calls  574945 cyc
+  canvas_clear         1342 us (0%)  16 calls  805455 cyc
+  canvas_buffer_wait   588751 us (58%)  16 calls  353250842 cyc
+isr_wake       n=18571 cyc min/avg/max=251/906/7026 ns min/avg/max=418/1510/11710 total=28067 us cpu=2.78%
+isr_pack       n=2321 cyc min/avg/max=3593/4036/5511 ns min/avg/max=5988/6726/9185 total=15613 us cpu=1.55%
+isr_dma_submit n=2321 cyc min/avg/max=378/557/607 ns min/avg/max=630/928/1011 total=2154 us cpu=0.21%
+f 1457 w=77906 r=40417
+f 1458 w=50436 r=28386
+f 1459 w=74603 r=40522
+f 1460 w=54041 r=32096
+f 1461 w=70034 r=39675
+f 1462 w=57696 r=34906
+f 1463 w=65833 r=38219
+f 1464 w=61320 r=37074
+f 1465 w=63799 r=38408
+f 1466 w=63091 r=39032
+f 1467 w=61975 r=38560
+f 1468 w=63913 r=40008
+f 1469 w=60702 r=38245
+f 1470 w=66017 r=41795
+f 1471 w=59198 r=38529
+f 1472 w=67368 r=43428
+=== profile MindSplatter [288x144] frames 1457-1472 window=1018444 us ===
+frame wall us: min=50436 avg=63620 max=77906 sum=1017932 (16 frames)
+frame render us: avg=38081 max=43428
+--- Cycle Counters ---
+frame                  1017930 us (100%)  16 calls  610758174 cyc
+  pov_preserve_half    2184 us (0%)  16 calls  1310764 cyc
+  msp_draw_particles   571448 us (56%)  16 calls  342868900 cyc
+    msp_particle_scan  571357 us (99%)  16 calls  342814722 cyc
+      plot_ps_raster   442922 us (77%)  9220 calls  265753461 cyc
+      plot_ps_deferred 8805 us (1%)  9220 calls  5283247 cyc
+      plot_ps_gate     79167 us (13%)  17461 calls  47500748 cyc
+        plot_ps_cartesian_gate 7640 us (9%)  17461 calls  4584017 cyc
+      plot_ps_tween    35860 us (6%)  17461 calls  21516546 cyc
+  msp_particle_step    33528 us (3%)  16 calls  20117061 cyc
+  msp_timeline_step    769 us (0%)  16 calls  461604 cyc
+  canvas_clear         1346 us (0%)  16 calls  807732 cyc
+  canvas_buffer_wait   408639 us (40%)  16 calls  245183992 cyc
+isr_wake       n=18777 cyc min/avg/max=251/939/10814 ns min/avg/max=418/1565/18023 total=29395 us cpu=2.88%
+isr_pack       n=2347 cyc min/avg/max=3620/4146/5590 ns min/avg/max=6033/6910/9316 total=16219 us cpu=1.59%
+isr_dma_submit n=2347 cyc min/avg/max=462/558/604 ns min/avg/max=770/930/1006 total=2184 us cpu=0.21%
+f 1473 w=49629 r=30831
+f 1474 w=80044 r=48413
+f 1475 w=44239 r=30188
+f 1476 w=79223 r=46944
+f 1477 w=44426 r=28851
+f 1478 w=78498 r=44884
+f 1479 w=45487 r=27907
+f 1480 w=76923 r=42365
+f 1481 w=47420 r=27319
+f 1482 w=76485 r=41348
+f 1483 w=47420 r=26301
+f 1484 w=76328 r=40164
+f 1485 w=46098 r=23796
+f 1486 w=78333 r=39665
+f 1487 w=45239 r=22437
+f 1488 w=83383 r=43353
+=== profile MindSplatter [288x144] frames 1473-1488 window=999675 us ===
+frame wall us: min=44239 avg=62448 max=83383 sum=999175 (16 frames)
+frame render us: avg=35297 max=48413
+--- Cycle Counters ---
+frame                  999174 us (100%)  16 calls  599504642 cyc
+  pov_preserve_half    2155 us (0%)  16 calls  1293457 cyc
+  msp_draw_particles   526182 us (52%)  16 calls  315709569 cyc
+    msp_particle_scan  526101 us (99%)  16 calls  315660766 cyc
+      plot_ps_raster   403538 us (76%)  8707 calls  242122829 cyc
+      plot_ps_deferred 10179 us (1%)  8707 calls  6107913 cyc
+      plot_ps_gate     73358 us (13%)  16863 calls  44014898 cyc
+        plot_ps_cartesian_gate 7362 us (10%)  16863 calls  4417727 cyc
+      plot_ps_tween    34563 us (6%)  16863 calls  20738031 cyc
+  msp_particle_step    34181 us (3%)  16 calls  20509194 cyc
+  msp_timeline_step    877 us (0%)  16 calls  526668 cyc
+  canvas_clear         1344 us (0%)  16 calls  806446 cyc
+  canvas_buffer_wait   434417 us (43%)  16 calls  260650755 cyc
+isr_wake       n=18432 cyc min/avg/max=250/930/7134 ns min/avg/max=416/1550/11890 total=28589 us cpu=2.85%
+isr_pack       n=2304 cyc min/avg/max=3600/4095/5527 ns min/avg/max=6000/6825/9211 total=15726 us cpu=1.57%
+isr_dma_submit n=2304 cyc min/avg/max=392/557/652 ns min/avg/max=653/928/1086 total=2141 us cpu=0.21%
+f 1489 w=40651 r=21786
+f 1490 w=84011 r=43330
+f 1491 w=39327 r=20138
+f 1492 w=83887 r=41558
+f 1493 w=39000 r=18091
+f 1494 w=85561 r=41186
+f 1495 w=37637 r=16357
+f 1496 w=86241 r=40133
+f 1497 w=38404 r=16071
+f 1498 w=82196 r=35799
+f 1499 w=42521 r=15854
+f 1500 w=76806 r=30192
+f 1501 w=48100 r=15828
+f 1502 w=75631 r=28994
+f 1503 w=49761 r=16303
+f 1504 w=74175 r=27957
+=== profile MindSplatter [288x144] frames 1489-1504 window=984400 us ===
+frame wall us: min=37637 avg=61494 max=86241 sum=983909 (16 frames)
+frame render us: avg=26848 max=43330
+--- Cycle Counters ---
+frame                  983907 us (100%)  16 calls  590344323 cyc
+  pov_preserve_half    2113 us (0%)  16 calls  1267816 cyc
+  msp_draw_particles   392538 us (39%)  16 calls  235523191 cyc
+    msp_particle_scan  392415 us (99%)  16 calls  235449307 cyc
+      plot_ps_raster   284350 us (72%)  7441 calls  170610189 cyc
+      plot_ps_deferred 10039 us (2%)  7441 calls  6023428 cyc
+      plot_ps_gate     61193 us (15%)  16051 calls  36715905 cyc
+        plot_ps_cartesian_gate 6819 us (11%)  16051 calls  4091609 cyc
+      plot_ps_tween    32694 us (8%)  16051 calls  19616936 cyc
+  msp_particle_step    32801 us (3%)  16 calls  19681190 cyc
+  msp_timeline_step    752 us (0%)  16 calls  451221 cyc
+  canvas_clear         1345 us (0%)  16 calls  807045 cyc
+  canvas_buffer_wait   554341 us (56%)  16 calls  332604846 cyc
+isr_wake       n=18150 cyc min/avg/max=250/905/6938 ns min/avg/max=416/1508/11563 total=27384 us cpu=2.78%
+isr_pack       n=2268 cyc min/avg/max=3593/4000/5394 ns min/avg/max=5988/6666/8990 total=15123 us cpu=1.53%
+isr_dma_submit n=2268 cyc min/avg/max=378/557/645 ns min/avg/max=630/928/1075 total=2107 us cpu=0.21%
+f 1505 w=50935 r=16676
+f 1506 w=72875 r=27086
+f 1507 w=51818 r=16437
+f 1508 w=72770 r=26740
+f 1509 w=52671 r=16944
+f 1510 w=72135 r=26613
+f 1511 w=53161 r=17308
+f 1512 w=69946 r=24786
+f 1513 w=55688 r=18007
+f 1514 w=67543 r=23083
+f 1515 w=57327 r=17945
+f 1516 w=67458 r=22938
+f 1517 w=57341 r=17812
+f 1518 w=67878 r=23181
+f 1519 w=59029 r=19745
+f 1520 w=66009 r=23288
+=== profile MindSplatter [288x144] frames 1505-1520 window=995070 us ===
+frame wall us: min=50935 avg=62161 max=72875 sum=994584 (16 frames)
+frame render us: avg=21161 max=27086
+--- Cycle Counters ---
+frame                  994581 us (100%)  16 calls  596748993 cyc
+  pov_preserve_half    2135 us (0%)  16 calls  1281276 cyc
+  msp_draw_particles   302395 us (30%)  16 calls  181437255 cyc
+    msp_particle_scan  302316 us (99%)  16 calls  181389647 cyc
+      plot_ps_raster   215272 us (71%)  5262 calls  129163410 cyc
+      plot_ps_deferred 6806 us (2%)  5262 calls  4084064 cyc
+      plot_ps_gate     44167 us (14%)  15807 calls  26500372 cyc
+        plot_ps_cartesian_gate 6447 us (14%)  15807 calls  3868711 cyc
+      plot_ps_tween    32203 us (10%)  15807 calls  19321879 cyc
+  msp_particle_step    31967 us (3%)  16 calls  19180751 cyc
+  msp_timeline_step    716 us (0%)  16 calls  429894 cyc
+  canvas_clear         1346 us (0%)  16 calls  808165 cyc
+  canvas_buffer_wait   656004 us (65%)  16 calls  393602618 cyc
+isr_wake       n=18347 cyc min/avg/max=250/892/7002 ns min/avg/max=416/1486/11670 total=27293 us cpu=2.74%
+isr_pack       n=2294 cyc min/avg/max=3593/3971/5433 ns min/avg/max=5988/6618/9055 total=15184 us cpu=1.52%
+isr_dma_submit n=2294 cyc min/avg/max=432/556/600 ns min/avg/max=720/926/1000 total=2129 us cpu=0.21%
+f 1521 w=59471 r=20538
+f 1522 w=62245 r=20318
+f 1523 w=63390 r=21243
+f 1524 w=60244 r=19031
+f 1525 w=65657 r=22223
+f 1526 w=60022 r=19779
+f 1527 w=66373 r=23685
+f 1528 w=59254 r=20472
+f 1529 w=66960 r=24966
+f 1530 w=58470 r=20970
+f 1531 w=66173 r=24623
+f 1532 w=58752 r=20907
+f 1533 w=65712 r=24156
+f 1534 w=59484 r=21173
+f 1535 w=65406 r=24113
+f 1536 w=59876 r=21524
+=== profile MindSplatter [288x144] frames 1521-1536 window=998000 us ===
+frame wall us: min=58470 avg=62343 max=66960 sum=997489 (16 frames)
+frame render us: avg=21857 max=24966
+--- Cycle Counters ---
+frame                  997487 us (100%)  16 calls  598492598 cyc
+  pov_preserve_half    2125 us (0%)  16 calls  1275252 cyc
+  msp_draw_particles   312856 us (31%)  16 calls  187713909 cyc
+    msp_particle_scan  312777 us (99%)  16 calls  187666275 cyc
+      plot_ps_raster   226914 us (72%)  4806 calls  136148994 cyc
+      plot_ps_deferred 5788 us (1%)  4806 calls  3473166 cyc
+      plot_ps_gate     43211 us (13%)  16195 calls  25926811 cyc
+        plot_ps_cartesian_gate 6567 us (15%)  16195 calls  3940632 cyc
+      plot_ps_tween    32920 us (10%)  16195 calls  19752217 cyc
+  msp_particle_step    32700 us (3%)  16 calls  19620326 cyc
+  msp_timeline_step    674 us (0%)  16 calls  404964 cyc
+  canvas_clear         1339 us (0%)  16 calls  803418 cyc
+  canvas_buffer_wait   647776 us (64%)  16 calls  388665747 cyc
+isr_wake       n=18401 cyc min/avg/max=250/892/8474 ns min/avg/max=416/1486/14123 total=27365 us cpu=2.74%
+isr_pack       n=2300 cyc min/avg/max=3593/3966/5473 ns min/avg/max=5988/6610/9121 total=15203 us cpu=1.52%
+isr_dma_submit n=2300 cyc min/avg/max=370/556/598 ns min/avg/max=616/926/996 total=2134 us cpu=0.21%
+f 1537 w=65116 r=24440
+f 1538 w=60209 r=22184
+f 1539 w=64717 r=24434
+f 1540 w=60605 r=22575
+f 1541 w=64453 r=24561
+f 1542 w=62004 r=24100
+f 1543 w=63273 r=24906
+f 1544 w=62947 r=25386
+f 1545 w=61783 r=24648
+f 1546 w=63587 r=25770
+f 1547 w=61113 r=24416
+f 1548 w=63957 r=25906
+f 1549 w=60811 r=24252
+f 1550 w=64128 r=25914
+f 1551 w=61043 r=24484
+f 1552 w=64072 r=26089
+=== profile MindSplatter [288x144] frames 1537-1552 window=1004288 us ===
+frame wall us: min=60209 avg=62738 max=65116 sum=1003818 (16 frames)
+frame render us: avg=24629 max=26089
+--- Cycle Counters ---
+frame                  1003815 us (100%)  16 calls  602289461 cyc
+  pov_preserve_half    2144 us (0%)  16 calls  1286500 cyc
+  msp_draw_particles   357068 us (35%)  16 calls  214241223 cyc
+    msp_particle_scan  356989 us (99%)  16 calls  214193552 cyc
+      plot_ps_raster   266963 us (74%)  5139 calls  160178061 cyc
+      plot_ps_deferred 6251 us (1%)  5139 calls  3750792 cyc
+      plot_ps_gate     46558 us (13%)  16308 calls  27935016 cyc
+        plot_ps_cartesian_gate 6576 us (14%)  16308 calls  3946145 cyc
+      plot_ps_tween    33229 us (9%)  16308 calls  19937605 cyc
+  msp_particle_step    32768 us (3%)  16 calls  19660858 cyc
+  msp_timeline_step    715 us (0%)  16 calls  429041 cyc
+  canvas_clear         1343 us (0%)  16 calls  805937 cyc
+  canvas_buffer_wait   609761 us (60%)  16 calls  365856786 cyc
+isr_wake       n=18517 cyc min/avg/max=250/900/6998 ns min/avg/max=416/1500/11663 total=27798 us cpu=2.76%
+isr_pack       n=2314 cyc min/avg/max=3593/4003/5400 ns min/avg/max=5988/6671/9000 total=15440 us cpu=1.53%
+isr_dma_submit n=2314 cyc min/avg/max=462/557/602 ns min/avg/max=770/928/1003 total=2149 us cpu=0.21%
+f 1553 w=60660 r=24517
+f 1554 w=62735 r=24785
+f 1555 w=62506 r=24824
+f 1556 w=61446 r=23804
+f 1557 w=63666 r=25004
+f 1558 w=61036 r=23518
+f 1559 w=63917 r=24969
+f 1560 w=61763 r=24264
+f 1561 w=63444 r=25241
+f 1562 w=61449 r=24236
+f 1563 w=63605 r=25376
+f 1564 w=61210 r=24121
+f 1565 w=63243 r=24897
+f 1566 w=62074 r=24503
+f 1567 w=63075 r=25107
+f 1568 w=62438 r=25079
+=== profile MindSplatter [288x144] frames 1553-1568 window=998746 us ===
+frame wall us: min=60660 avg=62391 max=63917 sum=998267 (16 frames)
+frame render us: avg=24640 max=25376
+--- Cycle Counters ---
+frame                  998263 us (100%)  16 calls  598958234 cyc
+  pov_preserve_half    2150 us (0%)  16 calls  1290355 cyc
+  msp_draw_particles   357364 us (35%)  16 calls  214418965 cyc
+    msp_particle_scan  357274 us (99%)  16 calls  214364920 cyc
+      plot_ps_raster   269901 us (75%)  4787 calls  161940760 cyc
+      plot_ps_deferred 5596 us (1%)  4787 calls  3357928 cyc
+      plot_ps_gate     44708 us (12%)  16264 calls  26825050 cyc
+        plot_ps_cartesian_gate 6554 us (14%)  16264 calls  3932566 cyc
+      plot_ps_tween    33117 us (9%)  16264 calls  19870557 cyc
+  msp_particle_step    32609 us (3%)  16 calls  19565723 cyc
+  msp_timeline_step    752 us (0%)  16 calls  451520 cyc
+  canvas_clear         1339 us (0%)  16 calls  803931 cyc
+  canvas_buffer_wait   604031 us (60%)  16 calls  362418694 cyc
+isr_wake       n=18414 cyc min/avg/max=250/901/6966 ns min/avg/max=416/1501/11610 total=27671 us cpu=2.77%
+isr_pack       n=2302 cyc min/avg/max=3593/4010/5462 ns min/avg/max=5988/6683/9103 total=15388 us cpu=1.54%
+isr_dma_submit n=2302 cyc min/avg/max=377/557/606 ns min/avg/max=628/928/1010 total=2138 us cpu=0.21%
+f 1569 w=62800 r=25662
+f 1570 w=62109 r=25304
+f 1571 w=62843 r=25694
+f 1572 w=66612 r=29787
+f 1573 w=58842 r=26162
+f 1574 w=65977 r=29672
+f 1575 w=55810 r=23015
+f 1576 w=68067 r=28615
+f 1577 w=55187 r=21348
+f 1578 w=69573 r=28455
+f 1579 w=55015 r=21005
+f 1580 w=69575 r=28113
+f 1581 w=59289 r=24935
+f 1582 w=65222 r=27692
+f 1583 w=60230 r=25456
+f 1584 w=64120 r=27109
+=== profile MindSplatter [288x144] frames 1569-1584 window=1001773 us ===
+frame wall us: min=55015 avg=62579 max=69575 sum=1001271 (16 frames)
+frame render us: avg=26126 max=29787
+--- Cycle Counters ---
+frame                  1001270 us (100%)  16 calls  600762205 cyc
+  pov_preserve_half    2149 us (0%)  16 calls  1289446 cyc
+  msp_draw_particles   381347 us (38%)  16 calls  228808738 cyc
+    msp_particle_scan  381258 us (99%)  16 calls  228754802 cyc
+      plot_ps_raster   289434 us (75%)  5168 calls  173660471 cyc
+      plot_ps_deferred 6401 us (1%)  5168 calls  3840930 cyc
+      plot_ps_gate     48400 us (12%)  16232 calls  29040137 cyc
+        plot_ps_cartesian_gate 6537 us (13%)  16232 calls  3922664 cyc
+      plot_ps_tween    33029 us (8%)  16232 calls  19817739 cyc
+  msp_particle_step    32430 us (3%)  16 calls  19458129 cyc
+  msp_timeline_step    729 us (0%)  16 calls  437887 cyc
+  canvas_clear         1344 us (0%)  16 calls  806421 cyc
+  canvas_buffer_wait   583253 us (58%)  16 calls  349952328 cyc
+isr_wake       n=18470 cyc min/avg/max=250/906/6998 ns min/avg/max=416/1510/11663 total=27891 us cpu=2.78%
+isr_pack       n=2308 cyc min/avg/max=3593/4024/5442 ns min/avg/max=5988/6706/9070 total=15479 us cpu=1.54%
+isr_dma_submit n=2308 cyc min/avg/max=396/558/660 ns min/avg/max=660/930/1100 total=2146 us cpu=0.21%
+f 1585 w=60754 r=25643
+f 1586 w=61347 r=24472
+f 1587 w=63309 r=25314
+f 1588 w=60107 r=22953
+f 1589 w=64985 r=25472
+f 1590 w=59379 r=22386
+Preset: 3/8
+f 1591 w=65163 r=25084
+f 1592 w=59337 r=21954
+f 1593 w=65306 r=24796
+f 1594 w=59289 r=21618
+f 1595 w=65702 r=24855
+f 1596 w=59321 r=21707
+f 1597 w=66266 r=25507
+f 1598 w=58495 r=21535
+f 1599 w=66931 r=25944
+f 1600 w=57893 r=21370
+=== profile MindSplatter [288x144] frames 1585-1600 window=994060 us ===
+frame wall us: min=57893 avg=62099 max=66931 sum=993584 (16 frames)
+frame render us: avg=23788 max=25944
+--- Cycle Counters ---
+frame                  993583 us (100%)  16 calls  596150386 cyc
+  pov_preserve_half    2141 us (0%)  16 calls  1285031 cyc
+  msp_draw_particles   344197 us (34%)  16 calls  206518652 cyc
+    msp_particle_scan  344106 us (99%)  16 calls  206464018 cyc
+      plot_ps_raster   258772 us (75%)  4729 calls  155263643 cyc
+      plot_ps_deferred 5470 us (1%)  4729 calls  3282425 cyc
+      plot_ps_gate     43163 us (12%)  16172 calls  25897938 cyc
+        plot_ps_cartesian_gate 6462 us (14%)  16172 calls  3877743 cyc
+      plot_ps_tween    32757 us (9%)  16172 calls  19654529 cyc
+  msp_particle_step    32148 us (3%)  16 calls  19289224 cyc
+  msp_timeline_step    718 us (0%)  16 calls  430998 cyc
+  canvas_clear         1347 us (0%)  16 calls  808624 cyc
+  canvas_buffer_wait   612981 us (61%)  16 calls  367788845 cyc
+isr_wake       n=18329 cyc min/avg/max=251/899/7078 ns min/avg/max=418/1498/11796 total=27483 us cpu=2.76%
+isr_pack       n=2291 cyc min/avg/max=3593/4007/5500 ns min/avg/max=5988/6678/9166 total=15301 us cpu=1.53%
+isr_dma_submit n=2291 cyc min/avg/max=444/557/612 ns min/avg/max=740/928/1020 total=2129 us cpu=0.21%
+f 1601 w=67739 r=26890
+f 1602 w=57051 r=21488
+f 1603 w=68383 r=27404
+f 1604 w=56219 r=21156
+f 1605 w=69368 r=28057
+f 1606 w=55533 r=21122
+f 1607 w=69673 r=28331
+f 1608 w=55231 r=21094
+f 1609 w=69906 r=28534
+f 1610 w=54923 r=20990
+f 1611 w=70642 r=29165
+f 1612 w=54248 r=20946
+f 1613 w=70862 r=29287
+f 1614 w=54658 r=21478
+f 1615 w=70618 r=29629
+f 1616 w=54599 r=21760
+=== profile MindSplatter [288x144] frames 1601-1616 window=1000133 us ===
+frame wall us: min=54248 avg=62478 max=70862 sum=999653 (16 frames)
+frame render us: avg=24833 max=29629
+--- Cycle Counters ---
+frame                  999651 us (100%)  16 calls  599791058 cyc
+  pov_preserve_half    2178 us (0%)  16 calls  1306805 cyc
+  msp_draw_particles   361209 us (36%)  16 calls  216725413 cyc
+    msp_particle_scan  361129 us (99%)  16 calls  216677837 cyc
+      plot_ps_raster   274771 us (76%)  5020 calls  164863091 cyc
+      plot_ps_deferred 5667 us (1%)  5020 calls  3400759 cyc
+      plot_ps_gate     44218 us (12%)  16068 calls  26531376 cyc
+        plot_ps_cartesian_gate 6458 us (14%)  16068 calls  3875139 cyc
+      plot_ps_tween    32569 us (9%)  16068 calls  19541490 cyc
+  msp_particle_step    31785 us (3%)  16 calls  19071465 cyc
+  msp_timeline_step    785 us (0%)  16 calls  471565 cyc
+  canvas_clear         1346 us (0%)  16 calls  808017 cyc
+  canvas_buffer_wait   602332 us (60%)  16 calls  361399408 cyc
+isr_wake       n=18440 cyc min/avg/max=251/902/7074 ns min/avg/max=418/1503/11790 total=27745 us cpu=2.77%
+isr_pack       n=2305 cyc min/avg/max=3593/4023/5468 ns min/avg/max=5988/6705/9113 total=15455 us cpu=1.54%
+isr_dma_submit n=2305 cyc min/avg/max=467/558/605 ns min/avg/max=778/930/1008 total=2144 us cpu=0.21%
+f 1617 w=69709 r=29247
+f 1618 w=55339 r=22119
+f 1619 w=69731 r=29396
+f 1620 w=55241 r=22170
+f 1621 w=69482 r=29184
+f 1622 w=55097 r=21814
+f 1623 w=69068 r=28415
+f 1624 w=55853 r=21804
+f 1625 w=68099 r=27436
+f 1626 w=57097 r=22013
+f 1627 w=67570 r=27119
+f 1628 w=57419 r=22071
+f 1629 w=67080 r=26684
+f 1630 w=58014 r=22231
+f 1631 w=66229 r=25993
+f 1632 w=58775 r=22301
+=== profile MindSplatter [288x144] frames 1617-1632 window=1000287 us ===
+frame wall us: min=55097 avg=62487 max=69731 sum=999803 (16 frames)
+frame render us: avg=24999 max=29396
+--- Cycle Counters ---
+frame                  999801 us (100%)  16 calls  599881014 cyc
+  pov_preserve_half    2176 us (0%)  16 calls  1305830 cyc
+  msp_draw_particles   363864 us (36%)  16 calls  218318563 cyc
+    msp_particle_scan  363784 us (99%)  16 calls  218270432 cyc
+      plot_ps_raster   277733 us (76%)  4886 calls  166639927 cyc
+      plot_ps_deferred 5698 us (1%)  4886 calls  3418882 cyc
+      plot_ps_gate     43828 us (12%)  16048 calls  26297313 cyc
+        plot_ps_cartesian_gate 6492 us (14%)  16048 calls  3895314 cyc
+      plot_ps_tween    32621 us (8%)  16048 calls  19572962 cyc
+  msp_particle_step    31842 us (3%)  16 calls  19105602 cyc
+  msp_timeline_step    751 us (0%)  16 calls  451177 cyc
+  canvas_clear         1337 us (0%)  16 calls  802591 cyc
+  canvas_buffer_wait   599813 us (59%)  16 calls  359888297 cyc
+isr_wake       n=18443 cyc min/avg/max=251/905/7078 ns min/avg/max=418/1508/11796 total=27838 us cpu=2.78%
+isr_pack       n=2305 cyc min/avg/max=3593/4039/5469 ns min/avg/max=5988/6731/9115 total=15517 us cpu=1.55%
+isr_dma_submit n=2305 cyc min/avg/max=398/557/607 ns min/avg/max=663/928/1011 total=2142 us cpu=0.21%
+f 1633 w=65312 r=25396
+f 1634 w=59222 r=22150
+f 1635 w=65646 r=25329
+f 1636 w=59275 r=22137
+f 1637 w=65453 r=25123
+f 1638 w=58992 r=21648
+f 1639 w=64972 r=24153
+f 1640 w=60015 r=21646
+f 1641 w=64723 r=23903
+f 1642 w=60175 r=21611
+f 1643 w=64877 r=24022
+f 1644 w=60321 r=21877
+f 1645 w=64826 r=24236
+f 1646 w=60197 r=21968
+f 1647 w=65106 r=24608
+f 1648 w=59685 r=21827
+=== profile MindSplatter [288x144] frames 1633-1648 window=999269 us ===
+frame wall us: min=58992 avg=62424 max=65646 sum=998797 (16 frames)
+frame render us: avg=23227 max=25396
+--- Cycle Counters ---
+frame                  998795 us (100%)  16 calls  599277185 cyc
+  pov_preserve_half    2152 us (0%)  16 calls  1291574 cyc
+  msp_draw_particles   335629 us (33%)  16 calls  201377665 cyc
+    msp_particle_scan  335548 us (99%)  16 calls  201328919 cyc
+      plot_ps_raster   253306 us (75%)  4571 calls  151983705 cyc
+      plot_ps_deferred 5301 us (1%)  4571 calls  3180937 cyc
+      plot_ps_gate     40972 us (12%)  15836 calls  24583543 cyc
+        plot_ps_cartesian_gate 6279 us (15%)  15836 calls  3767640 cyc
+      plot_ps_tween    32134 us (9%)  15836 calls  19280863 cyc
+  msp_particle_step    31677 us (3%)  16 calls  19006393 cyc
+  msp_timeline_step    807 us (0%)  16 calls  484625 cyc
+  canvas_clear         1342 us (0%)  16 calls  805334 cyc
+  canvas_buffer_wait   627170 us (62%)  16 calls  376302037 cyc
+isr_wake       n=18424 cyc min/avg/max=250/900/7066 ns min/avg/max=416/1500/11776 total=27646 us cpu=2.76%
+isr_pack       n=2303 cyc min/avg/max=3601/4019/5486 ns min/avg/max=6001/6698/9143 total=15427 us cpu=1.54%
+isr_dma_submit n=2303 cyc min/avg/max=377/558/607 ns min/avg/max=628/930/1011 total=2142 us cpu=0.21%
+f 1649 w=65098 r=24696
+f 1650 w=59365 r=21594
+f 1651 w=65563 r=24690
+f 1652 w=59277 r=21500
+f 1653 w=65802 r=24782
+f 1654 w=58936 r=21253
+f 1655 w=65906 r=24703
+f 1656 w=60216 r=22463
+f 1657 w=64472 r=24469
+f 1658 w=62908 r=24909
+f 1659 w=62421 r=24863
+f 1660 w=62739 r=25138
+f 1661 w=62244 r=24930
+f 1662 w=62425 r=24888
+f 1663 w=62424 r=24846
+f 1664 w=62485 r=24865
+=== profile MindSplatter [288x144] frames 1649-1664 window=1002790 us ===
+frame wall us: min=58936 avg=62642 max=65906 sum=1002281 (16 frames)
+frame render us: avg=24036 max=25138
+--- Cycle Counters ---
+frame                  1002278 us (100%)  16 calls  601366956 cyc
+  pov_preserve_half    2143 us (0%)  16 calls  1285883 cyc
+  msp_draw_particles   348537 us (34%)  16 calls  209122620 cyc
+    msp_particle_scan  348457 us (99%)  16 calls  209074473 cyc
+      plot_ps_raster   261856 us (75%)  5036 calls  157113731 cyc
+      plot_ps_deferred 6141 us (1%)  5036 calls  3684823 cyc
+      plot_ps_gate     44850 us (12%)  15720 calls  26910445 cyc
+        plot_ps_cartesian_gate 6302 us (14%)  15720 calls  3781697 cyc
+      plot_ps_tween    31778 us (9%)  15720 calls  19066893 cyc
+  msp_particle_step    31776 us (3%)  16 calls  19065779 cyc
+  msp_timeline_step    765 us (0%)  16 calls  459174 cyc
+  canvas_clear         1339 us (0%)  16 calls  803758 cyc
+  canvas_buffer_wait   617700 us (61%)  16 calls  370620563 cyc
+isr_wake       n=18489 cyc min/avg/max=250/899/7026 ns min/avg/max=416/1498/11710 total=27718 us cpu=2.76%
+isr_pack       n=2311 cyc min/avg/max=3604/4013/5433 ns min/avg/max=6006/6688/9055 total=15458 us cpu=1.54%
+isr_dma_submit n=2311 cyc min/avg/max=419/557/601 ns min/avg/max=698/928/1001 total=2148 us cpu=0.21%
+f 1665 w=59756 r=22390
+f 1666 w=65139 r=25064
+f 1667 w=59111 r=21654
+f 1668 w=65993 r=25179
+f 1669 w=58932 r=21645
+f 1670 w=66085 r=25262
+f 1671 w=59028 r=21825
+f 1672 w=65822 r=25191
+f 1673 w=59229 r=21955
+f 1674 w=65695 r=25177
+f 1675 w=59581 r=22292
+f 1676 w=65231 r=25055
+f 1677 w=60103 r=22692
+f 1678 w=65064 r=25290
+f 1679 w=59850 r=22672
+f 1680 w=64999 r=25150
+=== profile MindSplatter [288x144] frames 1665-1680 window=1000105 us ===
+frame wall us: min=58932 avg=62476 max=66085 sum=999618 (16 frames)
+frame render us: avg=23655 max=25290
+--- Cycle Counters ---
+frame                  999614 us (100%)  16 calls  599768768 cyc
+  pov_preserve_half    2193 us (0%)  16 calls  1316319 cyc
+  msp_draw_particles   342258 us (34%)  16 calls  205355032 cyc
+    msp_particle_scan  342178 us (99%)  16 calls  205306801 cyc
+      plot_ps_raster   257064 us (75%)  4775 calls  154238470 cyc
+      plot_ps_deferred 6004 us (1%)  4775 calls  3602459 cyc
+      plot_ps_gate     43226 us (12%)  15756 calls  25936190 cyc
+        plot_ps_cartesian_gate 6366 us (14%)  15756 calls  3820186 cyc
+      plot_ps_tween    31987 us (9%)  15756 calls  19192337 cyc
+  msp_particle_step    32068 us (3%)  16 calls  19240868 cyc
+  msp_timeline_step    608 us (0%)  16 calls  364992 cyc
+  canvas_clear         1337 us (0%)  16 calls  802387 cyc
+  canvas_buffer_wait   621133 us (62%)  16 calls  372680196 cyc
+isr_wake       n=18440 cyc min/avg/max=250/898/9326 ns min/avg/max=416/1496/15543 total=27624 us cpu=2.76%
+isr_pack       n=2305 cyc min/avg/max=3593/4009/5449 ns min/avg/max=5988/6681/9081 total=15402 us cpu=1.54%
+isr_dma_submit n=2305 cyc min/avg/max=384/557/607 ns min/avg/max=640/928/1011 total=2142 us cpu=0.21%
+f 1681 w=60082 r=23022
+f 1682 w=64482 r=25039
+f 1683 w=60814 r=23388
+f 1684 w=63917 r=24838
+f 1685 w=61140 r=23511
+f 1686 w=63795 r=24839
+f 1687 w=60958 r=23331
+f 1688 w=64063 r=24927
+f 1689 w=64131 r=26593
+f 1690 w=60412 r=24538
+f 1691 w=64984 r=27055
+f 1692 w=59458 r=24047
+f 1693 w=65005 r=26586
+f 1694 w=59523 r=23586
+f 1695 w=64711 r=25832
+f 1696 w=59858 r=23223
+=== profile MindSplatter [288x144] frames 1681-1696 window=997805 us ===
+frame wall us: min=59458 avg=62333 max=65005 sum=997333 (16 frames)
+frame render us: avg=24647 max=27055
+--- Cycle Counters ---
+frame                  997331 us (100%)  16 calls  598398937 cyc
+  pov_preserve_half    2163 us (0%)  16 calls  1298374 cyc
+  msp_draw_particles   358762 us (35%)  16 calls  215257205 cyc
+    msp_particle_scan  358679 us (99%)  16 calls  215207877 cyc
+      plot_ps_raster   271354 us (75%)  5122 calls  162812464 cyc
+      plot_ps_deferred 7020 us (1%)  5122 calls  4212439 cyc
+      plot_ps_gate     45283 us (12%)  15366 calls  27170368 cyc
+        plot_ps_cartesian_gate 6097 us (13%)  15366 calls  3658512 cyc
+      plot_ps_tween    31195 us (8%)  15366 calls  18717056 cyc
+  msp_particle_step    31473 us (3%)  16 calls  18884301 cyc
+  msp_timeline_step    587 us (0%)  16 calls  352732 cyc
+  canvas_clear         1344 us (0%)  16 calls  806456 cyc
+  canvas_buffer_wait   602984 us (60%)  16 calls  361790509 cyc
+isr_wake       n=18397 cyc min/avg/max=250/901/7074 ns min/avg/max=416/1501/11790 total=27628 us cpu=2.76%
+isr_pack       n=2300 cyc min/avg/max=3593/4018/5485 ns min/avg/max=5988/6696/9141 total=15403 us cpu=1.54%
+isr_dma_submit n=2300 cyc min/avg/max=459/558/604 ns min/avg/max=765/930/1006 total=2139 us cpu=0.21%
+f 1697 w=64694 r=25696
+f 1698 w=55988 r=19218
+f 1699 w=68454 r=25205
+f 1700 w=55833 r=18570
+f 1701 w=68715 r=24821
+f 1702 w=56380 r=18734
+f 1703 w=68635 r=24903
+f 1704 w=56114 r=18550
+f 1705 w=68989 r=25072
+f 1706 w=55800 r=18405
+f 1707 w=68636 r=24574
+f 1708 w=56424 r=18476
+f 1709 w=68604 r=24614
+f 1710 w=56227 r=18375
+f 1711 w=68119 r=24029
+f 1712 w=57042 r=18603
+=== profile MindSplatter [288x144] frames 1697-1712 window=995125 us ===
+frame wall us: min=55800 avg=62165 max=68989 sum=994654 (16 frames)
+frame render us: avg=21740 max=25696
+--- Cycle Counters ---
+frame                  994650 us (100%)  16 calls  596790592 cyc
+  pov_preserve_half    2159 us (0%)  16 calls  1295497 cyc
+  msp_draw_particles   313360 us (31%)  16 calls  188016216 cyc
+    msp_particle_scan  313280 us (99%)  16 calls  187968488 cyc
+      plot_ps_raster   233199 us (74%)  4511 calls  139919662 cyc
+      plot_ps_deferred 5928 us (1%)  4511 calls  3557221 cyc
+      plot_ps_gate     40429 us (12%)  14878 calls  24257460 cyc
+        plot_ps_cartesian_gate 5930 us (14%)  14878 calls  3558574 cyc
+      plot_ps_tween    30055 us (9%)  14878 calls  18033530 cyc
+  msp_particle_step    30367 us (3%)  16 calls  18220427 cyc
+  msp_timeline_step    595 us (0%)  16 calls  357191 cyc
+  canvas_clear         1337 us (0%)  16 calls  802423 cyc
+  canvas_buffer_wait   646816 us (65%)  16 calls  388089790 cyc
+isr_wake       n=18348 cyc min/avg/max=250/891/7002 ns min/avg/max=416/1485/11670 total=27274 us cpu=2.74%
+isr_pack       n=2293 cyc min/avg/max=3593/3990/5444 ns min/avg/max=5988/6650/9073 total=15249 us cpu=1.53%
+isr_dma_submit n=2293 cyc min/avg/max=377/557/607 ns min/avg/max=628/928/1011 total=2130 us cpu=0.21%
+f 1713 w=67630 r=24013
+f 1714 w=57155 r=18701
+f 1715 w=67029 r=23266
+f 1716 w=58053 r=18852
+f 1717 w=66740 r=23126
+f 1718 w=58357 r=19015
+f 1719 w=66296 r=22846
+f 1720 w=58863 r=19243
+f 1721 w=65751 r=22473
+f 1722 w=59533 r=19539
+f 1723 w=65299 r=22371
+f 1724 w=59758 r=19663
+f 1725 w=65083 r=22282
+f 1726 w=60720 r=20538
+f 1727 w=63712 r=21784
+f 1728 w=63767 r=23085
+=== profile MindSplatter [288x144] frames 1713-1728 window=1004227 us ===
+frame wall us: min=57155 avg=62734 max=67630 sum=1003746 (16 frames)
+frame render us: avg=21299 max=24013
+--- Cycle Counters ---
+frame                  1003745 us (100%)  16 calls  602247346 cyc
+  pov_preserve_half    2165 us (0%)  16 calls  1299147 cyc
+  msp_draw_particles   306239 us (30%)  16 calls  183743823 cyc
+    msp_particle_scan  306159 us (99%)  16 calls  183695626 cyc
+      plot_ps_raster   224947 us (73%)  4529 calls  134968657 cyc
+      plot_ps_deferred 5898 us (1%)  4529 calls  3539038 cyc
+      plot_ps_gate     41480 us (13%)  14925 calls  24888489 cyc
+        plot_ps_cartesian_gate 5908 us (14%)  14925 calls  3545376 cyc
+      plot_ps_tween    30113 us (9%)  14925 calls  18068017 cyc
+  msp_particle_step    30487 us (3%)  16 calls  18292384 cyc
+  msp_timeline_step    537 us (0%)  16 calls  322416 cyc
+  canvas_clear         1343 us (0%)  16 calls  805840 cyc
+  canvas_buffer_wait   662957 us (66%)  16 calls  397774444 cyc
+isr_wake       n=18515 cyc min/avg/max=250/890/7098 ns min/avg/max=416/1483/11830 total=27464 us cpu=2.73%
+isr_pack       n=2314 cyc min/avg/max=3594/3980/5486 ns min/avg/max=5990/6633/9143 total=15350 us cpu=1.52%
+isr_dma_submit n=2314 cyc min/avg/max=414/557/604 ns min/avg/max=690/928/1006 total=2150 us cpu=0.21%
+f 1729 w=60911 r=21776
+f 1730 w=63882 r=23193
+f 1731 w=61282 r=22010
+f 1732 w=64075 r=23621
+f 1733 w=60799 r=21954
+f 1734 w=64386 r=23867
+f 1735 w=61146 r=22493
+f 1736 w=63849 r=23885
+f 1737 w=60693 r=22112
+profile provenance: version=1
+profile provenance: source_sha=ac4870adb95eecb7130f86dbfd36a86d0b1fb96b
+profile provenance: compiler=GCC: (Arm GNU Toolchain 15.2.Rel1 (Build arm-15.86)) 15.2.1 20251203
+profile provenance: profile_elf_sha256=b66881bc27577f1bfb8824e5911ca289a9ab5ea431729ea9c94ba8f0fe09219c
+profile provenance: phantasm_elf_sha256=04d31e58e33230f983ad9f38952b8acdca09ddae5438336fb18a197c2541b20f
+profile provenance: profile_envdump_sha256=a03600519eb4a9acc2470db328aedd018d217ed07d2e72cadf528291b2936d52
+profile provenance: phantasm_envdump_sha256=d9b4ae94b1978d60813349ce3ccdf2ffdccb5caa1d62f9bae6b72ff50031fdea
+profile provenance: artifact_profile_elf=C:/work/temp/architecture01/artifacts/checkpoint1-mindsplatter-profile_o3_ac4870adb95e_b66881bc2757/profile.elf
+profile provenance: artifact_phantasm_elf=C:/work/temp/architecture01/artifacts/checkpoint1-mindsplatter-profile_o3_ac4870adb95e_b66881bc2757/phantasm.elf
+profile provenance: artifact_dir=C:/work/temp/architecture01/artifacts/checkpoint1-mindsplatter-profile_o3_ac4870adb95e_b66881bc2757

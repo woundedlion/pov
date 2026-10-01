@@ -1,0 +1,10 @@
+profile provenance: version=1
+profile provenance: source_sha=ac4870adb95eecb7130f86dbfd36a86d0b1fb96b
+profile provenance: compiler=GCC: (Arm GNU Toolchain 15.2.Rel1 (Build arm-15.86)) 15.2.1 20251203
+profile provenance: profile_elf_sha256=b85322c70dcd86f7b1c20f582437340cb8a5f3b6569a0146d2ea85f1e1c2f3a6
+profile provenance: phantasm_elf_sha256=22dd523b1c36759ad049f341ff1b9961ab8032b09cdebb7bec29c65bd5c62166
+profile provenance: profile_envdump_sha256=488608864bb8552fec078587b62a7881f54fbeb8c26cd408cc72ff1d683fb212
+profile provenance: phantasm_envdump_sha256=1dbf4286c6eb948a557525f6c43c1af94899838e8733d7d414efb5de829244c4
+profile provenance: artifact_profile_elf=C:/work/temp/architecture01/artifacts/checkpoint1-hyperlattice-profile_o3_ac4870adb95e_b85322c70dcd/profile.elf
+profile provenance: artifact_phantasm_elf=C:/work/temp/architecture01/artifacts/checkpoint1-hyperlattice-profile_o3_ac4870adb95e_b85322c70dcd/phantasm.elf
+profile provenance: artifact_dir=C:/work/temp/architecture01/artifacts/checkpoint1-hyperlattice-profile_o3_ac4870adb95e_b85322c70dcd

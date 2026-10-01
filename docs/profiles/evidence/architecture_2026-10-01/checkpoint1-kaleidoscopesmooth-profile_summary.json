@@ -1,0 +1,242 @@
+{
+  "tag": "checkpoint1-kaleidoscopesmooth-profile",
+  "effect": "KaleidoscopeSmooth",
+  "scope": "fx_shader_draw",
+  "sha": "ac4870adb95eecb7130f86dbfd36a86d0b1fb96b",
+  "frames": 4136,
+  "range": [
+    2,
+    4137
+  ],
+  "counter_range": [
+    17,
+    4128
+  ],
+  "startup_us": 50691,
+  "mean_ms": 26.787298114119924,
+  "peak_ms": 32.202,
+  "spills": 0,
+  "scope_mean_ms": 22.957454143563556,
+  "worst_scope_ms": 27.872875,
+  "worst_window": [
+    3953,
+    3968
+  ],
+  "ppm": 2.7794655884614725,
+  "ppm_window": [
+    3953,
+    3968
+  ],
+  "presets": [
+    {
+      "name": "1",
+      "holds": 55,
+      "clean": 54,
+      "scope_ms": 27.872875,
+      "render_ms": 31.3520625,
+      "wall_ms": 62.437,
+      "window": [
+        3953,
+        3968
+      ],
+      "calls": 1.0
+    },
+    {
+      "name": "2",
+      "holds": 67,
+      "clean": 66,
+      "scope_ms": 27.2615625,
+      "render_ms": 30.8576875,
+      "wall_ms": 62.395,
+      "window": [
+        865,
+        880
+      ],
+      "calls": 1.0
+    },
+    {
+      "name": "3",
+      "holds": 68,
+      "clean": 67,
+      "scope_ms": 23.9075625,
+      "render_ms": 26.90775,
+      "wall_ms": 62.431,
+      "window": [
+        2193,
+        2208
+      ],
+      "calls": 1.0
+    },
+    {
+      "name": "4",
+      "holds": 67,
+      "clean": 66,
+      "scope_ms": 23.8805,
+      "render_ms": 28.2200625,
+      "wall_ms": 62.418,
+      "window": [
+        3105,
+        3120
+      ],
+      "calls": 1.0
+    }
+  ],
+  "preset_frames": [
+    {
+      "name": "1",
+      "frames": 899,
+      "spills": 0,
+      "peak_ms": 32.202,
+      "bucket": 0
+    },
+    {
+      "name": "2",
+      "frames": 1079,
+      "spills": 0,
+      "peak_ms": 31.497,
+      "bucket": 0
+    },
+    {
+      "name": "3",
+      "frames": 1079,
+      "spills": 0,
+      "peak_ms": 28.238,
+      "bucket": 0
+    },
+    {
+      "name": "4",
+      "frames": 1079,
+      "spills": 0,
+      "peak_ms": 28.821,
+      "bucket": 0
+    }
+  ],
+  "buckets": {
+    "0": [
+      {
+        "name": "1",
+        "frames": 899,
+        "spills": 0,
+        "peak_ms": 32.202,
+        "bucket": 0
+      },
+      {
+        "name": "2",
+        "frames": 1079,
+        "spills": 0,
+        "peak_ms": 31.497,
+        "bucket": 0
+      },
+      {
+        "name": "3",
+        "frames": 1079,
+        "spills": 0,
+        "peak_ms": 28.238,
+        "bucket": 0
+      },
+      {
+        "name": "4",
+        "frames": 1079,
+        "spills": 0,
+        "peak_ms": 28.821,
+        "bucket": 0
+      }
+    ]
+  },
+  "isrs": {
+    "isr_wake": {
+      "rate": 1152.090953307393,
+      "min_us": 0.6166666666666667,
+      "avg_us": 1.6999414024323056,
+      "max_us": 23.383333333333333,
+      "cpu": 3.1341849214711703
+    },
+    "isr_pack": {
+      "rate": 144.0021887159533,
+      "min_us": 6.251666666666667,
+      "avg_us": 7.057986580808158,
+      "max_us": 21.505,
+      "cpu": 1.6264990746500105
+    },
+    "isr_dma_submit": {
+      "rate": 144.0021887159533,
+      "min_us": 0.5933333333333334,
+      "avg_us": 0.9346266151245405,
+      "max_us": 11.835,
+      "cpu": 0.21538285844534336
+    }
+  },
+  "size": [
+    [
+      71000,
+      156336,
+      9208
+    ],
+    [
+      315040,
+      19960,
+      12808,
+      176480
+    ],
+    [
+      520064,
+      4224
+    ]
+  ],
+  "captured": "2026-10-01 10:06",
+  "epoch": 2400,
+  "window": 16,
+  "tail_frames": 9,
+  "counter_mean_us": {
+    "canvas_buffer_wait": 35639.7457003891,
+    "canvas_clear": 87.15422057392996,
+    "fx_advance": 2057.761735570687,
+    "fx_prepare_frame": 1392.4309537127108,
+    "fx_shader_draw": 22957.454143563555,
+    "fx_timeline_step": 105.30736016536964,
+    "pov_preserve_half": 143.33877431906615
+  },
+  "source_dirty": false,
+  "evidence": [
+    {
+      "file": "checkpoint1-kaleidoscopesmooth-profile.txt",
+      "sha256": "ea83aa66c29895f8cf73f1f097fdffe98301f3f3f6ed6881fa50f691b30a59dc",
+      "bytes": 357504
+    },
+    {
+      "file": "checkpoint1-kaleidoscopesmooth-profile.provenance",
+      "sha256": "9811002b762e77d7a60093c694f320ca7f400d183bf53f6cb2b7a53b5c9c41e8",
+      "bytes": 1076
+    },
+    {
+      "file": "checkpoint1-kaleidoscopesmooth-profile_build.txt",
+      "sha256": "0575efb3b7313732c31c15ab1097ad918b061195a1f286ef3e1de7f721b1f6ce",
+      "bytes": 24251
+    },
+    {
+      "file": "checkpoint1-kaleidoscopesmooth-profile_envdump.txt",
+      "sha256": "7f2dd29705a4e83548d22eb4ceb6ce1b73948058567aa63e93933e9109861380",
+      "bytes": 33647
+    },
+    {
+      "file": "checkpoint1-kaleidoscopesmooth-profile_phantasm_build.txt",
+      "sha256": "dc15c936e99e05cea2dd444fc9e07d93dda8ddc53f9b7c83435fdc7313c4af2f",
+      "bytes": 11056
+    },
+    {
+      "file": "checkpoint1-kaleidoscopesmooth-profile_phantasm_envdump.txt",
+      "sha256": "ec33e48f03f2b0cea0bc7dc2a7fb0a261bfb43fe5ea4a3964d99f67a60cf839a",
+      "bytes": 33056
+    },
+    {
+      "file": "checkpoint1-kaleidoscopesmooth-profile_source_status.txt",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    {
+      "file": "checkpoint1-kaleidoscopesmooth-profile_source.diff",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    }
+  ]
+}

@@ -1,0 +1,161 @@
+{
+  "tag": "baseline-serial-chromaticlichen-profile_o3",
+  "effect": "ChromaticLichen",
+  "scope": "fx_shader_draw",
+  "sha": "b6d2c0100e10d57b18f9bd749d5ab28b34574dd8",
+  "frames": 1096,
+  "range": [
+    2,
+    1097
+  ],
+  "counter_range": [
+    33,
+    1088
+  ],
+  "startup_us": 61508,
+  "mean_ms": 34.859825729927,
+  "peak_ms": 35.415,
+  "spills": 0,
+  "scope_mean_ms": 28.85181226010101,
+  "worst_scope_ms": 29.09025,
+  "worst_window": [
+    641,
+    672
+  ],
+  "ppm": 0.8850193968523775,
+  "ppm_window": [
+    1,
+    32
+  ],
+  "presets": [
+    {
+      "name": "0",
+      "holds": 33,
+      "clean": 33,
+      "scope_ms": 29.09025,
+      "render_ms": 34.76965625,
+      "wall_ms": 62.439,
+      "window": [
+        641,
+        672
+      ],
+      "calls": 1.0
+    }
+  ],
+  "preset_frames": [
+    {
+      "name": "0",
+      "frames": 1096,
+      "spills": 0,
+      "peak_ms": 35.415,
+      "bucket": 0
+    }
+  ],
+  "buckets": {
+    "0": [
+      {
+        "name": "0",
+        "frames": 1096,
+        "spills": 0,
+        "peak_ms": 35.415,
+        "bucket": 0
+      }
+    ]
+  },
+  "isrs": {
+    "isr_wake": {
+      "rate": 1152.0748106060605,
+      "min_us": 0.365,
+      "avg_us": 1.5543391328720992,
+      "max_us": 25.895,
+      "cpu": 2.8654068621811724
+    },
+    "isr_pack": {
+      "rate": 144.0,
+      "min_us": 5.976666666666667,
+      "avg_us": 6.669152462121212,
+      "max_us": 14.153333333333334,
+      "cpu": 1.5367137323994455
+    },
+    "isr_dma_submit": {
+      "rate": 144.0,
+      "min_us": 0.5816666666666667,
+      "avg_us": 0.9348234953703703,
+      "max_us": 12.171666666666667,
+      "cpu": 0.21540309819943476
+    }
+  },
+  "size": [
+    [
+      83968,
+      153568,
+      8224
+    ],
+    [
+      315040,
+      28456,
+      4312,
+      176480
+    ],
+    [
+      520064,
+      4224
+    ]
+  ],
+  "captured": "2026-10-01 09:04",
+  "epoch": null,
+  "window": 32,
+  "tail_frames": 9,
+  "counter_mean_us": {
+    "canvas_buffer_wait": 27583.576186868686,
+    "canvas_clear": 87.51365372474747,
+    "fx_advance": 2025.0458996212124,
+    "fx_prepare_frame": 3664.5344965277777,
+    "fx_shader_draw": 28851.81226010101,
+    "fx_timeline_step": 64.86364583333332,
+    "pov_preserve_half": 141.7295928030303
+  },
+  "source_dirty": false,
+  "evidence": [
+    {
+      "file": "baseline-serial-chromaticlichen-profile_o3.txt",
+      "sha256": "18b7b04e846b7893328d1fafb30bbc2208cd1e61c769a0009a9ccb3694df0911",
+      "bytes": 59993
+    },
+    {
+      "file": "baseline-serial-chromaticlichen-profile_o3.provenance",
+      "sha256": "1ca672adce0dbac244c582145cccd53a3add01a89f17a998f767fa38d0d9fadd",
+      "bytes": 1088
+    },
+    {
+      "file": "baseline-serial-chromaticlichen-profile_o3_build.txt",
+      "sha256": "8c6a3145a7ce3b0fd83797b438f0ed7c0f231444422fc6bf961d0a055b5db06d",
+      "bytes": 24582
+    },
+    {
+      "file": "baseline-serial-chromaticlichen-profile_o3_envdump.txt",
+      "sha256": "b55d8befc6371475b21a5ab69922fb3467271afddea7bbc1a4f94d82244e752b",
+      "bytes": 33452
+    },
+    {
+      "file": "baseline-serial-chromaticlichen-profile_o3_phantasm_build.txt",
+      "sha256": "f1dc3643082f2e14f434f119bf589bfc6a866c0d6d10fe18472557d0025222ec",
+      "bytes": 11056
+    },
+    {
+      "file": "baseline-serial-chromaticlichen-profile_o3_phantasm_envdump.txt",
+      "sha256": "bc4ae2fb36f2417c29c17f26e775941eaf98ee24bf502c9bd40c4d6c2edfd55f",
+      "bytes": 33072
+    },
+    {
+      "file": "baseline-serial-chromaticlichen-profile_o3_source_status.txt",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    {
+      "file": "baseline-serial-chromaticlichen-profile_o3_source.diff",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    }
+  ]
+}

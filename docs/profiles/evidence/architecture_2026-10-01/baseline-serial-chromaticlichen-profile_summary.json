@@ -1,0 +1,161 @@
+{
+  "tag": "baseline-serial-chromaticlichen-profile",
+  "effect": "ChromaticLichen",
+  "scope": "fx_shader_draw",
+  "sha": "b6d2c0100e10d57b18f9bd749d5ab28b34574dd8",
+  "frames": 1096,
+  "range": [
+    2,
+    1097
+  ],
+  "counter_range": [
+    33,
+    1088
+  ],
+  "startup_us": 62458,
+  "mean_ms": 35.33100547445255,
+  "peak_ms": 35.875,
+  "spills": 0,
+  "scope_mean_ms": 28.96139018939394,
+  "worst_scope_ms": 29.029375,
+  "worst_window": [
+    129,
+    160
+  ],
+  "ppm": 1.147205097301762,
+  "ppm_window": [
+    1,
+    32
+  ],
+  "presets": [
+    {
+      "name": "0",
+      "holds": 33,
+      "clean": 33,
+      "scope_ms": 29.029375,
+      "render_ms": 35.71896875,
+      "wall_ms": 62.435,
+      "window": [
+        129,
+        160
+      ],
+      "calls": 1.0
+    }
+  ],
+  "preset_frames": [
+    {
+      "name": "0",
+      "frames": 1096,
+      "spills": 0,
+      "peak_ms": 35.875,
+      "bucket": 0
+    }
+  ],
+  "buckets": {
+    "0": [
+      {
+        "name": "0",
+        "frames": 1096,
+        "spills": 0,
+        "peak_ms": 35.875,
+        "bucket": 0
+      }
+    ]
+  },
+  "isrs": {
+    "isr_wake": {
+      "rate": 1152.0681818181818,
+      "min_us": 0.6166666666666667,
+      "avg_us": 1.6741466269488996,
+      "max_us": 25.643333333333334,
+      "cpu": 3.0863014743781925
+    },
+    "isr_pack": {
+      "rate": 143.99905303030303,
+      "min_us": 6.251666666666667,
+      "avg_us": 6.864168140836364,
+      "max_us": 13.116666666666667,
+      "cpu": 1.5816639682705285
+    },
+    "isr_dma_submit": {
+      "rate": 143.99905303030303,
+      "min_us": 0.615,
+      "avg_us": 0.9338103286137982,
+      "max_us": 10.938333333333333,
+      "cpu": 0.21517161579718305
+    }
+  },
+  "size": [
+    [
+      68696,
+      153680,
+      9048
+    ],
+    [
+      315040,
+      19768,
+      13000,
+      176480
+    ],
+    [
+      520064,
+      4224
+    ]
+  ],
+  "captured": "2026-10-01 08:48",
+  "epoch": null,
+  "window": 32,
+  "tail_frames": 9,
+  "counter_mean_us": {
+    "canvas_buffer_wait": 27119.878825757576,
+    "canvas_clear": 86.285569760101,
+    "fx_advance": 1997.9138809974745,
+    "fx_prepare_frame": 4031.8737547348483,
+    "fx_shader_draw": 28961.39018939394,
+    "fx_timeline_step": 68.00638099747474,
+    "pov_preserve_half": 140.0470754419192
+  },
+  "source_dirty": false,
+  "evidence": [
+    {
+      "file": "baseline-serial-chromaticlichen-profile.txt",
+      "sha256": "d6ec0c03b0249893070a8ee4d205a037709b9ced48ef90980ed19e41cd6936b2",
+      "bytes": 60024
+    },
+    {
+      "file": "baseline-serial-chromaticlichen-profile.provenance",
+      "sha256": "2b10f49746e1b46a39ac6419e01f904da58dace88fb870faf42679774fc89f91",
+      "bytes": 1079
+    },
+    {
+      "file": "baseline-serial-chromaticlichen-profile_build.txt",
+      "sha256": "2e5f0be5f47e7d6c47d6ee6957215799d56e206f09cc910186e4ab19aba12c14",
+      "bytes": 24250
+    },
+    {
+      "file": "baseline-serial-chromaticlichen-profile_envdump.txt",
+      "sha256": "508e3f96e0998a5cbf80a79f3b42cd5ce1a55417caae79e3332e3ac5c80479a9",
+      "bytes": 33400
+    },
+    {
+      "file": "baseline-serial-chromaticlichen-profile_phantasm_build.txt",
+      "sha256": "40d2cb43e05a1cec0b7d3cbf9d2581e72c421568e5abfe3d24976fb2edf67e59",
+      "bytes": 11056
+    },
+    {
+      "file": "baseline-serial-chromaticlichen-profile_phantasm_envdump.txt",
+      "sha256": "4d172e1627a5ce64db0c844ac8a6c1076edc2e27a5ead29721d90bc2bfe50ad9",
+      "bytes": 33024
+    },
+    {
+      "file": "baseline-serial-chromaticlichen-profile_source_status.txt",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    {
+      "file": "baseline-serial-chromaticlichen-profile_source.diff",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    }
+  ]
+}

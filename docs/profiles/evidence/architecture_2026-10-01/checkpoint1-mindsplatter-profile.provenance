@@ -1,0 +1,10 @@
+profile provenance: version=1
+profile provenance: source_sha=ac4870adb95eecb7130f86dbfd36a86d0b1fb96b
+profile provenance: compiler=GCC: (Arm GNU Toolchain 15.2.Rel1 (Build arm-15.86)) 15.2.1 20251203
+profile provenance: profile_elf_sha256=6478fc6212e5fcbde6e42d476d8442109bf8301dd451b802a5e9568d5548a311
+profile provenance: phantasm_elf_sha256=6d67cd45ec709713c5c2e3de6c00cfed17362b221ee52a607aaa93d75a67ca5e
+profile provenance: profile_envdump_sha256=d614b3d72ef5cee97862884335468150cf0549a5e05cf68b3931949d3f540e35
+profile provenance: phantasm_envdump_sha256=55545a660e85d2082593394a0e3b5c35fa6f12836b945fb27479b125dead34dd
+profile provenance: artifact_profile_elf=C:/work/temp/architecture01/artifacts/checkpoint1-mindsplatter-profile_ac4870adb95e_6478fc6212e5/profile.elf
+profile provenance: artifact_phantasm_elf=C:/work/temp/architecture01/artifacts/checkpoint1-mindsplatter-profile_ac4870adb95e_6478fc6212e5/phantasm.elf
+profile provenance: artifact_dir=C:/work/temp/architecture01/artifacts/checkpoint1-mindsplatter-profile_ac4870adb95e_6478fc6212e5
