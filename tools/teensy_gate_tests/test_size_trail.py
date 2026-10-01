@@ -286,8 +286,16 @@ class PendingCapture(unittest.TestCase):
         tst._git(["config", "user.name", "Test"], self.dir)
         tst._git(["config", "user.email", "test@example.com"], self.dir)
         (self.dir / "platformio.ini").write_text("[platformio]\n", encoding="utf-8")
-        tst._git(["add", "platformio.ini"], self.dir)
+        tests = self.dir / "tools" / "example_tests"
+        tests.mkdir(parents=True)
+        tracked = tests / "test_example.py"
+        tracked.write_text("original", encoding="utf-8")
+        tst._git(["add", "platformio.ini", "tools/example_tests/test_example.py"], self.dir)
         tst._git(["commit", "-m", "initial"], self.dir)
+        tracked.write_text("changed", encoding="utf-8")
+        pcb = self.dir / "hardware" / "phantasm"
+        pcb.mkdir(parents=True)
+        (pcb / "backup.kicad_pcb").write_text("scratch", encoding="utf-8")
         (self.dir / "scratch.txt").write_text("scratch", encoding="utf-8")
         tree = tst.working_tree(self.dir)
         self.assertEqual(tree, tst._git(["rev-parse", "HEAD^{tree}"], self.dir))

@@ -142,7 +142,10 @@ DEFAULT_ENVIRONMENTS: tuple[str, ...] = (
     declared_environments(_PLATFORMIO_INI))
 
 ELF_NAME = "firmware.elf"
-BUILD_INPUTS = ("core", "effects", "hardware", "targets", "tools", "platformio.ini")
+BUILD_INPUTS = (
+    "core", "effects", "targets", ":(glob)hardware/*.h", "tools/phantasm.ld",
+    ":(glob)tools/teensy_*.py", "tools/teensy_budgets.json", "platformio.ini",
+)
 
 
 def regions_from_sections(sizes: dict[str, int]) -> dict[str, int]:
