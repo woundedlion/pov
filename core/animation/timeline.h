@@ -188,8 +188,8 @@ public:
    * @param ctx Opaque pointer handed back to @p fn; also the removal key.
    * @param fn Callback; must not add or remove timeline events.
    * @details For state an owner reclaims from a completion callback, which
-   * clear() never runs (it destroys events outright) — TransformerPool's slot
-   * table is the case. Cold path: registration happens at effect init.
+   * clear() never runs (it destroys events outright), including TransformerPool
+   * slots and ChoreographedEffect transition state. Cold path: registration happens at effect init.
    */
   HS_COLD_MEMBER void add_clear_hook(void *ctx, void (*fn)(void *)) {
     HS_CHECK(clear_hook_count < MAX_CLEAR_HOOKS,
@@ -560,9 +560,8 @@ public:
   static constexpr int MAX_EVENTS =
       TIMELINE_MAX_EVENTS; /**< Must match global_timeline_events array size. */
 
-  /** @brief clear_hooks capacity. TransformerPool is the only registrant and
-   *         registers one hook per pool, so this is also the ceiling on live
-   *         transformer pools sharing a Timeline. */
+  /** @brief clear_hooks capacity: one hook per TransformerPool and per
+   * ChoreographedEffect. A choreographed effect fits MAX_CLEAR_HOOKS - 1 pools. */
   static constexpr int MAX_CLEAR_HOOKS = 4;
 
   /**

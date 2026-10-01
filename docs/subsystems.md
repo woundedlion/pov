@@ -478,7 +478,7 @@ Transformers integrate with the `MeshOps::transform()` pipeline and can be chain
 
 Both classes derive from `TransformerPool`, which fixes the call order:
 
-1. `init_storage(Arena&)` — from the effect's `init()`, after any `configure_arenas()` and before the first spawn. It also claims one of the shared `Timeline`'s `MAX_CLEAR_HOOKS` (4) clear-hook slots, so one `Timeline` carries at most four live pools; a fifth traps at registration.
+1. `init_storage(Arena&)` — from the effect's `init()`, after any `configure_arenas()` and before the first spawn. It also claims one of the shared `Timeline`'s `MAX_CLEAR_HOOKS` (4) clear-hook slots, and each `ChoreographedEffect` claims one hook, so a choreographed effect fits at most three pools; exhausting the hook table traps at registration.
 2. `spawn(in_frames, args...)` — the returned pointer is transient; use it at the call site, not across frames.
 3. `spawn_pausable(paused, in_frames, args...)` — same as `spawn()`, but the whole timeline event, start delay included, freezes while `*paused` is set, the way `Timeline::add_pausable` does. It is the only pool entry point that honours a GUI pause — `spawn()` animates straight through one — and the flag must outlive the event.
 4. `spawn_pinned(in_frames, args...)` — same as `spawn()`, but the pointer may be retained (e.g. registered as a live GUI param). Valid only for an animation that never completes on its own — infinite, or repeating (it rewinds rather than reaching `done()`) — and is added before any finite timeline event, so compaction cannot shift it.
