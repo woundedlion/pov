@@ -4,7 +4,6 @@
  */
 #pragma once
 
-#include <algorithm>
 #include <cmath>
 
 #include "math/noise_field.h"
