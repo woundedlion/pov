@@ -1261,10 +1261,8 @@ inline void test_orientation_upsample_then_collapse() {
   HS_EXPECT_NEAR(c.y, 1.0f, 1e-3f);
 }
 
-/** Internal-angle allowance after 600 cycles, radians. The path is sampled at
- * 40 frames per cycle, so a phase carries a fixed discretization residual; a
- * warping delta chain would instead grow the residual across cycles. */
-constexpr float MOTION_WARP_TOL = 0.1f;
+/** @brief Internal-angle allowance for float drift after 600 cycles, radians. */
+constexpr float MOTION_WARP_TOL = 1e-4f;
 
 /**
  * @brief Verifies a repeating Motion does not drift across many cycles.
@@ -1276,8 +1274,7 @@ constexpr float MOTION_WARP_TOL = 0.1f;
  * signature is the set of rotation-INVARIANT internal angles between heads
  * sampled at fixed phases within a cycle: a rigid drift (holonomy) leaves them
  * unchanged, so any growth is genuine warp. A late cycle is compared against the
- * ideal Lissajous internal angles; they must stay at the first cycle's tiny
- * discretization residual.
+ * ideal Lissajous internal angles within accumulated float drift.
  */
 inline void test_motion_repeating_does_not_drift() {
   using Ori = math::Orientation<16>;
@@ -1310,12 +1307,16 @@ inline void test_motion_repeating_does_not_drift() {
   // growth is genuine warp. Interior phases only (the boundary frame rewinds).
   const int anchor = 1;
   const math::Vector ideal_anchor = path.f((float)anchor / duration);
+  float max_error = 0.0f;
   for (int fr = 2; fr < duration; ++fr) {
     const math::Vector ideal_fr = path.f((float)fr / duration);
-    HS_EXPECT_NEAR(math::angle_between(late_heads[anchor], late_heads[fr]),
-                   math::angle_between(ideal_anchor, ideal_fr),
-                   MOTION_WARP_TOL);
+    const float ERROR =
+        fabsf(math::angle_between(late_heads[anchor], late_heads[fr]) -
+              math::angle_between(ideal_anchor, ideal_fr));
+    max_error = hs_test::fold_worst(max_error, ERROR);
   }
+  std::printf("  late-cycle motion angle drift: %.9g rad\n", max_error);
+  HS_EXPECT_LT(max_error, MOTION_WARP_TOL);
 }
 
 inline void test_motion_reanchor_after_path_swap() {
