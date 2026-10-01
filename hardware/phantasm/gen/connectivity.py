@@ -35,7 +35,7 @@ def net_id(node):
     net = sexp.val(node, "net")
     if not net or str(net[0]) == "0":
         return None
-    return str(net[0]).lstrip("/")
+    return str(net[0]) if len(net) > 1 else net_name(node) or None
 
 
 def _xy(values):
