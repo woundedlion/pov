@@ -574,6 +574,15 @@ class UnplacedBoardTests(TerminalBodyChecks, TerminalEdgePlacementChecks, unitte
         cls.addClassCleanup(cls.out.cleanup)
         cls.root = read(generate(cls.out.name, unplaced=True))
 
+    def test_committed_upload_matches_generator(self):
+        for filename in (
+            "phantasm.kicad_sch", "phantasm.kicad_pcb", "phantasm.kicad_sym",
+            "phantasm.kicad_pro", "phantasm.pretty/Teensy4.0.kicad_mod",
+        ):
+            with self.subTest(filename=filename):
+                self.assertEqual((Path(self.out.name) / filename).read_bytes(),
+                                 (GEN.parent / "1.2" / filename).read_bytes())
+
     def test_locks_the_mechanical_placements(self):
         placed = {}
         comps = {}
