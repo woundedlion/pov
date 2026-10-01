@@ -1327,8 +1327,10 @@ private:
                                  Workbench::AFFINE_SCALE_MAX,
                                  Workbench::AFFINE_SCALE_MAX,
                                  Workbench::AFFINE_SHEAR_MAX};
-        register_current(names[Workbench::WARP_NAME_TRANSLATION_X + index],
-                         targets[index], minimum[index], maximum[index]);
+        const char *name =
+            index == 2 ? Workbench::AFFINE_ROTATION_RATE_NAMES[outer ? 0 : 1]
+                       : names[Workbench::WARP_NAME_TRANSLATION_X + index];
+        register_current(name, targets[index], minimum[index], maximum[index]);
       }
       break;
     }
