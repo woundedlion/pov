@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Check every tracked working-tree file for trailing whitespace and blank EOF lines.
+# Check tracked files for trailing whitespace, blank EOF lines, and spaces before tabs.
 # usage: whitespace_gate.sh
 set -eu
 
