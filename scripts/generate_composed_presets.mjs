@@ -151,6 +151,7 @@ export function updateHeader(source, compiled) {
 
 export async function generate({ check = false, root = ROOT } = {}) {
   let count = 0;
+  const stale = [];
   for (const file of await readdir(resolve(root, 'effects'))) {
     if (!file.endsWith('.h')) continue;
     const path = resolve(root, 'effects', file);
@@ -159,11 +160,12 @@ export async function generate({ check = false, root = ROOT } = {}) {
     if (!id || !source.includes('DESCRIPTOR_DIGEST')) continue;
     const input = await readFile(resolve(root, 'patterns', `${id.replaceAll('-', '_')}.shader.json`), 'utf8');
     const output = updateHeader(source, compileShaderDocument(input, { catalog }));
-    if (check && source !== output) throw new Error(`${file}: regenerate composed presets`);
+    if (check && source !== output) stale.push(file);
     if (!check) await writeFile(path, output);
     ++count;
   }
   if (count === 0) throw new Error('No composed presets found');
+  if (stale.length) throw new Error(`Stale composed preset headers:\n${stale.join('\n')}\nRegenerate with: node scripts/generate_composed_presets.mjs`);
   return count;
 }
 
