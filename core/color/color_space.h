@@ -781,7 +781,8 @@ inline void lms_cbrt_transform_rgb(const float k[9], float l_cbrt, float m_cbrt,
  * @param r1 Out: linear red of the second pixel.
  * @param g1 Out: linear green of the second pixel.
  * @param b1 Out: linear blue of the second pixel.
- * @details Results match two lms_cbrt_transform_rgb calls bit for bit; only the
+ * @details Results match two lms_cbrt_transform_rgb calls bit for bit when
+ * floating-point reassociation is disabled; only the
  * statement order differs, so an in-order FPU can overlap the two independent
  * chains. The uniform work stays interleaved and only the rare chroma-clip
  * fixups run per pixel.
