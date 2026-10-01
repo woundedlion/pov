@@ -432,40 +432,25 @@ public:
     return value;
   }
 
-  enum class Backend : uint8_t { ANALYTIC_EVENTS };
-  enum class Policy : uint8_t { LEGACY_COVERAGE, EXPERIMENTAL };
   struct Configuration {
     Pattern pattern;
     LatticeMode domain;
-    Backend backend;
-    Policy policy;
     uint8_t max_candidates;
     uint8_t max_layers;
   };
   static constexpr auto CONFIGURATIONS = std::to_array<Configuration>({
-      {Pattern::CUBIC_WIRE, LatticeMode::THREE_D, Backend::ANALYTIC_EVENTS,
-       Policy::LEGACY_COVERAGE, 9, 9},
-      {Pattern::CUBIC_WIRE, LatticeMode::FOUR_D_SLICE, Backend::ANALYTIC_EVENTS,
-       Policy::LEGACY_COVERAGE, 12, 12},
+      {Pattern::CUBIC_WIRE, LatticeMode::THREE_D, 9, 9},
+      {Pattern::CUBIC_WIRE, LatticeMode::FOUR_D_SLICE, 12, 12},
 #if HS_ENABLE_HYPERLATTICE_EXPERIMENTS
-      {Pattern::OCTET, LatticeMode::THREE_D, Backend::ANALYTIC_EVENTS,
-       Policy::EXPERIMENTAL, 64, 32},
-      {Pattern::OCTET, LatticeMode::FOUR_D_SLICE, Backend::ANALYTIC_EVENTS,
-       Policy::EXPERIMENTAL, 64, 32},
-      {Pattern::DIAMOND, LatticeMode::THREE_D, Backend::ANALYTIC_EVENTS,
-       Policy::EXPERIMENTAL, 192, 32},
-      {Pattern::HEXAGONAL, LatticeMode::THREE_D, Backend::ANALYTIC_EVENTS,
-       Policy::EXPERIMENTAL, 192, 32},
-      {Pattern::RHOMBIC, LatticeMode::THREE_D, Backend::ANALYTIC_EVENTS,
-       Policy::EXPERIMENTAL, 192, 32},
-      {Pattern::AFFINE_CUBIC, LatticeMode::THREE_D, Backend::ANALYTIC_EVENTS,
-       Policy::EXPERIMENTAL, 96, 32},
-      {Pattern::AFFINE_CUBIC, LatticeMode::FOUR_D_SLICE,
-       Backend::ANALYTIC_EVENTS, Policy::EXPERIMENTAL, 96, 32},
-      {Pattern::SHELLS, LatticeMode::THREE_D, Backend::ANALYTIC_EVENTS,
-       Policy::EXPERIMENTAL, 64, 32},
-      {Pattern::SHELLS, LatticeMode::FOUR_D_SLICE, Backend::ANALYTIC_EVENTS,
-       Policy::EXPERIMENTAL, 64, 32},
+      {Pattern::OCTET, LatticeMode::THREE_D, 64, 32},
+      {Pattern::OCTET, LatticeMode::FOUR_D_SLICE, 64, 32},
+      {Pattern::DIAMOND, LatticeMode::THREE_D, 192, 32},
+      {Pattern::HEXAGONAL, LatticeMode::THREE_D, 192, 32},
+      {Pattern::RHOMBIC, LatticeMode::THREE_D, 192, 32},
+      {Pattern::AFFINE_CUBIC, LatticeMode::THREE_D, 96, 32},
+      {Pattern::AFFINE_CUBIC, LatticeMode::FOUR_D_SLICE, 96, 32},
+      {Pattern::SHELLS, LatticeMode::THREE_D, 64, 32},
+      {Pattern::SHELLS, LatticeMode::FOUR_D_SLICE, 64, 32},
 #endif
   });
 
