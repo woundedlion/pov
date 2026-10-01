@@ -41,8 +41,8 @@ bool unresolved(const Raycast::TraceResult &result) {
 }
 
 template <typename Surface> void measure(const char *name) {
-  std::array<math::Vector, SAMPLES> directions;
-  std::array<Raycast::TraceResult, SAMPLES> reference;
+  static std::array<math::Vector, SAMPLES> directions;
+  static std::array<Raycast::TraceResult, SAMPLES> reference;
   std::array<Metrics, BUDGETS.size()> metrics{};
   constexpr std::array<float, 3> PERIODS = {0.7f, 1.5f, 3.0f};
   constexpr std::array<float, 3> ISOVALUES = {-0.5f, 0.0f, 0.5f};
