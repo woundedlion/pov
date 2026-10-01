@@ -79,6 +79,8 @@ inline void check_strip_tiling(int S, int w, int x) {
     const int bot_led = strip_bottom_led(y, S);
     HS_EXPECT_TRUE(top_led >= 0 && top_led < S);
     HS_EXPECT_TRUE(bot_led >= 0 && bot_led < S);
+    if (top_led < 0 || top_led >= S || bot_led < 0 || bot_led >= S)
+      continue;
     // Interior ordering: top half strictly descends, bottom half strictly
     // ascends, so a scrambled-but-bijective remap fails here, not just below.
     if (y > 0) {
