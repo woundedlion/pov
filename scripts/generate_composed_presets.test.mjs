@@ -109,7 +109,7 @@ test('an authored value changes the generated assignment and bank identity', () 
   edited.preset_bank.presets[0].values['sample.pattern-freq'] = 3;
   const next = generatedSections(compileShaderDocument(edited, { catalog }));
   assert.notEqual(next.identity, original.identity);
-  assert.match(next.params, /value.source.pattern_freq = 3.0f;/);
+  assert.match(next.params, /value\.template get<"source">\(\)\.pattern_freq = 3\.0f;/);
   assert.throws(() => updateHeader('', compileShaderDocument(document, { catalog })), /markers/);
 });
 

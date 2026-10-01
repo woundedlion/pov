@@ -76,32 +76,32 @@ public:
   // clang-format off
   static constexpr Params initial_params() {
     Params value;
-    value.projection.camera_wander = 1.0f;
-    value.color.hue_noise_scale = 1.0f;
-    value.color.hue_noise_speed = 0.0f;
-    value.color.hue_shift_amount = 0.0f;
-    value.color.mapping_frequency = 1.0f;
-    value.color.mapping_phase = 0.0f;
-    value.color.palette_chroma = 0.62f;
-    value.color.palette_mapping = Pullback::Color::PaletteMapping::LINEAR;
-    value.color.phase_oscillation_depth = 0.0f;
-    value.color.phase_oscillation_speed = 0.0f;
-    value.color.opacity_high = 1.0f;
-    value.color.opacity_low = 1.0f;
-    value.projection.singularity_fade = 1.4f;
-    value.source.angle_rate = 0.0f;
-    value.source.complexity = 0.0f;
-    value.source.secondary_rate = 1.0f;
-    value.value.edge_width = 0.5f;
-    value.source.pattern_freq = 3.565f;
-    value.source.pattern_mix = 1.0f;
-    value.source.speed = 0.235f;
-    value.outer_warp.cell_x = 5.381125f;
-    value.outer_warp.cell_y = 1.0f;
-    value.outer_warp.offset_x = 1.344f;
-    value.outer_warp.offset_y = -1.456f;
-    value.outer_warp.rotation = 0.29530972f;
-    value.outer_warp.speed = 0.0f;
+    value.template get<"projection">().camera_wander = 1.0f;
+    value.template get<"color">().hue_noise_scale = 1.0f;
+    value.template get<"color">().hue_noise_speed = 0.0f;
+    value.template get<"color">().hue_shift_amount = 0.0f;
+    value.template get<"color">().mapping_frequency = 1.0f;
+    value.template get<"color">().mapping_phase = 0.0f;
+    value.template get<"color">().palette_chroma = 0.62f;
+    value.template get<"color">().palette_mapping = Pullback::Color::PaletteMapping::LINEAR;
+    value.template get<"color">().phase_oscillation_depth = 0.0f;
+    value.template get<"color">().phase_oscillation_speed = 0.0f;
+    value.template get<"color">().opacity_high = 1.0f;
+    value.template get<"color">().opacity_low = 1.0f;
+    value.template get<"projection">().singularity_fade = 1.4f;
+    value.template get<"source">().angle_rate = 0.0f;
+    value.template get<"source">().complexity = 0.0f;
+    value.template get<"source">().secondary_rate = 1.0f;
+    value.template get<"value">().edge_width = 0.5f;
+    value.template get<"source">().pattern_freq = 3.565f;
+    value.template get<"source">().pattern_mix = 1.0f;
+    value.template get<"source">().speed = 0.235f;
+    value.template get<"outer_warp">().cell_x = 5.381125f;
+    value.template get<"outer_warp">().cell_y = 1.0f;
+    value.template get<"outer_warp">().offset_x = 1.344f;
+    value.template get<"outer_warp">().offset_y = -1.456f;
+    value.template get<"outer_warp">().rotation = 0.29530972f;
+    value.template get<"outer_warp">().speed = 0.0f;
     return value;
   }
   // clang-format on

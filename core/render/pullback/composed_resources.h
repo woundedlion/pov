@@ -43,13 +43,13 @@ struct ParameterResource {
   static constexpr ResourceKind KIND = KindV;
   using Family = FamilyT;
   static constexpr size_t ORDER = [] {
-    constexpr std::string_view LEGACY_ORDER[] = {
+    constexpr std::string_view INSTANCE_ORDER[] = {
         "source",  "projection", "outer_warp", "inner_warp",
         "surface", "lens",       "value",      "color"};
-    for (size_t i = 0; i < std::size(LEGACY_ORDER); ++i)
-      if (Key.view() == LEGACY_ORDER[i])
+    for (size_t i = 0; i < std::size(INSTANCE_ORDER); ++i)
+      if (Key.view() == INSTANCE_ORDER[i])
         return i;
-    return std::size(LEGACY_ORDER);
+    return std::size(INSTANCE_ORDER);
   }();
 };
 
@@ -138,49 +138,9 @@ struct DiscoveryBinding {
 };
 
 template <ResourceKey Key, typename Family> struct ParameterBlock {
-  Family value{};
-  constexpr Family &resource() { return value; }
-  constexpr const Family &resource() const { return value; }
-};
-template <typename Family> struct ParameterBlock<"source", Family> {
-  Family source{};
-  constexpr Family &resource() { return source; }
-  constexpr const Family &resource() const { return source; }
-};
-template <typename Family> struct ParameterBlock<"projection", Family> {
-  Family projection{};
-  constexpr Family &resource() { return projection; }
-  constexpr const Family &resource() const { return projection; }
-};
-template <typename Family> struct ParameterBlock<"outer_warp", Family> {
-  Family outer_warp{};
-  constexpr Family &resource() { return outer_warp; }
-  constexpr const Family &resource() const { return outer_warp; }
-};
-template <typename Family> struct ParameterBlock<"inner_warp", Family> {
-  Family inner_warp{};
-  constexpr Family &resource() { return inner_warp; }
-  constexpr const Family &resource() const { return inner_warp; }
-};
-template <typename Family> struct ParameterBlock<"surface", Family> {
-  Family surface{};
-  constexpr Family &resource() { return surface; }
-  constexpr const Family &resource() const { return surface; }
-};
-template <typename Family> struct ParameterBlock<"lens", Family> {
-  Family lens{};
-  constexpr Family &resource() { return lens; }
-  constexpr const Family &resource() const { return lens; }
-};
-template <typename Family> struct ParameterBlock<"value", Family> {
-  Family value{};
-  constexpr Family &resource() { return value; }
-  constexpr const Family &resource() const { return value; }
-};
-template <typename Family> struct ParameterBlock<"color", Family> {
-  Family color{};
-  constexpr Family &resource() { return color; }
-  constexpr const Family &resource() const { return color; }
+  Family data{};
+  constexpr Family &resource() { return data; }
+  constexpr const Family &resource() const { return data; }
 };
 
 template <ResourceKey Key, typename List> struct FindResource;
@@ -211,19 +171,15 @@ struct ParameterSet<ResourceList<Resources...>>
   using Family = typename FamilyOf<Resource<Key>>::Type;
   template <ResourceKey Key>
   static constexpr bool HAS = !std::is_void_v<Resource<Key>>;
-  using source_type = Family<"source">;
-  using outer_warp_type = Family<"outer_warp">;
-  using inner_warp_type = Family<"inner_warp">;
-  using lens_type = Family<"lens">;
-  using value_type = Family<"value">;
-  using surface_type = Family<"surface">;
 
-  template <ResourceKey Key> constexpr auto &get() {
-    static_assert(HAS<Key>, "composed parameter instance does not exist");
+  template <ResourceKey Key>
+    requires(HAS<Key>)
+  constexpr auto &get() {
     return static_cast<ParameterBlock<Key, Family<Key>> &>(*this).resource();
   }
-  template <ResourceKey Key> constexpr const auto &get() const {
-    static_assert(HAS<Key>, "composed parameter instance does not exist");
+  template <ResourceKey Key>
+    requires(HAS<Key>)
+  constexpr const auto &get() const {
     return static_cast<const ParameterBlock<Key, Family<Key>> &>(*this)
         .resource();
   }

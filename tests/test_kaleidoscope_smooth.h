@@ -96,31 +96,38 @@ inline void test_kaleidoscope_smooth_transition_contract() {
     ++frames;
   };
   drive(0.0f);
-  HS_EXPECT_NEAR(WB::params(effect).source.complexity,
-                 FX::preset(0).params.source.complexity, 0.0f);
+  HS_EXPECT_NEAR(WB::params(effect).template get<"source">().complexity,
+                 FX::preset(0).params.template get<"source">().complexity,
+                 0.0f);
 
   drive(0.25f);
-  HS_EXPECT_NEAR(WB::params(effect).source.complexity,
-                 interp::linear(FX::preset(0).params.source.complexity,
-                                FX::preset(1).params.source.complexity, 0.25f),
-                 1e-6f);
+  HS_EXPECT_NEAR(
+      WB::params(effect).template get<"source">().complexity,
+      interp::linear(FX::preset(0).params.template get<"source">().complexity,
+                     FX::preset(1).params.template get<"source">().complexity,
+                     0.25f),
+      1e-6f);
 
   drive(0.5f);
-  HS_EXPECT_NEAR(WB::params(effect).source.complexity,
-                 interp::linear(FX::preset(0).params.source.complexity,
-                                FX::preset(1).params.source.complexity, 0.5f),
-                 1e-6f);
+  HS_EXPECT_NEAR(
+      WB::params(effect).template get<"source">().complexity,
+      interp::linear(FX::preset(0).params.template get<"source">().complexity,
+                     FX::preset(1).params.template get<"source">().complexity,
+                     0.5f),
+      1e-6f);
 
   drive(1.0f);
-  HS_EXPECT_NEAR(WB::params(effect).source.complexity,
-                 FX::preset(1).params.source.complexity, 0.0f);
+  HS_EXPECT_NEAR(WB::params(effect).template get<"source">().complexity,
+                 FX::preset(1).params.template get<"source">().complexity,
+                 0.0f);
   HS_EXPECT_TRUE(WB::transition_active(effect));
 
   for (uint16_t frame = frames;
        frame < Segue::Preset::frames(FX::preset_departure(0)); ++frame)
     drive(0.5f);
-  HS_EXPECT_NEAR(WB::params(effect).source.complexity,
-                 FX::preset(1).params.source.complexity, 0.0f);
+  HS_EXPECT_NEAR(WB::params(effect).template get<"source">().complexity,
+                 FX::preset(1).params.template get<"source">().complexity,
+                 0.0f);
   HS_EXPECT_FALSE(WB::transition_active(effect));
 }
 

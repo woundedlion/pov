@@ -82,39 +82,39 @@ public:
   // clang-format off
   static constexpr Params initial_params() {
     Params value;
-    value.projection.camera_wander = 1.0f;
-    value.color.brightness_bottom = 0.0f;
-    value.color.brightness_top = 1.0f;
-    value.color.hue_shift_amount = 0.312f;
-    value.color.mapping_frequency = 1.0f;
-    value.color.mapping_phase = 0.0f;
-    value.color.palette_chroma = 0.398f;
-    value.color.palette_mapping = Pullback::Color::PaletteMapping::LINEAR;
-    value.color.phase_oscillation_depth = 0.0f;
-    value.color.phase_oscillation_speed = 0.0f;
-    value.color.opacity_high = 1.0f;
-    value.color.opacity_low = 1.0f;
-    value.lens.mobius.a.im = 0.304f;
-    value.lens.mobius.a.re = -1.072f;
-    value.lens.mobius.b.im = 0.0f;
-    value.lens.mobius.b.re = 0.416f;
-    value.lens.mobius.c.im = 0.0f;
-    value.lens.mobius.c.re = 0.0f;
-    value.lens.mobius.d.im = 0.0f;
-    value.lens.mobius.d.re = 0.70710677f;
-    value.projection.spin_rate = 0.0f;
-    value.projection.wander = 1.0f;
-    value.projection.singularity_fade = 2.102f;
-    value.source.angle_rate = 0.027f;
-    value.source.secondary_rate = 0.8f;
-    value.source.pattern_freq = 10.158f;
-    value.source.speed = 0.245f;
-    value.inner_warp.cell_x = 1.0f;
-    value.inner_warp.cell_y = 1.0f;
-    value.inner_warp.offset_x = 0.0f;
-    value.inner_warp.offset_y = 0.0f;
-    value.inner_warp.rotation = 0.0f;
-    value.inner_warp.speed = 0.0f;
+    value.template get<"projection">().camera_wander = 1.0f;
+    value.template get<"color">().brightness_bottom = 0.0f;
+    value.template get<"color">().brightness_top = 1.0f;
+    value.template get<"color">().hue_shift_amount = 0.312f;
+    value.template get<"color">().mapping_frequency = 1.0f;
+    value.template get<"color">().mapping_phase = 0.0f;
+    value.template get<"color">().palette_chroma = 0.398f;
+    value.template get<"color">().palette_mapping = Pullback::Color::PaletteMapping::LINEAR;
+    value.template get<"color">().phase_oscillation_depth = 0.0f;
+    value.template get<"color">().phase_oscillation_speed = 0.0f;
+    value.template get<"color">().opacity_high = 1.0f;
+    value.template get<"color">().opacity_low = 1.0f;
+    value.template get<"lens">().mobius.a.im = 0.304f;
+    value.template get<"lens">().mobius.a.re = -1.072f;
+    value.template get<"lens">().mobius.b.im = 0.0f;
+    value.template get<"lens">().mobius.b.re = 0.416f;
+    value.template get<"lens">().mobius.c.im = 0.0f;
+    value.template get<"lens">().mobius.c.re = 0.0f;
+    value.template get<"lens">().mobius.d.im = 0.0f;
+    value.template get<"lens">().mobius.d.re = 0.70710677f;
+    value.template get<"projection">().spin_rate = 0.0f;
+    value.template get<"projection">().wander = 1.0f;
+    value.template get<"projection">().singularity_fade = 2.102f;
+    value.template get<"source">().angle_rate = 0.027f;
+    value.template get<"source">().secondary_rate = 0.8f;
+    value.template get<"source">().pattern_freq = 10.158f;
+    value.template get<"source">().speed = 0.245f;
+    value.template get<"inner_warp">().cell_x = 1.0f;
+    value.template get<"inner_warp">().cell_y = 1.0f;
+    value.template get<"inner_warp">().offset_x = 0.0f;
+    value.template get<"inner_warp">().offset_y = 0.0f;
+    value.template get<"inner_warp">().rotation = 0.0f;
+    value.template get<"inner_warp">().speed = 0.0f;
     return value;
   }
 
@@ -122,9 +122,9 @@ public:
   HS_COLD_MEMBER static constexpr PresetEntry<Params> preset(size_t index) {
     Params value = initial_params();
     if (index == 1) {
-      value.inner_warp.cell_x = 0.2791094f;
-      value.inner_warp.cell_y = 6.810328f;
-      value.inner_warp.speed = 0.005875f;
+      value.template get<"inner_warp">().cell_x = 0.2791094f;
+      value.template get<"inner_warp">().cell_y = 6.810328f;
+      value.template get<"inner_warp">().speed = 0.005875f;
     }
     return {value, Segue::Preset::Lerp{480, math::ease_in_out_sin}};
   }

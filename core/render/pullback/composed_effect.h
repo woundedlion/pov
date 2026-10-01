@@ -132,11 +132,11 @@ template <typename BindingT> struct ProjectionProvider {
   }
   __attribute__((always_inline)) static float
   singularity_fade(const FrameState &frame) {
-    return frame.params.projection.singularity_fade;
+    return frame.params.template get<"projection">().singularity_fade;
   }
   __attribute__((always_inline)) static float
   central_meridian(const FrameState &frame) {
-    return frame.params.projection.central_meridian;
+    return frame.params.template get<"projection">().central_meridian;
   }
 };
 
@@ -152,7 +152,7 @@ template <typename BindingT, ResourceKey Key = "lens"> struct LensProvider {
 
 /** @brief Supplies parameters, clock and noise of one planar warp instance. */
 template <typename BindingT, ResourceKey Key, typename Family,
-          bool TrackPath = false>
+          bool TrackPath = false, ResourceKey SourceKey = "source">
 struct WarpProvider {
   using Binding = BindingT;
   using FrameState = typename Binding::FrameState;
@@ -164,13 +164,14 @@ struct WarpProvider {
     using WarpT = std::remove_cvref_t<decltype(params(frame))>;
     if constexpr (std::is_same_v<WarpT, AffineParams>) {
       static_assert(
-          requires { frame.params.source.lattice_cell_scale; },
-          "the affine warp stage translates in lattice cells and requires a "
-          "LatticeSourceParams source");
+          requires {
+            frame.params.template get<SourceKey>().lattice_cell_scale;
+          }, "the affine warp stage translates in lattice cells and requires a "
+             "LatticeSourceParams source");
       return Pullback::Warp::prepare(
           params(frame), phase(frame),
           frame.resources.template get<Key>().rotation,
-          1.0f / frame.params.source.lattice_cell_scale);
+          1.0f / frame.params.template get<SourceKey>().lattice_cell_scale);
     } else if constexpr (std::is_same_v<WarpT, PolarParams>) {
       return Pullback::NoPrepared{};
     } else {
@@ -194,7 +195,7 @@ struct WarpProvider {
  * @brief Supplies the displacement field to the Pullback::Surface policies.
  * @tparam BindingT The effect's Binding.
  * @tparam TrackPath Whether the stage accumulates path length.
- * @pre The effect's `surface_type` is a displacement family.
+ * @pre The resource family is a displacement family.
  */
 template <typename BindingT, typename Family, bool TrackPath = false,
           ResourceKey Key = "surface">
@@ -341,15 +342,15 @@ struct ColorProvider {
   }
   __attribute__((always_inline)) static float
   mapping_frequency(const FrameState &frame) {
-    return frame.params.color.mapping_frequency;
+    return frame.params.template get<"color">().mapping_frequency;
   }
   __attribute__((always_inline)) static float
   mapping_phase(const FrameState &frame) {
-    return frame.params.color.mapping_phase;
+    return frame.params.template get<"color">().mapping_phase;
   }
   __attribute__((always_inline)) static float
   oscillation_depth(const FrameState &frame) {
-    return frame.params.color.phase_oscillation_depth;
+    return frame.params.template get<"color">().phase_oscillation_depth;
   }
   __attribute__((always_inline)) static float
   oscillation_phase(const FrameState &frame) {
@@ -365,18 +366,18 @@ struct ColorProvider {
   }
   __attribute__((always_inline)) static float
   hue_shift_amount(const FrameState &frame) {
-    return frame.params.color.hue_shift_amount;
+    return frame.params.template get<"color">().hue_shift_amount;
   }
   __attribute__((always_inline)) static Pullback::Color::HueRotationLutView
   hue_rotation(const FrameState &frame) {
     return {frame.hue_rotation_lut,
-            hue_rotation_active<HueV>(frame.params.color)};
+            hue_rotation_active<HueV>(frame.params.template get<"color">())};
   }
   __attribute__((always_inline)) static Pullback::Color::HueNoiseLutView
   hue_noise(const FrameState &frame) {
-    return {frame.hue_noise_lut,
-            HueV == HueMode::NOISE &&
-                hue_rotation_active<HueV>(frame.params.color)};
+    return {frame.hue_noise_lut, HueV == HueMode::NOISE &&
+                                     hue_rotation_active<HueV>(
+                                         frame.params.template get<"color">())};
   }
   __attribute__((always_inline)) static Pullback::Color::BrightnessEnvelope
   brightness_envelope(const FrameState &) {
@@ -384,19 +385,19 @@ struct ColorProvider {
   }
   __attribute__((always_inline)) static float
   brightness_bottom(const FrameState &frame) {
-    return frame.params.color.brightness_bottom;
+    return frame.params.template get<"color">().brightness_bottom;
   }
   __attribute__((always_inline)) static float
   brightness_top(const FrameState &frame) {
-    return frame.params.color.brightness_top;
+    return frame.params.template get<"color">().brightness_top;
   }
   __attribute__((always_inline)) static float
   opacity_low(const FrameState &frame) {
-    return frame.params.color.opacity_low;
+    return frame.params.template get<"color">().opacity_low;
   }
   __attribute__((always_inline)) static float
   opacity_high(const FrameState &frame) {
-    return frame.params.color.opacity_high;
+    return frame.params.template get<"color">().opacity_high;
   }
 };
 
@@ -756,8 +757,9 @@ struct PolicyResources<LensProvider<B, Key>> {
   using Type = ResourceList<
       ParameterResource<Key, MobiusLensParams, ResourceKind::LENS>>;
 };
-template <typename B, ResourceKey Key, typename Family, bool Track>
-struct PolicyResources<WarpProvider<B, Key, Family, Track>> {
+template <typename B, ResourceKey Key, typename Family, bool Track,
+          ResourceKey SourceKey>
+struct PolicyResources<WarpProvider<B, Key, Family, Track, SourceKey>> {
   using Type = ResourceList<ParameterResource<Key, Family, ResourceKind::WARP>>;
 };
 template <typename B, typename Family, bool Track, ResourceKey Key>
@@ -945,18 +947,18 @@ public:
   using Spec = SpecT;
   static_assert(
       Spec::TRANSFER != TransferKind::ISO_CONTOUR || requires(Params p) {
-        p.value.iso_level;
-        p.value.iso_width;
+        p.template get<"value">().iso_level;
+        p.template get<"value">().iso_width;
       }, "iso-contour transfer requires iso-level and iso-width");
   static_assert(
       Spec::COVERAGE != ProjectionCoverageMode::EDGE_FADE ||
-          requires(Params p) { p.value.edge_width; },
+          requires(Params p) { p.template get<"value">().edge_width; },
       "edge-fade coverage requires edge-width");
   static_assert(
       Spec::FIELD_COVERAGE != FieldCoverageKind::VALUE_CUTOUT ||
           requires(Params p) {
-            p.value.cutout_threshold;
-            p.value.cutout_softness;
+            p.template get<"value">().cutout_threshold;
+            p.template get<"value">().cutout_softness;
           },
       "value-cutout coverage requires threshold and softness");
   using FrameState = Pullback::FrameState<ParamsT>;
@@ -1163,20 +1165,20 @@ protected:
   HS_COLD_MEMBER void adopt_params(const Params &target) {
     params = target;
     palette_mapping = Pullback::Color::PaletteMappingWeights::single(
-        target.color.palette_mapping);
+        target.template get<"color">().palette_mapping);
   }
 
   HS_COLD_MEMBER void parameter_written() override {
     Choreography::parameter_written();
     palette_mapping = Pullback::Color::PaletteMappingWeights::single(
-        params.color.palette_mapping);
+        params.template get<"color">().palette_mapping);
   }
 
   /** @brief Captures the palette-mapping endpoints of an arming crossfade. */
   HS_COLD_MEMBER void transition_armed(const Params &target) {
     mapping_from = palette_mapping;
     mapping_to = Pullback::Color::PaletteMappingWeights::single(
-        target.color.palette_mapping);
+        target.template get<"color">().palette_mapping);
   }
 
   /**
@@ -1292,8 +1294,8 @@ private:
   template <float Color::ColorControls::*Member>
   HS_COLD_MEMBER void register_color_field(const char *name) {
     constexpr const auto &field = color_descriptor<Member>();
-    register_animated_param(name, &(params.color.*Member), field.min,
-                            field.max);
+    register_animated_param(name, &(params.template get<"color">().*Member),
+                            field.min, field.max);
   }
 
   template <ResourceKind Kind> HS_COLD_MEMBER void register_resource_kind() {
@@ -1317,10 +1319,10 @@ private:
     register_resource_kind<ResourceKind::VALUE>();
     register_resource_kind<ResourceKind::LENS>();
     register_color_field<&ColorParams::palette_chroma>("Palette Chroma");
-    register_animated_param("Palette Mapping", &params.color.palette_mapping,
-                            PALETTE_MAPPING_OPTIONS,
-                            PALETTE_MAPPING_EXPORT_OPTIONS,
-                            std::size(PALETTE_MAPPING_OPTIONS));
+    register_animated_param(
+        "Palette Mapping", &params.template get<"color">().palette_mapping,
+        PALETTE_MAPPING_OPTIONS, PALETTE_MAPPING_EXPORT_OPTIONS,
+        std::size(PALETTE_MAPPING_OPTIONS));
     register_color_field<&ColorParams::mapping_frequency>("Mapping Frequency");
     register_color_field<&ColorParams::mapping_phase>("Mapping Phase");
     register_color_field<&ColorParams::phase_oscillation_depth>(
@@ -1374,15 +1376,17 @@ private:
     });
     if constexpr (AnimatedProjection)
       this->projection_spin = fmodf(
-          this->projection_spin + params.projection.spin_rate, math::TWO_PI_F);
+          this->projection_spin + params.template get<"projection">().spin_rate,
+          math::TWO_PI_F);
     if constexpr (requires { Derived::CAMERA_SPIN_RATE; })
       camera_spin =
           fmodf(camera_spin + Derived::CAMERA_SPIN_RATE, math::TWO_PI_F);
     if constexpr (HueV == HueMode::NOISE)
-      hue_noise_phase =
-          math::wrap_t(hue_noise_phase + params.color.hue_noise_speed);
-    palette_oscillation_phase = math::wrap_t(
-        palette_oscillation_phase + params.color.phase_oscillation_speed);
+      hue_noise_phase = math::wrap_t(
+          hue_noise_phase + params.template get<"color">().hue_noise_speed);
+    palette_oscillation_phase =
+        math::wrap_t(palette_oscillation_phase +
+                     params.template get<"color">().phase_oscillation_speed);
   }
 
   // Rotation samples are eased within each walk step; chain walks apply the
@@ -1396,8 +1400,9 @@ private:
           projection * this->projection_walk_previous.conjugate();
       this->projection_walk_previous = projection;
       this->projection_wander =
-          (math::scaled_rotation_delta(projection_delta.normalized(),
-                                       params.projection.wander) *
+          (math::scaled_rotation_delta(
+               projection_delta.normalized(),
+               params.template get<"projection">().wander) *
            this->projection_wander)
               .normalized();
       this->projection_conjugate =
@@ -1409,11 +1414,11 @@ private:
     const math::Quaternion outer_delta =
         outer * outer_walk_previous.conjugate();
     outer_walk_previous = outer;
-    outer_wander =
-        (math::scaled_rotation_delta(outer_delta.normalized(),
-                                     params.projection.camera_wander) *
-         outer_wander)
-            .normalized();
+    outer_wander = (math::scaled_rotation_delta(
+                        outer_delta.normalized(),
+                        params.template get<"projection">().camera_wander) *
+                    outer_wander)
+                       .normalized();
     if constexpr (requires { Derived::CAMERA_SPIN_RATE; })
       outer_conjugate =
           (math::make_rotation(math::Y_AXIS, camera_spin) * outer_wander)
@@ -1449,14 +1454,14 @@ private:
   HS_COLD_MEMBER FrameState prepare_frame() {
     HS_PROFILE(fx_prepare_frame);
     if constexpr (HueV == HueMode::NOISE) {
-      if (hue_rotation_active<HueV>(params.color)) {
-        state->hue_noise_bake.refresh(state->hue_noise_lut, state->color_noise,
-                                      params.color.hue_noise_scale,
-                                      hue_noise_phase);
+      if (hue_rotation_active<HueV>(params.template get<"color">())) {
+        state->hue_noise_bake.refresh(
+            state->hue_noise_lut, state->color_noise,
+            params.template get<"color">().hue_noise_scale, hue_noise_phase);
       }
     }
     if constexpr (HueV != HueMode::NONE)
-      if (hue_rotation_active<HueV>(params.color) &&
+      if (hue_rotation_active<HueV>(params.template get<"color">()) &&
           state->hue_rotation_lut_bake != palette_cycler.bake_generation()) {
         Pullback::Color::prepare_hue_rotation_lut(
             std::span<Pixel, Pullback::Color::HueRotationLutView::SIZE>(
@@ -1487,9 +1492,9 @@ private:
   }
 
   HS_COLD_MEMBER void update_palette_chroma() {
-    if (palette_chroma == params.color.palette_chroma)
+    if (palette_chroma == params.template get<"color">().palette_chroma)
       return;
-    palette_chroma = params.color.palette_chroma;
+    palette_chroma = params.template get<"color">().palette_chroma;
     palette_cycler.set_generated_chroma(palette_chroma);
   }
 
@@ -1509,7 +1514,7 @@ private:
     out = GenerativePalette{PaletteRecipes::profile(
         PaletteDomain::STRAIGHT, Harmony, AxisCurve::ASCENDING,
         PaletteRecipes::hue_turns(effect.palette_hue),
-        effect.params.color.palette_chroma)};
+        effect.params.template get<"color">().palette_chroma)};
   }
 
   static constexpr const char *PALETTE_MAPPING_OPTIONS[] = {
@@ -1523,7 +1528,7 @@ private:
   State *state = nullptr;
   Pullback::Color::PaletteMappingWeights palette_mapping =
       Pullback::Color::PaletteMappingWeights::single(
-          params.color.palette_mapping);
+          params.template get<"color">().palette_mapping);
   Pullback::Color::PaletteMappingWeights mapping_from;
   Pullback::Color::PaletteMappingWeights mapping_to;
   math::Orientation<> outer_walk;
