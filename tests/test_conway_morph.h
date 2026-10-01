@@ -2685,8 +2685,10 @@ inline void test_medial_dual_bridge_wellformed() {
 inline void test_opleg_medial_leg_smoke() {
   using Animation::OpLeg;
   reset_globals();
-  const ScopedArenaSplit split(GLOBAL_ARENA_SIZE - 116 * 1024 - 74 * 1024,
-                               116 * 1024, 74 * 1024);
+  const ScopedArenaSplit split(
+      IslamicStars<288, 144>::GENERATED_BUDGET.persistent(GLOBAL_ARENA_SIZE),
+      IslamicStars<288, 144>::GENERATED_BUDGET.scratch_a,
+      IslamicStars<288, 144>::GENERATED_BUDGET.scratch_b);
   hs::random().seed(2026u);
 
   Arena bank_arena(morph_bank_buf, sizeof(morph_bank_buf));
@@ -2792,8 +2794,10 @@ inline void test_opleg_dual_bridge_seam_correspondence() {
   for (const StepLegSite &site : DUAL_LEG_SITES) {
     const int failed_before = hs_test::stats().failed;
     reset_globals();
-    const ScopedArenaSplit split(GLOBAL_ARENA_SIZE - 132 * 1024 - 74 * 1024,
-                                 132 * 1024, 74 * 1024);
+    const ScopedArenaSplit split(
+        IslamicStars<288, 144>::BRIDGE_BUDGET.persistent(GLOBAL_ARENA_SIZE),
+        IslamicStars<288, 144>::BRIDGE_BUDGET.scratch_a,
+        IslamicStars<288, 144>::BRIDGE_BUDGET.scratch_b);
     hs::random().seed(2026u);
 
     Arena bank_arena(morph_bank_buf, sizeof(morph_bank_buf));
@@ -3442,8 +3446,10 @@ inline void test_opleg_step_leg_overshooting_easing() {
 inline void test_opleg_edge_leg_crossfade() {
   using Animation::OpLeg;
   reset_globals();
-  const ScopedArenaSplit split(GLOBAL_ARENA_SIZE - 116 * 1024 - 74 * 1024,
-                               116 * 1024, 74 * 1024);
+  const ScopedArenaSplit split(
+      IslamicStars<288, 144>::GENERATED_BUDGET.persistent(GLOBAL_ARENA_SIZE),
+      IslamicStars<288, 144>::GENERATED_BUDGET.scratch_a,
+      IslamicStars<288, 144>::GENERATED_BUDGET.scratch_b);
   hs::random().seed(2026u);
 
   Arena bank_arena(morph_bank_buf, sizeof(morph_bank_buf));
