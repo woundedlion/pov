@@ -222,7 +222,6 @@ inline void test_first_boundary_and_tolerances() {
   ray = {math::Vector(-2, 1, 0), math::Vector(1, 0, 0), {0, 4}};
   limits = {};
   result = Raycast::surface_search(sphere_query, ray, {}, limits);
-  HS_EXPECT_TRUE(result.status != Raycast::TraceStatus::RANGE_COMPLETE);
   HS_EXPECT_EQ(result.status, Raycast::TraceStatus::BUDGET_EXHAUSTED);
 }
 
