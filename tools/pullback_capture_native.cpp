@@ -500,8 +500,15 @@ int capture(const char *operations_path, const char *output_path) {
   for (const Instruction &instruction : operations.frames) {
     std::vector<Pixel> pixels;
     RecordMetadata metadata;
-    if (!render_instruction<W, H>(instruction, pixels, metadata))
+    if (!render_instruction<W, H>(instruction, pixels, metadata)) {
+      std::fprintf(
+          stderr,
+          "pullback capture: no fixture or snapshot restore failed for "
+          "%s preset=%u operation=%u\n",
+          instruction.name.c_str(), instruction.preset,
+          static_cast<unsigned>(instruction.operation));
       return 3;
+    }
     if (!write_record<W, H>(output.get(), instruction, pixels, metadata)) {
       std::fprintf(
           stderr,
