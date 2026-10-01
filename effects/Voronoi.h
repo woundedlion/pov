@@ -33,15 +33,8 @@ struct VoronoiWhiteBox;
  */
 template <int W, int H> class Voronoi : public Effect {
 public:
-  /** @brief Construction config; named so the render margin is assertable. */
+  /** @brief Construction config. */
   static constexpr EffectConfig CONFIG{.strobe = true};
-  // The shading loop writes the margin-expanded rows but only the display
-  // columns, so a stage whose taps land off the plotted column must not widen
-  // the render band until that loop covers the margin columns too.
-  static_assert(CONFIG.margin == ClipRegion{}.margin,
-                "Voronoi shades the bare display column band; a filter with a "
-                "segment margin needs the shading loop widened to the "
-                "margin-expanded column band first");
 
   /**
    * @brief Constructs the effect with the templated framebuffer dimensions.
@@ -122,8 +115,9 @@ public:
     // A cell missed by all four corners is dropped.
     auto &cr = canvas.clip();
     Scan::Shader::check_lut_domain<W, H>(cr);
-    const int x0 = cr.x_start;
-    const int x1 = cr.x_end;
+    const auto columns = cr.x_clip();
+    const int x0 = columns.active && !columns.wrap ? columns.rs : 0;
+    const int x1 = columns.active && !columns.wrap ? columns.re : W;
     const int y0 = cr.render_y_start();
     const int y1 = cr.render_y_end();
     if (x1 <= x0 || y1 <= y0)
@@ -138,19 +132,14 @@ public:
     const int B = hs::clamp(static_cast<int>(cell_px), COHERENCE_BLOCK_MIN,
                             COHERENCE_BLOCK);
     if (B == 1) {
-      for (int y = y0; y < y1; ++y) {
-        for (int x = x0; x < x1; ++x) {
-          const math::Vector p = math::pixel_to_vector<W, H>(x, y);
-          const auto nearest = tree.nearest(p, 2);
-          const uint16_t i0 = nearest[0].original_index;
-          const uint16_t i1 =
-              nearest.size() > 1 ? nearest[1].original_index : i0;
-          const Color4 sample = shade(
-              i0, math::dot(p, sites_buffer[i0].pos), i1,
-              nearest.size() > 1 ? math::dot(p, sites_buffer[i1].pos) : NO_DOT);
-          canvas(x, y) = sample.color * sample.alpha;
-        }
-      }
+      Scan::Shader::draw<W, H>(canvas, [&](const math::Vector &p) {
+        const auto nearest = tree.nearest(p, 2);
+        const uint16_t i0 = nearest[0].original_index;
+        const uint16_t i1 = nearest.size() > 1 ? nearest[1].original_index : i0;
+        return shade(i0, math::dot(p, sites_buffer[i0].pos), i1,
+                     nearest.size() > 1 ? math::dot(p, sites_buffer[i1].pos)
+                                        : NO_DOT);
+      });
       return;
     }
     // Canvas-anchored grid origin (the block boundary at or before the clip):
@@ -160,6 +149,9 @@ public:
     const int gy0 = (y0 / B) * B;
     const int nbx = (x1 - 1 - gx0) / B + 2; // corner columns spanning [x0, x1)
     const int nby = (y1 - 1 - gy0) / B + 2; // corner rows spanning    [y0, y1)
+    const int GAP_BEGIN =
+        columns.active && columns.wrap ? (columns.re + B - 1) / B : nbx;
+    const int GAP_END = columns.active && columns.wrap ? columns.rs / B : nbx;
     CellId *cells = static_cast<CellId *>(
         scratch_arena_a.allocate(nbx * nby * sizeof(CellId), alignof(CellId)));
     // Clamp to the last canvas pixel: band-independent, and every classified
@@ -168,9 +160,12 @@ public:
     auto corner_y = [&](int k) { return std::min(gy0 + k * B, H - 1); };
 
     for (int k = 0; k < nby; ++k)
-      for (int j = 0; j < nbx; ++j)
+      for (int j = 0; j < nbx; ++j) {
+        if (j > GAP_BEGIN && j < GAP_END)
+          continue;
         cells[k * nbx + j] = classify(
             tree, math::pixel_to_vector<W, H>(corner_x(j), corner_y(k)));
+      }
 
     // One candidate set per block column, rebuilt on each block-row change.
     // Positions are copied in so the per-pixel scan runs over contiguous data.
@@ -179,6 +174,8 @@ public:
         scratch_arena_a.allocate(nblk * sizeof(CandSet), alignof(CandSet)));
     auto build_candidate_row = [&](int ky) {
       for (int jx = 0; jx < nblk; ++jx) {
+        if (jx >= GAP_BEGIN && jx < GAP_END)
+          continue;
         CandSet &cs = cands[jx];
         cs.n = 0;
         auto add = [&](uint16_t s) {
@@ -198,39 +195,34 @@ public:
       }
     };
 
-    // SAMPLES=1: one sample at pixel center, open-coded because the coarse grid
-    // needs the integer pixel coordinates the generic shader callback does not
-    // expose. Rows cover the margin-expanded render band like
-    // Scan::Shader::draw<W, H, 1>, but columns cover the bare display band.
     int last_ky = -1;
-    for (int y = y0; y < y1; ++y) {
-      const int ky = (y - gy0) / B;
-      if (ky != last_ky) {
-        build_candidate_row(ky);
-        last_ky = ky;
-      }
-      for (int x = x0; x < x1; ++x) {
-        const CandSet &cs = cands[(x - gx0) / B];
-
-        math::Vector p = math::pixel_to_vector<W, H>(x, y);
-        float d0 = NO_DOT, d1 = NO_DOT;
-        uint8_t b0 = 0, b1 = 0;
-        for (uint8_t i = 0; i < cs.n; ++i) {
-          float d = math::dot(p, cs.pos[i]);
-          if (d > d0) {
-            d1 = d0;
-            b1 = b0;
-            d0 = d;
-            b0 = i;
-          } else if (d > d1) {
-            d1 = d;
-            b1 = i;
+    Scan::Shader::draw_cached<W, H>(
+        canvas,
+        [&](const math::Vector &p, int x, int) {
+          const CandSet &cs = cands[(x - gx0) / B];
+          float d0 = NO_DOT, d1 = NO_DOT;
+          uint8_t b0 = 0, b1 = 0;
+          for (uint8_t i = 0; i < cs.n; ++i) {
+            float d = math::dot(p, cs.pos[i]);
+            if (d > d0) {
+              d1 = d0;
+              b1 = b0;
+              d0 = d;
+              b0 = i;
+            } else if (d > d1) {
+              d1 = d;
+              b1 = i;
+            }
           }
-        }
-        Color4 sample = shade(cs.idx[b0], d0, cs.idx[b1], d1);
-        canvas(x, y) = sample.color * sample.alpha;
-      }
-    }
+          return shade(cs.idx[b0], d0, cs.idx[b1], d1);
+        },
+        [&](int y) {
+          const int ky = (y - gy0) / B;
+          if (ky != last_ky) {
+            build_candidate_row(ky);
+            last_ky = ky;
+          }
+        });
   }
 
 private:
