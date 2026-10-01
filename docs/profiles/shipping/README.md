@@ -46,7 +46,7 @@ Rows rank by any spill, then peak render. 🟢 is zero spill, 🟡 is under 25% 
 | [Voronoi](profile_voronoi_teensy_2026-09-28.md) | `vo_shade` | 🟢 8.51 | 🟢 0/1087 (0.00%) | 2026-09-28 19:15 |
 | [RingShower](profile_ringshower_teensy_2026-09-28.md) | `rsh_draw_rings` | 🟢 4.33 | 🟢 0/1087 (0.00%) | 2026-09-28 19:11 |
 
-The shipping set was refreshed on 2026-09-28 after the finding-10 placement change `97eb0bf78`. AshCloud, KaleidoscopeStainedGlass and GridSpace come from the placement A/B's variant-6 arm, which carries the same kernel attributes. Setup frame 1 is excluded from every peak and spill figure; each report states its frame-1 render. Boards are named per report.
+The shipping set was refreshed on 2026-09-28 after the kernel-placement change `97eb0bf78`. AshCloud, KaleidoscopeStainedGlass and GridSpace come from the placement A/B's variant-6 arm, which carries the same kernel attributes. Setup frame 1 is excluded from every peak and spill figure; each report states its frame-1 render. Boards are named per report.
 
 For cyclers, each row summarizes the parser-owned preset, shape, or mode entries.
 (N) gives the entry count; the linked report contains the individual buckets.
