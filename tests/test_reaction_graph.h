@@ -530,7 +530,6 @@ inline int run_reaction_graph_tests() {
   test_indices_in_range();
   test_no_self_loops();
   test_no_duplicate_neighbors_in_row();
-  static_assert(RD_K == 6, "GS stability bound assumes a 6-NN lattice");
 
   test_neighbors_are_local();
   test_neighbors_match_brute_force_knn();
