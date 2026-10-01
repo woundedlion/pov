@@ -341,7 +341,7 @@ async function main(probe) {
               continue;
             }
             engine.drawFrame();
-            if (name === 'HyperLattice' && !engine.getPixels().some((value) => value !== 0)) {
+            if (!engine.getPixels().some((value) => value !== 0)) {
               fail(`${name}: preset ${preset} rendered no lit pixels at ${w}x${h}`);
             }
           }
