@@ -398,7 +398,7 @@ Two traversal helpers linearize multi-level orientation history into a single ca
 |---|---|---|
 | `tween(orientation, callback)` | `Orientation<CAP>` | Iterates over the sub-frame quaternion history of a single orientation, calling `callback(quaternion, t)` for each step with `t ∈ (0, 1]`. Sub-frame 0 is the pose carried over from the previous frame's end and is skipped unless it is the only snapshot (which reads `t = 1`, age-neutral). Used by `Filter::World::Orient` to distribute motion blur. |
 | `deep_tween(trail, callback)` | `OrientationTrail` (any `Tweenable`) | Flattens a trail of orientations into a single continuous traversal, calling `callback(quaternion, t)` with a global `t` spanning all frames and sub-frames. Used by the orientation-trail effects (Comets, Fishbowl) for rendering trails with full sub-frame accuracy. A bare `Orientation` has no per-frame structure to flatten and is rejected by the `Tweenable` concept — use `tween` for that. |
-| `deep_tween_frames(trail, callback)` | `OrientationTrail` (any `Tweenable`) | Public frame-aware traversal that supplies the frame value, sub-frame index, global age, and normalized time; RingSpin uses it to preserve frame boundaries while rendering its trail. |
+| `deep_tween_frames(trail, callback)` | `OrientationTrail` (any `Tweenable`) | One callback per contributing trail frame, `callback(qs, ts, count)`; concatenated `(qs, ts)` follows `deep_tween` emission order. `qs` points into frame storage and `ts` into a buffer reused across callbacks; neither pointer outlives the call. RingSpin preserves frame boundaries with this traversal. |
 
 ### Animations and Mutable State
 
