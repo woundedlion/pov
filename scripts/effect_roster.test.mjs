@@ -101,3 +101,15 @@ test('nested roster macros must identify known workbench-only rows', () => {
   assert.throws(() => parseEffectRoster(rosterOf('HS_CHAIN_INTERPRETER_EFFECT(Y)')), /Unknown effect roster row/);
   assert.throws(() => parseEffectRoster(rosterOf('garbage')), /Unknown effect roster row/);
 });
+
+test('Phantasm roster rejects unknown rows and ignores nested duration calls', () => {
+  assert.throws(() => parsePhantasmEffectRoster(
+    '#define HS_PHANTASM_EFFECT_LIST(X) X(Alpha, 120) HS_PHANTASM_EXTRA(X)\n'),
+  /Unknown Phantasm roster row/);
+  assert.deepEqual(parsePhantasmEffectRoster(
+    '#define HS_PHANTASM_EFFECT_LIST(X) X(Alpha, HS_MAX(a, b)) X(Beta, 120)\n'),
+  ['Alpha', 'Beta']);
+  assert.throws(() => parsePhantasmEffectRoster(
+    '#define HS_PHANTASM_EFFECT_LIST(X) X(Alpha, HS_MAX(a, b)\n'),
+  /Unclosed Phantasm roster row/);
+});
