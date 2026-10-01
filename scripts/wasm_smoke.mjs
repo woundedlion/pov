@@ -68,9 +68,8 @@ const FRAMES_PER_EFFECT = Number(process.env.WASM_SMOKE_FRAMES ?? 120);
 // The 2048 default is calibrated on the -O3 release build; -O0 debug frames run
 // severalfold larger, so ci.yml overrides via WASM_SMOKE_STACK_CEILING.
 const STACK_HWM_CEILING_BYTES = Number(process.env.WASM_SMOKE_STACK_CEILING ?? 2048);
-// Shader's dynamic reference sweep peaks near 3.2 KB and retains half of
-// the release stack as headroom under this effect-specific ratchet.
-const SHADER_WORKBENCH_STACK_HWM_CEILING_BYTES = 4096;
+// Chain authoring carries a separate release-stack ceiling.
+const CHAIN_STACK_HWM_CEILING_BYTES = 4096;
 
 // The tool pages' CSP grants 'wasm-unsafe-eval' but not 'unsafe-eval', which
 // holds only while the glue generates no code at runtime — so the probe spans
@@ -108,6 +107,16 @@ function armDynamicExecProbe() {
 
 // main() lets a fatal precondition set exitCode and return, so buffered stdout
 // flushes rather than being cut off by process.exit().
+function chainCall(engine, method, ...args) {
+  const bindings = engine.getShaderChainBindings();
+  if (!bindings) throw new Error('Missing chain capability');
+  try {
+    return bindings[method](...args);
+  } finally {
+    bindings.delete();
+  }
+}
+
 async function main(probe) {
   if (!Number.isInteger(STACK_HWM_CEILING_BYTES) || STACK_HWM_CEILING_BYTES <= 0) {
     console.error(`wasm_smoke: WASM_SMOKE_STACK_CEILING must be a positive integer, ` +
@@ -163,7 +172,7 @@ async function main(probe) {
       } });
       let trapped = false;
       try {
-        victim.setShaderChain([entry]);
+        chainCall(victim, 'setShaderChain', [entry]);
       } catch (error) {
         trapped = error instanceof WebAssembly.RuntimeError;
       }
@@ -192,22 +201,21 @@ async function main(probe) {
         if (engine.setEffect('ShaderChain') !== Module.EffectSetResult.INSTALLED)
           fail('payload clone: failed to install ShaderChain');
         for (const input of [throwing, revoked.proxy]) {
-          if (engine.setShaderChain(input).code !== 'MALFORMED_PAYLOAD'
-              || engine.setShaderChainParameters(input) !== Module.ParamSetResult.MALFORMED_PAYLOAD) {
+          if (chainCall(engine, 'setShaderChain', input).code !== 'MALFORMED_PAYLOAD'
+              || chainCall(engine, 'setShaderChainParameters', input) !== Module.ParamSetResult.MALFORMED_PAYLOAD) {
             fail('payload clone: malformed chain accepted');
           }
         }
-        engine.setShaderChain([]);
+        chainCall(engine, 'setShaderChain', []);
       }
       {
-        if (engine.setEffect('Shader') !== Module.EffectSetResult.INSTALLED)
-          fail('payload clone: failed to install Shader');
         for (const input of [throwing, revoked.proxy]) {
-          if (engine.restoreFullConfigSnapshot(input) !== Module.FullConfigRestoreResult.INVALID_LENGTH) {
+          if (chainCall(engine, 'restoreSnapshot', input)
+              === Module.ChainSnapshotRestoreResult.APPLIED)
             fail('payload clone: malformed snapshot accepted');
-          }
         }
-        engine.restoreFullConfigSnapshot(engine.getFullConfigSnapshot());
+        const snapshot = chainCall(engine, 'getSnapshot');
+        chainCall(engine, 'restoreSnapshot', snapshot);
       }
       if (!palette.effectPresetsV4().length) fail('payload clone: palette became unusable');
     } finally {
@@ -224,7 +232,7 @@ async function main(probe) {
       } else {
         for (const paused of [false, true]) {
           engine.setAnimationsPaused(paused);
-          const result = engine.setShaderChainParameters([
+          const result = chainCall(engine, 'setShaderChainParameters', [
             { name: 'missing-parameter', value: 2 },
           ]);
           if (result !== Module.ParamSetResult.UNKNOWN_PARAM
@@ -233,7 +241,7 @@ async function main(probe) {
           }
         }
         engine.setAnimationsPaused(false);
-        const result = engine.setShaderChainParameters([
+        const result = chainCall(engine, 'setShaderChainParameters', [
           { name: 'sample.pattern-freq', value: 2 },
         ]);
         if (result !== Module.ParamSetResult.APPLIED
@@ -325,7 +333,7 @@ async function main(probe) {
         if (engine.getParameterDefinitions().length !== engine.getParamValues().length) {
           fail(`${name}: parameter definitions and values differ immediately after installation`);
         }
-        if (name === 'Shader' || name === 'HyperLattice') {
+        if (name === 'HyperLattice') {
           const presetCount = engine.getPresetCount();
           for (let preset = 0; preset < presetCount; preset++) {
             if (!engine.selectPreset(preset)) {
@@ -392,8 +400,8 @@ async function main(probe) {
         // The stack traps nowhere: guard it with the creep budget, not
         // hwm > capacity (unreachable — see STACK_HWM_CEILING_BYTES).
         const stack = m.stack;
-        const stackCeiling = name === 'Shader'
-          ? Math.max(STACK_HWM_CEILING_BYTES, SHADER_WORKBENCH_STACK_HWM_CEILING_BYTES)
+        const stackCeiling = name === 'ShaderChain'
+          ? Math.max(STACK_HWM_CEILING_BYTES, CHAIN_STACK_HWM_CEILING_BYTES)
           : STACK_HWM_CEILING_BYTES;
         const stackGate = stackCreepBudget(stack, stackCeiling);
         if (!stack) {
@@ -609,69 +617,40 @@ async function main(probe) {
       engine.setAnimationsPaused(false);
     }
 
-    // ── Shader authoring route ──────────────────────────────────────────────
     {
-      const R = Module.ParamSetResult;
-      const close = (a, b) => Number.isFinite(a) && Number.isFinite(b) &&
-        Math.abs(a - b) <= 1e-3 * (1 + Math.abs(b));
-      if (engine.setEffect('ShaderBall') !== ES.INSTALLED) {
-        fail('shader-authoring: legacy setEffect("ShaderBall") alias failed');
+      const R = Module.ChainSnapshotRestoreResult;
+      for (const alias of ['Shader', 'ShaderBall', 'ShaderWorkbench']) {
+        if (engine.setEffect(alias) !== ES.INSTALLED)
+          fail(`chain-snapshot: legacy alias ${alias} failed`);
+        const bindings = engine.getShaderChainBindings();
+        if (!bindings) fail(`chain-snapshot: alias ${alias} did not install a chain`);
+        bindings?.delete();
       }
-      if (engine.setEffect('ShaderWorkbench') !== ES.INSTALLED) {
-        fail('shader-authoring: setEffect("ShaderWorkbench") alias failed');
+      const bindings = engine.getShaderChainBindings();
+      try {
+        const saved = bindings.getSnapshot();
+        engine.drawFrame();
+        const expected = Array.from(engine.getPixels());
+        if (bindings.restoreSnapshot(saved) !== R.APPLIED)
+          fail('chain-snapshot: own snapshot restore failed');
+        engine.drawFrame();
+        if (Array.from(engine.getPixels()).some((value, index) => value !== expected[index]))
+          fail('chain-snapshot: restore changed the next frame');
+        const invalid = structuredClone(saved);
+        invalid.parameters[0].value = NaN;
+        const before = JSON.stringify(bindings.getSnapshot());
+        if (bindings.restoreSnapshot(invalid) !== R.INVALID_VALUE
+            || JSON.stringify(bindings.getSnapshot()) !== before)
+          fail('chain-snapshot: invalid restore disturbed state');
+        const reentrant = { ...saved, get chain() {
+          engine.setEffect('ShaderChain');
+          return saved.chain;
+        } };
+        if (bindings.restoreSnapshot(reentrant) !== R.NOT_SHADER_CHAIN)
+          fail('chain-snapshot: restore followed a replaced owner');
+      } finally {
+        bindings.delete();
       }
-      if (engine.setEffect('Shader') !== ES.INSTALLED) {
-        fail('shader-authoring: setEffect("Shader") failed');
-      } else {
-        if (engine.setParameter('Lens', 2) !== R.APPLIED) {
-          fail('shader-authoring: Twist lens write failed');
-        }
-        engine.drawFrame();
-        let snapshot = engine.getFullConfigSnapshot();
-        if (!snapshot || snapshot.pendingFieldIds.length !== 0) {
-          fail('shader-authoring: valid uncompiled Twist lens stayed pending');
-        }
-
-        if (engine.setEffect('Shader') !== Module.EffectSetResult.INSTALLED)
-          fail('payload clone: failed to install Shader');
-        engine.setParameter('Planar Warp 1', 4);
-        engine.setParameter('Planar Warp 1 Scale', 1);
-        engine.setParameter('Planar Warp 1 Strength', 1);
-        engine.setParameter('Planar Warp 1', 5);
-        engine.drawFrame();
-        const strength = engine.getParameterDefinitions().find(
-          (definition) => definition.name === 'Planar Warp 1 Strength');
-        if (!strength || !close(strength.value, strength.max)) {
-          fail(`shader-authoring: Curl Flow strength ${strength?.value} ` +
-            `was not clamped to ${strength?.max}`);
-        }
-        snapshot = engine.getFullConfigSnapshot();
-        if (!snapshot || snapshot.pendingFieldIds.length !== 0) {
-          fail('shader-authoring: valid Curl Flow configuration stayed pending');
-        }
-
-        engine.setParameter('Function', 6);
-        engine.drawFrame();
-        snapshot = engine.getFullConfigSnapshot();
-        if (!snapshot || snapshot.pendingFieldIds.length === 0) {
-          fail('shader-authoring: incompatible sphere source bypassed admission');
-        }
-        for (let attempt = 0; attempt < 8; ++attempt) {
-          if (engine.setEffect('Shader') !== Module.EffectSetResult.INSTALLED)
-          fail('payload clone: failed to install Shader');
-          const source = engine.getFullConfigSnapshot();
-          const reentrant = { ...source, get accepted() {
-            if (engine.setEffect('Shader') !== Module.EffectSetResult.INSTALLED)
-          fail('payload clone: failed to install Shader');
-            return source.accepted;
-          } };
-          if (engine.restoreFullConfigSnapshot(reentrant)
-              !== Module.FullConfigRestoreResult.NOT_SHADER_WORKBENCH) {
-            fail('shader-authoring: snapshot followed a replaced same-type owner');
-          }
-        }
-      }
-      engine.setAnimationsPaused(false);
     }
 
     // ── ShaderChain authoring route ─────────────────────────────────────────
@@ -682,7 +661,7 @@ async function main(probe) {
     {
       let catalog = null;
       try {
-        catalog = JSON.parse(Module.HolosphereEngine.getShaderChainCatalog());
+        catalog = JSON.parse(Module.ShaderChainBindings.getShaderChainCatalog());
       } catch {
         fail('shader-chain: getShaderChainCatalog() is not valid JSON');
       }
@@ -713,17 +692,14 @@ async function main(probe) {
         { instance: 'colorize', operator: 'colorize.generated-palette.v3' },
       ];
 
-      // The refusal for a non-chain effect names itself, never traps.
-      if (engine.setEffect('Shader') !== ES.INSTALLED) {
-        fail('shader-chain: setEffect("Shader") failed');
-      } else if (engine.setShaderChain(DEFAULT_CHAIN).code !== 'NOT_CHAIN_EFFECT') {
-        fail('shader-chain: setShaderChain on a non-chain effect did not report NOT_CHAIN_EFFECT');
-      }
+      if (engine.setEffect('MindSplatter') !== ES.INSTALLED
+          || engine.getShaderChainBindings() !== null)
+        fail('shader-chain: a fixed effect exposed a chain capability');
 
       if (engine.setEffect('ShaderChain') !== ES.INSTALLED) {
         fail('shader-chain: setEffect("ShaderChain") failed');
       } else {
-        const applied = engine.setShaderChain(DEFAULT_CHAIN);
+        const applied = chainCall(engine, 'setShaderChain', DEFAULT_CHAIN);
         if (applied.code !== 'APPLIED' || applied.entryIndex !== -1) {
           fail(`shader-chain: default chain refused: ${applied.code}@${applied.entryIndex}`);
         }
@@ -749,7 +725,7 @@ async function main(probe) {
 
         // A re-chain bumps the generation and swaps the instance namespace.
         const g0 = engine.getParamGeneration();
-        const rechain = engine.setShaderChain([
+        const rechain = chainCall(engine, 'setShaderChain', [
           { instance: 'camera2', operator: 'sphere.rotate.v2' },
           ...DEFAULT_CHAIN.slice(1),
         ]);
@@ -766,7 +742,7 @@ async function main(probe) {
 
         // A refusal names its code and entry and leaves the prior state whole.
         const g1 = engine.getParamGeneration();
-        const refused = engine.setShaderChain([
+        const refused = chainCall(engine, 'setShaderChain', [
           { instance: 'camera', operator: 'sphere.rotate.v999' },
           ...DEFAULT_CHAIN.slice(1),
         ]);
@@ -794,7 +770,7 @@ async function main(probe) {
           ['a non-string instance', [{ instance: 7, operator: 'sphere.rotate.v2' }]],
           ['a missing operator field', [{ instance: 'camera' }]],
         ]) {
-          if (engine.setShaderChain(payload).code !== 'MALFORMED_PAYLOAD') {
+          if (chainCall(engine, 'setShaderChain', payload).code !== 'MALFORMED_PAYLOAD') {
             fail(`shader-chain: ${what} did not report MALFORMED_PAYLOAD`);
           }
         }
@@ -872,7 +848,7 @@ async function main(probe) {
         // The generation is the only token joining a definitions snapshot to a
         // later value read: it must hold across frames, reads and param writes,
         // hold across a rejected load, and advance after each accepted load.
-        // The authoring probe above may leave a Shader schema refresh for
+        // The authoring probe above may leave a chain schema refresh for
         // its next frame. Settle it before measuring generation immutability.
         engine.drawFrame();
         engine.getParameterDefinitions();
@@ -1137,7 +1113,7 @@ async function main(probe) {
     // sweep's widest ceiling.
     const stack = engine.getArenaMetrics().stack;
     const initGate = stackCreepBudget(stack,
-      Math.max(STACK_HWM_CEILING_BYTES, SHADER_WORKBENCH_STACK_HWM_CEILING_BYTES));
+      Math.max(STACK_HWM_CEILING_BYTES, CHAIN_STACK_HWM_CEILING_BYTES));
     if (!stack) {
       fail('getArenaMetrics() omits the stack region');
     } else if (typeof stack.init_high_water_mark !== 'number') {

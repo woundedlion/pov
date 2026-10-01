@@ -255,6 +255,16 @@ public:
    * commit.
    */
   ChainRefusal compile(std::span<const ChainEntryRequest> request) {
+    return compile(request, [](auto, auto *) { return true; });
+  }
+
+  /** @brief Validates and fills the inactive program before its atomic commit.
+   *  @param initialize Candidate entries and their arena base; false refuses.
+   *  @param migrate_existing Preserve matching live states before initialization.
+   */
+  template <typename Initializer>
+  ChainRefusal compile(std::span<const ChainEntryRequest> request,
+                       Initializer &&initialize, bool migrate_existing = true) {
     HS_CHECK(blocks[0] != nullptr, "ChainProgram::compile before bind_storage");
     if (request.empty())
       return {ChainStatus::EMPTY, -1};
@@ -302,7 +312,7 @@ public:
       ChainOp &op = candidate.ops[index];
       const InstanceId id{op.instance, op.op->operator_id, op.stable_hash};
       const ChainOp *survivor = nullptr;
-      if (has_program)
+      if (has_program && migrate_existing)
         for (size_t existing = 0; existing < current.count; ++existing) {
           const ChainOp &live = current.ops[existing];
           if (std::string_view(live.instance) == op.instance &&
@@ -328,6 +338,16 @@ public:
       } else {
         op.op->runtime.init(block_ptr(active ^ 1, op.state_offset), id);
       }
+    }
+
+    if (!initialize(std::span<const ChainOp>(candidate.ops, candidate.count),
+                    blocks[active ^ 1])) {
+      for (size_t index = 0; index < candidate.count; ++index)
+        candidate.ops[index].op->runtime.destroy(
+            block_ptr(active ^ 1, candidate.ops[index].state_offset));
+      candidate.count = 0;
+      candidate.used_bytes = 0;
+      return {ChainStatus::MALFORMED_PAYLOAD, -1};
     }
 
     Side &loser = sides[active];

@@ -178,22 +178,20 @@ static_assert(hs_phantasm_effect_list_is_distinct(),
 static_assert(hs_phantasm_effect_list_is_subset(),
               "HS_PHANTASM_EFFECT_LIST names an effect that is not in "
               "HS_EFFECT_LIST — a rename or typo left the playlist off-roster");
-static_assert(HS_PHANTASM_EFFECT_COUNT ==
-                  HS_EFFECT_COUNT - HS_PHANTASM_EXCLUDED_COUNT -
-                      HS_ENABLE_SHADER_WORKBENCH - HS_ENABLE_CHAIN_INTERPRETER,
+static_assert(HS_PHANTASM_EFFECT_COUNT == HS_EFFECT_COUNT -
+                                              HS_PHANTASM_EXCLUDED_COUNT -
+                                              HS_ENABLE_CHAIN_INTERPRETER,
               "HS_PHANTASM_EFFECT_LIST out of sync with HS_EFFECT_LIST "
-              "(full roster minus the build-gated Shader and ShaderChain and "
+              "(full roster minus the build-gated ShaderChain and "
               "the HS_PHANTASM_EXCLUDED_EFFECTS entries)");
-static_assert((!HS_ENABLE_SHADER_WORKBENCH || hs_in_effect_list("Shader")) &&
-                  (!HS_ENABLE_CHAIN_INTERPRETER ||
-                   hs_in_effect_list("ShaderChain")) &&
+static_assert((!HS_ENABLE_CHAIN_INTERPRETER ||
+               hs_in_effect_list("ShaderChain")) &&
                   hs_phantasm_exclusions_are_on_roster(),
               "Phantasm exclusion names a non-roster effect — a rename left "
               "the exclusion guard below vacuous");
-static_assert(!hs_in_phantasm_effect_list("Shader") &&
-                  !hs_in_phantasm_effect_list("ShaderChain") &&
+static_assert(!hs_in_phantasm_effect_list("ShaderChain") &&
                   hs_phantasm_exclusions_are_omitted(),
-              "HS_PHANTASM_EFFECT_LIST must exclude Shader, ShaderChain and "
+              "HS_PHANTASM_EFFECT_LIST must exclude ShaderChain and "
               "every HS_PHANTASM_EXCLUDED_EFFECTS entry");
 
 // Product-group durations mirror the Phantasm playlist.

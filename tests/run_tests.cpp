@@ -63,7 +63,6 @@
 #include "tests/test_mindsplatter.h"
 #include "tests/test_effects_smoke.h"
 #include "tests/test_effect_factory.h"
-#include "tests/test_shader_workbench.h"
 #include "tests/test_lattice_melt.h"
 #include "tests/test_kaleidoscope_smooth.h"
 #include "tests/test_composed_effect.h"
@@ -176,8 +175,6 @@ struct TestModule {
     true)                                                                      \
   X("effect_factory", hs_test::effect_factory_tests::run_effect_factory_tests, \
     true)                                                                      \
-  X("shader_workbench",                                                        \
-    hs_test::shader_workbench_tests::run_shader_workbench_tests, false)        \
   X("lattice_melt", hs_test::lattice_melt_tests::run_lattice_melt_tests,       \
     false)                                                                     \
   X("kaleidoscope_smooth",                                                     \

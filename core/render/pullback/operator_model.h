@@ -18,6 +18,7 @@
 #include "render/pullback/color.h"
 #include "render/pullback/contract.h"
 #include "render/pullback/fields.h"
+#include "render/pullback/runtime_snapshot.h"
 
 /**
  * @file operator_model.h
@@ -193,6 +194,8 @@ struct OperatorRuntime {
   /** Address of one schema field inside a param block, by schema index. */
   void *(*param_address)(void *params, uint16_t schema_index);
   const char *(*validate)(const void *params);
+  RuntimeSnapshot (*capture_state)(const void *state) = nullptr;
+  bool (*restore_state)(void *state, const RuntimeSnapshot &snapshot) = nullptr;
 };
 
 /**
@@ -394,6 +397,16 @@ template <typename Model> struct ErasedAdapter {
 
   static void destroy(void *state) { static_cast<State *>(state)->~State(); }
 
+  static RuntimeSnapshot capture_state(const void *state) {
+    return RuntimeStateCodec<State>::capture(
+        *static_cast<const State *>(state));
+  }
+
+  static bool restore_state(void *state, const RuntimeSnapshot &snapshot) {
+    return RuntimeStateCodec<State>::restore(*static_cast<State *>(state),
+                                             snapshot);
+  }
+
   static void advance(void *state, const uint8_t *params) {
     Model::advance(*std::launder(static_cast<State *>(state)),
                    *std::launder(reinterpret_cast<const Params *>(params)));
@@ -571,6 +584,8 @@ constexpr OperatorDescriptor make_operator_descriptor() {
           &Adapter::run,
           &Adapter::param_address,
           &Adapter::validate,
+          &Adapter::capture_state,
+          &Adapter::restore_state,
       },
       Detail::model_approximate<Model>(),
       Detail::model_oracle<Model>(),

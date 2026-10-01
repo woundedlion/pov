@@ -15,16 +15,15 @@ semantic in §3 carries forward beneath it.
 ## WASM authoring capabilities
 
 The engine owns effect selection, rendering, parameter streams, and lifecycle.
-`getShaderChainBindings()` and `getLegacyShaderBindings()` acquire optional typed
-authoring handles using the active factory registration's concrete type identity
+`getShaderChainBindings()` acquires an optional typed
+authoring handle using the active factory registration's concrete type identity
 at its registered resolution. Unsupported effects and an empty engine return
 null. These adapters and their lookup exist only under `targets/wasm`; firmware
 registration and rendering gain no capability tables or virtual dispatch.
 
 `ShaderChainBindings` owns program admission, atomic parameter batches, program
-readback, and catalog export. `LegacyShaderBindings` owns full configuration
-snapshots and field definitions. Existing engine authoring methods forward to
-these adapters while legacy consumers migrate.
+readback, catalog export and complete typed snapshots. The snapshot and legacy
+archive migration contracts are in [chain_snapshot_spec.md](chain_snapshot_spec.md).
 
 A handle addresses one effect incarnation. Successful effect replacement,
 resolution change, display-geometry rebuild, or engine deletion permanently

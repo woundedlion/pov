@@ -9,7 +9,7 @@
 #include "core/math/interpolate.h"
 #include "effects/LatticeMelt.h"
 #include "tests/pixel_test_util.h"
-#include "tests/test_shader_workbench.h"
+#include "tests/composed_chain_fixture.h"
 
 namespace hs_test {
 namespace lattice_melt_tests {
@@ -216,11 +216,9 @@ inline void test_lattice_melt_manual_write_restarts_dwell() {
   HS_EXPECT_EQ(effect.getPresetIndex(), size_t{0});
 }
 
-inline void test_lattice_melt_shader_workbench_equivalence() {
-  shader_workbench_tests::verify_fixed_shader_export<LatticeMeltWhiteBox::FX>(
-      7, 0);
-  shader_workbench_tests::verify_fixed_shader_export<LatticeMeltWhiteBox::FX>(
-      8, 1);
+inline void test_lattice_melt_chain_equivalence() {
+  for (size_t preset = 0; preset < 2; ++preset)
+    composed_chain_tests::verify_export<LatticeMeltWhiteBox::FX>(preset);
 }
 
 inline int run_lattice_melt_tests() {
@@ -230,7 +228,7 @@ inline int run_lattice_melt_tests() {
   test_lattice_melt_full_timeline_retries_transition();
   test_lattice_melt_overshoot_finishes_on_frame_count();
   test_lattice_melt_manual_write_restarts_dwell();
-  test_lattice_melt_shader_workbench_equivalence();
+  test_lattice_melt_chain_equivalence();
   return fixture.result();
 }
 

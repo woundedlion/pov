@@ -12,7 +12,7 @@ if (!modulePath || !outputPath) {
 try {
   const { default: createModule } = await import(pathToFileURL(modulePath));
   const module = await createModule();
-  const catalog = module.HolosphereEngine.getShaderChainCatalog();
+  const catalog = module.ShaderChainBindings.getShaderChainCatalog();
   const parsed = JSON.parse(catalog);
   requireCatalog(parsed);
   if (!parsed.operators.length || !parsed.carriers.length)

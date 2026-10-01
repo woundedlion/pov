@@ -98,6 +98,26 @@ struct WarpAffine : ValueStateModel<AffineClockState> {
   }
 };
 
+struct ExtendedAffineWarpParams : AffineWarpParams {
+  static constexpr auto FIELDS = [] {
+    auto fields = concat_fields<ExtendedAffineWarpParams>(
+        AffineWarpParams::FIELDS,
+        std::array<Field<ExtendedAffineWarpParams>, 0>{});
+    for (auto &field : fields)
+      if (std::string_view(field.id) == "lattice-period") {
+        field.min = 1.0f / 64.0f;
+        field.max = 100.0f;
+      }
+    return fields;
+  }();
+};
+
+struct WarpAffineV3 : WarpAffine {
+  static constexpr const char *ID = "warp.affine.v3";
+  static constexpr const char *NAME = "Affine Warp Extended Period";
+  using Params = ExtendedAffineWarpParams;
+};
+
 /** @brief Parameter family of warp.wave-shear.v2. */
 struct WaveShearWarpParams : Warp::WaveShearParams {
   uint8_t envelope = static_cast<uint8_t>(WarpEnvelope::FLAT);

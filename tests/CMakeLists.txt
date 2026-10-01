@@ -85,7 +85,6 @@ target_link_libraries(hs_test_whitebox INTERFACE hs_host_effect_runtime)
 target_compile_definitions(hs_test_whitebox INTERFACE
   HS_ENABLE_TEST_HOOKS=1
   HS_ENABLE_TEST_ORACLES=1
-  HS_ENABLE_SHADER_WORKBENCH_DYNAMIC_BACKEND=1
   HS_ENABLE_CHAIN_INTERPRETER=1
   HS_ENABLE_EFFECT_CONTROL_API=1)
 
@@ -96,7 +95,6 @@ target_compile_definitions(hs_test_support INTERFACE
   HS_ENABLE_PARAM_GUI_BRIDGE=1
   HS_ENABLE_TEST_HOOKS=1
   HS_ENABLE_TEST_ORACLES=1
-  HS_ENABLE_SHADER_WORKBENCH_DYNAMIC_BACKEND=1
   HS_ENABLE_CHAIN_INTERPRETER=1
   HS_ENABLE_STRUCTURAL_AUDITS=1
   HS_ENABLE_EFFECT_CONTROL_API=1)
@@ -348,7 +346,7 @@ set(_hs_test_modules
     plot_scan canvas
     scan mesh_raster transformers noise noise_field projections
     animation effects mindsplatter
-    effects_smoke effect_factory shader_workbench lattice_melt kaleidoscope_smooth
+    effects_smoke effect_factory lattice_melt kaleidoscope_smooth
     composed_effect
     shapeshifter_oracle shapeshifter_tiles dma_core hd107s
     dma_controller
@@ -439,6 +437,8 @@ add_test(NAME unit_mirrored_screenshot_prune COMMAND ${CMAKE_COMMAND}
     -P ${CMAKE_CURRENT_SOURCE_DIR}/check_mirrored_screenshot_prune.cmake)
 
 set(HS_PYTHON "${Python3_EXECUTABLE}")
+add_test(NAME unit_chain_capture_fixtures COMMAND "${Python3_EXECUTABLE}"
+  "${CMAKE_CURRENT_SOURCE_DIR}/../tools/test_chain_capture_fixtures.py")
 
 set(PULLBACK_MANIFEST_DIR ${HS_ROOT}/tests/data/pullback)
 set(PULLBACK_MANIFEST_HEADER
@@ -475,6 +475,8 @@ list(TRANSFORM HS_CAPTURE_ENGINE_SOURCES REPLACE
 add_executable(pullback_capture_native
   ${HS_ROOT}/tools/pullback_capture_native.cpp
   ${HS_CAPTURE_ENGINE_SOURCES})
+include(${HS_ROOT}/cmake/chain_capture_fixtures.cmake)
+hs_chain_capture_fixtures(pullback_capture_native "${HS_ROOT}")
 target_include_directories(pullback_capture_native PRIVATE
   ${HS_PULLBACK_CAPTURE_SOURCE_ROOT}
   ${HS_PULLBACK_CAPTURE_SOURCE_ROOT}/core)
@@ -483,8 +485,7 @@ target_compile_definitions(pullback_capture_native PRIVATE
   HS_ENABLE_PARAM_GUI_BRIDGE=1
   HS_ENABLE_TEST_HOOKS=1
   HS_ENABLE_TEST_ORACLES=1
-  HS_ENABLE_SHADER_WORKBENCH_DYNAMIC_BACKEND=0
-  HS_ENABLE_CHAIN_INTERPRETER=0
+  HS_ENABLE_CHAIN_INTERPRETER=1
   HS_ENABLE_EFFECT_CONTROL_API=1)
 target_link_libraries(pullback_capture_native PRIVATE hs_host_storage)
 _hs_warnings(pullback_capture_native)

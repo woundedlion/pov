@@ -122,10 +122,6 @@ static_assert(MAX_PARAMS >= Pullback::Interp::MAX_CHAIN_PARAMS,
 
 static_assert(MAX_PARAMS >= Effect::ParamList::FIXED_CAPACITY,
               "MAX_PARAMS must cover ParamList's default array size");
-#if HS_ENABLE_SHADER_WORKBENCH
-static_assert(MAX_PARAMS >= ShaderWorkbench::PARAM_CAPACITY,
-              "MAX_PARAMS must cover the workbench parameter schema");
-#endif
 
 /**
  * @brief Outcome of a HolosphereEngine::setClip() call.
@@ -250,7 +246,7 @@ public:
    *          rather than the destroyed effect's usage.
    */
   ~HolosphereEngine() {
-#if HS_ENABLE_SHADER_WORKBENCH || HS_ENABLE_CHAIN_INTERPRETER
+#if HS_ENABLE_CHAIN_INTERPRETER
     HS_CHECK(!snapshot_decode_active,
              "delete() from a caller accessor during engine decode");
 #endif
@@ -369,8 +365,8 @@ public:
    */
   EffectSetResult setEffect(const std::string &name) {
     const std::string_view canonical_name =
-        name == "ShaderBall" || name == "ShaderWorkbench"
-            ? std::string_view{"Shader"}
+        name == "Shader" || name == "ShaderBall" || name == "ShaderWorkbench"
+            ? std::string_view{"ShaderChain"}
             : name;
     // Validate against the current resolution's factory BEFORE tearing anything
     // down, so a typo'd name keeps the prior valid state alive.
@@ -967,43 +963,10 @@ public:
     return counts;
   }
 
-#if HS_ENABLE_SHADER_WORKBENCH
-  /** @brief Acquires a legacy snapshot handle, or null for other effects. */
-  std::shared_ptr<LegacyShaderBindings> getLegacyShaderBindings() const {
-    return acquire_legacy_shader_bindings(binding_state);
-  }
-  emscripten::val getFullConfigSnapshot() {
-    auto bindings = getLegacyShaderBindings();
-    return bindings ? bindings->getFullConfigSnapshot()
-                    : emscripten::val::null();
-  }
-  emscripten::val getFullConfigFieldDefinitions() {
-    auto bindings = getLegacyShaderBindings();
-    return bindings ? bindings->getFullConfigFieldDefinitions()
-                    : emscripten::val::null();
-  }
-  FullConfigRestoreResult
-  restoreFullConfigSnapshot(const emscripten::val &input) {
-    auto bindings = getLegacyShaderBindings();
-    return bindings ? bindings->restoreFullConfigSnapshot(input)
-                    : FullConfigRestoreResult::NOT_SHADER_WORKBENCH;
-  }
-#endif
 #if HS_ENABLE_CHAIN_INTERPRETER
   /** @brief Acquires a chain authoring handle, or null for other effects. */
   std::shared_ptr<ShaderChainBindings> getShaderChainBindings() const {
     return acquire_shader_chain_bindings(binding_state);
-  }
-  emscripten::val setShaderChain(const emscripten::val &entries) {
-    ShaderChainBindings bindings(binding_state);
-    return bindings.setShaderChain(entries);
-  }
-  ParamSetResult setShaderChainParameters(const emscripten::val &entries) {
-    ShaderChainBindings bindings(binding_state);
-    return bindings.setShaderChainParameters(entries);
-  }
-  static std::string getShaderChainCatalog() {
-    return ShaderChainBindings::getShaderChainCatalog();
   }
 #endif
 
@@ -1063,10 +1026,6 @@ private:
         parameters.emplace_back(parameter.name, parameter.get_requested());
 
     WorkbenchBindings::RebuildRestore restore_workbench;
-#if HS_ENABLE_SHADER_WORKBENCH
-    if (auto bindings = getLegacyShaderBindings())
-      restore_workbench = bindings->capture_rebuild_state();
-#endif
 #if HS_ENABLE_CHAIN_INTERPRETER
     if (auto bindings = getShaderChainBindings())
       restore_workbench = bindings->capture_rebuild_state();
@@ -1199,19 +1158,6 @@ static void bind_engine() {
       .value("UNKNOWN_EFFECT", EffectSetResult::UNKNOWN_EFFECT)
       .value("UNSUPPORTED_RESOLUTION", EffectSetResult::UNSUPPORTED_RESOLUTION);
 
-#if HS_ENABLE_SHADER_WORKBENCH
-  emscripten::enum_<FullConfigRestoreResult>("FullConfigRestoreResult")
-      .value("APPLIED", FullConfigRestoreResult::APPLIED)
-      .value("NOT_SHADER_WORKBENCH",
-             FullConfigRestoreResult::NOT_SHADER_WORKBENCH)
-      .value("UNSUPPORTED_VERSION",
-             FullConfigRestoreResult::UNSUPPORTED_VERSION)
-      .value("INVALID_LENGTH", FullConfigRestoreResult::INVALID_LENGTH)
-      .value("INVALID_VALUE", FullConfigRestoreResult::INVALID_VALUE)
-      .value("INVALID_ACCEPTED", FullConfigRestoreResult::INVALID_ACCEPTED)
-      .value("INVALID_PENDING", FullConfigRestoreResult::INVALID_PENDING);
-#endif // HS_ENABLE_SHADER_WORKBENCH
-
 #if HS_ENABLE_CHAIN_INTERPRETER
   emscripten::enum_<Pullback::Interp::ChainStatus>("ChainStatus")
       .value("OK", Pullback::Interp::ChainStatus::OK)
@@ -1267,24 +1213,9 @@ static void bind_engine() {
       .function("getEffectSizes", &HolosphereEngine::getEffectSizes)
       .function("getEffectPresetCounts",
                 &HolosphereEngine::getEffectPresetCounts)
-#if HS_ENABLE_SHADER_WORKBENCH
-      .function("getLegacyShaderBindings",
-                &HolosphereEngine::getLegacyShaderBindings)
-      .function("getFullConfigSnapshot",
-                &HolosphereEngine::getFullConfigSnapshot)
-      .function("restoreFullConfigSnapshot",
-                &HolosphereEngine::restoreFullConfigSnapshot)
-      .function("getFullConfigFieldDefinitions",
-                &HolosphereEngine::getFullConfigFieldDefinitions)
-#endif
 #if HS_ENABLE_CHAIN_INTERPRETER
       .function("getShaderChainBindings",
                 &HolosphereEngine::getShaderChainBindings)
-      .function("setShaderChain", &HolosphereEngine::setShaderChain)
-      .function("setShaderChainParameters",
-                &HolosphereEngine::setShaderChainParameters)
-      .class_function("getShaderChainCatalog",
-                      &HolosphereEngine::getShaderChainCatalog)
 #endif
       .class_function("getSupportedResolutions",
                       &HolosphereEngine::getSupportedResolutions)

@@ -732,7 +732,7 @@ branches. Enumerating those readers is what makes the landing plannable.
      (everything downstream is nonlinear), so no `PlaneSample`
      interpolation may be substituted. `PREPARED_BLOB_BYTES` re-verified
      against the larger prepared tuples;
-   - `test_pullback.h` / `test_shader_workbench.h` validation and
+   - `test_pullback.h` / `test_shader_chain.h` validation and
      positional-typedef reads;
    - the deletions land here too: the six-slot combinators, the old
      carriers including `ProjectionSample` itself (replaced by
@@ -927,7 +927,7 @@ interpreter-only or splits into one document per topology.
 `tools/generate_pullback_manifest_header.py` validates the manifests under
 `tests/data/pullback/` and generates the native header,
 `tests/pullback_manifest_check.cpp` (`unit_pullback_manifest`) checks their
-identity properties, and `tests/test_shader_workbench.h` asserts that the
+identity properties, and `tests/test_shader_chain.h` asserts that the
 ShaderWorkbench program table and the manifest programs match one-for-one.
 The registry derived from the composed-effect roster, the `any_approximate`
 fold, the interpreted-chain approximation aggregate, and
@@ -1419,3 +1419,15 @@ mapping described by this design was not implemented.
 
 The existing ShaderWorkbench stack, persistent arena, RAM2, and effect-heap budgets
 remain unchanged. Public carriers add no allocation or hidden ownership.
+
+## 9. Executable snapshots and shader host retirement
+
+**IMPLEMENTED.** `ShaderChain` is the sole simulator authoring host. The slot
+host, fixed-slot parameter configuration, admission fold and full-configuration
+WASM channel have been removed. Legacy names select a chain scratch program;
+legacy archives convert in daydream with original-data retention on refusal.
+The program, instance clocks, noise seeds, walk state and all generated palette
+cycles share the typed transactional contract in
+[chain_snapshot_spec.md](chain_snapshot_spec.md). Capture producers execute
+versioned chain fixtures and compare their frame bytes and exact-kernel oracle
+metrics against the frozen before corpus at both supported resolutions.
