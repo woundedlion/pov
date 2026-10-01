@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """Refresh documented repository maps and source-derived counts before validation."""
 
 from __future__ import annotations
@@ -225,3 +224,7 @@ def discover_daydream(root: Path) -> Path | None:
             if result.returncode == 0:
                 return candidate.resolve()
     return None
+
+
+if __name__ == "__main__":
+    raise SystemExit("Run tools/docs_check.py --sync to refresh documentation")
