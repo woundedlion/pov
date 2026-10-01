@@ -507,7 +507,6 @@ files define line-ending policy and working-artifact exclusions.
 │   ├── profile_envdump.py      Omit host process variables from build captures
 │   ├── profile_spherical_experiment.h  Standalone periodic-surface device experiment
 │   ├── parse_profile.py        Capture-log parser behind the per-window/per-preset reports
-│   ├── pullback_profile_build.py  Profile-image Git-SHA build hook for pullback telemetry
 │   ├── generate_pullback_manifest_header.py  Pullback manifest validator and native-test header generator
 │   ├── pullback_operations.def                Shared capture operation codes and preset count
 │   ├── pullback_capture.py / pullback_capture_native.cpp  Canonical producer + native/WASM backend
