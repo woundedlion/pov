@@ -1380,7 +1380,8 @@ inline void test_leg_start_seed_frame_continuity() {
         run_edge_op(e, leg_seed, work, temp, t_start, tw_start);
     PolyMesh start_rel;
     if (e.settle && reverse)
-      start_rel = MeshOps::relax(start_raw, work, temp, 50);
+      start_rel = MeshOps::relax(start_raw, work, temp,
+                                 ConwayGraph::SETTLE_RELAX_ITERATIONS);
     const PolyMesh &start = (e.settle && reverse) ? start_rel : start_raw;
     const size_t total = start.face_counts.size();
     const size_t primary = leg_seed.face_counts.size();
