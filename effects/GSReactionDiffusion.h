@@ -18,9 +18,7 @@
 #include "core/engine/engine.h"
 #include "effects/ReactionDiffusionBase.h"
 
-// Unit-test accessor (tests/test_effects.h) reaching the private Q16
-// conversions and one Gray-Scott substep that the smoke/determinism harness
-// cannot pin.
+// Unit-test accessor for private state the smoke harness cannot pin.
 namespace hs_test {
 namespace effects_tests {
 struct GSWhiteBox;
@@ -55,11 +53,8 @@ class GSReactionDiffusion
   friend Base; // draw_frame() forwards to render()
 
   // Bring dependent-base names into scope (template base requires this).
-  using Base::accumulate_stencil;
-  using Base::cube_lut;
   using Base::for_each_neighbor;
   using Base::from_q16;
-  using Base::gather_stencil;
   using Base::init_lattice;
   using Base::orient_lattice;
   using Base::Q16_INV;
@@ -132,8 +127,7 @@ public:
   }
 
 private:
-  // Test seam: lets unit tests reach the Q16 helpers, step_physics, and params
-  // without exposing them to production callers.
+  // Test seam for private state the smoke harness cannot pin.
   friend struct ::hs_test::effects_tests::GSWhiteBox;
 
   /**

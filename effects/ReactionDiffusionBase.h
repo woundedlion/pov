@@ -298,7 +298,7 @@ protected:
    * @param on_weight Callable invoked as `on_weight(slot, weight)` for every
    * stencil slot inside the support radius.
    * @note always_inline is load-bearing on both this walk and the weight
-   * callback it wraps: out of line, GCC spends extra ITCM in both shaders.
+   * callback it wraps: out of line, GCC spends extra ITCM in the BZ shader.
    */
   template <typename OnWeight>
   static __attribute__((always_inline)) void
