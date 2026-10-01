@@ -2,56 +2,7 @@
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
  * Licensed under the PolyForm Noncommercial License 1.0.0
  *
- * Unit tests for core/animation/transformer.h pools and geometry kernels,
- * including the Mobius transforms in core/math/mobius.h.
- *   - OrientTransformer       : identity orientation is a no-op; a known 90°
- *                               rotation maps to its hand-computed image.
- *   - mobius_transform        : identity Mobius round-trips through stereo; the
- *                               1/z map realizes a 180° rotation about x; random
- *                               maps match a double-precision oracle and stay
- *                               unit; the poles map to a/c and b/d.
- *   - gnomonic_mobius_transform: identity round-trips through gnomonic, right
- *                               through the equatorial singularity; the -z map
- *                               realizes a 180° rotation about y; an equator
- *                               point round-trips for either signed zero.
- *   - ripple_transform        : amplitude 0 and center-point degeneracies are
- *                               no-ops; an active ripple rotates on-sphere; the
- *                               prepared-threshold fast-reject band applies
- *                               in-band points and rejects off-band ones; the
- *                               truncated small-angle quaternion series matches
- *                               the exact libm rotation and meets the exact
- *                               branch at the switchover.
- *   - noise_transform         : amplitude≈0 is a no-op; otherwise stays unit; at
- *                               four times the shipped amplitude the slide cap
- *                               binds the displacement at atan(0.5).
- *   - Transformer<>           : no active entities → identity; a spawned entity
- *                               applies and multiple entities compose; a recycled
- *                               freed slot composes in spawn order, not slot order;
- *                               spawn_pausable() freezes the event's start delay.
- *   - FieldTransformer<>      : no active entities → 0; spawned entities sum;
- *                               field_bound sums the per-entity bounds;
- *                               active_params runs in spawn order; a completed
- *                               entity's slot is reclaimed.
- *   - bump_field              : drape push away from the cap center along the
- *                               polar direction — zero for the ring through the
- *                               center and at the footprint edge, peaking
- *                               between (antisymmetric, exactly 0 outside the
- *                               fast reject); the lifecycle envelope scales the
- *                               footprint; a parameter sweep keeps |field|
- *                               within field_bound().
- *   - DominantFieldAccumulator: nothing added reports 0; a lone field passes
- *                               through exactly and repeats neither stack nor
- *                               shift; the strongest of a mixed overlap
- *                               dominates without summing; an opposite-signed
- *                               crossing is continuous and lands on 0.
- *   - noise_product_field     : amplitude linearity and rank-1 separability;
- *                               ~0 amplitude short-circuits to exactly 0; a
- *                               parameter sweep keeps |field| within
- *                               field_bound() (both octaves stay in [-1, 1]).
- *   - Animation::BallDrop     : center traverses pole to pole along its azimuth
- *                               meridian; envelope 0 at the poles, 1 mid-fall;
- *                               the pool slot frees at completion.
- *   - Animation::NoiseProduct : integrates time by speed per step.
+ * Transformer kernels, pool lifecycle and reclamation, seed mirrors, and input bounds.
  */
 #pragma once
 
@@ -864,6 +815,7 @@ inline void test_transformer_spawn_applies_and_composes() {
   HS_EXPECT_GT(total_divergence, 1e-3f);
 }
 
+/** @brief Pins transformer live edit preserves instance phase and seed. */
 inline void test_transformer_live_edit_preserves_instance_phase_and_seed() {
   Timeline timeline;
   global_timeline_t = 0;
