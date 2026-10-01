@@ -17,7 +17,6 @@
  * @brief High-precision sRGB float [0,1] -> linear float [0,1].
  * @param s sRGB value in [0, 1].
  * @return Linear value in [0, 1].
- * @details Not constexpr: powf is not a constant expression. inline for ODR.
  */
 inline float srgb_to_linear_float(float s) {
   return (s <= 0.04045f) ? s / 12.92f : powf((s + 0.055f) / 1.055f, 2.4f);
