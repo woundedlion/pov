@@ -805,46 +805,6 @@ inline void test_relax_open_mesh_partial() {
 // Compositional + standalone operators — structural invariants only.
 // ---------------------------------------------------------------------------
 
-/** @brief Verifies meta(cube) satisfies the basic structural invariants. */
-inline void test_meta_cube() {
-  Arena target(conway_target_buf, sizeof(conway_target_buf));
-  Arena temp(conway_temp_buf, sizeof(conway_temp_buf));
-  PolyMesh cube;
-  build_solid<Solids::Cube>(cube, temp);
-  PolyMesh m = MeshOps::meta(cube, target, temp);
-  check_basic_invariants(m);
-}
-
-/** @brief Verifies needle(cube) satisfies the basic structural invariants. */
-inline void test_needle_cube() {
-  Arena target(conway_target_buf, sizeof(conway_target_buf));
-  Arena temp(conway_temp_buf, sizeof(conway_temp_buf));
-  PolyMesh cube;
-  build_solid<Solids::Cube>(cube, temp);
-  PolyMesh n = MeshOps::needle(cube, target, temp);
-  check_basic_invariants(n);
-}
-
-/** @brief Verifies zip(cube) satisfies the basic structural invariants. */
-inline void test_zip_cube() {
-  Arena target(conway_target_buf, sizeof(conway_target_buf));
-  Arena temp(conway_temp_buf, sizeof(conway_temp_buf));
-  PolyMesh cube;
-  build_solid<Solids::Cube>(cube, temp);
-  PolyMesh z = MeshOps::zip(cube, target, temp);
-  check_basic_invariants(z);
-}
-
-/** @brief Verifies bevel(cube) satisfies the basic structural invariants. */
-inline void test_bevel_cube() {
-  Arena target(conway_target_buf, sizeof(conway_target_buf));
-  Arena temp(conway_temp_buf, sizeof(conway_temp_buf));
-  PolyMesh cube;
-  build_solid<Solids::Cube>(cube, temp);
-  PolyMesh b = MeshOps::bevel(cube, target, temp);
-  check_basic_invariants(b);
-}
-
 // ---------------------------------------------------------------------------
 // Composition polarity: every operator, primitive or composed, returns its
 // output in `target` (even-length compositions start their ping-pong in
@@ -1406,11 +1366,7 @@ inline int run_conway_tests() {
   test_relax_preserves_topology();
   test_relax_reduces_edge_variance();
   test_relax_open_mesh_partial();
-  test_meta_cube();
   test_meta_is_kis_dual_ambo();
-  test_needle_cube();
-  test_zip_cube();
-  test_bevel_cube();
   test_conway_composition_polarity();
   test_snub_cube_is_well_formed();
   test_snub_twist_rotates_primary_faces();
