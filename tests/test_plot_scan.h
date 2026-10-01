@@ -4875,6 +4875,7 @@ inline void test_rasterize_sampling_follows_world_transforms() {
  *          Orients, and a Replicate, over random positions and tangents.
  */
 inline void test_screen_step_axes_match_stage_walk() {
+  hs::random().seed(0x571A);
   constexpr int W = 288, H = 144;
   math::Orientation<> tweened(math::make_rotation(math::X_AXIS, 0.7f));
   tweened.push(math::make_rotation(math::Z_AXIS, 1.1f));
