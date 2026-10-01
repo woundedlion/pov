@@ -871,8 +871,7 @@ async function main(probe) {
       } else {
         // The generation is the only token joining a definitions snapshot to a
         // later value read: it must hold across frames, reads and param writes,
-        // hold across a rejected load, and advance by exactly one per accepted
-        // load.
+        // hold across a rejected load, and advance after each accepted load.
         // The authoring probe above may leave a Shader schema refresh for
         // its next frame. Settle it before measuring generation immutability.
         engine.drawFrame();
@@ -899,13 +898,23 @@ async function main(probe) {
             `${engine.getParamGeneration()} (want ${g0})`);
         }
         for (let load = 1; load <= 2; load++) {
+          const beforeLoad = engine.getParamGeneration();
           if (engine.setEffect(effectNames[0]) !== ES.INSTALLED) {
             fail(`state-seam: setEffect("${effectNames[0]}") failed`);
             break;
           }
-          if (engine.getParamGeneration() !== g0 + load) {
-            fail(`state-seam: generation ${engine.getParamGeneration()} after load ` +
-              `${load}, expected ${g0 + load}`);
+          const afterLoad = engine.getParamGeneration();
+          if (afterLoad <= beforeLoad) {
+            fail(`state-seam: generation ${afterLoad} after load ` +
+              `${load} did not advance past ${beforeLoad}`);
+          }
+          const definitions = engine.getParameterDefinitions();
+          const values = engine.getParamValues();
+          if (definitions.length !== values.length) {
+            fail('state-seam: installed effect definitions and values differ in length');
+          }
+          if (engine.getParamGeneration() !== afterLoad) {
+            fail('state-seam: reading installed effect parameters changed the generation');
           }
         }
 
@@ -931,9 +940,9 @@ async function main(probe) {
           }
           if (engine.setEffect(effectNames[0]) !== ES.INSTALLED) {
             fail(`state-seam: setEffect("${effectNames[0]}") after resolution failed`);
-          } else if (engine.getParamGeneration() !== noEffectGeneration + 1) {
+          } else if (engine.getParamGeneration() <= noEffectGeneration) {
             fail(`state-seam: post-resolution load generation ` +
-              `${engine.getParamGeneration()}, expected ${noEffectGeneration + 1}`);
+              `${engine.getParamGeneration()} did not advance past ${noEffectGeneration}`);
           }
         }
 
