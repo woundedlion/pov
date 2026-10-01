@@ -406,6 +406,9 @@ add_test(NAME unit_anim_pack COMMAND ${CMAKE_COMMAND}
     -DCORE_DIR=${HS_ROOT}/core
     -DANIM_HEADER=${HS_ROOT}/core/animation/animation.h
     -P ${CMAKE_CURRENT_SOURCE_DIR}/check_anim_pack.cmake)
+add_test(NAME unit_anim_pack_declarations COMMAND ${CMAKE_COMMAND}
+    -DFIXTURE_DIR=${CMAKE_CURRENT_BINARY_DIR}/anim_pack_fixture
+    -P ${CMAKE_CURRENT_SOURCE_DIR}/check_anim_pack.cmake)
 
 # Pin the in-tree patches to vendored FastNoiseLite.h against the patch record
 # in core/vendor/FastNoiseLite_config.h. A version bump that drops them still
