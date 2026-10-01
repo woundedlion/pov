@@ -9,6 +9,7 @@
 #include <type_traits>
 
 #include "core/render/pullback.h"
+#include "core/render/pullback/runtime_seeds.h"
 #include "tests/test_fixture.h"
 #include "tests/test_harness.h"
 
@@ -1392,8 +1393,16 @@ inline void test_pullback_displacement_overflow() {
   }
 }
 
+inline void test_pullback_runtime_seed_contract() {
+  HS_EXPECT_EQ(Pullback::EFFECT_NOISE_SEED, 1337);
+  HS_EXPECT_EQ(Pullback::CAMERA_WALK_SEED, 1337);
+  HS_EXPECT_EQ(Pullback::PROJECTION_WALK_SEED, 7331);
+  HS_EXPECT_EQ(Pullback::HUE_NOISE_SEED, 6047);
+}
+
 inline int run_pullback_tests() {
   ModuleFixture fixture("pullback");
+  test_pullback_runtime_seed_contract();
   test_pullback_carrier_contract();
   test_pullback_validation_predicates();
   test_pullback_evaluation_order();

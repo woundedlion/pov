@@ -4420,13 +4420,6 @@ inline void test_shader_chain_status_names() {
   }
 }
 
-inline void test_pullback_runtime_seed_contract() {
-  HS_EXPECT_EQ(PB::EFFECT_NOISE_SEED, 1337);
-  HS_EXPECT_EQ(PB::CAMERA_WALK_SEED, 1337);
-  HS_EXPECT_EQ(PB::PROJECTION_WALK_SEED, 7331);
-  HS_EXPECT_EQ(PB::HUE_NOISE_SEED, 6047);
-}
-
 inline int run_shader_chain_tests() {
   ModuleFixture fixture("shader_chain");
   HS_EXPECT_TRUE(std::string_view(In::chain_status_name(
@@ -4490,7 +4483,6 @@ inline int run_shader_chain_tests() {
   test_shader_chain_pause_semantics();
   test_shader_chain_hue_lut_bake_cache();
   test_shader_chain_status_names();
-  test_pullback_runtime_seed_contract();
   return fixture.result();
 }
 
