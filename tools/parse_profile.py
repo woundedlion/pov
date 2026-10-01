@@ -1071,9 +1071,11 @@ def main():
     ap.add_argument("--gate", help="call-count scope gating clean holds "
                                     "(default: --scope)")
     ap.add_argument("--expected-pullback-arm",
-                    choices=["LEGACY", "CORE", "LANDED"])
+                    choices=["LEGACY", "CORE", "LANDED"],
+                    help="validate archived arm-stamped captures; current firmware emits no arm stamp")
     ap.add_argument("--shader-workbench-program-manifest",
-                    dest="shader_workbench_program_manifest")
+                    dest="shader_workbench_program_manifest",
+                    help="validate historical program-event captures; unsupported by current firmware")
     args = ap.parse_args()
 
     try:
