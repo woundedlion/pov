@@ -14,7 +14,7 @@ namespace mindsplatter_replay {
 
 inline constexpr uint64_t HASH_SEED = hs_test::FNV1A64_BASIS;
 
-inline constexpr const char *SOURCE_REVISION = "msp-heavy-search-v4";
+inline constexpr const char *SOURCE_REVISION = "msp-heavy-search-v5";
 
 /** @brief Quadrant clips each searched frame is scored under. */
 inline constexpr int SEARCH_CLIP_COUNT = 4;
