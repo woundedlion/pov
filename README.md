@@ -401,6 +401,7 @@ files define line-ending policy and working-artifact exclusions.
 │       ├── README.md               Project entry point and validation matrix
 │       ├── 1.1/                    Routed rev 1.1 board, schematic, and project libraries
 │       ├── 1.2/                    Matching rev 1.2 schematic and unplaced Quilter input
+│       ├── 1.3/                    Experimental differential-sync schematic and unplaced PCB
 │       └── gen/                    Python design/fabrication tools (`just pcb` runs `fab.py` only)
 │
 ├── targets/                    Per-target entry points

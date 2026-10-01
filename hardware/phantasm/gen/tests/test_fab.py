@@ -861,7 +861,7 @@ class CommandLineTests(unittest.TestCase):
         return caught.exception.code, stdout.getvalue() + stderr.getvalue()
 
     def test_accepts_no_arguments(self):
-        self.assertEqual(vars(fab.parse_args([])), {"verify": False})
+        self.assertEqual(vars(fab.parse_args([])), {"verify": False, "revision": "1.1"})
 
     def test_verify_selects_the_digest_check(self):
         self.assertTrue(fab.parse_args(["--verify"]).verify)

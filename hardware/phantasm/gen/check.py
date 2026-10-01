@@ -21,6 +21,7 @@ from kicad_common import F, export_netlist, kicad_cli
 SYMMETRIC = {"R1", "R2", "R_D1", "R_D2", "R_S", "R_PD", "R_MEN", "R_LF", "R_TX",
              "C_LF", "C_DEC1", "C_DEC2", "C_SYNC", "F1", "FB",
              "JP_ID0", "JP_ID1", "JP_ID2", "JP_SHLD"}
+SYMMETRIC.update({"R_A", "R_B", "R_TERM", "JP_TERM", "C_DEC3", "C_BULK3"})
 
 
 def node_key(ref, pin):
@@ -66,12 +67,34 @@ del EXPECT["SERIAL1_TX"]
 for nodes in EXPECT.values():
     nodes.difference_update({"J4.1", "J4.2", "J4.3"})
 
+EXPECT_REV_1_3 = {name: set(nodes) for name, nodes in EXPECT.items()
+                  if name not in ("SYNC_BUS", "SYNC_SRC", "SYNC_PULLDOWN")}
+EXPECT_REV_1_3["+5V_LOGIC"].update({"U1.10", "U1.13"})
+EXPECT_REV_1_3["+3V3"].discard("R_MEN")
+EXPECT_REV_1_3["+3V3"].update({"R_TX", "U_SYNC.8", "C_DEC3", "C_BULK3"})
+EXPECT_REV_1_3["FRAME_SYNC"] = {"U_MCU.3", "U_SYNC.1"}
+EXPECT_REV_1_3["MASTER_EN"] = {"U_MCU.5", "U_SYNC.3", "R_MEN"}
+EXPECT_REV_1_3["SYNC_TX"] = {"U_MCU.4", "U_SYNC.4", "R_TX"}
+EXPECT_REV_1_3["SHIELD"] = {"J3A.4", "J3B.4", "JP_SHLD"}
+EXPECT_REV_1_3["GND"].difference_update({"C_SYNC", "D_BUS.2", "J3A.2", "J3B.2", "R2", "R_TX"})
+EXPECT_REV_1_3["GND"].update({"J3A.3", "J3B.3", "R_MEN", "U1.9", "U_SYNC.2", "U_SYNC.5",
+                              "C_DEC3", "C_BULK3", "D_SYNC.3"})
+EXPECT_REV_1_3.update({
+    "SYNC_A": {"J3A.1", "J3B.1", "R_A", "D_SYNC.1", "R_TERM"},
+    "SYNC_B": {"J3A.2", "J3B.2", "R_B", "D_SYNC.2", "JP_TERM"},
+    "SYNC_A_IC": {"R_A", "U_SYNC.6"},
+    "SYNC_B_IC": {"R_B", "U_SYNC.7"},
+    "TERM_LINK": {"R_TERM", "JP_TERM"},
+})
+
 
 def expected_nets(revision):
     if revision == "1.1":
         return EXPECT_REV_1_1
     if revision == "1.2":
         return EXPECT
+    if revision == "1.3":
+        return EXPECT_REV_1_3
     raise ValueError(f"unsupported board revision: {revision!r}")
 
 
@@ -132,12 +155,17 @@ def check(got, revision=builder.REVISION):
 
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    parser.add_argument("schematic", nargs="?", default=os.path.join(
-        os.path.dirname(os.path.dirname(os.path.abspath(__file__))), builder.REVISION,
-        "phantasm.kicad_sch"))
+    parser.add_argument("--revision", choices=("1.1", "1.2", "1.3"), default=None)
+    parser.add_argument("schematic", nargs="?")
     args = parser.parse_args(argv)
-    root = export_netlist(kicad_cli(), args.schematic)
-    ok = check(netlist_nets(root), netlist_revision(root))
+    path = args.schematic or os.path.join(
+        os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+        args.revision or builder.REVISION, "phantasm.kicad_sch")
+    root = export_netlist(kicad_cli(), path)
+    revision = netlist_revision(root)
+    if args.revision and revision != args.revision:
+        sys.exit(f"ERROR schematic revision {revision} does not match requested {args.revision}")
+    ok = check(netlist_nets(root), revision)
     print("NETLIST OK" if ok else "NETLIST MISMATCH")
     return 0 if ok else 1
 

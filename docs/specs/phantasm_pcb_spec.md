@@ -2,7 +2,9 @@
 
 **Revision scope:** the body below describes the committed rev 1.1 artifacts,
 with revision-tagged connector and BOM rows for rev 1.2.
-The generators target **rev 1.2**, with the following changes superseding the
+The generators default to **rev 1.2**; `--revision 1.3` selects the independent
+[experimental differential-sync project](../../hardware/phantasm/1.3/README.md).
+The following rev 1.2 changes supersede the
 pin map, connector list, channel-C input, BOM and net table below:
 
 - Teensy **D3 / FRAME_SYNC** is receive-only on every board, connected to R1,
@@ -249,6 +251,11 @@ drives a clean 5 V output — the correct in-spec 3.3 → 5 V up-shifter.
 
 ## 4. SYNC bus (the only shared signal)
 
+This section describes the rev 1.1/1.2 single-ended interface. The
+[rev 1.3 contract](#revision-13-experimental-differential-sync) below supersedes
+its drive, receive, protection, cable, and connector requirements for that
+revision only.
+
 Sync is a **low-rate symbol stream**, not a clock: 2 boundary marks/revolution + rare epoch/beacon
 ([pov_sync.h architecture notes](../../hardware/pov_sync.h)). Boundary pulse pitch ≈ 868 µs; beacon pitch ≈ 434 µs; edges are ≥100 µs apart and pass a
 ~100 µs firmware glitch filter ([pov_sync_protocol.h glitch_filter_cycles](../../hardware/pov_sync_protocol.h)).
@@ -330,6 +337,60 @@ conductors carry the signal pair; the drain handles the screen:
   and [supplier part C1973344](https://item.szlcsc.com/2064882.html).
 
 ---
+
+### Revision 1.3: experimental differential sync
+
+**Status: experimental placement input; not qualified for fabrication or
+operation.** Revision selection is explicit and writes to its own directory.
+Default generation remains rev 1.2. Existing rev 1.1/1.2 artifacts and their
+electrical contracts remain independently usable.
+
+- **R-SYNC-13-1 — Differential interface.** Use a THVD1410DR at 3.3 V for
+  sync, with U_MCU D4 connected to its D input and D3 to its R output.
+  Connect receiver-enable `/RE` to GND. D5 controls active-HIGH driver-enable
+  DE, with a 10 kΩ pull-down. Give D a 10 kΩ pull-up to 3.3 V. Park the
+  unused AHCT125 sync channels with defined inputs and disabled outputs.
+  Remove the single-ended divider, C_SYNC, bus pull-down, source resistor,
+  and D_BUS protection from this revision.
+  Fit 100 nF and 1 µF local bypass capacitors on the transceiver's supply.
+- **R-SYNC-13-2 — Timing and initialization.** Drive idle HIGH and active
+  LOW pulses, timestamping the falling receive edge. Master DE stays HIGH
+  between pulses; followers hold DE LOW. Initialize DE LOW and TX HIGH
+  before enabling the master. Preserve the existing symbol count and pitch.
+  Matching firmware support is required; legacy enable polarity is opposite.
+- **R-SYNC-13-3 — Trunk.** J3A/J3B are four-position connectors with pin 1
+  A, pin 2 B, pin 3 GND reference, and pin 4 SHIELD. Join corresponding
+  connector nets directly; keep local transceiver branches short. Use a
+  specified 120 Ω twisted pair plus a reference conductor. Do not use the
+  existing nominally 45 Ω Belden 8451 as the specified bus cable.
+  The trunk has two ends even when arranged around the rotor; no ring closure.
+- **R-SYNC-13-4 — Termination.** Fit a jumper-selectable 120 Ω resistor
+  across A/B on each board. Enable only the two physical endpoint
+  terminations. Intermediate boards leave their termination jumpers open.
+- **R-SYNC-13-5 — Ground, shield, and protection.** Keep the reference
+  conductor and shield separate; LED load returns use their heavy wiring.
+  Preserve shield continuity and the optional master-only ground bond.
+  Validate local-ground common-mode excursions, unpowered loading, and
+  coordinated bus protection. A TVS standoff value alone does not prove
+  clamp coordination. Validate the 3.3 V supply budget and place transceiver
+  decoupling at its supply pins.
+- **R-SYNC-13-6 — Qualification.** Require placement and mechanical review,
+  routed net parity, ERC/DRC, and assembled-rotor measurements under motor,
+  LED-load, reset, and power-loss disturbances before fabrication release.
+  Scope both differential and local-ground-referenced bus voltages and
+  receiver outputs; establish voltage margin, pulse fidelity, timing skew,
+  and idle noise margin. Qualify supplier parts for a revision-specific BOM.
+
+- **R-SYNC-13-7 — Local protection branch.** Fit a CDSOT23-SM712 cable-side
+  array and a matched 10 Ω pulse-proof resistor in each local A/B branch,
+  following the THVD1410 datasheet's coordinated protection topology.
+  The trunk and termination remain cable-side of the resistors.
+
+See the [prototype workflow](../../hardware/phantasm/1.3/README.md) for generation,
+assembly wiring, firmware requirements, and the validation checklist. The
+[THVD1410 datasheet](https://www.ti.com/lit/ds/symlink/thvd1450.pdf) defines the
+device limits; the [RS-485 design guide](https://www.ti.com/lit/pdf/slla272)
+defines the cable and termination model.
 
 ## 5. Hardware ID strap (pins 21 / 22 / 23)
 

@@ -9,6 +9,8 @@ Placement is a rough starting arrangement; route/refine interactively in Pcbnew.
 """
 import argparse
 import copy
+from contextvars import ContextVar
+from functools import wraps
 import math
 import os
 import shutil
@@ -27,7 +29,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 OUT = schematic_generator.OUT
 LOCAL_FOOTPRINT_DIR = os.path.join(OUT, "phantasm.pretty")
 TERMINAL_LIBIDS = tuple(
-    f"phantasm:TerminalBlock_GCT_TBC05-0{pins}-1-G-G" for pins in (2, 3))
+    f"phantasm:TerminalBlock_GCT_TBC05-0{pins}-1-G-G" for pins in (2, 3, 4))
 SCH = os.path.join(OUT, "phantasm.kicad_sch")
 PCB_FILE = "phantasm.kicad_pcb"
 DRAFT_FILE = "phantasm-draft.kicad_pcb"
@@ -197,9 +199,9 @@ def build_paths(nlroot):
 
 
 # ---------------------------------------------------------------- components
-def schematic_components():
+def schematic_components(path=None):
     """Return ordered unique component records, skipping power and flag symbols."""
-    with open(SCH, encoding="utf-8") as f:
+    with open(path or SCH, encoding="utf-8") as f:
         root = sexp.parse(f.read())[0]
     seen = {}
     order = []
@@ -237,17 +239,34 @@ def is_hand_assembled(footprint, value):
 
 # ---------------------------------------------------------------- footprints
 _MOD_CACHE = {}
+_GENERATION = ContextVar("phantasm_generation", default=(builder.REVISION, None))
+
+
+def revision_context(function):
+    @wraps(function)
+    def run(*args, revision=builder.REVISION, output_dir=None, **kwargs):
+        if revision not in ("1.2", "1.3"):
+            raise ValueError(f"unsupported board revision: {revision!r}")
+        token = _GENERATION.set((revision, output_dir))
+        try:
+            return function(*args, **kwargs)
+        finally:
+            _GENERATION.reset(token)
+    return run
 
 
 def load_mod(libid):
-    if libid not in _MOD_CACHE:
-        lib, name = libid.split(":", 1)
-        directory = LOCAL_FOOTPRINT_DIR if lib == "phantasm" else \
-            os.path.join(FP_DIR, lib + ".pretty")
+    lib, name = libid.split(":", 1)
+    directory = LOCAL_FOOTPRINT_DIR if lib == "phantasm" else \
+        os.path.join(FP_DIR, lib + ".pretty")
+    if lib == "phantasm" and name == "TerminalBlock_GCT_TBC05-04-1-G-G":
+        directory = os.path.join(os.path.dirname(HERE), "1.3", "phantasm.pretty")
+    key = (directory, libid)
+    if key not in _MOD_CACHE:
         path = os.path.join(directory, name + ".kicad_mod")
         with open(path, encoding="utf-8") as f:
-            _MOD_CACHE[libid] = sexp.parse(f.read())[0]
-    return _MOD_CACHE[libid]
+            _MOD_CACHE[key] = sexp.parse(f.read())[0]
+    return _MOD_CACHE[key]
 
 
 def set_d_bus_land_pattern(node):
@@ -602,6 +621,13 @@ TERMINAL_EDGE_PLACEMENTS = {
     "J3B": (48.0, 22.96, 0),
 }
 
+TERMINAL_EDGE_PLACEMENTS_1_3 = {
+    "J1": (3.25, 18.9, 0),
+    "J2": (36.6, 23.97, 0),
+    "J3A": (48.0, 3.96, 0),
+    "J3B": (48.0, 16.52, 0),
+}
+
 SYNC_FILTER_PLACEMENTS = {
     "R1": (15.7, 22.0, 0),
     "R2": (22.5, 22.0, 0),
@@ -610,6 +636,13 @@ SYNC_FILTER_PLACEMENTS = {
 
 
 def fixed_placements(comps):
+    if _GENERATION.get()[0] == "1.3":
+        fixed = {ref: placement for ref, placement in QUILTER_FIXED.items()
+                 if ref in comps and ref in ("JP_ID0", "JP_ID1", "JP_ID2", "JP_SHLD", "C_IN")}
+        fixed.update({ref: placement for ref, placement in TERMINAL_EDGE_PLACEMENTS_1_3.items()
+                      if ref in comps})
+        fixed.update({"U_MCU": (25.5, 11.7, 0), "C_DEC1": (9.75, 1.35, 0)})
+        return fixed
     fixed = {ref: placement for ref, placement in QUILTER_FIXED.items()
              if ref in comps and (ref not in QUILTER_FIXED_FOOTPRINTS or
                                   comps[ref][1] == QUILTER_FIXED_FOOTPRINTS[ref])}
@@ -650,6 +683,8 @@ def local_routes(footprints):
         (("R2", "1"), ("C_SYNC", "1"),
          ((20.7875, 21.2), (19.175, 21.2))),
     )
+    if _GENERATION.get()[0] == "1.3":
+        routes = routes[:1]
     lines = []
     for source, destination, bends in routes:
         start, net = terminal(*source)
@@ -662,9 +697,12 @@ def local_routes(footprints):
                          f'(end {fmt(b[0])} {fmt(b[1])}) (width 0.2) '
                          f'(layer "F.Cu") (net {net[0]}) '
                          f'(uuid "{uid()}") (locked yes))')
-    for source, end in ((("C_DEC1", "2"), (11.55, 1.35)),
-                        (("C_SYNC", "2"), (19.925, 23.0)),
-                        (("R2", "2"), (24.4125, 22.0))):
+    ground_routes = ((("C_DEC1", "2"), (11.55, 1.35)),
+                     (("C_SYNC", "2"), (19.925, 23.0)),
+                     (("R2", "2"), (24.4125, 22.0)))
+    if _GENERATION.get()[0] == "1.3":
+        ground_routes = ground_routes[:1]
+    for source, end in ground_routes:
         start, net = terminal(*source)
         if str(net[-1]).lstrip("/") != GROUND_NET:
             raise ValueError(f"local ground via net mismatch: {source}")
@@ -827,22 +865,28 @@ def unplaced_layout(bxs, L, width, margin=2.0, gap=2.0):
     return place
 
 
+@revision_context
 def main(unplaced=False, force=False, force_teensy_library=False):
+    selected, output_dir = _GENERATION.get()
+    out = output_dir or (OUT if selected == builder.REVISION else os.path.join(
+        os.path.dirname(OUT), selected))
+    sch = SCH if output_dir is None and selected == builder.REVISION else os.path.join(
+        out, "phantasm.kicad_sch")
     reset_uid_sequence()
     if unplaced:
-        require_writable(os.path.join(OUT, UNPLACED_FILE), force, UNPLACED_REASON)
+        require_writable(os.path.join(out, UNPLACED_FILE), force, UNPLACED_REASON)
     else:
-        require_writable(os.path.join(OUT, DRAFT_FILE), force)
-    nlroot = export_netlist(kicad_cli(), SCH)
+        require_writable(os.path.join(out, DRAFT_FILE), force)
+    nlroot = export_netlist(kicad_cli(), sch)
     revision = check.netlist_revision(nlroot)
-    if revision != builder.REVISION:
+    if revision != selected:
         sys.exit(f"ERROR schematic revision {revision} does not match generator "
-                 f"revision {builder.REVISION}; regenerate the schematic first")
+                 f"revision {selected}; regenerate the schematic first")
     if not check.check(check.netlist_nets(nlroot), revision):
         sys.exit("ERROR schematic does not match the electrical specification")
     pad_net, netid = build_nets(nlroot)
     paths = build_paths(nlroot)                   # ref -> schematic-symbol path
-    comps = {r: (r, fp, v, dnp) for r, fp, v, dnp in schematic_components()}
+    comps = {r: (r, fp, v, dnp) for r, fp, v, dnp in schematic_components(sch)}
     # footprint bounding boxes -> skyline-pack to minimise length
     bxs = {}
     pad_bxs = {}
@@ -918,7 +962,7 @@ def main(unplaced=False, force=False, force_teensy_library=False):
     # KiCad writes this rev into the Gerber X2 ProjectId attribute, which reads
     # `rev?` when the board carries no title block.
     lines.append("\t(title_block")
-    lines.append(f'\t\t(rev {sexp.quote(builder.REVISION)})')
+    lines.append(f'\t\t(rev {sexp.quote(selected)})')
     lines.append("\t)")
     lines.append("\t(general (thickness 1.6) (legacy_teardrops no))")
     lines.append('\t(paper "A2")')
@@ -1011,8 +1055,11 @@ def main(unplaced=False, force=False, force_teensy_library=False):
         if not all(fixed.get(ref) == QUILTER_FIXED[ref] for ref in FAR_CONNS):
             front_silk = [item for item in front_silk
                           if item[0] in ("ID0", "ID1", "ID2", "SHLD")]
-        for ref, pin_marks in (("J2", "DGC"), ("J3A", "SGH"), ("J3B", "SGH")):
-            if fixed.get(ref) == TERMINAL_EDGE_PLACEMENTS[ref]:
+        edge_placements = (TERMINAL_EDGE_PLACEMENTS if selected == "1.2" else
+                           TERMINAL_EDGE_PLACEMENTS_1_3)
+        sync_marks = "SGH" if selected == "1.2" else "ABGH"
+        for ref, pin_marks in (("J2", "DGC"), ("J3A", sync_marks), ("J3B", sync_marks)):
+            if fixed.get(ref) == edge_placements[ref]:
                 x, y, _ = fixed[ref]
                 front_silk.extend((mark, x + 4.5, y + pin * 2.54, 0)
                                   for pin, mark in enumerate(pin_marks))
@@ -1022,7 +1069,7 @@ def main(unplaced=False, force=False, force_teensy_library=False):
                          '(effects (font (size 0.8 0.8) (thickness 0.15))))')
         for ref, label in (("J1", "PWR"), ("J2", "LED OUT"),
                            ("J3A", "SYNC IN"), ("J3B", "SYNC OUT")):
-            if fixed.get(ref) != TERMINAL_EDGE_PLACEMENTS[ref]:
+            if fixed.get(ref) != edge_placements[ref]:
                 continue
             x, y, _ = fixed[ref]
             label_x = x + 2 if ref == "J1" else x - 2
@@ -1039,7 +1086,7 @@ def main(unplaced=False, force=False, force_teensy_library=False):
         ("3   GND   GND   B-SOUTH", 15.0, 0.9),
         ("N8 ID2 OPEN=0-3 GND=4-7; M=OPEN; SHLD=M", 17.0, 0.8),
         ("BOARD ID: ____", 23.5, 2.0),
-        (SILK_REVISION, 29.5, 1.0),
+        (f"Phantasm Rev {selected}", 29.5, 1.0),
     ]
     legend_x = PLACE["U_MCU"][0]
     for text, y, size in back_silk:
@@ -1053,7 +1100,7 @@ def main(unplaced=False, force=False, force_teensy_library=False):
         lines.extend(local_routes(foot_nodes))
     lines.append(")")
     # --- custom footprint library (Teensy) + fp-lib-table ---
-    pretty = os.path.join(OUT, "phantasm.pretty")
+    pretty = os.path.join(out, "phantasm.pretty")
     mod = teensy_footprint()
     mod[1] = "Teensy4.0"
     mod.insert(2, [sexp.Sym("version"), sexp.Sym(sexp.FOOTPRINT_FORMAT)])
@@ -1069,20 +1116,22 @@ def main(unplaced=False, force=False, force_teensy_library=False):
     if existing_mod_text != mod_text:
         require_writable(mod_path, force_teensy_library, TEENSY_LIBRARY_REASON,
                          flag="--force-teensy-library")
-    outpath = os.path.join(OUT, OUTFILE)
+    outpath = os.path.join(out, OUTFILE)
     os.makedirs(os.path.dirname(outpath), exist_ok=True)
     atomic_write_text(outpath, "\n".join(lines) + "\n")
     project_path = os.path.splitext(outpath)[0] + ".kicad_pro"
-    with open(SCH, encoding="utf-8") as f:
+    with open(sch, encoding="utf-8") as f:
         root_uuid = sexp.val(sexp.parse_one(f.read()), "uuid", [""])[0]
     schematic_generator.write_project(project_path, root_uuid, unplaced=unplaced)
 
     os.makedirs(pretty, exist_ok=True)
     if existing_mod_text != mod_text:
         atomic_write_text(mod_path, mod_text)
-    for libid in TERMINAL_LIBIDS:
+    for libid in TERMINAL_LIBIDS[:2] if selected == "1.2" else TERMINAL_LIBIDS:
         name = libid.split(":", 1)[1] + ".kicad_mod"
-        source = os.path.join(LOCAL_FOOTPRINT_DIR, name)
+        source_dir = (os.path.join(os.path.dirname(HERE), "1.3", "phantasm.pretty")
+                      if "-04-" in name else LOCAL_FOOTPRINT_DIR)
+        source = os.path.join(source_dir, name)
         destination = os.path.join(pretty, name)
         if os.path.abspath(source) != os.path.abspath(destination):
             with open(source, encoding="utf-8") as f:
@@ -1091,7 +1140,7 @@ def main(unplaced=False, force=False, force_teensy_library=False):
     model_target = os.path.join(pretty, "Teensy4.0.wrl")
     if os.path.abspath(model_source) != os.path.abspath(model_target):
         shutil.copyfile(model_source, model_target)
-    fplt = os.path.join(OUT, "fp-lib-table")
+    fplt = os.path.join(out, "fp-lib-table")
     if not os.path.exists(fplt):
         atomic_write_text(fplt, '(fp_lib_table\n\t(version 7)\n'
                 '\t(lib (name "phantasm")(type "KiCad")(uri "${KIPRJMOD}/phantasm.pretty")'
@@ -1101,6 +1150,7 @@ def main(unplaced=False, force=False, force_teensy_library=False):
 
 def parse_args(argv=None):
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
+    parser.add_argument("--revision", choices=("1.2", "1.3"), default=builder.REVISION)
     parser.add_argument("--unplaced", action="store_true",
                         help="write the revisioned unplaced project for "
                              "the autoplacer instead")
@@ -1117,4 +1167,4 @@ def parse_args(argv=None):
 if __name__ == "__main__":
     ARGS = parse_args()
     main(unplaced=ARGS.unplaced, force=ARGS.force,
-         force_teensy_library=ARGS.force_teensy_library)
+         force_teensy_library=ARGS.force_teensy_library, revision=ARGS.revision)
