@@ -71,7 +71,6 @@ README cells: peak 🟢 8.51, spilled 🟢 0/1087 (0.00%).
 ## Caveats
 
 - All scopes absorb ISR time (CYCCNT free-runs).
-- `filter_blend` parents under whichever scope first enters it; calls ≈ blended pixels.
 - Setup frame 1 is excluded from the peak and spill figures and reported separately.
 - Selective-O3: `97eb0bf78` changed placement only for the per-pixel pullback, noise and projection kernels; this effect's own `HS_O3` regions are unchanged.
 
