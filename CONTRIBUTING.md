@@ -84,7 +84,9 @@ protected branch's `CI green` status is the authoritative correctness gate.
 - **Node script suite:** `npm test` runs every `scripts/*.test.mjs` — the
   shader-workbench schema and digest contracts, the WASM smoke predicates, the
   engine bindings contract, the profile roster and the PNG probe. CI runs it as
-  its own `scripts-unit-tests` job.
+  its own `scripts-unit-tests` job. Set `HS_BROWSER_TESTS=1` when running
+  `node --test scripts/screenshot_resolution.test.mjs` to include the Chromium
+  capture-descent test; first run `npm ci` and `npx playwright install chromium`.
 - **Native variants and coverage:** `sanitizers`, `thread-sanitizer`,
   `optimized-tests` and `windows-tests` exercise distinct runtime and platform
   configurations. `code-coverage` enforces aggregate and directory coverage.
