@@ -70,17 +70,61 @@ public:
   static constexpr float HUE_SHIFT_MIN = 0.0f, HUE_SHIFT_MAX = 0.5f;
   static constexpr float POLE_RES_MIN = 0.0f, POLE_RES_MAX = 2.0f;
 
-  /** @brief True iff every preset-driven field of @p p lies within its
-   *  registered slider range (see the range constants above). */
+  /** @brief Shared registration, validation and interpolation descriptions. */
+  static constexpr auto parameter_fields() {
+    return std::tuple{
+        Control::Field<Params, BaseMesh>{
+            .id = "base_mesh",
+            .member = &Params::base_mesh,
+            .name = "Base Mesh",
+            .spec = {.min = 0,
+                     .max = static_cast<int64_t>(Solids::BASE_MESH_COUNT) - 1,
+                     .animated = true,
+                     .options = Solids::BASE_MESH_OPTIONS,
+                     .export_options = Solids::BASE_MESH_EXPORT_OPTIONS,
+                     .option_count = Solids::BASE_MESH_COUNT}},
+        Control::FieldGroup{
+            &Params::style,
+            std::tuple{
+                Control::Field<Style, float>{.id = "fade",
+                                             .member = &Style::fade,
+                                             .name = "Fade",
+                                             .spec = {.min = FADE_MIN,
+                                                      .max = FADE_MAX,
+                                                      .animated = true}},
+                Control::Field<Style, float>{
+                    .id = "amplitude",
+                    .member = &Style::amplitude,
+                    .name = "Distort Amp",
+                    .spec = {.min = AMP_MIN, .max = AMP_MAX, .animated = true}},
+                Control::Field<Style, float>{.id = "frequency",
+                                             .member = &Style::frequency,
+                                             .name = "Distort Freq",
+                                             .spec = {.min = FREQ_MIN,
+                                                      .max = FREQ_MAX,
+                                                      .animated = true}},
+                Control::Field<Style, float>{.id = "speed",
+                                             .member = &Style::speed,
+                                             .name = "Distort Speed",
+                                             .spec = {.min = SPEED_MIN,
+                                                      .max = SPEED_MAX,
+                                                      .animated = true}},
+                Control::Field<Style, float>{.id = "scale",
+                                             .member = &Style::scale,
+                                             .name = "Noise Scale",
+                                             .spec = {.min = SCALE_MIN,
+                                                      .max = SCALE_MAX,
+                                                      .animated = true}},
+                Control::Field<Style, float>{.id = "hue_shift",
+                                             .member = &Style::hue_shift,
+                                             .name = "Hue Shift",
+                                             .spec = {.min = HUE_SHIFT_MIN,
+                                                      .max = HUE_SHIFT_MAX,
+                                                      .animated = true}}}}};
+  }
+
   static constexpr bool preset_in_ranges(const Params &p) {
-    const Style &s = p.style;
-    return static_cast<size_t>(p.base_mesh) < Solids::BASE_MESH_COUNT &&
-           s.fade >= FADE_MIN && s.fade <= FADE_MAX && s.amplitude >= AMP_MIN &&
-           s.amplitude <= AMP_MAX && s.frequency >= FREQ_MIN &&
-           s.frequency <= FREQ_MAX && s.speed >= SPEED_MIN &&
-           s.speed <= SPEED_MAX && s.scale >= SCALE_MIN &&
-           s.scale <= SCALE_MAX && s.hue_shift >= HUE_SHIFT_MIN &&
-           s.hue_shift <= HUE_SHIFT_MAX;
+    return Control::valid_fields(p, parameter_fields());
   }
   static constexpr size_t PRESET_COUNT = 12;
   static constexpr std::array<PresetEntry<Params>, PRESET_COUNT> PRESETS = {{
@@ -108,9 +152,6 @@ public:
   /** @brief Startup parameters: preset 0 with the noise binding still null;
    *  init() binds the effect-owned NoiseParams. */
   static Params initial_params() { return PRESETS[0].params; }
-
-  /** @brief Whether a restored parameter set lies within the slider ranges. */
-  static bool valid_params(const Params &p) { return preset_in_ranges(p); }
 
   /**
    * @brief Wires up noise, orientation, and the filter pipeline.
@@ -147,20 +188,8 @@ public:
 
     mesh_shade = Palettes::PEACH_POP.get(0.0f);
 
-    register_animated_param(
-        "Base Mesh", &params.base_mesh, Solids::BASE_MESH_OPTIONS,
-        Solids::BASE_MESH_EXPORT_OPTIONS, Solids::BASE_MESH_COUNT);
-    register_animated_param("Fade", &params.style.fade, FADE_MIN, FADE_MAX);
-    register_animated_param("Distort Amp", &params.style.amplitude, AMP_MIN,
-                            AMP_MAX);
-    register_animated_param("Distort Freq", &params.style.frequency, FREQ_MIN,
-                            FREQ_MAX);
-    register_animated_param("Distort Speed", &params.style.speed, SPEED_MIN,
-                            SPEED_MAX);
-    register_animated_param("Noise Scale", &params.style.scale, SCALE_MIN,
-                            SCALE_MAX);
-    register_animated_param("Hue Shift", &params.style.hue_shift, HUE_SHIFT_MIN,
-                            HUE_SHIFT_MAX);
+    this->register_described_params();
+
     register_param("Feedback", &feedback_enabled);
     mark_global("Feedback");
     register_param("Pole Half-Res", &pole_half_res, POLE_RES_MIN, POLE_RES_MAX);
@@ -219,7 +248,6 @@ private:
   using Choreography::begin_choreography;
   using Choreography::mark_global;
   using Choreography::params;
-  using Choreography::register_animated_param;
   using Choreography::register_param;
   using Choreography::step_choreography;
   using Choreography::timeline;

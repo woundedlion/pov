@@ -16,6 +16,7 @@
 
 #include "animation/animation.h"
 #include "control/presets.h"
+#include "control/fields.h"
 #include "platform/platform.h"
 #include "math/easing.h"
 #include "render/canvas.h"
@@ -25,7 +26,7 @@
  *        automatic transitions by each preset's departure policy, manual preset
  *        snaps and schema-versioned parameter snapshots.
  * @details Curiously recurring: `Derived` supplies `PARAMETER_SCHEMA_VERSION`,
- * `PRESET_DWELL_FRAMES` and `valid_params(params)`, plus its presets as rows
+ * `PRESET_DWELL_FRAMES` and parameter_fields() or valid_params(params), plus its presets as rows
  * carrying their parameters and departure policy (`PresetEntry`): a `PRESETS`
  * table or a static `preset(index)`, and/or `PRESET_IDS` naming them. A member
  * `preset_params(index)` may derive a preset's live parameters from its row,
@@ -40,7 +41,9 @@
  * / `transition_armed(target)` keeps state derived from the parameters
  * consistent across snaps and crossfade arming. `initial_params()` overrides
  * the first preset as the startup default. A `Derived` keeping its hooks
- * non-public befriends this base.
+ * non-public befriends this base. parameter_fields() supplies ordered registration,
+ * range validation and the default blend; effects can override validation and
+ * blend hooks for cross-field rules or derived state.
  * @tparam Derived The effect class deriving from this base.
  * @tparam ParamsT The effect's parameter-set type.
  */
@@ -48,6 +51,20 @@ template <typename Derived, typename ParamsT>
 class ChoreographedEffect : public Effect {
 public:
   using Params = ParamsT;
+
+  /** @brief Uses the parameter aggregate's static descriptions when present. */
+  static constexpr auto parameter_fields()
+    requires requires { Params::FIELDS; }
+  {
+    return Params::FIELDS;
+  }
+
+  /** @brief Checks the derived effect's described parameter ranges. */
+  static constexpr bool valid_params(const Params &value)
+    requires requires { Derived::parameter_fields(); }
+  {
+    return Control::valid_fields(value, Derived::parameter_fields());
+  }
 
   /** @brief A parameter set tagged with the schema version that produced it. */
   struct ParameterSnapshot {
@@ -112,6 +129,23 @@ public:
   }
 
 protected:
+  /** @brief Registers the derived effect's typed parameter descriptions. */
+  HS_COLD_MEMBER void register_described_params() {
+    Control::register_fields(
+        params, Derived::parameter_fields(),
+        [this](const char *name, auto *target, const auto &spec) {
+          this->register_param(name, target, spec);
+        });
+  }
+
+  /** @brief Interpolates the derived effect's described parameter members. */
+  HS_COLD_MEMBER void blend_params(float progress)
+    requires requires { Derived::parameter_fields(); }
+  {
+    Control::interpolate_fields(params, transition.from, transition.to,
+                                progress, Derived::parameter_fields());
+  }
+
   /** @brief An automatic preset transition's endpoints and progress. */
   struct Transition {
     Params from{};               /**< Parameters the transition departs from. */

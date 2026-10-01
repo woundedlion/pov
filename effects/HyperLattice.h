@@ -83,46 +83,11 @@ struct Params {
    * @brief Interpolates every continuous field; the pattern, view and shell
    *        count switch together at the midpoint.
    */
-  void lerp(const Params &start, const Params &target, float amount) {
-    const Params &NEAREST = amount < 0.5f ? start : target;
-    mode = NEAREST.mode;
-    pattern = NEAREST.pattern;
-    sphere_radius = hs::lerp(start.sphere_radius, target.sphere_radius, amount);
-    cell_size = hs::lerp(start.cell_size, target.cell_size, amount);
-    wire_radius = hs::lerp(start.wire_radius, target.wire_radius, amount);
-    softness = hs::lerp(start.softness, target.softness, amount);
-    near_fade = hs::lerp(start.near_fade, target.near_fade, amount);
-    far_distance = hs::lerp(start.far_distance, target.far_distance, amount);
-    aa_strength = hs::lerp(start.aa_strength, target.aa_strength, amount);
-    speed = hs::lerp(start.speed, target.speed, amount);
-    spin_3d = hs::lerp(start.spin_3d, target.spin_3d, amount);
-    spin_4d = hs::lerp(start.spin_4d, target.spin_4d, amount);
-    shells = NEAREST.shells;
-    shear = hs::lerp(start.shear, target.shear, amount);
-    stretch = hs::lerp(start.stretch, target.stretch, amount);
-    shell_radius = hs::lerp(start.shell_radius, target.shell_radius, amount);
-  }
-
-  /**
-   * @brief Compile-time field-set pin for lerp() and valid_params(); never
-   *        called.
-   * @details The binding names every member. Interior padding after pattern
-   *          and shells can absorb small fields without changing sizeof().
-   */
-  static void pin_field_set(const Params &p) {
-    const auto &[mode, pattern, sphere_radius, cell_size, wire_radius, softness,
-                 near_fade, far_distance, aa_strength, speed, spin_3d, spin_4d,
-                 shells, shear, stretch, shell_radius] = p;
-    (void)mode, (void)pattern, (void)sphere_radius, (void)cell_size,
-        (void)wire_radius, (void)softness, (void)near_fade, (void)far_distance,
-        (void)aa_strength, (void)speed, (void)spin_3d, (void)spin_4d,
-        (void)shells, (void)shear, (void)stretch, (void)shell_radius;
-  }
+  void lerp(const Params &start, const Params &target, float amount);
 };
 
-// Width pin; pin_field_set() is what catches an added or removed field. Every
-// enum has a fixed uint8_t base, so the size holds under ARM -fshort-enums.
-static_assert(sizeof(Params) == 60, "HyperLattice::Params width changed");
+static_assert(sizeof(Params) == 60,
+              "HyperLattice parameter snapshot layout changed");
 
 using SDF::Lattice::CrossingList;
 
@@ -473,30 +438,120 @@ public:
   static constexpr float SHELL_RADIUS_MIN = .10f;
   static constexpr float SHELL_RADIUS_MAX = .32f;
 
+  /** @brief Shared registration, validation and interpolation descriptions. */
+  static constexpr auto parameter_fields() {
+    constexpr bool EXPERIMENTAL_PARAMETERS = HS_ENABLE_HYPERLATTICE_EXPERIMENTS;
+    return std::tuple{
+        Control::Field<Params, Pattern>{
+            .id = "pattern",
+            .member = &Params::pattern,
+            .name = "Pattern",
+            .spec = {.min = 0,
+                     .max =
+                         static_cast<int64_t>(std::size(PATTERN_OPTIONS)) - 1,
+                     .animated = true,
+                     .options = PATTERN_OPTIONS,
+                     .export_options = PATTERN_EXPORT_OPTIONS,
+                     .option_count = std::size(PATTERN_OPTIONS)}},
+        Control::Field<Params, LatticeMode>{
+            .id = "mode",
+            .member = &Params::mode,
+            .name = "View",
+            .spec = {.min = 0,
+                     .max = static_cast<int64_t>(std::size(VIEW_OPTIONS)) - 1,
+                     .animated = true,
+                     .options = VIEW_OPTIONS,
+                     .export_options = VIEW_EXPORT_OPTIONS,
+                     .option_count = std::size(VIEW_OPTIONS)}},
+        Control::Field<Params, float>{.id = "sphere_radius",
+                                      .member = &Params::sphere_radius,
+                                      .name = "Sphere Radius",
+                                      .spec = {.min = SPHERE_RADIUS_MIN,
+                                               .max = SPHERE_RADIUS_MAX,
+                                               .animated = true}},
+        Control::Field<Params, float>{.id = "cell_size",
+                                      .member = &Params::cell_size,
+                                      .name = "Cell Size",
+                                      .spec = {.min = CELL_SIZE_MIN,
+                                               .max = CELL_SIZE_MAX,
+                                               .animated = true}},
+        Control::Field<Params, float>{.id = "wire_radius",
+                                      .member = &Params::wire_radius,
+                                      .name = "Wire Radius",
+                                      .spec = {.min = WIRE_RADIUS_MIN,
+                                               .max = WIRE_RADIUS_MAX,
+                                               .animated = true}},
+        Control::Field<Params, float>{.id = "softness",
+                                      .member = &Params::softness,
+                                      .name = "Softness",
+                                      .spec = {.min = SOFTNESS_MIN,
+                                               .max = SOFTNESS_MAX,
+                                               .animated = true}},
+        Control::Field<Params, float>{.id = "near_fade",
+                                      .member = &Params::near_fade,
+                                      .name = "Near Fade",
+                                      .spec = {.min = NEAR_FADE_MIN,
+                                               .max = NEAR_FADE_MAX,
+                                               .animated = true}},
+        Control::Field<Params, float>{.id = "far_distance",
+                                      .member = &Params::far_distance,
+                                      .name = "Far Distance",
+                                      .spec = {.min = FAR_DISTANCE_MIN,
+                                               .max = FAR_DISTANCE_MAX,
+                                               .animated = true}},
+        Control::Field<Params, float>{.id = "aa_strength",
+                                      .member = &Params::aa_strength,
+                                      .name = "AA Strength",
+                                      .spec = {.min = AA_STRENGTH_MIN,
+                                               .max = AA_STRENGTH_MAX,
+                                               .animated = true}},
+        Control::Field<Params, float>{
+            .id = "speed",
+            .member = &Params::speed,
+            .name = "Speed",
+            .spec = {.min = SPEED_MIN, .max = SPEED_MAX, .animated = true}},
+        Control::Field<Params, float>{
+            .id = "spin_3d",
+            .member = &Params::spin_3d,
+            .name = "3D Spin",
+            .spec = {.min = SPIN_3D_MIN, .max = SPIN_3D_MAX, .animated = true}},
+        Control::Field<Params, float>{
+            .id = "spin_4d",
+            .member = &Params::spin_4d,
+            .name = "4D Spin",
+            .spec = {.min = SPIN_4D_MIN, .max = SPIN_4D_MAX, .animated = true}},
+        Control::Field<Params, ShellCount>{
+            .id = "shells",
+            .member = &Params::shells,
+            .name = "Lattice Planes",
+            .spec = {.min = 0,
+                     .max = static_cast<int64_t>(std::size(SHELL_OPTIONS)) - 1,
+                     .animated = true,
+                     .options = SHELL_OPTIONS,
+                     .export_options = SHELL_EXPORT_OPTIONS,
+                     .option_count = std::size(SHELL_OPTIONS)}},
+        Control::Field<Params, float>{
+            .id = "shear",
+            .member = &Params::shear,
+            .name = EXPERIMENTAL_PARAMETERS ? "Shear" : nullptr,
+            .spec = {.min = SHEAR_MIN, .max = SHEAR_MAX, .animated = true}},
+        Control::Field<Params, float>{
+            .id = "stretch",
+            .member = &Params::stretch,
+            .name = EXPERIMENTAL_PARAMETERS ? "Stretch" : nullptr,
+            .spec = {.min = STRETCH_MIN, .max = STRETCH_MAX, .animated = true}},
+        Control::Field<Params, float>{
+            .id = "shell_radius",
+            .member = &Params::shell_radius,
+            .name = EXPERIMENTAL_PARAMETERS ? "Shell Radius" : nullptr,
+            .spec = {.min = SHELL_RADIUS_MIN,
+                     .max = SHELL_RADIUS_MAX,
+                     .animated = true}}};
+  }
+
   static constexpr bool valid_params(const Params &value) {
     return supported_combination(value) &&
-           value.sphere_radius >= SPHERE_RADIUS_MIN &&
-           value.sphere_radius <= SPHERE_RADIUS_MAX &&
-           value.cell_size >= CELL_SIZE_MIN &&
-           value.cell_size <= CELL_SIZE_MAX &&
-           value.wire_radius >= WIRE_RADIUS_MIN &&
-           value.wire_radius <= WIRE_RADIUS_MAX &&
-           value.softness >= SOFTNESS_MIN && value.softness <= SOFTNESS_MAX &&
-           value.near_fade >= NEAR_FADE_MIN &&
-           value.near_fade <= NEAR_FADE_MAX &&
-           value.far_distance >= FAR_DISTANCE_MIN &&
-           value.far_distance <= FAR_DISTANCE_MAX &&
-           value.aa_strength >= AA_STRENGTH_MIN &&
-           value.aa_strength <= AA_STRENGTH_MAX && value.speed >= SPEED_MIN &&
-           value.speed <= SPEED_MAX && value.spin_3d >= SPIN_3D_MIN &&
-           value.spin_3d <= SPIN_3D_MAX && value.spin_4d >= SPIN_4D_MIN &&
-           value.spin_4d <= SPIN_4D_MAX &&
-           static_cast<uint8_t>(value.shells) <=
-               static_cast<uint8_t>(ShellCount::THREE) &&
-           value.shear >= SHEAR_MIN && value.shear <= SHEAR_MAX &&
-           value.stretch >= STRETCH_MIN && value.stretch <= STRETCH_MAX &&
-           value.shell_radius >= SHELL_RADIUS_MIN &&
-           value.shell_radius <= SHELL_RADIUS_MAX;
+           Control::valid_fields(value, parameter_fields());
   }
 
   /**
@@ -518,41 +573,11 @@ public:
 
   HS_COLD_MEMBER void init() override {
     begin_choreography();
-    register_animated_param("Pattern", &params.pattern, PATTERN_OPTIONS,
-                            PATTERN_EXPORT_OPTIONS, std::size(PATTERN_OPTIONS));
-    register_animated_param("View", &params.mode, VIEW_OPTIONS,
-                            VIEW_EXPORT_OPTIONS, std::size(VIEW_OPTIONS));
-    register_animated_param("Sphere Radius", &params.sphere_radius,
-                            SPHERE_RADIUS_MIN, SPHERE_RADIUS_MAX);
-    register_animated_param("Cell Size", &params.cell_size, CELL_SIZE_MIN,
-                            CELL_SIZE_MAX);
-    register_animated_param("Wire Radius", &params.wire_radius, WIRE_RADIUS_MIN,
-                            WIRE_RADIUS_MAX);
-    register_animated_param("Softness", &params.softness, SOFTNESS_MIN,
-                            SOFTNESS_MAX);
-    register_animated_param("Near Fade", &params.near_fade, NEAR_FADE_MIN,
-                            NEAR_FADE_MAX);
-    register_animated_param("Far Distance", &params.far_distance,
-                            FAR_DISTANCE_MIN, FAR_DISTANCE_MAX);
-    register_animated_param("AA Strength", &params.aa_strength, AA_STRENGTH_MIN,
-                            AA_STRENGTH_MAX);
-    register_animated_param("Speed", &params.speed, SPEED_MIN, SPEED_MAX);
-    register_animated_param("3D Spin", &params.spin_3d, SPIN_3D_MIN,
-                            SPIN_3D_MAX);
-    register_animated_param("4D Spin", &params.spin_4d, SPIN_4D_MIN,
-                            SPIN_4D_MAX);
-    register_animated_param("Lattice Planes", &params.shells, SHELL_OPTIONS,
-                            SHELL_EXPORT_OPTIONS, std::size(SHELL_OPTIONS));
-#if HS_ENABLE_HYPERLATTICE_EXPERIMENTS
-    register_animated_param("Shear", &params.shear, SHEAR_MIN, SHEAR_MAX);
-    register_animated_param("Stretch", &params.stretch, STRETCH_MIN,
-                            STRETCH_MAX);
-    register_animated_param("Shell Radius", &params.shell_radius,
-                            SHELL_RADIUS_MIN, SHELL_RADIUS_MAX);
-#if HS_ENABLE_PARAM_GUI_BRIDGE
+    this->register_described_params();
+
+#if HS_ENABLE_HYPERLATTICE_EXPERIMENTS && HS_ENABLE_PARAM_GUI_BRIDGE
     this->register_readonly_param("Unfinished Rays", &unfinished_rays, 0,
                                   (W + 2) * (H + 2));
-#endif
 #endif
     refresh_configuration_schema();
     depth_palette.init_generated(persistent_arena, next_depth_palette, nullptr,
@@ -642,7 +667,6 @@ private:
   using Choreography::begin_choreography;
   using Choreography::params;
   using Choreography::step_choreography;
-  using Choreography::register_animated_param;
   using Choreography::timeline;
   using Choreography::transition;
 
@@ -917,6 +941,13 @@ private:
                 "HyperLattice persistent footprint exceeds the default "
                 "partition");
 };
+
+inline void HyperLatticeDetail::Params::lerp(const Params &start,
+                                             const Params &target,
+                                             float amount) {
+  Control::interpolate_fields(*this, start, target, amount,
+                              HyperLattice<1, 1>::parameter_fields());
+}
 
 static_assert(
     [] {

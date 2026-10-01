@@ -47,35 +47,10 @@ struct MindSplatterParams {
    * @param t Interpolation factor in [0, 1].
    */
   void lerp(const MindSplatterParams &start, const MindSplatterParams &target,
-            float t) {
-    // Width pin; pin_field_set() is what catches an added or removed field.
-    static_assert(sizeof(MindSplatterParams) == 7 * sizeof(float),
-                  "MindSplatter::Params field set changed — update lerp");
-    base_mesh = t < 0.5f ? start.base_mesh : target.base_mesh;
-    friction = start.friction + (target.friction - start.friction) * t;
-    well_strength =
-        start.well_strength + (target.well_strength - start.well_strength) * t;
-    initial_speed =
-        start.initial_speed + (target.initial_speed - start.initial_speed) * t;
-    angular_speed =
-        start.angular_speed + (target.angular_speed - start.angular_speed) * t;
-    warp_scale = start.warp_scale + (target.warp_scale - start.warp_scale) * t;
-  }
-
-  /**
-   * @brief Compile-time field-set pin for lerp(); never called.
-   * @details The binding names every member, so adding or removing a field is a
-   *          build error here. sizeof() cannot stand in: base_mesh's tail
-   *          padding absorbs an added small field and leaves the size
-   *          unchanged. Engine-written active_count is excluded from lerp() on
-   *          purpose.
-   */
-  static void pin_field_set(const MindSplatterParams &p) {
-    const auto &[mesh, fric, well, speed, angular, warp, active] = p;
-    (void)mesh, (void)fric, (void)well, (void)speed, (void)angular, (void)warp,
-        (void)active;
-  }
+            float t);
 };
+
+static_assert(sizeof(MindSplatterParams) == 7 * sizeof(float));
 
 /**
  * @brief Particle effect spraying from Platonic-solid emitters toward
@@ -147,21 +122,7 @@ public:
                   "MindSplatter trail staging exceeds its scratch_a split; "
                   "retune TRAIL_LEN or enlarge the split");
 
-    register_animated_param(
-        "Base Mesh", &params.base_mesh, Solids::BASE_MESH_OPTIONS,
-        Solids::BASE_MESH_EXPORT_OPTIONS, Solids::PLATONIC_BASE_MESH_COUNT);
-    register_animated_param("Friction", &params.friction, FRICTION_MIN,
-                            FRICTION_MAX);
-    register_animated_param("Well Str", &params.well_strength,
-                            WELL_STRENGTH_MIN, WELL_STRENGTH_MAX);
-    register_animated_param("Init Spd", &params.initial_speed,
-                            INITIAL_SPEED_MIN, INITIAL_SPEED_MAX);
-    register_animated_param("Ang Spd", &params.angular_speed, ANGULAR_SPEED_MIN,
-                            ANGULAR_SPEED_MAX);
-    register_animated_param("Warp", &params.warp_scale, WARP_SCALE_MIN,
-                            WARP_SCALE_MAX);
-    register_readonly_param("Particles", &params.active_count, 0.0f,
-                            (float)NUM_PARTICLES);
+    this->register_described_params();
 
     timeline.add(0, Animation::RandomWalk<W>(orientation, math::Y_AXIS, noise));
 
@@ -218,15 +179,7 @@ private:
   using Choreography::hold_initial_preset;
   using Choreography::step_choreography;
   using Choreography::params;
-  using Choreography::register_animated_param;
-  using Choreography::register_readonly_param;
   using Choreography::timeline;
-  using Choreography::transition;
-
-  /** @brief Writes the interpolated parameters of an in-flight transition. */
-  void blend_params(float progress) {
-    params.lerp(transition.from, transition.to, progress);
-  }
 
   // Test seam for emitter and attractor invariants.
   friend struct ::hs_test::effects_tests::MindSplatterWhiteBox;
@@ -352,23 +305,66 @@ private:
   }
 #endif
 
-  /** @brief True iff every preset-driven field of @p p lies within its
-   *  registered slider range (see the range constants above). */
-  static constexpr bool preset_in_ranges(const Params &p) {
-    return static_cast<size_t>(p.base_mesh) <
-               Solids::PLATONIC_BASE_MESH_COUNT &&
-           p.friction >= FRICTION_MIN && p.friction <= FRICTION_MAX &&
-           p.well_strength >= WELL_STRENGTH_MIN &&
-           p.well_strength <= WELL_STRENGTH_MAX &&
-           p.initial_speed >= INITIAL_SPEED_MIN &&
-           p.initial_speed <= INITIAL_SPEED_MAX &&
-           p.angular_speed >= ANGULAR_SPEED_MIN &&
-           p.angular_speed <= ANGULAR_SPEED_MAX &&
-           p.warp_scale >= WARP_SCALE_MIN && p.warp_scale <= WARP_SCALE_MAX;
+public:
+  /** @brief Shared registration, validation and interpolation descriptions. */
+  static constexpr auto parameter_fields() {
+    return std::tuple{
+        Control::Field<Params, BaseMesh>{
+            .id = "base_mesh",
+            .member = &Params::base_mesh,
+            .name = "Base Mesh",
+            .spec = {.min = 0,
+                     .max = static_cast<int64_t>(
+                                Solids::PLATONIC_BASE_MESH_COUNT) -
+                            1,
+                     .animated = true,
+                     .options = Solids::BASE_MESH_OPTIONS,
+                     .export_options = Solids::BASE_MESH_EXPORT_OPTIONS,
+                     .option_count = Solids::PLATONIC_BASE_MESH_COUNT}},
+        Control::Field<Params, float>{.id = "friction",
+                                      .member = &Params::friction,
+                                      .name = "Friction",
+                                      .spec = {.min = FRICTION_MIN,
+                                               .max = FRICTION_MAX,
+                                               .animated = true}},
+        Control::Field<Params, float>{.id = "well_strength",
+                                      .member = &Params::well_strength,
+                                      .name = "Well Str",
+                                      .spec = {.min = WELL_STRENGTH_MIN,
+                                               .max = WELL_STRENGTH_MAX,
+                                               .animated = true}},
+        Control::Field<Params, float>{.id = "initial_speed",
+                                      .member = &Params::initial_speed,
+                                      .name = "Init Spd",
+                                      .spec = {.min = INITIAL_SPEED_MIN,
+                                               .max = INITIAL_SPEED_MAX,
+                                               .animated = true}},
+        Control::Field<Params, float>{.id = "angular_speed",
+                                      .member = &Params::angular_speed,
+                                      .name = "Ang Spd",
+                                      .spec = {.min = ANGULAR_SPEED_MIN,
+                                               .max = ANGULAR_SPEED_MAX,
+                                               .animated = true}},
+        Control::Field<Params, float>{.id = "warp_scale",
+                                      .member = &Params::warp_scale,
+                                      .name = "Warp",
+                                      .spec = {.min = WARP_SCALE_MIN,
+                                               .max = WARP_SCALE_MAX,
+                                               .animated = true}},
+        Control::Field<Params, float>{.id = "active_count",
+                                      .member = &Params::active_count,
+                                      .name = "Particles",
+                                      .spec = {.min = 0.0f,
+                                               .max = (float)NUM_PARTICLES,
+                                               .readonly = true},
+                                      .interpolated = false,
+                                      .validated = false}};
   }
 
-  /** @brief Whether a parameter set is admissible for a snapshot restore. */
-  static bool valid_params(const Params &p) { return preset_in_ranges(p); }
+private:
+  static constexpr bool preset_in_ranges(const Params &p) {
+    return Control::valid_fields(p, parameter_fields());
+  }
 
   // well_strength is pre-scaled by the preset's own friction because the
   // integrator applies v <- friction*v + impulse, dragging velocity before the
@@ -677,3 +673,10 @@ private:
     timeline.add(0, warp);
   }
 };
+
+inline void MindSplatterParams::lerp(const MindSplatterParams &start,
+                                     const MindSplatterParams &target,
+                                     float t) {
+  Control::interpolate_fields(*this, start, target, t,
+                              MindSplatter<1, 1>::parameter_fields());
+}

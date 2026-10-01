@@ -282,29 +282,90 @@ public:
   static constexpr float HUE_NOISE_SPEED_MIN = -0.001f;
   static constexpr float HUE_NOISE_SPEED_MAX = 0.001f;
 
+  static constexpr const char *TWIST_OPTIONS[] = {"0", "1", "2", "3", "4",
+                                                  "5", "6", "7", "8"};
+  static constexpr int NUM_TWISTS = static_cast<int>(std::size(TWIST_OPTIONS));
+  static_assert(TWIST_MIN == 0 && TWIST_MAX == NUM_TWISTS - 1);
+
   static constexpr Params initial_params() { return {}; }
 
+  /** @brief Shared registration, validation and interpolation descriptions. */
+  static constexpr auto parameter_fields() {
+    return std::tuple{
+        Control::Field<Params, PlacementSolid>{
+            .id = "base_solid",
+            .member = &Params::base_solid,
+            .name = "Base Solid",
+            .spec = {.min = 0,
+                     .max = static_cast<int64_t>(PLACEMENT_SOLID_COUNT) - 1,
+                     .animated = true,
+                     .options = PLACEMENT_SOLID_OPTIONS.data(),
+                     .export_options = PLACEMENT_SOLID_EXPORT_OPTIONS,
+                     .option_count = PLACEMENT_SOLID_COUNT}},
+        Control::Field<Params, float>{
+            .id = "pulse_speed",
+            .member = &Params::pulse_speed,
+            .name = "Pulse Speed",
+            .spec = {.min = PULSE_SPEED_MIN, .max = PULSE_SPEED_MAX}},
+        Control::Field<Params, float>{
+            .id = "fill",
+            .member = &Params::fill,
+            .name = "Fill",
+            .spec = {.min = FILL_MIN, .max = FILL_MAX}},
+        Control::Field<Params, uint8_t>{
+            .id = "max_steps",
+            .member = &Params::max_steps,
+            .name = "Max Steps",
+            .spec = {.min = MAX_STEPS_MIN, .max = MAX_STEPS_MAX}},
+        Control::Field<Params, float>{
+            .id = "diffuse",
+            .member = &Params::diffuse,
+            .name = "Diffuse",
+            .spec = {.min = DIFFUSE_MIN, .max = DIFFUSE_MAX}},
+        Control::Field<Params, float>{
+            .id = "specular",
+            .member = &Params::specular,
+            .name = "Specular",
+            .spec = {.min = SPECULAR_MIN, .max = SPECULAR_MAX}},
+        Control::Field<Params, float>{
+            .id = "fresnel",
+            .member = &Params::fresnel,
+            .name = "Fresnel",
+            .spec = {.min = FRESNEL_MIN, .max = FRESNEL_MAX}},
+        Control::Field<Params, float>{
+            .id = "twist",
+            .member = &Params::twist,
+            .name = "Twist",
+            .spec = {.min = 0,
+                     .max = static_cast<float>(NUM_TWISTS - 1),
+                     .options = TWIST_OPTIONS,
+                     .option_count = NUM_TWISTS}},
+        Control::Field<Params, float>{
+            .id = "aa_mult",
+            .member = &Params::aa_mult,
+            .name = "AA Width",
+            .spec = {.min = AA_MULT_MIN, .max = AA_MULT_MAX}},
+        Control::Field<Params, float>{
+            .id = "hue_shift",
+            .member = &Params::hue_shift,
+            .name = "Hue Shift",
+            .spec = {.min = HUE_SHIFT_MIN, .max = HUE_SHIFT_MAX}},
+        Control::Field<Params, float>{
+            .id = "hue_noise_scale",
+            .member = &Params::hue_noise_scale,
+            .name = "Hue Noise Scale",
+            .spec = {.min = HUE_NOISE_SCALE_MIN, .max = HUE_NOISE_SCALE_MAX}},
+        Control::Field<Params, float>{
+            .id = "hue_noise_speed",
+            .member = &Params::hue_noise_speed,
+            .name = "Hue Noise Speed",
+            .spec = {.min = HUE_NOISE_SPEED_MIN, .max = HUE_NOISE_SPEED_MAX}}};
+  }
+
   static constexpr bool preset_in_ranges(const Params &value) {
-    return static_cast<size_t>(value.base_solid) < PLACEMENT_SOLID_COUNT &&
-           value.pulse_speed >= PULSE_SPEED_MIN &&
-           value.pulse_speed <= PULSE_SPEED_MAX && value.fill >= FILL_MIN &&
-           value.fill <= FILL_MAX && value.max_steps >= MAX_STEPS_MIN &&
-           value.max_steps <= MAX_STEPS_MAX && value.diffuse >= DIFFUSE_MIN &&
-           value.diffuse <= DIFFUSE_MAX && value.specular >= SPECULAR_MIN &&
-           value.specular <= SPECULAR_MAX && value.fresnel >= FRESNEL_MIN &&
-           value.fresnel <= FRESNEL_MAX && value.twist >= TWIST_MIN &&
-           value.twist <= TWIST_MAX && value.aa_mult >= AA_MULT_MIN &&
-           value.aa_mult <= AA_MULT_MAX && value.hue_shift >= HUE_SHIFT_MIN &&
-           value.hue_shift <= HUE_SHIFT_MAX &&
-           value.hue_noise_scale >= HUE_NOISE_SCALE_MIN &&
-           value.hue_noise_scale <= HUE_NOISE_SCALE_MAX &&
-           value.hue_noise_speed >= HUE_NOISE_SPEED_MIN &&
-           value.hue_noise_speed <= HUE_NOISE_SPEED_MAX;
+    return Control::valid_fields(value, parameter_fields());
   }
   static_assert(preset_in_ranges(initial_params()));
-  static constexpr bool valid_params(const Params &value) {
-    return preset_in_ranges(value);
-  }
 
   /**
    * @brief Constructs the effect at the templated render dimensions.
@@ -320,27 +381,10 @@ public:
    */
   HS_COLD_MEMBER void init() override {
     begin_choreography();
-    register_animated_param(
-        "Base Solid", &params.base_solid, PLACEMENT_SOLID_OPTIONS.data(),
-        PLACEMENT_SOLID_EXPORT_OPTIONS, PLACEMENT_SOLID_COUNT);
-    register_param("Pulse Speed", &params.pulse_speed, PULSE_SPEED_MIN,
-                   PULSE_SPEED_MAX);
+    this->register_described_params();
+
     // Fraction of the half nearest-neighbour gap the ring's outer edge reaches:
     // < 1 leaves a gap, 1 makes neighbours touch, > 1 overlaps them deliberately.
-    register_param("Fill", &params.fill, FILL_MIN, FILL_MAX);
-    register_int_param("Max Steps", &params.max_steps, MAX_STEPS_MIN,
-                       MAX_STEPS_MAX);
-    register_param("Diffuse", &params.diffuse, DIFFUSE_MIN, DIFFUSE_MAX);
-    register_param("Specular", &params.specular, SPECULAR_MIN, SPECULAR_MAX);
-    register_param("Fresnel", &params.fresnel, FRESNEL_MIN, FRESNEL_MAX);
-    register_param("Twist", &params.twist, TWIST_OPTIONS, NUM_TWISTS);
-    register_param("AA Width", &params.aa_mult, AA_MULT_MIN, AA_MULT_MAX);
-    register_param("Hue Shift", &params.hue_shift, HUE_SHIFT_MIN,
-                   HUE_SHIFT_MAX);
-    register_param("Hue Noise Scale", &params.hue_noise_scale,
-                   HUE_NOISE_SCALE_MIN, HUE_NOISE_SCALE_MAX);
-    register_param("Hue Noise Speed", &params.hue_noise_speed,
-                   HUE_NOISE_SPEED_MIN, HUE_NOISE_SPEED_MAX);
 
     build_points();
 
@@ -400,8 +444,6 @@ private:
   using Choreography::begin_choreography;
   using Choreography::step_choreography;
   using Choreography::params;
-  using Choreography::register_animated_param;
-  using Choreography::register_int_param;
   using Choreography::register_param;
   using Choreography::timeline;
 
@@ -409,10 +451,6 @@ private:
                 "Raymarch animations exceed the timeline capacity");
 
   /** Twist-count labels; the option index IS the twist count draw_fn reads. */
-  static constexpr const char *TWIST_OPTIONS[] = {"0", "1", "2", "3", "4",
-                                                  "5", "6", "7", "8"};
-  static constexpr int NUM_TWISTS = static_cast<int>(std::size(TWIST_OPTIONS));
-  static_assert(TWIST_MIN == 0 && TWIST_MAX == NUM_TWISTS - 1);
 
   // Torus proportions at scale 1: VIS_K is the visible outer ring radius,
   // UNIT_BOUNDS the bounding-sphere radius (bigger, may overlap a neighbour —

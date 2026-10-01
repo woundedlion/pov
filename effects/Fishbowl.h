@@ -76,19 +76,51 @@ public:
   static constexpr float SCALE_FACTOR_MIN = 1.0f, SCALE_FACTOR_MAX = 500.0f;
   static constexpr float CYCLE_SPEED_MIN = 0.0f, CYCLE_SPEED_MAX = 1.0f;
   static constexpr float DUTY_CYCLE_MIN = 0.0f, DUTY_CYCLE_MAX = 1.0f;
-  static constexpr bool valid_params(const Params &p) {
-    return p.alpha >= ALPHA_MIN && p.alpha <= ALPHA_MAX &&
-           p.cycle_duration >= CYCLE_DURATION_MIN &&
-           p.cycle_duration <= CYCLE_DURATION_MAX && p.speed >= SPEED_MIN &&
-           p.speed <= SPEED_MAX && p.jitter_amp >= JITTER_AMP_MIN &&
-           p.jitter_amp <= JITTER_AMP_MAX && p.noise_freq >= NOISE_FREQ_MIN &&
-           p.noise_freq <= NOISE_FREQ_MAX &&
-           p.scale_factor >= SCALE_FACTOR_MIN &&
-           p.scale_factor <= SCALE_FACTOR_MAX &&
-           p.cycle_speed >= CYCLE_SPEED_MIN &&
-           p.cycle_speed <= CYCLE_SPEED_MAX && p.duty_cycle >= DUTY_CYCLE_MIN &&
-           p.duty_cycle <= DUTY_CYCLE_MAX;
+  /** @brief Shared registration, validation and interpolation descriptions. */
+  static constexpr auto parameter_fields() {
+    return std::tuple{
+        Control::Field<Params, float>{
+            .id = "alpha",
+            .member = &Params::alpha,
+            .name = "Alpha",
+            .spec = {.min = ALPHA_MIN, .max = ALPHA_MAX}},
+        Control::Field<Params, float>{
+            .id = "cycle_duration",
+            .member = &Params::cycle_duration,
+            .name = "Cycle Dur",
+            .spec = {.min = CYCLE_DURATION_MIN, .max = CYCLE_DURATION_MAX}},
+        Control::Field<Params, float>{
+            .id = "speed",
+            .member = &Params::speed,
+            .name = "Speed",
+            .spec = {.min = SPEED_MIN, .max = SPEED_MAX}},
+        Control::Field<Params, float>{
+            .id = "jitter_amp",
+            .member = &Params::jitter_amp,
+            .name = "Jitter Amp",
+            .spec = {.min = JITTER_AMP_MIN, .max = JITTER_AMP_MAX}},
+        Control::Field<Params, float>{
+            .id = "noise_freq",
+            .member = &Params::noise_freq,
+            .name = "Noise Scale",
+            .spec = {.min = NOISE_FREQ_MIN, .max = NOISE_FREQ_MAX}},
+        Control::Field<Params, float>{
+            .id = "scale_factor",
+            .member = &Params::scale_factor,
+            .name = "Scale Factor",
+            .spec = {.min = SCALE_FACTOR_MIN, .max = SCALE_FACTOR_MAX}},
+        Control::Field<Params, float>{
+            .id = "cycle_speed",
+            .member = &Params::cycle_speed,
+            .name = "Cycle Speed",
+            .spec = {.min = CYCLE_SPEED_MIN, .max = CYCLE_SPEED_MAX}},
+        Control::Field<Params, float>{
+            .id = "duty_cycle",
+            .member = &Params::duty_cycle,
+            .name = "Duty Cycle",
+            .spec = {.min = DUTY_CYCLE_MIN, .max = DUTY_CYCLE_MAX}}};
   }
+
   static constexpr std::array<std::string_view, 1> PRESET_IDS{"fire-trail"};
   static constexpr int TRAIL_LENGTH = Animation::TRAIL_HISTORY_LENGTH;
   static constexpr int ORIENTATION_SUBSTEPS =
@@ -168,20 +200,7 @@ public:
 
     static_palette.bind(&fire_palette, &scale_mod, &cycle_mod, &duty_mod);
 
-    register_param("Alpha", &params.alpha, ALPHA_MIN, ALPHA_MAX);
-    register_param("Cycle Dur", &params.cycle_duration, CYCLE_DURATION_MIN,
-                   CYCLE_DURATION_MAX);
-    register_param("Speed", &params.speed, SPEED_MIN, SPEED_MAX);
-    register_param("Jitter Amp", &params.jitter_amp, JITTER_AMP_MIN,
-                   JITTER_AMP_MAX);
-    register_param("Noise Scale", &params.noise_freq, NOISE_FREQ_MIN,
-                   NOISE_FREQ_MAX);
-    register_param("Scale Factor", &params.scale_factor, SCALE_FACTOR_MIN,
-                   SCALE_FACTOR_MAX);
-    register_param("Cycle Speed", &params.cycle_speed, CYCLE_SPEED_MIN,
-                   CYCLE_SPEED_MAX);
-    register_param("Duty Cycle", &params.duty_cycle, DUTY_CYCLE_MIN,
-                   DUTY_CYCLE_MAX);
+    this->register_described_params();
 
     noise_xform.template_params.amplitude = params.jitter_amp;
     noise_xform.template_params.frequency = params.noise_freq;
@@ -407,7 +426,7 @@ private:
   static constexpr std::array<PresetEntry<Params>, 1> PRESETS{
       {{PRESET, DEPARTURE}}};
   static_assert(all_presets_in_ranges(PRESETS, [](const Params &p) {
-    return valid_params(p);
+    return Choreography::valid_params(p);
   }));
 
   ScaleModifier scale_mod{

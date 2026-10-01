@@ -1,7 +1,7 @@
 # Parameter descriptions
 
-**Status: IMPLEMENTED typed registration.** Runtime descriptors retain their
-existing ABI; field-schema migration is separate.
+**Status: IMPLEMENTED typed registration and shared field descriptions.**
+Runtime descriptors retain their existing ABI.
 
 ## Typed registration
 
@@ -59,3 +59,48 @@ continue to apply.
 
 Behavioral tests live in `tests/test_canvas.h`; invalid ranges, labels and
 initial-value policies are covered in `tests/test_death.h`.
+
+## Field descriptions
+
+`core/control/fields.h` defines `Control::Field<Owner, Value>`. Each description
+names a typed member pointer, a machine identifier, an optional slider name,
+and its `ParamSpec<Value>`. Heterogeneous tuples can describe floats, integers,
+enums and booleans together. `Control::FieldGroup` describes a nested aggregate
+without changing either aggregate's layout. The control layer depends on no
+renderer types.
+
+The same descriptions drive ordered registration, constexpr range validation
+and interpolation. A null slider name excludes registration while retaining
+validation and interpolation. Validation rejects non-finite floats, unordered
+or non-finite bounds, and integral bounds outside the target representation.
+An explicit validation bound may differ from the registered slider bound;
+ShapeShifter validates authored Count values against its authored capacity,
+then clamps adopted Count to the canvas drawing limit.
+
+Continuous domains support endpoint-exact linear interpolation, geometric
+positive interpolation, shortest periodic arcs in radians or turns, and snap.
+`RAW_LINEAR` retains the arithmetic of existing handwritten transitions.
+Integral, enum and bool fields switch at the midpoint by default, or hold the
+start value until completion under `SNAP`. Descriptions can independently
+exclude validation and interpolation. Interpolation writes only described,
+included fields into the destination, preserving telemetry and untabled state.
+
+Choreographed effects provide `parameter_fields()` or declare `Params::FIELDS`. Their base supplies
+registration, default range validation, and a default blend hook. Effects retain
+custom cross-field admission, adoption and blend hooks: HyperLattice checks
+supported pattern/view combinations and refreshes configuration metadata;
+Comets validates its path function; feedback noise bindings remain effect-owned.
+MindSplatter's live particle count is readonly and excluded from validation and
+interpolation. The eight authored effects preserve their parameter layouts,
+names, order, bounds, labels, animation flags, presets and transition arithmetic.
+
+Pullback's scalar arrays remain adapters over these descriptions. Their existing
+field IDs, curves, catalog representation, renderer gates and topology metadata
+remain in `core/render/pullback/fields.h`. Renderer gates decide registration;
+shared control operations implement scalar validation and interpolation. The
+operator catalog and generated pattern bytes remain unchanged.
+
+`tests/test_param_marshal.h` covers typed/nested registration order, invalid
+description bounds, discrete transitions, curve domains, excluded state, and
+invalid snapshot ranges across all eight authored effects. Existing pullback,
+choreography, preset, effect and capture tests pin their behavior.

@@ -895,7 +895,7 @@ cannot carry two `iso_level` sets). The mechanism is a reusable
 composition, not an undefined merge: `Value::Combine<Families...>`
 inherits each required family, so field access by name resolves through
 the base and `ValueProvider` is unchanged. The field-table half rests
-on one language fact, not a redesign of `fields.h`: `Field<Owner>`
+on one language fact, not a redesign of `core/render/pullback/fields.h`: `Field<Owner>`
 holds an owner-typed member pointer in a homogeneous array, and a
 `float Base::*` converts implicitly — including in constant
 expressions — to `float Combined::*`, so `Combine`'s `FIELDS` is a

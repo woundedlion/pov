@@ -28,7 +28,7 @@ The rasterizer and driver specs:
 
 | Document | Status and scope |
 |---|---|
-| [parameter_description_spec.md](parameter_description_spec.md) | IMPLEMENTED. Typed parameter registration, bounds and label validation, initial-value policy, and runtime descriptor compatibility. |
+| [parameter_description_spec.md](parameter_description_spec.md) | IMPLEMENTED. Typed parameter registration and shared field descriptions for registration, validation and interpolation, with renderer adapters and preserved runtime descriptor compatibility. |
 
 ## Mesh morphing
 

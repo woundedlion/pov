@@ -1114,8 +1114,8 @@ protected:
   template <typename T> HS_COLD_MEMBER void register_fields(T &family) {
     for (const auto &field : T::FIELDS)
       if (field.name != nullptr && Derived::field_gate_open(field.gate))
-        register_animated_param(field.name, &(family.*(field.member)),
-                                field.min, field.max);
+        this->register_param(field.name, &(family.*(field.member)),
+                             field.description().spec);
   }
 
   /** @brief Adopts a snap target and re-derives the palette mapping weights. */
