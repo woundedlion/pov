@@ -182,6 +182,7 @@ private:
  * @brief An animation that invokes a callback with eased progress each frame.
  * @details Drives state the caller owns and writes itself, where the other
  * parameter animations write a float or a lerp() subject for it.
+ * Eased progress is clamped to [0, 1]; overshooting easings saturate at endpoints.
  */
 class Progress : public PausableParamAnimationBase<Progress> {
 public:
