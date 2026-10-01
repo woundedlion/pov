@@ -1750,3 +1750,33 @@ export function engineControlNames(parameterId) {
     return ['Opacity at Value 1'];
   return [words];
 }
+
+/** The one topology field a composed effect leaves live, as a dropdown. */
+export const LIVE_TOPOLOGY_FIELD = 'palette-mapping';
+
+/**
+ * Field segments a composed effect bakes into its build rather than
+ * registering a control for: the catalog's topology parameters, which select
+ * an operator's structural variant, less the one field left live.
+ *
+ * @param {*} catalog The engine operator catalog.
+ * @returns {Set<string>} The field segments a fixed apply skips.
+ */
+export function bakedTopologyFields(catalog) {
+  const fields = new Set();
+  for (const operator of catalog?.operators ?? []) {
+    for (const parameter of operator.params ?? []) {
+      if (parameter.topology === true) fields.add(parameter.id);
+    }
+  }
+  fields.delete(LIVE_TOPOLOGY_FIELD);
+  return fields;
+}
+
+/**
+ * Parameter ids a composed effect holds as a compile-time constant: the
+ * document carries the value so the chain interpreter reproduces the motion,
+ * the compiled build registers no control, and a fixed apply has nothing to
+ * write. AshCloud's CAMERA_SPIN_RATE is the only one.
+ */
+export const BAKED_CONSTANT_IDS = new Set(['camera.spin-speed']);

@@ -2,7 +2,7 @@ import { readFile, readdir, writeFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import { isMain } from './exit.mjs';
 import { resolve } from 'node:path';
-import { compileShaderDocument, fixedDerivedBinding } from './shader_workbench.mjs';
+import { BAKED_CONSTANT_IDS, LIVE_TOPOLOGY_FIELD, compileShaderDocument, fixedDerivedBinding } from './shader_workbench.mjs';
 import { loadOperatorCatalog } from './pattern_documents.mjs';
 
 const ROOT = fileURLToPath(new URL('../', import.meta.url));
@@ -17,7 +17,7 @@ const catalog = await loadOperatorCatalog();
 
 const topologyIds = (document) => new Set(document.descriptor.chain.flatMap((slot) =>
   catalog.operators.find((operator) => operator.id === slot.operator).params
-    .filter((field) => field.topology && field.id !== 'palette-mapping')
+    .filter((field) => field.topology && field.id !== LIVE_TOPOLOGY_FIELD)
     .map((field) => `${slot.label}.${field.id}`)));
 
 export function floatLiteral(value) {
@@ -43,7 +43,7 @@ export function presetAssignments(document, values) {
       continue;
     }
     if (topology.has(id)) continue;
-    if (id === 'camera.spin-speed') continue;
+    if (BAKED_CONSTANT_IDS.has(id)) continue;
     let member;
     if (id === 'camera.wander') member = 'projection.camera_wander';
     else if (id === 'sample.edge-width') member = 'value.edge_width';
