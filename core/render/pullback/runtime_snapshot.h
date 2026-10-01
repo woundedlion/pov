@@ -4,6 +4,9 @@
  */
 #pragma once
 
+/** @file runtime_snapshot.h
+ * @brief Captured operator runtime state and restore codecs. */
+
 #include <variant>
 #include "render/pullback/runtime_seeds.h"
 #include "math/3dmath.h"
@@ -68,6 +71,7 @@ inline const char *runtime_snapshot_kind(const RuntimeSnapshot &snapshot) {
   return KINDS[snapshot.index()];
 }
 
+/** @brief Stateful operators specialize this codec; the primary captures monostate. */
 template <typename State> struct RuntimeStateCodec {
   static RuntimeSnapshot capture(const State &) { return {}; }
   static bool restore(State &, const RuntimeSnapshot &snapshot) {

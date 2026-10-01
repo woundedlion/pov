@@ -4,6 +4,9 @@
  */
 #pragma once
 
+/** @file composed_resources.h
+ * @brief Per-key resources for composed pullback stages. */
+
 #include <string_view>
 #include <tuple>
 #include <type_traits>
