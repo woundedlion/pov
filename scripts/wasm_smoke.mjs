@@ -105,8 +105,6 @@ function armDynamicExecProbe() {
   return probe;
 }
 
-// main() lets a fatal precondition set exitCode and return, so buffered stdout
-// flushes rather than being cut off by process.exit().
 function chainCall(engine, method, ...args) {
   const bindings = engine.getShaderChainBindings();
   if (!bindings) throw new Error('Missing chain capability');
@@ -117,6 +115,8 @@ function chainCall(engine, method, ...args) {
   }
 }
 
+// main() lets a fatal precondition set exitCode and return, so buffered stdout
+// flushes rather than being cut off by process.exit().
 async function main(probe) {
   if (!Number.isInteger(STACK_HWM_CEILING_BYTES) || STACK_HWM_CEILING_BYTES <= 0) {
     console.error(`wasm_smoke: WASM_SMOKE_STACK_CEILING must be a positive integer, ` +
