@@ -1199,19 +1199,27 @@ struct ScaleLens : Pullback::ApproximationDefaults {
   }
 };
 
-inline void test_pullback_lens_stack() {
-  // Consecutive Lens stages are the composition mechanism.
-  using BoundAdd = Pullback::Stage::Lens<AddLens>::Bind<TestBinding>;
-  using BoundScale = Pullback::Stage::Lens<ScaleLens>::Bind<TestBinding>;
-  const TestFrame frame;
-  const Pullback::SphereSample stacked = BoundScale::run(
-      BoundAdd::run({math::Vector(3.0f, 2.0f, 1.0f), 0.0f}, frame, {}), frame,
-      {});
-  HS_EXPECT_EQ(stacked.dir.x, 8.0f);
-  HS_EXPECT_EQ(stacked.dir.y, 2.0f);
-  HS_EXPECT_EQ(stacked.dir.z, 1.0f);
-}
+struct DirectionColorStage
+    : Pullback::Stage::Contract<DirectionColorStage, Pullback::SphereSample,
+                                Color4> {
+  using Policies = std::tuple<>;
+  template <typename Binding>
+  static Color4 run(const Pullback::SphereSample &input, const TestFrame &,
+                    const Pullback::NoPrepared &) {
+    return Color4(Pixel(static_cast<uint16_t>(input.dir.x), 0, 0), 1.0f);
+  }
+};
 
+inline void test_pullback_lens_stack() {
+  using Stacked =
+      Pullback::Pipeline<TestBinding, Pullback::Stage::Lens<AddLens>,
+                         Pullback::Stage::Lens<ScaleLens>, DirectionColorStage>;
+  static_assert(Stacked::Validation::MONOTONE);
+  static_assert(Stacked::Validation::CARRIERS);
+  const auto frame = Stacked::prepare(TestFrame{});
+  const Color4 stacked = Stacked::shade(math::Vector(3.0f, 2.0f, 1.0f), frame);
+  HS_EXPECT_EQ(stacked.color.r, 8);
+}
 struct SkyGradientStage
     : Pullback::Stage::Contract<SkyGradientStage, Pullback::SphereSample,
                                 Color4> {
