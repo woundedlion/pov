@@ -94,7 +94,7 @@ using hs_test::smoke_frames;
  * 41,472-pixel frames. The QUICK tier (default) runs the small-aspect <96,20>
  * smoke + determinism passes, ~1,920-pixel frames that cover every effect's
  * construct/init/render/read-back and cross-run determinism, plus every
- * white-box case under 50 ms. CI opts into the full suite on
+ * white-box case outside the FULL block. CI opts into the full suite on
  * every master push and PR by setting HS_EFFECTS_FULL=1 (.github/workflows/ci.yml), so the
  * full-resolution passes and the slow white-box cases are the
  * authoritative gate there, not locally. Set HS_EFFECTS_FULL=1 to reproduce the
