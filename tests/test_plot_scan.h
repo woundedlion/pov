@@ -3681,8 +3681,7 @@ inline void test_rasterize_antipodal_seam_planar_falls_back_geodesic() {
  *        endpoints, with no clustering or gaps the projection-linear chord would
  *        otherwise leave.
  * @details Exercises the planar strategy path (rasterize_planar_strategy +
- *          map_planar), which the other rasterize tests do not reach — the
- *          antipodal-seam case falls back to geodesic. This locks in the
+ *          map_planar); the antipodal-seam case falls back to geodesic. Pins the
  *          end-to-end arc-uniform sampling the LEN_SAMPLES table provides; it
  *          does not isolate the table's contribution from the rasterizer's
  *          adaptive (sin-phi) sub-stepping, which also shapes local density.
