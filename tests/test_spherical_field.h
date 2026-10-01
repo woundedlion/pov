@@ -14,6 +14,15 @@
 namespace hs_test {
 namespace spherical_field_tests {
 
+inline constexpr auto bilinear_int = [](int p00, int p10, int p01, int p11,
+                                        float fx, float fy) {
+  const float LOWER =
+      hs::lerp(static_cast<float>(p00), static_cast<float>(p10), fx);
+  const float UPPER =
+      hs::lerp(static_cast<float>(p01), static_cast<float>(p11), fx);
+  return static_cast<int>(hs::lerp(LOWER, UPPER, fy));
+};
+
 struct Pair {
   float a;
   float b;
@@ -207,13 +216,7 @@ inline void test_longitude_filter_and_sampler_wrap_poles() {
   const int scalar_poles[]{-1};
   const int sample = layout.sample_bilinear(
       7.0f, -1.0f, scalar_poles, 0, [](int x, int y) { return y * 100 + x; },
-      [](int p00, int p10, int p01, int p11, float fx, float fy) {
-        const float lower =
-            hs::lerp(static_cast<float>(p00), static_cast<float>(p10), fx);
-        const float upper =
-            hs::lerp(static_cast<float>(p01), static_cast<float>(p11), fx);
-        return static_cast<int>(hs::lerp(lower, upper, fy));
-      });
+      bilinear_int);
   HS_EXPECT_EQ(sample, 100 + 7 + W / 2);
 
   std::array<Rgb, W * 34> rgb{};
@@ -253,14 +256,7 @@ inline void test_sampler_collapses_south_pole_without_virtual_rows() {
   const int scalar_poles[]{-1, 7000};
   const int sample = layout.sample_bilinear(
       7.0f, static_cast<float>(H - 1), scalar_poles, 0,
-      [](int x, int y) { return y * 100 + x; },
-      [](int p00, int p10, int p01, int p11, float fx, float fy) {
-        const float lower =
-            hs::lerp(static_cast<float>(p00), static_cast<float>(p10), fx);
-        const float upper =
-            hs::lerp(static_cast<float>(p01), static_cast<float>(p11), fx);
-        return static_cast<int>(hs::lerp(lower, upper, fy));
-      });
+      [](int x, int y) { return y * 100 + x; }, bilinear_int);
   HS_EXPECT_EQ(sample, scalar_poles[1]);
 }
 
@@ -282,13 +278,7 @@ inline void test_sampler_wraps_south_pole_with_virtual_rows() {
   const int scalar_poles[]{-1};
   const int sample = layout.sample_bilinear(
       7.0f, 40.0f, scalar_poles, 0, [](int x, int y) { return y * 100 + x; },
-      [](int p00, int p10, int p01, int p11, float fx, float fy) {
-        const float lower =
-            hs::lerp(static_cast<float>(p00), static_cast<float>(p10), fx);
-        const float upper =
-            hs::lerp(static_cast<float>(p01), static_cast<float>(p11), fx);
-        return static_cast<int>(hs::lerp(lower, upper, fy));
-      });
+      bilinear_int);
   HS_EXPECT_EQ(sample, 3200 + 7 + W / 2);
 }
 

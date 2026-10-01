@@ -362,6 +362,41 @@ inline void test_edge_reciprocity_high() {
 // CubemapLUT round-trip
 // ---------------------------------------------------------------------------
 
+inline const ReactionGraph::CubemapLUT &built_cubemap_lut() {
+  struct Fixture {
+    uint8_t buffer[6 * ReactionGraph::CubemapLUT::RES *
+                       ReactionGraph::CubemapLUT::RES * sizeof(uint16_t) +
+                   RD_N * sizeof(math::Vector) + 64];
+    Arena arena;
+    ReactionGraph::CubemapLUT lut;
+    Fixture() : arena(buffer, sizeof(buffer)) { lut.build(arena); }
+  };
+  static Fixture fixture;
+  return fixture.lut;
+}
+
+enum class LookupClass { EXACT, NEIGHBOR, MISS };
+
+inline LookupClass classify_lookup(const ReactionGraph::CubemapLUT &lut,
+                                   const math::Vector &q) {
+  int best = 0;
+  float best_distance = chord2(q, node(0));
+  for (int i = 1; i < RD_N; ++i) {
+    const float DISTANCE = chord2(q, node(i));
+    if (DISTANCE < best_distance) {
+      best_distance = DISTANCE;
+      best = i;
+    }
+  }
+  const int FOUND = lut.lookup(q);
+  if (FOUND == best)
+    return LookupClass::EXACT;
+  for (int k = 0; k < RD_K; ++k)
+    if (neighbors[best][k] == FOUND)
+      return LookupClass::NEIGHBOR;
+  return LookupClass::MISS;
+}
+
 /**
  * @brief Verifies CubemapLUT maps a node's own direction back to that node.
  * @details Looking up a node's own direction returns that node, or at worst a
@@ -369,12 +404,7 @@ inline void test_edge_reciprocity_high() {
  *          No lattice point may land two hops out.
  */
 inline void test_cubemap_lut_roundtrip() {
-  static uint8_t buf[6 * ReactionGraph::CubemapLUT::RES *
-                         ReactionGraph::CubemapLUT::RES * sizeof(uint16_t) +
-                     RD_N * sizeof(math::Vector) + 64];
-  Arena arena(buf, sizeof(buf));
-  ReactionGraph::CubemapLUT lut;
-  lut.build(arena);
+  const auto &lut = built_cubemap_lut();
 
   int exact = 0, near = 0, miss = 0;
   for (int i = 0; i < RD_N; i += 23) {
@@ -409,12 +439,7 @@ inline void test_cubemap_lut_roundtrip() {
  * nearest-node search, allowing one neighbor of error.
  */
 inline void test_cubemap_lut_offlattice() {
-  static uint8_t buf[6 * ReactionGraph::CubemapLUT::RES *
-                         ReactionGraph::CubemapLUT::RES * sizeof(uint16_t) +
-                     RD_N * sizeof(math::Vector) + 64];
-  Arena arena(buf, sizeof(buf));
-  ReactionGraph::CubemapLUT lut;
-  lut.build(arena);
+  const auto &lut = built_cubemap_lut();
 
   hs::Pcg32 rng(20240607u);
   const int SAMPLES = 400;
@@ -433,28 +458,10 @@ inline void test_cubemap_lut_offlattice() {
     q = q.normalized();
 
     // Brute-force argmin = the true nearest node.
-    int best = 0;
-    float best_d = chord2(q, node(0));
-    for (int i = 1; i < RD_N; ++i) {
-      float d = chord2(q, node(i));
-      if (d < best_d) {
-        best_d = d;
-        best = i;
-      }
-    }
-
-    int found = lut.lookup(q);
-    if (found == best) {
+    const LookupClass CLASSIFICATION = classify_lookup(lut, q);
+    if (CLASSIFICATION == LookupClass::EXACT)
       ++exact;
-      continue;
-    }
-    bool adjacent = false;
-    for (int k = 0; k < RD_K; ++k)
-      if (neighbors[best][k] == found) {
-        adjacent = true;
-        break;
-      }
-    if (adjacent)
+    else if (CLASSIFICATION == LookupClass::NEIGHBOR)
       ++near;
     else
       ++miss;
@@ -473,12 +480,7 @@ inline void test_cubemap_lut_offlattice() {
  * Queries across the equator exercise lookup quantization with one-cell tolerance.
  */
 inline void test_cubemap_lut_equatorial() {
-  static uint8_t buf[6 * ReactionGraph::CubemapLUT::RES *
-                         ReactionGraph::CubemapLUT::RES * sizeof(uint16_t) +
-                     RD_N * sizeof(math::Vector) + 64];
-  Arena arena(buf, sizeof(buf));
-  ReactionGraph::CubemapLUT lut;
-  lut.build(arena);
+  const auto &lut = built_cubemap_lut();
 
   const int LONGITUDES = 720;
   int exact = 0, near = 0, miss = 0;
@@ -490,28 +492,10 @@ inline void test_cubemap_lut_equatorial() {
     float r = std::sqrt(1.0f - y * y);
     math::Vector q(std::cos(lon) * r, y, std::sin(lon) * r);
 
-    int best = 0;
-    float best_d = chord2(q, node(0));
-    for (int i = 1; i < RD_N; ++i) {
-      float d = chord2(q, node(i));
-      if (d < best_d) {
-        best_d = d;
-        best = i;
-      }
-    }
-
-    int found = lut.lookup(q);
-    if (found == best) {
+    const LookupClass CLASSIFICATION = classify_lookup(lut, q);
+    if (CLASSIFICATION == LookupClass::EXACT)
       ++exact;
-      continue;
-    }
-    bool adjacent = false;
-    for (int k = 0; k < RD_K; ++k)
-      if (neighbors[best][k] == found) {
-        adjacent = true;
-        break;
-      }
-    if (adjacent)
+    else if (CLASSIFICATION == LookupClass::NEIGHBOR)
       ++near;
     else
       ++miss;
