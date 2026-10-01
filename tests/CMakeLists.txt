@@ -806,6 +806,14 @@ add_executable(sdf_periodic_benchmark periodic_surface_benchmark.cpp)
 target_include_directories(sdf_periodic_benchmark PRIVATE ${HS_ENGINE_INCLUDES})
 _hs_warnings(sdf_periodic_benchmark)
 
+file(CONFIGURE OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/spherical_experiment_check.cpp"
+  CONTENT "#include \"core/engine/engine.h\"\n#include \"tools/profile_spherical_experiment.h\"\ntemplate class SphericalExperiment<96, 20>;\n")
+add_library(spherical_experiment_check OBJECT EXCLUDE_FROM_ALL
+  "${CMAKE_CURRENT_BINARY_DIR}/spherical_experiment_check.cpp")
+target_include_directories(spherical_experiment_check PRIVATE ${HS_ENGINE_INCLUDES})
+target_link_libraries(spherical_experiment_check PRIVATE hs_test_support)
+_hs_warnings(spherical_experiment_check)
+
 # Apply the native display profile to compiled targets in this directory.
 get_property(_hs_dir_targets DIRECTORY PROPERTY BUILDSYSTEM_TARGETS)
 set(_hs_excluded)
