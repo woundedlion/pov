@@ -683,7 +683,7 @@ async function main(probe) {
       }
       if (catalog) {
         if (JSON.stringify(catalog) !== JSON.stringify(EXPECTED_OPERATOR_CATALOG)) {
-          fail('shader-chain: runtime operator catalog differs from scripts/engine_catalog.json');
+          fail('shader-chain: runtime operator catalog differs from scripts/engine_catalog.json — regenerate with: cmake --build --preset wasm-release --target regenerate_engine_catalog');
         }
         if (catalog.catalog_version !== 2) {
           fail(`shader-chain: catalog_version ${catalog.catalog_version}, expected 2`);
