@@ -11,7 +11,7 @@ of the optimization campaign is kept under
 
 | | |
 |---|---|
-| Hardware | Teensy 4.0 @ 600 MHz, POV segmented mode, flywheel + DMA ISRs live; both cycles on COM4, pinned presets on COM3 (paired captures of one image on both boards agree within 0.06%) |
+| Hardware | Teensy 4.0 @ 600 MHz, POV segmented mode, flywheel + DMA ISRs live; standard cycle on COM4, experimental cycle and pinned presets on COM3 (paired captures of one image on both boards agree within 0.06%) |
 | Image | `profile` env; the traced paths run from cached flash (`HS_HOT_FLASH_MEMBER` scans) and cross no `HS_O3` region |
 | Driver | `POVSegmented<288, 4, 480>`, board = segment 0 master |
 | Effect | HyperLattice 288×144, single-entry playlist; cycles captured at `b1ccbfa39`, pinned presets at the campaign branch before its rebase onto `67f935538` |
@@ -99,7 +99,7 @@ bucket, hence its 817 frames. Root cycles match the wall sum within 0.6 ppm
 ### Per-pixel figures
 
 The shader writes premultiplied pixels directly; there is no `filter_blend`
-counter. Standard cycle: 23.86 ms/f mean over 10,658 rays is about 1,340
+counter. Standard cycle: 23.76 ms/f mean over 10,658 rays is about 1,338
 cycles per ray.
 
 ## Column-ISR / DMA marshaling cost
