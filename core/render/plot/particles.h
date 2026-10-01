@@ -237,8 +237,7 @@ struct ParticleSystem {
       if (clip_active) {
         HS_PROFILE(plot_ps_gate);
         const size_t edges = trail.size() - 1;
-        auto *bits = static_cast<uint8_t *>(
-            scratch_arena_a.allocate(edges, alignof(uint8_t)));
+        auto *bits = scratch_arena_a.allocate_n<uint8_t>(edges);
         bool any = false;
         if constexpr (HoistableCull) {
           CartesianTrailGateResult cartesian_result;

@@ -95,8 +95,7 @@ public:
     // so the k=2 query is exact.
     ScratchScope scope_guard(scratch_arena_a);
     math::Vector *positions =
-        static_cast<math::Vector *>(scratch_arena_a.allocate(
-            sites_buffer.size() * sizeof(math::Vector), alignof(math::Vector)));
+        scratch_arena_a.allocate_n<math::Vector>(sites_buffer.size());
     // IIFE times the per-frame KD build while keeping `tree` at frame scope
     // (guaranteed copy elision on the prvalue return).
     KDTree tree = [&]() -> KDTree {
@@ -154,8 +153,7 @@ public:
     const int GAP_BEGIN =
         columns.active && columns.wrap ? (columns.re + B - 1) / B : nbx;
     const int GAP_END = columns.active && columns.wrap ? columns.rs / B : nbx;
-    CellId *cells = static_cast<CellId *>(
-        scratch_arena_a.allocate(nbx * nby * sizeof(CellId), alignof(CellId)));
+    CellId *cells = scratch_arena_a.allocate_n<CellId>(nbx * nby);
     // Clamp to the last canvas pixel: band-independent, and every classified
     // point indexes the trig LUT.
     auto corner_x = [&](int j) { return std::min(gx0 + j * B, W - 1); };
@@ -172,8 +170,7 @@ public:
     // One candidate set per block column, rebuilt on each block-row change.
     // Positions are copied in so the per-pixel scan runs over contiguous data.
     const int nblk = nbx - 1;
-    CandSet *cands = static_cast<CandSet *>(
-        scratch_arena_a.allocate(nblk * sizeof(CandSet), alignof(CandSet)));
+    CandSet *cands = scratch_arena_a.allocate_n<CandSet>(nblk);
     auto build_candidate_row = [&](int ky) {
       for (int jx = 0; jx < nblk; ++jx) {
         if (jx >= GAP_BEGIN && jx < GAP_END)

@@ -1917,8 +1917,7 @@ static __attribute__((always_inline)) inline TrailGatePrologue
 trail_gate_prologue(const ClipRegion &cr, const ClipRegion::XClip &xc,
                     const Fragments &trail) {
   const size_t n = trail.size();
-  auto *rows = static_cast<float *>(
-      scratch_arena_a.allocate(n * sizeof(float), alignof(float)));
+  auto *rows = scratch_arena_a.allocate_n<float>(n);
 #ifdef HS_PROFILE_PLOT_STALLS
   hs::DwtStallBatch gate_batch(hs::g_plot_stalls.trail_gate);
 #endif
@@ -1956,8 +1955,7 @@ trail_gate_prologue(const ClipRegion &cr, const ClipRegion::XClip &xc,
 
   float *cols = nullptr;
   if (xc.active) {
-    cols = static_cast<float *>(
-        scratch_arena_a.allocate(n * sizeof(float), alignof(float)));
+    cols = scratch_arena_a.allocate_n<float>(n);
     float cum = 0.0f, cum_lo = 0.0f, cum_hi = 0.0f;
     bool walk_safe = true;
     cols[0] = math::vector_to_theta<W>(trail[0].pos);
