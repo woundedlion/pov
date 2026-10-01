@@ -285,7 +285,7 @@ struct Twist {
   float lipschitz(float inv_s) const {
     if (twist == 0)
       return 1.0f;
-    const float gamma = twist_amp_abs * std::min(inv_s, two_over_r);
+    const float gamma = twist_amp_abs * fminf(inv_s, two_over_r);
     return 0.5f * gamma + sqrtf(1.0f + 0.25f * gamma * gamma);
   }
 
@@ -300,7 +300,7 @@ struct Twist {
   float lipschitz_inv(float inv_s) const {
     if (twist == 0)
       return 1.0f;
-    const float gamma = twist_amp_abs * std::min(inv_s, two_over_r);
+    const float gamma = twist_amp_abs * fminf(inv_s, two_over_r);
     return sqrtf(1.0f + 0.25f * gamma * gamma) - 0.5f * gamma;
   }
 
@@ -438,7 +438,7 @@ template <typename SDF, typename Warp> struct WarpedVolume {
     requires(TORUS_TWIST)
   {
     const float q = radial - base.R;
-    const float dy = std::max(fabsf(p.y) - warp.bounding_inflation(), 0.0f);
+    const float dy = fmaxf(fabsf(p.y) - warp.bounding_inflation(), 0.0f);
     return q * q + dy * dy;
   }
 
