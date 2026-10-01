@@ -17,31 +17,14 @@
  * recurse. Effects include core/engine/engine.h (the API umbrella) instead.
  */
 
+#include "targets/composed_effect_includes.h"
 #include "effects/BZReactionDiffusion.h"
-#include "effects/AlienOcean.h"
 #include "effects/Fishbowl.h"
 #include "effects/Comets.h"
-#include "effects/AshCloud.h"
-#include "effects/LatticeMelt.h"
-#include "effects/ChromaticLichen.h"
-#include "effects/MermaidSkin.h"
 #include "effects/DisplacementField.h"
 #include "effects/DreamBalls.h"
 #include "effects/Dynamo.h"
-#include "effects/GridSpace.h"
 #include "effects/HyperLattice.h"
-#include "effects/CosmicEyeball.h"
-#include "effects/KaleidoscopeFlowers.h"
-#include "effects/KaleidoscopeSmooth.h"
-#include "effects/KaleidoscopeMandala.h"
-#include "effects/AlienCore.h"
-#include "effects/KaleidoscopeHexBright.h"
-#include "effects/KaleidoscopeHexSoft.h"
-#include "effects/MobiusGrid.h"
-#include "effects/KaleidoscopePentBright.h"
-#include "effects/KaleidoscopeHexOil.h"
-#include "effects/AlienBrain.h"
-#include "effects/KaleidoscopeStainedGlass.h"
 #include "effects/GnomonicStars.h"
 #include "effects/GSReactionDiffusion.h"
 #include "effects/HankinSolids.h"
@@ -68,10 +51,9 @@
 /**
  * @brief Single source of truth for the registered effect roster, as an X-macro.
  * @param X Function-like macro applied to each effect type name in the roster.
- * @details The include list and X-macro list must stay in lock-step. The WASM
- * factory and native smoke suite expand this roster directly; factory names
- * are checked for uniqueness at compile time. Add an effect header above and
- * one X() row below.
+ * @details The WASM factory and native smoke suite expand this roster directly;
+ * factory names are checked for uniqueness at compile time. Composed includes
+ * are generated; other effect includes and all X() rows are authored here.
  */
 #define HS_EFFECT_LIST(X)                                                      \
   X(BZReactionDiffusion)                                                       \
