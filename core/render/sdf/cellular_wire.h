@@ -26,6 +26,17 @@ struct Edge {
   math::Vector b;
 };
 
+struct Hit {
+  float t;
+  float coverage;
+  uint32_t feature;
+};
+
+/** @brief Caller-owned crossing scratch for one cellular ray. */
+struct HitStorage {
+  std::array<Hit, 32> hits;
+};
+
 /** @brief Unique edges owned by their midpoint's rectangular translation cell. */
 struct Geometry {
   std::array<Edge, 32> edges{};
@@ -182,7 +193,8 @@ HS_HOT_FLASH_MEMBER inline Raycast::ShadedTrace
 shade(const Geometry &geometry, float cell_size, float wire_radius,
       const Raycast::PreparedCamera &camera,
       const Raycast::Footprint &footprint, const Raycast::TraceLimits &limits,
-      const Raycast::Appearance &appearance, const math::Vector &direction) {
+      const Raycast::Appearance &appearance, HitStorage &storage,
+      const math::Vector &direction) {
   Raycast::ShadedTrace result{};
   auto &trace = result.trace;
   const auto WORLD_ORIGIN = camera.point3(direction * camera.radial_start);
@@ -243,12 +255,7 @@ shade(const Geometry &geometry, float cell_size, float wire_radius,
     }
     ++trace.counters.steps;
     const float END = std::min({next[0], next[1], next[2], ray.interval.far});
-    struct Hit {
-      float t;
-      float coverage;
-      uint32_t feature;
-    };
-    std::array<Hit, 32> hits;
+    auto &hits = storage.hits;
     int count = 0;
     for (int x = -1; x <= 1; ++x)
       for (int y = -1; y <= 1; ++y)

@@ -18,7 +18,9 @@ namespace Experiment = HyperLatticeDetail::Experiment;
 inline Experiment::Prepared
 prepare_experimental(Experiment::Settings settings) {
   static SDF::OctetTrace::CrossingStorage crossings;
+  static SDF::CellularWire::HitStorage cellular_hits;
   settings.crossings = &crossings;
+  settings.cellular_hits = &cellular_hits;
   return Experiment::prepare(settings);
 }
 #endif

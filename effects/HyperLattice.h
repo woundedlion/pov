@@ -563,6 +563,8 @@ public:
     crossing_storage =
         persistent_arena.allocate_n<SDF::OctetTrace::CrossingStorage>(1);
     shell_layers = persistent_arena.allocate_n<SDF::ShellLayerStorage>(1);
+    cellular_hits =
+        persistent_arena.allocate_n<SDF::CellularWire::HitStorage>(1);
 #endif
   }
 
@@ -759,6 +761,7 @@ private:
         HyperLatticeDetail::experimental_settings(context, experimental_center);
     settings.crossings = crossing_storage;
     settings.shell_layers = shell_layers;
+    settings.cellular_hits = cellular_hits;
     auto prepared = prepare(settings);
     const auto &configuration =
         CONFIGURATIONS[static_cast<size_t>(configuration_id(params))];
@@ -893,6 +896,7 @@ private:
 #if HS_ENABLE_HYPERLATTICE_EXPERIMENTS
   SDF::OctetTrace::CrossingStorage *crossing_storage = nullptr;
   SDF::ShellLayerStorage *shell_layers = nullptr;
+  SDF::CellularWire::HitStorage *cellular_hits = nullptr;
 #endif
 
   friend struct hs_test::hyper_lattice_tests::HyperLatticeWhiteBox;
@@ -904,7 +908,9 @@ private:
 #if HS_ENABLE_HYPERLATTICE_EXPERIMENTS
       + sizeof(SDF::OctetTrace::CrossingStorage) +
       alignof(SDF::OctetTrace::CrossingStorage) +
-      sizeof(SDF::ShellLayerStorage) + alignof(SDF::ShellLayerStorage)
+      sizeof(SDF::ShellLayerStorage) + alignof(SDF::ShellLayerStorage) +
+      sizeof(SDF::CellularWire::HitStorage) +
+      alignof(SDF::CellularWire::HitStorage)
 #endif
       ;
   static_assert(FOOTPRINT_BYTES <= DEVICE_PERSISTENT_BUDGET,
