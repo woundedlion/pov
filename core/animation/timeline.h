@@ -28,8 +28,8 @@ struct TimelineEvent {
   uint32_t start =
       0; /**< Global frame at which the animation becomes eligible to step. */
   /**
-   * @brief Whether this event's inline animation pointer was handed out via
-   * Timeline::add_get().
+   * @brief Whether the caller retains this event's animation pointer across
+   * frames via Timeline::add_get(..., Pin::PINNED).
    * @details Compaction must never relocate such an event — doing so dangles the
    * caller's cached pointer.
    */
