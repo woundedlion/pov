@@ -3168,6 +3168,8 @@ inline void test_shader_chain_parity_sample_projected_noise() {
     const In::FrameContext ctx = shared_resources().context();
     uint8_t *basis = topology_byte(program, 2, "basis");
     HS_EXPECT_TRUE(basis != nullptr);
+    if (!basis)
+      return;
     *basis = static_cast<uint8_t>(math::NoiseBasis::SIMPLEX);
     run_sample_op_matrix<PB::Source::ProjectedNoise<ProjectedNoiseSampleMirror,
                                                     math::NoiseBasis::SIMPLEX>>(
@@ -4040,6 +4042,8 @@ inline void test_shader_chain_effect_registers_params() {
   HS_EXPECT_TRUE(params.find("colorize.palette-chroma") != nullptr);
   const ParamDef *coverage = params.find("sample.coverage-mode");
   HS_EXPECT_TRUE(coverage != nullptr);
+  if (!coverage)
+    return;
   HS_EXPECT_TRUE(coverage->is_enum());
   HS_EXPECT_EQ(coverage->option_count, 4);
   HS_EXPECT_TRUE(std::string_view(coverage->options[3]) == "edge-fade");
