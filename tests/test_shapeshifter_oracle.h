@@ -1116,6 +1116,8 @@ inline void test_count_slider_matches_draw_limit() {
     effect.init();
     const auto *count = effect.getParameters().find("Count");
     HS_EXPECT_TRUE(count != nullptr);
+    if (!count)
+      return;
     HS_EXPECT_EQ(count->min, 1.0f);
     HS_EXPECT_EQ(count->max, 40.0f);
     HS_EXPECT_EQ(effect.updateParameter("Count", 288.0f),
