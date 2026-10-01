@@ -202,16 +202,6 @@ inline void check_no_sliver_edges(const PolyMesh &m) {
   HS_EXPECT_LE(edges.back(), MAX_SLIVER_EDGE_RATIO * median);
 }
 
-/**
- * @brief Computes a face normal via Newell's method.
- * @param m Mesh owning the vertices and face-index array.
- * @param face_idx_offset Offset into m.faces where this face's indices begin.
- * @param count Number of vertices (sides) in the face.
- * @return Unnormalised normal vector for the face; its magnitude is twice the
- *         planar face area.
- * @details Newell's method is robust for non-planar faces (e.g. curved faces
- *          on the unit sphere) where a simple cross product would be ambiguous.
- */
 /** @brief Newell vector of a polygon supplied in cyclic vertex order. */
 template <typename VertexAt>
 inline math::Vector newell_normal(int count, VertexAt vertex_at) {
@@ -243,6 +233,16 @@ inline int find_directed_edge(const Edges &edges, Node from, Node to) {
   return -1;
 }
 
+/**
+ * @brief Computes a face normal via Newell's method.
+ * @param m Mesh owning the vertices and face-index array.
+ * @param face_idx_offset Offset into m.faces where this face's indices begin.
+ * @param count Number of vertices (sides) in the face.
+ * @return Unnormalised normal vector for the face; its magnitude is twice the
+ *         planar face area.
+ * @details Newell's method is robust for non-planar faces (e.g. curved faces
+ *          on the unit sphere) where a simple cross product would be ambiguous.
+ */
 inline math::Vector face_newell_normal(const PolyMesh &m,
                                        size_t face_idx_offset, int count) {
   return newell_normal(
