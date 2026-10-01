@@ -6373,6 +6373,22 @@ inline void test_shader_workbench_noise_contour_domains() {
 }
 
 /** @brief Module entry point for ShaderWorkbench contract tests. */
+/** @brief Function selection controls which source parameters are exposed. */
+inline void test_shader_workbench_function_specific_controls() {
+  using WB = ShaderWorkbenchWhiteBox;
+  reset_effect_globals();
+  WB::SB sb;
+  sb.init();
+  HS_EXPECT_EQ(sb.updateParameter("Function",
+                                  static_cast<float>(WB::Function::TWIN_WAVE)),
+               ParamSetResult::APPLIED);
+  HS_EXPECT_TRUE(sb.getParameters().find("Drift") != nullptr);
+  HS_EXPECT_EQ(
+      sb.updateParameter("Function", static_cast<float>(WB::Function::RINGS)),
+      ParamSetResult::APPLIED);
+  HS_EXPECT_TRUE(sb.getParameters().find("Source Angle Speed") == nullptr);
+}
+
 inline int run_shader_workbench_tests() {
   ModuleFixture fixture("shader_workbench");
   test_shader_workbench_operator_catalog_census();
@@ -6419,20 +6435,7 @@ inline int run_shader_workbench_tests() {
   test_shader_workbench_preset_gui_transition();
   test_shader_workbench_parameter_capacity();
   test_shader_workbench_gui_catalog();
-  {
-    using WB = ShaderWorkbenchWhiteBox;
-    reset_effect_globals();
-    WB::SB sb;
-    sb.init();
-    HS_EXPECT_EQ(sb.updateParameter(
-                     "Function", static_cast<float>(WB::Function::TWIN_WAVE)),
-                 ParamSetResult::APPLIED);
-    HS_EXPECT_TRUE(sb.getParameters().find("Drift") != nullptr);
-    HS_EXPECT_EQ(
-        sb.updateParameter("Function", static_cast<float>(WB::Function::RINGS)),
-        ParamSetResult::APPLIED);
-    HS_EXPECT_TRUE(sb.getParameters().find("Source Angle Speed") == nullptr);
-  }
+  test_shader_workbench_function_specific_controls();
   test_fixed_shader_export_equivalence();
   test_shader_workbench_lens_domain_ranges();
   test_shader_workbench_projection_catalog();
