@@ -35,8 +35,8 @@ template <typename Shape> struct VolumeQuery {
         field = shape.raw_distance(p);
     }
     return {field,
-            field < 0.0f && !guarantees.interior_clearance ? 0.0f
-                                                           : fabsf(DISTANCE),
+            field < 0.0f ? (guarantees.interior_clearance ? -DISTANCE : 0.0f)
+                         : fmaxf(DISTANCE, 0.0f),
             field == 0.0f && guarantees.surface_verification, 0, 0};
   }
 };
