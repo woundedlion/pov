@@ -291,7 +291,8 @@ inline void lint_dead_sliders(Effect &effect, const char *name) {
     // An integer target holds only whole numbers, so probe with a value it can
     // actually hold or every such param reads dead.
     if (def.is_integer()) {
-      target = floorf(target);
+      target =
+          cur < (def.min + def.max) * 0.5f ? ceilf(target) : floorf(target);
       if (target == cur)
         continue;
     }
