@@ -38,6 +38,8 @@ struct HankinPauseWhiteBox;
  */
 template <int W, int H> class HankinSolids : public Effect {
 public:
+  static constexpr const char *EFFECT_ID = "HankinSolids";
+
   /**
    * @brief Constructs the effect with a W x H canvas and empty filter pipeline.
    */

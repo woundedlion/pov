@@ -33,6 +33,8 @@ struct GnomonicStarsWhiteBox;
  */
 template <int W, int H> class GnomonicStars : public Effect {
 public:
+  static constexpr const char *EFFECT_ID = "GnomonicStars";
+
   /**
    * @brief Constructs the effect at face resolution W x H.
    * @details Default-initializes the orientation and timeline and binds the

@@ -33,6 +33,8 @@ struct RingShowerWhiteBox;
  */
 template <int W, int H> class RingShower : public Effect {
 public:
+  static constexpr const char *EFFECT_ID = "RingShower";
+
   /**
    * @brief Constructs the effect at the templated canvas dimensions.
    */

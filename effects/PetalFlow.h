@@ -34,6 +34,8 @@ struct PetalFlowWhiteBox;
  */
 template <int W, int H> class PetalFlow : public Effect {
 public:
+  static constexpr const char *EFFECT_ID = "PetalFlow";
+
   /**
    * @brief Constructs the effect, wiring up palette and orientation filters.
    */

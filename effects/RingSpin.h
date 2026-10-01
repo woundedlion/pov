@@ -40,6 +40,8 @@ struct RingSpinWhiteBox;
  */
 template <int W, int H> class RingSpin : public Effect {
 public:
+  static constexpr const char *EFFECT_ID = "RingSpin";
+
   /**
    * @brief Constructs the effect at the W x H canvas resolution.
    * @param strobe Whether the POV driver blanks after each column.
