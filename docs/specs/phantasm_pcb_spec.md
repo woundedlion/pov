@@ -31,6 +31,8 @@ The rev 1.2 Quilter input locks R1, R2 and C_SYNC together beside Teensy D3.
 It pre-routes their FRAME_SYNC connections on F.Cu and provides local ground
 vias for C_SYNC and R2. Preserve these traces and vias when routing the board;
 the high-impedance receive node must not be redistributed across the card.
+C_DEC1 also has a direct pre-routed connection to VIN and a local ground via;
+proximity of the capacitor body alone does not constrain the supply-loop length.
 Insert and secure the J2/J3A/J3B wires before installing the Teensy module;
 the locked hub-facing terminal entries do not reserve wire-access clearance
 against the module. Verify J1 polarity before connecting any powered harness.
