@@ -158,6 +158,16 @@ def _replace_framebuffer_maximum(manifest_dir):
         path.write_text(json.dumps(oracle), encoding="utf-8")
 
 
+class CaptureCheckoutState(unittest.TestCase):
+    def test_dirty_checkout_is_refused_before_toolchain_attestation(self):
+        with mock.patch.object(capture, "changed_sources", return_value=["core/changed.h"]), \
+                mock.patch.object(capture, "attest_toolchain") as attest:
+            with self.assertRaisesRegex(capture.CaptureError, "uncommitted or untracked"):
+                capture.produce("native-debug", ROOT, ROOT / "build", MANIFEST_DIR,
+                                ROOT / "capture.json")
+        attest.assert_not_called()
+
+
 class DuplicateJsonKeys(unittest.TestCase):
     def test_duplicate_keys_are_rejected(self):
         with tempfile.TemporaryDirectory() as directory:
