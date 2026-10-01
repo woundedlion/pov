@@ -191,7 +191,7 @@ _hs_try_claim() {
   token="$$-$(_hs_now)-$RANDOM"; now=$(_hs_now)
   info=$(
     echo "token=$token"
-    echo "session=${CLAUDE_SESSION_ID:-${HS_SESSION:-local}}"
+    echo "session=${HS_SESSION:-local}"
     echo "pid=$$"
     echo "host=$(hostname)"
     echo "port=${port}"

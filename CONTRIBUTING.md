@@ -32,8 +32,7 @@ non-fast-forward move of the ref, so a rewind needs a deliberate one-shot token
    Never stash or discard another session's work to make a landing fit.
 
 One logical change is one commit, with an imperative subject naming the
-component (`scan: clamp the row index before the cast`). Commit messages carry
-**no `Co-Authored-By` line**.
+component (`scan: clamp the row index before the cast`).
 
 ## Design specs
 
