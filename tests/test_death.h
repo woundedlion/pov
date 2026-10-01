@@ -4221,6 +4221,38 @@ inline void case_planar_chords_over_capacity() {
                      shader);
 }
 
+/** @brief Death case: a chord draw before prepare traps. */
+inline void case_planar_chords_unprepared() {
+  static uint8_t arena_buf[256];
+  Arena arena(arena_buf, sizeof(arena_buf));
+  Plot::PlanarChords<16, 8> chords;
+  chords.init_storage(arena, 2);
+  static hs_test::StubEffect fx(16, 8);
+  Canvas canvas(fx);
+  Filter::Screen::DirectAntiAliasSink<16, 8> sink;
+  sink.prepare(canvas);
+  Fragments points;
+  auto shader = [](const math::Vector &, Fragment &) {};
+  chords.draw_closed(sink, canvas, points, 2, math::Basis{}, Color4{}, shader);
+}
+
+inline void case_planar_chords_stale_clip() {
+  static uint8_t arena_buf[256];
+  Arena arena(arena_buf, sizeof(arena_buf));
+  Plot::PlanarChords<16, 8> chords;
+  chords.init_storage(arena, 2);
+  static hs_test::StubEffect fx(16, 8);
+  Canvas canvas(fx);
+  Filter::Screen::DirectAntiAliasSink<16, 8> sink;
+  sink.prepare(canvas);
+  ClipRegion clip = canvas.clip();
+  clip.y_start = opaque(1);
+  chords.prepare(clip);
+  Fragments points;
+  auto shader = [](const math::Vector &, Fragment &) {};
+  chords.draw_closed(sink, canvas, points, 2, math::Basis{}, Color4{}, shader);
+}
+
 /** @brief Death case: band-split storage for under two points traps. */
 inline void case_planar_band_split_empty_storage() {
   static uint8_t arena_buf[64];
@@ -4870,6 +4902,12 @@ inline const Case *all_cases(int &n) {
       {"planar_chords_over_capacity", case_planar_chords_over_capacity,
        "core/render/plot/chords.h",
        "(vertices >= 1 && vertices <= capacity) PlanarChords:"},
+      {"planar_chords_unprepared", case_planar_chords_unprepared,
+       "core/render/plot/chords.h",
+       "(prepared && clip_stamp == canvas.clip()) PlanarChords:"},
+      {"planar_chords_stale_clip", case_planar_chords_stale_clip,
+       "core/render/plot/chords.h",
+       "(prepared && clip_stamp == canvas.clip()) PlanarChords:"},
       {"planar_band_split_empty_storage", case_planar_band_split_empty_storage,
        "core/render/plot/chords.h",
        "(max_points >= 2) PlanarBandSplit: max_points"},

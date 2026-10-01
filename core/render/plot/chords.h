@@ -290,7 +290,11 @@ public:
   float *chart_y() { return chart_y_storage; }
 
   /** @brief Captures the frame's clip band; call once per frame. */
-  void prepare(const ClipRegion &clip) { band = ClipBand<W, H>::of(clip); }
+  void prepare(const ClipRegion &clip) {
+    band = ClipBand<W, H>::of(clip);
+    clip_stamp = clip;
+    prepared = true;
+  }
 
   /**
    * @brief Strokes one closed chart-straight polyline.
@@ -312,6 +316,8 @@ public:
               int vertices, const math::Basis &planar_basis,
               const Color4 &color, const F &fragment_shader) {
     using Geometry = math::DisplayGeometry<H>;
+    HS_CHECK(prepared && clip_stamp == canvas.clip(),
+             "PlanarChords: prepare() not called for this canvas clip");
     HS_CHECK(vertices >= 1 && vertices <= capacity,
              "PlanarChords: %d vertices outside capacity %d", vertices,
              capacity);
@@ -502,6 +508,8 @@ private:
       PlanarBandSplit<W, H>::max_points(1, POLE_RUN_PIECES);
 
   ClipBand<W, H> band;
+  ClipRegion clip_stamp;
+  bool prepared = false;
   PlanarBandSplit<W, H> pole_split;
   float *chart_x_storage = nullptr;
   float *chart_y_storage = nullptr;
