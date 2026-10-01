@@ -218,8 +218,8 @@ public:
   /**
    * @brief Crossfade-weight curve of a swept leg: resolved weight in [0, 1]
    * for a 1-based leg frame over the whole leg duration (sweep plus settle).
-   * Supplied at construction (classic_blend default, trailing_blend for the
-   * build legs), mirroring easing_fn.
+   * Supplied at construction with classic_blend as the default, mirroring
+   * easing_fn. The gate crossfade uses trailing_blend.
    */
   using BlendWeightFn = float (*)(int frame, int duration);
 
