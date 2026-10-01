@@ -61,6 +61,17 @@ class RequireTestFiles(unittest.TestCase):
         self.assertEqual(done.returncode, 1, done.stdout + done.stderr)
         self.assertIn("hidden.spec.js", done.stdout)
 
+    def test_git_repository_scan_reports_tests_outside_the_script_glob(self):
+        subprocess.run(["git", "-C", str(self.tree), "init", "--quiet"], check=True)
+        scripts = self.tree / "scripts"
+        scripts.mkdir()
+        (scripts / "active.test.mjs").write_text("", encoding="utf-8")
+        (self.tree / "tools" / "stray.test.mjs").write_text("", encoding="utf-8")
+        done = self.run_check("scripts/*.test.mjs")
+        self.assertEqual(done.returncode, 1, done.stdout + done.stderr)
+        self.assertIn("tools/stray.test.mjs", done.stdout)
+        self.assertIn("unreachable", done.stdout)
+
     def test_an_empty_glob_fails(self):
         done = self.run_check("tools/empty_tests/*.test.mjs")
         self.assertEqual(done.returncode, 1, done.stdout + done.stderr)
