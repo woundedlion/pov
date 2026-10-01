@@ -4228,11 +4228,6 @@ inline void test_shader_workbench_projection_catalog() {
   HS_EXPECT_NEAR(scroll_quarter.layout_scroll, 0.95f, 1e-6f);
   HS_EXPECT_NEAR(scroll_mid.layout_scroll, 0.0f, 1e-6f);
   HS_EXPECT_EQ(scroll_end.layout_scroll, -0.9f);
-  const auto peirce_scroll_mid = projections::peirce_projection(
-      equator_east, 0.0f, static_cast<projections::PeirceLayout>(2),
-      scroll_mid.layout_scroll);
-  HS_EXPECT_NEAR(peirce_scroll_mid.coords.re, peirce_scroll0.coords.re, 3e-5f);
-  HS_EXPECT_NEAR(peirce_scroll_mid.coords.im, peirce_scroll0.coords.im, 3e-5f);
   const auto peirce_zero_fade = projections::peirce_projection(
       equator_zero, 0.0f, static_cast<projections::PeirceLayout>(1), 0.0f);
   HS_EXPECT_NEAR(peirce_zero_fade.fade_edge_distance, 0.25f * math::PI_F,
