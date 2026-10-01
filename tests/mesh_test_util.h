@@ -337,12 +337,11 @@ inline void check_bitwise_equal_meshes(const PolyMesh &m1, const PolyMesh &m2) {
 }
 
 /**
- * @brief Asserts two meshes agree bit for bit.
+ * @brief Asserts exact element equality (IEEE ==) between two meshes.
  * @param a First mesh.
  * @param b Second mesh.
- * @details Vertices compare exactly: callers pair paths that run the same
- *          arithmetic in the same emission order, so anything short of equality
- *          is a divergence.
+ * @details Unlike check_bitwise_equal_meshes, float comparison accepts signed
+ *          zero differences and rejects NaNs.
  */
 inline void check_meshes_identical(const PolyMesh &a, const PolyMesh &b) {
   HS_EXPECT_EQ(a.vertices.size(), b.vertices.size());
