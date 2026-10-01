@@ -189,6 +189,10 @@ inline void test_split_pole_runs_tiles_within_energy_budget() {
  */
 inline int run_shapeshifter_tiles_tests() {
   ModuleFixture fixture("shapeshifter_tiles");
+  struct PoleRunScope {
+    bool saved = Plot::g_planar_chords_split_pole_runs;
+    ~PoleRunScope() { Plot::g_planar_chords_split_pole_runs = saved; }
+  } scope;
   Plot::g_planar_chords_split_pole_runs = false;
   test_segment_tiles_reconstruct_full_frame();
   test_star_azimuthal_cull_spans_narrow_columns();
