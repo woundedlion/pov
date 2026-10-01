@@ -62,6 +62,21 @@ const compile = (source, options = {}) =>
 const validate = (document) =>
   validateShaderDocument(document, { catalog: CATALOG });
 
+test('edge-fade requires an upstream edge-distance projection for defaults and presets', () => {
+  const document = example();
+  const coverage = document.descriptor.parameters.find((parameter) => parameter.id === 'sample.coverage-mode');
+  coverage.default = 'edge-fade';
+  for (const preset of document.preset_bank.presets) preset.values[coverage.id] = 'edge-fade';
+  assert.equal(compile(document).status, 'VALID');
+  document.descriptor.chain.find((entry) => entry.label === 'project').operator = 'project.folded-sinusoidal.v2';
+  const result = compile(document);
+  assert.equal(result.status, 'INVALID');
+  const paths = result.diagnostics.filter((diagnostic) => diagnostic.code === 'EDGE_DISTANCE_UNAVAILABLE').map((diagnostic) => diagnostic.path);
+  assert.ok(paths.some((path) => path.endsWith('.default')));
+  for (let index = 0; index < document.preset_bank.presets.length; index++)
+    assert.ok(paths.includes(`$.preset_bank.presets[${index}].values.sample.coverage-mode`));
+});
+
 test('sparse imports enforce the runtime parameter budget at its exact boundary', () => {
   const budget = CATALOG.budgets.max_params;
   const base = example();
