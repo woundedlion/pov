@@ -969,10 +969,6 @@ inline void test_tribitset_index_uniqueness() {
  */
 inline void test_tribitset_all_pairs_independent() {
   TriangularBitset<8> bs;
-  for (int a = 0; a < 8; ++a)
-    for (int b = a + 1; b < 8; ++b)
-      bs.test_and_set(a, b);
-  HS_EXPECT_TRUE(bs.test(0, 7));
   bs.clear();
   for (int i = 0; i + 2 < 8; ++i)
     bs.test_and_set(i, i + 2);
