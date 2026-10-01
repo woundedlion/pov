@@ -724,7 +724,7 @@ add_test(NAME unit_arena_budget COMMAND arena_measure)
 # Render micro-benchmark, built at two opt levels to bracket the size config's
 # per-pixel codegen cost (perf_bench.cpp). Not CTests — wall time is noisy. The
 # O3 variant stays in the default build as a compile guard so perf_bench.cpp
-# can't bit-rot silently; the Os variant is built on demand.
+# can't bit-rot silently; excluded_targets compiles the Os variant.
 foreach(_opt Os O3)
   set(_perf_exclude EXCLUDE_FROM_ALL)
   if(_opt STREQUAL "O3")
@@ -787,8 +787,8 @@ _hs_warnings(srgb_decode_gen)
 
 # Generator of record for tests/data/shader_chain_catalog.json, which
 # unit_shader_chain diffs the freshly generated catalog against.
-# EXCLUDE_FROM_ALL: running it rewrites that committed golden, so the default
-# build only compiles it and regenerate_shader_chain_catalog below runs it.
+# Excluded from the default build; excluded_targets compiles it, and
+# regenerate_shader_chain_catalog below runs it to rewrite the golden.
 add_executable(shader_chain_catalog_gen EXCLUDE_FROM_ALL
   ${CMAKE_CURRENT_SOURCE_DIR}/shader_chain_catalog_gen.cpp
   ${HS_ENGINE_SOURCES})
