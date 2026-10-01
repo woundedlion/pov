@@ -12,6 +12,7 @@ otherwise).
 """
 
 import argparse
+from collections import deque
 import contextlib
 import os
 import sys
@@ -81,6 +82,7 @@ def main():
           flush=True)
     end = time.monotonic() + args.seconds
     captured = 0
+    tail = deque(maxlen=20)
     # An interrupted capture must still release the port: profile_one.sh
     # retries immediately, and a held port fails that retry too.
     try:
@@ -91,11 +93,14 @@ def main():
                 if not line:
                     continue
                 text = line.decode("utf-8", errors="replace").rstrip("\r\n")
+                tail.append(text)
                 print(text, flush=True)
                 f.write(text + "\n")
                 captured += 1
     except serial.SerialException as exc:
         os.remove(args.out)
+        for line in tail:
+            print(line, file=sys.stderr)
         raise SystemExit(
             f"profile_capture: {port} dropped after {captured} lines: {exc}") from None
     # A board that enumerates but never streams is a wrong or hung image, not

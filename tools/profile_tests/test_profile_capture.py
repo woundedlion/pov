@@ -281,10 +281,13 @@ class TestMain(unittest.TestCase):
 
     def test_a_serial_drop_removes_the_partial_capture(self):
         opened = FakeSerial("COM3")
+        stderr = io.StringIO()
         with mock.patch.object(opened, "readline", side_effect=[
-                b"phase 1\n", _SerialException("USB disconnected")]):
+                b"HS_CHECK failed: breadcrumb\n", _SerialException("USB disconnected")]), \
+                contextlib.redirect_stderr(stderr):
             with self.assertRaises(SystemExit) as caught:
                 self._run(opened)
+        self.assertIn("HS_CHECK failed: breadcrumb", stderr.getvalue())
         self.assertIn("COM3 dropped after 1 lines: USB disconnected",
                       str(caught.exception))
         self.assertFalse(os.path.exists(self.out))
