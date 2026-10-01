@@ -10,7 +10,9 @@ targets: the Teensy firmware, the WASM module, and the native test suite.
 ## Licensing
 
 `LICENSE` grants PolyForm Noncommercial 1.0.0 to everything outside `effects/`
-and reserves all rights over `effects/`, with four named exceptions. Every
+except four named paths: `workbench/` and `core/engine/effects_legacy.h` are
+reserved like `effects/`; `core/math/projections.h` and
+`core/vendor/FastNoiseLite.h` are MIT. All rights over `effects/` are reserved. Every
 tracked C/C++ source carries the header its path is granted, and
 `tools/license_check.py` gates that in CI. A new source file needs the header
 before it lands; a new generated one needs its generator to emit it.
