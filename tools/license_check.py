@@ -6,8 +6,7 @@ reserves all rights over `effects/`, with a named exception list. A header that
 disagrees with LICENSE is what a licensee acts on, so the two are gated against
 each other here.
 
-Scope is C/C++ sources: the Python and JavaScript tooling carries no license
-header today, and this checker does not invent one for it.
+Scope is C/C++ sources; other files may carry the header but are ungated.
 """
 
 from __future__ import annotations
