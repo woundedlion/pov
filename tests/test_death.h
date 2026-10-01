@@ -6496,20 +6496,8 @@ inline constexpr int TRAP_STATUS = static_cast<int>(0xC000001D);
 
 /**
  * @brief How a child's illegal-instruction trap reaches the parent.
- * @details clang lowers __builtin_trap() to an illegal instruction, so a fired
- *          HS_CHECK kills the child with SIGILL (POSIX) /
- *          STATUS_ILLEGAL_INSTRUCTION (Windows). The harness spawns the child
- *          shell-free, so the trap normally arrives as that signal directly
- *          (Signal). Exit128 is kept defensively for any relay that instead
- *          surfaces the death as an ordinary exit with status 128+SIGILL: that
- *          is indistinguishable from a raw `exit(128+SIGILL)` at the wait-status
- *          level, so accepting BOTH unconditionally would let a child that
- *          genuinely exit(132)s read as a passing death test. The harness
- *          therefore probes which shape occurs once (run_death_tests), with a
- *          dedicated always-trapping sentinel, and then requires exactly that
- *          shape per case.
  */
-enum class TrapShape { None, Signal, Exit128 };
+enum class TrapShape { None, Signal };
 
 /**
  * @brief Classifies a child wait status into the trap relay shape, if any.
@@ -6526,8 +6514,6 @@ inline TrapShape classify_trap(int rc) {
     return TrapShape::None;
   if (WIFSIGNALED(rc) && WTERMSIG(rc) == SIGILL)
     return TrapShape::Signal;
-  if (WIFEXITED(rc) && WEXITSTATUS(rc) == 128 + SIGILL)
-    return TrapShape::Exit128;
   return TrapShape::None;
 #endif
 }
@@ -6537,9 +6523,6 @@ inline TrapShape classify_trap(int rc) {
  * @param rc The raw spawn_child() return value to interpret.
  * @param expected The TrapShape the harness probed (never None).
  * @return True iff the child died by exactly that illegal-instruction relay.
- * @details Requiring the single probed shape — not "either signal OR 128+sig" —
- *          keeps the guarantee tight: a child that exit(128+SIGILL)s under a
- *          direct-relay environment does not count as a trap.
  */
 inline bool child_trapped(int rc, TrapShape expected) {
   return expected != TrapShape::None && classify_trap(rc) == expected;
