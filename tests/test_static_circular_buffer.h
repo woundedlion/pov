@@ -789,6 +789,45 @@ inline void test_swap_exchanges_contents() {
   HS_EXPECT_EQ(b[0], 7);
 }
 
+/** @brief Nontrivial element swaps expose both array swap and buffer ADL. */
+struct SwapProbe {
+  static inline int swaps = 0;
+  int value = 0;
+  SwapProbe() = default;
+  explicit SwapProbe(int value) : value(value) {}
+  ~SwapProbe() {}
+  friend void swap(SwapProbe &a, SwapProbe &b) {
+    ++swaps;
+    std::swap(a.value, b.value);
+  }
+};
+
+inline void test_nontrivial_swap_after_wrap_and_adl() {
+  static_assert(!std::is_trivially_copyable_v<SwapProbe>);
+  StaticCircularBuffer<SwapProbe, 3> wrapped;
+  for (int i = 1; i <= 5; ++i)
+    wrapped.emplace_back(i);
+  StaticCircularBuffer<SwapProbe, 3> linear;
+  linear.emplace_back(9);
+  SwapProbe::swaps = 0;
+  wrapped.swap(linear);
+  HS_EXPECT_EQ(SwapProbe::swaps, 3);
+  HS_EXPECT_EQ(wrapped.size(), size_t{1});
+  HS_EXPECT_EQ(wrapped[0].value, 9);
+  HS_EXPECT_EQ(linear.size(), size_t{3});
+  for (int i = 0; i < 3; ++i)
+    HS_EXPECT_EQ(linear[i].value, i + 3);
+  SwapProbe::swaps = 0;
+  using std::swap;
+  swap(wrapped, linear);
+  HS_EXPECT_EQ(SwapProbe::swaps, 3);
+  HS_EXPECT_EQ(linear.size(), size_t{1});
+  HS_EXPECT_EQ(linear[0].value, 9);
+  HS_EXPECT_EQ(wrapped.size(), size_t{3});
+  for (int i = 0; i < 3; ++i)
+    HS_EXPECT_EQ(wrapped[i].value, i + 3);
+}
+
 /**
  * @brief Verifies swap survives a wrapped head, so the exchanged buffers keep
  *        logical order rather than backing-slot order.
@@ -1027,6 +1066,7 @@ inline int run_static_circular_buffer_tests() {
   test_max_size_is_capacity();
   test_swap_exchanges_contents();
   test_swap_after_wrap();
+  test_nontrivial_swap_after_wrap_and_adl();
   test_equality_compares_live_run();
 
   test_index_assignment();
