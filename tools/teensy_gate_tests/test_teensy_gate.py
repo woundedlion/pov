@@ -1740,9 +1740,10 @@ class TestToolingFailureExits(unittest.TestCase):
         # entry is a budgets-file error, not a size-budget violation.
         with tempfile.TemporaryDirectory() as tmp:
             path = Path(tmp) / "budgets.json"
-            path.write_text('{ "phantasm": {} }', encoding="utf-8")
+            path.write_text(json.dumps({"phantasm": BUDGETS["phantasm"]}), encoding="utf-8")
             rc, text = self._run(**{"--budgets": str(path)})
         self.assertEqual(rc, 2, msg=text)
+        self.assertIn("no budget for env 'holosphere'", text)
 
     def test_unparseable_teensy_size_blob_is_cannot_run(self):
         # Zeroed region totals would otherwise render PASS on an unmeasured image.
