@@ -259,6 +259,7 @@ public:
   }
 
   /** @brief Validates and fills the inactive program before its atomic commit.
+   *  @param request Ordered {instance_id, operator_id} entries.
    *  @param initialize Candidate entries and their arena base; false refuses.
    *  @param migrate_existing Preserve matching live states before initialization.
    */
