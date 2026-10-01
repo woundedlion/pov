@@ -53,7 +53,6 @@
 #include "tests/test_effects.h"
 #include "tests/test_shapeshifter_oracle.h"
 #include "tests/test_harness.h"
-#include "tests/test_shader_workbench.h" // ShaderWorkbenchWhiteBox, for the effect-side traps
 
 #include "core/math/3dmath.h"
 #include "core/math/4dmath.h"
@@ -1804,16 +1803,6 @@ inline void case_hyperlattice_frame_without_crossings() {
 inline void case_mindsplatter_profile_preset_oob() {
   MindSplatter<96, 20> effect;
   effect.profile_select_preset(opaque<size_t>(SIZE_MAX));
-}
-
-inline void case_workbench_unsupported_projection() {
-  (void)Workbench::project_point(math::Vector(0, 0, 1),
-                                 Workbench::Projection::AIROCEAN);
-}
-
-inline void case_workbench_lens_missing_frame() {
-  (void)Workbench::apply_frame_free_lens(math::Vector{1.0f, 0.0f, 0.0f},
-                                         Workbench::SurfaceLens::MOBIUS);
 }
 
 /**
@@ -4285,19 +4274,6 @@ inline void case_sdf_distorted_ring_null_shift() {
     std::printf("x");
 }
 
-/**
- * @brief Death case: resolving a preset past the view must trap.
- * @details Effect surface — the lookup indexes PRESETS through the view, so an
- *          out-of-range index hands the pipeline a config read off the table.
- */
-inline void case_shader_workbench_preset_for_view_out_of_range() {
-  using WB = shader_workbench_tests::ShaderWorkbenchWhiteBox;
-  WB::SB sb;
-  if (reinterpret_cast<uintptr_t>(
-          &WB::preset_for_view(sb, opaque<size_t>(200))) == 0x1)
-    std::printf("x");
-}
-
 /** @brief Death case: contour preparation past its table capacity traps. */
 inline void case_shapeshifter_count_over_capacity() {
   using namespace shapeshifter_oracle_tests;
@@ -5046,12 +5022,6 @@ inline const Case *all_cases(int &n) {
       {"mindsplatter_profile_preset_oob", case_mindsplatter_profile_preset_oob,
        "effects/MindSplatter.h",
        "(index < PRESETS.size()) MindSplatter profile preset index out of range"},
-      {"workbench_unsupported_projection",
-       case_workbench_unsupported_projection, "workbench/shader/kernels.h",
-       "(false) project_point: unsupported projection"},
-      {"workbench_lens_missing_frame", case_workbench_lens_missing_frame,
-       "workbench/shader/kernels.h",
-       "(false) frame-parameterized lens needs the FrameState overload"},
 
       {"direct_sink_unprepared_plot", case_direct_sink_unprepared_plot,
        "core/render/filter/screen_direct_aa_sink.h",
@@ -5995,11 +5965,7 @@ inline const Case *all_cases(int &n) {
        "core/render/pullback/interpreter.h",
        "(entry.input <= entry.output) ChainProgram::bind_storage: operator "
        "family rank decreases"},
-      {"shader_workbench_preset_for_view_out_of_range",
-       case_shader_workbench_preset_for_view_out_of_range,
-       "workbench/shader/shader_host.h",
-       "(index < preset_count_for_view()) preset_for_view: index out of "
-       "range"},
+
       {"dreamballs_woven_owner_vertex_oob",
        case_dreamballs_woven_owner_vertex_oob, "effects/DreamBalls.h",
        "(vertex < vertex_count) DreamBalls: woven edge start vertex "
@@ -6283,7 +6249,7 @@ inline void run_child_case(const char *name) {
     };
     CAPTURE.operator()<Comets>();
     CAPTURE.operator()<MindSplatter>();
-    CAPTURE.operator()<Shader>();
+    CAPTURE.operator()<ShaderChain>();
     std::printf("%016llx\n", static_cast<unsigned long long>(combined));
     return;
   }
@@ -6813,9 +6779,6 @@ inline constexpr GuardGapAllowance GUARD_GAP_ALLOW[] = {
     {"targets/wasm/mesh_ops_bindings.h", 2},
     {"targets/wasm/workbench_bindings.h", 2},
     {"workbench/shader/chain_host.h", 1},
-    {"workbench/shader/kernels.h", 1},
-    // Stable field IDs are established by parameter registration.
-    {"workbench/shader/shader_host.h", 9},
 };
 
 /**

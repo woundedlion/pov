@@ -23,6 +23,7 @@
 #include "core/engine/engine.h"
 #include "core/render/pullback/interpreter.h"
 #include "core/render/pullback/runtime_seeds.h"
+#include "chain_snapshot.h"
 
 namespace hs_test {
 namespace shader_chain_tests {
@@ -115,6 +116,151 @@ public:
   /** @brief Borrows the compiled entries until the next program replacement. */
   std::span<const Pullback::Interp::ChainProgram::ChainOp> chain_ops() const {
     return program.ops();
+  }
+
+  ChainSnapshot snapshot() const {
+    ChainSnapshot out;
+    out.animations_paused = animations_paused();
+    out.palette_bank = generated_palettes.snapshot();
+    out.runtime.emplace();
+    const auto ops = program.ops();
+    for (size_t index = 0; index < ops.size(); ++index) {
+      const auto &op = ops[index];
+      out.chain.push_back({op.instance, op.op->operator_id});
+      for (uint16_t field = 0; field < op.op->schema_count; ++field) {
+        const auto &info = op.op->schema[field];
+        const void *address = op.op->runtime.param_address(
+            const_cast<uint8_t *>(program.param_block(index)), field);
+        const float value =
+            info.enum_count > 0
+                ? static_cast<float>(*static_cast<const uint8_t *>(address))
+                : *static_cast<const float *>(address);
+        out.parameters.push_back({program.param_name(index, field), value});
+      }
+      auto state = op.op->runtime.capture_state(program.state_block(index));
+      if (!std::holds_alternative<std::monostate>(state))
+        out.runtime->push_back({op.instance, std::move(state)});
+    }
+    return out;
+  }
+
+  HS_COLD_MEMBER ChainSnapshotRestoreResult
+  restore_snapshot(const ChainSnapshot &snapshot) {
+    using Result = ChainSnapshotRestoreResult;
+    using namespace Pullback::Interp;
+    if (snapshot.schema_version != 1)
+      return Result::UNSUPPORTED_VERSION;
+    if (snapshot.chain.empty() || snapshot.chain.size() > MAX_CHAIN_OPS ||
+        snapshot.parameters.size() > MAX_CHAIN_PARAMS ||
+        (snapshot.runtime && snapshot.runtime->size() > MAX_CHAIN_OPS))
+      return Result::INVALID_LENGTH;
+    if (snapshot.palette_bank &&
+        !GeneratedPaletteBank::valid_snapshot(*snapshot.palette_bank))
+      return Result::INVALID_VALUE;
+    ChainEntryRequest requests[MAX_CHAIN_OPS];
+    for (size_t index = 0; index < snapshot.chain.size(); ++index)
+      requests[index] = {snapshot.chain[index].instance,
+                         snapshot.chain[index].operator_id};
+    Result validation = Result::INVALID_VALUE;
+    const auto refusal = program.compile(
+        std::span<const ChainEntryRequest>(requests, snapshot.chain.size()),
+        [&](std::span<const ChainProgram::ChainOp> ops, uint8_t *base) {
+          for (size_t write_index = 0; write_index < snapshot.parameters.size();
+               ++write_index) {
+            const auto &write = snapshot.parameters[write_index];
+            if (!std::isfinite(write.value))
+              return false;
+            for (size_t earlier = 0; earlier < write_index; ++earlier)
+              if (snapshot.parameters[earlier].name == write.name)
+                return false;
+            bool found = false;
+            for (const auto &op : ops)
+              for (uint16_t field = 0; field < op.op->schema_count; ++field) {
+                const auto &info = op.op->schema[field];
+                if (write.name != std::string(op.instance) + "." + info.id)
+                  continue;
+                if (write.value < (info.enum_count > 0 ? 0.0f : info.min) ||
+                    write.value > (info.enum_count > 0
+                                       ? static_cast<float>(info.enum_count - 1)
+                                       : info.max))
+                  return false;
+                void *address =
+                    op.op->runtime.param_address(base + op.param_offset, field);
+                if (info.enum_count > 0) {
+                  if (std::floor(write.value) != write.value)
+                    return false;
+                  *static_cast<uint8_t *>(address) =
+                      static_cast<uint8_t>(write.value);
+                } else {
+                  *static_cast<float *>(address) = write.value;
+                }
+                found = true;
+              }
+            if (!found)
+              return false;
+          }
+          bool edge_distance_available = false;
+          size_t runtime_count = 0;
+          for (const auto &op : ops) {
+            void *params = base + op.param_offset;
+            if (op.op->runtime.validate(params))
+              return false;
+            if (op.op->input == CarrierId::SPHERE &&
+                op.op->output == CarrierId::PLANE)
+              edge_distance_available = op.op->edge_distance_available;
+            if (!edge_distance_available)
+              for (uint16_t field = 0; field < op.op->schema_count; ++field) {
+                const auto &info = op.op->schema[field];
+                if (info.enum_count == 0 ||
+                    (std::strcmp(info.id, "coverage-mode") != 0 &&
+                     std::strcmp(info.id, "envelope") != 0))
+                  continue;
+                const auto value = *static_cast<uint8_t *>(
+                    op.op->runtime.param_address(params, field));
+                if (value < info.enum_count &&
+                    std::strcmp(info.enum_ids[value], "edge-fade") == 0)
+                  return false;
+              }
+            if (!snapshot.runtime)
+              continue;
+            void *state = base + op.state_offset;
+            const auto initial = op.op->runtime.capture_state(state);
+            if (std::holds_alternative<std::monostate>(initial))
+              continue;
+            const ChainSnapshot::Runtime *selected = nullptr;
+            for (const auto &entry : *snapshot.runtime)
+              if (entry.instance == op.instance) {
+                if (selected != nullptr)
+                  return false;
+                selected = &entry;
+              }
+            if (selected == nullptr ||
+                !op.op->runtime.restore_state(state, selected->state))
+              return false;
+            ++runtime_count;
+          }
+          return !snapshot.runtime || runtime_count == snapshot.runtime->size();
+        },
+        false);
+    if (refusal.code != ChainStatus::OK)
+      return refusal.code == ChainStatus::MALFORMED_PAYLOAD
+                 ? validation
+                 : Result::INVALID_CHAIN;
+    colorize = find_colorize_tap();
+    rebind_chain_parameters();
+    GeneratedPaletteBank::Snapshot palette;
+    palette.chroma =
+        colorize.palette_chroma ? *colorize.palette_chroma : DEFAULT_CHROMA;
+    palette.hues.fill(GeneratedPaletteBank::HUE_STEP);
+    generated_palettes.restore_snapshot(
+        snapshot.palette_bank.value_or(palette));
+    resources->hue_noise_bake = {};
+    setAnimationsPaused(snapshot.animations_paused);
+#if HS_ENABLE_PARAM_GUI_BRIDGE
+    refused_name = nullptr;
+    refusal_warning = nullptr;
+#endif
+    return Result::APPLIED;
   }
 
   /** @brief Advances clocks and palettes, prepares the program, and renders
@@ -219,6 +365,7 @@ private:
 
   /** @brief Engine-owned shared resources the FrameContext borrows. */
   struct Resources {
+    int32_t hue_noise_seed = Pullback::HUE_NOISE_SEED;
     std::array<Pixel, Pullback::Color::HueRotationLutView::SIZE>
         hue_rotation_lut{};
     std::array<int8_t, Pullback::Color::HueNoiseLutView::SIZE> hue_noise_lut{};
@@ -384,6 +531,11 @@ private:
     const auto &clocks =
         *static_cast<const Pullback::Interp::Op::ColorClockState *>(
             program.state_block(static_cast<size_t>(tap.index)));
+    if (resources->hue_noise_seed != clocks.hue_noise_seed) {
+      resources->hue_noise.SetSeed(clocks.hue_noise_seed);
+      resources->hue_noise_seed = clocks.hue_noise_seed;
+      resources->hue_noise_bake = {};
+    }
     resources->hue_noise_bake.refresh(
         resources->hue_noise_lut, resources->hue_noise, *tap.hue_noise_scale,
         clocks.hue_noise_phase);

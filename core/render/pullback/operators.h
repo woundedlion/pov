@@ -210,6 +210,7 @@ static_assert(appended_block_size_matches<GeneratedPaletteParams,
 
 /** @brief Per-frame color phase clocks. */
 struct ColorClockState {
+  int32_t hue_noise_seed = HUE_NOISE_SEED;
   float oscillation_phase = 0.0f;
   float hue_noise_phase = 0.0f; /**< Bake input for the engine's hue-noise
                                      LUT; not read by run(). */

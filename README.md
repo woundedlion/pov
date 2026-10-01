@@ -305,7 +305,7 @@ files define line-ending policy and working-artifact exclusions.
 │   │   │                            stage, ray), the operator layer (operator_model,
 │   │   │                            operator_table, operators, operators_common,
 │   │   │                            operators_field, operators_project, operators_sample,
-│   │   │                            operators_sphere, operators_warp), the chain
+│   │   │                            operators_sphere, operators_warp, operators_snapshot, runtime_snapshot), the chain
 │   │   │                            interpreter (interpreter) with its catalog export
 │   │   │                            (catalog_export), the shared runtime seeds
 │   │   │                            (runtime_seeds), named per-instance resources (composed_resources),
@@ -366,20 +366,9 @@ files define line-ending policy and working-artifact exclusions.
 │
 ├── workbench/                  Simulator-only shader authoring surfaces, outside the firmware
 │                                roster; their HS_ENABLE_* gates #error under ARDUINO — see §9
-│   └── shader/                 The shader authoring workbench; reusable policies live in
-│                                namespace Workbench; ShaderWorkbench is a global, resolution-independent host class; Shader<W, H> binds it to a canvas
-│       ├── shader_host.h       Slot-configured shader with dynamic dispatch: registered as Shader
+│   └── shader/                 ShaderChain effect host and executable typed snapshots
 │       ├── chain_host.h        Effect host for a compiled operator chain: registered as ShaderChain
-│       ├── config.h            Slot enums, per-stage parameter families, and the Config they compose
-│       ├── limits.h            Parameter domain bounds and the predicates checking a Config against them
-│       ├── options.h           Display labels for enumerated shader fields
-│       ├── admission.h         Structural legality: valid configurations, bounds, admitted transitions
-│       ├── presets.h           The authored presets and the assertions holding them to the admission rules
-│       ├── frame_state.h       Prepared stage payloads and the immutable FrameState a shading pass reads
-│       ├── resources.h         Noise-field keys per configuration and whether two of them fit the bank
-│       ├── kernels.h           Pull-back kernels: camera, lens, projection, warp, source, colorize
-│       ├── bindings.h          The pullback binding and its per-stage state providers
-│       └── pipelines.h         Compiled stage adapters, the pipeline catalog, and the program manifest
+│       └── chain_snapshot.h    Owned program, parameter, runtime and palette snapshot
 │
 ├── hardware/                   Hardware drivers
 │   ├── dma_led.h               Non-blocking DMA LED controller for HD107S (Teensy 4.x)
@@ -422,7 +411,8 @@ files define line-ending policy and working-artifact exclusions.
 │   └── wasm/
 │       ├── wasm.cpp            Emscripten binding TU — includes the binding headers below
 │       ├── engine_bindings.h   Render bridge — HolosphereEngine JS class, readback buffers, embind registration
-│       ├── workbench_bindings.h Typed chain and legacy snapshot authoring handles
+│       ├── workbench_bindings.h Typed chain program and complete snapshot authoring handle
+│       ├── chain_snapshot_codec.h Strict typed runtime/palette snapshot wire codec
 │       ├── mesh_ops_bindings.h Mesh editor bridge — MeshOps JS class, tooling arenas, Conway/Goldberg operators
 │       ├── mesh_op_bounds.h    Pure mesh-operator roster + growth factors behind the MeshOps guards (host-testable)
 │       ├── palette_bindings.h  Palette bridge — PaletteOps JS class, generative palette LUT bake
@@ -437,12 +427,14 @@ files define line-ending policy and working-artifact exclusions.
 ├── CMakePresets.json           Canonical presets: wasm-release, wasm-debug, wasm-strict-fp, tests
 ├── cmake/
 │   ├── prune_mirrored_patterns.cmake     Removes obsolete engine-owned shader documents during install
+│   ├── chain_capture_fixtures.cmake Typed fixture header generation for capture producers
 │   ├── prune_mirrored_screenshots.cmake  Removes obsolete engine-owned gallery PNGs during install
 │   ├── wasm_cache_key.cmake     Keys the binary URL by its content hash after linking
 │   └── toolchain-native-clang.cmake  Native Clang toolchain behind the tests preset
 ├── platformio.ini              Teensy envs: the two shipping images plus the compile/profiling profiles
 ├── tests/                      Unit tests (CMake subdirectory)
 │   ├── mindsplatter_whitebox.h  White-box MindSplatter accessor shared by its tests and the replay tools
+│   ├── composed_chain_fixture.h   Document-built chain and compiled composed frame parity
 │   ├── mindsplatter_replay_metrics.h  Difference metrics + clip geometry shared by the replay generator and comparator
 │   └── mindsplatter_replay_corpus.h  Generated golden replay corpus (emitted by tools/mindsplatter_replay_gen.cpp)
 ├── patterns/                   Shader workbench source documents
@@ -512,6 +504,8 @@ files define line-ending policy and working-artifact exclusions.
 │   ├── generate_pullback_manifest_header.py  Pullback manifest validator and native-test header generator
 │   ├── pullback_operations.def                Shared capture operation codes and preset count
 │   ├── pullback_capture.py / pullback_capture_native.cpp  Canonical producer + native/WASM backend
+│   ├── gen_chain_capture_fixtures.py Typed C++ snapshot generator for frozen capture cases
+│   ├── test_chain_capture_fixtures.py Capture fixture generator contracts
 │   ├── pullback_crosscheck.py  Isolated base/candidate pullback capture runner and comparator
 │   ├── device_lock.sh          Host-global per-board lock every device path takes
 │   ├── device_lock_guard.py    OS file-lock guard for claim creation and removal
@@ -1023,7 +1017,7 @@ Every host-side operation the graph needs is a pure virtual on `EffectTransition
 
 Every effect — screenshot, description and parameter list — plus the shader authoring workbench and the legacy roster is documented in [`docs/effects.md`](https://github.com/woundedlion/pov/blob/master/docs/effects.md).
 
-The compile-time roster and tests carry 41 firmware-capable effects. Native and WASM builds add two simulator-only registry entries, the `Shader` workbench and the `ShaderChain` chain interpreter, for 43. The simulator sidebar exposes resolution-specific effect lists (§10.5); both stay out of the card lists because they open through the standalone tool. The Phantasm firmware playlist (`HS_PHANTASM_EFFECT_LIST` in `targets/Phantasm/phantasm_playlist.h`) contains 38 effects, including all promoted composed effects and excluding the three Holosphere-96×20-only effects: Dynamo, MobiusRings, and Thrusters. Each entry carries its own on-air duration, as specified alongside its name in the 38-entry roster. Full-cycle Teensy measurements for that playlist are indexed in the [on-device effect profiles](https://github.com/woundedlion/pov/blob/master/docs/profiles/README.md).
+The compile-time roster and tests carry 41 firmware-capable effects. Native and WASM builds add the simulator-only `ShaderChain` interpreter, for 42. The simulator sidebar exposes resolution-specific effect lists (§10.5); it stays out of the card lists because it opens through the standalone tool. The Phantasm firmware playlist (`HS_PHANTASM_EFFECT_LIST` in `targets/Phantasm/phantasm_playlist.h`) contains 38 effects, including all promoted composed effects and excluding the three Holosphere-96×20-only effects: Dynamo, MobiusRings, and Thrusters. Each entry carries its own on-air duration, as specified alongside its name in the 38-entry roster. Full-cycle Teensy measurements for that playlist are indexed in the [on-device effect profiles](https://github.com/woundedlion/pov/blob/master/docs/profiles/README.md).
 
 ---
 
@@ -1067,17 +1061,16 @@ A normal page load creates one WASM instance on the main thread. The dot mesh ha
 
 ### 10.2 The WASM Bridge
 
-Authoring operations live on typed handles acquired through
-`getShaderChainBindings()` and `getLegacyShaderBindings()`. A handle addresses
-one effect incarnation and becomes invalid after replacement, resize, geometry
-rebuild, or engine deletion. Release it with `delete()` after use. Chain handles
-own program admission, parameter batches, and program readback; legacy handles
-own configuration snapshots. `Module.ShaderChainBindings.getShaderChainCatalog()`
-exports the catalog. Engine authoring methods in the table below forward to
-these adapters during consumer migration.
+Authoring operations live on `ShaderChainBindings`, acquired through
+`getShaderChainBindings()`. A handle addresses one effect incarnation and becomes
+invalid after replacement, resize, geometry rebuild or engine deletion. Release
+it with `delete()` after use. It owns program admission, parameter batches,
+program readback and complete snapshots. Its static `getShaderChainCatalog()`
+exports the catalog. [Chain snapshots](docs/specs/chain_snapshot_spec.md) define
+state restoration and archive conversion.
 
 `wasm.cpp` compiles to `holosphere_wasm.js` + `.wasm` and exposes a single `HolosphereEngine` class. At most one instance may be live per module — its effect and arenas are shared module-global storage — so `delete()` the current engine before constructing another; the constructor traps otherwise. Decoder re-entry and deletion during payload decoding also trap. The payloads
-for `setShaderChain`, `setShaderChainParameters`, `restoreFullConfigSnapshot`,
+for `setShaderChain`, `setShaderChainParameters`, `restoreSnapshot`,
 and PaletteOps recipe compilation and inspection
 are cloned before decoding. Cloning can invoke getters; `structuredClone` rejects
 proxies. Pass plain data to these methods. `HolosphereEngine.isLive()` reports only the singleton, so a bootstrap that can run twice tests it first rather than constructing into the trap.
@@ -1087,11 +1080,14 @@ A trap is terminal for the whole module, not just for the call that tripped it. 
 | Method | Description |
 |---|---|
 | `setResolution(w, h)` → `ResolutionSetResult` | Switch active resolution (96×20 or 288×144). Returns `Module.ResolutionSetResult.RESIZED` when the switch took — tearing down the current effect, so `setEffect` and any clip must be re-applied — `ALREADY_ACTIVE` for a request matching the active resolution (a pure no-op; nothing is torn down), or `UNSUPPORTED` for a size the build cannot render (ignored, prior state kept). Compare against the enum values — never by truthiness |
-| `setEffect(name)` → `EffectSetResult` | Instantiate a new effect by C++ class name or stable effect ID; `ShaderBall` and `ShaderWorkbench` both remain aliases for `Shader`. The call resets all arenas to defaults. Returns `Module.EffectSetResult.INSTALLED` on success, else the rejection reason (`UNKNOWN_EFFECT`, or `UNSUPPORTED_RESOLUTION` when the active resolution has no factory); a rejection keeps the prior effect alive. Compare against the enum values — never by truthiness |
+| `setEffect(name)` → `EffectSetResult` | Instantiate a new effect by C++ class name or stable effect ID; `Shader`, `ShaderBall` and `ShaderWorkbench` are aliases for `ShaderChain`. The call resets all arenas to defaults. Returns `Module.EffectSetResult.INSTALLED` on success, else the rejection reason (`UNKNOWN_EFFECT`, or `UNSUPPORTED_RESOLUTION` when the active resolution has no factory); a rejection keeps the prior effect alive. Compare against the enum values — never by truthiness |
 | `drawFrame()` | Advance one frame and copy pixels to the output buffer |
-| `setShaderChain(entries)` → `{status, code, entryIndex}` | Program the loaded `ShaderChain` effect with an ordered `[{instance, operator}]` array — the chain's shape and nothing else, no values and no family tags. The result is a plain JS object whose primary `status` is a `Module.ChainStatus` enum member (`OK` on commit). `code` is its compatibility string (`"APPLIED"` on commit, otherwise the refusal name), with `entryIndex` naming the offending entry and `-1` a whole-chain refusal. `APPLIED` has already rebuilt the parameter definitions (named `instance.field-id`) and bumped `getParamGeneration()` by the time it returns, so the caller applies preset values by name straight after. Every refusal is transactional — the previous program, its definitions, the generation, and all instance state are left exactly as they were |
-| `setShaderChainParameters(entries)` → `ParamSetResult` | Atomically apply `[{name, value}]` after final-state validation. Returns `APPLIED`, or `MALFORMED_PAYLOAD`, `TOO_LONG`, `NO_EFFECT`, `UNKNOWN_PARAM`, `READONLY`, `NON_FINITE`, or `INADMISSIBLE`; a refusal commits no values |
-| `getShaderChainCatalog()` → `string` | *(static)* The chain interpreter's operator catalog as one JSON string — budgets, carriers, and every operator-table entry. Budgets, carriers, operator ids and parameter schemas match the catalog the native suite pins as its golden, which is what keeps an editor's stage library from drifting from the operator table the engine actually resolves against. The per-operator block sizes are the building ABI's and are **not** byte-identical to that golden: this module emits wasm32 figures, where a pointer-bearing `prepared` block is 4-byte-aligned and narrower than the 8-byte-aligned LP64 figure the native golden carries (8 of the 39 operators differ). The wasm32 figures are the ones an editor budgets arena bytes against, and the ones this module's own runtime allocates from; `scripts/shader_workbench.test.mjs` holds the two spellings to differing in nothing else |
+| `ShaderChainBindings.setShaderChain(entries)` → `{status, code, entryIndex}` | Program the loaded `ShaderChain` effect with an ordered `[{instance, operator}]` array — the chain's shape and nothing else, no values and no family tags. The result is a plain JS object whose primary `status` is a `Module.ChainStatus` enum member (`OK` on commit). `code` is its compatibility string (`"APPLIED"` on commit, otherwise the refusal name), with `entryIndex` naming the offending entry and `-1` a whole-chain refusal. `APPLIED` has already rebuilt the parameter definitions (named `instance.field-id`) and bumped `getParamGeneration()` by the time it returns, so the caller applies preset values by name straight after. Every refusal is transactional — the previous program, its definitions, the generation, and all instance state are left exactly as they were |
+| `ShaderChainBindings.setShaderChainParameters(entries)` → `ParamSetResult` | Atomically apply `[{name, value}]` after final-state validation. Returns `APPLIED`, or `MALFORMED_PAYLOAD`, `TOO_LONG`, `NO_EFFECT`, `UNKNOWN_PARAM`, `READONLY`, `NON_FINITE`, or `INADMISSIBLE`; a refusal commits no values |
+| `ShaderChainBindings.getShaderChainCatalog()` → `string` | *(static)* The chain interpreter's operator catalog as one JSON string — budgets, carriers, and every operator-table entry. Budgets, carriers, operator ids and parameter schemas match the catalog the native suite pins as its golden, which is what keeps an editor's stage library from drifting from the operator table the engine actually resolves against. The per-operator block sizes are the building ABI's and are **not** byte-identical to that golden: this module emits wasm32 figures, where a pointer-bearing `prepared` block is 4-byte-aligned and narrower than the 8-byte-aligned LP64 figure the native golden carries (pointer-bearing blocks differ). The wasm32 figures are the ones an editor budgets arena bytes against, and the ones this module's own runtime allocates from; `scripts/shader_workbench.test.mjs` holds the two spellings to differing in nothing else |
+| `getShaderChainBindings()` | Acquire the loaded chain's authoring capability, or null for a fixed effect. Release it with `delete()` after use. |
+| `ShaderChainBindings.getSnapshot()` | Capture the complete version-one program, named parameters, typed clocks/noise/walk state, generated palette bank and pause flag. |
+| `ShaderChainBindings.restoreSnapshot(snapshot)` | Restore atomically; every refusal leaves the live chain and all state intact. Returns `Module.ChainSnapshotRestoreResult`. |
 | `getPixels()` | Return a zero-copy `Uint16Array` view into WASM linear memory, spanning the active resolution's prefix of the fixed backing buffer |
 | `getBufferLength()` → `int` | Length of the pixel buffer (`W × H × 3`) for sizing the view, and the staleness test for a cached one: a `setResolution` moves this length without detaching the outstanding view |
 | `getEffectPresetCounts()` → `object` | Map from every effect name available at the active resolution to its preset count; returns an empty object when the resolution is unsupported or uninitialized |
@@ -1124,9 +1120,6 @@ Three further methods carry Shader's whole workbench configuration across a relo
 
 | Method | Description |
 |---|---|
-| `getFullConfigSnapshot()` | Return the current Shader workbench's whole state as `{schemaVersion, accepted, requested, pendingFieldIds, hasRuntime, runtime}`, or `null` for another effect. `accepted` and `requested` are `CONFIG_FIELD_COUNT`-long arrays of field values encoded as `uint32`, in `ConfigFieldId` order; `pendingFieldIds` lists the indices of the fields carrying an unresolved edit; `runtime` is the animation clock state, meaningful only when `hasRuntime` |
-| `restoreFullConfigSnapshot(snapshot)` → `FullConfigRestoreResult` | Install a current-schema snapshot atomically: `Module.FullConfigRestoreResult.APPLIED`, else `NOT_SHADER_WORKBENCH`, `UNSUPPORTED_VERSION`, `INVALID_LENGTH` (a missing snapshot, or an array whose length is not the field count), `INVALID_VALUE` (a field or runtime value outside what its slot admits), `INVALID_ACCEPTED` (fields each in range but a combination the effect will not render), or `INVALID_PENDING` (a pending list that is absent, that is not a set of in-range field indices, or that does not name exactly the fields where `accepted` and `requested` differ — retry with `[]`). Compare against the enum values — never by truthiness. Every rejection leaves the effect exactly as it was, so a failed restore needs no rollback. The current field layout and schema 10 are accepted; schema 10 is migrated to the current layout. Other older layouts are rejected. |
-| `getFullConfigFieldDefinitions()` | Return `[{id, name}]` for every field in the snapshot arrays — `id` is the index into `accepted`/`requested`/`pendingFieldIds`, `name` the stable dotted config path — or `null` when the loaded effect is not Shader. Read it to label a field rather than hardcoding an index, which moves when the schema gains a field |
 
 The bridge also exposes a `MeshOps` class — used by the `solids.html` geometry tool — with dedicated tooling arenas (an 8 MB persistent arena plus two 4 MB scratch arenas — 16 MB total, separate from the engine's 512 KiB arena) for interactive solid manipulation. `fromSolidName`, `getVertices`, `getFaces`, `classifyFaces` and the operator methods answer a rejected call with `null`; `MeshOps.getLastResult()` then names the reason as a `Module.MeshOpResult` value (`OK`, `UNKNOWN_NAME`, `CONNECTIVITY_OVERFLOW`, `FACE_DEGREE_OVERFLOW`, `ARENA_EXHAUSTED`, `NON_FINITE_ARG`, `ANGLE_OUT_OF_DOMAIN`, `STALE_WRAPPER`, or `ARENA_UNAVAILABLE`). Compare against the enum values — never by truthiness — and read it before the next such call, which overwrites it. The reasons demand opposite responses: an overflow means shrinking the op chain, `ARENA_EXHAUSTED` means calling `clearToolingMemory()`, `STALE_WRAPPER` — a wrapper used after a `clearToolingMemory()` reclaimed its storage — means rebuilding the mesh from its base solid, and `ARENA_UNAVAILABLE` — the 16 MB tooling block itself could not be allocated — means no MeshOps call can run at all, so the tool must stand down rather than retry. That last one is a reject rather than a trap for the same reason as the rest: an allocation failure in a long-lived tab must cost the page a null, not the module. A stale wrapper is rejected rather than trapped, so an interleaved wipe costs the page a null, not the module. A call that *succeeds* can still have moved what it was given: the fraction operators, `snub` and `relax` saturate a finite out-of-domain argument into the operator's domain and render from the saturated value, leaving `getLastResult()` at `OK`. `MeshOps.getLastAdjusted()` reports that only when the call returned a mesh, on the same read-it-before-the-next-call terms — a tool that only previews the mesh can ignore it, while one that exports the argument it passed must check it, or the exported value carries an out-of-domain bound into a firmware assert. Two class functions are pure table reads — no arenas, no wrapper, no `clearToolingMemory()` pairing: `MeshOps.getRegistry()` lists every registered solid as `{name, category}` for the editor's solid picker, and `MeshOps.getRecipe(name)` returns one entry's authored op chain as `{seed, ops: [{op, param, twist}]}` in engine-native units, answering `null` for an unknown name or for a known entry that carries no recipe. `getRegistry()` alone sits outside the `getLastResult()` contract; `getRecipe()` is inside it, clearing the channel on entry like every other entry point and recording `UNKNOWN_NAME` for the unknown-name null (the recipe-less null leaves it `OK`). A panel that refreshes a recipe therefore has to read `getLastResult()` for the preceding operator before it calls `getRecipe()`.
 
@@ -1234,9 +1227,9 @@ params.forEach(p => {
 });
 ```
 
-`getParamValues()` is polled after simulation steps and on invalidated frames to sync the GUI with parameter values that the animation system has changed autonomously. While paused, the panel continues reconciling on each animation frame. The sync skips any control the user is currently interacting with to avoid fighting the slider. A per-effect **Reset** rebuilds the GUI from defaults, and **Export** copies the current preset-exportable values as a positional C++ brace-init list (`{ 0.85f, 4, true }`) suitable for `PRESETS` tables. If a segmented-render parameter snapshot is temporarily unavailable after an edit, Export uses the values displayed by the current parameter schema. An effect that persists through the exhaustive versioned snapshot API instead of per-parameter values — the Shader workbench, which the engine answers `getFullConfigSnapshot()` for — takes the other branch: Export copies that snapshot as pretty-printed JSON, and fails visibly rather than falling back to an initializer when the snapshot is unavailable. An effect that reports presets also gets a **Preset** dropdown over the zero-indexed live index — a live control, not a readout: choosing an entry selects that preset — flanked by **Previous Preset** / **Next Preset** buttons that step it, and each sync mirrors the live preset into the engine that owns the definitions before reconciling the resulting schema. A failed mirror skips subsequent value synchronization.
+`getParamValues()` is polled after simulation steps and on invalidated frames to sync the GUI with parameter values that the animation system has changed autonomously. While paused, the panel continues reconciling on each animation frame. The sync skips any control the user is currently interacting with to avoid fighting the slider. A per-effect **Reset** rebuilds the GUI from defaults, and **Export** copies the current preset-exportable values as a positional C++ brace-init list (`{ 0.85f, 4, true }`) suitable for `PRESETS` tables. If a segmented-render parameter snapshot is temporarily unavailable after an edit, Export uses the values displayed by the current parameter schema. A chain exports the complete `ShaderChainBindings.getSnapshot()` as JSON. An effect that reports presets also gets a **Preset** dropdown over the zero-indexed live index — a live control, not a readout: choosing an entry selects that preset — flanked by **Previous Preset** / **Next Preset** buttons that step it, and each sync mirrors the live preset into the engine that owns the definitions before reconciling the resulting schema. A failed mirror skips subsequent value synchronization.
 
-Three behaviours the definitions loop above does not show. **Stage folders**: pullback-shaded effects are grouped rather than listed flat — the panel matches the registered names against a per-effect stage assignment and builds one folder per pipeline stage, in pullback order; a parameter no stage claims is still built, at the panel's top level, and the orphan is logged. **Warnings**: a definition carrying a `warning` — the engine's answer to a value it accepted as a request but will not render — renders that text into a node beside the control (a node, not a `title` attribute, which would be mouse-only), and the panel re-reads the warning set after each edit and rebuilds once the engine's warnings have moved off the ones it was built from. **Persistence**: the panel restores itself across a reload, storing accepted parameter values for an ordinary effect and, for one on the full-config path, `getFullConfigSnapshot()` as JSON — replayed through `restoreFullConfigSnapshot()`, which is atomic, so a snapshot that fails to parse or that the engine rejects is dropped rather than half-applied.
+Three behaviours the definitions loop above does not show. **Stage folders**: pullback-shaded effects are grouped rather than listed flat — the panel matches the registered names against a per-effect stage assignment and builds one folder per pipeline stage, in pullback order; a parameter no stage claims is still built, at the panel's top level, and the orphan is logged. **Warnings**: a definition carrying a `warning` — the engine's answer to a value it accepted as a request but will not render — renders that text into a node beside the control (a node, not a `title` attribute, which would be mouse-only), and the panel re-reads the warning set after each edit and rebuilds once the engine's warnings have moved off the ones it was built from. **Persistence**: ordinary effects store accepted named values. Chains store complete typed snapshots and restore them atomically; legacy configuration archives are converted before engine application, with original data retained on refusal.
 
 ### 10.7 Segmented POV Workers (`segment_worker.js`)
 

@@ -164,7 +164,8 @@ struct ProjectOpModel : ValueStateModel<SpatialWalkState> {
   }
   static void advance(State &state, const Params &params) {
     validate_frame(params);
-    if (params.frame == static_cast<uint8_t>(ProjectionFrame::SPIN_WANDER))
+    if (state.legacy ||
+        params.frame == static_cast<uint8_t>(ProjectionFrame::SPIN_WANDER))
       advance_walk(state, params.wander, params.spin_rate);
   }
   static Prepared prepare(const FrameContext &ctx, const Params &params,
@@ -406,6 +407,94 @@ struct ProjectAirocean
                                   const Prepared &prepared) {
     return Projection::airocean(local, params.layout == 1, true,
                                 PROJECT_COORDINATE_SCALE, prepared.meridian_cos,
+                                prepared.meridian_sin);
+  }
+};
+
+template <typename Base> struct ScaledProjectParams : Base {
+  float coordinate_scale = 1.0f;
+  static constexpr auto FIELDS = concat_fields<ScaledProjectParams>(
+      Base::FIELDS,
+      std::array{Field<ScaledProjectParams>{
+          "coordinate-scale", &ScaledProjectParams::coordinate_scale,
+          "Coordinate Scale", 0.25f, 4.0f, FieldCurve::LOG_POSITIVE}});
+};
+
+inline constexpr const char *PEIRCE_LAYOUT_IDS[] = {"diamond", "square",
+                                                    "horizontal", "vertical"};
+
+struct PeirceChainParams : ScaledProjectParams<MeridianProjectChainParams> {
+  float layout_scroll = 0.0f;
+  uint8_t layout = PEIRCE_SQUARE_LAYOUT;
+  static constexpr auto FIELDS = concat_fields<PeirceChainParams>(
+      ScaledProjectParams<MeridianProjectChainParams>::FIELDS,
+      std::array{Field<PeirceChainParams>{"layout-scroll",
+                                          &PeirceChainParams::layout_scroll,
+                                          "Layout Scroll",
+                                          -1.0f,
+                                          1.0f,
+                                          FieldCurve::LERP,
+                                          FieldGate::ALWAYS,
+                                          {"layout", (1u << 2) | (1u << 3)}}});
+  static constexpr auto TOPOLOGY = projection_frame_topology<PeirceChainParams>(
+      TopologyField<PeirceChainParams>{"layout", &PeirceChainParams::layout,
+                                       PEIRCE_LAYOUT_IDS,
+                                       PEIRCE_SQUARE_LAYOUT});
+};
+
+struct ProjectPeirceV3
+    : ProjectOpModel<ProjectPeirceV3, PeirceChainParams, true> {
+  static constexpr const char *ID = "project.peirce.v3";
+  static constexpr const char *NAME = "Peirce Layout";
+  static ProjectionResult project(const math::Vector &local,
+                                  const Params &params,
+                                  const Prepared &prepared) {
+    return Projection::peirce(local, params.central_meridian, params.layout,
+                              params.layout_scroll, true,
+                              params.coordinate_scale, params.singularity_fade,
+                              prepared.meridian_cos, prepared.meridian_sin);
+  }
+};
+
+struct ProjectPeirceSquareFastV3
+    : ProjectOpModel<ProjectPeirceSquareFastV3,
+                     ScaledProjectParams<ProjectChainParams>> {
+  static constexpr const char *ID = "project.peirce-square-fast.v3";
+  static constexpr const char *NAME = "Peirce Scaled Fast Square";
+  static constexpr bool APPROXIMATE = true;
+  static constexpr ApproximationOracleId ORACLE =
+      ApproximationOracleId::PEIRCE_FAST_SQUARE;
+  static constexpr auto METRICS = Projection::PEIRCE_FAST_SQUARE_METRICS;
+  static ProjectionResult project(const math::Vector &local,
+                                  const Params &params) {
+    return Projection::peirce_fast_square(local, params.coordinate_scale,
+                                          params.singularity_fade);
+  }
+};
+
+struct ProjectBonneV3
+    : ProjectOpModel<ProjectBonneV3, ScaledProjectParams<BonneChainParams>> {
+  static constexpr const char *ID = "project.bonne.v3";
+  static constexpr const char *NAME = "Bonne Scaled";
+  static ProjectionResult project(const math::Vector &local,
+                                  const Params &params) {
+    const float hemisphere = params.hemisphere == 0 ? 1.0f : -1.0f;
+    return Projection::bonne(local, params.central_meridian,
+                             hemisphere * params.standard_parallel,
+                             params.coordinate_scale);
+  }
+};
+
+struct ProjectAiroceanV3
+    : ProjectOpModel<ProjectAiroceanV3,
+                     ScaledProjectParams<AiroceanChainParams>, true> {
+  static constexpr const char *ID = "project.airocean.v3";
+  static constexpr const char *NAME = "Airocean Scaled";
+  static ProjectionResult project(const math::Vector &local,
+                                  const Params &params,
+                                  const Prepared &prepared) {
+    return Projection::airocean(local, params.layout == 1, true,
+                                params.coordinate_scale, prepared.meridian_cos,
                                 prepared.meridian_sin);
   }
 };

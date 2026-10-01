@@ -14,6 +14,7 @@ test('every exported enum binds each C++ enumerator under its own name', () => {
     '../core/control/params.h',
     '../core/color/palette_recipe.h',
     '../core/render/pullback/interpreter.h',
+    '../workbench/shader/chain_snapshot.h',
   ].map(path => readFileSync(new URL(path, import.meta.url), 'utf8')
     .replace(/\/\*[\s\S]*?\*\/|\/\/[^\n]*/gu, ''));
   const declarations = new Map();
@@ -52,11 +53,9 @@ test('the embind engine API preserves instance and static binding names', () => 
     'selectPresetById', 'synchronizePreset', 'nextPreset', 'previousPreset',
     'setPoleLod', 'getPoleLod', 'getParameterDefinitions', 'getParamValues',
     'getParamGeneration', 'getArenaMetrics', 'getEffectSizes',
-    'getEffectPresetCounts', 'getFullConfigSnapshot', 'restoreFullConfigSnapshot',
-    'getLegacyShaderBindings', 'getShaderChainBindings',
-    'getFullConfigFieldDefinitions', 'setShaderChain', 'setShaderChainParameters', 'setClip', 'strobeColumns',
+    'getEffectPresetCounts', 'getShaderChainBindings', 'setClip', 'strobeColumns',
   ];
-  const statics = ['getShaderChainCatalog', 'getSupportedResolutions', 'isLive'];
+  const statics = ['getSupportedResolutions', 'isLive'];
   const bindings = [...source.matchAll(
     /\.(function|class_function)\(\s*"([^"]+)"\s*,\s*&HolosphereEngine::(\w+)\)/gu,
   )];
@@ -73,12 +72,7 @@ test('the embind engine API preserves instance and static binding names', () => 
 
 test('optional engine APIs stay inside their feature guards', () => {
   const expected = new Map([
-    ['HS_ENABLE_SHADER_WORKBENCH', [
-      'getFullConfigSnapshot', 'restoreFullConfigSnapshot',
-      'getFullConfigFieldDefinitions',
-      'getLegacyShaderBindings',
-    ]],
-    ['HS_ENABLE_CHAIN_INTERPRETER', ['setShaderChain', 'setShaderChainParameters', 'getShaderChainCatalog', 'getShaderChainBindings']],
+    ['HS_ENABLE_CHAIN_INTERPRETER', ['getShaderChainBindings']],
   ]);
   const registration = source.slice(source.indexOf('static void bind_engine()'));
   const guarded = new Map([...expected.keys()].map(flag => [flag, []]));

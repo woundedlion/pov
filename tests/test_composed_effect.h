@@ -18,7 +18,7 @@
  * the derivation layer can reach: the workbench catalog is wider, and the
  * difference is recorded against the live OPERATOR_TABLE rather than restated.
  *
- * Shading is deliberately out of scope: the ShaderWorkbench equivalence
+ * Shading is covered by the compiled-to-chain equivalence
  * oracles in
  * tests/test_lattice_melt.h and tests/test_kaleidoscope_smooth.h own that comparison.
  */
@@ -1530,6 +1530,13 @@ struct DerivationReach {
 };
 
 constexpr DerivationReach DERIVATION_REACH[] = {
+    {"project.peirce.v3", nullptr, {}},
+    {"project.peirce-square-fast.v3", nullptr, {}},
+    {"project.bonne.v3", nullptr, {}},
+    {"project.airocean.v3", nullptr, {}},
+    {"sample.grid.v3", nullptr, {}},
+    {"sample.twin-wave.v3", nullptr, {}},
+    {"warp.affine.v3", nullptr, {}},
     // ProjectionKind has no spelling for these four.
     {"project.peirce.v2", nullptr, {}},
     {"project.peirce-square-fast.v2", nullptr, {}},
@@ -1708,10 +1715,10 @@ inline void test_composed_derivation_reach() {
     }
   }
 
-  HS_EXPECT_EQ(In::OPERATOR_TABLE.size(), 39u);
-  HS_EXPECT_EQ(unreachable_operators, 13u);
-  HS_EXPECT_EQ(catalog_values, 161u);
-  HS_EXPECT_EQ(unreachable_values, 101u);
+  HS_EXPECT_EQ(In::OPERATOR_TABLE.size(), 46u);
+  HS_EXPECT_EQ(unreachable_operators, 20u);
+  HS_EXPECT_EQ(catalog_values, 189u);
+  HS_EXPECT_EQ(unreachable_values, 129u);
 }
 
 template <bool Animated> struct RippleProbeSpec : Pullback::Spec {

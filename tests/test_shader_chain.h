@@ -677,7 +677,7 @@ inline void test_shader_chain_table_behavior() {
 inline void test_shader_chain_table_integrity() {
   static_assert(In::operator_ids_unique());
   static_assert(In::operator_table_monotone());
-  HS_EXPECT_EQ(In::OPERATOR_TABLE.size(), 39u);
+  HS_EXPECT_EQ(In::OPERATOR_TABLE.size(), 46u);
   for (const In::OperatorDescriptor &op : In::OPERATOR_TABLE) {
     HS_EXPECT_TRUE(op.operator_id != nullptr && op.display_name != nullptr);
     HS_EXPECT_LE(static_cast<int>(op.input), static_cast<int>(op.output));
@@ -689,8 +689,19 @@ inline void test_shader_chain_table_integrity() {
     HS_EXPECT_TRUE(op.runtime.prepare != nullptr);
     HS_EXPECT_TRUE(op.runtime.run != nullptr);
     HS_EXPECT_TRUE(op.runtime.param_address != nullptr);
+    HS_EXPECT_TRUE(op.runtime.capture_state != nullptr);
+    HS_EXPECT_TRUE(op.runtime.restore_state != nullptr);
     HS_EXPECT_GT(op.runtime.param.size, 0u);
     HS_EXPECT_GT(op.runtime.state.size, 0u);
+    std::vector<std::max_align_t> state(
+        (op.runtime.state.size + sizeof(std::max_align_t) - 1) /
+        sizeof(std::max_align_t));
+    op.runtime.init(state.data(), {"snapshot", op.operator_id, 1337});
+    const auto captured = op.runtime.capture_state(state.data());
+    HS_EXPECT_EQ(std::holds_alternative<std::monostate>(captured),
+                 op.runtime.state.size == sizeof(In::EmptyState));
+    HS_EXPECT_TRUE(op.runtime.restore_state(state.data(), captured));
+    op.runtime.destroy(state.data());
     for (uint16_t index = 0; index < op.schema_count; ++index) {
       const In::ParamFieldInfo &field = op.schema[index];
       HS_EXPECT_TRUE(field.id != nullptr);
@@ -727,7 +738,7 @@ inline void test_shader_chain_table_integrity() {
   size_t approximate_count = 0;
   for (const In::OperatorDescriptor &op : In::OPERATOR_TABLE)
     approximate_count += op.approximate ? 1 : 0;
-  HS_EXPECT_EQ(approximate_count, 3u);
+  HS_EXPECT_EQ(approximate_count, 4u);
 }
 
 /** Schema field of @p op with id @p field_id, or null. */
@@ -1202,6 +1213,28 @@ inline void test_shader_chain_default_chain_renders() {
 }
 
 inline void test_shader_chain_param_address_channel() {
+  const auto verify_extended_crossing = []<typename Model>() {
+    typename Model::Params params;
+    const auto before = params;
+    const auto &descriptor = *In::find_operator(Model::ID);
+    constexpr size_t FIELDS = Model::Params::FIELDS.size();
+    auto *coverage = static_cast<uint8_t *>(
+        descriptor.runtime.param_address(&params, FIELDS + 1));
+    *coverage = static_cast<uint8_t>(In::Op::ProjectionCoverageMode::NONE);
+    HS_EXPECT_EQ(params.coverage_mode, 0);
+    for (const auto &field : Model::Params::FIELDS)
+      HS_EXPECT_EQ(params.*field.member, before.*field.member);
+    const auto *drift = std::find_if(
+        descriptor.schema, descriptor.schema + descriptor.schema_count,
+        [](const auto &field) {
+          return std::string_view(field.id) == "drift";
+        });
+    HS_EXPECT_TRUE(drift != descriptor.schema + descriptor.schema_count);
+    if (drift != descriptor.schema + descriptor.schema_count)
+      HS_EXPECT_EQ(drift->max, 2.0f);
+  };
+  verify_extended_crossing.template operator()<In::Op::SampleGridV3>();
+  verify_extended_crossing.template operator()<In::Op::SampleTwinWaveV3>();
   auto fixture = std::make_unique<ProgramFixture>();
   In::ChainProgram &program = fixture->program;
   arm_default_chain(program, 1, ValueSet::DEFAULTS);
@@ -3919,6 +3952,11 @@ struct ShaderChainWhiteBox {
     return effect.program;
   }
   static In::ChainProgram &program(FX &effect) { return effect.program; }
+  static void advance_without_render(FX &effect) {
+    effect.program.advance();
+    effect.update_palette_chroma(*effect.colorize.palette_chroma);
+    effect.step_generated_palettes(*effect.colorize.palette_mode);
+  }
   static Pixel palette_color(const FX &effect, float value) {
     return effect.generated_palettes.palette(In::Op::PaletteMode::TRIADIC)
         .get(value)
@@ -4420,6 +4458,169 @@ inline void test_shader_chain_status_names() {
   }
 }
 
+template <int W> void test_shader_chain_legacy_walk() {
+  HS_CONTEXT("width", W);
+  reset_globals();
+  StubEffect effect(W, 20);
+  Canvas canvas(effect);
+  FastNoiseLite noise;
+  math::Orientation<> orientation;
+  Animation::RandomWalk<W> animation(orientation, math::UP, noise, {},
+                                     -1517021871);
+  In::Op::SpatialWalkState state;
+  In::Op::init_walk(state, -1517021871);
+  state.legacy = true;
+  math::Quaternion previous;
+  math::Quaternion wander;
+  for (size_t frame = 0; frame < 150; ++frame) {
+    HS_CONTEXT("frame", frame);
+    orientation.collapse();
+    animation.step(canvas);
+    const auto latest = orientation.get();
+    const auto delta = (latest * previous.conjugate()).normalized();
+    wander =
+        (math::slerp(math::Quaternion(), delta, 0.7f) * wander).normalized();
+    previous = latest;
+    In::Op::advance_walk(state, 0.7f, 0.0f);
+    HS_EXPECT_TRUE(float_identical(state.raw_orientation.r, latest.r));
+    HS_EXPECT_TRUE(float_identical(state.raw_orientation.v.x, latest.v.x));
+    HS_EXPECT_TRUE(float_identical(state.raw_orientation.v.y, latest.v.y));
+    HS_EXPECT_TRUE(float_identical(state.raw_orientation.v.z, latest.v.z));
+    HS_EXPECT_TRUE(float_identical(state.wander.r, wander.r));
+    HS_EXPECT_TRUE(float_identical(state.wander.v.x, wander.v.x));
+    HS_EXPECT_TRUE(float_identical(state.wander.v.y, wander.v.y));
+    HS_EXPECT_TRUE(float_identical(state.wander.v.z, wander.v.z));
+  }
+}
+
+inline void test_shader_chain_snapshot_roundtrip() {
+  using WB = ShaderChainWhiteBox;
+  ChainSnapshot saved;
+  std::array<std::array<Pixel, 96 * 20>, 5> frames;
+  reset_globals();
+  {
+    WB::FX effect;
+    effect.init();
+    const In::ChainEntryRequest topology[] = {
+        {"camera", "sphere.rotate.v2"},
+        {"project", "project.stereographic.v2"},
+        {"noise", "warp.vector-noise.v2"},
+        {"outer", "warp.affine.v2"},
+        {"sample", "sample.grid.v2"},
+        {"colorize", "colorize.generated-palette.v3"}};
+    HS_EXPECT_EQ(effect.set_chain(topology).code, In::ChainStatus::OK);
+    auto &program = WB::program(effect);
+    param_as<In::Op::RotateChainParams>(program, 0).wander = 0.8f;
+    param_as<In::Op::RotateChainParams>(program, 0).spin_rate = 0.001f;
+    param_as<In::Op::GridSampleParams>(program, 4).speed = 0.02f;
+    auto &color = WB::color_params(effect);
+    color.hue_shift_amount = 0.7f;
+    color.hue_noise_scale = 1.7f;
+    color.palette_chroma = 0.43f;
+    color.phase_oscillation_speed = 0.004f;
+    color.hue_noise_speed = -0.0007f;
+    for (int frame = 0; frame < 713; ++frame)
+      WB::advance_without_render(effect);
+    effect.setAnimationsPaused(true);
+    saved = effect.snapshot();
+    HS_EXPECT_TRUE(GeneratedPaletteBank::valid_snapshot(*saved.palette_bank));
+    for (size_t index = 0; index < program.ops().size(); ++index) {
+      const auto &op = program.ops()[index];
+      std::vector<std::max_align_t> storage(
+          (op.op->runtime.state.size + sizeof(std::max_align_t) - 1) /
+          sizeof(std::max_align_t));
+      op.op->runtime.init(storage.data(),
+                          {op.instance, op.op->operator_id, op.stable_hash});
+      const auto captured =
+          op.op->runtime.capture_state(program.state_block(index));
+      HS_EXPECT_TRUE(op.op->runtime.restore_state(storage.data(), captured));
+      op.op->runtime.destroy(storage.data());
+    }
+    HS_EXPECT_TRUE(saved.palette_bank->cycles[0].next_sequence > 2);
+    HS_EXPECT_TRUE(saved.palette_bank->cycles[1].display_dirty);
+    for (size_t frame = 0; frame < frames.size(); ++frame) {
+      effect.draw_frame();
+      effect.advance_display();
+      for (int y = 0; y < 20; ++y)
+        for (int x = 0; x < 96; ++x)
+          frames[frame][y * 96 + x] = effect.get_pixel(x, y);
+    }
+  }
+  reset_globals();
+  {
+    WB::FX effect;
+    effect.init();
+    HS_EXPECT_EQ(effect.restore_snapshot(saved),
+                 ChainSnapshotRestoreResult::APPLIED);
+    HS_EXPECT_TRUE(effect.animations_paused());
+    for (size_t frame = 0; frame < frames.size(); ++frame) {
+      effect.draw_frame();
+      effect.advance_display();
+      for (int y = 0; y < 20; ++y)
+        for (int x = 0; x < 96; ++x) {
+          const auto expected = frames[frame][y * 96 + x];
+          const auto actual = effect.get_pixel(x, y);
+          HS_EXPECT_EQ(actual.r, expected.r);
+          HS_EXPECT_EQ(actual.g, expected.g);
+          HS_EXPECT_EQ(actual.b, expected.b);
+        }
+    }
+  }
+}
+
+inline void test_shader_chain_snapshot_refusals() {
+  reset_globals();
+  ShaderChainWhiteBox::FX effect;
+  effect.init();
+  const auto saved = effect.snapshot();
+  const auto generation = effect.getParameterSchemaGeneration();
+  const auto refused = [&](ChainSnapshot candidate,
+                           ChainSnapshotRestoreResult expected) {
+    HS_EXPECT_EQ(effect.restore_snapshot(candidate), expected);
+    HS_EXPECT_EQ(effect.getParameterSchemaGeneration(), generation);
+    const auto after = effect.snapshot();
+    HS_EXPECT_EQ(after.parameters.size(), saved.parameters.size());
+    for (size_t index = 0; index < saved.parameters.size(); ++index) {
+      HS_EXPECT_TRUE(after.parameters[index].name ==
+                     saved.parameters[index].name);
+      HS_EXPECT_TRUE(float_identical(after.parameters[index].value,
+                                     saved.parameters[index].value));
+    }
+    HS_EXPECT_EQ(after.palette_bank->cycles[0].frame,
+                 saved.palette_bank->cycles[0].frame);
+    HS_EXPECT_EQ(
+        std::get<In::SpatialWalkSnapshot>((*after.runtime)[0].state).walk_time,
+        std::get<In::SpatialWalkSnapshot>((*saved.runtime)[0].state).walk_time);
+  };
+  auto candidate = saved;
+  candidate.schema_version = 2;
+  refused(candidate, ChainSnapshotRestoreResult::UNSUPPORTED_VERSION);
+  candidate = saved;
+  candidate.parameters[0].value = std::numeric_limits<float>::quiet_NaN();
+  refused(candidate, ChainSnapshotRestoreResult::INVALID_VALUE);
+  candidate = saved;
+  candidate.parameters.push_back(candidate.parameters[0]);
+  refused(candidate, ChainSnapshotRestoreResult::INVALID_VALUE);
+  candidate = saved;
+  candidate.chain[0].operator_id = "invalid";
+  refused(candidate, ChainSnapshotRestoreResult::INVALID_CHAIN);
+  candidate = saved;
+  candidate.runtime->pop_back();
+  refused(candidate, ChainSnapshotRestoreResult::INVALID_VALUE);
+  candidate = saved;
+  std::get<In::SpatialWalkSnapshot>((*candidate.runtime)[0].state).wander =
+      math::Quaternion(0, 0, 0, 0);
+  refused(candidate, ChainSnapshotRestoreResult::INVALID_VALUE);
+  candidate = saved;
+  candidate.palette_bank->cycles[0].frame = GeneratedPaletteBank::FADE_FRAMES;
+  refused(candidate, ChainSnapshotRestoreResult::INVALID_VALUE);
+  candidate = saved;
+  candidate.runtime.reset();
+  candidate.palette_bank.reset();
+  HS_EXPECT_EQ(effect.restore_snapshot(candidate),
+               ChainSnapshotRestoreResult::APPLIED);
+}
+
 inline int run_shader_chain_tests() {
   ModuleFixture fixture("shader_chain");
   HS_EXPECT_TRUE(std::string_view(In::chain_status_name(
@@ -4483,6 +4684,10 @@ inline int run_shader_chain_tests() {
   test_shader_chain_pause_semantics();
   test_shader_chain_hue_lut_bake_cache();
   test_shader_chain_status_names();
+  test_shader_chain_legacy_walk<96>();
+  test_shader_chain_legacy_walk<288>();
+  test_shader_chain_snapshot_roundtrip();
+  test_shader_chain_snapshot_refusals();
   return fixture.result();
 }
 

@@ -858,10 +858,10 @@ def load_shader_workbench_program_manifest(path):
     with open(path, encoding="utf-8") as manifest_file:
         manifest = json.load(manifest_file)
     if manifest.get("kind") != "pullback-programs":
-        raise ValueError("ShaderWorkbench program manifest has the wrong kind")
+        raise ValueError("pullback program manifest has the wrong kind")
     programs = manifest.get("programs")
     if not isinstance(programs, list) or not programs:
-        raise ValueError("ShaderWorkbench program manifest has no programs")
+        raise ValueError("pullback program manifest has no programs")
     return manifest
 
 
@@ -1126,7 +1126,7 @@ def main():
                 args.shader_workbench_program_manifest)
                 if args.shader_workbench_program_manifest else None)
         except (OSError, json.JSONDecodeError, ValueError) as error:
-            print(f"invalid ShaderWorkbench program manifest: {error}", file=sys.stderr)
+            print(f"invalid pullback program manifest: {error}", file=sys.stderr)
             return 2
         return 0 if cmd_validate(
             windows, effect, scope, pullback, args.expected_pullback_arm,
