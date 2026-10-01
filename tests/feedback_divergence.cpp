@@ -327,8 +327,14 @@ void usage() {
 } // namespace
 
 int main(int argc, char **argv) {
-  if (argc >= 3 && std::strcmp(argv[1], "--dump") == 0)
-    return dump(argv[2], argc > 3 ? atoi(argv[3]) : 1000);
+  if (argc >= 3 && std::strcmp(argv[1], "--dump") == 0) {
+    const int FRAMES = argc > 3 ? atoi(argv[3]) : 1000;
+    if (FRAMES <= 0) {
+      usage();
+      return 1;
+    }
+    return dump(argv[2], FRAMES);
+  }
   if (argc >= 4 && std::strcmp(argv[1], "--check-comparator") == 0) {
     if (compare(argv[2], argv[3]) != 0)
       return 1;
