@@ -226,6 +226,7 @@ inline void test_column_step_cadence() {
   }
 }
 
+/** @brief Pins single column sequence. */
 inline void test_single_column_sequence() {
   constexpr int S = 8, W = 8;
   int x = 0, advances = 0;
