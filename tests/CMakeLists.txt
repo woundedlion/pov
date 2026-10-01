@@ -124,11 +124,10 @@ target_compile_definitions(run_tests PRIVATE HS_SCAN_METRICS
 target_link_libraries(run_tests PRIVATE hs_test_support)
 
 set(_color_header_sources)
-foreach(_header pixel palette_recipe color_space palette palette_sources
-                generative_palette composition baked_palette palette_wipe
-                palettes palette_cycler noise_hue_palette noise_shimmer_palette
-                effect_palette_recipes
-                layer_composite)
+file(GLOB _color_headers CONFIGURE_DEPENDS "${HS_ROOT}/core/color/*.h")
+list(FILTER _color_headers EXCLUDE REGEX "_luts?\\.h$")
+foreach(_header_path IN LISTS _color_headers)
+  get_filename_component(_header "${_header_path}" NAME_WE)
   set(_source "${CMAKE_CURRENT_BINARY_DIR}/color_header_${_header}.cpp")
   file(CONFIGURE OUTPUT "${_source}" CONTENT "#include \"color/${_header}.h\"\n")
   list(APPEND _color_header_sources "${_source}")
