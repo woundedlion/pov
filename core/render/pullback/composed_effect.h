@@ -1190,8 +1190,9 @@ private:
   template <typename T>
   HS_COLD_MEMBER void register_warp_fields(T &warp, const char *slot_name) {
     if constexpr (!std::is_same_v<T, NoWarpParams>) {
-      static_assert(T::FIELDS[0].member == &T::speed,
-                    "warp slot registration expects speed first");
+      static_assert(T::FIELDS[0].member == &T::speed &&
+                        T::FIELDS[0].name == nullptr,
+                    "warp speed registers under the slot name");
       register_animated_param(slot_name, &warp.speed, T::FIELDS[0].min,
                               T::FIELDS[0].max);
       register_fields(warp);
