@@ -265,11 +265,12 @@ private:
 /**
  * @brief Host throttle backing EVERY_N_SECONDS, mirroring FastLED's
  *        CEveryNSeconds.
- * @details Stamps and compares in whole seconds (FastLED's `seconds()`, i.e.
- * `millis() / 1000`), not milliseconds: a throttle constructed part-way through
+ * @details Stamps and compares in whole seconds (FastLED's `seconds16()`,
+ * uint16_t `millis() / 1000`), not milliseconds: a throttle constructed part-way through
  * a second first fires that fraction of a second short of a full period, which
  * is what the device does. `last` is never reset across effect switches
- * (function-local `static`).
+ * (function-local `static`). The host keeps 32-bit stamps and periods; the
+ * device truncates periods and elapsed seconds to 16 bits.
  */
 class EveryNSeconds {
 public:
