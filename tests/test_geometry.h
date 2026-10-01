@@ -2,18 +2,7 @@
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
  * Licensed under the PolyForm Noncommercial License 1.0.0
  *
- * Unit tests for core/math/geometry.h, including the circular-domain
- * wrap/distance helpers.
- *
- * Coverage:
- *   - Axis constants (X/Y/Z_AXIS, UP)
- *   - y_to_phi_virtual / phi_to_y_virtual conversions (free + templated)
- *   - PhiLUT / TrigLUT initialisation and lookup values
- *   - pixel_to_vector / vector_to_pixel roundtrip
- *   - pole_wrap (tests/test_pole_wrap.h)
- *   - fib_spiral, lissajous, random_vector (all on unit sphere)
- *   - Basis: make_basis (orthonormality), get_antipode (flipping)
- *   - Orientation<CAP>: set, push, get, collapse, upsample, orient/unorient
+ * Geometry distances, spherical bounds, cubic kernels, and smooth ramps.
  */
 #pragma once
 
