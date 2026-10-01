@@ -63,8 +63,7 @@ std::array<FrameRun, 2> render_toggled(Toggle toggle) {
     effect.init();
     toggle(effect, reference != 0);
     for (int frame = 0; frame < FRAMES; ++frame) {
-      hs::set_mock_time(static_cast<unsigned long>(frame) * FRAME_MS,
-                        static_cast<unsigned long>(frame) * FRAME_US);
+      hs_test::pin_frame_clock(frame);
       effect.draw_frame();
       effect.advance_display();
       run.active.push_back(MindSplatterWhiteBox::active_particles(effect));
@@ -192,8 +191,7 @@ inline void test_mindsplatter_replay_snapshot_exact() {
     effect.init();
     HS_EXPECT_EQ(WB::particle_capacity(effect), static_cast<size_t>(1672));
     for (int frame = 0; frame < WARMUP_FRAMES; ++frame) {
-      hs::set_mock_time(static_cast<unsigned long>(frame) * FRAME_MS,
-                        static_cast<unsigned long>(frame) * FRAME_US);
+      hs_test::pin_frame_clock(frame);
       effect.draw_frame();
       effect.advance_display();
     }
@@ -209,7 +207,7 @@ inline void test_mindsplatter_replay_snapshot_exact() {
   };
   auto replay = [&]() {
     reset_effect_globals();
-    hs::set_mock_time(WARMUP_FRAMES * FRAME_MS, WARMUP_FRAMES * FRAME_US);
+    hs_test::pin_frame_clock(WARMUP_FRAMES);
     Replay result;
     MS effect;
     effect.init();
@@ -269,8 +267,7 @@ inline void test_mindsplatter_saturated_quadrant_sink_parity() {
     MS source_effect;
     source_effect.init();
     for (int frame = 0; frame < WARMUP_FRAMES; ++frame) {
-      hs::set_mock_time(static_cast<unsigned long>(frame) * FRAME_MS,
-                        static_cast<unsigned long>(frame) * FRAME_US);
+      hs_test::pin_frame_clock(frame);
       source_effect.draw_frame();
       source_effect.advance_display();
     }
@@ -649,8 +646,7 @@ inline void test_mindsplatter_clip_clear_display_parity() {
       const pov::SegmentClip clip =
           pov::segment_clip(map, (f & 1) == 0, S, N, W);
       effect.set_clip(clip.y0, clip.y1, clip.x0, clip.x1);
-      hs::set_mock_time(static_cast<unsigned long>(f) * FRAME_MS,
-                        static_cast<unsigned long>(f) * FRAME_US);
+      hs_test::pin_frame_clock(f);
       effect.draw_frame();
       effect.advance_display();
       result.active.push_back(WB::active_particles(effect));
@@ -669,30 +665,17 @@ inline void test_mindsplatter_clip_clear_display_parity() {
       HS_EXPECT_EQ(full_clear.active[i], clip_clear.active[i]);
     HS_EXPECT_EQ(full_clear.displayed.size(), clip_clear.displayed.size());
 
-    size_t lit_pixels = 0;
-    size_t different_pixels = 0;
-    size_t coverage_differences = 0;
-    for (size_t i = 0; i < full_clear.displayed.size(); ++i) {
-      const Pixel a = full_clear.displayed[i];
-      const Pixel b = clip_clear.displayed[i];
-      const bool a_black = (a.r | a.g | a.b) == 0;
-      const bool b_black = (b.r | b.g | b.b) == 0;
-      if (!a_black)
-        ++lit_pixels;
-      if (a != b)
-        ++different_pixels;
-      if (a_black != b_black)
-        ++coverage_differences;
-    }
+    const FrameDiff diff =
+        diff_frames(full_clear.displayed, clip_clear.displayed);
     std::printf("clip clear segment=%d samples=%zu lit=%zu different=%zu "
                 "coverage=%zu\n",
-                segment_id, full_clear.displayed.size(), lit_pixels,
-                different_pixels, coverage_differences);
+                segment_id, full_clear.displayed.size(), diff.lit,
+                diff.different, diff.coverage);
     HS_EXPECT_EQ(full_clear.displayed.size(),
                  static_cast<size_t>(W / 2) * (S / N) * FRAMES);
-    HS_EXPECT_GT(lit_pixels, static_cast<size_t>(0));
-    HS_EXPECT_EQ(different_pixels, static_cast<size_t>(0));
-    HS_EXPECT_EQ(coverage_differences, static_cast<size_t>(0));
+    HS_EXPECT_GT(diff.lit, static_cast<size_t>(0));
+    HS_EXPECT_EQ(diff.different, static_cast<size_t>(0));
+    HS_EXPECT_EQ(diff.coverage, static_cast<size_t>(0));
   }
   hs::clear_mock_time();
 }
