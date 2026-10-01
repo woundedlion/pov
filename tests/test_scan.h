@@ -344,7 +344,9 @@ inline void test_shader_clip_arc_matches_predicate() {
           c,
           [&](const math::Vector &v, int x, int y) {
             const auto EXPECTED = math::pixel_to_vector<W, H>(x, y);
-            HS_EXPECT_NEAR(math::angle_between(v, EXPECTED), 0.0f, 1e-5f);
+            HS_EXPECT_NEAR(v.x, EXPECTED.x, 1e-6f);
+            HS_EXPECT_NEAR(v.y, EXPECTED.y, 1e-6f);
+            HS_EXPECT_NEAR(v.z, EXPECTED.z, 1e-6f);
             return positional(v);
           },
           [](int) {});
