@@ -149,7 +149,9 @@ inline constexpr float SNUB_DODECAHEDRON_TWIST = 0.0f;
 /** Tetra -> icosa bridge snub twist; relax canonicalizes any value (tuned from
  * renders: -0.40 cuts the settle rotation from 23.4 to 17.3 degrees). */
 inline constexpr float SNUB_BRIDGE_TWIST = -0.40f;
-inline constexpr int ICOSAHEDRON_RELAX_ITERATIONS = 50;
+/** Live relax cap at a settling edge's to_node end; must reach the baked
+ * registry form within sqrt(RELAX_CONVERGE_EPS_SQ). */
+inline constexpr int SETTLE_RELAX_ITERATIONS = 50;
 
 /** Jitterbug icosa point: snub(tetrahedron, t, twist) at these values is the
  * exact regular icosahedron — all 30 edges equal with no relax (double-refined
