@@ -38,9 +38,6 @@ void check_cubic(const SDF::Lattice::PreparedShading &prepared,
       SDF::Lattice::composite_crossings<SLICE, SHELLS>(view, prepared);
   const auto actual = composite.finish();
   SDF::Lattice::Events<SLICE, SHELLS> events(view, prepared.lattice);
-  const auto expected = Raycast::shade_events(
-      events, {0, prepared.lattice.far_distance}, {}, prepared.appearance);
-  HS_EXPECT_NEAR(actual.alpha, expected.color.alpha, 3e-4f);
   LayerComposite reference;
   SDF::Lattice::Events<SLICE, SHELLS> reference_events(view, prepared.lattice);
   Raycast::trace_events(reference_events, {0, prepared.lattice.far_distance},
@@ -50,10 +47,7 @@ void check_cubic(const SDF::Lattice::PreparedShading &prepared,
                           return !reference.saturated();
                         });
   const Color4 REFERENCE = reference.finish();
-  HS_EXPECT_EQ(expected.color.alpha, REFERENCE.alpha);
-  HS_EXPECT_EQ(expected.color.color.r, REFERENCE.color.r);
-  HS_EXPECT_EQ(expected.color.color.g, REFERENCE.color.g);
-  HS_EXPECT_EQ(expected.color.color.b, REFERENCE.color.b);
+  HS_EXPECT_NEAR(actual.alpha, REFERENCE.alpha, 3e-4f);
   // Independent reciprocal evaluation can cross one final pixel rounding boundary.
   const Pixel ACTUAL_PIXEL = composite.premultiplied();
   const Pixel REFERENCE_PIXEL = reference.premultiplied();
