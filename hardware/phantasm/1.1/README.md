@@ -181,8 +181,8 @@ exports run locally through `../gen/fab.py` when the package is regenerated.
   BOM match is independently auditable.
 - **Export-content gate:** the upload zip is assembled by filename, so
   `../gen/fab.py` also reads the exported bytes before packaging them: every
-  plotted Gerber must define an aperture and draw with it (only
-  `phantasm-B_Paste.gbp` may be apertureless — assembly is top-side only), and
+  plotted Gerber must draw with an aperture or a filled region (only
+  `phantasm-B_Paste.gbp` may be empty — assembly is top-side only), and
   the Excellon files must drill exactly the holes the board carries, counted
   off the board rather than pinned to a number: every via plus every plated pad
   hole in `phantasm-PTH.drl`, the unplated mounting holes in
