@@ -105,9 +105,9 @@ captured 2026-09-27 22:25.
 
 | Preset | Peak ms | Spilled | Captured |
 |---|---:|---:|---|
-| [4: Octet 4D](profile_hyperlattice_octet4d_teensy_2026-09-28.md) ● | 🔴 143.318 | 🔴 233/233 (100.00%) | 2026-09-28 09:53 |
+| [Octet 4D (index 4 at capture time)](profile_hyperlattice_octet4d_teensy_2026-09-28.md) ● | 🔴 143.318 | 🔴 233/233 (100.00%) | 2026-09-28 09:53 |
 | [3: Octet 3D](profile_hyperlattice_octet_preset3_teensy_2026-09-28.md) ● | 🟢 45.688 | 🟢 0/1096 (0.00%) | 2026-09-28 09:56 |
-| [5: Octet wide](profile_hyperlattice_octet_preset5_teensy_2026-09-28.md) ● | 🟢 45.242 | 🟢 0/1096 (0.00%) | 2026-09-28 09:53 |
+| [Octet wide (index 5 at capture time)](profile_hyperlattice_octet_preset5_teensy_2026-09-28.md) ● | 🟢 45.242 | 🟢 0/1096 (0.00%) | 2026-09-28 09:53 |
 
 ● Updated 2026-09-28 09:53–09:56 after the Octet 58 ms Tiers 1–2 (`1bb522211`). Opt-in held presets, startup excluded; 4D on COM3, 3D on COM4. [Earlier optimization and 4D evidence](../hyperlattice_octet_optimization_2026-09-27.md).
 
@@ -117,7 +117,7 @@ Sphere-only renderer; two authored fixed presets on COM4, startup excluded. [Pai
 
 | Preset | Peak render ms | Spilled/live frames | Captured local |
 |---|--:|--:|---|
-| 5: Shell Flight | 🔴 123.553 | 🔴 228/228 (100.00%) | 2026-09-29 08:03 |
-| 6: Shell Close Flight | 🔴 125.186 | 🔴 228/228 (100.00%) | 2026-09-29 08:06 |
+| Shell Flight (index 5 at capture time) | 🔴 123.553 | 🔴 228/228 (100.00%) | 2026-09-29 08:03 |
+| Shell Close Flight (index 6 at capture time) | 🔴 125.186 | 🔴 228/228 (100.00%) | 2026-09-29 08:06 |
 
 ● GSReactionDiffusion refreshed 2026-09-30 after pigment, hue and shimmer shading changes. Setup frame 1 is excluded; capture provenance is in the linked reports.

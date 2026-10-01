@@ -94,7 +94,7 @@ covers the two original presets and predates this third default preset.
 | Preset | Peak ms | Spilled | Captured |
 |---|---:|---:|---|
 | [3: Octet 3D](profile_hyperlattice_octet_preset3_teensy_2026-09-28.md) ● | 🔴 74.692 | 🔴 549/549 (100.00%) | 2026-09-28 00:19 |
-| [5: Octet wide](profile_hyperlattice_octet_preset5_teensy_2026-09-28.md) ● | 🔴 74.925 | 🔴 549/549 (100.00%) | 2026-09-28 00:24 |
+| [Octet wide (index 5 at capture time)](profile_hyperlattice_octet_preset5_teensy_2026-09-28.md) ● | 🔴 74.925 | 🔴 549/549 (100.00%) | 2026-09-28 00:24 |
 
 ● Updated 2026-09-28. Opt-in held presets, with startup excluded. [Earlier optimization and 4D evidence](../hyperlattice_octet_optimization_2026-09-27.md).
 
@@ -104,7 +104,7 @@ Sphere-only renderer; two authored fixed presets on COM4, startup excluded. [Pai
 
 | Preset | Peak render ms | Spilled/live frames | Captured local |
 |---|--:|--:|---|
-| 5: Shell Flight | 🔴 117.363 | 🔴 228/228 (100.00%) | 2026-09-29 08:04 |
-| 6: Shell Close Flight | 🔴 121.337 | 🔴 228/228 (100.00%) | 2026-09-29 08:07 |
+| Shell Flight (index 5 at capture time) | 🔴 117.363 | 🔴 228/228 (100.00%) | 2026-09-29 08:04 |
+| Shell Close Flight (index 6 at capture time) | 🔴 121.337 | 🔴 228/228 (100.00%) | 2026-09-29 08:07 |
 
 ● GSReactionDiffusion refreshed 2026-09-30 after pigment, hue and shimmer shading changes. Setup frame 1 is excluded; capture provenance is in the linked reports.
