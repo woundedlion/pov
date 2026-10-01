@@ -223,11 +223,7 @@ inline void test_first_boundary_and_tolerances() {
   limits = {};
   result = Raycast::surface_search(sphere_query, ray, {}, limits);
   HS_EXPECT_TRUE(result.status != Raycast::TraceStatus::RANGE_COMPLETE);
-  if (result.has_surface)
-    HS_EXPECT_NEAR(result.contribution.t, 2.0f, limits.position_tolerance);
-  else
-    HS_EXPECT_TRUE(result.status == Raycast::TraceStatus::UNRESOLVED ||
-                   result.status == Raycast::TraceStatus::BUDGET_EXHAUSTED);
+  HS_EXPECT_EQ(result.status, Raycast::TraceStatus::BUDGET_EXHAUSTED);
 }
 
 inline void test_limits_and_nonfinite() {
