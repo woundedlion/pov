@@ -17,12 +17,18 @@ if("$ENV{CLANG_FORMAT}" STREQUAL "")
 else()
   set(_clang_format "$ENV{CLANG_FORMAT}")
 endif()
+execute_process(
+  COMMAND "${PYTHON_EXE}" "${CMAKE_CURRENT_LIST_DIR}/../tools/build_pins.py" clang-format
+  OUTPUT_VARIABLE _required_format_major
+  OUTPUT_STRIP_TRAILING_WHITESPACE
+  COMMAND_ERROR_IS_FATAL ANY)
+
 if(_clang_format)
   execute_process(COMMAND "${_clang_format}" --version
     OUTPUT_VARIABLE _format_version RESULT_VARIABLE _format_rc)
-  if(NOT _format_rc EQUAL 0 OR NOT _format_version MATCHES "version 22\\.")
+  if(NOT _format_rc EQUAL 0 OR NOT _format_version MATCHES "version ${_required_format_major}\\.")
     if(REQUIRE_GENERATORS)
-      message(FATAL_ERROR "color_luts pin: clang-format 22 is required")
+      message(FATAL_ERROR "color_luts pin: clang-format ${_required_format_major} is required")
     endif()
     message(STATUS "color_luts pin: clang-format major mismatch; skipping")
     cmake_language(EXIT ${SKIP_CODE})
