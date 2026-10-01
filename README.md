@@ -397,6 +397,7 @@ files define line-ending policy and working-artifact exclusions.
 │
 ├── targets/                    Per-target entry points
 │   ├── effects.h               Effect roster — includes every effect header + HS_EFFECT_LIST
+│   ├── composed_effect_includes.h Generated composed-effect header includes
 │   ├── Bench/
 │   │   ├── Bench.ino           Stationary bench test image — single-entry playlist over the Phantasm rig
 │   │   └── bench_pattern.h     BenchPattern — whole-canvas colour cycle holding on the primaries and white
@@ -450,6 +451,7 @@ files define line-ending policy and working-artifact exclusions.
 │   ├── pattern_documents.mjs   Shared patterns/*.shader.json discovery and compilation
 │   ├── generate_promoted_shader_documents.mjs Generates canonical promoted-effect documents
 │   ├── generate_composed_presets.mjs / generate_composed_presets.test.mjs Generates and verifies composed preset values and identities from patterns
+│   ├── composed_effect_roster.mjs Generated composed-effect IDs for shader documents
 │   ├── promoted_digests.test.mjs Checks header/document/product-group roster; generate_composed_presets.test.mjs pins digests
 │   ├── engine_catalog.json     wasm32 operator ABI catalog the browser workbench budgets against
 │   ├── export_engine_catalog.mjs / export_engine_catalog.test.mjs  Exports and validates the WASM operator catalog; CLI failure fixtures
@@ -1007,7 +1009,7 @@ Every host-side operation the graph needs is a pure virtual on `EffectTransition
 
 ### Adding an effect
 
-1. Choose the base: `Effect` for a custom lifecycle, `ChoreographedEffect` for parameters/presets, or `Pullback::ComposedEffect` for a generated chain. A composed promotion starts with a document under `patterns/` and an effect wrapper defining its `Spec`; run `node scripts/generate_composed_presets.mjs` to refresh the wrapper's generated identity and preset sections, and `node scripts/generate_composed_presets.mjs --check` to verify them. Keep the document as the authored source.
+1. Choose the base: `Effect` for a custom lifecycle, `ChoreographedEffect` for parameters/presets, or `Pullback::ComposedEffect` for a generated chain. A composed promotion starts with a document under `patterns/` and an effect wrapper defining its `Spec`; run `node scripts/generate_composed_presets.mjs` to refresh the wrapper's generated identity and preset sections, composed header includes, and the simulator's shader-document IDs. Use `node scripts/generate_composed_presets.mjs --check` to verify these artifacts. Keep the document as the authored source.
 2. Add the header under `effects/` and declare an explicit stable `EFFECT_ID`. Register its class in `HS_EFFECT_LIST` in `targets/effects.h`; keep the ID stable across class renames. The native roster and include tests check registration; `just docs-sync` updates the repository map and counts.
 3. Add it to `HS_PHANTASM_EFFECT_LIST`, or explicitly exclude it with `HS_PHANTASM_EXCLUDED_EFFECTS`, in `targets/Phantasm/phantasm_playlist.h`. Compile-time roster assertions check the partition.
 4. Add it to the appropriate favorites in `daydream/src/effects/effect_roster.js`. Optionally add a capture offset to `scripts/screenshot_capture_config.mjs` (the default is 30 seconds), capture its PNG with `scripts/capture_screenshots.mjs`, and add its section to `docs/effects.md`. The screenshot and documentation gates check gallery membership, image validity, and documentation structure.
