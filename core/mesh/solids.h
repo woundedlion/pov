@@ -488,11 +488,9 @@ static_assert(std::string_view(simple_registry[PLATONIC_COUNT].name) ==
 inline constexpr size_t CATALAN_COUNT = 13;
 inline constexpr size_t ISLAMIC_COUNT = 23;
 static_assert(CATALAN_COUNT == std::size(catalan_registry),
-              "catalan_registry size changed; update CATALAN_COUNT and the "
-              "README registry table");
+              "catalan_registry size changed; update CATALAN_COUNT");
 static_assert(ISLAMIC_COUNT == std::size(islamic_registry),
-              "islamic_registry size changed; update ISLAMIC_COUNT and the "
-              "README registry table");
+              "islamic_registry size changed; update ISLAMIC_COUNT");
 static_assert(PLATONIC_COUNT + ARCHIMEDEAN_COUNT + CATALAN_COUNT +
                       ISLAMIC_COUNT ==
                   static_cast<size_t>(NUM_ENTRIES),
