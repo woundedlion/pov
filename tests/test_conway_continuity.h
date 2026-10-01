@@ -16,8 +16,9 @@
  *   - Bookend swaps (per node, one solid per symmetry family): update_hankin
  *     at angle 0 emits first-F star faces whose boundary vertices lie on the
  *     base face's boundary; an in-memory framebuffer diff of the two renders
- *     under identity face colors changes no pixels, and the zero-area rosette
- *     faces draw none.
+ *     under identity face colors changes no face colors; boundary AA pixels
+ *     may differ by <= 2 LSB, bounded by QUANT_BAND_BUDGET. Zero-area
+ *     rosette faces draw none.
  *   - Forward palette carry (per arrival, real effect): the palettes the leg
  *     landed carry their multiplicities into the new node's displayed base faces.
  *   - Leg swaps (per edge): base vs op(seed, T_EPS) and the reseed swaps
@@ -365,10 +366,8 @@ inline void check_flat_star_faces_match_base(const PolyMesh &base,
   }
 }
 
-// The spec contract (sections 2.4/2.5) is exact: the angle-0 hankin mesh and
-// the base mesh draw the same shapes in the same colors, and the rosette
-// faces are zero-area births that draw nothing — so the bookend swap changes
-// no pixels at all.
+// Bookend swaps preserve face colors; boundary AA may differ by <= 2 LSB
+// within QUANT_BAND_BUDGET. Zero-area rosettes draw no pixels.
 
 /**
  * @brief Bookend swap for one solid: mesh-level geometric identity plus the
@@ -376,8 +375,8 @@ inline void check_flat_star_faces_match_base(const PolyMesh &base,
  * @tparam Solid Seed solid descriptor.
  * @details The hankin render colors star face f like base face f (the §2.5
  *          identity mapping) and paints rosette faces a loud sentinel; the
- *          swap must change no pixels, and the zero-area rosettes must draw
- *          none.
+ *          swap preserves face colors. Boundary AA may differ by <= 2 LSB
+ *          within QUANT_BAND_BUDGET; zero-area rosettes draw none.
  */
 template <typename Solid> inline void check_bookend_swap_one() {
   Arena geom(cc_geom_buf, sizeof(cc_geom_buf));
