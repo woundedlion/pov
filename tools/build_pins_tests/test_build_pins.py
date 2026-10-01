@@ -246,8 +246,10 @@ class SharedLiterals(unittest.TestCase):
         self.assertEqual(bp.check_shared_literals(), [])
 
     def test_every_scanned_file_the_check_counts_is_tracked(self):
+        tracked = set(bp.subprocess.check_output(
+            ["git", "-C", str(bp.ROOT), "ls-files", "-z"], text=True).split("\0"))
         for path in bp.INLINE_SCAN:
-            self.assertTrue(path.is_file(), path)
+            self.assertIn(path.relative_to(bp.ROOT).as_posix(), tracked)
 
     def test_the_format_exclude_copies_are_where_the_count_expects(self):
         want = bp.SHARED_LITERALS["format-exclude"]
