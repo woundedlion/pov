@@ -902,7 +902,8 @@ static void rasterize(PipelineT &source_pipeline, Canvas &canvas,
       current_dist += step;
 
       // total_dist > 0 here (HS_CHECK(sim_dist > 0) implies >=1 sim step).
-      float t = fminf(current_dist / total_dist, 1.0f);
+      const bool terminal = !omit_last && j == loop_limit - 1;
+      float t = terminal ? 1.0f : fminf(current_dist / total_dist, 1.0f);
 
       if (plot_window && (t < plot_t_start || t > plot_t_hi))
         continue;
@@ -915,9 +916,6 @@ static void rasterize(PipelineT &source_pipeline, Canvas &canvas,
       HS_PLOT_STALL_START(replay_start);
       HS_PLOT_COUNT(replay_samples);
       HS_PLOT_COUNT(normalizations);
-      const bool terminal = !omit_last && j == loop_limit - 1;
-      if (terminal)
-        t = 1.0f;
       math::Vector p = terminal ? next.pos : newton_unit(sample.pos(t));
       Fragment f;
       if constexpr (INTERPOLATE_REGISTERS)
