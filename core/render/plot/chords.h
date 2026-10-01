@@ -403,8 +403,8 @@ public:
       const float inv_intervals = 1.0f / static_cast<float>(anchor_intervals);
       const float gap_arc = edge_arc * inv_intervals;
       auto chart_position = [&](float t) __attribute__((always_inline)) {
-        return azimuthal_unproject(x_chart[edge] + dx * t,
-                                   y_chart[edge] + dy * t, planar_basis);
+        return newton_unit(azimuthal_unproject(
+            x_chart[edge] + dx * t, y_chart[edge] + dy * t, planar_basis));
       };
       float anchor_row_lo = pa.y;
       float anchor_row_hi = pa.y;
@@ -446,7 +446,7 @@ public:
           return points[edge].pos;
         if (t >= 1.0f)
           return points[edge + 1].pos;
-        return newton_unit(chart_position(t));
+        return chart_position(t);
       };
       for (int k = 0; k < anchor_intervals;) {
         if (!near_pole(k)) {
