@@ -640,7 +640,8 @@ def fixed_placements(comps):
         fixed = {ref: placement for ref, placement in QUILTER_FIXED.items()
                  if ref in comps and ref in ("JP_ID0", "JP_ID1", "JP_ID2", "JP_SHLD", "C_IN")}
         fixed.update({ref: placement for ref, placement in TERMINAL_EDGE_PLACEMENTS_1_3.items()
-                      if ref in comps})
+                      if ref in comps and comps[ref][1] ==
+                      TERMINAL_LIBIDS[0 if ref == "J1" else 1 if ref == "J2" else 2]})
         fixed.update({"U_MCU": (25.5, 11.7, 0), "C_DEC1": (9.75, 1.35, 0)})
         return fixed
     fixed = {ref: placement for ref, placement in QUILTER_FIXED.items()
@@ -899,7 +900,13 @@ def main(unplaced=False, force=False, force_teensy_library=False):
     if unplaced:
         L = QUILTER_LENGTH
         fixed = fixed_placements(comps)
-        missing_edges = sorted(set(TERMINAL_EDGE_PLACEMENTS) - fixed.keys())
+        edge_map = (TERMINAL_EDGE_PLACEMENTS_1_3 if _GENERATION.get()[0] == "1.3"
+                    else TERMINAL_EDGE_PLACEMENTS)
+        missing_edges = sorted(ref for ref, placement in edge_map.items()
+                               if fixed.get(ref) != placement or ref not in comps or
+                               comps[ref][1] != TERMINAL_LIBIDS[
+                                   0 if ref == "J1" else 2 if _GENERATION.get()[0] == "1.3"
+                                   and ref in ("J3A", "J3B") else 1])
         if missing_edges:
             sys.exit("ERROR connectors require verified edge placements: "
                      + ", ".join(missing_edges))
