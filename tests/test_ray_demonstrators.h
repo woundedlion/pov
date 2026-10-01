@@ -150,12 +150,16 @@ inline void test_repeated_stream_grouping_preserves_order_and_endpoints() {
   size_t count = 0;
   const auto RESULT = Raycast::trace_events(
       events, {0.0f, 1.0f}, limits, [&](const Raycast::Contribution &hit) {
-        output[count++] = hit;
+        if (count < output.size())
+          output[count] = hit;
+        ++count;
         return true;
       });
   HS_EXPECT_EQ(RESULT.status, Raycast::TraceStatus::RANGE_COMPLETE);
   HS_EXPECT_EQ(RESULT.counters.candidates, 6);
   HS_EXPECT_EQ(count, size_t{4});
+  if (count == 0 || count > output.size())
+    return;
   HS_EXPECT_NEAR(output[0].t, 0.2f, 1e-7f);
   HS_EXPECT_NEAR(output[0].coverage, 0.8f, 1e-7f);
   HS_EXPECT_EQ(output[1].material, uint32_t{1});
