@@ -2808,6 +2808,8 @@ inline void test_hankinsolids_manual_pause_holds_morph() {
   HS_EXPECT_EQ(HankinPauseWhiteBox::node(effect), held_node);
   const auto *angle = effect.getParameters().find("Angle");
   HS_EXPECT_TRUE(angle != nullptr);
+  if (!angle)
+    return;
   HS_EXPECT_NEAR(angle->get(), 0.7f, 1e-6f);
 
   const uint64_t energy = frame_energy<SMALL_W, SMALL_H>(effect);
