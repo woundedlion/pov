@@ -16,7 +16,7 @@ export async function loadOperatorCatalog() {
 }
 
 /**
- * Compiles every committed pattern document, in directory order.
+ * Compiles every committed pattern document, in sorted filename order.
  *
  * The caller decides what a non-VALID compile means: the smoke gate throws, the
  * digest test asserts, the generator collects it as noncanonical.
@@ -27,7 +27,7 @@ export async function loadOperatorCatalog() {
  */
 export async function compilePatternDocuments(catalog) {
   const names = (await readdir(PATTERNS_DIR))
-    .filter((name) => name.endsWith('.shader.json'));
+    .filter((name) => name.endsWith('.shader.json')).sort();
   const documents = [];
   for (const name of names) {
     const source = (await readFile(new URL(name, PATTERNS_DIR), 'utf8'))
