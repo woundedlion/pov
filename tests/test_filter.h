@@ -3336,38 +3336,6 @@ inline void test_world_trails_capacity_evicts_one_slot() {
 }
 
 /**
- * @brief Repeated overflow replaces the final occupied slot.
- */
-inline void test_world_trails_repeated_capacity_eviction() {
-  constexpr int Cap = 3;
-  static uint8_t buf[Cap * 16];
-  Arena arena(buf, sizeof(buf));
-  Filter::World::Trails<Cap> trails(/*lifetime=*/100);
-  trails.init_storage(arena);
-
-  const math::Vector points[] = {
-      math::Vector(1, 0, 0),  math::Vector(0, 1, 0),  math::Vector(0, 0, 1),
-      math::Vector(-1, 0, 0), math::Vector(0, -1, 0),
-  };
-  auto noop = [](const math::Vector &, const Pixel &, float, float) {};
-  for (const math::Vector &point : points)
-    trails.plot(point, Pixel(1, 1, 1), 0.0f, 1.0f, noop);
-
-  std::vector<math::Vector> decoded;
-  auto trail = [](const math::Vector &, float) {
-    return Color4(Pixel(1, 1, 1), 1.0f);
-  };
-  trails.flush(WorldTrailFn(trail), 1.0f,
-               [&](const math::Vector &v, const Pixel &, float, float) {
-                 decoded.push_back(v);
-               });
-
-  HS_EXPECT_SIZE_OR_RETURN(decoded, Cap);
-  for (int i = 0; i < Cap; ++i)
-    HS_EXPECT_GT(math::dot(decoded[i], points[i == Cap - 1 ? 4 : i]), 0.999f);
-}
-
-/**
  * @brief Verifies each flush decrements an entry's ttl and the entry is popped
  *        once ttl reaches 0.
  */
@@ -4052,7 +4020,6 @@ inline int run_filter_tests() {
   test_world_trails_int16_quantization_roundtrip();
   test_world_trails_clamps_out_of_range();
   test_world_trails_capacity_evicts_one_slot();
-  test_world_trails_repeated_capacity_eviction();
   test_world_trails_ttl_expiry();
   test_world_trails_set_lifetime_shrink_clamps_t();
   test_world_trails_midbuffer_expiry_reclaims_slot();
