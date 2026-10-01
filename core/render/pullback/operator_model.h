@@ -30,6 +30,14 @@ namespace Pullback {
 
 namespace Interp {
 
+/** @brief Whether a derived parameter block appends the expected member bytes. */
+template <typename Derived, typename Base, size_t Bytes>
+consteval bool appended_block_size_matches() {
+  return sizeof(Derived) ==
+         ((sizeof(Base) + Bytes + alignof(Derived) - 1) / alignof(Derived)) *
+             alignof(Derived);
+}
+
 /** @brief Carrier identity of a chain endpoint; the CarrierList rank. */
 enum class CarrierId : uint8_t {
   SPHERE = static_cast<uint8_t>(
