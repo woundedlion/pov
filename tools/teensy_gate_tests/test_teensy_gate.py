@@ -1829,6 +1829,22 @@ class TestGateExtra(unittest.TestCase):
         with mock_patch(subprocess, "run", _raise):
             self.assertIsNone(self.ge._find_teensy_size(self._env()))
 
+    def test_calibrated_budget_verdict_controls_the_build_exit(self):
+        self.ge._find_teensy_size = lambda env: "teensy_size"
+        for size_fixture, expected in (("broken_over_cap_teensy_size.txt", 1),
+                                       ("good_teensy_size.txt", 0)):
+            with self.subTest(fixture=size_fixture):
+                def run(args, check=True):
+                    if args[0] == "teensy_size":
+                        return _read(size_fixture)
+                    if "-sW" in args:
+                        return _read("good_readelf_syms.txt")
+                    return _read("good_readelf_secs.txt")
+                self.ge._run = run
+                rc, out = self._run_gate("holosphere")
+                self.assertEqual(rc, expected, out)
+                self.assertIn("::error::" if expected else "PASS", out)
+
     def test_toolchain_oserror_exits_2(self):
         # A tool step raising OSError is a build/tooling break -> exit(2), never a
         # size-budget "violation".
