@@ -2213,7 +2213,7 @@ inline void test_shader_workbench_coupled_source() {
 inline void test_shader_workbench_preset_bank() {
   using WB = ShaderWorkbenchWhiteBox;
   const auto &presets = WB::presets();
-  HS_EXPECT_EQ(presets.size(), size_t(24));
+  HS_EXPECT_EQ(presets.size(), size_t(PullbackManifest::PRESET_COUNT));
   HS_EXPECT_EQ(WB::preset_blend_frames(), uint16_t(480));
 
   bool has_hue_shift = false;
@@ -4888,7 +4888,8 @@ inline void test_shader_workbench_inverse_pipeline_manifest() {
     HS_EXPECT_EQ(preset_mask, expected.preset_mask);
     compiled_preset_mask |= preset_mask;
   }
-  HS_EXPECT_EQ(compiled_preset_mask, uint32_t(0xffffff));
+  HS_EXPECT_EQ(compiled_preset_mask,
+               (uint32_t(1) << PullbackManifest::PRESET_COUNT) - 1);
   const auto &peirce_framebuffer =
       pullback_oracle_metric("PEIRCE_FAST_SQUARE", "FRAMEBUFFER", "MAXIMUM");
   const auto &hue_framebuffer = pullback_oracle_metric(
