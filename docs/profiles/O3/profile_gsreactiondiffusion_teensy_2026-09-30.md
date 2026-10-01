@@ -4,126 +4,126 @@ Point-in-time snapshot (regenerate with `just profile GSReactionDiffusion`).
 
 [Shipping selective-O3 sibling](../shipping/profile_gsreactiondiffusion_teensy_2026-09-30.md).
 
-Raw capture: [preserved capture](../evidence/gs_optimization_2026-09-30/finalo3/capture.txt), originally `build/prof/gsreactiondiffusion_o3.log`, captured 2026-09-30 01:23 on COM3. Replaces `profile_gsreactiondiffusion_teensy_2026-08-26.md`.
-
-[Optimization campaign](../gsreactiondiffusion_optimization_2026-09-30.md).
+Raw capture: [preserved capture](../evidence/gs_shading_2026-09-30/o3/capture.txt), captured 2026-09-30 19:15 on COM4. Replaces the earlier 2026-09-30 report from before pigment blending, hue rotation and shimmer were enabled. [Optimization campaign and current-state update](../gsreactiondiffusion_optimization_2026-09-30.md).
 
 ## Setup
 
 | | |
 |---|---|
-| Hardware | Teensy 4.0 @ 600 MHz, flywheel + DMA ISRs live, COM3 |
+| Hardware | Teensy 4.0 @ 600 MHz, flywheel + DMA ISRs live, COM4 |
 | Image | `profile_o3` env: `-O3 -ffast-math` globally, single-effect comparison image |
 | Driver | `POVSegmented<288, 4, 480>`, board = segment 0 master |
-| Effect | GSReactionDiffusion 288×144, single-entry playlist, source tip `3968cd8f65f7d21ad6f56597116a0cf49c13a17c` (clean captured source tree) |
-| Method | `HS_PROFILE`, 32-frame windows, 130 s capture, epoch stretched to 1200 revolutions (150 s). Exact runtime frames 2–2048; frame 1 excluded. Scope/ISR summaries use complete windows 33–2048. |
-| Reproduce | `HS_TEENSY_PORT=COM3 HS_PROFILE_TREE=/c/work/Holosphere bash tools/profile_one.sh GSReactionDiffusion profile_o3 130 32 '-D HS_PROFILE_EPOCH_REVS=1200'` |
+| Effect | GSReactionDiffusion 288×144, single-entry playlist, source `7baf3cc430753e1a3693134150b282f212aa4e9e` (clean captured candidate) |
+| Method | `HS_PROFILE`, 32-frame windows, 130 s capture, epoch stretched to 1200 revolutions (150 s). Exact runtime frames 2–539; setup frame 1 excluded. Scope/ISR summaries use complete windows 33–512. |
+| Reproduce | `HS_TEENSY_PORT=COM4 HS_PROFILE_TREE=/c/work/Holosphere bash tools/profile_one.sh GSReactionDiffusion profile_o3 130 32 '-D HS_PROFILE_EPOCH_REVS=1200'` |
 
-Single-effect image size: `FLASH: code:74792, data:251864, headers:8192   free for files:1696768` / `RAM1: variables:315200, code:32696, padding:72   free for local variables:176320` / `RAM2: variables:520064  free for malloc/new:4224`.
+Single-effect image size: `FLASH: code:82376, data:252244, headers:8420   free for files:1688576` / `RAM1: variables:315136, code:38872, padding:26664   free for local variables:143616` / `RAM2: variables:520064  free for malloc/new:4224`.
 
-Full-roster shipping Phantasm size, separately built with profiling disabled: `FLASH: code:529648, data:746232, headers:8216   free for files:747520` / `RAM1: variables:314784, code:166680, padding:29928   free for local variables:12896` / `RAM2: variables:520064  free for malloc/new:4224`. This is the shipping RAM1/ITCM budget; the single-effect image above is not the roster memory budget.
+Full-roster shipping Phantasm, separately built with profiling disabled: `FLASH: code:535552, data:746852, headers:8860   free for files:740352` / `RAM1: variables:314784, code:171928, padding:24680   free for local variables:12896` / `RAM2: variables:520064  free for malloc/new:4224`. The full-roster build passes the region-budget and layout gates; its RAM1 code is the shipping ITCM budget, separate from the single-effect comparison image.
 
-Exactness cross-check: window frames 449–480, root 1,198,913,385 cycles ÷ 600 MHz versus wall sum 1,998,190 us, within **0.5 ppm**. [Parser validation](../evidence/gs_optimization_2026-09-30/finalo3/validate.txt) reports VALID.
+Exactness cross-check: window frames 385–416, root 5,833,189,292 cycles ÷ 600 MHz versus measured wall sum 9,721,985 us, within **0.3 ppm**. [Parser validation](../evidence/gs_shading_2026-09-30/o3/validate.txt) reports VALID.
 
 ## Frame cadence
 
-**Runtime aggregate** (frame 1 excluded): mean render **31.873 ms/frame**, peak **36.477 ms** at frame 464, spilled **0/2047 (0.00%)**. Runtime mean wall is 62.427 ms/frame. Scope totals below cover frames 33–2048 only.
+**Runtime aggregate** (setup frame 1 excluded): mean render **212.279 ms/frame**, peak **279.686 ms** at frame 395, spilled **538/538 (100.00%)**. Runtime mean wall is 238.277 ms/frame, or 4.20 rendered frames/s across these live rows.
 
-Startup setup render: **23.615 ms** at frame 1, before publication and excluded from runtime statistics.
+Startup setup render: **127.055 ms** at frame 1, before publication and excluded from runtime statistics.
 
-A display window is 62.5 ms. The effect renders one 144×72 quadrant (10,368 pixels), with four samples per shaded pixel. Peak render leaves 26.023 ms against this deadline. Every captured live frame holds the 16 fps render budget. `canvas_buffer_wait` is idle time until the next display flip.
+A display window is 62.5 ms. The effect renders one 144×72 quadrant (10,368 positions), with four samples per shaded pixel. Every captured live frame exceeds the 16 fps render deadline. Peak render exceeds that deadline by 217.186 ms and requires 4.47× render speedup to fit one window. `canvas_buffer_wait` is synchronization idle until a display flip, not rendering work.
 
-| Scope | Mean ms/frame | Worst window ms/frame | Frames |
-|---|--:|--:|---|
-| `grd_render` | 31.782 | 35.952 | 449–480 |
-| `grd_simulate` | 6.630 | 6.634 | 1889–1920 |
-| `grd_rasterize` | 25.044 | 28.794 | 449–480 |
-| `grd_shader_draw` | 24.161 | 28.096 | 449–480 |
-| `grd_cull_flags` | 0.509 | 0.949 | 1505–1536 |
-| `grd_orient` | 0.373 | 0.374 | 385–416 |
-| `canvas_buffer_wait` | 30.409 | 42.595 | 993–1024 |
+| Scope | Mean ms/frame | Worst window ms/frame |
+|---|--:|--:|
+| `grd_render` | 218.408 | 266.581 |
+| `grd_simulate` | 93.779 | 93.871 |
+| `grd_rasterize` | 121.494 | 169.294 |
+| `grd_shader_draw` | 120.561 | 168.559 |
+| `grd_cull_flags` | 0.533 | 0.956 |
+| `grd_orient` | 0.400 | 0.401 |
+| `canvas_buffer_wait` | 24.608 | 46.022 |
 
 ## Phase-by-phase readout
 
-Phase schedule: reaction growth changes the active area; settling triggers dissolve and reseeding. This capture has no lifecycle markers, so windows below describe measured workload rather than assigning unobserved lifecycle boundaries.
+Phase schedule: the evolving reaction field changes active shading coverage. The capture has no lifecycle markers, so these windows describe measured workloads without assigning unobserved dissolve/reseed boundaries. The slower image advances fewer simulation frames within 130 seconds; this is a measured interval, not a lifetime worst-case bound.
 
 ### Early captured growth (frames 33–64)
 
 ```
-frame                      62.64 ms  37.59 Mcyc 100.0%
-  pov_preserve_half        141.6 us   85.0 kcyc   0.2% x1 141.6us/call
-  grd_render               27.83 ms  16.70 Mcyc  44.4%
-    grd_rasterize          21.20 ms  12.72 Mcyc  33.8%
-      grd_shader_draw      20.04 ms  12.02 Mcyc  32.0% x1 20037.9us/call
-      grd_cull_flags       787.6 us  472.5 kcyc   1.3% x1 787.6us/call
-      grd_orient           373.5 us  224.1 kcyc   0.6% x1 373.5us/call
-    grd_simulate            6.63 ms   3.98 Mcyc  10.6% x1 6626.9us/call
-  rd_timeline_step          37.7 us   22.6 kcyc   0.1% x1 37.7us/call
-  canvas_clear              84.2 us   50.5 kcyc   0.1% x1 84.2us/call
-  canvas_buffer_wait       34.55 ms  20.73 Mcyc  55.2% x1 34551.2us/call
+frame                     188.55 ms 113.13 Mcyc 100.0%
+  pov_preserve_half        133.8 us   80.3 kcyc   0.1% x1 133.8us/call
+  grd_render              157.73 ms  94.64 Mcyc  83.7%
+    grd_rasterize          61.04 ms  36.63 Mcyc  32.4%
+      grd_shader_draw      59.85 ms  35.91 Mcyc  31.7% x1 59848.7us/call
+      grd_cull_flags       798.8 us  479.3 kcyc   0.4% x1 798.8us/call
+      grd_orient           396.4 us  237.8 kcyc   0.2% x1 396.4us/call
+    grd_simulate           93.70 ms  56.22 Mcyc  49.7% x1 93700.5us/call
+  rd_timeline_step          37.3 us   22.4 kcyc   0.0% x1 37.3us/call
+  canvas_clear              84.3 us   50.6 kcyc   0.0% x1 84.3us/call
+  canvas_buffer_wait       30.56 ms  18.34 Mcyc  16.2% x1 30563.5us/call
 ```
 
-Wall min/avg/max = 58.009/62.642/67.100 ms. `grd_shader_draw` costs 20.038 ms/frame and simulation 6.627 ms/frame. Increased active coverage raises shader work; display synchronization absorbs the remaining time. These scope figures are window averages, not individual-frame peaks.
+Wall min/avg/max = 150.422/188.548/226.606 ms. Shader work costs 59.849 ms/frame and simulation 93.700 ms/frame. Both contribute materially to the deadline overrun; higher active coverage raises the shader cost. These scope costs are window means, distinct from the exact individual-frame peak.
 
-### Highest mean render window (frames 449–480)
+### Highest mean render window (frames 385–416)
 
 ```
-frame                      62.44 ms  37.47 Mcyc 100.0%
-  pov_preserve_half        139.3 us   83.6 kcyc   0.2% x1 139.3us/call
-  grd_render               35.95 ms  21.57 Mcyc  57.6%
-    grd_rasterize          28.79 ms  17.28 Mcyc  46.1%
-      grd_shader_draw      28.10 ms  16.86 Mcyc  45.0% x1 28096.1us/call
-      grd_cull_flags       326.3 us  195.8 kcyc   0.5% x1 326.3us/call
-      grd_orient           371.8 us  223.1 kcyc   0.6% x1 371.8us/call
-    grd_simulate            6.63 ms   3.98 Mcyc  10.6% x1 6634.1us/call
-  rd_timeline_step          28.7 us   17.2 kcyc   0.0% x1 28.7us/call
-  canvas_clear              84.4 us   50.6 kcyc   0.1% x1 84.4us/call
-  canvas_buffer_wait       26.24 ms  15.74 Mcyc  42.0% x1 26238.0us/call
+frame                     303.81 ms 182.29 Mcyc 100.0%
+  pov_preserve_half        131.2 us   78.7 kcyc   0.0% x1 131.2us/call
+  grd_render              266.58 ms 159.95 Mcyc  87.7%
+    grd_rasterize         169.29 ms 101.58 Mcyc  55.7%
+      grd_shader_draw     168.56 ms 101.14 Mcyc  55.5% x1 168558.7us/call
+      grd_cull_flags       336.7 us  202.0 kcyc   0.1% x1 336.7us/call
+      grd_orient           398.6 us  239.2 kcyc   0.1% x1 398.6us/call
+    grd_simulate           93.77 ms  56.26 Mcyc  30.9% x1 93767.9us/call
+  rd_timeline_step          31.3 us   18.8 kcyc   0.0% x1 31.3us/call
+  canvas_clear              85.0 us   51.0 kcyc   0.0% x1 85.0us/call
+  canvas_buffer_wait       36.98 ms  22.19 Mcyc  12.2% x1 36983.2us/call
 ```
 
-Wall min/avg/max = 62.047/62.443/62.914 ms. `grd_shader_draw` costs 28.096 ms/frame and simulation 6.634 ms/frame. Increased active coverage raises shader work; display synchronization absorbs the remaining time. These scope figures are window averages, not individual-frame peaks.
+Wall min/avg/max = 246.890/303.812/332.039 ms. Shader work costs 168.559 ms/frame and simulation 93.768 ms/frame. Both contribute materially to the deadline overrun; higher active coverage raises the shader cost. These scope costs are window means, distinct from the exact individual-frame peak.
 
 ### Per-pixel figures
 
-No `filter_blend` counter is present. The raster covers 10,368 quadrant positions, but hot-pixel counts are unavailable in this standard capture; dividing by the full quadrant would not measure cost per shaded pixel.
+No `filter_blend` counter is present. The raster visits 10,368 quadrant positions, but active-pixel counts are unavailable. Dividing by the full quadrant would not measure cost per shaded pixel; no per-pixel cost is inferred.
 
 ## Column-ISR / DMA marshaling cost
 
-Complete windows 33–2048; columns are calls/frame, per-call min/avg/max, and CPU share. Pack and submit are nested inside wake and must not be added to its inclusive CPU share.
+Complete post-startup windows only; columns are calls/frame, per-call min/avg/max, and CPU share. Pack and submit are nested inside wake, so their shares are not added to its inclusive share.
 
 ```
-isr_wake          1152.1/f 0.33/1.52/15.82 us  2.80% CPU
-  isr_pack         144.0/f 6.00/6.93/9.78 us  1.60% CPU
-  isr_dma_submit   144.0/f 0.60/0.93/6.42 us  0.21% CPU
+isr_wake          4485.1/f 0.41/1.59/20.34 us  2.94% CPU
+  isr_pack         560.6/f 5.98/6.94/11.06 us  1.60% CPU
+  isr_dma_submit   560.6/f 0.60/0.93/10.93 us  0.22% CPU
 ```
 
-- Pack averages 6.929 us/call; DMA submission averages 0.929 us/call. CPU shares use capture-window elapsed time; averages use summed logged ISR microseconds/counts.
-- SPI DMA proceeds asynchronously. At 24 MHz, the 72-LED 300-byte frame takes approximately 115 us including configured LPSPI framing; an image plus trailing black frame takes 230 us. These are transport calculations, not measured CPU submission times.
-- Inclusive wake share 2.80% leaves approximately 60.748 ms of foreground CPU per 62.5 ms window before other interrupts. Measured render already includes interrupt time; no further speedup is required to meet the observed deadline.
+- Pack averages 6.943 us/call; DMA submission averages 0.935 us/call. CPU shares use logged window elapsed time.
+- SPI DMA transfers asynchronously. At 24 MHz, a 72-LED, 300-byte frame takes about 115 us including LPSPI framing; image plus trailing black frame takes about 230 us. These are wire-time calculations, not measured CPU submission times.
+- Inclusive wake share 2.94% leaves about 60.666 ms of foreground CPU per 62.5 ms interval before other interrupts. Foreground scope times already include interrupts; the observed peak requires 4.47× render speedup to fit the wall deadline.
 
 ## Summary ranking
 
-1. `grd_shader_draw` — 45.0% of the highest-render window, 28.096 ms/frame.
-2. `grd_simulate` — 10.6% of the highest-render window, 6.634 ms/frame.
-3. `grd_orient` — 0.6% of the highest-render window, 0.372 ms/frame.
-4. `grd_cull_flags` — 0.5% of the highest-render window, 0.326 ms/frame.
+1. `grd_shader_draw` — 55.5% of the highest-render window, 168.559 ms/frame.
+2. `grd_simulate` — 30.9% of the highest-render window, 93.768 ms/frame.
+3. `grd_orient` — 0.1% of the highest-render window, 0.399 ms/frame.
+4. `grd_cull_flags` — 0.1% of the highest-render window, 0.337 ms/frame.
 
-Native runs validate numerical behavior; no directly comparable WASM/native timing ledger entry is available for this exact revision.
+Native quality/state evidence in the historical campaign predates the added shading features. It supplies no directly comparable native/WASM timing for this measured candidate.
 
 ## Caveats
 
-- All foreground scopes include ISR time because CYCCNT free-runs. Wake includes nested pack/submit costs.
-- `filter_blend` normally parents under whichever scope first enters it and can disappear with an inactive parent; this capture has no such counter.
-- No per-pixel profiling scopes are enabled. The separate diagnostic build adds overhead and is not used for these timings.
-- Shipping selective-O3 covers GS `step_physics`, `shade_pixel`, `fill_hot_flags`, shared lattice distance/refinement and orientation methods, plus the renderer/driver hot paths. Global-O3 changes the single-effect comparison image globally; it is not the full-roster shipping configuration.
-- The epoch is extended to avoid reinitialization during capture; there is no dwell compression or simulation-speed override.
-- Captured from a clean source tree; the archived source diff is empty. The raw provenance footer and [source patch](../evidence/gs_optimization_2026-09-30/finalo3/source.json) identify the measured working tree; the evidence retains build sizes and hashes.
-- Frame 1 is excluded from exact runtime rows, while the entire first window is excluded from scope and ISR aggregates. ISR totals are logged in integer microseconds, so their aggregate per-call averages have small quantization error.
+- CYCCNT free-runs, so foreground scopes include ISR time; wake includes nested pack/submit work.
+- `filter_blend` can inherit the first active parent and disappear with an inactive parent. This capture contains no such counter, and no per-pixel profiling scopes are enabled.
+- Shipping selective-O3 covers GS physics, shading and hot-flag kernels plus shared lattice/orientation and renderer/driver paths. Global-O3 is a single-effect compiler comparison, not the full-roster shipping configuration.
+- The extended epoch prevents reinitialization during capture. No dwell compression, simulation-speed override, or lifecycle completion is claimed.
+- Both current images were captured on COM4 at source `7baf3cc430753e1a3693134150b282f212aa4e9e` with an empty source diff. The candidate includes the noise modifier speed and pigment scratch-lifetime corrections. The prior early-morning captures used COM3 and earlier artwork; their timing delta is not a controlled optimization comparison.
+- Setup frame 1 is excluded from runtime rows; the entire first window is excluded from scope/ISR summaries. Complete individual frame rows in the unfinished final window remain in runtime statistics. Integer-microsecond ISR totals introduce small quantization error.
+- [Portable evidence manifest](../evidence/gs_shading_2026-09-30/o3/gs_shading_o3_manifest.json) retains capture, compiler/build/environment records and original hashes. Host process environment dictionaries are removed; footer environment hashes identify the sanitized retained dumps, while measurement rows are unchanged. ELF/map artifacts remain in the provenance-named local archive.
 
 ## Harness
 
-`targets/Profile/Profile.ino`: `HS_PROFILE_TARGET=GSReactionDiffusion`, `HS_PROFILE_WINDOW=32`, `HS_PROFILE_EPOCH_REVS=1200`. `just profile GSReactionDiffusion` is the basic shortcut; use the Setup command to reproduce this duration and epoch under the shared-device lock.
+`targets/Profile/Profile.ino`: `HS_PROFILE_TARGET=GSReactionDiffusion`, `HS_PROFILE_WINDOW=32`, `HS_PROFILE_EPOCH_REVS=1200`. `just profile GSReactionDiffusion` is the basic shortcut; use the Setup command for this duration and epoch under the shared-device lock.
 
-### Global -O3 vs selective -O3
+## Global -O3 vs selective -O3
 
-Shipping peak 36.528 ms versus global-O3 36.477 ms: 1.001× peak speed ratio. Single-effect global-O3 minus shipping image: FLASH code **+13,856 B**, ITCM **+8,896 B**. These deltas compare the two single-effect profile images, not Phantasm against a profile image.
+Shipping mean render is 262.576 ms/frame versus 212.279 ms/frame globally optimized (1.237×). Shipping peak is 313.695 ms versus 279.686 ms (1.122×). Both captures spill every live frame; global-O3 does not restore the 16 fps deadline. Their wall-duration runs cover different simulation-frame ranges, so these whole-capture ratios are descriptive rather than matched-frame speedups.
+
+Global-O3 changes single-effect FLASH code by +16,024 B and ITCM by +10,832 B relative to the shipping image.
