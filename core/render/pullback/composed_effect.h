@@ -784,7 +784,8 @@ struct FieldCoverageStageFor<FieldCoverageKind::VALUE_CUTOUT, B> {
  * RenderPipeline::shade changes only the entry trampoline's placement; the
  * pipeline body remains in hot flash. Different body emission requires calling
  * RenderPipeline::evaluate(view, frame.ctx, frame.prepared) from the shadow.
- * A surface-noise family places its surface stage out of line in flash.
+ * A surface-noise family emits the whole sphere run (displacement, lens and
+ * projection) as one out-of-line flash call.
  *
  * `EFFECT_ID` is the registry identity; `PRESET_IDS` lists immutable preset
  * identities indexed by preset number; `PARAMETER_SCHEMA_VERSION` changes
