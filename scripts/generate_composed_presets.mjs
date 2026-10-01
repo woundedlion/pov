@@ -175,7 +175,10 @@ export async function generate({ check = false, root = ROOT } = {}) {
     if (ids.has(id)) throw new Error(`Duplicate composed effect ID: ${id}`);
     ids.add(id);
     const input = await readFile(resolve(root, 'patterns', `${id.replaceAll('-', '_')}.shader.json`), 'utf8');
-    const output = updateHeader(source, compileShaderDocument(input, { catalog }));
+    const compiled = compileShaderDocument(input, { catalog });
+    if (compiled.document.effect_id !== id)
+      throw new Error(`patterns/${id.replaceAll('-', '_')}.shader.json names effect "${compiled.document.effect_id}", expected "${id}"`);
+    const output = updateHeader(source, compiled);
     await emit(`effects/${file}`, output);
     composed.push(file);
   }

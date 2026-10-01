@@ -153,3 +153,14 @@ test('composed topology cannot vary between presets', () => {
   assert.equal(compiled.status, 'VALID');
   assert.throws(() => generatedSections(compiled), /topology must be uniform: colorize.palette-mode/);
 });
+test('a mismatched document identity cannot rewrite its composed header', async (t) => {
+  const root = await fixture(t);
+  const path = join(root, 'patterns/alien_brain.shader.json');
+  const authored = JSON.parse(await readFile(path, 'utf8'));
+  authored.effect_id = 'other-effect';
+  await writeFile(path, JSON.stringify(authored));
+  const header = join(root, 'effects/Alpha.h');
+  const original = await readFile(header, 'utf8');
+  await assert.rejects(generate({ root }), /names effect "other-effect", expected "alien-brain"/);
+  assert.equal(await readFile(header, 'utf8'), original);
+});
