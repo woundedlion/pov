@@ -1906,10 +1906,6 @@ struct SimBoard {
   float envelope = 0.0f;
   int32_t envelope_column = -1;
 
-  /**
-   * @brief Constructs a board wrapping a SyncBoard engine for config @p c.
-   * @param c Sync configuration passed to the embedded SyncBoard.
-   */
   /** @brief Reset foreground and probe state at a local reboot timestamp. */
   void reboot(uint32_t local_now) {
     board.seed(local_now, master);
@@ -1935,6 +1931,10 @@ struct SimBoard {
     envelope_column = -1;
   }
 
+  /**
+   * @brief Constructs a board wrapping a SyncBoard engine for config @p c.
+   * @param c Sync configuration passed to the embedded SyncBoard.
+   */
   explicit SimBoard(const Config &c) : board(c) {}
 };
 
