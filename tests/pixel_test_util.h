@@ -76,39 +76,6 @@ inline void expect_color_within(const Color4 &actual, const Color4 &expected,
 }
 
 /**
- * @brief Running per-channel gap statistics over a sweep of pixel pairs.
- * @details Every RGB channel of every pair counts once; alpha is not folded in.
- */
-struct ChannelError {
-  uint16_t max = 0;
-  uint64_t total = 0;
-  uint64_t channels = 0;
-
-  /**
-   * @brief Folds one pixel pair's three channel gaps into the statistics.
-   * @param a First pixel.
-   * @param b Second pixel.
-   */
-  void add(const Pixel &a, const Pixel &b) {
-    for (uint16_t gap : {channel_gap(a.r, b.r), channel_gap(a.g, b.g),
-                         channel_gap(a.b, b.b)}) {
-      max = std::max(max, gap);
-      total += gap;
-    }
-    channels += 3;
-  }
-
-  /**
-   * @brief Mean gap per channel, truncated toward zero.
-   * @return total / channels.
-   */
-  uint64_t mean() const {
-    HS_CHECK(channels > 0, "channel error mean requires samples");
-    return total / channels;
-  }
-};
-
-/**
  * @brief Counts the non-black pixels across the effect's reported canvas.
  * @param fx Effect whose framebuffer is scanned, fx.width() by fx.height().
  * @return Number of lit (non-black) pixels.
