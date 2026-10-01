@@ -76,6 +76,8 @@ class TestGamutLutMirrors(unittest.TestCase):
              "-3.3077115913f, 4.0767416621f"),
         )
         math_h = ROOT / "core" / "math" / "3dmath.h"
+        self.assertTrue(generator.check_mirrors(
+            ROOT / "core" / "color" / "color_space.h", math_h))
         for original, replacement in mutations:
             with self.subTest(original=original):
                 pattern = r"\s+".join(re.escape(token) for token in original.split())
@@ -85,9 +87,11 @@ class TestGamutLutMirrors(unittest.TestCase):
                 with tempfile.TemporaryDirectory() as directory:
                     path = Path(directory) / "color_space.h"
                     path.write_text(mutated, encoding="utf-8")
-                    with contextlib.redirect_stderr(io.StringIO()):
+                    error = io.StringIO()
+                    with contextlib.redirect_stderr(error):
                         result = generator.check_mirrors(path, math_h)
                 self.assertFalse(result)
+                self.assertIn("mirror drift in", error.getvalue())
 
 
 if __name__ == "__main__":
