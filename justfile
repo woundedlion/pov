@@ -31,13 +31,18 @@ build:
 
 # WASM debug build (-O0 -g -sASSERTIONS, 64 KB stack).
 build-debug:
-    cmake --preset wasm-debug
+    cmake --preset wasm-debug -DHS_WASM_DEV_BINDINGS=ON
     cmake --build --preset wasm-debug
 
 # Build and smoke-test the WASM engine.
 smoke: build
     {{ python_command }} tools/build_pins.py --check-tool node
     node scripts/wasm_smoke.mjs
+
+# Build and smoke-test the WASM debug engine with development bindings.
+smoke-debug $WASM_SMOKE_STACK_CEILING="6144": build-debug
+    {{ python_command }} tools/build_pins.py --check-tool node
+    node scripts/wasm_smoke.mjs build/wasm-debug/holosphere_wasm.js
 
 # Capture the effect gallery with headless Chromium.
 screenshots:

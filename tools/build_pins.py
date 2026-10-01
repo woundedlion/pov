@@ -247,6 +247,7 @@ SHARED_LITERALS = {
     # The per-effect smoke window every CI leg drives. The justfile and
     # CONTRIBUTING repeat it because neither can read the workflow.
     "smoke-frames": "120",
+    "smoke-stack-ceiling-debug": "6144",
 }
 
 # Patterns for literals shared across build tools.
@@ -269,6 +270,7 @@ SHARED_LITERAL_USES = (
     # ci.yml declares the window once and aliases it into every other job; the
     # justfile spells it as a recipe parameter and CONTRIBUTING as prose.
     (r'HS_SMOKE_FRAMES(?:: &\w+ |="?)(\d+)', "smoke-frames"),
+    (r'WASM_SMOKE_STACK_CEILING(?:: |=\"?)(\d+)', "smoke-stack-ceiling-debug"),
 )
 
 # --check-tool targets: pin name -> (version command, how to install the pin,
@@ -418,6 +420,10 @@ INLINE_AUTHORITIES = {
 
 
 LITERAL_AUTHORITIES = {
+    'smoke-stack-ceiling-debug': (
+        '.github/workflows/ci.yml',
+        'justfile',
+    ),
     'shell-selection': (
         '.githooks/pre-commit',
         'tools/shellcheck_gate.sh',
