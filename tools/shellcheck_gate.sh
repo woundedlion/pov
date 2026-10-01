@@ -13,6 +13,8 @@ if [ "$#" -ne 0 ]; then
   exit 2
 fi
 
+cd "$(git rev-parse --show-toplevel)"
+
 scratch=$(mktemp -d)
 tmp=$scratch/files
 trap 'rm -rf -- "$scratch"' EXIT

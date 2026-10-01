@@ -15,6 +15,8 @@ if [ "$#" -gt 1 ] || { [ "$#" -eq 1 ] && [ "$1" != --fix-worktree ]; }; then
   exit 2
 fi
 
+cd "$(git rev-parse --show-toplevel)"
+
 if [ "${1:-}" = --fix-worktree ]; then
   python=${HS_PYTHON:-python3}
   if [ -z "${HS_PYTHON:-}" ] && ! "$python" --version >/dev/null 2>&1; then
