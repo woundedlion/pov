@@ -4,7 +4,9 @@
  */
 #pragma once
 
+#include <array>
 #include <type_traits>
+#include "engine/memory.h"
 #include "render/shading.h"
 #include "color/color.h"
 #include "render/canvas.h"
@@ -30,6 +32,8 @@ namespace Scan {
  * - draw(canvas, fragment_shader, vertex_shader): splits per-pixel setup
  *   (vertex_shader, once at the pixel center) from per-sub-sample evaluation.
  *   Both callables are required; a null one traps.
+ * - draw_block_coherent(canvas, block, positions, scratch, classify, shade):
+ *   shades from the union of a canvas-anchored block's corner candidates.
  * - draw_grid(canvas, vertex_shader, pixel_shader): hands the seeded fragment
  *   and the row's SsaaGrid to pixel_shader, which owns the sampling and returns
  *   the finished pixel.
@@ -371,6 +375,124 @@ public:
         canvas(x, y) = pixel_shader(frag_base, grid, x);
       });
     }
+  }
+  /** @brief K site indices classified at one block-grid corner. */
+  template <size_t K> using BlockCell = std::array<uint16_t, K>;
+
+  /** @brief Deduped union of four corners, with contiguous shading positions. */
+  template <size_t K> struct BlockCandidates {
+    static_assert(K > 0 && 4 * K <= UINT8_MAX,
+                  "block candidates require 1..63 sites per corner");
+    math::Vector pos[4 * K];
+    uint16_t idx[4 * K];
+    uint8_t n;
+  };
+
+  /** @brief Maximum corner-grid and candidate-row bytes at a minimum block size.
+   * @details Excludes caller-owned site positions and any arena alignment pad.
+   */
+  template <int W, int H, size_t K, int MIN_BLOCK>
+  static constexpr size_t block_coherent_scratch_bytes() {
+    static_assert(W > 0 && H > 0 && MIN_BLOCK > 0);
+    constexpr size_t COLS = (W - 1) / MIN_BLOCK + 2;
+    constexpr size_t ROWS = (H - 1) / MIN_BLOCK + 2;
+    return COLS * ROWS * sizeof(BlockCell<K>) +
+           (COLS - 1) * sizeof(BlockCandidates<K>);
+  }
+
+  /**
+   * @brief Shade pixels from their block's deduped corner candidates.
+   * @param block Positive block edge in pixels; corners anchor to the canvas.
+   * @param positions Site positions indexed by every returned corner index.
+   * @param scratch Arena for the corner grid and one candidate row. The caller
+   * owns its scope; block_coherent_scratch_bytes() bounds these allocations.
+   * @param classify_corner Callable (const Vector&) returning BlockCell<K>.
+   * @param shade_candidates Callable (const Vector&, const BlockCandidates<K>&)
+   * returning Color4 or a premultiplied Pixel.
+   * @details Sites absent from all four corners are omitted. Wrapped column
+   * bands skip their interior gap; candidate order follows corner order.
+   */
+  template <int W, int H, size_t K, typename ClassifyFn, typename ShadeFn>
+  HS_O3_FN __attribute__((always_inline)) static void
+  draw_block_coherent(Canvas &canvas, int block, const math::Vector *positions,
+                      Arena &scratch, ClassifyFn &&classify_corner,
+                      ShadeFn &&shade_candidates) {
+    HS_CHECK(block > 0, "block-coherent shader requires a positive block size");
+    check_canvas_dims<W, H>(canvas);
+    const auto &cr = canvas.clip();
+    check_lut_domain<W, H>(cr);
+    const auto columns = cr.x_clip();
+    const int x0 = columns.active && !columns.wrap ? columns.rs : 0;
+    const int x1 = columns.active && !columns.wrap ? columns.re : W;
+    const int y0 = cr.render_y_start();
+    const int y1 = cr.render_y_end();
+    if (x1 <= x0 || y1 <= y0)
+      return;
+    if (!math::TrigLUT<W, H>::initialized)
+      math::TrigLUT<W, H>::init();
+    const int B = block;
+    // Canvas-anchored corners give each pixel the same candidates in every band.
+    const int gx0 = (x0 / B) * B;
+    const int gy0 = (y0 / B) * B;
+    const int nbx = (x1 - 1 - gx0) / B + 2; // corner columns spanning [x0, x1)
+    const int nby = (y1 - 1 - gy0) / B + 2; // corner rows spanning    [y0, y1)
+    const int GAP_BEGIN =
+        columns.active && columns.wrap ? (columns.re + B - 1) / B : nbx;
+    const int GAP_END = columns.active && columns.wrap ? columns.rs / B : nbx;
+    BlockCell<K> *cells = scratch.allocate_n<BlockCell<K>>(nbx * nby);
+    // End corners clamp to the last canvas pixel, independent of the clip.
+    auto corner_x = [&](int j) { return std::min(gx0 + j * B, W - 1); };
+    auto corner_y = [&](int k) { return std::min(gy0 + k * B, H - 1); };
+
+    for (int k = 0; k < nby; ++k)
+      for (int j = 0; j < nbx; ++j) {
+        if (j > GAP_BEGIN && j < GAP_END)
+          continue;
+        cells[k * nbx + j] = classify_corner(
+            math::pixel_to_vector<W, H>(corner_x(j), corner_y(k)));
+      }
+
+    // One candidate set per block column, rebuilt on each block-row change.
+    // Positions are copied in so the per-pixel scan runs over contiguous data.
+    const int nblk = nbx - 1;
+    BlockCandidates<K> *cands = scratch.allocate_n<BlockCandidates<K>>(nblk);
+    auto build_candidate_row = [&](int ky) {
+      for (int jx = 0; jx < nblk; ++jx) {
+        if (jx >= GAP_BEGIN && jx < GAP_END)
+          continue;
+        BlockCandidates<K> &cs = cands[jx];
+        cs.n = 0;
+        auto add = [&](uint16_t s) {
+          for (uint8_t i = 0; i < cs.n; ++i)
+            if (cs.idx[i] == s)
+              return;
+          cs.idx[cs.n] = s;
+          cs.pos[cs.n] = positions[s];
+          ++cs.n;
+        };
+        for (const BlockCell<K> *c :
+             {&cells[ky * nbx + jx], &cells[ky * nbx + jx + 1],
+              &cells[(ky + 1) * nbx + jx], &cells[(ky + 1) * nbx + jx + 1]}) {
+          for (uint16_t site : *c)
+            add(site);
+        }
+      }
+    };
+
+    int last_ky = -1;
+    draw_cached<W, H>(
+        canvas,
+        [&](const math::Vector &p, int x, int) {
+          const BlockCandidates<K> &cs = cands[(x - gx0) / B];
+          return shade_candidates(p, cs);
+        },
+        [&](int y) {
+          const int ky = (y - gy0) / B;
+          if (ky != last_ky) {
+            build_candidate_row(ky);
+            last_ky = ky;
+          }
+        });
   }
 };
 
