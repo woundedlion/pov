@@ -145,7 +145,8 @@ polar_source_compatible(const RequestedConfig &config,
   if (!polar_seam_checked(config))
     return true;
   const float periods = polar_seam_periods(config, polar);
-  return periods == static_cast<float>(static_cast<int>(periods));
+  return periods >= -2147483648.0f && periods < 2147483648.0f &&
+         periods == static_cast<float>(static_cast<int>(periods));
 }
 
 HS_COLD_MEMBER inline constexpr bool
