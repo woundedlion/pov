@@ -32,12 +32,17 @@ struct MobiusLensParams {
   static constexpr float COEFFICIENT_LIMIT = 4.0f;
   static constexpr float MOBIUS_MIN_DET_SQ = 1e-6f;
 
-  static constexpr bool nondegenerate(const math::MobiusParams &params) {
+  static constexpr float
+  determinant_magnitude_squared(const math::MobiusParams &params) {
     const float re = params.a.re * params.d.re - params.a.im * params.d.im -
                      params.b.re * params.c.re + params.b.im * params.c.im;
     const float im = params.a.re * params.d.im + params.a.im * params.d.re -
                      params.b.re * params.c.im - params.b.im * params.c.re;
-    return re * re + im * im >= MOBIUS_MIN_DET_SQ;
+    return re * re + im * im;
+  }
+
+  static constexpr bool nondegenerate(const math::MobiusParams &params) {
+    return determinant_magnitude_squared(params) >= MOBIUS_MIN_DET_SQ;
   }
 
   /** Mobius coefficients; the default is the identity map. */
