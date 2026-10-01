@@ -993,7 +993,7 @@ class TestWarningRatchet(unittest.TestCase):
 
 
 def _run_ratchet(log_text, *extra, envs=None):
-    """Run the ratchet over `log_text` against an empty baseline; return its exit.
+    """Run the zero-warning gate over `log_text`; return its exit.
 
     `envs` is the environment set the build was asked to produce, written to a
     throwaway platformio.ini. It defaults to the environments `log_text` itself
@@ -1002,8 +1002,6 @@ def _run_ratchet(log_text, *extra, envs=None):
     with tempfile.TemporaryDirectory() as d:
         log = Path(d) / "build.log"
         log.write_text(log_text, encoding="utf-8")
-        base = Path(d) / "baseline.txt"
-        base.write_text("", encoding="utf-8")
         if envs is None:
             envs = [s.name for s in tw.parse_env_sections(log_text)]
         ini = Path(d) / "platformio.ini"
@@ -1566,8 +1564,6 @@ class TestNonUtf8Captures(unittest.TestCase):
             log = Path(d) / "build.log"
             log.write_bytes(log_text.encode("utf-8")
                             + b"note: " + self.CP1252 + b" care\n")
-            base = Path(d) / "baseline.txt"
-            base.write_text("", encoding="utf-8")
             ini = Path(d) / "platformio.ini"
             ini.write_text("[env:phantasm]\n", encoding="utf-8")
             buf = io.StringIO()
