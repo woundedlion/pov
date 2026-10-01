@@ -1358,6 +1358,8 @@ struct Face {
    */
   template <int W, int H, typename OutputIt>
   bool get_horizontal_intervals(int y, OutputIt out) const {
+    if (y < y_min || y > y_max)
+      return true;
     HS_CHECK(
         build_width == 0 || W == build_width,
         "Face::get_horizontal_intervals: W differs from the clip width the "
