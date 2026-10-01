@@ -12,6 +12,7 @@
 
 #include <concepts>
 #include <iterator>
+#include <memory>
 #include <ranges>
 #include <type_traits>
 #include <utility>
@@ -233,22 +234,24 @@ inline void test_capacity_one() {
  * @brief Verifies push_back accepts an rvalue (move) overload.
  */
 inline void test_push_back_rvalue() {
-  StaticCircularBuffer<int, 4> buf;
-  int x = 7;
+  StaticCircularBuffer<std::unique_ptr<int>, 4> buf;
+  auto x = std::make_unique<int>(7);
   buf.push_back(std::move(x));
+  HS_EXPECT_TRUE(x == nullptr);
   HS_EXPECT_EQ(buf.size(), (size_t)1);
-  HS_EXPECT_EQ(buf[0], 7);
+  HS_EXPECT_EQ(*buf[0], 7);
 }
 
 /**
  * @brief Verifies push_front accepts an rvalue (move) overload.
  */
 inline void test_push_front_rvalue() {
-  StaticCircularBuffer<int, 4> buf;
-  int x = 99;
+  StaticCircularBuffer<std::unique_ptr<int>, 4> buf;
+  auto x = std::make_unique<int>(99);
   buf.push_front(std::move(x));
+  HS_EXPECT_TRUE(x == nullptr);
   HS_EXPECT_EQ(buf.size(), (size_t)1);
-  HS_EXPECT_EQ(buf[0], 99);
+  HS_EXPECT_EQ(*buf[0], 99);
 }
 
 // ============================================================================
