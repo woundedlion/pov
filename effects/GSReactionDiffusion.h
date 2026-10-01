@@ -283,22 +283,15 @@ private:
     }
   };
 
-  struct HueShiftedPalette {
-    const NoiseHuePalette<SeedPalette> &palette;
-    float shift;
-
-    Color4 get(float t) const { return palette.get(t, shift); }
-  };
-
   Pixel modified_palette_color(int seed, float t, float shift,
                                float lightness) const {
     if (shift == 0.0f && lightness == 0.0f)
       return palette_color(seed, t);
-    SeedPalette source{palettes + seed * PALETTE_SIZE};
-    NoiseHuePalette<SeedPalette> hue(&source, color_noise_lut);
-    HueShiftedPalette shifted{hue, shift};
-    NoiseShimmerPalette<HueShiftedPalette> shimmer(&shifted, color_noise_lut);
-    return shimmer.get(t, lightness).color;
+    const Color4 SOURCE(palette_color(seed, t), 1.0f);
+    const Color4 SHIFTED =
+        shift == 0.0f ? SOURCE : hue_rotate_lut_gamut(SOURCE, shift);
+    return NoiseShimmerPalette<SeedPalette>::lift_color(SHIFTED, lightness)
+        .color;
   }
 
   void refresh_color_noise() {

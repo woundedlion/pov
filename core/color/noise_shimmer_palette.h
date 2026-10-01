@@ -50,7 +50,11 @@ public:
    */
   Color4 get(float value, float lift) const {
     assert(source != nullptr && "NoiseShimmerPalette used before bind()!");
-    const Color4 color = source->get(value);
+    return lift_color(source->get(value), lift);
+  }
+
+  /** @brief Applies a resolved OKLab lightness lift to a color. */
+  static Color4 lift_color(const Color4 &color, float lift) {
     lift = hs::clamp(lift, 0.0f, 1.0f);
     if (lift == 0.0f)
       return color;

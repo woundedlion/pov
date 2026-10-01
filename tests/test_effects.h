@@ -1297,6 +1297,18 @@ struct GSWhiteBox {
                                 float shimmer) {
     return gs.modified_palette_color(seed, t, hue, shimmer);
   }
+  static Pixel wrapped_palette(const GS &gs, int seed, float t, float shift,
+                               float lightness) {
+    typename GS::SeedPalette source{gs.palettes + seed * GS::PALETTE_SIZE};
+    NoiseHuePalette<typename GS::SeedPalette> hue(&source, gs.color_noise_lut);
+    struct Shifted {
+      const NoiseHuePalette<typename GS::SeedPalette> &palette;
+      float shift;
+      Color4 get(float value) const { return palette.get(value, shift); }
+    } shifted{hue, shift};
+    NoiseShimmerPalette<Shifted> shimmer(&shifted, gs.color_noise_lut);
+    return shimmer.get(t, lightness).color;
+  }
   static void set_color_params(GS &gs, float speed, float scale, float hue,
                                float shimmer) {
     gs.params.noise_speed = speed;
@@ -1589,6 +1601,11 @@ inline void test_gs_shared_noise_palette_modifiers() {
   const size_t OFFSET = persistent_arena.get_offset();
   int rotated = 0;
   for (int seed = 0; seed < GSWhiteBox::SEEDS; ++seed) {
+    for (float t : {0.0f, 0.37f, 1.0f})
+      for (float shift : {-0.3f, 0.0f, 0.25f})
+        for (float lift : {0.0f, 0.5f, 1.0f})
+          HS_EXPECT_EQ(GSWhiteBox::modified_palette(gs, seed, t, shift, lift),
+                       GSWhiteBox::wrapped_palette(gs, seed, t, shift, lift));
     Pixel base = GSWhiteBox::palette_sample(gs, 0.5f, seed).color;
     HS_EXPECT_EQ(GSWhiteBox::modified_palette(gs, seed, 0.5f, 0.0f, 0.0f),
                  base);
@@ -1605,6 +1622,7 @@ inline void test_gs_shared_noise_palette_modifiers() {
   HS_EXPECT_EQ(rotated, GSWhiteBox::SEEDS);
 
   GSWhiteBox::set_color_params(gs, 0.0f, 2.0f, 0.35f, 0.25f);
+  GSWhiteBox::advance_color_noise(gs);
   const float STILL = GSWhiteBox::color_noise(gs, math::X_AXIS);
   GSWhiteBox::advance_color_noise(gs);
   HS_EXPECT_EQ(GSWhiteBox::noise_phase(gs), 0.0f);
