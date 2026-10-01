@@ -175,6 +175,7 @@ inline void test_column_interval() {
  * tick. The bound's rounding is pinned in test_dma_core.h.
  */
 inline void test_transfer_bound() {
+  HS_EXPECT_EQ(pov::fastled_show_us(40, 6), 1181UL);
   HS_EXPECT_TRUE(
       column_interval_us(480ul * 96ul) >
       dma::transfer_us(HD107SFrame<40>::COMPOSITE_SIZE, dma::DEFAULT_CLOCK_HZ));

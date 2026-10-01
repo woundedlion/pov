@@ -972,14 +972,14 @@ The top arm's physical LED ordering is reversed (LED 0 at the pole end, descendi
 
 `show_col()` discards `submit_frame()`'s overrun verdict: this driver carries no retry latch and no dark fallback, so a dropped column leaves the previous column lit for one extra period — the drop returns before the buffer flip. `run()` fail-fast-checks that one composite transfer fits inside a column period, which rules out the systematic overrun that would hold the strip on one frame and is what makes discarding the verdict sound.
 
-The shipping `holosphere` sketch runs `RingSpin<96, 20>` with column strobing disabled. Its 1302 µs column period clears the 1160 µs FastLED transfer bound; the roster’s default RingSpin configuration keeps strobing enabled for the DMA targets.
+The shipping `holosphere` sketch runs `RingSpin<96, 20>` with column strobing disabled. Its 1302 µs column period clears the 1181 µs FastLED transfer bound; the roster’s default RingSpin configuration keeps strobing enabled for the DMA targets.
 
 | Parameter | Value (Holosphere) |
 |---|---|
 | S (total pixels) | 40 |
 | RPM | 480 |
 | Column interval | ~1302 µs (= 125 ms / 96 columns) |
-| ISR duration | ~20 µs on the DMA path (`holosphere_dma`), which packs the column and starts an asynchronous transfer. The FastLED path clocks 40×24 bits at 6 MHz (~160 µs per show). A nonstrobed column normally takes ~160 µs after sufficient idle time; `CMinWait<1000>` can add up to 1000 µs. A strobed column adds an immediate blank show and its 1000 µs wait: ~1320 µs even when the first show does not wait, exceeding the ~1302 µs period. The current transfer guard conservatively budgets 1160 µs per show (2320 µs for strobing) and refuses a column period at or below that bound. |
+| ISR duration | ~20 µs on the DMA path (`holosphere_dma`), which packs the column and starts an asynchronous transfer. The FastLED path clocks 40×24 bits at 6 MHz (at least 181 µs per show). A nonstrobed column normally takes at least 181 µs after sufficient idle time; `CMinWait<1000>` can add up to 1000 µs. A strobed column adds an immediate blank show and its 1000 µs wait: at least 1362 µs even when the first show does not wait, exceeding the ~1302 µs period. The current transfer guard budgets 1181 µs per show (2362 µs for strobing) and refuses a column period at or below that bound. |
 
 
 ### Multi-Teensy Segmented POV Driver (`pov_segmented.h`)
