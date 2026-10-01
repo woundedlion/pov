@@ -1148,6 +1148,13 @@ inline void test_quaternion_slerp() {
   math::Quaternion s1 = math::slerp(id, q, 1.0f);
   HS_EXPECT_NEAR(std::abs(math::dot(s1, q)), 1.0f, 5e-3f);
 
+  for (float t : {0.25f, 0.75f}) {
+    const math::Quaternion expected =
+        math::make_rotation(math::Y_AXIS, math::PI_F * 0.5f * t);
+    HS_EXPECT_NEAR(std::abs(math::dot(math::slerp(id, q, t), expected)), 1.0f,
+                   1e-6f);
+  }
+
   math::Quaternion half = math::slerp(id, q, 0.5f);
   HS_EXPECT_NEAR(half.magnitude(), 1.0f, 1e-3f);
 
