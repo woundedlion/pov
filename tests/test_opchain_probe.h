@@ -336,6 +336,18 @@ inline void test_chamfer_sweep_holds_topology() {
 // be a real, well-formed animation, not a still image or an inverted birth.
 // ---------------------------------------------------------------------------
 
+template <const Solids::Recipe &RECIPE, Solids::Op OP>
+inline PolyMesh recipe_step_seed(Arena &a, Arena &b) {
+  constexpr size_t CAPACITY = Solids::lowered_step_count(RECIPE);
+  Solids::OpStep lowered[CAPACITY];
+  const size_t count = Solids::expand_to_primitives(RECIPE, lowered, CAPACITY);
+  size_t prefix = 0;
+  while (prefix < count && lowered[prefix].op != OP)
+    ++prefix;
+  HS_EXPECT_LT(prefix, count);
+  return Solids::build_steps(RECIPE.seed, lowered, prefix, a, b);
+}
+
 /** @brief One truncate-leg seed. */
 struct TruncateSite {
   const char *name;                     /**< Recipe the leg belongs to. */
@@ -343,11 +355,9 @@ struct TruncateSite {
 };
 
 inline PolyMesh probe_ticosa_ambo_relax(Arena &a, Arena &b) {
-  return Solids::SolidBuilder(Solids::Archimedean::truncatedIcosahedron(a, b),
-                              a, b)
-      .ambo()
-      .relax()
-      .build();
+  return recipe_step_seed<
+      Solids::TRUNCATED_ICOSAHEDRON_AMBO_RELAX_TRUNCATE001_HANKIN59_RECIPE,
+      Solids::Op::TRUNCATE>(a, b);
 }
 
 inline constexpr TruncateSite TRUNCATE_SITES[] = {

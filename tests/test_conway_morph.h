@@ -2089,6 +2089,18 @@ inline void test_opleg_hankin_sweep_smoke() {
 // reach; the smoke tests drive a whole leg through OpLeg on the same seeds.
 // ---------------------------------------------------------------------------
 
+template <const Solids::Recipe &RECIPE, Solids::Op OP>
+inline PolyMesh recipe_step_seed(Arena &a, Arena &b) {
+  constexpr size_t CAPACITY = Solids::lowered_step_count(RECIPE);
+  Solids::OpStep lowered[CAPACITY];
+  const size_t count = Solids::expand_to_primitives(RECIPE, lowered, CAPACITY);
+  size_t prefix = 0;
+  while (prefix < count && lowered[prefix].op != OP)
+    ++prefix;
+  HS_EXPECT_LT(prefix, count);
+  return Solids::build_steps(RECIPE.seed, lowered, prefix, a, b);
+}
+
 /** @brief One recipe-step leg site: the chain prefix the step sweeps on. */
 struct StepLegSite {
   const char *name;                     /**< Diagnostic label. */
@@ -2110,10 +2122,9 @@ inline PolyMesh probe_icosa_snub(Arena &a, Arena &b) {
       .build();
 }
 inline PolyMesh probe_icosa_snub_relax(Arena &a, Arena &b) {
-  return Solids::SolidBuilder(Solids::Platonic::icosahedron(a, b), a, b)
-      .snub()
-      .relax()
-      .build();
+  return recipe_step_seed<
+      Solids::ICOSAHEDRON_SNUB_RELAX_TRUNCATE033_HANKIN62_RECIPE,
+      Solids::Op::TRUNCATE>(a, b);
 }
 inline PolyMesh probe_ticosa_ambo(Arena &a, Arena &b) {
   return Solids::SolidBuilder(Solids::Archimedean::truncatedIcosahedron(a, b),
@@ -2122,11 +2133,9 @@ inline PolyMesh probe_ticosa_ambo(Arena &a, Arena &b) {
       .build();
 }
 inline PolyMesh probe_ticosa_ambo_relax217(Arena &a, Arena &b) {
-  return Solids::SolidBuilder(Solids::Archimedean::truncatedIcosahedron(a, b),
-                              a, b)
-      .ambo()
-      .relax(217)
-      .build();
+  return recipe_step_seed<
+      Solids::TRUNCATED_ICOSAHEDRON_AMBO_RELAX_TRUNCATE33_HK64_RECIPE,
+      Solids::Op::TRUNCATE>(a, b);
 }
 inline PolyMesh probe_dodeca_ambo_bevel33(Arena &a, Arena &b) {
   return Solids::SolidBuilder(Solids::Platonic::dodecahedron(a, b), a, b)
@@ -2138,7 +2147,8 @@ inline PolyMesh probe_dodeca_ambo_bevel33(Arena &a, Arena &b) {
 /** Truncate-leg sites: the three pure-inflate recipes truncating at 0.33. */
 inline constexpr StepLegSite TRUNCATE_LEG_SITES[] = {
     {"icosahedron_ambo", probe_icosa_ambo, 0.33f},
-    {"truncatedIcosahedron_ambo_relax217", probe_ticosa_ambo_relax217, 0.33f},
+    {"truncatedIcosahedron_ambo_relax_converged", probe_ticosa_ambo_relax217,
+     0.33f},
     {"icosahedron_snub_relax", probe_icosa_snub_relax, 0.33f},
 };
 
