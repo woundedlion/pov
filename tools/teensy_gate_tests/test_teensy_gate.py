@@ -161,6 +161,10 @@ class TestAddressClassifier(unittest.TestCase):
         self.assertEqual(tg.region_for_address(0x60010000), "FLASH")
 
     def test_half_open_boundaries(self):
+        for address, region in ((0x0007FFFF, "ITCM"), (0x00080000, "OTHER"),
+                                (0x2027FFFF, "OCRAM"), (0x20280000, "OTHER"),
+                                (0x601FFFFF, "FLASH"), (0x60200000, "OTHER")):
+            self.assertEqual(tg.region_for_address(address), region)
         # lo inclusive, hi exclusive — guard the exact edges.
         self.assertEqual(tg.region_for_address(0x20000000), "DTCM")   # DTCM lo
         self.assertEqual(tg.region_for_address(0x2007FFFF), "DTCM")   # DTCM hi-1
