@@ -8,6 +8,12 @@ display window makes cadence quantize to 16, 8, 5.3 fps, and below.
 
 ## Capture configurations
 
+Timing sets contain one canonical report per effect, with optional supplemental
+reports identified by underscore-separated variant suffixes before `_teensy_`.
+Each effect/variant pair has one dated report per set. Supplemental reports use
+the same title, date, section, roster, and index checks as canonical reports;
+they do not satisfy the required canonical shipping coverage.
+
 ### Shipping selective-O3
 
 The [`profile` report set](shipping/README.md) uses the shipping `-Os` image
@@ -28,10 +34,10 @@ minus shipping bytes from each pair's own image-size reports.
 
 | Effect | Dominant scope | Ship peak ms | O3 peak ms | Ship spilled | O3 spilled | FLASH code Δ | ITCM Δ | Captured |
 |---|---|--:|--:|--:|--:|--:|--:|---|
-| [GSReactionDiffusion](shipping/profile_gsreactiondiffusion_teensy_2026-09-30.md) ● / [O3](O3/profile_gsreactiondiffusion_teensy_2026-09-30.md) | `grd_render` | 🔴 313.695 | 🔴 279.686 | 🔴 443/443 (100.00%) | 🔴 538/538 (100.00%) | +16,024 B | +10,832 B | ship 2026-09-30 19:21<br>O3 2026-09-30 19:15 |
-| [MindSplatter](shipping/profile_mindsplatter_teensy_2026-09-29.md) ● / [O3](O3/profile_mindsplatter_teensy_2026-08-26.md) § | `msp_draw_particles` | 🟢 54.94 (8) | 🟢 52.79 (9) | 🟢 0/1727 (0.00%) | 🟢 0/1728 (0%) | +23,632 B | +21,232 B | ship 2026-09-29 14:48<br>O3 2026-08-26 07:45 |
+| [GSReactionDiffusion](shipping/profile_gsreactiondiffusion_teensy_2026-09-30.md) / [O3](O3/profile_gsreactiondiffusion_teensy_2026-09-30.md) | `grd_render` | 🔴 313.695 | 🔴 279.686 | 🔴 443/443 (100.00%) | 🔴 538/538 (100.00%) | +16,024 B | +10,832 B | ship 2026-09-30 19:21<br>O3 2026-09-30 19:15 |
+| [MindSplatter](shipping/profile_mindsplatter_teensy_2026-09-29.md) / [O3](O3/profile_mindsplatter_teensy_2026-08-26.md) § | `msp_draw_particles` | 🟢 54.94 (8) | 🟢 52.79 (9) | 🟢 0/1727 (0.00%) | 🟢 0/1728 (0%) | +23,632 B | +21,232 B | ship 2026-09-29 14:48<br>O3 2026-08-26 07:45 |
 | [Raymarch](shipping/profile_raymarch_teensy_2026-09-28.md) / [O3](O3/profile_raymarch_teensy_2026-09-20.md) | `rm_shader_draw` | 🟢 54.87 | 🟢 56.04 | 🟢 0/1087 (0.00%) | 🟢 0/1736 (0.00%) | +12,568 B | +7,904 B | ship 2026-09-28 19:09<br>O3 2026-09-20 23:07 |
-| [ShapeShifter](shipping/profile_shapeshifter_teensy_2026-09-29.md) ● / [O3](O3/profile_shapeshifter_teensy_2026-09-25.md) § | `ss_draw_all` | 🟢 53.22 (9) | 🟢 60.05 (9) | 🟢 0/2448 (0.00%) | 🟢 0/2457 (0.00%) | +24,760 B | +31,840 B | ship 2026-09-29 22:38<br>O3 2026-09-25 07:29 |
+| [ShapeShifter](shipping/profile_shapeshifter_teensy_2026-09-29.md) / [O3](O3/profile_shapeshifter_teensy_2026-09-25.md) § | `ss_draw_all` | 🟢 53.22 (9) | 🟢 60.05 (9) | 🟢 0/2448 (0.00%) | 🟢 0/2457 (0.00%) | +24,760 B | +31,840 B | ship 2026-09-29 22:38<br>O3 2026-09-25 07:29 |
 | [HopfFibration](shipping/profile_hopffibration_teensy_2026-09-28.md) / [O3](O3/profile_hopffibration_teensy_2026-08-26.md) | `hf_render_trails` | 🟢 51.52 | 🟢 46.52 | 🟢 0/1087 (0.00%) | 🟢 0/1088 (0%) | +19,616 B | +18,272 B | ship 2026-09-28 19:02<br>O3 2026-08-26 01:27 |
 | [IslamicStars](shipping/profile_islamicstars_teensy_2026-09-28.md) / [O3](O3/profile_islamicstars_teensy_2026-09-28.md) § | `is_timeline_step` | 🟢 50.51 (23) | 🟢 49.112 (23) | 🟢 0/3327 (0.00%) | 🟢 0/3336 (0.00%) | +23,904 B | +8,240 B | ship 2026-09-28 18:40<br>O3 2026-09-28 16:50 |
 | [BZReactionDiffusion](shipping/profile_bzreactiondiffusion_teensy_2026-09-28.md) / [O3](O3/profile_bzreactiondiffusion_teensy_2026-08-26.md) | `bz_render` | 🟢 48.84 | 🟢 48.65 | 🟢 0/2047 (0.00%) | 🟢 0/2048 (0%) | +12,760 B | +10,224 B | ship 2026-09-28 19:12<br>O3 2026-08-26 01:16 |
@@ -43,7 +49,7 @@ minus shipping bytes from each pair's own image-size reports.
 | [MermaidSkin](shipping/profile_mermaidskin_teensy_2026-09-28.md) / [O3](O3/profile_mermaidskin_teensy_2026-08-26.md) | `fx_shader_draw` | 🟢 39.57 | 🟢 54.55 | 🟢 0/1087 (0.00%) | 🟢 0/1088 (0%) | +16,544 B | +11,952 B | ship 2026-09-28 18:49<br>O3 2026-08-26 02:43 |
 | [KaleidoscopeHexOil](shipping/profile_kaleidoscopehexoil_teensy_2026-09-28.md) / [O3](O3/profile_kaleidoscopehexoil_teensy_2026-08-26.md) § | `fx_shader_draw` | 🟢 38.51 (2) | 🟢 38.94 (3) | 🟢 0/2207 (0.00%) | 🟢 0/2208 (0%) | +13,456 B | +10,608 B | ship 2026-09-28 18:54<br>O3 2026-08-26 02:49 |
 | [LatticeMelt](shipping/profile_latticemelt_teensy_2026-09-28.md) / [O3](O3/profile_latticemelt_teensy_2026-08-26.md) § | `fx_shader_draw` | 🟢 37.18 (2) | 🔴 104.75 (3) | 🟢 0/1727 (0.00%) | 🔴 1824/1824 (100%) | +16,592 B | +11,952 B | ship 2026-09-28 18:45<br>O3 2026-08-26 03:22 |
-| [HyperLattice](shipping/profile_hyperlattice_teensy_2026-09-29.md) ● / [O3](O3/profile_hyperlattice_teensy_2026-09-27.md) § | `hl_shader_draw` | 🟢 36.65 (3) | 🟢 54.817 (2) | 🟢 0/1887 (0.00%) | 🟢 0/1576 (0.00%) | +9,736 B | +8,240 B | ship 2026-09-29 14:54<br>O3 2026-09-27 01:05 |
+| [HyperLattice](shipping/profile_hyperlattice_teensy_2026-09-29.md) / [O3](O3/profile_hyperlattice_teensy_2026-09-27.md) § | `hl_shader_draw` | 🟢 36.65 (3) | 🟢 54.817 (2) | 🟢 0/1887 (0.00%) | 🟢 0/1576 (0.00%) | +9,736 B | +8,240 B | ship 2026-09-29 14:54<br>O3 2026-09-27 01:05 |
 | [ChromaticLichen](shipping/profile_chromaticlichen_teensy_2026-09-28.md) / [O3](O3/profile_chromaticlichen_teensy_2026-08-26.md) | `fx_shader_draw` | 🟢 36.63 | 🟢 61.87 | 🟢 0/1087 (0.00%) | 🟢 0/1088 (0%) | +16,576 B | +11,952 B | ship 2026-09-28 18:47<br>O3 2026-08-26 02:41 |
 | [KaleidoscopeMandala](shipping/profile_kaleidoscopemandala_teensy_2026-09-28.md) / [O3](O3/profile_kaleidoscopemandala_teensy_2026-08-26.md) § | `fx_shader_draw` | 🟢 35.40 (2) | 🟢 36.86 (3) | 🟢 0/2367 (0.00%) | 🟢 0/2368 (0%) | +13,656 B | +11,440 B | ship 2026-09-28 18:39<br>O3 2026-08-26 03:17 |
 | [DisplacementField](shipping/profile_displacementfield_teensy_2026-09-29.md) / [O3](O3/profile_displacementfield_teensy_2026-09-19.md) | `df_timeline_step` | 🟢 35.27 | 🟢 57.45 | 🟢 0/2368 (0.00%) | 🟢 0/1088 (0%) | +25,856 B | +22,144 B | ship 2026-09-29 09:09<br>O3 2026-09-19 22:19 |
@@ -67,6 +73,8 @@ minus shipping bytes from each pair's own image-size reports.
 | [Voronoi](shipping/profile_voronoi_teensy_2026-09-28.md) / [O3](O3/profile_voronoi_teensy_2026-08-26.md) | `vo_shade` | 🟢 8.51 | 🟢 7.71 | 🟢 0/1087 (0.00%) | 🟢 0/1088 (0%) | +15,568 B | +12,688 B | ship 2026-09-28 19:15<br>O3 2026-08-26 01:39 |
 | [RingShower](shipping/profile_ringshower_teensy_2026-09-28.md) / [O3](O3/profile_ringshower_teensy_2026-08-26.md) | `rsh_draw_rings` | 🟢 4.33 | 🟢 3.86 | 🟢 0/1087 (0.00%) | 🟢 0/1088 (0%) | +16,336 B | +15,136 B | ship 2026-09-28 19:11<br>O3 2026-08-26 01:36 |
 
+GSReactionDiffusion refreshed 2026-09-30 after pigment, hue and shimmer shading changes. Setup frame 1 is excluded; capture provenance is in the linked reports.
+
 Shipping columns refreshed on 2026-09-28 after the kernel-placement change `97eb0bf78`; setup frame 1 is excluded. MeshFeedback was re-captured the same evening after its flush changes `b2dc8ecac..5bcd697fd` and the polar warp fix `a6eb6e3fa`, and again on 2026-09-29 (COM4) after its polar-row ITCM trims `05d6cfeb6` and `58f966be9`. The O3 columns retain each pair's original global-O3 capture. FLASH/ITCM deltas retain the original capture sizes except where a refreshed shipping size is explicitly stated below.
 
 § Cyclers carry one aligned line per parser-owned colour bucket, worst first;
@@ -80,7 +88,7 @@ Captured timestamps are local raw-log mtimes.
 probe and are independent of the on-device timing tables.
 
 
-HyperLattice, MindSplatter, ShapeShifter, MeshFeedback and DisplacementField were re-captured on 2026-09-29. ShapeShifter uses 288 contours in entry 1 after the dense planar-star and band-split optimizations; MindSplatter includes the Plot float min/max sweep; MeshFeedback includes the polar-row ITCM trims; DisplacementField records tip `e1fd2e1ec`, with a 35.27 ms peak. HyperLattice includes all three presets and their segues after its optimization campaign. Setup frame 1 is excluded.
+HyperLattice, MindSplatter, ShapeShifter, MeshFeedback and DisplacementField were re-captured on 2026-09-29. ShapeShifter uses 288 contours in entry 1 after the dense planar-star and band-split optimizations; MindSplatter includes the Plot float min/max sweep; MeshFeedback includes the polar-row ITCM trims; DisplacementField records tip `e1fd2e1ec`, with a 35.27 ms peak. HyperLattice includes all three presets and their segues after its optimization campaign. Setup frame 1 is excluded. ShapeShifter's image deltas use its refreshed shipping size; MindSplatter's +23,632 B FLASH / +21,232 B ITCM deltas retain the original capture sizes. Their O3 columns predate these shipping refreshes.
 
 ● HyperLattice refreshed on 2026-09-29 after its optimization campaign: all three presets and their segues; setup frame 1 excluded. Its O3 column predates the campaign.
 
@@ -94,9 +102,9 @@ roster ranking. Triangular was subsequently selected for removal.
 | Preset | Dominant scope | Ship peak ms | O3 peak ms | Ship spilled | O3 spilled | FLASH Δ | ITCM Δ | Captured |
 | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | --- |
 | [HyperLattice Triangular](hyperlattice_triangular_2026-09-27.md) | `hl_shader_draw` | 🔴 134.620 | 🔴 141.587 | 🔴 441/441 (100%) | 🔴 366/366 (100%) | +10,440 B | +8,208 B | ship 2026-09-27 21:59<br>O3 2026-09-27 22:01 |
-| HyperLattice Octet 3D ● | `hl_shader_draw` | 🔴 96.869 | 🔴 95.710 | 🔴 548/548 (100%) | 🔴 548/548 (100%) | +11,688 B | +8,128 B | ship 2026-09-27 22:50<br>O3 2026-09-27 22:53 |
+| HyperLattice Octet 3D | `hl_shader_draw` | 🔴 96.869 | 🔴 95.710 | 🔴 548/548 (100%) | 🔴 548/548 (100%) | +11,688 B | +8,128 B | ship 2026-09-27 22:50<br>O3 2026-09-27 22:53 |
 
-● Octet 3D refreshed on 2026-09-27 after the single-owner strut correction.
+Octet 3D refreshed on 2026-09-27 after the single-owner strut correction.
 These fixed-preset captures retain the original oscillating camera path.
 The [earlier Octet measurements](hyperlattice_experimental_presets_2026-09-27.md#octet-validation-and-device-measurements)
 record 3D shipping peak 103.733 ms (548/548 spills) before that correction.
@@ -134,19 +142,13 @@ Historical captures: [2026-09-27 shipping](shipping/profile_hyperlattice_octet_t
 [2026-09-28 global-O3 preset 3](O3/profile_hyperlattice_octet_preset3_teensy_2026-09-28.md),
 and [2026-09-28 global-O3 preset 5](O3/profile_hyperlattice_octet_preset5_teensy_2026-09-28.md).
 
-Timing sets contain one canonical report per effect, with optional supplemental
-reports identified by underscore-separated variant suffixes before `_teensy_`.
-Each effect/variant pair has one dated report per set. Supplemental reports use
-the same title, date, section, roster, and index checks as canonical reports;
-they do not satisfy the required canonical shipping coverage.
-
 | Preset | Ship peak ms | O3 peak ms | Ship spilled | O3 spilled | FLASH code Δ | ITCM Δ | Captured |
 |---|---:|---:|---:|---:|---:|---:|---|
 | [Octet 4D (index 4 at capture time)](shipping/profile_hyperlattice_octet4d_teensy_2026-09-28.md) ● | 🔴 143.318 | — | 🔴 233/233 (100.00%) | — | — | — | ship 2026-09-28 09:53 |
 | [3: Octet 3D](shipping/profile_hyperlattice_octet_preset3_teensy_2026-09-28.md) ● | 🟢 45.688 | — | 🟢 0/1096 (0.00%) | — | — | — | ship 2026-09-28 09:56 |
 | [Octet wide (index 5 at capture time)](shipping/profile_hyperlattice_octet_preset5_teensy_2026-09-28.md) ● | 🟢 45.242 | — | 🟢 0/1096 (0.00%) | — | — | — | ship 2026-09-28 09:53 |
 
-● Updated 2026-09-28 09:53–09:56 after the Octet 58 ms Tiers 1–2 (`1bb522211`). Opt-in held presets, startup excluded; 4D on COM3, 3D on COM4. [Earlier optimization and 4D evidence](hyperlattice_octet_optimization_2026-09-27.md). No global-O3 twins or size deltas were captured for this code.
+Updated 2026-09-28 09:53–09:56 after the Octet 58 ms Tiers 1–2 (`1bb522211`). Opt-in held presets, startup excluded; 4D on COM3, 3D on COM4. [Earlier optimization and 4D evidence](hyperlattice_octet_optimization_2026-09-27.md). No global-O3 twins or size deltas were captured for this code.
 
 ## Shell flight supplement
 
