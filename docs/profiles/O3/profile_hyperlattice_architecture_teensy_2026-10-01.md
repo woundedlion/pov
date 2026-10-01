@@ -78,7 +78,7 @@ Wall min/avg/max = 61.996/62.513/63.353 ms. The scope tree includes interrupt pr
 
 All authored presets were visited and the marker sequence wrapped to the first index. Rows use the richest complete subsequent window with one owner and the modal draw-call count. They are ranked by scope cost; parameter morphs can remain within a single-owner window.
 
-| # | Preset | Windows / clean | blended px/f | Scope ms | Render ms | fps |
+| # (one-based marker order) | Preset | Windows / clean | blended px/f | Scope ms | Render ms | fps |
 |---|---|--:|--:|--:|--:|--:|
 | 3 | hypercube-flight | 35 / 34 | not recorded | 28.318 | 30.299 | 15.91 |
 | 2 | cubic-wide-flight | 86 / 84 | not recorded | 24.920 | 26.927 | 16.09 |
@@ -86,9 +86,9 @@ All authored presets were visited and the marker sequence wrapped to the first i
 
 Cadence buckets in the READMEs use all owner-attributed live frames, including the departure following that preset, rather than only these selected windows.
 
-Worst live owner: preset 3 (hypercube-flight). Per-preset peaks span 26.078–36.975 ms.
+Worst live owner (one-based marker order): preset 3 (hypercube-flight). Per-preset peaks span 26.078–36.975 ms.
 
-| # | Live owner | Peak render ms | Spilled / live frames |
+| # (one-based marker order) | Live owner | Peak render ms | Spilled / live frames |
 |---|---|--:|--:|
 | 3 | hypercube-flight | 36.975 | 0/581 (0.00%) |
 | 2 | cubic-wide-flight | 30.313 | 0/1358 (0.00%) |

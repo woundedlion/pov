@@ -92,7 +92,7 @@ Wall min/avg/max = 58.652/62.387/67.300 ms. The scope tree includes interrupt pr
 
 All authored presets were visited and the marker sequence wrapped to the first index. Rows use the richest complete subsequent window with one owner and the modal draw-call count. They are ranked by scope cost; parameter morphs can remain within a single-owner window.
 
-| # | Preset | Windows / clean | blended px/f | Scope ms | Render ms | fps |
+| # (one-based marker order) | Preset | Windows / clean | blended px/f | Scope ms | Render ms | fps |
 |---|---|--:|--:|--:|--:|--:|
 | 7 | Cube, friction 0.7465 | 10 / 9 | not recorded | 43.821 | 46.972 | 16.06 |
 | 2 | Cube, strong well | 20 / 18 | not recorded | 35.715 | 38.081 | 15.72 |
@@ -105,9 +105,9 @@ All authored presets were visited and the marker sequence wrapped to the first i
 
 Cadence buckets in the READMEs use all owner-attributed live frames, including the departure following that preset, rather than only these selected windows.
 
-Worst live owner: preset 7 (Cube, friction 0.7465). Per-preset peaks span 20.411–54.539 ms.
+Worst live owner (one-based marker order): preset 7 (Cube, friction 0.7465). Per-preset peaks span 20.411–54.539 ms.
 
-| # | Live owner | Peak render ms | Spilled / live frames |
+| # (one-based marker order) | Live owner | Peak render ms | Spilled / live frames |
 |---|---|--:|--:|
 | 7 | Cube, friction 0.7465 | 54.539 | 0/159 (0.00%) |
 | 2 | Cube, strong well | 48.413 | 0/318 (0.00%) |
