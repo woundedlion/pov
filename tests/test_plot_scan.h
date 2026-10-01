@@ -1556,6 +1556,11 @@ inline void test_rasterize_window_preserves_terminal_sample() {
       HS_EXPECT_GT(bounded.plotted.size(), size_t{1});
       HS_EXPECT_LT(bounded.plotted.size(), clipped.plotted.size());
       HS_EXPECT_LE(terminal_t, 0.75f);
+      CapturePipeline near_end;
+      const float BEFORE_END = std::nextafter(1.0f, 0.0f);
+      Plot::rasterize<W, H, Plot::RasterConfig{.single_pass = SinglePass}>(
+          near_end, canvas, points, shade, {.plot_t_end = BEFORE_END});
+      HS_EXPECT_LE(terminal_t, BEFORE_END);
     };
     check.template operator()<false>();
     check.template operator()<true>();
