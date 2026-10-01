@@ -4,7 +4,7 @@ Point-in-time snapshot (regenerate with `just profile AshCloud`).
 Raw capture: `build/prof/ashcloud_ship.log`, captured 2026-09-28 17:33 on COM4.
 Replaces `profile_ashcloud_teensy_2026-08-26.md`.
 
-Captured as the V6 arm of the finding-10 placement A/B: tip `0c02f3912` built with `-D HS_PLACEMENT_VARIANT=6`, whose kernel attributes are exactly what landed in `97eb0bf78`. The commits between that tip and `97eb0bf78` do not touch this effect's render path.
+Captured as the V6 arm of the kernel-placement A/B: tip `0c02f3912` built with `-D HS_PLACEMENT_VARIANT=6`, whose kernel attributes are exactly what landed in `97eb0bf78`. The commits between that tip and `97eb0bf78` do not touch this effect's render path.
 
 ## Setup
 
