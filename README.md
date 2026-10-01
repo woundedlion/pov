@@ -936,6 +936,7 @@ template <int W, int H>
 class MyEffect : public ChoreographedEffect<MyEffect<W, H>, MyParams> {
   using Base = ChoreographedEffect<MyEffect<W, H>, MyParams>;
   using Base::params;
+  using Base::timeline;
 
 public:
   static constexpr const char *EFFECT_ID = "MyEffect";
@@ -965,7 +966,6 @@ private:
   math::Orientation<> orientation;
   Pipeline<W, H, Filter::World::Orient, Filter::Screen::AntiAlias<W, H>>
       filters{Filter::World::Orient{orientation}, Filter::Screen::AntiAlias<W, H>{}};
-  Timeline timeline;
 };
 ```
 
