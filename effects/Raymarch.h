@@ -117,7 +117,7 @@ struct RaymarchParams {
  *        shading each with a metallic headlight model and a baked OKLCH palette
  *        under a seamless torus-UV noise hue field. Each torus has an independent
  *        random-walk tumble and is auto-sized to its own nearest-neighbour gap
- *        (scaled by the live Fill param), so they pack without overlap.
+ *        (scaled by the live Fill param), so at Fill <= 1 they pack without overlap.
  * @tparam W Effect render width in pixels.
  * @tparam H Effect render height in pixels.
  */
