@@ -273,12 +273,12 @@ inline void test_peirce_edge_distance_locates_the_singularities() {
   for (float x : {INV_SQRT_TWO, -INV_SQRT_TWO})
     for (float z : {INV_SQRT_TWO, -INV_SQRT_TWO}) {
       const math::Vector singular(x, 0.0f, z);
-      for (uint8_t layout : {uint8_t(0), uint8_t(1), uint8_t(2), uint8_t(3)})
-        HS_EXPECT_NEAR(peirce_projection(
-                           singular, 0.0f,
-                           static_cast<projections::PeirceLayout>(layout), 0.0f)
-                           .fade_edge_distance,
-                       0.0f, SATURATION);
+      for (PeirceLayout layout :
+           {PeirceLayout::DIAMOND, PeirceLayout::SQUARE,
+            PeirceLayout::HORIZONTAL, PeirceLayout::VERTICAL})
+        HS_EXPECT_NEAR(
+            peirce_projection(singular, 0.0f, layout, 0.0f).fade_edge_distance,
+            0.0f, SATURATION);
       HS_EXPECT_NEAR(peirce_projection_fast_square(singular).fade_edge_distance,
                      0.0f, SATURATION);
     }
@@ -313,8 +313,8 @@ inline void test_peirce_square_is_the_rotated_diamond() {
       const math::Vector v =
           direction(latitude, longitude_step * (math::TWO_PI_F / 12.0f) -
                                   math::PI_F + 0.2f);
-      const ProjectionKernelResult diamond = peirce_projection(
-          v, 0.0f, static_cast<projections::PeirceLayout>(0), 0.0f);
+      const ProjectionKernelResult diamond =
+          peirce_projection(v, 0.0f, PeirceLayout::DIAMOND, 0.0f);
       const ProjectionKernelResult square =
           peirce_projection(v, 0.0f, projections::PeirceLayout::SQUARE, 0.0f);
       HS_EXPECT_NEAR(square.coords.re,
@@ -329,20 +329,24 @@ inline void test_peirce_square_is_the_rotated_diamond() {
 }
 
 inline void test_peirce_strip_scroll_is_periodic() {
-  for (uint8_t layout : {uint8_t(2), uint8_t(3)})
+  for (PeirceLayout layout : {PeirceLayout::HORIZONTAL, PeirceLayout::VERTICAL})
     for (int latitude_step = -6; latitude_step <= 6; ++latitude_step) {
       const float latitude = latitude_step * (0.5f * math::PI_F / 6.0f);
       for (int longitude_step = 0; longitude_step < 8; ++longitude_step) {
         const math::Vector v =
             direction(latitude, longitude_step * (math::TWO_PI_F / 8.0f) -
                                     math::PI_F + 0.15f);
-        const ProjectionKernelResult base = peirce_projection(
-            v, 0.0f, static_cast<projections::PeirceLayout>(layout), 0.125f);
-        const ProjectionKernelResult wrapped = peirce_projection(
-            v, 0.0f, static_cast<projections::PeirceLayout>(layout), 1.125f);
+        const ProjectionKernelResult base =
+            peirce_projection(v, 0.0f, layout, 0.125f);
+        const ProjectionKernelResult wrapped =
+            peirce_projection(v, 0.0f, layout, 1.125f);
         HS_EXPECT_NEAR(wrapped.coords.re, base.coords.re, 1e-4f);
         HS_EXPECT_NEAR(wrapped.coords.im, base.coords.im, 1e-4f);
-        HS_EXPECT_EQ(wrapped.edge_class, layout == 2 ? 4 : 5);
+        constexpr uint8_t HORIZONTAL_EDGE_CLASS = 4;
+        constexpr uint8_t VERTICAL_EDGE_CLASS = 5;
+        HS_EXPECT_EQ(wrapped.edge_class, layout == PeirceLayout::HORIZONTAL
+                                             ? HORIZONTAL_EDGE_CLASS
+                                             : VERTICAL_EDGE_CLASS);
       }
     }
 }
@@ -351,15 +355,16 @@ inline void test_peirce_strip_scroll_is_periodic() {
  *         open, and keeps the opposite quarters glued modulo the strip period. */
 inline void test_peirce_strip_tears_the_unglued_equator() {
   constexpr float LATITUDE = 1e-4f;
-  for (uint8_t layout : {uint8_t(2), uint8_t(3)}) {
-    const float torn = layout == 2 ? 0.0f : 0.5f * math::PI_F;
-    const float glued = layout == 2 ? 0.5f * math::PI_F : 0.0f;
+  for (PeirceLayout layout :
+       {PeirceLayout::HORIZONTAL, PeirceLayout::VERTICAL}) {
+    const float torn =
+        layout == PeirceLayout::HORIZONTAL ? 0.0f : 0.5f * math::PI_F;
+    const float glued =
+        layout == PeirceLayout::HORIZONTAL ? 0.5f * math::PI_F : 0.0f;
     const ProjectionKernelResult north =
-        peirce_projection(direction(LATITUDE, torn), 0.0f,
-                          static_cast<projections::PeirceLayout>(layout), 0.0f);
+        peirce_projection(direction(LATITUDE, torn), 0.0f, layout, 0.0f);
     const ProjectionKernelResult south =
-        peirce_projection(direction(-LATITUDE, torn), 0.0f,
-                          static_cast<projections::PeirceLayout>(layout), 0.0f);
+        peirce_projection(direction(-LATITUDE, torn), 0.0f, layout, 0.0f);
     HS_EXPECT_EQ(north.traits & projection_traits(ProjectionTrait::CUT),
                  projection_traits(ProjectionTrait::CUT));
     const float jump = std::max(std::fabs(north.coords.re - south.coords.re),
@@ -370,14 +375,12 @@ inline void test_peirce_strip_tears_the_unglued_equator() {
     HS_EXPECT_NEAR(north.fade_edge_distance, LATITUDE, 1e-6f);
     HS_EXPECT_NEAR(south.fade_edge_distance, LATITUDE, 1e-6f);
     const ProjectionKernelResult seam_north =
-        peirce_projection(direction(LATITUDE, glued), 0.0f,
-                          static_cast<projections::PeirceLayout>(layout), 0.0f);
+        peirce_projection(direction(LATITUDE, glued), 0.0f, layout, 0.0f);
     const ProjectionKernelResult seam_south =
-        peirce_projection(direction(-LATITUDE, glued), 0.0f,
-                          static_cast<projections::PeirceLayout>(layout), 0.0f);
+        peirce_projection(direction(-LATITUDE, glued), 0.0f, layout, 0.0f);
     float delta_x = seam_north.coords.re - seam_south.coords.re;
     float delta_y = seam_north.coords.im - seam_south.coords.im;
-    if (layout == 2)
+    if (layout == PeirceLayout::HORIZONTAL)
       delta_x = std::remainder(delta_x, 4.0f * PEIRCE_QUARTER_PERIOD);
     else
       delta_y = std::remainder(delta_y, 4.0f * PEIRCE_QUARTER_PERIOD);
@@ -386,10 +389,9 @@ inline void test_peirce_strip_tears_the_unglued_equator() {
     HS_EXPECT_EQ(seam_north.boundary_flags,
                  projection_boundary(ProjectionBoundary::SINGULAR));
   }
-  for (uint8_t layout : {uint8_t(0), uint8_t(1)})
+  for (PeirceLayout layout : {PeirceLayout::DIAMOND, PeirceLayout::SQUARE})
     HS_EXPECT_EQ(
-        peirce_projection(direction(LATITUDE, 0.0f), 0.0f,
-                          static_cast<projections::PeirceLayout>(layout), 0.0f)
+        peirce_projection(direction(LATITUDE, 0.0f), 0.0f, layout, 0.0f)
                 .traits &
             projection_traits(ProjectionTrait::CUT),
         0);
