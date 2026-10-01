@@ -2055,8 +2055,10 @@ inline void test_feedback_flush_blends_prev_frame() {
  * color reaching the framebuffer has been through the composite's transform, so
  * both bounds below are derived from that transform rather than fitted.
  * Longitude must not change the sample: the only per-column variation the path
- * admits is hue_fade_apply2's paired lanes, which split by ~4e-7 relative
- * (feedback_style.h) — inside one u16 step for the in-gamut pole colour.
+ * admits comes from fast_cbrt6's ~4e-7 relative agreement with fast_cbrt
+ * (core/math/3dmath.h, pinned by test_3dmath.h). The seeded pole color is
+ * in gamut, so the clipping amplification covered by test_styles.h does not
+ * apply; the lane split stays inside one u16 step.
  * Against the seeded color the bound is
  * looser, because one pass runs each channel through linear_rgb_to_lms,
  * fast_cbrt (peak relative error ~2.3e-5), the hue matrix and a cube; cubing
