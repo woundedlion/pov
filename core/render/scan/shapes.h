@@ -304,9 +304,9 @@ struct DistortedRingStack {
    * @param shapes n_slots knot-mode rings sharing one Basis and zero phase, in
    *        ascending ring order; culled rings are simply absent. Their knot
    *        prefilters go unused and may be null.
-   * @param slot_by_ring n_rings entries mapping ring index -> slot in shapes,
+   * @param slot_by_ring n_rings signed entries mapping ring index -> slot in shapes (at most 127 slots),
    *        -1 for culled rings.
-   * @param n_slots Number of shapes; at least 1.
+   * @param n_slots Number of shapes, in [1, 127].
    * @param table Candidate map storage, rebuilt here.
    * @param shader Per-ring fragment shader (see RingShaderT).
    * @details The per-pixel frame shared by every ring at a pixel (axis dot,
@@ -339,6 +339,8 @@ struct DistortedRingStack {
              "canvas size differs from the scan's W/H");
     check_pipeline_prepared(pipeline, canvas);
     HS_CHECK(n_slots >= 1, "ring stack needs at least one slot");
+    HS_CHECK(n_slots <= INT8_MAX,
+             "ring stack exceeds the signed slot index range");
     HS_CHECK(n_rings <= Table::MAX_RINGS,
              "ring stack exceeds the candidate table's ring index range");
     check_stack_preconditions(n_rings, shapes, slot_by_ring, n_slots);
@@ -592,7 +594,7 @@ struct RingGroup {
    * @param pipeline Plotting pipeline receiving the final colors.
    * @param canvas Destination canvas.
    * @param shapes Ring shapes in draw order.
-   * @param n Number of shapes; at least 1.
+   * @param n Number of shapes, in [1, 127].
    * @param shader Per-ring fragment shader (see RingShaderT).
    * @param debug_bb When true, falls back to per-ring rasterizes so the
    *        bounding-box tint keeps per-shape scan bounds; canvas.debug() takes
