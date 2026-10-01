@@ -98,7 +98,8 @@ ShadedTrace verified_filter(const std::array<math::Vector, COUNT> &directions,
     result.trace.counters.candidates += sample.trace.counters.candidates;
     result.trace.counters.layers += sample.trace.counters.layers;
     if (sample.trace.status != TraceStatus::SURFACE &&
-        sample.trace.status != TraceStatus::RANGE_COMPLETE)
+        sample.trace.status != TraceStatus::RANGE_COMPLETE &&
+        result.trace.status != TraceStatus::INVALID_QUERY)
       result.trace.status = sample.trace.status;
     if (!sample.trace.has_surface || !sample.trace.contribution.verified)
       continue;
