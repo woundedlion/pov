@@ -5,6 +5,7 @@
 #pragma once
 
 #include <variant>
+#include "render/pullback/runtime_seeds.h"
 #include "math/3dmath.h"
 
 namespace Pullback::Interp {
@@ -40,7 +41,7 @@ struct AffineClockSnapshot {
 struct ColorClockSnapshot {
   float oscillation_phase = 0;
   float hue_noise_phase = 0;
-  int32_t hue_noise_seed = 6047;
+  int32_t hue_noise_seed = HUE_NOISE_SEED;
 };
 struct SphericalRingsSnapshot {
   SpatialWalkSnapshot walk;
