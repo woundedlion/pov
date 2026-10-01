@@ -4,12 +4,12 @@
 Structure only. A green run means every fence closes, every anchor resolves,
 every link into this repository or a supplied sibling checkout resolves, every
 recognized backticked path under a tracked repository root exists (bare
-basenames and unknown first segments are not checked), every tree fence matches the tracked tree it
-draws, the cardinalities CARDINALITY_CLAIMS names match their source
+basenames and unknown first segments are not checked), every tree fence matches
+the tracked tree it draws, the cardinalities CARDINALITY_CLAIMS names match their source
 macros, and the composed-effect roster in docs/effects.md matches each
 effect's PRESET_IDS and the product group -- not that the prose is true. A
-link to any other host is never
-visited, and a sibling checkout no --checkout root supplies leaves its fences
+link to any other host is never visited, and a sibling checkout no --checkout
+root supplies leaves its fences
 and links unvalidated, which the verdict line says. A renamed symbol in a
 table, a number no claim names, and any path written without backticks or a
 link are all invisible here.
