@@ -632,8 +632,7 @@ step_random_walk(math::Vector &position, math::Vector &direction,
  *          motion.
  *
  * PERPETUAL (duration -1, no repeat or self-reset): reaches done() only through
- * cancel(), which also fires any `.then()` callback; a repeating spawn leaks
- * recycled slots. Drive follow-on behavior from a finite animation, or cancel()
+ * cancel(), which also fires any `.then()` callback. Drive follow-on behavior from a finite animation, or cancel()
  * the walk explicitly.
  * @tparam W The width of the LED display.
  * @tparam CAP Orientation sub-frame capacity.
