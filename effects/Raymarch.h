@@ -117,7 +117,8 @@ struct RaymarchParams {
  *        shading each with a metallic headlight model and a baked OKLCH palette
  *        under a seamless torus-UV noise hue field. Each torus has an independent
  *        random-walk tumble and is auto-sized to its own nearest-neighbour gap
- *        (scaled by the live Fill param), so at Fill <= 1 they pack without overlap.
+ *        (scaled by Fill) at the in-plane rim; tumbling twist lobes may overlap
+ *        slightly at Fill >= ~0.83.
  * @tparam W Effect render width in pixels.
  * @tparam H Effect render height in pixels.
  */
@@ -383,9 +384,6 @@ public:
     begin_choreography();
     this->register_described_params();
 
-    // Fraction of the half nearest-neighbour gap the ring's outer edge reaches:
-    // < 1 leaves a gap, 1 makes neighbours touch, > 1 overlaps them deliberately.
-
     build_points();
 
     baked_palette.bake(persistent_arena, palette);
@@ -453,8 +451,7 @@ private:
   /** Twist-count labels; the option index IS the twist count draw_fn reads. */
 
   // Torus proportions at scale 1: VIS_K is the visible outer ring radius,
-  // UNIT_BOUNDS the bounding-sphere radius (bigger, may overlap a neighbour —
-  // a few wasted ray steps, no visual overlap).
+  // UNIT_BOUNDS includes twist lobes that can overlap tumbling neighbours.
   static constexpr float MAJOR_K = 0.45f, MINOR_K = 0.14f, TWIST_K = 0.35f;
   static constexpr float VIS_K = MAJOR_K + MINOR_K;
 
@@ -544,7 +541,7 @@ private:
     for (int i = 0; i < active_count; ++i) {
       // Per-vertex auto-size: fit the ring's outer edge to `fill` of this
       // vertex's half nearest-neighbour gap, so open regions get large tori and
-      // tight ones stay small; at fill 1 mutual neighbours just touch.
+      // tight ones stay small. Twist lobes can overlap near fill 1.
       float outer_r = sinf(0.5f * nn_angle[i] * params.fill);
       float scale = outer_r / VIS_K;
       float major_r = scale * MAJOR_K;
