@@ -2642,9 +2642,9 @@ inline void test_antialiased_dot_gate_matches_antialias_taps() {
     int y_start, y_end, x_start, x_end, margin;
   };
   const Band bands[] = {
-      {0, H, 0, W, 1},      {10, 14, 0, W, 1},    {10, 14, 4, 9, 0},
-      {10, 14, 4, 9, 1},    {H - 2, H, 6, 7, 0},  {0, 2, 0, W, 0},
-      {8, 12, W - 2, 3, 0}, {8, 12, W - 1, 1, 0},
+      {0, H, 0, W, 1},   {10, 14, 0, W, 1},    {10, 14, 4, 9, 0},
+      {10, 14, 4, 9, 1}, {H - 2, H, 6, 7, 0},  {0, 2, 0, W, 0},
+      {8, 12, 0, 3, 2},  {8, 12, W - 3, W, 2},
   };
 
   int mismatches = 0, visible = 0, hidden = 0;
