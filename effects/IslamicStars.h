@@ -326,37 +326,17 @@ private:
     HS_PROFILE(is_draw_shape);
     ScratchScope a_guard(scratch_arena_a);
     MeshState transformed_state = transform_shape(base_state);
-    // transform borrows the source's per-face classes into the transformed mesh.
-    const uint16_t *face_classes = transformed_state.get_topology_data();
-
-    // Per-face segues order faces by their center, recomputed per frame: from
-    // world space by default, or from the untransformed mesh for segues
-    // declaring LOCAL_SWEEP. The third argument is the face's palette-slot
-    // class, mapped exactly as the fragment shader maps it; class-agnostic
-    // sweeps ignore it.
     ArenaVector<float> face_phases;
     ArenaVector<const BakedPalette *> face_palettes;
     {
       HS_PROFILE(is_face_offsets);
-      constexpr bool LOCAL_SWEEP = requires { requires SegueT::LOCAL_SWEEP; };
-      const MeshState &sweep_state =
-          LOCAL_SWEEP ? base_state : transformed_state;
-      const size_t faces = sweep_state.num_faces();
+      const size_t faces = transformed_state.num_faces();
       face_phases.bind(scratch_arena_a, faces);
       face_palettes.bind(scratch_arena_a, faces);
-      const uint16_t *fidx = sweep_state.get_faces_data();
-      const uint16_t *foff = sweep_state.get_face_offsets_data();
-      const uint8_t *fcnt = sweep_state.get_face_counts_data();
-      for (size_t f = 0; f < faces; ++f) {
-        const math::Vector c = Animation::OpLeg::face_vertex_sum(
-            sweep_state.vertices.data(), fidx, foff[f], fcnt[f]);
-        const int cls = MeshPaletteBank::slot_of(face_classes[f]);
-        float off = seg.face_offset(math::normalized_or(c, math::UP),
-                                    static_cast<int>(f), cls);
-        float fade = seg.face_fade_frac(static_cast<int>(f));
-        face_phases.push_back(seg.face_phase(phase, off, fade));
-        face_palettes.push_back(&palette_bank[face_palette[f]].view());
-      }
+      carousel.fill_face_phases(base_state, transformed_state, phase,
+                                face_phases);
+      for (size_t face = 0; face < faces; ++face)
+        face_palettes.push_back(&palette_bank[face_palette[face]].view());
     }
 
     {

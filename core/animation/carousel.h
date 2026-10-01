@@ -4,6 +4,8 @@
  */
 #pragma once
 
+#include "color/palettes.h"
+
 #ifndef HS_ANIMATION_INTERNAL
 #error internal fragment of animation.h; include "animation.h" instead
 #endif
@@ -211,6 +213,28 @@ public:
     slots[1] = MeshState();
     reset_persistent_arena();
     after_reset(persistent_arena);
+  }
+
+  /** @brief Evaluates per-face segue phases into a bound output buffer. */
+  __attribute__((always_inline)) void
+  fill_face_phases(const MeshState &base, const MeshState &transformed,
+                   float phase, ArenaVector<float> &out) const {
+    constexpr bool LOCAL_SWEEP = requires { requires SegueT::LOCAL_SWEEP; };
+    const MeshState &sweep = LOCAL_SWEEP ? base : transformed;
+    const uint16_t *classes = transformed.get_topology_data();
+    const uint16_t *indices = sweep.get_faces_data();
+    const uint16_t *offsets = sweep.get_face_offsets_data();
+    const uint8_t *counts = sweep.get_face_counts_data();
+    out.clear();
+    for (size_t face = 0; face < sweep.num_faces(); ++face) {
+      const math::Vector center = Animation::OpLeg::face_vertex_sum(
+          sweep.vertices.data(), indices, offsets[face], counts[face]);
+      const int cls = MeshPaletteBank::slot_of(classes[face]);
+      const float offset = segue_policy.face_offset(
+          math::normalized_or(center, math::UP), static_cast<int>(face), cls);
+      const float fade = segue_policy.face_fade_frac(static_cast<int>(face));
+      out.push_back(segue_policy.face_phase(phase, offset, fade));
+    }
   }
 
 private:
