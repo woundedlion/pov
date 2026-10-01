@@ -3,7 +3,7 @@
 
 The gate is the single source for every externally-installed version, and each
 check reads a foreign file shape: duplicates_pin scans workflow
-YAML two lines at a time, check_engine_ranges parses package.json's `>=X`
+YAML using each line and the two above it, check_engine_ranges parses package.json's `>=X`
 string, and _version_tuple compares versions of unequal width. A drift in any
 of those shapes makes the check detect nothing while still printing PASS.
 
