@@ -422,7 +422,7 @@ def cmd_record(args) -> int:
         return 1
     out = Path(args.out) if args.out else default_pending()
     out.parent.mkdir(parents=True, exist_ok=True)
-    out.write_text(json.dumps({"envs": found, "head": _git(["rev-parse", "HEAD"]),
+    out.write_text(json.dumps({"envs": found,
                                "tree": working_tree()},
                               indent=1, sort_keys=True) + "\n",
                    encoding="utf-8", newline="\n")
