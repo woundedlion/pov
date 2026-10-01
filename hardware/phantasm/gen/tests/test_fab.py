@@ -197,7 +197,7 @@ class ViaGeometryTests(unittest.TestCase):
 
 class ZoneGeometryTests(unittest.TestCase):
     def validate(self, min_thickness, thermal_gap, bridge_width="0.4",
-                 connect_pads="", fill='(fill yes (thermal_gap {gap}) '
+                 connect_pads="", footprint="", fill='(fill yes (thermal_gap {gap}) '
                                       '(thermal_bridge_width {bridge}))'):
         with tempfile.TemporaryDirectory() as directory:
             pcb = Path(directory) / "test.kicad_pcb"
@@ -205,12 +205,32 @@ class ZoneGeometryTests(unittest.TestCase):
                 '(kicad_pcb (zone (net "GND") (name "GND_IN1") '
                 f'{connect_pads}'
                 f'(min_thickness {min_thickness}) '
-                + fill.format(gap=thermal_gap, bridge=bridge_width) + "))",
+                + fill.format(gap=thermal_gap, bridge=bridge_width) + ")" + footprint + ")",
                 encoding="utf-8")
             return fab.validate_zone_geometry(pcb, min_pours=1)
 
     def test_accepts_zone_feature_minimums(self):
         self.assertEqual(self.validate("0.13", "0.3"), 1)
+
+    def test_rejects_solid_through_hole_overrides(self):
+        for footprint_mode, pad_mode in (("", "2"), ("2", ""), ("2", "0")):
+            with self.subTest(footprint=footprint_mode, pad=pad_mode), \
+                    self.assertRaisesRegex(fab.ZoneGeometryError, "zone_connect 2"):
+                self.validate("0.13", "0.3", footprint=
+                              f'(footprint "Terminal" (property "Reference" "J1") '
+                              f'{"(zone_connect " + footprint_mode + ")" if footprint_mode else ""}'
+                              f'(pad "1" thru_hole circle (net "GND") '
+                              f'{"(zone_connect " + pad_mode + ")" if pad_mode else ""}))')
+
+    def test_accepts_relief_override_and_unpoured_or_smd_pads(self):
+        for pad_type, net, pad_mode in (("thru_hole", "GND", "1"),
+                                        ("thru_hole", "OTHER", "2"),
+                                        ("smd", "GND", "2")):
+            with self.subTest(pad_type=pad_type, net=net):
+                self.assertEqual(self.validate("0.13", "0.3", footprint=
+                    f'(footprint "Terminal" (zone_connect 2) '
+                    f'(pad "1" {pad_type} circle (net "{net}") '
+                    f'(zone_connect {pad_mode})))'), 1)
 
     def test_rejects_thin_pour_sliver(self):
         with self.assertRaisesRegex(

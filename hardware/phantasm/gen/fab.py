@@ -1208,6 +1208,19 @@ def validate_zone_geometry(pcb_path, min_pours=MIN_COPPER_POURS, board=None):
                     f"zone {label}: {key} {feature_mm:g} mm is below "
                     f"{minimum_mm:g} mm")
 
+    poured_nets = {net_name(zone) for zone in zones}
+    for footprint in F(root, "footprint"):
+        for pad in F(footprint, "pad"):
+            if len(pad) < 3 or pad[2] != "thru_hole" or net_name(pad) not in poured_nets:
+                continue
+            connection = sexp.val(pad, "zone_connect", [])
+            if not connection or connection[0] == "0":
+                connection = sexp.val(footprint, "zone_connect", [])
+            if connection and str(connection[0]) == "2":
+                diagnostics.append(
+                    f"{footprint_reference(footprint)} pad {pad[1]}: zone_connect 2 "
+                    "solders the through-hole joint straight into the pour (R-ASM-6)")
+
     if diagnostics:
         raise ZoneGeometryError(
             "zone geometry validation failed:\n  " + "\n  ".join(diagnostics))
