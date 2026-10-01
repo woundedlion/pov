@@ -38,6 +38,8 @@
 #endif
 
 // Further per-run knobs consumed elsewhere (all via PLATFORMIO_BUILD_FLAGS):
+//   HS_PROFILE_SPHERICAL_EXPERIMENT enables the spherical experiment probe
+//   HS_PROFILE_EFFECT_HEAP_BYTES static effect storage size with no-op delete
 //   HS_PROFILE_EPOCH_REVS    epoch length override (pov_segmented.h) so one
 //                            instance covers a full preset cycle
 //   HS_PROFILE_ORDERED_CYCLE random-next cyclers advance in order instead
