@@ -339,6 +339,32 @@ inline void test_shader_clip_arc_matches_predicate() {
           [&](const math::Vector &v, Fragment &f) { f.color = positional(v); },
           [](Fragment &f) { f.v0 = 1.0f; });
       break;
+    case 5:
+      Scan::Shader::draw_cached<W, H>(
+          c,
+          [&](const math::Vector &v, int x, int y) {
+            const auto EXPECTED = math::pixel_to_vector<W, H>(x, y);
+            HS_EXPECT_NEAR(math::angle_between(v, EXPECTED), 0.0f, 1e-5f);
+            return positional(v);
+          },
+          [](int) {});
+      break;
+    case 6: {
+      int row = -1;
+      Scan::Shader::draw_cached<W, H>(
+          c,
+          [&](const math::Vector &v, int, int y) {
+            HS_EXPECT_EQ(row, y);
+            const Color4 COLOR = positional(v);
+            return COLOR.color * COLOR.alpha;
+          },
+          [&](int y) {
+            HS_EXPECT_EQ(y, row + 1);
+            row = y;
+          });
+      HS_EXPECT_EQ(row, H - 1);
+      break;
+    }
     default:
       Scan::Shader::draw_grid<W, H>(
           c, [](Fragment &) {},
@@ -372,7 +398,7 @@ inline void test_shader_clip_arc_matches_predicate() {
   // A plain arc, and one whose margin underflows column 0 into a wrapped band.
   const Band bands[] = {{8, 20, 2}, {0, 10, 3}};
 
-  for (int variant = 0; variant < 5; ++variant) {
+  for (int variant = 0; variant < 7; ++variant) {
     HS_CONTEXT("variant", variant, 0);
     // One live Effect at a time: read the unclipped render back before the
     // clipped fixture exists.
