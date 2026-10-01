@@ -108,7 +108,7 @@ inline void test_face_rejects_only_the_virtual_south_rows() {
  * @param y Sub-pixel row coordinate.
  * @param alpha Input blend alpha.
  * @param[out] tap_count Number of taps emitted (optional; nullptr to ignore).
- * @param[out] taps_on_row Row to count taps landing on (optional; -1 to ignore).
+ * @param taps_on_row Row to count taps landing on (optional; -1 to ignore).
  * @param[out] row_tap_count Count of taps that landed on taps_on_row.
  * @return Sum of the per-tap alphas (the deposited energy).
  */
