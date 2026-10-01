@@ -2336,10 +2336,7 @@ inline void test_flowers_longitude_seam() {
   }
 }
 
-/**
- * @brief Module entry point for the composed-effect base contract.
- * @return Module result code from hs_test::end_module (0 on success).
- */
+/** @brief AlienBrain holds each preset for its declared dwell. */
 inline void test_alien_brain_preset_dwell() {
   using FX = AlienBrain<SMALL_W, SMALL_H>;
   reset_effect_globals();
@@ -2414,6 +2411,10 @@ inline void test_mobius_grid_circular_animation() {
   HS_EXPECT_NE(effect.getPresetIndex(), initial_preset);
 }
 
+/**
+ * @brief Module entry point for the composed-effect base contract.
+ * @return Module result code from hs_test::end_module (0 on success).
+ */
 inline int run_composed_effect_tests() {
   ModuleFixture fixture("composed_effect");
   test_alien_brain_preset_dwell();
