@@ -52,6 +52,8 @@ set -euo pipefail
 EFFECT=$1; ENV=$2; SECONDS_ARG=$3; WINDOW=$4; shift 4
 case "$EFFECT" in
   alien-brain) EFFECT=AlienBrain;;
+  ash-cloud) EFFECT=AshCloud;;
+  kaleidoscope-hex-oil) EFFECT=KaleidoscopeHexOil;;
   kaleidoscope-hex-soft) EFFECT=KaleidoscopeHexSoft;;
   alien-ocean) EFFECT=AlienOcean;;
   alien-core) EFFECT=AlienCore;;
