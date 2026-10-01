@@ -146,11 +146,22 @@ def analyze(root):
 
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    parser.add_argument("schematic", nargs="?", default=DEFAULT_SCH)
-    path = parser.parse_args(argv).schematic
+    parser.add_argument("--revision", choices=("1.1", "1.2", "1.3"), default=None)
+    parser.add_argument("schematic", nargs="?")
+    args = parser.parse_args(argv)
+    path = args.schematic or (DEFAULT_SCH if args.revision is None else os.path.join(
+        os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+        args.revision, "phantasm.kicad_sch"))
     try:
         with open(path, encoding="utf-8") as fh:
-            conflicts, bridges = analyze(sexp.parse_one(fh.read()))
+            root = sexp.parse_one(fh.read())
+        if args.revision:
+            blocks = [node for node in root if isinstance(node, list) and node
+                      and node[0] == "title_block"]
+            revision = str(sexp.val(blocks[0], "rev", [""])[0]) if blocks else ""
+            if revision != args.revision:
+                raise ValueError(f"schematic revision {revision} does not match requested {args.revision}")
+        conflicts, bridges = analyze(root)
     except ValueError as e:
         print(f"{path}: {e}", file=sys.stderr)
         return 2

@@ -11,7 +11,7 @@ import pcb  # noqa: E402
 import sexp  # noqa: E402
 from kicad_common import F  # noqa: E402
 
-REVISIONS = ("1.1", "1.2")
+REVISIONS = ("1.1", "1.2", "1.3")
 
 SILK = re.compile(r"^Phantasm Rev (\S+)$")
 

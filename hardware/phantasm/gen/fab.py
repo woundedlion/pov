@@ -1310,6 +1310,8 @@ def validate_assembly_metadata(posrows, assembled):
 
 def parse_args(argv=None):
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
+    parser.add_argument("--revision", choices=("1.1", "1.3"), default="1.1",
+                        help="fabrication target; rev 1.3 is a prototype and cannot be exported")
     parser.add_argument(
         "--verify", action="store_true",
         help="re-hash the generated fab package against its digest manifest "
@@ -1352,6 +1354,9 @@ def main():
         board = read_board(PCB)
     except BoardReadError as exc:
         sys.exit(str(exc))
+    for title in F(board, "title_block"):
+        if sexp.val(title, "rev") == ["1.3"]:
+            sys.exit("rev 1.3 is a prototype; routing, protection and revision-specific BOM are not validated")
     print("[1/9] Plot origin + solder mask")
     try:
         validate_plot_origin(PCB, board=board)
@@ -1545,7 +1550,10 @@ def main():
 
 
 if __name__ == "__main__":
-    if parse_args().verify:
+    args = parse_args()
+    if args.revision == "1.3":
+        sys.exit("rev 1.3 is a prototype; routing, protection and revision-specific BOM are not validated")
+    if args.verify:
         verify_main()
     else:
         main()

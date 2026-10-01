@@ -123,14 +123,15 @@ class EmbedLandTests(unittest.TestCase):
     land override applied per reference."""
 
     def setUp(self):
-        pcb._MOD_CACHE[CHIP_LIBID] = sexp.parse(CHIP_MOD)[0]
-        self.addCleanup(pcb._MOD_CACHE.pop, CHIP_LIBID, None)
+        self.cache_key = (str(Path(pcb.FP_DIR) / "Test.pretty"), CHIP_LIBID)
+        pcb._MOD_CACHE[self.cache_key] = sexp.parse(CHIP_MOD)[0]
+        self.addCleanup(pcb._MOD_CACHE.pop, self.cache_key, None)
 
     def test_embedded_footprint_leaves_the_cached_library_node_alone(self):
-        before = sexp.dumps(pcb._MOD_CACHE[CHIP_LIBID])
+        before = sexp.dumps(pcb._MOD_CACHE[self.cache_key])
         node = pcb.embedded_footprint("R1", CHIP_LIBID)
         node.append([sexp.Sym("scratch")])
-        self.assertEqual(sexp.dumps(pcb._MOD_CACHE[CHIP_LIBID]), before)
+        self.assertEqual(sexp.dumps(pcb._MOD_CACHE[self.cache_key]), before)
         self.assertEqual(sexp.dumps(pcb.embedded_footprint("R1", CHIP_LIBID)),
                          before)
 

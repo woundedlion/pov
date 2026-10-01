@@ -1,0 +1,4 @@
+(sym_lib_table
+	(version 7)
+	(lib (name "phantasm")(type "KiCad")(uri "${KIPRJMOD}/phantasm.kicad_sym")(options "")(descr "PHANTASM custom symbols"))
+)

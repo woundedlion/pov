@@ -181,7 +181,7 @@ class IdStrapSilkscreenTests(unittest.TestCase):
     def test_generator_keeps_jp_id2_outline_on_silkscreen(self):
         source = _footprint(self.boards[ROUTED], "JP_ID0")
         libid = "Test:Jumper"
-        with mock.patch.dict(pcb._MOD_CACHE, {libid: source}):
+        with mock.patch.dict(pcb._MOD_CACHE, {(str(Path(pcb.FP_DIR) / "Test.pretty"), libid): source}):
             generated = pcb.embed(libid, "JP_ID2", "Jumper", 0, 0, 0,
                                   {}, {})
         self.assertEqual(len(_silk_outline(generated)), 8)
