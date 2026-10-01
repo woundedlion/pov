@@ -1,7 +1,8 @@
 """Capture the profile image's USB-serial readout from an attached Teensy.
 
 Companion to the `profile` PlatformIO env (targets/Profile/Profile.ino): after
-`pio run -e profile -t upload`, the board re-enumerates and starts streaming
+a `tools/teensy_flash.sh` flash under the device lock (as performed by
+`tools/profile_one.sh`), the board re-enumerates and starts streaming
 HS_PROFILE cycle-counter dumps. This opens the Teensy's serial port (retrying
 through the re-enumeration window), tees every line to stdout and --out, and
 exits after --seconds.
