@@ -2,10 +2,7 @@
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
  * Licensed under the PolyForm Noncommercial License 1.0.0
  *
- * Unit tests for core/math/3dmath.h and core/math/4dmath.h.
- *
- * Self-contained header — no external test framework. All test functions
- * are inline; the runner returns the failure count.
+ * Math vectors, matrices, lenses, complex projections, wrapping, hashing, and noise.
  */
 #pragma once
 

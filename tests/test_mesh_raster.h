@@ -2,17 +2,7 @@
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
  * Licensed under the PolyForm Noncommercial License 1.0.0
  *
- * Functional output tests for mesh rasterization — the backbone of the
- * Conway/Hankin/IslamicStars effect family. These draw a known Platonic solid
- * all the way into a live Canvas and assert on the lit pixels:
- *
- *   - Plot::Mesh::draw (wireframe): every unique edge's projected geodesic
- *     midpoint is lit, so a dropped face-walk edge or a broken dedup surfaces
- *     here rather than as a subtle missing wireframe line.
- *   - Scan::Mesh::draw / SDF::Face (solid fill): each face's interior
- * (centroid) is lit and a closed convex solid's faces tile the whole sphere
- * with no holes — i.e. the per-face row/column bounding cull is conservative
- * and never clips a row the face actually covers.
+ * Mesh wire and fill rasterization, congruence baking, budgets, and concavity.
  */
 #pragma once
 #include "core/animation/transformer.h"

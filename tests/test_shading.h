@@ -2,14 +2,7 @@
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
  * Licensed under the PolyForm Noncommercial License 1.0.0
  *
- * Direct unit tests for core/render/shading.h — the Fragment register carrier
- * (lerp across pos/v0-v3/age/size/color; lerp_registers leaving pos and color
- * at their struct defaults), plus the edge-distance and topology-slot helpers
- * shared by the mesh effects.
- * These helpers are otherwise exercised only incidentally through the rasterizer
- * tests; this module pins their contract directly.
- *
- * Self-contained header. run_shading_tests() returns the module failure count.
+ * Lighting, Blinn-Phong, and face palette shading contracts.
  */
 #pragma once
 
