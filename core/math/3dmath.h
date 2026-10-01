@@ -978,7 +978,7 @@ struct Complex {
 
 /**
  * @brief Rotates a vector by a unit quaternion.
- * @details Expanded q*v*conj(q) formula: 15 muls + 15 adds, no division.
+ * @details Expanded q*v*conj(q) formula: 18 muls + 12 adds, no division.
  * @param v The vector to rotate.
  * @param q The unit rotation quaternion.
  * @return The rotated vector.
