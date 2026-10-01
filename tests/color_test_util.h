@@ -13,9 +13,9 @@
 namespace hs_test {
 
 /**
- * @brief Wraps a hue difference into (-PI, PI] for circular comparison.
+ * @brief Wraps a hue difference into [-PI, PI] for circular comparison.
  * @param dh Raw hue difference in radians; magnitude below a few turns.
- * @return The equivalent difference in (-PI, PI].
+ * @return The equivalent difference in [-PI, PI].
  */
 inline float wrap_hue_delta(float dh) {
   while (dh > math::PI_F)
