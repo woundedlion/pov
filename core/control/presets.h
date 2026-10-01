@@ -14,7 +14,7 @@
 #include <array>
 #include <cstddef>
 
-#include "animation/animation.h"
+#include "animation/preset_departure.h"
 
 /**
  * @brief One preset: its parameters and the policy it departs by.
