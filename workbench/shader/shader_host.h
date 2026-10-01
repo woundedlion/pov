@@ -2035,8 +2035,8 @@ private:
   static constexpr const char *
   pipeline_name(Workbench::InversePipelineId pipeline) {
     switch (pipeline) {
-    case Workbench::InversePipelineId::GLITCH_NOISE_GRID_WAVE_SHEAR:
-      return "GLITCH_NOISE_GRID_WAVE_SHEAR";
+    case Workbench::InversePipelineId::GLITCH_GRID_WAVE_SHEAR:
+      return "GLITCH_GRID_WAVE_SHEAR";
     case Workbench::InversePipelineId::KALEIDOSCOPE_TWIN_WAVE_INNER_MIRROR:
       return "KALEIDOSCOPE_TWIN_WAVE_INNER_MIRROR";
     case Workbench::InversePipelineId::GNOMONIC_KALEIDOSCOPE_GRID_MIRROR:

@@ -612,7 +612,7 @@ inverse_programs() {
                               Workbench::INVERSE_PROGRAM_COUNT>
       PROGRAMS{{
           make_program<GlitchNoiseGridWaveShearPipeline,
-                       InversePipelineId::GLITCH_NOISE_GRID_WAVE_SHEAR,
+                       InversePipelineId::GLITCH_GRID_WAVE_SHEAR,
                        make_topology_key(
                            Workbench::wave_shear_generated_preset())>(),
           make_program<KaleidoscopeTwinWaveInnerMirrorPipeline,

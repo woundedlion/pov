@@ -21,7 +21,7 @@
 
 namespace Workbench {
 
-inline constexpr Slots GENERATED_SURFACE_NOISE_SLOTS{
+inline constexpr Slots GENERATED_GLITCH_SLOTS{
     Function::GRID,
     Projection::STEREOGRAPHIC,
     ProjectionFramePolicy::SPIN_WANDER,
@@ -74,7 +74,7 @@ inline constexpr Config
 wave_shear_generated_preset(float pattern_freq = 4.439f,
                             float complexity = 0.5f, float warp_strength = 0.5f,
                             float warp_speed = 0.015625f) {
-  Slots slots = GENERATED_SURFACE_NOISE_SLOTS;
+  Slots slots = GENERATED_GLITCH_SLOTS;
   slots.warp_program.outer.kind = WarpStageKind::WAVE_SHEAR;
   slots.surface_noise = SurfaceNoise::NONE;
   slots.coverage = CoveragePolicy::PROJECTION_WEIGHT_SQUARED;
@@ -482,8 +482,7 @@ inline constexpr Config stereographic_mobius_animated_inner_mirror_preset() {
 }
 
 inline constexpr std::array<Preset, 24> PRESETS = {{
-    {wave_shear_generated_preset(),
-     InversePipelineId::GLITCH_NOISE_GRID_WAVE_SHEAR},
+    {wave_shear_generated_preset(), InversePipelineId::GLITCH_GRID_WAVE_SHEAR},
     {kaleidoscope_mirror_preset(),
      InversePipelineId::KALEIDOSCOPE_TWIN_WAVE_INNER_MIRROR},
     {gnomonic_kaleidoscope_grid_mirror_preset(),
@@ -525,11 +524,11 @@ inline constexpr std::array<Preset, 24> PRESETS = {{
     {stereographic_mobius_animated_inner_mirror_preset(),
      InversePipelineId::STEREOGRAPHIC_MOBIUS_TWIN_WAVE_INNER_MIRROR},
     {wave_shear_generated_preset(3.1447f, 0.5f, 2.72f, 0.00690625f),
-     InversePipelineId::GLITCH_NOISE_GRID_WAVE_SHEAR},
+     InversePipelineId::GLITCH_GRID_WAVE_SHEAR},
     {wave_shear_generated_preset(7.5227f, 1.698f, 0.0f, 0.00690625f),
-     InversePipelineId::GLITCH_NOISE_GRID_WAVE_SHEAR},
+     InversePipelineId::GLITCH_GRID_WAVE_SHEAR},
     {wave_shear_generated_preset(8.8162f, 1.698f, 1.376f, 0.00559375f),
-     InversePipelineId::GLITCH_NOISE_GRID_WAVE_SHEAR},
+     InversePipelineId::GLITCH_GRID_WAVE_SHEAR},
 }};
 static_assert(
     [] {
