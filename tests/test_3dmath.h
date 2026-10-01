@@ -221,7 +221,7 @@ inline void test_precise_atan2() {
       float error = std::abs(math::precise_atan2(y, x) - std::atan2(y, x));
       // -pi and pi name the same direction.
       error = std::min(error, std::abs(error - 2.0f * math::PI_F));
-      worst = std::max(worst, error);
+      worst = hs_test::fold_worst(worst, error);
     }
   }
   HS_EXPECT_LT(worst, 2e-5f);

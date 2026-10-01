@@ -78,8 +78,8 @@ constexpr float PADDED_ROW_CHORD2 = 0.037f;
 inline void test_nodes_on_unit_sphere() {
   float worst_deviation = 0.0f;
   for (int i = 0; i < RD_N; ++i) {
-    worst_deviation =
-        std::max(worst_deviation, std::fabs(node(i).length() - 1.0f));
+    worst_deviation = hs_test::fold_worst(worst_deviation,
+                                          std::fabs(node(i).length() - 1.0f));
   }
   HS_EXPECT_LT(worst_deviation, 1e-3f);
   // Endpoints sit near the poles (y ~ +1 at i=0, y ~ -1 at i=RD_N-1).
@@ -107,10 +107,14 @@ inline void test_node_ordered_and_distinct() {
                 1e-6f);
   // The walk stops at RD_N-1 so node(i+1) never reads past [0, RD_N).
   math::Vector prev = node(0);
+  HS_EXPECT_TRUE(std::isfinite(prev.x) && std::isfinite(prev.y) &&
+                 std::isfinite(prev.z));
   int out_of_order = 0;
   int coincident = 0;
   for (int i = 0; i < RD_N - 1; ++i) {
     math::Vector next = node(i + 1);
+    HS_EXPECT_TRUE(std::isfinite(next.x) && std::isfinite(next.y) &&
+                   std::isfinite(next.z));
     // y = 1 - 2i/(RD_N-1): index order is the north-to-south sweep order.
     out_of_order += next.y >= prev.y;
     coincident += chord2(prev, next) <= 0.0f;
@@ -268,7 +272,9 @@ inline void test_neighbors_are_local() {
       HS_EXPECT_TRUE(ni >= 0 && ni < RD_N);
       if (ni < 0 || ni >= RD_N)
         return;
-      if (chord2(p, node(ni)) > MAX_NEIGHBOR_CHORD2 && first_far_slot < 0)
+      const float distance = chord2(p, node(ni));
+      if ((!std::isfinite(distance) || distance > MAX_NEIGHBOR_CHORD2) &&
+          first_far_slot < 0)
         first_far_slot = i * RD_K + k;
     }
   }
