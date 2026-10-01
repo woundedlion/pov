@@ -97,11 +97,9 @@ struct TimelineEvent {
   }
 };
 
-/**
- * @brief Global storage for the timeline to prevent template instantiation
- * bloat.
- */
+/** @brief Event capacity of the process-wide timeline. */
 inline constexpr int TIMELINE_MAX_EVENTS = 64;
+/** @brief Process-wide timeline storage shared by all template instances. */
 extern DMAMEM TimelineEvent global_timeline_events[TIMELINE_MAX_EVENTS];
 // True while a Timeline instance is alive (guards the single-singleton invariant).
 extern bool global_timeline_live;
