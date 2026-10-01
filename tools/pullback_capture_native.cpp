@@ -657,8 +657,10 @@ int capture(const char *operations_path, const char *output_path) {
 int main(int argc, char **argv) {
   if (argc != 6 || std::strcmp(argv[1], "--resolution") != 0 ||
       std::strcmp(argv[3], "--operations") != 0) {
-    std::fprintf(stderr, "usage: pullback_capture_backend --resolution WxH "
-                         "--operations operations.bin output.bin\n");
+    std::fprintf(stderr,
+                 "usage: %s --resolution WxH "
+                 "--operations operations.bin output.bin\n",
+                 argv[0]);
     return 2;
   }
   if (std::strcmp(argv[2], "96x20") == 0)
