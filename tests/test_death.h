@@ -4677,6 +4677,15 @@ inline void case_pullback_operator_invalid_airocean_layout() {
   Pullback::Interp::Op::ProjectAiroceanV3::prepare(context, params, state);
 }
 
+inline void case_pullback_operator_invalid_peirce_layout() {
+  Pullback::Interp::Op::ProjectPeirceV3::Params params;
+  params.layout =
+      opaque<uint8_t>(std::size(Pullback::Interp::Op::PEIRCE_LAYOUT_IDS));
+  Pullback::Interp::Op::ProjectPeirceV3::State state;
+  Pullback::Interp::FrameContext context{};
+  Pullback::Interp::Op::ProjectPeirceV3::prepare(context, params, state);
+}
+
 /** @brief Death case: a noise-driven operator rejects an unknown basis. */
 inline void case_pullback_operator_invalid_noise_basis() {
   Pullback::Interp::Op::CurlDisplaceParams params;
@@ -6151,6 +6160,10 @@ inline const Case *all_cases(int &n) {
        case_pullback_operator_invalid_airocean_layout,
        "core/render/pullback/operators_project.h",
        "(params.layout < std::size(AIROCEAN_LAYOUT_IDS)) project.airocean: invalid layout"},
+      {"pullback_operator_invalid_peirce_layout",
+       case_pullback_operator_invalid_peirce_layout,
+       "core/render/pullback/operators_project.h",
+       "(params.layout < std::size(PEIRCE_LAYOUT_IDS)) project.peirce: invalid layout"},
       {"pullback_operator_invalid_gnomonic_hemisphere",
        case_pullback_operator_invalid_gnomonic_hemisphere,
        "core/render/pullback/operators_project.h",
