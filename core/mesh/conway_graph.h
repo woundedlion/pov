@@ -564,7 +564,7 @@ static_assert(ordered_tour_valid());
 /**
  * @brief Whether ORDERED_TOUR traverses every settle edge and every family
  * bridge — all three crossings: tetra <-> octa, tetra <-> icosa, and the
- * icosa <-> octa jitterbug (docs/specs/conway_morph_spec.md, section 6).
+ * icosa <-> octa jitterbug.
  */
 constexpr bool ordered_tour_covers_heavy_legs() {
   bool has[NUM_EDGES] = {};
