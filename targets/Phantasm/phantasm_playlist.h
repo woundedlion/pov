@@ -18,8 +18,8 @@
  */
 
 /**
- * @brief Phantasm playlist: HS_EFFECT_LIST minus the build-gated Shader and
- *        ShaderChain and the HS_PHANTASM_EXCLUDED_EFFECTS entries.
+ * @brief Phantasm playlist: HS_EFFECT_LIST minus the build-gated ShaderChain
+ *        and the HS_PHANTASM_EXCLUDED_EFFECTS entries.
  * @param X Function-like macro applied to each effect type name and its show
  *          duration in seconds.
  * @details Entry order is the device show order, chosen independently of
@@ -136,7 +136,7 @@ constexpr bool hs_phantasm_effect_list_is_subset() {
 
 /**
  * @brief Roster effects the Phantasm playlist deliberately omits: the
- *        low-resolution-only entries. Shader and ShaderChain are omitted by
+ *        low-resolution-only entries. ShaderChain is omitted by
  *        their own build flags instead.
  * @param X Function-like macro applied to each excluded effect class name.
  */

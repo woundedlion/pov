@@ -108,11 +108,8 @@ static size_t stack_high_water_mark() {
 // nothing a gate can fail on.
 static size_t init_stack_peak = 0;
 
-// Upper bound on a single effect's exposed parameters, including effect-local
-// fixed storage larger than ParamList's default inline array. Used
-// to pre-reserve the getParamValues() backing store so it never reallocates.
-// Sized for ShaderChain's MAX_CHAIN_PARAMS (224) schema; the next-largest
-// effect (Shader, 80) sits far below it.
+// Bound on one effect's exposed parameters; covers ShaderChain's MAX_CHAIN_PARAMS
+// schema (static_assert below).
 inline constexpr size_t MAX_PARAMS = hs_wasm::ParamStreams::CAPACITY;
 
 #if HS_ENABLE_CHAIN_INTERPRETER
