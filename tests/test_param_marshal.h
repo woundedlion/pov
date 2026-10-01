@@ -11,6 +11,10 @@
  * bool/float distinction is preserved, and a write-by-name round-trips to the
  * same index. The emscripten::val translation in engine_bindings.h is a thin shell over
  * this layer and is exercised by the WASM build, not here.
+ *
+ * Also covers Control::Field metadata, domains, exclusions and interpolation,
+ * authored snapshot range validation, generation tracking, default choreography
+ * descriptions, HyperLattice pattern dropdowns, and integer/float endpoints.
  */
 #pragma once
 
@@ -614,7 +618,8 @@ inline void test_authored_field_snapshot_validation() {
 
 /**
  * @brief Module entry point: runs the per-effect stream-consistency check
- *        across the whole roster, then the cross-effect memory-stability check.
+ *        across the whole roster, cross-effect memory stability, Control::Field
+ *        validation/interpolation, and authored snapshot range checks.
  * @return The module's failure count.
  */
 inline int run_param_marshal_tests() {
