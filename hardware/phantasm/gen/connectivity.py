@@ -18,7 +18,7 @@ import os
 import sys
 
 import sexp
-from kicad_common import F, is_copper_pour, net_name
+from kicad_common import F, arc_extrema, is_copper_pour, net_name
 
 # Copper that lands this close counts as touching. KiCad snaps track ends to
 # pad and via anchors, so the slack absorbs export rounding, not a real gap.
@@ -193,24 +193,7 @@ def pad_copper(pad, origin, rotation, stack):
                 if str(primitive[0]) == "gr_arc":
                     start, end = vertices
                     mid = _xy(sexp.val(primitive, "mid"))
-                    vertices.append(mid)
-                    ax, ay = mid[0] - start[0], mid[1] - start[1]
-                    bx, by = end[0] - start[0], end[1] - start[1]
-                    determinant = 2 * (ax * by - ay * bx)
-                    if determinant:
-                        aa, bb = ax * ax + ay * ay, bx * bx + by * by
-                        cx = start[0] + (by * aa - ay * bb) / determinant
-                        cy = start[1] + (ax * bb - bx * aa) / determinant
-                        reach = math.dist(start, (cx, cy))
-                        first, middle, last = (math.atan2(y - cy, x - cx)
-                                               for x, y in (start, mid, end))
-                        sweep = (last - first) % math.tau
-                        ccw = (middle - first) % math.tau <= sweep
-                        for angle in (0, math.pi / 2, math.pi, 3 * math.pi / 2):
-                            inside = (angle - first) % math.tau <= sweep
-                            if inside == ccw:
-                                vertices.append((cx + reach * math.cos(angle),
-                                                 cy + reach * math.sin(angle)))
+                    vertices = [start, end, mid, *arc_extrema(start, mid, end)]
                 for x, y in vertices:
                     points.extend(((x - half_stroke, y - half_stroke),
                                    (x + half_stroke, y + half_stroke)))
