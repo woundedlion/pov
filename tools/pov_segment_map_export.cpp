@@ -17,9 +17,7 @@
  * Regenerate with:
  *   cmake --build --preset tests --target pov_segment_map_gen
  *   build/tests/tests/pov_segment_map_gen > hardware/pov_segment_map.json
- *
- * Every printf here stays on one source line under the column limit so the
- * emitted layout is readable next to the JSON it produces.
+
  */
 #include <cstdio>
 #include <iterator>
