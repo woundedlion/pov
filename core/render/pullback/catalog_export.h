@@ -191,6 +191,8 @@ inline void append_catalog_json(std::string &out) {
     }
     out += "],\"approximate\":";
     out += op.approximate ? "true" : "false";
+    out += ",\"edge_distance_available\":";
+    out += op.edge_distance_available ? "true" : "false";
     out += '}';
   }
   out += "]}";

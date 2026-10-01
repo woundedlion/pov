@@ -167,8 +167,7 @@ public:
       animated |= parameter->animated;
     }
     for (size_t index = 0; index < ops.size(); ++index)
-      if (const char *warning =
-              ops[index].op->runtime.validate(candidates[index])) {
+      if (const char *warning = validate_parameters(index, candidates[index])) {
         refused_name = nullptr;
         for (const auto &write : writes) {
           for (uint16_t field = 0; field < ops[index].op->schema_count; ++field)
@@ -292,6 +291,32 @@ private:
   }
 
 #if HS_ENABLE_PARAM_GUI_BRIDGE
+  const char *validate_parameters(size_t index, void *params) {
+    const auto ops = program.ops();
+    const auto &op = *ops[index].op;
+    if (const char *warning = op.runtime.validate(params))
+      return warning;
+    bool edge_distance_available = false;
+    for (size_t upstream = 0; upstream < index; ++upstream)
+      if (ops[upstream].op->input == Pullback::Interp::CarrierId::SPHERE &&
+          ops[upstream].op->output == Pullback::Interp::CarrierId::PLANE)
+        edge_distance_available = ops[upstream].op->edge_distance_available;
+    if (!edge_distance_available)
+      for (uint16_t field = 0; field < op.schema_count; ++field) {
+        const auto &info = op.schema[field];
+        if (info.enum_count == 0 ||
+            (std::strcmp(info.id, "coverage-mode") != 0 &&
+             std::strcmp(info.id, "envelope") != 0))
+          continue;
+        const auto value =
+            *static_cast<uint8_t *>(op.runtime.param_address(params, field));
+        if (value < info.enum_count &&
+            std::strcmp(info.enum_ids[value], "edge-fade") == 0)
+          return "Edge-fade requires a projection with edge distance";
+      }
+    return nullptr;
+  }
+
   static constexpr size_t PARAM_BYTES = [] {
     size_t largest = 0;
     for (const auto &op : Pullback::Interp::OPERATOR_TABLE)
@@ -315,7 +340,7 @@ private:
           ParamDef proposed = parameter;
           proposed.target = runtime.param_address(candidate, field);
           write_parameter_unchecked(proposed, value);
-          refusal_warning = runtime.validate(candidate);
+          refusal_warning = validate_parameters(index, candidate);
           refused_name = refusal_warning != nullptr ? parameter.name : nullptr;
           return refusal_warning == nullptr;
         }

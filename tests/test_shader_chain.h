@@ -4146,6 +4146,27 @@ inline void test_shader_chain_parameter_admission() {
   effect.advance_display();
 }
 
+inline void test_shader_chain_edge_distance_admission() {
+  reset_globals();
+  ShaderChain<96, 20> effect;
+  effect.init();
+  const In::ChainEntryRequest chain[] = {
+      {"project", "project.folded-sinusoidal.v2"},
+      {"warp", "warp.wave-shear.v2"},
+      {"sample", "sample.grid.v2"},
+      {"colorize", "colorize.generated-palette.v3"},
+  };
+  HS_EXPECT_EQ(effect.set_chain(chain).code, In::ChainStatus::OK);
+  HS_EXPECT_EQ(effect.updateParameter("sample.coverage-mode", 3),
+               ParamSetResult::INADMISSIBLE);
+  HS_EXPECT_TRUE(effect.parameter_warning("sample.coverage-mode") != nullptr);
+  const ShaderChainParameterWrite writes[] = {{"warp.envelope", 2}};
+  HS_EXPECT_EQ(effect.update_parameters(writes), ParamSetResult::INADMISSIBLE);
+  HS_EXPECT_EQ(
+      effect.getParameters().find("sample.coverage-mode")->get_requested(),
+      1.0f);
+}
+
 inline void test_shader_chain_effect_rebind_generation() {
   reset_globals();
   ShaderChain<96, 20> effect;
@@ -4458,6 +4479,7 @@ inline int run_shader_chain_tests() {
   test_shader_chain_composed_frame_parity();
   test_shader_chain_effect_registers_params();
   test_shader_chain_parameter_admission();
+  test_shader_chain_edge_distance_admission();
   test_shader_chain_effect_rebind_generation();
   test_shader_chain_legacy_colorize_tap();
   test_shader_chain_effect_refusal_keeps_schema();
