@@ -162,12 +162,9 @@ private:
    */
   void allocate_state() {
     constexpr size_t BYTES = RD_N * sizeof(uint16_t);
-    state.A = static_cast<uint16_t *>(
-        persistent_arena.allocate(BYTES, alignof(uint16_t)));
-    state.B = static_cast<uint16_t *>(
-        persistent_arena.allocate(BYTES, alignof(uint16_t)));
-    state.C = static_cast<uint16_t *>(
-        persistent_arena.allocate(BYTES, alignof(uint16_t)));
+    state.A = persistent_arena.allocate_n<uint16_t>(RD_N);
+    state.B = persistent_arena.allocate_n<uint16_t>(RD_N);
+    state.C = persistent_arena.allocate_n<uint16_t>(RD_N);
     memset(state.A, 0, BYTES);
     memset(state.B, 0, BYTES);
     memset(state.C, 0, BYTES);
@@ -365,12 +362,9 @@ private:
     {
       ScratchScope physics_guard(scratch_arena_a);
       HS_PROFILE(bz_physics);
-      float *f_a = static_cast<float *>(
-          scratch_arena_a.allocate(RD_N * sizeof(float), alignof(float)));
-      float *f_b = static_cast<float *>(
-          scratch_arena_a.allocate(RD_N * sizeof(float), alignof(float)));
-      float *f_c = static_cast<float *>(
-          scratch_arena_a.allocate(RD_N * sizeof(float), alignof(float)));
+      float *f_a = scratch_arena_a.allocate_n<float>(RD_N);
+      float *f_b = scratch_arena_a.allocate_n<float>(RD_N);
+      float *f_c = scratch_arena_a.allocate_n<float>(RD_N);
 
       for (int k = 0; k < STEPS_PER_FRAME; ++k)
         step_physics(state.A, state.B, state.C, f_a, f_b, f_c);
