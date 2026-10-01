@@ -43,6 +43,16 @@ test('index cells compare paired and local peak and spill values', () => {
   assert.ok(errors.at(-1).includes('spill differs'));
 });
 
+test('table-linked measurements require README cells in the report', () => {
+  const errors = [];
+  const index = '| Effect | Peak ms | Spilled |\n| [A](a.md) | 12.3 | 0/10 |\n';
+  checkIndexCells(index, 'a.md', '# A\n', 'shipping', errors);
+  assert.equal(errors.length, 1);
+  assert.ok(errors[0].includes('no "README cells:" line'));
+  checkIndexCells('[A](a.md)\n', 'a.md', '# A\n', 'prose', errors);
+  assert.equal(errors.length, 1);
+});
+
 const validReport = `# Example on-device profile — Teensy 4.0 (2026-08-24, **-O3**)
 
 ## Setup

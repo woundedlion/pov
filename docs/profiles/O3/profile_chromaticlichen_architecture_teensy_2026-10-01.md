@@ -26,6 +26,8 @@ outputs and build/envdump records are in the [evidence directory](../evidence/ar
 
 ## Frame cadence
 
+README cells: peak 🟢 35.218, spilled 🟢 0/1096 (0.00%).
+
 **Runtime aggregate**, exact per-frame telemetry, setup excluded: mean render
 **34.600 ms/f**, peak render **35.218 ms**, spilled
 **0/1096** live frames (**0.00%**).
