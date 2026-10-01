@@ -23,9 +23,8 @@ namespace SDF {
 // ============================================================================
 // 3D Volumetric SDF Shapes (for Scan::Volume raymarching)
 // ============================================================================
-// These shapes are reached only from Scan::Volume::draw's march loop (Raymarch
-// is their sole instantiation site), so they share that region's -O3 options —
-// an -Os distance() here would be a wall inside the promoted loop.
+// Raymarch's Scan::Volume march is their only production caller.
+// These shapes share that region's -O3 options.
 
 HS_O3_BEGIN
 /**
