@@ -234,11 +234,9 @@ struct RingsSampleParams : Source::RingsSourceParams, SampleCrossingParams {
       sample_crossing_topology<RingsSampleParams>();
 };
 static_assert(field_ids_unique<RingsSampleParams>());
-static_assert(sizeof(RingsSampleParams) == ((sizeof(SampleCrossingParams) + 8 +
-                                             alignof(RingsSampleParams) - 1) /
-                                            alignof(RingsSampleParams)) *
-                                               alignof(RingsSampleParams),
-              "appended parameter block must have the expected rounded size");
+static_assert(
+    appended_block_size_matches<RingsSampleParams, SampleCrossingParams, 8>(),
+    "appended parameter block must have the expected rounded size");
 static_assert(field_defaults_in_range<RingsSampleParams>());
 
 /** @brief PLANE→FIELD crossing: the expanding concentric ring source. */

@@ -46,11 +46,8 @@ struct CurlDisplaceParams : Surface::SurfaceNoiseParams {
   };
 };
 static_assert(field_ids_unique<CurlDisplaceParams>());
-static_assert(sizeof(CurlDisplaceParams) ==
-                  ((sizeof(Surface::SurfaceNoiseParams) + 2 +
-                    alignof(CurlDisplaceParams) - 1) /
-                   alignof(CurlDisplaceParams)) *
-                      alignof(CurlDisplaceParams),
+static_assert(appended_block_size_matches<CurlDisplaceParams,
+                                          Surface::SurfaceNoiseParams, 2>(),
               "appended parameter block must have the expected rounded size");
 static_assert(field_defaults_in_range<CurlDisplaceParams>());
 
@@ -102,11 +99,8 @@ struct DirectDisplaceParams : Surface::DirectSurfaceParams {
   };
 };
 static_assert(field_ids_unique<DirectDisplaceParams>());
-static_assert(sizeof(DirectDisplaceParams) ==
-                  ((sizeof(Surface::DirectSurfaceParams) + 1 +
-                    alignof(DirectDisplaceParams) - 1) /
-                   alignof(DirectDisplaceParams)) *
-                      alignof(DirectDisplaceParams),
+static_assert(appended_block_size_matches<DirectDisplaceParams,
+                                          Surface::DirectSurfaceParams, 1>(),
               "appended parameter block must have the expected rounded size");
 static_assert(field_defaults_in_range<DirectDisplaceParams>());
 
