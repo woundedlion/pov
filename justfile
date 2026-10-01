@@ -26,7 +26,7 @@ default:
 
 # WASM release build of the simulator module (daydream).
 build:
-    cmake --preset wasm-release -DDAYDREAM_DIR="{{ daydream_dir }}"
+    cmake --preset wasm-release -DHS_WASM_DEV_BINDINGS=OFF -DDAYDREAM_DIR="{{ daydream_dir }}"
     cmake --build --preset wasm-release
 
 # WASM debug build (-O0 -g -sASSERTIONS, 64 KB stack).
