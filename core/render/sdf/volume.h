@@ -100,15 +100,8 @@ struct Twist {
 
   /**
    * @brief Constructs a twist warp around a torus of major radius R.
-   * @param oscillations Number of oscillations around the ring; must be >= 0.
-   *        The harmonic recurrence counts up from 1, so a negative count yields
-   *        the first harmonic while the Lipschitz bound describes the requested
-   *        one.
-   * @param displacement Vertical displacement magnitude; must be >= 0. A
-   *        negative one makes bounding_inflation() tighten the bound rather
-   *        than relax it, so a sphere trace steps through the surface, and the
-   *        amplitude < TOLERANCE tests take a no-warp branch that apply()
-   *        contradicts.
+   * @param oscillations Number of oscillations; must be >= 0 (HS_CHECK-enforced).
+   * @param displacement Magnitude; must be >= 0 (HS_CHECK-enforced).
    * @param major_radius Major radius; must be > 0. The Lipschitz bound scales
    *        by 2/R, so R == 0 yields a non-finite bound on the XZ axis. Guarded
    *        at the cold construction site, not per-call.
