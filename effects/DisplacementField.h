@@ -45,6 +45,8 @@ template <int W, int H> class DisplacementField : public Effect {
   friend struct ::hs_test::effects_tests::DisplacementFieldWhiteBox;
 
 public:
+  static constexpr const char *EFFECT_ID = "DisplacementField";
+
   /**
    * @brief Builds the effect with its palette.
    */

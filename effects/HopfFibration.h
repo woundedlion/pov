@@ -33,6 +33,8 @@ struct HopfWhiteBox;
  */
 template <int W, int H> class HopfFibration : public Effect {
 public:
+  static constexpr const char *EFFECT_ID = "HopfFibration";
+
   static constexpr int TRAIL_LEN =
       40; /**< Number of points retained per fiber trail. */
 

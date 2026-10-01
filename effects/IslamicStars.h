@@ -48,6 +48,8 @@ class IslamicStars
                                      IslamicStarsDetail::MAX_BUILD_FACES> {
 
 public:
+  static constexpr const char *EFFECT_ID = "IslamicStars";
+
 #ifdef HS_ISLAMICSTARS_PROFILE_SHAPE
   static_assert(
       HS_ISLAMICSTARS_PROFILE_SHAPE >= 0 &&

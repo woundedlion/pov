@@ -78,6 +78,8 @@ class BZReactionDiffusion
   using Base::to_q16;
 
 public:
+  static constexpr const char *EFFECT_ID = "BZReactionDiffusion";
+
   /**
    * @brief Default-constructs the effect; all setup is deferred to init().
    */

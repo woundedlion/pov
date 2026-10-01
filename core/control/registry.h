@@ -51,12 +51,9 @@ template <typename T> constexpr const void *effect_type_key() {
 struct FactoryEntry {
   using PresetIdFn = std::string_view (*)(size_t);
 
-  std::string_view name;      /**< Effect class name (string literal). */
-  std::string_view stable_id; /**< Persisted effect identity: the class's
-                                 EFFECT_ID when it declares one, else its class
-                                 name. It feeds stable_effect_seed(), so an
-                                 effect without an EFFECT_ID changes its
-                                 persisted id and its seed when renamed. */
+  std::string_view name; /**< Effect class name (string literal). */
+  std::string_view
+      stable_id; /**< Declared EFFECT_ID; also keys the RNG seed. */
   std::function<std::unique_ptr<Effect>()>
       creator; /**< Allocates a new effect instance. */
   const void *type_key =
@@ -183,6 +180,9 @@ void fill_registration(FactoryEntry &entry) {
 /** @brief Builds resolution fill pointers for one HS_EFFECT_LIST entry. */
 template <template <int, int> class ClassName>
 constexpr EffectRegistration make_registration(std::string_view name) {
+  static_assert(
+      requires { ClassName<HS_REG_IDENTITY_RESOLUTION>::EFFECT_ID; },
+      "registered effects require a stable EFFECT_ID");
 #define HS_REG_FILL_POINTER(W, H) &fill_registration<ClassName, W, H>,
   return {name, HS_RESOLUTIONS(HS_REG_FILL_POINTER)
                     hs::stable_effect_id<ClassName<HS_REG_IDENTITY_RESOLUTION>>(

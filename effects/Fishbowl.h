@@ -61,6 +61,8 @@ class Fishbowl : public ChoreographedEffect<Fishbowl<W, H>, FishbowlParams> {
   using Choreography::step_choreography;
 
 public:
+  static constexpr const char *EFFECT_ID = "Fishbowl";
+
   using Params = FishbowlParams;
   static constexpr Segue::Preset::Snap DEPARTURE{};
   static constexpr uint32_t PARAMETER_SCHEMA_VERSION = 1;

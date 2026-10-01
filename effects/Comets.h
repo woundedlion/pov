@@ -56,6 +56,8 @@ class Comets : public ChoreographedEffect<Comets<W, H>, CometsParams> {
   friend Choreography;
 
 public:
+  static constexpr const char *EFFECT_ID = "Comets";
+
   using Params = CometsParams;
 
   static constexpr int TRAIL_LENGTH = Animation::

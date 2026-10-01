@@ -36,6 +36,8 @@ struct SphericalHarmonicsWhiteBox;
  */
 template <int W, int H> class SphericalHarmonics : public Effect {
 public:
+  static constexpr const char *EFFECT_ID = "SphericalHarmonics";
+
   static constexpr std::array<std::string_view, 24> PRESET_IDS{
       "sh-l2-m0",  "sh-l1-m-1", "sh-l1-m0",  "sh-l1-m1",  "sh-l2-m-2",
       "sh-l2-m-1", "sh-l2-m1",  "sh-l2-m2",  "sh-l3-m-3", "sh-l3-m-2",

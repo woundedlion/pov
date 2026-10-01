@@ -33,6 +33,8 @@ struct DynamoWhiteBox;
  */
 template <int W, int H> class Dynamo : public Effect {
 public:
+  static constexpr const char *EFFECT_ID = "Dynamo";
+
   /**
    * @brief Constructs the effect, seeding the initial palette, palette normal,
    *        and filter pipeline.

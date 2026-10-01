@@ -93,6 +93,8 @@ class MindSplatter
   friend Choreography;
 
 public:
+  static constexpr const char *EFFECT_ID = "MindSplatter";
+
   using BaseMesh = Solids::BaseMesh;
   using Params = MindSplatterParams;
 

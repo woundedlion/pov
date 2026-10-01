@@ -78,6 +78,8 @@ class ShapeShifter
   friend Choreography;
 
 public:
+  static constexpr const char *EFFECT_ID = "ShapeShifter";
+
   using Params = ShapeShifterParams;
   using ShapeType = Params::ShapeType;
   using PhaseFunction = Params::PhaseFunction;
