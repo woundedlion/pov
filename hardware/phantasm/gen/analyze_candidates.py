@@ -7,8 +7,8 @@ strip, DATA_IN/CLK_IN from the Teensy, and the SYNC pair) plus placement quality
 Usage:
     python analyze_candidates.py [DIR ...]
 
-With no args it globs `../candidates/*Candidate[ _-]*`. Pass explicit candidate
-folders (or .kicad_pcb files) to override.
+With no args it globs `<revision>/candidates/*Candidate[ _-]*`. Extract Quilter
+archives into that directory. Pass explicit folders or .kicad_pcb files to override.
 
 A DRC gate runs kicad-cli on each candidate (env KICAD_CLI overrides discovery, and
 only when it names an existing file) so a geometry-clean but DRC-broken board can't
@@ -41,11 +41,12 @@ import sys
 import tempfile
 
 import fab
+import builder
 import sexp
 from kicad_common import F, kicad_cli, net_name
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-CANDIDATES = os.path.join(os.path.dirname(HERE), "candidates")
+CANDIDATES = os.path.join(os.path.dirname(HERE), builder.REVISION, "candidates")
 
 # clearance/hole errors against a pour usually clear on a KiCad zone refill (Quilter
 # exports pours without antipads around signal vias) -- flagged separately from real
