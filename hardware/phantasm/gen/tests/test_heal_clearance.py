@@ -40,17 +40,19 @@ class MainTests(unittest.TestCase):
 
     def test_malformed_project_fails_cleanly(self):
         with tempfile.TemporaryDirectory() as temp_dir:
-            project = Path(temp_dir) / "phantasm.kicad_pro"
+            project = Path(temp_dir) / "1.2" / "phantasm.kicad_pro"
+            project.parent.mkdir()
             project.write_text("{", encoding="utf-8")
             with mock.patch.object(heal_clearance, "OUT", temp_dir):
                 stderr = io.StringIO()
                 with contextlib.redirect_stderr(stderr):
                     self.assertEqual(heal_clearance.main([]), 1)
-        self.assertIn("cannot process phantasm.kicad_pro", stderr.getvalue())
+        self.assertIn(f"cannot process {Path('1.2') / 'phantasm.kicad_pro'}", stderr.getvalue())
 
     def test_missing_default_net_class_fails(self):
         with tempfile.TemporaryDirectory() as temp_dir:
-            project = Path(temp_dir) / "phantasm.kicad_pro"
+            project = Path(temp_dir) / "1.2" / "phantasm.kicad_pro"
+            project.parent.mkdir()
             project.write_text("{}", encoding="utf-8")
             with mock.patch.object(heal_clearance, "OUT", temp_dir):
                 stderr = io.StringIO()
@@ -64,8 +66,9 @@ class MainTests(unittest.TestCase):
             "net_settings": {"classes": [{"name": "Default"}]}})
         with tempfile.TemporaryDirectory() as temp_dir:
             root = Path(temp_dir)
-            (root / "phantasm.kicad_pro").write_text(zeroed, encoding="utf-8")
-            snapshot = root / "quilter_incremental"
+            (root / "1.2").mkdir()
+            (root / "1.2" / "phantasm.kicad_pro").write_text(zeroed, encoding="utf-8")
+            snapshot = root / "1.1"
             snapshot.mkdir()
             protected = snapshot / "phantasm.kicad_pro"
             protected.write_text(zeroed, encoding="utf-8")
@@ -73,12 +76,12 @@ class MainTests(unittest.TestCase):
 
             with mock.patch.object(heal_clearance, "OUT", temp_dir):
                 self.assertEqual(
-                    heal_clearance.project_files(), [str(root / "phantasm.kicad_pro")])
+                    heal_clearance.project_files(), [str(root / "1.2" / "phantasm.kicad_pro")])
                 with contextlib.redirect_stdout(io.StringIO()):
                     self.assertEqual(heal_clearance.main([]), 0)
 
             self.assertEqual(protected.read_text(encoding="utf-8"), zeroed)
-            healed = json.loads((root / "phantasm.kicad_pro").read_text(encoding="utf-8"))
+            healed = json.loads((root / "1.2" / "phantasm.kicad_pro").read_text(encoding="utf-8"))
             self.assertGreater(
                 healed["board"]["design_settings"]["rules"]["min_clearance"], 0)
 
@@ -86,7 +89,8 @@ class MainTests(unittest.TestCase):
     def healed_bytes(self, source):
         """Heal a one-project tree from raw bytes; return the rewritten bytes."""
         with tempfile.TemporaryDirectory() as temp_dir:
-            project = Path(temp_dir) / "phantasm.kicad_pro"
+            project = Path(temp_dir) / "1.2" / "phantasm.kicad_pro"
+            project.parent.mkdir()
             project.write_bytes(source)
             with mock.patch.object(heal_clearance, "OUT", temp_dir):
                 with contextlib.redirect_stdout(io.StringIO()):
@@ -117,9 +121,11 @@ class MainTests(unittest.TestCase):
             "net_settings": {"classes": [{"name": "Default"}]}})
         with tempfile.TemporaryDirectory() as temp_dir:
             root = Path(temp_dir)
-            (root / "unplaced").mkdir()
-            project = root / "unplaced" / "phantasm_unplaced.kicad_pro"
-            project.write_text(zeroed, encoding="utf-8")
+            (root / "1.2").mkdir()
+            project = root / "1.2" / "phantasm.kicad_pro"
+            data = json.loads(zeroed)
+            data["text_variables"] = {"PHANTASM_LAYOUT": "unplaced"}
+            project.write_text(json.dumps(data), encoding="utf-8")
 
             with mock.patch.object(heal_clearance, "OUT", temp_dir):
                 with contextlib.redirect_stdout(io.StringIO()):
