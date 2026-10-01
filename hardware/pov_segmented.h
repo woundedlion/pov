@@ -120,9 +120,9 @@ template <int S, int N, int RPM> class POVSegmented {
   static constexpr int ID_STRAPS = pov::segment_id_strap_count(N);
 
   /**
-   * @brief Shared sync wire: master drives it OUTPUT (symbol bursts),
-   *        downstream boards read it INPUT (RISING edge ISR). One pin serves
-   *        both roles since a board is master XOR downstream.
+   * @brief Rev 1.1 sync wire: master drives OUTPUT; downstream reads INPUT.
+   * @details Rev 1.2 uses D3 for RX and D4 for TX; see
+   *          docs/specs/phantasm_pcb_spec.md.
    */
   static constexpr int PIN_FRAME_SYNC = 3;
 
