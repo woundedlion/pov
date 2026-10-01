@@ -437,6 +437,9 @@ public:
   }
 
   HS_COLD_MEMBER void init(Arena &arena, float chroma, float (*easing)(float)) {
+    triadic_hue = 0;
+    complementary_hue = 0;
+    analogous_hue = 0;
     this->chroma = chroma;
     triadic.init_generated(arena, next_triadic, this, DWELL_FRAMES, FADE_FRAMES,
                            easing);
@@ -469,6 +472,9 @@ public:
   HS_COLD_MEMBER void set_chroma(float chroma) {
     if (chroma == this->chroma)
       return;
+    triadic_hue = 0;
+    complementary_hue = 0;
+    analogous_hue = 0;
     this->chroma = chroma;
     triadic.set_generated_chroma(chroma);
     complementary.set_generated_chroma(chroma);
