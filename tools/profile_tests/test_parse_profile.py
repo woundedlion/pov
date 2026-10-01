@@ -628,7 +628,7 @@ class ValidateRequiresData(unittest.TestCase):
         # 600_000 cyc / 600 == 1000 us, matching the wall sum exactly.
         ok, out = self._validate(self._measurable(600_000, 1000))
         self.assertTrue(ok)
-        self.assertIn("VALID", out)
+        self.assertIn("\nVALID: ", out)
 
     def test_named_shape_cycles_require_progression_and_return(self):
         formats = ["Spawning Shape: {} (V=1, E=1, F=1, I=1)",
@@ -1186,7 +1186,7 @@ class TaggedCounterRows(unittest.TestCase):
 
     def test_a_tagged_scope_is_visible_to_validate(self):
         report = self._validate("scan_mesh_raster")
-        self.assertNotIn("[FAIL] scope 'scan_mesh_raster'", report)
+        self.assertIn("[PASS] scope 'scan_mesh_raster'", report)
         self.assertIn("both_tags, is_mesh_transform, scan_mesh_raster", report)
 
     def test_an_untagged_capture_names_no_tags(self):
