@@ -12,6 +12,7 @@
 #include "core/render/plot.h"
 #include "core/render/scan.h"
 #include "tests/test_fixture.h"
+#include "tests/pole_geometry_test_util.h"
 #include "tests/test_harness.h"
 #include "tests/test_pole_wrap.h"
 
@@ -282,41 +283,6 @@ inline void test_scan_bottom_row_is_a_latitude_ring() {
 }
 
 /**
- * @brief Draws the number of lit pixels a short stroke at @p colatitude leaves.
- * @param colatitude Colatitude of the stroke's endpoints, radians.
- * @return Count of non-black pixels in the frame.
- */
-inline int plot_stroke_lit_pixels(float colatitude) {
-  constexpr float AZIMUTH_SPAN = 0.4f;
-  const float sin_phi = std::sin(colatitude);
-  const float cos_phi = std::cos(colatitude);
-
-  hs_test::StubEffect fx(W, H);
-  Pipeline<W, H> pipe; // bare sink: raw sample placement, no AA spill
-  Fragment f1, f2;
-  f1.pos = math::Vector(sin_phi, cos_phi, 0.0f);
-  f2.pos = math::Vector(sin_phi * std::cos(AZIMUTH_SPAN), cos_phi,
-                        sin_phi * std::sin(AZIMUTH_SPAN));
-  {
-    Canvas c(fx);
-    Plot::Line::draw<W, H>(pipe, c, f1, f2,
-                           [](const math::Vector &, Fragment &f) {
-                             f.color = Color4(Pixel(60000, 60000, 60000), 1.0f);
-                           });
-  }
-  fx.advance_display();
-
-  int lit = 0;
-  for (int y = 0; y < H; ++y)
-    for (int x = 0; x < W; ++x) {
-      const Pixel &p = fx.get_pixel(x, y);
-      if ((p.r | p.g | p.b) != 0)
-        ++lit;
-    }
-  return lit;
-}
-
-/**
  * @brief Plot maps latitude through H_VIRT, so the sub-pole gap holds no data.
  * @details The LED ring stops H_OFFSET rows short of the south pole. A stroke
  *          past the last physical row therefore has no hardware to light and
@@ -328,17 +294,8 @@ inline void test_plot_below_last_row_is_clipped() {
   const float bottom_row_phi = math::y_to_phi<H>(static_cast<float>(H - 1));
   const float gap_phi = math::y_to_phi<H>(static_cast<float>(H + 1));
 
-  HS_EXPECT_GT(plot_stroke_lit_pixels(bottom_row_phi), 0);
-  HS_EXPECT_EQ(plot_stroke_lit_pixels(gap_phi), 0);
-}
-
-/** @brief Rotation about +Y: preserves latitude, shifts longitude. */
-inline constexpr float LONGITUDE_WARP_ANGLE = 0.6f;
-inline math::Vector longitude_rotation_warp(const math::Vector &v,
-                                            const ::Feedback::Style &) {
-  const float c = std::cos(LONGITUDE_WARP_ANGLE);
-  const float s = std::sin(LONGITUDE_WARP_ANGLE);
-  return math::Vector(c * v.x - s * v.z, v.y, s * v.x + c * v.z);
+  HS_EXPECT_GT((hs_test::pole_geometry::plot_stroke<W, H>(bottom_row_phi)), 0);
+  HS_EXPECT_EQ((hs_test::pole_geometry::plot_stroke<W, H>(gap_phi)), 0);
 }
 
 /**
@@ -353,57 +310,9 @@ inline math::Vector longitude_rotation_warp(const math::Vector &v,
  *          pole path at this offset.
  */
 inline void test_feedback_bottom_row_rotates_in_longitude() {
-  constexpr Pixel BRIGHT(12000, 30000, 50000);
-  constexpr int SRC_X = W / 3;
-  hs_test::StubEffect fx(W, H);
-
-  ::Feedback::Style style{};
-  style.space_fn = &longitude_rotation_warp;
-  style.noise = nullptr;
-  style.fade = 1.0f;
-  style.downsample = 4;
-  Pipeline<W, H, Filter::Pixel::Feedback<W, H>> pipe{
-      Filter::Pixel::Feedback<W, H>(style)};
-
-  {
-    Canvas c(fx);
-    c(SRC_X, H - 1) = BRIGHT;
-  }
-  fx.advance_display();
-  {
-    Canvas c(fx);
-    (void)pipe.begin_frame(c, 1.0f);
-  }
-  fx.advance_display();
-
-  // The premise: the bottom row is off the pole at this offset.
   using LUT = math::TrigLUT<W, H>;
   HS_EXPECT_GT(LUT::sin_phi[H - 1], 0.1f);
-
-  // Brightness centroid of the row, unwrapped around the source column so the
-  // seam cannot split it.
-  double mass = 0.0, moment = 0.0;
-  int lit_columns = 0;
-  for (int x = 0; x < W; ++x) {
-    const double b = fx.get_pixel(x, H - 1).b;
-    if (b > BRIGHT.b / 4)
-      ++lit_columns;
-    double dx = x - static_cast<double>(SRC_X);
-    if (dx > W * 0.5)
-      dx -= W;
-    else if (dx < -W * 0.5)
-      dx += W;
-    mass += b;
-    moment += b * dx;
-  }
-  HS_EXPECT_GT(mass, static_cast<double>(BRIGHT.b) * 0.5);
-  // A collapsed pole row would light every column at the sample's value.
-  HS_EXPECT_GT(lit_columns, 0);
-  HS_EXPECT_LT(lit_columns, W);
-  // The row carried the warp's full longitude shift.
-  const double expected =
-      -static_cast<double>(LONGITUDE_WARP_ANGLE) * W / (2.0 * math::PI_F);
-  HS_EXPECT_NEAR(moment / mass, expected, 0.5);
+  hs_test::pole_geometry::check_feedback_ring_centroid<W, H>(H - 1, 50000 / 4);
 }
 
 /**
