@@ -970,7 +970,7 @@ inline void test_beacon_shift_needs_confirmation() {
 /**
  * @brief Verifies a checksum-valid beacon naming an index past the roster is
  *        dropped whole (§6.4 integrity by rejection).
- * @details A 6-bit index leaves 42 unreachable values on this 4-effect roster
+ * @details A 6-bit index leaves 60 unreachable values on this 4-effect roster
  *          — positive evidence of corruption the 3-bit checksum passes with
  *          p = 1/8. Folding it mod effect_count would join a rebooting board
  *          to a wrong-but-valid effect, the fail-wrong outcome §6.3.3 rules
