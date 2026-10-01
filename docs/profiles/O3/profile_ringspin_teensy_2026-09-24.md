@@ -23,6 +23,8 @@ Exactness cross-check: window frames 737–768, root 1,190,980,513 cycles ÷ 600
 
 ## Frame cadence
 
+README cells: peak 🟢 50.750, spilled 🟢 0/1087 (0.0%).
+
 **Runtime aggregate**, setup excluded: mean render **29.428 ms/frame**, peak render **50.750 ms**, spilled **0/1087 live frames (0.0%)**. Mean wall time is 62.416 ms/frame, or 16.021 observed fps.
 Startup setup render is **1.022 ms** for frame 1; it is excluded from all runtime denominators and peaks.
 

@@ -23,6 +23,8 @@ Exactness cross-check: window frames 353–384, root 6,105,645,223 cycles ÷ 600
 
 ## Frame cadence
 
+README cells: peak 🔴 313.695, spilled 🔴 443/443 (100.00%).
+
 **Runtime aggregate** (setup frame 1 excluded): mean render **262.576 ms/frame**, peak **313.695 ms** at frame 366, spilled **443/443 (100.00%)**. Runtime mean wall is 289.452 ms/frame, or 3.45 rendered frames/s across these live rows.
 
 Startup setup render: **143.577 ms** at frame 1, before publication and excluded from runtime statistics.

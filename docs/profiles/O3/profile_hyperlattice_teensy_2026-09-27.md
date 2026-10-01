@@ -36,6 +36,8 @@ validation, including both preset markers and their wrap.
 
 ## Frame cadence
 
+README cells: peak 🔴 95.710, spilled 🔴 548/548 (100%).
+
 All captured live frames **2–1577**: mean render **44.884 ms**,
 peak **54.817 ms**, spilled **0/1576 (0.00%)**.
 Mean wall time is 62.429 ms. Startup frame 1 renders in

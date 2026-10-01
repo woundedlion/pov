@@ -20,6 +20,8 @@ Exactness cross-check: window frames 609–624 root cyc ÷ 600 MHz matches the w
 
 ## Frame cadence
 
+README cells: peak 🟢 45.242, spilled 🟢 0/1096 (0.00%).
+
 Frames after startup: mean render **41.686 ms**, peak **45.242 ms**, spilled **0/1096 (0.00%)** — 16 fps (every frame). Worst window (609–624) `hl_shader_draw` 42.061 ms/f.
 
 A display window is 62.5 ms; the shader evaluates the 144×72 quadrant plus its one-pixel margin, 146×73 = 10,658 samples. `canvas_buffer_wait` is the round-up idle to the next display flip.

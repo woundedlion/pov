@@ -67,6 +67,8 @@ Exactness cross-check: frames 305–320, root
 
 ### Frame cadence
 
+README cells: peak 🔴 141.587, spilled 🔴 366/366 (100%).
+
 Runtime frames **2–442**: render minimum/mean/peak
 **120.231/126.099/134.620 ms**,
 spilled **441/441 (100%)**. Startup frame 1 renders in

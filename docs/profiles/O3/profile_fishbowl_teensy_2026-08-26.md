@@ -23,6 +23,8 @@ root counter cycles ÷ 600 MHz match the measured wall sum within **2.2 ppm**
 
 ## Frame cadence
 
+README cells: peak 🟢 21.29, spilled 🟢 0/1088 (0%).
+
 **Pass aggregate** (`parse_profile.py ... windows` footer): `fish_build_vertices` avg
 11.50 ms/f, worst window 12.16 ms/f
 (frames 481–512),
