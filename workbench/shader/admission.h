@@ -476,22 +476,7 @@ HS_COLD_MEMBER inline constexpr bool same_parameter_topology(const Config &from,
          from.params.surface_noise.integrator ==
              to.params.surface_noise.integrator &&
          from.params.surface_noise.seed == to.params.surface_noise.seed &&
-         from.params.surface_lens.mobius.a.re ==
-             to.params.surface_lens.mobius.a.re &&
-         from.params.surface_lens.mobius.a.im ==
-             to.params.surface_lens.mobius.a.im &&
-         from.params.surface_lens.mobius.b.re ==
-             to.params.surface_lens.mobius.b.re &&
-         from.params.surface_lens.mobius.b.im ==
-             to.params.surface_lens.mobius.b.im &&
-         from.params.surface_lens.mobius.c.re ==
-             to.params.surface_lens.mobius.c.re &&
-         from.params.surface_lens.mobius.c.im ==
-             to.params.surface_lens.mobius.c.im &&
-         from.params.surface_lens.mobius.d.re ==
-             to.params.surface_lens.mobius.d.re &&
-         from.params.surface_lens.mobius.d.im ==
-             to.params.surface_lens.mobius.d.im;
+         from.params.surface_lens == to.params.surface_lens;
 }
 
 HS_COLD_MEMBER inline constexpr bool stable_topology(const Config &from,
