@@ -183,7 +183,7 @@ struct SphericalNoiseSourceParams : NoiseSourceParams {};
 struct LatticeSourceParams {
   float lattice_cell_scale = 1.0f;  /**< Lattice cells per plane unit. */
   float lattice_shape_blend = 0.0f; /**< Cell primitive, from a circle at 0 to a
-                                         rounded square at 1. */
+                                         square at 1. */
   float lattice_softness = 0.05f;   /**< Half-width of the ramp across the
                                          primitive's boundary. */
   float lattice_radius = 0.25f;     /**< Primitive radius in cell units. */
