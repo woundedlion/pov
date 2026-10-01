@@ -1,4 +1,7 @@
-# Immutable captures retain original bytes and use binary diffs.
-*.txt -text -diff
-*.provenance -text -diff
-*.diff -text -diff
+# Raw captures retain bytes; toolchain terminal dumps use binary diffs.
+*.txt -text whitespace=cr-at-eol
+*_build.txt -text -diff
+*_envdump.txt -text -diff
+*.provenance -text whitespace=cr-at-eol
+*.diff -text whitespace=cr-at-eol
+*.json -text whitespace=cr-at-eol
