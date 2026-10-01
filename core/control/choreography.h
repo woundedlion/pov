@@ -231,7 +231,7 @@ protected:
    * @brief Ends an in-flight transition when the user takes a parameter over.
    * @details A crossfade rewrites the whole parameter set every frame, so a
    * transition left running would overwrite the write that just landed; a fade
-   * returns to full opacity. A manual edit restarts the preset dwell.
+   * returns to full opacity. A manual preset-parameter edit restarts the preset dwell.
    */
   HS_COLD_MEMBER void parameter_written() override {
     end_transition();

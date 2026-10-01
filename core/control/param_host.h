@@ -71,7 +71,8 @@ public:
 #else
     def->write_unchecked(value);
 #endif
-    parameter_written();
+    if (def->preset)
+      parameter_written();
     return ParamSetResult::APPLIED;
   }
 
