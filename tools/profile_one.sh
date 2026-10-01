@@ -33,6 +33,8 @@
 # The checkout containing this script is built by default, so linked worktrees
 # keep their logs and object directories isolated. HS_PROFILE_TREE=<path>
 # explicitly selects another checkout.
+# Profiling requires the shipping phantasm image to pass its size/layout gates;
+# that image supplies the ELF used for compiler and ABI attestation.
 # HS_PROFILE_MINDSPLATTER=counts|stalls builds a dedicated MindSplatter
 # instrumentation image and writes a suffixed log. Count images also enable the
 # generic Plot counters; neither image is valid for timing comparisons.
