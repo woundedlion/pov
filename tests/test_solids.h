@@ -475,30 +475,6 @@ inline void test_registry_names_unique_and_roundtrip() {
 // ---------------------------------------------------------------------------
 
 /**
- * @brief Asserts two meshes are bitwise identical: same counts and same bytes
- *        for vertices, face_counts, and faces.
- * @param m1,m2 Meshes to compare.
- */
-inline void check_bitwise_equal_meshes(const PolyMesh &m1, const PolyMesh &m2) {
-  HS_EXPECT_EQ(m1.vertices.size(), m2.vertices.size());
-  HS_EXPECT_EQ(m1.face_counts.size(), m2.face_counts.size());
-  HS_EXPECT_EQ(m1.faces.size(), m2.faces.size());
-  if (m1.vertices.size() != m2.vertices.size() ||
-      m1.face_counts.size() != m2.face_counts.size() ||
-      m1.faces.size() != m2.faces.size())
-    return;
-  HS_EXPECT_EQ(std::memcmp(m1.vertices.data(), m2.vertices.data(),
-                           m1.vertices.size() * sizeof(math::Vector)),
-               0);
-  HS_EXPECT_EQ(std::memcmp(m1.face_counts.data(), m2.face_counts.data(),
-                           m1.face_counts.size() * sizeof(uint8_t)),
-               0);
-  HS_EXPECT_EQ(std::memcmp(m1.faces.data(), m2.faces.data(),
-                           m1.faces.size() * sizeof(uint16_t)),
-               0);
-}
-
-/**
  * @brief Builds the entry at `index` twice into separate arenas and asserts the
  *        two meshes are bitwise identical.
  * @param index Registry entry index to build twice.

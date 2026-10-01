@@ -807,9 +807,7 @@ constexpr float HOST_TIE_SQ = 1e-4f;
  * @brief Unit-sphere vertex-average centroid of face fi.
  */
 inline math::Vector poly_face_centroid(const PolyMesh &m, size_t fi) {
-  size_t off = 0;
-  for (size_t i = 0; i < fi; ++i)
-    off += m.face_counts[i];
+  const size_t off = poly_face_offset(m, fi);
   return face_centroid_unit(m, off, m.face_counts[fi]);
 }
 
@@ -971,13 +969,8 @@ inline void test_crossfade_exact_at_endpoints_emission() {
   uint8_t pal[16];
   fill_emission_handoff(cube, pal);
 
-  const int edge = [] {
-    for (int e = 0; e < ConwayGraph::NUM_EDGES; ++e)
-      if (ConwayGraph::EDGES[e].from_node == ConwayGraph::CUBE &&
-          ConwayGraph::EDGES[e].to_node == ConwayGraph::TRUNCATED_CUBE)
-        return e;
-    return -1;
-  }();
+  const int edge = find_directed_edge(ConwayGraph::EDGES, ConwayGraph::CUBE,
+                                      ConwayGraph::TRUNCATED_CUBE);
   HS_EXPECT_GE(edge, 0);
   if (edge < 0)
     return;
