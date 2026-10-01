@@ -1066,13 +1066,17 @@ inline void test_vector_slerp() {
   math::Vector p(0, 1, 0), ap(0, -1, 0);
   HS_EXPECT_VEC(math::slerp(p, ap, 0.0f), p, 5e-3f);
   HS_EXPECT_VEC(math::slerp(p, ap, 1.0f), ap, 5e-3f);
-  float a25 = math::dot(math::slerp(p, ap, 0.25f), p);
-  float a50 = math::dot(math::slerp(p, ap, 0.50f), p);
-  float a75 = math::dot(math::slerp(p, ap, 0.75f), p);
-  HS_EXPECT_NEAR(math::slerp(p, ap, 0.5f).length(), 1.0f, 1e-3f);
-  HS_EXPECT_GT(a25, a50);
-  HS_EXPECT_GT(a50, a75);
-  HS_EXPECT_NEAR(a50, 0.0f, 5e-3f);
+  float previous = math::dot(math::slerp(p, ap, 0.0f), p);
+  for (int step = 1; step <= 16; ++step) {
+    const float T = static_cast<float>(step) / 16.0f;
+    const math::Vector interpolated = math::slerp(p, ap, T);
+    HS_EXPECT_NEAR(interpolated.length(), 1.0f, 1e-3f);
+    const float current = math::dot(interpolated, p);
+    HS_EXPECT_GT(previous, current);
+    previous = current;
+  }
+  HS_EXPECT_NEAR(previous, -1.0f, 5e-3f);
+  HS_EXPECT_NEAR(math::dot(math::slerp(p, ap, 0.5f), p), 0.0f, 5e-3f);
 
   const math::Vector normalized = math::Vector(1, 1, 1).normalized();
   HS_EXPECT_VEC(math::slerp(normalized, -normalized, 0.0f), normalized, 1e-5f);
@@ -1225,24 +1229,6 @@ inline void test_scaled_rotation_delta() {
     HS_EXPECT_GT(turned, previous);
     previous = turned;
   }
-}
-
-/**
- * @brief Verifies Vector slerp across antipodal endpoints sweeps monotonically:
- *        dot with the start strictly decreases as t increases, with no flip.
- */
-inline void test_vector_slerp_antipodal_monotonic() {
-  math::Vector p(0, 1, 0), ap(0, -1, 0);
-  float prev = math::dot(math::slerp(p, ap, 0.0f), p);
-  for (int i = 1; i <= 16; ++i) {
-    float t = static_cast<float>(i) / 16.0f;
-    math::Vector s = math::slerp(p, ap, t);
-    HS_EXPECT_NEAR(s.length(), 1.0f, 1e-3f);
-    float cur = math::dot(s, p);
-    HS_EXPECT_GT(prev, cur);
-    prev = cur;
-  }
-  HS_EXPECT_NEAR(prev, -1.0f, 5e-3f);
 }
 
 // ============================================================================
@@ -2028,7 +2014,6 @@ inline int run_3dmath_tests() {
 
   test_vector_slerp();
   test_vector_nlerp_unit();
-  test_vector_slerp_antipodal_monotonic();
   test_quaternion_slerp();
   test_scaled_rotation_delta();
 
