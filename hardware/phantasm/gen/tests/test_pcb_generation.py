@@ -456,7 +456,7 @@ class TerminalEdgePlacementChecks:
         footprints = {reference(fp): fp for fp in F(self.root, "footprint")}
         for ref in ("R1", "R2", "C_SYNC"):
             self.assertEqual(sexp.val(footprints[ref], "locked"), ["yes"], ref)
-        self.assertNotIn("/FRAME_SYNC", connectivity.opens(self.root))
+        self.assertNotIn("FRAME_SYNC", connectivity.opens(self.root))
         net_id = sexp.val(next(pad for pad in F(footprints["C_SYNC"], "pad")
                               if pad[1] == "1"), "net")[0]
         tracks = [track for track in F(self.root, "segment")
