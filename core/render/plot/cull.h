@@ -1091,10 +1091,9 @@ static inline int geodesic_clip_splits(const math::Vector &a,
  * @param col_span Column-arc source, evaluated only once the row span survives
  *        and x clipping is active.
  * @return True if the rendered edge could produce a pixel inside the clip.
- * @details The single definition of the geodesic segment cull: rasterize
- * evaluates it per edge through edge_visible_in_clip, and the hoisted trail
- * gates evaluate it per edge from shared per-point coordinates. Every caller
- * must agree exactly or the paths diverge.
+ * @details The exact geodesic segment cull used by rasterize through
+ * edge_visible_in_clip. The parity-tested raw_geodesic_edge_gate is a fast
+ * path for particle trails and defers here for sensitive geometry.
  */
 template <int W, int H, typename ColSpanFn>
 static __attribute__((always_inline)) inline bool
