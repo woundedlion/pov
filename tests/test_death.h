@@ -31,7 +31,7 @@
  * derived — the denominator from a build-time census of the sources
  * (tests/count_guard_sites.cmake), the numerator from the case table — so the
  * ratio is informational. Per-file unpinned counts are gated against
- * GUARD_GAP_ALLOW and fail the module when exceeded.
+ * GUARD_GAP_ALLOW and must match exactly; gaps above or below fail the module.
  */
 #pragma once
 
@@ -6963,8 +6963,8 @@ inline int run_death_tests() {
   int n;
   const Case *cs = all_cases(n);
 
-  // Probe how a trap is relayed (direct SIGILL vs an exit 128+SIGILL) with a
-  // dedicated always-trapping sentinel rather than a real case. A real case that
+  // Probe SIGILL / STATUS_ILLEGAL_INSTRUCTION observability with a dedicated
+  // always-trapping sentinel rather than a real case. A real case that
   // regressed to not trapping would otherwise corrupt shape detection and skip
   // the whole suite, instead of failing just that case in the loop below. The
   // sentinel traps through the same HS_CHECK path, so its shape matches the cases.
