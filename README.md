@@ -503,6 +503,7 @@ files define line-ending policy and working-artifact exclusions.
 │   ├── profile_one.sh / profile_sweep.sh  On-device HS_PROFILE flash + capture runs
 │   ├── profile_islamic_big.sh  Focused profiling loop for IslamicStars' largest mesh
 │   ├── profile_capture.py      Serial capture of the profiling image's readout
+│   ├── profile_envdump.py      Omit host process variables from build captures
 │   ├── profile_spherical_experiment.h  Standalone periodic-surface device experiment
 │   ├── parse_profile.py        Capture-log parser behind the per-window/per-preset reports
 │   ├── pullback_profile_build.py  Profile-image Git-SHA build hook for pullback telemetry
