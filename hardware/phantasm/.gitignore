@@ -14,3 +14,8 @@ gen/out/
 renders/
 # IDE local history
 .history/
+
+# Local Quilter downloads and validation reports
+candidates/
+drc.json
+parity.json
