@@ -76,9 +76,12 @@ def verify(repo_root: Path) -> tuple[list[str], int]:
             errors.append(f"{where} has no path component")
             continue
         decoded = unquote(parts.path)
+        if decoded.startswith("/"):
+            errors.append(f"{where} root-relative src cannot be served from the "
+                          "published docs; use a document-relative path")
+            continue
         relative = posixpath.normpath(
-            decoded.lstrip("/") if decoded.startswith("/")
-            else posixpath.join(source.parent.as_posix(), decoded))
+            posixpath.join(source.parent.as_posix(), decoded))
         target = (repo_root / relative).resolve()
         if not target.is_relative_to(repo_root):
             errors.append(f"{where} resolves outside the repository")

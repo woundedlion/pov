@@ -189,6 +189,14 @@ class TestDocsImagesVerify(unittest.TestCase):
         self.track("README.md", '<img src="docs/Ring%20Spin.png?v=2#top">')
         self.assertEqual(di.verify(self.repo), ([], 1))
 
+    def test_root_relative_source_is_rejected(self):
+        self.track("docs/pinout.png", b"pixels")
+        self.track("README.md", '<img src="/docs/pinout.png">')
+        errors, checked = di.verify(self.repo)
+        self.assertEqual(checked, 1)
+        self.assertEqual(len(errors), 1)
+        self.assertIn("root-relative src", errors[0])
+
     def test_empty_source_is_reported(self):
         self.track("README.md", '<img src="">')
         errors, _ = di.verify(self.repo)
