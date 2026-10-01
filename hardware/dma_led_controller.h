@@ -60,7 +60,7 @@ concept LedTransport = std::constructible_from<T, uint32_t> &&
  *       DMAMEM section attribute on a vague-linkage template static member, so
  *       such an instance must be defined as an explicit specialization, whose
  *       ordinary strong linkage keeps the attribute. The placement is checked
- *       per target by the `dma_tx_buffer` layout invariant in
+ *       for the Phantasm image by the `dma_tx_buffer` layout invariant in
  *       tools/teensy_budgets.json.
  *
  * Typical ISR usage (per column):
