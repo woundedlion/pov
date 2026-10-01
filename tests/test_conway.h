@@ -199,33 +199,6 @@ inline void check_euler_genus0(const PolyMesh &m) {
 }
 
 /**
- * @brief Asserts two meshes agree bit for bit.
- * @param a First mesh.
- * @param b Second mesh.
- * @details Vertices compare exactly: callers pair paths that run the same
- *          arithmetic in the same emission order, so anything short of equality
- *          is a divergence.
- */
-inline void check_meshes_identical(const PolyMesh &a, const PolyMesh &b) {
-  HS_EXPECT_EQ(a.vertices.size(), b.vertices.size());
-  HS_EXPECT_EQ(a.face_counts.size(), b.face_counts.size());
-  HS_EXPECT_EQ(a.faces.size(), b.faces.size());
-  if (a.vertices.size() != b.vertices.size() ||
-      a.face_counts.size() != b.face_counts.size() ||
-      a.faces.size() != b.faces.size())
-    return;
-  for (size_t i = 0; i < a.vertices.size(); ++i) {
-    HS_EXPECT_EQ(a.vertices[i].x, b.vertices[i].x);
-    HS_EXPECT_EQ(a.vertices[i].y, b.vertices[i].y);
-    HS_EXPECT_EQ(a.vertices[i].z, b.vertices[i].z);
-  }
-  for (size_t i = 0; i < a.face_counts.size(); ++i)
-    HS_EXPECT_EQ(a.face_counts[i], b.face_counts[i]);
-  for (size_t i = 0; i < a.faces.size(); ++i)
-    HS_EXPECT_EQ(a.faces[i], b.faces[i]);
-}
-
-/**
  * @brief Histogram of vertex degree (incident faces) → number of such vertices.
  * @param m Mesh to inspect.
  * @details In a closed manifold a vertex's incident-face count equals its edge
@@ -1059,15 +1032,8 @@ inline void test_snub_twist_rotates_primary_faces() {
 
   for (const auto &ids : primary_faces) {
     const int sides = static_cast<int>(ids.size());
-    math::Vector n(0, 0, 0);
-    for (int k = 0; k < sides; ++k) {
-      const math::Vector &p = base[ids[k]];
-      const math::Vector &q = base[ids[(k + 1) % sides]];
-      n.x += (p.y - q.y) * (p.z + q.z);
-      n.y += (p.z - q.z) * (p.x + q.x);
-      n.z += (p.x - q.x) * (p.y + q.y);
-    }
-    n = n.normalized();
+    const math::Vector n =
+        newell_normal(sides, [&](int k) { return base[ids[k]]; }).normalized();
     for (int k = 0; k < sides; ++k) {
       uint16_t a0 = ids[k], a1 = ids[(k + 1) % sides];
       math::Vector e_base = base[a1] - base[a0];

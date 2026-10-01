@@ -199,25 +199,6 @@ inline float max_edge_length_deviation(const PolyMesh &m) {
 }
 
 /**
- * @brief Newell-sum area of face fi.
- */
-inline float poly_face_area(const PolyMesh &m, size_t fi) {
-  size_t off = 0;
-  for (size_t i = 0; i < fi; ++i)
-    off += m.face_counts[i];
-  const int n = m.face_counts[fi];
-  math::Vector s(0.0f, 0.0f, 0.0f);
-  for (int k = 1; k + 1 < n; ++k) {
-    const math::Vector e1 =
-        m.vertices[m.faces[off + k]] - m.vertices[m.faces[off]];
-    const math::Vector e2 =
-        m.vertices[m.faces[off + k + 1]] - m.vertices[m.faces[off]];
-    s = s + math::cross(e1, e2);
-  }
-  return 0.5f * s.length();
-}
-
-/**
  * @brief Verifies got's vertices merge pairwise onto want's: exactly two got
  *        vertices within tol of every want vertex.
  */
@@ -809,7 +790,7 @@ inline void test_edge_endpoints_match_registry() {
         if (ConwayGraph::is_jitterbug_edge(e))
           check_regular_form(got, want, 1e-4f);
         else
-          conway_tests::check_meshes_identical(got, want);
+          hs_test::check_meshes_identical(got, want);
       }
     }
 
@@ -827,7 +808,7 @@ inline void test_edge_endpoints_match_registry() {
 
       switch (to_end_regime(e)) {
       case EndRegime::EXACT:
-        conway_tests::check_meshes_identical(got, want);
+        hs_test::check_meshes_identical(got, want);
         break;
       case EndRegime::BAKED_RELAX:
         check_equal_within_relax_gate(got, want);
@@ -1689,15 +1670,9 @@ inline void hankin_face_normals(const CompiledHankin &compiled,
   size_t base = 0;
   for (size_t f = 0; f < compiled.face_counts.size(); ++f) {
     const size_t n = compiled.face_counts[f];
-    math::Vector normal;
-    for (size_t k = 0; k < n; ++k) {
-      const math::Vector a = vertex_at(compiled.faces[base + k]);
-      const math::Vector b = vertex_at(compiled.faces[base + (k + 1) % n]);
-      normal.x += (a.y - b.y) * (a.z + b.z);
-      normal.y += (a.z - b.z) * (a.x + b.x);
-      normal.z += (a.x - b.x) * (a.y + b.y);
-    }
-    out[f] = normal;
+    out[f] = newell_normal(static_cast<int>(n), [&](int k) {
+      return vertex_at(compiled.faces[base + k]);
+    });
     base += n;
   }
 }
@@ -3514,13 +3489,8 @@ inline void test_opleg_edge_leg_crossfade() {
     uint8_t pal[16];
     for (size_t f = 0; f < cube.face_counts.size(); ++f)
       pal[f] = static_cast<uint8_t>(f % OpLeg::PALETTES);
-    const int edge = [] {
-      for (int e = 0; e < ConwayGraph::NUM_EDGES; ++e)
-        if (ConwayGraph::EDGES[e].from_node == ConwayGraph::CUBE &&
-            ConwayGraph::EDGES[e].to_node == ConwayGraph::TRUNCATED_CUBE)
-          return e;
-      return -1;
-    }();
+    const int edge = find_directed_edge(ConwayGraph::EDGES, ConwayGraph::CUBE,
+                                        ConwayGraph::TRUNCATED_CUBE);
     HS_EXPECT_GE(edge, 0);
     if (edge < 0)
       return;
