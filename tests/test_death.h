@@ -1771,6 +1771,30 @@ inline void case_lattice_shells_oob() {
                               0.01f);
 }
 
+/** @brief Death case: zero lattice softness would divide by zero in shading. */
+inline void case_lattice_zero_softness() {
+  SDF::Lattice::Settings settings;
+  settings.softness = opaque(0.0f);
+  (void)SDF::Lattice::prepare(settings, {}, math::Mat4::identity(), 4.0f,
+                              0.01f);
+}
+
+/** @brief Death case: zero lattice cell size has no inverse transform. */
+inline void case_lattice_zero_cell_size() {
+  SDF::Lattice::Settings settings;
+  settings.cell_size = opaque(0.0f);
+  (void)SDF::Lattice::prepare(settings, {}, math::Mat4::identity(), 4.0f,
+                              0.01f);
+}
+
+/** @brief Death case: a negative AA strength gives invalid crossing widths. */
+inline void case_lattice_negative_aa() {
+  SDF::Lattice::Settings settings;
+  settings.aa_strength = opaque(-1.0f);
+  (void)SDF::Lattice::prepare(settings, {}, math::Mat4::identity(), 4.0f,
+                              0.01f);
+}
+
 /** @brief Death case: a HyperLattice frame without crossing scratch traps. */
 inline void case_hyperlattice_frame_without_crossings() {
   const HyperLatticeDetail::FrameState frame{};
@@ -4918,6 +4942,18 @@ inline const Case *all_cases(int &n) {
       {"lattice_shells_oob", case_lattice_shells_oob,
        "core/render/sdf/lattice.h",
        "(static_cast<uint8_t>(settings.shells) < MAX_SHELLS) lattice shell count exceeds crossing capacity"},
+      {"lattice_zero_softness", case_lattice_zero_softness,
+       "core/render/sdf/lattice.h",
+       "(settings.softness > 0 && settings.cell_size > 0 && "
+       "settings.aa_strength >= 0) lattice requires positive softness"},
+      {"lattice_zero_cell_size", case_lattice_zero_cell_size,
+       "core/render/sdf/lattice.h",
+       "(settings.softness > 0 && settings.cell_size > 0 && "
+       "settings.aa_strength >= 0) lattice requires positive softness"},
+      {"lattice_negative_aa", case_lattice_negative_aa,
+       "core/render/sdf/lattice.h",
+       "(settings.softness > 0 && settings.cell_size > 0 && "
+       "settings.aa_strength >= 0) lattice requires positive softness"},
       {"hyperlattice_frame_without_crossings",
        case_hyperlattice_frame_without_crossings, "effects/HyperLattice.h",
        "(frame.crossings) HyperLattice: frame has no crossing list"},

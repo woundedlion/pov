@@ -44,6 +44,10 @@ inline PreparedTrace prepare(const Settings &settings, const math::Vec4 &origin,
                              float pixel_half_angle) {
   HS_CHECK(static_cast<uint8_t>(settings.shells) < MAX_SHELLS,
            "lattice shell count exceeds crossing capacity");
+  HS_CHECK(
+      settings.softness > 0 && settings.cell_size > 0 &&
+          settings.aa_strength >= 0,
+      "lattice requires positive softness and cell size and nonnegative AA");
   const float INV_CELL = 1.0f / settings.cell_size;
   PreparedTrace result{settings,
                        origin,
