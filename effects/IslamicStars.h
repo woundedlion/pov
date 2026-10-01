@@ -58,18 +58,9 @@ public:
       "HS_ISLAMICSTARS_PROFILE_SHAPE is outside the Islamic solid registry");
 #endif
 
-  struct ArenaBudget {
-    size_t scratch_a;
-    size_t scratch_b;
-
-    constexpr size_t persistent(size_t total = DEVICE_GLOBAL_ARENA_SIZE) const {
-      return total - scratch_a - scratch_b;
-    }
-  };
-
-  static constexpr ArenaBudget GENERATED_BUDGET{116 * 1024, 74 * 1024};
-  static constexpr ArenaBudget RECIPE_BUDGET{116 * 1024, 72 * 1024};
-  static constexpr ArenaBudget BRIDGE_BUDGET{129 * 1024 + 512, 74 * 1024};
+  static constexpr ArenaSplit GENERATED_BUDGET{116 * 1024, 74 * 1024};
+  static constexpr ArenaSplit RECIPE_BUDGET{116 * 1024, 72 * 1024};
+  static constexpr ArenaSplit BRIDGE_BUDGET{129 * 1024 + 512, 74 * 1024};
   static_assert(BRIDGE_BUDGET.scratch_a + BRIDGE_BUDGET.scratch_b <
                 DEVICE_GLOBAL_ARENA_SIZE);
 
@@ -85,9 +76,8 @@ public:
    *        with the orientation walk and the first shape.
    */
   HS_COLD_MEMBER void init() override {
-    configure_arenas(GENERATED_BUDGET.persistent(GLOBAL_ARENA_SIZE),
-                     GENERATED_BUDGET.scratch_a, GENERATED_BUDGET.scratch_b);
-    device_persistent_budget = GENERATED_BUDGET.persistent();
+    GENERATED_BUDGET.configure();
+    device_persistent_budget = GENERATED_BUDGET.device_persistent();
 
     ripple_gen.init_storage(persistent_arena);
     claim_face_palettes(persistent_arena);
@@ -442,10 +432,10 @@ private:
    */
   HS_COLD_MEMBER void resplit_for_spawn(bool has_recipe) {
     const bool bridge_split = has_recipe && build_uses_smooth_bridge();
-    const ArenaBudget budget = bridge_split ? BRIDGE_BUDGET
-                               : has_recipe ? RECIPE_BUDGET
-                                            : GENERATED_BUDGET;
-    device_persistent_budget = budget.persistent();
+    const ArenaSplit budget = bridge_split ? BRIDGE_BUDGET
+                              : has_recipe ? RECIPE_BUDGET
+                                           : GENERATED_BUDGET;
+    device_persistent_budget = budget.device_persistent();
     resplit_arenas(budget.persistent(GLOBAL_ARENA_SIZE), budget.scratch_a,
                    budget.scratch_b);
   }
