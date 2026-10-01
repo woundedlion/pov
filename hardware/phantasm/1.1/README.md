@@ -80,11 +80,10 @@ zero JLCDFM findings. Run KiCad DRC and JLCDFM on every new routed package.
 
 ## Validation
 
-Every bullet maps to executed code. The gates that read the
-committed board directly need no KiCad and run in CI
-(`python -m unittest discover -s ../gen/tests`,
-`python ../gen/board_metadata.py --check`); the rest need a local KiCad 10
-(`kicad-cli`) and run when the fab package is regenerated.
+The `pcb-tests` CI job runs the generator suite under pinned KiCad 10.0.4,
+including schematic generation, committed-board parity and DRC, and
+generated-board DRC. Metadata checks also run in CI. ERC and fabrication
+exports run locally through `../gen/fab.py` when the package is regenerated.
 
 - **N=8 firmware:** `pio run -e phantasm8` compiles and links the optional
   eight-board profile; this is firmware validation, not rotor qualification.
