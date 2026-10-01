@@ -4194,7 +4194,7 @@ inline const ReconcileSite RECONCILE_SITES[] = {
 };
 
 /** The identity truncate depth the smooth path sweeps to (the "uniform" Conway
- * depth); IslamicStars::MACRO_TRUNCATE_T mirrors this. */
+ * depth); RecipeBuild::MACRO_TRUNCATE_T is pinned to this by IslamicBuildProbe. */
 inline constexpr float RECONCILE_TRUNCATE_T = 1.0f / 3.0f;
 
 /**
