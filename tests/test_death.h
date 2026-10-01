@@ -6277,18 +6277,19 @@ inline void run_child_case(const char *name) {
   if (std::strcmp(name, DETERMINISM_PROBE_CASE) == 0) {
     std::vector<Pixel> frame;
     uint64_t fold = 0;
-    uint64_t combined = hs_test::FNV1A64_BASIS;
     const auto CAPTURE = [&]<template <int, int> class E>() {
       effects_tests::render_capture<E, effects_tests::SMALL_W,
                                     effects_tests::SMALL_H>(frame, 8, &fold);
-      for (unsigned shift = 0; shift < 64; shift += 8)
-        combined = hs_test::fnv1a64_byte(combined,
-                                         static_cast<uint8_t>(fold >> shift));
+      const uint64_t COLD = fold;
+      effects_tests::render_capture<E, effects_tests::SMALL_W,
+                                    effects_tests::SMALL_H>(frame, 8, &fold);
+      std::printf("capture %016llx %016llx\n",
+                  static_cast<unsigned long long>(COLD),
+                  static_cast<unsigned long long>(fold));
     };
-    CAPTURE.operator()<Comets>();
-    CAPTURE.operator()<MindSplatter>();
-    CAPTURE.operator()<ShaderChain>();
-    std::printf("%016llx\n", static_cast<unsigned long long>(combined));
+#define HS_CAPTURE_COLD_WARM(effect) CAPTURE.operator()<effect>();
+    HS_EFFECT_LIST(HS_CAPTURE_COLD_WARM)
+#undef HS_CAPTURE_COLD_WARM
     return;
   }
   int n;
@@ -6999,8 +7000,32 @@ inline int run_death_tests() {
   const std::string fold_b = child_output();
   HS_EXPECT_TRUE(child_exited_clean(determinism_a));
   HS_EXPECT_TRUE(child_exited_clean(determinism_b));
-  // A child that skipped the probe leaves two empty captures that compare equal.
-  HS_EXPECT_EQ(fold_a.find_first_not_of("0123456789abcdef"), size_t{16});
+#define HS_COUNT_DETERMINISM_EFFECT(effect) +1
+  constexpr size_t EFFECT_COUNT = 0 HS_EFFECT_LIST(HS_COUNT_DETERMINISM_EFFECT);
+#undef HS_COUNT_DETERMINISM_EFFECT
+  constexpr size_t PREFIX_BYTES = sizeof("capture ") - 1;
+  constexpr size_t PAYLOAD_BYTES = 33;
+  size_t record_count = 0;
+  size_t offset = 0;
+  while ((offset = fold_a.find("capture ", offset)) != std::string::npos) {
+    HS_CONTEXT("effect", record_count);
+    offset += PREFIX_BYTES;
+    if (offset + PAYLOAD_BYTES >= fold_a.size()) {
+      HS_EXPECT_TRUE(false);
+      break;
+    }
+    const std::string COLD = fold_a.substr(offset, 16);
+    const std::string WARM = fold_a.substr(offset + 17, 16);
+    HS_EXPECT_EQ(COLD.find_first_not_of("0123456789abcdef"), std::string::npos);
+    HS_EXPECT_EQ(WARM.find_first_not_of("0123456789abcdef"), std::string::npos);
+    HS_EXPECT_EQ(fold_a[offset + 16], ' ');
+    HS_EXPECT_TRUE(fold_a[offset + PAYLOAD_BYTES] == '\r' ||
+                   fold_a[offset + PAYLOAD_BYTES] == '\n');
+    HS_EXPECT_EQ(COLD, WARM);
+    ++record_count;
+    offset += PAYLOAD_BYTES;
+  }
+  HS_EXPECT_EQ(record_count, EFFECT_COUNT);
   HS_EXPECT_EQ(fold_a, fold_b);
 
 #if defined(_WIN32)
