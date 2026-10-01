@@ -1113,9 +1113,10 @@ private:
                                     pattern_freq_max(function));
     register_clamped_animated_param("Speed", &params.speed, 0.0f,
                                     Workbench::SPEED_MAX);
-    register_clamped_animated_param(
-        "Source Angle Speed", &params.angle_rate, 0.0f,
-        domain_scaled_max(Workbench::WAVE_SPIN_MAX, 0.03f, domain_scale));
+    if (function != Workbench::Function::RINGS)
+      register_clamped_animated_param(
+          "Source Angle Speed", &params.angle_rate, 0.0f,
+          domain_scaled_max(Workbench::WAVE_SPIN_MAX, 0.03f, domain_scale));
     if (function == Workbench::Function::GRID) {
       register_animated_param("Complexity", &params.complexity,
                               Workbench::COMPLEXITY_MIN,
@@ -1123,6 +1124,9 @@ private:
       register_animated_param("Pattern Mix", &params.pattern_mix,
                               Workbench::PATTERN_MIX_MIN,
                               Workbench::PATTERN_MIX_MAX);
+    }
+    if (function == Workbench::Function::GRID ||
+        function == Workbench::Function::TWIN_WAVE) {
       register_clamped_animated_param(
           "Drift", &params.secondary_rate, Workbench::PHASE2_RATE_MIN,
           domain_scaled_max(Workbench::PHASE2_RATE_MAX, 1.25f, domain_scale));
