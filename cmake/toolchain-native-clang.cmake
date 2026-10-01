@@ -11,7 +11,7 @@
 #   1. An explicitly provided CMAKE_CXX_COMPILER (respected, not overridden).
 #   2. $ENV{EMSDK}/upstream/bin/clang++         (set by emsdk_env).
 #   3. <repo>/../emsdk/upstream/bin/clang++     (sibling emsdk checkout).
-#   4. clang/clang++ from PATH                  (Linux/macOS CI, or PATH setups).
+#   4. clang/clang++ from PATH                  (PATH setups).
 
 # --- Locate the Clang bin directory (used for both the compiler and lld) ---
 set(_hs_clang_dir "")
