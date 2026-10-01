@@ -436,12 +436,10 @@ interpolate(const ComposedDetail::ParameterSet<
             const ComposedDetail::ParameterSet<
                 ComposedDetail::ResourceList<Resources...>> &to,
             float progress) {
-  auto result = from;
-  from.visit([&]<typename Resource>(const auto &family) {
-    result.template get<Resource::KEY>() =
-        interpolate(family, to.template get<Resource::KEY>(), progress);
-  });
-  return result;
+  return {ComposedDetail::ParameterBlock<Resources::KEY,
+                                         typename Resources::Family>{
+      interpolate(from.template get<Resources::KEY>(),
+                  to.template get<Resources::KEY>(), progress)}...};
 }
 
 /**
