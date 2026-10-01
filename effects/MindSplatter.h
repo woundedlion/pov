@@ -123,7 +123,7 @@ public:
    */
   HS_COLD_MEMBER void init() override {
     static constexpr size_t SCRATCH_BYTES = 6 * 1024;
-    configure_arenas(GLOBAL_ARENA_SIZE - SCRATCH_BYTES, SCRATCH_BYTES, 0);
+    ArenaSplit{SCRATCH_BYTES, 0}.configure();
     begin_choreography();
 
     // Compile-time device-budget guard: GLOBAL_ARENA_SIZE is inflated on the
