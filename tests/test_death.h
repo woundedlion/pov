@@ -2126,6 +2126,7 @@ inline void case_transformer_pool_outlives_timeline() {
  * @details Defaults to 32x16 and exposes register_param via reg.
  */
 struct DeathEffect : public Effect {
+  using Effect::register_param;
   /**
    * @brief Constructs the effect at the requested resolution.
    * @param width Canvas width in pixels.
@@ -2382,6 +2383,64 @@ inline void case_register_int_param_min_inexact() {
   DeathEffect fx;
   static int32_t slot = 0;
   fx.reg_int("count", &slot, opaque(-std::numeric_limits<int32_t>::max()), 0);
+}
+
+inline void case_param_spec_uint32_bound_outside_storage() {
+  DeathEffect fx;
+  uint32_t value = 0;
+  fx.register_param("unsigned", &value,
+                    ParamSpec<uint32_t>{.min = 0, .max = 4294967296LL});
+}
+
+inline void case_param_spec_uint32_bound_inexact() {
+  DeathEffect fx;
+  uint32_t value = 0;
+  fx.register_param("unsigned", &value,
+                    ParamSpec<uint32_t>{.min = 0, .max = 4294967295LL});
+}
+
+inline void case_param_spec_integer_preserve_policy() {
+  DeathEffect fx;
+  uint8_t value = 0;
+  fx.register_param(
+      "integer", &value,
+      ParamSpec<uint8_t>{.initial_value =
+                             ParamInitialValue::PRESERVE_REQUESTED_FLOAT});
+}
+
+inline void case_param_spec_float_bound_nonfinite() {
+  DeathEffect fx;
+  float value = 0.0f;
+  fx.register_param(
+      "float", &value,
+      ParamSpec<float>{.max = std::numeric_limits<float>::infinity()});
+}
+
+inline void case_param_spec_requested_nonfinite() {
+  DeathEffect fx;
+  float value = std::numeric_limits<float>::quiet_NaN();
+  fx.register_param(
+      "requested", &value,
+      ParamSpec<float>{.initial_value =
+                           ParamInitialValue::PRESERVE_REQUESTED_FLOAT});
+}
+
+inline void case_param_spec_option_label_null() {
+  DeathEffect fx;
+  uint8_t value = 0;
+  const char *const options[] = {"Zero", nullptr};
+  fx.register_param("labels", &value,
+                    ParamSpec<uint8_t>::enumerated(options, 2));
+}
+
+inline void case_param_spec_export_label_null() {
+  DeathEffect fx;
+  enum class Mode : uint8_t { ZERO };
+  Mode value = Mode::ZERO;
+  const char *const options[] = {"Zero", "One"};
+  const char *const exports[] = {"Mode::ZERO", nullptr};
+  fx.register_param("exports", &value,
+                    ParamSpec<Mode>::enumerated(options, 2, exports));
 }
 
 /**
@@ -5614,6 +5673,30 @@ inline const Case *all_cases(int &n) {
       {"register_int_param_min_inexact", case_register_int_param_min_inexact,
        "core/control/param_host.h",
        "(bounds_exact) register_int_param: bounds must be exactly representable as float"},
+      {"param_spec_uint32_bound_outside_storage",
+       case_param_spec_uint32_bound_outside_storage,
+       "core/control/param_host.h",
+       "(range_fits) register_int_param: [min,max] must fit the target integer type"},
+      {"param_spec_uint32_bound_inexact", case_param_spec_uint32_bound_inexact,
+       "core/control/param_host.h",
+       "(bounds_exact) register_int_param: bounds must be exactly representable as float"},
+      {"param_spec_integer_preserve_policy",
+       case_param_spec_integer_preserve_policy, "core/control/param_host.h",
+       "(spec.initial_value == ParamInitialValue::REQUIRE_IN_RANGE) register_param: "
+       "preserving requested values requires a non-enum float"},
+      {"param_spec_float_bound_nonfinite",
+       case_param_spec_float_bound_nonfinite, "core/control/param_host.h",
+       "(std::isfinite(min) && std::isfinite(max)) register_param: bounds must be finite"},
+      {"param_spec_requested_nonfinite", case_param_spec_requested_nonfinite,
+       "core/control/param_host.h",
+       "(std::isfinite(*ptr)) register_param: requested value must be finite"},
+      {"param_spec_option_label_null", case_param_spec_option_label_null,
+       "core/control/param_host.h",
+       "(options[i] != nullptr) register_param: null option label"},
+      {"param_spec_export_label_null", case_param_spec_export_label_null,
+       "core/control/param_host.h",
+       "(spec.export_options == nullptr || spec.export_options[i] != nullptr) "
+       "register_param: null export label"},
       {"set_clip_out_of_bounds", case_set_clip_out_of_bounds,
        "core/render/canvas.h",
        "(y0 >= 0 && y0 <= y1 && y1 <= clip_region.h && x0 >= 0 && x0 <= x1 "
@@ -5897,7 +5980,8 @@ inline const Case *all_cases(int &n) {
       {"chain_non_power_alignment", case_chain_non_power_alignment,
        "core/render/pullback/interpreter.h",
        "(layout.align != 0 && (layout.align & (layout.align - 1)) == 0 && layout.align <= alignof(std::max_align_t)) ChainProgram::bind_storage: invalid block alignment"},
-      {"chain_overaligned_block", case_chain_overaligned_block, "core/render/pullback/interpreter.h", "(layout.align != 0 && (layout.align & (layout.align - 1)) == 0 && layout.align <= alignof(std::max_align_t)) ChainProgram::bind_storage: invalid block alignment"},
+      {"chain_overaligned_block",
+       case_chain_overaligned_block, "core/render/pullback/interpreter.h", "(layout.align != 0 && (layout.align & (layout.align - 1)) == 0 && layout.align <= alignof(std::max_align_t)) ChainProgram::bind_storage: invalid block alignment"},
       {"chain_zero_size", case_chain_zero_size,
        "core/render/pullback/interpreter.h",
        "(layout.size > 0 && layout.size % layout.align == 0) ChainProgram::bind_storage: invalid block size"},

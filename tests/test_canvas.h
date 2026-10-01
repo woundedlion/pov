@@ -42,6 +42,7 @@ enum class TestModeU32 : uint32_t { NONE, WARP, SPARKLE };
 struct TestEffect : public Effect {
   using Effect::mark_global;
   using Effect::mark_readonly;
+  using Effect::register_param;
 
   float speed = 1.5f; /**< Sample float param backing store. */
   bool flag = false;  /**< Sample bool param backing store. */
@@ -1391,6 +1392,97 @@ inline void test_typed_enum_storage_widths() {
   HS_EXPECT_EQ(u32, TestModeU32::SPARKLE);
 }
 
+/** @brief Typed descriptions admit independent policies for every target kind. */
+inline void test_typed_parameter_specs() {
+  TestEffect fx(4, 4);
+  static constexpr const char *MODES[] = {"None", "Warp", "Sparkle"};
+  static constexpr const char *EXPORT_MODES[] = {
+      "TestMode::NONE", "TestMode::WARP", "TestMode::SPARKLE"};
+  int16_t count = 4;
+  TestMode mode = TestMode::WARP;
+  uint8_t mode8 = 0;
+  float float_mode = 0.0f;
+  bool telemetry = true;
+  bool enabled = false;
+  uint32_t large_count = 4294967040u;
+  const uint32_t generation = fx.getParameterSchemaGeneration();
+
+  fx.register_param("Count", &count,
+                    ParamSpec<int16_t>{.min = -4,
+                                       .max = 20,
+                                       .animated = true,
+                                       .readonly = true,
+                                       .preset = false});
+  auto enum_spec = ParamSpec<TestMode>::enumerated(MODES, 3, EXPORT_MODES);
+  enum_spec.animated = true;
+  enum_spec.readonly = true;
+  fx.register_param("Mode", &mode, enum_spec);
+  fx.register_param("Mode8", &mode8, ParamSpec<uint8_t>::enumerated(MODES, 3));
+  auto float_spec = ParamSpec<float>::enumerated(MODES, 3);
+  float_spec.animated = true;
+  fx.register_param("FloatMode", &float_mode, float_spec);
+  fx.register_param("Telemetry", &telemetry, ParamSpec<bool>{.readonly = true});
+  fx.register_param("Enabled", &enabled, ParamSpec<bool>{.preset = false});
+  fx.register_param("LargeCount", &large_count,
+                    ParamSpec<uint32_t>{.min = 0, .max = 4294967040LL});
+
+  HS_EXPECT_EQ(fx.getParameterSchemaGeneration(), generation + 7);
+  const auto &parameters = fx.getParameters();
+  HS_EXPECT_EQ(parameters.size(), size_t(7));
+  HS_EXPECT_TRUE(parameters.find("Count")->readonly);
+  HS_EXPECT_TRUE(parameters.find("Count")->animated);
+  HS_EXPECT_FALSE(parameters.find("Count")->preset);
+  HS_EXPECT_TRUE(parameters.find("Mode")->export_options == EXPORT_MODES);
+  HS_EXPECT_TRUE(parameters.find("Mode8")->options == MODES);
+  HS_EXPECT_FALSE(parameters.find("Mode8")->animated);
+  HS_EXPECT_FALSE(parameters.find("Enabled")->preset);
+  HS_EXPECT_EQ(parameters.find("LargeCount")->max, 4294967040.0f);
+  HS_EXPECT_EQ(fx.updateParameter("Count", 9.0f), ParamSetResult::READONLY);
+  HS_EXPECT_EQ(fx.updateParameter("Mode", 2.0f), ParamSetResult::READONLY);
+  HS_EXPECT_EQ(fx.updateParameter("Telemetry", 0.0f), ParamSetResult::READONLY);
+  HS_EXPECT_EQ(count, int16_t(4));
+  HS_EXPECT_EQ(mode, TestMode::WARP);
+  HS_EXPECT_TRUE(telemetry);
+  HS_EXPECT_FALSE(fx.animations_paused());
+  HS_EXPECT_EQ(fx.updateParameter("Mode8", 1.6f), ParamSetResult::APPLIED);
+  HS_EXPECT_EQ(mode8, uint8_t(2));
+  HS_EXPECT_FALSE(fx.animations_paused());
+  HS_EXPECT_EQ(fx.updateParameter("LargeCount", 4294967296.0f),
+               ParamSetResult::APPLIED);
+  HS_EXPECT_EQ(large_count, 4294967040u);
+  HS_EXPECT_EQ(fx.updateParameter("Enabled", 1.0f), ParamSetResult::APPLIED);
+  HS_EXPECT_TRUE(enabled);
+  HS_EXPECT_EQ(fx.updateParameter("FloatMode", 1.6f), ParamSetResult::APPLIED);
+  HS_EXPECT_EQ(float_mode, 2.0f);
+  HS_EXPECT_TRUE(fx.animations_paused());
+  HS_EXPECT_EQ(fx.getParameterSchemaGeneration(), generation + 7);
+  HS_EXPECT_TRUE(std::strcmp(parameters.begin()[0].name, "Count") == 0);
+  HS_EXPECT_TRUE(std::strcmp(parameters.begin()[6].name, "LargeCount") == 0);
+}
+
+#if HS_ENABLE_PARAM_GUI_BRIDGE
+/** @brief The GUI initial-value policy retains a request until its next edit. */
+inline void test_parameter_spec_preserves_requested_float() {
+  TestEffect fx(4, 4);
+  float requested = 7.0f;
+  fx.register_param(
+      "Requested", &requested,
+      ParamSpec<float>{.min = 0.0f,
+                       .max = 1.0f,
+                       .animated = true,
+                       .initial_value =
+                           ParamInitialValue::PRESERVE_REQUESTED_FLOAT});
+  const auto *def = fx.getParameters().find("Requested");
+  HS_EXPECT_EQ(requested, 7.0f);
+  HS_EXPECT_EQ(def->get_requested(), 7.0f);
+  HS_EXPECT_EQ(def->max, 1.0f);
+  HS_EXPECT_FALSE(fx.animations_paused());
+  HS_EXPECT_EQ(fx.updateParameter("Requested", 3.0f), ParamSetResult::APPLIED);
+  HS_EXPECT_EQ(requested, 1.0f);
+  HS_EXPECT_TRUE(fx.animations_paused());
+}
+#endif
+
 /**
  * @brief Verifies ParamList holds its full capacity of registered params.
  */
@@ -1635,6 +1727,10 @@ inline int run_canvas_tests() {
   test_register_and_update_enum_param();
   test_typed_enum_and_global_param_metadata();
   test_typed_enum_storage_widths();
+  test_typed_parameter_specs();
+#if HS_ENABLE_PARAM_GUI_BRIDGE
+  test_parameter_spec_preserves_requested_float();
+#endif
   test_paramlist_fills_to_capacity();
   test_paramlist_schema_generation();
   test_clip_setters();
