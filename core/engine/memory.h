@@ -10,8 +10,7 @@
  *        built on top of it, and the scratch-scoped generate() wrapper.
  */
 
-// platform.h defines NDEBUG on device; include before <cassert> so assert
-// stripping does not depend on include order.
+// platform.h supplies the Arduino IDE/VMicro NDEBUG fallback before <cassert>.
 #include "platform/platform.h"
 #include <cstdint>
 #include <cstddef>
