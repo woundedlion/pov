@@ -138,9 +138,8 @@ public:
     return transfer_count.load(std::memory_order_relaxed);
   }
   /**
-   * @brief Returns the count of frames dropped on overrun since start.
-   * @return Monotonic overrun counter (frames dropped because a prior transfer
-   *         was still in flight).
+   * @brief Counts submit attempts refused while the prior transfer is in flight.
+   * @return Monotonic refusal counter; each retry of the same frame counts again.
    */
   uint32_t get_overrun_count() const {
     return overrun_count.load(std::memory_order_relaxed);
@@ -195,5 +194,5 @@ private:
    */
   std::atomic<uint32_t> transfer_count;
   std::atomic<uint32_t>
-      overrun_count; /**< Monotonic count of frames dropped on overrun. */
+      overrun_count; /**< Refused submit attempts; retries count again. */
 };
