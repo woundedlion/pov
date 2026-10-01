@@ -200,27 +200,6 @@ inline void emit_shrunk_face(const HalfEdgeMesh &he_mesh, PolyMesh &out_mesh,
 }
 
 /**
- * @brief Count the sides of a face by walking its half-edge loop.
- * @param he_mesh Half-edge connectivity describing the face loop.
- * @param start_he First half-edge of the face, or HE_NONE for an empty face.
- * @return Number of sides; 0 for an empty face (start_he == HE_NONE).
- */
-inline int face_side_count(const HalfEdgeMesh &he_mesh, uint16_t start_he) {
-  int count = 0;
-  if (start_he != HE_NONE) {
-    // Anti-hang guard: corrupt topology would otherwise spin forever.
-    const int max_sides = static_cast<int>(he_mesh.half_edges.size());
-    uint16_t he_idx = start_he;
-    do {
-      HS_CHECK(count < max_sides, "face_side_count: corrupt face loop");
-      count++;
-      he_idx = he_mesh.half_edges[he_idx].next;
-    } while (he_idx != HE_NONE && he_idx != start_he);
-  }
-  return count;
-}
-
-/**
  * @brief Emit one output vertex per undirected edge at its normalized midpoint,
  *   mapping both half-edges to it.
  * @tparam EdgeFn Callable (const HalfEdge &) invoked once per emitted vertex.
