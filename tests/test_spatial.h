@@ -359,6 +359,10 @@ inline void test_meshstate_clone_deep_copies() {
   src.faces.push_back(1);
   src.faces.push_back(2);
 
+  src.face_offsets.bind(src_arena, 1);
+  src.face_offsets.push_back(0);
+  src.topology_key = 0x1234u;
+
   src.topology.bind(src_arena, 1);
   src.topology.push_back(7);
 
@@ -379,8 +383,46 @@ inline void test_meshstate_clone_deep_copies() {
   HS_EXPECT_SIZE_OR_RETURN(dst.topology, 1);
   HS_EXPECT_EQ(dst.topology[0], (uint16_t)7);
 
+  HS_EXPECT_SIZE_OR_RETURN(dst.face_offsets, 1);
+  HS_EXPECT_EQ(dst.face_offsets[0], uint16_t{0});
+  HS_EXPECT_EQ(dst.topology_key, src.topology_key);
+  HS_EXPECT_TRUE(dst.face_offsets.data() != src.face_offsets.data());
   HS_EXPECT_TRUE(dst.vertices.data() != src.vertices.data());
   HS_EXPECT_TRUE(dst.topology.data() != src.topology.data());
+
+  MeshState borrowed;
+  borrowed.vertices.bind(src_arena, 3);
+  for (const math::Vector &vertex : src.vertices)
+    borrowed.vertices.push_back(vertex);
+  borrowed.set_borrowed(ArenaSpan<uint8_t>(src.face_counts),
+                        ArenaSpan<uint16_t>(src.faces),
+                        ArenaSpan<uint16_t>(src.face_offsets),
+                        ArenaSpan<uint16_t>(src.topology), src.topology_key);
+  MeshState owned;
+  MeshState::clone(borrowed, owned, dst_arena);
+  HS_EXPECT_TRUE(owned.face_counts.is_bound());
+  HS_EXPECT_TRUE(owned.faces.is_bound());
+  HS_EXPECT_TRUE(owned.face_offsets.is_bound());
+  HS_EXPECT_TRUE(owned.topology.is_bound());
+  HS_EXPECT_SIZE_OR_RETURN(owned.vertices, 3);
+  HS_EXPECT_SIZE_OR_RETURN(owned.face_counts, 1);
+  HS_EXPECT_SIZE_OR_RETURN(owned.faces, 3);
+  HS_EXPECT_SIZE_OR_RETURN(owned.face_offsets, 1);
+  HS_EXPECT_SIZE_OR_RETURN(owned.topology, 1);
+  for (size_t i = 0; i < owned.vertices.size(); ++i)
+    HS_EXPECT_VEC(owned.vertices[i], borrowed.vertices[i], 1e-6f);
+  HS_EXPECT_EQ(owned.face_counts[0], src.face_counts[0]);
+  for (size_t i = 0; i < owned.faces.size(); ++i)
+    HS_EXPECT_EQ(owned.faces[i], src.faces[i]);
+  HS_EXPECT_EQ(owned.face_offsets[0], src.face_offsets[0]);
+  HS_EXPECT_EQ(owned.topology[0], src.topology[0]);
+  HS_EXPECT_EQ(owned.topology_key, borrowed.topology_key);
+  HS_EXPECT_TRUE(owned.get_face_counts_data() !=
+                 borrowed.get_face_counts_data());
+  HS_EXPECT_TRUE(owned.get_faces_data() != borrowed.get_faces_data());
+  HS_EXPECT_TRUE(owned.get_face_offsets_data() !=
+                 borrowed.get_face_offsets_data());
+  HS_EXPECT_TRUE(owned.get_topology_data() != borrowed.get_topology_data());
 }
 
 /**
