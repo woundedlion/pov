@@ -207,6 +207,7 @@ srgb-decode-check:
 # Validate promoted shader document provenance.
 patterns-check:
     node scripts/generate_promoted_shader_documents.mjs --check
+    node scripts/generate_composed_presets.mjs --check
 
 # Run the Node tooling suite.
 scripts-test:
