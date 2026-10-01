@@ -371,6 +371,9 @@ struct ProjectBonne : ProjectOpModel<ProjectBonne, BonneChainParams> {
 
 inline constexpr const char *AIROCEAN_LAYOUT_IDS[] = {"vertical", "horizontal"};
 
+static_assert(std::size(AIROCEAN_LAYOUT_IDS) == 2);
+
+/** @brief Parameter family of project.airocean.v2. */
 struct AiroceanChainParams : RegularProjectChainParams {
   uint8_t layout = 0;
 
