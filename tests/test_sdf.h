@@ -212,7 +212,15 @@ inline void test_ring_inside_band() {
   math::Vector p(std::cos(off), std::sin(off), 0.0f);
   auto r = SDF::distance_of(ring, p);
   HS_EXPECT_TRUE(r.dist < 0.0f);
-  HS_EXPECT_TRUE(r.raw_dist <= 0.1f + 1e-3f);
+  HS_EXPECT_NEAR(r.raw_dist, 0.05f, 1e-3f);
+
+  SDF::Ring thin_ring(b, 0.5f, 0.05f);
+  for (float offset : {-0.03f, 0.03f}) {
+    const float ANGLE = math::PI_F / 4.0f + offset;
+    const auto SAMPLE = SDF::distance_of(
+        thin_ring, math::Vector(sinf(ANGLE), cosf(ANGLE), 0.0f));
+    HS_EXPECT_NEAR(SAMPLE.raw_dist, 0.03f, 1e-3f);
+  }
 }
 
 /** @brief Verifies a point far outside the band reads the cull sentinel rather than a real dist. */
