@@ -60,8 +60,7 @@ template <typename Effect> void measure(const char *name) {
     for (int i = 0; i < 3; ++i) {
       const size_t CAPACITY = arenas[i]->get_capacity();
       if (CAPACITY >= INFLATION) {
-        charged += std::max(arenas[i]->get_high_water_mark(),
-                            arenas[i]->get_lifetime_high_water_mark());
+        charged += arenas[i]->get_lifetime_high_water_mark();
         remainder = names[i];
       } else {
         charged += CAPACITY;
