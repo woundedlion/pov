@@ -2758,7 +2758,7 @@ inline void test_shader_workbench_curl_scale_range_rebind() {
       const auto *definition = sb.getParameters().find(STRENGTH);
       HS_EXPECT_TRUE(definition != nullptr);
       if (!definition)
-        return;
+        continue;
       HS_EXPECT_NEAR(definition->max, 0.125f, 1e-7f);
     }
     const uint32_t CURL_SCHEMA = sb.getParameterSchemaGeneration();
@@ -2768,7 +2768,7 @@ inline void test_shader_workbench_curl_scale_range_rebind() {
       const auto *definition = sb.getParameters().find(STRENGTH);
       HS_EXPECT_TRUE(definition != nullptr);
       if (!definition)
-        return;
+        continue;
       HS_EXPECT_NEAR(definition->min, -1.0f, 1e-7f);
       HS_EXPECT_NEAR(definition->max, 1.0f, 1e-7f);
     }
@@ -2777,7 +2777,7 @@ inline void test_shader_workbench_curl_scale_range_rebind() {
       const auto *definition = sb.getParameters().find(STRENGTH);
       HS_EXPECT_TRUE(definition != nullptr);
       if (!definition)
-        return;
+        continue;
       HS_EXPECT_NEAR(definition->get_requested(), 0.5f, 1e-7f);
     }
     sb.draw_frame();
@@ -2790,7 +2790,7 @@ inline void test_shader_workbench_curl_scale_range_rebind() {
       const auto *definition = sb.getParameters().find(STRENGTH);
       HS_EXPECT_TRUE(definition != nullptr);
       if (!definition)
-        return;
+        continue;
       HS_EXPECT_NEAR(definition->min, -0.125f, 1e-7f);
       HS_EXPECT_NEAR(definition->max, 0.125f, 1e-7f);
       HS_EXPECT_NEAR(definition->get_requested(), 0.125f, 1e-7f);
@@ -2811,6 +2811,13 @@ inline void test_shader_workbench_dodecahedral_lattice_edit() {
   sb.init();
   HS_EXPECT_TRUE(sb.selectPreset(10));
 
+  const auto expect_warp = [&](const char *name, WB::WarpStageKind kind) {
+    const auto *definition = sb.getParameters().find(name);
+    HS_EXPECT_TRUE(definition != nullptr);
+    if (definition)
+      HS_EXPECT_EQ(definition->get(), static_cast<float>(kind));
+  };
+
   const WB::RequestedConfig before = WB::requested_config(sb);
   HS_EXPECT_EQ(before.slots.function, WB::Function::GRID);
   HS_EXPECT_EQ(before.slots.surface_lens,
@@ -2828,43 +2835,15 @@ inline void test_shader_workbench_dodecahedral_lattice_edit() {
   expected.slots.function = WB::Function::PRIMITIVE_LATTICE;
   HS_EXPECT_TRUE(WB::requested_config(sb) == expected);
   HS_EXPECT_TRUE(WB::parameter_warning(sb, "Function") == nullptr);
-  {
-    const auto *definition = sb.getParameters().find("Planar Warp 1");
-    HS_EXPECT_TRUE(definition != nullptr);
-    if (!definition)
-      return;
-    HS_EXPECT_EQ(definition->get(),
-                 static_cast<float>(WB::WarpStageKind::VECTOR_NOISE));
-  }
-  {
-    const auto *definition = sb.getParameters().find("Planar Warp 2");
-    HS_EXPECT_TRUE(definition != nullptr);
-    if (!definition)
-      return;
-    HS_EXPECT_EQ(definition->get(),
-                 static_cast<float>(WB::WarpStageKind::MIRROR_TILE));
-  }
+  expect_warp("Planar Warp 1", WB::WarpStageKind::VECTOR_NOISE);
+  expect_warp("Planar Warp 2", WB::WarpStageKind::MIRROR_TILE);
 
   sb.draw_frame();
   sb.advance_display();
   WB::refresh_display(sb);
   HS_EXPECT_TRUE(WB::active_config(sb) == expected);
-  {
-    const auto *definition = sb.getParameters().find("Planar Warp 1");
-    HS_EXPECT_TRUE(definition != nullptr);
-    if (!definition)
-      return;
-    HS_EXPECT_EQ(definition->get(),
-                 static_cast<float>(WB::WarpStageKind::VECTOR_NOISE));
-  }
-  {
-    const auto *definition = sb.getParameters().find("Planar Warp 2");
-    HS_EXPECT_TRUE(definition != nullptr);
-    if (!definition)
-      return;
-    HS_EXPECT_EQ(definition->get(),
-                 static_cast<float>(WB::WarpStageKind::MIRROR_TILE));
-  }
+  expect_warp("Planar Warp 1", WB::WarpStageKind::VECTOR_NOISE);
+  expect_warp("Planar Warp 2", WB::WarpStageKind::MIRROR_TILE);
 }
 
 /** @brief Both Wave Shear slots expose envelope controls without a noise basis. */
