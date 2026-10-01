@@ -4193,10 +4193,6 @@ inline const ReconcileSite RECONCILE_SITES[] = {
     {"icosahedron_kis_gyro", &Solids::ICOSAHEDRON_KIS_GYRO_RECIPE, true},
 };
 
-/** The identity truncate depth the smooth path sweeps to (the "uniform" Conway
- * depth); RecipeBuild::MACRO_TRUNCATE_T is pinned to this by IslamicBuildProbe. */
-inline constexpr float RECONCILE_TRUNCATE_T = 1.0f / 3.0f;
-
 /**
  * @brief Verifies the Conway-identity reconcile is well-posed on every smooth
  *        kis/needle seed: the identity mesh (dt/dtd) and the authored kis/needle

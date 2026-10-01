@@ -16,6 +16,10 @@
 
 namespace hs_test {
 
+/** The identity truncate depth the smooth path sweeps to (the "uniform" Conway
+ * depth); RecipeBuild::MACRO_TRUNCATE_T is pinned to this by IslamicBuildProbe. */
+inline constexpr float RECONCILE_TRUNCATE_T = 1.0f / 3.0f;
+
 /**
  * @brief Interior angle at corner `k` of a face, in degrees, before rounding.
  * @param m Mesh owning the vertices.
