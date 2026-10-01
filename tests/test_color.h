@@ -1103,7 +1103,7 @@ inline void test_hue_rotate_base_matches_direct() {
 // ============================================================================
 
 /**
- * @brief Verifies sRGB 0 maps to linear 0 and sRGB 255 to (near) max linear.
+ * @brief Verifies sRGB 0 maps to linear 0 and sRGB 255 to max linear.
  */
 inline void test_srgb_to_linear_endpoints() {
   HS_EXPECT_EQ(srgb_to_linear(0), 0);
