@@ -190,6 +190,9 @@ protected:
    * @return False if an automatic transition cannot be scheduled.
    */
   HS_COLD_MEMBER bool apply_preset(const PresetChange &change) override {
+    if constexpr (requires { Derived::parameter_fields(); })
+      static_assert(Control::curves_supported(Derived::parameter_fields()),
+                    "discrete fields require MIDPOINT or SNAP curves");
     static_assert(departures_are_supported(),
                   "a preset's departure outlasts PRESET_DWELL_FRAMES, or its "
                   "effect lacks the departure's hook (blend_params for Lerp, "

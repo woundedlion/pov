@@ -58,6 +58,13 @@ template <typename Owner, typename Value = float> struct Field {
   typename ParamSpec<Value>::Bound validation_min = spec.min;
   typename ParamSpec<Value>::Bound validation_max = spec.max;
 
+  constexpr bool curve_supported() const {
+    if constexpr (std::is_same_v<Value, float>)
+      return true;
+    else
+      return curve == FieldCurve::MIDPOINT || curve == FieldCurve::SNAP;
+  }
+
   constexpr bool valid(const Owner &owner) const {
     if (!validated)
       return true;
@@ -107,6 +114,12 @@ template <typename Owner, typename Value, typename Fields> struct FieldGroup {
   Value Owner::*member;
   Fields fields;
 
+  constexpr bool curve_supported() const {
+    return std::apply(
+        [](const auto &...field) { return (field.curve_supported() && ...); },
+        fields);
+  }
+
   constexpr bool valid(const Owner &owner) const {
     return std::apply(
         [&](const auto &...field) {
@@ -135,6 +148,14 @@ template <typename Owner, typename Value, typename Fields> struct FieldGroup {
 
 template <typename Owner, typename Value, typename Fields>
 FieldGroup(Value Owner::*, Fields) -> FieldGroup<Owner, Value, Fields>;
+
+/** @brief Whether described fields use curves supported by their value types. */
+template <typename Fields>
+constexpr bool curves_supported(const Fields &fields) {
+  return std::apply(
+      [](const auto &...field) { return (field.curve_supported() && ...); },
+      fields);
+}
 
 template <typename Owner, typename Fields>
 constexpr bool valid_fields(const Owner &owner, const Fields &fields) {
