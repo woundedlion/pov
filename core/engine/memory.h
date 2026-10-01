@@ -1288,7 +1288,7 @@ struct ArenaSplit {
     return persistent(DEVICE_GLOBAL_ARENA_SIZE);
   }
 
-  FLASHMEM void configure() const {
+  HS_COLD_MEMBER void configure() const {
     configure_arenas(persistent(GLOBAL_ARENA_SIZE), scratch_a, scratch_b);
   }
 };
