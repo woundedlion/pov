@@ -80,7 +80,7 @@ public:
     }
 
     HS_PROFILE(rsh_draw_rings);
-    // A sub-LSB alpha paints nothing; keep aging rings so they resume mid-life
+    // Master alpha below one slider LSB: keep aging rings so they resume mid-life
     // when alpha rises, but skip rasterizing.
     const bool visible = params.alpha >= MIN_VISIBLE_ALPHA;
     for (size_t i = 0; i < MAX_RINGS; ++i) {

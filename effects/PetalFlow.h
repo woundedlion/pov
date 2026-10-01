@@ -289,9 +289,8 @@ private:
   /**
    * @brief Advances every active ring along rho and draws it.
    * @param canvas Target canvas to render into.
-   * @details Retires rings that pass END_RHO; otherwise draws them. A sub-LSB
-   * Alpha paints nothing, so rings still advance and retire but are not
-   * rasterized, and the flow resumes in place when Alpha rises.
+   * @details Retires rings that pass END_RHO; otherwise draws them. Below one
+   * slider LSB of master alpha, rings advance and retire without rasterizing.
    */
   void update_and_draw_rings(Canvas &canvas) {
     const float move = move_dist();
