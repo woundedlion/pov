@@ -27,15 +27,26 @@ namespace styles_tests {
  * @brief Verifies preset parameter domains and their space/color transforms.
  */
 inline void test_named_presets() {
-  const Feedback::Style presets[] = {
-      Feedback::Style::ArcingLightning(),  Feedback::Style::SlowFire(),
-      Feedback::Style::EnergeticFire(),    Feedback::Style::SlowDust(),
-      Feedback::Style::WavyTrails(),       Feedback::Style::MeltingHi(),
-      Feedback::Style::MeltingLo(),        Feedback::Style::Miasma(),
-      Feedback::Style::LooseWormhole(),    Feedback::Style::TightWormhole(),
-      Feedback::Style::WigglingWormhole(), Feedback::Style::Smoke()};
+  struct PresetCase {
+    Feedback::Style style;
+    Feedback::SpaceFn space;
+  };
+  const PresetCase presets[] = {
+      {Feedback::Style::ArcingLightning(), &Feedback::noise_warp},
+      {Feedback::Style::SlowFire(), &Feedback::noise_warp},
+      {Feedback::Style::EnergeticFire(), &Feedback::noise_warp},
+      {Feedback::Style::SlowDust(), &Feedback::noise_warp},
+      {Feedback::Style::WavyTrails(), &Feedback::noise_warp},
+      {Feedback::Style::MeltingHi(), &Feedback::melt_warp},
+      {Feedback::Style::MeltingLo(), &Feedback::melt_warp},
+      {Feedback::Style::Miasma(), &Feedback::noise_warp},
+      {Feedback::Style::LooseWormhole(), &Feedback::noise_warp},
+      {Feedback::Style::TightWormhole(), &Feedback::noise_warp},
+      {Feedback::Style::WigglingWormhole(), &Feedback::noise_warp},
+      {Feedback::Style::Smoke(), &Feedback::noise_warp},
+  };
   for (size_t index = 0; index < std::size(presets); ++index) {
-    const auto &style = presets[index];
+    const auto &style = presets[index].style;
     HS_CONTEXT("style", static_cast<long long>(index));
     HS_EXPECT_TRUE(std::isfinite(style.fade) && style.fade >= 0.0f &&
                    style.fade <= 1.0f);
@@ -45,9 +56,7 @@ inline void test_named_presets() {
     HS_EXPECT_TRUE(std::isfinite(style.speed));
     HS_EXPECT_TRUE(std::isfinite(style.scale) && style.scale > 0.0f);
     HS_EXPECT_TRUE(style.color_fn == &Feedback::hue_fade);
-    HS_EXPECT_TRUE(style.space_fn == (index == 5 || index == 6
-                                          ? &Feedback::melt_warp
-                                          : &Feedback::noise_warp));
+    HS_EXPECT_TRUE(style.space_fn == presets[index].space);
   }
 }
 
