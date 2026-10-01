@@ -271,7 +271,7 @@ class PendingCapture(unittest.TestCase):
         for matches in (False, True):
             with self.subTest(matches=matches):
                 self.pending.write_text(json.dumps({
-                    "head": "before", "tree": "built",
+                    "tree": "built",
                     "envs": {"phantasm": {"itcm": 1}}}), encoding="utf-8")
                 with mock.patch.object(tst, "head_stamp",
                                        return_value=(SHA, "2026-08-03", "s")), \
