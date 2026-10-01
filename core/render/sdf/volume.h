@@ -475,7 +475,8 @@ template <typename SDF, typename Warp> struct WarpedVolume {
    * @brief March-safe distance with bounding fast-path and Lipschitz
    * correction.
    * @param p Query point in Cartesian ray-space.
-   * @return A sphere-tracing-safe (under-estimated) distance to the surface.
+   * @return Exterior values are Lipschitz-corrected lower bounds. Interior
+   * values are the uncorrected warped base distance, not safe interior clearance.
    */
   float distance(const math::Vector &p) const {
     const float gate =
