@@ -240,7 +240,7 @@ files define line-ending policy and working-artifact exclusions.
 │   ├── math/                   Vector/quaternion math and scalar curves
 │   │   ├── 3dmath.h                Vector, Quaternion, Spherical, Complex primitives, fast-math approximations, value noise, Snorm3
 │   │   ├── 4dmath.h                Vec4 / Mat4 four-dimensional primitives + coordinate-plane rotation
-│   │   ├── rotate.h                Quaternion projection helpers
+│   │   ├── rotate.h                Angle wrapping helpers and canvas-pixel → sphere Projection
 │   │   ├── geometry.h              Umbrella for periodic math, pixel mapping, and spherical helpers
 │   │   ├── periodic.h              Scalar wrapping and circular distances
 │   │   ├── display_geometry.h      Calibrated LED-center latitude profiles
