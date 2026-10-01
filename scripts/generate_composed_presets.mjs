@@ -1,5 +1,6 @@
 import { readFile, readdir, writeFile } from 'node:fs/promises';
-import { fileURLToPath, pathToFileURL } from 'node:url';
+import { fileURLToPath } from 'node:url';
+import { isMain } from './exit.mjs';
 import { resolve } from 'node:path';
 import { compileShaderDocument, fixedDerivedBinding } from './shader_workbench.mjs';
 import { loadOperatorCatalog } from './pattern_documents.mjs';
@@ -166,7 +167,7 @@ export async function generate({ check = false, root = ROOT } = {}) {
   return count;
 }
 
-if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1])).href) {
+if (isMain(import.meta.url)) {
   if (process.argv.slice(2).some((arg) => arg !== '--check')) throw new Error('Usage: generate_composed_presets.mjs [--check]');
   const check = process.argv.includes('--check');
   console.log(`${check ? 'Verified' : 'Regenerated'} ${await generate({ check })} composed preset headers.`);
