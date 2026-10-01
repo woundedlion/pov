@@ -1,6 +1,6 @@
 // Validates archive structure and roster coverage; capture freshness is not checked.
 import { readdir, readFile } from 'node:fs/promises';
-import { join } from 'node:path';
+import { basename, dirname, join, relative, resolve } from 'node:path';
 import { isMain } from './exit.mjs';
 import {
   loadEffectRoster,
@@ -110,6 +110,67 @@ function linkedReports(text, prefix) {
   return new Set([...text.matchAll(pattern)].map(match => match[1]));
 }
 
+
+export async function checkProfileLinks(profilesDir, errors) {
+  async function visit(directory) {
+    for (const entry of await readdir(directory, { withFileTypes: true })) {
+      const path = join(directory, entry.name);
+      if (entry.isDirectory()) await visit(path);
+      else if (entry.name.endsWith('.md')) {
+        const text = (await readFile(path, 'utf8')).replace(/```[^\n]*\n[\s\S]*?```/g, '');
+        for (const match of text.matchAll(/\]\(([^\s)]+)(?:\s+"[^"]*")?\)/g)) {
+          const link = match[1];
+          if (/^[a-z][a-z0-9+.-]*:|^\//i.test(link)) continue;
+          const [file, fragment] = link.split('#');
+          const target = resolve(dirname(path), decodeURIComponent(file || basename(path)));
+          if (relative(profilesDir, target).startsWith('..')) continue;
+          let body;
+          try { body = await readFile(target, 'utf8'); }
+          catch { errors.push(`${relative(profilesDir, path)} has missing link target ${link}`); continue; }
+          if (!fragment) continue;
+          const anchors = new Set();
+          const seen = new Map();
+          for (const heading of body.matchAll(/^#{1,6}\s+(.+?)\s*#*$/gm)) {
+            const slug = heading[1].toLowerCase().replace(/\[([^\]]+)\]\([^)]*\)/g, '$1')
+              .replace(/<[^>]*>/g, '').replace(/[^\p{L}\p{N}_\-\s]/gu, '').replace(/\s/g, '-');
+            const count = seen.get(slug) ?? 0;
+            seen.set(slug, count + 1);
+            anchors.add(count ? `${slug}-${count}` : slug);
+          }
+          for (const id of body.matchAll(/\b(?:id|name)=["']([^"']+)["']/g)) anchors.add(id[1]);
+          if (!anchors.has(decodeURIComponent(fragment)))
+            errors.push(`${relative(profilesDir, path)} has missing link anchor ${link}`);
+        }
+      }
+    }
+  }
+  await visit(profilesDir);
+}
+
+function metric(cell) {
+  const color = /[🟢🟡🔴]/u.exec(cell)?.[0];
+  const values = cell.match(/\d+(?:\.\d+)?/g)?.map(Number);
+  return JSON.stringify([color, values]);
+}
+
+export function checkIndexCells(index, link, report, subject, errors) {
+  const cells = /README cells:\s*peak\s+(.+?),\s*spilled\s+(.+?)\.?(?:\r?\n|$)/.exec(report);
+  if (!cells) return;
+  let headings = [];
+  for (const line of index.split(/\r?\n/)) {
+    if (!line.startsWith('|')) continue;
+    const row = line.split('|').slice(1, -1).map(cell => cell.trim());
+    if (row.some(cell => /peak.*ms/i.test(cell))) { headings = row; continue; }
+    if (!line.includes(`](${link})`)) continue;
+    const prefix = link.startsWith('O3/') ? 'O3' : link.startsWith('shipping/') ? 'Ship' : '';
+    const peak = headings.findIndex(cell => new RegExp(`^${prefix ? prefix + ' ' : ''}peak.*ms$`, 'i').test(cell));
+    const spill = headings.findIndex(cell => new RegExp(`^${prefix ? prefix + ' ' : ''}spilled(?:/.*)?$`, 'i').test(cell));
+    if (peak < 0 || spill < 0) continue;
+    if (metric(row[peak]) !== metric(cells[1])) errors.push(`${subject} peak differs from ${link} README cells`);
+    if (metric(row[spill]) !== metric(cells[2])) errors.push(`${subject} spill differs from ${link} README cells`);
+  }
+}
+
 function checkCount(text, pattern, expected, subject, errors) {
   const match = pattern.exec(text);
   if (!match) errors.push(`${subject} count is not stated`);
@@ -125,6 +186,7 @@ export async function checkProfiles(profilesDir = PROFILES_DIR) {
     profileDirectories(profilesDir, errors),
     readFile(join(profilesDir, 'README.md'), 'utf8'),
   ]);
+  await checkProfileLinks(profilesDir, errors);
   const effectKeys = new Set(effectRoster.map(name => name.toLowerCase()));
   const phantasmKeys = new Set(phantasmRoster.map(name => name.toLowerCase()));
   const reportSets = new Map();
@@ -163,6 +225,9 @@ export async function checkProfiles(profilesDir = PROFILES_DIR) {
     for (const { key, date, file } of reports) {
       const report = await readFile(join(profilesDir, directory, file), 'utf8');
       validateReport(report, directory, key, date, file, errors);
+      checkIndexCells(index, `${directory}/${file}`, report, 'main profile index', errors);
+      const localIndex = await readFile(join(profilesDir, directory, 'README.md'), 'utf8');
+      checkIndexCells(localIndex, file, report, `${directory} index`, errors);
     }
     const directoryIndex = await readFile(
       join(profilesDir, directory, 'README.md'), 'utf8');
