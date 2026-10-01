@@ -58,7 +58,7 @@ inline uint8_t solids_scratch_b[4 * 1024 * 1024];
 
 /**
  * @brief Asserts every vertex coordinate is finite (no NaN/Inf from the
- * generators).
+ *        generators).
  * @param m Mesh whose vertex coordinates are checked.
  */
 inline void check_all_finite(const PolyMesh &m) {
@@ -94,7 +94,7 @@ inline void check_basic(const PolyMesh &m) {
 
 /**
  * @brief Builds a registry entry by index, finalizing into the supplied
- * geometry arena.
+ *        geometry arena.
  * @param index Registry entry index to build.
  * @param geom Geometry arena that holds the finalized mesh.
  * @return The finalized PolyMesh for the entry.
@@ -147,7 +147,7 @@ inline void test_catalan_registry_solids_are_spherical_and_valid() {
 
 /**
  * @brief Verifies every Islamic-pattern entry builds to a structurally valid
- * mesh.
+ *        mesh.
  * @details Islamic indices follow the simple + Catalan blocks in the registry.
  */
 inline void test_islamic_registry_solids_are_valid() {
@@ -377,10 +377,10 @@ inline void test_euler_platonic_solids() {
  *        (V-E+F==2).
  * @details Extends the topological oracle over the two spherical families
  *          between the Platonic block and the Islamic block. Archimedean
- * indices follow the Platonic block inside the simple registry; Catalan indices
+ *          indices follow the Platonic block inside the simple registry; Catalan indices
  *          follow the whole simple block. Exact per-entry counts are not pinned
  *          here — the Euler invariant catches a generator regression that opens
- * a seam, drops a face, or duplicates geometry.
+ *          a seam, drops a face, or duplicates geometry.
  */
 inline void test_euler_archimedean_catalan_solids() {
   const size_t archimedean_base =
@@ -396,10 +396,10 @@ inline void test_euler_archimedean_catalan_solids() {
 
 /**
  * @brief Verifies every Islamic-pattern entry is a closed 2-manifold
- * (V-E+F==2).
+ *        (V-E+F==2).
  * @details Every registered Islamic pattern is a closed manifold with Euler
- * characteristic 2. Exact per-entry counts may vary; opening a seam, dropping
- * a face or duplicating geometry violates this contract.
+ *          characteristic 2. Exact per-entry counts may vary; opening a seam, dropping
+ *          a face or duplicating geometry violates this contract.
  */
 inline void test_islamic_registry_solids_are_closed() {
   const size_t base = Solids::Collections::get_simple_solids().size() +
@@ -414,7 +414,7 @@ inline void test_islamic_registry_solids_are_closed() {
 
 /**
  * @brief Verifies the last valid registry index builds correctly (range
- * boundary).
+ *        boundary).
  * @details Invalid lookups are covered by test_death.h.
  */
 inline void test_get_entry_last_valid_index_builds() {
@@ -446,12 +446,12 @@ inline void test_get_by_name_known_returns_that_solid() {
 
 /**
  * @brief Verifies registry names are globally unique and index/name lookups
- * agree.
+ *        agree.
  * @details The WASM picker enumerates solids by global index but builds them by
  *          first-name match, so a name duplicated across the three registries
  *          would make those two paths silently diverge. Assert every name is
  *          distinct and that find_entry(get_entry(i).name) resolves back to
- * that same entry.
+ *          that same entry.
  */
 inline void test_registry_names_unique_and_roundtrip() {
   for (int i = 0; i < Solids::NUM_ENTRIES; ++i) {
@@ -475,8 +475,8 @@ inline void test_registry_names_unique_and_roundtrip() {
  *        two meshes are bitwise identical.
  * @param index Registry entry index to build twice.
  * @details A generator is deterministic or it is not: the same input through
- * the same code path twice must reproduce every float bit. A near-equality
- * window would admit a generator whose output drifts below the tolerance.
+ *          the same code path twice must reproduce every float bit. A near-equality
+ *          window would admit a generator whose output drifts below the tolerance.
  */
 inline void check_determinism_for_index(size_t index) {
   Arena geom1(solids_geom_a, sizeof(solids_geom_a));
@@ -521,7 +521,7 @@ inline void test_determinism_archimedean_with_conway_ops() {
  *          likely to introduce order/RNG-dependent nondeterminism — and a
  *          nondeterministic op might be reached only by a later entry, not the
  *          first. So this re-builds and diffs every islamic index (mirroring
- * the registry-integrity loops above), not just the first.
+ *          the registry-integrity loops above), not just the first.
  */
 inline void test_determinism_complex_islamic() {
   const size_t base = Solids::Collections::get_simple_solids().size() +
