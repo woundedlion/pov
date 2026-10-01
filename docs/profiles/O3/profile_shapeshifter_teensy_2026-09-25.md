@@ -5,7 +5,6 @@ Shipping sibling: [selective-O3 report](../shipping/profile_shapeshifter_teensy_
 Point-in-time snapshot (regenerate with `just profile ShapeShifter`).
 Raw capture: `after-o3.log.txt` (archive removed). Replaces `profile_shapeshifter_teensy_2026-08-26.md`. The current roster has nine presets; the old report's four-shape schedule describes an earlier version.
 
-**Finding 77 attribution:** ShapeShifter sets `SAMPLED_RASTER_CONFIG.single_pass = true` in `effects/ShapeShifter.h:548` and passes it to `Plot::rasterize` at line 571. The `if constexpr (SINGLE_PASS)` branch in `core/render/plot/raster.h:648` returns at line 808, before the changed two-pass replay clamp at line 879. Consequently this effect never executes the changed clamp. These measurements describe ShapeShifter's overall image behavior, including run variability and possible compiler/code-layout differences; they do **not** measure the clamp's per-replay-sample execution cost. The hot raster symbols are not all byte-identical (`raster-symbols.json`), so no whole-code identity or statistical-zero claim is made.
 
 ## Setup
 
@@ -100,7 +99,7 @@ isr_dma_submit    144.0/f  0.58/0.93/9.18 us  CPU 0.21%
 2. `ss_plot_dispatch` — 37.42% of root time, 23.359 ms/frame; inclusive scope.
 3. `pov_preserve_half` — 0.23% of root time, 0.142 ms/frame; inclusive scope.
 
-No matched WASM/native timing capture was used. The removed finding-77 comparison paired identical frame indices before and after the clamp.
+No matched WASM/native timing capture was used.
 
 ## Caveats
 
@@ -109,7 +108,6 @@ No matched WASM/native timing capture was used. The removed finding-77 compariso
 - Deep per-pixel profiling is disabled; scope overhead remains in the measurements.
 - Shipping uses selective O3 in Plot cull/raster and shape scanning; global O3 is a compiler reference, not the full-roster shipping policy.
 - Epoch extension prevents reinitialization; it does not compress dwell or change per-frame work.
-- Both source trees were clean; candidate differs from baseline only by finding 77.
 - Runtime totals include trailing complete per-frame records beyond the last dumped scope window.
 
 ## Harness
