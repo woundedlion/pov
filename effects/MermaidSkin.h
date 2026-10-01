@@ -10,14 +10,42 @@
 
 #include "core/render/pullback/composed_effect.h"
 
-using MermaidSkinParams =
-    Pullback::Params<Pullback::GridSourceParams, Pullback::NoWarpParams,
-                     Pullback::NoWarpParams, Pullback::NoLensParams,
-                     Pullback::NoValueParams, Pullback::SurfaceNoiseParams>;
-using MermaidSkinSpec =
-    Pullback::Spec<Pullback::ProjectionKind::FOLDED_SINUSOIDAL, void,
-                   Pullback::TransferKind::NONE,
-                   Pullback::ProjectionCoverageMode::WEIGHT>;
+struct MermaidSkinSpec : Pullback::Spec {
+  static constexpr Pullback::ProjectionKind PROJECTION =
+      Pullback::ProjectionKind::FOLDED_SINUSOIDAL;
+  static constexpr Pullback::TransferKind TRANSFER =
+      Pullback::TransferKind::NONE;
+  static constexpr Pullback::ProjectionCoverageMode COVERAGE =
+      Pullback::ProjectionCoverageMode::WEIGHT;
+  static constexpr Pullback::FieldCoverageKind FIELD_COVERAGE =
+      Pullback::FieldCoverageKind::NONE;
+  static constexpr PaletteHarmony HARMONY = PaletteHarmony::ANALOGOUS;
+  static constexpr Pullback::HueMode HUE = Pullback::HueMode::NOISE;
+  static constexpr Pullback::Color::BrightnessEnvelope BRIGHTNESS =
+      Pullback::Color::BrightnessEnvelope::NONE;
+  static constexpr bool ANIMATED_PROJECTION = true;
+  static constexpr Pullback::SurfacePlacement SURFACE_PLACEMENT =
+      Pullback::SurfacePlacement::BEFORE_LENS;
+  using LensPolicy = void;
+  template <typename B>
+  using Pipeline = Pullback::Pipeline<
+      B, Pullback::Stage::Rotate<Pullback::OuterCameraProvider<B>>,
+      Pullback::Stage::Placed<
+          Pullback::CodeEmission::OUT_OF_LINE_FLASH,
+          Pullback::Stage::Displace<typename Pullback::SurfacePolicyFor<
+              Pullback::SurfaceNoiseParams, B,
+              HUE == Pullback::HueMode::PATH_LENGTH>::Type>,
+          Pullback::Stage::Project<
+              typename Pullback::ProjectionPolicyFor<PROJECTION, B>::Type>>,
+      Pullback::Stage::Sample<
+          typename Pullback::SourcePolicyFor<Pullback::GridSourceParams,
+                                             B>::Type,
+          Pullback::Weight::Projection,
+          typename Pullback::CoveragePolicyFor<COVERAGE, B, void>::Type>,
+      Pullback::Stage::Colorize<Pullback::Color::GeneratedPalette<
+          Pullback::ColorProvider<B, HUE, BRIGHTNESS>>>>;
+};
+using MermaidSkinParams = Pullback::ParamsFor<MermaidSkinSpec>;
 
 /**
  * @brief A high-chroma folded grid rippling through sphere-space curl noise.
@@ -25,11 +53,8 @@ using MermaidSkinSpec =
  * @tparam H Canvas height in pixels.
  */
 template <int W, int H>
-class MermaidSkin
-    : public Pullback::ComposedEffect<
-          W, H, MermaidSkin<W, H>, MermaidSkinParams, MermaidSkinSpec,
-          PaletteHarmony::ANALOGOUS, Pullback::HueMode::NOISE,
-          Pullback::Color::BrightnessEnvelope::NONE> {
+class MermaidSkin : public Pullback::ComposedEffect<W, H, MermaidSkin<W, H>,
+                                                    MermaidSkinSpec> {
 
 public:
   using Params = MermaidSkinParams;
@@ -44,7 +69,7 @@ public:
   static constexpr uint16_t PRESET_DWELL_FRAMES = 600;
   // clang-format on
   // End generated identity.
-  static constexpr uint32_t PARAMETER_SCHEMA_VERSION = 1;
+  static constexpr uint32_t PARAMETER_SCHEMA_VERSION = 2;
 
   // Generated params: scripts/generate_composed_presets.mjs
   // clang-format off

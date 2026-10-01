@@ -44,6 +44,7 @@
 #include "core/render/pullback/operator_table.h"
 #include "tests/test_effects.h" // reset_effect_globals, SMALL_W/SMALL_H
 #include "tests/test_fixture.h"
+#include "tests/composed_frame_fixture.h"
 #include "tests/test_harness.h"
 
 namespace hs_test {
@@ -54,41 +55,18 @@ using effects_tests::reset_effect_globals;
 using effects_tests::SMALL_H;
 using effects_tests::SMALL_W;
 
-/**
- * @brief The base-template arguments one specialization instantiates
- *        Pullback::ComposedEffect with.
- * @details An effect states its hue mode and brightness envelope only in its
- * base-class list, and those two decide which color sliders the base registers,
- * so they are deduced from the base rather than restated per effect.
- */
-template <
-    typename ParamsT, typename SpecT, PaletteHarmony HarmonyV,
-    Pullback::HueMode HueV, Pullback::Color::BrightnessEnvelope BrightnessV,
-    bool AnimatedProjectionV, Pullback::SurfacePlacement SurfacePlacementV>
-struct ComposedTraits {
-  using Params = ParamsT;
-  using Spec = SpecT;
-  static constexpr PaletteHarmony HARMONY = HarmonyV;
-  static constexpr Pullback::HueMode HUE = HueV;
-  static constexpr Pullback::Color::BrightnessEnvelope BRIGHTNESS = BrightnessV;
+template <typename FX> struct ComposedTraits {
+  using Params = typename FX::Params;
+  using Spec = typename FX::Spec;
+  static constexpr PaletteHarmony HARMONY = Spec::HARMONY;
+  static constexpr Pullback::HueMode HUE = Spec::HUE;
+  static constexpr Pullback::Color::BrightnessEnvelope BRIGHTNESS =
+      Spec::BRIGHTNESS;
   static constexpr Pullback::SurfacePlacement SURFACE_PLACEMENT =
-      SurfacePlacementV;
+      Spec::SURFACE_PLACEMENT;
 };
 
-template <int W, int H, typename Derived, typename ParamsT, typename SpecT,
-          PaletteHarmony HarmonyV, Pullback::HueMode HueV,
-          Pullback::Color::BrightnessEnvelope BrightnessV,
-          bool AnimatedProjectionV,
-          Pullback::SurfacePlacement SurfacePlacementV>
-ComposedTraits<ParamsT, SpecT, HarmonyV, HueV, BrightnessV, AnimatedProjectionV,
-               SurfacePlacementV>
-composed_traits(const Pullback::ComposedEffect<
-                W, H, Derived, ParamsT, SpecT, HarmonyV, HueV, BrightnessV,
-                AnimatedProjectionV, SurfacePlacementV> &);
-
-/** @brief ComposedTraits of the base @p FX derives from. */
-template <typename FX>
-using TraitsOf = decltype(composed_traits(std::declval<const FX &>()));
+template <typename FX> using TraitsOf = ComposedTraits<FX>;
 
 /** @brief Color sliders the base registers for every specialization. */
 constexpr const char *UNGATED_COLOR_SLIDERS[] = {
@@ -166,7 +144,7 @@ template <typename FX, typename Family> constexpr size_t named_field_count() {
 
 /** @brief Sliders a warp slot contributes: the slot speed plus its own. */
 template <typename FX, typename Family> constexpr size_t warp_slot_count() {
-  if constexpr (std::is_same_v<Family, Pullback::NoWarpParams>)
+  if constexpr (std::is_void_v<Family>)
     return 0;
   else
     return 1 + named_field_count<FX, Family>();
@@ -179,34 +157,36 @@ template <typename FX, typename Family> constexpr size_t warp_slot_count() {
  * @details A named field must own exactly one slider, present on the gate its
  * descriptor names and carrying the descriptor's bounds.
  */
-template <typename FX, Pullback::HasFields Family>
+template <typename FX, typename Family>
 inline void verify_family_sliders(const ParamList &params, bool registered) {
-  for (const auto &field : Family::FIELDS) {
-    if (field.name == nullptr)
-      continue;
-    HS_CONTEXT(field.id);
-    const bool expected = registered && gate_open<FX>(field.gate);
-    const ParamDef *def = params.find(field.name);
-    HS_EXPECT_EQ(def != nullptr, expected);
-    if (def == nullptr)
-      continue;
-    HS_EXPECT_EQ(bits(def->min), bits(field.min));
-    HS_EXPECT_EQ(bits(def->max), bits(field.max));
-    HS_EXPECT_TRUE(def->animated);
-  }
+  if constexpr (Pullback::HasFields<Family>)
+    for (const auto &field : Family::FIELDS) {
+      if (field.name == nullptr)
+        continue;
+      HS_CONTEXT(field.id);
+      const bool expected = registered && gate_open<FX>(field.gate);
+      const ParamDef *def = params.find(field.name);
+      HS_EXPECT_EQ(def != nullptr, expected);
+      if (def == nullptr)
+        continue;
+      HS_EXPECT_EQ(bits(def->min), bits(field.min));
+      HS_EXPECT_EQ(bits(def->max), bits(field.max));
+      HS_EXPECT_TRUE(def->animated);
+    }
 }
 
 /** @brief Checks a warp slot's speed slider against the slot's descriptor. */
 template <typename FX, typename Family>
 inline void verify_warp_slot(const ParamList &params, const char *slot_name) {
   HS_CONTEXT(slot_name);
-  constexpr bool expected = !std::is_same_v<Family, Pullback::NoWarpParams>;
+  constexpr bool expected = !std::is_void_v<Family>;
   const ParamDef *def = params.find(slot_name);
   HS_EXPECT_EQ(def != nullptr, expected);
-  if (def != nullptr) {
-    HS_EXPECT_EQ(bits(def->min), bits(Family::FIELDS[0].min));
-    HS_EXPECT_EQ(bits(def->max), bits(Family::FIELDS[0].max));
-  }
+  if constexpr (!std::is_void_v<Family>)
+    if (def != nullptr) {
+      HS_EXPECT_EQ(bits(def->min), bits(Family::FIELDS[0].min));
+      HS_EXPECT_EQ(bits(def->max), bits(Family::FIELDS[0].max));
+    }
   verify_family_sliders<FX, Family>(params, expected);
 }
 
@@ -236,17 +216,16 @@ inline void verify_mobius_equal(const math::MobiusParams &actual,
 /** @brief Bitwise-compares a whole parameter set, family by family. */
 template <typename Params>
 inline void verify_params_equal(const Params &actual, const Params &expected) {
-  verify_family_equal(actual.source, expected.source);
-  verify_family_equal(actual.projection, expected.projection);
-  verify_family_equal(actual.outer_warp, expected.outer_warp);
-  verify_family_equal(actual.inner_warp, expected.inner_warp);
-  verify_family_equal(actual.surface, expected.surface);
-  verify_family_equal(actual.value, expected.value);
-  verify_family_equal(actual.color, expected.color);
-  HS_EXPECT_EQ(static_cast<int>(actual.color.palette_mapping),
-               static_cast<int>(expected.color.palette_mapping));
-  if constexpr (requires { actual.lens.mobius; })
-    verify_mobius_equal(actual.lens.mobius, expected.lens.mobius);
+  actual.visit([&]<typename Resource>(const auto &family) {
+    const auto &other = expected.template get<Resource::KEY>();
+    if constexpr (Pullback::HasFields<typename Resource::Family>)
+      verify_family_equal(family, other);
+    if constexpr (Resource::KIND == Pullback::ResourceKind::LENS)
+      verify_mobius_equal(family.mobius, other.mobius);
+    if constexpr (Resource::KIND == Pullback::ResourceKind::COLOR)
+      HS_EXPECT_EQ(static_cast<int>(family.palette_mapping),
+                   static_cast<int>(other.palette_mapping));
+  });
 }
 
 /** @brief Moves every tabled field of a family to the middle of its range. */
@@ -260,15 +239,13 @@ inline void fill_midpoints(Family &family) {
  * @brief Checks that a restore refuses each field of one family out of range.
  * @param effect Effect under test.
  * @param captured An admissible snapshot each poisoned copy starts from.
- * @param slot The family's member in the parameter set.
- * @param label Family name, for the failure context.
  */
-template <typename FX, typename ParamsT, Pullback::HasFields Family>
+template <typename FX, typename Resource>
 inline void
 verify_family_rejection(FX &effect,
-                        const typename FX::ParameterSnapshot &captured,
-                        Family ParamsT::*slot, const char *label) {
-  HS_CONTEXT(label);
+                        const typename FX::ParameterSnapshot &captured) {
+  using Family = typename Resource::Family;
+  HS_CONTEXT(Resource::KEY.text);
   for (const auto &field : Family::FIELDS) {
     HS_CONTEXT(field.id);
     const float span = field.max - field.min;
@@ -276,7 +253,7 @@ verify_family_rejection(FX &effect,
                              field.min - span - 1.0f, field.max + span + 1.0f};
     for (float poison : poisons) {
       typename FX::ParameterSnapshot snapshot = captured;
-      (snapshot.params.*slot).*(field.member) = poison;
+      snapshot.params.template get<Resource::KEY>().*(field.member) = poison;
       HS_EXPECT_FALSE(effect.restore_parameters(snapshot));
       verify_params_equal(effect.serialize_parameters().params,
                           captured.params);
@@ -406,13 +383,10 @@ inline void check_snapshot_contract(const char *name) {
   // Every family the parameter set names has to make the crossing, so the whole
   // set moves off its authored values at once.
   typename FX::ParameterSnapshot moved = captured;
-  fill_midpoints(moved.params.source);
-  fill_midpoints(moved.params.projection);
-  fill_midpoints(moved.params.outer_warp);
-  fill_midpoints(moved.params.inner_warp);
-  fill_midpoints(moved.params.surface);
-  fill_midpoints(moved.params.value);
-  fill_midpoints(moved.params.color);
+  moved.params.visit([]<typename Resource>(auto &family) {
+    if constexpr (Pullback::HasFields<typename Resource::Family>)
+      fill_midpoints(family);
+  });
   if constexpr (requires { Params{}.lens.mobius; }) {
     moved.params.lens.mobius.a = {1.0f, 0.2f};
     moved.params.lens.mobius.b = {0.3f, 0.4f};
@@ -429,13 +403,10 @@ inline void check_snapshot_contract(const char *name) {
   HS_EXPECT_FALSE(effect.restore_parameters(bumped));
   verify_params_equal(effect.serialize_parameters().params, captured.params);
 
-  verify_family_rejection(effect, captured, &Params::source, "source");
-  verify_family_rejection(effect, captured, &Params::projection, "projection");
-  verify_family_rejection(effect, captured, &Params::outer_warp, "outer warp");
-  verify_family_rejection(effect, captured, &Params::inner_warp, "inner warp");
-  verify_family_rejection(effect, captured, &Params::surface, "surface");
-  verify_family_rejection(effect, captured, &Params::value, "value");
-  verify_family_rejection(effect, captured, &Params::color, "color");
+  captured.params.visit([&]<typename Resource>(const auto &) {
+    if constexpr (Pullback::HasFields<typename Resource::Family>)
+      verify_family_rejection<FX, Resource>(effect, captured);
+  });
 
   typename FX::ParameterSnapshot mapping = captured;
   mapping.params.color.palette_mapping =
@@ -964,21 +935,32 @@ apply_document_value(typename FX::Params &built, const DocumentSlot &slot,
     case SlotRole::PROJECT:
       return assign_field(built.projection, field_id, number);
     case SlotRole::WARP:
-      return slot.warp_side == 0
-                 ? assign_field(built.outer_warp, field_id, number)
-                 : assign_field(built.inner_warp, field_id, number);
+      if (slot.warp_side == 0) {
+        if constexpr (requires { built.outer_warp; })
+          return assign_field(built.outer_warp, field_id, number);
+      } else {
+        if constexpr (requires { built.inner_warp; })
+          return assign_field(built.inner_warp, field_id, number);
+      }
+      return false;
     case SlotRole::SURFACE:
-      return assign_field(built.surface, field_id, number);
+      if constexpr (requires { built.surface; })
+        return assign_field(built.surface, field_id, number);
+      return false;
     case SlotRole::SAMPLE:
-      if (assign_field(built.source, field_id, number) ||
-          assign_field(built.value, field_id, number))
+      if (assign_field(built.source, field_id, number))
         return true;
+      if constexpr (requires { built.value; })
+        if (assign_field(built.value, field_id, number))
+          return true;
       // The sample operators always carry an edge-width; without edge-fade
       // coverage it is inert in the chain and has no composed-effect field.
       return field_id == "edge-width" &&
              Spec::COVERAGE != Pullback::ProjectionCoverageMode::EDGE_FADE;
     case SlotRole::FIELD:
-      return assign_field(built.value, field_id, number);
+      if constexpr (requires { built.value; })
+        return assign_field(built.value, field_id, number);
+      return false;
     case SlotRole::LENS:
       return assign_mobius(built, field_id, number);
     case SlotRole::COLORIZE:
@@ -1255,8 +1237,7 @@ inline void check_document_values(const char *name) {
     Params built{};
     const float MISSING = std::bit_cast<float>(uint32_t{0x7fc00001});
     const auto poison = [MISSING]<typename Family>(Family &family) {
-      if constexpr (Pullback::HasFields<Family> &&
-                    !std::is_same_v<Family, Pullback::NoWarpParams>)
+      if constexpr (Pullback::HasFields<Family> && !std::is_void_v<Family>)
         for (const auto &field : Family::FIELDS) {
           if (!gate_open<FX>(field.gate))
             continue;
@@ -1280,13 +1261,10 @@ inline void check_document_values(const char *name) {
           family.*(field.member) = MISSING;
         }
     };
-    poison(built.source);
-    poison(built.projection);
-    poison(built.outer_warp);
-    poison(built.inner_warp);
-    poison(built.surface);
-    poison(built.value);
-    poison(built.color);
+    built.visit([&]<typename Resource>(auto &family) {
+      if constexpr (Pullback::HasFields<typename Resource::Family>)
+        poison(family);
+    });
     built.color.palette_mapping =
         static_cast<Pullback::Color::PaletteMapping>(255);
     if constexpr (requires { built.lens.mobius; })
@@ -1451,7 +1429,7 @@ inline void test_composed_hand_registered_families() {
     HS_CONTEXT(field.id);
     HS_EXPECT_TRUE(field.name == nullptr);
   }
-  for (const auto &field : Pullback::NoLensParams::FIELDS) {
+  for (const auto &field : Pullback::Lens::NoLensParams::FIELDS) {
     HS_CONTEXT(field.id);
     HS_EXPECT_TRUE(field.name == nullptr);
   }
@@ -1467,36 +1445,25 @@ inline void test_composed_hand_registered_families() {
 /** @brief Direct-noise displacement follows the declared lens placement. */
 inline void test_composed_direct_surface_placement() {
   using FX = KaleidoscopeHexOil<SMALL_W, SMALL_H>;
-  using Before =
-      Pullback::ComposedEffect<SMALL_W, SMALL_H, FX, KaleidoscopeHexOilParams,
-                               KaleidoscopeHexOilSpec, PaletteHarmony::TRIADIC,
-                               Pullback::HueMode::PATH_LENGTH,
-                               Pullback::Color::BrightnessEnvelope::NONE>;
   using Displace = Pullback::Stage::Displace<Pullback::Surface::DirectNoise<
-      Pullback::SurfaceProvider<FX::Binding, true>, math::NoiseBasis::SIMPLEX>>;
+      Pullback::SurfaceProvider<FX::Binding, Pullback::DirectSurfaceParams,
+                                true>,
+      math::NoiseBasis::SIMPLEX>>;
   using Lens =
       Pullback::Stage::Lens<Pullback::Lens::HexagonalPrismKaleidoscope>;
   using Project = Pullback::Stage::Project<Pullback::ProjectionPolicyFor<
       KaleidoscopeHexOilSpec::PROJECTION, FX::Binding>::Type>;
-  using ExpectedBefore =
-      Pullback::Stage::Placed<Pullback::CodeEmission::OUT_OF_LINE_FLASH,
-                              Displace, Lens, void, Project>;
-  using ExpectedAfter =
-      Pullback::Stage::Placed<Pullback::CodeEmission::OUT_OF_LINE_FLASH, void,
-                              Lens, Displace, Project>;
-  static_assert(std::is_same_v<Before::SphereRun, ExpectedBefore>);
-  static_assert(std::is_same_v<FX::SphereRun, ExpectedAfter>);
+  static_assert(std::is_same_v<typename FX::RenderPipeline::template node_at<1>,
+                               Pullback::Detail::BoundPlaced<
+                                   Pullback::CodeEmission::OUT_OF_LINE_FLASH,
+                                   FX::Binding, Lens, Displace, Project>>);
   HS_EXPECT_EQ(TraitsOf<FX>::SURFACE_PLACEMENT,
                Pullback::SurfacePlacement::AFTER_LENS);
 }
 
 namespace In = Pullback::Interp;
 
-/** A parameter set naming the narrowed warp families. */
-using ReachParams =
-    Pullback::Params<Pullback::GridSourceParams, Pullback::PolarParams,
-                     Pullback::VectorNoiseParams>;
-using ReachBinding = Pullback::Binding<Pullback::FrameState<ReachParams>>;
+using ReachBinding = Pullback::ComposedDetail::DiscoveryBinding;
 
 template <typename Family>
 concept DerivableSource = requires {
@@ -1518,27 +1485,34 @@ static_assert(
     std::is_same_v<
         typename Pullback::SourcePolicyFor<Pullback::SphericalNoiseSourceParams,
                                            ReachBinding>::Type,
-        Pullback::Source::SphericalNoise<Pullback::SourceProvider<ReachBinding>,
-                                         math::NoiseBasis::SIMPLEX>>);
+        Pullback::Source::SphericalNoise<
+            Pullback::SourceProvider<ReachBinding,
+                                     Pullback::SphericalNoiseSourceParams>,
+            math::NoiseBasis::SIMPLEX>>);
 static_assert(
     std::is_same_v<
         typename Pullback::SourcePolicyFor<Pullback::ProjectedNoiseSourceParams,
                                            ReachBinding>::Type,
-        Pullback::Source::ProjectedNoise<Pullback::SourceProvider<ReachBinding>,
-                                         math::NoiseBasis::SIMPLEX>>);
-static_assert(
-    std::is_same_v<typename Pullback::WarpPolicyFor<
-                       Pullback::PolarParams, ReachBinding, true, false>::Type,
-                   Pullback::Warp::PolarChart<
-                       Pullback::WarpProvider<ReachBinding, true, false>,
-                       Pullback::Warp::LinearPolar, 1>>);
+        Pullback::Source::ProjectedNoise<
+            Pullback::SourceProvider<ReachBinding,
+                                     Pullback::ProjectedNoiseSourceParams>,
+            math::NoiseBasis::SIMPLEX>>);
 static_assert(
     std::is_same_v<
-        typename Pullback::WarpPolicyFor<Pullback::VectorNoiseParams,
-                                         ReachBinding, false, false>::Type,
-        Pullback::Warp::VectorNoise<
-            Pullback::WarpProvider<ReachBinding, false, false>,
-            math::NoiseBasis::SIMPLEX, Pullback::Warp::FlatEnvelope>>);
+        typename Pullback::WarpPolicyFor<Pullback::PolarParams, ReachBinding,
+                                         "outer_warp", false>::Type,
+        Pullback::Warp::PolarChart<
+            Pullback::WarpProvider<ReachBinding, "outer_warp",
+                                   Pullback::PolarParams, false>,
+            Pullback::Warp::LinearPolar, 1>>);
+static_assert(std::is_same_v<
+              typename Pullback::WarpPolicyFor<Pullback::VectorNoiseParams,
+                                               ReachBinding, "inner_warp",
+                                               false>::Type,
+              Pullback::Warp::VectorNoise<
+                  Pullback::WarpProvider<ReachBinding, "inner_warp",
+                                         Pullback::VectorNoiseParams, false>,
+                  math::NoiseBasis::SIMPLEX, Pullback::Warp::FlatEnvelope>>);
 
 /**
  * @brief How much of one catalog operator's vocabulary a ComposedEffect
@@ -1740,24 +1714,33 @@ inline void test_composed_derivation_reach() {
   HS_EXPECT_EQ(unreachable_values, 101u);
 }
 
-using RippleProbeParams =
-    Pullback::Params<Pullback::GridSourceParams, Pullback::NoWarpParams,
-                     Pullback::NoWarpParams, Pullback::NoLensParams,
-                     Pullback::NoValueParams, Pullback::PeriodicRippleParams>;
-using RippleProbeSpec =
-    Pullback::Spec<Pullback::ProjectionKind::STEREOGRAPHIC, void,
-                   Pullback::TransferKind::NONE,
-                   Pullback::ProjectionCoverageMode::WEIGHT>;
+template <bool Animated> struct RippleProbeSpec : Pullback::Spec {
+  static constexpr bool ANIMATED_PROJECTION = Animated;
+  static constexpr Pullback::HueMode HUE = Pullback::HueMode::PATH_LENGTH;
+  template <typename B>
+  using Pipeline = Pullback::Pipeline<
+      B, Pullback::Stage::Rotate<Pullback::OuterCameraProvider<B>>,
+      Pullback::Stage::Placed<
+          Pullback::CodeEmission::INLINE_ONLY,
+          Pullback::Stage::Displace<Pullback::Surface::PeriodicRipple<
+              Pullback::SurfaceProvider<B, Pullback::PeriodicRippleParams>>>,
+          Pullback::Stage::Project<
+              typename Pullback::ProjectionPolicyFor<PROJECTION, B>::Type>>,
+      Pullback::Stage::Sample<typename Pullback::SourcePolicyFor<
+                                  Pullback::GridSourceParams, B>::Type,
+                              Pullback::Weight::Projection,
+                              Pullback::ProjectionCoverage::Weight>,
+      Pullback::Stage::Colorize<Pullback::Color::GeneratedPalette<
+          Pullback::ColorProvider<B, HUE, BRIGHTNESS>>>>;
+};
 
 template <int W, int H, bool AnimatedProjection = false>
 class RippleProbe
-    : public Pullback::ComposedEffect<
-          W, H, RippleProbe<W, H, AnimatedProjection>, RippleProbeParams,
-          RippleProbeSpec, PaletteHarmony::TRIADIC,
-          Pullback::HueMode::PATH_LENGTH,
-          Pullback::Color::BrightnessEnvelope::NONE, AnimatedProjection> {
+    : public Pullback::ComposedEffect<W, H,
+                                      RippleProbe<W, H, AnimatedProjection>,
+                                      RippleProbeSpec<AnimatedProjection>> {
 public:
-  using Params = RippleProbeParams;
+  using Params = Pullback::ParamsFor<RippleProbeSpec<AnimatedProjection>>;
   static constexpr std::array<std::string_view, 1> PRESET_IDS{"ripple"};
   static constexpr uint32_t PARAMETER_SCHEMA_VERSION = 1;
   static constexpr uint16_t PRESET_DWELL_FRAMES = 600;
@@ -1771,6 +1754,145 @@ public:
     return value;
   }
 };
+
+struct RepeatedStagesSpec : Pullback::Spec {
+  static constexpr bool ANIMATED_PROJECTION = false;
+  template <typename B>
+  using Pipeline = Pullback::Pipeline<
+      B, Pullback::Stage::Rotate<Pullback::OuterCameraProvider<B>>,
+      Pullback::Stage::Placed<
+          Pullback::CodeEmission::INLINE_ONLY,
+          Pullback::Stage::Lens<
+              Pullback::Lens::Mobius<Pullback::LensProvider<B, "lens_a">>>,
+          Pullback::Stage::Lens<
+              Pullback::Lens::Mobius<Pullback::LensProvider<B, "lens_b">>>,
+          Pullback::Stage::Project<
+              typename Pullback::ProjectionPolicyFor<PROJECTION, B>::Type>>,
+      Pullback::Stage::Warp<typename Pullback::WarpPolicyFor<
+          Pullback::VectorNoiseParams, B, "warp_a", false>::Type>,
+      Pullback::Stage::Warp<typename Pullback::WarpPolicyFor<
+          Pullback::VectorNoiseParams, B, "warp_b", false>::Type>,
+      Pullback::Stage::Warp<typename Pullback::WarpPolicyFor<
+          Pullback::WaveShearParams, B, "warp_c", false>::Type>,
+      Pullback::Stage::Sample<typename Pullback::SourcePolicyFor<
+          Pullback::GridSourceParams, B>::Type>,
+      Pullback::Stage::Colorize<Pullback::Color::GeneratedPalette<
+          Pullback::ColorProvider<B, HUE, BRIGHTNESS>>>>;
+};
+template <int W, int H>
+class RepeatedStagesProbe
+    : public Pullback::ComposedEffect<W, H, RepeatedStagesProbe<W, H>,
+                                      RepeatedStagesSpec> {
+public:
+  using Params = Pullback::ParamsFor<RepeatedStagesSpec>;
+  static constexpr std::array<std::string_view, 1> PRESET_IDS{"repeated"};
+  static constexpr uint32_t PARAMETER_SCHEMA_VERSION = 1;
+  static constexpr uint16_t PRESET_DWELL_FRAMES = 600;
+  static constexpr Params initial_params() {
+    Params value;
+    value.template get<"warp_a">().speed = 0.003f;
+    value.template get<"warp_b">().speed = 0.009f;
+    value.template get<"warp_c">().speed = -0.012f;
+    value.template get<"warp_a">().strength = 0.2f;
+    value.template get<"warp_b">().strength = 0.4f;
+    value.template get<"warp_c">().strength = 0.3f;
+    return value;
+  }
+};
+
+inline void test_composed_repeated_instances() {
+  using FX = RepeatedStagesProbe<SMALL_W, SMALL_H>;
+  static_assert(FX::Params::template HAS<"warp_a"> &&
+                FX::Params::template HAS<"warp_b"> &&
+                FX::Params::template HAS<"warp_c">);
+  static_assert(!FX::Params::template HAS<"outer_warp"> &&
+                !FX::Params::template HAS<"lens"> &&
+                !FX::Params::template HAS<"surface">);
+  static_assert(FX::RenderPipeline::STAGE_COUNT == 9 &&
+                FX::RenderPipeline::NODE_COUNT == 7);
+  static_assert(sizeof(FX::Params) ==
+                sizeof(Pullback::GridSourceParams) +
+                    sizeof(Pullback::ProjectionParams) +
+                    2 * sizeof(Pullback::VectorNoiseParams) +
+                    sizeof(Pullback::WaveShearParams) +
+                    2 * sizeof(Pullback::MobiusLensParams) +
+                    sizeof(Pullback::ColorParams));
+  reset_effect_globals();
+  FX effect;
+  effect.init();
+  const auto captured = effect.serialize_parameters();
+  captured.params.visit([&]<typename Resource>(const auto &) {
+    if constexpr (Pullback::HasFields<typename Resource::Family>)
+      verify_family_rejection<FX, Resource>(effect, captured);
+  });
+  for (int step = 0; step < 7; ++step)
+    ComposedFrameWhiteBox::advance(effect);
+  const auto frame = ComposedFrameWhiteBox::frame(effect);
+  HS_EXPECT_NEAR(frame.resources.template get<"warp_a">().phase, 0.021f, 1e-6f);
+  HS_EXPECT_NEAR(frame.resources.template get<"warp_b">().phase, 0.063f, 1e-6f);
+  HS_EXPECT_NEAR(frame.resources.template get<"warp_c">().phase,
+                 math::wrap_t(-0.084f), 1e-6f);
+  HS_EXPECT_TRUE(frame.resources.template get<"warp_a">().noise !=
+                 frame.resources.template get<"warp_b">().noise);
+  HS_EXPECT_EQ(effect.getParameters().size(),
+               effect.getParameters().capacity());
+  for (const char *name :
+       {"warp_a.Planar Warp Speed", "warp_b.Planar Warp Speed",
+        "warp_c.Planar Warp Speed", "lens_a.Mobius B Re", "lens_b.Mobius B Re"})
+    HS_EXPECT_TRUE(effect.getParameters().find(name) != nullptr);
+  HS_EXPECT_EQ(effect.updateParameter("lens_a.Mobius B Re", 0.2f),
+               ParamSetResult::APPLIED);
+  HS_EXPECT_EQ(
+      effect.serialize_parameters().params.template get<"lens_a">().mobius.b.re,
+      0.2f);
+  HS_EXPECT_EQ(
+      effect.serialize_parameters().params.template get<"lens_b">().mobius.b.re,
+      0.0f);
+  HS_EXPECT_EQ(effect.updateParameter("lens_b.Mobius B Re", -0.3f),
+               ParamSetResult::APPLIED);
+  HS_EXPECT_EQ(
+      effect.serialize_parameters().params.template get<"lens_a">().mobius.b.re,
+      0.2f);
+  HS_EXPECT_EQ(
+      effect.serialize_parameters().params.template get<"lens_b">().mobius.b.re,
+      -0.3f);
+  auto changed = captured;
+  changed.params.template get<"lens_a">().mobius.b.re = 0.2f;
+  changed.params.template get<"lens_b">().mobius.b.re = -0.3f;
+  const auto middle =
+      Pullback::interpolate(captured.params, changed.params, 0.5f);
+  HS_EXPECT_NEAR(middle.template get<"lens_a">().mobius.b.re, 0.0f, 1e-6f);
+  HS_EXPECT_NEAR(middle.template get<"lens_b">().mobius.b.re, 0.0f, 1e-6f);
+  HS_EXPECT_TRUE(FX::valid_params(middle));
+  verify_params_equal(
+      Pullback::interpolate(captured.params, changed.params, 1.0f),
+      changed.params);
+  const auto render = [&](const typename FX::Params &params) {
+    ComposedFrameWhiteBox::set_params(effect, params);
+    const auto prepared =
+        FX::RenderPipeline::prepare(ComposedFrameWhiteBox::frame(effect));
+    std::array<Color4, 16> pixels{};
+    for (size_t i = 0; i < pixels.size(); ++i)
+      pixels[i] = FX::RenderPipeline::shade(
+          math::Vector(0.2f + 0.03f * i, 0.4f, -0.8f).normalized(), prepared);
+    return pixels;
+  };
+  const auto initial = render(captured.params);
+  size_t differences = 0;
+  const auto rendered = render(changed.params);
+  for (size_t i = 0; i < initial.size(); ++i)
+    differences += initial[i].color.r != rendered[i].color.r ||
+                   initial[i].color.g != rendered[i].color.g ||
+                   initial[i].color.b != rendered[i].color.b;
+  HS_EXPECT_GT(differences, size_t{0});
+  auto invalid = changed;
+  invalid.params.template get<"lens_b">().mobius.c =
+      invalid.params.template get<"lens_b">().mobius.a;
+  invalid.params.template get<"lens_b">().mobius.d =
+      invalid.params.template get<"lens_b">().mobius.b;
+  HS_EXPECT_FALSE(effect.restore_parameters(invalid));
+  verify_params_equal(effect.serialize_parameters().params, changed.params);
+}
 
 struct ProjectionWalkFootprint {
   size_t arena_bytes;
@@ -1832,24 +1954,28 @@ inline void test_composed_periodic_ripple_surface() {
   hs::clear_mock_time();
 }
 
-template <typename SourceT>
-using NoiseSourceProbeParams =
-    Pullback::Params<SourceT, Pullback::NoWarpParams, Pullback::NoWarpParams>;
-using NoiseSourceProbeSpec =
-    Pullback::Spec<Pullback::ProjectionKind::STEREOGRAPHIC, void,
-                   Pullback::TransferKind::NONE,
-                   Pullback::ProjectionCoverageMode::WEIGHT>;
+template <typename SourceT> struct NoiseSourceProbeSpec : Pullback::Spec {
+  static constexpr bool ANIMATED_PROJECTION = false;
+  template <typename B>
+  using Pipeline = Pullback::Pipeline<
+      B, Pullback::Stage::Rotate<Pullback::OuterCameraProvider<B>>,
+      Pullback::Stage::Placed<
+          Pullback::CodeEmission::INLINE_ONLY,
+          Pullback::Stage::Project<
+              typename Pullback::ProjectionPolicyFor<PROJECTION, B>::Type>>,
+      Pullback::Stage::Sample<
+          typename Pullback::SourcePolicyFor<SourceT, B>::Type,
+          Pullback::Weight::Projection, Pullback::ProjectionCoverage::Weight>,
+      Pullback::Stage::Colorize<Pullback::Color::GeneratedPalette<
+          Pullback::ColorProvider<B, HUE, BRIGHTNESS>>>>;
+};
 
-/** @brief Probe deriving a pipeline from a noise source family. */
 template <int W, int H, typename SourceT>
 class NoiseSourceProbe
-    : public Pullback::ComposedEffect<
-          W, H, NoiseSourceProbe<W, H, SourceT>,
-          NoiseSourceProbeParams<SourceT>, NoiseSourceProbeSpec,
-          PaletteHarmony::TRIADIC, Pullback::HueMode::NONE,
-          Pullback::Color::BrightnessEnvelope::NONE, false> {
+    : public Pullback::ComposedEffect<W, H, NoiseSourceProbe<W, H, SourceT>,
+                                      NoiseSourceProbeSpec<SourceT>> {
 public:
-  using Params = NoiseSourceProbeParams<SourceT>;
+  using Params = Pullback::ParamsFor<NoiseSourceProbeSpec<SourceT>>;
   static constexpr std::array<std::string_view, 1> PRESET_IDS{"noise"};
   static constexpr uint32_t PARAMETER_SCHEMA_VERSION = 1;
   static constexpr uint16_t PRESET_DWELL_FRAMES = 600;
@@ -2243,14 +2369,9 @@ template <typename Params> uint64_t parameter_layout_hash() {
   ParameterLayoutHash hash;
   hash.number(sizeof(Params));
   hash.number(alignof(Params));
-  hash.member(params, params.source, "source");
-  hash.member(params, params.projection, "projection");
-  hash.member(params, params.outer_warp, "outer-warp");
-  hash.member(params, params.inner_warp, "inner-warp");
-  hash.member(params, params.surface, "surface");
-  hash.member(params, params.lens, "lens");
-  hash.member(params, params.value, "value");
-  hash.member(params, params.color, "color");
+  params.visit([&]<typename Resource>(const auto &family) {
+    hash.member(params, family, Resource::KEY.view());
+  });
   return hash.value;
 }
 
@@ -2263,24 +2384,24 @@ struct ParameterSchemaPin {
 };
 
 constexpr ParameterSchemaPin PARAMETER_SCHEMA_PINS[] = {
-    {"AlienBrain", 1, 124, 13211564249954473680ULL},
-    {"KaleidoscopeHexSoft", 1, 120, 14739990588689198094ULL},
-    {"AlienOcean", 1, 132, 11127609128084578929ULL},
-    {"AlienCore", 1, 132, 11127609128084578929ULL},
-    {"KaleidoscopeMandala", 1, 144, 10790799260504476359ULL},
-    {"GridSpace", 1, 132, 12866172893703879652ULL},
-    {"LatticeMelt", 5, 112, 4875184365142965039ULL},
-    {"ChromaticLichen", 1, 120, 1638883893586672436ULL},
-    {"MermaidSkin", 1, 120, 1638883893586672436ULL},
-    {"AshCloud", 1, 120, 4448818947685542191ULL},
-    {"KaleidoscopePentBright", 1, 128, 585731665701543490ULL},
-    {"KaleidoscopeHexOil", 1, 112, 8557969739065036322ULL},
-    {"KaleidoscopeStainedGlass", 1, 144, 8243180243475284283ULL},
-    {"KaleidoscopeSmooth", 3, 128, 7554040197270829006ULL},
-    {"KaleidoscopeHexBright", 1, 120, 14739990588689198094ULL},
-    {"KaleidoscopeFlowers", 1, 128, 7554040197270829006ULL},
-    {"CosmicEyeball", 1, 132, 11127609128084578929ULL},
-    {"MobiusGrid", 1, 156, 17757354992037972817ULL},
+    {"AlienBrain", 2, 116, 2450429636986970733ULL},
+    {"KaleidoscopeHexSoft", 2, 112, 8936720859510048520ULL},
+    {"AlienOcean", 2, 124, 5732924260995353001ULL},
+    {"AlienCore", 2, 124, 5732924260995353001ULL},
+    {"KaleidoscopeMandala", 2, 140, 13066144578015210057ULL},
+    {"GridSpace", 2, 124, 1602663564915579084ULL},
+    {"LatticeMelt", 6, 100, 6646121068342335885ULL},
+    {"ChromaticLichen", 2, 108, 149313388846503452ULL},
+    {"MermaidSkin", 2, 108, 149313388846503452ULL},
+    {"AshCloud", 2, 108, 6209082325371804633ULL},
+    {"KaleidoscopePentBright", 2, 124, 3683580502139334648ULL},
+    {"KaleidoscopeHexOil", 2, 100, 9129498782342370022ULL},
+    {"KaleidoscopeStainedGlass", 2, 140, 1167435404544472545ULL},
+    {"KaleidoscopeSmooth", 4, 120, 8155564830961471120ULL},
+    {"KaleidoscopeHexBright", 2, 112, 8936720859510048520ULL},
+    {"KaleidoscopeFlowers", 2, 120, 8155564830961471120ULL},
+    {"CosmicEyeball", 2, 124, 5732924260995353001ULL},
+    {"MobiusGrid", 2, 144, 15460173752614586553ULL},
 };
 
 /** @brief Pins one specialization's schema version to its field layout. */
@@ -2431,6 +2552,7 @@ inline int run_composed_effect_tests() {
   test_composed_document_values();
   test_flowers_longitude_seam();
   test_composed_derivation_reach();
+  test_composed_repeated_instances();
   test_composed_projection_walk_storage();
   test_composed_periodic_ripple_surface();
   test_composed_noise_sources();

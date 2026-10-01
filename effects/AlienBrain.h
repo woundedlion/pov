@@ -10,13 +10,43 @@
 
 #include "core/render/pullback/composed_effect.h"
 
-using AlienBrainParams =
-    Pullback::Params<Pullback::GridSourceParams, Pullback::WaveShearParams,
-                     Pullback::NoWarpParams>;
-using AlienBrainSpec =
-    Pullback::Spec<Pullback::ProjectionKind::STEREOGRAPHIC,
-                   Pullback::Lens::Glitch, Pullback::TransferKind::NONE,
-                   Pullback::ProjectionCoverageMode::WEIGHT_SQUARED>;
+struct AlienBrainSpec : Pullback::Spec {
+  static constexpr Pullback::ProjectionKind PROJECTION =
+      Pullback::ProjectionKind::STEREOGRAPHIC;
+  static constexpr Pullback::TransferKind TRANSFER =
+      Pullback::TransferKind::NONE;
+  static constexpr Pullback::ProjectionCoverageMode COVERAGE =
+      Pullback::ProjectionCoverageMode::WEIGHT_SQUARED;
+  static constexpr Pullback::FieldCoverageKind FIELD_COVERAGE =
+      Pullback::FieldCoverageKind::NONE;
+  static constexpr PaletteHarmony HARMONY = PaletteHarmony::TRIADIC;
+  static constexpr Pullback::HueMode HUE = Pullback::HueMode::NOISE;
+  static constexpr Pullback::Color::BrightnessEnvelope BRIGHTNESS =
+      Pullback::Color::BrightnessEnvelope::NONE;
+  static constexpr bool ANIMATED_PROJECTION = true;
+  static constexpr Pullback::SurfacePlacement SURFACE_PLACEMENT =
+      Pullback::SurfacePlacement::BEFORE_LENS;
+  using LensPolicy = Pullback::Lens::Glitch;
+  template <typename B>
+  using Pipeline = Pullback::Pipeline<
+      B, Pullback::Stage::Rotate<Pullback::OuterCameraProvider<B>>,
+      Pullback::Stage::Placed<
+          Pullback::CodeEmission::INLINE_ONLY,
+          Pullback::Stage::Lens<Pullback::Lens::Glitch>,
+          Pullback::Stage::Project<
+              typename Pullback::ProjectionPolicyFor<PROJECTION, B>::Type>>,
+      Pullback::Stage::Warp<typename Pullback::WarpPolicyFor<
+          Pullback::WaveShearParams, B, "outer_warp",
+          HUE == Pullback::HueMode::PATH_LENGTH>::Type>,
+      Pullback::Stage::Sample<
+          typename Pullback::SourcePolicyFor<Pullback::GridSourceParams,
+                                             B>::Type,
+          Pullback::Weight::Projection,
+          typename Pullback::CoveragePolicyFor<COVERAGE, B, void>::Type>,
+      Pullback::Stage::Colorize<Pullback::Color::GeneratedPalette<
+          Pullback::ColorProvider<B, HUE, BRIGHTNESS>>>>;
+};
+using AlienBrainParams = Pullback::ParamsFor<AlienBrainSpec>;
 
 /**
  * @brief Glitch-folded grids pulled through an animated wave shear.
@@ -24,10 +54,8 @@ using AlienBrainSpec =
  * @tparam H Canvas height in pixels.
  */
 template <int W, int H>
-class AlienBrain : public Pullback::ComposedEffect<
-                       W, H, AlienBrain<W, H>, AlienBrainParams, AlienBrainSpec,
-                       PaletteHarmony::TRIADIC, Pullback::HueMode::NOISE,
-                       Pullback::Color::BrightnessEnvelope::NONE> {
+class AlienBrain
+    : public Pullback::ComposedEffect<W, H, AlienBrain<W, H>, AlienBrainSpec> {
 
 public:
   using Params = AlienBrainParams;
@@ -45,7 +73,7 @@ public:
   static constexpr uint16_t PRESET_DWELL_FRAMES = 600;
   // clang-format on
   // End generated identity.
-  static constexpr uint32_t PARAMETER_SCHEMA_VERSION = 1;
+  static constexpr uint32_t PARAMETER_SCHEMA_VERSION = 2;
 
   // Hot entry trampoline; RenderPipeline::shade uses hot flash.
   static HS_HOT_FLASH_MEMBER Color4

@@ -10,14 +10,46 @@
 
 #include "core/render/pullback/composed_effect.h"
 
-using KaleidoscopeMandalaParams =
-    Pullback::Params<Pullback::GridSourceParams, Pullback::WaveShearParams,
-                     Pullback::MirrorParams>;
-using KaleidoscopeMandalaSpec =
-    Pullback::Spec<Pullback::ProjectionKind::GNOMONIC_FOLDED,
-                   Pullback::Lens::DodecahedralKaleidoscope,
-                   Pullback::TransferKind::NONE,
-                   Pullback::ProjectionCoverageMode::WEIGHT_SQUARED>;
+struct KaleidoscopeMandalaSpec : Pullback::Spec {
+  static constexpr Pullback::ProjectionKind PROJECTION =
+      Pullback::ProjectionKind::GNOMONIC_FOLDED;
+  static constexpr Pullback::TransferKind TRANSFER =
+      Pullback::TransferKind::NONE;
+  static constexpr Pullback::ProjectionCoverageMode COVERAGE =
+      Pullback::ProjectionCoverageMode::WEIGHT_SQUARED;
+  static constexpr Pullback::FieldCoverageKind FIELD_COVERAGE =
+      Pullback::FieldCoverageKind::NONE;
+  static constexpr PaletteHarmony HARMONY = PaletteHarmony::TRIADIC;
+  static constexpr Pullback::HueMode HUE = Pullback::HueMode::NOISE;
+  static constexpr Pullback::Color::BrightnessEnvelope BRIGHTNESS =
+      Pullback::Color::BrightnessEnvelope::NONE;
+  static constexpr bool ANIMATED_PROJECTION = false;
+  static constexpr Pullback::SurfacePlacement SURFACE_PLACEMENT =
+      Pullback::SurfacePlacement::BEFORE_LENS;
+  using LensPolicy = Pullback::Lens::DodecahedralKaleidoscope;
+  template <typename B>
+  using Pipeline = Pullback::Pipeline<
+      B, Pullback::Stage::Rotate<Pullback::OuterCameraProvider<B>>,
+      Pullback::Stage::Placed<
+          Pullback::CodeEmission::INLINE_ONLY,
+          Pullback::Stage::Lens<Pullback::Lens::DodecahedralKaleidoscope>,
+          Pullback::Stage::Project<
+              typename Pullback::ProjectionPolicyFor<PROJECTION, B>::Type>>,
+      Pullback::Stage::Warp<typename Pullback::WarpPolicyFor<
+          Pullback::WaveShearParams, B, "outer_warp",
+          HUE == Pullback::HueMode::PATH_LENGTH>::Type>,
+      Pullback::Stage::Warp<typename Pullback::WarpPolicyFor<
+          Pullback::MirrorParams, B, "inner_warp",
+          HUE == Pullback::HueMode::PATH_LENGTH>::Type>,
+      Pullback::Stage::Sample<
+          typename Pullback::SourcePolicyFor<Pullback::GridSourceParams,
+                                             B>::Type,
+          Pullback::Weight::Projection,
+          typename Pullback::CoveragePolicyFor<COVERAGE, B, void>::Type>,
+      Pullback::Stage::Colorize<Pullback::Color::GeneratedPalette<
+          Pullback::ColorProvider<B, HUE, BRIGHTNESS>>>>;
+};
+using KaleidoscopeMandalaParams = Pullback::ParamsFor<KaleidoscopeMandalaSpec>;
 
 /**
  * @brief Folded-gnomonic wave field reflected through a dodecahedral lens.
@@ -26,11 +58,8 @@ using KaleidoscopeMandalaSpec =
  */
 template <int W, int H>
 class KaleidoscopeMandala
-    : public Pullback::ComposedEffect<
-          W, H, KaleidoscopeMandala<W, H>, KaleidoscopeMandalaParams,
-          KaleidoscopeMandalaSpec, PaletteHarmony::TRIADIC,
-          Pullback::HueMode::NOISE, Pullback::Color::BrightnessEnvelope::NONE,
-          /*AnimatedProjection=*/false> {
+    : public Pullback::ComposedEffect<W, H, KaleidoscopeMandala<W, H>,
+                                      KaleidoscopeMandalaSpec> {
 
 public:
   using Params = KaleidoscopeMandalaParams;
@@ -46,7 +75,7 @@ public:
   static constexpr uint16_t PRESET_DWELL_FRAMES = 600;
   // clang-format on
   // End generated identity.
-  static constexpr uint32_t PARAMETER_SCHEMA_VERSION = 1;
+  static constexpr uint32_t PARAMETER_SCHEMA_VERSION = 2;
 
   // Hot entry trampoline; RenderPipeline::shade uses hot flash.
   static HS_HOT_FLASH_MEMBER Color4

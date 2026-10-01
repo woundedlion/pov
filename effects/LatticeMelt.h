@@ -16,14 +16,42 @@ struct LatticeMeltWhiteBox;
 } // namespace lattice_melt_tests
 } // namespace hs_test
 
-using LatticeMeltParams =
-    Pullback::Params<Pullback::LatticeSourceParams, Pullback::NoWarpParams,
-                     Pullback::NoWarpParams, Pullback::NoLensParams,
-                     Pullback::NoValueParams, Pullback::SurfaceNoiseParams>;
-using LatticeMeltSpec =
-    Pullback::Spec<Pullback::ProjectionKind::FOLDED_SINUSOIDAL, void,
-                   Pullback::TransferKind::NONE,
-                   Pullback::ProjectionCoverageMode::WEIGHT>;
+struct LatticeMeltSpec : Pullback::Spec {
+  static constexpr Pullback::ProjectionKind PROJECTION =
+      Pullback::ProjectionKind::FOLDED_SINUSOIDAL;
+  static constexpr Pullback::TransferKind TRANSFER =
+      Pullback::TransferKind::NONE;
+  static constexpr Pullback::ProjectionCoverageMode COVERAGE =
+      Pullback::ProjectionCoverageMode::WEIGHT;
+  static constexpr Pullback::FieldCoverageKind FIELD_COVERAGE =
+      Pullback::FieldCoverageKind::NONE;
+  static constexpr PaletteHarmony HARMONY = PaletteHarmony::TRIADIC;
+  static constexpr Pullback::HueMode HUE = Pullback::HueMode::NOISE;
+  static constexpr Pullback::Color::BrightnessEnvelope BRIGHTNESS =
+      Pullback::Color::BrightnessEnvelope::CUP;
+  static constexpr bool ANIMATED_PROJECTION = true;
+  static constexpr Pullback::SurfacePlacement SURFACE_PLACEMENT =
+      Pullback::SurfacePlacement::BEFORE_LENS;
+  using LensPolicy = void;
+  template <typename B>
+  using Pipeline = Pullback::Pipeline<
+      B, Pullback::Stage::Rotate<Pullback::OuterCameraProvider<B>>,
+      Pullback::Stage::Placed<
+          Pullback::CodeEmission::OUT_OF_LINE_FLASH,
+          Pullback::Stage::Displace<typename Pullback::SurfacePolicyFor<
+              Pullback::SurfaceNoiseParams, B,
+              HUE == Pullback::HueMode::PATH_LENGTH>::Type>,
+          Pullback::Stage::Project<
+              typename Pullback::ProjectionPolicyFor<PROJECTION, B>::Type>>,
+      Pullback::Stage::Sample<
+          typename Pullback::SourcePolicyFor<Pullback::LatticeSourceParams,
+                                             B>::Type,
+          Pullback::Weight::Projection,
+          typename Pullback::CoveragePolicyFor<COVERAGE, B, void>::Type>,
+      Pullback::Stage::Colorize<Pullback::Color::GeneratedPalette<
+          Pullback::ColorProvider<B, HUE, BRIGHTNESS>>>>;
+};
+using LatticeMeltParams = Pullback::ParamsFor<LatticeMeltSpec>;
 
 /**
  * @brief Composed folded-sinusoidal lattice displaced by sphere-space curl noise.
@@ -36,11 +64,8 @@ using LatticeMeltSpec =
  * @tparam H Canvas height in pixels.
  */
 template <int W, int H>
-class LatticeMelt
-    : public Pullback::ComposedEffect<
-          W, H, LatticeMelt<W, H>, LatticeMeltParams, LatticeMeltSpec,
-          PaletteHarmony::TRIADIC, Pullback::HueMode::NOISE,
-          Pullback::Color::BrightnessEnvelope::CUP> {
+class LatticeMelt : public Pullback::ComposedEffect<W, H, LatticeMelt<W, H>,
+                                                    LatticeMeltSpec> {
   friend struct ::hs_test::lattice_melt_tests::LatticeMeltWhiteBox;
 
 public:
@@ -57,7 +82,7 @@ public:
   static constexpr uint16_t PRESET_DWELL_FRAMES = 600;
   // clang-format on
   // End generated identity.
-  static constexpr uint32_t PARAMETER_SCHEMA_VERSION = 5;
+  static constexpr uint32_t PARAMETER_SCHEMA_VERSION = 6;
 
   /// Params the effect starts on, and the base every preset varies from.
   // Generated params: scripts/generate_composed_presets.mjs
