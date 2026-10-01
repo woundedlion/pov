@@ -1318,6 +1318,31 @@ inline void test_motion_repeating_does_not_drift() {
   }
 }
 
+inline void test_motion_reanchor_after_path_swap() {
+  const auto step_after_swap = [](bool reanchor) {
+    ProceduralPath path;
+    path.f = [](float t) {
+      const float ANGLE = math::TWO_PI_F * t;
+      return math::Vector(cosf(ANGLE), sinf(ANGLE), 0);
+    };
+    math::Orientation<16> orientation;
+    Animation::Motion<288, 16> motion(orientation, path, 1000, true);
+    for (int frame = 0; frame < 5; ++frame)
+      motion.step(fake_canvas());
+    const math::Vector BEFORE = orientation.orient(math::X_AXIS);
+    path.f = [](float t) {
+      const float ANGLE = math::TWO_PI_F * t + math::PI_F * 0.5f;
+      return math::Vector(cosf(ANGLE), sinf(ANGLE), 0);
+    };
+    if (reanchor)
+      motion.reanchor();
+    motion.step(fake_canvas());
+    return math::angle_between(BEFORE, orientation.orient(math::X_AXIS));
+  };
+  HS_EXPECT_LT(step_after_swap(true), 0.02f);
+  HS_EXPECT_GT(step_after_swap(false), 1.0f);
+}
+
 /**
  * @brief A co-driver sharing a repeating Motion's Orientation survives the
  * repeat seam.
@@ -4063,6 +4088,7 @@ inline int run_animation_tests() {
   test_timeline_remove_clear_hook_unregisters_by_ctx();
   test_orientation_upsample_then_collapse();
   test_motion_repeating_does_not_drift();
+  test_motion_reanchor_after_path_swap();
   test_motion_codriven_survives_repeat_seam();
 
   test_particle_system_spawn_and_capacity_guard();
