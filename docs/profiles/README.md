@@ -105,8 +105,7 @@ captured 2026-09-27 at 22:18; no 4D global-O3 capture.
 
 [Cubic Wide Flight](hyperlattice_experimental_presets_2026-09-27.md#cubic-wide-flight)
 has a separate fixed-preset shipping check: peak 50.804 ms, 0/616 spills,
-captured 2026-09-27 22:25. The earlier HyperLattice cycle rows above cover
-its two original presets; they predate this third default preset.
+captured 2026-09-27 22:25.
 
 ## HyperLattice experimental cycle
 
