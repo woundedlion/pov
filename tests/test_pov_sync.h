@@ -494,12 +494,12 @@ inline void test_mailbox() {
   m.on_edge(1000 + 4 * COL, GLITCH);
   // EMI spike < 100 µs after an accepted edge is rejected…
   m.on_edge(1000 + 4 * COL + GLITCH / 2, GLITCH);
-  // …and does not reset the filter reference.
+  m.on_edge(1000 + 4 * COL + GLITCH + 1, GLITCH);
   m.on_edge(1000 + 6 * COL, GLITCH);
   HS_EXPECT_FALSE(burst_complete(m, 1000 + 7 * COL, 4 * COL));
   HS_EXPECT_TRUE(burst_complete(m, 1000 + 10 * COL + 1, 4 * COL));
   const BurstSnapshot s = claim(m);
-  HS_EXPECT_EQ(s.count, 4u);
+  HS_EXPECT_EQ(s.count, 5u);
   HS_EXPECT_EQ(s.first_cycles, 1000u);
   HS_EXPECT_EQ(s.last_cycles, 1000u + 6 * COL);
   // Claim resets; the glitch filter still applies across bursts.
