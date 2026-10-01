@@ -3823,7 +3823,8 @@ inline void test_rasterize_planar_arc_registers_track_drawn_arc() {
   HS_EXPECT_LT(bow, 5e-3);
   HS_EXPECT_NEAR(planar, rendered, 2e-3f);
   HS_EXPECT_NEAR(v1s.front(), 0.0f, 1e-3f);
-  HS_EXPECT_NEAR(v1s.back(), planar, 2e-2f);
+  HS_EXPECT_NEAR(v1s.back(), planar, 1e-3f);
+  HS_EXPECT_GT(v1s.back(), planar - bow * 0.5);
 
   // v0 is v1 normalized by the single-segment total arc: 0 at the start, ~1 end.
   HS_EXPECT_NEAR(v0s.front(), 0.0f, 1e-3f);
