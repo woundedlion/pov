@@ -161,7 +161,8 @@ struct BlockLayout {
 /**
  * @brief The erased runtime ABI of one operator-table entry.
  * @details Blocks are arena-allocated by chain compilation from the declared
- * layouts. `init` is infallible and constructs owned resources eagerly for
+ * layouts. Param blocks must be trivially copyable: the value channel copies
+ * them bytewise. `init` is infallible and constructs owned resources eagerly for
  * every topology variant; `migrate` clones `src` into unconstructed `dst`
  * storage (on failure `dst` is left unconstructed and `src` untouched);
  * `advance` steps per-frame clocks; `prepare` derives the frame's prepared
@@ -511,6 +512,8 @@ constexpr OperatorDescriptor make_operator_descriptor() {
                     ::Pullback::Detail::FamilyRank<typename Model::Output,
                                                    CarrierList>::VALUE,
                 "operator model: family rank may not decrease");
+  static_assert(std::is_trivially_copyable_v<Params>,
+                "param blocks are byte-copied by the value channel");
   static_assert(std::is_trivially_destructible_v<Params> &&
                     std::is_trivially_destructible_v<Prepared>,
                 "operator model: param and prepared blocks must be trivially "
