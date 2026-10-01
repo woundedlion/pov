@@ -28,21 +28,51 @@ template <typename FX> void verify_export(size_t preset) {
   HS_EXPECT_FALSE(parser.failed);
   if (parser.failed)
     return;
-  const auto &entries = document.find("descriptor")->find("chain")->items;
-  const auto &presets = document.find("preset_bank")->find("presets")->items;
+  const auto *descriptor = document.find("descriptor");
+  HS_EXPECT_TRUE(descriptor != nullptr);
+  if (!descriptor)
+    return;
+  const auto *chain = descriptor->find("chain");
+  HS_EXPECT_TRUE(chain != nullptr);
+  if (!chain)
+    return;
+  const auto *bank = document.find("preset_bank");
+  HS_EXPECT_TRUE(bank != nullptr);
+  if (!bank)
+    return;
+  const auto *preset_entries = bank->find("presets");
+  HS_EXPECT_TRUE(preset_entries != nullptr);
+  if (!preset_entries)
+    return;
+  const auto &entries = chain->items;
+  const auto &presets = preset_entries->items;
   const JsonValue *values = nullptr;
-  for (const auto &entry : presets)
-    if (entry.find("preset_id")->text == FX::PRESET_IDS[preset])
+  for (const auto &entry : presets) {
+    const auto *id = entry.find("preset_id");
+    HS_EXPECT_TRUE(id != nullptr);
+    if (!id)
+      return;
+    if (id->text == FX::PRESET_IDS[preset])
       values = entry.find("values");
+  }
   HS_EXPECT_TRUE(values != nullptr);
   if (!values)
     return;
   std::vector<In::ChainEntryRequest> requests;
-  for (const auto &entry : entries)
-    requests.push_back({entry.find("label")->text.c_str(),
-                        entry.find("operator")->text.c_str()});
+  for (const auto &entry : entries) {
+    const auto *label = entry.find("label");
+    const auto *op = entry.find("operator");
+    HS_EXPECT_TRUE(label != nullptr);
+    HS_EXPECT_TRUE(op != nullptr);
+    if (!label || !op)
+      return;
+    requests.push_back({label->text.c_str(), op->text.c_str()});
+  }
   auto fixture = std::make_unique<ProgramFixture>();
-  HS_EXPECT_EQ(fixture->program.compile(requests).code, In::ChainStatus::OK);
+  const auto compiled = fixture->program.compile(requests).code;
+  HS_EXPECT_EQ(compiled, In::ChainStatus::OK);
+  if (compiled != In::ChainStatus::OK)
+    return;
   auto &program = fixture->program;
   for (const auto &op : program.ops())
     for (uint16_t index = 0; index < op.op->schema_count; ++index) {
@@ -59,6 +89,8 @@ template <typename FX> void verify_export(size_t preset) {
                value->text != field.enum_ids[selected])
           ++selected;
         HS_EXPECT_LT(selected, field.enum_count);
+        if (selected == field.enum_count)
+          return;
         *static_cast<uint8_t *>(address) = selected;
       } else {
         *static_cast<float *>(address) = static_cast<float>(value->number);
