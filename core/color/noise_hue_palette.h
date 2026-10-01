@@ -24,6 +24,8 @@ inline constexpr float UNIT_OPEN_MAX = 0x1.fffffep-1f;
 struct HueRotationLutView {
   static constexpr int VALUE_STEPS = 64;
   static constexpr int HUE_STEPS = 16;
+  static_assert(HUE_STEPS > 0 && (HUE_STEPS & (HUE_STEPS - 1)) == 0,
+                "hue mask wrap requires a power of two");
   static constexpr size_t SIZE = VALUE_STEPS * HUE_STEPS;
 
   const Pixel *data;
