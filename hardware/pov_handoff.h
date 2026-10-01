@@ -280,4 +280,20 @@ private:
       1}; /**< ISR-written: 1 when the open window sweeps arm-A [0,W/2). */
 };
 
+/** @brief Rebuilds and publishes an effect after the ISR releases its predecessor. */
+template <typename T, typename Wait, typename Destroy, typename Build,
+          typename PublishBracket>
+T *rebuild_effect(EffectHandoff<T> &handoff, uint32_t generation,
+                  Wait &&wait_release, Destroy &&destroy, Build &&build,
+                  PublishBracket &&publish_bracket) {
+  handoff.request_release();
+  while (!handoff.release_complete())
+    wait_release();
+  handoff.clear_pending();
+  destroy();
+  T *effect = build();
+  publish_bracket([&] { handoff.publish(effect, generation); });
+  return effect;
+}
+
 } // namespace pov

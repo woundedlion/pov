@@ -354,48 +354,50 @@ public:
       const uint32_t gen = pov::sync::SyncBoard::build_gen_of(bw);
       if (gen != built_gen) {
         const uint32_t build_start_cycles = ARM_DWT_CYCCNT;
-        // The ISR owns the live-effect pointer; ask it to let go before the
-        // old instance is destroyed (it acknowledges within one wake-up).
-        handoff.request_release();
-        const unsigned long t0 = micros();
-        while (!handoff.release_complete()) {
-          HS_CHECK(micros() - t0 < 100000UL,
-                   "flywheel ISR failed to release the live effect");
-        }
-        handoff.clear_pending();
-        delete cur;
-        // Restart the shared RNG stream per effect, seeded from the beacon-
-        // synchronized effect index (spec §2): every board derives the same
-        // per-visit stream locally, regardless of boot/join history — a board
-        // wrong about the index is already building the wrong effect.
         const int32_t effect_index = pov::sync::SyncBoard::build_index_of(bw);
-        HS_CHECK(effect_index >= 0 && effect_index < R,
-                 "sync published an out-of-roster effect index");
-        hs::random().seed(
-            effect_seed_identities
-                ? effect_seed_identities[effect_index]
-                : hs::epoch_seed(static_cast<uint32_t>(effect_index)));
-        cur = effect_factories[effect_index]();
-        HS_CHECK(cur->height() == ROWS,
-                 "POVSegmented: effect canvas height must equal S/2 (ROWS)");
-        HS_CHECK(cur->width() == CANVAS_W,
-                 "POVSegmented: effect canvas width must equal CANVAS_W");
-        HS_CHECK(!cur->overrides_get_pixel(),
-                 "POVSegmented: effect must not override get_pixel(); the "
-                 "segmented pack_column path bypasses it");
-        clip_to_segment(cur, /*arm_a_left=*/true);
-        cur->set_clip_x(0, CANVAS_W);
-        cur->draw_frame();
-        cur->set_buffer_ready_hook(prepare_segment_clip);
-        if (pov::segment_clip_applies(cur->needs_full_frame(),
-                                      cur->persists_pixels()))
-          cur->set_buffer_complete_hook(pov::preserve_segment_half);
-        // Publish under IRQ-off so the (effect, gen) pair reaches the ISR
-        // atomically; publish()'s release store orders every constructor/
-        // draw_frame() write before the ISR's acquire load.
-        const uint32_t primask = hs::save_disable_interrupts();
-        handoff.publish(cur, gen);
-        hs::restore_interrupts(primask);
+        const unsigned long t0 = micros();
+        cur = pov::rebuild_effect(
+            handoff, gen,
+            [&] {
+              HS_CHECK(micros() - t0 < 100000UL,
+                       "flywheel ISR failed to release the live effect");
+            },
+            [&] { delete cur; },
+            [&] {
+              // Restart the shared RNG stream per effect, seeded from the beacon-
+              // synchronized effect index (spec §2): every board derives the same
+              // per-visit stream locally, regardless of boot/join history — a board
+              // wrong about the index is already building the wrong effect.
+              HS_CHECK(effect_index >= 0 && effect_index < R,
+                       "sync published an out-of-roster effect index");
+              hs::random().seed(
+                  effect_seed_identities
+                      ? effect_seed_identities[effect_index]
+                      : hs::epoch_seed(static_cast<uint32_t>(effect_index)));
+              cur = effect_factories[effect_index]();
+              HS_CHECK(
+                  cur->height() == ROWS,
+                  "POVSegmented: effect canvas height must equal S/2 (ROWS)");
+              HS_CHECK(cur->width() == CANVAS_W,
+                       "POVSegmented: effect canvas width must equal CANVAS_W");
+              HS_CHECK(
+                  !cur->overrides_get_pixel(),
+                  "POVSegmented: effect must not override get_pixel(); the "
+                  "segmented pack_column path bypasses it");
+              clip_to_segment(cur, /*arm_a_left=*/true);
+              cur->set_clip_x(0, CANVAS_W);
+              cur->draw_frame();
+              cur->set_buffer_ready_hook(prepare_segment_clip);
+              if (pov::segment_clip_applies(cur->needs_full_frame(),
+                                            cur->persists_pixels()))
+                cur->set_buffer_complete_hook(pov::preserve_segment_half);
+              return cur;
+            },
+            [&](auto publish) {
+              const uint32_t primask = hs::save_disable_interrupts();
+              publish();
+              hs::restore_interrupts(primask);
+            });
         built_gen = gen;
         // Per-build budget report. The ISR's commit trap is the only other
         // signal that this window ran tight, and it fires on every board at
