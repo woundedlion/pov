@@ -123,8 +123,8 @@ protected branch's `CI green` status is the authoritative correctness gate.
   pre-commit check and `just license-headers` run it; `just python-test` runs
   the checker's unit tests.
 - **Simulator:** in the daydream checkout, `npm ci` then `npm test`; its
-  `pre-push` hook runs lint, typecheck, the import-map check and three workflow
-  helper tests. The full JavaScript suite is separate. daydream's deployment gate
+  `pre-push` hook runs lint, typecheck, the import-map and Tailwind stylesheet freshness
+  checks, and three workflow helper tests. The full JavaScript suite is separate. daydream's deployment gate
   tests an immutable Holosphere/daydream pair before publishing; Holosphere CI
   does not run a daydream consumer job. See daydream's deployment documentation.
 
