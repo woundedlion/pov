@@ -365,7 +365,7 @@ files define line-ending policy and working-artifact exclusions.
 ├── workbench/                  Simulator-only shader authoring surfaces, outside the firmware
 │                                roster; their HS_ENABLE_* gates #error under ARDUINO — see §9
 │   └── shader/                 The shader authoring workbench; reusable policies live in
-│                                namespace Workbench; ShaderWorkbench is a global host template
+│                                namespace Workbench; ShaderWorkbench is a global, resolution-independent host class; Shader<W, H> binds it to a canvas
 │       ├── shader_host.h       Slot-configured shader with dynamic dispatch: registered as Shader
 │       ├── chain_host.h        Effect host for a compiled operator chain: registered as ShaderChain
 │       ├── config.h            Slot enums, per-stage parameter families, and the Config they compose
