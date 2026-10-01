@@ -8,6 +8,7 @@ const source = readFileSync(
 test('every exported enum binds each C++ enumerator under its own name', () => {
   const headers = [
     '../targets/wasm/engine_bindings.h',
+    '../targets/wasm/workbench_bindings.h',
     '../targets/wasm/palette_bindings.h',
     '../targets/wasm/mesh_ops_bindings.h',
     '../core/control/params.h',
@@ -25,7 +26,7 @@ test('every exported enum binds each C++ enumerator under its own name', () => {
     }
   }
   let checked = 0;
-  for (const header of headers.slice(0, 3)) {
+  for (const header of headers.slice(0, 4)) {
     for (const [, type, name, body] of header.matchAll(
       /emscripten::enum_<([\w:]+)>\("(\w+)"\)([^;]*);/gu,
     )) {
@@ -52,6 +53,7 @@ test('the embind engine API preserves instance and static binding names', () => 
     'setPoleLod', 'getPoleLod', 'getParameterDefinitions', 'getParamValues',
     'getParamGeneration', 'getArenaMetrics', 'getEffectSizes',
     'getEffectPresetCounts', 'getFullConfigSnapshot', 'restoreFullConfigSnapshot',
+    'getLegacyShaderBindings', 'getShaderChainBindings',
     'getFullConfigFieldDefinitions', 'setShaderChain', 'setShaderChainParameters', 'setClip', 'strobeColumns',
   ];
   const statics = ['getShaderChainCatalog', 'getSupportedResolutions', 'isLive'];
@@ -74,8 +76,9 @@ test('optional engine APIs stay inside their feature guards', () => {
     ['HS_ENABLE_SHADER_WORKBENCH', [
       'getFullConfigSnapshot', 'restoreFullConfigSnapshot',
       'getFullConfigFieldDefinitions',
+      'getLegacyShaderBindings',
     ]],
-    ['HS_ENABLE_CHAIN_INTERPRETER', ['setShaderChain', 'setShaderChainParameters', 'getShaderChainCatalog']],
+    ['HS_ENABLE_CHAIN_INTERPRETER', ['setShaderChain', 'setShaderChainParameters', 'getShaderChainCatalog', 'getShaderChainBindings']],
   ]);
   const registration = source.slice(source.indexOf('static void bind_engine()'));
   const guarded = new Map([...expected.keys()].map(flag => [flag, []]));

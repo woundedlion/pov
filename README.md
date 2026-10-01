@@ -421,6 +421,7 @@ files define line-ending policy and working-artifact exclusions.
 │   └── wasm/
 │       ├── wasm.cpp            Emscripten binding TU — includes the binding headers below
 │       ├── engine_bindings.h   Render bridge — HolosphereEngine JS class, readback buffers, embind registration
+│       ├── workbench_bindings.h Typed chain and legacy snapshot authoring handles
 │       ├── mesh_ops_bindings.h Mesh editor bridge — MeshOps JS class, tooling arenas, Conway/Goldberg operators
 │       ├── mesh_op_bounds.h    Pure mesh-operator roster + growth factors behind the MeshOps guards (host-testable)
 │       ├── palette_bindings.h  Palette bridge — PaletteOps JS class, generative palette LUT bake
@@ -1064,6 +1065,15 @@ index.html → vendor-importmap.js           segment_worker.js × N
 A normal page load creates one WASM instance on the main thread. The dot mesh has one instance per LED pixel; the per-frame work is `instanceColor.needsUpdate = true` after the WASM buffer view is refreshed. When the user enables Segmented POV (§10.7), `src/segments/segment_controller.js` spawns N Web Workers, each holding its own WASM instance — its own linear memory, arenas and effect state — so the four-Teensy Phantasm layout can be exercised in software. The *compilation* behind those instances is shared: the pool spawn hands every worker one `WebAssembly.Module` compiled once on the main thread (§10.7), and a `WebAssembly.Module` carries no state, so instances stay isolated. Only a worker that is handed no module fetches and compiles the binary itself.
 
 ### 10.2 The WASM Bridge
+
+Authoring operations live on typed handles acquired through
+`getShaderChainBindings()` and `getLegacyShaderBindings()`. A handle addresses
+one effect incarnation and becomes invalid after replacement, resize, geometry
+rebuild, or engine deletion. Release it with `delete()` after use. Chain handles
+own program admission, parameter batches, and program readback; legacy handles
+own configuration snapshots. `Module.ShaderChainBindings.getShaderChainCatalog()`
+exports the catalog. Engine authoring methods in the table below forward to
+these adapters during consumer migration.
 
 `wasm.cpp` compiles to `holosphere_wasm.js` + `.wasm` and exposes a single `HolosphereEngine` class. At most one instance may be live per module — its effect and arenas are shared module-global storage — so `delete()` the current engine before constructing another; the constructor traps otherwise. Decoder re-entry and deletion during payload decoding also trap. The payloads
 for `setShaderChain`, `setShaderChainParameters`, `restoreFullConfigSnapshot`,
