@@ -20,7 +20,7 @@
       },
       {
         "label": "sample",
-        "operator": "sample.grid.v2"
+        "operator": "sample.grid.v3"
       },
       {
         "label": "colorize",
@@ -350,7 +350,7 @@
         "classification": "preset",
         "default": 0,
         "domain": {
-          "maximum": 1.25,
+          "maximum": 2,
           "minimum": 0
         },
         "id": "sample.drift",
@@ -563,7 +563,7 @@
       "schema_version": 1
     }
   },
-  "document_id": "alien-core-v1",
+  "document_id": "alien-core",
   "effect_id": "alien-core",
   "effect_metadata": {
     "description": "A mirrored grid folded by the glitch lens.",

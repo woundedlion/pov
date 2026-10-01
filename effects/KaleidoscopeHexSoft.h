@@ -63,7 +63,7 @@ public:
   // Generated identity: scripts/generate_composed_presets.mjs
   // clang-format off
   static constexpr std::string_view EFFECT_ID = "kaleidoscope-hex-soft";
-  static constexpr std::string_view DESCRIPTOR_DIGEST = "39b4a45b68feb15150c7baa8d47ddece27b82fe9c859763709e4a32b8af0aaed";
+  static constexpr std::string_view DESCRIPTOR_DIGEST = "376f024ceb9f880d96e96d495f397bef832f75d19768ee5ad0bd0c290f0ac30e";
   static constexpr std::string_view PRESET_BANK_DIGEST = "a54f426490227b6ad95b64d0a18bbd0bb65beaab6fb4053f37f85bb435a6e7ed";
   static constexpr std::array<std::string_view, 1> PRESET_IDS{
       "twin-wave"

@@ -204,7 +204,7 @@ test('a compiled affine period is derived from the authored lattice scale', () =
   const run = bindings();
   run.documents.push({ document: 'grid_space.shader.json', effect: 'grid-space',
     parameterIds: ['warp1.lattice-period', 'sample.lattice-cell-scale'],
-    descriptor: { chain: [{label: 'warp1', operator: 'warp.affine.v2'},
+    descriptor: { chain: [{label: 'warp1', operator: 'warp.affine.v3'},
       {label: 'sample', operator: 'sample.lattice.v2'}] },
     presets: [{ values: { 'warp1.lattice-period': 0.25, 'sample.lattice-cell-scale': 4 } }],
   });

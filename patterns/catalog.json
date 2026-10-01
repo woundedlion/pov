@@ -1,0 +1,101 @@
+{
+  "schema_version": 1,
+  "source_documents": {
+    "alien-brain": "alien_brain.shader.json",
+    "kaleidoscope-hex-soft": "kaleidoscope_hex_soft.shader.json",
+    "alien-ocean": "alien_ocean.shader.json",
+    "alien-core": "alien_core.shader.json",
+    "kaleidoscope-mandala": "kaleidoscope_mandala.shader.json",
+    "grid-space": "grid_space.shader.json",
+    "lattice-melt": "lattice_melt.shader.json",
+    "chromatic-lichen": "chromatic_lichen.shader.json",
+    "mermaid-skin": "mermaid_skin.shader.json",
+    "ash-cloud": "ash_cloud.shader.json",
+    "kaleidoscope-pent-bright": "kaleidoscope_pent_bright.shader.json",
+    "kaleidoscope-stained-glass": "kaleidoscope_stained_glass.shader.json",
+    "kaleidoscope-smooth": "kaleidoscope_smooth.shader.json",
+    "kaleidoscope-hex-bright": "kaleidoscope_hex_bright.shader.json",
+    "kaleidoscope-flowers": "kaleidoscope_flowers.shader.json",
+    "cosmic-eyeball": "cosmic_eyeball.shader.json",
+    "mobius-grid": "mobius_grid.shader.json",
+    "kaleidoscope-hex-oil": "kaleidoscope_hex_oil.shader.json"
+  },
+  "product_group": {
+    "id": "shader-collection",
+    "display_name": "Shader Collection",
+    "children": [
+      {
+        "effect_id": "alien-brain",
+        "display_name": "Alien Brain"
+      },
+      {
+        "effect_id": "kaleidoscope-hex-soft",
+        "display_name": "Kaleidoscope Hex Soft"
+      },
+      {
+        "effect_id": "alien-ocean",
+        "display_name": "Alien Ocean"
+      },
+      {
+        "effect_id": "alien-core",
+        "display_name": "Alien Core"
+      },
+      {
+        "effect_id": "kaleidoscope-mandala",
+        "display_name": "Kaleidoscope Mandala"
+      },
+      {
+        "effect_id": "grid-space",
+        "display_name": "Grid Space"
+      },
+      {
+        "effect_id": "lattice-melt",
+        "display_name": "Lattice Melt"
+      },
+      {
+        "effect_id": "chromatic-lichen",
+        "display_name": "Chromatic Lichen"
+      },
+      {
+        "effect_id": "mermaid-skin",
+        "display_name": "Mermaid Skin"
+      },
+      {
+        "effect_id": "ash-cloud",
+        "display_name": "Ash Cloud"
+      },
+      {
+        "effect_id": "kaleidoscope-pent-bright",
+        "display_name": "Kaleidoscope Pent Bright"
+      },
+      {
+        "effect_id": "kaleidoscope-hex-oil",
+        "display_name": "Kaleidoscope Hex Oil"
+      },
+      {
+        "effect_id": "kaleidoscope-stained-glass",
+        "display_name": "Kaleidoscope Stained Glass"
+      },
+      {
+        "effect_id": "kaleidoscope-smooth",
+        "display_name": "Kaleidoscope Smooth"
+      },
+      {
+        "effect_id": "kaleidoscope-hex-bright",
+        "display_name": "Kaleidoscope Hex Bright"
+      },
+      {
+        "effect_id": "kaleidoscope-flowers",
+        "display_name": "Kaleidoscope Flowers"
+      },
+      {
+        "effect_id": "cosmic-eyeball",
+        "display_name": "Cosmic Eyeball"
+      },
+      {
+        "effect_id": "mobius-grid",
+        "display_name": "Mobius Grid"
+      }
+    ]
+  }
+}

@@ -61,7 +61,7 @@ public:
   // Generated identity: scripts/generate_composed_presets.mjs
   // clang-format off
   static constexpr std::string_view EFFECT_ID = "mermaid-skin";
-  static constexpr std::string_view DESCRIPTOR_DIGEST = "804160646a2557fc6148dcfecf482a3ddb2c5f121b7c6fe1d5370957b4d70799";
+  static constexpr std::string_view DESCRIPTOR_DIGEST = "18db4dc9340b23a45c5ae38cc874f5c7d704704c9533750088535f45d43f7d66";
   static constexpr std::string_view PRESET_BANK_DIGEST = "1275305c316679c959524e79ba42218d81a7b88b9ee3950b5ee38b327a31030f";
   static constexpr std::array<std::string_view, 1> PRESET_IDS{
       "mermaid-skin"

@@ -20,7 +20,7 @@
       },
       {
         "label": "sample",
-        "operator": "sample.grid.v2"
+        "operator": "sample.grid.v3"
       },
       {
         "label": "colorize",
@@ -373,7 +373,7 @@
         "classification": "preset",
         "default": 0,
         "domain": {
-          "maximum": 1.25,
+          "maximum": 2,
           "minimum": 0
         },
         "id": "sample.drift",
@@ -587,7 +587,7 @@
       "schema_version": 1
     }
   },
-  "document_id": "alien-ocean-v1",
+  "document_id": "alien-ocean",
   "effect_id": "alien-ocean",
   "effect_metadata": {
     "description": "A broad folded grid with slow mirrored drift.",

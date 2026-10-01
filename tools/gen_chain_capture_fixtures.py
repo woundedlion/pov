@@ -36,10 +36,8 @@ def walk_cpp(state):
                 vector(state["position"]),
                 vector(state["direction"]),
                 quaternion(state["wander"]),
-                quaternion(state["rawOrientation"]),
                 float_cpp(state["angularVelocity"]),
                 float_cpp(state["spinPhase"]),
-                str(state["legacy"]).lower(),
             ]
         )
         + "}"
@@ -49,7 +47,7 @@ def walk_cpp(state):
 def runtime_cpp(entry):
     state = entry["state"]
     kind = entry["kind"]
-    if kind == "spatial-walk-v1":
+    if kind == "spatial-walk-v2":
         return walk_cpp(state)
     names = {
         "source-clock-v1": ("SourceClockSnapshot", ["primary", "secondary", "angle"]),
@@ -62,7 +60,7 @@ def runtime_cpp(entry):
             ["oscillationPhase", "hueNoisePhase", "hueNoiseSeed"],
         ),
     }
-    if kind == "spherical-rings-v1":
+    if kind == "spherical-rings-v2":
         return (
             "Pullback::Interp::SphericalRingsSnapshot{"
             + walk_cpp(state["walk"])
@@ -115,7 +113,7 @@ def snapshot_cpp(snapshot):
         + "}}}"
     )
     return (
-        "ChainSnapshot{1,{"
+        "ChainSnapshot{ChainSnapshot::SCHEMA_VERSION,{"
         + chain
         + "},{"
         + parameters
@@ -153,8 +151,8 @@ def generate(records):
             if type(value) is not int or not 0 < value <= 2147483647:
                 raise ValueError(f"capture fixture {field} is not a positive int32")
         snapshot = record["snapshot"]
-        if snapshot["schemaVersion"] != 1 or not snapshot["chain"]:
-            raise ValueError("capture fixture requires a version-one chain")
+        if snapshot["schemaVersion"] != 2 or not snapshot["chain"]:
+            raise ValueError("capture fixture requires a version-two chain")
         canonical = json.dumps(snapshot, sort_keys=True, separators=(",", ":"))
         if canonical not in snapshot_indices:
             snapshot_indices[canonical] = len(snapshots)

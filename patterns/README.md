@@ -32,19 +32,17 @@ Version 2 documents encode the descriptor as an ordered chain of
 `{label, operator}` entries validated against the operator catalog. Labels and
 chain order are canonical and digest-bearing, structural variation is an
 operator id or a topology enum8 parameter, and every parameter id binds
-`<label>.<field>` against the catalog's operator schema. A `schema_version` 1
-six-role graph document expands through `expandV1Document` before validation —
-the single code path both generations share.
+`<label>.<field>` against the catalog's operator schema. Only the current
+document schema and current operator identities are accepted.
 
 The descriptor is a semantic identity over the chain, not a complete
-reproduction of the effect. Expansion keeps only `chain`, `parameters`,
-`path_policies` and `serialization`; a v1 document's `resources`, `clocks`,
-`preparation` and `approximation` sections do not survive it, so noise seeds,
+reproduction of the effect. It describes `chain`, `parameters`,
+`path_policies` and `serialization`; noise seeds,
 runtime clocks, prepared frames and approximation oracles live only in the C++
 effect.
 
 Scalar parameters use binary32 storage. Discrete choices — color mappings and
-the topology fields v1 expansion bakes out — use enum8 storage with
+topology fields — use enum8 storage with
 `MIXED_ENUM` interpolation, which carries both endpoints and a blend weight
 through a transition. Preset records provide one
 value for every parameter. Transition edges name a descriptor-owned path policy
@@ -57,36 +55,24 @@ scripts/generate_promoted_shader_documents.mjs` rewrites `alien_ocean`,
 `grid_space`, `cosmic_eyeball`, `kaleidoscope_flowers`, `kaleidoscope_mandala`,
 `alien_core`, `kaleidoscope_hex_bright`, `kaleidoscope_hex_soft`, `mobius_grid`, `kaleidoscope_pent_bright`,
 `alien_brain` and `kaleidoscope_stained_glass` from the effect specs the script holds, so a
-hand edit to those files is lost on the next run — change the spec instead. The
-specs are written in the v1 six-role shape and the committed file is their
-canonical v2 expansion.
+hand edit to those files is lost on the next run — change the spec instead. The specs use current chain IDs and named parameter values.
 
 Seven documents are authored directly in this directory: `ash_cloud`,
 `chromatic_lichen`, `mermaid_skin`, `example`, `kaleidoscope_hex_oil`,
 `kaleidoscope_smooth` and `lattice_melt`. Edit these version 2 documents here.
-The version 1 fixtures in `daydream/src/workbench/shader/patterns/v1/` are frozen legacy
-inputs used only to derive `digest_migration.v1v2.json`.
 
-The engine installs its top-level pattern documents and
-`shaderball_migration.json` into `daydream/generated/shader/patterns/`.
-`daydream/src/workbench/shader/patterns/v1/` and `digest_migration.v1v2.json` are owned by
-daydream and are not engine-installed artifacts.
-
-`shaderball_migration.json` is a manifest, not a shader document, and the CLI
-above rejects it as one. `source_documents` maps each `effect_id` to the
-document it is authored in, and `product_group` carries the gallery grouping.
-`legacy_alias` names `ShaderBall`; `authoring_effect` names `Shader`.
-`retired_legacy_presets` lists presets dropped without a replacement;
-`destinations` maps every other legacy preset to its replacement effect and preset.
-`scripts/shader_workbench.test.mjs` gates the tree against it: a document that
-backs an effect must appear in `source_documents`.
+The engine installs its top-level pattern documents and `catalog.json` into
+`daydream/generated/shader/patterns/`. The catalog is a manifest:
+`source_documents` maps each current effect identity to its authoring document,
+and `product_group` carries its gallery grouping. The shader compiler accepts
+current documents only. `scripts/shader_workbench.test.mjs` gates membership:
+every document backing an effect appears in `source_documents`.
 
 A promoted document is also applied to its compiled effect by control name, one
 parameter at a time, so every parameter id must resolve to a control that effect
 registers. Chain labels are the vocabulary that resolution runs on — `camera`,
 `lens`, `surface`, `project`, `warp1`/`warp2`, `sample`, `transfer`, `cutout`,
-`colorize`, the labels the v1 expansion assigns — and a hand-authored document
-takes the same ones. `scripts/wasm_smoke.mjs` resolves every promoted id against
+`colorize`. Generated and hand-authored documents use the same labels. `scripts/wasm_smoke.mjs` resolves every promoted id against
 the running module's registered controls; the topology fields a fixed build
 bakes in are exempt, as is `camera.spin-speed`, which `AshCloud` holds as a
 compile-time constant.
