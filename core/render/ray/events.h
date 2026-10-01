@@ -95,7 +95,7 @@ trace_events(Adapter &adapter, Interval interval, const TraceLimits &limits,
       }
       if (candidate.coverage > 0) {
         if (!grouped)
-          group_end = nearest + relative_tolerance * std::max(1.0f, nearest);
+          group_end = nearest + relative_tolerance * fmaxf(1.0f, nearest);
         size_t slot = 0;
         while (slot < grouped &&
                (group[slot].merge_identity != candidate.merge_identity ||

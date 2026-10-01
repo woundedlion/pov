@@ -157,7 +157,7 @@ HS_HOT_FLASH_MEMBER TraceResult surface_search(const Query &query,
       result.status = TraceStatus::INVALID_QUERY;
       return false;
     }
-    const float CLEARANCE = std::max(sample.clearance - GUARANTEES.error, 0.0f);
+    const float CLEARANCE = fmaxf(sample.clearance - GUARANTEES.error, 0.0f);
     const float REMAINING = ray.interval.far - t;
     if (CLEARANCE > REMAINING) {
       result.status = TraceStatus::RANGE_COMPLETE;
@@ -173,7 +173,7 @@ HS_HOT_FLASH_MEMBER TraceResult surface_search(const Query &query,
       if (result.counters.refinements >= limits.max_refinements)
         return false;
       const float PROBE_T =
-          std::min(t + limits.position_tolerance, ray.interval.far);
+          fminf(t + limits.position_tolerance, ray.interval.far);
       if (!(PROBE_T > t))
         return false;
       QuerySample probe;
