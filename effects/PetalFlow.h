@@ -222,12 +222,12 @@ private:
     timeline.add(0, Animation::PeriodicTimer(
                         1, [this](Canvas &) { this->check_spawn(); }, true));
 
-    // Pre-fill the path with evenly spaced rings so frame zero looks like a
-    // running flow. Start one epsilon inside END_RHO so the oldest ring sits just
-    // short of the retire boundary (draw_frame() culls rho > END_RHO).
-    for (float r = END_RHO - 0.01f; r > START_RHO; r -= spacing()) {
+    float last_r = END_RHO - 0.01f;
+    for (float r = last_r; r > START_RHO; r -= spacing()) {
       spawn_ring_at_pos(r);
+      last_r = r;
     }
+    gap_accumulator = spacing() - (last_r - START_RHO);
   }
 
   /**
