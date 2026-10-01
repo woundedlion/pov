@@ -60,6 +60,7 @@ inline Canvas &fake_canvas() { return *fake_canvas_ptr(); }
 // Path::get_point
 // ============================================================================
 
+/** @brief Pins path adjacent segments fill exact capacity. */
 inline void test_path_adjacent_segments_fill_exact_capacity() {
   Path<5> path;
   path.append_segment([](float t) { return math::Vector(t, 0, 0); }, 2.0f, 2,
@@ -1054,6 +1055,7 @@ inline void test_repeating_timer_canceled_in_callback_fires_then_once() {
   HS_EXPECT_EQ(global_timeline_num_events, 0);
 }
 
+/** @brief Pins timer then self cancellation completes once. */
 inline void test_timer_then_self_cancellation_completes_once() {
   for (bool random : {false, true}) {
     Timeline tl;
@@ -1319,6 +1321,7 @@ inline void test_motion_repeating_does_not_drift() {
   HS_EXPECT_LT(max_error, MOTION_WARP_TOL);
 }
 
+/** @brief Pins motion reanchor after path swap. */
 inline void test_motion_reanchor_after_path_swap() {
   const auto step_after_swap = [](bool reanchor) {
     ProceduralPath path;
@@ -3385,6 +3388,7 @@ inline void test_mobiuswarp_closes_at_completion() {
   HS_EXPECT_NEAR(params.b.im, 0.0f, 1e-4f);
 }
 
+/** @brief Pins mobiuswarp retains last finite scale. */
 inline void test_mobiuswarp_retains_last_finite_scale() {
   math::MobiusParams params, reference;
   float live = 0.4f;
@@ -3857,7 +3861,8 @@ inline void test_periodic_timer_set_period_reschedules_from_now() {
  * unchanged period still lets the timer fire.
  * @details A PeriodicTimer never reaches done(), so an unconditional reset()
  * would push the trigger past every frame forever with nothing to record it.
- * Period 4 over 8 frames must fire at t=4 and t=8.
+ * Period 4 over 8 frames must fire at t=4 and t=8; non-positive periods
+ * clamp to one frame and keep firing under repeated set_period calls.
  */
 inline void test_periodic_timer_set_period_unchanged_does_not_defer() {
   for (int period : {0, -1, std::numeric_limits<int>::min()}) {
@@ -3887,6 +3892,7 @@ inline void test_periodic_timer_set_period_unchanged_does_not_defer() {
   HS_EXPECT_EQ(st.fires, 2);
 }
 
+/** @brief Pins mobiusflow degenerate inputs remain finite. */
 inline void test_mobiusflow_degenerate_inputs_remain_finite() {
   const float NAN_VALUE = std::numeric_limits<float>::quiet_NaN();
   const float INF_VALUE = std::numeric_limits<float>::infinity();
@@ -4003,6 +4009,7 @@ inline void test_progress_pause_and_eased_bounds() {
   HS_EXPECT_TRUE(progress.done());
 }
 
+/** @brief Pins trail body records independent orientation history. */
 inline void test_trail_body_records_independent_orientation_history() {
   Animation::TrailBody<2, 2> body;
   HS_EXPECT_VEC(body.v, math::Y_AXIS, 0.0f);
