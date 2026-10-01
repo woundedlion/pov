@@ -75,7 +75,11 @@ After correcting the job, duplicate it to reuse its design parameters and
 physics constraints for subsequent runs.
 
 In Quilter, preserve the uploaded four-layer stackup and select **Preserve copper
-on internal layers**. The board's schematic links identify related components.
+on internal layers**. Also add **GND plane In1.Cu** and **GND plane In2.Cu**
+by name to the job's **Preserved Pours** table. Quilter deletes and regenerates
+pours absent from that table; preserving an internal pour also requires preserving
+the stackup. See [Quilter's preserved-pour setup](https://docs.quilter.ai/design-parameters/preserved-pours).
+The board's schematic links identify related components.
 
 The stackup is **Signal / GND / GND / Signal**. Both inner layers have GND
 pours and the user names `GND` and `Ground`, matching
@@ -83,6 +87,29 @@ pours and the user names `GND` and `Ground`, matching
 Confirm both inner layers are classified as Ground in Quilter's stackup editor.
 Its no-power-layer info is expected: this design uses two ground reference
 planes, with the supply rails routed on the outer layers.
+
+The generator emits 0.25 mm minimum pour thickness, 0.5 mm thermal gaps, and
+0.5 mm thermal spokes. Check downloaded routed boards before selecting a
+candidate; the candidate analyzer rejects zone settings below the fabrication
+floors even if KiCad DRC reports no errors:
+
+```sh
+python hardware/phantasm/gen/heal_zones.py path/to/routed.kicad_pcb --check
+```
+
+If Quilter replaced the zone settings, repair a separate copy:
+
+```sh
+python hardware/phantasm/gen/heal_zones.py path/to/routed.kicad_pcb -o path/to/repaired.kicad_pcb
+```
+
+The repair raises undersized features to the generator defaults and removes
+cached copper fills. It preserves tracks, vias, placement, and zone boundaries.
+The output must differ from the source; replacing an existing output requires
+`--force`. Keep the repaired board with its matching schematic, project rules,
+and libraries. **Refill all zones in KiCad, save, then rerun DRC and fabrication
+validation.** The settings check alone does not validate the refilled copper or
+prove that ground pads remain connected.
 
 Electrical and mechanical requirements live in the
 [PCB specification](../../docs/specs/phantasm_pcb_spec.md).
