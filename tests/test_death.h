@@ -1026,11 +1026,11 @@ inline void case_conway_degenerate_mesh() {
   MeshOps::truncate(mesh, target, temp, opaque(0.25f));
 }
 
-/** @brief Death case: a Conway morph operator traps on target exhaustion. */
+/** @brief Death case: only the target arena is small enough to exhaust. */
 inline void case_conway_target_exhausted() {
-  static uint8_t source_buf[4096];
+  static uint8_t source_buf[65536];
   static uint8_t target_buf[16];
-  static uint8_t temp_buf[4096];
+  static uint8_t temp_buf[65536];
   Arena source(source_buf, sizeof(source_buf));
   Arena target(target_buf, sizeof(target_buf));
   Arena temp(temp_buf, sizeof(temp_buf));
