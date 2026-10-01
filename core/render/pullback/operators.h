@@ -257,13 +257,16 @@ prepare_generated_palette(const FrameContext &ctx, const Params &params,
           params.opacity_high};
 }
 
-/** @brief FIELD→COLOR crossing: the generated-palette colorizer. */
-struct ColorizeGeneratedPaletteV2 : ValueStateModel<ColorClockState> {
-  static constexpr const char *ID = "colorize.generated-palette.v2";
-  static constexpr const char *NAME = "Generated Palette v2";
+/** @brief Shared generated-palette clocks and evaluation. */
+template <typename Derived, typename ParamsT>
+struct GeneratedPaletteModel : ValueStateModel<ColorClockState> {
+  struct BrightnessRange {
+    float bottom;
+    float top;
+  };
   using Input = FieldSample;
   using Output = Color4;
-  using Params = LegacyGeneratedPaletteParams;
+  using Params = ParamsT;
   using Prepared = Color::GeneratedPaletteState;
 
   static constexpr bool APPROXIMATE = true;
@@ -279,8 +282,9 @@ struct ColorizeGeneratedPaletteV2 : ValueStateModel<ColorClockState> {
   }
   static Prepared prepare(const FrameContext &ctx, const Params &params,
                           const State &state) {
-    return prepare_generated_palette(ctx, params, state,
-                                     1.0f - params.brightness_depth, 1.0f);
+    const auto RANGE = Derived::brightness_range(params);
+    return prepare_generated_palette(ctx, params, state, RANGE.bottom,
+                                     RANGE.top);
   }
   static Color4 run(const FieldSample &input, const FrameContext &,
                     const Params &, const Prepared &prepared) {
@@ -288,34 +292,25 @@ struct ColorizeGeneratedPaletteV2 : ValueStateModel<ColorClockState> {
   }
 };
 
+/** @brief FIELD→COLOR crossing: the generated-palette colorizer. */
+struct ColorizeGeneratedPaletteV2
+    : GeneratedPaletteModel<ColorizeGeneratedPaletteV2,
+                            LegacyGeneratedPaletteParams> {
+  static constexpr const char *ID = "colorize.generated-palette.v2";
+  static constexpr const char *NAME = "Generated Palette v2";
+  static BrightnessRange brightness_range(const Params &params) {
+    return {1.0f - params.brightness_depth, 1.0f};
+  }
+};
+
 /** @brief FIELD-to-COLOR crossing with explicit brightness endpoints. */
-struct ColorizeGeneratedPaletteV3 : ValueStateModel<ColorClockState> {
+struct ColorizeGeneratedPaletteV3
+    : GeneratedPaletteModel<ColorizeGeneratedPaletteV3,
+                            GeneratedPaletteParams> {
   static constexpr const char *ID = "colorize.generated-palette.v3";
   static constexpr const char *NAME = "Generated Palette";
-  using Input = FieldSample;
-  using Output = Color4;
-  using Params = GeneratedPaletteParams;
-  using Prepared = Color::GeneratedPaletteState;
-
-  static constexpr bool APPROXIMATE = true;
-  static constexpr ApproximationOracleId ORACLE =
-      ApproximationOracleId::HUE_ROTATION_AND_NOISE_LUTS;
-  static constexpr auto METRICS = Color::GENERATED_PALETTE_METRICS;
-
-  static void advance(State &state, const Params &params) {
-    state.oscillation_phase =
-        math::wrap_t(state.oscillation_phase + params.phase_oscillation_speed);
-    state.hue_noise_phase =
-        math::wrap_t(state.hue_noise_phase + params.hue_noise_speed);
-  }
-  static Prepared prepare(const FrameContext &ctx, const Params &params,
-                          const State &state) {
-    return prepare_generated_palette(
-        ctx, params, state, params.brightness_bottom, params.brightness_top);
-  }
-  static Color4 run(const FieldSample &input, const FrameContext &,
-                    const Params &, const Prepared &prepared) {
-    return Color::apply_generated_palette(input, prepared);
+  static BrightnessRange brightness_range(const Params &params) {
+    return {params.brightness_bottom, params.brightness_top};
   }
 };
 
