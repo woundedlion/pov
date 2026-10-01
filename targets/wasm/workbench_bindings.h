@@ -153,7 +153,6 @@ public:
     return restore;
   }
 
-#if HS_ENABLE_CHAIN_INTERPRETER
   /**
    * @brief Compiles a chain program shape on the loaded ShaderChain effect.
    * @param caller_entries JS array of {instance, operator} string pairs — the ordered
@@ -288,22 +287,7 @@ public:
     Pullback::Interp::append_catalog_json(catalog);
     return catalog;
   }
-#endif // HS_ENABLE_CHAIN_INTERPRETER
 
-#if HS_ENABLE_CHAIN_INTERPRETER
-  /** @brief Result with enum status, legacy string code, and entry index. */
-  static emscripten::val chain_result(Pullback::Interp::ChainStatus code,
-                                      int entry_index) {
-    emscripten::val result = emscripten::val::object();
-    result.set("code", emscripten::val(std::string(
-                           code == Pullback::Interp::ChainStatus::OK
-                               ? "APPLIED"
-                               : Pullback::Interp::chain_status_name(code))));
-    result.set("status", emscripten::val(code));
-    result.set("entryIndex", entry_index);
-    return result;
-  }
-#endif // HS_ENABLE_CHAIN_INTERPRETER
   emscripten::val getProgram() {
     emscripten::val result = emscripten::val::null();
     with_effect<ShaderChain>([&]<typename SC>(SC &chain) {
@@ -316,6 +300,20 @@ public:
         result.set(index++, operation);
       }
     });
+    return result;
+  }
+
+private:
+  /** @brief Result with enum status, legacy string code, and entry index. */
+  static emscripten::val chain_result(Pullback::Interp::ChainStatus code,
+                                      int entry_index) {
+    emscripten::val result = emscripten::val::object();
+    result.set("code", emscripten::val(std::string(
+                           code == Pullback::Interp::ChainStatus::OK
+                               ? "APPLIED"
+                               : Pullback::Interp::chain_status_name(code))));
+    result.set("status", emscripten::val(code));
+    result.set("entryIndex", entry_index);
     return result;
   }
 };
