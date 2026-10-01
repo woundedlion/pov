@@ -615,15 +615,20 @@ constexpr float FIELD_DOMINANT_DEN_EPS = 1e-9f;
  */
 struct DominantFieldAccumulator {
   /** @brief Folds one field sample into the blend. */
-  void add(float field) {
-    numerator += field * field * field;
-    denominator += field * field;
+  void add(float field) { accumulate(numerator, denominator, field); }
+
+  /** @brief Adds one sample to caller-owned blend terms. */
+  static void accumulate(float &num, float &den, float field) {
+    num += field * field * field;
+    den += field * field;
   }
 
   /** @brief The blend so far: sum(s_i^3) / sum(s_i^2); 0 with nothing added. */
-  float value() const {
-    return denominator > FIELD_DOMINANT_DEN_EPS ? numerator / denominator
-                                                : 0.0f;
+  float value() const { return resolve(numerator, denominator); }
+
+  /** @brief Resolves caller-owned blend terms. */
+  static float resolve(float num, float den) {
+    return den > FIELD_DOMINANT_DEN_EPS ? num / den : 0.0f;
   }
 
 private:
