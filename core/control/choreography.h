@@ -210,6 +210,11 @@ protected:
    */
   HS_COLD_MEMBER void begin_choreography() {
     configure_presets(preset_count_of());
+    timeline.add_clear_hook(this, [](void *context) {
+      auto &effect = *static_cast<ChoreographedEffect *>(context);
+      effect.transition.active = false;
+      effect.set_opacity(1.0f);
+    });
   }
 
   /// Retires the preset dwell and starts the next automatic preset transition.
