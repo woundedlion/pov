@@ -204,6 +204,7 @@ struct OperatorDescriptor {
   ApproximationOracleId oracle;
   const ApproximationMetric *metrics;
   uint8_t metric_count;
+  bool edge_distance_available;
 
   std::span<const ParamFieldInfo> schema_span() const {
     return {schema, schema_count};
@@ -564,6 +565,12 @@ constexpr OperatorDescriptor make_operator_descriptor() {
       Detail::model_oracle<Model>(),
       Detail::model_metrics<Model>(),
       Detail::model_metric_count<Model>(),
+      [] {
+        if constexpr (requires { Model::EDGE_DISTANCE_AVAILABLE; })
+          return Model::EDGE_DISTANCE_AVAILABLE;
+        else
+          return false;
+      }(),
   };
 }
 

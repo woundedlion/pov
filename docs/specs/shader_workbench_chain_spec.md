@@ -56,7 +56,10 @@ document digests differently). A guaranteed single-path chain says so:
   golden-pinned against — the C++ combinator typedefs, so the tool
   cannot drift from the engine's ground truth. A compound source, when
   one ships, appears as its own curated catalog entry; operator nesting
-  is reserved for a future schema revision.
+  is reserved for a future schema revision. Each operator also declares whether
+  it provides projection edge distance. The chain host refuses edge-fade coverage
+  and warp envelopes downstream of a projection without edge distance, for both
+  individual and atomic parameter writes.
 - **Bindings become real.** v1's `parameter.binding` is validated as a
   bare identifier and cross-checked against nothing (shipped documents
   contradict any label convention in both directions). v2: a parameter id
