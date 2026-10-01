@@ -142,11 +142,6 @@ public:
     return Color4(color, 1.0f);
   }
 
-  /**
-   * @brief Trivial constexpr destructor.
-   */
-  constexpr ~ProceduralPalette() {}
-
 protected:
   std::array<float, 3> a, b, c, d;
 };
@@ -194,10 +189,4 @@ public:
 private:
   std::array<float, 3> a1, b1, c1, d1;
   std::array<float, 3> a2, b2, c2, d2;
-
-public:
-  /**
-   * @brief Trivial constexpr destructor.
-   */
-  constexpr ~MutatingPalette() {}
 };
