@@ -5583,7 +5583,15 @@ inline void test_shader_workbench_kernel_catalog() {
   reset_effect_globals();
   WB::SB sb;
   sb.init();
-  const math::Vector view = math::Vector(0.31f, 0.87f, -0.38f).normalized();
+  const math::Vector VIEWS[] = {{0, 1, 0},
+                                {0, -1, 0},
+                                {1, 0, 0},
+                                {-1, 0, 0},
+                                {0, 0, 1},
+                                {0, 0, -1},
+                                math::Vector(0.31f, 0.87f, -0.38f).normalized(),
+                                math::Vector(0.0001f, 1, 0).normalized(),
+                                math::Vector(0.0001f, -1, 0).normalized()};
   WB::RequestedConfig config = WB::legacy_config();
   config.slots.surface_lens = WB::SurfaceLens::NONE;
   config.slots.warp_program.outer.kind = WB::WarpStageKind::NONE;
@@ -5596,10 +5604,20 @@ inline void test_shader_workbench_kernel_catalog() {
   // on a frame prepared straight from the config.
   auto check = [&](const WB::RequestedConfig &candidate) {
     HS_EXPECT_TRUE(WB::valid_config(candidate));
-    const Color4 color = WB::shade(view, WB::config_frame(sb, candidate));
-    HS_EXPECT_TRUE(std::isfinite(color.alpha));
-    HS_EXPECT_GE(color.alpha, 0.0f);
-    HS_EXPECT_LE(color.alpha, 1.0f);
+    for (auto projection :
+         {WB::Projection::SINUSOIDAL, WB::Projection::BONNE}) {
+      auto projected = candidate;
+      projected.slots.projection = projection;
+      if (!WB::valid_config(projected))
+        continue;
+      const auto FRAME = WB::config_frame(sb, projected);
+      for (const auto &view : VIEWS) {
+        const Color4 color = WB::shade(view, FRAME);
+        HS_EXPECT_TRUE(std::isfinite(color.alpha));
+        HS_EXPECT_GE(color.alpha, 0.0f);
+        HS_EXPECT_LE(color.alpha, 1.0f);
+      }
+    }
   };
 
   for (uint8_t value = 0; value < WB::NUM_FUNCTIONS; ++value) {
