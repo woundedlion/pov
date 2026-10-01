@@ -549,6 +549,17 @@ class MindSplatterInstrumentationLines(unittest.TestCase):
         self.assertEqual(window.msp_counts["tap4"], 90)
         self.assertEqual(set(window.counters), {"frame"})
 
+    def test_aliased_stalls_are_retained_and_reported(self):
+        import contextlib
+        import io
+        self.LOG += "plot stall aliased: stage=history_vertex cpi/lsu/exc understated\n"
+        windows = self._parse()
+        self.assertTrue(windows[0].msp_stalls["history_vertex"]["wrapped"])
+        output = io.StringIO()
+        with contextlib.redirect_stdout(output):
+            self.assertEqual(pp.cmd_msp_stalls(windows), 0)
+        self.assertIn("aliased: stall counts understated", output.getvalue())
+
     def test_stall_stages_parse(self):
         window = self._parse()[0]
         self.assertEqual(window.msp_stalls["history_vertex"]["cyc"], 2000)
