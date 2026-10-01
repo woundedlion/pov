@@ -2,13 +2,7 @@
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
  * Licensed under the PolyForm Noncommercial License 1.0.0
  *
- * Shared framebuffer predicates for the suites that assert on a StubEffect's
- * pixels — canvas, filter, scan, and mesh raster.
- *
- * The two lit-pixel counters differ in the region they scan and are not
- * interchangeable: count_lit_canvas() takes the effect's own reported
- * dimensions, count_lit_region() a compile-time window that a test states
- * independently of the effect it built.
+ * Shared pixel comparison and framebuffer helpers for the native test suites.
  */
 #pragma once
 
