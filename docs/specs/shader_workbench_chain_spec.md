@@ -12,6 +12,36 @@ editor ship in the daydream repo
 §4's pipeline-strip workbench is the editor's *surface*; every editing
 semantic in §3 carries forward beneath it.
 
+## WASM authoring capabilities
+
+The engine owns effect selection, rendering, parameter streams, and lifecycle.
+`getShaderChainBindings()` and `getLegacyShaderBindings()` acquire optional typed
+authoring handles using the active factory registration's concrete type identity
+at its registered resolution. Unsupported effects and an empty engine return
+null. These adapters and their lookup exist only under `targets/wasm`; firmware
+registration and rendering gain no capability tables or virtual dispatch.
+
+`ShaderChainBindings` owns program admission, atomic parameter batches, program
+readback, and catalog export. `LegacyShaderBindings` owns full configuration
+snapshots and field definitions. Existing engine authoring methods forward to
+these adapters while legacy consumers migrate.
+
+A handle addresses one effect incarnation. Successful effect replacement,
+resolution change, display-geometry rebuild, or engine deletion permanently
+invalidates it; rejected changes and no-op resolutions preserve it. Recompiling a
+chain changes its parameter schema but preserves its authoring handle. The
+shared incarnation token outlives the engine without retaining its effect.
+Invalid handles return the existing unavailable-effect results and null readback.
+Callers release their Embind handles with `delete()` after each operation.
+Geometry rebuilds use adapter-owned native capture/restore callbacks rather than
+re-entering public payload decoders.
+
+Caller payloads are cloned before admission. A getter may replace the effect,
+so the adapter checks incarnation identity again before committing decoded data.
+Nested decodes and engine deletion during decoding trap through the shared
+decode guard. The consumer stands down after a module trap and releases no
+handles into the halted module.
+
 ## 1. Document schema v2
 
 **Encoding: an ordered `chain` array, not nodes + edges.** v1's
