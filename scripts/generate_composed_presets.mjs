@@ -97,7 +97,7 @@ export function generatedSections(compiled) {
   const spin = presets.map((preset) => preset.values['camera.spin-speed']);
   if (!spin.every((value) => value === spin[0])) throw new Error('Composed camera spin must be uniform');
   for (const parameter of document.descriptor.parameters) {
-    if (parameter.storage !== 'enum8' || parameter.id.endsWith('.palette-mapping')) continue;
+    if (parameter.storage !== 'enum8' || parameter.id.endsWith(`.${LIVE_TOPOLOGY_FIELD}`)) continue;
     const values = presets.map((preset) => preset.values[parameter.id]);
     if (!values.every((value) => value === values[0]))
       throw new Error(`Composed topology must be uniform: ${parameter.id}`);
