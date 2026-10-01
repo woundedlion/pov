@@ -554,8 +554,8 @@ def _rotatable(ref):
 
 
 # R-CON-4: power/debug at the hub, LED/sync at the far end; wire entries face the hub.
-HUB_CONNS = ("J1", "J4")            # logic power in, debug â€” hub end (left)
-FAR_CONNS = ("J2", "J3A", "J3B")    # strip signal, sync daisy in/out â€” far end (right)
+HUB_CONNS = ("J1", "J4")            # logic power in, debug — hub end (left)
+FAR_CONNS = ("J2", "J3A", "J3B")    # strip signal, sync daisy in/out — far end (right)
 
 QUILTER_FIXED = {
     # J1's body runs along the length; it sits in the hub pocket between the USB
@@ -784,7 +784,7 @@ def pack(bxs, width, edge=1.0, gap=1.2):
             x, yb = bp
             if choice is None or x < choice[0] - 1e-9:
                 choice = (x, yb, rot, rb, wg, hg)
-        if choice is None:        # too tall even rotated â€” force rot 0 at the end
+        if choice is None:        # too tall even rotated — force rot 0 at the end
             rb = _rot_bb(bb, 0)
             wg, hg = rb[2] - rb[0] + gap, rb[3] - rb[1] + gap
             x = max(s[2] for s in sky); yb = 0.0
