@@ -4,16 +4,8 @@
  *
  * Unit tests for the host-side FastLED / Arduino mocks in core/platform/platform.h.
  *
- * These mocks stand in for <FastLED.h> and the Arduino runtime in the native
- * and WASM builds, so any divergence from the device's integer semantics makes
- * the simulator lie about the hardware — and the determinism contract requires
- * the sim to match the device bit-for-bit. We pin golden vectors for the FastLED
- * sine/scale primitives (sin8, sin16, scale8/scale16, beatsin16): hand-traced
- * cardinal anchors plus a full-period accuracy bound against the true sine, so a
- * regression in sin16's byte-truncated secoffset8 (or any LUT/slope drift) is
- * caught even where it still hits the anchors. We also pin the FastLED map8
- * mapping, the degenerate-range guard on map(), and Serial.printf varargs
- * expansion — the seams most prone to diverging from FastLED.
+ * Covers FastLED integer math, Arduino timing and output, deterministic RNG
+ * streams and seeds, shuffle, colour construction, and harness diagnostics.
  */
 #pragma once
 
