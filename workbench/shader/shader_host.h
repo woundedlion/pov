@@ -2195,10 +2195,6 @@ private:
     const Workbench::Config &next_config = accepted_config;
 #else
     const Workbench::Config &next_config = requested_config;
-    if (!valid_config(next_config)) {
-      reject_requested_config();
-      return;
-    }
 #endif
     if (!admissible_config(next_config)) {
       reject_requested_config();
