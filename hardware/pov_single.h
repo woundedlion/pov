@@ -17,8 +17,8 @@
  * @endcode
  */
 #pragma once
-#include "core/platform/led.h" // PIN constants, NoColorCorrection, NoTempCorrection, USE_DMA_LEDS
-#include "pov_single_map.h" // pure strip index math (host-tested)
+#include "core/platform/led.h" // PIN_DATA, PIN_CLOCK (FastLED path)
+#include "pov_single_map.h"    // pure strip index math (host-tested)
 
 // Arduino-only: depends on IntervalTimer, FastLED/DMA, and the Teensy runtime.
 // Pure strip index math is in pov_single_map.h (host-tested).
