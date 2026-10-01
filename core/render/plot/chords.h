@@ -9,7 +9,7 @@
  * @brief Plot::PlanarChords: strokes closed polylines that are straight in an
  *        azimuthal-equidistant chart as fixed-step screen chords, culled to the
  *        clip band, and Plot::ClipBand, the conservative chart-segment cull it
- *        uses.
+ *        uses. Plot::PlanarBandSplit flags edge runs unable to reach a clip band.
  */
 
 #include "engine/memory.h"
