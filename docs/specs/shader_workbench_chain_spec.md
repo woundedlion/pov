@@ -257,7 +257,7 @@ names that output directly.
   selector of the same-pair operators the store accepts for that span;
   Delete opens the same set as a palette.
 - **Insertion**: gaps between chips are the store's chain indices. Each
-  band carries one persistent **+** affordance opening the insertion
+  band carries one **+** affordance whenever a stage fits the band's gap opening the insertion
   palette at the gap after the band's last stage. Insert opens it at the
   gap after the focused chip. Both routes go through `legalInsertions` —
   the strip has no legality of its own. A chain with no transfer preserves
