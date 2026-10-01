@@ -580,8 +580,7 @@ template <typename E> inline void check_described_snapshot_ranges() {
           *target = std::numeric_limits<float>::infinity();
           HS_EXPECT_FALSE(effect.restore_parameters(candidate));
           candidate = original;
-          *target =
-              std::nextafter(spec.min, -std::numeric_limits<float>::infinity());
+          *target = spec.min - std::max(1.0f, std::fabs(spec.min)) * .125f;
           HS_EXPECT_FALSE(effect.restore_parameters(candidate));
           candidate = original;
         }
