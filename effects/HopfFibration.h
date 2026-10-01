@@ -62,9 +62,7 @@ public:
 
     baked_sunset.bake(persistent_arena, Palettes::RICH_SUNSET);
 
-    // Whole footprint lives in the persistent arena with no per-frame scratch, so
-    // keep the default split (no configure_arenas()); FOOTPRINT_BYTES asserts it
-    // fits the device default partition.
+    // Persistent storage and one trail's scratch staging fit the default split.
     fibers = persistent_arena.allocate_n<math::Spherical>(ACTUAL_FIBERS);
 
     trails = persistent_arena.make_n<Animation::VectorTrail<TRAIL_LEN>>(
