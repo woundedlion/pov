@@ -201,7 +201,8 @@ public:
    * @tparam W Canvas width in pixels.
    * @tparam H Canvas height in pixels.
    * @tparam SAMPLES Number of sub-pixel samples per pixel (1 disables SSAA).
-   * @tparam ShaderFn Callable ShaderFn(const Vector &v) -> Color4, or -> Pixel
+   * @tparam ShaderFn Callable shader(const Vector &v), optionally with integer
+   *         pixel coordinates as shader(v, x, y); returns Color4 or a Pixel
    *         already premultiplied by its alpha.
    * @param canvas Destination canvas.
    * @param shader Maps a world-space unit vector to a final color; invoked
@@ -217,7 +218,8 @@ public:
    * @tparam W Canvas width in pixels.
    * @tparam H Canvas height in pixels.
    * @tparam SAMPLES Number of sub-pixel samples per pixel (1 disables SSAA).
-   * @tparam ShaderFn Callable ShaderFn(const Vector &v) -> Color4, or -> Pixel
+   * @tparam ShaderFn Callable shader(const Vector &v), optionally with integer
+   *         pixel coordinates as shader(v, x, y); returns Color4 or a Pixel
    *         already premultiplied by its alpha.
    * @param canvas Destination canvas.
    * @param shader Maps a world-space unit vector to a final color; invoked
