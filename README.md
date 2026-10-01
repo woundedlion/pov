@@ -43,7 +43,7 @@ cmake --build --preset wasm-release-install
 
 In daydream, run `npm ci`, then `python -m http.server 8000` and open <http://localhost:8000>. See [Building](#11-building) for native tests, toolchain requirements and firmware uploads.
 
-If configuration cannot find Emscripten, activate its environment in the same shell and check `EMSDK`. If daydream’s provenance test or pre-push hook reports a bundle mismatch, rebuild the install preset to refresh the engine and provenance together. A missing pinned sibling revision during documentation checks requires the daydream checkout and its pinned commit; see `tools/build_pins.py`.
+If configuration cannot find Emscripten, activate its environment in the same shell and check `EMSDK`. If daydream’s provenance test reports a bundle mismatch, rebuild the install preset to refresh the engine and provenance together. A missing pinned sibling revision during documentation checks requires the daydream checkout and its pinned commit; see `tools/build_pins.py`.
 
 Design decisions are indexed under [Engineering Philosophies](#2-engineering-philosophies), with detailed constraints in [Core Subsystems](https://github.com/woundedlion/pov/blob/master/docs/subsystems.md) and the [shipped pullback stage model](https://github.com/woundedlion/pov/blob/master/docs/specs/pullback_stage_families_spec.md).
 
