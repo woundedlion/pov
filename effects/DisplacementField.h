@@ -34,8 +34,8 @@ struct DisplacementFieldWhiteBox;
  * the stack axis by the summed displacement fields sampled at the vertex's
  * world-space position. The noise phase opens the effect and fades in from
  * zero before dwelling at full strength, then fades out into a ball phase.
- * Cap-shaped ball bumps spawn at the stack pole on random meridians and fall to
- * the opposite pole, bowing the rings away from each ball's center.
+ * Cap-shaped ball bumps fall from world +Y to -Y on random meridians,
+ * pushing ring vertices along the oriented stack axis.
  * Fragments are shaded from a circular analogous palette that spins across the
  * stack, with hue rotated proportionally to the local displacement magnitude; a
  * ColorWipe slowly fades the palette to a freshly generated one every ~11
@@ -311,7 +311,7 @@ private:
    * @details Per ring, the displacement stack is baked per azimuth column into
    * a pooled slot: the centerline shift knots together with the hue-rotated
    * ring color. The bake evaluates only the balls whose support can reach the
-   * ring's colatitude (centers and rings share the stack axis), each only
+   * ring's colatitude in the oriented stack frame, each only
    * across the azimuth arc its cap covers; the noise octaves are sampled on
    * every other knot and spline-filled between. A ring nothing can displace
    * takes a constant LUT. The LUT resolution is adaptive: enough samples for
@@ -891,7 +891,7 @@ private:
       150; /**< Noise amplitude ramp on each phase handoff. */
   static constexpr int NOISE_HOLD_FRAMES =
       600; /**< Full-noise dwell before fading out into the next ball phase. */
-  /** @brief Un-oriented axis the ring stack and every ball fall share. */
+  /** @brief Un-oriented ring stack and ball displacement axis. */
   static constexpr math::Vector STACK_AXIS = math::X_AXIS;
 
   BallDropTransformer<MAX_BALLS>
