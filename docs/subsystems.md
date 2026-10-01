@@ -969,7 +969,7 @@ effect->draw_frame()                   show_col() fires every N µs
                                          if x==0 || x==width/2: advance_display()
 ```
 
-The top arm's physical LED ordering is reversed (LED 0 at the pole end, descending in Y), and the bottom arm shows the opposite half of the image (x offset by W/2).
+The top arm's physical LED ordering is reversed (LED 0 at the S pole, row S/2-1; midpoint LEDs S/2-1 and S/2 at the N pole), and the bottom arm shows the opposite half of the image (x offset by W/2).
 
 `show_col()` discards `submit_frame()`'s overrun verdict: this driver carries no retry latch and no dark fallback, so a dropped column leaves the previous column lit for one extra period — the drop returns before the buffer flip. `run()` fail-fast-checks that one composite transfer fits inside a column period, which rules out the systematic overrun that would hold the strip on one frame and is what makes discarding the verdict sound.
 
