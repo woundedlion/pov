@@ -101,7 +101,7 @@ static_assert(Plot::RasterLoop::closed().is_closed());
 // ---------------------------------------------------------------------------
 
 /**
- * @brief Draws a uniform random unit vector from hs::random().
+ * @brief Draws a cube-sampled, normalized random unit vector (not uniform).
  * @return A unit Vector; draws inside a 0.1-radius ball are rejected and
  *         redrawn, so the normalize is well conditioned.
  */
