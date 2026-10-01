@@ -99,8 +99,8 @@ public:
 
   /**
    * @brief Allocates the display LUT and enters the first entry's dwell.
-   * @param arena Arena the display (and, if any pair needs a LUT crossfade,
-   * two endpoint scratch LUTs) is allocated from.
+   * @param arena Arena for the display, two endpoint scratch LUTs if any pair
+   * needs a LUT crossfade, and a morph scratch palette if any pair key-morphs.
    * @param entry_list Caller-owned entry array; must outlive the cycler.
    * @param count Number of entries in [1, MAX_ENTRIES]; 1 shows a static
    * palette.
