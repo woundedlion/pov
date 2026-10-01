@@ -90,7 +90,7 @@ struct FieldCrossingStage
                                    const TestFrame &frame,
                                    const Pullback::NoPrepared &) {
     record(frame, 3);
-    return {0.5f, input.provenance.domain_coverage, input.sphere,
+    return {input.coords.re, input.provenance.domain_coverage, input.sphere,
             input.path_length};
   }
 };
@@ -119,7 +119,9 @@ struct ColorCrossingStage
   static Color4 run(const Pullback::FieldSample &input, const TestFrame &frame,
                     const Pullback::NoPrepared &) {
     record(frame, 5);
-    return Color4(Pixel(1, 2, 3), input.coverage);
+    return Color4(Pixel(static_cast<uint16_t>(input.path_length),
+                        static_cast<uint16_t>(input.value * 100.0f), 3),
+                  input.coverage);
   }
 };
 
@@ -446,8 +448,8 @@ inline void test_pullback_evaluation_order() {
   HS_EXPECT_EQ(frame.ctx.call_count, 6U);
   for (size_t index = 0; index < frame.ctx.call_count; ++index)
     HS_EXPECT_EQ(frame.ctx.calls[index], index);
-  HS_EXPECT_EQ(result.color.r, 1);
-  HS_EXPECT_EQ(result.color.g, 2);
+  HS_EXPECT_EQ(result.color.r, 3);
+  HS_EXPECT_EQ(result.color.g, 200);
   HS_EXPECT_EQ(result.color.b, 3);
   HS_EXPECT_EQ(result.alpha, 0.8f);
 }
@@ -486,7 +488,10 @@ inline void test_pullback_placement_transparency() {
   for (size_t index = 0; index < grouped.ctx.call_count; ++index)
     HS_EXPECT_EQ(grouped.ctx.calls[index], index);
   HS_EXPECT_EQ(flat_result.alpha, grouped_result.alpha);
-  HS_EXPECT_EQ(flat_result.color.r, grouped_result.color.r);
+  HS_EXPECT_EQ(flat_result.color.r, 3);
+  HS_EXPECT_EQ(grouped_result.color.r, 3);
+  HS_EXPECT_EQ(flat_result.color.g, 200);
+  HS_EXPECT_EQ(grouped_result.color.g, 200);
 }
 
 template <typename Stage> struct IsCrossingStage {
