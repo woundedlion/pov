@@ -359,7 +359,7 @@ private:
         break;
       }
       if (e.settle && to_end)
-        builder.relax(ConwayGraph::ICOSAHEDRON_RELAX_ITERATIONS);
+        builder.relax(ConwayGraph::SETTLE_RELAX_ITERATIONS);
     }
     return builder.build();
   }
@@ -776,7 +776,7 @@ private:
           seed_base = Solids::finalize_solid(
               Solids::SolidBuilder(std::move(s), a, b)
                   .snub(0.5f, SNUB_BRIDGE_TWIST)
-                  .relax(ConwayGraph::ICOSAHEDRON_RELAX_ITERATIONS)
+                  .relax(ConwayGraph::SETTLE_RELAX_ITERATIONS)
                   .build(),
               target);
           seed_identity = node;

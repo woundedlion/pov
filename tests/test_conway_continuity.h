@@ -1256,7 +1256,7 @@ inline PolyMesh seedframe_node_mesh_at(const ConwayGraph::EdgeSpec &e,
       break;
     }
     if (e.settle && to_end)
-      builder.relax(ConwayGraph::ICOSAHEDRON_RELAX_ITERATIONS);
+      builder.relax(ConwayGraph::SETTLE_RELAX_ITERATIONS);
   }
   return builder.build();
 }
