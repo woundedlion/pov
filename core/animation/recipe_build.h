@@ -49,14 +49,11 @@ protected:
   int build_leg_frames[MAX_BUILD_STEPS] = {}; /**< Per-leg frame budget. */
   int build_total_frames = 0;                 /**< Sum of leg frames. */
   PolyMesh build_seed;                        /**< Leg-k seed (persistent). */
-  PolyMesh build_next_seed;  /**< Clean endpoint seed_{k+1}: built eagerly at
+  PolyMesh build_next_seed; /**< Clean endpoint seed_{k+1}: built eagerly at
                                  leg start, or from the leg's own topology at
                                  its end on a hankin step. */
-  PolyMesh dual_bridge_ambo; /**< ambo(P) held across a DUAL bridge: leg 1's
-                                 arrival grouping and leg 2's departed mesh. */
   size_t dual_bridge_ambo_faces =
-      0; /**< ambo(P) face count, kept for leg 3's handoff length after the mesh
-            itself is dropped at the medial leg (persistent-budget relief). */
+      0; /**< ambo(P) face count for leg 3's palette handoff. */
   /** Device persistent budget of the current shape's split, set by spawn_shape
    * before any read; the host arena is over-provisioned, so gates check the
    * resident persistent high-water against this. */
@@ -499,8 +496,8 @@ protected:
   /**
    * @brief Schedules the smooth dual as three legs: truncate P -> ambo(P), a
    * medial slerp to ambo(dual(P)), and truncate dual(P) back down to dual(P).
-   * @details Only ambo(P) (leg 1's arrival) is built up front; dual(P) is
-   * deferred to leg 3 so it never co-resides with the medial leg's peak. Each
+   * @details dual(P) is deferred to leg 3 so it never co-resides with the
+   * medial leg's peak. Each
    * leg's scheduler compacts the arena before it runs, reclaiming the finished
    * legs and the endpoints they no longer need -- the heaviest gyro and
    * ambo_dual seeds run the whole bridge co-resident ~21 KB over budget.
@@ -514,13 +511,6 @@ protected:
              "RecipeBuild: invalid dual bridge continuation");
     dual_bridge_done = done;
     ++dual_bridges_built;
-    hs::generate(persistent_arena, [&](Arena &target, Arena &a, Arena &b) {
-      dual_bridge_ambo =
-          Solids::finalize_solid(MeshOps::ambo(build_seed, a, b), target);
-    });
-    HS_CHECK(dual_bridge_ambo.face_counts.size() <= MAX_BUILD_FACES,
-             "RecipeBuild: dual bridge ambo exceeds MAX_BUILD_FACES");
-
     ScratchScope handoff_guard(scratch_arena_a);
     Animation::OpLeg::PaletteHandoff handoff = seed_handoff(scratch_arena_a);
     const int frames = dual_sub_frames(0);
@@ -547,24 +537,29 @@ protected:
     // finished leg; IDENTITY takes no centroids, since the medial leg sweeps
     // ambo(P)'s faces in place. The persistent reset below leaves scratch_a
     // intact.
-    Animation::OpLeg::PaletteHandoff handoff =
-        landing_handoff(dual_bridge_ambo, scratch_arena_a,
-                        Animation::OpLeg::FaceCorrespondence::IDENTITY);
-    const size_t medial_faces = dual_bridge_ambo.face_counts.size();
-    HS_CHECK(build_landing && build_landing->faces == medial_faces,
+    HS_CHECK(build_landing,
              "RecipeBuild: medial bookend does not match the landing");
+    const size_t medial_faces = build_landing->faces;
+    HS_CHECK(medial_faces <= MAX_BUILD_FACES,
+             "RecipeBuild: dual bridge ambo exceeds MAX_BUILD_FACES");
+    uint8_t *pal = scratch_arena_a.allocate_n<uint8_t>(medial_faces);
+    for (size_t f = 0; f < medial_faces; ++f)
+      pal[f] = build_landing->landed_palette(f);
+    Animation::OpLeg::PaletteHandoff handoff{
+        .bank = &host().palette_bank.bank,
+        .prev_face_palette = pal,
+        .prev_faces = medial_faces,
+        .prev_face_centroid = nullptr,
+        .correspondence = Animation::OpLeg::FaceCorrespondence::IDENTITY};
     uint16_t *medial_topology =
         scratch_arena_a.allocate_n<uint16_t>(medial_faces);
     std::copy_n(build_landing->topology, medial_faces, medial_topology);
     build_landing = nullptr;
 
-    // Only ambo(P)'s face count survives to leg 3 (its handoff length); the mesh
-    // is dead once the landing palette and topology above are copied.
     dual_bridge_ambo_faces = medial_faces;
-    dual_bridge_ambo = PolyMesh();
 
     // Compact: keep only the seed P (leg 2 rebuilds its medial from it, leg 3 its
-    // dual), drop leg 1 and the ambo endpoint.
+    // dual), drop leg 1.
     {
       Persist<PolyMesh> ps(build_seed, scratch_arena_b, persistent_arena);
       host().carousel.compact_drop_all(
@@ -597,8 +592,7 @@ protected:
       pal[f] = build_landing->landed_palette(f);
     build_landing = nullptr;
 
-    // Compact: keep the seed P (leg 3 builds dual(P) from it), drop leg 2 (the
-    // ambo(P) endpoint was already dropped at the medial leg).
+    // Compact: keep the seed P for leg 3, drop leg 2.
     {
       Persist<PolyMesh> ps(build_seed, scratch_arena_b, persistent_arena);
       host().carousel.compact_drop_all(
