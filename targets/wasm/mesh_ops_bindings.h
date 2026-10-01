@@ -948,10 +948,7 @@ static void bind_mesh_ops() {
       .function("getVertices", &MeshOpsWrapper::getVertices)
       .function("getFaces", &MeshOpsWrapper::getFaces)
       .function("classifyFaces", &MeshOpsWrapper::classifyFaces)
-  // Bound from the same MESHOP_LIST that generates the wrapper methods, plus
-  // MESHOP_IRREGULAR_LIST for the hand-written ops.
-// Variadic for MESHOP_LIST's operator metadata and
-// MESHOP_IRREGULAR_LIST's bare names.
+// Binds both MESHOP_LIST metadata entries and MESHOP_IRREGULAR_LIST bare names.
 #define MESHOP_BIND(name, ...) .function(#name, &MeshOpsWrapper::name)
           MESHOP_LIST(MESHOP_BIND, MESHOP_BIND, MESHOP_BIND)
               MESHOP_IRREGULAR_LIST(MESHOP_BIND);
