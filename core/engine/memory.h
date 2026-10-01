@@ -1342,12 +1342,7 @@ public:
   }
   /**
    * @brief Destroys the scope, rewinding the arena to the saved offset.
-   * @details Enforces LIFO scope discipline before rewinding. Stack-nested scopes
-   * on the SAME arena are always safe: an inner scope rewinds to exactly where the
-   * outer's allocations end, so nesting never clobbers a live allocation. The one
-   * way to break it is non-LIFO teardown: an outer rewind or reset() ran while
-   * this scope was live, dropping the offset BELOW saved_offset. Trap it instead
-   * of letting set_offset() resurrect freed bytes.
+   * @details Reports non-LIFO teardown before set_offset rejects the rewind.
    */
   ~ScratchScope() {
 #ifndef NDEBUG
