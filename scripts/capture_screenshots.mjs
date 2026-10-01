@@ -1,4 +1,3 @@
-import { exitAfterStderr } from './exit.mjs';
 // Headless Playwright script that loads the WebGL simulator for each effect,
 // lets it animate, and saves a PNG screenshot to docs/screenshots/.
 // Effects can be overridden via CLI args; otherwise the full EFFECTS list runs.
@@ -12,6 +11,7 @@ import { exitAfterStderr } from './exit.mjs';
 //
 // SIM_URL overrides the simulator origin (defaults to the README's local
 // http.server port); WAIT_MS overrides every configured capture offset.
+import { exitAfterStderr } from './exit.mjs';
 import { mkdir, rename, rm, writeFile } from 'node:fs/promises';
 import { randomUUID } from 'node:crypto';
 import { inspectPng } from './png_probe.mjs';
@@ -41,8 +41,7 @@ async function numEnv(name, def, max = Infinity, min = Number.MIN_VALUE) {
   console.error(`capture_screenshots: ERROR — ${name} must be a finite number between ${min} and ${max}.`);
   console.error(`Received: ${JSON.stringify(raw)}`);
   console.error('========================================================');
-  process.exitCode = 2;
-  await exitAfterStderr();
+  await exitAfterStderr(2);
 }
 
 const BASE_URL = process.env.SIM_URL || 'http://localhost:8000/';
@@ -64,8 +63,7 @@ if (OFF_ROSTER.length) {
   console.error('Roster spellings come from HS_EFFECT_LIST (effects.h); run with no');
   console.error('arguments to capture the whole gallery.');
   console.error('========================================================');
-  process.exitCode = 2;
-  await exitAfterStderr();
+  await exitAfterStderr(2);
 }
 
 let chromium;
@@ -76,8 +74,7 @@ try {
   console.error(`capture_screenshots: ERROR — could not load playwright (${e.message}).`);
   console.error('Install the dev dependencies once with:  npm ci');
   console.error('========================================================');
-  process.exitCode = 1;
-  await exitAfterStderr();
+  await exitAfterStderr(1);
 }
 
 await mkdir(OUT_DIR, { recursive: true });
@@ -100,8 +97,7 @@ try {
   console.warn(`capture_screenshots: ERROR — could not launch Chromium (${e.message}).`);
   console.warn('Install the browser once with:  npx playwright install chromium');
   console.warn('========================================================');
-  process.exitCode = 1;
-  await exitAfterStderr();
+  await exitAfterStderr(1);
 }
 class UnresolvedResolutions extends Error {}
 
