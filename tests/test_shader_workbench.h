@@ -5038,6 +5038,17 @@ inline void test_shader_workbench_projection_and_admission_contracts() {
   HS_EXPECT_TRUE(WB::valid_config(mobius_config));
   mobius_config.params.surface_lens.mobius.a.re *= 2.0f;
   HS_EXPECT_TRUE(WB::valid_config(mobius_config));
+  mobius_config.params.surface_lens.mobius =
+      math::MobiusParams(0.5f, 0.0f, 0.5f, 0.0f, 0.5f, 0.0f, 0.5f, 0.0f);
+  HS_EXPECT_FALSE(WB::valid_config(mobius_config));
+  reset_effect_globals();
+  {
+    WB::SB lens;
+    lens.init();
+    const auto accepted = WB::active_config(lens);
+    HS_EXPECT_FALSE(WB::try_apply_config(lens, mobius_config, 0));
+    HS_EXPECT_TRUE(WB::active_config(lens) == accepted);
+  }
 
   WB::RequestedConfig curl = WB::legacy_config();
   curl.slots.warp_program.outer.kind = WB::WarpStageKind::CURL_FLOW;
