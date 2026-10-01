@@ -1,6 +1,8 @@
 /*
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
  * Licensed under the PolyForm Noncommercial License 1.0.0
+ *
+ * Projection coordinates, cuts, edge identities, and Peirce layout contracts.
  */
 #pragma once
 
@@ -89,6 +91,7 @@ inline AiroceanPoint airocean_unfold(size_t face, const AiroceanVector &p) {
           transform[1][2] * p.z * scale + transform[1][3]};
 }
 
+/** @brief Pins wrap longitude range. */
 inline void test_wrap_longitude_range() {
   for (int step = -40; step <= 40; ++step) {
     const float raw = step * 0.4f;
@@ -104,6 +107,7 @@ inline void test_wrap_longitude_range() {
   HS_EXPECT_EQ(wrap_longitude(3.0f * math::PI_F), -math::PI_F);
 }
 
+/** @brief Pins bonne sinusoidal limit. */
 inline void test_bonne_sinusoidal_limit() {
   for (int latitude_step = -12; latitude_step <= 12; ++latitude_step) {
     const float latitude = latitude_step * (0.5f * math::PI_F / 12.0f);
@@ -124,6 +128,7 @@ inline void test_bonne_sinusoidal_limit() {
   }
 }
 
+/** @brief Pins bonne polar limit is finite. */
 inline void test_bonne_polar_limit_is_finite() {
   for (float standard_parallel : {0.5f * math::PI_F, -0.5f * math::PI_F}) {
     for (int step = -8; step <= 8; ++step) {
@@ -137,6 +142,7 @@ inline void test_bonne_polar_limit_is_finite() {
   }
 }
 
+/** @brief Pins peirce elliptic integral shape. */
 inline void test_peirce_elliptic_integral_shape() {
   HS_EXPECT_NEAR(peirce_elliptic_integral(0.25f * math::PI_F),
                  0.8260178762492452f, 1e-6f);
@@ -154,6 +160,7 @@ inline void test_peirce_elliptic_integral_shape() {
   }
 }
 
+/** @brief Pins peirce sector longitude snapping. */
 inline void test_peirce_sector_longitude_snapping() {
   HS_EXPECT_EQ(peirce_sector_longitude(math::Vector(0.0f, 1.0f, 0.0f), 0.0f),
                0.5f * math::PI_F);
@@ -182,6 +189,7 @@ inline void check_peirce_fast_square_matches_exact(const math::Vector &v) {
   HS_EXPECT_EQ(fast.traits, exact.traits);
 }
 
+/** @brief Pins peirce fast square matches exact. */
 inline void test_peirce_fast_square_matches_exact() {
   // Half-step azimuths: the sector seams sit at even multiples of pi/96, so
   // every sample lands in a sector interior. The snap band itself is covered by
@@ -214,6 +222,7 @@ inline void test_peirce_fast_square_rounded_pole_cap() {
       }
 }
 
+/** @brief Pins peirce fast square on seams and poles. */
 inline void test_peirce_fast_square_on_seams_and_poles() {
   constexpr float INV_SQRT_TWO = 0.7071067811865475f;
   check_peirce_fast_square_matches_exact(math::Vector(0.0f, 1.0f, 0.0f));
@@ -236,6 +245,7 @@ inline void test_peirce_fast_square_on_seams_and_poles() {
   }
 }
 
+/** @brief Pins peirce fast square ties the diagonal band to its seam. */
 inline void test_peirce_fast_square_ties_the_diagonal_band_to_its_seam() {
   // Inside peirce_sector_longitude's snap band the exact kernel folds the
   // azimuth onto the boundary; the fast kernel's diagonal_tie must label
@@ -305,6 +315,7 @@ inline void test_peirce_edge_distance_locates_the_singularities() {
   }
 }
 
+/** @brief Pins peirce square is the rotated diamond. */
 inline void test_peirce_square_is_the_rotated_diamond() {
   constexpr float INV_SQRT_TWO = 0.7071067811865475f;
   for (int latitude_step = -8; latitude_step <= 8; ++latitude_step) {
@@ -328,6 +339,7 @@ inline void test_peirce_square_is_the_rotated_diamond() {
   }
 }
 
+/** @brief Pins peirce strip scroll is periodic. */
 inline void test_peirce_strip_scroll_is_periodic() {
   for (PeirceLayout layout : {PeirceLayout::HORIZONTAL, PeirceLayout::VERTICAL})
     for (int latitude_step = -6; latitude_step <= 6; ++latitude_step) {
@@ -397,6 +409,7 @@ inline void test_peirce_strip_tears_the_unglued_equator() {
         0);
 }
 
+/** @brief Pins airocean cut masks match the edge lists. */
 inline void test_airocean_cut_masks_match_the_edge_lists() {
   constexpr size_t CUT_HALF_EDGES =
       sizeof(AIROCEAN_CUT_FACES) / sizeof(AIROCEAN_CUT_FACES[0]);
@@ -416,6 +429,7 @@ inline void test_airocean_cut_masks_match_the_edge_lists() {
   }
 }
 
+/** @brief Pins airocean edge identity is the canonical half edge. */
 inline void test_airocean_edge_identity_is_the_canonical_half_edge() {
   for (size_t face = 0; face < AIROCEAN_FACE_COUNT; ++face)
     for (size_t edge = 0; edge < 3; ++edge) {
@@ -435,6 +449,7 @@ inline void test_airocean_edge_identity_is_the_canonical_half_edge() {
     }
 }
 
+/** @brief Pins airocean glued edges are bit identical. */
 inline void test_airocean_glued_edges_are_bit_identical() {
   int glued = 0;
   int shared = 0;
@@ -467,6 +482,7 @@ inline void test_airocean_glued_edges_are_bit_identical() {
   HS_EXPECT_EQ(glued, 21);
 }
 
+/** @brief Pins airocean face planes. */
 inline void test_airocean_face_planes() {
   for (size_t face = 0; face < AIROCEAN_FACE_COUNT; ++face) {
     const AiroceanVector &normal = AIROCEAN_NORMALS[face];
@@ -493,6 +509,7 @@ inline void test_airocean_face_planes() {
   }
 }
 
+/** @brief Pins airocean unfold sends vertices to planar vertices. */
 inline void test_airocean_unfold_sends_vertices_to_planar_vertices() {
   for (size_t face = 0; face < AIROCEAN_FACE_COUNT; ++face) {
     HS_EXPECT_LT(planar_cross(AIROCEAN_PLANAR_FACES[face][0],
@@ -508,6 +525,7 @@ inline void test_airocean_unfold_sends_vertices_to_planar_vertices() {
   }
 }
 
+/** @brief Pins airocean projection stays inside its face. */
 inline void test_airocean_projection_stays_inside_its_face() {
   for (int latitude_step = 0; latitude_step <= 48; ++latitude_step) {
     const float y = -1.0f + 2.0f * latitude_step / 48.0f;
@@ -542,6 +560,7 @@ inline void test_airocean_projection_stays_inside_its_face() {
   }
 }
 
+/** @brief Pins airocean face14 half cut edge. */
 inline void test_airocean_face14_half_cut_edge() {
   const auto &a = AIROCEAN_FACES[14][0];
   const auto &b = AIROCEAN_FACES[14][1];
@@ -562,6 +581,7 @@ inline void test_airocean_face14_half_cut_edge() {
   }
 }
 
+/** @brief Pins airocean projection face index stays in range. */
 inline void test_airocean_projection_face_index_stays_in_range() {
   // A direction this far off the unit sphere scores above the fallback's
   // 65536 sentinel on every face, so no candidate is ever taken.
@@ -598,6 +618,7 @@ inline void test_airocean_projection_face_index_stays_in_range() {
                      AIROCEAN_FACE_COUNT);
 }
 
+/** @brief Pins point segment distance. */
 inline void test_point_segment_distance() {
   const AiroceanPoint a{1.0f, 2.0f};
   const AiroceanPoint b{5.0f, 2.0f};
@@ -616,6 +637,7 @@ inline void test_point_segment_distance() {
   HS_EXPECT_NEAR(squared, 9.0f, 1e-6f);
 }
 
+/** @brief Pins projection trait packing. */
 inline void test_projection_trait_packing() {
   HS_EXPECT_EQ(projection_traits(ProjectionTrait::NONE), 0);
   HS_EXPECT_EQ(projection_traits(ProjectionTrait::CUT, ProjectionTrait::GLUED),
@@ -637,6 +659,7 @@ inline void test_projection_trait_packing() {
                                  ProjectionTrait::PERIODIC));
 }
 
+/** @brief Pins cylindrical coordinates. */
 inline void test_cylindrical_coordinates() {
   for (float latitude : {-0.7f, 0.0f, 0.7f}) {
     for (float longitude : {-2.0f, -0.5f, 0.5f, 2.0f}) {

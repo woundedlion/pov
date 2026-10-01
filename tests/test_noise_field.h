@@ -1,6 +1,8 @@
 /*
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
  * Licensed under the PolyForm Noncommercial License 1.0.0
+ *
+ * Noise field interpolation, derivatives, basis and seed contracts.
  */
 #pragma once
 
@@ -20,6 +22,7 @@ inline FastNoiseLite make_noise(int32_t seed) {
   return noise;
 }
 
+/** @brief Pins noise field key identity. */
 inline void test_noise_field_key_identity() {
   math::NoiseFieldSpec a{math::NoiseDomain::SPHERE_3D,
                          math::NoiseBasis::FBM3,
@@ -55,6 +58,7 @@ inline void test_noise_field_key_identity() {
   HS_EXPECT_FALSE(math::noise_field_key(a) == math::noise_field_key(b));
 }
 
+/** @brief Pins noise field periodic coordinates. */
 inline void test_noise_field_periodic_coordinates() {
   const math::Vector v = math::Vector(0.25f, -0.5f, 0.8291562f).normalized();
   const math::Vector sphere0 = math::noise_sphere_coordinate(v, 3.0f, 0.0f);
@@ -91,6 +95,7 @@ inline void test_noise_field_hoisted_loop_offsets() {
   }
 }
 
+/** @brief Pins noise field octave formulas. */
 inline void test_noise_field_octave_formulas() {
   const FastNoiseLite noise = make_noise(-317);
   constexpr std::array<math::Vector, 4> POINTS = {
@@ -112,6 +117,7 @@ inline void test_noise_field_octave_formulas() {
   }
 }
 
+/** @brief Pins noise field ridged channel pairs. */
 inline void test_noise_field_ridged_channel_pairs() {
   const FastNoiseLite noise = make_noise(991);
   const math::Vector q(-3.0f, 8.5f, 29.0f);
@@ -128,6 +134,7 @@ inline void test_noise_field_ridged_channel_pairs() {
   }
 }
 
+/** @brief Pins noise field direct tangent. */
 inline void test_noise_field_direct_tangent() {
   const FastNoiseLite noise = make_noise(1337);
   constexpr std::array<math::Vector, 6> DIRECTIONS = {
@@ -163,6 +170,7 @@ inline void test_noise_field_direct_tangent() {
   }
 }
 
+/** @brief Pins noise field tetrahedral gradient. */
 inline void test_noise_field_tetrahedral_gradient() {
   auto linear = [](const math::Vector &p) {
     return 0.25f * p.x - 0.5f * p.y + p.z;
@@ -179,6 +187,7 @@ inline void test_noise_field_tetrahedral_gradient() {
   }
 }
 
+/** @brief Pins noise field analytic gradient. */
 inline void test_noise_field_analytic_gradient() {
   constexpr float STEP = 1.0f / 2048.0f;
   constexpr std::array<math::Vector, 5> POINTS = {
@@ -210,6 +219,7 @@ inline void test_noise_field_analytic_gradient() {
   }
 }
 
+/** @brief Pins vector noise rotation setter order. */
 inline void test_vector_noise_rotation_setter_order() {
   for (const auto rotation : {FastNoiseLite::RotationType3D_ImproveXYPlanes,
                               FastNoiseLite::RotationType3D_ImproveXZPlanes}) {
@@ -227,6 +237,7 @@ inline void test_vector_noise_rotation_setter_order() {
   }
 }
 
+/** @brief Pins noise field simplex curl approximation. */
 inline void test_noise_field_simplex_curl_approximation() {
   const FastNoiseLite noise = make_noise(7127);
   float max_error = 0.0f;
@@ -263,6 +274,7 @@ inline void test_noise_field_simplex_curl_approximation() {
   HS_EXPECT_LT(total_error / samples, 0.03f);
 }
 
+/** @brief Pins noise field curl tangent. */
 inline void test_noise_field_curl_tangent() {
   const FastNoiseLite noise = make_noise(7127);
   for (math::NoiseBasis basis :
@@ -291,6 +303,7 @@ inline void test_noise_field_curl_tangent() {
   }
 }
 
+/** @brief Pins sphere exp map and transport. */
 inline void test_sphere_exp_map_and_transport() {
   const math::Vector v(0.0f, 1.0f, 0.0f);
   HS_EXPECT_EQ(math::sphere_exp_map(v, math::Vector()), v);
@@ -304,6 +317,7 @@ inline void test_sphere_exp_map_and_transport() {
   HS_EXPECT_NEAR(transported.length(), tangent.length(), 1e-6f);
 }
 
+/** @brief Pins half radian exp map approximation. */
 inline void test_half_radian_exp_map_approximation() {
   float max_error = 0.0f;
   for (int latitude_step = -16; latitude_step <= 16; ++latitude_step) {

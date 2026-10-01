@@ -1,6 +1,8 @@
 /*
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
  * Licensed under the PolyForm Noncommercial License 1.0.0
+ *
+ * Ray tracing convergence, verification, query bounds, and status contracts.
  */
 #pragma once
 
@@ -44,6 +46,7 @@ struct ThinNeighbors {
   }
 };
 
+/** @brief Pins camera. */
 inline void test_camera() {
   Raycast::PreparedCamera camera;
   camera.center = {{4.0f, 5.0f, 6.0f, 0.0f}};
@@ -75,6 +78,7 @@ inline void test_camera() {
   HS_EXPECT_TRUE(!camera.valid());
 }
 
+/** @brief Pins surface boundaries. */
 inline void test_surface_boundaries() {
   const Sphere SPHERE;
   const Raycast::VolumeQuery QUERY{
@@ -107,6 +111,7 @@ inline void test_surface_boundaries() {
   HS_EXPECT_TRUE(!result.has_surface);
 }
 
+/** @brief Pins bounded failures. */
 inline void test_bounded_failures() {
   const Raycast::Ray RAY{math::Vector(), math::Vector(1, 0, 0), {0, 6}};
   auto result = Raycast::surface_search(ConstantQuery{}, RAY, {});
@@ -132,6 +137,7 @@ inline void test_bounded_failures() {
   HS_EXPECT_TRUE(result.status == Raycast::TraceStatus::INVALID_QUERY);
 }
 
+/** @brief Pins slice no phantom. */
 inline void test_slice_no_phantom() {
   Raycast::PreparedCamera camera;
   camera.domain = Raycast::SamplingDomain::SLICE_4D;
@@ -151,6 +157,7 @@ inline void test_slice_no_phantom() {
   HS_EXPECT_NEAR(CUT.contribution.t, 2.0f - sqrtf(0.75f), 1e-4f);
 }
 
+/** @brief Pins placement and shapes. */
 inline void test_placement_and_shapes() {
   const Sphere SPHERE;
   const Raycast::VolumeQuery QUERY{
@@ -188,6 +195,7 @@ inline void test_placement_and_shapes() {
   HS_EXPECT_NEAR(result.contribution.t, 1.75f, 1e-4f);
 }
 
+/** @brief Pins first boundary and tolerances. */
 inline void test_first_boundary_and_tolerances() {
   const ThinNeighbors NEIGHBORS;
   const Raycast::VolumeQuery QUERY{
@@ -225,6 +233,7 @@ inline void test_first_boundary_and_tolerances() {
   HS_EXPECT_EQ(result.status, Raycast::TraceStatus::BUDGET_EXHAUSTED);
 }
 
+/** @brief Pins limits and nonfinite. */
 inline void test_limits_and_nonfinite() {
   HS_EXPECT_TRUE(!Raycast::finite(NAN));
   HS_EXPECT_TRUE(!Raycast::finite(INFINITY));
@@ -244,6 +253,7 @@ inline void test_limits_and_nonfinite() {
   HS_EXPECT_TRUE(result.status == Raycast::TraceStatus::INVALID_QUERY);
 }
 
+/** @brief Pins nested query validation once. */
 inline void test_nested_query_validation_once() {
   struct CountedQuery : ConstantQuery {
     mutable int validations = 0;
