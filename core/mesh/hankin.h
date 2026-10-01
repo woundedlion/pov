@@ -139,7 +139,6 @@ HS_COLD static void compile_hankin(const PolyMesh &mesh,
                                    CompiledHankin &compiled,
                                    Arena &target_arena, Arena &temp_arena,
                                    bool borrow_base_vertices = false) {
-  // Topology via accessors (borrowed-mode safe); vertices is always owned.
   size_t V = mesh.vertices.size();
   size_t F = mesh.get_face_counts_size();
   size_t I = mesh.get_faces_size();
