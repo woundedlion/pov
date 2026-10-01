@@ -502,7 +502,7 @@ add_test(NAME unit_color_luts COMMAND ${CMAKE_COMMAND}
     -DGENERATOR=${HS_ROOT}/scripts/generate_luts.py
     -DCOMMITTED=${HS_ROOT}/core/color/color_luts.h
     -DGENERATED=${CMAKE_CURRENT_BINARY_DIR}/color_luts.generated.h
-    -DSKIP_CODE=77 -DREQUIRE_PYTHON=${HS_REQUIRE_GENERATORS}
+    -DSKIP_CODE=77 -DREQUIRE_GENERATORS=${HS_REQUIRE_GENERATORS}
     -P ${CMAKE_CURRENT_SOURCE_DIR}/check_color_luts.cmake)
 set_tests_properties(unit_color_luts PROPERTIES SKIP_RETURN_CODE 77)
 
@@ -524,7 +524,7 @@ add_test(NAME unit_gamut_lut COMMAND ${CMAKE_COMMAND}
     -DPYTHON_EXE=${HS_PYTHON}
     -DGENERATOR=${HS_ROOT}/tools/gen_gamut_lut.py
     -DCACHE_FILE=${CMAKE_CURRENT_BINARY_DIR}/gamut_lut_check.sha256
-    -DSKIP_CODE=77 -DREQUIRE_PYTHON=${HS_REQUIRE_GENERATORS}
+    -DSKIP_CODE=77 -DREQUIRE_GENERATORS=${HS_REQUIRE_GENERATORS}
     -P ${CMAKE_CURRENT_SOURCE_DIR}/check_gamut_lut.cmake)
 set_tests_properties(unit_gamut_lut PROPERTIES SKIP_RETURN_CODE 77 TIMEOUT 900)
 

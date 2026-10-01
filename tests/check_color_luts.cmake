@@ -3,9 +3,9 @@
 # flash-section marker, the include and value signs gate alongside the numbers.
 # Counterpart of the lut-provenance job in .github/workflows/ci.yml.
 # The generator pipes its header through clang-format (CLANG_FORMAT or the one
-# on PATH) and refuses to emit without it. Skips with SKIP_CODE when clang-format is unavailable, or fails outright under REQUIRE_PYTHON (CI, which
+# on PATH) and refuses to emit without it. Skips with SKIP_CODE when clang-format is unavailable, or fails outright under REQUIRE_GENERATORS (CI, which
 # provisions both).
-# -D args: PYTHON_EXE, GENERATOR, COMMITTED, GENERATED, SKIP_CODE, REQUIRE_PYTHON.
+# -D args: PYTHON_EXE, GENERATOR, COMMITTED, GENERATED, SKIP_CODE, REQUIRE_GENERATORS.
 
 # Script mode inherits no policies from the project, so every policy would
 # otherwise default to OLD, and the cmake_language(EXIT) below is a 3.29
@@ -21,7 +21,7 @@ if(_clang_format)
   execute_process(COMMAND "${_clang_format}" --version
     OUTPUT_VARIABLE _format_version RESULT_VARIABLE _format_rc)
   if(NOT _format_rc EQUAL 0 OR NOT _format_version MATCHES "version 22\\.")
-    if(REQUIRE_PYTHON)
+    if(REQUIRE_GENERATORS)
       message(FATAL_ERROR "color_luts pin: clang-format 22 is required")
     endif()
     message(STATUS "color_luts pin: clang-format major mismatch; skipping")
@@ -29,7 +29,7 @@ if(_clang_format)
   endif()
 endif()
 if(NOT _clang_format)
-  if(REQUIRE_PYTHON)
+  if(REQUIRE_GENERATORS)
     message(FATAL_ERROR "color_luts pin: no clang-format, and HS_REQUIRE_GENERATORS is ON")
   endif()
   message(STATUS "color_luts pin: no clang-format; skipping")
