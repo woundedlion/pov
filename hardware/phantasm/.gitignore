@@ -6,6 +6,7 @@
 *.bak
 fp-info-cache
 # generated reports / outputs / renders
+phantasm-draft.*
 *.net
 *.rpt
 *.pdf
