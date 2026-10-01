@@ -1,6 +1,6 @@
 # Pullback stage families: arbitrary chains over ranked carriers
 
-**Status: §§1–6 and §8 LANDED; §7 PARTIAL.** The static ranked pipeline and
+**Status: §§1–6 and §8 LANDED; §7 PARTIAL; §13 (executable snapshots, shader host retirement) IMPLEMENTED.** The static ranked pipeline and
 its migration (the §6 contract cut-over) ship, as does the preview
 interpreter (§8: `core/render/pullback/interpreter.h`, `workbench/shader/chain_host.h`,
 and the `setShaderChain` binding). Promotion/verification (§7) is landed per
@@ -632,7 +632,7 @@ Spec declares `template <typename B> using Pipeline = Pullback::Pipeline<B, ...>
 `ComposedEffect<W, H, Derived, Spec>` derives present-only parameters, clocks,
 and noise resources from that declaration. Firmware arena and prepared-state
 budgets still bound each concrete instantiation. Promotion's catalog requirements,
-parameter binding and topology acceptance remain specified in ?7.
+parameter binding and topology acceptance remain specified in §7.
 
 ## 6. Pipeline assembly and consumer migration
 
@@ -1423,7 +1423,7 @@ mapping described by this design was not implemented.
 Consumer stack, persistent arena, RAM2, and effect-heap budgets follow their
 target configuration. Public carriers add no allocation or hidden ownership.
 
-## 9. Executable snapshots and shader host retirement
+## 13. Executable snapshots and shader host retirement
 
 **IMPLEMENTED.** `ShaderChain` is the sole simulator authoring host. The slot
 host, fixed-slot parameter configuration, admission fold and full-configuration
