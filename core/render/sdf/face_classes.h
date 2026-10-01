@@ -60,9 +60,9 @@ struct CongruenceClass {
 
 /**
  * @brief Congruence-class bake for one spawned mesh (persistent-arena owned).
- * @details Lives in the effect's persistent arena and dies at every arena
- * compaction — rebake unconditionally after compact_keep_front or the fading
- * mesh silently degrades to NO_CLASS (correct but slower).
+ * @details Rebake after every persistent-arena reset, including compaction.
+ * Stale vectors remain bound to reclaimed bytes: debug access asserts; release
+ * access reads overwritten storage.
  */
 struct MeshClassBake {
   ArenaVector<CongruenceClass> classes; /**< Congruence classes, dense ids. */
