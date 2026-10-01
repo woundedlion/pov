@@ -324,6 +324,8 @@ inline constexpr int GAMUT_LUT_MIN_L_STEPS = 64;
  */
 HS_COLD_MEMBER inline void init_gamut_lut(Arena &arena, int angle_steps,
                                           int l_steps) {
+  HS_CHECK(&arena != &scratch_arena_a && &arena != &scratch_arena_b,
+           "init_gamut_lut: global LUT requires non-scratch storage");
   HS_CHECK(angle_steps >= GAMUT_LUT_MIN_ANGLE_STEPS &&
                l_steps >= GAMUT_LUT_MIN_L_STEPS &&
                GAMUT_LUT_ANGLE_STEPS % angle_steps == 0 &&
