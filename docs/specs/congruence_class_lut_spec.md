@@ -257,10 +257,9 @@ This pre-split plan is retained as a design record, not the current file map.
 - **Spill cliff**: the third distance branch is the same codegen hazard that
   bit `7b4873d9`'s first attempt. Mitigation is baked into §5 and gate §8.5
   (per-mesh regressions, especially the no-bake path and no-LUT meshes).
-- **Arena lifecycle**: bakes live in the persistent arena and die at every
-  `compact_keep_front`; the rebake-both-slots step must be unconditional or
-  the fading front mesh silently degrades to `NO_CLASS` (correct but slower —
-  acceptable as the failure mode, assert-logged).
+- **Arena lifecycle**: rebake both slots after every persistent-arena reset,
+  including `compact_keep_front`. Stale vectors remain bound to reclaimed
+  storage: debug access asserts, while release access reads overwritten bytes.
 - **Class-count cap**: u8 ids cap classes at 255; census max is 24. Trap at
   bake if exceeded (fail-fast, per project philosophy).
 - **Canonical-mean refinement** (§3) is held in reserve for the visual gate.
