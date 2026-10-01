@@ -1713,6 +1713,80 @@ edge_visible_in_clip(PipelineT &pipeline, const ClipRegion &cr,
   return edge_visible_in_clip_dispatch(pipeline, a, b, nullptr, pred);
 }
 
+/** @brief Cap center and longitude wedge precomputed for a fixed clip. */
+struct CapCenter {
+  float beta;
+  float sin_beta;
+  float column_distance;
+  float column_half_width;
+  bool columns_active;
+};
+
+inline constexpr float CAP_ACOS_PAD = 1e-3f;
+inline constexpr float CAP_ATAN2_PAD = 5e-3f;
+
+inline CapCenter cap_column_center(const ClipRegion &cr,
+                                   const math::Vector &dir, float beta) {
+  CapCenter center{beta, 0, 0, 0, false};
+  const auto columns = cr.x_clip();
+  if (!columns.active)
+    return center;
+  center.columns_active = true;
+  const float y = hs::clamp(dir.y, -1.0f, 1.0f);
+  center.sin_beta = sqrtf(1.0f - y * y);
+  const float width = static_cast<float>(columns.length(cr.w));
+  center.column_half_width = (width * 0.5f + 1.0f) * math::TWO_PI_F / cr.w;
+  const float longitude = math::fast_atan2(dir.z, dir.x);
+  const float clip_longitude =
+      (columns.rs + width * 0.5f) * math::TWO_PI_F / cr.w;
+  center.column_distance =
+      fabsf(math::wrap_t((longitude - clip_longitude) / math::TWO_PI_F + 0.5f) -
+            0.5f) *
+      math::TWO_PI_F;
+  return center;
+}
+
+/** @brief Hoists a cap center's angles and column wedge for one clip. */
+inline CapCenter make_cap_center(const ClipRegion &cr,
+                                 const math::Vector &dir) {
+  return cap_column_center(cr, dir,
+                           math::fast_acos(hs::clamp(dir.y, -1.0f, 1.0f)));
+}
+
+template <int H, typename ColumnTest>
+__attribute__((always_inline)) inline bool
+cap_may_touch_clip_rows(const ClipRegion &cr, float beta, float half_angle,
+                        ColumnTest &&columns) {
+  const float t2 = fminf(half_angle, math::PI_F);
+  const float phi_lo = fmaxf(beta - t2 - CAP_ACOS_PAD, 0.0f);
+  const float phi_hi = fminf(beta + t2 + CAP_ACOS_PAD, math::PI_F);
+  if (!cr.could_intersect_y(math::phi_to_y<H>(phi_lo),
+                            math::phi_to_y<H>(phi_hi)))
+    return false;
+  return columns(t2);
+}
+
+inline bool cap_may_touch_clip_columns(const CapCenter &center, float t2,
+                                       float sin_half_angle) {
+  if (!center.columns_active || center.beta <= t2 + CAP_ACOS_PAD ||
+      math::PI_F - center.beta <= t2 + CAP_ACOS_PAD)
+    return true;
+  const float dlam =
+      math::PI_F / 2.0f -
+      math::fast_acos(hs::clamp(sin_half_angle / center.sin_beta, 0.0f, 1.0f));
+  return center.column_distance <=
+         dlam + center.column_half_width + CAP_ACOS_PAD + CAP_ATAN2_PAD;
+}
+
+/** @brief Tests a cap using a center hoisted against the same clip. */
+template <int H>
+inline bool cap_may_touch_clip(const ClipRegion &cr, const CapCenter &center,
+                               float half_angle, float sin_half_angle) {
+  return cap_may_touch_clip_rows<H>(cr, center.beta, half_angle, [&](float t2) {
+    return cap_may_touch_clip_columns(center, t2, sin_half_angle);
+  });
+}
+
 /**
  * @brief Conservative test: can a spherical cap reach a clip's render region?
  * @tparam H Canvas height in rows.
@@ -1737,37 +1811,14 @@ edge_visible_in_clip(PipelineT &pipeline, const ClipRegion &cr,
 template <int H>
 inline bool cap_may_touch_clip(const ClipRegion &cr, const math::Vector &dir,
                                float half_angle, float sin_half_angle) {
-  // fast_acos errs by ~5e-5 rad and fast_atan2 by ~0.0038 rad.
-  constexpr float ACOS_PAD = 1e-3f;
-  constexpr float ATAN2_PAD = 5e-3f;
-  float t2 = fminf(half_angle, math::PI_F);
-  const float y = hs::clamp(dir.y, -1.0f, 1.0f);
-  float beta = math::fast_acos(y);
-
-  float phi_lo = fmaxf(beta - t2 - ACOS_PAD, 0.0f);
-  float phi_hi = fminf(beta + t2 + ACOS_PAD, math::PI_F);
-  if (!cr.could_intersect_y(math::phi_to_y<H>(phi_lo),
-                            math::phi_to_y<H>(phi_hi)))
-    return false;
-
-  const ClipRegion::XClip columns = cr.x_clip();
-  if (!columns.active)
-    return true;
-  if (beta <= t2 + ACOS_PAD || math::PI_F - beta <= t2 + ACOS_PAD)
-    return true;
-  const float sin_beta = sqrtf(1.0f - y * y);
-  const float dlam =
-      math::PI_F / 2.0f -
-      math::fast_acos(hs::clamp(sin_half_angle / sin_beta, 0.0f, 1.0f));
-  float lam_v = math::fast_atan2(dir.z, dir.x);
-  float width_px = static_cast<float>(columns.length(cr.w));
-  float half_w = (width_px * 0.5f + 1.0f) * (2.0f * math::PI_F) / cr.w;
-  float lam_c = (columns.rs + width_px * 0.5f) * (2.0f * math::PI_F) / cr.w;
-  float d =
-      std::fabs(math::wrap_t((lam_v - lam_c) / (2.0f * math::PI_F) + 0.5f) -
-                0.5f) *
-      (2.0f * math::PI_F);
-  return d <= dlam + half_w + ACOS_PAD + ATAN2_PAD;
+  const float beta = math::fast_acos(hs::clamp(dir.y, -1.0f, 1.0f));
+  return cap_may_touch_clip_rows<H>(cr, beta, half_angle, [&](float t2) {
+    if (!cr.x_clip().active || beta <= t2 + CAP_ACOS_PAD ||
+        math::PI_F - beta <= t2 + CAP_ACOS_PAD)
+      return true;
+    return cap_may_touch_clip_columns(cap_column_center(cr, dir, beta), t2,
+                                      sin_half_angle);
+  });
 }
 
 /** @brief cap_may_touch_clip() for a single cap, deriving sin(half_angle). */

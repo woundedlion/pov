@@ -497,34 +497,10 @@ private:
     prepare_waveform(function, count);
     const math::Basis basis = math::make_basis(orientation.get(), math::X_AXIS);
     const ClipRegion &clip = canvas.clip();
-    const bool full_width_clip = clip.x_start == 0 && clip.x_end == clip.w;
-    const float near_cap_beta =
-        planar_star ? acosf(hs::clamp(basis.v.y, -1.0f, 1.0f)) : 0.0f;
-    const float far_cap_beta =
-        planar_star ? acosf(hs::clamp(-basis.v.y, -1.0f, 1.0f)) : 0.0f;
-    float cap_half_width = 0.0f;
-    float near_cap_distance = 0.0f;
-    float far_cap_distance = 0.0f;
-    float near_cap_sin_beta = 0.0f;
-    float far_cap_sin_beta = 0.0f;
-    if (planar_star && !full_width_clip) {
-      const float width_px = static_cast<float>(clip.x_end - clip.x_start);
-      cap_half_width =
-          (width_px * 0.5f + clip.margin + 1.0f) * (2.0f * math::PI_F) / clip.w;
-      const float lambda_center =
-          (clip.x_start + width_px * 0.5f) * (2.0f * math::PI_F) / clip.w;
-      auto cap_distance = [&](const math::Vector &dir) {
-        const float lambda = atan2f(dir.z, dir.x);
-        return std::fabs(
-                   math::wrap_t((lambda - lambda_center) / (2.0f * math::PI_F) +
-                                0.5f) -
-                   0.5f) *
-               (2.0f * math::PI_F);
-      };
-      near_cap_distance = cap_distance(basis.v);
-      far_cap_distance = cap_distance(-basis.v);
-      near_cap_sin_beta = sinf(near_cap_beta);
-      far_cap_sin_beta = sinf(far_cap_beta);
+    Plot::CapCenter near_cap{}, far_cap{};
+    if (planar_star) {
+      near_cap = Plot::make_cap_center(clip, basis.v);
+      far_cap = Plot::make_cap_center(clip, -basis.v);
     }
 
     if (planar_star && dense_contours)
@@ -554,21 +530,8 @@ private:
         const float cap_radius = far_side ? 2.0f - radius : radius;
         const float half_angle = cap_radius * (math::PI_F / 2.0f) + AA_PAD;
         const float t2 = std::min(half_angle, math::PI_F);
-        const float beta = far_side ? far_cap_beta : near_cap_beta;
-        const float phi_lo = std::max(beta - t2, 0.0f);
-        const float phi_hi = std::min(beta + t2, math::PI_F);
-        bool visible = clip.could_intersect_y(math::phi_to_y<H>(phi_lo),
-                                              math::phi_to_y<H>(phi_hi));
-        if (visible && !full_width_clip && beta > t2 &&
-            math::PI_F - beta > t2) {
-          const float sin_beta =
-              far_side ? far_cap_sin_beta : near_cap_sin_beta;
-          const float dlam = asinf(hs::clamp(sinf(t2) / sin_beta, 0.0f, 1.0f));
-          const float distance =
-              far_side ? far_cap_distance : near_cap_distance;
-          visible = distance <= dlam + cap_half_width;
-        }
-        if (!visible)
+        if (!Plot::cap_may_touch_clip<H>(clip, far_side ? far_cap : near_cap,
+                                         t2, sinf(t2)))
           continue;
       }
       const float direction = continuous_star ? star_phase_direction(radius)
