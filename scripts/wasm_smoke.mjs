@@ -1708,12 +1708,12 @@ async function main(probe) {
       const result = po.inspectV4(recipe);
       const lut = Uint8Array.from(result.lut ?? []);
       if (result.status.code !== Module.PaletteCompileCode.OK) {
-        fail(`compileAndBakeV4 returned status ${result.status.code}`);
+        fail(`inspectV4 returned status ${result.status.code}`);
       }
       if (lut.length !== 256 * 3) {
-        fail(`compileAndBakeV4 LUT length ${lut.length}, expected ${256 * 3}`);
+        fail(`inspectV4 LUT length ${lut.length}, expected ${256 * 3}`);
       } else if (lut[0] === lut[765] && lut[1] === lut[766] && lut[2] === lut[767]) {
-        fail(`compileAndBakeV4 gradient is flat end-to-end: [${lut[0]},${lut[1]},${lut[2]}]`);
+        fail(`inspectV4 gradient is flat end-to-end: [${lut[0]},${lut[1]},${lut[2]}]`);
       }
       if (!result.diagnostics || result.diagnostics.length !== 256 * 6)
         fail(`inspectV4 diagnostics length ${result.diagnostics?.length}, expected ${256 * 6}`);
