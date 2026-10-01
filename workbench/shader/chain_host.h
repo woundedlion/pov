@@ -161,7 +161,6 @@ public:
     for (size_t index = 0; index < snapshot.chain.size(); ++index)
       requests[index] = {snapshot.chain[index].instance,
                          snapshot.chain[index].operator_id};
-    Result validation = Result::INVALID_VALUE;
     const auto refusal = program.compile(
         std::span<const ChainEntryRequest>(requests, snapshot.chain.size()),
         [&](std::span<const ChainProgram::ChainOp> ops, uint8_t *base) {
@@ -228,7 +227,7 @@ public:
         false);
     if (refusal.code != ChainStatus::OK)
       return refusal.code == ChainStatus::MALFORMED_PAYLOAD
-                 ? validation
+                 ? Result::INVALID_VALUE
                  : Result::INVALID_CHAIN;
     colorize = find_colorize_tap();
     rebind_chain_parameters();
