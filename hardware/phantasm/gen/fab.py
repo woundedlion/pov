@@ -42,7 +42,7 @@ from constraints import (DEFAULT_CLASS_MINIMUMS, EXCLUDE_FP_SUBSTR,
                          MIN_VIA_TO_VIA_COPPER_SPACING_MM,
                          NEW_LAYOUT_RULES, RULE_MINIMUMS)
 from heal_clearance import rule_shortfalls
-from kicad_common import F, is_copper_pour, kicad_cli, require_annotated_export
+from kicad_common import net_name, F, is_copper_pour, kicad_cli, require_annotated_export
 
 GEN = os.path.dirname(os.path.abspath(__file__))
 PROJ = os.path.join(os.path.dirname(GEN), "1.1")
@@ -1116,8 +1116,8 @@ def validate_via_geometry(pcb_path, min_vias=MIN_BOARD_VIAS, board=None):
             diagnostics.append(f"via at {location}: position is invalid")
             continue
         net = sexp.val(via, "net", [])
-        valid_vias.append((x_mm, y_mm, diameter_mm,
-                           str(net[0]).lstrip("/") if net and str(net[0]) != "0" else None))
+        name = net_name(via) if net and str(net[0]) != "0" else None
+        valid_vias.append((x_mm, y_mm, diameter_mm, name or None))
         if diameter_mm < MIN_STANDARD_VIA_DIAMETER_MM:
             diagnostics.append(
                 f"via at {location}: {diameter_mm:g} mm diameter is below "
