@@ -8,6 +8,8 @@ meaningful only when it represents frames.
 Run:  python -m unittest discover -s tools/profile_tests
 """
 
+import contextlib
+import io
 import json
 import sys
 import unittest
@@ -367,10 +369,12 @@ class ScanMetricsLines(unittest.TestCase):
         self.assertEqual(row[5], "3.3")
 
     def test_probes_per_shade_uses_the_raster_shade_call_count(self):
-        w = self._parse()[0]
-        # 800 probes over 32 shade events.
-        self.assertEqual(pp._metrics_row(w.scan, w.frames, 32).split()[-1],
-                         "25.00")
+        output = io.StringIO()
+        with contextlib.redirect_stdout(output):
+            self.assertEqual(pp.cmd_metrics(self._parse(shade_calls=40)), 0)
+        lines = output.getvalue().splitlines()
+        self.assertEqual(lines[1].split()[-2], "20.00")
+        self.assertEqual(lines[2].split()[-3], "20.00")
 
     def test_zero_shade_events_do_not_divide_by_zero(self):
         w = self._parse()[0]
