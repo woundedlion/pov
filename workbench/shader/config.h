@@ -359,7 +359,8 @@ struct SurfaceLensParams {
 
   HS_COLD_MEMBER constexpr SurfaceLensParams() = default;
 
-  HS_COLD_MEMBER bool operator==(const SurfaceLensParams &other) const {
+  HS_COLD_MEMBER constexpr bool
+  operator==(const SurfaceLensParams &other) const {
     return mobius.a.re == other.mobius.a.re &&
            mobius.a.im == other.mobius.a.im &&
            mobius.b.re == other.mobius.b.re &&

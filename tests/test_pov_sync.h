@@ -1916,7 +1916,6 @@ struct SimBoard {
     seen_gen = 0;
     pending_pickup = 0;
     pending_index = -1;
-    build_seed = 0;
     pending_gen = 0;
     pending_ready_g = 0;
     have_pending = false;
