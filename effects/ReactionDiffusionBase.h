@@ -418,9 +418,7 @@ protected:
      */
     OrientedLattice(Arena &arena, const math::Vector *lattice,
                     const math::Quaternion &q)
-        : scope(arena),
-          world(static_cast<math::Vector *>(arena.allocate(
-              RD_N * sizeof(math::Vector), alignof(math::Vector)))) {
+        : scope(arena), world(arena.allocate_n<math::Vector>(RD_N)) {
       orient_nodes(lattice, world, RD_N, q);
     }
 
@@ -464,8 +462,7 @@ protected:
     // for_each_neighbor and the RD_K-degree Laplacian read every neighbor slot
     // unguarded.
     ReactionGraph::validate_neighbors(ReactionGraph::neighbors);
-    nodes = static_cast<math::Vector *>(persistent_arena.allocate(
-        RD_N * sizeof(math::Vector), alignof(math::Vector)));
+    nodes = persistent_arena.allocate_n<math::Vector>(RD_N);
     build_nodes(nodes);
     cube_lut.build(persistent_arena, nodes);
     init_orientation_animation();

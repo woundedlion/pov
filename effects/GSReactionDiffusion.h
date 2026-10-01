@@ -107,16 +107,13 @@ public:
     register_param("Hue Shift", &params.hue_shift, -4.0f, 4.0f);
     register_param("Shimmer", &params.shimmer, 0.0f, 1.0f);
 
-    state.A = static_cast<uint16_t *>(
-        persistent_arena.allocate(RD_N * sizeof(uint16_t), alignof(uint16_t)));
-    state.B = static_cast<uint16_t *>(
-        persistent_arena.allocate(RD_N * sizeof(uint16_t), alignof(uint16_t)));
-    state.pigment = static_cast<uint16_t *>(
-        persistent_arena.allocate(RD_N * sizeof(uint16_t), alignof(uint16_t)));
-    palettes = static_cast<Pixel *>(persistent_arena.allocate(
-        NUM_SEED_CLUSTERS * PALETTE_SIZE * sizeof(Pixel), alignof(Pixel)));
-    color_noise_lut = static_cast<int8_t *>(
-        persistent_arena.allocate(HueNoiseLutView::SIZE, alignof(int8_t)));
+    state.A = persistent_arena.allocate_n<uint16_t>(RD_N);
+    state.B = persistent_arena.allocate_n<uint16_t>(RD_N);
+    state.pigment = persistent_arena.allocate_n<uint16_t>(RD_N);
+    palettes =
+        persistent_arena.allocate_n<Pixel>(NUM_SEED_CLUSTERS * PALETTE_SIZE);
+    color_noise_lut =
+        persistent_arena.allocate_n<int8_t>(HueNoiseLutView::SIZE);
     color_noise.SetNoiseType(FastNoiseLite::NoiseType_OpenSimplex2);
     color_noise.SetSeed(6047);
     color_noise.SetFrequency(1.0f);
@@ -736,12 +733,9 @@ private:
       // Q16 quantization occurs once per frame.
       HS_PROFILE(grd_simulate);
       ScratchScope physics_guard(scratch_arena_a);
-      float *cur_a = static_cast<float *>(
-          scratch_arena_a.allocate(RD_N * sizeof(float), alignof(float)));
-      float *cur_b = static_cast<float *>(
-          scratch_arena_a.allocate(RD_N * sizeof(float), alignof(float)));
-      uint16_t *next_pigment = static_cast<uint16_t *>(
-          scratch_arena_a.allocate(RD_N * sizeof(uint16_t), alignof(uint16_t)));
+      float *cur_a = scratch_arena_a.allocate_n<float>(RD_N);
+      float *cur_b = scratch_arena_a.allocate_n<float>(RD_N);
+      uint16_t *next_pigment = scratch_arena_a.allocate_n<uint16_t>(RD_N);
       float *pending_a =
           scratch_arena_a.allocate_n<float>(PHYSICS_NEIGHBOR_REACH + 1);
       float *pending_b =
@@ -776,8 +770,8 @@ private:
       return orient_lattice();
     }();
     math::Vector *world_nodes = lattice.get();
-    uint8_t *hot1 = static_cast<uint8_t *>(scratch_arena_a.allocate(RD_N, 1));
-    uint8_t *hot2 = static_cast<uint8_t *>(scratch_arena_a.allocate(RD_N, 1));
+    uint8_t *hot1 = scratch_arena_a.allocate_n<uint8_t>(RD_N);
+    uint8_t *hot2 = scratch_arena_a.allocate_n<uint8_t>(RD_N);
     {
       HS_PROFILE(grd_cull_flags);
       fill_hot_flags(state.B, hot1, hot2, RD_N, to_q16(B_CULL_THRESHOLD));

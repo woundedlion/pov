@@ -65,10 +65,14 @@ public:
     resources->hue_noise.SetNoiseType(FastNoiseLite::NoiseType_OpenSimplex2);
     resources->hue_noise.SetSeed(Pullback::HUE_NOISE_SEED);
     resources->hue_noise.SetFrequency(1.0f);
-    auto *block_a = static_cast<uint8_t *>(persistent_arena.allocate(
-        Pullback::Interp::CHAIN_ARENA_BYTES, alignof(std::max_align_t)));
-    auto *block_b = static_cast<uint8_t *>(persistent_arena.allocate(
-        Pullback::Interp::CHAIN_ARENA_BYTES, alignof(std::max_align_t)));
+    static_assert(
+        Pullback::Interp::CHAIN_ARENA_BYTES % sizeof(std::max_align_t) == 0);
+    auto *block_a = reinterpret_cast<uint8_t *>(
+        persistent_arena.allocate_n<std::max_align_t>(
+            Pullback::Interp::CHAIN_ARENA_BYTES / sizeof(std::max_align_t)));
+    auto *block_b = reinterpret_cast<uint8_t *>(
+        persistent_arena.allocate_n<std::max_align_t>(
+            Pullback::Interp::CHAIN_ARENA_BYTES / sizeof(std::max_align_t)));
     program.bind_storage(block_a, block_b);
 
     generated_palettes.init(persistent_arena, DEFAULT_CHROMA,
