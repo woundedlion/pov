@@ -563,8 +563,8 @@ aggregation, and predicates — plus descriptive aliases for each), and
 the pipeline exposes trait folds over its flattened leaf list —
 `any_stage<Predicate>`, `stage_matching<Predicate>` — with predicates
 matching over `Policies`; `Placed` is invisible to them by the
-transparency rule above. ShaderWorkbench's `ExtraValidation` uses its own hand-written fold for the
-edge-fade/projection compatibility check; it does not use these trait folds.
+transparency rule above. The chain host in `workbench/shader/chain_host.h` checks edge-fade/projection
+compatibility during program admission and parameter writes.
 
 ## 5. Validation
 
@@ -946,10 +946,8 @@ not maintained beside them — a hand-kept table could only prove that
 registered pipelines have manifests, never that every shipping pipeline
 is registered. The effect roster that already gates device builds
 enumerates every composed effect, each naming its `RenderPipeline`, and
-ShaderWorkbench's program table enumerates its studies and dynamic programs;
-the capture registry is generated from those two declarations, so a
-shipping pipeline absent from the registry is unrepresentable rather
-than checklist-caught. The completeness check walks the derived
+the composed capture registry is generated from that roster. Runtime chains
+are admitted against the operator table in `core/render/pullback/operator_table.h`. The completeness check walks the derived
 registry, reads each pipeline's `any_approximate` fold, and fails CI
 for any approximate entry absent from the manifest. Interpreted chains
 have no compile-time fold, so they take a **second path**: program
@@ -976,8 +974,8 @@ it — but it is a diagnostic, not a correctness gate.
 
 Template-instantiating arbitrary chains at runtime is impossible, so the
 workbench's dynamic preview becomes a **stage-program interpreter** — the
-generalization of the per-sample switch dispatch ShaderWorkbench's dynamic
-backend already does, walking an array instead of fixed slots. Only its
+generalization of the per-sample switch dispatch the retired slot host used,
+walking an array instead of fixed slots. Only its
 engine contract lives here; routing and editing are the tool spec's
 concern.
 
@@ -1052,6 +1050,8 @@ concern.
   init(void *dst, InstanceId);                   // infallible; construct owned resources
   migrate(void *dst, const void *src, InstanceId) -> Status;  // src untouched
   destroy(void *state);
+  capture_state(const void *state) -> RuntimeSnapshot;
+  restore_state(void *state, const RuntimeSnapshot &) -> bool;
   advance(void *state, const uint8_t *params);   // per frame, steps clocks
   prepare(const FrameContext &, const uint8_t *params,
           const void *state, uint8_t *prepared);
@@ -1059,10 +1059,13 @@ concern.
       const uint8_t *params, const uint8_t *prepared);
   ```
 
+  Snapshot callbacks capture and restore typed instance state; see
+  [the chain snapshot contract](chain_snapshot_spec.md).
+
   **Instance state** is what parameter and prepared blocks cannot
   cover: persistent per-instance accumulators and owned resources —
   phase clocks, initialized noise generators — the runtime analogue of
-  ShaderWorkbench's bounded arrays of pre-initialized noise resources, and
+  the retired slot host's bounded arrays of pre-initialized noise resources, and
   it is reachable from execution: `advance` steps clocks once per
   frame, then `prepare` reads the updated state to derive the frame's
   prepared block (`run` needs only `prepared`). Instance state never
@@ -1084,8 +1087,8 @@ concern.
   operator declares, which is what the worst-case budget actually pays
   for: a runtime topology switch selects among already-constructed
   resources and never constructs or destroys, so the state layout is
-  topology-invariant by construction (ShaderWorkbench's pre-initialized
-  noise arrays are the precedent). State identity
+  topology-invariant by construction (the retired slot host's pre-initialized
+  noise arrays were the precedent). State identity
   is the `(instance_id, operator_id)` pair: a structural edit
   `migrate`s the state of instances whose pair survives (an unchanged
   warp keeps its phase and warmed noise across an edit elsewhere),
@@ -1135,7 +1138,7 @@ concern.
   would read a named `FrameState` slot (the static provider wrappers
   are compile-time-bound to named instances and cannot serve an arbitrary
   third instance; §7.2's allocation limit is the same fact seen from
-  the promotion side). ShaderWorkbench's dynamic backend is the existing
+  the promotion side). The retired slot host's dynamic backend was the
   precedent for this shape.
 - **The erased carrier ABI is explicit**, because a homogeneous op array
   cannot invoke heterogeneously-typed callbacks unaided. Evaluation owns
@@ -1186,8 +1189,8 @@ concern.
 
 ## 9. What this unlocks
 
-At the pipeline layer (hand-written effects, ShaderWorkbench studies, the
-workbench interpreter), **immediately, with the shipped vocabulary
+At the pipeline layer (hand-written effects, composed effects, the
+chain interpreter), **immediately, with the shipped vocabulary
 recombined**: lens sandwiches and double Mobius; displacement at any
 depth relative to lenses; any warp count and order; transfer and
 value-cutout chains; projection-free sphere-sampled sources use the
@@ -1313,7 +1316,7 @@ A concrete operator is parameterized by a provider, not by an effect:
 
 ```cpp
 struct OuterWarpState {
-  using Binding = ShaderWorkbenchBinding;
+  using Binding = ConsumerBinding;
   using FrameState = typename Binding::FrameState;
 
   static const auto &params(const FrameState &);
@@ -1379,8 +1382,8 @@ substitution error.
 
 ### 11.2 Instrumentation
 
-Moving code into core shall not erase ShaderWorkbench's stage buckets or bake
-ShaderWorkbench profile fields into core.
+Moving code into core shall not erase consumer stage buckets or bake
+consumer profile fields into core.
 
 `Binding::Instrumentation` supplies an optional zero-state hook policy. The
 required shape is:
@@ -1398,7 +1401,7 @@ struct NoInstrumentation {
 `MATERIAL`, and `COLOR`. `MIRROR_TILE` is nested inside `PLANAR_WARP`;
 its cycles are a subset and must not be added again when totaling stage time.
 `NoInstrumentation` compiles to no statements.
-ShaderWorkbench currently supplies a no-op hook policy. The event-to-counter
+The retired slot host supplied a no-op hook policy. The event-to-counter
 mapping described by this design was not implemented.
 
 ## 12. Ownership, lifetime, and mutation
@@ -1417,8 +1420,8 @@ mapping described by this design was not implemented.
 - Transition rendering remains sequential: prepare and consume one endpoint
   before shared backing storage is overwritten.
 
-The existing ShaderWorkbench stack, persistent arena, RAM2, and effect-heap budgets
-remain unchanged. Public carriers add no allocation or hidden ownership.
+Consumer stack, persistent arena, RAM2, and effect-heap budgets follow their
+target configuration. Public carriers add no allocation or hidden ownership.
 
 ## 9. Executable snapshots and shader host retirement
 
