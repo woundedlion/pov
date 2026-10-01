@@ -365,7 +365,7 @@ template <typename T>
 inline constexpr float arc_stretch = ARC_STRETCH_UNBOUNDED;
 template <> inline constexpr float arc_stretch<Ring> = ARC_STRETCH_PLANE;
 template <>
-inline constexpr float arc_stretch<DistortedRing> = ARC_STRETCH_PLANE;
+inline constexpr float arc_stretch<DistortedRing> = ARC_STRETCH_UNBOUNDED;
 template <>
 inline constexpr float arc_stretch<FlatDistortedRing> = ARC_STRETCH_PLANE;
 template <> inline constexpr float arc_stretch<Face> = ARC_STRETCH_PLANE;
