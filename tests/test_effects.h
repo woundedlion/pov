@@ -1240,7 +1240,7 @@ inline void test_sh_manual_preset_replaces_inflight_morph() {
   const int replaced_target = WB::next_idx(fx);
 
   const size_t selected_preset = replaced_target == 24 ? 22u : 23u;
-  const int selected_mode = static_cast<int>(selected_preset + 1);
+  const int selected_mode = SH_PRESET_MODES[selected_preset];
   HS_EXPECT_TRUE(fx.selectPreset(selected_preset));
   HS_EXPECT_TRUE(fx.animations_paused());
   HS_EXPECT_EQ(fx.getPresetIndex(), selected_preset);
