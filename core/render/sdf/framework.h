@@ -282,7 +282,7 @@ struct OctetFramework4 {
     if (i > j)
       std::swap(i, j);
     feature = 2 * (i * (7 - i) / 2 + j - i - 1);
-    float along = 0.0f;
+    float across = 0.0f;
     if (halves >= 3) {
       // Three half-grid coordinates tie both strut orientations.
       if constexpr (WithOffset) {
@@ -301,12 +301,12 @@ struct OctetFramework4 {
           absolute[i] != 0.0f && absolute[j] != 0.0f && SAME_SIGN != ODD
               ? 1.0f
               : -1.0f;
-      along = residual[i] - SIGN * residual[j];
+      across = residual[i] - SIGN * residual[j];
       if (ODD)
-        along -= copysignf(1.0f, along);
+        across -= copysignf(1.0f, across);
       if constexpr (WithOffset) {
-        residual[i] = 0.5f * along;
-        residual[j] = -0.5f * SIGN * along;
+        residual[i] = 0.5f * across;
+        residual[j] = -0.5f * SIGN * across;
       }
       feature += SIGN > 0.0f;
     }
@@ -315,7 +315,7 @@ struct OctetFramework4 {
         residual[k] *= SCALE;
       return residual;
     } else {
-      return sqrtf(transverse_squared + 0.5f * along * along) * SCALE;
+      return sqrtf(transverse_squared + 0.5f * across * across) * SCALE;
     }
   }
 
