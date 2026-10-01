@@ -688,8 +688,9 @@ HS_O3_FN inline void fast_cbrt3(float x1, float x2, float x3, float &o1,
  * relative error ~2.3e-5 against cbrtf for x >= 1e-6). Each denominator is
  * ~3x. The numerator times five foreign denominators overflows once all six
  * inputs exceed ~4.2e5; the six-denominator product itself overflows at ~8.5e5
- * and underflows below ~1.2e-7, already inside fast_cbrt's degraded tail.
- * The feedback path feeds u16-magnitude channels (<= 65535).
+ * and underflows when all six inputs are below ~1.2e-7, making the shared
+ * reciprocal infinite and the outputs Inf/NaN. Callers must keep the
+ * denominator product representable; the feedback path uses u16 magnitudes.
  */
 HS_O3_FN inline void fast_cbrt6(const float x[6], float o[6]) {
   float n[6], d[6];
