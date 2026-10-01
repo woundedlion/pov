@@ -90,44 +90,52 @@ inline void test_kaleidoscope_smooth_transition_contract() {
   HS_EXPECT_TRUE(WB::transition_active(effect));
   HS_EXPECT_EQ(effect.getPresetIndex(), size_t{1});
 
-  WB::drive_transition(effect, 0.0f);
+  uint16_t frames = 0;
+  const auto drive = [&](float amount) {
+    WB::drive_transition(effect, amount);
+    ++frames;
+  };
+  drive(0.0f);
   HS_EXPECT_NEAR(WB::params(effect).source.complexity,
                  FX::preset(0).params.source.complexity, 0.0f);
 
-  WB::drive_transition(effect, 0.25f);
+  drive(0.25f);
   HS_EXPECT_NEAR(WB::params(effect).source.complexity,
                  interp::linear(FX::preset(0).params.source.complexity,
                                 FX::preset(1).params.source.complexity, 0.25f),
                  1e-6f);
 
-  WB::drive_transition(effect, 0.5f);
+  drive(0.5f);
   HS_EXPECT_NEAR(WB::params(effect).source.complexity,
                  interp::linear(FX::preset(0).params.source.complexity,
                                 FX::preset(1).params.source.complexity, 0.5f),
                  1e-6f);
 
-  WB::drive_transition(effect, 1.0f);
+  drive(1.0f);
   HS_EXPECT_NEAR(WB::params(effect).source.complexity,
                  FX::preset(1).params.source.complexity, 0.0f);
   HS_EXPECT_TRUE(WB::transition_active(effect));
 
-  for (uint16_t frame = 4;
+  for (uint16_t frame = frames;
        frame < Segue::Preset::frames(FX::preset_departure(0)); ++frame)
-    WB::drive_transition(effect, 0.5f);
+    drive(0.5f);
   HS_EXPECT_NEAR(WB::params(effect).source.complexity,
                  FX::preset(1).params.source.complexity, 0.0f);
   HS_EXPECT_FALSE(WB::transition_active(effect));
 }
 
 inline void test_kaleidoscope_smooth_shader_workbench_equivalence() {
+  constexpr int INNER_MIRROR_GRID = 11;
+  constexpr int COMPLEX_GRID = 13;
+  constexpr int DOUBLE_MAPPING_GRID = 14;
   shader_workbench_tests::verify_fixed_shader_export<
-      KaleidoscopeSmoothWhiteBox::FX>(11, 0);
+      KaleidoscopeSmoothWhiteBox::FX>(INNER_MIRROR_GRID, 0);
   shader_workbench_tests::verify_fixed_shader_export<
-      KaleidoscopeSmoothWhiteBox::FX>(13, 1);
+      KaleidoscopeSmoothWhiteBox::FX>(COMPLEX_GRID, 1);
   shader_workbench_tests::verify_fixed_shader_export<
-      KaleidoscopeSmoothWhiteBox::FX>(14, 2);
+      KaleidoscopeSmoothWhiteBox::FX>(DOUBLE_MAPPING_GRID, 2);
   shader_workbench_tests::verify_fixed_shader_export<
-      KaleidoscopeSmoothWhiteBox::FX>(14, 3);
+      KaleidoscopeSmoothWhiteBox::FX>(DOUBLE_MAPPING_GRID, 3);
 }
 
 inline int run_kaleidoscope_smooth_tests() {
