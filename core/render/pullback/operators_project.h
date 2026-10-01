@@ -87,11 +87,8 @@ struct MeridianProjectChainParams : ProjectChainParams {
           FieldCurve::SHORTEST_PERIODIC}});
 };
 static_assert(field_ids_unique<MeridianProjectChainParams>());
-static_assert(sizeof(MeridianProjectChainParams) ==
-                  ((sizeof(ProjectChainParams) + 4 +
-                    alignof(MeridianProjectChainParams) - 1) /
-                   alignof(MeridianProjectChainParams)) *
-                      alignof(MeridianProjectChainParams),
+static_assert(appended_block_size_matches<MeridianProjectChainParams,
+                                          ProjectChainParams, 4>(),
               "appended parameter block must have the expected rounded size");
 static_assert(field_defaults_in_range<MeridianProjectChainParams>());
 static_assert(
@@ -254,12 +251,9 @@ struct GnomonicChainParams : ProjectChainParams {
               static_cast<uint8_t>(Projection::GnomonicHemisphere::FOLDED)});
 };
 static_assert(field_ids_unique<GnomonicChainParams>());
-static_assert(sizeof(GnomonicChainParams) ==
-                  ((sizeof(ProjectChainParams) + 1 +
-                    alignof(GnomonicChainParams) - 1) /
-                   alignof(GnomonicChainParams)) *
-                      alignof(GnomonicChainParams),
-              "appended parameter block must have the expected rounded size");
+static_assert(
+    appended_block_size_matches<GnomonicChainParams, ProjectChainParams, 1>(),
+    "appended parameter block must have the expected rounded size");
 static_assert(field_defaults_in_range<GnomonicChainParams>());
 
 /** @brief SPHERE→PLANE crossing: the gnomonic projection under a hemisphere
@@ -348,10 +342,8 @@ struct BonneChainParams : RegularProjectChainParams {
                                       BONNE_HEMISPHERE_IDS, 0});
 };
 static_assert(field_ids_unique<BonneChainParams>());
-static_assert(sizeof(BonneChainParams) == ((sizeof(MeridianProjectChainParams) +
-                                            5 + alignof(BonneChainParams) - 1) /
-                                           alignof(BonneChainParams)) *
-                                              alignof(BonneChainParams),
+static_assert(appended_block_size_matches<BonneChainParams,
+                                          MeridianProjectChainParams, 5>(),
               "appended parameter block must have the expected rounded size");
 static_assert(field_defaults_in_range<BonneChainParams>());
 
@@ -388,6 +380,9 @@ struct AiroceanChainParams : RegularProjectChainParams {
               "layout", &AiroceanChainParams::layout, AIROCEAN_LAYOUT_IDS, 0});
 };
 static_assert(field_ids_unique<AiroceanChainParams>());
+static_assert(appended_block_size_matches<AiroceanChainParams,
+                                          RegularProjectChainParams, 1>(),
+              "appended parameter block must have the expected rounded size");
 static_assert(field_defaults_in_range<AiroceanChainParams>());
 
 /** @brief SPHERE→PLANE crossing: the airocean projection. */

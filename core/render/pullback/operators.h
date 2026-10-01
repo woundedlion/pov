@@ -204,9 +204,9 @@ struct GeneratedPaletteParams : Color::ColorControls {
 };
 static_assert(field_ids_unique<GeneratedPaletteParams>());
 static_assert(field_defaults_in_range<GeneratedPaletteParams>());
-static_assert(sizeof(GeneratedPaletteParams) ==
-                  sizeof(Color::ColorControls) + 4,
-              "generated palette params must have the expected rounded size");
+static_assert(appended_block_size_matches<GeneratedPaletteParams,
+                                          Color::ColorControls, 4>(),
+              "appended parameter block must have the expected rounded size");
 
 /** @brief Per-frame color phase clocks. */
 struct ColorClockState {

@@ -59,6 +59,9 @@ struct AffineWarpParams : Warp::AffineParams {
           1.0f / 8.0f, 64.0f, FieldCurve::LOG_POSITIVE}});
 };
 static_assert(field_ids_unique<AffineWarpParams>());
+static_assert(
+    appended_block_size_matches<AffineWarpParams, Warp::AffineParams, 4>(),
+    "appended parameter block must have the expected rounded size");
 static_assert(field_defaults_in_range<AffineWarpParams>());
 
 /** @brief Phase clock plus the accumulated frame rotation of warp.affine.v2. */
@@ -106,11 +109,8 @@ struct WaveShearWarpParams : Warp::WaveShearParams {
   };
 };
 static_assert(field_ids_unique<WaveShearWarpParams>());
-static_assert(sizeof(WaveShearWarpParams) ==
-                  ((sizeof(Warp::WaveShearParams) + 1 +
-                    alignof(WaveShearWarpParams) - 1) /
-                   alignof(WaveShearWarpParams)) *
-                      alignof(WaveShearWarpParams),
+static_assert(appended_block_size_matches<WaveShearWarpParams,
+                                          Warp::WaveShearParams, 1>(),
               "appended parameter block must have the expected rounded size");
 static_assert(field_defaults_in_range<WaveShearWarpParams>());
 
@@ -183,11 +183,8 @@ struct VectorNoiseWarpParams : Warp::VectorNoiseParams {
   };
 };
 static_assert(field_ids_unique<VectorNoiseWarpParams>());
-static_assert(sizeof(VectorNoiseWarpParams) ==
-                  ((sizeof(Warp::VectorNoiseParams) + 2 +
-                    alignof(VectorNoiseWarpParams) - 1) /
-                   alignof(VectorNoiseWarpParams)) *
-                      alignof(VectorNoiseWarpParams),
+static_assert(appended_block_size_matches<VectorNoiseWarpParams,
+                                          Warp::VectorNoiseParams, 2>(),
               "appended parameter block must have the expected rounded size");
 static_assert(field_defaults_in_range<VectorNoiseWarpParams>());
 
@@ -278,11 +275,9 @@ struct PolarChartParams : Warp::PolarParams {
   };
 };
 static_assert(field_ids_unique<PolarChartParams>());
-static_assert(sizeof(PolarChartParams) == ((sizeof(Warp::PolarParams) + 2 +
-                                            alignof(PolarChartParams) - 1) /
-                                           alignof(PolarChartParams)) *
-                                              alignof(PolarChartParams),
-              "appended parameter block must have the expected rounded size");
+static_assert(
+    appended_block_size_matches<PolarChartParams, Warp::PolarParams, 2>(),
+    "appended parameter block must have the expected rounded size");
 static_assert(field_defaults_in_range<PolarChartParams>());
 
 /** @brief PLANE endomorphism: the polar chart change. */
@@ -345,6 +340,9 @@ struct CurlFlowWarpParams : Warp::CurlFlowParams {
   };
 };
 static_assert(field_ids_unique<CurlFlowWarpParams>());
+static_assert(
+    appended_block_size_matches<CurlFlowWarpParams, Warp::CurlFlowParams, 2>(),
+    "appended parameter block must have the expected rounded size");
 static_assert(field_defaults_in_range<CurlFlowWarpParams>());
 
 /** @brief The curl flow's prepared block: the owned noise field, this frame's
