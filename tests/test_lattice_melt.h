@@ -48,8 +48,7 @@ inline void test_lattice_melt_identity_and_presets() {
   HS_EXPECT_EQ(FX::PRESET_IDS.size(), size_t{2});
   HS_EXPECT_EQ(sizeof(WB::Params), 25 * sizeof(float));
 
-  // The runtime rebuilds the hue-rotation LUT on the same predicate the
-  // colorizer gates its view on, so both read dead at a zero shift amount.
+  // hue_rotation_active is false at zero shift and true otherwise; both presets shift.
   Pullback::ColorParams shift;
   shift.hue_shift_amount = 0.0f;
   HS_EXPECT_FALSE(
