@@ -7,10 +7,8 @@ and the `setShaderChain` binding). Promotion/verification (§7) is landed per
 sub-section: the operator authority (§7.1), the field-table half of §7.2, and
 the manifest half of §7.4 ship; the allocator, binding table, promotion pin,
 and roster-derived acceptance registry are design, and each sub-section
-carries its own banner. Where this spec and
-[pullback_pipeline_spec.md](pullback_pipeline_spec.md) disagree about the
-stage model (stage kinds, slot count, carrier records), this spec describes
-what ships. The document is three systems with distinct invariants and
+carries its own banner. Location, provider, instrumentation, and ownership
+contracts are collected in §§10–12. The document is three systems with distinct invariants and
 failure modes, layered in
 order: **the static ranked pipeline and its migration (§§1–6)**, which
 is self-contained; **promotion and verification (§7)**, a resource
@@ -21,37 +19,8 @@ the parts before it. The authoring tool is separate:
 
 ## 1. Historical problem
 
-This section records the fixed-slot implementation replaced by the landed
-ranked pipeline. Its `ARITY`, `ORDER` and stage-kind names are historical;
-§§2–6 describe the shipped model.
-
-`Pullback::Pipeline` validates a hard-wired shape: exactly six stages, one
-each of `OUTER_CAMERA, SURFACE_PROJECT, PLANAR_WARP, SOURCE, MATERIAL,
-COLOR`, in that order, with slot-specific carrier types between them
-(`core/render/pullback/contract.h` `ORDER`/`ARITY`/`CARRIERS`). All flexibility lives *inside* a
-slot as policy parameters: `SurfaceProject` owns four policy slots
-(pre-lens surface, lens, post-lens surface, projection), `PlanarWarp` a
-variadic policy list, `Material` a fixed weight/transfer/coverage triple.
-
-Consequences:
-
-- No chain the slots didn't anticipate: two lenses with a rotation between
-  them, displacement on both sides of the lens, a second transfer, any
-  color processing after the palette.
-- Unused capability is expressed as `Identity` policies filling mandatory
-  slots, which is why `SurfaceProject::run` carries an Emscripten-only
-  flattened path for the identity-lens, identity-post-surface case.
-- The carrier zoo (`WarpResult`, `SourceInput`,
-  `MaterialInput`, `MaterialSample`) exists to serve slot boundaries, not
-  domains, so a new stage shape means a new carrier and new validation rows.
-- The shader workbench mirrors the rigidity: thirteen fixed option banks,
-  most set to "None", and a document schema whose graph is pinned to "the
-  linear six-role graph" despite reserving 256-node limits.
-
-The filter pipeline solved the same problem differently: stages carry a
-`domain_rank` (World = 0, Screen = 1, Pixel = 2), the chain must be
-non-decreasing in rank, and *within* a domain any stage sequence is legal.
-That is the model to mirror.
+The ranked pipeline replaced the fixed six-slot model. The original design
+is available in Git history; §§2–6 describe the shipped model.
 
 ## 2. Families and the structural model
 
@@ -1300,3 +1269,208 @@ curated set grows unwieldy.
 The integration surface for any new operator is one `OperatorDescriptor`
 record (§7.1), from which the promotion, interpreter, and tool views are
 all generated — no schema change, no new banks.
+
+## 10. Location, namespace, and dependency rules
+
+The public facility lives under `core/render/pullback/`, in namespace
+`Pullback`, alongside `Scan`, `Filter`, and `SDF`. `core/render/pullback.h`
+is the umbrella over the composition core only: the carrier contract, the
+field tables, the surface, lens, projection, warp, source, material, and
+color policy families, the ray stage (`core/render/pullback/ray.h`), and the
+stage combinators. The chain interpreter
+(`core/render/pullback/interpreter.h`, `core/render/pullback/operator_model.h`,
+`core/render/pullback/operator_table.h`, `core/render/pullback/operators.h`
+with its per-family `operators_*.h` headers, and
+`core/render/pullback/catalog_export.h`), the composed-effect base
+(`core/render/pullback/composed_effect.h`), and the shared runtime seeds
+(`core/render/pullback/runtime_seeds.h`) are not reachable from the umbrella;
+their consumers include them directly.
+
+Public groups are:
+
+```text
+Pullback::Pipeline                 typed ranked-chain coordinator
+Pullback::CodeEmission             placement metadata
+Pullback::SphereSample             rank-0 sphere carrier
+Pullback::PlaneSample              rank-1 planar carrier
+Pullback::SurfaceResult            one sphere-space map result
+Pullback::WarpStepResult           one planar-warp result
+Pullback::FieldSample              rank-2 scalar carrier
+Color4                            rank-3 color carrier
+Pullback::Field / Fields           field-table records and their curve, interpolation, and validity helpers
+Pullback::Stage::*                 ranked stage combinators
+Pullback::RayStage                 fused ray-query and appearance stage
+Pullback::Kernel                   shared carrier kernels the combinators and erased adapters call
+Pullback::Surface::*               sphere-space map policies
+Pullback::Lens::*                  lens policies
+Pullback::Projection::*            projection policies
+Pullback::Warp::*                  planar-warp policies
+Pullback::Source::*                scalar-source policies
+Pullback::Weight::*                signal-weight policies
+Pullback::Transfer::*              value-transfer policies
+Pullback::ProjectionCoverage::*    projection-coverage policies
+Pullback::ValueCoverage::*         value-coverage policies (`ValueCutout`)
+Pullback::Color::*                 colorization policies and kernels
+Pullback::Interp                   chain interpreter: operator model and table, `Op::*` operators, catalog export
+```
+
+Carrier declarations live in `core/render/pullback/contract.h`; `Color4` is
+defined in `core/color/pixel.h`. See §3.
+
+`pullback.h` may include headers from `core/math`, `core/color`,
+`core/animation` (`Animation::RippleParams` is defined in
+`core/animation/params.h`), and the minimal engine concept/profiling headers
+it needs. `core/render/pullback/contract.h` includes color and math headers; the engine dependency
+arrives through color headers and `core/animation/transformer.h`. It shall not include an
+`effects/` or `workbench/` header, refer to `ShaderWorkbench`, or require the
+effect registry.
+
+Existing pure mathematical kernels remain in their natural owners:
+
+- lenses remain in `core/math/lenses.h`;
+- projection kernels and `projections::ProjectionKernelResult` remain in
+  `core/math/projections.h`;
+- shared noise and stereographic helpers remain in their existing core math
+  headers;
+- palette/gamut operations remain in `core/color`.
+
+`pullback.h` supplies typed policies and orchestration around those kernels.
+Core and consumer adapters share the same mathematical kernels.
+
+
+## 11. No universal frame type
+
+Core does not define a monolithic `Pullback::FrameState`. Consumers prepare
+different parameters and resources, and forcing them into a common record
+would either expose effect policy or add hot-path copies.
+
+Instead, a pipeline has a `Binding` type:
+
+```cpp
+struct ExampleBinding {
+  using FrameState = ExampleEffect::FrameState;
+  using Instrumentation = Pullback::NoInstrumentation;
+};
+```
+
+Concrete operators take narrower **state-provider** types. Each provider names
+the same `FrameState` and exposes only the data required by that operation.
+Providers are empty compile-time adapters with inline static accessors
+(`always_inline` in ComposedEffect).
+They neither own nor copy state.
+
+This is the principal decoupling boundary: core owns algorithms and carriers;
+the effect owns frame layout and maps it into those algorithms.
+
+### 11.1 Provider contract
+
+A concrete operator is parameterized by a provider, not by an effect:
+
+```cpp
+struct OuterWarpState {
+  using Binding = ShaderWorkbenchBinding;
+  using FrameState = typename Binding::FrameState;
+
+  static const auto &params(const FrameState &);
+  static auto prepare(const FrameState &);
+  static float phase(const FrameState &);
+  static const FastNoiseLite &noise(const FrameState &);
+  static bool path_length_required(const FrameState &);
+};
+```
+
+Only the accessors needed by the selected operator are required. For example,
+`Warp::MirrorTile` does not require `noise`, and `Lens::Glitch` requires no
+provider at all. Accessor return requirements are structural and documented at
+the operator declaration: a wave-shear parameter view must expose
+`strength` and `frequency`; an affine prepared record must expose the fields its
+formula reads. `params(frame)` returns an existing consumer record by const
+reference; `prepare(frame)` returns the prepared record by value, and the
+policy names that return type `Prepared`. Core shall not require construction
+of a per-pixel view object.
+
+Every provider:
+
+- is empty and trivially constructible;
+- names its owning pipeline `Binding` and derives `FrameState` from that
+  binding;
+- names `FrameState` exactly;
+- exposes only inline static const-frame accessors (`always_inline` in ComposedEffect);
+- returns const references/pointers or scalar values with lifetimes valid for
+  the draw;
+- performs no validation, allocation, mutation, or runtime dispatch;
+- is checked by a provider-specific C++20 concept and a named diagnostic when
+  its operator is instantiated.
+
+Provider concepts are deliberately local to each operator. There is no giant
+`PullbackBinding` concept requiring resources an effect does not use.
+
+The initial provider surface is normative at the category level:
+
+| Provider category | Accessors available to policies in that category |
+|---|---|
+| orientation | prepared inverse `conjugate(frame)` |
+| surface map | `prepare(frame)` and `path_length_required(frame)`, plus the subset of `params(frame)`, `phase(frame)`, `noise(frame)`, `scale(frame)`, and `strength(frame)` the selected map reads |
+| projection | prepared frame `conjugate(frame)` plus scalar `singularity_fade`, `central_meridian`, `coordinate_scale`, `standard_parallel`, and `layout_scroll` accessors as required by the selected map; edge-distance demand is the `EdgeDistanceRequired` template argument of the Peirce and Airocean policies, not a provider read |
+| planar warp slot | `params(frame)` and `prepare(frame)`, plus `path_length_required(frame)`, `phase(frame)`, and `noise(frame)` where the selected policy reads them; basis, envelope, integrator, and polar mode are template facts in a compiled policy |
+| source | `params(frame)`, `prepare(frame)`, and optional noise resource/time accessors; the selected source policy determines the required subset |
+| material | value/coverage scalar accessors (`iso_level`, `iso_width`, band values, cutout values, `edge_width`) required by the selected policies |
+| color | immutable color parameters/clocks, generated palette binding, prepared hue-rotation LUT, prepared hue-noise LUT, and deliberately runtime mapping/brightness/hue mode values |
+
+An operator's declaration narrows this table with a `requires` expression that
+names every field/member it reads and no unrelated member. For example,
+`WaveShear` requires `strength`, `frequency`, `phase(frame)`, prepared rotation
+sine/cosine, `path_length_required(frame)`, and `edge_width` only under the
+edge-fade envelope; `MirrorTile` requires `cell_x`, `cell_y`, prepared rotation
+sine/cosine and mirror transform, and `path_length_required(frame)`. These
+requirements are part of the public doxygen contract. Adding a new hot-path
+read therefore changes the provider concept and its tests in the same commit.
+
+For compiled policies, a provider's `Binding` must exactly equal the enclosing
+stage's `Binding`; provider concepts expose this as a testable boolean before a
+`static_assert`. This is what turns accidental use of a provider from another
+effect or frame layout into a named binding diagnostic rather than a deep
+substitution error.
+
+### 11.2 Instrumentation
+
+Moving code into core shall not erase ShaderWorkbench's stage buckets or bake
+ShaderWorkbench profile fields into core.
+
+`Binding::Instrumentation` supplies an optional zero-state hook policy. The
+required shape is:
+
+```cpp
+struct NoInstrumentation {
+  struct Token {};
+  static Token mark();
+  template <Pullback::ProfileEvent> static void span(Token);
+};
+```
+
+`ProfileEvent` covers the existing generic boundaries: `LENS`,
+`SURFACE_NOISE`, `PROJECTION`, `PLANAR_WARP`, `MIRROR_TILE`, `SOURCE`,
+`MATERIAL`, and `COLOR`. `MIRROR_TILE` is nested inside `PLANAR_WARP`;
+its cycles are a subset and must not be added again when totaling stage time.
+`NoInstrumentation` compiles to no statements.
+ShaderWorkbench currently supplies a no-op hook policy. The event-to-counter
+mapping described by this design was not implemented.
+
+## 12. Ownership, lifetime, and mutation
+
+- The consumer's `FrameState` is immutable for the duration of a draw.
+- Providers borrow only state reachable from that frame.
+- Mutable `FastNoiseLite`, palette cyclers, animation objects, generated
+  palettes, LUT storage, and arenas remain consumer-owned.
+- Frame resource pointers are const bindings whose owners outlive the draw.
+- No core stage calls a resource setter, advances a clock, steps an animation,
+  prepares a transform, or allocates.
+- No provider returns a reference to a temporary. Parameter records are returned
+  by const reference; prepared records and LUT views by value.
+- The coordinator and policies contain no objects, so a pipeline has no
+  lifetime independent of the frame.
+- Transition rendering remains sequential: prepare and consume one endpoint
+  before shared backing storage is overwritten.
+
+The existing ShaderWorkbench stack, persistent arena, RAM2, and effect-heap budgets
+remain unchanged. Public carriers add no allocation or hidden ownership.
