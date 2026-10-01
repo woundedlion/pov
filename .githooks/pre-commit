@@ -4,8 +4,8 @@ set -eu
 
 
 
-CHANGED="$(git diff --cached --name-only --no-renames --diff-filter=ACMRD)"
-PRESENT="$(git diff --cached --name-only --diff-filter=ACMR)"
+CHANGED="$(git -c core.quotePath=false diff --cached --name-only --no-renames --diff-filter=ACMRD)"
+PRESENT="$(git -c core.quotePath=false diff --cached --name-only --diff-filter=ACMR)"
 [ -n "$CHANGED" ] || exit 0
 
 STAGED_BLOB="$(mktemp "${TMPDIR:-/tmp}/hs-staged.XXXXXX")"
