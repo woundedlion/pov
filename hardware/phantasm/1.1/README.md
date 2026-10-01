@@ -511,5 +511,5 @@ To check the accepted rev 1.1 schematic, run from the repository root:
 
 ```sh
 python hardware/phantasm/gen/check.py hardware/phantasm/1.1/phantasm.kicad_sch
-python hardware/phantasm/gen/shorts.py
+python hardware/phantasm/gen/shorts.py hardware/phantasm/1.1/phantasm.kicad_sch
 ```
