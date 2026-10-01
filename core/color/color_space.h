@@ -286,7 +286,7 @@ inline constinit GamutLut g_gamut_lut;
 /** @brief The full-resolution flash grid, whatever g_gamut_lut points at. */
 inline constexpr GamutLut GAMUT_LUT_MASTER{};
 
-/** @brief Coarsest downsample the clip's chroma deficit stays bounded at.
+/** @brief Coarsest accepted downsample: 128 x 64, deficit 0.0043, 9 overshoot rays.
  *  @details Over a 142,683-ray sweep the refined chroma falls short of the
  *  first exit by at most 0.0027 on the 256 x 128 master, 0.0043 at 128 x 64,
  *  0.0063 at 64 x 32 and 0.0070 at 32 x 16. Resolution does not bound the
