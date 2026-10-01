@@ -8,21 +8,21 @@
  */
 #pragma once
 
+#include <cmath>
+
 #include "core/math/3dmath.h"
 
 namespace hs_test {
 
 /**
  * @brief Wraps a hue difference into [-PI, PI] for circular comparison.
- * @param dh Raw hue difference in radians; magnitude below a few turns.
- * @return The equivalent difference in [-PI, PI].
+ * @param dh Raw hue difference in radians.
+ * @return The difference in [-PI, PI], or non-finite input unchanged.
  */
 inline float wrap_hue_delta(float dh) {
-  while (dh > math::PI_F)
-    dh -= 2.0f * math::PI_F;
-  while (dh < -math::PI_F)
-    dh += 2.0f * math::PI_F;
-  return dh;
+  if (!std::isfinite(dh))
+    return dh;
+  return std::remainder(dh, 2.0f * math::PI_F);
 }
 
 } // namespace hs_test
