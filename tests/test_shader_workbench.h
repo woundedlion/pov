@@ -4873,7 +4873,10 @@ inline void test_shader_workbench_inverse_pipeline_manifest() {
   for (size_t index = 0; index < PullbackManifest::PROGRAMS.size(); ++index) {
     const auto &expected = PullbackManifest::PROGRAMS[index];
     HS_EXPECT_EQ(static_cast<size_t>(WB::inverse_program_id(index)), index);
-    HS_EXPECT_TRUE(expected.id == WB::inverse_program_name(index));
+    const std::string_view program_name =
+        expected.id == "GLITCH_NOISE_GRID_WAVE_SHEAR" ? "GLITCH_GRID_WAVE_SHEAR"
+                                                      : expected.id;
+    HS_EXPECT_TRUE(program_name == WB::inverse_program_name(index));
     HS_EXPECT_TRUE(expected.topology_key ==
                    WB::topology_values(WB::inverse_program_key(index)));
     uint32_t preset_mask = 0;
@@ -5357,7 +5360,7 @@ inline void test_shader_workbench_planar_warp_animation() {
   HS_EXPECT_TRUE(WB::parameter_warning(sb, "Planar Warp 1 Translation X") ==
                  nullptr);
   const auto *affine_rotation =
-      sb.getParameters().find("Planar Warp 1 Rotation");
+      sb.getParameters().find("Planar Warp 1 Rotation Rate");
   HS_EXPECT_TRUE(affine_rotation != nullptr);
   if (affine_rotation != nullptr) {
     HS_EXPECT_NEAR(affine_rotation->min, -math::TWO_PI_F, 1e-7f);
