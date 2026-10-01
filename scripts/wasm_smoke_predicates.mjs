@@ -1,7 +1,7 @@
 // Pure validation predicates for the headless WASM smoke test.
 
-import { engineControlNames, fixedDerivedBinding } from './shader_workbench.mjs';
-export { engineControlNames } from './shader_workbench.mjs';
+import { BAKED_CONSTANT_IDS, engineControlNames, fixedDerivedBinding } from './shader_workbench.mjs';
+export { BAKED_CONSTANT_IDS, bakedTopologyFields, LIVE_TOPOLOGY_FIELD, engineControlNames } from './shader_workbench.mjs';
 
 /** Fraction of a sub-ceiling stack capacity treated as the creep budget. */
 export const STACK_MAX_FILL = 0.75;
@@ -99,37 +99,6 @@ export function paramStreamProblems(defs, values) {
   }
   return problems;
 }
-
-/** The one topology field a composed effect leaves live, as a dropdown. */
-export const LIVE_TOPOLOGY_FIELD = 'palette-mapping';
-
-/**
- * Field segments a composed effect bakes into its build rather than
- * registering a control for: the catalog's topology parameters, which select
- * an operator's structural variant, less the one field left live.
- *
- * @param {*} catalog The engine operator catalog.
- * @returns {Set<string>} The field segments a fixed apply skips.
- */
-export function bakedTopologyFields(catalog) {
-  const fields = new Set();
-  for (const operator of catalog?.operators ?? []) {
-    for (const parameter of operator.params ?? []) {
-      if (parameter.topology === true) fields.add(parameter.id);
-    }
-  }
-  fields.delete(LIVE_TOPOLOGY_FIELD);
-  return fields;
-}
-
-/**
- * Parameter ids a composed effect holds as a compile-time constant: the
- * document carries the value so the chain interpreter reproduces the motion,
- * the compiled build registers no control, and a fixed apply has nothing to
- * write. AshCloud's CAMERA_SPIN_RATE is the only one.
- */
-export const BAKED_CONSTANT_IDS = new Set(['camera.spin-speed']);
-
 
 /**
  * Every promoted document parameter id that names no control on the effect it
