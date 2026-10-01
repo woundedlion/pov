@@ -48,7 +48,21 @@ export function parsePhantasmEffectRoster(src) {
   if (!block)
     throw new Error(
       'Could not locate HS_PHANTASM_EFFECT_LIST in targets/Phantasm/phantasm_playlist.h');
-  const names = [...block[1].matchAll(/X\(\s*(\w+)\s*,/g)].map(m => m[1]);
+  const names = [];
+  let body = block[1].trim();
+  while (body) {
+    const row = /^X\(\s*(\w+)\s*,/u.exec(body);
+    if (!row) throw new Error(`Unknown Phantasm roster row: ${body}`);
+    let depth = 1;
+    let end = row[0].length;
+    for (; end < body.length && depth > 0; ++end) {
+      if (body[end] === '(') ++depth;
+      else if (body[end] === ')') --depth;
+    }
+    if (depth !== 0) throw new Error(`Unclosed Phantasm roster row: ${body}`);
+    names.push(row[1]);
+    body = body.slice(end).trim();
+  }
   if (names.length === 0)
     throw new Error('HS_PHANTASM_EFFECT_LIST parsed to zero effects');
   return names;
