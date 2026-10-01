@@ -194,20 +194,48 @@ inline void test_mesh_palette_bank_shuffle_is_permutation() {
     HS_EXPECT_EQ(count, 1);
 }
 
-/** @brief Pins upper-byte color samples across the procedural roster. */
+/**
+ * @brief Pins upper-byte color samples across the procedural roster.
+ * @details Captured by printing this loop's hashes under the native clang
+ * toolchain (cmake/toolchain-native-clang.cmake). Re-derive the roster and
+ * per-palette hashes the same way after an intentional palette retune.
+ */
 inline void test_named_procedural_palette_roster() {
   const Palette *palettes[] = {
 #define HS_PALETTE_ENTRY(name, A, B, C, D) &Palettes::name,
       HS_PROCEDURAL_PALETTE_LIST(HS_PALETTE_ENTRY)
 #undef HS_PALETTE_ENTRY
   };
+  constexpr uint64_t PALETTE_HASHES[] = {
+      2886858739051273591ull,  12000220049008470606ull,
+      13336441504933032662ull, 7882225716504084908ull,
+      18404027224185952013ull, 11759190715424212606ull,
+      12081953290500887235ull, 6518849557875476664ull,
+      8968209609131571649ull,  15181736134788936411ull,
+      10913766975351473374ull, 13329204743012588901ull,
+      14302435841029644024ull, 11989053834225940204ull,
+      17532158822806458534ull, 13333059190711347450ull,
+      1983164980008296279ull,  17191927165933662661ull,
+      11014468141546408976ull, 15566500396385584882ull,
+      7646521029703227679ull,  12282102359706796427ull,
+      11972795300560289134ull, 206858551135936371ull,
+      7425003234454588729ull,  51388825653918428ull,
+      15037618790413056646ull};
+  static_assert(std::size(palettes) == std::size(PALETTE_HASHES));
   uint64_t hash = FNV1A64_BASIS;
-  for (const Palette *palette : palettes)
+  for (size_t index = 0; index < std::size(palettes); ++index) {
+    HS_CONTEXT("palette index", index);
+    uint64_t palette_hash = FNV1A64_BASIS;
     for (int sample = 0; sample <= 16; ++sample) {
-      const Pixel pixel = palette->get(sample / 16.0f).color;
-      for (uint16_t channel : {pixel.r, pixel.g, pixel.b})
-        hash = fnv1a64_byte(hash, static_cast<uint8_t>(channel >> 8));
+      const Pixel pixel = palettes[index]->get(sample / 16.0f).color;
+      for (uint16_t channel : {pixel.r, pixel.g, pixel.b}) {
+        const auto upper = static_cast<uint8_t>(channel >> 8);
+        hash = fnv1a64_byte(hash, upper);
+        palette_hash = fnv1a64_byte(palette_hash, upper);
+      }
     }
+    HS_EXPECT_EQ(palette_hash, PALETTE_HASHES[index]);
+  }
   HS_EXPECT_EQ(hash, uint64_t{4744059892132791348});
 }
 
