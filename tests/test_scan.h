@@ -23,6 +23,8 @@
  *   - Scan::Circle and Scan::Point, the radius-0 ring regime.
  *   - Scan::Volume / TransformedVolume: orthographic ray-march silhouette,
  *     registers, occlusion, and the trace's closest-approach guarantees.
+ *   - BoundingSphere trig initialization, MIN_ALPHA boundaries, SsaaGrid and
+ *     draw_cached, scan epilogues, and replicated-clip parity.
  */
 #pragma once
 
