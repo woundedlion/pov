@@ -1246,6 +1246,7 @@ inline void test_suspect_timeout_acquire_uncounted() {
   HS_EXPECT_EQ(board.telemetry_snapshot().symbols_rejected_gate, rejected);
 }
 
+/** @brief Pins isolated noise preserves recent boundary lock. */
 inline void test_isolated_noise_preserves_recent_boundary_lock() {
   const Config cfg = test_config();
   const uint32_t col = cfg.cycles_per_column();
@@ -1523,6 +1524,7 @@ inline void test_emitter() {
   }
 }
 
+/** @brief Pins master beacon busy retry. */
 inline void test_master_beacon_busy_retry() {
   const Config cfg = test_config();
   SyncBoard board(cfg);
@@ -2484,8 +2486,7 @@ inline void test_sim_commit_deadline_trap() {
     HS_EXPECT_FALSE(sim.boards[i].trapped);
 }
 
-// ── Scenario: masked-IRQ windows (§4.1, §5.2) ───────────────────────────────
-
+/** @brief Pickup traps with 0.4 half-revs of commit slack, but accepts 1.5. */
 inline void test_sim_commit_pickup_budget() {
   const Config cfg = test_config();
   const int32_t ppm[4] = {0, 0, 0, 0};
@@ -2500,6 +2501,8 @@ inline void test_sim_commit_pickup_budget() {
       HS_EXPECT_EQ(sim.boards[2].live_index, sim.boards[0].live_index);
   }
 }
+
+// ── Scenario: masked-IRQ windows (§4.1, §5.2) ───────────────────────────────
 
 /**
  * @brief Verifies masked-IRQ windows (§4.1, §5.2): boundary masks truncate
@@ -3603,6 +3606,7 @@ inline void test_budget_wire_dead() {
   HS_EXPECT_GE(sim.boards[1].board.telemetry_snapshot().max_coast_halves, 250u);
 }
 
+/** @brief Pins effect output envelope. */
 inline void test_effect_output_envelope() {
   constexpr uint32_t DURATION_REVS = 48;
   constexpr int WIDTH = 288;

@@ -914,6 +914,7 @@ inline void test_clip_phase_after_buffer_release() {
   HS_EXPECT_EQ(clipped_clear.offband_kept, 16);
 }
 
+/** @brief Pins segment half survives missed boundaries. */
 inline void test_segment_half_survives_missed_boundaries() {
   for (bool clipped_clear : {false, true}) {
     for (int count : {2, 4, 8}) {
@@ -1270,6 +1271,7 @@ inline void test_sync_pulse_render_without_pulse_is_silent() {
   HS_EXPECT_FALSE(g.take_deferred_low());
 }
 
+/** @brief Pins sync pulse resubmit defers low. */
 inline void test_sync_pulse_resubmit_defers_low() {
   SyncPinTrace t;
   SubmitGate submit_gate;
