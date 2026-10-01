@@ -380,7 +380,7 @@ check_fail(const char *site, const char *fmt, ...) {
   // The trap below compiles to wasm `unreachable`, which unwinds nothing: the
   // shadow stack pointer keeps whatever the aborted frame left it at, so every
   // later call runs on a permanently shortened stack and eventually writes past
-  // its end, unreported (the release link sets -sASSERTIONS=0). The module is
+  // its end, unreported (release uses Emscripten's -O3 assertion default). The module is
   // dead from here on, and the flag is what says so to a JS caller that catches
   // the RuntimeError.
   EM_ASM({ Module['HS_MODULE_DEAD'] = true; });
