@@ -135,13 +135,9 @@ inline float deposited_energy(Filter::Screen::AntiAlias<W, H> &aa, float x,
 }
 
 /**
- * @brief Pins that this TU really compiled with the device offset, so the LUT
- *        the renorm reads is non-degenerate (the host-build precondition the
- *        whole file rests on).
- * @details H_VIRT must be H + 3, and the last PHYSICAL row (y = H-1) must carry
- *          sin(phi) > 0 — on an H_OFFSET == 0 build it would be sin(PI) == 0 and
- *          the two-column split below could never happen. The virtual bottom row
- *          (H_VIRT-1) still reaches the pole exactly (sin == 0).
+ * @brief Pins the offset and LUT used by the Scan, Plot, Feedback and Face cases.
+ * @details H_VIRT is H + 3. The last physical row has sin(phi) > 0;
+ *          the virtual bottom row reaches the pole exactly.
  */
 inline void test_offset_is_active_and_lut_nondegenerate() {
   using LUT = math::TrigLUT<W, H>;
@@ -168,8 +164,8 @@ inline void test_offset_is_active_and_lut_nondegenerate() {
  *          Y tap so the deposited alphas sum back to the input alpha. For a
  *          sample fully below the last row (y >= H) every tap is clipped and the
  *          deposited energy is zero — the LEDs stop short of the pole, so the
- *          image is clipped, not stretched. The boundary band [H-1, H) is where
- *          the device-only fold actually fires.
+ *          image is clipped, not stretched. The boundary band [H-1, H) folds
+ *          the clipped Y weight onto the surviving row, as in the ideal host profile.
  */
 inline void test_energy_conserved_through_clip_boundary() {
   Filter::Screen::AntiAlias<W, H> aa;
@@ -192,14 +188,9 @@ inline void test_energy_conserved_through_clip_boundary() {
 }
 
 /**
- * @brief The boundary row genuinely splits across two columns under the renorm.
- * @details This is the fact an H_OFFSET == 0 build cannot reproduce: there the
- *          last physical row has sin(phi) == 0, so the X fractional collapses to
- *          a single column (x_frac -> 0) and only one tap lands on the row. With
- *          the device offset the row has sin(phi) > 0, so a sample with a clear
- *          X fraction splits across columns x0 and x1 — and the two taps still
- *          sum to the input alpha because the clipped y1 row's weight was folded
- *          into the surviving y0 row (wy0 == 1).
+ * @brief The boundary row splits across two columns and conserves alpha.
+ * @details X weights depend on the framebuffer fraction at every latitude.
+ *          The clipped y1 weight folds into y0 (wy0 == 1), as in the ideal host profile.
  */
 inline void test_boundary_row_splits_two_columns_and_conserves() {
   Filter::Screen::AntiAlias<W, H> aa;
@@ -221,7 +212,7 @@ inline void test_boundary_row_splits_two_columns_and_conserves() {
  * @details Sweeps the X sub-pixel offset across a full cell at a fixed boundary
  *          y. The renorm sets wy0 = 1, so the deposited energy is wy0 * (sum of
  *          the X weights) = 1 * 1 for every X offset, regardless of how the
- *          quintic-eased, sin(phi)-compensated split lands between the columns.
+ *          quintic-eased split lands between the columns.
  */
 inline void test_boundary_energy_independent_of_x_fraction() {
   Filter::Screen::AntiAlias<W, H> aa;
