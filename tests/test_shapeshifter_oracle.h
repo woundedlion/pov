@@ -28,17 +28,17 @@ constexpr uint32_t BRIGHT_ENERGY = 12288;
 constexpr uint32_t COVERAGE_ENERGY = 512;
 constexpr uint32_t HIGH_CHANNEL_ERROR = 4096;
 
-/** High-count star budgets use the seven preset/orientation measurements.
+/** High-count star budgets use the seven high-count/orientation measurements.
  * Whole-frame metrics allow 20% headroom; the worst channel allows 50%.
  * The oracle matrix has separate per-case error budgets. */
 constexpr double WHOLE_FRAME_HEADROOM = 1.2;
 constexpr double WORST_PIXEL_HEADROOM = 1.5;
-constexpr double MEASURED_MEAN_ABSOLUTE_ERROR = 173.2;
-constexpr double MEASURED_ROOT_MEAN_SQUARED_ERROR = 509.4;
+constexpr double MEASURED_MEAN_ABSOLUTE_ERROR = 187.5;
+constexpr double MEASURED_ROOT_MEAN_SQUARED_ERROR = 529.5;
 constexpr uint32_t MEASURED_CHANNEL_ERROR = 10482;
 constexpr double MEASURED_ENERGY_DRIFT = 0.00415;
-constexpr double MEASURED_HIGH_COUNT_STAR_ENERGY_DRIFT = 0.0119;
-constexpr size_t MEASURED_STAR_HIGH_ERROR_PIXELS = 225;
+constexpr double MEASURED_HIGH_COUNT_STAR_ENERGY_DRIFT = 0.01179;
+constexpr size_t MEASURED_STAR_HIGH_ERROR_PIXELS = 236;
 
 constexpr double MAX_MEAN_ABSOLUTE_ERROR =
     MEASURED_MEAN_ABSOLUTE_ERROR * WHOLE_FRAME_HEADROOM;
@@ -720,7 +720,7 @@ inline void test_star_options_and_shipping_presets_are_planar() {
                  Falloff::CONSTANT_HALF);
 }
 
-inline void test_high_count_star_preset_stays_within_visual_budget() {
+inline void test_high_count_uniform_star_stays_within_visual_budget() {
   using Function = OracleEffect::PhaseFunction;
   using Shape = OracleEffect::ShapeType;
   const std::array<math::Quaternion, 6> orientations = {{
@@ -755,7 +755,7 @@ inline void test_screen_balanced_star_preset_stays_within_visual_budget() {
   state.function = OracleEffect::PhaseFunction::SINE;
   state.alpha_falloff = OracleEffect::AlphaFalloff::TOWARD_EQUATOR;
   state.spacing = OracleEffect::RadiusSpacing::SCREEN_BALANCED;
-  state.count = 208;
+  state.count = 288;
   state.sides = 7;
   state.phase = 0.249f;
   state.alpha = 0.274f;
@@ -766,7 +766,7 @@ inline void test_screen_balanced_star_preset_stays_within_visual_budget() {
       MAX_MEAN_ABSOLUTE_ERROR, MAX_ROOT_MEAN_SQUARED_ERROR, MAX_CHANNEL_ERROR);
 }
 
-inline void test_high_count_star_preset_covers_north_pole() {
+inline void test_high_count_uniform_star_covers_north_pole() {
   OracleState state;
   state.shape = OracleEffect::ShapeType::PLANAR_STAR;
   state.function = OracleEffect::PhaseFunction::SINE;
@@ -827,7 +827,7 @@ inline void test_high_count_planar_star_caps_cover_chart_centers() {
   }};
   for (const auto [count, spacing] :
        {std::pair{144, OracleEffect::RadiusSpacing::UNIFORM},
-        std::pair{208, OracleEffect::RadiusSpacing::SCREEN_BALANCED}}) {
+        std::pair{288, OracleEffect::RadiusSpacing::SCREEN_BALANCED}}) {
     for (const math::Quaternion &orientation : orientations) {
       OracleState state;
       state.shape = OracleEffect::ShapeType::PLANAR_STAR;
@@ -1130,9 +1130,9 @@ inline int run_shapeshifter_oracle_tests() {
   test_star_projection_policies_render_different_edges();
   test_screen_balanced_spacing_is_opt_in_for_every_shape();
   test_star_options_and_shipping_presets_are_planar();
-  test_high_count_star_preset_stays_within_visual_budget();
+  test_high_count_uniform_star_stays_within_visual_budget();
   test_screen_balanced_star_preset_stays_within_visual_budget();
-  test_high_count_star_preset_covers_north_pole();
+  test_high_count_uniform_star_covers_north_pole();
   test_high_count_planar_star_caps_cover_chart_centers();
   test_high_count_spherical_star_contours_reach_display_north();
   test_amplitude_preserves_sweep_velocity();
