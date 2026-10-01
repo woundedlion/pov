@@ -1114,6 +1114,7 @@ inline void check_document_values(const char *name) {
     return;
   std::vector<DocumentSlot> slots;
   int warps_seen = 0;
+  int surface_at = -1, lens_at = -1;
   for (const JsonValue &entry : chain->items) {
     const JsonValue *label = entry.find("label");
     const JsonValue *operator_id = entry.find("operator");
@@ -1155,7 +1156,17 @@ inline void check_document_values(const char *name) {
         slot.warp_side = warps_seen;
       ++warps_seen;
     }
+    if (slot.role == SlotRole::SURFACE)
+      surface_at = static_cast<int>(slots.size());
+    if (slot.role == SlotRole::LENS)
+      lens_at = static_cast<int>(slots.size());
     slots.push_back(std::move(slot));
+  }
+
+  if (surface_at >= 0 && lens_at >= 0) {
+    HS_EXPECT_EQ(surface_at > lens_at,
+                 TraitsOf<FX>::SURFACE_PLACEMENT ==
+                     Pullback::SurfacePlacement::AFTER_LENS);
   }
 
   const JsonValue *bank = document.find("preset_bank");
