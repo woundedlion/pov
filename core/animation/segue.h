@@ -13,7 +13,6 @@
  * @brief Animation fragment: the Segue transition library.
  */
 
-#include <variant>
 #include "animation/preset_departure.h"
 
 #include "color/color.h"
