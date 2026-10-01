@@ -12,6 +12,7 @@ KiCad-authored content and is checked by test_shorts and test_builder.
 """
 import contextlib
 import io
+import importlib
 import json
 import os
 import sys
@@ -109,7 +110,7 @@ def dangling_pins(root):
 class BoardEntryPointTests(unittest.TestCase):
     def test_import_ignores_host_arguments(self):
         with unittest.mock.patch.object(sys, "argv", ["host", "--unknown"]):
-            import board
+            importlib.reload(board)
 
         self.assertTrue(callable(board.main))
 
