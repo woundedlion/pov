@@ -317,6 +317,28 @@ struct FlatTweenableModel {
   int get(size_t) const { return 0; }
 };
 
+struct SignedTrailModel : TweenableModel {
+  int length() const { return 0; }
+};
+
+struct UnsignedFrameModel : TweenableModel {
+  struct Frame : TweenableModel::Frame {
+    size_t length() const { return 0; }
+  };
+  const Frame &get(size_t) const { return frame; }
+  Frame frame;
+};
+
+struct MissingCapacityModel : TweenableModel {
+  struct Frame {
+    int length() const { return 0; }
+    const math::Quaternion &get(int) const { return q; }
+    math::Quaternion q;
+  };
+  const Frame &get(size_t) const { return frame; }
+  Frame frame;
+};
+
 /**
  * @brief Pins the Tweenable concept: only a two-level frame container satisfies
  *        it — a flat container and a scalar do not.
@@ -324,6 +346,9 @@ struct FlatTweenableModel {
  *          static_asserts are the whole pin.
  */
 inline void test_tweenable_concept() {
+  static_assert(!Tweenable<SignedTrailModel>);
+  static_assert(!Tweenable<UnsignedFrameModel>);
+  static_assert(!Tweenable<MissingCapacityModel>);
   static_assert(Tweenable<TweenableModel>,
                 "a container of frames must satisfy Tweenable");
   static_assert(!Tweenable<FlatTweenableModel>,
