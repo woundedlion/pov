@@ -775,10 +775,6 @@ inline void test_relax_open_mesh_partial() {
 }
 
 // ---------------------------------------------------------------------------
-// Compositional + standalone operators — structural invariants only.
-// ---------------------------------------------------------------------------
-
-// ---------------------------------------------------------------------------
 // Composition polarity: every operator, primitive or composed, returns its
 // output in `target` (even-length compositions start their ping-pong in
 // `temp`; see COMPOSITION POLARITY in conway.h).
