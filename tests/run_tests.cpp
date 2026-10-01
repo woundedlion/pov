@@ -334,11 +334,12 @@ static int check_ci_levers(bool effects_invocation) {
       ++missing;
     } else if (std::atoi(require_effects_full) > 0 &&
                !hs_test::effects_tests::effects_full_suite()) {
-      std::fprintf(stderr,
-                   "run_tests: CI=on and HS_REQUIRE_EFFECTS_FULL is on, but "
-                   "the effects modules would run the QUICK tier, dropping the "
-                   "288x144 roster passes and the white-box block. Set "
-                   "HS_EFFECTS_FULL=1 in the workflow step's env.\n");
+      std::fprintf(
+          stderr,
+          "run_tests: CI=on and HS_REQUIRE_EFFECTS_FULL is on, but "
+          "the effects modules would run the QUICK tier, dropping the "
+          "288x144 roster passes and the FULL-tier white-box cases. Set "
+          "HS_EFFECTS_FULL=1 in the workflow step's env.\n");
       ++missing;
     }
   }
