@@ -456,7 +456,7 @@ inline void test_join_adopt_and_gen_gating() {
 
 /**
  * @brief Full teardown→publish→commit cycle across two generations.
- * @details Mirrors the run_show/flywheel_isr loop single-threaded: adopt gen1,
+ * @details Runs the foreground rebuild sequence single-threaded: adopt gen1,
  * tear it down via the handshake, clear, publish gen2, commit gen2. Exercises
  * the ordering the device relies on without a live effect ever being adopted
  * while a release is outstanding.
@@ -473,16 +473,31 @@ inline void test_full_handoff_cycle() {
   HS_EXPECT_EQ(h.live(), &e1);
   HS_EXPECT_TRUE(h.consumed(1));
 
-  // Foreground tears e1 down before freeing it.
-  h.request_release();
-  h.service_release();
-  HS_EXPECT_TRUE(h.release_complete());
-  HS_EXPECT_EQ(h.live(), nullptr);
-  h.clear_pending();
-  HS_EXPECT_EQ(h.pending_acquire().effect, nullptr);
-
-  // Generation 2 is built, published, and committed.
-  h.publish(&e2, 2);
+  int step = 0;
+  FakeEffect *built = pov::rebuild_effect(
+      h, 2,
+      [&] {
+        HS_EXPECT_EQ(step++, 0);
+        HS_EXPECT_FALSE(h.release_complete());
+        h.service_release();
+      },
+      [&] {
+        HS_EXPECT_EQ(step++, 1);
+        HS_EXPECT_EQ(h.live(), nullptr);
+        HS_EXPECT_EQ(h.pending_acquire().effect, nullptr);
+      },
+      [&] {
+        HS_EXPECT_EQ(step++, 2);
+        return &e2;
+      },
+      [&](auto publish) {
+        HS_EXPECT_EQ(step++, 3);
+        HS_EXPECT_EQ(h.pending_acquire().effect, nullptr);
+        publish();
+        HS_EXPECT_EQ(h.pending_acquire().effect, &e2);
+      });
+  HS_EXPECT_EQ(built, &e2);
+  HS_EXPECT_EQ(step, 4);
   auto p2 = h.pending_acquire();
   HS_EXPECT_EQ(p2.effect, &e2);
   HS_EXPECT_TRUE(h.committable(p2, 2));
