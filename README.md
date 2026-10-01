@@ -399,8 +399,8 @@ files define line-ending policy and working-artifact exclusions.
 │   ├── pov_submit_gate.h       Pure LED-submit accept/drop and sync-pulse width decisions for the POVSegmented ISR (host-testable)
 │   ├── pov_segmented.h         Multi-Teensy segmented POV driver (Phantasm)
 │   └── phantasm/               KiCad 10 project for the per-segment carrier board
-│       ├── README.md               Project entry point and validation matrix
-│       ├── 1.1/                    Routed rev 1.1 board, schematic, and project libraries
+│       ├── README.md               Project entry point and Quilter upload guide
+│       ├── 1.1/                    Routed rev 1.1 board, schematic, project libraries, and validation matrix
 │       ├── 1.2/                    Matching rev 1.2 schematic and unplaced Quilter input
 │       ├── 1.3/                    Experimental differential-sync schematic and unplaced PCB
 │       └── gen/                    Python design/fabrication tools (`just pcb` runs `fab.py` only)
