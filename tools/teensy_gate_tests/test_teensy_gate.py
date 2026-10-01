@@ -1211,7 +1211,7 @@ class TestExpectedEnvironmentSet(unittest.TestCase):
     """
 
     TU = "core/engine/memory.cpp"
-    CI_ENVS = ("holosphere", "holosphere_dma", "phantasm", "phantasm8",
+    ENVS = ("holosphere", "holosphere_dma", "phantasm", "phantasm8",
                "profile", "profile_o3")
 
     def _cold_env(self, env):
@@ -1221,28 +1221,28 @@ class TestExpectedEnvironmentSet(unittest.TestCase):
 
     def test_truncated_run_fails(self):
         self.assertEqual(
-            _run_ratchet(self._cold_env(self.CI_ENVS[0]), envs=self.CI_ENVS), 1)
+            _run_ratchet(self._cold_env(self.ENVS[0]), envs=self.ENVS), 1)
 
     def test_truncated_run_diagnostic_names_the_absent_environments(self):
         buf = io.StringIO()
         with contextlib.redirect_stdout(buf):
-            self.assertEqual(_run_ratchet(self._cold_env(self.CI_ENVS[0]),
-                                          "--github", envs=self.CI_ENVS), 1)
+            self.assertEqual(_run_ratchet(self._cold_env(self.ENVS[0]),
+                                          "--github", envs=self.ENVS), 1)
         out = buf.getvalue()
         self.assertIn("::error::", out)
         self.assertIn("5 of 6 expected environment(s)", out)
-        for env in self.CI_ENVS[1:]:
+        for env in self.ENVS[1:]:
             self.assertIn(env, out)
 
     def test_every_expected_environment_present_passes(self):
-        log = "".join(self._cold_env(e) for e in self.CI_ENVS)
-        self.assertEqual(_run_ratchet(log, envs=self.CI_ENVS), 0)
+        log = "".join(self._cold_env(e) for e in self.ENVS)
+        self.assertEqual(_run_ratchet(log, envs=self.ENVS), 0)
 
     def test_env_flag_narrows_the_expectation(self):
         # A deliberate subset build states its own set instead of platformio.ini's.
         self.assertEqual(
-            _run_ratchet(self._cold_env(self.CI_ENVS[0]), "--env", self.CI_ENVS[0],
-                         envs=self.CI_ENVS), 0)
+            _run_ratchet(self._cold_env(self.ENVS[0]), "--env", self.ENVS[0],
+                         envs=self.ENVS), 0)
 
     def test_expectation_is_read_from_the_repo_platformio_ini(self):
         envs = tw.declared_environments(TOOLS.parent / "platformio.ini")
