@@ -1654,17 +1654,6 @@ inline void test_twist_lens() {
   }
 }
 
-inline void test_kaleidoscope_lens() {
-  const math::Vector input =
-      math::Vector(-0.3f, 0.4f, -0.8660254f).normalized();
-  const math::Vector output = lenses::kaleidoscope_lens(input);
-  HS_EXPECT_TRUE(output.x >= 0.0f);
-  HS_EXPECT_TRUE(output.z >= 0.0f);
-  HS_EXPECT_TRUE(1.7320508075688772f * output.z <= output.x + 1e-6f);
-  HS_EXPECT_NEAR(output.y, input.y, 1e-6f);
-  HS_EXPECT_NEAR(output.magnitude(), input.magnitude(), 1e-5f);
-}
-
 /**
  * @brief Invokes @p visit with each direction of a latitude-longitude grid
  *        covering the sphere, poles included.
@@ -1687,6 +1676,17 @@ template <typename Visit> inline void for_each_sphere_direction(Visit visit) {
                          radius * sinf(longitude)));
     }
   }
+}
+
+inline void test_kaleidoscope_lens() {
+  for_each_sphere_direction([](const math::Vector &input) {
+    const math::Vector folded = lenses::kaleidoscope_lens(input);
+    HS_EXPECT_GE(folded.z, -1e-6f);
+    HS_EXPECT_GE(folded.x - 1.7320508075688772f * folded.z, -1e-6f);
+    HS_EXPECT_NEAR(folded.y, input.y, 1e-6f);
+    HS_EXPECT_NEAR(folded.magnitude(), input.magnitude(), 1e-5f);
+    HS_EXPECT_VEC(lenses::kaleidoscope_lens(folded), folded, 1e-6f);
+  });
 }
 
 /**
