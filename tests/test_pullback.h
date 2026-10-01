@@ -1075,6 +1075,21 @@ inline void test_pullback_concrete_catalog() {
   HS_EXPECT_EQ(projected.provenance.edge_class, 8);
   HS_EXPECT_EQ(projected.provenance.value_weight, 1.0f);
   HS_EXPECT_EQ(projected.provenance.domain_coverage, 1.0f);
+  const math::Vector north(0.5416752f, 0.6427876f, 0.5416752f);
+  const math::Vector south(north.x, -north.y, north.z);
+  for (const auto layout : {projections::PeirceLayout::HORIZONTAL,
+                            projections::PeirceLayout::VERTICAL}) {
+    const auto weight = [&](const math::Vector &direction) {
+      return Pullback::Projection::peirce(direction, 0.0f,
+                                          static_cast<uint8_t>(layout), 0.0f,
+                                          false, 1.0f, 1.0f)
+          .provenance.value_weight;
+    };
+    HS_EXPECT_GT(weight(south), 0.4f);
+    HS_EXPECT_NEAR(weight(south), weight(north), 1e-6f);
+  }
+  HS_EXPECT_EQ(
+      Pullback::Projection::peirce_weight(south, 1.0f, 0.0f, 1.0f, true), 0.0f);
   for (float longitude : {-2.5f, -0.25f, 0.25f, 2.5f}) {
     const math::Vector direction(cosf(longitude), 0.0f, sinf(longitude));
     for (float meridian : {-2.0f, 1.0f, 3.0f}) {
