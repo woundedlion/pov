@@ -100,6 +100,8 @@ inline void check_tiling(int S, int N, int w, int x) {
     for (int i = 0; i < PPS; ++i) {
       const int y = segment_y(m, i);
       HS_EXPECT_TRUE(y >= 0 && y < ROWS);
+      if (y < 0 || y >= ROWS)
+        continue;
       // The column ISR walks the display buffer by accumulating stride onto
       // base rather than evaluating segment_y per pixel; pin the two forms
       // equal so the shipped recurrence is the arithmetic tested here.
