@@ -5,7 +5,7 @@
  * Emits the segment->canvas mapping hardware/pov_segment_map.h derives, as JSON
  * on stdout: for every (S, N) config the simulator's cross-check sweeps, each
  * segment's arm side, LED-0 row, strip direction and full row traversal, plus
- * the arm-A/arm-B sampled column per canvas width.
+ * the arm-A/arm-B sampled column and segment_clip bands per canvas width.
  *
  * The committed hardware/pov_segment_map.json is diffed against this program's
  * output by the unit_pov_segment_map_golden CTest, so a convention change in
@@ -17,7 +17,6 @@
  * Regenerate with:
  *   cmake --build --preset tests --target pov_segment_map_gen
  *   build/tests/tests/pov_segment_map_gen > hardware/pov_segment_map.json
-
  */
 #include <cstdio>
 #include <iterator>
