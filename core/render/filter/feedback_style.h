@@ -109,7 +109,8 @@ struct Style {
    * flushes hold the offset grid, spherical controls and one W-pixel row in
    * scratch (288x144: DS=4 ≈ 30 KiB, DS=2 ≈ 91 KiB). With init_storage() at
    * the default DS, the grid lives in the persistent warp cache; scratch holds
-   * only the controls and a row on frames that repopulate the cache.
+   * a W-pixel row every frame, plus lattice controls and polar sample caps
+   * on frames that repopulate the cache.
    * Uncached full-resolution flushes exceed the default 16 KiB scratch split;
    * reserve Feedback<W,H>::UNCACHED_SCRATCH_BYTES(downsample) explicitly.
    */
