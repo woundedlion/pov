@@ -62,7 +62,8 @@ _LINE_FRAGMENT_RE = re.compile(r"^L\d+(?:-L?\d+)?$", re.IGNORECASE)
 # A backticked token is linted as a repo path only when it carries one of these
 # suffixes; anything else in backticks is prose, an identifier, or a command.
 _SOURCE_SUFFIXES = frozenset({
-    ".c", ".cfg", ".cmake", ".cpp", ".css", ".h", ".hpp", ".html", ".ini",
+    ".c", ".cc", ".cfg", ".cjs", ".cmake", ".cpp", ".css", ".csv",
+    ".def", ".diff", ".h", ".hpp", ".html", ".in", ".ini", ".inl", ".jsonl", ".patch",
     ".ino", ".js", ".json", ".kicad_mod", ".kicad_pcb", ".kicad_pro",
     ".kicad_sch", ".kicad_sym", ".ld", ".markdown", ".md", ".mjs", ".png",
     ".py", ".sh", ".svg", ".toml", ".ts", ".txt", ".wasm", ".wrl", ".yaml",
