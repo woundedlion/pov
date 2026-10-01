@@ -159,23 +159,20 @@ if(EMSCRIPTEN)
     ${HS_PULLBACK_CAPTURE_SOURCE_ROOT}/core/engine/memory.cpp
     ${HS_PULLBACK_CAPTURE_SOURCE_ROOT}/core/engine/static_storage.cpp
     ${HS_PULLBACK_CAPTURE_SOURCE_ROOT}/core/spatial/reaction_graph.cpp)
+  include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/chain_capture_fixtures.cmake)
+  hs_chain_capture_fixtures(pullback_capture_wasm "${CMAKE_CURRENT_SOURCE_DIR}")
   target_include_directories(pullback_capture_wasm PRIVATE
     ${HS_PULLBACK_CAPTURE_SOURCE_ROOT}
     ${HS_PULLBACK_CAPTURE_SOURCE_ROOT}/core)
-  # Feature set identical to tests/'s pullback_capture_native, so the two
-  # halves of the cross-check compile the same code. HS_ENABLE_CHAIN_INTERPRETER
-  # defaults to 1 here (Emscripten, and HS_ENABLE_TEST_ORACLES) and must be
-  # pinned off like the native half: the capture producer drives the template
-  # combinators, not the interpreter.
+  # Feature set matches the native capture producer.
   target_compile_definitions(pullback_capture_wasm PRIVATE
     HS_TIMELINE_MAX_ANIM_BYTES=256
-    HS_GLOBAL_ARENA_BYTES=8388608
+    HS_GLOBAL_ARENA_BYTES=524288
     HS_ENABLE_EFFECT_REGISTRY=1
     HS_ENABLE_PARAM_GUI_BRIDGE=1
     HS_ENABLE_TEST_HOOKS=1
     HS_ENABLE_TEST_ORACLES=1
-    HS_ENABLE_SHADER_WORKBENCH_DYNAMIC_BACKEND=0
-    HS_ENABLE_CHAIN_INTERPRETER=0
+    HS_ENABLE_CHAIN_INTERPRETER=1
     HS_ENABLE_EFFECT_CONTROL_API=1)
   target_compile_options(pullback_capture_wasm PRIVATE "-Wall" "-Wextra")
   target_link_options(pullback_capture_wasm PRIVATE

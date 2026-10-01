@@ -17,7 +17,7 @@ test('catalog export validates the result before replacing the output', (t) => {
   const emptyOperators = JSON.stringify({ ...JSON.parse(valid), operators: [] });
   const emptyCarriers = JSON.stringify({ ...JSON.parse(valid), carriers: [] });
   for (const catalog of [valid, incomplete, emptyOperators, emptyCarriers, 'not-json', '{}']) {
-    writeFileSync(modulePath, `export default async () => ({ HolosphereEngine: {
+    writeFileSync(modulePath, `export default async () => ({ ShaderChainBindings: {
       getShaderChainCatalog: () => ${JSON.stringify(catalog)} } });`);
     writeFileSync(outputPath, 'previous');
     // NODE_OPTIONS carries the module-roster preload into this CLI-only module.

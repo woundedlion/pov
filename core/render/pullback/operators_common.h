@@ -39,23 +39,43 @@ struct SpatialWalkState {
   math::Vector position;
   math::Vector direction;
   math::Quaternion wander;
+  math::Quaternion raw_orientation;
   float angular_velocity = 0.0f;
   float spin_phase = 0.0f;
   uint32_t walk_time = 0;
+  int32_t noise_seed = 0;
+  bool legacy = false;
+  Animation::RandomWalkOptions legacy_options;
 };
 
 inline void init_walk(SpatialWalkState &state, int32_t seed) {
+  state.noise_seed = seed;
   init_effect_noise(state.walk_noise, seed);
   state.walk_noise.SetFrequency(WALK_OPTIONS.noise_scale);
   state.position = math::UP;
   state.direction = math::perpendicular_axis(state.position);
 }
 
-// Chain walks accumulate once per frame using instance seeds; composed walks
-// use eased Rotation samples and effect seeds, so nonzero wander is not equivalent.
 inline void advance_walk(SpatialWalkState &state, float wander,
                          float spin_rate) {
   ++state.walk_time;
+  if (state.legacy) {
+    const auto delta = Animation::step_random_walk<true>(
+        state.position, state.direction, state.angular_velocity,
+        state.walk_noise, state.legacy_options, state.walk_time);
+    const auto next = (math::make_rotation(delta.axis.normalized(),
+                                           state.legacy_options.speed) *
+                       state.raw_orientation.normalized())
+                          .normalized();
+    const auto sampled =
+        (next * state.raw_orientation.conjugate()).normalized();
+    state.wander =
+        (math::slerp(math::Quaternion(), sampled, wander) * state.wander)
+            .normalized();
+    state.raw_orientation = next;
+    state.spin_phase = fmodf(state.spin_phase + spin_rate, math::TWO_PI_F);
+    return;
+  }
   const Animation::RandomWalkDelta delta = Animation::step_random_walk<false>(
       state.position, state.direction, state.angular_velocity, state.walk_noise,
       WALK_OPTIONS, state.walk_time);
@@ -70,6 +90,7 @@ inline void advance_walk(SpatialWalkState &state, float wander,
 struct NoisePhaseState {
   FastNoiseLite noise;
   float phase = 0.0f;
+  int32_t noise_seed = 0;
 };
 
 /** @brief Value-state operator with one normalized loop clock. */
@@ -89,7 +110,8 @@ noise_plane_in_domain(const math::Complex &coords) {
 }
 
 inline void init_noise_phase(NoisePhaseState &state, InstanceId id) {
-  init_effect_noise(state.noise, static_cast<int32_t>(id.stable_hash));
+  state.noise_seed = static_cast<int32_t>(id.stable_hash);
+  init_effect_noise(state.noise, state.noise_seed);
 }
 
 /** @brief Noise-basis topology values, in math::NoiseBasis order. */

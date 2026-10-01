@@ -576,9 +576,14 @@ Concentric polygon, star, or flower outlines drawn through the `Plot` rasterizer
 
 The standalone [Shader workbench](https://github.com/woundedlion/daydream/blob/master/tools/shader.html) provides the complete structural vocabulary and its pipeline-strip editor in a dedicated browser tab. Twenty-three retained legacy presets migrate to stable composed product effects; legacy preset 4 is retired, and unmatched custom configurations route to the workbench for editing. The firmware rosters contain only the promoted effects.
 
-The registry entry is named `Shader`; the WASM `setEffect()` binding also accepts the legacy names `ShaderWorkbench` and `ShaderBall` and remaps them onto it. It owns structural editing and dynamic dispatch in WASM and native oracle tests only. `HS_ENABLE_SHADER_WORKBENCH` is rejected for Arduino builds, keeping the dynamic backend and workbench out of firmware.
-
-`ShaderChain` is the second workbench-only registry entry, under its own `HS_ENABLE_CHAIN_INTERPRETER` gate, likewise rejected for Arduino builds. It interprets an arbitrary compiled operator chain from the pullback operator table instead of the workbench's fixed stage folders, and registers one parameter per chain field as `{instance}.{field-id}`. The bridge compiles a program shape onto it with `setShaderChain`, which the workbench's chain-document layer calls before replaying preset values. Its operator clocks and generated palette continue advancing while the shared animation-pause state is set because a chain has no authored preset animation for that state to gate.
+`ShaderChain` is the simulator authoring registry entry under
+`HS_ENABLE_CHAIN_INTERPRETER`, which is rejected for Arduino builds. The aliases
+`Shader`, `ShaderWorkbench` and `ShaderBall` select its scratch program. It
+interprets an arbitrary compiled operator chain and registers parameters as
+`{instance}.{field-id}`. `ShaderChainBindings` owns program admission, parameter
+batches and complete versioned snapshots. Its operator clocks and generated
+palette advance while the shared authored-animation pause is set. Legacy archive
+conversion lives in daydream; the engine has no slot configuration endpoint.
 
 Shipping composed effects are ordinary concrete `Effect` types. Each names one compile-time `Pullback::Pipeline`, a compact parameter and prepared-frame type, immutable stable preset IDs, and only the resources its graph uses. Its raster loop calls `Derived::shade(view, frame)` directly; there is no per-pixel function-pointer dispatch, topology lookup, family object, or universal Shader parameter block. The shared `Pullback::ComposedEffect` base contains only lifecycle work that is genuinely common: clocks, preset interpolation, parameter registration, palette/LUT ownership, narrow frame preparation, and the typed scan loop; its preset choreography and snapshot machinery come from the engine-level `ChoreographedEffect`. Generated palette evaluation remains in the shared `GenerativePalette` color stage rather than being copied into each effect.
 

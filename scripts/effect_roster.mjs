@@ -14,7 +14,6 @@ export function stripComments(src) {
 }
 
 const WORKBENCH_ONLY_ROWS = new Set([
-  'HS_SHADER_WORKBENCH_EFFECT',
   'HS_CHAIN_INTERPRETER_EFFECT',
 ]);
 

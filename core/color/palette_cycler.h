@@ -4,6 +4,10 @@
  */
 #pragma once
 
+#include <array>
+#include <cmath>
+#include <cstdint>
+
 #include "color/generative_palette.h"
 #include "color/baked_palette.h"
 
@@ -319,6 +323,47 @@ public:
   /** @brief True while a fade toward the next entry is in flight. */
   bool fading() const { return fade_active; }
 
+  struct GeneratedClock {
+    uint32_t frame = 0;
+    uint32_t next_sequence = 2;
+    bool fade_active = false;
+    bool display_dirty = false;
+  };
+
+  GeneratedClock generated_clock() const {
+    return {static_cast<uint32_t>(frame), next_sequence, fade_active,
+            display_dirty};
+  }
+
+  static bool valid_generated_clock(const GeneratedClock &clock,
+                                    uint32_t fade_frames,
+                                    uint32_t dwell_frames) {
+    return clock.next_sequence >= 2 &&
+           clock.frame < (clock.fade_active
+                              ? fade_frames
+                              : std::max(uint32_t{1}, dwell_frames));
+  }
+
+  HS_COLD_MEMBER void restore_generated(const GeneratedClock &clock,
+                                        const GenerativePalette &from,
+                                        const GenerativePalette &to) {
+    *from_slot = from;
+    *to_slot = to;
+    frame = static_cast<int>(clock.frame);
+    next_sequence = clock.next_sequence;
+    fade_active = clock.fade_active;
+    display_dirty = clock.display_dirty;
+    if (fade_active) {
+      const float progress =
+          static_cast<float>(frame) / static_cast<float>(fade);
+      const float weight = easing != nullptr ? easing(progress) : progress;
+      morph->morph_palettes(*from_slot, *to_slot, weight);
+      rebake_display(*morph);
+    } else {
+      rebake_display(*from_slot);
+    }
+  }
+
 private:
   int next_of(int index) const {
     return index + 1 == entry_count ? 0 : index + 1;
@@ -425,6 +470,52 @@ public:
   static constexpr uint32_t HUE_STEP = 159;
   static constexpr int DWELL_FRAMES = 0;
   static constexpr int FADE_FRAMES = 600;
+
+  struct Snapshot {
+    float chroma = 0.0f;
+    std::array<uint32_t, 3> hues{};
+    std::array<PaletteCycler::GeneratedClock, 3> cycles{};
+  };
+
+  Snapshot snapshot() const {
+    return {chroma,
+            {triadic_hue, complementary_hue, analogous_hue},
+            {triadic.generated_clock(), complementary.generated_clock(),
+             analogous.generated_clock()}};
+  }
+
+  static bool valid_snapshot(const Snapshot &snapshot) {
+    if (!std::isfinite(snapshot.chroma) || snapshot.chroma < 0.0f ||
+        snapshot.chroma > 1.0f)
+      return false;
+    for (size_t index = 0; index < snapshot.cycles.size(); ++index) {
+      const auto &clock = snapshot.cycles[index];
+      if (!PaletteCycler::valid_generated_clock(clock, FADE_FRAMES,
+                                                DWELL_FRAMES) ||
+          snapshot.hues[index] != (clock.next_sequence - 1) * HUE_STEP)
+        return false;
+    }
+    return true;
+  }
+
+  HS_COLD_MEMBER void restore_snapshot(const Snapshot &snapshot) {
+    chroma = snapshot.chroma;
+    triadic_hue = snapshot.hues[0];
+    complementary_hue = snapshot.hues[1];
+    analogous_hue = snapshot.hues[2];
+    const auto restore = [&](PaletteCycler &cycler, size_t index,
+                             PaletteHarmony harmony) {
+      uint32_t from_hue = snapshot.hues[index] - HUE_STEP;
+      uint32_t to_hue = snapshot.hues[index];
+      GenerativePalette from, to;
+      next_palette(from_hue, 0, harmony, chroma, from);
+      next_palette(to_hue, 0, harmony, chroma, to);
+      cycler.restore_generated(snapshot.cycles[index], from, to);
+    };
+    restore(triadic, 0, PaletteHarmony::TRIADIC);
+    restore(complementary, 1, PaletteHarmony::COMPLEMENTARY);
+    restore(analogous, 2, PaletteHarmony::ANALOGOUS);
+  }
 
   GeneratedPaletteBank() = default;
   // init() hands this to every cycler as its provider context.

@@ -51,12 +51,6 @@
 #include "effects/MindSplatter.h"
 #include "effects/MobiusRings.h"
 #include "effects/PetalFlow.h"
-#if HS_ENABLE_SHADER_WORKBENCH
-#include "workbench/shader/shader_host.h"
-#define HS_SHADER_WORKBENCH_EFFECT(X) X(Shader)
-#else
-#define HS_SHADER_WORKBENCH_EFFECT(X)
-#endif
 #if HS_ENABLE_CHAIN_INTERPRETER
 #include "workbench/shader/chain_host.h"
 #define HS_CHAIN_INTERPRETER_EFFECT(X) X(ShaderChain)
@@ -114,7 +108,6 @@
   X(Raymarch)                                                                  \
   X(RingShower)                                                                \
   X(RingSpin)                                                                  \
-  HS_SHADER_WORKBENCH_EFFECT(X)                                                \
   HS_CHAIN_INTERPRETER_EFFECT(X)                                               \
   X(ShapeShifter)                                                              \
   X(AlienBrain)                                                                \

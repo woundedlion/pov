@@ -9,6 +9,7 @@
 #if HS_ENABLE_CHAIN_INTERPRETER
 
 #include "render/pullback/operators.h"
+#include "render/pullback/operators_snapshot.h"
 
 /**
  * @file operator_table.h
@@ -20,7 +21,7 @@ namespace Pullback {
 
 namespace Interp {
 
-inline constexpr std::array<OperatorDescriptor, 39> OPERATOR_TABLE{
+inline constexpr std::array<OperatorDescriptor, 46> OPERATOR_TABLE{
     make_operator_descriptor<Op::Rotate>(),
     make_operator_descriptor<Op::DisplaceCurl>(),
     make_operator_descriptor<Op::DisplaceDirect>(),
@@ -37,7 +38,12 @@ inline constexpr std::array<OperatorDescriptor, 39> OPERATOR_TABLE{
     make_operator_descriptor<Op::ProjectPeirceSquareFast>(),
     make_operator_descriptor<Op::ProjectBonne>(),
     make_operator_descriptor<Op::ProjectAirocean>(),
+    make_operator_descriptor<Op::ProjectPeirceV3>(),
+    make_operator_descriptor<Op::ProjectPeirceSquareFastV3>(),
+    make_operator_descriptor<Op::ProjectBonneV3>(),
+    make_operator_descriptor<Op::ProjectAiroceanV3>(),
     make_operator_descriptor<Op::WarpAffine>(),
+    make_operator_descriptor<Op::WarpAffineV3>(),
     make_operator_descriptor<Op::WarpWaveShear>(),
     make_operator_descriptor<Op::WarpVortex>(),
     make_operator_descriptor<Op::WarpVectorNoise>(),
@@ -46,6 +52,8 @@ inline constexpr std::array<OperatorDescriptor, 39> OPERATOR_TABLE{
     make_operator_descriptor<Op::WarpCurlFlow>(),
     make_operator_descriptor<Op::SampleGrid>(),
     make_operator_descriptor<Op::SampleTwinWave>(),
+    make_operator_descriptor<Op::SampleGridV3>(),
+    make_operator_descriptor<Op::SampleTwinWaveV3>(),
     make_operator_descriptor<Op::SampleRings>(),
     make_operator_descriptor<Op::SampleSphericalRings>(),
     make_operator_descriptor<Op::SampleSpiral>(),

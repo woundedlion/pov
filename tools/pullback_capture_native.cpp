@@ -4,7 +4,8 @@
  */
 
 #include "tests/test_effects.h"
-#include "workbench/shader/shader_host.h"
+#include "workbench/shader/chain_host.h"
+#include "chain_capture_fixtures.h"
 
 #include <algorithm>
 #include <array>
@@ -17,9 +18,6 @@
 #include <string>
 #include <vector>
 
-static_assert(!HS_ENABLE_SHADER_WORKBENCH_DYNAMIC_BACKEND,
-              "pullback capture must exercise compiled programs");
-
 namespace {
 
 #define HS_PULLBACK_PRESET_COUNT(value) constexpr uint16_t PRESET_COUNT = value;
@@ -27,8 +25,6 @@ namespace {
 #include "tools/pullback_operations.def"
 #undef HS_PULLBACK_OPERATION
 #undef HS_PULLBACK_PRESET_COUNT
-
-static_assert(PRESET_COUNT == Workbench::PRESETS.size());
 
 enum class Operation : uint16_t {
 #define HS_PULLBACK_PRESET_COUNT(value)
@@ -79,202 +75,31 @@ template <int W, int H> bool selected_pixel(Operation operation, int x, int y) {
 
 } // namespace
 
-namespace hs_test::shader_workbench_tests {
-
-struct ShaderWorkbenchWhiteBox {
-  template <typename Selected>
-  static const auto &selected_config(const Selected &selected) {
-    if constexpr (requires { selected.config; })
-      return selected.config;
-    else
-      return selected;
+namespace hs_test::shader_chain_tests {
+struct ShaderChainWhiteBox {
+  template <int W, int H> static auto context(ShaderChain<W, H> &effect) {
+    const auto ctx = effect.make_frame_context(effect.colorize);
+    effect.program.prepare(ctx);
+    return ctx;
   }
-
-  template <typename SB, typename Selected>
-  static auto selected_pipeline(const Selected &selected) {
-    if constexpr (requires { selected.pipeline; })
-      return selected.pipeline;
-    else
-      return SB::resolve_pipeline_id(selected);
-  }
-
-  template <typename SB, typename Selected>
-  static const auto *selected_program(const Selected &selected) {
-    if constexpr (requires { selected.pipeline; })
-      return Workbench::get_inverse_program(selected.pipeline);
-    else
-      return Workbench::find_inverse_program(selected);
-  }
-
-  template <typename FieldSample>
-  static float sample_path_length(const FieldSample &sample) {
-    if constexpr (requires { sample.path_length; })
-      return sample.path_length;
-    else
-      return sample.warp_displacement;
-  }
-
-  static bool force_transition(ShaderWorkbench &effect, size_t source,
-                               size_t destination, uint16_t elapsed,
-                               uint16_t duration) {
-    using SB = ShaderWorkbench;
-    if (!effect.selectPreset(source))
-      return false;
-    effect.setAnimationsPaused(true);
-    const auto &from = Workbench::PRESETS[source];
-    const auto &to = Workbench::PRESETS[destination];
-    const auto &from_config = selected_config(from);
-    const auto &to_config = selected_config(to);
-    if (!effect.prepare_resource_union(from_config, to_config))
-      return false;
-    effect.state->param_morph.active = false;
-    effect.state->transition = {from_config,
-                                to_config,
-                                effect.runtime,
-                                effect.runtime,
-                                elapsed,
-                                duration,
-                                false,
-                                true,
-                                selected_pipeline<SB>(from),
-                                selected_pipeline<SB>(to)};
-    return true;
-  }
-
-  static bool selected_pipeline_active(const ShaderWorkbench &effect,
-                                       size_t preset) {
-    using SB = ShaderWorkbench;
-    return effect.active_pipeline ==
-           selected_pipeline<SB>(Workbench::PRESETS[preset]);
-  }
-
   template <int W, int H>
-  static bool measure_oracle(ShaderWorkbench &effect, const std::string &oracle,
-                             size_t preset, float hue_noise_phase,
-                             Operation operation, uint16_t &maximum,
-                             uint32_t &samples) {
-    using SB = ShaderWorkbench;
-    if (preset >= Workbench::PRESETS.size())
-      return false;
-    effect.runtime.clocks.hue_noise_phase = hue_noise_phase;
-    const auto &selected = Workbench::PRESETS[preset];
-    const auto &config = selected_config(selected);
-    if (!effect.prepare_resource_union(config, config))
-      return false;
-    const auto frame = effect.prepare_frame(config, effect.runtime);
-    const auto *program = selected_program<SB>(selected);
-    if (program == nullptr || !program->resources_ready(frame))
-      return false;
-    const auto optimized = program->shade;
-    alignas(std::max_align_t)
-        std::byte prepared_storage[Workbench::PREPARED_BLOB_BYTES];
-    program->prepare(frame, prepared_storage);
-    for (int y = 0; y < H; ++y) {
-      for (int x = 0; x < W; ++x) {
-        if (!selected_pixel<W, H>(operation, x, y))
-          continue;
-        const math::Vector view = math::pixel_to_vector<W, H>(x, y);
-        const Color4 optimized_color = optimized(view, frame, prepared_storage);
-        Color4 exact_color;
-        if (oracle == "PEIRCE_FAST_SQUARE")
-          exact_color = exact_peirce_shade<SB>(view, frame);
-        else if (oracle == "HUE_ROTATION_AND_NOISE_LUTS")
-          exact_color = exact_hue_shade<SB>(view, frame);
-        else
-          return false;
-        const Pixel actual = optimized_color.color * optimized_color.alpha;
-        const Pixel expected = exact_color.color * exact_color.alpha;
-        maximum =
-            std::max(maximum, std::max({channel_error(actual.r, expected.r),
-                                        channel_error(actual.g, expected.g),
-                                        channel_error(actual.b, expected.b)}));
-        samples += 3;
-      }
-    }
-    return true;
+  static const auto &program(const ShaderChain<W, H> &effect) {
+    return effect.program;
   }
-
-private:
-  static uint16_t channel_error(uint16_t a, uint16_t b) {
-    return a > b ? a - b : b - a;
+  template <int W, int H>
+  static const auto &hue_noise(const ShaderChain<W, H> &effect) {
+    return effect.resources->hue_noise;
   }
-
-  template <typename SB>
-  static Color4
-  exact_peirce_shade(const math::Vector &view,
-                     const typename Workbench::FrameState &frame) {
-    const math::Vector outer_local =
-        Workbench::outer_camera_lookup(view, frame);
-    const math::Vector lensed =
-        lenses::dodecahedral_kaleidoscope_lens(outer_local);
-    const math::Vector local =
-        math::rotate(lensed, frame.transforms.projection_conj);
-    const Pullback::ProjectionResult result = Pullback::Projection::peirce(
-        local, 0.0f, 1, 0.0f, true, frame.params.projection.coordinate_scale,
-        frame.params.projection.singularity_fade);
-    const typename Workbench::ProjectedLookup projected{
-        result.coords, result.provenance, local, 0.0f};
-    return Workbench::shade_projected(projected, frame);
-  }
-
-  template <typename SB>
-  static Color4 exact_hue_shade(const math::Vector &view,
-                                const typename Workbench::FrameState &frame) {
-    const math::Vector outer_local =
-        Workbench::outer_camera_lookup(view, frame);
-    const auto projected =
-        Workbench::surface_lens_project_lookup(outer_local, frame);
-    const auto warped = Workbench::planar_warp_lookup(projected, frame);
-    const math::Complex source_coords =
-        Workbench::condition_source_coords(warped.coords, frame);
-    const float field =
-        Workbench::sample_source(source_coords, projected, frame);
-    const auto material =
-        Workbench::shape_material(field, projected, warped, frame);
-    return exact_colorize<SB>(material, frame);
-  }
-
-  template <typename SB>
-  static Color4 exact_colorize(const typename Workbench::FieldSample &sample,
-                               const typename Workbench::FrameState &frame) {
-    const float oscillation =
-        frame.params.color.phase_oscillation_depth *
-        math::fast_sinf(math::TWO_PI_F *
-                        frame.clocks.palette_oscillation_phase);
-    const float palette_value = Workbench::palette_mapping_coordinate(
-        sample.value, frame.slots.palette_mapping,
-        frame.params.color.mapping_frequency,
-        frame.params.color.mapping_phase + oscillation);
-    Color4 color = frame.resources.generated_palette->get(palette_value);
-    if (frame.prepared_hue_rotation.active &&
-        frame.slots.hue_shift == Workbench::HueShiftMode::NOISE) {
-      const math::Vector q = math::noise_sphere_coordinate(
-          sample.sphere, frame.params.color.hue_noise_scale,
-          frame.clocks.hue_noise_phase);
-      const float noise =
-          frame.resources.color_noise->GetNoiseSingle(q.x, q.y, q.z);
-      const float amount = frame.params.color.hue_shift_amount * noise;
-      const HueRotateBase base = make_hue_rotate_base(color);
-      color = hue_rotate_lut_gamut(base, amount);
-    } else if (frame.prepared_hue_rotation.active) {
-      const float amount = math::wrap_t(frame.params.color.hue_shift_amount *
-                                        sample_path_length(sample));
-      if (amount != 0.0f)
-        color = hue_rotate_lut_gamut(make_hue_rotate_base(color), amount);
-    }
-    color.color =
-        color.color * Workbench::brightness_envelope_gain(
-                          sample.value, frame.slots.brightness_envelope,
-                          frame.params.color.brightness_bottom,
-                          frame.params.color.brightness_top);
-    color.alpha *= sample.coverage * hs::lerp(frame.params.color.opacity_low,
-                                              frame.params.color.opacity_high,
-                                              sample.value);
-    return color;
+  template <int W, int H>
+  static void oracle_phase(ShaderChain<W, H> &effect, float phase) {
+    const_cast<Pullback::Interp::Op::ColorClockState *>(
+        static_cast<const Pullback::Interp::Op::ColorClockState *>(
+            effect.program.state_block(
+                static_cast<size_t>(effect.colorize.index))))
+        ->hue_noise_phase = phase;
   }
 };
-
-} // namespace hs_test::shader_workbench_tests
+} // namespace hs_test::shader_chain_tests
 
 namespace {
 
@@ -443,97 +268,152 @@ OperationSet read_instructions(const char *path) {
   return complete ? operations : OperationSet{};
 }
 
-float case_value(const ParamDef &parameter, size_t parameter_index,
-                 Operation operation) {
-  if (operation == Operation::CASE_ENDPOINT_MIN)
-    return parameter.is_bool() ? 0.0f : parameter.min;
-  if (operation == Operation::CASE_ENDPOINT_MAX)
-    return parameter.is_bool() ? 1.0f : parameter.max;
-  constexpr std::array<float, 3> FRACTIONS{{0.25f, 0.5f, 0.75f}};
-  const float fraction = FRACTIONS[parameter_index % FRACTIONS.size()];
-  if (parameter.is_bool())
-    return fraction > 0.5f ? 1.0f : 0.0f;
-  return parameter.min + fraction * (parameter.max - parameter.min);
+const ChainCaptureFixtures::Case *
+find_fixture(const char *kind, const std::string &name, int width, int height,
+             uint16_t preset, Operation operation, float phase = 0.0f) {
+  for (const auto &fixture : ChainCaptureFixtures::CASES)
+    if (std::string_view(fixture.kind) == kind && fixture.name == name &&
+        fixture.width == width && fixture.height == height &&
+        fixture.preset == preset &&
+        fixture.operation == static_cast<uint16_t>(operation) &&
+        std::bit_cast<uint32_t>(fixture.phase) ==
+            std::bit_cast<uint32_t>(phase))
+      return &fixture;
+  return nullptr;
 }
 
 template <int W, int H>
 bool render_instruction(const Instruction &instruction,
                         std::vector<Pixel> &pixels, RecordMetadata &metadata) {
-  hs_test::effects_tests::reset_effect_globals();
-  Shader<W, H> effect;
-  effect.init();
-  const bool transition_from =
-      instruction.operation == Operation::THROUGH_CLEAR_FROM;
-  const bool transition_to =
-      instruction.operation == Operation::THROUGH_CLEAR_TO;
-  if (transition_from || transition_to) {
-    constexpr uint16_t DURATION = 60;
-    const uint16_t source =
-        transition_from
-            ? instruction.preset
-            : (instruction.preset + PRESET_COUNT - 1) % PRESET_COUNT;
-    const uint16_t destination = transition_from
-                                     ? (instruction.preset + 1) % PRESET_COUNT
-                                     : instruction.preset;
-    const uint16_t elapsed = transition_from ? 0 : DURATION;
-    if (!hs_test::shader_workbench_tests::ShaderWorkbenchWhiteBox::
-            force_transition(effect, source, destination, elapsed, DURATION)) {
-      std::fprintf(
-          stderr,
-          "pullback render: transition failed for %s preset=%u operation=%u\n",
-          instruction.name.c_str(), instruction.preset,
-          static_cast<unsigned>(instruction.operation));
-      return false;
-    }
-    metadata = {source, destination, elapsed, DURATION};
-  } else {
-    if (!effect.selectPreset(instruction.preset)) {
-      std::fprintf(
-          stderr,
-          "pullback render: preset selection failed for %s preset=%u operation=%u\n",
-          instruction.name.c_str(), instruction.preset,
-          static_cast<unsigned>(instruction.operation));
-      return false;
-    }
-    effect.setAnimationsPaused(true);
-    if (instruction.operation != Operation::CASE_DEFAULT &&
-        instruction.operation <= Operation::CASE_INTERIOR) {
-      std::vector<std::string> parameters;
-      for (const ParamDef &parameter : effect.getParameters())
-        if (!parameter.readonly && !parameter.is_enum())
-          parameters.emplace_back(parameter.name);
-      for (size_t index = 0; index < parameters.size(); ++index) {
-        const ParamDef *parameter =
-            effect.getParameters().find(parameters[index].c_str());
-        if (parameter == nullptr ||
-            effect.updateParameter(
-                parameters[index].c_str(),
-                case_value(*parameter, index, instruction.operation)) !=
-                ParamSetResult::APPLIED) {
-          std::fprintf(
-              stderr,
-              "pullback render: parameter %s rejected for %s preset=%u operation=%u\n",
-              parameters[index].c_str(), instruction.name.c_str(),
-              instruction.preset, static_cast<unsigned>(instruction.operation));
-          return false;
-        }
-      }
-    }
-  }
-  effect.draw_frame();
-  if (!transition_from && !transition_to &&
-      !hs_test::shader_workbench_tests::ShaderWorkbenchWhiteBox::
-          selected_pipeline_active(effect, instruction.preset)) {
-    std::fprintf(
-        stderr,
-        "pullback render: inactive pipeline for %s preset=%u operation=%u\n",
-        instruction.name.c_str(), instruction.preset,
-        static_cast<unsigned>(instruction.operation));
+  const auto *fixture = find_fixture("frame", instruction.name, W, H,
+                                     instruction.preset, instruction.operation);
+  if (!fixture)
     return false;
-  }
+  hs_test::effects_tests::reset_effect_globals();
+  ShaderChain<W, H> effect;
+  effect.init();
+  if (effect.restore_snapshot(ChainCaptureFixtures::snapshot(
+          fixture->snapshot_index)) != ChainSnapshotRestoreResult::APPLIED)
+    return false;
+  metadata = {fixture->source, fixture->destination, fixture->elapsed,
+              fixture->duration};
+  effect.draw_frame();
   effect.advance_display();
   const Pixel *display = effect.display_buffer();
   pixels.assign(display, display + static_cast<size_t>(W) * H);
+  return true;
+}
+
+Color4 exact_colorize(const Pullback::FieldSample &sample,
+                      const Pullback::Color::GeneratedPaletteState &state,
+                      const FastNoiseLite &noise, float noise_scale,
+                      float noise_phase) {
+  using namespace Pullback;
+  const float value = Color::palette_mapping_coordinate(
+      sample.value, state.mapping, state.mapping_frequency,
+      state.mapping_offset);
+  Color4 color = state.palette->get(value);
+  if (state.hue_rotation.active && state.hue_mode == Color::HueMode::NOISE) {
+    const auto q =
+        math::noise_sphere_coordinate(sample.sphere, noise_scale, noise_phase);
+    const float amount =
+        state.hue_shift_amount * noise.GetNoiseSingle(q.x, q.y, q.z);
+    color = hue_rotate_lut_gamut(make_hue_rotate_base(color), amount);
+  } else if (state.hue_rotation.active) {
+    const float amount =
+        math::wrap_t(state.hue_shift_amount * sample.path_length);
+    if (amount != 0.0f)
+      color = hue_rotate_lut_gamut(make_hue_rotate_base(color), amount);
+  }
+  color.color =
+      color.color * Color::brightness_envelope_gain(
+                        sample.value, state.brightness_envelope,
+                        state.brightness_bottom, state.brightness_top);
+  color.alpha *= sample.coverage *
+                 hs::lerp(state.opacity_low, state.opacity_high, sample.value);
+  return color;
+}
+
+template <int W, int H>
+Color4 exact_shade(const ShaderChain<W, H> &effect, const math::Vector &view,
+                   const Pullback::Interp::FrameContext &ctx,
+                   const std::string &oracle) {
+  using namespace Pullback;
+  using namespace Pullback::Interp;
+  using WB = hs_test::shader_chain_tests::ShaderChainWhiteBox;
+  const auto &program = WB::program(effect);
+  alignas(SLOT_ALIGN) uint8_t slot_a[SLOT_SIZE], slot_b[SLOT_SIZE];
+  void *input = slot_a, *output = slot_b;
+  ::new (input) SphereSample{view, 0.0f};
+  const auto ops = program.ops();
+  for (size_t index = 0; index < ops.size(); ++index) {
+    const auto &op = *ops[index].op;
+    const auto *params = program.param_block(index);
+    const auto *prepared = program.prepared_block(index);
+    if (oracle == "PEIRCE_FAST_SQUARE" &&
+        std::string_view(op.operator_id) == Op::ProjectPeirceSquareFastV3::ID) {
+      const auto &p =
+          *reinterpret_cast<const Op::ProjectPeirceSquareFastV3::Params *>(
+              params);
+      const auto &frame =
+          *reinterpret_cast<const Op::ProjectOrientation *>(prepared);
+      const auto &sphere = *static_cast<const SphereSample *>(input);
+      const auto local = math::rotate(sphere.dir, frame.conjugate);
+      ::new (output) PlaneSample{Kernel::project(
+          sphere, local,
+          Pullback::Projection::peirce(local, 0.0f, Op::PEIRCE_SQUARE_LAYOUT,
+                                       0.0f, true, p.coordinate_scale,
+                                       p.singularity_fade))};
+    } else if (oracle == "HUE_ROTATION_AND_NOISE_LUTS" &&
+               op.input == CarrierId::FIELD && op.output == CarrierId::COLOR) {
+      const auto &p =
+          *reinterpret_cast<const Op::GeneratedPaletteParams *>(params);
+      const auto &clock =
+          *static_cast<const Op::ColorClockState *>(program.state_block(index));
+      ::new (output) Color4{exact_colorize(
+          *static_cast<const FieldSample *>(input),
+          *reinterpret_cast<const Color::GeneratedPaletteState *>(prepared),
+          WB::hue_noise(effect), p.hue_noise_scale, clock.hue_noise_phase)};
+    } else {
+      op.runtime.run(input, output, ctx, params, prepared);
+    }
+    std::swap(input, output);
+  }
+  return *static_cast<const Color4 *>(input);
+}
+
+template <int W, int H>
+bool measure_oracle(ShaderChain<W, H> &effect,
+                    const OracleInstruction &instruction, uint16_t &maximum,
+                    uint32_t &samples) {
+  using WB = hs_test::shader_chain_tests::ShaderChainWhiteBox;
+  const auto *fixture =
+      find_fixture("oracle", instruction.oracle, W, H, instruction.preset,
+                   instruction.operation, instruction.hue_noise_phase);
+  if (!fixture ||
+      effect.restore_snapshot(ChainCaptureFixtures::snapshot(
+          fixture->snapshot_index)) != ChainSnapshotRestoreResult::APPLIED)
+    return false;
+  WB::oracle_phase(effect, instruction.hue_noise_phase);
+  const auto ctx = WB::context(effect);
+  const auto &program = WB::program(effect);
+  for (int y = 0; y < H; ++y)
+    for (int x = 0; x < W; ++x) {
+      if (!selected_pixel<W, H>(instruction.operation, x, y))
+        continue;
+      const auto view = math::pixel_to_vector<W, H>(x, y);
+      const auto optimized = program.evaluate(view, ctx);
+      const auto exact = exact_shade(effect, view, ctx, instruction.oracle);
+      const auto actual = optimized.color * optimized.alpha;
+      const auto expected = exact.color * exact.alpha;
+      const auto error = [](uint16_t a, uint16_t b) {
+        return static_cast<uint16_t>(a > b ? a - b : b - a);
+      };
+      maximum = std::max(maximum, std::max({error(actual.r, expected.r),
+                                            error(actual.g, expected.g),
+                                            error(actual.b, expected.b)}));
+      samples += 3;
+    }
   return true;
 }
 
@@ -589,13 +469,10 @@ int capture(const char *operations_path, const char *output_path) {
       metric = metrics.end() - 1;
     }
     hs_test::effects_tests::reset_effect_globals();
-    Shader<W, H> effect;
+    ShaderChain<W, H> effect;
     effect.init();
-    if (!hs_test::shader_workbench_tests::ShaderWorkbenchWhiteBox::
-            measure_oracle<W, H>(effect, instruction.oracle, instruction.preset,
-                                 instruction.hue_noise_phase,
-                                 instruction.operation, metric->maximum,
-                                 metric->samples)) {
+    if (!measure_oracle<W, H>(effect, instruction, metric->maximum,
+                              metric->samples)) {
       std::fprintf(
           stderr,
           "pullback oracle: measurement failed for %s preset=%u operation=%u\n",

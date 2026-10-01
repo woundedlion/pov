@@ -5,8 +5,7 @@
 // Gates the generated pullback manifest on the two identity properties
 // generate_pullback_manifest_header.py does not check: distinct program
 // topology keys, and distinct (oracle, domain, aggregation) metric triples.
-// The latter is what test_shader_workbench.h's first-match metric lookup
-// relies on; a duplicate triple would silently shadow a baseline.
+// A duplicate metric triple would shadow the first-match baseline lookup.
 #include "pullback_manifest.generated.h"
 
 #include <cstddef>

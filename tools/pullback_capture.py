@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Produce canonical pullback captures from native or WASM ShaderWorkbench builds."""
+"""Produce canonical pullback captures from native or WASM chain builds."""
 
 from __future__ import annotations
 

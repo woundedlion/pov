@@ -67,7 +67,7 @@
 //                            adds count-only plot path attribution.
 //   HS_PROFILE_PLOT_STALLS
 //                            adds short-batch DWT cycle/stall attribution.
-//   HS_PROFILE_SHADER_WORKBENCH_STAGES
+//   HS_PROFILE_PULLBACK_PROJECTION
 //                            adds polyhedral reflection counts.
 
 #if defined(HS_PROFILE_PLOT_RENDER_COUNTS) && defined(HS_PROFILE_PLOT_STALLS)
@@ -224,7 +224,7 @@ public:
 #ifdef HS_PROBE_BREAKDOWN
     drain_probe_breakdown();
 #endif
-#ifdef HS_PROFILE_SHADER_WORKBENCH_STAGES
+#ifdef HS_PROFILE_PULLBACK_PROJECTION
     drain_shader_workbench_stages();
 #endif
     render_sum += render;
@@ -300,7 +300,7 @@ private:
 #ifdef HS_PROFILE_PLOT_STALLS
     dump_plot_stalls();
 #endif
-#ifdef HS_PROFILE_SHADER_WORKBENCH_STAGES
+#ifdef HS_PROFILE_PULLBACK_PROJECTION
     dump_shader_workbench_stages();
 #endif
     dump_isr_stats(now - window_start);
@@ -371,8 +371,8 @@ private:
             (unsigned long)(share_c / 100u), (unsigned long)(share_c % 100u));
   }
 
-#ifdef HS_PROFILE_SHADER_WORKBENCH_STAGES
-  struct ShaderWorkbenchStageTotals {
+#ifdef HS_PROFILE_PULLBACK_PROJECTION
+  struct PullbackProjectionTotals {
     uint64_t polyhedral_pixels = 0;
     uint64_t polyhedral_reflections = 0;
     uint32_t polyhedral_max_reflections = 0;
@@ -381,30 +381,29 @@ private:
   };
 
   void drain_shader_workbench_stages() {
-    const hs::ShaderWorkbenchStageCycles &frame =
-        hs::g_shader_workbench_stage_cycles;
-    shader_workbench_stage_totals.polyhedral_pixels += frame.polyhedral_pixels;
-    shader_workbench_stage_totals.polyhedral_reflections +=
+    const hs::PullbackProjectionCycles &frame =
+        hs::g_pullback_projection_cycles;
+    pullback_projection_totals.polyhedral_pixels += frame.polyhedral_pixels;
+    pullback_projection_totals.polyhedral_reflections +=
         frame.polyhedral_reflections;
-    shader_workbench_stage_totals.polyhedral_max_reflections =
-        std::max(shader_workbench_stage_totals.polyhedral_max_reflections,
+    pullback_projection_totals.polyhedral_max_reflections =
+        std::max(pullback_projection_totals.polyhedral_max_reflections,
                  frame.polyhedral_max_reflections);
-    hs::g_shader_workbench_stage_cycles.reset();
+    hs::g_pullback_projection_cycles.reset();
   }
 
   void dump_shader_workbench_stages() {
     char pixels[21], reflections[21];
     hs::log(
         "polyhedral: pixels=%s reflections=%s max=%lu",
-        hs::u64_dec(shader_workbench_stage_totals.polyhedral_pixels, pixels),
-        hs::u64_dec(shader_workbench_stage_totals.polyhedral_reflections,
+        hs::u64_dec(pullback_projection_totals.polyhedral_pixels, pixels),
+        hs::u64_dec(pullback_projection_totals.polyhedral_reflections,
                     reflections),
-        (unsigned long)
-            shader_workbench_stage_totals.polyhedral_max_reflections);
-    shader_workbench_stage_totals.reset();
+        (unsigned long)pullback_projection_totals.polyhedral_max_reflections);
+    pullback_projection_totals.reset();
   }
 
-  ShaderWorkbenchStageTotals shader_workbench_stage_totals;
+  PullbackProjectionTotals pullback_projection_totals;
 #endif
 
 #ifdef HS_SCAN_METRICS

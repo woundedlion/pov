@@ -57,8 +57,6 @@ PREDEFINED             = FLASHMEM= \
                          HS_ENABLE_EFFECT_REGISTRY=1 \
                          HS_ENABLE_EFFECT_CONTROL_API=1 \
                          HS_ENABLE_PARAM_GUI_BRIDGE=1 \
-                         HS_ENABLE_SHADER_WORKBENCH_DYNAMIC_BACKEND=1 \
-                         HS_ENABLE_SHADER_WORKBENCH=1 \
                          HS_ENABLE_CHAIN_INTERPRETER=1
 
 GENERATE_HTML          = YES

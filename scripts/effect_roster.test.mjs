@@ -96,9 +96,8 @@ test('roster parsers ignore block-comment openers inside line comments', () => {
 });
 
 test('nested roster macros must identify known workbench-only rows', () => {
-  assert.deepEqual(parseEffectRoster(rosterOf('HS_SHADER_WORKBENCH_EFFECT(X)',
-    'HS_CHAIN_INTERPRETER_EFFECT(X)')), ['Last']);
+  assert.deepEqual(parseEffectRoster(rosterOf('HS_CHAIN_INTERPRETER_EFFECT(X)')), ['Last']);
   assert.throws(() => parseEffectRoster(rosterOf('HS_NEW_EFFECT(X)')), /Unknown effect roster row/);
-  assert.throws(() => parseEffectRoster(rosterOf('HS_SHADER_WORKBENCH_EFFECT(Y)')), /Unknown effect roster row/);
+  assert.throws(() => parseEffectRoster(rosterOf('HS_CHAIN_INTERPRETER_EFFECT(Y)')), /Unknown effect roster row/);
   assert.throws(() => parseEffectRoster(rosterOf('garbage')), /Unknown effect roster row/);
 });

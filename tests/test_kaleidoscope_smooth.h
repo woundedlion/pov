@@ -9,7 +9,7 @@
 #include "core/math/interpolate.h"
 #include "effects/KaleidoscopeSmooth.h"
 #include "tests/pixel_test_util.h"
-#include "tests/test_shader_workbench.h"
+#include "tests/composed_chain_fixture.h"
 
 namespace hs_test {
 namespace kaleidoscope_smooth_tests {
@@ -124,25 +124,16 @@ inline void test_kaleidoscope_smooth_transition_contract() {
   HS_EXPECT_FALSE(WB::transition_active(effect));
 }
 
-inline void test_kaleidoscope_smooth_shader_workbench_equivalence() {
-  constexpr int INNER_MIRROR_GRID = 11;
-  constexpr int COMPLEX_GRID = 13;
-  constexpr int DOUBLE_MAPPING_GRID = 14;
-  shader_workbench_tests::verify_fixed_shader_export<
-      KaleidoscopeSmoothWhiteBox::FX>(INNER_MIRROR_GRID, 0);
-  shader_workbench_tests::verify_fixed_shader_export<
-      KaleidoscopeSmoothWhiteBox::FX>(COMPLEX_GRID, 1);
-  shader_workbench_tests::verify_fixed_shader_export<
-      KaleidoscopeSmoothWhiteBox::FX>(DOUBLE_MAPPING_GRID, 2);
-  shader_workbench_tests::verify_fixed_shader_export<
-      KaleidoscopeSmoothWhiteBox::FX>(DOUBLE_MAPPING_GRID, 3);
+inline void test_kaleidoscope_smooth_chain_equivalence() {
+  for (size_t preset = 0; preset < 4; ++preset)
+    composed_chain_tests::verify_export<KaleidoscopeSmoothWhiteBox::FX>(preset);
 }
 
 inline int run_kaleidoscope_smooth_tests() {
   ModuleFixture fixture("kaleidoscope_smooth");
   test_kaleidoscope_smooth_identity_and_presets();
   test_kaleidoscope_smooth_transition_contract();
-  test_kaleidoscope_smooth_shader_workbench_equivalence();
+  test_kaleidoscope_smooth_chain_equivalence();
   return fixture.result();
 }
 

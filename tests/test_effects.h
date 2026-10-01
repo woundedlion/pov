@@ -5563,7 +5563,7 @@ inline void test_displacement_field_ball_spans_and_lifecycle() {
  * @details Pins |lens(v)| == 1 across a spread of directions, its doubled-
  *          latitude topology, and matching one-sided derivatives at the fold.
  */
-inline void test_shader_workbench_glitch_lens_unit_norm() {
+inline void test_glitch_lens_unit_norm() {
   for (float polar : {0.4f, 0.9f, 2.0f}) {
     for (float azimuth : {-2.1f, -0.4f, 0.7f, 1.8f}) {
       const math::Vector input(sinf(polar) * cosf(azimuth), cosf(polar),
@@ -6789,7 +6789,7 @@ inline int run_effects_tests() {
   run_case(test_displacement_field_lazy_hue_table_matches_eager);
   run_case(test_displacement_field_zero_hue_scale_is_exact);
   run_case(test_displacement_field_octave_bake_tracks_noise);
-  run_case(test_shader_workbench_glitch_lens_unit_norm);
+  run_case(test_glitch_lens_unit_norm);
   run_case(test_mobius_rings_conformal_and_counter_rotation);
   run_case(test_islamicstars_seed_sprite_fade_in);
   run_case(test_islamicstars_burst_size_is_snapshotted_per_spawn);

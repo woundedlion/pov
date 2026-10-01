@@ -13,6 +13,7 @@
 #include "targets/wasm/param_marshal.h"
 #if HS_ENABLE_CHAIN_INTERPRETER
 #include "core/render/pullback/catalog_export.h"
+#include "targets/wasm/chain_snapshot_codec.h"
 #endif
 #include <cmath>
 #include <functional>
@@ -20,30 +21,7 @@
 #include <span>
 #include <vector>
 
-#if HS_ENABLE_SHADER_WORKBENCH
-/**
- * @brief Outcome of restoreFullConfigSnapshot().
- * @details Exposed to JS as the Module.FullConfigRestoreResult embind enum;
- *          compare against its values, never by truthiness. Every value but
- *          APPLIED leaves the effect exactly as it was.
- */
-enum class FullConfigRestoreResult : uint8_t {
-  APPLIED,              /**< Snapshot installed. */
-  NOT_SHADER_WORKBENCH, /**< The loaded effect has no full configuration. */
-  UNSUPPORTED_VERSION,  /**< schemaVersion is not the current schema. */
-  INVALID_LENGTH,       /**< Snapshot missing, or an array whose length is not
-                            the field count. */
-  INVALID_VALUE,        /**< A field or runtime value outside what its slot
-                            admits. */
-  INVALID_ACCEPTED,     /**< Fields each in range but a combination the effect
-                            will not render. */
-  INVALID_PENDING,      /**< Pending list is absent, is not a set of in-range
-                            field indices, or does not match where accepted and
-                            requested differ. Retry with an empty list. */
-};
-#endif // HS_ENABLE_SHADER_WORKBENCH
-
-#if HS_ENABLE_SHADER_WORKBENCH || HS_ENABLE_CHAIN_INTERPRETER
+#if HS_ENABLE_CHAIN_INTERPRETER
 // Caller property access can re-enter embind, including delete().
 static bool snapshot_decode_active = false;
 struct SnapshotDecodeGuard {
@@ -87,7 +65,7 @@ public:
 
 protected:
   std::shared_ptr<WorkbenchBindingState> state;
-#if HS_ENABLE_SHADER_WORKBENCH || HS_ENABLE_CHAIN_INTERPRETER
+#if HS_ENABLE_CHAIN_INTERPRETER
   /** @brief Runs a callback when the live effect has the requested factory type. */
   template <template <int, int> class EffectT, typename Callback>
   bool with_effect(Callback &&callback) {
@@ -105,70 +83,8 @@ protected:
   }
 #endif
 
-  /** @brief Why a snapshot array failed to decode. */
-  enum class ArrayDecode : uint8_t {
-    OK,
-    BAD_LENGTH, /**< Not an array, or not the field count long. */
-    BAD_VALUE,  /**< An element outside what its slot admits. */
-  };
-
   static bool is_array(const emscripten::val &value) {
     return emscripten::val::global("Array").call<bool>("isArray", value);
-  }
-
-  static bool whole_uint32(double value) {
-    return std::isfinite(value) && value >= 0.0 &&
-           value <= static_cast<double>(UINT32_MAX) &&
-           value == std::floor(value);
-  }
-
-  template <size_t N>
-  static emscripten::val uint32_array(const std::array<uint32_t, N> &values) {
-    emscripten::val output = emscripten::val::array();
-    for (size_t index = 0; index < N; ++index)
-      output.set(index, values[index]);
-    return output;
-  }
-
-  template <size_t N>
-  static emscripten::val float_array(const std::array<float, N> &values) {
-    emscripten::val output = emscripten::val::array();
-    for (size_t index = 0; index < N; ++index)
-      output.set(index, values[index]);
-    return output;
-  }
-
-  template <size_t N>
-  static ArrayDecode decode_uint32_array(const emscripten::val &input,
-                                         std::array<uint32_t, N> &output) {
-    if (!is_array(input) || input["length"].as<size_t>() != N)
-      return ArrayDecode::BAD_LENGTH;
-    for (size_t index = 0; index < N; ++index) {
-      const emscripten::val element = input[index];
-      if (!element.isNumber())
-        return ArrayDecode::BAD_VALUE;
-      const double number = element.as<double>();
-      if (!whole_uint32(number))
-        return ArrayDecode::BAD_VALUE;
-      output[index] = static_cast<uint32_t>(number);
-    }
-    return ArrayDecode::OK;
-  }
-
-  template <size_t N>
-  static ArrayDecode decode_runtime(const emscripten::val &input,
-                                    std::array<float, N> &output) {
-    if (!is_array(input) || input["length"].as<size_t>() != N)
-      return ArrayDecode::BAD_LENGTH;
-    for (size_t index = 0; index < N; ++index) {
-      const emscripten::val element = input[index];
-      if (!element.isNumber())
-        return ArrayDecode::BAD_VALUE;
-      output[index] = element.as<float>();
-      if (!std::isfinite(output[index]))
-        return ArrayDecode::BAD_VALUE;
-    }
-    return ArrayDecode::OK;
   }
 
   void check_param_capacity() const {
@@ -180,264 +96,56 @@ protected:
 private:
   const uint64_t generation;
 };
-#if HS_ENABLE_SHADER_WORKBENCH
-class LegacyShaderBindings : public WorkbenchBindings {
-public:
-  using WorkbenchBindings::WorkbenchBindings;
-  bool isValid() const { return WorkbenchBindings::isValid(); }
-  RebuildRestore capture_rebuild_state() {
-    RebuildRestore restore;
-    with_effect<Shader>([&]<typename SB>(SB &shader) {
-      const auto snapshot = std::make_shared<typename SB::FullConfigSnapshot>(
-          shader.capture_full_config_snapshot());
-      restore = [snapshot](const auto &state) {
-        LegacyShaderBindings bindings(state);
-        bool restored = false;
-        bindings.with_effect<Shader>([&]<typename Target>(Target &target) {
-          if constexpr (std::is_same_v<typename SB::FullConfigSnapshot,
-                                       typename Target::FullConfigSnapshot>)
-            restored = target.restore_full_config_snapshot(*snapshot) ==
-                       Target::ConfigRestoreResult::APPLIED;
-        });
-        return restored;
-      };
-    });
-    return restore;
-  }
-#if HS_ENABLE_SHADER_WORKBENCH
-  /**
-   * @brief Returns the current Shader workbench's versioned full-state snapshot.
-   * @return JS object {schemaVersion, accepted, requested, pendingFieldIds,
-   *         hasRuntime, runtime}, or null when the loaded effect is not
-   *         Shader workbench.
-   * @details `accepted` and `requested` are CONFIG_FIELD_COUNT-long arrays of
-   *          uint32-encoded field values in ConfigFieldId order;
-   *          getFullConfigFieldDefinitions() names the indices.
-   *          `pendingFieldIds` lists the fields carrying an unresolved edit,
-   *          which at the current schema are exactly the fields where the two
-   *          arrays differ. `runtime` is the animation clock state and is
-   *          meaningful only when `hasRuntime`. The whole configuration crosses
-   *          as one object because Shader vets slots and params together:
-   *          replaying the parameter stream entry by entry walks through
-   *          combinations it refuses.
-   */
-  emscripten::val getFullConfigSnapshot() {
-    emscripten::val output = emscripten::val::null();
-    with_effect<Shader>([&]<typename SB>(SB &shader) {
-      const typename SB::FullConfigSnapshot snapshot =
-          shader.capture_full_config_snapshot();
-      output = emscripten::val::object();
-      output.set("schemaVersion", snapshot.schema_version);
-      output.set("accepted", uint32_array(snapshot.accepted));
-      output.set("requested", uint32_array(snapshot.requested));
-      emscripten::val pending_ids = emscripten::val::array();
-      size_t pending_count = 0;
-      for (size_t index = 0; index < snapshot.pending.size(); ++index)
-        if (snapshot.pending[index] != 0)
-          pending_ids.set(pending_count++, index);
-      output.set("pendingFieldIds", pending_ids);
-      output.set("hasRuntime", snapshot.has_runtime);
-      output.set("runtime", float_array(snapshot.runtime));
-    });
-    return output;
-  }
-
-  /**
-   * @brief Atomically restores a current Shader workbench snapshot.
-   * @param caller_input Object in getFullConfigSnapshot()'s shape.
-   * @return APPLIED, or the reason the snapshot was refused.
-   * @details Rejections leave the effect exactly as it was, so a failed restore
-   *          needs no rollback. NOT_SHADER_WORKBENCH covers the loaded effect;
-   *          UNSUPPORTED_VERSION a schemaVersion without a supported migration;
-   *          INVALID_LENGTH a missing snapshot or an array whose length is not
-   *          the field count; INVALID_VALUE a field or runtime value outside
-   *          what its slot admits; INVALID_ACCEPTED fields each in range but a
-   *          combination the effect will not render; INVALID_PENDING a pending
-   *          list that is absent, that is not a set of in-range field indices,
-   *          or that does not match where accepted and requested differ.
-   *          NOT_SHADER_WORKBENCH also covers an input whose accessors swap
-   *          the loaded effect out while the snapshot is being decoded.
-   */
-  FullConfigRestoreResult
-  restoreFullConfigSnapshot(const emscripten::val &caller_input) {
-    FullConfigRestoreResult result =
-        FullConfigRestoreResult::NOT_SHADER_WORKBENCH;
-    with_effect<Shader>([&]<typename SB>(SB &shader) {
-      // Payload cloning can invoke getters that replace or delete the owner.
-      const SnapshotDecodeGuard decode_guard;
-      const uint64_t owner_generation = state->generation;
-      const Effect *const owner = state->effect;
-      const void *const owner_type_key = state->entry->type_key;
-      const emscripten::val input = clone_payload(caller_input);
-      if (input.isUndefined() || input.isNull()) {
-        result = FullConfigRestoreResult::INVALID_LENGTH;
-        return;
-      }
-      const emscripten::val schema_version = input["schemaVersion"];
-      if (!schema_version.isNumber()) {
-        result = FullConfigRestoreResult::UNSUPPORTED_VERSION;
-        return;
-      }
-      const double schema_number = schema_version.as<double>();
-      if (!whole_uint32(schema_number)) {
-        result = FullConfigRestoreResult::UNSUPPORTED_VERSION;
-        return;
-      }
-      const auto version = static_cast<uint32_t>(schema_number);
-      if (!SB::config_version_supported(version)) {
-        result = FullConfigRestoreResult::UNSUPPORTED_VERSION;
-        return;
-      }
-      auto decode_and_restore = [&](auto &snapshot) {
-        snapshot.schema_version = version;
-        const emscripten::val has_runtime = input["hasRuntime"];
-        if (!has_runtime.isTrue() && !has_runtime.isFalse()) {
-          result = FullConfigRestoreResult::INVALID_VALUE;
-          return;
-        }
-        snapshot.has_runtime = has_runtime.as<bool>();
-        ArrayDecode decoded =
-            decode_uint32_array(input["accepted"], snapshot.accepted);
-        if (decoded == ArrayDecode::OK)
-          decoded = decode_uint32_array(input["requested"], snapshot.requested);
-        if (decoded == ArrayDecode::OK && snapshot.has_runtime)
-          decoded = decode_runtime(input["runtime"], snapshot.runtime);
-        if (decoded != ArrayDecode::OK) {
-          result = decoded == ArrayDecode::BAD_LENGTH
-                       ? FullConfigRestoreResult::INVALID_LENGTH
-                       : FullConfigRestoreResult::INVALID_VALUE;
-          return;
-        }
-        const emscripten::val pending_ids = input["pendingFieldIds"];
-        if (!is_array(pending_ids)) {
-          result = FullConfigRestoreResult::INVALID_PENDING;
-          return;
-        }
-        const size_t pending_count = pending_ids["length"].as<size_t>();
-        if (pending_count > snapshot.pending.size()) {
-          result = FullConfigRestoreResult::INVALID_PENDING;
-          return;
-        }
-        for (size_t index = 0; index < pending_count; ++index) {
-          const emscripten::val field_id = pending_ids[index];
-          if (!field_id.isNumber()) {
-            result = FullConfigRestoreResult::INVALID_PENDING;
-            return;
-          }
-          const double field_number = field_id.as<double>();
-          if (!whole_uint32(field_number) ||
-              field_number >= snapshot.pending.size()) {
-            result = FullConfigRestoreResult::INVALID_PENDING;
-            return;
-          }
-          uint8_t &pending =
-              snapshot.pending[static_cast<size_t>(field_number)];
-          if (pending != 0) {
-            result = FullConfigRestoreResult::INVALID_PENDING;
-            return;
-          }
-          pending = 1;
-        }
-        if (state->generation != owner_generation || state->effect != owner ||
-            state->entry->type_key != owner_type_key) {
-          result = FullConfigRestoreResult::NOT_SHADER_WORKBENCH;
-          return;
-        }
-        result = map_restore_result<SB>(
-            shader.restore_full_config_snapshot(snapshot));
-        if (result == FullConfigRestoreResult::APPLIED)
-          check_param_capacity();
-      };
-      if (version == SB::LEGACY_CONFIG_SCHEMA_VERSION) {
-        typename SB::LegacyFullConfigSnapshot snapshot;
-        decode_and_restore(snapshot);
-      } else {
-        typename SB::FullConfigSnapshot snapshot;
-        decode_and_restore(snapshot);
-      }
-    });
-    return result;
-  }
-
-  /**
-   * @brief Returns stable Shader workbench field IDs and diagnostic names.
-   * @return JS array of {id, name} in ConfigFieldId order, or null when the
-   *         loaded effect is not Shader.
-   * @details `id` is the index into a snapshot's accepted/requested arrays and
-   *          the value pendingFieldIds carries; `name` is the field's dotted
-   *          config path. A caller labels a field through this rather than a
-   *          hardcoded index, which moves when the schema gains a field.
-   */
-  emscripten::val getFullConfigFieldDefinitions() {
-    emscripten::val output = emscripten::val::null();
-    with_effect<Shader>([&]<typename SB>(SB &) {
-      output = emscripten::val::array();
-      for (size_t index = 0; index < SB::CONFIG_FIELD_COUNT; ++index) {
-        emscripten::val field = emscripten::val::object();
-        field.set("id", index);
-        field.set("name", SB::config_field_name(
-                              static_cast<typename SB::ConfigFieldId>(index)));
-        output.set(index, field);
-      }
-    });
-    return output;
-  }
-
-#endif // HS_ENABLE_SHADER_WORKBENCH
-private:
-#if HS_ENABLE_SHADER_WORKBENCH
-  template <typename SB>
-  static FullConfigRestoreResult
-  map_restore_result(typename SB::ConfigRestoreResult result) {
-    switch (result) {
-    case SB::ConfigRestoreResult::APPLIED:
-      return FullConfigRestoreResult::APPLIED;
-    case SB::ConfigRestoreResult::UNSUPPORTED_VERSION:
-      return FullConfigRestoreResult::UNSUPPORTED_VERSION;
-    case SB::ConfigRestoreResult::INVALID_VALUE:
-      return FullConfigRestoreResult::INVALID_VALUE;
-    case SB::ConfigRestoreResult::INVALID_ACCEPTED:
-      return FullConfigRestoreResult::INVALID_ACCEPTED;
-    case SB::ConfigRestoreResult::INVALID_PENDING:
-      return FullConfigRestoreResult::INVALID_PENDING;
-    }
-    __builtin_unreachable();
-  }
-#endif // HS_ENABLE_SHADER_WORKBENCH
-};
-#endif
 #if HS_ENABLE_CHAIN_INTERPRETER
 class ShaderChainBindings : public WorkbenchBindings {
 public:
   using WorkbenchBindings::WorkbenchBindings;
   bool isValid() const { return WorkbenchBindings::isValid(); }
+  emscripten::val getSnapshot() {
+    auto result = emscripten::val::null();
+    with_effect<ShaderChain>([&](auto &chain) {
+      result = hs_wasm::ChainSnapshotCodec::encode(chain.snapshot());
+    });
+    return result;
+  }
+
+  ChainSnapshotRestoreResult
+  restoreSnapshot(const emscripten::val &caller_input) {
+    using Result = ChainSnapshotRestoreResult;
+    const SnapshotDecodeGuard guard;
+    if (!isValid())
+      return Result::NOT_SHADER_CHAIN;
+    const uint64_t owner_generation = state->generation;
+    const auto schema_generation =
+        state->effect->getParameterSchemaGeneration();
+    const Effect *const owner = state->effect;
+    ChainSnapshot snapshot;
+    const auto result = hs_wasm::ChainSnapshotCodec::decode(
+        clone_payload(caller_input), snapshot);
+    if (!isValid() || state->generation != owner_generation ||
+        state->effect != owner ||
+        state->effect->getParameterSchemaGeneration() != schema_generation)
+      return Result::NOT_SHADER_CHAIN;
+    if (result != Result::APPLIED)
+      return result;
+    Result restored = Result::NOT_SHADER_CHAIN;
+    with_effect<ShaderChain>(
+        [&](auto &chain) { restored = chain.restore_snapshot(snapshot); });
+    if (restored == Result::APPLIED) {
+      check_param_capacity();
+      state->paused = state->effect->animations_paused();
+    }
+    return restored;
+  }
   RebuildRestore capture_rebuild_state() {
     RebuildRestore restore;
-    with_effect<ShaderChain>([&]<typename SC>(SC &chain) {
-      std::vector<std::pair<std::string, std::string>> entries;
-      for (const auto &entry : chain.chain_ops())
-        entries.emplace_back(entry.instance, entry.op->operator_id);
-      std::vector<std::pair<std::string, float>> parameters;
-      chain.refresh_parameter_display();
-      for (const auto &parameter : chain.getParameters())
-        if (!parameter.readonly)
-          parameters.emplace_back(parameter.name, parameter.get_requested());
-      restore = [entries = std::move(entries),
-                 parameters = std::move(parameters)](const auto &state) {
+    with_effect<ShaderChain>([&](auto &chain) {
+      restore = [snapshot = chain.snapshot()](const auto &state) {
         ShaderChainBindings bindings(state);
         bool restored = false;
-        bindings.with_effect<ShaderChain>([&]<typename Target>(Target &target) {
-          std::vector<Pullback::Interp::ChainEntryRequest> requests;
-          for (const auto &[instance, operation] : entries)
-            requests.push_back({instance, operation});
-          if (target.set_chain(requests).code !=
-              Pullback::Interp::ChainStatus::OK)
-            return;
-          std::vector<ShaderChainParameterWrite> writes;
-          for (const auto &[name, value] : parameters)
-            writes.push_back({name.c_str(), value});
-          restored =
-              target.update_parameters(writes) == ParamSetResult::APPLIED;
+        bindings.with_effect<ShaderChain>([&](auto &target) {
+          restored = target.restore_snapshot(snapshot) ==
+                     ChainSnapshotRestoreResult::APPLIED;
         });
         return restored;
       };
@@ -628,12 +336,6 @@ std::shared_ptr<Bindings> acquire_workbench_bindings(
   return result;
 }
 
-#if HS_ENABLE_SHADER_WORKBENCH
-inline std::shared_ptr<LegacyShaderBindings> acquire_legacy_shader_bindings(
-    const std::shared_ptr<WorkbenchBindingState> &state) {
-  return acquire_workbench_bindings<Shader, LegacyShaderBindings>(state);
-}
-#endif
 #if HS_ENABLE_CHAIN_INTERPRETER
 inline std::shared_ptr<ShaderChainBindings> acquire_shader_chain_bindings(
     const std::shared_ptr<WorkbenchBindingState> &state) {
@@ -642,23 +344,21 @@ inline std::shared_ptr<ShaderChainBindings> acquire_shader_chain_bindings(
 #endif
 
 static void bind_workbench_adapters() {
-#if HS_ENABLE_SHADER_WORKBENCH
-  emscripten::class_<LegacyShaderBindings>("LegacyShaderBindings")
-      .smart_ptr<std::shared_ptr<LegacyShaderBindings>>(
-          "LegacyShaderBindingsHandle")
-      .function("isValid", &LegacyShaderBindings::isValid)
-      .function("getFullConfigSnapshot",
-                &LegacyShaderBindings::getFullConfigSnapshot)
-      .function("restoreFullConfigSnapshot",
-                &LegacyShaderBindings::restoreFullConfigSnapshot)
-      .function("getFullConfigFieldDefinitions",
-                &LegacyShaderBindings::getFullConfigFieldDefinitions);
-#endif
 #if HS_ENABLE_CHAIN_INTERPRETER
+  emscripten::enum_<ChainSnapshotRestoreResult>("ChainSnapshotRestoreResult")
+      .value("APPLIED", ChainSnapshotRestoreResult::APPLIED)
+      .value("NOT_SHADER_CHAIN", ChainSnapshotRestoreResult::NOT_SHADER_CHAIN)
+      .value("UNSUPPORTED_VERSION",
+             ChainSnapshotRestoreResult::UNSUPPORTED_VERSION)
+      .value("INVALID_LENGTH", ChainSnapshotRestoreResult::INVALID_LENGTH)
+      .value("INVALID_VALUE", ChainSnapshotRestoreResult::INVALID_VALUE)
+      .value("INVALID_CHAIN", ChainSnapshotRestoreResult::INVALID_CHAIN);
   emscripten::class_<ShaderChainBindings>("ShaderChainBindings")
       .smart_ptr<std::shared_ptr<ShaderChainBindings>>(
           "ShaderChainBindingsHandle")
       .function("isValid", &ShaderChainBindings::isValid)
+      .function("getSnapshot", &ShaderChainBindings::getSnapshot)
+      .function("restoreSnapshot", &ShaderChainBindings::restoreSnapshot)
       .function("setShaderChain", &ShaderChainBindings::setShaderChain)
       .function("setShaderChainParameters",
                 &ShaderChainBindings::setShaderChainParameters)

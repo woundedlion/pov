@@ -81,9 +81,9 @@ struct ProbeBreakdown {
 inline ProbeBreakdown g_probe_breakdown;
 #endif
 
-#ifdef HS_PROFILE_SHADER_WORKBENCH_STAGES
+#ifdef HS_PROFILE_PULLBACK_PROJECTION
 /** @brief Per-frame polyhedral reflection counts. */
-struct ShaderWorkbenchStageCycles {
+struct PullbackProjectionCycles {
   uint32_t polyhedral_pixels = 0; /**< Pixels entering polyhedral projection. */
   uint32_t polyhedral_reflections = 0; /**< Reflection iterations executed. */
   uint32_t polyhedral_max_reflections =
@@ -93,7 +93,7 @@ struct ShaderWorkbenchStageCycles {
   void reset() { *this = {}; }
 };
 
-inline ShaderWorkbenchStageCycles g_shader_workbench_stage_cycles;
+inline PullbackProjectionCycles g_pullback_projection_cycles;
 #endif
 
 #ifdef HS_PLOT_COUNTS
@@ -331,7 +331,7 @@ private:
 #define HS_PROBE_TICK() ((void)0)
 #endif
 
-#ifdef HS_PROFILE_SHADER_WORKBENCH_STAGES
+#ifdef HS_PROFILE_PULLBACK_PROJECTION
 #define HS_SB_STAGE_COUNT(stmt)                                                \
   do {                                                                         \
     (stmt);                                                                    \
