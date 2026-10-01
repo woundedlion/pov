@@ -29,6 +29,8 @@ struct TestBinding {
 };
 
 inline void record(const TestFrame &frame, uint8_t id) {
+  HS_CHECK(frame.call_count < frame.calls.size(),
+           "pullback call recorder overflow");
   frame.calls[frame.call_count++] = id;
 }
 
