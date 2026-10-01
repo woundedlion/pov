@@ -786,9 +786,9 @@ template <int W, int H> struct BoundingSphere {
       theta_span = dtheta * W / (2.0f * math::PI_F);
     }
     // +1 absorbs ceil/round-off at the span edges; the downstream per-pixel
-    // ray-sphere test rejects any extra column. The W/2 .. (W+1)/2 caps bound
-    // the span length at W (scan_region's producer contract). Endpoints are
-    // not clamped to [0,W); scan_region wraps them.
+    // ray-sphere test rejects any extra column. The half-width caps emit at
+    // most one row, with full rows using emit_row_runs' length >= W fast path.
+    // Endpoints are not clamped to [0,W); scan_region wraps them.
     int span = static_cast<int>(ceilf(theta_span)) + 1;
     int x_lo = std::min(W / 2, span);
     int x_hi = std::min((W + 1) / 2, span);
