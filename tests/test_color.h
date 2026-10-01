@@ -1061,13 +1061,7 @@ inline void test_hue_rotate_full_turn_in_steps_holds_hue_and_chroma() {
 
     const OKLCH before = pixel_to_oklch(cases[ci].color);
     const OKLCH after = pixel_to_oklch(out.color);
-    float dh = after.h - before.h;
-    if (dh > math::PI_F)
-      dh -= 2.0f * math::PI_F;
-    else if (dh < -math::PI_F)
-      dh += 2.0f * math::PI_F;
-
-    HS_EXPECT_NEAR(dh, 0.0f, 0.09f);
+    HS_EXPECT_NEAR(wrap_hue_delta(after.h - before.h), 0.0f, 0.09f);
     HS_EXPECT_NEAR(after.L, before.L, 1e-3f);
     HS_EXPECT_LE(after.C, before.C + 1e-4f);
     if (ci == 1)
