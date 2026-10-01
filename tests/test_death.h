@@ -3567,6 +3567,32 @@ inline void case_sdf_distorted_ring_two_knots() {
     std::printf("x");
 }
 
+inline void case_gamut_lut_scratch_a() {
+  init_gamut_lut(scratch_arena_a, GAMUT_LUT_MIN_ANGLE_STEPS,
+                 GAMUT_LUT_MIN_L_STEPS);
+}
+
+inline void case_gamut_lut_scratch_b() {
+  init_gamut_lut(scratch_arena_b, GAMUT_LUT_MIN_ANGLE_STEPS,
+                 GAMUT_LUT_MIN_L_STEPS);
+}
+
+inline void case_scan_ring_stack_too_many_slots() {
+  constexpr int W = 32, H = 16;
+  const math::Basis b{math::Vector(1, 0, 0), math::Vector(0, 1, 0),
+                      math::Vector(0, 0, 1)};
+  const float knots[4] = {0.0f, 0.01f, 0.0f, -0.01f};
+  SDF::DistortedRing ring(b, 1.0f, 0.05f, knots, 4, 0.0f, nullptr);
+  const int8_t slot_by_ring[1] = {0};
+  hs_test::StubEffect fx(W, H);
+  Pipeline<W, H> pipeline;
+  Canvas canvas(fx);
+  static Scan::DistortedRingStack::CandidateTable<W, H> table;
+  Scan::DistortedRingStack::draw<W, H>(
+      pipeline, canvas, 1, &ring, slot_by_ring, opaque(INT8_MAX + 1), table,
+      [](int, const math::Vector &, Fragment &) {});
+}
+
 inline void case_scan_ring_stack_too_many_rings() {
   constexpr int W = 32, H = 16;
   const math::Basis b{math::Vector(1, 0, 0), math::Vector(0, 1, 0),
@@ -4917,7 +4943,8 @@ inline const Case *all_cases(int &n) {
        "(Lens::MobiusLensParams::nondegenerate(mobius)) sphere.lens.mobius: degenerate coefficients"},
       {"pullback_curl_unstable", case_pullback_curl_unstable,
        "core/render/pullback/operators_warp.h",
-       "(params.scale * fabsf(params.strength) * Warp::CURL_VECTOR_COMPONENT_MAX / intervals <= 0.5f) warp.curl-flow: unstable scale and strength for integrator"},
+       "(stable(params)) warp.curl-flow: unstable scale and "
+       "strength for integrator"},
       {"shapeshifter_count_over_capacity",
        case_shapeshifter_count_over_capacity, "effects/ShapeShifter.h",
        "(count >= 1 && count <= MAX_SHAPES) ShapeShifter: contour count"},
@@ -5867,10 +5894,10 @@ inline const Case *all_cases(int &n) {
       {"chain_zero_alignment", case_chain_zero_alignment,
        "core/render/pullback/interpreter.h",
        "(layout.align != 0 && (layout.align & (layout.align - 1)) == 0 && layout.align <= alignof(std::max_align_t)) ChainProgram::bind_storage: invalid block alignment"},
-      {"chain_non_power_alignment", case_chain_non_power_alignment, "core/render/pullback/interpreter.h", "(layout.align != 0 && (layout.align & (layout.align - 1)) == 0 && layout.align <= alignof(std::max_align_t)) ChainProgram::bind_storage: invalid block alignment"},
-      {"chain_overaligned_block", case_chain_overaligned_block,
+      {"chain_non_power_alignment", case_chain_non_power_alignment,
        "core/render/pullback/interpreter.h",
        "(layout.align != 0 && (layout.align & (layout.align - 1)) == 0 && layout.align <= alignof(std::max_align_t)) ChainProgram::bind_storage: invalid block alignment"},
+      {"chain_overaligned_block", case_chain_overaligned_block, "core/render/pullback/interpreter.h", "(layout.align != 0 && (layout.align & (layout.align - 1)) == 0 && layout.align <= alignof(std::max_align_t)) ChainProgram::bind_storage: invalid block alignment"},
       {"chain_zero_size", case_chain_zero_size,
        "core/render/pullback/interpreter.h",
        "(layout.size > 0 && layout.size % layout.align == 0) ChainProgram::bind_storage: invalid block size"},
@@ -5944,6 +5971,15 @@ inline const Case *all_cases(int &n) {
       {"sdf_distorted_ring_two_knots", case_sdf_distorted_ring_two_knots,
        "core/render/sdf/rings.h",
        "(kn != nullptr && n >= 3) DistortedRing: knot storage requires at least three knots"},
+      {"gamut_lut_scratch_a", case_gamut_lut_scratch_a,
+       "core/color/color_space.h",
+       "(&arena != &scratch_arena_a && &arena != &scratch_arena_b) init_gamut_lut: global LUT requires non-scratch storage"},
+      {"gamut_lut_scratch_b", case_gamut_lut_scratch_b,
+       "core/color/color_space.h",
+       "(&arena != &scratch_arena_a && &arena != &scratch_arena_b) init_gamut_lut: global LUT requires non-scratch storage"},
+      {"scan_ring_stack_too_many_slots", case_scan_ring_stack_too_many_slots,
+       "core/render/scan/shapes.h",
+       "(n_slots <= INT8_MAX) ring stack exceeds the signed slot index range"},
       {"scan_ring_stack_too_many_rings", case_scan_ring_stack_too_many_rings,
        "core/render/scan/shapes.h",
        "(n_rings <= Table::MAX_RINGS) ring stack exceeds the candidate table's ring index range"},
@@ -6633,7 +6669,7 @@ inline constexpr GuardGapAllowance GUARD_GAP_ALLOW[] = {
     {"core/math/spherical.h", 1},
     {"core/math/spherical_field.h", 2},
     {"core/math/waves.h", 1},
-    {"core/mesh/conway.h", 32},
+    {"core/mesh/conway.h", 31},
     {"core/mesh/conway_graph.h", 1},
     {"core/mesh/hankin.h", 8},
     {"core/mesh/mesh.h", 8},
