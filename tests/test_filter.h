@@ -2056,7 +2056,8 @@ inline void test_feedback_flush_blends_prev_frame() {
  * both bounds below are derived from that transform rather than fitted.
  * Longitude must not change the sample: the only per-column variation the path
  * admits is hue_fade_apply2's paired lanes, which split by ~4e-7 relative
- * (styles.h) — inside one u16 step. Against the seeded color the bound is
+ * (feedback_style.h) — inside one u16 step for the in-gamut pole colour.
+ * Against the seeded color the bound is
  * looser, because one pass runs each channel through linear_rgb_to_lms,
  * fast_cbrt (peak relative error ~2.3e-5), the hue matrix and a cube; cubing
  * triples a relative error, so a channel round-trips within 3 * 2.3e-5 * 65535.
