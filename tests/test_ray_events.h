@@ -4,10 +4,10 @@
  */
 #pragma once
 
-#include "render/ray/shade.h"
+#include "core/render/ray/shade.h"
 #include "tests/test_cellular_wire.h"
 #include "tests/test_lattice_trace.h"
-#include "render/pullback/ray.h"
+#include "core/render/pullback/ray.h"
 #include "tests/test_harness.h"
 #include "tests/test_fixture.h"
 
@@ -118,12 +118,8 @@ inline void test_failure_status_survives_flush() {
   HS_EXPECT_EQ(result.counters.layers, 1);
 }
 
-inline int run_ray_event_tests() {
-  hs_test::ModuleFixture fixture("ray_events");
-  cellular_wire_tests::run_cellular_wire_cases();
-  lattice_trace_tests::run_lattice_trace_cases();
-  test_single_group_capacity();
-  test_failure_status_survives_flush();
+/** @brief Event tracing orders, merges, bounds, and rejects invalid streams. */
+inline void test_event_stream_contracts() {
   Streams streams;
   for (size_t i = 0; i < streams.STREAM_COUNT; ++i) {
     streams.heads[i].t = static_cast<float>(5 - i);
@@ -188,7 +184,10 @@ inline int run_ray_event_tests() {
     return true;
   });
   HS_EXPECT_EQ(result.counters.layers, 1);
+}
 
+/** @brief Verified filtering preserves aggregate counters and unresolved status. */
+inline void test_verified_filter_contracts() {
   const std::array<math::Vector, 4> directions{math::X_AXIS, math::Y_AXIS,
                                                math::Z_AXIS, -math::X_AXIS};
   int sample = 0;
@@ -210,6 +209,16 @@ inline int run_ray_event_tests() {
   HS_EXPECT_EQ(filtered.trace.counters.candidates, 12);
   HS_EXPECT_EQ(filtered.trace.counters.layers, 4);
   HS_EXPECT_EQ(filtered.trace.status, Raycast::TraceStatus::UNRESOLVED);
+}
+
+inline int run_ray_event_tests() {
+  hs_test::ModuleFixture fixture("ray_events");
+  cellular_wire_tests::run_cellular_wire_cases();
+  lattice_trace_tests::run_lattice_trace_cases();
+  test_single_group_capacity();
+  test_failure_status_survives_flush();
+  test_event_stream_contracts();
+  test_verified_filter_contracts();
   return fixture.result();
 }
 
