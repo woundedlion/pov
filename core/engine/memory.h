@@ -30,9 +30,7 @@
 // treat the host high-water mark as an exact device figure. Effects tune their
 // own split via configure_arenas() to fit the device budget.
 // The real device FlexRAM (RAM1) arena block, sized from the measured
-// worst-effect high-water (tests/arena_measure.cpp): GSReactionDiffusion is the
-// binding tenant at ~291 KiB total (~171 KiB persistent + ~120 KiB scratch
-// under its own split). A distinct always-defined constant (not the
+// worst-effect high-water (tests/arena_measure.cpp). A distinct always-defined constant (not the
 // host-inflated GLOBAL_ARENA_SIZE below) so device-budget static_asserts check
 // the real figure even in the host suite.
 constexpr size_t DEVICE_GLOBAL_ARENA_SIZE = HS_DEVICE_ARENA_BYTES;
