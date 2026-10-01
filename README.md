@@ -737,7 +737,7 @@ A typical effect frame follows a four-stage pipeline. Not every effect uses ever
 
 **Transform**: Deform geometry in world space — ripple wavelets, noise displacement, Möbius warps, quaternion rotation. `MeshOps::transform()` chains transformers: `transform(input, output, arena, ripple, orient)`.
 
-**Rasterize**: Convert geometry to pixels. Two families:
+**Rasterize**: Convert geometry to pixels. Three paths:
 - **SDF path** (`sdf.h` → `scan.h`): analytic shapes with scanline intervals and `quintic_kernel` anti-aliasing
 - **Plot path** (`plot.h`): line/curve rasterization with adaptive step size from full 2-D screen-velocity tracking for uniform sampling
 - **Shader path** (`Scan::Shader`): full-screen per-pixel evaluation with optional SSAA
