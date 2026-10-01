@@ -8,9 +8,8 @@
  * @brief Per-(W,H) effect factory and resolution dispatch behind the WASM
  *        engine, free of emscripten types.
  *
- * Split out of engine_bindings.h so the native suite can compile and drive it
- * under live HS_CHECK, ASan/UBSan and -O0, the way param_marshal.h and
- * wasm_predicates.h already are.
+ * The native suite compiles and drives it under live HS_CHECK, ASan/UBSan
+ * and -O0 (tests/test_effect_factory.h).
  */
 #pragma once
 
