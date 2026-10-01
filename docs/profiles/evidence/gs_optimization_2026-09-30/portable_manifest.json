@@ -13,9 +13,9 @@
   },
   {
     "file": "baseline/phantasm_envdump.txt",
-    "operation": "trailing whitespace and outer blank lines removed; UTF-8 LF",
+    "operation": "trailing whitespace and outer blank lines removed; UTF-8 LF; process environment omitted",
     "input_sha256": "b6796bedef4064c7097f32c36f452f2d44be82335551e4c5f86bc641570d18b0",
-    "portable_sha256": "ea70c69c5633ffd8894c7b0fa42cdb817aeb58da0ef1e3f6d3359573d4d5eb1f"
+    "portable_sha256": "c9dea77d563546b163596f9cec9add441cd22f812c9cc1311bbd074e956269bb"
   },
   {
     "file": "baseline/profile_build.txt",
@@ -25,9 +25,9 @@
   },
   {
     "file": "baseline/profile_envdump.txt",
-    "operation": "trailing whitespace and outer blank lines removed; UTF-8 LF",
+    "operation": "trailing whitespace and outer blank lines removed; UTF-8 LF; process environment omitted",
     "input_sha256": "446aabda3ebf760f417dc2acf6bb9777585ef7c0b073b222031e62f12f98a01f",
-    "portable_sha256": "8c09f10a9cd0fb091a7540327e98f44f56a5ab7abe5ea5f6eae1c90df6eb227e"
+    "portable_sha256": "ddcbc1fce2d70ef1e1b19109021fc231d07923c26b6fb41de15212a796e7250d"
   },
   {
     "file": "baseline/source.json",
@@ -79,9 +79,9 @@
   },
   {
     "file": "branchless/phantasm_envdump.txt",
-    "operation": "trailing whitespace and outer blank lines removed; UTF-8 LF",
+    "operation": "trailing whitespace and outer blank lines removed; UTF-8 LF; process environment omitted",
     "input_sha256": "abb3a5ba8f4b0f72aea5423dea21860d8b2663023bd5317102934462921be0a7",
-    "portable_sha256": "85f2a6e6052fa271be57214cf06699cc95f1b4be498aaa9b9672a0164d515a59"
+    "portable_sha256": "e2d8506cd884ac063ec134141fe7070d37b52625f07a34d2dfe9372c4e7237f5"
   },
   {
     "file": "branchless/profile_build.txt",
@@ -91,9 +91,9 @@
   },
   {
     "file": "branchless/profile_envdump.txt",
-    "operation": "trailing whitespace and outer blank lines removed; UTF-8 LF",
+    "operation": "trailing whitespace and outer blank lines removed; UTF-8 LF; process environment omitted",
     "input_sha256": "6e6887bfaff355e2da0984c81f952c49f7929ec964004527420ada4d1b811ca8",
-    "portable_sha256": "4da8966754c8fa90d94b0de66c182c0fc27580519046d16859e8ee3d6ce59bcc"
+    "portable_sha256": "a4e487763046ab170ff9eb03f88c34f932d846453df52a734f532c15b0e4fb57"
   },
   {
     "file": "branchless/source.json",
@@ -139,9 +139,9 @@
   },
   {
     "file": "deep/phantasm_envdump.txt",
-    "operation": "trailing whitespace and outer blank lines removed; UTF-8 LF",
+    "operation": "trailing whitespace and outer blank lines removed; UTF-8 LF; process environment omitted",
     "input_sha256": "272595ed73a2818ff8f577cbb73450a58d691fd0bc1cf5ca507dda80b41f79a8",
-    "portable_sha256": "1741d39dbc22ecfb902334612e0642f7bcc1ec9b728cfbd4c3081e0162ec55ad"
+    "portable_sha256": "8cec7bbb3c34abf4179bb202ac1e7e547fe55b930fde1b0e0834d03bdfa13770"
   },
   {
     "file": "deep/profile_build.txt",
@@ -151,9 +151,9 @@
   },
   {
     "file": "deep/profile_envdump.txt",
-    "operation": "trailing whitespace and outer blank lines removed; UTF-8 LF",
+    "operation": "trailing whitespace and outer blank lines removed; UTF-8 LF; process environment omitted",
     "input_sha256": "133e764e84a1188b06a8071683176d9b9a4aa9b3324394198abc9bf07167f42a",
-    "portable_sha256": "5e0d29cb32569ceb54fb2f2b374e8a4fe61d124225afbccbfb75b711f43e772d"
+    "portable_sha256": "0aca2a9b5ac3be576a5af484a95ae5613b23fa66e86958a25ade6f790db81000"
   },
   {
     "file": "deep/source.json",
@@ -205,9 +205,9 @@
   },
   {
     "file": "finalo3/phantasm_envdump.txt",
-    "operation": "trailing whitespace and outer blank lines removed; UTF-8 LF",
+    "operation": "trailing whitespace and outer blank lines removed; UTF-8 LF; process environment omitted",
     "input_sha256": "631c2943d9806545432850b98acbbcd6dd9365a48ed41b5f981e8c56c346f525",
-    "portable_sha256": "1c942162b150bb2237a00f925684fb54bdbb0190a8e88636912d864fe1ce5df6"
+    "portable_sha256": "ecbcba0ab68a3bb3750de65c7e6652428c51627002d55873420fde53845d2127"
   },
   {
     "file": "finalo3/profile_build.txt",
@@ -217,9 +217,9 @@
   },
   {
     "file": "finalo3/profile_envdump.txt",
-    "operation": "trailing whitespace and outer blank lines removed; UTF-8 LF",
+    "operation": "trailing whitespace and outer blank lines removed; UTF-8 LF; process environment omitted",
     "input_sha256": "479a9ed8313c6d50bc143e90cd092a0d8b8a7c9b188dcb8156f806b57db0da20",
-    "portable_sha256": "40e008937439a3a581fe8b2ac3e714c5dcaa5b7589ebded623fb6c4bf9223e24"
+    "portable_sha256": "63acf42ff751040365ed1d87853909e1da0fb692a48b99e6a5c7636a1e807296"
   },
   {
     "file": "finalo3/source.json",
@@ -259,9 +259,9 @@
   },
   {
     "file": "finalship/phantasm_envdump.txt",
-    "operation": "trailing whitespace and outer blank lines removed; UTF-8 LF",
+    "operation": "trailing whitespace and outer blank lines removed; UTF-8 LF; process environment omitted",
     "input_sha256": "942d94b592aed52670e4817e18bb71516a86b8ed46bd58f941f0623b60088572",
-    "portable_sha256": "fa644211368e55afa7a44cbc29dd6cf84df3baeee8b1e0b94899863b16cb5dca"
+    "portable_sha256": "3232b26ad74ce2f18935c8f26e0ba05a46460333711a35a3e58ba89181a5cd94"
   },
   {
     "file": "finalship/profile_build.txt",
@@ -271,9 +271,9 @@
   },
   {
     "file": "finalship/profile_envdump.txt",
-    "operation": "trailing whitespace and outer blank lines removed; UTF-8 LF",
+    "operation": "trailing whitespace and outer blank lines removed; UTF-8 LF; process environment omitted",
     "input_sha256": "7e42405e1c241534d70543faaf931f0268c264c5946c34d310619b7d862f6c9e",
-    "portable_sha256": "78aaba864f1e0e30bb6461d81acdf867bd7cd91d78541601d7a05146001b4202"
+    "portable_sha256": "ef5132e24dd10d734572b796773342cd4667569493c92452428d38353da7cfaf"
   },
   {
     "file": "finalship/source.json",
@@ -313,9 +313,9 @@
   },
   {
     "file": "floatpalette/phantasm_envdump.txt",
-    "operation": "trailing whitespace and outer blank lines removed; UTF-8 LF",
+    "operation": "trailing whitespace and outer blank lines removed; UTF-8 LF; process environment omitted",
     "input_sha256": "5ac96cb4b045b2af810d8ed10e8ac5676589597b8ee5c1db0b33d053818fb760",
-    "portable_sha256": "c04c61dfdf875f3e9d0474d60c4fcf04b961da6f3a414d66f79df0265fdd9f99"
+    "portable_sha256": "3ca05c378ee40b088a51eb94a8b50a16b8cfcf9f4fae64ef1a18d4eef6a8a8d3"
   },
   {
     "file": "floatpalette/profile_build.txt",
@@ -325,9 +325,9 @@
   },
   {
     "file": "floatpalette/profile_envdump.txt",
-    "operation": "trailing whitespace and outer blank lines removed; UTF-8 LF",
+    "operation": "trailing whitespace and outer blank lines removed; UTF-8 LF; process environment omitted",
     "input_sha256": "3698e0d3472866f3bdc0176a5e95836b3e61136c4b57eaa8dda2c98a7287c5c5",
-    "portable_sha256": "5a0f5a33ce3dc728322927f1cf32fc9cc77140dc20ef6639be24151a34d6b410"
+    "portable_sha256": "ee93c19752ce0189d0fdb73c0a27ead1b69b417d30824c180c502b6d0a0999bf"
   },
   {
     "file": "floatpalette/source.json",
@@ -367,9 +367,9 @@
   },
   {
     "file": "graphcull/phantasm_envdump.txt",
-    "operation": "trailing whitespace and outer blank lines removed; UTF-8 LF",
+    "operation": "trailing whitespace and outer blank lines removed; UTF-8 LF; process environment omitted",
     "input_sha256": "e7e07ebaf70bb09a7f89a48ae71cbef83f1ae4d4e8bf871ace6e38aae70da652",
-    "portable_sha256": "1f8281a690add327a837e80f7fa2121660e43f5b9a5f47732da2bf32c58021ca"
+    "portable_sha256": "ae759827528beb6d710af60fd618b52244dfcd6129c592996cc06396e4841d08"
   },
   {
     "file": "graphcull/profile_build.txt",
@@ -379,9 +379,9 @@
   },
   {
     "file": "graphcull/profile_envdump.txt",
-    "operation": "trailing whitespace and outer blank lines removed; UTF-8 LF",
+    "operation": "trailing whitespace and outer blank lines removed; UTF-8 LF; process environment omitted",
     "input_sha256": "93319ba9fe10e93e7f748b71caad8a9626f3710dd052831a76f202987938502c",
-    "portable_sha256": "ac92d78c1b2b4772ccc670e8b016fef101a47d8d81fc9df99253c45324127a06"
+    "portable_sha256": "e7c6d12fac07a8dfe1a201050757ae7fda6fa64e8911041430e04954f5393d06"
   },
   {
     "file": "graphcull/source.json",
@@ -421,9 +421,9 @@
   },
   {
     "file": "graphphysics/phantasm_envdump.txt",
-    "operation": "trailing whitespace and outer blank lines removed; UTF-8 LF",
+    "operation": "trailing whitespace and outer blank lines removed; UTF-8 LF; process environment omitted",
     "input_sha256": "5c7c527ab7f130e508745e4b1c9ff7d9e6ffb028dbf0c8f0d2757c0686d2d5aa",
-    "portable_sha256": "dd7759abfaec48016ec43a22fb5ee8799e739817785c41c09a0c1278d78b3534"
+    "portable_sha256": "15fc10f928a18d6b82c5f74e0d5efca5c64b7d9570ff6aecc74cedc7b44c6c27"
   },
   {
     "file": "graphphysics/profile_build.txt",
@@ -433,9 +433,9 @@
   },
   {
     "file": "graphphysics/profile_envdump.txt",
-    "operation": "trailing whitespace and outer blank lines removed; UTF-8 LF",
+    "operation": "trailing whitespace and outer blank lines removed; UTF-8 LF; process environment omitted",
     "input_sha256": "61a21aa541f10e6a30b159d7dcbf4b2cd2ab15fcc9136a43b51218a9846c7b3f",
-    "portable_sha256": "191875ad642d78421df18622a32a488bbdf7a16c3ff84c7d727fc4b7210589b1"
+    "portable_sha256": "0777eb1933065aa2522efc7b13bd7351711d5669c5d3c4e0ab4a997cbab335e5"
   },
   {
     "file": "graphphysics/source.json",
@@ -475,9 +475,9 @@
   },
   {
     "file": "graphshader/phantasm_envdump.txt",
-    "operation": "trailing whitespace and outer blank lines removed; UTF-8 LF",
+    "operation": "trailing whitespace and outer blank lines removed; UTF-8 LF; process environment omitted",
     "input_sha256": "f4403d783f195514bccbe613d81c0102ac8cf06b11ac2e2d8a601f37a481ca60",
-    "portable_sha256": "d0e151e01157933a7e6eb3fce3b6c22cf5fb48329e6aefa6722966062e391433"
+    "portable_sha256": "baad43f13b6b8da0cc00e37c273318df7584105baf928bcbe2d87eea1428c24c"
   },
   {
     "file": "graphshader/profile_build.txt",
@@ -487,9 +487,9 @@
   },
   {
     "file": "graphshader/profile_envdump.txt",
-    "operation": "trailing whitespace and outer blank lines removed; UTF-8 LF",
+    "operation": "trailing whitespace and outer blank lines removed; UTF-8 LF; process environment omitted",
     "input_sha256": "987b678b902757af11bfd54e8ba6e8de62c6f162ae048b6eee5abd0bc77ea015",
-    "portable_sha256": "45b2f9aa823a4743ada1238eaecc62af3fbc5d7b933f75d7d3f4bd473db9f7c4"
+    "portable_sha256": "22cb70e9248bf945fef7d2c3b62190ebd32dff31d91f83fed72b4c76cf8cf827"
   },
   {
     "file": "graphshader/source.json",
@@ -535,9 +535,9 @@
   },
   {
     "file": "interchange/phantasm_envdump.txt",
-    "operation": "trailing whitespace and outer blank lines removed; UTF-8 LF",
+    "operation": "trailing whitespace and outer blank lines removed; UTF-8 LF; process environment omitted",
     "input_sha256": "e9eba28a54b9690aadb53adece6dd98c47e28fd093947dbbe948bb776b32c3cf",
-    "portable_sha256": "526c68e6d963a61cdf6b749a576c4c605db9a744bfbcb32356f3f4bc94f5e5f8"
+    "portable_sha256": "13c19a7cf09de14afd53597878c34589d2814ff4029dc0e120d71c160da74edd"
   },
   {
     "file": "interchange/profile_build.txt",
@@ -547,9 +547,9 @@
   },
   {
     "file": "interchange/profile_envdump.txt",
-    "operation": "trailing whitespace and outer blank lines removed; UTF-8 LF",
+    "operation": "trailing whitespace and outer blank lines removed; UTF-8 LF; process environment omitted",
     "input_sha256": "2e8d38de0a9e12325b41e19909b389d9fe96f34c5398863d2be65abc72202c1c",
-    "portable_sha256": "c175f68135df88cd2e7dd3c3f1d1a85242642fffd8ee1e26f8549231c1ac9a10"
+    "portable_sha256": "a21b97d32485861dad3f7e735cf96ce7e80c423ace422c72a0074fc92f4ff1be"
   },
   {
     "file": "interchange/source.json",
@@ -595,9 +595,9 @@
   },
   {
     "file": "ordered/phantasm_envdump.txt",
-    "operation": "trailing whitespace and outer blank lines removed; UTF-8 LF",
+    "operation": "trailing whitespace and outer blank lines removed; UTF-8 LF; process environment omitted",
     "input_sha256": "8d831b386bd3a5e1f3ac26e9bcc0dda9721a470ca97b81b972171e040b0cdbe0",
-    "portable_sha256": "f98a1215eca0b46b3f57de719ee314b4d552ed2f490b87112a82e04d71b64d86"
+    "portable_sha256": "5f54c9e9cc6c03e50c6001977f7718b8e844849d34bd79b7feea2c2617a039d5"
   },
   {
     "file": "ordered/profile_build.txt",
@@ -607,9 +607,9 @@
   },
   {
     "file": "ordered/profile_envdump.txt",
-    "operation": "trailing whitespace and outer blank lines removed; UTF-8 LF",
+    "operation": "trailing whitespace and outer blank lines removed; UTF-8 LF; process environment omitted",
     "input_sha256": "ee08d203c1ad0281d7456244586d0d8aff64e269d72edcb2f9977927175c4002",
-    "portable_sha256": "8795e4e12db66bc93f236db91065428f3b53841b44e0085ae1d0aa50f0b54504"
+    "portable_sha256": "7284bc4d94638a2216f1cf68331276fd5ee921b2a5be94d7c653618e8eb1241d"
   },
   {
     "file": "ordered/source.json",
@@ -655,9 +655,9 @@
   },
   {
     "file": "packed-baseline/phantasm_envdump.txt",
-    "operation": "trailing whitespace and outer blank lines removed; UTF-8 LF",
+    "operation": "trailing whitespace and outer blank lines removed; UTF-8 LF; process environment omitted",
     "input_sha256": "e54f3ef923c584bb88dbb802583761d38594050df1eb256b8dbfff3e3ba4da65",
-    "portable_sha256": "b2212a0ef7b1de86ee1d23e50d74648e0ccce9c24e8490a6423bc8eee5f06553"
+    "portable_sha256": "51cb9694d8fb2c729f4d7550ed692524075e2988c2a13f9ede74ae18154d0ac2"
   },
   {
     "file": "packed-baseline/profile_build.txt",
@@ -667,9 +667,9 @@
   },
   {
     "file": "packed-baseline/profile_envdump.txt",
-    "operation": "trailing whitespace and outer blank lines removed; UTF-8 LF",
+    "operation": "trailing whitespace and outer blank lines removed; UTF-8 LF; process environment omitted",
     "input_sha256": "a0e337a4665237707978184242e36bdaa93e6a7e7629b045e676b7fb0faa1fa2",
-    "portable_sha256": "b6034068e0d326482f7f5e933ee0fa4f22e59c4b15a404c3a25b0787829d41ee"
+    "portable_sha256": "2c1dbe730584339c80373b33dd50074287bc283284a9a0ae2f2b64a279e617ff"
   },
   {
     "file": "packed-baseline/source.json",
@@ -721,9 +721,9 @@
   },
   {
     "file": "packed-candidate/phantasm_envdump.txt",
-    "operation": "trailing whitespace and outer blank lines removed; UTF-8 LF",
+    "operation": "trailing whitespace and outer blank lines removed; UTF-8 LF; process environment omitted",
     "input_sha256": "b88e4c1bf6095e1c5b57361fa5844c7a90e132fd4f390e0e9a2e78cb877754bc",
-    "portable_sha256": "29bed23afcd006ba01a3d450eccddc244c01b397ffe032b4e1ac74f58dc69403"
+    "portable_sha256": "668ed3c91c127faec17f95870b807416f050199b32505a78858231316f50f05b"
   },
   {
     "file": "packed-candidate/profile_build.txt",
@@ -733,9 +733,9 @@
   },
   {
     "file": "packed-candidate/profile_envdump.txt",
-    "operation": "trailing whitespace and outer blank lines removed; UTF-8 LF",
+    "operation": "trailing whitespace and outer blank lines removed; UTF-8 LF; process environment omitted",
     "input_sha256": "28ad26700433e571efcdaba11052afdffef32bb52bda9a649026a9d471c87500",
-    "portable_sha256": "4756e7e07cfa397a4f8e85aca332c2e7e75a2ca2cf948592e74fc7ed460a9e19"
+    "portable_sha256": "64845b2ad259e05424e057c11baaa53a634ca7cbcca59eedbd7e764e6dfd5eb9"
   },
   {
     "file": "packed-candidate/quantization-bounds.json",
@@ -787,9 +787,9 @@
   },
   {
     "file": "paletteloop/phantasm_envdump.txt",
-    "operation": "trailing whitespace and outer blank lines removed; UTF-8 LF",
+    "operation": "trailing whitespace and outer blank lines removed; UTF-8 LF; process environment omitted",
     "input_sha256": "ccd69f01f097a5604f14e38180b7e37632086f529cd05ce63742c9de2fb0ee0e",
-    "portable_sha256": "3082281b2e66104d6a9c3c4562a61849d41d7f981bc4dc2099d7ad0aa03c3579"
+    "portable_sha256": "e43fa45456e4e115eef0946d2f86e9770dcef6d08c07a88bebd3aa2511f834e8"
   },
   {
     "file": "paletteloop/profile_build.txt",
@@ -799,9 +799,9 @@
   },
   {
     "file": "paletteloop/profile_envdump.txt",
-    "operation": "trailing whitespace and outer blank lines removed; UTF-8 LF",
+    "operation": "trailing whitespace and outer blank lines removed; UTF-8 LF; process environment omitted",
     "input_sha256": "991d169507683174c2bd864b3e5b7ed713551f052498621d40a4576ae71e495e",
-    "portable_sha256": "e020576ef961d52eff26a92cb90c374335ed2520518888c043aee787b5b53b83"
+    "portable_sha256": "852319dfb36353943ef288cc66e40c80405cb1f6d322ae52556797d1e9ea2191"
   },
   {
     "file": "paletteloop/source.json",
@@ -925,9 +925,9 @@
   },
   {
     "file": "roundfold/phantasm_envdump.txt",
-    "operation": "trailing whitespace and outer blank lines removed; UTF-8 LF",
+    "operation": "trailing whitespace and outer blank lines removed; UTF-8 LF; process environment omitted",
     "input_sha256": "58ea4e4d89e360ce9fb20db741a9834a15537bc33fef24dea270d8d98bdc3fc2",
-    "portable_sha256": "8fb0aeb0dde87abc8d1217e14d79f12a014afcfba36bd8f8b133ab55c62cd4c5"
+    "portable_sha256": "0b466c0fbe7bd813efbf30bdf1be342c62a13bacc915fa59bcdb1041d2804fd3"
   },
   {
     "file": "roundfold/profile_build.txt",
@@ -937,9 +937,9 @@
   },
   {
     "file": "roundfold/profile_envdump.txt",
-    "operation": "trailing whitespace and outer blank lines removed; UTF-8 LF",
+    "operation": "trailing whitespace and outer blank lines removed; UTF-8 LF; process environment omitted",
     "input_sha256": "e2678948e8f6b0934fcf9aee02b4074627cfd7a1e1b959d19d461c3f76e830ce",
-    "portable_sha256": "060366164c911713d667d16e2b1e0074a66b9bc4cd05f2c9e42e9a3edaaf7f60"
+    "portable_sha256": "e9b54d0311c1f99358de83018d9ca0bd64a7a9b521fa5e90ea613d92b0d9e955"
   },
   {
     "file": "roundfold/source.json",
@@ -991,9 +991,9 @@
   },
   {
     "file": "scaled/phantasm_envdump.txt",
-    "operation": "trailing whitespace and outer blank lines removed; UTF-8 LF",
+    "operation": "trailing whitespace and outer blank lines removed; UTF-8 LF; process environment omitted",
     "input_sha256": "9296127490ce5cb737dd3553178db69ed03516f804526b1f0b481554de21ea1c",
-    "portable_sha256": "ce9c6b49342326a4997547f15054848008fe5addab5c9befac4913d489ee6685"
+    "portable_sha256": "2eb86f0ff90dce1cdbcf0b87c7a539fc926a4d151ea76f6d7baa2656f4f4ab0e"
   },
   {
     "file": "scaled/profile_build.txt",
@@ -1003,9 +1003,9 @@
   },
   {
     "file": "scaled/profile_envdump.txt",
-    "operation": "trailing whitespace and outer blank lines removed; UTF-8 LF",
+    "operation": "trailing whitespace and outer blank lines removed; UTF-8 LF; process environment omitted",
     "input_sha256": "df555b3f922ad093cdb0025c3e2b866b486e86ea2f6db0e49dbfd5f0f23a5057",
-    "portable_sha256": "4fb050145584bb3dc99e22ef0fd545e070351a8e77698d543181fc1ff085e952"
+    "portable_sha256": "b345a393dda53d797cee27d78def85829a662e934877545a398daccf42f9e9bc"
   },
   {
     "file": "scaled/source.json",
@@ -1099,9 +1099,9 @@
   },
   {
     "file": "symmetry/phantasm_envdump.txt",
-    "operation": "trailing whitespace and outer blank lines removed; UTF-8 LF",
+    "operation": "trailing whitespace and outer blank lines removed; UTF-8 LF; process environment omitted",
     "input_sha256": "254b8add7b50aac9c3d458dd8988583517dcdc2d4dab575ae962733265252239",
-    "portable_sha256": "92619e31913e24bc71cf521a6559d7b10fe001320d61f058507d9e7d176111c6"
+    "portable_sha256": "cc1e2cc76a009329577fa09a362ebb6b53cf46676b962bedc45e569a2f4df5ce"
   },
   {
     "file": "symmetry/profile_build.txt",
@@ -1111,9 +1111,9 @@
   },
   {
     "file": "symmetry/profile_envdump.txt",
-    "operation": "trailing whitespace and outer blank lines removed; UTF-8 LF",
+    "operation": "trailing whitespace and outer blank lines removed; UTF-8 LF; process environment omitted",
     "input_sha256": "2929fe07b96e041ad6daaa90691b3ed343400f7943ce007e3cad2c2364cdc1db",
-    "portable_sha256": "567bf2e1618c48958d2069742befdbe13da212369cd185056cbd664cdf42c227"
+    "portable_sha256": "4ebd2c133741d79de42f4f3e174868ce307c8db03eab6a1f5d2ccd4977f01369"
   },
   {
     "file": "symmetry/source.json",
