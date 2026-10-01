@@ -55,6 +55,8 @@ public:
     const uint8_t *last_data =
         nullptr;         /**< Pointer handed to the last transmit. */
     size_t last_len = 0; /**< Length handed to the last transmit. */
+    const void *flushed_data = nullptr;
+    uint32_t flushed_bytes = 0;
     uint8_t capture[CAPTURE_CAP] =
         {}; /**< Snapshot of the last transmit's bytes. */
   };
@@ -106,6 +108,8 @@ public:
     State &s = state();
     s.last_data = data;
     s.last_len = len;
+    s.flushed_data = hd107s::last_flushed_data;
+    s.flushed_bytes = hd107s::last_flushed_bytes;
     ++s.transmit_calls;
     size_t n = len < static_cast<size_t>(CAPTURE_CAP) ? len : CAPTURE_CAP;
     for (size_t i = 0; i < n; ++i)
@@ -182,6 +186,8 @@ inline void test_submit_happy_path() {
   HS_EXPECT_EQ(MockStrip::state().last_len,
                static_cast<size_t>(Frame::BUFFER_SIZE));
   HS_EXPECT_TRUE(MockStrip::state().last_data != nullptr);
+  HS_EXPECT_EQ(MockStrip::state().flushed_data, MockStrip::state().last_data);
+  HS_EXPECT_EQ(MockStrip::state().flushed_bytes, MockStrip::state().last_len);
 }
 
 /**
@@ -232,7 +238,10 @@ inline void test_overrun_drop() {
   pack_wire_pattern(expected);
   pack_wire_pattern(ctl.back_frame());
 
+  hd107s::reset_flush_observation();
   bool ok = ctl.submit_frame(false); // prior still in flight -> overrun
+  HS_EXPECT_EQ(hd107s::last_flushed_data, nullptr);
+  HS_EXPECT_EQ(hd107s::last_flushed_bytes, 0u);
   HS_EXPECT_FALSE(ok);
   HS_EXPECT_EQ(ctl.get_overrun_count(), 1u);
   HS_EXPECT_EQ(ctl.get_transfer_count(), 1u);            // unchanged
@@ -260,6 +269,8 @@ inline void test_withbg_length() {
   HS_EXPECT_TRUE(ctl.submit_frame(/*with_bg=*/true));
   HS_EXPECT_EQ(MockStrip::state().last_len,
                static_cast<size_t>(Frame::COMPOSITE_SIZE));
+  HS_EXPECT_EQ(MockStrip::state().flushed_data, MockStrip::state().last_data);
+  HS_EXPECT_EQ(MockStrip::state().flushed_bytes, MockStrip::state().last_len);
   HS_EXPECT_EQ(hd107s::last_flushed_data, MockStrip::state().last_data);
   HS_EXPECT_EQ(hd107s::last_flushed_bytes,
                static_cast<uint32_t>(MockStrip::state().last_len));
@@ -268,6 +279,8 @@ inline void test_withbg_length() {
   HS_EXPECT_TRUE(ctl.submit_frame(/*with_bg=*/false));
   HS_EXPECT_EQ(MockStrip::state().last_len,
                static_cast<size_t>(Frame::BUFFER_SIZE));
+  HS_EXPECT_EQ(MockStrip::state().flushed_data, MockStrip::state().last_data);
+  HS_EXPECT_EQ(MockStrip::state().flushed_bytes, MockStrip::state().last_len);
   HS_EXPECT_EQ(hd107s::last_flushed_data, MockStrip::state().last_data);
   HS_EXPECT_EQ(hd107s::last_flushed_bytes,
                static_cast<uint32_t>(MockStrip::state().last_len));
