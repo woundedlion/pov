@@ -402,6 +402,7 @@ public:
 
   /**
    * @brief Shade pixels from their block's deduped corner candidates.
+   * @param canvas Destination canvas.
    * @param block Positive block edge in pixels; corners anchor to the canvas.
    * @param positions Site positions indexed by every returned corner index.
    * @param scratch Arena for the corner grid and one candidate row. The caller

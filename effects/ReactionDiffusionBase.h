@@ -144,6 +144,10 @@ protected:
   }
 
   /** @brief Visits a factored 2x2 SSAA stencil with the compact biweight kernel.
+   * @param grid SSAA grid loaded for the current pixel row.
+   * @param x Pixel column in the grid's canvas.
+   * @param center Reaction-graph node at the stencil center.
+   * @param nodes Reaction-graph node positions indexed by the neighbor runs.
    * @param on_node Callable (slot, node) returning a (sample, weight) callback. */
   template <typename Grid, typename OnNode>
   static __attribute__((always_inline)) void

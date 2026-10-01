@@ -12,7 +12,8 @@ USE_MDFILE_AS_MAINPAGE = README.md
 # Tests are omitted from the API reference on purpose.
 INPUT                  = README.md core effects workbench hardware targets \
                          docs/ledgers/device_host_divergence_ledger.md \
-                         docs/specs/chain_snapshot_spec.md
+                         docs/specs/chain_snapshot_spec.md \
+                         docs/specs/parameter_description_spec.md
 FILE_PATTERNS          = *.h *.cpp *.ino
 # .ino is Arduino C++; Doxygen has no built-in mapping for the extension.
 EXTENSION_MAPPING      = ino=C++
