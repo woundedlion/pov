@@ -133,9 +133,61 @@ protected:
   template <typename OnWeight>
   static __attribute__((always_inline)) void
   with_biweight_weight(float d2, OnWeight &&on_weight) {
-    float u = 1.0f - d2 * INV_R2;
-    if (u > 0)
+    with_biweight_u(1.0f - d2 * INV_R2, on_weight);
+  }
+
+  template <typename OnWeight>
+  static __attribute__((always_inline)) void
+  with_biweight_u(float u, OnWeight &&on_weight) {
+    if (u > 0.0f)
       on_weight(u * u);
+  }
+
+  /** @brief Visits a factored 2x2 SSAA stencil with the compact biweight kernel.
+   * @param on_node Callable (slot, node) returning a (sample, weight) callback. */
+  template <typename Grid, typename OnNode>
+  static __attribute__((always_inline)) void
+  accumulate_stencil_ssaa2x2(const Grid &grid, int x, int center,
+                             const math::Vector *nodes, OnNode &&on_node) {
+    static_assert(Grid::SAMPLES == 4);
+    const float st = math::TrigLUT<Grid::WIDTH, Grid::HEIGHT>::sin_theta[x];
+    const float ct = math::TrigLUT<Grid::WIDTH, Grid::HEIGHT>::cos_theta(x);
+    // Each horizontal pair is m +/- d, with m dot d = 0.
+    math::Vector midpoints[2];
+    float offset_squared[2], cross_scale[2];
+    for (int row = 0; row < 2; ++row) {
+      float sp = grid.sin_phi[row];
+      midpoints[row] =
+          math::Vector(sp * ct * grid.cos_dtheta, grid.cos_phi[row],
+                       sp * st * grid.cos_dtheta);
+      float offset = sp * grid.sin_dtheta;
+      float ox = -st * offset, oz = ct * offset;
+      offset_squared[row] = ox * ox + oz * oz;
+      cross_scale[row] = 2.0f * offset * INV_R2;
+    }
+    const auto &run =
+        ReactionGraph::neighbor_runs[ReactionGraph::neighbor_run_index[center]];
+    for (int slot = 0; slot < RD_K + 1; ++slot) {
+      const int node = slot == 0 ? center : center + run.delta[slot - 1];
+      const math::Vector &p = nodes[node];
+      auto on_weight = on_node(slot, node);
+      float tangent = st * p.x - ct * p.z;
+      for (int row = 0; row < 2; ++row) {
+        float dx = midpoints[row].x - p.x;
+        float dy = midpoints[row].y - p.y;
+        float dz = midpoints[row].z - p.z;
+        float base = dx * dx + dy * dy + dz * dz + offset_squared[row];
+        float base_u = 1.0f - base * INV_R2;
+        float cross = cross_scale[row] * tangent;
+        for (int col = 0; col < 2; ++col) {
+          const int sample = 2 * row + col;
+          const float u = col == 0 ? base_u - cross : base_u + cross;
+          with_biweight_u(u, [&](float weight) __attribute__((always_inline)) {
+            on_weight(sample, weight);
+          });
+        }
+      }
+    }
   }
 
   /**
