@@ -844,7 +844,7 @@ inline void test_edge_endpoints_match_registry() {
       Arena ob(morph_temp_buf + HALF, HALF);
       PolyMesh got = run_edge_op(e, seed, oa, ob, e.t_to, e.twist_to);
       if (e.settle)
-        got = MeshOps::relax(got, ob, oa, 50);
+        got = MeshOps::relax(got, ob, oa, ConwayGraph::SETTLE_RELAX_ITERATIONS);
 
       switch (to_end_regime(e)) {
       case EndRegime::EXACT:
