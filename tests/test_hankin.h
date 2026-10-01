@@ -138,11 +138,11 @@ inline void test_compile_hankin_normalizes_antipodal_fallback() {
  * @brief Verifies each static vertex is the normalised midpoint of the input
  *        edge it represents, not merely some unit-length point.
  * @details The size and unit-length checks above accept any twelve points on
- * the sphere; this pins their geometry. Every dynamic instruction names a
+ *          the sphere; this pins their geometry. Every dynamic instruction names a
  *          corner and its two flanking edges (idx_m1 = edge v_prev–v_corner,
  *          idx_m2 = edge v_corner–v_next), so recompute each edge's normalised
  *          midpoint straight from base_vertices and require the referenced
- * static vertex to match. Walking all instructions touches every edge midpoint.
+ *          static vertex to match. Walking all instructions touches every edge midpoint.
  */
 inline void test_compile_hankin_static_vertices_are_edge_midpoints() {
   Arena target(hankin_target_buf, sizeof(hankin_target_buf));
@@ -289,9 +289,9 @@ inline void test_update_hankin_flat_collapses_to_corners() {
 /**
  * @brief Verifies update_hankin's EPS_CROSS_SQ degenerate-edge guard.
  * @details A zero-length corner edge at a nonzero angle collapses the dynamic
- * vertex onto the normalized corner, remaining finite and unit-length. A cube
- * instruction's previous corner is made coincident with its corner to exercise
- * the zero-cross-product path.
+ *          vertex onto the normalized corner, remaining finite and unit-length. A cube
+ *          instruction's previous corner is made coincident with its corner to exercise
+ *          the zero-cross-product path.
  */
 inline void test_update_hankin_degenerate_edge_collapses_to_corner() {
   Arena target(hankin_target_buf, sizeof(hankin_target_buf));
@@ -464,7 +464,7 @@ inline void test_hankin_flat_and_twisted_differ() {
 /**
  * @brief Verifies Hankin output is a closed genus-0 manifold with consistent
  *        winding, for both a quad seed (cube) and a triangle seed
- * (icosahedron).
+ *        (icosahedron).
  * @details The structural smoke above (face-count consistency, index range,
  *          loose unit-length) accepts a non-manifold or backwards-wound mesh.
  *          Hankin is the family most likely to open a seam or invert a face, so
@@ -594,12 +594,12 @@ inline void test_update_hankin_resonance_star_points_stay_local() {
 
 /**
  * @brief Verifies near-parallel star intersections move continuously with the
- * contact angle.
+ *        contact angle.
  * @details Sweeps the full HankinSolids angle range on the bevel(0.5)
- * truncated-icosidodecahedron star prefix (baked at 100 relax iterations). The
- * tighter 44-50 degree sub-bound covers its plane-normal resonance; on this
- * plateau geometry the passage is rougher than a fully-relaxed one but stays
- * far below the sliver-blowup threshold the general bound guards.
+ *          truncated-icosidodecahedron star prefix (baked at 100 relax iterations). The
+ *          tighter 44-50 degree sub-bound covers its plane-normal resonance; on this
+ *          plateau geometry the passage is rougher than a fully-relaxed one but stays
+ *          far below the sliver-blowup threshold the general bound guards.
  */
 inline void test_update_hankin_near_parallel_angle_is_continuous() {
   Arena prefix_arena(hankin_reso_target, sizeof(hankin_reso_target));
@@ -717,7 +717,7 @@ inline void test_compiled_hankin_clone_deep_copies() {
 
 /**
  * @brief Verifies clear() empties every CompiledHankin array and resets
- * static_offset.
+ *        static_offset.
  */
 inline void test_compiled_hankin_clear() {
   Arena arena(hankin_target_buf, sizeof(hankin_target_buf));
