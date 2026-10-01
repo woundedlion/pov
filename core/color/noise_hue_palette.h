@@ -50,7 +50,7 @@ struct HueNoiseLutView {
  * @param palette Palette source to hue-rotate.
  */
 template <typename Source>
-HS_FLASH_INLINE inline void
+HS_FLASH_INLINE __attribute__((aligned(32))) inline void
 prepare_hue_rotation_lut(std::span<Pixel, HueRotationLutView::SIZE> output,
                          const Source &palette) {
   for (int value_index = 0; value_index < HueRotationLutView::VALUE_STEPS;
