@@ -1,0 +1,4 @@
+# Immutable captures retain original bytes and use binary diffs.
+*.txt -text -diff
+*.provenance -text -diff
+*.diff -text -diff

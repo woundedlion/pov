@@ -8,8 +8,8 @@ Rows rank by any spill, then peak render. 🟢 is zero spill, 🟡 is under 25% 
 | Effect | Dominant scope | Peak ms | Spilled | Captured |
 |---|---|--:|--:|---|
 | [GSReactionDiffusion](profile_gsreactiondiffusion_teensy_2026-09-30.md) | `grd_render` | 🔴 313.695 | 🔴 443/443 (100.00%) | 2026-09-30 19:21 |
-| [MindSplatter](profile_mindsplatter_teensy_2026-09-29.md) § | `msp_draw_particles` | 🟢 54.94 (8) | 🟢 0/1727 (0.00%) | 2026-09-29 14:48 |
 | [Raymarch](profile_raymarch_teensy_2026-09-28.md) | `rm_shader_draw` | 🟢 54.87 | 🟢 0/1087 (0.00%) | 2026-09-28 19:09 |
+| [MindSplatter](profile_mindsplatter_architecture_teensy_2026-10-01.md) § ● | `msp_draw_particles` | 🟢 54.457 (8) | 🟢 0/1736 (0.00%) | 2026-10-01 09:15 |
 | [ShapeShifter](profile_shapeshifter_teensy_2026-09-29.md) § | `ss_draw_all` | 🟢 53.22 (9) | 🟢 0/2448 (0.00%) | 2026-09-29 22:38 |
 | [HopfFibration](profile_hopffibration_teensy_2026-09-28.md) | `hf_render_trails` | 🟢 51.52 | 🟢 0/1087 (0.00%) | 2026-09-28 19:02 |
 | [IslamicStars](profile_islamicstars_teensy_2026-09-28.md) § | `is_timeline_step` | 🟢 50.51 (23) | 🟢 0/3327 (0.00%) | 2026-09-28 18:40 |
@@ -21,14 +21,14 @@ Rows rank by any spill, then peak render. 🟢 is zero spill, 🟡 is under 25% 
 | [DreamBalls](profile_dreamballs_teensy_2026-09-28.md) § | `db_timeline_step` | 🟢 42.66 (10) | 🟢 0/3647 (0.00%) | 2026-09-28 18:45 |
 | [MermaidSkin](profile_mermaidskin_teensy_2026-09-28.md) | `fx_shader_draw` | 🟢 39.57 | 🟢 0/1087 (0.00%) | 2026-09-28 18:49 |
 | [KaleidoscopeHexOil](profile_kaleidoscopehexoil_teensy_2026-09-28.md) § | `fx_shader_draw` | 🟢 38.51 (2) | 🟢 0/2207 (0.00%) | 2026-09-28 18:54 |
-| [LatticeMelt](profile_latticemelt_teensy_2026-09-28.md) § | `fx_shader_draw` | 🟢 37.18 (2) | 🟢 0/1727 (0.00%) | 2026-09-28 18:45 |
-| [HyperLattice](profile_hyperlattice_teensy_2026-09-29.md) § | `hl_shader_draw` | 🟢 36.65 (3) | 🟢 0/1887 (0.00%) | 2026-09-29 14:54 |
-| [ChromaticLichen](profile_chromaticlichen_teensy_2026-09-28.md) | `fx_shader_draw` | 🟢 36.63 | 🟢 0/1087 (0.00%) | 2026-09-28 18:47 |
+| [HyperLattice](profile_hyperlattice_architecture_teensy_2026-10-01.md) § ● | `hl_shader_draw` | 🟢 36.839 (3) | 🟢 0/2696 (0.00%) | 2026-10-01 09:19 |
+| [LatticeMelt](profile_latticemelt_architecture_teensy_2026-10-01.md) § ● | `fx_shader_draw` | 🟢 36.583 (2) | 🟢 0/1736 (0.00%) | 2026-10-01 09:38 |
+| [ChromaticLichen](profile_chromaticlichen_architecture_teensy_2026-10-01.md) ● | `fx_shader_draw` | 🟢 35.773 | 🟢 0/1096 (0.00%) | 2026-10-01 09:40 |
 | [KaleidoscopeMandala](profile_kaleidoscopemandala_teensy_2026-09-28.md) § | `fx_shader_draw` | 🟢 35.40 (2) | 🟢 0/2367 (0.00%) | 2026-09-28 18:39 |
 | [DisplacementField](profile_displacementfield_teensy_2026-09-29.md) | `df_timeline_step` | 🟢 35.27 | 🟢 0/2368 (0.00%) | 2026-09-29 09:09 |
 | [HankinSolids](profile_hankinsolids_teensy_2026-09-28.md) § | `hk_timeline_step` | 🟢 34.81 (19) | 🟢 0/4447 (0.00%) | 2026-09-28 19:27 |
-| [KaleidoscopeSmooth](profile_kaleidoscopesmooth_teensy_2026-09-28.md) § | `fx_shader_draw` | 🟢 32.93 (4) | 🟢 0/4127 (0.00%) | 2026-09-28 18:59 |
 | [KaleidoscopeFlowers](profile_kaleidoscopeflowers_teensy_2026-09-28.md) § | `fx_shader_draw` | 🟢 32.52 (3) | 🟢 0/4127 (0.00%) | 2026-09-28 19:07 |
+| [KaleidoscopeSmooth](profile_kaleidoscopesmooth_architecture_teensy_2026-10-01.md) § ● | `fx_shader_draw` | 🟢 32.230 (4) | 🟢 0/4136 (0.00%) | 2026-10-01 11:05 |
 | [KaleidoscopeHexBright](profile_kaleidoscopehexbright_teensy_2026-09-28.md) § | `fx_shader_draw` | 🟢 31.64 (2) | 🟢 0/2367 (0.00%) | 2026-09-28 19:02 |
 | [Comets](profile_comets_teensy_2026-09-28.md) § | `cm_draw_trail` | 🟢 30.66 (12) | 🟢 0/4127 (0.00%) | 2026-09-28 18:28 |
 | [KaleidoscopePentBright](profile_kaleidoscopepentbright_teensy_2026-09-28.md) | `fx_shader_draw` | 🟢 27.24 | 🟢 0/1087 (0.00%) | 2026-09-28 18:51 |
@@ -46,7 +46,7 @@ Rows rank by any spill, then peak render. 🟢 is zero spill, 🟡 is under 25% 
 | [Voronoi](profile_voronoi_teensy_2026-09-28.md) | `vo_shade` | 🟢 8.51 | 🟢 0/1087 (0.00%) | 2026-09-28 19:15 |
 | [RingShower](profile_ringshower_teensy_2026-09-28.md) | `rsh_draw_rings` | 🟢 4.33 | 🟢 0/1087 (0.00%) | 2026-09-28 19:11 |
 
-GSReactionDiffusion refreshed 2026-09-30 after pigment, hue and shimmer shading changes. Setup frame 1 is excluded; capture provenance is in the linked reports.
+● Architecture captures refreshed 2026-10-01: MindSplatter, HyperLattice, LatticeMelt, ChromaticLichen and KaleidoscopeSmooth. Setup frame 1 is excluded. Cycler buckets include every live owner-attributed transition frame; each report lists per-preset peaks, fractions and the worst preset. Captured times are local raw-log mtimes.
 
 The shipping set was refreshed on 2026-09-28 after the kernel-placement change `97eb0bf78`. AshCloud, KaleidoscopeStainedGlass and GridSpace come from the placement A/B's variant-6 arm, which carries the same kernel attributes. Setup frame 1 is excluded from every peak and spill figure; each report states its frame-1 render. Boards are named per report.
 
@@ -74,9 +74,6 @@ Spill fractions include the transition following an entry and are stricter than 
 
 Shipping reports in this directory correspond exactly to
 `HS_PHANTASM_EFFECT_LIST`.
-
-
-HyperLattice, MindSplatter, ShapeShifter, MeshFeedback and DisplacementField were re-captured on 2026-09-29. ShapeShifter uses 288 contours in entry 1 after the dense planar-star and band-split optimizations; MindSplatter includes the Plot float min/max sweep; MeshFeedback includes the polar-row ITCM trims; DisplacementField records tip `e1fd2e1ec`, with a 35.27 ms peak. HyperLattice includes all three presets and their segues after its optimization campaign. Setup frame 1 is excluded.
 
 ## Supplemental experimental presets
 
@@ -120,4 +117,12 @@ Sphere-only renderer; two authored fixed presets on COM4, startup excluded. [Pai
 | Shell Flight (index 5 at capture time) | 🔴 123.553 | 🔴 228/228 (100.00%) | 2026-09-29 08:03 |
 | Shell Close Flight (index 6 at capture time) | 🔴 125.186 | 🔴 228/228 (100.00%) | 2026-09-29 08:06 |
 
-● GSReactionDiffusion refreshed 2026-09-30 after pigment, hue and shimmer shading changes. Setup frame 1 is excluded; capture provenance is in the linked reports.
+## Earlier captures
+
+Preserved canonical snapshots; current architecture rankings use the dated variants above. Each variant records its exact checkpoint source and paired baseline.
+
+- [MindSplatter 2026-09-29](profile_mindsplatter_teensy_2026-09-29.md).
+- [HyperLattice 2026-09-29](profile_hyperlattice_teensy_2026-09-29.md).
+- [LatticeMelt 2026-09-28](profile_latticemelt_teensy_2026-09-28.md).
+- [ChromaticLichen 2026-09-28](profile_chromaticlichen_teensy_2026-09-28.md).
+- [KaleidoscopeSmooth 2026-09-28](profile_kaleidoscopesmooth_teensy_2026-09-28.md).

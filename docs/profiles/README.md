@@ -35,8 +35,8 @@ minus shipping bytes from each pair's own image-size reports.
 | Effect | Dominant scope | Ship peak ms | O3 peak ms | Ship spilled | O3 spilled | FLASH code Δ | ITCM Δ | Captured |
 |---|---|--:|--:|--:|--:|--:|--:|---|
 | [GSReactionDiffusion](shipping/profile_gsreactiondiffusion_teensy_2026-09-30.md) / [O3](O3/profile_gsreactiondiffusion_teensy_2026-09-30.md) | `grd_render` | 🔴 313.695 | 🔴 279.686 | 🔴 443/443 (100.00%) | 🔴 538/538 (100.00%) | +16,024 B | +10,832 B | ship 2026-09-30 19:21<br>O3 2026-09-30 19:15 |
-| [MindSplatter](shipping/profile_mindsplatter_teensy_2026-09-29.md) / [O3](O3/profile_mindsplatter_teensy_2026-08-26.md) § | `msp_draw_particles` | 🟢 54.94 (8) | 🟢 52.79 (9) | 🟢 0/1727 (0.00%) | 🟢 0/1728 (0%) | +23,632 B | +21,232 B | ship 2026-09-29 14:48<br>O3 2026-08-26 07:45 |
 | [Raymarch](shipping/profile_raymarch_teensy_2026-09-28.md) / [O3](O3/profile_raymarch_teensy_2026-09-20.md) | `rm_shader_draw` | 🟢 54.87 | 🟢 56.04 | 🟢 0/1087 (0.00%) | 🟢 0/1736 (0.00%) | +12,568 B | +7,904 B | ship 2026-09-28 19:09<br>O3 2026-09-20 23:07 |
+| [MindSplatter](shipping/profile_mindsplatter_architecture_teensy_2026-10-01.md) / [O3](O3/profile_mindsplatter_architecture_teensy_2026-10-01.md) § ● | `msp_draw_particles` | 🟢 54.457 (8) | 🟢 54.539 (8) | 🟢 0/1736 (0.00%) | 🟢 0/1736 (0.00%) | +21,976 B | +17,200 B | ship 2026-10-01 09:15<br>O3 2026-10-01 09:22 |
 | [ShapeShifter](shipping/profile_shapeshifter_teensy_2026-09-29.md) / [O3](O3/profile_shapeshifter_teensy_2026-09-25.md) § | `ss_draw_all` | 🟢 53.22 (9) | 🟢 60.05 (9) | 🟢 0/2448 (0.00%) | 🟢 0/2457 (0.00%) | +24,760 B | +31,840 B | ship 2026-09-29 22:38<br>O3 2026-09-25 07:29 |
 | [HopfFibration](shipping/profile_hopffibration_teensy_2026-09-28.md) / [O3](O3/profile_hopffibration_teensy_2026-08-26.md) | `hf_render_trails` | 🟢 51.52 | 🟢 46.52 | 🟢 0/1087 (0.00%) | 🟢 0/1088 (0%) | +19,616 B | +18,272 B | ship 2026-09-28 19:02<br>O3 2026-08-26 01:27 |
 | [IslamicStars](shipping/profile_islamicstars_teensy_2026-09-28.md) / [O3](O3/profile_islamicstars_teensy_2026-09-28.md) § | `is_timeline_step` | 🟢 50.51 (23) | 🟢 49.112 (23) | 🟢 0/3327 (0.00%) | 🟢 0/3336 (0.00%) | +23,904 B | +8,240 B | ship 2026-09-28 18:40<br>O3 2026-09-28 16:50 |
@@ -48,14 +48,14 @@ minus shipping bytes from each pair's own image-size reports.
 | [DreamBalls](shipping/profile_dreamballs_teensy_2026-09-28.md) / [O3](O3/profile_dreamballs_teensy_2026-08-26.md) § | `db_timeline_step` | 🟢 42.66 (10) | 🟢 34.32 (11) | 🟢 0/3647 (0.00%) | 🟢 0/3648 (0%) | +26,896 B | +12,352 B | ship 2026-09-28 18:45<br>O3 2026-08-26 02:19 |
 | [MermaidSkin](shipping/profile_mermaidskin_teensy_2026-09-28.md) / [O3](O3/profile_mermaidskin_teensy_2026-08-26.md) | `fx_shader_draw` | 🟢 39.57 | 🟢 54.55 | 🟢 0/1087 (0.00%) | 🟢 0/1088 (0%) | +16,544 B | +11,952 B | ship 2026-09-28 18:49<br>O3 2026-08-26 02:43 |
 | [KaleidoscopeHexOil](shipping/profile_kaleidoscopehexoil_teensy_2026-09-28.md) / [O3](O3/profile_kaleidoscopehexoil_teensy_2026-08-26.md) § | `fx_shader_draw` | 🟢 38.51 (2) | 🟢 38.94 (3) | 🟢 0/2207 (0.00%) | 🟢 0/2208 (0%) | +13,456 B | +10,608 B | ship 2026-09-28 18:54<br>O3 2026-08-26 02:49 |
-| [LatticeMelt](shipping/profile_latticemelt_teensy_2026-09-28.md) / [O3](O3/profile_latticemelt_teensy_2026-08-26.md) § | `fx_shader_draw` | 🟢 37.18 (2) | 🔴 104.75 (3) | 🟢 0/1727 (0.00%) | 🔴 1824/1824 (100%) | +16,592 B | +11,952 B | ship 2026-09-28 18:45<br>O3 2026-08-26 03:22 |
-| [HyperLattice](shipping/profile_hyperlattice_teensy_2026-09-29.md) / [O3](O3/profile_hyperlattice_teensy_2026-09-27.md) § | `hl_shader_draw` | 🟢 36.65 (3) | 🟢 54.817 (2) | 🟢 0/1887 (0.00%) | 🟢 0/1576 (0.00%) | +9,736 B | +8,240 B | ship 2026-09-29 14:54<br>O3 2026-09-27 01:05 |
-| [ChromaticLichen](shipping/profile_chromaticlichen_teensy_2026-09-28.md) / [O3](O3/profile_chromaticlichen_teensy_2026-08-26.md) | `fx_shader_draw` | 🟢 36.63 | 🟢 61.87 | 🟢 0/1087 (0.00%) | 🟢 0/1088 (0%) | +16,576 B | +11,952 B | ship 2026-09-28 18:47<br>O3 2026-08-26 02:41 |
+| [HyperLattice](shipping/profile_hyperlattice_architecture_teensy_2026-10-01.md) / [O3](O3/profile_hyperlattice_architecture_teensy_2026-10-01.md) § ● | `hl_shader_draw` | 🟢 36.839 (3) | 🟢 36.975 (3) | 🟢 0/2696 (0.00%) | 🟢 0/2696 (0.00%) | +9,616 B | +4,912 B | ship 2026-10-01 09:19<br>O3 2026-10-01 09:26 |
+| [LatticeMelt](shipping/profile_latticemelt_architecture_teensy_2026-10-01.md) / [O3](O3/profile_latticemelt_architecture_teensy_2026-10-01.md) § ● | `fx_shader_draw` | 🟢 36.583 (2) | 🟢 38.705 (2) | 🟢 0/1736 (0.00%) | 🟢 0/1736 (0.00%) | +25,752 B | +19,472 B | ship 2026-10-01 09:38<br>O3 2026-10-01 09:49 |
+| [ChromaticLichen](shipping/profile_chromaticlichen_architecture_teensy_2026-10-01.md) / [O3](O3/profile_chromaticlichen_architecture_teensy_2026-10-01.md) ● | `fx_shader_draw` | 🟢 35.773 | 🟢 35.218 | 🟢 0/1096 (0.00%) | 🟢 0/1096 (0.00%) | +15,264 B | +8,672 B | ship 2026-10-01 09:40<br>O3 2026-10-01 09:51 |
 | [KaleidoscopeMandala](shipping/profile_kaleidoscopemandala_teensy_2026-09-28.md) / [O3](O3/profile_kaleidoscopemandala_teensy_2026-08-26.md) § | `fx_shader_draw` | 🟢 35.40 (2) | 🟢 36.86 (3) | 🟢 0/2367 (0.00%) | 🟢 0/2368 (0%) | +13,656 B | +11,440 B | ship 2026-09-28 18:39<br>O3 2026-08-26 03:17 |
 | [DisplacementField](shipping/profile_displacementfield_teensy_2026-09-29.md) / [O3](O3/profile_displacementfield_teensy_2026-09-19.md) | `df_timeline_step` | 🟢 35.27 | 🟢 57.45 | 🟢 0/2368 (0.00%) | 🟢 0/1088 (0%) | +25,856 B | +22,144 B | ship 2026-09-29 09:09<br>O3 2026-09-19 22:19 |
 | [HankinSolids](shipping/profile_hankinsolids_teensy_2026-09-28.md) / [O3](O3/profile_hankinsolids_teensy_2026-09-28.md) § | `hk_timeline_step` | 🟢 34.81 (19) | 🟢 32.865 (18) | 🟢 0/4447 (0.00%) | 🟢 0/4137 (0.00%) | +17,088 B | +2,144 B | ship 2026-09-28 19:27<br>O3 2026-09-28 16:45 |
-| [KaleidoscopeSmooth](shipping/profile_kaleidoscopesmooth_teensy_2026-09-28.md) / [O3](O3/profile_kaleidoscopesmooth_teensy_2026-08-26.md) § | `fx_shader_draw` | 🟢 32.93 (4) | 🟢 32.58 (5) | 🟢 0/4127 (0.00%) | 🟢 0/4128 (0%) | +14,560 B | +11,712 B | ship 2026-09-28 18:59<br>O3 2026-08-26 02:56 |
 | [KaleidoscopeFlowers](shipping/profile_kaleidoscopeflowers_teensy_2026-09-28.md) / [O3](O3/profile_kaleidoscopeflowers_teensy_2026-08-26.md) § | `fx_shader_draw` | 🟢 32.52 (3) | 🟢 33.38 (4) | 🟢 0/4127 (0.00%) | 🟢 0/4128 (0%) | +14,576 B | +11,712 B | ship 2026-09-28 19:07<br>O3 2026-08-26 03:03 |
+| [KaleidoscopeSmooth](shipping/profile_kaleidoscopesmooth_architecture_teensy_2026-10-01.md) / [O3](O3/profile_kaleidoscopesmooth_architecture_teensy_2026-10-01.md) § ● | `fx_shader_draw` | 🟢 32.230 (4) | 🟢 30.314 (4) | 🟢 0/4136 (0.00%) | 🟢 0/4137 (0.00%) | +15,048 B | +8,624 B | ship 2026-10-01 11:05<br>O3 2026-10-01 11:19 |
 | [KaleidoscopeHexBright](shipping/profile_kaleidoscopehexbright_teensy_2026-09-28.md) / [O3](O3/profile_kaleidoscopehexbright_teensy_2026-08-26.md) § | `fx_shader_draw` | 🟢 31.64 (2) | 🟢 32.41 (3) | 🟢 0/2367 (0.00%) | 🟢 0/2368 (0%) | +14,520 B | +11,712 B | ship 2026-09-28 19:02<br>O3 2026-08-26 03:14 |
 | [Comets](shipping/profile_comets_teensy_2026-09-28.md) / [O3](O3/profile_comets_teensy_2026-08-26.md) § | `cm_draw_trail` | 🟢 30.66 (12) | 🟢 28.71 (13) | 🟢 0/4127 (0.00%) | 🟢 0/4128 (0%) | +15,432 B | +12,944 B | ship 2026-09-28 18:28<br>O3 2026-08-26 02:02 |
 | [KaleidoscopePentBright](shipping/profile_kaleidoscopepentbright_teensy_2026-09-28.md) / [O3](O3/profile_kaleidoscopepentbright_teensy_2026-08-26.md) | `fx_shader_draw` | 🟢 27.24 | 🟢 29.53 | 🟢 0/1087 (0.00%) | 🟢 0/1088 (0%) | +14,464 B | +11,712 B | ship 2026-09-28 18:51<br>O3 2026-08-26 02:46 |
@@ -73,9 +73,7 @@ minus shipping bytes from each pair's own image-size reports.
 | [Voronoi](shipping/profile_voronoi_teensy_2026-09-28.md) / [O3](O3/profile_voronoi_teensy_2026-08-26.md) | `vo_shade` | 🟢 8.51 | 🟢 7.71 | 🟢 0/1087 (0.00%) | 🟢 0/1088 (0%) | +15,568 B | +12,688 B | ship 2026-09-28 19:15<br>O3 2026-08-26 01:39 |
 | [RingShower](shipping/profile_ringshower_teensy_2026-09-28.md) / [O3](O3/profile_ringshower_teensy_2026-08-26.md) | `rsh_draw_rings` | 🟢 4.33 | 🟢 3.86 | 🟢 0/1087 (0.00%) | 🟢 0/1088 (0%) | +16,336 B | +15,136 B | ship 2026-09-28 19:11<br>O3 2026-08-26 01:36 |
 
-GSReactionDiffusion refreshed 2026-09-30 after pigment, hue and shimmer shading changes. Setup frame 1 is excluded; capture provenance is in the linked reports.
-
-Shipping columns refreshed on 2026-09-28 after the kernel-placement change `97eb0bf78`; setup frame 1 is excluded. MeshFeedback was re-captured the same evening after its flush changes `b2dc8ecac..5bcd697fd` and the polar warp fix `a6eb6e3fa`, and again on 2026-09-29 (COM4) after its polar-row ITCM trims `05d6cfeb6` and `58f966be9`. The O3 columns retain each pair's original global-O3 capture. FLASH/ITCM deltas retain the original capture sizes except where a refreshed shipping size is explicitly stated below.
+● Architecture captures refreshed 2026-10-01: MindSplatter, HyperLattice, LatticeMelt, ChromaticLichen and KaleidoscopeSmooth. Setup frame 1 is excluded. Cycler buckets include every live owner-attributed transition frame; each report lists per-preset peaks, fractions and the worst preset. Captured times are local raw-log mtimes.
 
 § Cyclers carry one aligned line per parser-owned colour bucket, worst first;
 (N) counts parser-owned preset, shape, or mode entries in that colour bucket.
@@ -86,13 +84,6 @@ Captured timestamps are local raw-log mtimes.
 
 [Arena high-water measurements](memory/arena_high_water.md) come from a host
 probe and are independent of the on-device timing tables.
-
-
-HyperLattice, MindSplatter, ShapeShifter, MeshFeedback and DisplacementField were re-captured on 2026-09-29. ShapeShifter uses 288 contours in entry 1 after the dense planar-star and band-split optimizations; MindSplatter includes the Plot float min/max sweep; MeshFeedback includes the polar-row ITCM trims; DisplacementField records tip `e1fd2e1ec`, with a 35.27 ms peak. HyperLattice includes all three presets and their segues after its optimization campaign. Setup frame 1 is excluded. ShapeShifter's image deltas use its refreshed shipping size; MindSplatter's +23,632 B FLASH / +21,232 B ITCM deltas retain the original capture sizes. Their O3 columns predate these shipping refreshes.
-
-● HyperLattice refreshed on 2026-09-29 after its optimization campaign: all three presets and their segues; setup frame 1 excluded. Its O3 column predates the campaign.
-
-● ShapeShifter refreshed on 2026-09-29 22:38 after the dense planar-star and band-split optimizations, with entry 1 raised from 208 to 288 contours (O3 column predates it), and MindSplatter on 2026-09-29 after the Plot float min/max sweep (`c40c1def8`); setup frame 1 excluded. Their O3 columns predate the sweep. ShapeShifter's image deltas use its new shipping size; MindSplatter's +23,632 B FLASH / +21,232 B ITCM deltas retain the original capture sizes.
 
 ## Supplemental experimental presets
 
@@ -159,4 +150,12 @@ Sphere-only renderer; two authored fixed presets on COM4, startup excluded. [Shi
 | Shell Flight (index 5 at capture time) | 🔴 123.553 | 🔴 117.363 | 🔴 228/228 (100.00%) | 🔴 228/228 (100.00%) | +13,352 B | +4,736 B | ship 2026-09-29 08:03<br>O3 2026-09-29 08:04 |
 | Shell Close Flight (index 6 at capture time) | 🔴 125.186 | 🔴 121.337 | 🔴 228/228 (100.00%) | 🔴 228/228 (100.00%) | +13,352 B | +4,736 B | ship 2026-09-29 08:06<br>O3 2026-09-29 08:07 |
 
-● GSReactionDiffusion refreshed 2026-09-30 after pigment, hue and shimmer shading changes. Setup frame 1 is excluded; capture provenance is in the linked reports.
+## Earlier captures
+
+Preserved canonical snapshots; current architecture rankings use the dated variants above. Each variant records its exact checkpoint source and paired baseline.
+
+- MindSplatter: [shipping 2026-09-29](shipping/profile_mindsplatter_teensy_2026-09-29.md), [O3 2026-08-26](O3/profile_mindsplatter_teensy_2026-08-26.md).
+- HyperLattice: [shipping 2026-09-29](shipping/profile_hyperlattice_teensy_2026-09-29.md), [O3 2026-09-27](O3/profile_hyperlattice_teensy_2026-09-27.md).
+- LatticeMelt: [shipping 2026-09-28](shipping/profile_latticemelt_teensy_2026-09-28.md), [O3 2026-08-26](O3/profile_latticemelt_teensy_2026-08-26.md).
+- ChromaticLichen: [shipping 2026-09-28](shipping/profile_chromaticlichen_teensy_2026-09-28.md), [O3 2026-08-26](O3/profile_chromaticlichen_teensy_2026-08-26.md).
+- KaleidoscopeSmooth: [shipping 2026-09-28](shipping/profile_kaleidoscopesmooth_teensy_2026-09-28.md), [O3 2026-08-26](O3/profile_kaleidoscopesmooth_teensy_2026-08-26.md).

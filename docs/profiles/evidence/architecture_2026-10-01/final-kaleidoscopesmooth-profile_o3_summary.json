@@ -1,0 +1,242 @@
+{
+  "tag": "final-kaleidoscopesmooth-profile_o3",
+  "effect": "KaleidoscopeSmooth",
+  "scope": "fx_shader_draw",
+  "sha": "76ea80495cef34aa347431bb0aaabb5aa9d3ee55",
+  "frames": 4137,
+  "range": [
+    2,
+    4138
+  ],
+  "counter_range": [
+    17,
+    4128
+  ],
+  "startup_us": 47534,
+  "mean_ms": 25.480784868262024,
+  "peak_ms": 30.314,
+  "spills": 0,
+  "scope_mean_ms": 22.195758055285342,
+  "worst_scope_ms": 26.4378125,
+  "worst_window": [
+    865,
+    880
+  ],
+  "ppm": 1.616600482859522,
+  "ppm_window": [
+    865,
+    880
+  ],
+  "presets": [
+    {
+      "name": "1",
+      "holds": 55,
+      "clean": 54,
+      "scope_ms": 25.5745,
+      "render_ms": 28.554125,
+      "wall_ms": 62.368,
+      "window": [
+        3841,
+        3856
+      ],
+      "calls": 1.0
+    },
+    {
+      "name": "2",
+      "holds": 67,
+      "clean": 66,
+      "scope_ms": 26.4378125,
+      "render_ms": 29.719625,
+      "wall_ms": 62.373,
+      "window": [
+        865,
+        880
+      ],
+      "calls": 1.0
+    },
+    {
+      "name": "3",
+      "holds": 68,
+      "clean": 67,
+      "scope_ms": 22.968375,
+      "render_ms": 26.0489375,
+      "wall_ms": 62.432,
+      "window": [
+        2705,
+        2720
+      ],
+      "calls": 1.0
+    },
+    {
+      "name": "4",
+      "holds": 67,
+      "clean": 66,
+      "scope_ms": 22.95825,
+      "render_ms": 26.4581875,
+      "wall_ms": 62.383,
+      "window": [
+        3105,
+        3120
+      ],
+      "calls": 1.0
+    }
+  ],
+  "preset_frames": [
+    {
+      "name": "1",
+      "frames": 900,
+      "spills": 0,
+      "peak_ms": 29.498,
+      "bucket": 0
+    },
+    {
+      "name": "2",
+      "frames": 1079,
+      "spills": 0,
+      "peak_ms": 30.314,
+      "bucket": 0
+    },
+    {
+      "name": "3",
+      "frames": 1079,
+      "spills": 0,
+      "peak_ms": 27.012,
+      "bucket": 0
+    },
+    {
+      "name": "4",
+      "frames": 1079,
+      "spills": 0,
+      "peak_ms": 27.171,
+      "bucket": 0
+    }
+  ],
+  "buckets": {
+    "0": [
+      {
+        "name": "1",
+        "frames": 900,
+        "spills": 0,
+        "peak_ms": 29.498,
+        "bucket": 0
+      },
+      {
+        "name": "2",
+        "frames": 1079,
+        "spills": 0,
+        "peak_ms": 30.314,
+        "bucket": 0
+      },
+      {
+        "name": "3",
+        "frames": 1079,
+        "spills": 0,
+        "peak_ms": 27.012,
+        "bucket": 0
+      },
+      {
+        "name": "4",
+        "frames": 1079,
+        "spills": 0,
+        "peak_ms": 27.171,
+        "bucket": 0
+      }
+    ]
+  },
+  "isrs": {
+    "isr_wake": {
+      "rate": 1152.0870622568093,
+      "min_us": 0.3883333333333333,
+      "avg_us": 1.5703840222299996,
+      "max_us": 30.441666666666666,
+      "cpu": 2.8952707973525658
+    },
+    "isr_pack": {
+      "rate": 144.00170233463035,
+      "min_us": 5.976666666666667,
+      "avg_us": 6.876946979996116,
+      "max_us": 12.335,
+      "cpu": 1.5847520587385853
+    },
+    "isr_dma_submit": {
+      "rate": 144.00170233463035,
+      "min_us": 0.58,
+      "avg_us": 0.93427174546345,
+      "max_us": 10.87,
+      "cpu": 0.21529743887095232
+    }
+  },
+  "size": [
+    [
+      85736,
+      156616,
+      8528
+    ],
+    [
+      315040,
+      28600,
+      4168,
+      176480
+    ],
+    [
+      520064,
+      4224
+    ]
+  ],
+  "captured": "2026-10-01 11:19",
+  "epoch": 2400,
+  "window": 16,
+  "tail_frames": 10,
+  "counter_mean_us": {
+    "canvas_buffer_wait": 36934.23611908236,
+    "canvas_clear": 84.20193741893644,
+    "fx_advance": 2048.928736219196,
+    "fx_prepare_frame": 853.199643725681,
+    "fx_shader_draw": 22195.758055285343,
+    "fx_timeline_step": 111.54469601167315,
+    "pov_preserve_half": 144.51129093709469
+  },
+  "source_dirty": false,
+  "evidence": [
+    {
+      "file": "final-kaleidoscopesmooth-profile_o3.txt",
+      "sha256": "601b8f24dcafcd3ca02c24d62293463a3e5aa4fce512ceef5ae04fc921e68607",
+      "bytes": 357049
+    },
+    {
+      "file": "final-kaleidoscopesmooth-profile_o3.provenance",
+      "sha256": "f4d4ec958be0aee1b494ac3f3d4225e7d8b42ad2b033ac52c35f7ba71ce940c0",
+      "bytes": 1067
+    },
+    {
+      "file": "final-kaleidoscopesmooth-profile_o3_build.txt",
+      "sha256": "37a102d486530747702744eec635d510ff38562508b6c921eee885815bf2d37a",
+      "bytes": 24531
+    },
+    {
+      "file": "final-kaleidoscopesmooth-profile_o3_envdump.txt",
+      "sha256": "f7c4e3aafc2b9d5ff73c0a80297223356cd7763598d4a05f2e7bc1cd8b32fece",
+      "bytes": 33859
+    },
+    {
+      "file": "final-kaleidoscopesmooth-profile_o3_phantasm_build.txt",
+      "sha256": "785cf2a72f2ad3a7a6efe7c40c3971f92e1f9e1c9b7c3f4fbdc21c8aa38fb993",
+      "bytes": 25552
+    },
+    {
+      "file": "final-kaleidoscopesmooth-profile_o3_phantasm_envdump.txt",
+      "sha256": "13b0974568037a0db8a84d3ff848c705ad9ac1046c2b940c6b04ad15f3af3b96",
+      "bytes": 33264
+    },
+    {
+      "file": "final-kaleidoscopesmooth-profile_o3_source_status.txt",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    {
+      "file": "final-kaleidoscopesmooth-profile_o3_source.diff",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    }
+  ]
+}

@@ -1,0 +1,188 @@
+{
+  "tag": "checkpoint2-latticemelt-profile_o3",
+  "effect": "LatticeMelt",
+  "scope": "fx_shader_draw",
+  "sha": "d25dd85dee17c28d2728f813e1ae00ae64690e1b",
+  "frames": 1736,
+  "range": [
+    2,
+    1737
+  ],
+  "counter_range": [
+    17,
+    1728
+  ],
+  "startup_us": 72880,
+  "mean_ms": 38.156218894009214,
+  "peak_ms": 38.705,
+  "spills": 0,
+  "scope_mean_ms": 34.666933039330225,
+  "worst_scope_ms": 34.83225,
+  "worst_window": [
+    385,
+    400
+  ],
+  "ppm": 3.800888260984865,
+  "ppm_window": [
+    1,
+    16
+  ],
+  "presets": [
+    {
+      "name": "1",
+      "holds": 40,
+      "clean": 39,
+      "scope_ms": 34.83225,
+      "render_ms": 38.5009375,
+      "wall_ms": 62.438,
+      "window": [
+        385,
+        400
+      ],
+      "calls": 1.0
+    },
+    {
+      "name": "2",
+      "holds": 67,
+      "clean": 66,
+      "scope_ms": 34.7454375,
+      "render_ms": 38.523875,
+      "wall_ms": 62.437,
+      "window": [
+        609,
+        624
+      ],
+      "calls": 1.0
+    }
+  ],
+  "preset_frames": [
+    {
+      "name": "1",
+      "frames": 657,
+      "spills": 0,
+      "peak_ms": 38.705,
+      "bucket": 0
+    },
+    {
+      "name": "2",
+      "frames": 1079,
+      "spills": 0,
+      "peak_ms": 38.682,
+      "bucket": 0
+    }
+  ],
+  "buckets": {
+    "0": [
+      {
+        "name": "1",
+        "frames": 657,
+        "spills": 0,
+        "peak_ms": 38.705,
+        "bucket": 0
+      },
+      {
+        "name": "2",
+        "frames": 1079,
+        "spills": 0,
+        "peak_ms": 38.682,
+        "bucket": 0
+      }
+    ]
+  },
+  "isrs": {
+    "isr_wake": {
+      "rate": 1152.0765186915887,
+      "min_us": 0.38666666666666666,
+      "avg_us": 1.5909123864618693,
+      "max_us": 27.535,
+      "cpu": 2.9331204630769356
+    },
+    "isr_pack": {
+      "rate": 144.0,
+      "min_us": 5.976666666666667,
+      "avg_us": 6.8559352284527515,
+      "max_us": 19.093333333333334,
+      "cpu": 1.5799069502127498
+    },
+    "isr_dma_submit": {
+      "rate": 144.0,
+      "min_us": 0.5916666666666667,
+      "avg_us": 0.9388467030114226,
+      "max_us": 11.838333333333333,
+      "cpu": 0.21635129006415962
+    }
+  },
+  "size": [
+    [
+      97352,
+      156460,
+      8332
+    ],
+    [
+      315040,
+      39432,
+      26104,
+      143712
+    ],
+    [
+      520064,
+      4224
+    ]
+  ],
+  "captured": "2026-10-01 09:49",
+  "epoch": 1200,
+  "window": 16,
+  "tail_frames": 9,
+  "counter_mean_us": {
+    "canvas_buffer_wait": 24283.608581580997,
+    "canvas_clear": 85.50311137071651,
+    "fx_advance": 2268.697882593458,
+    "fx_prepare_frame": 872.9957486370716,
+    "fx_shader_draw": 34666.93303933022,
+    "fx_timeline_step": 97.79455899532711,
+    "pov_preserve_half": 140.39756911993769
+  },
+  "source_dirty": false,
+  "evidence": [
+    {
+      "file": "checkpoint2-latticemelt-profile_o3.txt",
+      "sha256": "c1da97da33e9b4843bdc3fe29e8a6f85cd618ad5a3d8b9b0e3601ef55f92f497",
+      "bytes": 148874
+    },
+    {
+      "file": "checkpoint2-latticemelt-profile_o3.provenance",
+      "sha256": "ee7a0a071a5b53a670c32117b4d2052444f1662063c5efa00c3f3fa96240233a",
+      "bytes": 1064
+    },
+    {
+      "file": "checkpoint2-latticemelt-profile_o3_build.txt",
+      "sha256": "afbcb7758933f18e6719f42ced573a089733e59c0c1ac4db4e67dd2bbf629b77",
+      "bytes": 24532
+    },
+    {
+      "file": "checkpoint2-latticemelt-profile_o3_envdump.txt",
+      "sha256": "9fad4ddf1b05d1e1771413b9893ff369a5bdd74878494eedfdf230c18455929e",
+      "bytes": 33776
+    },
+    {
+      "file": "checkpoint2-latticemelt-profile_o3_phantasm_build.txt",
+      "sha256": "dc389334e4bf27f2ac5206731a2841ccd8b2c875dbd40b4b07dc338b8ad1e87c",
+      "bytes": 11056
+    },
+    {
+      "file": "checkpoint2-latticemelt-profile_o3_phantasm_envdump.txt",
+      "sha256": "ad534dfd2a2bedcf685066ff560998416206d03adc0928db09cbe1f0b0544f59",
+      "bytes": 33072
+    },
+    {
+      "file": "checkpoint2-latticemelt-profile_o3_source_status.txt",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    {
+      "file": "checkpoint2-latticemelt-profile_o3_source.diff",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    }
+  ]
+}
