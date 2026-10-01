@@ -13,7 +13,10 @@
 #include "tests/test_harness.h"
 
 namespace hs_test::pole_geometry {
-/** @brief Count lit pixels after a short constant-colatitude stroke. */
+/**
+ * @brief Count lit pixels after a geodesic between points at colatitude phi.
+ * @details Endpoints are 0.4 rad apart in azimuth; the arc bulges poleward.
+ */
 template <int W, int H> inline int plot_stroke(float phi) {
   hs_test::StubEffect effect(W, H);
   Pipeline<W, H> pipeline;
