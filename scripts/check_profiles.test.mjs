@@ -5,11 +5,43 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import {
   checkProfiles,
+  checkProfileLinks,
+  checkIndexCells,
   profileDirectories,
   PROFILES_DIR,
   reportsIn,
   validateReport,
 } from './check_profiles.mjs';
+
+
+test('profile links validate supplements, anchors and missing targets', async t => {
+  const root = await mkdtemp(join(tmpdir(), 'holosphere-profile-links-'));
+  t.after(() => rm(root, { recursive: true, force: true }));
+  await mkdir(join(root, 'memory'));
+  await writeFile(join(root, 'memory', 'arena.md'), '# Arena\n## Peak usage\n');
+  await writeFile(join(root, 'README.md'), '[valid](memory/arena.md#peak-usage)\n');
+  const errors = [];
+  await checkProfileLinks(root, errors);
+  assert.deepEqual(errors, []);
+  await writeFile(join(root, 'README.md'), '[bad](memory/arena.md#missing) [gone](hyperlattice_missing.md)\n');
+  await checkProfileLinks(root, errors);
+  assert.ok(errors.some(error => error.includes('missing link anchor')));
+  assert.ok(errors.some(error => error.includes('missing link target')));
+});
+
+test('index cells compare paired and local peak and spill values', () => {
+  const report = 'README cells: peak 🟢 12.30 (2), spilled 🟢 0/10 (0.00%).\n';
+  const index = '| Effect | Ship peak ms | O3 peak ms | Ship spilled | O3 spilled |\n' +
+    '| [A](shipping/a.md) / [O3](O3/a.md) | 🟢 12.3 (2) | 🟢 99 | 🟢 0/10 (0%) | 🟢 0/1 (0%) |\n';
+  const errors = [];
+  checkIndexCells(index, 'shipping/a.md', report, 'main', errors);
+  assert.deepEqual(errors, []);
+  checkIndexCells(index, 'O3/a.md', report, 'main', errors);
+  assert.equal(errors.length, 2);
+  const local = '| Effect | Peak ms | Spilled |\n| [A](a.md) | 🟢 12.3 (2) | 🟢 1/10 (10%) |\n';
+  checkIndexCells(local, 'a.md', report, 'shipping', errors);
+  assert.ok(errors.at(-1).includes('spill differs'));
+});
 
 const validReport = `# Example on-device profile — Teensy 4.0 (2026-08-24, **-O3**)
 
