@@ -1085,8 +1085,22 @@ public:
                                  : Resource::KIND == ResourceKind::SOURCE
                                      ? Derived::SOURCE_NOISE_SEED
                                      : Derived::SURFACE_NOISE_SEED;
+        constexpr int32_t INSTANCE_SEED = [] {
+          if constexpr (Resource::ORDER >= 8 ||
+                        ComposedDetail::family_instances<
+                            typename Resource::Family>(
+                            typename Params::ResourceTypes{}) > 1) {
+            uint32_t hash = 2166136261u;
+            for (const char c : Resource::KEY.view())
+              hash = (hash ^ static_cast<uint8_t>(c)) * 16777619u;
+            return static_cast<int32_t>(static_cast<uint32_t>(SEED) ^ hash);
+          } else {
+            return SEED;
+          }
+        }();
         Pullback::init_effect_noise(
-            state->resources.template get<Resource::KEY>().noise, SEED);
+            state->resources.template get<Resource::KEY>().noise,
+            INSTANCE_SEED);
       }
     });
     palette_cycler.init_generated(persistent_arena, next_palette, this, 0, 600,

@@ -1914,6 +1914,10 @@ inline void test_composed_repeated_instances() {
                  math::wrap_t(-0.084f), 1e-6f);
   HS_EXPECT_TRUE(frame.resources.template get<"warp_a">().noise !=
                  frame.resources.template get<"warp_b">().noise);
+  HS_EXPECT_NE(frame.resources.template get<"warp_a">().noise->GetNoise(
+                   0.3f, 0.4f, 0.5f),
+               frame.resources.template get<"warp_b">().noise->GetNoise(
+                   0.3f, 0.4f, 0.5f));
   HS_EXPECT_EQ(effect.getParameters().size(),
                effect.getParameters().capacity());
   for (const char *name :
