@@ -107,7 +107,7 @@ Scan::Ring::draw<W, H>(pipeline, canvas, basis, radius, thickness, shader);
 
 Each rasterizer family populates the Fragment registers with a consistent convention. Shaders can rely on these semantics:
 
-**SDF Scanline Path** (`Scan::Ring`, `Scan::Star`, `Scan::PlanarPolygon`, `Scan::Flower`, `Scan::Line`, `Scan::Mesh`):
+**SDF Scanline Path** (`Scan::Ring`, `Scan::Star`, `Scan::PlanarPolygon`, `Scan::SphericalPolygon`, `Scan::Flower`, `Scan::Line`, `Scan::Mesh`):
 
 | Register | Source | Meaning |
 |---|---|---|
