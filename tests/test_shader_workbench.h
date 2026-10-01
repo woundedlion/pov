@@ -6532,6 +6532,20 @@ inline int run_shader_workbench_tests() {
   test_shader_workbench_preset_gui_transition();
   test_shader_workbench_parameter_capacity();
   test_shader_workbench_gui_catalog();
+  {
+    using WB = ShaderWorkbenchWhiteBox;
+    reset_effect_globals();
+    WB::SB sb;
+    sb.init();
+    HS_EXPECT_EQ(sb.updateParameter(
+                     "Function", static_cast<float>(WB::Function::TWIN_WAVE)),
+                 ParamSetResult::APPLIED);
+    HS_EXPECT_TRUE(sb.getParameters().find("Drift") != nullptr);
+    HS_EXPECT_EQ(
+        sb.updateParameter("Function", static_cast<float>(WB::Function::RINGS)),
+        ParamSetResult::APPLIED);
+    HS_EXPECT_TRUE(sb.getParameters().find("Source Angle Speed") == nullptr);
+  }
   test_fixed_shader_export_equivalence();
   test_alien_brain_preset_dwell();
   test_mobius_grid_circular_animation();
