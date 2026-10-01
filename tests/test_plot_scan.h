@@ -43,6 +43,8 @@
  *                                 parity, balanced sampling, the step budget,
  *                                 and geodesic endpoints, poles, seams, long
  *                                 arcs and quadrant clips.
+ *   - PlanarBandSplit, Cartesian quadrant trails, raw geodesic edge gates,
+ *     and four-regular/medial edge extraction.
  */
 #pragma once
 #include "tests/pixel_test_util.h"
