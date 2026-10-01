@@ -23,6 +23,8 @@ root counter cycles ÷ 600 MHz match the measured wall sum within **1.0 ppm**
 
 ## Frame cadence
 
+README cells: peak 🟢 48.65, spilled 🟢 0/2048 (0%).
+
 **Pass aggregate** (`parse_profile.py ... windows` footer): `bz_render` avg
 46.93 ms/f, worst window 47.69 ms/f
 (frames 1089–1120),

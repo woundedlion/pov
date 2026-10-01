@@ -26,6 +26,8 @@ Exactness cross-check: frames 737–768, root 1,199,063,475 cycles ÷ 600 MHz ve
 
 ## Frame cadence
 
+README cells: peak 🟢 57.45, spilled 🟢 0/1088 (0%).
+
 **Pass aggregate:** `df_timeline_step` 46.586 ms/frame; worst window 54.605 ms/frame (frames 737–768); peak frame render **57.451 ms**, spilled **0/1088 (0%)**.
 
 A half-revolution display window is 62.5 ms (16 fps). This non-persisting effect does not require a full frame: steady rendering covers one 144×72 quadrant, 10,368 pixels. All observed regimes held 16 fps. `canvas_buffer_wait` is deliberate idle until buffer ownership permits drawing. The first frame now seeds both halves of the segment (288×72, 20,736 pixels); subsequent frames preserve the opposite half.

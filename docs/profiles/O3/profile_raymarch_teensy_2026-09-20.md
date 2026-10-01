@@ -27,6 +27,8 @@ measured wall sum agree within **1.60 ppm**. Raw-log parser validation passed.
 
 ## Frame cadence
 
+README cells: peak 🟢 56.04, spilled 🟢 0/1736 (0.00%).
+
 **Peak live render: 56.044 ms at frame 351;
 spilled 0/1736 live frames.** Headroom against 62.5 ms:
 6.456 ms. Runtime mean render

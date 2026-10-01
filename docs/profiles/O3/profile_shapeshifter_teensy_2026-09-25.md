@@ -23,6 +23,8 @@ Exactness cross-check: frames 17–32, root 598885699 cycles / 600 = 998142.832 
 
 ## Frame cadence
 
+README cells: peak 🟢 60.05 (9), spilled 🟢 0/2457 (0.00%).
+
 **Runtime aggregate**, exact per-frame telemetry excluding setup: mean render 23.806 ms, peak render 60.047 ms, spilled 0/2457 (0.000%). Complete-window `ss_draw_all` averages 23.468 ms/frame; worst window 2289–2304 is 51.255 ms/frame.
 
 Startup frame 1 renders in 48.736 ms and is excluded. A display interval is 62.5 ms; a quadrant is 10,368 pixels. All nine presets hold 16 fps without a spilled live frame. Peak margin to the interval is 2.453 ms. `ss_buffer_wait` is intentional idle until the next display flip.

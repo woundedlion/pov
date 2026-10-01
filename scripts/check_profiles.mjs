@@ -155,7 +155,6 @@ function metric(cell) {
 
 export function checkIndexCells(index, link, report, subject, errors) {
   const cells = /README cells:\s*peak\s+(.+?),\s*spilled\s+(.+?)\.?(?:\r?\n|$)/.exec(report);
-  if (!cells) return;
   let headings = [];
   for (const line of index.split(/\r?\n/)) {
     if (!line.startsWith('|')) continue;
@@ -166,6 +165,10 @@ export function checkIndexCells(index, link, report, subject, errors) {
     const peak = headings.findIndex(cell => new RegExp(`^${prefix ? prefix + ' ' : ''}peak.*ms$`, 'i').test(cell));
     const spill = headings.findIndex(cell => new RegExp(`^${prefix ? prefix + ' ' : ''}spilled(?:/.*)?$`, 'i').test(cell));
     if (peak < 0 || spill < 0) continue;
+    if (!cells) {
+      errors.push(`${subject} links ${link} under peak/spill columns but the report has no "README cells:" line`);
+      continue;
+    }
     if (metric(row[peak]) !== metric(cells[1])) errors.push(`${subject} peak differs from ${link} README cells`);
     if (metric(row[spill]) !== metric(cells[2])) errors.push(`${subject} spill differs from ${link} README cells`);
   }

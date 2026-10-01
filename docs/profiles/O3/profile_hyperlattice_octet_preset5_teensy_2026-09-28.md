@@ -43,6 +43,8 @@ Exactness cross-check: frames 513–528, 1,197,840,645 root cycles / 600 MHz ver
 
 ## Frame cadence
 
+README cells: peak 🔴 74.925, spilled 🔴 549/549 (100.00%).
+
 | Runtime frames | Mean render ms | Peak render ms | Spilled/live | Observed fps |
 |---|---:|---:|---:|---:|
 | 2–550 | 71.635 | 74.925 | 549/549 (100.00%) | 8.01 |

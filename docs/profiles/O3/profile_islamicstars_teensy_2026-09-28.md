@@ -30,6 +30,8 @@ complete per-window frame telemetry, and the expected effect/resolution.
 
 ## Frame cadence
 
+README cells: peak 🟢 49.112 (23), spilled 🟢 0/3336 (0.00%).
+
 **Peak live render: 49.112 ms**, frame 2811, marker-owned
 shape `truncatedIcosidodecahedron_truncate50d_ambo_dual`. Spilled **0/3336
 (0.00%)**; mean render 22.419 ms,
