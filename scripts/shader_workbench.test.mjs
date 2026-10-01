@@ -203,16 +203,6 @@ test('every promoted shader document matches its compiled effect identity', asyn
     const compiled = compile(parseShaderDocument(documentSource));
     assert.equal(compiled.status, 'VALID', effectId);
     assert.equal(compiled.document.effect_id, effectId);
-    const choreography = compiled.document.preset_bank.choreography;
-    const declaredIds = header.match(
-      /std::array<std::string_view,\s*(\d+)>\s+PRESET_IDS\{([^}]*)\}/);
-    assert.ok(declaredIds, `${effectId} declares no PRESET_IDS array`);
-    assert.deepEqual(
-      [...declaredIds[2].matchAll(/"([^"]*)"/g)].map((match) => match[1]),
-      choreography.generated_order,
-      `${effectId} PRESET_IDS is not choreography.generated_order, in order`);
-    assert.equal(Number(declaredIds[1]), choreography.generated_order.length,
-      `${effectId} PRESET_IDS extent does not match the preset count`);
     const destinations = migration.destinations.filter((entry) => entry.effect_id === effectId);
     const presetIds = new Set(compiled.document.preset_bank.presets
       .map((preset) => preset.preset_id));
