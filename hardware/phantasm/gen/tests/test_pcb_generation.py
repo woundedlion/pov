@@ -209,6 +209,18 @@ class OverwriteProtectionTests(unittest.TestCase):
                 self.assertEqual(target.read_bytes(), b"existing routed board\n")
 
 
+class TerminalFootprintTests(unittest.TestCase):
+    def test_revision_13_rejects_legacy_connector_footprints(self):
+        token = pcb._GENERATION.set(("1.3", "test"))
+        try:
+            comps = {ref: (ref, pcb.QUILTER_FIXED_FOOTPRINTS[ref], "", False)
+                     for ref in pcb.TERMINAL_EDGE_PLACEMENTS_1_3}
+            self.assertFalse(pcb.TERMINAL_EDGE_PLACEMENTS_1_3.keys() &
+                             pcb.fixed_placements(comps).keys())
+        finally:
+            pcb._GENERATION.reset(token)
+
+
 @unittest.skipUnless(GENERATES, GENERATES_REASON)
 class GeneratedBoardTests(TerminalBodyChecks, unittest.TestCase):
     """The placed draft `pcb.py --force` emits, read back without KiCad."""
@@ -636,6 +648,31 @@ class OrphanPadTests(unittest.TestCase):
 
         out = self.enterContext(tempfile.TemporaryDirectory())
         with mock.patch.object(pcb, "fixed_placements", without_led), \
+                self.assertRaisesRegex(SystemExit, "connectors require verified edge placements: J2"):
+            generate(out, unplaced=True)
+
+    def test_legacy_connector_coordinates_are_rejected(self):
+        fixed_placements = pcb.fixed_placements
+
+        def legacy_led(comps):
+            fixed = fixed_placements(comps)
+            fixed["J2"] = pcb.QUILTER_FIXED["J2"]
+            return fixed
+
+        out = self.enterContext(tempfile.TemporaryDirectory())
+        with mock.patch.object(pcb, "fixed_placements", legacy_led), \
+                self.assertRaisesRegex(SystemExit, "connectors require verified edge placements: J2"):
+            generate(out, unplaced=True)
+
+    def test_legacy_connector_footprints_are_rejected(self):
+        components = pcb.schematic_components
+
+        def legacy_led(schematic):
+            return [(ref, pcb.QUILTER_FIXED_FOOTPRINTS[ref] if ref == "J2" else fp, value, dnp)
+                    for ref, fp, value, dnp in components(schematic)]
+
+        out = self.enterContext(tempfile.TemporaryDirectory())
+        with mock.patch.object(pcb, "schematic_components", legacy_led), \
                 self.assertRaisesRegex(SystemExit, "connectors require verified edge placements: J2"):
             generate(out, unplaced=True)
 
