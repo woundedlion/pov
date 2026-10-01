@@ -9,7 +9,7 @@
 #include <limits>
 #include <string_view>
 
-#include "math/interpolate.h"
+#include "control/fields.h"
 #include "render/pullback/contract.h"
 
 /**
@@ -29,6 +29,22 @@ enum class FieldCurve : uint8_t {
                           turns. */
   SNAP               /**< Holds the start value until progress reaches 1. */
 };
+
+constexpr Control::FieldCurve control_curve(FieldCurve curve) {
+  switch (curve) {
+  case FieldCurve::LERP:
+    return Control::FieldCurve::LERP;
+  case FieldCurve::LOG_POSITIVE:
+    return Control::FieldCurve::LOG_POSITIVE;
+  case FieldCurve::SHORTEST_PERIODIC:
+    return Control::FieldCurve::SHORTEST_PERIODIC;
+  case FieldCurve::SHORTEST_TURN:
+    return Control::FieldCurve::SHORTEST_TURN;
+  case FieldCurve::SNAP:
+    return Control::FieldCurve::SNAP;
+  }
+  return Control::FieldCurve::SNAP;
+}
 
 /** @brief When a field's slider is registered. */
 enum class FieldGate : uint8_t {
@@ -85,6 +101,14 @@ template <typename Owner> struct Field {
   FieldCurve curve = FieldCurve::LERP;
   FieldGate gate = FieldGate::ALWAYS;
   TopologyGate topology_gate{};
+
+  constexpr Control::Field<Owner, float> description() const {
+    return {.id = id,
+            .member = member,
+            .name = name,
+            .spec = {.min = min, .max = max, .animated = true},
+            .curve = control_curve(curve)};
+  }
 };
 
 /**
@@ -147,19 +171,7 @@ namespace Fields {
 
 HS_FLASH_INLINE inline float apply_curve(FieldCurve curve, float from, float to,
                                          float t) {
-  switch (curve) {
-  case FieldCurve::LERP:
-    return interp::linear(from, to, t);
-  case FieldCurve::LOG_POSITIVE:
-    return interp::log_positive(from, to, t);
-  case FieldCurve::SHORTEST_PERIODIC:
-    return interp::shortest_periodic(from, to, t, math::TWO_PI_F);
-  case FieldCurve::SHORTEST_TURN:
-    return interp::shortest_periodic(from, to, t, 1.0f);
-  case FieldCurve::SNAP:
-    break;
-  }
-  return t < 1.0f ? from : to;
+  return Control::apply_curve(control_curve(curve), from, to, t);
 }
 
 /**
@@ -171,16 +183,14 @@ template <HasFields T>
 HS_FLASH_INLINE inline T interpolate(const T &a, const T &b, float t) {
   T out = t < 1.0f ? a : b;
   for (const auto &field : T::FIELDS)
-    out.*(field.member) =
-        apply_curve(field.curve, a.*(field.member), b.*(field.member), t);
+    field.description().interpolate(out, a, b, t);
   return out;
 }
 
 /** @brief Whether every tabled field is finite and inside its range. */
 template <HasFields T> HS_FLASH_INLINE inline bool valid(const T &value) {
   for (const auto &field : T::FIELDS) {
-    const float sample = value.*(field.member);
-    if (!std::isfinite(sample) || sample < field.min || sample > field.max)
+    if (!field.description().valid(value))
       return false;
   }
   return true;

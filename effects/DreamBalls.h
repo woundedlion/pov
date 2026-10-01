@@ -84,7 +84,58 @@ public:
   /** Bookkeeping only (see DEPARTURE); mirrors the sprite hand-off period. */
   static constexpr uint16_t PRESET_DWELL_FRAMES = 320;
 
-  static bool valid_params(const Params &p) { return preset_in_ranges(p); }
+  /** @brief Shared registration, validation and interpolation descriptions. */
+  static constexpr auto parameter_fields() {
+    return std::tuple{
+        Control::Field<Params, BaseMesh>{
+            .id = "base_mesh",
+            .member = &Params::base_mesh,
+            .name = "Base Mesh",
+            .spec = {.min = 0,
+                     .max = static_cast<int64_t>(SOLID_COUNT) - 1,
+                     .animated = true,
+                     .options = Solids::BASE_MESH_OPTIONS,
+                     .export_options = Solids::BASE_MESH_EXPORT_OPTIONS,
+                     .option_count = SOLID_COUNT}},
+        Control::Field<Params, WeaveTopology>{
+            .id = "weave_topology",
+            .member = &Params::weave_topology,
+            .name = "Weave Topology",
+            .spec = {.min = 0,
+                     .max = static_cast<int64_t>(
+                                std::size(WEAVE_TOPOLOGY_OPTIONS)) -
+                            1,
+                     .animated = true,
+                     .options = WEAVE_TOPOLOGY_OPTIONS,
+                     .export_options = WEAVE_TOPOLOGY_EXPORT_OPTIONS,
+                     .option_count = std::size(WEAVE_TOPOLOGY_OPTIONS)}},
+        Control::Field<Params, float>{.id = "weave_gap",
+                                      .member = &Params::weave_gap,
+                                      .name = "Weave Gap",
+                                      .spec = {.min = WEAVE_GAP_MIN,
+                                               .max = WEAVE_GAP_MAX,
+                                               .animated = true}},
+        Control::Field<Params, float>{
+            .id = "num_copies",
+            .member = &Params::num_copies,
+            .name = "Copies",
+            .spec = {.min = COPIES_MIN, .max = COPIES_MAX, .animated = true}},
+        Control::Field<Params, float>{
+            .id = "offset_radius",
+            .member = &Params::offset_radius,
+            .name = "Radius",
+            .spec = {.min = RADIUS_MIN, .max = RADIUS_MAX, .animated = true}},
+        Control::Field<Params, float>{
+            .id = "offset_speed",
+            .member = &Params::offset_speed,
+            .name = "Speed",
+            .spec = {.min = SPEED_MIN, .max = SPEED_MAX, .animated = true}},
+        Control::Field<Params, float>{
+            .id = "alpha",
+            .member = &Params::alpha,
+            .name = "Alpha",
+            .spec = {.min = ALPHA_MIN, .max = ALPHA_MAX, .animated = true}}};
+  }
 
   /** @brief Constructs the effect with the anti-alias screen filter. */
   HS_COLD_MEMBER DreamBalls()
@@ -117,21 +168,8 @@ public:
     baked_palettes[0].bake(persistent_arena, *live_palette);
     baked_palettes[1].bake(persistent_arena, *live_palette);
 
-    register_animated_param("Base Mesh", &params.base_mesh,
-                            Solids::BASE_MESH_OPTIONS,
-                            Solids::BASE_MESH_EXPORT_OPTIONS, SOLID_COUNT);
-    register_animated_param(
-        "Weave Topology", &params.weave_topology, WEAVE_TOPOLOGY_OPTIONS,
-        WEAVE_TOPOLOGY_EXPORT_OPTIONS, std::size(WEAVE_TOPOLOGY_OPTIONS));
-    register_animated_param("Weave Gap", &params.weave_gap, WEAVE_GAP_MIN,
-                            WEAVE_GAP_MAX);
-    register_animated_param("Copies", &params.num_copies, COPIES_MIN,
-                            COPIES_MAX);
-    register_animated_param("Radius", &params.offset_radius, RADIUS_MIN,
-                            RADIUS_MAX);
-    register_animated_param("Speed", &params.offset_speed, SPEED_MIN,
-                            SPEED_MAX);
-    register_animated_param("Alpha", &params.alpha, ALPHA_MIN, ALPHA_MAX);
+    this->register_described_params();
+
     timeline.add(0, Animation::PeriodicTimer(
                         160, [this](Canvas &) { this->spin_slices(); }, true));
     timeline.add(9, Animation::RandomWalk<W>(
@@ -163,7 +201,6 @@ private:
   using Choreography::anims_paused;
   using Choreography::begin_choreography;
   using Choreography::params;
-  using Choreography::register_animated_param;
   using Choreography::timeline;
 
   /**
@@ -357,14 +394,7 @@ private:
   const Palette *live_palette = nullptr;
 
   static constexpr bool preset_in_ranges(const Params &p) {
-    return static_cast<size_t>(p.base_mesh) < SOLID_COUNT &&
-           static_cast<size_t>(p.weave_topology) <
-               std::size(WEAVE_TOPOLOGY_OPTIONS) &&
-           p.weave_gap >= WEAVE_GAP_MIN && p.weave_gap <= WEAVE_GAP_MAX &&
-           p.num_copies >= COPIES_MIN && p.num_copies <= COPIES_MAX &&
-           p.offset_radius >= RADIUS_MIN && p.offset_radius <= RADIUS_MAX &&
-           p.offset_speed >= SPEED_MIN && p.offset_speed <= SPEED_MAX &&
-           p.alpha >= ALPHA_MIN && p.alpha <= ALPHA_MAX;
+    return Control::valid_fields(p, parameter_fields());
   }
 
   static_assert(all_presets_in_ranges(PRESETS, preset_in_ranges),
