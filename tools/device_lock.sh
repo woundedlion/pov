@@ -150,7 +150,7 @@ _hs_lock_is_stale() {  # <dir>
 }
 
 _HS_LOCK_HELPER="${BASH_SOURCE[0]//\\//}"
-_HS_LOCK_HELPER="${_HS_LOCK_HELPER%/*}/device_lock_guard.py"
+_HS_LOCK_HELPER="$(cd "$(dirname "$_HS_LOCK_HELPER")" && pwd)/device_lock_guard.py"
 
 _hs_resolve_python() {
   [ -n "${_HS_LOCK_PYTHON:-}" ] && return 0
