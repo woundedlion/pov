@@ -17,7 +17,8 @@
  * (test_arenavec_default_unbound / _bind / _move_construct / _move_assign), and
  * ArenaBlockStamp reset and rewind behavior is tested directly. Span/source
  * rebind generations are compared after both reuse and growth by
- * test_arenaspan_source_rebind_generation. A re-bind that grows is a supported pattern (it abandons the
+ * test_arenaspan_source_rebind_generation. A re-bind that grows is a supported
+ * pattern (it abandons the
  * old block until the next arena reset — see ArenaVector::bind), covered by
  * test_arenavec_rebind_grows. Move-assignment onto a bound handle abandons a
  * block the same way and accounts the bytes for the arena's OOM report, covered
@@ -1360,7 +1361,7 @@ inline void test_generate_deep_nesting_stacks_and_unwinds() {
 
 /**
  * @brief Runs every memory test case in this module.
- * @return The harness exit code (zero on success, nonzero on failure).
+ * @return The module failure count.
  */
 inline int run_memory_tests() {
   hs_test::ModuleFixture fixture("memory");
