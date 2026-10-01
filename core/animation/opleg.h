@@ -1025,8 +1025,9 @@ private:
    * @brief Arena-allocated leg state — keeps OpLeg inline size small.
    */
   struct Transients {
-    PolyMesh seed; /**< Cloned leg seed; empty on HANKIN_SWEEP legs and on a
-                      borrowed CONWAY_SWEEP seed. */
+    PolyMesh seed; /**< Cloned geometry for owned CONWAY_SWEEP, RELAX_SLERP
+                      and GATED_SWAP legs; connectivity only for MEDIAL_SLERP;
+                      empty for HANKIN_SWEEP and borrowed CONWAY_SWEEP. */
     const PolyMesh *seed_ref =
         nullptr; /**< CONWAY_SWEEP swept-op source: &seed for a cloned seed, the
                     caller's live mesh for a borrowed one (dual-bridge legs whose
