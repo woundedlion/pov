@@ -527,6 +527,8 @@ public:
 
   template <typename... Args>
   OpLeg(PolyMesh &&, const HankinSweepSpec &, Args &&...) = delete;
+  template <typename... Args>
+  OpLeg(const PolyMesh &&, const HankinSweepSpec &, Args &&...) = delete;
 
   /**
    * @brief Constructs a relax leg: clones the seed, relaxes it once, and
