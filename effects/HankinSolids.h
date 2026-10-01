@@ -58,7 +58,7 @@ public:
    * over-provisioned, so the graph-walk soak gates the resident persistent
    * high-water against this figure rather than the live capacity. */
   static constexpr size_t DEVICE_PERSISTENT_BYTES =
-      DEVICE_GLOBAL_ARENA_SIZE - SCRATCH_A_BYTES - SCRATCH_B_BYTES;
+      ArenaSplit{SCRATCH_A_BYTES, SCRATCH_B_BYTES}.device_persistent();
   static_assert(SCRATCH_A_BYTES + SCRATCH_B_BYTES < DEVICE_GLOBAL_ARENA_SIZE,
                 "HankinSolids scratch split leaves no device persistent arena");
 
@@ -67,8 +67,7 @@ public:
    * the interlace sweep/morph cycle.
    */
   HS_COLD_MEMBER void init() override {
-    configure_arenas(GLOBAL_ARENA_SIZE - SCRATCH_A_BYTES - SCRATCH_B_BYTES,
-                     SCRATCH_A_BYTES, SCRATCH_B_BYTES);
+    ArenaSplit{SCRATCH_A_BYTES, SCRATCH_B_BYTES}.configure();
     register_param("Intensity", &params.intensity, 0.0f, 5.0f);
     register_animated_param("Angle", &params.hankin_angle, 0.0f,
                             math::PI_F / 2.0f);

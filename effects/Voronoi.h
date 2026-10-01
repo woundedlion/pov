@@ -50,7 +50,7 @@ public:
   HS_COLD_MEMBER void init() override {
     // Persistent holds the sites buffer; scratch_arena_a holds the per-frame
     // KD-tree (positions + nodes + build indices).
-    configure_arenas(GLOBAL_ARENA_SIZE - SCRATCH_A_BYTES, SCRATCH_A_BYTES, 0);
+    ArenaSplit{SCRATCH_A_BYTES, 0}.configure();
 
     register_int_param("Num Sites", &params.num_sites, 1, MAX_SITES);
     register_param("Speed", &params.speed, 0.0f, 100.0f);
@@ -390,7 +390,8 @@ private:
   // configure_arenas() sizes as the global arena less SCRATCH_A_BYTES.
   static constexpr size_t FOOTPRINT_BYTES =
       size_t(MAX_SITES) * sizeof(Site) + alignof(Site);
-  static_assert(FOOTPRINT_BYTES <= DEVICE_GLOBAL_ARENA_SIZE - SCRATCH_A_BYTES,
+  static_assert(FOOTPRINT_BYTES <=
+                    ArenaSplit{SCRATCH_A_BYTES, 0}.device_persistent(),
                 "Voronoi persistent footprint exceeds its device partition; "
                 "lower MAX_SITES or shrink SCRATCH_A_BYTES");
 

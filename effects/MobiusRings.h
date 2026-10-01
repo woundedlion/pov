@@ -69,7 +69,7 @@ public:
    *          out-of-phase sine mutations driving the ring/line counts.
    */
   HS_COLD_MEMBER void init() override {
-    configure_arenas(GLOBAL_ARENA_SIZE - SCRATCH_A_BYTES, SCRATCH_A_BYTES, 0);
+    ArenaSplit{SCRATCH_A_BYTES, 0}.configure();
 
     mobius_gen.init_storage(persistent_arena);
     baked_palette.bake(persistent_arena, palette);
@@ -161,7 +161,7 @@ private:
       sizeof(MobiusEntity) + alignof(MobiusEntity) + sizeof(int) +
       alignof(int) + BakedPalette::required_arena_bytes();
   static_assert(
-      FOOTPRINT_BYTES <= DEVICE_GLOBAL_ARENA_SIZE - SCRATCH_A_BYTES,
+      FOOTPRINT_BYTES <= ArenaSplit{SCRATCH_A_BYTES, 0}.device_persistent(),
       "MobiusRings persistent footprint exceeds its device partition");
 
   static constexpr float CONFORMAL_LOG_MIN = -2.5f;

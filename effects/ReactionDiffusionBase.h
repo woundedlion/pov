@@ -397,7 +397,7 @@ protected:
     static_assert(SCRATCH_PEAK_BYTES + SCRATCH_SLACK_BYTES <=
                       DEVICE_GLOBAL_ARENA_SIZE - PERSISTENT_BYTES,
                   "RD scratch arena too small for render()'s phase peak");
-    configure_arenas(PERSISTENT_BYTES, GLOBAL_ARENA_SIZE - PERSISTENT_BYTES, 0);
+    ArenaSplit{GLOBAL_ARENA_SIZE - PERSISTENT_BYTES, 0}.configure();
   }
 
   /**

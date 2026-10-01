@@ -149,7 +149,7 @@ public:
                                             alignof(int);
   // The custom split leaves the remainder of the device arena persistent.
   static_assert(
-      FOOTPRINT_BYTES <= DEVICE_GLOBAL_ARENA_SIZE - SCRATCH_A_BYTES,
+      FOOTPRINT_BYTES <= ArenaSplit{SCRATCH_A_BYTES, 0}.device_persistent(),
       "Fishbowl persistent footprint exceeds its partition; "
       "retune TRAIL_LENGTH/ORIENTATION_SUBSTEPS or enlarge the split");
 
@@ -161,7 +161,7 @@ public:
    */
   HS_COLD_MEMBER void init() override {
     begin_choreography();
-    configure_arenas(GLOBAL_ARENA_SIZE - SCRATCH_A_BYTES, SCRATCH_A_BYTES, 0);
+    ArenaSplit{SCRATCH_A_BYTES, 0}.configure();
 
     noise_xform.init_storage(persistent_arena);
     node = persistent_arena.make<Node>();

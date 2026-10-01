@@ -1271,6 +1271,24 @@ HS_FLASH_INLINE inline void reset_persistent_arena() {
  */
 FLASHMEM void configure_arenas(size_t persistent, size_t scratch_a,
                                size_t scratch_b);
+/** @brief Scratch capacities and the remaining persistent arena budget. */
+struct ArenaSplit {
+  size_t scratch_a;
+  size_t scratch_b;
+
+  constexpr size_t persistent(size_t total = DEVICE_GLOBAL_ARENA_SIZE) const {
+    return total - scratch_a - scratch_b;
+  }
+
+  constexpr size_t device_persistent() const {
+    return persistent(DEVICE_GLOBAL_ARENA_SIZE);
+  }
+
+  FLASHMEM void configure() const {
+    configure_arenas(persistent(GLOBAL_ARENA_SIZE), scratch_a, scratch_b);
+  }
+};
+
 /**
  * @brief Restores the default arena partition.
  */
