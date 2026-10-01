@@ -80,7 +80,6 @@ export function departureLiteral(bank, presetId, policies) {
     throw new Error(`Preset ${presetId} edge does not target its successor`);
   if (policies.find(policy => policy.id === edge.path_policy)?.kind !== 'PARALLEL')
     throw new Error(`Unmapped path policy kind: ${edge.path_policy}`);
-  if (edge.path_policy !== 'parallel') throw new Error(`Unmapped path policy: ${edge.path_policy}`);
   const easing = EASINGS[edge.easing];
   if (!easing) throw new Error(`Unmapped easing: ${edge.easing}`);
   return `Segue::Preset::Lerp{${edge.duration}, ${easing}}`;
