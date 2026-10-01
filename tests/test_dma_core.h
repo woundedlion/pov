@@ -3,8 +3,8 @@
  * Licensed under the PolyForm Noncommercial License 1.0.0
  *
  * Host unit tests for the DMA LED controller's pure framing/decision math
- * (hardware/dma_led_core.h), which the Arduino-only TeensySPIDMA /
- * DMALEDController in dma_led.h derive their behavior from. Covers the
+ * (hardware/dma_led_core.h), used by DMALEDController (dma_led_controller.h)
+ * and the Arduino-only TeensySPIDMA (dma_led.h). Covers the
  * double-buffer toggle, the with_bg transfer-length select, the per-column
  * transfer-duration bound, and the stale-transfer watchdog predicate at its
  * boundaries including a micros() unsigned-long rollover.
@@ -65,7 +65,7 @@ inline void test_transfer_us_bound() {
   HS_EXPECT_EQ(dma::transfer_us(HD107SFrame<72>::COMPOSITE_SIZE, 24000000ul),
                230ul);
 
-  // Inexact divisions round up, never down: 0.67 -> 1, 12.04 -> 13.
+  // Inexact divisions round up, never down: 0.76 -> 1, 12.03 -> 13.
   HS_EXPECT_EQ(dma::transfer_us(1ul, 12000000ul), 1ul);
   HS_EXPECT_EQ(dma::transfer_us(4ul, 3000000ul), 13ul);
 
@@ -106,7 +106,7 @@ inline void test_transfer_stale_bounds() {
 inline void test_transfer_stale_wraparound() {
   const unsigned long wd = dma::TRANSFER_WATCHDOG_US;
   const unsigned long max = std::numeric_limits<unsigned long>::max();
-  // start just before rollover, now just after: elapsed = 1 + (now+1), below wd.
+  // start just before rollover, now just after: elapsed = (max - start) + 1 + now, below wd.
   HS_EXPECT_FALSE(dma::transfer_stale(max - 10, 9, wd)); // elapsed 20
   // start before rollover, now far enough past it to exceed the watchdog.
   HS_EXPECT_TRUE(dma::transfer_stale(max - 10, wd, wd)); // elapsed wd + 11
