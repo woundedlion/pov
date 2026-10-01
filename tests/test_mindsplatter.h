@@ -509,8 +509,8 @@ inline void test_mindsplatter_particle_gradients_follow_emission_order() {
  */
 inline void test_mindsplatter_manual_preset_survives_unpause() {
   constexpr size_t MANUAL_PRESET = 5;
-  constexpr int BLEND_FRAMES = 48;
   using MS = MindSplatter<SMALL_W, SMALL_H>;
+  constexpr int BLEND_FRAMES = MS::DEPARTURE.frames;
   using WB = MindSplatterWhiteBox;
   reset_effect_globals();
   MS effect;
