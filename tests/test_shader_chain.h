@@ -45,6 +45,13 @@ namespace shader_chain_tests {
 namespace PB = Pullback;
 namespace In = Pullback::Interp;
 
+// Admission-rule constants mirrored by scripts/shader_workbench.mjs.
+static_assert(PB::Lens::MobiusLensParams::MOBIUS_MIN_DET_SQ == 1e-6f);
+static_assert(PB::Warp::CURL_VECTOR_COMPONENT_MAX == 4.0f);
+static_assert(In::Op::curl_intervals(In::Op::CurlIntegrator::EULER1) == 1);
+static_assert(In::Op::curl_intervals(In::Op::CurlIntegrator::MIDPOINT2) == 2);
+static_assert(In::Op::curl_intervals(In::Op::CurlIntegrator::MIDPOINT4) == 4);
+
 // --- fixtures -------------------------------------------------------------
 
 inline constexpr const char *MISMATCHED_TOPOLOGY_IDS[] = {"first", "second"};

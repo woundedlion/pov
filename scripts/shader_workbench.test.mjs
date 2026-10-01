@@ -62,6 +62,62 @@ const compile = (source, options = {}) =>
 const validate = (document) =>
   validateShaderDocument(document, { catalog: CATALOG });
 
+const withAdmissionOperator = (operatorId, index) => {
+  const document = example();
+  const operator = CATALOG.operators.find((entry) => entry.id === operatorId);
+  document.descriptor.chain.splice(index, 0, { label: 'admission', operator: operatorId });
+  for (const field of operator.params) {
+    const declaration = declarationFromCatalogField('admission', field, operatorId);
+    document.descriptor.parameters.push(declaration);
+    document.descriptor.serialization.fields.push(declaration.id);
+    for (const preset of document.preset_bank.presets)
+      preset.values[declaration.id] = declaration.default;
+  }
+  return document;
+};
+
+test('Mobius admission rejects singular defaults and each preset', () => {
+  const document = withAdmissionOperator('sphere.lens.mobius.v2', 1);
+  assert.equal(compile(document).status, 'VALID');
+  for (const parameter of document.descriptor.parameters)
+    if (parameter.id.startsWith('admission.')) parameter.default = 0;
+  let result = compile(document);
+  assert.equal(result.status, 'INVALID');
+  assert.ok(result.diagnostics.some((diagnostic) => diagnostic.code === 'INADMISSIBLE_PARAMETERS' &&
+    diagnostic.path === '$.descriptor.parameters'));
+  const presetDocument = withAdmissionOperator('sphere.lens.mobius.v2', 1);
+  for (const key of Object.keys(presetDocument.preset_bank.presets[1].values))
+    if (key.startsWith('admission.')) presetDocument.preset_bank.presets[1].values[key] = 0;
+  result = compile(presetDocument);
+  assert.equal(result.status, 'INVALID');
+  assert.ok(result.diagnostics.some((diagnostic) => diagnostic.code === 'INADMISSIBLE_PARAMETERS' &&
+    diagnostic.path === '$.preset_bank.presets[1].values'));
+});
+
+test('Mobius determinant threshold follows the native binary32 rule', () => {
+  for (const [coefficient, accepted] of [[0.031, false], [0.032, true]]) {
+    const document = withAdmissionOperator('sphere.lens.mobius.v2', 1);
+    for (const parameter of document.descriptor.parameters)
+      if (['admission.mobius-a-re', 'admission.mobius-d-re'].includes(parameter.id)) {
+        parameter.default = coefficient;
+        for (const preset of document.preset_bank.presets) preset.values[parameter.id] = coefficient;
+      }
+    assert.equal(compile(document).status, accepted ? 'VALID' : 'INVALID');
+  }
+});
+
+test('Curl admission accepts the entire bounded domain for every integrator', () => {
+  const document = withAdmissionOperator('warp.curl-flow.v2', 2);
+  for (const integrator of ['euler-1', 'midpoint-2', 'midpoint-4']) {
+    for (const preset of document.preset_bank.presets) {
+      preset.values['admission.integrator'] = integrator;
+      preset.values['admission.scale'] = 4;
+      preset.values['admission.strength'] = -0.03125;
+    }
+    assert.equal(compile(document).status, 'VALID');
+  }
+});
+
 test('edge-fade requires an upstream edge-distance projection for defaults and presets', () => {
   const document = example();
   const coverage = document.descriptor.parameters.find((parameter) => parameter.id === 'sample.coverage-mode');
