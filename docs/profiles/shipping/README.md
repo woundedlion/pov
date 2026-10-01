@@ -7,6 +7,7 @@ Rows rank by any spill, then peak render. 🟢 is zero spill, 🟡 is under 25% 
 
 | Effect | Dominant scope | Peak ms | Spilled | Captured |
 |---|---|--:|--:|---|
+| [GSReactionDiffusion](profile_gsreactiondiffusion_teensy_2026-09-30.md) ● | `grd_render` | 🔴 313.695 | 🔴 443/443 (100.00%) | 2026-09-30 19:21 |
 | [MindSplatter](profile_mindsplatter_teensy_2026-09-29.md) § | `msp_draw_particles` | 🟢 54.94 (8) | 🟢 0/1727 (0.00%) | 2026-09-29 14:48 |
 | [Raymarch](profile_raymarch_teensy_2026-09-28.md) | `rm_shader_draw` | 🟢 54.87 | 🟢 0/1087 (0.00%) | 2026-09-28 19:09 |
 | [ShapeShifter](profile_shapeshifter_teensy_2026-09-29.md) ● § | `ss_draw_all` | 🟢 53.22 (9) | 🟢 0/2448 (0.00%) | 2026-09-29 22:38 |
@@ -23,7 +24,6 @@ Rows rank by any spill, then peak render. 🟢 is zero spill, 🟡 is under 25% 
 | [LatticeMelt](profile_latticemelt_teensy_2026-09-28.md) § | `fx_shader_draw` | 🟢 37.18 (2) | 🟢 0/1727 (0.00%) | 2026-09-28 18:45 |
 | [HyperLattice](profile_hyperlattice_teensy_2026-09-29.md) § | `hl_shader_draw` | 🟢 36.65 (3) | 🟢 0/1887 (0.00%) | 2026-09-29 14:54 |
 | [ChromaticLichen](profile_chromaticlichen_teensy_2026-09-28.md) | `fx_shader_draw` | 🟢 36.63 | 🟢 0/1087 (0.00%) | 2026-09-28 18:47 |
-| [GSReactionDiffusion](profile_gsreactiondiffusion_teensy_2026-09-30.md) ● | `grd_render` | 🟢 36.528 | 🟢 0/2047 (0.00%) | 2026-09-30 01:19 |
 | [KaleidoscopeMandala](profile_kaleidoscopemandala_teensy_2026-09-28.md) § | `fx_shader_draw` | 🟢 35.40 (2) | 🟢 0/2367 (0.00%) | 2026-09-28 18:39 |
 | [DisplacementField](profile_displacementfield_teensy_2026-09-29.md) | `df_timeline_step` | 🟢 35.27 | 🟢 0/2368 (0.00%) | 2026-09-29 09:09 |
 | [HankinSolids](profile_hankinsolids_teensy_2026-09-28.md) § | `hk_timeline_step` | 🟢 34.81 (19) | 🟢 0/4447 (0.00%) | 2026-09-28 19:27 |
@@ -121,4 +121,4 @@ Sphere-only renderer; two authored fixed presets on COM4, startup excluded. [Pai
 | 5: Shell Flight | 🔴 123.553 | 🔴 228/228 (100.00%) | 2026-09-29 08:03 |
 | 6: Shell Close Flight | 🔴 125.186 | 🔴 228/228 (100.00%) | 2026-09-29 08:06 |
 
-● GSReactionDiffusion refreshed 2026-09-30: shipping peak 36.528 ms, global-O3 peak 36.477 ms, zero spills across 2,047 live frames in each capture. [Optimization ledger](../gsreactiondiffusion_optimization_2026-09-30.md).
+● GSReactionDiffusion refreshed 2026-09-30 after pigment, hue and shimmer shading changes. Setup frame 1 is excluded; capture provenance is in the linked reports.

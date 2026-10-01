@@ -1,8 +1,10 @@
 # GSReactionDiffusion optimization campaign — 2026-09-30
 
-The selected implementation retains four SSAA samples, seven stencil nodes, six physics substeps, the original ordered graph, and the existing palettes. This report records twelve main candidate captures, a matched packed-coordinate trial, diagnostic instrumentation, and final shipping/global-O3 captures.
+The original optimization campaign retained four SSAA samples, seven stencil nodes, six physics substeps, the original ordered graph, and the existing palettes. This report records twelve main candidate captures, a matched packed-coordinate trial, diagnostic instrumentation, and final shipping/global-O3 captures.
 
-Final shipping peak is **36.528 ms**, down from **55.413 ms**: **18.885 ms (34.08%) faster**. The independent selected-candidate pass measured 36.549 ms; final global-O3 measured **36.477 ms**. Both final captures have **0/2047 live-frame spills**. The controlled optimization series adds **288 B of full-shipping ITCM**, **9,760 B of FLASH data**, and **0 B of RAM variables**. The final rebased Phantasm image has 166,680 B RAM1 code, **336 B above the original baseline**; 48 B of that increase appeared when incorporating concurrent master changes. All 15 final shader probes stay within **2/65535 per channel** with **zero coverage changes**. Final native physics hashes match all **2,049 baseline states and 33 parameter cases**.
+Current shading, measured at `7baf3cc430753e1a3693134150b282f212aa4e9e` on COM4, has shipping peak **313.695 ms** and global-O3 peak **279.686 ms**. Shipping spills **443/443 live frames**, and O3 spills **538/538**, after excluding setup frame 1. The earlier 36.528/36.477 ms results predate pigment blending, hue rotation and shimmer and do not characterize the current artwork. [Current-state measurements](#current-shading-measurements) include raw evidence and current image sizes.
+
+The original optimization campaign finished with shipping peak **36.528 ms**, down from **55.413 ms**: **18.885 ms (34.08%) faster**. The independent selected-candidate pass measured 36.549 ms; campaign global-O3 measured **36.477 ms**. Both campaign captures have **0/2047 live-frame spills**. The controlled optimization series adds **288 B of full-shipping ITCM**, **9,760 B of FLASH data**, and **0 B of RAM variables**. That campaign's rebased Phantasm image has 166,680 B RAM1 code, **336 B above the original baseline**; 48 B of that increase appeared when incorporating concurrent master changes. All 15 final shader probes stay within **2/65535 per channel** with **zero coverage changes**. Final native physics hashes match all **2,049 baseline states and 33 parameter cases**.
 
 Each main capture used the supported `tools/profile_one.sh` wrapper and locked Teensy on **COM3**, 600 MHz, four real POV segments, 480 RPM, 288x144 effect resolution, `ship` configuration, **130 seconds**, **32-frame windows**, and `HS_PROFILE_EPOCH_REVS=1200`. All twelve main captures contain 64 complete windows, frames 1-2048, without an epoch reset. Statistics use **2,047 live frames, 2-2048**, excluding frame 1. Peak is the maximum per-frame render `r` column, not the wall time that includes display-buffer waiting. Every main capture validates, and every one has **zero frames exceeding 62.5 ms** (`spilled=0`); this is a deadline statistic, not a claim about CPU register spills.
 
@@ -115,7 +117,7 @@ Host shader error statistics for the added experiments use the same 15-probe met
 
 The palette-average host-only experiment replaces four color lookups with one lookup at the average contributing palette coordinate. Palette nonlinearity makes the operations unequal: `palette(mean(t))` need not equal `mean(palette(t))`. Its worst channel error is 10,950/65535, maximum per-probe MAE 252.092488104, and up to 1,231 pixels per probe exceed 4,096 error. A guard requiring a palette-coordinate span at most 0.002 reduces errors but still allows 325 channel units. Both fail the quality standard set by the retained <=2-unit candidates. No device timing or ITCM measurement for either average-palette variant is present, so neither receives an invented performance row.
 
-## Final validation and provenance
+## Original optimization validation and provenance
 
 The final effects and reaction-graph checks pass. The rebased full native suite ran 103 tests: **101 passed, one skipped, one failed**. The failure is the pre-existing guard-coverage bookkeeping for newly added guards in `targets/wasm/engine_bindings.h` (14 versus 13 allowed) and `workbench/shader/shader_host.h` (9 versus 8 allowed), outside this optimization. Its assertions remain enabled. The earlier generated `Profile.ino.cpp` census race was removed by rebuilding the generated census after PlatformIO finished; it is not the remaining failure. A concurrently introduced ambiguous `FamilyRank` lookup prevented compilation and was fixed with explicit namespace qualification in a separate commit.
 
@@ -129,8 +131,25 @@ The full Phantasm `.text.itcm` bytes are identical before and after those two fo
 
 Portable text copies normalize line endings and trailing whitespace. Source diffs are stored verbatim in each capture's source JSON file, under the `patch` field; decoding that string restores the patch. [The portable manifest](evidence/gs_optimization_2026-09-30/portable_manifest.json) records input and retained hashes. ELF and environment hashes in capture footers identify the original local artifacts.
 
-Final reports: [shipping](shipping/profile_gsreactiondiffusion_teensy_2026-09-30.md) and [global O3](O3/profile_gsreactiondiffusion_teensy_2026-09-30.md). The latter changes single-effect FLASH code by +13,856 B and ITCM by +8,896 B relative to shipping.
+The original campaign captures remain in `evidence/gs_optimization_2026-09-30/finalship/` and `evidence/gs_optimization_2026-09-30/finalo3/`. Their global-O3 image added 13,856 B FLASH code and 8,896 B ITCM. The linked profile reports now describe the current shading captures below.
 
 The measured bottleneck remains four-sample shading. Branchless support evaluation and packed Q15/DSP geometry were slower, while averaging palette coordinates produced excessive color error. No tested larger approximation improved both speed and the retained image-quality bounds.
 
 [Final image metrics](evidence/gs_optimization_2026-09-30/quality-final.csv), [physics states](evidence/gs_optimization_2026-09-30/state-quality-final-states.csv), and [parameter corners](evidence/gs_optimization_2026-09-30/state-quality-final-corners.csv).
+
+## Current shading measurements
+
+Both current images use clean source `7baf3cc430753e1a3693134150b282f212aa4e9e`: pigment diffusion and two-palette accumulation, hue/shimmer shading and the per-frame noise LUT are enabled. This candidate also includes the noise-modifier default-speed and pigment scratch-lifetime corrections. The supported device-lock wrapper captured both images on COM4 for 130 seconds with 32-frame windows and `HS_PROFILE_EPOCH_REVS=1200`. No epoch reset occurred. A failed shipping capture attempt on COM3 and the wrapper's stale-image retry are not used as timing evidence.
+
+| Configuration | Captured | Live frames | Mean render ms | Peak render ms | Spilled | Scope/ISR frames |
+|---|---|---|--:|--:|--:|---|
+| Shipping | 2026-09-30 19:21 | 2–444 | 262.576 | 313.695 | 443/443 (100.00%) | 33–416 |
+| Global O3 | 2026-09-30 19:15 | 2–539 | 212.279 | 279.686 | 538/538 (100.00%) | 33–512 |
+
+Every complete individual `f` row is retained in runtime statistics, including the unfinished final window; only setup frame 1 is excluded. Counter and ISR summaries instead use complete windows after the first. The measured shipping peak is 251.195 ms over the 62.5 ms deadline, requiring 5.02× render speedup to fit it. Both compiler configurations miss the deadline throughout their captured live intervals. These captures cover fewer simulation frames than the earlier 16 fps campaign, so they do not establish a full-lifecycle worst case.
+
+Current full-roster Phantasm passes its firmware size/layout gate: RAM1 code **171,928 B**, RAM1 variables **314,784 B**, FLASH data **746,852 B**, RAM2 variables **520,064 B**, and local-variable space **12,896 B**. Relative to the campaign's final rebased image, these are +5,248 B RAM1 code, +0 B RAM1 variables and +620 B FLASH data. They are whole-revision deltas, not isolated costs of one shading feature. Current single-effect global-O3 versus shipping image deltas are **+16,024 B FLASH code** and **+10,832 B ITCM**.
+
+The historical campaign's host-image error bounds and state hashes describe its earlier shaders and physics. No equivalent current-artwork image comparison is claimed here. Both current timing captures use COM4; the old campaign used COM3, a further reason not to interpret the old/new timing difference as a controlled optimization experiment.
+
+Current reports: [shipping](shipping/profile_gsreactiondiffusion_teensy_2026-09-30.md) and [global O3](O3/profile_gsreactiondiffusion_teensy_2026-09-30.md). Portable evidence includes [shipping summary](evidence/gs_shading_2026-09-30/ship/summary.json), [O3 summary](evidence/gs_shading_2026-09-30/o3/summary.json), their complete raw captures, parser validation, compiler/build/environment records and source state. Original ELF/map files remain in the local artifact directories named by each provenance file; manifests record original and retained hashes.

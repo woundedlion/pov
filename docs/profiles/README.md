@@ -28,6 +28,7 @@ minus shipping bytes from each pair's own image-size reports.
 
 | Effect | Dominant scope | Ship peak ms | O3 peak ms | Ship spilled | O3 spilled | FLASH code Δ | ITCM Δ | Captured |
 |---|---|--:|--:|--:|--:|--:|--:|---|
+| [GSReactionDiffusion](shipping/profile_gsreactiondiffusion_teensy_2026-09-30.md) ● / [O3](O3/profile_gsreactiondiffusion_teensy_2026-09-30.md) | `grd_render` | 🔴 313.695 | 🔴 279.686 | 🔴 443/443 (100.00%) | 🔴 538/538 (100.00%) | +16,024 B | +10,832 B | ship 2026-09-30 19:21<br>O3 2026-09-30 19:15 |
 | [MindSplatter](shipping/profile_mindsplatter_teensy_2026-09-29.md) ● / [O3](O3/profile_mindsplatter_teensy_2026-08-26.md) § | `msp_draw_particles` | 🟢 54.94 (8) | 🟢 52.79 (9) | 🟢 0/1727 (0.00%) | 🟢 0/1728 (0%) | +23,632 B | +21,232 B | ship 2026-09-29 14:48<br>O3 2026-08-26 07:45 |
 | [Raymarch](shipping/profile_raymarch_teensy_2026-09-28.md) / [O3](O3/profile_raymarch_teensy_2026-09-20.md) | `rm_shader_draw` | 🟢 54.87 | 🟢 56.04 | 🟢 0/1087 (0.00%) | 🟢 0/1736 (0.00%) | +12,568 B | +7,904 B | ship 2026-09-28 19:09<br>O3 2026-09-20 23:07 |
 | [ShapeShifter](shipping/profile_shapeshifter_teensy_2026-09-29.md) ● / [O3](O3/profile_shapeshifter_teensy_2026-09-25.md) § | `ss_draw_all` | 🟢 53.22 (9) | 🟢 60.05 (9) | 🟢 0/2448 (0.00%) | 🟢 0/2457 (0.00%) | +24,760 B | +31,840 B | ship 2026-09-29 22:38<br>O3 2026-09-25 07:29 |
@@ -44,7 +45,6 @@ minus shipping bytes from each pair's own image-size reports.
 | [LatticeMelt](shipping/profile_latticemelt_teensy_2026-09-28.md) / [O3](O3/profile_latticemelt_teensy_2026-08-26.md) § | `fx_shader_draw` | 🟢 37.18 (2) | 🔴 104.75 (3) | 🟢 0/1727 (0.00%) | 🔴 1824/1824 (100%) | +16,592 B | +11,952 B | ship 2026-09-28 18:45<br>O3 2026-08-26 03:22 |
 | [HyperLattice](shipping/profile_hyperlattice_teensy_2026-09-29.md) ● / [O3](O3/profile_hyperlattice_teensy_2026-09-27.md) § | `hl_shader_draw` | 🟢 36.65 (3) | 🟢 54.817 (2) | 🟢 0/1887 (0.00%) | 🟢 0/1576 (0.00%) | +9,736 B | +8,240 B | ship 2026-09-29 14:54<br>O3 2026-09-27 01:05 |
 | [ChromaticLichen](shipping/profile_chromaticlichen_teensy_2026-09-28.md) / [O3](O3/profile_chromaticlichen_teensy_2026-08-26.md) | `fx_shader_draw` | 🟢 36.63 | 🟢 61.87 | 🟢 0/1087 (0.00%) | 🟢 0/1088 (0%) | +16,576 B | +11,952 B | ship 2026-09-28 18:47<br>O3 2026-08-26 02:41 |
-| [GSReactionDiffusion](shipping/profile_gsreactiondiffusion_teensy_2026-09-30.md) ● / [O3](O3/profile_gsreactiondiffusion_teensy_2026-09-30.md) | `grd_render` | 🟢 36.528 | 🟢 36.477 | 🟢 0/2047 (0.00%) | 🟢 0/2047 (0.00%) | +13,856 B | +8,896 B | ship 2026-09-30 01:19<br>O3 2026-09-30 01:23 |
 | [KaleidoscopeMandala](shipping/profile_kaleidoscopemandala_teensy_2026-09-28.md) / [O3](O3/profile_kaleidoscopemandala_teensy_2026-08-26.md) § | `fx_shader_draw` | 🟢 35.40 (2) | 🟢 36.86 (3) | 🟢 0/2367 (0.00%) | 🟢 0/2368 (0%) | +13,656 B | +11,440 B | ship 2026-09-28 18:39<br>O3 2026-08-26 03:17 |
 | [DisplacementField](shipping/profile_displacementfield_teensy_2026-09-29.md) / [O3](O3/profile_displacementfield_teensy_2026-09-19.md) | `df_timeline_step` | 🟢 35.27 | 🟢 57.45 | 🟢 0/2368 (0.00%) | 🟢 0/1088 (0%) | +25,856 B | +22,144 B | ship 2026-09-29 09:09<br>O3 2026-09-19 22:19 |
 | [HankinSolids](shipping/profile_hankinsolids_teensy_2026-09-28.md) / [O3](O3/profile_hankinsolids_teensy_2026-09-28.md) § | `hk_timeline_step` | 🟢 34.81 (19) | 🟢 32.865 (18) | 🟢 0/4447 (0.00%) | 🟢 0/4137 (0.00%) | +17,088 B | +2,144 B | ship 2026-09-28 19:27<br>O3 2026-09-28 16:45 |
@@ -158,4 +158,4 @@ Sphere-only renderer; two authored fixed presets on COM4, startup excluded. [Shi
 | 5: Shell Flight | 🔴 123.553 | 🔴 117.363 | 🔴 228/228 (100.00%) | 🔴 228/228 (100.00%) | +13,352 B | +4,736 B | ship 2026-09-29 08:03<br>O3 2026-09-29 08:04 |
 | 6: Shell Close Flight | 🔴 125.186 | 🔴 121.337 | 🔴 228/228 (100.00%) | 🔴 228/228 (100.00%) | +13,352 B | +4,736 B | ship 2026-09-29 08:06<br>O3 2026-09-29 08:07 |
 
-● GSReactionDiffusion refreshed 2026-09-30: shipping peak 36.528 ms, global-O3 peak 36.477 ms, zero spills across 2,047 live frames in each capture. [Optimization ledger](gsreactiondiffusion_optimization_2026-09-30.md).
+● GSReactionDiffusion refreshed 2026-09-30 after pigment, hue and shimmer shading changes. Setup frame 1 is excluded; capture provenance is in the linked reports.
