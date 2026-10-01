@@ -137,7 +137,7 @@ def main(argv: list[str] | None = None) -> int:
              "tree (default: build/docs/html) rather than verifying the "
              "tracked Markdown sources")
     parser.add_argument(
-        "--root", type=Path, default=Path("."),
+        "--root", type=Path, default=ROOT,
         help="repository root the references are resolved against")
     args = parser.parse_args(argv)
     repo_root = args.root.resolve()
