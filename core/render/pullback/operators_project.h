@@ -362,6 +362,12 @@ struct ProjectPeirceV3
     : ProjectOpModel<ProjectPeirceV3, PeirceChainParams, true> {
   static constexpr const char *ID = "project.peirce.v3";
   static constexpr const char *NAME = "Peirce Layout";
+  static Prepared prepare(const FrameContext &ctx, const Params &params,
+                          const State &state) {
+    HS_CHECK(params.layout < std::size(PEIRCE_LAYOUT_IDS),
+             "project.peirce: invalid layout");
+    return ProjectOpModel::prepare(ctx, params, state);
+  }
   static ProjectionResult project(const math::Vector &local,
                                   const Params &params,
                                   const Prepared &prepared) {
