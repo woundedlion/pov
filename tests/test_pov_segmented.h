@@ -479,7 +479,11 @@ inline void test_full_handoff_cycle() {
       [&] {
         HS_EXPECT_EQ(step++, 0);
         HS_EXPECT_FALSE(h.release_complete());
+        HS_EXPECT_EQ(h.pending_acquire().effect, nullptr);
         h.service_release();
+        const auto wake = h.apply_wake({.commit = true, .wire_gen = 1});
+        HS_EXPECT_FALSE(wake.adopted);
+        HS_EXPECT_EQ(h.live(), nullptr);
       },
       [&] {
         HS_EXPECT_EQ(step++, 1);
