@@ -259,7 +259,7 @@ Convenience structs that construct an SDF shape and rasterize in a single `draw(
 | `Scan::Star` | N-pointed star shape |
 | `Scan::Flower` | N-petal flower shape |
 | `Scan::DistortedRing` | Ring with per-azimuth radius perturbation |
-| `Scan::DistortedRingStack` | Fused single-pass rasterizer for an evenly spaced same-axis stack of distorted rings — the per-pixel frame every ring shares is computed once and the candidate rings fall out of its polar angle by arithmetic; the shader takes a ring slot alongside the fragment |
+| `Scan::DistortedRingStack` | Fused single-pass rasterizer for a same-axis stack of knot-mode distorted rings (shared basis, zero phase). A caller-owned `CandidateTable`, rebuilt each draw, maps the pixel's polar and azimuth cell to candidate rings; the per-pixel frame is computed once and the shader takes a ring slot alongside the fragment |
 | `Scan::PlanarPolygon` | Regular N-gon in the tangent plane |
 | `Scan::SphericalPolygon` | Regular N-gon with geodesic (great-circle) edges |
 | `Scan::Mesh` | Rasterizes all faces of a `MeshState` |
