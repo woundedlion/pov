@@ -14,9 +14,8 @@
  * in every effect header); include this from an effect, never that.
  */
 
-// platform.h first: on device it defines NDEBUG, which must be set before
-// <cassert> expands the assert macro — otherwise assert-stripping would depend
-// on a prior TU having pulled in platform.h (see canvas.h's identical note).
+// platform.h supplies the Arduino IDE/VMicro NDEBUG fallback before <cassert>;
+// PlatformIO defines NDEBUG for every TU on the command line.
 #include "platform/platform.h"
 
 #include <algorithm>
