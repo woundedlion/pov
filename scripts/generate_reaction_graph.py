@@ -44,6 +44,7 @@ so any byte of drift in either the script or the table fails loudly.
 """
 
 import argparse
+import io
 import math
 import re
 from pathlib import Path
@@ -210,8 +211,9 @@ def main(argv=None):
     table = build_neighbors()
     # UTF-8 and LF on every host: the provenance gate diffs the full text
     # against the committed file, which a BOM or a CRLF run fails on.
-    with args.output.open("w", encoding="utf-8", newline="\n") as out:
-        emit(table, out)
+    out = io.StringIO()
+    emit(table, out)
+    args.output.write_text(out.getvalue(), encoding="utf-8", newline="\n")
 
 
 if __name__ == "__main__":
