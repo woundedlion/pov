@@ -118,6 +118,8 @@ MSP_STALL_RE = re.compile(
     r"^(?:msp|plot) stall: stage=(\S+) batches=(\d+) cyc=(\d+) cpi=(\d+) lsu=(\d+) "
     r"exc=(\d+)\s*$")
 
+MSP_STALL_ALIASED_RE = re.compile(r"^(?:msp|plot) stall aliased: stage=(\S+)\b")
+
 # Preset/shape/mode advance markers. `key` groups them; `idx`/`total`/`name`
 # are pulled when present.
 MARKER_RES = [
@@ -339,9 +341,13 @@ def parse_capture(path):
                 continue
             m = MSP_STALL_RE.match(line)
             if m and cur:
-                cur.msp_stalls[m.group(1)] = dict(
+                cur.msp_stalls.setdefault(m.group(1), {}).update(dict(
                     zip(("batches", "cyc", "cpi", "lsu", "exc"),
-                        (int(g) for g in m.groups()[1:])))
+                        (int(g) for g in m.groups()[1:]))))
+                continue
+            m = MSP_STALL_ALIASED_RE.match(line)
+            if m and cur:
+                cur.msp_stalls.setdefault(m.group(1), {})["wrapped"] = True
                 continue
             m = COUNTER_RE.match(line)
             if m and cur:
@@ -842,7 +848,8 @@ def cmd_msp_stalls(windows):
         print(f"{stage:<22} {batches:10d} {values['cyc'] / divisor:10.1f} "
               f"{values['cpi'] / divisor:10.2f} "
               f"{values['lsu'] / divisor:10.2f} "
-              f"{values['exc'] / divisor:10.2f}")
+              f"{values['exc'] / divisor:10.2f}"
+              + ("  [aliased: stall counts understated]" if values["wrapped"] else ""))
     return 0
 
 
