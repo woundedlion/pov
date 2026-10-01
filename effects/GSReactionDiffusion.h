@@ -10,6 +10,7 @@
  * @brief Gray-Scott reaction-diffusion on a Fibonacci lattice sphere.
  */
 
+#include <algorithm>
 #include <array>
 #include <cmath>
 #include <utility>
