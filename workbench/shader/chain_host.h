@@ -199,28 +199,12 @@ public:
             if (!found)
               return false;
           }
-          bool edge_distance_available = false;
           size_t runtime_count = 0;
-          for (const auto &op : ops) {
+          for (size_t index = 0; index < ops.size(); ++index) {
+            const auto &op = ops[index];
             void *params = base + op.param_offset;
-            if (op.op->runtime.validate(params))
+            if (admission_refusal(ops, index, params))
               return false;
-            if (op.op->input == CarrierId::SPHERE &&
-                op.op->output == CarrierId::PLANE)
-              edge_distance_available = op.op->edge_distance_available;
-            if (!edge_distance_available)
-              for (uint16_t field = 0; field < op.op->schema_count; ++field) {
-                const auto &info = op.op->schema[field];
-                if (info.enum_count == 0 ||
-                    (std::strcmp(info.id, "coverage-mode") != 0 &&
-                     std::strcmp(info.id, "envelope") != 0))
-                  continue;
-                const auto value = *static_cast<uint8_t *>(
-                    op.op->runtime.param_address(params, field));
-                if (value < info.enum_count &&
-                    std::strcmp(info.enum_ids[value], "edge-fade") == 0)
-                  return false;
-              }
             if (!snapshot.runtime)
               continue;
             void *state = base + op.state_offset;
@@ -434,9 +418,9 @@ private:
     }
   }
 
-#if HS_ENABLE_PARAM_GUI_BRIDGE
-  const char *validate_parameters(size_t index, void *params) {
-    const auto ops = program.ops();
+  static const char *admission_refusal(
+      std::span<const Pullback::Interp::ChainProgram::ChainOp> ops,
+      size_t index, void *params) {
     const auto &op = *ops[index].op;
     if (const char *warning = op.runtime.validate(params))
       return warning;
@@ -459,6 +443,11 @@ private:
           return "Edge-fade requires a projection with edge distance";
       }
     return nullptr;
+  }
+
+#if HS_ENABLE_PARAM_GUI_BRIDGE
+  const char *validate_parameters(size_t index, void *params) {
+    return admission_refusal(program.ops(), index, params);
   }
 
   static constexpr size_t PARAM_BYTES = [] {
