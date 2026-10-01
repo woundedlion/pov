@@ -133,6 +133,9 @@ enum WarpParamName : uint8_t {
   WARP_NAME_COUNT,
 };
 
+inline constexpr const char *AFFINE_ROTATION_RATE_NAMES[] = {
+    "Planar Warp 1 Rotation Rate", "Planar Warp 2 Rotation Rate"};
+
 inline constexpr const char *OUTER_WARP_PARAM_NAMES[] = {
     "Planar Warp 1 Translation X", "Planar Warp 1 Translation Y",
     "Planar Warp 1 Rotation",      "Planar Warp 1 Scale X",
