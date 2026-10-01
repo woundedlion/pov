@@ -414,6 +414,24 @@ async function main(probe) {
           engine.getParamValues())) {
           fail(`${name}: ${problem}`);
         }
+
+        for (const [top, bottom] of [[2, 3], [0, 0]]) {
+          const presetBeforeCaps = engine.getPresetIndex();
+          const requestedBeforeCaps = engine.getParameterDefinitions()
+            .filter((parameter) => !parameter.readonly)
+            .map((parameter) => [parameter.name, parameter.requestedValue]);
+          if (engine.setDisplayCaps(top, bottom) !== true)
+            fail(`${name}: setDisplayCaps(${top}, ${bottom}) was rejected`);
+          if (engine.getPresetIndex() !== presetBeforeCaps)
+            fail(`${name}: display caps changed the preset index`);
+          const restored = new Map(engine.getParameterDefinitions()
+            .map((parameter) => [parameter.name, parameter.requestedValue]));
+          for (const [parameter, requested] of requestedBeforeCaps) {
+            if (restored.get(parameter) !== requested)
+              fail(`${name}: display caps changed requested ${parameter}`);
+          }
+          engine.drawFrame();
+        }
       }
     }
 
