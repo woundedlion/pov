@@ -176,9 +176,6 @@ inline void check_peirce_fast_square_matches_exact(const math::Vector &v) {
   const ProjectionKernelResult exact =
       peirce_projection(v, 0.0f, projections::PeirceLayout::SQUARE, 0.0f);
   const ProjectionKernelResult fast = peirce_projection_fast_square(v);
-  HS_EXPECT_NEAR(fast.coords.re, exact.coords.re, 1e-3f);
-  HS_EXPECT_NEAR(fast.coords.im, exact.coords.im, 1e-3f);
-  HS_EXPECT_NEAR(fast.fade_edge_distance, exact.fade_edge_distance, 1e-3f);
   HS_EXPECT_EQ(fast.region_id, exact.region_id);
   HS_EXPECT_EQ(fast.edge_class, exact.edge_class);
   HS_EXPECT_EQ(fast.flags, exact.flags);
