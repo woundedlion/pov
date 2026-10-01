@@ -298,13 +298,12 @@ class InlinePins(unittest.TestCase):
             with self.subTest(line=line):
                 self.assertEqual(re.findall(pattern, line), ["3.13"])
 
-    def test_the_hook_compares_against_its_pinned_format_major(self):
-        lines = (bp.ROOT / ".githooks/pre-commit").read_text(
-            encoding="utf-8").splitlines()
-        major = bp.INLINE_PINS["clang-format"].split(".")[0]
-        self.assertIn(f"HS_CLANG_FORMAT_MAJOR={major}", lines)
-        self.assertIn(
-            '  if [ "$major" != "$HS_CLANG_FORMAT_MAJOR" ]; then', lines)
+    def test_the_hook_delegates_format_and_ruff_versions_to_build_pins(self):
+        source = (bp.ROOT / ".githooks/pre-commit").read_text(encoding="utf-8")
+        for tool in ("clang-format", "ruff"):
+            self.assertIn(f'"$SNAPSHOT/tools/build_pins.py" --check-tool {tool}', source)
+        self.assertNotIn("HS_CLANG_FORMAT_MAJOR", source)
+        self.assertNotIn("expected_ruff=", source)
 
 
 class UnreadableScannedFile(unittest.TestCase):

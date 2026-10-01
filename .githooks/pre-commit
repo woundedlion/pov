@@ -2,7 +2,7 @@
 # Staged-only checks that predict the fast, deterministic CI gates.
 set -eu
 
-HS_CLANG_FORMAT_MAJOR=22
+
 
 CHANGED="$(git diff --cached --name-only --no-renames --diff-filter=ACMRD)"
 PRESENT="$(git diff --cached --name-only --diff-filter=ACMR)"
@@ -59,6 +59,7 @@ INDEX_PATH="$(git rev-parse --path-format=absolute --git-path index)"
 
 
 require_clang_format() {
+  # Install clang-format 22 through the pinned requirements.
   "$PYTHON_BIN" "$SNAPSHOT/tools/build_pins.py" --check-tool clang-format
 }
 
@@ -67,11 +68,7 @@ require_ruff() {
     echo "[pre-commit] ruff not found; pip install -r requirements/ruff.txt"
     exit 1
   fi
-  expected_ruff="$(sed -n 's/^ruff==\([^ ]*\).*/\1/p' "$SNAPSHOT/requirements/ruff.txt")"
-  if [ "$(ruff --version)" != "ruff $expected_ruff" ]; then
-    echo "[pre-commit] pinned ruff $expected_ruff is required; pip install -r requirements/ruff.txt"
-    exit 1
-  fi
+  "$PYTHON_BIN" "$SNAPSHOT/tools/build_pins.py" --check-tool ruff
 }
 
 require_eslint() {
@@ -89,15 +86,6 @@ FORMAT="$(printf '%s\n' "$PRESENT" \
 if [ -n "$FORMAT" ]; then
   require_clang_format
   CF="${CLANG_FORMAT:-clang-format}"
-  if ! command -v "$CF" >/dev/null 2>&1; then
-    echo "[pre-commit] $CF not found; install clang-format 22."
-    exit 1
-  fi
-  major="$("$CF" --version | sed -n 's/.*version \([0-9][0-9]*\).*/\1/p')"
-  if [ "$major" != "$HS_CLANG_FORMAT_MAJOR" ]; then
-    echo "[pre-commit] clang-format 22 is required; found ${major:-unknown}."
-    exit 1
-  fi
   failed=
   while IFS= read -r file; do
     extract_staged "$file"
