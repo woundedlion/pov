@@ -112,22 +112,7 @@ public:
     params.count = std::min(params.count, static_cast<float>(DRAW_LIMIT));
     register_param("Alpha", &alpha, ALPHA_MIN, ALPHA_MAX);
     mark_global("Alpha");
-    register_animated_param("Shape", &params.shape, SHAPE_OPTIONS,
-                            SHAPE_EXPORT_OPTIONS, NUM_SHAPES);
-    register_animated_param("Count", &params.count, 1.0f,
-                            static_cast<float>(DRAW_LIMIT));
-    register_animated_param("Sides", &params.sides, SIDES_MIN, SIDES_MAX);
-    register_animated_param("Function", &params.function, FUNCTION_OPTIONS,
-                            FUNCTION_EXPORT_OPTIONS, NUM_FUNCTIONS);
-    register_animated_param("Amplitude", &params.amplitude, AMPLITUDE_MIN,
-                            AMPLITUDE_MAX);
-    register_animated_param("Speed", &params.speed, SPEED_MIN, SPEED_MAX);
-    register_animated_param("Opposite", &params.opposite);
-    register_animated_param("Alpha Falloff", &params.alpha_falloff,
-                            ALPHA_FALLOFF_OPTIONS, ALPHA_FALLOFF_EXPORT_OPTIONS,
-                            NUM_ALPHA_FALLOFFS);
-    register_animated_param("Spacing", &params.spacing, SPACING_OPTIONS,
-                            SPACING_EXPORT_OPTIONS, NUM_RADIUS_SPACINGS);
+    this->register_described_params();
 
     spaced_radius_t = persistent_arena.allocate_n<float>(MAX_SHAPES);
     phase_sin = persistent_arena.allocate_n<float>(MAX_SHAPES);
@@ -184,7 +169,6 @@ private:
   using Choreography::begin_choreography;
   using Choreography::mark_global;
   using Choreography::params;
-  using Choreography::register_animated_param;
   using Choreography::register_param;
   using Choreography::step_choreography;
   using Choreography::timeline;
@@ -216,8 +200,82 @@ private:
   static constexpr uint16_t PRESET_DWELL_FRAMES =
       PRESET_FRAMES - DEPARTURE.frames;
 
-  static bool valid_params(const Params &p) { return preset_in_ranges(p); }
+public:
+  /** @brief Shared registration, validation and interpolation descriptions. */
+  static constexpr auto parameter_fields() {
+    return std::tuple{
+        Control::Field<Params, ShapeType>{
+            .id = "shape",
+            .member = &Params::shape,
+            .name = "Shape",
+            .spec = {.min = 0,
+                     .max = static_cast<int64_t>(NUM_SHAPES) - 1,
+                     .animated = true,
+                     .options = SHAPE_OPTIONS,
+                     .export_options = SHAPE_EXPORT_OPTIONS,
+                     .option_count = NUM_SHAPES}},
+        Control::Field<Params, float>{
+            .id = "count",
+            .member = &Params::count,
+            .name = "Count",
+            .spec = {.min = 1.0f,
+                     .max = static_cast<float>(DRAW_LIMIT),
+                     .animated = true},
+            .validation_max = static_cast<float>(MAX_SHAPES)},
+        Control::Field<Params, float>{
+            .id = "sides",
+            .member = &Params::sides,
+            .name = "Sides",
+            .spec = {.min = SIDES_MIN, .max = SIDES_MAX, .animated = true}},
+        Control::Field<Params, PhaseFunction>{
+            .id = "function",
+            .member = &Params::function,
+            .name = "Function",
+            .spec = {.min = 0,
+                     .max = static_cast<int64_t>(NUM_FUNCTIONS) - 1,
+                     .animated = true,
+                     .options = FUNCTION_OPTIONS,
+                     .export_options = FUNCTION_EXPORT_OPTIONS,
+                     .option_count = NUM_FUNCTIONS}},
+        Control::Field<Params, float>{.id = "amplitude",
+                                      .member = &Params::amplitude,
+                                      .name = "Amplitude",
+                                      .spec = {.min = AMPLITUDE_MIN,
+                                               .max = AMPLITUDE_MAX,
+                                               .animated = true}},
+        Control::Field<Params, float>{
+            .id = "speed",
+            .member = &Params::speed,
+            .name = "Speed",
+            .spec = {.min = SPEED_MIN, .max = SPEED_MAX, .animated = true}},
+        Control::Field<Params, bool>{
+            .id = "opposite",
+            .member = &Params::opposite,
+            .name = "Opposite",
+            .spec = {.min = 0, .max = 1, .animated = true}},
+        Control::Field<Params, AlphaFalloff>{
+            .id = "alpha_falloff",
+            .member = &Params::alpha_falloff,
+            .name = "Alpha Falloff",
+            .spec = {.min = 0,
+                     .max = static_cast<int64_t>(NUM_ALPHA_FALLOFFS) - 1,
+                     .animated = true,
+                     .options = ALPHA_FALLOFF_OPTIONS,
+                     .export_options = ALPHA_FALLOFF_EXPORT_OPTIONS,
+                     .option_count = NUM_ALPHA_FALLOFFS}},
+        Control::Field<Params, RadiusSpacing>{
+            .id = "spacing",
+            .member = &Params::spacing,
+            .name = "Spacing",
+            .spec = {.min = 0,
+                     .max = static_cast<int64_t>(NUM_RADIUS_SPACINGS) - 1,
+                     .animated = true,
+                     .options = SPACING_OPTIONS,
+                     .export_options = SPACING_EXPORT_OPTIONS,
+                     .option_count = NUM_RADIUS_SPACINGS}}};
+  }
 
+private:
   static constexpr const char *SHAPE_OPTIONS[] = {
       "Planar Polygon", "Spherical Polygon", "Flower", "Planar Star",
       "Spherical Star"};
@@ -792,20 +850,7 @@ private:
 
   /** @brief Authored bounds; Count is clamped to the canvas-specific DRAW_LIMIT. */
   static constexpr bool preset_in_ranges(const Params &preset) {
-    return static_cast<int>(preset.shape) >= 0 &&
-           static_cast<int>(preset.shape) < NUM_SHAPES &&
-           preset.count >= 1.0f &&
-           preset.count <= static_cast<float>(MAX_SHAPES) &&
-           preset.sides >= SIDES_MIN && preset.sides <= SIDES_MAX &&
-           static_cast<int>(preset.function) >= 0 &&
-           static_cast<int>(preset.function) < NUM_FUNCTIONS &&
-           preset.amplitude >= AMPLITUDE_MIN &&
-           preset.amplitude <= AMPLITUDE_MAX && preset.speed >= SPEED_MIN &&
-           preset.speed <= SPEED_MAX &&
-           static_cast<int>(preset.alpha_falloff) >= 0 &&
-           static_cast<int>(preset.alpha_falloff) < NUM_ALPHA_FALLOFFS &&
-           static_cast<int>(preset.spacing) >= 0 &&
-           static_cast<int>(preset.spacing) < NUM_RADIUS_SPACINGS;
+    return Control::valid_fields(preset, parameter_fields());
   }
 
   static_assert(all_presets_in_ranges(PRESETS, preset_in_ranges),

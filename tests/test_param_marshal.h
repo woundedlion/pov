@@ -373,6 +373,247 @@ inline void check_integer_float_endpoints() {
   HS_EXPECT_EQ(value, 0);
 }
 
+struct DefaultFieldsParams {
+  float value = 2;
+  static constexpr auto FIELDS =
+      std::tuple{Control::Field<DefaultFieldsParams, float>{
+          "value",
+          &DefaultFieldsParams::value,
+          "Value",
+          {.min = 0, .max = 10, .animated = true}}};
+};
+
+class DefaultFieldsEffect
+    : public ChoreographedEffect<DefaultFieldsEffect, DefaultFieldsParams> {
+  using Base = ChoreographedEffect<DefaultFieldsEffect, DefaultFieldsParams>;
+
+public:
+  static constexpr uint32_t PARAMETER_SCHEMA_VERSION = 1;
+  static constexpr uint16_t PRESET_DWELL_FRAMES = 3;
+  static constexpr std::array<PresetEntry<Params>, 2> PRESETS{
+      {{{2}, Segue::Preset::Lerp{2, math::ease_linear, true}},
+       {{6}, Segue::Preset::Lerp{2, math::ease_linear, true}}}};
+  DefaultFieldsEffect() : Base(96, 48) {}
+  void init() override {
+    begin_choreography();
+    register_described_params();
+  }
+  void draw_frame() override {}
+  void blend_for_test(float progress) {
+    transition.from = PRESETS[0].params;
+    transition.to = PRESETS[1].params;
+    blend_params(progress);
+  }
+};
+
+inline void test_choreography_descriptions_default() {
+  reset_globals();
+  DefaultFieldsEffect effect;
+  effect.init();
+  const auto *definition = effect.getParameters().find("Value");
+  HS_EXPECT_TRUE(definition != nullptr);
+  HS_EXPECT_EQ(effect.getParameters().size(), 1u);
+  if (definition)
+    HS_EXPECT_TRUE(definition->animated);
+  auto snapshot = effect.serialize_parameters();
+  snapshot.params.value = -1;
+  HS_EXPECT_FALSE(effect.restore_parameters(snapshot));
+  effect.blend_for_test(.25f);
+  HS_EXPECT_EQ(effect.serialize_parameters().params.value, 3);
+  effect.blend_for_test(1);
+  HS_EXPECT_EQ(effect.serialize_parameters().params.value, 6);
+}
+
+struct TypedFieldsState {
+  enum class Mode : uint8_t { FIRST, SECOND };
+  struct Inner {
+    float value = 1;
+    int count = 1;
+  } inner;
+  Mode mode = Mode::FIRST;
+  bool enabled = false;
+  float phase = .9f;
+  float scale = 1;
+  float held = 2;
+  float telemetry = 0;
+  int untabled = 10;
+};
+
+inline constexpr auto TYPED_FIELDS = std::tuple{
+    Control::FieldGroup{
+        &TypedFieldsState::inner,
+        std::tuple{Control::Field<TypedFieldsState::Inner, float>{
+                       "value",
+                       &TypedFieldsState::Inner::value,
+                       "Value",
+                       {.min = 0, .max = 10}},
+                   Control::Field<TypedFieldsState::Inner, int>{
+                       "count",
+                       &TypedFieldsState::Inner::count,
+                       "Count",
+                       {.min = 1, .max = 8}}}},
+    Control::Field<TypedFieldsState, TypedFieldsState::Mode>{
+        "mode", &TypedFieldsState::mode, "Mode", {.min = 0, .max = 1}},
+    Control::Field<TypedFieldsState, bool>{
+        "enabled", &TypedFieldsState::enabled, "Enabled", {.min = 0, .max = 1}},
+    Control::Field<TypedFieldsState, float>{"phase",
+                                            &TypedFieldsState::phase,
+                                            "Phase",
+                                            {.min = 0, .max = 1},
+                                            Control::FieldCurve::SHORTEST_TURN},
+    Control::Field<TypedFieldsState, float>{"scale",
+                                            &TypedFieldsState::scale,
+                                            "Scale",
+                                            {.min = 1, .max = 16},
+                                            Control::FieldCurve::LOG_POSITIVE},
+    Control::Field<TypedFieldsState, float>{"held",
+                                            &TypedFieldsState::held,
+                                            nullptr,
+                                            {.min = 0, .max = 10},
+                                            Control::FieldCurve::SNAP},
+    Control::Field<TypedFieldsState, float>{
+        .id = "telemetry",
+        .member = &TypedFieldsState::telemetry,
+        .name = "Telemetry",
+        .spec = {.min = 0, .max = 10, .readonly = true},
+        .interpolated = false,
+        .validated = false}};
+
+static_assert(Control::valid_fields(TypedFieldsState{}, TYPED_FIELDS));
+static_assert(!Control::valid_fields(
+    TypedFieldsState{.inner = {.value = 1, .count = 0}}, TYPED_FIELDS));
+
+inline void test_typed_field_invalid_metadata() {
+  TypedFieldsState state;
+  Control::Field<TypedFieldsState, TypedFieldsState::Mode> mode{
+      "mode", &TypedFieldsState::mode, "Mode", {.min = 0, .max = 256}};
+  HS_EXPECT_FALSE(mode.valid(state));
+  mode.validation_max = 1;
+  HS_EXPECT_TRUE(mode.valid(state));
+  mode.validation_min = -1;
+  HS_EXPECT_FALSE(mode.valid(state));
+  Control::Field<TypedFieldsState, bool> enabled{
+      "enabled", &TypedFieldsState::enabled, "Enabled", {.min = 0, .max = 2}};
+  HS_EXPECT_FALSE(enabled.valid(state));
+  Control::Field<TypedFieldsState, float> phase{
+      "phase", &TypedFieldsState::phase, "Phase", {.min = 0, .max = 1}};
+  phase.validation_min = std::numeric_limits<float>::quiet_NaN();
+  HS_EXPECT_FALSE(phase.valid(state));
+  phase.validation_min = 0;
+  phase.validation_max = std::numeric_limits<float>::infinity();
+  HS_EXPECT_FALSE(phase.valid(state));
+  phase.validation_max = -1;
+  HS_EXPECT_FALSE(phase.valid(state));
+}
+
+inline void test_typed_field_domains_and_exclusions() {
+  TypedFieldsState from;
+  TypedFieldsState to{.inner = {8, 8},
+                      .mode = TypedFieldsState::Mode::SECOND,
+                      .enabled = true,
+                      .phase = .1f,
+                      .scale = 16,
+                      .held = 9,
+                      .telemetry = 999,
+                      .untabled = 20};
+  TypedFieldsState out{.inner = {}, .telemetry = 77, .untabled = 42};
+  Control::interpolate_fields(out, from, to, .25f, TYPED_FIELDS);
+  HS_EXPECT_EQ(out.inner.value, 2.75f);
+  HS_EXPECT_EQ(out.inner.count, 1);
+  HS_EXPECT_EQ(out.mode, TypedFieldsState::Mode::FIRST);
+  HS_EXPECT_FALSE(out.enabled);
+  HS_EXPECT_NEAR(out.phase, .95f, 1e-6f);
+  HS_EXPECT_NEAR(out.scale, 2.0f, 1e-6f);
+  HS_EXPECT_EQ(out.held, 2);
+  HS_EXPECT_EQ(out.telemetry, 77);
+  HS_EXPECT_EQ(out.untabled, 42);
+  Control::interpolate_fields(out, from, to, .5f, TYPED_FIELDS);
+  HS_EXPECT_EQ(out.inner.count, 8);
+  HS_EXPECT_EQ(out.mode, TypedFieldsState::Mode::SECOND);
+  HS_EXPECT_TRUE(out.enabled);
+  Control::interpolate_fields(out, from, to, 1.0f, TYPED_FIELDS);
+  HS_EXPECT_EQ(out.inner.value, 8);
+  HS_EXPECT_EQ(out.phase, .1f);
+  HS_EXPECT_EQ(out.scale, 16);
+  HS_EXPECT_EQ(out.held, 9);
+  HS_EXPECT_EQ(out.telemetry, 77);
+  HS_EXPECT_TRUE(Control::valid_fields(to, TYPED_FIELDS));
+  to.inner.value = std::numeric_limits<float>::quiet_NaN();
+  HS_EXPECT_FALSE(Control::valid_fields(to, TYPED_FIELDS));
+  to.inner.value = std::numeric_limits<float>::infinity();
+  HS_EXPECT_FALSE(Control::valid_fields(to, TYPED_FIELDS));
+  to.inner.value = 8;
+  to.mode = static_cast<TypedFieldsState::Mode>(2);
+  HS_EXPECT_FALSE(Control::valid_fields(to, TYPED_FIELDS));
+
+  std::vector<std::string_view> names;
+  Control::register_fields(
+      out, TYPED_FIELDS, [&](const char *name, auto *target, const auto &spec) {
+        names.emplace_back(name);
+        HS_EXPECT_TRUE(target != nullptr);
+        if (std::string_view(name) == "Telemetry")
+          HS_EXPECT_TRUE(spec.readonly);
+      });
+  const std::vector<std::string_view> expected{
+      "Value", "Count", "Mode", "Enabled", "Phase", "Scale", "Telemetry"};
+  HS_EXPECT_TRUE(names == expected);
+}
+
+template <typename E> inline void check_described_snapshot_ranges() {
+  reset_globals();
+  E effect;
+  effect.init();
+  const auto original = effect.serialize_parameters();
+  auto candidate = original;
+  size_t floats = 0;
+  Control::register_fields(
+      candidate.params, E::parameter_fields(),
+      [&](const char *, auto *target, const auto &spec) {
+        using Value = std::remove_pointer_t<decltype(target)>;
+        if constexpr (std::is_same_v<Value, float>) {
+          if (spec.readonly)
+            return;
+          ++floats;
+          *target = std::numeric_limits<float>::quiet_NaN();
+          HS_EXPECT_FALSE(effect.restore_parameters(candidate));
+          candidate = original;
+          *target = std::numeric_limits<float>::infinity();
+          HS_EXPECT_FALSE(effect.restore_parameters(candidate));
+          candidate = original;
+          *target =
+              std::nextafter(spec.min, -std::numeric_limits<float>::infinity());
+          HS_EXPECT_FALSE(effect.restore_parameters(candidate));
+          candidate = original;
+        }
+      });
+  HS_EXPECT_GT(floats, 0u);
+  HS_EXPECT_TRUE(effect.restore_parameters(original));
+}
+
+inline void test_authored_field_snapshot_validation() {
+  check_described_snapshot_ranges<Comets<96, 48>>();
+  check_described_snapshot_ranges<DreamBalls<96, 48>>();
+  check_described_snapshot_ranges<Fishbowl<96, 48>>();
+  check_described_snapshot_ranges<HyperLattice<96, 48>>();
+  check_described_snapshot_ranges<MeshFeedback<96, 48>>();
+  check_described_snapshot_ranges<MindSplatter<96, 48>>();
+  check_described_snapshot_ranges<Raymarch<96, 48>>();
+  check_described_snapshot_ranges<ShapeShifter<96, 48>>();
+
+  MindSplatterParams from;
+  MindSplatterParams to;
+  from.friction = .6f;
+  to.friction = .9f;
+  from.base_mesh = Solids::BaseMesh::CUBE;
+  to.base_mesh = Solids::BaseMesh::ICOSAHEDRON;
+  MindSplatterParams out{.active_count = 123};
+  out.lerp(from, to, .5f);
+  HS_EXPECT_EQ(out.friction,
+               from.friction + (to.friction - from.friction) * .5f);
+  HS_EXPECT_EQ(out.base_mesh, to.base_mesh);
+  HS_EXPECT_EQ(out.active_count, 123);
+}
+
 /**
  * @brief Module entry point: runs the per-effect stream-consistency check
  *        across the whole roster, then the cross-effect memory-stability check.
@@ -380,6 +621,10 @@ inline void check_integer_float_endpoints() {
  */
 inline int run_param_marshal_tests() {
   hs_test::ModuleFixture fixture("param_marshal");
+  test_choreography_descriptions_default();
+  test_typed_field_invalid_metadata();
+  test_typed_field_domains_and_exclusions();
+  test_authored_field_snapshot_validation();
   check_roster_order_pinned();
   check_generation_tracker();
   check_hyper_lattice_pattern_view_dropdowns();

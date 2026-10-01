@@ -91,14 +91,34 @@ public:
             .debug_bb = false};
   }
 
+  /** @brief Shared registration, validation and interpolation descriptions. */
+  static constexpr auto parameter_fields() {
+    return std::tuple{
+        Control::Field<Params, float>{
+            .id = "alpha",
+            .member = &Params::alpha,
+            .name = "Alpha",
+            .spec = {.min = ALPHA_MIN, .max = ALPHA_MAX}},
+        Control::Field<Params, float>{
+            .id = "thickness",
+            .member = &Params::thickness,
+            .name = "Thickness",
+            .spec = {.min = THICKNESS_MIN, .max = THICKNESS_MAX}},
+        Control::Field<Params, float>{
+            .id = "cycle_duration",
+            .member = &Params::cycle_duration,
+            .name = "Cycle Dur",
+            .spec = {.min = CYCLE_DURATION_MIN, .max = CYCLE_DURATION_MAX}},
+        Control::Field<Params, bool>{.id = "debug_bb",
+                                     .member = &Params::debug_bb,
+                                     .name = "Debug BB",
+                                     .spec = {.min = 0, .max = 1}}};
+  }
+
   static bool valid_params(const Params &p) {
     return std::isfinite(p.function.m1) && std::isfinite(p.function.m2) &&
            std::isfinite(p.function.a) && std::isfinite(p.function.domain) &&
-           p.function.m2 > 0.0f && p.alpha >= ALPHA_MIN &&
-           p.alpha <= ALPHA_MAX && p.thickness >= THICKNESS_MIN &&
-           p.thickness <= THICKNESS_MAX &&
-           p.cycle_duration >= CYCLE_DURATION_MIN &&
-           p.cycle_duration <= CYCLE_DURATION_MAX;
+           p.function.m2 > 0.0f && Control::valid_fields(p, parameter_fields());
   }
 
   /** @brief Comet head state: world orientation, recorded trail, body axis. */
@@ -124,12 +144,7 @@ public:
 
     baked_palette.bake(persistent_arena, palette);
 
-    register_param("Alpha", &params.alpha, ALPHA_MIN, ALPHA_MAX);
-    register_param("Thickness", &params.thickness, THICKNESS_MIN,
-                   THICKNESS_MAX);
-    register_param("Cycle Dur", &params.cycle_duration, CYCLE_DURATION_MIN,
-                   CYCLE_DURATION_MAX);
-    register_param("Debug BB", &params.debug_bb);
+    this->register_described_params();
 
     // Runs before motion exists, so its reanchor() is a no-op here; the path it
     // sets is still live because Motion below captures `path` by reference.
