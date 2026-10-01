@@ -45,12 +45,11 @@ struct MeshOpBounds {
  * @param OP0  Macro applied to each zero-argument operator.
  * @param OP1U Macro applied to each [0,1]-fraction operator.
  * @param OP1H Macro applied to each [0,1)-fraction operator.
- * @details Expanded three times: with MESHOP_0/MESHOP_1U/MESHOP_1H to generate
+ * @details Expanded at the roster consumers: with MESHOP_0/MESHOP_1U/MESHOP_1H to generate
  *          the wrapper methods in mesh_ops_bindings.h, with MESHOP_BIND to
  *          generate the embind .function() bindings there, and with
- *          MESHOP_BOUNDS_ENTRY below to publish the factors as data, so an
- *          operator cannot be added to one site and silently left unreachable
- *          or unmeasured at another.
+ *          MESHOP_BOUNDS_ENTRY below to publish the factors as data, and with
+ *          MESHOP_COUNT_ONE to check cardinality.
  *          Each fraction operator's macro matches the domain its always-on
  *          engine trap asserts: truncate and bevel accept 1 and use OP1U;
  *          chamfer and expand assert t < 1 and use OP1H. relax, hankin,
