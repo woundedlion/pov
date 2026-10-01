@@ -209,7 +209,7 @@ do not introduce a separate library build or runtime service.
 
 | Path | State | Responsibility |
 | --- | --- | --- |
-| core/render/ray.h | Implemented | Public umbrella for reusable ray rendering; proposed namespace `Raycast` |
+| core/render/ray.h | Implemented | Public umbrella for reusable ray rendering; namespace `Raycast` |
 | core/render/ray/contract.h | Implemented | Ray interval, footprint, trace limits/status, geometric contribution, and query capability contracts; no effect types or framebuffer traversal |
 | core/render/ray/camera.h | Implemented | Spherical ray construction, validated 3D/4D slice embedding, world-distance conventions, and prepared camera transforms |
 | core/render/ray/query.h | Implemented | Generic volume-query adaptation, placement/domain composition, prepared per-ray evaluation, and projected normals; geometry-specific formulas stay with their pattern |
@@ -217,8 +217,14 @@ do not introduce a separate library build or runtime service.
 | core/render/ray/events.h | Implemented | Bounded merge of analytic candidate streams, event grouping, ordered emission, and traversal budgets |
 | core/render/ray/shade.h | Implemented | Reusable depth/feature appearance policies, fog/near fade, verified subray filtering, and contribution consumption through `LayerComposite`; receives palettes and settings from callers |
 | core/render/pullback/ray.h | Implemented | Reusable prepared `SphereSample -> Color4` stage binding camera, query, backend, and appearance; no new canonical carriers |
-| core/render/sdf/lattice.h | Implemented | Cubic/hypercubic wire geometry, world-unit distance queries, analytic plane-event adapters, feature identities, and explicit legacy coverage/filter policy |
-| core/render/sdf/framework.h | Implemented | Triangular-prism framework geometry and its analytic query adapter |
+| core/render/sdf/lattice.h | Implemented | Prepared cubic/hypercubic lattice crossings, analytic plane-event adapters, feature identities and shading |
+| core/render/sdf/framework.h | Implemented | Triangular-prism and octet 3D/4D framework geometry with analytic query/event adapters |
+| core/render/sdf/octet_trace.h | Implemented | Octet cell traversal and bounded analytic events |
+| core/render/sdf/lattice_trace.h | Implemented | Cubic and hypercubic lattice cell traversal |
+| core/render/sdf/cellular_wire.h | Implemented | Diamond, hexagonal and rhombic cellular wires |
+| core/render/sdf/affine_lattice.h | Implemented | Affine lattice geometry and traversal |
+| core/render/sdf/periodic_shells.h | Implemented | Periodic shell geometry and candidate traversal |
+| core/render/sdf/lattice_field.h | Implemented | WireLattice world-unit distance and gradient queries |
 | core/render/sdf/periodic_surface.h | Implemented | Cosine and gyroid level-set definitions, period/isovalue parameters, bounds, gradients, and surface-query adapters |
 | core/render/sdf/volume.h | Existing | Existing torus, warps, and warped-volume geometry; retain their public shape contracts |
 | core/render/scan/volume.h | Existing | Orthographic scan/cull/draw front end, `TransformedVolume` compatibility API, and legacy occluder-probe/plot behavior; delegates extracted stepping to the ray core |
