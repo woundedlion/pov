@@ -238,8 +238,9 @@ def fallback_sizes_from_size_a(text: str) -> dict[str, RegionSizes]:
     initialized_data = sum(size for name, size, addr in allocated
                            if name == ".data" and region_for_address(addr) == "DTCM")
     flash = totals["FLASH"] + totals["ITCM"] + initialized_data
+    flash_capacity = next(hi - lo for name, lo, hi in MEMORY_MAP if name == "FLASH")
     return {
-        "flash": {"used": flash, "free": 0},
+        "flash": {"used": flash, "free": flash_capacity - flash},
         "ram1": {"used": ram1, "free": 0x80000 - ram1},
         "ram2": {"used": totals["OCRAM"],
                  "free": 0x80000 - totals["OCRAM"]},
