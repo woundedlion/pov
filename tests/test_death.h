@@ -6,7 +6,7 @@
  *
  * An HS_CHECK violation traps and aborts the whole process, so the in-process
  * HS_EXPECT_* harness cannot catch it. Each trap is exercised in a CHILD
- * process: the test binary re-exec's itself with HS_DEATH_CASE=<name> (handled
+ * process: the test binary re-exec's itself with HS_DEATH_CHILD=harness and HS_DEATH_CASE=<name> (handled
  * in main() before any module runs), runs exactly one trap-triggering case, and
  * the parent asserts the child died by the *specific* trap status — clang lowers
  * __builtin_trap() to an illegal instruction (x86 ud2), so the child dies by
@@ -6132,7 +6132,8 @@ inline constexpr const char *DETERMINISM_PROBE_CASE =
  * @brief Child entry point: runs exactly one named death case, then returns.
  * @param name Case selector; an unknown name (e.g. the "__spawn_check__"
  *             control) simply returns, so the child exits 0.
- * @details Called from main() when HS_DEATH_CASE is set. The case is expected to
+ * @details Called from main() with HS_DEATH_CHILD=harness and a non-empty
+ *          HS_DEATH_CASE, without extra command-line arguments. The case is expected to
  *          trap before returning; returning means it did NOT trap, so the child
  *          exits 0 and the parent flags it.
  */
