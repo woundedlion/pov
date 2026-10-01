@@ -433,13 +433,13 @@ class CheckTool(unittest.TestCase):
         # clang's pin is a major; the binary reports the full version, which
         # an equality test could never satisfy.
         self.assertEqual(
-            self._check("clang", "Ubuntu clang version 22.1.8 (tags/x)")[0], 0)
-        self.assertEqual(self._check("python", "Python 3.12.9")[0], 0)
+            self._check("clang", f"Ubuntu clang version {bp.INLINE_PINS['clang']}.1.8 (tags/x)")[0], 0)
+        self.assertEqual(self._check("python", f"Python {bp.INLINE_PINS['python']}.9")[0], 0)
 
     def test_a_different_major_still_fails(self):
-        status, message = self._check("clang", "clang version 21.1.0")
+        status, message = self._check("clang", f"clang version {int(bp.INLINE_PINS['clang']) - 1}.1.0")
         self.assertEqual(status, 1)
-        self.assertIn("apt install clang-22", message)
+        self.assertIn(f"apt install clang-{bp.INLINE_PINS['clang']}", message)
 
     def test_clang_format_honors_the_binary_override(self):
         from types import SimpleNamespace
@@ -471,8 +471,8 @@ class CheckTool(unittest.TestCase):
         for name, want in (("just", f"pip install rust-just=={bp.PINS['just']}"),
                            ("shellcheck",
                             f"pip install shellcheck-py=={bp.PINS['shellcheck']}"),
-                           ("node", "install Node 24.13.0"),
-                           ("doxygen", "install Doxygen 1.17.0")):
+                           ("node", f"install Node {bp.PINS['node']}"),
+                           ("doxygen", f"install Doxygen {bp.INLINE_PINS['doxygen']}")):
             status, message = self._check(name, None)
             self.assertEqual(status, 1, name)
             self.assertIn("nothing runnable", message)
