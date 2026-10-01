@@ -42,9 +42,10 @@ inline void paused_render_one(const char *name) {
   const uint64_t acc = frame_energy<W, H>(effect);
 
   if (acc == 0)
-    std::printf("  PAUSED-BLANK %-20s produced no lit pixel over %d paused "
-                "frames @ %dx%d\n",
-                name, frames, W, H);
+    std::printf(
+        "  PAUSED-BLANK %-20s final paused frame (of %d) has no lit pixel "
+        "@ %dx%d\n",
+        name, frames, W, H);
   HS_EXPECT(acc > 0, "effect must produce non-black output while paused");
 }
 
