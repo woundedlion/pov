@@ -6,8 +6,8 @@
 
 /**
  * @file rng.h
- * @brief The process-wide deterministic PRNG (Pcg32) and the hs::rand_*
- *        helpers every parity-sensitive draw goes through.
+ * @brief Deterministic PRNG (Pcg32), hs::rand_* helpers, epoch/effect seeds
+ *        and the stable effect identity used by effect seeding.
  */
 
 #include <algorithm>
