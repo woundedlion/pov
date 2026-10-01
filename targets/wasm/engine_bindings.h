@@ -1021,7 +1021,7 @@ public:
    */
   emscripten::val getFullConfigSnapshot() {
     emscripten::val output = emscripten::val::null();
-    with_shader_workbench([&]<typename SB>(SB &shader) {
+    with_effect<Shader>([&]<typename SB>(SB &shader) {
       const typename SB::FullConfigSnapshot snapshot =
           shader.capture_full_config_snapshot();
       output = emscripten::val::object();
@@ -1060,7 +1060,7 @@ public:
   restoreFullConfigSnapshot(const emscripten::val &caller_input) {
     FullConfigRestoreResult result =
         FullConfigRestoreResult::NOT_SHADER_WORKBENCH;
-    with_shader_workbench([&]<typename SB>(SB &shader) {
+    with_effect<Shader>([&]<typename SB>(SB &shader) {
       // Payload cloning can invoke getters that replace or delete the owner.
       const SnapshotDecodeGuard decode_guard;
       const uint64_t owner_generation = effect_generation;
@@ -1169,7 +1169,7 @@ public:
    */
   emscripten::val getFullConfigFieldDefinitions() {
     emscripten::val output = emscripten::val::null();
-    with_shader_workbench([&]<typename SB>(SB &) {
+    with_effect<Shader>([&]<typename SB>(SB &) {
       output = emscripten::val::array();
       for (size_t index = 0; index < SB::CONFIG_FIELD_COUNT; ++index) {
         emscripten::val field = emscripten::val::object();
@@ -1207,7 +1207,7 @@ public:
   emscripten::val setShaderChain(const emscripten::val &caller_entries) {
     const SnapshotDecodeGuard decode_guard;
     using Pullback::Interp::ChainStatus;
-    if (!with_shader_chain([]<typename SC>(SC &) {}))
+    if (!with_effect<ShaderChain>([]<typename SC>(SC &) {}))
       return chain_result(ChainStatus::NOT_CHAIN_EFFECT, -1);
     // Payload cloning can invoke getters that replace the addressed chain.
     const uint64_t owner_generation = effect_generation;
@@ -1244,7 +1244,7 @@ public:
     for (size_t index = 0; index < count; ++index)
       request[index] = {instances[index], operators[index]};
     Pullback::Interp::ChainRefusal refusal{ChainStatus::NOT_CHAIN_EFFECT, -1};
-    with_shader_chain([&]<typename SC>(SC &chain) {
+    with_effect<ShaderChain>([&]<typename SC>(SC &chain) {
       refusal = chain.set_chain(
           std::span<const Pullback::Interp::ChainEntryRequest>(request));
     });
@@ -1263,7 +1263,7 @@ public:
   ParamSetResult
   setShaderChainParameters(const emscripten::val &caller_entries) {
     const SnapshotDecodeGuard decode_guard;
-    if (!with_shader_chain([]<typename SC>(SC &) {}))
+    if (!with_effect<ShaderChain>([]<typename SC>(SC &) {}))
       return ParamSetResult::NO_EFFECT;
     const uint64_t owner_generation = effect_generation;
     const Effect *const owner = current_effect.get();
@@ -1298,7 +1298,7 @@ public:
     for (size_t index = 0; index < count; ++index)
       writes[index] = {names[index].c_str(), values[index]};
     ParamSetResult result = ParamSetResult::NO_EFFECT;
-    with_shader_chain([&]<typename SC>(SC &chain) {
+    with_effect<ShaderChain>([&]<typename SC>(SC &chain) {
       result = chain.update_parameters(writes);
     });
     if (result == ParamSetResult::APPLIED)
@@ -1483,54 +1483,25 @@ private:
     return false;
   }
 
-#if HS_ENABLE_SHADER_WORKBENCH
-  /**
-   * @brief Runs a callback on the live effect iff it is the Shader workbench.
-   * @param callback Templated callable receiving the shader workbench backend.
-   * @return true iff the callback ran.
-   * @details The downcast is admitted by the factory's own type key, so it is
-   *          legal by construction: a registry name that no longer maps to
-   *          Shader<W,H> reports "not Shader" instead of casting to
-   *          the wrong type.
-   */
-  template <typename Callback> bool with_shader_workbench(Callback &&callback) {
+#if HS_ENABLE_SHADER_WORKBENCH || HS_ENABLE_CHAIN_INTERPRETER
+  /** @brief Runs a callback when the live effect has the requested factory type. */
+  template <template <int, int> class EffectT, typename Callback>
+  bool with_effect(Callback &&callback) {
     if (!current_effect)
       return false;
     bool invoked = false;
     hs_wasm::dispatch_resolution(
         pixel_width, pixel_height, [&]<int W, int H>() {
-          if (current_effect_type_key == effect_type_key<Shader<W, H>>()) {
-            callback(static_cast<Shader<W, H> &>(*current_effect.get()));
+          if (current_effect_type_key == effect_type_key<EffectT<W, H>>()) {
+            callback(static_cast<EffectT<W, H> &>(*current_effect.get()));
             invoked = true;
           }
         });
     return invoked;
   }
-#endif // HS_ENABLE_SHADER_WORKBENCH
+#endif
 
 #if HS_ENABLE_CHAIN_INTERPRETER
-  /**
-   * @brief Runs a callback on the live effect iff it is ShaderChain.
-   * @param callback Templated callable receiving the chain effect.
-   * @return true iff the callback ran.
-   * @details Same factory-type-key admission as with_shader_workbench: a
-   * registry name that no longer maps to ShaderChain<W,H> reports "not
-   * ShaderChain" instead of casting to the wrong type.
-   */
-  template <typename Callback> bool with_shader_chain(Callback &&callback) {
-    if (!current_effect)
-      return false;
-    bool invoked = false;
-    hs_wasm::dispatch_resolution(
-        pixel_width, pixel_height, [&]<int W, int H>() {
-          if (current_effect_type_key == effect_type_key<ShaderChain<W, H>>()) {
-            callback(static_cast<ShaderChain<W, H> &>(*current_effect.get()));
-            invoked = true;
-          }
-        });
-    return invoked;
-  }
-
   /** @brief Result with enum status, legacy string code, and entry index. */
   static emscripten::val chain_result(Pullback::Interp::ChainStatus code,
                                       int entry_index) {
