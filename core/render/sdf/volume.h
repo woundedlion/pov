@@ -403,12 +403,12 @@ concept VolumeShape = requires(const T &s, const math::Vector &p) {
  * concrete Torus/Twist pair it is keyed on, which neither concept describes.
  */
 HS_O3_BEGIN
-template <typename SDF, typename Warp> struct WarpedVolume {
-  static_assert(VolumeShape<SDF>);
-  static_assert(VolumeWarp<Warp>);
+template <typename Shape, typename WarpT> struct WarpedVolume {
+  static_assert(VolumeShape<Shape>);
+  static_assert(VolumeWarp<WarpT>);
 
-  SDF base;  /**< The underlying volume SDF being warped. */
-  Warp warp; /**< The domain warp applied before the base SDF. */
+  Shape base; /**< The underlying volume SDF being warped. */
+  WarpT warp; /**< The domain warp applied before the base SDF. */
 
   /**
    * @brief Smallest distance the caller needs an accurate value for.
@@ -420,8 +420,8 @@ template <typename SDF, typename Warp> struct WarpedVolume {
   float precision = 0.0f;
 
   /** True when the base/warp pair admits the tight per-axis bound below. */
-  static constexpr bool TORUS_TWIST = std::is_same_v<SDF, ::SDF::Torus> &&
-                                      std::is_same_v<Warp, ::SDF::Warp::Twist>;
+  static constexpr bool TORUS_TWIST = std::is_same_v<Shape, ::SDF::Torus> &&
+                                      std::is_same_v<WarpT, ::SDF::Warp::Twist>;
 
   /** @brief Checks the radius ratio required by the Torus/Twist trace bound. */
   void check_trace_preconditions() const {
