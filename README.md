@@ -977,7 +977,9 @@ Use `Effect` directly for an effect that owns its own lifecycle. For an authored
 
 ### Parameter Registration
 
-Effects expose live-adjustable parameters through the float `register_param()`, integer `register_int_param()`, typed-enum overloads, and runtime `enum8` registration (`control/param_host.h`). These are reflected into the WASM bridge and auto-generate GUI controls in the simulator:
+Effects expose live-adjustable parameters through the float `register_param()`, integer `register_int_param()`, typed-enum overloads, and runtime `enum8` registration (`control/param_host.h`). These are reflected into the WASM bridge and auto-generate GUI controls in the simulator.
+
+The typed `register_param(name, T*, ParamSpec<T>)` overload carries bounds and control metadata. `Control::Field` and `Control::FieldGroup` describe members through `parameter_fields()` or `Params::FIELDS`. A `ChoreographedEffect` with these descriptions uses `register_described_params()` for registration and derives validation and the Lerp blend from the same fields. See the [parameter description spec](docs/specs/parameter_description_spec.md).
 
 ```cpp
 register_param("Twist",   &params.twist, -5.0f, 5.0f);        // float slider (min, max)
