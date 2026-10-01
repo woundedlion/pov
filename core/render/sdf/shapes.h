@@ -647,8 +647,7 @@ struct Line {
       if (math::dot(a, b) < 0.0f) {
         // Antipodal endpoints (len ~ π) leave the arc plane undefined: any great
         // circle through them serves, and distance() then measures the whole
-        // circle rather than an arc (every projected point sits at
-        // ang_a + ang_b == len). Pick a plane the endpoints actually lie in.
+        // circle rather than an arc. Pick a plane through the endpoints.
         antipodal = true;
         math::Vector ref =
             (fabsf(a.y) < 0.9f) ? math::Vector(0, 1, 0) : math::Vector(1, 0, 0);
@@ -698,6 +697,7 @@ struct Line {
     cap_horiz_valid = mid_r >= MIN_HORIZONTAL_PROJ;
 
     if (antipodal) {
+      len = 2.0f * math::PI_F;
       // The rendered geometry is the full great circle of `n`, which spans the
       // latitudes between its two extrema and every azimuth: no half-circle cap
       // bounds it, so drop the horizontal cull.

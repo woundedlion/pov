@@ -2779,6 +2779,14 @@ inline void test_line_arc_bulge_cull_covers_interior() {
  *   renders.
  */
 inline void test_line_antipodal_cull_covers_interior() {
+  const math::Vector a(-0.21973225f, -0.52185529f, -0.82424802f);
+  const math::Vector b(0.21973109f, 0.52185678f, 0.82424736f);
+  SDF::Line jittered(a, b, 0.01f);
+  const auto n = math::cross(a, math::Vector(0, 1, 0)).normalized();
+  const auto p = math::cross(n, a).normalized();
+  SDF::DistanceResult result;
+  jittered.distance(p, result);
+  HS_EXPECT_LT(result.dist, 0.0f);
   constexpr int W = 96, H = 48;
   math::Vector a = math::Vector(0.4f, 0.6f, 0.69f).normalized();
   SDF::Line ln(a, -a, /*thickness=*/0.15f);
