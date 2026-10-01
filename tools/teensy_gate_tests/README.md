@@ -2,6 +2,8 @@
 
 These prove the size/layout gate (`tools/teensy_gate.py`) **fails when it should**
 — a check that can never fail is worse than none.
+They also cover size tables and trails, warning ratchets, PlatformIO gate glue,
+and system-include classification.
 They are pure host Python (`unittest`, no ARM toolchain, no PlatformIO).
 
 ```
