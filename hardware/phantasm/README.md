@@ -113,3 +113,6 @@ prove that ground pads remain connected.
 
 Electrical and mechanical requirements live in the
 [PCB specification](../../docs/specs/phantasm_pcb_spec.md).
+
+The two TBC05 terminal-block footprints in `1.2/phantasm.pretty/` are
+hand-maintained source files; the PCB generator reads and copies them.
