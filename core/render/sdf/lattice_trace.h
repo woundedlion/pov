@@ -50,6 +50,7 @@ struct Settings {
   CrossingStorage *crossings = nullptr;
   /** Scratch the shell march sorts layers in; required for SHELLS. */
   SDF::ShellLayerStorage *shell_layers = nullptr;
+  SDF::CellularWire::HitStorage *cellular_hits = nullptr;
 };
 
 /** @brief Frame state the traces read, built by prepare(). */
@@ -71,6 +72,7 @@ struct Prepared {
   float shell_radius = .30f;
   CrossingStorage *crossings = nullptr;
   SDF::ShellLayerStorage *shell_layers = nullptr;
+  SDF::CellularWire::HitStorage *cellular_hits = nullptr;
 };
 
 /** @brief Validates settings and precomputes the frame's trace state. */
@@ -105,6 +107,7 @@ HS_FLASH_INLINE inline Prepared prepare(const Settings &settings) {
   result.shell_radius = settings.shell_radius;
   result.crossings = settings.crossings;
   result.shell_layers = settings.shell_layers;
+  result.cellular_hits = settings.cellular_hits;
   result.valid = result.camera.valid() &&
                  (settings.geometry != Geometry::OCTET || settings.crossings) &&
                  Raycast::finite(result.footprint.angular_radius) &&
@@ -120,7 +123,8 @@ HS_FLASH_INLINE inline Prepared prepare(const Settings &settings) {
                           settings.geometry == Geometry::HEXAGONAL ||
                           settings.geometry == Geometry::RHOMBIC;
     result.valid =
-        (CELLULAR && settings.domain == Raycast::SamplingDomain::SPATIAL_3D) ||
+        (CELLULAR && settings.domain == Raycast::SamplingDomain::SPATIAL_3D &&
+         settings.cellular_hits) ||
         settings.geometry == Geometry::AFFINE_CUBIC ||
         settings.geometry == Geometry::SHELLS;
     if (CELLULAR)
@@ -230,7 +234,8 @@ HS_HOT_FLASH_MEMBER Sample shade(const math::Vector &direction,
       sample = SDF::CellularWire::shade(
           *prepared.cellular, prepared.octet.cell_size,
           prepared.octet.wire_radius, camera, prepared.footprint,
-          prepared.limits, prepared.appearance, direction);
+          prepared.limits, prepared.appearance, *prepared.cellular_hits,
+          direction);
     }
     return {sample.color.color * sample.color.alpha, sample.trace.status};
   }

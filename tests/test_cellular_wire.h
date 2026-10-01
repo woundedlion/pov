@@ -66,11 +66,14 @@ struct Palette {
 
 inline void test_traversal() {
   using namespace SDF::CellularWire;
-  alignas(Pixel) std::array<uint8_t, BakedPalette::required_arena_bytes()>
-      buffer;
+  alignas(Pixel)
+      std::array<uint8_t, BakedPalette::required_arena_bytes() +
+                              sizeof(HitStorage) + alignof(HitStorage)>
+          buffer;
   Arena arena(buffer.data(), buffer.size());
   BakedPaletteStorage palette;
   palette.bake(arena, Palette{});
+  HitStorage &storage = *arena.allocate_n<HitStorage>(1);
   Raycast::Appearance appearance;
   appearance.palette = &palette.view();
   appearance.inv_far = .1f;
@@ -86,16 +89,16 @@ inline void test_traversal() {
   bounded_geometry.edges[0] = {{1, 1, .5f}, {1.1f, 1, .5f}};
   camera.center = {1.05f, 1, 0, 0};
   const auto INSIDE = shade(bounded_geometry, 1, .04f, camera, {1, 0}, limits,
-                            appearance, math::Z_AXIS);
+                            appearance, storage, math::Z_AXIS);
   HS_EXPECT_EQ(INSIDE.trace.status, Raycast::TraceStatus::BUDGET_EXHAUSTED);
   HS_EXPECT_GT(INSIDE.color.alpha, 0.f);
   bounded_geometry.edges[0] = {{1, 1, 1.2f}, {1.1f, 1, 1.2f}};
   const auto OUTSIDE = shade(bounded_geometry, 1, .04f, camera, {1, 0}, limits,
-                             appearance, math::Z_AXIS);
+                             appearance, storage, math::Z_AXIS);
   HS_EXPECT_EQ(OUTSIDE.trace.status, Raycast::TraceStatus::BUDGET_EXHAUSTED);
   HS_EXPECT_EQ(OUTSIDE.color.alpha, 0.f);
   const auto ZERO_ANGLE = shade(bounded_geometry, 1, .5f, camera, {0, 0},
-                                limits, appearance, math::Z_AXIS);
+                                limits, appearance, storage, math::Z_AXIS);
   HS_EXPECT_EQ(ZERO_ANGLE.trace.status, Raycast::TraceStatus::BUDGET_EXHAUSTED);
   HS_EXPECT_EQ(ZERO_ANGLE.trace.counters.candidates, 0);
   for (auto kind : {Kind::DIAMOND, Kind::HEXAGONAL, Kind::RHOMBIC}) {
@@ -103,7 +106,7 @@ inline void test_traversal() {
     const auto MID = (GEOMETRY.edges[0].a + GEOMETRY.edges[0].b) * .5f;
     camera.center = {MID.x, MID.y, MID.z - 1, 0};
     const auto FIRST = shade(GEOMETRY, 1, .04f, camera, {.002f, 0}, limits,
-                             appearance, math::Z_AXIS);
+                             appearance, storage, math::Z_AXIS);
     HS_EXPECT_TRUE(FIRST.trace.status == Raycast::TraceStatus::RANGE_COMPLETE ||
                    FIRST.trace.status == Raycast::TraceStatus::SATURATED);
     HS_EXPECT_GT(FIRST.trace.counters.layers, 0);
@@ -114,35 +117,35 @@ inline void test_traversal() {
                               GEOMETRY.period.z};
       shifted.center[axis] += 2 * PERIOD[axis];
       const auto TRANSLATED = shade(GEOMETRY, 1, .04f, shifted, {.002f, 0},
-                                    limits, appearance, math::Z_AXIS);
+                                    limits, appearance, storage, math::Z_AXIS);
       HS_EXPECT_NEAR(FIRST.color.alpha, TRANSLATED.color.alpha, 1e-5f);
     }
     auto bounded = limits;
     bounded.max_layers = 0;
     const auto NO_LAYERS = shade(GEOMETRY, 1, .04f, camera, {.002f, 0}, bounded,
-                                 appearance, math::Z_AXIS);
+                                 appearance, storage, math::Z_AXIS);
     HS_EXPECT_EQ(NO_LAYERS.trace.status,
                  Raycast::TraceStatus::BUDGET_EXHAUSTED);
     HS_EXPECT_EQ(NO_LAYERS.trace.counters.layers, 0);
     HS_EXPECT_EQ(NO_LAYERS.color.alpha, 0.0f);
     bounded = limits;
     bounded.max_steps = 0;
-    const auto EXHAUSTED =
-        shade(GEOMETRY, 1, .04f, camera, {}, bounded, appearance, math::Z_AXIS);
+    const auto EXHAUSTED = shade(GEOMETRY, 1, .04f, camera, {}, bounded,
+                                 appearance, storage, math::Z_AXIS);
     HS_EXPECT_EQ(EXHAUSTED.trace.status,
                  Raycast::TraceStatus::BUDGET_EXHAUSTED);
     bounded = limits;
     bounded.max_candidates = 0;
-    const auto CANDIDATE_LIMIT =
-        shade(GEOMETRY, 1, .04f, camera, {}, bounded, appearance, math::Z_AXIS);
+    const auto CANDIDATE_LIMIT = shade(GEOMETRY, 1, .04f, camera, {}, bounded,
+                                       appearance, storage, math::Z_AXIS);
     HS_EXPECT_EQ(CANDIDATE_LIMIT.trace.status,
                  Raycast::TraceStatus::BUDGET_EXHAUSTED);
     auto invalid = camera;
     invalid.domain = Raycast::SamplingDomain::SLICE_4D;
-    HS_EXPECT_EQ(
-        shade(GEOMETRY, 1, .04f, invalid, {}, limits, appearance, math::Z_AXIS)
-            .trace.status,
-        Raycast::TraceStatus::INVALID_QUERY);
+    HS_EXPECT_EQ(shade(GEOMETRY, 1, .04f, invalid, {}, limits, appearance,
+                       storage, math::Z_AXIS)
+                     .trace.status,
+                 Raycast::TraceStatus::INVALID_QUERY);
   }
 }
 
