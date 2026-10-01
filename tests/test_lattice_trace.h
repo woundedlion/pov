@@ -37,7 +37,6 @@ void check_cubic(const SDF::Lattice::PreparedShading &prepared,
   const auto composite =
       SDF::Lattice::composite_crossings<SLICE, SHELLS>(view, prepared);
   const auto actual = composite.finish();
-  SDF::Lattice::Events<SLICE, SHELLS> events(view, prepared.lattice);
   LayerComposite reference;
   SDF::Lattice::Events<SLICE, SHELLS> reference_events(view, prepared.lattice);
   Raycast::trace_events(reference_events, {0, prepared.lattice.far_distance},
