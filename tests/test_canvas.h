@@ -1193,6 +1193,11 @@ inline void test_update_parameter_by_name() {
   fx.add_float("Speed", &fx.speed, 0.0f, 10.0f);
   fx.add_bool("Flag", &fx.flag, false);
 
+  HS_EXPECT_EQ(fx.updateParameter("Speed", 99.0f), ParamSetResult::APPLIED);
+  HS_EXPECT_EQ(fx.speed, 10.0f);
+  HS_EXPECT_EQ(fx.updateParameter("Speed", -5.0f), ParamSetResult::APPLIED);
+  HS_EXPECT_EQ(fx.speed, 0.0f);
+
   HS_EXPECT_EQ(fx.updateParameter("Speed", 7.25f), ParamSetResult::APPLIED);
   HS_EXPECT_NEAR(fx.speed, 7.25f, 1e-6f);
 
