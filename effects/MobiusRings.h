@@ -222,6 +222,8 @@ private:
    * @details Holds the spherical-polygon basis and the sampling radius for a
    *          given ring/line index.
    */
+  static constexpr int CURVE_SIDES = W / 4;
+
   struct Curve {
     math::Basis basis; /**< Orthonormal basis of the spherical polygon. */
     float radius; /**< Sampling radius of the curve, in unit-sphere coords. */
@@ -253,10 +255,10 @@ private:
       Curve curve = curve_fn(i);
 
       Fragments m_fragments;
-      // Polygon::sample emits W/4 + 1 points (one closing overlap).
-      m_fragments.bind(scratch_arena_a, W / 4 + 2);
-      Plot::Polygon<Plot::GeodesicProjection>::sample(m_fragments, curve.basis,
-                                                      curve.radius, W / 4);
+      // Polygon::sample emits CURVE_SIDES + 1 points (one closing overlap).
+      m_fragments.bind(scratch_arena_a, CURVE_SIDES + 2);
+      Plot::Polygon<Plot::GeodesicProjection>::sample(
+          m_fragments, curve.basis, curve.radius, CURVE_SIDES);
 
       // Warp the sampled points in place; v0 carries the polyline parameter and
       // the sampler's arc-length/index registers are unused here.
@@ -342,7 +344,8 @@ private:
         [&](int, float opacity) {
           const float alpha = opacity * params.alpha;
           return [this, phase, alpha](const math::Vector &, Fragment &f_val) {
-            float y = math::fast_sinf(f_val.v0 * 2.0f * math::PI_F);
+            float y = math::fast_sinf((f_val.v0 + 0.5f / CURVE_SIDES) * 2.0f *
+                                      math::PI_F);
             Color4 c = baked_palette.get(conformal_coord(y, phase));
             c.alpha *= alpha;
             f_val.color = c;
