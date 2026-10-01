@@ -3,7 +3,7 @@
  * Licensed under the PolyForm Noncommercial License 1.0.0
  *
  * MindSplatter white-box invariants: emitter/attractor mesh selection, the
- * golden geometry replay, the fused-vertex, hole-kernel, signed-axis and
+ * serialization round-trip and replay determinism, the fused-vertex, hole-kernel, signed-axis and
  * rotation-matrix framebuffer parities, clip/clear display parity, preset
  * timeline bookkeeping and emission-phase wrapping.
  *
