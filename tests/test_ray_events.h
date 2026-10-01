@@ -1,6 +1,8 @@
 /*
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
  * Licensed under the PolyForm Noncommercial License 1.0.0
+ *
+ * Event tracing, stream merging, and verified supersample filtering.
  */
 #pragma once
 
@@ -28,6 +30,7 @@ struct SingleGroupStreams : Streams {
   static constexpr size_t GROUP_CAPACITY = 1;
 };
 
+/** @brief Pins single group capacity. */
 inline void test_single_group_capacity() {
   SingleGroupStreams streams;
   for (size_t i = 0; i < streams.STREAM_COUNT; ++i) {
@@ -79,6 +82,7 @@ inline void test_single_group_capacity() {
   HS_EXPECT_EQ(count, 1);
 }
 
+/** @brief Pins failure status survives flush. */
 inline void test_failure_status_survives_flush() {
   SingleGroupStreams streams;
   streams.live.fill(false);

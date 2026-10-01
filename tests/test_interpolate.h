@@ -1,6 +1,8 @@
 /*
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
  * Licensed under the PolyForm Noncommercial License 1.0.0
+ *
+ * Interpolation endpoints, periodic wrapping, and quaternion paths.
  */
 #pragma once
 
@@ -15,6 +17,7 @@
 namespace hs_test {
 namespace interpolate_tests {
 
+/** @brief Pins clamp progress. */
 inline void test_clamp_progress() {
   static_assert(interp::clamp_progress(-1.0f) == 0.0f);
   static_assert(interp::clamp_progress(2.0f) == 1.0f);
@@ -31,6 +34,7 @@ inline void test_clamp_progress() {
       interp::clamp_progress(std::numeric_limits<float>::quiet_NaN())));
 }
 
+/** @brief Pins linear. */
 inline void test_linear() {
   static_assert(interp::linear(2.0f, 6.0f, 0.5f) == 4.0f);
 
@@ -46,6 +50,7 @@ inline void test_linear() {
   HS_EXPECT_EQ(interp::linear(6.0f, 2.0f, 0.5f), 4.0f);
 }
 
+/** @brief Pins log positive. */
 inline void test_log_positive() {
   HS_EXPECT_EQ(interp::log_positive(1.0f, 4.0f, 0.0f), 1.0f);
   HS_EXPECT_EQ(interp::log_positive(1.0f, 4.0f, 1.0f), 4.0f);
@@ -71,6 +76,7 @@ inline void test_log_positive() {
   HS_EXPECT_TRUE(std::isfinite(interp::log_positive(0.0f, 4.0f, 0.5f)));
 }
 
+/** @brief Pins shortest periodic. */
 inline void test_shortest_periodic() {
   constexpr float TAU = 6.28318530717958647692f;
 
@@ -118,6 +124,7 @@ inline void test_shortest_periodic() {
                interp::linear(0.9f, 0.1f, 0.5f));
 }
 
+/** @brief Pins normalized linear. */
 inline void test_normalized_linear() {
   // Endpoints come back as supplied — valid, and deliberately not
   // renormalized.

@@ -1,6 +1,8 @@
 /*
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
  * Licensed under the PolyForm Noncommercial License 1.0.0
+ *
+ * Analytic and periodic ray demonstrator rendering contracts.
  */
 #pragma once
 
@@ -18,6 +20,7 @@
 
 namespace hs_test::ray_demonstrator_tests {
 
+/** @brief Pins octet crossing coverage against ray line distance. */
 inline void test_octet_crossing_coverage_against_ray_line_distance() {
   for (int sample = 0; sample < 600; ++sample) {
     SDF::OctetFramework geometry;
@@ -84,6 +87,7 @@ inline void test_octet_crossing_coverage_against_ray_line_distance() {
   }
 }
 
+/** @brief Pins framework generic event rendering. */
 inline void test_framework_generic_event_rendering() {
   SDF::TriangularFramework geometry;
   Raycast::TraceLimits limits;
@@ -143,6 +147,7 @@ struct CloseStreams {
   void advance(size_t i) { ++indices[i]; }
 };
 
+/** @brief Pins repeated stream grouping preserves order and endpoints. */
 inline void test_repeated_stream_grouping_preserves_order_and_endpoints() {
   CloseStreams events;
   Raycast::TraceLimits limits;
@@ -168,6 +173,7 @@ inline void test_repeated_stream_grouping_preserves_order_and_endpoints() {
     HS_EXPECT_GE(output[i].t, output[i - 1].t);
 }
 
+/** @brief Pins lattice volume camera demonstrators. */
 inline void test_lattice_volume_camera_demonstrators() {
   Raycast::PreparedCamera camera;
   camera.center = {{0.3f, 0.2f, 0.0f, 0.0f}};
@@ -312,6 +318,7 @@ void check_placed_volume_stage(const Shape &shape,
   HS_EXPECT_NE(hashes[0], hashes[1]);
 }
 
+/** @brief Pins torus and warped volume spherical stage. */
 inline void test_torus_and_warped_volume_spherical_stage() {
   alignas(Pixel) std::array<uint8_t, BakedPalette::required_arena_bytes()>
       buffer;
@@ -337,6 +344,7 @@ struct OffSliceBall {
   }
 };
 
+/** @brief Pins verified filter off slice geometry and projected normal. */
 inline void test_verified_filter_off_slice_geometry_and_projected_normal() {
   Raycast::PreparedCamera camera;
   camera.domain = Raycast::SamplingDomain::SLICE_4D;
@@ -379,6 +387,7 @@ inline void test_verified_filter_off_slice_geometry_and_projected_normal() {
   HS_EXPECT_EQ(PARTIAL.color.color.r, uint16_t{40000});
 }
 
+/** @brief Pins affine lattice world metric and periods. */
 inline void test_affine_lattice_world_metric_and_periods() {
   const SDF::AffineLattice GEOMETRY{2, .55f, 1.4f};
   const math::Vec4 POINT{{.13f, -.24f, .42f, .37f}};
@@ -410,6 +419,7 @@ inline void test_affine_lattice_world_metric_and_periods() {
       std::clamp(.5f - (.1f - .05f) / (.1f * SLICE_HIT.t), 0.0f, 1.0f), 1e-5f);
 }
 
+/** @brief Pins periodic shell roots and slices. */
 inline void test_periodic_shell_roots_and_slices() {
   SDF::PeriodicShells geometry{2, .3f};
   const auto SPHERE = geometry.intersect({{-2, 0, 0, 0}}, {{1, 0, 0, 0}}, 3);
@@ -425,6 +435,7 @@ inline void test_periodic_shell_roots_and_slices() {
   HS_EXPECT_NEAR(INSIDE.far, .6f, 1e-6f);
 }
 
+/** @brief Pins affine cached metric against ray line oracle. */
 inline void test_affine_cached_metric_against_ray_line_oracle() {
   for (int sample = 0; sample < 240; ++sample) {
     Raycast::PreparedCamera camera;
@@ -498,6 +509,7 @@ inline void test_affine_cached_metric_against_ray_line_oracle() {
   }
 }
 
+/** @brief Pins periodic shell traversal budgets. */
 inline void test_periodic_shell_traversal_budgets() {
   alignas(Pixel) std::array<uint8_t, BakedPalette::required_arena_bytes()>
       buffer;
@@ -581,6 +593,7 @@ inline void test_periodic_shell_traversal_budgets() {
   HS_EXPECT_EQ(OFF_SLICE.trace.counters.layers, 0);
 }
 
+/** @brief Pins prepared shells match sphere roots. */
 inline void test_prepared_shells_match_sphere_roots() {
   alignas(Pixel) std::array<uint8_t, BakedPalette::required_arena_bytes()>
       buffer;
