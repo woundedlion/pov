@@ -180,7 +180,8 @@ struct MeshState {
   /**
    * @brief Returns the per-face topology-class pointer for the active mode.
    * @return Owned data in owned mode, otherwise the borrowed view pointer.
-   *   Null when the mesh is unclassified.
+   * Read get_topology_size(): it is 0 when the mesh is unclassified, and the
+   * pointer is then unspecified (possibly null).
    */
   const uint16_t *get_topology_data() const {
     return topology.is_bound() ? topology.data() : topology_view.data();
