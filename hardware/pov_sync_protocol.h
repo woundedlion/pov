@@ -109,10 +109,9 @@ struct Config {
 
   // Symbol wire (spec §5.2): pitches/timeouts in columns.
   int32_t pulse_pitch_cols = 2; /**< Boundary-burst pulse pitch (> mask M). */
-  // beacon_pitch_cols, gap_timeout_cols and acquire_quiet_cols all feed
-  // beacon_frame_cols(), which valid() holds strictly under W/4 with a single
-  // column to spare at the shipped constants. Any of the three can only move
-  // down unless W grows with it.
+  // valid() requires beacon_frame_cols() < W/4 and acquire_quiet_cols >=
+  // 2*gap_timeout_cols + 7*beacon_pitch_cols + 1. At the shipped constants,
+  // only gap_timeout_cols can decrease alone, down to pulse_pitch_cols + 1.
   int32_t beacon_pitch_cols = 1; /**< Beacon digit pulse pitch (checksummed). */
   int32_t gap_timeout_cols = 4;  /**< Quiet time that terminates a burst. */
 
@@ -668,8 +667,8 @@ public:
    * persists indefinitely, and after ~7.16 s of wire silence the cycle counter
    * wraps, making that modular difference pseudo-random — with p ≈ glitch/2³²
    * it lands inside the reject window and falsely rejects a real edge. The
-   * flywheel poll calls this every column, so a stale reference is cleared
-   * within one column of silence, long before the counter can wrap. Must run
+   * flywheel poll calls this every wake on downstream boards, so a stale
+   * reference is cleared within one wake of silence, long before the counter can wrap. Must run
    * under the same single-writer discipline as claim(): it writes have_prior,
    * which the edge ISR also writes. `now` is sampled before the bracket opens,
    * so the signed re-check rejects the wrapped modular difference an edge
