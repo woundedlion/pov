@@ -8,10 +8,9 @@ records the preceding arithmetic work.
 
 Source of truth for the shipped code: `effects/HyperLattice.h`
 (shader entry and per-frame preparation), `core/render/sdf/octet_trace.h`
-(octet traces), `core/render/sdf/framework.h`
+(`trace_3d`, `trace_4d`, `trace_events`), `core/render/sdf/framework.h`
 (`OctetEvents`, `OctetEvents4`, `OctetFramework4::edge_query`),
-`core/render/ray/events.h` (`trace_events`) and `core/render/ray/shade.h`
-(`shade_events`, `Appearance`).
+and `core/render/ray/shade.h` (`Appearance`).
 
 ## 1. Target and budget
 
@@ -169,7 +168,7 @@ loop; this removes nine of twelve divides.
 
 ### 3.5 Colour mode and premultiplied finish
 
-The shader uses runtime colour-mode selection within the 3D/4D dispatch.
+`Raycast::Appearance` has a single depth colour path, so the shader carries no colour-mode dispatch.
 The compositor returns premultiplied colour, so the scan loop does not
 un-premultiply with a divide and three rounds and then re-premultiply with
 three more. Rounding once instead of twice can move a
