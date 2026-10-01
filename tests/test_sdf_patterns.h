@@ -15,6 +15,26 @@
 
 namespace hs_test::sdf_pattern_tests {
 
+/** @brief Normal components agree with the distance derivative at a smooth point. */
+template <typename Surface>
+inline void check_distance_normal(const Surface &surface,
+                                  const math::Vector &point) {
+  constexpr float DELTA = 1e-4f;
+  const auto derivative = [&](math::Vector offset) {
+    return (surface.distance(point + offset) -
+            surface.distance(point - offset)) /
+           (2 * DELTA);
+  };
+  const math::Vector gradient{derivative({DELTA, 0, 0}),
+                              derivative({0, DELTA, 0}),
+                              derivative({0, 0, DELTA})};
+  const math::Vector expected = gradient.normalized();
+  const math::Vector actual = surface.normal(point);
+  HS_EXPECT_NEAR(actual.x, expected.x, 3e-3f);
+  HS_EXPECT_NEAR(actual.y, expected.y, 3e-3f);
+  HS_EXPECT_NEAR(actual.z, expected.z, 3e-3f);
+}
+
 inline void test_lattice_world_metric_and_fourth_axis() {
   SDF::WireLattice<3> cubic;
   HS_EXPECT_TRUE(cubic.valid());
@@ -32,6 +52,7 @@ inline void test_lattice_world_metric_and_fourth_axis() {
   const math::Vector P{ROTATED[0] + 3.0f, ROTATED[1] - 2.0f, ROTATED[2] + 1.0f};
   HS_EXPECT_NEAR(cubic.distance(P), 0.1f, 1e-6f);
   HS_EXPECT_NEAR(cubic.normal(P).magnitude(), 1.0f, 1e-6f);
+  check_distance_normal(cubic, P);
   cubic.rotation.m[0][0] *= 2.0f;
   HS_EXPECT_FALSE(cubic.valid());
 
@@ -147,6 +168,7 @@ inline void test_octet_fcc_geometry_and_symmetry() {
           HS_EXPECT_NEAR(octet.distance(END * fraction), -octet.wire_radius,
                          1e-6f);
       }
+  check_distance_normal(octet, {0.23f, 0.19f, 0.17f});
   HS_EXPECT_NEAR(octet.distance({H, 0, 0}), 0.5f - octet.wire_radius, 1e-6f);
   HS_EXPECT_NEAR(octet.distance({H / 2, H / 2, H / 2}),
                  H / 2 - octet.wire_radius, 1e-6f);
@@ -477,6 +499,21 @@ inline void test_octet4_edges_parity_and_symmetry() {
     HS_EXPECT_NEAR(SDF::OctetFramework4::magnitude(plane.normal), 1.0f, 1e-6f);
     HS_EXPECT_NEAR(plane.spacing, H, 1e-6f);
   }
+  const math::Vec4 POINT{{0.23f, 0.19f, 0.17f, 0.31f}};
+  const auto NORMAL = octet.normal(POINT);
+  math::Vec4 derivative;
+  constexpr float DELTA = 1e-4f;
+  float squared = 0;
+  for (int axis = 0; axis < 4; ++axis) {
+    auto plus = POINT, minus = POINT;
+    plus[axis] += DELTA;
+    minus[axis] -= DELTA;
+    derivative[axis] =
+        (octet.distance(plus) - octet.distance(minus)) / (2 * DELTA);
+    squared += derivative[axis] * derivative[axis];
+  }
+  for (int axis = 0; axis < 4; ++axis)
+    HS_EXPECT_NEAR(NORMAL[axis], derivative[axis] / sqrtf(squared), 3e-3f);
   octet.origin[3] = INFINITY;
   HS_EXPECT_FALSE(octet.valid());
 }
@@ -794,6 +831,16 @@ template <typename Surface> void check_periodic_surface() {
     HS_EXPECT_NEAR(G.x,
                    (surface.field(P + math::Vector{DELTA, 0.0f, 0.0f}) -
                     surface.field(P - math::Vector{DELTA, 0.0f, 0.0f})) /
+                       (2.0f * DELTA),
+                   0.012f);
+    HS_EXPECT_NEAR(G.y,
+                   (surface.field(P + math::Vector{0.0f, DELTA, 0.0f}) -
+                    surface.field(P - math::Vector{0.0f, DELTA, 0.0f})) /
+                       (2.0f * DELTA),
+                   0.012f);
+    HS_EXPECT_NEAR(G.z,
+                   (surface.field(P + math::Vector{0.0f, 0.0f, DELTA}) -
+                    surface.field(P - math::Vector{0.0f, 0.0f, DELTA})) /
                        (2.0f * DELTA),
                    0.012f);
     HS_EXPECT_NEAR(surface.field(P),
