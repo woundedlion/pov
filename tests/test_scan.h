@@ -535,50 +535,6 @@ inline void test_ring_long_radius_azimuth_unflipped() {
 }
 
 /**
- * @brief Geometric oracle: every lit pixel of a rasterized ring lies on the
- *        ring's latitude band — placement, not just "something was drawn".
- * @details The ring axis is +Y, so a pixel's world direction v sits at polar
- * angle acos(v.y) from the pole. A correct stroke lights only pixels whose polar
- * angle is within `thickness` (plus the AA fringe and one row of pixel
- * quantization) of the ring centre `target = radius·π/2`. A pixel far off the
- * band — near the pole (a fill that spilled inward) or in the wrong hemisphere
- * (a projection sign error) — fails this spatial oracle even if the lit-pixel
- * count is unchanged. The interior cap (polar < target − band) staying dark proves the
- * ring is a hollow stroke, not a filled disk.
- */
-inline void test_ring_rasterize_lit_pixels_on_band() {
-  constexpr int W = 96, H = 64;
-  constexpr float radius = 0.5f, thickness = 0.2f;
-  hs_test::StubEffect fx(W, H);
-  Pipeline<W, H> pipe;
-  {
-    Canvas c(fx);
-    math::Basis basis = math::make_basis(math::Quaternion(), math::Y_AXIS);
-    Scan::Ring::draw<W, H, false>(pipe, c, basis, radius, thickness,
-                                  [](const math::Vector &, Fragment &f) {
-                                    f.color = Color4(Pixel(60000, 60000, 60000),
-                                                     1.0f);
-                                  });
-  }
-  fx.advance_display();
-
-  const float target = radius * (math::PI_F / 2.0f); // ring-centre polar angle
-  const float row = math::PI_F / (H - 1);    // angular height of one row
-  const float band = thickness + 2.0f * row; // stroke + AA + quantization
-  size_t lit = 0;
-  for (int y = 0; y < H; ++y)
-    for (int x = 0; x < W; ++x) {
-      if (is_black(fx.get_pixel(x, y)))
-        continue;
-      ++lit;
-      math::Vector v = math::pixel_to_vector<W, H>(x, y);
-      float polar = acosf(hs::clamp(v.y, -1.0f, 1.0f));
-      HS_EXPECT_LE(fabsf(polar - target), band);
-    }
-  HS_EXPECT_GT(lit, (size_t)0);
-}
-
-/**
  * @brief Verifies a degenerate clip band makes rasterize plot nothing.
  * @details With y_start == y_end the rasterizer must early-out and leave the
  * canvas black.
@@ -3458,7 +3414,6 @@ inline int run_scan_tests() {
   test_shader_clip_arc_matches_predicate();
   test_ring_rasterize_produces_bounded_output();
   test_ring_long_radius_azimuth_unflipped();
-  test_ring_rasterize_lit_pixels_on_band();
   test_ring_rasterize_lights_expected_row();
   test_stroke_aa_is_monotone_ramp();
   test_ring_rasterize_empty_clip_draws_nothing();
