@@ -1,6 +1,6 @@
 # RingShower on-device profile — Teensy 4.0, segmented mode (2026-08-26, **-O3**)
 
-Global-O3 twin of the [shipping report](../shipping/profile_ringshower_teensy_2026-09-28.md).
+Global-O3 capture. Current [shipping report](../shipping/profile_ringshower_teensy_2026-09-28.md).
 Point-in-time snapshot (regenerate with `bash tools/profile_one.sh RingShower profile_o3 70 32`). Raw capture:
 `build/prof/ringshower_o3.log`, captured 2026-08-26 01:36 local. This is the first archived global-O3 report for this effect.
 
@@ -108,6 +108,9 @@ capture is the comparison baseline.
 the global-O3 twin through the device lock.
 
 ## Global -O3 vs selective -O3
+
+This comparison uses the retired 2026-08-26 same-source shipping capture.
+The current shipping report linked above is a later capture.
 
 The paired shipping capture peaks at 3.98 ms versus
 3.86 ms here: global O3 lowers the peak by 0.13 ms (3.2%). O3-image minus shipping-image

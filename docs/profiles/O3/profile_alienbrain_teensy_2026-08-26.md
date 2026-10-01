@@ -1,6 +1,6 @@
 # AlienBrain on-device profile — Teensy 4.0, segmented mode (2026-08-26, **-O3**)
 
-Global-O3 twin of the [shipping report](../shipping/profile_alienbrain_teensy_2026-09-28.md).
+Global-O3 capture. Current [shipping report](../shipping/profile_alienbrain_teensy_2026-09-28.md).
 Point-in-time snapshot (regenerate with `bash tools/profile_one.sh AlienBrain profile_o3 300 16 "-D HS_PROFILE_EPOCH_REVS=2600"`). Raw capture:
 `build/prof/alienbrain_o3.log`, captured 2026-08-26 02:24 local. This is the first archived global-O3 report for this effect.
 
@@ -119,6 +119,9 @@ capture is the comparison baseline.
 the global-O3 twin through the device lock.
 
 ## Global -O3 vs selective -O3
+
+This comparison uses the retired 2026-08-26 same-source shipping capture.
+The current shipping report linked above is a later capture.
 
 The paired shipping capture peaks at 31.61 ms versus
 27.90 ms here: global O3 lowers the peak by 3.71 ms (11.7%). O3-image minus shipping-image

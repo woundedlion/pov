@@ -29,15 +29,16 @@ full-roster image.
 
 Rows rank by shipping spill fraction, then shipping peak render. Both peaks
 are worst-frame render, never wall time; spilled is the number of frames whose
-render exceeded one 62.5 ms window. Colours are strict per config: 🟢 zero spill, 🟡 under 25% spill, 🔴 at least 25% spill. Image deltas are raw global-O3
-minus shipping bytes from each pair's own image-size reports.
+render exceeded one 62.5 ms window. Colours are strict per config: 🟢 zero spill, 🟡 under 25% spill, 🔴 at least 25% spill. Image deltas use each O3 capture's own same-source shipping pair, including
+retired shipping captures. They match the currently linked shipping report only
+where that report belongs to the same capture pair.
 
 | Effect | Dominant scope | Ship peak ms | O3 peak ms | Ship spilled | O3 spilled | FLASH code Δ | ITCM Δ | Captured |
 |---|---|--:|--:|--:|--:|--:|--:|---|
 | [GSReactionDiffusion](shipping/profile_gsreactiondiffusion_teensy_2026-09-30.md) / [O3](O3/profile_gsreactiondiffusion_teensy_2026-09-30.md) | `grd_render` | 🔴 313.695 | 🔴 279.686 | 🔴 443/443 (100.00%) | 🔴 538/538 (100.00%) | +16,024 B | +10,832 B | ship 2026-09-30 19:21<br>O3 2026-09-30 19:15 |
 | [Raymarch](shipping/profile_raymarch_teensy_2026-09-28.md) / [O3](O3/profile_raymarch_teensy_2026-09-20.md) | `rm_shader_draw` | 🟢 54.87 | 🟢 56.04 | 🟢 0/1087 (0.00%) | 🟢 0/1736 (0.00%) | +12,568 B | +7,904 B | ship 2026-09-28 19:09<br>O3 2026-09-20 23:07 |
 | [MindSplatter](shipping/profile_mindsplatter_architecture_teensy_2026-10-01.md) / [O3](O3/profile_mindsplatter_architecture_teensy_2026-10-01.md) § ● | `msp_draw_particles` | 🟢 54.457 (8) | 🟢 54.539 (8) | 🟢 0/1736 (0.00%) | 🟢 0/1736 (0.00%) | +21,976 B | +17,200 B | ship 2026-10-01 09:15<br>O3 2026-10-01 09:22 |
-| [ShapeShifter](shipping/profile_shapeshifter_teensy_2026-09-29.md) / [O3](O3/profile_shapeshifter_teensy_2026-09-25.md) § | `ss_draw_all` | 🟢 53.22 (9) | 🟢 60.05 (9) | 🟢 0/2448 (0.00%) | 🟢 0/2457 (0.00%) | +24,760 B | +31,840 B | ship 2026-09-29 22:38<br>O3 2026-09-25 07:29 |
+| [ShapeShifter](shipping/profile_shapeshifter_teensy_2026-09-29.md) / [O3](O3/profile_shapeshifter_teensy_2026-09-25.md) § | `ss_draw_all` | 🟢 53.22 (9) | 🟢 60.05 (9) | 🟢 0/2448 (0.00%) | 🟢 0/2457 (0.00%) | +29,288 B | +24,496 B | ship 2026-09-29 22:38<br>O3 2026-09-25 07:29 |
 | [HopfFibration](shipping/profile_hopffibration_teensy_2026-09-28.md) / [O3](O3/profile_hopffibration_teensy_2026-08-26.md) | `hf_render_trails` | 🟢 51.52 | 🟢 46.52 | 🟢 0/1087 (0.00%) | 🟢 0/1088 (0%) | +19,616 B | +18,272 B | ship 2026-09-28 19:02<br>O3 2026-08-26 01:27 |
 | [IslamicStars](shipping/profile_islamicstars_teensy_2026-09-28.md) / [O3](O3/profile_islamicstars_teensy_2026-09-28.md) § | `is_timeline_step` | 🟢 50.51 (23) | 🟢 49.112 (23) | 🟢 0/3327 (0.00%) | 🟢 0/3336 (0.00%) | +23,904 B | +8,240 B | ship 2026-09-28 18:40<br>O3 2026-09-28 16:50 |
 | [BZReactionDiffusion](shipping/profile_bzreactiondiffusion_teensy_2026-09-28.md) / [O3](O3/profile_bzreactiondiffusion_teensy_2026-08-26.md) | `bz_render` | 🟢 48.84 | 🟢 48.65 | 🟢 0/2047 (0.00%) | 🟢 0/2048 (0%) | +12,760 B | +10,224 B | ship 2026-09-28 19:12<br>O3 2026-08-26 01:16 |
