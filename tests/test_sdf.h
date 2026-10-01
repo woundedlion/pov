@@ -2788,8 +2788,8 @@ inline void test_line_antipodal_cull_covers_interior() {
   jittered.distance(p, result);
   HS_EXPECT_LT(result.dist, 0.0f);
   constexpr int W = 96, H = 48;
-  math::Vector a = math::Vector(0.4f, 0.6f, 0.69f).normalized();
-  SDF::Line ln(a, -a, /*thickness=*/0.15f);
+  const math::Vector ENDPOINT = math::Vector(0.4f, 0.6f, 0.69f).normalized();
+  SDF::Line ln(ENDPOINT, -ENDPOINT, /*thickness=*/0.15f);
   int interior = expect_cull_covers_interior<W, H>(ln, "line antipodal");
   HS_EXPECT_GT(interior, 0);
 }
