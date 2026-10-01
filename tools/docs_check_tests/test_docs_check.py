@@ -732,7 +732,7 @@ class TestDocumentationChecker(unittest.TestCase):
         issues = dc.doxyfile_predefined_issues(
             [(7, "HS_LIVE"), (8, "HS_DEAD")], {"HS_DEAD"})
         self.assertEqual([(issue.line, issue.message) for issue in issues], [
-            (8, "PREDEFINED defines HS_DEAD, which no documented source names"),
+            (8, "PREDEFINED defines HS_DEAD, which no tracked C/C++ source names"),
         ])
 
     _PLAYLIST_HEADER = ("#define HS_EFFECT_LIST(X) \\\n"

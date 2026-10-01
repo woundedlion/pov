@@ -14,7 +14,7 @@ and links unvalidated, which the verdict line says. A renamed symbol in a
 table, a number no claim names, and any path written without backticks or a
 link are all invisible here.
 
-The Doxyfile's PREDEFINED names must also appear in documented source.
+The Doxyfile's PREDEFINED names must also appear in tracked C/C++ source.
 """
 
 from __future__ import annotations
@@ -1002,7 +1002,7 @@ def doxyfile_predefined_issues(predefined: list[tuple[int, str]],
         return [Issue(path, 1, "no PREDEFINED tag, so its macro names go "
                                "unchecked")]
     return [Issue(path, number,
-                  f"PREDEFINED defines {name}, which no documented source "
+                  f"PREDEFINED defines {name}, which no tracked C/C++ source "
                   f"names")
             for number, name in predefined if name in unreferenced]
 
