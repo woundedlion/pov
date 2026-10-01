@@ -3,8 +3,8 @@
 # against core/math/3dmath.h, then regenerates the table and diffs it against
 # the committed core/color/gamut_lut.h in full.
 # Skips with SKIP_CODE when numpy is unavailable, or fails outright
-# under REQUIRE_PYTHON (CI, which provisions both).
-# -D args: PYTHON_EXE, GENERATOR, SKIP_CODE, REQUIRE_PYTHON.
+# under REQUIRE_GENERATORS (CI, which provisions both).
+# -D args: PYTHON_EXE, GENERATOR, SKIP_CODE, REQUIRE_GENERATORS.
 
 # Script mode inherits no policies from the project, so every policy would
 # otherwise default to OLD, and the cmake_language(EXIT) below is a 3.29
@@ -16,7 +16,7 @@ execute_process(
   RESULT_VARIABLE _numpy_rc
   OUTPUT_VARIABLE _runtime ERROR_QUIET)
 if(NOT _numpy_rc EQUAL 0)
-  if(REQUIRE_PYTHON)
+  if(REQUIRE_GENERATORS)
     message(FATAL_ERROR "gamut_lut pin: no numpy, and HS_REQUIRE_GENERATORS is ON")
   endif()
   message(STATUS "gamut_lut pin: no numpy; skipping")
@@ -24,7 +24,7 @@ if(NOT _numpy_rc EQUAL 0)
 endif()
 
 # CI always regenerates; local runs reuse only a successful identical check.
-if(CACHE_FILE AND NOT REQUIRE_PYTHON)
+if(CACHE_FILE AND NOT REQUIRE_GENERATORS)
   get_filename_component(_tools "${GENERATOR}" DIRECTORY)
   get_filename_component(_root "${_tools}" DIRECTORY)
   set(_inputs "${GENERATOR}" "${CMAKE_CURRENT_LIST_FILE}"
@@ -53,7 +53,7 @@ if(NOT _rc EQUAL 0)
   message(FATAL_ERROR "gen_gamut_lut.py --check failed (${_rc}):\n${_err}")
 endif()
 
-if(CACHE_FILE AND NOT REQUIRE_PYTHON)
+if(CACHE_FILE AND NOT REQUIRE_GENERATORS)
   file(WRITE "${CACHE_FILE}" "${_signature}")
 endif()
 message(STATUS "gamut_lut pin: generator --check passed")
