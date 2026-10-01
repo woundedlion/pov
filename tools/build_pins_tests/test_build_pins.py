@@ -2,14 +2,14 @@
 """Host tests for the build-pin gate (tools/build_pins.py).
 
 The gate is the single source for every externally-installed version, and each
-of its three checks reads a foreign file shape: duplicates_pin scans workflow
+check reads a foreign file shape: duplicates_pin scans workflow
 YAML two lines at a time, check_engine_ranges parses package.json's `>=X`
 string, and _version_tuple compares versions of unequal width. A drift in any
 of those shapes makes the check detect nothing while still printing PASS.
 
-The install-set check reads a fourth shape, CMakeLists.txt's install() rules; a
+The install-set check reads CMake rules in CMakeLists.txt's install() rules; a
 rule it stops recognising silently exempts those files from their line-ending
-pin. The FlexRAM check reads a fifth, tools/phantasm.ld's derived symbols, and
+pin. The FlexRAM check reads tools/phantasm.ld's derived symbols, and
 is the only tie between the budgets, the size gate and the linker script.
 
 Run:  python -m unittest discover -s tools/build_pins_tests
