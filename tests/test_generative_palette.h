@@ -160,15 +160,19 @@ inline void test_generative_palette_recipe_validation() {
 
 inline void test_generative_palette_canonical_ignores_inactive_fields() {
   PaletteRecipe first;
-  first.hue.mode = HueMode::SWEEP;
+  first.hue.mode = HueMode::HARMONY;
+  first.hue.harmony = PaletteHarmony::TRIADIC;
+  first.lightness.curve = AxisCurve::CONSTANT;
+  first.chroma.axis.curve = AxisCurve::CONSTANT;
 
   PaletteRecipe second = first;
-  second.hue.harmony = static_cast<PaletteHarmony>(255);
   second.hue.spread_turns = std::numeric_limits<float>::quiet_NaN();
   second.hue.custom_turns.fill(std::numeric_limits<float>::quiet_NaN());
   second.lightness.custom.fill(std::numeric_limits<float>::quiet_NaN());
   second.chroma.axis.custom.fill(std::numeric_limits<float>::quiet_NaN());
   second.falloff_start = std::numeric_limits<float>::quiet_NaN();
+  second.lightness.range = std::numeric_limits<float>::quiet_NaN();
+  second.chroma.axis.range = std::numeric_limits<float>::quiet_NaN();
 
   GenerativePalette first_palette;
   GenerativePalette second_palette;
