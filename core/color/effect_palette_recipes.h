@@ -14,7 +14,7 @@
 
 #include "color/generative_palette.h"
 
-/** @brief PaletteRecipe builders owned by the effects that render them. */
+/** @brief PaletteRecipe builders for effect palettes and standalone authoring presets. */
 namespace EffectPaletteRecipes {
 
 /** @brief The BZ reaction-diffusion ramp, pinned to three authored colors. */
@@ -170,7 +170,7 @@ HS_FLASH_MEMBER inline PaletteRecipe raymarch() {
  *  @param rotation_turns Hue rotation in turns applied to every key.
  *  @return The recipe.
  *  @details Palindromic keys: hue travels a half turn out to the complement
- *  and back while lightness dives bright-dark-bright, so the shader's wrapped
+ *  and back while lightness dives bright-dark-bright; the wrapped
  *  palette coordinate crosses the 1 -> 0 seam without a hard line. */
 HS_FLASH_MEMBER inline PaletteRecipe
 shader_ball_liquid_at(float rotation_turns) {
@@ -234,8 +234,8 @@ HS_FLASH_MEMBER inline std::array<Preset, 11> presets() {
            {"GSReactionDiffusion", true, gs_reaction_diffusion(preview_hue)},
            {"MobiusRings", true, mobius_rings(preview_hue)},
            {"Raymarch", false, raymarch()},
-           {"ShaderWorkbench Liquid", false, shader_ball_liquid()},
-           {"ShaderWorkbench Flyby", false, shader_ball_flyby()},
+           {"Standalone Liquid", false, shader_ball_liquid()},
+           {"Standalone Flyby", false, shader_ball_flyby()},
            {"HyperLattice", false, hyper_lattice()},
            {"MindSplatter", true, mind_splatter(preview_hue)}}};
 }
