@@ -275,10 +275,9 @@ inline void test_shader_respects_clip_band() {
   }
   fx.advance_display();
 
-  // Inside the band: written. Outside: untouched (black from the frame clear).
-  HS_EXPECT_FALSE(is_black(fx.get_pixel(0, 7)));
-  HS_EXPECT_TRUE(is_black(fx.get_pixel(0, 0)));
-  HS_EXPECT_TRUE(is_black(fx.get_pixel(0, 12)));
+  for (int y = 0; y < H; ++y)
+    for (int x = 0; x < W; ++x)
+      HS_EXPECT_EQ(!is_black(fx.get_pixel(x, y)), y >= 5 && y < 10);
 }
 
 inline void test_ssaa_grid_sample_positions() {
