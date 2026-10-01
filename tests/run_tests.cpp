@@ -5,9 +5,9 @@
 #include "core/animation/orientation.h"
 #include <cstdio>
 #include <cstring>
+#include <cstdlib>
 #if defined(_WIN32)
 #include <crtdbg.h>
-#include <cstdlib>
 #endif
 
 // Include orientation.h and the engine barrel before filter.h and the effects,
@@ -82,6 +82,16 @@
 #include "tests/test_styles.h"
 #include "tests/test_shading.h"
 #include "tests/test_death.h"
+
+#if defined(_WIN32)
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif
+#ifndef WIN32_LEAN_AND_MEAN
+#define WIN32_LEAN_AND_MEAN
+#endif
+#include <windows.h>
+#endif
 
 /**
  * @brief One entry in the test-module roster: a short name plus its entry
