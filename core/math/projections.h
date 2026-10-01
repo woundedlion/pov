@@ -916,8 +916,9 @@ inline uint8_t airocean_edge_identity(uint8_t face, uint8_t edge) {
 }
 
 inline float airocean_edge_halfspace(const AiroceanVector &p, uint8_t face,
-                                     uint8_t edge) {
-  const AiroceanVector &normal = AIROCEAN_EDGE_NORMALS.values[face][edge];
+                                     uint8_t opposite_vertex) {
+  const AiroceanVector &normal =
+      AIROCEAN_EDGE_NORMALS.values[face][opposite_vertex];
   return p.x * normal.x + p.y * normal.y + p.z * normal.z;
 }
 
