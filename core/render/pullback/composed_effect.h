@@ -556,18 +556,13 @@ enum class TransferKind : uint8_t { NONE, ISO_CONTOUR };
 enum class FieldCoverageKind : uint8_t { NONE, VALUE_CUTOUT };
 
 /**
- * @brief The pipeline choices an effect states beyond its parameter families.
- * @details Everything else about the chain is derived: the source and
- * warp policies follow the parameter families, a Mobius lens family selects
- * the Mobius lens, a surface-noise family selects the curl displacement, and
- * path tracking follows HueMode::PATH_LENGTH.
- * @tparam ProjectionV Sphere-to-plane projection.
- * @tparam LensPolicyT Parameterless lens policy, or void for no lens stage;
- *         ignored when the lens family carries Mobius coefficients.
- * @tparam TransferV Optional material transfer curve; NONE preserves the
- *         sampled field value without adding a stage.
- * @tparam CoverageV Material coverage policy.
- * @tparam FieldCoverageV Optional value-dependent coverage stage.
+ * @brief Metadata accompanying an effect's explicit ranked stage pipeline.
+ * @details A derived Spec supplies template <typename B> using Pipeline.
+ * PROJECTION controls projection sliders; TRANSFER, COVERAGE and FIELD_COVERAGE
+ * describe material stages. LensPolicy and SURFACE_PLACEMENT describe lens and
+ * displacement ordering. HARMONY, HUE and BRIGHTNESS select color behavior;
+ * ANIMATED_PROJECTION controls projection clocks. The *PolicyFor helpers are
+ * optional conveniences for authoring the Pipeline alias.
  */
 struct Spec {
   static constexpr ProjectionKind PROJECTION = ProjectionKind::STEREOGRAPHIC;
@@ -975,8 +970,8 @@ consteval size_t parameter_name_bytes(ResourceList<Resources...>) {
  * RenderPipeline::shade changes only the entry trampoline's placement; the
  * pipeline body remains in hot flash. Different body emission requires calling
  * RenderPipeline::evaluate(view, frame.ctx, frame.prepared) from the shadow.
- * A surface-noise family emits the whole sphere run (displacement, lens and
- * projection) as one out-of-line flash call.
+ * Surface-noise effects conventionally wrap the sphere run (displacement, lens
+ * and projection) in Stage::Placed<CodeEmission::OUT_OF_LINE_FLASH, ...>.
  *
  * `EFFECT_ID` is the registry identity; `PRESET_IDS` lists immutable preset
  * identities indexed by preset number; `PARAMETER_SCHEMA_VERSION` changes
