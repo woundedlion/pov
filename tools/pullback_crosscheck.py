@@ -701,7 +701,11 @@ def orchestrate(
 ) -> None:
     if base_sha == candidate_sha:
         raise CrosscheckError("base and candidate revisions must differ")
+    if not SHA_RE.fullmatch(base_sha) or not SHA_RE.fullmatch(candidate_sha):
+        raise CrosscheckError("base and candidate revisions must be full lowercase SHAs")
     programs, oracles, schema = load_and_validate(controller / "tests/data/pullback")
+    if base_sha != programs["base_sha"]:
+        raise CrosscheckError("base revision must match the programs manifest pin")
     digest = manifest_sha256(programs, oracles, schema)
     environment = os.environ.copy()
     environment["CCACHE_DISABLE"] = "1"
