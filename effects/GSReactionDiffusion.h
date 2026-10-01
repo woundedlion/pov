@@ -251,6 +251,7 @@ private:
 
   void step_pigment(const float *a, const float *b, uint16_t *next) {
     const float DT = params.dt * STEP_DT_SCALE;
+    static_assert(RD_K == 6, "GS stability bound assumes a 6-NN lattice");
     const float DIFFUSION = params.d_b * DT;
     for (int i = 0; i < RD_N; ++i) {
       float weights[NUM_SEED_CLUSTERS] = {};
