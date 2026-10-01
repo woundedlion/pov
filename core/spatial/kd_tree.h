@@ -71,8 +71,8 @@ public:
    * @details One node per point, and node indices flow through int16_t
    * left/right links, so the point count must fit in [0, MAX_POINTS]. This also
    * bounds original_index (uint16_t) since indices stay below the count. It is
-   * an index-range ceiling, not a reachable size: MAX_POINTS nodes are 640 KB,
-   * past every target's whole arena.
+   * an index-range ceiling: MAX_POINTS nodes are 640 KB, beyond the
+   * device (298 KiB) and WASM (512 KiB) arenas.
    */
   static constexpr size_t MAX_POINTS = static_cast<size_t>(INT16_MAX) + 1;
 
