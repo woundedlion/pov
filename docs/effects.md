@@ -75,9 +75,9 @@ Simulates the Belousov-Zhabotinsky reaction — a 3-species cyclic competition (
 
 ### GSReactionDiffusion
 
-Gray-Scott reaction-diffusion system (U + 2V → 3V, V → P) on a spherical mesh. Produces spots, stripes, and labyrinthine patterns depending on feed/kill rates. A reaction runs until its field has all but stopped moving, then dissolves off the sphere and reseeds at fresh cluster sites under a freshly rebaked palette, so every cycle grows a different form in new colors from the same constants; editing the constants dissolves the current field too.
+Gray-Scott reaction-diffusion system (U + 2V → 3V, V → P) on a spherical mesh. Produces spots, stripes, and labyrinthine patterns depending on feed/kill rates. A reaction runs until its field has all but stopped moving, then dissolves off the sphere and reseeds at fresh cluster sites with per-seed generated palettes blended by B diffusion and pigment weight, plus shared noise-driven hue shift and shimmer; editing the constants dissolves the current field too.
 
-**Parameters**: Feed, Kill, dA, dB, Speed
+**Parameters**: Feed, Kill, dA, dB, Speed, Noise Speed, Noise Scale, Hue Shift, Shimmer
 
 </td></tr></table>
 
