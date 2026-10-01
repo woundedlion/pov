@@ -10,9 +10,8 @@
 #include <cstdlib>
 #endif
 
-// Pull in the engine barrel first, exactly as a real target does, so geometry.h
-// (which defines Orientation<CAP=4>) is ordered ahead of filter.h and the
-// effects for the whole translation unit.
+// Include orientation.h and the engine barrel before filter.h and the effects,
+// as a real target does.
 #include "core/engine/engine.h"
 
 // One include per registered module, paired 1:1 with a row in
