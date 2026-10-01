@@ -169,7 +169,7 @@ private:
                 MAX_BUILD_STEPS);
   friend struct ::hs_test::effects_tests::IslamicBuildProbe;
 
-  // One burst is live at a time; the pool reserves twice BURST_MAX slots.
+  // Two-burst capacity reserves headroom for the previous shape's live ripples.
   // Duration and burst size are cached before scheduling.
   static constexpr int RIPPLE_POOL_SIZE = 8;
   static constexpr int RIPPLE_STAGGER_FRAMES = 16;
@@ -190,8 +190,9 @@ private:
    * a pixel at W=288), and at the default decay only within ~1.7 rad of the
    * origin. */
   static constexpr float RIPPLE_AMP_MAX = 0.15f;
-  static_assert(2 * BURST_MAX <= RIPPLE_POOL_SIZE,
-                "IslamicStars: ripple pool must hold two overlapping bursts");
+  static_assert(
+      2 * BURST_MAX <= RIPPLE_POOL_SIZE,
+      "IslamicStars: ripple pool must reserve capacity for two bursts");
 
   // orientation and noise are borrowed by the timeline-resident RandomWalk, so
   // they are declared before the Timeline to outlive it; ripple_gen must stay
