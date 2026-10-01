@@ -1,7 +1,7 @@
 """Parse an on-device HS_PROFILE capture log into per-window and per-preset views.
 
-Companion to targets/Profile/Profile.ino + tools/profile_capture.py (see the
-teensy-profile skill). Reads a capture produced by `profile`/`profile_o3` and:
+Companion to targets/Profile/Profile.ino + tools/profile_capture.py.
+Reads a capture produced by `profile`/`profile_o3` and:
 
   windows   per-window per-frame cost for one counter scope; the footer gives
             the pass aggregate the READMEs quote (peak render + spilled)
