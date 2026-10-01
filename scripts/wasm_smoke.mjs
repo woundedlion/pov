@@ -189,7 +189,8 @@ async function main(probe) {
         }
       }
       {
-        engine.setEffect('ShaderChain');
+        if (engine.setEffect('ShaderChain') !== Module.EffectSetResult.INSTALLED)
+          fail('payload clone: failed to install ShaderChain');
         for (const input of [throwing, revoked.proxy]) {
           if (engine.setShaderChain(input).code !== 'MALFORMED_PAYLOAD'
               || engine.setShaderChainParameters(input) !== Module.ParamSetResult.MALFORMED_PAYLOAD) {
@@ -199,7 +200,8 @@ async function main(probe) {
         engine.setShaderChain([]);
       }
       {
-        engine.setEffect('Shader');
+        if (engine.setEffect('Shader') !== Module.EffectSetResult.INSTALLED)
+          fail('payload clone: failed to install Shader');
         for (const input of [throwing, revoked.proxy]) {
           if (engine.restoreFullConfigSnapshot(input) !== Module.FullConfigRestoreResult.INVALID_LENGTH) {
             fail('payload clone: malformed snapshot accepted');
@@ -630,7 +632,8 @@ async function main(probe) {
           fail('shader-authoring: valid uncompiled Twist lens stayed pending');
         }
 
-        engine.setEffect('Shader');
+        if (engine.setEffect('Shader') !== Module.EffectSetResult.INSTALLED)
+          fail('payload clone: failed to install Shader');
         engine.setParameter('Planar Warp 1', 4);
         engine.setParameter('Planar Warp 1 Scale', 1);
         engine.setParameter('Planar Warp 1 Strength', 1);
@@ -654,10 +657,12 @@ async function main(probe) {
           fail('shader-authoring: incompatible sphere source bypassed admission');
         }
         for (let attempt = 0; attempt < 8; ++attempt) {
-          engine.setEffect('Shader');
+          if (engine.setEffect('Shader') !== Module.EffectSetResult.INSTALLED)
+          fail('payload clone: failed to install Shader');
           const source = engine.getFullConfigSnapshot();
           const reentrant = { ...source, get accepted() {
-            engine.setEffect('Shader');
+            if (engine.setEffect('Shader') !== Module.EffectSetResult.INSTALLED)
+          fail('payload clone: failed to install Shader');
             return source.accepted;
           } };
           if (engine.restoreFullConfigSnapshot(reentrant)
