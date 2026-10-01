@@ -40,7 +40,7 @@ def project_files(paths=()):
     return sorted(p for p in candidates if not is_manifested(p))
 
 
-def minimums_for(p, project=None):
+def minimums_for(project=None):
     """The (rule, Default net class) floors project p must be restored to."""
     layout = (project or {}).get("text_variables", {}).get("PHANTASM_LAYOUT")
     if layout == "unplaced":
@@ -55,7 +55,7 @@ def heal_project(p, dry_run=False):
         # Rewrite in the file's own convention; a mixed file gets the repo's.
         seen = project_file.newlines
         newline = seen if isinstance(seen, str) else "\n"
-    rule_minimums, class_minimums = minimums_for(p, d)
+    rule_minimums, class_minimums = minimums_for(d)
     changes = rule_shortfalls(d, rule_minimums, class_minimums)
 
     if changes:

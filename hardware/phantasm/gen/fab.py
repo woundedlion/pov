@@ -41,7 +41,7 @@ from constraints import (DEFAULT_CLASS_MINIMUMS, EXCLUDE_FP_SUBSTR,
                          MIN_THERMAL_GAP_MM, MIN_THERMAL_SPOKE_MM,
                          MIN_VIA_TO_VIA_COPPER_SPACING_MM,
                          NEW_LAYOUT_RULES, RULE_MINIMUMS)
-from heal_clearance import rule_shortfalls
+from constraints import rule_shortfalls
 from kicad_common import net_name, F, is_copper_pour, kicad_cli, require_annotated_export
 
 GEN = os.path.dirname(os.path.abspath(__file__))
