@@ -1905,6 +1905,32 @@ struct SimBoard {
    * @brief Constructs a board wrapping a SyncBoard engine for config @p c.
    * @param c Sync configuration passed to the embedded SyncBoard.
    */
+  /** @brief Reset foreground and probe state at a local reboot timestamp. */
+  void reboot(uint32_t local_now) {
+    board.seed(local_now, master);
+    handoff.adopt(nullptr, 0);
+    handoff.clear_pending();
+    sync_pulse = {};
+    submit_gate = {};
+    instance = {};
+    seen_gen = 0;
+    pending_pickup = 0;
+    pending_index = -1;
+    build_seed = 0;
+    pending_gen = 0;
+    pending_ready_g = 0;
+    have_pending = false;
+    live = false;
+    live_index = -1;
+    t = 0;
+    swap_g = 0;
+    trapped = false;
+    flips = 0;
+    dark_now = true;
+    envelope = 0.0f;
+    envelope_column = -1;
+  }
+
   explicit SimBoard(const Config &c) : board(c) {}
 };
 
@@ -2693,18 +2719,7 @@ inline void test_sim_reboot(const Config &cfg) {
   const uint64_t reboot_at = sim.g;
   // Reboot board 2 mid-show: fresh engine state, no identity assumption.
   SimBoard &b2 = sim.boards[2];
-  b2.board.seed(Sim::local_now(b2, sim.g), false);
-  // A rebooted board's ISR holds no effect and has consumed no generation.
-  b2.handoff.adopt(nullptr, 0);
-  b2.handoff.clear_pending();
-  b2.seen_gen = 0;
-  b2.pending_pickup = 0;
-  b2.have_pending = false;
-  b2.live = false;
-  b2.live_index = -1;
-  b2.t = 0;
-  b2.flips = 0;
-  b2.trapped = false;
+  b2.reboot(Sim::local_now(b2, sim.g));
 
   HS_EXPECT_EQ(lock(b2.board), LockState::ACQUIRE);
 
@@ -3396,17 +3411,7 @@ inline void test_budget_acquire_mis_snap() {
   HS_EXPECT_TRUE(
       sim.run_until([](Sim &s) { return s.board_pos(0) == 40; }, 1.1));
   SimBoard &b2 = sim.boards[2];
-  b2.board.seed(Sim::local_now(b2, sim.g), false);
-  b2.handoff.adopt(nullptr, 0);
-  b2.handoff.clear_pending();
-  b2.seen_gen = 0;
-  b2.pending_pickup = 0;
-  b2.have_pending = false;
-  b2.live = false;
-  b2.dark_now = true;
-  b2.live_index = -1;
-  b2.t = 0;
-  b2.trapped = false;
+  b2.reboot(Sim::local_now(b2, sim.g));
   HS_EXPECT_EQ(lock(b2.board), LockState::ACQUIRE);
 
   bool violated = false;
