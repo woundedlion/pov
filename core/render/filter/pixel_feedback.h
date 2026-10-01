@@ -1329,7 +1329,7 @@ private:
   }
 
 public:
-  /** @brief Persistent bytes for two warp fields, projected origins and polar caps. */
+  /** @brief Cap-cell budget; runtime geometry reserves a full-ring upper bound. */
 #if HS_RUNTIME_DISPLAY_GEOMETRY
   static constexpr int CACHE_CAP_CELLS = CACHE_CELLS;
 #else
