@@ -63,7 +63,7 @@ public:
   // Generated identity: scripts/generate_composed_presets.mjs
   // clang-format off
   static constexpr std::string_view EFFECT_ID = "grid-space";
-  static constexpr std::string_view DESCRIPTOR_DIGEST = "1e95a18ef294231c38dd3e793ee2c92849f7804ac68bbf61868672feb91f4528";
+  static constexpr std::string_view DESCRIPTOR_DIGEST = "67870f99cc8812d737d30ef890622c30f49f49172af1fd649dcd49821c5d1aca";
   static constexpr std::string_view PRESET_BANK_DIGEST = "992256905cd236a8dae29bbafc058efee46c7a98751abcf477ad1622ef0dd535";
   static constexpr std::array<std::string_view, 1> PRESET_IDS{
       "affine-contour"

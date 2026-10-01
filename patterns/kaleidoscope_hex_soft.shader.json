@@ -20,7 +20,7 @@
       },
       {
         "label": "sample",
-        "operator": "sample.twin-wave.v2"
+        "operator": "sample.twin-wave.v3"
       },
       {
         "label": "colorize",
@@ -354,7 +354,7 @@
         "classification": "preset",
         "default": 0,
         "domain": {
-          "maximum": 1.25,
+          "maximum": 2,
           "minimum": 0
         },
         "id": "sample.drift",
@@ -537,7 +537,7 @@
       "schema_version": 1
     }
   },
-  "document_id": "kaleidoscope-hex-soft-v1",
+  "document_id": "kaleidoscope-hex-soft",
   "effect_id": "kaleidoscope-hex-soft",
   "effect_metadata": {
     "description": "A drifting twin wave reflected through a kaleidoscope.",

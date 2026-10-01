@@ -63,7 +63,7 @@ public:
   // Generated identity: scripts/generate_composed_presets.mjs
   // clang-format off
   static constexpr std::string_view EFFECT_ID = "kaleidoscope-flowers";
-  static constexpr std::string_view DESCRIPTOR_DIGEST = "ea710e1c3a212e24d0f0dc2f5166d9c1cc1b57443e727bbc92a41a449e48a229";
+  static constexpr std::string_view DESCRIPTOR_DIGEST = "30721bbdccbe37bc46944c66976d97a25306e9654739848940db2a51d8ee82b3";
   static constexpr std::string_view PRESET_BANK_DIGEST = "d1bc04d4ed1aec4b7720a5d90429388da1933b83cd85b387ac56da440dc51970";
   static constexpr std::array<std::string_view, 3> PRESET_IDS{
       "double-map",

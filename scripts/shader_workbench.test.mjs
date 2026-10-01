@@ -25,7 +25,6 @@ import {
   parseShaderDocument,
   stableStringify,
   validateShaderDocument,
-  v1DescriptorDigest,
 } from './shader_workbench.mjs';
 import { sha256Hex } from './sha256.mjs';
 
@@ -131,7 +130,7 @@ test('SHA-256 matches Node across padding boundaries and multiblock inputs', () 
 // pointer-bearing `prepared` block is wider under LP64, so the two disagree
 // there by construction. This holds them to disagreeing about nothing else, so
 // a golden regenerated on an unrelated host cannot re-pin quietly.
-const POINTER_WIDENED_OPERATORS = 8;
+const POINTER_WIDENED_OPERATORS = 7;
 
 test('the native golden and the wasm source catalog differ only in pointer-block width', async () => {
   const golden = JSON.parse(await readFile(
@@ -184,8 +183,8 @@ test('the catalog exposes the complete workbench warp and source vocabulary', ()
 });
 
 test('every promoted shader document matches its compiled effect identity', async () => {
-  const migration = JSON.parse(await readFile(
-    new URL('../patterns/shaderball_migration.json', import.meta.url), 'utf8'));
+  const manifest = JSON.parse(await readFile(
+    new URL('../patterns/catalog.json', import.meta.url), 'utf8'));
   const headers = new Map();
   for (const name of await readdir(new URL('../effects/', import.meta.url))) {
     if (!name.endsWith('.h')) continue;
@@ -193,9 +192,9 @@ test('every promoted shader document matches its compiled effect identity', asyn
     const id = /EFFECT_ID\s*=\s*"([a-z0-9-]+)"/.exec(source);
     if (id) headers.set(id[1], source);
   }
-  assert.deepEqual(Object.keys(migration.source_documents).sort(),
-    migration.product_group.children.map((child) => child.effect_id).sort());
-  for (const [effectId, documentName] of Object.entries(migration.source_documents)) {
+  assert.deepEqual(Object.keys(manifest.source_documents).sort(),
+    manifest.product_group.children.map((child) => child.effect_id).sort());
+  for (const [effectId, documentName] of Object.entries(manifest.source_documents)) {
     const documentSource = await readFile(
       new URL(`../patterns/${documentName}`, import.meta.url), 'utf8');
     const header = headers.get(effectId);
@@ -203,12 +202,7 @@ test('every promoted shader document matches its compiled effect identity', asyn
     const compiled = compile(parseShaderDocument(documentSource));
     assert.equal(compiled.status, 'VALID', effectId);
     assert.equal(compiled.document.effect_id, effectId);
-    const destinations = migration.destinations.filter((entry) => entry.effect_id === effectId);
-    const presetIds = new Set(compiled.document.preset_bank.presets
-      .map((preset) => preset.preset_id));
-    for (const destination of destinations)
-      assert.equal(presetIds.has(destination.preset_id), true,
-        `${effectId}/${destination.preset_id} is missing from its source document`);
+
   }
 });
 
@@ -216,10 +210,10 @@ test('every patterns/*.shader.json compiles and is accounted for', async () => {
   const directory = new URL('../patterns/', import.meta.url);
   const documents = (await readdir(directory))
     .filter((name) => name.endsWith('.shader.json')).sort();
-  const migration = JSON.parse(await readFile(
-    new URL('shaderball_migration.json', directory), 'utf8'));
-  const promoted = new Set(Object.values(migration.source_documents));
-  // The sample a contributor copies is not in the migration manifest, so the
+  const manifest = JSON.parse(await readFile(
+    new URL('catalog.json', directory), 'utf8'));
+  const promoted = new Set(Object.values(manifest.source_documents));
+  // The sample a contributor copies is not in the manifest manifest, so the
   // promoted-document gate above never reaches it.
   assert.deepEqual(documents.filter((name) => !promoted.has(name)),
     ['example.shader.json']);
@@ -656,173 +650,16 @@ test('stableStringify orders integer-like keys by code point', () => {
     '{"a":[null,null,{"0":"y","1":"x"}]}');
 });
 
-// The daydream v1 example fixture, inlined: expanding it must reproduce the
-// committed v2 example byte for byte, pinning expandV1Document as the single
-// code path both schema generations share.
-const V1_EXAMPLE = {
-  schema_version: 1,
-  catalog_version: 1,
-  document_id: 'example-study',
-  effect_id: null,
-  descriptor: {
-    graph: {
-      nodes: [
-        { label: 'camera', role: 'outer_camera', operator: 'pullback.outer_camera.v1' },
-        { label: 'surface', role: 'surface_project', operator: 'pullback.surface_project.v1',
-          policy: { lens: 'identity', projection: 'equirectangular' } },
-        { label: 'warp', role: 'planar_warp', operator: 'pullback.planar_warp.v1',
-          policy: { outer: 'identity' } },
-        { label: 'pattern', role: 'source', operator: 'pullback.source.v1',
-          policy: { source: 'grid' } },
-        { label: 'transfer', role: 'material', operator: 'pullback.material.v1',
-          policy: { weight: 'projection', transfer: 'linear', coverage: 'opaque' } },
-        { label: 'palette', role: 'color', operator: 'pullback.color.v1',
-          policy: { color: 'generated_palette' } },
-      ],
-      edges: [
-        { from: 'camera', to: 'surface' },
-        { from: 'surface', to: 'warp' },
-        { from: 'warp', to: 'pattern' },
-        { from: 'pattern', to: 'transfer' },
-        { from: 'transfer', to: 'palette' },
-      ],
-    },
-    parameters: [
-      {
-        id: 'pattern-freq', binding: 'source.pattern-freq', classification: 'preset',
-        storage: 'binary32', unit: 'ratio', domain: { minimum: 0.01, maximum: 64 },
-        interpolation: { kind: 'LINEAR' }, default: 1,
-      },
-      {
-        id: 'central-meridian', binding: 'projection.central-meridian', classification: 'preset',
-        storage: 'binary32', unit: 'radian',
-        domain: { minimum: 0, maximum: 6.2831854820251465 },
-        interpolation: { kind: 'SHORTEST_PERIODIC', period: 6.2831854820251465 },
-        default: 0,
-      },
-    ],
-    path_policies: [{ id: 'parallel', kind: 'PARALLEL' }],
-    clocks: [{ id: 'source-clock', kind: 'frame-clock', settings: { wrap: 1 } }],
-    preparation: [{ id: 'frame', kind: 'prepare-frame' }],
-    resources: [],
-    serialization: { schema_version: 1, fields: ['pattern-freq', 'central-meridian'] },
-    approximation: [],
-    handoff: { policy: 'reset' },
-  },
-  preset_bank: {
-    schema_version: 1,
-    presets: [
-      { preset_id: 'calm', display_name: 'Calm',
-        values: { 'pattern-freq': 1, 'central-meridian': 6 } },
-      { preset_id: 'fast', display_name: 'Fast',
-        values: { 'pattern-freq': 4, 'central-meridian': 0.2 } },
-    ],
-    edges: [
-      { from: 'calm', to: 'fast', path_policy: 'parallel', easing: 'EASE_IN_OUT_SIN', duration: 120 },
-      { from: 'fast', to: 'calm', path_policy: 'parallel', easing: 'EASE_IN_OUT_SIN', duration: 120 },
-    ],
-    absent_edge_fallback: {
-      manual: 'SNAP', automatic: 'REJECT', synchronized: 'REJECT',
-      restore: 'SNAP', authoring: 'SNAP',
-    },
-    choreography: { generated_order: ['calm', 'fast'], dwell: { calm: 600, fast: 600 } },
-  },
-  study_metadata: { notes: 'Example authoring document' },
-};
-
-test('a v1 document expands to the committed v2 example byte for byte', () => {
-  const compiled = compile(structuredClone(V1_EXAMPLE));
-  assert.equal(compiled.status, 'VALID');
-  assert.equal(compiled.parameter_ids['pattern-freq'], 'sample.pattern-freq');
-  assert.equal(compiled.v1_descriptor_digest, v1DescriptorDigest(V1_EXAMPLE));
-  assert.equal(compiled.parameter_ids['central-meridian'], 'project.central-meridian');
-  assert.equal(exportShaderDocumentJson(compiled.document), EXAMPLE);
-  assert.equal(compiled.descriptor_digest, compile(example()).descriptor_digest);
-});
-
-test('unknown v1 mobius fields report an unbound parameter', () => {
-  const document = structuredClone(V1_EXAMPLE);
-  const parameter = structuredClone(document.descriptor.parameters[0]);
-  parameter.id = 'mobius-unknown';
-  document.descriptor.graph.nodes[1].policy.lens = 'mobius';
-  document.descriptor.parameters.push(parameter);
-  document.descriptor.serialization.fields.push(parameter.id);
-  const compiled = compile(document);
-  assert.equal(compiled.status, 'INVALID');
-  assert.equal(compiled.diagnostics[0].code, 'UNBOUND_PARAMETER');
-});
-
-test('v1 digest rejects defaults outside their original domain', () => {
-  const document = structuredClone(V1_EXAMPLE);
-  document.descriptor.parameters[0].domain = { minimum: 0.1, maximum: 20 };
-  document.descriptor.parameters[0].default = 30;
-  const compiled = compile(document);
-  assert.equal(compiled.status, 'INVALID');
-  assert.equal(compiled.diagnostics[0].code, 'VALUE_OUT_OF_RANGE');
-});
-
-test('malformed v1 containers report diagnostics instead of raw TypeErrors', () => {
-  for (const [mutate, path] of [
-    [(document) => { document.descriptor.graph.nodes[0].resources = 7; },
-      'stage.outer_camera.resources'],
-    [(document) => { document.preset_bank.presets[0] = null; }, '$.preset_bank.presets[0]'],
-    [(document) => { document.preset_bank.presets[0] = 7; }, '$.preset_bank.presets[0]'],
-    [(document) => { document.preset_bank.presets[0].values = null; },
-      '$.preset_bank.presets[0].values'],
-    [(document) => { document.descriptor.path_policies[0] = null; },
-      '$.descriptor.path_policies[0]'],
-    [(document) => {
-      document.descriptor.path_policies[0] = { kind: 'STAGGERED_ORDERED' };
-    }, '$.descriptor.path_policies[0].groups'],
-    [(document) => { delete document.descriptor.parameters[0].domain; },
-      '$.descriptor.parameters[0].domain'],
-    [(document) => { document.descriptor.parameters[0].interpolation = null; },
-      '$.descriptor.parameters[0].interpolation'],
-    [(document) => { document.descriptor.parameters[0] = null; },
-      '$.descriptor.parameters[0]'],
-    [(document) => {
-      document.descriptor.graph.nodes.find((node) => node.role === 'color').resources = 7;
-    }, 'stage.color.resources'],
-    [(document) => {
-      document.descriptor.graph.nodes.find((node) => node.role === 'planar_warp')
-        .policy.sequence = 7;
-    }, 'stage.planar_warp.sequence'],
-    [(document) => { delete document.descriptor.graph.edges; }, '$.descriptor.graph.edges'],
-    [(document) => { document.descriptor.graph.edges[1] = null; }, '$.descriptor.graph.edges[1]'],
-    [(document) => { delete document.descriptor.clocks; }, '$.descriptor.clocks'],
-    [(document) => { document.descriptor.clocks[0] = { kind: 'frame-clock' }; },
-      '$.descriptor.clocks[0].id'],
-    [(document) => { document.descriptor.preparation = 7; }, '$.descriptor.preparation'],
-    [(document) => { delete document.descriptor.resources; }, '$.descriptor.resources'],
-    [(document) => { document.descriptor.approximation = null; }, '$.descriptor.approximation'],
-  ]) {
-    const document = structuredClone(V1_EXAMPLE);
-    mutate(document);
+test('document imports reject every unsupported schema version', () => {
+  for (const version of [0, 1, 3, '2', null]) {
+    const document = example();
+    document.schema_version = version;
     const compiled = compile(document);
     assert.equal(compiled.status, 'INVALID');
-    assert.equal(compiled.diagnostics[0].path, path);
+    assert.deepEqual(compiled.diagnostics.map(({ code, path }) => ({ code, path })), [
+      { code: 'UNSUPPORTED_DOCUMENT_SCHEMA', path: '$.schema_version' },
+    ]);
   }
-});
-
-test('v1 expansion reports missing catalog operators before reading fields', () => {
-  const catalog = structuredClone(CATALOG);
-  catalog.operators = catalog.operators.filter((operator) => operator.id !== 'sample.grid.v2');
-  const result = compile(structuredClone(V1_EXAMPLE), { catalog });
-  assert.equal(result.status, 'INVALID');
-  assert.equal(result.diagnostics[0].code, 'V1_POLICY_UNSUPPORTED');
-});
-
-test('a v1 warp sequence longer than two entries has no expansion', () => {
-  const document = structuredClone(V1_EXAMPLE);
-  document.descriptor.graph.nodes.find((node) => node.role === 'planar_warp')
-    .policy = { sequence: ['identity', 'identity', 'wave-shear'] };
-  const compiled = compile(document);
-  assert.equal(compiled.status, 'INVALID');
-  assert.deepEqual(compiled.diagnostics.map(({ code, path }) => [code, path]),
-    [['V1_POLICY_UNSUPPORTED', 'stage.planar_warp.sequence']]);
-  document.descriptor.graph.nodes.find((node) => node.role === 'planar_warp')
-    .policy = { sequence: ['identity', 'wave-shear'] };
-  assert.equal(compile(document).status, 'VALID');
 });
 
 test('groups on a non-staggered path policy is an unknown field', () => {
@@ -832,114 +669,6 @@ test('groups on a non-staggered path policy is an unknown field', () => {
     const [diagnostic] = validate(document);
     assert.equal(diagnostic.code, 'UNKNOWN_FIELD');
     assert.equal(diagnostic.path, '$.descriptor.path_policies[0].groups');
-  }
-  const document = structuredClone(V1_EXAMPLE);
-  document.descriptor.path_policies[0].groups = ['pattern-freq'];
-  const compiled = compile(document);
-  assert.equal(compiled.status, 'INVALID');
-  assert.equal(compiled.diagnostics[0].code, 'UNKNOWN_FIELD');
-  assert.equal(compiled.diagnostics[0].path, '$.descriptor.path_policies[0].groups');
-});
-
-test('v1 projection frames become explicit topology parameters', () => {
-  for (const frame of ['identity', 'spin-wander']) {
-    const document = structuredClone(V1_EXAMPLE);
-    document.descriptor.graph.nodes.find((node) => node.role === 'surface_project')
-      .policy.frame = frame;
-    const compiled = compile(document);
-    assert.equal(compiled.status, 'VALID');
-    const parameter = compiled.document.descriptor.parameters.find(
-      (entry) => entry.id === 'project.frame');
-    assert.equal(parameter.storage, 'enum8');
-    assert.deepEqual(parameter.domain.values, ['identity', 'spin-wander']);
-    assert.equal(parameter.default, frame);
-    for (const preset of compiled.document.preset_bank.presets)
-      assert.equal(preset.values['project.frame'], frame);
-    assert.ok(compiled.document.descriptor.serialization.fields.includes('project.frame'));
-    assert.notEqual(compiled.descriptor_digest, compile(V1_EXAMPLE).descriptor_digest);
-  }
-  const invalid = structuredClone(V1_EXAMPLE);
-  invalid.descriptor.graph.nodes.find((node) => node.role === 'surface_project')
-    .policy.frame = 'unknown';
-  assert.deepEqual(compile(invalid).diagnostics.map(({ code }) => code),
-    ['V1_POLICY_UNSUPPORTED']);
-});
-
-test('v1 displacement placement preserves its order around a nonidentity lens', () => {
-  const documents = ['pre_lens_surface', 'post_lens_surface'].map((placement) => {
-    const document = structuredClone(V1_EXAMPLE);
-    const surface = document.descriptor.graph.nodes.find((node) => node.role === 'surface_project');
-    surface.policy.lens = 'tetrahedral-kaleidoscope';
-    surface.policy[placement] = 'direct-noise-simplex';
-    return document;
-  });
-  const [pre, post] = documents.map((document) => compile(document));
-  assert.equal(pre.status, 'VALID');
-  assert.equal(post.status, 'VALID');
-  assert.notEqual(v1DescriptorDigest(documents[0]), v1DescriptorDigest(documents[1]));
-  assert.deepEqual(pre.document.descriptor.chain.map((entry) => entry.label),
-    ['camera', 'surface', 'lens', 'project', 'sample', 'colorize']);
-  assert.deepEqual(post.document.descriptor.chain.map((entry) => entry.label),
-    ['camera', 'lens', 'surface', 'project', 'sample', 'colorize']);
-  assert.notEqual(pre.descriptor_digest, post.descriptor_digest);
-
-  const both = structuredClone(documents[0]);
-  both.descriptor.graph.nodes.find((node) => node.role === 'surface_project')
-    .policy.post_lens_surface = 'direct-noise-simplex';
-  const rejected = compile(both);
-  assert.equal(rejected.status, 'INVALID');
-  assert.deepEqual(rejected.diagnostics.map(({ code }) => code), ['V1_POLICY_UNSUPPORTED']);
-});
-
-test('a v1 staggered path schedules the topology groups the expansion synthesises', () => {
-  const document = structuredClone(V1_EXAMPLE);
-  document.descriptor.path_policies = [{
-    id: 'staggered', kind: 'STAGGERED_ORDERED',
-    groups: ['central-meridian', 'pattern-freq'],
-  }];
-  for (const edge of document.preset_bank.edges) edge.path_policy = 'staggered';
-  const compiled = compile(document);
-  assert.equal(compiled.status, 'VALID');
-  assert.deepEqual(compiled.document.descriptor.path_policies[0].groups,
-    ['project.central-meridian', 'sample.pattern-freq',
-      'sample.weight-mode', 'sample.coverage-mode']);
-});
-
-// v1 is a frozen input format: the archived documents spell the projection
-// fade 'pole-fade', and the expander is the only place that translates it to
-// the engine's 'singularity-fade' field id.
-test('a v1 pole-fade parameter binds the projection singularity fade', () => {
-  const document = structuredClone(V1_EXAMPLE);
-  document.descriptor.parameters.push({
-    id: 'pole-fade', binding: 'projection.pole-fade', classification: 'preset',
-    storage: 'binary32', unit: 'ratio', domain: { minimum: 1, maximum: 20 },
-    interpolation: { kind: 'LINEAR' }, default: 1,
-  });
-  document.descriptor.serialization.fields.push('pole-fade');
-  for (const preset of document.preset_bank.presets) preset.values['pole-fade'] = 2;
-  const compiled = compile(document);
-  assert.equal(compiled.status, 'VALID');
-  assert.equal(compiled.parameter_ids['pole-fade'], 'project.singularity-fade');
-  assert.equal(compiled.document.descriptor.parameters
-    .filter((parameter) => parameter.id === 'project.singularity-fade').length, 1);
-});
-
-// The v1 policy names come straight out of the document and satisfy
-// ID_PATTERN, so an inherited Object key would answer both the `in` probe and
-// the lookup.
-test('a v1 policy naming an Object prototype key is refused', () => {
-  for (const [role, policy] of [
-    ['surface_project', { lens: 'identity', projection: 'constructor' }],
-    ['source', { source: 'constructor' }],
-  ]) {
-    const document = structuredClone(V1_EXAMPLE);
-    document.descriptor.graph.nodes.find((node) => node.role === role).policy = policy;
-    const compiled = compile(document);
-    assert.equal(compiled.status, 'INVALID');
-    assert.deepEqual(
-      compiled.diagnostics.map(({ code, message }) => [code, message]),
-      [['V1_POLICY_UNSUPPORTED',
-        'No chain operator expands v1 policy "constructor".']]);
   }
 });
 
@@ -1121,24 +850,6 @@ test('normalized interpolation evaluates complete groups and rejects antipodes',
   );
 });
 
-test('every promoted ShaderWorkbench preset has one stable migration destination', async () => {
-  const migration = JSON.parse(await readFile(
-    new URL('../patterns/shaderball_migration.json', import.meta.url), 'utf8'));
-  assert.equal(migration.legacy_alias, 'ShaderBall');
-  assert.equal(migration.authoring_effect, 'Shader');
-  assert.deepEqual(migration.retired_legacy_presets, [4]);
-  assert.deepEqual(migration.destinations.map((entry) => entry.legacy_preset),
-    Array.from({ length: 24 }, (_, index) => index).filter((index) => index !== 4));
-  assert.equal(new Set(migration.destinations
-    .map((entry) => `${entry.effect_id}/${entry.preset_id}`)).size, 23);
-  const childIds = new Set(migration.product_group.children
-    .map((child) => child.effect_id));
-  for (const destination of migration.destinations) {
-    assert.equal(childIds.has(destination.effect_id), true,
-      `${destination.effect_id} is missing from product discovery`);
-  }
-});
-
 test('document exports sort integer-like metadata keys lexically', () => {
   const document = example();
   document.study_metadata = { '2': 'second', '10': 'tenth', nested: { '2': 2, '10': 10 } };
@@ -1201,7 +912,7 @@ test('documents can snap an otherwise interpolatable scalar', () => {
 
 test('fixed affine period follows the lattice source with float32 rounding', () => {
   const descriptor = { chain: [
-    { label: 'affine', operator: 'warp.affine.v2' },
+    { label: 'affine', operator: 'warp.affine.v3' },
     { label: 'cells', operator: 'sample.lattice.v2' },
   ] };
   const values = { 'affine.lattice-period': 0.813504159450531,
@@ -1221,7 +932,7 @@ test('fixed affine period follows the lattice source with float32 rounding', () 
 });
 
 test('a fixed affine warp without a lattice source has unit period', () => {
-  const descriptor = { chain: [{ label: 'frame', operator: 'warp.affine.v2' }] };
+  const descriptor = { chain: [{ label: 'frame', operator: 'warp.affine.v3' }] };
   const parameter = 'frame.lattice-period';
   assert.deepEqual(fixedDerivedBinding(descriptor, parameter, { [parameter]: 1 }),
     { sourceId: null, valid: true, expected: 1 });

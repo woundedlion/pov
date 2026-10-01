@@ -574,30 +574,26 @@ Concentric polygon, star, or flower outlines drawn through the `Plot` rasterizer
 
 ## Shader Authoring Workbench
 
-The standalone [Shader workbench](https://github.com/woundedlion/daydream/blob/master/tools/shader.html) provides the complete structural vocabulary and its pipeline-strip editor in a dedicated browser tab. Twenty-three retained legacy presets migrate to stable composed product effects; legacy preset 4 is retired, and unmatched custom configurations route to the workbench for editing. The firmware rosters contain only the promoted effects.
+The standalone [Shader workbench](https://github.com/woundedlion/daydream/blob/master/tools/shader.html) provides the complete structural vocabulary and its pipeline-strip editor in a dedicated browser tab. The workbench opens current chain documents and offers the composed effects as editable sources. The firmware rosters contain only the promoted effects.
 
 `ShaderChain` is the simulator authoring registry entry under
-`HS_ENABLE_CHAIN_INTERPRETER`, which is rejected for Arduino builds. The aliases
-`Shader`, `ShaderWorkbench` and `ShaderBall` select its scratch program. It
+`HS_ENABLE_CHAIN_INTERPRETER`, which is rejected for Arduino builds. It
 interprets an arbitrary compiled operator chain and registers parameters as
 `{instance}.{field-id}`. `ShaderChainBindings` owns program admission, parameter
 batches and complete versioned snapshots. Its operator clocks and generated
-palette advance while the shared authored-animation pause is set. Legacy archive
-conversion lives in daydream; the engine has no slot configuration endpoint.
+palette advance while the shared authored-animation pause is set. Current snapshots restore atomically; retired effect identities and snapshot formats are rejected.
 
 Shipping composed effects are ordinary concrete `Effect` types. Each names one compile-time `Pullback::Pipeline`, a compact parameter and prepared-frame type, immutable stable preset IDs, and only the resources its graph uses. Its raster loop calls `Derived::shade(view, frame)` directly; there is no per-pixel function-pointer dispatch, topology lookup, family object, or universal Shader parameter block. The shared `Pullback::ComposedEffect` base contains only lifecycle work that is genuinely common: clocks, preset interpolation, parameter registration, palette/LUT ownership, narrow frame preparation, and the typed scan loop; its preset choreography and snapshot machinery come from the engine-level `ChoreographedEffect`. Generated palette evaluation remains in the shared `GenerativePalette` color stage rather than being copied into each effect.
 
-Each editable source document lives under `patterns/*.shader.json`. The browser validates and canonicalizes a document before changing the live engine, matches its exact descriptor digest to a composed effect, and selects presets by immutable ID. Open/save preserves exhaustive chain, parameter, transition, and choreography data. Unknown or invalid semantics leave the current preview untouched. The migration manifest maps all 23 retained Shader preset positions to stable effect/preset identities; preset 4 is intentionally retired.
+Each editable source document lives under `patterns/*.shader.json`. The browser validates and canonicalizes a document before changing the live engine, matches its exact descriptor digest to a composed effect, and selects presets by immutable ID. Open/save preserves exhaustive chain, parameter, transition, and choreography data. Unknown or invalid semantics leave the current preview untouched. The current catalog maps each composed effect to its authoring document.
 
 The shader is a *pullback*: it starts at a visible sphere point and walks backward through a chain of stages over four ranked carrier families — Sphere, Plane, Field, Color. A chain is any stage sequence that is non-decreasing in family rank with agreeing adjacent carriers, entering at `SphereSample` and exiting at `Color4`; each family boundary is crossed at most once. Both Shader preview and concrete effects call the same public kernels in `core/render/pullback.h`. Palette mapping is continuous preset state: a transition carries both mapping endpoints and interpolates their coordinates before the single palette sample, so changing Cup/Bell/Linear/Reverse does not require another pipeline or effect.
 
 ```
-selection — once per frame
+admission — when a document is applied
 
-  Candidate Config ──> canonical TopologyKey ──> 15-entry program manifest
-                       ├─ match ────> compiled shade + semantic ID
-                       └─ no match ─> dynamic shade + NONE (simulator only)
-                                      └──> PreparedEndpoint
+  Current document → validated chain → inactive program arena
+                   → parameter/runtime validation → active ShaderChain program
 
 shading — once per visible sample, through the shared Scan::Shader loop
 
@@ -618,32 +614,32 @@ shading — once per visible sample, through the shared Scan::Shader loop
 
 The core catalog owns the reusable surface, lens, projection, planar-warp, source, material, and generated-color policies. The `Project` crossing rotates into the projection frame, projects, and embeds the projection's provenance and the sample point into the plane carrier. Each `Warp` stage advances the working coordinate and path accumulator, leaving provenance and sample point immutable. The `Sample` crossing consumes the provenance: it weights the raw signed field, ramps it into [0, 1], and folds projected coverage and domain coverage into the field carrier; `Transfer` and `Coverage` stages then reshape value and coverage. The terminal Colorize crossing samples the selected generated harmony, optionally rotates its hue with sphere-space noise or total path length, and returns straight-alpha `Color4`; the scan sink performs the final premultiplication.
 
-Two stages carry approved approximations. Fast square Peirce projection and the hue-rotation LUT each name a host reference oracle, exact non-floating fields, error domains, limits, and a final-framebuffer metric as part of the stage contract. The dynamic orchestration is compiled for the simulator and native oracle tests, where every authored preset except AshCloud's is compared against it. AshCloud pairs projection-weight coverage with a value cutout, a combination the workbench coverage policy cannot spell, so its cutout is pinned by a rendered-frame sweep in `tests/test_effects.h` instead. Teensy preprocessing excludes it.
+Two stages carry approved approximations. Fast square Peirce projection and the hue-rotation LUT each name a host reference oracle, exact non-floating fields, error domains, limits, and a final-framebuffer metric as part of the stage contract. Native tests compare every composed preset against its document-built `ShaderChain`, including AshCloud's explicit cutout stage. Approximation capture tests compare the chain renderer with exact projection and color kernels. Teensy preprocessing excludes the interpreter.
 
 ### Composed-effect roster
 
-| Effect ID | Concrete effect | Presets | Legacy source |
-|---|---|---:|---|
-| `alien-brain` | `AlienBrain` | 4 | 0, 21–23 |
-| `kaleidoscope-hex-soft` | `KaleidoscopeHexSoft` | 1 | 1 |
-| `alien-ocean` | `AlienOcean` | 1 | 2 |
-| `alien-core` | `AlienCore` | 1 | 3 |
-| `kaleidoscope-mandala` | `KaleidoscopeMandala` | 2 | 5, plus `cup-hue` |
-| `grid-space` | `GridSpace` | 1 | 6 |
-| `lattice-melt` | `LatticeMelt` | 2 | 7–8 |
-| `chromatic-lichen` | `ChromaticLichen` | 1 | — |
-| `mermaid-skin` | `MermaidSkin` | 1 | — |
-| `ash-cloud` | `AshCloud` | 1 | — |
-| `kaleidoscope-pent-bright` | `KaleidoscopePentBright` | 1 | 9 |
-| `kaleidoscope-hex-oil` | `KaleidoscopeHexOil` | 2 | — |
-| `kaleidoscope-stained-glass` | `KaleidoscopeStainedGlass` | 1 | 10 |
-| `kaleidoscope-smooth` | `KaleidoscopeSmooth` | 4 | 11, 13–14, plus `stretched-grid` |
-| `kaleidoscope-hex-bright` | `KaleidoscopeHexBright` | 2 | 12, plus `hex-twin-wave-alt` |
-| `kaleidoscope-flowers` | `KaleidoscopeFlowers` | 3 | 15–17 |
-| `cosmic-eyeball` | `CosmicEyeball` | 1 | 18 |
-| `mobius-grid` | `MobiusGrid` | 2 | 19–20 |
+| Effect ID | Concrete effect | Presets |
+|---|---|---:|
+| `alien-brain` | `AlienBrain` | 4 |
+| `kaleidoscope-hex-soft` | `KaleidoscopeHexSoft` | 1 |
+| `alien-ocean` | `AlienOcean` | 1 |
+| `alien-core` | `AlienCore` | 1 |
+| `kaleidoscope-mandala` | `KaleidoscopeMandala` | 2 |
+| `grid-space` | `GridSpace` | 1 |
+| `lattice-melt` | `LatticeMelt` | 2 |
+| `chromatic-lichen` | `ChromaticLichen` | 1 |
+| `mermaid-skin` | `MermaidSkin` | 1 |
+| `ash-cloud` | `AshCloud` | 1 |
+| `kaleidoscope-pent-bright` | `KaleidoscopePentBright` | 1 |
+| `kaleidoscope-hex-oil` | `KaleidoscopeHexOil` | 2 |
+| `kaleidoscope-stained-glass` | `KaleidoscopeStainedGlass` | 1 |
+| `kaleidoscope-smooth` | `KaleidoscopeSmooth` | 4 |
+| `kaleidoscope-hex-bright` | `KaleidoscopeHexBright` | 2 |
+| `kaleidoscope-flowers` | `KaleidoscopeFlowers` | 3 |
+| `cosmic-eyeball` | `CosmicEyeball` | 1 |
+| `mobius-grid` | `MobiusGrid` | 2 |
 
-These eighteen effects form the product-only `shader-collection` group; family metadata is not part of runtime identity. Each effect's show window is derived from its preset count, giving every preset the shared 600-frame dwell and every transition the shared 480-frame segue. Mermaid Skin, Chromatic Lichen, Ash Cloud, and Kaleidoscope Hex Oil were promoted from workbench-authored snapshots and have no migration-manifest row. Host tests compare every preset except AshCloud's with Shader's dynamic evaluator within one 16-bit count; presets without a legacy index are paired with a synthesized workbench topology. Lattice Melt and Kaleidoscope Smooth run their comparisons in dedicated white-box equivalence suites.
+These eighteen effects form the product-only `shader-collection` group; family metadata is not part of runtime identity. Each effect's show window is derived from its preset count, giving every preset the shared 600-frame dwell and every transition the shared 480-frame segue. Host tests compare all eighteen composed effects with their document-built chains within one 16-bit count. Lattice Melt and Kaleidoscope Smooth run their comparisons in dedicated white-box equivalence suites.
 
 The [device profile archive](https://github.com/woundedlion/pov/blob/master/docs/profiles/README.md) contains 38 shipping selective-O3 captures and 38 global-O3 reference captures. The shipping set reports zero spilled frames; MermaidSkin peaks at 39.57 ms, ChromaticLichen at 36.63 ms, and AshCloud at 44.57 ms. AshCloud's global-O3 reference peaks at 79.81 ms with 100% spills. These measurements apply to the revisions and configurations recorded in those reports. The composed effects let the compiler inline the exact typed pipeline and discard every unused stage. The shared runtime and `GenerativePalette` color stage keep common lifecycle and palette machinery from being duplicated without introducing type erasure in the per-pixel call. No paired capture isolates specialization from the other structural differences, so the archive does not claim a dispatch-only speedup.
 
@@ -709,7 +705,7 @@ Schema validity still enforces the cross-stage constraints that have a geometric
 
 Projection seams use topology supplied by the projection kernel rather than guessing from planar coordinates. **Edge Fade** gives both sides of a paired cut the same authored fade, so the seam closes flush without a subducted edge. Glued and periodic edges remain continuous and do not fade. **Singularity Fade** is projection weight; selecting either projection-weight coverage policy carries that attenuation into alpha as well as any separately selected signal weighting.
 
-Admitted GUI edits apply immediately. Numeric writes clamp to their registered range, including stale subordinate values when a mode change narrows that range. Structurally incompatible stage combinations remain pending until another edit repairs them. Automatic preset choreography remains continuous: configurations with the same canonical topology morph one live parameter state, while topology changes use the sequential through-clear endpoints. Source, warp, projection, hue-shift noise, global-walk, and palette clocks keep advancing according to their named speeds. **Pause Animation** stops automatic preset selection; an in-flight preset transition still finishes.
+Admitted GUI edits apply immediately. Numeric writes clamp to their registered range, including stale subordinate values when a mode change narrows that range. Structurally incompatible stage combinations remain pending until another edit repairs them. Composed-effect preset choreography interpolates parameters within each effect's fixed pipeline. Source, warp, projection, hue-shift noise, global-walk, and palette clocks keep advancing according to their named speeds. **Pause Animation** stops automatic preset selection; an in-flight preset transition still finishes.
 
 ## Legacy Effects (`effects_legacy.h`)
 

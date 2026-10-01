@@ -2,8 +2,8 @@
 
 **Status: §§1–4 LANDED 2026-08-19, except §4.3.** The tool half of
 [pullback_stage_families_spec.md](pullback_stage_families_spec.md): the
-document schema, migration, and editor for authoring the chains that spec
-defines. The schema, validation, canonical identity, and v1 expansion ship
+document schema and editor for authoring the chains that spec
+defines. The schema, validation, canonical identity ship
 here as `scripts/shader_workbench.mjs` (daydream's `generated/shader/shader_workbench.mjs`
 is the copy its engine-bundle installer writes); the document store and the
 editor ship in the daydream repo
@@ -22,8 +22,7 @@ null. These adapters and their lookup exist only under `targets/wasm`; firmware
 registration and rendering gain no capability tables or virtual dispatch.
 
 `ShaderChainBindings` owns program admission, atomic parameter batches, program
-readback, catalog export and complete typed snapshots. The snapshot and legacy
-archive migration contracts are in [chain_snapshot_spec.md](chain_snapshot_spec.md).
+readback, catalog export and complete typed snapshots. The snapshot contracts are in [chain_snapshot_spec.md](chain_snapshot_spec.md).
 
 A handle addresses one effect incarnation. Successful effect replacement,
 resolution change, display-geometry rebuild, or engine deletion permanently
@@ -106,42 +105,15 @@ document digests differently). A guaranteed single-path chain says so:
 - Digest-stability tests include a duplicate-operator chain (reordered
   document → same digest; swapped stage order → different digest).
 
-## 2. v1 → v2 identity
+## 2. Current document identity
 
-Expansion rewrites every descriptor digest (roles → stages, identities
-dropped) and every parameter id (label namespacing), which cascades into
-preset values, staggered path-policy groups (v1's `STAGGERED_ORDERED`
-transition scheduling), and `serialization.fields`. Requirements:
+Only document schema 2 and catalog schema 2 are accepted. Imports and links
+validate the current document directly; no conversion or digest migration runs.
+Descriptor and preset-bank digests use the canonical current serialization.
+The source catalog maps current effect identities to their authoring documents.
 
-- Expansion is the **single code path** for loading a v1 document. The
-  committed v2 pattern documents are engine-owned artifacts, not
-  expansion output: each is pinned as its own canonical re-export, and
-  six replacements differ from their v1 expansion: `alien_core`,
-  `alien_ocean`, `cosmic_eyeball`, `kaleidoscope_mandala`, and
-  `kaleidoscope_stained_glass` use identity frames; `grid_space` adds
-  `warp1.lattice-period`.
-- A v1-digest → document-filename migration table maps each v1 fixture digest
-  onto the filename of its committed replacement document. It is
-  recomputed by
-  [scripts/generate-digest-migration.mjs](https://github.com/woundedlion/daydream/blob/master/scripts/generate-digest-migration.mjs),
-  which writes only the table, and a completeness test fails when the
-  committed table drifts from what a rerun writes. Preview routing reads
-  the migration table to resolve imported v1 identities before matching
-  the promoted fixed effect by its v2 digest.
-- Deterministic label assignment for expanded instances (v1 slot order:
-  `warp1`, `warp2`, …) and a complete parameter-id rewrite map.
-- v1 documents that expand to the same chain (distinct only by
-  identity-policy spelling) collide by design — expansion canonicalizes
-  them — and the registry migration merges their entries deliberately
-  rather than reporting ambiguity.
-
-**Engine control names.** The hand-written alias table
-(`engineControlNames`) cannot be deleted outright: fixed-preview
-routing writes into compiled composed effects whose slider names come
-from `Params` registration. Convergence rule: newly promoted effects
-register label-derived control names, so document ids and engine names
-coincide by construction; the alias table survives only for effects
-promoted before this spec, and shrinks as they are re-registered.
+Fixed-preview parameter writes resolve current document IDs to the compiled
+effect's registered control names through `engineControlNames`.
 
 ## 3. The chain editor
 
@@ -363,8 +335,7 @@ been authored from scratch in this session** — same strip, same inline
 controls, same edit affordances, no separate read-only mode:
 
 - The toolbar source picker lists the registry's chain documents; Open…
-  imports a file. A v1 document expands through the single expansion path
-  (§2) on import; import failures surface the full diagnostic list (§1).
+  imports a current document. Import failures surface the full diagnostic list (§1).
 - Authoring routes the preview through the interpreter (`setShaderChain`) so
   the loaded chain is live-editable, and applies the selected effect preset to
   the document controls and interpreter parameters. When the loaded descriptor
@@ -383,7 +354,7 @@ controls, same edit affordances, no separate read-only mode:
 
 Full parity with the pointer gestures, rotated to the horizontal:
 
-- The strip is a `toolbar` with `aria-orientation="horizontal"` whose
+- The strip is a `group` whose
   chips are `group`s, so their inline parameter controls stay exposed;
   the selected chip carries `aria-current`. Left/Right roam chips
   (roving tabindex), Alt+Left/Right move the focused endomorphism,

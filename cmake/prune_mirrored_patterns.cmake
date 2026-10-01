@@ -23,7 +23,8 @@ file(GLOB _hs_source_patterns
   LIST_DIRECTORIES FALSE
   RELATIVE "${HS_MIRROR_SOURCE}"
   "${HS_MIRROR_SOURCE}/*.shader.json"
-  "${HS_MIRROR_SOURCE}/shaderball_migration.json")
+  "${HS_MIRROR_SOURCE}/catalog.json")
+list(REMOVE_ITEM _hs_source_patterns "example.shader.json")
 if(NOT _hs_source_patterns)
   message(FATAL_ERROR "Mirror source contains no patterns: ${HS_MIRROR_SOURCE}")
 endif()
@@ -31,7 +32,7 @@ file(GLOB _hs_installed_patterns
   LIST_DIRECTORIES FALSE
   RELATIVE "${_hs_mirror_destination}"
   "${_hs_mirror_destination}/*.shader.json"
-  "${_hs_mirror_destination}/shaderball_migration.json")
+  "${_hs_mirror_destination}/catalog.json")
 
 foreach(_hs_relative_path IN LISTS _hs_installed_patterns)
   list(FIND _hs_source_patterns "${_hs_relative_path}" _hs_source_index)

@@ -66,7 +66,7 @@ public:
   // Generated identity: scripts/generate_composed_presets.mjs
   // clang-format off
   static constexpr std::string_view EFFECT_ID = "mobius-grid";
-  static constexpr std::string_view DESCRIPTOR_DIGEST = "0fc45c8e12712494bc7b6160a103e29119ea382defece2ba21488f87fe8b3cbf";
+  static constexpr std::string_view DESCRIPTOR_DIGEST = "eef46eb35e8a9bf17957a06530bf4409f8cb4ffd0c120b28d85eb0c65dfd314e";
   static constexpr std::string_view PRESET_BANK_DIGEST = "eb6c7f90002c374d45ecf50f0e9ca9070fa7ce80c9d79119883697659bbba82c";
   static constexpr std::array<std::string_view, 2> PRESET_IDS{
       "mobius-grid",

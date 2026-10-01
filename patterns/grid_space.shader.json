@@ -12,7 +12,7 @@
       },
       {
         "label": "warp1",
-        "operator": "warp.affine.v2"
+        "operator": "warp.affine.v3"
       },
       {
         "label": "sample",
@@ -434,8 +434,8 @@
         "classification": "preset",
         "default": 1,
         "domain": {
-          "maximum": 64,
-          "minimum": 0.125
+          "maximum": 100,
+          "minimum": 0.015625
         },
         "id": "warp1.lattice-period",
         "interpolation": {
@@ -590,7 +590,7 @@
       "schema_version": 1
     }
   },
-  "document_id": "grid-space-v1",
+  "document_id": "grid-space",
   "effect_id": "grid-space",
   "effect_metadata": {
     "description": "An affine primitive lattice rendered as soft contours.",

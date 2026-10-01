@@ -5,10 +5,9 @@ operator state codecs, WASM authoring capability, and daydream's worker,
 persistence and geometry reconstruction. Shader documents describe authoring
 intent; snapshots describe the next executable frame.
 
-`ShaderChain` is the sole simulator shader host. The names `Shader`, `ShaderBall`
-and `ShaderWorkbench` select its scratch program. Firmware excludes the chain
-interpreter through `HS_ENABLE_CHAIN_INTERPRETER`. Legacy schema 10/11 archives
-are converted by daydream; the engine accepts only the versioned chain format.
+`ShaderChain` is the sole simulator shader host. Firmware excludes the chain
+interpreter through `HS_ENABLE_CHAIN_INTERPRETER`. Document imports, links and
+snapshots accept their current formats only; retired names and formats are rejected.
 
 ## Wire format
 
@@ -16,7 +15,7 @@ are converted by daydream; the engine accepts only the versioned chain format.
 
 ```text
 {
-  schemaVersion: 1,
+  schemaVersion: 2,
   chain: [{instance, operator}],
   parameters: [{name, value}],
   runtime: [{instance, kind, state}],
@@ -36,14 +35,14 @@ generated harmonies with the restored colorizer's chroma.
 
 | Kind | State properties | Operators |
 |---|---|---|
-| `spatial-walk-v1` | `noiseSeed` i32, `walkTime` u32, `position`, `direction`, `wander`, `rawOrientation`, `angularVelocity`, `spinPhase`, `legacy` boolean | Rotate and all Project operators |
+| `spatial-walk-v2` | `noiseSeed` i32, `walkTime` u32, `position`, `direction`, `wander`, `angularVelocity`, `spinPhase` | Rotate and all Project operators |
 | `source-clock-v1` | `primary`, `secondary`, `angle` | Grid, TwinWave, Rings, Spiral, Fractal, Tessellation |
 | `noise-clock-v1` | `phase`, `noiseSeed` i32 | Curl/Direct displacement, VectorNoise/CurlFlow warp, projected/spherical noise samples |
 | `phase-clock-v1` | `phase` | WaveShear, Vortex, MirrorTile, PolarChart |
 | `ripple-clock-v1` | `phase` | Ripple displacement |
 | `affine-clock-v1` | `phase`, `rotation` | Affine warp |
 | `color-clock-v1` | `oscillationPhase`, `hueNoisePhase`, `hueNoiseSeed` i32 | Generated-palette colorizers |
-| `spherical-rings-v1` | `walk` spatial state, `phase` | Spherical Rings |
+| `spherical-rings-v2` | `walk` spatial state, `phase` | Spherical Rings |
 
 Vectors are `[x,y,z]`; quaternions are `[real,x,y,z]`. Spatial vectors and
 quaternions are finite unit values; position and direction are perpendicular.
@@ -79,35 +78,19 @@ Geometry reconstruction captures this same full snapshot, including hidden
 palette clocks and noise seeds, before rebuilding the effect. Worker messages
 carry owned snapshots and never raw runtime bytes.
 
-## Legacy semantic conversion and verification
+## Current operators and verification
 
-Legacy archives supply accepted configuration words and twelve clock values.
-Daydream maps accepted fields to named chain parameters, retains requested and
-pending edits as an original-data sidecar, and preserves that original on any
-conversion refusal. Unsupported archives report an explicit refusal.
-
-Compatibility walks use the shared `Animation::RandomWalk` stable recurrence,
-including its axis and previous-orientation normalization. The `legacy` flag
-selects this recurrence; it does not retain a slot renderer. Imported archives
-recreate wander because the archive never stored its orientation. Native capture
-fixtures additionally retain actual walk seeds, palette endpoints and pre-draw
-clocks. Scaled projection variants carry the layout and coordinate controls
-needed by accepted legacy programs.
-
-The `sample.grid.v3` and `sample.twin-wave.v3` operators accept drift from zero
-through two. `warp.affine.v3` accepts periods from 1/64 through 100. Their v2
-identities keep their published domains. The v3 Peirce, Bonne and Airocean
-operators expose coordinate scale from 1/4 through four; Peirce also exposes
-diamond, square, horizontal and vertical layouts and scroll from minus one
-through one.
+The catalog publishes one current identity per operator family. Superseded IDs
+are rejected. `sample.grid.v3` and `sample.twin-wave.v3` accept drift from zero
+through two. `warp.affine.v3` accepts periods from 1/64 through 100. The current
+Peirce, Bonne and Airocean operators expose coordinate scale from 1/4 through
+four; Peirce also exposes diamond, square, horizontal and vertical layouts and
+scroll from minus one through one.
 
 `tests/data/chain_capture_fixtures.jsonl` fixes the canonical capture programs and
 before-frame metadata. `tools/gen_chain_capture_fixtures.py` emits typed snapshots
 for the native and WASM producers. Both producers evaluate the chain and shared
-exact projection/color kernels for approximation oracles. The retirement check
-compares all 454 frozen frames and 34 oracle records at 96x20 and 288x144 against
-the before implementation, with no manifest threshold or provenance-pin edits.
-Native tests also compare compiled composed programs to document-built chains,
+exact projection/color kernels for approximation oracles. Native tests also compare compiled composed programs to document-built chains,
 reject invalid snapshots atomically and replay future frames after a palette
 handoff. The WASM smoke test checks capability ownership, malformed input,
 roundtrip frame identity and reentrant replacement.

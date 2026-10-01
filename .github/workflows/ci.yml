@@ -540,11 +540,8 @@ jobs:
           mkdir -p "${{ runner.temp }}/daydream-install/docs/screenshots"
           touch "${{ runner.temp }}/daydream-install/docs/screenshots/stale.png"
           touch "${{ runner.temp }}/daydream-install/docs/screenshots/unrelated.txt"
-          mkdir -p "${{ runner.temp }}/daydream-install/generated/shader/patterns/v1"
           mkdir -p "${{ runner.temp }}/daydream-install/generated/shader/patterns"
           touch "${{ runner.temp }}/daydream-install/generated/shader/patterns/stale.shader.json"
-          touch "${{ runner.temp }}/daydream-install/generated/shader/patterns/digest_migration.v1v2.json"
-          touch "${{ runner.temp }}/daydream-install/generated/shader/patterns/v1/example.shader.json"
           cmake --preset wasm-release -DDAYDREAM_DIR="${{ runner.temp }}/daydream-install"
           cmake --build --preset wasm-release 2>&1 | tee build/wasm-release-build.log
 
@@ -664,10 +661,8 @@ jobs:
           mkdir -p "$bundle/generated/shader/patterns"
           cp "$dd/generated/shader/"{composed_effect_roster.mjs,shader_workbench.mjs,sha256.mjs,engine_catalog.json} "$bundle/generated/shader/"
           find "$dd/generated/shader/patterns" -maxdepth 1 -type f \
-            \( -name '*.shader.json' -o -name shaderball_migration.json \) \
+            \( -name '*.shader.json' -o -name catalog.json \) \
             -exec cp '{}' "$bundle/generated/shader/patterns/" \;
-          test ! -e "$bundle/generated/shader/patterns/digest_migration.v1v2.json"
-          test ! -e "$bundle/generated/shader/patterns/v1"
           cp "$dd/README.md" "$bundle/"
           mkdir -p "$bundle/docs/screenshots"
           (
@@ -691,11 +686,9 @@ jobs:
           dd="${{ runner.temp }}/daydream-install"
           out="${{ runner.temp }}"
           cmp scripts/composed_effect_roster.mjs "$dd/generated/shader/composed_effect_roster.mjs"
-          ( cd patterns && find . -type f \( -name '*.shader.json' -o -name shaderball_migration.json \) ) | sort > "$out/mirror-source.txt"
+          ( cd patterns && find . -type f \( -name '*.shader.json' -o -name catalog.json \) ! -name example.shader.json ) | sort > "$out/mirror-source.txt"
           test ! -e "$dd/generated/shader/patterns/stale.shader.json"
-          test -f "$dd/generated/shader/patterns/digest_migration.v1v2.json"
-          test -f "$dd/generated/shader/patterns/v1/example.shader.json"
-          ( cd "$dd/generated/shader/patterns" && find . -maxdepth 1 -type f \( -name '*.shader.json' -o -name shaderball_migration.json \) ) | sort > "$out/mirror-installed.txt"
+          ( cd "$dd/generated/shader/patterns" && find . -maxdepth 1 -type f \( -name '*.shader.json' -o -name catalog.json \) ) | sort > "$out/mirror-installed.txt"
           test -s "$out/mirror-source.txt"
           test -s "$out/mirror-installed.txt"
           diff -u "$out/mirror-source.txt" "$out/mirror-installed.txt"
