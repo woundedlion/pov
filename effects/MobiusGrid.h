@@ -10,13 +10,44 @@
 
 #include "core/render/pullback/composed_effect.h"
 
-using MobiusGridParams =
-    Pullback::Params<Pullback::TwinWaveSourceParams, Pullback::NoWarpParams,
-                     Pullback::MirrorParams, Pullback::MobiusLensParams>;
-using MobiusGridSpec =
-    Pullback::Spec<Pullback::ProjectionKind::STEREOGRAPHIC, void,
-                   Pullback::TransferKind::NONE,
-                   Pullback::ProjectionCoverageMode::WEIGHT_SQUARED>;
+struct MobiusGridSpec : Pullback::Spec {
+  static constexpr Pullback::ProjectionKind PROJECTION =
+      Pullback::ProjectionKind::STEREOGRAPHIC;
+  static constexpr Pullback::TransferKind TRANSFER =
+      Pullback::TransferKind::NONE;
+  static constexpr Pullback::ProjectionCoverageMode COVERAGE =
+      Pullback::ProjectionCoverageMode::WEIGHT_SQUARED;
+  static constexpr Pullback::FieldCoverageKind FIELD_COVERAGE =
+      Pullback::FieldCoverageKind::NONE;
+  static constexpr PaletteHarmony HARMONY = PaletteHarmony::COMPLEMENTARY;
+  static constexpr Pullback::HueMode HUE = Pullback::HueMode::PATH_LENGTH;
+  static constexpr Pullback::Color::BrightnessEnvelope BRIGHTNESS =
+      Pullback::Color::BrightnessEnvelope::CUP;
+  static constexpr bool ANIMATED_PROJECTION = true;
+  static constexpr Pullback::SurfacePlacement SURFACE_PLACEMENT =
+      Pullback::SurfacePlacement::BEFORE_LENS;
+  using LensPolicy = void;
+  template <typename B>
+  using Pipeline = Pullback::Pipeline<
+      B, Pullback::Stage::Rotate<Pullback::OuterCameraProvider<B>>,
+      Pullback::Stage::Placed<
+          Pullback::CodeEmission::INLINE_ONLY,
+          Pullback::Stage::Lens<
+              Pullback::Lens::Mobius<Pullback::LensProvider<B>>>,
+          Pullback::Stage::Project<
+              typename Pullback::ProjectionPolicyFor<PROJECTION, B>::Type>>,
+      Pullback::Stage::Warp<typename Pullback::WarpPolicyFor<
+          Pullback::MirrorParams, B, "inner_warp",
+          HUE == Pullback::HueMode::PATH_LENGTH>::Type>,
+      Pullback::Stage::Sample<
+          typename Pullback::SourcePolicyFor<Pullback::TwinWaveSourceParams,
+                                             B>::Type,
+          Pullback::Weight::Projection,
+          typename Pullback::CoveragePolicyFor<COVERAGE, B, void>::Type>,
+      Pullback::Stage::Colorize<Pullback::Color::GeneratedPalette<
+          Pullback::ColorProvider<B, HUE, BRIGHTNESS>>>>;
+};
+using MobiusGridParams = Pullback::ParamsFor<MobiusGridSpec>;
 
 /**
  * @brief A continuously animated Mobius lens over a mirrored twin wave.
@@ -28,10 +59,7 @@ using MobiusGridSpec =
  */
 template <int W, int H>
 class MobiusGrid
-    : public Pullback::ComposedEffect<
-          W, H, MobiusGrid<W, H>, MobiusGridParams, MobiusGridSpec,
-          PaletteHarmony::COMPLEMENTARY, Pullback::HueMode::PATH_LENGTH,
-          Pullback::Color::BrightnessEnvelope::CUP> {
+    : public Pullback::ComposedEffect<W, H, MobiusGrid<W, H>, MobiusGridSpec> {
 
 public:
   using Params = MobiusGridParams;
@@ -47,7 +75,7 @@ public:
   static constexpr uint16_t PRESET_DWELL_FRAMES = 600;
   // clang-format on
   // End generated identity.
-  static constexpr uint32_t PARAMETER_SCHEMA_VERSION = 1;
+  static constexpr uint32_t PARAMETER_SCHEMA_VERSION = 2;
   static constexpr bool ANIMATED_MOBIUS = true;
 
   // Generated params: scripts/generate_composed_presets.mjs

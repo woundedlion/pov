@@ -620,21 +620,19 @@ bookkeeping here.
   indices become execution-node indices per §4's two-view split; the
   stage-dispatch inline cliff is real, and no dispatch loop or IIFE may
   replace the recursion.
-- **`Pullback::Params` and its eight parameter groups** — source,
-  projection, outer_warp, inner_warp, surface, lens, value, color
-  ("groups", not "families": they are unrelated to the carrier
-  families of §2). Preset schemas, slider registration, and
-  interpolation need a fixed, nameable layout. The relaxation is a
-  *pipeline-shape* concern; the parameter-schema layer assembles a chain
-  instead of six slots. Do not try to make `Params` variadic.
+- **Snapshot layout.** Each composed effect's `ParamsFor<Spec>` is a concrete,
+  fixed layout derived from its declared provider instances. Its C++ snapshot
+  version changes whenever that layout changes; the effect and preset identities
+  in promoted documents remain stable.
 
 ### Scope boundary
 
-Promotion — turning an authored chain into a ComposedEffect — is a
-resource-allocation problem over `Params`'s finite provider slots,
-specified in §7. The boundary that matters here: chains whose allocation
-fails are the territory of the workbench interpreter (§8) and
-hand-written effects; the pipeline model itself imposes no such limit.
+The ranked pipeline has no fixed capacity for parameterized stages. A composed
+Spec declares `template <typename B> using Pipeline = Pullback::Pipeline<B, ...>`;
+`ComposedEffect<W, H, Derived, Spec>` derives present-only parameters, clocks,
+and noise resources from that declaration. Firmware arena and prepared-state
+budgets still bound each concrete instantiation. Promotion's catalog requirements,
+parameter binding and topology acceptance remain specified in ?7.
 
 ## 6. Pipeline assembly and consumer migration
 
@@ -667,25 +665,26 @@ The only conditional assembly in the codebase is ComposedEffect's
 derivation, which already computes per-family policies with
 `conditional_t` and now yields `void` where a family is absent, with
 placement selected by the author's `SurfacePlacement` template argument.
-The sphere run keeps both displacement slots; either curl or direct
-displacement may run before or after the lens. `ChromaticLichen` places
-curl displacement after the lens. The following sketch illustrates one
-choice of placement; it is not a rule derived from the noise kind:
+A composed Spec declares only its actual sphere stages, including displacement
+placement and code emission:
 
 ```cpp
-using PreDisplaceStage = std::conditional_t<
-    HAS_SURFACE_NOISE && !DIRECT_SURFACE, Stage::Displace<CurlPolicy>, void>;
-using PostDisplaceStage = std::conditional_t<
-    DIRECT_SURFACE, Stage::Displace<DirectNoisePolicy>, void>;
-
-using SphereRun = Stage::Placed<
-    HAS_SURFACE_NOISE ? CodeEmission::OUT_OF_LINE_FLASH
-                      : CodeEmission::INLINE_ONLY,
-    PreDisplaceStage, LensStage, PostDisplaceStage, ProjectStage>;
+template <typename B>
+using Pipeline = Pullback::Pipeline<B,
+    Stage::Rotate<OuterCameraProvider<B>>,
+    Stage::Placed<CodeEmission::OUT_OF_LINE_FLASH,
+        Stage::Lens<Lens::HexagonalPrismKaleidoscope>,
+        Stage::Displace<Surface::DirectNoise<
+            SurfaceProvider<B, DirectSurfaceParams, true>,
+            math::NoiseBasis::SIMPLEX>>,
+        Stage::Project<Projection::Stereographic<ProjectionProvider<B>>>>,
+    Stage::Sample<Source::Grid<SourceProvider<B, GridSourceParams>>>,
+    Stage::Colorize<Color::GeneratedPalette<ColorProvider<B, HUE, BRIGHTNESS>>>>;
 ```
 
-Those aliases live in `composed_effect.h` beside the `*PolicyFor`
-metafunctions they extend.
+`Stage::Placed` remains the explicit boundary for moving a contiguous run out of
+ITCM. Resource discovery descends through that run's leaves; it does not flatten
+away its emission boundary.
 
 ### Landing plan
 
@@ -786,7 +785,7 @@ record**, an `OperatorDescriptor`: a **type-level stage recipe** —
 `template <typename Binding, typename Assignment, typename Topology>
 Stage` — rather than one concrete stage type, because both remaining
 degrees of freedom are chosen *after* the catalog is written:
-allocation selects providers (today's policies encode their slot in the
+allocation selects providers (composed policies encode their instance key in the
 type — `WarpProvider<B, Outer>` versus `Inner` — and `Assignment` is
 what picks it), and promotion pins the document's bank-invariant
 topology values (§7.3) as `Topology`, the provider-free static
@@ -854,114 +853,61 @@ rather than aspirational.
 
 ### 7.2 Resource allocation
 
-**Status: PARTIAL.** The stable machine `Field::id` and its uniqueness check
-(`core/render/pullback/fields.h`) and `concat_fields`
-(`core/render/pullback/fields.h`) ship. `requirements(Topology)`, the
-slot capacities and their matching, `Value::Combine`, the parameter-binding
-table, and the promotion emitter are design.
+**Status: PARTIAL.** Named per-instance composed storage, stable machine
+`Field::id`, field validation/interpolation and canonical typed registration ship.
+Catalog `requirements(Topology)`, promotion's parameter-binding table and the
+promotion emitter remain design.
 
-Promotion is an explicit **resource-allocation problem**: a
-capacity-aware assignment of stage instances to provider slots. Not a
-stage count, and not set inclusion either — a set loses multiplicity,
-and three independently parameterized warps must not collapse into a
-requirement two slots could satisfy. Requirements are **promotion-catalog
-metadata, not stage-contract members** (§4), and they are a **function
-of topology**: the stage recipe varies with `Topology` (§7.1), so its
-resource needs vary with it — `Sample` requires edge-fade width state
-only when its coverage mode is `EdgeFade`. One unconditional list per
-operator would either over-reject (demand the EdgeFade slot for a
-`Weight`-coverage document) or under-allocate. Each promotable
-operator's catalog entry therefore exposes two views:
-`requirements(Topology)`, the parameter-schema and resource instances
-the recipe's policies read at those topology values, which promotion
-evaluates at the document's pinned topology (§7.3) — recursively
-composed for compound policies (a compound
-source policy would concatenate its children's) —
-and the worst-case resource and state footprint across variants, which
-is what the interpreter budgets (the same worst-case-across-variants
-rule its eager per-variant construction and topology-invariant
-approximation metadata already follow, §7.4/§8). An operator without
-requirement metadata simply is not promotable, which is the safe
-default. The slots `Params` and `FrameState` back have fixed
-capacities: clocked warp × 2 (`outer_phase`/`inner_phase`,
-`outer_rotation` on the first), Mobius lens family × 1, orientation × 1,
-surface family × 1, source family × 1, projection family × 1, value
-family × 1, color family × 1. The value slot has a synthesis rule rather
-than a count: promotion constructs `ValueT` as the family covering the
-*union* of the value fields the chain's requirements name, so
-`IsoContour` + `EdgeFade` promotes (their field sets are disjoint) while
-two independently parameterized `IsoContour` stages do not (one family
-cannot carry two `iso_level` sets). The mechanism is a reusable
-composition, not an undefined merge: `Value::Combine<Families...>`
-inherits each required family, so field access by name resolves through
-the base and `ValueProvider` is unchanged. The field-table half rests
-on one language fact, not a redesign of `core/render/pullback/fields.h`: `Field<Owner>`
-holds an owner-typed member pointer in a homogeneous array, and a
-`float Base::*` converts implicitly — including in constant
-expressions — to `float Combined::*`, so `Combine`'s `FIELDS` is a
-constexpr concatenation that rebuilds each base entry as a
-`Field<Combined>`: a genuine homogeneous
-`std::array<Field<Combined>, N>` that `Fields::interpolate`, `valid`,
-and slider registration iterate unchanged. Disjointness cannot hang on
-the display `name` — it is nullable and cosmetic — so `Field` gains a
-**stable machine `id`**: non-null, unique within its family, and the
-same token the catalog parameter schema exposes as the `field` segment
-of `<label>.<field>` ids (§7.1's schema generation reads it from the
-table — one authority for both spellings). The compile-time assert is
-id-disjointness across the combined table; repeating one family
-(`Combine<IsoContour, IsoContour>`) is ill-formed before any assert
-runs, as duplicate direct base classes — which *is* the
-double-`IsoContour` rejection. Two instances share one slot only by
-explicit declaration of a shared requirement; distinct instances are the
-default. Slot assignment alone is type-correct but not value-correct,
-so the `Assignment` also owns a **parameter-binding table**: a mapping
-from every `(instance_id, field_id)` the chain's schemas declare to
-the concrete `Params` member and control registration the emitter
-writes. The mapping is **injective** — one document parameter, one
-storage slot — except where a shared requirement declares an explicit
-**alias**, and aliased parameters must agree everywhere the document
-speaks: identical defaults, equal values in every preset, and
-identical transition scheduling, checked at promotion with
-disagreement a refusal. Nothing upstream enforces this — the workbench
-gives every instance an independent parameter namespace, so two
-"shared" instances can freely diverge in the document, and a promoted
-effect with one storage slot would render that divergence differently
-than the interpreter previews it. The binding table is also one side
-of §7.1's conformance test: promotion bindings and the interpreter's
-registered parameter schema must describe the same field set. Requirements declare their **compatible slot sets**, because slots are
-not interchangeable: only the outer warp slot carries `outer_rotation`,
-so a rotation-consuming warp (`AffineFrame`) is outer-only while a
-plain clocked warp accepts either — an affine warp bound to the inner provider is rejected by a
-`static_assert` in ComposedEffect. Allocation computes a **deterministic matching**
-over compatible slots, and determinism is by canonical construction,
-not a tie-break phrase: slots are ordered as this section declares
-their capacities (outer warp before inner, and so on), instances in
-chain order, and the assignment is the **lexicographically minimal
-complete matching** — each instance in chain order takes the earliest
-compatible slot that still leaves a complete matching for the
-remaining instances. (Chain order alone does not choose uniquely among
-multiple complete matchings, and the choice is semantic: the
-assignment determines the generated provider types and parameter
-mappings.) The instance
-labels record the mapping, and promotion succeeds iff a complete
-matching exists — `WaveShear → Affine` therefore emits Affine → outer,
-WaveShear → inner. The assignment never enters the
-pipeline type system: the promotion emitter resolves each requirement to
-its slot and writes descriptors *already specialized* with that slot's
-provider (`WarpProvider<B, Outer>`, …) into the generated
-`Pipeline<...>` typedef — instantiations of the operator's stage recipe
-(§7.1) with the allocation's assignment and the document's pinned
-topology values. `Bind` receives no assignment, and hand-written
-pipelines have always been written in exactly this already-specialized
-form. Operators with empty requirements consume
-nothing: a second parameterless lens (`Glitch`, the kaleidoscopes —
-stacked as consecutive `Lens` stages) promotes today, as does a lens
-sandwich whose
-only parameterized member is the single Mobius. A chain whose
-assignment fails (third clocked warp, second Mobius family) is
-interpreter-only until a per-instance provider design exists (indexed
-`WarpProvider<B, Slot>`, a phase array in `FrameState`, per-instance
-registration — a named follow-on, not part of this spec).
+A composed Spec declares its ranked pipeline explicitly. Parameter-consuming
+providers carry a compile-time string `ResourceKey`, their parameter family and
+resource kind. `WarpProvider<B, "ripple", WaveShearParams>` and
+`LensProvider<B, "lens-b">`, for example, address separate instances. Repeating a
+family with different keys creates independent parameters, clocks and resources;
+three clocked warps and two Mobius lenses are ordinary valid compositions.
+
+`ParamsFor<Spec>` discovers provider requirements through each stage's policies,
+including compound policies and the leaves of `Stage::Placed`. Parameterless
+policies contribute no storage. It constructs one typed block per key. Reusing
+one key is explicit sharing and requires the same family and resource kind;
+conflicting declarations fail compilation. `get<"key">()` addresses one block;
+`visit` drives validation, interpolation, registration, clock advancement and
+frame preparation. Each noise-consuming instance owns its own persistent noise
+field. Each affine warp owns its own rotation accumulator.
+
+The standard source, projection and color keys carry the shared composed
+lifecycle's source/camera/palette roles. Existing authored effects retain the
+named members for their present standard instances, including `outer_warp`,
+`inner_warp`, `lens`, `surface` and `value`. Absent instances have no parameter
+members or placeholder families. Legacy instance names retain their storage and
+registration order; additional keys follow declaration order within each resource
+kind. New keys and repeated families qualify display controls as
+`<key>.<display-name>` to keep targets distinct. Ordinary controls use the
+family's canonical `ParamSpec` through shared typed registration. The exact
+registered parameter count and qualified-name bytes enter the persistent arena
+budget; no fixed slider capacity or warp/lens slot capacity remains.
+
+Promotion remains an explicit resource-allocation problem with multiplicity.
+Each promotable operator's catalog exposes `requirements(Topology)`: the
+parameter families and state its recipe's policies actually read at the pinned
+topology. Compound policies combine their children's requirements. An operator
+without this metadata is not promotable. The interpreter budgets worst-case
+state and prepared footprints across topology variants; a promoted concrete
+pipeline budgets the variants and instances it actually declares.
+
+The emitter assigns a deterministic key to each document instance in chain order
+and writes providers already specialized with that key and family. Distinct
+instances receive distinct keys by default; identical families are not collapsed.
+The assignment owns a parameter-binding table mapping each `(instance_id,
+field_id)` to the concrete typed parameter block and registered control. It is
+injective except for an explicitly shared requirement. Shared requirements must
+agree in defaults, every preset and transition scheduling; disagreement refuses
+promotion. Requirements with disjoint fields may choose a composed family, but
+independent instances never require such a merge merely because they have the
+same resource kind. `Bind` and the execution stage contract receive no assignment.
+
+Conformance compares the emitted binding field set with the interpreter's
+registered schema. Topology, approximation and budget checks remain promotion
+conditions; the number of clocked warps or Mobius lenses is not a rejection rule.
 
 ### 7.3 Topology parameters
 
@@ -1187,7 +1133,7 @@ concern.
   §4** — the same free functions the template combinators call — with
   the adapter reading the op's parameter block where a static provider
   would read a named `FrameState` slot (the static provider wrappers
-  are compile-time-bound to fixed slots and cannot serve an arbitrary
+  are compile-time-bound to named instances and cannot serve an arbitrary
   third instance; §7.2's allocation limit is the same fact seen from
   the promotion side). ShaderWorkbench's dynamic backend is the existing
   precedent for this shape.
@@ -1235,7 +1181,7 @@ concern.
   excluded from `HS_PHANTASM_EFFECT_LIST`. No release-ELF symbol inspection
   gate currently verifies interpreter exclusion.
 - Promotion of a document into a composed effect follows §7: the
-  capacity assignment must succeed and topology parameters must be
+  typed instance allocation and budgets must succeed and topology parameters must be
   bank-invariant. The interpreter is never shipped to the device.
 
 ## 9. What this unlocks
@@ -1251,9 +1197,8 @@ awaiting a new combinator**: COLOR grading stages (the family ships empty).
 The rules make these one-combinator additions instead of schema changes;
 they are not day-one capabilities. At the ComposedEffect layer: any
 chain whose provider allocation succeeds (§7) — every shipping effect,
-plus
-recombinations including parameterless-lens stacks; only chains needing
-a slot that does not exist stay interpreter-only.
+plus recombinations with independently parameterized warp and lens instances.
+Topology, catalog conformance and memory budgets govern promotion acceptance.
 
 Combining two sources is a policy-level concern, not a chain-shape gap:
 monotonicity correctly forbids a second `Sample` crossing, and source

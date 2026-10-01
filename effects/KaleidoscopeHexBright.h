@@ -10,14 +10,44 @@
 
 #include "core/render/pullback/composed_effect.h"
 
+struct KaleidoscopeHexBrightSpec : Pullback::Spec {
+  static constexpr Pullback::ProjectionKind PROJECTION =
+      Pullback::ProjectionKind::STEREOGRAPHIC;
+  static constexpr Pullback::TransferKind TRANSFER =
+      Pullback::TransferKind::NONE;
+  static constexpr Pullback::ProjectionCoverageMode COVERAGE =
+      Pullback::ProjectionCoverageMode::WEIGHT_SQUARED;
+  static constexpr Pullback::FieldCoverageKind FIELD_COVERAGE =
+      Pullback::FieldCoverageKind::NONE;
+  static constexpr PaletteHarmony HARMONY = PaletteHarmony::ANALOGOUS;
+  static constexpr Pullback::HueMode HUE = Pullback::HueMode::NOISE;
+  static constexpr Pullback::Color::BrightnessEnvelope BRIGHTNESS =
+      Pullback::Color::BrightnessEnvelope::NONE;
+  static constexpr bool ANIMATED_PROJECTION = true;
+  static constexpr Pullback::SurfacePlacement SURFACE_PLACEMENT =
+      Pullback::SurfacePlacement::BEFORE_LENS;
+  using LensPolicy = Pullback::Lens::HexagonalPrismKaleidoscope;
+  template <typename B>
+  using Pipeline = Pullback::Pipeline<
+      B, Pullback::Stage::Rotate<Pullback::OuterCameraProvider<B>>,
+      Pullback::Stage::Placed<
+          Pullback::CodeEmission::INLINE_ONLY,
+          Pullback::Stage::Lens<Pullback::Lens::HexagonalPrismKaleidoscope>,
+          Pullback::Stage::Project<
+              typename Pullback::ProjectionPolicyFor<PROJECTION, B>::Type>>,
+      Pullback::Stage::Warp<typename Pullback::WarpPolicyFor<
+          Pullback::MirrorParams, B, "inner_warp",
+          HUE == Pullback::HueMode::PATH_LENGTH>::Type>,
+      Pullback::Stage::Sample<
+          typename Pullback::SourcePolicyFor<Pullback::TwinWaveSourceParams,
+                                             B>::Type,
+          Pullback::Weight::Projection,
+          typename Pullback::CoveragePolicyFor<COVERAGE, B, void>::Type>,
+      Pullback::Stage::Colorize<Pullback::Color::GeneratedPalette<
+          Pullback::ColorProvider<B, HUE, BRIGHTNESS>>>>;
+};
 using KaleidoscopeHexBrightParams =
-    Pullback::Params<Pullback::TwinWaveSourceParams, Pullback::NoWarpParams,
-                     Pullback::MirrorParams>;
-using KaleidoscopeHexBrightSpec =
-    Pullback::Spec<Pullback::ProjectionKind::STEREOGRAPHIC,
-                   Pullback::Lens::HexagonalPrismKaleidoscope,
-                   Pullback::TransferKind::NONE,
-                   Pullback::ProjectionCoverageMode::WEIGHT_SQUARED>;
+    Pullback::ParamsFor<KaleidoscopeHexBrightSpec>;
 
 /**
  * @brief A twin wave folded through a hexagonal prism.
@@ -26,10 +56,8 @@ using KaleidoscopeHexBrightSpec =
  */
 template <int W, int H>
 class KaleidoscopeHexBright
-    : public Pullback::ComposedEffect<
-          W, H, KaleidoscopeHexBright<W, H>, KaleidoscopeHexBrightParams,
-          KaleidoscopeHexBrightSpec, PaletteHarmony::ANALOGOUS,
-          Pullback::HueMode::NOISE, Pullback::Color::BrightnessEnvelope::NONE> {
+    : public Pullback::ComposedEffect<W, H, KaleidoscopeHexBright<W, H>,
+                                      KaleidoscopeHexBrightSpec> {
 
 public:
   using Params = KaleidoscopeHexBrightParams;
@@ -45,7 +73,7 @@ public:
   static constexpr uint16_t PRESET_DWELL_FRAMES = 600;
   // clang-format on
   // End generated identity.
-  static constexpr uint32_t PARAMETER_SCHEMA_VERSION = 1;
+  static constexpr uint32_t PARAMETER_SCHEMA_VERSION = 2;
 
   // Generated params: scripts/generate_composed_presets.mjs
   // clang-format off

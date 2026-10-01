@@ -7,9 +7,8 @@
 /**
  * @file composed_effect.h
  * @brief Shared machinery for the composed-effect family: the parameter
- *        families an effect assembles into a `Params`, the frame-state
- *        providers its pullback pipeline reads, and the `ComposedEffect` base
- *        that assembles the pipeline over the engine's preset choreography.
+ *        providers and present-only instance storage derived from a ranked
+ *        stage Spec, with the engine's preset choreography and palette lifecycle.
  */
 
 #include "animation/orientation.h"
@@ -30,6 +29,7 @@
 #include "math/noise_field.h"
 #include "render/pullback.h"
 #include "render/pullback/runtime_seeds.h"
+#include "render/pullback/composed_resources.h"
 
 #if HS_ENABLE_TEST_HOOKS
 namespace hs_test {
@@ -48,7 +48,6 @@ using Color::HueMode;
 using ValueCoverage::CutoutValueParams;
 using ProjectionCoverage::EdgeValueParams;
 using Lens::MobiusLensParams;
-using Lens::NoLensParams;
 using Projection::ProjectionParams;
 using Source::GridSourceParams;
 using Source::LatticeSourceParams;
@@ -57,50 +56,14 @@ using Source::SphericalNoiseSourceParams;
 using Source::SpiralSourceParams;
 using Source::TwinWaveSourceParams;
 using Surface::DirectSurfaceParams;
-using Surface::NoSurfaceParams;
 using Surface::PeriodicRippleParams;
 using Surface::SurfaceNoiseParams;
 using Transfer::IsoValueParams;
-using Transfer::NoValueParams;
 using Warp::AffineParams;
 using Warp::MirrorParams;
-using Warp::NoWarpParams;
 using Warp::PolarParams;
 using Warp::VectorNoiseParams;
 using Warp::WaveShearParams;
-
-/**
- * @brief One composed effect's complete parameter set, one family per
- *        pipeline stage.
- * @details The member typedefs are the runtime's dispatch keys: parameter
- * registration, per-frame preparation and the warp/surface clocks all select
- * behavior by comparing them against the concrete families.
- * @tparam SourceT Source family, e.g. GridSourceParams.
- * @tparam OuterWarpT Family for the first planar warp slot.
- * @tparam InnerWarpT Family for the second planar warp slot.
- * @tparam LensT Lens family.
- * @tparam ValueT Value family read by the material stage.
- * @tparam SurfaceT Surface-displacement family.
- */
-template <typename SourceT, typename OuterWarpT, typename InnerWarpT,
-          typename LensT = NoLensParams, typename ValueT = NoValueParams,
-          typename SurfaceT = NoSurfaceParams>
-struct Params {
-  using source_type = SourceT;
-  using outer_warp_type = OuterWarpT;
-  using inner_warp_type = InnerWarpT;
-  using lens_type = LensT;
-  using value_type = ValueT;
-  using surface_type = SurfaceT;
-  SourceT source;
-  ProjectionParams projection;
-  OuterWarpT outer_warp;
-  InnerWarpT inner_warp;
-  SurfaceT surface;
-  LensT lens;
-  ValueT value;
-  ColorParams color;
-};
 
 /**
  * @brief The public frame context the pipeline's stages prepare from and
@@ -109,7 +72,6 @@ struct Params {
  * state lives in the pipeline's per-frame instance instead. Its pointers
  * alias the runtime's persistent state and the palette cycler's current
  * bake, so a frame outlives only the draw_frame() call that built it.
- * @tparam ParamsT The effect's `Pullback::Params` specialization.
  */
 template <typename ParamsT> struct FrameState {
   /** Conjugate of the projection orientation; identity unless the effect sets
@@ -117,10 +79,6 @@ template <typename ParamsT> struct FrameState {
   math::Quaternion projection_conjugate;
   /** Conjugate of the outer camera orientation. */
   math::Quaternion outer_conjugate;
-  const FastNoiseLite *outer_noise;  /**< Null unless `HAS_OUTER_NOISE`. */
-  const FastNoiseLite *source_noise; /**< Null unless `HAS_SOURCE_NOISE`. */
-  const FastNoiseLite
-      *surface_noise;          /**< Null unless surface noise is active. */
   const BakedPalette *palette; /**< The cycler's current bake. */
   /** Hue-rotation LUT base; current only when hue_rotation_active(). */
   const Pixel *hue_rotation_lut;
@@ -131,14 +89,9 @@ template <typename ParamsT> struct FrameState {
                        preset transition is in flight. */
   /** Palette mapping weights, blended across a preset transition. */
   Pullback::Color::PaletteMappingWeights palette_mapping;
-  float source_primary;            /**< Source primary phase. */
-  float source_secondary;          /**< Source secondary phase. */
-  float source_angle;              /**< Source rotation, in radians. */
-  float outer_phase;               /**< First warp slot's phase. */
-  float inner_phase;               /**< Second warp slot's phase. */
-  float outer_rotation;            /**< First slot's accumulated rotation. */
-  float source_noise_time;         /**< Source noise time coordinate. */
-  float surface_phase;             /**< Displacement-loop phase. */
+  ComposedDetail::ResourceStorage<ComposedDetail::ResourceFrame,
+                                  typename ParamsT::ResourceTypes>
+      resources;
   float palette_oscillation_phase; /**< Phase of the mapping wobble. */
 };
 
@@ -188,35 +141,24 @@ template <typename BindingT> struct ProjectionProvider {
 };
 
 /** @brief Supplies the Mobius coefficients to Pullback::Lens::Mobius. */
-template <typename BindingT> struct LensProvider {
+template <typename BindingT, ResourceKey Key = "lens"> struct LensProvider {
   using Binding = BindingT;
   using FrameState = typename Binding::FrameState;
   __attribute__((always_inline)) static const math::MobiusParams &
   params(const FrameState &frame) {
-    return frame.params.lens.mobius;
+    return frame.params.template get<Key>().mobius;
   }
 };
 
-/**
- * @brief Supplies one planar warp slot to the Pullback::Warp policies.
- * @details `noise()` returns the outer noise field for either slot, so a
- * noise-driven warp in the inner slot also raises the runtime's
- * `HAS_OUTER_NOISE`.
- * @tparam BindingT The effect's Binding.
- * @tparam Outer True to read the first warp slot, false for the second.
- * @tparam TrackPath Whether the stage accumulates path length, which the color
- *         stage consumes under HueMode::PATH_LENGTH.
- */
-template <typename BindingT, bool Outer, bool TrackPath = false>
+/** @brief Supplies parameters, clock and noise of one planar warp instance. */
+template <typename BindingT, ResourceKey Key, typename Family,
+          bool TrackPath = false>
 struct WarpProvider {
   using Binding = BindingT;
   using FrameState = typename Binding::FrameState;
   __attribute__((always_inline)) static const auto &
   params(const FrameState &frame) {
-    if constexpr (Outer)
-      return frame.params.outer_warp;
-    else
-      return frame.params.inner_warp;
+    return frame.params.template get<Key>();
   }
   __attribute__((always_inline)) static auto prepare(const FrameState &frame) {
     using WarpT = std::remove_cvref_t<decltype(params(frame))>;
@@ -225,28 +167,22 @@ struct WarpProvider {
           requires { frame.params.source.lattice_cell_scale; },
           "the affine warp stage translates in lattice cells and requires a "
           "LatticeSourceParams source");
-      static_assert(Outer,
-                    "the affine warp stage consumes the rotation clock, which "
-                    "only the outer warp slot carries");
       return Pullback::Warp::prepare(
-          params(frame), phase(frame), frame.outer_rotation,
+          params(frame), phase(frame),
+          frame.resources.template get<Key>().rotation,
           1.0f / frame.params.source.lattice_cell_scale);
-    } else if constexpr (std::is_same_v<WarpT, NoWarpParams> ||
-                         std::is_same_v<WarpT, PolarParams>) {
+    } else if constexpr (std::is_same_v<WarpT, PolarParams>) {
       return Pullback::NoPrepared{};
     } else {
       return Pullback::Warp::prepare(params(frame), phase(frame));
     }
   }
   __attribute__((always_inline)) static float phase(const FrameState &frame) {
-    if constexpr (Outer)
-      return frame.outer_phase;
-    else
-      return frame.inner_phase;
+    return frame.resources.template get<Key>().phase;
   }
   __attribute__((always_inline)) static const FastNoiseLite &
   noise(const FrameState &frame) {
-    return *frame.outer_noise;
+    return *frame.resources.template get<Key>().noise;
   }
   __attribute__((always_inline)) static bool
   path_length_required(const FrameState &) {
@@ -260,38 +196,42 @@ struct WarpProvider {
  * @tparam TrackPath Whether the stage accumulates path length.
  * @pre The effect's `surface_type` is a displacement family.
  */
-template <typename BindingT, bool TrackPath = false> struct SurfaceProvider {
+template <typename BindingT, typename Family, bool TrackPath = false,
+          ResourceKey Key = "surface">
+struct SurfaceProvider {
   using Binding = BindingT;
   using FrameState = typename Binding::FrameState;
   __attribute__((always_inline)) static const FastNoiseLite &
   noise(const FrameState &frame) {
-    return *frame.surface_noise;
+    return *frame.resources.template get<Key>().noise;
   }
   __attribute__((always_inline)) static auto prepare(const FrameState &frame) {
-    if constexpr (requires { frame.params.surface.direction; })
-      return Pullback::Surface::prepare_direct(frame.surface_phase,
-                                               frame.params.surface.direction);
+    if constexpr (requires { frame.params.template get<Key>().direction; })
+      return Pullback::Surface::prepare_direct(
+          frame.resources.template get<Key>().phase,
+          frame.params.template get<Key>().direction);
     else
-      return Pullback::Surface::prepare(frame.surface_phase);
+      return Pullback::Surface::prepare(
+          frame.resources.template get<Key>().phase);
   }
   __attribute__((always_inline)) static const auto &
   params(const FrameState &frame) {
-    return frame.params.surface;
+    return frame.params.template get<Key>();
   }
   __attribute__((always_inline)) static float phase(const FrameState &frame) {
-    using SurfaceParams =
-        typename std::remove_cvref_t<decltype(frame.params)>::surface_type;
+    using SurfaceParams = Family;
     if constexpr (std::is_same_v<SurfaceParams, PeriodicRippleParams>)
-      return frame.surface_phase / frame.params.surface.period;
+      return frame.resources.template get<Key>().phase /
+             frame.params.template get<Key>().period;
     else
-      return frame.surface_phase;
+      return frame.resources.template get<Key>().phase;
   }
   __attribute__((always_inline)) static float scale(const FrameState &frame) {
-    return frame.params.surface.scale;
+    return frame.params.template get<Key>().scale;
   }
   __attribute__((always_inline)) static float
   strength(const FrameState &frame) {
-    return frame.params.surface.strength;
+    return frame.params.template get<Key>().strength;
   }
   __attribute__((always_inline)) static bool
   path_length_required(const FrameState &) {
@@ -305,33 +245,36 @@ template <typename BindingT, bool TrackPath = false> struct SurfaceProvider {
  * prepared phases, the noise accessors the NoiseSourceParams fields. Only the
  * accessors an effect's chosen source policy names are instantiated.
  */
-template <typename BindingT> struct SourceProvider {
+template <typename BindingT, typename Family, ResourceKey Key = "source">
+struct SourceProvider {
   using Binding = BindingT;
   using FrameState = typename Binding::FrameState;
   __attribute__((always_inline)) static const auto &
   params(const FrameState &frame) {
-    return frame.params.source;
+    return frame.params.template get<Key>();
   }
   __attribute__((always_inline)) static Pullback::Source::PreparedSource
   prepare(const FrameState &frame) {
     return Pullback::Source::prepare(
-        frame.source_primary, frame.source_secondary, frame.source_angle);
+        frame.resources.template get<Key>().primary,
+        frame.resources.template get<Key>().secondary,
+        frame.resources.template get<Key>().angle);
   }
   __attribute__((always_inline)) static const FastNoiseLite &
   noise(const FrameState &frame) {
-    return *frame.source_noise;
+    return *frame.resources.template get<Key>().noise;
   }
   __attribute__((always_inline)) static float
   noise_scale(const FrameState &frame) {
-    return frame.params.source.noise_scale;
+    return frame.params.template get<Key>().noise_scale;
   }
   __attribute__((always_inline)) static float
   noise_time(const FrameState &frame) {
-    return frame.source_noise_time;
+    return frame.resources.template get<Key>().noise_time;
   }
   __attribute__((always_inline)) static float
   noise_contrast(const FrameState &frame) {
-    return frame.params.source.noise_contrast;
+    return frame.params.template get<Key>().noise_contrast;
   }
 };
 
@@ -342,28 +285,29 @@ template <typename BindingT> struct SourceProvider {
  * stage instantiates only the accessors its transfer and coverage policies
  * call, so an IsoValueParams effect never touches `edge_width` and vice versa.
  */
-template <typename BindingT> struct ValueProvider {
+template <typename BindingT, typename Family, ResourceKey Key = "value">
+struct ValueProvider {
   using Binding = BindingT;
   using FrameState = typename Binding::FrameState;
   __attribute__((always_inline)) static float
   iso_level(const FrameState &frame) {
-    return frame.params.value.iso_level;
+    return frame.params.template get<Key>().iso_level;
   }
   __attribute__((always_inline)) static float
   iso_width(const FrameState &frame) {
-    return frame.params.value.iso_width;
+    return frame.params.template get<Key>().iso_width;
   }
   __attribute__((always_inline)) static float
   edge_width(const FrameState &frame) {
-    return frame.params.value.edge_width;
+    return frame.params.template get<Key>().edge_width;
   }
   __attribute__((always_inline)) static float
   cutout_threshold(const FrameState &frame) {
-    return frame.params.value.cutout_threshold;
+    return frame.params.template get<Key>().cutout_threshold;
   }
   __attribute__((always_inline)) static float
   cutout_softness(const FrameState &frame) {
-    return frame.params.value.cutout_softness;
+    return frame.params.template get<Key>().cutout_softness;
   }
 };
 
@@ -485,22 +429,19 @@ inline MobiusLensParams interpolate(const MobiusLensParams &a,
  * @param progress Progress fraction, already eased by the caller.
  * @return The interpolated parameter set.
  */
-template <typename SourceT, typename OuterWarpT, typename InnerWarpT,
-          typename LensT, typename ValueT, typename SurfaceT>
-inline Params<SourceT, OuterWarpT, InnerWarpT, LensT, ValueT, SurfaceT>
-interpolate(
-    const Params<SourceT, OuterWarpT, InnerWarpT, LensT, ValueT, SurfaceT>
-        &from,
-    const Params<SourceT, OuterWarpT, InnerWarpT, LensT, ValueT, SurfaceT> &to,
-    float progress) {
-  return {interpolate(from.source, to.source, progress),
-          interpolate(from.projection, to.projection, progress),
-          interpolate(from.outer_warp, to.outer_warp, progress),
-          interpolate(from.inner_warp, to.inner_warp, progress),
-          interpolate(from.surface, to.surface, progress),
-          interpolate(from.lens, to.lens, progress),
-          interpolate(from.value, to.value, progress),
-          interpolate(from.color, to.color, progress)};
+template <typename... Resources>
+inline ComposedDetail::ParameterSet<ComposedDetail::ResourceList<Resources...>>
+interpolate(const ComposedDetail::ParameterSet<
+                ComposedDetail::ResourceList<Resources...>> &from,
+            const ComposedDetail::ParameterSet<
+                ComposedDetail::ResourceList<Resources...>> &to,
+            float progress) {
+  auto result = from;
+  from.visit([&]<typename Resource>(const auto &family) {
+    result.template get<Resource::KEY>() =
+        interpolate(family, to.template get<Resource::KEY>(), progress);
+  });
+  return result;
 }
 
 /**
@@ -533,19 +474,18 @@ inline bool valid(const ColorParams &p) {
 
 /**
  * @brief Whether every family of a parameter set is in range.
- * @return True only when all eight families pass.
+ * @return True only when every declared instance passes.
  */
-template <typename SourceT, typename OuterWarpT, typename InnerWarpT,
-          typename LensT, typename ValueT, typename SurfaceT>
-inline bool valid(const Params<SourceT, OuterWarpT, InnerWarpT, LensT, ValueT,
-                               SurfaceT> &params) {
-  return valid(params.source) && valid(params.projection) &&
-         valid(params.outer_warp) && valid(params.inner_warp) &&
-         valid(params.surface) && valid(params.lens) && valid(params.value) &&
-         valid(params.color);
+template <typename... Resources>
+inline bool valid(const ComposedDetail::ParameterSet<
+                  ComposedDetail::ResourceList<Resources...>> &params) {
+  bool result = true;
+  params.visit([&]<typename Resource>(const auto &family) {
+    result = valid(family) && result;
+  });
+  return result;
 }
 
-/** @brief Storage for one optional noise field; empty when disabled. */
 template <bool Enabled> struct OptionalNoise {};
 template <> struct OptionalNoise<true> {
   FastNoiseLite noise;
@@ -630,104 +570,107 @@ enum class FieldCoverageKind : uint8_t { NONE, VALUE_CUTOUT };
  * @tparam CoverageV Material coverage policy.
  * @tparam FieldCoverageV Optional value-dependent coverage stage.
  */
-template <ProjectionKind ProjectionV, typename LensPolicyT,
-          TransferKind TransferV, ProjectionCoverageMode CoverageV,
-          FieldCoverageKind FieldCoverageV = FieldCoverageKind::NONE>
 struct Spec {
-  static constexpr ProjectionKind PROJECTION = ProjectionV;
-  using LensPolicy = LensPolicyT;
-  static constexpr TransferKind TRANSFER = TransferV;
-  static constexpr ProjectionCoverageMode COVERAGE = CoverageV;
-  static constexpr FieldCoverageKind FIELD_COVERAGE = FieldCoverageV;
+  static constexpr ProjectionKind PROJECTION = ProjectionKind::STEREOGRAPHIC;
+  static constexpr TransferKind TRANSFER = TransferKind::NONE;
+  static constexpr ProjectionCoverageMode COVERAGE =
+      ProjectionCoverageMode::WEIGHT;
+  static constexpr FieldCoverageKind FIELD_COVERAGE = FieldCoverageKind::NONE;
+  static constexpr PaletteHarmony HARMONY = PaletteHarmony::TRIADIC;
+  static constexpr HueMode HUE = HueMode::NONE;
+  static constexpr Color::BrightnessEnvelope BRIGHTNESS =
+      Color::BrightnessEnvelope::NONE;
+  static constexpr bool ANIMATED_PROJECTION = true;
+  static constexpr SurfacePlacement SURFACE_PLACEMENT =
+      SurfacePlacement::BEFORE_LENS;
+  using LensPolicy = void;
 };
 
 template <typename Family, typename Binding> struct SourcePolicyFor;
 template <typename B> struct SourcePolicyFor<GridSourceParams, B> {
   static constexpr bool USES_NOISE = false;
-  using Type = Pullback::Source::Grid<SourceProvider<B>>;
+  using Type = Pullback::Source::Grid<SourceProvider<B, GridSourceParams>>;
 };
 template <typename B> struct SourcePolicyFor<TwinWaveSourceParams, B> {
   static constexpr bool USES_NOISE = false;
-  using Type = Pullback::Source::TwinWave<SourceProvider<B>>;
+  using Type =
+      Pullback::Source::TwinWave<SourceProvider<B, TwinWaveSourceParams>>;
 };
 template <typename B> struct SourcePolicyFor<SpiralSourceParams, B> {
   static constexpr bool USES_NOISE = false;
-  using Type = Pullback::Source::Spiral<SourceProvider<B>>;
+  using Type = Pullback::Source::Spiral<SourceProvider<B, SpiralSourceParams>>;
 };
 template <typename B> struct SourcePolicyFor<LatticeSourceParams, B> {
   static constexpr bool USES_NOISE = false;
-  using Type = Pullback::Source::PrimitiveLattice<SourceProvider<B>>;
+  using Type = Pullback::Source::PrimitiveLattice<
+      SourceProvider<B, LatticeSourceParams>>;
 };
 template <typename B> struct SourcePolicyFor<ProjectedNoiseSourceParams, B> {
   static constexpr bool USES_NOISE = true;
-  using Type = Pullback::Source::ProjectedNoise<SourceProvider<B>,
-                                                math::NoiseBasis::SIMPLEX>;
+  using Type = Pullback::Source::ProjectedNoise<
+      SourceProvider<B, ProjectedNoiseSourceParams>, math::NoiseBasis::SIMPLEX>;
 };
 template <typename B> struct SourcePolicyFor<SphericalNoiseSourceParams, B> {
   static constexpr bool USES_NOISE = true;
-  using Type = Pullback::Source::SphericalNoise<SourceProvider<B>,
-                                                math::NoiseBasis::SIMPLEX>;
+  using Type = Pullback::Source::SphericalNoise<
+      SourceProvider<B, SphericalNoiseSourceParams>, math::NoiseBasis::SIMPLEX>;
 };
 
-template <typename Family, typename Binding, bool Outer, bool TrackPath>
+template <typename Family, typename Binding, ResourceKey Key, bool TrackPath>
 struct WarpPolicyFor;
-template <typename B, bool O, bool T>
-struct WarpPolicyFor<NoWarpParams, B, O, T> {
+template <typename B, ResourceKey K, bool T>
+struct WarpPolicyFor<MirrorParams, B, K, T> {
   static constexpr bool USES_NOISE = false;
-  using Type = void;
+  using Type = Pullback::Warp::MirrorTile<WarpProvider<B, K, MirrorParams, T>>;
 };
-template <typename B, bool O, bool T>
-struct WarpPolicyFor<MirrorParams, B, O, T> {
+template <typename B, ResourceKey K, bool T>
+struct WarpPolicyFor<WaveShearParams, B, K, T> {
   static constexpr bool USES_NOISE = false;
-  using Type = Pullback::Warp::MirrorTile<WarpProvider<B, O, T>>;
+  using Type =
+      Pullback::Warp::WaveShear<WarpProvider<B, K, WaveShearParams, T>>;
 };
-template <typename B, bool O, bool T>
-struct WarpPolicyFor<WaveShearParams, B, O, T> {
-  static constexpr bool USES_NOISE = false;
-  using Type = Pullback::Warp::WaveShear<WarpProvider<B, O, T>>;
-};
-template <typename B, bool O, bool T>
-struct WarpPolicyFor<VectorNoiseParams, B, O, T> {
+template <typename B, ResourceKey K, bool T>
+struct WarpPolicyFor<VectorNoiseParams, B, K, T> {
   static constexpr bool USES_NOISE = true;
-  using Type = Pullback::Warp::VectorNoise<WarpProvider<B, O, T>,
-                                           math::NoiseBasis::SIMPLEX,
-                                           Pullback::Warp::FlatEnvelope>;
+  using Type =
+      Pullback::Warp::VectorNoise<WarpProvider<B, K, VectorNoiseParams, T>,
+                                  math::NoiseBasis::SIMPLEX,
+                                  Pullback::Warp::FlatEnvelope>;
 };
-template <typename B, bool O, bool T>
-struct WarpPolicyFor<AffineParams, B, O, T> {
+template <typename B, ResourceKey K, bool T>
+struct WarpPolicyFor<AffineParams, B, K, T> {
   static constexpr bool USES_NOISE = false;
-  using Type = Pullback::Warp::AffineFrame<WarpProvider<B, O, T>>;
+  using Type = Pullback::Warp::AffineFrame<WarpProvider<B, K, AffineParams, T>>;
 };
-template <typename B, bool O, bool T>
-struct WarpPolicyFor<PolarParams, B, O, T> {
+template <typename B, ResourceKey K, bool T>
+struct WarpPolicyFor<PolarParams, B, K, T> {
   static constexpr bool USES_NOISE = false;
-  using Type = Pullback::Warp::PolarChart<WarpProvider<B, O, T>,
+  using Type = Pullback::Warp::PolarChart<WarpProvider<B, K, PolarParams, T>,
                                           Pullback::Warp::LinearPolar, 1>;
 };
 
 template <typename Family, typename Binding, bool TrackPath>
 struct SurfacePolicyFor;
-template <typename B, bool T> struct SurfacePolicyFor<NoSurfaceParams, B, T> {
-  static constexpr bool USES_NOISE = false;
-  using Type = void;
-};
 template <typename B, bool T>
 struct SurfacePolicyFor<SurfaceNoiseParams, B, T> {
   static constexpr bool USES_NOISE = true;
-  using Type = Pullback::Surface::CurlNoise<SurfaceProvider<B, T>,
-                                            math::NoiseBasis::SIMPLEX,
-                                            Pullback::Surface::Euler>;
+  using Type =
+      Pullback::Surface::CurlNoise<SurfaceProvider<B, SurfaceNoiseParams, T>,
+                                   math::NoiseBasis::SIMPLEX,
+                                   Pullback::Surface::Euler>;
 };
 template <typename B, bool T>
 struct SurfacePolicyFor<DirectSurfaceParams, B, T> {
   static constexpr bool USES_NOISE = true;
-  using Type = Pullback::Surface::DirectNoise<SurfaceProvider<B, T>,
-                                              math::NoiseBasis::SIMPLEX>;
+  using Type =
+      Pullback::Surface::DirectNoise<SurfaceProvider<B, DirectSurfaceParams, T>,
+                                     math::NoiseBasis::SIMPLEX>;
 };
 template <typename B, bool T>
 struct SurfacePolicyFor<PeriodicRippleParams, B, T> {
   static constexpr bool USES_NOISE = false;
-  using Type = Pullback::Surface::PeriodicRipple<SurfaceProvider<B, T>>;
+  using Type = Pullback::Surface::PeriodicRipple<
+      SurfaceProvider<B, PeriodicRippleParams, T>>;
 };
 
 template <ProjectionKind ProjectionV, typename Binding>
@@ -750,64 +693,212 @@ struct ProjectionPolicyFor<ProjectionKind::FOLDED_SINUSOIDAL, B> {
   using Type = Pullback::Projection::FoldedSinusoidal<ProjectionProvider<B>>;
 };
 
-template <typename LensFamily, typename SpecLens, typename Binding>
-struct LensPolicyFor {
-  using Type = SpecLens;
-};
-template <typename SpecLens, typename B>
-struct LensPolicyFor<MobiusLensParams, SpecLens, B> {
-  using Type = Pullback::Lens::Mobius<LensProvider<B>>;
+template <TransferKind TransferV, typename Binding, typename Family = void>
+struct TransferPolicyFor;
+template <typename B, typename Family>
+struct TransferPolicyFor<TransferKind::ISO_CONTOUR, B, Family> {
+  using Type = Pullback::Transfer::IsoContour<ValueProvider<B, Family>>;
 };
 
-template <TransferKind TransferV, typename Binding> struct TransferPolicyFor;
-template <typename B> struct TransferPolicyFor<TransferKind::ISO_CONTOUR, B> {
-  using Type = Pullback::Transfer::IsoContour<ValueProvider<B>>;
-};
-
-template <TransferKind TransferV, typename Binding> struct TransferStageFor;
-template <typename B> struct TransferStageFor<TransferKind::NONE, B> {
+template <TransferKind TransferV, typename Binding, typename Family = void>
+struct TransferStageFor;
+template <typename B, typename Family>
+struct TransferStageFor<TransferKind::NONE, B, Family> {
   using Type = void;
 };
-template <typename B> struct TransferStageFor<TransferKind::ISO_CONTOUR, B> {
+template <typename B, typename Family>
+struct TransferStageFor<TransferKind::ISO_CONTOUR, B, Family> {
   using Type = Pullback::Stage::Transfer<
-      typename TransferPolicyFor<TransferKind::ISO_CONTOUR, B>::Type>;
+      typename TransferPolicyFor<TransferKind::ISO_CONTOUR, B, Family>::Type>;
 };
 
-template <ProjectionCoverageMode CoverageV, typename Binding>
+template <ProjectionCoverageMode CoverageV, typename Binding,
+          typename Family = void>
 struct CoveragePolicyFor;
-template <typename B>
-struct CoveragePolicyFor<ProjectionCoverageMode::NONE, B> {
+template <typename B, typename Family>
+struct CoveragePolicyFor<ProjectionCoverageMode::NONE, B, Family> {
   using Type = Pullback::ProjectionCoverage::None;
 };
-template <typename B>
-struct CoveragePolicyFor<ProjectionCoverageMode::WEIGHT, B> {
+template <typename B, typename Family>
+struct CoveragePolicyFor<ProjectionCoverageMode::WEIGHT, B, Family> {
   using Type = Pullback::ProjectionCoverage::Weight;
 };
-template <typename B>
-struct CoveragePolicyFor<ProjectionCoverageMode::WEIGHT_SQUARED, B> {
+template <typename B, typename Family>
+struct CoveragePolicyFor<ProjectionCoverageMode::WEIGHT_SQUARED, B, Family> {
   using Type = Pullback::ProjectionCoverage::WeightSquared;
 };
-template <typename B>
-struct CoveragePolicyFor<ProjectionCoverageMode::EDGE_FADE, B> {
-  using Type = Pullback::ProjectionCoverage::EdgeFade<ValueProvider<B>>;
+template <typename B, typename Family>
+struct CoveragePolicyFor<ProjectionCoverageMode::EDGE_FADE, B, Family> {
+  using Type = Pullback::ProjectionCoverage::EdgeFade<ValueProvider<B, Family>>;
 };
 
-template <FieldCoverageKind CoverageV, typename Binding>
+template <FieldCoverageKind CoverageV, typename Binding, typename Family = void>
 struct FieldCoverageStageFor;
-template <typename B> struct FieldCoverageStageFor<FieldCoverageKind::NONE, B> {
+template <typename B, typename Family>
+struct FieldCoverageStageFor<FieldCoverageKind::NONE, B, Family> {
   using Type = void;
 };
-template <typename B>
-struct FieldCoverageStageFor<FieldCoverageKind::VALUE_CUTOUT, B> {
+template <typename B, typename Family>
+struct FieldCoverageStageFor<FieldCoverageKind::VALUE_CUTOUT, B, Family> {
   using Type = Pullback::Stage::ApplyCoverage<
-      Pullback::ValueCoverage::ValueCutout<ValueProvider<B>>>;
+      Pullback::ValueCoverage::ValueCutout<ValueProvider<B, Family>>>;
 };
+
+namespace ComposedDetail {
+
+template <typename B> struct PolicyResources<OuterCameraProvider<B>> {
+  using Type = ResourceList<ParameterResource<"projection", ProjectionParams,
+                                              ResourceKind::PROJECTION>>;
+};
+template <typename B>
+struct PolicyResources<ProjectionProvider<B>>
+    : PolicyResources<OuterCameraProvider<B>> {};
+template <typename B, ResourceKey Key>
+struct PolicyResources<LensProvider<B, Key>> {
+  using Type = ResourceList<
+      ParameterResource<Key, MobiusLensParams, ResourceKind::LENS>>;
+};
+template <typename B, ResourceKey Key, typename Family, bool Track>
+struct PolicyResources<WarpProvider<B, Key, Family, Track>> {
+  using Type = ResourceList<ParameterResource<Key, Family, ResourceKind::WARP>>;
+};
+template <typename B, typename Family, bool Track, ResourceKey Key>
+struct PolicyResources<SurfaceProvider<B, Family, Track, Key>> {
+  using Type =
+      ResourceList<ParameterResource<Key, Family, ResourceKind::SURFACE>>;
+};
+template <typename B, typename Family, ResourceKey Key>
+struct PolicyResources<SourceProvider<B, Family, Key>> {
+  using Type =
+      ResourceList<ParameterResource<Key, Family, ResourceKind::SOURCE>>;
+};
+template <typename B, typename Family, ResourceKey Key>
+struct PolicyResources<ValueProvider<B, Family, Key>> {
+  using Type =
+      ResourceList<ParameterResource<Key, Family, ResourceKind::VALUE>>;
+};
+template <typename B, HueMode Hue, Color::BrightnessEnvelope Brightness>
+struct PolicyResources<ColorProvider<B, Hue, Brightness>> {
+  using Type = ResourceList<
+      ParameterResource<"color", ColorParams, ResourceKind::COLOR>>;
+};
+
+template <typename Provider, Projection::GnomonicHemisphere Hemisphere>
+struct PolicyResources<Projection::Gnomonic<Provider, Hemisphere>>
+    : PolicyResources<Provider> {};
+template <typename Provider, math::NoiseBasis Basis>
+struct PolicyResources<Source::ProjectedNoise<Provider, Basis>>
+    : PolicyResources<Provider> {};
+template <typename Provider, math::NoiseBasis Basis>
+struct PolicyResources<Source::SphericalNoise<Provider, Basis>>
+    : PolicyResources<Provider> {};
+template <typename Provider, typename Mode, uint8_t Harmonic>
+struct PolicyResources<Warp::PolarChart<Provider, Mode, Harmonic>>
+    : PolicyResources<Provider> {};
+template <typename Provider, math::NoiseBasis Basis, typename Envelope>
+struct PolicyResources<Warp::VectorNoise<Provider, Basis, Envelope>>
+    : PolicyResources<Provider> {};
+template <typename Provider, math::NoiseBasis Basis, typename Integrator>
+struct PolicyResources<Surface::CurlNoise<Provider, Basis, Integrator>>
+    : PolicyResources<Provider> {};
+template <typename Provider, math::NoiseBasis Basis>
+struct PolicyResources<Surface::DirectNoise<Provider, Basis>>
+    : PolicyResources<Provider> {};
+
+template <typename Spec> constexpr bool field_gate_open(FieldGate gate) {
+  switch (gate) {
+  case FieldGate::ALWAYS:
+    return true;
+  case FieldGate::ANIMATED_PROJECTION:
+    return Spec::ANIMATED_PROJECTION;
+  case FieldGate::CENTRAL_MERIDIAN:
+    return uses_central_meridian(Spec::PROJECTION);
+  case FieldGate::SINGULARITY_FADE:
+    return uses_singularity_fade(Spec::PROJECTION);
+  }
+  return false;
+}
+
+template <typename Spec, typename Resource>
+consteval size_t resource_parameter_count() {
+  using Family = typename Resource::Family;
+  if constexpr (Resource::KIND == ResourceKind::LENS)
+    return 8;
+  else {
+    size_t count = Resource::KIND == ResourceKind::WARP ||
+                           Resource::KIND == ResourceKind::COLOR
+                       ? 1
+                       : 0;
+    for (const auto &field : Family::FIELDS) {
+      if constexpr (Resource::KIND == ResourceKind::COLOR) {
+        if (field.member == &ColorParams::hue_shift_amount &&
+            Spec::HUE == HueMode::NONE)
+          continue;
+        if ((field.member == &ColorParams::hue_noise_scale ||
+             field.member == &ColorParams::hue_noise_speed) &&
+            Spec::HUE != HueMode::NOISE)
+          continue;
+        if ((field.member == &ColorParams::brightness_bottom ||
+             field.member == &ColorParams::brightness_top) &&
+            Spec::BRIGHTNESS == Color::BrightnessEnvelope::NONE)
+          continue;
+        ++count;
+      } else if (field.name != nullptr && field_gate_open<Spec>(field.gate))
+        ++count;
+    }
+    return count;
+  }
+}
+template <typename Spec, typename... Resources>
+consteval size_t parameter_count(ResourceList<Resources...>) {
+  return (resource_parameter_count<Spec, Resources>() + ... + 0);
+}
+
+template <typename Family, typename... Resources>
+consteval size_t family_instances(ResourceList<Resources...>) {
+  return (size_t(std::is_same_v<Family, typename Resources::Family>) + ... + 0);
+}
+
+template <typename Spec, typename Resource, typename List>
+consteval size_t resource_name_bytes() {
+  constexpr bool QUALIFY =
+      Resource::ORDER >= 8 ||
+      family_instances<typename Resource::Family>(List{}) > 1;
+  if constexpr (!QUALIFY || Resource::KIND == ResourceKind::COLOR)
+    return 0;
+  else {
+    constexpr size_t PREFIX = Resource::KEY.view().size() + 2;
+    if constexpr (Resource::KIND == ResourceKind::LENS)
+      return 8 * (PREFIX + std::string_view("Mobius A Re").size());
+    else {
+      size_t bytes = 0;
+      for (const auto &field : Resource::Family::FIELDS)
+        if (field.name != nullptr && field_gate_open<Spec>(field.gate))
+          bytes += PREFIX + std::string_view(field.name).size();
+      if constexpr (Resource::KIND == ResourceKind::WARP) {
+        constexpr std::string_view SPEED_NAME =
+            Resource::KEY.view() == "outer_warp"   ? "Planar Warp 1 Speed"
+            : Resource::KEY.view() == "inner_warp" ? "Planar Warp 2 Speed"
+                                                   : "Planar Warp Speed";
+        bytes += PREFIX + SPEED_NAME.size();
+      }
+      return bytes;
+    }
+  }
+}
+template <typename Spec, typename... Resources>
+consteval size_t parameter_name_bytes(ResourceList<Resources...>) {
+  return (resource_name_bytes<Spec, Resources, ResourceList<Resources...>>() +
+          ... + 0);
+}
+
+} // namespace ComposedDetail
 
 /**
  * @brief A complete composed effect: the shared lifecycle plus a pipeline
- *        derived from the parameter families and a Spec.
- * @details The effect states its families, its Spec and its identity
- * constants; every stage typedef, the render pipeline, shade() and the shared
+ *        declared by a ranked stage Spec.
+ * @details The effect states its Spec and identity constants; parameter and
+ * runtime storage derive from its pipeline providers. The shared
  * lifecycle — parameter registration, preset choreography, palette cycling,
  * camera walks and noise clocks — are assembled here. Required `Derived`
  * members are EFFECT_ID, PRESET_IDS, PARAMETER_SCHEMA_VERSION and
@@ -835,24 +926,18 @@ struct FieldCoverageStageFor<FieldCoverageKind::VALUE_CUTOUT, B> {
  * @tparam W Canvas width in pixels.
  * @tparam H Canvas height in pixels.
  * @tparam Derived The effect class deriving from this base.
- * @tparam ParamsT The effect's `Pullback::Params` specialization.
  * @tparam SpecT The effect's `Spec`.
- * @tparam Harmony Palette harmony the generated palettes are drawn from.
- * @tparam HueV Hue-rotation source: none, noise field, or path length.
- * @tparam BrightnessV Brightness envelope applied by the color stage.
- * @tparam AnimatedProjection Whether the projection owns a random walk.
- * @tparam SurfacePlacementV Placement of the displacement stage relative to the
- *         lens stage.
  */
-template <int W, int H, typename Derived, typename ParamsT, typename SpecT,
-          PaletteHarmony Harmony, HueMode HueV,
-          Pullback::Color::BrightnessEnvelope BrightnessV,
-          bool AnimatedProjection = true,
-          SurfacePlacement SurfacePlacementV = SurfacePlacement::BEFORE_LENS>
-class ComposedEffect : public ChoreographedEffect<Derived, ParamsT>,
-                       private ProjectionWalkState<AnimatedProjection> {
+template <int W, int H, typename Derived, typename SpecT>
+class ComposedEffect : public ChoreographedEffect<Derived, ParamsFor<SpecT>>,
+                       private ProjectionWalkState<SpecT::ANIMATED_PROJECTION> {
+  using ParamsT = ParamsFor<SpecT>;
   using Choreography = ChoreographedEffect<Derived, ParamsT>;
   friend Choreography;
+  static constexpr PaletteHarmony Harmony = SpecT::HARMONY;
+  static constexpr HueMode HueV = SpecT::HUE;
+  static constexpr Color::BrightnessEnvelope BrightnessV = SpecT::BRIGHTNESS;
+  static constexpr bool AnimatedProjection = SpecT::ANIMATED_PROJECTION;
 #if HS_ENABLE_TEST_HOOKS
   friend struct hs_test::ComposedFrameWhiteBox;
 #endif
@@ -879,89 +964,19 @@ public:
   using FrameState = Pullback::FrameState<ParamsT>;
   using Binding = Pullback::Binding<FrameState>;
   static constexpr bool ANIMATED_PROJECTION = AnimatedProjection;
-  /** Whether the effect owns a surface-noise field and seed. */
-  static constexpr bool HAS_SURFACE_NOISE =
-      SurfacePolicyFor<typename ParamsT::surface_type, Binding,
-                       HueV == HueMode::PATH_LENGTH>::USES_NOISE;
-  static constexpr bool HAS_OUTER_NOISE =
-      WarpPolicyFor<typename ParamsT::outer_warp_type, Binding, true,
-                    HueV == HueMode::PATH_LENGTH>::USES_NOISE ||
-      WarpPolicyFor<typename ParamsT::inner_warp_type, Binding, false,
-                    HueV == HueMode::PATH_LENGTH>::USES_NOISE;
-  static constexpr bool HAS_SOURCE_NOISE =
-      SourcePolicyFor<typename ParamsT::source_type, Binding>::USES_NOISE;
-
-private:
-  static constexpr bool HAS_SURFACE =
-      !std::is_same_v<typename ParamsT::surface_type, NoSurfaceParams>;
-  static constexpr bool TRACK_PATH = HueV == HueMode::PATH_LENGTH;
-  static constexpr bool DIRECT_SURFACE =
-      std::is_same_v<typename ParamsT::surface_type, DirectSurfaceParams>;
-  static constexpr bool CURL_SURFACE =
-      std::is_same_v<typename ParamsT::surface_type, SurfaceNoiseParams>;
-  static constexpr bool SURFACE_AFTER_LENS =
-      SurfacePlacementV == SurfacePlacement::AFTER_LENS;
-  static_assert(!SURFACE_AFTER_LENS || CURL_SURFACE || DIRECT_SURFACE);
-  using SurfacePolicy =
-      typename SurfacePolicyFor<typename ParamsT::surface_type, Binding,
-                                TRACK_PATH>::Type;
-  using NoiseDisplaceStage = Pullback::Stage::Displace<SurfacePolicy>;
-  using PreDisplaceStage = std::conditional_t<
-      (CURL_SURFACE || DIRECT_SURFACE) && !SURFACE_AFTER_LENS,
-      NoiseDisplaceStage,
-      std::conditional_t<
-          std::is_same_v<typename ParamsT::surface_type, PeriodicRippleParams>,
-          Pullback::Stage::Displace<SurfacePolicy>, void>>;
-  using PostDisplaceStage =
-      std::conditional_t<SURFACE_AFTER_LENS, NoiseDisplaceStage, void>;
-  using LensPolicy =
-      typename LensPolicyFor<typename ParamsT::lens_type,
-                             typename SpecT::LensPolicy, Binding>::Type;
-  using LensStage = std::conditional_t<std::is_void_v<LensPolicy>, void,
-                                       Pullback::Stage::Lens<LensPolicy>>;
-  using ProjectStage = Pullback::Stage::Project<
-      typename ProjectionPolicyFor<SpecT::PROJECTION, Binding>::Type>;
-  static_assert(SpecT::COVERAGE != ProjectionCoverageMode::EDGE_FADE ||
-                    ProjectStage::EDGE_DISTANCE_AVAILABLE,
-                "edge-fade coverage requires projection edge distance");
-  using OuterWarpPolicy =
-      typename WarpPolicyFor<typename ParamsT::outer_warp_type, Binding, true,
-                             TRACK_PATH>::Type;
-  using InnerWarpPolicy =
-      typename WarpPolicyFor<typename ParamsT::inner_warp_type, Binding, false,
-                             TRACK_PATH>::Type;
-
-public:
-  /// Pullback stages, ordered from the view vector to the color.
-  using RotateStage = Pullback::Stage::Rotate<OuterCameraProvider<Binding>>;
-  /** Sphere run: displacement, lens and projection as one placement group,
-      out of line in flash when the effect owns a surface-noise field so the
-      hot scan keeps a single flash-call boundary. */
-  using SphereRun = Pullback::Stage::Placed<
-      HAS_SURFACE_NOISE ? Pullback::CodeEmission::OUT_OF_LINE_FLASH
-                        : Pullback::CodeEmission::INLINE_ONLY,
-      PreDisplaceStage, LensStage, PostDisplaceStage, ProjectStage>;
-  using OuterWarpStage =
-      std::conditional_t<std::is_void_v<OuterWarpPolicy>, void,
-                         Pullback::Stage::Warp<OuterWarpPolicy>>;
-  using InnerWarpStage =
-      std::conditional_t<std::is_void_v<InnerWarpPolicy>, void,
-                         Pullback::Stage::Warp<InnerWarpPolicy>>;
-  using SampleStage = Pullback::Stage::Sample<
-      typename SourcePolicyFor<typename ParamsT::source_type, Binding>::Type,
-      Pullback::Weight::Projection,
-      typename CoveragePolicyFor<SpecT::COVERAGE, Binding>::Type>;
-  using TransferStage =
-      typename TransferStageFor<SpecT::TRANSFER, Binding>::Type;
-  using FieldCoverageStage =
-      typename FieldCoverageStageFor<SpecT::FIELD_COVERAGE, Binding>::Type;
-  using ColorizeStage =
-      Pullback::Stage::Colorize<Pullback::Color::GeneratedPalette<
-          ColorProvider<Binding, HueV, BrightnessV>>>;
-  using RenderPipeline =
-      Pullback::Pipeline<Binding, RotateStage, SphereRun, OuterWarpStage,
-                         InnerWarpStage, SampleStage, TransferStage,
-                         FieldCoverageStage, ColorizeStage>;
+  template <ResourceKind Kind> static consteval bool has_noise() {
+    bool result = false;
+    Params{}.visit([&]<typename Resource>(const auto &) {
+      if constexpr (Resource::KIND == Kind &&
+                    ComposedDetail::RESOURCE_NOISE<Resource>)
+        result = true;
+    });
+    return result;
+  }
+  static constexpr bool HAS_SURFACE_NOISE = has_noise<ResourceKind::SURFACE>();
+  static constexpr bool HAS_OUTER_NOISE = has_noise<ResourceKind::WARP>();
+  static constexpr bool HAS_SOURCE_NOISE = has_noise<ResourceKind::SOURCE>();
+  using RenderPipeline = typename SpecT::template Pipeline<Binding>;
   using Frame = typename RenderPipeline::Frame;
 
   /** @brief Per-field noise seeds; an effect shadows one to decorrelate its
@@ -989,15 +1004,17 @@ public:
                           PARAM_CAPACITY);
     if constexpr (HueV == HueMode::NOISE)
       Pullback::init_effect_noise(state->color_noise, HUE_NOISE_SEED);
-    if constexpr (HAS_OUTER_NOISE)
-      Pullback::init_effect_noise(state->outer.noise,
-                                  Derived::OUTER_NOISE_SEED);
-    if constexpr (HAS_SOURCE_NOISE)
-      Pullback::init_effect_noise(state->source.noise,
-                                  Derived::SOURCE_NOISE_SEED);
-    if constexpr (HAS_SURFACE_NOISE)
-      Pullback::init_effect_noise(state->surface.noise,
-                                  Derived::SURFACE_NOISE_SEED);
+    params.visit([&]<typename Resource>(auto &) {
+      if constexpr (ComposedDetail::RESOURCE_NOISE<Resource>) {
+        constexpr int32_t SEED = Resource::KIND == ResourceKind::WARP
+                                     ? Derived::OUTER_NOISE_SEED
+                                 : Resource::KIND == ResourceKind::SOURCE
+                                     ? Derived::SOURCE_NOISE_SEED
+                                     : Derived::SURFACE_NOISE_SEED;
+        Pullback::init_effect_noise(
+            state->resources.template get<Resource::KEY>().noise, SEED);
+      }
+    });
     palette_cycler.init_generated(persistent_arena, next_palette, this, 0, 600,
                                   math::ease_in_out_sin);
     if constexpr (AnimatedProjection)
@@ -1074,7 +1091,8 @@ public:
 protected:
   /** Descriptors the arena-backed parameter array holds; every slider an effect
       registers has to fit. */
-  static constexpr size_t PARAM_CAPACITY = 48;
+  static constexpr size_t PARAM_CAPACITY =
+      ComposedDetail::parameter_count<SpecT>(typename Params::ResourceTypes{});
 
   using Choreography::anims_paused;
   using Choreography::params;
@@ -1082,20 +1100,24 @@ protected:
 #if HS_ENABLE_PARAM_GUI_BRIDGE
   bool parameter_write_admitted(const ParamDef &parameter,
                                 float value) override {
-    if constexpr (requires { params.lens.mobius; }) {
-      const uintptr_t begin = reinterpret_cast<uintptr_t>(&params.lens);
-      const uintptr_t target = reinterpret_cast<uintptr_t>(parameter.target);
-      if (target >= begin && target - begin < sizeof(params.lens)) {
-        auto candidate = params.lens;
-        ParamDef proposed = parameter;
-        proposed.target =
-            reinterpret_cast<unsigned char *>(&candidate) + (target - begin);
-        this->write_parameter_unchecked(proposed, value);
-        if (!Pullback::valid(candidate)) {
-          refused_name = parameter.name;
-          return false;
+    bool admitted = true;
+    params.visit([&]<typename Resource>(const auto &family) {
+      if constexpr (Resource::KIND == ResourceKind::LENS) {
+        const uintptr_t begin = reinterpret_cast<uintptr_t>(&family);
+        const uintptr_t target = reinterpret_cast<uintptr_t>(parameter.target);
+        if (target >= begin && target - begin < sizeof(family)) {
+          auto candidate = family;
+          ParamDef proposed = parameter;
+          proposed.target =
+              reinterpret_cast<unsigned char *>(&candidate) + (target - begin);
+          this->write_parameter_unchecked(proposed, value);
+          admitted = Pullback::valid(candidate);
         }
       }
+    });
+    if (!admitted) {
+      refused_name = parameter.name;
+      return false;
     }
     refused_name = nullptr;
     return true;
@@ -1110,12 +1132,33 @@ protected:
   using Choreography::transition;
   using Choreography::use_parameter_storage;
 
-  /** @brief Registers a slider for every named field in the family's table. */
-  template <typename T> HS_COLD_MEMBER void register_fields(T &family) {
+  template <typename Resource>
+  HS_COLD_MEMBER const char *resource_parameter_name(const char *name) {
+    constexpr bool QUALIFY =
+        Resource::ORDER >= 8 ||
+        ComposedDetail::family_instances<typename Resource::Family>(
+            typename Params::ResourceTypes{}) > 1;
+    if constexpr (!QUALIFY)
+      return name;
+    else {
+      constexpr auto KEY = Resource::KEY.view();
+      const size_t length = std::strlen(name);
+      char *qualified =
+          persistent_arena.allocate_n<char>(KEY.size() + length + 2);
+      std::memcpy(qualified, KEY.data(), KEY.size());
+      qualified[KEY.size()] = '.';
+      std::memcpy(qualified + KEY.size() + 1, name, length + 1);
+      return qualified;
+    }
+  }
+
+  /** @brief Registers the named descriptors of one independent instance. */
+  template <typename Resource, typename T>
+  HS_COLD_MEMBER void register_fields(T &family) {
     for (const auto &field : T::FIELDS)
-      if (field.name != nullptr && Derived::field_gate_open(field.gate))
-        this->register_param(field.name, &(family.*(field.member)),
-                             field.description().spec);
+      if (field.name != nullptr && field_gate_open(field.gate))
+        this->register_param(resource_parameter_name<Resource>(field.name),
+                             &(family.*field.member), field.description().spec);
   }
 
   /** @brief Adopts a snap target and re-derives the palette mapping weights. */
@@ -1145,14 +1188,14 @@ protected:
    * timeline animation driving them.
    */
   HS_COLD_MEMBER void blend_params(float progress) {
-    math::MobiusParams animated_mobius;
-    if constexpr (requires { Derived::ANIMATED_MOBIUS; })
-      if constexpr (Derived::ANIMATED_MOBIUS)
-        animated_mobius = params.lens.mobius;
+    const auto before = params;
     params = Pullback::interpolate(transition.from, transition.to, progress);
     if constexpr (requires { Derived::ANIMATED_MOBIUS; })
       if constexpr (Derived::ANIMATED_MOBIUS)
-        params.lens.mobius = animated_mobius;
+        params.visit([&]<typename Resource>(auto &family) {
+          if constexpr (Resource::KIND == ResourceKind::LENS)
+            family.mobius = before.template get<Resource::KEY>().mobius;
+        });
     palette_mapping = Pullback::Color::PaletteMappingWeights::lerp(
         mapping_from, mapping_to, progress);
   }
@@ -1165,21 +1208,23 @@ protected:
    * @param scale Radius of the circular warp.
    * @param duration Frames per revolution.
    */
+  template <ResourceKey Key = "lens">
   HS_COLD_MEMBER void start_mobius_animation(float scale, int duration) {
-    if constexpr (requires { params.lens.mobius; })
-      timeline.add_pausable(0,
-                            Animation::MobiusWarpCircular(
-                                params.lens.mobius, scale, duration, true),
-                            &anims_paused);
+    if constexpr (Params::template HAS<Key>)
+      timeline.add_pausable(
+          0,
+          Animation::MobiusWarpCircular(params.template get<Key>().mobius,
+                                        scale, duration, true),
+          &anims_paused);
   }
 
 private:
   struct State : ProjectionWalkNoise<AnimatedProjection>,
                  OptionalHueRotationLut<HueV != HueMode::NONE>,
                  OptionalHueNoiseLut<HueV == HueMode::NOISE> {
-    OptionalNoise<HAS_OUTER_NOISE> outer;
-    OptionalNoise<HAS_SOURCE_NOISE> source;
-    OptionalNoise<HAS_SURFACE_NOISE> surface;
+    ComposedDetail::ResourceStorage<ComposedDetail::ResourceNoise,
+                                    typename Params::ResourceTypes>
+        resources;
     FastNoiseLite outer_walk_noise;
   };
 
@@ -1187,7 +1232,10 @@ private:
   // array and one State from the persistent arena.
   static constexpr size_t FOOTPRINT_BYTES =
       PaletteCycler::generated_arena_bytes() +
-      PARAM_CAPACITY * sizeof(ParamDef) + sizeof(State) + alignof(State);
+      PARAM_CAPACITY * sizeof(ParamDef) + sizeof(State) + alignof(State) +
+      alignof(ParamDef) +
+      ComposedDetail::parameter_name_bytes<SpecT>(
+          typename Params::ResourceTypes{});
   static_assert(
       FOOTPRINT_BYTES <= DEVICE_PERSISTENT_BUDGET,
       "Pullback::ComposedEffect persistent footprint exceeds the default "
@@ -1195,33 +1243,39 @@ private:
 
   /** @brief Whether a gated field's slider exists for this effect. */
   static constexpr bool field_gate_open(Pullback::FieldGate gate) {
-    switch (gate) {
-    case Pullback::FieldGate::ALWAYS:
-      return true;
-    case Pullback::FieldGate::ANIMATED_PROJECTION:
-      return AnimatedProjection;
-    case Pullback::FieldGate::CENTRAL_MERIDIAN:
-      return uses_central_meridian(SpecT::PROJECTION);
-    case Pullback::FieldGate::SINGULARITY_FADE:
-      return uses_singularity_fade(SpecT::PROJECTION);
-    }
-    return true;
+    return ComposedDetail::field_gate_open<SpecT>(gate);
   }
 
-  /**
-   * @brief Registers one warp slot: the slot-named speed slider, then the
-   *        family's named fields.
-   */
-  template <typename T>
-  HS_COLD_MEMBER void register_warp_fields(T &warp, const char *slot_name) {
-    if constexpr (!std::is_same_v<T, NoWarpParams>) {
-      static_assert(T::FIELDS[0].member == &T::speed &&
-                        T::FIELDS[0].name == nullptr,
-                    "warp speed registers under the slot name");
-      register_animated_param(slot_name, &warp.speed, T::FIELDS[0].min,
-                              T::FIELDS[0].max);
-      register_fields(warp);
-    }
+  template <typename Resource, typename T>
+  HS_COLD_MEMBER void register_warp_fields(T &warp) {
+    static_assert(T::FIELDS[0].member == &T::speed &&
+                      T::FIELDS[0].name == nullptr,
+                  "warp speed must be the first unnamed descriptor");
+    constexpr const char *SPEED_NAME =
+        Resource::KEY.view() == "outer_warp"   ? "Planar Warp 1 Speed"
+        : Resource::KEY.view() == "inner_warp" ? "Planar Warp 2 Speed"
+                                               : "Planar Warp Speed";
+    this->register_param(resource_parameter_name<Resource>(SPEED_NAME),
+                         &warp.speed, T::FIELDS[0].description().spec);
+    register_fields<Resource>(warp);
+  }
+
+  template <typename Resource, typename T>
+  HS_COLD_MEMBER void register_lens_fields(T &lens) {
+    constexpr const char *NAMES[] = {
+        "Mobius A Re", "Mobius A Im", "Mobius B Re", "Mobius B Im",
+        "Mobius C Re", "Mobius C Im", "Mobius D Re", "Mobius D Im"};
+    constexpr math::Complex math::MobiusParams::*COEFFICIENTS[] = {
+        &math::MobiusParams::a, &math::MobiusParams::b, &math::MobiusParams::c,
+        &math::MobiusParams::d};
+    constexpr float math::Complex::*CHANNELS[] = {&math::Complex::re,
+                                                  &math::Complex::im};
+    constexpr float LIMIT = MobiusLensParams::COEFFICIENT_LIMIT;
+    for (size_t i = 0; i < std::size(COEFFICIENTS); ++i)
+      for (size_t j = 0; j < std::size(CHANNELS); ++j)
+        register_animated_param(
+            resource_parameter_name<Resource>(NAMES[i * 2 + j]),
+            &((lens.mobius.*COEFFICIENTS[i]).*CHANNELS[j]), -LIMIT, LIMIT);
   }
 
   template <float Color::ColorControls::*Member>
@@ -1244,91 +1298,26 @@ private:
                             field.max);
   }
 
-  template <typename T> static consteval size_t named_field_count() {
-    size_t count = 0;
-    for (const auto &field : T::FIELDS)
-      if (field.name != nullptr && Derived::field_gate_open(field.gate))
-        ++count;
-    return count;
-  }
-
-  static consteval size_t color_parameter_count() {
-    size_t count = 1;
-    for (const auto &field : ColorParams::FIELDS) {
-      if (field.member == &ColorParams::hue_shift_amount &&
-          HueV == HueMode::NONE)
-        continue;
-      if ((field.member == &ColorParams::hue_noise_scale ||
-           field.member == &ColorParams::hue_noise_speed) &&
-          HueV != HueMode::NOISE)
-        continue;
-      if ((field.member == &ColorParams::brightness_bottom ||
-           field.member == &ColorParams::brightness_top) &&
-          BrightnessV == Pullback::Color::BrightnessEnvelope::NONE)
-        continue;
-      ++count;
-    }
-    return count;
-  }
-
-  template <typename A, typename B>
-  static consteval bool warp_names_disjoint() {
-    if constexpr (requires {
-                    A::FIELDS;
-                    B::FIELDS;
-                  }) {
-      for (const auto &a : A::FIELDS)
-        for (const auto &b : B::FIELDS)
-          if (a.name && b.name && std::string_view(a.name) == b.name)
-            return false;
-    }
-    return true;
+  template <ResourceKind Kind> HS_COLD_MEMBER void register_resource_kind() {
+    params.visit([&]<typename Resource>(auto &family) {
+      if constexpr (Resource::KIND == Kind) {
+        if constexpr (Kind == ResourceKind::WARP)
+          register_warp_fields<Resource>(family);
+        else if constexpr (Kind == ResourceKind::LENS)
+          register_lens_fields<Resource>(family);
+        else
+          register_fields<Resource>(family);
+      }
+    });
   }
 
   HS_COLD_MEMBER void register_parameters() {
-    static_assert(warp_names_disjoint<decltype(params.outer_warp),
-                                      decltype(params.inner_warp)>(),
-                  "warp slots expose duplicate parameter names");
-    constexpr size_t count =
-        named_field_count<decltype(params.source)>() +
-        named_field_count<decltype(params.projection)>() +
-        named_field_count<decltype(params.surface)>() +
-        named_field_count<decltype(params.outer_warp)>() +
-        named_field_count<decltype(params.inner_warp)>() +
-        named_field_count<decltype(params.value)>() +
-        (!std::is_same_v<decltype(params.outer_warp), NoWarpParams>)+(
-            !std::is_same_v<decltype(params.inner_warp),
-                            NoWarpParams>)+(requires {
-          params.lens.mobius;
-        } ? 8 : 0) +
-        color_parameter_count();
-    static_assert(count <= PARAM_CAPACITY,
-                  "ComposedEffect parameter descriptors exceed PARAM_CAPACITY");
-    register_fields(params.source);
-    register_fields(params.projection);
-    register_fields(params.surface);
-    register_warp_fields(params.outer_warp, "Planar Warp 1 Speed");
-    register_warp_fields(params.inner_warp, "Planar Warp 2 Speed");
-    register_fields(params.value);
-    if constexpr (requires { params.lens.mobius; }) {
-      constexpr float LIMIT = MobiusLensParams::COEFFICIENT_LIMIT;
-      register_animated_param("Mobius A Re", &params.lens.mobius.a.re, -LIMIT,
-                              LIMIT);
-      register_animated_param("Mobius A Im", &params.lens.mobius.a.im, -LIMIT,
-                              LIMIT);
-      register_animated_param("Mobius B Re", &params.lens.mobius.b.re, -LIMIT,
-                              LIMIT);
-      register_animated_param("Mobius B Im", &params.lens.mobius.b.im, -LIMIT,
-                              LIMIT);
-      register_animated_param("Mobius C Re", &params.lens.mobius.c.re, -LIMIT,
-                              LIMIT);
-      register_animated_param("Mobius C Im", &params.lens.mobius.c.im, -LIMIT,
-                              LIMIT);
-      register_animated_param("Mobius D Re", &params.lens.mobius.d.re, -LIMIT,
-                              LIMIT);
-      register_animated_param("Mobius D Im", &params.lens.mobius.d.im, -LIMIT,
-                              LIMIT);
-    }
+    register_resource_kind<ResourceKind::SOURCE>();
+    register_resource_kind<ResourceKind::PROJECTION>();
+    register_resource_kind<ResourceKind::SURFACE>();
+    register_resource_kind<ResourceKind::WARP>();
+    register_resource_kind<ResourceKind::VALUE>();
+    register_resource_kind<ResourceKind::LENS>();
     register_color_field<&ColorParams::palette_chroma>("Palette Chroma");
     register_animated_param("Palette Mapping", &params.color.palette_mapping,
                             PALETTE_MAPPING_OPTIONS,
@@ -1358,20 +1347,33 @@ private:
   /**
    * @brief Steps every phase clock the effect's parameter families define.
    * @details Each clock is compiled in only when its field exists, so an effect
-   * pays for exactly the phases its stages read. The affine frame rotation is
-   * accumulated for the outer warp slot alone.
+   * pays for the clocks of its declared instances. Affine rotations are
+   * accumulated independently for each affine warp.
    */
   HS_COLD_MEMBER void advance_runtime() {
-    Source::advance_clocks(params.source, source_primary, source_secondary,
-                           source_angle);
-    if constexpr (requires { params.source.noise_time_rate; })
-      source_noise_time =
-          math::wrap_t(source_noise_time + params.source.noise_time_rate);
-    if constexpr (std::is_same_v<typename ParamsT::surface_type,
-                                 PeriodicRippleParams>)
-      surface_phase = fmodf(surface_phase + 1.0f, params.surface.period);
-    else if constexpr (HAS_SURFACE)
-      surface_phase = math::wrap_t(surface_phase + params.surface.speed);
+    params.visit([&]<typename Resource>(const auto &family) {
+      auto &clock = clocks.template get<Resource::KEY>();
+      if constexpr (Resource::KIND == ResourceKind::SOURCE) {
+        Source::advance_clocks(family, clock.primary, clock.secondary,
+                               clock.angle);
+        if constexpr (requires { family.noise_time_rate; })
+          clock.noise_time =
+              math::wrap_t(clock.noise_time + family.noise_time_rate);
+      } else if constexpr (Resource::KIND == ResourceKind::SURFACE) {
+        if constexpr (std::is_same_v<typename Resource::Family,
+                                     PeriodicRippleParams>)
+          clock.phase = fmodf(clock.phase + 1.0f, family.period);
+        else
+          clock.phase = math::wrap_t(clock.phase + family.speed);
+      } else if constexpr (Resource::KIND == ResourceKind::WARP) {
+        if constexpr (std::is_same_v<typename Resource::Family, AffineParams>)
+          clock.rotation = math::TWO_PI_F *
+                           math::wrap_t((clock.rotation +
+                                         family.speed * family.rotation_rate) /
+                                        math::TWO_PI_F);
+        clock.phase = math::wrap_t(clock.phase + family.speed);
+      }
+    });
     if constexpr (AnimatedProjection)
       this->projection_spin = fmodf(
           this->projection_spin + params.projection.spin_rate, math::TWO_PI_F);
@@ -1381,15 +1383,6 @@ private:
     if constexpr (HueV == HueMode::NOISE)
       hue_noise_phase =
           math::wrap_t(hue_noise_phase + params.color.hue_noise_speed);
-    if constexpr (std::is_same_v<typename Params::outer_warp_type,
-                                 AffineParams>)
-      outer_rotation =
-          math::TWO_PI_F *
-          math::wrap_t((outer_rotation + params.outer_warp.speed *
-                                             params.outer_warp.rotation_rate) /
-                       math::TWO_PI_F);
-    outer_phase = math::wrap_t(outer_phase + params.outer_warp.speed);
-    inner_phase = math::wrap_t(inner_phase + params.inner_warp.speed);
     palette_oscillation_phase = math::wrap_t(
         palette_oscillation_phase + params.color.phase_oscillation_speed);
   }
@@ -1473,37 +1466,25 @@ private:
             palette_cycler.palette());
         state->hue_rotation_lut_bake = palette_cycler.bake_generation();
       }
-    const FastNoiseLite *outer_noise = nullptr;
-    const FastNoiseLite *source_noise = nullptr;
-    if constexpr (HAS_OUTER_NOISE)
-      outer_noise = &state->outer.noise;
-    if constexpr (HAS_SOURCE_NOISE)
-      source_noise = &state->source.noise;
-    const FastNoiseLite *surface_noise = nullptr;
-    if constexpr (HAS_SURFACE_NOISE)
-      surface_noise = &state->surface.noise;
     FrameState frame{.projection_conjugate = this->frame_conjugate(),
                      .outer_conjugate = outer_conjugate,
-                     .outer_noise = outer_noise,
-                     .source_noise = source_noise,
-                     .surface_noise = surface_noise,
                      .palette = &palette_cycler.palette(),
                      .hue_rotation_lut = hue_rotation_lut_data(),
                      .hue_noise_lut = hue_noise_lut_data(),
                      .params = params,
                      .palette_mapping = palette_mapping,
-                     .source_primary = source_primary,
-                     .source_secondary = source_secondary,
-                     .source_angle = source_angle,
-                     .outer_phase = outer_phase,
-                     .inner_phase = inner_phase,
-                     .outer_rotation = outer_rotation,
-                     .source_noise_time = source_noise_time,
-                     .surface_phase = surface_phase,
+                     .resources = {},
                      .palette_oscillation_phase = palette_oscillation_phase};
-    if constexpr (requires { frame.params.lens.mobius; })
-      if (!Pullback::valid(frame.params.lens))
-        frame.params.lens.mobius = {};
+    params.visit([&]<typename Resource>(const auto &) {
+      auto &resource = frame.resources.template get<Resource::KEY>();
+      static_cast<ComposedDetail::ResourceClock<Resource> &>(resource) =
+          clocks.template get<Resource::KEY>();
+      if constexpr (ComposedDetail::RESOURCE_NOISE<Resource>)
+        resource.noise = &state->resources.template get<Resource::KEY>().noise;
+      if constexpr (Resource::KIND == ResourceKind::LENS)
+        if (!Pullback::valid(frame.params.template get<Resource::KEY>()))
+          frame.params.template get<Resource::KEY>().mobius = {};
+    });
     return frame;
   }
 
@@ -1551,16 +1532,11 @@ private:
   math::Quaternion outer_walk_previous;
   math::Quaternion outer_wander;
   math::Quaternion outer_conjugate;
-  float source_primary = 0.0f;
-  float source_secondary = 0.0f;
-  float source_angle = 0.0f;
-  float source_noise_time = 0.0f;
-  float surface_phase = 0.0f;
+  ComposedDetail::ResourceStorage<ComposedDetail::ResourceClock,
+                                  typename Params::ResourceTypes>
+      clocks;
   float camera_spin = 0.0f;
   float hue_noise_phase = 0.0f;
-  float outer_phase = 0.0f;
-  float inner_phase = 0.0f;
-  float outer_rotation = 0.0f;
   float palette_oscillation_phase = 0.0f;
   float palette_chroma = -1.0f;
   uint32_t palette_hue = 0;

@@ -10,14 +10,44 @@
 
 #include "core/render/pullback/composed_effect.h"
 
-using AlienCoreParams =
-    Pullback::Params<Pullback::GridSourceParams, Pullback::MirrorParams,
-                     Pullback::NoWarpParams, Pullback::NoLensParams,
-                     Pullback::EdgeValueParams>;
-using AlienCoreSpec =
-    Pullback::Spec<Pullback::ProjectionKind::GNOMONIC_FOLDED,
-                   Pullback::Lens::Glitch, Pullback::TransferKind::NONE,
-                   Pullback::ProjectionCoverageMode::EDGE_FADE>;
+struct AlienCoreSpec : Pullback::Spec {
+  static constexpr Pullback::ProjectionKind PROJECTION =
+      Pullback::ProjectionKind::GNOMONIC_FOLDED;
+  static constexpr Pullback::TransferKind TRANSFER =
+      Pullback::TransferKind::NONE;
+  static constexpr Pullback::ProjectionCoverageMode COVERAGE =
+      Pullback::ProjectionCoverageMode::EDGE_FADE;
+  static constexpr Pullback::FieldCoverageKind FIELD_COVERAGE =
+      Pullback::FieldCoverageKind::NONE;
+  static constexpr PaletteHarmony HARMONY = PaletteHarmony::TRIADIC;
+  static constexpr Pullback::HueMode HUE = Pullback::HueMode::NOISE;
+  static constexpr Pullback::Color::BrightnessEnvelope BRIGHTNESS =
+      Pullback::Color::BrightnessEnvelope::NONE;
+  static constexpr bool ANIMATED_PROJECTION = false;
+  static constexpr Pullback::SurfacePlacement SURFACE_PLACEMENT =
+      Pullback::SurfacePlacement::BEFORE_LENS;
+  using LensPolicy = Pullback::Lens::Glitch;
+  template <typename B>
+  using Pipeline = Pullback::Pipeline<
+      B, Pullback::Stage::Rotate<Pullback::OuterCameraProvider<B>>,
+      Pullback::Stage::Placed<
+          Pullback::CodeEmission::INLINE_ONLY,
+          Pullback::Stage::Lens<Pullback::Lens::Glitch>,
+          Pullback::Stage::Project<
+              typename Pullback::ProjectionPolicyFor<PROJECTION, B>::Type>>,
+      Pullback::Stage::Warp<typename Pullback::WarpPolicyFor<
+          Pullback::MirrorParams, B, "outer_warp",
+          HUE == Pullback::HueMode::PATH_LENGTH>::Type>,
+      Pullback::Stage::Sample<
+          typename Pullback::SourcePolicyFor<Pullback::GridSourceParams,
+                                             B>::Type,
+          Pullback::Weight::Projection,
+          typename Pullback::CoveragePolicyFor<
+              COVERAGE, B, Pullback::EdgeValueParams>::Type>,
+      Pullback::Stage::Colorize<Pullback::Color::GeneratedPalette<
+          Pullback::ColorProvider<B, HUE, BRIGHTNESS>>>>;
+};
+using AlienCoreParams = Pullback::ParamsFor<AlienCoreSpec>;
 
 /**
  * @brief A mirrored grid folded by the glitch lens.
@@ -26,11 +56,7 @@ using AlienCoreSpec =
  */
 template <int W, int H>
 class AlienCore
-    : public Pullback::ComposedEffect<W, H, AlienCore<W, H>, AlienCoreParams,
-                                      AlienCoreSpec, PaletteHarmony::TRIADIC,
-                                      Pullback::HueMode::NOISE,
-                                      Pullback::Color::BrightnessEnvelope::NONE,
-                                      /*AnimatedProjection=*/false> {
+    : public Pullback::ComposedEffect<W, H, AlienCore<W, H>, AlienCoreSpec> {
 
 public:
   using Params = AlienCoreParams;
@@ -45,7 +71,7 @@ public:
   static constexpr uint16_t PRESET_DWELL_FRAMES = 600;
   // clang-format on
   // End generated identity.
-  static constexpr uint32_t PARAMETER_SCHEMA_VERSION = 1;
+  static constexpr uint32_t PARAMETER_SCHEMA_VERSION = 2;
   // Generated params: scripts/generate_composed_presets.mjs
   // clang-format off
   static constexpr Params initial_params() {

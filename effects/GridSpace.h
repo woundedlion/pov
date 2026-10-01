@@ -10,13 +10,44 @@
 
 #include "core/render/pullback/composed_effect.h"
 
-using GridSpaceParams =
-    Pullback::Params<Pullback::LatticeSourceParams, Pullback::AffineParams,
-                     Pullback::NoWarpParams, Pullback::NoLensParams,
-                     Pullback::IsoValueParams>;
-using GridSpaceSpec = Pullback::Spec<Pullback::ProjectionKind::GNOMONIC_FOLDED,
-                                     void, Pullback::TransferKind::ISO_CONTOUR,
-                                     Pullback::ProjectionCoverageMode::WEIGHT>;
+struct GridSpaceSpec : Pullback::Spec {
+  static constexpr Pullback::ProjectionKind PROJECTION =
+      Pullback::ProjectionKind::GNOMONIC_FOLDED;
+  static constexpr Pullback::TransferKind TRANSFER =
+      Pullback::TransferKind::ISO_CONTOUR;
+  static constexpr Pullback::ProjectionCoverageMode COVERAGE =
+      Pullback::ProjectionCoverageMode::WEIGHT;
+  static constexpr Pullback::FieldCoverageKind FIELD_COVERAGE =
+      Pullback::FieldCoverageKind::NONE;
+  static constexpr PaletteHarmony HARMONY = PaletteHarmony::TRIADIC;
+  static constexpr Pullback::HueMode HUE = Pullback::HueMode::NOISE;
+  static constexpr Pullback::Color::BrightnessEnvelope BRIGHTNESS =
+      Pullback::Color::BrightnessEnvelope::NONE;
+  static constexpr bool ANIMATED_PROJECTION = true;
+  static constexpr Pullback::SurfacePlacement SURFACE_PLACEMENT =
+      Pullback::SurfacePlacement::BEFORE_LENS;
+  using LensPolicy = void;
+  template <typename B>
+  using Pipeline = Pullback::Pipeline<
+      B, Pullback::Stage::Rotate<Pullback::OuterCameraProvider<B>>,
+      Pullback::Stage::Placed<
+          Pullback::CodeEmission::INLINE_ONLY,
+          Pullback::Stage::Project<
+              typename Pullback::ProjectionPolicyFor<PROJECTION, B>::Type>>,
+      Pullback::Stage::Warp<typename Pullback::WarpPolicyFor<
+          Pullback::AffineParams, B, "outer_warp",
+          HUE == Pullback::HueMode::PATH_LENGTH>::Type>,
+      Pullback::Stage::Sample<typename Pullback::SourcePolicyFor<
+                                  Pullback::LatticeSourceParams, B>::Type,
+                              Pullback::Weight::Projection,
+                              typename Pullback::CoveragePolicyFor<
+                                  COVERAGE, B, Pullback::IsoValueParams>::Type>,
+      Pullback::Stage::Transfer<Pullback::Transfer::IsoContour<
+          Pullback::ValueProvider<B, Pullback::IsoValueParams>>>,
+      Pullback::Stage::Colorize<Pullback::Color::GeneratedPalette<
+          Pullback::ColorProvider<B, HUE, BRIGHTNESS>>>>;
+};
+using GridSpaceParams = Pullback::ParamsFor<GridSpaceSpec>;
 
 /**
  * @brief An affine primitive lattice rendered as soft contours.
@@ -24,10 +55,8 @@ using GridSpaceSpec = Pullback::Spec<Pullback::ProjectionKind::GNOMONIC_FOLDED,
  * @tparam H Canvas height in pixels.
  */
 template <int W, int H>
-class GridSpace : public Pullback::ComposedEffect<
-                      W, H, GridSpace<W, H>, GridSpaceParams, GridSpaceSpec,
-                      PaletteHarmony::TRIADIC, Pullback::HueMode::NOISE,
-                      Pullback::Color::BrightnessEnvelope::NONE> {
+class GridSpace
+    : public Pullback::ComposedEffect<W, H, GridSpace<W, H>, GridSpaceSpec> {
 
 public:
   using Params = GridSpaceParams;
@@ -42,7 +71,7 @@ public:
   static constexpr uint16_t PRESET_DWELL_FRAMES = 600;
   // clang-format on
   // End generated identity.
-  static constexpr uint32_t PARAMETER_SCHEMA_VERSION = 1;
+  static constexpr uint32_t PARAMETER_SCHEMA_VERSION = 2;
 
   // Generated params: scripts/generate_composed_presets.mjs
   // clang-format off

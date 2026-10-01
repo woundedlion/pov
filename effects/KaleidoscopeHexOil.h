@@ -10,15 +10,43 @@
 
 #include "core/render/pullback/composed_effect.h"
 
-using KaleidoscopeHexOilParams =
-    Pullback::Params<Pullback::SpiralSourceParams, Pullback::NoWarpParams,
-                     Pullback::NoWarpParams, Pullback::NoLensParams,
-                     Pullback::NoValueParams, Pullback::DirectSurfaceParams>;
-using KaleidoscopeHexOilSpec =
-    Pullback::Spec<Pullback::ProjectionKind::STEREOGRAPHIC,
-                   Pullback::Lens::HexagonalPrismKaleidoscope,
-                   Pullback::TransferKind::NONE,
-                   Pullback::ProjectionCoverageMode::WEIGHT_SQUARED>;
+struct KaleidoscopeHexOilSpec : Pullback::Spec {
+  static constexpr Pullback::ProjectionKind PROJECTION =
+      Pullback::ProjectionKind::STEREOGRAPHIC;
+  static constexpr Pullback::TransferKind TRANSFER =
+      Pullback::TransferKind::NONE;
+  static constexpr Pullback::ProjectionCoverageMode COVERAGE =
+      Pullback::ProjectionCoverageMode::WEIGHT_SQUARED;
+  static constexpr Pullback::FieldCoverageKind FIELD_COVERAGE =
+      Pullback::FieldCoverageKind::NONE;
+  static constexpr PaletteHarmony HARMONY = PaletteHarmony::TRIADIC;
+  static constexpr Pullback::HueMode HUE = Pullback::HueMode::PATH_LENGTH;
+  static constexpr Pullback::Color::BrightnessEnvelope BRIGHTNESS =
+      Pullback::Color::BrightnessEnvelope::NONE;
+  static constexpr bool ANIMATED_PROJECTION = true;
+  static constexpr Pullback::SurfacePlacement SURFACE_PLACEMENT =
+      Pullback::SurfacePlacement::AFTER_LENS;
+  using LensPolicy = Pullback::Lens::HexagonalPrismKaleidoscope;
+  template <typename B>
+  using Pipeline = Pullback::Pipeline<
+      B, Pullback::Stage::Rotate<Pullback::OuterCameraProvider<B>>,
+      Pullback::Stage::Placed<
+          Pullback::CodeEmission::OUT_OF_LINE_FLASH,
+          Pullback::Stage::Lens<Pullback::Lens::HexagonalPrismKaleidoscope>,
+          Pullback::Stage::Displace<typename Pullback::SurfacePolicyFor<
+              Pullback::DirectSurfaceParams, B,
+              HUE == Pullback::HueMode::PATH_LENGTH>::Type>,
+          Pullback::Stage::Project<
+              typename Pullback::ProjectionPolicyFor<PROJECTION, B>::Type>>,
+      Pullback::Stage::Sample<
+          typename Pullback::SourcePolicyFor<Pullback::SpiralSourceParams,
+                                             B>::Type,
+          Pullback::Weight::Projection,
+          typename Pullback::CoveragePolicyFor<COVERAGE, B, void>::Type>,
+      Pullback::Stage::Colorize<Pullback::Color::GeneratedPalette<
+          Pullback::ColorProvider<B, HUE, BRIGHTNESS>>>>;
+};
+using KaleidoscopeHexOilParams = Pullback::ParamsFor<KaleidoscopeHexOilSpec>;
 
 /**
  * @brief A rotating spiral folded through a hexagonal prism kaleidoscope.
@@ -27,12 +55,8 @@ using KaleidoscopeHexOilSpec =
  */
 template <int W, int H>
 class KaleidoscopeHexOil
-    : public Pullback::ComposedEffect<
-          W, H, KaleidoscopeHexOil<W, H>, KaleidoscopeHexOilParams,
-          KaleidoscopeHexOilSpec, PaletteHarmony::TRIADIC,
-          Pullback::HueMode::PATH_LENGTH,
-          Pullback::Color::BrightnessEnvelope::NONE,
-          /*AnimatedProjection=*/true, Pullback::SurfacePlacement::AFTER_LENS> {
+    : public Pullback::ComposedEffect<W, H, KaleidoscopeHexOil<W, H>,
+                                      KaleidoscopeHexOilSpec> {
 
 public:
   using Params = KaleidoscopeHexOilParams;
@@ -48,7 +72,7 @@ public:
   static constexpr uint16_t PRESET_DWELL_FRAMES = 600;
   // clang-format on
   // End generated identity.
-  static constexpr uint32_t PARAMETER_SCHEMA_VERSION = 1;
+  static constexpr uint32_t PARAMETER_SCHEMA_VERSION = 2;
 
   // Generated params: scripts/generate_composed_presets.mjs
   // clang-format off
