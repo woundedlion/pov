@@ -194,6 +194,10 @@ def analyze(path):
         root = sexp.parse(fh.read())[0]
     title = blocks(root, "title_block")
     revision = field(title[0], "rev") if title else "1.1"
+    if revision == "1.3":
+        raise ValueError("rev 1.3 prototype has no validated differential-bus scoring model")
+    if revision not in ("1.1", "1.2"):
+        raise ValueError(f"unsupported board revision: {revision}")
     required = CRIT if revision == "1.2" else [n for n in CRIT if n != "SYNC_TX"]
     segs = blocks(root, "segment")
     arcs = blocks(root, "arc")

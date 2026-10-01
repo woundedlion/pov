@@ -1,6 +1,8 @@
 # PHANTASM board projects
 
 Use **[1.2/](1.2/)** for the current Quilter placement run.
+The experimental **[1.3/](1.3/README.md)** project uses differential sync.
+Rev 1.2 remains the generator default; select rev 1.3 explicitly.
 Upload these three files together from that directory:
 
 - [phantasm.kicad_pcb](1.2/phantasm.kicad_pcb): unplaced rev 1.2 board.
@@ -34,17 +36,21 @@ Existing routed candidates do not acquire these constraints retroactively.
 | Directory | Contents |
 |---|---|
 | `1.2/` | Current complete rev 1.2 project for Quilter |
+| [1.3/](1.3/README.md) | Experimental differential-sync project; requires placement, routing, and firmware support |
 | [1.1/](1.1/README.md) | Routed rev 1.1 project, libraries, and detailed technical reference |
 | `gen/` | Generators and validation tools |
 
 Regenerate the current project from the repository root, schematic first:
 
 ```sh
-python hardware/phantasm/gen/board.py --force
-python hardware/phantasm/gen/pcb.py --unplaced --force --force-teensy-library
+python hardware/phantasm/gen/board.py --revision 1.2 --force
+python hardware/phantasm/gen/pcb.py --revision 1.2 --unplaced --force --force-teensy-library
 ```
 
 These commands replace the generated rev 1.2 files in `1.2/`.
+Omitting `--revision` also selects rev 1.2. To generate the experimental
+project independently, use `--revision 1.3` on both commands; outputs go
+to `1.3/`. Always select the same revision for schematic and PCB generation.
 Running the PCB generator without `--unplaced` writes a separate
 `phantasm-draft.kicad_pcb` and matching project for placement experiments.
 Before uploading a project that was opened in KiCad, restore its rule floors:
@@ -60,13 +66,13 @@ fabrication floors: 0.2 mm trace width and copper clearance, 0.6 mm via diameter
 body clearance. Quilter's global component-spacing setting is separate; review
 its 0.5 mm value in the job setup rather than assuming it imports from KiCad.
 
-The schematic wires C_DEC1 directly to U_MCU VIN and C_DEC2 directly to U1 pin 14
+The rev 1.2 schematic wires C_DEC1 directly to U_MCU VIN and C_DEC2 directly to U1 pin 14
 to make their bypass assignments explicit. Both are 100 nF and preplaced on the
 PCB. [Quilter prioritizes direct schematic wires when assigning bypass capacitors](https://docs.quilter.ai/placement-constraints/bypass-capacitors).
 Start a fresh job to redetect the constraints; replacing files can retain an
 existing incorrect assignment. Verify these two rows before submitting.
 
-The intended bypass table contains only those two decouplers. Remove C_IN
+The rev 1.2 bypass table contains only those two decouplers. Remove C_IN
 (bulk storage), C_LF (filter damping), and C_SYNC (signal filtering) from that
 table. In Power Nets, keep 500 mA sizing for all five detected supply nets and
 turn off **Attempt Power Pour** for each. These are Quilter job settings;

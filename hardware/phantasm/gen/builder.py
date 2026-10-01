@@ -72,9 +72,10 @@ class Symbol:
 
 
 class Builder:
-    def __init__(self, title, paper="A3"):
+    def __init__(self, title, paper="A3", revision=REVISION):
         self.title = title
         self.paper = paper
+        self.revision = revision
         self.uuid = uid()
         self.symbols = []
         self.wires = []
@@ -187,7 +188,7 @@ class Builder:
         out.append(f'\t(paper {sexp.quote(self.paper)})')
         out.append('\t(title_block')
         out.append(f'\t\t(title {sexp.quote(self.title)})')
-        out.append(f'\t\t(rev {sexp.quote(REVISION)})')
+        out.append(f'\t\t(rev {sexp.quote(self.revision)})')
         out.append('\t)')
         # lib_symbols
         out.append('\t(lib_symbols')

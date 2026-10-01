@@ -96,9 +96,15 @@ class ExpectTableTests(unittest.TestCase):
                     self.assertIn(".", key, f"{name}: {key} has no pin")
 
     def test_every_symmetric_ref_spans_two_nets(self):
-        for ref in check.SYMMETRIC:
-            hits = [n for n, keys in check.EXPECT.items() if ref in keys]
-            self.assertEqual(len(hits), 2, f"{ref} on nets {sorted(hits)}")
+        for revision in ("1.1", "1.2", "1.3"):
+            expected = check.expected_nets(revision)
+            used = set().union(*expected.values()) & check.SYMMETRIC
+            for ref in used:
+                hits = [n for n, keys in expected.items() if ref in keys]
+                self.assertEqual(len(hits), 2, f"{revision} {ref} on nets {sorted(hits)}")
+        self.assertEqual(set().union(*(set().union(*check.expected_nets(rev).values())
+                                      for rev in ("1.1", "1.2", "1.3"))) & check.SYMMETRIC,
+                         check.SYMMETRIC)
 
 
 class MalformedNetlistTests(unittest.TestCase):
@@ -135,7 +141,7 @@ class GateTests(unittest.TestCase):
 
     def test_unknown_revision_is_rejected(self):
         with self.assertRaisesRegex(ValueError, "unsupported board revision"):
-            check.check({}, "1.3")
+            check.check({}, "1.4")
 
     def test_netlist_without_revision_is_rejected(self):
         with self.assertRaisesRegex(ValueError, "no root-sheet board revision"):
