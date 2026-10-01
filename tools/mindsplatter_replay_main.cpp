@@ -28,7 +28,8 @@ using WhiteBox = hs_test::effects_tests::MindSplatterWhiteBox;
  * corpus frame, 6,767 changed pixels (16.3%), 11,907 changed channels (9.6%),
  * peak channel error 2,298, total absolute error 120,849 (0.97 counts per
  * channel). The sparse trail's longer edges amplify the optimized transform's
- * numerical drift; the bounds retain roughly 1.5-2x headroom.
+ * numerical drift; changed channels retain 1.15x headroom, and the other
+ * reference bounds retain roughly 1.5-2x headroom.
  * @details The corpus terms bound the candidate against the exact Clang 22
  * golden, so they admit supported host-toolchain codegen drift. Windows Clang
  * 23 Debug, optimized and sanitized builds measure at most 7,488 on one
