@@ -10,14 +10,10 @@ import sys
 
 import fab
 import sexp
+from constraints import ZONE_DEFAULTS
 from kicad_common import F, atomic_write_text, is_copper_pour
 
 
-ZONE_DEFAULTS = {
-    "min_thickness": 0.25,
-    "thermal_gap": 0.5,
-    "thermal_bridge_width": 0.5,
-}
 FILL_CACHE = {"filled_polygon", "fill_segments"}
 
 
