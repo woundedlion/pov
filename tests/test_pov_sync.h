@@ -947,6 +947,11 @@ inline void test_beacon_shift_needs_confirmation() {
   feed_frame(1);
   HS_EXPECT_EQ(content(board).effect_index, 1);
 
+  feed_frame(shifted_index);
+  HS_EXPECT_EQ(content(board).effect_index, 1);
+  HS_EXPECT_EQ(board.telemetry_snapshot().beacon_index_corrections, 0u);
+  HS_EXPECT_EQ(board.build_word(), 0u);
+
   // Two frames naming *different* indices confirm nothing either.
   feed_frame(3);
   HS_EXPECT_EQ(content(board).effect_index, 1);
@@ -961,7 +966,7 @@ inline void test_beacon_shift_needs_confirmation() {
   HS_EXPECT_EQ(SyncBoard::build_index_of(board.build_word()), 2);
   HS_EXPECT_EQ(SyncBoard::build_gen_of(board.build_word()), 1u);
   // The whole scenario rode the beacon path: nothing reached the snap gate.
-  HS_EXPECT_EQ(board.telemetry_snapshot().beacons_ok, 5u);
+  HS_EXPECT_EQ(board.telemetry_snapshot().beacons_ok, 6u);
   HS_EXPECT_EQ(board.telemetry_snapshot().symbols_accepted, 0u);
   HS_EXPECT_EQ(board.telemetry_snapshot().beacon_rev_mismatches, 0u);
   HS_EXPECT_EQ(lock(board), LockState::LOCKED);
