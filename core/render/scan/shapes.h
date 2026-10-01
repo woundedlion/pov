@@ -596,7 +596,7 @@ struct RingGroup {
    * @param pipeline Plotting pipeline receiving the final colors.
    * @param canvas Destination canvas.
    * @param shapes Ring shapes in draw order.
-   * @param n Number of shapes, in [1, 127].
+   * @param n Number of shapes, in [1, MAX_RINGS] (8).
    * @param shader Per-ring fragment shader (see RingShaderT).
    * @param debug_bb When true, falls back to per-ring rasterizes so the
    *        bounding-box tint keeps per-shape scan bounds; canvas.debug() takes
