@@ -421,7 +421,8 @@ inline void push_interval(StaticCircularBuffer<Interval, N> &buf, float start,
  * @brief Insertion-sort an interval buffer in place by start coordinate.
  * @param buf Per-row interval buffer to sort in place.
  * @details Raw-pointer indexing (buffer freshly built, head == 0, contiguous)
- * avoids the per-access modulo. Used by merge_intervals.
+ * avoids the per-access modulo. Shared by merge_intervals, Intersection and
+ * coalesce_spans.
  */
 template <size_t N>
 inline void sort_intervals_by_start(StaticCircularBuffer<Interval, N> &buf) {
@@ -449,7 +450,7 @@ inline void sort_intervals_by_start(StaticCircularBuffer<Interval, N> &buf) {
  * @param src Source intervals in unwrapped column space (may straddle θ=0).
  * @param dst Destination buffer; must hold up to 2x the source span count (one
  *        span splits into at most two at the seam).
- * @details Mirrors scan_region's normalization so seam math is bit-identical. A
+ * @details Seam normalization shared by scan_region and Intersection. A
  * span of length >= W is emitted as a single full-row [0, W) span. For the
  * common in-[0,W) case this copies through unchanged.
  */
