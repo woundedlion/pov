@@ -388,7 +388,7 @@ check_fail(const char *site, const char *fmt, ...) {
   hs::log_fragment("HS_CHECK failed: ");
   Serial.print(site);
   Serial.print(" ");
-  hs::log("%s", msg);
+  Serial.println(msg);
 #elif HS_ENABLE_TEST_HOOKS
   fprintf(stderr, "HS_CHECK failed: %s %s\n", site, msg);
   fflush(stderr);
