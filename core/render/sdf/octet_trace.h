@@ -458,6 +458,16 @@ trace_4d(const math::Vector &direction, const Raycast::PreparedCamera &camera,
     const float FIRST = NEAR + (PLANE - position) * INVERSE;
     if (!Raycast::finite(FIRST) || !Raycast::finite(STEP) || !(STEP > 0.0f))
       return true;
+    // The first plane lies at or past NEAR. Counting the crossings up front
+    // keeps float compares out of the walk; one within rounding of FAR
+    // carries no fog-weighted opacity either way.
+    const int COUNT =
+        FIRST <= FAR ? static_cast<int>((FAR - FIRST) * fabsf(speed)) + 1 : 0;
+    crossings += COUNT;
+    if (crossings > BUDGET)
+      return false;
+    if (COUNT == 0)
+      return true;
     // Squared |n . v| over the unit ray, with a margin for rounding.
     const float PLANE_SHARE = 0.9999f * (speed * SCALE) * (speed * SCALE);
     // The plane bound runs in 16-bit fixed point: the low 16 bits of Q * 2^16
@@ -474,17 +484,10 @@ trace_4d(const math::Vector &direction, const Raycast::PreparedCamera &camera,
     for (int m = 0; m < 4; ++m) {
       starts[m] = static_cast<uint32_t>(static_cast<int32_t>(
           roundf((origins[m] + rates[m] * FIRST) * FIXED_ONE)));
-      advances[m] = static_cast<uint32_t>(
-          static_cast<int32_t>(roundf(rates[m] * STEP * FIXED_ONE)));
+      advances[m] = COUNT > 1 ? static_cast<uint32_t>(static_cast<int32_t>(
+                                    roundf(rates[m] * STEP * FIXED_ONE)))
+                              : 0u;
     }
-    // The first plane lies at or past NEAR. Counting the crossings up front
-    // keeps float compares out of the walk; one within rounding of FAR
-    // carries no fog-weighted opacity either way.
-    const int COUNT =
-        FIRST <= FAR ? static_cast<int>((FAR - FIRST) * fabsf(speed)) + 1 : 0;
-    crossings += COUNT;
-    if (crossings > BUDGET)
-      return false;
     float t = FIRST - STEP;
     for (uint32_t index = 0; index < static_cast<uint32_t>(COUNT); ++index) {
       t += STEP;
