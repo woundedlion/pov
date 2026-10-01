@@ -448,8 +448,6 @@ private:
   static_assert(MAX_POINTS + 3 <= Timeline::MAX_EVENTS,
                 "Raymarch animations exceed the timeline capacity");
 
-  /** Twist-count labels; the option index IS the twist count draw_fn reads. */
-
   // Torus proportions at scale 1: VIS_K is the visible outer ring radius,
   // UNIT_BOUNDS includes twist lobes that can overlap tumbling neighbours.
   static constexpr float MAJOR_K = 0.45f, MINOR_K = 0.14f, TWIST_K = 0.35f;
