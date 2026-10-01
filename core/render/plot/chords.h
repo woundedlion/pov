@@ -236,7 +236,9 @@ template <int W, int H> class PlanarChords {
 public:
   /** @brief Most chart-straight anchor intervals one edge takes. */
   static constexpr int MAX_ANCHOR_INTERVALS = 6;
-  /** @brief Longest chart arc between consecutive anchors, in radians. */
+  /** @brief Target chart arc between anchors, in radians.
+   * @details Edges longer than MAX_ANCHOR_INTERVALS * MAX_ANCHOR_ARC use
+   * edge_arc / MAX_ANCHOR_INTERVALS spacing. */
   static constexpr float MAX_ANCHOR_ARC = math::PI_F / 36.0f;
   /** @brief Rows from a pole, past the anchor gap, that send an edge to the
    *  pole split. */
