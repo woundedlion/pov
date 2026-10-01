@@ -70,8 +70,9 @@ The corrected placement and routing remain in `phantasm.kicad_pcb`. Start a new
 routing job with the current [rev 1.2 project](../README.md). A fresh
 `../gen/pcb.py` run creates a placement draft: it reserves space for reference
 labels, keeps the back legend between the Teensy's pad rows, and separates
-the connector labels from their outlines. Terminal blocks are locked at `TERMINAL_EDGE_PLACEMENTS`;
-hand-solder resistor lands remain staged for placement. It does
+the connector labels from their outlines. It packs every part, including terminals
+at the hub and far ends. With `--unplaced`, terminal blocks are locked at
+`TERMINAL_EDGE_PLACEMENTS` and hand-solder resistor lands are staged for placement. It does
 not reconstruct routing or the four widened resistor lands. Its clearances
 still need checking after placement and routing. The final saved JLCDFM
 report retains pad-spacing dangers and annular-ring, mask-expansion, and
