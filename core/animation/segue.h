@@ -293,7 +293,7 @@ concept NeedsClasses = requires(S &s, const ArenaVector<uint16_t> &classes) {
 /** @brief Whether a policy splits one frame's rasterizer work between the two
  * meshes with complementary pixel masks. MeshCarousel checks the signature but
  * routes nothing: the effect calls mask_pair() itself and hands the two halves
- * to Plot::Mesh::draw's edge-list overload. Dissolve is the shipped policy. */
+ * to Plot::Mesh::draw's edge-list overload. Dissolve is the library policy. */
 template <typename S>
 concept Masked = requires(const S &s) {
   typename S::MaskPair;
@@ -779,8 +779,7 @@ struct GoldConvergence : Base {
  * of the two meshes, with the owned fraction tracking the phase.
  * @details The two draws receive complementary DissolveMasks (same threshold
  * and salt, opposite invert), so together they rasterize each edge once — a
- * two-mesh transition costs one wireframe's draw per frame instead of two,
- * which is what keeps heavy-pair crossfades inside one display window. Owned
+ * two-mesh transition costs one wireframe's draw per frame instead of two. Owned
  * edges draw at full opacity; the dissolve percept is the spatial mix ratio,
  * blurred by POV persistence. The salt folds a frame counter into the
  * per-transition seed so the pattern re-rolls every frame (temporal dither).
@@ -883,7 +882,7 @@ template <typename... Ts> struct PolicyList {
   template <typename F> static void for_each(F &&fn) { (fn(Ts{}), ...); }
 };
 
-/** @brief Every shipped policy, Base first. A policy left off this roster is
+/** @brief Every library policy, Base first. A policy left off this roster is
  * checked only where it is instantiated. */
 using AllPolicies =
     PolicyList<Base, Crossfade, IrisBloom, Lace, TerminatorSweep, Shockwave,
