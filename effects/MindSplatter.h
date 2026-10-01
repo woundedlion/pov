@@ -93,8 +93,7 @@ public:
         particle_system() {}
 
   /**
-   * @brief Registers params, builds the particle system, bakes the palette,
-   *        and kicks off the warp scheduler.
+   * @brief Registers params, builds the particle system, and starts the warp scheduler.
    */
   HS_COLD_MEMBER void init() override {
     static constexpr size_t SCRATCH_BYTES = 6 * 1024;
@@ -109,7 +108,7 @@ public:
     static constexpr size_t AUX_RESERVE_BYTES = 6 * 1024;
     static_assert(
         POOL_BYTES + AUX_RESERVE_BYTES <= DEVICE_ARENA_BYTES - SCRATCH_BYTES,
-        "MindSplatter particle pool + palette/aux overflow the device "
+        "MindSplatter particle pool + attractor/emitter storage overflow the device "
         "persistent arena");
 
     // One trail at a time stages its fragments, the pre-shader positions the
