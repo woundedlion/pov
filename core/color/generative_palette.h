@@ -8,6 +8,7 @@
  * @brief Recipe-compiled perceptual palettes and stock recipes.
  */
 
+#include "math/3dmath.h"
 #include "color/palette.h"
 #include "color/palette_recipe.h"
 #include "color/color_space.h"
@@ -468,9 +469,9 @@ private:
     case AxisCurve::DESCENDING:
       return high + (low - high) * position;
     case AxisCurve::BELL:
-      return low + (high - low) * unit_bell(position);
+      return low + (high - low) * math::unit_bell(position);
     case AxisCurve::CUP:
-      return high - (high - low) * unit_bell(position);
+      return high - (high - low) * math::unit_bell(position);
     case AxisCurve::CUSTOM:
       HS_CHECK(false, "evaluate_axis: a CUSTOM axis is resolved by the caller");
     }
@@ -1120,7 +1121,7 @@ private:
 
     if (domain == PaletteDomain::LOOP) {
       const float main_end = (key_count - 1.0f) / key_count;
-      const float relationship = window_position(unit_bell(t));
+      const float relationship = window_position(math::unit_bell(t));
       if (t < main_end) {
         Segment segment = select_base_segment(window_position(t / main_end));
         segment.relationship_position = relationship;
