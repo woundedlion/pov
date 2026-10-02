@@ -36,7 +36,6 @@
 #include <cstdlib>
 #include <cstring>
 #include <filesystem>
-#include <limits>
 #include <vector>
 
 namespace {
@@ -219,8 +218,7 @@ std::vector<uint16_t> load(const char *path, int &frames, int &np) {
   if (error || frames <= 0 || np != NPRESET || bytes < HEADER_BYTES ||
       (bytes - HEADER_BYTES) % FRAME_BYTES != 0 ||
       (bytes - HEADER_BYTES) / FRAME_BYTES !=
-          static_cast<uint64_t>(frames) * static_cast<uint64_t>(np) ||
-      bytes - HEADER_BYTES > std::numeric_limits<size_t>::max()) {
+          static_cast<uint64_t>(frames) * static_cast<uint64_t>(np)) {
     printf("%s: invalid dump dimensions or file size\n", path);
     fclose(f);
     exit(1);
