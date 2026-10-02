@@ -169,19 +169,21 @@ inline void test_column_interval() {
 
 /**
  * @brief Verify the shipped single-board column period clears the per-column
- * transfer bound.
+ * transfer bound; the <= 2x bound requires strobing effects to run unstrobed
+ * on the FastLED path.
  * @details run() rejects a configuration whose column period does not clear
  * this bound. show_col() drops an overrun column and tries again on the next
  * tick. The bound's rounding is pinned in test_dma_core.h.
  */
 inline void test_transfer_bound() {
-  HS_EXPECT_EQ(pov::fastled_show_us(40, 6), 1181UL);
+  HS_EXPECT_EQ(pov::fastled_show_us(40, pov::FASTLED_CLOCK_MHZ), 1181UL);
   HS_EXPECT_TRUE(
       column_interval_us(480ul * 96ul) >
       dma::transfer_us(HD107SFrame<40>::COMPOSITE_SIZE, dma::DEFAULT_CLOCK_HZ));
-  HS_EXPECT_GT(column_interval_us(480ul * 96ul), pov::fastled_show_us(40, 6));
+  HS_EXPECT_GT(column_interval_us(480ul * 96ul),
+               pov::fastled_show_us(40, pov::FASTLED_CLOCK_MHZ));
   HS_EXPECT_LE(column_interval_us(480ul * 96ul),
-               2 * pov::fastled_show_us(40, 6));
+               2 * pov::fastled_show_us(40, pov::FASTLED_CLOCK_MHZ));
 }
 
 /**
