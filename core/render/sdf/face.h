@@ -1345,8 +1345,8 @@ struct Face {
    * @tparam OutputIt Sink type invoked as out(float start, float end).
    * @param y Row index, which sets the pole widening below.
    * @param out Sink accepting (float start, float end).
-   * @return True if intervals were emitted; false when the row requires a full
-   * scan.
+   * @return True when the row was handled, possibly with no intervals outside
+   *   the face's rows; false requests a full scan.
    * @details The pad is an azimuth angle, so it holds a whole pixel of AA reach
    * only at the equator; at colatitude phi one pad p of great-circle reach
    * subtends asin(p / sin phi), reaching the whole row once sin phi <= p.
