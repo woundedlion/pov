@@ -1291,6 +1291,7 @@ struct GSWhiteBox {
                              int count, uint16_t threshold) {
     GS::fill_hot_flags(b, hot1, hot2, count, threshold);
   }
+  static auto source_palette() { return GS::make_palette(); }
   static Color4 palette_sample(const GS &gs, float t, int seed = 0) {
     return Color4(gs.palette_color(seed, t), 1.0f);
   }
@@ -1557,24 +1558,20 @@ struct GSWhiteBox {
   }
 };
 
-/** @brief Verifies GS palette samples are opaque. */
+/** @brief Verifies source palette recipes are opaque before the RGB bake. */
 inline void test_gs_palette_is_opaque() {
   hs_test::reset_globals();
-  GSWhiteBox::GS gs;
-  gs.init();
-  for (int i = 0; i < BakedPalette::LUT_SIZE; ++i)
-    HS_EXPECT_EQ(GSWhiteBox::palette_sample(
-                     gs, static_cast<float>(i) / (BakedPalette::LUT_SIZE - 1))
-                     .alpha,
-                 1.0f);
+  for (int seed = 0; seed < GSWhiteBox::SEEDS; ++seed) {
+    auto palette = GSWhiteBox::source_palette();
+    for (int i = 0; i < BakedPalette::LUT_SIZE; ++i)
+      HS_EXPECT_EQ(
+          palette.get(static_cast<float>(i) / (BakedPalette::LUT_SIZE - 1))
+              .alpha,
+          1.0f);
+  }
 }
 
-/**
- * @brief Verifies each reseeded reaction receives a freshly generated, opaque
- *        palette.
- * @details shade_pixel samples RGB only, so every re-baked recipe must stay
- *          opaque for the quarter-sample accumulation to hold.
- */
+/** @brief Verifies each reseeded reaction receives a freshly generated palette. */
 inline void test_gs_reseed_generates_palette() {
   hs_test::reset_globals();
   GSWhiteBox::GS gs;
@@ -1593,7 +1590,6 @@ inline void test_gs_reseed_generates_palette() {
   for (int i = 0; i < BakedPalette::LUT_SIZE; ++i) {
     const Color4 after = GSWhiteBox::palette_sample(
         gs, static_cast<float>(i) / (BakedPalette::LUT_SIZE - 1));
-    HS_EXPECT_EQ(after.alpha, 1.0f);
     changed += after.color != before[i];
   }
   HS_EXPECT_GT(changed, 0);
