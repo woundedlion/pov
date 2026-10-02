@@ -3,8 +3,8 @@
 # Builds+flashes the profile image for one effect and captures its serial dump
 # to build/prof/<effect>_<tag>.log. Verifies the capture header, and for a
 # cycling effect that a preset marker appears (guards against a stale build
-# silently flashing old code). On a
-# marker/header mismatch it wipes the env build dir and retries once.
+# silently flashing old code). On a marker/header mismatch it wipes the env
+# build dir and retries once.
 #
 # Host: Windows + Git Bash. The flash and the ELF attestation shell out to the
 # PlatformIO loader's .exe tools through cygpath, and device_lock.sh enumerates
