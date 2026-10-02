@@ -80,7 +80,7 @@ capture is the comparison baseline.
 ## Caveats
 
 - All scopes absorb ISR time because `CYCCNT` free-runs.
-- `filter_blend` parents under `the first entering scope`; its subtree is hidden in
+- `filter_blend` parents under the first scope that enters it; its subtree is hidden in
   windows where that parent has zero calls, and calls approximate blended pixels.
 - No effect-local selective-O3 boundary is exposed by this counter tree; the paired selective-O3 capture is the shipping reference, while global O3 compiles every translation unit.
 - No dwell-compression or ordered-cycle override was used.

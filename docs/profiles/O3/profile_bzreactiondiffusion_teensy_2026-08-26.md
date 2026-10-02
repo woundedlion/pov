@@ -82,7 +82,7 @@ capture is the comparison baseline.
 ## Caveats
 
 - All scopes absorb ISR time because `CYCCNT` free-runs.
-- `filter_blend` parents under `the first entering scope`; its subtree is hidden in
+- `filter_blend` parents under the first scope that enters it; its subtree is hidden in
   windows where that parent has zero calls, and calls approximate blended pixels.
 - The paired shipping image activates effect-local `HS_O3_FN` simulation/raster regions plus any shared hot paths; global O3 compiles the entire single-effect image.
 - The capture uses `-D HS_PROFILE_EPOCH_REVS=1200` to keep the full cycle inside one effect epoch; it changes dwell/epoch length, not per-frame render cost.
