@@ -740,6 +740,26 @@ struct FieldCoverageStageFor<FieldCoverageKind::VALUE_CUTOUT, B, Family> {
 
 namespace ComposedDetail {
 
+template <typename T> struct IsSampleStage : std::false_type {};
+template <typename S, typename W, typename C>
+struct IsSampleStage<Stage::Sample<S, W, C>> : std::true_type {};
+template <typename T> struct ProjectionCoverageModeOf {
+  static constexpr auto VALUE = static_cast<ProjectionCoverageMode>(255);
+};
+template <> struct ProjectionCoverageModeOf<ProjectionCoverage::None> {
+  static constexpr auto VALUE = ProjectionCoverageMode::NONE;
+};
+template <> struct ProjectionCoverageModeOf<ProjectionCoverage::Weight> {
+  static constexpr auto VALUE = ProjectionCoverageMode::WEIGHT;
+};
+template <> struct ProjectionCoverageModeOf<ProjectionCoverage::WeightSquared> {
+  static constexpr auto VALUE = ProjectionCoverageMode::WEIGHT_SQUARED;
+};
+template <typename P>
+struct ProjectionCoverageModeOf<ProjectionCoverage::EdgeFade<P>> {
+  static constexpr auto VALUE = ProjectionCoverageMode::EDGE_FADE;
+};
+
 template <typename T> struct IsLensStage : std::false_type {};
 template <typename P> struct IsLensStage<Stage::Lens<P>> : std::true_type {};
 template <typename T> struct IsSurfaceStage : std::false_type {};
@@ -774,6 +794,14 @@ struct PipelineMetadata {
   using LensStage = typename Pipeline::template stage_matching<IsLensStage>;
   using ProjectStage =
       typename Pipeline::template stage_matching<IsProjectStage>;
+  using SampleStage = typename Pipeline::template stage_matching<IsSampleStage>;
+  static constexpr bool COVERAGE_MATCHES = [] {
+    if constexpr (std::is_void_v<SampleStage>)
+      return Spec::COVERAGE == ProjectionCoverageMode::NONE;
+    else
+      return ProjectionCoverageModeOf<
+                 typename SampleStage::CoveragePolicy>::VALUE == Spec::COVERAGE;
+  }();
   static constexpr bool LENS_MATCHES = [] {
     if constexpr (std::is_void_v<LensStage>)
       return std::is_void_v<typename Spec::LensPolicy>;
@@ -1037,6 +1065,8 @@ public:
   using RenderPipeline = typename SpecT::template Pipeline<Binding>;
   using Metadata =
       ComposedDetail::PipelineMetadata<Spec, Binding, RenderPipeline>;
+  static_assert(Metadata::COVERAGE_MATCHES,
+                "projection coverage metadata must match the pipeline");
   static_assert(Metadata::LENS_MATCHES,
                 "lens policy metadata must match the pipeline");
   static_assert(Metadata::PROJECTION_MATCHES,
