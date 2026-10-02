@@ -564,7 +564,7 @@ struct RandomWalkOptions {
 /** @brief The rotation one random-walk step applied to its cursor. */
 struct RandomWalkDelta {
   math::Vector axis;         /**< Great-circle axis the step advanced about. */
-  math::Quaternion rotation; /**< Rotation of `axis` by the step's speed. */
+  math::Quaternion rotation; /**< Rotation about `axis` by the step's speed. */
 };
 
 /**
