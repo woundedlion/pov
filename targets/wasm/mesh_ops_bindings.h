@@ -35,10 +35,8 @@
 inline constexpr size_t TOOLING_ARENA_BYTES = 8 * 1024 * 1024;
 inline constexpr size_t TOOLING_SCRATCH_BYTES = 4 * 1024 * 1024;
 static Arena tooling_arena(nullptr, 0);
-// Transient single-op scratch, shared module-globally. Every MeshOps entry
-// point reset()s both at its head; valid only within one synchronous call. A
-// ToolingOpGuard at each entry traps any re-entrant or interleaved use (e.g. a
-// future worker or async refactor) before it can alias this scratch.
+// Scratch-using MeshOps entry points reset both arenas and hold a ToolingOpGuard.
+// Scratch is valid only within one synchronous call.
 static Arena tooling_scratch_a(nullptr, 0);
 static Arena tooling_scratch_b(nullptr, 0);
 
