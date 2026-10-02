@@ -235,9 +235,9 @@ pole_lod_block_settles(float clearance, float threshold, float block_slack) {
  * @tparam W Canvas width in pixels.
  * @tparam H Canvas height in pixels.
  * @param canvas Destination canvas.
- * @details Checked once per draw, not per row or pixel. A narrower canvas
- * indexes the phi LUT past its rows and plots through a pipeline whose wrap
- * period disagrees with the framebuffer stride.
+ * @details Checked once per draw, not per row or pixel. Canvas dimensions must
+ * match the trig LUT extents and the pipeline's wrap period and framebuffer
+ * stride.
  */
 template <int W, int H>
 HS_NOINLINE_NOCLONE inline void check_canvas_dims(const Canvas &canvas) {
