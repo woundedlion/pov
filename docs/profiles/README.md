@@ -81,6 +81,9 @@ where that report belongs to the same capture pair.
 Bucket frames include the following transition, so they are stricter than clean holds.
 Captured timestamps are local raw-log mtimes.
 
+ShapeShifter’s O3 column predates entry 1’s increase from 208 to 288 contours
+and the chord walk; its workload differs from the linked shipping capture.
+
 ## Memory captures
 
 [Arena high-water measurements](memory/arena_high_water.md) come from a host

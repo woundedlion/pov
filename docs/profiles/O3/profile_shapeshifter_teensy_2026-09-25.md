@@ -3,7 +3,7 @@
 Shipping sibling: [selective-O3 report](../shipping/profile_shapeshifter_teensy_2026-09-29.md).
 
 Point-in-time snapshot (regenerate with the explicit `profile_o3` Reproduce command).
-Raw capture: `after-o3.log.txt` (archive removed). Replaces `profile_shapeshifter_teensy_2026-08-26.md`. The current roster has nine presets; the old report's four-shape schedule describes an earlier version.
+Raw capture: `after-o3.log.txt` (archive removed). Replaces `profile_shapeshifter_teensy_2026-08-26.md`. The 2026-09-25 roster had nine presets; the old report's four-shape schedule describes an earlier version.
 
 
 ## Setup
