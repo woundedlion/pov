@@ -410,11 +410,10 @@ public:
               hs::restore_interrupts(primask);
             });
         built_gen = gen;
-        // Per-build budget report. The ISR's commit trap is the only other
-        // signal that this window ran tight, and it fires on every board at
-        // once. The request cannot predate the previous poll, so `window`
-        // covers the render that was in flight plus the build, and `build`
-        // is the construction cost alone; `margin` is the headroom left.
+        // `build` includes release, teardown, construction, and the first frame.
+        // `window` starts at the previous poll, before the request arrived;
+        // `margin` is the commit budget minus that window. A missed commit
+        // traps on the board whose pending effect is not ready.
         const uint32_t done_cycles = ARM_DWT_CYCCNT;
         const unsigned long window_us =
             (done_cycles - poll_prev_cycles) / cycles_per_us;
