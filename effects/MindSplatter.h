@@ -173,6 +173,61 @@ public:
   }
 #endif
 
+  /** @brief Shared registration, validation and interpolation descriptions. */
+  static constexpr auto parameter_fields() {
+    return std::tuple{
+        Control::Field<Params, BaseMesh>{
+            .id = "base_mesh",
+            .member = &Params::base_mesh,
+            .name = "Base Mesh",
+            .spec = {.min = 0,
+                     .max = static_cast<int64_t>(
+                                Solids::PLATONIC_BASE_MESH_COUNT) -
+                            1,
+                     .animated = true,
+                     .options = Solids::BASE_MESH_OPTIONS,
+                     .export_options = Solids::BASE_MESH_EXPORT_OPTIONS,
+                     .option_count = Solids::PLATONIC_BASE_MESH_COUNT}},
+        Control::Field<Params, float>{.id = "friction",
+                                      .member = &Params::friction,
+                                      .name = "Friction",
+                                      .spec = {.min = FRICTION_MIN,
+                                               .max = FRICTION_MAX,
+                                               .animated = true}},
+        Control::Field<Params, float>{.id = "well_strength",
+                                      .member = &Params::well_strength,
+                                      .name = "Well Str",
+                                      .spec = {.min = WELL_STRENGTH_MIN,
+                                               .max = WELL_STRENGTH_MAX,
+                                               .animated = true}},
+        Control::Field<Params, float>{.id = "initial_speed",
+                                      .member = &Params::initial_speed,
+                                      .name = "Init Spd",
+                                      .spec = {.min = INITIAL_SPEED_MIN,
+                                               .max = INITIAL_SPEED_MAX,
+                                               .animated = true}},
+        Control::Field<Params, float>{.id = "angular_speed",
+                                      .member = &Params::angular_speed,
+                                      .name = "Ang Spd",
+                                      .spec = {.min = ANGULAR_SPEED_MIN,
+                                               .max = ANGULAR_SPEED_MAX,
+                                               .animated = true}},
+        Control::Field<Params, float>{.id = "warp_scale",
+                                      .member = &Params::warp_scale,
+                                      .name = "Warp",
+                                      .spec = {.min = WARP_SCALE_MIN,
+                                               .max = WARP_SCALE_MAX,
+                                               .animated = true}},
+        Control::Field<Params, float>{.id = "active_count",
+                                      .member = &Params::active_count,
+                                      .name = "Particles",
+                                      .spec = {.min = 0.0f,
+                                               .max = (float)NUM_PARTICLES,
+                                               .readonly = true},
+                                      .interpolated = false,
+                                      .validated = false}};
+  }
+
 private:
   using Choreography::begin_choreography;
   using Choreography::hold_initial_preset;
@@ -303,64 +358,6 @@ private:
     return alpha;
   }
 #endif
-
-public:
-  /** @brief Shared registration, validation and interpolation descriptions. */
-  static constexpr auto parameter_fields() {
-    return std::tuple{
-        Control::Field<Params, BaseMesh>{
-            .id = "base_mesh",
-            .member = &Params::base_mesh,
-            .name = "Base Mesh",
-            .spec = {.min = 0,
-                     .max = static_cast<int64_t>(
-                                Solids::PLATONIC_BASE_MESH_COUNT) -
-                            1,
-                     .animated = true,
-                     .options = Solids::BASE_MESH_OPTIONS,
-                     .export_options = Solids::BASE_MESH_EXPORT_OPTIONS,
-                     .option_count = Solids::PLATONIC_BASE_MESH_COUNT}},
-        Control::Field<Params, float>{.id = "friction",
-                                      .member = &Params::friction,
-                                      .name = "Friction",
-                                      .spec = {.min = FRICTION_MIN,
-                                               .max = FRICTION_MAX,
-                                               .animated = true}},
-        Control::Field<Params, float>{.id = "well_strength",
-                                      .member = &Params::well_strength,
-                                      .name = "Well Str",
-                                      .spec = {.min = WELL_STRENGTH_MIN,
-                                               .max = WELL_STRENGTH_MAX,
-                                               .animated = true}},
-        Control::Field<Params, float>{.id = "initial_speed",
-                                      .member = &Params::initial_speed,
-                                      .name = "Init Spd",
-                                      .spec = {.min = INITIAL_SPEED_MIN,
-                                               .max = INITIAL_SPEED_MAX,
-                                               .animated = true}},
-        Control::Field<Params, float>{.id = "angular_speed",
-                                      .member = &Params::angular_speed,
-                                      .name = "Ang Spd",
-                                      .spec = {.min = ANGULAR_SPEED_MIN,
-                                               .max = ANGULAR_SPEED_MAX,
-                                               .animated = true}},
-        Control::Field<Params, float>{.id = "warp_scale",
-                                      .member = &Params::warp_scale,
-                                      .name = "Warp",
-                                      .spec = {.min = WARP_SCALE_MIN,
-                                               .max = WARP_SCALE_MAX,
-                                               .animated = true}},
-        Control::Field<Params, float>{.id = "active_count",
-                                      .member = &Params::active_count,
-                                      .name = "Particles",
-                                      .spec = {.min = 0.0f,
-                                               .max = (float)NUM_PARTICLES,
-                                               .readonly = true},
-                                      .interpolated = false,
-                                      .validated = false}};
-  }
-
-private:
   static constexpr bool preset_in_ranges(const Params &p) {
     return Control::valid_fields(p, parameter_fields());
   }
