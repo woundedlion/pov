@@ -110,7 +110,7 @@ void loop();
 namespace {
 
 #ifdef HS_MINDSPLATTER_REPLAY_AB
-static Pixel replay_reference_pixels[MAX_W * MAX_H / NUM_SEGMENTS];
+static Pixel replay_reference_pixels[MAX_W * (2 * MAX_H / NUM_SEGMENTS)];
 #endif
 
 /**
