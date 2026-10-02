@@ -207,8 +207,9 @@ comparison, and portable evidence.
 
 Point-in-time snapshot of the corrected single-owner strut renderer.
 This fixed experimental preset is separate from the normal HyperLattice cycle.
-Its [shipping](../shipping/profile_hyperlattice_teensy_2026-09-29.md) and
-[global-O3](../O3/profile_hyperlattice_teensy_2026-09-27.md#supplemental-octet-3d-single-owner-correction) captures use the same source.
+Its retired shipping pair used the same source, with peak 96.869 ms and
+548/548 spills. The linked current shipping capture above is a different
+cycle and source; the retired shipping artifacts are no longer retained.
 Raw capture (supporting artifact removed),
 provenance (supporting artifact removed),
 summary (supporting artifact removed),
