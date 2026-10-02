@@ -232,7 +232,7 @@ inline void test_lattice_volume_camera_demonstrators() {
   HS_EXPECT_EQ(EMPTY_SLICE.status, Raycast::TraceStatus::RANGE_COMPLETE);
 }
 
-struct WhitePalette {
+struct ConstantPalette {
   Color4 get(float) const { return {{50000, 30000, 10000}, 1.0f}; }
 };
 
@@ -344,7 +344,7 @@ inline void test_torus_and_warped_volume_spherical_stage() {
       buffer;
   Arena arena(buffer.data(), buffer.size());
   BakedPaletteStorage palette;
-  palette.bake(arena, WhitePalette{});
+  palette.bake(arena, ConstantPalette{});
   const SDF::Torus TORUS{1.0f, 0.25f};
   check_placed_volume_stage(TORUS, palette.view());
   const SDF::WarpedVolume WARPED{TORUS, SDF::Warp::Twist{3, 0.15f, 1.0f},
@@ -566,7 +566,7 @@ inline void test_periodic_shell_traversal_budgets() {
       buffer;
   Arena arena(buffer.data(), buffer.size());
   BakedPaletteStorage palette;
-  palette.bake(arena, WhitePalette{});
+  palette.bake(arena, ConstantPalette{});
   const Raycast::Appearance APPEARANCE{.1f, 0, 1, &palette.view()};
   Raycast::PreparedCamera camera;
   camera.center = {{-.5f, 0, 0, 0}};
@@ -650,7 +650,7 @@ inline void test_prepared_shells_match_sphere_roots() {
       buffer;
   Arena arena(buffer.data(), buffer.size());
   BakedPaletteStorage palette;
-  palette.bake(arena, WhitePalette{});
+  palette.bake(arena, ConstantPalette{});
   const Raycast::Appearance APPEARANCE{.1f, 0, 1, &palette.view()};
   static_assert(sizeof(SDF::PreparedPeriodicShells) <= 28);
   for (int sample = 0; sample < 120; ++sample) {
