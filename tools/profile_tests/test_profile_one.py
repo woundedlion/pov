@@ -229,11 +229,7 @@ class ReplayFlags(unittest.TestCase):
 
 
 class ArtifactPaths(unittest.TestCase):
-    """HS_PROFILE_OUT must move the whole artifact set, not just the log.
-
-    profile_islamic_big.sh renames only the log; artifacts derived from the
-    default naming would land on the standard IslamicStars run's.
-    """
+    """HS_PROFILE_OUT selects paths for the complete capture artifact set."""
 
     def test_default_naming_is_unchanged(self):
         paths = derived_paths()
