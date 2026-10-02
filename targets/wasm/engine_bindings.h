@@ -208,9 +208,9 @@ public:
     apply_display_geometry(0.0f, math::PI_F);
     stack_paint_canary();
 
-    // Pre-size the view-backed readback buffers ONCE: under ALLOW_MEMORY_GROWTH
-    // a reallocation detaches the ArrayBuffer behind a typed_memory_view, so the
-    // buffers returned as views (getPixels/getParamValues) must never move.
+    // Pre-size view-backed buffers ONCE: reallocation invalidates their aliased
+    // storage even without heap growth; heap growth also detaches the view's
+    // ArrayBuffer. getPixels/getParamValues storage must never move.
     pixel_buffer.assign(MAX_W * MAX_H * CHANNELS, 0);
 
     // Bootstrap on the first row of each roster; daydream overrides both almost
