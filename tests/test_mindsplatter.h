@@ -567,10 +567,21 @@ inline void test_mindsplatter_full_timeline_retries_transition() {
     WB::tick_choreography(effect);
   HS_EXPECT_EQ(Timeline::dropped_events(), dropped_before + 1);
 
+  WB::tick_choreography(effect);
+  HS_EXPECT_EQ(Timeline::dropped_events(), dropped_before + 2);
+  HS_EXPECT_FALSE(WB::transition_active(effect));
+  HS_EXPECT_EQ(WB::preset_index(effect), size_t{0});
+
   WB::clear_timeline(effect);
+  for (int f = 1; f < MS::PRESET_DWELL_FRAMES; ++f)
+    WB::tick_choreography(effect);
+  HS_EXPECT_FALSE(WB::transition_active(effect));
+  HS_EXPECT_EQ(WB::preset_index(effect), size_t{0});
+  HS_EXPECT_EQ(Timeline::dropped_events(), dropped_before + 2);
   WB::tick_choreography(effect);
   HS_EXPECT_TRUE(WB::transition_active(effect));
   HS_EXPECT_EQ(WB::preset_index(effect), size_t{1});
+  HS_EXPECT_EQ(Timeline::dropped_events(), dropped_before + 2);
 }
 
 /** @brief Fusing the vertex pass into trail materialization is pixel exact. */
