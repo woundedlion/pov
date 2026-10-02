@@ -500,7 +500,7 @@ private:
           // Steer into center. Floor the speed so a friction-drained particle
           // still advances inward to kill_radius instead of stalling.
           math::Vector torque = (attr.position - pos).normalized();
-          float speed = std::max(p.velocity.magnitude(), max_delta);
+          float speed = fmaxf(p.velocity.magnitude(), max_delta);
           p.velocity = torque * speed;
         } else {
           // Gravity. pos and the attractor can be ~antipodal (undefined cross
