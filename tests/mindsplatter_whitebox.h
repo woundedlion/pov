@@ -415,9 +415,12 @@ struct MindSplatterWhiteBox {
   static size_t preset_index(const MindSplatter<W, H> &ms) {
     return ms.getPresetIndex();
   }
+  template <int W, int H> static constexpr size_t preset_count() {
+    return MindSplatter<W, H>::PRESETS.size();
+  }
   template <int W, int H>
-  static size_t preset_count(const MindSplatter<W, H> &ms) {
-    return ms.PRESETS.size();
+  static size_t preset_count(const MindSplatter<W, H> &) {
+    return preset_count<W, H>();
   }
   template <int W, int H>
   static void use_reference_signed_axis_physics(MindSplatter<W, H> &ms,
