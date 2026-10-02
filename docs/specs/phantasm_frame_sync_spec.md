@@ -200,10 +200,8 @@ incremented once per ISR fire, a masked window would coalesce several pending
 timer interrupts into one fire and **lose** columns — exactly the dropped-column
 failure mode. With position derived from time, the ISR that finally
 runs after a mask simply reads the clock, computes the time-correct `x_target`,
-and resumes there. The masked columns were not displayable anyway (the strip was
-being clocked out), so jumping to the time-correct column is not just lossless —
-it is the *correct* behavior. Counting ISR fires would instead resume one column
-behind real angular position and smear.
+and resumes there. Outputs for intervening columns can be skipped. Counting ISR
+fires would instead resume behind real angular position and smear.
 
 The `IntervalTimer` is therefore only a *wake-up*, not the source of truth:
 it paces ISR entry, but the cycle counter decides which column it is. A late,
@@ -1053,8 +1051,8 @@ Foreground interrupt masking from the former FastLED/WS2801 path is excluded by
 the shipping DMA requirement. At ~1.1 M column edges/min for the default 4 boards
 (~2.2 M for 8), even a 1e-6 per-edge rate is visible on operational timescales.
 
-The time-derived flywheel **removes cause (1) as a column-drop source
-outright** — a masked window or a long ISR just means the next ISR reads the
+The time-derived flywheel **removes cause (1) as an interrupt-count phase-drift
+source** — a masked window or a long ISR just means the next ISR reads the
 clock and resumes at the time-correct column (§4.1). And deleting the column
 clock wire **removes cause (2) entirely from the column path**: there is no
 per-column input left to pick up EMI. The only remaining EMI surface is spurious
@@ -1156,8 +1154,8 @@ Following the `pov_segment_map.h` precedent (pure, host-tested index math):
   crossing fallback), never a *misclassified* boundary.
 - **Flywheel sim:** drive a mock time source (cycle-counter advances with
   injected masked-IRQ windows and a ppm frequency offset) plus a boundary-symbol
-  stream with injected drops/dups/jitter; assert (a) no column lost across a
-  masked window (position is time-correct on resume), (b) phase error bounded to
+  stream with injected drops/dups/jitter; assert (a) position is time-correct on resume after a
+  masked window, (b) phase error bounded to
   the §4.5 budget between snaps, (c) phase re-acquired after a burst of glitches.
   (The shipped tests exercise the trim *hook* at ±40 ppm; estimator
   convergence tests come with §4.3 if it ever ships.)
