@@ -579,7 +579,7 @@ static void rasterize(PipelineT &source_pipeline, Canvas &canvas,
                                                     SCREEN_STEP_PX));
     };
     auto adaptive_step = [&](const SamplePT &value) {
-#if HS_ENABLE_TEST_ORACLES
+#if HS_ENABLE_TEST_ORACLES || defined(HS_MINDSPLATTER_REPLAY)
       if (!g_reference_screen_step)
 #endif
         if (!world_identity && step_axes.usable())
@@ -590,7 +590,7 @@ static void rasterize(PipelineT &source_pipeline, Canvas &canvas,
       } else {
         if (!world_identity)
           return pipeline_screen_step<W, H>(pipeline, value, false, &step_axes);
-#if HS_ENABLE_TEST_ORACLES
+#if HS_ENABLE_TEST_ORACLES || defined(HS_MINDSPLATTER_REPLAY)
         if (g_reference_screen_step)
           return screen_step_reference<W, H>(value.pos, value.tan, base_step);
 #endif
@@ -678,7 +678,7 @@ static void rasterize(PipelineT &source_pipeline, Canvas &canvas,
         math::Vector p;
         if constexpr (OPEN_GEODESIC || NEWTON_UNIT_SAMPLER) {
           HS_PLOT_COUNT(normalizations);
-#if HS_ENABLE_TEST_ORACLES
+#if HS_ENABLE_TEST_ORACLES || defined(HS_MINDSPLATTER_REPLAY)
           if (g_reference_screen_step) {
             p = smp.pos.normalized();
           } else
