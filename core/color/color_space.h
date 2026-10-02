@@ -55,8 +55,7 @@ struct LMS {
   float l, m, s;
 };
 
-/** @brief Linear-RGB triple in [0,1] (may sit slightly out of gamut before
- *  clamping). */
+/** @brief Linear-RGB triple; channels may lie outside the display gamut. */
 struct LinRGB {
   float r, g, b;
 };
@@ -146,7 +145,7 @@ HS_O3_FN inline void oklab_to_lms_cbrt(OKLab lab, float &l_cbrt, float &m_cbrt,
 }
 
 /**
- * @brief Converts cube-rooted LMS to linear RGB [0,1] (cube + RGB matrix).
+ * @brief Converts cube-rooted LMS to unclamped linear RGB (cube + RGB matrix).
  * @param l_cbrt Cube-rooted l cone response.
  * @param m_cbrt Cube-rooted m cone response.
  * @param s_cbrt Cube-rooted s cone response.
@@ -169,11 +168,11 @@ inline void lms_cbrt_to_linear_rgb(float l_cbrt, float m_cbrt, float s_cbrt,
 }
 
 /**
- * @brief Converts OKLab to linear RGB [0,1].
+ * @brief Converts OKLab to unclamped linear RGB.
  * @param lab Source color in OKLab space.
- * @param r Out: linear red in [0, 1] (may exit gamut before clamping).
- * @param g Out: linear green in [0, 1].
- * @param b Out: linear blue in [0, 1].
+ * @param r Out: linear red.
+ * @param g Out: linear green.
+ * @param b Out: linear blue.
  */
 HS_O3_FN inline void oklab_to_linear_rgb(OKLab lab, float &r, float &g,
                                          float &b) {
@@ -183,7 +182,7 @@ HS_O3_FN inline void oklab_to_linear_rgb(OKLab lab, float &r, float &g,
 }
 
 /**
- * @brief Converts OKLab to linear RGB [0,1].
+ * @brief Converts OKLab to unclamped linear RGB.
  * @param lab Source color in OKLab space.
  * @return The linear-RGB triple (may exit gamut before clamping).
  */
