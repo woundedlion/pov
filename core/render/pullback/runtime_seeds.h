@@ -5,6 +5,7 @@
 #pragma once
 
 #include <cstdint>
+#include <string_view>
 #include "vendor/FastNoiseLite.h"
 
 /**
@@ -13,6 +14,13 @@
  */
 
 namespace Pullback {
+
+/** @brief FNV-1a over bytes, optionally continuing an existing hash. */
+constexpr uint32_t fnv1a(std::string_view text, uint32_t hash = 2166136261u) {
+  for (char c : text)
+    hash = (hash ^ static_cast<uint8_t>(c)) * 16777619u;
+  return hash;
+}
 
 inline constexpr int32_t EFFECT_NOISE_SEED = 1337;
 inline constexpr int32_t CAMERA_WALK_SEED = 1337;

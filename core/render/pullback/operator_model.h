@@ -19,6 +19,7 @@
 #include "render/pullback/contract.h"
 #include "render/pullback/fields.h"
 #include "render/pullback/runtime_snapshot.h"
+#include "render/pullback/runtime_seeds.h"
 
 /**
  * @file operator_model.h
@@ -91,17 +92,7 @@ struct InstanceId {
 /** @brief FNV-1a over the instance label, a separator, and the operator id. */
 constexpr uint32_t instance_hash(std::string_view instance,
                                  std::string_view operator_id) {
-  uint32_t hash = 2166136261u;
-  const auto mix = [&hash](char c) {
-    hash ^= static_cast<uint8_t>(c);
-    hash *= 16777619u;
-  };
-  for (char c : instance)
-    mix(c);
-  mix('\0');
-  for (char c : operator_id)
-    mix(c);
-  return hash;
+  return fnv1a(operator_id, fnv1a(std::string_view("\0", 1), fnv1a(instance)));
 }
 
 /**
