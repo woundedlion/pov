@@ -22,9 +22,10 @@ inline constexpr float radians = math::PI_F / 180;
 inline constexpr float degrees = 180 / math::PI_F;
 
 /**
- * @brief Wraps an angle of any magnitude into [0, 2PI).
- * @param n Angle in radians.
- * @return Equivalent angle in radians within [0, 2PI).
+ * @brief Reduces an angle by whole turns.
+ * @param n Finite angle in radians.
+ * @return Reduced angle in radians.
+ * @details Roundoff at large magnitudes can leave the result outside [0, 2PI).
  */
 inline float mod_tau(float n) { return n - floorf(n / tau) * tau; }
 
