@@ -906,8 +906,16 @@ inline void test_least_parallel_axis() {
   HS_EXPECT_VEC(math::least_parallel_axis(math::Vector(0, 50, 0)),
                 math::Vector(1, 0, 0), 1e-6f);
 
-  // The whole point: cross(axis, v) never collapses. The worst case sits just
-  // inside the COS_AXIS_PARALLEL switch, where sin^2 is ~2*TOLERANCE.
+  for (float x :
+       {std::nextafter(math::COS_AXIS_PARALLEL, 0.0f), math::COS_AXIS_PARALLEL,
+        std::nextafter(math::COS_AXIS_PARALLEL, 1.0f)}) {
+    for (float sign : {-1.0f, 1.0f}) {
+      const math::Vector v(sign * x, std::sqrt(1.0f - x * x), 0.0f);
+      const math::Vector c = math::cross(math::least_parallel_axis(v), v);
+      HS_EXPECT_TRUE(math::dot(c, c) >= 1e-4f);
+    }
+  }
+
   for (int i = 0; i <= 128; ++i) {
     for (int j = 0; j <= 128; ++j) {
       float phi = (i * math::PI_F) / 128.0f;
