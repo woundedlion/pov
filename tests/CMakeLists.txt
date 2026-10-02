@@ -806,6 +806,7 @@ _hs_warnings(noise_golden_gen)
 
 add_executable(sdf_periodic_benchmark periodic_surface_benchmark.cpp)
 target_include_directories(sdf_periodic_benchmark PRIVATE ${HS_ENGINE_INCLUDES})
+target_compile_options(sdf_periodic_benchmark PRIVATE -O3 -ffast-math -fno-finite-math-only)
 _hs_warnings(sdf_periodic_benchmark)
 
 file(CONFIGURE OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/spherical_experiment_check.cpp"

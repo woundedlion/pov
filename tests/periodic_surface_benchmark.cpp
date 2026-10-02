@@ -47,6 +47,7 @@ bool unresolved(const Raycast::TraceResult &result) {
 template <typename Surface> void measure(const char *name) {
   static std::array<math::Vector, SAMPLES> directions;
   static std::array<Raycast::TraceResult, SAMPLES> reference;
+  static std::array<Raycast::TraceResult, SAMPLES> results;
   std::array<Metrics, BUDGETS.size()> metrics{};
   constexpr std::array<float, 3> PERIODS = {0.7f, 1.5f, 3.0f};
   constexpr std::array<float, 3> ISOVALUES = {-0.5f, 0.0f, 0.5f};
@@ -68,6 +69,7 @@ template <typename Surface> void measure(const char *name) {
           surface.iso = iso;
           const math::Vector CENTER = center * period;
           const float FAR = 4.0f * period;
+          const bool INSIDE = surface.field(CENTER) < 0.0f;
           Raycast::TraceLimits limits;
           limits.max_queries = 1024;
           limits.max_steps = 1024;
@@ -81,24 +83,26 @@ template <typename Surface> void measure(const char *name) {
             limits.max_queries = BUDGETS[budget_index];
             Metrics &m = metrics[budget_index];
             const auto START = std::chrono::steady_clock::now();
-            for (int i = 0; i < SAMPLES; ++i) {
-              const auto RESULT = Raycast::surface_search(
+            for (int i = 0; i < SAMPLES; ++i)
+              results[i] = Raycast::surface_search(
                   surface, {CENTER, directions[i], {0.0f, FAR}}, {}, limits);
+            const double ELAPSED = std::chrono::duration<double, std::milli>(
+                                       std::chrono::steady_clock::now() - START)
+                                       .count();
+            for (int i = 0; i < SAMPLES; ++i) {
+              const auto &RESULT = results[i];
               ++m.rays;
               m.queries += RESULT.counters.queries;
               m.peak_queries =
                   std::max(m.peak_queries, RESULT.counters.queries);
               m.unresolved += unresolved(RESULT);
               m.reference_unresolved += unresolved(reference[i]);
-              m.inside_starts += surface.field(CENTER) < 0.0f;
               m.hit_disagreement +=
                   RESULT.has_surface != reference[i].has_surface;
               m.image_error += fabsf(depth_pixel(RESULT, FAR) -
                                      depth_pixel(reference[i], FAR));
             }
-            const double ELAPSED = std::chrono::duration<double, std::milli>(
-                                       std::chrono::steady_clock::now() - START)
-                                       .count();
+            m.inside_starts += INSIDE ? SAMPLES : 0;
             m.total_ms += ELAPSED;
             m.peak_ms = std::max(m.peak_ms, ELAPSED);
           }
