@@ -14,9 +14,8 @@
  *
  * The child is selected through an inherited env var and spawned shell-free —
  * fork()+execv() on POSIX, CreateProcessA() with a debug loop on Windows — so no shell can mangle the
- * re-exec path. A control "spawn check" runs first; if the harness cannot
- * re-exec itself, the death tier fails on every host rather than reporting an
- * unexercised tier as green.
+ * re-exec path. A timeout probe runs first; the control "spawn check" then
+ * proves re-exec works, so a spawn failure cannot pass the death tier.
  *
  * Dying by SIGILL alone proves only that SOMETHING trapped: under
  * -fsanitize-trap=undefined any UB in a case body lowers to the same illegal
