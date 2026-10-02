@@ -594,8 +594,8 @@ private:
 
   /**
    * @brief sample_bilinear_rgb()'s footprint outside the direct band.
-   * @details Kept out of line so the direct band, which every row but the two
-   * pole rows takes, inlines into the caller's per-pixel loop.
+   * @details Handles footprints that touch pole rows or leave the rendered
+   * domain; the direct-band path stays inline.
    */
   template <typename Pixel>
   HS_NOINLINE_NOCLONE void sample_bilinear_rgb_poles(
