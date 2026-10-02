@@ -354,6 +354,36 @@ inline void check_hyper_lattice_pattern_view_dropdowns() {
 #endif
 }
 
+inline void check_schema_hook_preserves_written_parameter_identity() {
+  struct RebuildingHost : ParamHost {
+    float original = 0.0f;
+    float replacement = 0.0f;
+    bool original_preset;
+    int writes = 0;
+    explicit RebuildingHost(bool preset) : original_preset(preset) {
+      register_param("Original", &original, 0.0f, 1.0f);
+      if (!preset)
+        mark_global("Original");
+      set_parameter_updated_hook([](ParamHost *base, const char *, bool) {
+        auto &host = *static_cast<RebuildingHost *>(base);
+        host.reset_parameters();
+        host.register_param("Replacement", &host.replacement, 0.0f, 1.0f);
+        if (host.original_preset)
+          host.mark_global("Replacement");
+      });
+    }
+    void parameter_written() override { ++writes; }
+  };
+  for (bool preset : {false, true}) {
+    RebuildingHost host(preset);
+    HS_EXPECT_EQ(host.updateParameter("Original", 0.75f),
+                 ParamSetResult::APPLIED);
+    HS_EXPECT_EQ(host.original, 0.75f);
+    HS_EXPECT_EQ(host.replacement, 0.0f);
+    HS_EXPECT_EQ(host.writes, preset ? 1 : 0);
+  }
+}
+
 inline void check_integer_float_endpoints() {
   struct IntegerHost : ParamHost {
     using ParamHost::register_int_param;
@@ -632,6 +662,7 @@ inline int run_param_marshal_tests() {
   check_generation_tracker();
   check_hyper_lattice_pattern_view_dropdowns();
   check_integer_float_endpoints();
+  check_schema_hook_preserves_written_parameter_identity();
   // Tally how many effects exercised the by-name round-trip; it is skipped for
   // effects with no editable float param. Surface the split and fail if zero.
   int rt_covered = 0, rt_total = 0;
