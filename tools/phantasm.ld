@@ -54,8 +54,7 @@ SECTIONS
 		*libg_nano.a:*(.text .text.*)
 		*libgcc.a:*(.text .text.*)
 		*(.text.*construct_effect*)
-		/* Effect spawn-time setup (init()/setup_presets()) runs once per
-		 * effect (~every 120 s), never per frame — route to flash too. */
+		/* Effect spawn-time setup: init()/setup_presets(). */
 		*(.text._ZN*4initEv)
 		*(.text._ZN*13setup_presetsEv)
 		/* HS_COLD_MEMBER (attribute cold) sections. */
