@@ -857,10 +857,8 @@ inline void test_gamut_lut_clip_lands_on_first_exit() {
 /**
  * @brief Verifies the downsample keeps every merged cell inside the coarse
  *        bracket.
- * @details A coarse cell takes the minimum of the merged minima and the maximum
- *          of the merged maxima, so the true boundary of any ray in the region
- *          still lies inside it. Losing that is what would let the refinement
- *          start from a lower bound that is already out of gamut.
+ * @details Each coarse bracket contains every master-table bracket merged
+ *          into that cell.
  */
 inline void test_gamut_lut_downsample_preserves_bracket() {
   // Half the master on both axes: the merge is what is under test, and the grid
