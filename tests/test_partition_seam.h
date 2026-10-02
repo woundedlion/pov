@@ -336,7 +336,7 @@ constexpr float MIN_PIXEL_DELTA = MAX_MEASURED_PIXEL_DELTA - PIXEL_DELTA_MARGIN;
  * @brief Asserts one swap's statistics against the gated-swap envelope.
  * @param st Statistics of the swap.
  * @param measured_changed_frac The swap's calibrated changed fraction; its
- *        bracket is that value plus or minus CHANGED_FRAC_RELATIVE_MARGIN.
+ *        bracket uses CHANGED_FRAC_RELATIVE_MARGIN times that value.
  * @param measured_max_band The swap's calibrated deepest changed band.
  */
 inline void expect_within_envelope(const SeamStats &st,
