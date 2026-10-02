@@ -486,28 +486,27 @@ def evaluate(
                 f"{env}: layout symbol '{key}' ({name}) has {len(distinct)} "
                 f"distinct definitions in the ELF - expected exactly one."))
             continue
-        matches = matches[:1]
+        sym = matches[0]
         want_region = spec.get("region")
-        for sym in matches:
-            got_region = sym.region
-            where = section_name(sym, sections)
-            if want_region is not None and got_region != want_region:
-                v.append(Violation(
-                    "symbol-wrong-region",
-                    f"{env}: '{key}' ({name}) is in {got_region} (section "
-                    f"{where}, addr 0x{sym.value:08x}) but must be in "
-                    f"{want_region}."))
-            lo, hi = spec.get("min_bytes"), spec.get("max_bytes")
-            if lo is not None and sym.size < lo:
-                v.append(Violation(
-                    "symbol-too-small",
-                    f"{env}: '{key}' ({name}) is {sym.size:,} B, below its "
-                    f"{lo:,} B floor - expected magnitude regression."))
-            if hi is not None and sym.size > hi:
-                v.append(Violation(
-                    "symbol-too-large",
-                    f"{env}: '{key}' ({name}) is {sym.size:,} B, above its "
-                    f"{hi:,} B cap (e.g. an 8 MiB host arena leak)."))
+        got_region = sym.region
+        where = section_name(sym, sections)
+        if want_region is not None and got_region != want_region:
+            v.append(Violation(
+                "symbol-wrong-region",
+                f"{env}: '{key}' ({name}) is in {got_region} (section "
+                f"{where}, addr 0x{sym.value:08x}) but must be in "
+                f"{want_region}."))
+        lo, hi = spec.get("min_bytes"), spec.get("max_bytes")
+        if lo is not None and sym.size < lo:
+            v.append(Violation(
+                "symbol-too-small",
+                f"{env}: '{key}' ({name}) is {sym.size:,} B, below its "
+                f"{lo:,} B floor - expected magnitude regression."))
+        if hi is not None and sym.size > hi:
+            v.append(Violation(
+                "symbol-too-large",
+                f"{env}: '{key}' ({name}) is {sym.size:,} B, above its "
+                f"{hi:,} B cap (e.g. an 8 MiB host arena leak)."))
 
     return result
 
