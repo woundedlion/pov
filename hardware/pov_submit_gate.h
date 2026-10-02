@@ -16,8 +16,9 @@
  * DMALEDController::submit_frame() drops a frame when the previous transfer is
  * still in flight, so both submit paths — the fail-dark black frame and the
  * image column — clear their pending state only on an accepted submit. A drop
- * then costs one flywheel wake (~54 µs at 8× oversampling) rather than a whole
- * column: the flywheel's idempotent wake-up contract (spec §4.1) reports no new
+ * retries on the next flywheel wake (~54 µs at 8× oversampling), and on later
+ * wakes if the transport is still busy. The flywheel's idempotent wake-up
+ * contract (spec §4.1) reports no new
  * column until the arm advances, so the ~7 remaining wakes of a dropped column
  * would otherwise all be no-ops and show the previous transfer: black for
  * strobed effects, the prior column otherwise.

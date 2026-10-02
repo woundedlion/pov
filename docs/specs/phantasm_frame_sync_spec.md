@@ -218,8 +218,9 @@ full, slowly beat-drifting column. Waking 8× per column bounds both
 quantizations to ⅛ column, keeping the §5.2 self-censor budget meaningful
 and the inter-board render skew far below a visible seam. The cost is ~18 kHz
 of near-empty entries (one cycle-counter read, the 64-bit position
-computation, a compare — ≈1 % CPU at 600 MHz); the pixel pack and DMA submit
-still run only on a column change, at the same 2304 Hz as before.
+computation, a compare — ≈1 % CPU at 600 MHz); fresh pixel packing
+still runs on a column change, at the same 2304 Hz as before. A pending DMA
+submission can retry on following wakes while the transport remains busy.
 
 **Wake-up contract.** Because wake-ups are advisory, the ISR must be
 *idempotent* when `x_target` equals the column it last rendered (early or
@@ -884,8 +885,9 @@ Invariants:
 1. **Hot path stays branchless / time-light.** Each wake-up does one
    cycle-counter read and the 64-bit position computation; ~7 of 8 entries
    end there (≈1 % CPU at 600 MHz — the foreground keeps the rest for
-   rendering), and only a column change packs pixels and submits DMA
-   (2304 Hz, same as the previous per-column interrupt). No `digitalRead` runs
+   rendering), and a column change packs fresh pixels
+   (2304 Hz, same as the previous per-column interrupt). A pending DMA submission
+   can retry on following wakes while the transport remains busy. No `digitalRead` runs
    here. Classification runs when the mailbox yields a completed burst. Rising-edge
    recording lives in the sync-wire ISR (4/rev for ordinary boundary symbols,
    plus additional epoch and beacon pulses). There is no
