@@ -528,6 +528,13 @@ inline int outer_calls = 0;
 inline int inner_calls = 0;
 inline void bump_outer() { ++outer_calls; }
 inline void bump_inner() { ++inner_calls; }
+inline size_t observed_capacity = 0;
+inline size_t observed_offset = 0;
+inline void record_state() {
+  ++outer_calls;
+  observed_capacity = persistent_arena.get_capacity();
+  observed_offset = persistent_arena.get_offset();
+}
 } // namespace reset_hook_probe
 
 /**
@@ -571,11 +578,14 @@ inline void test_arena_reset_hook_runs_on_configure() {
   using namespace reset_hook_probe;
   outer_calls = 0;
   {
-    ArenaResetHook hook(bump_outer);
+    const size_t PREVIOUS_CAPACITY = persistent_arena.get_capacity();
+    ArenaResetHook hook(record_state);
     configure_arenas(48 * 1024, 8 * 1024, 8 * 1024);
     HS_EXPECT_EQ(outer_calls, 1);
+    HS_EXPECT_EQ(observed_capacity, PREVIOUS_CAPACITY);
     configure_arenas_default();
     HS_EXPECT_EQ(outer_calls, 2);
+    HS_EXPECT_EQ(observed_capacity, size_t{48 * 1024});
   }
   HS_EXPECT_EQ(persistent_arena.get_capacity(), DEFAULT_PERSISTENT_SIZE);
 }
@@ -590,10 +600,12 @@ inline void test_reset_persistent_arena_runs_hooks() {
   using namespace reset_hook_probe;
   outer_calls = 0;
   {
-    ArenaResetHook hook(bump_outer);
+    ArenaResetHook hook(record_state);
     persistent_arena.allocate_n<uint32_t>(16);
+    const size_t PREVIOUS_OFFSET = persistent_arena.get_offset();
     reset_persistent_arena();
     HS_EXPECT_EQ(outer_calls, 1);
+    HS_EXPECT_EQ(observed_offset, PREVIOUS_OFFSET);
     HS_EXPECT_EQ(persistent_arena.get_offset(), (size_t)0);
   }
 }
