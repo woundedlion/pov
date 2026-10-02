@@ -30,13 +30,8 @@ namespace palettes_tests {
 
 /**
  * @brief Pins named ProceduralPalette endpoints against golden 16-bit colors.
- * @details The cosine formula C = a + b*cos(2*PI*(c*t+d)) is exact at the
- *          channels where the argument is an integer multiple of 2*PI: for
- *          darkRainbow (c=1, d_r=0) the red channel reads a+b at both t=0 and
- *          t=1, and for mauveFade (d_r=0.175, d_b=0.150) red and blue saturate at 1.0. The
- *          remaining channels carry fast_cosf, so they are pinned as goldens of
- *          the current deterministic output — any drift in the named constants
- *          or the sRGB->linear interpolation fails here.
+ * @details Pins darkRainbow's cosine endpoints, mauveFade's clamped channels,
+ *          the sixth bank source, and the ORANGE_CRUSH/POPPED_PEACH reversal.
  */
 inline void test_named_procedural_palette_endpoints() {
   // darkRainbow: c={1,1,1}, d={0,0.33,0.67}. Red arg = 2*PI*(t) hits cos=1 at
