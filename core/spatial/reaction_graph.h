@@ -29,8 +29,8 @@ inline constexpr int RD_N = 7680;
 inline constexpr int RD_K = 6;
 
 /**
- * @brief Mean nearest-neighbor spacing on the unit sphere for an RD_N-point
- *        lattice: sqrt(4π / RD_N), in unit-sphere radians.
+ * @brief Characteristic spacing sqrt(4π / RD_N) for an RD_N-point unit-sphere
+ *        lattice, rather than a measured mean nearest-neighbor distance.
  * @details Used as the base radius for reaction-diffusion interpolation kernels
  *          (BZ / GS). Precomputed because std::sqrt isn't constexpr here.
  */
