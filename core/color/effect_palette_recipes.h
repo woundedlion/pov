@@ -90,7 +90,7 @@ HS_FLASH_MEMBER inline PaletteRecipe hyper_lattice(float hue_offset = 0.0f) {
 
 /**
  * @brief The MindSplatter trail ramp: a triadic harmony darkening along the
- *        domain at full local-gamut chroma.
+ *        domain.
  * @param base_turns Base hue in turns.
  * @return The recipe.
  * @details The recipe of record for the baked bank in
