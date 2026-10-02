@@ -50,6 +50,22 @@
 namespace hs_test {
 namespace composed_effect_tests {
 
+using CollidingWarpNames = Pullback::ComposedDetail::ResourceList<
+    Pullback::ParameterResource<"outer_warp", Pullback::WaveShearParams,
+                                Pullback::ResourceKind::WARP>,
+    Pullback::ParameterResource<"inner_warp", Pullback::VectorNoiseParams,
+                                Pullback::ResourceKind::WARP>>;
+static_assert(
+    Pullback::ComposedDetail::qualified<
+        Pullback::ParameterResource<"outer_warp", Pullback::WaveShearParams,
+                                    Pullback::ResourceKind::WARP>,
+        CollidingWarpNames>());
+static_assert(
+    Pullback::ComposedDetail::qualified<
+        Pullback::ParameterResource<"inner_warp", Pullback::VectorNoiseParams,
+                                    Pullback::ResourceKind::WARP>,
+        CollidingWarpNames>());
+
 using effects_tests::preset_params_or_initial;
 using effects_tests::reset_effect_globals;
 using effects_tests::SMALL_H;
