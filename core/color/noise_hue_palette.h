@@ -118,7 +118,7 @@ prepare_hue_noise_lut(std::span<int8_t, HueNoiseLutView::SIZE> output,
 }
 
 /**
- * @brief The inputs a resident hue-noise table was baked from.
+ * @brief Scale and phase a resident hue-noise table was baked from.
  * @details Scale 0 marks the table unbuilt; the parameter range starts at
  * 1/64, so no live scale collides with the sentinel. Owners keep the table
  * itself, and the `active` decision that says whether anything reads it.
@@ -128,11 +128,13 @@ struct HueNoiseBakeCache {
   float phase = 0.0f;
 
   /**
-   * @brief Rebakes @p output only when an input moved since the last bake.
+   * @brief Rebakes @p output when its scale or phase changed.
    * @param output Destination LUT.
    * @param noise Configured noise source.
    * @param bake_scale Spatial frequency over the sphere.
    * @param bake_phase Loop phase in turns.
+   * @pre Keep the destination table and noise configuration unchanged until
+   *      resetting this cache.
    * @return Whether the table was rebuilt.
    */
   HS_FLASH_INLINE bool refresh(std::span<int8_t, HueNoiseLutView::SIZE> output,
