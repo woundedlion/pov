@@ -11,7 +11,6 @@
  *        through EffectTransitionAdapter.
  */
 
-#include <cmath>
 #include <cstdint>
 #include <string_view>
 
