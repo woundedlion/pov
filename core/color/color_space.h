@@ -894,7 +894,7 @@ inline uint8_t linear_float_to_srgb8(float l) {
  * @param sa Sine of the rotation angle.
  * @details fast_cbrt forward, exact cubes inverse, direct 2D rotation of (a,b)
  * (no atan2/sqrt OKLCH polar round-trip). Preserves lightness to fast_cbrt
- * accuracy, chroma to fast-trig accuracy.
+ * accuracy; out-of-gamut rotations reduce chroma during gamut mapping.
  */
 HS_O3_FN inline void hue_rotate_rgb(float &r, float &g, float &b, float ca,
                                     float sa) {
