@@ -318,7 +318,7 @@ no estimator.
 | Normal | flywheel free-runs at own T0; snapped 2/rev | period trimmed to master; snap nulls residual |
 | Masked-IRQ window (retired bit-bang path) | ISR resumes at time-correct column; no drift | same |
 | 1 dropped boundary symbol | coasts ≤1 rev on own crystal (~0.01 col), re-snaps next | same, with even less coast error |
-| 1 spurious symbol | count-decode + `try_flip` identity reject it | trim ignores out-of-window intervals |
+| 1 spurious symbol | invalid counts or implausible snaps are rejected; a plausible isolated burst can be accepted until the next snap (§9.1) | trim ignores out-of-window intervals |
 | Sync wire dead | free-runs at nominal T0, precesses on own crystal | precesses on *trimmed* (last-known) frequency |
 
 ### 4.5 Clock drift budget
@@ -964,7 +964,7 @@ Invariants:
 |-------|------------------|----------------|-------------------|
 | Masked-IRQ window (retired bit-bang path) | flywheel resumes at time-correct column; no drift | unaffected | unaffected |
 | 1 dropped boundary symbol | coasts ≤1 rev (~0.01 col); re-snaps next | crossing fallback flips | unaffected |
-| 1 spurious symbol | count alphabet discards (even count) or §5.3 gate rejects | identity check no-ops it | epoch refractory + gate guard it |
+| 1 spurious symbol | invalid counts or implausible snaps are rejected; a plausible isolated burst can shift phase until the next snap (§9.1) | identity dedups a repeated boundary; an accepted different boundary can flip | accepted extra flips can offset frame time until the next epoch (§8.4) |
 | Late-emitted symbol (master masked) | master self-censors (§5.2); residual rejected by gate (§5.3) | crossing flips on time regardless | unaffected |
 | 1 board renders slow (drops a frame) | — | shows prior frame 1 period | stateless and stateful: rendered-frame time offset remains until next epoch (§6.2); same-index beacons only correct revolution bookkeeping |
 | 1 dropped epoch symbol | — | — | R repeats; missed-all-R corrected by the second agreeing beacon (§6.3.4) — the rev-1/rev-2 post-commit pair, ~250 ms |
