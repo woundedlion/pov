@@ -75,14 +75,13 @@ inline math::Complex radial_scale(const math::Complex &direction, float length,
  * @param v Point on the unit sphere.
  * @return The projected complex-plane coordinate.
  * @details Inside the north-pole cap (v.y ≈ 1) the result is the infinity
- * sentinel magnitude carrying the (x,z) azimuth; only the exact pole, where the
- * azimuth is undefined, lands on the real axis.
+ * sentinel magnitude carrying the (x,z) azimuth; a planar radius below
+ * STEREO_AZIMUTH_EPS uses the +real axis.
  */
 inline math::Complex stereo(const math::Vector &v) {
   float denom = 1.0f - v.y;
   if (denom < STEREO_POLE_EPS) {
-    // North-pole cap: emit the sentinel but keep the (x,z) azimuth. At the exact
-    // pole (x = z = 0) the azimuth is undefined → +real fallback.
+    // North-pole cap: keep azimuth unless its planar radius is below the threshold.
     float r = sqrtf(v.x * v.x + v.z * v.z);
     if (r < STEREO_AZIMUTH_EPS)
       return math::Complex(STEREO_INF, 0.0f);
