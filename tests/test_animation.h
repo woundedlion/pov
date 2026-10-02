@@ -4110,7 +4110,7 @@ inline void test_trail_body_records_independent_orientation_history() {
 // ============================================================================
 
 /**
- * @brief Runs every animation/easing test case in this module.
+ * @brief Runs every animation test case in this module.
  * @return The module's failure count.
  */
 inline int run_animation_tests() {
