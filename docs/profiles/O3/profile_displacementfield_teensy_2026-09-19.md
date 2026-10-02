@@ -173,7 +173,7 @@ The fused scan remains the main rendering cost. These are live-device measuremen
 
 ## Harness
 
-`targets/Profile/Profile.ino`, `HS_PROFILE_TARGET=DisplacementField`, `HS_PROFILE_WINDOW=32`; the explicit `profile_o3` Reproduce command builds, flashes and captures the shipping image. Exact matched runs used:
+`targets/Profile/Profile.ino`, `HS_PROFILE_TARGET=DisplacementField`, `HS_PROFILE_WINDOW=32`; the explicit `profile_o3` Reproduce command builds, flashes and captures the global-O3 image. Exact matched runs used:
 
 ```sh
 HS_PROFILE_TREE=<before-or-after-tree> HS_TEENSY_PORT=COM3 \
