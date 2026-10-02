@@ -1214,8 +1214,7 @@ async function main(probe) {
         // relax(int) + its C++-side clamp: relax(1e9) (INT32-valid) must clamp to
         // MAX_RELAX_ITERATIONS, not loop a billion times. Exercises the C++ clamp
         // only, not embind's double->int coercion near INT32_MAX.
-        // Read getLastAdjusted() before any other wrapper call: every entry
-        // point clears the channel.
+        // Read getLastAdjusted() before another operation resets the outcome.
         const relaxed = solid.relax(1);
         if (MeshOps.getLastAdjusted()) {
           fail(`${solidName}.relax(1) reported an in-domain count as adjusted`);
@@ -1273,8 +1272,7 @@ async function main(probe) {
         fail(`fromSolidName("${solidName}") returned null before the wipe`);
       } else {
         MeshOps.clearToolingMemory();
-        // Invoke each call immediately before its getLastResult() read: every
-        // entry point clears the channel.
+        // Read getLastResult() before another operation resets the outcome.
         for (const [what, call] of
              [['getVertices', () => stale.getVertices()], ['getFaces', () => stale.getFaces()],
               ['classifyFaces', () => stale.classifyFaces()], ['dual', () => stale.dual()]]) {
