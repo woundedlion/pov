@@ -7000,9 +7000,7 @@ inline int run_death_tests() {
   const std::string fold_b = child_output();
   HS_EXPECT_TRUE(child_exited_clean(determinism_a));
   HS_EXPECT_TRUE(child_exited_clean(determinism_b));
-#define HS_COUNT_DETERMINISM_EFFECT(effect) +1
-  constexpr size_t EFFECT_COUNT = 0 HS_EFFECT_LIST(HS_COUNT_DETERMINISM_EFFECT);
-#undef HS_COUNT_DETERMINISM_EFFECT
+  constexpr size_t EFFECT_COUNT = static_cast<size_t>(HS_EFFECT_COUNT);
   constexpr size_t PREFIX_BYTES = sizeof("capture ") - 1;
   constexpr size_t PAYLOAD_BYTES = 33;
   size_t record_count = 0;
