@@ -1085,3 +1085,14 @@ test('CLI validates invocation before reading and reports malformed JSON as diag
     rmSync(dir, { recursive: true, force: true });
   }
 });
+
+test('null preset entries report diagnostics in admission and edge-fade post-passes', async () => {
+  for (const file of ['lattice_melt', 'mermaid_skin', 'mobius_grid']) {
+    const document = JSON.parse(await readFile(new URL(`../patterns/${file}.shader.json`, import.meta.url), 'utf8'));
+    const index = document.preset_bank.presets.length;
+    document.preset_bank.presets.push(null);
+    const result = compile(document);
+    assert.equal(result.status, 'INVALID');
+    assert.ok(result.diagnostics.some((item) => item.code === 'EXPECTED_OBJECT' && item.path === `$.preset_bank.presets[${index}]`));
+  }
+});
