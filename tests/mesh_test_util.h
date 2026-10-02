@@ -109,7 +109,7 @@ inline PolyMesh probe_dodecahedron(Arena &a, Arena &b) {
 }
 
 /**
- * @brief Builds the seed of the needle recipe's gated swaps: the ambo /
+ * @brief Builds the needle partition-probe seed: the ambo /
  *        relax(100) / hankin(54 deg) prefix of
  *        TRUNCATED_ICOSAHEDRON_AMBO_RELAX_HK54_NEEDLE_STEPS.
  * @param a Output arena for the built mesh.
@@ -117,7 +117,7 @@ inline PolyMesh probe_dodecahedron(Arena &a, Arena &b) {
  * @return The hankin(54 deg) arrival, allocated in @p a.
  * @details Shared by the morph and opchain probe suites, which both pin shapes
  *          against this chain; a spec change must move exactly one build here.
- *          The relax is live at 100 iterations rather than the shipping step's
+ *          The relax is live at 100 iterations rather than the fixture step's
  *          baked payload, so the probes measure the operator, not the bake.
  */
 inline PolyMesh build_ticosa_ambo_relax100_hk54(Arena &a, Arena &b) {

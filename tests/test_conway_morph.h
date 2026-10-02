@@ -3157,7 +3157,7 @@ inline void check_step_leg_smoke(
               hs_test::stats().failed != failed_before ? " FAILED" : "");
 }
 
-/** Gated-swap sites: the seeds the partition recipes run kis and dual on. */
+/** Seed fixtures for kis and dual gated-swap legs. */
 inline constexpr StepLegSite GATE_LEG_SITES[] = {
     {"icosahedron", probe_icosahedron, 0.0f},
     {"icosahedron_snub", probe_icosa_snub, 0.0f},

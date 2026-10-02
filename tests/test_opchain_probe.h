@@ -13,7 +13,7 @@
  *     manifold, unit vertices, outward face normals, per-step displacement.
  *   - Chamfer birth epsilon: smallest t at which no newborn hexagon is culled
  *     by SDF::Face's collapsed-area reject, per seed.
- *   - Needle gated-swap chain: the DUAL then KIS partition ops the needle
+ *   - Needle primitive lowering: the DUAL then KIS partition ops the needle
  *     recipe lowers to, each landing a well-formed closed manifold on the
  *     hankin(54 deg) seed, with the {DUAL, KIS} lowering matching
  * MeshOps::needle.
@@ -1041,13 +1041,8 @@ inline void test_build_chain_provenance_ambiguity() {
 }
 
 // ---------------------------------------------------------------------------
-// Needle gated-swap chain (docs/specs/opchain_morph_spec.md, "Leg kinds"): the
-// truncatedIcosahedron_ambo_relax_hk54_needle recipe ends in needle, which
-// expand_to_primitives lowers to a DUAL then a KIS gated swap
-// (core/mesh/recipe.h). No shipping recipe runs dual or kis on a hankin mesh,
-// so this pins that both partition ops land a well-formed closed manifold on
-// the hankin(54 deg) arrival. A gated swap carries no parameter sweep, so each
-// leg's arrival is a single mesh: dual(seed), then kis(dual(seed)) == needle.
+// Needle primitive lowering on the hankin(54 deg) test seed: direct DUAL then
+// KIS must produce closed manifolds and reproduce MeshOps::needle.
 // ---------------------------------------------------------------------------
 
 /**
@@ -1076,16 +1071,10 @@ inline size_t check_manifold_landing(const PolyMesh &m, Arena &a, Arena &b) {
 }
 
 /**
- * @brief Builds the needle chain's DUAL then KIS gated-swap landings on the
- *        hankin(54 deg) seed, asserting each lands a well-formed closed
- *        manifold and that the {DUAL, KIS} lowering reproduces the composite
- *        needle exactly.
- * @details needle lowers to two gated swaps with no sweep, so the guard is that
- * each partition op builds without trapping on a hankin mesh -- the one context
- * no shipping recipe exercises -- and that expand_to_primitives' {DUAL, KIS}
- * pair matches MeshOps::needle bit for bit.
+ * @brief Builds needle's DUAL then KIS primitive results on the hankin(54 deg)
+ *        test seed, asserting closed manifolds and bitwise composite parity.
  */
-inline void test_needle_gated_swap_builds_on_hankin() {
+inline void test_needle_partition_lowering_builds_on_hankin() {
   const int failed_before = hs_test::stats().failed;
 
   Arena persist(probe_seed_buf, sizeof(probe_seed_buf));
@@ -1108,7 +1097,7 @@ inline void test_needle_gated_swap_builds_on_hankin() {
     seed_compiled = c.face_counts.size();
   }
 
-  // DUAL leg landing: departs the hankin seed, opens on its dual.
+  // DUAL primitive result on the hankin seed.
   PolyMesh dual_mesh;
   {
     ScratchScope fa(a);
@@ -1121,12 +1110,10 @@ inline void test_needle_gated_swap_builds_on_hankin() {
     ScratchScope fb(b);
     dual_compiled = check_manifold_landing(dual_mesh, a, b);
   }
-  // A gated swap draws one static mesh per side, so compile keeps every face:
-  // the leg's per-side face count is constant.
+  // Compilation retains every positive-area dual face.
   HS_EXPECT_EQ(dual_compiled, dual_mesh.face_counts.size());
 
-  // KIS leg landing: departs the dual, opens on kis(dual) == the needle
-  // arrival.
+  // KIS on the dual produces the needle result.
   PolyMesh kis_mesh;
   size_t kis_compiled = 0;
   {
@@ -1173,7 +1160,7 @@ inline int run_opchain_probe_tests() {
   test_truncate001_birth_sweep_holds_topology();
   test_truncate50d_far_side_sweep_holds_topology();
 
-  test_needle_gated_swap_builds_on_hankin();
+  test_needle_partition_lowering_builds_on_hankin();
 
   test_build_chain_centroid_spacing();
   test_build_chain_provenance_ambiguity();
