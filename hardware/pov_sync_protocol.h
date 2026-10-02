@@ -153,7 +153,8 @@ struct Config {
    * The foreground polls the build request between frames, so the budget an
    * effect actually gets is K revolutions less the render in flight when the
    * request was published; overrunning it trips the driver's commit_ok trap on
-   * every board at once. Not checkable in valid(), which sees no render times.
+   * the board whose pending effect is not ready. Not checkable in valid(),
+   * which sees no render times.
    */
   uint32_t commit_revs = 2;
   uint32_t beacon_period_revs = 16; /**< Beacon cadence (spec §6.4). */
