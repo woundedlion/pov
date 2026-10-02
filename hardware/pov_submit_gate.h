@@ -75,8 +75,8 @@ public:
    * @brief Records the transport's verdict for the action choose() returned.
    * @param action The action just performed.
    * @param accepted submit_frame()'s return value; ignored for NONE.
-   * @return True once this wake's LED work is complete — the caller's gate for
-   *         dropping a same-wake sync pulse instead of deferring it.
+   * @return True when the transport accepted a frame. RESUBMIT does not pack
+   *         pixels and does not widen a same-wake sync pulse.
    */
   bool settle(SubmitAction action, bool accepted) {
     switch (action) {
