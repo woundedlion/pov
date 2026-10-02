@@ -55,11 +55,11 @@ template <int W, int H> const std::vector<FactoryEntry> &get_factory() {
 }
 
 /**
- * @brief Looks up an effect by name in the (W,H) factory.
+ * @brief Looks up an effect by class name or stable ID in the (W,H) factory.
  * @tparam W Canvas width in pixels.
  * @tparam H Canvas height in pixels.
- * @param name Effect name to look up.
- * @return Pointer to the matching entry, or null if the name is unknown (a
+ * @param name Effect class name or stable EFFECT_ID to look up.
+ * @return Pointer to the matching entry, or null if the class name or ID is unknown (a
  *         typo'd/stale UI string). The entry belongs to the static per-(W,H)
  *         table and stays valid for the module's lifetime.
  * @details Cheap linear scan used by setEffect() to validate a stale/typo'd UI

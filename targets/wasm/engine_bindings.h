@@ -342,7 +342,7 @@ public:
   /**
    * @brief Tears down the current effect and instantiates the named one at the
    *        active resolution.
-   * @param name Effect name to instantiate.
+   * @param name Effect class name or stable EFFECT_ID to instantiate.
    * @return INSTALLED iff an effect was actually instantiated, else the
    *         rejection reason — UNKNOWN_EFFECT for an unknown/stale effect name
    *         or UNSUPPORTED_RESOLUTION — so the frontend can detect a no-op
