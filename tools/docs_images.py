@@ -64,6 +64,7 @@ def markdown_references(
 
 def verify(repo_root: Path) -> tuple[list[str], int]:
     """Resolve tracked Markdown references; return (errors, references checked)."""
+    repo_root = repo_root.resolve()
     found, errors, tracked = markdown_references(repo_root)
     checked = 0
     for source, src in found:
@@ -95,6 +96,8 @@ def stage(html_root: Path, repo_root: Path) -> tuple[list[str], int, int]:
 
     Returns (errors, staged count, references checked).
     """
+    html_root = html_root.resolve()
+    repo_root = repo_root.resolve()
     errors: list[str] = []
     staged: set[Path] = set()
     checked = 0
