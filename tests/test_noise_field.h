@@ -279,6 +279,7 @@ inline void test_noise_field_curl_tangent() {
   const FastNoiseLite noise = make_noise(7127);
   for (math::NoiseBasis basis :
        {math::NoiseBasis::FBM3, math::NoiseBasis::RIDGED3}) {
+    HS_CONTEXT("curl basis", static_cast<int>(basis));
     float magnitude_sum = 0.0f;
     for (int latitude = -8; latitude <= 8; ++latitude) {
       const float y = latitude / 8.0f;
@@ -295,7 +296,6 @@ inline void test_noise_field_curl_tangent() {
         HS_EXPECT_LE(u.length(), 1.00001f);
       }
     }
-    HS_CONTEXT("curl basis", static_cast<int>(basis));
     const float MEAN_MAGNITUDE = magnitude_sum / (17.0f * 24.0f);
     const float EXPECTED_MEAN =
         basis == math::NoiseBasis::FBM3 ? 0.954f : 0.987f;
