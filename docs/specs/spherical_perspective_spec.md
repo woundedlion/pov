@@ -162,8 +162,8 @@ intersection test. Keep existing profile scope attribution and optimization
 boundaries measurable during extraction.
 
 Existing shape queries returning float distance remain valid. The current
-`SDF::VolumeShape` concept also requires normal and fragment population for
-warping; retain that public contract. A trace-only capability can require just
+`SDF::VolumeShape` concept requires `distance(p)` returning `float` and
+`normal(p)` returning `math::Vector`; retain that public contract. A trace-only capability can require just
 distance without forcing new shapes to invent unused fragment registers.
 Appearance adapters reuse existing normals and fragment helpers when useful.
 Preserve `WarpedVolume::precision` and trace preconditions: cheap clearance
