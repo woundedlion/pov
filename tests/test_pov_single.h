@@ -268,7 +268,8 @@ inline void test_single_column_sequence() {
  * @brief Run the single-board POV index-math suite.
  * @return Number of failed expectations in the suite (0 on full pass).
  * @details Exercises the strip split and column offset directly, then the full
- * tiling invariant across the two production configs and a small config swept
+ * tiling invariant across the production and large synthetic configs, plus a
+ * small config swept
  * over every rotation column.
  */
 inline int run_pov_single_tests() {
@@ -286,7 +287,7 @@ inline int run_pov_single_tests() {
   for (int x : {0, 1, 47, 48, 95})
     check_strip_tiling(/*S=*/40, /*w=*/96, x);
 
-  // Phantasm 288x144: S=288.
+  // Large synthetic 288x144 config: S=288.
   for (int x : {0, 1, 143, 144, 287})
     check_strip_tiling(/*S=*/288, /*w=*/288, x);
 
