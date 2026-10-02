@@ -903,7 +903,7 @@ inline void test_pullback_stage_combinators() {
       Pullback::Transfer::Ridge>::Bind<CountingBinding>;
   const Pullback::FieldSample transferred =
       BoundTransfer::run(sampled, frame, BoundTransfer::prepare(frame));
-  HS_EXPECT_EQ(transferred.value, unit_bell(1.0f));
+  HS_EXPECT_EQ(transferred.value, math::unit_bell(1.0f));
   HS_EXPECT_EQ(transferred.coverage, sampled.coverage);
 
   using BoundCoverage =

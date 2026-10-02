@@ -76,7 +76,7 @@ struct Ridge : ApproximationDefaults, TransferRole {
   template <typename FrameState>
   __attribute__((always_inline)) static float apply(float value,
                                                     const FrameState &) {
-    return unit_bell(value);
+    return math::unit_bell(value);
   }
 };
 

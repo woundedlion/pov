@@ -4,6 +4,7 @@
  */
 #pragma once
 
+#include "math/3dmath.h"
 #include "platform/build_features.h"
 
 #if HS_ENABLE_CHAIN_INTERPRETER
@@ -43,7 +44,7 @@ struct TransferRidge : FieldEndoModel<Transfer::NoValueParams> {
 
   static FieldSample run(const FieldSample &input, const FrameContext &,
                          const Params &, const Prepared &) {
-    return Kernel::transfer(input, unit_bell(input.value));
+    return Kernel::transfer(input, math::unit_bell(input.value));
   }
 };
 

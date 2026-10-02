@@ -9,17 +9,7 @@
  */
 
 #include <array>
-#include "platform/platform.h"
-
-/** @brief Unit cup curve over [0, 1]: 1 at both ends, 0 at the midpoint. */
-__attribute__((always_inline)) inline float unit_cup(float t) {
-  return fabsf(2.0f * t - 1.0f);
-}
-
-/** @brief Unit bell curve over [0, 1]: 0 at both ends, 1 at the midpoint. */
-__attribute__((always_inline)) inline float unit_bell(float t) {
-  return 1.0f - unit_cup(t);
-}
+#include "math/3dmath.h"
 
 enum class HueMode : uint8_t { HARMONY, SWEEP, CUSTOM };
 

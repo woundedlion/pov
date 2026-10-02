@@ -8,6 +8,7 @@
  * @brief Coordinate and color modifiers and static palette composition.
  */
 
+#include "math/3dmath.h"
 #include <tuple>
 #include "color/palette.h"
 #include "color/palette_recipe.h"
@@ -446,7 +447,7 @@ struct MirrorModifier {
    * @param t Input coordinate.
    * @return The mirrored coordinate in [0, 1].
    */
-  float modify(float t) const { return unit_bell(t); }
+  float modify(float t) const { return math::unit_bell(t); }
 };
 
 /**
