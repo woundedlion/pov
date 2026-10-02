@@ -375,11 +375,22 @@ acquire_tree_lock() {
   return 1
 }
 
-# `bash tools/device_lock.sh status` / `ports` for a quick check from any shell.
+# `tree <command...>` runs a command under the checkout build lock.
 if [ "${BASH_SOURCE[0]}" = "$0" ]; then
   case "${1:-status}" in
     status) hs_device_status;;
     ports) hs_device_ports;;
-    *) echo "usage: $0 status|ports   (acquire/release are for sourcing)" >&2; exit 2;;
+    tree)
+      shift
+      [ "$#" -gt 0 ] || { echo "usage: $0 tree <command...>" >&2; exit 2; }
+      TREE=$(git -C "$(dirname "$0")" rev-parse --show-toplevel) || exit 2
+      cd "$TREE" || exit 2
+      trap '[ -z "$TREE_TOKEN" ] || _hs_break_lock "$TREE_LOCK" "$TREE_TOKEN" || :' EXIT
+      trap 'exit 130' INT
+      trap 'exit 143' TERM
+      acquire_tree_lock || exit "$?"
+      "$@"
+      ;;
+    *) echo "usage: $0 status|ports|tree <command...>   (acquire/release are for sourcing)" >&2; exit 2;;
   esac
 fi
