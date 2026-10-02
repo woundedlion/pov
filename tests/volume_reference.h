@@ -80,11 +80,10 @@ struct VolumeScalarRegression {
   static constexpr float PROBE_FLOOR_NEAR = Scan::Volume::PROBE_FLOOR_NEAR;
   static constexpr float PROBE_FLOOR_FAR = Scan::Volume::PROBE_FLOOR_FAR;
   template <typename Shape>
-  static __attribute__((always_inline)) float
-  trace_closest(const Shape &shape, const math::Vector &local_ro,
-                const math::Vector &local_vd, float bounds_radius,
-                int max_steps, float aa_width, math::Vector &closest_local) {
-    HS_PROFILE_DEEP(vol_trace);
+  static float trace_closest(const Shape &shape, const math::Vector &local_ro,
+                             const math::Vector &local_vd, float bounds_radius,
+                             int max_steps, float aa_width,
+                             math::Vector &closest_local) {
     math::Vector local_p = local_ro;
     closest_local = local_ro;
     float closest_d = FLT_MAX;
@@ -133,11 +132,10 @@ struct VolumeScalarRegression {
     float soft;
   };
   template <typename Shape>
-  static __attribute__((always_inline)) Occluder
+  static Occluder
   probe_occluder(const Shape &shape, const math::Vector &closest_local,
                  const math::Vector &local_vd, float bounds_radius,
                  float hit_threshold, float aa_width) {
-    HS_PROFILE_DEEP(vol_probe);
     math::Vector probe = closest_local;
     float prev = FLT_MAX;
     bool climbing = false;
