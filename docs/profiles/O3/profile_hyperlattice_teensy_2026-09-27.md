@@ -178,8 +178,7 @@ comparison.
 ## Harness
 
 `targets/Profile/Profile.ino`, `HS_PROFILE_TARGET=HyperLattice`, and
-`HS_PROFILE_WINDOW=16`; use the locked reproduce command above. The default
-the explicit `profile_o3` Reproduce command is also a locked run, with its default window size.
+`HS_PROFILE_WINDOW=16`; use the locked reproduce command above. The explicit `profile_o3` Reproduce command is also a locked run, with its default window size.
 Captured 2026-09-27 01:05 local time. The source, ELF hashes, and flags are retained
 in provenance; environment dumps are stored as JSON preserving their exact
 UTF-8 bytes and SHA-256, including original line endings.
