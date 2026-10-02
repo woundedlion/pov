@@ -108,9 +108,11 @@ crossing point, and the same strut can be composited from several families'
 crossings at different points along the ray. The 3D adapter received the
 single-owner correction for exactly this; the 4D adapter did not.
 
-## 3. Tier 1 — exact-output changes, both domains
+## 3. Tier 1: output-preserving changes within oracle tolerance, both domains
 
-These change no pixel. Modelled together they remove 30–35 % of the 3D
+These retain output within the existing rendering oracle tolerance; the
+rounding change in §3.5 can move a channel by one code value. Modelled
+together they remove 30–35 % of the 3D
 per-sample cost, which clears the 15 % and 20 % the two 3D presets need with
 margin. They are also prerequisites for Tier 2.
 
@@ -273,7 +275,7 @@ ledger.
    selective-O3 image for both 3D presets, with zero spilled frames and 16 fps
    observed. The 4D preset has the same acceptance; if it misses, record the
    number and choose from §5.
-4. Oracles: the 3D changes are exact and must pass the existing prepared
+4. Oracles: the 3D changes must pass the existing prepared
    camera rendering comparison at its current tolerances. The 4D ownership
    change alters the coverage model on purpose and needs the same independent
    ray/line cross-product oracle the 3D single-owner correction used, across
