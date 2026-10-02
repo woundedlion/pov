@@ -4,9 +4,6 @@
  */
 #pragma once
 
-#include <limits>
-
-#include "core/math/interpolate.h"
 #include "effects/LatticeMelt.h"
 #include "tests/pixel_test_util.h"
 #include "tests/composed_chain_fixture.h"
