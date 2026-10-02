@@ -5,7 +5,7 @@
  * Unit tests for core/containers/static_circular_buffer.h.
  *
  * front(), back(), and operator[] trap on misuse, so the empty/OOB paths are
- * not exercised here — they are driven (in forked child processes) by the
+ * not exercised here — they are driven (in child processes) by the
  * death harness in tests/test_death.h.
  */
 #pragma once

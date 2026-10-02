@@ -5,7 +5,7 @@
  * Unit tests for core/engine/memory.h — Arena, ArenaVector, ArenaSpan,
  * ScratchScope, Persist<T>, and the scratch-scoped generate() wrapper.
  *
- * The always-on HS_CHECK traps are driven (in forked child processes) by the
+ * The always-on HS_CHECK traps are driven (in child processes) by the
  * death harness in tests/test_death.h; its case table and GUARD_GAP_ALLOW are
  * the only inventory of which guards are pinned.
  *
