@@ -15,7 +15,7 @@ Replaces the 2026-09-28 23:43 report, which predated the polar-row ITCM trims `0
 | Method | `HS_PROFILE` cycle scopes, window = 16 frames, 420 s capture |
 | Reproduce | `bash tools/profile_one.sh MeshFeedback profile 420 16` |
 
-Image size (`profile` env, this effect only): `FLASH: code:512264, data:735628, headers:8556   free for files:775168 / RAM1: variables:314784, code:168856, padding:27752   free for local variables:12896 / RAM2: variables:520064  free for malloc/new:4224`.
+Image size (shipping `phantasm` image): `FLASH: code:512264, data:735628, headers:8556   free for files:775168 / RAM1: variables:314784, code:168856, padding:27752   free for local variables:12896 / RAM2: variables:520064  free for malloc/new:4224`.
 
 Exactness cross-check: window frames 513–528 root counter cyc ÷ 600 MHz matches the measured wall sum within **2.6 ppm** (`tools/parse_profile.py ... validate`, VALID).
 
