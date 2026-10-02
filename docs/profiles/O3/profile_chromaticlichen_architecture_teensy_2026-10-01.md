@@ -2,7 +2,7 @@
 
 Shipping twin: [ChromaticLichen selective -O3](../shipping/profile_chromaticlichen_architecture_teensy_2026-10-01.md).
 
-Point-in-time architecture snapshot. Raw capture: [checkpoint2-chromaticlichen-profile_o3.txt](../evidence/architecture_2026-10-01/checkpoint2-chromaticlichen-profile_o3.txt); [capture provenance](../evidence/architecture_2026-10-01/checkpoint2-chromaticlichen-profile_o3.provenance). Updates the current ranking alongside the preserved earlier capture [profile_chromaticlichen_teensy_2026-08-26.md](profile_chromaticlichen_teensy_2026-08-26.md). Earlier reports used different source tips and are not the architecture baseline.
+Point-in-time architecture snapshot. Raw capture: checkpoint2-chromaticlichen-profile_o3.txt (supporting artifact removed); capture provenance (supporting artifact removed). Updates the current ranking alongside the preserved earlier capture [profile_chromaticlichen_teensy_2026-08-26.md](profile_chromaticlichen_teensy_2026-08-26.md). Earlier reports used different source tips and are not the architecture baseline.
 
 ## Setup
 
@@ -22,7 +22,7 @@ Image size: `FLASH: code:84328, data:154936, headers:8544` /
 Exactness cross-check: window 1–32 root cycles / 600 MHz
 match the wall sum within **0.32 ppm**. The untouched baseline and candidate captures
 both passed `tools/parse_profile.py <capture> validate` before filtering; their validation
-outputs and build/envdump records are in the [evidence directory](../evidence/architecture_2026-10-01/README.md).
+outputs and build/envdump records are no longer retained in the repository.
 
 ## Frame cadence
 
@@ -104,7 +104,7 @@ Preparation over the complete post-startup windows averages 3671.752 us/f versus
 - No `filter_blend` subtree or exact blend count was recorded in these captures.
 - Shipping uses the composed shade and generated-palette HS_O3 functions; noise-contour source; the global-O3 twin optimizes all compiled code.
 - No ordered-cycle or transition-speed override was used; dwell and transition settings remain authored.
-- Captured source is the exact committed SHA above. Build flags, source status and hashes are retained as evidence; later documentation edits do not change that source identity.
+- Captured source identity is recorded above; see the archive source-reachability note. Build flags, source status and hashes are not retained in the repository; later documentation edits do not change that source identity.
 - Counter summaries omit the startup-containing window; exact cadence excludes only actual setup frame 1 and retains all following live frames.
 
 ## Harness

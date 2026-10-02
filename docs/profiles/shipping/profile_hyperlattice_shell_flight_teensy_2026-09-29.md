@@ -1,10 +1,10 @@
 # HyperLattice on-device profile — sphere-only shell flight — Teensy 4.0, segmented mode (2026-09-29, **selective -O3**)
 
-Point-in-time supplemental snapshot of the two authored experimental shell presets with the sphere-only renderer. Replaces the 2026-09-28 shell supplement; its raw evidence remains archived. The canonical cubic roster reports remain unchanged.
+Point-in-time supplemental snapshot of the two authored experimental shell presets with the sphere-only renderer. Replaces the 2026-09-28 shell supplement; its raw evidence is no longer retained. The canonical cubic roster reports remain unchanged.
 
 Paired report: [global O3](../O3/profile_hyperlattice_shell_flight_teensy_2026-09-29.md).
 
-Portable raw captures, validation, summaries and build provenance are in [the evidence directory](../evidence/hyperlattice_shell_flight_2026-09-29/README.md).
+Portable raw captures, validation, summaries and build provenance are in the evidence directory (supporting artifact removed).
 
 ## Setup
 
@@ -45,7 +45,7 @@ One display window is 62.5 ms at 480 RPM; frames exceeding it miss a flip. The q
 
 ### Comparison with the prior matching presets
 
-Same COM4 hardware, authored parameter tuples, 30-second moving-camera method and startup exclusion. The prior 2026-09-28 captures used the general shell renderer. Faster rendering advances more camera frames in the same wall time, so the sampled trajectories differ in length. These are not frame-matched traces; ratios summarize captured means. [Prior evidence](../evidence/hyperlattice_shell_flight_2026-09-28/README.md).
+Same COM4 hardware, authored parameter tuples, 30-second moving-camera method and startup exclusion. The prior 2026-09-28 captures used the general shell renderer. Faster rendering advances more camera frames in the same wall time, so the sampled trajectories differ in length. These are not frame-matched traces; ratios summarize captured means. Prior evidence (supporting artifact removed).
 
 | Preset | Prior mean / peak ms | Sphere mean / peak ms | Capture mean ratio | Observed fps before → after |
 |---|--:|--:|--:|--:|
@@ -129,7 +129,7 @@ ISR CPU shares total 4.87–4.96%, leaving about 59.4 ms foreground time per dis
 - Fixed-preset pinning stops automatic preset transitions; it retains per-frame camera and palette motion.
 - The sphere-only shell tracer is a specialized cached-flash hot function with per-frame prepared geometry. Global O3 optimizes the entire instrumented image.
 - Device serial telemetry does not expose the simulator’s Unfinished Rays parameter, so these timings do not establish complete traversal for every ray.
-- The profiled source was clean. ELF hashes, compiler fingerprints, build flags and captured source status are preserved with the evidence.
+- The profiled source was clean. ELF hashes, compiler fingerprints, build flags and captured source status are no longer retained in the repository.
 
 ## Harness
 

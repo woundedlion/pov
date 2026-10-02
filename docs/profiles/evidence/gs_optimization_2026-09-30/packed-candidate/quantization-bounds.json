@@ -1,8 +1,0 @@
-{
-  "kernel_radius": 0.0606758097673656,
-  "kernel_radius_q15": 1988.1642586472685,
-  "per_point_quantization_component_bound": 1.5320291756950592e-05,
-  "difference_vector_quantization_bound": 5.3071047419634165e-05,
-  "normalized_distance_squared_error_inside_support_bound": 0.0017500963673878363,
-  "max_three_saturated_signed_halfword_squares": 3221225472
-}

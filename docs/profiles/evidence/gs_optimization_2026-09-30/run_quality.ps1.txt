@@ -1,7 +1,0 @@
-param([string]$Label = "candidate", [string]$Tree = "C:/work/hs-gs-opt")
-$ErrorActionPreference = "Stop"
-$Support = "C:/work/hs-gs-support"
-& C:/work/emsdk/upstream/bin/clang++.exe -O3 -std=c++20 -ffast-math -fno-finite-math-only -DHS_TIMELINE_MAX_ANIM_BYTES=256 -DHS_GLOBAL_ARENA_BYTES=8388608 -DHS_ENABLE_TEST_HOOKS=1 -DHS_DISPLAY_PROFILE=1 -I $Tree -I "$Tree/core" "$Support/quality.cpp" "$Tree/core/engine/memory.cpp" "$Tree/core/engine/static_storage.cpp" "$Tree/core/spatial/reaction_graph.cpp" -o "$Support/quality-$Label.exe"
-if ($LASTEXITCODE -ne 0) { throw "Quality harness compilation failed" }
-& "$Support/quality-$Label.exe" | Tee-Object -FilePath "$Support/quality-$Label.csv"
-if ($LASTEXITCODE -ne 0) { throw "Quality harness failed" }

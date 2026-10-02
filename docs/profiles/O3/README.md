@@ -71,17 +71,17 @@ roster ranking. Triangular has since been removed.
 
 | Preset | Dominant scope | Peak render ms | Spilled | Captured |
 | --- | --- | ---: | ---: | --- |
-| [HyperLattice Triangular](../hyperlattice_triangular_2026-09-27.md) | `hl_shader_draw` | 🔴 141.587 | 🔴 366/366 (100%) | 2026-09-27 22:01 |
+| HyperLattice Triangular (supporting artifact removed) | `hl_shader_draw` | 🔴 141.587 | 🔴 366/366 (100%) | 2026-09-27 22:01 |
 | [HyperLattice Octet 3D](profile_hyperlattice_teensy_2026-09-27.md#supplemental-octet-3d-single-owner-correction) | `hl_shader_draw` | 🔴 95.710 | 🔴 548/548 (100%) | 2026-09-27 22:53 |
 
 Octet 3D refreshed on 2026-09-27 after the single-owner strut correction.
 These fixed-preset captures retain the original oscillating camera path.
-The [earlier Octet measurements](../hyperlattice_experimental_presets_2026-09-27.md#octet-validation-and-device-measurements)
+The earlier Octet measurements (supporting artifact removed)
 record 3D shipping peak 103.733 ms (548/548 spills) before that correction.
 The 4D capture remains historical: 549.828 ms peak, 120/120 spills,
 captured 2026-09-27 at 22:18; no 4D global-O3 capture.
 
-[Cubic Wide Flight](../hyperlattice_experimental_presets_2026-09-27.md#cubic-wide-flight)
+Cubic Wide Flight (supporting artifact removed)
 has a separate fixed-preset shipping check: peak 50.804 ms, 0/616 spills,
 captured 2026-09-27 22:25.
 
@@ -94,7 +94,7 @@ captured 2026-09-27 22:25.
 | [3: Octet 3D](profile_hyperlattice_octet_preset3_teensy_2026-09-28.md) ● | 🔴 74.692 | 🔴 549/549 (100.00%) | 2026-09-28 00:19 |
 | [Octet wide (index 5 at capture time)](profile_hyperlattice_octet_preset5_teensy_2026-09-28.md) ● | 🔴 74.925 | 🔴 549/549 (100.00%) | 2026-09-28 00:24 |
 
-Updated 2026-09-28. Opt-in held presets, with startup excluded. [Earlier optimization and 4D evidence](../hyperlattice_octet_optimization_2026-09-27.md).
+Updated 2026-09-28. Opt-in held presets, with startup excluded. Earlier optimization and 4D evidence (supporting artifact removed).
 
 ## Shell flight supplement
 

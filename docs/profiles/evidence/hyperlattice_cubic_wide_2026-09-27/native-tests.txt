@@ -1,9 +1,0 @@
-Test project C:/work/hs-octet-integration/build/tests
-    Start 23: unit_hyper_lattice
-    Start 67: unit_param_marshal
-1/2 Test #67: unit_param_marshal ...............   Passed    0.17 sec
-2/2 Test #23: unit_hyper_lattice ...............   Passed    2.25 sec
-
-100% tests passed, 0 tests failed out of 2
-
-Total Test time (real) =   2.27 sec

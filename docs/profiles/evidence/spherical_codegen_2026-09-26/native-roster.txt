@@ -1,7 +1,0 @@
-Test project C:/work/hs-spherical-effect/build/tests
-    Start 76: unit_module_includes
-1/1 Test #76: unit_module_includes .............   Passed    0.07 sec
-
-100% tests passed, 0 tests failed out of 1
-
-Total Test time (real) =   0.07 sec

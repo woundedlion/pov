@@ -1,10 +1,10 @@
 # IslamicStars on-device profile — Teensy 4.0, segmented mode (2026-09-28, **-O3**)
 
 Point-in-time snapshot (regenerate with `just profile IslamicStars`).
-Raw capture: `build/prof/islamicstars_o3.log`; [retained raw evidence](../evidence/face_aa_2026-09-28/before_islamicstars_o3.txt).
+Raw capture: `build/prof/islamicstars_o3.log`; retained raw evidence (supporting artifact removed).
 Replaces the prior 2026-09-24 unverified candidate report with a clean committed-source capture.
 This standard report measures the current baseline. The unlanded convex-face
-AA candidate is measured separately in the [matched comparison](../face_aa_2026-09-28.md).
+AA candidate is measured separately in the matched comparison (supporting artifact removed).
 
 [Shipping sibling](../shipping/profile_islamicstars_teensy_2026-09-28.md).
 

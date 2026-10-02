@@ -1,9 +1,0 @@
-{
-  "base_commit": "79a93c6f8f39a0538794803b6e45ee7c7710cdab",
-  "files": {
-    "core/render/ray/contract.h": "669a3909989ce5387ef44cfa8a2d7026b53083815a86a8c22eaea8ca39e4ee09",
-    "core/render/ray/march.h": "b3f3a4fb2269e3bb3d70dbf2c079f3e9595c2e5be68dd0dd162d9ea0d04b3c8c",
-    "core/render/sdf/periodic_surface.h": "4729663b90f50bc55106c31affcec53c8ef05ba6512a024bac9ae547534c3067",
-    "tests/profile_spherical_experiment.h": "cdae64cc1e23d19a9ea3581579a308447a2ff89aa83735e9139548bbeb0e36c0"
-  }
-}

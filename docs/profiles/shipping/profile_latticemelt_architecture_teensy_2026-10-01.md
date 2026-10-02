@@ -1,6 +1,6 @@
 # LatticeMelt on-device profile — Teensy 4.0, segmented mode (2026-10-01, **selective -O3**)
 
-Point-in-time architecture snapshot. Raw capture: [checkpoint2-latticemelt-profile.txt](../evidence/architecture_2026-10-01/checkpoint2-latticemelt-profile.txt); [capture provenance](../evidence/architecture_2026-10-01/checkpoint2-latticemelt-profile.provenance). Updates the current ranking alongside the preserved earlier capture [profile_latticemelt_teensy_2026-09-28.md](profile_latticemelt_teensy_2026-09-28.md). Earlier reports used different source tips and are not the architecture baseline.
+Point-in-time architecture snapshot. Raw capture: checkpoint2-latticemelt-profile.txt (supporting artifact removed); capture provenance (supporting artifact removed). Updates the current ranking alongside the preserved earlier capture [profile_latticemelt_teensy_2026-09-28.md](profile_latticemelt_teensy_2026-09-28.md). Earlier reports used different source tips and are not the architecture baseline.
 
 ## Setup
 
@@ -20,7 +20,7 @@ Image size: `FLASH: code:71600, data:156284, headers:8660` /
 Exactness cross-check: window 1–16 root cycles / 600 MHz
 match the wall sum within **1.06 ppm**. The untouched baseline and candidate captures
 both passed `tools/parse_profile.py <capture> validate` before filtering; their validation
-outputs and build/envdump records are in the [evidence directory](../evidence/architecture_2026-10-01/README.md).
+outputs and build/envdump records are no longer retained in the repository.
 
 ## Frame cadence
 
@@ -135,7 +135,7 @@ Preparation over the complete post-startup windows averages 981.633 us/f versus 
 - No `filter_blend` subtree or exact blend count was recorded in these captures.
 - Shipping uses the composed shade and generated-palette HS_O3 functions; sphere curl-noise displacement; the global-O3 twin optimizes all compiled code.
 - Only the epoch is stretched to 150 s; dwell and transition settings remain authored.
-- Captured source is the exact committed SHA above. Build flags, source status and hashes are retained as evidence; later documentation edits do not change that source identity.
+- Captured source identity is recorded above; see the archive source-reachability note. Build flags, source status and hashes are not retained in the repository; later documentation edits do not change that source identity.
 - Counter summaries omit the startup-containing window; exact cadence excludes only actual setup frame 1 and retains all following live frames.
 
 ## Harness

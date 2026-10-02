@@ -4,7 +4,7 @@ Point-in-time snapshot (regenerate with `just profile GSReactionDiffusion`).
 
 [Shipping selective-O3 sibling](../shipping/profile_gsreactiondiffusion_teensy_2026-09-30.md).
 
-Raw capture: [preserved capture](../evidence/gs_shading_2026-09-30/o3/capture.txt), captured 2026-09-30 19:15 on COM4. Replaces the earlier 2026-09-30 report from before pigment blending, hue rotation and shimmer were enabled. [Optimization campaign and current-state update](../gsreactiondiffusion_optimization_2026-09-30.md).
+Raw capture: preserved capture (supporting artifact removed), captured 2026-09-30 19:15 on COM4. Replaces the earlier 2026-09-30 report from before pigment blending, hue rotation and shimmer were enabled. Optimization campaign and current-state update (supporting artifact removed).
 
 ## Setup
 
@@ -21,7 +21,7 @@ Single-effect image size: `FLASH: code:82376, data:252244, headers:8420   free f
 
 Full-roster shipping Phantasm, separately built with profiling disabled: `FLASH: code:535552, data:746852, headers:8860   free for files:740352` / `RAM1: variables:314784, code:171928, padding:24680   free for local variables:12896` / `RAM2: variables:520064  free for malloc/new:4224`. The full-roster build passes the region-budget and layout gates; its RAM1 code is the shipping ITCM budget, separate from the single-effect comparison image.
 
-Exactness cross-check: window frames 385–416, root 5,833,189,292 cycles ÷ 600 MHz versus measured wall sum 9,721,985 us, within **0.3 ppm**. [Parser validation](../evidence/gs_shading_2026-09-30/o3/validate.txt) reports VALID.
+Exactness cross-check: window frames 385–416, root 5,833,189,292 cycles ÷ 600 MHz versus measured wall sum 9,721,985 us, within **0.3 ppm**. Parser validation (supporting artifact removed) reports VALID.
 
 ## Frame cadence
 
@@ -118,7 +118,7 @@ Native quality/state evidence in the historical campaign predates the added shad
 - The extended epoch prevents reinitialization during capture. No dwell compression, simulation-speed override, or lifecycle completion is claimed.
 - Both current images were captured on COM4 at source `7baf3cc430753e1a3693134150b282f212aa4e9e` with an empty source diff. The candidate includes the noise modifier speed and pigment scratch-lifetime corrections. The prior early-morning captures used COM3 and earlier artwork; their timing delta is not a controlled optimization comparison.
 - Setup frame 1 is excluded from runtime rows; the entire first window is excluded from scope/ISR summaries. Complete individual frame rows in the unfinished final window remain in runtime statistics. Integer-microsecond ISR totals introduce small quantization error.
-- [Portable evidence manifest](../evidence/gs_shading_2026-09-30/o3/gs_shading_o3_manifest.json) retains capture, compiler/build/environment records and original hashes. Host process environment dictionaries are removed; footer environment hashes identify the sanitized retained dumps, while measurement rows are unchanged. ELF/map artifacts remain in the provenance-named local archive.
+- Portable evidence manifest (supporting artifact removed) retains capture, compiler/build/environment records and original hashes. Host process environment dictionaries are removed; footer environment hashes identify the sanitized retained dumps, while measurement rows are unchanged. ELF/map artifacts remain in the provenance-named local archive.
 
 ## Harness
 
@@ -129,3 +129,7 @@ Native quality/state evidence in the historical campaign predates the added shad
 Shipping mean render is 262.576 ms/frame versus 212.279 ms/frame globally optimized (1.237×). Shipping peak is 313.695 ms versus 279.686 ms (1.122×). Both captures spill every live frame; global-O3 does not restore the 16 fps deadline. Their wall-duration runs cover different simulation-frame ranges, so these whole-capture ratios are descriptive rather than matched-frame speedups.
 
 Global-O3 changes single-effect FLASH code by +16,024 B and ITCM by +10,832 B relative to the shipping image.
+
+Source reachability: capture `7baf3cc4307` maps to landed `daf63d812` on a
+different base (319 files differ); the captured tree is not available from the
+published branch. Supporting artifacts are no longer retained.
