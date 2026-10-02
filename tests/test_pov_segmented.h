@@ -936,6 +936,7 @@ inline void test_segment_half_survives_missed_boundaries() {
             EffectHandoff<Effect> handoff;
             handoff.adopt(&effect, 1);
             handoff.set_window_left(!target_left);
+            HS_EXPECT_EQ(handoff.window_left(), !target_left);
             effect.set_clip(clip.y0, clip.y1, clip.x0, clip.x1);
             {
               Canvas canvas(effect);
@@ -948,6 +949,7 @@ inline void test_segment_half_survives_missed_boundaries() {
                     boundary % 2 == 0 ? target_left : !target_left;
                 const auto wake =
                     handoff.apply_wake({.flip = true, .zero_crossing = left});
+                HS_EXPECT_EQ(handoff.window_left(), left);
                 if (wake.advance)
                   wake.live->advance_display();
                 for (int y = clip.y0; y < clip.y1; ++y)
@@ -959,6 +961,8 @@ inline void test_segment_half_survives_missed_boundaries() {
                 {.flip = true,
                  .zero_crossing =
                      missed % 2 == 0 ? target_left : !target_left});
+            HS_EXPECT_EQ(handoff.window_left(),
+                         missed % 2 == 0 ? target_left : !target_left);
             if (wake.advance)
               wake.live->advance_display();
             for (int y = clip.y0; y < clip.y1; ++y)
