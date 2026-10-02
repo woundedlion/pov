@@ -301,7 +301,7 @@ private:
     // Dividing by amplitude holds the contour's sweep velocity constant across
     // the Amplitude slider.
     phase = math::wrap_t(
-        phase + std::min(params.speed / params.amplitude, NYQUIST_PHASE_STEP));
+        phase + fminf(params.speed / params.amplitude, NYQUIST_PHASE_STEP));
   }
 
   float phase_direction(float radius) const {
@@ -440,12 +440,12 @@ private:
     const auto cap = math::get_antipode(basis, radius);
     constexpr float MIN_CAP_RADIUS = 8.0f / W;
     constexpr float CAP_EDGE_OVERLAP = 8.0f / W;
-    const float cap_radius = std::max(
+    const float cap_radius = fmaxf(
         MIN_CAP_RADIUS, cap.second * Plot::STAR_INNER_RATIO + CAP_EDGE_OVERLAP);
 
     Color4 color = palette.get(palette_radius_t);
     color.alpha *=
-        std::min(1.0f, alpha * static_cast<float>(sides)) * preset_opacity;
+        fminf(1.0f, alpha * static_cast<float>(sides)) * preset_opacity;
     auto shader = [&](const math::Vector &, Fragment &fragment) {
       fragment.color = color;
     };
@@ -526,7 +526,7 @@ private:
         const bool far_side = radius > 1.0f;
         const float cap_radius = far_side ? 2.0f - radius : radius;
         const float half_angle = cap_radius * (math::PI_F / 2.0f) + AA_PAD;
-        const float t2 = std::min(half_angle, math::PI_F);
+        const float t2 = fminf(half_angle, math::PI_F);
         if (!Plot::cap_may_touch_clip<H>(clip, far_side ? far_cap : near_cap,
                                          t2, sinf(t2)))
           continue;
