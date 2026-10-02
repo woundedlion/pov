@@ -1185,7 +1185,7 @@ inline void test_transform_unbinds_stale_owned_topology_on_reuse() {
  *          and a centroid matching the mean of that face's vertices
  *          componentwise.
  */
-inline void test_face_centroid_for_cube_top_face() {
+inline void test_face_centroid_for_cube_face_zero() {
   Arena arena(conway_target_buf, sizeof(conway_target_buf));
   PolyMesh cube;
   build_solid<Solids::Cube>(cube, arena);
@@ -1338,7 +1338,7 @@ inline int run_conway_tests() {
   test_transform_applies_translation_chain();
   test_transform_in_place_preserves_topology();
   test_transform_unbinds_stale_owned_topology_on_reuse();
-  test_face_centroid_for_cube_top_face();
+  test_face_centroid_for_cube_face_zero();
 
   return fixture.result();
 }
