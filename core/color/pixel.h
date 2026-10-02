@@ -300,7 +300,7 @@ __attribute__((always_inline)) inline Pixel lut_entry_pixel(const Color4 &e) {
 
 /**
  * @brief Lower entry of a fractional lookup-table index.
- * @param idx Fractional index; must be non-negative and non-NaN.
+ * @param idx Fractional index; must be non-negative and representable as int.
  * @return The truncated index; callers pin `>= size - 1` to the last entry.
  */
 __attribute__((always_inline)) inline int lut_index_lo(float idx) {
@@ -309,7 +309,7 @@ __attribute__((always_inline)) inline int lut_index_lo(float idx) {
 
 /**
  * @brief The lerp16 weight from a lookup-table index toward entry `lo + 1`.
- * @param idx Fractional index; must be non-negative and non-NaN.
+ * @param idx Fractional index; must be non-negative and representable as int.
  * @param lo Its lower entry, from lut_index_lo, with `lo + 1` still in range.
  * @return The fractional part quantized to [0, 65535].
  * @details One spelling of this arithmetic for every sampler: -ffast-math may
@@ -329,8 +329,8 @@ __attribute__((always_inline)) inline uint16_t lut_index_weight(float idx,
  * @tparam Entry Table element type accepted by lut_entry_pixel.
  * @param table Table of at least @p size entries.
  * @param size Entry count.
- * @param idx Fractional index; must be non-negative and non-NaN, and is pinned
- * to the last entry from above.
+ * @param idx Fractional index; must be non-negative and representable as int.
+ * Indices at or above @p size - 1 select the last entry.
  * @return The interpolated pixel.
  */
 template <typename Entry>
