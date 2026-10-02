@@ -3,6 +3,7 @@ import io
 import sys
 import tempfile
 import unittest
+from unittest import mock
 from pathlib import Path
 
 GEN = Path(__file__).resolve().parent.parent
@@ -364,6 +365,15 @@ class EmptyScanTests(unittest.TestCase):
             path.write_text(EMPTY_BOARD, encoding="utf-8")
             with contextlib.redirect_stderr(io.StringIO()):
                 self.assertEqual(connectivity.main([str(path)]), 2)
+
+    def test_main_reports_missing_or_unreadable_board(self):
+        for error in (FileNotFoundError("missing board"), PermissionError("unreadable board")):
+            output = io.StringIO()
+            with self.subTest(error=error), mock.patch("builtins.open", side_effect=error), \
+                    contextlib.redirect_stderr(output):
+                self.assertEqual(connectivity.main(["test.kicad_pcb"]), 2)
+            self.assertIn(f"test.kicad_pcb: {error}", output.getvalue())
+            self.assertNotIn("Traceback", output.getvalue())
 
     def test_main_exits_two_on_a_file_holding_no_document(self):
         with tempfile.TemporaryDirectory() as tmp:
