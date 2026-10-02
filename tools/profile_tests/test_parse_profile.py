@@ -12,6 +12,7 @@ import contextlib
 import io
 import sys
 import unittest
+from unittest import mock
 from pathlib import Path
 
 TOOLS = Path(__file__).resolve().parent.parent
@@ -223,6 +224,17 @@ class RenderIsWall(unittest.TestCase):
         # Wall quantizes to whole windows; 63 ms is one window plus jitter.
         w = self._w([63_000] * 8, wait_scope=False)
         self.assertEqual(pp.spilled_frames(w), 0)
+
+    def test_frames_marks_wall_capture_spills_unavailable(self):
+        for wait_scope, expected in ((False, "n/a"), (True, "1")):
+            with self.subTest(wait_scope=wait_scope):
+                window = self._w([125_000], wait_scope=wait_scope)
+                window.frame_rows = [(*row, None) for row in window.frame_rows]
+                with mock.patch.object(sys, "argv", ["parse_profile", "capture", "frames"]), \
+                        mock.patch.object(pp, "parse_capture", return_value=([window], "Fx")), \
+                        contextlib.redirect_stdout(io.StringIO()) as output:
+                    self.assertEqual(pp.main(), 0)
+                self.assertEqual(output.getvalue().splitlines()[1].split()[-1], expected)
 
 
 def _synth_log(path, shapes, per_window=4):
@@ -766,6 +778,7 @@ class FramesMode(unittest.TestCase):
         "=== profile Fx [288x144] frames 1-3 window=62500 us ===",
         "frame wall us: min=60000 avg=110000 max=200000 sum=330000 (3 frames)",
         "frame                 330000 us (100%)   3 calls   198000000 cyc",
+        "  fx_buffer_wait       21000 us (6%)     3 calls    12600000 cyc",
     ])
 
     def test_frames_mode_prints_a_row_per_frame(self):
