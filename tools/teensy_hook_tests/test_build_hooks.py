@@ -1,13 +1,10 @@
 #!/usr/bin/env python3
 """Host tests for the PlatformIO build hooks (platformio.ini extra_scripts).
 
-The hooks only ever run inside a `pio run`, and most of them fail SILENTLY when
-they stop working: teensy_isystem simply demotes nothing (and the warning
-ratchet's first-party filter hides the resulting vendored-warning flood),
-teensy_map stops emitting the map the size investigations read, teensy_nano
-stops selecting the reduced libc without changing a single diagnostic. So each
-hook is exec'd here against a fake SCons construction env and its effect on the
-build asserted directly -- no ARM toolchain, no PlatformIO.
+Each hook is executed against a fake SCons construction environment and its
+build effects asserted directly: include classification, linker maps, reduced
+libc selection and sketch discovery. teensy_isystem fails if no vendored include
+directory is demoted. No ARM toolchain or PlatformIO is required.
 
 tools/teensy_gate_extra.py is covered by tools/teensy_gate_tests.
 
@@ -34,7 +31,7 @@ GATE_SCRIPT = "post:tools/teensy_gate_extra.py"
 
 # Hooks every environment needs: without teensy_pre the sketch is never placed,
 # without teensy_map the size investigations lose their per-symbol source, and
-# without teensy_isystem the vendored warning flood re-enters the ratchet.
+# without teensy_isystem the warning gate sees vendored diagnostics.
 REQUIRED_SCRIPTS = (
     "pre:tools/teensy_pre.py",
     "pre:tools/teensy_map.py",
