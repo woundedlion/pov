@@ -4126,15 +4126,6 @@ inline ChainPeaks replay_build_chain(const char *name,
   return peaks;
 }
 
-/** simple_registry seed indices the partition chains build from. */
-inline constexpr uint8_t SEED_CUBE = 1;
-inline constexpr uint8_t SEED_ICOSAHEDRON = 4;
-static_assert(std::string_view(Solids::simple_registry[SEED_CUBE].name) ==
-              "cube");
-static_assert(
-    std::string_view(Solids::simple_registry[SEED_ICOSAHEDRON].name) ==
-    "icosahedron");
-
 /** Partition chains: a lone kis, a gated leg departing a gated leg, and a
  * gated leg departing a swept one. No registry entry carries a partition
  * recipe yet, so these stand in for the recipe table. */
@@ -4149,9 +4140,9 @@ inline constexpr Solids::OpStep CHAIN_HK62_DUAL[] = {
 inline constexpr Solids::Recipe DODECAHEDRON_KIS_RECIPE = {
     Solids::SEED_DODECAHEDRON, CHAIN_KIS, std::size(CHAIN_KIS)};
 inline constexpr Solids::Recipe CUBE_KIS_DUAL_RECIPE = {
-    SEED_CUBE, CHAIN_KIS_DUAL, std::size(CHAIN_KIS_DUAL)};
+    ConwayGraph::CUBE, CHAIN_KIS_DUAL, std::size(CHAIN_KIS_DUAL)};
 inline constexpr Solids::Recipe ICOSAHEDRON_AMBO_DUAL_RECIPE = {
-    SEED_ICOSAHEDRON, CHAIN_AMBO_DUAL, std::size(CHAIN_AMBO_DUAL)};
+    Solids::SEED_ICOSAHEDRON, CHAIN_AMBO_DUAL, std::size(CHAIN_AMBO_DUAL)};
 inline constexpr Solids::Recipe DODECAHEDRON_HK62_DUAL_RECIPE = {
     Solids::SEED_DODECAHEDRON, CHAIN_HK62_DUAL, std::size(CHAIN_HK62_DUAL)};
 
