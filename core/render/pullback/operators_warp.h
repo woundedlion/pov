@@ -366,31 +366,12 @@ struct WarpCurlFlow : PhaseClockModel<NoisePhaseState> {
     }
     return max_scale * max_strength * Warp::CURL_VECTOR_COMPONENT_MAX <= 0.5f;
   }());
-  static constexpr const char *ADMISSIBILITY_CONVEXITY =
-      "The whole declared box satisfies the curl-flow stability bound; "
-      "each field curve remains inside its interval.";
   static constexpr const char *ID = "warp.curl-flow.v2";
   static constexpr const char *NAME = "Curl Flow";
   using Input = PlaneSample;
   using Output = PlaneSample;
   using Params = CurlFlowWarpParams;
   using Prepared = PreparedCurlFlow;
-
-  static bool stable(const Params &params) {
-    const uint8_t intervals =
-        curl_intervals(static_cast<CurlIntegrator>(params.integrator));
-    return params.scale * fabsf(params.strength) *
-               Warp::CURL_VECTOR_COMPONENT_MAX / intervals <=
-           0.5f;
-  }
-
-  static const char *validate(const Params &params) {
-    if (params.integrator > static_cast<uint8_t>(CurlIntegrator::MIDPOINT4))
-      return "Curl Flow requires a valid integrator.";
-    return stable(params)
-               ? nullptr
-               : "Reduce Curl Flow scale or strength, or increase integrator steps.";
-  }
 
   static void init(State &state, InstanceId id) { init_noise_phase(state, id); }
   static Prepared prepare(const FrameContext &, const Params &params,
@@ -401,8 +382,6 @@ struct WarpCurlFlow : PhaseClockModel<NoisePhaseState> {
              "warp.curl-flow: invalid integrator");
     const uint8_t intervals =
         curl_intervals(static_cast<CurlIntegrator>(params.integrator));
-    HS_CHECK(stable(params),
-             "warp.curl-flow: unstable scale and strength for integrator");
     return {&state.noise, math::noise_projected_loop_offset(state.phase),
             intervals};
   }
