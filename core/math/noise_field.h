@@ -251,9 +251,8 @@ HS_O3_FN inline float sample_noise_octaves(const FastNoiseLite &noise,
  * @param q Lattice coordinate.
  * @param channel Component index in [0, 3), selecting the lattice offset.
  * @return Noise value in [-1, 1].
- * @details RIDGED3 is one-sided, so its component is the difference of two
- * ridged stacks read at independent offsets — six generator samples against
- * the other bases' one or three.
+ * @details RIDGED3 takes half the difference of two ridged stacks at independent
+ * offsets — six generator samples against the other bases' one or three.
  */
 HS_O3_FN inline float sample_noise_vector_channel(const FastNoiseLite &noise,
                                                   NoiseBasis basis,
