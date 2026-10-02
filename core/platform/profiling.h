@@ -82,7 +82,7 @@ inline ProbeBreakdown g_probe_breakdown;
 
 #ifdef HS_PROFILE_PULLBACK_PROJECTION
 /** @brief Per-frame polyhedral reflection counts. */
-struct PullbackProjectionCycles {
+struct PullbackProjectionCounts {
   uint32_t polyhedral_pixels = 0; /**< Pixels entering polyhedral projection. */
   uint32_t polyhedral_reflections = 0; /**< Reflection iterations executed. */
   uint32_t polyhedral_max_reflections =
@@ -92,7 +92,7 @@ struct PullbackProjectionCycles {
   void reset() { *this = {}; }
 };
 
-inline PullbackProjectionCycles g_pullback_projection_cycles;
+inline PullbackProjectionCounts g_pullback_projection_counts;
 #endif
 
 #ifdef HS_PLOT_COUNTS
@@ -331,12 +331,12 @@ private:
 #endif
 
 #ifdef HS_PROFILE_PULLBACK_PROJECTION
-#define HS_SB_STAGE_COUNT(stmt)                                                \
+#define HS_PULLBACK_PROJECTION_COUNT(stmt)                                     \
   do {                                                                         \
     (stmt);                                                                    \
   } while (0)
 #else
-#define HS_SB_STAGE_COUNT(stmt) ((void)0)
+#define HS_PULLBACK_PROJECTION_COUNT(stmt) ((void)0)
 #endif
 
 #ifdef HS_PLOT_COUNTS
