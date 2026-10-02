@@ -1036,33 +1036,16 @@ def main(unplaced=False, force=False, force_teensy_library=False):
     lines.append(f'\t(gr_text {sexp.quote(NOTE)}'
                  f' (at 4 -4 0) (layer "Cmts.User") (uuid "{uid()}") '
                  '(effects (font (size 2 2) (thickness 0.3)) (justify left bottom)))')
-    # Coordinates below annotate the QUILTER_FIXED placement; a fresh pack moves
-    # those parts, so they are emitted only with the locked layout.
     if unplaced:
         lines.append(f'\t(gr_text {sexp.quote("USB PLUG KEEP-OUT")} (at 5.3 11.5 90)'
                      f' (layer "Dwgs.User") (uuid "{uid()}") '
                      '(effects (font (size 0.8 0.8) (thickness 0.15))))')
         front_silk = [
-            ("D", 52.0, 2.77, 0),
-            ("G", 52.0, 5.31, 0),
-            ("C", 52.0, 7.85, 0),
-            ("LED OUT", 54.0, 0.8, 0),
-            ("S", 52.0, 11.7, 0),
-            ("G", 52.0, 14.24, 0),
-            ("H", 52.0, 16.78, 0),
-            ("S", 52.0, 20.6, 0),
-            ("G", 52.0, 23.14, 0),
-            ("H", 52.0, 25.68, 0),
-            ("SYNC IN", 53.2, 14.24, 90),
-            ("SYNC OUT", 53.2, 23.14, 90),
             ("ID0", 54.3, 8.9, 90),
             ("ID1", 54.3, 11.9, 90),
             ("ID2", 54.3, 15.3, 90),
             ("SHLD", 54.3, 19.0, 90),
         ]
-        if not all(fixed.get(ref) == QUILTER_FIXED[ref] for ref in FAR_CONNS):
-            front_silk = [item for item in front_silk
-                          if item[0] in ("ID0", "ID1", "ID2", "SHLD")]
         edge_placements = (TERMINAL_EDGE_PLACEMENTS if selected == "1.2" else
                            TERMINAL_EDGE_PLACEMENTS_1_3)
         sync_marks = "SGH" if selected == "1.2" else "ABGH"
