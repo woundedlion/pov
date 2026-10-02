@@ -121,7 +121,7 @@ inline float harmonic_scale(int l, int m) {
  * @details sin(phi)^|m| * cos(|m| theta) is Re((x + iz)^|m|), and the sine
  * counterpart is Im, so the (1 - y²)^(|m|/2) factor of P_l^m is exactly what
  * the Cartesian power supplies. Evaluating the pair together leaves the whole
- * harmonic polynomial in (x, y, z): no angle, sine, square root, or division.
+ * harmonic polynomial in (x, y, z): no angle, sine, or square root.
  */
 inline float spherical_harmonic(int l, int m, const math::Vector &p, float N) {
   int abs_m = std::abs(m);
