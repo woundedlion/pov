@@ -26,7 +26,6 @@
 #include "tests/vec_test_util.h"
 #include "tests/test_fixture.h"
 #include "tests/test_harness.h"
-#include "tests/mesh_test_util.h"
 
 #include <algorithm>
 #include <array>
@@ -36,7 +35,6 @@
 #include <cstring>
 #include <span>
 #include <string_view>
-#include <type_traits>
 #include <utility>
 #include <vector>
 
