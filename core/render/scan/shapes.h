@@ -216,7 +216,9 @@ struct DistortedRingStack {
     constexpr float bin_scale = Table::BINS / math::PI_F;
     for (auto &cell : table.cells)
       cell = typename Table::Range{255, 0};
-    float clo[C], chi[C];
+    ScratchScope scratch(scratch_arena_b);
+    float *clo = scratch_arena_b.allocate_n<float>(C);
+    float *chi = scratch_arena_b.allocate_n<float>(C);
     for (int i = 0; i < n_rings; ++i) {
       const int s = slot_by_ring[i];
       if (s < 0)
