@@ -267,7 +267,7 @@ inline void test_packpixel_wire_order() {
  * 255,147,41 and brightness 128 leaves linear (33023, 13199, 5100), which
  * linear_to_srgb8 encodes as R=188, G=124, B=79.
  */
-inline void test_packpixel_shipped_brightness() {
+inline void test_packpixel_shipped_gains_half_brightness() {
   Frame::set_correction(hd107s::LINEAR_STRIP_GAIN.r,
                         hd107s::LINEAR_STRIP_GAIN.g,
                         hd107s::LINEAR_STRIP_GAIN.b);
@@ -282,6 +282,13 @@ inline void test_packpixel_shipped_brightness() {
   HS_EXPECT_EQ(pixel(f, 3)[1], 79);  // B
   HS_EXPECT_EQ(pixel(f, 3)[2], 124); // G
   HS_EXPECT_EQ(pixel(f, 3)[3], 188); // R
+
+  Frame::set_brightness(255);
+  f.pack_pixel(3, white);
+  HS_EXPECT_EQ(pixel(f, 3)[0], 0xFF);
+  HS_EXPECT_EQ(pixel(f, 3)[1], 110);
+  HS_EXPECT_EQ(pixel(f, 3)[2], 170);
+  HS_EXPECT_EQ(pixel(f, 3)[3], 255);
 
   reset_correction<N>();
 }
@@ -298,7 +305,7 @@ inline int run_hd107s_tests() {
   test_correct_pipeline();
   test_correct_multifactor();
   test_packpixel_wire_order();
-  test_packpixel_shipped_brightness();
+  test_packpixel_shipped_gains_half_brightness();
   reset_correction<N>(); // leave shared static state clean for any later module
   return fixture.result();
 }
