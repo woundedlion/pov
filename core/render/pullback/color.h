@@ -58,7 +58,7 @@ struct ColorControls {
                                       rotation entirely. */
   float hue_noise_scale = 1.0f;  /**< Spatial scale of the hue-noise LUT. */
   float hue_noise_speed = 0.0f;  /**< Per-frame advance of the hue-noise loop
-                                      phase; a change rebuilds the LUT. */
+                                      phase; nonzero speed rebakes each frame. */
   float palette_chroma = 0.62f;  /**< Chroma the generated palettes are baked
                                       at. */
   /** Palette repeats across the value range. */
