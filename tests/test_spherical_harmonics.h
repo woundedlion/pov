@@ -246,15 +246,23 @@ inline void test_spherical_harmonics_are_orthonormal() {
       HS_EXPECT_NEAR(gram[row][column], row == column ? 1.0 : 0.0, 2e-3);
 }
 
-/** @brief decode_lm inverts the flat index for every level it can reach. */
+/** @brief decode_lm inverts dense indices and large square-boundary rounding cases. */
 inline void test_decode_lm_inverts_the_flat_index() {
-  for (int idx = 0; idx < 4096; ++idx) {
+  auto check = [](int idx) {
     const std::pair<int, int> lm = SHMath::decode_lm(idx);
     const int l = lm.first;
     const int m = lm.second;
     HS_EXPECT_GE(l, 0);
     HS_EXPECT_LE(std::abs(m), l);
     HS_EXPECT_EQ(l * l + l + m, idx);
+    HS_EXPECT_TRUE(l * l <= idx && idx < (l + 1) * (l + 1));
+  };
+  for (int idx = 0; idx < 4096; ++idx)
+    check(idx);
+  for (int k : {3000, 5000, 12345, 40000}) {
+    const int SQUARE = k * k;
+    for (int idx : {SQUARE - 1, SQUARE, SQUARE + 1, SQUARE + k, SQUARE + 2 * k})
+      check(idx);
   }
 }
 
