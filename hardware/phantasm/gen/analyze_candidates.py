@@ -18,7 +18,8 @@ vs 'REAL FAULTS' (shorts/crossings/opens, and track-to-track clearance), which
 disqualify a candidate from the recommended pick. A candidate whose DRC did not
 produce a result reports as NOT GATED, never as clean, and is likewise ineligible. Via
 geometry is checked independently because Quilter may replace uploaded defaults;
-candidates below 0.45/0.20 mm are ineligible.
+candidates below 0.45/0.20 mm are ineligible. Project-rule and zone floors run
+independently of KiCad availability; refusals report as RULES.
 
 What matters here, and why:
 - The board is 4-layer SIG/GND/GND/SIG with BOTH inner layers poured GND, so any
@@ -59,6 +60,7 @@ ZONE_ITEM = re.compile(r"\bzone\b", re.I)
 DRC_OK = "ok"
 DRC_MISSING = "tool-missing"
 DRC_FAILED = "failed"
+DRC_RULES = "rules"
 MIN_STANDARD_VIA_DIAMETER_MM = fab.MIN_STANDARD_VIA_DIAMETER_MM
 MIN_STANDARD_VIA_DRILL_MM = fab.MIN_STANDARD_VIA_DRILL_MM
 
@@ -153,20 +155,26 @@ def run_drc(pcb_path):
     """Run kicad-cli DRC; return dict(status, errors, unconnected, real).
 
     status is DRC_OK (counts are real), DRC_MISSING (no usable kicad-cli) or DRC_FAILED
-    (the run errored out); the counts are zero for anything but DRC_OK, so callers
+    (the run errored out), or DRC_RULES (project/zone floor refusal). The counts
+    are zero for anything but DRC_OK, so callers
     must branch on status rather than read them as a clean result. `real` counts the
     errors that are not refill-fixable zone artifacts -- the shorts/crossings that
     disqualify a candidate. The report is read as JSON through fab's structural reader,
     so a report whose shape changed reports as DRC_FAILED, never as clean."""
+    refused = False
+    for validate, path in (
+            (fab.validate_project_rules, os.path.splitext(pcb_path)[0] + ".kicad_pro"),
+            (fab.validate_zone_geometry, pcb_path)):
+        try:
+            validate(path)
+        except (fab.ProjectRulesError, fab.ZoneGeometryError) as error:
+            print(f"{pcb_path}: {error}", file=sys.stderr)
+            refused = True
+    if refused:
+        return no_drc(DRC_RULES)
     cli = resolve_kicad_cli()
     if not cli:
         return no_drc(DRC_MISSING)
-    try:
-        fab.validate_project_rules(os.path.splitext(pcb_path)[0] + ".kicad_pro")
-        fab.validate_zone_geometry(pcb_path)
-    except (fab.ProjectRulesError, fab.ZoneGeometryError) as error:
-        print(f"{pcb_path}: {error}", file=sys.stderr)
-        return no_drc(DRC_FAILED)
     # Unique report per call + returncode check: a shared fixed path lets a
     # kicad-cli early-exit leave a stale neighbor's report to be misattributed.
     fd, rpt = tempfile.mkstemp(suffix=".json", prefix="cand_drc_")
@@ -391,6 +399,7 @@ def main(argv=None):
             dc = r["drc"]
             if dc["status"] != DRC_OK:
                 flag = ("NOT GATED (no usable kicad-cli)" if dc["status"] == DRC_MISSING
+                        else "RULES (project/zone floor refusal)" if dc["status"] == DRC_RULES
                         else "NOT GATED (DRC run failed)")
                 line += f" {'?':>7} {'?':>6}  {flag}"
             else:
@@ -475,6 +484,8 @@ def main(argv=None):
             return "?"
         if dc["status"] == DRC_FAILED:
             return "FAILED"
+        if dc["status"] == DRC_RULES:
+            return "RULES"
         if dc["errors"] == 0 and dc["unconnected"] == 0:
             return "ok"
         return "REAL" if (dc["real"] or dc["unconnected"]) else "refill"
