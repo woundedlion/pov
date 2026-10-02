@@ -113,7 +113,7 @@ struct NoiseFieldKey {
 /**
  * @brief Projects a spec onto the generator identity it needs.
  * @param spec Field being sampled.
- * @return The key two specs share exactly when one generator serves both.
+ * @return Cache key for the generator and the spec's sampling layout.
  */
 constexpr NoiseFieldKey noise_field_key(const NoiseFieldSpec &spec) {
   return {spec.domain,
