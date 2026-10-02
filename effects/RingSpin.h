@@ -112,7 +112,7 @@ public:
         Color4 colors[SUB_CAP];
         // SDF::Ring binds its Basis by reference, so it is neither default-
         // constructible nor assignable: slots are placement-new'd into raw
-        // storage over the bases[] entry they must outlive.
+        // storage referencing a bases[] entry that must outlive the slot.
         static_assert(std::is_trivially_destructible_v<SDF::Ring>);
         alignas(SDF::Ring) unsigned char shape_mem[SUB_CAP * sizeof(SDF::Ring)];
         int slots = 0;
