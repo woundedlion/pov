@@ -118,9 +118,9 @@ public:
 
   /**
    * @brief Pause/resume the effect's parameter-driving animations.
-   * @details Parameter animations and preset transitions wire this flag into
-   * their timeline events. Paused, their active-time clocks and callbacks
-   * freeze while ambient motion keeps running.
+   * @details Events wired to this flag freeze their active-time clocks and
+   * callbacks while paused. Ambient motion and unpausable preset blends keep
+   * running.
    * @param paused True to freeze parameter-driving animations, false to resume.
    */
   void setAnimationsPaused(bool paused) { anims_paused = paused; }
