@@ -111,7 +111,8 @@ struct Config {
   int32_t pulse_pitch_cols = 2; /**< Boundary-burst pulse pitch (> mask M). */
   // valid() requires beacon_frame_cols() < W/4 and acquire_quiet_cols >=
   // 2*gap_timeout_cols + 7*beacon_pitch_cols + 1. At the shipped constants,
-  // only gap_timeout_cols can decrease alone, down to pulse_pitch_cols + 1.
+  // gap_timeout_cols can decrease to pulse_pitch_cols + 1; pulse_pitch_cols
+  // may decrease when the external mask-M margin still holds.
   int32_t beacon_pitch_cols = 1; /**< Beacon digit pulse pitch (checksummed). */
   int32_t gap_timeout_cols = 4;  /**< Quiet time that terminates a burst. */
 
