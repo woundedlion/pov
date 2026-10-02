@@ -339,19 +339,20 @@ template <typename Base> struct ScaledProjectParams : Base {
 inline constexpr const char *PEIRCE_LAYOUT_IDS[] = {"diamond", "square",
                                                     "horizontal", "vertical"};
 
+static_assert(std::size(PEIRCE_LAYOUT_IDS) ==
+              static_cast<size_t>(projections::PeirceLayout::VERTICAL) + 1);
+
 struct PeirceChainParams : ScaledProjectParams<MeridianProjectChainParams> {
   float layout_scroll = 0.0f;
   uint8_t layout = PEIRCE_SQUARE_LAYOUT;
   static constexpr auto FIELDS = concat_fields<PeirceChainParams>(
       ScaledProjectParams<MeridianProjectChainParams>::FIELDS,
-      std::array{Field<PeirceChainParams>{"layout-scroll",
-                                          &PeirceChainParams::layout_scroll,
-                                          "Layout Scroll",
-                                          -1.0f,
-                                          1.0f,
-                                          FieldCurve::LERP,
-                                          FieldGate::ALWAYS,
-                                          {"layout", (1u << 2) | (1u << 3)}}});
+      std::array{Field<PeirceChainParams>{
+          "layout-scroll", &PeirceChainParams::layout_scroll, "Layout Scroll",
+          -1.0f, 1.0f, FieldCurve::LERP, FieldGate::ALWAYS,
+          TopologyGate{"layout",
+                       live_values(projections::PeirceLayout::HORIZONTAL,
+                                   projections::PeirceLayout::VERTICAL)}}});
   static constexpr auto TOPOLOGY = projection_frame_topology<PeirceChainParams>(
       TopologyField<PeirceChainParams>{"layout", &PeirceChainParams::layout,
                                        PEIRCE_LAYOUT_IDS,
