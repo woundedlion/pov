@@ -2,21 +2,22 @@
 """Generates core/color/gamut_lut.h: the sRGB gamut boundary bracket table used
 by gamut_clip_preserve_chroma.
 
-Preserve-chroma clipping holds L and hue fixed and scales (a, b) uniformly, so
-the clipped chroma is exactly min(C, C_max(hue, L)). C_max is a static property
-of the sRGB gamut, so it is bracketed here instead of solved per pixel.
+Preserve-chroma clipping holds L and hue fixed and scales (a, b) uniformly.
+The table brackets sampled estimates of the first-exit chroma; the runtime
+refines those brackets against the channel cubics. Finite probes can skip a
+narrow out-of-gamut interval and select a later crossing.
 
 The table is indexed by the diamond angle of (b, a) -- the trig-free angle from
-diamond_angle() in core/math/3dmath.h -- and by L. A cell stores the MINIMUM and
-the MAXIMUM C_max over the region it covers, so the true C_max of any ray in the
-cell lies inside the stored bracket. The per-pixel path scans four subintervals
-for the first exit, then bisects the selected subinterval three times against
-the channel cubics.
+diamond_angle() in core/math/3dmath.h -- and by L. Each cell stores guarded
+extrema of sampled C_max estimates. These brackets do not certify enclosure of
+every ray's exact first exit. The per-pixel path scans four subintervals, then
+bisects the selected subinterval three times against the channel cubics.
 
 A cell minimum alone is not enough: the gamut cusp jumps to a different RGB-cube
 edge as hue crosses a cube vertex, a feature narrower than any affordable cell,
 so the minimum under-saturates by up to 0.041 chroma at every resolution tried.
-The bracket keeps that feature inside [min, max] and the bisection resolves it.
+The sampled bracket and runtime refinement reduce this deficit on tested rays.
+Finite sampling and scans can still miss a narrow gap.
 
 BOUNDARY DEFINITION. C_max is the FIRST EXIT: the smallest C > 0 that leaves the
 gamut. That is not the same as "the largest in-gamut C" -- linear_rgb_in_gamut's
@@ -50,8 +51,8 @@ import numpy as np
 # Flash master resolution. init_gamut_lut() downsamples by integer factors, so
 # these bound the finest grid any effect can request.
 #
-# Resolution only sets how wide the bracket the per-pixel path refines starts,
-# so it buys accuracy, not reach. Worst first-exit deficit over the color
+# Resolution changes the sampled brackets and runtime search intervals.
+# Worst first-exit deficit over the color
 # suite's sweep, against that suite's 5e-3 bound:
 #   512x256 0.00132 | 256x128 0.00139 | 128x64 0.00235
 #   128x32  0.00291 | 64x64 0.00347 | 64x32 0.00360 | 32x16 0.00530
@@ -63,18 +64,17 @@ L_STEPS = 128
 # 65535 / 0.5: OKLab chroma inside sRGB stays below 0.5, so this spends the full
 # uint16 range on the live domain at ~7.6e-6 resolution.
 SCALE = 131070.0
-# Sub-samples per cell per axis, closed at both ends. Set so the sub-sample
-# spacing, not the cell size, bounds how far a cell extreme can be missed.
+# Sub-samples per cell per axis, closed at both ends.
 SUBSAMPLES = 16
-# Absolute chroma slack widening the bracket before quantization, covering the
-# residual between the sub-sampled cell extremes and the true continuous ones.
+# Absolute chroma slack widening sampled extrema before quantization;
+# this is not a certified bound on continuous cell extrema.
 GUARD = 1e-4
 # First-exit solver: coarse scan to bracket, then bisection inside the bracket.
 C_HI = 0.45
 COARSE = 192
 BISECT_ITERS = 28
-# Points checked below a candidate to prove the in-gamut set is connected up to
-# it. A ray that fails re-solves with the full coarse scan.
+# Connectivity probes below a candidate; narrow gaps can fall between them.
+# A ray with a failed probe re-solves with the full coarse scan.
 CONNECT_CHECKS = 24
 
 # Matches core/color/color_space.h linear_rgb_in_gamut(). --check pins these against
@@ -159,7 +159,7 @@ def _bisect(L, a_dir, b_dir, lo, hi, iters=BISECT_ITERS):
 
 
 def _scan_first_exit(L, a_dir, b_dir):
-    """First exit by a full coarse scan; correct but pays COARSE evaluations."""
+    """Refines the first sampled exit; gaps between coarse probes can be missed."""
     Cs = np.linspace(0.0, C_HI, COARSE + 1)
     out = np.zeros(L.shape + (COARSE + 1,), dtype=bool)
     for k in range(COARSE + 1):
@@ -172,10 +172,10 @@ def _scan_first_exit(L, a_dir, b_dir):
 
 
 def c_max(L, a_dir, b_dir):
-    """First-exit chroma along each ray.
+    """Estimates first-exit chroma along each ray.
 
-    Fast path: plain bisection, then verify the in-gamut set is connected below
-    the answer. The rare ray that fails re-solves with the full coarse scan.
+    Bisects, then probes connectivity below the answer. A failed probe selects
+    the coarse scan; either probe grid can miss a narrow disconnected gap.
     """
     cand = _bisect(L, a_dir, b_dir, np.zeros_like(L), np.full_like(L, C_HI))
 
@@ -199,8 +199,8 @@ def window_min(arr, axis, window, stride):
 
 
 def build_table():
-    """Returns the (L_STEPS, ANGLE_STEPS, 2) uint16 bracket table plus the worst
-    bracket width, which bounds the pre-refinement error."""
+    """Returns the (L_STEPS, ANGLE_STEPS, 2) uint16 table of guarded sampled
+    brackets plus their maximum width."""
     n_l = L_STEPS * SUBSAMPLES + 1
     l_samples = np.arange(n_l) / (L_STEPS * SUBSAMPLES)
 
@@ -266,12 +266,13 @@ def render(table):
 // Generated by tools/gen_gamut_lut.py. Do not edit.
 //
 // sRGB gamut boundary chroma C_max, indexed by the diamond angle of (b, a) and
-// by L. Each cell holds the minimum and the maximum C_max over the region it
-// covers, so the true C_max of any ray in the cell lies inside the stored
-// bracket; the per-pixel path scans four subintervals for the first exit, then
-// bisects that subinterval three times against the channel cubics.
-// C_max is the first exit from the gamut, not the largest in-gamut chroma; the
-// generator explains why the two differ.
+// by L. Each cell holds guarded minima and maxima of sampled C_max estimates.
+// These brackets do not certify enclosure of every ray's exact first exit.
+// The per-pixel path scans four subintervals, then bisects the selected one
+// three times against the channel cubics.
+// C_max samples estimate the first exit from the gamut, rather than the largest
+// in-gamut chroma. Finite generator and runtime probes can skip narrow gaps;
+// the generator explains why the crossings differ.
 //
 // This is the FLASH master at full resolution. init_gamut_lut() downsamples it
 // into the arena by integer factors, taking the minimum of the merged minima
