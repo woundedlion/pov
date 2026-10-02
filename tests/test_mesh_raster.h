@@ -1162,7 +1162,7 @@ inline void test_polygon_is_concave() {
   expect_concavity({0.f, 0.f, 0.5f, 0.f, 1.f, 0.f, 1.f, 1.f, 0.f, 1.f}, false);
   expect_concavity({0.f, 0.f, 1.f, 0.f, 2.f, 0.f, 3.f, 0.f}, false);
 
-  // Self-touching: the crossed quad's turn signs are mixed, so it is denied the
+  // Self-intersecting: the crossed quad's turn signs are mixed, so it is denied the
   // convex fast path.
   expect_concavity({0.f, 0.f, 1.f, 1.f, 1.f, 0.f, 0.f, 1.f}, true);
 }
