@@ -213,9 +213,8 @@ struct SphericalPolygon {
     if (len > 1e-9f) {
       en = en * (1.0f / len);
     } else {
-      // Degenerate canonical edge (circumradius near 0 or PI): both limits
-      // drive en toward ±u, so substitute the sector bisector as a defined unit
-      // normal.
+      // Degenerate canonical edge near zero circumradius: substitute the
+      // sector bisector as a defined unit normal.
       en = basis.u;
     }
     // Ensure outward: dot(center, n) should be negative
