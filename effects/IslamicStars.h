@@ -189,7 +189,7 @@ private:
    * 0.15/0.7 it folds across a <= 0.1 rad band by <= 0.012 rad (about half
    * a pixel at W=288), and at the default decay only within ~1.7 rad of the
    * origin. */
-  static constexpr float RIPPLE_AMP_MAX = 0.15f;
+  static constexpr float RIPPLE_AMP_MAX = RIPPLE_SMALL_ANGLE_MAX;
   static_assert(
       2 * BURST_MAX <= RIPPLE_POOL_SIZE,
       "IslamicStars: ripple pool must reserve capacity for two bursts");
