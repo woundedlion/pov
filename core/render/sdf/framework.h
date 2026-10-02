@@ -515,7 +515,11 @@ template <size_t Count> struct OctetStreams {
 /** @brief Single-owner strut coverage at monotone octet plane crossings. */
 struct OctetEvents : OctetStreams<4> {
   /** @brief Greatest number of streams that own a strut pair. */
-  static constexpr size_t OWNER_CAPACITY = 3;
+  static constexpr size_t OWNER_CAPACITY = STREAM_COUNT - 1;
+  /** @brief Maximum strut pairs owned by one stream. */
+  static constexpr size_t PAIR_CAPACITY = STREAM_COUNT - 1;
+  // The slowest stream owns no pair.
+  static_assert(OWNER_CAPACITY + 1 == STREAM_COUNT);
   /** @brief Validated frame projections into the four octet plane families. */
   struct PreparedProjection {
     std::array<math::Vector, STREAM_COUNT> normals; /**< Per unit spacing. */
@@ -530,7 +534,7 @@ struct OctetEvents : OctetStreams<4> {
     uint8_t other;
     uint8_t pair;
   };
-  std::array<std::array<OwnedPair, OWNER_CAPACITY>, STREAM_COUNT> owned;
+  std::array<std::array<OwnedPair, PAIR_CAPACITY>, STREAM_COUNT> owned;
   std::array<uint8_t, STREAM_COUNT> owned_count;
   std::array<float, STREAM_COUNT> positions;
   std::array<float, STREAM_COUNT> speeds;
