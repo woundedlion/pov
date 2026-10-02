@@ -45,6 +45,11 @@ class TestDocsImagesStage(unittest.TestCase):
         errors, staged, checked = di.stage(self.html, self.repo)
         self.assertEqual((errors, staged, checked), ([], 0, 1))
 
+    def test_noncanonical_artifact_root_is_resolved(self):
+        self.write_page('<img src="docs/A.png">')
+        self.write_asset("docs/A.png", b"pixels")
+        self.assertEqual(di.stage(self.html / ".." / "html", self.repo), ([], 1, 1))
+
     def test_reference_missing_everywhere_is_reported(self):
         self.write_page('<img alt="gone" src="docs/screenshots/Gone.png">')
         errors, staged, _ = di.stage(self.html, self.repo)
@@ -130,6 +135,11 @@ class TestDocsImagesVerify(unittest.TestCase):
         self.assertEqual(checked, 1)
         self.assertEqual(len(errors), 1)
         self.assertIn("names no file", errors[0])
+
+    def test_noncanonical_repository_root_is_resolved(self):
+        self.track("docs/A.png", b"pixels")
+        self.track("README.md", '<img src="docs/A.png">')
+        self.assertEqual(di.verify(self.repo / ".." / "repo"), ([], 1))
 
     def test_untracked_image_is_rejected(self):
         self.track("README.md", '<img src="untracked.png">')
