@@ -22,6 +22,7 @@
 #include "core/render/sdf/volume.h"
 #include "core/engine/memory.h"
 #include "hardware/pov_segment_map.h"
+#include "tests/mesh_test_util.h"
 #include "tests/pixel_test_util.h"
 #include "tests/vec_test_util.h"
 #include "tests/test_fixture.h"
