@@ -91,8 +91,8 @@ public:
    * @brief Forwards the current sample and seeds a fading trail point.
    * @param v World-space point on the unit sphere.
    * @param color Source color, forwarded unchanged this frame.
-   * @param age Incoming age (frames), non-negative; ttl = lifetime - age,
-   * seeded only if positive.
+   * @param age Incoming age (frames), non-negative; rounded to the nearest
+   * frame before subtracting from lifetime, and seeded only if ttl is positive.
    * @param alpha Blend alpha in [0, 1], forwarded unchanged and NOT gated: a
    * transparent sample still consumes a buffer slot. Screen::Trails deliberately
    * differs, dropping samples at its own MIN_TRAIL_ALPHA.
@@ -100,7 +100,8 @@ public:
    * filter chain inlines with no per-point indirect call.
    * @param pass Downstream 3D callback.
    * @details A point seeded here is still live for this frame's flush(), which
-   * re-emits it at t = 0. Fresh samples therefore composite twice per frame:
+   * re-emits it at the rounded incoming age divided by lifetime (t = 0 for
+   * age below half a frame). Fresh samples therefore composite twice per frame:
    * once at the caller's color/alpha, once at the trailFn's.
    */
   template <typename PassFnT>
