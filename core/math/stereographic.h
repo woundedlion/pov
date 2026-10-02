@@ -147,7 +147,7 @@ inline math::Complex gnomonic(const math::Vector &v) {
  * original vector, restoring the hemisphere the forward projection collapsed;
  * any other magnitude scales the result off the unit sphere.
  * @return The corresponding point on the unit sphere; the plane's infinity is
- * the equator point in the direction of z, not a pole (the projection ray
+ * the equator point in the direction of hemisphere_sign * z, not a pole (the projection ray
  * flattens into y = 0 as |z| grows).
  */
 inline math::Vector inv_gnomonic(const math::Complex &z,
