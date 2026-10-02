@@ -182,3 +182,8 @@ Capture `0df961b818ae` is unrecoverable. These historical orphan hashes are
 not reachable from the published branch. The KaleidoscopeSmooth shipping
 capture additionally used an unretained source patch, so its recorded base
 and patch hash cannot reconstruct the captured source from a fresh clone.
+
+For the 2026-08-26 O3 cycler captures, the parser counted the unmarked
+startup run as an extra entry 0. Their parenthesized entry counts are the
+authored preset count plus one; raw logs are no longer available to rederive
+these buckets.
