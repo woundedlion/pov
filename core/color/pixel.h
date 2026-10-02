@@ -216,12 +216,11 @@ __attribute__((always_inline)) inline Pixel lut_entry_pixel(const Pixel &e) {
 inline constexpr float MIN_VISIBLE_ALPHA = 1.0f / 255.0f;
 
 /**
- * @brief Per-sample alpha floor: below this a full-scale fragment encodes to 0.
+ * @brief Per-sample alpha floor from the first nonzero encoded linear channel.
  * @details linear_to_srgb8 first leaves zero at linear channel 10 of 65535
  * (sRGB's 12.92x toe puts the 0.5/255 rounding step at 1/(510*12.92) linear),
- * so a fragment whose premultiplied peak `max_channel(color) * alpha` stays
- * under 10/65535 cannot lift black off sRGB 0; over a lit pixel it can
- * change at most one code. Pinned against the decode
+ * so the cull uses 10/65535. Per-channel rounding can still lift an unrounded
+ * peak in [9.5, 10) to linear channel 10 and sRGB 1. Pinned against the decode
  * table by unit_color's test_min_encodable_alpha_is_the_encode_floor.
  */
 inline constexpr float MIN_ENCODABLE_ALPHA = 10.0f / 65535.0f;
