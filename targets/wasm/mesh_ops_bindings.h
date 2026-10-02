@@ -145,8 +145,8 @@ enum class MeshOpResult {
                               domain. */
   STALE_WRAPPER,         /**< The wrapper's storage was reclaimed by a
                               clearToolingMemory(). */
-  ARENA_UNAVAILABLE,     /**< The tooling arena block could not be allocated,
-                              so no MeshOps call can run. */
+  ARENA_UNAVAILABLE,     /**< The tooling arena block could not be allocated;
+                              arena-backed mesh operations are unavailable. */
 };
 
 // Outcome of the most recent MeshOps call that could answer null
