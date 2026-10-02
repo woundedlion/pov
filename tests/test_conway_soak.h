@@ -38,6 +38,12 @@ namespace conway_soak_tests {
  *          observable through the public effect surface.
  */
 struct HankinWalkProbe {
+  /** @brief Builds a clean endpoint mesh from the held seed. */
+  static PolyMesh node_mesh_at(const ConwayGraph::EdgeSpec &edge, bool to_end,
+                               const PolyMesh &seed, Arena &a, Arena &b) {
+    return HankinSolids<96, 20>::node_mesh_at(seed, edge, to_end, a, b);
+  }
+
   /**
    * @brief Current graph node (simple-registry index).
    */

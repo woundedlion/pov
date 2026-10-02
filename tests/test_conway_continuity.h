@@ -1217,42 +1217,6 @@ constexpr uint8_t SEEDFRAME_PAL_A = 1;
 constexpr uint8_t SEEDFRAME_PAL_B = 4;
 
 /**
- * @brief The clean node mesh at one end of an edge, built from the held seed —
- * HankinSolids::node_mesh_at, replicated for the walk simulation.
- */
-inline PolyMesh seedframe_node_mesh_at(const ConwayGraph::EdgeSpec &e,
-                                       bool to_end, const PolyMesh &seed_base,
-                                       Arena &a, Arena &b) {
-  float t = to_end ? e.t_to : e.t_from;
-  PolyMesh seed;
-  MeshOps::clone(seed_base, seed, a);
-  Solids::SolidBuilder builder(std::move(seed), a, b);
-  if (!ConwayGraph::is_platonic(e.seed_solid))
-    builder.ambo();
-  if (ConwayGraph::is_jitterbug_edge(e) && to_end) {
-    builder.ambo();
-  } else if (t > 0.0f) {
-    switch (e.op) {
-    case ConwayGraph::MorphOp::TRUNCATE:
-      builder.truncate(t);
-      break;
-    case ConwayGraph::MorphOp::EXPAND:
-      builder.expand(t);
-      break;
-    case ConwayGraph::MorphOp::SNUB:
-      builder.snub(t, to_end ? e.twist_to : e.twist_from);
-      break;
-    case ConwayGraph::MorphOp::CHAMFER:
-      builder.chamfer(t);
-      break;
-    }
-    if (e.settle && to_end)
-      builder.relax(ConwayGraph::SETTLE_RELAX_ITERATIONS);
-  }
-  return builder.build();
-}
-
-/**
  * @brief Drives the seed state machine over SEEDFRAME_SCRIPT and pins, per
  * leg start, the geometric face bijection and the inherited w = 0 shading.
  */
@@ -1366,15 +1330,8 @@ inline void test_leg_start_seed_frame_continuity() {
                                              .prev_face_centroid = cents};
 
     // The mesh the first morph frame draws.
-    auto clampp = [&](float t) {
-      t = std::max(t, T_EPS);
-      if (e.op == MorphOp::TRUNCATE)
-        t = std::min(t, 0.5f - T_EPS_AMBO);
-      if (is_jitterbug_edge(e))
-        t = std::max(t, T_JITTERBUG_OCTA_MIN);
-      return t;
-    };
-    const float t_start = clampp(reverse ? e.t_to : e.t_from);
+    const float t_start =
+        ConwayGraph::clamp_edge_endpoint(e, reverse ? e.t_to : e.t_from);
     const float tw_start = reverse ? e.twist_to : e.twist_from;
     PolyMesh start_raw =
         run_edge_op(e, leg_seed, work, temp, t_start, tw_start);
@@ -1469,8 +1426,8 @@ inline void test_leg_start_seed_frame_continuity() {
     // Completion: arrival node mesh becomes the next bookend; ADOPT as tabled.
     const bool arrived_at_to = !reverse;
     const int arrived = arrived_at_to ? e.to_node : e.from_node;
-    PolyMesh base =
-        seedframe_node_mesh_at(e, arrived_at_to, seed_base, work, temp);
+    PolyMesh base = conway_soak_tests::HankinWalkProbe::node_mesh_at(
+        e, arrived_at_to, seed_base, work, temp);
     node_arena.reset();
     node_mesh = Solids::finalize_solid(base, node_arena);
     if (ConwayGraph::adopts_seed(e, arrived, arrived_at_to)) {
