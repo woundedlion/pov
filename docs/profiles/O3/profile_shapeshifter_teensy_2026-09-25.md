@@ -2,7 +2,7 @@
 
 Shipping sibling: [selective-O3 report](../shipping/profile_shapeshifter_teensy_2026-09-29.md).
 
-Point-in-time snapshot (regenerate with `just profile ShapeShifter`).
+Point-in-time snapshot (regenerate with the explicit `profile_o3` Reproduce command).
 Raw capture: `after-o3.log.txt` (archive removed). Replaces `profile_shapeshifter_teensy_2026-08-26.md`. The current roster has nine presets; the old report's four-shape schedule describes an earlier version.
 
 
@@ -114,6 +114,6 @@ No matched WASM/native timing capture was used.
 
 ## Harness
 
-`targets/Profile/Profile.ino`, `HS_PROFILE_TARGET=ShapeShifter`, `HS_PROFILE_WINDOW=16`, `HS_PROFILE_EPOCH_REVS=1600`; `just profile ShapeShifter` routes through the locked harness. Use the explicit command above for the current nine-preset cycle.
+`targets/Profile/Profile.ino`, `HS_PROFILE_TARGET=ShapeShifter`, `HS_PROFILE_WINDOW=16`, `HS_PROFILE_EPOCH_REVS=1600`; the explicit `profile_o3` Reproduce command routes through the locked harness. Use the explicit command above for the current nine-preset cycle.
 
 Global -O3 vs selective -O3: mean render 23.813 → 23.806 ms (1.000×); peak 58.395 → 60.047 ms. O3 image minus shipping: FLASH code +29,288 B; ITCM +24,496 B.

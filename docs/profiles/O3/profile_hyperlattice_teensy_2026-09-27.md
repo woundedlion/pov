@@ -2,7 +2,7 @@
 
 [Shipping selective-O3 sibling](../shipping/profile_hyperlattice_teensy_2026-09-29.md).
 
-Point-in-time snapshot (regenerate with `just profile HyperLattice`).
+Point-in-time snapshot (regenerate with the explicit `profile_o3` Reproduce command).
 Replaces the 2026-09-26 standard report with a fresh full-cycle capture of the
 same shipping code, before experimental presets are added. Historical supporting artifacts are no longer retained. Raw capture (supporting artifact removed),
 provenance (supporting artifact removed),
@@ -179,7 +179,7 @@ comparison.
 
 `targets/Profile/Profile.ino`, `HS_PROFILE_TARGET=HyperLattice`, and
 `HS_PROFILE_WINDOW=16`; use the locked reproduce command above. The default
-`just profile HyperLattice` is also a locked run, with its default window size.
+the explicit `profile_o3` Reproduce command is also a locked run, with its default window size.
 Captured 2026-09-27 01:05 local time. The source, ELF hashes, and flags are retained
 in provenance; environment dumps are stored as JSON preserving their exact
 UTF-8 bytes and SHA-256, including original line endings.
@@ -321,7 +321,7 @@ Both use the same fixed Octet 3D settings, board, driver, and compiler.
 ### Harness
 
 `targets/Profile/Profile.ino` supplies the existing HS_PROFILE scopes.
-Use the locked reproduce command above; `just profile HyperLattice` without
+Use the locked reproduce command above; the explicit `profile_o3` Reproduce command without
 the experimental/fixed-preset flags measures the normal roster.
 
 ### Global -O3 versus selective -O3

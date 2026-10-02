@@ -2,7 +2,7 @@
 
 Shipping sibling: [selective -O3 report](../shipping/profile_displacementfield_teensy_2026-09-29.md).
 
-Point-in-time snapshot (regenerate with `just profile DisplacementField`).
+Point-in-time snapshot (regenerate with the explicit `profile_o3` Reproduce command).
 Raw captures: after: `build/prof/astra-regression-after-2026-09-19/build/prof/displacementfield_o3.log`, before: `build/prof/astra-regression-before-2026-09-19/build/prof/displacementfield_o3.log`. Replaces the historical 2026-08-26 capture (report no longer retained); the before/after comparison below uses fresh matched captures, not that older report.
 
 ## Setup
@@ -173,7 +173,7 @@ The fused scan remains the main rendering cost. These are live-device measuremen
 
 ## Harness
 
-`targets/Profile/Profile.ino`, `HS_PROFILE_TARGET=DisplacementField`, `HS_PROFILE_WINDOW=32`; `just profile DisplacementField` builds, flashes and captures the shipping image. Exact matched runs used:
+`targets/Profile/Profile.ino`, `HS_PROFILE_TARGET=DisplacementField`, `HS_PROFILE_WINDOW=32`; the explicit `profile_o3` Reproduce command builds, flashes and captures the shipping image. Exact matched runs used:
 
 ```sh
 HS_PROFILE_TREE=<before-or-after-tree> HS_TEENSY_PORT=COM3 \
