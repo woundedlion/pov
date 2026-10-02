@@ -736,9 +736,9 @@ inline void compare_shell_march(const ShellMarchCase (&cases)[Count],
 }
 
 /**
- * @brief The 3D layer march reproduces the per-cell traversal's composite for
- *        every frame it accepts, and declines frames whose filtered spheres can
- *        reach a neighboring layer cell.
+ * @brief The 3D layer march preserves traversal status and bounds composite error.
+ * @details Channels differ by at most 24 codes except for at most 1/2000 rays
+ *          at tangent silhouettes. Neighbor-reaching frames are declined.
  */
 inline void test_shell_layer_march_matches_cell_traversal() {
   const ShellMarchCase CASES[] = {{.78625f, .1f, 10.736f, 2, .0218f, 0},
@@ -769,8 +769,9 @@ inline void test_shell_layer_march_matches_cell_traversal() {
 }
 
 /**
- * @brief The 3D neighbor march reproduces the per-cell traversal where
- *        filtered spheres reach past a layer's rounding cell.
+ * @brief The 3D neighbor march preserves traversal status and bounds composite error.
+ * @details Channels differ by at most 24 codes except for at most 1/2000 rays
+ *          at tangent silhouettes, including neighbor-reaching spheres.
  */
 inline void test_shell_neighbor_march_matches_cell_traversal() {
   const ShellMarchCase CASES[] = {{.4645f, .15f, 7.5f, 1, .0218f, 0},
@@ -790,8 +791,9 @@ inline void test_shell_neighbor_march_matches_cell_traversal() {
 }
 
 /**
- * @brief The 4D-slice layer march reproduces the per-cell traversal's
- *        composite for every frame it accepts.
+ * @brief The 4D-slice march preserves traversal status and bounds composite error.
+ * @details Channels differ by at most 24 codes except for at most 1/2000 rays
+ *          at tangent silhouettes.
  */
 inline void test_shell_slice_march_matches_cell_traversal() {
   const ShellMarchCase CASES[] = {{1, .15f, 16, 2, .0218f, 0},
