@@ -12,7 +12,7 @@ project gets the routed board's fabrication floors.
 Hash-manifested snapshot directories -- those carrying SHA256SUMS.txt -- are skipped;
 rewriting one breaks its manifest.
 
-    python gen/heal_clearance.py
+    python hardware/phantasm/gen/heal_clearance.py
 """
 import argparse
 import glob
