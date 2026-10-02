@@ -165,8 +165,7 @@ private:
   /**
    * @brief Builds a fresh random palette for a spawning ring.
    * @return A mirrored, analogous, flat-brightness GenerativePalette.
-   * @details Each construction reseeds, so every ring draws from its own
-   *          distinct palette.
+   * @details Draws a base hue from the shared RNG; hues may repeat.
    */
   static GenerativePalette make_palette() {
     return GenerativePalette{EffectPaletteRecipes::displacement_field(
