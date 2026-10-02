@@ -1865,16 +1865,14 @@ inline void case_slerp_nan() {
 
 /**
  * @brief Death case: make_rotation(from, to) with a NaN source must trap.
- * @details Math-core surface — the d-based parallel/antiparallel guards are
- *          NaN-false, so it falls through to cross(from,to).normalized(), which
- *          traps on the NaN-poisoned axis.
+ * @details A NaN component fails the unit-vector precondition before rotation
+ *          arithmetic, complementing the finite non-unit input case.
  */
 inline void case_make_rotation_vectors_nan() {
   const float nan = opaque(std::numeric_limits<float>::quiet_NaN());
   math::Vector from{nan, opaque(0.0f), opaque(0.0f)};
   math::Vector to{opaque(0.0f), opaque(0.0f), opaque(1.0f)};
-  math::Quaternion q =
-      math::make_rotation(from, to); // NaN axis -> normalized() -> HS_CHECK
+  math::Quaternion q = math::make_rotation(from, to);
   if (q.r == 42.0f)
     std::printf("x");
 }
