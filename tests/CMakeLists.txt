@@ -801,6 +801,7 @@ add_custom_target(regenerate_shader_chain_catalog
 
 add_executable(noise_golden_gen ${HS_ROOT}/tools/noise_golden_export.cpp)
 target_include_directories(noise_golden_gen PRIVATE ${HS_ENGINE_INCLUDES})
+target_link_libraries(noise_golden_gen PRIVATE hs_host_abi)
 _hs_warnings(noise_golden_gen)
 
 add_executable(sdf_periodic_benchmark periodic_surface_benchmark.cpp)
