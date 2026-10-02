@@ -18,7 +18,17 @@ case "$log" in
   /*|[A-Za-z]:[\\/]*) ;;
   *) log="$PWD/$log" ;;
 esac
-cd "$(dirname "$0")/.."
+# shellcheck source-path=SCRIPTDIR source=device_lock.sh
+. "$(dirname "$0")/device_lock.sh"
+TREE=$(git -C "$(dirname "$0")" rev-parse --show-toplevel)
+cd "$TREE"
+cleanup() {
+  [ -z "$TREE_TOKEN" ] || _hs_break_lock "$TREE_LOCK" "$TREE_TOKEN" || :
+}
+trap cleanup EXIT
+trap 'exit 130' INT
+trap 'exit 143' TERM
+acquire_tree_lock
 
 export LC_ALL=C
 rm -rf .pio/build_cache .pio/build
