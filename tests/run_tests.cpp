@@ -14,8 +14,8 @@
 // as a real target does.
 #include "core/engine/engine.h"
 
-// One include per registered module, paired 1:1 with a row in
-// HS_TEST_MODULE_LIST below; keep the two in sync when adding a module.
+// Each module needs an include, an HS_TEST_MODULE_LIST row, and a matching
+// _hs_test_modules entry in tests/CMakeLists.txt.
 #include "tests/test_3dmath.h"
 #include "tests/test_concepts.h"
 #include "tests/test_memory.h"
@@ -108,9 +108,8 @@ struct TestModule {
   bool effects_tier;
 };
 
-// Single source of truth for the roster: expands into both MODULES[] and the
-// derived HS_TEST_MODULE_COUNT below. Adding a module means an #include above
-// AND one X(...) row here. Mirrors targets/effects.h's HS_EFFECT_LIST.
+// Expands into MODULES[] and HS_TEST_MODULE_COUNT; mirrored by
+// _hs_test_modules in tests/CMakeLists.txt.
 #define HS_TEST_MODULE_LIST(X)                                                 \
   X("3dmath", hs_test::math3d_tests::run_3dmath_tests, false)                  \
   X("concepts", hs_test::concepts_tests::run_concepts_tests, false)            \
