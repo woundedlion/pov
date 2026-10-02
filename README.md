@@ -152,7 +152,7 @@ Most LED art codebases use gamma-corrected 8-bit values throughout and blend in 
 
 ### Why Compile-Time Resolution?
 
-Templating on `<W, H>` means every pixel coordinate transform, bounding box computation, and LUT index is resolved at compile time. Each hardware image runs its own specialization — `<96, 20>` for Holosphere, `<288, 144>` for Phantasm — with no runtime overhead from generality; the simulator and test suite instantiate both. Each supported resolution is a separate instantiation, so binary size increases in exchange.
+Templating on `<W, H>` lets the compiler fold resolution-dependent constants in coordinate transforms, bounding box computations, and LUT indexing. Coordinates, bounds, and indices that depend on scene data are still computed at runtime. Each hardware image runs its own specialization — `<96, 20>` for Holosphere, `<288, 144>` for Phantasm — with no runtime overhead from generality; the simulator and test suite instantiate both. Each supported resolution is a separate instantiation, so binary size increases in exchange.
 
 ### Why Arena Allocation?
 
@@ -623,14 +623,14 @@ C++ codebase
 
 ### Compile-Time Resolution Parameterization
 
-Every rendering-related class is templated on `<int W, int H>`:
+Resolution-dependent effects and pipeline stages are templated on `<int W, int H>`:
 
 ```cpp
 template <int W, int H> class HopfFibration : public Effect { ... };
 template <int W, int H, typename... Filters> struct Pipeline { ... };
 ```
 
-This means the compiler generates fully specialized, zero-overhead versions of the entire pipeline for each supported resolution. The original Holosphere runs `<96, 20>` (96 columns × 20 rows). The new art piece runs `<288, 144>`. The simulator supports both resolutions.
+The compiler specializes those templates for each supported resolution. Shared interfaces such as `Canvas` and `Effect` use runtime dimensions; resolution-independent geometry types do not need these template parameters. The original Holosphere runs `<96, 20>` (96 columns × 20 rows). The new art piece runs `<288, 144>`. The simulator supports both resolutions.
 
 The `platform.h` header abstracts all target-specific differences:
 
