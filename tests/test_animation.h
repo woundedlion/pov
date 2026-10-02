@@ -2377,6 +2377,80 @@ inline void test_sweep_phase_front_ordering() {
                Segue::sweep_phase(0.5f, 0.8f, band));
 }
 
+/** @brief Pins sweep coordinate selection and transformed topology slots. */
+inline void test_meshcarousel_face_phases_use_sweep_frame_and_slots() {
+  hs_test::reset_globals();
+  static uint8_t polybuf[1 << 14];
+  Arena polyarena(polybuf, sizeof(polybuf));
+  PolyMesh poly;
+  build_octahedron(poly, polyarena);
+  MeshState base, transformed;
+  MeshOps::compile(poly, base, persistent_arena, scratch_arena_a);
+  MeshOps::compile(poly, transformed, persistent_arena, scratch_arena_a);
+  for (auto &vertex : transformed.vertices) {
+    vertex.y = -vertex.y;
+    vertex.z = -vertex.z;
+  }
+  base.topology.bind(persistent_arena, base.num_faces());
+  transformed.topology.bind(persistent_arena, transformed.num_faces());
+  for (size_t face = 0; face < base.num_faces(); ++face) {
+    base.topology.push_back(0);
+    transformed.topology.push_back(static_cast<uint16_t>(face + 19));
+  }
+  ArenaVector<float> phases;
+  phases.bind(persistent_arena, base.num_faces());
+  auto check = [&]<typename Policy>(const MeshState &expected,
+                                    const MeshState &other) {
+    MeshCarousel<Policy> carousel;
+    if constexpr (requires { carousel.segue().retarget(math::Y_AXIS); })
+      carousel.segue().retarget(math::Y_AXIS);
+    else {
+      carousel.segue().num_classes = 16;
+      for (int i = 0; i < 16; ++i)
+        carousel.segue().rank[i] = static_cast<uint8_t>(i);
+    }
+    carousel.fill_face_phases(base, transformed, 0.5f, phases);
+    HS_EXPECT_EQ(phases.size(), expected.num_faces());
+    bool distinguishes_frame = false;
+    for (size_t face = 0; face < expected.num_faces(); ++face) {
+      auto center = [&](const MeshState &mesh) {
+        return math::normalized_or(Animation::OpLeg::face_vertex_sum(
+                                       mesh.vertices.data(),
+                                       mesh.get_faces_data(),
+                                       mesh.get_face_offsets_data()[face],
+                                       mesh.get_face_counts_data()[face]),
+                                   math::UP);
+      };
+      const int CLS = MeshPaletteBank::slot_of(transformed.topology[face]);
+      const auto &policy = carousel.segue();
+      const float WANT = policy.face_phase(
+          0.5f, policy.face_offset(center(expected), face, CLS),
+          policy.face_fade_frac(face));
+      const float OTHER =
+          policy.face_phase(0.5f, policy.face_offset(center(other), face, CLS),
+                            policy.face_fade_frac(face));
+      HS_EXPECT_NEAR(phases[face], WANT, 1e-6f);
+      distinguishes_frame |= fabsf(WANT - OTHER) > 0.1f;
+    }
+    if constexpr (!std::is_same_v<Policy, Segue::Breakdown>)
+      HS_EXPECT_TRUE(distinguishes_frame);
+    else {
+      const auto &policy = carousel.segue();
+      HS_EXPECT_NEAR(phases[0],
+                     policy.face_phase(0.5f, policy.face_offset(
+                                                 math::UP, 0,
+                                                 MeshPaletteBank::slot_of(
+                                                     transformed.topology[0]))),
+                     1e-6f);
+      HS_EXPECT_TRUE(phases[0] != policy.face_phase(0.5f, policy.face_offset(
+                                                              math::UP, 0, 0)));
+    }
+  };
+  check.template operator()<Segue::TerminatorSweep>(base, transformed);
+  check.template operator()<Segue::Shockwave>(transformed, base);
+  check.template operator()<Segue::Breakdown>(transformed, base);
+}
+
 /**
  * @brief Verifies TerminatorSweep orders faces along its axis: the axis pole
  * extinguishes first (offset 1), the antipode last (offset 0), and the
@@ -4129,6 +4203,7 @@ inline int run_animation_tests() {
   test_iris_bloom_fill_contracts_to_face_centers();
   test_lace_fill_keeps_edge_band();
   test_sweep_phase_front_ordering();
+  test_meshcarousel_face_phases_use_sweep_frame_and_slots();
   test_terminator_sweep_orders_by_axis();
   test_terminator_sweep_fades_faces_over_fixed_frames();
   test_terminator_sweep_fade_sliders_apply_without_reschedule();
