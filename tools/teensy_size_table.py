@@ -12,7 +12,8 @@ the table and the gate can never disagree about what a line means.
 
 With no argument every environment platformio.ini declares is built -- the set a
 bare `pio run` covers, which is also the set the warning gate expects -- so a
-new image is size-gated without a second list to edit here.
+new image is built and reported without a second list to edit here. Size/layout
+budgets are enforced only in environments enabling teensy_gate_extra.py.
 
 Run:  python tools/teensy_size_table.py [<env> ...]
 """
