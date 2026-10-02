@@ -99,6 +99,13 @@ class ShellGateTests(unittest.TestCase):
         self.git("add", "--", "omitted.py")
         self.assertNotEqual(self.gate("ruff_selection_guard.sh").returncode, 0)
 
+    def test_eslint_selection_reports_no_tracked_sources(self):
+        self.stub("npx", "echo '[]'")
+        result = self.gate("eslint_selection_guard.sh")
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("no tracked JavaScript sources", result.stderr)
+        self.assertNotIn("omitted tracked sources", result.stderr)
+
     def test_eslint_selection_requires_a_file_path(self):
         (self.root / "source.js").touch()
         self.git("add", "--", "source.js")

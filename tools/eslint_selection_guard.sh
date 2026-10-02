@@ -38,7 +38,11 @@ try {
 const selected = new Set(report
   .filter(row => typeof row.filePath === 'string').map(row => path.resolve(row.filePath)));
 const missing = expected.filter(name => !selected.has(name));
-if (!expected.length || missing.length) {
+if (!expected.length) {
+  console.error('eslint selection guard found no tracked JavaScript sources');
+  process.exit(1);
+}
+if (missing.length) {
   console.error('eslint omitted tracked sources:', ...missing);
   process.exit(1);
 }
