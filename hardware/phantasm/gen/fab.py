@@ -1,4 +1,4 @@
-"""Regenerate the PCB fabrication / assembly outputs from the COMMITTED board.
+"""Regenerate rev 1.1 fabrication / assembly outputs from the COMMITTED board.
 
 Produces, into ../gen/out/:
   * jlc/        — Gerbers (Protel ext), Excellon drill, and a JLCPCB upload zip
@@ -1331,10 +1331,18 @@ def validate_assembly_metadata(posrows, assembled):
     return metadata
 
 
+def fabrication_revision(value):
+    if value != "1.1":
+        raise argparse.ArgumentTypeError(
+            f"rev {value}: routing, protection and revision-specific BOM are not validated; "
+            "the exporter supports rev 1.1 only")
+    return value
+
+
 def parse_args(argv=None):
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    parser.add_argument("--revision", choices=("1.1", "1.3"), default="1.1",
-                        help="fabrication target; rev 1.3 is a prototype and cannot be exported")
+    parser.add_argument("--revision", choices=("1.1",), type=fabrication_revision, default="1.1",
+                        help="rev 1.1 only; other revisions have no validated fabrication package")
     parser.add_argument(
         "--verify", action="store_true",
         help="re-hash the generated fab package against its digest manifest "
@@ -1574,8 +1582,6 @@ def main():
 
 if __name__ == "__main__":
     args = parse_args()
-    if args.revision == "1.3":
-        sys.exit("rev 1.3 is a prototype; routing, protection and revision-specific BOM are not validated")
     if args.verify:
         verify_main()
     else:
