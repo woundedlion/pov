@@ -436,7 +436,11 @@ inline void check_snapshot_contract(const char *name) {
     moved.params.template get<"lens">().mobius.d = {0.8f, -0.1f};
   }
   moved.params.template get<"color">().palette_mapping =
-      Pullback::Color::PaletteMapping::BELL;
+      static_cast<Pullback::Color::PaletteMapping>(
+          (static_cast<uint8_t>(
+               captured.params.template get<"color">().palette_mapping) +
+           1) %
+          4);
   HS_EXPECT_TRUE(effect.restore_parameters(moved));
   verify_params_equal(effect.serialize_parameters().params, moved.params);
   HS_EXPECT_TRUE(effect.restore_parameters(captured));
