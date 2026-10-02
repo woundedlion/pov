@@ -607,8 +607,8 @@ HS_O3_FN __attribute__((always_inline)) inline float fast_reciprocal(float x) {
 }
 
 /**
- * @brief Fast reciprocal square root for x > 0.
- * @param x Input value; the domain is x > 0 (zero and negatives are undefined).
+ * @brief Fast reciprocal square root for positive normal floats.
+ * @param x Positive normal float; subnormal inputs lose accuracy.
  * @return An approximation of 1 / sqrt(x).
  * @details Bit-hack initial guess refined by two Newton steps; peak relative
  * error ~5e-6, one-sided low up to the rounding of the final multiply.
