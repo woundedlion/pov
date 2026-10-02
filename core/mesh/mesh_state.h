@@ -20,9 +20,9 @@
 namespace MeshOps {
 
 /**
- * @brief Deep-copies n contiguous elements into a freshly-bound ArenaVector.
+ * @brief Copies n contiguous elements into an arena-bound ArenaVector.
  * @tparam T Element type.
- * @param dst Destination vector, bound to exactly n elements from arena.
+ * @param dst Destination vector, bound with capacity at least n from arena.
  * @param src Pointer to the first source element (ignored when n == 0).
  * @param n Number of elements to copy.
  * @param arena Arena supplying storage for dst.
