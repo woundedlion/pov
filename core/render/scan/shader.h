@@ -130,8 +130,7 @@ private:
             typename RowFn = std::nullptr_t>
   HS_O3_FN __attribute__((always_inline)) static void
   draw_typed(Canvas &canvas, ShaderFn &&shader, RowFn &&begin_row = nullptr) {
-    // The sample-offset table has four distinct sub-pixel positions; only 1 and
-    // the 2x2 grid (4) are valid.
+    // SsaaGrid::at() provides the four +/-0.25-pixel positions.
     static_assert(SAMPLES == 1 || SAMPLES == 4,
                   "Scan::Shader SSAA supports only SAMPLES == 1 or 4");
     auto sample = [&](const math::Vector &v, int x, int y) {
