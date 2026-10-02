@@ -1351,11 +1351,12 @@ inline void test_motion_reanchor_after_path_swap() {
  * @brief A co-driver sharing a repeating Motion's Orientation survives the
  * repeat seam.
  * @details Motion re-seats via a relative delta; the co-driver's accumulated
- * rotation persists across the seam. With a CLOSED path Motion's per-cycle contribution telescopes to
- * identity, so the only thing that should move the shared orientation at a seam
- * is the co-driver's own small step — never a large snap-back. Assert the
- * probe's per-frame angular step stays bounded across many seams while its
- * cumulative travel is large (so the co-driver is provably active, not a no-op).
+ * rotation persists across the seam. With a CLOSED path Motion's per-cycle
+ * contribution telescopes to identity, so the only thing that should move the
+ * shared orientation at a seam is the co-driver's own small step — never a
+ * large snap-back. Assert the probe's per-frame angular step stays bounded
+ * across many seams while its cumulative travel is large (so the co-driver is
+ * provably active, not a no-op).
  */
 inline void test_motion_codriven_survives_repeat_seam() {
   using Ori = math::Orientation<16>;
