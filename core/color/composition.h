@@ -695,10 +695,9 @@ struct ChromaPulseShade {
 
 /**
  * @brief Grains the palette's brightness with an evolving noise field —
- * a subtler, hue-exact shimmer than SparkleShade's white glints.
- * @details Scales all three linear channels uniformly, so hue and saturation
- * ratios are exact below the saturation point; a gain above 1 clips bright
- * channels. No OKLab round-trip.
+ * a subtler shimmer than SparkleShade's white glints.
+ * @details Scales all three linear channels uniformly before per-channel
+ * rounding; a gain above 1 clips bright channels. No OKLab round-trip.
  */
 struct LightnessGrainShade {
   const float *time;
