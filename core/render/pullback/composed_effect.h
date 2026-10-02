@@ -1033,9 +1033,9 @@ consteval size_t parameter_name_bytes(ResourceList<Resources...>) {
  * through `preset(index)`, then `PRESETS`; only single-preset effects may fall
  * back to startup params.
  * `initial_params` is optional. Other optional members are `ANIMATED_MOBIUS`,
- * `CAMERA_SPIN_RATE` and an `after_composed_init()` hook; `OUTER_NOISE_SEED` /
+ * `CAMERA_SPIN_RATE` and an `after_composed_init()` hook; `WARP_NOISE_SEED` /
  * `SOURCE_NOISE_SEED` / `SURFACE_NOISE_SEED` are inherited members an effect
- * shadows to decorrelate one noise field. A shade() shadow that forwards to
+ * shadows to decorrelate its warp, source, or surface noise fields. A shade() shadow that forwards to
  * RenderPipeline::shade changes only the entry trampoline's placement; the
  * pipeline body remains in hot flash. Different body emission requires calling
  * RenderPipeline::evaluate(view, frame.ctx, frame.prepared) from the shadow.
@@ -1101,7 +1101,7 @@ public:
     return result;
   }
   static constexpr bool HAS_SURFACE_NOISE = has_noise<ResourceKind::SURFACE>();
-  static constexpr bool HAS_OUTER_NOISE = has_noise<ResourceKind::WARP>();
+  static constexpr bool HAS_WARP_NOISE = has_noise<ResourceKind::WARP>();
   static constexpr bool HAS_SOURCE_NOISE = has_noise<ResourceKind::SOURCE>();
   using RenderPipeline = typename SpecT::template Pipeline<Binding>;
   using Metadata =
@@ -1128,7 +1128,7 @@ public:
 
   /** @brief Per-field noise seeds; an effect shadows one to decorrelate its
       field from the shared spatial phase. */
-  static constexpr int32_t OUTER_NOISE_SEED = EFFECT_NOISE_SEED;
+  static constexpr int32_t WARP_NOISE_SEED = EFFECT_NOISE_SEED;
   static constexpr int32_t SOURCE_NOISE_SEED = EFFECT_NOISE_SEED;
   static constexpr int32_t SURFACE_NOISE_SEED = EFFECT_NOISE_SEED;
 
@@ -1154,7 +1154,7 @@ public:
     params.visit([&]<typename Resource>(auto &) {
       if constexpr (ComposedDetail::RESOURCE_NOISE<Resource>) {
         constexpr int32_t SEED = Resource::KIND == ResourceKind::WARP
-                                     ? Derived::OUTER_NOISE_SEED
+                                     ? Derived::WARP_NOISE_SEED
                                  : Resource::KIND == ResourceKind::SOURCE
                                      ? Derived::SOURCE_NOISE_SEED
                                      : Derived::SURFACE_NOISE_SEED;
