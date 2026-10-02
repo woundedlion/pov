@@ -19,7 +19,7 @@
 
 namespace hs_test {
 
-/** FNV-1a 64-bit offset basis. */
+/** Project seed for FNV-1a 64-bit hashes. */
 inline constexpr uint64_t FNV1A64_BASIS = 1469598103934665603ull;
 /** FNV-1a 64-bit prime. */
 inline constexpr uint64_t FNV1A64_PRIME = 1099511628211ull;
