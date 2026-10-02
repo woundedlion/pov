@@ -21,6 +21,7 @@ import sys
 import tempfile
 import types
 import unittest
+from unittest import mock
 from pathlib import Path
 
 TOOLS = Path(__file__).resolve().parent.parent
@@ -1783,7 +1784,7 @@ class TestGateExtra(unittest.TestCase):
     def test_candidates_include_the_default_core_dir(self):
         # No PlatformIO platform object (plain SCons env): the gate still probes
         # the default core packages dir rather than giving up on PATH alone.
-        with unittest.mock.patch.dict(os.environ):
+        with mock.patch.dict(os.environ):
             os.environ.pop("PLATFORMIO_CORE_DIR", None)
             cands = self.ge._teensy_size_candidates(self._env())
         expected = os.path.join(os.path.expanduser("~"), ".platformio",
@@ -1792,7 +1793,7 @@ class TestGateExtra(unittest.TestCase):
 
     def test_candidates_honor_the_core_directory_override(self):
         with tempfile.TemporaryDirectory() as directory, \
-                unittest.mock.patch.dict(os.environ, PLATFORMIO_CORE_DIR=directory):
+                mock.patch.dict(os.environ, PLATFORMIO_CORE_DIR=directory):
             cands = self.ge._teensy_size_candidates(self._env())
             self.assertIn(os.path.join(directory, "packages", "tool-teensy",
                                        "teensy_size.exe"), cands)
