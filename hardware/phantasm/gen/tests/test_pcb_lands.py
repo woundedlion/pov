@@ -119,8 +119,7 @@ def routed_chip_lands():
 
 
 class EmbedLandTests(unittest.TestCase):
-    """Embedded lands come from the footprint library, with the D_BUS Bourns
-    land override applied per reference."""
+    """Library passive lands survive embedding without mutating the cache."""
 
     def setUp(self):
         self.cache_key = (str(Path(pcb.FP_DIR) / "Test.pretty"), CHIP_LIBID)
