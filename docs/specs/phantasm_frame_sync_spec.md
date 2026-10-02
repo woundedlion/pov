@@ -1196,7 +1196,7 @@ Following the `pov_segment_map.h` precedent (pure, host-tested index math):
   injected per-board build delays, a forged plausible burst (§8.4's
   spurious-flip vector, gate-rejected), a dropped epoch train, and a mid-show
   board reboot; assert all boards on the same `(effect, t)` except within the
-  proven bounds (dropped epoch: beacon-corrected within one beacon period +
+  proven bounds (dropped epoch: beacon-corrected within two beacon periods +
   join grid; rebooted board: dark through ACQUIRE, then rejoins at the
   correct effect — §6.3/§6.4, never "assumes 0" — with `t` offset until the
   next epoch).

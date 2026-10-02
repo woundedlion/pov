@@ -634,7 +634,7 @@ private:
         return;
       }
       beacon_index_candidate = -1;
-      // Missed epoch (all repeats): correct within ≤16 revs (spec §6.3.2).
+      // Confirmed missed epoch (spec §6.3.2).
       content_tracker.effect_index = idx;
       content_tracker.rev_in_effect = f.rev_count;
       saturating_increment(telemetry_counters.beacon_index_corrections);
