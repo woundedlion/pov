@@ -1422,19 +1422,22 @@ inline void test_mobius_frame_admission() {
 
 /** @brief Sweeps the parameter snapshot contract over every specialization. */
 inline void test_composed_snapshot_contract() {
-  test_mobius_frame_admission();
 #define HS_COMPOSED_SNAPSHOT(name, seconds)                                    \
   check_snapshot_contract<name>(#name);
   HS_SHADER_PRODUCT_GROUP(HS_COMPOSED_SNAPSHOT)
 #undef HS_COMPOSED_SNAPSHOT
 }
 
-/** @brief Sweeps the preset choreography over every specialization. */
-inline void test_composed_preset_choreography() {
+/** @brief Pins the PentBright initial lattice scale. */
+inline void test_composed_pentbright_lattice_scale() {
   const auto polar = KaleidoscopePentBright<SMALL_W, SMALL_H>::initial_params();
   HS_EXPECT_NEAR(polar.template get<"source">().lattice_cell_scale *
                      math::TWO_PI_F,
                  5.0f, 1e-6f);
+}
+
+/** @brief Sweeps the preset choreography over every specialization. */
+inline void test_composed_preset_choreography() {
 #define HS_COMPOSED_PRESETS(name, seconds)                                     \
   check_preset_choreography<name>(#name);
   HS_SHADER_PRODUCT_GROUP(HS_COMPOSED_PRESETS)
@@ -1456,7 +1459,6 @@ inline void test_composed_log_positive_curve() {
 
 /** @brief Sweeps the crossfade interpolation over every specialization. */
 inline void test_composed_preset_interpolation() {
-  test_composed_log_positive_curve();
 #define HS_COMPOSED_INTERP(name, seconds)                                      \
   check_preset_interpolation<name>(#name);
   HS_SHADER_PRODUCT_GROUP(HS_COMPOSED_INTERP)
@@ -2660,10 +2662,13 @@ inline int run_composed_effect_tests() {
   test_composed_hand_registered_families();
   test_composed_direct_surface_placement();
   test_composed_slider_registration();
+  test_mobius_frame_admission();
   test_composed_snapshot_contract();
   test_parameter_layout_reorder();
   test_composed_parameter_schema_pins();
+  test_composed_pentbright_lattice_scale();
   test_composed_preset_choreography();
+  test_composed_log_positive_curve();
   test_composed_preset_interpolation();
   test_composed_document_values();
   test_flowers_longitude_seam();
