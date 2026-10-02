@@ -880,6 +880,55 @@ class CaptureComparison(unittest.TestCase):
                 oracles=ORACLES,
             )
 
+    def test_backend_rejects_malformed_streams(self):
+        programs, _ = _test_manifest()
+        specs = capture.operation_specs(programs)
+        header = b"HSPB" + struct.pack("<HHHIH", 3, 1, 1, len(specs), len(ORACLES))
+        records = []
+        for spec in specs:
+            name = spec["name"].encode()
+            records.append(
+                struct.pack("<HHH", spec["preset"],
+                            capture.OPERATION_CODES[spec["mapping"]], len(name))
+                + name + struct.pack("<HHHHI", 0, 1, 0, 60, 1)
+                + struct.pack("<HHH", spec["preset"], 3, 4)
+            )
+        metrics = []
+        for oracle in ORACLES:
+            name = oracle["oracle_id"].encode()
+            metrics.append(struct.pack("<H", len(name)) + name + struct.pack("<HI", 0, 3))
+        body = b"".join(records)
+        tail = b"".join(metrics)
+        valid = header + body + tail
+        unknown_oracle = b"unknown"
+        cases = {
+            "magic": b"FAIL" + valid[4:],
+            "truncated_header": valid[:5],
+            "version": valid[:4] + struct.pack("<H", 2) + valid[6:],
+            "record_count": valid[:10] + struct.pack("<I", len(specs) - 1) + valid[14:],
+            "truncated_name": header + records[0][:7],
+            "invalid_name": header + records[0][:6] + b"\xff" + records[0][7:] + b"".join(records[1:]) + tail,
+            "duplicate_record": header + records[0] + records[0] + b"".join(records[2:]) + tail,
+            "unknown_record": header + struct.pack("<H", 65535) + body[2:] + tail,
+            "operation_code": header + body[:2] + struct.pack("<H", 65535) + body[4:] + tail,
+            "truncated_pixels": header + records[0][:-1],
+            "missing_record": header + b"".join(records[:-1]) + tail,
+            "duplicate_oracle": header + body + metrics[0] + metrics[0] + b"".join(metrics[2:]),
+            "unknown_oracle": header + body + struct.pack("<H", len(unknown_oracle)) + unknown_oracle + struct.pack("<HI", 0, 3) + b"".join(metrics[1:]),
+            "zero_samples": header + body + metrics[0][:-4] + struct.pack("<I", 0) + b"".join(metrics[1:]),
+            "truncated_oracle_name": header + body + metrics[0][:3],
+            "invalid_oracle_name": header + body + metrics[0][:2] + b"\xff" + metrics[0][3:] + b"".join(metrics[1:]),
+            "missing_oracle": header[:-2] + struct.pack("<H", len(metrics) - 1) + body + b"".join(metrics[:-1]),
+            "trailing_bytes": valid + b"trailing",
+        }
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "capture.bin"
+            for name, data in cases.items():
+                with self.subTest(name=name):
+                    path.write_bytes(data)
+                    with self.assertRaises(capture.CaptureError):
+                        capture.load_backend(path, programs, ORACLES)
+
     def test_backend_stream_is_complete(self):
         programs, _ = _test_manifest()
         specs = capture.operation_specs(programs)
