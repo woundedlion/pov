@@ -1255,6 +1255,7 @@ inline void test_update_parameter_by_name() {
   HS_EXPECT_NEAR(fx.speed, 7.25f, 1e-6f);
 }
 
+#if HS_ENABLE_PARAM_GUI_BRIDGE
 /** @brief Live display mirrors do not redirect parameter writes. */
 inline void test_parameter_display_mirror() {
   struct State {
@@ -1289,6 +1290,8 @@ inline void test_parameter_display_mirror() {
   HS_EXPECT_EQ(fx.getParameters().find("Speed")->get(), 4.0f);
   HS_EXPECT_EQ(fx.getParameters().find("Speed")->get_requested(), 7.0f);
 }
+
+#endif
 
 /**
  * @brief Verifies the untrusted JS boundary cannot write readonly
@@ -1771,7 +1774,9 @@ inline int run_canvas_tests() {
   test_canvas_2d_and_1d_access_and_prev();
   test_register_float_and_bool_params();
   test_update_parameter_by_name();
+#if HS_ENABLE_PARAM_GUI_BRIDGE
   test_parameter_display_mirror();
+#endif
   test_update_parameter_rejects_readonly();
   test_register_and_update_enum_param();
   test_typed_enum_and_global_param_metadata();
