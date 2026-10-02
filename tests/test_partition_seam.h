@@ -499,7 +499,7 @@ inline void dump_png(const char *name, const std::vector<Pixel> &px) {
 }
 
 // ---------------------------------------------------------------------------
-// Kis fan seam, per seed face degree.
+// Kis and dual swap measurements.
 // ---------------------------------------------------------------------------
 
 /**
