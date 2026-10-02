@@ -1086,7 +1086,12 @@ private:
                    sizeof(const Animation::BumpParams *)) +
       (HUE_TABLE_SIZE + 1) * sizeof(Pixel) + 2 * BAKE_CHUNKS * sizeof(float) +
       MAX_BALLS * (sizeof(typename decltype(balls)::Entity) + sizeof(int)) +
-      (sizeof(typename decltype(noise_field)::Entity) + sizeof(int));
+      (sizeof(typename decltype(noise_field)::Entity) + sizeof(int)) +
+      13 * alignof(float) + 2 * alignof(Pixel) + 3 * alignof(int) +
+      2 * alignof(uint8_t) + alignof(int8_t) + alignof(math::Vector) +
+      alignof(const Animation::BumpParams *) + alignof(ShapeStorage) +
+      alignof(CandidateTable) + alignof(typename decltype(balls)::Entity) +
+      alignof(typename decltype(noise_field)::Entity);
   static_assert(FOOTPRINT_BYTES <= DEVICE_PERSISTENT_BUDGET,
                 "DisplacementField persistent footprint exceeds the default "
                 "partition; retune RING_SLOTS/MAX_BALLS or carve arenas");
