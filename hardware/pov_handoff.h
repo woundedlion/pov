@@ -7,7 +7,7 @@
  * @file pov_handoff.h
  * @brief Pure, host-testable effect-handoff state machine for POVSegmented.
  *
- * Split out of pov_segmented.h (Arduino-only) so the concurrency glue between
+ * Kept free of Arduino dependencies so the concurrency glue between
  * the foreground effect builder and the flywheel ISR — the teardown handshake,
  * the acquire/release publish/adopt of the pending effect, the consumed-
  * generation gate, and the display-window (clip) alternation — is unit-testable

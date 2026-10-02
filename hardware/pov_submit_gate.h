@@ -8,7 +8,7 @@
  * @brief Pure, host-testable LED-submit and sync-pulse decisions for the
  *        POVSegmented ISR.
  *
- * Split out of pov_segmented.h (Arduino-only) so the one place the driver
+ * Kept free of Arduino dependencies so the one place the driver
  * reacts to the DMA transport's accept/drop verdict is unit-testable on the
  * host, exactly as pov_handoff.h is for the effect handoff. The transport is
  * not modelled here: the verdict is injected as a bool.

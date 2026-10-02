@@ -9,7 +9,7 @@
  *        (docs/specs/phantasm_frame_sync_spec.md): one local flywheel timebase per
  *        board, disciplined over a single sync-symbol wire.
  *
- * Split out of pov_segmented.h (which is Arduino-only) so every load-bearing
+ * Kept free of Arduino dependencies so every load-bearing
  * decision — position math, symbol classification, the acceptance gate, epoch
  * scheduling, beacon framing, emission self-censoring — is unit-testable on
  * the host, exactly as pov_segment_map.h is for the index math. The device

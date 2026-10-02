@@ -9,7 +9,7 @@
  * @brief Double-buffered high-level DMA LED controller, templated on its SPI/DMA
  *        transport.
  *
- * Split out of dma_led.h so the double-buffer / overrun-drop / watchdog
+ * Kept free of Arduino dependencies so the double-buffer / overrun-drop / watchdog
  * orchestration is host-unit-testable against a mock transport, without the
  * Teensy peripherals (see tests/test_dma_controller.h). On device the transport
  * defaults to TeensySPIDMA; a host test substitutes a recording mock.
