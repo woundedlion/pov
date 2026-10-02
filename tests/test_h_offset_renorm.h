@@ -302,6 +302,8 @@ inline void test_plot_below_last_row_is_clipped() {
  */
 inline void test_feedback_bottom_row_rotates_in_longitude() {
   using LUT = math::TrigLUT<W, H>;
+  if (!LUT::initialized)
+    LUT::init();
   HS_EXPECT_GT(LUT::sin_phi[H - 1], 0.1f);
   hs_test::pole_geometry::check_feedback_ring_centroid<W, H>(H - 1, 50000 / 4);
 }
