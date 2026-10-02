@@ -561,7 +561,7 @@ Conway operators take `(Arena& target, Arena& temp)`, generator functions take `
 
 ## 7.6 The Color System (`core/color/color.h`)
 
-All internal color data is **16-bit linear light** (`uint16_t r, g, b` in range 0–65535). This avoids the precision loss and incorrect blending that occurs with gamma-encoded 8-bit values.
+`Pixel` stores RGB channels in **16-bit linear light** (`uint16_t r, g, b` in range 0–65535). This avoids the precision loss and incorrect blending that occurs with gamma-encoded 8-bit values.
 
 The conversion pipelines:
 ```
