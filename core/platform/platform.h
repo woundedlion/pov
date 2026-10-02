@@ -232,8 +232,8 @@ inline unsigned long millis() {
 
 /**
  * @brief Host throttle backing EVERY_N_MILLIS, mirroring FastLED's CEveryNMillis.
- * @details Class-based like the device's FastLED macro so EVERY_N_MILLIS expands
- * to a single guarded statement. `last` is seeded to `millis()` at construction
+ * @details EVERY_N_MILLIS expands to a static instance followed by an `if`.
+ * `last` is seeded to `millis()` at construction
  * so the first evaluation waits a full period, matching the device; the stamp is
  * never reset across effect switches (function-local `static`).
  */
