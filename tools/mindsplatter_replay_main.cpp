@@ -79,7 +79,7 @@ struct GateReport {
  * @param corpus Corpus under replay.
  * @return FNV-1a over the state bytes followed by the whole framebuffer.
  * @details framebuffer_hash covers only the golden pixels; this also covers the
- * restore blob, so the two together pin every byte the corpus carries.
+ * restore blob. Corpus metadata and the sparse pixel encoding are not hashed.
  */
 uint64_t rehash_corpus(const mindsplatter_replay::Corpus &corpus) {
   uint64_t hash = mindsplatter_replay::HASH_SEED;
