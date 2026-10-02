@@ -124,17 +124,7 @@ inline void test_easing_finite_and_monotone() {
 
 /**
  * @brief Pins reference interior values for the expo/elastic curves.
- * @details The finite-only interior check (test_easing_finite_and_monotone) would
- *          pass for any finite curve, so it cannot catch a shape regression in
- *          the two overshooting/non-monotone curves. Lock independently-derived
- *          analytic values at interior points:
- *            ease_out_expo(t)    = 1 - 2^(-10t)
- *              t=0.25 -> 1 - 2^-2.5  = 0.8232233
- *              t=0.5  -> 1 - 2^-5    = 0.96875
- *            ease_out_elastic(x) = 2^(-10x)·sin((10x-0.75)·2π/3) + 1
- *              x=0.25 -> 2^-2.5·sin(210°) + 1 = 0.9116117
- *              x=0.5  -> 2^-5·sin(150°)  + 1 = 1.015625  (overshoots past 1)
- *          The elastic x=0.5 value also pins the defining overshoot (> 1).
+ * @details Pins analytic interior values and elastic's overshoot at x=0.5.
  */
 inline void test_easing_expo_elastic_interior_reference() {
   HS_EXPECT_NEAR(math::ease_out_expo(0.25f), 0.8232233f, 1e-4f);
