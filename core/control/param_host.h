@@ -139,7 +139,7 @@ protected:
   }
 
   /**
-   * @brief Runs after any accepted parameter write.
+   * @brief Runs after any accepted write to a preset (non-global) parameter.
    * @details Preset crossfades must stop rewriting the manually edited state.
    */
   virtual void parameter_written() {}
