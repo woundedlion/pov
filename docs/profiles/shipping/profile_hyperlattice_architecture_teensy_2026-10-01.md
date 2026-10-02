@@ -7,7 +7,7 @@ Point-in-time architecture snapshot. Raw capture: checkpoint1-hyperlattice-profi
 | | |
 |---|---|
 | Hardware | Teensy 4.0 @ 600 MHz, POV segmented mode, live flywheel and DMA ISRs |
-| Image | `profile`: `-Os`, `-ffast-math -fno-finite-math-only`; no HS_O3 region in the cached HyperLattice shader |
+| Image | `profile`: `-Os`, `-ffast-math -fno-finite-math-only`; the cached shader uses `HS_HOT_FLASH_MEMBER` (`HS_O3_FN` plus `hot`), with no ITCM placement |
 | Driver | `POVSegmented<288, 4, 480>`, segment 0 master |
 | Effect | HyperLattice 288×144, single-entry playlist, source `ac4870adb95eecb7130f86dbfd36a86d0b1fb96b` |
 | Method | `HS_PROFILE`, 16-frame windows, 170 s capture; `HS_PROFILE_EPOCH_REVS=1600` (200 s epoch); runtime 2–2697, setup frame 1 excluded; counter summaries 17–2688, excluding the entire startup-containing window |
@@ -129,7 +129,7 @@ Host or WASM timings are not substituted for device measurements.
 
 - CYCCNT free-runs, so every scope absorbs ISR preemption and nested scopes overlap their parents.
 - No `filter_blend` subtree or exact blend count was recorded in these captures.
-- Shipping uses no HS_O3 region in the cached HyperLattice shader; the global-O3 twin optimizes all compiled code.
+- Shipping uses `HS_HOT_FLASH_MEMBER` (`HS_O3_FN` plus `hot`) for the cached shader, with no ITCM placement; the global-O3 twin optimizes all compiled code.
 - Only the epoch is stretched to 200 s; dwell and transition settings remain authored.
 - Captured source identity is recorded above; see the archive source-reachability note. Build flags, source status and hashes are not retained in the repository; later documentation edits do not change that source identity.
 - Counter summaries omit the startup-containing window; exact cadence excludes only actual setup frame 1 and retains all following live frames.
