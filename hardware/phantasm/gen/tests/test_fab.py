@@ -1512,5 +1512,56 @@ class ElectricalRuleTests(unittest.TestCase):
                     fab.run_erc(path)
 
 
+
+class DirectPackagePromotionTests(unittest.TestCase):
+    def make_package(self, root, name, content):
+        package = Path(root) / name
+        package.mkdir()
+        (package / "manifest.txt").write_text(content, encoding="utf-8")
+        return str(package)
+
+    def test_promotes_without_a_previous_package(self):
+        with tempfile.TemporaryDirectory() as root:
+            staged = self.make_package(root, "staged", "new")
+            destination = str(Path(root) / "jlc")
+            fab.promote_package(staged, destination)
+            self.assertEqual((Path(destination) / "manifest.txt").read_text(), "new")
+            self.assertFalse(Path(staged).exists())
+            self.assertFalse(Path(destination + ".previous").exists())
+
+    def test_replaces_previous_package_and_removes_backup(self):
+        with tempfile.TemporaryDirectory() as root:
+            staged = self.make_package(root, "staged", "new")
+            destination = self.make_package(root, "jlc", "old")
+            fab.promote_package(staged, destination)
+            self.assertEqual((Path(destination) / "manifest.txt").read_text(), "new")
+            self.assertFalse(Path(destination + ".previous").exists())
+
+    def test_failed_swap_restores_previous_package(self):
+        with tempfile.TemporaryDirectory() as root:
+            staged = self.make_package(root, "staged", "new")
+            destination = self.make_package(root, "jlc", "old")
+            replace = os.replace
+            def fail_swap(source, target):
+                if source == staged:
+                    raise OSError("swap refused")
+                return replace(source, target)
+            with mock.patch.object(fab.os, "replace", side_effect=fail_swap):
+                with self.assertRaisesRegex(OSError, "swap refused"):
+                    fab.promote_package(staged, destination)
+            self.assertEqual((Path(destination) / "manifest.txt").read_text(), "old")
+            self.assertEqual((Path(staged) / "manifest.txt").read_text(), "new")
+            self.assertFalse(Path(destination + ".previous").exists())
+
+    def test_stale_backup_refuses_promotion_without_mutation(self):
+        with tempfile.TemporaryDirectory() as root:
+            staged = self.make_package(root, "staged", "new")
+            destination = self.make_package(root, "jlc", "old")
+            backup = self.make_package(root, "jlc.previous", "backup")
+            with self.assertRaises(fab.UploadPackageError):
+                fab.promote_package(staged, destination)
+            for package, content in ((staged, "new"), (destination, "old"), (backup, "backup")):
+                self.assertEqual((Path(package) / "manifest.txt").read_text(), content)
+
 if __name__ == "__main__":
     unittest.main()
