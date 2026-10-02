@@ -187,7 +187,8 @@ inline void test_sin_wave_bounds_and_phase() {
   // A quarter-cycle phase puts t=0 at the rising midpoint (forward phase).
   auto wp = math::sin_wave(0.0f, 1.0f, 1.0f, 0.25f);
   HS_EXPECT_NEAR(wp(0.0f), 0.5f, 1e-3f);
-  HS_EXPECT(wp(0.05f) > 0.5f, "sin_wave phase 0.25 rises at t=0 like tri_wave");
+  HS_EXPECT(wp(0.05f) > 0.5f, "sin_wave phase 0.25 rises at t=0");
+  HS_EXPECT_GT(math::tri_wave(0.0f, 1.0f, 1.0f, 0.25f)(0.05f), 0.5f);
   HS_EXPECT_NEAR(wp(0.0f), math::tri_wave(0.0f, 1.0f, 1.0f, 0.25f)(0.0f),
                  1e-3f);
 }
