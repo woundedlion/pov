@@ -10,6 +10,7 @@
  *        animated Conway-operator morphs.
  */
 
+#include <algorithm>
 #include <cstdint>
 #include <iterator>
 
@@ -253,6 +254,16 @@ static_assert(NUM_EDGES == 23);
  */
 constexpr bool is_jitterbug_edge(const EdgeSpec &e) {
   return e.op == MorphOp::SNUB && e.to_node == OCTAHEDRON;
+}
+
+/** @brief Clamps an edge endpoint inside its topology-constant interval. */
+constexpr float clamp_edge_endpoint(const EdgeSpec &edge, float t) {
+  t = std::max(t, T_EPS);
+  if (edge.op == MorphOp::TRUNCATE)
+    t = std::min(t, .5f - T_EPS_AMBO);
+  if (is_jitterbug_edge(edge))
+    t = std::max(t, T_JITTERBUG_OCTA_MIN);
+  return t;
 }
 
 /**

@@ -326,14 +326,16 @@ private:
    * seed — the registry chain, decomposed.
    * @param e Edge whose endpoint mesh is built.
    * @param to_end True for the t_to end, false for the t_from end.
+   * @param seed_base Held seed mesh.
    * @param a Output arena for even pipeline stages.
    * @param b Scratch arena for odd pipeline stages.
    * @return The endpoint mesh: t = 0 yields the leg seed itself, t = 0.5 the
    * clean ambo crossover form, a settled end the relax(50) canonical form,
    * the jitterbug bridge's octahedron end the clean ambo(seed) octahedron.
    */
-  HS_COLD_MEMBER PolyMesh node_mesh_at(const ConwayGraph::EdgeSpec &e,
-                                       bool to_end, Arena &a, Arena &b) {
+  static HS_COLD_MEMBER PolyMesh node_mesh_at(const PolyMesh &seed_base,
+                                              const ConwayGraph::EdgeSpec &e,
+                                              bool to_end, Arena &a, Arena &b) {
     float t = to_end ? e.t_to : e.t_from;
     PolyMesh seed;
     MeshOps::clone(seed_base, seed, a);
@@ -687,8 +689,8 @@ private:
     {
       ScratchScope ba(scratch_arena_a);
       ScratchScope bb(scratch_arena_b);
-      PolyMesh arrival =
-          node_mesh_at(e, !reverse, scratch_arena_b, scratch_arena_a);
+      PolyMesh arrival = node_mesh_at(seed_base, e, !reverse, scratch_arena_b,
+                                      scratch_arena_a);
       arrival_faces = arrival.face_counts.size();
       HS_CHECK(arrival_faces <= MAX_NODE_FACES,
                "HankinSolids: arrival mesh exceeds the bookend topology "
@@ -762,7 +764,7 @@ private:
     // pattern from that mesh — never a registry regenerate, so bridge
     // arrivals keep the orientation the walk produced.
     hs::generate(persistent_arena, [&](Arena &target, Arena &a, Arena &b) {
-      PolyMesh base = node_mesh_at(e, arrived_at_to, a, b);
+      PolyMesh base = node_mesh_at(seed_base, e, arrived_at_to, a, b);
       if (adopts_seed(e, arrived, arrived_at_to)) {
         if (arrived_at_to) {
           // Family bridge: the arrived solid becomes the new family seed.
