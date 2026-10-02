@@ -91,7 +91,6 @@
 #include "core/containers/triangular_bitset.h"
 #include "core/containers/static_circular_buffer.h"
 #include "core/animation/transformer.h"
-#include "hardware/dma_led_controller.h"
 #include "hardware/pov_sync.h"
 
 #if !defined(_WIN32)
