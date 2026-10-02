@@ -39,7 +39,7 @@
  *                                 shader and gate parity.
  *   - Azimuthal-equidistant projection and the dual-metric planar arc length.
  *   - PlanarEdgeSampler::one_pass / SinglePass : analytic tangent vs the
- *                                 forward-difference operator(), two-pass
+ *                                 forward-difference pos(), two-pass
  *                                 parity, balanced sampling, the step budget,
  *                                 and geodesic endpoints, poles, seams, long
  *                                 arcs and quadrant clips.
@@ -3243,7 +3243,7 @@ inline void test_plot_line_antipodal_replay_parameter() {
 
 /**
  * @brief Verifies a geodesic line through the north pole plots the pole row.
- * @details map_geodesic/map_planar build interpolated points with
+ * @details GeodesicEdgeSampler/PlanarEdgeSampler build interpolated points with
  * fast_sinf/fast_cosf, which are ~0.04% non-unit; vector_to_pixel takes
  * phi = acos(v.y) directly, and acos's infinite slope at y=1 amplifies that
  * tiny error into a multi-row shift unless interpolated positions are
@@ -3686,13 +3686,13 @@ inline void test_rasterize_antipodal_seam_planar_falls_back_geodesic() {
 
 /**
  * @brief A non-seam planar segment renders gap-free in ARC length: the
- *        arc-length parameterization (map_planar's cumulative-arc inversion)
+ *        arc-length parameterization (PlanarEdgeSampler's cumulative-arc inversion)
  *        keeps every plotted step near one pixel column and lands on both
  *        endpoints, with no clustering or gaps the projection-linear chord would
  *        otherwise leave.
  * @details Exercises the planar strategy path (rasterize_planar_strategy +
- *          map_planar); the antipodal-seam case falls back to geodesic. Pins the
- *          end-to-end arc-uniform sampling the LEN_SAMPLES table provides; it
+ *          PlanarEdgeSampler); the antipodal-seam case falls back to geodesic. Pins the
+ *          end-to-end arc-uniform sampling the PLANAR_LEN_SAMPLES table provides; it
  *          does not isolate the table's contribution from the rasterizer's
  *          adaptive (sin-phi) sub-stepping, which also shapes local density.
  */
@@ -3728,7 +3728,7 @@ inline void test_rasterize_planar_segment_gap_free_arclength() {
   HS_EXPECT_GT(pipe.plotted.size(), (size_t)10);
   HS_EXPECT_LE(max_consecutive_gap(pipe.plotted, /*wrap=*/false),
                1.5f * base_step);
-  // Endpoints land within map_planar's project/unproject round-trip error.
+  // Endpoints land within PlanarEdgeSampler's project/unproject round-trip error.
   HS_EXPECT_NEAR(math::angle_between(pipe.plotted.front(), a.pos), 0.0f, 1e-2f);
   HS_EXPECT_NEAR(math::angle_between(pipe.plotted.back(), b.pos), 0.0f, 1e-2f);
   for (const math::Vector &p : pipe.plotted)
@@ -5335,7 +5335,7 @@ inline void test_planar_one_pass_matches_forward_difference() {
 /**
  * @brief one_pass's tangent is tangent to the sphere and points along the
  *        rendered chart line.
- * @details Independent of operator(): the tangent must be orthogonal to the
+ * @details Independent of pos(): the tangent must be orthogonal to the
  *          position and must advance toward the edge's far endpoint.
  */
 inline void test_planar_one_pass_tangent_is_forward_and_orthogonal() {
