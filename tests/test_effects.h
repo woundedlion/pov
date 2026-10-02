@@ -2640,10 +2640,9 @@ inline void test_hankinsolids_manual_pause_holds_morph() {
  * @brief White-box accessor for DreamBalls' private preset-cycle bookkeeping
  *        (befriended in effects/DreamBalls.h).
  * @details spawn_sprite schedules its successor 320 frames out (a PeriodicTimer),
- *          but the smoke/determinism harness renders at most HS_SMOKE_FRAMES=120
- *          frames in CI — short of one period — so the re-spawn never fires under
- *          the generic passes: the preset advance, the active_bake ping-pong +
- *          rebake, and the reseed-on-change guard all stay dead. This seam drives
+ *          beyond the default 120-frame base smoke/determinism window in CI.
+ *          The parameter lints render additional frames but do not pin the
+ *          preset advance, bake-slot ping-pong, or reseed guard. This seam drives
  *          spawn_sprite directly and reads the bake slot / preset index so those
  *          paths are pinned. <96,20> is used arbitrarily — the bookkeeping is
  *          resolution-independent.
@@ -2899,9 +2898,9 @@ inline void test_dreamballs_base_mesh_selector() {
 /**
  * @brief Renders the widest solid the dropdown reaches under medial topology and
  *        checks SCRATCH_A_PEAK_BYTES against the real frame peak.
- * @details No preset selects a MAX_SOLID_EDGES solid, and the smoke sweep stops
- *          well short of SPRITE_LIFE, so the widest woven staging the effect can
- *          bind is otherwise never drawn. Medial topology is forced so the
+ * @details No preset selects a MAX_SOLID_EDGES solid, so preset sweeps do not
+ *          draw the widest woven staging the effect can bind. Medial topology
+ *          is forced so the
  *          staging takes one vertex per source edge and one framed edge per
  *          medial edge — the worst case the static_assert bounds.
  */
@@ -3132,9 +3131,8 @@ inline void test_dreamballs_respawn_fires_and_honors_pause() {
  *          whose ORDER is the contract — the preset switch leads apply_params()
  *          so the flush reads one preset's scalars, and the flush leads the mesh
  *          draw so the frame's own wireframe survives it. Reordering them is the
- *          cheapest possible refactor, changes the image, and is invisible to the
- *          roster sweeps: the PRESET_DWELL_FRAMES rotation never fires inside the
- *          smoke window at all.
+ *          cheapest possible refactor and changes the image. The roster sweeps
+ *          do not inspect switch-frame noise state.
  */
 struct MeshFeedbackWhiteBox {
   using MF = MeshFeedback<SMALL_W, SMALL_H>;
@@ -3227,8 +3225,7 @@ inline void test_meshfeedback_flush_precedes_mesh_draw() {
 
 /**
  * @brief Drives the preset rotation and pins the switch-frame noise sync.
- * @details PRESET_DWELL_FRAMES is 241, so the rotation is out of reach of every
- *          roster sweep. Crosses two boundaries and requires the selector to
+ * @details PRESET_DWELL_FRAMES is 241. Crosses two boundaries and requires the selector to
  *          step one entry each time — the second boundary only lands on frame
  *          482 if the first switch re-armed the dwell — and, the ordering
  *          contract, requires the bound NoiseParams to already carry the
