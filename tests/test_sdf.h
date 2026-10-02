@@ -3221,10 +3221,7 @@ inline int expect_pole_vertex_face_matches_full_scan(float pole_y) {
       }
       // Dead band around Scan::MIN_ALPHA: an alpha that rounds the shade to
       // black is neither required nor forbidden.
-      const float alpha =
-          d <= -pixel_width
-              ? 1.0f
-              : math::quintic_kernel(0.5f - d / (2.0f * pixel_width));
+      const float alpha = Scan::solid_coverage(d, pixel_width);
       if (alpha > 0.05f) {
         ++painted;
         HS_EXPECT_TRUE(lit);
