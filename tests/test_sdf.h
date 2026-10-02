@@ -463,7 +463,7 @@ inline void test_distorted_ring_polyline_distance_matches_bruteforce() {
   expect_polyline_distance_matches_bruteforce<97>();
 }
 
-/** @brief Verifies knot extrema tighten an asymmetric loose caller band. */
+/** @brief Verifies the knot reject band follows asymmetric extrema, not ±max_distortion. */
 inline void test_distorted_ring_knot_extrema_tighten_band() {
   constexpr int LUT_N = 8;
   constexpr float RADIUS = 0.8f;
