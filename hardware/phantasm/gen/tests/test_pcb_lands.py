@@ -1,3 +1,4 @@
+import os
 import sys
 import tempfile
 import unittest
@@ -122,7 +123,7 @@ class EmbedLandTests(unittest.TestCase):
     """Library passive lands survive embedding without mutating the cache."""
 
     def setUp(self):
-        self.cache_key = (str(Path(pcb.FP_DIR) / "Test.pretty"), CHIP_LIBID)
+        self.cache_key = (os.path.join(pcb.FP_DIR, "Test.pretty"), CHIP_LIBID)
         pcb._MOD_CACHE[self.cache_key] = sexp.parse(CHIP_MOD)[0]
         self.addCleanup(pcb._MOD_CACHE.pop, self.cache_key, None)
 
