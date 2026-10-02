@@ -11,7 +11,7 @@ With no args it globs `<revision>/candidates/*Candidate[ _-]*`. Extract Quilter
 archives into that directory. Pass explicit folders or .kicad_pcb files to override.
 
 A DRC gate runs kicad-cli on each candidate (env KICAD_CLI overrides discovery, and
-only when it names an existing file) so a geometry-clean but DRC-broken board can't
+must name an existing file) so a geometry-clean but DRC-broken board can't
 win the ranking. With no KiCad on the pin installed the ranking still runs, ungated. Errors are split: 'refill-fixable' clearance/hole errors against a
 zone (Quilter exports pours without via antipads -- they clear on a KiCad zone refill)
 vs 'REAL FAULTS' (shorts/crossings/opens, and track-to-track clearance), which
@@ -147,6 +147,8 @@ def resolve_kicad_cli():
     try:
         cli = kicad_cli()
     except SystemExit:
+        if os.environ.get("KICAD_CLI"):
+            raise
         return None
     return cli if os.path.exists(cli) else shutil.which(cli)
 

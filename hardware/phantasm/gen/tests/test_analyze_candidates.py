@@ -1,5 +1,6 @@
 import json
 import math
+import os
 import subprocess
 import sys
 import tempfile
@@ -284,9 +285,17 @@ class ResolveKicadCliTests(unittest.TestCase):
             self.assertIsNone(analyze_candidates.resolve_kicad_cli())
 
     def test_an_unusable_kicad_is_ungated_not_fatal(self):
-        with mock.patch.object(analyze_candidates, "kicad_cli",
+        with mock.patch.dict(os.environ, {}, clear=True), \
+                mock.patch.object(analyze_candidates, "kicad_cli",
                                side_effect=SystemExit("KiCad 9, gates need 10")):
             self.assertIsNone(analyze_candidates.resolve_kicad_cli())
+
+    def test_explicit_bad_override_is_not_an_ungated_run(self):
+        with mock.patch.dict(os.environ, {"KICAD_CLI": "missing-cli"}), \
+                mock.patch.object(analyze_candidates, "kicad_cli",
+                                  side_effect=SystemExit("KICAD_CLI: missing-cli")), \
+                self.assertRaisesRegex(SystemExit, "missing-cli"):
+            analyze_candidates.resolve_kicad_cli()
 
     def test_drc_gate_reports_missing_only_when_unresolvable(self):
         with mock.patch.object(analyze_candidates, "resolve_kicad_cli",
