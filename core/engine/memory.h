@@ -1031,10 +1031,10 @@ public:
  * @details Makes owned (ArenaVector) vs borrowed data visible at the type level.
  *
  * LIFETIME CONTRACT: a span snapshots its source vector's elements pointer at
- * construction. In debug builds two independent stamps fault on a stale span: the
- * arena generation catches an arena RESET, and the source vector's per-vector
- * rebind counter catches a bind()-driven RE-GROW (a grow rebinds elements
- * WITHOUT bumping the arena generation). A MOVE of the source vector is not
+ * construction. Debug checks fault on an arena RESET, a source-vector RE-GROW,
+ * a rewind below the borrowed block, or reclamation and reissue of that block.
+ * The arena generation tracks reset, the per-vector rebind counter tracks grow,
+ * and the block stamp tracks rewind and reissue. A MOVE of the source vector is not
  * tracked: the span keeps its snapshotted elements (runtime-safe) but its debug
  * stamps reference the moved-from husk, so re-take the span after growing or
  * moving its source. Outliving the source VECTOR OBJECT (not its arena block —
@@ -1053,7 +1053,8 @@ template <typename T> class ArenaSpan {
 
   /**
    * @brief Debug-only stale-span check against arena and vector stamps.
-   * @details Asserts on an arena reset or a source-vector re-grow.
+   * @details Asserts on arena reset, source-vector re-grow, a rewind below the
+   * borrowed block, or reclamation and reissue of that block.
    */
   void check_alive() const {
     const size_t bytes = element_count * sizeof(T);
