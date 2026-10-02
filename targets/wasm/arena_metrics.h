@@ -24,7 +24,7 @@
  * @param name Key the entry is stored under.
  * @param arena Arena to measure.
  * @details Both peaks are published: high_water_mark is the window since the
- *          last reset/rebind, which an effect that re-splits the arenas mid-run
+ *          last peak reset/rebind, which an effect that re-splits the arenas mid-run
  *          (IslamicStars, on every shape spawn) restarts, while
  *          lifetime_high_water_mark folds every discarded window in and is the
  *          figure to size a budget against. It can exceed capacity legitimately
