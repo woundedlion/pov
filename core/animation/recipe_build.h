@@ -2,6 +2,10 @@
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
  * Licensed under the PolyForm Noncommercial License 1.0.0
  */
+/**
+ * @file recipe_build.h
+ * @brief Recipe-leg scheduling and palette handoffs.
+ */
 #pragma once
 
 #include "animation.h"
