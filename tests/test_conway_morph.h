@@ -2339,10 +2339,10 @@ inline void test_relax_leg_on_recipe_seeds_holds_topology() {
 // a truncate sweep to ambo(P), a slerp of every medial vertex a_e -> b_e, and a
 // truncate sweep down to dual(P). These gate the medial leg (the new slerp
 // segment) on the real DUAL-leg seeds: the endpoints match ambo(P)/ambo(dual(P))
-// to tolerance (the correspondence proof), and across the slerp there are no
-// face inversions, no self-intersection (total solid angle holds at 4pi), no
-// degenerate collapse, no antipodal slerp inputs, and the emission order is
-// fixed frame to frame.
+// to tolerance (the correspondence proof), and across the sampled slerp there
+// are no inward face normals or degenerate fan triangles, the signed total
+// solid angle stays at 4pi, consecutive vertices move by bounded steps, and
+// the endpoint inputs are not antipodal.
 // ---------------------------------------------------------------------------
 
 inline PolyMesh probe_icosa_kis_snub(Arena &a, Arena &b) {
@@ -2408,8 +2408,7 @@ inline float medial_vertex_set_dist(const ArenaVector<math::Vector> &x,
   return worst;
 }
 
-/** @brief Signed total solid angle of a mesh (per-face fan from its centroid).
- * A simple closed surface sums to 4pi; a self-intersection breaks it. */
+/** @brief Signed total solid angle of a mesh (per-face fan from its centroid). */
 inline double medial_total_solid_angle(const PolyMesh &m) {
   double total = 0.0;
   size_t off = 0;
