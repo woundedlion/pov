@@ -2419,12 +2419,12 @@ inline void test_meshcarousel_face_phases_use_sweep_frame_and_slots() {
     bool distinguishes_frame = false;
     for (size_t face = 0; face < expected.num_faces(); ++face) {
       auto center = [&](const MeshState &mesh) {
-        return math::normalized_or(Animation::OpLeg::face_vertex_sum(
-                                       mesh.vertices.data(),
-                                       mesh.get_faces_data(),
-                                       mesh.get_face_offsets_data()[face],
-                                       mesh.get_face_counts_data()[face]),
-                                   math::UP);
+        return math::normalized_or(
+            MeshOps::face_vertex_sum(mesh.vertices.data(),
+                                     mesh.get_faces_data(),
+                                     mesh.get_face_offsets_data()[face],
+                                     mesh.get_face_counts_data()[face]),
+            math::UP);
       };
       const int CLS = MeshPaletteBank::slot_of(transformed.topology[face]);
       const auto &policy = carousel.segue();

@@ -427,7 +427,7 @@ protected:
     math::Vector *prev_centroid = nullptr;
     if (correspondence == Animation::OpLeg::FaceCorrespondence::GEOMETRIC) {
       prev_centroid = scratch.allocate_n<math::Vector>(prev_faces);
-      Animation::OpLeg::face_centroids_into(build_seed, prev_centroid);
+      MeshOps::face_centroids_into(build_seed, prev_centroid);
     }
     const uint8_t *prev_pal;
     if (!build_from_pal) {
@@ -470,7 +470,7 @@ protected:
     uint8_t *pal = scratch.allocate_n<uint8_t>(nf);
     if (correspondence == Animation::OpLeg::FaceCorrespondence::GEOMETRIC) {
       cen = scratch.allocate_n<math::Vector>(nf);
-      Animation::OpLeg::face_centroids_into(departed, cen);
+      MeshOps::face_centroids_into(departed, cen);
     }
     for (size_t f = 0; f < nf; ++f)
       pal[f] = build_landing->landed_palette(f);
