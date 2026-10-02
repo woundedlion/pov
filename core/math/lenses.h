@@ -152,19 +152,20 @@ polyhedral_kaleidoscope_lens(math::Vector v,
       v.x -= 2.0f * distance * normal.x;
       v.y -= 2.0f * distance * normal.y;
       v.z -= 2.0f * distance * normal.z;
-      HS_SB_STAGE_COUNT(++reflections);
+      HS_PULLBACK_PROJECTION_COUNT(++reflections);
       inside = false;
       break;
     }
     if (inside) {
-      HS_SB_STAGE_COUNT(++hs::g_pullback_projection_cycles.polyhedral_pixels);
-      HS_SB_STAGE_COUNT(
-          hs::g_pullback_projection_cycles.polyhedral_reflections +=
+      HS_PULLBACK_PROJECTION_COUNT(
+          ++hs::g_pullback_projection_counts.polyhedral_pixels);
+      HS_PULLBACK_PROJECTION_COUNT(
+          hs::g_pullback_projection_counts.polyhedral_reflections +=
           reflections);
-      HS_SB_STAGE_COUNT(
-          hs::g_pullback_projection_cycles.polyhedral_max_reflections =
+      HS_PULLBACK_PROJECTION_COUNT(
+          hs::g_pullback_projection_counts.polyhedral_max_reflections =
               std::max(
-                  hs::g_pullback_projection_cycles.polyhedral_max_reflections,
+                  hs::g_pullback_projection_counts.polyhedral_max_reflections,
                   reflections));
       return v;
     }
@@ -198,19 +199,20 @@ dodecahedral_kaleidoscope_lens(math::Vector v) {
       } else if (v.z < -POLYHEDRAL_MIRROR_EPS) {
         v.z = -v.z;
       } else {
-        HS_SB_STAGE_COUNT(++hs::g_pullback_projection_cycles.polyhedral_pixels);
-        HS_SB_STAGE_COUNT(
-            hs::g_pullback_projection_cycles.polyhedral_reflections +=
+        HS_PULLBACK_PROJECTION_COUNT(
+            ++hs::g_pullback_projection_counts.polyhedral_pixels);
+        HS_PULLBACK_PROJECTION_COUNT(
+            hs::g_pullback_projection_counts.polyhedral_reflections +=
             reflections);
-        HS_SB_STAGE_COUNT(
-            hs::g_pullback_projection_cycles.polyhedral_max_reflections =
+        HS_PULLBACK_PROJECTION_COUNT(
+            hs::g_pullback_projection_counts.polyhedral_max_reflections =
                 std::max(
-                    hs::g_pullback_projection_cycles.polyhedral_max_reflections,
+                    hs::g_pullback_projection_counts.polyhedral_max_reflections,
                     reflections));
         return v;
       }
     }
-    HS_SB_STAGE_COUNT(++reflections);
+    HS_PULLBACK_PROJECTION_COUNT(++reflections);
   }
   HS_CHECK(false, "dodecahedral kaleidoscope fold did not converge");
   return v;
