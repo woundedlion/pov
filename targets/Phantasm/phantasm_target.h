@@ -54,7 +54,7 @@ HS_DEFINE_POV_SEGMENTED_LED_CONTROLLER(TOTAL_PIXELS, NUM_SEGMENTS, RPM);
 namespace {
 
 /**
- * @brief Brings up USB serial, first step of setup().
+ * @brief Brings up USB serial after the sync output is parked.
  * @details The baud rate is inert on Teensy USB-CDC and only initializes
  * Serial; the delay lets enumeration settle so early output isn't lost.
  */
