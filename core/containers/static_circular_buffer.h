@@ -241,7 +241,7 @@ public:
   void clear() { head = tail = count = 0; }
 
   /**
-   * @brief Returns the front (oldest) element.
+   * @brief Returns the front element.
    * @return Reference to the front element.
    * @details Traps via HS_CHECK if the buffer is empty.
    */
@@ -251,7 +251,7 @@ public:
   }
 
   /**
-   * @brief Returns the front (oldest) element.
+   * @brief Returns the front element.
    * @return Const reference to the front element.
    * @details Traps via HS_CHECK if the buffer is empty.
    */
@@ -261,7 +261,7 @@ public:
   }
 
   /**
-   * @brief Returns the back (newest) element.
+   * @brief Returns the back element.
    * @return Reference to the back element.
    * @details Traps via HS_CHECK if the buffer is empty.
    */
@@ -271,7 +271,7 @@ public:
   }
 
   /**
-   * @brief Returns the back (newest) element.
+   * @brief Returns the back element.
    * @return Const reference to the back element.
    * @details Traps via HS_CHECK if the buffer is empty.
    */
@@ -524,7 +524,7 @@ private:
   // native build (size_t would widen these three fields to 8 B on the host and make
   // per-effect arena footprints unrepresentative of the device; see memory.h). On
   // the device size_t IS uint32_t, so this is a host-only narrowing.
-  uint32_t head;  /**< Index of the front (oldest) element. */
+  uint32_t head;  /**< Index of the front element. */
   uint32_t tail;  /**< Index of the next free back slot. */
   uint32_t count; /**< Number of elements currently stored. */
 
