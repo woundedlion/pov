@@ -1406,9 +1406,8 @@ class TestSizeAFallback(unittest.TestCase):
 
     def test_free_headroom_is_0x80000_minus_used(self):
         sizes = tg.fallback_sizes_from_size_a(_read("good_size_a.txt"))
-        # ITCM 0xf320 + 0x2a00 occupies three whole FlexRAM banks; DTCM is the
-        # raw 0x1a00 + 0x53c00.
-        expected_ram1 = 3 * tg.FLEXRAM_BANK_BYTES + 0x1a00 + 0x53c00
+        # ITCM 0xf320 occupies two FlexRAM banks; .text.code is in flash.
+        expected_ram1 = 2 * tg.FLEXRAM_BANK_BYTES + 0x1a00 + 0x53c00
         self.assertEqual(sizes["ram1"]["used"], expected_ram1)
         self.assertEqual(sizes["ram1"]["free"], 0x80000 - expected_ram1)
         self.assertEqual(sizes["ram2"]["free"], 0x80000 - 0x79900)
