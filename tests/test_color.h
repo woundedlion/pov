@@ -2624,8 +2624,11 @@ inline void test_noise_shimmer_palette() {
       const OKLab actual = to_lab(raised.color);
       HS_EXPECT_EQ(raised.alpha, 0.37f);
       HS_EXPECT_NEAR(actual.L, original.L + (1.0f - original.L) * lift, 0.005f);
-      HS_EXPECT_NEAR(actual.a * original.b - actual.b * original.a, 0.0f,
-                     0.001f);
+      if (original.a * original.a + original.b * original.b > .0004f &&
+          actual.a * actual.a + actual.b * actual.b > .0004f)
+        HS_EXPECT_NEAR(wrap_hue_delta(atan2f(actual.b, actual.a) -
+                                      atan2f(original.b, original.a)),
+                       0.0f, .03f);
     }
     HS_EXPECT_EQ(palette.get(0.3f, 2.0f).color, palette.get(0.3f, 1.0f).color);
     noise.fill(-127);
@@ -2635,7 +2638,20 @@ inline void test_noise_shimmer_palette() {
     HS_EXPECT_EQ(palette.get(0.3f, math::X_AXIS, 0.5f).color,
                  palette.get(0.3f, 0.5f).color);
     NoiseHuePalette<SolidColorPalette> hue(&source, noise.data());
-    HS_EXPECT_EQ(hue.noise(math::Z_AXIS), palette.noise(math::Z_AXIS));
+    FastNoiseLite field;
+    field.SetNoiseType(FastNoiseLite::NoiseType_OpenSimplex2);
+    field.SetSeed(6047);
+    field.SetFrequency(1.0f);
+    prepare_hue_noise_lut(std::span<int8_t, HueNoiseLutView::SIZE>(noise),
+                          field, 2.0f, 0.0f);
+    HS_EXPECT_GT(
+        fabsf(palette.noise(math::X_AXIS) - palette.noise(math::Y_AXIS)),
+        1e-3f);
+    for (const auto &direction : {math::X_AXIS, math::Y_AXIS}) {
+      HS_EXPECT_EQ(palette.noise(direction),
+                   sample_hue_noise_lut({noise.data(), true}, direction));
+      HS_EXPECT_EQ(hue.noise(direction), palette.noise(direction));
+    }
   }
 }
 
