@@ -313,12 +313,11 @@ inline constexpr int GAMUT_LUT_MIN_L_STEPS = 64;
  * nothing.
  * Call after the arenas are configured, from the owning effect's init(). A
  * coarse cell takes the minimum of the merged minima and the maximum of the
- * merged maxima, so the true boundary of every ray in the cell still lies
- * inside the stored bracket at any resolution. Cost in arena bytes is
- * gamut_lut_bytes(angle_steps, l_steps). Resolution only sets how wide the
- * bracket starts, and the per-pixel bisection sets how far it is narrowed; the
- * floor bounds the chroma deficit that leaves (see
- * GAMUT_LUT_MIN_ANGLE_STEPS).
+ * merged maxima. These guarded sampled estimates do not certify enclosure of
+ * every ray's exact first exit. Cost in arena bytes is
+ * gamut_lut_bytes(angle_steps, l_steps). Resolution changes the initial brackets;
+ * finite runtime probes select the crossing refined by bisection. The minimum
+ * resolution is an empirical clipping-quality limit (see GAMUT_LUT_MIN_ANGLE_STEPS).
  */
 HS_COLD_MEMBER inline void init_gamut_lut(Arena &arena, int angle_steps,
                                           int l_steps) {
@@ -1064,9 +1063,9 @@ inline LinRGB oklab_to_linear_rgb_lut_gamut(OKLab lab) {
  * @param r Out: linear red on or inside the tabulated boundary.
  * @param g Out: linear green.
  * @param b Out: linear blue.
- * @details The stored cell minimum stands in for gamut_clip_preserve_chroma()'s
- * bracket refinement, so the result sits at most one cell's chroma deficit
- * inside the true boundary. Reads g_gamut_lut.
+ * @details Scales directly to the stored cell minimum instead of refining the
+ * bracket. The sampled grid supplies no certified chroma-deficit bound against
+ * the exact first exit. Reads g_gamut_lut.
  */
 HS_O3_FN __attribute__((noinline)) inline void
 lms_cbrt_scale_to_gamut_lut(float l_cbrt, float m_cbrt, float s_cbrt, float &r,
