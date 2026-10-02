@@ -37,6 +37,8 @@
 
 namespace pov {
 
+inline constexpr uint32_t FASTLED_CLOCK_MHZ = 6;
+
 /** @brief WS2801 transfer and latch duration for a positive MHz clock. */
 constexpr unsigned long fastled_show_us(int leds, uint32_t clock_mhz) {
   return 1000UL + dma::transfer_us(3UL * leds, clock_mhz * 1000000UL);

@@ -61,7 +61,7 @@ public:
     ledController.set_brightness(255);
 #else
     FastLED.addLeds<WS2801, PIN_DATA, PIN_CLOCK, RGB,
-                    DATA_RATE_MHZ(FASTLED_CLOCK_MHZ)>(leds, S);
+                    DATA_RATE_MHZ(pov::FASTLED_CLOCK_MHZ)>(leds, S);
     FastLED.setCorrection(TypicalLEDStrip);
     FastLED.setTemperature(Candle);
     FastLED.setBrightness(255);
@@ -108,10 +108,9 @@ private:
   static constexpr unsigned long COLUMN_TRANSFER_US =
       dma::transfer_us(HD107SFrame<S>::COMPOSITE_SIZE, SPI_CLOCK_HZ);
 #else
-  static constexpr uint32_t FASTLED_CLOCK_MHZ = 6;
   // FastLED's WS2801Controller waits up to 1000 us before each transmission.
   static constexpr unsigned long FASTLED_SHOW_US =
-      pov::fastled_show_us(S, FASTLED_CLOCK_MHZ);
+      pov::fastled_show_us(S, pov::FASTLED_CLOCK_MHZ);
 #endif
 
   /**
