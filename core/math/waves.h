@@ -24,8 +24,7 @@ namespace math {
  * @param phase The starting phase offset, in cycles (phase = 1 is a full cycle),
  *        in the same units as tri_wave/square_wave.
  * @return A lambda mapping time t to the wave value.
- * @details At phase 0 this starts at the trough, matching tri_wave but a half
- *          cycle behind square_wave, which starts high.
+ * @details At phase 0 this starts at the trough, matching tri_wave; square_wave starts high.
  */
 inline auto sin_wave(float from, float to, float freq, float phase) {
   // Hoist only 2π·phase: reassociating freq·t·2π could shift the last bit,
@@ -47,8 +46,7 @@ inline auto sin_wave(float from, float to, float freq, float phase) {
  * @param freq The frequency (cycles per unit time).
  * @param phase The starting phase offset, in cycles.
  * @return A lambda mapping time t to the wave value.
- * @details At phase 0 this starts at the trough, matching sin_wave but a half
- *          cycle behind square_wave, which starts high.
+ * @details At phase 0 this starts at the trough, matching sin_wave; square_wave starts high.
  */
 inline auto tri_wave(float from, float to, float freq, float phase) {
   return [=](float t) -> float {
@@ -71,8 +69,8 @@ inline auto tri_wave(float from, float to, float freq, float phase) {
  * @param duty_cycle Fraction in [0, 1] of each cycle spent "on" (high).
  * @param phase The starting phase offset, in cycles.
  * @return A lambda mapping time t to the wave value.
- * @details At phase 0 this starts high (a half cycle ahead of sin_wave and
- *          tri_wave, which start at the trough), unless duty_cycle is 0.
+ * @details At phase 0 this starts high while sin_wave and tri_wave start at the
+ *          trough, unless duty_cycle is 0.
  */
 inline auto square_wave(float from, float to, float freq, float duty_cycle,
                         float phase) {
