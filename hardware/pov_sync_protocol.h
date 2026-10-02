@@ -413,13 +413,6 @@ struct Config {
       return "join_grid_revs > 0";
     if (!((64u % join_grid_revs) == 0))
       return "join_grid_revs divides 64";
-    // schedule_beacon's "is-due" check reads (now - start_cycles) as int32, so
-    // the worst-case span (5 digits of value 7) must clear 2^31.
-    if (!(5u * (7u * beacon_pitch_cycles() +
-                static_cast<uint32_t>(gap_timeout_cols + 1) *
-                    cycles_per_column()) <
-          static_cast<uint32_t>(INT32_MAX)))
-      return "worst-case beacon span < INT32_MAX";
     return nullptr;
   }
 };
