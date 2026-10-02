@@ -803,8 +803,7 @@ private:
 
   /**
    * @brief Builds a fresh random palette for the next wipe.
-   * @details Each construction reseeds, so every cycle fades toward a distinct
-   * palette.
+   * @details Draws a base hue from the shared RNG; hues may repeat.
    */
   static GenerativePalette make_palette() {
     return GenerativePalette{EffectPaletteRecipes::displacement_field(
