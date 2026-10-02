@@ -104,11 +104,9 @@ public:
 
   /**
    * @brief Draws the current envelope without advancing its timer.
-   * @details t stays 0 for the whole pause, and that is the zero end of a
-   * fade-in ramp: reporting it would multiply the consumer's draw to nothing
-   * until the pause lifts. Frame 1 — the opacity the first unpaused step would
-   * report — is held instead, so the pause never shows a frame brighter than
-   * the sprite itself would draw.
+   * @details Holds the current frame after the sprite has stepped. Before its
+   * first step, holds frame 1 instead of frame 0, so a fade-in remains visible
+   * at the opacity the first unpaused step would report.
    */
   void step_paused(Canvas &canvas) override {
     draw_frame(canvas, t == 0 ? 1u : t);
