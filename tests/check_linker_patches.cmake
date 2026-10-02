@@ -1,10 +1,4 @@
-# Pin the routing changes tools/phantasm.ld makes to the stock Teensy 4 linker
-# script, and the framework release it was forked from. The script is a verbatim
-# copy of framework-arduinoteensy's imxrt1062.ld plus those changes; nothing in
-# the build re-derives it, so a framework bump keeps the old stock layout with
-# no complaint. Losing a routing change surfaces only as a Teensy size-gate red
-# far from its cause -- ITCM past its bank ceiling, or reaction_graph out of
-# FLASH -- and only where PlatformIO is installed.
+# Pin tools/phantasm.ld routing changes and the source Teensy framework release.
 # -D args: SCRIPT (tools/phantasm.ld), PLATFORMIO_INI (platformio.ini).
 
 # Script mode inherits no policies from the project, so every policy would

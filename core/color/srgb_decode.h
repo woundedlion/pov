@@ -49,14 +49,8 @@ static_assert(
     std::size(srgb_decode_high_src) == SRGB_DECODE_HIGH_N,
     "srgb_decode_high_src length disagrees with the high-region shift");
 
-// DTCM copies (zero-wait, bypass the L1 D-cache) of the two-region decode
-// tables. Residing in DTCM is what stops the concurrent render from evicting
-// them, unlike a cacheable table.
-// Non-const is load-bearing: phantasm.ld routes const rodata to FLASH, .data to
-// DTCM.
-// constinit is load-bearing: an inline variable's dynamic init is unordered
-// against other translation units' static initializers, so a runtime fill would
-// let linear_to_srgb8 read a zeroed table and return 0 for every input.
+// Non-const tables reside in DTCM; phantasm.ld places const rodata in FLASH.
+// constinit makes the tables available to other translation units' static initializers.
 inline constinit std::array<uint16_t, SRGB_DECODE_LOW_N> srgb_decode_low =
     []() constexpr {
       std::array<uint16_t, SRGB_DECODE_LOW_N> t{};

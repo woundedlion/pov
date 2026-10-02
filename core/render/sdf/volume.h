@@ -511,12 +511,7 @@ template <typename Shape, typename WarpT> struct WarpedVolume {
   math::Vector normal(const math::Vector &p) const {
     auto ctx = warp.make_ctx(p);
     if constexpr (TORUS_TWIST) {
-      // Twist displaces only y, so the warped point keeps p's XZ radius `ctx`
-      // and the torus normal needs no second sqrt; one recurrence yields both
-      // the sine the warp needs and the cosine the correction needs; and the
-      // correction normalizes, so the base normal can stay unnormalized.
-      // twist == 0 needs no special case: it gives cos_n = 1, hence a zero
-      // gradient and an unchanged normal.
+      // Prepare the twist gradient and unnormalized torus normal.
       const float inv_s = (ctx > math::TOLERANCE) ? 1.0f / ctx : 0.0f;
       if (warp.amplitude < math::TOLERANCE)
         return base.normal_raw(p, inv_s).normalized();

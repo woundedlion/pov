@@ -510,9 +510,6 @@ public:
    *        `width()` stride): `prev_data()[y * width() + x]` equals
    *        `prev(x, y)`.
    * @return Const base pointer, valid until this Canvas is destroyed.
-   * @details Const because `prev()` returns by value specifically so a
-   *          reference cannot be used to write into a buffer about to be
-   *          recycled; the const pointer preserves that guarantee.
    */
   [[nodiscard]] inline const Pixel *prev_data() const {
     return effect.bufs[effect.prev.load(std::memory_order_relaxed)];

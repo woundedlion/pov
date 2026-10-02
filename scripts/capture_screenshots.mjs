@@ -3,11 +3,10 @@
 // Effects can be overridden via CLI args; otherwise the full EFFECTS list runs.
 //
 // Usage (from the Holosphere repo root):
-//   1. Serve the sibling daydream checkout (see README §"Running the Simulator"):
-//          cd ../daydream && python -m http.server 8000
-//   2. Install the Playwright browser once:  npx playwright install chromium
-//   3. Capture the gallery:                  npm run screenshots
-//      (equivalently:  node scripts/capture_screenshots.mjs [Effect ...])
+//   Serve daydream: cd ../daydream && python -m http.server 8000
+//   Install Chromium: npx playwright install chromium
+//   Capture the gallery: npm run screenshots
+//   Capture selected effects: node scripts/capture_screenshots.mjs [Effect ...]
 //
 // SIM_URL overrides the simulator origin (defaults to the README's local
 // http.server port); WAIT_MS overrides every configured capture offset.
@@ -131,16 +130,8 @@ try {
     if (t === 'error' || t === 'warning') console.log(`[${t}]`, msg.text());
   });
 
-  // Read the app's supported resolutions instead of hard-coding a display label
-  // (the same anti-drift goal as the effect roster above). The resolution
-  // control's options are built from the app's supported resolutions; return them
-  // sorted by pixel area (largest/highest-detail first). Each effect is then
-  // captured at the FIRST resolution that actually offers it — not blindly at the
-  // global largest, because the effect set is resolution-specific. Requesting
-  // an effect at a resolution that doesn't offer it makes the app silently fall
-  // back to its default effect, which would save that default under the wrong
-  // filename. On any failure, return [] — the caller aborts the run rather than
-  // capturing unpinned.
+  // App-supported resolutions, largest pixel area first. Each effect uses the
+  // first resolution that offers it. Failure returns []; callers abort unpinned capture.
   async function resolveResolutions() {
     try {
       await page.goto(BASE_URL, { waitUntil: 'load', timeout: 60000 });

@@ -8,9 +8,6 @@
  * @file filter.h
  * @brief The filter pipeline: Pipeline composition plus the World, Screen and
  * Pixel filter families.
- * @details The stage roster is a library surface, deliberately wider than the
- * set of stages the shipping effects instantiate; a stage with no current user
- * is composable inventory, not dead code.
  */
 
 #include "render/filter/pipeline.h"

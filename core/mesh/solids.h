@@ -496,12 +496,8 @@ static_assert(PLATONIC_COUNT + ARCHIMEDEAN_COUNT + CATALAN_COUNT +
                   static_cast<size_t>(NUM_ENTRIES),
               "NUM_ENTRIES must equal the sum of the per-registry counts");
 
-// A BaseMesh ordinal is a get_entry() global index: simple_registry then
-// catalan_registry. MeshFeedback and DreamBalls resolve solids through it and
-// MindSplatter slices its Platonic head, so the enum, the label arrays and the
-// two registries share one order. The static_asserts name the entries either
-// side of both slice boundaries and at both ends, so inserting, removing or
-// reordering a registry entry or an enumerator fails to compile.
+// BaseMesh ordinals follow get_entry(): simple_registry, then catalan_registry.
+// The enum, labels and registries share Platonic/Catalan slice boundaries.
 static_assert(PLATONIC_BASE_MESH_COUNT == PLATONIC_COUNT,
               "PLATONIC_BASE_MESH_COUNT must equal the Platonic run of "
               "simple_registry");

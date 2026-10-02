@@ -396,15 +396,7 @@ public:
         global_timeline_num_events; // Snapshot count before callbacks
                                     // potentially add more
 
-    // Collapse each distinct Orientation exactly once, before any animation steps
-    // it: collapsing per-animation would discard the sub-frame motion-blur history
-    // a sharing animation already built this frame. The earliest eligible event
-    // holding an id collapses it; later events sharing that id find it upstream.
-    // Collapsed ids are cached, so the virtual orientation_id() runs once per
-    // event rather than once per pair. Past MAX_COLLAPSE_IDS distinct
-    // Orientations the cache stops growing and a miss rescans the earlier
-    // events, which decides identically (an id is cached iff it was collapsed,
-    // and the first event holding an id always collapses it).
+    // Collapse each shared Orientation once before any animation steps it.
     const void *collapsed_ids[MAX_COLLAPSE_IDS];
     int collapsed_cnt = 0;
     for (int i = 0; i < active_cnt; ++i) {
@@ -470,7 +462,6 @@ public:
         continue;
       }
 
-      // Check start time
       if (global_timeline_t < e.start) {
         if (i != write_idx) {
           e.move_into(global_timeline_events[write_idx]);

@@ -450,7 +450,6 @@ HS_NOINLINE_NOCLONE inline void coalesce_spans(const IntervalBufT &intervals,
     // paint it.
     if (x1 == x2)
       x2++;
-    // Clamp rounded columns to the canvas bounds.
     if (x1 < 0)
       x1 = 0;
     if (x2 > W)
@@ -658,12 +657,7 @@ inline void scan_region(int y_min, int y_max, IntervalFn &&get_intervals,
   if (!math::TrigLUT<W, H>::initialized)
     math::TrigLUT<W, H>::init();
 
-  // Interval scratch (~1.5 KiB) lives in scratch_arena_b, not the stack:
-  // Phantasm's DTCM stack is tight and scan_region is on the deepest render
-  // chain. Per-call bump scope; norm is cleared per row below.
-  //
-  // intervals holds a top-level shape's full per-row emission; norm holds one
-  // seam-split per span, so 2x.
+  // Scratch arena owns row intervals; seam splitting needs twice their capacity.
   ScratchScope scratch(scratch_arena_b);
   using IntervalBuf = StaticCircularBuffer<SDF::Interval, TOP_SPAN_CAP>;
   using NormBuf = StaticCircularBuffer<SDF::Interval, 2 * TOP_SPAN_CAP>;

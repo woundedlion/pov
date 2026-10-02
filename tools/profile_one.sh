@@ -11,19 +11,8 @@
 # boards by COM name. A run without an enumerated board fails at acquisition
 # before building the images.
 #
-# Takes a per-board device lock (tools/device_lock.sh) around the whole
-# build+flash+capture, so concurrent runs use different boards, and queue
-# instead of clobbering when every board is busy. HS_DEVICE_WAIT=<s> to queue
-# rather than fail fast.
-#
-# With several Teensys attached, hs_device_acquire enumerates them, claims the
-# first free one, and exports HS_TEENSY_PORT for it, which pins both the flash
-# and the capture to that board. Never leave the board to auto-search when more
-# than one is attached: the teensy-gui loader refuses to choose ("Found 2 Teensy
-# boards") yet still exits SUCCESS, leaving the previous image running, and the
-# capture's first-VID-match can read the other board — a plausible log of the
-# wrong firmware. HS_TEENSY_PORT=<COMn> set by hand pins the run to one board
-# and skips the search (use it to profile a specific board).
+# tools/device_lock.sh holds a per-board lock through build+flash+capture.
+# HS_DEVICE_WAIT=<s> queues for a free board; HS_TEENSY_PORT=<COMn> pins one board.
 #
 # HS_PROFILE_DEEP=1 additionally enables the HS_PROFILE_DEEP sub-scopes (the
 # per-pixel/per-cell/per-face counters in shared render code, off by default

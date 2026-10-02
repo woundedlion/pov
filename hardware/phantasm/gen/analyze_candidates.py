@@ -21,15 +21,8 @@ geometry is checked independently because Quilter may replace uploaded defaults;
 candidates below 0.45/0.20 mm are ineligible. Project-rule and zone floors run
 independently of KiCad availability; refusals report as RULES.
 
-What matters here, and why:
-- The board is 4-layer SIG/GND/GND/SIG with BOTH inner layers poured GND, so any
-  outer-layer trace has a solid adjacent reference. A signal via only hops between
-  two *same-net* GND planes (benign), but it is still a stub + impedance bump --
-  so fewer fast-net vias and shorter fast nets win. DATA/CLK staying on ONE layer
-  (zero vias) is ideal: one continuous reference, no return-path transition.
-- Rev 1.2 connectors J1-J3B are locked; J1 is GCT and there is no J4.
-  Ergonomics depends on their accessibility and grouping (decoupling near U1, terminators near the
-  strip connector, the high-Z sync divider kept tight).
+Scoring favors fewer fast-net vias, shorter fast nets and accessible connectors,
+with decoupling near U1, terminators near the strip connector and a compact sync divider.
 """
 import argparse
 import glob

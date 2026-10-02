@@ -1,36 +1,12 @@
 #!/usr/bin/env python3
-"""Teensy 4 firmware size + memory-layout gate (pure parser / classifier).
+"""Teensy 4 firmware size and memory-layout gate; stdlib only.
 
-This module, with the budgets in tools/teensy_budgets.json, is the normative
-statement of what the Teensy 4 CI gate enforces. It holds NO
-PlatformIO dependency so it runs as an ordinary host Python module (stdlib only,
-matching the repo's scripts/ convention) and is exercised by the golden /
-deliberately-broken fixtures under tools/teensy_gate_tests/. The thin PlatformIO
-post-build wrapper that feeds it real toolchain output is tools/teensy_gate_extra.py.
-
-What it does:
-  * region totals  — parse `teensy_size` (or `arm-none-eabi-size -A`) and compare
-    each region's used bytes against a per-target ceiling, and the DTCM "free for
-    local variables" stack headroom against a floor.
-  * layout         — classify the framebuffer / arena / reaction-graph symbols by
-    their LOAD ADDRESS against the Teensy 4 memory map (NOT an `nm` type letter:
-    DTCM .bss and OCRAM .dmabuffers are both NOBITS and `nm` cannot tell them
-    apart), and assert each lands in the region it must, with the arena's
-    size bounded to [288 KiB, 320 KiB] (currently 298 KiB), so a leaked
-    8 MiB host arena or a collapsed arena fails.
-  * fail-loud       — a configured layout symbol that is NOT FOUND in the ELF is a
-    violation, never a silent skip: a name that never matches would make the
-    invariant never fire (false-green).
-    The parse layer holds the same line: a region line whose component blob
-    breaks into no `name:bytes` pairs raises instead of reporting 0 bytes used.
-  * schema          — load_budgets() rejects any budgets key the gate does not
-    read, at every nesting level. Every ceiling is an optional `.get()`, so a
-    misspelled key (`component`, `max_byte`, `regoin`) removes its check and the
-    gate reports PASS with no violations. It also requires each target's region
-    objects and layout symbols to be present, and each of those to carry the key
-    that makes it enforce something: evaluate() iterates only what the budget
-    declares, so a deleted `ram2` object — or a `ram2` stripped of its
-    `max_bytes` — drops the OCRAM ceiling entirely.
+Budgets in tools/teensy_budgets.json define region ceilings, DTCM stack-headroom
+floors and layout requirements. tools/teensy_gate_extra.py supplies build output.
+Layout uses symbol load addresses, not nm type letters; arena size must remain
+within [288 KiB, 320 KiB]. Missing configured symbols and malformed region lines
+fail validation. Budget loading rejects unknown keys and requires target regions,
+layout symbols and their enforcing keys.
 """
 
 from __future__ import annotations

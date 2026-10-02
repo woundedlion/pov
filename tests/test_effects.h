@@ -4688,15 +4688,7 @@ inline void test_ringspin_trail_hugs_its_great_circles() {
   HS_EXPECT_EQ(still_lit, 0);
 }
 
-// ---------------------------------------------------------------------------
-// Drift-prone effects: spawn-gap / emit-phase / pool-bound white-box pins.
-//
-// The smoke pass proves these render and the determinism pass proves they
-// reproduce, but neither sees a per-frame accumulator that runs away, a phase
-// that escapes its wrap interval, or a pool index that overruns its capacity —
-// silent drift that still renders a plausible (wrong) frame. These seams reach
-// the private state and assert the bound holds on every frame.
-// ---------------------------------------------------------------------------
+// White-box bounds for spawn gaps, emit phases and pool indices on every frame.
 
 /**
  * @brief White-box accessor for PetalFlow's spawn-gap accumulator and hue cursor

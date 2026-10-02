@@ -55,12 +55,7 @@ bool Effect::s_alive = false;
 #include <exception>
 #endif
 
-// Stubs to prevent the linker pulling in the C++ demangler (~15KB) on the device
-// (chain: std::function -> __cxa_throw -> __verbose_terminate_handler). Only the
-// Arduino/Teensy build needs them: on host the toolchain's real handlers are
-// correct and defining these would shadow them. A pure-virtual call or terminate
-// is a fatal invariant violation — flush the log and trap (fail-fast), never spin
-// in while(1), which freezes the display with no breadcrumb.
+// Device handlers suppress the C++ demangler; host builds use toolchain handlers.
 #ifdef ARDUINO
 /**
  * @brief Fail-fast handler for a pure-virtual call on the device.
@@ -88,12 +83,8 @@ void __verbose_terminate_handler() {
 }
 } // namespace __gnu_cxx
 #else
-// TD >= 1.62's core (cores/teensy4/main.cpp) ships its own strong
-// __gnu_cxx::__verbose_terminate_handler (a while(1) WFI spin), so redefining it
-// here would be a multiple-definition link error. That core handler already keeps
-// the ~15KB demangler out; we only need to replace its spin-and-freeze behavior
-// with the fail-fast flush+trap. Install it at runtime via a global constructor
-// (runs before setup()); std::terminate then dispatches to ours.
+// Teensyduino >= 1.62 supplies a strong handler; override it via set_terminate
+// before setup().
 namespace {
 const std::terminate_handler s_fail_fast_terminate = std::set_terminate([] {
   hs::flush_log();

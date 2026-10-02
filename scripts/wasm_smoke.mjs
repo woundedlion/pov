@@ -287,10 +287,7 @@ async function main(probe) {
     return;
   }
 
-  // setResolution/setEffect report their outcome as embind enums; pin the value
-  // rosters so a dropped/renamed enumerator fails here. RESIZED and
-  // ALREADY_ACTIVE are both successes (the requested size is active either
-  // way), so the sweep accepts either.
+  // RESIZED and ALREADY_ACTIVE both indicate the requested resolution is active.
   const RS = Module.ResolutionSetResult;
   const ES = Module.EffectSetResult;
   for (const outcome of ['RESIZED', 'ALREADY_ACTIVE', 'UNSUPPORTED']) {
@@ -540,8 +537,6 @@ async function main(probe) {
           }
         }
 
-        // setParameter reports its outcome as the ParamSetResult embind enum;
-        // pin the value roster so a dropped/renamed enumerator fails here.
         const R = Module.ParamSetResult;
         for (const reason of
              ['APPLIED', 'NO_EFFECT', 'UNKNOWN_PARAM', 'READONLY', 'NON_FINITE']) {
@@ -1035,14 +1030,8 @@ async function main(probe) {
       }
     }
 
-    // ── Memory-growth seam: a held view detaches, the re-fetch is live ────────
-    // getPixels() aliases WASM linear memory and ALLOW_MEMORY_GROWTH detaches
-    // that view on any heap growth — the bridge's most documented invariant, and
-    // otherwise never driven end to end: the MeshOps section below runs after
-    // engine.delete(), so no pixel view is ever outstanding when the growth
-    // happens. MeshOps' 16 MB tooling block is allocated lazily on first use and
-    // cannot fit the heap this module starts with, so the first call here IS the
-    // growth. Must stay ahead of every other MeshOps call in this file.
+    // Run before any other MeshOps call: its lazy 16 MB allocation grows memory
+    // while the engine pixel view is still held.
     {
       const effectNames = Object.keys(engine.getEffectSizes());
       const registry = Module.MeshOps && Module.MeshOps.getRegistry();
@@ -1145,11 +1134,7 @@ async function main(probe) {
   if (!MeshOps) {
     fail('Module.MeshOps binding is missing');
   } else {
-    // A rejected mesh-producing call returns null and names the reason through
-    // the MeshOpResult embind enum; pin the value roster so a dropped/renamed
-    // enumerator fails here. The reasons drive opposite caller actions (shrink
-    // the chain vs. clearToolingMemory()), so an undifferentiated null is not
-    // enough for the solids tool.
+    // Rejected mesh calls return null; MeshOpResult supplies the reason.
     const MR = Module.MeshOpResult;
     for (const reason of
          ['OK', 'UNKNOWN_NAME', 'CONNECTIVITY_OVERFLOW', 'FACE_DEGREE_OVERFLOW',

@@ -208,12 +208,7 @@ static_assert(sizeof(void *) != 4 ||
  * that never reallocates; capacity is enforced at registration time.
  */
 struct ParamList {
-  // ParamHost is the sole trusted mutator. Outside callers hold the list only
-  // as Effect::getParameters()'s const reference, so they bind the const
-  // accessors and route value writes through updateParameter. Access control
-  // runs after overload resolution, so a non-const handle would not fall back
-  // to those const overloads — it would resolve to the private ones below
-  // and fail there.
+  // Only ParamHost may mutate; non-const handles select private overloads.
   friend class ParamHost;
 
   /** @brief Slot count of the default inline storage. */

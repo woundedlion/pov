@@ -20,18 +20,9 @@
 #include <utility>
 #include <concepts>
 
-// Device arena budget is 298 KiB; the WASM simulator uses 512 KiB. Host effect
-// harnesses use an 8 MiB configuration so they can exercise every effect's full
-// render path. The
-// native harness is a 64-bit build, so per-effect footprints measured there
-// can be LARGER than on the 32-bit device wherever a pooled struct embeds a
-// POINTER (ArenaVector's data ptr, Fn's callable ptr, BakedPalette::colors/alpha_q16). Do not
-// treat the host high-water mark as an exact device figure. Effects tune their
-// own split via configure_arenas() to fit the device budget.
-// The real device FlexRAM (RAM1) arena block, sized from the measured
-// worst-effect high-water (tests/arena_measure.cpp). A distinct always-defined constant (not the
-// host-inflated GLOBAL_ARENA_SIZE below) so device-budget static_asserts check
-// the real figure even in the host suite.
+// Arena budgets: device 298 KiB, WASM 512 KiB, native harness 8 MiB.
+// Native 64-bit pointer-containing structs can exceed device footprints.
+// DEVICE_GLOBAL_ARENA_SIZE remains the device budget in every build.
 constexpr size_t DEVICE_GLOBAL_ARENA_SIZE = HS_DEVICE_ARENA_BYTES;
 constexpr size_t GLOBAL_ARENA_SIZE = HS_GLOBAL_ARENA_BYTES;
 
@@ -52,11 +43,8 @@ constexpr size_t DEFAULT_PERSISTENT_SIZE =
 constexpr size_t DEVICE_PERSISTENT_BUDGET =
     DEVICE_GLOBAL_ARENA_SIZE - DEFAULT_SCRATCH_A_SIZE - DEFAULT_SCRATCH_B_SIZE;
 
-// The browser module's arena (CMakeLists.txt), widened past the device figure
-// for the chain interpreter's two arenas plus ShaderChain's shared color
-// resources. A distinct always-defined constant so a browser-only effect's
-// footprint static_assert checks the real module figure even in the host suite,
-// whose arena is an order of magnitude larger.
+// Browser budget for footprint checks, independent of the native harness arena.
+// Mirror of CMakeLists.txt's WASM arena configuration.
 constexpr size_t WASM_GLOBAL_ARENA_SIZE = 512 * 1024;
 #if defined(__EMSCRIPTEN__)
 static_assert(WASM_GLOBAL_ARENA_SIZE == GLOBAL_ARENA_SIZE,

@@ -469,15 +469,8 @@ static void rasterize(PipelineT &source_pipeline, Canvas &canvas,
   // it outlive the scope that produced it.
   ScratchScope sc_guard(scratch_arena_a);
   ArenaVector<float> steps_cache;
-  // The cache holds ONE segment's adaptive sub-steps (cleared per segment).
-  // Away from a pole, ≈SCREEN_STEP_PX spacing gives the usual screen-sweep
-  // count. Near a pole, MIN_POLE_SCALE can instead create up to
-  // 1/MIN_POLE_SCALE samples per base_step interval; those samples are not
-  // covered by the planar W/H sweep derivation. At W=288 the measured
-  // pole-crossing geodesic worst case is 546 of the 2·W=576 slots. A planar
-  // chart line can bow farther, so the simulation loop retains its capacity
-  // backstop. Single-pass emits as it goes and takes max_cache only as that
-  // backstop, so it never binds the storage.
+  // Cache one segment's adaptive steps; the simulation capacity is a backstop.
+  // Single-pass emission uses the same bound without binding cache storage.
   size_t max_cache = rasterize_step_budget<W>();
 #if HS_ENABLE_TEST_ORACLES
   if (g_step_budget_override != 0 && g_step_budget_override < max_cache)
@@ -554,13 +547,8 @@ static void rasterize(PipelineT &source_pipeline, Canvas &canvas,
       if (total_arc > math::EPS_GEOMETRIC)
         f.v0 = arc / total_arc;
     };
-    // The degenerate and fast paths plot curr.pos/next.pos directly (original
-    // sampled vertices), without the DRAWING PHASE renormalize that corrects
-    // sample().pos's ~0.04% drift. Precondition: callers pass unit fragment
-    // positions; the ~4e-6 an angle-addition vertex recurrence
-    // (Star::sample_positions) leaves is two orders inside that drift and is
-    // plotted as-is.
-    // Degenerate (coincident endpoints): plot at most a single dot.
+    // Direct plotting requires unit fragment positions.
+    // Coincident endpoints emit at most one dot.
     if (total_dist < math::EPS_GEOMETRIC) {
       bool should_omit = close_loop || !is_last_segment || omit_end;
       if (!should_omit && PLOT_START) {
@@ -867,11 +855,7 @@ static void rasterize(PipelineT &source_pipeline, Canvas &canvas,
     float scale = total_dist / sim_dist;
     bool omit_last = close_loop || !is_last_segment || omit_end;
 
-    // DRAWING PHASE
-    //
-    // sample().pos is non-unit by the fast sin/cos residual; vector_to_pixel's
-    // phi = acos(v.y) offsets the row near the pole, so correct the interpolated
-    // positions back to unit.
+    // Normalize interpolated positions before vector_to_pixel's acos(v.y).
     HS_PROFILE_DEEP(plot_seg_draw);
     if (!plot_window || plot_t_start <= 0.0f) {
       HS_PLOT_STALL_START(replay_start);

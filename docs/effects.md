@@ -593,7 +593,7 @@ admission — when a document is applied
   Current document → validated chain → inactive program arena
                    → parameter/runtime validation → active ShaderChain program
 
-shading — once per visible sample, through the shared Scan::Shader loop
+shading — planar-source path through the shared Scan::Shader loop
 
   Rotate · Displace · Lens        (SPHERE endomorphisms)
        │ SphereSample
@@ -643,67 +643,94 @@ The [device profile archive](https://github.com/woundedlion/pov/blob/master/docs
 
 ### Authoring vocabulary
 
-The parameter schema exposes the broader Shader workbench vocabulary below. A menu entry describes a structurally possible field value, not a promise that its Cartesian combination is compiled for Teensy. The simulator renders valid unmatched combinations dynamically; sliders are active only when the selected schema uses them.
+The chain workbench selects ordered, labeled operator instances from the engine
+catalog. Each instance registers its own `<label>.<field>` parameters. Rotation,
+displacement and lenses are optional; planar warps may repeat within the chain
+budgets and run in displayed order. Displacement before or after a lens is
+expressed by that ordering. Camera motion is available on a selected rotation
+operator; projection-frame spin and wander belong to the selected projection.
+There is no universal camera parameter or pair of warp slots.
+
+A sphere source crosses directly from Sphere to Field, omitting projection and
+planar warps. For example, `sample.spherical-noise.v3` followed by
+`colorize.generated-palette.v3` is a complete chain. A planar source consumes
+Plane, so it follows a projection and any selected planar warps. Sphere sources
+cannot follow a projection: that would move backward in carrier rank.
+
+| Operator family | Options | Input → output and controls |
+|---|---|---|
+| **Rotation** | Spin + Wander | Sphere → Sphere; the instance's wander and spin speed |
+| **Displacement** | Direct Noise, Curl Noise, Ripple | Sphere → Sphere; noise scale/strength/speed/basis, direct direction or curl integrator, or ripple controls |
+| **Lens** | Glitch, Twist, Mobius, Kaleidoscope | Sphere → Sphere; lens-specific controls; kaleidoscope selects azimuthal, polyhedral or prism symmetry |
+| **Projection** | Folded Sinusoidal, Stereographic, Gnomonic, Bonne, Peirce Quincuncial, Fast Square Peirce, Dymaxion / Airocean, Equirectangular | Sphere → Plane; coordinates, projection provenance, weight and available edge distance; instance-specific frame/layout controls |
+| **Planar warp** | Affine Frame, Wave Shear, Vortex, Vector Noise, Curl Flow, Mirror Tile, Polar Chart | Plane → Plane; independent parameters and clocks for each ordered instance |
+| **Planar source** | Twin Wave, Rings, Spiral, Grid, Projected Noise, Primitive Lattice, Escape Fractal, Tessellation | Plane → Field; source parameters, signal weighting and coverage choices |
+| **Sphere source** | Spherical Noise, Spherical Rings | Sphere → Field; source-specific controls; no projection or planar warp |
+| **Value transfer** | Ridge, Iso Contour, Smooth Bands | Field → Field; reshapes the normalized value; iso and band controls belong to their operator |
+| **Coverage** | Value Cutout | Field → Field; cutout threshold and softness; projection-based coverage belongs to planar sources |
+| **Colorize** | Generated Triadic, Complementary, Analogous | Field → Color; palette mapping, phase oscillation, brightness envelope, opacity and optional hue shift |
+
+Planar-warp **Speed** advances its wrapped phase in cycles per frame. The chain
+operator `warp.affine.v3` uses its explicit **Lattice Period** (1/64–100 plane
+units) to scale Translation X/Y, which may be fractional. It neither derives
+that period from a downstream source nor rounds translation writes. Rotation
+Rate is in radians per phase cycle over `[-2π, 2π]`; its continuous rate is
+`Speed × Rotation Rate`. Shear oscillates, and Scale X/Y move logarithmically
+between reciprocal extrema.
+
+For a seamless affine phase wrap over an unwarped Primitive Lattice, choose its
+source period `1 / Lattice Cell Scale` and whole-cell translation windings.
+Those are continuity conditions for that arrangement, not a chain admission
+rule. A later warp or path-length hue shift can make the wrap visible.
+Mirror Tile scrolls one local X cell while its Y offset remains manual.
+Polar Chart advances Angular Phase by one turn while Radial Phase remains
+manual. Wave Shear advances its wave, Vortex orbits its center, and the projected
+noise warps advance their noise field.
+
+Polar Chart may precede other compatible Plane operators, including Vortex,
+and can feed planar sources other than Grid or Primitive Lattice. An authored
+pattern's periodicity determines whether its angular seam is continuous; the
+validator does not enforce a whole-period product or a special two-slot order.
+Projected Noise may follow compatible projections, including Bonne, Peirce and
+Airocean. Admission checks carrier agreement, field domains, budgets and
+declared dependencies; there is no blanket cut-topology exclusion for noise.
+
+Controls use their parameter declarations and catalog `gated_by` conditions.
+For example, projection spin/wander require the spin-wander frame, edge width
+requires edge-fade coverage or an edge-fade warp envelope, hue controls require
+their selected hue mode, and brightness endpoints require a brightness
+envelope. Deactivation dims the controls without removing their stored values.
+The exact fields and ranges come from the selected operator instances.
+
+**Hue Shift Mode** selects the colorizer's hue source. Noise samples the
+sphere direction carried through the chain. Total Warp Displacement uses the
+shared accumulated path length, to which selected displacement and warp
+operators contribute. Opposing warps contribute both traveled distances rather
+than canceling as a net offset. Hue controls belong to the colorizer instance.
+
+Projection seams use provenance supplied by the projection kernel. **Edge
+Fade** gives both sides of a paired cut the authored fade; glued and periodic
+edges do not fade. Edge-fade coverage and warp envelopes require a projection
+that supplies edge distance. **Singularity Fade** affects projection weight;
+projection-weight coverage carries that attenuation into alpha independently
+of signal weighting.
+
+The document store validates candidate edits before committing them; parameter
+edits also pass their engine-admission callback. A refused edit reports
+diagnostics and retains the previous committed document and preview. It does not
+keep an incompatible chain
+pending. Ordinary effect parameter APIs separately report requested and accepted
+values and warnings. Composed-effect preset choreography interpolates parameters
+within each effect's fixed pipeline. For these composed effects, **Pause
+Animation** stops automatic preset selection while an in-flight transition
+finishes. The chain host's operator and palette clocks keep advancing while its
+authored-animation pause is set.
+
+The simulator interprets admitted chains even when they have no promoted
+firmware match. Firmware exposes the eighteen promoted fixed descriptors; a
+catalog choice alone does not promise a Teensy specialization.
 
 The gap is per value, not only per combination. The `ComposedEffect` derivation layer in `composed_effect.h` reaches a strict subset of the shipped operator catalog, so the operators classified as unreachable in `DERIVATION_REACH` and further values of the operators it does reach remain workbench-only: every non-simplex noise basis, the non-Euler curl integrators, the non-flat warp envelopes, the logarithmic polar chart and its harmonics 2–16, the front and back gnomonic hemispheres, the None signal weight, and the Bell, Ascending and Descending brightness envelopes. Opaque coverage is supported by the composed layer although no shipped composed effect selects it. Both Noise Contours are reachable. Value Cutout is reachable and selected by Ash Cloud. `tests/test_composed_effect.h` pins that set against the live operator table, so a catalog addition stays classified.
-
-The two planar warps run in their displayed pullback order: **Planar Warp 1** then **Planar Warp 2**, followed by the source function.
-
-| Stage | Options | Produces or controls |
-|---|---|---|
-| **Function** | Twin Wave, Rings, Spiral, Grid, Noise Contour (Projected), Primitive Lattice, Noise Contour (Sphere), Spherical Rings, Escape Fractal, Tessellation | A signed scalar field. Projected fields sample final planar coordinates; sphere fields sample the post-lens direction in the inverse projection frame. Grid blends between coupled and direct patterns with dedicated mix and complexity controls. |
-| **Projection** | Folded Sinusoidal, Stereographic, Gnomonic, Bonne, Peirce Quincuncial, Dymaxion / Airocean, Equirectangular | Planar coordinates plus region/component identity, projection weight, boundary traits, stable edge identity, and fade distance. |
-| **Projection Frame** | Identity, Spin + Wander | Rotates the sphere before projection. Projection Spin Speed and Projection Wander exist only for Spin + Wander. |
-| **Surface Noise** | None, Direct, Curl | Displaces the unit-sphere direction and adds that displacement to the path accumulator. Surface Noise Placement runs it Before Lens or After Lens. Scale, Strength, Speed and Basis exist for either active mode; Direct adds Surface Noise Direction and Curl adds Surface Noise Integrator. |
-| **Lens** | None, Glitch, Twist, Kaleidoscope (Azimuthal 6-fold), Mobius, Kaleidoscope (Tetrahedral), Kaleidoscope (Octahedral / Cubic), Kaleidoscope (Dodecahedral / Icosahedral), and the Triangular, Square, Pentagonal, Hexagonal and Octagonal Prism kaleidoscopes | Distorts a unit-sphere direction before projection. Lens-specific controls exist only for an active lens. |
-| **Planar Warp 1 / 2** | None, Affine Frame, Wave Shear, Vortex, Projected Vector Noise, Projected Curl Flow, Mirror Tile, Polar Chart | Sequentially pulls planar coordinates backward. Every active warp exposes Speed; the meaning of one phase cycle is listed below. |
-| **Signal Weight** | None, Projection | Optionally multiplies the signed source signal by the projection's weight before remapping it to `[0, 1]`. It changes value, not alpha. |
-| **Value Transfer** | None, Ridge, Iso Contour, Smooth Bands | Shapes the normalized value. Iso controls appear only for Iso Contour; Band Count and Band Phase only for Smooth Bands. |
-| **Coverage** | Opaque, Projection Weight Squared, Value Cutout, Edge Fade, Projection Weight | Computes alpha independently from color value. Linear projection weight is softer and broader than the squared form. |
-| **Colorize** | Palette: Generated Triadic, Generated Complementary, Generated Analogous. Brightness Envelope: None, Cup, Bell, Ascending, Descending. Hue Shift Mode: None, Noise, Total Warp Displacement | Converts shaped value and coverage into straight-alpha color. Mapping Frequency repeats the selected palette-coordinate profile 1-32 times without changing Value Transfer or coverage. Hue Shift Amount controls either sphere-space noise rotation or rotation proportional to the accumulated path length, which the surface-noise displacement and both planar warps all add to. |
-
-Planar-warp **Speed** advances the stage's wrapped phase in cycles per frame. Affine Frame derives Primitive Lattice's exact planar period as `1 / Lattice Cell Scale`; Translation X/Y are signed whole-cell windings per cycle and therefore scroll continuously in one direction before resetting invisibly at the source. Fractional translation writes snap to the nearest whole winding. A translating Affine Frame requires Primitive Lattice, no later planar warp, and a hue mode other than Total Warp Displacement; incompatible cross-stage edits are rejected with a warning. Rotation is a signed angle in radians per phase cycle over `[-2π, 2π]`; its continuous angular rate is `Speed × Rotation`, and zero holds the frame still. Shear oscillates, and Scale X/Y move logarithmically between reciprocal extrema. Mirror Tile translates its mirror lattice by one local X cell, producing a seamless repeating scroll while its Y offset remains manual. Polar Chart advances only Angular Phase by one turn; Radial Phase remains manual. Wave Shear advances its wave, Vortex orbits its center, and the two projected-noise modes move through their periodic noise field.
-
-Polyhedral kaleidoscope lenses contract selected animation-speed and warp/noise-frequency slider ranges to the linear size of one symmetry chamber. Source Speed, Surface Noise Scale, Grid Pattern Freq, and Lattice Cell Scale retain their full ceilings under every lens, so small dodecahedral and prismatic chambers can still hold dense patterns. The stored units and shader math do not change: frequency remains measured in the stage's native domain and Speed remains cycles per frame. Switching to a smaller chamber clamps affected authoring values into its displayed range; switching back restores the wider range, not the discarded out-of-range value.
-
-**Hue Shift Mode** selects the Colorize input. Noise evaluates the post-lens sphere direction, so it works without a planar warp; **Hue Shift Amount** sets its maximum hue rotation, **Hue Noise Scale** sets its spatial frequency, and **Hue Noise Speed** moves through the periodic field within `-0.001` to `0.001` cycles per frame. Zero freezes the field at its current phase. Total Warp Displacement instead rotates hue by Hue Shift Amount times the shared path accumulator, which the surface-noise Displace step and both planar warps each add their applied distance to — so a displaced effect with no planar warp, such as Kaleidoscope Hex Oil, still rotates hue. It uses accumulated path length rather than net offset, so opposing warps both remain visible in the color.
-
-Noise Contour (Projected) is available with Folded Sinusoidal,
-Stereographic, Gnomonic, and Equirectangular projections. Noise Contour (Sphere)
-and Spherical Rings work with every projection but reject non-None planar warps
-because those warps have no sphere-space inverse.
-
-**Camera Wander** sits outside that table: it is always registered, and scales
-how much of a continuous random walk rotates the viewing direction before any
-stage runs, drifting the whole look. The Spin + Wander frame's own
-**Projection Wander** is a separate slider that drifts only the sphere's
-pre-projection orientation.
-
-Selector dependencies are explicit and deterministic:
-
-```
-Projection ─┬─ Bonne ─────────────> Hemisphere + standard parallel
-            ├─ Peirce ────────────> Layout (scroll for strip layouts)
-            ├─ Dymaxion/Airocean ─> Net layout
-            ├─ Gnomonic ──────────> Hemisphere policy
-            └─ any ───────────────> Meridian / scale / pole controls, where meaningful
-
-Function ──────────> Function-specific source controls
-Surface Noise ─────> Placement, basis, scale, strength, speed; direction or integrator
-Lens ──────────────> Selected lens controls
-Planar Warp 1 ─────> Selected stage controls
-Planar Warp 2 ─────> Selected stage controls
-Value Transfer ────> Iso or band controls
-Coverage ──────────> Cutout threshold or edge width
-Colorize ──────────> Palette + selected hue-shift source
-```
-
-
-Schema validity still enforces the cross-stage constraints that have a geometric reason. Noise Contour (Sphere) cannot follow a planar warp. Polar Chart must be the only planar warp, except that Planar Warp 1 Polar Chart may be followed by Wave Shear. It requires Grid or Primitive Lattice, and when it is the only planar warp its seam must land on a whole number of source periods: `Pattern Freq × Polar Harmonic` for Grid, `2π × Lattice Cell Scale × Polar Harmonic` for Primitive Lattice, which is periodic in its cell scale and ignores Pattern Freq. Seam-sensitive projected noise and warp stages cannot cross the cut topology of Bonne, Peirce, or Airocean. Unsafe coordinate bounds are rejected as well. These incompatible combinations remain pending and report an actionable warning. Manifest availability is separate: the simulator routes valid unmatched combinations dynamically, while firmware exposes the eighteen promoted fixed descriptors rather than the workbench dispatcher.
-
-Projection seams use topology supplied by the projection kernel rather than guessing from planar coordinates. **Edge Fade** gives both sides of a paired cut the same authored fade, so the seam closes flush without a subducted edge. Glued and periodic edges remain continuous and do not fade. **Singularity Fade** is projection weight; selecting either projection-weight coverage policy carries that attenuation into alpha as well as any separately selected signal weighting.
-
-Admitted GUI edits apply immediately. Numeric writes clamp to their registered range, including stale subordinate values when a mode change narrows that range. Structurally incompatible stage combinations remain pending until another edit repairs them. Composed-effect preset choreography interpolates parameters within each effect's fixed pipeline. Source, warp, projection, hue-shift noise, global-walk, and palette clocks keep advancing according to their named speeds. **Pause Animation** stops automatic preset selection; an in-flight preset transition still finishes.
 
 ## Legacy Effects (`effects_legacy.h`)
 

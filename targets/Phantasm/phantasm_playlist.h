@@ -165,13 +165,7 @@ constexpr bool hs_phantasm_exclusions_are_omitted() {
 #undef HS_PHANTASM_EXCLUSION_OMITTED
 }
 
-// Drift guard: an effect added to (or removed from) HS_EFFECT_LIST must also be
-// deliberately added to or excluded from the Phantasm playlist above. The count
-// pins the cardinality; the name scans pin which entries are missing, so
-// swapping one exclusion for another cannot ride green. Distinctness closes the
-// last hole: a duplicated entry paired with an omission holds the count and
-// passes both exclusion scans while an effect silently drops off the playlist.
-// Containment rejects a playlist entry that names no roster effect at all.
+// Segmented playlist roster admission.
 static_assert(hs_phantasm_effect_list_is_distinct(),
               "HS_PHANTASM_EFFECT_LIST names an effect twice — the duplicate "
               "is masking an omitted effect");

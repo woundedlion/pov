@@ -70,12 +70,7 @@ public:
              "Sprite fade-out duration must be in [0, MAX_FADE_DURATION]");
     HS_CHECK(this->duration >= 0 || fade_out_duration == 0,
              "Sprite fade-out duration must be 0 for an indefinite sprite");
-    // Overlapping windows (durations are independent GUI sliders): scale both
-    // fades proportionally to fit the visible duration, so the envelope still
-    // peaks at full opacity and stays a continuous triangle (definite sprites
-    // only; indefinite ones skip fade-out).
-    // The base promotes duration 0 to 1, so read the member rather than the
-    // parameter.
+    // Scale overlapping fades proportionally using the member's normalized duration.
     int fade_total = this->fade_in_duration + this->fade_out_duration;
     if (this->duration >= 0 && fade_total > this->duration) {
       const int requested_fade_in = this->fade_in_duration;

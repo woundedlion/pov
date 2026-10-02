@@ -683,12 +683,7 @@ struct RingGroup {
 
     Fragment frag;
 
-    // Row-local walk instead of scan_region: the covering ring emits at most
-    // 2 arcs per row, so small stack buffers replace the arena-backed CSG
-    // interval machinery — and the walk compiles inside this O3 region, where
-    // scan_region (-Os) forces the O3 pixel body out of line and calls it per
-    // pixel. Runs come from the shared emit_row_runs, so the walked columns are
-    // scan_region's.
+    // Walk the covering ring's row runs (shared emit_row_runs).
     const float *cos_theta = math::TrigLUT<W, H>::sin_theta.data() + W / 4;
     const float *sin_theta = math::TrigLUT<W, H>::sin_theta.data();
     const auto xc = cr.x_clip();

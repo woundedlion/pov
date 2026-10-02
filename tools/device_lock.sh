@@ -7,31 +7,13 @@
 # loader's teensy_ports.exe and matches COMn names. Acquisition requires an
 # enumerated board so both flash and capture can pin the same device.
 #
-# The lock is host-global, NOT repo-local: a device is one physical board on
-# one COM port, while concurrent sessions each work from their own worktree
-# with their own build/. A lock under build/ would hand every worktree its own
-# lock and every holder a green light. Path: "$HS_DEVICE_LOCK-<COMn>.d", base
-# $HS_DEVICE_LOCK defaulting to $TMPDIR/holosphere-teensy-device — a fixed
-# location outside every worktree.
+# Lock scope spans build+flash+capture. Claims live outside worktrees at
+# "$HS_DEVICE_LOCK-<COMn>.d"; HS_DEVICE_LOCK defaults to
+# $TMPDIR/holosphere-teensy-device.
 #
-# One lock per attached board, not one for the bench: with several Teensys
-# plugged in, sessions run in parallel on different boards instead of queueing
-# on one. hs_device_acquire enumerates the attached boards and claims the first
-# whose lock is free, then exports HS_TEENSY_PORT so the flash and the capture
-# both pin to *that* board — the loader's auto-search refuses to choose between
-# two boards (prints "Found 2 Teensy boards", flashes nothing, exits SUCCESS)
-# and the capture's first-VID-match would read whichever enumerated first.
-# HS_TEENSY_PORT set by the caller pins the run to one board and disables the
-# search.
-#
-# Why a lock at all: a peer's `pio run -t upload` mid-capture corrupts the log,
-# and an upload issued while the port is held reports SUCCESS *without
-# flashing*, so the loser can be either side and neither is told. The window
-# spans the whole build+flash+capture, so the lock is taken before the build
-# and held through the capture.
-#
-# A persistent OS file lock serializes claim creation and removal.
-# `info` inside the claim directory names the holder.
+# Acquisition selects the first free enumerated board and exports HS_TEENSY_PORT
+# for flash and capture. A caller-supplied HS_TEENSY_PORT disables the search.
+# An OS file lock serializes claim creation/removal; `info` names the holder.
 #
 # Env knobs:
 #   HS_DEVICE_LOCK   override the lock path base (per-board suffix still added)

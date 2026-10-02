@@ -1,8 +1,4 @@
-# 3.29 is the real floor: CMakePresets schema v6 needs >=3.25 (3.21-3.24 reject
-# the file outright) and the native test toolchain's CMAKE_LINKER_TYPE was added
-# in 3.29 (silently ignored on 3.25-3.28, so the Windows tests build falls back
-# to the wrong linker — the exact failure toolchain-native-clang.cmake exists to
-# prevent). Declare it honestly so an old CMake fails loudly instead of mis-linking.
+# CMAKE_LINKER_TYPE requires CMake 3.29.
 cmake_minimum_required(VERSION 3.29)
 project(Holosphere CXX)
 
@@ -61,11 +57,8 @@ if(EMSCRIPTEN)
       -P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/wasm_cache_key.cmake"
     VERBATIM)
 
-  # The chain interpreter's two arenas (2 x CHAIN_ARENA_BYTES) plus ShaderChain's
-  # shared color resources outgrow the device-mirrored default arena; the spec
-  # prices that doubling as engine cost on Emscripten/test-oracle builds only.
-  # Device-bound effects are still gated against the true device figure by the
-  # native unit_arena_budget sweep, which builds without the interpreter.
+  # WASM reserves two chain arenas plus ShaderChain's shared color resources.
+  # The native unit_arena_budget sweep enforces the device budget separately.
   target_compile_definitions(${TARGET_NAME} PRIVATE
     HS_RUNTIME_DISPLAY_GEOMETRY=1
     HS_DISPLAY_PROFILE=0
@@ -86,29 +79,15 @@ if(EMSCRIPTEN)
     "-sMODULARIZE=1"
     "-sEXPORT_ES6=1"
     "-sEXPORT_NAME=createHolosphereModule"
-    # No runtime code generation, so the pages that load this module need only
-    # 'wasm-unsafe-eval' in their CSP rather than 'unsafe-eval'. embind normally
-    # crafts one invoker per binding with `new Function` during module creation;
-    # DYNAMIC_EXECUTION=0 removes that, and EMBIND_AOT emits the same invokers
-    # into the glue at link time instead. Both are needed: DYNAMIC_EXECUTION=0
-    # alone falls back to a generic reflective invoker roughly 8x slower per
-    # bound call. Cost of EMBIND_AOT is ~5.5 KB of glue and ~2 s of link time.
+    # CSP requires wasm-unsafe-eval; runtime JavaScript code generation is disabled.
+    # EMBIND_AOT supplies invokers at link time.
     "-sDYNAMIC_EXECUTION=0"
     "-sEMBIND_AOT=1")
-  # -sSTACK_SIZE is deliberately NOT set here: each build type sets it exactly
-  # once in its own block below (8 KB release / 64 KB debug). Setting it in this
-  # shared block too would make the effective value depend on link-line ordering
-  # between two -sSTACK_SIZE flags (last one wins), so a future reorder of these
-  # blocks could silently revert debug to 8 KB.
 
   if(CMAKE_BUILD_TYPE STREQUAL "Debug")
     message(STATUS "WASM Debug build (-O0 -g -sASSERTIONS, 64 KB stack)")
     target_compile_options(${TARGET_NAME} PRIVATE "-O0" "-g")
-    # 64 KB stack for debug only. -O0 disables inlining and stack-slot
-    # coalescing, inflating frame sizes severalfold over the -O3 release build,
-    # so the tight release budget overflows under no optimization. CI does
-    # runtime-smoke this debug build, so size it generously to hold the inflated
-    # -O0 frames rather than rely on -sASSERTIONS to merely report the abort.
+    # Debug uses a 64 KB stack for -O0 frames; release uses 8 KB.
     target_link_options(${TARGET_NAME} PRIVATE "-O0" "-g" "-sASSERTIONS=1"
       "-sSTACK_SIZE=65536")
   elseif(CMAKE_BUILD_TYPE STREQUAL "PullbackStrictFP")
@@ -148,12 +127,7 @@ if(EMSCRIPTEN)
   # Emscripten emits a .js loader as the "executable".
   set_target_properties(${TARGET_NAME} PROPERTIES SUFFIX ".js")
 
-  # Out of the default build: its own LTO link costs as much as the module's and
-  # nothing but a capture run consumes the .cjs, so tools/pullback_crosscheck.py
-  # names it as an explicit --target, and no CI job builds it. All four of its
-  # sources are compiled by tests/'s pullback_capture_native, three of them also
-  # by the module target above, so the only thing excluding it hides from CI is
-  # the Emscripten compile of tools/pullback_capture_native.cpp.
+  # Build pullback_capture_wasm explicitly for tools/pullback_crosscheck.py.
   add_executable(pullback_capture_wasm EXCLUDE_FROM_ALL
     ${CMAKE_CURRENT_SOURCE_DIR}/tools/pullback_capture_native.cpp
     ${HS_PULLBACK_CAPTURE_SOURCE_ROOT}/core/engine/memory.cpp
@@ -210,15 +184,9 @@ if(EMSCRIPTEN)
     DEPENDS ${TARGET_NAME}
     VERBATIM)
 
-  # Install the simulator runtime package into the daydream checkout. Defaults
-  # to the sibling-checkout layout (../daydream); override with
-  # -DDAYDREAM_DIR=/path/to/daydream. Destinations are absolute, so this install
-  # is independent of CMAKE_INSTALL_PREFIX.
-  #
-  # If the directory does not exist (e.g. a standalone Holosphere clone), skip
-  # the install rules with a notice instead of silently creating a stray
-  # ../daydream. DAYDREAM_DIR is resolved at configure time — re-run cmake after
-  # creating the checkout. (The `install` target still exists; it just no-ops.)
+  # Install into ../daydream; override with -DDAYDREAM_DIR=/path/to/daydream.
+  # Absolute destinations ignore CMAKE_INSTALL_PREFIX. A missing checkout skips
+  # installation; reconfigure after creating it.
   set(DAYDREAM_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../daydream"
       CACHE PATH "Destination daydream checkout for the installed WASM module")
 
@@ -236,12 +204,8 @@ if(EMSCRIPTEN)
     install(TARGETS ${TARGET_NAME} DESTINATION "${DAYDREAM_DIR}/generated")
     install(FILES "${CMAKE_CURRENT_BINARY_DIR}/${TARGET_NAME}.wasm"
             DESTINATION "${DAYDREAM_DIR}/generated")
-    # The segment-map golden, emitted from hardware/pov_segment_map.h and pinned
-    # against it by the unit_pov_segment_map_golden CTest. The simulator's
-    # tests/segment_crosscheck.test.js reads it as the firmware reference, so it
-    # travels the same install path as the module rather than being hand-ported
-    # into JS. Daydream requires byte identity with the CI-published bundle for
-    # the recorded engine SHA, including this golden.
+    # Firmware golden from hardware/pov_segment_map.h; consumed by daydream
+    # tests/segment_crosscheck.test.js and included in engine bundle provenance.
     install(FILES "${CMAKE_CURRENT_SOURCE_DIR}/hardware/pov_segment_map.json"
             DESTINATION "${DAYDREAM_DIR}/generated")
     install(FILES

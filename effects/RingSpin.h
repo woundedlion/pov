@@ -118,8 +118,6 @@ public:
         int slots = 0;
         const float pixel_w =
             std::max(math::TWO_PI_F / W, math::RADIANS_PER_ROW<H>);
-        // Trail-slot cut, deliberately above the MIN_ENCODABLE_ALPHA
-        // per-sample encode floor.
         constexpr float MIN_SLOT_ALPHA = 0.001f;
         for (int j = 0; j < count; ++j) {
           float t = ts[j];

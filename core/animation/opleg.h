@@ -629,14 +629,8 @@ public:
       ScratchScope sa(scratch_arena_a);
       ScratchScope sb(scratch_arena_b);
 
-      // The medial is built in scratch; only its connectivity (tr.seed) and the
-      // two snorm16-packed endpoint sets cross into persistent. a_e (ambo(P))
-      // and b_e (ambo(dual(P))) are unit-sphere directions, so the 6-byte pack
-      // halves their 12-byte resident cost (mirrors hk_final). Classification
-      // and centroids run on the full-precision scratch copies: unlike hk_final
-      // no arrival rebuild reads the packed points back, and the topology
-      // classifier splits symmetry orbits under the quantum, so perturbing its
-      // input would inflate the leg's distinct palette-pair count.
+      // Classify full-precision scratch points before packing persistent endpoints;
+      // snorm16 quantization can split symmetry orbits.
       PolyMesh med;
       ArenaVector<math::Vector> med_b;
       MeshOps::medial(seed, med, med_b, scratch_arena_a, scratch_arena_b);
@@ -828,17 +822,8 @@ private:
       return;
     }
 
-    // Frame -> sweep position + settle blend. Settling legs run one eased
-    // clock over the whole leg, split proportionally by frame counts: the
-    // sweep/settle seam lands mid-easing instead of at the sweep's
-    // zero-slope tail, so per-frame motion crosses it without a hitch while
-    // the leg still starts and ends at zero slope against the static
-    // bookends. Forward legs settle at the end; reverse legs un-settle over
-    // the opening window, symmetrically.
-    // Clamped: the constructors pin the sweep endpoints inside the operator's
-    // topology-constant interval, so an overshooting easing (elastic, back)
-    // would extrapolate tp past t_end and change the compiled face count
-    // mid-leg.
+    // One eased clock spans sweep and settle; reverse legs un-settle first.
+    // Clamp easing to the compiled topology-constant interval.
     const float progress = hs::clamp(
         easing_fn(static_cast<float>(frame) / static_cast<float>(duration)),
         0.0f, 1.0f);
@@ -1115,11 +1100,8 @@ private:
     if (handoff.correspondence == FaceCorrespondence::DUAL_CLOSING)
       forced_from = dual_closing_palettes(seed, handoff, scratch_arena_a);
 
-    // A closing bridge leg departs the ambo point with its face blocks
-    // transposed against the handoff order (medial [P-faces][P-vertices] vs
-    // truncate(dual) [D-faces][D-vertices]), so the departed centroids cannot
-    // stand in for the start centroids: provenance needs the start mesh's own,
-    // built here, before the arrival, so the two never co-reside in scratch.
+    // Closing-bridge face blocks transpose the handoff order; use the start
+    // mesh's own centroids, built before arrival to avoid co-resident scratch.
     const math::Vector *start_centroid = nullptr;
     if (bridge_provenance && handoff.prev_face_centroid &&
         tr.t_start > tr.t_end) {
@@ -1784,12 +1766,8 @@ private:
     tr.landing.faces = total;
     tr.landing.primary_faces = primary;
 
-    // Target classes: the bookend grouping where a face survives the swap
-    // (emission-order identity). A face that collapses to a T_EPS sliver has
-    // no counterpart there, so it takes the bookend class of the arrival face
-    // it collapses onto — the mirror of the newborn from-palette rule below,
-    // which is what makes the leg's crossfade symmetric: a sliver closes into
-    // its host's color instead of freezing in an unrelated target color.
+    // Surviving faces keep bookend classes; collapsed slivers take their
+    // arrival host's class, symmetric with the newborn from-palette rule.
     const uint16_t *target_topo = resolve_target_topology(
         tr, arrival, handoff, bookend, arena, survivors);
     tr.landing.topology = target_topo;

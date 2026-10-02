@@ -358,44 +358,19 @@ struct Config {
       return "beacon_pitch_cols > 0";
     if (!(gap_timeout_cols > beacon_pitch_cols))
       return "gap_timeout_cols > beacon_pitch_cols";
-    // Both pitches must clear the glitch filter. A pulse may be emitted up to
-    // late_censor_cycles() late, compressing its gap to the next on-time pulse;
-    // a filter wider than what remains swallows every pulse after the first, so
-    // the burst decodes as Symbol::HALF — the miscount the odd-only alphabet
-    // exists to prevent.
+    // Both pitches must clear the glitch filter after maximum emission lateness.
     if (!(glitch_filter_cycles < pulse_pitch_cycles() - late_censor_cycles()))
       return "glitch_filter_cycles < pulse_pitch - late_censor";
     if (!(glitch_filter_cycles < beacon_pitch_cycles() - late_censor_cycles()))
       return "glitch_filter_cycles < beacon_pitch - late_censor";
-    // Demarcation headroom: a beacon frame starts at W/4, so its last pulse
-    // comes within W/4 - beacon_span_cols() of the HALF boundary. A gate radius
-    // above that separation makes handle_burst() claim beacon digits as
-    // boundary symbols and snap on them; the frame and quiet clauses below keep
-    // 7*beacon_pitch_cols — the widest single digit burst — under it.
+    // A boundary gate must not claim the widest beacon digit burst.
     if (!(7 * beacon_pitch_cols + 1 > gate_cols))
       return "7*beacon_pitch_cols + 1 > gate_cols";
-    // maybe_schedule_beacon emits only in [W/4, W/2), so the worst-case frame
-    // plus its tail quiet must clear W/4 or no beacon is ever scheduled.
-    // Strict: the slack absorbs the emitter's ½-column lateness budget, which
-    // the scheduling fit charges to the frame, plus the sub-column offset
-    // between the W/4 instant and the tick that schedules it.
-    // Achieved margin at the shipped constants (W = 288): 71 of 72 columns —
-    // one column, half of it the lateness budget. The tightest relation in this
-    // function.
+    // The frame and tail quiet must fit between W/4 and HALF, with lateness slack.
     if (!(beacon_frame_cols() < W / 4))
       return "beacon_frame_cols() < W/4";
-    // Demarcation: the acquisition timeout must clear the beacon's worst-case
-    // per-digit advance, or tick()'s quiet aging resets the parser mid-train.
-    // That advance runs from one digit burst's last pulse to the tick that
-    // claims the next: the emitter's inter-burst gap (gap_timeout_cols + 1),
-    // then the widest digit burst (7 * beacon_pitch_cols), then the terminating
-    // gap the mailbox waits out before claiming it (gap_timeout_cols).
-    // beacon_span_cols() / 4 is the mean advance, not this bound. Held with
-    // equality at the shipped constants; tick() polls at acquire_quiet_cols +
-    // gap_timeout_cols, so the achieved margin against the advance is
-    // gap_timeout_cols, which absorbs the emitter's wake-grid quantization.
-    // acquire_quiet_cols cannot grow — beacon_frame_cols() < W/4 above has one
-    // column of slack — so widening it further has to come out of the pitch.
+    // Acquisition quiet must cover the worst-case digit advance: inter-burst gap,
+    // widest digit burst and terminating gap.
     if (!(acquire_quiet_cols >=
           2 * gap_timeout_cols + 7 * beacon_pitch_cols + 1))
       return "acquire_quiet_cols >= 2*gap_timeout + 7*beacon_pitch + 1";

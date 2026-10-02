@@ -1,11 +1,5 @@
-# Emit the pullback operation stream from the manifest, replay it through the
-# native capture producer TWICE at each supported resolution, and require the
-# two captures to be byte-identical: the cross-checker compares a base and a
-# candidate capture, so a producer that is not replay-deterministic reports
-# every run as a difference and the comparison means nothing. The captures are
-# then handed back to tools/pullback_capture.py --backend-audit, which scores
-# them against the manifest oracles, so a run that is stably deterministic but
-# stably wrong fails here too.
+# Replay manifest operations twice per supported resolution; require identical
+# captures and audit both against the manifest oracles via pullback_capture.py.
 # -D args: PYTHON, CAPTURE_SCRIPT, MANIFEST_DIR, PRODUCER, OUTPUT_DIR.
 
 # Script mode inherits no policies from the project, so every policy would
