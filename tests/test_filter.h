@@ -1056,7 +1056,7 @@ inline void test_world_hole_setters() {
  *          age offset is zero. A static orientation must not drift the temporal
  *          channel frame over frame.
  */
-inline void test_world_orient_rotates_and_offsets_age() {
+inline void test_world_orient_rotates_and_keeps_static_age() {
   math::Quaternion q =
       math::make_rotation(math::Y_AXIS, math::PI_F / 2); // 90 deg about +Y
   math::Orientation<> ori(q);
@@ -3991,7 +3991,7 @@ inline int run_filter_tests() {
 
   test_world_hole_masks_cap();
   test_world_hole_setters();
-  test_world_orient_rotates_and_offsets_age();
+  test_world_orient_rotates_and_keeps_static_age();
   test_world_orient_motion_blur_sweep_ages();
   test_world_orient_cull_edge_mirrors_plot();
   test_world_orient_slice_selects_by_projection();
