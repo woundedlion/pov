@@ -15,7 +15,6 @@
 #include "core/render/pullback/catalog_export.h"
 #include "targets/wasm/chain_snapshot_codec.h"
 #endif
-#include <cmath>
 #include <functional>
 #include <memory>
 #include <span>
