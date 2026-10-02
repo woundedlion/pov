@@ -1518,8 +1518,8 @@ namespace sdf_subtract_detail {
 /**
  * @brief Mock SDF shape that emits a fixed (possibly unsorted, multi-) interval list.
  * @details Exercises the CSG scanline interval paths independently of any real
- *   shape. Minimal surface: only is_solid and get_horizontal_intervals are
- *   touched by a combinator's ctor + interval path.
+ *   shape. The combinator paths read is_solid, BLENDS_SMOOTHLY,
+ *   get_vertical_bounds and get_horizontal_intervals.
  */
 struct MockIntervalShape {
   static constexpr bool BLENDS_SMOOTHLY = true;
@@ -2219,11 +2219,19 @@ inline void test_smooth_union_pad_widens_toward_pole() {
     std::vector<P> out;
     const bool HANDLED = su.get_horizontal_intervals<W, H>(
         row, [&](float st, float en) { out.push_back({st, en}); });
+    HS_EXPECT_TRUE(HANDLED);
     if (!HANDLED)
-      return static_cast<float>(W);
+      return -1.0f;
     return out.empty() ? 0.0f : out[0].second - out[0].first;
   };
-  HS_EXPECT_GT(span_at(1), span_at(H / 2));
+  const int NEAR_POLE = su.pad_rows<H>() + 4;
+  const float POLE_SPAN = span_at(NEAR_POLE);
+  HS_EXPECT_GT(POLE_SPAN, span_at(H / 2));
+  HS_EXPECT_NEAR(POLE_SPAN,
+                 2.0f * fminf(k * W / math::TWO_PI_F /
+                                  math::TrigLUT<W, H>::sin_phi[NEAR_POLE],
+                              static_cast<float>(W)),
+                 1e-3f);
 }
 
 // ============================================================================
