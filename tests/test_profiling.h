@@ -355,6 +355,35 @@ inline void test_second_caller_flags_mixed_parent() {
   HS_EXPECT_TRUE(std::strstr(report, "(150%)") != nullptr);
 }
 
+/** @brief Tags active duplicate-name counters and ignores idle namesakes. */
+inline void test_duplicate_name_tags_active_counters() {
+  static hs::CycleCounter first("prof_duplicate");
+  static hs::CycleCounter second("prof_duplicate");
+  static hs::CycleCounter idle("prof_duplicate");
+  hs::CycleCounter::reset_all();
+  {
+    hs::CycleScope scope(first);
+  }
+  {
+    hs::CycleScope scope(second);
+  }
+  HS_EXPECT_EQ(idle.count, 0u);
+  char report[4096];
+  HS_EXPECT_TRUE(capture_log_all(report, sizeof(report)));
+  const char *tag = std::strstr(report, "DUPLICATE-NAME");
+  HS_EXPECT_TRUE(tag != nullptr);
+  if (tag != nullptr) {
+    tag = std::strstr(tag + 1, "DUPLICATE-NAME");
+    HS_EXPECT_TRUE(tag != nullptr);
+    if (tag != nullptr)
+      HS_EXPECT_TRUE(std::strstr(tag + 1, "DUPLICATE-NAME") == nullptr);
+  }
+  first.reset();
+  HS_EXPECT_TRUE(capture_log_all(report, sizeof(report)));
+  HS_EXPECT_TRUE(std::strstr(report, "prof_duplicate") != nullptr);
+  HS_EXPECT_TRUE(std::strstr(report, "DUPLICATE-NAME") == nullptr);
+}
+
 /**
  * @brief Verifies parent retirement keeps the child rooted and flags the
  *        descendant when it later runs at the root.
@@ -527,6 +556,7 @@ inline int run_profiling_tests() {
   test_nesting_latches_parent();
   test_recursive_scope_does_not_self_parent();
   test_second_caller_flags_mixed_parent();
+  test_duplicate_name_tags_active_counters();
   test_mutual_nesting_keeps_a_root();
   test_parent_retirement_prevents_cycle();
   test_log_all_reports_tree();
