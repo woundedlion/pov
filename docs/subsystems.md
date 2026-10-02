@@ -402,7 +402,7 @@ Two traversal helpers linearize multi-level orientation history into a single ca
 
 ### Animations and Mutable State
 
-Animations do not render directly — they mutate external state that the rendering pipeline reads. Each animation type targets a specific kind of mutable variable:
+Parameter and motion animations mutate external state that the rendering pipeline reads. Sprite animations call their draw function directly. The state-driving animation types target these variables:
 
 | Animation | Target State | What It Mutates |
 |---|---|---|
@@ -418,7 +418,7 @@ Animations do not render directly — they mutate external state that the render
 | `NoiseProduct` | `NoiseProductParams` | Advances the field time axis so the two-octave product noise keeps flowing under live speed edits; the field pool reads it during `field()` |
 | `ParticleSystem` | `Vector[]` positions | Physics simulation updates particle positions; `QuantizedVectorTrail` records history for trail rendering |
 
-This separation means effects declare *what state exists* (orientations, floats, palettes) and *what animations drive that state* (rotations, transitions, drivers), but never manually interpolate or update values per-frame. The `Timeline` handles all timing, easing, sequencing, and cleanup:
+Effects can declare *what state exists* (orientations, floats, palettes) and schedule animations to drive it. The `Timeline` handles timing, easing, sequencing, and cleanup for those scheduled animations; effects can also advance state directly in `draw_frame()`:
 
 ```cpp
 // Effect declares mutable state:
