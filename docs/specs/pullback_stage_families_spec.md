@@ -613,7 +613,7 @@ bookkeeping here.
   `run_stage` are already length-generic (the recursion mentions no
   count; repeated `NoPrepared` tuple elements are distinct subobjects
   and cost roughly a byte each plus padding — a few bytes per chain,
-  not zero; `PREPARED_BLOB_BYTES` stays as the backstop, and
+  not zero; stack measurements bound prepared-tuple storage, and
   uniquely-indexed empty prepared types are the named remedy if the
   bytes ever matter). They keep their exact *shape* — always-inline index
   recursion with `std::get<Index>` over a pack-indexed tuple — while the
@@ -1163,11 +1163,9 @@ concern.
   dispatch, variant-gated parameters, per-variant resource selection,
   and prepared-state differences — with parameter values at
   representative boundaries (defaults and range endpoints) in each
-  variant. Per-op prepared state is arena-sized at compile
-  (structural edit) time, like the param blocks — the static-blob +
-  `static_assert` pattern that guards template pipelines cannot cover
-  unbounded chains.
-- `setShaderChain` replaces the thirteen structural enum parameters. It
+  variant. Per-op prepared state is arena-sized at structural-edit time,
+  like the parameter blocks; template pipelines have no fixed prepared-blob cap.
+- `setShaderChain` is the only structural channel. It
   synchronously rebuilds the registered parameter definitions and bumps
   the parameter generation before returning — an async rebuild would let
   preset values apply against a stale definition snapshot. The
