@@ -925,7 +925,8 @@ inline float airocean_edge_halfspace(const AiroceanVector &p, uint8_t face,
  * @brief Tests a direction against a spherical triangle.
  * @param p Direction to test; need not be normalized.
  * @param face Face index in [0, 23).
- * @return True when `p` lies in the triangle's cone, boundary included.
+ * @return True when all half-space determinants are within
+ *         AIROCEAN_CONTAINS_EPS of the triangle's cone.
  */
 inline bool airocean_contains(const AiroceanVector &p, uint8_t face) {
   return airocean_edge_halfspace(p, face, 0) <= AIROCEAN_CONTAINS_EPS &&
@@ -937,8 +938,8 @@ inline bool airocean_contains(const AiroceanVector &p, uint8_t face) {
  * @brief How far outside a spherical triangle a direction falls.
  * @param p Direction to test; need not be normalized.
  * @param face Face index in [0, 23).
- * @return 0 when contained, otherwise the largest violated half-space
- *         determinant. Used to pick the least-wrong face when rounding leaves
+ * @return Largest positive half-space determinant, or 0 if none is positive.
+ *         Used to pick the least-wrong face when rounding leaves
  *         a direction in no triangle at all.
  */
 inline float airocean_outside_score(const AiroceanVector &p, uint8_t face) {
