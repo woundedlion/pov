@@ -61,9 +61,10 @@ sequence bounds must pass the palette cycler's validation.
 
 `restoreSnapshot()` returns `Module.ChainSnapshotRestoreResult`: `APPLIED`,
 `NOT_SHADER_CHAIN`, `UNSUPPORTED_VERSION`, `INVALID_LENGTH`, `INVALID_VALUE` or
-`INVALID_CHAIN`. Compare enum values explicitly. Every refusal preserves the
-program, parameter definitions, schema generation, clocks, noise, palettes and
-pause state.
+`INVALID_CHAIN`. Compare enum values explicitly. A refused host restoration
+preserves the program, parameter definitions, schema generation, clocks, noise,
+palettes and pause state. The WASM wrapper does not roll back caller-accessor
+side effects during payload cloning.
 
 The host compiles into its inactive arena with state migration disabled, then
 validates parameter ranges, topology indices, operator predicates, edge-distance
