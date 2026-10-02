@@ -316,7 +316,7 @@ struct Vector {
    * @param v The vector to compare.
    * @return True if components are within TOLERANCE.
    * @note Uses an absolute per-component tolerance (TOLERANCE), so it is
-   *   scale-dependent (loose for large magnitudes, strict for tiny ones) and
+   *   scale-dependent (strict relative to large magnitudes, loose for tiny ones) and
    *   non-transitive (a==b and b==c does not imply a==c). Fine for direct
    *   value compares; do not rely on it for ordering or container keys.
    */
