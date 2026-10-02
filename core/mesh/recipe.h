@@ -26,9 +26,9 @@ namespace Solids {
 inline constexpr float CHAMFER_T_MAX = 0.63f;
 
 /**
- * @brief Whether a lowered primitive step has a morph leg kind covering it.
+ * @brief Whether a lowered primitive step is admitted by recipe-morph coverage.
  * @param step Lowered primitive step.
- * @return True when a leg can sweep or gate the step; false leaves the whole
+ * @return True when the recipe-morph path supports the step; false leaves the whole
  *   recipe to the caller's whole-generate fallback.
  * @details TRUNCATE below ConwayGraph::T_TRUNCATE_ARRIVAL_MIN sweeps too few
  * pixels to read as motion. A sub-T_EPS arrival (0.01) still sweeps: the leg

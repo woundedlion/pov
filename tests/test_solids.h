@@ -785,8 +785,8 @@ inline void test_composite_lowering_matches_composites() {
  *        non-null recipe whose every lowered primitive step satisfies
  *        is_morphable_step.
  * @details Fail-hard gate for the morphing carousel's roster. A future recipe
- *          that lowers to a step no leg can sweep (EXPAND, or a truncate/chamfer
- *          param outside the characterized range) reds here and names the
+ *          that lowers to a step outside recipe-morph coverage (EXPAND, or a
+ *          truncate/chamfer param outside the characterized range) reds here and names the
  *          offending entry and lowered step, rather than cutting to a
  *          whole-generate fallback unannounced. expand_to_primitives mirrors the
  *          lowering the morph path runs, so this checks the same steps it will.
