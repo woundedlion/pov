@@ -165,8 +165,10 @@ inline void test_populate_band_preserves_other_samples() {
   for (int i = 0; i < layout.sample_count(); ++i) {
     if (i >= first.offset && i < last.offset + last.samples) {
       HS_EXPECT_NEAR(values[i].a, 1.0f, 0.002f);
+      HS_EXPECT_EQ(values[i].b, i < last.offset ? first.y : last.y);
     } else {
       HS_EXPECT_EQ(values[i].a, SENTINEL.a);
+      HS_EXPECT_EQ(values[i].b, SENTINEL.b);
     }
   }
 }
