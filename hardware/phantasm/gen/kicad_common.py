@@ -91,9 +91,10 @@ def uid():
     """UUID for a generated element, derived from the call site and occurrence.
 
     Deterministic uuid5, so one generator run reproduces another run's ids byte
-    for byte. It does not reproduce any committed artifact: KiCad wrote those
-    last and stamped random v4 ids, so a regeneration renumbers every uuid in
-    the file. The source file is part of the key, so the schematic and board
+    for byte. Generated revisions 1.2 and 1.3 reproduce their committed ids.
+    KiCad wrote the routed rev 1.1 project with random v4 ids, so regenerating
+    that revision renumbers its uuids. The source file is part of the key, so
+    the schematic and board
     generators draw from disjoint id spaces.
     """
     code = sys._getframe(1).f_code
