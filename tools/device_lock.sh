@@ -67,11 +67,7 @@ _hs_now() { date +%s; }
 # builds two full images before the flash reports the miss. rc 1 = the pin is
 # not attached.
 #
-# rc 2 = the loader is here but its enumeration failed, which is NOT the same
-# outcome as an enumerate-less host: falling back to the portless lock there
-# would let two sessions share one board, or pin a capture to firmware nobody
-# flashed. The loader's output is captured first so its own status is the one
-# read; piping it straight into awk reads awk's, and awk is happy with nothing.
+# rc 2 = enumeration failed. Claims require an attached port.
 hs_device_ports() {
   local tools=${HS_TEENSY_TOOLS:-${PLATFORMIO_CORE_DIR:-$HOME/.platformio}/packages/tool-teensy}
   local attached="" listing rc=0 enumerated=0
@@ -223,10 +219,8 @@ _hs_try_claim() {
   _HS_TOKEN="$token"
   _HS_LOCK_DIR="$d"
   HS_DEVICE_PORT="$port"
-  if [ -n "$port" ]; then
-    [ -n "${HS_TEENSY_PORT:-}" ] || _HS_PORT_EXPORTED=1
-    export HS_TEENSY_PORT="$port"
-  fi
+  [ -n "${HS_TEENSY_PORT:-}" ] || _HS_PORT_EXPORTED=1
+  export HS_TEENSY_PORT="$port"
   return 0
 }
 
