@@ -2641,10 +2641,8 @@ inline void case_pipeline_ref_erase_not_prepared() {
 }
 
 /**
- * @brief Death case: a face index past the vertex pool must trap.
- * @details SDF::Face reads the vertex span with operator[], which only asserts,
- *          so a stale index domain would read arbitrary memory as a Vector on
- *          device. Scan::Mesh validates the flat index array once per mesh.
+ * @brief Builds an invalid scan mesh with either missing offsets or a bad index.
+ * @param omit_offsets Selects the missing-offset guard before index validation.
  */
 inline void scan_mesh_invalid_fixture(bool omit_offsets) {
   constexpr int W = 32, H = 16;
@@ -2666,7 +2664,7 @@ inline void scan_mesh_invalid_fixture(bool omit_offsets) {
   mesh.faces.bind(geom, 3);
   mesh.faces.push_back(opaque<uint16_t>(0));
   mesh.faces.push_back(opaque<uint16_t>(1));
-  mesh.faces.push_back(opaque<uint16_t>(3)); // only 3 vertices -> HS_CHECK
+  mesh.faces.push_back(opaque<uint16_t>(3));
 
   DeathEffect fx(W, H);
   Canvas c(fx);
@@ -2675,10 +2673,12 @@ inline void scan_mesh_invalid_fixture(bool omit_offsets) {
       pipe, c, mesh, [](const math::Vector &, Fragment &) {}, scratch);
 }
 
+/** @brief Death case: absent face offsets must trap. */
 inline void case_scan_mesh_missing_offsets() {
   scan_mesh_invalid_fixture(true);
 }
 
+/** @brief Death case: a face index past the vertex pool must trap. */
 inline void case_scan_mesh_face_index_out_of_range() {
   scan_mesh_invalid_fixture(false);
 }
