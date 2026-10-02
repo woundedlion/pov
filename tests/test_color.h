@@ -1139,15 +1139,15 @@ inline void test_linear_to_srgb8_decode_matches_lut() {
 }
 
 /**
- * @brief Pins MIN_ENCODABLE_ALPHA to the first linear channel that encodes off
- *        zero.
- * @details Per-sample culls compare a premultiplied peak against this constant,
- *          so it must be the exact encode floor: one step lower still encodes
- *          to sRGB 0, and no lower value may encode above it. Regenerating the
- *          split-decode tables can move that step.
+ * @brief Pins MIN_ENCODABLE_ALPHA to the normalized first integer linear
+ *        channel that encodes off zero.
+ * @details Lower integer inputs encode to sRGB 0. This per-sample cutoff is
+ *          distinct from the smaller fractional peak that rounds up to that
+ *          first input during pixel accumulation.
  */
 inline void test_min_encodable_alpha_is_the_encode_floor() {
   const int v = static_cast<int>(MIN_ENCODABLE_ALPHA * 65535.0f + 0.5f);
+  HS_EXPECT_EQ(MIN_ENCODABLE_ALPHA, static_cast<float>(v) / 65535.0f);
   HS_EXPECT_GE(linear_to_srgb8(static_cast<uint16_t>(v)), 1);
   for (int u = 0; u < v; ++u)
     HS_EXPECT_EQ(linear_to_srgb8(static_cast<uint16_t>(u)), 0);
