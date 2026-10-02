@@ -3593,6 +3593,9 @@ inline void test_rasterize_open_segment_gap_free() {
   // Adaptive sub-stepping caps each advance at ~base_step (slack for quantization).
   HS_EXPECT_LE(max_consecutive_gap(pipe.plotted, /*wrap=*/false),
                1.5f * base_step);
+  HS_EXPECT_TRUE(!pipe.plotted.empty());
+  if (pipe.plotted.empty())
+    return;
   HS_EXPECT_NEAR(math::angle_between(pipe.plotted.front(), a.pos), 0.0f, 1e-3f);
   HS_EXPECT_NEAR(math::angle_between(pipe.plotted.back(), b.pos), 0.0f, 1e-3f);
   for (const math::Vector &p : pipe.plotted)
@@ -3814,6 +3817,9 @@ inline void test_rasterize_planar_arc_registers_track_drawn_arc() {
   HS_EXPECT_GT(bow, 1e-3);
   HS_EXPECT_LT(bow, 5e-3);
   HS_EXPECT_NEAR(planar, rendered, 2e-3f);
+  HS_EXPECT_TRUE(!v1s.empty() && !v0s.empty());
+  if (v1s.empty() || v0s.empty())
+    return;
   HS_EXPECT_NEAR(v1s.front(), 0.0f, 1e-3f);
   HS_EXPECT_NEAR(v1s.back(), planar, 1e-3f);
   HS_EXPECT_GT(v1s.back(), planar - bow * 0.5);
@@ -5477,6 +5483,9 @@ inline void test_rasterize_single_pass_closed_loop_matches_two_pass() {
     HS_EXPECT_NEAR(p.length(), 1.0f, 1e-3f);
   HS_EXPECT_LE(single.plotted.size(), cached.plotted.size() + points.size());
   HS_EXPECT_GE(single.plotted.size() + points.size(), cached.plotted.size());
+  HS_EXPECT_TRUE(!single.plotted.empty());
+  if (single.plotted.empty())
+    return;
   HS_EXPECT_LE(
       math::angle_between(single.plotted.front(), single.plotted.back()),
       1.5f * base_step);
@@ -5786,6 +5795,9 @@ inline void test_rasterize_balanced_sampling_density_and_alpha() {
   const float candidate_step =
       std::min(BASE_STEP, default_step * (Plot::BALANCED_SCREEN_STEP_PX /
                                           Plot::SCREEN_STEP_PX));
+  HS_EXPECT_TRUE(!standard.alphas.empty() && !balanced.alphas.empty());
+  if (standard.alphas.empty() || balanced.alphas.empty())
+    return;
   HS_EXPECT_NEAR(standard.alphas.front(), 0.4f, 1e-6f);
   HS_EXPECT_NEAR(
       balanced.alphas.front(),
@@ -5899,6 +5911,9 @@ inline void test_rasterize_balanced_geodesic_density_and_alpha() {
       std::min(BASE_STEP, default_step * (Plot::BALANCED_SCREEN_STEP_PX /
                                           Plot::SCREEN_STEP_PX));
   HS_EXPECT_GT(candidate_step, default_step);
+  HS_EXPECT_TRUE(!standard.alphas.empty() && !balanced.alphas.empty());
+  if (standard.alphas.empty() || balanced.alphas.empty())
+    return;
   HS_EXPECT_NEAR(standard.alphas.front(), 0.4f, 1e-6f);
   HS_EXPECT_NEAR(
       balanced.alphas.front(),
@@ -6235,6 +6250,9 @@ inline void test_rasterize_single_pass_geodesic_stress_arcs_are_gap_free() {
 
     HS_EXPECT_GT(pipeline.plotted.size(), size_t{2});
     HS_EXPECT_LE((max_projected_gap<W, H>(pipeline.plotted)), 1.5f);
+    HS_EXPECT_TRUE(!pipeline.plotted.empty());
+    if (pipeline.plotted.empty())
+      return;
     HS_EXPECT_NEAR(math::angle_between(pipeline.plotted.front(), start), 0.0f,
                    1e-3f);
     HS_EXPECT_NEAR(math::angle_between(pipeline.plotted.back(), end), 0.0f,
