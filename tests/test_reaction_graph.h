@@ -126,16 +126,12 @@ inline void test_node_ordered_and_distinct() {
 
 /**
  * @brief Pins the frozen D_AVG literal to its analytic value sqrt(4π / RD_N).
- * @details D_AVG is a hand-pasted constant (std::sqrt isn't constexpr here) that
- *          KERNEL_R / INV_R2 in ReactionDiffusionBase derive from, so a stale
- *          value silently mistunes the biweight kernel support radius. Nothing
- *          else links it to RD_N: bumping RD_N (which also requires regenerating
- *          neighbors[]) would leave D_AVG quietly wrong. This recomputes the
- *          spacing and fails loudly if the literal and RD_N ever diverge.
+ * @details Mirrors reaction_graph.h's compile-time D_AVG/RD_N guard with an
+ *          analytic runtime spacing check.
  */
 inline void test_d_avg_matches_rd_n() {
   float expected = static_cast<float>(std::sqrt(4.0 * PI / RD_N));
-  HS_EXPECT_NEAR(D_AVG, expected, 1e-4f);
+  HS_EXPECT_NEAR(D_AVG, expected, 1e-6f);
 }
 
 /**
