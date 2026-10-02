@@ -548,8 +548,8 @@ inline void test_rotation_substeps_shared_and_tight() {
 }
 
 /**
- * @brief Verifies Rotation::step does not discard sub-TOLERANCE increments.
- * @details A rotation slow enough that each frame's delta is below TOLERANCE
+ * @brief Verifies Rotation::step does not discard sub-MIN_STEP_ANGLE increments.
+ * @details A rotation slow enough that each frame's delta is below MIN_STEP_ANGLE
  * (1e-4 rad) must still accumulate those deltas so the orientation actually
  * turns over many frames. ease_linear is linear here, so the per-frame delta is
  * total_angle / duration.
@@ -557,7 +557,7 @@ inline void test_rotation_substeps_shared_and_tight() {
 inline void test_rotation_accumulates_subthreshold_deltas() {
   using Ori = math::Orientation<16>;
   Ori o; // identity
-  // 0.05 rad over 1000 frames => 5e-5 rad/frame, half of TOLERANCE, so every
+  // 0.05 rad over 1000 frames => 5e-5 rad/frame, half of MIN_STEP_ANGLE, so every
   // frame's raw delta is below the early-out threshold.
   Animation::Rotation<288, 16> rot(o, math::Z_AXIS, 0.05f, 1000,
                                    math::ease_linear);
@@ -571,7 +571,7 @@ inline void test_rotation_accumulates_subthreshold_deltas() {
 
 /**
  * @brief Verifies a repeating Rotation lands its full sweep every cycle.
- * @details An easing with zero slope at t=1 leaves a sub-TOLERANCE residual on
+ * @details An easing with zero slope at t=1 leaves a sub-MIN_STEP_ANGLE residual on
  * the final frame. That frame has no successor to accumulate into, so dropping
  * it slips the residual (~1e-4 rad here) once per cycle.
  */
