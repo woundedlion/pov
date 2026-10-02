@@ -129,12 +129,12 @@ inline void reset_globals() {
 }
 
 /**
- * @brief Draws one uniform float in [lo, hi) from a locally seeded generator.
+ * @brief Draws one uniform float in [lo, hi] from a locally seeded generator.
  * @param rng Generator private to the test, so the draw stream is reproducible
  * without disturbing the process-wide hs::random().
  * @param lo Lower bound (inclusive).
  * @param hi Upper bound (exclusive).
- * @return A float in [lo, hi), bit-identical on every platform.
+ * @return A float in [lo, hi], bit-identical on every platform.
  * @details std::uniform_real_distribution's mapping from generator draws to
  * floats is implementation-defined, so the same seed yields a different sample
  * set per standard library and a failure seen on one CI runner cannot be
