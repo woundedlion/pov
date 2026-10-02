@@ -6011,12 +6011,10 @@ inline void test_hankinsolids_arena_budget_covers_every_solid() {
 /**
  * @brief White-box accessor for IslamicStars' private build-chain state
  *        (befriended in effects/IslamicStars.h).
- * @details The op-by-op recipe build only runs when the round-robin reaches a
- * non-null recipe entry (index 1), ~340 frames into a default-speed run — past
- * every generic smoke window. The probe pre-sets Trans Speed before init so
- * the whole crossing fits in ~100 frames, and reads build_active/solid_idx
- * to pin that the build ran and completed. <96,20> keeps the raster cheap;
- * the build bookkeeping is resolution-independent.
+ * @details init() opens on recipe entry 0 (dodecahedron_hk62_ambo_hk62).
+ * Its build starts after the 16-frame seed fade-in. The probe pre-sets Trans
+ * Speed to shorten the build and reads build_active/solid_idx to pin completion.
+ * Build bookkeeping is resolution-independent.
  */
 struct IslamicBuildProbe {
   using IS = IslamicStars<SMALL_W, SMALL_H>;
@@ -6220,7 +6218,7 @@ inline void test_islamicstars_smooth_recipe_completion() {
 }
 
 /**
- * @brief Drives IslamicStars across the second registry entry's complete
+ * @brief Drives IslamicStars across the first registry entry's complete
  *        op-by-op build at max trans speed: the build must activate and
  *        finish without a trap, the built shape's per-face colours must never
  *        change from finish_build through its still/ripple/fade display, and
@@ -6232,8 +6230,7 @@ inline void test_islamicstars_recipe_build_smoke() {
   IslamicBuildProbe::set_trans_speed(effect, 8.0f);
   effect.init();
 
-  // Entry 1 (dodecahedron_hk62_ambo_hk62) is the second spawn; the third
-  // spawn requires its build to have completed.
+  // The snapshot captures entry 0's first completed recipe build.
   constexpr int MAX_FRAMES = 400;
   int frames = 0;
   int build_frames = 0;
