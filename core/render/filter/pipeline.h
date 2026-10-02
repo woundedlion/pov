@@ -535,7 +535,8 @@ struct Pipeline<W, H, Head, Tail...>
       Head::world_transform_is_identity && Next::world_transform_is_identity;
 
   /**
-   * @brief True when any stage overrides cull_edge, so clip culling must run
+   * @brief True when any stage overrides cull_edge or moves world points
+   * (!world_transform_is_identity), so clip culling must run
    *        through the pipeline rather than on raw geometry. Projection
    *        precomputation is governed by has_world_stage.
    */
