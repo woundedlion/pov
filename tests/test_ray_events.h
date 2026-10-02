@@ -9,7 +9,6 @@
 #include "core/render/ray/shade.h"
 #include "tests/test_cellular_wire.h"
 #include "tests/test_lattice_trace.h"
-#include "core/render/pullback/ray.h"
 #include "tests/test_harness.h"
 #include "tests/test_fixture.h"
 
