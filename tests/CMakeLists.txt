@@ -351,10 +351,8 @@ set(_hs_test_modules
     dma_controller
     pov_segmented pov_single pov_sync param_marshal wasm_predicates led
     presets styles shading death)
-# An unbounded hang in a module would burn CTest's 1500 s default per shard. The whole roster runs in ~2 min unsanitized, but
-# ASan + UBSan cost the slowest module (effects) ~2.7x — 227 s plain against
-# 620 s sanitized — so a single budget for both builds is either useless plain
-# or red sanitized.
+# Bound each module independently. The effects module takes about 227 s plain
+# and 620 s with ASan + UBSan; effects_smoke has its own 1200 s plain budget.
 set(_hs_test_timeout 600)
 if(HS_SANITIZE OR HS_TSAN)
   set(_hs_test_timeout 1800)
