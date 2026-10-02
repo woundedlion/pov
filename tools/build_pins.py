@@ -23,6 +23,7 @@ bytes are digested there over LF.
 from __future__ import annotations
 
 import argparse
+import fnmatch
 import json
 import os
 import re
@@ -326,7 +327,8 @@ ENGINE_RANGES = (
 # DAYDREAM_DIR; install(CODE) writes only files generated at install time.
 INSTALL_RULE = re.compile(r"install\(\s*(FILES|DIRECTORY)\s(.*?)\)", re.DOTALL)
 INSTALL_SOURCE = re.compile(r"\$\{CMAKE_CURRENT_SOURCE_DIR\}/([^\"\s]+)")
-INSTALL_PATTERN = re.compile(r'PATTERN\s+"([^"]+)"')
+INSTALL_PATTERN = re.compile(
+    r'\b(PATTERN|REGEX)\s+"([^"]+)"(?:\s+(EXCLUDE))?')
 
 
 def duplicates_pin(text: str, name: str, value: str) -> bool:
@@ -626,12 +628,23 @@ def installed_sources() -> list[str]:
             if kind == "FILES":
                 sources.add(source)
                 continue
-            for pattern in INSTALL_PATTERN.findall(destination) or ["*"]:
-                sources.update(
-                    path.relative_to(ROOT).as_posix()
-                    for path in (ROOT / source).rglob(pattern)
-                    if path.is_file()
-                )
+            rules = INSTALL_PATTERN.findall(destination)
+            inclusions = [(kind, pattern) for kind, pattern, excluded in rules
+                          if not excluded]
+            exclusions = [(kind, pattern) for kind, pattern, excluded in rules
+                          if excluded]
+
+            def matches(path: Path, rule: tuple[str, str]) -> bool:
+                kind, pattern = rule
+                spelling = path.as_posix()
+                return (re.search(pattern, spelling) is not None if kind == "REGEX"
+                        else fnmatch.fnmatchcase(spelling, f"*/{pattern}"))
+
+            for path in (ROOT / source).rglob("*"):
+                if (path.is_file()
+                        and (not inclusions or any(matches(path, rule) for rule in inclusions))
+                        and not any(matches(path, rule) for rule in exclusions)):
+                    sources.add(path.relative_to(ROOT).as_posix())
     return sorted(sources)
 
 

@@ -514,6 +514,21 @@ class InstallSet(unittest.TestCase):
         # patterns/ also holds a README the FILES_MATCHING patterns exclude.
         self.assertNotIn("patterns/README.md", bp.installed_sources())
 
+    def test_directory_rules_apply_pattern_and_regex_exclusions(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            patterns = root / "patterns"
+            patterns.mkdir()
+            for name in ("live.shader.json", "example.shader.json", "secret.shader.json", "README.md"):
+                (patterns / name).write_text("", encoding="utf-8")
+            (root / "CMakeLists.txt").write_text(
+                'install(DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/patterns/" '
+                'DESTINATION "${DAYDREAM_DIR}/patterns" FILES_MATCHING '
+                'PATTERN "*.shader.json" PATTERN "example.shader.json" EXCLUDE '
+                'REGEX "/secret" EXCLUDE)\n', encoding="utf-8")
+            with unittest.mock.patch.object(bp, "ROOT", root):
+                self.assertEqual(bp.installed_sources(), ["patterns/live.shader.json"])
+
     def test_a_generated_artifact_is_not_a_repository_source(self):
         # The module, glue, and exported catalog are generated during install.
         self.assertNotIn("scripts/engine_catalog.json", bp.installed_sources())
