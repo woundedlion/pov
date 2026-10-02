@@ -1196,8 +1196,8 @@ inline void test_palette_mapping_deterministic() {
 
 // ---------------------------------------------------------------------------
 // Leg-start seed-frame continuity: over a scripted walk covering every SeedFix
-// path (KEEP, DUAL_SWAP both families, DERIVE_AMBO both directions, all three
-// REGEN_TETRA reverse bridges, dual-swap wandering before a REGEN), the mesh
+// path (KEEP, DUAL_SWAP both families, DERIVE_AMBO both directions, all four
+// REGEN_TETRA bridges in both departure directions, dual-swap wandering before a REGEN), the mesh
 // drawn on the first morph frame must overlie the departed node mesh face for
 // face — geometry within tolerance and every face's w = 0 color inherited from
 // the departed face it covers. Fails on a seed rebuilt in a frame or order the
@@ -1205,11 +1205,11 @@ inline void test_palette_mapping_deterministic() {
 // ---------------------------------------------------------------------------
 
 /** Scripted edge walk (indices into ConwayGraph::EDGES). Bridges out-and-back
- * (edges 19/20/21), dual-swap wandering in both families before each REGEN,
+ * (edges 19/20/21/22), dual-swap wandering in both families before each REGEN,
  * DERIVE_AMBO out-and-back (edge 17), settle legs both directions (15/16/21),
  * expand and snub departures (3/4/16/21). */
-constexpr int SEEDFRAME_SCRIPT[] = {19, 8,  1,  0,  2,  8,  19, 21, 14, 10,
-                                    15, 15, 16, 16, 10, 17, 17, 14, 21, 18,
+constexpr int SEEDFRAME_SCRIPT[] = {19, 8,  1,  0,  2,  8,  19, 21, 22, 22, 14,
+                                    10, 15, 15, 16, 16, 10, 17, 17, 14, 21, 18,
                                     20, 20, 20, 8,  1,  3,  3,  4,  4};
 
 /** Two visibly distinct bank entries alternated across the departed faces so a
@@ -1326,7 +1326,7 @@ inline void test_leg_start_seed_frame_continuity() {
     if (fix == SeedFix::DERIVE_AMBO)
       derived[reverse] = true;
     if (fix == SeedFix::REGEN_TETRA) {
-      HS_EXPECT_TRUE(reverse);
+      HS_EXPECT_TRUE(node == OCTAHEDRON || node == ICOSAHEDRON);
       regenerated[ei] = true;
     }
     Arena work(cc_temp_buf, sizeof(cc_temp_buf));
@@ -1371,6 +1371,8 @@ inline void test_leg_start_seed_frame_continuity() {
       t = std::max(t, T_EPS);
       if (e.op == MorphOp::TRUNCATE)
         t = std::min(t, 0.5f - T_EPS_AMBO);
+      if (is_jitterbug_edge(e))
+        t = std::max(t, T_JITTERBUG_OCTA_MIN);
       return t;
     };
     const float t_start = clampp(reverse ? e.t_to : e.t_from);
@@ -1473,9 +1475,20 @@ inline void test_leg_start_seed_frame_continuity() {
     node_arena.reset();
     node_mesh = Solids::finalize_solid(base, node_arena);
     if (ConwayGraph::adopts_seed(e, arrived, arrived_at_to)) {
-      HS_EXPECT_TRUE(arrived_at_to);
-      seed_arena.reset();
-      seed_base = Solids::finalize_solid(node_mesh, seed_arena);
+      if (arrived_at_to) {
+        seed_arena.reset();
+        seed_base = Solids::finalize_solid(node_mesh, seed_arena);
+      } else {
+        HS_EXPECT_EQ(arrived, static_cast<int>(ICOSAHEDRON));
+        PolyMesh seed;
+        MeshOps::clone(seed_base, seed, work);
+        PolyMesh canonical = Solids::SolidBuilder(std::move(seed), work, temp)
+                                 .snub(0.5f, SNUB_BRIDGE_TWIST)
+                                 .relax(SETTLE_RELAX_ITERATIONS)
+                                 .build();
+        seed_arena.reset();
+        seed_base = Solids::finalize_solid(canonical, seed_arena);
+      }
       seed_identity = arrived;
     }
     node = arrived;
@@ -1491,7 +1504,7 @@ inline void test_leg_start_seed_frame_continuity() {
   HS_EXPECT_TRUE(swapped_cube);
   HS_EXPECT_TRUE(swapped_icosa);
   HS_EXPECT_TRUE(derived[0] && derived[1]);
-  for (int edge : {19, 20, 21})
+  for (int edge : {19, 20, 21, 22})
     HS_EXPECT_TRUE(regenerated[edge]);
 }
 
