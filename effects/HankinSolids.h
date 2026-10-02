@@ -138,12 +138,8 @@ private:
    * nothing — but it removes the one-frame snap as the last sliver and the
    * star-face boundary it holds off both disappear at once. */
   static constexpr int STRAP_TERMINAL_FRAMES = 3;
-  /** Frames over which a face is shaped into (or out of) the neighbor it
-   * collapses onto, at each of the three collapse points: the strap birth and
-   * close at the sweep's ends, and the star close at its midpoint. Deliberately
-   * short against HANKIN_SWEEP_FRAMES — the shaping exists only to take the
-   * edge off those transitions, so the great majority of the animation paints
-   * every face in its own color. */
+  /** Frames shaping a face into or out of its neighbor at strap birth/close
+   * and the midpoint star collapse. */
   static constexpr int SHAPE_FRAMES = 6;
   /** star_rim_palette sentinel: no rosette resolved for this star face yet. */
   static constexpr uint8_t NO_RIM = 0xFF;
@@ -210,9 +206,6 @@ private:
    * @brief Collapse-shaping weight: exactly 0 at a collapse point, smoothstep
    * to exactly 1 by SHAPE_FRAMES away from it.
    * @param frames_away Sprite frames between this draw and the collapse.
-   * @details Separate from strap_blend_weight, whose 20-frame window belongs to
-   * the palette crossfade. This one is deliberately short so the shaping only
-   * softens the collapse itself and leaves the body of the sweep untouched.
    */
   static float shape_weight(int frames_away) {
     if (frames_away <= 0)

@@ -45,16 +45,11 @@ def kicad_data_dir_patterns(kind):
 # Stock KiCad data directories (symbols, footprints, 3dmodels). Override with
 # the matching env var if installed elsewhere or on a newer/older KiCad version.
 def find_kicad_data_dir(kind, env_name):
-    """Locate a stock KICAD_MAJOR data directory, returning an absolute missing path when absent.
+    """Locate a stock KICAD_MAJOR data directory or return an absolute missing path.
 
-    An install whose path names another major is skipped: its land patterns and
-    symbol graphics differ from what the pinned kicad-cli validates, so drawing
-    from one would embed foreign geometry into a board that CLI then passes.
-    Paths carrying no version (the Unix prefixes) name no major and are taken.
-    The env override is an explicit choice and is not version-checked.
-
-    The fallback is deliberately not a directory: callers probe the result with
-    isdir() to skip the KiCad-dependent work rather than fail at import.
+    An existing env override takes precedence and is not version-checked.
+    Discovery accepts pinned-major or unversioned paths and selects the newest
+    minor at the first matching pattern. Callers test the result with isdir().
     """
     env = os.environ.get(env_name)
     if env and os.path.isdir(env):

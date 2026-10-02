@@ -528,13 +528,8 @@ template <typename A, typename B> struct Intersection {
     if (intervals_a.is_empty() || intervals_b.is_empty())
       return true;
 
-    // Normalize both children into [0, W) (seam-split) before the merge sweep:
-    // a band straddling θ=0 can be emitted by A and B in different wrap frames
-    // (A as [-5, 5], B as [W-5, W+5]), and the raw-coordinate overlap below
-    // would then miss the shared coverage and under-report at the seam.
-    // Splitting into a common [0, W) frame makes the comparison correct.
-    // Seam-splitting at most doubles each child's span count, so the buffers
-    // are sized 2x.
+    // Split both children into a common [0, W) seam frame before merging;
+    // splitting at most doubles the span count.
     constexpr size_t SEAM_SPLIT_CAP = 2 * INTERVAL_SPAN_CAP;
     static_assert(2 * sdf_max_spans<A>::value <= SEAM_SPLIT_CAP &&
                       2 * sdf_max_spans<B>::value <= SEAM_SPLIT_CAP,

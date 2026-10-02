@@ -26,12 +26,7 @@
 namespace SDF {
 
 // --- Congruence-class canonical distance LUTs --------------------------------
-// Every islamic mesh's faces are near-exact copies of a handful of canonical 2D
-// shapes (gnomonic projection about each face's centroid is
-// position-covariant). MeshOps bakes one signed-distance LUT per congruence
-// class at spawn (core/render/sdf/face_class_bake.h); Scan::Mesh binds it per frame via
-// bind_class_lut, and Face::distance serves sign-pure probes from a bilinear
-// lookup instead of the exact per-edge walk.
+// Optional static-mesh LUTs; no shipped effect binds them. See face_class_bake.h.
 
 /** Minimum squared normalized correlation for a valid class-LUT alignment;
  *  below this the face is too deformed and keeps the exact path. */
@@ -465,14 +460,8 @@ struct Face {
       setup_frame_and_polygon(vertices, indices, scratch);
     }
 
-    // A fully collapsed polygon (signed area ~ 0, e.g. a hankin rosette at
-    // angle 0 spiking out to each edge midpoint and back through its corner)
-    // encloses no region, but its boundary would still rasterize as a ~1 px
-    // AA line; cull it like the phi-extent reject. The residual of an exactly
-    // collapsed face is float noise (~1e-7 of radius^2), orders of
-    // magnitude under the thinnest real sliver a sweep draws, so the
-    // threshold decision is identical sim/device. The compare is inclusive so
-    // that coincident vertices, which zero both sides, are culled too.
+    // Cull collapsed faces by signed area; the inclusive test also rejects
+    // coincident vertices when both sides are zero.
     float area2 = 0.0f;
     for (int i = 0; i < count; ++i)
       area2 +=

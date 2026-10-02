@@ -75,16 +75,7 @@ const FactoryEntry *find_factory_entry(std::string_view name) {
   return nullptr;
 }
 
-// ---------------------------------------------------------------------------
-// The (W,H) resolutions the WASM factory can build are the registry's
-// HS_RESOLUTIONS rows (core/control/registry.h), so the runtime dispatch
-// here and the per-resolution fill functions the registry generates share one
-// list and cannot drift: a resolution the registry can build is dispatchable
-// here with no second edit. setResolution()/setEffect()/getEffectSizes() all
-// expand it via the X-macro below. A new resolution is one edit, in
-// HS_RESOLUTIONS (the effect templates must also be instantiable at that
-// <W,H>).
-// ---------------------------------------------------------------------------
+// Runtime resolutions mirror HS_RESOLUTIONS in core/control/registry.h.
 
 /** @brief One HS_RESOLUTIONS row as runtime values. */
 struct WasmResolution {
@@ -92,8 +83,6 @@ struct WasmResolution {
   int h; /**< Canvas height in pixels. */
 };
 
-// The rows as data, so the constructor can bootstrap on the first one instead of
-// naming a preset that HS_RESOLUTIONS may later drop.
 inline constexpr WasmResolution WASM_RESOLUTIONS[] = {
 #define X(W, H) {(W), (H)},
     HS_RESOLUTIONS(X)
@@ -111,10 +100,6 @@ static_assert(std::size(WASM_RESOLUTIONS) > 0,
  * @param f A C++20 templated callable (e.g. `[]<int W, int H>(){...}`) run with
  *          the matching row's dimensions as compile-time template arguments.
  * @return true iff a row matched and f was invoked; false otherwise.
- * @details One shared expansion of the resolution list for every runtime
- *          dispatch site (setEffect validate/create, resolution checks), so they
- *          can never drift and a new per-resolution step lands in exactly one
- *          place.
  */
 template <typename F> inline bool dispatch_resolution(int w, int h, F &&f) {
 #define X(W, H)                                                                \

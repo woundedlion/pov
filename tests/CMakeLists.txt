@@ -101,13 +101,8 @@ target_compile_definitions(hs_test_support INTERFACE
   HS_ENABLE_STRUCTURAL_AUDITS=1
   HS_ENABLE_EFFECT_CONTROL_API=1)
 
-# The native suite is the one build where diagnostics can run: the device/WASM
-# build compiles the arena guards out, so ASan/UBSan here are the only automated
-# cover for the arena-lifetime hazards the death harness can't reach. -Werror is
-# on so suite hygiene is self-enforcing — the fail-fast doctrine applied to the
-# build itself; a new warning is a hard failure, not noise scrolled past. Every
-# executable defined below goes through this, including the budget gates and the
-# non-CTest compile guards; per-target optimization/math flags stay per-target.
+# Every native executable below inherits host diagnostics and warning flags;
+# per-target optimization and math flags remain local.
 function(_hs_warnings target)
   target_compile_options(${target} PRIVATE -Wall -Wextra -Werror)
 endfunction()

@@ -5,13 +5,15 @@ legacy lattice migration, noncubic framework, volume/lattice query adapters,
 and periodic-surface experiments are implemented. Firmware admission is separate
 from architectural availability; experimental configurations are available in
 the simulator and explicitly opted-in device builds, while standard firmware
-keeps only the admitted analytic presets. See the
-implementation validation and admission report (supporting artifact removed)
-for measured limits. Dimensional rift is removed.
+keeps only the admitted analytic presets. Retained measurements are indexed in
+the [on-device profiles](../profiles/README.md); each describes its capture-time
+code and settings. The supporting implementation/admission report is no longer
+retained. Dimensional rift is removed.
 
-The experimental preset guide (supporting artifact removed)
-records the preview presets, build switch, and bounded failure behavior. Their
-availability does not change their experimental admission status.
+[HyperLattice's effect reference](../effects.md#hyperlattice) lists the current
+presets and controls. `HS_ENABLE_HYPERLATTICE_EXPERIMENTS` enables its experimental
+presets and controls in opted-in builds. Section 5 specifies the bounded tracing
+and admission criteria. Availability does not change experimental admission status.
 
 ## 1. Decisions
 

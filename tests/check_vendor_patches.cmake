@@ -1,11 +1,5 @@
-# Pin the in-tree patches applied to core/vendor/FastNoiseLite.h against the
-# patch record in core/vendor/FastNoiseLite_config.h. Dropping any of them
-# compiles cleanly and fails silently: without the config include the
-# FASTNOISELITE_ONLY_OPENSIMPLEX2 guards go inert and the full noise-type switch
-# comes back (flash regression), and without HS_O3_FN the per-pixel sampler
-# loses selective -O3 (perf regression). The upstream version and the body's
-# digest are pinned too, so a bump has to re-apply the patches and re-record
-# both here.
+# Pin FastNoiseLite.h patches, upstream version and body digest against
+# core/vendor/FastNoiseLite_config.h.
 # -D args: HEADER (FastNoiseLite.h), CONFIG (FastNoiseLite_config.h).
 
 # Script mode inherits no policies from the project, so every policy would

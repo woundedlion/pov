@@ -349,11 +349,7 @@ def duplicates_pin(text: str, name: str, value: str) -> bool:
 
 
 def read_scanned(path: Path, errors: list[str]) -> str | None:
-    """Text of a scanned file, or None with the failure recorded as an error.
-
-    Every scanned path is named in a table here, so a rename or a deletion is a
-    finding this gate reports; a traceback out of a hook is not a report.
-    """
+    """Read scanned text, or return None and record the read failure in errors."""
     try:
         return path.read_text(encoding="utf-8")
     except OSError as error:

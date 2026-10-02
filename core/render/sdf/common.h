@@ -109,13 +109,8 @@ inline float face_azimuth_pad(int w, float sin_phi) {
   return sin_phi <= pad ? math::PI_F : asinf(pad / sin_phi);
 }
 
-// Scanline interval protocol. get_horizontal_intervals returns true when the
-// spans it emitted describe the row, and false to request a full-row scan. A
-// false return MUST emit nothing: the caller walks every column instead, so a
-// span emitted before the fallback is either dropped or shaded twice.
-//
-// The protocol has no per-scan entry point, so composite scratch setup and the
-// LUT initialization guards repeat per row.
+// get_horizontal_intervals: true emits the row spans; false requests a full-row
+// scan and must emit nothing. Composite scratch and LUT guards run per row.
 
 /** Maximum disjoint scanline spans a single shape (leaf) emits per row.
  *  scan_region's `intervals` buffer holds a top-level CSG emission, and its
@@ -200,13 +195,9 @@ template <typename T> struct sdf_max_spans {
   static constexpr size_t value = INTERVAL_SPAN_CAP;
 };
 
-// Per-leaf emissions: the number of out() calls one row can make. These bound
-// only how deeply the CSG combinators may nest -- every runtime buffer stays at
-// INTERVAL_SPAN_CAP (or its 2x / 2x+2 derivatives), so a leaf is free to be
-// re-sized here without touching storage.
-//
-// emit_annular_band: two arcs on a general row, collapsing to one when the band
-// touches the near or far pole.
+// Per-leaf emission bounds limit CSG nesting; runtime capacity remains
+// INTERVAL_SPAN_CAP (or its 2x / 2x+2 derivatives).
+// Annular bands emit two arcs, or one when touching a pole.
 template <> struct sdf_max_spans<Ring> {
   static constexpr size_t value = 2;
 };

@@ -237,11 +237,7 @@ protected:
     const size_t k = build_step;
     const Solids::OpStep &step = build_step_chain[k];
 
-    // Smooth kis/needle macros (docs/specs/opchain_morph_spec.md, smooth
-    // kis/needle): a trailing dual,kis is the dt macro (spanning both steps),
-    // a standalone kis is the dtd macro; each ends on a reconcile leg onto the
-    // exact authored mesh. The recipe/expand_to_primitives still lower needle
-    // to {DUAL,KIS}.
+    // Smooth kis/needle lowering: docs/specs/opchain_morph_spec.md.
     if (dt_pair_at(k)) {
       schedule_dt_macro();
       return;
@@ -260,13 +256,8 @@ protected:
       return;
     }
 
-    // Eager clean endpoint seed_{k+1}: the mesh the leg lands on and the next
-    // leg sweeps from. Runs first — generate() resets the scratch arenas the
-    // handoff arrays below live in. A hankin leg builds none; its arrival is
-    // the mesh its baked topology already carries. Colours re-key per leg: the
-    // arrival's classification maps to a freshly shuffled palette set, and
-    // every face crossfades from the previous leg's landing over the leg
-    // (Animation::OpLeg palette handoff, core/animation/opleg.h).
+    // Build the endpoint before handoff arrays: generate() resets their scratch.
+    // Hankin uses its baked arrival topology (core/animation/opleg.h).
     Animation::OpLeg::BookendClasses bookend;
     if (step.op != Solids::Op::HANKIN) {
       hs::generate(persistent_arena, [&](Arena &target, Arena &a, Arena &b) {
@@ -814,11 +805,8 @@ protected:
    *        leg's seed, then starts the next leg or finishes the build.
    */
   HS_COLD_MEMBER void finish_build_leg() {
-    // Reclaim the finished leg. Only the endpoint the next leg sweeps from
-    // crosses the reset. A hankin leg's endpoint is rebuilt here from the
-    // topology it swept, into the scratch the evacuation below reads; the other
-    // kinds carry the endpoint start_build_leg built eagerly. The palette the
-    // leg landed on is snapshotted too, since the landing does not survive.
+    // Preserve the endpoint and landing palette across reset; rebuild Hankin's
+    // endpoint from its swept topology.
     {
       ScratchScope a_guard(scratch_arena_a);
       HS_CHECK(build_step < build_step_count,
@@ -838,11 +826,7 @@ protected:
         return;
       }
 
-      // Carry the emission-order prefix the next leg departs from (the whole
-      // landing for a face-count-preserving leg, the survivor prefix where a leg's
-      // arrival has more faces than its clean endpoint -- the DUAL bridge's
-      // closing truncate lands V+F faces but hands off the V dual faces), then
-      // advance to the next lowered step.
+      // Retain the emission-order survivor prefix as the next leg's palette seed.
       carry_landing_to_seed();
       ++build_step;
     }

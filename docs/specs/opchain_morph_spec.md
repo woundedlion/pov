@@ -24,7 +24,7 @@ partially animating an invalid chain.
 | Kind | Shipped use |
 |---|---|
 | `CONWAY_SWEEP` | Parameterized truncate, expand, snub, chamfer, and ambo-equivalent legs |
-| `HANKIN_SWEEP` | Repositions compiled Hankin star points across the contact-angle sweep |
+| `HANKIN_SWEEP` | Slerps star points from corner directions to baked arrival directions; contact angles configure the endpoints |
 | `RELAX_SLERP` | Interpolates between identical-connectivity meshes around a relax step |
 | `MEDIAL_SLERP` | Slerps vertex positions over fixed connectivity: the dual-bridge medial leg (ambo(P) connectivity, ambo(P) to ambo(dual(P)) positions) and the reconcile leg onto exact authored endpoint positions |
 | `GATED_SWAP` | Retained engine fallback; no shipped effect constructs it |

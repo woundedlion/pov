@@ -441,11 +441,7 @@ public:
       if (hs::debug && millis() - last_report >= 1000UL) {
         last_report = millis();
         const pov::sync::Telemetry tm = sync.telemetry_snapshot();
-        // hs::log, not Serial.printf: Teensy's printf drags in newlib's float
-        // formatter (~5 KB ITCM); these counters are all %lu.
-        // Two lines, not one: 18 saturating uint32 counters run to 10 digits
-        // each, which overruns hs::log's fixed 256-byte buffer and truncates
-        // the tail. Each line below fits its own worst case.
+        // Each line fits hs::log's 256-byte buffer with saturated counters.
         hs::log("sync coast=%lu stall=%lu epi=%lu lock=%lu flip=%lu acc=%lu "
                 "rej=%lu inv=%lu",
                 (unsigned long)tm.max_coast_halves,
@@ -495,32 +491,10 @@ private:
   /**
    * @brief Reads the hardware segment ID from the GPIO straps (log2(N) bits).
    *
-   * Straps are INPUT_PULLUP; the raw reading is inverted, so a grounded strap
-   * contributes a 1 and all-floating = ID 0 (master). A floating/cold strap
-   * therefore elects a phantom second master and drives the push-pull sync wire
-   * into contention — the triple-sample debounce below traps on that instability.
-   *
-   * Validates *this* board's strap only. Two failure modes exist; only the
-   * first is trappable on the push-pull sync bus (U1 74AHCT125, ch C):
-   *
-   *   1. Unstable/cold strap on this board — a flaky link momentarily reads as
-   *      ID 0 and enables this board's bus driver. The triple-sample debounce
-   *      below catches the instability and traps.
-   *
-   *   2. A *peer* stably strapped to the same ID 0 — undetectable here. Both
-   *      boards read a clean ID 0, both assert MASTER_EN, and both push-pull
-   *      ch-C drivers source-fight on the shared wire. The two 100 ohm source
-   *      resistors (R_S) current-limit the fight to ~22 mA (no part damage),
-   *      but the bus parks near mid-rail and sync is silently corrupted — no
-   *      trap fires, because each board's own strap reads valid.
-   *
-   * Mode 2 is an assembly/wiring fault the firmware cannot observe on this
-   * board revision: the push-pull driver source-fights instead of wired-ANDing
-   * (an open-drain bus would make a duplicate master benign and read-back
-   * detectable, but that is a board respin, not the shipped design). It is
-   * prevented procedurally — one board strapped master (all ID straps open) and
-   * unique soldered ID links elsewhere, per PCB rules R-ID-2 (soldered links)
-   * and R-ID-4 (silkscreen truth table).
+   * @details Inverted INPUT_PULLUP readings assign grounded straps 1 and all-open
+   *          straps master ID 0. Triple sampling detects local instability, but
+   *          stable duplicate peer IDs cause undetected push-pull bus contention;
+   *          assembly requires unique soldered IDs and one master (R-ID-2/R-ID-4).
    */
   HS_COLD_MEMBER static void read_id() {
     pinMode(PIN_ID0, INPUT_PULLUP);

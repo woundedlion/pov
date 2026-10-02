@@ -730,27 +730,14 @@ private:
                                               protocol_config.epoch_repeats));
     if (!due)
       return;
-    // A coalesced coast can jump position from < W/4 straight past the beacon
-    // point (and even past HALF) in one wake, leaving beacon_done_this_rev unset
-    // while current_boundary() has already advanced — so this revolution emits
-    // no beacon. That is an accepted skip, not a missed-emission bug: the
-    // protocol self-heals on the next due beacon, within rejoin_bound_revs().
+    // A coalesced coast past the boundary skips this beacon; boundaries take precedence.
     position = fly.position(now);
     if (position < protocol_config.W / 4)
       return;
     uint8_t digits[5];
     encode_beacon_digits(content_tracker.effect_index, rev, digits);
-    // Bound the beacon start: a masked-ISR coast can land the master anywhere in
-    // [W/4, W/2), but this payload's frame plus the tail quiet the receiver
-    // needs must fit before HALF. A last pulse closer than that to the boundary
-    // is appended to the last digit burst instead of terminating it, so the HALF
-    // symbol is consumed rather than decoded; a tail past the boundary is
-    // dropped when the on-time HALF symbol schedules, truncating the frame on
-    // the wire. Skip a too-late start, mirroring the boundary symbol's own
-    // lateness self-censor. The fit is measured in cycles against the boundary
-    // instant, not in whole columns from x: the frame is anchored on this tick,
-    // which lands part-way through column x, and its last pulse may still go
-    // out up to the emitter's lateness budget after its due time.
+    // The frame, receiver tail quiet and emission lateness must fit before HALF.
+    // Measure from this tick, including its sub-column offset.
     int32_t digit_sum = 0;
     for (int i = 0; i < 5; ++i)
       digit_sum += digits[i];

@@ -65,18 +65,8 @@ inline constexpr size_t MAX_MESH_FACE_DEGREE = MeshLimits::MAX_FACE_DEGREE;
 // was built under and rejects via wrapper_live() if a wipe reclaimed its storage.
 static uint32_t tooling_generation = 0;
 
-// Set for the duration of one MeshOps entry point. The tooling scratch arenas
-// are module-global and reset() at each entry's head, so a second op entered
-// before the first returns would alias the first's scratch and corrupt its
-// geometry. Synchronous single-threaded calls never overlap today; the guard
-// makes that contract enforced rather than implicit, so a future worker/async
-// refactor traps here instead of silently aliasing.
-//
-// A trap inside an op compiles to wasm `unreachable`, which unwinds nothing, so
-// ~ToolingOpGuard() never runs and this stays latched, deliberately: the same
-// non-unwinding leaves the shadow stack permanently short, so a trap ends the
-// module (Module.HS_MODULE_DEAD) and the latch stops a caught RuntimeError from
-// being answered with another op on a dead instance.
+// Module-global scratch permits one active MeshOps call; traps leave this
+// latched because wasm unreachable does not unwind and the module is terminal.
 static bool tooling_op_active = false;
 struct ToolingOpGuard {
   ToolingOpGuard() {
@@ -632,14 +622,8 @@ public:
    *        floored at 0 and clamped to MAX_RELAX_ITERATIONS.
    * @return Owning pointer to a new wrapper holding the relaxed mesh, or null if
    *         the input, arena, or allocation is invalid; getLastResult() names why.
-   * @details Explicit (not a MESHOP_* macro) because its iteration count crosses
-   *          the JS boundary unbounded: relax(1e9) would freeze the main thread
-   *          for billions of passes, so the count is clamped rather than
-   *          trusted. Bound as a double, not an i32, so a request past INT32_MAX
-   *          saturates at the cap instead of wrapping negative and flooring at
-   *          0. A non-finite count is rejected like every other operator's,
-   *          rather than clamped to a zero-pass no-op reported as OK. The clamp
-   *          is recorded for getLastAdjusted() as well as logged.
+   * @details Non-finite counts are rejected. The clamp is reported by
+   *          getLastAdjusted() and logged.
    */
   std::unique_ptr<MeshOpsWrapper> relax(double iterations) {
     begin_mesh_op();
