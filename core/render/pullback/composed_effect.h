@@ -798,8 +798,36 @@ consteval size_t stage_index() {
     return stage_index<Pipeline, Predicate, Index + 1>();
 }
 
+template <typename Policy> struct PathTracked : std::false_type {};
+template <template <typename...> class Policy, typename... Arguments>
+struct PathTracked<Policy<Arguments...>>
+    : std::disjunction<PathTracked<Arguments>...> {};
+template <typename B, ResourceKey Key, typename Family, bool Track,
+          ResourceKey SourceKey>
+struct PathTracked<WarpProvider<B, Key, Family, Track, SourceKey>>
+    : std::bool_constant<Track> {};
+template <typename B, typename Family, bool Track, ResourceKey Key>
+struct PathTracked<SurfaceProvider<B, Family, Track, Key>>
+    : std::bool_constant<Track> {};
+template <typename Provider, typename Mode, uint8_t Harmonic>
+struct PathTracked<Warp::PolarChart<Provider, Mode, Harmonic>>
+    : PathTracked<Provider> {};
+template <typename Provider, math::NoiseBasis Basis, typename Envelope>
+struct PathTracked<Warp::VectorNoise<Provider, Basis, Envelope>>
+    : PathTracked<Provider> {};
+template <typename Provider, math::NoiseBasis Basis, typename Integrator>
+struct PathTracked<Surface::CurlNoise<Provider, Basis, Integrator>>
+    : PathTracked<Provider> {};
+template <typename Provider, math::NoiseBasis Basis>
+struct PathTracked<Surface::DirectNoise<Provider, Basis>>
+    : PathTracked<Provider> {};
+template <typename Stage>
+struct StagePathTracked : PathTracked<typename Stage::Policies> {};
+
 template <typename Spec, typename Binding, typename Pipeline>
 struct PipelineMetadata {
+  static constexpr bool PATH_TRACKED =
+      Pipeline::template any_stage<StagePathTracked>;
   using LensStage = typename Pipeline::template stage_matching<IsLensStage>;
   using ProjectStage =
       typename Pipeline::template stage_matching<IsProjectStage>;
@@ -1078,6 +1106,8 @@ public:
   using RenderPipeline = typename SpecT::template Pipeline<Binding>;
   using Metadata =
       ComposedDetail::PipelineMetadata<Spec, Binding, RenderPipeline>;
+  static_assert(Metadata::PATH_TRACKED == (Spec::HUE == HueMode::PATH_LENGTH),
+                "path length hue metadata must match pipeline tracking");
   static_assert(Metadata::COVERAGE_MATCHES,
                 "projection coverage metadata must match the pipeline");
   static_assert(Metadata::LENS_MATCHES,
