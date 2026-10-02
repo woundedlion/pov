@@ -255,7 +255,7 @@ inline void test_precise_atan2() {
 
 /**
  * @brief Verifies fast_cbrt anchors, the x<=0 -> 0 clamp, and the documented
- *        ~2.3e-5 peak relative error over [0,8] (plus a few values past 8).
+ *        ~2.3e-5 peak relative error over sampled positive inputs up to 1000.
  */
 inline void test_fast_cbrt() {
   HS_EXPECT_NEAR(math::fast_cbrt(-1.0f), 0.0f, 1e-7f);
@@ -269,7 +269,7 @@ inline void test_fast_cbrt() {
     HS_EXPECT_TRUE(rel <= 2.3e-5f);
   }
 
-  // Values past the documented [0,8] domain stay within the same rel error.
+  // Larger samples remain inside the documented positive domain.
   for (float x : {27.0f, 100.0f, 1000.0f}) {
     float rel = std::abs(math::fast_cbrt(x) - std::cbrt(x)) / std::cbrt(x);
     HS_EXPECT_TRUE(rel <= 2.3e-5f);
