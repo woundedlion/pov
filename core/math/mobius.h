@@ -133,9 +133,8 @@ inline math::Vector mobius_transform(const math::Vector &v,
                                      const MobiusParams &params) {
   float px = v.x, pz = v.z;
   float s = 1.0f - v.y;
-  // Exact north pole leaves (p : s) = (0 : 0); its projective image is the
-  // point at infinity, (1 : 0). Approaching the pole needs no such nudge:
-  // |p| ~ sqrt(2s) dominates s, so the ratio tends to infinity on its own.
+  // The north pole and its epsilon neighborhood use the projective infinity
+  // representative (1 : 0).
   if (px * px + pz * pz < MOBIUS_POLE_EPS && s < MOBIUS_POLE_EPS) {
     px = 1.0f;
     pz = 0.0f;
