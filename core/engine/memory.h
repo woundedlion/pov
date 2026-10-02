@@ -373,8 +373,8 @@ public:
    * @param bytes Region length in bytes.
    * @return True iff [p, p+bytes) falls within [buffer, buffer+offset).
    * @details A set_offset() rewind reclaims bytes without bumping the
-   * generation, so this is the only signal an ArenaSpan has that its borrowed
-   * region was freed by a rewind of the source arena.
+   * generation. ArenaBlockStamp also checks rewind history to detect regions
+   * reclaimed and subsequently covered by fresh allocations.
    */
   bool covers(const void *p, size_t bytes) const {
     uintptr_t base = reinterpret_cast<uintptr_t>(buffer);
