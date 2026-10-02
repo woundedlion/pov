@@ -52,6 +52,19 @@ class FindKicadCliTests(unittest.TestCase):
                     self.assertRaises(SystemExit):
                 kicad_common.find_kicad_cli()
 
+    def test_missing_override_fails_without_discovery(self):
+        with tempfile.TemporaryDirectory() as directory:
+            cli = str(Path(directory) / "missing-kicad-cli")
+            with mock.patch.dict(os.environ, {"KICAD_CLI": cli}), \
+                    mock.patch.object(kicad_common.glob, "glob") as discover, \
+                    mock.patch.object(kicad_common, "kicad_cli_version") as version, \
+                    self.assertRaises(SystemExit) as caught:
+                kicad_common.find_kicad_cli()
+            self.assertIn(cli, str(caught.exception))
+            self.assertIn("KICAD_CLI", str(caught.exception))
+            discover.assert_not_called()
+            version.assert_not_called()
+
     def test_unreadable_release(self):
         with mock.patch.object(kicad_common.subprocess, "run",
                                side_effect=OSError):

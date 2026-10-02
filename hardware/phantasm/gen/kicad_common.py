@@ -41,7 +41,9 @@ def kicad_cli_version(path):
 def find_kicad_cli():
     """Resolve a binary matching the exact fab-output release."""
     env = os.environ.get("KICAD_CLI")
-    if env and os.path.exists(env):
+    if env:
+        if not os.path.isfile(env):
+            sys.exit(f"KICAD_CLI does not name an existing file: {env}")
         version = kicad_cli_version(env)
         if version == KICAD_VERSION:
             return env
