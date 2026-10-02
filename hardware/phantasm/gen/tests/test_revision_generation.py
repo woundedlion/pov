@@ -1,6 +1,5 @@
 """Revision selection, electrical partitions and legacy generator provenance."""
 import contextlib
-import hashlib
 import io
 import subprocess
 import sys
@@ -24,18 +23,18 @@ from test_check import committed_board_nets  # noqa: E402
 from test_pcb_generation import GENERATES, GENERATES_REASON  # noqa: E402
 
 PROTOTYPE = GEN.parent / "1.3"
-LEGACY_HASHES = {
-    "fp-lib-table": "fadeef1477fd022f6d1f2cef7a2f6a4e0133f193d770ca68fb6ed8eb2c46f7c9",
-    "phantasm.kicad_pcb": "e94f57b9acb25da9535abd8dfae65cd8b94008185308cb501c974b1c4c1e4c28",
-    "phantasm.kicad_pro": "5f7017ac920f088bd626b39c705ccf037a992e7208d65dc951187affccfa5534",
-    "phantasm.kicad_sch": "c1ee258c1767aa53e900880f429d7f30eb9b7222b695aa783df32e7430fa601c",
-    "phantasm.kicad_sym": "225312bff8e7626bba6c2ba271aac410cf397eacbca540304a6323146590135f",
-    "phantasm.pretty/Teensy4.0.kicad_mod": "5f9f953b323356b7f498b73df4a8bd371c3759b7ebb4c2a65685175f9c3c5c95",
-    "phantasm.pretty/Teensy4.0.wrl": "f120ec83682c6d9ab152f7671a7b713dc5044dbcb37e8b23f3393c5dc9b477a5",
-    "phantasm.pretty/TerminalBlock_GCT_TBC05-02-1-G-G.kicad_mod": "de30f2ca5859eed9402b2cc86f64d889fefe2c808cdafae25f68cc173ed11c74",
-    "phantasm.pretty/TerminalBlock_GCT_TBC05-03-1-G-G.kicad_mod": "526b838ef8340373cfc319b7f11f9fe393202d974492d1ce78636609b2550360",
-    "sym-lib-table": "d3f2a4c416f8e75b72735784e2679123d55312be551e8b1d92884e98d7b83baf"
-}
+LEGACY_FILES = (
+    "fp-lib-table",
+    "phantasm.kicad_pcb",
+    "phantasm.kicad_pro",
+    "phantasm.kicad_sch",
+    "phantasm.kicad_sym",
+    "phantasm.pretty/Teensy4.0.kicad_mod",
+    "phantasm.pretty/Teensy4.0.wrl",
+    "phantasm.pretty/TerminalBlock_GCT_TBC05-02-1-G-G.kicad_mod",
+    "phantasm.pretty/TerminalBlock_GCT_TBC05-03-1-G-G.kicad_mod",
+    "sym-lib-table",
+)
 
 
 def generate(out, revision):
@@ -137,15 +136,15 @@ class RevisionGenerationTests(unittest.TestCase):
         cls.legacy = Path(cls.directory.name) / "1.2"
         cls.prototype = Path(cls.directory.name) / "1.3"
         generate(cls.legacy, "1.2")
-        cls.before = {path: (cls.legacy / path).read_bytes() for path in LEGACY_HASHES}
+        cls.before = {path: (cls.legacy / path).read_bytes() for path in LEGACY_FILES}
         generate(cls.prototype, "1.3")
         generate(cls.legacy, "1.2")
 
     def test_legacy_output_is_byte_identical_after_revision_switch(self):
-        for path, expected in LEGACY_HASHES.items():
+        for path in LEGACY_FILES:
             actual = (self.legacy / path).read_bytes()
             self.assertEqual(actual, self.before[path], path)
-            self.assertEqual(hashlib.sha256(actual).hexdigest(), expected, path)
+            self.assertEqual(actual, (GEN.parent / "1.2" / path).read_bytes(), path)
 
     def test_prototype_schematic_exports_expected_pin_partition(self):
         root = export_netlist(kicad_cli(), str(self.prototype / "phantasm.kicad_sch"))
