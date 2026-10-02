@@ -983,9 +983,10 @@ def main():
     elif args.mode == "frames":
         print("# frame  wall_us  render_us  spill")
         for w in windows:
+            render_is_wall = w.render_is_wall()
             for n, wall, render, _owner in w.frame_rows:
-                spill = int(render > DISPLAY_WINDOW_US)
-                print(f"{n:7d} {wall:8d} {render:9d} {spill:5d}")
+                spill = "n/a" if render_is_wall else str(int(render > DISPLAY_WINDOW_US))
+                print(f"{n:7d} {wall:8d} {render:9d} {spill:>5}")
     elif args.mode == "presets":
         cmd_presets(windows, scope, args.gate)
     elif args.mode == "buckets":
