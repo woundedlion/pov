@@ -409,7 +409,7 @@ HS_O3_FN inline math::Vector curl_from_gradient(const math::Vector &gradient,
  * @param q Lattice coordinate.
  * @param v Unit point the tangent is taken at.
  * @return A tangent at @p v of length at most 1.
- * @details The CURL_ANALYTIC_V2 path: one generator call, against the twelve
+ * @details The CURL_ANALYTIC_V2 path: one generator call, against the four
  * samples the stencil costs. Simplex only.
  */
 HS_O3_FN inline math::Vector
