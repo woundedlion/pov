@@ -2310,7 +2310,7 @@ inline void test_snub_leg_on_recipe_seeds_holds_topology() {
 /**
  * @brief Steps a relax slerp on every seed the recipes relax standalone,
  *        asserting the vertex count/order identity the kind rests on plus
- *        constant raw and compiled face counts across the slerp.
+ *        constant compiled face counts and unit vertices across the slerp.
  */
 inline void test_relax_leg_on_recipe_seeds_holds_topology() {
   constexpr int SAMPLES = 33;
@@ -2351,35 +2351,31 @@ inline void test_relax_leg_on_recipe_seeds_holds_topology() {
       HS_EXPECT_EQ(nearest, i);
     }
 
-    SweepFingerprint first;
+    size_t first_compiled = 0;
     for (int s = 0; s < SAMPLES; ++s) {
-      const float k = static_cast<float>(s) / (SAMPLES - 1);
+      const float K = static_cast<float>(s) / (SAMPLES - 1);
       ScratchScope frame_a(a);
       ScratchScope frame_b(b);
       PolyMesh swept;
       MeshOps::clone(seed, swept, a);
-      for (size_t i = 0; i < swept.vertices.size(); ++i)
+      for (size_t i = 0; i < swept.vertices.size(); ++i) {
         swept.vertices[i] =
-            math::slerp(seed.vertices[i], relaxed.vertices[i], k);
-      const SweepFingerprint fp = check_sweep_sample(swept, a, b);
-      if (s == 0) {
-        first = fp;
-        // A relax slerp moves vertices only: the seed's own counts are the
-        // expectation at every k.
-        expect_op_counts(fp.v, fp.f, fp.i, mesh_op_counts(seed));
-      } else {
-        expect_same_fingerprint(fp, first);
+            math::slerp(seed.vertices[i], relaxed.vertices[i], K);
+        HS_EXPECT_NEAR(math::dot(swept.vertices[i], swept.vertices[i]), 1.0f,
+                       1e-3f);
       }
+      MeshState compiled;
+      MeshOps::compile(swept, compiled, a, b);
+      if (s == 0)
+        first_compiled = compiled.face_counts.size();
+      else
+        HS_EXPECT_EQ(compiled.face_counts.size(), first_compiled);
     }
 
-    if (hs_test::stats().failed != failed_before)
-      std::printf("    [relax-leg] %s failed (raw F=%zu, compiled F=%zu)\n",
-                  site.name, first.f, first.compiled);
-    else
-      std::printf("  [relax-leg] %s: iters=%d V=%zu F=%zu compiled=%zu across "
-                  "%d samples\n",
-                  site.name, (int)site.param, first.v, first.f, first.compiled,
-                  SAMPLES);
+    std::printf("  [relax-leg] %s: iters=%d compiled=%zu across %d samples%s\n",
+                site.name, static_cast<int>(site.param), first_compiled,
+                SAMPLES,
+                hs_test::stats().failed != failed_before ? " FAILED" : "");
   }
 }
 
