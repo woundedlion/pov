@@ -154,18 +154,12 @@ struct HankinWalkProbe {
   static int strap_blend_frames(const HankinSolids<W, H> &) {
     return HankinSolids<W, H>::STRAP_BLEND_FRAMES;
   }
-  /**
-   * @brief Strap opening-fade weight at a cycle frame (0 at the bookend, 1 past
-   * the window).
-   */
-  template <int W, int H>
-  static float strap_open_fade(const HankinSolids<W, H> &fx, int cycle_frame) {
-    return fx.shape_weights(cycle_frame).strap_open;
-  }
+  /** @brief Shape blend weights at a cycle frame. */
   template <int W, int H>
   static auto shape_weights(const HankinSolids<W, H> &fx, int cycle_frame) {
     return fx.shape_weights(cycle_frame);
   }
+  /** @brief Interlace sweep angle at a cycle frame. */
   template <int W, int H>
   static float sweep_angle(const HankinSolids<W, H> &fx, int cycle_frame) {
     return fx.sweep_wave()(math::ease_linear(static_cast<float>(cycle_frame) /

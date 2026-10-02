@@ -1844,7 +1844,7 @@ inline void test_strap_open_fade() {
     }
     HS_EXPECT_LT(guard, 400);
 
-    fade = Probe::strap_open_fade(fx, 1);
+    fade = Probe::shape_weights(fx, 1).strap_open;
     capture_opening(fx, 0.0f, 1.0f, bookend); // straps zero-area
     capture_opening(fx, open_angle, 1.0f, full);
     capture_opening(fx, open_angle, fade, faded);
