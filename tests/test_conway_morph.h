@@ -3217,7 +3217,7 @@ inline constexpr StepLegSite GATE_LEG_SITES[] = {
  * @param op Partition operator the leg swaps to.
  * @param site Seed site.
  * @param gate Half-gate length in frames.
- * @details Derives the handoff and bookend exactly as IslamicStars does: the
+ * @details Derives this test-local handoff and bookend: the
  * departed palettes from the seed's own classification, the bookend from the
  * op's clean endpoint.
  */
@@ -3321,7 +3321,7 @@ inline void check_gated_leg_smoke(Animation::OpLeg::SwapOp op,
 
 /**
  * @brief Smoke-tests a gated-swap leg for both partition ops on every gate
- *        site, at IslamicStars' 6-frame half-gate.
+ *        site, with a test-local 6-frame half-gate.
  */
 inline void test_opleg_gated_swap_smoke() {
   using Animation::OpLeg;
