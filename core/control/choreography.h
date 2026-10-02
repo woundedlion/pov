@@ -304,6 +304,8 @@ protected:
       derived().blend_params(PROGRESS);
     }
     if (COMPLETE) {
+      if (!transition.fades)
+        derived().adopt_params(transition.to);
       transition.active = false;
       preset_dwell_remaining = Derived::PRESET_DWELL_FRAMES;
     }

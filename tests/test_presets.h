@@ -236,6 +236,8 @@ struct SaturatedPresetEffect
   void clear_events() { timeline.clear(); }
   void cancel() { parameter_written(); }
   void step_events(Canvas &canvas) { timeline.step(canvas); }
+  void set_value(float value) { params.value = value; }
+  void progress(float value) { run_transition(value); }
   uint16_t elapsed() const { return transition.elapsed_frames; }
 };
 
@@ -442,6 +444,21 @@ inline void test_preset_crossfade_rejects_rearming() {
   HS_EXPECT_TRUE(effect.blending());
 }
 
+/** @brief Completed interpolation adopts the exact authored endpoint. */
+inline void test_completed_crossfade_adopts_exact_endpoint() {
+  hs_test::reset_globals();
+  SaturatedPresetEffect effect;
+  effect.arm();
+  effect.set_value(1e9f);
+  HS_EXPECT_TRUE(effect.attempt());
+  for (int frame = 0; frame < 4; ++frame)
+    effect.progress(1.0f);
+  HS_EXPECT_FALSE(effect.blending());
+  HS_EXPECT_EQ(effect.value(), SaturatedPresetEffect::preset(1).params.value);
+  HS_EXPECT_TRUE(effect.restore_parameters(effect.serialize_parameters()));
+  HS_EXPECT_EQ(effect.value(), SaturatedPresetEffect::preset(1).params.value);
+}
+
 /**
  * @brief Runs all preset-container test cases.
  * @return The module's failure count, as reported by end_module().
@@ -455,6 +472,7 @@ inline int run_presets_tests() {
   test_hold_initial_preset_overrides_first_dwell();
   test_preset_saturation_veto_restarts_dwell();
   test_preset_crossfade_rejects_rearming();
+  test_completed_crossfade_adopts_exact_endpoint();
   test_cancelled_fade_names_visible_preset();
   test_timeline_clear_releases_fade();
   test_cancelled_fade_notifies_committed_index();
