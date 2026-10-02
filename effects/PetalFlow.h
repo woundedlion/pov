@@ -13,7 +13,6 @@
 
 #include "core/animation/orientation.h"
 #include <cmath>
-#include <algorithm>
 #include "core/engine/engine.h"
 
 // Unit-test accessor for the spawn-gap accumulator and hue-cursor wrap invariants.
