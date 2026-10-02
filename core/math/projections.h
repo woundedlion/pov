@@ -564,7 +564,7 @@ struct AiroceanPoint {
  * can cut through ocean rather than land, giving 23 entries. Faces 18-19 share
  * one plane and faces 20-22 share another, which is why AIROCEAN_NORMALS
  * repeats those rows. Vertex order carries the sign convention
- * airocean_contains tests against; reordering a face inverts it.
+ * airocean_contains tests against; reversing a face's winding inverts it.
  */
 inline constexpr AiroceanVector AIROCEAN_FACES[23][3] = {
     {{0.4201524267f, 0.0781452494f, 0.9040825506f},
