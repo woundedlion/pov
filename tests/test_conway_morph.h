@@ -1906,7 +1906,7 @@ inline void test_hankin_sweep_vertex_stability() {
       }
       effect.advance_display();
     }
-    HS_EXPECT_EQ(drawn_frames.size(), static_cast<size_t>(SAMPLES));
+    HS_EXPECT_SIZE_OR_RETURN(drawn_frames, static_cast<size_t>(SAMPLES));
 
     // Three parameterizations over the same sample grid.
     std::vector<HankinStepStats> tables[3];
