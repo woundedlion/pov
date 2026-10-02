@@ -55,6 +55,18 @@ using effects_tests::reset_effect_globals;
 using effects_tests::SMALL_H;
 using effects_tests::SMALL_W;
 
+struct MismatchedCoverageSpec : AshCloudSpec {
+  static constexpr auto COVERAGE =
+      Pullback::ProjectionCoverageMode::WEIGHT_SQUARED;
+};
+using CoverageFixture = AshCloud<SMALL_W, SMALL_H>;
+static_assert(Pullback::ComposedDetail::PipelineMetadata<
+              AshCloudSpec, CoverageFixture::Binding,
+              CoverageFixture::RenderPipeline>::COVERAGE_MATCHES);
+static_assert(!Pullback::ComposedDetail::PipelineMetadata<
+              MismatchedCoverageSpec, CoverageFixture::Binding,
+              CoverageFixture::RenderPipeline>::COVERAGE_MATCHES);
+
 template <typename FX> struct ComposedTraits {
   using Params = typename FX::Params;
   using Spec = typename FX::Spec;
