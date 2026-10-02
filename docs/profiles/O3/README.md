@@ -91,8 +91,8 @@ captured 2026-09-27 22:25.
 
 | Preset | Peak ms | Spilled | Captured |
 |---|---:|---:|---|
-| [3: Octet 3D](profile_hyperlattice_octet_preset3_teensy_2026-09-28.md) ● | 🔴 74.692 | 🔴 549/549 (100.00%) | 2026-09-28 00:19 |
-| [Octet wide (index 5 at capture time)](profile_hyperlattice_octet_preset5_teensy_2026-09-28.md) ● | 🔴 74.925 | 🔴 549/549 (100.00%) | 2026-09-28 00:24 |
+| [3: Octet 3D](profile_hyperlattice_octet_preset3_teensy_2026-09-28.md) | 🔴 74.692 | 🔴 549/549 (100.00%) | 2026-09-28 00:19 |
+| [Octet wide (index 5 at capture time)](profile_hyperlattice_octet_preset5_teensy_2026-09-28.md) | 🔴 74.925 | 🔴 549/549 (100.00%) | 2026-09-28 00:24 |
 
 Updated 2026-09-28. Opt-in held presets, with startup excluded. Earlier optimization and 4D evidence (supporting artifact removed).
 
