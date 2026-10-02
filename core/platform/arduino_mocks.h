@@ -448,7 +448,7 @@ inline void random16_add_entropy(uint16_t) {}
  * @brief Unsigned 8-bit fractional scale, scale8(i, sc) = i * (1 + sc) / 256.
  * @param i Value to scale, in [0, 255].
  * @param sc Scale factor, in [0, 255].
- * @return i scaled by sc/256 in the SCALE8_FIXED sense, in [0, 255].
+ * @return i scaled by (1 + sc)/256, truncated to an integer in [0, 255].
  * @details The (1 + sc) is FastLED's SCALE8_FIXED form, so scale8(x, 255) == x
  *          (a full-scale fade is the identity). Matching it keeps the simulator
  *          bit-exact rather than 1 LSB low on every fade.
@@ -460,7 +460,7 @@ inline uint8_t scale8(uint8_t i, uint8_t sc) {
  * @brief 16-bit SCALE8_FIXED counterpart, scale16(i, sc) = i * (1 + sc) / 65536.
  * @param i Value to scale, in [0, 65535].
  * @param sc Scale factor, in [0, 65535].
- * @return i scaled by sc/65536 in the SCALE8_FIXED sense, in [0, 65535].
+ * @return i scaled by (1 + sc)/65536, truncated to an integer in [0, 65535].
  */
 inline uint16_t scale16(uint16_t i, uint16_t sc) {
   return (static_cast<uint32_t>(i) * (1 + static_cast<uint32_t>(sc))) >> 16;
