@@ -88,7 +88,7 @@ inline void test_shortest_periodic() {
   // Interior arc, no wrap needed.
   HS_EXPECT_NEAR(interp::shortest_periodic(0.2f, 0.4f, 0.5f, 1.0f), 0.3f,
                  1e-6f);
-  // The short arc runs backwards through 0, not forwards across 0.9 -> 0.1.
+  // The short arc increases through the wrap seam.
   HS_EXPECT_NEAR(interp::shortest_periodic(0.9f, 0.1f, 0.5f, 1.0f), 0.0f,
                  1e-6f);
   HS_EXPECT_NEAR(interp::shortest_periodic(0.9f, 0.1f, 0.25f, 1.0f), 0.95f,
