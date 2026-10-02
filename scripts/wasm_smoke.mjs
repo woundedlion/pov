@@ -798,7 +798,7 @@ async function main(probe) {
     // ── Promoted documents bind to their compiled effect ─────────────────────
     // patterns/<effect>.shader.json is the editable source of a composed
     // effect, and the simulator applies it to the compiled build by control
-    // name, one parameter at a time — a single unresolved id refuses the apply
+    // name, one writable parameter at a time — an unresolved writable id refuses the apply
     // and writes nothing. The digests pin document to header without ever
     // naming a control, so this is the only check that the two vocabularies
     // meet.
