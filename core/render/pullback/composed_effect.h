@@ -1323,6 +1323,23 @@ protected:
         target.template get<"color">().palette_mapping);
   }
 
+  /** @brief Adopts a Lerp endpoint while retaining animated lens coefficients. */
+  HS_COLD_MEMBER void finish_blend(const Params &target)
+    requires(requires { Derived::ANIMATED_MOBIUS; } && Derived::ANIMATED_MOBIUS)
+  {
+    params.visit([&]<typename Resource>(auto &family) {
+      if constexpr (Resource::KIND == ResourceKind::LENS) {
+        const auto MOBIUS = family.mobius;
+        family = target.template get<Resource::KEY>();
+        family.mobius = MOBIUS;
+      } else {
+        family = target.template get<Resource::KEY>();
+      }
+    });
+    palette_mapping = Pullback::Color::PaletteMappingWeights::single(
+        target.template get<"color">().palette_mapping);
+  }
+
   HS_COLD_MEMBER void parameter_written() override {
     Choreography::parameter_written();
     palette_mapping = Pullback::Color::PaletteMappingWeights::single(
