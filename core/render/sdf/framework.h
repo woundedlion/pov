@@ -148,7 +148,7 @@ struct OctetFramework {
         float b = residual[j];
         if (a * b > 0.0f) {
           float &larger = fabsf(a) > fabsf(b) ? a : b;
-          const float SMALLER = std::min(fabsf(a), fabsf(b));
+          const float SMALLER = fminf(fabsf(a), fabsf(b));
           if (fabsf(larger) + SMALLER / 3.0f > 0.5f * SPACING)
             larger -= copysignf(SPACING, larger);
         }
@@ -405,7 +405,7 @@ template <size_t Count> struct FrameworkPlaneStreams {
     result.t = distance(index);
     const float WIDTH = footprint.at(result.t);
     result.coverage = WIDTH > 0.0f
-                          ? std::clamp(0.5f - sample.field / WIDTH, 0.0f, 1.0f)
+                          ? hs::clamp(0.5f - sample.field / WIDTH, 0.0f, 1.0f)
                           : (sample.field <= 0.0f ? 1.0f : 0.0f);
     result.feature = sample.feature;
     // Coincident plane reports define one approximate junction layer.
@@ -498,7 +498,7 @@ template <size_t Count> struct OctetStreams {
 
   __attribute__((always_inline)) float coverage_of(float t, float field) const {
     const float WIDTH = footprint.at(t);
-    return WIDTH > 0.0f ? std::clamp(0.5f - field / WIDTH, 0.0f, 1.0f)
+    return WIDTH > 0.0f ? hs::clamp(0.5f - field / WIDTH, 0.0f, 1.0f)
                         : (field <= 0.0f ? 1.0f : 0.0f);
   }
 
@@ -822,7 +822,7 @@ struct OctetEvents4 : OctetStreams<8> {
       const float OFFSET2 = 0.5f * across * across + rk * rk + rl * rl;
       const float DOT =
           across * strut.transverse + rk * strut.dk + rl * strut.dl;
-      const float N = std::max(0.0f, OFFSET2 * strut.denominator - DOT * DOT);
+      const float N = fmaxf(0.0f, OFFSET2 * strut.denominator - DOT * DOT);
       if (N * denominator < numerator * strut.denominator) {
         numerator = N;
         denominator = strut.denominator;
