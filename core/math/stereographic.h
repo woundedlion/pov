@@ -8,7 +8,6 @@
  * @brief Stereographic and gnomonic forward/inverse projection kernels.
  */
 
-#include <algorithm>
 #include <cmath>
 #include "math/3dmath.h"
 
