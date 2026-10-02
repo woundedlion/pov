@@ -569,8 +569,6 @@ private:
 
   /**
    * @brief Folds this frame's probe buckets into the window totals, rezeroed.
-   * @details Same uint32 wrap argument as drain_scan_metrics: a frame of a
-   *          many-faced solid accumulates enough cycles to wrap a bucket.
    */
   void drain_probe_breakdown() {
     const hs::ProbeBreakdown &b = hs::g_probe_breakdown;
