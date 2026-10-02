@@ -73,14 +73,19 @@ class CaptureReader:
                 if isinstance(value, (int, float)) and (
                     end == len(self.buffer) or self.buffer[end] not in " \t\r\n,]}"
                 ):
-                    chunk = self.stream.read(65536)
+                    if len(self.buffer) - end > 65536:
+                        raise CrosscheckError("invalid number in capture")
+                    chunk = self.stream.read(max(65536, len(self.buffer)))
                     if chunk:
                         self.buffer += chunk
                         continue
                 self.buffer = self.buffer[end:]
                 return value
-            except json.JSONDecodeError:
-                chunk = self.stream.read(65536)
+            except json.JSONDecodeError as error:
+                if (error.msg != "Unterminated string starting at"
+                        and len(self.buffer) - error.pos > 65536):
+                    raise
+                chunk = self.stream.read(max(65536, len(self.buffer)))
                 if not chunk:
                     raise
                 self.buffer += chunk
