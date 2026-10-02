@@ -87,11 +87,8 @@ inline constexpr ChannelScale LINEAR_WARM_GAIN{255, 147, 41};
  *                 needs ceil(N/2) extra clocks; at 8 clocks/byte that is
  *                 ceil(N/16) bytes. Padding adds harmless extra zero clocks.
  *
- * Color correction pipeline (pack_pixel() takes already-linear Pixel input):
- *   1. Color correction multiply       (linear channel gains)
- *   2. Temperature correction multiply (linear warm gains)
- *   3. Brightness scaling
- *   4. Linear 16-bit → sRGB 8-bit      (linear_to_srgb8)
+ * pack_pixel() applies color gains, temperature gains and brightness scaling
+ * to linear Pixel input, then converts linear 16-bit channels to sRGB 8-bit.
  */
 template <int N> class HD107SFrame {
 public:
@@ -103,12 +100,7 @@ public:
   /** Composite size: image frame + trailing black frame (for strobe_columns). */
   static constexpr int COMPOSITE_SIZE = BUFFER_SIZE * 2;
 
-  // The whole composite buffer can be handed to a single DMA transfer
-  // (submit_frame(with_bg=true) → transmit_async(data(), COMPOSITE_SIZE)). Teensy
-  // 4's eDMA encodes a transfer's major-loop count in the 15-bit CITER/BITER
-  // field (minor-loop linking disabled), so one transfer tops out at 32767
-  // bytes — past that the count silently truncates and the strip tail goes
-  // dark. Trap at compile time if a future pixel count would overflow it.
+  // Teensy 4 eDMA's 15-bit CITER/BITER limits a composite transfer to 32767 bytes.
   static_assert(
       COMPOSITE_SIZE <= 32767,
       "HD107SFrame composite buffer exceeds the 15-bit eDMA single-transfer "

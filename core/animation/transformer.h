@@ -339,7 +339,6 @@ public:
       if constexpr (HAS_REFRESH_FROM) {
         e.params.refresh_from(template_params);
       }
-      // Refresh derived state after copying live values.
       if constexpr (HAS_SYNC) {
         e.params.sync();
       }
@@ -521,13 +520,8 @@ private:
         AnimT *p =
             timeline.add_get(in_frames, std::move(anim), pin, paused, this);
         if (p) {
-          // Recycle the pool slot at final removal. The paths differ by handle
-          // stability:
-          //   - Pinned: the event never relocates and may be cancel()ed through
-          //     the retained pointer (flipping repeats() to false), so re-query
-          //     live through p to tell a removal from a mid-repeat post fire.
-          //   - Non-pinned: p must not be retained (step() compacts the event),
-          //     and the HS_CHECK above pins repeats() false, so fire once at done().
+          // Pinned callbacks re-query live repeats(); non-pinned pointers expire
+          // when step() compacts events.
           if (pin == Timeline::Pin::PINNED) {
             // Capture order sizes the callable: the two pointers lead so the
             // pair of 32-bit fields packs into Fn's inline storage.
@@ -826,11 +820,7 @@ inline math::Vector noise_transform(const math::Vector &v,
   float scale = params.scale;
   float time_val = params.time;
 
-  // ny/nz read the same field as nx under a constant spatial translation
-  // (100/200 on every axis). The channels decorrelate because that translation
-  // exceeds the noise correlation length, not because the per-axis offsets
-  // differ. The same time_val drives the z input of all three, so they animate
-  // together in time.
+  // Constant spatial shifts decorrelate channels; all share the same time input.
   constexpr float CHANNEL_Y_OFFSET = 100.0f; // channel 2 (ny) field shift
   constexpr float CHANNEL_Z_OFFSET = 200.0f; // channel 3 (nz) field shift
   float nx =

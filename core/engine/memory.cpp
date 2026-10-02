@@ -151,11 +151,8 @@ FLASHMEM void resplit_arenas(size_t persistent, size_t scratch_a,
            "resplit_arenas: both scratch arenas must be empty");
   const ScratchBases bases =
       split_bases("resplit_arenas", persistent, scratch_a, scratch_b);
-  // Persistent keeps its base/offset/content/generation -- only the boundary
-  // moves. rebind_capacity traps if the new budget is below the live offset, so
-  // the carousel + palette bank are never stranded. Its high-water is rebased to
-  // the live offset (the per-shape baseline) so each shape's persistent peak is
-  // measured against its own split, not a predecessor's residue.
+  // Rebinding preserves persistent content and generation; high-water resets
+  // to the live offset for this shape's split.
   persistent_arena.rebind_capacity(persistent);
   persistent_arena.reset_high_water_mark();
   // The scratch arenas are empty at the call point; rebind them onto their new

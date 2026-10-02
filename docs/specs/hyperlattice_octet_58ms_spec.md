@@ -3,8 +3,8 @@
 Status: LANDED. Section 3 Tier 1 landed in `f130ee632`; section 4 Tier 2
 landed in `1bb522211`. Section 5 fallbacks were not taken. Sections 1-2
 record the pre-landing baseline, including historical preset indices and IDs.
-The optimization ledger (supporting artifact removed)
-records the preceding arithmetic work.
+The supporting optimization ledger for the preceding arithmetic work is no
+longer retained.
 
 Source of truth for the shipped code: `effects/HyperLattice.h`
 (shader entry and per-frame preparation), `core/render/sdf/octet_trace.h`
@@ -62,9 +62,8 @@ the layer path.
 
 ### 2.2 What the shipped code does per ray
 
-The final shipping disassembly is preserved in the
-optimization evidence (supporting artifact removed).
-Reading the 3D shader (`shade<false>`, 912 instructions) and the adapter
+The supporting disassembly is no longer retained. The recorded inspection of
+the pre-landing 3D shader (`shade<false>`, 912 instructions) and the adapter
 constructor (483 instructions) gives the following per-ray fixed cost, all of
 it spent on values that are constant per frame or true by construction:
 

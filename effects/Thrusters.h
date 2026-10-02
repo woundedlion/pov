@@ -95,8 +95,6 @@ public:
       warp_anim.step(canvas);
     }
 
-    // Advance and draw each live thruster; radius and opacity are pure
-    // functions of `age`.
     {
       HS_PROFILE(th_thrusters);
       // Expire finished thrusters from the front (FIFO: all share the same LIFE,

@@ -1,35 +1,14 @@
 #!/usr/bin/env python3
 """Per-commit Teensy 4 firmware size trail (ELF parser / recorder / classifier).
 
-The record command captures already-linked firmware images so a later
-ITCM/RAM1 regression can be attributed to a commit.
+Reads ELF32 section sizes with stdlib struct; no PlatformIO or ARM tools required.
+Shared local history lives at `$(git rev-parse --git-common-dir)/teensy-size-trail.tsv`;
+per-worktree staging lives at `$(git rev-parse --absolute-git-dir)/teensy-size-trail.pending.json`.
 
-Like teensy_gate.py it holds NO PlatformIO dependency and shells out to no ARM
-toolchain: section sizes are read straight out of the ELF32 section-header table
-(stdlib `struct` only), so it runs as an ordinary host Python module and is
-exercised by tools/teensy_gate_tests/test_size_trail.py against a synthetic ELF.
-
-Storage (deliberately NOT a tracked file):
-  * The trail lives at `$(git rev-parse --git-common-dir)/teensy-size-trail.tsv`.
-    It is local-only — a tracked per-commit log would conflict on every branch,
-    and the repo lands branches through a fast-forward-only integrator.
-  * `--git-common-dir`, never `--git-dir`: inside a `git worktree` the latter
-    points at `.git/worktrees/<name>`, which would fragment the trail into one
-    file per worktree. Every worktree appends to the one trail.
-  * The pending record lives at `$(git rev-parse --absolute-git-dir)/
-    teensy-size-trail.pending.json` — per-worktree, the opposite of the trail.
-    It holds ONE commit in flight, so sharing it across worktrees lets two
-    overlapping commits stamp each other's section sizes onto the wrong sha.
-
-Capture is two-phase because the recorder does not know the next commit sha:
-  * `record`  — before committing, parse the built ELFs into a pending record.
-    `just teensy-size` runs it after its build; run it by hand after any other
-    firmware link whose sizes should be attributed to the next commit.
-  * `commit`  — post-commit: stamp the pending record with HEAD's sha, committer
-    date and subject, append one row per environment, drop the pending file.
-
-Neither phase may fail a commit. Every subcommand degrades to a warning on
-stderr and a non-zero status the hooks swallow.
+`record` parses linked ELFs before committing (also run by `just teensy-size`).
+The post-commit `commit` phase stamps pending sizes with HEAD, date and subject,
+appends one row per environment and removes the pending record.
+Subcommand failures report warnings and non-zero statuses that hooks swallow.
 """
 
 from __future__ import annotations

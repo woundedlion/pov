@@ -423,58 +423,29 @@ inline void transform_in_place(MeshState &mesh,
   }
 }
 
-// ---------------------------------------------------------------------------
-// Conway operators
+// Conway operator contracts
+// Primitive scratch is checkpointed; composed intermediates remain in temp
+// until the caller rewinds it. Every result is in target.
 //
-// Primitive operators checkpoint scratch storage; composed operators also
-// retain their intermediate mesh in temp until the caller rewinds it.
+// HalfEdgeMesh builds in temp (except kis); medial also keeps dual positions
+// there. Orbit index/flag buffers use target for dual/ambo/truncate/medial/expand,
+// temp for chamfer/snub, and none for kis. relax keeps per-vertex movements and
+// orbit_start in temp; relax_baked takes no temp.
+// Prebuilt HalfEdgeMesh may occupy either arena: ambo/truncate/expand scope both
+// arenas; chamfer/snub scope temp. Target scopes start above live output bindings.
 //
-// SCRATCH ARENA CONTRACT (load-bearing): the HalfEdgeMesh always builds in
-// `temp` (kis builds none); the per-orbit index/flag buffers are split to
-// balance the asymmetric arena pair:
-//   - dual / ambo / truncate / medial / expand -> index buffers in `target`
-//   - chamfer / snub -> index buffers in `temp`
-//   - kis                                      -> no extra buffers
-//   - relax -> movements and orbit_start, both per-vertex, in `temp`
-//   - relax_baked -> takes no `temp` arena at all
-// medial additionally holds a per-face dual-position buffer in `temp`.
-// ambo/truncate/expand/chamfer/snub also take a prebuilt HalfEdgeMesh, which
-// may sit in either arena: ambo, truncate and expand scope both arenas, while
-// chamfer and snub scope only `temp`. Target-side scopes begin above the output
-// bindings, so no scope rewinds past a caller-owned he_mesh or live output.
+// ambo/truncate/expand/chamfer/snub and compositions require distinct arenas.
+// dual/kis/medial/relax permit one arena: their output binds before scratch scopes.
 //
-// ARENA DISTINCTNESS: the operators that open a ScratchScope (or rewind an
-// arena) before an allocation the rewind must not reclaim check
-// `&target != &temp` at entry — ambo/truncate/expand/chamfer/snub, which build
-// the HalfEdgeMesh before binding their output, and the compositions, which
-// carry an intermediate mesh across the next stage. dual/kis/medial/relax bind
-// their output first and scope only below it, so both parameters may name one
-// arena. Moving a bind below a ScratchScope makes the check mandatory.
+// dual/ambo/truncate/expand/chamfer/snub/medial require a closed manifold.
+// kis is per-face; relax permits boundary meshes.
 //
-// MANIFOLD PRECONDITION: dual/ambo/truncate/expand/chamfer/snub/medial require
-// a closed manifold (require_closed_manifold traps otherwise); kis is per-face;
-// relax tolerates a boundary mesh (partial relaxation).
+// kis/relax/relax_baked trap on faces with fewer than three sides.
+// Connectivity emitters drop those faces, leaving boundary holes; see
+// test_conway_ops_drop_degenerate_primary_faces.
 //
-// DEGENERATE FACES (< 3 sides) have two policies. kis, relax and relax_baked
-// read `face_counts` directly and trap by name at the offending face. The
-// connectivity-driven operators (dual/ambo/truncate/expand/chamfer/snub/medial)
-// walk half-edge loops through the shared emitters, which drop a sub-triangular
-// face and carry on; test_conway_ops_drop_degenerate_primary_faces pins that
-// graceful degradation, so do not turn the drop into a trap. A dropped face
-// leaves a boundary hole, so a later operator in a chain reports a generic
-// "unpaired half-edge" instead of naming the bad face. The drop is also
-// load-bearing: every shipped hankin-then-ambo recipe relies on it, since ambo
-// over a hankin mesh's degree-2 star tips would otherwise emit one digon per
-// tip, whose edge carries four half-edges and traps the next connectivity
-// build.
-//
-// COMPOSITION POLARITY: every operator, primitive or composed, returns its
-// output in `target`. A composition alternates the ping-pong once per
-// primitive step, so an even-length composition (gyro/needle/zip/bevel)
-// starts its first step in `temp` to land the last one in `target`.
-//
-// Per-vertex orbit buffers are sized to the max valence (= total half-edges).
-// ---------------------------------------------------------------------------
+// Even-length compositions start in temp to finish in target.
+// Per-vertex orbit buffers use max valence (= total half-edges).
 
 /**
  * @brief Blended corner position, falling back to the source vertex when the

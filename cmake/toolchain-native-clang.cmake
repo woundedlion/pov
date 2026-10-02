@@ -40,15 +40,8 @@ if(NOT CMAKE_CXX_COMPILER)
 endif()
 
 if(WIN32)
-  # CMake's Windows-Clang support links via lld-link, but the emsdk ships only
-  # lld.exe. lld is a multicall binary: invoked as lld-link.exe it acts as the
-  # COFF linker (and embeds manifests itself, so — unlike MSVC link.exe — it
-  # does not need rc.exe on PATH at link time). Stage the alias in the BUILD
-  # TREE (always writable) rather than writing it into the emsdk install, which
-  # hard-fails on a read-only toolchain checkout; add the build tree to clang's
-  # program-search prefix (-B) so it finds lld-link there at link time without
-  # the alias sitting next to clang or on PATH. (The MSVC-target driver ignores
-  # --ld-path for lld-link, so -B is the mechanism that actually applies.)
+  # Stage emsdk's lld.exe as the COFF multicall alias lld-link.exe; -B searches
+  # the build tree for it.
   if(_hs_clang_dir AND EXISTS "${_hs_clang_dir}/lld.exe")
     file(COPY_FILE "${_hs_clang_dir}/lld.exe" "${CMAKE_BINARY_DIR}/lld-link.exe"
          ONLY_IF_DIFFERENT)

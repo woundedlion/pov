@@ -66,8 +66,11 @@ to zero. Changes made while the module loads are applied before the first frame.
 
 A geometry change refreshes the engine lookup tables and recreates the active
 effect to invalidate geometry-dependent caches. Effect configuration, preset,
-parameters, pause state and clipping are retained; animation and trail history
-restart. Invalid requests and unchanged values leave the running effect intact.
+parameters, pause state and clipping are retained. Ordinary effects restart
+animation and trail history. `ShaderChain` restores its complete executable
+[snapshot](chain_snapshot_spec.md), including operator clocks, noise seeds and
+generated palettes, after rebuilding geometry-dependent caches.
+Invalid requests and unchanged values leave the running effect intact.
 The controls persist across effect and resolution changes, propagate to segment
 workers, and refresh the displayed LED mesh even while playback is paused.
 

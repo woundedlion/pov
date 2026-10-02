@@ -263,8 +263,9 @@ public:
   /**
    * @brief Sets the missing arc at each pole as a percentage in [0, 25].
    * @return False for non-finite or out-of-range inputs; otherwise true.
-   * @details Changes rebuild the effect, preserving parameters, preset, pause,
-   *          clip, and workbench configuration. Animation and trail history reset.
+   * @details Changes rebuild geometry caches, retaining parameters, preset,
+   *          pause and clip; ShaderChain restores its full executable snapshot,
+   *          while other effects restart animation and trail history.
    *          Identical geometry leaves the effect and parameter generation intact.
    */
   bool setDisplayCaps(double top_percent, double bottom_percent) {

@@ -1,9 +1,4 @@
-"""Shared KiCad-gen helpers: kicad-cli discovery + pure s-expr/format/geometry utilities.
-
-Single source of truth for finding kicad-cli and for the netlist-export call,
-plus the small helpers reused across pcb.py / check.py / shorts.py / builder.py
-/ board_metadata.py, so a KiCad-flag or schema change touches one place.
-"""
+"""KiCad CLI discovery/netlist export and shared s-expression, format and geometry helpers."""
 import glob
 import math
 import os
