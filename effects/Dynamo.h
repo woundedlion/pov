@@ -527,6 +527,14 @@ private:
   bool logged_palettes_full = false;
 
   /**
+   * @brief Filter pipeline applied to plotted points before color resolution.
+   */
+  Pipeline<W, H, Filter::World::Trails<TRAIL_CAPACITY>,
+           Filter::World::Replicate<W>, Filter::World::Orient,
+           Filter::Screen::AntiAlias<W, H>>
+      filters;
+
+  /**
    * @brief Live slider-backed parameters for the effect.
    * @details trail_ceiling is engine-written (read-only); the rest are sliders.
    */
@@ -538,12 +546,4 @@ private:
     /** Longest trail the ring can hold, in frames (engine-written). */
     float trail_ceiling = static_cast<float>(TRAIL_LEN_MAX);
   } params;
-
-  /**
-   * @brief Filter pipeline applied to plotted points before color resolution.
-   */
-  Pipeline<W, H, Filter::World::Trails<TRAIL_CAPACITY>,
-           Filter::World::Replicate<W>, Filter::World::Orient,
-           Filter::Screen::AntiAlias<W, H>>
-      filters;
 };
