@@ -26,9 +26,8 @@ def placements(path):
 
 
 class LockedPlacementTests(unittest.TestCase):
-    """QUILTER_FIXED is what `pcb.py --unplaced` locks before an autoplacer run,
-    so a constant that disagrees with the committed boards hands Quilter a
-    different mechanical placement than the routing was produced under."""
+    """QUILTER_FIXED captures rev 1.1 routed placements and is the starting
+    table for fixed_placements; it must match the rev 1.1 board."""
 
     def test_captured_placements_match_the_routed_board(self):
         routed = placements(ROUTED)
