@@ -26,6 +26,33 @@ namespace math3d_tests {
 // Constants
 // ============================================================================
 
+inline void test_projection_pattern_bounds() {
+  constexpr float LIMIT = projections::STEREO_PATTERN_ARG_LIMIT;
+  for (const math::Complex input :
+       {math::Complex(5000.0f, -5000.0f),
+        math::Complex(-projections::STEREO_INF, projections::STEREO_INF)}) {
+    const auto args = projections::stereo_pattern_args(input, 20.0f);
+    HS_EXPECT_EQ(args.re, input.re < 0.0f ? -LIMIT : LIMIT);
+    HS_EXPECT_EQ(args.im, input.im < 0.0f ? -LIMIT : LIMIT);
+  }
+  const auto interior = projections::stereo_pattern_args({2.0f, -3.0f}, 4.0f);
+  HS_EXPECT_EQ(interior.re, 8.0f);
+  HS_EXPECT_EQ(interior.im, -12.0f);
+  HS_EXPECT_EQ(projections::pole_attenuation(0.0f, 2.0f), 1.0f);
+  float previous = 1.0f;
+  for (float radius_sq : {0.0f, 1.0f, 4.0f, 100.0f}) {
+    const float attenuation = projections::pole_attenuation(radius_sq, 2.0f);
+    HS_EXPECT_LE(attenuation, previous);
+    HS_EXPECT_GT(attenuation, 0.0f);
+    previous = attenuation;
+    HS_EXPECT_TRUE(
+        std::isfinite(projections::pole_attenuation(radius_sq, 0.0f)));
+    HS_EXPECT_TRUE(std::isfinite(
+        projections::pole_normalize_pattern(-1.0f, radius_sq, 0.0f)));
+  }
+  HS_EXPECT_EQ(projections::pole_normalize_pattern(1.0f, 0.0f, 0.0f), 1.0f);
+}
+
 /**
  * @brief Pins the math constants (golden ratio, tolerance, pi, stereo
  *        sentinel) to their expected values.
@@ -1965,6 +1992,7 @@ inline int run_3dmath_tests() {
   hs_test::ModuleFixture fixture("3dmath");
 
   test_constants();
+  test_projection_pattern_bounds();
   test_quintic_kernel();
   test_hash01();
   test_value_noise();
