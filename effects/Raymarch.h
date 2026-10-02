@@ -538,7 +538,7 @@ private:
     for (int i = 0; i < active_count; ++i) {
       // Per-vertex auto-size: fit the ring's outer edge to `fill` of this
       // vertex's half nearest-neighbour gap, so open regions get large tori and
-      // tight ones stay small. Twist lobes can overlap near fill 1.
+      // tight ones stay small. Twist lobes overlap from Fill >= about 0.83.
       float outer_r = sinf(0.5f * nn_angle[i] * params.fill);
       float scale = outer_r / VIS_K;
       float major_r = scale * MAJOR_K;
