@@ -135,11 +135,11 @@ def compiled_paths(line: str) -> list[str]:
 def count_first_party_compiles(build_log: str) -> int:
     """Compiler invocations on first-party sources visible in the log.
 
-    The ratchet's green and a broken capture both yield an empty warning set, so
+    The warning gate's green and a broken capture both yield an empty warning set, so
     the comparison is only meaningful once the log is known to hold a build that
     could have emitted first-party warnings at all. A third-party-only build
     (FastLED, the Teensy core) is NOT evidence: those TUs cannot emit a warning
-    the ratchet would ever look at.
+    the warning gate would ever look at.
     """
     n = 0
     for line in build_log.splitlines():
@@ -332,7 +332,7 @@ def read_build_log(path: str | Path) -> str:
     """Read a captured build log, replacing undecodable bytes.
 
     A Windows `pio run -v 2>&1 | tee` interleaves cp1252 bytes into the stream.
-    A strict decode would raise out of main() and replace the ratchet's
+    A strict decode would raise out of main() and replace the warning gate's
     exit-code contract with a traceback; the warning fingerprints this module
     matches are ASCII, so a substituted byte cannot alter the set.
     """
@@ -355,7 +355,7 @@ def main(argv: list[str] | None = None) -> int:
         build_log = read_build_log(args.build_log)
     except OSError as exc:
         print(f"{prefix}[teensy-warnings] FAIL - cannot read {args.build_log} "
-              f"({exc}): the ratchet has nothing to check.")
+              f"({exc}): the warning gate has nothing to check.")
         return 1
     compiles = count_first_party_compiles(build_log)
     if compiles == 0:

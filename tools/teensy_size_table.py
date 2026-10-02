@@ -11,7 +11,7 @@ Stdlib only; the teensy_size line parsing is teensy_gate.parse_teensy_size, so
 the table and the gate can never disagree about what a line means.
 
 With no argument every environment platformio.ini declares is built -- the set a
-bare `pio run` covers, which is also the set the warning ratchet expects -- so a
+bare `pio run` covers, which is also the set the warning warning gate expects -- so a
 new image is size-gated without a second list to edit here.
 
 Run:  python tools/teensy_size_table.py [<env> ...]
