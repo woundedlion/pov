@@ -212,7 +212,7 @@ class ReferenceTransactionHook(unittest.TestCase):
         self.assertIn("REFUSED master", self.log_text())
 
     def test_a_token_too_short_to_name_a_commit_does_not_authorize(self):
-        self.token.write_text("abc", encoding="utf-8")
+        self.token.write_text(self.base[:6], encoding="utf-8")
         self.assertEqual(self.hook(f"{ZERO} {self.base} {MASTER}").returncode, 1)
 
     def test_an_empty_token_does_not_authorize(self):
