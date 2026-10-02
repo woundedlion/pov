@@ -56,8 +56,8 @@ inline void test_pole_wrap_north_reflects_half_turn() {
 }
 
 /**
- * @brief Verifies the south edge reflects about the true (virtual) pole row, so
- *        the sub-pole gap the device leaves unrendered reports no data.
+ * @brief Verifies south-edge reflection about the pole row and rejection of
+ *        the virtual gap in the legacy offset mapping.
  */
 inline void test_pole_wrap_south_reflects_about_virtual_pole() {
   constexpr int W = 64, H = 64;
