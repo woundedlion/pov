@@ -133,7 +133,7 @@ static emscripten::val collect_arena_metrics() {
  *          against its values, never by truthiness.
  */
 enum class MeshOpResult {
-  OK,                    /**< The call produced a result. */
+  OK,                    /**< No rejection was recorded. */
   UNKNOWN_NAME,          /**< No registry entry carries that name. */
   CONNECTIVITY_OVERFLOW, /**< A stage would pass the 16-bit element ceiling. */
   FACE_DEGREE_OVERFLOW,  /**< A stage would emit a face past the 8-bit side
@@ -871,7 +871,7 @@ public:
 
   /**
    * @brief Reports why the most recent checked mesh operation answered null.
-   * @return OK when that call produced a result, otherwise its rejection reason.
+   * @return OK when no rejection was recorded, otherwise the rejection reason.
    * @details Covers fromSolidName, getVertices, getFaces, classifyFaces,
    *          getRecipe and the operator methods. Read it immediately after the
    *          null; the next such call overwrites it.
