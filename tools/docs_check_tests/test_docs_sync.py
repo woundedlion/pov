@@ -122,6 +122,9 @@ class RepositorySync(unittest.TestCase):
         self.git("add", "README.md", "new.h")
         with contextlib.redirect_stdout(io.StringIO()):
             ds.sync_repository(self.root, {}, {})
+        refreshed = readme.read_text(encoding="utf-8")
+        self.assertNotIn("old.h", refreshed)
+        self.assertIn("new.h", refreshed)
         with mock.patch.object(Path, "write_text", side_effect=AssertionError("rewrote unchanged document")):
             ds.sync_repository(self.root, {}, {})
 
