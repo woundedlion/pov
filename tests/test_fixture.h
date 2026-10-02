@@ -23,14 +23,9 @@ namespace hs_test {
 
 /**
  * @brief Default per-effect frame count for every roster sweep.
- * @details The default local sweep uses 8 frames, which never
- * reaches the long, cyclic code paths (effect morph cycles, particle/trail
- * wraps, arena compaction, and the effect-lifecycle transitions — RingShower
- * slot reuse and Thrusters fire/FIFO expiry), so CI
- * sets HS_SMOKE_FRAMES=120 (.github/workflows/ci.yml) to exercise them on every
- * push/PR. The effects smoke/determinism passes and the arena/stack budget
- * gates all resolve their window through smoke_frames(), so the budgets are
- * measured over the same window the correctness sweep covers.
+ * @details Local sweeps default to 8 frames; CI sets HS_SMOKE_FRAMES=120
+ * (.github/workflows/ci.yml). Effect smoke/determinism passes and arena/stack
+ * budget gates resolve their base render window through smoke_frames().
  */
 constexpr int DEFAULT_SMOKE_FRAMES = 8;
 constexpr int CI_MIN_SMOKE_FRAMES = 120;
