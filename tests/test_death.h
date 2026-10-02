@@ -529,16 +529,17 @@ inline void case_arena_oversubscribed() {
                    opaque<size_t>(1024));
 }
 
-/**
- * @brief Death case: a single partition larger than the whole block must trap.
- * @details Config surface — the per-request bound is checked before the sum, so
- *          an oversized persistent request fires split_bases' own HS_CHECK.
- */
+/** @brief Death case: the ArenaSplit scratch pair exceeds the block total. */
 inline void case_arena_split_scratch_too_large() {
   const ArenaSplit split{opaque<size_t>(GLOBAL_ARENA_SIZE), opaque<size_t>(1)};
   (void)split.persistent(opaque<size_t>(GLOBAL_ARENA_SIZE));
 }
 
+/**
+ * @brief Death case: a single partition larger than the whole block must trap.
+ * @details Config surface — the per-request bound is checked before the sum, so
+ *          an oversized persistent request fires split_bases' own HS_CHECK.
+ */
 inline void case_arena_partition_too_large() {
   configure_arenas(opaque(GLOBAL_ARENA_SIZE + 1), opaque<size_t>(0),
                    opaque<size_t>(0));
