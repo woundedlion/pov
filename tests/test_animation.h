@@ -3441,8 +3441,8 @@ inline void test_colorwipe_paused_holds_keys() {
 // ============================================================================
 
 /**
- * @brief Verifies MobiusWarp eases param b around the unit circle, closing to
- * b == 0 at completion and reporting done() only on the final frame.
+ * @brief Verifies MobiusWarp leaves the origin, closes near b == 0 at
+ * completion, and reports done() only on the final frame.
  */
 inline void test_mobiuswarp_closes_at_completion() {
   math::MobiusParams params;
