@@ -231,14 +231,14 @@ struct Dodecahedron {
 /**
  * @brief Compile-time consistency check for a hardcoded solid's tables.
  * @tparam StaticMeshT Type exposing constexpr vertices/face_counts/faces arrays.
- * @return True iff the tables describe a closed orientable surface whose
- * vertices all lie on the unit sphere.
+ * @return True when index, edge-incidence, Euler and unit-length checks pass.
  * @details Checks that face_counts spans the flat face list exactly, every face
  * index addresses a listed vertex, no directed edge repeats and every directed
  * edge has its reverse (so each undirected edge joins exactly two faces in
  * opposite orientation, making E = sum/2), Euler's formula holds, and every
- * vertex is unit length. Face planarity, convexity and non-self-intersection
- * are not checked. Compares squared lengths so the whole check is
+ * squared vertex length passes the 1 ± 1e-4 comparisons. Finiteness, vertex fans,
+ * connectivity, face planarity, convexity and non-self-intersection are not checked.
+ * Compares squared lengths so the check is
  * constant-evaluable.
  */
 template <typename StaticMeshT> constexpr bool solid_tables_consistent() {
