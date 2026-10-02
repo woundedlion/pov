@@ -2811,6 +2811,8 @@ inline void run_sample_op_matrix(In::ChainProgram &program,
   uint8_t *weight = topology_byte(program, 2, "weight-mode");
   uint8_t *coverage = topology_byte(program, 2, "coverage-mode");
   HS_EXPECT_TRUE(weight != nullptr && coverage != nullptr);
+  if (!weight || !coverage)
+    return;
   for (uint8_t w = 0; w < 2; ++w)
     for (uint8_t c = 0; c < 4; ++c) {
       *weight = w;
@@ -4013,7 +4015,11 @@ inline void test_shader_chain_parameter_admission() {
   };
   HS_EXPECT_EQ(static_cast<int>(effect.set_chain(chain).code),
                static_cast<int>(In::ChainStatus::OK));
-  const ParamDef &strength = *effect.getParameters().find("warp.strength");
+  const ParamDef *strength_param = effect.getParameters().find("warp.strength");
+  HS_EXPECT_TRUE(strength_param != nullptr);
+  if (!strength_param)
+    return;
+  const ParamDef &strength = *strength_param;
   HS_EXPECT_EQ(effect.updateParameter("warp.strength", 30.0f),
                ParamSetResult::APPLIED);
   HS_EXPECT_TRUE(effect.parameter_warning("warp.strength") == nullptr);
@@ -4025,7 +4031,11 @@ inline void test_shader_chain_parameter_admission() {
   effect.updateParameter("warp.strength", 0.0f);
   HS_EXPECT_TRUE(effect.parameter_warning("warp.strength") == nullptr);
   HS_EXPECT_EQ(effect.accepted_parameter_value(strength), 0.0f);
-  const ParamDef &d_re = *effect.getParameters().find("lens.mobius-d-re");
+  const ParamDef *d_re_param = effect.getParameters().find("lens.mobius-d-re");
+  HS_EXPECT_TRUE(d_re_param != nullptr);
+  if (!d_re_param)
+    return;
+  const ParamDef &d_re = *d_re_param;
   const float accepted_d_re = effect.accepted_parameter_value(d_re);
   HS_EXPECT_EQ(effect.updateParameter("lens.mobius-a-re", 2.0f),
                ParamSetResult::APPLIED);
@@ -4096,8 +4106,13 @@ inline void test_shader_chain_edge_distance_admission() {
   HS_EXPECT_EQ(effect.updateParameter("sample.coverage-mode", 3),
                ParamSetResult::INADMISSIBLE);
   HS_EXPECT_TRUE(effect.parameter_warning("sample.coverage-mode") != nullptr);
-  const float ACCEPTED_ENVELOPE =
-      effect.getParameters().find("warp.envelope")->get_requested();
+  const ParamDef *envelope = effect.getParameters().find("warp.envelope");
+  const ParamDef *coverage_mode =
+      effect.getParameters().find("sample.coverage-mode");
+  HS_EXPECT_TRUE(envelope != nullptr && coverage_mode != nullptr);
+  if (!envelope || !coverage_mode)
+    return;
+  const float ACCEPTED_ENVELOPE = envelope->get_requested();
   const ShaderChainParameterWrite writes[] = {{"warp.envelope", 2}};
   HS_EXPECT_EQ(effect.update_parameters(writes), ParamSetResult::INADMISSIBLE);
   HS_EXPECT_EQ(effect.getParameters().find("warp.envelope")->get_requested(),
