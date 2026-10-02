@@ -17,6 +17,7 @@
 #include <array>
 #include <cstring>
 #include <limits>
+#include <string_view>
 #include <thread>
 #include <vector>
 
@@ -155,6 +156,7 @@ struct TransitionAdapter : hs::EffectTransitionAdapter {
   bool incoming_published = false;
   bool restored_published = false;
   bool committed = false;
+  std::string_view committed_effect_id;
   bool failsafe = false;
   hs::EffectTransitionStatus failsafe_reason = hs::EffectTransitionStatus::OK;
   int preflights = 0;
@@ -196,8 +198,9 @@ struct TransitionAdapter : hs::EffectTransitionAdapter {
     return prepare_status;
   }
   void publish_incoming_frame() override { incoming_published = true; }
-  void commit_identity(const hs::EffectTransitionRequest &) override {
+  void commit_identity(const hs::EffectTransitionRequest &request) override {
     committed = true;
+    committed_effect_id = request.effect_id;
   }
   void destroy_incoming() override { ++discards; }
   hs::EffectTransitionStatus
@@ -273,6 +276,14 @@ inline void test_effect_transition_fenced_commit() {
       2};
   HS_EXPECT_EQ(controller.request(request), hs::EffectTransitionStatus::OK);
   controller.tick();
+  const size_t ENVELOPES_BEFORE_REFUSAL = adapter.envelopes.size();
+  adapter.preflight_status = hs::EffectTransitionStatus::RESOURCE_REJECTED;
+  const hs::EffectTransitionRequest REFUSED{
+      "alien-brain", "alien-brain", hs::EffectTransitionOrigin::MANUAL, 1};
+  HS_EXPECT_EQ(controller.request(REFUSED),
+               hs::EffectTransitionStatus::RESOURCE_REJECTED);
+  HS_EXPECT_EQ(adapter.envelopes.size(), ENVELOPES_BEFORE_REFUSAL);
+  adapter.preflight_status = hs::EffectTransitionStatus::OK;
   controller.tick();
   controller.tick();
   HS_EXPECT_GE(adapter.envelopes.size(), size_t(4));
@@ -299,6 +310,8 @@ inline void test_effect_transition_fenced_commit() {
                hs::EffectTransitionState::COMMIT_READY);
   controller.tick();
   HS_EXPECT_TRUE(adapter.committed);
+  HS_EXPECT_EQ(adapter.committed_effect_id,
+               std::string_view(request.effect_id));
   controller.tick();
   controller.tick();
   controller.tick();
@@ -313,6 +326,16 @@ inline void test_effect_transition_fenced_commit() {
   HS_EXPECT_EQ(adapter.envelopes.back(), 1.0f);
   HS_EXPECT_EQ(controller.current_state(),
                hs::EffectTransitionState::STEADY_IN);
+  const size_t SECOND_START = adapter.envelopes.size();
+  HS_EXPECT_EQ(controller.request(request), hs::EffectTransitionStatus::OK);
+  HS_EXPECT_EQ(adapter.envelopes.back(), 1.0f);
+  controller.tick();
+  controller.tick();
+  controller.tick();
+  HS_EXPECT_EQ(adapter.envelopes.size(), SECOND_START + 4);
+  HS_EXPECT_EQ(adapter.envelopes[SECOND_START + 1], 1.0f);
+  HS_EXPECT_EQ(adapter.envelopes[SECOND_START + 2], 0.5f);
+  HS_EXPECT_EQ(adapter.envelopes[SECOND_START + 3], 0.0f);
 }
 
 /** @brief Hidden and restored frames remain fenced and receive the latest handoff. */
