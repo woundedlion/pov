@@ -15,7 +15,7 @@ if [ "$#" -gt 1 ]; then
 fi
 log=${1:-teensy_build.log}
 case "$log" in
-  /*) ;;
+  /*|[A-Za-z]:[\\/]*) ;;
   *) log="$PWD/$log" ;;
 esac
 cd "$(dirname "$0")/.."
