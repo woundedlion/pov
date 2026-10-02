@@ -1108,8 +1108,8 @@ jobs:
       - name: Run PCB generation, DRC, parity and fabrication tests
         run: python tools/run_python_tests.py --suite hardware/phantasm/gen/tests
 
-  teensy-gate-tests:
-    name: Python unit tests
+  python-tests:
+    name: Python tooling tests and PCB metadata
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     steps:
@@ -1232,7 +1232,7 @@ jobs:
       - license-headers
       - lint
       - clang-format
-      - teensy-gate-tests
+      - python-tests
       - pcb-tests
       - teensy-size
       - teensy-warnings

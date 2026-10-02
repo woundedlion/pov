@@ -1365,8 +1365,8 @@ For a headless Phantasm build, run `pio run -e phantasm` from the repository roo
 > compile/size blind spot VMicro alone leaves uncovered. CI runs the same build
 > and the same budgets on every master push and pull-request update as the
 > `teensy-size` job, alongside `teensy-warnings` (a cold rebuild enforcing the
-> first-party warning ratchet) and `teensy-gate-tests` (host-Python proofs that
-> each budget and layout invariant fails on a broken fixture) — the firmware is
+> first-party warning ratchet) and `python-tests` (all tracked host-Python tooling
+> suites, including budget/layout fixtures and PCB generators, plus routed PCB metadata checks) — the firmware is
 > compiled and gated in CI, and only running it on real hardware is manual.
 > Locally it coexists with VMicro (it owns `.pio/`, never `__vm/`) and asserts
 > the images *fit*, not byte-identity

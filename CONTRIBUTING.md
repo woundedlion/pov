@@ -100,7 +100,7 @@ protected branch's `CI green` status is the authoritative correctness gate.
   `screenshot-gallery` checks capture membership and images. `docs-doxygen`
   builds the API reference with warnings treated as errors. These complement
   the Markdown and image-reference checks below.
-- **Host-Python tool suites:** `just python-test` and the CI `teensy-gate-tests`
+- **Host-Python tool suites:** `just python-test` and the CI `python-tests`
   job run `python tools/run_python_tests.py` across all tracked Python suites,
   including firmware gates, profiling tools, build checks and PCB generators.
   It rejects empty suites and propagates failures. The CI job also checks
