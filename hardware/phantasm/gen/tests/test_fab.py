@@ -213,7 +213,7 @@ class ZoneGeometryTests(unittest.TestCase):
         self.assertEqual(self.validate("0.13", "0.3"), 1)
 
     def test_rejects_solid_through_hole_overrides(self):
-        for footprint_mode, pad_mode in (("", "2"), ("2", ""), ("2", "0")):
+        for footprint_mode, pad_mode in (("", "2"), ("2", "")):
             with self.subTest(footprint=footprint_mode, pad=pad_mode), \
                     self.assertRaisesRegex(fab.ZoneGeometryError, "zone_connect 2"):
                 self.validate("0.13", "0.3", footprint=
@@ -223,7 +223,8 @@ class ZoneGeometryTests(unittest.TestCase):
                               f'{"(zone_connect " + pad_mode + ")" if pad_mode else ""}))')
 
     def test_accepts_relief_override_and_unpoured_or_smd_pads(self):
-        for pad_type, net, pad_mode in (("thru_hole", "GND", "1"),
+        for pad_type, net, pad_mode in (("thru_hole", "GND", "0"),
+                                        ("thru_hole", "GND", "1"),
                                         ("thru_hole", "OTHER", "2"),
                                         ("smd", "GND", "2")):
             with self.subTest(pad_type=pad_type, net=net):
