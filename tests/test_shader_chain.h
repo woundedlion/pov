@@ -4334,13 +4334,11 @@ inline const char *expected_chain_status_name(In::ChainStatus status) {
 }
 
 inline void test_shader_chain_status_names() {
-  constexpr auto LAST = static_cast<uint8_t>(In::ChainStatus::MIGRATE_FAILED);
-  for (uint8_t raw = 0; raw <= LAST; ++raw) {
+  for (unsigned raw = 0; raw <= UINT8_MAX; ++raw) {
     const auto status = static_cast<In::ChainStatus>(raw);
     const char *const expected = expected_chain_status_name(status);
-    HS_EXPECT_TRUE(expected != nullptr);
-    if (expected)
-      HS_EXPECT_STREQ(In::chain_status_name(status), expected);
+    HS_EXPECT_STREQ(In::chain_status_name(status),
+                    expected ? expected : "UNKNOWN");
   }
 }
 
@@ -4559,8 +4557,6 @@ inline void test_shader_chain_snapshot_refusals() {
 
 inline int run_shader_chain_tests() {
   ModuleFixture fixture("shader_chain");
-  HS_EXPECT_TRUE(std::string_view(In::chain_status_name(
-                     static_cast<In::ChainStatus>(255))) == "UNKNOWN");
   test_shader_chain_table_integrity();
   test_shader_chain_table_behavior();
   test_shader_chain_schema_and_field_ids();
