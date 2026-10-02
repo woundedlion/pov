@@ -149,7 +149,7 @@ test('an id that names no control is reported with what it tried', () => {
   assert.match(problems[0], /tried "Edge Width"/);
 });
 
-test('a document naming an absent effect is one problem, not one per id', () => {
+test('an absent effect is reported once alongside stale exemptions', () => {
   const problems = promotedBindingProblems(bindings({ controls: new Map() }));
   assert.equal(problems.length, 2);
   assert.match(problems[0], /carries no effect "ash-cloud"/);
