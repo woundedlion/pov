@@ -98,9 +98,9 @@
  * @details An unfiltered run executes every module in array order; passing one
  * or more names on argv runs ONLY those modules, in the order given — the
  * iteration-speed counterpart to the HS_DEATH_CASE single-case dispatch below.
- * Modules are independent (each owns its own fixtures; the only cross-cutting
- * state, self_exe(), is set unconditionally in main), so any subset is safe to
- * run in isolation.
+ * Modules own their fixtures. self_exe() is set in main, and hs_test::stats()
+ * accumulates their results for the process exit status. Any subset can run
+ * in isolation.
  */
 struct TestModule {
   const char *name; /**< Short module name matched against argv. */
