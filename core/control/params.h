@@ -66,9 +66,11 @@ struct ParamDef {
                              param (GUI dropdown), or null for a plain param.
                              Must outlive the effect (string literals). */
   const char *const *export_options =
-      nullptr;          /**< C++ enum literals indexed like options, or null. */
-  float min = 0;        /**< Minimum value (for floats). */
-  float max = 1;        /**< Maximum value (for floats). */
+      nullptr; /**< C++ enum literals indexed like options, or null. */
+  float min =
+      0; /**< Lower bound for every non-bool target (integer bounds are exact in float). */
+  float max =
+      1; /**< Upper bound for every non-bool target (integer bounds are exact in float). */
   int option_count = 0; /**< Number of labels; > 0 marks an enum target. */
   TargetType target_type = TargetType::FLOAT; /**< Target storage format. */
   bool animated = false; /**< True if an animation drives this member; the GUI
