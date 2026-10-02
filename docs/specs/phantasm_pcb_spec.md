@@ -444,8 +444,9 @@ relief, and swept envelope are mechanically qualified.
   a stuffed 0 Ω / closed solder-jumper) from the pin pad to its GND pad, per the table. "Open" straps
   get nothing — the on-die pull-up holds HIGH.
 - **R-ID-2** **The grounded link is the load-bearing connection.** Its failure mode is an *open*,
-  which reads HIGH → inverts toward ID 0 → **elects a phantom second master** and causes sync-bus
-  contention ([pov_segmented.h read_id](../../hardware/pov_segmented.h)). Use a fully soldered link
+  which reads HIGH and clears that ID bit, assigning the board another segment's role.
+  If all grounded ID links open, the board becomes **a phantom second master** and causes
+  sync-bus contention ([pov_segmented.h read_id](../../hardware/pov_segmented.h)). Use a fully soldered link
   (not a removable header/shunt — it can sling off at speed). Keep the link short and tack with RTV.
 - **R-ID-3** **No external pull-downs** on the straps (would invert the decode). **Pull-ups are
   safe**: optionally provide a **DNP 10 kΩ pull-up footprint on ID0 → 3.3 V** to harden the
