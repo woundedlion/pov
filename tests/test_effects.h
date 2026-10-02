@@ -6289,9 +6289,9 @@ inline void test_islamicstars_recipe_build_smoke() {
  *          the effect actually holds: a build follows whatever shape preceded
  *          it, and the roster's heaviest entry is 1082 faces. Cycling the whole
  *          roster is the only thing that exercises a build against that
- *          predecessor. Rendered small — the peak is mesh-driven, not
- *          canvas-driven — because the gate is about memory, not pixels. An
- *          Arena overrun traps, so an OOM fails this test by killing the run.
+ *          predecessor. The roster runs at 288x144 with Trans Speed 8; the
+ *          separate dual-bridge gate covers closing legs that this fast
+ *          cadence can omit. An arena overrun traps.
  *          The needle is the heaviest smooth-bridge shape and sets the
  *          scratch_a-heavy split, so it is measured separately.
  */
@@ -6308,12 +6308,6 @@ inline void test_islamicstars_roster_cycle_fits_budget() {
   // A resplit rebases each scratch high-water, so every peak below is the
   // measured shape's own.
   {
-    // Production resolution, not device: the swept+compiled+draw scratch peak a
-    // build leg reaches is mesh-driven and resolution-independent, but the
-    // effect ships at 288x144, so the gate holds the real geometry. Trans Speed
-    // 8 compresses each stage so the whole roster cycles in ~1200 frames
-    // without dropping any leg (never lower the resolution: that would shrink
-    // the peak).
     IslamicStars<288, 144> effect;
     IslamicBuildProbe::set_trans_speed(effect, 8.0f);
     effect.init();
