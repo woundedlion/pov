@@ -353,7 +353,7 @@ struct PreparedCurlFlow {
   uint8_t intervals;
 };
 
-/** @brief PLANE endomorphism: the divergence-free curl flow. */
+/** @brief PLANE endomorphism: flow along the component-clamped curl field. */
 struct WarpCurlFlow : PhaseClockModel<NoisePhaseState> {
   static_assert([] {
     float max_scale = 0.0f;
