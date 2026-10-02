@@ -1,6 +1,6 @@
 # IslamicStars on-device profile — Teensy 4.0, segmented mode (2026-09-28, **selective -O3**)
 
-Point-in-time snapshot (regenerate with `just profile IslamicStars`).
+Point-in-time snapshot (regenerate with the Reproduce command below).
 Raw capture: `build/prof/islamicstars_ship.log`, captured 2026-09-28 18:40 on COM3.
 Replaces the earlier 2026-09-28 report of the same name, which predated `97eb0bf78`.
 

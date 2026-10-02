@@ -1,6 +1,6 @@
 # MobiusGrid on-device profile — Teensy 4.0, segmented mode (2026-09-28, **selective -O3**)
 
-Point-in-time snapshot (regenerate with `just profile MobiusGrid`).
+Point-in-time snapshot (regenerate with the Reproduce command below).
 Raw capture: `build/prof/mobiusgrid_ship.log`, captured 2026-09-28 19:05 on COM3.
 Replaces `profile_mobiusgrid_teensy_2026-08-26.md`.
 
