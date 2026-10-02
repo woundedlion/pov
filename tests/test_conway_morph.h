@@ -21,6 +21,7 @@
 #include "core/render/canvas.h"
 #include "effects/HankinSolids.h"
 #include "effects/IslamicStars.h"
+#include "tests/conway_test_util.h"
 #include "tests/mesh_test_util.h"
 #include "tests/pixel_test_util.h"
 #include "tests/test_conway.h" // check_euler_genus0, face_type_histogram
@@ -49,28 +50,6 @@ inline uint8_t morph_target_buf[256 * 1024]; /**< Op output arena. */
 inline uint8_t morph_temp_buf[256 * 1024];   /**< Op scratch arena. */
 inline uint8_t morph_aux_buf[256 * 1024];    /**< Seed / second-result arena. */
 inline uint8_t morph_persist_buf[64 * 1024]; /**< Persistent-seed arena. */
-
-/**
- * @brief Repartitions the global arena for the enclosing scope and restores the
- *        default split on the way out.
- * @details Declare it ahead of every Arena the scope carves out of the global
- * block, so the restore runs once those are gone. Without it the bespoke split
- * leaks into whatever case runs next.
- */
-struct ScopedArenaSplit {
-  /**
-   * @brief Installs the split.
-   * @param persistent Bytes for the persistent arena.
-   * @param scratch_a Bytes for scratch arena A.
-   * @param scratch_b Bytes for scratch arena B.
-   */
-  ScopedArenaSplit(size_t persistent, size_t scratch_a, size_t scratch_b) {
-    configure_arenas(persistent, scratch_a, scratch_b);
-  }
-  ~ScopedArenaSplit() { configure_arenas_default(); }
-  ScopedArenaSplit(const ScopedArenaSplit &) = delete;
-  ScopedArenaSplit &operator=(const ScopedArenaSplit &) = delete;
-};
 
 using ConwayGraph::T_EPS;
 
@@ -587,32 +566,6 @@ inline void test_ops_at_t_eps_primary_faces_match_seed() {
 // is not (dual-family ambo arrivals, bridge arrivals, flash-baked relax
 // arrivals, and t = 0 ends, which emit expanded topology).
 // ---------------------------------------------------------------------------
-
-/**
- * @brief Runs an edge's operator on a seed at one parameter point.
- * @param e Edge whose op kind is dispatched.
- * @param seed Seed mesh the op runs on.
- * @param target Arena receiving the output mesh.
- * @param temp Arena for the op's transient scratch.
- * @param t Operator parameter.
- * @param twist Snub twist (snub edges only).
- * @return The swept PolyMesh in `target`.
- */
-inline PolyMesh run_edge_op(const ConwayGraph::EdgeSpec &e,
-                            const PolyMesh &seed, Arena &target, Arena &temp,
-                            float t, float twist) {
-  switch (e.op) {
-  case ConwayGraph::MorphOp::TRUNCATE:
-    return MeshOps::truncate(seed, target, temp, t);
-  case ConwayGraph::MorphOp::EXPAND:
-    return MeshOps::expand(seed, target, temp, t);
-  case ConwayGraph::MorphOp::SNUB:
-    return MeshOps::snub(seed, target, temp, t, twist);
-  case ConwayGraph::MorphOp::CHAMFER:
-    return MeshOps::chamfer(seed, target, temp, t);
-  }
-  return PolyMesh{};
-}
 
 /** How an edge endpoint is compared against its node's registry output. */
 enum class EndRegime {
