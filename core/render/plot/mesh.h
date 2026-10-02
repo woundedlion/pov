@@ -438,8 +438,8 @@ struct Mesh {
    * @param vertex_shader Optional vertex shader.
    * @param mask Optional dissolve ownership mask (see DissolveMask), keyed on
    *        the edge's endpoint indices; an unowned edge is skipped before any
-   *        of its geometry work, so two complementary masks split one
-   *        wireframe's cost across the two meshes of a transition.
+   *        of its geometry work. Complementary masks split matching key pairs;
+   *        different edge lists may still draw different numbers of edges.
    */
   template <int W, int H, typename MeshT, typename PipelineT = PipelineRef>
   static void

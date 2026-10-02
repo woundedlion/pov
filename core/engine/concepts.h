@@ -270,10 +270,9 @@ using CullEdgePredRef = FunctionRef<bool(
  * @details Ownership is hashed from an integer key pair, not from a pixel
  * coordinate. The wireframe path (Plot::Mesh::draw's edge-list overload) keys
  * owns() on an edge's endpoint indices and skips an unowned edge before any of
- * its geometry work; no solid-mesh scan consumes a mask. Two draws with the same threshold/salt
- * and opposite `invert` partition the domain exactly (every element owned by
- * one of them), which is what caps a two-mesh transition at one mesh's
- * rasterize cost per frame. The salt must derive from frame counters/seeds,
+ * its geometry work; no solid-mesh scan consumes a mask. Two masks with the same
+ * threshold/salt and opposite `invert` partition matching key pairs exactly.
+ * Different edge lists or projected geometry do not share a rasterize-cost bound. The salt must derive from frame counters/seeds,
  * never wall time: the mask is part of the sim/device parity surface.
  */
 struct DissolveMask {
