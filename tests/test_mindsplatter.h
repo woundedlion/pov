@@ -120,9 +120,11 @@ inline void test_mindsplatter_base_mesh_selector() {
   HS_EXPECT_EQ(WB::preset_base_mesh(effect, 0), MS::BaseMesh::CUBE);
   HS_EXPECT_EQ(WB::preset_base_mesh(effect, 1), MS::BaseMesh::CUBE);
   HS_EXPECT_EQ(WB::preset_base_mesh(effect, 2), MS::BaseMesh::CUBE);
+  HS_EXPECT_EQ(WB::preset_base_mesh(effect, 3), MS::BaseMesh::OCTAHEDRON);
   HS_EXPECT_EQ(WB::preset_base_mesh(effect, 4), MS::BaseMesh::TETRAHEDRON);
   HS_EXPECT_EQ(WB::preset_base_mesh(effect, 5), MS::BaseMesh::DODECAHEDRON);
   HS_EXPECT_EQ(WB::preset_base_mesh(effect, 6), MS::BaseMesh::CUBE);
+  HS_EXPECT_EQ(WB::preset_base_mesh(effect, 7), MS::BaseMesh::CUBE);
 
   const auto select = [&](MS::BaseMesh mesh, size_t emitters,
                           size_t attractors) {
