@@ -78,7 +78,7 @@ bakes in are exempt, as is `camera.spin-speed`, which `AshCloud` holds as a
 compile-time constant.
 
 `lattice_melt.shader.json` is the editable source for the `LatticeMelt`
-comparison effect. Its two presets share one descriptor and vary only the
+effect. Its two presets share one descriptor and vary only the
 logarithmically interpolated sphere-noise scale (`LOG_POSITIVE`).
 
 `chromatic_lichen.shader.json` is the editable source for the
