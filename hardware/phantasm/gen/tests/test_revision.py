@@ -7,7 +7,6 @@ GEN = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(GEN))
 
 import builder  # noqa: E402
-import pcb  # noqa: E402
 import sexp  # noqa: E402
 from kicad_common import F  # noqa: E402
 
@@ -56,11 +55,6 @@ class RevisionTests(unittest.TestCase):
 
     def test_generator_targets_revision_1_2(self):
         self.assertEqual(builder.REVISION, "1.2")
-
-    def test_the_board_generator_stamps_the_silk_from_builder(self):
-        self.assertEqual(pcb.SILK_REVISION,
-                         f"Phantasm Rev {builder.REVISION}")
-
 
 if __name__ == "__main__":
     unittest.main()

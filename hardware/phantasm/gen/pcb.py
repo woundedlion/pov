@@ -34,7 +34,7 @@ SCH = os.path.join(OUT, "phantasm.kicad_sch")
 PCB_FILE = "phantasm.kicad_pcb"
 DRAFT_FILE = "phantasm-draft.kicad_pcb"
 UNPLACED_FILE = PCB_FILE
-#: The revision stamp on the bottom silkscreen. builder.REVISION owns it.
+#: Bottom-silkscreen stamp for the default builder.REVISION.
 SILK_REVISION = f"Phantasm Rev {builder.REVISION}"
 UNPLACED_REASON = (
     "Regeneration replaces this revision's board, including any placement\n"
