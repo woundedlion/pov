@@ -6398,14 +6398,10 @@ inline void load_child_output() {
  * @param out Text captured from the child.
  * @param file Repo-relative path of the guard source.
  * @param text Expected "(condition) message" tail of the breadcrumb line.
- * @return True iff some captured line reads
- *         "HS_CHECK failed: <file>:<line>: <text>...".
- * @details The line number is skipped rather than pinned, so editing above a
- *          guard does not churn the table while the guard's identity stays
- *          exact.
+ * @return The matched source line, or zero when no breadcrumb matches.
  */
-inline bool breadcrumb_names_guard(const char *out, const char *file,
-                                   const char *text) {
+inline int breadcrumb_names_guard(const char *out, const char *file,
+                                  const char *text) {
   std::string normalized(out);
   std::replace(normalized.begin(), normalized.end(), '\\', '/');
   const char *prefix = "HS_CHECK failed: ";
@@ -6426,16 +6422,19 @@ inline bool breadcrumb_names_guard(const char *out, const char *file,
            q[-static_cast<ptrdiff_t>(file_len) - 1] != '/'))
         break;
       ++q;
-      while (q < end && *q >= '0' && *q <= '9')
+      int line = 0;
+      while (q < end && *q >= '0' && *q <= '9') {
+        line = line * 10 + (*q - '0');
         ++q;
+      }
       if (end - q >= 2 && q[0] == ':' && q[1] == ' ' &&
           static_cast<size_t>(end - q - 2) >= text_len &&
           std::strncmp(q + 2, text, text_len) == 0)
-        return true;
+        return line;
       break;
     }
   }
-  return false;
+  return 0;
 }
 
 /**
@@ -6702,41 +6701,23 @@ inline void report_unrunnable(const char *why, int rc) {
 }
 
 /**
- * @brief Reports whether two pins could name the same guard site.
- * @param a One pin's condition text.
- * @param b The other pin's condition text.
- * @return true when neither pin distinguishes itself from the other.
- * @details breadcrumb_names_guard() matches a pin as a prefix of the emitted
- *          breadcrumb, so a pin that is a prefix of another cannot tell the two
- *          sites apart and the pair covers one guard between them.
- */
-inline bool guard_texts_alias(const char *a, const char *b) {
-  const size_t a_len = std::strlen(a);
-  const size_t b_len = std::strlen(b);
-  return std::strncmp(a, b, a_len < b_len ? a_len : b_len) == 0;
-}
-
-/**
- * @brief Counts the distinct guard sites in @p file the case table pins.
+ * @brief Counts distinct fired guard lines in @p file.
  * @param cs The case table.
  * @param n Number of cases in it.
- * @param file Repo-relative source path to count pins for.
- * @return Distinct pins naming that file, never above its real site count.
- * @details Distinct by (file, condition text) under guard_texts_alias(), which
- *          is what breadcrumb_names_guard() can tell apart: guards whose
- *          breadcrumbs read identically (the same condition and message
- *          repeated in several constructors) are one covered site, because no
- *          case can prove which of them fired.
+ * @param file Repo-relative source path.
+ * @param lines Matched source line for each successfully trapped case, or zero.
+ * @return Number of distinct covered source lines.
  */
-inline int pinned_guards_in(const Case *cs, int n, const char *file) {
+inline int pinned_guards_in(const Case *cs, int n, const char *file,
+                            const int *lines) {
   int pinned = 0;
   for (int i = 0; i < n; ++i) {
-    if (std::strcmp(cs[i].guard_file, file) != 0)
+    if (!lines[i] || std::strcmp(cs[i].guard_file, file) != 0)
       continue;
     bool duplicate = false;
     for (int j = 0; j < i && !duplicate; ++j)
-      duplicate = std::strcmp(cs[j].guard_file, file) == 0 &&
-                  guard_texts_alias(cs[j].guard_text, cs[i].guard_text);
+      duplicate =
+          std::strcmp(cs[j].guard_file, file) == 0 && lines[j] == lines[i];
     if (!duplicate)
       ++pinned;
   }
@@ -6772,7 +6753,7 @@ inline constexpr GuardGapAllowance GUARD_GAP_ALLOW[] = {
     {"core/color/composition.h", 22},
     {"core/color/generative_palette.h", 4},
     {"core/color/palette_cycler.h", 8},
-    {"core/containers/static_circular_buffer.h", 3},
+    {"core/containers/static_circular_buffer.h", 2},
     {"core/control/param_host.h", 15},
     {"core/control/preset_host.h", 2},
     {"core/engine/memory.h", 1},
@@ -6783,12 +6764,12 @@ inline constexpr GuardGapAllowance GUARD_GAP_ALLOW[] = {
     {"core/mesh/conway.h", 31},
     {"core/mesh/conway_graph.h", 1},
     {"core/mesh/hankin.h", 8},
-    {"core/mesh/mesh.h", 8},
+    {"core/mesh/mesh.h", 9},
     {"core/mesh/mesh_state.h", 2},
     {"core/mesh/recipe.h", 13},
     {"core/mesh/solid_generators.h", 5},
     {"core/mesh/solids.h", 1},
-    {"core/render/canvas.h", 1},
+    {"core/render/canvas.h", 4},
     {"core/render/filter/pixel_feedback.h", 7},
     {"core/render/filter/screen_trails.h", 2},
     {"core/render/filter/world_trails.h", 2},
@@ -6857,9 +6838,10 @@ inline int allowed_guard_gap(const char *file) {
  * @brief Prints what fraction of the engine's fail-fast surface is pinned.
  * @param cs The case table.
  * @param n Number of cases in it.
+ * @param lines Matched source line for each successfully trapped case, or zero.
  * @details Both sides are derived, never written down: the denominator is the
  *          generated HS_CHECK census (death_guard_sites.h) and the numerator is
- *          the case table itself, so neither can drift from what it measures.
+ *          the distinct source lines observed in successfully trapped cases.
  *          Cases pinning a file the census does not know — the harness's own
  *          trap stand-ins, and any mistyped source path — count in neither and are
  *          reported separately and checked against the harness stand-in. The pinned count is
@@ -6867,7 +6849,7 @@ inline int allowed_guard_gap(const char *file) {
  *          gated, since new engine guards move the denominator without
  *          weakening any case.
  */
-inline void report_guard_coverage(const Case *cs, int n) {
+inline void report_guard_coverage(const Case *cs, int n, const int *lines) {
   int covered = 0;
   int off_census = 0;
   int unapproved_gaps = 0;
@@ -6876,7 +6858,7 @@ inline void report_guard_coverage(const Case *cs, int n) {
   const GuardSiteCount *worst[GAPS] = {};
   int worst_gap[GAPS] = {};
   for (const GuardSiteCount &f : GUARD_SITE_COUNTS) {
-    int pinned = pinned_guards_in(cs, n, f.file);
+    int pinned = pinned_guards_in(cs, n, f.file, lines);
     HS_EXPECT_LE(pinned, f.sites);
     covered += pinned;
     int gap = f.sites - pinned;
@@ -6985,9 +6967,11 @@ inline int run_death_tests() {
     return fixture.result();
   }
 
-  HS_EXPECT_TRUE(breadcrumb_names_guard(
-      "HS_CHECK failed: C:\\tree\\core\\render\\sdf\\shapes.h:12: (false) probe\n",
-      "core/render/sdf/shapes.h", "(false) probe"));
+  HS_EXPECT_EQ(
+      breadcrumb_names_guard(
+          "HS_CHECK failed: C:\\tree\\core\\render\\sdf\\shapes.h:12: (false) probe\n",
+          "core/render/sdf/shapes.h", "(false) probe"),
+      12);
   HS_EXPECT_FALSE(breadcrumb_names_guard(
       "HS_CHECK failed: core/other/shapes.h:12: (false) probe\n",
       "core/render/sdf/shapes.h", "(false) probe"));
@@ -7052,14 +7036,17 @@ inline int run_death_tests() {
   HS_EXPECT_TRUE(GetProcessHandleCount(GetCurrentProcess(), &handles_before));
 #endif
 
+  std::vector<int> lines(static_cast<size_t>(n));
   for (int i = 0; i < n; ++i) {
     int rc = spawn_child(cs[i].name);
     bool trapped = child_trapped(rc, shape);
     // Dying is not enough: the child must die at THIS case's guard. Any other
     // trap — UB lowered to the same illegal instruction, or a guard the case
     // hits on its way to the one it targets — fails here.
-    bool at_guard = breadcrumb_names_guard(child_output(), cs[i].guard_file,
-                                           cs[i].guard_text);
+    int line = breadcrumb_names_guard(child_output(), cs[i].guard_file,
+                                      cs[i].guard_text);
+    bool at_guard = line != 0;
+    lines[i] = trapped ? line : 0;
     HS_EXPECT_TRUE(trapped);
     HS_EXPECT_TRUE(at_guard);
     std::printf("  [%s] trap fires: %-26s (child rc=%d)\n",
@@ -7077,7 +7064,7 @@ inline int run_death_tests() {
 
   std::remove(child_capture_path());
   set_case_env(""); // leave the env clean for anything that runs after us
-  report_guard_coverage(cs, n);
+  report_guard_coverage(cs, n, lines.data());
   return fixture.result();
 }
 
