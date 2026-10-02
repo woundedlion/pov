@@ -423,7 +423,7 @@ private:
 
   /**
    * @brief Decodes, compiles and bakes one recipe.
-   * @param input JS recipe object.
+   * @param caller_input JS recipe object, cloned before decoding.
    * @param inspect Emit the diagnostics and fallback views alongside the lut.
    * @return {status} alone on rejection, else {status, canonicalRecipe, lut}
    *         plus {diagnostics, fallback} when @p inspect.
