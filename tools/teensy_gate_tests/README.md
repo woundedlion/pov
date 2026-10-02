@@ -2,7 +2,7 @@
 
 These prove the size/layout gate (`tools/teensy_gate.py`) **fails when it should**
 — a check that can never fail is worse than none.
-They also cover size tables and trails, warning ratchets, PlatformIO gate glue,
+They also cover size tables and trails, the zero-warning gate, and PlatformIO gate glue.
 System-include classification is covered in `tools/teensy_hook_tests/test_build_hooks.py`.
 They are pure host Python (`unittest`, no ARM toolchain, no PlatformIO).
 
@@ -27,7 +27,7 @@ python -m unittest discover -s tools/teensy_gate_tests
 | `broken_dma_tx_dtcm_syms.txt` | `DMAMEM` dropped from the segment LED controller → its eDMA TX buffers land in DTCM → `dma_tx_buffer`→OCRAM must fail. |
 | `broken_component_missing_teensy_size.txt` | RAM1 line without a `code` figure → a target that budgets that component must fail `component-missing`, never skip. |
 | `broken_component_over_teensy_size.txt` | RAM1 `code` over a static `max_bytes` ceiling while every region passes → only `component-over-budget` fires, and a target with no components key passes untouched. |
-| `real/verbose_build_log.txt` | Verbatim `pio run -v` compiler invocations — first-party then third-party, Windows then Linux-CI — for the warning ratchet's capture-evidence guard. The Windows home directory is rewritten to `C:\Users\dev`; nothing else is edited. |
+| `real/verbose_build_log.txt` | Verbatim `pio run -v` compiler invocations — first-party then third-party, Windows then Linux-CI — for the warning gate's capture-evidence guard. The Windows home directory is rewritten to `C:\Users\dev`; nothing else is edited. |
 | `real/cold_env_section.txt` | Historical `holosphere` section of a `pio run -v` with `.pio/build_cache` deleted, captured before `static_storage.cpp` became a fourth translation unit: PlatformIO's banner plus all three then-declared first-party compiles. |
 | `real/warm_env_section.txt` | The historical next run, reusing that cache: two `Retrieved … from cache` lines in place of the core compiles. The ratchet must fail on it. Synthetic coverage above pins the current four-TU contract. |
 | `real/holosphere_teensy_size.txt` | Verbatim `teensy_size` for `[env:holosphere]` at its shipped 96x20 canvas — the calibrated region totals the end-to-end `evaluate()` test runs against. |
