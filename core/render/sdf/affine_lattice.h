@@ -173,8 +173,8 @@ struct AffineLatticeEvents {
           for (int i = -1; i <= 1; ++i) {
             const float X = A + i;
             const float SQUARED =
-                std::max(0.0f, metric.aa * X * X + 2 * metric.ab * X * Y +
-                                   metric.bb * Y * Y);
+                fmaxf(0.0f, metric.aa * X * X + 2 * metric.ab * X * Y +
+                                metric.bb * Y * Y);
             if (SQUARED < best) {
               best = SQUARED;
               feature = free;
@@ -187,7 +187,7 @@ struct AffineLatticeEvents {
     const float DISTANCE = sqrtf(best) - radius;
     Raycast::Contribution hit;
     hit.t = T;
-    hit.coverage = WIDTH > 0 ? std::clamp(.5f - DISTANCE / WIDTH, 0.0f, 1.0f)
+    hit.coverage = WIDTH > 0 ? fmaxf(0.0f, fminf(.5f - DISTANCE / WIDTH, 1.0f))
                              : (DISTANCE <= 0 ? 1.0f : 0.0f);
     hit.feature = feature;
     return hit;
