@@ -292,7 +292,7 @@ inline void test_square_wave_binary() {
 
 /**
  * @brief Verifies square_wave stays periodic across the sign boundary.
- * @details A negative t*freq+phase must fold into [0,1) via wrap() so the wave
+ * @details A negative t*freq+phase must fold into [0,1) via wrap_t() so the wave
  *          stays periodic; a sign-preserving fold would leave a negative
  *          argument below the duty cycle and latch the wave permanently "on".
  *          Checks w(t-1) == w(t) over a full sweep.
@@ -300,8 +300,8 @@ inline void test_square_wave_binary() {
 inline void test_square_wave_negative_phase() {
   auto w = math::square_wave(0.0f, 1.0f, 1.0f, 0.5f, 0.0f);
   HS_EXPECT_NEAR(w(-0.25f), 0.0f,
-                 1e-5f);                 // wrap(-0.25)=0.75 -> low, not latched
-  HS_EXPECT_NEAR(w(-0.9f), 1.0f, 1e-5f); // wrap(-0.9)=0.1 -> high
+                 1e-5f); // wrap_t(-0.25)=0.75 -> low, not latched
+  HS_EXPECT_NEAR(w(-0.9f), 1.0f, 1e-5f); // wrap_t(-0.9)=0.1 -> high
   for (int i = 0; i < N; ++i) {
     float ft = frac(i); // [0,1)
     HS_EXPECT_NEAR(w(ft - 1.0f), w(ft), 1e-5f);
