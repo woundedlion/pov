@@ -932,7 +932,7 @@ test('document exports sort integer-like metadata keys lexically', () => {
 
 const cli = fileURLToPath(new URL('./shader_workbench_cli.mjs', import.meta.url));
 const document = fileURLToPath(new URL('../patterns/example.shader.json', import.meta.url));
-// CLI children lack the node:test context required by the assertion preload.
+// The assertion preload imports node:test; child-protocol output would corrupt CLI JSON.
 const run = (...args) => spawnSync(process.execPath, [cli, ...args], {
   encoding: 'utf8', env: { ...process.env, NODE_OPTIONS: '' },
 });
