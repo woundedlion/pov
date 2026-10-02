@@ -849,7 +849,7 @@ jobs:
         run: node scripts/generate_composed_presets.mjs --check
 
   scripts-unit-tests:
-    name: scripts/*.test.mjs unit suite
+    name: JavaScript unit suite and browser capture helper
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     steps:
@@ -870,7 +870,7 @@ jobs:
           pip install --require-hashes -r requirements/cmake.txt
           python tools/build_pins.py --check-tool cmake
 
-      # The suite uses no npm dependencies.
+      # The unit suite uses no npm dependencies.
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: ${{ steps.pins.outputs.node }}
@@ -880,6 +880,14 @@ jobs:
         run: |
           bash tools/require_test_files.sh 'scripts/*.test.mjs'
           npm test
+
+      - name: Browser capture helper
+        env:
+          HS_BROWSER_TESTS: '1'
+        run: |
+          npm ci --no-audit --no-fund
+          npx playwright install --with-deps chromium
+          node --test scripts/screenshot_resolution.test.mjs
 
   screenshot-gallery:
     name: Screenshot gallery, profile archive and effect roster
@@ -1024,13 +1032,6 @@ jobs:
           tar -xzf actionlint.tar.gz -C "$HOME/.local/bin" actionlint
           echo "$HOME/.local/bin" >> "$GITHUB_PATH"
 
-
-      - name: Browser capture helper
-        env:
-          HS_BROWSER_TESTS: '1'
-        run: |
-          npx playwright install --with-deps chromium
-          node --test scripts/screenshot_resolution.test.mjs
 
       - name: Lint
         run: just lint
