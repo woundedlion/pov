@@ -51,8 +51,12 @@ class TeensyFlashTests(unittest.TestCase):
         result = self.flash(port="COM9")
         self.assertNotEqual(result.returncode, 0)
         self.assertEqual(result.stdout, "")
+        self.assertIn("no Teensy at COM9", result.stderr)
+        self.assertNotIn("unbound variable", result.stderr)
 
     def test_missing_lock_fails_without_upload(self):
         result = self.flash(token="")
         self.assertNotEqual(result.returncode, 0)
         self.assertEqual(result.stdout, "")
+        self.assertIn("flash requires a device lock", result.stderr)
+        self.assertNotIn("unbound variable", result.stderr)
