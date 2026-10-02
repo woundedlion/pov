@@ -13,7 +13,7 @@
 
 #include "core/animation/orientation.h"
 #include "core/engine/engine.h"
-#include <array>
+#include <span>
 
 // Unit-test accessor reaching the private per-frame cache and hopf_project() to
 // pin the S3-lift + stereographic projection math directly.
