@@ -41,9 +41,6 @@ while IFS= read -r action; do
       print body > path; close(path)
       print shell " " path
     }
-    /^[[:space:]]*-[[:space:]]/ {
-      finish(); shell=""; body=""; has_run=0; active=0
-    }
     active {
       if ($0 ~ /^[[:space:]]*$/) { body=body "\n"; next }
       match($0, /[^ ]/)
@@ -52,6 +49,9 @@ while IFS= read -r action; do
         body=body substr($0, body_indent) "\n"; next
       }
       active=0
+    }
+    /^[[:space:]]*-[[:space:]]/ {
+      finish(); shell=""; body=""; has_run=0; active=0
     }
     /^[[:space:]]+(-[[:space:]]+)?shell:/ {
       shell=$0; sub(/^[[:space:]]+(-[[:space:]]+)?shell:[[:space:]]*/, "", shell)
