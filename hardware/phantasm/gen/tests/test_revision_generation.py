@@ -1,4 +1,4 @@
-"""Revision selection, electrical partitions and legacy generator provenance."""
+"""Revision selection, electrical partitions and current revision generator provenance."""
 import contextlib
 import io
 import subprocess
@@ -23,7 +23,7 @@ from test_check import committed_board_nets  # noqa: E402
 from test_pcb_generation import GENERATES, GENERATES_REASON  # noqa: E402
 
 PROTOTYPE = GEN.parent / "1.3"
-LEGACY_FILES = (
+REV_12_FILES = (
     "fp-lib-table",
     "phantasm.kicad_pcb",
     "phantasm.kicad_pro",
@@ -59,7 +59,7 @@ class PrototypeContractTests(unittest.TestCase):
         with mock.patch.object(check, "export_netlist", return_value=root), \
                 mock.patch.object(check, "kicad_cli", return_value="unused"):
             with self.assertRaisesRegex(SystemExit, "does not match requested 1.3"):
-                check.main(["--revision", "1.3", "legacy.kicad_sch"])
+                check.main(["--revision", "1.3", "rev_12.kicad_sch"])
         with contextlib.redirect_stderr(io.StringIO()):
             result = shorts.main(["--revision", "1.3", str(GEN.parent / "1.2" / "phantasm.kicad_sch")])
         self.assertEqual(result, 2)
@@ -71,7 +71,7 @@ class PrototypeContractTests(unittest.TestCase):
         self.assertEqual(shorts.analyze(self.schematic)[0], [])
         self.assertEqual(dangling_pins(self.schematic), [])
 
-    def test_legacy_board_fails_differential_gate(self):
+    def test_rev_12_board_fails_differential_gate(self):
         output = io.StringIO()
         with contextlib.redirect_stdout(output):
             self.assertFalse(check.check(committed_board_nets("1.2"), "1.3"))
@@ -116,7 +116,7 @@ class PrototypeContractTests(unittest.TestCase):
                 pcb.main(unplaced=True, revision="1.3", output_dir=out)
         self.assertEqual(pcb._GENERATION.get(), ("1.2", None))
 
-    def test_prototype_cannot_be_exported_with_legacy_bom(self):
+    def test_prototype_cannot_be_exported_with_rev_12_bom(self):
         result = subprocess.run([sys.executable, str(GEN / "fab.py"), "--revision", "1.3"],
                                 capture_output=True, text=True, check=False)
         self.assertNotEqual(result.returncode, 0)
@@ -133,16 +133,16 @@ class RevisionGenerationTests(unittest.TestCase):
     def setUpClass(cls):
         cls.directory = tempfile.TemporaryDirectory()
         cls.addClassCleanup(cls.directory.cleanup)
-        cls.legacy = Path(cls.directory.name) / "1.2"
+        cls.rev_12 = Path(cls.directory.name) / "1.2"
         cls.prototype = Path(cls.directory.name) / "1.3"
-        generate(cls.legacy, "1.2")
-        cls.before = {path: (cls.legacy / path).read_bytes() for path in LEGACY_FILES}
+        generate(cls.rev_12, "1.2")
+        cls.before = {path: (cls.rev_12 / path).read_bytes() for path in REV_12_FILES}
         generate(cls.prototype, "1.3")
-        generate(cls.legacy, "1.2")
+        generate(cls.rev_12, "1.2")
 
-    def test_legacy_output_is_byte_identical_after_revision_switch(self):
-        for path in LEGACY_FILES:
-            actual = (self.legacy / path).read_bytes()
+    def test_rev_12_output_is_byte_identical_after_revision_switch(self):
+        for path in REV_12_FILES:
+            actual = (self.rev_12 / path).read_bytes()
             self.assertEqual(actual, self.before[path], path)
             self.assertEqual(actual, (GEN.parent / "1.2" / path).read_bytes(), path)
 
