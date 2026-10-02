@@ -72,16 +72,8 @@ inline void expect_mosaic_matches(OracleState state, Render render,
     size_t uncovered = 0;
     for (int y = 3; y < ORACLE_H - 3; ++y)
       for (int x = 0; x < ORACLE_W; ++x) {
-        const Pixel &p = full.at(x, y);
-        if (static_cast<uint32_t>(p.r) + p.g + p.b < 12288)
-          continue;
-        bool covered = false;
-        for (int dy = -1; dy <= 1; ++dy)
-          for (int dx = -1; dx <= 1; ++dx) {
-            const Pixel &q = tiled.at((x + dx + ORACLE_W) % ORACLE_W, y + dy);
-            covered |= q.r != 0 || q.g != 0 || q.b != 0;
-          }
-        uncovered += !covered;
+        if (pixel_is_bright(full.at(x, y)))
+          uncovered += !candidate_covers_neighborhood(tiled, x, y);
       }
     HS_EXPECT_EQ(uncovered, size_t{0});
     return;
