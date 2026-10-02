@@ -360,8 +360,8 @@ HS_COLD_MEMBER inline void init_gamut_lut(Arena &arena, int angle_steps,
 /**
  * @brief Drops any arena copy and points the clip path back at the flash master.
  * @details Runs before persistent storage is handed out again, so no owner can
- * leave a pointer into freed storage behind. The clip stays correct across the
- * swap; only read latency changes.
+ * leave a pointer into freed storage behind. Restores the full-resolution
+ * flash grid in place of the arena copy.
  */
 inline void release_gamut_lut() { g_gamut_lut = GamutLut{}; }
 
