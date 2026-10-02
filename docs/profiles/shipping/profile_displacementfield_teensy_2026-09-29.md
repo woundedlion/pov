@@ -21,7 +21,7 @@ Exactness cross-check: window frames 2177–2208 root counter cyc ÷ 600 MHz mat
 
 ## Frame cadence
 
-**Pass aggregate**: `df_timeline_step` averages 28.47 ms/f; its worst window is 33.63 ms/f (frames 2177–2208). Peak frame render is **35.27 ms** (frames 2177–2208), and **0/2368** frames spilled.
+**Pass aggregate**: `df_timeline_step` averages 28.47 ms/f; its worst window is 33.63 ms/f (frames 2177–2208). Peak frame render in the frames 2177–2208 window is **35.27 ms**, and **0/2368** frames spilled.
 
 A same-board capture of the previous tip (`29faba01d`, taken immediately before this one on COM3) recorded peak 60.41 ms and 0/2368 spilled.
 
@@ -85,7 +85,7 @@ isr_dma_submit   144/frame  min/avg/max 0.6/0.9/1.2 us   cpu 0.21%
 ```
 
 - Submit costs a seventh of pack per column.
-- The ISR share (~4.9%) leaves ~59.4 ms of each 62.5 ms window for render; every phase fits with ≥ 26 ms to spare.
+- ISR time is already inside the render scopes; the 35.27 ms peak leaves 27.2 ms of the 62.5 ms display window.
 
 ## Summary ranking
 
