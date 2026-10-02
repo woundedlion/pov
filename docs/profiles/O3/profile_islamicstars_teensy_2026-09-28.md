@@ -43,7 +43,7 @@ from runtime means, peaks, spill counts and denominators. Scope summaries
 exclude the whole first window. `is_timeline_step` averages
 22.239 ms/frame across the retained complete windows.
 
-One display window is 62.5 ms. The effect renders one 288×36 quadrant,
+One display window is 62.5 ms. The effect renders one 144×72 quadrant,
 10,368 pixels, of the 288×144 canvas. `canvas_buffer_wait` is synchronization
 idle, not render work. Peak render retains
 13.388 ms of margin; all live frames fit the 16 fps budget.
