@@ -6,7 +6,7 @@
  *
  * Reads Arena::get_lifetime_high_water_mark() for the three global arenas after
  * running each effect's init + hs_test::smoke_frames() frames, to size the
- * device GLOBAL_ARENA_SIZE against what effects actually touch. The lifetime
+ * DEVICE_GLOBAL_ARENA_SIZE (HS_DEVICE_ARENA_BYTES) against what effects actually touch. The lifetime
  * peak, not the windowed one: an effect that re-splits the arenas mid-window
  * (IslamicStars, per shape spawn) discards the windowed mark on every re-split,
  * leaving the single post-window sample reporting only the peak since the last
