@@ -488,8 +488,7 @@ constexpr int PARITY_SEGMENTS = 4;
  */
 template <template <int, int> class E, int W = DEFAULT_W, int H = DEFAULT_H>
 inline void determinism_one(const char *name) {
-  const int window = smoke_frames();
-  const int frames = window;
+  const int frames = smoke_frames();
   std::vector<Pixel> a, b;
   uint64_t fold_a = 0, fold_b = 0;
   bool lit_a = false, lit_b = false;
