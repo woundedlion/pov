@@ -4367,17 +4367,18 @@ inline void test_gnomonicstars_spiral_cache_invalidation() {
 inline void test_gnomonicstars_radius_px_covers_both_axes() {
   using WB = GnomonicStarsWhiteBox;
   constexpr int W = DEFAULT_W, H = DEFAULT_H;
-  const double column = std::max(math::TWO_PI_F / W, math::RADIANS_PER_ROW<H>);
-  const double small_column =
+  const double pixel_pitch =
+      std::max(math::TWO_PI_F / W, math::RADIANS_PER_ROW<H>);
+  const double small_pixel_pitch =
       std::max(math::TWO_PI_F / SMALL_W, math::RADIANS_PER_ROW<SMALL_H>);
   const math::Basis basis = math::make_basis(math::Quaternion(), math::X_AXIS);
 
   for (int k : {1, 2, 7}) {
     const SDF::Star shape(basis, k * WB::radius_px<W, H>(), 5, 0.0f);
-    HS_EXPECT_NEAR(shape.circumradius, k * column, 1e-6);
+    HS_EXPECT_NEAR(shape.circumradius, k * pixel_pitch, 1e-6);
     const SDF::Star small(basis, k * WB::radius_px<SMALL_W, SMALL_H>(), 5,
                           0.0f);
-    HS_EXPECT_NEAR(small.circumradius, k * small_column, 1e-6);
+    HS_EXPECT_NEAR(small.circumradius, k * small_pixel_pitch, 1e-6);
     HS_EXPECT_GE(small.circumradius / math::RADIANS_PER_ROW<SMALL_H>,
                  k - 1e-5f);
     HS_EXPECT_GE(small.circumradius / (math::TWO_PI_F / SMALL_W), k - 1e-5f);
@@ -4411,10 +4412,9 @@ inline void test_gnomonicstars_radius_px_covers_both_axes() {
     }
 
   HS_EXPECT_GT(lit, (size_t)0);
-  // The tips reach SPAN_PX columns and nothing lands beyond them, allowing the
-  // AA fringe plus a column of pixel quantization.
-  HS_EXPECT_LE(max_arc, (SPAN_PX + 2) * column);
-  HS_EXPECT_GE(max_arc, (SPAN_PX - 2) * column);
+  // Tip reach uses the coarser pixel pitch, with AA and quantization slack.
+  HS_EXPECT_LE(max_arc, (SPAN_PX + 2) * pixel_pitch);
+  HS_EXPECT_GE(max_arc, (SPAN_PX - 2) * pixel_pitch);
 }
 
 /**
