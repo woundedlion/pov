@@ -38,6 +38,55 @@
 #include "tests/test_fixture.h"
 #include "tests/test_harness.h"
 
+namespace solid_table_fixtures {
+struct FlippedWinding : Solids::Tetrahedron {
+  static constexpr auto faces = [] {
+    auto result = Solids::Tetrahedron::faces;
+    const int first = result[0];
+    result[0] = result[1];
+    result[1] = first;
+    return result;
+  }();
+};
+struct OpenEdges : Solids::Tetrahedron {
+  static constexpr std::array<uint8_t, 2> face_counts{3, 3};
+  static constexpr auto faces = [] {
+    std::array<int, 6> result{};
+    for (size_t i = 0; i < result.size(); ++i)
+      result[i] = Solids::Tetrahedron::faces[i];
+    return result;
+  }();
+};
+struct EulerViolation : Solids::Tetrahedron {
+  static constexpr auto vertices = [] {
+    std::array<math::Vector, 5> result{};
+    for (size_t i = 0; i < Solids::Tetrahedron::vertices.size(); ++i)
+      result[i] = Solids::Tetrahedron::vertices[i];
+    result[4] = result[0];
+    return result;
+  }();
+};
+struct OffSphere : Solids::Tetrahedron {
+  static constexpr auto vertices = [] {
+    auto result = Solids::Tetrahedron::vertices;
+    result[0] = math::Vector(0.0f, 0.0f, 0.0f);
+    return result;
+  }();
+};
+struct OutOfRange : Solids::Tetrahedron {
+  static constexpr auto faces = [] {
+    auto result = Solids::Tetrahedron::faces;
+    result[0] = static_cast<int>(Solids::Tetrahedron::vertices.size());
+    return result;
+  }();
+};
+static_assert(!Solids::solid_tables_consistent<FlippedWinding>());
+static_assert(!Solids::solid_tables_consistent<OpenEdges>());
+static_assert(!Solids::solid_tables_consistent<EulerViolation>());
+static_assert(!Solids::solid_tables_consistent<OffSphere>());
+static_assert(!Solids::solid_tables_consistent<OutOfRange>());
+} // namespace solid_table_fixtures
+
 namespace hs_test {
 namespace solids_tests {
 
