@@ -85,7 +85,7 @@ inline constexpr float EPS_NORMALIZE_SQ = 1e-12f;
  * @brief Squared length below which a blend of two directions has cancelled.
  * @details Sits above EPS_NORMALIZE_SQ: the residual of two near-opposite unit
  * inputs is float cancellation noise long before normalize() loses the
- * direction outright, so a blend bails an order of magnitude earlier.
+ * direction outright, so a blend bails two orders of magnitude earlier in length.
  */
 inline constexpr float EPS_BLEND_LEN_SQ = 1e-8f;
 inline constexpr float EPS_UNIT_QUAT_SQ = 0.01f;
