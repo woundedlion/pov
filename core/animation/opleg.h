@@ -342,20 +342,10 @@ public:
     tr.reverse = spec.reverse;
     tr.settle_frames = spec.settle_frames;
 
-    // Clamp both endpoints inside the topology-constant open interval; the
-    // truncate upper clamp dodges the ambo short-circuit at exactly 0.5, and
-    // the jitterbug clamp stops the snub bridge while its collapsing edge is
-    // still a positive 0.02-chord sliver.
-    auto clamp_param = [&](float t) {
-      t = std::max(t, ConwayGraph::T_EPS);
-      if (edge.op == ConwayGraph::MorphOp::TRUNCATE)
-        t = std::min(t, 0.5f - ConwayGraph::T_EPS_AMBO);
-      if (ConwayGraph::is_jitterbug_edge(edge))
-        t = std::max(t, ConwayGraph::T_JITTERBUG_OCTA_MIN);
-      return t;
-    };
-    tr.t_start = clamp_param(spec.reverse ? edge.t_to : edge.t_from);
-    tr.t_end = clamp_param(spec.reverse ? edge.t_from : edge.t_to);
+    tr.t_start = ConwayGraph::clamp_edge_endpoint(
+        edge, spec.reverse ? edge.t_to : edge.t_from);
+    tr.t_end = ConwayGraph::clamp_edge_endpoint(edge, spec.reverse ? edge.t_from
+                                                                   : edge.t_to);
     tr.twist_start = spec.reverse ? edge.twist_to : edge.twist_from;
     tr.twist_end = spec.reverse ? edge.twist_from : edge.twist_to;
 
