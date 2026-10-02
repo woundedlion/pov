@@ -3,6 +3,7 @@
 
 import hashlib
 import os
+import shlex
 import re
 import subprocess
 import tempfile
@@ -74,7 +75,9 @@ def capture_log(config):
     )
 
 
-def attest_toolchains(profile_compiler, phantasm_compiler):
+def attest_toolchains(profile_compiler, phantasm_compiler,
+                      profile_abi="Tag_CPU_name: 7E-M", phantasm_abi="Tag_CPU_name: 7E-M",
+                      profile_packages="toolchain 15.2.1", phantasm_packages="toolchain 15.2.1"):
     script = (
         f"{shell_function('assert_matching_toolchains')}\n"
         "elf_compiler() {\n"
@@ -84,8 +87,10 @@ def attest_toolchains(profile_compiler, phantasm_compiler):
         f"    echo '{phantasm_compiler}'\n"
         "  fi\n"
         "}\n"
-        "elf_abi() { echo 'Tag_CPU_name: 7E-M'; }\n"
-        "package_fingerprint() { echo 'toolchain 15.2.1'; }\n"
+        f"elf_abi() {{ if [ \"$1\" = profile.elf ]; then printf '%s\\n' {shlex.quote(profile_abi)}; "
+        f"else printf '%s\\n' {shlex.quote(phantasm_abi)}; fi; }}\n"
+        f"package_fingerprint() {{ if [ \"$1\" = profile.log ]; then printf '%s\\n' {shlex.quote(profile_packages)}; "
+        f"else printf '%s\\n' {shlex.quote(phantasm_packages)}; fi; }}\n"
         "PROFILE_ELF=profile.elf\n"
         "PHANTASM_ELF=phantasm.elf\n"
         "PROFILE_BUILD_LOG=profile.log\n"
@@ -388,6 +393,19 @@ class ToolchainAttestation(unittest.TestCase):
         result = attest_toolchains("GCC 11.3.1", "GCC 15.2.1")
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("compiler mismatch", result.stdout)
+
+
+    def test_abi_and_package_failures_refuse_attestation(self):
+        for values, message in [
+            ({"phantasm_abi": "Tag_CPU_name: other"}, "ARM ABI mismatch"),
+            ({"profile_abi": ""}, "no ARM ABI"),
+            ({"phantasm_packages": "different-package"}, "PlatformIO package mismatch"),
+            ({"profile_packages": ""}, "no package fingerprint"),
+        ]:
+            with self.subTest(values=values):
+                result = attest_toolchains("GCC 15.2.1", "GCC 15.2.1", **values)
+                self.assertNotEqual(result.returncode, 0)
+                self.assertIn(message, result.stdout)
 
 
 def multi_preset_effects():
