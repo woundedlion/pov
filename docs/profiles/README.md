@@ -29,7 +29,9 @@ full-roster image.
 
 Rows rank by shipping spill fraction, then shipping peak render. Both peaks
 are worst-frame render, never wall time; spilled is the number of frames whose
-render exceeded one 62.5 ms window. Colours are strict per config: 🟢 zero spill, 🟡 under 25% spill, 🔴 at least 25% spill. Image deltas use each O3 capture's own same-source shipping pair, including
+render exceeded one 62.5 ms window. Colours are strict per config: 🟢 zero spill, 🟡 under 25% spill, 🔴 at least 25% spill. MeshFeedback and KaleidoscopeStainedGlass use adjacent-source pairs:
+`63268c376` O3 versus `20ca3cb48` shipping; their image deltas include source
+changes. Other image deltas use each O3 capture's own same-source shipping pair, including
 retired shipping captures. They match the currently linked shipping report only
 where that report belongs to the same capture pair.
 
