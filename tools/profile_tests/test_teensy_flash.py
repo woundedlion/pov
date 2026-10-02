@@ -21,7 +21,9 @@ class TeensyFlashTests(unittest.TestCase):
                 script = root / name
                 script.write_text("#!/bin/bash\n" + body + "\n", encoding="utf-8", newline="\n")
                 script.chmod(0o755)
-            env = dict(os.environ, HS_TEENSY_TOOLS=root.as_posix(), HS_TEENSY_PORT=port or "")
+            env = {key: value for key, value in os.environ.items()
+                   if not key.startswith(("HS_DEVICE_", "HS_TEENSY_"))}
+            env.update(HS_TEENSY_TOOLS=root.as_posix(), HS_TEENSY_PORT=port or "")
             if port is None:
                 env.pop("HS_TEENSY_PORT", None)
             return subprocess.run(
