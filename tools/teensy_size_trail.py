@@ -107,9 +107,8 @@ _SECTION_REGION: tuple[tuple[str, str], ...] = (
     (".bss.dma", "dma"),           # OCRAM DMAMEM (the framebuffers)
 )
 
-#: `ram1` is derived, not a section: ITCM code + DTCM variables. It excludes the
-#: FlexRAM bank padding teensy_size reports, so it tracks growth, not the
-#: gate's absolute RAM1 figure.
+#: `ram1` sums .text.itcm, .data and .bss. It excludes .fini, .ARM.exidx and
+#: FlexRAM bank padding, so it is not the gate's absolute RAM1 figure.
 _RAM1_PARTS = ("itcm", "data", "bss")
 
 #: Every column the trail carries a byte count for.
