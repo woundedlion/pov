@@ -69,14 +69,13 @@ inline void test_lerp16_midpoint() {
  * @brief Verifies lerp16 rounds to nearest, not floor.
  * @details The reconstruction tail (x + (x>>16) + 32768) >> 16 adds half a
  *          quantum so the divide rounds; at frac = 49152 (~0.75) round-to-nearest
- *          and floor disagree on every channel, pinning the rounding behavior for
- *          both the portable and smlad paths.
+ *          and floor disagree on red and green.
  */
 inline void test_lerp16_rounds_to_nearest() {
   Pixel a(0, 0, 0);
   Pixel b(1, 2, 4);
   Pixel m = a.lerp16(b, 49152); // 0.75
-  // True values 0.75 / 1.5 / 3.0 -> round-to-nearest 1 / 2 / 3 (floor: 0 / 1 / 2).
+  // True values 0.75 / 1.5 / 3.0 -> round-to-nearest 1 / 2 / 3 (floor: 0 / 1 / 3).
   HS_EXPECT_EQ(m.r, 1);
   HS_EXPECT_EQ(m.g, 2);
   HS_EXPECT_EQ(m.b, 3);
