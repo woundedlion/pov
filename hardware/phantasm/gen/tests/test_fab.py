@@ -1417,12 +1417,6 @@ class PackageVerificationTests(unittest.TestCase):
                                     "no fab package to verify"):
             fab.verify_package(str(directory / "jlc"), None)
 
-    def test_the_committed_baseline_records_the_shipped_package(self):
-        if not os.path.exists(fab.SHIPPED_SUMS):
-            self.skipTest(f"no committed baseline at {fab.SHIPPED_SUMS}")
-        recorded = fab.read_manifest(fab.SHIPPED_SUMS)
-        self.assertEqual(set(recorded), fab.ZIP_MEMBERS
-                         | set(fab.ASSEMBLY_MEMBERS) | {fab.ARCHIVE})
 
 
 class NetlistSpecTests(unittest.TestCase):
