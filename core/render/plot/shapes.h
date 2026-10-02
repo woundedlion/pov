@@ -104,8 +104,9 @@ struct Line {
    * @param es Shared setup from make_geodesic_edge_span(f1.pos, f2.pos); must
    *        have an axis.
    * @param perp cross(es.axis, f1.pos), the arc's start tangent direction.
-   * @param t Arc fraction in [0, 1]; the endpoints reproduce f1/f2 exactly.
-   * @return The interpolated fragment, registers included.
+   * @param t Arc fraction in [0, 1]; endpoint positions reproduce f1/f2 exactly.
+   * @return Fragment with v0=t, v1=arc length, v2=0, and other registers
+   *         interpolated from f1/f2.
    */
   static Fragment sample_point(const Fragment &f1, const Fragment &f2,
                                const GeodesicEdgeSpan &es,
