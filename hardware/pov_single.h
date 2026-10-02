@@ -50,7 +50,6 @@ public:
   POVDisplay() = delete;
   /** Initializes the transport after Arduino core startup; call once. */
   static void begin() {
-    randomSeed(1337);
 #ifdef USE_DMA_LEDS
     ledController.begin();
     ledController.set_correction(hd107s::LINEAR_STRIP_GAIN.r,
