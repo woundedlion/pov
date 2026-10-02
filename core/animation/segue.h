@@ -773,12 +773,12 @@ struct GoldConvergence : Base {
 };
 
 /**
- * @brief Stochastic ownership dissolve: each wireframe edge shows exactly one
- * of the two meshes, with the owned fraction tracking the phase.
+ * @brief Stochastic wireframe dissolve with complementary edge-key ownership
+ * and an incoming share tracking the phase.
  * @details The two draws receive complementary DissolveMasks (same threshold
- * and salt, opposite invert), so together they rasterize each edge once — a
- * two-mesh transition costs one wireframe's draw per frame instead of two. Owned
- * edges draw at full opacity; the dissolve percept is the spatial mix ratio,
+ * and salt, opposite invert), which partition shared vertex-index keys. Each
+ * draw scans its own edge list; the selected edges and their rasterization cost
+ * depend on both meshes. Owned edges draw at full opacity; the spatial mix ratio is
  * blurred by POV persistence. The salt folds a frame counter into the
  * per-transition seed so the pattern re-rolls every frame (temporal dither).
  * Unlike the other policies this one partitions rasterizer work (see
@@ -826,8 +826,7 @@ struct Dissolve : Base {
   }
   /** @brief Overlapping schedule, fixed at the full fade window: the two masks
    * partition the edges only while both meshes are on the timeline, so a
-   * shorter overlap would leave the complement unlit (the masks keep the cost
-   * at one mesh). */
+   * shorter overlap would leave the complement unlit. */
   int schedule(Timeline &timeline, SpriteFn draw_fn, int duration, int window,
                const bool *paused = nullptr) {
     return schedule_overlapped(timeline, std::move(draw_fn), duration, window,

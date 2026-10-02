@@ -1573,9 +1573,8 @@ inline void test_rasterize_window_preserves_terminal_sample() {
  * @brief The complementary masks of a Segue::Dissolve partition a wireframe's
  *        edges exactly: every edge is drawn by one sprite and skipped by the
  *        other, at every phase.
- * @details What caps the two-sprite hand-off at one wireframe's cost. The
- *          shader records each drawn edge's index (register v2), so the check
- *          is on the drawn set itself, not on pixels.
+ * @details Both draws use the same edge list. The shader records each drawn
+ *          edge's index (register v2), so the check is on the drawn set itself.
  */
 inline void test_mesh_dissolve_masks_partition_edges() {
   constexpr int W = 96, H = 48;
