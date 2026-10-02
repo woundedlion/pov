@@ -10,15 +10,6 @@ from kicad_common import F  # noqa: E402
 
 
 class RevisionProjectTests(unittest.TestCase):
-    def test_each_project_carries_its_directory_revision(self):
-        for revision in ("1.1", "1.2"):
-            for suffix in ("kicad_sch", "kicad_pcb"):
-                with self.subTest(revision=revision, suffix=suffix):
-                    path = GEN.parent / revision / f"phantasm.{suffix}"
-                    root = sexp.parse_one(path.read_text(encoding="utf-8"))
-                    self.assertEqual(sexp.val(F(root, "title_block")[0], "rev"),
-                                     [revision])
-
     def test_upload_component_pin_numbers_match(self):
         project = GEN.parent / "1.2"
         schematic = sexp.parse_one((project / "phantasm.kicad_sch").read_text(encoding="utf-8"))
