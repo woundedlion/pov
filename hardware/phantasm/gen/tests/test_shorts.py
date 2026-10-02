@@ -19,24 +19,9 @@ import sexp        # noqa: E402
 import shorts      # noqa: E402
 
 
-def _pin(number, x, y, angle):
-    return (f'(pin passive line (at {x} {y} {angle}) (length 1.27) '
-            f'(name "~" (effects (font (size 1.27 1.27)))) '
-            f'(number "{number}" (effects (font (size 1.27 1.27)))))')
-
-
-# Pin geometry copied from the stock KiCad libraries these tests stand in for.
-LIB = {
-    "power:GND": '(symbol "power:GND" (power global)'
-                 f'  (symbol "GND_1_1" {_pin(1, 0, 0, 90)}))',
-    "power:+5V": '(symbol "power:+5V" (power global)'
-                 f'  (symbol "+5V_1_1" {_pin(1, 0, 0, 270)}))',
-    # The flag's pin is a unit-0 (all-units) pin, as in the stock library.
-    "power:PWR_FLAG": '(symbol "power:PWR_FLAG" (power global)'
-                      f'  (symbol "PWR_FLAG_0_0" {_pin(1, 0, 0, 90)}))',
-    "Device:R": '(symbol "Device:R"'
-                f'  (symbol "R_1_1" {_pin(1, 0, 3.81, 270)} {_pin(2, 0, -3.81, 90)}))',
-}
+# The scan anchors power names at the placed symbol origin.
+LIB = {name: f'(symbol "{name}" (power global))'
+       for name in ("power:GND", "power:+5V", "power:PWR_FLAG")}
 
 
 def sym(lib_id, ref, x, y, rot=0, mirror=None, unit=1, value=None):
