@@ -378,7 +378,7 @@ add_test(NAME unit_module_roster
 
 # Pin run_tests.cpp's per-module include block against the roster, catching an
 # include left behind after a module is removed (which compiles silently), and
-# every tests/test_*.h on disk against that include block, catching a test file
+# every tests/*.h and tests/*.hpp against that include block, catching a file
 # nothing ever compiles. The exempt list is pinned too: an entry must still be
 # included from tests/ or tools/.
 add_test(NAME unit_module_includes COMMAND ${CMAKE_COMMAND}
