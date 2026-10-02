@@ -46,7 +46,6 @@ public:
    * @param i Index into the history: 0 is the OLDEST snapshot, length()-1 the
    *          newest. (record() appends the newest at the end of the underlying
    *          ring buffer, whose operator[](0) is the oldest live element.)
-   *          Matches the JS simulator's trail ordering.
    * @return Const reference to the requested snapshot.
    */
   const T &get(size_t i) const { return snapshots[i]; }
