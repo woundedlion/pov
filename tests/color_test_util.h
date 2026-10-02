@@ -3,7 +3,7 @@
  * Licensed under the PolyForm Noncommercial License 1.0.0
  *
  * Shared hue-arc predicate for the suites that assert on OKLCH hue — color and
- * palettes. Kept independent of core/color/color.h's wrap_angle_pi so a hue
+ * palettes. Kept independent of core/color/color_space.h's wrap_angle_pi so a hue
  * assertion never compares the module under test against itself.
  */
 #pragma once
