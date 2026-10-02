@@ -215,7 +215,7 @@ struct ShapeShifterWhiteBox {
   static void draw_all_reference(OracleEffect &effect, Canvas &canvas) {
     using ShapeType = OracleEffect::ShapeType;
     const int count = hs::clamp(static_cast<int>(effect.params.count), 1,
-                                OracleEffect::MAX_SHAPES);
+                                OracleEffect::DRAW_LIMIT);
     if (count != effect.prepared_count ||
         effect.params.spacing != effect.prepared_spacing)
       effect.prepare_count(count);
