@@ -18,7 +18,7 @@ This is experimental-octet-flight, preset 3 (internal index 2), held with contin
 | Appearance | Near fade 2.0, far distance 4.5, AA strength 2.0, DEPTH color |
 | Motion | Speed 0.078, 3D spin 0.008265, 4D spin 0 |
 
-Raw capture (supporting artifact removed), provenance (supporting artifact removed), validation (supporting artifact removed), summary (supporting artifact removed). The evidence directory preserves SHA-256-wrapped build logs and environment dumps. Full ELF/map artifacts are archived locally in C:/work/Holosphere/build/prof/octet_preset3_20260928.
+Raw capture (supporting artifact removed), provenance (supporting artifact removed), validation (supporting artifact removed), summary (supporting artifact removed). Build logs, environment dumps and ELF/map artifacts are local capture outputs, no longer retained in the repository.
 
 Instrumented single-effect image sizes:
 
