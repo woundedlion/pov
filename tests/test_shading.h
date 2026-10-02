@@ -395,7 +395,7 @@ inline void test_face_palette_shader_defaults() {
 /**
  * @brief Verifies FacePaletteShader's counterpart blend matches Color4::lerp
  *        from the counterpart ramp onto the face's own ramp at the same depth,
- *        and that a weight of 1 or a null palette clears it.
+ *        and that a weight of 1 or a null palette yields the unblended face ramp.
  */
 inline void test_face_palette_shader_counterpart() {
   Gradient own_source({{0.0f, CPixel(0, 0, 0)}, {1.0f, CPixel(255, 255, 255)}});
@@ -427,6 +427,9 @@ inline void test_face_palette_shader_counterpart() {
   HS_EXPECT_EQ(fragment.color.color.r, plain.r);
   HS_EXPECT_EQ(fragment.color.color.b, plain.b);
 
+  shader.set_counterpart(&other.view(), 0.3f);
+  shader(math::Vector(), fragment);
+  HS_EXPECT_NE(fragment.color.color, plain);
   shader.set_counterpart(nullptr, 0.0f);
   shader(math::Vector(), fragment);
   HS_EXPECT_EQ(fragment.color.color.r, plain.r);
