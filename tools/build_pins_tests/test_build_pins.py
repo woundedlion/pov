@@ -280,7 +280,8 @@ class InlinePins(unittest.TestCase):
             pattern = next(row for row in bp.INLINE_USES if row[1] == "python")
             with unittest.mock.patch.object(bp, "ROOT", root), \
                     unittest.mock.patch.object(bp, "INLINE_SCAN", (path,)), \
-                    unittest.mock.patch.object(bp, "INLINE_USES", (pattern,)):
+                    unittest.mock.patch.object(bp, "INLINE_USES", (pattern,)), \
+                    unittest.mock.patch.dict(bp.INLINE_PINS, python="3.12"):
                 for count in (1, 3):
                     path.write_text("python-version: '3.12'\n" * count,
                                     encoding="utf-8")
