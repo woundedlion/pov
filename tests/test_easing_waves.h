@@ -6,8 +6,8 @@
  *
  * Asserts the defining contract of each easing curve (anchored endpoints,
  * finiteness, monotonicity where the curve is monotone) and the bounded/shape
- * properties of the wave generators. t is sampled at exact rational fractions
- * of [0,1] to avoid float drift past 1.0 (where circular easings would go NaN).
+ * properties of the wave generators. Sampling i/N includes both endpoints
+ * without accumulating floating-point step error.
  */
 #pragma once
 
@@ -25,10 +25,9 @@ namespace easing_waves_tests {
 constexpr int N = 200;
 
 /**
- * @brief Maps a sample index to its exact rational fraction of [0,1].
+ * @brief Maps a sample index to its fraction of [0,1].
  * @param i Sample index in [0, N].
- * @return The fraction i/N as a float; exact at the rationals to avoid float
- *         drift past 1.0 (where circular easings would go NaN).
+ * @return The rounded float fraction i/N, exact at i=0 and i=N.
  */
 static inline float frac(int i) { return static_cast<float>(i) / N; }
 
