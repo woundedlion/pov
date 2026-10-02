@@ -2264,7 +2264,7 @@
 					)
 				)
 			)
-			(property "Description" "Power symbol creates a global label with name \"+5V\""
+			(property "Description" "Power symbol creates a global label with name \"+5V_LOGIC\""
 				(at 0 0 0)
 				(show_name no)
 				(do_not_autoplace no)
@@ -2403,7 +2403,7 @@
 					)
 				)
 			)
-			(property "Description" "Power symbol creates a global label with name \"+5V\""
+			(property "Description" "Power symbol creates a global label with name \"+5V_RAW\""
 				(at 0 0 0)
 				(show_name no)
 				(do_not_autoplace no)

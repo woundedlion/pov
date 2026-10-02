@@ -218,6 +218,14 @@ class GeneratedSchematicTests(BypassConnectionChecks, unittest.TestCase):
         for name in PROJECT_FILES:
             self.assertTrue(os.path.exists(os.path.join(self.out.name, name)), name)
 
+    def test_custom_power_descriptions_name_the_generated_net(self):
+        symbols = sexp.val(self.root, "lib_symbols")
+        for net in ("+5V_RAW", "+5V_LOGIC"):
+            with self.subTest(net=net):
+                symbol = next(node for node in symbols if node[:2] == ["symbol", f"phantasm:{net}"])
+                description = next(prop[2] for prop in F(symbol, "property") if prop[1] == "Description")
+                self.assertEqual(description, f'Power symbol creates a global label with name "{net}"')
+
     def test_teensy_pins_match_footprint_and_unused_pins_are_no_connect(self):
         footprint = GEN.parent / "1.2" / "phantasm.pretty" / "Teensy4.0.kicad_mod"
         pads = F(sexp.parse(footprint.read_text(encoding="utf-8"))[0], "pad")
