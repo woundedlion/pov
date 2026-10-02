@@ -151,8 +151,7 @@ struct EffectHandoffState {
 
 /**
  * @brief Host-side operations EffectTransitionController drives.
- * @details One call per state edge, in the order EffectTransitionState
- *   documents. The status-returning methods are the failure points: returning
+ * @details Operations run in the order EffectTransitionState documents. The status-returning methods are the failure points: returning
  *   anything but OK diverts the controller (to the caller for preflight(), to
  *   RESTORING_OUT for the construct/prepare steps, to CLEAR_FAILSAFE for the
  *   restore steps). Only OK-ness is tested, so the enumerator named on each
@@ -246,7 +245,7 @@ public:
 };
 
 /**
- * @brief Drives EffectTransitionState, calling one adapter operation per edge.
+ * @brief Drives EffectTransitionState through host-side adapter operations.
  * @details Holds no effect and renders nothing: request() arms a destination
  *   and tick() advances one edge per call. See EffectTransitionState for the
  *   graph and EffectTransitionAdapter for the per-edge contract.
