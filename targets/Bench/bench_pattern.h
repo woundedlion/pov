@@ -51,9 +51,9 @@ public:
       static_cast<uint32_t>(KEY_COUNT) * STEP_FRAMES;
 
   /**
-   * @brief Fraction of full LED drive the pattern runs at, in percent.
-   * @details Scaled in linear space, so it is also the fraction of the strip
-   * current a white hold draws. Override with -D HS_BENCH_BRIGHTNESS_PERCENT.
+   * @brief Linear pixel-channel scale, in percent.
+   * @details Applied before the driver's sRGB encoding. Override with
+   * -D HS_BENCH_BRIGHTNESS_PERCENT.
    */
   static constexpr uint32_t BRIGHTNESS_PERCENT =
 #ifdef HS_BENCH_BRIGHTNESS_PERCENT
