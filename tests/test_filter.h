@@ -2348,9 +2348,10 @@ inline void test_feedback_flush_melt_warp_displaces_south() {
     math::Vector v = math::pixel_to_vector<W, H>(0, y);
     return math::phi_to_y<H>(math::Spherical(math::slerp(v, NORTH, drip)).phi);
   };
-  int oracle_y = R, best = H;
+  int oracle_y = R;
+  float best = static_cast<float>(H);
   for (int y = 0; y < H; ++y) {
-    int d = static_cast<int>(std::abs(by(y) - static_cast<float>(R)));
+    float d = std::abs(by(y) - static_cast<float>(R));
     if (d < best) {
       best = d;
       oracle_y = y;
