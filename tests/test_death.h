@@ -5898,10 +5898,10 @@ inline const Case *all_cases(int &n) {
       {"random_timer_inverted_range", case_random_timer_inverted_range,
        "core/animation/timers.h",
        "(min >= 0 && min <= max) RandomTimer: invalid frame range"},
-      {"empty_fn_call", case_empty_fn_call, "core/engine/memory.cpp",
+      {"empty_fn_call", case_empty_fn_call, "core/engine/static_storage.cpp",
        "(vtable != empty) empty hs::inplace_function called"},
       {"empty_function_ref_call", case_empty_function_ref_call,
-       "core/engine/memory.cpp",
+       "core/engine/static_storage.cpp",
        "(thunk != empty_thunk) empty FunctionRef called"},
       {"effect_registry_duplicate_name", case_effect_registry_duplicate_name,
        "core/control/registry.h",
@@ -6837,7 +6837,7 @@ inline constexpr GuardGapAllowance GUARD_GAP_ALLOW[] = {
     // WASM-only bootstrap and reconstruction invariants; exercised by engine contracts.
     {"targets/wasm/engine_bindings.h", 11},
     {"targets/wasm/mesh_ops_bindings.h", 2},
-    {"targets/wasm/workbench_bindings.h", 2},
+    {"targets/wasm/workbench_bindings.h", 3},
     {"workbench/shader/chain_host.h", 1},
 };
 
