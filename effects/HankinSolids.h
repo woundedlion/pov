@@ -177,7 +177,7 @@ private:
     node_faces = base.face_counts.size();
     HS_CHECK(node_faces <= MAX_NODE_FACES,
              "HankinSolids: node base mesh exceeds the face-handoff capacity");
-    Animation::OpLeg::face_centroids_into(base, node_face_centroid);
+    MeshOps::face_centroids_into(base, node_face_centroid);
   }
 
   /**
@@ -524,11 +524,11 @@ private:
     MeshOps::update_hankin(compiled_hankin, open_mesh, scratch_arena_a,
                            math::PI_F / 2.0f);
     for (size_t f = node_faces; f < faces; ++f) {
-      const math::Vector c =
-          Animation::OpLeg::face_vertex_sum(
-              open_mesh.vertices.data(), open_mesh.faces.data(),
-              open_mesh.face_offsets[f], open_mesh.face_counts[f])
-              .normalized();
+      const math::Vector c = MeshOps::face_vertex_sum(open_mesh.vertices.data(),
+                                                      open_mesh.faces.data(),
+                                                      open_mesh.face_offsets[f],
+                                                      open_mesh.face_counts[f])
+                                 .normalized();
       size_t best = 0;
       float best_d = 1e9f;
       for (size_t j = 0; j < node_faces; ++j) {
