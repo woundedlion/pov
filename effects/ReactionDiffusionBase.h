@@ -201,8 +201,8 @@ protected:
    * @param seed Seed node id from the cubemap LUT.
    * @return The id of the closest node among the seed and its direct neighbors.
    * That is the true nearest node whenever the seed is that node or adjacent to
-   * it, which is all the cubemap LUT promises; the two-hop equatorial seeds it
-   * tolerates (tests/test_reaction_graph.h) stay unrecovered.
+   * it. Two-hop equatorial seeds tolerated by the cubemap LUT
+   * (tests/test_reaction_graph.h) can remain unrecovered.
    * @details Off the render path: both systems center their stencils with
    * refine_render_center. This unconditional walk is the independent oracle
    * tests/test_effects.h measures that certified early-out against.
@@ -242,7 +242,7 @@ protected:
                 "polar certificate radius exceeds half the pole-pair spacing");
 
   /**
-   * @brief Refines a cubemap-LUT seed to the nearest node, skipping the
+   * @brief Selects the nearest node in a cubemap-LUT seed's one-ring, skipping the
    *        six-neighbor walk when the seed is provably already nearest.
    * @tparam Compact Decode neighbors from the indexed run table.
    * @param rv Query direction (unit vector on the sphere).
@@ -278,8 +278,8 @@ protected:
   }
 
   /**
-   * @brief Refines a cubemap-LUT seed to the nearest node and runs the
-   *        compact biweight kernel walk in one stencil pass.
+   * @brief Selects the nearest node in a cubemap-LUT seed's one-ring and runs
+   *        the compact biweight kernel walk in one stencil pass.
    * @tparam OnWeight Callable accepting (node_index, weight).
    * @param rv Query direction (unit vector on the sphere).
    * @param nodes Node positions in the same frame as `rv`, indexed by node id.
@@ -368,10 +368,10 @@ protected:
 
   /**
    * @brief Vertex-shader seed: tags a fragment with its cubemap-LUT node id.
-   * @param frag Fragment whose pos seeds frag.v0 with the nearest-node id.
+   * @param frag Fragment whose pos seeds frag.v0 with the cubemap-LUT node id.
    * @details Shared by both systems' render() vertex shaders; the fragment
-   * shader refines this face-quantized seed to the true nearest node (see
-   * refine_render_center).
+   * shader selects the nearest node in this face-quantized seed's one-ring
+   * (see refine_render_center).
    */
   void seed_face_lut(Fragment &frag) {
     math::Vector rv = inverse_orientation.apply(frag.pos);

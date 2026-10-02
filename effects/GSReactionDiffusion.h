@@ -538,8 +538,8 @@ private:
   /**
    * @brief Kernel-weighted sample of the B concentration at a point.
    * @param p Query point on the sphere.
-   * @param seed Seed node id from the cubemap LUT, refined to the true nearest
-   * inside the fused stencil walk.
+   * @param seed Seed node id from the cubemap LUT; the fused stencil walk
+   * selects the nearest node among the seed and its direct neighbors.
    * @param nodes Node positions in the same frame as `p`.
    * @return Support-radius weighted average of B in [0, 1]; 0 if no node is
    * within the support radius.
