@@ -351,7 +351,7 @@ struct QuantizeModifier {
 
   /**
    * @brief Snaps the coordinate to the nearest multiple of 1/steps (steps+1
-   * distinct levels over [0,1]).
+   * distinct levels over [0,1] for an integer step count).
    * @param t Input coordinate.
    * @return The quantized coordinate, capped at 1 to hold bounded_output for a
    *   fractional step count.
