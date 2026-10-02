@@ -6842,9 +6842,8 @@ inline int allowed_guard_gap(const char *file) {
  * @details Both sides are derived, never written down: the denominator is the
  *          generated HS_CHECK census (death_guard_sites.h) and the numerator is
  *          the distinct source lines observed in successfully trapped cases.
- *          Cases pinning a file the census does not know — the harness's own
- *          trap stand-ins, and any mistyped source path — count in neither and are
- *          reported separately and checked against the harness stand-in. The pinned count is
+ *          A case naming a file outside the census fails the module.
+ *          The pinned count is
  *          gated against GUARD_GAP_ALLOW; the ratio itself is reported but not
  *          gated, since new engine guards move the denominator without
  *          weakening any case.
