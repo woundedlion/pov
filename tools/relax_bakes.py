@@ -6,7 +6,7 @@ The bake payloads are produced on the host: the `relax_bake_gen` harness
 bake-bearing SolidBuilder recipe and logs a RELAX_BAKE block per payload. This
 script parses that stream and writes the generated header. Because host relax
 is deterministic, the emitted bits load unchanged on host and device; the
-`relax_bake_verify` ctest (HS_RELAX_BAKE_VERIFY) re-derives them and asserts
+`unit_relax_bake_verify` ctest (HS_RELAX_BAKE_VERIFY) re-derives them and asserts
 bit-exact equality, so a stale asset fails the suite.
 
 That gate covers the payload values only. `check` covers the file's form —
