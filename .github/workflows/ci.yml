@@ -1025,6 +1025,13 @@ jobs:
           echo "$HOME/.local/bin" >> "$GITHUB_PATH"
 
 
+      - name: Browser capture helper
+        env:
+          HS_BROWSER_TESTS: '1'
+        run: |
+          npx playwright install --with-deps chromium
+          node --test scripts/screenshot_resolution.test.mjs
+
       - name: Lint
         run: just lint
 
