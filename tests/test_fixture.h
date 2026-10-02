@@ -133,7 +133,7 @@ inline void reset_globals() {
  * @param rng Generator private to the test, so the draw stream is reproducible
  * without disturbing the process-wide hs::random().
  * @param lo Lower bound (inclusive).
- * @param hi Upper bound (exclusive).
+ * @param hi Upper bound (inclusive through rounding).
  * @return A float in [lo, hi], bit-identical on every platform.
  * @details std::uniform_real_distribution's mapping from generator draws to
  * floats is implementation-defined, so the same seed yields a different sample
