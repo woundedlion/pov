@@ -64,11 +64,11 @@ private:
 
 /**
  * @brief Derives the shared-RNG seed for effect epoch @p epoch.
- * @param epoch Absolute effect/epoch index (beacon-synchronized on the device).
+ * @param epoch Roster index of the effect being built (beacon-synchronized on the device).
  * @return 1337 when epoch == 0 — the identity seed the determinism contract
  *         pins; otherwise a splitmix64-mixed value of (1337, epoch).
- * @details Used at effect handoff so every replica derives the same fresh
- *          per-visit draw stream locally from already-shared state (nothing is
+ * @details Used at effect handoff so every replica derives the same draw
+ *          stream on every visit to that roster entry locally from already-shared state (nothing is
  *          distributed). Integer-only, so device and host agree bit-for-bit.
  */
 constexpr uint64_t epoch_seed(uint32_t epoch) {
