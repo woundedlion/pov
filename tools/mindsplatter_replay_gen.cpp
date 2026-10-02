@@ -343,10 +343,12 @@ int main(int argc, char **argv) {
     std::fprintf(stderr, "cannot write %s\n", argv[1]);
     return 1;
   }
+  const std::string PEAK_SCORE =
+      refresh ? "n/a" : std::to_string(selected->peak_clip_workload.score);
   std::printf(
       "%s revision=%s preset=%u frame=%u particles=%zu score=%llu "
       "adaptive=%llu long=%llu peak_clip=%u[%d,%d,%d,%d] "
-      "peak_score=%llu state=%zu framebuffer=%zu hash=%llu\n",
+      "peak_score=%s state=%zu framebuffer=%zu hash=%llu\n",
       corpus_id.c_str(), mindsplatter_replay::SOURCE_REVISION,
       static_cast<unsigned>(selected->preset),
       static_cast<unsigned>(selected->frame),
@@ -355,8 +357,7 @@ int main(int argc, char **argv) {
       static_cast<unsigned long long>(selected->aggregate.adaptive_samples),
       static_cast<unsigned long long>(selected->aggregate.long_edges),
       static_cast<unsigned>(selected->peak_clip), peak_clip.x_start,
-      peak_clip.x_end, peak_clip.y_start, peak_clip.y_end,
-      static_cast<unsigned long long>(selected->peak_clip_workload.score),
+      peak_clip.x_end, peak_clip.y_start, peak_clip.y_end, PEAK_SCORE.c_str(),
       state.size(), framebuffer.size() * sizeof(uint16_t),
       static_cast<unsigned long long>(corpus_hash));
   return 0;
