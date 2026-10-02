@@ -10,7 +10,7 @@
 #include <cmath>
 #include <cstdint>
 #include <cstring>
-#include <map>
+#include <string_view>
 #include <vector>
 #include "core/color/palettes.h"
 #include "core/mesh/conway.h"
