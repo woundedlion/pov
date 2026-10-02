@@ -548,6 +548,13 @@ inline void test_sync_noise_pushes_scalars() {
   HS_EXPECT_NEAR(np.frequency, 0.33f, 1e-6f);
   HS_EXPECT_NEAR(np.speed, 2.5f, 1e-6f);
   HS_EXPECT_NEAR(np.scale, 9.0f, 1e-6f);
+  Animation::NoiseParams reference;
+  reference.frequency = 0.33f;
+  reference.sync();
+  for (const auto &point :
+       {math::Vector(1.25f, -2.75f, 4.5f), math::Vector(-7.0f, 0.125f, 3.0f)})
+    HS_EXPECT_EQ(np.noise.GetNoise(point.x, point.y, point.z),
+                 reference.noise.GetNoise(point.x, point.y, point.z));
 
   s.noise = nullptr;
   s.amplitude = 1.0f;
