@@ -56,10 +56,9 @@ public:
   /**
    * @brief Retrieves a point along the path by interpolation.
    * @param t Progress along the path (0.0 to 1.0).
-   * @return The linear interpolation of the two adjacent samples. Because it is
-   *         a chord between unit-sphere samples, the result has magnitude < 1
-   *         (and non-uniform angular speed); callers needing a unit direction
-   *         must normalize.
+   * @return Chord interpolation between adjacent samples, or the zero vector
+   *         for an empty path. Unit-sphere samples are not renormalized;
+   *         callers needing a unit direction must normalize.
    */
   math::Vector get_point(float t) const {
     if (points.is_empty())
