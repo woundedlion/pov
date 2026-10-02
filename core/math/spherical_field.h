@@ -672,8 +672,8 @@ public:
    * @param populate_sample Returns the Value stored at each sample.
    * @details Walks each ring by an incremental rotation instead of per-sample
    *   trig, so the `position` handed to the callback is only approximately
-   *   unit and drifts up to ~1e-5 from the exact-trig sample_vector() for the
-   *   same sample; a callback that needs the exact vector must call
+   *   unit and accumulates rounding drift from the exact-trig sample_vector();
+   *   a callback that needs the exact vector must call
    *   sample_vector() itself.
    */
   template <typename Populate>
