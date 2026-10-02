@@ -4593,7 +4593,9 @@ struct RingSpinWhiteBox {
   static int num_rings() { return RS::NUM_RINGS; }
   /** @brief Half-width in radians of the trail-head stroke. */
   static float head_half_width(const RS &fx) {
-    return 2.0f * (2.0f * math::PI_F / DEFAULT_W) * fx.params.thickness;
+    const float pixel_w =
+        std::max(math::TWO_PI_F / DEFAULT_W, math::RADIANS_PER_ROW<DEFAULT_H>);
+    return 2.0f * pixel_w * fx.params.thickness;
   }
 };
 
