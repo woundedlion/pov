@@ -828,22 +828,22 @@ inline void test_build_chain_provenance_ambiguity() {
   constexpr ExpectedLeg EXPECTED[] = {
       {"dodecahedron_hk62_ambo_hk62", 0, 12, 32, 1.000f},
       {"dodecahedron_hk62_ambo_hk62", 1, 32, 62, 1.000f},
-      {"dodecahedron_hk62_ambo_hk62", 2, 62, 182, 0.563f},
+      {"dodecahedron_hk62_ambo_hk62", 2, 62, 182, 0.566f},
       {"truncatedIcosahedron_hk58_chamfer63", 0, 32, 92, 0.831f},
       {"truncatedIcosahedron_hk58_chamfer63", 1, 92, 452, 0.784f},
       {"dodecahedron_ambo_bevel33_relax_hk66", 0, 12, 32, 1.000f},
       {"dodecahedron_ambo_bevel33_relax_hk66", 1, 32, 62, 1.000f},
       {"dodecahedron_ambo_bevel33_relax_hk66", 2, 62, 122, 0.602f},
-      {"dodecahedron_ambo_bevel33_relax_hk66", 4, 122, 362, 0.678f},
+      {"dodecahedron_ambo_bevel33_relax_hk66", 4, 122, 362, 0.679f},
       {"truncatedIcosahedron_ambo_relax_truncate33_hk64", 0, 32, 92, 0.844f},
       {"truncatedIcosahedron_ambo_relax_truncate33_hk64", 2, 92, 182, 1.000f},
-      {"truncatedIcosahedron_ambo_relax_truncate33_hk64", 3, 182, 542, 0.883f},
+      {"truncatedIcosahedron_ambo_relax_truncate33_hk64", 3, 182, 542, 0.879f},
       {"dodecahedron_bevel2_relax_gyro", 0, 12, 32, 1.000f},
       {"dodecahedron_bevel2_relax_gyro", 1, 32, 62, 1.000f},
       {"dodecahedron_bevel2_relax_gyro", 3, 62, 542, 0.868f},
       {"truncatedIcosidodecahedron_bevel5_relax_hk77", 0, 62, 182, 0.703f},
       {"truncatedIcosidodecahedron_bevel5_relax_hk77", 1, 182, 362, 1.000f},
-      {"truncatedIcosidodecahedron_bevel5_relax_hk77", 3, 362, 722, 0.796f},
+      {"truncatedIcosidodecahedron_bevel5_relax_hk77", 3, 362, 722, 0.798f},
       {"truncatedOctahedron_gyro_kis_hk17", 0, 14, 110, 0.990f},
       {"truncatedOctahedron_gyro_kis_hk17", 3, 360, 542, 1.000f},
       {"truncatedIcosahedron_ambo_relax_truncate001_hankin59", 0, 32, 92,
@@ -860,15 +860,15 @@ inline void test_build_chain_provenance_ambiguity() {
        0.170f},
       {"icosahedron_ambo_truncate033_hankin59", 0, 20, 32, 1.000f},
       {"icosahedron_ambo_truncate033_hankin59", 1, 32, 62, 1.000f},
-      {"icosahedron_ambo_truncate033_hankin59", 2, 62, 182, 0.837f},
+      {"icosahedron_ambo_truncate033_hankin59", 2, 62, 182, 0.835f},
       {"dodecahedron_hk35_ambo_hk62_ambo_relax_hk42", 0, 12, 32, 1.000f},
       {"dodecahedron_hk35_ambo_hk62_ambo_relax_hk42", 1, 32, 62, 1.000f},
-      {"dodecahedron_hk35_ambo_hk62_ambo_relax_hk42", 2, 62, 182, 0.626f},
+      {"dodecahedron_hk35_ambo_hk62_ambo_relax_hk42", 2, 62, 182, 0.629f},
       {"dodecahedron_hk35_ambo_hk62_ambo_relax_hk42", 3, 182, 362, 1.000f},
-      {"dodecahedron_hk35_ambo_hk62_ambo_relax_hk42", 5, 362, 1082, 0.754f},
+      {"dodecahedron_hk35_ambo_hk62_ambo_relax_hk42", 5, 362, 1082, 0.755f},
       {"octahedron_hk17_ambo_hk73", 0, 8, 14, 1.000f},
       {"octahedron_hk17_ambo_hk73", 1, 14, 26, 1.000f},
-      {"octahedron_hk17_ambo_hk73", 2, 26, 74, 0.588f},
+      {"octahedron_hk17_ambo_hk73", 2, 26, 74, 0.589f},
       {"icosahedron_kis_gyro", 1, 60, 272, 1.000f},
       {"truncatedIcosidodecahedron_truncate50d_ambo_dual", 0, 62, 182, 0.703f},
       {"truncatedIcosidodecahedron_truncate50d_ambo_dual", 1, 182, 542, 0.320f},
@@ -878,16 +878,16 @@ inline void test_build_chain_provenance_ambiguity() {
       {"snubDodecahedron_truncate5d_ambo_dual", 1, 152, 452, 0.195f},
       {"octahedron_hk34_ambo_hk72", 0, 8, 14, 1.000f},
       {"octahedron_hk34_ambo_hk72", 1, 14, 26, 1.000f},
-      {"octahedron_hk34_ambo_hk72", 2, 26, 74, 0.554f},
-      {"rhombicuboctahedron_hk63_ambo_hk63", 0, 26, 50, 0.775f},
+      {"octahedron_hk34_ambo_hk72", 2, 26, 74, 0.556f},
+      {"rhombicuboctahedron_hk63_ambo_hk63", 0, 26, 50, 0.776f},
       {"rhombicuboctahedron_hk63_ambo_hk63", 1, 50, 98, 1.000f},
       {"rhombicuboctahedron_hk63_ambo_hk63", 2, 98, 290, 0.766f},
       {"truncatedIcosahedron_hk54_ambo_hk72", 0, 32, 92, 0.831f},
       {"truncatedIcosahedron_hk54_ambo_hk72", 1, 92, 182, 1.000f},
-      {"truncatedIcosahedron_hk54_ambo_hk72", 2, 182, 542, 0.587f},
+      {"truncatedIcosahedron_hk54_ambo_hk72", 2, 182, 542, 0.590f},
       {"dodecahedron_hk54_ambo_hk72", 0, 12, 32, 1.000f},
       {"dodecahedron_hk54_ambo_hk72", 1, 32, 62, 1.000f},
-      {"dodecahedron_hk54_ambo_hk72", 2, 62, 182, 0.573f},
+      {"dodecahedron_hk54_ambo_hk72", 2, 62, 182, 0.576f},
       {"dodecahedron_hk72_ambo_dual_hk20", 0, 12, 32, 1.000f},
       {"dodecahedron_hk72_ambo_dual_hk20", 1, 32, 62, 1.000f},
       {"dodecahedron_hk72_ambo_dual_hk20", 3, 120, 182, 1.000f},
@@ -895,7 +895,7 @@ inline void test_build_chain_provenance_ambiguity() {
       {"truncatedIcosahedron_truncate50d_ambo_dual", 1, 92, 272, 0.209f},
       {"icosahedron_snub_relax_truncate033_hankin62", 0, 20, 92, 1.000f},
       {"icosahedron_snub_relax_truncate033_hankin62", 2, 92, 152, 0.997f},
-      {"icosahedron_snub_relax_truncate033_hankin62", 3, 152, 452, 0.957f},
+      {"icosahedron_snub_relax_truncate033_hankin62", 3, 152, 452, 0.955f},
   };
   size_t checked = 0;
   size_t max_prev_faces = 0;
@@ -927,9 +927,22 @@ inline void test_build_chain_provenance_ambiguity() {
       // The mesh the leg's first frame draws.
       PolyMesh start;
       switch (step.op) {
-      case Op::HANKIN:
-        start = MeshOps::hankin(seed, a, b, Animation::OpLeg::THETA_EPS);
+      case Op::HANKIN: {
+        CompiledHankin hk;
+        MeshOps::compile_hankin(seed, hk, b, a, true);
+        MeshOps::update_hankin(
+            hk, start, a, std::max(step.param, Animation::OpLeg::THETA_EPS));
+        const size_t statics = hk.static_vertices.size();
+        for (size_t i = statics; i < start.vertices.size(); ++i) {
+          const math::Vector corner =
+              hk.corner(hk.dynamic_instructions[i - statics].v_corner);
+          const math::Vector arrival =
+              math::Snorm3::encode(start.vertices[i]).decode();
+          start.vertices[i] = math::slerp(corner.normalized(), arrival,
+                                          Animation::OpLeg::K_EPS);
+        }
         break;
+      }
       case Op::AMBO:
         start = MeshOps::truncate(seed, a, b, ConwayGraph::T_EPS);
         break;
@@ -943,7 +956,7 @@ inline void test_build_chain_provenance_ambiguity() {
                      step.param * ConwayGraph::TRUNCATE_BIRTH_FRAC));
         break;
       case Op::SNUB:
-        start = MeshOps::snub(seed, a, b, ConwayGraph::T_EPS, step.twist);
+        start = MeshOps::snub(seed, a, b, ConwayGraph::T_EPS, 0.0f);
         break;
       default:
         continue;
