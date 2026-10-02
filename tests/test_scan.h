@@ -2691,11 +2691,9 @@ inline void test_volume_trace_nearly_tied_minimum() {
 }
 
 /**
- * @brief Capturing volume sink: records every plotted world position and its
- *        composited alpha.
- * @details Provides BOTH plot() overloads so it can back the type-erased
- * PipelineRef that Volume::draw takes; the 2D overload is never reached by the
- * volume path (it plots 3D world points) and is a no-op.
+ * @brief Capturing volume sink: records plotted pixel coordinates and alpha.
+ * @details Provides the three overloads PipelineRef erases; Volume::draw plots
+ * at integer pixel centers, so only that overload records.
  */
 struct VolumeSink {
   /** Pixel coordinates handed to the integer plot(). */
