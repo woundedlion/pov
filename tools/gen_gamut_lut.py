@@ -25,9 +25,9 @@ gamut. That is not the same as "the largest in-gamut C" -- linear_rgb_in_gamut's
 in-gamut set along a ray is occasionally disconnected (~0.1% of sampled rays;
 the widest gap observed spans C 0.251 to 0.286 at L 0.419). A plain bisection
 lands on either side of such a gap depending on where its midpoints fall, which
-makes it discontinuous in L by up to 0.038. First exit is the boundary of the
-connected component containing C = 0, is continuous, and agrees with the
-bisection everywhere the set is connected.
+makes it discontinuous in L by up to 0.038. First exit bounds the connected component containing C = 0. It can jump when
+a disconnected gap appears or disappears; it agrees with bisection where the
+in-gamut set is connected.
 
 Usage: python tools/gen_gamut_lut.py [output_path]
        python tools/gen_gamut_lut.py --check
