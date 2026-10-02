@@ -610,8 +610,9 @@ public:
    * modular difference instead of claiming a burst still in flight.
    * The duration term takes the same re-check against `first_cycles`. It is what
    * frees the mailbox under sustained noise, where every accepted edge pushes
-   * the gap out and the quiet term alone never fires: the burst is claimed,
-   * classified INVALID by its count, and counted.
+   * the gap out and the quiet term alone never fires. The claimed burst still
+   * undergoes ordinary count classification; duration expiry does not force
+   * an INVALID symbol.
    */
   bool try_claim(uint32_t now, uint32_t gap_timeout_cycles,
                  uint32_t max_burst_cycles, BurstSnapshot *out) {
