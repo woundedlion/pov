@@ -22,6 +22,8 @@ namespace hs_test::ray_demonstrator_tests {
 
 /** @brief Pins octet crossing coverage against ray line distance. */
 inline void test_octet_crossing_coverage_against_ray_line_distance() {
+  int compared = 0;
+  int hits = 0;
   for (int sample = 0; sample < 600; ++sample) {
     SDF::OctetFramework geometry;
     geometry.cell_size = sample % 3 == 0   ? .25f
@@ -41,9 +43,22 @@ inline void test_octet_crossing_coverage_against_ray_line_distance() {
     SDF::OctetEvents events(geometry, RAY, FOOTPRINT);
     SDF::FrameworkPlaneEvents reference(RAY, FOOTPRINT);
     reference.initialize(PLANES, geometry.origin, geometry.valid());
+    std::array<bool, SDF::OctetEvents::STREAM_COUNT> owns_pair{};
+    for (size_t i = 0; i < PLANES.size(); ++i) {
+      for (size_t j = i + 1; j < PLANES.size(); ++j) {
+        const float A = math::dot(RAY.direction, PLANES[i].normal);
+        const float B = math::dot(RAY.direction, PLANES[j].normal);
+        const size_t OWNER = fabsf(A) >= fabsf(B) ? i : j;
+        owns_pair[OWNER] = owns_pair[OWNER] || (OWNER == i ? A : B) != 0;
+      }
+    }
+    for (size_t stream = 0; stream < PLANES.size(); ++stream)
+      reference.cursors[stream].active &= owns_pair[stream];
     for (size_t stream = 0; stream < PLANES.size(); ++stream) {
+      HS_EXPECT_EQ(events.active(stream), reference.active(stream));
       for (int crossing = 0; crossing < 8 && events.active(stream);
            ++crossing) {
+        ++compared;
         const auto HIT = events.candidate(stream);
         HS_EXPECT_NEAR(HIT.t, reference.distance(stream),
                        2e-5f * std::max(1.0f, HIT.t));
@@ -78,13 +93,18 @@ inline void test_octet_crossing_coverage_against_ray_line_distance() {
             : best <= geometry.wire_radius ? 1.0f
                                            : 0.0f;
         HS_EXPECT_NEAR(HIT.coverage, COVERAGE, 3e-4f);
-        if (COVERAGE > 0)
+        if (COVERAGE > 0) {
+          ++hits;
           HS_EXPECT_EQ(HIT.feature, feature);
+        }
         events.advance(stream);
         reference.advance(stream);
+        HS_EXPECT_EQ(events.active(stream), reference.active(stream));
       }
     }
   }
+  HS_EXPECT_TRUE(compared > 1000);
+  HS_EXPECT_TRUE(hits > compared / 20);
 }
 
 /** @brief Pins framework generic event rendering. */
@@ -437,6 +457,8 @@ inline void test_periodic_shell_roots_and_slices() {
 
 /** @brief Pins affine cached metric against ray line oracle. */
 inline void test_affine_cached_metric_against_ray_line_oracle() {
+  int compared = 0;
+  int hits = 0;
   for (int sample = 0; sample < 240; ++sample) {
     Raycast::PreparedCamera camera;
     camera.domain = sample % 2 ? Raycast::SamplingDomain::SLICE_4D
@@ -455,8 +477,33 @@ inline void test_affine_cached_metric_against_ray_line_oracle() {
     const Raycast::Footprint FOOTPRINT{.12f, .1f};
     SDF::AffineLatticeEvents events(camera, VIEW, GEOMETRY,
                                     .055f * GEOMETRY.cell_size, FOOTPRINT);
+    const auto DIRECTION =
+        GEOMETRY.inverse(camera.embedding.apply({{VIEW.x, VIEW.y, VIEW.z, 0}}));
     for (int plane = 0; plane < events.dimensions; ++plane) {
+      bool expected_active = false;
+      for (int free = 0; free < events.dimensions; ++free) {
+        int owner = -1;
+        float speed = 0;
+        for (int other = 0; other < events.dimensions; ++other) {
+          if (other != free && fabsf(DIRECTION[other]) > speed) {
+            speed = fabsf(DIRECTION[other]);
+            owner = other;
+          }
+        }
+        math::Vec4 axis{};
+        axis[free] = 1;
+        const auto U = GEOMETRY.point(axis);
+        double uu = 0, ud = 0;
+        for (int k = 0; k < events.dimensions; ++k) {
+          uu += static_cast<double>(U[k]) * U[k];
+          ud += static_cast<double>(U[k]) * events.ambient_direction[k];
+        }
+        expected_active |= owner == plane && uu - ud * ud > 1e-12;
+      }
+      expected_active &= DIRECTION[plane] != 0;
+      HS_EXPECT_EQ(events.active(plane), expected_active);
       for (int crossing = 0; crossing < 4 && events.active(plane); ++crossing) {
+        ++compared;
         const auto HIT = events.candidate(plane);
         double best = INFINITY;
         for (int free = 0; free < events.dimensions; ++free) {
@@ -503,10 +550,14 @@ inline void test_affine_cached_metric_against_ray_line_oracle() {
                                  FOOTPRINT.at(HIT.t),
                        0.0f, 1.0f);
         HS_EXPECT_NEAR(HIT.coverage, EXPECTED, 3e-5f);
+        hits += EXPECTED > 0;
         events.advance(plane);
+        HS_EXPECT_EQ(events.active(plane), expected_active);
       }
     }
   }
+  HS_EXPECT_TRUE(compared > 1000);
+  HS_EXPECT_TRUE(hits > 10);
 }
 
 /** @brief Pins periodic shell traversal budgets. */
