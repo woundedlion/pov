@@ -183,9 +183,8 @@ public:
 private:
   /**
    * @brief Opens a MeshOps entry point by clearing the previous call's outcome.
-   * @details Every entry point calls this first, so getLastResult() and
-   *          getLastAdjusted() describe the call the JS caller just made and
-   *          never a stale earlier one.
+   * @details Result getters, getRegistry() and getArenaMetrics() preserve the
+   *          previous outcome.
    */
   static void begin_mesh_op() {
     last_mesh_op_result = MeshOpResult::OK;
