@@ -12,7 +12,7 @@ of the optimization campaign is kept under
 | | |
 |---|---|
 | Hardware | Teensy 4.0 @ 600 MHz, POV segmented mode, flywheel + DMA ISRs live; standard cycle on COM4, experimental cycle and pinned presets on COM3 (paired captures of one image on both boards agree within 0.06%) |
-| Image | `profile` env; the traced paths run from cached flash (`HS_HOT_FLASH_MEMBER` scans) and cross no `HS_O3` region |
+| Image | `profile` env; the cached shader uses `HS_HOT_FLASH_MEMBER` (`HS_O3_FN` plus `hot`), with no ITCM placement |
 | Driver | `POVSegmented<288, 4, 480>`, board = segment 0 master |
 | Effect | HyperLattice 288×144, single-entry playlist; cycles captured at `b1ccbfa39`, pinned presets at the campaign branch before its rebase onto `67f935538` |
 | Method | `HS_PROFILE` cycle scopes, window 16. Standard cycle: 120 s, `-D HS_PROFILE_EPOCH_REVS=1200`. Experimental cycle: 345 s, `-D HS_ENABLE_HYPERLATTICE_EXPERIMENTS=1 -D HS_PROFILE_EPOCH_REVS=2800`. Per-preset A/B: 30 s pinned captures, `-D HS_PROFILE_PRESET=<i>` |
@@ -175,7 +175,7 @@ during the campaign; each row measures the parameters current at its time.
 - CYCCNT includes ISR time (4.7% of the CPU); it is part of every scope.
 - No per-pixel scopes run in these captures; the campaign's deep captures
   (`HS_PROFILE_DEEP`) were attribution-only and are not timing figures.
-- The traced paths run from cached flash; no `HS_O3` region is on them.
+- The traced shader runs from cached flash as `HS_HOT_FLASH_MEMBER` (`HS_O3_FN` plus `hot`), with no ITCM placement.
 - The experimental presets require `HS_ENABLE_HYPERLATTICE_EXPERIMENTS=1`;
   epoch stretches only lengthen the effect instance, never a frame's cost.
 - The pinned captures ran the campaign branch before its rebase onto master,
