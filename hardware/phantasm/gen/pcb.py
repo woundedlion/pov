@@ -607,7 +607,7 @@ def _rotatable(ref):
 
 
 # R-CON-4: power/debug at the hub, LED/sync at the far end; wire entries face the hub.
-HUB_CONNS = ("J1", "J4")            # logic power in, debug — hub end (left)
+HUB_CONNS = ("J1",)                # logic power in — hub end (left)
 FAR_CONNS = ("J2", "J3A", "J3B")    # strip signal, sync daisy in/out — far end (right)
 
 QUILTER_FIXED = {
@@ -677,7 +677,6 @@ TERMINAL_FIXED = {
     "U_MCU": (25.5, 11.7, 0),
     "C_IN": (20.5, 27.0, 0),
     "C_DEC1": (9.75, 1.35, 0),
-    "J4": (8.5, 28.5, 90),
     "U1": (36.6, 26.5, 180),
     "C_DEC2": (31.3, 30.0, 180),
     "R_D1": (42.2, 27.77, 180),
