@@ -25,7 +25,7 @@
 // render path. The
 // native harness is a 64-bit build, so per-effect footprints measured there
 // can be LARGER than on the 32-bit device wherever a pooled struct embeds a
-// POINTER (ArenaVector's data ptr, Fn's callable ptr, BakedPalette::lut). Do not
+// POINTER (ArenaVector's data ptr, Fn's callable ptr, BakedPalette::colors/alpha_q16). Do not
 // treat the host high-water mark as an exact device figure. Effects tune their
 // own split via configure_arenas() to fit the device budget.
 // The real device FlexRAM (RAM1) arena block, sized from the measured
