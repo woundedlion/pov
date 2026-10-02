@@ -306,3 +306,15 @@ test('checkProfiles validates cross-roster and index contracts', async t => {
     });
   }
 });
+
+
+test('measurement heading drift fails instead of bypassing report comparison', () => {
+  const report = 'README cells: peak 12.3, spilled 0/10.\n';
+  for (const [heading, link] of [['Peak (ms)', 'a.md'], ['Ship peak (ms)', 'shipping/a.md']]) {
+    const errors = [];
+    const index = `| Effect | ${heading} | Spilled |\n| [A](${link}) | 99 | 1/10 |\n`;
+    checkIndexCells(index, link, report, 'index', errors);
+    assert.equal(errors.length, 1);
+    assert.match(errors[0], /has no .*peak\/spilled measurement columns/);
+  }
+});
