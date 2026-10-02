@@ -74,9 +74,9 @@ PROBE_CYC_RE = re.compile(
 PROBE_CYC_FIELDS = ("point", "project", "lut", "convex", "sector", "exact",
                     "pack", "alpha", "tick")
 PROBE_CNT_RE = re.compile(
-    r"^probe counts: probe=(\d+) cull_cos=(\d+) cull_r=(\d+) lut=(\d+) "
+    r"^probe counts: probe=(\d+)(?: cull_cos=\d+)? cull_r=(\d+) lut=(\d+) "
     r"convex=(\d+) sector=(\d+) exact=(\d+) alpha=(\d+)\s*$")
-PROBE_CNT_FIELDS = ("n_probe", "n_cull_cos", "n_cull_r", "n_lut", "n_convex",
+PROBE_CNT_FIELDS = ("n_probe", "n_cull_r", "n_lut", "n_convex",
                     "n_sector", "n_exact", "n_alpha")
 PLOT_RE = re.compile(
     r"^plot counts: r=(\d+),e=(\d+),p=(\d+),g=(\d+),d=(\d+),o=(\d+),"
