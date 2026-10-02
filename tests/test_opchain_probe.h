@@ -366,7 +366,17 @@ inline constexpr TruncateSite TRUNCATE_SITES[] = {
 };
 
 /** Arrival parameter of the two truncate001 recipes. */
-inline constexpr float TRUNCATE001_T_STAR = 0.01f;
+inline const float TRUNCATE001_T_STAR = [] {
+  constexpr auto &RECIPE =
+      Solids::TRUNCATED_ICOSAHEDRON_AMBO_RELAX_TRUNCATE001_HANKIN59_RECIPE;
+  constexpr size_t CAPACITY = Solids::lowered_step_count(RECIPE);
+  Solids::OpStep lowered[CAPACITY];
+  const size_t count = Solids::expand_to_primitives(RECIPE, lowered, CAPACITY);
+  for (size_t i = 0; i < count; ++i)
+    if (lowered[i].op == Solids::Op::TRUNCATE)
+      return lowered[i].param;
+  return 0.0f;
+}();
 
 /**
  * @brief Steps the truncate001 leg from its derived birth floor to 0.01 on the
