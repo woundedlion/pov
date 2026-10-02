@@ -469,7 +469,7 @@ struct Face {
     // angle 0 spiking out to each edge midpoint and back through its corner)
     // encloses no region, but its boundary would still rasterize as a ~1 px
     // AA line; cull it like the phi-extent reject. The residual of an exactly
-    // collapsed face is float noise (< ~1e-6 of radius^2), orders of
+    // collapsed face is float noise (~1e-7 of radius^2), orders of
     // magnitude under the thinnest real sliver a sweep draws, so the
     // threshold decision is identical sim/device. The compare is inclusive so
     // that coincident vertices, which zero both sides, are culled too.
