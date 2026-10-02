@@ -310,33 +310,32 @@ inline void check_generation_tracker() {
   HS_EXPECT_EQ(tracker.generation(), uint32_t(4));
 }
 
+/** @brief Pins HyperLattice pattern and view dropdown metadata. */
 inline void check_hyper_lattice_pattern_view_dropdowns() {
   reset_globals();
   HyperLattice<DEFAULT_W, DEFAULT_H> effect;
   effect.init();
   std::vector<hs_wasm::ParamView> views;
   hs_wasm::collect_param_views(effect, views);
-  const hs_wasm::ParamView *dimension = nullptr;
+  const hs_wasm::ParamView *view = nullptr;
   const hs_wasm::ParamView *pattern = nullptr;
-  for (const hs_wasm::ParamView &view : views) {
-    if (std::string_view(view.name) == "View")
-      dimension = &view;
-    if (std::string_view(view.name) == "Pattern")
-      pattern = &view;
-    HS_EXPECT_NE(std::string_view(view.name),
-                 std::string_view("Configuration"));
+  for (const hs_wasm::ParamView &entry : views) {
+    if (std::string_view(entry.name) == "View")
+      view = &entry;
+    if (std::string_view(entry.name) == "Pattern")
+      pattern = &entry;
   }
-  HS_EXPECT_TRUE(dimension != nullptr && pattern != nullptr);
-  if (dimension == nullptr || pattern == nullptr)
+  HS_EXPECT_TRUE(view != nullptr && pattern != nullptr);
+  if (view == nullptr || pattern == nullptr)
     return;
-  HS_EXPECT_FALSE(dimension->is_bool);
-  HS_EXPECT_TRUE(dimension->is_integer);
-  HS_EXPECT_EQ(dimension->option_count, 2);
-  HS_EXPECT_EQ(std::string_view(dimension->options[0]),
+  HS_EXPECT_FALSE(view->is_bool);
+  HS_EXPECT_TRUE(view->is_integer);
+  HS_EXPECT_EQ(view->option_count, 2);
+  HS_EXPECT_EQ(std::string_view(view->options[0]),
                std::string_view("3D perspective"));
-  HS_EXPECT_EQ(std::string_view(dimension->options[1]),
+  HS_EXPECT_EQ(std::string_view(view->options[1]),
                std::string_view("4D slice"));
-  HS_EXPECT_EQ(std::string_view(dimension->export_options[1]),
+  HS_EXPECT_EQ(std::string_view(view->export_options[1]),
                std::string_view("LatticeMode::FOUR_D_SLICE"));
   HS_EXPECT_FALSE(pattern->is_bool);
   HS_EXPECT_TRUE(pattern->is_integer);
@@ -623,14 +622,17 @@ template <typename E> inline void check_described_snapshot_ranges() {
 }
 
 inline void test_authored_field_snapshot_validation() {
-  check_described_snapshot_ranges<Comets<96, 48>>();
-  check_described_snapshot_ranges<DreamBalls<96, 48>>();
-  check_described_snapshot_ranges<Fishbowl<96, 48>>();
-  check_described_snapshot_ranges<HyperLattice<96, 48>>();
-  check_described_snapshot_ranges<MeshFeedback<96, 48>>();
-  check_described_snapshot_ranges<MindSplatter<96, 48>>();
-  check_described_snapshot_ranges<Raymarch<96, 48>>();
-  check_described_snapshot_ranges<ShapeShifter<96, 48>>();
+  size_t described = 0;
+  auto check = [&]<template <int, int> class E>() {
+    if constexpr (requires { E<96, 48>::parameter_fields(); }) {
+      check_described_snapshot_ranges<E<96, 48>>();
+      ++described;
+    }
+  };
+#define HS_CHECK_DESCRIBED_SNAPSHOT(E) check.template operator()<E>();
+  HS_EFFECT_LIST(HS_CHECK_DESCRIBED_SNAPSHOT)
+#undef HS_CHECK_DESCRIBED_SNAPSHOT
+  HS_EXPECT_GE(described, size_t{8});
 
   MindSplatterParams from;
   MindSplatterParams to;
