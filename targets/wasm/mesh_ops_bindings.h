@@ -386,14 +386,9 @@ public:
    *         tooling_arena; getLastResult() names which. Null
    *         rather than an empty array so a caller can tell "no classification"
    *         from "no faces" with a plain truthiness test.
-   * @details Same tooling-arena lifetime contract as getVertices(): the
-   *          `topology` buffer lives in tooling_arena and is invalidated by the
-   *          next mesh op / arena reset. The `.new_(Int32Array)(view)` form
-   *          *copies* the typed_memory_view into a fresh JS array (it does not
-   *          alias WASM memory), so the result is safe to hold across later
-   *          calls — but if this is ever changed to return the view directly
-   *          (as getPixels and palette compilation do), it MUST be read before
-   *          the next allocation, per that memory-view contract.
+   * @details The mesh's topology buffer lives in tooling_arena until
+   *          clearToolingMemory(). The returned Int32Array is a JS-owned copy,
+   *          valid across later mesh operations and arena resets.
    */
   emscripten::val classifyFaces() {
     begin_mesh_op();
