@@ -77,7 +77,7 @@ class FindKicadCliTests(unittest.TestCase):
 
 class KicadCliTests(unittest.TestCase):
     """Resolution is deferred to first use: find_kicad_cli() exits when no
-    install is the pinned major, and an exit during import takes down every
+    install is the pinned release, and an exit during import takes down every
     test in the importing suite, KiCad-dependent or not."""
 
     def setUp(self):
