@@ -3649,7 +3649,7 @@ struct ThrustersWhiteBox {
     FX effect;
     effect.init();
 
-    constexpr size_t CAPACITY = 16;
+    constexpr size_t CAPACITY = effect.thrusters.capacity();
     constexpr int FIRES = CAPACITY / 2 + 1;
     math::Vector lead[FIRES];
     for (int fire = 0; fire < FIRES; ++fire) {
