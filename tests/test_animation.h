@@ -2124,9 +2124,6 @@ inline void test_sequential_segue_never_overlaps_sprites() {
  * @brief Verifies Segue::Dissolve's complementary masks partition the key
  *        domain: every key is owned by exactly one of the two meshes, and the
  *        incoming share tracks the phase.
- * @details The partition is what caps a two-mesh transition at one mesh's scan
- *          cost, so a mask pair that double-covered or dropped keys would
- *          both corrupt the image and double the frame.
  */
 inline void test_dissolve_segue_masks_partition_keys() {
   constexpr int KA = 64, KB = 32;
@@ -2668,7 +2665,7 @@ struct DriftedGradeSegue : Segue::Base {
  * either alongside face_offset would drop it silently. The NeedsClasses and
  * Masked assertions pin the two contracts an effect must honour: losing
  * Breakdown's reorder degrades it to a uniform fade, losing Dissolve's
- * mask_pair doubles the frame's rasterizer work. The roster assertion pins
+ * mask_pair leaves both edge lists unmasked. The roster assertion pins
  * every shipped policy against the scheduling signature the carousel calls
  * (including the pause gate a shorter override would hide), against Base's
  * phase-hook signatures, and against a LOCAL_SWEEP declared as anything but a
