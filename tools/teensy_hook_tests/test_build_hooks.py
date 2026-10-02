@@ -227,12 +227,17 @@ class TestRequiredHooksReachEveryEnv(unittest.TestCase):
 
     def test_shipping_family_resolves_nano_specs(self):
         cfg = _pio_config()
+        matched = set()
         for name in _pio_envs():
             sources = " ".join(_option_lines(cfg, f"env:{name}", "build_src_filter"))
             if any(f"targets/{target}/" in sources for target in ("Phantasm", "Profile", "Bench")):
+                matched.add(name)
                 with self.subTest(env=name):
                     self.assertIn("pre:tools/teensy_nano.py",
                                   _option_lines(cfg, f"env:{name}", "extra_scripts"))
+
+        self.assertTrue({"phantasm", "phantasm8", "profile", "profile_o3", "bench"} <= matched,
+                        f"shipping environments missing from source selection: {matched}")
 
     def test_base_env_declares_every_required_hook(self):
         # The [env] block is where a new required hook is added; an entry missing
