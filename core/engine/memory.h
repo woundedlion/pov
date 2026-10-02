@@ -1103,8 +1103,8 @@ public:
 
   /**
    * @brief Deleted constructor from a temporary ArenaVector.
-   * @details Borrowing from a temporary would leave the data pointer and (in
-   * debug) source_vec dangling the moment the temporary dies. Forbid it.
+   * @details In debug builds source_vec would dangle when the temporary dies,
+   * even while its arena storage remains live.
    */
   explicit ArenaSpan(const ArenaVector<T> &&) = delete;
 
