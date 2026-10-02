@@ -514,7 +514,7 @@ trace_4d(const math::Vector &direction, const Raycast::PreparedCamera &camera,
                     squares[PAIR.k] + squares[PAIR.l];
         nearest = std::min(nearest, bounds[c]);
       }
-      // Clamped below 2^32; any threshold at or past 2^31 rejects nothing.
+      // Class bounds never exceed 2^29 + 2^31; clamp the threshold below 2^32.
       const uint32_t THRESHOLD = static_cast<uint32_t>(
           fminf(SUPPORT2 * THRESHOLD_SCALE + THRESHOLD_MARGIN, 4294967040.0f));
       if (nearest > THRESHOLD)
