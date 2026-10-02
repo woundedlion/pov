@@ -117,7 +117,8 @@ inline void test_bounded_failures() {
   auto result = Raycast::surface_search(ConstantQuery{}, RAY, {});
   HS_EXPECT_TRUE(result.status == Raycast::TraceStatus::UNRESOLVED);
   HS_EXPECT_TRUE(!result.has_surface);
-  HS_EXPECT_EQ(result.counters.queries, 2);
+  HS_EXPECT_EQ(result.counters.queries,
+               2 * Raycast::TraceLimits{}.max_refinements + 1);
   Raycast::TraceLimits limits;
   limits.max_queries = 1;
   result = Raycast::surface_search(ConstantQuery{}, RAY, {}, limits);
@@ -278,6 +279,23 @@ inline void test_nested_query_validation_once() {
   HS_EXPECT_EQ(query.validations, 1);
 }
 
+inline void test_uncertain_clearance_progress() {
+  struct UncertainQuery : ConstantQuery {
+    Raycast::QueryCapabilities capabilities() const {
+      return {true, true, true, 0.0001f};
+    }
+  };
+  const Raycast::Ray RAY{math::Vector(), math::Vector(1, 0, 0), {0, 0.001f}};
+  Raycast::TraceLimits limits;
+  limits.position_tolerance = 0.0002f;
+  const auto RESULT = Raycast::surface_search(UncertainQuery{{1.0f, 0.00005f}},
+                                              RAY, {}, limits);
+  HS_EXPECT_EQ(RESULT.status, Raycast::TraceStatus::RANGE_COMPLETE);
+  HS_EXPECT_TRUE(!RESULT.has_surface);
+  HS_EXPECT_GT(RESULT.counters.refinements, 0);
+  HS_EXPECT_LT(RESULT.counters.refinements, limits.max_refinements);
+}
+
 inline int run_ray_tests() {
   hs_test::ModuleFixture fixture("ray");
   test_camera();
@@ -288,6 +306,7 @@ inline int run_ray_tests() {
   test_nested_query_validation_once();
   test_limits_and_nonfinite();
   test_first_boundary_and_tolerances();
+  test_uncertain_clearance_progress();
   return fixture.result();
 }
 

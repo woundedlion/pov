@@ -185,6 +185,9 @@ HS_HOT_FLASH_MEMBER TraceResult surface_search(const Query &query,
         emit((t + PROBE_T) * 0.5f, probe);
         return false;
       }
+      t = PROBE_T;
+      result.status = TraceStatus::BUDGET_EXHAUSTED;
+      return true;
     }
     const float STEP = CLEARANCE * 0.9f;
     const float NEXT_T = t + STEP;
