@@ -41,7 +41,7 @@ EXTRACT_PRIV_VIRTUAL   = YES
 # conditionals, so every feature macro the simulator build enables is spelled
 # out here; an omitted one publishes its headers as empty File References.
 # ARDUINO stays undefined: it is exclusive with the host branch of
-# core/platform/platform.h, which carries HS_CHECK, the EVERY_N_* timers and
+# core/platform/platform.h, which carries the EVERY_N_* timers and
 # hs::millis/micros, and taking it would trade those for the three device-only
 # driver headers.
 MACRO_EXPANSION        = YES
