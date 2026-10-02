@@ -2377,6 +2377,8 @@ inline void test_sweep_phase_front_ordering() {
                Segue::sweep_phase(0.5f, 0.8f, band));
 }
 
+inline void build_octahedron(PolyMesh &mesh, Arena &arena);
+
 /** @brief Pins sweep coordinate selection and transformed topology slots. */
 inline void test_meshcarousel_face_phases_use_sweep_frame_and_slots() {
   hs_test::reset_globals();
@@ -2393,9 +2395,12 @@ inline void test_meshcarousel_face_phases_use_sweep_frame_and_slots() {
   }
   base.topology.bind(persistent_arena, base.num_faces());
   transformed.topology.bind(persistent_arena, transformed.num_faces());
+  base.topology.clear();
+  transformed.topology.clear();
   for (size_t face = 0; face < base.num_faces(); ++face) {
     base.topology.push_back(0);
-    transformed.topology.push_back(static_cast<uint16_t>(face + 19));
+    transformed.topology.push_back(
+        static_cast<uint16_t>(MeshPaletteBank::N + 1));
   }
   ArenaVector<float> phases;
   phases.bind(persistent_arena, base.num_faces());
@@ -2405,7 +2410,7 @@ inline void test_meshcarousel_face_phases_use_sweep_frame_and_slots() {
     if constexpr (requires { carousel.segue().retarget(math::Y_AXIS); })
       carousel.segue().retarget(math::Y_AXIS);
     else {
-      carousel.segue().num_classes = 16;
+      carousel.segue().num_classes = 2;
       for (int i = 0; i < 16; ++i)
         carousel.segue().rank[i] = static_cast<uint8_t>(i);
     }
