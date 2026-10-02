@@ -272,7 +272,9 @@ inline void check_roster_order_pinned() {
                                               "Raymarch",
                                               "RingShower",
                                               "RingSpin",
+#if HS_ENABLE_CHAIN_INTERPRETER
                                               "ShaderChain",
+#endif
                                               "ShapeShifter",
                                               "AlienBrain",
                                               "SphericalHarmonics",
