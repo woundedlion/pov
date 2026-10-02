@@ -136,9 +136,9 @@ public:
    * @return What was discarded, for caller telemetry.
    * @details Usually a beacon that overran its pre-HALF window under a masked-ISR
    * coast, but a boundary symbol masked for most of a half-rev can also still
-   * have undrained pulses. Either way the burst is stale, and schedule_boundary
-   * would clobber it silently; dropping it first is what turns the discard into
-   * telemetry (degrade to missed, never to wrong).
+   * have undrained pulses. schedule_boundary() refuses an active emission;
+   * this discard makes room for the new boundary symbol and reports its kind
+   * for telemetry.
    */
   DroppedBurst drop_pending_emission() {
     if (pulses_left == 0 && queue_pos >= queue_len)
