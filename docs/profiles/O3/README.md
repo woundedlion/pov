@@ -50,9 +50,9 @@ whose render exceeded one 62.5 ms display interval. Rows rank by spill fraction,
 
 ● Architecture captures refreshed 2026-10-01: MindSplatter, HyperLattice, LatticeMelt, ChromaticLichen and KaleidoscopeSmooth. Setup frame 1 is excluded. Cycler buckets include every live owner-attributed transition frame; each report lists per-preset peaks, fractions and the worst preset. Captured times are local raw-log mtimes.
 
-IslamicStars refreshed on 2026-09-28 from current baseline source; setup frame 1 excluded. Unlanded convex-face AA measurements are in the separate comparison.
+IslamicStars refreshed on 2026-09-28 from current baseline source; setup frame 1 excluded.
 
-HankinSolids refreshed on 2026-09-28 from current baseline source; setup frame 1 excluded. Unlanded convex-face AA measurements are in the separate comparison.
+HankinSolids refreshed on 2026-09-28 from current baseline source; setup frame 1 excluded.
 
 ShapeShifter refreshed on 2026-09-25: N counts nine distinct presets, merging repeated visits after wrap. Its runtime buckets exclude setup frame 1 and include transitions.
 
