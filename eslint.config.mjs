@@ -1,7 +1,7 @@
 // JavaScript lint rules for first-party tooling, enforced by the CI lint job.
 //
-// The recommended set only -- the rules that catch defects (undeclared names,
-// unreachable code, duplicate keys, unused bindings). No stylistic rules and no
+// Recommended defect rules (undeclared names, unreachable code, duplicate keys,
+// unused bindings), plus checks for counted test assertions. No stylistic rules and no
 // formatter: the tree passes this unmodified, so the gate reports real breakage
 // rather than layout opinions.
 import js from '@eslint/js';
