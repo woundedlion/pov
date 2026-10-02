@@ -1063,9 +1063,7 @@ inline void test_col_span_covers_arc() {
     }
 
     // Dense ground truth along the renderer's own circle.
-    math::Vector axis = (std::abs(math::PI_F - ang) < math::TOLERANCE)
-                            ? Plot::stable_perpendicular_axis(a)
-                            : math::cross(a, b).normalized();
+    math::Vector axis = Plot::make_geodesic_edge_span(a, b).axis;
     math::Vector vperp = math::cross(axis, a);
     constexpr int N = 1000;
     for (int i = 0; i <= N; ++i) {
