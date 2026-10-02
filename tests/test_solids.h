@@ -49,13 +49,16 @@ struct FlippedWinding : Solids::Tetrahedron {
   }();
 };
 struct OpenEdges : Solids::Tetrahedron {
-  static constexpr std::array<uint8_t, 2> face_counts{3, 3};
-  static constexpr auto faces = [] {
-    std::array<int, 6> result{};
-    for (size_t i = 0; i < result.size(); ++i)
-      result[i] = Solids::Tetrahedron::faces[i];
+  static constexpr auto vertices = [] {
+    std::array<math::Vector, 5> result{};
+    for (size_t i = 0; i < Solids::Tetrahedron::vertices.size(); ++i)
+      result[i] = Solids::Tetrahedron::vertices[i];
+    result[4] = result[0];
     return result;
   }();
+  static constexpr std::array<uint8_t, 3> face_counts{4, 4, 4};
+  static constexpr std::array<int, 12> faces{0, 1, 2, 3, 0, 2,
+                                             4, 1, 0, 3, 4, 2};
 };
 struct EulerViolation : Solids::Tetrahedron {
   static constexpr auto vertices = [] {
