@@ -24,8 +24,8 @@
       "resolutions": [[96, 20], [288, 144]],
       "sampling": "pixel centers",
       "aggregation": "maximum absolute premultiplied linear-u16 channel delta",
-      "exact_callable": "capture ShaderWorkbenchWhiteBox::exact_peirce_shade with exact Peirce square projection",
-      "optimized_callable": "ShaderWorkbench compiled preset-4 shade callable",
+      "exact_callable": "tools/pullback_capture_native.cpp exact_shade(PEIRCE_FAST_SQUARE), using hs_test::shader_chain_tests::ShaderChainWhiteBox",
+      "optimized_callable": "ShaderChain compiled preset-4 shade callable",
       "probes": [
         {
           "preset": 4,
@@ -42,7 +42,7 @@
       "measured_baseline": 0.00113964080810546875,
       "accepted_limit": 0.0012,
       "unit": "plane units",
-      "limit_provenance": "existing ShaderWorkbench fast-square release budget",
+      "limit_provenance": "ShaderChain fast-square release budget",
       "measurement_provenance": "native Debug clang 23 exact-versus-fast latitude-longitude corpus; reproduced in the pre-review main-tree binary and review worktree on 2026-09-24"
     },
     {
@@ -51,7 +51,7 @@
       "measured_baseline": 0.000126481056,
       "accepted_limit": 0.0002,
       "unit": "plane units",
-      "limit_provenance": "existing ShaderWorkbench fast-square edge oracle",
+      "limit_provenance": "ShaderChain fast-square edge oracle",
       "measurement_provenance": "native Debug clang 23 exact-versus-fast latitude-longitude corpus; reproduced in the pre-review main-tree binary and review worktree on 2026-09-24"
     },
     {
