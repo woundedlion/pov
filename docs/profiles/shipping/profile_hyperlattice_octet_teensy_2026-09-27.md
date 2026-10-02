@@ -103,7 +103,7 @@ isr_dma_submit   288.0/f 0.620/0.945/ 4.690 us  0.22%
 
 Per-call minimum/mean/maximum followed by CPU share. Combined ISR share is 4.93%, leaving approximately 59.417 ms foreground time per display interval. Rendering measurements already include interrupts; do not subtract them twice. Mean/peak render require 1.30×/1.39× reduction to fit one display interval.
 
-Pack performs the CPU-side LED marshaling; submit starts asynchronous DMA. The 600-byte LED/strobe payload takes approximately 400 µs at 12 MHz on the wire.
+Pack performs the CPU-side LED marshaling; submit starts asynchronous DMA. The 600-byte LED/strobe payload takes approximately 230 µs at the requested 24 MHz (LPSPI framing model) on the wire.
 
 ### 4D
 
@@ -115,7 +115,7 @@ isr_dma_submit   434.0/f 0.640/0.945/ 1.257 us  0.22%
 
 Per-call minimum/mean/maximum followed by CPU share. Combined ISR share is 4.87%, leaving approximately 59.458 ms foreground time per display interval. Rendering measurements already include interrupts; do not subtract them twice. Mean/peak render require 2.84×/3.01× reduction to fit one display interval.
 
-Pack performs the CPU-side LED marshaling; submit starts asynchronous DMA. The 600-byte LED/strobe payload takes approximately 400 µs at 12 MHz on the wire.
+Pack performs the CPU-side LED marshaling; submit starts asynchronous DMA. The 600-byte LED/strobe payload takes approximately 230 µs at the requested 24 MHz (LPSPI framing model) on the wire.
 
 ## Summary ranking
 
