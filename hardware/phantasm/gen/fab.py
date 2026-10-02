@@ -1214,7 +1214,7 @@ def validate_zone_geometry(pcb_path, min_pours=MIN_COPPER_POURS, board=None):
             if len(pad) < 3 or pad[2] != "thru_hole" or net_name(pad) not in poured_nets:
                 continue
             connection = sexp.val(pad, "zone_connect", [])
-            if not connection or connection[0] == "0":
+            if not connection:
                 connection = sexp.val(footprint, "zone_connect", [])
             if connection and str(connection[0]) == "2":
                 diagnostics.append(
