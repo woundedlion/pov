@@ -26,9 +26,10 @@
  * @brief Represents a "Fragment" or a potential pixel/vertex with associated
  * data registers.
  * @details A rasterizer refreshes only the fields its own documentation names;
+ * age is an in/out register carried forward unless refreshed. Other
  * unrefreshed input registers are NaN in debug builds and stale in release.
  * A shader must write color unconditionally and may read only registers
- * refreshed by its rasterizer or written by the shader itself.
+ * refreshed by its rasterizer or written by the shader itself, plus age.
  * Scan::process_pixel and Scan::DistortedRingStack refresh every field;
  * Scan::RingGroup refreshes pos, v2, size, age and color; Scan::rasterize_face
  * with MinimalFragment refreshes v1 alone.
