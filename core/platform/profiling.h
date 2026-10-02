@@ -60,16 +60,15 @@ struct ProbeBreakdown {
   uint32_t edge_exact = 0;  /**< Cycles: full per-edge walk. */
   uint32_t pack =
       0; /**< Cycles: plane->angle conversion and result packaging. */
-  uint32_t alpha = 0;   /**< Cycles: scan-side AA coverage kernel. */
-  uint32_t tick = 0;    /**< Cycles: summed back-to-back counter-read pairs. */
-  uint32_t n_probe = 0; /**< Probes entered. */
-  uint32_t n_cull_cos = 0; /**< Reserved legacy counter; always zero. */
-  uint32_t n_cull_r = 0;   /**< Probes leaving at the radial cull. */
-  uint32_t n_lut = 0;      /**< Probes served by the class LUT. */
-  uint32_t n_convex = 0;   /**< Probes taking the convex path. */
-  uint32_t n_sector = 0;   /**< Probes taking the sector walk. */
-  uint32_t n_exact = 0;    /**< Probes taking the full edge walk. */
-  uint32_t n_alpha = 0;    /**< Probes reaching the AA coverage kernel. */
+  uint32_t alpha = 0;    /**< Cycles: scan-side AA coverage kernel. */
+  uint32_t tick = 0;     /**< Cycles: summed back-to-back counter-read pairs. */
+  uint32_t n_probe = 0;  /**< Probes entered. */
+  uint32_t n_cull_r = 0; /**< Probes leaving at the radial cull. */
+  uint32_t n_lut = 0;    /**< Probes served by the class LUT. */
+  uint32_t n_convex = 0; /**< Probes taking the convex path. */
+  uint32_t n_sector = 0; /**< Probes taking the sector walk. */
+  uint32_t n_exact = 0;  /**< Probes taking the full edge walk. */
+  uint32_t n_alpha = 0;  /**< Probes reaching the AA coverage kernel. */
   /** @brief Zeroes every bucket and count. */
   void reset() { *this = {}; }
 };

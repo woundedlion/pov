@@ -392,7 +392,7 @@ class ProbeBreakdownLines(unittest.TestCase):
     # 100 probes; tick = 100 read pairs at 10 cyc => read = 5 cyc/read.
     CYC = ("probe cycles: point=1500 project=3000 lut=0 convex=500 "
            "sector=2000 exact=4000 pack=1200 alpha=400 tick=1000")
-    CNT = ("probe counts: probe=100 cull_cos=4 cull_r=6 lut=0 convex=20 "
+    CNT = ("probe counts: probe=100 cull_r=6 lut=0 convex=20 "
            "sector=30 exact=40 alpha=50")
 
     def _log(self, path, cyc=CYC, cnt=CNT):
@@ -417,6 +417,12 @@ class ProbeBreakdownLines(unittest.TestCase):
         self.assertEqual(w.probe["exact"], 4000)
         self.assertEqual(w.probe["n_exact"], 40)
         self.assertEqual(w.probe["tick"], 1000)
+
+    def test_unused_counter_column_does_not_change_live_counts(self):
+        counts = self.CNT.replace("probe=100", "probe=100 cull_cos=4")
+        parsed = self._parse(cnt=counts)[0].probe
+        self.assertEqual(parsed["n_cull_r"], 6)
+        self.assertNotIn("n_cull_cos", parsed)
 
     def test_absent_lines_leave_probe_none(self):
         self.assertIsNone(self._parse(cyc=None, cnt=None)[0].probe)

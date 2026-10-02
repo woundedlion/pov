@@ -559,12 +559,11 @@ private:
   struct ProbeTotals {
     uint64_t point = 0, project = 0, lut = 0, convex = 0, sector = 0, exact = 0;
     uint64_t pack = 0, alpha = 0, tick = 0;
-    uint64_t n_probe = 0, n_cull_cos = 0, n_cull_r = 0, n_lut = 0, n_convex = 0;
+    uint64_t n_probe = 0, n_cull_r = 0, n_lut = 0, n_convex = 0;
     uint64_t n_sector = 0, n_exact = 0, n_alpha = 0;
     void reset() {
       point = project = lut = convex = sector = exact = pack = alpha = tick = 0;
-      n_probe = n_cull_cos = n_cull_r = n_lut = n_convex = n_sector = n_exact =
-          n_alpha = 0;
+      n_probe = n_cull_r = n_lut = n_convex = n_sector = n_exact = n_alpha = 0;
     }
   };
 
@@ -585,7 +584,6 @@ private:
     probe_totals.alpha += b.alpha;
     probe_totals.tick += b.tick;
     probe_totals.n_probe += b.n_probe;
-    probe_totals.n_cull_cos += b.n_cull_cos;
     probe_totals.n_cull_r += b.n_cull_r;
     probe_totals.n_lut += b.n_lut;
     probe_totals.n_convex += b.n_convex;
@@ -612,12 +610,12 @@ private:
             hs::u64_dec(t.sector, b4), hs::u64_dec(t.exact, b5),
             hs::u64_dec(t.pack, b6), hs::u64_dec(t.alpha, b7),
             hs::u64_dec(t.tick, b8));
-    hs::log("probe counts: probe=%s cull_cos=%s cull_r=%s lut=%s convex=%s "
+    hs::log("probe counts: probe=%s cull_r=%s lut=%s convex=%s "
             "sector=%s exact=%s alpha=%s",
-            hs::u64_dec(t.n_probe, b0), hs::u64_dec(t.n_cull_cos, b1),
-            hs::u64_dec(t.n_cull_r, b2), hs::u64_dec(t.n_lut, b3),
-            hs::u64_dec(t.n_convex, b4), hs::u64_dec(t.n_sector, b5),
-            hs::u64_dec(t.n_exact, b6), hs::u64_dec(t.n_alpha, b7));
+            hs::u64_dec(t.n_probe, b0), hs::u64_dec(t.n_cull_r, b2),
+            hs::u64_dec(t.n_lut, b3), hs::u64_dec(t.n_convex, b4),
+            hs::u64_dec(t.n_sector, b5), hs::u64_dec(t.n_exact, b6),
+            hs::u64_dec(t.n_alpha, b7));
     probe_totals.reset();
   }
 
