@@ -1890,7 +1890,7 @@ inline void test_palette_modifiers() {
   HS_EXPECT_NEAR(fold.modify(0.25f), 0.5f, 1e-5f);
   HS_EXPECT_NEAR(fold.modify(0.5f), 0.0f, 1e-5f);
 
-  // Breathe with a zero-phase driver is identity; a quarter-turn shifts by amp.
+  // Breathe is identity at phase zero and refreshes its memo when phase changes.
   float phase0 = 0.0f;
   BreatheModifier breathe(&phase0, .1f);
   HS_EXPECT_NEAR(breathe.modify(.5f), .5f, 1e-3f);
@@ -2238,6 +2238,7 @@ inline void test_chroma_pulse_shade() {
   float zero = 0.0f;
   ChromaPulseShade flat(&zero, 0.3f);
   Color4 same = flat.shade(mid, 0.2f);
+  // ChromaPulseShade refreshes its memo when phase changes.
   zero = math::PI_F * .5f;
   HS_EXPECT_EQ(flat.shade(mid, .2f).color,
                ChromaPulseShade(&zero, .3f).shade(mid, .2f).color);
