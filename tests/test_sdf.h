@@ -1252,6 +1252,8 @@ inline void test_twist_axis_threshold_siblings_agree() {
   }
 }
 
+constexpr double PI_DBL = 3.14159265358979323846;
+
 /**
  * @brief Exact distance from a point to a twisted torus surface, by brute force.
  * @param p Query point.
@@ -1259,14 +1261,13 @@ inline void test_twist_axis_threshold_siblings_agree() {
  * @param r Minor radius.
  * @param n Twist count.
  * @param A Twist amplitude.
+ * @param steps Number of theta samples around the surface.
  * @return The unsigned distance to the warped surface.
  * @details The surface is the union over theta of tube circles of radius r
  * centered at (R cos t, A sin(n t), R sin t) in the plane spanned by the radial
  * direction at t and the y axis, so the tube angle is solved in closed form and
  * only theta is sampled.
  */
-constexpr double PI_DBL = 3.14159265358979323846;
-
 inline double twisted_torus_distance(const math::Vector &p, double R, double r,
                                      int n, double A, int steps) {
   double best = 1e30;
