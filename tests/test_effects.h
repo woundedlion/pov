@@ -2,7 +2,7 @@
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
  * Licensed under the PolyForm Noncommercial License 1.0.0
  *
- * Effect smoke / robustness harness — exercises all registered effects.
+ * Per-effect sweep primitives and the effects white-box suite.
  *
  * Defines the per-effect sweep primitives:
  *   1. smoke_one  — construct/init/render/read-back, under native asserts.
@@ -162,8 +162,9 @@ typename E::Params preset_params_or_initial(size_t index) {
  * @details Verifies the effect constructs, init's, renders smoke_frames()
  * frames, and reads back every pixel without tripping an assert/OOB/hang, and
  * that get_pixel still aliases the displayed buffer once another frame has been
- * rendered and flipped in. Runs the dead-slider lint once on
- * the <SMALL_W,SMALL_H> pass, which both depth tiers execute. Finally requires
+ * rendered and flipped in. Runs the dead-slider and animated-pause lints on
+ * the <SMALL_W,SMALL_H> pass, which both depth tiers execute; the pause lint
+ * renders at least 500 extra frames and leaves the effect paused. Finally requires
  * the effect to have overflowed no timeline event over its whole lifetime: a
  * drop is the one soft-degrade in the animation subsystem, and only this
  * per-effect delta attributes it.
