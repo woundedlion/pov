@@ -668,17 +668,15 @@ inline void oklab_to_linear_rgb_ref(double L, double a, double b, double &r,
 }
 
 /**
- * @brief First-exit chroma along a constant-lightness ray, in double precision.
+ * @brief Estimates first-exit chroma from a sampled ray in double precision.
  * @param L Lightness held fixed.
  * @param ad Unit OKLab a of the hue direction.
  * @param bd Unit OKLab b of the hue direction.
- * @param cap Largest chroma considered; returned when the ray never exits.
- * @return The smallest chroma above zero that leaves linear_rgb_in_gamut.
- * @details First exit, not "largest in-gamut chroma": the gate's tolerance lets
- *          a channel graze a face, leave the tolerance and re-enter, so the
- *          in-gamut set along a ray is occasionally disconnected. The boundary
- *          of the component containing zero chroma is the one that matters, so
- *          the scan stops at the first out-of-range sample and bisects there.
+ * @param cap Largest chroma considered; returned when all samples are in gamut.
+ * @return The in-gamut bisection endpoint preceding the first outside sample.
+ * @details Scans 512 intervals and bisects the first sampled exit. The gate's
+ *          tolerance permits disconnected in-gamut intervals, so an outside
+ *          interval narrower than the sampling step can be missed.
  */
 inline double gamut_first_exit_ref(double L, double ad, double bd, double cap) {
   const double lo_b = -1e-4, hi_b = 1.0 + 1e-4;
@@ -710,12 +708,12 @@ inline double gamut_first_exit_ref(double L, double ad, double bd, double cap) {
 }
 
 /**
- * @brief Verifies the angular gamut-boundary lookup lands on the sRGB first
- *        exit, and agrees with the direction overload it forwards to.
+ * @brief Bounds the angular gamut-boundary lookup against the sampled exit
+ *        reference and checks agreement with the direction overload.
  * @details The forwarder is one line, so the equality on its own could only
  *          ever catch an argument transposition. The double-precision oracle is
- *          what makes the returned chroma load-bearing: it must sit just inside
- *          the first exit along the ray, never past it and never far below.
+ *          what makes the returned chroma load-bearing: sampled rays must stay
+ *          within the overshoot and deficit bounds of that reference estimate.
  *          Lightness runs to both ends of the sixteenth grid, past the
  *          [0.1, 0.9] band the sweeps below report, where the bracket widens.
  */
@@ -739,8 +737,8 @@ inline void test_gamut_direction_lookup_matches_angle() {
 }
 
 /**
- * @brief Bounds in-gamut clipping's first-exit deficit and rare walk residue.
- * @details First-exit overshoot beyond float rounding is limited in frequency
+ * @brief Bounds clipping's deficit and residue against the sampled exit reference.
+ * @details Reference overshoot beyond float rounding is limited in frequency
  *          and magnitude, including a ray with a disconnected in-gamut interval.
  * @param path Label naming which reduction path is armed, for failure context.
  */
@@ -789,8 +787,7 @@ inline void expect_clip_lands_on_first_exit(const char *path) {
 }
 
 /**
- * @brief Verifies the chroma-reduction map lands on the gamut's first exit off
- *        the flash master, the grid every effect that arms nothing runs on.
+ * @brief Bounds flash-master clipping against the sampled exit reference.
  * @details Runs the shared sweep with no arena LUT armed.
  */
 inline void test_gamut_master_clip_lands_on_first_exit() {
@@ -824,7 +821,7 @@ inline constexpr int TEST_GAMUT_ANGLE_STEPS = GAMUT_LUT_MIN_ANGLE_STEPS;
 inline constexpr int TEST_GAMUT_L_STEPS = GAMUT_LUT_MIN_L_STEPS;
 
 /**
- * @brief Bounds the coarsest bracket grid's first-exit deficit and walk residue.
+ * @brief Bounds coarsest-grid clipping against the sampled exit reference.
  * @details Uses the same in-gamut and chroma bounds as the flash-master sweep.
  */
 inline void test_gamut_lut_clip_lands_on_first_exit() {
