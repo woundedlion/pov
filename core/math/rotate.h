@@ -32,7 +32,8 @@ inline float mod_tau(float n) { return n - floorf(n / tau) * tau; }
 /**
  * @brief Wraps a floating-point index into [0, m), preserving the fraction.
  * @param x Source index, may be negative.
- * @param m Modulus (exclusive upper bound), must be positive.
+ * @param m Modulus (exclusive upper bound), in [1, INT_MAX/2].
+ * @pre floorf(x) is representable as an int.
  * @return Wrapped index in [0, m) with the original fractional part retained.
  * @details Uses floorf (not a truncating cast) so negative inputs floor toward
  *  -inf, and the double-mod `((i % m) + m) % m` keeps the integer part
