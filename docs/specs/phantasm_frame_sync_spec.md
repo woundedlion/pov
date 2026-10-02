@@ -225,8 +225,7 @@ still run only on a column change, at the same 2304 Hz as before.
 *idempotent* when `x_target` equals the column it last rendered (early or
 beat-frequency double wake: do nothing) and *skip-tolerant* when `x_target` has
 jumped (late or coalesced wake: render the time-correct column, never
-back-fill the skipped ones — they were masked precisely because the strip was
-busy).
+back-fill the skipped ones).
 
 **Clock source and rebase rule (load-bearing — resolves §11.2).** The clock is
 `DWT->CYCCNT`: highest resolution (1.67 ns), zero cost to read. It is 32-bit at
