@@ -456,8 +456,7 @@ private:
   /**
    * @brief Sentinel a completed wipe writes into its boundary slot so
    *        reap_completed_wipes() can collapse it.
-   * @details Set well above the live boundary range [0, PI] so it can never
-   *          collide with an in-flight value.
+   * @details The live range is [-WIPE_BLEND_WIDTH, PI + WIPE_BLEND_WIDTH].
    */
   static constexpr float WIPE_COMPLETE = 100.0f;
 #if HS_RUNTIME_DISPLAY_GEOMETRY
