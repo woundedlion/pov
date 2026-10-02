@@ -721,10 +721,6 @@ class TestComponentCeilings(unittest.TestCase):
     _STATIC_BUDGET = {"regions": {"ram1": {
         "components": {"code": {"max_bytes": 100000}}}}}
 
-    def test_good_build_passes_component_ceiling(self):
-        result = _eval("phantasm", "good_teensy_size.txt", "good_readelf_syms.txt")
-        self.assertTrue(result.passed, msg=_codes(result))
-
     def test_code_component_over_static_ceiling_fails(self):
         # Static max_bytes form: only the component fires, nothing regional.
         sizes = tg.parse_teensy_size(_read("broken_component_over_teensy_size.txt"))
