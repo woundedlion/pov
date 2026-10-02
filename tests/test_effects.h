@@ -3458,8 +3458,8 @@ inline bool palette_snapshots_equal(const GenerativePalette::Snapshot &a,
 
 /**
  * @brief Pins Comets' mid-wipe rollover skip.
- * @details At the Cycle Dur floor the rollover timer's period is shorter than
- *          WIPE_FRAMES, so it can fire while a ColorWipe is still animating.
+ * @details A future dwell shorter than WIPE_FRAMES could trigger a rollover
+ *          while a ColorWipe is still animating.
  *          The guard drops that rollover; without it the second wipe would
  *          overwrite palette_start/palette_target, which the live ColorWipe
  *          still holds references to. Both wipes still render, so the smoke
