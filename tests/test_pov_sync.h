@@ -2749,7 +2749,8 @@ inline void test_sim_reboot(const Config &cfg) {
       sim.run_until([](Sim &s) { return s.boards[2].live; },
                     double(cfg.beacon_period_revs + cfg.join_grid_revs) + 4));
   HS_EXPECT_LE(sim.g - reboot_at,
-               uint64_t(cfg.rejoin_bound_revs()) * 2 * PERIOD);
+               uint64_t(cfg.beacon_period_revs + cfg.join_grid_revs + 1) * 2 *
+                   PERIOD);
   HS_EXPECT_EQ(b2.live_index, sim.boards[0].live_index);
   HS_EXPECT_TRUE(
       sim.run_until([](Sim &s) { return s.board_pos(0) == 72; }, 1.1));
