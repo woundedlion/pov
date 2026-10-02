@@ -129,7 +129,7 @@ The ISR share is included in every scope above, since CYCCNT free-runs.
 2. `pov_preserve_half` — 0% of the peak window, 0.14 ms/f.
 3. `ss_timeline_step` — 0% of the peak window, 0.05 ms/f.
 
-At the pinned entry-1 peak the remaining cost splits roughly into `Plot::rasterize` samples inside pole pieces (~850 cycles each), chord-walk splats (~370 cycles each, ~270 of them the sink's `plot`), and anchor projection. The rasterizer's per-sample cost is shared core code: it pays roughly five divides and three square roots per sample plus `vmrs` syncs from float `std::min/max` in `screen_step_components`.
+At the pinned entry-1 peak the remaining cost splits roughly into `Plot::rasterize` samples inside pole pieces (~850 cycles each), chord-walk splats (~370 cycles each, ~270 of them the sink's `plot`), and anchor projection. The rasterizer's per-sample cost is shared core code: it pays roughly five divides and three square roots per sample.
 
 README cells: peak 🟢 53.22 (9), spilled 🟢 0/2448 (0.00%).
 
