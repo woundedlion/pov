@@ -323,9 +323,8 @@ inline void test_fast_cbrt3() {
  *        documented ~2.3e-5 error against cbrtf across its usable domain.
  * @details The shared reciprocal re-associates the arithmetic, so agreement
  *          with fast_cbrt is ~4e-7 relative rather than exact. Also pins the
- *          x<=0 -> 0 clamp and the ~4.2e5 ceiling above which the
- *          six-denominator product overflows: a future caller widening the
- *          input range past the u16-magnitude domain trips this.
+ *          x<=0 -> 0 clamp and accuracy below the ~4.2e5 numerator-overflow
+ *          ceiling, catching algorithm changes that lower that ceiling.
  */
 inline void test_fast_cbrt6() {
   // Agreement with the scalar helper across the u16-magnitude LMS range.
