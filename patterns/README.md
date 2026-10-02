@@ -61,6 +61,12 @@ Seven documents are authored directly in this directory: `ash_cloud`,
 `chromatic_lichen`, `mermaid_skin`, `example`, `kaleidoscope_hex_oil`,
 `kaleidoscope_smooth` and `lattice_melt`. Edit these version 2 documents here.
 
+After editing any document, run `node scripts/generate_composed_presets.mjs`
+to refresh its effect header. Documents use canonical serialization: sorted
+keys, two-space indentation and LF endings.
+`node scripts/generate_promoted_shader_documents.mjs --check` verifies that
+serialization and generated-document freshness.
+
 The engine installs its top-level pattern documents and `catalog.json` into
 `daydream/generated/shader/patterns/`. The catalog is a manifest:
 `source_documents` maps each current effect identity to its authoring document,
