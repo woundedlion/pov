@@ -75,6 +75,12 @@ public:
         persistent_arena.allocate_n<std::max_align_t>(
             Pullback::Interp::CHAIN_ARENA_BYTES / sizeof(std::max_align_t)));
     program.bind_storage(block_a, block_b);
+#if HS_ENABLE_PARAM_GUI_BRIDGE
+    static_assert(CANDIDATE_BYTES % sizeof(std::max_align_t) == 0);
+    candidates = reinterpret_cast<uint8_t (*)[PARAM_BYTES]>(
+        persistent_arena.allocate_n<std::max_align_t>(
+            CANDIDATE_BYTES / sizeof(std::max_align_t)));
+#endif
 
     generated_palettes.init(persistent_arena, DEFAULT_CHROMA,
                             math::ease_in_out_sin);
@@ -269,8 +275,6 @@ public:
   update_parameters(std::span<const ShaderChainParameterWrite> writes) {
     if (writes.size() > Pullback::Interp::MAX_CHAIN_PARAMS)
       return ParamSetResult::TOO_LONG;
-    alignas(std::max_align_t)
-        uint8_t candidates[Pullback::Interp::MAX_CHAIN_OPS][PARAM_BYTES];
     const auto ops = program.ops();
     for (size_t index = 0; index < ops.size(); ++index) {
       const auto &runtime = ops[index].op->runtime;
@@ -457,6 +461,10 @@ private:
            alignof(std::max_align_t) * alignof(std::max_align_t);
   }();
 
+  static constexpr size_t CANDIDATE_BYTES =
+      Pullback::Interp::MAX_CHAIN_OPS * PARAM_BYTES;
+  uint8_t (*candidates)[PARAM_BYTES] = nullptr;
+
   bool parameter_write_admitted(const ParamDef &parameter,
                                 float value) override {
     const auto ops = program.ops();
@@ -552,6 +560,9 @@ private:
       PARAM_CAPACITY * sizeof(ParamDef) + sizeof(Resources) +
       alignof(Resources) +
       2 * (Pullback::Interp::CHAIN_ARENA_BYTES + alignof(std::max_align_t)) +
+#if HS_ENABLE_PARAM_GUI_BRIDGE
+      CANDIDATE_BYTES + alignof(std::max_align_t) +
+#endif
       GeneratedPaletteBank::required_arena_bytes();
   static_assert(FOOTPRINT_BYTES <= WASM_PERSISTENT_BUDGET,
                 "ShaderChain persistent footprint exceeds the browser "
