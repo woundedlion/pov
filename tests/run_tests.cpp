@@ -404,7 +404,7 @@ static int check_modules(int argc, char **argv) {
  */
 int main(int argc, char **argv) {
 #if defined(_WIN32)
-  SetErrorMode(0x0001u | 0x0002u);
+  SetErrorMode(SEM_FAILCRITICALERRORS | SEM_NOGPFAULTERRORBOX);
   _set_error_mode(_OUT_TO_STDERR);
   _set_abort_behavior(0, _WRITE_ABORT_MSG | _CALL_REPORTFAULT);
   _CrtSetReportMode(_CRT_ASSERT, _CRTDBG_MODE_FILE);
