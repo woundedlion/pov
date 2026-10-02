@@ -627,9 +627,9 @@ private:
 #else
     constexpr unsigned long WATCHDOG_US = BUFFER_FREE_WATCHDOG_US;
 #endif
-    const unsigned long wait_start = micros();
+    const uint32_t wait_start = static_cast<uint32_t>(micros());
     while (!effect.buffer_free()) {
-      HS_CHECK(micros() - wait_start < WATCHDOG_US,
+      HS_CHECK(static_cast<uint32_t>(micros()) - wait_start < WATCHDOG_US,
                "buffer_free watchdog timeout — display ISR stalled");
 #if HS_ENABLE_TEST_HOOKS
       s_buffer_free_spins.fetch_add(1, std::memory_order_relaxed);
