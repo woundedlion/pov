@@ -208,7 +208,7 @@ public:
    * @param zero_crossing True if the flip that opened the window was a ZERO
    *        crossing (opens the arm-A-left [0,W/2) half-rev).
    * @details The relaxed store is ordered ahead of the caller's
-   *          advance_display() by that call's release fence, so a foreground
+   *          advance_display() by its release store to prev, so a foreground
    *          released from buffer_free() reads this window's half and not the
    *          previous one.
    */
