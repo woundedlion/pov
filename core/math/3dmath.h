@@ -1086,7 +1086,7 @@ struct RotationMatrix {
   /**
    * @brief Expands a unit quaternion into its rows.
    * @param q The unit rotation quaternion.
-   * @pre `q` is unit magnitude; a non-unit q scales the rows and the error is
+   * @pre `q` is unit magnitude; a non-unit q distorts the transform and the error is
    *      baked into every vector the cached object goes on to rotate.
    */
   explicit RotationMatrix(const Quaternion &q) {
