@@ -383,8 +383,8 @@ inline Pixel::operator CRGB() const {
 // Blending Functions
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-// Packs g|b into the low add lane and r into a separate lane (its high halfword
-// stays 0, so uqadd16's upper add is a harmless 0+0).
+// Packs g into the high lane and b into the low lane of one word.
+// A second word holds r alone, with a zero high lane.
 inline Pixel pixel_blend_add_packed(const Pixel &c1, const Pixel &c2) {
   uint32_t bg1 = ((uint32_t)c1.g << 16) | c1.b;
   uint32_t bg2 = ((uint32_t)c2.g << 16) | c2.b;
