@@ -253,8 +253,8 @@ private:
   /**
    * @brief Spawns one burst of burst_size ripples from a random origin,
    *        staggered ripple_stagger_eff frames apart, each expanding over
-   *        ripple_dur_eff frames — the Trans-Speed-divided values spawn_entry
-   *        caches, which bottom out at 2 and max(8, ripple_duration / 8).
+   *        ripple_dur_eff frames. spawn_entry divides both intervals by Trans
+   *        Speed, with floors of 1 frame for staggering and 8 for duration.
    * @param canvas Unused render target for the timer callback signature.
    */
   void ripple(Canvas &) {
