@@ -965,7 +965,8 @@ inline void test_shader_chain_schema_and_field_ids() {
   }
 
   // Projection batch: the meridian-consuming projections extend the shared
-  // family with central-meridian; gnomonic and the fast square Peirce do not.
+  // family with central-meridian; stereographic, gnomonic, and the fast square
+  // Peirce do not.
   for (const char *id :
        {"project.stereographic.v2", "project.folded-sinusoidal.v2",
         "project.equirectangular.v2", "project.gnomonic.v2",
