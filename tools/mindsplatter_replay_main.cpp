@@ -205,6 +205,13 @@ int main() {
   effect.init();
   const uint16_t particle_count = WhiteBox::restore_render(
       effect, std::span(corpus.state, corpus.state_size));
+  if (particle_count != corpus.particle_count) {
+    std::fprintf(
+        stderr,
+        "replay corpus particle count mismatch: restored=%u recorded=%u\n",
+        particle_count, corpus.particle_count);
+    return 1;
+  }
 
   std::printf("replay corpus id=%s source=%s preset=%d traits=%u particles=%u "
               "bytes=%zu hash=%llu revision=%s search_frame=%u "
