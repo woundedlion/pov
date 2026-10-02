@@ -65,11 +65,9 @@ document digests differently). A guaranteed single-path chain says so:
   structural variation is expressed either as a distinct operator id or
   as an enum8 parameter declared in the operator's catalog schema and
   carried as an ordinary parameter value (the interpreter treats these
-  as runtime switches, as the dynamic backend already does; promotion
+  as runtime switches; promotion
   maps them to template arguments), and an operator's resource needs
-  live in the engine's operator table, not the document. The v1
-  importer consumes the old `policy` objects into operator selection
-  plus enum8 values. Array order is both the semantic and the
+  live in the engine's operator table, not the document. Array order is both the semantic and the
   **canonical** order; there is no `edges` field and no role sort.
   Graph generality for a hypothetical DAG future is not paid for
   silently — if Fork/Join ever lands it arrives as a versioned schema
@@ -184,7 +182,7 @@ churn.
 
 **Status: LANDED 2026-08-19.** Where the chain, the vocabulary, and the
 render live on the screen, and which gestures name the store's spans; the
-document store, the schema, digesting, migration, and the apply path are
+document store, the schema, digesting, and the apply path are
 §§1–3's. The render owns the space: the tool's entire feedback loop is
 *watching the render while changing the program*. The stage library of
 §4.3 is deferred; the catalog reaches the strip through the band insertion
