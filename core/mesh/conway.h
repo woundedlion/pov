@@ -423,7 +423,7 @@ inline void transform_in_place(MeshState &mesh,
   }
 }
 
-// Conway operator contracts
+// COMPOSITION POLARITY / Conway operator contracts
 // Primitive scratch is checkpointed; composed intermediates remain in temp
 // until the caller rewinds it. Every result is in target.
 //
