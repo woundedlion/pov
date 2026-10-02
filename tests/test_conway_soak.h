@@ -139,16 +139,6 @@ struct HankinWalkProbe {
   template <int W, int H> static int sweep_frames(const HankinSolids<W, H> &) {
     return HankinSolids<W, H>::HANKIN_SWEEP_FRAMES;
   }
-  /** @brief Terminal-sliver fade window length, in sprite frames. */
-  template <int W, int H>
-  static int strap_terminal_frames(const HankinSolids<W, H> &) {
-    return HankinSolids<W, H>::STRAP_TERMINAL_FRAMES;
-  }
-  /** @brief Star mid-sweep dissolve window, in sprite frames. */
-  template <int W, int H>
-  static int star_close_frames(const HankinSolids<W, H> &) {
-    return HankinSolids<W, H>::SHAPE_FRAMES;
-  }
   /**
    * @brief The on-screen hankin mesh (topology carries the class slots).
    */
