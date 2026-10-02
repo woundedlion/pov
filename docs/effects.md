@@ -285,8 +285,6 @@ A flight through periodic wire lattices and curved shells in 3D perspective or a
 | 7 | `experimental-shell-close-flight` |
 | 8 | `experimental-shell-4d-flight` |
 
-The dated preset measurements (supporting artifact removed) describe their capture-time settings.
-
 **Parameters**: Pattern, View (3D perspective, 4D slice), Sphere Radius, Cell Size, Wire Radius, Softness, Near Fade, Far Distance, AA Strength, Speed, 3D Spin, 4D Spin, Lattice Planes. Shear, Stretch, and Shell Radius are available only with `HS_ENABLE_HYPERLATTICE_EXPERIMENTS` (disabled on device).
 
 </td></tr></table>
