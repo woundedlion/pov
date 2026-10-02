@@ -446,7 +446,7 @@ inline void test_truncate001_birth_sweep_holds_topology() {
       std::vector<math::Vector> normal(swept.face_counts.size());
       for (size_t f = 0; f < swept.face_counts.size(); ++f) {
         normal[f] = face_area_vector(swept, off[f], swept.face_counts[f]);
-        // Planar area: no face collapses or inverts anywhere in the sweep.
+        // Planar area: no face collapses anywhere in the sweep.
         min_area =
             std::min(min_area, std::sqrt(math::dot(normal[f], normal[f])));
         math::Vector c(0, 0, 0);
