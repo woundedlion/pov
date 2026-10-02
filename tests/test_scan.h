@@ -1961,7 +1961,7 @@ inline void test_csg_stroke_aa_uses_winning_child_thickness() {
   // max-thickness up to `thick`.
   SDF::Line thick_line(math::Vector(-1, 0, 0), math::Vector(0, 0, -1), thick);
   SDF::Union<SDF::Line, SDF::Line> u(thin_line, thick_line);
-  // Same geometry as `thick_line` but standalone, for the contrast check.
+  // Same geometry as `thin_line` but standalone, for the contrast check.
   SDF::Line thick_solo(math::Vector(1, 0, 0), math::Vector(0, 0, 1), thick);
 
   static_assert(!SDF::Union<SDF::Line, SDF::Line>::is_solid,
