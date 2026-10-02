@@ -282,6 +282,7 @@ struct FadePresetEffect : ChoreographedEffect<FadePresetEffect, HoldParams> {
   void arm() { begin_choreography(); }
   bool attempt() { return advance_preset(); }
   void clear_timeline() { timeline.clear(); }
+  void tick() { step_choreography(); }
   bool active() const { return transition.active; }
   void progress(float value) { run_transition(value); }
   void cancel() { parameter_written(); }
@@ -314,10 +315,24 @@ inline void test_timeline_clear_releases_fade() {
   effect.clear_timeline();
   HS_EXPECT_FALSE(effect.active());
   HS_EXPECT_EQ(effect.opacity, 1.0f);
-  HS_EXPECT_EQ(effect.notifications.size(), notifications);
+  HS_EXPECT_EQ(effect.notifications.size(), notifications + 1);
+  const auto &notification = effect.notifications.back();
+  HS_EXPECT_EQ(notification.change.from, size_t{1});
+  HS_EXPECT_EQ(notification.change.to, size_t{0});
+  HS_EXPECT_TRUE(notification.change.origin ==
+                 FadePresetEffect::Origin::AUTOMATIC);
+  HS_EXPECT_EQ(notification.visible_index, size_t{0});
+  HS_EXPECT_FALSE(notification.active);
+  HS_EXPECT_EQ(notification.opacity, 1.0f);
   HS_EXPECT_EQ(effect.getPresetIndex(), 0u);
   HS_EXPECT_EQ(effect.value(), 1.0f);
-  HS_EXPECT_TRUE(effect.attempt());
+  for (uint16_t frame = 1; frame < FadePresetEffect::PRESET_DWELL_FRAMES;
+       ++frame) {
+    effect.tick();
+    HS_EXPECT_EQ(effect.getPresetIndex(), 0u);
+    HS_EXPECT_FALSE(effect.active());
+  }
+  effect.tick();
   HS_EXPECT_EQ(effect.getPresetIndex(), 1u);
   HS_EXPECT_TRUE(effect.active());
 }
