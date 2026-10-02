@@ -57,6 +57,7 @@ constexpr size_t BUDGET_BYTES = HS_DEVICE_STACK_FLOOR_BYTES;
 volatile uint8_t *g_lo;
 int g_measured = 0;
 int g_unmeasured = 0;
+int g_overran = 0;
 
 // Paint value for a byte, keyed to its address so an incidental workload byte
 // matches only ~1/256 of the time.
@@ -130,6 +131,7 @@ template <typename Effect> size_t measure(const char *name) {
   }
   size_t peak = 0;
   if (floor_mismatch >= WIN / 4) {
+    ++g_overran;
     std::printf("  %-22s control band dirty (%zu/%zu B) — reach ran past the "
                 "painted region\n",
                 name, floor_mismatch, WIN);
@@ -143,7 +145,7 @@ template <typename Effect> size_t measure(const char *name) {
       }
     std::printf("  %-22s peak = %6zu B\n", name, peak);
   }
-  if (peak == 0)
+  if (peak == 0 && floor_mismatch < WIN / 4)
     ++g_unmeasured;
   return peak;
 }
@@ -173,6 +175,10 @@ int main() {
         "measured %d effects but HS_EFFECT_COUNT = %d — roster empty or "
         "measure() calls dropped\n",
         g_measured, HS_EFFECT_COUNT);
+    return 1;
+  }
+  if (g_overran != 0) {
+    std::printf("%d effect(s) exceeded the painted stack region\n", g_overran);
     return 1;
   }
   if (g_unmeasured != 0) {
