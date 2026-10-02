@@ -2269,6 +2269,10 @@ inline void test_feedback_flush_respects_clip() {
 
   // Inside the band: carried over and faded.
   HS_EXPECT_FALSE(is_black(fx.get_pixel(W / 2, 9)));
+  HS_EXPECT_FALSE(is_black(fx.get_pixel(W / 2, 7)));
+  HS_EXPECT_FALSE(is_black(fx.get_pixel(W / 2, 12)));
+  HS_EXPECT_TRUE(is_black(fx.get_pixel(W / 2, 6)));
+  HS_EXPECT_TRUE(is_black(fx.get_pixel(W / 2, 13)));
   // Outside the render band: untouched despite the prev frame being lit there.
   HS_EXPECT_TRUE(is_black(fx.get_pixel(W / 2, 0)));
   HS_EXPECT_TRUE(is_black(fx.get_pixel(W / 2, 5)));
