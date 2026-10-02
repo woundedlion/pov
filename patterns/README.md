@@ -67,7 +67,8 @@ keys, two-space indentation and LF endings.
 `node scripts/generate_promoted_shader_documents.mjs --check` verifies that
 serialization and generated-document freshness.
 
-The engine installs its top-level pattern documents and `catalog.json` into
+The engine installs promoted pattern documents (every `source_documents` entry;
+`example.shader.json` stays local) and `catalog.json` into
 `daydream/generated/shader/patterns/`. The catalog is a manifest:
 `source_documents` maps each current effect identity to its authoring document,
 and `product_group` carries its gallery grouping. The shader compiler accepts
