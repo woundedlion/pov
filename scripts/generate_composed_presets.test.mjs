@@ -172,3 +172,15 @@ test('a composed document requires authored dwell', () => {
   assert.equal(compiled.status, 'VALID');
   assert.throws(() => generatedSections(compiled), /must declare choreography.dwell/);
 });
+
+
+test('invalid authored preset reports its document diagnostics before generation', async (t) => {
+  const root = await fixture(t);
+  const path = join(root, 'patterns/kaleidoscope_smooth.shader.json');
+  const authored = JSON.parse(await readFile(path, 'utf8'));
+  authored.preset_bank.presets[0].values['sample.pattern-freq'] = 1e20;
+  await writeFile(path, JSON.stringify(authored));
+  await assert.rejects(generate({ root, check: true }), error =>
+    error.message.includes('patterns/kaleidoscope_smooth.shader.json') &&
+    error.message.includes('VALUE_OUT_OF_RANGE'));
+});
