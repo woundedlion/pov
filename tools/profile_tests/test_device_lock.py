@@ -641,8 +641,13 @@ class PinnedPortEnumeration(unittest.TestCase):
         return run_lock(script, self.base, ports=None,
                         env={"HS_TEENSY_TOOLS": str(self.tools)})
 
-    def test_failed_enumeration_is_distinct_from_no_loader(self):
-        """rc 2, not the rc 0 + empty output that means an enumerate-less host."""
+    def test_missing_loader_reports_configuration_error(self):
+        (self.tools / "teensy_ports.exe").unlink()
+        r = self.run_unpinned("hs_device_ports")
+        self.assertEqual(r.returncode, 2)
+        self.assertIn("not found (set HS_TEENSY_TOOLS)", r.stderr)
+
+    def test_failed_enumeration_reports_loader_failure(self):
         self.fail_loader()
         r = self.run_unpinned("hs_device_ports")
         self.assertEqual(r.returncode, 2)
