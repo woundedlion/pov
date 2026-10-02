@@ -76,13 +76,14 @@ current documents only. `scripts/shader_workbench.test.mjs` gates membership:
 every document backing an effect appears in `source_documents`.
 
 A promoted document is also applied to its compiled effect by control name, one
-parameter at a time, so every parameter id must resolve to a control that effect
-registers. Chain labels are the vocabulary that resolution runs on — `camera`,
+writable parameter at a time, so every writable parameter id must resolve to a
+control that effect registers. Chain labels are the vocabulary that resolution runs on — `camera`,
 `lens`, `surface`, `project`, `warp1`/`warp2`, `sample`, `transfer`, `cutout`,
-`colorize`. Generated and hand-authored documents use the same labels. `scripts/wasm_smoke.mjs` resolves every promoted id against
-the running module's registered controls; the topology fields a fixed build
-bakes in are exempt, as is `camera.spin-speed`, which `AshCloud` holds as a
-compile-time constant.
+`colorize`. Generated and hand-authored documents use the same labels. `scripts/wasm_smoke.mjs` resolves writable promoted ids against
+the running module's registered controls. Fixed topology fields and
+`camera.spin-speed`, which `AshCloud` holds as a compile-time constant, are exempt.
+Derived values are also exempt when the compiled controls used to derive them
+match the document.
 
 `lattice_melt.shader.json` is the editable source for the `LatticeMelt`
 effect. Its two presets share one descriptor and vary only the
