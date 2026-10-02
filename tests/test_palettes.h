@@ -158,6 +158,16 @@ inline void test_mesh_palette_bank_lookup() {
   HS_EXPECT_EQ(s0.color.g, e0.color.g);
   HS_EXPECT_EQ(s0.color.b, e0.color.b);
 
+  for (int i = 0; i < MeshPaletteBank::N; ++i) {
+    for (float t : {0.0f, 1.0f}) {
+      const Color4 ACTUAL = bank[i].get(t);
+      const Color4 EXPECTED = MeshPaletteBank::sources()[i]->get(t);
+      HS_EXPECT_EQ(ACTUAL.color.r, EXPECTED.color.r);
+      HS_EXPECT_EQ(ACTUAL.color.g, EXPECTED.color.g);
+      HS_EXPECT_EQ(ACTUAL.color.b, EXPECTED.color.b);
+    }
+  }
+
   // Every slot bakes a distinct LUT (no two share a t=0 color).
   for (int i = 0; i < MeshPaletteBank::N; ++i)
     for (int j = i + 1; j < MeshPaletteBank::N; ++j) {
