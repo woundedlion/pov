@@ -55,6 +55,12 @@
 #ifdef ARDUINO
 #include <Arduino.h>
 
+#ifndef HS_PHANTASM_BOARD_REV
+#error "Define HS_PHANTASM_BOARD_REV as 11 (rev 1.1) or 12 (rev 1.2)"
+#elif HS_PHANTASM_BOARD_REV != 11 && HS_PHANTASM_BOARD_REV != 12
+#error "Unsupported HS_PHANTASM_BOARD_REV; supported revisions are 11 and 12"
+#endif
+
 #ifdef USE_DMA_LEDS
 #include "dma_led.h"
 #else
@@ -120,11 +126,11 @@ template <int S, int N, int RPM> class POVSegmented {
   static constexpr int ID_STRAPS = pov::segment_id_strap_count(N);
 
   /**
-   * @brief Rev 1.1 sync wire: master drives OUTPUT; downstream reads INPUT.
-   * @details Rev 1.2 uses D3 for RX and D4 for TX; see
-   *          docs/specs/phantasm_pcb_spec.md.
+   * @brief Sync receive pin; shared with transmit on rev 1.1.
    */
-  static constexpr int PIN_FRAME_SYNC = 3;
+  static constexpr int PIN_SYNC_RX = 3;
+  /** @brief Sync transmit pin selected by the board revision. */
+  static constexpr int PIN_SYNC_TX = HS_PHANTASM_BOARD_REV == 12 ? 4 : 3;
 
   /**
    * @brief Master-enable strap for the external sync-out level shifter.
@@ -213,6 +219,10 @@ public:
   HS_COLD_MEMBER static void park_sync_out() {
     digitalWriteFast(PIN_MASTER_EN, HIGH);
     pinMode(PIN_MASTER_EN, OUTPUT);
+    if constexpr (HS_PHANTASM_BOARD_REV == 12) {
+      digitalWriteFast(PIN_SYNC_TX, LOW);
+      pinMode(PIN_SYNC_TX, OUTPUT);
+    }
   }
 
   /**
@@ -308,27 +318,28 @@ public:
     sync.configure(cfg);
 
     const bool master = (segment_id == 0);
-    if (master) {
-      digitalWriteFast(PIN_FRAME_SYNC, LOW);
-      pinMode(PIN_FRAME_SYNC, OUTPUT);
-    } else {
-      pinMode(PIN_FRAME_SYNC, INPUT);
+    if (master || HS_PHANTASM_BOARD_REV == 12) {
+      digitalWriteFast(PIN_SYNC_TX, LOW);
+      pinMode(PIN_SYNC_TX, OUTPUT);
+    }
+    if (!master || HS_PHANTASM_BOARD_REV == 12) {
+      pinMode(PIN_SYNC_RX, INPUT);
       // Schmitt-trigger the sync input. The on-board divider + C_SYNC RC slows the
       // edge to reject BLDC/LED spikes; pad hysteresis then gives exactly one clean
       // interrupt per edge instead of multiple threshold recrossings on the slow
       // ramp. pinMode rewrites the pad-control register, so enable HYS afterward.
-      *(portControlRegister(PIN_FRAME_SYNC)) |= IOMUXC_PAD_HYS;
+      *(portControlRegister(PIN_SYNC_RX)) |= IOMUXC_PAD_HYS;
     }
     // park_sync_out() already left MASTER_EN an output at its disabled level, so
     // this write is what enables the sync-bus driver: take the board-role level
-    // only once PIN_FRAME_SYNC is driven, or a pad keeper puts one spurious edge
+    // only once PIN_SYNC_TX is driven, or a pad keeper puts one spurious edge
     // on the wire that downstream boards read as a symbol.
     digitalWriteFast(PIN_MASTER_EN, master ? LOW : HIGH);
 
     sync.seed(ARM_DWT_CYCCNT, master);
 
     if (!master) {
-      attachInterrupt(digitalPinToInterrupt(PIN_FRAME_SYNC), sync_edge_isr,
+      attachInterrupt(digitalPinToInterrupt(PIN_SYNC_RX), sync_edge_isr,
                       RISING);
       // attachInterrupt leaves the IRQ at the Teensy default (128), equal to
       // the flywheel's; raise it so the edge stamp is taken at the edge.
@@ -603,7 +614,7 @@ private:
           return sync.tick(now, bp);
         },
         [] { return pov::sync::SyncBoard::build_gen_of(sync.build_word()); },
-        [](bool high) { digitalWriteFast(PIN_FRAME_SYNC, high ? HIGH : LOW); },
+        [](bool high) { digitalWriteFast(PIN_SYNC_TX, high ? HIGH : LOW); },
         [] {
           HS_CHECK(
               false,
