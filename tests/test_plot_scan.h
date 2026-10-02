@@ -1458,7 +1458,7 @@ inline void test_mesh_edge_gate_pixel_parity() {
   HS_EXPECT_GT(margin_lit_total, 20);
 }
 
-/** @brief Endpoint shortcuts obey the same arc window as the adaptive walk. */
+/** @brief Short geodesic spans report their true, monotone arc length. */
 inline void test_short_geodesic_arc_lengths() {
   float previous = 0.0f;
   for (float angle : {0.0001f, 0.0002f, 0.00025f, 0.0004f, 0.0005f}) {
@@ -1471,6 +1471,7 @@ inline void test_short_geodesic_arc_lengths() {
   }
 }
 
+/** @brief Endpoint shortcuts obey the same arc window as the adaptive walk. */
 inline void test_rasterize_short_edge_windows() {
   constexpr int W = 96, H = 48;
   const math::Basis BASIS =
