@@ -1876,7 +1876,11 @@ inline void test_palette_modifiers() {
 
   // Breathe with a zero-phase driver is identity; a quarter-turn shifts by amp.
   float phase0 = 0.0f;
-  HS_EXPECT_NEAR(BreatheModifier(&phase0, 0.1f).modify(0.5f), 0.5f, 1e-3f);
+  BreatheModifier breathe(&phase0, .1f);
+  HS_EXPECT_NEAR(breathe.modify(.5f), .5f, 1e-3f);
+  phase0 = math::PI_F * .5f;
+  HS_EXPECT_NEAR(breathe.modify(.5f), BreatheModifier(&phase0, .1f).modify(.5f),
+                 1e-6f);
 
   // Ripple at t=0, phase=0 leaves the coordinate fixed (sin(0) = 0).
   float rphase = 0.0f;
@@ -2218,6 +2222,9 @@ inline void test_chroma_pulse_shade() {
   float zero = 0.0f;
   ChromaPulseShade flat(&zero, 0.3f);
   Color4 same = flat.shade(mid, 0.2f);
+  zero = math::PI_F * .5f;
+  HS_EXPECT_EQ(flat.shade(mid, .2f).color,
+               ChromaPulseShade(&zero, .3f).shade(mid, .2f).color);
   HS_EXPECT_NEAR(static_cast<float>(same.color.r),
                  static_cast<float>(mid.color.r), OKLAB_ROUND_TRIP_TOL);
   HS_EXPECT_NEAR(static_cast<float>(same.color.g),
