@@ -870,7 +870,7 @@ public:
   static emscripten::val getArenaMetrics() { return collect_arena_metrics(); }
 
   /**
-   * @brief Reports why the most recent MeshOps call answered null.
+   * @brief Reports why the most recent checked mesh operation answered null.
    * @return OK when that call produced a result, otherwise its rejection reason.
    * @details Covers fromSolidName, getVertices, getFaces, classifyFaces,
    *          getRecipe and the operator methods. Read it immediately after the
@@ -879,7 +879,7 @@ public:
   static MeshOpResult getLastResult() { return last_mesh_op_result; }
 
   /**
-   * @brief Reports whether the most recent MeshOps call saturated an argument
+   * @brief Reports whether the most recent checked mesh operation saturated an argument
    *        into its operator's domain.
    * @return true when the mesh that call produced was rendered from a value
    *         other than the one passed in. Meaningful only when the call
@@ -890,7 +890,8 @@ public:
    *          caller that exports the argument it passed — a chain validator, a
    *          codegen tool — must read it, because the exported value would carry
    *          an out-of-domain bound into the engine's always-on HS_CHECK. Read
-   *          it immediately after the call; the next one overwrites it.
+   *          it immediately after the operation. The next checked operation
+   *          overwrites it; getRegistry and getArenaMetrics preserve it.
    */
   static bool getLastAdjusted() { return last_mesh_op_adjusted; }
 };
