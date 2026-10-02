@@ -93,17 +93,17 @@ roster ranking. Triangular has since been removed.
 
 | Preset | Dominant scope | Ship peak ms | O3 peak ms | Ship spilled | O3 spilled | FLASH Δ | ITCM Δ | Captured |
 | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | --- |
-| [HyperLattice Triangular](hyperlattice_triangular_2026-09-27.md) | `hl_shader_draw` | 🔴 134.620 | 🔴 141.587 | 🔴 441/441 (100%) | 🔴 366/366 (100%) | +10,440 B | +8,208 B | ship 2026-09-27 21:59<br>O3 2026-09-27 22:01 |
+| HyperLattice Triangular (supporting artifact removed) | `hl_shader_draw` | 🔴 134.620 | 🔴 141.587 | 🔴 441/441 (100%) | 🔴 366/366 (100%) | +10,440 B | +8,208 B | ship 2026-09-27 21:59<br>O3 2026-09-27 22:01 |
 | HyperLattice Octet 3D | `hl_shader_draw` | 🔴 96.869 | 🔴 95.710 | 🔴 548/548 (100%) | 🔴 548/548 (100%) | +11,688 B | +8,128 B | ship 2026-09-27 22:50<br>O3 2026-09-27 22:53 |
 
 Octet 3D refreshed on 2026-09-27 after the single-owner strut correction.
 These fixed-preset captures retain the original oscillating camera path.
-The [earlier Octet measurements](hyperlattice_experimental_presets_2026-09-27.md#octet-validation-and-device-measurements)
+The earlier Octet measurements (supporting artifact removed)
 record 3D shipping peak 103.733 ms (548/548 spills) before that correction.
 The 4D capture remains historical: 549.828 ms peak, 120/120 spills,
 captured 2026-09-27 at 22:18; no 4D global-O3 capture.
 
-[Cubic Wide Flight](hyperlattice_experimental_presets_2026-09-27.md#cubic-wide-flight)
+Cubic Wide Flight (supporting artifact removed)
 has a separate fixed-preset shipping check: peak 50.804 ms, 0/616 spills,
 captured 2026-09-27 22:25.
 
@@ -140,7 +140,7 @@ and [2026-09-28 global-O3 preset 5](O3/profile_hyperlattice_octet_preset5_teensy
 | [3: Octet 3D](shipping/profile_hyperlattice_octet_preset3_teensy_2026-09-28.md) ● | 🟢 45.688 | — | 🟢 0/1096 (0.00%) | — | — | — | ship 2026-09-28 09:56 |
 | [Octet wide (index 5 at capture time)](shipping/profile_hyperlattice_octet_preset5_teensy_2026-09-28.md) ● | 🟢 45.242 | — | 🟢 0/1096 (0.00%) | — | — | — | ship 2026-09-28 09:53 |
 
-Updated 2026-09-28 09:53–09:56 after the Octet 58 ms Tiers 1–2 (`1bb522211`). Opt-in held presets, startup excluded; 4D on COM3, 3D on COM4. [Earlier optimization and 4D evidence](hyperlattice_octet_optimization_2026-09-27.md). No global-O3 twins or size deltas were captured for this code.
+Updated 2026-09-28 09:53–09:56 after the Octet 58 ms Tiers 1–2 (`1bb522211`). Opt-in held presets, startup excluded; 4D on COM3, 3D on COM4. Earlier optimization and 4D evidence (supporting artifact removed). No global-O3 twins or size deltas were captured for this code.
 
 ## Shell flight supplement
 
@@ -160,3 +160,20 @@ Preserved canonical snapshots; current architecture rankings use the dated varia
 - LatticeMelt: [shipping 2026-09-28](shipping/profile_latticemelt_teensy_2026-09-28.md), [O3 2026-08-26](O3/profile_latticemelt_teensy_2026-08-26.md).
 - ChromaticLichen: [shipping 2026-09-28](shipping/profile_chromaticlichen_teensy_2026-09-28.md), [O3 2026-08-26](O3/profile_chromaticlichen_teensy_2026-08-26.md).
 - KaleidoscopeSmooth: [shipping 2026-09-28](shipping/profile_kaleidoscopesmooth_teensy_2026-09-28.md), [O3 2026-08-26](O3/profile_kaleidoscopesmooth_teensy_2026-08-26.md).
+
+## Artifact retention and source reachability
+
+Only memory, shipping and global-O3 reports and their indexes are checked in.
+Raw captures, source patches, build logs, ELF/map files and experimental campaign
+artifacts are local outputs; they are no longer retained in this archive.
+The profile wrapper writes these outputs under ignored `build/prof/`.
+Historical hashes identify captures but do not guarantee reproducible source.
+
+Capture `d25dd85dee17` maps to landed `43858e5fb`; only test headers differ,
+with no firmware-relevant tree difference. Capture `0156d0d7490355` maps to
+landed `3fc710350`. Capture `7baf3cc4307` maps to landed `daf63d812` on a
+different base (319 differing files); it cannot be treated as the same tree.
+Capture `0df961b818ae` is unrecoverable. These historical orphan hashes are
+not reachable from the published branch. The KaleidoscopeSmooth shipping
+capture additionally used an unretained source patch, so its recorded base
+and patch hash cannot reconstruct the captured source from a fresh clone.

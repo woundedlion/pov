@@ -1,7 +1,0 @@
-fixed gyroid preset4/5; source596cdc1fd192558513d06bd2c0727233daaae31f; COM4; profile -Os/selective-O3;30s/window4
-startup=(1, 1439063, 1439063)
-runtime frames=(2, 38) count=37
-render_us min/mean/max=(629698, 731814.2702702703, 820923)
-wall_us min/mean/max=(630420, 760281.8918918918, 878169)
-spills=37/37
-No device per-ray status telemetry in this capture; it establishes execution and timing only.

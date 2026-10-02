@@ -6,10 +6,10 @@ and periodic-surface experiments are implemented. Firmware admission is separate
 from architectural availability; experimental configurations are available in
 the simulator and explicitly opted-in device builds, while standard firmware
 keeps only the admitted analytic presets. See the
-[implementation validation and admission report](../profiles/spherical_perspective_implementation_2026-09-26.md)
+implementation validation and admission report (supporting artifact removed)
 for measured limits. Dimensional rift is removed.
 
-The [experimental preset guide](../profiles/hyperlattice_experimental_presets_2026-09-27.md)
+The experimental preset guide (supporting artifact removed)
 records the preview presets, build switch, and bounded failure behavior. Their
 availability does not change their experimental admission status.
 
@@ -630,7 +630,7 @@ against a high-budget native reference over camera translation, cell period,
 isovalue, grazing rays, and starts in both regions. Report image differences,
 unresolved fraction, mean/peak evaluations, render time, spills, and memory.
 
-The [historical HyperLattice capture](../profiles/evidence/hyperlattice_preset2_2026-09-26/ship.txt)
+The historical HyperLattice capture (supporting artifact removed)
 uses a 10,368-pixel live quadrant and a 62.5 ms display window at 600 MHz. That is a
 gross budget of about 3,617 cycles per live sample before other work. Sixteen
 queries per sample would leave at most about 226 cycles per query if nothing

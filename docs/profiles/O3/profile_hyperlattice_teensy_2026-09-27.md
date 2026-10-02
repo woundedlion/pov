@@ -4,11 +4,10 @@
 
 Point-in-time snapshot (regenerate with `just profile HyperLattice`).
 Replaces the 2026-09-26 standard report with a fresh full-cycle capture of the
-same shipping code, before experimental presets are added. Historical evidence
-is retained. [Raw capture](../evidence/hyperlattice_2026-09-27/o3_cycle.txt),
-[provenance](../evidence/hyperlattice_2026-09-27/o3_cycle.provenance),
-[build/size](../evidence/hyperlattice_2026-09-27/o3_cycle_build.txt),
-[summary](../evidence/hyperlattice_2026-09-27/o3_cycle_summary.json).
+same shipping code, before experimental presets are added. Historical supporting artifacts are no longer retained. Raw capture (supporting artifact removed),
+provenance (supporting artifact removed),
+build/size (supporting artifact removed),
+summary (supporting artifact removed).
 
 ## Setup
 
@@ -67,7 +66,7 @@ including the same holds and transitions; frame 1 is excluded.
 
 | Capture | Mean render ms | Peak render ms | Spilled |
 | --- | ---: | ---: | ---: |
-| [2026-09-26](../evidence/spherical_perspective_2026-09-26/o3_cycle.txt) | 44.883 | 54.879 | 0/1576 |
+| 2026-09-26 (supporting artifact removed) | 44.883 | 54.879 | 0/1576 |
 | 2026-09-27 | 44.884 | 54.817 | 0/1576 |
 
 Mean render changed by +0.001 ms;
@@ -201,7 +200,7 @@ Runtime frames 2–367 render in **134.865 ms mean**,
 Startup frame 1 (243.096 ms) is excluded. These results are outside
 the normal two-preset roster and do not replace its measurements above.
 
-The [paired experimental report](../hyperlattice_triangular_2026-09-27.md)
+The paired experimental report (supporting artifact removed)
 contains both image sizes, scope trees, ISR costs, exact frame ranges, matched
 comparison, and portable evidence.
 
@@ -211,10 +210,10 @@ Point-in-time snapshot of the corrected single-owner strut renderer.
 This fixed experimental preset is separate from the normal HyperLattice cycle.
 Its [shipping](../shipping/profile_hyperlattice_teensy_2026-09-29.md) and
 [global-O3](../O3/profile_hyperlattice_teensy_2026-09-27.md#supplemental-octet-3d-single-owner-correction) captures use the same source.
-[Raw capture](../evidence/hyperlattice_octet_single_owner_2026-09-27/o3.txt),
-[provenance](../evidence/hyperlattice_octet_single_owner_2026-09-27/o3.provenance),
-[summary](../evidence/hyperlattice_octet_single_owner_2026-09-27/o3_summary.json),
-[validation](../evidence/hyperlattice_octet_single_owner_2026-09-27/o3_validate.txt).
+Raw capture (supporting artifact removed),
+provenance (supporting artifact removed),
+summary (supporting artifact removed),
+validation (supporting artifact removed).
 Captured 2026-09-27 22:53 local time.
 
 ### Setup

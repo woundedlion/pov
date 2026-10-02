@@ -57,3 +57,16 @@ docs/PROJECT_ASSESSMENT.md
 /.profile-lock/
 /.profile-lock.guard
 .hs-pre-commit.*/
+
+# Profile archives contain reports only; capture artifacts stay local.
+/docs/profiles/*
+!/docs/profiles/README.md
+!/docs/profiles/memory/
+!/docs/profiles/shipping/
+!/docs/profiles/O3/
+/docs/profiles/memory/*
+/docs/profiles/shipping/*
+/docs/profiles/O3/*
+!/docs/profiles/memory/*.md
+!/docs/profiles/shipping/*.md
+!/docs/profiles/O3/*.md
