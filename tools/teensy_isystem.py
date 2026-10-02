@@ -1,4 +1,4 @@
-"""PlatformIO post-build hook: silence vendored-dependency warnings.
+"""PlatformIO post: extra script: configure dependency warnings before compilation.
 
 The firmware build runs -Wall -Wextra.
 First-party code (core/ effects/ hardware/ targets/) must keep its warnings
