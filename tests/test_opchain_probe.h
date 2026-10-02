@@ -6,6 +6,7 @@
  * (docs/specs/opchain_morph_spec.md).
  *
  * Coverage:
+ *   - Truncate sub-T_EPS birth and far-side pinch topology sweeps.
  *   - Chamfer zero-area birth limit: newborn hexagon area and preserved-face
  *     displacement as t -> 0, on simple seeds and on the shipping hankin seed.
  *   - Chamfer sweep: constant V/F/I and compiled face count, closed genus-0
