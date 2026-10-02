@@ -14,7 +14,9 @@
 #pragma once
 
 #include <atomic>
-#include <chrono>
+#include <array>
+#include <cstring>
+#include <limits>
 #include <thread>
 #include <vector>
 
