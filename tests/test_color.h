@@ -2203,13 +2203,16 @@ inline void test_chroma_pulse_shade() {
   Color4 boosted = pulse.shade(mid, 0.2f);
   OKLCH after = oklch_of(boosted);
   HS_EXPECT_GT(after.C, before.C * 1.1f);
+  HS_EXPECT_NEAR(wrap_hue_delta(after.h - before.h), 0.0f, .01f);
   HS_EXPECT_NEAR(after.L, before.L, 0.02f);
   HS_EXPECT_NEAR(boosted.alpha, 0.7f, 1e-6f);
 
   // sin(-pi/2) = -1: chroma scales down toward gray.
   float neg_phase = -math::PI_F * 0.5f;
   ChromaPulseShade cut(&neg_phase, 0.3f);
-  HS_EXPECT_LT(oklch_of(cut.shade(mid, 0.2f)).C, before.C * 0.9f);
+  const OKLCH CUT = oklch_of(cut.shade(mid, 0.2f));
+  HS_EXPECT_LT(CUT.C, before.C * 0.9f);
+  HS_EXPECT_NEAR(wrap_hue_delta(CUT.h - before.h), 0.0f, .01f);
 
   // sin(0) = 0: pass-through within the OKLab round-trip budget.
   float zero = 0.0f;
