@@ -330,7 +330,7 @@ protected:
 // Timeline::add only fires for types actually add()ed in this build, so pin the
 // largest concrete animation type here to check it in every build that includes
 // this header. Compared against MAX_ANIM_SIZE (the real 112 B device budget on
-// the 32-bit WASM/device build, a no-op on the wider native host).
+// the 32-bit WASM/device build, widened to 256 B in the native test suite).
 /** @brief Largest sizeof over a pack of types. */
 template <typename... Ts> constexpr size_t largest_sizeof() {
   return std::max({sizeof(Ts)...});
