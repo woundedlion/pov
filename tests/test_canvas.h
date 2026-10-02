@@ -321,9 +321,6 @@ inline void test_effect_transition_fenced_commit() {
     return;
   HS_EXPECT_EQ(adapter.envelopes[adapter.envelopes.size() - 3], 0.0f);
   HS_EXPECT_EQ(adapter.envelopes[adapter.envelopes.size() - 2], 0.5f);
-  HS_EXPECT_FALSE(adapter.envelopes.empty());
-  if (adapter.envelopes.empty())
-    return;
   HS_EXPECT_EQ(adapter.envelopes.back(), 1.0f);
   HS_EXPECT_EQ(controller.current_state(),
                hs::EffectTransitionState::STEADY_IN);
