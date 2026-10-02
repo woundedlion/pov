@@ -36,12 +36,9 @@ static_assert(hs::clamp(3, 2, 0) == 2);
 inline constexpr double TWO_PI = 6.283185307179586;
 
 /**
- * @brief Verifies sin8 is bit-exact with FastLED's sin8_C LUT and tracks the
- *        true sine to within a few LSBs.
- * @details Pins the cardinal anchors (centred on 128, peak at theta=64, trough
- *          near theta=192), then sweeps the full period and bounds the LUT
- *          error against the true sine, so a regression in the interleaved-slope
- *          math is caught even where it still hits the anchors.
+ * @brief Pins sin8's FastLED cardinal anchors and true-sine error below 4 LSB.
+ * @details The full-period error sweep bounds the approximation; it does not
+ *          pin every LUT output bit-for-bit.
  */
 inline void test_sin8_golden() {
   // Exact anchors (FastLED sin8_C).
@@ -63,12 +60,9 @@ inline void test_sin8_golden() {
 }
 
 /**
- * @brief Verifies sin16 matches FastLED's sin16_C and bounds its full-period
- *        LUT error against the true sine.
- * @details sin16_C is signed -32767..32767 with a byte-truncated secoffset8 that
- *          is not self-evidently correct. Pins hand-traced cardinal anchors AND
- *          bounds the full-period LUT error, so a truncation/slope regression
- *          that still happens to hit the anchors is caught.
+ * @brief Pins sin16's FastLED anchors and sampled true-sine error below 227 LSB.
+ * @details The sweep samples every third input across the period; it does not
+ *          pin every LUT output bit-for-bit.
  */
 inline void test_sin16_golden() {
   // Exact anchors traced through sin16_C.
