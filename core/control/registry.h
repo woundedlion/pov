@@ -127,9 +127,8 @@ void validate_effect_registrations(
            "duplicate effect registration identity");
 }
 
-// Dependent-false constant so a static_assert in a discarded `if constexpr`
-// branch only fires when that branch is actually instantiated. A bare
-// `static_assert(false)` would be ill-formed even in the taken branches.
+// Dependent condition delays the diagnostic until an unsupported resolution
+// is instantiated.
 template <int> constexpr bool unsupported_resolution = false;
 
 /**
