@@ -3,7 +3,7 @@
 
 Budgets in tools/teensy_budgets.json define region ceilings, DTCM stack-headroom
 floors and layout requirements. tools/teensy_gate_extra.py supplies build output.
-Layout uses symbol load addresses, not nm type letters; arena size must remain
+Layout uses symbol runtime addresses (VMAs), not nm type letters; arena size must remain
 within [288 KiB, 320 KiB]. Missing configured symbols and malformed region lines
 fail validation. Budget loading rejects unknown keys and requires target regions,
 layout symbols and their enforcing keys.
@@ -41,7 +41,7 @@ FLEXRAM_BANK_BYTES = 0x8000
 
 
 def region_for_address(addr: int) -> str:
-    """Bucket a load address into a Teensy 4 memory region, or 'OTHER'."""
+    """Bucket a runtime address (VMA) into a Teensy 4 memory region, or 'OTHER'."""
     for name, lo, hi in MEMORY_MAP:
         if lo <= addr < hi:
             return name
@@ -56,7 +56,7 @@ class Symbol:
     """One `readelf -s` symbol-table row."""
 
     num: int
-    value: int          # VMA (load address)
+    value: int          # VMA (runtime address)
     size: int
     type: str
     bind: str
@@ -157,7 +157,7 @@ def parse_size_a(text: str) -> list[tuple[str, int, int]]:
 
 
 # Non-allocated metadata sections report a VMA of 0 in `size -A`. Filter them by
-# name, not by VMA == 0: real ITCM sections (.text.itcm) also load at 0x0, so a
+# name, not by VMA == 0: real ITCM sections (.text.itcm) also run at 0x0, so a
 # VMA test would drop live code while these consume no target memory.
 _NON_ALLOC_SECTIONS = (
     ".ARM.attributes", ".comment", ".debug", ".note",
