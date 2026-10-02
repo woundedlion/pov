@@ -408,10 +408,9 @@ def main(force=False, revision=B.REVISION, output_dir=None):
         b.no_connect(U1C.pin("8"))
     RTX = place("Device:R", "R_TX", "10k", 111.76, 213.36, fp=SMD06)
     to_label(RTX, "1", "SYNC_TX"); to_power(RTX, "2", GND if revision == "1.2" else V3)
-    # ch D switches the single bus idle pull-down on only when this board is master.
-    # MASTER_EN is LOW on the master and HIGH on slaves, matching the active-low OE.
     to_power(U1D, "12", GND)
     if revision == "1.2":
+        # MASTER_EN is active-low; ch D enables the master's bus idle pull-down.
         to_label(U1D, "13", "MASTER_EN")
         to_label(U1D, "11", "SYNC_PULLDOWN")
     else:
