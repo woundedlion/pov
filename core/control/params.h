@@ -257,7 +257,7 @@ struct ParamList {
    * @return The count of registered parameters.
    */
   size_t size() const { return count; }
-  /** @brief Monotonic token changed whenever the descriptor schema mutates. */
+  /** @brief Descriptor schema-change token; 0 without the GUI bridge. */
   uint32_t schema_generation() const {
 #if HS_ENABLE_PARAM_GUI_BRIDGE
     return schema_gen;

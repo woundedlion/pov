@@ -111,7 +111,7 @@ public:
   }
 #endif
 
-  /** @brief Token identifying the current ordered parameter descriptor schema. */
+  /** @brief Ordered parameter schema-change token; 0 without the GUI bridge. */
   uint32_t getParameterSchemaGeneration() const {
     return parameters.schema_generation();
   }
