@@ -85,7 +85,8 @@ Workload read_workload() {
 
 std::optional<SearchResult> search_corpus() {
   std::optional<SearchResult> best;
-  for (uint8_t preset = 0; preset < 4; ++preset) {
+  for (uint8_t preset = 0; preset < WhiteBox::preset_count<WIDTH, HEIGHT>();
+       ++preset) {
     Workload preset_peak;
     uint16_t preset_peak_frame = 0;
     uint8_t preset_peak_clip = 0;
@@ -257,8 +258,11 @@ int main(int argc, char **argv) {
   // No compiler identity here: it would pin the corpus to the machine that
   // baked it, so a regenerate-and-diff check could never reproduce the file.
   const std::string source =
-      refresh ? frozen.source
-              : "seed=1337 presets=0..3 frames=136..384/8 clips=quadrants "
+      refresh
+          ? frozen.source
+          : "seed=1337 presets=0.." +
+                std::to_string(WhiteBox::preset_count<WIDTH, HEIGHT>() - 1) +
+                " frames=136..384/8 clips=quadrants "
                 "renderer=generic-reference "
                 "score=64*adaptive+512*long+8*shader+taps";
   uint32_t traits = refresh ? frozen.traits : TRAIT_MEASURED_WORST;
