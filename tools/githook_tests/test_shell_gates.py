@@ -4,6 +4,7 @@ import os
 from pathlib import Path
 import shutil
 import subprocess
+import sys
 import tempfile
 import unittest
 
@@ -186,18 +187,21 @@ class ShellGateTests(unittest.TestCase):
     def test_cold_build_removes_only_fixture_caches_and_preserves_pio_failure(self):
         script = self.root / "tools" / "teensy_cold_build.sh"
         script.parent.mkdir()
-        shutil.copyfile(REPO / "tools" / script.name, script)
+        for name in (script.name, "device_lock.sh", "device_lock_guard.py"):
+            shutil.copyfile(REPO / "tools" / name, script.parent / name)
+        self.env["HS_PYTHON"] = sys.executable
         for name in ("build", "build_cache"):
             directory = self.root / ".pio" / name
             directory.mkdir(parents=True)
             (directory / "stale").write_text("cached", encoding="utf-8")
         sentinel = self.root / ".pio" / "keep"
         sentinel.write_text("keep", encoding="utf-8")
-        self.stub("pio", "echo fixture-build-failure; exit 7")
+        self.stub("pio", "test -f .profile-lock/info || exit 99; echo fixture-build-failure; exit 7")
         failed = self.gate(script.name, "capture.log", script=script)
         self.assertEqual(failed.returncode, 7, failed.stdout + failed.stderr)
         self.assertFalse((self.root / ".pio" / "build").exists())
         self.assertFalse((self.root / ".pio" / "build_cache").exists())
+        self.assertFalse((self.root / ".profile-lock").exists())
         self.assertEqual(sentinel.read_text(encoding="utf-8"), "keep")
         self.assertIn("fixture-build-failure", (self.root / "capture.log").read_text())
 
