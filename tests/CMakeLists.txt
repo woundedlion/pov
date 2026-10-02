@@ -66,6 +66,8 @@ set(HS_ENGINE_SOURCES
   ${HS_ROOT}/core/spatial/reaction_graph.cpp)
 set(HS_ENGINE_INCLUDES ${HS_ROOT} ${HS_ROOT}/core)
 
+# The host configuration widens inline/arena budgets because 64-bit pointers
+# inflate several objects past their 32-bit device footprints.
 add_library(hs_host_abi INTERFACE)
 target_compile_definitions(hs_host_abi INTERFACE
   HS_TIMELINE_MAX_ANIM_BYTES=256)
@@ -114,9 +116,6 @@ add_executable(run_tests
   ${CMAKE_CURRENT_SOURCE_DIR}/run_tests.cpp
   ${HS_ENGINE_SOURCES})
 
-# The host configuration widens inline/arena budgets because 64-bit pointers
-# inflate several objects past their 32-bit device footprints.
-#
 # HS_SCAN_METRICS compiles the per-pixel g_scan_metrics counters back in (off in
 # the device/WASM release build, where they would be a per-pixel global store on
 # the hot loop). The Face distance-oracle test reads exact_hits to tell culled
