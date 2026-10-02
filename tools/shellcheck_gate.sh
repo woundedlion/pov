@@ -30,7 +30,7 @@ fi
 tr '\n' '\0' < "$tmp" | xargs -0 shellcheck -x
 
 while IFS= read -r action; do
-  awk -v directory="$scratch" '
+  awk -v directory="$scratch" -v action="$action" '
     function finish() {
       if (!has_run) return
       if (shell !~ /^(bash|sh|dash|ksh)$/ || body !~ /[^[:space:]]/) {
@@ -64,7 +64,15 @@ while IFS= read -r action; do
       }
       match($0, /run:/); indent=RSTART - 1; body_indent=0; active=1; has_run=1
     }
-    END { if (!failed) { finish(); if (!count) exit 1 } }
+    END {
+      if (!failed) {
+        finish()
+        if (!count) {
+          print action ": no run steps" > "/dev/stderr"
+          exit 1
+        }
+      }
+    }
   ' "$action" > "$tmp"
   while read -r shell body; do
     shellcheck -s "$shell" - < "$body"
