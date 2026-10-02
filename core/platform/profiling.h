@@ -197,8 +197,7 @@ struct DwtStallBucket {
    *          per cycle, so their deltas are unambiguous only for an interval
    *          shorter than 256 cycles. A longer interval still accumulates —
    *          truncated, hence understated — and is tallied in `wrapped`, since
-   *          nothing enforces the bound on callers that add() directly rather
-   *          than through DwtStallBatch.
+   *          neither direct callers nor DwtStallBatch enforce a cycle limit.
    */
   void add(const DwtStallSample &start) {
     const uint32_t span = ARM_DWT_CYCCNT - start.cycles;
