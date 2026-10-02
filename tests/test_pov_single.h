@@ -22,7 +22,6 @@
 #include "tests/pov_tiling_test_util.h"
 #include "tests/test_harness.h"
 
-#include <cstdlib>
 #include <vector>
 #include <array>
 
