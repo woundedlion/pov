@@ -2,8 +2,9 @@
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
  * Licensed under the PolyForm Noncommercial License 1.0.0
  *
- * Unit tests for core/render/canvas.h — the Effect double-buffer state machine, the
- * parameter system (register_param / updateParameter / ParamList), the clip
+ * Unit tests for core/render/canvas.h and core/control/transition.h: the Effect
+ * double-buffer state machine and parameter system (register_param /
+ * updateParameter / ParamList), the clip
  * setters, Canvas scoped drawing, output envelopes, EffectTransitionController,
  * preset state machines and PipelineRef.
  *
