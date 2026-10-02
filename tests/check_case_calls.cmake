@@ -24,8 +24,8 @@
 # per-item bodies a case loops a sweep over, which hold the assertions the
 # loop amplifies. The name may sit on the next line, which is where
 # clang-format puts it when the signature wraps. A
-# module's header is the one defining the run_*_tests() entry point its roster
-# row names. Headers no roster row reaches — helper headers included mid-module
+# module's header is the one defining its run_*_tests() entry point. Headers
+# outside the module roster — helper headers included mid-module
 # and entry points only a standalone tool binary runs — are listed in
 # off_roster_headers.cmake. That list is shared with check_includes.cmake, which
 # exempts the same headers from the include pin.

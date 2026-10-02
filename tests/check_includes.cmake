@@ -23,8 +23,7 @@ string(REGEX REPLACE "//[^\n]*" "" _text "${_text}")
 
 string(REGEX MATCHALL "#include \"tests/test_[A-Za-z0-9_]+\\.h(pp)?\"" _includes "${_text}")
 
-# Count roster rows inside the HS_TEST_MODULE_LIST block only, the span
-# check_case_calls.cmake extracts: an X(" written anywhere else in the file
+# Count roster rows inside the HS_TEST_MODULE_LIST block only: an X(" elsewhere
 # would otherwise pad the count and mask the orphaned include this gate exists
 # to catch.
 string(FIND "${_text}" "#define HS_TEST_MODULE_LIST(X)" _begin)
