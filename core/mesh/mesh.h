@@ -412,6 +412,40 @@ build_half_edge_mesh(HalfEdgeMesh &out, Arena &arena, size_t num_verts,
 
 namespace MeshOps {
 
+/**
+ * @brief Sums the positions of one face's vertices — the unnormalized
+ * centroid, leaving the degenerate-face policy to the caller.
+ * @param vertices Vertex positions the face indices address.
+ * @param faces Flat per-face vertex index list.
+ * @param off Start of this face's span in `faces`.
+ * @param n Side count of this face.
+ * @return Sum of the face's vertex positions.
+ */
+__attribute__((always_inline)) inline math::Vector
+face_vertex_sum(const math::Vector *vertices, const uint16_t *faces, size_t off,
+                int n) {
+  math::Vector c(0.0f, 0.0f, 0.0f);
+  for (int k = 0; k < n; ++k)
+    c = c + vertices[faces[off + k]];
+  return c;
+}
+
+/**
+ * @brief Fills a caller-allocated array with every face's unit centroid.
+ * @param m Mesh whose faces are reduced.
+ * @param out Receives one unit vector per face, in emission order.
+ */
+HS_COLD_MEMBER inline void face_centroids_into(const PolyMesh &m,
+                                               math::Vector *out) {
+  size_t off = 0;
+  for (size_t f = 0; f < m.face_counts.size(); ++f) {
+    const int n = m.face_counts[f];
+    out[f] =
+        face_vertex_sum(m.vertices.data(), m.faces.data(), off, n).normalized();
+    off += n;
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Shared topology helpers
 // ---------------------------------------------------------------------------

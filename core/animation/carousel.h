@@ -227,7 +227,7 @@ public:
     const uint8_t *counts = sweep.get_face_counts_data();
     out.clear();
     for (size_t face = 0; face < sweep.num_faces(); ++face) {
-      const math::Vector center = Animation::OpLeg::face_vertex_sum(
+      const math::Vector center = MeshOps::face_vertex_sum(
           sweep.vertices.data(), indices, offsets[face], counts[face]);
       const int cls = MeshPaletteBank::slot_of(classes[face]);
       const float offset = segue_policy.face_offset(

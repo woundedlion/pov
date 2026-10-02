@@ -976,40 +976,6 @@ public:
     return trailing_blend(frame, duration, TRAILING_BLEND_FRAMES);
   }
 
-  /**
-   * @brief Sums the positions of one face's vertices — the unnormalized
-   * centroid, leaving the degenerate-face policy to the caller.
-   * @param vertices Vertex positions the face indices address.
-   * @param faces Flat per-face vertex index list.
-   * @param off Start of this face's span in `faces`.
-   * @param n Side count of this face.
-   * @return Sum of the face's vertex positions.
-   */
-  __attribute__((always_inline)) static math::Vector
-  face_vertex_sum(const math::Vector *vertices, const uint16_t *faces,
-                  size_t off, int n) {
-    math::Vector c(0.0f, 0.0f, 0.0f);
-    for (int k = 0; k < n; ++k)
-      c = c + vertices[faces[off + k]];
-    return c;
-  }
-
-  /**
-   * @brief Fills a caller-allocated array with every face's unit centroid.
-   * @param m Mesh whose faces are reduced.
-   * @param out Receives one unit vector per face, in emission order.
-   */
-  HS_COLD_MEMBER static void face_centroids_into(const PolyMesh &m,
-                                                 math::Vector *out) {
-    size_t off = 0;
-    for (size_t f = 0; f < m.face_counts.size(); ++f) {
-      const int n = m.face_counts[f];
-      out[f] = face_vertex_sum(m.vertices.data(), m.faces.data(), off, n)
-                   .normalized();
-      off += n;
-    }
-  }
-
 private:
   /**
    * @brief Arena-allocated leg state — keeps OpLeg inline size small.
@@ -1166,7 +1132,7 @@ private:
                                 tr.t_start, tr.twist_start);
         HS_CHECK(start.face_counts.size() == handoff.prev_faces,
                  "OpLeg: closing bridge start faces differ from the handoff");
-        face_centroids_into(start, cen);
+        MeshOps::face_centroids_into(start, cen);
       }
       start_centroid = cen;
     }
@@ -1390,10 +1356,10 @@ private:
     size_t off = 0;
     for (size_t f = 0; f < arrival.face_counts.size(); ++f) {
       const int n = arrival.face_counts[f];
-      const math::Vector c =
-          math::normalized_or(face_vertex_sum(arrival.vertices.data(),
-                                              arrival.faces.data(), off, n),
-                              arrival.vertices[arrival.faces[off]]);
+      const math::Vector c = math::normalized_or(
+          MeshOps::face_vertex_sum(arrival.vertices.data(),
+                                   arrival.faces.data(), off, n),
+          arrival.vertices[arrival.faces[off]]);
 
       // The orbit's own source vertex: the dual face's centroid lies in that
       // vertex's cell, so the nearest seed vertex is it.
@@ -1650,7 +1616,7 @@ private:
   HS_COLD_MEMBER static const math::Vector *face_centroids(const PolyMesh &m,
                                                            Arena &arena) {
     math::Vector *out = arena.allocate_n<math::Vector>(m.face_counts.size());
-    face_centroids_into(m, out);
+    MeshOps::face_centroids_into(m, out);
     return out;
   }
 
