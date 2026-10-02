@@ -473,7 +473,8 @@ inline void test_cubemap_lut_offlattice() {
 /**
  * @brief Checks equatorial cubemap lookups against a brute-force oracle.
  * @details build() performs nearest-node searches and checks convergence.
- * Queries across the equator exercise lookup quantization with one-cell tolerance.
+ * Equatorial lookup quantization permits at most 12 probes outside the
+ * oracle node and its direct neighbors among 720 fixed queries.
  */
 inline void test_cubemap_lut_equatorial() {
   const auto &lut = built_cubemap_lut();
