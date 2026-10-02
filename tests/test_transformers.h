@@ -1598,9 +1598,9 @@ inline void test_noise_product_field_parity() {
   HS_EXPECT_NEAR(matrix[0][0] * matrix[1][1], matrix[0][1] * matrix[1][0],
                  1e-7f);
 
-  p.amplitude = 0.0f;
-  HS_EXPECT_NEAR(noise_product_field(samples[0], p), 0.0f, 1e-7f);
-  HS_EXPECT_NEAR(p.field_bound(), 0.0f, 1e-7f);
+  p.amplitude = .0005f;
+  HS_EXPECT_EQ(noise_product_field(samples[0], p), 0.f);
+  HS_EXPECT_EQ(p.field_bound(), .0005f);
 }
 
 /**
