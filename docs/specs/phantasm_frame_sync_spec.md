@@ -249,9 +249,10 @@ wrap if the cycle counter is ever unavailable.)
 within `MIN_SAFE_HALF_REVS` (16) half-revolutions either side of the epoch;
 `Config::valid()` caps `cycles_per_half_rev` so that product fits `INT32_MAX`,
 which floors the spindle rate a config may describe at approximately 134.11 RPM. The fold reads
-the same difference and reports no crossing on a negative one, so a coast past
-2³¹ cycles (~3.6 s at 600 MHz) leaves the epoch unable to catch up —
-`Flywheel::fold_stalled()`. A downstream board recovers through the §5.3
+the same difference and reports no crossing while the modular elapsed cycles
+are in [2³¹, 2³²) — `Flywheel::fold_stalled()`. The window begins at ~3.6 s at
+600 MHz; a full counter wrap loses elapsed revolution history.
+A downstream board recovers through the §5.3
 fallback: its ACQUIRE snap re-bases the epoch on the next symbol. The master
 snaps to nothing, so `SyncBoard::tick()` re-seeds its flywheel on the current
 instant, force-locks it, resets the flip dedup state — the re-seed stamps ZERO
