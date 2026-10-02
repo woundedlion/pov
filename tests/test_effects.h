@@ -5899,15 +5899,11 @@ inline void test_needs_full_frame_gate() {
 }
 
 /**
- * @brief White-box accessor for Voronoi's seeded sites and coarse-grid tuning
- *        constants. MAX_SITES and COHERENCE_BLOCK do not depend on W/H, so one
- *        instantiation supplies them; the block floor does, and is reached
- *        through coherence_block_min<W, H>().
+ * @brief White-box accessor for Voronoi's seeded sites and adaptive block floor.
  */
 struct VoronoiWhiteBox {
   using VO = Voronoi<DEFAULT_W, DEFAULT_H>;
   static constexpr int MAX_SITES = VO::MAX_SITES;
-  static constexpr int COHERENCE_BLOCK = VO::COHERENCE_BLOCK;
 
   /** @brief Adaptive block floor at render resolution W x H. */
   template <int W, int H> static constexpr int coherence_block_min() {
@@ -6024,6 +6020,9 @@ inline double voronoi_render_nearest_match(std::span<const math::Vector> sites,
  *          checked for exact coverage.
  */
 inline void test_voronoi_union_candidates_cover_nearest() {
+  static_assert(VoronoiWhiteBox::coherence_block_min<SMALL_W, SMALL_H>() == 1);
+  static_assert(VoronoiWhiteBox::coherence_block_min<DEFAULT_W, DEFAULT_H>() ==
+                4);
   float deficit = 0.0f;
 
   const math::Vector octahedral[] = {
@@ -6265,9 +6264,6 @@ struct IslamicBuildProbe {
   }
   static constexpr size_t bridge_scratch_a() {
     return IS::BRIDGE_BUDGET.scratch_a;
-  }
-  static constexpr size_t default_scratch_a() {
-    return IS::GENERATED_BUDGET.scratch_a;
   }
   static constexpr size_t bridge_scratch_b() {
     return IS::BRIDGE_BUDGET.scratch_b;
