@@ -92,6 +92,10 @@
 #endif
 #endif
 
+#if defined(HS_PROFILE_AUTO_RESUME) && !defined(HS_PROFILE_PRESET)
+#error "HS_PROFILE_AUTO_RESUME requires HS_PROFILE_PRESET"
+#endif
+
 #if defined(HS_MINDSPLATTER_REPLAY_AB) && !defined(HS_MINDSPLATTER_REPLAY)
 #error "HS_MINDSPLATTER_REPLAY_AB requires HS_MINDSPLATTER_REPLAY"
 #endif
