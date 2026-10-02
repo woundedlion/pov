@@ -763,12 +763,7 @@ const validatePresetBank = (bank, parameters, pathPolicies, report, guard) => {
   });
 };
 
-/**
- * Validates a version-2 chain document against the operator catalog.
- * Schema-phase malformation throws; semantic findings are collected and the
- * full list returned, so import surfaces every problem at once.
- * @returns {Object[]} Every semantic diagnostic, empty for a valid document.
- */
+
 // Native constants are pinned in tests/test_shader_chain.h.
 const MOBIUS_MIN_DET_SQ = Math.fround(1e-6);
 const CURL_VECTOR_COMPONENT_MAX = 4;
@@ -794,6 +789,12 @@ const admissibleParameters = (operator, value) => {
   return true;
 };
 
+/**
+ * Validates a version-2 chain document against the operator catalog.
+ * Schema-phase malformation throws; semantic findings are collected and the
+ * full list returned, so import surfaces every problem at once.
+ * @returns {Object[]} Every semantic diagnostic, empty for a valid document.
+ */
 export function validateShaderDocument(document, options = {}) {
   const limits = { ...DEFAULT_LIMITS, ...(options.limits ?? {}) };
   const catalog = requireCatalog(options.catalog);
