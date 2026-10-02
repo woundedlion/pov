@@ -255,8 +255,8 @@ public:
    * @param pin Pin::PINNED: the caller intends to RETAIN this pointer
    * across frames, so the event is marked pinned and step()'s compaction traps
    * (move_into) rather than relocating it out from under the cached pointer.
-   * Such a retained handle is only safe when the animation is infinite and added
-   * before any finite one (so no earlier event is ever removed to shift it) —
+   * Such a retained handle is only safe when the animation never completes on
+   * its own (infinite or repeating) and no finite, non-repeating event precedes it —
    * the contract the direct callers rely on; the trap enforces it. Pass
    * Pin::UNPINNED for a TRANSIENT pointer used only at the call site and not
    * kept across frames (e.g. TransformerPool::spawn, whose finite animations are
