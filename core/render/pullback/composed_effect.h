@@ -740,6 +740,15 @@ struct FieldCoverageStageFor<FieldCoverageKind::VALUE_CUTOUT, B, Family> {
 
 namespace ComposedDetail {
 
+inline constexpr const char *MOBIUS_PARAM_NAMES[] = {
+    "Mobius A Re", "Mobius A Im", "Mobius B Re", "Mobius B Im",
+    "Mobius C Re", "Mobius C Im", "Mobius D Re", "Mobius D Im"};
+constexpr std::string_view warp_speed_name(std::string_view key) {
+  return key == "outer_warp"   ? "Planar Warp 1 Speed"
+         : key == "inner_warp" ? "Planar Warp 2 Speed"
+                               : "Planar Warp Speed";
+}
+
 template <typename T> struct IsSampleStage : std::false_type {};
 template <typename S, typename W, typename C>
 struct IsSampleStage<Stage::Sample<S, W, C>> : std::true_type {};
@@ -954,18 +963,19 @@ consteval size_t resource_name_bytes() {
     return 0;
   else {
     constexpr size_t PREFIX = Resource::KEY.view().size() + 2;
-    if constexpr (Resource::KIND == ResourceKind::LENS)
-      return 8 * (PREFIX + std::string_view("Mobius A Re").size());
-    else {
+    if constexpr (Resource::KIND == ResourceKind::LENS) {
+      size_t bytes = 0;
+      for (const char *name : MOBIUS_PARAM_NAMES)
+        bytes += PREFIX + std::string_view(name).size();
+      return bytes;
+    } else {
       size_t bytes = 0;
       for (const auto &field : Resource::Family::FIELDS)
         if (field.name != nullptr && field_gate_open<Spec>(field.gate))
           bytes += PREFIX + std::string_view(field.name).size();
       if constexpr (Resource::KIND == ResourceKind::WARP) {
         constexpr std::string_view SPEED_NAME =
-            Resource::KEY.view() == "outer_warp"   ? "Planar Warp 1 Speed"
-            : Resource::KEY.view() == "inner_warp" ? "Planar Warp 2 Speed"
-                                                   : "Planar Warp Speed";
+            warp_speed_name(Resource::KEY.view());
         bytes += PREFIX + SPEED_NAME.size();
       }
       return bytes;
@@ -1370,9 +1380,7 @@ private:
                       T::FIELDS[0].name == nullptr,
                   "warp speed must be the first unnamed descriptor");
     constexpr const char *SPEED_NAME =
-        Resource::KEY.view() == "outer_warp"   ? "Planar Warp 1 Speed"
-        : Resource::KEY.view() == "inner_warp" ? "Planar Warp 2 Speed"
-                                               : "Planar Warp Speed";
+        ComposedDetail::warp_speed_name(Resource::KEY.view()).data();
     this->register_param(resource_parameter_name<Resource>(SPEED_NAME),
                          &warp.speed, T::FIELDS[0].description().spec);
     register_fields<Resource>(warp);
@@ -1380,9 +1388,6 @@ private:
 
   template <typename Resource, typename T>
   HS_COLD_MEMBER void register_lens_fields(T &lens) {
-    constexpr const char *NAMES[] = {
-        "Mobius A Re", "Mobius A Im", "Mobius B Re", "Mobius B Im",
-        "Mobius C Re", "Mobius C Im", "Mobius D Re", "Mobius D Im"};
     constexpr math::Complex math::MobiusParams::*COEFFICIENTS[] = {
         &math::MobiusParams::a, &math::MobiusParams::b, &math::MobiusParams::c,
         &math::MobiusParams::d};
@@ -1392,7 +1397,8 @@ private:
     for (size_t i = 0; i < std::size(COEFFICIENTS); ++i)
       for (size_t j = 0; j < std::size(CHANNELS); ++j)
         register_animated_param(
-            resource_parameter_name<Resource>(NAMES[i * 2 + j]),
+            resource_parameter_name<Resource>(
+                ComposedDetail::MOBIUS_PARAM_NAMES[i * 2 + j]),
             &((lens.mobius.*COEFFICIENTS[i]).*CHANNELS[j]), -LIMIT, LIMIT);
   }
 
