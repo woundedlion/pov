@@ -18,7 +18,7 @@ This is experimental-octet-wide-flight, preset 5 (internal index 4), held with c
 | Appearance | Near fade 2.0, far distance 10.666, AA strength 2.0, DEPTH color |
 | Motion | Speed 0.12750001, 3D spin 0.010155, 4D spin 0 |
 
-[Raw capture](../evidence/hyperlattice_octet_preset5_2026-09-28/octet_preset5_o3.txt), [provenance](../evidence/hyperlattice_octet_preset5_2026-09-28/octet_preset5_o3.provenance), [validation](../evidence/hyperlattice_octet_preset5_2026-09-28/octet_preset5_o3_validate.txt), [summary](../evidence/hyperlattice_octet_preset5_2026-09-28/octet_preset5_o3_summary.json). The evidence directory preserves SHA-256-wrapped build logs and environment dumps. Full ELF/map artifacts are archived locally in C:/work/Holosphere/build/prof/octet_preset3_20260928.
+Raw capture (supporting artifact removed), provenance (supporting artifact removed), validation (supporting artifact removed), summary (supporting artifact removed). The evidence directory preserves SHA-256-wrapped build logs and environment dumps. Full ELF/map artifacts are archived locally in C:/work/Holosphere/build/prof/octet_preset3_20260928.
 
 Instrumented single-effect image sizes:
 

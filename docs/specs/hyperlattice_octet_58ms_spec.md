@@ -3,7 +3,7 @@
 Status: LANDED. Section 3 Tier 1 landed in `f130ee632`; section 4 Tier 2
 landed in `1bb522211`. Section 5 fallbacks were not taken. Sections 1-2
 record the pre-landing baseline, including historical preset indices and IDs.
-The [optimization ledger](../profiles/hyperlattice_octet_optimization_2026-09-27.md)
+The optimization ledger (supporting artifact removed)
 records the preceding arithmetic work.
 
 Source of truth for the shipped code: `effects/HyperLattice.h`
@@ -63,7 +63,7 @@ the layer path.
 ### 2.2 What the shipped code does per ray
 
 The final shipping disassembly is preserved in the
-[optimization evidence](../profiles/evidence/hyperlattice_octet_optimization_2026-09-27/octet_final_ship_codegen.txt).
+optimization evidence (supporting artifact removed).
 Reading the 3D shader (`shade<false>`, 912 instructions) and the adapter
 constructor (483 instructions) gives the following per-ray fixed cost, all of
 it spent on values that are constant per frame or true by construction:

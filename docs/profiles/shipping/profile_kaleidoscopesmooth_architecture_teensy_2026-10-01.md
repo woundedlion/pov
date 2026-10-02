@@ -1,6 +1,6 @@
 # KaleidoscopeSmooth on-device profile — Teensy 4.0, segmented mode (2026-10-01, **selective -O3**)
 
-Point-in-time architecture snapshot. Raw capture: [aligned-board4-kaleidoscopesmooth-profile.txt](../evidence/architecture_2026-10-01/aligned-board4-kaleidoscopesmooth-profile.txt); [capture provenance](../evidence/architecture_2026-10-01/aligned-board4-kaleidoscopesmooth-profile.provenance). Updates the current ranking alongside the preserved earlier capture [profile_kaleidoscopesmooth_teensy_2026-09-28.md](profile_kaleidoscopesmooth_teensy_2026-09-28.md). Earlier reports used different source tips and are not the architecture baseline.
+Point-in-time architecture snapshot. Raw capture: aligned-board4-kaleidoscopesmooth-profile.txt (supporting artifact removed); capture provenance (supporting artifact removed). Updates the current ranking alongside the preserved earlier capture [profile_kaleidoscopesmooth_teensy_2026-09-28.md](profile_kaleidoscopesmooth_teensy_2026-09-28.md). Earlier reports used different source tips and are not the architecture baseline.
 
 ## Setup
 
@@ -9,7 +9,7 @@ Point-in-time architecture snapshot. Raw capture: [aligned-board4-kaleidoscopesm
 | Hardware | Teensy 4.0 @ 600 MHz, POV segmented mode, live flywheel and DMA ISRs |
 | Image | `profile`: `-Os`, `-ffast-math -fno-finite-math-only`; the composed shade and generated-palette HS_O3 functions |
 | Driver | `POVSegmented<288, 4, 480>`, segment 0 master |
-| Effect | KaleidoscopeSmooth 288×144, single-entry playlist, source `0156d0d7490355ea99cab406f4704a128a55ccbf` plus [retained source patch](../evidence/architecture_2026-10-01/aligned-board4-kaleidoscopesmooth-profile_source.diff) |
+| Effect | KaleidoscopeSmooth 288×144, single-entry playlist, source `0156d0d7490355ea99cab406f4704a128a55ccbf` plus an unretained source patch (supporting artifact removed) |
 | Method | `HS_PROFILE`, 16-frame windows, 260 s capture; `HS_PROFILE_EPOCH_REVS=2400` (300 s epoch); runtime 2–4137, setup frame 1 excluded; counter summaries 17–4128, excluding the entire startup-containing window |
 | Reproduce | `tools/profile_one.sh KaleidoscopeSmooth profile 260 16 -D HS_PROFILE_EPOCH_REVS=2400` |
 
@@ -20,7 +20,7 @@ Image size: `FLASH: code:70688, data:156636, headers:8196` /
 Exactness cross-check: window 3953–3968 root cycles / 600 MHz
 match the wall sum within **4.46 ppm**. The untouched baseline and candidate captures
 both passed `tools/parse_profile.py <capture> validate` before filtering; their validation
-outputs and build/envdump records are in the [evidence directory](../evidence/architecture_2026-10-01/README.md).
+outputs and build/envdump records are no longer retained in the repository.
 
 ## Frame cadence
 
@@ -139,7 +139,7 @@ Preparation over the complete post-startup windows averages 1536.384 us/f versus
 - No `filter_blend` subtree or exact blend count was recorded in these captures.
 - Shipping uses the composed shade and generated-palette HS_O3 functions; the global-O3 twin optimizes all compiled code.
 - Only the epoch is stretched to 300 s; dwell and transition settings remain authored.
-- Captured source is the base SHA above plus the exact retained source patch; the source diff hash is 783e073d58c6daf2ebaac200edc4f0fbee222ef9a9e5d462a84ec36d4d08b7d3. This capture does not represent an unmodified committed tree. Build flags, source status and hashes are retained as evidence; later documentation edits do not change that source identity.
+- Captured source is the base SHA above plus a source patch that is no longer retained; the source diff hash is 783e073d58c6daf2ebaac200edc4f0fbee222ef9a9e5d462a84ec36d4d08b7d3. This capture does not represent an unmodified committed tree. Build flags, source status and hashes are not retained in the repository; later documentation edits do not change that source identity.
 - Counter summaries omit the startup-containing window; exact cadence excludes only actual setup frame 1 and retains all following live frames.
 
 ## Harness

@@ -2,7 +2,7 @@
 
 Point-in-time snapshot (regenerate with `just profile GSReactionDiffusion`).
 
-Raw capture: [preserved capture](../evidence/gs_shading_2026-09-30/ship/capture.txt), captured 2026-09-30 19:21 on COM4. Replaces the earlier 2026-09-30 report from before pigment blending, hue rotation and shimmer were enabled. [Optimization campaign and current-state update](../gsreactiondiffusion_optimization_2026-09-30.md).
+Raw capture: preserved capture (supporting artifact removed), captured 2026-09-30 19:21 on COM4. Replaces the earlier 2026-09-30 report from before pigment blending, hue rotation and shimmer were enabled. Optimization campaign and current-state update (supporting artifact removed).
 
 ## Setup
 
@@ -19,7 +19,7 @@ Single-effect image size: `FLASH: code:66352, data:252240, headers:9088   free f
 
 Full-roster shipping Phantasm, separately built with profiling disabled: `FLASH: code:535552, data:746852, headers:8860   free for files:740352` / `RAM1: variables:314784, code:171928, padding:24680   free for local variables:12896` / `RAM2: variables:520064  free for malloc/new:4224`. The full-roster build passes the region-budget and layout gates; its RAM1 code is the shipping ITCM budget, separate from the single-effect comparison image.
 
-Exactness cross-check: window frames 353–384, root 6,105,645,223 cycles ÷ 600 MHz versus measured wall sum 10,176,077 us, within **0.2 ppm**. [Parser validation](../evidence/gs_shading_2026-09-30/ship/validate.txt) reports VALID.
+Exactness cross-check: window frames 353–384, root 6,105,645,223 cycles ÷ 600 MHz versus measured wall sum 10,176,077 us, within **0.2 ppm**. Parser validation (supporting artifact removed) reports VALID.
 
 ## Frame cadence
 
@@ -116,8 +116,12 @@ Native quality/state evidence in the historical campaign predates the added shad
 - The extended epoch prevents reinitialization during capture. No dwell compression, simulation-speed override, or lifecycle completion is claimed.
 - Both current images were captured on COM4 at source `7baf3cc430753e1a3693134150b282f212aa4e9e` with an empty source diff. The candidate includes the noise modifier speed and pigment scratch-lifetime corrections. The prior early-morning captures used COM3 and earlier artwork; their timing delta is not a controlled optimization comparison.
 - Setup frame 1 is excluded from runtime rows; the entire first window is excluded from scope/ISR summaries. Complete individual frame rows in the unfinished final window remain in runtime statistics. Integer-microsecond ISR totals introduce small quantization error.
-- [Portable evidence manifest](../evidence/gs_shading_2026-09-30/ship/gs_shading_ship_manifest.json) retains capture, compiler/build/environment records and original hashes. Host process environment dictionaries are removed; footer environment hashes identify the sanitized retained dumps, while measurement rows are unchanged. ELF/map artifacts remain in the provenance-named local archive.
+- Portable evidence manifest (supporting artifact removed) retains capture, compiler/build/environment records and original hashes. Host process environment dictionaries are removed; footer environment hashes identify the sanitized retained dumps, while measurement rows are unchanged. ELF/map artifacts remain in the provenance-named local archive.
 
 ## Harness
 
 `targets/Profile/Profile.ino`: `HS_PROFILE_TARGET=GSReactionDiffusion`, `HS_PROFILE_WINDOW=32`, `HS_PROFILE_EPOCH_REVS=1200`. `just profile GSReactionDiffusion` is the basic shortcut; use the Setup command for this duration and epoch under the shared-device lock.
+
+Source reachability: capture `7baf3cc4307` maps to landed `daf63d812` on a
+different base (319 files differ); the captured tree is not available from the
+published branch. Supporting artifacts are no longer retained.

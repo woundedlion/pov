@@ -37,7 +37,7 @@ There is one held-preset regime per capture. Each tree below is its worst comple
 
 ### Octet 3D
 
-[Raw capture](../evidence/hyperlattice_octet_optimization_2026-09-27/octet_final_o3.txt), [provenance](../evidence/hyperlattice_octet_optimization_2026-09-27/octet_final_o3.provenance), [validation](../evidence/hyperlattice_octet_optimization_2026-09-27/octet_final_o3_validate.txt), [summary](../evidence/hyperlattice_octet_optimization_2026-09-27/octet_final_o3_summary.json).
+Raw capture (supporting artifact removed), provenance (supporting artifact removed), validation (supporting artifact removed), summary (supporting artifact removed).
 
 Runtime frames 2–550; startup frame 1 renders in 149.489 ms and is excluded. Scope/ISR summaries use frames 17–544. Trailing live telemetry after the last complete window remains in the runtime statistics.
 
@@ -58,7 +58,7 @@ Wall minimum/average/maximum: 124.728/124.949/125.209 ms. Geometry traversal and
 
 ### Octet 4D
 
-[Raw capture](../evidence/hyperlattice_octet_optimization_2026-09-27/octet4_final_o3.txt), [provenance](../evidence/hyperlattice_octet_optimization_2026-09-27/octet4_final_o3.provenance), [validation](../evidence/hyperlattice_octet_optimization_2026-09-27/octet4_final_o3_validate.txt), [summary](../evidence/hyperlattice_octet_optimization_2026-09-27/octet4_final_o3_summary.json).
+Raw capture (supporting artifact removed), provenance (supporting artifact removed), validation (supporting artifact removed), summary (supporting artifact removed).
 
 Runtime frames 2–233; startup frame 1 renders in 342.012 ms and is excluded. Scope/ISR summaries use frames 17–224. Trailing live telemetry after the last complete window remains in the runtime statistics.
 
@@ -125,7 +125,7 @@ Pack performs the CPU-side LED marshaling; submit starts asynchronous DMA. The 6
 2. canvas_buffer_wait aligns completed images to the next display flip.
 3. Preserve/clear, palette stepping and preparation account for the remaining time.
 
-No matched host timing is claimed. The original optimization baseline and every accepted/rejected trial are documented in the [optimization ledger](../hyperlattice_octet_optimization_2026-09-27.md).
+No matched host timing is claimed. The original optimization baseline and every accepted/rejected trial are documented in the optimization ledger (supporting artifact removed).
 
 ## Global -O3 vs selective -O3
 
