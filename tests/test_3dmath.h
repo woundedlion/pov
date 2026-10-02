@@ -23,7 +23,7 @@ namespace hs_test {
 namespace math3d_tests {
 
 // ============================================================================
-// Constants
+// Projection patterns
 // ============================================================================
 
 inline void test_projection_pattern_bounds() {
@@ -52,6 +52,10 @@ inline void test_projection_pattern_bounds() {
   }
   HS_EXPECT_EQ(projections::pole_normalize_pattern(1.0f, 0.0f, 0.0f), 1.0f);
 }
+
+// ============================================================================
+// Constants
+// ============================================================================
 
 /**
  * @brief Pins the math constants (golden ratio, tolerance, pi, stereo
@@ -1584,6 +1588,10 @@ inline void test_wrap_index() {
   }
 }
 
+// ============================================================================
+// Hash / value noise
+// ============================================================================
+
 /**
  * @brief Verifies hash01's frozen outputs, range, and seed independence.
  * @details The sorted-set check is the load-bearing one: a seed that only
@@ -1664,6 +1672,10 @@ inline void test_value_noise() {
   HS_EXPECT_TRUE(math::value_noise_2d(0.5f, 0.5f, 1u) !=
                  math::value_noise_2d(0.5f, 0.5f, 2u));
 }
+
+// ============================================================================
+// Lenses
+// ============================================================================
 
 inline void test_twist_lens() {
   math::Vector input(0.6f, 0.5f, 0.6244998f);
