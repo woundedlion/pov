@@ -45,6 +45,17 @@
 namespace hs_test {
 namespace scan_tests {
 
+template <int N, int LUT_N>
+inline void build_ring_knots(float (&knots)[N][LUT_N + 1]) {
+  for (int i = 0; i < N; ++i) {
+    for (int k = 0; k < LUT_N; ++k) {
+      const float t = 2.0f * math::PI_F * k / LUT_N;
+      knots[i][k] = 0.06f * sinf((i + 2) * t) + 0.03f * cosf(3.0f * t + i);
+    }
+    knots[i][LUT_N] = knots[i][0];
+  }
+}
+
 /**
  * @brief Pins Render::pole_lod_aggressiveness for a scope and restores it on exit.
  * @details The knob is process-global, so an early return between a hand-rolled
@@ -105,12 +116,7 @@ inline void test_min_alpha_boundary() {
               [&](const math::Vector &, Fragment &f) { f.color = COLOR; });
       }
       fx.advance_display();
-      size_t lit = 0;
-      for (int y = 0; y < H; ++y)
-        for (int x = 0; x < W; ++x) {
-          const Pixel p = fx.get_pixel(x, y);
-          lit += (p.r || p.g || p.b) ? 1 : 0;
-        }
+      const size_t lit = count_lit_region<W, H>(fx);
       HS_EXPECT_EQ(lit > 0, alpha > Scan::MIN_ALPHA);
     }
   }
@@ -390,10 +396,7 @@ inline void test_shader_clip_arc_matches_predicate() {
       draw_variant(c, variant);
     }
     fx.advance_display();
-    out.resize(W * H);
-    for (int y = 0; y < H; ++y)
-      for (int x = 0; x < W; ++x)
-        out[y * W + x] = fx.get_pixel(x, y);
+    capture_frame<W, H>(fx, out);
   };
 
   struct Band {
@@ -562,11 +565,7 @@ inline void test_ring_rasterize_empty_clip_draws_nothing() {
   }
   fx.advance_display();
 
-  size_t plotted = 0;
-  for (int y = 0; y < H; ++y)
-    for (int x = 0; x < W; ++x)
-      if (!is_black(fx.get_pixel(x, y)))
-        ++plotted;
+  const size_t plotted = count_lit_region<W, H>(fx);
   HS_EXPECT_EQ(plotted, (size_t)0);
 }
 
@@ -597,9 +596,7 @@ inline void test_distorted_ring_flat_matches_zero_knot_raster() {
                                         knots, LUT_N, shader);
       }
       reference.advance_display();
-      for (int y = 0; y < H; ++y)
-        for (int x = 0; x < W; ++x)
-          expected[y * W + x] = reference.get_pixel(x, y);
+      capture_frame<W, H>(reference, expected);
     }
 
     hs_test::StubEffect flat(W, H);
@@ -687,9 +684,7 @@ inline void test_ring_group_matches_sequential() {
         }
       }
       seq.advance_display();
-      for (int y = 0; y < H; ++y)
-        for (int x = 0; x < W; ++x)
-          expected[y * W + x] = seq.get_pixel(x, y);
+      capture_frame<W, H>(seq, expected);
     }
 
     hs_test::StubEffect fused(W, H);
@@ -805,13 +800,7 @@ inline void test_distorted_ring_stack_matches_sequential() {
         normal);
 
     float knots[N_RINGS][LUT_N + 1];
-    for (int i = 0; i < N_RINGS; ++i) {
-      for (int k = 0; k < LUT_N; ++k) {
-        float t = 2.0f * math::PI_F * k / LUT_N;
-        knots[i][k] = 0.06f * sinf((i + 2) * t) + 0.03f * cosf(3.0f * t + i);
-      }
-      knots[i][LUT_N] = knots[i][0];
-    }
+    build_ring_knots<N_RINGS, LUT_N>(knots);
     // Ring i's centerline colatitude must be PI * (i + 1) / (N_RINGS + 1);
     // target_angle is radius * PI/2.
     auto ring_radius = [](int i) { return 2.0f * (i + 1) / (N_RINGS + 1); };
@@ -862,9 +851,7 @@ inline void test_distorted_ring_stack_matches_sequential() {
         }
       }
       seq.advance_display();
-      for (int y = 0; y < H; ++y)
-        for (int x = 0; x < W; ++x)
-          expected[y * W + x] = seq.get_pixel(x, y);
+      capture_frame<W, H>(seq, expected);
     }
 
     hs_test::StubEffect fused(W, H);
@@ -993,13 +980,7 @@ inline void test_fused_walks_ignore_pole_lod() {
 
   auto draw_stack = [&](std::vector<Pixel> &out) {
     float knots[N][LUT_N + 1];
-    for (int i = 0; i < N; ++i) {
-      for (int k = 0; k < LUT_N; ++k) {
-        const float t = 2.0f * math::PI_F * k / LUT_N;
-        knots[i][k] = 0.06f * sinf((i + 2) * t) + 0.03f * cosf(3.0f * t + i);
-      }
-      knots[i][LUT_N] = knots[i][0];
-    }
+    build_ring_knots<N, LUT_N>(knots);
     alignas(
         SDF::DistortedRing) unsigned char mem[N * sizeof(SDF::DistortedRing)];
     auto *shapes = reinterpret_cast<SDF::DistortedRing *>(mem);
@@ -1111,9 +1092,7 @@ inline void test_face_rasterize_matches_scan_region() {
     {
       hs_test::StubEffect generic(W, H);
       draw(generic, false);
-      for (int y = 0; y < H; ++y)
-        for (int x = 0; x < W; ++x)
-          expected[y * W + x] = generic.get_pixel(x, y);
+      capture_frame<W, H>(generic, expected);
     }
 
     hs_test::StubEffect fused(W, H);
@@ -1384,9 +1363,7 @@ inline void test_pole_lod_shading_matches_undecimated() {
 
   auto readback = [](hs_test::StubEffect &fx) {
     std::vector<Pixel> out(W * H);
-    for (int y = 0; y < H; ++y)
-      for (int x = 0; x < W; ++x)
-        out[y * W + x] = fx.get_pixel(x, y);
+    capture_frame<W, H>(fx, out);
     return out;
   };
 
@@ -1715,9 +1692,7 @@ inline void test_pole_lod_concave_face_matches_undecimated() {
       }
       fx.advance_display();
       std::vector<Pixel> pixels(W * H);
-      for (int y = 0; y < H; ++y)
-        for (int x = 0; x < W; ++x)
-          pixels[y * W + x] = fx.get_pixel(x, y);
+      capture_frame<W, H>(fx, pixels);
       return pixels;
     };
     const auto plain = draw(0.0f);
@@ -2312,9 +2287,7 @@ inline void test_solid_color_path_matches_generic() {
         // A pair of all-black frames would satisfy the parity check below.
         const size_t generic_lit = count_lit_region<W, H>(generic_fx);
         HS_EXPECT_GT(generic_lit, (size_t)0);
-        for (int y = 0; y < H; ++y)
-          for (int x = 0; x < W; ++x)
-            generic_pixels.push_back(generic_fx.get_pixel(x, y));
+        capture_frame<W, H>(generic_fx, generic_pixels);
       }
 
       {
@@ -2402,10 +2375,7 @@ inline void test_spherical_sine_distance_framebuffer_error() {
     const size_t lit = count_lit_region<W, H>(fx);
     HS_EXPECT_GT(lit, (size_t)0);
     std::vector<Pixel> pixels;
-    pixels.reserve(W * H);
-    for (int y = 0; y < H; ++y)
-      for (int x = 0; x < W; ++x)
-        pixels.push_back(fx.get_pixel(x, y));
+    capture_frame<W, H>(fx, pixels);
     return pixels;
   };
 
