@@ -1213,7 +1213,7 @@ private:
  * @tparam W Canvas width in pixels.
  * @tparam H Canvas height in pixels.
  * @tparam COOL Cooling-rate control; larger values cool faster.
- * @tparam SPARK Spark probability numerator over 255 for igniting the base.
+ * @tparam SPARK Spark probability numerator over 256 for igniting the base.
  * @details Each column cools, heat rises by averaging the cells below, sparks
  * randomly ignite the base, and the heat map is rendered through FastLED's
  * HeatColor palette.
@@ -1271,7 +1271,7 @@ private:
   /**
    * @brief Randomly injects a hot spark into one of the bottom rows.
    * @param x Column index to maybe spark.
-   * @details Fires with probability SPARK/255.
+   * @details Fires with probability SPARK/256.
    */
   inline void spark(uint8_t x) {
     if (random8() < SPARK) {
