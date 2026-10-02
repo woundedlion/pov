@@ -28,6 +28,7 @@ constexpr int PAUSED_FRAMES = 4;
 template <template <int, int> class E, int W = SMALL_W, int H = SMALL_H>
 inline void paused_render_one(const char *name) {
   reset_effect_globals();
+  pin_frame_clock(0);
 
   const int frames = PAUSED_FRAMES;
   E<W, H> effect;
@@ -35,6 +36,7 @@ inline void paused_render_one(const char *name) {
   effect.init();
   HS_EXPECT_TRUE(effect.animations_paused());
   for (int f = 0; f < frames; ++f) {
+    pin_frame_clock(f);
     effect.draw_frame();
     effect.advance_display();
   }
