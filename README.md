@@ -123,7 +123,7 @@ Two physical targets share the same rendering engine:
 | Rotation | 480 RPM (8 revolutions/second) |
 | Virtual resolution | 96 × 20 |
 | Driver | `POVDisplay<40, 480>` in `pov_single.h` |
-| Pin assignments | DATA: pin 11, CLOCK: pin 13, RANDOM seed: analog pin 15 |
+| Pin assignments | DATA: pin 11, CLOCK: pin 13, RANDOM seed pin 15: legacy effects only |
 
 ### Phantasm
 
