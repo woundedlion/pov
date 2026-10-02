@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Host tests for the shared Teensy device lock (tools/device_lock.sh).
 
-One bench board is shared by every concurrent session, and the failure mode is
+Bench boards are shared by concurrent sessions, and the failure mode is
 silent both ways: an evicted holder's capture gets spliced across two firmware
 images, and the evictor can capture the peer's firmware under its own effect
 name. So staleness must never fire on a claim whose owner is alive -- these
