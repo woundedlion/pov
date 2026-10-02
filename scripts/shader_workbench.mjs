@@ -859,7 +859,7 @@ export function validateShaderDocument(document, options = {}) {
       report('INADMISSIBLE_PARAMETERS', '$.descriptor.parameters',
         `${entry.label}: parameter defaults fail the operator admission rule.`);
     document.preset_bank.presets.forEach((preset, index) => {
-      if (!admissibleParameters(operator, (field) => preset.values?.[`${entry.label}.${field}`]))
+      if (!admissibleParameters(operator, (field) => preset?.values?.[`${entry.label}.${field}`]))
         report('INADMISSIBLE_PARAMETERS', `$.preset_bank.presets[${index}].values`,
           `${entry.label}: preset parameters fail the operator admission rule.`);
     });
@@ -879,7 +879,7 @@ export function validateShaderDocument(document, options = {}) {
         report('EDGE_DISTANCE_UNAVAILABLE', `$.descriptor.parameters[${descriptor.parameters.indexOf(declaration)}].default`,
           'Edge-fade requires an upstream projection with edge distance.');
       document.preset_bank.presets.forEach((preset, index) => {
-        if (preset.values?.[parameterId] === 'edge-fade')
+        if (preset?.values?.[parameterId] === 'edge-fade')
           report('EDGE_DISTANCE_UNAVAILABLE', `$.preset_bank.presets[${index}].values.${parameterId}`,
             'Edge-fade requires an upstream projection with edge distance.');
       });
