@@ -336,7 +336,6 @@ private:
           float theta = (static_cast<float>(i) / num) * math::PI_F;
           math::Vector normal(cosf(theta), 0.0f, -sinf(theta));
           math::Vector v = normal;
-          // v0 starts on the Y axis.
           math::Vector w = math::Y_AXIS;
           math::Vector u = math::cross(v, w);
           return {math::Basis{u, v, w}, 1.0f};
