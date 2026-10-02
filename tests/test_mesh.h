@@ -11,7 +11,8 @@
  *   - MeshOps::compile (PolyMesh → MeshState, drops degenerate faces,
  *     populates face_offsets)
  *   - MeshOps::clone (deep copy into a target arena)
- *   - MeshOps::classify_faces_by_topology (cube → all faces same class)
+ *   - Topology classifier: regular and multi-class solids, aliased arenas,
+ *     empty/degenerate faces and registry-wide collision/partition checks.
  *   - TriangularBitset pair dedup (sizing, index bijection, bit independence)
  */
 #pragma once

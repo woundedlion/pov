@@ -5,6 +5,7 @@
  * Unit tests for core/color/palettes.h — the named generative/OKLCH palette layer.
  *
  * Coverage:
+ *   - All 27 named procedural palettes pinned by upper-byte hash.
  *   - Named ProceduralPalette endpoints: pinned 16-bit linear colors at t=0/1,
  *     including the cos(0)=1 channels derivable from the cosine coefficients.
  *   - lerp_oklch shortest-arc hue direction across the +/-PI seam, using
