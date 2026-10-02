@@ -2437,6 +2437,9 @@ inline void test_sim_epoch_commit() {
                        static_cast<int64_t>(sim.boards[0].swap_g);
     HS_EXPECT_LE(dg < 0 ? -dg : dg, int64_t(3) * COL);
     HS_EXPECT_FALSE(sim.boards[i].trapped);
+    HS_EXPECT_EQ(
+        sim.boards[i].board.telemetry_snapshot().epochs_refractory_ignored,
+        static_cast<uint32_t>(cfg.epoch_repeats));
   }
   expect_envelopes(72);
   HS_EXPECT_GT(sim.boards[0].envelope, 0.0f);
