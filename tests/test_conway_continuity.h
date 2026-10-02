@@ -56,8 +56,7 @@
 #include "effects/HankinSolids.h"
 #include "tests/mesh_test_util.h"
 #include "tests/pixel_test_util.h"
-#include "tests/test_conway_morph.h" // run_edge_op
-#include "tests/test_conway_soak.h"  // HankinWalkProbe
+#include "tests/conway_test_util.h"
 #include "tests/test_fixture.h"
 #include "tests/test_harness.h"
 
