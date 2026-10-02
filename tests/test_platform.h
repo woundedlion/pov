@@ -186,21 +186,15 @@ inline void test_addmod8_wraps_before_reducing() {
 /**
  * @brief Verifies random()/random8() do not divide by zero on a degenerate
  *        range and that a normal range stays in bounds.
- * @details Two cases with different provenance:
- *          - random(0) / random(<=0) / random(min, min) are device-faithful: the
- *            empty range reduces to Arduino's random(0) -> 0 (i.e. min), which is
- *            well-defined on the device.
- *          - random(min, max) with min > max is NOT something the Arduino runtime
- *            guarantees (its long-range modulo of a negative span is effectively
- *            unspecified). The host mock defines "inverted -> min" purely to dodge
- *            the modulo-by-zero/UB; this test pins that mock contract, not a
- *            cross-device behavior.
+ * @details Teensy returns zero for random(0) and the lower bound when the
+ *          two-argument range is empty or inverted. A negative one-argument
+ *          bound returning zero is a host-mock contract.
  */
 inline void test_random_degenerate_range() {
   HS_EXPECT_EQ(random(0), 0);    // Arduino random(0) -> 0 (device-faithful)
-  HS_EXPECT_EQ(random(-3), 0);   // non-positive bound -> 0 (device-faithful)
+  HS_EXPECT_EQ(random(-3), 0);   // negative bound -> 0 (host-mock contract)
   HS_EXPECT_EQ(random(5, 5), 5); // empty range -> min (device-faithful)
-  HS_EXPECT_EQ(random(9, 4), 9); // inverted range -> min (host-mock contract)
+  HS_EXPECT_EQ(random(9, 4), 9); // inverted range -> min (device-faithful)
   HS_EXPECT_EQ(random8(0), 0);   // FastLED random8(0) -> 0
   // A normal range still falls inside [min, max).
   for (int i = 0; i < 64; ++i) {
