@@ -493,7 +493,7 @@ Both classes derive from `TransformerPool`, which fixes the call order:
 
 A single contiguous memory block (`GLOBAL_ARENA_SIZE`) is partitioned into three arena allocators. It is 298 KiB on Teensy; the WASM module widens it to 512 KiB (`HS_GLOBAL_ARENA_BYTES` in the root [CMakeLists.txt](https://github.com/woundedlion/pov/blob/master/CMakeLists.txt)), because the chain interpreter's two arenas plus `ShaderChain`'s shared color resources outgrow the device-mirrored default. Individual effects can call `configure_arenas()` to repartition the block at runtime.
 
-| Arena | Default Size | Purpose |
+| Arena | Default Size (Teensy) | Purpose |
 |---|---|---|
 | `persistent_arena` | 266 KiB | Long-lived compiled mesh data, persists across frames |
 | `scratch_arena_a` | 16 KB | Short-lived intermediate geometry (RAII scoped) |
