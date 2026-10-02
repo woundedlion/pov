@@ -4079,9 +4079,8 @@ inline ChainPeaks replay_build_chain(const char *name,
   return peaks;
 }
 
-/** Partition chains: a lone kis, a gated leg departing a gated leg, and a
- * gated leg departing a swept one. No registry entry carries a partition
- * recipe yet, so these stand in for the recipe table. */
+/** Partition chains replayed as gated swaps, without production bridges/macros.
+ * Registry partition recipes are surveyed in test_opchain_arena_survey.h. */
 inline constexpr Solids::OpStep CHAIN_KIS[] = {{Solids::Op::KIS}};
 inline constexpr Solids::OpStep CHAIN_KIS_DUAL[] = {{Solids::Op::KIS},
                                                     {Solids::Op::DUAL}};
