@@ -43,10 +43,10 @@ def guard(directory):
 
 def read_token(directory):
     try:
-        for line in (directory / "info").read_text().splitlines():
+        for line in (directory / "info").read_text(encoding="utf-8").splitlines():
             if line.startswith("token="):
                 return line[6:]
-    except OSError:
+    except (OSError, ValueError):
         pass
     return ""
 
@@ -60,8 +60,8 @@ def update_claim(directory, operation, value):
             if operation == "claim":
                 directory.mkdir()
                 try:
-                    (directory / "info").write_text(value)
-                except OSError:
+                    (directory / "info").write_text(value, encoding="utf-8")
+                except (OSError, ValueError):
                     shutil.rmtree(directory)
                     raise
             elif operation == "break":
