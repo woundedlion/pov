@@ -112,7 +112,7 @@ Same complete windows as the scope trees.
 | Shell Close Flight / isr_pack | 288.0 | 6.231/6.995/10.743 | 1.61% |
 | Shell Close Flight / isr_dma_submit | 288.0 | 0.743/0.955/1.941 | 0.22% |
 
-Packing marshals LED data on the CPU; submission launches asynchronous DMA. A 600-byte transfer takes approximately 400 µs at 12 MHz. ISR time is already included in render scopes.
+Packing marshals LED data on the CPU; submission launches asynchronous DMA. A 600-byte transfer takes approximately 230 µs at the requested 24 MHz (LPSPI framing model). ISR time is already included in render scopes.
 
 ISR CPU shares total 4.87–4.96%, leaving about 59.4 ms foreground time per display window. Peak render needs approximately 1.98× improvement for Shell Flight and 2.00× for Shell Close Flight to fit 62.5 ms.
 
