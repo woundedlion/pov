@@ -205,8 +205,7 @@ class LockStaleness(unittest.TestCase):
         self.assertTrue(is_stale(self.d))
 
     def test_dead_holder_claimed_seconds_ago_is_not_stale(self):
-        # The PID check waits out a 60 s window so a peer that has claimed the
-        # lock but not yet forked its build is not mistaken for a corpse.
+        # A dead holder with a complete claim stays within its 60 s start grace.
         now = int(time.time())
         self._write_info(self._dead_pid(), now, now + 600)
         self.assertFalse(is_stale(self.d))
