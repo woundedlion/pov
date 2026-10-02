@@ -271,8 +271,8 @@ gamut_cell(const GamutLut &lut, float L, float a, float b) {
 /**
  * @brief The single live boundary grid.
  * @details Points at the flash master until an effect arms an arena copy, which
- * only buys read latency: the scattered per-pixel reads land in RAM rather than
- * QSPI flash. Worth it only at per-pixel call rates. configure_arenas() restores
+ * puts scattered per-pixel reads in RAM rather than QSPI flash. A coarser copy
+ * also changes the clipping brackets and results. configure_arenas() restores
  * the flash default before the storage under a copy is handed out again.
  *
  * constinit is load-bearing: an inline variable's dynamic init is unordered
