@@ -54,9 +54,9 @@ inline std::common_type_t<T, U> wrap(T x, U m) {
 
 /**
  * @brief Fast floating point modulo for 1.0.
- * @param t The value to wrap.
+ * @param t Finite value to wrap.
  * @return The wrapped value in the range [0.0, 1.0).
- * @details Wraps any float into [0.0, 1.0). For tiny negative t in (-2.98e-8, 0),
+ * @details Wraps finite floats into [0.0, 1.0). For tiny negative t in (-2.98e-8, 0),
  *   `t - floorf(t)` rounds up to exactly 1.0f, violating the half-open contract;
  *   the guard folds that boundary back to 0.
  */
