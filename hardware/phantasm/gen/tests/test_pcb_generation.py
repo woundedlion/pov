@@ -268,7 +268,7 @@ class GeneratedBoardTests(TerminalBodyChecks, unittest.TestCase):
                 [kicad_cli(), "pcb", "drc", "--refill-zones", "--save-board",
                  "-o", str(Path(directory) / "refill.rpt"), board_path],
                 capture_output=True, text=True, check=True)
-            warnings = {("lib_footprint_mismatch", ref): 1 for ref in ("D_BUS",)}
+            warnings = {("lib_footprint_mismatch", ref): 1 for ref in ("D_BUS", "J1")}
             with mock.patch.object(fab, "PCB", board_path), \
                     mock.patch.object(fab, "SCH", str(Path(directory) / "phantasm.kicad_sch")), \
                     mock.patch.object(fab, "KNOWN_PARITY_WARNING_COUNTS", warnings):
@@ -532,6 +532,19 @@ class TerminalEdgePlacementChecks:
                 self.assertLess(x, 5)
                 body = pcb.fp_bbox(fp, graphic_layers=("F.Fab",))
                 self.assertGreaterEqual(x + body[0], 0)
+                outlines = [line for line in F(fp, "fp_line")
+                            if sexp.val(line, "layer") == ["F.SilkS"]]
+                self.assertEqual(len(outlines), 3)
+                for line in outlines:
+                    stroke_width = float(sexp.val(F(line, "stroke")[0], "width")[0])
+                    for endpoint in ("start", "end"):
+                        self.assertGreaterEqual(
+                            x + float(sexp.val(line, endpoint)[0]) - stroke_width / 2,
+                            pcb.NEW_LAYOUT_RULES["min_silk_clearance"] - 1e-6)
+                module = pcb.load_mod(pcb.TERMINAL_LIBID["1.2"][ref])
+                outline = next(rect for rect in F(module, "fp_rect")
+                               if sexp.val(rect, "layer") == ["F.SilkS"])
+                self.assertEqual(float(sexp.val(outline, "start")[0]), -3.37)
             else:
                 self.assertGreaterEqual(x0, 0, ref)
                 self.assertLess(length - x, 11)
