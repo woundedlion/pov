@@ -501,20 +501,21 @@ protected:
   }
 
   /**
-   * @brief Reserves and fills the shared lattice, then arms the view animation.
-   * @details Bundles the three steps every derived `init()` must perform
-   * together — reserve the RD_N node array, fill it with the static Fibonacci
-   * lattice, and install the orientation random-walk — so a derived class cannot
-   * perform a subset and silently ship a frozen or empty view. MUST be called
-   * after configure_arenas() and after the derived class's own persistent
-   * allocations, since the node array shares the persistent arena.
+   * @brief Builds the shared lattice and cubemap LUT, then arms view animation.
+   * @details Reserves the RD_N nodes, fills the static Fibonacci lattice, builds
+   * the cubemap lookup, and installs the orientation random walk. Call after
+   * configure_arenas() and the derived class's persistent allocations.
    */
   HS_COLD_MEMBER void init_lattice() {
+    constexpr size_t CUBE_LUT_BYTES = 6u * ReactionGraph::CubemapLUT::RES *
+                                      ReactionGraph::CubemapLUT::RES *
+                                      sizeof(uint16_t);
     HS_CHECK(
         persistent_arena.get_capacity() - persistent_arena.get_offset() >=
-            RD_N * sizeof(math::Vector),
+            RD_N * sizeof(math::Vector) + CUBE_LUT_BYTES +
+                alignof(math::Vector) + alignof(uint16_t),
         "ReactionDiffusion: persistent arena not sized for the shared node "
-        "array; configure_arenas() must run before init_lattice()");
+        "array and cubemap LUT; configure_arenas() must run before init_lattice()");
     // for_each_neighbor and the RD_K-degree Laplacian read every neighbor slot
     // unguarded.
     ReactionGraph::validate_neighbors(ReactionGraph::neighbors);
