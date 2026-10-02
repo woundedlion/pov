@@ -481,8 +481,8 @@ inline void test_lerp_oklch_shortest_arc_midpoint() {
   HS_EXPECT_NEAR(mid.C, C, 1e-5f);
 
   // Same seam, opposite winding.
-  OKLCH c{L, C, 3.0f};
-  OKLCH d{L, C, -3.0f};
+  OKLCH c{L, C, -3.0f};
+  OKLCH d{L, C, 3.0f};
   OKLCH mid2 = lerp_oklch(c, d, 0.5f);
   HS_EXPECT_NEAR(std::fabs(mid2.h), math::PI_F, 1e-4f);
 
