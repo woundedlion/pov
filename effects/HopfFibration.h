@@ -52,7 +52,7 @@ public:
   /**
    * @brief Initializes params, buffers, fibers, and timeline animations.
    * @details Registers tuning params, bakes the trail palette, allocates the
-   * fiber, phase, and trail arrays from the persistent arena, seeds fibers, and
+   * fiber and trail arrays from the persistent arena, seeds fibers, and
    * wires the ambient spin plus the phase-driver animations onto the timeline.
    */
   HS_COLD_MEMBER void init() override {
