@@ -835,7 +835,7 @@ inline void test_collapsing_faces_land_on_host_palette() {
   int checked = 0;
   for (int ei = 0; ei < ConwayGraph::NUM_EDGES; ++ei) {
     const ConwayGraph::EdgeSpec &e = ConwayGraph::EDGES[ei];
-    // The jitterbug's derived-octahedron host mapping is not covered here.
+    // Only reverse legs landing on a seed node (t_from == 0).
     if (e.t_from != 0.0f)
       continue;
 
