@@ -21,7 +21,7 @@
  *     rosette faces draw none.
  *   - Forward palette carry (per arrival, real effect): the palettes the leg
  *     landed carry their multiplicities into the new node's displayed base faces.
- *   - Leg swaps (per edge): base vs op(seed, T_EPS) and the reseed swaps
+ *   - Leg swaps (cube seed, each swept op): base vs op(seed, T_EPS) and the reseed swaps
  *     (ADOPT bridge arrival, DUAL_SWAP ambo crossover) framebuffer-diff within
  *     a budget far below one face's area, so a face landing under the wrong
  *     palette mapping fails loudly (pinned by a deliberate wrong-mapping run).
