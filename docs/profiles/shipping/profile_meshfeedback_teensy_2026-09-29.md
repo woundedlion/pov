@@ -97,7 +97,7 @@ README cells: peak 🟢 48.61 (12), spilled 🟢 0/6688 (0.00%).
 - `filter_blend` parents under whichever scope first enters it; calls ≈ blended pixels.
 - Setup frame 1 is excluded from the peak and spill figures and reported separately.
 - Selective-O3: the flush (`HS_O3_BEGIN` region in pixel_feedback.h) and its colour helpers are `HS_O3_FN`; `lms_cbrt_scale_to_gamut_lut` joins them.
-- The gamut clip lands at most one grid cell's chroma inside the exact boundary, and the rows under latitude sine ≈ 0.5 carry a one-column blur that stays under one row pitch in angle (Pole Half-Res slider, default 1).
+- The gamut clip scales chroma to a guarded sampled cell minimum, with no certified deficit bound against the exact boundary. The rows under latitude sine ≈ 0.5 carry a one-column blur that stays under one row pitch in angle (Pole Half-Res slider, default 1).
 - The image was built from source `58f966be9` (provenance file).
 
 ## Harness
