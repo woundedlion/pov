@@ -56,6 +56,58 @@ class LockGuardUsageTests(unittest.TestCase):
                 self.assertNotIn("Traceback", result.stderr)
 
 
+class CheckoutBuildLockTests(unittest.TestCase):
+    def setUp(self):
+        temporary = tempfile.TemporaryDirectory()
+        self.addCleanup(temporary.cleanup)
+        self.root = Path(temporary.name)
+        tools = self.root / "tools"
+        tools.mkdir()
+        for name in ("device_lock.sh", "device_lock_guard.py", "teensy_cold_build.sh"):
+            shutil.copyfile(REPO / "tools" / name, tools / name)
+        subprocess.run(["git", "-C", str(self.root), "init", "--quiet"], check=True)
+        self.env = dict(os.environ, HS_PYTHON=sys.executable)
+
+    def command(self, *args):
+        return subprocess.run(["bash", *map(str, args)], cwd=self.root,
+                              env=self.env, capture_output=True, text=True, timeout=10)
+
+    def test_busy_build_tree_blocks_cleanup_and_size_builds(self):
+        image = self.root / ".pio" / "build" / "firmware.hex"
+        image.parent.mkdir(parents=True)
+        image.write_text("existing image", encoding="utf-8")
+        holder, pid = _live_bash()
+        self.addCleanup(_stop_bash, holder, pid)
+        lock = self.root / ".profile-lock"
+        lock.mkdir()
+        (lock / "info").write_text(f"token=holder\npid={pid}\n", encoding="utf-8")
+        for script, args in (("teensy_cold_build.sh", []),
+                             ("device_lock.sh", ["tree", "bash", "-c", "touch ran"])):
+            with self.subTest(script=script):
+                result = self.command(self.root / "tools" / script, *args)
+                self.assertNotEqual(result.returncode, 0, result.stdout + result.stderr)
+                self.assertIn("already claimed", result.stderr)
+                self.assertEqual(image.read_text(encoding="utf-8"), "existing image")
+                self.assertFalse((self.root / "ran").exists())
+                self.assertTrue((lock / "info").exists())
+
+    def test_failed_checkout_command_releases_its_claim(self):
+        result = self.command(self.root / "tools" / "device_lock.sh", "tree",
+                              "bash", "-c", "test -f .profile-lock/info || exit 9; exit 3")
+        self.assertEqual(result.returncode, 3, result.stdout + result.stderr)
+        self.assertFalse((self.root / ".profile-lock").exists())
+
+    def test_failed_cold_build_releases_its_claim(self):
+        pio = self.root / "pio"
+        pio.write_text("#!/bin/bash\ntest -f .profile-lock/info || exit 9\nexit 3\n",
+                       encoding="utf-8", newline="\n")
+        pio.chmod(0o755)
+        self.env["PATH"] = str(self.root) + os.pathsep + os.environ["PATH"]
+        result = self.command(self.root / "tools" / "teensy_cold_build.sh")
+        self.assertEqual(result.returncode, 3, result.stdout + result.stderr)
+        self.assertFalse((self.root / ".profile-lock").exists())
+
+
 def clean_device_env():
     return {key: value for key, value in os.environ.items()
             if not key.startswith(("HS_DEVICE_", "HS_TEENSY_"))}
