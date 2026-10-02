@@ -413,7 +413,13 @@ struct Face {
              math::LatitudeGeometry(height, 0.0f,
                                     math::PI_F * (height - 1) /
                                         (virtual_height - 1)),
-             height, clip, azimuth_pads, bounds_margin) {}
+             height, clip, azimuth_pads, bounds_margin) {
+    const math::LatitudeGeometry DISPLAY_GEOMETRY(height);
+    HS_CHECK(build_geometry.row_to_phi(0) == DISPLAY_GEOMETRY.row_to_phi(0) &&
+                 build_geometry.row_to_phi(height - 1) ==
+                     DISPLAY_GEOMETRY.row_to_phi(height - 1),
+             "Face: virtual height must match the display geometry");
+  }
 
   /**
    * @brief Builds a face's projection, bounds, and edge data.
