@@ -254,7 +254,7 @@ jobs:
             skips_are_errors: 1
           - flavor: fastmath
             optimization: -Os -g
-            test_exclude: "^unit_(3dmath|sdf|effects|mindsplatter|shapeshifter_tiles|conway_continuity|partition_seam|mesh|shader_chain|shader_workbench|pullback_capture_determinism|pov_sync|color_luts|gamut_lut)$"
+            test_exclude: "^unit_(3dmath|sdf|effects|mindsplatter|shapeshifter_tiles|conway_continuity|partition_seam|mesh|shader_chain|pullback_capture_determinism|pov_sync|color_luts|gamut_lut)$"
             float_flags: -ffast-math -fno-finite-math-only -DHS_TEST_FAST_MATH=1
             skips_are_errors: 0
     runs-on: ubuntu-24.04
