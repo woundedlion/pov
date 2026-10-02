@@ -203,8 +203,8 @@ return `ClipSetResult::FULL_FRAME_KEPT`; otherwise apply the requested band.
 
 "Leave at full" is safe because the clip is already full when this fires: the
 `Effect` constructor resets `clip` to the whole canvas (`Effect::Effect`), and the
-worker re-applies the band *only* after `setEffect` rebuilds the effect
-(`src/segments/segment_worker.js` `applyClip`). So a full-frame effect's clip is never
+worker re-applies the band after effect/resolution installation and display-cap
+changes (`src/segments/segment_worker.js` `applyClip`). So a full-frame effect's clip is never
 narrowed in the first place — the early return preserves the constructor's
 full clip rather than relying on resetting a stale band. (If that lifecycle
 ever changes, harden this to an explicit `set_clip(0, H, 0, W)` instead.)
