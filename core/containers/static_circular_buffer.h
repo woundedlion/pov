@@ -565,8 +565,7 @@ private:
    * temporary and requires only that T be constructible from Args, not assignable.
    * std::launder covers the returned reference only: front(), back(),
    * operator[], for_each() and operator== all reach the slot through the
-   * un-laundered `buffer` array, so T must still be transparently replaceable
-   * (no const or reference members).
+   * un-laundered `buffer` array, so T must still be transparently replaceable.
    * @warning The old object is destroyed before the new one is constructed, so a
    * throwing element constructor leaves the slot with no live object and a later
    * construct_in_place re-destroys the dead slot (UB) — a throwing T is
