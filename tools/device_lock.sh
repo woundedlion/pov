@@ -5,7 +5,8 @@
 #
 # Host: Windows + Git Bash. Board enumeration shells out to the PlatformIO
 # loader's teensy_ports.exe and matches COMn names. Acquisition requires an
-# enumerated board so both flash and capture can pin the same device.
+# enumerated board so both flash and capture can pin the same device. An explicit
+# HS_TEENSY_PORT skips enumeration when the loader is absent.
 #
 # Lock scope spans build+flash+capture. Claims live outside worktrees at
 # "$HS_DEVICE_LOCK-<COMn>.d"; HS_DEVICE_LOCK defaults to
@@ -64,6 +65,9 @@ hs_device_ports() {
       return 2
     fi
     attached=$(printf '%s\n' "$listing" | awk '$2 ~ /^COM[0-9]+$/ {print $2}')
+  elif [ -z "${HS_TEENSY_PORT:-}" ]; then
+    echo "device: $tools/teensy_ports.exe not found (set HS_TEENSY_TOOLS)" >&2
+    return 2
   fi
   if [ -n "${HS_TEENSY_PORT:-}" ]; then
     if [ "$enumerated" -eq 1 ] &&
