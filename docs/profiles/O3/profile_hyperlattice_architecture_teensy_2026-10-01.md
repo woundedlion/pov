@@ -131,7 +131,7 @@ Host or WASM timings are not substituted for device measurements.
 
 - CYCCNT free-runs, so every scope absorbs ISR preemption and nested scopes overlap their parents.
 - No `filter_blend` subtree or exact blend count was recorded in these captures.
-- Shipping uses no HS_O3 region in the cached HyperLattice shader; the global-O3 twin optimizes all compiled code.
+- Shipping uses `HS_HOT_FLASH_MEMBER` (`HS_O3_FN` plus `hot`) for the cached shader, with no ITCM placement; the global-O3 twin optimizes all compiled code.
 - Only the epoch is stretched to 200 s; dwell and transition settings remain authored.
 - Captured source identity is recorded above; see the archive source-reachability note. Build flags, source status and hashes are not retained in the repository; later documentation edits do not change that source identity.
 - Counter summaries omit the startup-containing window; exact cadence excludes only actual setup frame 1 and retains all following live frames.
