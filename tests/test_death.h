@@ -26,6 +26,10 @@
  * before trapping, so the child's stdout/stderr is captured to a file and the
  * parent requires the breadcrumb of that exact guard.
  *
+ * Two fresh child processes also emit per-effect frame folds. Each cold render
+ * must match its warm render, and both processes must emit identical records;
+ * the complete roster output must fit in CHILD_OUTPUT_CAP.
+ *
  * The run closes with a coverage line: how many of the engine's HS_CHECK sites
  * a case actually pins, against every site in the tree. Both numbers are
  * derived — the denominator from a build-time census of the sources
@@ -6325,7 +6329,8 @@ inline constexpr const char *DETERMINISM_PROBE_CASE =
  * @details Called from main() with HS_DEATH_CHILD=harness and a non-empty
  *          HS_DEATH_CASE, without extra command-line arguments. The case is expected to
  *          trap before returning; returning means it did NOT trap, so the child
- *          exits 0 and the parent flags it.
+ *          exits 0 and the parent flags it. The determinism selector instead
+ *          emits cold/warm per-effect frame folds for cross-process comparison.
  */
 inline void run_child_case(const char *name) {
 #if defined(_WIN32)
@@ -6992,7 +6997,9 @@ inline void report_guard_coverage(const Case *cs, int n) {
  * @brief Parent entry point for the death module.
  * @return The module's failure count.
  * @details Spawn-checks the harness, then runs every case in a child and asserts
- *          each died by the exact trap status.
+ *          each died by the exact trap status. Two fresh processes also compare
+ *          per-effect frame folds across cold/warm runs and process boundaries;
+ *          their complete records must fit in CHILD_OUTPUT_CAP.
  */
 inline int run_death_tests() {
   hs_test::ModuleFixture fixture("death");
