@@ -835,9 +835,8 @@ inline void test_collapsing_faces_land_on_host_palette() {
   int checked = 0;
   for (int ei = 0; ei < ConwayGraph::NUM_EDGES; ++ei) {
     const ConwayGraph::EdgeSpec &e = ConwayGraph::EDGES[ei];
-    // Reverse legs whose arrival node mesh is the seed itself; the jitterbug
-    // bridge arrives on a derived octahedron and is covered by the soak walk.
-    if (e.t_from != 0.0f || ConwayGraph::is_jitterbug_edge(e))
+    // The jitterbug's derived-octahedron host mapping is not covered here.
+    if (e.t_from != 0.0f)
       continue;
 
     Arena leg(cc_leg_buf, sizeof(cc_leg_buf));
