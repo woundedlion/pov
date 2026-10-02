@@ -169,9 +169,8 @@ def clang_format(text):
 def check(fwd, rev):
     """Self-validate the tables: monotonicity and round-trip fidelity.
 
-    Both transfer functions are monotonic non-decreasing, so each table must be
-    too; a libm change that shifted a single entry would break this. The sRGB
-    round trip (byte -> linear -> byte) must return the exact input code. Returns the
+    Both tables must be monotonic non-decreasing. The sRGB round trip
+    (byte -> linear -> byte) must return the exact input code. Returns the
     number of failures (0 == pass).
     """
     fails = 0
