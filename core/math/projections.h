@@ -226,7 +226,7 @@ bonne_projection(const math::Vector &v, float central_meridian,
           .region_id = static_cast<uint8_t>(longitude < 0.0f),
           .component_id = 0,
           .boundary_flags = projection_boundary(ProjectionBoundary::CUT),
-          .fade_edge_distance = std::max(0.0f, cut_distance),
+          .fade_edge_distance = fmaxf(0.0f, cut_distance),
           .flags = 0,
           .traits = projection_traits(ProjectionTrait::CUT),
           .edge_class = 0};
