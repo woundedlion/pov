@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 import subprocess
+import sys
 from pathlib import Path
 
 
@@ -27,7 +28,7 @@ def main() -> int:
     try:
         changed = changed_sources(args.root.resolve())
     except (OSError, UnicodeError, ValueError, subprocess.SubprocessError) as error:
-        print(f"Cannot determine engine source state: {error}")
+        print(f"Cannot determine engine source state: {error}", file=sys.stderr)
         return 1
     if changed:
         print("\n".join(changed))
