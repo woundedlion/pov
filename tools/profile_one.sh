@@ -356,9 +356,8 @@ trap cleanup EXIT
 trap 'exit 130' INT
 trap 'exit 143' TERM
 
-# ETA covers a clean rebuild + the capture + one retry: overshooting only
-# delays a stale-break (safe), undershooting invites a peer to evict a live
-# capture (not), and a crashed holder is reaped by the PID check regardless.
+# ETA estimates a clean rebuild, capture, and one retry; passing the deadline
+# does not expire a live holder's claim.
 acquire_tree_lock "$((SECONDS_ARG * 2 + 900))" || exit $?
 
 hs_device_acquire "$EFFECT" "$ENV" $((SECONDS_ARG * 2 + 900)) || exit $?
