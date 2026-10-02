@@ -27,7 +27,8 @@ namespace sync {
  * ~½ column late is skipped entirely; lateness detected mid-burst stops the
  * remaining pulses. An odd partial boundary count gets one invalidating edge
  * while its burst gap remains open. After the gap has closed, already-observed
- * edges cannot be retracted. Truncated beacon frames fail their checksum.
+ * edges cannot be retracted. Truncated beacon frames expire as stale partial
+ * frames, or fail the checksum when cut inside its digit.
  */
 class SymbolEmitter {
 public:
