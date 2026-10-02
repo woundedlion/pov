@@ -144,13 +144,13 @@ inline float closest(const Raycast::Ray &ray, const Edge &edge, float &t) {
   const float VW = math::dot(V, W);
   const float DENOM = LENGTH2 - DV * DV;
   float s = DENOM > 1e-8f * LENGTH2
-                ? std::clamp((VW - DV * DW) / DENOM, 0.0f, 1.0f)
+                ? hs::clamp((VW - DV * DW) / DENOM, 0.0f, 1.0f)
                 : 0.0f;
-  t = std::clamp(DV * s - DW, ray.interval.near, ray.interval.far);
-  s = std::clamp((VW + t * DV) / LENGTH2, 0.0f, 1.0f);
-  t = std::clamp(DV * s - DW, ray.interval.near, ray.interval.far);
+  t = hs::clamp(DV * s - DW, ray.interval.near, ray.interval.far);
+  s = hs::clamp((VW + t * DV) / LENGTH2, 0.0f, 1.0f);
+  t = hs::clamp(DV * s - DW, ray.interval.near, ray.interval.far);
   const auto DELTA = ray.at(t) - (edge.a + V * s);
-  return sqrtf(std::max(0.0f, math::dot(DELTA, DELTA)));
+  return sqrtf(fmaxf(0.0f, math::dot(DELTA, DELTA)));
 }
 
 struct BoxRay {
@@ -179,8 +179,8 @@ inline bool box_overlap(const BoxRay &ray, const math::Vector &lo,
       float b = (H[axis] - ray.origin[axis]) * INVERSE;
       if (a > b)
         std::swap(a, b);
-      near = std::max(near, a);
-      far = std::min(far, b);
+      near = fmaxf(near, a);
+      far = fminf(far, b);
       if (near > far)
         return false;
     }
@@ -254,7 +254,8 @@ shade(const Geometry &geometry, float cell_size, float wire_radius,
       break;
     }
     ++trace.counters.steps;
-    const float END = std::min({next[0], next[1], next[2], ray.interval.far});
+    const float END =
+        fminf(fminf(next[0], next[1]), fminf(next[2], ray.interval.far));
     auto &hits = storage.hits;
     int count = 0;
     for (int x = -1; x <= 1; ++x)
@@ -270,12 +271,12 @@ shade(const Geometry &geometry, float cell_size, float wire_radius,
           for (int i = 0; i < geometry.count; ++i) {
             const Edge EDGE{geometry.edges[i].a * cell_size + OFFSET,
                             geometry.edges[i].b * cell_size + OFFSET};
-            const math::Vector LO(std::min(EDGE.a.x, EDGE.b.x),
-                                  std::min(EDGE.a.y, EDGE.b.y),
-                                  std::min(EDGE.a.z, EDGE.b.z));
-            const math::Vector HI(std::max(EDGE.a.x, EDGE.b.x),
-                                  std::max(EDGE.a.y, EDGE.b.y),
-                                  std::max(EDGE.a.z, EDGE.b.z));
+            const math::Vector LO(fminf(EDGE.a.x, EDGE.b.x),
+                                  fminf(EDGE.a.y, EDGE.b.y),
+                                  fminf(EDGE.a.z, EDGE.b.z));
+            const math::Vector HI(fmaxf(EDGE.a.x, EDGE.b.x),
+                                  fmaxf(EDGE.a.y, EDGE.b.y),
+                                  fmaxf(EDGE.a.z, EDGE.b.z));
             if (!box_overlap(BOX_RAY, LO - PAD, HI + PAD, start, END))
               continue;
             if (trace.counters.candidates >= limits.max_candidates) {
@@ -289,9 +290,9 @@ shade(const Geometry &geometry, float cell_size, float wire_radius,
               continue;
             const float AA = footprint.at(t);
             const float COVERAGE =
-                AA > 0 ? std::clamp(.5f - (DISTANCE - wire_radius) / AA, 0.0f,
-                                    1.0f)
-                       : (DISTANCE <= wire_radius ? 1.0f : 0.0f);
+                AA > 0
+                    ? hs::clamp(.5f - (DISTANCE - wire_radius) / AA, 0.0f, 1.0f)
+                    : (DISTANCE <= wire_radius ? 1.0f : 0.0f);
             if (COVERAGE <= 0)
               continue;
             if (count == static_cast<int>(hits.size())) {
@@ -308,7 +309,7 @@ shade(const Geometry &geometry, float cell_size, float wire_radius,
       auto hit = hits[i];
       while (i + 1 < count &&
              hits[i + 1].t - hit.t <= limits.position_tolerance)
-        hit.coverage = std::max(hit.coverage, hits[++i].coverage);
+        hit.coverage = fmaxf(hit.coverage, hits[++i].coverage);
       if (hit.t - last_t <= limits.position_tolerance)
         continue;
       if (trace.counters.layers >= limits.max_layers) {

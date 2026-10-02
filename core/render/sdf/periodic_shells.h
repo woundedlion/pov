@@ -509,7 +509,7 @@ HS_HOT_FLASH_MEMBER Raycast::ShadedTrace shade_periodic_shells_dimension(
     float end = camera.interval.far;
     math::Vec4 local{};
     for (int k = 0; k < DIMENSIONS; ++k) {
-      end = std::min(end, boundary[k]);
+      end = fminf(end, boundary[k]);
       local[k] = ORIGIN[k] - cell[k] * cell_size;
     }
     float b = 0, c = -prepared.radius_squared;
@@ -524,7 +524,7 @@ HS_HOT_FLASH_MEMBER Raycast::ShadedTrace shade_periodic_shells_dimension(
       const float Q = -b - copysignf(sqrtf(DISCRIMINANT), b);
       const float FIRST = Q == 0 ? 0 : Q * INVERSE_A;
       const float SECOND = Q == 0 ? 0 : c / Q;
-      roots = {std::min(FIRST, SECOND), std::max(FIRST, SECOND), true};
+      roots = {fminf(FIRST, SECOND), fmaxf(FIRST, SECOND), true};
     }
     const bool VERIFIED = roots.hit;
     float filtered_coverage = 0;
@@ -554,7 +554,7 @@ HS_HOT_FLASH_MEMBER Raycast::ShadedTrace shade_periodic_shells_dimension(
                            ? distance * LENGTH / sqrtf(projected_squared)
                            : INFINITY;
           }
-          filtered_coverage = std::clamp(.5f - distance / WIDTH, 0.0f, 1.0f);
+          filtered_coverage = hs::clamp(.5f - distance / WIDTH, 0.0f, 1.0f);
           if (filtered_coverage > 0)
             roots = {T, T, true};
         }
@@ -599,7 +599,7 @@ HS_HOT_FLASH_MEMBER Raycast::ShadedTrace shade_periodic_shells_dimension(
           const float INCIDENCE = b + T * a;
           const float DEPTH = .25f * (roots.far - roots.near) *
                               fabsf(INCIDENCE) * INVERSE_LENGTH;
-          hit.coverage = std::clamp(.5f + DEPTH / WIDTH, 0.0f, 1.0f);
+          hit.coverage = hs::clamp(.5f + DEPTH / WIDTH, 0.0f, 1.0f);
         }
         result.trace.contribution = hit;
         appearance.composite(composite, T, hit.coverage);
