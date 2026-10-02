@@ -21,7 +21,6 @@
 #include "core/math/3dmath.h"
 #include "core/math/geometry.h"
 #include "core/math/mobius.h"
-#include "core/math/stereographic.h"
 #include <array>
 #include <cmath>
 #include <string>
