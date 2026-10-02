@@ -1849,7 +1849,7 @@ inline void test_scan_shader_v2_contract() {
   ring.distance<false>(p, expected_result);
   const float expected_coverage =
       math::quintic_kernel(-expected_result.dist / expected_result.size);
-  const float legacy_factor = math::quintic_kernel(
+  const float RAW_DIST_FACTOR = math::quintic_kernel(
       1.0f -
       hs::clamp(expected_result.raw_dist / expected_result.size, 0.0f, 1.0f));
 
@@ -1870,7 +1870,7 @@ inline void test_scan_shader_v2_contract() {
   HS_EXPECT_LT(expected_coverage, 0.9f);
   HS_EXPECT_NEAR(shader_coverage, expected_coverage, 1e-6f);
   HS_EXPECT_NEAR(sink.last_alpha, expected_coverage * expected_coverage, 1e-6f);
-  HS_EXPECT_NEAR(sink.last_alpha, expected_coverage * legacy_factor, 2e-6f);
+  HS_EXPECT_NEAR(sink.last_alpha, expected_coverage * RAW_DIST_FACTOR, 2e-6f);
 
   SDF::PlanarPolygon solid(basis, 0.5f / (math::PI_F / 2.0f), 6, 0.0f);
   AlphaSink solid_sink;
@@ -2536,34 +2536,40 @@ inline void test_volume_scalar_state_differential() {
                      const math::Vector &vd, float radius, int steps,
                      float aa) {
     CountedVolume counted{shape};
-    math::Vector old_p, new_p;
-    float old_d = VolumeScalarRegression::trace_closest(counted, ro, vd, radius,
-                                                        steps, aa, old_p);
+    math::Vector reference_p, actual_p;
+    float reference_d = VolumeScalarRegression::trace_closest(
+        counted, ro, vd, radius, steps, aa, reference_p);
     limited += counted.samples == steps;
-    float new_d =
-        Scan::Volume::trace_closest(shape, ro, vd, radius, steps, aa, new_p);
+    float actual_d =
+        Scan::Volume::trace_closest(shape, ro, vd, radius, steps, aa, actual_p);
     ++rays;
-    float old_alpha = Scan::volume_edge_coverage(old_d, aa * 0.1f, aa);
-    float new_alpha = Scan::volume_edge_coverage(new_d, aa * 0.1f, aa);
-    max_distance = hs_test::fold_worst(max_distance, fabsf(old_d - new_d));
-    if (old_alpha > 0.0f || new_alpha > 0.0f)
+    float reference_alpha =
+        Scan::volume_edge_coverage(reference_d, aa * 0.1f, aa);
+    float actual_alpha = Scan::volume_edge_coverage(actual_d, aa * 0.1f, aa);
+    max_distance =
+        hs_test::fold_worst(max_distance, fabsf(reference_d - actual_d));
+    if (reference_alpha > 0.0f || actual_alpha > 0.0f)
       max_position =
-          hs_test::fold_worst(max_position, (old_p - new_p).length());
-    max_coverage =
-        hs_test::fold_worst(max_coverage, fabsf(old_alpha - new_alpha));
-    if (old_d > aa * 0.1f && old_d < aa && new_d > aa * 0.1f && new_d < aa) {
+          hs_test::fold_worst(max_position, (reference_p - actual_p).length());
+    max_coverage = hs_test::fold_worst(max_coverage,
+                                       fabsf(reference_alpha - actual_alpha));
+    if (reference_d > aa * 0.1f && reference_d < aa && actual_d > aa * 0.1f &&
+        actual_d < aa) {
       ++halos;
-      auto old_occ = VolumeScalarRegression::probe_occluder(
-          shape, old_p, vd, radius, aa * 0.1f, aa);
-      auto new_occ = Scan::Volume::probe_occluder(shape, new_p, vd, radius,
-                                                  aa * 0.1f, aa, new_d);
-      solid_changes += old_occ.solid != new_occ.solid;
-      if (old_occ.solid || old_occ.soft > 0.0f)
+      auto reference_occlusion = VolumeScalarRegression::probe_occluder(
+          shape, reference_p, vd, radius, aa * 0.1f, aa);
+      auto actual_occlusion = Scan::Volume::probe_occluder(
+          shape, actual_p, vd, radius, aa * 0.1f, aa, actual_d);
+      solid_changes += reference_occlusion.solid != actual_occlusion.solid;
+      if (reference_occlusion.solid || reference_occlusion.soft > 0.0f)
         max_probe_position = hs_test::fold_worst(
-            max_probe_position, (old_occ.behind - new_occ.behind).length());
+            max_probe_position,
+            (reference_occlusion.behind - actual_occlusion.behind).length());
       max_probe_coverage = hs_test::fold_worst(
-          max_probe_coverage, fabsf(old_occ.soft - new_occ.soft));
-      background_grazes += !old_occ.solid && old_occ.soft > 0.0f;
+          max_probe_coverage,
+          fabsf(reference_occlusion.soft - actual_occlusion.soft));
+      background_grazes +=
+          !reference_occlusion.solid && reference_occlusion.soft > 0.0f;
     }
   };
   for (int twist : {0, 1, 2, 4, 7, 8}) {
