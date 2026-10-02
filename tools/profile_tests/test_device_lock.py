@@ -38,10 +38,16 @@ class LockGuardUsageTests(unittest.TestCase):
                 self.assertNotIn("Traceback", result.stderr)
 
 
+def clean_device_env():
+    return {key: value for key, value in os.environ.items()
+            if not key.startswith(("HS_DEVICE_", "HS_TEENSY_"))}
+
+
 def is_stale(lock_dir):
     """Run _hs_lock_is_stale against lock_dir; True = breakable."""
     script = f'. "{LOCK_SH}"; _hs_lock_is_stale "{lock_dir}"'
-    r = subprocess.run(["bash", "-c", script], capture_output=True, text=True)
+    r = subprocess.run(["bash", "-c", script], capture_output=True, text=True,
+                       env=clean_device_env())
     return r.returncode == 0
 
 
@@ -49,7 +55,8 @@ def break_lock(lock_dir, expected="stale", prelude=""):
     """Run _hs_break_lock against lock_dir; True = we won the right to evict."""
     script = (f'. "{LOCK_SH}"; {prelude} '
               f'_hs_break_lock "{lock_dir}" "{expected}"')
-    r = subprocess.run(["bash", "-c", script], capture_output=True, text=True)
+    r = subprocess.run(["bash", "-c", script], capture_output=True, text=True,
+                       env=clean_device_env())
     return r.returncode == 0
 
 
@@ -258,8 +265,7 @@ def run_lock(script, lock_base, ports=("COM3", "COM4"), env=None):
         body = "; ".join(f"echo {p}" for p in ports) or ":"
         stub = "hs_device_ports() { %s; };" % body
     full = f'. "{LOCK_SH}"; {stub} {script}'
-    e = dict(os.environ, HS_DEVICE_LOCK=str(lock_base))
-    e.pop("HS_TEENSY_PORT", None)
+    e = dict(clean_device_env(), HS_DEVICE_LOCK=str(lock_base))
     e.update(env or {})
     return subprocess.run(["bash", "-c", full], capture_output=True, text=True,
                           env=e)
