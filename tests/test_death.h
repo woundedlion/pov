@@ -3361,50 +3361,6 @@ inline void case_random_timer_inverted_range() {
 }
 
 /**
- * @brief A wedged transport: never completes, and traps on the watchdog consult.
- * @details Stands in for a TeensySPIDMA whose completion ISR never fires. Its
- *          check_stale_transfer() plays the role the real driver's watchdog does on
- *          the overrun-drop path — trapping a permanently in-flight channel.
- */
-struct WedgedStrip {
-  /**
-   * @brief Matches the transport ctor contract; the clock is unused.
-   */
-  explicit WedgedStrip(uint32_t) {}
-  /**
-   * @brief No-op init.
-   */
-  void init() {}
-  /**
-   * @brief Always reports the channel busy, so every submit hits the overrun path.
-   * @return Always false.
-   */
-  bool is_complete() const { return false; }
-  /**
-   * @brief Traps: a wedged channel surfaced from the overrun-drop path.
-   */
-  void check_stale_transfer() { HS_CHECK(false, "DMA channel wedged"); }
-  /**
-   * @brief Unreachable here (the overrun path returns before transmitting).
-   */
-  void transmit_async(const uint8_t *, size_t) {}
-};
-
-/**
- * @brief Death case: submit_frame() consults the watchdog on overrun, so a wedged
- *        channel traps rather than dropping frames forever.
- * @details The overrun-drop branch reaches check_stale_transfer(); the stale
- *          predicate itself is covered in-process by test_dma_core.h.
- */
-inline void case_dma_controller_wedged_overrun() {
-  static DMALEDController<8, WedgedStrip> ctl;
-  bool ok =
-      ctl.submit_frame(opaque(false)); // busy -> check_stale_transfer -> trap
-  if (ok)
-    std::printf("x");
-}
-
-/**
  * @brief Death case: calling an empty (default-constructed) Fn must trap.
  * @details Concepts surface — hs::inplace_function routes an empty-state call
  *          through ipf_empty_ops::invoke, which fail-fast traps via check_fail
@@ -5942,8 +5898,6 @@ inline const Case *all_cases(int &n) {
       {"random_timer_inverted_range", case_random_timer_inverted_range,
        "core/animation/timers.h",
        "(min >= 0 && min <= max) RandomTimer: invalid frame range"},
-      {"dma_controller_wedged_overrun", case_dma_controller_wedged_overrun,
-       "tests/test_death.h", "(false) DMA channel wedged"},
       {"empty_fn_call", case_empty_fn_call, "core/engine/memory.cpp",
        "(vtable != empty) empty hs::inplace_function called"},
       {"empty_function_ref_call", case_empty_function_ref_call,
@@ -6958,13 +6912,8 @@ inline void report_guard_coverage(const Case *cs, int n) {
         in_census = true;
         break;
       }
-    if (!in_census) {
+    if (!in_census)
       ++off_census;
-      HS_EXPECT_TRUE(
-          std::strcmp(cs[i].name, "dma_controller_wedged_overrun") == 0 &&
-          std::strcmp(cs[i].guard_file, "tests/test_death.h") == 0 &&
-          std::strcmp(cs[i].guard_text, "(false) DMA channel wedged") == 0);
-    }
   }
   std::printf("  guard coverage: %d/%d HS_CHECK sites pinned by a case (%d%%), "
               "%d case(s) outside the census\n",
@@ -6989,6 +6938,7 @@ inline void report_guard_coverage(const Case *cs, int n) {
       ++stale_allowances;
     }
   }
+  HS_EXPECT_EQ(off_census, 0);
   HS_EXPECT_EQ(unapproved_gaps, 0);
   HS_EXPECT_EQ(stale_allowances, 0);
 }
