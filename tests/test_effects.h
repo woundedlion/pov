@@ -75,7 +75,7 @@ constexpr int SMALL_H = 20;
 /**
  * @brief Per-effect smoke frame count, resolved from HS_SMOKE_FRAMES.
  * @details Shared with the arena/stack budget gates (tests/test_fixture.h), so
- * they measure over the window this roster sweep renders. Frame count is a
+ * they measure over the base render window before parameter lints. Frame count is a
  * minor cost lever here: the module is dominated by full-resolution software
  * raster (~71 ms/frame at 288x144, once per HS_EFFECT_LIST entry), which the
  * QUICK tier skips entirely (see effects_full_suite()).
@@ -2900,8 +2900,8 @@ inline void test_dreamballs_base_mesh_selector() {
  *        checks SCRATCH_A_PEAK_BYTES against the real frame peak.
  * @details No preset selects a MAX_SOLID_EDGES solid, so preset sweeps do not
  *          draw the widest woven staging the effect can bind. Medial topology
- *          is forced so the
- *          staging takes one vertex per source edge and one framed edge per
+ *          is forced so the staging takes one vertex per source edge and one
+ *          framed edge per
  *          medial edge — the worst case the static_assert bounds.
  */
 inline void test_dreamballs_max_edge_solid_render() {
