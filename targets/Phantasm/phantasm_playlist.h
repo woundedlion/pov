@@ -137,7 +137,7 @@ constexpr bool hs_phantasm_effect_list_is_subset() {
 /**
  * @brief Roster effects the Phantasm playlist deliberately omits: the
  *        low-resolution-only entries. ShaderChain is omitted by
- *        their own build flags instead.
+ *        its HS_ENABLE_CHAIN_INTERPRETER build flag instead.
  * @param X Function-like macro applied to each excluded effect class name.
  */
 #define HS_PHANTASM_EXCLUDED_EFFECTS(X)                                        \
