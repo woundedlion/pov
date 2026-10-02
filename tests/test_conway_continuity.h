@@ -2033,14 +2033,12 @@ inline void test_star_midpoint_dissolve() {
   std::vector<Pixel> reopen_shaped;
   capture_opening(fx, star_angle, 1.0f, reopen_shaped, 1.0f, 1.0f, reopen_cf,
                   Probe::shape_weights(fx, reopen_cf).star_close);
-  size_t reopen_px = 0;
-  for (size_t i = 0; i < reopen_shaped.size(); ++i)
-    if (reopen_shaped[i].r != sliver_plain[i].r ||
-        reopen_shaped[i].g != sliver_plain[i].g ||
-        reopen_shaped[i].b != sliver_plain[i].b)
-      ++reopen_px;
-  std::printf("  [star-mid] reopening side shaped px=%zu\n", reopen_px);
-  HS_EXPECT_GT(reopen_px, 100u);
+  HS_EXPECT_SIZE_OR_RETURN(reopen_shaped, sliver_shaped.size());
+  for (size_t i = 0; i < reopen_shaped.size(); ++i) {
+    HS_EXPECT_EQ(reopen_shaped[i].r, sliver_shaped[i].r);
+    HS_EXPECT_EQ(reopen_shaped[i].g, sliver_shaped[i].g);
+    HS_EXPECT_EQ(reopen_shaped[i].b, sliver_shaped[i].b);
+  }
 }
 
 // ---------------------------------------------------------------------------
