@@ -1,5 +1,5 @@
-# Every recognized case must also reach an HS_EXPECT assertion, directly or
-# through helpers. Case return types are void, bool, int, or size_t; helper
+# Every recognized case must reach an HS_EXPECT assertion or static_assert,
+# directly or through helpers. Case return types are void, bool, int, or size_t; helper
 # assertion traversal also recognizes ChainPeaks. run_*_cases are case drivers;
 # run_*_tests are module entry points. Indented member definitions are excluded.
 #
