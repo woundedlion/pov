@@ -1209,7 +1209,7 @@ class FabContentTests(unittest.TestCase):
     def export(self, overrides=None):
         """A staged export of the fixture board, with `overrides` swapped in."""
         directory = Path(self.enterContext(tempfile.TemporaryDirectory()))
-        pcb = directory.parent / "content.kicad_pcb"
+        pcb = Path(self.enterContext(tempfile.TemporaryDirectory())) / "content.kicad_pcb"
         pcb.write_text(self.BOARD, encoding="utf-8")
         board = fab.read_board(pcb)
         holes = fab.board_hole_counts(board)
