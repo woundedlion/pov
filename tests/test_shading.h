@@ -6,6 +6,8 @@
  */
 #pragma once
 
+#include <cmath>
+
 #include "core/render/shading.h"
 #include "tests/test_fixture.h"
 #include "tests/test_harness.h"
@@ -252,11 +254,13 @@ inline void test_shade_blinn_phong() {
 
 // --- shade_mesh_topology (segue overload) -----------------------------------
 
-/** @brief Palette stub whose get(t) tags the color's red channel with its id. */
+/** @brief Palette stub encoding depth in red and palette identity in blue. */
 struct StubSeguePalette {
   int id = 0;
-  Color4 get(float) const {
-    return Color4(Pixel(static_cast<uint16_t>(id), 0, 0), 1.0f);
+  Color4 get(float t) const {
+    return Color4(Pixel(static_cast<uint16_t>(std::round(t * 1000.f)), 0,
+                        static_cast<uint16_t>(id)),
+                  1.f);
   }
 };
 
@@ -267,13 +271,13 @@ struct StubSegueBank {
 };
 
 /**
- * @brief Segue policy stub: fill() returns a fixed cover, grade() stamps the
+ * @brief Segue policy stub: fill() scales depth by cover, grade() stamps the
  *        green channel so the routing is observable, opacity() a fixed value.
  */
 struct StubSegue {
   float cover;
   float op;
-  float fill(float, float) const { return cover; }
+  float fill(float t, float) const { return cover * t; }
   Color4 grade(Color4 c, float) const {
     c.color.g = 777;
     return c;
@@ -282,8 +286,8 @@ struct StubSegue {
 };
 
 /**
- * @brief Verifies the face-hoisted segue shade_mesh_topology overload (the
- *        IslamicStars production path) routes cover/grade/opacity: a
+ * @brief Verifies the face-hoisted segue shade_mesh_topology overload
+ *        routes depth/cover/grade/opacity: a
  *        non-positive cover culls to transparent, otherwise the face's palette
  *        color is graded and alpha becomes cover * opacity.
  */
@@ -300,11 +304,15 @@ inline void test_shade_mesh_topology_segue() {
   HS_EXPECT_NEAR(culled.alpha, 0.0f, 1e-6f);
   HS_EXPECT_EQ(culled.color.r, 0);
 
-  StubSegue pass{0.5f, 0.8f};
+  StubSegue pass{1.0f, 0.8f};
   Color4 out = shade_mesh_topology(f, palette, 1.0f, pass, 0.0f);
-  HS_EXPECT_EQ(out.color.r, 3);           // palette id 3
-  HS_EXPECT_EQ(out.color.g, 777);         // grade() stamped
-  HS_EXPECT_NEAR(out.alpha, 0.4f, 1e-6f); // cover 0.5 * opacity 0.8
+  HS_EXPECT_EQ(out.color.r, 500);
+  HS_EXPECT_EQ(out.color.b, 3);
+  HS_EXPECT_EQ(out.color.g, 777); // grade() stamped
+  HS_EXPECT_NEAR(out.alpha, .4f, 1e-6f);
+  out = shade_mesh_topology(f, palette, 4.f, pass, 0.f);
+  HS_EXPECT_EQ(out.color.r, 1000);
+  HS_EXPECT_NEAR(out.alpha, .8f, 1e-6f);
 }
 
 // --- shade_mesh_topology (direct non-segue overload) ------------------------
@@ -328,8 +336,12 @@ inline void test_shade_mesh_topology_direct() {
 
   Color4 out =
       shade_mesh_topology(f, topology, 1, bank, palette_idx, 1.0f, 0.6f);
-  HS_EXPECT_EQ(out.color.r, 3);           // slot 3 palette -> id 3
-  HS_EXPECT_NEAR(out.alpha, 0.6f, 1e-6f); // palette alpha 1.0 overwritten
+  HS_EXPECT_EQ(out.color.r, 500);
+  HS_EXPECT_EQ(out.color.b, 3);
+  HS_EXPECT_NEAR(out.alpha, .6f, 1e-6f);
+  out = shade_mesh_topology(f, topology, 1, bank, palette_idx, 4.f, .6f);
+  HS_EXPECT_EQ(out.color.r, 1000);
+  HS_EXPECT_EQ(out.color.b, 3);
 }
 
 /**
