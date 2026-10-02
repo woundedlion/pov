@@ -424,7 +424,8 @@ private:
   }
 
   /**
-   * @brief Advances one Gray-Scott substep into the next buffers (Jacobi).
+   * @brief Jacobi reference substep for the in-place physics oracle tests.
+   * @details The render path uses step_physics_inplace.
    * @param c_a Current A field (read-only), float in [0, 1] per node.
    * @param c_b Current B field (read-only), float in [0, 1] per node.
    * @param n_a Next A field (write target), float in [0, 1] per node.
