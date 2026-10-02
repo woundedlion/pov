@@ -4165,8 +4165,8 @@ render_particle_materialization(const StubParticle &particle,
  * [0, active_count) are drawn — an inactive particle parked on the ±Y poles never
  * contributes a point; (2) the drawn trail follows the particle's recorded
  * history (an equatorial +X→+Z arc); (3) every emitted fragment carries the
- * source index in v2 and life/max_life in v3, constant across the trail (the
- * register convention MindSplatter's invariant assert depends on).
+ * source index in v2 and life/max_life in v3, constant across the trail when
+ * draw() uses its default register mappers.
  */
 inline void test_particle_system_draws_active_trails_with_registers() {
   constexpr int W = 288, H = 144;
