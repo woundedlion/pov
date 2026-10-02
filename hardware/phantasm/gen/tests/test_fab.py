@@ -233,6 +233,24 @@ class ZoneGeometryTests(unittest.TestCase):
                     f'(pad "1" {pad_type} circle (net "{net}") '
                     f'(zone_connect {pad_mode})))'), 1)
 
+    def test_rejects_solid_through_hole_overrides_on_numeric_nets(self):
+        for zone_name in ('(net_name "GND")', ''):
+            for pad_net in ('(net 23 "GND")', '(net 23)'):
+                for footprint_mode, pad_mode in (("", "2"), ("2", "")):
+                    with self.subTest(zone_name=zone_name, pad_net=pad_net,
+                                      footprint=footprint_mode, pad=pad_mode):
+                        root = fab.sexp.parse_one(
+                            '(kicad_pcb (net 23 "GND") '
+                            f'(zone (net 23) {zone_name} (min_thickness 0.13) '
+                            '(fill yes (thermal_gap 0.3) (thermal_bridge_width 0.4))))')
+                        root.append(fab.sexp.parse_one(
+                            '(footprint "Terminal" (property "Reference" "J1") '
+                            f'{"(zone_connect " + footprint_mode + ")" if footprint_mode else ""}'
+                            f'(pad "1" thru_hole circle {pad_net} '
+                            f'{"(zone_connect " + pad_mode + ")" if pad_mode else ""}))'))
+                        with self.assertRaisesRegex(fab.ZoneGeometryError, "zone_connect 2"):
+                            fab.validate_zone_geometry("fixture", min_pours=1, board=root)
+
     def test_rejects_thin_pour_sliver(self):
         with self.assertRaisesRegex(
                 fab.ZoneGeometryError,
