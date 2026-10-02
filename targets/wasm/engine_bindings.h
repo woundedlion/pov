@@ -1117,6 +1117,7 @@ private:
 /** @brief Registers the render bridge's enums and class with Embind. */
 static void bind_engine() {
   bind_workbench_adapters();
+  // Boot-time defaults; the geometry getters report the active display caps.
   emscripten::constant("DISPLAY_PROFILE", HS_DISPLAY_PROFILE);
   emscripten::constant("DISPLAY_NORTH_PHI",
                        math::DisplayGeometry<144>::NORTH_PHI);
