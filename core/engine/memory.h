@@ -802,7 +802,7 @@ public:
 
   /**
    * @brief Reports whether the vector is bound to an arena.
-   * @return True iff bind() has been called.
+   * @return True iff currently bound to an arena.
    */
   bool is_bound() const { return bound; }
 
