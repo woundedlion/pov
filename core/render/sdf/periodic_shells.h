@@ -163,8 +163,9 @@ __attribute__((always_inline)) inline ShellSample trace_periodic_shells_3d(
   // Clearance bound in cells at the layer, padded by the farthest a closest
   // approach can sit from its layer crossing.
   const float HALF_RATE = .5f * prepared.footprint.angular_radius;
-  float reach = prepared.geometry.shell_radius + 1e-4f +
-                HALF_RATE * (RADIAL_START * INVERSE_CELL + tau + .75f);
+  float reach =
+      prepared.geometry.shell_radius + 1e-4f +
+      HALF_RATE * (prepared.footprint.radial_start * INVERSE_CELL + tau + .75f);
   const float REACH_STEP = HALF_RATE * STEP;
   const float RADIUS = prepared.geometry.shell_radius * CELL;
   const float HALF_INVERSE_RADIUS = .5f / RADIUS;
@@ -310,8 +311,9 @@ __attribute__((always_inline)) inline ShellSample trace_periodic_shells_march(
   // approach can sit from its layer crossing; over |D_k| it bounds the
   // in-layer offset of a contributing center.
   const float HALF_RATE = .5f * prepared.footprint.angular_radius;
-  float reach = prepared.geometry.shell_radius + 1e-4f +
-                HALF_RATE * (RADIAL_START * INVERSE_CELL + tau + .9f);
+  float reach =
+      prepared.geometry.shell_radius + 1e-4f +
+      HALF_RATE * (prepared.footprint.radial_start * INVERSE_CELL + tau + .9f);
   const float REACH_STEP = HALF_RATE * STEP;
   const float RADIUS = prepared.geometry.shell_radius * CELL;
   const bool FILTERED = prepared.footprint.angular_radius > 0;
