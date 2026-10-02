@@ -60,9 +60,10 @@ void trail_rainbow_lin(Pixel &c, uint8_t hue_falloff = 32,
 /**
  * @brief Randomly kills a pixel to produce a sparse dissolve.
  * @param p Color to maybe extinguish, modified in place.
- * @param prob Kill probability numerator over 255 (chance the value is zeroed).
- * @details With probability prob/255, zeroes the pixel's value while keeping its
- * hue and saturation.
+ * @param prob Inclusive threshold for an 8-bit random sample.
+ * @details For prob in [0, 255], zeroes the value with probability
+ * (prob + 1)/256 while keeping hue and saturation. Negative thresholds never
+ * kill; thresholds at or above 255 always kill.
  */
 void disintegrate(CHSV &p, int prob) {
   if (random8() <= prob) {
