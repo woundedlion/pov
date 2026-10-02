@@ -397,7 +397,7 @@ static int check_modules(int argc, char **argv) {
  * --list/-h/--help/--check-modules.
  * @return 0 on success, 1 if any test failed, a case was skipped under
  * HS_SKIPS_ARE_ERRORS, or a required CI depth lever is missing, 2 on an unknown
- * module name, 3 on a --check-modules divergence.
+ * module name or an invalid death-child invocation, 3 on a --check-modules divergence.
  * @details Dispatches marked death-harness children, else runs the full
  * roster or only the modules named on argv.
  */
