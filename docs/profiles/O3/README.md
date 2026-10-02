@@ -114,3 +114,8 @@ Preserved canonical snapshots; current architecture rankings use the dated varia
 - [LatticeMelt 2026-08-26](profile_latticemelt_teensy_2026-08-26.md).
 - [ChromaticLichen 2026-08-26](profile_chromaticlichen_teensy_2026-08-26.md).
 - [KaleidoscopeSmooth 2026-08-26](profile_kaleidoscopesmooth_teensy_2026-08-26.md).
+
+For the 2026-08-26 O3 cycler captures, the parser counted the unmarked
+startup run as an extra entry 0. Their parenthesized entry counts are the
+authored preset count plus one; raw logs are no longer available to rederive
+these buckets.
