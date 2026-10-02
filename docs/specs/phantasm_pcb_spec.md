@@ -39,8 +39,15 @@ Insert and secure the J2/J3A/J3B wires before installing the Teensy module;
 the locked hub-facing terminal entries do not reserve wire-access clearance
 against the module. Verify J1 polarity before connecting any powered harness.
 
-The rev 1.2 project in `hardware/phantasm/1.2/` requires placement and routing. Current
-firmware and the committed routed fabrication artifacts remain rev 1.1; see
+The rev 1.2 project in `hardware/phantasm/1.2/` requires placement and routing.
+Firmware requires `HS_PHANTASM_BOARD_REV=11` for rev 1.1 or
+`HS_PHANTASM_BOARD_REV=12` for rev 1.2; missing or unsupported values fail compilation.
+The `phantasm`, `phantasm8`, `profile`, `profile_o3` and `bench` PlatformIO environments
+explicitly select rev 1.1. Before building for rev 1.2, change the selected environment's
+`HS_PHANTASM_BOARD_REV` build flag in `platformio.ini` to `12`. Arduino and VMicro
+builds must declare the same flag. Rev 1.2 keeps D3 as an input with hysteresis on every
+board, parks D4 LOW before enabling the master, and transmits master pulses on D4.
+The committed routed fabrication artifacts remain rev 1.1; see
 [the hardware revision notes](../../hardware/phantasm/1.1/README.md#revision-12).
 
 **Status: SPECIFIED; the routed board is committed, with two recorded deviations.** The
@@ -293,7 +300,7 @@ buffer** — see §4.3.
 - **R-SYNC-4** Master ignores its own echo in firmware; no hardware action needed.
 - **R-SYNC-7 — Receiver hysteresis (implemented in firmware).** A slowed edge (R-SYNC-3) into a
   non-hysteresis i.MX RT pad can double-trigger near threshold, so pad **HYS** is enabled on pin 3
-  after `pinMode` in [pov_segmented.h](../../hardware/pov_segmented.h) (`portControlRegister(PIN_FRAME_SYNC) |=
+  after `pinMode` in [pov_segmented.h](../../hardware/pov_segmented.h) (`portControlRegister(PIN_SYNC_RX) |=
   IOMUXC_PAD_HYS`). No PCB action — listed so layout/firmware stay paired with C_SYNC.
 
 ### 4.3 Decision: bus vs. star (resolved — bus)
