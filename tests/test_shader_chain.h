@@ -4096,8 +4096,13 @@ inline void test_shader_chain_edge_distance_admission() {
   HS_EXPECT_EQ(effect.updateParameter("sample.coverage-mode", 3),
                ParamSetResult::INADMISSIBLE);
   HS_EXPECT_TRUE(effect.parameter_warning("sample.coverage-mode") != nullptr);
+  const float ACCEPTED_ENVELOPE =
+      effect.getParameters().find("warp.envelope")->get_requested();
   const ShaderChainParameterWrite writes[] = {{"warp.envelope", 2}};
   HS_EXPECT_EQ(effect.update_parameters(writes), ParamSetResult::INADMISSIBLE);
+  HS_EXPECT_EQ(effect.getParameters().find("warp.envelope")->get_requested(),
+               ACCEPTED_ENVELOPE);
+  HS_EXPECT_TRUE(effect.parameter_warning("warp.envelope") != nullptr);
   HS_EXPECT_EQ(
       effect.getParameters().find("sample.coverage-mode")->get_requested(),
       1.0f);
