@@ -610,7 +610,7 @@ Pixel (linear 16-bit) → linear RGB float → OKLab (L, a, b) → OKLCH (L, C, 
 
 The chroma clip brackets the sRGB boundary from a generated table (`core/color/gamut_lut.h`, emitted by `tools/gen_gamut_lut.py`) indexed by the diamond angle of (b, a) and by L. Each cell stores guarded extrema of sampled first-exit chroma estimates, which do not certify enclosure of every ray's exact first exit; the per-pixel path walks that bracket in `GAMUT_SCAN_STEPS` and bisects the straddling step `GAMUT_BRACKET_STEPS` times. Grid resolution sets how wide the bracket starts, and the bisection sets how far it is narrowed; coarser grids increase the chroma deficit (about 0.003 at 256 × 128, 0.007 at 32 × 16). At every grid, including the shipped master, a handful of rays stride over a narrow out-of-gamut gap and land past the first exit — an oversaturation of up to about 0.05 chroma that no amount of bisection recovers, since the wrong step is already selected; a finer grid reduces how many rays do this, not how far they overshoot.
 
-The clip reads the 256 × 128 flash master by default. An effect that clips per pixel can arm an arena copy at the master's resolution or coarser, which buys read latency alone (RAM rather than QSPI flash):
+The clip reads the 256 × 128 flash master by default. An effect that clips per pixel can arm an arena copy at the master's resolution or coarser, which improves read latency (RAM rather than QSPI flash). Coarser grids also change the brackets and clipping results:
 
 | Function | Description |
 |---|---|
