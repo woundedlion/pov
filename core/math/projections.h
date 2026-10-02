@@ -310,11 +310,11 @@ HS_O3_FN inline ProjectionKernelResult
 peirce_projection(const math::Vector &v, float central_meridian,
                   PeirceLayout layout, float scroll,
                   bool calculate_edge_distance = true) {
-  const bool FOLDED_LAYOUT =
+  const bool folded_layout =
       layout == PeirceLayout::DIAMOND || layout == PeirceLayout::SQUARE;
-  const bool STRIP_LAYOUT =
+  const bool strip_layout =
       layout == PeirceLayout::HORIZONTAL || layout == PeirceLayout::VERTICAL;
-  HS_AUDIT_CHECK(FOLDED_LAYOUT || STRIP_LAYOUT,
+  HS_AUDIT_CHECK(folded_layout || strip_layout,
                  "Peirce projection: invalid layout");
   constexpr float INV_SQRT_TWO = 0.7071067811865475f;
   constexpr float K = 1.8540746773013719f;
@@ -351,7 +351,7 @@ peirce_projection(const math::Vector &v, float central_meridian,
       region = 3;
     else
       region = 4;
-    if (FOLDED_LAYOUT) {
+    if (folded_layout) {
       if (longitude < -0.75f * math::PI_F) {
         projected_y = SHIFT - projected_y;
       } else if (longitude < -0.25f * math::PI_F) {
@@ -397,7 +397,7 @@ peirce_projection(const math::Vector &v, float central_meridian,
     // The four singularities are the poles of the two diagonal axes cos_a and
     // cos_b measure from, so the nearest sits at acos of the larger magnitude.
     edge = acosf(hs::clamp(fmaxf(fabsf(cos_a), fabsf(cos_b)), 0.0f, 1.0f));
-    if (v.y < 0.0f && FOLDED_LAYOUT) {
+    if (v.y < 0.0f && folded_layout) {
       const float fold_sine = cp * fabsf(fabsf(sl) - fabsf(cl)) * INV_SQRT_TWO;
       edge = fminf(edge, asinf(hs::clamp(fold_sine, 0.0f, 1.0f)));
     }
@@ -425,7 +425,7 @@ peirce_projection(const math::Vector &v, float central_meridian,
   uint8_t traits =
       projection_traits(ProjectionTrait::GLUED, ProjectionTrait::FOLDED,
                         ProjectionTrait::PERIODIC, ProjectionTrait::SINGULAR);
-  if (STRIP_LAYOUT)
+  if (strip_layout)
     traits =
         static_cast<uint8_t>(traits | projection_traits(ProjectionTrait::CUT));
   return {.coords = math::Complex(x, projected_y),

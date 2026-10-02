@@ -5106,7 +5106,7 @@ inline const Case *all_cases(int &n) {
        "(params.frame == static_cast<uint8_t>(ProjectionFrame::IDENTITY) || params.frame == static_cast<uint8_t>(ProjectionFrame::SPIN_WANDER)) projection operator: invalid frame policy"},
       {"peirce_invalid_layout", case_peirce_invalid_layout,
        "core/math/projections.h",
-       "(FOLDED_LAYOUT || STRIP_LAYOUT) Peirce projection: invalid layout"},
+       "(folded_layout || strip_layout) Peirce projection: invalid layout"},
       {"ball_drop_nonfinite_azimuth", case_ball_drop_nonfinite_azimuth,
        "core/animation/params.h",
        "(std::isfinite(azimuth)) BallDrop azimuth must be finite"},
