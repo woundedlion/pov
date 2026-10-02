@@ -60,6 +60,7 @@ public:
       return ParamSetResult::INADMISSIBLE;
 #endif
     const bool animated = def->animated;
+    const bool preset = def->preset;
     if (animated)
       setAnimationsPaused(true);
 #if HS_ENABLE_PARAM_GUI_BRIDGE
@@ -71,7 +72,7 @@ public:
 #else
     def->write_unchecked(value);
 #endif
-    if (def->preset)
+    if (preset)
       parameter_written();
     return ParamSetResult::APPLIED;
   }
