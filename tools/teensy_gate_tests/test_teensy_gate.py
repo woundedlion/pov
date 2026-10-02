@@ -908,7 +908,7 @@ class TestDerivedComponentCeiling(unittest.TestCase):
         self.assertTrue(any("derived ceiling" in n for n in result.notes))
 
 
-class TestWarningRatchet(unittest.TestCase):
+class TestWarningGate(unittest.TestCase):
     def test_toolchain_warning_uses_innermost_first_party_inline_frame(self):
         context = (
             "In file included from ./core/spatial/kd_tree.h:6:\n"
@@ -962,7 +962,7 @@ class TestWarningRatchet(unittest.TestCase):
 
     def test_library_path_with_first_party_segment_excluded(self):
         # A vendored lib whose nested dir reuses a first-party name (effects/)
-        # must NOT collapse to a first-party key and pollute the baseline.
+        # remains excluded from the first-party warning set.
         self.assertIsNone(tw.normalize(
             "/root/.platformio/lib/SomeLib/effects/reverb.h:5:1: warning: w [-Wx]"))
         self.assertIsNone(tw.normalize(
@@ -973,8 +973,7 @@ class TestWarningRatchet(unittest.TestCase):
 
     def test_nested_paths_do_not_alias_to_one_key(self):
         # A nested targets/.../effects/Foo.h and a top-level effects/Foo.h are
-        # distinct files; relativizing to the repo root must keep them apart so a
-        # new warning in one cannot be masked by a baseline entry from the other.
+        # distinct files in the normalized warning set.
         root = "/home/runner/work/Holosphere/Holosphere/"
         nested = tw.normalize(
             root + "targets/Phantasm/effects/Foo.h:7:1: warning: w [-Wx]")
@@ -997,7 +996,7 @@ class TestWarningRatchet(unittest.TestCase):
         })
 
 
-def _run_ratchet(log_text, *extra, envs=None):
+def _run_warning_gate(log_text, *extra, envs=None):
     """Run the zero-warning gate over `log_text`; return its exit.
 
     `envs` is the environment set the build was asked to produce, written to a
@@ -1022,7 +1021,7 @@ def _banner(env, *sources):
             f"platform: teensy@5.2.0; framework: arduino)")
 
 
-class TestWarningRatchetCaptureEvidence(unittest.TestCase):
+class TestWarningGateCaptureEvidence(unittest.TestCase):
     """A broken capture must not read as today's healthy green."""
 
     PIO_LINE = "Compiling .pio/build/phantasm/targets/Phantasm/Phantasm.ino.cpp.o"
@@ -1036,7 +1035,7 @@ class TestWarningRatchetCaptureEvidence(unittest.TestCase):
         "-I. -Icore -Ieffects -Ihardware core/engine/memory.cpp")
 
     def _run(self, log_text):
-        return _run_ratchet(log_text)
+        return _run_warning_gate(log_text)
 
     def test_pio_step_line_counts_as_first_party(self):
         self.assertEqual(tw.count_first_party_compiles(self.PIO_LINE), 1)
@@ -1125,26 +1124,26 @@ class TestColdCaptureAudit(unittest.TestCase):
 
     def test_exact_count_across_every_environment_passes(self):
         log = self._log(("holosphere", "phantasm", "profile"), self.TUS)
-        self.assertEqual(_run_ratchet(log), 0)
+        self.assertEqual(_run_warning_gate(log), 0)
 
     def test_short_count_from_the_object_cache_fails(self):
         # The reproduced failure: only the sketch recompiles, the shared core TUs
         # come from build_cache_dir.
         log = self._log(("holosphere", "phantasm", "profile"),
                         self.TUS[2:], cached=self.TUS[:2])
-        self.assertEqual(_run_ratchet(log), 1)
+        self.assertEqual(_run_warning_gate(log), 1)
 
     def test_short_count_in_a_single_environment_fails(self):
         # One fully-cold env cannot vouch for another: the audit is per-env.
         log = (self._log(("holosphere",), self.TUS)
                + self._log(("phantasm",), self.TUS[:2]))
-        self.assertEqual(_run_ratchet(log), 1)
+        self.assertEqual(_run_warning_gate(log), 1)
 
     def test_short_count_diagnostic_names_the_cache_and_the_missing_tus(self):
         log = self._log(("phantasm",), self.TUS[2:], cached=self.TUS[:2])
         buf = io.StringIO()
         with contextlib.redirect_stdout(buf):
-            self.assertEqual(_run_ratchet(log, "--github"), 1)
+            self.assertEqual(_run_warning_gate(log, "--github"), 1)
         out = buf.getvalue()
         self.assertIn("::error::", out)
         self.assertIn("2 of 4 first-party translation unit(s)", out)
@@ -1156,7 +1155,7 @@ class TestColdCaptureAudit(unittest.TestCase):
         log = self._log(("phantasm",), self.TUS[2:])
         buf = io.StringIO()
         with contextlib.redirect_stdout(buf):
-            self.assertEqual(_run_ratchet(log), 1)
+            self.assertEqual(_run_warning_gate(log), 1)
         self.assertIn("incremental build", buf.getvalue())
 
     def test_a_new_tu_raises_the_bar_with_no_second_edit(self):
@@ -1164,8 +1163,8 @@ class TestColdCaptureAudit(unittest.TestCase):
         grown = self.TUS + ("core/engine/newtu.cpp",)
         banner = _banner("phantasm", *grown)
         compiles = "\n".join(self._compile("phantasm", s) for s in self.TUS)
-        self.assertEqual(_run_ratchet(banner + "\n" + compiles + "\n"), 1)
-        self.assertEqual(_run_ratchet(
+        self.assertEqual(_run_warning_gate(banner + "\n" + compiles + "\n"), 1)
+        self.assertEqual(_run_warning_gate(
             banner + "\n" + compiles + "\n"
             + self._compile("phantasm", "core/engine/newtu.cpp") + "\n"), 0)
 
@@ -1175,17 +1174,17 @@ class TestColdCaptureAudit(unittest.TestCase):
         log = (_banner("phantasm", *self.TUS) + "\n"
                + "\n".join(f"Compiling .pio/build/phantasm/src/{s}.o"
                            for s in self.TUS) + "\n")
-        self.assertEqual(_run_ratchet(log), 0)
+        self.assertEqual(_run_warning_gate(log), 0)
 
     def test_missing_banner_fails_rather_than_falling_back(self):
         # If PlatformIO's banner format ever changes the expectation cannot be
         # derived; that must go red, not silently revert to "at least one compile".
-        self.assertEqual(_run_ratchet(self._compile("phantasm", self.TUS[0]) + "\n"), 1)
+        self.assertEqual(_run_warning_gate(self._compile("phantasm", self.TUS[0]) + "\n"), 1)
 
     def test_banner_without_build_src_filter_fails(self):
         log = ("Processing phantasm (board: teensy40; platform: teensy@5.2.0)\n"
                + self._compile("phantasm", self.TUS[0]) + "\n")
-        self.assertEqual(_run_ratchet(log), 1)
+        self.assertEqual(_run_warning_gate(log), 1)
 
     def test_first_party_glob_in_the_filter_fails_loudly(self):
         # A glob is not countable from the log; the tool must say so, not guess.
@@ -1224,12 +1223,12 @@ class TestExpectedEnvironmentSet(unittest.TestCase):
 
     def test_truncated_run_fails(self):
         self.assertEqual(
-            _run_ratchet(self._cold_env(self.ENVS[0]), envs=self.ENVS), 1)
+            _run_warning_gate(self._cold_env(self.ENVS[0]), envs=self.ENVS), 1)
 
     def test_truncated_run_diagnostic_names_the_absent_environments(self):
         buf = io.StringIO()
         with contextlib.redirect_stdout(buf):
-            self.assertEqual(_run_ratchet(self._cold_env(self.ENVS[0]),
+            self.assertEqual(_run_warning_gate(self._cold_env(self.ENVS[0]),
                                           "--github", envs=self.ENVS), 1)
         out = buf.getvalue()
         self.assertIn("::error::", out)
@@ -1239,12 +1238,12 @@ class TestExpectedEnvironmentSet(unittest.TestCase):
 
     def test_every_expected_environment_present_passes(self):
         log = "".join(self._cold_env(e) for e in self.ENVS)
-        self.assertEqual(_run_ratchet(log, envs=self.ENVS), 0)
+        self.assertEqual(_run_warning_gate(log, envs=self.ENVS), 0)
 
     def test_env_flag_narrows_the_expectation(self):
         # A deliberate subset build states its own set instead of platformio.ini's.
         self.assertEqual(
-            _run_ratchet(self._cold_env(self.ENVS[0]), "--env", self.ENVS[0],
+            _run_warning_gate(self._cold_env(self.ENVS[0]), "--env", self.ENVS[0],
                          envs=self.ENVS), 0)
 
     def test_expectation_is_read_from_the_repo_platformio_ini(self):
@@ -1287,13 +1286,13 @@ class TestRealColdVersusWarmCapture(unittest.TestCase):
         audit = tw.audit_capture(self.COLD)
         self.assertEqual(audit.missing, ())
         self.assertEqual(audit.cache_hits, 0)
-        self.assertEqual(_run_ratchet(self.COLD), 0)
+        self.assertEqual(_run_warning_gate(self.COLD), 0)
 
     def test_real_warm_section_is_short_and_fails(self):
         audit = tw.audit_capture(self.WARM)
         self.assertEqual(audit.missing_count, 2)
         self.assertEqual(audit.first_party_cache_hits, 2)
-        self.assertEqual(_run_ratchet(self.WARM), 1)
+        self.assertEqual(_run_warning_gate(self.WARM), 1)
 
 
 class TestRealVerboseCapture(unittest.TestCase):
@@ -1560,7 +1559,7 @@ class TestNonUtf8Captures(unittest.TestCase):
                               "--readelf-syms", str(syms)])
             self.assertEqual(rc, 0, msg=buf.getvalue())
 
-    def test_ratchet_reads_a_build_log_with_a_cp1252_byte(self):
+    def test_warning_gate_reads_a_build_log_with_a_cp1252_byte(self):
         log_text = (_banner("phantasm", "core/engine/memory.cpp") + "\n"
                     "arm-none-eabi-g++ -o .pio/build/phantasm/core/engine/"
                     "memory.cpp.o -c core/engine/memory.cpp\n")
