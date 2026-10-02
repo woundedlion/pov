@@ -227,8 +227,9 @@ public:
    * @details Requires identical evaluation policy — domain, easing, color
    * path, chroma basis, complementary evaluation, axis curves, key count,
    * chroma headroom, torsion, falloff, input window — plus corresponding
-   * segment hue deltas within half a turn of each other, so an interpolated arc
-   * never crosses a whole-turn ambiguity or collapses through zero. A loop
+   * segment hue deltas within half a turn of each other, avoiding a whole-turn
+   * ambiguity in the interpolation. Opposite signed deltas can pass through
+   * zero during a morph. A loop
    * additionally requires the same integer closing travel, or its seam breaks
    * mid-morph.
    * Incompatible palettes must transition through a baked crossfade
