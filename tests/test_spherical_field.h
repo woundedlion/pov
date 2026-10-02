@@ -385,9 +385,41 @@ inline void test_u16_rgb_sampler_error_bound() {
     }
 }
 
+/** @brief Pins bounded longitude and exact/intermediate ring bracketing. */
+inline void test_integer_longitude_and_ring_bracketing() {
+  constexpr hs::SphericalFieldLayout<288, 144, 3> LAYOUT(4, 4, 1, 72);
+  for (int index = 0; index < LAYOUT.ring_count(); ++index) {
+    const auto RING = LAYOUT.ring(index);
+    for (int x = 0; x < 288; ++x) {
+      const auto INTEGER = LAYOUT.longitude_bounded(RING, x);
+      const auto FRACTIONAL = LAYOUT.longitude(RING, static_cast<float>(x));
+      HS_EXPECT_EQ(INTEGER.left, FRACTIONAL.left);
+      HS_EXPECT_EQ(INTEGER.right, FRACTIONAL.right);
+      HS_EXPECT_NEAR(INTEGER.mix, FRACTIONAL.mix, 1e-5f);
+    }
+    HS_EXPECT_EQ(LAYOUT.ring_index_at_or_before(RING.y), index);
+    HS_EXPECT_EQ(LAYOUT.ring_index_at_or_after(RING.y), index);
+    const auto EXACT = LAYOUT.row(RING.y);
+    HS_EXPECT_EQ(EXACT.lower.y, RING.y);
+    HS_EXPECT_EQ(EXACT.mix, 0.f);
+    if (index + 1 < LAYOUT.ring_count()) {
+      const auto NEXT = LAYOUT.ring(index + 1);
+      const float MID = (RING.y + NEXT.y) * .5f;
+      HS_EXPECT_EQ(LAYOUT.ring_index_at_or_before(MID), index);
+      HS_EXPECT_EQ(LAYOUT.ring_index_at_or_after(MID), index + 1);
+      const auto BETWEEN = LAYOUT.row(MID);
+      HS_EXPECT_EQ(BETWEEN.lower.y, RING.y);
+      HS_EXPECT_EQ(BETWEEN.upper.y, NEXT.y);
+      HS_EXPECT_EQ(BETWEEN.mix, .5f);
+    }
+  }
+  HS_EXPECT_EQ(LAYOUT.ring_index_at_or_after(143), LAYOUT.ring_count() - 1);
+}
+
 inline int run_spherical_field_tests() {
   hs_test::ModuleFixture fixture("spherical_field");
   test_constexpr_layout_counts();
+  test_integer_longitude_and_ring_bracketing();
   test_offsets_are_contiguous();
   test_metric_spacing_is_uniform();
   test_unequal_rings_have_independent_longitude_mix();
