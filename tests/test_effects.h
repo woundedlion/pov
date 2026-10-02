@@ -3728,15 +3728,9 @@ struct RingShowerWhiteBox {
 
 /**
  * @brief White-box accessor for Dynamo's overlapping-wipe band ordering.
- * @details Befriended in effects/Dynamo.h. color() documents that a live Wipe-Dur
- *          change between two overlapping wipes can let the newer (front, index 0)
- *          boundary overtake the older one, transiently inverting band order — an
- *          acknowledged cosmetic gap the author asserts stays memory-safe and
- *          in-range. This pins that safety claim: it stages exactly that
- *          non-monotonic boundary order and sweeps the full angular span,
- *          asserting every color() call stays in bounds (every baked_palettes
- *          access is HS_CHECK-guarded, so an OOB aborts here) and returns a finite
- *          alpha in [0, 1]. The smoke pass never reaches the inverted state.
+ * @details Stages inverted overlapping-wipe boundaries and pins finite alpha
+ *          in [0,1] across the angular span. Palette indexing is bounded by the
+ *          boundary container's capacity.
  */
 struct DynamoWhiteBox {
   /**
