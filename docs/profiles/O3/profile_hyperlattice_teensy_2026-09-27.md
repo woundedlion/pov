@@ -145,8 +145,8 @@ isr_dma_submit    144.0/f  0.610/0.954/10.686 us  0.22%
 ```
 
 - Pack and submit cost 6.603 and 0.954 μs per call, respectively.
-- The 72-LED image plus black strobe is 600 bytes; at the configured 12 MHz,
-  wire transfer is approximately 400 μs and runs asynchronously in DMA.
+- The 72-LED image plus black strobe is 600 bytes; at the requested 24 MHz,
+  the LPSPI framing model gives approximately 230 μs of wire time and runs asynchronously in DMA.
 - Total ISR share is 4.58%, equivalent to 2.861 ms per
   display window and 59.639 ms for foreground work.
   Render counters already include ISR time; do not subtract it twice.
@@ -286,7 +286,7 @@ isr_dma_submit   288.0/f 0.593/0.938/1.201 us 0.22%
 Times are per-call minimum/mean/maximum, followed by CPU share.
 Pack averages 6.949 μs versus
 0.938 μs for submit. The 600-byte LED
-image and black strobe take approximately 400 μs asynchronously at 12 MHz.
+image and black strobe take approximately 230 μs asynchronously at the requested 24 MHz (LPSPI framing model).
 ISR share totals 4.73%, leaving approximately 59.545 ms
 of foreground time per interval. Render already includes interrupts; its
 mean/peak need 1.39×/1.53× reduction to fit.
