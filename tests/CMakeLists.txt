@@ -500,8 +500,8 @@ set_tests_properties(unit_color_luts PROPERTIES SKIP_RETURN_CODE 77)
 
 # Host self-tests for the per-commit Teensy size trail (tools/teensy_size_trail.py):
 # the ELF32 section-header parser the pre-commit recorder reads firmware images
-# with, and the regression classifier. Pure stdlib Python — the ci.yml
-# teensy-gate-tests job runs the same file through its unittest discovery.
+# with, and the regression classifier. The ci.yml python-tests job runs the
+# same file through tools/run_python_tests.py.
 add_test(NAME unit_teensy_size_trail COMMAND ${CMAKE_COMMAND}
     -DPYTHON_EXE=${HS_PYTHON}
     -DHS_ROOT=${HS_ROOT}
