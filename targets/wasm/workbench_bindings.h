@@ -176,7 +176,7 @@ public:
    * caller applies preset values by "{instance}.{field-id}" name immediately
    * (apply order: setShaderChain -> values -> syncEffectGui -> invalidate).
    * The boundary rejects a non-array payload or a non-string entry field as
-   * MALFORMED_PAYLOAD and never traps; NOT_CHAIN_EFFECT reports that the
+   * MALFORMED_PAYLOAD; NOT_CHAIN_EFFECT reports that the
    * loaded effect is not ShaderChain, and covers an input whose accessors swap
    * the loaded effect out while the entries are being decoded. A refusal
    * leaves the previous program, its parameter definitions, the generation,
