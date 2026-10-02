@@ -147,7 +147,7 @@ inline void test_map_degenerate_range() {
  * @details Teensyduino's map() biases the numerator by half the input range
  *          before a truncating divide and then corrects the sign outside the
  *          input range; Arduino's traditional truncating map() differs on
- *          every case here.
+ *          the cases marked below.
  */
 inline void test_map_rounds_like_the_device() {
   HS_EXPECT_EQ(map(2, 0, 3, 0, 10), 7);         // truncating map() gives 6
