@@ -274,8 +274,8 @@ template <int W, int H> Vector pixel_to_vector(float x, float y) {
  * @param v Unit vector on the sphere; only its x/z azimuth is read. Must be
  *   finite: `fast_atan2` has no NaN guard, and neither wrap branch fires on the
  *   NaN it propagates.
- * @return The `x` pixel coordinate in `[0, W)` (strictly excludes W); NaN for a
- *   non-finite `v`.
+ * @return The `x` pixel coordinate in `[0, W)` (strictly excludes W) for finite
+ *   input.
  */
 template <int W>
 __attribute__((always_inline)) inline float vector_to_theta(const Vector &v) {
