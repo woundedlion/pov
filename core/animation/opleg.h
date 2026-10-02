@@ -386,10 +386,8 @@ public:
     bind_sweep_seed(tr, source, arena);
     tr.op = spec.op;
 
-    // Truncate births below T_EPS when the larger endpoint is below T_EPS, so a
-    // 0.01 target sweeps from a smaller positive birth instead of clamping both
-    // endpoints to T_EPS (a still image). Every larger endpoint >= 0.1 keeps the T_EPS
-    // birth unchanged.
+    // Truncate births below T_EPS when the larger endpoint is below
+    // T_EPS / TRUNCATE_BIRTH_FRAC (0.1).
     const bool truncate = spec.op == ConwayGraph::MorphOp::TRUNCATE;
     // A far-side truncate leg reaches past the ambo pinch at either endpoint
     // and sweeps through it on the constant-topology truncate branch; the
