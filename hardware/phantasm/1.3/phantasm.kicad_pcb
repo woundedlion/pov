@@ -269,16 +269,6 @@
 			(layer "F.Fab")
 		)
 		(fp_rect
-			(start -3 -1.59)
-			(end 3.37 4.13)
-			(stroke
-				(width 0.12)
-				(type solid)
-			)
-			(fill none)
-			(layer "F.SilkS")
-		)
-		(fp_rect
 			(start -3.75 -1.97)
 			(end 3.75 4.51)
 			(stroke
@@ -377,6 +367,33 @@
 					(xy -5 23.41)
 				)
 			)
+		)
+		(fp_line
+			(start -3.04 -1.59)
+			(end 3.37 -1.59)
+			(stroke
+				(width 0.12)
+				(type solid)
+			)
+			(layer "F.SilkS")
+		)
+		(fp_line
+			(start 3.37 -1.59)
+			(end 3.37 4.13)
+			(stroke
+				(width 0.12)
+				(type solid)
+			)
+			(layer "F.SilkS")
+		)
+		(fp_line
+			(start 3.37 4.13)
+			(end -3.04 4.13)
+			(stroke
+				(width 0.12)
+				(type solid)
+			)
+			(layer "F.SilkS")
 		)
 	)
 	(footprint "Fuse:Fuse_1206_3216Metric"
