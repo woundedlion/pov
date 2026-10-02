@@ -67,6 +67,14 @@ static_assert(!Pullback::ComposedDetail::PipelineMetadata<
               MismatchedCoverageSpec, CoverageFixture::Binding,
               CoverageFixture::RenderPipeline>::COVERAGE_MATCHES);
 
+using TrackedFixture = CosmicEyeball<SMALL_W, SMALL_H>;
+static_assert(Pullback::ComposedDetail::PipelineMetadata<
+              CosmicEyeballSpec, TrackedFixture::Binding,
+              TrackedFixture::RenderPipeline>::PATH_TRACKED);
+static_assert(!Pullback::ComposedDetail::PipelineMetadata<
+              AshCloudSpec, CoverageFixture::Binding,
+              CoverageFixture::RenderPipeline>::PATH_TRACKED);
+
 template <typename FX> struct ComposedTraits {
   using Params = typename FX::Params;
   using Spec = typename FX::Spec;
@@ -1765,8 +1773,10 @@ template <bool Animated> struct RippleProbeSpec : Pullback::Spec {
       B, Pullback::Stage::Rotate<Pullback::OuterCameraProvider<B>>,
       Pullback::Stage::Placed<
           Pullback::CodeEmission::INLINE_ONLY,
-          Pullback::Stage::Displace<Pullback::Surface::PeriodicRipple<
-              Pullback::SurfaceProvider<B, Pullback::PeriodicRippleParams>>>,
+          Pullback::Stage::Displace<
+              Pullback::Surface::PeriodicRipple<Pullback::SurfaceProvider<
+                  B, Pullback::PeriodicRippleParams,
+                  HUE == Pullback::HueMode::PATH_LENGTH>>>,
           Pullback::Stage::Project<
               typename Pullback::ProjectionPolicyFor<PROJECTION, B>::Type>>,
       Pullback::Stage::Sample<typename Pullback::SourcePolicyFor<
