@@ -20,7 +20,7 @@ import builder
 import check
 import sexp
 from constraints import (ZONE_DEFAULTS, EXCLUDE_FP_SUBSTR, EXCLUDE_VAL_SUBSTR, MAX_BOARD_WIDTH_MM,
-                         MIN_SOLDER_MASK_WEB_MM)
+                         MIN_SOLDER_MASK_WEB_MM, NEW_LAYOUT_RULES)
 from kicad_common import atomic_write_text
 from kicad_common import (uid, reset_uid_sequence, fmt, F, arc_extrema,
                           export_netlist, kicad_cli, require_writable)
@@ -490,6 +490,31 @@ def embed(libid, ref, value, x, y, rot, pad_net, netid, path=None, locked=False,
                 c[:] = [d for d in c if not (isinstance(d, list) and d and d[0] == "net")]
                 c.append([sexp.Sym("net"), netid[nn], nn])
     return node
+
+
+def trim_power_terminal_silkscreen(node):
+    """Open the terminal outline where its left edge meets the board edge."""
+    x = float(sexp.val(node, "at")[0])
+    for rectangle in list(F(node, "fp_rect")):
+        if sexp.val(rectangle, "layer") != ["F.SilkS"]:
+            continue
+        x0, y0 = map(float, sexp.val(rectangle, "start"))
+        x1, y1 = map(float, sexp.val(rectangle, "end"))
+        stroke = F(rectangle, "stroke")[0]
+        width = float(sexp.val(stroke, "width")[0])
+        limit = NEW_LAYOUT_RULES["min_silk_clearance"] + width / 2 - x
+        if x0 >= limit:
+            continue
+        node.remove(rectangle)
+        if x1 <= limit:
+            continue
+        for start, end in (((limit, y0), (x1, y0)),
+                           ((x1, y0), (x1, y1)),
+                           ((x1, y1), (limit, y1))):
+            node.append([sexp.Sym("fp_line"),
+                         [sexp.Sym("start"), *(sexp.Sym(fmt(v)) for v in start)],
+                         [sexp.Sym("end"), *(sexp.Sym(fmt(v)) for v in end)],
+                         copy.deepcopy(stroke), [sexp.Sym("layer"), "F.SilkS"]])
 
 
 # ---------------------------------------------------------------- layout
@@ -968,6 +993,8 @@ def main(unplaced=False, force=False, force_teensy_library=False):
                                 hide_reference=lock,
                                 teensy_model_path=teensy_model_path,
                                 consumed=consumed))
+        if unplaced and ref == "J1":
+            trim_power_terminal_silkscreen(foot_nodes[-1])
     for ref, (x, y) in HOLES.items():
         foot_nodes.append(embed(MOUNTING_HOLE_FOOTPRINT, ref, "M2.5",
                                 x, y, 0, pad_net, netid, locked=unplaced,
