@@ -517,7 +517,7 @@ inline void test_ripple_threshold_boundary() {
  *        exact libm rotation it stands in for, and that the two branches meet
  *        at RIPPLE_SMALL_ANGLE_MAX.
  * @details The |theta| <= RIPPLE_SMALL_ANGLE_MAX branch replaces
- *          make_rotation's sin/cos with three-term series, so nothing but a
+ *          make_rotation's sin/cos with truncated series, so nothing but a
  *          comparison against the exact form pins its coefficients — the one
  *          test that crosses the boundary asserts only monotonicity, which a
  *          wrong coefficient survives while seaming visibly on device. theta is
