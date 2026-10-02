@@ -295,9 +295,8 @@ __attribute__((always_inline)) inline float vector_to_theta(const Vector &v) {
  *   bit-exactly invert the exact-trig `pixel_to_vector`.
  * @tparam W The width.
  * @tparam H The height.
- * @param v The input vector; MUST be unit length (unenforced): `phi = acos(v.y)`
- *   is the true latitude only when |v| == 1, so a non-unit `v` returns a
- *   silently-wrong row. Unguarded per-pixel path; callers normalize first.
+ * @param v Unit input vector, checked in debug builds. Callers normalize first:
+ *   `phi = acos(v.y)` gives the true latitude only for a unit vector.
  * @return Pixel coordinates; rows in missing caps lie outside [0, H-1].
  */
 template <int W, int H> HS_O3_FN PixelCoords vector_to_pixel(const Vector &v) {
