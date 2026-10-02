@@ -126,8 +126,8 @@ public:
 
     // Voronoi cell pixel size falls as ~1/sqrt(num_sites), so shrink the block
     // with the site count, floored at the edge MAX_SITES would give at this H.
-    // Rows map uniformly over [0,π], so an equal-area cell spans sqrt(4π/n)·H/π
-    // rows and this edge is 1/sqrt(π) ≈ 0.56 of that.
+    // Full-sphere row-pitch estimate: an equal-area cell spans sqrt(4π/n)·H/π
+    // rows, and this edge is 1/sqrt(π) ≈ 0.56 of that estimate.
     const float cell_px = (2.0f * H / math::PI_F) /
                           sqrtf(static_cast<float>(sites_buffer.size()));
     const int B = hs::clamp(static_cast<int>(cell_px), COHERENCE_BLOCK_MIN,
