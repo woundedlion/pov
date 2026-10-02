@@ -11,8 +11,8 @@
  * Each Teensy reads its hardware ID at boot (pins 21–23 as required) to determine
  * which segment of the LED strip it owns.  Segment 0 is the sync master:
  * it emits count-coded symbol bursts on the single sync wire, and every
- * board (master included) generates its own columns from a local flywheel
- * timebase disciplined by those symbols.  The playlist is epoch-counted —
+ * board generates its own columns from a local flywheel timebase; downstream
+ * boards discipline theirs with those symbols.  The playlist is epoch-counted —
  * the master broadcasts an EPOCH mark when an effect's revolutions elapse
  * and all boards switch in lockstep (docs/specs/phantasm_frame_sync_spec.md).
  *
