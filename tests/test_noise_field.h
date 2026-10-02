@@ -221,19 +221,45 @@ inline void test_noise_field_analytic_gradient() {
 
 /** @brief Pins vector noise rotation setter order. */
 inline void test_vector_noise_rotation_setter_order() {
-  for (const auto rotation : {FastNoiseLite::RotationType3D_ImproveXYPlanes,
-                              FastNoiseLite::RotationType3D_ImproveXZPlanes}) {
-    FastNoiseLite first = make_noise(31), second = make_noise(31);
-    first.SetDomainWarpType(FastNoiseLite::DomainWarpType_OpenSimplex2);
-    first.SetRotationType3D(rotation);
-    second.SetRotationType3D(rotation);
-    second.SetDomainWarpType(FastNoiseLite::DomainWarpType_OpenSimplex2);
-    math::Vector a(1.25f, -2.75f, 0.5f), b = a;
-    first.GetVectorNoiseSingle(a.x, a.y, a.z);
-    second.GetVectorNoiseSingle(b.x, b.y, b.z);
-    HS_EXPECT_EQ(a.x, b.x);
-    HS_EXPECT_EQ(a.y, b.y);
-    HS_EXPECT_EQ(a.z, b.z);
+  struct Case {
+    FastNoiseLite::RotationType3D rotation;
+    math::Vector simplex;
+    math::Vector grid;
+  };
+  const Case CASES[] = {
+      {FastNoiseLite::RotationType3D_None,
+       {1.30739737f, -2.88196921f, 0.453307718f},
+       {1.20877635f, -2.75325942f, 0.496854395f}},
+      {FastNoiseLite::RotationType3D_ImproveXYPlanes,
+       {1.25860775f, -2.76022482f, 0.495675534f},
+       {1.25860775f, -2.76022482f, 0.495675534f}},
+      {FastNoiseLite::RotationType3D_ImproveXZPlanes,
+       {1.48228431f, -2.84245944f, 0.170210212f},
+       {1.48228431f, -2.84245944f, 0.170210212f}},
+  };
+  for (const Case &test : CASES) {
+    HS_CONTEXT("rotation", static_cast<int>(test.rotation));
+    for (const auto warp : {FastNoiseLite::DomainWarpType_OpenSimplex2,
+                            FastNoiseLite::DomainWarpType_BasicGrid}) {
+      HS_CONTEXT("warp", static_cast<int>(warp));
+      FastNoiseLite first = make_noise(31), second = make_noise(31);
+      first.SetDomainWarpType(warp);
+      first.SetRotationType3D(test.rotation);
+      second.SetRotationType3D(test.rotation);
+      second.SetDomainWarpType(warp);
+      math::Vector a(1.25f, -2.75f, 0.5f), b = a;
+      first.GetVectorNoiseSingle(a.x, a.y, a.z);
+      second.GetVectorNoiseSingle(b.x, b.y, b.z);
+      HS_EXPECT_EQ(a.x, b.x);
+      HS_EXPECT_EQ(a.y, b.y);
+      HS_EXPECT_EQ(a.z, b.z);
+      const math::Vector &EXPECTED =
+          warp == FastNoiseLite::DomainWarpType_OpenSimplex2 ? test.simplex
+                                                             : test.grid;
+      HS_EXPECT_NEAR(a.x, EXPECTED.x, 2e-6f);
+      HS_EXPECT_NEAR(a.y, EXPECTED.y, 2e-6f);
+      HS_EXPECT_NEAR(a.z, EXPECTED.z, 2e-6f);
+    }
   }
 }
 
