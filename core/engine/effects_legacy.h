@@ -89,9 +89,10 @@ auto blend(float a) {
 /**
  * @brief Plots a color at a fractional position with anti-aliasing.
  * @param cv Canvas to draw into.
- * @param x Fractional column coordinate; wraps around the ring (cylinder).
- * @param y Fractional row coordinate; clamped so the top row never bleeds past
- * the last row.
+ * @param x Fractional column coordinate in [0, cv.width()); the right-hand
+ * neighbor wraps around the ring.
+ * @param y Fractional row coordinate in [0, cv.height()); the next-row taps
+ * are omitted on the last row.
  * @param c Color to deposit.
  * @details Distributes c over the four surrounding pixels weighted by sub-pixel
  * coverage.
