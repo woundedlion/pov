@@ -1056,9 +1056,8 @@ inline void test_preset_transition_adopts_next_params() {
 }
 
 /**
- * @brief Pins ShapeShifter's 240-frame preset cadence: a 224-frame dwell, then
- *        eight frames fading out, the next preset adopted in the dark, and
- *        eight frames fading back in.
+ * @brief Pins ShapeShifter's preset cadence with an eight-frame fade out,
+ *        adoption in the dark, and an eight-frame fade back in.
  */
 inline void test_preset_transition_fades_through_black_in_16_frames() {
   reset_globals();
