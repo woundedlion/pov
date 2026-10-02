@@ -435,8 +435,8 @@ private:
     std::array<int, NUM_PALETTES> palette_slots;
     MeshPaletteBank::shuffle_indices(palette_slots);
 
-    // A recipe whose lowered chain contains a step no leg kind covers falls
-    // back to the whole-generate path, seed solid and all.
+    // A recipe with a lowered step outside admitted recipe-morph coverage
+    // falls back to the whole-generate path, seed solid and all.
     const Solids::Recipe *recipe = entry.recipe;
     build_step_count = 0;
     if (recipe) {
