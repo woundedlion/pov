@@ -137,9 +137,11 @@ public:
     cached_warp_y = arena.allocate_n<int16_t>(CACHE_CELLS);
     cached_origin =
         arena.allocate_n<typename SphereField::Coordinates>(CACHE_CELLS);
-    cached_cap = arena.allocate_n<CapOffset>(
+    const int cap_cells =
         polar_rings(CACHE_FIELD, CACHE_FIELD.ring_count()).rows() *
-        CACHE_COLUMNS);
+        CACHE_COLUMNS;
+    cached_cap =
+        cap_cells > 0 ? arena.allocate_n<CapOffset>(cap_cells) : nullptr;
     warp_cache_valid = false;
 #ifndef NDEBUG
     stamp.record(arena);
@@ -1321,11 +1323,13 @@ private:
                           CACHE_CELLS *
                               sizeof(typename SphereField::Coordinates),
                           "Pixel::Feedback warp cache");
-    HS_ASSERT_BLOCK_ALIVE(
-        stamp, cached_cap,
-        polar_rings(CACHE_FIELD, CACHE_FIELD.ring_count()).rows() *
-            CACHE_COLUMNS * sizeof(CapOffset),
-        "Pixel::Feedback warp cache");
+    if (cached_cap) {
+      HS_ASSERT_BLOCK_ALIVE(
+          stamp, cached_cap,
+          polar_rings(CACHE_FIELD, CACHE_FIELD.ring_count()).rows() *
+              CACHE_COLUMNS * sizeof(CapOffset),
+          "Pixel::Feedback warp cache");
+    }
   }
 
 public:

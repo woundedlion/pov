@@ -5,6 +5,7 @@
 #include "core/engine/engine.h"
 #include "core/render/filter/screen_blur.h"
 #include "core/math/spherical_field.h"
+#include "effects/MeshFeedback.h"
 #include "tests/test_fixture.h"
 #include "tests/test_harness.h"
 #include <limits>
@@ -47,6 +48,12 @@ template <int W, int H> void check_geometry(float north, float south) {
               });
     HS_EXPECT_NEAR(energy, pole ? 1.0f : 0.75f, 1e-6f);
   }
+  hs_test::reset_globals();
+  MeshFeedback<W, H> feedback;
+  feedback.init();
+  feedback.draw_frame();
+  feedback.advance_display();
+  HS_EXPECT_TRUE(feedback.buffer_free());
 }
 } // namespace
 
