@@ -72,7 +72,7 @@ def _demote_includes(build_env):
 # Every Teensy build carries the framework core dir (…/packages/framework-
 # arduinoteensy/cores/teensy4) on CPPPATH, so demoting nothing means the marker
 # set stopped matching PlatformIO's layout — not that the paths are clean. Fail
-# instead of silently reverting to a warning-flooded log: the ratchet's
+# instead of silently reverting to a warning-flooded log: the warning gate's
 # first-party filter drops the flood, so nothing else would notice.
 if not sum(_demote_includes(build_env) for build_env in (projenv, env)):
     raise SystemExit(
