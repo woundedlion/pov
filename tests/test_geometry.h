@@ -2,7 +2,9 @@
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
  * Licensed under the PolyForm Noncommercial License 1.0.0
  *
- * Geometry distances, spherical bounds, cubic kernels, and smooth ramps.
+ * Axis constants, spherical/pixel conversions, parametric curves, random
+ * directions, bases and antipodes, Orientation, wrapping, shortest distances,
+ * cubic kernels, and smooth ramps.
  */
 #pragma once
 
