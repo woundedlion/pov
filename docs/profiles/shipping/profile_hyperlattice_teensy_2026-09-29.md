@@ -111,7 +111,7 @@ isr_dma_submit    145/frame  min/avg/max 0.7/0.9/1.0 us   cpu 0.21%
 ```
 
 - Packing marshals the LED data on the CPU; submission only launches the DMA.
-- A 600-byte transfer takes about 400 µs at 12 MHz, asynchronously.
+- A 600-byte transfer takes about 230 µs at the requested 24 MHz (LPSPI framing model), asynchronously.
 - The ISRs take 4.7% of the CPU, leaving about 59.5 ms of render budget per
   62.5 ms window; neither cycle needs further speedup.
 
