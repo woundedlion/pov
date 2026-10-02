@@ -13,8 +13,8 @@
  * included directly by target .ino files.
  */
 
-// USE_DMA_LEDS selects HD107S DMA in the Phantasm, profile and holosphere_dma
-// build environments. phantasm_target.h supplies an IDE fallback. It is
+// USE_DMA_LEDS selects HD107S DMA in every Phantasm-class environment plus
+// holosphere_dma. phantasm_target.h supplies an IDE fallback. It is
 // undefined for WASM/sim and the shipping FastLED Holosphere image.
 
 /**
