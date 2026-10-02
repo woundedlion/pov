@@ -442,7 +442,6 @@ private:
   using Choreography::begin_choreography;
   using Choreography::step_choreography;
   using Choreography::params;
-  using Choreography::register_param;
   using Choreography::timeline;
 
   static_assert(MAX_POINTS + 3 <= Timeline::MAX_EVENTS,
