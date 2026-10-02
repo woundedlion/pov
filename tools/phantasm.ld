@@ -62,7 +62,7 @@ SECTIONS
 		*(.text.unlikely*)
 		/* Selectively optimized hot leaves intentionally executed from cache. */
 		*(.text.hot*)
-		/* Annotation-unreachable cold code: compiler-generated ctors
+		/* Sections without source-level cold annotations: generated ctors
 		 * (Animation graph nodes, PolyMesh), sort instantiations from
 		 * classify_faces_impl, setup_presets/compile_hankin inner lambdas
 		 * (preset/geometry builders only -- stored draw callbacks must not
@@ -71,9 +71,8 @@ SECTIONS
 		*(.text._ZN9Animation*C2E*)
 		*(.text._ZN8PolyMeshC1E*)
 		*(.text._ZN8PolyMeshC2E*)
-		/* Destructors mirror the cold constructors: Animation graph nodes, the
-		 * <288,144> effects, Persist/ReactionDiffusionBase, and PolyMesh tear
-		 * down at spawn/teardown or timeline boundaries, never per frame. */
+		/* Destructor sections for Animation graph nodes, <288,144> effects,
+		 * Persist/ReactionDiffusionBase, and PolyMesh use flash. */
 		*(.text._ZN9Animation*D0Ev*)
 		*(.text._ZN9Animation*D1Ev*)
 		*(.text._ZN9Animation*D2Ev*)
@@ -93,23 +92,21 @@ SECTIONS
 		*(.text._ZN14CompiledHankin*)
 		*(.text._ZN8Timeline7add_getI*)
 		*(.text._ZZN8Timeline7add_getI*)
-		/* OpLeg spawn-time scheduling and mesh build: timeline node
-		 * construction, the morph builder's mesh move-assign and star-point
-		 * vectors -- all run once per shape spawn, never per frame. */
+		/* OpLeg scheduling and mesh build sections: timeline construction,
+		 * mesh move assignment, and star-point vectors. MeshState move
+		 * assignment also runs during per-frame compilation. */
 		*(.text._ZN8Timeline3addIN9Animation*)
 		*(.text._ZNO9Animation13AnimationBaseINS_5OpLeg*)
 		*(.text._ZN9MeshStateaSEOS_*)
 		*(.text._ZN11ArenaVectorIN9Animation5OpLeg9StarPoint*)
 		*(.text._ZN11ArenaVectorIiEaSEOS0_*)
 		/* Half-edge topology construction: the edge-record sort family and
-		 * mesh normalize run when a shape spawns or a morph leg builds, never
-		 * on the per-frame render path (which walks the built MeshState). */
+		 * mesh normalize also serve per-frame truncate/expand sweeps. */
 		*(.text.*HalfEdgePairRecord*)
 		*(.text._ZN7MeshOpsL9normalizeI*)
-		/* inplace_function invokers for frame-level stored callbacks
-		 * (init/spawn/timer/emitter/morph). A Canvas& or ParticleSystem&
-		 * argument is whole-frame by construction, so these fire at most once
-		 * per frame; the per-pixel path uses FunctionRef, a distinct type. */
+		/* inplace_function invokers for stored Canvas& and ParticleSystem&
+		 * callbacks can run for multiple events or emitters per frame.
+		 * The per-pixel path uses FunctionRef, a distinct type. */
 		*(.text._ZZN6teensy23inplace_function_detail6vtableIvJR6Canvas*)
 		*(.text._ZZN6teensy23inplace_function_detail6vtableIvJRN9Animation14ParticleSystem*)
 		/* Teensy core USB/serial stack, one-time pin/PWM/RTC/temperature
