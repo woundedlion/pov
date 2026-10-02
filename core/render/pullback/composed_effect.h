@@ -982,9 +982,31 @@ consteval size_t family_instances(ResourceList<Resources...>) {
   return (size_t(std::is_same_v<Family, typename Resources::Family>) + ... + 0);
 }
 
+template <typename Resource, typename Other>
+consteval bool resource_names_overlap() {
+  if constexpr (Resource::KIND != Other::KIND ||
+                std::is_same_v<Resource, Other> ||
+                Resource::KIND == ResourceKind::LENS)
+    return false;
+  else {
+    for (const auto &field : Resource::Family::FIELDS)
+      for (const auto &other : Other::Family::FIELDS)
+        if (field.name != nullptr && other.name != nullptr &&
+            std::string_view(field.name) == other.name)
+          return true;
+    return false;
+  }
+}
+
+template <typename Resource, typename... Resources>
+consteval bool resource_names_overlap(ResourceList<Resources...>) {
+  return (resource_names_overlap<Resource, Resources>() || ... || false);
+}
+
 template <typename Resource, typename List> consteval bool qualified() {
   return !Resource::STANDARD ||
-         family_instances<typename Resource::Family>(List{}) > 1;
+         family_instances<typename Resource::Family>(List{}) > 1 ||
+         resource_names_overlap<Resource>(List{});
 }
 
 template <typename Spec, typename Resource, typename List>
