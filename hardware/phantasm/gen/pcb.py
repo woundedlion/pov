@@ -644,28 +644,40 @@ SYNC_FILTER_PLACEMENTS = {
 }
 
 
+TERMINAL_FIXED = {
+    "JP_ID0": (56.0, 8.5, 90),
+    "JP_ID1": (56.0, 11.9, 90),
+    "JP_ID2": (56.0, 15.3, 90),
+    "JP_SHLD": (56.0, 19.0, 90),
+    "U_MCU": (25.5, 11.7, 0),
+    "C_IN": (20.5, 27.0, 0),
+    "C_DEC1": (9.75, 1.35, 0),
+    "J4": (8.5, 28.5, 90),
+    "U1": (36.6, 26.5, 180),
+    "C_DEC2": (31.3, 30.0, 180),
+    "R_D1": (42.2, 27.77, 180),
+    "R_D2": (42.2, 23.96, 180),
+    "R_S": (31.7, 24.0, 90),
+    "R_PD": (46.0, 23.0, 90),
+    **SYNC_FILTER_PLACEMENTS,
+}
+TERMINAL_FIXED_FOOTPRINTS = {
+    "R_PD": "Resistor_SMD:R_0603_1608Metric",
+    "R_S": "Resistor_SMD:R_0805_2012Metric",
+}
+
+
 def fixed_placements(comps):
-    if _GENERATION.get()[0] == "1.3":
-        fixed = {ref: placement for ref, placement in QUILTER_FIXED.items()
-                 if ref in comps and ref in ("JP_ID0", "JP_ID1", "JP_ID2", "JP_SHLD", "C_IN")}
-        fixed.update({ref: placement for ref, placement in TERMINAL_EDGE_PLACEMENTS_1_3.items()
-                      if ref in comps and comps[ref][1] ==
-                      TERMINAL_LIBID["1.3"][ref]})
-        fixed.update({"U_MCU": (25.5, 11.7, 0), "C_DEC1": (9.75, 1.35, 0)})
-        return fixed
-    fixed = {ref: placement for ref, placement in QUILTER_FIXED.items()
-             if ref in comps and (ref not in QUILTER_FIXED_FOOTPRINTS or
-                                  comps[ref][1] == QUILTER_FIXED_FOOTPRINTS[ref])}
-    fixed.update({ref: placement for ref, placement in TERMINAL_EDGE_PLACEMENTS.items()
-                  if ref in comps and comps[ref][1] == TERMINAL_LIBID["1.2"][ref]})
-    if all(fixed.get(ref) == placement for ref, placement in TERMINAL_EDGE_PLACEMENTS.items()):
-        if "U_MCU" in fixed:
-            fixed["U_MCU"] = (25.5, 11.7, 0)
-        if "C_DEC1" in fixed:
-            fixed["C_DEC1"] = (9.75, 1.35, 0)
-        fixed.update({ref: placement for ref, placement in SYNC_FILTER_PLACEMENTS.items()
-                      if ref in comps})
-        fixed.pop("D_BUS", None)
+    revision = _GENERATION.get()[0]
+    fixed = {ref: placement for ref, placement in TERMINAL_FIXED.items()
+             if ref in comps and (ref not in TERMINAL_FIXED_FOOTPRINTS or
+                                  comps[ref][1] == TERMINAL_FIXED_FOOTPRINTS[ref])}
+    if revision == "1.3":
+        fixed = {ref: placement for ref, placement in fixed.items()
+                 if ref in ("JP_ID0", "JP_ID1", "JP_ID2", "JP_SHLD", "C_IN", "U_MCU", "C_DEC1")}
+    edges = TERMINAL_EDGE_PLACEMENTS_1_3 if revision == "1.3" else TERMINAL_EDGE_PLACEMENTS
+    fixed.update({ref: placement for ref, placement in edges.items()
+                  if ref in comps and comps[ref][1] == TERMINAL_LIBID[revision][ref]})
     return fixed
 
 
