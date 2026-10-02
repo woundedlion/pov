@@ -719,7 +719,7 @@ inline constexpr AiroceanVector AIROCEAN_NORMALS[23] = {
 /**
  * @brief Each face's vertices once unfolded into the plane, in AIROCEAN_FACES
  *        vertex order.
- * @details Two faces that share an edge carry bit-identical endpoints for it,
+ * @details Two faces that share a glued edge carry bit-identical endpoints for it,
  * so edges match by coordinate equality rather than by tolerance.
  */
 inline constexpr AiroceanPoint AIROCEAN_PLANAR_FACES[23][3] = {
