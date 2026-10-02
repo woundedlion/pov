@@ -19,7 +19,7 @@ namespace hs_test {
 namespace presets_tests {
 
 /**
- * @brief Minimal stand-in payload for exercising the preset container.
+ * @brief Minimal stand-in payload for exercising the preset table.
  * @details Avoids depending on any real preset struct; `id` doubles as an
  *          identity marker in assertions, while `value` checks float copying.
  */
@@ -460,7 +460,7 @@ inline void test_completed_crossfade_adopts_exact_endpoint() {
 }
 
 /**
- * @brief Runs all preset-container test cases.
+ * @brief Runs the preset choreography test cases.
  * @return The module's failure count, as reported by end_module().
  */
 inline int run_presets_tests() {
