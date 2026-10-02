@@ -121,8 +121,7 @@ struct FragmentRegisters {
  * inside the face) and size holds the face's reference size.
  * @return `-v1 / size` (inward depth in face-relative units), or 0 for
  * degenerate (near-zero-size) faces.
- * @details Shared by the topology shaders (HankinSolids/IslamicStars) which
- * both gradient-map this depth.
+ * @details For shaders that gradient-map inward face depth.
  */
 inline float fragment_edge_dist(const Fragment &f) {
   return (f.size > math::TOLERANCE) ? (-f.v1 / f.size) : 0.0f;
@@ -154,7 +153,7 @@ inline int mesh_topology_slot(const Fragment &f, const uint16_t *topology,
 }
 
 /**
- * @brief Shared face-topology fragment shading for the mesh effects.
+ * @brief Face-topology fragment shading over a palette bank.
  * @tparam PaletteBank Indexable bank of palettes exposing `bank[i].get(t)`.
  * @tparam NumPalettes Palette count (deduced from `palette_idx`).
  * @param f Rasterized fragment; v2 carries the integer face index.
