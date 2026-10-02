@@ -16,8 +16,9 @@
 // covers, so the true C_max of any ray in the cell lies inside the stored
 // bracket; the per-pixel path scans four subintervals for the first exit, then
 // bisects that subinterval three times against the channel cubics.
-// C_max is the first exit from the gamut, not the largest in-gamut chroma; the
-// generator explains why the two differ.
+// C_max samples estimate the first exit from the gamut, rather than the largest
+// in-gamut chroma. Finite generator and runtime probes can skip narrow gaps;
+// the generator explains why the crossings differ.
 //
 // This is the FLASH master at full resolution. init_gamut_lut() downsamples it
 // into the arena by integer factors, taking the minimum of the merged minima
