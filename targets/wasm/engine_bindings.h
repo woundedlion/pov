@@ -467,8 +467,8 @@ public:
    * @details Copies the effect's canvas into pixel_buffer as 16-bit linear RGB
    *          triples; no-op if no effect is set. The readback spans the active
    *          display clip only — the full canvas unless setClip() narrowed it
-   *          (an effect reporting Effect::needs_full_frame() keeps the full
-   *          clip, so it is always copied whole). Pixels outside the band keep
+   *          (an effect reporting needs_full_frame() or persists_pixels() keeps
+   *          the full clip, so it is always copied whole). Pixels outside the band keep
    *          whatever the buffer last held; a clipped render never shades them.
    */
   void drawFrame() {
