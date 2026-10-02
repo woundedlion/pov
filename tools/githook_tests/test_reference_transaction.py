@@ -3,7 +3,8 @@
 
 The hook is what makes the landing model safe: it refuses every
 non-fast-forward move of refs/heads/master, and an intentional rewind needs a
-one-shot token naming the exact new commit. A regression there silently permits
+one-shot token naming the target commit (full or abbreviated SHA), the current
+commit for deletion, or ANY. A regression there silently permits
 a clobber of landed work on the one branch every session lands on. The hook is
 driven here against a scratch repository -- end to end through `git update-ref`,
 and directly against crafted transaction lines for the cases git will not
