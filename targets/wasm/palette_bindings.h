@@ -30,7 +30,7 @@
 
 inline constexpr size_t PALETTE_LUT_BYTES = 256 * 3;
 inline constexpr size_t PALETTE_DIAGNOSTIC_FLOATS = 256 * 6;
-// Bake targets for every PaletteOps instance and call, handed to JS as views
+// Bake targets shared by every PaletteOps instance, handed to JS as views
 // over WASM linear memory rather than copies. See the memory-view contract on
 // compile().
 static uint8_t palette_lut[PALETTE_LUT_BYTES];
@@ -429,9 +429,10 @@ private:
    *         plus {diagnostics, fallback} when @p inspect.
    * @details WASM memory-view contract: lut, diagnostics and fallback alias
    *          module-global WASM linear memory, they are NOT copies, and two
-   *          events invalidate them. The next compileAndBakeV4()/inspectV4()
-   *          call on any PaletteOps instance rebakes the same buffers in place,
-   *          so an outstanding view silently reports the newer palette. With
+   *          events invalidate them. A successful compileAndBakeV4()/inspectV4()
+   *          call on any PaletteOps instance overwrites the LUT in place;
+   *          only a successful inspectV4() also overwrites diagnostics and
+   *          fallback. Outstanding views then report the newer palette. With
    *          ALLOW_MEMORY_GROWTH=1, any subsequent heap growth detaches the
    *          underlying ArrayBuffer and leaves the view zero-length
    *          (buffer.byteLength === 0). A caller must therefore read or copy a
