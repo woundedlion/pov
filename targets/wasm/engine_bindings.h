@@ -465,11 +465,12 @@ public:
   /**
    * @brief Renders one frame of the current effect into the JS-facing buffer.
    * @details Copies the effect's canvas into pixel_buffer as 16-bit linear RGB
-   *          triples; no-op if no effect is set. The readback spans the active
-   *          display clip only — the full canvas unless setClip() narrowed it
+   *          triples; clears the active readback if no effect is set. Readback
+   *          spans the display clip — the full canvas unless setClip() narrowed it
    *          (an effect reporting needs_full_frame() or persists_pixels() keeps
-   *          the full clip, so it is always copied whole). Pixels outside the band keep
-   *          whatever the buffer last held; a clipped render never shades them.
+   *          the full clip, so it is always copied whole). Pixels outside the
+   *          display band retain their previous readback values; render margins
+   *          are not copied.
    */
   void drawFrame() {
     if (!current_effect) {
