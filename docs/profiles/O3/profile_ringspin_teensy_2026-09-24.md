@@ -2,7 +2,7 @@
 
 Global-O3 twin of the [shipping report](../shipping/profile_ringspin_teensy_2026-09-28.md).
 
-Point-in-time snapshot (regenerate with `just profile RingSpin`).
+Point-in-time snapshot (regenerate with the explicit `profile_o3` Reproduce command).
 Raw capture: `ringspin_o3.log.txt` (archive removed), captured 2026-09-24 20:18 local on COM4.
 Replaces `profile_ringspin_teensy_2026-08-26.md`. That older capture used a different source revision and included setup in its aggregates; this is not a controlled before/after comparison.
 
@@ -102,7 +102,7 @@ No matched current WASM/native timing capture was used. Nested scope costs overl
 
 ## Harness
 
-`targets/Profile/Profile.ino`, `HS_PROFILE_TARGET=RingSpin`, `HS_PROFILE_WINDOW=32`; `just profile RingSpin` routes through the locked wrapper. The separate capture and provenance archive is no longer retained; local build logs and ELF files are not included.
+`targets/Profile/Profile.ino`, `HS_PROFILE_TARGET=RingSpin`, `HS_PROFILE_WINDOW=32`; the explicit `profile_o3` Reproduce command routes through the locked wrapper. The separate capture and provenance archive is no longer retained; local build logs and ELF files are not included.
 
 ## Global -O3 vs selective -O3
 

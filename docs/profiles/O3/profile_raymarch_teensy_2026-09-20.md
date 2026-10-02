@@ -1,6 +1,6 @@
 # Raymarch on-device profile — Teensy 4.0, segmented mode (2026-09-20, **-O3**)
 
-Point-in-time snapshot (regenerate with `just profile Raymarch`).
+Point-in-time snapshot (regenerate with the explicit `profile_o3` Reproduce command).
 Raw capture: `build/prof/raymarch_implementation_20260920/raymarch_final_o3.log`.
 Replaces the earlier September 20 baseline report. The separate implementation
 measurement archive is no longer retained.
@@ -110,7 +110,7 @@ not this optimized image.
 ## Harness
 
 `targets/Profile/Profile.ino`: `HS_PROFILE_TARGET=Raymarch`,
-`HS_PROFILE_WINDOW=32`; `just profile Raymarch` builds, flashes and captures.
+`HS_PROFILE_WINDOW=32`; the explicit `profile_o3` Reproduce command builds, flashes and captures.
 
 ## Global -O3 vs selective -O3
 
