@@ -2850,9 +2850,8 @@ inline void test_volume_draw_occluded_edge_blends_over_background() {
         /*max_steps=*/12, aa_width);
   }
 
-  // The occluder branch is the only path that plots the same pixel twice
-  // back-to-back (background then foreground); every other path plots each pixel
-  // once.
+  // Solid occlusion and soft corner fill both emit background/foreground pairs.
+  // An opaque background distinguishes the solid occluder branch.
   int occ_pairs = 0;
   float bg_alpha = 0.0f, fg_alpha = 1.0f;
   for (size_t i = 1; i < sink.plotted.size(); ++i) {
@@ -2868,7 +2867,7 @@ inline void test_volume_draw_occluded_edge_blends_over_background() {
   HS_EXPECT_GT(occ_pairs, 0);
   // Background laid down opaque; foreground blended over it as a partial edge, so
   // the edge reads over the surface instead of fading to black.
-  HS_EXPECT_GT(bg_alpha, 0.5f);
+  HS_EXPECT_EQ(bg_alpha, 1.0f);
   HS_EXPECT_GT(fg_alpha, 0.0f);
   HS_EXPECT_LT(fg_alpha, bg_alpha);
 }
