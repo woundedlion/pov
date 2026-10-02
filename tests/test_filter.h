@@ -2278,15 +2278,16 @@ inline void test_feedback_flush_respects_clip() {
 /**
  * @brief Verifies the Pixel::Feedback::flush warp path under a NON-identity warp,
  *        end to end through the coarse-grid + bilinear-upsample pipeline.
- * @details The two flush tests above both use the Smoke style with no bound
- *          NoiseParams, so space_fn collapses to the identity map: the coarse warp
+ * @details The identity-warp flush tests above have no bound NoiseParams,
+ *          so space_fn collapses to the identity map: the coarse warp
  *          field is all-zero and the bilinear upsample is exercised only on a
  *          degenerate (constant-zero) field — exactly the most bug-prone part left
  *          uncovered. This drives melt_warp instead, a deterministic-without-noise
  *          transform that slerps every sample direction toward the north pole by
  *          drip = speed * 0.04, so the previous frame "drips" south by a known
- *          amount. With downsample = 4 the warp field is computed on a 16x16 coarse
- *          grid and bilinearly upsampled to 64x64, so a correct displacement here
+ *          amount. The spherical ring lattice has W/downsample samples on the
+ *          equator ring and fewer toward the poles, bilinearly interpolated per
+ *          pixel, so a correct displacement here
  *          proves the whole path (space_fn -> coarse deltas -> bilerp -> sample).
  *
  *          The displacement is predicted with the SAME production helpers the
