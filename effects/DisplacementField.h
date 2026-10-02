@@ -553,8 +553,8 @@ private:
    * @param visible Chunk mask from visible_chunk_mask.
    * @param n_local Balls that can reach the ring (ball_local).
    * @param slut Receives the shift of every knot in a visible chunk.
-   * @details Octave k is evaluated every OCTAVE_STRIDE[k] knots and filled in
-   * between by a Catmull-Rom spline over the four surrounding grid knots, so a
+   * @details The two octaves use OCTAVE1_STRIDE and OCTAVE2_STRIDE knot spacing
+   * and fill between samples with a Catmull-Rom spline over four grid knots, so a
    * grid knot is evaluated when any visible knot lies within two strides of it.
    * Knot positions come from the same azimuth recurrence as the exact bake.
    */
