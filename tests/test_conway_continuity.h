@@ -1808,9 +1808,8 @@ inline void test_strap_crossfade_seed_swept() {
 // the base solid's star faces. One frame later the interlace angle steps to
 // ~0.0038 rad and the strap faces are born as thin slivers cutting through
 // those star interiors; drawn at full coverage they hard-recolor the cut
-// pixels (a strap-vs-star sliver pop, measured 1208 px of 41472 at 288x144 on
-// truncatedTetrahedron, worst ~3000 px across the tour). Fading strap coverage
-// by strap_blend_weight over the window (~0.007 at the first frame) makes the
+// pixels. Fading strap coverage by the opening shape weight over SHAPE_FRAMES
+// (~0.074 at the first frame) makes the
 // birth a bounded reveal: the first strap frame stays close to the bookend and
 // the straps ease to full coverage as the window closes.
 // ---------------------------------------------------------------------------
