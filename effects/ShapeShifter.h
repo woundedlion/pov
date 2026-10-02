@@ -102,7 +102,7 @@ public:
    *  spherical stars. */
   static constexpr float DENSE_CONTOUR_COUNT = 32.0f;
 
-  /** @brief Constructs the Plot-only effect on a WxH canvas. */
+  /** @brief Constructs the effect on a WxH canvas. */
   HS_COLD_MEMBER ShapeShifter()
       : Choreography(
             W, H, pipeline_config<decltype(plot_filters)>({.strobe = true})) {}
