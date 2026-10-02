@@ -23,9 +23,12 @@
  * update_hankin to position a star point.
  */
 struct HankinInstruction {
-  uint16_t v_corner; /**< Index into base_vertices of the corner vertex. */
-  uint16_t v_prev;   /**< Index into base_vertices of the previous corner. */
-  uint16_t v_next;   /**< Index into base_vertices of the next corner. */
+  uint16_t
+      v_corner; /**< Index into corner_src (read via corner()) of the corner vertex. */
+  uint16_t
+      v_prev; /**< Index into corner_src (read via corner()) of the previous corner. */
+  uint16_t
+      v_next; /**< Index into corner_src (read via corner()) of the next corner. */
   uint16_t
       idx_m1; /**< Index into static_vertices of the first edge midpoint. */
   uint16_t
