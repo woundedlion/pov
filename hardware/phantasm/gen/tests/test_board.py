@@ -1,8 +1,8 @@
 """Self-tests for the schematic generator.
 
 board.py is the only writer of phantasm.kicad_sch and refuses to overwrite the
-committed file, so nothing else in the repo executes it: check.py and shorts.py
-both read the committed schematic. These tests run the generator into a
+committed file. check.py and shorts.py read the committed schematic; board,
+PCB-generation and revision-generation tests run the generator into a
 temporary directory and assert on what it wrote.
 
 Generating needs KiCad's stock symbol libraries (sexp.KICAD_SHARE); the checks
