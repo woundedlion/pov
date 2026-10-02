@@ -3,8 +3,8 @@
  * Licensed under the PolyForm Noncommercial License 1.0.0
  *
  * Chain-interpreter core: operator-table integrity, catalog golden pin,
- * static-versus-erased parity for the projection, lens, warp and sample
- * cases below, plus roster-wide operator behavior checks,
+ * static-versus-erased parity for every operator family,
+ * plus roster-wide operator behavior checks,
  * transactional refusals, and instance-state identity/migration.
  *
  * Catalog regen: the golden at tests/data/shader_chain_catalog.json is
