@@ -1513,8 +1513,7 @@ inline Vector nlerp_unit(const Vector &a, const Vector &b, float t) {
  * @param v1 Starting vector.
  * @param v2 Ending vector.
  * @param t Interpolation factor (0.0 to 1.0).
- * @pre Both endpoints are unit length. The dot clamp folds a non-unit pair into
- * a plausible-looking angle instead of failing, so the violation is silent.
+ * @pre Both endpoints are unit length, checked in debug builds.
  * @return The interpolated unit vector.
  */
 inline Vector slerp(const Vector &v1, const Vector &v2, float t) {
