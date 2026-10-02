@@ -4971,6 +4971,47 @@ inline void case_vertex_replicate_short_input() {
   Filter::World::VertexReplicate<3> replicate(vertices);
 }
 
+/** @brief Rejects a non-positive smooth-union radius. */
+inline void case_sdf_smooth_union_zero_radius() {
+  const math::Basis basis{math::X_AXIS, math::Y_AXIS, math::Z_AXIS};
+  const SDF::PlanarPolygon polygon(basis, .5f, 3, 0.f);
+  SDF::SmoothUnion<SDF::PlanarPolygon, SDF::PlanarPolygon> shape(
+      polygon, polygon, opaque(0.f));
+  (void)shape;
+}
+
+/** @brief Rejects an angular repeat with no copies. */
+inline void case_sdf_angular_repeat_zero_copies() {
+  const math::Basis basis{math::X_AXIS, math::Y_AXIS, math::Z_AXIS};
+  const SDF::Ring ring(basis, 1.f, .1f);
+  SDF::AngularRepeat<SDF::Ring> shape(ring, opaque(0), math::Y_AXIS);
+  (void)shape;
+}
+
+/** @brief Rejects a square-wave duty cycle outside its unit interval. */
+inline void case_square_wave_invalid_duty() {
+  (void)math::square_wave(0.f, 1.f, 1.f, opaque(-.1f), 0.f);
+}
+
+/** @brief Rejects a random-timer maximum whose inclusive bound overflows. */
+inline void case_random_timer_max_int() {
+  Animation::RandomTimer timer(
+      {.min = 0, .max = opaque(std::numeric_limits<int>::max())},
+      [](Canvas &) {});
+  (void)timer;
+}
+
+/** @brief Rejects a margin equal to the canvas width. */
+inline void case_effect_margin_equal_width() {
+  StubEffect effect(32, 16);
+  effect.set_margin(opaque(32));
+}
+
+/** @brief Rejects a Fibonacci spiral with no points. */
+inline void case_fib_spiral_zero_points() {
+  (void)math::fib_spiral(opaque(0), .5f, 0);
+}
+
 /**
  * @brief Returns the full death-case table.
  * @param n Out-param set to the number of cases in the table.
@@ -4980,6 +5021,23 @@ inline void case_vertex_replicate_short_input() {
  */
 inline const Case *all_cases(int &n) {
   static const Case cases[] = {
+      {"sdf_smooth_union_zero_radius", case_sdf_smooth_union_zero_radius,
+       "core/render/sdf/csg.h",
+       "(k > 0.0f) SDF CSG: smoothness must be positive"},
+      {"sdf_angular_repeat_zero_copies", case_sdf_angular_repeat_zero_copies,
+       "core/render/sdf/csg.h",
+       "(reps > 0) SDF CSG: repetition count must be positive"},
+      {"square_wave_invalid_duty", case_square_wave_invalid_duty,
+       "core/math/waves.h",
+       "(duty_cycle >= 0.0f && duty_cycle <= 1.0f) square_wave: duty_cycle must be in [0,1]"},
+      {"random_timer_max_int", case_random_timer_max_int,
+       "core/animation/timers.h",
+       "(max < std::numeric_limits<int>::max()) RandomTimer max must be < INT_MAX (reset adds 1)"},
+      {"effect_margin_equal_width", case_effect_margin_equal_width,
+       "core/render/canvas.h",
+       "(m >= 0 && m < clip_region.w) render margin must be in [0, canvas width)"},
+      {"fib_spiral_zero_points", case_fib_spiral_zero_points,
+       "core/math/spherical.h", "(n > 0) fib_spiral: n must be positive"},
       {"noise_hue_bake_invalid_scale", case_noise_hue_bake_invalid_scale,
        "core/color/noise_hue_palette.h",
        "(std::isfinite(bake_scale) && bake_scale > 0.0f) HueNoiseBakeCache: scale must be finite and positive"},
@@ -5990,11 +6048,10 @@ inline const Case *all_cases(int &n) {
       {"chain_zero_alignment", case_chain_zero_alignment,
        "core/render/pullback/interpreter.h",
        "(layout.align != 0 && (layout.align & (layout.align - 1)) == 0 && layout.align <= alignof(std::max_align_t)) ChainProgram::bind_storage: invalid block alignment"},
-      {"chain_non_power_alignment", case_chain_non_power_alignment,
+      {"chain_non_power_alignment", case_chain_non_power_alignment, "core/render/pullback/interpreter.h", "(layout.align != 0 && (layout.align & (layout.align - 1)) == 0 && layout.align <= alignof(std::max_align_t)) ChainProgram::bind_storage: invalid block alignment"},
+      {"chain_overaligned_block", case_chain_overaligned_block,
        "core/render/pullback/interpreter.h",
        "(layout.align != 0 && (layout.align & (layout.align - 1)) == 0 && layout.align <= alignof(std::max_align_t)) ChainProgram::bind_storage: invalid block alignment"},
-      {"chain_overaligned_block", case_chain_overaligned_block,
-       "core/render/pullback/interpreter.h", "(layout.align != 0 && (layout.align & (layout.align - 1)) == 0 && layout.align <= alignof(std::max_align_t)) ChainProgram::bind_storage: invalid block alignment"},
       {"chain_zero_size", case_chain_zero_size,
        "core/render/pullback/interpreter.h",
        "(layout.size > 0 && layout.size % layout.align == 0) ChainProgram::bind_storage: invalid block size"},
@@ -6750,7 +6807,6 @@ inline constexpr GuardGapAllowance GUARD_GAP_ALLOW[] = {
     {"core/animation/segue.h", 1},
     {"core/animation/sprites.h", 10},
     {"core/animation/timeline.h", 9},
-    {"core/animation/timers.h", 1},
     {"core/animation/transformer.h", 3},
     {"core/color/baked_palette.h", 9},
     {"core/color/color_space.h", 1},
@@ -6764,9 +6820,7 @@ inline constexpr GuardGapAllowance GUARD_GAP_ALLOW[] = {
     {"core/math/3dmath.h", 3},
     {"core/math/lenses.h", 1},
     {"core/math/pixel_mapping.h", 2},
-    {"core/math/spherical.h", 1},
     {"core/math/spherical_field.h", 2},
-    {"core/math/waves.h", 1},
     {"core/mesh/conway.h", 31},
     {"core/mesh/conway_graph.h", 1},
     {"core/mesh/hankin.h", 8},
@@ -6775,7 +6829,7 @@ inline constexpr GuardGapAllowance GUARD_GAP_ALLOW[] = {
     {"core/mesh/recipe.h", 13},
     {"core/mesh/solid_generators.h", 5},
     {"core/mesh/solids.h", 1},
-    {"core/render/canvas.h", 2},
+    {"core/render/canvas.h", 1},
     {"core/render/filter/pixel_feedback.h", 7},
     {"core/render/filter/screen_trails.h", 2},
     {"core/render/filter/world_trails.h", 2},
@@ -6794,7 +6848,6 @@ inline constexpr GuardGapAllowance GUARD_GAP_ALLOW[] = {
     {"core/render/sdf/cellular_wire.h",
      1}, // Fixed constexpr geometry capacity.
     {"core/render/sdf/common.h", 4},
-    {"core/render/sdf/csg.h", 2},
     {"core/render/sdf/face.h", 3},
     {"core/render/sdf/face_class_bake.h", 6},
     {"core/render/sdf/shapes.h", 8},
