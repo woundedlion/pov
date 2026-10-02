@@ -178,6 +178,8 @@ export async function generate({ check = false, root = ROOT } = {}) {
     ids.add(id);
     const input = await readFile(resolve(root, 'patterns', `${id.replaceAll('-', '_')}.shader.json`), 'utf8');
     const compiled = compileShaderDocument(input, { catalog });
+    if (compiled.status !== 'VALID')
+      throw new Error(`patterns/${id.replaceAll('-', '_')}.shader.json: ${JSON.stringify(compiled.diagnostics)}`);
     if (compiled.document.effect_id !== id)
       throw new Error(`patterns/${id.replaceAll('-', '_')}.shader.json names effect "${compiled.document.effect_id}", expected "${id}"`);
     const output = updateHeader(source, compiled);
