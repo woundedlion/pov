@@ -263,6 +263,7 @@ class ProfileConfigVerification(unittest.TestCase):
             (shared / "sentinel").write_text("shared\n", encoding="utf-8")
             (env_build / "stale").write_text("stale\n", encoding="utf-8")
             script = (
+                "set -e\n"
                 f"{shell_function('prepare_retry')}\n"
                 "ENV=profile\n"
                 f"TMPDIR={root.as_posix()}\n"
