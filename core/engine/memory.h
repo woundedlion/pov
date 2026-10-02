@@ -614,11 +614,10 @@ private:
 #ifndef NDEBUG
   ArenaBlockStamp stamp; /**< Arena state when the block was allocated. */
   /**
-   * @brief Per-vector counter bumped on every fresh allocation in bind() (the
-   * grow / re-bind path).
-   * @details A grow swaps elements for a new block WITHOUT touching the arena
-   * generation, so this is the only signal an ArenaSpan can use to detect that
-   * its snapshotted pointer was abandoned by a re-grow of the source vector.
+   * @brief Per-vector counter bumped on every bind(), including storage reuse.
+   * @details A bind resets the element count and can replace the backing block
+   * without changing the arena generation. This counter invalidates spans
+   * captured before either path.
    */
   uint32_t rebind_generation = 0;
 
