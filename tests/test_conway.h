@@ -51,7 +51,8 @@ inline uint8_t
  * @return Number of faces whose normal disagrees with the centroid direction.
  * @details On a unit-sphere mesh, correct CCW-from-outside winding gives a
  *          normal that agrees in direction with the face centroid; a face
- *          failing this is wound backwards. Degenerate normals are ignored.
+ *          failing this is wound backwards. Finite degenerate normals are
+ *          ignored; non-finite normal lengths count as bad.
  */
 inline int count_inward_winding(const PolyMesh &m) {
   int bad = 0;
