@@ -770,11 +770,11 @@ inline void expect_color_eq(const Color4 &a, const Color4 &b) {
 }
 
 /**
- * @brief Steps an OpLeg one frame, snapshotting the Shading it hands the
- *        draw callback.
+ * @brief Clears a snapshot and steps an OpLeg one frame.
+ * @details The caller's draw callback fills the snapshot.
  * @param anim Leg under test.
  * @param fx Canvas provider.
- * @param snap Receives the frame's face_ramp and sampled ramp colors.
+ * @param snap Snapshot cleared before invoking the caller's draw callback.
  */
 inline void step_and_snapshot(Animation::OpLeg &anim, hs_test::StubEffect &fx,
                               ShadingSnapshot &snap) {
