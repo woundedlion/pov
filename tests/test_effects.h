@@ -2443,10 +2443,9 @@ inline void test_bz_q16_roundtrip() {
 }
 
 /**
- * @brief Verifies the state resolution actually carries a slider-minimum
- *        diffusion step instead of rounding it away.
- * @details The finest per-substep move the sliders can ask for is a cold node
- *          beside one saturated neighbour at Diff's 0.001 floor: D·lap·dt =
+ * @brief Verifies the state resolution carries Diff's minimum step at default Speed.
+ * @details A cold node beside one saturated neighbour at Diff's 0.001 floor
+ *          and the default Speed (0.35) receives D·lap·dt =
  *          0.001·1·0.35 = 3.5e-4 of full scale. A store whose half-LSB exceeds
  *          that discards it, the node never changes, and the lattice degrades
  *          into uncoupled per-node ODEs while the reaction term keeps running.
