@@ -318,7 +318,7 @@ struct Mesh {
 
   /**
    * @brief Extracts one of the two face families of a four-regular mesh.
-   * @details A four-regular mesh's face dual is bipartite: the faces two-colour
+   * @details On a sphere, a four-regular mesh's face dual is bipartite: the faces two-colour
    *          so that every edge is shared by one face of each colour. Walking
    *          only one colour therefore covers every edge exactly once, with no
    *          dedup pass. Traps on an open mesh or a non-bipartite dual.
