@@ -179,8 +179,8 @@ public:
    * MALFORMED_PAYLOAD; NOT_CHAIN_EFFECT reports that the
    * loaded effect is not ShaderChain, and covers an input whose accessors swap
    * the loaded effect out while the entries are being decoded. A refusal
-   * leaves the previous program, its parameter definitions, the generation,
-   * and all instance state untouched.
+   * commits no program or parameter changes; side effects of caller accessors
+   * are not rolled back.
    */
   emscripten::val setShaderChain(const emscripten::val &caller_entries) {
     const SnapshotDecodeGuard decode_guard(&decoding);
