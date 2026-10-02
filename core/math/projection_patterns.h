@@ -27,7 +27,7 @@ inline constexpr float STEREO_PATTERN_ARG_LIMIT = 4096.0f;
  * @brief Smooth pole attenuation for stereographic-space effects.
  * @param r_sq Pre-computed |z|² (z.re² + z.im²).
  * @param singularity_fade Attenuation radius (larger = wider fade zone).
- * @return Falloff factor 1/(1 + r²/singularity_fade²) in (0, 1].
+ * @return Falloff factor 1/(1 + r²/pf²), with pf = max(singularity_fade, 1e-3).
  * @details Stereographic projection sends the far pole to infinity, so |z|²
  * grows without bound near it; this falloff is 1 at the projection origin and
  * decays toward 0 with distance, taming that singularity.
