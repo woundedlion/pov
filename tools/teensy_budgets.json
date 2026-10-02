@@ -72,7 +72,7 @@
       "arena":          { "name": "_ZL18global_arena_block",        "region": "DTCM", "min_bytes": 294912, "max_bytes": 327680 },
       "framebuffer_a":  { "name": "_ZN6Effect8buffer_aE",          "region": "OCRAM" },
       "framebuffer_b":  { "name": "_ZN6Effect8buffer_bE",          "region": "OCRAM" },
-      // Phantasm instantiates all effects (incl. reaction-diffusion), so the K-NN
+      // Phantasm instantiates reaction-diffusion effects, so the K-NN
       // table is present and must stay in flash (const => flash/.rodata).
       // Verified on the real Phantasm ELF.
       "reaction_graph": { "name": "_ZN13ReactionGraph9neighborsE", "region": "FLASH" },
