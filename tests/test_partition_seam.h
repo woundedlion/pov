@@ -142,11 +142,8 @@ inline void project(const math::Vector &v, int &px, int &py) {
   float best = -2.0f;
   px = py = 0;
   for (int y = 0; y < PS_H; ++y) {
-    const float sp = math::TrigLUT<PS_W, PS_H>::sin_phi[y];
-    const float cp = math::TrigLUT<PS_W, PS_H>::cos_phi[y];
     for (int x = 0; x < PS_W; ++x) {
-      const math::Vector p(sp * math::TrigLUT<PS_W, PS_H>::cos_theta(x), cp,
-                           sp * math::TrigLUT<PS_W, PS_H>::sin_theta[x]);
+      const math::Vector p = math::pixel_to_vector<PS_W, PS_H>(x, y);
       const float d = math::dot(p, v);
       if (d > best) {
         best = d;
