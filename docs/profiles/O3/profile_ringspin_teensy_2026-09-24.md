@@ -81,7 +81,7 @@ isr_wake       1152.3/f  0.32/1.53/26.31 us  CPU 2.82%
 Each row gives calls/frame and min/avg/max time per call, across the complete post-setup windows. `isr_wake` is inclusive: `flywheel_isr()` calls the measured pack and submit blocks through `run_wake_sequence()`. The indented child costs are already inside the wake cost and must not be added to it.
 
 - Pack plus submit consumes 1.093 ms of CPU per rendered frame; DMA submission starts an asynchronous transfer.
-- At 24 MHz, the 600-byte image-plus-black strobe packet takes 200 us on the wire per column. This transfer overlaps foreground work and is not CPU marshaling time.
+- At 24 MHz, the 600-byte image-plus-black strobe packet has an ideal payload time of 200 us per column, excluding clock-divider and framing delays. This transfer overlaps foreground work and is not CPU marshaling time.
 - Measured inclusive flywheel ISR share is 2.82%, leaving approximately 60.736 ms per 62.5 ms interval after that measured ISR cost. DMA-completion ISR cost is not separately quantified, so this is not a complete foreground CPU budget. Render counters already include ISR time: the 50.750 ms live peak fits the actual interval, so no speedup is needed.
 
 ## Summary ranking

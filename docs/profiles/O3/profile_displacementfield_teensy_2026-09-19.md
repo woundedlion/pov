@@ -149,7 +149,7 @@ isr_wake 1153.06/frame 0.396/1.591/11.880 us 2.93%
 Times are per-call min/average/max; percentages are CPU share over the dump interval.
 
 - Wake includes pack and DMA submission; the nested shares must not be added again. Packing is the larger nested CPU cost.
-- A 600-byte composite strobe transfer at 24 MHz occupies the SPI wire for 200 µs asynchronously, within the approximately 434 µs column interval. This is distinct from CPU submission time.
+- A 600-byte composite strobe payload at 24 MHz has an ideal transfer time of 200 µs, excluding clock-divider and framing delays. The asynchronous transfer is distinct from CPU submission time.
 - Wake consumes 2.93% of elapsed time, leaving roughly 60.669 ms of foreground CPU per 62.5 ms window. Render counters already include ISR preemption, so do not subtract it again from measured render time. No speedup is required to meet the deadline in any observed phase.
 
 ## Summary ranking
