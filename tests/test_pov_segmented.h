@@ -11,7 +11,8 @@
  * and that each segment's (i -> x_col, y) writes tile the canvas exactly once.
  * Also covers pov_handoff.h's release/commit/join protocol and two-thread
  * acquire/release handoff, pov_submit_gate.h's SubmitGate and SyncPulseGate,
- * and pov_segment_frame.h's wake ordering and preserve_segment_half behavior.
+ * pov_submit_gate.h's wake ordering, and pov_segment_frame.h's
+ * preserve_segment_half behavior.
  */
 #pragma once
 
