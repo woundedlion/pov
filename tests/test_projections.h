@@ -10,6 +10,7 @@
 #include <limits>
 
 #include "core/math/projections.h"
+#include "core/render/pullback/projection.h"
 #include "tests/test_fixture.h"
 #include "tests/test_harness.h"
 
@@ -187,6 +188,11 @@ inline void check_peirce_fast_square_matches_exact(const math::Vector &v) {
   HS_EXPECT_EQ(fast.edge_class, exact.edge_class);
   HS_EXPECT_EQ(fast.flags, exact.flags);
   HS_EXPECT_EQ(fast.traits, exact.traits);
+  constexpr auto &METRICS = Pullback::Projection::PEIRCE_FAST_SQUARE_METRICS;
+  HS_EXPECT_NEAR(fast.coords.re, exact.coords.re, METRICS[0].limit);
+  HS_EXPECT_NEAR(fast.coords.im, exact.coords.im, METRICS[0].limit);
+  HS_EXPECT_NEAR(fast.fade_edge_distance, exact.fade_edge_distance,
+                 METRICS[1].limit);
 }
 
 /** @brief Pins peirce fast square matches exact. */
