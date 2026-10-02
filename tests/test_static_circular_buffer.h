@@ -1010,6 +1010,14 @@ inline void test_try_push_back_preserves_full_buffer() {
   HS_EXPECT_TRUE(buffer.try_push_back(13));
   HS_EXPECT_EQ(buffer.front(), 9);
   HS_EXPECT_EQ(buffer.back(), 13);
+  StaticCircularBuffer<std::unique_ptr<int>, 1> owning;
+  HS_EXPECT_TRUE(owning.try_push_back(std::make_unique<int>(7)));
+  auto payload = std::make_unique<int>(11);
+  HS_EXPECT_FALSE(owning.try_push_back(std::move(payload)));
+  HS_EXPECT_TRUE(payload != nullptr);
+  if (payload)
+    HS_EXPECT_EQ(*payload, 11);
+  HS_EXPECT_EQ(*owning.front(), 7);
 }
 
 // ============================================================================
