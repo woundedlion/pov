@@ -323,7 +323,7 @@ private:
     float dist = std::abs(ring.rho);
     float opacity = 1.0f;
     if (dist > FADE_START_RHO) {
-      opacity = std::max(0.0f, 1.0f - (dist - FADE_START_RHO) / FADE_WIDTH);
+      opacity = fmaxf(0.0f, 1.0f - (dist - FADE_START_RHO) / FADE_WIDTH);
     }
 
     if (opacity <= MIN_FADE_OPACITY)
