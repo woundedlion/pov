@@ -342,7 +342,7 @@ private:
    * @param restore_preset Restore an unadopted fade's index and notify observers;
    *        false when a replacement preset will commit its own notification.
    */
-  void end_transition(bool restore_preset = true) {
+  HS_COLD_MEMBER void end_transition(bool restore_preset = true) {
     const bool FADING = transition.active && transition.fades;
     const bool RESTORE = FADING && !transition.adopted && restore_preset &&
                          preset_index != transition.from_index;
