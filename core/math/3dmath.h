@@ -567,10 +567,10 @@ __attribute__((always_inline)) inline float precise_atan2(float y, float x) {
  * @brief Diamond pseudo-angle of (x, y) in [0, 4), monotonic with atan2.
  * @param y Y (numerator) coordinate.
  * @param x X (denominator) coordinate.
- * @return The diamond angle in [0, 4); 0 at the degenerate origin.
+ * @return The diamond angle in [0, 4); 0 when |x| + |y| < 1e-20.
  * @details Arc position along the diamond |x| + |y| = 1, walked
  * counter-clockwise from +x. Strictly monotonic with atan2, so it bins a
- * direction without a trig call, and scale invariant.
+ * direction without a trig call. The near-origin fallback is not scale invariant.
  */
 __attribute__((always_inline)) inline float diamond_angle(float y, float x) {
   float d = std::fabs(x) + std::fabs(y);
