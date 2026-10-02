@@ -130,7 +130,8 @@ inline void test_kaleidoscope_smooth_transition_contract() {
 }
 
 inline void test_kaleidoscope_smooth_chain_equivalence() {
-  for (size_t preset = 0; preset < 4; ++preset)
+  for (size_t preset = 0;
+       preset < KaleidoscopeSmoothWhiteBox::FX::PRESET_IDS.size(); ++preset)
     composed_chain_tests::verify_export<KaleidoscopeSmoothWhiteBox::FX>(preset);
 }
 
