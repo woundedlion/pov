@@ -5579,7 +5579,7 @@ inline void test_rasterize_step_budget_backstop_finishes_segment() {
   };
 
   struct RestoreBudget {
-    int saved = Plot::g_step_budget_override;
+    decltype(Plot::g_step_budget_override) saved = Plot::g_step_budget_override;
     ~RestoreBudget() { Plot::g_step_budget_override = saved; }
   } restore_budget;
   Plot::g_step_budget_override = BUDGET;
