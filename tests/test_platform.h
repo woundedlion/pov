@@ -2,7 +2,8 @@
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
  * Licensed under the PolyForm Noncommercial License 1.0.0
  *
- * Unit tests for the host-side FastLED / Arduino mocks in core/platform/platform.h.
+ * Host FastLED/Arduino mocks in core/platform/arduino_mocks.h and RNG in
+ * core/platform/rng.h, included through core/platform/platform.h.
  *
  * Covers FastLED integer math, Arduino timing and output, deterministic RNG
  * streams and seeds, shuffle, colour construction, and harness diagnostics.
@@ -465,12 +466,14 @@ inline void test_epoch_seed() {
   HS_EXPECT_TRUE(std::adjacent_find(draws.begin(), draws.end()) == draws.end());
 }
 
+/** @brief Pins stable effect seeds to case-sensitive effect identifiers. */
 inline void test_stable_effect_seed() {
-  constexpr uint64_t curl = hs::stable_effect_seed("lattice-melt");
-  static_assert(curl == hs::stable_effect_seed("lattice-melt"));
-  static_assert(curl != hs::stable_effect_seed("kaleidoscope-smooth"));
-  HS_EXPECT_EQ(curl, hs::stable_effect_seed("lattice-melt"));
-  HS_EXPECT_TRUE(curl != hs::stable_effect_seed("LatticeMelt"));
+  constexpr uint64_t LATTICE_MELT_SEED = hs::stable_effect_seed("lattice-melt");
+  static_assert(LATTICE_MELT_SEED == hs::stable_effect_seed("lattice-melt"));
+  static_assert(LATTICE_MELT_SEED !=
+                hs::stable_effect_seed("kaleidoscope-smooth"));
+  HS_EXPECT_EQ(LATTICE_MELT_SEED, hs::stable_effect_seed("lattice-melt"));
+  HS_EXPECT_TRUE(LATTICE_MELT_SEED != hs::stable_effect_seed("LatticeMelt"));
 }
 
 /**
