@@ -222,7 +222,7 @@ do not introduce a separate library build or runtime service.
 | core/render/sdf/lattice.h | Implemented | Prepared cubic/hypercubic lattice crossings, analytic plane-event adapters, feature identities and shading |
 | core/render/sdf/framework.h | Implemented | Triangular-prism and octet 3D/4D framework geometry with analytic query/event adapters |
 | core/render/sdf/octet_trace.h | Implemented | Octet cell traversal and bounded analytic events |
-| core/render/sdf/lattice_trace.h | Implemented | Cubic and hypercubic lattice cell traversal |
+| core/render/sdf/lattice_trace.h | Implemented | Prepared trace settings and shading adapters for octet, diamond, hexagonal, rhombic, affine-cubic and periodic-shell geometry |
 | core/render/sdf/cellular_wire.h | Implemented | Diamond, hexagonal and rhombic cellular wires |
 | core/render/sdf/affine_lattice.h | Implemented | Affine lattice geometry and traversal |
 | core/render/sdf/periodic_shells.h | Implemented | Periodic shell geometry and candidate traversal |
