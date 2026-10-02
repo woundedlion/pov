@@ -170,7 +170,7 @@
           "kind": "LINEAR"
         },
         "storage": "binary32",
-        "unit": "turn"
+        "unit": "ratio"
       },
       {
         "classification": "preset",
@@ -233,7 +233,7 @@
           "kind": "LINEAR"
         },
         "storage": "binary32",
-        "unit": "turn"
+        "unit": "ratio"
       },
       {
         "classification": "preset",
@@ -318,7 +318,7 @@
           "kind": "LINEAR"
         },
         "storage": "binary32",
-        "unit": "blend"
+        "unit": "ratio"
       },
       {
         "classification": "preset",
@@ -378,7 +378,7 @@
           "kind": "LINEAR"
         },
         "storage": "binary32",
-        "unit": "blend"
+        "unit": "ratio"
       },
       {
         "classification": "preset",
