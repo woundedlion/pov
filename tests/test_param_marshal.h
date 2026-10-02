@@ -615,6 +615,9 @@ template <typename E> inline void check_described_snapshot_ranges() {
           *target = spec.min - std::max(1.0f, std::fabs(spec.min)) * .125f;
           HS_EXPECT_FALSE(effect.restore_parameters(candidate));
           candidate = original;
+          *target = std::numeric_limits<float>::max();
+          HS_EXPECT_FALSE(effect.restore_parameters(candidate));
+          candidate = original;
         }
       });
   HS_EXPECT_GT(floats, 0u);
