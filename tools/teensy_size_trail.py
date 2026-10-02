@@ -357,7 +357,7 @@ def head_position(cwd: str | Path | None = None) -> list[str]:
 # Subcommands
 # ---------------------------------------------------------------------------
 def collect(build_dir: str | Path, envs: tuple[str, ...],
-            warn=print) -> dict[str, dict[str, int]]:
+            warn=print, *, newest_input: int | None = None) -> dict[str, dict[str, int]]:
     """Parse each environment's linked ELF under build_dir.
 
     An environment that did not build, or whose ELF will not parse, is warned
@@ -371,6 +371,9 @@ def collect(build_dir: str | Path, envs: tuple[str, ...],
             warn(f"no {elf} - skipping env '{env}'")
             continue
         try:
+            if newest_input is not None and elf.stat().st_mtime_ns < newest_input:
+                warn(f"stale {elf} - skipping env '{env}'; rebuild it first")
+                continue
             found[env] = regions_from_elf(elf)
         except (ElfFormatError, OSError) as exc:
             warn(f"cannot read {elf} ({exc}) - skipping env '{env}'")
@@ -397,7 +400,11 @@ def working_tree(cwd: str | Path | None = None) -> str:
 
 def cmd_record(args) -> int:
     envs = tuple(args.env) if args.env else DEFAULT_ENVIRONMENTS
-    found = collect(args.build_dir, envs, warn=_warn)
+    root = Path(_git(["rev-parse", "--show-toplevel"]))
+    paths = _git(["ls-files", "-z", "--", *BUILD_INPUTS], root).split("\0")
+    newest_input = max((root / path).stat().st_mtime_ns
+                       for path in paths if path and (root / path).is_file())
+    found = collect(args.build_dir, envs, warn=_warn, newest_input=newest_input)
     if not found:
         _warn("no firmware ELF parsed - nothing recorded.")
         return 1

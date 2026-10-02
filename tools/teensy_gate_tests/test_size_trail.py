@@ -180,6 +180,18 @@ class Collect(unittest.TestCase):
         self.assertEqual(tst.collect(self.root, ("phantasm",),
                                      warn=self.warnings.append), {})
 
+    def test_skips_stale_elf_but_keeps_fresh_environment(self):
+        self._env("phantasm", make_elf(FIRMWARE))
+        self._env("holosphere", make_elf(FIRMWARE))
+        old = 1_000_000_000
+        fresh = 3_000_000_000
+        os.utime(self.root / "holosphere" / tst.ELF_NAME, ns=(old, old))
+        os.utime(self.root / "phantasm" / tst.ELF_NAME, ns=(fresh, fresh))
+        found = tst.collect(self.root, ("phantasm", "holosphere"),
+                            warn=self.warnings.append, newest_input=2_000_000_000)
+        self.assertEqual(set(found), {"phantasm"})
+        self.assertIn("stale", self.warnings[0])
+
 
 SHA = "d" * 40
 
