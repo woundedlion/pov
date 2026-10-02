@@ -58,8 +58,9 @@ public:
   /**
    * @brief A pixel in the WxH equirectangular image paired with its spherical
    *  coordinates.
-   * @details lambda (longitude) lies in [-PI, PI) and phi (latitude) in
-   *  [-PI/2, PI/2]. The constructors derive lambda/phi from the pixel (x, y);
+   * @details Constructed lambda (longitude) lies in [-PI, PI); projection can
+   *  also return +PI. Phi (latitude) lies in [-PI/2, PI/2].
+   *  The constructors derive lambda/phi from the pixel (x, y);
    *  y is measured top-down, so phi is flipped via (H - y).
    */
   struct Point {
@@ -109,7 +110,7 @@ public:
 
     float x;      /**< Pixel column coordinate. */
     float y;      /**< Pixel row coordinate. */
-    float lambda; /**< Longitude in [-PI, PI). */
+    float lambda; /**< Longitude in [-PI, PI]. */
     float phi;    /**< Latitude in [-PI/2, PI/2]. */
   };
 
