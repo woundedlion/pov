@@ -5,6 +5,7 @@ from __future__ import annotations
 import ast
 import fnmatch
 import os
+import posixpath
 import re
 import subprocess
 from dataclasses import dataclass, field
@@ -61,7 +62,8 @@ def refresh_rows(rows: list[Row], entries: set[PurePosixPath],
     for row in rows:
         names = [name for name in row.names if exists(name)]
         for removed in set(row.names) - set(names):
-            print(f"[docs-sync] removed absent tree path {parent}/{removed}".replace("path /", "path "))
+            path = posixpath.join(parent, removed)
+            print(f"[docs-sync] removed absent tree path {path}")
         if not names:
             continue
         if names != row.names:
