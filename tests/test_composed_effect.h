@@ -2650,6 +2650,10 @@ inline void test_mobius_grid_circular_animation() {
     previous = current;
   }
   HS_EXPECT_NE(effect.getPresetIndex(), initial_preset);
+  const auto current = effect.serialize_parameters().params;
+  auto target = FX::preset(effect.getPresetIndex()).params;
+  target.template get<"lens">().mobius = current.template get<"lens">().mobius;
+  verify_params_equal(current, target);
 }
 
 /**

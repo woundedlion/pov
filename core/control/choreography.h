@@ -39,7 +39,8 @@
  * Segue::Preset::Lerp departure, `set_preset_opacity(value)` receives a
  * Segue::Preset::Fade departure's opacity, and shadowing `adopt_params(target)`
  * / `transition_armed(target)` keeps state derived from the parameters
- * consistent across snaps and crossfade arming. `initial_params()` overrides
+ * consistent across snaps and crossfade arming. `finish_blend(target)` may
+ * specialize a Lerp's exact endpoint adoption. `initial_params()` overrides
  * the first preset as the startup default. A `Derived` keeping its hooks
  * non-public befriends this base. parameter_fields() supplies ordered registration,
  * range validation and the default blend; effects can override validation and
@@ -304,8 +305,12 @@ protected:
       derived().blend_params(PROGRESS);
     }
     if (COMPLETE) {
-      if (!transition.fades)
-        derived().adopt_params(transition.to);
+      if (!transition.fades) {
+        if constexpr (requires { derived().finish_blend(transition.to); })
+          derived().finish_blend(transition.to);
+        else
+          derived().adopt_params(transition.to);
+      }
       transition.active = false;
       preset_dwell_remaining = Derived::PRESET_DWELL_FRAMES;
     }
