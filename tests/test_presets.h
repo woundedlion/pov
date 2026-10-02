@@ -315,7 +315,10 @@ inline void test_timeline_clear_releases_fade() {
   HS_EXPECT_FALSE(effect.active());
   HS_EXPECT_EQ(effect.opacity, 1.0f);
   HS_EXPECT_EQ(effect.notifications.size(), notifications);
+  HS_EXPECT_EQ(effect.getPresetIndex(), 0u);
+  HS_EXPECT_EQ(effect.value(), 1.0f);
   HS_EXPECT_TRUE(effect.attempt());
+  HS_EXPECT_EQ(effect.getPresetIndex(), 1u);
   HS_EXPECT_TRUE(effect.active());
 }
 
