@@ -416,22 +416,22 @@ inline void test_ripple_threshold_reject_path() {
   HS_EXPECT_GT(moved_in, 1e-2f);
 
   // Out-of-band toward the center (d < d_min): cos_d > cos_threshold_min leg.
-  const float d_near = p.phase - p.thickness - 0.3f;
+  const float d_near = p.phase - p.thickness - 0.05f;
   const math::Vector near_c =
       math::Vector(std::sin(d_near), std::cos(d_near), 0.0f);
   const math::Vector r_near = ripple_transform(near_c, p);
-  HS_EXPECT_NEAR(r_near.x, near_c.x, 1e-6f);
-  HS_EXPECT_NEAR(r_near.y, near_c.y, 1e-6f);
-  HS_EXPECT_NEAR(r_near.z, near_c.z, 1e-6f);
+  HS_EXPECT_EQ(r_near.x, near_c.x);
+  HS_EXPECT_EQ(r_near.y, near_c.y);
+  HS_EXPECT_EQ(r_near.z, near_c.z);
 
   // Out-of-band away from the center (d > d_max): cos_d < cos_threshold_max leg.
-  const float d_far = p.phase + p.thickness + 0.3f;
+  const float d_far = p.phase + p.thickness + 0.05f;
   const math::Vector far_c =
       math::Vector(std::sin(d_far), std::cos(d_far), 0.0f);
   const math::Vector r_far = ripple_transform(far_c, p);
-  HS_EXPECT_NEAR(r_far.x, far_c.x, 1e-6f);
-  HS_EXPECT_NEAR(r_far.y, far_c.y, 1e-6f);
-  HS_EXPECT_NEAR(r_far.z, far_c.z, 1e-6f);
+  HS_EXPECT_EQ(r_far.x, far_c.x);
+  HS_EXPECT_EQ(r_far.y, far_c.y);
+  HS_EXPECT_EQ(r_far.z, far_c.z);
 }
 
 /**
