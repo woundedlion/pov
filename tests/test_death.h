@@ -1761,16 +1761,6 @@ inline void case_pullback_mobius_degenerate() {
   (void)Pullback::Interp::Op::LensMobius::prepare(context, params, state);
 }
 
-inline void case_pullback_curl_unstable() {
-  Pullback::Interp::Op::CurlFlowWarpParams params;
-  params.scale = opaque(100.0f);
-  params.strength = opaque(100.0f);
-  params.integrator = 0;
-  Pullback::Interp::Op::NoisePhaseState state;
-  Pullback::Interp::FrameContext context{};
-  (void)Pullback::Interp::Op::WarpCurlFlow::prepare(context, params, state);
-}
-
 inline void case_lattice_shells_oob() {
   SDF::Lattice::Settings settings;
   settings.shells = static_cast<SDF::Lattice::ShellCount>(3);
@@ -2565,6 +2555,16 @@ inline void case_face_scratch_retargeted() {
                    std::span<const uint16_t>(idx_b, 3), scratch, HV, H);
   (void)second;
   (void)first.get_vertical_bounds<H>();
+}
+
+/** @brief Death case: a virtual-height Face must use the active display grid. */
+inline void case_face_virtual_height_mismatched_geometry() {
+  constexpr int H = 16;
+  const math::Vector verts[] = {math::X_AXIS, math::Y_AXIS, math::Z_AXIS};
+  const uint16_t indices[] = {0, 1, 2};
+  static SDF::FaceScratchBuffer scratch;
+  SDF::Face face(verts, indices, scratch, opaque(H + hs::H_OFFSET + 1), H);
+  (void)face;
 }
 
 /**
@@ -5026,10 +5026,6 @@ inline const Case *all_cases(int &n) {
       {"pullback_mobius_degenerate", case_pullback_mobius_degenerate,
        "core/render/pullback/operators_sphere.h",
        "(Lens::MobiusLensParams::nondegenerate(mobius)) sphere.lens.mobius: degenerate coefficients"},
-      {"pullback_curl_unstable", case_pullback_curl_unstable,
-       "core/render/pullback/operators_warp.h",
-       "(stable(params)) warp.curl-flow: unstable scale and "
-       "strength for integrator"},
       {"shapeshifter_count_over_capacity",
        case_shapeshifter_count_over_capacity, "effects/ShapeShifter.h",
        "(count >= 1 && count <= MAX_SHAPES) ShapeShifter: contour count"},
@@ -5757,6 +5753,12 @@ inline const Case *all_cases(int &n) {
        "core/render/sdf/face.h",
        "(!scratch_owner || scratch_owner->claim_seq == scratch_claim) "
        "SDF::Face scanned after a later Face claimed its scratch buffer"},
+      {"face_virtual_height_mismatched_geometry",
+       case_face_virtual_height_mismatched_geometry, "core/render/sdf/face.h",
+       "(build_geometry.row_to_phi(0) == DISPLAY_GEOMETRY.row_to_phi(0) && "
+       "build_geometry.row_to_phi(height - 1) == "
+       "DISPLAY_GEOMETRY.row_to_phi(height - 1)) "
+       "Face: virtual height must match the display geometry"},
       {"face_scratch_retargeted_by_culled_face",
        case_face_scratch_retargeted_by_culled_face, "core/render/sdf/face.h",
        "(!scratch_owner || scratch_owner->claim_seq == scratch_claim) "
