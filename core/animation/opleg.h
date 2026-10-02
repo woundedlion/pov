@@ -1381,7 +1381,7 @@ private:
     case ConwayGraph::MorphOp::TRUNCATE:
       // A far-side leg sweeps through t = 0.5; nudge that one sample off the
       // ambo short-circuit so the frame keeps the truncate topology (2E
-      // vertices) instead of popping to ambo (V vertices).
+      // vertices) instead of popping to ambo (E vertices).
       return MeshOps::truncate(seed, target, temp,
                                ConwayGraph::truncate_off_pinch(t));
     case ConwayGraph::MorphOp::EXPAND:
