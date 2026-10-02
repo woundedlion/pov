@@ -13,7 +13,7 @@ Raw capture: preserved capture (supporting artifact removed), captured 2026-09-3
 | Driver | `POVSegmented<288, 4, 480>`, board = segment 0 master |
 | Effect | GSReactionDiffusion 288×144, single-entry playlist, source `7baf3cc430753e1a3693134150b282f212aa4e9e` (clean captured candidate) |
 | Method | `HS_PROFILE`, 32-frame windows, 130 s capture, epoch stretched to 1200 revolutions (150 s). Exact runtime frames 2–444; setup frame 1 excluded. Scope/ISR summaries use complete windows 33–416. |
-| Reproduce | `HS_TEENSY_PORT=COM4 HS_PROFILE_TREE=/c/work/Holosphere bash tools/profile_one.sh GSReactionDiffusion profile 130 32 '-D HS_PROFILE_EPOCH_REVS=1200'` |
+| Reproduce | `bash tools/profile_one.sh GSReactionDiffusion profile 130 32 '-D HS_PROFILE_EPOCH_REVS=1200'` |
 
 Single-effect image size: `FLASH: code:66352, data:252240, headers:9088   free for files:1703936` / `RAM1: variables:315136, code:28040, padding:4728   free for local variables:176384` / `RAM2: variables:520064  free for malloc/new:4224`.
 
