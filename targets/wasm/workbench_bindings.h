@@ -25,12 +25,19 @@
 // Caller property access can re-enter embind, including delete().
 static bool snapshot_decode_active = false;
 struct SnapshotDecodeGuard {
-  SnapshotDecodeGuard() {
+  bool *decoding;
+  explicit SnapshotDecodeGuard(bool *decoding = nullptr) : decoding(decoding) {
     HS_CHECK(!snapshot_decode_active,
              "re-entrant engine decode from a caller accessor");
     snapshot_decode_active = true;
+    if (decoding)
+      *decoding = true;
   }
-  ~SnapshotDecodeGuard() { snapshot_decode_active = false; }
+  ~SnapshotDecodeGuard() {
+    if (decoding)
+      *decoding = false;
+    snapshot_decode_active = false;
+  }
 };
 #endif
 
@@ -100,6 +107,10 @@ private:
 class ShaderChainBindings : public WorkbenchBindings {
 public:
   using WorkbenchBindings::WorkbenchBindings;
+  ~ShaderChainBindings() {
+    HS_CHECK(!decoding,
+             "delete() of a chain handle from a caller accessor during decode");
+  }
   bool isValid() const { return WorkbenchBindings::isValid(); }
   emscripten::val getSnapshot() {
     auto result = emscripten::val::null();
@@ -112,7 +123,7 @@ public:
   ChainSnapshotRestoreResult
   restoreSnapshot(const emscripten::val &caller_input) {
     using Result = ChainSnapshotRestoreResult;
-    const SnapshotDecodeGuard guard;
+    const SnapshotDecodeGuard guard(&decoding);
     if (!isValid())
       return Result::NOT_SHADER_CHAIN;
     const uint64_t owner_generation = state->generation;
@@ -173,7 +184,7 @@ public:
    * and all instance state untouched.
    */
   emscripten::val setShaderChain(const emscripten::val &caller_entries) {
-    const SnapshotDecodeGuard decode_guard;
+    const SnapshotDecodeGuard decode_guard(&decoding);
     using Pullback::Interp::ChainStatus;
     if (!with_effect<ShaderChain>([]<typename SC>(SC &) {}))
       return chain_result(ChainStatus::NOT_CHAIN_EFFECT, -1);
@@ -229,7 +240,7 @@ public:
    */
   ParamSetResult
   setShaderChainParameters(const emscripten::val &caller_entries) {
-    const SnapshotDecodeGuard decode_guard;
+    const SnapshotDecodeGuard decode_guard(&decoding);
     if (!with_effect<ShaderChain>([]<typename SC>(SC &) {}))
       return ParamSetResult::NO_EFFECT;
     const uint64_t owner_generation = state->generation;
@@ -304,6 +315,7 @@ public:
   }
 
 private:
+  bool decoding = false;
   /** @brief Result with enum status, legacy string code, and entry index. */
   static emscripten::val chain_result(Pullback::Interp::ChainStatus code,
                                       int entry_index) {
