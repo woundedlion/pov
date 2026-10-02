@@ -259,7 +259,7 @@ struct FoldModifier {
 
   /**
    * @brief Constructs with a fold count and optional phase driver.
-   * @param folds Number of bounces; defaults to 2.0 (one full bounce).
+   * @param folds Number of half-bounces; defaults to 2.0 (one full bounce).
    * @param phase Pointer to an optional phase offset, or null for none.
    *   The non-null pointee must outlive this modifier.
    */
