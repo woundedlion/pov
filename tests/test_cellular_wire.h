@@ -101,6 +101,51 @@ inline void test_traversal() {
                                 limits, appearance, storage, math::Z_AXIS);
   HS_EXPECT_EQ(ZERO_ANGLE.trace.status, Raycast::TraceStatus::BUDGET_EXHAUSTED);
   HS_EXPECT_EQ(ZERO_ANGLE.trace.counters.candidates, 0);
+  const Geometry WIDE(Kind::RHOMBIC);
+  camera.center = {0, 0, -.5f, 0};
+  auto overflow_appearance = appearance;
+  overflow_appearance.near_inv_span = .01f;
+  auto overflow_limits = limits;
+  overflow_limits.max_layers = 10000;
+  const auto HIT_OVERFLOW = shade(WIDE, 1, .45f, camera, {.0396f, 0},
+                                  overflow_limits, overflow_appearance, storage,
+                                  math::Vector(-11, -14, 1).normalized());
+  HS_EXPECT_EQ(HIT_OVERFLOW.trace.status,
+               Raycast::TraceStatus::BUDGET_EXHAUSTED);
+  HS_EXPECT_GT(HIT_OVERFLOW.color.alpha, 0.f);
+  HS_EXPECT_LT(HIT_OVERFLOW.trace.counters.steps, overflow_limits.max_steps);
+  HS_EXPECT_LT(HIT_OVERFLOW.trace.counters.candidates,
+               overflow_limits.max_candidates);
+  HS_EXPECT_LT(HIT_OVERFLOW.trace.counters.layers, overflow_limits.max_layers);
+  struct InvalidQuery {
+    float cell_size;
+    float wire_radius;
+    Raycast::Footprint footprint;
+    bool palette;
+  };
+  const InvalidQuery INVALID[] = {{0, .04f, {}, true},
+                                  {-1, .04f, {}, true},
+                                  {NAN, .04f, {}, true},
+                                  {1, 0, {}, true},
+                                  {1, -1, {}, true},
+                                  {1, NAN, {}, true},
+                                  {1, .04f, {-.002f, 0}, true},
+                                  {1, .04f, {NAN, 0}, true},
+                                  {1, .04f, {INFINITY, 0}, true},
+                                  {1, .04f, {.002f, -1}, true},
+                                  {1, .04f, {.002f, NAN}, true},
+                                  {1, .04f, {.002f, INFINITY}, true},
+                                  {1, .04f, {}, false}};
+  for (const auto &query : INVALID) {
+    auto invalid_appearance = appearance;
+    if (!query.palette)
+      invalid_appearance.palette = nullptr;
+    HS_EXPECT_EQ(shade(WIDE, query.cell_size, query.wire_radius, camera,
+                       query.footprint, limits, invalid_appearance, storage,
+                       math::Z_AXIS)
+                     .trace.status,
+                 Raycast::TraceStatus::INVALID_QUERY);
+  }
   for (auto kind : {Kind::DIAMOND, Kind::HEXAGONAL, Kind::RHOMBIC}) {
     const Geometry GEOMETRY(kind);
     const auto MID = (GEOMETRY.edges[0].a + GEOMETRY.edges[0].b) * .5f;
