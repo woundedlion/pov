@@ -100,7 +100,7 @@ struct FrameState {
   const BakedPalette *depth_palette;
   float gain = 1.0f; /**< Brightness scale of the whole frame. */
   CrossingList *crossings =
-      nullptr; /**< Arena scratch the cubic trace sorts. */
+      nullptr; /**< Persistent-arena buffer the cubic trace sorts. */
 };
 
 struct Binding {
