@@ -157,14 +157,18 @@ export function checkIndexCells(index, link, report, subject, errors) {
   const cells = /README cells:\s*peak\s+(.+?),\s*spilled\s+(.+?)\.?(?:\r?\n|$)/.exec(report);
   let headings = [];
   for (const line of index.split(/\r?\n/)) {
-    if (!line.startsWith('|')) continue;
+    if (!line.startsWith('|')) { headings = []; continue; }
     const row = line.split('|').slice(1, -1).map(cell => cell.trim());
     if (row.some(cell => /peak.*ms/i.test(cell))) { headings = row; continue; }
     if (!line.includes(`](${link})`)) continue;
     const prefix = link.startsWith('O3/') ? 'O3' : link.startsWith('shipping/') ? 'Ship' : '';
     const peak = headings.findIndex(cell => new RegExp(`^${prefix ? prefix + ' ' : ''}peak.*ms$`, 'i').test(cell));
     const spill = headings.findIndex(cell => new RegExp(`^${prefix ? prefix + ' ' : ''}spilled(?:/.*)?$`, 'i').test(cell));
-    if (peak < 0 || spill < 0) continue;
+    if (!headings.length) continue;
+    if (peak < 0 || spill < 0) {
+      errors.push(`${subject} table links ${link} but has no ${prefix ? prefix + ' ' : ''}peak/spilled measurement columns`);
+      continue;
+    }
     if (!cells) {
       errors.push(`${subject} links ${link} under peak/spill columns but the report has no "README cells:" line`);
       continue;
