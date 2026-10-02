@@ -544,7 +544,8 @@ inline void vertex_orbit(const HalfEdgeMesh &he_mesh, uint16_t start_idx,
  * @brief Unit midpoint of the undirected edge a half-edge lies on.
  * @param he_mesh Half-edge connectivity supplying the tail vertex.
  * @param mesh Source mesh supplying the endpoint positions.
- * @param he_idx Half-edge to measure; its pair yields the same position.
+ * @param he_idx Half-edge to measure; its pair yields the same position except
+ *   in the antipodal fallback, which follows each half-edge's own head.
  * @return The normalized midpoint, or the head endpoint's direction when the
  *   endpoints are antipodal and the midpoint is degenerate.
  */
