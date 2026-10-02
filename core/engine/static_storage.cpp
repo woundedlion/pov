@@ -7,12 +7,9 @@
 #include "animation/animation.h"
 #include "render/canvas.h"
 
-// The large static buffers below are defined here, not next to their
-// declarations: this TU is linked into every target, so gathering them keeps
-// every DMAMEM/large-static placement decision in one file the linker map points
-// at. Look here, not in timeline.h / canvas.h, for where the storage actually
-// lands. The arena block is the one exception -- it is file-local to memory.cpp,
-// which partitions it.
+// Engine timeline and framebuffer storage lives in this TU. The arena block
+// lives in memory.cpp; hardware DMA TX storage is defined by target expansions
+// of HS_DEFINE_POV_*_LED_CONTROLLER.
 
 /** @brief NOLOAD DMAMEM storage; Timeline clears every slot at runtime. */
 DMAMEM TimelineEvent global_timeline_events[TIMELINE_MAX_EVENTS];
