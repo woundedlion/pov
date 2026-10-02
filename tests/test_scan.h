@@ -445,7 +445,7 @@ inline void test_shader_clip_arc_matches_predicate() {
  * @details Two-sided mask oracle: every pixel inside the stroke core is lit and
  * every lit pixel lies within the stroke plus its AA fringe. A bounded count
  * alone passes a stroke that dropped columns or collapsed to a single row, and
- * test_ring_rasterize_lit_pixels_on_band bounds only the outside of the band.
+ * test_ring_rasterize_lights_expected_row bounds only the outside of the band.
  */
 inline void test_ring_rasterize_produces_bounded_output() {
   constexpr int W = 64, H = 48;
