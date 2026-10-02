@@ -53,6 +53,7 @@ static_assert(!all_presets_in_ranges(CONST_ENTRIES, id_below_three));
  */
 inline void test_all_presets_in_ranges_folds_predicate() {
   HS_EXPECT_FALSE(all_presets_in_ranges(CONST_ENTRIES, id_above_one));
+  HS_EXPECT_FALSE(all_presets_in_ranges(CONST_ENTRIES, id_below_three));
 }
 
 // --- apply_if_changed -------------------------------------------------------
