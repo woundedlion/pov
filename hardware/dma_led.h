@@ -168,9 +168,8 @@ private:
   DMAChannel dma_channel{false}; /**< eDMA channel wired to LPSPI4 TX. */
   /**
    * @brief Completion flag handed between the DMA-completion ISR and the
-   *        main/column thread.
-   * @details Single-observer (ISR preempts the thread), so relaxed ordering
-   *          suffices. Does NOT order the buffer for the DMA engine — the
+   *        column ISR.
+   * @details Does NOT order the buffer for the DMA engine — the
    *          caller's arm_dcache_flush() before transmit_async() does that.
    */
   std::atomic<bool> transfer_complete;
