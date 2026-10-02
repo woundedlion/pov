@@ -466,9 +466,8 @@ inline void report_near_rel(double a, double b, double rel_tol,
  * @brief Records one skipped sub-case and names what retired it.
  * @param case_name Test function that skipped, normally __func__.
  * @param reason Phrase naming the configuration that retired the case.
- * @details A skip asserts nothing and is invisible to the exit status, so the
- * printed reason and the suite-wide tally run_tests emits are the only trace it
- * leaves in an otherwise green run.
+ * @details run_tests fails on skips when HS_SKIPS_ARE_ERRORS is set. Fast-math
+ * builds also count an unapproved skip name as a failure here.
  */
 inline void skip_case(const char *case_name, const char *reason) {
   ++stats().skipped;
