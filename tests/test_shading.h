@@ -257,10 +257,11 @@ inline void test_shade_blinn_phong() {
 /** @brief Palette stub encoding depth in red and palette identity in blue. */
 struct StubSeguePalette {
   int id = 0;
+  float alpha = 1.0f;
   Color4 get(float t) const {
     return Color4(Pixel(static_cast<uint16_t>(std::round(t * 1000.f)), 0,
                         static_cast<uint16_t>(id)),
-                  1.f);
+                  alpha);
   }
 };
 
@@ -328,6 +329,7 @@ inline void test_shade_mesh_topology_direct() {
   StubSegueBank bank;
   for (int i = 0; i < 4; ++i)
     bank.pals[i].id = i;
+  bank.pals[3].alpha = 0.25f;
 
   Fragment f;
   f.v1 = -0.5f;
