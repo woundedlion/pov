@@ -1194,19 +1194,13 @@ inline void test_palette_mapping_deterministic() {
 }
 
 // ---------------------------------------------------------------------------
-// Leg-start seed-frame continuity: over a scripted walk covering every SeedFix
-// path (KEEP, DUAL_SWAP both families, DERIVE_AMBO both directions, all four
-// REGEN_TETRA bridges in both departure directions, dual-swap wandering before a REGEN), the mesh
-// drawn on the first morph frame must overlie the departed node mesh face for
-// face — geometry within tolerance and every face's w = 0 color inherited from
-// the departed face it covers. Fails on a seed rebuilt in a frame or order the
-// held mesh does not have (the orientation/color snap this pins against).
+// Leg-start seed-frame continuity across KEEP, DUAL_SWAP in both families,
+// DERIVE_AMBO in both directions, and all four REGEN_TETRA bridges.
+// The first morph frame must match the departed geometry and face colors.
 // ---------------------------------------------------------------------------
 
-/** Scripted edge walk (indices into ConwayGraph::EDGES). Bridges out-and-back
- * (edges 19/20/21/22), dual-swap wandering in both families before each REGEN,
- * DERIVE_AMBO out-and-back (edge 17), settle legs both directions (15/16/21),
- * expand and snub departures (3/4/16/21). */
+/** @brief Scripted walk covering every SeedFix path, including both directions
+ * of edge 22 and dual-swap wandering in both families. */
 constexpr int SEEDFRAME_SCRIPT[] = {19, 8,  1,  0,  2,  8,  19, 21, 22, 22, 14,
                                     10, 15, 15, 16, 16, 10, 17, 17, 14, 21, 18,
                                     20, 20, 20, 8,  1,  3,  3,  4,  4};
