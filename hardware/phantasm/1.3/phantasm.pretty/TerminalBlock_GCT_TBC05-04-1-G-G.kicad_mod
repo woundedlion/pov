@@ -16,7 +16,7 @@
  (pad "4" thru_hole circle (at 0 7.62) (size 1.9 1.9) (drill 1.3) (layers "*.Cu" "*.Mask"))
  (zone
   (layer "F.Cu")
-  (uuid "8234fdda-975c-5926-b3b7-013549511e78")
+  (uuid "6155c326-0e3c-4de2-a59f-357140d0f407")
   (name "Terminal body and assembly clearance")
   (hatch full 0.5)
   (connect_pads (clearance 0))
