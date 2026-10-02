@@ -29,11 +29,11 @@ namespace filter_tests {
 
 // This module is only ever linked into the offset-0 run_tests driver, so the
 // pole cases below assert unconditionally rather than hiding behind a runtime
-// offset check that could never fire. The device offset compiles in its own TU
+// offset check that could never fire. The legacy offset-3 mapping compiles in its own TU
 // (tests/test_h_offset_renorm.h), which carries the offset-3 pole coverage.
 static_assert(hs::H_OFFSET == 0,
-              "test_filter.h assumes row H-1 is the south pole; the device "
-              "offset belongs in tests/test_h_offset_renorm.h");
+              "test_filter.h assumes row H-1 is the south pole; the legacy "
+              "offset-3 mapping belongs in tests/test_h_offset_renorm.h");
 
 template <typename P>
 concept RawFramePlotter = requires(P &pipeline, Canvas &canvas) {
@@ -2117,8 +2117,8 @@ inline void test_feedback_north_pole_uses_single_physical_sample() {
 
 /**
  * @brief Verifies the aliased south-pole row retains a lone physical sample.
- * @details Row H-1 is the south pole only when hs::H_OFFSET is 0, so the
- *          collapse is host/WASM-only; the device's last row is mid-latitude.
+ * @details Row H-1 collapses to the south pole in the ideal display profile
+ *          with H_OFFSET == 0.
  */
 inline void test_feedback_south_pole_uses_single_physical_sample() {
   constexpr int W = 32, H = 16;
