@@ -4,8 +4,8 @@
  *
  * Unit tests for core/mesh/conway.h.
  *
- * Builds a small input PolyMesh (a unit-sphere cube from Solids::Cube),
- * runs each Conway operator, and verifies structural invariants:
+ * Exercises Conway operators on Platonic seeds, open-mesh relaxation,
+ * MeshState transforms, and half-edge reuse; verifies structural invariants:
  *   - non-empty output
  *   - all vertices on (approximately) the unit sphere
  *   - face_counts/faces arrays internally consistent (Σ face_counts == |faces|)
