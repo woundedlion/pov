@@ -3,7 +3,7 @@
 These prove the size/layout gate (`tools/teensy_gate.py`) **fails when it should**
 — a check that can never fail is worse than none.
 They also cover size tables and trails, warning ratchets, PlatformIO gate glue,
-and system-include classification.
+System-include classification is covered in `tools/teensy_hook_tests/test_build_hooks.py`.
 They are pure host Python (`unittest`, no ARM toolchain, no PlatformIO).
 
 ```
