@@ -3345,12 +3345,15 @@ inline void test_scan_epilogue_contract() {
             [&](int, const math::Vector &point, Fragment &fragment) {
               shader(point, fragment);
             });
-      if (path == 1)
-        for (const auto &point : capture.points)
-          expected.push_back(
-              {0, 0, color, 0.0f,
-               OPACITY * face_coverage(
-                             math::pixel_to_vector<W, H>(point.x, point.y))});
+      if (path == 1) {
+        EpilogueCapture reference;
+        Scan::rasterize<W, H, false>(
+            reference, canvas, face,
+            [&](const math::Vector &, Fragment &fragment) {
+              fragment.color = Color4(color, OPACITY);
+            });
+        expected = std::move(reference.points);
+      }
     }
     effect.advance_display();
     HS_EXPECT_GT(capture.points.size(), size_t{20});
@@ -3359,6 +3362,10 @@ inline void test_scan_epilogue_contract() {
          index < std::min(capture.points.size(), expected.size()); ++index) {
       const auto &actual = capture.points[index];
       const auto &want = expected[index];
+      if (path == 1) {
+        HS_EXPECT_EQ(actual.x, want.x);
+        HS_EXPECT_EQ(actual.y, want.y);
+      }
       HS_EXPECT_PIXEL(actual.color, want.color.r, want.color.g, want.color.b);
       HS_EXPECT_EQ(actual.age, want.age);
       HS_EXPECT_NEAR(actual.alpha, want.alpha, 1e-5f);
