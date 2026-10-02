@@ -158,8 +158,8 @@ private:
 };
 
 /**
- * @brief Random-walk color generator over a complementary palette.
- * @details Mostly returns the complement (hue + 64) of the previous color,
+ * @brief Random-walk color generator with quarter-turn hue jumps.
+ * @details Mostly advances the previous color's hue by 64 out of 256,
  * occasionally nudging the hue +/- a small step instead.
  */
 class ComplementaryColorSequence {
