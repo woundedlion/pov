@@ -3604,9 +3604,11 @@ inline void check_face_class_lut(int &lut_total, int cyc, bool reflected,
   // The sign-purity guard keeps every served magnitude a cell diagonal from
   // zero — outside the AA ramp.
   if (lut_samples > 0) {
-    float floor_mag = face.linear_dist ? lut.safe_dist
-                                       : math::fast_atan2(lut.safe_dist, 1.0f);
-    HS_EXPECT_GT(min_lut_mag, floor_mag - 0.01f);
+    const float plane_floor = std::max(
+        lut.safe_dist, static_cast<float>(face.lut_q_safe) * face.lut_dequant);
+    const float floor_mag =
+        face.linear_dist ? plane_floor : math::fast_atan2(plane_floor, 1.0f);
+    HS_EXPECT_GE(min_lut_mag, floor_mag - 1e-5f);
   }
   lut_total += lut_samples;
 }
