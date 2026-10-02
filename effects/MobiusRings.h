@@ -217,13 +217,13 @@ private:
                                          WIPE_FRAMES, math::ease_linear));
   }
 
+  static constexpr int CURVE_SIDES = W / 4;
+
   /**
    * @brief A single Möbius-warped curve to draw.
    * @details Holds the spherical-polygon basis and the sampling radius for a
    *          given ring/line index.
    */
-  static constexpr int CURVE_SIDES = W / 4;
-
   struct Curve {
     math::Basis basis; /**< Orthonormal basis of the spherical polygon. */
     float radius; /**< Sampling radius of the curve, in unit-sphere coords. */
