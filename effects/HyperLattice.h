@@ -83,7 +83,8 @@ struct Params {
    * @brief Interpolates every continuous field; the pattern, view and shell
    *        count switch together at the midpoint.
    */
-  void lerp(const Params &start, const Params &target, float amount);
+  HS_FLASH_INLINE void lerp(const Params &start, const Params &target,
+                            float amount);
 };
 
 static_assert(sizeof(Params) == 60,

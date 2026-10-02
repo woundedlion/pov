@@ -86,8 +86,8 @@ template <typename Owner, typename Value = float> struct Field {
     }
   }
 
-  void interpolate(Owner &out, const Owner &from, const Owner &to,
-                   float progress) const {
+  HS_FLASH_INLINE void interpolate(Owner &out, const Owner &from,
+                                   const Owner &to, float progress) const {
     if (!interpolated)
       return;
     if constexpr (std::is_same_v<Value, float>)
@@ -99,7 +99,7 @@ template <typename Owner, typename Value = float> struct Field {
   }
 
   template <typename Register>
-  void register_to(Owner &owner, Register &add) const {
+  HS_FLASH_INLINE void register_to(Owner &owner, Register &add) const {
     if (name)
       add(name, &(owner.*member), spec);
   }
@@ -127,8 +127,8 @@ template <typename Owner, typename Value, typename Fields> struct FieldGroup {
         },
         fields);
   }
-  void interpolate(Owner &out, const Owner &from, const Owner &to,
-                   float progress) const {
+  HS_FLASH_INLINE void interpolate(Owner &out, const Owner &from,
+                                   const Owner &to, float progress) const {
     std::apply(
         [&](const auto &...field) {
           (field.interpolate(out.*member, from.*member, to.*member, progress),
@@ -137,7 +137,7 @@ template <typename Owner, typename Value, typename Fields> struct FieldGroup {
         fields);
   }
   template <typename Register>
-  void register_to(Owner &owner, Register &add) const {
+  HS_FLASH_INLINE void register_to(Owner &owner, Register &add) const {
     std::apply(
         [&](const auto &...field) {
           (field.register_to(owner.*member, add), ...);
@@ -166,8 +166,9 @@ constexpr bool valid_fields(const Owner &owner, const Fields &fields) {
 
 /** @brief Writes described fields, preserving excluded and untabled state. */
 template <typename Owner, typename Fields>
-void interpolate_fields(Owner &out, const Owner &from, const Owner &to,
-                        float progress, const Fields &fields) {
+HS_FLASH_INLINE void interpolate_fields(Owner &out, const Owner &from,
+                                        const Owner &to, float progress,
+                                        const Fields &fields) {
   std::apply(
       [&](const auto &...field) {
         (field.interpolate(out, from, to, progress), ...);
@@ -176,7 +177,8 @@ void interpolate_fields(Owner &out, const Owner &from, const Owner &to,
 }
 
 template <typename Owner, typename Fields, typename Register>
-void register_fields(Owner &owner, const Fields &fields, Register add) {
+HS_FLASH_INLINE void register_fields(Owner &owner, const Fields &fields,
+                                     Register add) {
   std::apply(
       [&](const auto &...field) { (field.register_to(owner, add), ...); },
       fields);
