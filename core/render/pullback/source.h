@@ -171,8 +171,8 @@ struct ProjectedNoiseSourceParams : NoiseSourceParams {};
 /**
  * @brief Source family selecting the sphere-domain noise contour
  *        (Pullback::Source::SphericalNoise): the field is sampled on the
- *        pre-projection direction, so it is seamless and moves only with
- *        the projection frame.
+ *        pre-projection direction, so it is seamless and does not carry
+ *        the planar projection's distortion.
  */
 struct SphericalNoiseSourceParams : NoiseSourceParams {};
 
