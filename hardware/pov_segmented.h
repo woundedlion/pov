@@ -572,8 +572,7 @@ private:
    * Paced by an IntervalTimer at T0/OVERSAMPLE as a wake-up only — the
    * cycle counter decides which column it is (spec §4.1), so a late, early,
    * or coalesced wake-up cannot inject drift: the ISR is idempotent when the
-   * column is unchanged and skip-tolerant when it jumped (the skipped
-   * columns were masked precisely because the strip was busy).
+   * column is unchanged and skip-tolerant when it jumped.
    */
   static void flywheel_isr() {
     HS_ISR_PROFILE(hs::g_flywheel_wake_cycles);
