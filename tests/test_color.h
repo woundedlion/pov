@@ -282,6 +282,23 @@ inline void test_pixel_scale_clamps_before_cast() {
   HS_EXPECT_EQ(c * NAN, Pixel(65535, 65535, 65535));
 }
 
+/** @brief Quarter-scale accumulation rounds each sample before addition. */
+inline void test_pixel_quarter_accumulation_rounds_per_sample() {
+  uint32_t sum = 0;
+  Pixel accumulated(0, 0, 0);
+  for (uint32_t channel = 0; channel <= 65535u; ++channel) {
+    Pixel sample(static_cast<uint16_t>(channel), 0, 0);
+    accumulated = Pixel(0, 0, 0);
+    sum = 0;
+    for (int i = 0; i < 4; ++i) {
+      accumulated += sample * 0.25f;
+      sum += (channel + 2u) >> 2;
+    }
+    HS_EXPECT_EQ(accumulated.r,
+                 static_cast<uint16_t>(sum > 65535u ? 65535u : sum));
+  }
+}
+
 // ============================================================================
 // OKLab / OKLCH round-trips
 // ============================================================================
@@ -2863,22 +2880,6 @@ inline void test_lms_transform_pair_matches_scalar() {
 // ============================================================================
 // Runner
 // ============================================================================
-
-inline void test_pixel_quarter_accumulation_rounds_per_sample() {
-  uint32_t sum = 0;
-  Pixel accumulated(0, 0, 0);
-  for (uint32_t channel = 0; channel <= 65535u; ++channel) {
-    Pixel sample(static_cast<uint16_t>(channel), 0, 0);
-    accumulated = Pixel(0, 0, 0);
-    sum = 0;
-    for (int i = 0; i < 4; ++i) {
-      accumulated += sample * 0.25f;
-      sum += (channel + 2u) >> 2;
-    }
-    HS_EXPECT_EQ(accumulated.r,
-                 static_cast<uint16_t>(sum > 65535u ? 65535u : sum));
-  }
-}
 
 /**
  * @brief Runs every color-module test and reports the aggregate result.
