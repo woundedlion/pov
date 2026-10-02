@@ -44,8 +44,8 @@ inline constexpr float LUT_TARGET_DIAG_PX = 0.35f;
 /** Per-class LUT grid resolution bounds. */
 inline constexpr int CLASS_LUT_MIN_N = 32;
 inline constexpr int CLASS_LUT_MAX_N = 64;
-/** Per-mesh LUT byte budget. Classes are allocated by descending face count
- *  until it is spent; the remainder run NO_CLASS. Identical on every target
+/** Per-mesh LUT byte budget. LUTs are allocated by descending face count
+ *  until it is spent; remaining classes keep the exact distance path. Identical on every target
  *  (host/WASM/device) so sim and device output cannot fork. Sized so a
  *  double-buffered pair of bakes plus a palette bank fits the 108 KiB device
  *  persistent partition IslamicStars' split leaves (DEVICE_GLOBAL_ARENA_SIZE
