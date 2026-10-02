@@ -101,8 +101,11 @@ def main(force=False, revision=B.REVISION, output_dir=None):
         node = copy.deepcopy(sexp.get_symbol("power", "+5V"))
         B._rename_subsymbols(node, "+5V", net)
         for c in node:
-            if isinstance(c, list) and c and c[0] == "property" and c[1] == "Value":
-                c[2] = net
+            if isinstance(c, list) and c and c[0] == "property":
+                if c[1] == "Value":
+                    c[2] = net
+                elif c[1] == "Description":
+                    c[2] = f'Power symbol creates a global label with name "{net}"'
         return b.register_custom(node, f"phantasm:{net}")
 
 
