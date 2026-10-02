@@ -460,7 +460,8 @@ inline void test_join_adopt_and_gen_gating() {
 /**
  * @brief Full teardown→publish→commit cycle across two generations.
  * @details Runs the foreground rebuild sequence single-threaded: adopt gen1,
- * tear it down via the handshake, clear, publish gen2, commit gen2. Exercises
+ * clear pending work, tear it down via the handshake, publish gen2, commit
+ * gen2. Exercises
  * the ordering the device relies on without a live effect ever being adopted
  * while a release is outstanding.
  */
