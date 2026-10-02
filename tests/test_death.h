@@ -897,7 +897,7 @@ inline void case_medial_aliases_input() {
 
 /**
  * @brief Death case: needle rejects one arena passed as both target and temp.
- * @details needle is dual∘kis with the two arenas swapped between the legs, so a
+ * @details needle applies dual then kis, swapping the arenas between legs, so a
  *          single arena has the second leg reading the block the first is
  *          overwriting.
  */
