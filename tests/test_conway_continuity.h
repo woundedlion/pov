@@ -8,9 +8,9 @@
  * faces keep their colors.
  *
  * Coverage:
- *   - Bookend angle pin: driving HankinSolids to a hankin-cycle end forces the
- *     interlace angle of the final drawn frame to exactly 0 (the flat p_corner
- *     branch), where the sweep's own last sample lands ~0.002 rad off flat.
+ *   - Bookend angle: the cycle-end frame and following leg hold exact 0.
+ *     The sweep already closes on exact 0 with correctly rounded sinf; the
+ *     effect also pins it for device libm and fast-math implementations.
  *   - Cycle joins: across several sprite -> sweep -> morph-leg handoffs no
  *     frame renders empty, so a one-frame scheduling gap turns the suite red.
  *   - Bookend swaps (per node, one solid per symmetry family): update_hankin
@@ -208,8 +208,7 @@ inline std::vector<Color4> face_palette(int n) {
 }
 
 // ---------------------------------------------------------------------------
-// §7.6a remainder — bookend angle pin: the cycle's final drawn frame is forced
-// to exactly angle 0, not the sweep's ~0.002 rad boundary sample.
+// §7.6a remainder — cycle-end and following-leg angle invariant.
 // ---------------------------------------------------------------------------
 
 /**
@@ -242,8 +241,7 @@ inline void test_bookend_angle_pin() {
   for (size_t i = 1; i + 40 < a.size(); ++i) {
     if (a[i] != 0.0f || a[i - 1] == 0.0f)
       continue;
-    // Cycle end: the sweep's final sample sits just off flat (not the initial
-    // default or a mid-sweep write), and the morph leg holds exact 0 after.
+    // The penultimate sweep sample precedes the exact-zero cycle end.
     if (a[i - 1] < 0.05f) {
       pin = static_cast<int>(i);
       break;

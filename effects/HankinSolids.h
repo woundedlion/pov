@@ -565,9 +565,7 @@ private:
                                               HANKIN_SWEEP_FRAMES,
                                               math::ease_linear, false)
                               .then([this]() {
-                                // Bookend-in: the sweep's final sample lands ~0.002
-                                // rad off the flat p_corner branch; force exact 0 so
-                                // the sprite's last draw is the base solid.
+                                // Pin exact zero for device libm and fast-math.
                                 params.hankin_angle = 0.0f;
                                 this->start_morph_cycle();
                               }),
