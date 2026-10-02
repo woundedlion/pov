@@ -10,8 +10,8 @@
  * the clock forwarded into the transport, the double-buffer flip, the
  * overrun-drop path (and its watchdog consult), the with_bg transfer-length
  * select, and the end-to-end byte stream a real strip would clock in. The register/eDMA/ISR internals of TeensySPIDMA stay
- * hardware-only and out of host-test scope (see the wedged-channel death case in
- * test_death.h for the overrun-drop watchdog trap).
+ * hardware-only and out of host-test scope. test_overrun_drop covers the watchdog
+ * consult; the trap itself is device-only.
  */
 #pragma once
 
