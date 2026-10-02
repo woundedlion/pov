@@ -357,6 +357,32 @@ inline void check_hyper_lattice_pattern_view_dropdowns() {
 #endif
 }
 
+#if HS_ENABLE_PARAM_GUI_BRIDGE
+/** @brief The rendered, requested, and accepted streams retain distinct values. */
+inline void check_distinct_parameter_values() {
+  struct MirroredEffect : StubEffect {
+    struct State {
+      float value;
+    } requested{2.0f}, displayed{3.0f};
+    MirroredEffect() : StubEffect(4, 4) {
+      register_param("Value", &requested.value, 0.0f, 10.0f);
+      mirror_parameter_display_state(requested, displayed);
+    }
+    float accepted_parameter_value(const ParamDef &) const override {
+      return 4.0f;
+    }
+  } effect;
+  std::vector<hs_wasm::ParamView> views;
+  hs_wasm::collect_param_views(effect, views);
+  HS_EXPECT_EQ(views.size(), size_t{1});
+  if (views.size() != 1)
+    return;
+  HS_EXPECT_EQ(views[0].value, 3.0f);
+  HS_EXPECT_EQ(views[0].requested_value, 2.0f);
+  HS_EXPECT_EQ(views[0].accepted_value, 4.0f);
+}
+#endif
+
 inline void check_schema_hook_preserves_written_parameter_identity() {
   struct RebuildingHost : ParamHost {
     float original = 0.0f;
@@ -674,6 +700,9 @@ inline int run_param_marshal_tests() {
   check_generation_tracker();
   check_hyper_lattice_pattern_view_dropdowns();
   check_integer_float_endpoints();
+#if HS_ENABLE_PARAM_GUI_BRIDGE
+  check_distinct_parameter_values();
+#endif
   check_schema_hook_preserves_written_parameter_identity();
   // Tally how many effects exercised the by-name round-trip; it is skipped for
   // effects with no editable float param. Surface the split and fail if zero.
