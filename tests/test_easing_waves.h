@@ -66,8 +66,8 @@ static inline void check_curve(Fn f, bool monotone, const char *name) {
 /**
  * @brief Verifies each easing curve anchors its endpoints.
  * @details "in" curves satisfy f(0)=0, "out" curves f(1)=1, "in-out" curves
- *          both; ease_linear is the linear identity. Expo/elastic endpoints are
- *          special-cased: the formulas only approach 1 asymptotically.
+ *          both; ease_linear is the linear identity. Expo/elastic endpoint
+ *          branches pin exact 0/1 despite the raw formulas' residual at t=1.
  */
 inline void test_easing_endpoints() {
   HS_EXPECT_EQ(math::ease_in_out_cubic(0.0f), 0.0f);
