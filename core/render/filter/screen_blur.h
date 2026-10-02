@@ -93,8 +93,6 @@ public:
         }
       }
       if (wsum <= TAP_CUTOFF) {
-        if (cy < -1 || cy > H)
-          return;
         pass(static_cast<float>(cx),
              static_cast<float>(hs::clamp(cy, 0, H - 1)), color, age, alpha);
         return;
