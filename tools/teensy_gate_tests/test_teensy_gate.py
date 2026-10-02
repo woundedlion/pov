@@ -236,6 +236,7 @@ class TestParsers(unittest.TestCase):
         self.assertEqual(syms["_ZN6Effect8buffer_aE"].region, "OCRAM")
         self.assertEqual(syms["_ZL18global_arena_block"].size, 305152)
 
+
 class TestGoodBuildPasses(unittest.TestCase):
     def test_holosphere_good_build_clean(self):
         result = _eval("holosphere", "good_teensy_size.txt", "good_readelf_syms.txt")
@@ -1200,6 +1201,7 @@ class TestColdCaptureAudit(unittest.TestCase):
         section, = tw.parse_env_sections(header)
         self.assertEqual(tw.declared_first_party_sources(section), set(self.TUS[1:]))
 
+
 class TestExpectedEnvironmentSet(unittest.TestCase):
     """The audited environments must be the ones the build was asked to produce.
 
@@ -1210,7 +1212,7 @@ class TestExpectedEnvironmentSet(unittest.TestCase):
 
     TU = "core/engine/memory.cpp"
     ENVS = ("holosphere", "holosphere_dma", "phantasm", "phantasm8",
-               "profile", "profile_o3")
+            "profile", "profile_o3")
 
     def _cold_env(self, env):
         return (_banner(env, self.TU) + "\n"
