@@ -3017,7 +3017,8 @@ inline float cap_coverage(const math::Vector &v, const math::Vector &axis,
  * @brief Verifies Point::draw paints exactly the analytic spherical cap.
  * @details Sweeps a pole-centred axis (where the ring's horizontal projection
  * collapses and every row full-row scans) and an equatorial axis (where the row
- * interval math runs), and requires both to reproduce cap_coverage per pixel:
+ * interval math runs), plus an oblique axis; requires each to reproduce
+ * cap_coverage per pixel:
  * every covered direction lit, every uncovered one black, and the plotted
  * channel proportional to the coverage.
  */
