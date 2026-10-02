@@ -3953,8 +3953,7 @@ inline void test_hopf_projection_math() {
  *          empty polyline; the visibility gate ahead of it guarantees
  *          alpha >= MIN_VISIBLE_ALPHA, which clears the trim's own
  *          MIN_ENCODABLE_ALPHA floor and so bounds first at len - 2.
- *          The trim must also be exact — it drops a point only when that
- *          point's outgoing segment cannot paint — and monotone in alpha, since
+ *          The trim must match its per-sample cutoff and be monotone in alpha:
  *          a brighter trail can never show less of its tail.
  */
 inline void test_hopf_trail_trim_keeps_a_segment() {
@@ -3968,7 +3967,7 @@ inline void test_hopf_trail_trim_keeps_a_segment() {
       const size_t first = WB::trim_start(len, alpha);
       HS_EXPECT_LT(first + 1, len);
       HS_EXPECT_LE(first, brighter);
-      // The kept segment paints; the one before it (if any) could not.
+      // The kept segment meets the cutoff; its predecessor falls below it.
       HS_EXPECT_GE(static_cast<float>(first + 1) / (len - 1) * alpha,
                    MIN_ENCODABLE_ALPHA);
       if (first > 0)
