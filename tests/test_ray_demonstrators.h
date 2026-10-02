@@ -841,6 +841,43 @@ inline void test_shell_neighbor_march_matches_cell_traversal() {
       SDF::trace_periodic_shells_march<3>);
 }
 
+inline void test_shell_march_uses_footprint_radial_start() {
+  const ShellMarchCase OWNER[] = {{1, .1f, 4, .5f, .03f, 7}};
+  const ShellMarchCase NEIGHBORS[] = {{1, .1f, 5, .5f, .04f, 12}};
+  const auto camera_setup = [](const ShellMarchCase &settings,
+                               ShellRandom &random) {
+    auto camera =
+        shell_camera(settings, random, Raycast::SamplingDomain::SPATIAL_3D);
+    camera.radial_start = 0;
+    return camera;
+  };
+  compare_shell_march(
+      OWNER, 0xf007u, 16, camera_setup,
+      [](const SDF::PreparedPeriodicShells &prepared) {
+        HS_EXPECT_TRUE(prepared.single_owner);
+      },
+      trace_single_owner_shell);
+  compare_shell_march(
+      NEIGHBORS, 0xf008u, 16, camera_setup,
+      [](const SDF::PreparedPeriodicShells &prepared) {
+        HS_EXPECT_FALSE(prepared.single_owner);
+        HS_EXPECT_TRUE(prepared.march);
+      },
+      SDF::trace_periodic_shells_march<3>);
+  compare_shell_march(
+      NEIGHBORS, 0xf009u, 16,
+      [](const ShellMarchCase &settings, ShellRandom &random) {
+        auto camera =
+            shell_camera(settings, random, Raycast::SamplingDomain::SLICE_4D);
+        camera.radial_start = 0;
+        return camera;
+      },
+      [](const SDF::PreparedPeriodicShells &prepared) {
+        HS_EXPECT_TRUE(prepared.march);
+      },
+      SDF::trace_periodic_shells_march<4>);
+}
+
 /**
  * @brief The 4D-slice march preserves traversal status and bounds composite error.
  * @details Channels differ by at most 24 codes except for at most 1/2000 rays
@@ -881,6 +918,7 @@ inline int run_ray_demonstrator_tests() {
   test_shell_layer_march_matches_cell_traversal();
   test_shell_slice_march_matches_cell_traversal();
   test_shell_neighbor_march_matches_cell_traversal();
+  test_shell_march_uses_footprint_radial_start();
   test_framework_generic_event_rendering();
   test_repeated_stream_grouping_preserves_order_and_endpoints();
   test_lattice_volume_camera_demonstrators();
