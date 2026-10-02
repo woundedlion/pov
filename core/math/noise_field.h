@@ -391,10 +391,11 @@ inline math::Vector tetrahedral_gradient(const math::Vector &q, Sample sample) {
 }
 
 /**
- * @brief Divergence-free tangent from a scalar field's gradient.
+ * @brief Curl-oriented tangent from a scalar field's gradient.
  * @param gradient Gradient of the scalar field at the lattice coordinate.
  * @param v Unit point the tangent is taken at.
  * @return A tangent at @p v, clamped by clamp_tangent_to_unit().
+ * @details The length clamp can introduce divergence.
  */
 HS_O3_FN inline math::Vector curl_from_gradient(const math::Vector &gradient,
                                                 const math::Vector &v) {
@@ -404,7 +405,7 @@ HS_O3_FN inline math::Vector curl_from_gradient(const math::Vector &gradient,
 }
 
 /**
- * @brief Divergence-free tangent field from the generator's analytic gradient.
+ * @brief Curl-oriented tangent field from the generator's analytic gradient.
  * @param noise Prepared generator.
  * @param q Lattice coordinate.
  * @param v Unit point the tangent is taken at.
@@ -422,7 +423,7 @@ sample_simplex_curl_tangent(const FastNoiseLite &noise, const math::Vector &q,
 }
 
 /**
- * @brief Divergence-free tangent field, by whichever gradient the basis has.
+ * @brief Curl-oriented tangent field, by whichever gradient the basis has.
  * @param noise Prepared generator.
  * @param basis Octave structure to apply.
  * @param q Lattice coordinate.
