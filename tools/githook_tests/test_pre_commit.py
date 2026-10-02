@@ -40,7 +40,7 @@ def isolated_env() -> dict[str, str]:
         "GIT_AUTHOR_EMAIL": "fixture@example.invalid",
         "GIT_COMMITTER_NAME": "fixture",
         "GIT_COMMITTER_EMAIL": "fixture@example.invalid",
-        "PYTHON": sys.executable,
+        "HS_PYTHON": sys.executable,
     })
     return env
 
