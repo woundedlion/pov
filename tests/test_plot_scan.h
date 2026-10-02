@@ -1775,7 +1775,7 @@ inline void test_gate_trail_column_cull_honors_unbounded_edge() {
     cr.y_start = 0;
     cr.y_end = TH;
     cr.x_start = x0;
-    cr.x_end = x0 + 96;
+    cr.x_end = std::min(x0 + 96, TW);
     const auto xc = cr.x_clip();
 
     const auto A = math::vector_to_pixel<TW, TH>(a);
