@@ -54,8 +54,7 @@ struct FieldCoverage {
  * @brief Marshals one effect through the WASM bridge and asserts the definition
  *        and value streams stay consistent with the source params.
  * @tparam E Effect template, instantiated at the test canvas size DEFAULT_W x DEFAULT_H.
- * @param unnamed Effect name (unused; kept for call-site symmetry with the
- *        HS_EFFECT_LIST macro expansion).
+ * @param name Effect name for assertion context.
  * @param coverage In/out tally of whether the roster supplies a param that can
  *        distinguish a transposed field pair.
  * @details Checks equal length, index-aligned name/value/type/range/flags, and
@@ -63,7 +62,8 @@ struct FieldCoverage {
  *          order. This is the core correctness check per effect.
  */
 template <template <int, int> class E>
-inline bool check_one(const char *, FieldCoverage &coverage) {
+inline bool check_one(const char *name, FieldCoverage &coverage) {
+  HS_CONTEXT(name);
   reset_globals();
 
   E<DEFAULT_W, DEFAULT_H> effect;
@@ -190,6 +190,7 @@ inline void count_one(size_t &max_count) {
  * @brief Verifies the per-frame memory-view stability contract: refilling the
  *        reserved stream vectors never reallocates their backing storage.
  * @tparam E Effect template, instantiated at the test canvas size DEFAULT_W x DEFAULT_H.
+ * @param name Effect name for assertion context.
  * @param views Reusable definition-stream vector, pre-reserved by the caller.
  * @param values Reusable value-stream vector, pre-reserved by the caller.
  * @param view_data Expected backing pointer of @p views (its .data() before
@@ -201,11 +202,12 @@ inline void count_one(size_t &max_count) {
  * @details Uses the engine's ParamStreams storage across effect switches.
  */
 template <template <int, int> class E>
-inline void check_stability_one(std::vector<hs_wasm::ParamView> &views,
-                                std::vector<float> &values,
-                                const hs_wasm::ParamView *view_data,
-                                size_t view_cap, const float *value_data,
-                                size_t value_cap) {
+inline void
+check_stability_one(const char *name, std::vector<hs_wasm::ParamView> &views,
+                    std::vector<float> &values,
+                    const hs_wasm::ParamView *view_data, size_t view_cap,
+                    const float *value_data, size_t value_cap) {
+  HS_CONTEXT(name);
   reset_globals();
 
   E<DEFAULT_W, DEFAULT_H> effect;
@@ -591,7 +593,9 @@ inline void test_typed_field_domains_and_exclusions() {
   HS_EXPECT_TRUE(names == expected);
 }
 
-template <typename E> inline void check_described_snapshot_ranges() {
+template <typename E>
+inline void check_described_snapshot_ranges(const char *name) {
+  HS_CONTEXT(name);
   reset_globals();
   E effect;
   effect.init();
@@ -600,7 +604,8 @@ template <typename E> inline void check_described_snapshot_ranges() {
   size_t floats = 0;
   Control::register_fields(
       candidate.params, E::parameter_fields(),
-      [&](const char *, auto *target, const auto &spec) {
+      [&](const char *field_name, auto *target, const auto &spec) {
+        HS_CONTEXT(field_name);
         using Value = std::remove_pointer_t<decltype(target)>;
         if constexpr (std::is_same_v<Value, float>) {
           if (spec.readonly)
@@ -626,13 +631,13 @@ template <typename E> inline void check_described_snapshot_ranges() {
 
 inline void test_authored_field_snapshot_validation() {
   size_t described = 0;
-  auto check = [&]<template <int, int> class E>() {
+  auto check = [&]<template <int, int> class E>(const char *name) {
     if constexpr (requires { E<96, 48>::parameter_fields(); }) {
-      check_described_snapshot_ranges<E<96, 48>>();
+      check_described_snapshot_ranges<E<96, 48>>(name);
       ++described;
     }
   };
-#define HS_CHECK_DESCRIBED_SNAPSHOT(E) check.template operator()<E>();
+#define HS_CHECK_DESCRIBED_SNAPSHOT(E) check.template operator()<E>(#E);
   HS_EFFECT_LIST(HS_CHECK_DESCRIBED_SNAPSHOT)
 #undef HS_CHECK_DESCRIBED_SNAPSHOT
   HS_EXPECT_GE(described, size_t{8});
@@ -716,8 +721,8 @@ inline int run_param_marshal_tests() {
   const size_t value_cap = values.capacity();
 
 #define HS_PARAM_STAB(name)                                                    \
-  check_stability_one<name>(views, values, view_data, view_cap, value_data,    \
-                            value_cap);
+  check_stability_one<name>(#name, views, values, view_data, view_cap,         \
+                            value_data, value_cap);
   HS_EFFECT_LIST(HS_PARAM_STAB)
 #undef HS_PARAM_STAB
 
