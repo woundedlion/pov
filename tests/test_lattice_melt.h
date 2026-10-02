@@ -216,7 +216,8 @@ inline void test_lattice_melt_manual_write_restarts_dwell() {
 }
 
 inline void test_lattice_melt_chain_equivalence() {
-  for (size_t preset = 0; preset < 2; ++preset)
+  for (size_t preset = 0; preset < LatticeMeltWhiteBox::FX::PRESET_IDS.size();
+       ++preset)
     composed_chain_tests::verify_export<LatticeMeltWhiteBox::FX>(preset);
 }
 
