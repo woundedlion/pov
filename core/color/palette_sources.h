@@ -88,8 +88,7 @@ public:
    * @details Interpolated, not nearest-index, to avoid visible banding.
    */
   Color4 get(float t) const override {
-    // Clamp before the int cast: t < 0 is float->int UB and NaN maps to the last
-    // entry, both of which lut_sample_pixel requires the caller to have excluded.
+    // Clamp before sampling: negative indices are invalid, and NaN maps to 1.
     return Color4(
         lut_sample_pixel(entries, 256, hs::clamp(t, 0.0f, 1.0f) * 255.0f),
         1.0f);
