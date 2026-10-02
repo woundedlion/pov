@@ -22,8 +22,8 @@ namespace Segue {
  * for the effect's dwell, then its departure spans its own frames.
  * Non-AUTOMATIC origins (MANUAL, SYNCHRONIZED) always snap in
  * ChoreographedEffect itself, regardless of the departure. Roster: Snap
- * (immediate adoption), Lerp (parameter-space crossfade), Fade (through black:
- * the two parameter sets never render on the same frame).
+ * (immediate adoption), Lerp (parameter-space crossfade), Fade (dim then
+ * brighten with one parameter set per frame).
  */
 namespace Preset {
 
@@ -43,13 +43,15 @@ struct Lerp {
 };
 
 /**
- * @brief Departure: the departing preset dims to black, the next is adopted
- * in the dark, and it brightens back to full. ChoreographedEffect feeds the
- * opacity to Derived::set_preset_opacity; the fade freezes at full opacity
- * while animations are paused.
+ * @brief Departure: dims the departing preset, adopts the next at the first
+ * progress sample >= 0.5, then brightens it back to full.
+ * @details Even positive frame counts sample the zero-opacity midpoint; odd
+ * counts skip it. ChoreographedEffect feeds opacity to
+ * Derived::set_preset_opacity; the fade holds full opacity while paused.
  */
 struct Fade {
-  uint16_t frames = 0; /**< Frames from full opacity through black to full. */
+  uint16_t frames =
+      0; /**< Dim/brighten duration; zero selects an immediate snap. */
 };
 
 /** @brief How a preset departs: the policy of the automatic transition that
