@@ -18,8 +18,7 @@
  * ArenaBlockStamp reset and rewind behavior is tested directly. Span/source
  * rebind generations are compared after both reuse and growth by
  * test_arenaspan_source_rebind_generation. A re-bind that grows is a supported
- * pattern (it abandons the
- * old block until the next arena reset — see ArenaVector::bind), covered by
+ * pattern (it abandons the old block until the next arena reset — see ArenaVector::bind), covered by
  * test_arenavec_rebind_grows. Move-assignment onto a bound handle abandons a
  * block the same way and accounts the bytes for the arena's OOM report, covered
  * by test_arenavec_move_assign_abandon_breadcrumb.
