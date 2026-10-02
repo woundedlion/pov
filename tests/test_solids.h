@@ -460,7 +460,7 @@ inline void test_islamic_registry_solids_are_closed() {
 }
 
 // ---------------------------------------------------------------------------
-// Fallbacks (read directly from solids.h).
+// Lookup boundaries (invalid lookups trap; see test_death.h).
 // ---------------------------------------------------------------------------
 
 /**
