@@ -538,7 +538,7 @@ protected:
     // ambo(P)'s faces in place. The persistent reset below leaves scratch_a
     // intact.
     HS_CHECK(build_landing,
-             "RecipeBuild: medial bookend does not match the landing");
+             "RecipeBuild: dual medial leg has no prior landing");
     const size_t medial_faces = build_landing->faces;
     HS_CHECK(medial_faces <= MAX_BUILD_FACES,
              "RecipeBuild: dual bridge ambo exceeds MAX_BUILD_FACES");
