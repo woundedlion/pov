@@ -268,8 +268,6 @@ public:
              "BakedPaletteStorage::bake_blend endpoint is the output");
     table.colors = arena.allocate_n<Pixel>(BakedPalette::LUT_SIZE);
     table.alpha_q16 = arena.allocate_n<uint16_t>(BakedPalette::LUT_SIZE);
-    // Clamp before the cast: w < 0 or NaN is float->int UB, and a NaN weight
-    // would otherwise reach every entry's alpha.
     const float wc = hs::clamp(w, 0.0f, 1.0f);
     fill_blend(from, to, wc);
   }
