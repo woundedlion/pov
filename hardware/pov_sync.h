@@ -432,7 +432,7 @@ private:
   }
 
   /**
-   * @brief Restores every member to its post-construction value except caller-owned
+   * @brief Restores every member to its post-construction value except
    * protocol_config, cached bounds, fly and is_master_board.
    * @details The single reset both configure() and seed() run, so the two
    * cannot drift apart.
