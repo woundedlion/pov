@@ -167,9 +167,9 @@ The fused scan remains the main rendering cost. These are live-device measuremen
 - CYCCNT free-runs through interrupts, so every foreground scope includes ISR preemption. Nested counters overlap and are not additive.
 - `filter_blend` is parented under `df_fused_scan`; registry parenting can hide a subtree when its parent has zero calls. Per-pixel instrumentation itself has overhead. Deep scopes were disabled.
 - Shipping uses selective HS_O3 field/ring/hue/LUT and DistortedRingStack regions; global O3 changes surrounding code too.
-- Both trees were clean at capture. Before tip was `b2cefb6139e148c7e0c546b4d9d5d88c81645606`; after includes all 35 fixes and the committed copy scope. No dwell compression, epoch stretching, transition-speed or RNG seed overrides were used. The default harness seed path and frame IDs match; these are single captures, not a repeated-run confidence interval.
+- Both trees were clean at capture. Before tip was `b2cefb6139e148c7e0c546b4d9d5d88c81645606`; after uses the source tip recorded above and the committed copy scope. No dwell compression, epoch stretching, transition-speed or RNG seed overrides were used. The default harness seed path and frame IDs match; these are single captures, not a repeated-run confidence interval.
 - The overall mean delta cannot be assigned entirely to the copy: the images also differ in other fixes, code layout and instrumentation. The direct copy scope isolates its inclusive cost more closely. Startup is a separate full-band render, not steady copying.
-- The complete later ball phase was not sampled. This representative non-persisting clipped effect does not exercise the optional sine-distance path (#10) or extreme authored pullback chains (#20). Zero spills here is not proof that every effect or phase remains below budget.
+- The complete later ball phase was not sampled. This representative non-persisting clipped effect does not exercise the optional sine-distance path or extreme authored pullback chains. Zero spills here is not proof that every effect or phase remains below budget.
 
 ## Harness
 
