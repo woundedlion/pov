@@ -1198,8 +1198,6 @@ inline void test_snap_gate() {
   // but re-acquires via the fallback within R symbols (spec §12).
   {
     Flywheel f(cfg);
-    f.seed(1000000u);
-    f.force_lock();
     // Corrupt: hard-snap to a bogus mid-rev edge (simulates a forged burst
     // accepted during ACQUIRE).
     int32_t err = 0;
