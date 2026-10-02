@@ -1799,6 +1799,11 @@ hankin_summarize(const std::vector<HankinStepStats> &table) {
  * the production K_EPS opening fraction.
  */
 inline void test_hankin_sweep_vertex_stability() {
+  reset_globals();
+  const ScopedArenaSplit split(
+      IslamicStars<288, 144>::GENERATED_BUDGET.persistent(GLOBAL_ARENA_SIZE),
+      IslamicStars<288, 144>::GENERATED_BUDGET.scratch_a,
+      IslamicStars<288, 144>::GENERATED_BUDGET.scratch_b);
   constexpr int SAMPLES = 32;
   constexpr float THETA_EPS = Animation::OpLeg::THETA_EPS;
 
@@ -1868,6 +1873,41 @@ inline void test_hankin_sweep_vertex_stability() {
         "      mirror vs update_hankin: max chord %.3e over %d angles\n",
         mirror_chord, 2 * SAMPLES + 2);
 
+    Arena leg_arena(morph_aux_buf, sizeof(morph_aux_buf));
+    Arena bank_arena(morph_bank_buf, sizeof(morph_bank_buf));
+    MeshPaletteBank bank;
+    bank.bake_all(bank_arena);
+    std::vector<uint8_t> palettes(seed.face_counts.size(), 0);
+    Animation::OpLeg::PaletteHandoff handoff{.bank = &bank.bank,
+                                             .prev_face_palette =
+                                                 palettes.data(),
+                                             .prev_faces = palettes.size()};
+    LegDrawProbe draw_probe;
+    std::vector<std::vector<math::Vector>> drawn_frames;
+    auto draw = [&](Canvas &, const MeshState &mesh,
+                    const Animation::OpLeg::Shading &shading) {
+      draw_probe.observe(mesh, shading);
+      drawn_frames.push_back(draw_probe.prev_v);
+    };
+    Animation::OpLeg leg(
+        seed,
+        Animation::OpLeg::HankinSweepSpec{.theta_start = 0.0f,
+                                          .theta_end = site.theta_star,
+                                          .sweep_frames = SAMPLES - 1},
+        leg_arena, draw, handoff);
+    hs_test::StubEffect effect(288, 144);
+    for (int sample = 0; sample < SAMPLES; ++sample) {
+      {
+        Canvas canvas(effect);
+        if (sample == 0)
+          leg.step_paused(canvas);
+        else
+          leg.step(canvas);
+      }
+      effect.advance_display();
+    }
+    HS_EXPECT_EQ(drawn_frames.size(), static_cast<size_t>(SAMPLES));
+
     // Three parameterizations over the same sample grid.
     std::vector<HankinStepStats> tables[3];
     std::vector<std::vector<math::Vector>> resolve_pos(SAMPLES);
@@ -1892,6 +1932,8 @@ inline void test_hankin_sweep_vertex_stability() {
                            : math::slerp(collapsed[i].pos.normalized(),
                                          packed_arrival[i], shipping_k),
                        arrival[i].branch, 0.0f};
+            HS_EXPECT_VEC(drawn_frames[s][compiled.static_vertices.size() + i],
+                          curr[i].pos, 1e-6f);
             path_dev = std::max(path_dev,
                                 (curr[i].pos - resolve_pos[s][i]).magnitude());
           }
@@ -1937,28 +1979,15 @@ inline void test_hankin_sweep_vertex_stability() {
     std::printf("      path deviation slerp vs resolve at equal k: max=%.5f\n",
                 path_dev);
 
-    // Slerp endpoints must reproduce the collapsed form and the theta_star
-    // solve; the leg's closing bookend swap is only invisible if k=1 lands on
-    // the arrival geometry.
-    float end0 = 0, end1 = 0;
-    size_t exact0 = 0, exact1 = 0;
-    for (size_t i = 0; i < arrival.size(); ++i) {
-      const math::Vector s0 =
-          math::slerp(collapsed[i].pos, arrival[i].pos, 0.0f);
-      const math::Vector s1 =
-          math::slerp(collapsed[i].pos, arrival[i].pos, 1.0f);
-      end0 = hs_test::fold_worst(end0, (s0 - collapsed[i].pos).magnitude());
-      end1 = hs_test::fold_worst(end1, (s1 - arrival[i].pos).magnitude());
+    PolyMesh bookend;
+    Animation::OpLeg::arrival_mesh(leg.landing(), bookend, b);
+    HS_EXPECT_EQ(drawn_frames.back().size(), bookend.vertices.size());
+    for (size_t vertex = 0; vertex < bookend.vertices.size(); ++vertex)
+      HS_EXPECT_VEC(drawn_frames.back()[vertex], bookend.vertices[vertex],
+                    1e-6f);
+    for (size_t i = 0; i < arrival.size(); ++i)
       HS_EXPECT_LE(
           (packed_arrival[i].normalized() - arrival[i].pos).magnitude(), 3e-5f);
-      exact0 += std::memcmp(&s0, &collapsed[i].pos, sizeof(math::Vector)) == 0;
-      exact1 += std::memcmp(&s1, &arrival[i].pos, sizeof(math::Vector)) == 0;
-    }
-    std::printf("      endpoints: k=0 max_err=%.3e bitwise=%zu/%zu, "
-                "k=1 max_err=%.3e bitwise=%zu/%zu\n",
-                end0, exact0, arrival.size(), end1, exact1, arrival.size());
-    HS_EXPECT_TRUE(end0 < 1e-5f);
-    HS_EXPECT_TRUE(end1 < 1e-5f);
 
     // Opening bookend: chord between the collapsed form and the leg's first
     // drawn angle, in sphere radii (sub-pixel iff below ~1/display radius).
