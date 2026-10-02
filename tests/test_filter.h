@@ -3377,15 +3377,10 @@ inline void test_world_trails_ttl_expiry() {
 }
 
 /**
- * @brief Verifies a mid-run set_lifetime() shrink keeps the t fed to trailFn in
- *        [0,1] for points still carrying a ttl from the longer lifetime.
- * @details When lifetime drops below a buffered point's encoded ttl,
- *          ttl/lifetime exceeds 1 and t = 1 - ttl/lifetime goes negative. A
- *          WorldTrailFn receives t as fade progress and may index a
- *          palette/gradient with it, so flush must clamp — mirroring the age >= 0
- *          clamp on the same race. Without the clamp t here is ~ -4.
+ * @brief Verifies set_lifetime() caps buffered World::Trails ttl and restarts
+ *        fade progress at zero for points above the new lifetime.
  */
-inline void test_world_trails_set_lifetime_shrink_clamps_t() {
+inline void test_world_trails_set_lifetime_caps_ttl() {
   constexpr int Cap = 8;
   static uint8_t buf[Cap * 16];
   Arena arena(buf, sizeof(buf));
@@ -3397,7 +3392,6 @@ inline void test_world_trails_set_lifetime_shrink_clamps_t() {
       v0, Pixel(100, 100, 100), 0.0f, 1.0f,
       [](const math::Vector &, const Pixel &, float, float) {}); // ttl = 10
 
-  // Shrink lifetime below the buffered ttl: t = 1 - ttl/lifetime would go < 0.
   trails.set_lifetime(2);
 
   float captured_t = -999.0f;
@@ -3524,13 +3518,10 @@ inline void test_screen_trails_store_emit_decay() {
 }
 
 /**
- * @brief Verifies a mid-run set_lifetime() shrink keeps the t fed to trailFn in
- *        [0,1], mirroring World::Trails.
- * @details A point buffered under the longer lifetime carries ttl > lifetime
- *          after the shrink, so t = 1 - ttl/lifetime would go negative; a
- *          ScreenTrailFn may index a palette with it, so flush must clamp.
+ * @brief Verifies Screen::Trails clamps fade progress for a negative age.
+ * @details Negative age seeds ttl above lifetime, giving unclamped t = -0.8.
  */
-inline void test_screen_trails_set_lifetime_shrink_clamps_t() {
+inline void test_screen_trails_negative_age_clamps_t() {
   constexpr int W = 32, MAXP = 8;
   static uint8_t buf[MAXP * 32];
   Arena arena(buf, sizeof(buf));
@@ -3539,10 +3530,8 @@ inline void test_screen_trails_set_lifetime_shrink_clamps_t() {
 
   hs_test::StubEffect fx(W, 8);
   Canvas c(fx);
-  trails.plot(4.0f, 2.0f, Pixel(100, 100, 100), 0.0f, 1.0f,
-              [](float, float, const Pixel &, float, float) {}); // ttl = 10
-
-  trails.set_lifetime(2);
+  trails.plot(4.0f, 2.0f, Pixel(100, 100, 100), -8.0f, 1.0f,
+              [](float, float, const Pixel &, float, float) {}); // ttl = 18
 
   float captured_t = -999.0f;
   auto trail = [&](float, float, float t) {
@@ -3555,7 +3544,10 @@ inline void test_screen_trails_set_lifetime_shrink_clamps_t() {
   HS_EXPECT_EQ(captured_t, 0.0f);
   trails.flush(c, ScreenTrailFn(trail), 1.0f,
                [](float, float, const Pixel &, float, float) {});
-  HS_EXPECT_NEAR(captured_t, 0.5f, 1e-6f);
+  HS_EXPECT_EQ(captured_t, 0.0f);
+  for (int i = 0; i < 16; ++i)
+    trails.flush(c, ScreenTrailFn(trail), 1.0f,
+                 [](float, float, const Pixel &, float, float) {});
   captured_t = -1.0f;
   trails.flush(c, ScreenTrailFn(trail), 1.0f,
                [](float, float, const Pixel &, float, float) {});
@@ -4036,10 +4028,10 @@ inline int run_filter_tests() {
   test_world_trails_clamps_out_of_range();
   test_world_trails_capacity_evicts_one_slot();
   test_world_trails_ttl_expiry();
-  test_world_trails_set_lifetime_shrink_clamps_t();
+  test_world_trails_set_lifetime_caps_ttl();
   test_world_trails_midbuffer_expiry_reclaims_slot();
   test_screen_trails_store_emit_decay();
-  test_screen_trails_set_lifetime_shrink_clamps_t();
+  test_screen_trails_negative_age_clamps_t();
   test_screen_trails_forwards_aged_emission();
   test_screen_trails_at_capacity_replaces_last_slot();
   test_mixed_domain_flush_drains_both_buffers();
