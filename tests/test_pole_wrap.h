@@ -5,7 +5,7 @@
  * pole_wrap tap-reflection cases, shared by both offset builds.
  *
  * The south-pole contract differs by hs::H_OFFSET: at 0 the last rendered row
- * is the pole, at the device offset the rows below it are a virtual gap that
+ * is the pole, at the legacy offset-3 mapping the rows below it are a virtual gap that
  * holds no data. Included by tests/test_geometry.h (offset 0) and
  * tests/test_h_offset_renorm.h (-DHS_TEST_H_OFFSET=3) so both halves run.
  */

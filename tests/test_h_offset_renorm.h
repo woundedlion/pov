@@ -229,7 +229,7 @@ inline void test_boundary_energy_independent_of_x_fraction() {
 /**
  * @brief The last physical row shades as a latitude ring under Scan, not a pole.
  * @details Scan::Shader reconstructs each pixel's direction through the
- *          H_VIRT-aware trig tables. At the device offset row H-1 sits at
+ *          H_VIRT-aware trig tables. At the legacy offset-3 mapping row H-1 sits at
  *          colatitude (H-1)*PI/(H_VIRT-1), so every column of that row shares
  *          one latitude well off the pole while its azimuth sweeps a full turn.
  *          An H_OFFSET == 0 build collapses the whole row onto sin(phi) == 0,
@@ -291,12 +291,12 @@ inline void test_plot_below_last_row_is_clipped() {
 
 /**
  * @brief Verifies the feedback compositor drives the bottom row as a
- *        mid-latitude ring, not as a pole, at the device offset.
+ *        mid-latitude ring, not as a pole, at the legacy offset-3 mapping.
  * @details A rotation about +Y moves a mid-latitude ring by its angle and
  *          leaves a pole fixed. On the host (H_OFFSET == 0) row H-1 IS the
  *          south pole, so the compositor pins its warp origin and the row
- *          cannot move; test_filter.h covers that collapse. With the device
- *          offset the LED ring stops short of the pole, so the same row has to
+ *          cannot move; test_filter.h covers that collapse. With the legacy offset-3
+ *          mapping the LED ring stops short of the pole, so the same row has to
  *          carry the full longitude shift. Nothing else compiles the feedback
  *          pole path at this offset.
  */
