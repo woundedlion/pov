@@ -10,17 +10,22 @@ from unittest import mock
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 import heal_clearance
-from constraints import NEW_LAYOUT_RULES, UNPLACED_DEFAULT_CLASS, UNPLACED_RULES
+from constraints import (DEFAULT_CLASS_MINIMUMS, NEW_LAYOUT_RULES, RULE_MINIMUMS,
+                         UNPLACED_DEFAULT_CLASS, UNPLACED_RULES)
 
 
 class MainTests(unittest.TestCase):
-    def test_revision_project_retains_unplaced_rules(self):
+    ZEROED = json.dumps(
+        {"board": {"design_settings": {"rules": {"min_clearance": 0}}},
+         "net_settings": {"classes": [{"name": "Default"}]}},
+        indent=2)
+
+    def test_routed_project_gets_the_routed_constraints(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             project = root / "1.2" / "phantasm.kicad_pro"
             project.parent.mkdir()
             data = json.loads(self.ZEROED)
-            data["text_variables"] = {"PHANTASM_LAYOUT": "unplaced"}
             project.write_text(json.dumps(data), encoding="utf-8")
             with mock.patch.object(heal_clearance, "OUT", directory):
                 self.assertEqual(heal_clearance.project_files(), [str(project)])
@@ -28,7 +33,10 @@ class MainTests(unittest.TestCase):
                     self.assertEqual(heal_clearance.main([]), 0)
             result = json.loads(project.read_text(encoding="utf-8"))
             self.assertEqual(result["board"]["design_settings"]["rules"],
-                             {**UNPLACED_RULES, **NEW_LAYOUT_RULES})
+                             {**RULE_MINIMUMS, **NEW_LAYOUT_RULES})
+            default = result["net_settings"]["classes"][0]
+            for field, expected in DEFAULT_CLASS_MINIMUMS.items():
+                self.assertEqual(default[field], expected)
 
     def test_missing_projects_fails(self):
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -97,10 +105,6 @@ class MainTests(unittest.TestCase):
                     self.assertEqual(heal_clearance.main([]), 0)
             return project.read_bytes()
 
-    ZEROED = json.dumps(
-        {"board": {"design_settings": {"rules": {"min_clearance": 0}}},
-         "net_settings": {"classes": [{"name": "Default"}]}},
-        indent=2)
 
     def test_crlf_project_stays_crlf(self):
         healed = self.healed_bytes(
