@@ -165,7 +165,7 @@ def main(argv=None):
     except ValueError as e:
         print(f"{path}: {e}", file=sys.stderr)
         return 2
-    print("=== suspect bridging edges (touching 2 named pts) ===")
+    print("=== mid-span connections (T-joins and junctions) ===")
     for reason in bridges:
         print("  ", reason)
     print(f"=== conflict groups (excl {FLAG_NET}) ===")
