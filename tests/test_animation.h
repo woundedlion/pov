@@ -3987,7 +3987,7 @@ inline void test_mobiusflow_degenerate_inputs_remain_finite() {
 
 /**
  * @brief Verifies MobiusFlow::step keeps the transform's a·d product at unity
- * (a and d are conjugate-reciprocal) while actually moving the parameters.
+ * (a and d are reciprocal: d = 1/a) while actually moving the parameters.
  */
 inline void test_mobiusflow_step_preserves_unit_product() {
   math::MobiusParams params;
