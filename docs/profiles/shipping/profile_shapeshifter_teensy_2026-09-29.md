@@ -1,6 +1,6 @@
 # ShapeShifter on-device profile — Teensy 4.0, segmented mode (2026-09-29, **selective -O3**)
 
-Point-in-time snapshot (regenerate with `just profile ShapeShifter`).
+Point-in-time snapshot (regenerate with the Reproduce command below).
 Raw capture: `build/prof/shapeshifter_ship.log`, captured 2026-09-29 22:38 on COM3.
 Replaces the 2026-09-29 21:00 capture of `bb27f0c55`.
 
