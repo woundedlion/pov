@@ -358,7 +358,9 @@ inline void check_slider_registration(const char *name) {
   const ParamDef *mapping = params.find("Palette Mapping");
   HS_EXPECT_TRUE(mapping != nullptr);
   if (mapping != nullptr) {
-    HS_EXPECT_EQ(mapping->option_count, 4);
+    HS_EXPECT_EQ(
+        mapping->option_count,
+        static_cast<int>(std::size(Pullback::Interp::Op::PALETTE_MAPPING_IDS)));
     HS_EXPECT_TRUE(mapping->options != nullptr);
     HS_EXPECT_TRUE(mapping->export_options != nullptr);
   }
