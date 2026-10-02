@@ -180,6 +180,7 @@ if(EMSCRIPTEN)
     "-sENVIRONMENT=node"
     "-sNODERAWFS=1")
   if(CMAKE_BUILD_TYPE STREQUAL "PullbackStrictFP")
+    target_compile_definitions(pullback_capture_wasm PRIVATE NDEBUG)
     target_compile_options(pullback_capture_wasm PRIVATE "-O3"
       "-fno-fast-math" "-ffp-contract=off" "-msimd128")
     target_link_options(pullback_capture_wasm PRIVATE "-O3"
