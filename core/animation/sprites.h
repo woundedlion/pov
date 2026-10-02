@@ -197,6 +197,7 @@ template <int TRAIL_LEN = 8> struct Particle {
   size_t history_length() const { return history.length(); }
 };
 
+/** @brief Squared-distance floor for attractor force evaluation. */
 inline constexpr float ATTRACTOR_MIN_DISTANCE_SQ = 0.0000001f;
 
 /**
@@ -219,7 +220,18 @@ struct AttractorSample {
   float dist_sq;  /**< Squared distance from pos to the attractor. */
 };
 
-[[maybe_unused]] HS_COLD_MEMBER inline bool
+/**
+ * @brief Applies the single-attractor fallback steering and kill policy.
+ * @param life Particle lifetime; set to zero inside the kill radius.
+ * @param velocity Particle velocity to update.
+ * @param pos Particle position.
+ * @param max_delta Minimum radial speed inside the event horizon.
+ * @param gravity Global force multiplier.
+ * @param attractor Attractor position and force settings.
+ * @param s Precomputed particle/attractor geometry.
+ * @return False when the particle is killed, true otherwise.
+ */
+HS_COLD_MEMBER inline bool
 apply_signed_axis_attractor(uint16_t &life, math::Vector &velocity,
                             const math::Vector &pos, float max_delta,
                             float gravity, const Attractor &attractor,
