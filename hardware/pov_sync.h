@@ -251,10 +251,8 @@ public:
       beacon_parser.reset();
     }
 
-    // Nothing re-bases the master's epoch — it snaps to no wire symbol — so a
-    // stalled fold is terminal for it. Re-anchor onto the current instant and
-    // count it. Downstream boards instead recover through the gate's ACQUIRE
-    // fallback, which re-bases the epoch on the next symbol.
+    // Re-anchor a stalled master; downstream boards recover through ACQUIRE
+    // snaps to wire symbols.
     if (is_master_board && fly.fold_stalled(now)) {
       saturating_increment(telemetry_counters.master_stalls);
       fly.seed(now);

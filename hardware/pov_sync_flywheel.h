@@ -132,11 +132,9 @@ public:
   /**
    * @brief Whether fold() has stopped being able to report crossings.
    * @param now Current timestamp, in cycles.
-   * @return True once (now - epoch_cycles) has passed 2^31 cycles.
-   * @details fold() reads that difference as int32 and returns no crossing on a
-   * negative one, so past 2^31 the epoch can never catch up: every later call
-   * sees an even larger difference. Only reachable on a coast that long, since
-   * the fold loop otherwise leaves the difference below one half-rev.
+   * @return True when the modular elapsed cycles are in [2^31, 2^32).
+   * @details fold() interprets that difference as negative and reports no
+   * crossing. A full counter wrap loses the elapsed revolution history.
    */
   bool fold_stalled(uint32_t now) const {
     return static_cast<int32_t>(now - epoch_cycles) < 0;
