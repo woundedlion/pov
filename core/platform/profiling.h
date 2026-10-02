@@ -52,9 +52,8 @@ inline ScanMetrics g_scan_metrics;
  * absolute times.
  */
 struct ProbeBreakdown {
-  uint32_t point = 0; /**< Cycles: probe entry through the back-face cull. */
-  uint32_t project =
-      0; /**< Cycles: gnomonic projection through the radius cull. */
+  uint32_t point = 0;       /**< Cycles: probe entry through the radial cull. */
+  uint32_t project = 0;     /**< Cycles: gnomonic projection. */
   uint32_t edge_lut = 0;    /**< Cycles: class-LUT bilinear serve. */
   uint32_t edge_convex = 0; /**< Cycles: convex half-plane max. */
   uint32_t edge_sector = 0; /**< Cycles: concave sector walk. */
@@ -64,8 +63,8 @@ struct ProbeBreakdown {
   uint32_t alpha = 0;   /**< Cycles: scan-side AA coverage kernel. */
   uint32_t tick = 0;    /**< Cycles: summed back-to-back counter-read pairs. */
   uint32_t n_probe = 0; /**< Probes entered. */
-  uint32_t n_cull_cos = 0; /**< Probes leaving at the back-face cull. */
-  uint32_t n_cull_r = 0;   /**< Probes leaving at the radius cull. */
+  uint32_t n_cull_cos = 0; /**< Reserved legacy counter; always zero. */
+  uint32_t n_cull_r = 0;   /**< Probes leaving at the radial cull. */
   uint32_t n_lut = 0;      /**< Probes served by the class LUT. */
   uint32_t n_convex = 0;   /**< Probes taking the convex path. */
   uint32_t n_sector = 0;   /**< Probes taking the sector walk. */
