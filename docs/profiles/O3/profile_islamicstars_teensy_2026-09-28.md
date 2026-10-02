@@ -1,6 +1,6 @@
 # IslamicStars on-device profile — Teensy 4.0, segmented mode (2026-09-28, **-O3**)
 
-Point-in-time snapshot (regenerate with `just profile IslamicStars`).
+Point-in-time snapshot (regenerate with the explicit `profile_o3` Reproduce command).
 Raw capture: `build/prof/islamicstars_o3.log`; retained raw evidence (supporting artifact removed).
 Replaces the prior 2026-09-24 unverified candidate report with a clean committed-source capture.
 This standard report measures the current baseline. The unlanded convex-face
@@ -195,7 +195,7 @@ No matched WASM/native timing is used; this is the live device result.
 ## Harness
 
 `targets/Profile/Profile.ino`, `HS_PROFILE_TARGET=IslamicStars`,
-`HS_PROFILE_WINDOW=16`; `just profile IslamicStars` runs locked build/flash/capture.
+`HS_PROFILE_WINDOW=16`; the explicit `profile_o3` Reproduce command runs locked build/flash/capture.
 Use the Setup reproduction command for this complete cycle and its flags.
 
 ## Global -O3 vs selective -O3
