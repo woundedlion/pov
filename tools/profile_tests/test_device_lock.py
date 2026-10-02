@@ -142,9 +142,9 @@ class LockStaleness(unittest.TestCase):
         self.assertFalse(is_stale(self.d))
 
     def test_holder_just_past_eta_within_grace_is_not_stale(self):
-        # A long capture that overruns its own estimate still owns the board.
         now = int(time.time())
-        self._write_info(self._live_pid(), now - 900, now - 10)
+        (self.d / "info").write_text(
+            f"started={now - 900}\ndeadline={now - 10}\n", encoding="utf-8")
         self.assertFalse(is_stale(self.d))
 
     def test_dead_holder_is_stale(self):
