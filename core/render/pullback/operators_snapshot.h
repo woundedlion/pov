@@ -4,6 +4,13 @@
  */
 #pragma once
 
+/** @file operators_snapshot.h
+ * @brief Chain-operator runtime state snapshot codecs.
+ */
+
+#include "platform/build_features.h"
+#if HS_ENABLE_CHAIN_INTERPRETER
+
 #include "render/pullback/operators.h"
 
 namespace Pullback::Interp {
@@ -168,3 +175,5 @@ template <> struct RuntimeStateCodec<Op::SphericalRingsState> {
 };
 
 } // namespace Pullback::Interp
+
+#endif
