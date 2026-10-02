@@ -2784,7 +2784,8 @@ inline void test_dreamballs_preset_cycle_bookkeeping() {
       {BaseMesh::TRIAKIS_ICOSAHEDRON, AUTOMATIC, &Palettes::BRUISED_MANGO},
   };
   HS_EXPECT_EQ(std::size(rows), static_cast<size_t>(WB::PRESETS));
-  for (int i = 0; i < WB::PRESETS; ++i) {
+  for (size_t i = 0;
+       i < std::min(std::size(rows), static_cast<size_t>(WB::PRESETS)); ++i) {
     HS_CONTEXT("preset", i);
     const auto &params = WB::preset_params(i);
     HS_EXPECT_EQ(params.base_mesh, rows[i].base_mesh);
