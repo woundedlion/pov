@@ -409,10 +409,19 @@ class ToolchainAttestation(unittest.TestCase):
 
 
 def multi_preset_effects():
-    """Effects whose PRESET_IDS holds more than one id."""
+    """Effects with more than one declared preset."""
     found = set()
     for header in EFFECTS.glob("*.h"):
         text = header.read_text(encoding="utf-8")
+        for count in re.findall(
+                r"std::array<PresetEntry<[^>]*>,\s*(\w+)>\s+PRESETS\b", text):
+            if not count.isdecimal():
+                value = re.search(r"\b" + re.escape(count) + r"\s*=\s*(\d+)\s*;", text)
+                if value is None:
+                    raise AssertionError(f"{header.name}: unresolved preset count {count}")
+                count = value.group(1)
+            if int(count) > 1:
+                found.add(header.stem)
         for count in re.findall(
                 r"std::array<std::string_view,\s*(\d+)>\s+PRESET_IDS\b", text):
             if int(count) > 1:
@@ -441,6 +450,9 @@ class CyclerRoster(unittest.TestCase):
         presets = multi_preset_effects()
         self.assertTrue(presets, "no multi-preset effect parsed from effects/")
         self.assertIn("HyperLattice", presets)
+        self.assertTrue({"Comets", "DreamBalls", "MeshFeedback", "MindSplatter",
+                         "ShapeShifter"}.issubset(presets))
+        self.assertNotIn("Fishbowl", presets)
         self.assertEqual(presets - cyclers(), set())
 
 
