@@ -227,7 +227,7 @@ class ZoneGeometryTests(unittest.TestCase):
                                         ("thru_hole", "GND", "1"),
                                         ("thru_hole", "OTHER", "2"),
                                         ("smd", "GND", "2")):
-            with self.subTest(pad_type=pad_type, net=net):
+            with self.subTest(pad_type=pad_type, net=net, pad_mode=pad_mode):
                 self.assertEqual(self.validate("0.13", "0.3", footprint=
                     f'(footprint "Terminal" (zone_connect 2) '
                     f'(pad "1" {pad_type} circle (net "{net}") '
