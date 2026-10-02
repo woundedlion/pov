@@ -249,10 +249,8 @@ protected:
     configure_presets(preset_count_of());
     timeline.add_clear_hook(this, [](void *context) {
       auto &effect = *static_cast<ChoreographedEffect *>(context);
-      if (effect.transition.active && effect.transition.fades &&
-          !effect.transition.adopted)
-        effect.preset_index = effect.transition.from_index;
-      effect.transition.active = false;
+      effect.end_transition();
+      effect.preset_dwell_remaining = Derived::PRESET_DWELL_FRAMES;
       effect.set_opacity(1.0f);
     });
   }
