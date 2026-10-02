@@ -30,6 +30,11 @@ OUT = schematic_generator.OUT
 LOCAL_FOOTPRINT_DIR = os.path.join(OUT, "phantasm.pretty")
 TERMINAL_LIBIDS = tuple(
     f"phantasm:TerminalBlock_GCT_TBC05-0{pins}-1-G-G" for pins in (2, 3, 4))
+TERMINAL_LIBID = {
+    "1.2": {"J1": TERMINAL_LIBIDS[0], **dict.fromkeys(("J2", "J3A", "J3B"), TERMINAL_LIBIDS[1])},
+    "1.3": {"J1": TERMINAL_LIBIDS[0], "J2": TERMINAL_LIBIDS[1],
+            **dict.fromkeys(("J3A", "J3B"), TERMINAL_LIBIDS[2])},
+}
 SCH = os.path.join(OUT, "phantasm.kicad_sch")
 PCB_FILE = "phantasm.kicad_pcb"
 DRAFT_FILE = "phantasm-draft.kicad_pcb"
@@ -255,12 +260,16 @@ def revision_context(function):
     return run
 
 
+def terminal_library_dir(libid):
+    if libid == TERMINAL_LIBIDS[2]:
+        return os.path.join(os.path.dirname(HERE), "1.3", "phantasm.pretty")
+    return LOCAL_FOOTPRINT_DIR
+
+
 def load_mod(libid):
     lib, name = libid.split(":", 1)
-    directory = LOCAL_FOOTPRINT_DIR if lib == "phantasm" else \
+    directory = terminal_library_dir(libid) if lib == "phantasm" else \
         os.path.join(FP_DIR, lib + ".pretty")
-    if lib == "phantasm" and name == "TerminalBlock_GCT_TBC05-04-1-G-G":
-        directory = os.path.join(os.path.dirname(HERE), "1.3", "phantasm.pretty")
     key = (directory, libid)
     if key not in _MOD_CACHE:
         path = os.path.join(directory, name + ".kicad_mod")
@@ -641,14 +650,14 @@ def fixed_placements(comps):
                  if ref in comps and ref in ("JP_ID0", "JP_ID1", "JP_ID2", "JP_SHLD", "C_IN")}
         fixed.update({ref: placement for ref, placement in TERMINAL_EDGE_PLACEMENTS_1_3.items()
                       if ref in comps and comps[ref][1] ==
-                      TERMINAL_LIBIDS[0 if ref == "J1" else 1 if ref == "J2" else 2]})
+                      TERMINAL_LIBID["1.3"][ref]})
         fixed.update({"U_MCU": (25.5, 11.7, 0), "C_DEC1": (9.75, 1.35, 0)})
         return fixed
     fixed = {ref: placement for ref, placement in QUILTER_FIXED.items()
              if ref in comps and (ref not in QUILTER_FIXED_FOOTPRINTS or
                                   comps[ref][1] == QUILTER_FIXED_FOOTPRINTS[ref])}
     fixed.update({ref: placement for ref, placement in TERMINAL_EDGE_PLACEMENTS.items()
-                  if ref in comps and comps[ref][1] == TERMINAL_LIBIDS[0 if ref == "J1" else 1]})
+                  if ref in comps and comps[ref][1] == TERMINAL_LIBID["1.2"][ref]})
     if all(fixed.get(ref) == placement for ref, placement in TERMINAL_EDGE_PLACEMENTS.items()):
         if "U_MCU" in fixed:
             fixed["U_MCU"] = (25.5, 11.7, 0)
@@ -904,9 +913,7 @@ def main(unplaced=False, force=False, force_teensy_library=False):
                     else TERMINAL_EDGE_PLACEMENTS)
         missing_edges = sorted(ref for ref, placement in edge_map.items()
                                if fixed.get(ref) != placement or ref not in comps or
-                               comps[ref][1] != TERMINAL_LIBIDS[
-                                   0 if ref == "J1" else 2 if _GENERATION.get()[0] == "1.3"
-                                   and ref in ("J3A", "J3B") else 1])
+                               comps[ref][1] != TERMINAL_LIBID[_GENERATION.get()[0]][ref])
         if missing_edges:
             sys.exit("ERROR connectors require verified edge placements: "
                      + ", ".join(missing_edges))
@@ -1120,8 +1127,7 @@ def main(unplaced=False, force=False, force_teensy_library=False):
         atomic_write_text(mod_path, mod_text)
     for libid in TERMINAL_LIBIDS[:2] if selected == "1.2" else TERMINAL_LIBIDS:
         name = libid.split(":", 1)[1] + ".kicad_mod"
-        source_dir = (os.path.join(os.path.dirname(HERE), "1.3", "phantasm.pretty")
-                      if "-04-" in name else LOCAL_FOOTPRINT_DIR)
+        source_dir = terminal_library_dir(libid)
         source = os.path.join(source_dir, name)
         destination = os.path.join(pretty, name)
         if os.path.abspath(source) != os.path.abspath(destination):
