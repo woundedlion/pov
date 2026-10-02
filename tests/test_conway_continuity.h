@@ -1299,11 +1299,11 @@ inline void test_leg_start_seed_frame_continuity() {
       seed_base = Solids::finalize_solid(t, seed_arena);
       seed_identity = TETRAHEDRON;
     }
-    PolyMesh derived;
+    PolyMesh derived_seed;
     if (fix == SeedFix::DERIVE_AMBO)
-      derived = MeshOps::ambo(seed_base, work, temp);
+      derived_seed = MeshOps::ambo(seed_base, work, temp);
     const PolyMesh &leg_seed =
-        fix == SeedFix::DERIVE_AMBO ? derived : seed_base;
+        fix == SeedFix::DERIVE_AMBO ? derived_seed : seed_base;
 
     // Departed-node handoff: alternating palettes, real centroids.
     const size_t prev_faces = node_mesh.face_counts.size();
