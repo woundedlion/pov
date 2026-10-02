@@ -36,7 +36,7 @@
           "kind": "LINEAR"
         },
         "storage": "binary32",
-        "unit": "blend"
+        "unit": "ratio"
       },
       {
         "classification": "preset",
@@ -125,7 +125,7 @@
           "kind": "LINEAR"
         },
         "storage": "binary32",
-        "unit": "turn"
+        "unit": "ratio"
       },
       {
         "classification": "preset",
@@ -156,7 +156,7 @@
           "kind": "LOG_POSITIVE"
         },
         "storage": "binary32",
-        "unit": "cycles"
+        "unit": "ratio"
       },
       {
         "classification": "preset",
@@ -202,7 +202,7 @@
           "kind": "MIXED_ENUM"
         },
         "storage": "enum8",
-        "unit": "mapping"
+        "unit": "mode"
       },
       {
         "classification": "preset",
@@ -261,7 +261,7 @@
           "kind": "LINEAR"
         },
         "storage": "binary32",
-        "unit": "opacity"
+        "unit": "ratio"
       },
       {
         "classification": "preset",
@@ -275,7 +275,7 @@
           "kind": "LINEAR"
         },
         "storage": "binary32",
-        "unit": "opacity"
+        "unit": "ratio"
       },
       {
         "classification": "preset",
