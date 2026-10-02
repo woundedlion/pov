@@ -489,12 +489,11 @@ transmit path can re-drive SYNC_BUS. Rev 1.2's separate SYNC_TX input and R_TX
 hold its input LOW during that interval. This protection requires the revised
 copper and firmware described below; the generator alone does not retrofit it.
 
-**Firmware compatibility:** the current firmware targets rev 1.1 and transmits
-on D3. Rev 1.2 requires transmission on D4, D3 configured as input with HYS,
-and D4 initialized LOW as an output on every board before enabling the master.
-Followers keep D4 LOW; only the master emits pulses. Use the corresponding
-firmware pin map before operating a rev 1.2 board. No firmware or routed copper
-is changed by updating these generators.
+**Firmware compatibility:** build rev 1.2 with `HS_PHANTASM_BOARD_REV=12`;
+`platformio.ini` defaults to 11. The rev 1.2 pin map transmits on D4, configures
+D3 as input with HYS, and initializes D4 LOW as an output on every board before
+enabling the master. Followers keep D4 LOW; only the master emits pulses.
+Regenerating the board does not change the firmware build flags or routed copper.
 
 Generating rev 1.2 requires regenerating the schematic before either PCB draft.
 The resulting PCB is unrouted and needs placement/routing validation before
