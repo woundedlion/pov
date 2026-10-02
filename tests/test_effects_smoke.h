@@ -91,8 +91,7 @@ inline int run_effects_smoke_tests() {
   HS_EFFECT_LIST(HS_DET_ONE_SMALL)
 #undef HS_DET_ONE_SMALL
 
-  // Every effect that does not read outside its display band clip-clears, so the
-  // roster is swept rather than the one effect the optimization started on.
+  // Check clip-clear parity across the effect roster.
   std::printf("  -- clip-clear display parity --\n");
 #define HS_CLIP_PARITY_ONE(name)                                               \
   clip_clear_parity_one<name, SMALL_W, SMALL_H>(#name);
