@@ -41,7 +41,7 @@ struct MindSplatterParams {
   float active_count = 0.0f;  /**< Live particle count (engine-written). */
 
   /**
-   * @brief Linearly interpolates each field between two preset snapshots.
+   * @brief Interpolates preset fields while preserving live particle telemetry.
    * @param start Source snapshot (interpolation parameter t = 0).
    * @param target Destination snapshot (interpolation parameter t = 1).
    * @param t Interpolation factor in [0, 1].
