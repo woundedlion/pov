@@ -2729,7 +2729,7 @@ inline void test_ring_sample_unit_length_and_progress() {
  * @brief Reconstructs a ring's W control vertices with libm cos/sin, bypassing
  *        the TrigLUT angle-addition identity Plot::Ring builds them from.
  * @param b Ring basis, as handed to Plot::Ring::sample.
- * @param radius Ring radius in the same [0,1] polar units as sample().
+ * @param radius Ring radius in [0,2], in hemisphere units as sample().
  * @param phase Angular offset added to every step.
  * @param W Number of control vertices (the close vertex is not emitted).
  * @return The W expected unit positions, in sample order.
