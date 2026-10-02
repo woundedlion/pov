@@ -76,10 +76,7 @@ public:
             Pullback::Interp::CHAIN_ARENA_BYTES / sizeof(std::max_align_t)));
     program.bind_storage(block_a, block_b);
 #if HS_ENABLE_PARAM_GUI_BRIDGE
-    static_assert(CANDIDATE_BYTES % sizeof(std::max_align_t) == 0);
-    candidates = reinterpret_cast<uint8_t (*)[PARAM_BYTES]>(
-        persistent_arena.allocate_n<std::max_align_t>(
-            CANDIDATE_BYTES / sizeof(std::max_align_t)));
+    candidates = persistent_arena.allocate_n<ParameterCandidates>(1)->blocks;
 #endif
 
     generated_palettes.init(persistent_arena, DEFAULT_CHROMA,
@@ -461,8 +458,9 @@ private:
            alignof(std::max_align_t) * alignof(std::max_align_t);
   }();
 
-  static constexpr size_t CANDIDATE_BYTES =
-      Pullback::Interp::MAX_CHAIN_OPS * PARAM_BYTES;
+  struct alignas(std::max_align_t) ParameterCandidates {
+    uint8_t blocks[Pullback::Interp::MAX_CHAIN_OPS][PARAM_BYTES];
+  };
   uint8_t (*candidates)[PARAM_BYTES] = nullptr;
 
   bool parameter_write_admitted(const ParamDef &parameter,
@@ -561,7 +559,7 @@ private:
       alignof(Resources) +
       2 * (Pullback::Interp::CHAIN_ARENA_BYTES + alignof(std::max_align_t)) +
 #if HS_ENABLE_PARAM_GUI_BRIDGE
-      CANDIDATE_BYTES + alignof(std::max_align_t) +
+      sizeof(ParameterCandidates) + alignof(ParameterCandidates) +
 #endif
       GeneratedPaletteBank::required_arena_bytes();
   static_assert(FOOTPRINT_BYTES <= WASM_PERSISTENT_BUDGET,
