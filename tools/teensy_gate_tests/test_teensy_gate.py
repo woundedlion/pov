@@ -1754,7 +1754,7 @@ class TestGateExtra(unittest.TestCase):
             seen.update(kwargs)
             return subprocess.CompletedProcess(args, 0, "ok", "")
 
-        with mock_patch(self.ge.subprocess, "run", run):
+        with mock.patch.object(self.ge.subprocess, "run", run):
             self.assertEqual(self.ge._run(["tool"]), "ok")
         self.assertEqual(seen["encoding"], "utf-8")
         self.assertEqual(seen["errors"], "replace")
@@ -1809,7 +1809,7 @@ class TestGateExtra(unittest.TestCase):
                 raise OSError("not found")
             return types.SimpleNamespace(stdout="", stderr="teensy_size: usage")
 
-        with mock_patch(subprocess, "run", _probe):
+        with mock.patch.object(subprocess, "run", _probe):
             self.assertEqual(self.ge._find_teensy_size(self._env("/pkg/tool-teensy")),
                              packaged)
 
@@ -1819,18 +1819,18 @@ class TestGateExtra(unittest.TestCase):
                 raise OSError("not found")
             return types.SimpleNamespace(stdout="usage: teensy_size <elf>", stderr="")
 
-        with mock_patch(subprocess, "run", _probe):
+        with mock.patch.object(subprocess, "run", _probe):
             self.assertEqual(self.ge._find_teensy_size(self._env()), "teensy_size")
 
     def test_find_teensy_size_rejects_foreign_binary(self):
         probe = types.SimpleNamespace(stdout="usage: other-tool", stderr="")
-        with mock_patch(subprocess, "run", lambda *a, **k: probe):
+        with mock.patch.object(subprocess, "run", lambda *a, **k: probe):
             self.assertIsNone(self.ge._find_teensy_size(self._env()))
 
     def test_find_teensy_size_none_when_absent(self):
         def _raise(*a, **k):
             raise OSError("not found")
-        with mock_patch(subprocess, "run", _raise):
+        with mock.patch.object(subprocess, "run", _raise):
             self.assertIsNone(self.ge._find_teensy_size(self._env()))
 
     def test_calibrated_budget_verdict_controls_the_build_exit(self):
@@ -1880,7 +1880,7 @@ class TestGateExtra(unittest.TestCase):
         # is the shared module, so restore parse_teensy_size after the patch.
         self.ge._find_teensy_size = lambda env: "teensy_size"
         self.ge._run = lambda *a, **k: ""
-        with mock_patch(self.ge.teensy_gate, "parse_teensy_size", lambda text: {}):
+        with mock.patch.object(self.ge.teensy_gate, "parse_teensy_size", lambda text: {}):
             rc, out = self._run_gate("holosphere")
         self.assertEqual(rc, 2)
         self.assertIn("parsed no FLASH/RAM1/RAM2 regions", out)
@@ -1972,17 +1972,6 @@ class TestGateExtra(unittest.TestCase):
         except SystemExit as exc:
             rc = exc.code
         return rc, buf.getvalue()
-
-
-@contextlib.contextmanager
-def mock_patch(obj, attr, value):
-    """Temporarily set obj.attr = value (stdlib-only stand-in for mock.patch)."""
-    orig = getattr(obj, attr)
-    setattr(obj, attr, value)
-    try:
-        yield
-    finally:
-        setattr(obj, attr, orig)
 
 
 if __name__ == "__main__":
