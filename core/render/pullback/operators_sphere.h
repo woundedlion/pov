@@ -58,7 +58,7 @@ struct PreparedDisplace {
   Surface::PreparedLoop loop;
 };
 
-/** @brief SPHERE endomorphism: the divergence-free curl-noise displacement. */
+/** @brief SPHERE endomorphism: the length-clamped curl-noise displacement. */
 struct DisplaceCurl : PhaseClockModel<NoisePhaseState> {
   static constexpr const char *ID = "sphere.displace.curl.v2";
   static constexpr const char *NAME = "Curl Displace";
