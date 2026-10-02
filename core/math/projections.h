@@ -402,8 +402,7 @@ peirce_projection(const math::Vector &v, float central_meridian,
       edge = fminf(edge, asinf(hs::clamp(fold_sine, 0.0f, 1.0f)));
     }
     // HORIZONTAL reflects in x: the |sin| >= |cos| equator quarters stay glued.
-    // VERTICAL reflects in y and tears the
-    // complementary pair.
+    // VERTICAL reflects in y and tears the complementary pair.
     const bool torn = layout == PeirceLayout::HORIZONTAL ? fabsf(cl) > fabsf(sl)
                       : layout == PeirceLayout::VERTICAL ? fabsf(sl) > fabsf(cl)
                                                          : false;
