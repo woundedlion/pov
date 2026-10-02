@@ -452,13 +452,13 @@ inline void test_emplace_front_eviction_rebuilds_slot() {
 }
 
 // ============================================================================
-// pop / pop_back / clear
+// pop_front / pop_back / clear
 // ============================================================================
 
 /**
- * @brief Verifies pop removes the front (oldest) element.
+ * @brief Verifies pop_front removes the front (oldest) element.
  */
-inline void test_pop_removes_front() {
+inline void test_pop_front_removes_front() {
   StaticCircularBuffer<int, 4> buf{1, 2, 3};
   buf.pop_front();
   HS_EXPECT_EQ(buf.size(), (size_t)2);
@@ -478,7 +478,7 @@ inline void test_pop_back_removes_last() {
 }
 
 /**
- * @brief Verifies pop and pop_back on an empty buffer are safe no-ops (they
+ * @brief Verifies pop_front and pop_back on an empty buffer are safe no-ops (they
  *        must not crash).
  */
 inline void test_pop_on_empty_is_noop() {
@@ -1043,7 +1043,7 @@ inline int run_static_circular_buffer_tests() {
   test_emplace_back_eviction_rebuilds_slot();
   test_emplace_front_eviction_rebuilds_slot();
 
-  test_pop_removes_front();
+  test_pop_front_removes_front();
   test_pop_back_removes_last();
   test_pop_on_empty_is_noop();
   test_clear_empties_buffer();
