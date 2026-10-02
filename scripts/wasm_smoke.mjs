@@ -54,10 +54,7 @@ async function promotedDocuments() {
   return documents;
 }
 
-// The gate depth, spelled once here so CI and `just smoke` drive the same run:
-// 120 frames reaches the late-lifecycle events (frame-48 ShapeShifter cut, arena
-// compaction) a short run never hits. WASM_SMOKE_FRAMES shortens it for an
-// ad-hoc local run.
+// Shared CI/just smoke window; WASM_SMOKE_FRAMES overrides it for local runs.
 const FRAMES_PER_EFFECT = Number(process.env.WASM_SMOKE_FRAMES ?? 120);
 
 // The stack has no allocator trap and stack_high_water_mark() saturates at
