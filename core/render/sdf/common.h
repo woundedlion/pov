@@ -75,7 +75,7 @@ __attribute__((always_inline)) inline float basis_azimuth(const math::Vector &p,
   return azimuth + phase;
 }
 
-/** Signed-area-to-circumradius-squared ratio below which a Face is culled as
+/** Twice-signed-area (shoelace sum) to circumradius-squared ratio below which a Face is culled as
  *  fully collapsed (no enclosed region). Sits orders of magnitude above the
  *  float noise of an exactly collapsed polygon (~1e-7) and below the thinnest
  *  real sliver a mesh sweep draws (~1e-3), so the sim/device decision is
