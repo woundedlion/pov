@@ -104,7 +104,8 @@ template <size_t Size> struct NormalizedLinearResult {
                                        for 0 < progress < 1 with valid true —
                                        a snapped endpoint is returned as
                                        supplied. */
-  bool valid; /**< False when the interpolant passed through the origin. */
+  bool valid; /**< False when an interior interpolant's norm is at or below
+                  epsilon. */
 };
 
 /**
