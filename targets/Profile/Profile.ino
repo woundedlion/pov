@@ -381,15 +381,15 @@ private:
   };
 
   void drain_pullback_projection() {
-    const hs::PullbackProjectionCycles &frame =
-        hs::g_pullback_projection_cycles;
+    const hs::PullbackProjectionCounts &frame =
+        hs::g_pullback_projection_counts;
     pullback_projection_totals.polyhedral_pixels += frame.polyhedral_pixels;
     pullback_projection_totals.polyhedral_reflections +=
         frame.polyhedral_reflections;
     pullback_projection_totals.polyhedral_max_reflections =
         std::max(pullback_projection_totals.polyhedral_max_reflections,
                  frame.polyhedral_max_reflections);
-    hs::g_pullback_projection_cycles.reset();
+    hs::g_pullback_projection_counts.reset();
   }
 
   void dump_pullback_projection() {
