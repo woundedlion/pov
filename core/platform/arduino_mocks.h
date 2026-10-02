@@ -40,10 +40,10 @@ struct CHSV {
 // --- Mock FastLED Types ---
 /**
  * @brief RGB color structure mimicking FastLED's CRGB.
- * @details Reproduces FastLED's constructors, operators and helpers so host
- *          effects compile and behave identically to the device — the lone
- *          exception is CRGB(const CHSV&), which is not bit-identical (see its
- *          @warning).
+ * @details Implements the selected FastLED constructors, operators and helpers
+ *          used by host effects. Default-initialization zeroes the channels,
+ *          while FastLED leaves them uninitialized. HSV conversion also differs
+ *          from the device (see CRGB(const CHSV&)).
  */
 struct CRGB {
   /** @brief Red, green and blue channels, each in [0, 255]. */
