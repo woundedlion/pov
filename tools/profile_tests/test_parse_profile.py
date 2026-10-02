@@ -1,9 +1,8 @@
 #!/usr/bin/env python3
 """Host tests for the profile log parser (tools/parse_profile.py).
 
-Covers spilled_frames, whose reading the README cadence colours are defined
-against: zero spills is green and any nonzero spill count is red. The count is
-meaningful only when it represents frames.
+Covers capture parsing, preset attribution, spill and render metrics, and
+command-line reporting and validation.
 
 Run:  python -m unittest discover -s tools/profile_tests
 """
@@ -40,7 +39,7 @@ def _window(renders=(), wall_sum=None, frames=None):
     return w
 
 
-class SpilledFrames(unittest.TestCase):
+class PresetAttribution(unittest.TestCase):
     def test_initial_indexed_preset_joins_its_cycle(self):
         for indices, expected in [([2, 1], "1"), ([1, 0], "0")]:
             windows = [_window([1000]) for _ in range(3)]
@@ -53,6 +52,26 @@ class SpilledFrames(unittest.TestCase):
             self.assertEqual(len(rows), 2)
             self.assertEqual(next(row[1] for row in rows if row[0] == expected), 2)
 
+    def test_epoch_reset_clears_streamed_frame_owners(self):
+        import tempfile
+        lines = []
+        for start in (1, 5, 1):
+            if start == 5:
+                lines.append("Preset: 1/2")
+            lines.extend(f"f {frame} w=60000 r=55000"
+                         for frame in range(start, start + 4))
+            lines.append(f"=== profile Fx [288x144] frames {start}-{start + 3} "
+                         "window=250000 us ===")
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "capture.log"
+            path.write_text("\n".join(lines), encoding="utf-8")
+            windows, _ = pp.parse_capture(path)[:2]
+        self.assertTrue(all(row[3] is not None for row in windows[1].frame_rows))
+        self.assertEqual([row[3] for row in windows[2].frame_rows], [None] * 4)
+
+
+
+class SpilledFrames(unittest.TestCase):
     def test_frame_under_one_window_does_not_spill(self):
         self.assertEqual(pp.spilled_frames(_window([W - 1, 1, W // 2])), 0)
 
@@ -116,23 +135,6 @@ class ShortFrameRows(unittest.TestCase):
             path = Path(directory) / "capture.log"
             path.write_text(text, encoding="utf-8")
             return pp.parse_capture(path)[:2]
-
-    def test_epoch_reset_clears_streamed_frame_owners(self):
-        import tempfile
-        lines = []
-        for start in (1, 5, 1):
-            if start == 5:
-                lines.append("Preset: 1/2")
-            lines.extend(f"f {frame} w=60000 r=55000"
-                         for frame in range(start, start + 4))
-            lines.append(f"=== profile Fx [288x144] frames {start}-{start + 3} "
-                         "window=250000 us ===")
-        with tempfile.TemporaryDirectory() as directory:
-            path = Path(directory) / "capture.log"
-            path.write_text("\n".join(lines), encoding="utf-8")
-            windows, _ = pp.parse_capture(path)[:2]
-        self.assertTrue(all(row[3] is not None for row in windows[1].frame_rows))
-        self.assertEqual([row[3] for row in windows[2].frame_rows], [None] * 4)
 
     def test_complete_rows_count_the_spill(self):
         self.assertEqual(pp.spilled_frames(self._parse()[0][0]), 1)
