@@ -474,8 +474,8 @@ inline void test_ripple_decay_attenuates() {
 /**
  * @brief Pins the sync() reject band at its edges, not just well
  *        outside them.
- * @details test_ripple_threshold_reject_path samples points 0.3 rad beyond each
- *          edge, so a band misplaced by up to ~0.3 rad would still pass. Here a
+ * @details test_ripple_threshold_reject_path samples points 0.05 rad beyond each
+ *          edge, so a band misplaced by up to ~0.05 rad would still pass. Here a
  *          point a hair inside each edge takes the slow path (the wavelet tail is
  *          tiny but nonzero, so it moves), while a point a hair outside is
  *          fast-rejected and returned bit-for-bit unchanged. The asymmetry
