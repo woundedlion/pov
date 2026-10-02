@@ -885,10 +885,10 @@ Invariants:
    cycle-counter read and the 64-bit position computation; ~7 of 8 entries
    end there (≈1 % CPU at 600 MHz — the foreground keeps the rest for
    rendering), and only a column change packs pixels and submits DMA
-   (2304 Hz, same as the previous per-column interrupt). No `digitalRead`,
-   no decode logic beyond a single mailbox check; the classify/snap/flip
-   branch is taken ≤ 2/rev. All edge handling lives in the cold sync-wire
-   ISR (≤ 2/rev of boundary edges + the occasional beacon). There is no
+   (2304 Hz, same as the previous per-column interrupt). No `digitalRead` runs
+   here. Classification runs when the mailbox yields a completed burst. Rising-edge
+   recording lives in the sync-wire ISR (4/rev for ordinary boundary symbols,
+   plus additional epoch and beacon pulses). There is no
    busy-waiting anywhere in the protocol — emission alignment comes from the
    oversampled wake grid (§4.1), not from spinning to hit boundary instants.
 2. **Single-writer ownership (replaces the equal-priority invariant).** Every
