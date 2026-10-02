@@ -163,44 +163,6 @@ public:
   }
 #endif
 
-private:
-  friend struct ::hs_test::shapeshifter_oracle_tests::ShapeShifterWhiteBox;
-
-  using Choreography::begin_choreography;
-  using Choreography::mark_global;
-  using Choreography::params;
-  using Choreography::register_param;
-  using Choreography::step_choreography;
-  using Choreography::timeline;
-
-  /** @brief Adopts a snap target; the radial sweep restarts at phase zero. */
-  void adopt_params(const Params &target) {
-    params = target;
-    params.count = std::min(params.count, static_cast<float>(DRAW_LIMIT));
-    phase = 0.0f;
-  }
-
-  /** @brief Receives a fading departure's opacity each frame. */
-  void set_preset_opacity(float value) { preset_opacity = value; }
-
-  static constexpr float ALPHA_MIN = 0.0f;
-  static constexpr float ALPHA_MAX = 1.0f;
-  static constexpr float SIDES_MIN = 3.0f;
-  static constexpr float SIDES_MAX = 16.0f;
-  static constexpr float AMPLITUDE_MIN = 0.1f;
-  static constexpr float AMPLITUDE_MAX = 10.0f;
-  static constexpr float SPEED_MIN = 0.0f;
-  static constexpr float SPEED_MAX = 0.16f;
-  static constexpr int PRESET_FRAMES = 240;
-  /** Every preset departs through black over 16 frames, so the two parameter
-      sets never render on the same frame. */
-  static constexpr Segue::Preset::Fade DEPARTURE{16};
-  static constexpr uint32_t PARAMETER_SCHEMA_VERSION = 1;
-  /** Dwell + departure = the 240-frame preset cadence. */
-  static constexpr uint16_t PRESET_DWELL_FRAMES =
-      PRESET_FRAMES - DEPARTURE.frames;
-
-public:
   /** @brief Shared registration, validation and interpolation descriptions. */
   static constexpr auto parameter_fields() {
     return std::tuple{
@@ -276,6 +238,41 @@ public:
   }
 
 private:
+  friend struct ::hs_test::shapeshifter_oracle_tests::ShapeShifterWhiteBox;
+
+  using Choreography::begin_choreography;
+  using Choreography::mark_global;
+  using Choreography::params;
+  using Choreography::register_param;
+  using Choreography::step_choreography;
+  using Choreography::timeline;
+
+  /** @brief Adopts a snap target; the radial sweep restarts at phase zero. */
+  void adopt_params(const Params &target) {
+    params = target;
+    params.count = std::min(params.count, static_cast<float>(DRAW_LIMIT));
+    phase = 0.0f;
+  }
+
+  /** @brief Receives a fading departure's opacity each frame. */
+  void set_preset_opacity(float value) { preset_opacity = value; }
+
+  static constexpr float ALPHA_MIN = 0.0f;
+  static constexpr float ALPHA_MAX = 1.0f;
+  static constexpr float SIDES_MIN = 3.0f;
+  static constexpr float SIDES_MAX = 16.0f;
+  static constexpr float AMPLITUDE_MIN = 0.1f;
+  static constexpr float AMPLITUDE_MAX = 10.0f;
+  static constexpr float SPEED_MIN = 0.0f;
+  static constexpr float SPEED_MAX = 0.16f;
+  static constexpr int PRESET_FRAMES = 240;
+  /** Every preset departs through black over 16 frames, so the two parameter
+      sets never render on the same frame. */
+  static constexpr Segue::Preset::Fade DEPARTURE{16};
+  static constexpr uint32_t PARAMETER_SCHEMA_VERSION = 1;
+  /** Dwell + departure = the 240-frame preset cadence. */
+  static constexpr uint16_t PRESET_DWELL_FRAMES =
+      PRESET_FRAMES - DEPARTURE.frames;
   static constexpr const char *SHAPE_OPTIONS[] = {
       "Planar Polygon", "Spherical Polygon", "Flower", "Planar Star",
       "Spherical Star"};
