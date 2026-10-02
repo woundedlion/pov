@@ -880,10 +880,10 @@ static_assert([] {
 }());
 
 /**
- * @brief Per (face, edge), the shared identity of that geometric edge.
+ * @brief Per (face, edge), the identity of that unfolded planar edge.
  * @details The identity is `canonical_face * 3 + canonical_edge`, where the
  * canonical half-edge is the lowest-numbered face carrying the same planar
- * segment. Both halves of a seam therefore report the same value, which lets
+ * segment. Both halves of a glued seam therefore report the same value, which lets
  * the shader treat the two sides asymmetrically without knowing which face it
  * landed on.
  */
@@ -908,7 +908,7 @@ inline bool airocean_edge_is_cut(uint8_t face, uint8_t edge) {
  * @brief Shared identity of a face's edge.
  * @param face Face index in [0, 23).
  * @param edge Edge index in [0, 3).
- * @return The identity both halves of that seam report.
+ * @return The identity shared by both halves of a glued seam.
  */
 inline uint8_t airocean_edge_identity(uint8_t face, uint8_t edge) {
   return AIROCEAN_EDGE_IDENTITIES[face][edge];
