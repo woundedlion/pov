@@ -26,8 +26,7 @@ def placements(path):
 
 
 class LockedPlacementTests(unittest.TestCase):
-    """QUILTER_FIXED captures rev 1.1 routed placements and is the starting
-    table for fixed_placements; it must match the rev 1.1 board."""
+    """QUILTER_FIXED records the rev 1.1 routed placements as provenance."""
 
     def test_captured_placements_match_the_routed_board(self):
         routed = placements(ROUTED)
