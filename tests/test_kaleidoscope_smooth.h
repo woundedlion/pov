@@ -4,8 +4,6 @@
  */
 #pragma once
 
-#include <limits>
-
 #include "core/math/interpolate.h"
 #include "effects/KaleidoscopeSmooth.h"
 #include "tests/pixel_test_util.h"
