@@ -83,7 +83,7 @@ public:
   struct ParamSweepSpec {
     ConwayGraph::MorphOp op; /**< Swept operator. */
     float t_start = 0.0f;    /**< Sweep parameter at frame 0; T_EPS floor except
-                                truncate's min(T_EPS, arrival *
+                                truncate's min(T_EPS, larger endpoint *
                                 TRUNCATE_BIRTH_FRAC) birth floor. */
     float t_end = 0.0f;      /**< Arrival parameter; truncate is capped below
                                 ambo for near-side legs, or at
@@ -386,9 +386,9 @@ public:
     bind_sweep_seed(tr, source, arena);
     tr.op = spec.op;
 
-    // Truncate births below T_EPS when the arrival is itself below T_EPS, so a
+    // Truncate births below T_EPS when the larger endpoint is below T_EPS, so a
     // 0.01 target sweeps from a smaller positive birth instead of clamping both
-    // endpoints to T_EPS (a still image). Every arrival >= 0.1 keeps the T_EPS
+    // endpoints to T_EPS (a still image). Every larger endpoint >= 0.1 keeps the T_EPS
     // birth unchanged.
     const bool truncate = spec.op == ConwayGraph::MorphOp::TRUNCATE;
     // A far-side truncate leg reaches past the ambo pinch at either endpoint
