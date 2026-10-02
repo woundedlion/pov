@@ -927,7 +927,10 @@ inline void test_build_chain_provenance_ambiguity() {
         start = MeshOps::chamfer(seed, a, b, ConwayGraph::T_EPS);
         break;
       case Op::TRUNCATE:
-        start = MeshOps::truncate(seed, a, b, ConwayGraph::T_EPS);
+        start = MeshOps::truncate(
+            seed, a, b,
+            std::min(ConwayGraph::T_EPS,
+                     step.param * ConwayGraph::TRUNCATE_BIRTH_FRAC));
         break;
       case Op::SNUB:
         start = MeshOps::snub(seed, a, b, ConwayGraph::T_EPS, step.twist);
