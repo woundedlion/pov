@@ -361,7 +361,7 @@ hs_device_status() {
 TREE_LOCK=""
 TREE_TOKEN=""
 acquire_tree_lock() {
-  local now info old_token attempt
+  local now info old_token attempt result
   _hs_resolve_python || return 2
   TREE_LOCK="$TREE/.profile-lock"
   now=$(_hs_now)
@@ -371,6 +371,12 @@ acquire_tree_lock() {
   for attempt in 1 2; do
     if printf '%s\n' "$info" | "$_HS_LOCK_PYTHON" "$_HS_LOCK_HELPER" claim "$TREE_LOCK"; then
       return 0
+    else
+      result=$?
+      if [ "$result" -ne 1 ]; then
+        echo "build checkout lock guard could not run (exit $result): $TREE_LOCK" >&2
+        return 2
+      fi
     fi
     old_token=$(_hs_lock_field "$TREE_LOCK" token)
     if [ "$attempt" -eq 1 ] && _hs_lock_is_stale "$TREE_LOCK"; then

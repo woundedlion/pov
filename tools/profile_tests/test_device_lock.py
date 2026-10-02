@@ -554,6 +554,12 @@ class MissingLockRoot(unittest.TestCase):
         self.assertNotIn("ALL DEVICES BUSY", r.stderr)
         self.assertIn("lock root", r.stderr)
 
+    def test_tree_acquire_reports_guard_failure(self):
+        result = run_lock(f'TREE="{self.root / "absent"}"; acquire_tree_lock', self.base)
+        self.assertEqual(result.returncode, 2)
+        self.assertIn("lock guard could not run", result.stderr)
+        self.assertNotIn("already claimed", result.stderr)
+
     def test_an_existing_root_still_acquires(self):
         self.base.parent.mkdir(parents=True)
         r = run_lock('hs_device_acquire E profile 60 && echo "PORT=$HS_TEENSY_PORT"',
