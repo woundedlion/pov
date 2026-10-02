@@ -13,8 +13,8 @@
 #pragma once
 
 #include <cstdio>
-#include <cstring>
-#include <iterator>
+#include <limits>
+#include <vector>
 #include <memory>
 #include <string_view>
 #include "core/render/canvas.h"
