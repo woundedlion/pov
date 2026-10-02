@@ -2058,7 +2058,7 @@ inline void test_cartesian_quadrant_gate_classification() {
  * @brief Checks Cartesian rejections against per-edge bounds and dense arc taps.
  * @details Random tiny, ordinary, large, polar, seam, and antipodal edges are
  *          swept over all four hardware quadrants. A Cartesian rejection must
- *          contain no bilinear tap in the clip, including unbounded-pole cases.
+ *          contain no bilinear tap in the render region, including unbounded-pole cases.
  */
 inline void test_cartesian_quadrant_gate_is_conservative() {
   constexpr int W = 288, H = 144;
@@ -2135,8 +2135,7 @@ inline void test_cartesian_quadrant_gate_is_conservative() {
             for (int dy = 0; dy <= 1; ++dy)
               for (int dx = 0; dx <= 1; ++dx) {
                 const int wx = (x + dx + W) % W;
-                HS_EXPECT_FALSE(y + dy >= cr.y_start && y + dy < cr.y_end &&
-                                wx >= cr.x_start && wx < cr.x_end);
+                HS_EXPECT_FALSE(cr.contains_y(y + dy) && cr.contains_x(wx));
               }
           }
         }
