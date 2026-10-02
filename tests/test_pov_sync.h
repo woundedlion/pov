@@ -1881,9 +1881,7 @@ struct SimBoard {
   double tick_step = 0; /**< Wake period in global cycles. */
   /** Flywheel phase this board was seeded at, columns ahead of the master. */
   int32_t birth_cols = 0;
-  /** Masked-IRQ model: while g < mask_until, wakes coalesce and edges latch
-      into a single delayed delivery (one latched flag per pin). */
-  uint64_t mask_until = 0;
+  /** Masked edges latch into one delayed delivery per pin. */
   bool edge_latched = false;
   std::vector<std::pair<uint64_t, uint64_t>> masks; /**< [from, to) global. */
   uint64_t drop_from = 0, drop_to = 0;              /**< Symbol drop window. */
@@ -2023,9 +2021,8 @@ public:
       return; // master's edge ISR is not attached
     if (at >= b.drop_from && at < b.drop_to)
       return;
-    if (const uint64_t end = masked_until(b, at)) {
+    if (masked_until(b, at)) {
       b.edge_latched = true; // single latched flag: merged, delayed
-      b.mask_until = end;
       return;
     }
     b.board.on_sync_edge(local_now(b, at));
