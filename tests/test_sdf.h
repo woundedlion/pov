@@ -179,6 +179,7 @@ inline void test_centered_sector_angle_matches_wrap() {
 // Ring
 // ============================================================================
 
+/** @brief Ring distances remain finite at the exact center. */
 inline void test_ring_roundoff_at_exact_center() {
   auto basis = equator_basis();
   basis.v = math::Vector(0.0f, std::nextafter(1.0f, 2.0f), 0.0f);
@@ -728,6 +729,7 @@ inline void test_spherical_polygon_sine_distance_aa_error() {
   HS_EXPECT_LE(max_error, 1.5e-4f);
 }
 
+/** @brief Sine-domain polygon distance retains the full interior. */
 inline void test_spherical_polygon_sine_full_interior() {
   constexpr int W = 288;
   constexpr int H = 144;
@@ -1012,6 +1014,7 @@ inline void test_line_perpendicular_off() {
   HS_EXPECT_TRUE(r.dist > 0.0f);
 }
 
+/** @brief Line distances remain stable just above the cross-product threshold. */
 inline void test_line_just_above_cross_threshold() {
   const auto a = math::Vector(0.3f, -0.5f, 0.8f).normalized();
   const auto tangent = math::cross(a, math::Y_AXIS).normalized();
