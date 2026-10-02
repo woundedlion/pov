@@ -45,15 +45,16 @@ struct ParameterResource {
   static constexpr auto KEY = Key;
   static constexpr ResourceKind KIND = KindV;
   using Family = FamilyT;
+  static constexpr std::string_view INSTANCE_ORDER[] = {
+      "source",  "projection", "outer_warp", "inner_warp",
+      "surface", "lens",       "value",      "color"};
   static constexpr size_t ORDER = [] {
-    constexpr std::string_view INSTANCE_ORDER[] = {
-        "source",  "projection", "outer_warp", "inner_warp",
-        "surface", "lens",       "value",      "color"};
     for (size_t i = 0; i < std::size(INSTANCE_ORDER); ++i)
       if (Key.view() == INSTANCE_ORDER[i])
         return i;
     return std::size(INSTANCE_ORDER);
   }();
+  static constexpr bool STANDARD = ORDER < std::size(INSTANCE_ORDER);
 };
 
 namespace ComposedDetail {

@@ -918,7 +918,7 @@ template <typename Spec, typename Resource>
 consteval size_t resource_parameter_count() {
   using Family = typename Resource::Family;
   if constexpr (Resource::KIND == ResourceKind::LENS)
-    return 8;
+    return std::size(MOBIUS_PARAM_NAMES);
   else {
     size_t count = Resource::KIND == ResourceKind::WARP ||
                            Resource::KIND == ResourceKind::COLOR
@@ -954,11 +954,14 @@ consteval size_t family_instances(ResourceList<Resources...>) {
   return (size_t(std::is_same_v<Family, typename Resources::Family>) + ... + 0);
 }
 
+template <typename Resource, typename List> consteval bool qualified() {
+  return !Resource::STANDARD ||
+         family_instances<typename Resource::Family>(List{}) > 1;
+}
+
 template <typename Spec, typename Resource, typename List>
 consteval size_t resource_name_bytes() {
-  constexpr bool QUALIFY =
-      Resource::ORDER >= 8 ||
-      family_instances<typename Resource::Family>(List{}) > 1;
+  constexpr bool QUALIFY = qualified<Resource, List>();
   if constexpr (!QUALIFY || Resource::KIND == ResourceKind::COLOR)
     return 0;
   else {
@@ -1126,10 +1129,8 @@ public:
                                      ? Derived::SOURCE_NOISE_SEED
                                      : Derived::SURFACE_NOISE_SEED;
         constexpr int32_t INSTANCE_SEED = [] {
-          if constexpr (Resource::ORDER >= 8 ||
-                        ComposedDetail::family_instances<
-                            typename Resource::Family>(
-                            typename Params::ResourceTypes{}) > 1) {
+          if constexpr (ComposedDetail::qualified<
+                            Resource, typename Params::ResourceTypes>()) {
             uint32_t hash = 2166136261u;
             for (const char c : Resource::KEY.view())
               hash = (hash ^ static_cast<uint8_t>(c)) * 16777619u;
@@ -1263,9 +1264,7 @@ protected:
   template <typename Resource>
   HS_COLD_MEMBER const char *resource_parameter_name(const char *name) {
     constexpr bool QUALIFY =
-        Resource::ORDER >= 8 ||
-        ComposedDetail::family_instances<typename Resource::Family>(
-            typename Params::ResourceTypes{}) > 1;
+        ComposedDetail::qualified<Resource, typename Params::ResourceTypes>();
     if constexpr (!QUALIFY)
       return name;
     else {
