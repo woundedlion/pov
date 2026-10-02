@@ -405,13 +405,19 @@ class BoardSelection(unittest.TestCase):
         # HS_TEENSY_PORT names the board under test; falling back to a free
         # peer board would profile the wrong hardware silently.
         self.hold("COM3")
-        tools = self.base.parent / "empty-tools"
+        tools = self.base.parent / "stub-tools"
         tools.mkdir()
+        enumerator = tools / "teensy_ports.exe"
+        enumerator.write_text(
+            "#!/bin/bash\nprintf '%s\\n' 'usb-a COM3 (Teensy 4.0)' 'usb-b COM4 (Teensy 4.0)'\n",
+            encoding="utf-8", newline="\n")
+        enumerator.chmod(0o755)
         r = run_lock("hs_device_acquire E profile 60", self.base, ports=None,
                      env={"HS_TEENSY_PORT": "COM3", "HS_TEENSY_TOOLS": str(tools)})
         self.assertEqual(r.returncode, 1)
 
         self.assertIn("ALL DEVICES BUSY", r.stderr)
+        self.assertFalse(self.lock_dir("COM4").exists())
 
     def test_claim_whose_info_never_landed_is_not_handed_out(self):
         # An unreadable claim is one hs_device_release can never match, so the
