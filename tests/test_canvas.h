@@ -1409,7 +1409,11 @@ inline void test_typed_enum_storage_widths() {
 
   for (const char *name : {"I8", "U8", "I16", "U16", "U32"}) {
     HS_EXPECT_EQ(fx.updateParameter(name, 2.0f), ParamSetResult::APPLIED);
-    HS_EXPECT_EQ(fx.getParameters().find(name)->get(), 2.0f);
+    const auto *PARAMETER = fx.getParameters().find(name);
+    HS_EXPECT_TRUE(PARAMETER);
+    if (!PARAMETER)
+      return;
+    HS_EXPECT_EQ(PARAMETER->get(), 2.0f);
   }
   HS_EXPECT_EQ(i8, TestModeI8::SPARKLE);
   HS_EXPECT_EQ(u8, TestModeU8::SPARKLE);
@@ -1455,14 +1459,36 @@ inline void test_typed_parameter_specs() {
   HS_EXPECT_EQ(fx.getParameterSchemaGeneration(), generation + 7);
   const auto &parameters = fx.getParameters();
   HS_EXPECT_EQ(parameters.size(), size_t(7));
-  HS_EXPECT_TRUE(parameters.find("Count")->readonly);
-  HS_EXPECT_TRUE(parameters.find("Count")->animated);
-  HS_EXPECT_FALSE(parameters.find("Count")->preset);
-  HS_EXPECT_TRUE(parameters.find("Mode")->export_options == EXPORT_MODES);
-  HS_EXPECT_TRUE(parameters.find("Mode8")->options == MODES);
-  HS_EXPECT_FALSE(parameters.find("Mode8")->animated);
-  HS_EXPECT_FALSE(parameters.find("Enabled")->preset);
-  HS_EXPECT_EQ(parameters.find("LargeCount")->max, 4294967040.0f);
+  if (parameters.size() != 7)
+    return;
+  const auto *COUNT_PARAM = parameters.find("Count");
+  HS_EXPECT_TRUE(COUNT_PARAM);
+  if (!COUNT_PARAM)
+    return;
+  const auto *MODE_PARAM = parameters.find("Mode");
+  HS_EXPECT_TRUE(MODE_PARAM);
+  if (!MODE_PARAM)
+    return;
+  const auto *MODE8_PARAM = parameters.find("Mode8");
+  HS_EXPECT_TRUE(MODE8_PARAM);
+  if (!MODE8_PARAM)
+    return;
+  const auto *ENABLED_PARAM = parameters.find("Enabled");
+  HS_EXPECT_TRUE(ENABLED_PARAM);
+  if (!ENABLED_PARAM)
+    return;
+  const auto *LARGE_COUNT_PARAM = parameters.find("LargeCount");
+  HS_EXPECT_TRUE(LARGE_COUNT_PARAM);
+  if (!LARGE_COUNT_PARAM)
+    return;
+  HS_EXPECT_TRUE(COUNT_PARAM->readonly);
+  HS_EXPECT_TRUE(COUNT_PARAM->animated);
+  HS_EXPECT_FALSE(COUNT_PARAM->preset);
+  HS_EXPECT_TRUE(MODE_PARAM->export_options == EXPORT_MODES);
+  HS_EXPECT_TRUE(MODE8_PARAM->options == MODES);
+  HS_EXPECT_FALSE(MODE8_PARAM->animated);
+  HS_EXPECT_FALSE(ENABLED_PARAM->preset);
+  HS_EXPECT_EQ(LARGE_COUNT_PARAM->max, 4294967040.0f);
   HS_EXPECT_EQ(fx.updateParameter("Count", 9.0f), ParamSetResult::READONLY);
   HS_EXPECT_EQ(fx.updateParameter("Mode", 2.0f), ParamSetResult::READONLY);
   HS_EXPECT_EQ(fx.updateParameter("Telemetry", 0.0f), ParamSetResult::READONLY);
