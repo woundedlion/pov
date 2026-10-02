@@ -84,7 +84,7 @@ inline void test_lerp16_rounds_to_nearest() {
 /**
  * @brief Verifies every interpolated channel lies within the endpoint envelope.
  * @details Each channel must lie within the [min,max] envelope of the two
- *          endpoints (allowing +/- 1 LSB of rounding slack).
+ *          endpoints, with one LSB of rounding slack below the minimum.
  */
 inline void test_lerp16_bounded() {
   Pixel a(123, 45678, 60000);
