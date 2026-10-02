@@ -1,6 +1,6 @@
 # MeshFeedback on-device profile — Teensy 4.0, segmented mode (2026-09-29, **selective -O3**)
 
-Point-in-time snapshot (regenerate with `just profile MeshFeedback`).
+Point-in-time snapshot (regenerate with the Reproduce command below).
 Raw capture: `build/prof/meshfeedback_ship.log`, captured 2026-09-29 10:03 on COM4.
 Replaces the 2026-09-28 23:43 report, which predated the polar-row ITCM trims `05d6cfeb6` and `58f966be9`.
 

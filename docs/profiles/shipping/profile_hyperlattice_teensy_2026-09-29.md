@@ -1,6 +1,6 @@
 # HyperLattice on-device profile — Teensy 4.0, segmented mode (2026-09-29, **selective -O3**)
 
-Point-in-time snapshot (regenerate with `just profile HyperLattice`).
+Point-in-time snapshot (regenerate with the Reproduce command below).
 Raw capture: `build/prof/hyperlattice_ship.log` (standard cycle) and
 `build/prof/hyperlattice_experimental_ship.log` (opt-in experimental cycle).
 Replaces `profile_hyperlattice_teensy_2026-09-28.md`. Every per-change capture
@@ -185,5 +185,4 @@ during the campaign; each row measures the parameters current at its time.
 
 `targets/Profile/Profile.ino` knobs: `HS_PROFILE_TARGET=HyperLattice`,
 `HS_PROFILE_WINDOW=16`, `HS_PROFILE_EPOCH_REVS`, `HS_PROFILE_PRESET`, and
-`HS_ENABLE_HYPERLATTICE_EXPERIMENTS=1` for the experimental cycle. One-liner:
-`just profile HyperLattice 120`.
+`HS_ENABLE_HYPERLATTICE_EXPERIMENTS=1` for the experimental cycle. Use the Reproduce command above with its window and epoch settings..

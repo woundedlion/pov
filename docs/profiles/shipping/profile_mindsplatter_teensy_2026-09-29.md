@@ -1,6 +1,6 @@
 # MindSplatter on-device profile — Teensy 4.0, segmented mode (2026-09-29, **selective -O3**)
 
-Point-in-time snapshot (regenerate with `just profile MindSplatter`).
+Point-in-time snapshot (regenerate with the Reproduce command below).
 Raw capture: `build/prof/mindsplatter_ship.log`, captured 2026-09-29 14:48 on COM3.
 Replaces `profile_mindsplatter_teensy_2026-09-28.md`.
 

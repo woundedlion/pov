@@ -1,6 +1,6 @@
 # AlienBrain on-device profile — Teensy 4.0, segmented mode (2026-09-28, **selective -O3**)
 
-Point-in-time snapshot (regenerate with `just profile AlienBrain`).
+Point-in-time snapshot (regenerate with the Reproduce command below).
 Raw capture: `build/prof/alienbrain_ship.log`, captured 2026-09-28 18:30 on COM4.
 Replaces `profile_alienbrain_teensy_2026-08-26.md`.
 

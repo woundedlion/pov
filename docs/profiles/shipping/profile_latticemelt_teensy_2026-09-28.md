@@ -1,6 +1,6 @@
 # LatticeMelt on-device profile — Teensy 4.0, segmented mode (2026-09-28, **selective -O3**)
 
-Point-in-time snapshot (regenerate with `just profile LatticeMelt`).
+Point-in-time snapshot (regenerate with the Reproduce command below).
 Raw capture: `build/prof/latticemelt_ship.log`, captured 2026-09-28 18:45 on COM4.
 Replaces `profile_latticemelt_teensy_2026-08-26.md`.
 

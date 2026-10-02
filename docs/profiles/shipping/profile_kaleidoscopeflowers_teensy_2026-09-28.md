@@ -1,6 +1,6 @@
 # KaleidoscopeFlowers on-device profile — Teensy 4.0, segmented mode (2026-09-28, **selective -O3**)
 
-Point-in-time snapshot (regenerate with `just profile KaleidoscopeFlowers`).
+Point-in-time snapshot (regenerate with the Reproduce command below).
 Raw capture: `build/prof/kaleidoscopeflowers_ship.log`, captured 2026-09-28 19:07 on COM4.
 Replaces `profile_kaleidoscopeflowers_teensy_2026-08-26.md`.
 

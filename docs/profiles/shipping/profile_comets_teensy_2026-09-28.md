@@ -1,6 +1,6 @@
 # Comets on-device profile — Teensy 4.0, segmented mode (2026-09-28, **selective -O3**)
 
-Point-in-time snapshot (regenerate with `just profile Comets`).
+Point-in-time snapshot (regenerate with the Reproduce command below).
 Raw capture: `build/prof/comets_ship.log`, captured 2026-09-28 18:28 on COM3.
 Replaces `profile_comets_teensy_2026-08-26.md`.
 
