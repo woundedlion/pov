@@ -514,8 +514,8 @@ inline void test_generative_palette_snapshot_lerp() {
  * @brief Pins the key-morph hue path against a chain that accumulates past half
  *        a turn.
  * @details Three keys whose adjacent hue deltas each stay under half a turn
- * clear morph_compatible, yet the second key's travel relative to the anchor
- * sums to 1.6 turns of a half — folding that whole difference into (-pi, pi]
+ * clear morph_compatible, yet the third key's travel relative to the anchor
+ * sums to 1.6 half-turns — folding that whole difference into (-pi, pi]
  * would sweep the key backwards through the arc the per-segment bound admits.
  */
 inline void test_generative_palette_lerp_accumulates_segment_deltas() {
