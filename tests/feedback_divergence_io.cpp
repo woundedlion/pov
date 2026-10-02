@@ -3,7 +3,11 @@
  * Licensed under the PolyForm Noncommercial License 1.0.0
  */
 #define _CRT_SECURE_NO_WARNINGS
-#include "tests/test_filter.h"
+// These headers must precede the fwrite/fclose interposition macros.
+#include "tests/test_fixture.h"
+#include "core/render/filter.h"
+#include "core/render/filter/pixel_feedback.h"
+#include <limits>
 
 #include <cstdio>
 #include <cstdlib>
