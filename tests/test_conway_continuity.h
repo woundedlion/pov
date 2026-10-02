@@ -1506,7 +1506,7 @@ inline void test_palette_slots_stable_within_cycle() {
 // at a star palette already on screen when the slot had no predecessor) and
 // glides to its target in bounded per-frame steps via the strap-face LUT;
 // star faces resolve to the assignment's exact bank entry at every frame,
-// keeping the bookend star colors bitwise exact even on slots the mod-5 wrap
+// keeping the bookend star colors bitwise exact even on slots the mod-PALETTES wrap
 // shares between a star and a rosette class.
 // ---------------------------------------------------------------------------
 
