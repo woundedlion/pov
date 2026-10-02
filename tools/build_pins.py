@@ -648,9 +648,12 @@ def check_install_eol(paths: list[str]) -> list[str]:
         return ["CMakeLists.txt: no DAYDREAM_DIR install sources found"]
     # Bytes, not text=True: the text wrapper rewrites the input's newlines to
     # CRLF on Windows and git reads the CR as part of the path.
-    query = subprocess.run(
-        ["git", "-C", str(ROOT), "check-attr", "--stdin", "eol", "binary"],
-        input="\n".join(paths).encode(), capture_output=True)
+    try:
+        query = subprocess.run(
+            ["git", "-C", str(ROOT), "check-attr", "--stdin", "eol", "binary"],
+            input="\n".join(paths).encode(), capture_output=True, timeout=30)
+    except (OSError, subprocess.SubprocessError) as error:
+        return [f"git check-attr failed: {error}"]
     if query.returncode != 0:
         return [f"git check-attr failed: {query.stderr.decode().strip()}"]
     attributes: dict[str, dict[str, str]] = {}
@@ -721,7 +724,7 @@ def check_tool(name: str) -> int:
     want = form(pin).split(".")
     try:
         reported = subprocess.run(
-            command, capture_output=True, text=True, check=True
+            command, capture_output=True, text=True, check=True, timeout=30
         ).stdout
     except (OSError, subprocess.SubprocessError):
         reported = ""
