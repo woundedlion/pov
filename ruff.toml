@@ -1,4 +1,4 @@
-# Lint config for the repo's Python tooling (scripts/, tools/, hardware/),
+# Lint config for every Python file in the repo,
 # enforced by the `lint` job in .github/workflows/ci.yml.
 #
 # Defect rules only: pyflakes, the pycodestyle error classes and the pylint
