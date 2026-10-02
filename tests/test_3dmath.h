@@ -1792,8 +1792,7 @@ constexpr float PLANE_ROTATION_TOLERANCE = 1e-6f;
 
 /**
  * @brief Slack allowed after all six planes have been composed.
- * @details Each factor contributes its own rounding, so the bound is the
- * single-rotation slack times the plane count; the measured bound is 4.0e-7.
+ * @details The measured maximum drift is 4.0e-7.
  */
 constexpr float COMPOSED_ROTATION_TOLERANCE = 4e-6f;
 
