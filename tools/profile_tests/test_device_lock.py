@@ -27,6 +27,24 @@ GRACE = 120  # HS_DEVICE_STALE_GRACE default
 
 
 class LockGuardUsageTests(unittest.TestCase):
+    def test_unicode_claim_roundtrips_and_releases(self):
+        with tempfile.TemporaryDirectory() as directory:
+            claim = Path(directory) / "claim"
+            token = "claim-雪"
+            environment = {**os.environ, "PYTHONIOENCODING": "utf-8"}
+            result = subprocess.run(
+                [sys.executable, str(LOCK_GUARD), "claim", str(claim)],
+                input=f"token={token}\nsession=雪\n", text=True, encoding="utf-8",
+                capture_output=True, env=environment, timeout=5)
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertEqual((claim / "info").read_text(encoding="utf-8"),
+                             f"token={token}\nsession=雪\n")
+            result = subprocess.run(
+                [sys.executable, str(LOCK_GUARD), "break", str(claim), token],
+                capture_output=True, text=True, env=environment, timeout=5)
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertFalse(claim.exists())
+
     def test_invalid_arguments_report_usage(self):
         for args in ([], ["claim"], ["break", "directory"],
                      ["unknown", "directory", "token"], ["claim", "directory", "extra"]):
