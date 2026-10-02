@@ -1567,11 +1567,11 @@ struct DerivationReach {
 };
 
 constexpr DerivationReach DERIVATION_REACH[] = {
+    // ProjectionKind has no spelling for these four.
     {"project.peirce.v3", nullptr, {}},
     {"project.peirce-square-fast.v3", nullptr, {}},
     {"project.bonne.v3", nullptr, {}},
     {"project.airocean.v3", nullptr, {}},
-    // ProjectionKind has no spelling for these four.
     // SourcePolicyFor has no policy for these plane samplers.
     {"sample.rings.v2", nullptr, {}},
     {"sample.spherical-rings.v3", nullptr, {}},
@@ -1664,15 +1664,7 @@ inline size_t reach_rows(const char *operator_id, const char *topology_id) {
   return rows;
 }
 
-/**
- * @brief Pins the catalog vocabulary no ComposedEffect specialization emits.
- * @details The chain interpreter's OPERATOR_TABLE is the workbench's whole
- * catalog; the derivation layer builds a strictly narrower pipeline out of an
- * effect's families and Spec. DERIVATION_REACH records that difference and is
- * resolved against the live table here, so a renamed or removed operator,
- * topology enum8 or value reds. The four totals red whenever the catalog gains
- * an operator or a value the table has not classified.
- */
+/** @brief Reports whether derivation emits an operator topology value. */
 inline bool derivation_value_reachable(std::string_view operator_id,
                                        std::string_view field_id,
                                        std::string_view value) {
@@ -1687,6 +1679,15 @@ inline bool derivation_value_reachable(std::string_view operator_id,
   return false;
 }
 
+/**
+ * @brief Pins the catalog vocabulary no ComposedEffect specialization emits.
+ * @details The chain interpreter's OPERATOR_TABLE is the workbench's whole
+ * catalog; the derivation layer builds a strictly narrower pipeline out of an
+ * effect's families and Spec. DERIVATION_REACH records that difference and is
+ * resolved against the live table here, so a renamed or removed operator,
+ * topology enum8 or value reds. The four totals red whenever the catalog gains
+ * an operator or a value the table has not classified.
+ */
 inline void test_composed_derivation_reach() {
   static_assert(AshCloudSpec::FIELD_COVERAGE ==
                 Pullback::FieldCoverageKind::VALUE_CUTOUT);
