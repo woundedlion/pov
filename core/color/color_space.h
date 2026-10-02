@@ -390,7 +390,7 @@ inline constexpr int GAMUT_BRACKET_STEPS = 3;
 inline constexpr int GAMUT_FALLBACK_BRACKET_STEPS = 5;
 
 /**
- * @brief Largest in-gamut scale of (a, b) inside a bracketed scale range.
+ * @brief Refines a sampled gamut crossing inside a bracketed scale range.
  * @param L Lightness held fixed along the ray.
  * @param a OKLab a of the input, unnormalized; the ray is u * (a, b).
  * @param b OKLab b of the input, unnormalized.
@@ -405,7 +405,8 @@ inline constexpr int GAMUT_FALLBACK_BRACKET_STEPS = 5;
  * the gate reports. `lo` is probed before it is trusted: a cell minimum that
  * over-reads its region drops the search back to zero chroma rather than
  * returning a color outside the cube. The matrices are shared with
- * oklab_to_lms_cbrt() and lms_cbrt_to_linear_rgb().
+ * oklab_to_lms_cbrt() and lms_cbrt_to_linear_rgb(). The scan can miss an
+ * out-of-gamut interval between its four probes.
  */
 HS_O3_FN __attribute__((noinline)) inline float
 gamut_bracket_refine(float L, float a, float b, float lo, float hi) {
@@ -461,8 +462,7 @@ gamut_bracket_refine(float L, float a, float b, float lo, float hi) {
         break;
       x = y;
     }
-    // The whole bracket held: the crossing is at or above hi, and hi is capped
-    // at the cell maximum, which bounds it from above.
+    // All scan probes stayed in gamut.
     if (i == GAMUT_SCAN_STEPS)
       return hi;
   } else {
@@ -483,11 +483,11 @@ gamut_bracket_refine(float L, float a, float b, float lo, float hi) {
 }
 
 /**
- * @brief Returns the first sRGB gamut-boundary chroma along a hue direction.
+ * @brief Estimates sRGB gamut-boundary chroma along a hue direction.
  * @param L OKLab lightness, clamped to [0,1].
  * @param a Unit OKLab a coordinate of the hue direction.
  * @param b Unit OKLab b coordinate of the hue direction.
- * @return The first-exit chroma minus the shared numerical margin.
+ * @return The refined sampled crossing minus the shared numerical margin.
  */
 HS_O3_FN __attribute__((noinline)) inline float
 gamut_max_chroma(float L, float a, float b) {
@@ -507,10 +507,10 @@ gamut_max_chroma(float L, float a, float b) {
 }
 
 /**
- * @brief Returns the first sRGB gamut-boundary chroma at an OKLCH coordinate.
+ * @brief Estimates sRGB gamut-boundary chroma at an OKLCH coordinate.
  * @param L OKLab lightness, clamped to [0,1].
  * @param h Hue in radians.
- * @return The first-exit chroma minus the shared numerical margin.
+ * @return The refined sampled crossing minus the shared numerical margin.
  */
 HS_O3_FN __attribute__((noinline)) inline float gamut_max_chroma(float L,
                                                                  float h) {
@@ -524,7 +524,7 @@ HS_O3_FN __attribute__((noinline)) inline float gamut_max_chroma(float L,
  * @param a OKLab a coordinate of the hue direction.
  * @param b OKLab b coordinate of the hue direction.
  * @return A conservative chroma boundary that varies continuously in L and hue.
- * @details Exact clipping uses gamut_max_chroma(); relative-chroma palette
+ * @details Bracket-refined clipping uses gamut_max_chroma(); relative-chroma palette
  * generation uses the hue-smoothed wrapper below. The direction is only binned,
  * so it need not be exactly unit length.
  */
@@ -611,7 +611,7 @@ HS_FLASH_MEMBER inline float gamut_continuous_chroma(float L, float h) {
 }
 
 /**
- * @brief Reduces OKLab chroma to the first sRGB gamut boundary.
+ * @brief Reduces OKLab chroma using a refined sampled gamut boundary.
  * @param lab Source color; lightness is clamped to [0,1].
  * @return The source color or its fixed-lightness, fixed-hue projection.
  */
