@@ -365,8 +365,22 @@ inline void lint_animated_pause(Effect &effect, const char *name) {
     HS_EXPECT_EQ(effect.updateParameter(names[index], target[index]),
                  ParamSetResult::APPLIED);
     HS_EXPECT_TRUE(effect.animations_paused());
+    const auto *written_def = effect.getParameters().find(names[index]);
+    const float WRITTEN = written_def->get_requested();
+    const float EPS =
+        written_def->is_bool()
+            ? 0.0f
+            : fmaxf(1e-3f, 1e-3f * (written_def->max - written_def->min));
     effect.draw_frame();
     effect.advance_display();
+    const auto *after_write = effect.getParameters().find(names[index]);
+    const bool PERSISTED = fabsf(after_write->get_requested() - WRITTEN) <= EPS;
+    if (!PERSISTED)
+      std::printf(
+          "  PAUSED WRITE LOST %s::%s wrote %.4f, engine reverted to %.4f\n",
+          name, names[index], static_cast<double>(WRITTEN),
+          static_cast<double>(after_write->get_requested()));
+    HS_EXPECT(PERSISTED, "paused animated parameter writes must persist");
     const float held = effect.getParameters().find(names[index])->get();
     for (int frame = 0; frame < frames_per_param; ++frame) {
       effect.draw_frame();
