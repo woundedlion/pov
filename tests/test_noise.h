@@ -16,7 +16,7 @@
  *
  * Capture: cmake --build --preset tests --target noise_golden_gen, then run
  * build/tests/tests/noise_golden_gen to print candidate grid arrays.
- * Provenance: each array was captured against the vendored FastNoiseLite
+ * Provenance: the OpenSimplex2 arrays were captured against vendored FastNoiseLite
  * (upstream VERSION 1.1.1 plus the in-tree patches core/vendor/
  * FastNoiseLite_config.h records), built by the native clang test toolchain
  * (cmake/toolchain-native-clang.cmake). A vendor update requires independent
@@ -241,6 +241,8 @@ inline void test_noise2d_golden_grid() {
  *          with the displacement cap inactive, not just its on-sphere
  *          invariant: a regression that still produced a unit vector but a
  *          different one would slip past the existing test_transformers checks.
+ *          Re-derive the three outputs with noise_golden_gen under the native
+ *          Clang tests preset (cmake/toolchain-native-clang.cmake).
  */
 inline void test_noise_transform_golden() {
   Animation::NoiseParams p;

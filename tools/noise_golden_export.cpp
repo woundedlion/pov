@@ -3,6 +3,7 @@
  * Licensed under the PolyForm Noncommercial License 1.0.0
  */
 #include "core/vendor/FastNoiseLite.h"
+#include "core/animation/transformer.h"
 #include <cstdio>
 
 int main() {
@@ -24,6 +25,21 @@ int main() {
       std::printf("    %.9ef,\n",
                   noise.GetNoise(i * 0.75f - 3.0f, j * 0.75f - 3.0f));
   std::puts("};");
+  Animation::NoiseParams params;
+  params.amplitude = .5f;
+  params.scale = 4.f;
+  params.time = 1.f;
+  params.speed = 1.f;
+  params.frequency = .125f;
+  params.sync();
+  std::puts(
+      "// noise_transform: +X, +Y, +Z with amplitude=.5, scale=4, time=1, speed=1, frequency=.125");
+  for (const math::Vector &input :
+       {math::Vector(1, 0, 0), math::Vector(0, 1, 0), math::Vector(0, 0, 1)}) {
+    const auto OUTPUT = noise_transform(input, params);
+    std::printf("math::Vector(%.9ff, %.9ff, %.9ff),\n", OUTPUT.x, OUTPUT.y,
+                OUTPUT.z);
+  }
   if (std::fflush(stdout) != 0 || std::ferror(stdout)) {
     std::perror("noise_golden_gen: stdout");
     return 1;
