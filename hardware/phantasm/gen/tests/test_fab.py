@@ -902,6 +902,17 @@ class CommandLineTests(unittest.TestCase):
     def test_accepts_no_arguments(self):
         self.assertEqual(vars(fab.parse_args([])), {"verify": False, "revision": "1.1"})
 
+    def test_explicit_revision_1_1_preserves_the_export_target(self):
+        self.assertEqual(fab.parse_args(["--revision", "1.1"]).revision, "1.1")
+
+    def test_other_revisions_are_rejected_by_the_parser(self):
+        for revision in ("1.2", "1.3"):
+            with self.subTest(revision=revision):
+                code, text = self.parse(["--revision", revision])
+                self.assertEqual(code, 2)
+                self.assertIn("revision-specific BOM are not validated", text)
+                self.assertIn("rev 1.1 only", text)
+
     def test_verify_selects_the_digest_check(self):
         self.assertTrue(fab.parse_args(["--verify"]).verify)
 
