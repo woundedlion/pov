@@ -235,7 +235,7 @@ inline void test_melt_warp_drifts_toward_north() {
   s.noise = nullptr;
   math::Vector v(1.0f, 0.0f, 0.0f); // on the equator (y = 0)
   math::Vector out = Feedback::melt_warp(v, s);
-  // speed=1 slerps 0.04 of the 90 deg arc toward the pole: y rises ~0.0637, x
+  // speed=1 slerps 0.04 of the 90 deg arc toward the pole: y rises ~0.0628, x
   // drops ~0.002. Pin a minimum drift so a no-op warp can't pass.
   HS_EXPECT_TRUE(out.y > 0.05f);
   HS_EXPECT_TRUE(out.x < 0.999f);
