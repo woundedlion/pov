@@ -18,7 +18,8 @@
  *
  * Architecture (spec §3): every board derives its column position from a
  * free-running hardware cycle counter (`x = f(now - epoch)`), never from
- * counting timer interrupts, so masked-IRQ windows cannot drop columns. The
+ * counting timer interrupts, so masked-IRQ windows do not accumulate phase
+ * drift; intervening columns can still be skipped. The
  * master emits count-coded symbol bursts on the one wire — 2/revolution
  * boundary marks plus a rare epoch mark and a mid-revolution data beacon —
  * and downstream boards snap their flywheel phase to them. Three layers ride

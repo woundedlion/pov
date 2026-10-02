@@ -1064,7 +1064,7 @@ x = ( x_boundary + (now − epoch) · (W/2) / cycles_per_half_rev )  mod W
                                                     └─ 64-bit intermediate
 ```
 
-`epoch` is folded forward by exactly one half-revolution at every boundary crossing, so the 32-bit cycle counter's ~7.16 s wrap is structurally unobservable.  An interrupt-masked window cannot drop columns — the ISR that runs after the mask reads the clock and resumes at the *time-correct* column.
+`epoch` is folded forward by exactly one half-revolution at every boundary crossing, so the 32-bit cycle counter's ~7.16 s wrap is structurally unobservable.  An interrupt-masked window does not accumulate column-phase drift, though intervening column outputs can be skipped — the ISR that runs after the mask reads the clock and resumes at the *time-correct* column.
 
 **Pin / signal description.**
 
