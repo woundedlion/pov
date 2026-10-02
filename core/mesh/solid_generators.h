@@ -302,7 +302,7 @@ static_assert(solid_tables_consistent<Dodecahedron>(),
  * arrays.
  * @param target Arena that backs the returned mesh's storage.
  * @return A PolyMesh holding copies of the static mesh's data in target.
- * @details Face indices widen to the uint16_t the topology path expects.
+ * @details Face indices narrow to uint16_t, trapping past MeshLimits::MAX_VERTEX_INDEX.
  */
 template <typename StaticMeshT> PolyMesh to_polymesh(Arena &target) {
   PolyMesh mesh;
