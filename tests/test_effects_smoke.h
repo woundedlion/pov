@@ -82,9 +82,7 @@ inline int run_effects_smoke_tests() {
                 "set HS_EFFECTS_FULL=1\n");
   }
 
-  // Small-aspect <96,20> roster passes — always run; this is the QUICK tier's
-  // core and the only place that specialization runs under native asserts
-  // (see SMALL_W/SMALL_H).
+  // Small-aspect <96,20> roster passes run in every tier.
   std::printf("  -- small-aspect resolution %dx%d --\n", SMALL_W, SMALL_H);
 #define HS_SMOKE_ONE_SMALL(name) smoke_one<name, SMALL_W, SMALL_H>(#name);
   HS_EFFECT_LIST(HS_SMOKE_ONE_SMALL)
