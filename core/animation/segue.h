@@ -471,7 +471,7 @@ struct IrisBloom : Base {
     if (t < inset - SOFT)
       return 0.0f;
     float cover = hs::clamp((t - (inset - SOFT)) / SOFT, 0.0f, 1.0f);
-    t = hs::clamp((t - inset) / std::max(phase, 1e-3f), 0.0f, 1.0f);
+    t = hs::clamp((t - inset) / fmaxf(phase, 1e-3f), 0.0f, 1.0f);
     return cover;
   }
 };
@@ -498,7 +498,7 @@ struct Lace : Base {
     if (t > phase + SOFT)
       return 0.0f;
     float cover = hs::clamp((phase + SOFT - t) / SOFT, 0.0f, 1.0f);
-    t = hs::clamp(t / std::max(phase, 1e-3f), 0.0f, 1.0f);
+    t = hs::clamp(t / fmaxf(phase, 1e-3f), 0.0f, 1.0f);
     return cover;
   }
 };
@@ -567,7 +567,7 @@ struct TerminatorSweep : Base {
     float t = math::hash01(static_cast<uint32_t>(i), fade_seed);
     float lo = min_fade_frac();
     float hi =
-        std::min(1.0f, std::max(fade_frames_min, fade_frames_max) * inv_window);
+        fminf(1.0f, fmaxf(fade_frames_min, fade_frames_max) * inv_window);
     return lo + (hi - lo) * t;
   }
   /**
@@ -579,7 +579,7 @@ struct TerminatorSweep : Base {
    * its fade has completed.
    */
   float face_phase(float phase, float offset, float fade_frac) const {
-    float ff = std::max(fade_frac, 1e-4f);
+    float ff = fmaxf(fade_frac, 1e-4f);
     return hs::clamp((phase - offset * (1.0f - ff)) / ff, 0.0f, 1.0f);
   }
   /** @brief Offset 0 is the last face the front reaches, and the shortest fade
@@ -596,8 +596,7 @@ struct TerminatorSweep : Base {
 private:
   /** @brief Shortest per-face fade length as a window fraction. */
   float min_fade_frac() const {
-    return std::min(1.0f,
-                    std::min(fade_frames_min, fade_frames_max) * inv_window);
+    return fminf(1.0f, fminf(fade_frames_min, fade_frames_max) * inv_window);
   }
   /** @brief Reciprocal of the scheduled fade window in frames; set by
    * schedule(). The initializer only covers a query before the first
