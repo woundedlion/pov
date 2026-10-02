@@ -1208,10 +1208,20 @@ def validate_zone_geometry(pcb_path, min_pours=MIN_COPPER_POURS, board=None):
                     f"zone {label}: {key} {feature_mm:g} mm is below "
                     f"{minimum_mm:g} mm")
 
-    poured_nets = {net_name(zone) for zone in zones}
+    net_names = {str(declaration[1]): net_name([declaration])
+                 for declaration in F(root, "net") if len(declaration) > 2}
+
+    def resolved_net_name(node):
+        explicit_name = sexp.val(node, "net_name", [])
+        if explicit_name:
+            return str(explicit_name[0]).lstrip("/")
+        name = net_name(node)
+        return net_names.get(name, name)
+
+    poured_nets = {resolved_net_name(zone) for zone in zones}
     for footprint in F(root, "footprint"):
         for pad in F(footprint, "pad"):
-            if len(pad) < 3 or pad[2] != "thru_hole" or net_name(pad) not in poured_nets:
+            if len(pad) < 3 or pad[2] != "thru_hole" or resolved_net_name(pad) not in poured_nets:
                 continue
             connection = sexp.val(pad, "zone_connect", [])
             if not connection:
