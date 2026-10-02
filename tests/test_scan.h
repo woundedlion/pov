@@ -282,6 +282,7 @@ inline void test_shader_respects_clip_band() {
       HS_EXPECT_EQ(!is_black(fx.get_pixel(x, y)), y >= 5 && y < 10);
 }
 
+/** @brief SSAA grids sample at the expected subpixel positions. */
 inline void test_ssaa_grid_sample_positions() {
   constexpr int W = 32, H = 16;
   math::TrigLUT<W, H>::init();
@@ -742,6 +743,7 @@ inline void test_ring_group_matches_sequential() {
   run_case(math::Vector(0.005f, 1.0f, 0.0f).normalized(), false);
 }
 
+/** @brief Distorted rings retain candidates beyond the pole bounds. */
 inline void test_distorted_ring_candidates_outside_poles() {
   constexpr int W = 32, H = 16, KNOTS = 8;
   const math::Basis basis = math::make_basis(math::Quaternion(), math::Y_AXIS);
@@ -914,6 +916,7 @@ inline void test_distorted_ring_stack_matches_sequential() {
   run_case(math::Vector(0.005f, 1.0f, 0.0f).normalized(), false, -1);
 }
 
+/** @brief Empty clips skip distorted ring candidate tables. */
 inline void test_distorted_ring_stack_empty_clip_skips_table() {
   constexpr int W = 64, H = 48;
   hs_test::StubEffect effect(W, H);
@@ -2517,6 +2520,7 @@ struct TwoSphereSDF {
   }
 };
 
+/** @brief Counts signed-distance evaluations in the scalar volume oracle. */
 template <typename Shape> struct CountedVolume {
   const Shape &shape;
   mutable int samples = 0;
@@ -3116,6 +3120,7 @@ inline void test_pole_centred_cap_takes_the_full_row_scan() {
   HS_EXPECT_GT(interval_rows, 0);
 }
 
+/** @brief Circle and point scans retain exact pixel centers. */
 inline void test_circle_and_point_keep_exact_pixel_centers() {
   constexpr int W = 96, H = 64;
   math::TrigLUT<W, H>::init();
@@ -3269,6 +3274,7 @@ inline void test_circle_extent_follows_its_radius() {
   }
 }
 
+/** @brief Captures the coordinates, color, age, and alpha emitted by scans. */
 struct EpilogueCapture {
   struct Point {
     int x, y;
