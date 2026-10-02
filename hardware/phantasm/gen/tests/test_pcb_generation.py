@@ -635,8 +635,8 @@ class UnplacedBoardTests(TerminalBodyChecks, TerminalEdgePlacementChecks, unitte
 
 
 @unittest.skipUnless(GENERATES, GENERATES_REASON)
-class OrphanPadTests(unittest.TestCase):
-    """A netlist pin with no pad of that name would drop its net silently."""
+class ConnectorEdgePlacementGateTests(unittest.TestCase):
+    """Connector placement and footprint gates."""
 
     def test_missing_connector_placement_is_rejected(self):
         fixed_placements = pcb.fixed_placements
@@ -675,6 +675,10 @@ class OrphanPadTests(unittest.TestCase):
         with mock.patch.object(pcb, "schematic_components", legacy_led), \
                 self.assertRaisesRegex(SystemExit, "connectors require verified edge placements: J2"):
             generate(out, unplaced=True)
+
+@unittest.skipUnless(GENERATES, GENERATES_REASON)
+class OrphanPadTests(unittest.TestCase):
+    """A netlist pin must have a matching pad."""
 
     def test_a_netlist_pin_with_no_pad_is_refused(self):
         build_nets = pcb.build_nets
