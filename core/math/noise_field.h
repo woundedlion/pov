@@ -274,7 +274,7 @@ HS_O3_FN inline float sample_noise_vector_channel(const FastNoiseLite &noise,
  * @param q Lattice coordinate.
  * @return The displacement the generator applies to @p q.
  * @details The DIRECT_VECTOR_V2 path: one simplex vector-noise call in place
- * of the three or six scalar samples DIRECT_V1 costs. Simplex only.
+ * of the three scalar samples DIRECT_V1 costs for SIMPLEX. Simplex only.
  */
 __attribute__((always_inline)) inline math::Vector
 sample_simplex_vector(const FastNoiseLite &noise, const math::Vector &q) {
