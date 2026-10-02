@@ -1,6 +1,6 @@
 # RingSpin on-device profile — Teensy 4.0, segmented mode (2026-09-24, **-O3**)
 
-Global-O3 twin of the [shipping report](../shipping/profile_ringspin_teensy_2026-09-28.md).
+Global-O3 twin of a retired 2026-09-24 shipping capture; the current [shipping report](../shipping/profile_ringspin_teensy_2026-09-28.md).
 
 Point-in-time snapshot (regenerate with the explicit `profile_o3` Reproduce command).
 Raw capture: `ringspin_o3.log.txt` (archive removed), captured 2026-09-24 20:18 local on COM4.
@@ -19,7 +19,7 @@ Replaces `profile_ringspin_teensy_2026-08-26.md`. That older capture used a diff
 
 Image size: `FLASH: code:68368, data:148632, headers:8280, free:1806336` / `RAM1: variables:315072, code:46088, padding:19448, free:143680` / `RAM2: variables:520064, free:4224`.
 
-Exactness cross-check: window frames 737–768, root 1,190,980,513 cycles ÷ 600 MHz versus measured wall sum 1,984,969 us differs by **0.74 ppm**. The parser validates the effect, monotonic frames, complete per-frame telemetry and absence of epoch resets. Firmware SHA-256 and source SHA match the archived provenance.
+Exactness cross-check: window frames 737–768, root 1,190,980,513 cycles ÷ 600 MHz versus measured wall sum 1,984,969 us differs by **0.74 ppm**. The parser validates the effect, monotonic frames, complete per-frame telemetry and absence of epoch resets. Firmware SHA-256 and source SHA matched the provenance at capture time; that archive is no longer retained.
 
 ## Frame cadence
 
