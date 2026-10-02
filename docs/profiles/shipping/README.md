@@ -72,8 +72,8 @@ Spill fractions include the transition following an entry and are stricter than 
 - **MobiusGrid**: 2 parser ownership buckets spanning 22.05–22.05 ms.
 - **SphericalHarmonics**: 24 parser ownership buckets spanning 8.30–12.89 ms.
 
-Shipping reports in this directory correspond exactly to
-`HS_PHANTASM_EFFECT_LIST`.
+Each effect in `HS_PHANTASM_EFFECT_LIST` has exactly one un-suffixed report
+here; suffixed reports are supplements or preserved captures.
 
 ## Supplemental experimental presets
 
