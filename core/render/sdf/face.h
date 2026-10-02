@@ -676,7 +676,7 @@ struct Face {
     for (int i = 0; i < count; ++i) {
       const math::Vector &v = scratch.verts_3d[i];
       // Gnomonic projection divides by d = cos(angle from face center),
-      // singular near the center's antipode; clamp d away from zero,
+      // singular at 90 degrees from the center; clamp d away from zero,
       // sign-preserving.
       float d = math::dot(v, basis_v);
       if (fabsf(d) < math::TOLERANCE)
