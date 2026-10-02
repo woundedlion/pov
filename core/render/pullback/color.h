@@ -4,6 +4,7 @@
  */
 #pragma once
 
+#include "math/3dmath.h"
 #include "render/pullback/contract.h"
 #include "render/pullback/fields.h"
 #include "color/noise_hue_palette.h"
@@ -170,9 +171,9 @@ palette_mapping_coordinate(float value, PaletteMapping mapping, float frequency,
       math::wrap_t(fminf(value, UNIT_OPEN_MAX) * frequency + offset);
   switch (mapping) {
   case PaletteMapping::CUP:
-    return unit_cup(phase);
+    return math::unit_cup(phase);
   case PaletteMapping::BELL:
-    return unit_bell(phase);
+    return math::unit_bell(phase);
   case PaletteMapping::LINEAR:
     return phase;
   case PaletteMapping::REVERSE:
@@ -190,7 +191,7 @@ palette_mapping_coordinate(float value, const PaletteMappingWeights &weights,
 
   const float phase =
       math::wrap_t(fminf(value, UNIT_OPEN_MAX) * frequency + offset);
-  const float cup = unit_cup(phase);
+  const float cup = math::unit_cup(phase);
   const float bell = 1.0f - cup;
   return weights.values[static_cast<size_t>(PaletteMapping::CUP)] * cup +
          weights.values[static_cast<size_t>(PaletteMapping::BELL)] * bell +
@@ -207,10 +208,10 @@ brightness_envelope_gain(float value, BrightnessEnvelope envelope, float bottom,
   case BrightnessEnvelope::NONE:
     return 1.0f;
   case BrightnessEnvelope::CUP:
-    shape = unit_cup(value);
+    shape = math::unit_cup(value);
     break;
   case BrightnessEnvelope::BELL:
-    shape = unit_bell(value);
+    shape = math::unit_bell(value);
     break;
   case BrightnessEnvelope::ASCENDING:
     shape = value;

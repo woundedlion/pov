@@ -26,6 +26,16 @@
 
 namespace math {
 
+/** @brief Unit cup curve over [0, 1]: 1 at both ends, 0 at the midpoint. */
+__attribute__((always_inline)) inline float unit_cup(float t) {
+  return fabsf(2.0f * t - 1.0f);
+}
+
+/** @brief Unit bell curve over [0, 1]: 0 at both ends, 1 at the midpoint. */
+__attribute__((always_inline)) inline float unit_bell(float t) {
+  return 1.0f - unit_cup(t);
+}
+
 /** Exact 2^96 scale lifts subnormal divisors before squaring. */
 inline constexpr float COMPLEX_UNDERFLOW_LIFT = 0x1p96f;
 
