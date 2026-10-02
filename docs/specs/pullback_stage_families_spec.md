@@ -1136,10 +1136,9 @@ concern.
   §4** — the same free functions the template combinators call — with
   the adapter reading the op's parameter block where a static provider
   would read a named `FrameState` slot (the static provider wrappers
-  are compile-time-bound to named instances and cannot serve an arbitrary
-  third instance; §7.2's allocation limit is the same fact seen from
-  the promotion side). The retired slot host's dynamic backend was the
-  precedent for this shape.
+  are compile-time-bound to named instances; the interpreter addresses
+  arbitrary instances through runtime blocks). The retired slot host's dynamic
+  backend was the precedent for this shape.
 - **The erased carrier ABI is explicit**, because a homogeneous op array
   cannot invoke heterogeneously-typed callbacks unaided. Evaluation owns
   two carrier slots whose size and alignment are derived by
