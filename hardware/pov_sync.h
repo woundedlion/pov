@@ -690,9 +690,7 @@ private:
         sym = Symbol::ZERO;
       }
     }
-    // A wire still busy at a boundary carries a stale burst left over from a
-    // masked-ISR coast. schedule_boundary would clobber it silently, so drop it
-    // here to count what was discarded.
+    // Discard a stale emission before scheduling this boundary; count its kind.
     switch (emitter.drop_pending_emission()) {
     case SymbolEmitter::DroppedBurst::BEACON:
       saturating_increment(telemetry_counters.beacons_overrun_dropped);
