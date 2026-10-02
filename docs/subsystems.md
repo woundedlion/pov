@@ -780,7 +780,7 @@ caller-owned and must outlive the cycler; `Entry`'s rvalue overloads are deleted
 so a temporary cannot bind.
 
 `init_generated()` replaces the fixed entry array with a `NextPaletteFn`
-provider that fills palette *n* on demand, for an endless non-repeating cycle;
+provider that fills palette *n* on demand, without a fixed entry-count limit;
 successive palettes must stay morph-compatible and every retarget is fail-fast
 checked. Arena cost is declared up front — `display_arena_bytes()`,
 `crossfade_arena_bytes()`, `morph_arena_bytes()`, and the
