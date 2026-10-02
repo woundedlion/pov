@@ -973,6 +973,20 @@ class CaptureComparison(unittest.TestCase):
             ),
         )
 
+    def test_stream_reader_rejects_early_corruption_without_reading_the_tail(self):
+        for prefix in ('{"invalid":!', '1x'):
+            with self.subTest(prefix=prefix):
+                stream = io.StringIO(prefix + " " * (2 * 1024 * 1024))
+                with self.assertRaises((json.JSONDecodeError, crosscheck.CrosscheckError)):
+                    crosscheck.CaptureReader(stream).value()
+                self.assertLessEqual(stream.tell(), 2 * 65536)
+
+    def test_stream_reader_accepts_large_incomplete_strings_and_values(self):
+        for value in ({"label": "x" * 200000}, [[1, 2, 3, 65535]] * 20000):
+            with self.subTest(type=type(value).__name__):
+                reader = crosscheck.CaptureReader(io.StringIO(json.dumps(value)))
+                self.assertEqual(reader.value(), value)
+
     def test_streamed_capture_matches_a_materialized_document(self):
         # The corpus is hashed and diffed run to run, so its encoding is part
         # of the contract: streaming the frames must not move a single byte.
