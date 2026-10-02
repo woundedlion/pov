@@ -396,7 +396,7 @@ def main(argv=None):
     try:
         with open(args.board, encoding="utf-8") as handle:
             broken = opens(sexp.parse_one(handle.read()))
-    except ValueError as error:
+    except (OSError, ValueError) as error:
         print(f"{args.board}: {error}", file=sys.stderr)
         return 2
     print(report(broken))
