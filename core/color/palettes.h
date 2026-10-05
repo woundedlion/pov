@@ -109,8 +109,8 @@ struct MeshPaletteBank {
   static constexpr int N = BakedPaletteBank::N;
 
   /**
-   * @brief Arena bytes bake_all() consumes, including worst-case per-palette
-   *        alignment padding.
+   * @brief Conservative arena byte budget for bake_all(), including
+   *        per-palette alignment allowances.
    */
   static constexpr size_t required_arena_bytes() {
     return N * BakedPalette::required_arena_bytes();

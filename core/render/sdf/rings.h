@@ -116,8 +116,8 @@ struct Ring {
    * @tparam OutputIt Sink type invoked as out(float start, float end).
    * @param y The vertical pixel coordinate (row index).
    * @param out Output iterator or callback accepting (float start, float end).
-   * @return True if intervals were found and reported; false requests a full
-   * scan.
+   * @return True if the row was handled, possibly with no intervals; false
+   *         requests a full scan.
    */
   template <int W, int H, typename OutputIt>
   bool get_horizontal_intervals(int y, OutputIt out) const {

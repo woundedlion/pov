@@ -163,7 +163,7 @@ delivered on the one wire that pulls it back if it ever drifts:
 |-------|----------------------|--------------------|--------------------|
 | 1 Column/phase | flywheel (time-derived) | boundary-symbol snap (+ opt. freq trim) | every half-rev (sub-column) |
 | 2 Frame/flip | flywheel boundary crossing | boundary symbol (count-coded) | every half-rev |
-| 3 Content | `t++` per synced flip | epoch symbol + deterministic playlist + index beacon (§6.4) | every effect; index re-verified every 16 revs |
+| 3 Content | `t++` per synced flip | epoch symbol + deterministic playlist + index beacon (§6.4) | every effect; index re-verified on the nominal 16-rev cadence outside commits |
 
 Master's flywheel is the conductor: it free-runs and *defines* the reference;
 every symbol it emits is timed from its own timebase. Downstream boards snap to

@@ -38,7 +38,7 @@ public:
   static constexpr int LUT_SIZE = 256;
 
   /**
-   * @brief Arena bytes a table consumes, including worst-case alignment padding.
+   * @brief Conservative arena byte budget for a table, with alignment allowances.
    */
   static constexpr size_t required_arena_bytes() {
     return LUT_SIZE * (sizeof(Pixel) + sizeof(uint16_t)) + alignof(Pixel) +

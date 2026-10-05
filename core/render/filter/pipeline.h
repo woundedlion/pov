@@ -725,7 +725,8 @@ public:
    * @details A stage that moves world geometry (World::Orient) overrides
    *          cull_edge to re-emit the edge under each rotation it applies at
    *          plot() time, so the rasterizer culls by the RENDERED latitude, not
-   *          the source geometry; every other stage forwards the edge unchanged.
+   *          the source geometry. Identity stages forward unchanged; a nonidentity
+   *          stage without cull_edge conservatively returns true.
    *          Returns true once any transformed copy could intersect the band.
    */
   template <typename Pred>

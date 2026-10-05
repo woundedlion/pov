@@ -602,8 +602,8 @@ constexpr float FIELD_DOMINANT_DEN_EPS = 1e-9f;
  * contribution dominates without stacking.
  * @details Use instead of summation when overlapping entities must not add
  * (e.g. solid bodies displacing a shared sheet). Above FIELD_DOMINANT_DEN_EPS,
- * a single field passes through exactly, equal same-signed overlaps yield the
- * shared value, and opposite-signed overlaps cancel smoothly. At or below the
+ * a single field and equal same-signed overlaps reproduce the field up to
+ * floating-point rounding, and opposite-signed overlaps cancel smoothly. At or below the
  * denominator floor the result is zero, introducing a discontinuity there.
  */
 struct DominantFieldAccumulator {

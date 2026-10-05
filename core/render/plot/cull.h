@@ -150,7 +150,9 @@ azimuthal_project(const math::Vector &p, const math::Basis &basis) {
  * @param Px Plane x-coordinate (azimuthal-equidistant).
  * @param Py Plane y-coordinate (azimuthal-equidistant).
  * @param basis Projection basis; center is basis.v, axes basis.u/basis.w.
- * @return Unit sphere point at great-circle angle sqrt(Px²+Py²) from basis.v.
+ * @return Near-unit point from fast trig at chart radius sqrt(Px²+Py²).
+ * @details Up to approximation error, the radius is the great-circle angle
+ * only through PI; larger radii fold around the sphere.
  */
 static inline math::Vector azimuthal_unproject(float Px, float Py,
                                                const math::Basis &basis) {
@@ -171,9 +173,9 @@ static inline math::Vector azimuthal_unproject(float Px, float Py,
 }
 
 /**
- * @brief A rasterized sample: its unit-sphere position and unit tangent.
- * @details `tan` is the curve's unit tangent with respect to ARC LENGTH at the
- * sample, used by screen_step() to size the next sub-step. Zero for a degenerate
+ * @brief A rasterized sample: its sphere position and arc-length tangent.
+ * @details `tan` estimates the curve's unit tangent with respect to ARC LENGTH
+ * at the sample, used by screen_step() to size the next sub-step. Zero for a degenerate
  * edge, where screen_step's speed floor maps it to a base_step (one-dot) step.
  */
 struct SamplePT {
@@ -197,12 +199,12 @@ static inline math::Vector newton_unit(const math::Vector &v) {
 constexpr int PLANAR_LEN_SAMPLES = 4;
 
 /**
- * @brief Cumulative on-sphere arc length at PLANAR_LEN_SAMPLES+1 evenly-spaced
- *        PROJECTION samples of the azimuthal-equidistant straight edge whose
+ * @brief Cumulative on-sphere length estimate at PLANAR_LEN_SAMPLES+1
+ *        evenly-spaced PROJECTION samples of the azimuthal-equidistant straight edge whose
  *        projection starts at `proj` and spans (dx, dy).
  * @details arc_cumul[0] = 0; arc_cumul.back() is the PLANAR_LEN_SAMPLES-chord sum,
- * an underestimate of the rendered length (a few percent on a bowed edge), and
- * below the endpoints' angle_between on a radial edge, which does not bow.
+ * an arc-length estimate. Trig and angle approximations prevent a guaranteed
+ * one-sided error bound, even on radial edges.
  * Shared by the planar rasterizer (which inverts the table for arc-uniform
  * stepping) and rasterize()'s perimeter pre-pass (which takes the total), so
  * both sample identical points and sum identical lengths.
@@ -236,9 +238,9 @@ struct PlanarEdgeSampler {
   float dy;                      /**< Projected chord y-component. */
   const math::Basis *basis;      /**< Azimuthal-equidistant projection basis. */
   math::Vector chart_tangent;    /**< Constant chart-space edge tangent. */
-  /** Cumulative on-sphere arc at evenly-spaced PROJECTION samples. */
+  /** Cumulative on-sphere length estimate at evenly-spaced PROJECTION samples. */
   std::array<float, PLANAR_LEN_SAMPLES + 1> arc_cumul;
-  float dist; /**< The edge's on-sphere length (radians). */
+  float dist; /**< Sampled on-sphere edge length (radians). */
 
   /** @brief Maps normalized arc distance to normalized chart distance. */
   float projection_fraction(float s) const {
@@ -399,8 +401,8 @@ rasterize_planar_strategy(const Fragment &curr, const Fragment &next,
  * @details Shares planar_arc_cumul with rasterize_planar_strategy, so
  * rasterize()'s perimeter pre-pass and per-segment arc accumulator sum exactly
  * the lengths the draw phase walks — the guarantee v1 relies on, not absolute
- * accuracy. An inscribed chord sum: short of the bowed arc it estimates, and
- * below angle_between(a, b) on a radial edge, whose chart line does not bow.
+ * accuracy. Trig and angle approximations prevent a guaranteed one-sided
+ * error bound, even on radial edges.
  */
 static inline float planar_arc_length(const math::Vector &a,
                                       const math::Vector &b,
@@ -449,8 +451,8 @@ struct DegenerateEdgeSampler {
 
 /**
  * @brief Great-circle sampler for one edge.
- * @details v1 and v_perp are orthonormal, so pos is a unit slerp of the two and
- * tan = d(pos)/d(ang) is a unit vector out of the same sin/cos — the
+ * @details v1 and v_perp are orthonormal, so pos and tan are near-unit
+ * combinations of the same approximate sin/cos — the
  * screen-velocity sampler's tangent costs no extra trig.
  */
 struct GeodesicEdgeSampler {
@@ -468,7 +470,7 @@ struct GeodesicEdgeSampler {
     return (v1 * c) + (v_perp * s);
   }
 
-  /** @brief Position and unit tangent at arc fraction t in [0,1]. */
+  /** @brief Near-unit position and tangent at arc fraction t in [0,1]. */
   SamplePT operator()(float t) const {
     float s, c;
     math::fast_sincosf_0_pi(total_dist * t, s, c);
