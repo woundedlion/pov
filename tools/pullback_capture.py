@@ -205,7 +205,6 @@ def load_backend(
         metrics[oracle] = {"value": maximum, "sample_count": samples}
     if (
         offset != len(data)
-        or records.keys() != specs.keys()
         or metrics.keys() != expected_oracles
     ):
         raise CaptureError("capture backend stream is incomplete or has trailing bytes")
