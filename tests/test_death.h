@@ -8,12 +8,12 @@
  * HS_EXPECT_* harness cannot catch it. Each trap is exercised in a CHILD
  * process: the test binary re-exec's itself with HS_DEATH_CHILD=harness and HS_DEATH_CASE=<name> (handled
  * in main() before any module runs), runs exactly one trap-triggering case, and
- * the parent asserts the child died by the *specific* trap status — clang lowers
+ * the parent asserts the child died by the *specific* trap status â€” clang lowers
  * __builtin_trap() to an illegal instruction (x86 ud2), so the child dies by
  * SIGILL (POSIX) / STATUS_ILLEGAL_INSTRUCTION (Windows).
  *
- * The child is selected through an inherited env var and spawned shell-free —
- * fork()+execv() on POSIX, CreateProcessA() with a debug loop on Windows — so no shell can mangle the
+ * The child is selected through an inherited env var and spawned shell-free â€”
+ * fork()+execv() on POSIX, CreateProcessA() with a debug loop on Windows â€” so no shell can mangle the
  * re-exec path. A timeout probe runs first; the control "spawn check" then
  * proves re-exec works, so a spawn failure cannot pass the death tier.
  *
@@ -31,9 +31,9 @@
  *
  * The run closes with a coverage line: how many of the engine's HS_CHECK sites
  * a case actually pins, against every site in the tree. Both numbers are
- * derived — the denominator from a build-time census of the sources
+ * derived â€” the denominator from a build-time census of the sources
  * (tests/count_guard_sites.cmake), the numerator from guard lines observed in
- * cases that trapped — so the ratio is informational. Per-file unpinned counts are gated against
+ * cases that trapped â€” so the ratio is informational. Per-file unpinned counts are gated against
  * GUARD_GAP_ALLOW and must match exactly; gaps above or below fail the module.
  */
 #pragma once
@@ -94,10 +94,10 @@
 #include "hardware/pov_sync.h"
 
 #if !defined(_WIN32)
-#include <csignal>    // SIGILL — the expected trap signal
+#include <csignal>    // SIGILL â€” the expected trap signal
 #include <fcntl.h>    // open / O_WRONLY for the capture file
 #include <sys/wait.h> // WIFSIGNALED / WTERMSIG / WIFEXITED / WEXITSTATUS
-#include <unistd.h>   // fork / execv / dup2 / close / _exit — shell-free spawn
+#include <unistd.h> // fork / execv / dup2 / close / _exit â€” shell-free spawn
 #else
 #ifndef NOMINMAX
 #define NOMINMAX
@@ -134,11 +134,11 @@ template <typename T> inline T opaque(T v) {
   return x;
 }
 
-// --- Individual death cases — each MUST trap (HS_CHECK / __builtin_trap) ------
+// --- Individual death cases â€” each MUST trap (HS_CHECK / __builtin_trap) ------
 
 /**
  * @brief Death case: arena over-allocation must trap.
- * @details Memory surface — requests more than the arena's capacity so
+ * @details Memory surface â€” requests more than the arena's capacity so
  *          allocate() fires HS_CHECK.
  */
 inline void case_arena_oom() {
@@ -160,7 +160,7 @@ inline void case_arena_make_oom() {
 
 /**
  * @brief Death case: a zero-size arena allocation must trap.
- * @details Memory surface — a zero-size request returns a bump pointer that
+ * @details Memory surface â€” a zero-size request returns a bump pointer that
  *          reserves nothing and aliases the next allocation's address, so it is
  *          rejected as misuse rather than handed back as ownable storage.
  */
@@ -183,7 +183,7 @@ inline void case_arena_allocate_n_overflow() {
 
 /**
  * @brief Death case: a non-power-of-two allocation alignment must trap.
- * @details Memory surface — allocate()'s padding math is a modulo against the
+ * @details Memory surface â€” allocate()'s padding math is a modulo against the
  *          requested alignment, which only yields an aligned address for a
  *          power of two.
  */
@@ -197,7 +197,7 @@ inline void case_arena_bad_alignment() {
 
 /**
  * @brief Death case: a mid-run resplit with live scratch content must trap.
- * @details Config surface — resplit_arenas rebases both scratch arenas, and a
+ * @details Config surface â€” resplit_arenas rebases both scratch arenas, and a
  *          ScratchScope saved at offset 0 restores to 0 either way, so live
  *          scratch content would be silently rebased onto the new split.
  */
@@ -212,7 +212,7 @@ inline void case_resplit_scratch_not_empty() {
 /**
  * @brief Death case: a resplit below the persistent arena's live offset must
  *        trap.
- * @details Config surface — resplit_arenas keeps the persistent arena's base,
+ * @details Config surface â€” resplit_arenas keeps the persistent arena's base,
  *          offset and content and only moves its capacity, so a budget under
  *          the live offset would strand the carousel and palette bank.
  */
@@ -225,7 +225,7 @@ inline void case_resplit_persistent_strands() {
 
 /**
  * @brief Death case: moving the arena offset forward must trap.
- * @details Memory surface — set_offset only ever rewinds. A forward move stays
+ * @details Memory surface â€” set_offset only ever rewinds. A forward move stays
  *          inside capacity yet hands back bytes already reclaimed, so the guard
  *          is monotone decrease, not a capacity bound.
  */
@@ -241,7 +241,7 @@ inline void case_arena_set_offset_forward() {
  * @brief Death case: non-LIFO ScratchScope teardown must trap.
  * @details The scratch-arena sharing contract between Pixel::Feedback::flush and
  *          Plot::rasterize is safe because scratch_arena_a is a LIFO bump
- *          allocator — but only while scopes are torn down in stack order.
+ *          allocator â€” but only while scopes are torn down in stack order.
  *          ~ScratchScope enforces that: an outer scope rewinding while an inner
  *          one is still live leaves the arena offset below the inner's saved
  *          mark, and the inner's destructor HS_CHECKs offset >= saved_offset.
@@ -280,7 +280,7 @@ inline void case_arena_rewind_history_overflow() {
 
 /**
  * @brief Death case: ArenaVector fixed-capacity push_back overflow must trap.
- * @details Arena-container surface — a push_back past capacity fires HS_CHECK.
+ * @details Arena-container surface â€” a push_back past capacity fires HS_CHECK.
  */
 inline void case_arena_vector_overflow() {
   static uint8_t buf[256];
@@ -293,7 +293,7 @@ inline void case_arena_vector_overflow() {
 
 /**
  * @brief Death case: ArenaVector fixed-capacity emplace_back overflow must trap.
- * @details Arena-container surface — the in-place construction path carries its
+ * @details Arena-container surface â€” the in-place construction path carries its
  *          own capacity guard, distinct from push_back's copy path.
  */
 inline void case_arena_vector_emplace_overflow() {
@@ -307,7 +307,7 @@ inline void case_arena_vector_emplace_overflow() {
 
 /**
  * @brief Death case: generate() with a scratch arena as its target must trap.
- * @details Generator surface — the depth-0 reset and the ScratchScope rewind
+ * @details Generator surface â€” the depth-0 reset and the ScratchScope rewind
  *          would destroy output written into either engine scratch arena, so an
  *          aliasing target is rejected before the callback runs.
  */
@@ -334,7 +334,7 @@ inline int nested_generate(Arena &target, Arena &, Arena &, int remaining) {
 
 /**
  * @brief Death case: nesting generate() past MAX_GENERATE_DEPTH must trap.
- * @details Generator surface — every level stacks two ScratchScopes on a fixed
+ * @details Generator surface â€” every level stacks two ScratchScopes on a fixed
  *          scratch budget, so runaway reentrancy is capped at the wrapper rather
  *          than left to exhaust the arenas. The outermost call opens depth 1, so
  *          MAX_GENERATE_DEPTH further levels reach depth MAX_GENERATE_DEPTH + 1.
@@ -349,7 +349,7 @@ inline void case_generate_recursion_too_deep() {
 
 /**
  * @brief Death case: normalizing a degenerate (zero-length) vector must trap.
- * @details Math-core surface — length below epsilon fires the normalize guard.
+ * @details Math-core surface â€” length below epsilon fires the normalize guard.
  */
 inline void case_normalize_zero() {
   math::Vector z{opaque(0.0f), opaque(0.0f), opaque(0.0f)};
@@ -377,7 +377,7 @@ inline void case_angle_between_zero() {
 
 /**
  * @brief Death case: normalizing a NaN vector must trap.
- * @details Math-core surface — a NaN coordinate poisons the length to NaN, and
+ * @details Math-core surface â€” a NaN coordinate poisons the length to NaN, and
  *          `NaN >= epsilon` is false, so the normalize guard fires. The suite's
  *          NaN/Inf fault case: proves a non-finite producer is trapped at the
  *          math seam rather than silently propagating NaN into geometry.
@@ -392,7 +392,7 @@ inline void case_normalize_nan() {
 
 /**
  * @brief Death case: an out-of-range solids index must trap.
- * @details Lookup/registry surface — get_entry past NUM_ENTRIES fires HS_CHECK.
+ * @details Lookup/registry surface â€” get_entry past NUM_ENTRIES fires HS_CHECK.
  */
 inline void case_solids_index_oob() {
   const auto &e = Solids::get_entry(opaque<size_t>(Solids::NUM_ENTRIES));
@@ -402,7 +402,7 @@ inline void case_solids_index_oob() {
 
 /**
  * @brief Death case: looking up an unknown solid name must trap.
- * @details Registry-by-name surface — an unknown name has no valid fallback.
+ * @details Registry-by-name surface â€” an unknown name has no valid fallback.
  */
 inline void case_solids_unknown_name() {
   PolyMesh m = Solids::get_by_name(persistent_arena, scratch_arena_a,
@@ -413,7 +413,7 @@ inline void case_solids_unknown_name() {
 
 /**
  * @brief Death case: a StaticCircularBuffer index past the live count must trap.
- * @details Container surface — index >= count fires HS_CHECK.
+ * @details Container surface â€” index >= count fires HS_CHECK.
  */
 inline void case_circular_buffer_oob() {
   StaticCircularBuffer<int, 4> cb;
@@ -426,7 +426,7 @@ inline void case_circular_buffer_oob() {
 
 /**
  * @brief Death case: front() on an empty StaticCircularBuffer must trap.
- * @details Container surface — the never-taken opaque(false) push keeps the
+ * @details Container surface â€” the never-taken opaque(false) push keeps the
  *          optimizer from proving the buffer empty and folding the trap at
  *          compile time; is_empty() fires HS_CHECK.
  */
@@ -458,7 +458,7 @@ inline void case_circular_buffer_const_back_empty() {
 
 /**
  * @brief Death case: ArenaVector::append_bulk past its fixed capacity must trap.
- * @details Memory surface — a distinct seam from element-at-a-time push_back;
+ * @details Memory surface â€” a distinct seam from element-at-a-time push_back;
  *          the bulk memcpy path has its own remaining-capacity guard.
  */
 inline void case_arena_vector_append_bulk_overflow() {
@@ -473,7 +473,7 @@ inline void case_arena_vector_append_bulk_overflow() {
 
 /**
  * @brief Death case: requesting more KDTree neighbors than MAX_K must trap.
- * @details Spatial surface — k beyond the MAX_K-sized result/heap buffers makes
+ * @details Spatial surface â€” k beyond the MAX_K-sized result/heap buffers makes
  *          nearest() trap rather than silently capping the result and masking
  *          the caller's sizing mistake.
  */
@@ -493,7 +493,7 @@ inline void case_spatial_knn_over_max() {
 
 /**
  * @brief Death case: a lattice index outside [0, RD_N) must trap.
- * @details Spatial surface — node()'s index maps affinely onto the sphere, so an
+ * @details Spatial surface â€” node()'s index maps affinely onto the sphere, so an
  *          out-of-range one would silently return a direction off the lattice
  *          instead of naming the caller's mistake.
  */
@@ -505,7 +505,7 @@ inline void case_reaction_graph_node_index_out_of_range() {
 
 /**
  * @brief Death case: a neighbor-table slot outside the lattice must trap.
- * @details Spatial surface — CubemapLUT's hill-climb and the reaction-diffusion
+ * @details Spatial surface â€” CubemapLUT's hill-climb and the reaction-diffusion
  *          Laplacian subscript neighbors[] rows unguarded, so validate_neighbors()
  *          traps on a slot that is not a node index before the first such read.
  */
@@ -543,7 +543,7 @@ inline void case_gs_color_noise_nan_scale() {
 
 /**
  * @brief Death case: an over-subscribed arena partition must trap.
- * @details Config surface — each request alone fits but the sum exceeds
+ * @details Config surface â€” each request alone fits but the sum exceeds
  *          GLOBAL_ARENA_SIZE, so configure_arenas fires HS_CHECK.
  */
 inline void case_arena_oversubscribed() {
@@ -559,7 +559,7 @@ inline void case_arena_split_scratch_too_large() {
 
 /**
  * @brief Death case: a single partition larger than the whole block must trap.
- * @details Config surface — the per-request bound is checked before the sum, so
+ * @details Config surface â€” the per-request bound is checked before the sum, so
  *          an oversized persistent request fires split_bases' own HS_CHECK.
  */
 inline void case_arena_partition_too_large() {
@@ -587,7 +587,7 @@ struct PersistProbe {
 
 /**
  * @brief Death case: a Persist scope that forgets persistent_arena.reset() must trap.
- * @details Memory surface — without the rewind, ~Persist's restore clones the
+ * @details Memory surface â€” without the rewind, ~Persist's restore clones the
  *          backup *after* the still-live object instead of over it, pushing the
  *          persistent offset past the construction watermark; the post-restore
  *          HS_CHECK fires.
@@ -629,7 +629,7 @@ struct FlatProbe {
 
 /**
  * @brief Death case: a Persist naming one arena for both roles must trap.
- * @details Memory surface — ~Persist's watermark restore assumes the backup
+ * @details Memory surface â€” ~Persist's watermark restore assumes the backup
  *          outlives the rewind of the arena it restores into, which a single
  *          arena cannot provide. The payload allocates nothing, so the
  *          post-restore watermark check cannot fire and the distinct-arena
@@ -647,7 +647,7 @@ inline void case_persist_same_arena() {
 
 /**
  * @brief Death case: a swapped (unordered) TriangularBitset pair must trap.
- * @details Memory-safety surface — index() requires small < large < MAX_V; a
+ * @details Memory-safety surface â€” index() requires small < large < MAX_V; a
  *          swapped pair would alias the wrong bit and an out-of-range one would
  *          write adjacent memory, so the HS_CHECK traps the misuse on the cold
  *          edge-dedup setup path.
@@ -661,7 +661,7 @@ inline void case_triangular_bitset_unordered_pair() {
 
 /**
  * @brief Death case: relocating a retained (pinned) add_get() handle must trap.
- * @details Animation surface — step()'s compaction routes every relocation
+ * @details Animation surface â€” step()'s compaction routes every relocation
  *          through TimelineEvent::move_into, which traps when the event was
  *          handed out via add_get(Pin::PINNED), converting the dangling-handle
  *          hazard into a fail-fast crash instead of silent corruption.
@@ -676,7 +676,7 @@ inline void case_timeline_pinned_relocation() {
 /**
  * @brief Death case: relocating into a slot that still owns an animation must
  *        trap.
- * @details Animation surface — move_into overwrites dst.manager/dst.iface, so a
+ * @details Animation surface â€” move_into overwrites dst.manager/dst.iface, so a
  *          live destination would lose its animation's destructor. step()'s
  *          compaction only ever targets slots it has already vacated; the trap
  *          pins that invariant for every relocation path.
@@ -710,7 +710,7 @@ inline void case_timeline_start_overflow() {
 
 /**
  * @brief Death case: a pinned animation that COMPLETES must trap.
- * @details Animation surface — the symmetric companion to
+ * @details Animation surface â€” the symmetric companion to
  *          case_timeline_pinned_relocation, which guards the relocation path
  *          (move_into). A pinned-but-finite animation that finishes as the
  *          *last* event needs no relocation, so move_into never runs; step()'s
@@ -718,7 +718,7 @@ inline void case_timeline_start_overflow() {
  *          caller's retained pointer silently. The pin contract is
  *          pinned => infinite, so a pinned animation that naturally completes is
  *          misuse; the completion branch's HS_CHECK traps it. (A deliberate
- *          cancel() is exempt — see is_canceled() — so this case completes
+ *          cancel() is exempt â€” see is_canceled() â€” so this case completes
  *          naturally rather than canceling.)
  */
 inline void case_timeline_pinned_completion() {
@@ -737,7 +737,7 @@ inline void case_timeline_pinned_completion() {
 
 /**
  * @brief Death case: pinning a finite, non-repeating animation must trap.
- * @details Animation surface — add_get(Pin::PINNED) promises the caller a pointer
+ * @details Animation surface â€” add_get(Pin::PINNED) promises the caller a pointer
  *          valid across frames, which only holds for an animation that never
  *          completes on its own. The up-front check rejects the misuse at the
  *          add site instead of leaving it to step()'s completion guard, which
@@ -752,7 +752,7 @@ inline void case_timeline_pinned_finite_animation() {
 
 /**
  * @brief Death case: dropping a pinned add on a full timeline must trap.
- * @details Animation surface — the capacity guard returns nullptr, but an
+ * @details Animation surface â€” the capacity guard returns nullptr, but an
  *          add_get(Pin::PINNED) caller retains that pointer across frames and no
  *          call site null-checks it. The guard traps on the pinned case so a
  *          full timeline fails at the add instead of at the first use of the
@@ -771,7 +771,7 @@ inline void case_timeline_pinned_add_on_full_timeline() {
 
 /**
  * @brief Death case: a pinned one-shot timer must trap when it fires.
- * @details Animation surface — a one-shot RandomTimer/PeriodicTimer ends itself
+ * @details Animation surface â€” a one-shot RandomTimer/PeriodicTimer ends itself
  *          on its single trigger. Ending via finish() (not cancel()) keeps
  *          is_canceled() false, so the destroy of a pinned timer hits step()'s
  *          completion guard instead of slipping through its cancellation
@@ -788,7 +788,7 @@ inline void case_timeline_pinned_one_shot_timer() {
 
 /**
  * @brief Death case: clear()ing a pinned event must trap.
- * @details Animation surface — the third teardown path, alongside
+ * @details Animation surface â€” the third teardown path, alongside
  *          case_timeline_pinned_relocation (move_into) and
  *          case_timeline_pinned_completion (step's destroy branch). The public
  *          clear() would otherwise free an event whose animation pointer the
@@ -806,7 +806,7 @@ inline void case_timeline_clear_pinned() {
 
 /**
  * @brief Death case: clear()ing from a completion callback must trap.
- * @details Animation surface — step() runs post_callback() and only afterwards
+ * @details Animation surface â€” step() runs post_callback() and only afterwards
  *          destroys the event, so a clear() inside that callback would free the
  *          callable whose frame is still executing. The trap sits at the top of
  *          clear(), ahead of destroy_events().
@@ -857,7 +857,7 @@ inline void case_timeline_clear_hook_adds_event() {
 /**
  * @brief Death case: scheduling a segue sprite with no free timeline slot must
  *        trap.
- * @details Animation surface — every segue policy's schedule() returns the next
+ * @details Animation surface â€” every segue policy's schedule() returns the next
  *          transition's delay whether or not its sprite landed, so a dropped add
  *          leaves the sphere dark for a whole transition while the effect
  *          advances on schedule. The budget guard traps at the schedule.
@@ -879,7 +879,7 @@ inline void case_mesh_carousel_unflipped_slot() {
 
 /**
  * @brief Death case: a second simultaneously-live Timeline must trap.
- * @details Animation surface — every Timeline shares the single global event
+ * @details Animation surface â€” every Timeline shares the single global event
  *          array, so a second live instance would silently stomp the first's
  *          events; the construction guard traps instead. The real app holds
  *          exactly one (the old effect is destroyed before the next is built).
@@ -893,7 +893,7 @@ inline void case_timeline_double_construct() {
 
 /**
  * @brief Death case: narrowing an index past the int16 topology range must trap.
- * @details Mesh-topology surface — both conway.h and hankin.h route every output
+ * @details Mesh-topology surface â€” both conway.h and hankin.h route every output
  *          vertex/face-index narrowing through this shared MeshOps guard, so a
  *          future MAX_VERTS bump traps at the bench instead of silently wrapping
  *          an index and corrupting topology.
@@ -1107,7 +1107,7 @@ build_matching_relax_bake(PolyMesh &mesh, Arena &arena, uint32_t *bits) {
 /**
  * @brief Death case: relax_baked rejects a bake whose vertex count differs from
  *        the source mesh.
- * @details Baked-payload surface — the dimension check is what stops a payload
+ * @details Baked-payload surface â€” the dimension check is what stops a payload
  *          baked against different geometry from being read past its end.
  */
 inline void case_relax_baked_dimension_mismatch() {
@@ -1126,7 +1126,7 @@ inline void case_relax_baked_dimension_mismatch() {
 
 /**
  * @brief Death case: relax_baked rejects a bake whose topology hash differs.
- * @details Baked-payload surface — dimensions alone do not pin connectivity, so
+ * @details Baked-payload surface â€” dimensions alone do not pin connectivity, so
  *          this check is what stops a bake replaying onto a mesh of the same
  *          size but different face wiring.
  */
@@ -1166,7 +1166,7 @@ inline void case_relax_baked_source_mismatch() {
 /**
  * @brief Death case: relax_baked rejects a payload whose re-hash differs from
  *        the bake's output hash.
- * @details Baked-payload surface — the only check covering the vertex words
+ * @details Baked-payload surface â€” the only check covering the vertex words
  *          themselves, so a corrupt or truncated flash payload stops here
  *          rather than shipping as geometry.
  */
@@ -1356,7 +1356,7 @@ inline void case_update_hankin_dual_seed_topology() {
  * @brief Death case: update_hankin rejects a borrowed-mode topology from a
  *        different compiled pattern.
  * @details A borrowed MeshState reports its topology through the view, not the
- *          owned array, and update_hankin drops that view on entry — so the
+ *          owned array, and update_hankin drops that view on entry â€” so the
  *          reuse check has to sample the size before the drop or a borrowed
  *          mesh walks past it.
  */
@@ -1392,7 +1392,7 @@ inline void case_update_hankin_borrowed_stale_topology() {
 
 /**
  * @brief Death case: update_hankin rejects a non-finite contact angle.
- * @details Hankin surface — the half-angle sine and cosine carry a NaN into
+ * @details Hankin surface â€” the half-angle sine and cosine carry a NaN into
  *          every star point, and normalized_or's dot(v, v) < EPS guard is
  *          false for NaN, so the whole pattern mesh reaches the rasterizer.
  */
@@ -1451,7 +1451,7 @@ inline void case_hankin_clone_aliases_dst() {
 
 /**
  * @brief Death case: a face-offsets span with the wrong length must trap.
- * @details Mesh-borrow surface — the accessors index offsets by face, so an
+ * @details Mesh-borrow surface â€” the accessors index offsets by face, so an
  *          offsets array that is not one entry per face would read past its end
  *          on the solid scan path; set_borrowed rejects it at the install site.
  */
@@ -1477,7 +1477,7 @@ inline void case_mesh_state_set_borrowed_offsets_count_mismatch() {
 /**
  * @brief Death case: face offsets that do not span the flat faces list must
  *        trap.
- * @details Mesh-borrow surface — the last offset plus that face's count must
+ * @details Mesh-borrow surface â€” the last offset plus that face's count must
  *          reach the end of the flat list, or a walk of the final face reads
  *          short of the data the view claims to cover.
  */
@@ -1501,7 +1501,7 @@ inline void case_mesh_state_set_borrowed_offsets_short_span() {
 
 /**
  * @brief Death case: an empty topology span carrying a non-zero key must trap.
- * @details Mesh-borrow surface — the key names the connectivity a topology was
+ * @details Mesh-borrow surface â€” the key names the connectivity a topology was
  *          classified for, so a key with no span behind it would hand a
  *          downstream reuse check a classification the mesh does not carry.
  */
@@ -1522,7 +1522,7 @@ inline void case_mesh_state_set_borrowed_keyed_empty_topology() {
 
 /**
  * @brief Death case: face offsets that are not the counts' prefix sum must trap.
- * @details Mesh-borrow surface — the count and span checks pass on the endpoints
+ * @details Mesh-borrow surface â€” the count and span checks pass on the endpoints
  *          alone, so an interior offset off the prefix sum would walk one face
  *          over another's indices. The audit walk catches it.
  */
@@ -1571,7 +1571,7 @@ inline void build_polymesh(PolyMesh &mesh, Arena &arena, size_t num_verts,
 
 /**
  * @brief Death case: a zero-side face must trap while building half-edges.
- * @details Mesh-topology surface — a zero-count face emits no half-edges yet
+ * @details Mesh-topology surface â€” a zero-count face emits no half-edges yet
  *          still claims a face slot, whose half_edge entry would then point at
  *          the next face's loop. The trailing triangle keeps the flat index
  *          list non-empty so the pairing scratch is a real allocation.
@@ -1590,7 +1590,7 @@ inline void case_half_edge_zero_side_face() {
 
 /**
  * @brief Death case: >2 half-edges on one undirected edge must trap.
- * @details Mesh-topology surface — three faces share edge (0,1), so the pairing
+ * @details Mesh-topology surface â€” three faces share edge (0,1), so the pairing
  *          pass sees a run of three where a 2-manifold allows at most two.
  *          Pairing the first two would leave the third silently unpaired.
  */
@@ -1609,7 +1609,7 @@ inline void case_half_edge_non_manifold_edge() {
 /**
  * @brief Death case: two faces wound the same way around a shared edge must
  *        trap.
- * @details Mesh-topology surface — both triangles traverse edge (0,1) in the
+ * @details Mesh-topology surface â€” both triangles traverse edge (0,1) in the
  *          same direction, so the undirected pairing key matches and they would
  *          otherwise pair into a mesh that passes require_closed_manifold while
  *          every vertex_orbit walk through the pair runs backwards.
@@ -1628,7 +1628,7 @@ inline void case_half_edge_inconsistent_winding() {
 
 /**
  * @brief Death case: a face side count past uint8_t must trap.
- * @details Mesh-topology surface — every operator narrows its output valence
+ * @details Mesh-topology surface â€” every operator narrows its output valence
  *          through this shared guard, so a high-valence orbit traps instead of
  *          wrapping the uint8_t face_counts entry.
  */
@@ -1640,7 +1640,7 @@ inline void case_mesh_narrow_face_count() {
 
 /**
  * @brief Death case: an open mesh must trap the closed-manifold requirement.
- * @details Mesh-topology surface — operators size their output pools from
+ * @details Mesh-topology surface â€” operators size their output pools from
  *          E = I/2, so a lone triangle's three unpaired half-edges are rejected
  *          up front instead of overrunning a pool far from the cause.
  */
@@ -1658,7 +1658,7 @@ inline void case_mesh_require_closed_manifold() {
 
 /**
  * @brief Death case: a bowtie vertex must trap the closed-manifold requirement.
- * @details Mesh-topology surface — two tetrahedra joined at vertex 0 are closed
+ * @details Mesh-topology surface â€” two tetrahedra joined at vertex 0 are closed
  *          and edge-manifold, so only the fan pass catches them; the orbit
  *          scaffolding would otherwise emit one face from the first fan and
  *          silently drop the second.
@@ -1679,7 +1679,7 @@ inline void case_mesh_require_vertex_manifold() {
 /**
  * @brief Death case: a half-edge mesh whose faces have different side counts
  *        must trap even when the census matches.
- * @details Mesh-topology surface — the reuse overloads walk face loops from the
+ * @details Mesh-topology surface â€” the reuse overloads walk face loops from the
  *          half-edge mesh while sizing and indexing from the source mesh, so a
  *          {3,4} pairing against a {4,3} source shares (V,F,I) yet emits every
  *          face from the wrong span.
@@ -1824,7 +1824,7 @@ inline void case_mindsplatter_profile_preset_oob() {
 
 /**
  * @brief Death case: a HANKIN step with no contact angle must trap.
- * @details Recipe-replay surface — the zero default collapses every star point
+ * @details Recipe-replay surface â€” the zero default collapses every star point
  *          onto its corner, so an authored step that forgot its angle replays
  *          as a flat tiling instead of failing.
  */
@@ -1841,7 +1841,7 @@ inline void case_apply_step_hankin_no_angle() {
 
 /**
  * @brief Death case: a BEVEL step with no depth must trap.
- * @details Recipe-replay surface — the composite lowers to ambo, truncate(t),
+ * @details Recipe-replay surface â€” the composite lowers to ambo, truncate(t),
  *          so a zero default is the depthless truncate the lowered replay
  *          already traps on; the authored replay must not diverge from it.
  */
@@ -1859,7 +1859,7 @@ inline void case_apply_step_bevel_no_depth() {
 
 /**
  * @brief Death case: a NaN endpoint fed to slerp must trap.
- * @details Math-core surface — the NaN poisons interpolation through both
+ * @details Math-core surface â€” the NaN poisons interpolation through both
  *          branches into the final strict normalized(), which traps rather than
  *          emitting a NaN direction into geometry. Proves the non-finite input
  *          is caught at the slerp seam, not just at bare normalize().
@@ -1890,7 +1890,7 @@ inline void case_make_rotation_vectors_nan() {
 
 /**
  * @brief Death case: make_rotation(axis, theta) with a NaN angle must trap.
- * @details Math-core surface — cos/sin of a NaN poison the quaternion, and its
+ * @details Math-core surface â€” cos/sin of a NaN poison the quaternion, and its
  *          normalized() traps on the NaN magnitude.
  */
 inline void case_make_rotation_angle_nan() {
@@ -1904,7 +1904,7 @@ inline void case_make_rotation_angle_nan() {
 
 /**
  * @brief Death case: make_basis with a NaN normal must trap.
- * @details Geometry surface — rotate(normal,.).normalized() is the first strict
+ * @details Geometry surface â€” rotate(normal,.).normalized() is the first strict
  *          normalize in the basis construction and traps on the NaN-poisoned
  *          vector rather than returning a garbage frame.
  */
@@ -1936,7 +1936,7 @@ inline void case_noise_transform_nan() {
 
 /**
  * @brief Death case: make_rotation(from, to) with a non-unit source must trap.
- * @details Math-core surface — the d-based parallel/antiparallel branches assume
+ * @details Math-core surface â€” the d-based parallel/antiparallel branches assume
  *          |from| = |to| = 1, so a finite but non-unit input must trap at the
  *          unit-vector guard rather than silently skewing the rotation angle.
  */
@@ -1950,7 +1950,7 @@ inline void case_make_rotation_nonunit() {
 
 /**
  * @brief Death case: a live-source Driver built with a null speed pointer must trap.
- * @details Animation surface — the guard traps rather than dereferencing the
+ * @details Animation surface â€” the guard traps rather than dereferencing the
  *          null pointer in the member-init list.
  */
 inline void case_driver_null_speed_src() {
@@ -1964,7 +1964,7 @@ inline void case_driver_null_speed_src() {
 
 /**
  * @brief Death case: a second TransformerPool::init_storage() must trap.
- * @details Transformer surface — a re-init would hand the pool a second block
+ * @details Transformer surface â€” a re-init would hand the pool a second block
  *          while spawned animations still hold Params references into the first,
  *          and would silently double-charge the persistent arena.
  */
@@ -1990,7 +1990,7 @@ inline void case_transformer_unpinned_full() {
 
 /**
  * @brief Death case: spawning before init_storage() must trap.
- * @details Transformer surface — the slot scan indexes the entity block, so a
+ * @details Transformer surface â€” the slot scan indexes the entity block, so a
  *          spawn on an un-initialized pool would dereference null instead of
  *          reporting the missed init() wiring.
  */
@@ -2005,7 +2005,7 @@ inline void case_transformer_pool_spawn_before_init() {
 
 /**
  * @brief Death case: preparing frame state before init_storage() must trap.
- * @details Transformer surface — prepare_frame() is the ordering contract's
+ * @details Transformer surface â€” prepare_frame() is the ordering contract's
  *          other half: an un-initialized pool has no active slots, so it would
  *          silently do nothing and leave the composition reading state that was
  *          never prepared, instead of reporting the missed init() wiring.
@@ -2035,7 +2035,7 @@ inline void case_transformer_pool_spawn_pausable_null_flag() {
 
 /**
  * @brief Death case: an out-of-range active index must trap.
- * @details Transformer surface — active_params() indexes the compact active list,
+ * @details Transformer surface â€” active_params() indexes the compact active list,
  *          which is shorter than CAPACITY, so an index taken from the slot domain
  *          (or from a stale count) would read a dead slot as if it were live.
  */
@@ -2051,7 +2051,7 @@ inline void case_transformer_pool_active_index_oob() {
 
 /**
  * @brief Death case: reclaimed storage landing at a new address must trap.
- * @details Transformer surface — spawned animations hold Params references into
+ * @details Transformer surface â€” spawned animations hold Params references into
  *          the slots, so the post-reset replay must re-land the blocks exactly
  *          where init_storage() put them. Here the arena is NOT reset first, so
  *          the replay appends past the originals and every live reference would
@@ -2067,7 +2067,7 @@ inline void case_transformer_pool_reclaim_storage_moved() {
 
 /**
  * @brief Death case: spawning after the pool's arena was reclaimed must trap.
- * @details Transformer surface — init_storage() must run after
+ * @details Transformer surface â€” init_storage() must run after
  *          configure_arenas(), which rebinds the arena and hands its bytes out
  *          again. The slot pointers stay non-null across that, so the watermark
  *          is what catches the ordering, in every build.
@@ -2109,7 +2109,7 @@ inline void case_transformer_pinned_owner_order() {
 
 /**
  * @brief Death case: a pool outliving its Timeline must trap.
- * @details Transformer surface — the destructor reaches back into the timeline
+ * @details Transformer surface â€” the destructor reaches back into the timeline
  *          to drop the pool's clear hook, and the spawned completion callbacks
  *          reach back into the pool, so the two lifetimes are ordered. An owner
  *          that declares them the other way gets a dead reference here rather
@@ -2170,7 +2170,7 @@ struct DeathEffect : public Effect {
 
 /**
  * @brief Death case: a second simultaneously-live Effect must trap.
- * @details Canvas surface — the structural twin of case_timeline_double_construct.
+ * @details Canvas surface â€” the structural twin of case_timeline_double_construct.
  *          Every Effect aliases the same two static framebuffers and double-buffer
  *          indices, so a second live instance would scribble over the first's
  *          frames; the construction guard traps instead. The real app builds the
@@ -2274,7 +2274,7 @@ inline void case_particle_render_zero_lifetime() {
 
 /**
  * @brief Death case: a second simultaneously-live correction guard must trap.
- * @details LED surface — NoColorCorrection and NoTempCorrection share one
+ * @details LED surface â€” NoColorCorrection and NoTempCorrection share one
  *          liveness flag and set the global FastLED correction/temperature, so a second
  *          live guard of either type would leave the wrong baseline on the earlier
  *          guard's exit; the construction guard traps instead.
@@ -2288,7 +2288,7 @@ inline void case_correction_guard_double_construct() {
 
 /**
  * @brief Death case: a live NoColorCorrection plus a NoTempCorrection must trap.
- * @details LED surface — the two guard types share the one liveness flag, so a
+ * @details LED surface â€” the two guard types share the one liveness flag, so a
  *          second live guard of the OTHER type is as unsafe as a same-type
  *          double-construct; this is the case the shared "either type" contract
  *          exists to guarantee. The construction guard traps on either.
@@ -2322,7 +2322,7 @@ inline void case_float_options_wrong_range() {
 
 /**
  * @brief Death case: overflowing the fixed ParamList must trap.
- * @details Canvas surface — register_param traps rather than silently dropping a
+ * @details Canvas surface â€” register_param traps rather than silently dropping a
  *          registration, which would desync the GUI and, on WASM, break the
  *          no-realloc memory-view invariant.
  */
@@ -2385,7 +2385,7 @@ inline void case_restore_parameters_singular_mobius() {
 
 /**
  * @brief Death case: an integer param bound the target cannot store must trap.
- * @details Canvas surface — a value write narrows through
+ * @details Canvas surface â€” a value write narrows through
  *          static_cast<Integer>(float), which is undefined once the registered
  *          range leaves the storage type.
  */
@@ -2519,7 +2519,7 @@ inline void case_set_clip_x_out_of_bounds() {
 
 /**
  * @brief Death case: an arc start outside [0, w) must trap.
- * @details Clip surface — arcs_overlap wraps the seam-relative offset with one
+ * @details Clip surface â€” arcs_overlap wraps the seam-relative offset with one
  *          conditional add instead of a modulo, which only lands in range while
  *          both starts are already reduced; a start outside the cylinder would
  *          silently report the wrong overlap. Both lengths are positive and
@@ -2831,7 +2831,7 @@ struct OverCapacityMockMesh {
 
 /**
  * @brief Death case: a face vertex index past the edge-dedup bitset must trap.
- * @details Plot surface — a vertex index beyond the TriangularBitset<128>
+ * @details Plot surface â€” a vertex index beyond the TriangularBitset<128>
  *          capacity makes the face-walk draw() overload trap on the cold
  *          per-edge setup path instead of silently dropping the edge, which
  *          would leave a wireframe with missing lines and mask the sizing bug.
@@ -2878,7 +2878,7 @@ inline void case_plot_find_missing_edge() {
 
 /**
  * @brief Death case: extract_edges with an over-capacity vertex index must trap.
- * @details Plot surface — the precomputed-edge path traps on the same cold setup
+ * @details Plot surface â€” the precomputed-edge path traps on the same cold setup
  *          path as the face-walk draw() overload, rather than silently filtering
  *          the edge out (which would produce an edge list with missing lines and
  *          mask the sizing bug).
@@ -2942,7 +2942,7 @@ inline void case_plot_window_multi_segment() {
 
 /**
  * @brief Death case: a feedback downsample that doesn't divide the resolution must trap.
- * @details Filter surface — Pixel::Feedback::flush traps rather than silently
+ * @details Filter surface â€” Pixel::Feedback::flush traps rather than silently
  *          turning the whole feedback effect into a no-op; a cold
  *          authoring/config error the project routes to HS_CHECK (enabled
  *          remains the supported way to switch feedback off). The trap fires
@@ -2977,7 +2977,7 @@ inline void case_feedback_uncached_scratch_budget() {
 
 /**
  * @brief Death case: retuning a screen trail to a non-positive lifetime must trap.
- * @details Filter surface — Screen::Trails::set_lifetime carries the
+ * @details Filter surface â€” Screen::Trails::set_lifetime carries the
  *          constructor's bound, so a slider that reaches zero traps here rather
  *          than dividing by it in flush()'s fade progress.
  */
@@ -2988,7 +2988,7 @@ inline void case_screen_trails_set_lifetime_nonpositive() {
 
 /**
  * @brief Death case: a world trail lifetime past the ttl byte must trap.
- * @details Filter surface — World::Trails packs the remaining lifetime into a
+ * @details Filter surface â€” World::Trails packs the remaining lifetime into a
  *          uint8_t ttl, so a lifetime above 255 would wrap on seeding and give
  *          a near-dead trail instead of the long one asked for.
  */
@@ -2999,7 +2999,7 @@ inline void case_world_trails_lifetime_over_max() {
 
 /**
  * @brief Death case: seeding a screen trail before init_storage() must trap.
- * @details Filter surface — plot() seeds the ring buffer, so without storage it
+ * @details Filter surface â€” plot() seeds the ring buffer, so without storage it
  *          would silently drop every trail point and an effect that never
  *          flushes would render trail-free instead of failing.
  */
@@ -3011,7 +3011,7 @@ inline void case_screen_trails_plot_without_storage() {
 
 /**
  * @brief Death case: seeding a world trail before init_storage() must trap.
- * @details Filter surface — the 3D counterpart of the screen guard: plot()
+ * @details Filter surface â€” the 3D counterpart of the screen guard: plot()
  *          pushes into the ring buffer, which does not exist yet.
  */
 inline void case_world_trails_plot_without_storage() {
@@ -3079,7 +3079,7 @@ inline void case_raster_edge_flags_short() {
 /**
  * @brief Death case: hoisted point projections shorter than the polyline must
  *        trap.
- * @details Plot surface — rasterize indexes point_rows/point_cols by point
+ * @details Plot surface â€” rasterize indexes point_rows/point_cols by point
  *          index, so an array sized to the EDGE count (as edge_flags is) reads
  *          one past the end on the last point.
  */
@@ -3107,7 +3107,7 @@ inline void case_raster_point_projections_short() {
 
 /**
  * @brief Death case: a ring index past the last ring must trap.
- * @details SphericalFieldLayout surface — the chain walk saturates at row H-1
+ * @details SphericalFieldLayout surface â€” the chain walk saturates at row H-1
  *          while the offset keeps accumulating, so an out-of-range index would
  *          otherwise hand back a Ring pointing past the sample array.
  */
@@ -3183,7 +3183,7 @@ inline void case_latitude_geometry_reversed_span() {
  * @brief Death case: a negative feedback fade must trap in sync_hue.
  * @details Style is a public aggregate, so nothing but a slider bound keeps fade
  *          non-negative. logf of a negative yields NaN, the hue matrix carries it
- *          into every feedback pixel, and float_to_pixel16 clamps NaN to 65535 —
+ *          into every feedback pixel, and float_to_pixel16 clamps NaN to 65535 â€”
  *          a white buffer with no other symptom. The guard also catches a NaN
  *          fade, which compares false against zero.
  */
@@ -3207,7 +3207,7 @@ inline void case_feedback_infinite_fade() {
 
 /**
  * @brief Death case: Path::append_segment with zero samples must trap.
- * @details Animation surface — a zero sample count divides by zero in the
+ * @details Animation surface â€” a zero sample count divides by zero in the
  *          t / samples term (easing(0/0) = NaN) and the loop would silently
  *          append a garbage point; the samples >= 1 guard traps the authoring
  *          error on the cold path-construction seam instead.
@@ -3327,7 +3327,7 @@ inline void case_noise_hue_palette_null_noise_lut() {
 
 /**
  * @brief Death case: cloning a BakedPalette from itself must trap.
- * @details Color surface — clone_from allocates fresh storage into this handle
+ * @details Color surface â€” clone_from allocates fresh storage into this handle
  *          before reading @c src, so a self-clone memcpys uninitialized arena
  *          onto itself and leaves the LUT filled with garbage.
  */
@@ -3344,7 +3344,7 @@ inline void case_baked_palette_clone_from_self() {
 /**
  * @brief Death case: blending a BakedPalette with itself as an endpoint must
  *        trap.
- * @details Color surface — bake_blend reallocates this handle before walking
+ * @details Color surface â€” bake_blend reallocates this handle before walking
  *          the endpoints, so an endpoint that is the output reads the fresh
  *          uninitialized arena instead of the baked LUT.
  */
@@ -3371,7 +3371,7 @@ inline void case_gradient_no_stops() {
 
 /**
  * @brief Death case: a Gradient stop position outside [0,1] must trap.
- * @details Color surface — a stop position becomes a rounded LUT index via
+ * @details Color surface â€” a stop position becomes a rounded LUT index via
  *          static_cast<int>(pos * 255 + 0.5f); sufficiently out-of-range
  *          positions can write beyond the table. The constructor traps the
  *          authoring error always-on at the cold literal-construction seam
@@ -3385,7 +3385,7 @@ inline void case_gradient_stop_out_of_range() {
 
 /**
  * @brief Death case: descending (unsorted) Gradient stops must trap.
- * @details Color surface — segments are only filled when end > start, so a
+ * @details Color surface â€” segments are only filled when end > start, so a
  *          transposed/unsorted pair would silently degenerate to wrong output.
  *          The constructor requires ascending positions and traps otherwise.
  */
@@ -3397,7 +3397,7 @@ inline void case_gradient_stops_unsorted() {
 
 /**
  * @brief Death case: a RandomTimer with min > max must trap.
- * @details Animation surface — reset() draws hs::rand_int(min, max + 1), a
+ * @details Animation surface â€” reset() draws hs::rand_int(min, max + 1), a
  *          half-open range that is empty/inverted when min > max, giving an
  *          implementation-defined garbage delay. The constructor traps the
  *          inverted (or negative) range at the cold authoring seam.
@@ -3410,7 +3410,7 @@ inline void case_random_timer_inverted_range() {
 
 /**
  * @brief Death case: calling an empty (default-constructed) Fn must trap.
- * @details Concepts surface — hs::inplace_function routes an empty-state call
+ * @details Concepts surface â€” hs::inplace_function routes an empty-state call
  *          through ipf_empty_ops::invoke, which fail-fast traps via check_fail
  *          rather than dereferencing the empty buffer (std::function would throw
  *          bad_function_call; the engine builds without exceptions). The
@@ -3432,7 +3432,7 @@ inline void case_empty_fn_call() {
 
 /**
  * @brief Death case: invoking an empty FunctionRef must trap.
- * @details Concepts surface — the empty state's thunk diverges through
+ * @details Concepts surface â€” the empty state's thunk diverges through
  *          function_ref_empty_call rather than calling through a null
  *          context. Unlike the Fn trap, this one ships to the device.
  */
@@ -3447,7 +3447,7 @@ inline void case_empty_function_ref_call() {
 
 /**
  * @brief Death case: registering two effects under one name must trap.
- * @details Registry surface — the name keys the factory lookup and the
+ * @details Registry surface â€” the name keys the factory lookup and the
  *          lookup namespace, so duplicate names must be rejected.
  */
 inline void case_effect_registry_duplicate_name() {
@@ -3498,7 +3498,7 @@ inline void case_effect_registry_name_matches_stable_id() {
 
 /**
  * @brief Death case: a Flywheel period of zero must trap at construction.
- * @details POV-sync surface — position() divides the int32 elapsed window by the
+ * @details POV-sync surface â€” position() divides the int32 elapsed window by the
  *          period, so a zero divides by zero and an over-large one voids the
  *          signed-safe coast window; the constructor rejects both before the
  *          driver ever schedules a column.
@@ -3512,7 +3512,7 @@ inline void case_flywheel_period_zero() {
 
 /**
  * @brief Death case: a virtual height of one row must trap in the phi mapping.
- * @details Geometry surface — the row-to-angle scale divides by (h_virt - 1),
+ * @details Geometry surface â€” the row-to-angle scale divides by (h_virt - 1),
  *          so a single-row canvas would map every row to a non-finite phi.
  */
 inline void case_y_to_phi_degenerate_height() {
@@ -3524,7 +3524,7 @@ inline void case_y_to_phi_degenerate_height() {
 
 /**
  * @brief Death case: reading an orientation frame past the history must trap.
- * @details Geometry surface — the motion-blur history is a fixed array whose
+ * @details Geometry surface â€” the motion-blur history is a fixed array whose
  *          live prefix is num_frames long, so an index past it would read a
  *          stale or never-written quaternion instead of failing.
  */
@@ -3537,7 +3537,7 @@ inline void case_orientation_frame_index_oob() {
 
 /**
  * @brief Death case: make_basis with a non-unit quaternion must trap.
- * @details Geometry surface — the rotation assumes a unit quaternion, so a
+ * @details Geometry surface â€” the rotation assumes a unit quaternion, so a
  *          finite but over-long one would scale and shear the frame rather than
  *          rotate it; the guard fires before the axes are built.
  */
@@ -3551,7 +3551,7 @@ inline void case_make_basis_nonunit_quaternion() {
 
 /**
  * @brief Death case: parallel transport between antipodal endpoints must trap.
- * @details Geometry surface — the great circle through antipodes is
+ * @details Geometry surface â€” the great circle through antipodes is
  *          ill-determined and the transport divides by 1 + dot, so the guard
  *          fires before the tangent is amplified.
  */
@@ -3567,7 +3567,7 @@ inline void case_parallel_transport_antipodal() {
 
 /**
  * @brief Death case: a polyhedral fold that never converges must trap.
- * @details Lens surface — two opposed mirrors are not a chamber: each pass
+ * @details Lens surface â€” two opposed mirrors are not a chamber: each pass
  *          reflects the direction back across the other, so the bounded
  *          reflection loop exhausts its passes and fires the guard.
  */
@@ -3584,7 +3584,7 @@ inline void case_polyhedral_kaleidoscope_no_converge() {
 
 /**
  * @brief Death case: a polygon with fewer than three sides must trap.
- * @details SDF surface — the sector fold divides a full turn by the side count,
+ * @details SDF surface â€” the sector fold divides a full turn by the side count,
  *          so a 2-gon has no interior for the distance to be measured against.
  */
 inline void case_sdf_polygon_side_count() {
@@ -3597,7 +3597,7 @@ inline void case_sdf_polygon_side_count() {
 
 /**
  * @brief Death case: an angular repeat around a non-unit axis must trap.
- * @details SDF surface — the sector fold rotates the query point about the
+ * @details SDF surface â€” the sector fold rotates the query point about the
  *          axis, so a non-unit one scales every folded copy off the sphere.
  */
 inline void case_sdf_angular_repeat_nonunit_axis() {
@@ -3612,8 +3612,8 @@ inline void case_sdf_angular_repeat_nonunit_axis() {
 
 /**
  * @brief Death case: a knot ring with no cells must trap.
- * @details SDF surface — the per-pixel cell index divides the azimuth by
- *          2π/n, so n == 0 wraps to knots[-1] on every probe.
+ * @details SDF surface â€” the per-pixel cell index divides the azimuth by
+ *          2Ï€/n, so n == 0 wraps to knots[-1] on every probe.
  */
 inline void case_sdf_distorted_ring_zero_knots() {
   const math::Basis b{math::Vector(1, 0, 0), math::Vector(0, 1, 0),
@@ -3711,7 +3711,7 @@ inline void case_scan_ring_stack_callback_ring() {
 
 /**
  * @brief Death case: a twist warp around a zero-radius torus must trap.
- * @details SDF warp surface — the Lipschitz bound scales by 2/R, so a zero
+ * @details SDF warp surface â€” the Lipschitz bound scales by 2/R, so a zero
  *          major radius hands the rasterizer a non-finite step bound.
  */
 inline void case_sdf_twist_zero_major_radius() {
@@ -3771,7 +3771,7 @@ inline void case_opleg_rewind_refill() {
 
 /**
  * @brief Death case: choosing an edge from a node outside the graph must trap.
- * @details ConwayGraph surface — no EDGES row touches such a node, so the
+ * @details ConwayGraph surface â€” no EDGES row touches such a node, so the
  *          weighted pick would have nothing to divide by.
  */
 inline void case_pick_next_edge_unknown_node() {
@@ -3798,7 +3798,7 @@ inline constexpr ConwayGraph::EdgeSpec death_opleg_edge{
 
 /**
  * @brief Death case: an edge-sweep leg without a graph edge must trap.
- * @details OpLeg surface — the constructor reads the edge's operator and settle
+ * @details OpLeg surface â€” the constructor reads the edge's operator and settle
  *          flag on its first line, so a null edge is a null dereference.
  */
 inline void case_opleg_edge_sweep_no_edge() {
@@ -3814,7 +3814,7 @@ inline void case_opleg_edge_sweep_no_edge() {
 
 /**
  * @brief Death case: a leg with a non-positive sweep length must trap.
- * @details OpLeg surface — the per-frame sweep parameter divides by the frame
+ * @details OpLeg surface â€” the per-frame sweep parameter divides by the frame
  *          count, and a zero-frame leg would also complete before drawing.
  */
 inline void case_opleg_zero_sweep_frames() {
@@ -3833,7 +3833,7 @@ inline void case_opleg_zero_sweep_frames() {
 
 /**
  * @brief Death case: a leg built without a palette handoff must trap.
- * @details OpLeg surface — the departed node's per-face palette keys every
+ * @details OpLeg surface â€” the departed node's per-face palette keys every
  *          blend ramp the leg bakes, so an absent bank leaves the whole
  *          crossfade unresolvable rather than merely uncolored.
  */
@@ -3853,7 +3853,7 @@ inline void case_opleg_incomplete_palette_handoff() {
 
 /**
  * @brief Death case: settle frames that contradict the edge must trap.
- * @details OpLeg surface — the edge's settle flag decides whether the leg
+ * @details OpLeg surface â€” the edge's settle flag decides whether the leg
  *          computes a relaxed endpoint at all, so a settle window on a
  *          non-settling edge would slerp toward vertices nothing produced.
  */
@@ -3916,7 +3916,7 @@ inline void case_opleg_hankin_incomplete_handoff() {
 
 /**
  * @brief Death case: a hankin leg sweeping to a smaller angle must trap.
- * @details OpLeg surface — the leg sweeps the slerp fraction outward from the
+ * @details OpLeg surface â€” the leg sweeps the slerp fraction outward from the
  *          collapsed corner, which is monotone only while the arrival angle is
  *          the larger of the two.
  */
@@ -3937,7 +3937,7 @@ inline void case_opleg_hankin_backward_theta() {
 
 /**
  * @brief Death case: a relax leg with neither a bake nor iterations must trap.
- * @details OpLeg surface — the leg needs a relaxed endpoint to slerp to, which
+ * @details OpLeg surface â€” the leg needs a relaxed endpoint to slerp to, which
  *          is either the shipped bake or the result of live iterations; with
  *          neither it would slerp the seed onto itself for its whole duration.
  */
@@ -3993,7 +3993,7 @@ inline void case_opleg_medial_incomplete_handoff() {
 
 /**
  * @brief Death case: a reconcile leg without endpoints must trap.
- * @details OpLeg surface — the leg slerps every seed vertex to an authored
+ * @details OpLeg surface â€” the leg slerps every seed vertex to an authored
  *          position, so an absent endpoint array is the whole leg's target.
  */
 inline void case_opleg_reconcile_no_endpoints() {
@@ -4048,7 +4048,7 @@ inline void case_opleg_reconcile_incomplete_handoff() {
 
 /**
  * @brief Death case: a gated-swap leg with no gate window must trap.
- * @details OpLeg surface — the leg runs 2*gate_frames + 1 frames around the
+ * @details OpLeg surface â€” the leg runs 2*gate_frames + 1 frames around the
  *          swap, so a zero gate leaves the swap frame with no approach or
  *          departure to blend across.
  */
@@ -4087,7 +4087,7 @@ inline void case_opleg_gated_swap_incomplete_handoff() {
 
 /**
  * @brief Death case: a shading lookup past the leg's face table must trap.
- * @details OpLeg surface — the ramp index is read straight from the per-face
+ * @details OpLeg surface â€” the ramp index is read straight from the per-face
  *          table, so an out-of-range face would shade through whatever follows
  *          it instead of failing.
  */
@@ -4117,7 +4117,7 @@ inline void case_motion_empty_path_origin_sample() {
 
 /**
  * @brief Death case: a negative equator sample count must trap.
- * @details Spherical-field surface — the count sizes every ring's longitude
+ * @details Spherical-field surface â€” the count sizes every ring's longitude
  *          walk, so a negative one underflows the per-ring sample allocation.
  */
 inline void case_spherical_field_negative_equator_samples() {
@@ -4128,7 +4128,7 @@ inline void case_spherical_field_negative_equator_samples() {
 
 /**
  * @brief Death case: a spherical polygon wider than a hemisphere must trap.
- * @details SDF surface — beyond the hemisphere the cap fold changes sign, so
+ * @details SDF surface â€” beyond the hemisphere the cap fold changes sign, so
  *          the shape must be built inverted about its antipode instead.
  */
 inline void case_sdf_spherical_polygon_radius_over_hemisphere() {
@@ -4141,7 +4141,7 @@ inline void case_sdf_spherical_polygon_radius_over_hemisphere() {
 
 /**
  * @brief Death case: a flower wider than a hemisphere must trap.
- * @details SDF surface — the petal cap bound is taken about the antipode, so a
+ * @details SDF surface â€” the petal cap bound is taken about the antipode, so a
  *          radius past the hemisphere inverts the band it derives.
  */
 inline void case_sdf_flower_radius_over_hemisphere() {
@@ -4154,7 +4154,7 @@ inline void case_sdf_flower_radius_over_hemisphere() {
 
 /**
  * @brief Death case: a zero-radius flower must trap.
- * @details SDF surface — the petal parameter divides by the circumradius, so a
+ * @details SDF surface â€” the petal parameter divides by the circumradius, so a
  *          zero radius hands every probe a non-finite distance.
  */
 inline void case_sdf_flower_zero_radius() {
@@ -4167,7 +4167,7 @@ inline void case_sdf_flower_zero_radius() {
 
 /**
  * @brief Death case: baking a class LUT for a degenerate polygon must trap.
- * @details SDF class-LUT surface — fewer than three vertices leaves no closed
+ * @details SDF class-LUT surface â€” fewer than three vertices leaves no closed
  *          boundary for the crossing test, so every sample would read as
  *          outside.
  */
@@ -4182,7 +4182,7 @@ inline void case_sdf_class_lut_too_few_vertices() {
 
 /**
  * @brief Death case: baking a class LUT on a single-cell grid must trap.
- * @details SDF class-LUT surface — the cell step divides by (n - 1), so a
+ * @details SDF class-LUT surface â€” the cell step divides by (n - 1), so a
  *          resolution below 2 makes the whole domain non-finite.
  */
 inline void case_sdf_class_lut_grid_too_small() {
@@ -4197,7 +4197,7 @@ inline void case_sdf_class_lut_grid_too_small() {
 /**
  * @brief Death case: binding a class LUT at a vertex offset outside the face
  *        must trap.
- * @details SDF class-LUT surface — the offset indexes the canonical polygon
+ * @details SDF class-LUT surface â€” the offset indexes the canonical polygon
  *          cyclically, so an out-of-range one correlates the face against
  *          storage past the shape.
  */
@@ -4225,7 +4225,7 @@ inline void case_sdf_bind_class_lut_offset_out_of_range() {
 
 /**
  * @brief Death case: a ring wider than the antipode must trap.
- * @details SDF ring surface — target_angle is radius * PI/2, so past 2 the
+ * @details SDF ring surface â€” target_angle is radius * PI/2, so past 2 the
  *          band's cosine limits wrap and the stroke lands at the wrong
  *          latitude.
  */
@@ -4239,7 +4239,7 @@ inline void case_sdf_ring_radius_past_antipode() {
 
 /**
  * @brief Death case: a ring with a negative stroke half-width must trap.
- * @details SDF ring surface — a negative thickness inverts the angular band,
+ * @details SDF ring surface â€” a negative thickness inverts the angular band,
  *          so every probe returns the far sentinel and the ring renders
  *          nothing.
  */
@@ -4253,7 +4253,7 @@ inline void case_sdf_ring_negative_thickness() {
 
 /**
  * @brief Death case: a distorted ring wider than the antipode must trap.
- * @details SDF ring surface — the shared ring geometry derives its band from
+ * @details SDF ring surface â€” the shared ring geometry derives its band from
  *          radius * PI/2, which past 2 wraps its cosine limits.
  */
 inline void case_sdf_distorted_ring_radius_past_antipode() {
@@ -4266,7 +4266,7 @@ inline void case_sdf_distorted_ring_radius_past_antipode() {
 
 /**
  * @brief Death case: a distorted ring with a negative half-width must trap.
- * @details SDF ring surface — a negative thickness inverts the angular band,
+ * @details SDF ring surface â€” a negative thickness inverts the angular band,
  *          so every probe returns the far sentinel and the ring renders
  *          nothing.
  */
@@ -4280,7 +4280,7 @@ inline void case_sdf_distorted_ring_negative_thickness() {
 
 /**
  * @brief Death case: a line with a negative stroke half-width must trap.
- * @details SDF line surface — a negative thickness inverts the angular band
+ * @details SDF line surface â€” a negative thickness inverts the angular band
  *          and shrinks the bounding cap below the arc's own half-length, so
  *          the cull drops rows the arc covers.
  */
@@ -4293,7 +4293,7 @@ inline void case_sdf_line_negative_thickness() {
 /**
  * @brief Death case: a distorted ring built with a null shift callback must
  *        trap.
- * @details SDF ring surface — the callback is invoked per azimuth on every
+ * @details SDF ring surface â€” the callback is invoked per azimuth on every
  *          probe, so a null one faults deep inside the rasterizer instead.
  */
 inline void case_sdf_distorted_ring_null_shift() {
@@ -4512,7 +4512,7 @@ inline void case_reconcile_vertices_empty() {
 /**
  * @brief Death case: an operator table whose entry decreases carrier family
  *        rank must trap.
- * @details Interpreter surface — compile() only matches adjacent carriers, so
+ * @details Interpreter surface â€” compile() only matches adjacent carriers, so
  *          a rank-decreasing entry would run a chain the type system forbids.
  */
 inline void case_chain_table_rank_decreases() {
@@ -5283,12 +5283,12 @@ inline const Case *all_cases(int &n) {
       {"persist_forgot_reset", case_persist_forgot_reset,
        "core/engine/memory.h",
        "(persistent.get_offset() <= persistent_offset_at_ctor) Persist: "
-       "restore grew the persistent arena past its construction watermark — "
+       "restore grew the persistent arena past its construction watermark â€” "
        "the caller did not rewind/reset it during the scope, so the restore "
        "appended a duplicate instead of reconstructing"},
       {"persist_same_arena", case_persist_same_arena, "core/engine/memory.h",
        "(&scratch_arena != &restore_arena) Persist: scratch and persistent "
-       "must be distinct arenas — the dtor's watermark restore assumes the "
+       "must be distinct arenas â€” the dtor's watermark restore assumes the "
        "backup lives in a different arena than the one it restores into"},
       {"triangular_bitset_unordered_pair",
        case_triangular_bitset_unordered_pair,
@@ -5748,21 +5748,21 @@ inline const Case *all_cases(int &n) {
        "option_count - 1) register_param: enum bound must be exactly representable as float"},
       {"register_int_param_range", case_register_int_param_range,
        "core/control/param_host.h",
-       "(range_fits) register_int_param: [min,max] must fit the target "
+       "(range_fits) register_param: [min,max] must fit the target "
        "integer type"},
       {"register_int_param_max_inexact", case_register_int_param_max_inexact,
        "core/control/param_host.h",
-       "(bounds_exact) register_int_param: bounds must be exactly representable as float"},
+       "(bounds_exact) register_param: bounds must be exactly representable as float"},
       {"register_int_param_min_inexact", case_register_int_param_min_inexact,
        "core/control/param_host.h",
-       "(bounds_exact) register_int_param: bounds must be exactly representable as float"},
+       "(bounds_exact) register_param: bounds must be exactly representable as float"},
       {"param_spec_uint32_bound_outside_storage",
        case_param_spec_uint32_bound_outside_storage,
        "core/control/param_host.h",
-       "(range_fits) register_int_param: [min,max] must fit the target integer type"},
+       "(range_fits) register_param: [min,max] must fit the target integer type"},
       {"param_spec_uint32_bound_inexact", case_param_spec_uint32_bound_inexact,
        "core/control/param_host.h",
-       "(bounds_exact) register_int_param: bounds must be exactly representable as float"},
+       "(bounds_exact) register_param: bounds must be exactly representable as float"},
       {"param_spec_integer_preserve_policy",
        case_param_spec_integer_preserve_policy, "core/control/param_host.h",
        "(spec.initial_value == ParamInitialValue::REQUIRE_IN_RANGE) register_param: "
@@ -6067,8 +6067,8 @@ inline const Case *all_cases(int &n) {
       {"sdf_line_negative_thickness", case_sdf_line_negative_thickness,
        "core/render/sdf/shapes.h",
        "(thickness >= 0.0f) Line: negative stroke half-width"},
-      {"chain_zero_alignment", case_chain_zero_alignment,
-       "core/render/pullback/interpreter.h", "(layout.align != 0 && (layout.align & (layout.align - 1)) == 0 && layout.align <= alignof(std::max_align_t)) ChainProgram::bind_storage: invalid block alignment"},
+      {"chain_zero_alignment",
+       case_chain_zero_alignment, "core/render/pullback/interpreter.h", "(layout.align != 0 && (layout.align & (layout.align - 1)) == 0 && layout.align <= alignof(std::max_align_t)) ChainProgram::bind_storage: invalid block alignment"},
       {"chain_non_power_alignment", case_chain_non_power_alignment,
        "core/render/pullback/interpreter.h",
        "(layout.align != 0 && (layout.align & (layout.align - 1)) == 0 && layout.align <= alignof(std::max_align_t)) ChainProgram::bind_storage: invalid block alignment"},
@@ -6669,7 +6669,7 @@ inline int spawn_child(const char *name, unsigned timeout_ms = 10000) {
     }
     const char *argv[] = {exe, nullptr};
     execv(exe, const_cast<char *const *>(argv));
-    _exit(127); // exec failed — never returns to the harness
+    _exit(127); // exec failed â€” never returns to the harness
   }
   int status = 0;
   const auto DEADLINE =
@@ -6906,14 +6906,15 @@ inline void report_guard_coverage(const Case *cs, int n, const int *lines) {
     const int allowed = allowed_guard_gap(f.file);
     if (gap > allowed) {
       std::printf("  [FAIL] %s leaves %d HS_CHECK site(s) unpinned, %d "
-                  "approved — add a death case, or write the gap down as "
+                  "approved â€” add a death case, or write the gap down as "
                   "{\"%s\", %d} in GUARD_GAP_ALLOW\n",
                   f.file, gap, allowed, f.file, gap);
       ++unapproved_gaps;
     } else if (gap < allowed) {
-      std::printf("  [FAIL] {\"%s\", %d} over-approves — the file's gap is %d; "
-                  "lower the GUARD_GAP_ALLOW row to {\"%s\", %d}\n",
-                  f.file, allowed, gap, f.file, gap);
+      std::printf(
+          "  [FAIL] {\"%s\", %d} over-approves â€” the file's gap is %d; "
+          "lower the GUARD_GAP_ALLOW row to {\"%s\", %d}\n",
+          f.file, allowed, gap, f.file, gap);
       ++stale_allowances;
     }
     for (int slot = 0; slot < GAPS; ++slot) {
@@ -7075,8 +7076,8 @@ inline int run_death_tests() {
     int rc = spawn_child(cs[i].name);
     bool trapped = child_trapped(rc);
     // Dying is not enough: the child must die at THIS case's guard. Any other
-    // trap — UB lowered to the same illegal instruction, or a guard the case
-    // hits on its way to the one it targets — fails here.
+    // trap â€” UB lowered to the same illegal instruction, or a guard the case
+    // hits on its way to the one it targets â€” fails here.
     int line = breadcrumb_names_guard(child_output(), cs[i].guard_file,
                                       cs[i].guard_text);
     bool at_guard = line != 0;
