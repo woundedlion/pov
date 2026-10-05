@@ -146,7 +146,7 @@ class PrototypeContractTests(unittest.TestCase):
                 pcb.main(unplaced=True, revision="1.3", output_dir=out)
         self.assertEqual(pcb._GENERATION.get(), ("1.2", None))
 
-    def test_prototype_cannot_be_exported_with_rev_12_bom(self):
+    def test_prototype_cannot_be_exported_with_rev_11_bom(self):
         result = subprocess.run([sys.executable, str(GEN / "fab.py"), "--revision", "1.3"],
                                 capture_output=True, text=True, check=False)
         self.assertNotEqual(result.returncode, 0)

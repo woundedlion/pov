@@ -38,7 +38,7 @@ F1 **TLC-NSMD050**, FB **CBW321609U601T**, C_LF **CL31A226KAHNNNE**,
 R_LF **RCA051R5JLF**, and R_D1/R_D2 **0805W8F330JT5E**. J1 is
 **TBC05-02-1-G-G**, J2 is **TBC05-03-1-G-G**, and U_MCU is a **Teensy 4.0**.
 The inherited supplier mappings are in [the fabrication tool](../gen/fab.py);
-its rev 1.2 BOM must not be used to assemble rev 1.3.
+its rev 1.1 BOM (the only revision it exports) must not be used to assemble rev 1.3.
 [Nichicon's C_IN selection](https://www.nichicon.com/en-us/part/upw1h101mpd/8471/)
 matches the existing radial footprint; confirm its height against the rotor envelope.
 
