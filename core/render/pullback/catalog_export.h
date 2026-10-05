@@ -18,7 +18,8 @@
 /**
  * @file catalog_export.h
  * @brief Embind-free string builder for the operator catalog JSON, so native
- *        tests golden-pin the exact bytes the tool receives.
+ *        tests golden-pin the builder's output for the building ABI.
+ *        Block sizes follow that ABI; see append_catalog_json.
  */
 
 namespace Pullback {
