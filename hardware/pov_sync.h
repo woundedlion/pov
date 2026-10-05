@@ -21,7 +21,8 @@
  * counting timer interrupts, so masked-IRQ windows do not accumulate phase
  * drift; intervening columns can still be skipped. The
  * master emits count-coded symbol bursts on the one wire — 2/revolution
- * boundary marks plus a rare epoch mark and a mid-revolution data beacon —
+ * boundary marks, an epoch train (primary + epoch_repeats copies) once per
+ * effect, and a quarter-revolution (x ≈ W/4) data beacon on beacon revolutions —
  * and downstream boards snap their flywheel phase to them. Three layers ride
  * the same timebase:
  *
