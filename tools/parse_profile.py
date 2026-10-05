@@ -13,7 +13,8 @@ Reads a capture produced by `profile`/`profile_o3` and:
             each preset owns the transition that follows it, so its counts are
             stricter than the clean-hold view.
   metrics   per-window scan-probe counts and their path split, from a capture
-            built with -D HS_SCAN_METRICS. Counts only: every probe in such a
+            built with -D HS_SCAN_METRICS; shade columns also need
+            HS_PROFILE_DEEP=1. Counts only: every probe in such a
             build pays a global increment, so its times are not comparable.
   probe     per-probe stage cycle split, from a capture built with
             -D HS_PROBE_BREAKDOWN. Ratios only: every stage boundary is a
@@ -635,13 +636,18 @@ def cmd_metrics(windows):
     survivors. `cand` counts pixels passing the scan's d < pixel_width test and
     `shade` the ones that then survived the alpha test, read from the
     raster_shade scope's call count (the two differ by the alpha-rejected AA
-    fringe). probes/shade is the figure a cycles-per-probe estimate divides by.
+    fringe). This scope needs HS_PROFILE_DEEP=1 as well as HS_SCAN_METRICS.
+    Missing shade counts and ratios are n/a. probes/shade is the figure a
+    cycles-per-probe estimate divides by.
     """
     have = [w for w in windows if w.scan]
     if not have:
         print("no 'scan totals' lines: rebuild with -D HS_SCAN_METRICS",
               file=sys.stderr)
         return 2
+    if any("raster_shade" not in w.counters for w in have):
+        print("raster_shade unavailable: rebuild with HS_PROFILE_DEEP=1 "
+              "as well as -D HS_SCAN_METRICS", file=sys.stderr)
     print(f"{'# window':<13} " + " ".join(
         f"{h:>{w}}" for h, w in zip(METRICS_COLS, METRICS_WIDTHS))
         + "  marker")
@@ -650,11 +656,14 @@ def cmd_metrics(windows):
     agg_shade = 0
     for w in have:
         s = w.scan
-        shade = w.counters.get("raster_shade", {}).get("calls", 0)
+        shade = w.counters.get("raster_shade", {}).get("calls")
         for k in SCAN_FIELDS:
             agg[k] += s[k]
         agg_frames += w.frames
-        agg_shade += shade
+        if shade is None:
+            agg_shade = None
+        elif agg_shade is not None:
+            agg_shade += shade
         print(f"{w.f_start:6d}-{w.f_end:<6d} " + _metrics_row(s, w.frames, shade)
               + f"  {w.marker['name'] if w.marker else '-'}")
     print(f"{'# aggregate':<13} " + _metrics_row(agg, agg_frames, agg_shade)
@@ -676,10 +685,10 @@ def _metrics_row(s, frames, shade):
 
     vals = (s["tested"] / frames, s["culled"] / frames, pct(s["lut"]),
             pct(s["convex"]), pct(s["sector"]), pct(s["walk"]),
-            s["cand"] / frames, shade / frames,
-            s["tested"] / shade if shade else float("nan"))
+            s["cand"] / frames, shade / frames if shade is not None else None,
+            None if shade is None else s["tested"] / shade if shade else float("nan"))
     prec = (0, 0, 1, 1, 1, 1, 0, 0, 2)
-    return " ".join(f"{v:{w}.{p}f}"
+    return " ".join(f"{'n/a':>{w}}" if v is None else f"{v:{w}.{p}f}"
                     for v, w, p in zip(vals, METRICS_WIDTHS, prec))
 
 
