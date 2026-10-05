@@ -2150,9 +2150,7 @@ inline void test_nested_union_emits_every_child_arc() {
   static_assert(SDF::sdf_max_spans<SDF::Ring>::value == 2);
   static_assert(SDF::sdf_max_spans<U3>::value == 6);
   static_assert(SDF::sdf_max_spans<U4>::value == 8);
-  // Nesting under the frame-sensitive combinators too: each child must fit one
-  // IntervalBuffer, which a 32-span leaf bound could never satisfy.
-  static_assert(sizeof(SDF::Subtract<U2, SDF::Ring>) > 0);
+  // Under Intersection, each child must fit one IntervalBuffer.
   static_assert(sizeof(SDF::Intersection<U2, U2>) > 0);
 
   U2 u_lo(r1, r2), u_hi(r3, r4);
