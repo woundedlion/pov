@@ -1256,9 +1256,10 @@ parameters and frame state.
 
 `kd_tree.h` provides arena-backed three-dimensional nearest-neighbor queries.
 `reaction_graph.h` defines the Fibonacci reaction lattice and node lookup;
-`reaction_graph.cpp` stores the generated neighbor table and immutable float
-node positions. The generator of record is `scripts/generate_reaction_graph.py`;
-its provenance gate covers both arrays. The analytic `ReactionGraph::node()`
+`reaction_graph.cpp` stores the generated neighbor table, its run-length
+encoding (`neighbor_runs`/`neighbor_run_index`) and immutable float node positions.
+The generator of record is `scripts/generate_reaction_graph.py`; its provenance
+gate diffs the whole generated file. The analytic `ReactionGraph::node()`
 remains the reference, with a native comparison across all 7,680 positions.
 Reaction-diffusion effects use these neighbors without rebuilding adjacency.
 
