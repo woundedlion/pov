@@ -616,7 +616,7 @@ def _rotatable(ref):
     return ref[0] in "RC"
 
 
-# R-CON-4: power/debug at the hub, LED/sync at the far end; wire entries face the hub.
+# R-CON-4: power at the hub, LED/sync at the far end; wire entries face the hub.
 HUB_CONNS = ("J1",)                # logic power in — hub end (left)
 FAR_CONNS = ("J2", "J3A", "J3B")    # strip signal, sync daisy in/out — far end (right)
 
@@ -887,7 +887,7 @@ def pack(bxs, width, edge=1.0, gap=1.2):
         place[ref] = (round(edge + x - rb[0], 3), round(edge + yb - rb[1], 3), rot)
         sky = reserve(yb, wg, hg, x)
 
-    # Strip and sync connectors occupy the far edge; power/debug occupy the hub.
+    # Strip and sync connectors occupy the far edge; power occupies the hub.
     right = max(s[2] for s in sky)
     if far:
         sumh = _column_height(far, bxs, 0.0)
