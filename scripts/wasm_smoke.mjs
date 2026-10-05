@@ -1193,7 +1193,7 @@ async function main(probe) {
           dual.delete();
         }
 
-        // Drive the parameterized operators (float-arg truncate, int-arg relax
+        // Drive the parameterized operators (float-arg truncate, double-arg relax
         // with its clamp, finite-arg hankin reject) — arg-marshaling seams not
         // exercised above.
         const isValidMesh = (w) => {
@@ -1210,9 +1210,8 @@ async function main(probe) {
         if (!isValidMesh(trunc)) fail(`${solidName}.truncate(0.3) did not produce a valid mesh`);
         if (trunc) trunc.delete();
 
-        // relax(int) + its C++-side clamp: relax(1e9) (INT32-valid) must clamp to
-        // MAX_RELAX_ITERATIONS, not loop a billion times. Exercises the C++ clamp
-        // only, not embind's double->int coercion near INT32_MAX.
+        // relax(double) rejects non-finite counts and clamps finite ones before
+        // converting to int. Probe one in-domain pass and an adjusted large count.
         // Read getLastAdjusted() before another operation resets the outcome.
         const relaxed = solid.relax(1);
         if (MeshOps.getLastAdjusted()) {
