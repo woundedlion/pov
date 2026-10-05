@@ -1603,7 +1603,8 @@ static_assert(std::is_same_v<
 struct DerivationReach {
   const char *operator_id;
   const char *topology_id;
-  std::array<const char *, 9> reachable; /**< Null-terminated. */
+  std::array<const char *, 9>
+      reachable; /**< Reachable IDs with nullable unused slots. */
 };
 
 constexpr DerivationReach DERIVATION_REACH[] = {
