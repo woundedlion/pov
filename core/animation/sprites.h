@@ -239,7 +239,7 @@ apply_signed_axis_attractor(uint16_t &life, math::Vector &velocity,
 
   if (s.dist_sq < attractor.event_horizon * attractor.event_horizon) {
     const math::Vector torque = (attractor.position - pos).normalized();
-    const float speed = std::max(velocity.magnitude(), max_delta);
+    const float speed = fmaxf(velocity.magnitude(), max_delta);
     velocity = torque * speed;
     return true;
   }
