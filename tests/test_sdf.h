@@ -3419,7 +3419,7 @@ inline void test_face_sector_backtrack_sign() {
 }
 
 /**
- * @brief Verifies Face::distance reproduces the exact point-to-polygon oracle.
+ * @brief Verifies Face::distance agrees with the polygon oracle inside and bounds it outside.
  * @details Drives check_face_distance_oracle across a spread of polygons
  *   (triangle, pentagon, hexagon and concave stars) and tilts.
  */
