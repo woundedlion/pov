@@ -15,7 +15,7 @@ bare `pio run` covers, which is also the set the warning gate expects -- so a
 new image is built and reported without a second list to edit here. Size/layout
 budgets are enforced only in environments enabling teensy_gate_extra.py.
 
-Run:  python tools/teensy_size_table.py [<env> ...]
+Run:  python tools/teensy_size_table.py [--record-trail] [<env> ...]
 """
 
 from __future__ import annotations
@@ -107,7 +107,9 @@ def render_table(order: list[str], sizes_by_env: dict[str, dict]) -> str:
 
 
 def main(argv: list[str] | None = None) -> int:
-    envs = sys.argv[1:] if argv is None else argv
+    args = sys.argv[1:] if argv is None else argv
+    record_trail = "--record-trail" in args
+    envs = [arg for arg in args if arg != "--record-trail"]
     pio = shutil.which("pio") or shutil.which("platformio")
     if pio is None:
         print("error: pio not found on PATH (pip install platformio)",
@@ -138,6 +140,9 @@ def main(argv: list[str] | None = None) -> int:
     if order:
         print()
         print(render_table(order, sizes_by_env))
+    if record_trail and rc == 0:
+        subprocess.call([sys.executable, str(Path(__file__).with_name(
+            "teensy_size_trail.py")), "record", "--built"])
     return rc
 
 
