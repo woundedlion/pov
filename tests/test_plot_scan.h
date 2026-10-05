@@ -2226,10 +2226,8 @@ inline void test_gate_trail_edges_matches_edge_visible() {
 }
 
 /**
- * @brief Cutting a wireframe edge at the clip band separates it exactly: every
- *        arc point the render region would show sits in a piece the gate keeps.
- * @details The cut is what replaced the uniform sub-segment chop, so this is
- *          its conservativeness proof. Sweeps the rendered great circle of
+ * @brief Verifies visible arc samples belong to pieces the clip gate keeps.
+ * @details Conservativeness proof for the clip cut: sweeps the rendered great circle of
  *          random edges against bands covering both seam topologies: a sample
  *          whose plotted pixel falls in the render region must belong to a kept
  *          piece. Kept and culled piece counts are floored too, so a cut that
