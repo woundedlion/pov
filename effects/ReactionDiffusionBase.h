@@ -103,9 +103,9 @@ protected:
       (KERNEL_R * KERNEL_R); /**< Reciprocal of the squared support radius. */
   /**
    * @brief Total-weight floor below which a sampled kernel is treated as empty.
-   * @details Sits far below the smallest legitimate total weight (the center
-   * node alone contributes ~0.8 for any on-sphere query), so it only trips on a
-   * degenerate/empty walk and never culls a real pixel.
+   * @details The pixel-center stencil is reused across SSAA queries. On coarse
+   * row grids a sub-sample can leave that stencil's support and have zero total
+   * weight, even when the center is the nearest node to the pixel center.
    */
   static constexpr float KERNEL_MIN_TOTAL_WEIGHT = 1e-4f;
 
