@@ -24,8 +24,8 @@ left edge. The outline remains **58.28 x 32 mm**, and all four mounting holes
 retain the rev 1.1 coordinates. The Teensy shifts 3.5 mm left to clear the
 terminal bodies; D_BUS is released for placement outside their keepouts.
 
-J2/J3A/J3B in rev 1.2 and J3A/J3B in rev 1.3 have no wire-access reservation.
-Their wire openings sit about 1.5 mm from the Teensy PCB edge. Before fabrication,
+J2/J3A/J3B in revisions 1.2 and 1.3 have no wire-access reservation.
+The right-column connectors' wire openings sit about 1.5 mm from the Teensy PCB edge. Before fabrication,
 verify harness insertion at the module's mounted height, including any ferrules.
 Check whether wiring before seating the Teensy or selecting a socket height that
 clears the harness is required; the placement and DRC gates do not verify this.
