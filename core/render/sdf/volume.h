@@ -260,7 +260,7 @@ struct Twist {
    * trace would step through.
    */
   float lipschitz(const math::Vector & /*p*/, Ctx s) const {
-    return lipschitz(1.0f / std::max(s, R * 0.5f));
+    return lipschitz(1.0f / fmaxf(s, R * 0.5f));
   }
 
   /**
