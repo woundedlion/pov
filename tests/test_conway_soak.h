@@ -12,7 +12,7 @@
  *   - zero persistent-arena growth across leg compactions: the post-compaction
  *     offset is a pure function of (node, held seed), so every revisit must
  *     land on the byte-identical offset — steady state, not monotonic creep,
- *   - no arena high-water growth once every node has been visited,
+ *   - no arena high-water growth on a repeated directed transition with the same seed,
  *   - a per-leg floor on lit pixels and frame energy, so no single leg may
  *     render dark.
  */
