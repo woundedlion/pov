@@ -2322,9 +2322,9 @@ inline void test_angular_repeat_t_is_sector_local() {
 // The cull must be conservative: it may over-visit but must never drop a pixel
 // belonging to the shape. Invariant: a pixel clearly inside (distance().dist <
 // -pixel_width, one pixel deep into body or stroke band) is among those
-// scan_region visits. The one-pixel margin keeps the test off two soft edges the
-// cull does NOT promise — a stroke's outer ~5% rim and a solid's sub-pixel AA
-// halo — and clears the ~0.004 rad fast-trig noise.
+// scan_region visits. expect_cull_covers_interior stays one pixel deep, clear
+// of a stroke's outer rim and fast-trig noise. Solid AA halo coverage is pinned
+// by expect_cull_covers_fringe below.
 // ============================================================================
 
 /**
