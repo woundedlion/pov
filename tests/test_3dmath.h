@@ -599,9 +599,7 @@ inline void test_vector_normalize() {
  *        out-of-domain components saturated rather than wrapped.
  */
 inline void test_snorm3_roundtrip_bound() {
-  // The +1e-7f allows encode/decode float rounding beyond the half-step
-  // quantization error of 1/65534.
-  constexpr float COMPONENT_BOUND = 1.0f / 65534.0f + 1e-7f;
+  constexpr float COMPONENT_BOUND = SNORM3_COMPONENT_BOUND;
   constexpr float CHORD_BOUND = 2.65e-5f;
 
   const math::Snorm3 endpoints = math::Snorm3::encode(math::Vector(1, 0, -1));
