@@ -312,13 +312,11 @@ inline void test_config_validation() {
   gz.gate_cols = 0;
   expect_rejects(gz, "gate_cols > 0");
 
-  // gate_cols < W/4 is what lets snap()'s distance check subsume the boundary-
-  // identity check. No config violates it alone: beacon_frame_cols() < W/4
-  // forces W/4 above the 7*beacon_pitch_cols + 1 digit-gate bound, so that
-  // clause (probed in test_helpers) is always the tighter of the two.
-  const Config gw = test_config();
-  HS_EXPECT_TRUE(7 * gw.beacon_pitch_cols + 1 < gw.W / 4);
-  HS_EXPECT_TRUE(gw.gate_cols < gw.W / 4);
+  Config gw = test_config();
+  gw.gate_cols = gw.W / 4;
+  expect_rejects(gw, "gate_cols < W/4");
+  --gw.gate_cols;
+  expect_rejects(gw, "7*beacon_pitch_cols + 1 > gate_cols");
 
   Config rj = test_config();
   rj.reject_fallback = 0;
