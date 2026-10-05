@@ -17,6 +17,7 @@ import {
 import {
   bakedTopologyFields,
   darknessProblems,
+  hyperLatticePatternProblems,
   paramStreamProblems,
   promotedBindingProblems,
   stackCreepBudget,
@@ -328,6 +329,15 @@ async function main(probe) {
           fail(`${name}: parameter definitions and values differ immediately after installation`);
         }
         if (name === 'HyperLattice') {
+          const pattern = engine.getParameterDefinitions().find((d) => d.name === 'Pattern');
+          const accepted = engine.setParameter('Pattern', 6);
+          const acceptedValue = engine.getParameterDefinitions().find((d) => d.name === 'Pattern')?.value;
+          const rejected = engine.setParameter('Pattern', 2);
+          const rejectedValue = engine.getParameterDefinitions().find((d) => d.name === 'Pattern')?.value;
+          for (const problem of hyperLatticePatternProblems({
+            pattern, presetIds: Array.from(engine.getPresetIds()),
+            accepted, acceptedValue, rejected, rejectedValue,
+          }, Module.ParamSetResult)) fail(`${w}x${h}: ${problem}`);
           const presetCount = engine.getPresetCount();
           for (let preset = 0; preset < presetCount; preset++) {
             if (!engine.selectPreset(preset)) {

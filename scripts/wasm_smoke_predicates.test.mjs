@@ -11,6 +11,7 @@ import {
   bakedTopologyFields,
   darknessProblems,
   engineControlNames,
+  hyperLatticePatternProblems,
   paramStreamProblems,
   promotedBindingProblems,
   stackCreepBudget,
@@ -47,10 +48,75 @@ test('a missing or degenerate stack falls back to the ceiling', () => {
 
 const floatDef = (name, value, min = 0, max = 1) => ({ name, value, min, max });
 
+test('the shipping HyperLattice sparse metadata and write seam pass', () => {
+  assert.deepEqual(hyperLatticePatternProblems(sparseObservation(), sparseResults), []);
+});
+
+const sparseResults = { APPLIED: 'applied', INADMISSIBLE: 'inadmissible' };
+function sparseObservation() {
+  return {
+    pattern: { options: ['Cubic', 'Octet Truss', 'Shells'], optionValues: [0, 1, 6] },
+    presetIds: ['cubic-flight', 'cubic-wide-flight', 'hypercube-flight',
+      'octet-flight', 'octet-wide-flight', 'octet-4d-flight',
+      'shell-flight', 'shell-close-flight', 'shell-4d-flight'],
+    accepted: sparseResults.APPLIED, acceptedValue: 6,
+    rejected: sparseResults.INADMISSIBLE, rejectedValue: 6,
+  };
+}
+
+for (const [name, change] of [
+  ['missing Pattern', (o) => { delete o.pattern; }],
+  ['missing Shells label', (o) => { o.pattern.options.pop(); }],
+  ['missing ID map', (o) => { delete o.pattern.optionValues; }],
+  ['dense reassignment', (o) => { o.pattern.optionValues = [0, 1, 2]; }],
+  ['missing shipping preset', (o) => { o.presetIds.pop(); }],
+  ['rejected Shells write', (o) => { o.accepted = sparseResults.INADMISSIBLE; }],
+  ['wrong Shells readback', (o) => { o.acceptedValue = 2; }],
+  ['admitted gap', (o) => { o.rejected = sparseResults.APPLIED; }],
+  ['gap changed value', (o) => { o.rejectedValue = 2; }],
+]) {
+  test(`the HyperLattice sparse probe catches ${name}`, () => {
+    const observed = sparseObservation();
+    change(observed);
+    assert.notDeepEqual(hyperLatticePatternProblems(observed, sparseResults), []);
+  });
+}
+
 test('matching parameter streams zip clean', () => {
   const defs = [floatDef('Speed', 0.25), floatDef('Scale', 3, 1, 8),
     { name: 'Wrap', value: true }];
   assert.deepEqual(paramStreamProblems(defs, [0.25, 3, 1]), []);
+});
+
+test('dense and mapped enum parameter streams pass with their actual IDs', () => {
+  assert.deepEqual(paramStreamProblems([{ ...floatDef('Dense', 2, 0, 2),
+    options: ['Zero', 'One', 'Two'] }], [2]), []);
+  for (const value of [0, 1, 6]) {
+    const def = { ...floatDef('Mapped', value, 0, 6),
+      options: ['Zero', 'One', 'Six'], optionValues: [0, 1, 6] };
+    assert.deepEqual(paramStreamProblems([def], [value]), []);
+  }
+});
+
+for (const [name, ids] of [
+  ['non-array map', null], ['empty map', []], ['count mismatch', [0, 6]],
+  ['duplicate ID', [0, 6, 6]], ['fractional ID', [0, 0.5, 6]],
+  ['out-of-range ID', [0, 1, 7]], ['missing minimum', [1, 2, 6]],
+  ['missing maximum', [0, 1, 5]],
+]) {
+  test(`parameter streams reject ${name}`, () => {
+    const def = { ...floatDef('Mapped', 6, 0, 6),
+      options: ['Zero', 'One', 'Six'], optionValues: ids };
+    assert.deepEqual(paramStreamProblems([def], [6]),
+      ['param "Mapped" has invalid optionValues metadata']);
+  });
+}
+
+test('a mapped enum stream rejects unavailable values inside its numeric bounds', () => {
+  const def = { ...floatDef('Mapped', 2, 0, 6),
+    options: ['Zero', 'One', 'Six'], optionValues: [0, 1, 6] };
+  assert.deepEqual(paramStreamProblems([def], [2]),
+    ['param "Mapped" value 2 is absent from optionValues']);
 });
 
 test('a non-array definition stream is the only problem reported', () => {

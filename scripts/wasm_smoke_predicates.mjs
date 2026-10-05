@@ -6,6 +6,28 @@ export { BAKED_CONSTANT_IDS, bakedTopologyFields, LIVE_TOPOLOGY_FIELD, engineCon
 /** Fraction of a sub-ceiling stack capacity treated as the creep budget. */
 export const STACK_MAX_FILL = 0.75;
 
+/** @returns {string[]} Sparse HyperLattice metadata and write-seam failures. */
+export function hyperLatticePatternProblems(observed, results) {
+  const problems = [];
+  const { pattern, presetIds, accepted, acceptedValue, rejected, rejectedValue } = observed;
+  const labels = ['Cubic', 'Octet Truss', 'Shells'];
+  const ids = [0, 1, 6];
+  const presets = ['cubic-flight', 'cubic-wide-flight', 'hypercube-flight',
+    'octet-flight', 'octet-wide-flight', 'octet-4d-flight',
+    'shell-flight', 'shell-close-flight', 'shell-4d-flight'];
+  if (JSON.stringify(pattern?.options) !== JSON.stringify(labels))
+    problems.push('HyperLattice: Pattern labels differ from the shipping patterns');
+  if (JSON.stringify(pattern?.optionValues) !== JSON.stringify(ids))
+    problems.push('HyperLattice: Pattern optionValues must preserve IDs 0, 1, 6');
+  if (JSON.stringify(presetIds) !== JSON.stringify(presets))
+    problems.push('HyperLattice: shipping cubic, octet, and shell presets differ');
+  if (accepted !== results.APPLIED || acceptedValue !== 6)
+    problems.push('HyperLattice: setting Shells ID 6 did not apply');
+  if (rejected !== results.INADMISSIBLE || rejectedValue !== 6)
+    problems.push('HyperLattice: unavailable Pattern ID 2 did not leave Shells unchanged');
+  return problems;
+}
+
 /**
  * @param {object} run
  * @param {number} run.frames Frames rendered per effect.
@@ -95,6 +117,18 @@ export function paramStreamProblems(defs, values) {
       problems.push(`param "${d.name}" has a non-finite/inverted range [${d.min}, ${d.max}]`);
     } else if (!Number.isFinite(d.value) || d.value < d.min - eps || d.value > d.max + eps) {
       problems.push(`param "${d.name}" value ${d.value} outside [${d.min}, ${d.max}]`);
+    }
+    if (d.optionValues !== undefined) {
+      const ids = d.optionValues;
+      const validMap = Array.isArray(ids) && Array.isArray(d.options) && ids.length > 0
+        && ids.length === d.options.length && new Set(ids).size === ids.length
+        && ids.every((id) => Number.isInteger(id) && Math.fround(id) === id
+          && id >= d.min && id <= d.max)
+        && ids.includes(d.min) && ids.includes(d.max);
+      if (!validMap)
+        problems.push(`param "${d.name}" has invalid optionValues metadata`);
+      else if (!ids.includes(d.value))
+        problems.push(`param "${d.name}" value ${d.value} is absent from optionValues`);
     }
   }
   return problems;
