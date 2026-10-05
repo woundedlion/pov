@@ -2686,14 +2686,9 @@ inline void test_gs_evolution_stays_bounded() {
 /**
  * @brief Verifies the substep stays finite and inside [0, 1] at the joint
  *        feed/k corner of the slider box, past the Euler stability bound.
- * @details The dA/dB cap covers only the diffusion term; the reaction Jacobian's
- *          rows exceed 2 at feed = k = 0.1 with Speed at top, so the scheme is
- *          genuinely unstable there and the per-substep clamp is the only thing
- *          holding the field. Assert what that buys: after 256 substeps from
- *          seeded nuclei every node is still finite and on [0, 1], so the
- *          overshoot saturates rather than escaping into NaN/Inf and poisoning
- *          the palette lookup downstream. Read in float — step()'s Q16 edges
- *          would clamp the evidence away.
+ * @details At top Speed/diffusion, 5 * 0.05 * 12 = 3 exceeds the Euler
+ * bound of 2; the reaction term also exceeds it. Float fields remain finite
+ * and in [0, 1] after 256 clamped substeps, before Q16 output conversion.
  */
 inline void test_gs_reaction_corner_stays_bounded() {
   std::vector<float> a(GSWhiteBox::N, 1.0f), b(GSWhiteBox::N, 0.0f),
