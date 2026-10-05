@@ -165,7 +165,7 @@ def main(argv=None):
             if revision != args.revision:
                 raise ValueError(f"schematic revision {revision} does not match requested {args.revision}")
         conflicts, bridges = analyze(root)
-    except ValueError as e:
+    except (OSError, ValueError) as e:
         print(f"{path}: {e}", file=sys.stderr)
         return 2
     print("=== mid-span connections (T-joins and junctions) ===")
