@@ -4894,7 +4894,7 @@ inline void test_screen_step_axes_match_stage_walk() {
       const float walk =
           Plot::pipeline_screen_step<W, H>(erased, sample, false);
       const float table = Plot::screen_step_from_axes<W, H>(sample, axes);
-      worst = std::max(worst, fabsf(walk - table) / walk);
+      worst = fold_worst(worst, fabsf(walk - table) / walk);
     }
     HS_EXPECT_LT(worst, 1e-4f);
   };
