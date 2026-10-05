@@ -253,12 +253,8 @@ public:
       one frame. */
   HS_FLASH_MEMBER void draw_frame() override {
     Canvas canvas(*this);
-    program.advance();
+    advance_clocks();
     const ColorizeTap &tap = colorize;
-    update_palette_chroma(tap.palette_chroma != nullptr ? *tap.palette_chroma
-                                                        : DEFAULT_CHROMA);
-    step_generated_palettes(tap.palette_mode != nullptr ? *tap.palette_mode
-                                                        : uint8_t{0});
     const Pullback::Interp::FrameContext ctx = make_frame_context(tap);
     program.prepare(ctx);
     program.check_ready();
@@ -335,6 +331,15 @@ public:
 #endif
 
 private:
+  void advance_clocks() {
+    program.advance();
+    const ColorizeTap &tap = colorize;
+    update_palette_chroma(tap.palette_chroma != nullptr ? *tap.palette_chroma
+                                                        : DEFAULT_CHROMA);
+    step_generated_palettes(tap.palette_mode != nullptr ? *tap.palette_mode
+                                                        : uint8_t{0});
+  }
+
   friend struct ::hs_test::shader_chain_tests::ShaderChainWhiteBox;
 
   /** @brief Per-sample functor over the compiled program. */

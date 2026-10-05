@@ -3847,11 +3847,7 @@ struct ShaderChainWhiteBox {
     return effect.program;
   }
   static In::ChainProgram &program(FX &effect) { return effect.program; }
-  static void advance_without_render(FX &effect) {
-    effect.program.advance();
-    effect.update_palette_chroma(*effect.colorize.palette_chroma);
-    effect.step_generated_palettes(*effect.colorize.palette_mode);
-  }
+  static void advance_without_render(FX &effect) { effect.advance_clocks(); }
   static Pixel palette_color(const FX &effect, float value) {
     return effect.generated_palettes.palette(In::Op::PaletteMode::TRIADIC)
         .get(value)
