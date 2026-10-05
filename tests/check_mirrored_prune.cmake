@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.29)
 
-if(NOT TEST_ROOT MATCHES "mirrored_screenshot_prune_fixture$")
+if(NOT TEST_ROOT MATCHES "mirrored_prune_fixture$")
   message(FATAL_ERROR "Unsafe or missing TEST_ROOT: ${TEST_ROOT}")
 endif()
 
@@ -23,7 +23,7 @@ file(WRITE "${_daydream}/docs/screenshots/notes.txt" "unrelated")
 
 set(HS_MIRROR_SOURCE "${_source}")
 set(HS_DAYDREAM_DIR "${_daydream}")
-include("${PRUNE_SCRIPT}")
+include("${CMAKE_CURRENT_LIST_DIR}/../cmake/prune_mirrored_screenshots.cmake")
 
 foreach(_kept IN ITEMS
     "${_daydream}/src/app/daydream.js"
