@@ -859,7 +859,9 @@ inline void test_beacon_partial_frame_ages_out() {
   const uint32_t second_head = head + 8 * col;
   const BurstSnapshot second{4, second_head, second_head + 3 * col};
   board.tick(second_head + 7 * col, &second);
+  HS_EXPECT_EQ(board.telemetry_snapshot().beacons_rejected, 0u);
   board.tick(head + 40 * col, nullptr); // quiet past the ACQUIRE guard
+  HS_EXPECT_EQ(board.telemetry_snapshot().beacons_rejected, 1u);
 
   // A complete frame from column 90 on, spaced exactly as schedule_beacon does.
   uint8_t d[5];
