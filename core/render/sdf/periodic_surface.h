@@ -28,9 +28,7 @@ template <PeriodicSurfaceKind Kind> struct PeriodicSurface {
   }
 
   float lipschitz() const {
-    constexpr float FACTOR = Kind == PeriodicSurfaceKind::COSINE
-                                 ? 1.7320508075688772f
-                                 : 3.4641016151377544f;
+    constexpr float FACTOR = 1.7320508075688772f;
     return FACTOR * (math::TWO_PI_F / period);
   }
 
