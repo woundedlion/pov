@@ -1386,8 +1386,8 @@ def main():
     except BoardReadError as exc:
         sys.exit(str(exc))
     for title in F(board, "title_block"):
-        if sexp.val(title, "rev") == ["1.3"]:
-            sys.exit("rev 1.3 is a prototype; routing, protection and revision-specific BOM are not validated")
+        if sexp.val(title, "rev") != ["1.1"]:
+            sys.exit("the exporter supports rev 1.1 only")
     print("[1/9] Plot origin + solder mask")
     try:
         validate_plot_origin(PCB, board=board)
