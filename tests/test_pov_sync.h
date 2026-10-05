@@ -3242,7 +3242,10 @@ inline double max_err_over(Sim &sim, double revs) {
   return worst;
 }
 
-/** @brief A gate-accepted spurious EPOCH advances one board, then beacons repair it. */
+/**
+ * @brief A spurious EPOCH advances one board; beacons repair its index.
+ * @details The next real epoch aligns all boards' display frame counters.
+ */
 inline void test_budget_spurious_epoch() {
   const Config cfg = test_config();
   const int32_t ppm[4] = {0, 0, 0, 0};
@@ -3262,17 +3265,17 @@ inline void test_budget_spurious_epoch() {
       double(2 * cfg.beacon_period_revs + cfg.join_grid_revs)));
   HS_EXPECT_EQ(
       sim.boards[2].board.telemetry_snapshot().beacon_index_corrections, 1u);
-  HS_EXPECT_TRUE(
-      sim.run_until([](Sim &s) { return s.board_pos(0) == 72; }, 1.1));
-  HS_EXPECT_EQ(sim.boards[2].t, sim.boards[0].t);
   HS_EXPECT_TRUE(sim.run_until(
       [](Sim &s) {
         return s.boards[0].live_index == 1 && s.boards[2].live_index == 1;
       },
       double(cfg.revs_per_effect) + 6));
+  HS_EXPECT_TRUE(
+      sim.run_until([](Sim &s) { return s.board_pos(0) == 72; }, 1.1));
   for (int i = 0; i < 4; ++i) {
     HS_EXPECT_FALSE(sim.boards[i].trapped);
-    HS_EXPECT_EQ(sim.boards[i].live_index, sim.boards[0].live_index);
+    HS_EXPECT_EQ(sim.boards[i].live_index, 1);
+    HS_EXPECT_EQ(sim.boards[i].t, sim.boards[0].t);
   }
 }
 
