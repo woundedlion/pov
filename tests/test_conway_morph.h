@@ -4180,8 +4180,8 @@ inline void test_recipe_chain_build_replay() {
 // Smooth kis/needle reconcile: the identity meshes (dt / dtd) and the authored
 // kis/needle meshes are topology-exact (identical V/E/F/I); the residual gap is
 // closed by a per-vertex great-circle slerp along the nearest-vertex bijection.
-// Gates that the bijection is injective on every affected seed, the residual is
-// small, and the identity truncate depth (t = 1/3) is what the effect emits.
+// Checks seed bijections and residuals. test_effects.h pins the effect's
+// truncate depth with static_assert(IS::MACRO_TRUNCATE_T == RECONCILE_TRUNCATE_T).
 // ---------------------------------------------------------------------------
 
 /** One smooth-kis/needle macro site: how X is reached, and which identity vs
