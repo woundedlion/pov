@@ -56,6 +56,8 @@ struct FieldCoverage {
   bool float_enum_present = false; /**< Some enum has a float target. */
 };
 
+enum class RoundTripResult { COVERED, NO_EDITABLE_FLOAT, STREAM_MISMATCH };
+
 /**
  * @brief Marshals one effect through the WASM bridge and asserts the definition
  *        and value streams stay consistent with the source params.
@@ -68,7 +70,7 @@ struct FieldCoverage {
  *          order. This is the core correctness check per effect.
  */
 template <template <int, int> class E>
-inline bool check_one(const char *name, FieldCoverage &coverage) {
+inline RoundTripResult check_one(const char *name, FieldCoverage &coverage) {
   HS_CONTEXT(name);
   reset_globals();
 
@@ -89,7 +91,7 @@ inline bool check_one(const char *name, FieldCoverage &coverage) {
   HS_EXPECT_EQ(views.size(), n);
   HS_EXPECT_EQ(values.size(), n);
   if (views.size() != n || values.size() != n)
-    return false;
+    return RoundTripResult::STREAM_MISMATCH;
 
   // For every i, name/value/type from the independent passes must match the
   // source param.
@@ -127,10 +129,6 @@ inline bool check_one(const char *name, FieldCoverage &coverage) {
     ++i;
   }
 
-  // Write an editable float param BY NAME and confirm it reappears at the same
-  // index with the order untouched — guards against setParameter landing on the
-  // wrong slider. No editable float param -> return false so the caller tallies
-  // the skip and roster drift toward such effects stays visible.
   int target = -1;
   for (size_t k = 0; k < views.size(); ++k) {
     const auto &v = views[k];
@@ -141,7 +139,7 @@ inline bool check_one(const char *name, FieldCoverage &coverage) {
     }
   }
   if (target < 0)
-    return false;
+    return RoundTripResult::NO_EDITABLE_FLOAT;
 
   const float lo = views[target].min, hi = views[target].max;
   float newv = lo + 0.5f * (hi - lo);
@@ -156,17 +154,17 @@ inline bool check_one(const char *name, FieldCoverage &coverage) {
   hs_wasm::collect_param_views(effect, views2);
   HS_EXPECT_EQ(views2.size(), views.size());
   if (views2.size() != views.size())
-    return false;
+    return RoundTripResult::STREAM_MISMATCH;
   HS_EXPECT_NEAR(views2[target].value, newv, 1e-3f);
   hs_wasm::fill_param_values(effect, values);
   HS_EXPECT_EQ(values.size(), views2.size());
   if (values.size() != views2.size())
-    return false;
+    return RoundTripResult::STREAM_MISMATCH;
   HS_EXPECT_NEAR(values[target], newv, 1e-3f);
   for (size_t k = 0; k < views2.size(); ++k)
     HS_EXPECT_EQ(std::string_view(views2[k].name),
                  std::string_view(views[k].name));
-  return true;
+  return RoundTripResult::COVERED;
 }
 
 /**
@@ -715,13 +713,18 @@ inline int run_param_marshal_tests() {
   check_schema_hook_preserves_written_parameter_identity();
   // Tally how many effects exercised the by-name round-trip; it is skipped for
   // effects with no editable float param. Surface the split and fail if zero.
-  int rt_covered = 0, rt_total = 0;
+  int rt_covered = 0, rt_total = 0, rt_skipped = 0, rt_mismatched = 0;
   FieldCoverage coverage;
 #define HS_PARAM_ONE(name)                                                     \
   do {                                                                         \
     ++rt_total;                                                                \
-    if (check_one<name>(#name, coverage))                                      \
+    const auto result = check_one<name>(#name, coverage);                      \
+    if (result == RoundTripResult::COVERED)                                    \
       ++rt_covered;                                                            \
+    else if (result == RoundTripResult::NO_EDITABLE_FLOAT)                     \
+      ++rt_skipped;                                                            \
+    else                                                                       \
+      ++rt_mismatched;                                                         \
   } while (0);
   HS_EFFECT_LIST(HS_PARAM_ONE)
 #undef HS_PARAM_ONE
@@ -735,8 +738,8 @@ inline int run_param_marshal_tests() {
             "no roster param is a float-backed enum — the step-presence check "
             "above would ride green on ParamDef::is_integer() alone");
   std::printf("  param-marshal by-name round-trip exercised on %d/%d effects "
-              "(%d skipped: no editable float param)\n",
-              rt_covered, rt_total, rt_total - rt_covered);
+              "(%d skipped: no editable float param; %d stream mismatches)\n",
+              rt_covered, rt_total, rt_skipped, rt_mismatched);
   HS_EXPECT(rt_covered > 0,
             "by-name round-trip must run on at least one effect — the roster "
             "drifted to all-non-editable params and the check covers nothing");
