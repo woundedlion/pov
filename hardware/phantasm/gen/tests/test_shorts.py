@@ -232,12 +232,18 @@ class EmptyScanTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             shorts.analyze(build(labels=[((100, 100), "GND")]))
 
-    def test_main_exits_nonzero_on_an_empty_schematic(self):
+    def test_main_distinguishes_empty_clean_and_conflicting_schematics(self):
         with tempfile.TemporaryDirectory() as tmp:
             path = Path(tmp) / "empty.kicad_sch"
             path.write_text("(kicad_sch)", encoding="utf-8")
             with contextlib.redirect_stderr(io.StringIO()):
-                self.assertNotEqual(shorts.main([str(path)]), 0)
+                self.assertEqual(shorts.main([str(path)]), 2)
+            wire = [((100, 100), (110, 100))]
+            for labels, status in (([((100, 100), "GND")], 0),
+                                   ([((100, 100), "GND"), ((110, 100), "+5V")], 1)):
+                path.write_text(sexp.dumps(build(wires=wire, labels=labels)), encoding="utf-8")
+                with self.subTest(status=status), contextlib.redirect_stdout(io.StringIO()):
+                    self.assertEqual(shorts.main([str(path)]), status)
 
     def test_main_exits_two_on_a_file_holding_no_document(self):
         with tempfile.TemporaryDirectory() as tmp:
