@@ -119,7 +119,7 @@ Each rasterizer family populates the Fragment registers with a consistent conven
 
 With a per-face setup callback, `Scan::Mesh::draw_specialized` runs its minimal-fragment loop: only `v1` is refreshed per pixel. `age` is an in/out register carried forward unless refreshed. Other fragment inputs are unavailable and are poisoned with NaN in debug builds; shaders must not read `v2` or `size` through `mesh_face_index()` or `fragment_edge_dist()`. The face index and face size reach the shader through the setup callback instead. `Scan::Mesh::draw` does not accept this callback.
 
-Each SDF shape's `distance<ComputeUVs>()` method writes a `DistanceResult`. Rings, lines and spherical polygons report angular distances; planar polygons, stars and flowers use chart-plane distances, and small `SDF::Face` shapes (inradius < 0.2) use gnomonic tangent-plane units. `size` follows the producer's distance units. The per-producer register table in `core/render/sdf/common.h` defines `t` and `raw_dist`:
+Each SDF shape's `distance<ComputeUVs>()` method writes a `DistanceResult`. Rings, lines and spherical polygons report angular distances; planar polygons, stars and flowers use chart-plane distances, and small `SDF::Face` shapes (reference size `max(inradius, 0.25 × circumradius)` < 0.2) use gnomonic tangent-plane units. `size` follows the producer's distance units. The per-producer register table in `core/render/sdf/common.h` defines `t` and `raw_dist`:
 
 ```cpp
 struct DistanceResult {
