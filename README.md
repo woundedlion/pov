@@ -1345,17 +1345,22 @@ work/
 
 ### Firmware (Arduino / Teensy 4.x) — Holosphere repo
 
-Each hardware target has its own `.ino` entry point in `targets/`:
+Each hardware target has its own `.ino` entry point in `targets/`. The IDE steps
+below are for Holosphere:
 
 1. Install [Arduino IDE](https://www.arduino.cc/en/software) with Teensyduino (or use [Visual Micro](https://www.visualmicro.com/) for Visual Studio).
 2. Install the `FastLED` library.
-3. Open `targets/Holosphere/Holosphere.ino` (or `targets/Phantasm/Phantasm.ino`).
+3. Open `targets/Holosphere/Holosphere.ino`.
 4. In Visual Micro, set **Additional Include Directories** to: `../..;../../core;../../hardware`.
 5. Select **Board: Teensy 4.0**, **CPU Speed: 600 MHz**.
-6. For Phantasm, define `HS_PHANTASM_BOARD_REV=11` for rev 1.1 or `=12` for rev 1.2 in the Arduino/Visual Micro build flags. Rev 1.3 requires separate firmware support.
-7. Upload.
+6. Upload.
 
-For a headless Phantasm build, run `pio run -e phantasm` from the repository root.
+Build Phantasm with `pio run -e phantasm` from the repository root. This uses
+`tools/phantasm.ld`, `-Os`, and newlib-nano (`--specs=nano.specs`) through
+`tools/teensy_nano.py`, matching the gated shipping image. An IDE build needs
+these same settings to reproduce that image. The environment defines
+`HS_PHANTASM_BOARD_REV=11`; use `=12` for rev 1.2. Rev 1.3 requires separate
+firmware support.
 
 > **Headless size/layout gate — an active CI job, optional locally.** A
 > PlatformIO build (`just teensy-size`) builds
