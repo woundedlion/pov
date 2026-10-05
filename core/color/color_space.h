@@ -386,8 +386,8 @@ inline constexpr int GAMUT_SCAN_STEPS = 4;
 // accuracy knob and not a cap: three take the 256 x 128 grid's worst
 // mid-lightness bracket to 0.0016 chroma.
 inline constexpr int GAMUT_BRACKET_STEPS = 3;
-/** Extra bisections for the whole-ray fallback, whose bracket is up to 25 times
- * wider than one scan step. */
+/** Extra bisections over the whole-ray fallback [0, lo]; combined with
+ * GAMUT_BRACKET_STEPS, eight halvings leave a residual bracket of lo/256. */
 inline constexpr int GAMUT_FALLBACK_BRACKET_STEPS = 5;
 
 /**
