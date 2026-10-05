@@ -28,8 +28,7 @@
 template <int W, int H> class BenchPattern : public Effect {
 public:
   /**
-   * @brief Display windows per second at the rotor speed this pattern's
-   *        timings assume; the sketch checks it against its own RPM.
+   * @brief Shared show cadence in display windows per second.
    */
   static constexpr int FRAMES_PER_SECOND = HS_SHOW_FRAMES_PER_SECOND;
   /** @brief Frames each key colour is held. */
