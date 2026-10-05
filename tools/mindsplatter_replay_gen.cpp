@@ -229,6 +229,8 @@ int main(int argc, char **argv) {
   effect.init();
   WhiteBox::restore_render(effect, std::span(state));
   selected->snapshot = WhiteBox::capture(effect);
+  const std::vector<unsigned char> emitted_state =
+      refresh ? WhiteBox::serialize_render(selected->snapshot) : state;
   effect.set_clip(0, HEIGHT, 0, WIDTH);
   WhiteBox::draw_particles(effect);
   effect.advance_display();
@@ -249,7 +251,7 @@ int main(int argc, char **argv) {
     }
   }
   uint64_t corpus_hash = mindsplatter_replay::HASH_SEED;
-  for (unsigned char byte : state)
+  for (unsigned char byte : emitted_state)
     corpus_hash = mindsplatter_replay::hash_byte(corpus_hash, byte);
   for (uint16_t channel : framebuffer)
     corpus_hash = mindsplatter_replay::hash_channel(corpus_hash, channel);
@@ -326,7 +328,7 @@ int main(int argc, char **argv) {
          "  uint64_t corpus_hash;\n"
          "  uint64_t framebuffer_hash;\n"
          "};\n\n";
-  emit_array(out, "unsigned char", "HEAVY_SEARCH_V1_STATE", state, 16);
+  emit_array(out, "unsigned char", "HEAVY_SEARCH_V1_STATE", emitted_state, 16);
   emit_golden(out, golden);
   out << "inline const Corpus HEAVY_SEARCH_V1 = {\n"
       << "    \"" << corpus_id << "\",\n"
@@ -371,7 +373,7 @@ int main(int argc, char **argv) {
       static_cast<unsigned long long>(selected->aggregate.long_edges),
       static_cast<unsigned>(selected->peak_clip), peak_clip.x_start,
       peak_clip.x_end, peak_clip.y_start, peak_clip.y_end, PEAK_SCORE.c_str(),
-      state.size(), framebuffer.size() * sizeof(uint16_t),
+      emitted_state.size(), framebuffer.size() * sizeof(uint16_t),
       static_cast<unsigned long long>(corpus_hash));
   return 0;
 }
