@@ -1166,30 +1166,17 @@ private:
 
   HS_O3_FN void draw_lattice(Canvas &canvas, const math::Vector *world_nodes,
                              const uint8_t *hot1, const uint8_t *hot2) const {
-    Scan::check_canvas_dims<W, H>(canvas);
-    if (!math::TrigLUT<W, H>::initialized)
-      math::TrigLUT<W, H>::init();
-    const auto &clip = canvas.clip();
-    Scan::Shader::check_lut_domain<W, H>(clip);
-    const auto columns = clip.x_clip();
-    Scan::Shader::SsaaGrid<W, H> grid;
-    for (int y = clip.render_y_start(); y < clip.render_y_end(); ++y) {
-      const float sp = math::TrigLUT<W, H>::sin_phi[y];
-      const float cp = math::TrigLUT<W, H>::cos_phi[y];
-      grid.set_row(y);
-      Scan::walk_clip_columns<W>(columns, [&](int x) {
-        const math::Vector center(sp * math::TrigLUT<W, H>::cos_theta(x), cp,
-                                  sp * math::TrigLUT<W, H>::sin_theta[x]);
-        const math::Vector object_direction =
-            Base::inverse_orientation.apply(center);
-        const auto PROJECTION =
-            ReactionGraph::CubemapLUT::project(object_direction);
-        const int seed = Base::cube_lut.lookup(PROJECTION);
-        canvas(x, y) = hot2[seed] ? shade_pixel(seed, center, world_nodes, grid,
-                                                x, hot1, &PROJECTION)
-                                  : Pixel(0, 0, 0);
-      });
-    }
+    Scan::Shader::walk_grid<W, H>(
+        canvas, [&](const math::Vector &center, const auto &grid, int x) {
+          const math::Vector object_direction =
+              Base::inverse_orientation.apply(center);
+          const auto PROJECTION =
+              ReactionGraph::CubemapLUT::project(object_direction);
+          const int seed = Base::cube_lut.lookup(PROJECTION);
+          return hot2[seed] ? shade_pixel(seed, center, world_nodes, grid, x,
+                                          hot1, &PROJECTION)
+                            : Pixel(0, 0, 0);
+        });
   }
 
   /**

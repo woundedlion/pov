@@ -37,6 +37,8 @@ namespace Scan {
  * - draw_grid(canvas, vertex_shader, pixel_shader): hands the seeded fragment
  *   and the row's SsaaGrid to pixel_shader, which owns the sampling and returns
  *   the finished pixel.
+ * - walk_grid(canvas, pixel_shader): hands the center vector and row's SsaaGrid
+ *   to pixel_shader without constructing a Fragment.
  *
  * @details Every entry point assigns the finished premultiplied color to the
  * canvas rather than plotting it, so the destination is overwritten: alpha < 1
@@ -355,6 +357,27 @@ public:
   template <int W, int H, typename VertexFn, typename PixelFn>
   HS_O3_FN static void draw_grid(Canvas &canvas, VertexFn &&vertex_shader,
                                  PixelFn &&pixel_shader) {
+    walk_grid<W, H>(canvas,
+                    [&](const math::Vector &center, const auto &grid, int x) {
+                      Fragment frag_base;
+                      frag_base.pos = center;
+                      vertex_shader(frag_base);
+                      return pixel_shader(frag_base, grid, x);
+                    });
+  }
+
+  /**
+   * @brief Full-screen SSAA-grid traversal without fragment construction.
+   * @tparam W Canvas width in pixels.
+   * @tparam H Canvas height in pixels.
+   * @tparam PixelFn Callable (const Vector&, const SsaaGrid<W,H>&, int) -> Pixel.
+   * @param canvas Destination canvas.
+   * @param pixel_shader Computes the premultiplied pixel from its center,
+   *        current row's subpixel grid, and column.
+   */
+  template <int W, int H, typename PixelFn>
+  HS_O3_FN __attribute__((always_inline)) static void
+  walk_grid(Canvas &canvas, PixelFn &&pixel_shader) {
     check_canvas_dims<W, H>(canvas);
     if (!math::TrigLUT<W, H>::initialized)
       math::TrigLUT<W, H>::init();
@@ -367,11 +390,9 @@ public:
       const float cp = math::TrigLUT<W, H>::cos_phi[y];
       grid.set_row(y);
       walk_clip_columns<W>(xc, [&](int x) {
-        Fragment frag_base;
-        frag_base.pos = math::Vector(sp * math::TrigLUT<W, H>::cos_theta(x), cp,
-                                     sp * math::TrigLUT<W, H>::sin_theta[x]);
-        vertex_shader(frag_base);
-        canvas(x, y) = pixel_shader(frag_base, grid, x);
+        const math::Vector center(sp * math::TrigLUT<W, H>::cos_theta(x), cp,
+                                  sp * math::TrigLUT<W, H>::sin_theta[x]);
+        canvas(x, y) = pixel_shader(center, grid, x);
       });
     }
   }
