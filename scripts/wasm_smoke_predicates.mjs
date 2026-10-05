@@ -101,11 +101,11 @@ export function paramStreamProblems(defs, values) {
 }
 
 /**
- * Every promoted document parameter id that names no control on the effect it
- * was promoted to.
+ * Reports unresolved writable promoted ids and invalid compiled-derived values.
  *
- * A promoted document is applied to its compiled effect one parameter at a
- * time, by name; an id that resolves to nothing refuses the whole apply, so
+ * Writable parameters apply to the compiled effect by control name. Fixed
+ * topology and constants are exempt; derived values validate against their
+ * source controls. An unresolved writable id refuses the whole apply, so
  * the preview-versus-compiled comparison writes no value at all. Nothing else
  * pins the two vocabularies together: the digests are computed from the
  * document alone, and the value pin in tests/test_composed_effect.h maps ids
@@ -116,7 +116,7 @@ export function paramStreamProblems(defs, values) {
  * @param {{document: string, effect: string, parameterIds: string[], presets?: object[], descriptor?: object}[]} run.documents
  * @param {Map<string, Set<string>>} run.controls Control names per effect id.
  * @param {Set<string>} run.bakedFields From bakedTopologyFields().
- * @returns {string[]} One message per problem; empty means every id resolves.
+ * @returns {string[]} One message per binding or exemption problem.
  */
 export function promotedBindingProblems({ documents, controls, bakedFields }) {
   const problems = [];
