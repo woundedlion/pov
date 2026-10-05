@@ -11,7 +11,6 @@
 #include "math/3dmath.h"
 #include "engine/memory.h"
 #include "platform/platform.h"
-#include "render/sdf.h"
 #include "render/sdf/face_classes.h"
 #include "mesh/mesh_state.h"
 
