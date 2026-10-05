@@ -497,7 +497,7 @@ private:
    * @param out Side to fill with offsets, instance-id copies, and parameter
    *        name slots, or null for the budget dry run — both paths share this
    *        arithmetic, so the budget check equals the layout.
-   * @return Total bytes consumed.
+   * @return Layout byte count, or capacity + 1 if it exceeds the arena budget.
    */
   size_t plan_layout(const OperatorDescriptor *const *resolved,
                      std::span<const ChainEntryRequest> request, Side *out) {

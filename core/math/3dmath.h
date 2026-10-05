@@ -1297,8 +1297,8 @@ inline Vector perpendicular_axis(const Vector &v) {
  * @param from The source vector (must be unit vector).
  * @param to The destination vector (must be unit vector).
  * @return The resulting unit rotation quaternion.
- * @details Half-vector form q = (1 + d, cross(from, to)) normalized, exact down
- * to arbitrarily small angles. The antiparallel case (|cross|² below
+ * @details Half-vector form q = (1 + d, cross(from, to)) normalized, subject to
+ * floating-point rounding and underflow. The antiparallel case (|cross|² below
  * EPS_ANTIPARALLEL_SQ) synthesizes a stable perpendicular axis and rotates by π.
  */
 inline Quaternion make_rotation(const Vector &from, const Vector &to) {

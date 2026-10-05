@@ -22,7 +22,7 @@ namespace shading_tests {
  */
 inline void test_fragment_lerp_endpoints() {
   Fragment a;
-  a.pos = math::Vector(1, 0, 0);
+  a.pos = math::Vector(1, -2, 3);
   a.v0 = 1.0f;
   a.v1 = 2.0f;
   a.v2 = 3.0f;
@@ -32,7 +32,7 @@ inline void test_fragment_lerp_endpoints() {
   a.color = Color4(Pixel(1000, 2000, 3000), 0.2f);
 
   Fragment b;
-  b.pos = math::Vector(0, 1, 0);
+  b.pos = math::Vector(-4, 1, -5);
   b.v0 = 10.0f;
   b.v1 = 20.0f;
   b.v2 = 30.0f;

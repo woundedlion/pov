@@ -3087,7 +3087,7 @@ inline void test_multiline_sample_arclength_param() {
 
 /** @brief Four non-coplanar control directions used by the Multiline cases. */
 inline void multiline_control_points(std::vector<math::Vector> &out) {
-  out = {math::Vector(1.0f, 0.0f, 0.0f),
+  out = {math::Vector(0.95f, -0.1f, 0.3f).normalized(),
          math::Vector(0.3f, 0.9f, 0.2f).normalized(),
          math::Vector(-0.5f, 0.2f, 0.84f).normalized(),
          math::Vector(-0.2f, -0.85f, 0.49f).normalized()};
@@ -3295,8 +3295,8 @@ inline void test_star_sample_unit_length_closed() {
   const int sides = 5;
   points.bind(plot_arena(), sides * 2 + 2);
 
-  math::Basis b =
-      math::make_basis(math::Quaternion(1, 0, 0, 0), math::Vector(0, 1, 0));
+  math::Basis b = math::make_basis(
+      math::Quaternion(0.91f, 0.13f, -0.27f, 0.28f).normalized(), math::X_AXIS);
   Plot::Star<Plot::PlanarProjection>::sample(points, b, 0.5f, sides, 0.0f);
 
   // 2*sides vertices + 1 close fragment.
@@ -3306,6 +3306,7 @@ inline void test_star_sample_unit_length_closed() {
   }
   HS_EXPECT_NEAR(points.back().pos.x, points[0].pos.x, 1e-3f);
   HS_EXPECT_NEAR(points.back().pos.y, points[0].pos.y, 1e-3f);
+  HS_EXPECT_NEAR(points.back().pos.z, points[0].pos.z, 1e-3f);
   HS_EXPECT_NEAR(points.back().v0, 1.0f, 1e-6f);
 
   // Alternating outer/inner colatitude about the center axis.
@@ -3504,8 +3505,8 @@ inline void test_flower_sample_unit_length_closed() {
   const int sides = 6;
   points.bind(plot_arena(), sides * 2 + 2);
 
-  math::Basis b =
-      math::make_basis(math::Quaternion(1, 0, 0, 0), math::Vector(0, 1, 0));
+  math::Basis b = math::make_basis(
+      math::Quaternion(0.91f, 0.13f, -0.27f, 0.28f).normalized(), math::X_AXIS);
   Plot::Flower::sample(points, b, 0.5f, sides, 0.0f);
 
   HS_EXPECT_SIZE_OR_RETURN(points, (size_t)(sides * 2 + 1));
@@ -3514,6 +3515,7 @@ inline void test_flower_sample_unit_length_closed() {
   }
   HS_EXPECT_NEAR(points.back().pos.x, points[0].pos.x, 1e-3f);
   HS_EXPECT_NEAR(points.back().pos.y, points[0].pos.y, 1e-3f);
+  HS_EXPECT_NEAR(points.back().pos.z, points[0].pos.z, 1e-3f);
 
   // Constant colatitude about the center axis.
   const math::Vector axis = math::get_antipode(b, 0.5f).first.v;
