@@ -275,6 +275,8 @@ inline void smoke_one(const char *name) {
  * pure telemetry. The check detects per-frame overwrites; it does not measure
  * a parameter's visual influence.
  */
+#include "tests/effects/parameter_probe.h"
+
 inline void lint_dead_sliders(Effect &effect, const char *name) {
   for (const auto &def : effect.getParameters()) {
     if (def.animated || def.readonly)
@@ -285,12 +287,8 @@ inline void lint_dead_sliders(Effect &effect, const char *name) {
     const float cur = def.get();
     // An in-range target well clear of the current value, so a revert is
     // visible; a bool has only its flipped value.
-    float target = def.is_bool() ? (cur > 0.5f ? 0.0f : 1.0f)
-                   : (cur - def.min) > (def.max - cur)
-                       ? def.min + 0.25f * range
-                       : def.min + 0.75f * range;
-    // An integer target holds only whole numbers, so probe with a value it can
-    // actually hold or every such param reads dead.
+    float target = parameter_probe_target(def, cur);
+    // Round the probe to a value an integer target can hold.
     if (def.is_integer()) {
       target =
           cur < (def.min + def.max) * 0.5f ? ceilf(target) : floorf(target);
@@ -304,7 +302,7 @@ inline void lint_dead_sliders(Effect &effect, const char *name) {
       effect.advance_display();
     }
     // Require the value near `target` AND strictly closer to it than to the
-    // pre-write `cur`, catching a slow per-frame revert that 3 frames hide. A
+    // pre-write `cur`, catching a slow per-frame revert. A
     // bool must read back exactly.
     const float eps = def.is_bool() ? 0.0f : fmaxf(1e-3f, 1e-3f * range);
     const float now = def.get();
@@ -323,12 +321,12 @@ inline void lint_dead_sliders(Effect &effect, const char *name) {
 }
 
 /**
- * @brief Verifies every advertised animated param remains fixed while paused.
+ * @brief Checks paused rendering for advertised animated parameters.
  * @param effect Effect instance whose automated params are probed.
  * @param name Effect name used in PAUSE LEAK diagnostic output.
  * @details Parameters are audited one at a time so independent valid controls
  *          are not combined into an invalid cross-field configuration. The
- *          aggregate audit spans at least 500 rendered frames.
+ *          aggregate frame span derives from PAUSE_AUDIT_FRAMES.
  */
 inline void lint_animated_pause(Effect &effect, const char *name) {
   std::vector<const char *> names;
@@ -346,11 +344,7 @@ inline void lint_animated_pause(Effect &effect, const char *name) {
     const float current = def.get_requested();
     names.push_back(def.name);
     original.push_back(current);
-    target.push_back(def.is_bool()
-                         ? (current > 0.5f ? 0.0f : 1.0f)
-                         : ((current - def.min) > (def.max - current)
-                                ? def.min + 0.25f * (def.max - def.min)
-                                : def.min + 0.75f * (def.max - def.min)));
+    target.push_back(parameter_probe_target(def, current));
   }
   const size_t count = names.size();
   if (count == 0)
@@ -1114,6 +1108,7 @@ inline int run_effects_tests() {
     test();
   };
 
+  run_case(test_parameter_probe_targets);
   run_case(test_ringspin_strobe_configuration_preserves_rendering);
   run_case(test_meshfeedback_base_mesh_selector);
   run_case(test_meshfeedback_preset_export_arity);
