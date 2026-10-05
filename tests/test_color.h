@@ -1254,6 +1254,8 @@ inline void test_gradient_endpoints() {
 
   Color4 c1 = grad.get(1.0f);
   HS_EXPECT_GT(c1.color.r, 60000);
+  HS_EXPECT_GT(c1.color.g, 60000);
+  HS_EXPECT_GT(c1.color.b, 60000);
   HS_EXPECT_EQ(c1.alpha, 1.0f);
 }
 

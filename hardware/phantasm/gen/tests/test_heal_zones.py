@@ -57,7 +57,11 @@ class HealZoneTests(unittest.TestCase):
         repaired, count = heal_zones.heal_zones(source)
         self.assertEqual(count, 1)
         self.assertNotIn("filled_polygon", repaired)
-        self.assertIn("(thermal_gap 0.8)", repaired)
+        preserved = F(sexp.parse_one(repaired), "zone")[1]
+        self.assertEqual(sexp.val(preserved, "min_thickness"), ["0.8"])
+        fill = F(preserved, "fill")[0]
+        self.assertEqual(sexp.val(fill, "thermal_gap"), ["0.8"])
+        self.assertEqual(sexp.val(fill, "thermal_bridge_width"), ["0.8"])
 
     def test_safe_board_remains_byte_identical_including_fills(self):
         source = BOARD.replace("0.0254", "0.5").replace(

@@ -301,9 +301,11 @@ class StraddleWindowAttribution(unittest.TestCase):
         # 6/6/4 frames over windows of 4: the window at frames 5-8 straddles
         # a->b. Total is a whole number of windows, as a real capture is (a
         # trailing partial window never dumps, so its rows never parse).
-        got = self._buckets([("a", 74, [10_000] * 6),
-                             ("b", 182, [20_000] * 6),
-                             ("c", 542, [30_000] * 4)])
+        shapes = [("a", 74, list(range(10_000, 10_006))),
+                  ("b", 182, list(range(20_000, 20_006))),
+                  ("c", 542, list(range(30_000, 30_004)))]
+        got = self._buckets(shapes)
+        self.assertEqual(got, {name: renders for name, _, renders in shapes})
         self.assertEqual(sum(len(v) for v in got.values()), 16)
         self.assertEqual({k: len(v) for k, v in got.items()},
                          {"a": 6, "b": 6, "c": 4})

@@ -88,9 +88,8 @@ FIRMWARE = {
 class ElfParser(unittest.TestCase):
     def test_reads_every_section_size(self):
         sizes = tst.parse_elf_section_sizes(make_elf(FIRMWARE))
-        self.assertEqual(sizes[".text.itcm"], 195696)
-        self.assertEqual(sizes[".bss.dma"], 520064)
-        self.assertEqual(sizes[".comment"], 69)
+        for name, expected in FIRMWARE.items():
+            self.assertEqual(sizes.get(name), expected, name)
 
     def test_projects_sections_onto_tracked_regions(self):
         regions = tst.regions_from_sections(
@@ -360,13 +359,18 @@ class TrailStorage(unittest.TestCase):
         self.path = Path(self.tmp.name) / "trail.tsv"
 
     def test_round_trips_rows_and_writes_one_header(self):
-        tst.append_rows(self.path, [_row("a" * 40, "phantasm", itcm=100)])
-        tst.append_rows(self.path, [_row("b" * 40, "phantasm", itcm=200)])
+        expected = [
+            _row("a" * 40, "phantasm", subject="first", itcm=100, code=101,
+                 progmem=102, data=103, bss=104, dma=105, ram1=107),
+            _row("b" * 40, "holosphere", subject="second",
+                 date="2026-08-04T00:00:00-07:00", itcm=200, code=201,
+                 progmem=202, data=203, bss=204, dma=205, ram1=207),
+        ]
+        tst.append_rows(self.path, expected[:1])
+        tst.append_rows(self.path, expected[1:])
         text = self.path.read_text(encoding="utf-8")
         self.assertEqual(text.count("#sha"), 1)
-        rows = tst.read_trail(self.path)
-        self.assertEqual([r.sha[0] for r in rows], ["a", "b"])
-        self.assertEqual(rows[1].sizes["itcm"], 200)
+        self.assertEqual(tst.read_trail(self.path), expected)
 
     def test_subject_whitespace_cannot_break_a_row(self):
         tst.append_rows(self.path,
