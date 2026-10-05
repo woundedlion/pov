@@ -900,7 +900,7 @@ public:
    *          segment worker. The tooling arenas are not included: an engine
    *          instance never moves them, and MeshOps.getArenaMetrics() reports
    *          all six on demand. An arena's `high_water_mark` covers only the
-   *          window since its last reset or re-split, so budget against
+   *          window since its last peak reset or rebind, so budget against
    *          `lifetime_high_water_mark`. On the stack entry,
    *          `high_water_mark` is the canary's live reading,
    *          which a repaint resets and the render path then dominates;
