@@ -80,6 +80,8 @@ inline void test_full_graph_walk_soak(uint32_t seed) {
   // separate seen flag so a zero offset still arms the drift check.
   size_t post_offset[ConwayGraph::NUM_NODES][ConwayGraph::ICOSAHEDRON + 1] = {};
   bool post_seen[ConwayGraph::NUM_NODES][ConwayGraph::ICOSAHEDRON + 1] = {};
+  bool transition_seen[ConwayGraph::NUM_NODES][ConwayGraph::NUM_NODES]
+                      [ConwayGraph::ICOSAHEDRON + 1] = {};
 
   int prev_node = HankinWalkProbe::node(fx);
   mark(prev_node);
@@ -92,9 +94,9 @@ inline void test_full_graph_walk_soak(uint32_t seed) {
   // leg that got no sample from one that rendered a black frame.
   int leg_min_lit = SOAK_W * SOAK_H;
   uint64_t leg_min_energy = UINT64_MAX;
-  // Arena high-water marks at the moment coverage completed.
-  size_t hw_at_coverage = 0, scratch_a_at_coverage = 0,
-         scratch_b_at_coverage = 0;
+  size_t leg_hw = persistent_arena.get_high_water_mark();
+  size_t leg_scratch_a_hw = scratch_arena_a.get_high_water_mark();
+  size_t leg_scratch_b_hw = scratch_arena_b.get_high_water_mark();
   while (frames < SOAK_FRAME_CAP && legs < SOAK_LEG_BOUND + SOAK_EXTRA_LEGS) {
     fx.draw_frame();
     fx.advance_display();
@@ -134,15 +136,31 @@ inline void test_full_graph_walk_soak(uint32_t seed) {
     }
     leg_min_lit = SOAK_W * SOAK_H;
     leg_min_energy = UINT64_MAX;
+    const int departed_node = prev_node;
     prev_node = node;
     mark(node);
+    const size_t before_hw = leg_hw;
+    const size_t before_scratch_a_hw = leg_scratch_a_hw;
+    const size_t before_scratch_b_hw = leg_scratch_b_hw;
+    leg_hw = persistent_arena.get_high_water_mark();
+    leg_scratch_a_hw = scratch_arena_a.get_high_water_mark();
+    leg_scratch_b_hw = scratch_arena_b.get_high_water_mark();
 
     const int sid = HankinWalkProbe::seed_identity(fx);
     // is_platonic carries no lower bound, and sid indexes post_offset.
     const bool sid_ok = sid >= 0 && ConwayGraph::is_platonic(sid);
     HS_EXPECT_TRUE(sid_ok);
-    if (!sid_ok || node < 0 || node >= ConwayGraph::NUM_NODES)
+    if (!sid_ok || node < 0 || node >= ConwayGraph::NUM_NODES ||
+        departed_node < 0 || departed_node >= ConwayGraph::NUM_NODES)
       continue;
+
+    // A repeated directed transition with the same seed cannot raise arena peaks.
+    if (transition_seen[departed_node][node][sid]) {
+      HS_EXPECT_EQ(leg_hw, before_hw);
+      HS_EXPECT_EQ(leg_scratch_a_hw, before_scratch_a_hw);
+      HS_EXPECT_EQ(leg_scratch_b_hw, before_scratch_b_hw);
+    }
+    transition_seen[departed_node][node][sid] = true;
 
     const size_t off = persistent_arena.get_offset();
     if (!post_seen[node][sid]) {
@@ -158,20 +176,8 @@ inline void test_full_graph_walk_soak(uint32_t seed) {
     }
 
     if (visited_count == ConwayGraph::NUM_NODES) {
-      if (legs_at_coverage < 0) {
+      if (legs_at_coverage < 0)
         legs_at_coverage = legs;
-        hw_at_coverage = persistent_arena.get_high_water_mark();
-        scratch_a_at_coverage = scratch_arena_a.get_high_water_mark();
-        scratch_b_at_coverage = scratch_arena_b.get_high_water_mark();
-      } else {
-        // Past coverage every leg is a revisit, so no arena may reach further
-        // than the footprint the first pass already established.
-        HS_EXPECT_EQ(persistent_arena.get_high_water_mark(), hw_at_coverage);
-        HS_EXPECT_EQ(scratch_arena_a.get_high_water_mark(),
-                     scratch_a_at_coverage);
-        HS_EXPECT_EQ(scratch_arena_b.get_high_water_mark(),
-                     scratch_b_at_coverage);
-      }
       if (legs >= legs_at_coverage + SOAK_EXTRA_LEGS)
         break;
     }
