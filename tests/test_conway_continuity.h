@@ -363,9 +363,6 @@ inline void check_flat_star_faces_match_base(const PolyMesh &base,
   }
 }
 
-// Bookend swaps preserve face colors; boundary AA may differ by <= 2 LSB
-// within QUANT_BAND_BUDGET. Zero-area rosettes draw no pixels.
-
 /**
  * @brief Bookend swap for one solid: mesh-level geometric identity plus the
  *        framebuffer diff under identity face colors.
@@ -679,10 +676,10 @@ inline void test_adopt_bridge_arrival_geometry() {
 
 /**
  * @brief Verifies the DUAL_SWAP ambo crossover: truncate(cube, 0.5 -
- *        T_EPS_AMBO) and truncate(dual(cube), 0.5 - T_EPS_AMBO) render the
- *        same pixels when
- *        faces are colored by their class signature (clean side count) — the
- *        mapping the crossover uses, since emission order flips at the dual.
+ *        T_EPS_AMBO) and truncate(dual(cube), 0.5 - T_EPS_AMBO) render the same
+ *        pixels when faces are colored by their class signature (clean side
+ *        count) — the mapping the crossover uses, since emission order flips
+ *        at the dual.
  */
 inline void test_dual_swap_crossover_framebuffer() {
   Arena geom(cc_geom_buf, sizeof(cc_geom_buf));

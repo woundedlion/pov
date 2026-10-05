@@ -1003,8 +1003,8 @@ inline void test_edge_sweeps_hold_topology() {
 
 // ---------------------------------------------------------------------------
 // Morph-frame scratch high-water gate at HankinSolids' shipping split
-// A morph frame
-// runs one op plus MeshOps::compile in the scratch pair under LIFO scopes;
+// A morph frame runs one op plus MeshOps::compile in the scratch pair under
+// LIFO scopes;
 // host high-water marks are a conservative upper bound on the device figure.
 // ---------------------------------------------------------------------------
 
@@ -1969,8 +1969,9 @@ inline void test_hankin_sweep_vertex_stability() {
 }
 
 /**
- * @brief Smoke-tests an OpLeg HANKIN_SWEEP on every sweep seed: construction populates the landing (star faces first, in
- *        base-face order), and every step hands the draw callback a compiled
+ * @brief Smoke-tests an OpLeg HANKIN_SWEEP on every sweep seed: construction
+ *        populates the landing (star faces first, in base-face order), and every
+ *        step hands the draw callback a compiled
  *        mesh with the constant hankin face count and in-range ramp indices.
  */
 inline void test_opleg_hankin_sweep_smoke() {
