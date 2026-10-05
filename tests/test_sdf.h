@@ -1208,7 +1208,7 @@ inline void test_twisted_torus_matches_recurrence() {
           else if (expected > 0.0f)
             expected *=
                 warp.lipschitz_inv(inv_s == 0.0f ? warp.two_over_r : inv_s);
-          worst_distance = std::max(
+          worst_distance = fold_worst(
               worst_distance, fabsf(torus.distance(p) - expected) / scale);
           if (s > math::TOLERANCE) {
             const math::Vector expected_normal = warp.correct_normal_inv(
@@ -1311,6 +1311,7 @@ inline void test_warped_volume_distance_is_sphere_trace_safe() {
                            static_cast<float>(radial * std::sin(theta)));
       const double truth = twisted_torus_distance(p, c.R, c.r, c.n, c.A, 20000);
       const float distance = volume.distance(p);
+      HS_EXPECT_TRUE(std::isfinite(distance));
       if (distance > 0)
         HS_EXPECT_LE(distance, truth + 1e-4);
       correction_needed += volume.raw_distance(p) > truth + 1e-4;
