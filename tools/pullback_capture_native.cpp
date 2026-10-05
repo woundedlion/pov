@@ -425,11 +425,11 @@ bool write_record(FILE *output, const Instruction &instruction,
   write_u16(output, metadata.destination);
   write_u16(output, metadata.elapsed);
   write_u16(output, metadata.duration);
-  uint32_t selected = 0;
+  uint32_t selected_count = 0;
   for (int y = 0; y < H; ++y)
     for (int x = 0; x < W; ++x)
-      selected += selected_pixel<W, H>(instruction.operation, x, y);
-  write_u32(output, selected);
+      selected_count += selected_pixel<W, H>(instruction.operation, x, y);
+  write_u32(output, selected_count);
   for (int y = 0; y < H; ++y) {
     for (int x = 0; x < W; ++x) {
       const bool selected = selected_pixel<W, H>(instruction.operation, x, y);
