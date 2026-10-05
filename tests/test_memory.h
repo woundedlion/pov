@@ -364,9 +364,10 @@ inline void test_arena_covers() {
  * @details Debug builds only, like the stamps it reads. Re-covered bytes are the
  *          dangerous case, not the harmless one: the region now belongs to a
  *          second owner. A rewind that stops above a block must stay silent, so
- *          one case pins the absence of a false positive; the closing case is
- *          the rewind that frees a block while staying above an earlier, deeper
- *          rewind's floor.
+ *          one case pins the absence of a false positive. The floor case frees
+ *          a block while staying above an earlier deeper rewind's floor. The
+ *          closing case checks that a later shallower rewind does not mask an
+ *          earlier deeper rewind that freed the block.
  */
 #ifndef NDEBUG
 inline void test_arena_reclaimed_since() {
