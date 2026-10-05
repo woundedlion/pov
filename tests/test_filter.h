@@ -2053,36 +2053,16 @@ inline void test_feedback_flush_blends_prev_frame() {
  * @param w Canvas width.
  * @param y Pole row index.
  * @param pole Color seeded into the pole row before the flush.
- * @details Which sample the row reads is integer-indexed and exact, but the
- * color reaching the framebuffer has been through the composite's transform, so
- * both bounds below are derived from that transform rather than fitted.
- * Longitude must not change the sample: the only per-column variation the path
- * admits comes from fast_cbrt6's ~4e-7 relative agreement with fast_cbrt
- * (core/math/3dmath.h, pinned by test_3dmath.h). The seeded pole color is
- * in gamut, so the clipping amplification covered by test_styles.h does not
- * apply; the lane split stays inside one u16 step.
- * Against the seeded color the bound is
- * looser, because one pass runs each channel through linear_rgb_to_lms,
- * fast_cbrt (peak relative error ~2.3e-5), the hue matrix and a cube; cubing
- * triples a relative error, so a channel round-trips within 3 * 2.3e-5 * 65535.
- * A row that failed to collapse would read unseeded columns and come back
- * black, which neither bound admits.
+ * @details The callers use unity-fade PLAIN composition, whose quantize16
+ * preserves the seeded u16 channels.
  */
 inline void expect_pole_row_collapsed(hs_test::StubEffect &fx, int w, int y,
                                       const Pixel &pole) {
-  constexpr int LANE_TOL = 1;       // paired-lane split
-  constexpr int ROUND_TRIP_TOL = 5; // cube of fast_cbrt's relative error
-  const Pixel first = fx.get_pixel(0, y);
   for (int x = 0; x < w; ++x) {
     const Pixel px = fx.get_pixel(x, y);
-    if (x > 0) {
-      HS_EXPECT_NEAR(px.r, first.r, LANE_TOL);
-      HS_EXPECT_NEAR(px.g, first.g, LANE_TOL);
-      HS_EXPECT_NEAR(px.b, first.b, LANE_TOL);
-    }
-    HS_EXPECT_NEAR(px.r, pole.r, ROUND_TRIP_TOL);
-    HS_EXPECT_NEAR(px.g, pole.g, ROUND_TRIP_TOL);
-    HS_EXPECT_NEAR(px.b, pole.b, ROUND_TRIP_TOL);
+    HS_EXPECT_EQ(px.r, pole.r);
+    HS_EXPECT_EQ(px.g, pole.g);
+    HS_EXPECT_EQ(px.b, pole.b);
   }
 }
 
