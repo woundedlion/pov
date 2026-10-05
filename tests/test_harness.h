@@ -14,6 +14,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <cstdio>
+#include <limits>
 #include <string_view>
 #include <type_traits>
 
@@ -310,7 +311,8 @@ template <class T> inline void print_operand(const T &v) {
   } else if constexpr (std::is_same_v<T, bool>) {
     std::printf("%s", v ? "true" : "false");
   } else if constexpr (std::is_floating_point_v<T>) {
-    std::printf("%g", static_cast<double>(v));
+    std::printf("%.*Lg", std::numeric_limits<T>::max_digits10,
+                static_cast<long double>(v));
   } else if constexpr (std::is_enum_v<T>) {
     std::printf("%lld", static_cast<long long>(
                             static_cast<std::underlying_type_t<T>>(v)));
