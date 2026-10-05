@@ -352,26 +352,41 @@ operation.** Revision selection is explicit and writes to its own directory.
 Default generation remains rev 1.2. Existing rev 1.1/1.2 artifacts and their
 electrical contracts remain independently usable.
 
-- **R-SYNC-13-1 — Differential interface.** Use a THVD1410DR at 3.3 V for
+- **R-SYNC-13-1 — Differential interface.** Use a THVD2410DR at 3.3 V for
   sync, with U_MCU D4 connected to its D input and D3 to its R output.
   Connect receiver-enable `/RE` to GND. D5 controls active-HIGH driver-enable
   DE, with a 10 kΩ pull-down. Give D a 10 kΩ pull-up to 3.3 V. Park the
   unused AHCT125 sync channels with defined inputs and disabled outputs.
   Remove the single-ended divider, C_SYNC, bus pull-down, source resistor,
   and D_BUS protection from this revision.
-  Fit 100 nF and 1 µF local bypass capacitors on the transceiver's supply.
+  Fit 100 nF and 1 µF X7R local bypass capacitors on the transceiver's supply.
+  R_DATA_PD and R_CLK_PD are 10 kΩ pull-downs on the AHCT125 LED inputs to
+  define DATA/CLK during Teensy reset. Manufacturer part selections are in the
+  [revision BOM](../../hardware/phantasm/1.3/README.md#selected-components)
+  and the generated schematic fields.
 - **R-SYNC-13-2 — Timing and initialization.** Drive idle HIGH and active
   LOW pulses, timestamping the falling receive edge. Master DE stays HIGH
   between pulses; followers hold DE LOW. Initialize DE LOW and TX HIGH
   before enabling the master. Preserve the existing symbol count and pitch.
   Matching firmware support is required; legacy enable polarity is opposite.
+  Allow at least 20 µs of stable idle before clearing pending state and arming
+  receive interrupts. Initial pulse-width qualification target is at least
+  5 µs LOW. No external bus-bias network is fitted; master drives idle actively.
+  Loss-of-drive failsafe has up to 18 µs delay and does not establish immunity
+  to arbitrary interference on a floating cable.
 - **R-SYNC-13-3 — Trunk.** J3A/J3B are four-position connectors with pin 1
   A, pin 2 B, pin 3 GND reference, and pin 4 SHIELD. Join corresponding
   connector nets directly; keep local transceiver branches short. Use a
-  specified 120 Ω twisted pair plus a reference conductor. Do not use the
+  specified 120 Ω twisted pair plus a reference connection. Do not use the
   existing nominally 45 Ω Belden 8451 as the specified bus cable.
   The trunk has two ends even when arranged around the rotor; no ring closure.
-- **R-SYNC-13-4 — Termination.** Fit a jumper-selectable 120 Ω resistor
+  The four-board design envelope is at most 1 m per adjacent-board cable and
+  3 m total, entirely on the rotor. Preferred cable is Belden 3106A with black
+  jacket (color 010), including its separate reference conductor. Belden 3105A
+  is an alternative with a separate reference wire or the existing power-ground
+  reference, subject to the [grounding checks](../../hardware/phantasm/1.3/README.md#cable-trunk).
+  A master-only shield bond is not an inter-board reference-ground connection.
+- **R-SYNC-13-4 — Termination.** Fit a jumper-selectable 120 Ω, 1%, 0.5 W resistor
   across A/B on each board. Enable only the two physical endpoint
   terminations. Intermediate boards leave their termination jumpers open.
 - **R-SYNC-13-5 — Ground, shield, and protection.** Keep the reference
@@ -380,7 +395,10 @@ electrical contracts remain independently usable.
   Validate local-ground common-mode excursions, unpowered loading, and
   coordinated bus protection. A TVS standoff value alone does not prove
   clamp coordination. Validate the 3.3 V supply budget and place transceiver
-  decoupling at its supply pins.
+  decoupling at its supply pins. Reserve 60 mA of normal external 3.3 V capacity
+  for the loaded transceiver and budget 0.25 A for the logic card until measured.
+  Revalidate the inherited fuse/filter voltage drop and input overshoot protection;
+  the 0.15 A power calculation above does not qualify the rev 1.3 master.
 - **R-SYNC-13-6 — Qualification.** Require placement and mechanical review,
   routed net parity, ERC/DRC, and assembled-rotor measurements under motor,
   LED-load, reset, and power-loss disturbances before fabrication release.
@@ -389,13 +407,21 @@ electrical contracts remain independently usable.
   and idle noise margin. Qualify supplier parts for a revision-specific BOM.
 
 - **R-SYNC-13-7 — Local protection branch.** Fit a CDSOT23-SM712 cable-side
-  array and a matched 10 Ω pulse-proof resistor in each local A/B branch,
-  following the THVD1410 datasheet's coordinated protection topology.
-  The trunk and termination remain cable-side of the resistors.
+  array and a 10 Ω, 1% CRCW060310R0FKEAHP pulse-proof resistor in each local
+  A/B branch. The trunk and termination remain cable-side of the resistors.
+  THVD2410 provides voltage headroom above the TVS's specified +26 V/-14 V
+  clamp at 17 A; THVD1410's ±18 V absolute limits do not. Qualify layout
+  overshoot and pulse energy before claiming system immunity. The populated
+  interface is constrained by TVS standoff (-7 V/+12 V), not the IC's wider
+  common-mode/fault range, and is not rated for sustained ±70 V faults.
+  Target each bus pin within -5 V to +10 V relative to every local ground and
+  settled differential magnitude of at least 1.0 V under operating disturbances.
+  Keep local branches at most 20 mm and connector untwist at most 10 mm;
+  establish trace geometry from the actual fabricator stackup.
 
 See the [prototype workflow](../../hardware/phantasm/1.3/README.md) for generation,
 assembly wiring, firmware requirements, and the validation checklist. The
-[THVD1410 datasheet](https://www.ti.com/lit/ds/symlink/thvd1450.pdf) defines the
+[THVD2410 datasheet](https://www.ti.com/lit/ds/symlink/thvd2410.pdf) defines the
 device limits; the [RS-485 design guide](https://www.ti.com/lit/pdf/slla272)
 defines the cable and termination model.
 

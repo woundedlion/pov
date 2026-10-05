@@ -67,6 +67,36 @@ class PrototypeContractTests(unittest.TestCase):
     def test_committed_board_matches_differential_electrical_partition(self):
         self.assertTrue(check.check(committed_board_nets("1.3"), "1.3"))
 
+    def test_sync_parts_have_orderable_manufacturer_fields(self):
+        expected = {
+            "U_SYNC": "THVD2410DR",
+            "D_SYNC": "CDSOT23-SM712",
+            "R_A": "CRCW060310R0FKEAHP",
+            "R_B": "CRCW060310R0FKEAHP",
+            "R_TERM": "CRCW0805120RFKEAHP",
+            "C_DEC3": "CC0603KRX7R9BB104",
+            "C_BULK3": "CC0603KRX7R8BB105",
+            "C_IN": "UPW1H101MPD",
+        }
+        symbols = {props["Reference"]: props for symbol in F(self.schematic, "symbol")
+                   if (props := {p[1]: p[2] for p in F(symbol, "property")})}
+        footprints = {props["Reference"]: props for footprint in F(self.board, "footprint")
+                      if (props := {p[1]: p[2] for p in F(footprint, "property")})}
+        for ref, mpn in expected.items():
+            self.assertEqual(symbols[ref]["MPN"], mpn, ref)
+            self.assertTrue(symbols[ref]["Manufacturer"], ref)
+            self.assertTrue(symbols[ref]["Datasheet"].startswith("https://"), ref)
+            for field in ("MPN", "Manufacturer", "Datasheet"):
+                self.assertEqual(footprints[ref][field], symbols[ref][field], (ref, field))
+
+    def test_led_reset_pulldown_open_is_rejected(self):
+        nets = committed_board_nets("1.3")
+        for ref, net in (("R_DATA_PD", "DATA_IN"), ("R_CLK_PD", "CLK_IN")):
+            nets[net].remove(ref)
+            with contextlib.redirect_stdout(io.StringIO()):
+                self.assertFalse(check.check(nets, "1.3"))
+            nets[net].add(ref)
+
     def test_schematic_has_no_shorts_or_unconnected_pins(self):
         self.assertEqual(shorts.analyze(self.schematic)[0], [])
         self.assertEqual(dangling_pins(self.schematic), [])
