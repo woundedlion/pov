@@ -40,8 +40,8 @@ namespace profiling_tests {
  * @details hs::log writes to C stdout, so the report is only observable through
  * an fd swap (the same idiom as test_platform.h's Serial.printf capture). A
  * scratch file rather than that capture's pipe, since the report can outrun a
- * pipe buffer and the write precedes any read. The file lands in the platform
- * temp directory, so an unwritable CWD cannot fail the cases, and its name
+ * pipe buffer and the write precedes any read. The file uses TEMP on Windows
+ * with a CWD fallback, or TMPDIR on POSIX with a /tmp fallback. Its name
  * carries the pid so concurrent runs cannot collide.
  */
 inline bool capture_log_all(char *out, size_t n) {
