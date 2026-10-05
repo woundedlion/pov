@@ -57,8 +57,8 @@ static_assert(sizeof(MindSplatterParams) == 7 * sizeof(float));
  *        dual-solid attractors through a Mobius warp.
  * @tparam W Canvas width in pixels.
  * @tparam H Canvas height in pixels.
- * @details Presets cyclically lerp friction/well-strength/speed/warp params, and
- *          the whole field is randomly re-warped on a timer.
+ * @details Presets cyclically lerp friction/well-strength/speed/warp params
+ *          and switch the base mesh; the field is randomly re-warped on a timer.
  */
 template <int W, int H>
 class MindSplatter
@@ -438,7 +438,8 @@ private:
   std::array<float, MAX_EMITTERS> emit_phases;
   uint8_t palette_sequence = 0;
   /**
-   * @brief Per-emitter tangent-plane basis, built once in init().
+   * @brief Per-emitter tangent-plane basis, rebuilt by
+   *        configure_particle_geometry() on each base-mesh change.
    * @details The emitter callback is stored in a 32-byte EmitterFn, too small
    *          to also capture a 36-byte Basis, so it indexes this array by the
    *          captured i.
