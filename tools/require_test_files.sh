@@ -34,29 +34,37 @@ case "$pattern" in
     ;;
   *) family=other ;;
 esac
-unreachable=0
-scan=$(mktemp)
-trap 'rm -f "$scan"' EXIT
-find "$root" -type d \( -name node_modules -o -name .git -o -name build \) -prune -o -type f -print0 >"$scan"
-while IFS= read -r -d '' candidate; do
-  candidate=${candidate#./}
-  case "$family:$candidate" in
-    javascript:*.test.js|javascript:*.test.mjs|javascript:*.test.cjs|javascript:*.test.ts|javascript:*.spec.js|javascript:*.spec.mjs|javascript:*.spec.cjs|javascript:*.spec.ts) ;;
-    *) continue ;;
-  esac
-  reached=0
-  for file in "${files[@]}"; do
-    if [ "$candidate" = "${file#./}" ]; then
-      reached=1
-      break
-    fi
+if [ "$family" = javascript ]; then
+  unreachable=0
+  while :; do
+    case "$root" in
+      *\**|*\?*|*\[*) root=$(dirname "$root") ;;
+      *) break ;;
+    esac
   done
-  if [ "$reached" -eq 0 ]; then
-    echo "::error::test file '$candidate' is unreachable from '$pattern'"
-    unreachable=1
-  fi
-done <"$scan"
-[ "$unreachable" -eq 0 ] || exit 1
+  scan=$(mktemp)
+  trap 'rm -f "$scan"' EXIT
+  find "$root" -type d \( -name node_modules -o -name .git -o -name build \) -prune -o -type f -print0 >"$scan"
+  while IFS= read -r -d '' candidate; do
+    candidate=${candidate#./}
+    case "$family:$candidate" in
+      javascript:*.test.js|javascript:*.test.mjs|javascript:*.test.cjs|javascript:*.test.ts|javascript:*.spec.js|javascript:*.spec.mjs|javascript:*.spec.cjs|javascript:*.spec.ts) ;;
+      *) continue ;;
+    esac
+    reached=0
+    for file in "${files[@]}"; do
+      if [ "$candidate" = "${file#./}" ]; then
+        reached=1
+        break
+      fi
+    done
+    if [ "$reached" -eq 0 ]; then
+      echo "::error::test file '$candidate' is unreachable from '$pattern'"
+      unreachable=1
+    fi
+  done <"$scan"
+  [ "$unreachable" -eq 0 ] || exit 1
+fi
 
 printf '%s: %d test file(s) discovered\n' "$pattern" "${#files[@]}"
 printf '  %s\n' "${files[@]}"

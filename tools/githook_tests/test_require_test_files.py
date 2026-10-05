@@ -72,6 +72,25 @@ class RequireTestFiles(unittest.TestCase):
         self.assertIn("tools/stray.test.mjs", done.stdout)
         self.assertIn("unreachable", done.stdout)
 
+    def test_python_glob_with_a_wildcard_directory_passes(self):
+        source = self.tree / "tools" / "sample_tests" / "test_sample.py"
+        source.write_text("", encoding="utf-8")
+        done = self.run_check("tools/*_tests/test_*.py")
+        self.assertEqual(done.returncode, 0, done.stdout + done.stderr)
+        self.assertIn("tools/sample_tests/test_sample.py", done.stdout)
+        self.assertIn("1 test file(s) discovered", done.stdout)
+
+    def test_javascript_glob_with_a_wildcard_directory_scans_a_real_parent(self):
+        done = self.run_check("tools/*_tests/*.test.mjs")
+        self.assertEqual(done.returncode, 0, done.stdout + done.stderr)
+        hidden = self.tree / "tools" / "sample_tests" / "nested"
+        hidden.mkdir()
+        (hidden / "hidden.test.mjs").write_text("", encoding="utf-8")
+        done = self.run_check("tools/*_tests/*.test.mjs")
+        self.assertEqual(done.returncode, 1, done.stdout + done.stderr)
+        self.assertIn("hidden.test.mjs", done.stdout)
+        self.assertIn("unreachable", done.stdout)
+
     def test_an_empty_glob_fails(self):
         done = self.run_check("tools/empty_tests/*.test.mjs")
         self.assertEqual(done.returncode, 1, done.stdout + done.stderr)
