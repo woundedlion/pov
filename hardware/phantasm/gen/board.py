@@ -87,7 +87,7 @@ def main(force=False, revision=B.REVISION, output_dir=None):
         os.path.dirname(OUT), revision))
     sch = SCH if output_dir is None and revision == B.REVISION else os.path.join(
         out, "phantasm.kicad_sch")
-    # uid() keys on call site + occurrence, so the sequence starts empty or a
+    # uid() keys on calling function + occurrence, so the sequence starts empty or a
     # second call in one process would renumber every generated uuid.
     reset_uid_sequence()
     require_writable(sch, force, SCH_REASON)
