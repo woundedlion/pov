@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Report working-tree, index and untracked source edits against HEAD."""
+"""Report tracked working-tree edits against HEAD and untracked non-ignored files."""
 
 from __future__ import annotations
 
