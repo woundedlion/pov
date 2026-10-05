@@ -85,6 +85,10 @@ inline void test_easing_endpoints() {
   HS_EXPECT_EQ(math::ease_out_circ(std::nextafter(0.0f, -1.0f)), 0.0f);
   HS_EXPECT_EQ(math::ease_out_circ(-1e-6f), 0.0f);
 
+  HS_EXPECT_EQ(math::ease_out_expo(-1e-6f), 0.0f);
+  HS_EXPECT_EQ(math::ease_out_expo(-1.0f), 0.0f);
+  HS_EXPECT_EQ(math::ease_out_elastic(-1e-6f), 0.0f);
+  HS_EXPECT_EQ(math::ease_out_elastic(-1.0f), 0.0f);
   HS_EXPECT_EQ(math::ease_out_expo(0.0f), 0.0f);
   HS_EXPECT_EQ(math::ease_out_expo(1.0f), 1.0f);
   HS_EXPECT_EQ(math::ease_out_elastic(0.0f), 0.0f);
