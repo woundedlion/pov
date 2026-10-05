@@ -382,10 +382,9 @@ def _pixels_json(pixels: bytes) -> str:
 def write_capture(capture: dict, frames: list[dict], path: Path) -> None:
     """Write the capture JSON, expanding each frame's pixels as it streams.
 
-    Byte-identical to `json.dumps(capture | {"frames": frames}, separators=
-    (",", ":"))` with each frame's pixel bytes written as four-channel lists.
-    The corpus is a quarter of a gigabyte of text over ten million pixels, so
-    neither those lists nor the document are ever materialized.
+    Pixel bytes stream as four-channel lists in compact JSON, followed by a
+    newline. test_streamed_capture_matches_a_materialized_document pins the
+    serialized representation.
     """
     compact = {"separators": (",", ":")}
     path.parent.mkdir(parents=True, exist_ok=True)
