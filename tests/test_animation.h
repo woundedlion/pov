@@ -360,7 +360,6 @@ inline void test_driver_nan_source_does_not_poison() {
 // Lerp (type-erased subject.lerp(start, target, t))
 // ============================================================================
 
-namespace {
 /**
  * @brief Minimal subject satisfying the lerp(start, target, t) interface
  * Animation::Lerp drives via type erasure.
@@ -377,7 +376,6 @@ struct Lerpable {
     value = a.value + (b.value - a.value) * t;
   }
 };
-} // namespace
 
 /**
  * @brief Verifies Lerp drives its subject from start to target over `duration`
@@ -485,21 +483,6 @@ static_assert(!std::is_constructible_v<Animation::Motion<288, 16>, Ori &,
                                        ProceduralPath &&, int>,
               "Motion must REJECT a temporary path (would dangle)");
 
-/**
- * @brief Minimal lerp subject used to probe Lerp's deleted rvalue overloads.
- */
-struct Lerpable {
-  float v = 0.0f; /**< Interpolated scalar payload. */
-  /**
-   * @brief Linearly interpolates this subject's value between two endpoints.
-   * @param a Start subject (source value).
-   * @param b Target subject (destination value).
-   * @param t Interpolation parameter in [0, 1].
-   */
-  void lerp(const Lerpable &a, const Lerpable &b, float t) {
-    v = a.v + (b.v - a.v) * t;
-  }
-};
 static_assert(
     std::is_constructible_v<Animation::Lerp, Lerpable &, const Lerpable &,
                             const Lerpable &, int, EasingFn>,
