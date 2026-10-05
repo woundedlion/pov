@@ -113,6 +113,8 @@ HS_HOT_FLASH_MEMBER TraceResult surface_search(const Query &query,
   float t = ray.interval.near;
   bool first = true;
   bool inside = false;
+  bool have_sample = false;
+  QuerySample sample;
   auto emit = [&](float position, const QuerySample &sample) {
     result.status = TraceStatus::SURFACE;
     result.has_surface = true;
@@ -136,9 +138,9 @@ HS_HOT_FLASH_MEMBER TraceResult surface_search(const Query &query,
     return true;
   };
   march_steps(limits.max_steps, [&]() {
-    QuerySample sample;
-    if (!evaluate(t, sample))
+    if (!have_sample && !evaluate(t, sample))
       return false;
+    have_sample = false;
     ++result.counters.steps;
     if (sample.boundary && GUARANTEES.surface_verification) {
       emit(t, sample);
@@ -186,6 +188,8 @@ HS_HOT_FLASH_MEMBER TraceResult surface_search(const Query &query,
         return false;
       }
       t = PROBE_T;
+      sample = probe;
+      have_sample = true;
       result.status = TraceStatus::BUDGET_EXHAUSTED;
       return true;
     }

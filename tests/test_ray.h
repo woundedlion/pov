@@ -118,7 +118,9 @@ inline void test_bounded_failures() {
   HS_EXPECT_TRUE(result.status == Raycast::TraceStatus::UNRESOLVED);
   HS_EXPECT_TRUE(!result.has_surface);
   HS_EXPECT_EQ(result.counters.queries,
-               2 * Raycast::TraceLimits{}.max_refinements + 1);
+               Raycast::TraceLimits{}.max_refinements + 1);
+  HS_EXPECT_EQ(result.counters.steps,
+               Raycast::TraceLimits{}.max_refinements + 1);
   Raycast::TraceLimits limits;
   limits.max_queries = 1;
   result = Raycast::surface_search(ConstantQuery{}, RAY, {}, limits);
