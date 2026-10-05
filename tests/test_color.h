@@ -2729,13 +2729,31 @@ inline void test_hue_noise_bake_cache_variant() {
   HS_EXPECT_NE(static_cast<int>(hue_noise[LAST]), static_cast<int>(POISON));
   HS_EXPECT_EQ(cache.phase, 0.5f);
 
-  // A rebuild matches a bake from the same inputs byte for byte.
+#if defined(HS_TEST_FAST_MATH)
+  constexpr int N = HueNoiseLutView::FACE_STEPS;
+  constexpr float STEP = 2.0f / (N - 1);
+  constexpr float NOISE_TOLERANCE = 2e-5f;
+  constexpr float ROUNDING_TOLERANCE = 0.5f + 127.0f * NOISE_TOLERANCE;
+  const math::Vector OFFSET = math::noise_sphere_loop_offset(0.5f);
+  for (int face = 0; face < HueNoiseLutView::FACE_COUNT; ++face)
+    for (int y = 0; y < N; ++y)
+      for (int x = 0; x < N; ++x) {
+        const math::Vector D =
+            hue_noise_face_direction(face, -1.0f + STEP * x, -1.0f + STEP * y);
+        const math::Vector Q = 2.5f * D + OFFSET;
+        const float SAMPLE =
+            hs::clamp(noise.GetNoiseSingle(Q.x, Q.y, Q.z), -1.0f, 1.0f);
+        HS_EXPECT_NEAR(static_cast<float>(hue_noise[face * N * N + y * N + x]),
+                       SAMPLE * 127.0f, ROUNDING_TOLERANCE);
+      }
+#else
   static std::array<int8_t, HueNoiseLutView::SIZE> reference;
   prepare_hue_noise_lut<OPENSIMPLEX2_UNIT>(
       std::span<int8_t, HueNoiseLutView::SIZE>(reference), noise, 2.5f, 0.5f);
   HS_EXPECT_EQ(
       std::memcmp(hue_noise.data(), reference.data(), HueNoiseLutView::SIZE),
       0);
+#endif
 }
 
 inline void test_hue_noise_bake_cache() {
@@ -2746,6 +2764,22 @@ inline void test_hue_noise_bake_cache() {
 /** @brief Compares paired cube-face bakes with independent scalar face walks. */
 inline void test_hue_noise_paired_bakes_match_reference() {
   static std::array<int8_t, HueNoiseLutView::SIZE> actual, reference;
+#if defined(HS_TEST_FAST_MATH)
+  static std::array<float, HueNoiseLutView::SIZE> reference_samples;
+#endif
+  const auto check_bake = [&] {
+#if defined(HS_TEST_FAST_MATH)
+    // Fast-math reassociation can cross an int8 rounding boundary.
+    constexpr float NOISE_TOLERANCE = 2e-5f;
+    constexpr float ROUNDING_TOLERANCE = 0.5f + 127.0f * NOISE_TOLERANCE;
+    for (size_t i = 0; i < actual.size(); ++i)
+      HS_EXPECT_NEAR(static_cast<float>(actual[i]), reference_samples[i],
+                     ROUNDING_TOLERANCE);
+#else
+    HS_EXPECT_EQ(std::memcmp(actual.data(), reference.data(), actual.size()),
+                 0);
+#endif
+  };
   for (int variant = 0; variant < 4; ++variant) {
     FastNoiseLite noise;
     noise.SetSeed(6047 + variant);
@@ -2767,18 +2801,20 @@ inline void test_hue_noise_paired_bakes_match_reference() {
               const math::Vector q = scale * d + offset;
               const float sample =
                   hs::clamp(noise.GetNoiseSingle(q.x, q.y, q.z), -1.0f, 1.0f);
-              reference[face * N * N + y * N + x] = static_cast<int8_t>(
+              const int INDEX = face * N * N + y * N + x;
+              reference[INDEX] = static_cast<int8_t>(
                   sample * 127.0f + (sample < 0.0f ? -0.5f : 0.5f));
+#if defined(HS_TEST_FAST_MATH)
+              reference_samples[INDEX] = sample * 127.0f;
+#endif
             }
           }
         }
         prepare_hue_noise_lut(actual, noise, scale, phase);
-        HS_EXPECT_EQ(
-            std::memcmp(actual.data(), reference.data(), actual.size()), 0);
+        check_bake();
         if (variant == 0) {
           prepare_hue_noise_lut<true>(actual, noise, scale, phase);
-          HS_EXPECT_EQ(
-              std::memcmp(actual.data(), reference.data(), actual.size()), 0);
+          check_bake();
         }
       }
     }
