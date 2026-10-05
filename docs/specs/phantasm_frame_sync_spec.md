@@ -365,12 +365,12 @@ Three consequences for the design decisions:
 - **The seam is invisible until ~0.7 % frequency error.** One column of drift per
   half-rev needs `δ_rel = T0 / 62.5 ms ≈ 0.7 %` — about 100× a Teensy crystal's
   worst case. This is why §4.3's frequency trim is optional, not required.
-- **A dead sync wire is out of scope (hard line by construction)** — but the
+- **A dead sync wire is out of scope** — but the
   behavior is still well-defined, not undefined: with no re-snap the boards
   precess apart at crystal rate (≥1 col in ~10–20 s, a slow smear, never an
   instant break), and the §4.1 rebase rule keeps the flywheel arithmetic valid
   indefinitely (no cycle-counter-wrap jump at 7.16 s). Nothing beyond that is
-  designed for; the wire is a soldered, hard connection.
+  designed for.
 
 This is purely **board-vs-board** (differential) crystal drift. It is distinct
 from **image-vs-rotor** drift (motor holding RPM to ±%, not ±ppm — far larger),
@@ -988,7 +988,7 @@ artifacts require either two coincident losses in one half-rev (self-heals) or
 a missed epoch (R repeats, then beacon-corrected within ~4 s). A dropped render can also leave a frame-time seam until the
 next epoch, as specified in §6.2. Losing the one wire is a single point of failure for all three
 layers at once — the accepted cost of collapsing to one wire. It is **out of
-scope by construction** (a hard, soldered line, not a connector); the rows
+scope by design**; the rows
 above exist to show the degradation is a well-defined slow smear rather than
 undefined behavior, not because it is designed against.
 
@@ -1021,7 +1021,7 @@ short entry is a worse case for rejoin visibility than a long one.
 | Missed epoch (all R+1 copies) or corrupted beacon frame | one segment on the old effect ≤4 s; a dropped beacon alone is consequence-free redundancy | 576 col (~250 ms): the post-commit beacons ride consecutive revolutions, so the §6.3.4 confirming frame costs one extra revolution; ≤9,216 col (~4 s, two beacon gaps) if the post-commit train is lost too | ≈0 — requires 4 independent symbol losses; beacon bounds it regardless |
 | Board reboot mid-show | one segment dark (fail-dark, never wrong) | ≤7,200 col (~3.1 s, the enforced 25-rev bound): phase ≤144 col, index at the next beacon — up to a 21-rev gap across a commit window — then the §6.5 grid adds ≤4 revs before it goes live on the correct effect | per external reboot event |
 | Firmware invariant violation (init > K, flywheel wake-ups stop) | trap (`HS_CHECK` / `buffer_free()` watchdog) | none — fail-fast by design | 0 in correct firmware; a caught bug class, not a runtime mode |
-| Sync wire / master dead | uniform slow smear ~1 col per 10–20 s; playlist freezes, then clears after its fade-out (fail-dark); arithmetic stays valid (§4.1 rebase) | physical repair | out of scope — hard line by construction |
+| Sync wire / master dead | uniform slow smear ~1 col per 10–20 s; playlist freezes, then clears after its fade-out (fail-dark); arithmetic stays valid (§4.1 rebase) | physical repair | out of scope by design |
 
 Reading by tier: everything the wire can plausibly throw at the design recovers
 sub-column within ≤2 revolutions; the only in-principle-visible stochastic
