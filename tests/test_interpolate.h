@@ -2,7 +2,7 @@
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
  * Licensed under the PolyForm Noncommercial License 1.0.0
  *
- * Interpolation endpoints, periodic wrapping, and quaternion paths.
+ * Interpolation endpoints, periodic wrapping, and normalized vector interpolation.
  */
 #pragma once
 
