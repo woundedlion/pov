@@ -1005,8 +1005,7 @@ inline void test_oklch_to_pixel_holds_hue_out_of_gamut() {
   const float L = 0.62f, C = 0.42f, h = 0.9f;
   Pixel p = oklch_to_pixel({L, C, h});
 
-  float r = p.r / 65535.0f, g = p.g / 65535.0f, b = p.b / 65535.0f;
-  OKLCH got = oklab_to_oklch(linear_rgb_to_oklab(r, g, b));
+  OKLCH got = pixel_to_oklch(p);
   HS_EXPECT_NEAR(wrap_hue_delta(got.h - h), 0.0f, 2e-2f);
 }
 
@@ -2222,18 +2221,13 @@ inline void test_sparkle_shade() {
  */
 inline void test_chroma_pulse_shade() {
   Color4 mid(Pixel(30000, 12000, 6000), 0.7f);
-  auto oklch_of = [](const Color4 &c) {
-    constexpr float INV16 = 1.0f / 65535.0f;
-    return oklab_to_oklch(linear_rgb_to_oklab(
-        c.color.r * INV16, c.color.g * INV16, c.color.b * INV16));
-  };
-  OKLCH before = oklch_of(mid);
+  OKLCH before = pixel_to_oklch(mid.color);
 
   // sin(pi/2) = 1: chroma scales up by 1 + depth.
   float phase = math::PI_F * 0.5f;
   ChromaPulseShade pulse(&phase, 0.3f);
   Color4 boosted = pulse.shade(mid, 0.2f);
-  OKLCH after = oklch_of(boosted);
+  OKLCH after = pixel_to_oklch(boosted.color);
   HS_EXPECT_GT(after.C, before.C * 1.1f);
   HS_EXPECT_NEAR(wrap_hue_delta(after.h - before.h), 0.0f, .01f);
   HS_EXPECT_NEAR(after.L, before.L, 0.02f);
@@ -2242,7 +2236,7 @@ inline void test_chroma_pulse_shade() {
   // sin(-pi/2) = -1: chroma scales down toward gray.
   float neg_phase = -math::PI_F * 0.5f;
   ChromaPulseShade cut(&neg_phase, 0.3f);
-  const OKLCH CUT = oklch_of(cut.shade(mid, 0.2f));
+  const OKLCH CUT = pixel_to_oklch(cut.shade(mid, 0.2f).color);
   HS_EXPECT_LT(CUT.C, before.C * 0.9f);
   HS_EXPECT_NEAR(wrap_hue_delta(CUT.h - before.h), 0.0f, .01f);
 
