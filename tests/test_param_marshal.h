@@ -229,8 +229,9 @@ check_stability_one(const char *name, std::vector<hs_wasm::ParamView> &views,
  * @details HS_EFFECT_LIST is the single source of truth for the effect ordinal
  *   the WASM factory enumerates and the JS app surfaces (effect-list order, plus
  *   any index-keyed consumer). The per-effect marshaling below guarantees
- *   within-effect index alignment; it does not notice a reorder. This independent golden list turns any
- *   reorder/insertion/removal into a deliberate, reviewable diff — if it fires,
+ *   within-effect index alignment; it does not notice a reorder. This
+ *   independent golden list turns any reorder/insertion/removal into a
+ *   deliberate, reviewable diff — if it fires,
  *   update GOLDEN_ROSTER on purpose to match the new HS_EFFECT_LIST order.
  *   (Sliders bind by parameter name, so a reorder does not mis-bind a slider; it
  *   shifts the effect ordinal, which is what this pins.)

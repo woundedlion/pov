@@ -15,8 +15,8 @@
  *     by SDF::Face's collapsed-area reject, per seed.
  *   - Needle primitive lowering: the DUAL then KIS partition ops the needle
  *     recipe lowers to, each landing with two-face edge incidence and
- *     Euler characteristic 2 on the hankin(54 deg) seed, with the {DUAL, KIS} lowering matching
- * MeshOps::needle.
+ *     Euler characteristic 2 on the hankin(54 deg) seed, with the {DUAL, KIS}
+ *     lowering matching MeshOps::needle.
  *   - Build-chain provenance: face-centroid spacing per intermediate mesh
  *     against PROVENANCE_TOL_SQ, nearest/second-nearest ambiguity of the
  *     lookups build_palette_mapping actually performs, and the mapping path
@@ -226,8 +226,7 @@ inline void test_chamfer_zero_area_birth_limit() {
  * @brief Steps a chamfer sweep from T_EPS to the shipping arrival on every
  *        chamfer seed, asserting constant raw and compiled face counts, two-face
  *        edge incidence, Euler characteristic 2, near-unit vertices, and outward
- *        face normals, and
- *        reporting the peak per-step vertex displacement.
+ *        face normals, and reporting the peak per-step vertex displacement.
  */
 inline void test_chamfer_sweep_holds_topology() {
   constexpr int SAMPLES = 32;
@@ -383,8 +382,8 @@ inline const float TRUNCATE001_T_STAR = [] {
  * @brief Steps the truncate001 leg from its derived birth floor to 0.01 on the
  *        shared truncate001 seed, asserting a real sweep (birth < arrival),
  *        constant raw and compiled face counts, two-face edge incidence,
- *        Euler characteristic 2, near-unit vertices, every face positive-area, and no face inverting across
- *        the sweep.
+ *        Euler characteristic 2, near-unit vertices, every face positive-area,
+ *        and no face inverting across the sweep.
  * @details The silent on-screen failure these recipes carry (spec section 5.1)
  * is a truncate whose sub-T_EPS arrival clamps both endpoints to T_EPS -- a
  * still image ending on a mesh built at the wrong parameter. The birth floor
