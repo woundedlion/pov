@@ -459,9 +459,10 @@ _hs_sanitize(pullback_manifest_check)
 add_test(NAME unit_pullback_manifest COMMAND pullback_manifest_check)
 
 
-set(HS_CAPTURE_ENGINE_SOURCES ${HS_ENGINE_SOURCES})
-list(TRANSFORM HS_CAPTURE_ENGINE_SOURCES REPLACE
-  "^${HS_ROOT}/" "${HS_PULLBACK_CAPTURE_SOURCE_ROOT}/")
+set(HS_CAPTURE_ENGINE_SOURCES
+  ${HS_PULLBACK_CAPTURE_SOURCE_ROOT}/core/engine/memory.cpp
+  ${HS_PULLBACK_CAPTURE_SOURCE_ROOT}/core/engine/static_storage.cpp
+  ${HS_PULLBACK_CAPTURE_SOURCE_ROOT}/core/spatial/reaction_graph.cpp)
 add_executable(pullback_capture_native
   ${HS_ROOT}/tools/pullback_capture_native.cpp
   ${HS_CAPTURE_ENGINE_SOURCES})
