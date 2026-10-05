@@ -3513,8 +3513,19 @@ inline void test_mobiuswarp_circular_traces_radius() {
       std::sqrt(params.b.re * params.b.re + params.b.im * params.b.im), scale,
       1e-4f);
 
-  for (int i = 1; i < duration; ++i)
+  for (int i = 1; i < duration; ++i) {
     warp.step(fake_canvas());
+    if (i == 1) {
+      HS_EXPECT_NEAR(params.b.re, 0.0f, 1e-4f);
+      HS_EXPECT_NEAR(params.b.im, -scale, 1e-4f);
+    } else if (i == 3) {
+      HS_EXPECT_NEAR(params.b.re, -scale, 1e-4f);
+      HS_EXPECT_NEAR(params.b.im, 0.0f, 1e-4f);
+    } else if (i == 5) {
+      HS_EXPECT_NEAR(params.b.re, 0.0f, 1e-4f);
+      HS_EXPECT_NEAR(params.b.im, scale, 1e-4f);
+    }
+  }
   HS_EXPECT_TRUE(warp.done());
   // angle 2π: b.re == scale, b.im == 0.
   HS_EXPECT_NEAR(params.b.re, scale, 1e-4f);
