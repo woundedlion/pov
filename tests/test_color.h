@@ -1580,10 +1580,8 @@ inline void test_baked_palette_color_sampler_matches_get() {
 
 /**
  * @brief Verifies clone_from deep-copies the LUT so both palettes sample equal.
- * @details clone_from (raw memcpy into a fresh arena allocation) is reached only
- *          via arena compaction, so a wrong size or missed allocation would only
- *          surface at runtime. Bake a ramp, clone it, and assert both palettes
- *          reproduce the same color at every sample.
+ * @details Bake a ramp, copy its LUT into a fresh arena allocation, and assert
+ *          both palettes reproduce the same color at every sampled coordinate.
  */
 inline void test_baked_palette_clone_from_matches_source() {
   Gradient grad{{0.0f, CPixel(0u, 0u, 0u)}, {1.0f, CPixel(255u, 255u, 255u)}};
