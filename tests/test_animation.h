@@ -414,8 +414,7 @@ inline void test_lerp_midpoint() {
 // ============================================================================
 // OrientationTrail
 // ----------------------------------------------------------------------------
-// Index 0 is the OLDEST snapshot, length()-1 the newest (matching the JS
-// simulator's trail ordering).
+// Index 0 is the oldest snapshot, length()-1 the newest.
 // ============================================================================
 
 /**
