@@ -1156,13 +1156,10 @@ concern.
   template path is engineered, not assumed — the shared kernels above
   are the mechanism (Project's sphere assignment, Sample's
   weight/ramp/coverage sequence, and Coverage's accumulation exist
-  once), and a **static-versus-erased parity test covers every
-  operator × topology variant** — variant coverage is not optional,
-  because a default-variant pass would miss exactly what varies: enum
-  dispatch, variant-gated parameters, per-variant resource selection,
-  and prepared-state differences — with parameter values at
-  representative boundaries (defaults and range endpoints) in each
-  variant. Per-op prepared state is arena-sized at structural-edit time,
+  once). **Static-versus-erased parity tests cover operator families
+  and topology variants**, with defaults and selected range endpoints.
+  Separate analytic references exercise runtime-only parameter endpoints.
+  Per-op prepared state is arena-sized at structural-edit time,
   like the parameter blocks; template pipelines have no fixed prepared-blob cap.
 - `setShaderChain` is the only structural channel. It
   synchronously rebuilds the registered parameter definitions and bumps
