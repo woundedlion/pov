@@ -6241,6 +6241,8 @@ inline void test_shapeshifter_preset_defaults() {
                                    1.0f, 1.0f, 1.0f, 2.0f};
   const float expected_falloffs[] = {1.0f, 0.0f, 1.0f, 0.0f, 1.0f,
                                      0.0f, 0.0f, 0.0f, 0.0f};
+  HS_EXPECT_EQ(std::size(expected_shapes), ss.getPresetCount());
+  HS_EXPECT_EQ(std::size(expected_falloffs), ss.getPresetCount());
   std::vector<std::vector<float>> rows;
   for (size_t i = 0; i < std::size(expected_shapes); ++i) {
     HS_CONTEXT("preset", static_cast<int>(i));
