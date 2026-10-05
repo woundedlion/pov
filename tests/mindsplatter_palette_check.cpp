@@ -5,8 +5,8 @@
 // Tolerance pin for core/color/mindsplatter_palette_luts.h, the 393,216-byte palette bank
 // tools/mindsplatter_palette_gen.cpp emits. Recompiles every entry from the
 // recipe of record (EffectPaletteRecipes::mind_splatter) and compares it to the
-// committed one, so a recipe edit, a GenerativePalette change or a hand-edit of
-// the table fails here instead of shipping a stale bank.
+// committed one. Recipe, compiler or table changes that exceed the pinned
+// channel or mean tolerance fail the check.
 //
 // The sibling generated artifacts are byte-diffed against a regenerated copy;
 // this one cannot be. The recipe path runs powf/cbrtf through the OKLab gamut
