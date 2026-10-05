@@ -277,11 +277,12 @@ SHARED_LITERAL_USES = (
 # --check-tool targets: pin name -> (version command, how to install the pin,
 # the form of the pin that command reports). `{pin}` in either is filled with
 # the pin value. A pin absent here has nothing to interrogate: two git refs and
-# two file digests name no program, and the emsdk and KiCad pins are checked
+# three file digests name no program, and the emsdk and KiCad pins are checked
 # where they are used (the WASM toolchain marker written beside the build,
 # kicad_common.find_kicad_cli). The targets a recipe runs are invoked from
 # it (CONSUMERS pins those call sites). The native build reaches clang through
-# the CMake toolchain, which may be emsdk's.
+# the CMake toolchain, which may be emsdk's. actionlint-release is the derived
+# release form of actionlint and is checked through that pin.
 CHECK_TOOLS = {
     "cmake": (["cmake", "--version"], "pip install cmake=={pin}", lambda v: v),
     "actionlint": (["actionlint", "-version"],
