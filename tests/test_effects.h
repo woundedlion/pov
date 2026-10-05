@@ -4443,6 +4443,7 @@ struct DynamoWhiteBox {
   using D = Dynamo<DEFAULT_W, DEFAULT_H>;
   using Ring = Filter::World::Trails<D::TRAIL_CAPACITY>;
   static constexpr int trail_capacity() { return D::TRAIL_CAPACITY; }
+  static constexpr int trail_len_max() { return D::TRAIL_LEN_MAX; }
   static void set_speed(D &d, float v) { d.params.speed = v; }
   static void set_trail_length(D &d, float v) { d.params.trail_length = v; }
   static float trail_ceiling(const D &d) { return d.params.trail_ceiling; }
@@ -4472,8 +4473,8 @@ inline void test_dynamo_trail_ceiling_bounds_the_ring() {
   WB::D effect;
   effect.init();
 
-  constexpr float MAX_SPEED = 10.0f;  // "Speed" slider bound
-  constexpr float MAX_TRAIL = 100.0f; // "Trail Len" slider bound
+  constexpr float MAX_SPEED = 10.0f; // "Speed" slider bound
+  constexpr float MAX_TRAIL = WB::trail_len_max();
   WB::set_speed(effect, MAX_SPEED);
   WB::set_trail_length(effect, MAX_TRAIL);
 
@@ -5366,6 +5367,8 @@ struct PetalFlowWhiteBox {
   using PF = PetalFlow<DEFAULT_W, DEFAULT_H>;
   static float gap(const PF &pf) { return pf.gap_accumulator; }
   static float start_rho() { return PF::START_RHO; }
+  static float speed_max() { return PF::SPEED_MAX; }
+  static float density_max() { return PF::DENSITY_MAX; }
   static float youngest_rho(const PF &pf) {
     float youngest = PF::END_RHO;
     for (const auto &ring : pf.rings)
@@ -5409,8 +5412,10 @@ inline void test_petalflow_spawn_gap_bounded() {
   WB::PF pf;
   pf.init();
   HS_EXPECT_NEAR(WB::youngest_rho(pf) - WB::start_rho(), WB::gap(pf), 1e-5f);
-  HS_EXPECT_EQ(pf.updateParameter("Speed", 20.0f), ParamSetResult::APPLIED);
-  HS_EXPECT_EQ(pf.updateParameter("Density", 2.5f), ParamSetResult::APPLIED);
+  HS_EXPECT_EQ(pf.updateParameter("Speed", WB::speed_max()),
+               ParamSetResult::APPLIED);
+  HS_EXPECT_EQ(pf.updateParameter("Density", WB::density_max()),
+               ParamSetResult::APPLIED);
 
   const float spacing = WB::live_spacing(pf);
   // Below this the while-loop emits at most one ring per frame, whatever the
