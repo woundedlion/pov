@@ -114,7 +114,7 @@ class ProfileTreeLock(unittest.TestCase):
             lock.mkdir()
             os.utime(lock, (1, 1))
             script = ('. "$1"\n'
-                      + 'TREE=$2; SECONDS_ARG=1; acquire_tree_lock\n'
+                      + 'TREE=$2; acquire_tree_lock\n'
                       + 'rc=$?; [ "$rc" != 0 ] || _hs_break_lock "$TREE_LOCK" "$TREE_TOKEN"; exit "$rc"\n')
             result = subprocess.run(['bash', '-c', script, 'tree-lock-test',
                                      (REPO / 'tools/device_lock.sh').as_posix(), root.as_posix()],
@@ -145,7 +145,7 @@ class ProfileTreeLock(unittest.TestCase):
                 deadline = 1 if stale else 9999999999
                 (lock / 'info').write_text(f'token=peer\nstarted=1\ndeadline={deadline}\n')
                 script = ('. "$1"\n'
-                          + 'TREE=$2; SECONDS_ARG=1; acquire_tree_lock\n'
+                          + 'TREE=$2; acquire_tree_lock\n'
                           + 'rc=$?; [ "$rc" != 0 ] || _hs_break_lock "$TREE_LOCK" "$TREE_TOKEN"; exit "$rc"\n')
                 result = subprocess.run(['bash', '-c', script, 'tree-lock-test',
                                          (REPO / 'tools/device_lock.sh').as_posix(), root.as_posix()],
