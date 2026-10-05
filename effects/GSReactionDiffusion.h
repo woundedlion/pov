@@ -448,16 +448,28 @@ private:
     float value;
   };
 
+  struct ColorNoiseSelection {
+    int row;
+    bool exact;
+  };
+
+  __attribute__((always_inline)) ColorNoiseSelection
+  color_noise_selection(float position) const {
+    const int ROW = std::min(static_cast<int>(position), COLOR_NOISE_STEPS - 2);
+    return {ROW, !color_palette_valid ||
+                     (color_palette_rows & (3u << ROW)) != (3u << ROW) ||
+                     color_palette_exact};
+  }
+
   __attribute__((always_inline)) ColorNoiseSample
   color_noise_sample(float noise) const {
     float position =
         hs::clamp((noise + 1.0f) * (0.5f * (COLOR_NOISE_STEPS - 1)), 0.0f,
                   static_cast<float>(COLOR_NOISE_STEPS - 1));
-    int row = std::min(static_cast<int>(position), COLOR_NOISE_STEPS - 2);
-    return {row, static_cast<uint16_t>((position - row) * 65535.0f), noise,
-            !color_palette_valid ||
-                (color_palette_rows & (3u << row)) != (3u << row) ||
-                color_palette_exact};
+    const auto SELECTION = color_noise_selection(position);
+    return {SELECTION.row,
+            static_cast<uint16_t>((position - SELECTION.row) * 65535.0f), noise,
+            SELECTION.exact};
   }
 
   __attribute__((always_inline)) static ColorValueSample
@@ -832,12 +844,9 @@ private:
     const float NOISE_POSITION =
         hs::clamp((noise_value + 1.0f) * (0.5f * (COLOR_NOISE_STEPS - 1)), 0.0f,
                   static_cast<float>(COLOR_NOISE_STEPS - 1));
-    const int NOISE_ROW =
-        std::min(static_cast<int>(NOISE_POSITION), COLOR_NOISE_STEPS - 2);
-    const bool EXACT =
-        !color_palette_valid ||
-        (color_palette_rows & (3u << NOISE_ROW)) != (3u << NOISE_ROW) ||
-        color_palette_exact;
+    const auto NOISE_SELECTION = color_noise_selection(NOISE_POSITION);
+    const int NOISE_ROW = NOISE_SELECTION.row;
+    const bool EXACT = NOISE_SELECTION.exact;
     const float VALUE_POSITION = t * (COLOR_VALUE_STEPS - 1);
     const int VALUE_COLUMN =
         std::min(static_cast<int>(VALUE_POSITION), COLOR_VALUE_STEPS - 2);

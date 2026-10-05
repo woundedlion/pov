@@ -2198,6 +2198,8 @@ inline void test_gs_partial_color_palette_rows() {
     GSWhiteBox::refresh_color_palettes(gs);
     HS_EXPECT_EQ(GSWhiteBox::color_palette_rows(gs),
                  static_cast<uint16_t>(31u << 5));
+    HS_EXPECT_TRUE(GSWhiteBox::exact_color_sample(gs, -1.0f));
+    HS_EXPECT_TRUE(GSWhiteBox::exact_color_sample(gs, 1.0f));
     float hue = generation == 0 ? 0.2f : -0.2f;
     float shimmer = generation == 0 ? 0.4f : 0.3f;
     for (float noise : {-1.0f + 12.0f / 14.0f, 0.0f}) {
