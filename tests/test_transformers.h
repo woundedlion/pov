@@ -1249,12 +1249,12 @@ inline void test_dominant_field_identities() {
     }
   }
 
-  // Denominator floor: fields too small to square above FIELD_DOMINANT_DEN_EPS
-  // report 0 rather than dividing.
   DominantFieldAccumulator tiny;
-  tiny.add(1e-6f);
-  tiny.add(-1e-6f);
+  tiny.add(1e-5f);
   HS_EXPECT_NEAR(tiny.value(), 0.0f, 0.0f);
+  DominantFieldAccumulator above_floor;
+  above_floor.add(1e-3f);
+  HS_EXPECT_NEAR(above_floor.value(), 1e-3f, 1e-9f);
 }
 
 /**
@@ -1268,7 +1268,6 @@ inline void test_dominant_field_strongest_wins_without_stacking() {
   const float blended = acc.value();
   HS_EXPECT_LT(blended, 3.0f); // not the plain max
   HS_EXPECT_GT(blended, 2.0f); // but far nearer the strong field
-  HS_EXPECT_LT(blended, 4.0f); // and never the sum
   HS_EXPECT_GT(blended, 1.0f);
 
   DominantFieldAccumulator lopsided;
