@@ -2544,9 +2544,9 @@ inline float identity_falloff(float t) { return t; }
  * @brief Verifies ShadeCoord picks the color chain's coordinate independently
  *        of Wrap.
  * @details AlphaFalloffShade reports the coordinate it was handed through
- *          alpha. MATCH_WRAP selects — the source
- *          lookup coordinate under Wrap=true, the raw input under Wrap=false —
- *          while LOOKUP and INPUT pin their own coordinate either way.
+ *          alpha. MATCH_WRAP selects the source lookup coordinate under
+ *          Wrap=true and the raw input under Wrap=false. LOOKUP and RAW_INPUT
+ *          pin their own coordinate either way.
  */
 inline void test_palette_shade_coord_policy() {
   Gradient grad{{0.0f, CPixel(0u, 0u, 0u)}, {1.0f, CPixel(255u, 255u, 255u)}};
