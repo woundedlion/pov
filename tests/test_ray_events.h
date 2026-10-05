@@ -142,7 +142,8 @@ inline void test_event_stream_contracts() {
   HS_EXPECT_EQ(result.counters.candidates, 5);
   streams.live.fill(true);
   streams.heads[0].t = streams.heads[1].t = streams.heads[2].t = 1;
-  streams.heads[0].merge_identity = streams.heads[1].merge_identity = 0;
+  streams.heads[0].merge_identity = streams.heads[1].merge_identity =
+      streams.heads[2].merge_identity = 0;
   streams.heads[0].coverage = .25f;
   streams.heads[1].coverage = .75f;
   streams.heads[2].material = 1;
@@ -154,6 +155,22 @@ inline void test_event_stream_contracts() {
     return true;
   });
   HS_EXPECT_EQ(count, 4);
+  streams.live.fill(true);
+  streams.heads[3].t = 1;
+  streams.heads[3].merge_identity = 0;
+  streams.heads[3].verified = true;
+  int verified_count = 0;
+  count = 0;
+  result = Raycast::trace_events(streams, {0, 6}, {}, [&](const auto &hit) {
+    verified_count += hit.verified ? 1 : 0;
+    ++count;
+    return true;
+  });
+  HS_EXPECT_EQ(count, 4);
+  HS_EXPECT_EQ(verified_count, 1);
+  streams.heads[3].t = 2;
+  streams.heads[3].merge_identity = 3;
+  streams.heads[3].verified = false;
   streams.live.fill(true);
   Raycast::TraceLimits limits;
   limits.max_candidates = 2;
