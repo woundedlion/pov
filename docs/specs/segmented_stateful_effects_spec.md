@@ -280,8 +280,9 @@ ClipRegion default already covers, so every effect's clip margin is 1.
 ## 7. Shipped decision: redundant workers
 
 The design above runs **N redundant, identical full-frame workers** for a
-stateful effect. It is the simplest path, mirrors the device's independent
-per-board compute, and is bit-identical to it.
+stateful effect. It mirrors the device's independent per-board compute and
+produces bit-identical frames across the simulator workers. Cross-platform
+differences remain subject to the [device/host divergence ledger](../ledgers/device_host_divergence_ledger.md).
 
 The alternative: because all N workers compute the bit-identical frame for a
 cross-segment effect, render it **once** and let all quadrants slice that
