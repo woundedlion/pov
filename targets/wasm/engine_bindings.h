@@ -1035,24 +1035,8 @@ private:
         restore_workbench && restore_workbench(binding_state);
     HS_CHECK(!restore_workbench || parameters_restored,
              "Geometry rebuild must restore the workbench configuration");
-    if (!parameters_restored) {
-      while (!parameters.empty()) {
-        const size_t REMAINING = parameters.size();
-        for (auto it = parameters.begin(); it != parameters.end();) {
-          const auto RESULT =
-              current_effect->updateParameter(it->first.c_str(), it->second);
-          if (RESULT == ParamSetResult::APPLIED)
-            it = parameters.erase(it);
-          else {
-            HS_CHECK(RESULT == ParamSetResult::INADMISSIBLE,
-                     "Geometry rebuild must restore the effect parameters");
-            ++it;
-          }
-        }
-        HS_CHECK(parameters.size() < REMAINING,
-                 "Geometry rebuild must restore the effect parameters");
-      }
-    }
+    if (!parameters_restored)
+      current_effect->restore_parameters(parameters);
     setAnimationsPaused(PAUSED);
     setClip(CLIP.x_start, CLIP.x_end, CLIP.y_start, CLIP.y_end);
     param_generation.observe(current_effect->getParameterSchemaGeneration());
