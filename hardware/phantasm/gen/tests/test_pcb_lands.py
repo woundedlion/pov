@@ -17,9 +17,9 @@ UNPLACED = GEN_DIR.parent / "1.2" / "phantasm.kicad_pcb"
 ROUTED = GEN_DIR.parent / "1.1" / "phantasm.kicad_pcb"
 TEENSY_LIBRARY = GEN_DIR.parent / "1.1" / "phantasm.pretty" / "Teensy4.0.kicad_mod"
 
-# Every reference the generator embeds straight from its footprint library.
+# Chip-passive references whose library lands embed must leave untouched.
 LIBRARY_LAND_REFS = ("R1", "R2", "R_PD", "R_S", "R_MEN", "R_D1", "R_D2",
-                     "R_LF", "C_SYNC", "C_DEC1", "C_DEC2", "C_LF", "F1", "FB")
+                     "R_LF", "R_TX", "C_SYNC", "C_DEC1", "C_DEC2", "C_LF", "F1", "FB")
 
 
 def chip(width, pitch, height=0.95):
