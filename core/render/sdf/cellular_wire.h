@@ -37,6 +37,21 @@ struct HitStorage {
   std::array<Hit, 32> hits;
 };
 
+/** @brief Retains the nearest crossings in a bounded step buffer. */
+__attribute__((noinline)) inline void retain_hit(HitStorage &storage, bool heap,
+                                                 Hit hit) {
+  auto &hits = storage.hits;
+  const auto nearer = [](const Hit &a, const Hit &b) { return a.t < b.t; };
+  if (!heap) {
+    std::make_heap(hits.begin(), hits.end(), nearer);
+  }
+  if (hit.t < hits.front().t) {
+    std::pop_heap(hits.begin(), hits.end(), nearer);
+    hits.back() = hit;
+    std::push_heap(hits.begin(), hits.end(), nearer);
+  }
+}
+
 /** @brief Unique edges owned by their midpoint's rectangular translation cell. */
 struct Geometry {
   std::array<Edge, 32> edges{};
@@ -281,6 +296,7 @@ shade(const Geometry &geometry, float cell_size, float wire_radius,
               continue;
             if (trace.counters.candidates >= limits.max_candidates) {
               trace.status = Raycast::TraceStatus::BUDGET_EXHAUSTED;
+              count = 0;
               goto shade_hits;
             }
             ++trace.counters.candidates;
@@ -296,10 +312,14 @@ shade(const Geometry &geometry, float cell_size, float wire_radius,
             if (COVERAGE <= 0)
               continue;
             if (count == static_cast<int>(hits.size())) {
+              bool heap =
+                  trace.status == Raycast::TraceStatus::BUDGET_EXHAUSTED;
+              retain_hit(storage, heap,
+                         {t, COVERAGE, static_cast<uint32_t>(i)});
               trace.status = Raycast::TraceStatus::BUDGET_EXHAUSTED;
-              goto shade_hits;
+            } else {
+              hits[count++] = {t, COVERAGE, static_cast<uint32_t>(i)};
             }
-            hits[count++] = {t, COVERAGE, static_cast<uint32_t>(i)};
           }
         }
   shade_hits:

@@ -101,6 +101,65 @@ inline void test_traversal() {
                                 limits, appearance, storage, math::Z_AXIS);
   HS_EXPECT_EQ(ZERO_ANGLE.trace.status, Raycast::TraceStatus::BUDGET_EXHAUSTED);
   HS_EXPECT_EQ(ZERO_ANGLE.trace.counters.candidates, 0);
+  bounded_geometry.count = 2;
+  bounded_geometry.edges[0] = {{1, 1, .8f}, {1.1f, 1, .8f}};
+  bounded_geometry.edges[1] = {{1, 1, .2f}, {1.1f, 1, .2f}};
+  auto ordered_appearance = appearance;
+  ordered_appearance.near_inv_span = .01f;
+  const auto ORDERED = shade(bounded_geometry, 1, .04f, camera, {}, limits,
+                             ordered_appearance, storage, math::Z_AXIS);
+  HS_EXPECT_EQ(ORDERED.trace.status, Raycast::TraceStatus::RANGE_COMPLETE);
+  HS_EXPECT_EQ(ORDERED.trace.counters.layers, 2);
+  HS_EXPECT_GT(ORDERED.color.alpha, 0.f);
+  HS_EXPECT_NEAR(storage.hits[0].t, .2f, 1e-6f);
+  auto partial_limits = limits;
+  partial_limits.max_candidates = 1;
+  const auto PARTIAL =
+      shade(bounded_geometry, 1, .04f, camera, {}, partial_limits,
+            ordered_appearance, storage, math::Z_AXIS);
+  HS_EXPECT_EQ(PARTIAL.trace.status, Raycast::TraceStatus::BUDGET_EXHAUSTED);
+  HS_EXPECT_EQ(PARTIAL.trace.counters.candidates, 1);
+  HS_EXPECT_EQ(PARTIAL.trace.counters.layers, 0);
+  HS_EXPECT_EQ(PARTIAL.color.alpha, 0.f);
+
+  for (size_t i = 0; i < storage.hits.size(); ++i)
+    storage.hits[i] = {10.f + static_cast<float>(i), 1, 0};
+  retain_hit(storage, false, {1.f, 1, 0});
+  retain_hit(storage, true, {100.f, 1, 0});
+  std::sort(storage.hits.begin(), storage.hits.end(),
+            [](const Hit &a, const Hit &b) { return a.t < b.t; });
+  HS_EXPECT_EQ(storage.hits.front().t, 1.f);
+  HS_EXPECT_EQ(storage.hits.back().t,
+               10.f + static_cast<float>(storage.hits.size()) - 2.f);
+  Geometry layered_geometry;
+  layered_geometry.period = {1, 10, 10};
+  layered_geometry.lower = {-1, 1, -.7f};
+  layered_geometry.upper = {2, 1, 1.1f};
+  layered_geometry.count = static_cast<int>(layered_geometry.edges.size());
+  for (auto &edge : layered_geometry.edges)
+    edge = {{-1, 1, -.7f}, {2, 1, 1.1f}};
+  camera.center = {.5f, 1, 0, 0};
+  camera.interval = {0, 1};
+  const auto NEAREST_OVERFLOW =
+      shade(layered_geometry, 1, .04f, camera, {}, limits, ordered_appearance,
+            storage, math::Z_AXIS);
+  HS_EXPECT_EQ(NEAREST_OVERFLOW.trace.status,
+               Raycast::TraceStatus::BUDGET_EXHAUSTED);
+  HS_EXPECT_GT(NEAREST_OVERFLOW.trace.counters.candidates,
+               static_cast<int>(storage.hits.size()));
+  HS_EXPECT_EQ(NEAREST_OVERFLOW.trace.counters.layers, 1);
+  HS_EXPECT_NEAR(NEAREST_OVERFLOW.trace.contribution.t, .2f, 1e-6f);
+  HS_EXPECT_GT(NEAREST_OVERFLOW.color.alpha, 0.f);
+  layered_geometry.count = 1;
+  const auto COMPLETE_LAYERS =
+      shade(layered_geometry, 1, .04f, camera, {}, limits, ordered_appearance,
+            storage, math::Z_AXIS);
+  HS_EXPECT_EQ(COMPLETE_LAYERS.trace.status,
+               Raycast::TraceStatus::RANGE_COMPLETE);
+  HS_EXPECT_EQ(COMPLETE_LAYERS.trace.counters.layers, 2);
+  HS_EXPECT_NEAR(storage.hits[0].t, .2f, 1e-6f);
+  HS_EXPECT_NEAR(storage.hits[1].t, .8f, 1e-6f);
+  camera.interval = {0, 2};
   const Geometry WIDE(Kind::RHOMBIC);
   camera.center = {0, 0, -.5f, 0};
   auto overflow_appearance = appearance;
