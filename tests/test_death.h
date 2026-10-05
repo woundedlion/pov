@@ -49,6 +49,7 @@
 #include <cstring>
 #include <optional>
 #include <string>
+#include <utility>
 
 #include "death_guard_sites.h" // generated HS_CHECK census; see tests/CMakeLists.txt
 #include "tests/test_fixture.h"
@@ -2348,6 +2349,38 @@ inline void case_register_param_default_outside_range() {
   DeathEffect fx;
   float value = 2.0f;
   fx.reg("outside", &value);
+}
+
+inline void case_restore_parameters_unknown_name() {
+  DeathEffect effect;
+  const std::array values{
+      std::pair<std::string, float>{"unknown", opaque(0.5f)}};
+  effect.restore_parameters(values);
+}
+
+inline void case_restore_parameters_readonly_name() {
+  DeathEffect effect;
+  float value = 0.0f;
+  effect.register_param("readonly", &value, ParamSpec<float>{.readonly = true});
+  const std::array values{
+      std::pair<std::string, float>{"readonly", opaque(0.5f)}};
+  effect.restore_parameters(values);
+}
+
+inline void case_restore_parameters_singular_mobius() {
+  reset_globals();
+  MobiusGrid<32, 16> effect;
+  effect.init();
+  const std::array values{
+      std::pair<std::string, float>{"Mobius A Re", opaque(1.0f)},
+      std::pair<std::string, float>{"Mobius A Im", opaque(0.0f)},
+      std::pair<std::string, float>{"Mobius B Re", opaque(1.0f)},
+      std::pair<std::string, float>{"Mobius B Im", opaque(0.0f)},
+      std::pair<std::string, float>{"Mobius C Re", opaque(1.0f)},
+      std::pair<std::string, float>{"Mobius C Im", opaque(0.0f)},
+      std::pair<std::string, float>{"Mobius D Re", opaque(1.0f)},
+      std::pair<std::string, float>{"Mobius D Im", opaque(0.0f)}};
+  static_cast<ParamHost &>(effect).restore_parameters(values);
 }
 
 /**
@@ -5695,6 +5728,15 @@ inline const Case *all_cases(int &n) {
       {"register_param_default_outside_range",
        case_register_param_default_outside_range, "core/control/param_host.h",
        "(*ptr >= min && *ptr <= max) register_param: default *ptr outside [min,max] name=outside value_bits=40000000 min_bits=00000000 max_bits=3f800000"},
+      {"restore_parameters_unknown_name", case_restore_parameters_unknown_name,
+       "core/control/param_host.h",
+       "(def != nullptr && !def->readonly) restore_parameters: unknown or readonly parameter"},
+      {"restore_parameters_readonly_name",
+       case_restore_parameters_readonly_name, "core/control/param_host.h",
+       "(def != nullptr && !def->readonly) restore_parameters: unknown or readonly parameter"},
+      {"restore_parameters_singular_mobius",
+       case_restore_parameters_singular_mobius, "core/control/param_host.h",
+       "(parameter_write_admitted(def, def.get_requested())) restore_parameters: inadmissible final state"},
       {"register_enum_param_range", case_register_enum_param_range,
        "core/control/param_host.h",
        "(static_cast<int64_t>(option_count - 1) <= "
@@ -6025,10 +6067,11 @@ inline const Case *all_cases(int &n) {
       {"sdf_line_negative_thickness", case_sdf_line_negative_thickness,
        "core/render/sdf/shapes.h",
        "(thickness >= 0.0f) Line: negative stroke half-width"},
-      {"chain_zero_alignment", case_chain_zero_alignment,
+      {"chain_zero_alignment",
+       case_chain_zero_alignment, "core/render/pullback/interpreter.h", "(layout.align != 0 && (layout.align & (layout.align - 1)) == 0 && layout.align <= alignof(std::max_align_t)) ChainProgram::bind_storage: invalid block alignment"},
+      {"chain_non_power_alignment", case_chain_non_power_alignment,
        "core/render/pullback/interpreter.h",
        "(layout.align != 0 && (layout.align & (layout.align - 1)) == 0 && layout.align <= alignof(std::max_align_t)) ChainProgram::bind_storage: invalid block alignment"},
-      {"chain_non_power_alignment", case_chain_non_power_alignment, "core/render/pullback/interpreter.h", "(layout.align != 0 && (layout.align & (layout.align - 1)) == 0 && layout.align <= alignof(std::max_align_t)) ChainProgram::bind_storage: invalid block alignment"},
       {"chain_overaligned_block", case_chain_overaligned_block,
        "core/render/pullback/interpreter.h",
        "(layout.align != 0 && (layout.align & (layout.align - 1)) == 0 && layout.align <= alignof(std::max_align_t)) ChainProgram::bind_storage: invalid block alignment"},
@@ -6815,7 +6858,7 @@ inline constexpr GuardGapAllowance GUARD_GAP_ALLOW[] = {
     {"targets/Phantasm/phantasm_target.h", 1},
     {"targets/Profile/Profile.ino", 4},
     // WASM-only bootstrap and reconstruction invariants; exercised by engine contracts.
-    {"targets/wasm/engine_bindings.h", 11},
+    {"targets/wasm/engine_bindings.h", 9},
     {"targets/wasm/mesh_ops_bindings.h", 2},
     {"targets/wasm/workbench_bindings.h", 3},
     {"workbench/shader/chain_host.h", 1},
