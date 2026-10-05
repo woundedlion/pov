@@ -3360,7 +3360,8 @@ inline void test_budget_emi_accepted_seam() {
  *          predicted boundary, so each is first held as a suspect and registers
  *          as a gate rejection only after the 24-column interdigit window (the
  *          §5.3 fallback path): R rejections at ½-rev pace → ACQUIRE → hard
- *          re-snap at the next symbol ≈ 2.8 revolutions ≈ 350 ms at speed.
+ *          re-snap at the next symbol within about 750 columns (325 ms).
+ *          A corruption between symbols adds at most 144 columns of wait.
  */
 inline void test_budget_corrupted_timebase() {
   const Config cfg = test_config();
@@ -3383,6 +3384,8 @@ inline void test_budget_corrupted_timebase() {
   flywheel_mut(b2.board).force_lock();
   HS_EXPECT_GE(circ_dist(sim.board_pos(2), sim.board_pos(0), cfg.W), 60);
 
+  const uint64_t CORRUPTED_AT = sim.g;
+  constexpr uint64_t RECOVERY_COLUMNS = 750 + 144;
   const uint32_t rej_before =
       b2.board.telemetry_snapshot().symbols_rejected_gate;
   HS_EXPECT_TRUE(sim.run_until(
@@ -3390,7 +3393,8 @@ inline void test_budget_corrupted_timebase() {
         return lock(s.boards[2].board) == LockState::LOCKED &&
                circ_dist(s.board_pos(2), s.board_pos(0), s.cfg.W) <= 1;
       },
-      3.5)); // budget: ~2.8 revs; slack for the mid-rev corruption instant
+      double(RECOVERY_COLUMNS) / cfg.W));
+  HS_EXPECT_LE(sim.g - CORRUPTED_AT, RECOVERY_COLUMNS * COL);
   HS_EXPECT_GE(b2.board.telemetry_snapshot().symbols_rejected_gate - rej_before,
                static_cast<uint32_t>(cfg.reject_fallback));
   HS_EXPECT_GE(b2.board.telemetry_snapshot().lock_transitions, 2u);
