@@ -972,6 +972,7 @@ inline void test_crossfade_exact_at_endpoints_emission() {
                                            .prev_faces =
                                                cube.face_counts.size()};
 
+  int ramp_count = 0;
   ShadingSnapshot snap;
   auto cb = [&](Canvas &, const MeshState &m,
                 const Animation::OpLeg::Shading &sh) {
@@ -979,8 +980,7 @@ inline void test_crossfade_exact_at_endpoints_emission() {
     snap.face_ramp.assign(sh.face_ramp, sh.face_ramp + sh.faces);
     snap.colors.resize(sh.faces);
     for (size_t f = 0; f < sh.faces; ++f) {
-      HS_EXPECT_LT(static_cast<int>(sh.face_ramp[f]),
-                   Animation::OpLeg::MAX_BLEND_PAIRS);
+      HS_EXPECT_LT(static_cast<int>(sh.face_ramp[f]), ramp_count);
       for (int s = 0; s < NUM_RAMP_SAMPLES; ++s)
         snap.colors[f][s] = sh.ramps[sh.face_ramp[f]].get(RAMP_SAMPLES[s]);
     }
@@ -993,6 +993,7 @@ inline void test_crossfade_exact_at_endpoints_emission() {
                                       .sweep_frames = SWEEP},
       leg, cb, handoff);
   const Animation::OpLeg::Landing &landing = anim.landing();
+  ramp_count = landing.blend_pairs;
   HS_EXPECT_EQ(landing.primary_faces, cube.face_counts.size());
 
   hs_test::StubEffect fx(FB_W, FB_H);
@@ -1064,14 +1065,14 @@ inline void test_palette_mapping_total_all_edges() {
                                              .prev_faces =
                                                  seed.face_counts.size()};
 
+    int ramp_count = 0;
     ShadingSnapshot snap;
     auto cb = [&](Canvas &, const MeshState &,
                   const Animation::OpLeg::Shading &sh) {
       snap.face_ramp.assign(sh.face_ramp, sh.face_ramp + sh.faces);
       snap.colors.resize(sh.faces);
       for (size_t f = 0; f < sh.faces; ++f) {
-        HS_EXPECT_LT(static_cast<int>(sh.face_ramp[f]),
-                     Animation::OpLeg::MAX_BLEND_PAIRS);
+        HS_EXPECT_LT(static_cast<int>(sh.face_ramp[f]), ramp_count);
         for (int s = 0; s < NUM_RAMP_SAMPLES; ++s)
           snap.colors[f][s] = sh.ramps[sh.face_ramp[f]].get(RAMP_SAMPLES[s]);
       }
@@ -1086,6 +1087,7 @@ inline void test_palette_mapping_total_all_edges() {
             .settle_frames = e.settle ? ConwayGraph::SETTLE_FRAMES : 0},
         leg, cb, handoff);
     const Animation::OpLeg::Landing &landing = anim.landing();
+    ramp_count = landing.blend_pairs;
 
     // The landed assignment is a permutation of the bank slots.
     std::array<uint8_t, Animation::OpLeg::PALETTES> perm = landing.to_palette;
