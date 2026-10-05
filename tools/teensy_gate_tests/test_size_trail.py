@@ -323,6 +323,17 @@ class PendingCapture(unittest.TestCase):
 
 
 class RecordInputs(unittest.TestCase):
+    def test_successful_build_accepts_unchanged_cached_elf(self):
+        with tempfile.TemporaryDirectory() as directory:
+            out = Path(directory) / "pending.json"
+            args = tst.build_parser().parse_args(["record", "--built", "--out", str(out)])
+            with mock.patch.object(tst, "_git", return_value=directory), \
+                    mock.patch.object(tst, "working_tree", return_value="tree"), \
+                    mock.patch.object(tst, "collect", return_value={"phantasm": {"itcm": 17}}) as collect:
+                self.assertEqual(tst.cmd_record(args), 0)
+                self.assertIsNone(collect.call_args.kwargs["newest_input"])
+                self.assertEqual(json.loads(out.read_text())["tree"], "tree")
+
     def test_non_firmware_edits_preserve_capture(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
@@ -350,7 +361,7 @@ class RecordInputs(unittest.TestCase):
                 (root / path).write_text("changed", encoding="utf-8")
             with mock.patch.object(tst, "_git", side_effect=in_repo):
                 args = types.SimpleNamespace(env=["phantasm"], build_dir=root / "build",
-                                             out=pending)
+                                             out=pending, built=False)
                 self.assertEqual(tst.cmd_record(args), 0)
                 self.assertEqual(json.loads(pending.read_text())["envs"]["phantasm"]["itcm"], 17)
                 (root / "targets/wasm/x.h").write_text("later", encoding="utf-8")
