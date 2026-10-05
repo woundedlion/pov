@@ -421,10 +421,9 @@ add_test(NAME unit_linker_patches COMMAND ${CMAKE_COMMAND}
     -DPLATFORMIO_INI=${HS_ROOT}/platformio.ini
     -P ${CMAKE_CURRENT_SOURCE_DIR}/check_linker_patches.cmake)
 
-add_test(NAME unit_mirrored_screenshot_prune COMMAND ${CMAKE_COMMAND}
-    -DTEST_ROOT=${CMAKE_CURRENT_BINARY_DIR}/mirrored_screenshot_prune_fixture
-    -DPRUNE_SCRIPT=${HS_ROOT}/cmake/prune_mirrored_screenshots.cmake
-    -P ${CMAKE_CURRENT_SOURCE_DIR}/check_mirrored_screenshot_prune.cmake)
+add_test(NAME unit_mirrored_prune COMMAND ${CMAKE_COMMAND}
+    -DTEST_ROOT=${CMAKE_CURRENT_BINARY_DIR}/mirrored_prune_fixture
+    -P ${CMAKE_CURRENT_SOURCE_DIR}/check_mirrored_prune.cmake)
 
 set(HS_PYTHON "${Python3_EXECUTABLE}")
 add_test(NAME unit_chain_capture_fixtures COMMAND "${Python3_EXECUTABLE}"
