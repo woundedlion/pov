@@ -280,7 +280,7 @@ ledger.
    change alters the coverage model on purpose and needs the same independent
    ray/line cross-product oracle the 3D single-owner correction used, across
    rotations, scale, and the odd-parity vertex shift of every class.
-5. Size gates: every step must pass the default and experimental full-roster
+5. Size gates: each change must pass the full-roster
    size/layout gates. The dedicated loop replaces a generic instantiation and
    should shrink the shader; report the FLASH code delta with the timing.
 

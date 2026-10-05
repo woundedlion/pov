@@ -95,20 +95,6 @@
 #define HS_ENABLE_TEST_ORACLES 0
 #endif
 
-/** @brief Experimental HyperLattice presets; device builds opt in explicitly. */
-#ifndef HS_ENABLE_HYPERLATTICE_EXPERIMENTS
-#if defined(__EMSCRIPTEN__) || HS_ENABLE_TEST_ORACLES
-#define HS_ENABLE_HYPERLATTICE_EXPERIMENTS 1
-#else
-#define HS_ENABLE_HYPERLATTICE_EXPERIMENTS 0
-#endif
-#endif
-
-#if HS_ENABLE_HYPERLATTICE_EXPERIMENTS != 0 &&                                 \
-    HS_ENABLE_HYPERLATTICE_EXPERIMENTS != 1
-#error "HS_ENABLE_HYPERLATTICE_EXPERIMENTS must be 0 or 1"
-#endif
-
 #ifndef HS_ENABLE_CHAIN_INTERPRETER
 #if defined(__EMSCRIPTEN__) || HS_ENABLE_TEST_ORACLES
 #define HS_ENABLE_CHAIN_INTERPRETER 1

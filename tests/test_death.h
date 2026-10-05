@@ -2182,8 +2182,6 @@ inline constexpr GuardGapAllowance GUARD_GAP_ALLOW[] = {
     {"core/render/scan/shader.h", 2},
     {"core/render/scan/shapes.h", 9},
     {"core/render/scan/volume.h", 4},
-    {"core/render/sdf/cellular_wire.h",
-     1}, // Fixed constexpr geometry capacity.
     {"core/render/sdf/common.h", 4},
     {"core/render/sdf/face.h", 1},
     {"core/render/sdf/face_geometry.h", 2},

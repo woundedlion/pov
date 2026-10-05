@@ -1,19 +1,14 @@
 # Spherical perspective and independent patterns
 
-**Status: IMPLEMENTED architecture, revision 5 (2026-09-27).** The ray core,
+**Status: IMPLEMENTED architecture, revision 6 (2026-10-05).** The ray core,
 legacy lattice migration, noncubic framework, volume/lattice query adapters,
-and periodic-surface experiments are implemented. Firmware admission is separate
-from architectural availability; experimental configurations are available in
-the simulator and explicitly opted-in device builds, while standard firmware
-keeps only the admitted analytic presets. Retained measurements are indexed in
-the [on-device profiles](../profiles/README.md); each describes its capture-time
-code and settings. The supporting implementation/admission report is no longer
-retained. Dimensional rift is removed.
+and periodic-surface adapters are implemented. HyperLattice ships Cubic,
+Octet Truss, and Shells in 3D perspective and 4D slice views. Retained measurements are indexed
+in the [on-device profiles](../profiles/README.md); each describes its capture-time
+code and settings. Dimensional rift is removed.
 
 [HyperLattice's effect reference](../effects.md#hyperlattice) lists the current
-presets and controls. `HS_ENABLE_HYPERLATTICE_EXPERIMENTS` enables its experimental
-presets and controls in opted-in builds. Section 5 specifies the bounded tracing
-and admission criteria. Availability does not change experimental admission status.
+presets and controls. Section 5 specifies bounded tracing and admission criteria.
 
 ## 1. Decisions
 
@@ -101,7 +96,7 @@ axis is one possible extension, but must be labeled as such.
 
 ### 2.2 Lattices as volume distance fields
 
-Both wire lattices admit a volume distance query. For ambient dimension N,
+Cubic wire lattices admit a volume distance query. For ambient dimension N,
 first map the ambient world point p into lattice cell coordinates u. For a
 rigid lattice pose with origin a, rotation R, and positive uniform cell size s:
 
@@ -222,9 +217,7 @@ do not introduce a separate library build or runtime service.
 | core/render/sdf/lattice.h | Implemented | Prepared cubic/hypercubic lattice crossings, analytic plane-event adapters, feature identities and shading |
 | core/render/sdf/framework.h | Implemented | Triangular-prism and octet 3D/4D framework geometry with analytic query/event adapters |
 | core/render/sdf/octet_trace.h | Implemented | Octet cell traversal and bounded analytic events |
-| core/render/sdf/lattice_trace.h | Implemented | Prepared trace settings and shading adapters for octet, diamond, hexagonal, rhombic, affine-cubic and periodic-shell geometry |
-| core/render/sdf/cellular_wire.h | Implemented | Diamond, hexagonal and rhombic cellular wires |
-| core/render/sdf/affine_lattice.h | Implemented | Affine lattice geometry and traversal |
+| core/render/sdf/lattice_trace.h | Implemented | Prepared trace settings and shading adapters for octet and periodic-shell geometry |
 | core/render/sdf/periodic_shells.h | Implemented | Periodic shell geometry and candidate traversal |
 | core/render/sdf/lattice_field.h | Implemented | WireLattice world-unit distance and gradient queries |
 | core/render/sdf/periodic_surface.h | Implemented | Cosine and gyroid level-set definitions, period/isovalue parameters, bounds, gradients, and surface-query adapters |
@@ -501,26 +494,16 @@ engine-wide registry.
 Expose separate **Pattern** and **View** enums through the existing
 `ParamHost` registration and admission hooks. Pattern chooses the geometry;
 View chooses 3D perspective or a three-dimensional slice through 4D geometry.
-The patterns are cubic, octet, diamond, hexagonal-prism honeycomb,
-rhombic-dodecahedral cell edges, affine cubic wires, and periodic spherical
-shells. Cubic, octet, affine cubic, and shells support both ambient dimensions;
-the remaining cellular graphs admit only 3D. Configuration IDs index the
-admitted table, not an arithmetic product of pattern and domain. Selecting a
-3D-only pattern from a 4D view adopts its 3D defaults. Unsupported restores
-are rejected. Non-cubic patterns and the octet 4D flight preset require
-`HS_ENABLE_HYPERLATTICE_EXPERIMENTS`: they are available in the simulator and
-opted-in device builds, not standard firmware.
+The patterns are Cubic, Octet Truss, and periodic spherical Shells. All support
+both ambient dimensions. Configuration IDs identify the admitted table rows;
+they are separate from the row's position and the stable numeric pattern IDs.
+Unsupported restores are rejected before live parameters change.
 
-Cellular wires use finite-strut closest-approach contributions and rectangular
-cell traversal with bounded neighbors and world-space antialiasing. Sheared
-cubic wires transform the lattice basis while evaluating coverage in the
-ambient Euclidean metric. Shells use analytic sphere boundary roots; a 4D
-slice intersects the actual hypersurface. Shear, stretch, and shell radius
-are continuous geometry parameters and interpolate during transitions.
-Camera translation wraps by each geometry's translation lattice. The shell
-radius range stays below half a cell. Stretch applies only to affine cubic wires.
-Traversal exhaustion preserves previously composited layers and is reflected
-in Unfinished Rays.
+Shells use analytic sphere boundary roots; a 4D slice intersects the actual
+hypersurface. Shell radius is a continuous geometry parameter and interpolates
+during transitions. Camera translation wraps by each geometry's translation
+lattice. The shell radius range stays below half a cell. Traversal exhaustion
+preserves previously composited layers and is reflected in Unfinished Rays.
 
 Use one bounded, trivially copyable effect `Params` with stable storage for
 registered fields. A configuration change adopts that row's geometry defaults
@@ -565,7 +548,7 @@ Production admission requires passing those gates, zero observed deadline
 spills in the declared motion/preset/transition sweep, and zero unresolved,
 invalid, or exhausted surface searches in its reference validation set.
 Analytic adapter horizon truncation is a declared approximation, not hidden
-budget exhaustion. An experimental configuration may use a documented degraded
+budget exhaustion. A prototype configuration may use a documented degraded
 fallback and measured error threshold, but cannot be listed as fully admitted.
 Record exclusion when a configuration fails; compiling every demonstrator
 into shipping firmware is not an acceptance condition.
@@ -724,11 +707,11 @@ is a separate compatibility decision, not necessary to establish the boundary.
   admitted configurations on the Teensy with fixed provenance and report
   traversal exhaustion alongside frame cost. No performance equivalence is
   assumed between analytic and marching backends.
-- Each demonstrator records a shipping or experimental/excluded decision
+- Each demonstrator records a shipping or excluded decision
   under section 5.1. The periodic-surface report includes the quality/cost
   sweep in section 6.1; failure to meet the device budget is a reported result,
   not a reason to weaken surface guarantees silently.
 
 Implementation validation covers native regression tests, firmware size/layout,
-and fixed-source device captures. Experimental exclusions remain part of the
+and fixed-source device captures. Excluded prototypes remain part of the
 reported result rather than implicit surface approximations.

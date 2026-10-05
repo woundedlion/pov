@@ -340,10 +340,9 @@ files define line-ending policy and working-artifact exclusions.
 │   │   ├── sdf.h                   Umbrella over six SDF headers: common, shapes, rings, csg, face and volume
 │   │   ├── sdf/                    Per-family SDF headers (common, shapes, rings,
 │   │   │                            csg, face, volume, lattice, framework, lattice_field,
-│   │   │                            periodic_surface, affine_lattice, periodic_shells)
+│   │   │                            periodic_surface, periodic_shells)
 │   │   │   ├── face_lut.h              Canonical face distance LUTs
 │   │   │   ├── face_geometry.h         Face construction and distance operations
-│   │   │   ├── cellular_wire.h     Analytic periodic diamond, honeycomb and rhombic struts
 │   │   │   ├── octet_trace.h       Front-to-back ray traces of the 3D and 4D octet trusses
 │   │   │   ├── lattice_trace.h     Prepared ray traces for lattice geometry families
 │   │   │   ├── face_classes.h       Congruence-class ids and rasterizer records
