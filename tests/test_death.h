@@ -6288,11 +6288,9 @@ inline const Case *all_cases(int &n) {
 }
 
 /**
- * @brief Dedicated always-trapping case used only to probe the trap-relay shape.
- * @details Not part of all_cases(): run_child_case() dispatches it directly. It
- *          traps through the same HS_CHECK path as every real case, so its relay
- *          shape matches theirs, but it can never regress to not-trapping the way
- *          a real case might — so shape detection never rests on a real case.
+ * @brief Dedicated always-trapping case proves the trap is observable.
+ * @details Not part of all_cases(): run_child_case() dispatches it directly
+ *          through the same HS_CHECK path as every real case.
  */
 inline constexpr const char *SHAPE_PROBE_CASE = "__shape_probe__";
 inline constexpr const char *DETERMINISM_PROBE_CASE =
@@ -6611,7 +6609,7 @@ inline int spawn_child(const char *name, unsigned timeout_ms = 10000) {
   // Shell-free spawn: fork and execv the binary directly so no /bin/sh parsing
   // can mangle a self_exe() path containing a quote or shell metacharacter. The
   // child sends stdout/stderr to the capture file and execs; the parent waits
-  // and returns the raw wait status that classify_trap() decodes.
+  // and returns the raw wait status that child_trapped() tests.
   std::fflush(stdout);
   std::fflush(stderr);
   const char *exe = self_exe();
@@ -6664,37 +6662,16 @@ inline constexpr int TRAP_STATUS = static_cast<int>(0xC000001D);
 #endif
 
 /**
- * @brief How a child's illegal-instruction trap reaches the parent.
- */
-enum class TrapShape { None, Signal };
-
-/**
- * @brief Classifies a child wait status into the trap relay shape, if any.
+ * @brief Tests whether a child died from an observable illegal instruction.
  * @param rc The raw spawn_child() return value to interpret.
- * @return The TrapShape the status represents, or TrapShape::None.
+ * @return True iff the child died by SIGILL or an unhandled Windows trap.
  */
-inline TrapShape classify_trap(int rc) {
+inline bool child_trapped(int rc) {
 #if defined(_WIN32)
-  return rc == TRAP_STATUS && child_unhandled_illegal_instruction()
-             ? TrapShape::Signal
-             : TrapShape::None;
+  return rc == TRAP_STATUS && child_unhandled_illegal_instruction();
 #else
-  if (rc == -1)
-    return TrapShape::None;
-  if (WIFSIGNALED(rc) && WTERMSIG(rc) == SIGILL)
-    return TrapShape::Signal;
-  return TrapShape::None;
+  return rc != -1 && WIFSIGNALED(rc) && WTERMSIG(rc) == SIGILL;
 #endif
-}
-
-/**
- * @brief Tests whether a child died by the trap in the probed relay shape.
- * @param rc The raw spawn_child() return value to interpret.
- * @param expected The TrapShape the harness probed (never None).
- * @return True iff the child died by exactly that illegal-instruction relay.
- */
-inline bool child_trapped(int rc, TrapShape expected) {
-  return expected != TrapShape::None && classify_trap(rc) == expected;
 }
 
 /**
@@ -6975,15 +6952,10 @@ inline int run_death_tests() {
   int n;
   const Case *cs = all_cases(n);
 
-  // Probe SIGILL / STATUS_ILLEGAL_INSTRUCTION observability with a dedicated
-  // always-trapping sentinel rather than a real case. A real case that
-  // regressed to not trapping would otherwise corrupt shape detection and skip
-  // the whole suite, instead of failing just that case in the loop below. The
-  // sentinel traps through the same HS_CHECK path, so its shape matches the cases.
-  TrapShape shape = classify_trap(spawn_child(SHAPE_PROBE_CASE));
-  if (shape == TrapShape::None) {
-    report_unrunnable(
-        "trap-shape sentinel did not trap; cannot classify trap status", 0);
+  // The sentinel proves the trap is observable independently of real cases.
+  if (!child_trapped(spawn_child(SHAPE_PROBE_CASE))) {
+    report_unrunnable("trap sentinel did not trap; trap status is unobservable",
+                      0);
     set_case_env("");
     return fixture.result();
   }
@@ -7015,7 +6987,7 @@ inline int run_death_tests() {
 #if defined(_WIN32)
   const int literal_exit = spawn_child("__literal_trap_exit__");
   HS_EXPECT_EQ(literal_exit, TRAP_STATUS);
-  HS_EXPECT_FALSE(child_trapped(literal_exit, shape));
+  HS_EXPECT_FALSE(child_trapped(literal_exit));
 #endif
 
   const int determinism_a = spawn_child(DETERMINISM_PROBE_CASE);
@@ -7058,7 +7030,7 @@ inline int run_death_tests() {
   std::vector<int> lines(static_cast<size_t>(n));
   for (int i = 0; i < n; ++i) {
     int rc = spawn_child(cs[i].name);
-    bool trapped = child_trapped(rc, shape);
+    bool trapped = child_trapped(rc);
     // Dying is not enough: the child must die at THIS case's guard. Any other
     // trap — UB lowered to the same illegal instruction, or a guard the case
     // hits on its way to the one it targets — fails here.
