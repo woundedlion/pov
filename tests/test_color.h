@@ -2258,7 +2258,7 @@ inline void test_chroma_pulse_shade() {
 }
 
 /**
- * @brief Verifies LightnessGrainShade's hue-exact brightness grain.
+ * @brief Verifies LightnessGrainShade's uniform-gain brightness grain.
  * @details Each sample must match the reference uniform gain, keep channel
  *          ratios (hue) within rounding, leave alpha alone, and be an identity
  *          at zero amplitude.

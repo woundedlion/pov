@@ -591,13 +591,13 @@ inline void test_vector_normalize() {
 // ============================================================================
 
 /**
- * @brief Pins Snorm3's documented round-trip accuracy: per-component error
- *        within 1/65534, chord error within ~2.6e-5, endpoint codes exact, and
+ * @brief Pins Snorm3's sampled round-trip accuracy with quantization-plus-rounding
+ *        component and chord tolerances, endpoint codes exact, and
  *        out-of-domain components saturated rather than wrapped.
  */
 inline void test_snorm3_roundtrip_bound() {
-  // The +1e-7f absorbs the rounding of the decode multiply, which can carry a
-  // worst-case quantization by up to one relative ulp past the exact 1/65534.
+  // The +1e-7f allows encode/decode float rounding beyond the half-step
+  // quantization error of 1/65534.
   constexpr float COMPONENT_BOUND = 1.0f / 65534.0f + 1e-7f;
   constexpr float CHORD_BOUND = 2.65e-5f;
 

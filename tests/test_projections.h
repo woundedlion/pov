@@ -7,6 +7,7 @@
 #pragma once
 
 #include <array>
+#include <bit>
 #include <limits>
 
 #include "core/math/projections.h"
@@ -457,6 +458,18 @@ inline void test_airocean_edge_identity_is_the_canonical_half_edge() {
 
 /** @brief Pins airocean glued edges are bit identical. */
 inline void test_airocean_glued_edges_are_bit_identical() {
+  const auto point_bits_equal = [](const AiroceanPoint &a,
+                                   const AiroceanPoint &b) {
+    return std::bit_cast<uint32_t>(a.x) == std::bit_cast<uint32_t>(b.x) &&
+           std::bit_cast<uint32_t>(a.y) == std::bit_cast<uint32_t>(b.y);
+  };
+  const auto edge_bits_equal =
+      [&](const AiroceanPoint &a, const AiroceanPoint &b,
+          const AiroceanPoint &c, const AiroceanPoint &d) {
+        return (point_bits_equal(a, c) && point_bits_equal(b, d)) ||
+               (point_bits_equal(a, d) && point_bits_equal(b, c));
+      };
+
   int glued = 0;
   int shared = 0;
   for (size_t face = 0; face < AIROCEAN_FACE_COUNT; ++face)
@@ -476,10 +489,10 @@ inline void test_airocean_glued_edges_are_bit_identical() {
           if (cut)
             continue;
           ++glued;
-          HS_EXPECT_TRUE(planar_segments_equal(
-              planar_vertex(face, edge), planar_vertex(face, edge + 1),
-              planar_vertex(other, other_edge),
-              planar_vertex(other, other_edge + 1)));
+          HS_EXPECT_TRUE(edge_bits_equal(planar_vertex(face, edge),
+                                         planar_vertex(face, edge + 1),
+                                         planar_vertex(other, other_edge),
+                                         planar_vertex(other, other_edge + 1)));
           HS_EXPECT_EQ(
               airocean_edge_identity(uint8_t(face), uint8_t(edge)),
               airocean_edge_identity(uint8_t(other), uint8_t(other_edge)));

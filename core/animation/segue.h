@@ -506,7 +506,7 @@ struct Lace : Base {
 /**
  * @brief A day/night line pinned to the mesh sweeps across it; when it reaches
  * a face, that face fades over a per-face random length in [fade_frames_min,
- * fade_frames_max] frames.
+ * fade_frames_max] frames, capped by the scheduled fade window.
  * @details LOCAL_SWEEP anchors the line to the untransformed mesh. Each face's
  * fade length is a stable per-transition hash of its index, so the front frays
  * into an irregular edge. The front crosses over the fade window minus one face

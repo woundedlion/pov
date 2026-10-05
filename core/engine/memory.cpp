@@ -11,9 +11,10 @@
  * first allocation needs no leading padding; configure_arenas() likewise aligns
  * the inter-arena boundaries. Carries NO DMAMEM: the arena is hot render memory,
  * so on the device it lands in .bss/DTCM, the Cortex-M7's fastest zero-wait RAM.
- * The framebuffers (buffer_a/buffer_b, ~243 KiB each) and the timeline events in
+ * The framebuffers (buffer_a/buffer_b) and the timeline events in
  * static_storage.cpp carry DMAMEM to place them in OCRAM instead — neither is a
- * DMA source or target; DTCM simply has no room for them.
+ * DMA source or target. Phantasm's 288x144 framebuffers are ~243 KiB each and
+ * exceed the remaining DTCM budget; Holosphere's 96x20 buffers are ~11.25 KiB each.
  */
 alignas(std::max_align_t) static uint8_t global_arena_block[GLOBAL_ARENA_SIZE];
 

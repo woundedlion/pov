@@ -974,9 +974,9 @@ inline void test_beacon_shift_needs_confirmation() {
  * @brief Verifies a checksum-valid beacon naming an index past the roster is
  *        dropped whole (§6.4 integrity by rejection).
  * @details A 6-bit index leaves 60 unreachable values on this 4-effect roster
- *          — positive evidence of corruption the 3-bit checksum passes with
- *          p = 1/8. Folding it mod effect_count would join a rebooting board
- *          to a wrong-but-valid effect, the fail-wrong outcome §6.3.3 rules
+ *          — positive evidence of corruption that can still satisfy the
+ *          3-bit checksum. Folding it mod effect_count would join a rebooting
+ *          board to a wrong-but-valid effect, the fail-wrong outcome §6.3.3 rules
  *          out; the frame must count as rejected, like any corrupt frame.
  */
 inline void test_beacon_out_of_range_index_rejected() {
@@ -1640,9 +1640,9 @@ inline void test_beacon_late_coast() {
  * @brief Verifies a master coast past 2^31 cycles is counted and recovered
  *        rather than wedging the flywheel silently.
  * @details fold() reads (now - epoch_cycles) as int32 and reports no crossing on
- *          a negative one, so without the re-anchor the master would never
- *          cross another boundary and would emit no further boundary symbols —
- *          with no counter moving to say so.
+ *          a negative one, so without the re-anchor the master would report
+ *          no crossings or boundary symbols during that modular window. A
+ *          full counter wrap would lose the elapsed revolution history.
  */
 inline void test_master_fold_stall_recovers() {
   const Config cfg = test_config();
@@ -1657,7 +1657,7 @@ inline void test_master_fold_stall_recovers() {
   HS_EXPECT_GT(flips_before, 0u);
 
   // Resume past the int32 horizon. The epoch trails `now` by more than 2^31, so
-  // fold() alone can never catch up again.
+  // fold() cannot recover the elapsed crossings in this modular window.
   const uint32_t stalled = t0 + 2u * period + 0x90000000u;
   Flywheel probe(cfg);
   probe.seed(t0 + 2u * period);
@@ -2356,9 +2356,9 @@ inline void test_sim_eight_board_boot_and_phase() {
 // ── Scenario: epoch commit — lockstep advance, dark window, deadline ───────
 
 /**
- * @brief Verifies epoch commit lockstep: all four boards play through the
- *        announce phase, go dark together for the K-rev construction window,
- *        then swap to the next effect at the same boundary with frame counters
+ * @brief Verifies epoch commit lockstep: all four boards retain the outgoing
+ *        effect with zero envelope during announce, enter the K-rev construction
+ *        window, then swap to the next effect at the same boundary with frame counters
  *        re-zeroed together; the cadence holds across a second epoch (roster
  *        wraps mod effect_count).
  */
@@ -2392,7 +2392,8 @@ inline void test_sim_epoch_commit() {
   HS_EXPECT_LT(sim.boards[0].envelope, 1.0f);
 
   // Run to the train start. Through the announce phase (the first R revs of
-  // the B+R+K countdown) every board keeps playing the outgoing effect…
+  // the B+R+K countdown) every board retains the outgoing effect at zero
+  // envelope.
   HS_EXPECT_TRUE(sim.run_until(
       [](Sim &s) { return content(s.boards[0].board).commit_pending; },
       double(cfg.revs_per_effect) + 2));
@@ -2403,7 +2404,7 @@ inline void test_sim_epoch_commit() {
     HS_EXPECT_TRUE(content(b.board).commit_pending);
     HS_EXPECT_FALSE(b.dark_now);
   }
-  // …then all go dark together for the K-revolution construction window.
+  // Then all enter the K-revolution construction window together.
   HS_EXPECT_TRUE(sim.run_until(
       [](Sim &s) {
         return content(s.boards[0].board).commit_in_revs <= s.cfg.commit_revs;

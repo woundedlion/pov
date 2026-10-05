@@ -612,7 +612,6 @@ inline void expect_candidate_within_visual_budget(const OracleState &state,
   report_visual_budget(state, comparison.error, energy_ratio, high_error_pixels,
                        max_energy_drift, max_high_error_pixels, max_mae,
                        max_rmse, max_channel);
-  // Every bound below is satisfied by an all-black pair.
   HS_EXPECT_GT(reference_energy, uint64_t{0});
   HS_EXPECT_LT(comparison.error.mean_absolute_error(), max_mae);
   HS_EXPECT_LT(comparison.error.root_mean_squared_error(), max_rmse);

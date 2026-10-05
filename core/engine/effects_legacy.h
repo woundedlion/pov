@@ -125,6 +125,8 @@ void plot_aa(Canvas &cv, const float &x, const float &y, const CHSV &c) {
 /**
  * @brief Timer that fires at randomized intervals; poll elapsed() each frame.
  * @details Each fire rearms with a fresh interval drawn from [min_ms, max_ms).
+ *          Absolute 32-bit deadline comparisons are not safe across millis()
+ *          wraparound.
  */
 class PollingRandomTimer {
 public:
@@ -141,8 +143,8 @@ public:
 
   /**
    * @brief Reports whether the current interval has elapsed.
-   * @return True once per random interval; rearms with a fresh interval on each
-   * fire.
+   * @return True when the absolute deadline is reached; rearms with a fresh
+   * interval on each fire.
    */
   bool elapsed() {
     if (millis() >= next) {
@@ -764,8 +766,8 @@ private:
   int offset = 0;           /**< Current ring offset of the strokes. */
   uint8_t color_offset = 0; /**< Phase into the palette color cycle. */
   uint16_t num = 1024;      /**< Current stroke slope numerator. */
-  uint8_t falloff = 48;     /**< Trail fade rate. */
-  CHSVPalette256 palette;   /**< Warm gradient palette. */
+  uint8_t falloff = 48;
+  CHSVPalette256 palette; /**< Warm gradient palette. */
   NoTempCorrection _; /**< Disables temperature correction for this effect. */
 };
 
@@ -965,8 +967,8 @@ public:
   /**
    * @brief Renders one frame of the kaleidoscope.
    * @details Fades the canvas, draws the symmetric arms, then steps the scan
-   * position and (at the vertical turnaround) advances the arm count and
-   * palette.
+   * position and palette phase. Arm-count updates are timer-gated at vertical
+   * turnarounds.
    */
   void draw_frame() {
     Canvas c(*this);
@@ -1015,9 +1017,9 @@ private:
  * @brief Three rainbow rings stacked up the cylinder, each tumbled in 3D.
  * @tparam W Canvas width in pixels.
  * @tparam H Canvas height in pixels.
- * @details Each ring is tumbled through one of two 3D projections (alternating
- * rings counter-rotate) and drawn anti-aliased. The rotation rates swap every
- * 10 s; the rainbow also scrolls around each ring.
+ * @details Rings alternate between two 3D projections and are drawn
+ * anti-aliased. The rotation-rate set changes every 10 s; the rainbow scrolls
+ * around the middle ring.
  */
 template <int W, int H> class RingRotate : public Effect {
 public:
@@ -1077,7 +1079,7 @@ private:
   Projection<W, H> projection2; /**< Second projection (odd rings). */
 
   CHSVPalette256 pal; /**< Rainbow palette. */
-  uint8_t c_off = 0;  /**< Rainbow scroll offset around each ring. */
+  uint8_t c_off = 0;  /**< Rainbow scroll offset around the middle ring. */
   bool bg = 0;        /**< Background-draw flag. */
 
   /** @brief Rotation-rate sets: [set][projection][axis], swapped every 10 s. */
@@ -1096,7 +1098,7 @@ private:
  * @tparam W Canvas width in pixels.
  * @tparam H Canvas height in pixels.
  * @tparam HUE Base hue of the glow, in 8-bit hue units.
- * @tparam BURNRATE Ignition-rate control for the burn order.
+ * @tparam BURNRATE Unused legacy parameter; ignition uses a 30 ms timer.
  * @details Each lit pixel glows bright at hue HUE, then its ember falls down
  * its column row by row until it drops off the bottom, leaving the field dark
  * behind it.

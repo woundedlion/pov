@@ -1075,7 +1075,7 @@ inline size_t check_manifold_landing(const PolyMesh &m, Arena &a, Arena &b) {
 /**
  * @brief Builds needle's DUAL then KIS primitive results on the hankin(54 deg)
  *        test seed, asserting two-face edge incidence, Euler characteristic 2,
- *        and bitwise composite parity.
+ *        and exact element-wise composite parity.
  */
 inline void test_needle_partition_lowering_builds_on_hankin() {
   const int failed_before = hs_test::stats().failed;

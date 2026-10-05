@@ -1405,7 +1405,7 @@ mapping described by this design was not implemented.
   palettes, LUT storage, and arenas remain consumer-owned.
 - Frame resource pointers are const bindings whose owners outlive the draw.
 - No core stage calls a resource setter, advances a clock, steps an animation,
-  prepares a transform, or allocates.
+  or allocates.
 - No provider returns a reference to a temporary. Parameter records are returned
   by const reference; prepared records and LUT views by value.
 - The coordinator and policies contain no objects, so a pipeline has no

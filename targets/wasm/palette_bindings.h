@@ -129,8 +129,8 @@ private:
    * @brief Reads one leaf scalar off a recipe object.
    * @param value Value read off the object.
    * @return @p value as a float, or NaN when it is not a number.
-   * @details GenerativePalette::try_compile() rejects the NaN as NON_FINITE and
-   *          names the field. A bare as<float>() instead throws a JS TypeError
+   * @details GenerativePalette::try_compile() rejects active-field NaNs as
+   *          NON_FINITE and names the field; inactive fields are canonicalized. A bare as<float>() instead throws a JS TypeError
    *          out through the binding under -sASSERTIONS=1.
    */
   static float leaf_float(const emscripten::val &value) {
@@ -152,7 +152,7 @@ private:
   /**
    * @brief Decodes one PALETTE_MAX_KEYS custom-key array.
    * @param input JS array; a missing or non-numeric element decodes to NaN,
-   *        which GenerativePalette::try_compile() rejects as NON_FINITE.
+   *        which GenerativePalette::try_compile() rejects as NON_FINITE for active keys.
    * @param output Key array to fill.
    */
   static void decode_key_values(const emscripten::val &input,
@@ -169,7 +169,7 @@ private:
    * @return True when @p block can be indexed.
    * @details Indexing undefined or null throws a JS TypeError out through the
    *          binding instead of returning a status; every other type yields
-   *          undefined leaves, which GenerativePalette's own validation rejects.
+   *          undefined leaves; validation rejects active leaves after canonicalization.
    */
   static bool block_present(const emscripten::val &block,
                             PaletteRecipeField field,
@@ -191,7 +191,7 @@ private:
    *          PaletteRecipe::SCHEMA_VERSION is passed through as 0 for
    *          try_compile() to reject. Leaf scalars are not bounds-checked here:
    *          a missing or non-numeric one decodes to NaN and try_compile()'s
-   *          finite validation names the field.
+   *          finite validation names active fields after canonicalizing inactive ones.
    */
   static bool decode_recipe(const emscripten::val &input, PaletteRecipe &recipe,
                             PaletteCompileStatus &status) {
