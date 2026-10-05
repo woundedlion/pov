@@ -1352,7 +1352,8 @@ Each hardware target has its own `.ino` entry point in `targets/`:
 3. Open `targets/Holosphere/Holosphere.ino` (or `targets/Phantasm/Phantasm.ino`).
 4. In Visual Micro, set **Additional Include Directories** to: `../..;../../core;../../hardware`.
 5. Select **Board: Teensy 4.0**, **CPU Speed: 600 MHz**.
-6. Upload.
+6. For Phantasm, define `HS_PHANTASM_BOARD_REV=11` for rev 1.1 or `=12` for rev 1.2 in the Arduino/Visual Micro build flags. Rev 1.3 requires separate firmware support.
+7. Upload.
 
 For a headless Phantasm build, run `pio run -e phantasm` from the repository root.
 
