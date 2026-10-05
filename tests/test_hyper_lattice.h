@@ -38,7 +38,6 @@ using HyperLatticeDetail::pixel_half_angle;
 using namespace SDF::Lattice;
 struct PreparedTrace : SDF::Lattice::PreparedTrace {
   Raycast::Appearance appearance;
-  float near_start, near_inv_span, inv_far;
 };
 /** @brief Crossing scratch the helpers bind to frames that carry none. */
 inline HyperLatticeDetail::CrossingList crossings;
@@ -47,8 +46,7 @@ inline PreparedTrace prepare_trace(const FrameState &frame) {
   if (!bound.crossings)
     bound.crossings = &crossings;
   const auto p = HyperLatticeDetail::prepare_trace(bound);
-  return {p.lattice, p.appearance, p.appearance.near_start,
-          p.appearance.near_inv_span, p.appearance.inv_far};
+  return {p.lattice, p.appearance};
 }
 template <bool SLICE = false>
 auto trace_plane(const math::Vec4 &origin, const math::Vec4 &direction,
@@ -262,7 +260,8 @@ inline void test_near_field_fade() {
         const float span = frame.params.near_fade * cell_size * (1.0f + radius);
         for (float fraction :
              {0.0f, 0.001f, 0.25f, 0.5f, 0.75f, 0.999f, 1.0f}) {
-          const float distance = prepared.near_start + fraction * span;
+          const float distance =
+              prepared.appearance.near_start + fraction * span;
           const math::Vec4 origin{{-distance / cell_size, 0.0f, 0.0f, 0.0f}};
           const math::Vec4 direction{{1.0f / cell_size, 0.0f, 0.0f, 0.0f}};
           const auto hit = HL::trace_plane<false>(
@@ -284,9 +283,12 @@ inline void test_near_field_fade() {
   const auto centered = HL::prepare_trace(frame);
   frame.params.sphere_radius = 1.0f;
   const auto surface = HL::prepare_trace(frame);
-  HS_EXPECT_NEAR(surface.near_start, centered.near_start * 2.0f, 1e-6f);
-  HS_EXPECT_NEAR(surface.near_inv_span, centered.near_inv_span * 0.5f, 1e-6f);
-  const float distance = centered.near_start + 0.25f / centered.near_inv_span;
+  HS_EXPECT_NEAR(surface.appearance.near_start,
+                 centered.appearance.near_start * 2.0f, 1e-6f);
+  HS_EXPECT_NEAR(surface.appearance.near_inv_span,
+                 centered.appearance.near_inv_span * 0.5f, 1e-6f);
+  const float distance = centered.appearance.near_start +
+                         0.25f / centered.appearance.near_inv_span;
   HS_EXPECT_LT(surface.appearance.opacity(distance),
                centered.appearance.opacity(distance));
   HS_EXPECT_EQ(surface.appearance.opacity(0.0f), 0.0f);
