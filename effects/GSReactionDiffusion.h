@@ -903,6 +903,21 @@ private:
         static_cast<uint16_t>(hs::clamp(accum_b + 0.5f, 0.0f, 65535.0f)));
   }
 
+  HS_O3_FN HS_NOINLINE_NOCLONE Pixel shade_render(
+      uint16_t pigment, float t, float scale, const math::Vector &center_rv,
+      const ReactionGraph::CubemapLUT::Projection *projection) const {
+    float noise_value = 0;
+    {
+      HS_PROFILE_DEEP(grd_shader_noise);
+      if (color_noise_enabled)
+        noise_value = projection != nullptr
+                          ? sample_color_noise(*projection)
+                          : sample_color_noise(
+                                Base::inverse_orientation.apply(center_rv));
+    }
+    return shade_pigment(pigment, t, scale, noise_value);
+  }
+
   template <typename Grid>
   HS_O3_FN Pixel shade_pixel_full(
       int seed, const math::Vector &center_rv, const math::Vector *world_nodes,
@@ -956,17 +971,8 @@ private:
     }
     if (!covered)
       return Pixel(0, 0, 0);
-    float noise_value = 0;
-    {
-      HS_PROFILE_DEEP(grd_shader_noise);
-      if (color_noise_enabled)
-        noise_value = projection != nullptr
-                          ? sample_color_noise(*projection)
-                          : sample_color_noise(
-                                Base::inverse_orientation.apply(center_rv));
-    }
-    return shade_pigment(pigment, t_sum / covered, covered * (1.0f / SAMPLES),
-                         noise_value);
+    return shade_render(pigment, t_sum / covered, covered * (1.0f / SAMPLES),
+                        center_rv, projection);
   }
 
   template <typename Grid>
@@ -1073,17 +1079,8 @@ private:
                   hs::clamp(b11 * INVERSE1, 0.0f, 1.0f) +
                   hs::clamp(b01 * INVERSE_CROSS, 0.0f, 1.0f) +
                   hs::clamp(b10 * INVERSE_CROSS, 0.0f, 1.0f);
-    float noise_value = 0;
-    {
-      HS_PROFILE_DEEP(grd_shader_noise);
-      if (color_noise_enabled)
-        noise_value = projection != nullptr
-                          ? sample_color_noise(*projection)
-                          : sample_color_noise(
-                                Base::inverse_orientation.apply(center_rv));
-    }
-    return shade_pigment(pigment, t_sum / covered, covered * (1.0f / SAMPLES),
-                         noise_value);
+    return shade_render(pigment, t_sum / covered, covered * (1.0f / SAMPLES),
+                        center_rv, projection);
   }
 
   /**
