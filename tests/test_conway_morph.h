@@ -1213,7 +1213,7 @@ inline void test_ordered_tour_full_coverage_and_wrap() {
 // Ambo-on-hankin probe (docs/specs/opchain_morph_spec.md, "Validation
 // contract"): every ambo leg the Islamic recipes run on a hankin mesh is a
 // truncate sweep whose compiled face count must not move within the leg and
-// whose swept mesh must stay a closed genus-0 manifold at every parameter.
+// whose sampled meshes retain two-face edge incidence and Euler characteristic 2.
 // ---------------------------------------------------------------------------
 
 /** @brief One ambo-on-hankin sweep seed from the Islamic registry chains. */
@@ -1351,7 +1351,7 @@ inline void test_ambo_leg_on_hankin_seed_holds_topology() {
 // Phase-1 hankin legs re-run the one-shot MeshOps::hankin (the update-path
 // geometry) per sampled angle; V/F/I and the compiled face count must not
 // move from THETA_EPS to the recipe's arrival angle, and every sample must
-// stay a closed genus-0 manifold.
+// retain two-face edge incidence and Euler characteristic 2.
 // ---------------------------------------------------------------------------
 
 inline uint8_t morph_bank_buf[64 * 1024]; /**< Baked palette LUT arena. */

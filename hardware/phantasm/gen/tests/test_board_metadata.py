@@ -137,14 +137,13 @@ class BoardMetadataTests(unittest.TestCase):
     def test_curved_outline_bounds_include_arc_extrema(self):
         root = board_metadata.sexp.parse("""
             (kicad_pcb
-              (gr_arc (start 0 0) (mid 5 -5) (end 10 0) (layer "Edge.Cuts"))
-              (gr_line (start 10 0) (end 10 5) (layer "Edge.Cuts"))
-              (gr_line (start 10 5) (end 0 5) (layer "Edge.Cuts"))
-              (gr_line (start 0 5) (end 0 0) (layer "Edge.Cuts")))
+              (gr_arc (start 4 3) (mid -3 4) (end -4 -3) (layer "Edge.Cuts"))
+              (gr_line (start -4 -3) (end 4 -3) (layer "Edge.Cuts"))
+              (gr_line (start 4 -3) (end 4 3) (layer "Edge.Cuts")))
         """)[0]
         self.assertEqual(
             board_metadata._outline_bounds(root),
-            (Decimal("10"), Decimal("10")),
+            (Decimal("9"), Decimal("8")),
         )
 
     def test_circle_outline_uses_full_radius(self):

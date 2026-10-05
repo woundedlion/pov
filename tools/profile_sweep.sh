@@ -17,8 +17,8 @@
 # A capture must fit inside one epoch: crossing a boundary re-inits the effect
 # mid-run, and an init that overruns the K-revolution commit window traps the
 # board. The profile image's epoch is one hour (targets/Profile/Profile.ino);
-# HS_PROFILE_EPOCH_REVS replaces it (hardware/pov_segmented.h), so an override
-# only ever shortens it. Attach latency must fit between the capture duration
+# HS_PROFILE_EPOCH_REVS replaces it (hardware/pov_segmented.h); the overrides
+# below shorten it. Attach latency must fit between the capture duration
 # and the epoch boundary (at least 20 s of slack for the entries below).
 # parse_profile validate rejects captures that cross an epoch reset.
 set -uo pipefail

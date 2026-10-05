@@ -217,8 +217,9 @@ public:
    * @tparam T Element type.
    * @param n Element count (must be > 0, per allocate()).
    * @return Pointer to the first constructed element.
-   * @details Scalar members are zero-filled; `make_default_initialized()` is
-   * the non-zeroing single-object counterpart.
+   * @details Scalar elements are zero-initialized; class members follow their
+   * type's initialization rules. `make_default_initialized()` default-initializes
+   * one object instead.
    */
   template <typename T> T *make_n(size_t n) {
     T *elements = allocate_n<T>(n);
@@ -986,7 +987,6 @@ public:
    */
   T *end() {
     check_alive();
-    // Guard nullptr + 0 (formal UB) on an unbound/empty vector.
     return elements ? elements + element_count : nullptr;
   }
   /**
@@ -1003,7 +1003,6 @@ public:
    */
   const T *end() const {
     check_alive();
-    // Guard nullptr + 0 (formal UB) on an unbound/empty vector.
     return elements ? elements + element_count : nullptr;
   }
 };
@@ -1174,7 +1173,6 @@ public:
    */
   const T *end() const {
     check_alive();
-    // Guard nullptr + 0 (formal UB) on a default-constructed/empty span.
     return elements ? elements + element_count : nullptr;
   }
 };

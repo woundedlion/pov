@@ -62,29 +62,29 @@ public:
     Entry(const BakedPalette &&) = delete;
   };
 
-  /** @brief Arena bytes for the display LUT; always consumed by init(). */
+  /** @brief Conservative arena byte budget for the display LUT allocated by init(). */
   static constexpr size_t display_arena_bytes() {
     return BakedPalette::required_arena_bytes();
   }
 
-  /** @brief Extra arena bytes consumed when any adjacent pair fades by
+  /** @brief Conservative extra arena byte budget when any adjacent pair fades by
    *  LUT crossfade rather than key morph. */
   static constexpr size_t crossfade_arena_bytes() {
     return 2 * BakedPalette::required_arena_bytes();
   }
 
-  /** @brief Extra arena bytes consumed when any adjacent pair key-morphs. */
+  /** @brief Conservative extra arena byte budget when any adjacent pair key-morphs. */
   static constexpr size_t morph_arena_bytes() {
     return sizeof(GenerativePalette) + alignof(GenerativePalette);
   }
 
-  /** @brief Worst-case arena bytes init() can consume. */
+  /** @brief Conservative arena byte budget for init(). */
   static constexpr size_t required_arena_bytes() {
     return display_arena_bytes() + crossfade_arena_bytes() +
            morph_arena_bytes();
   }
 
-  /** @brief Arena bytes init_generated() consumes. */
+  /** @brief Conservative arena byte budget for init_generated(). */
   static constexpr size_t generated_arena_bytes() {
     return display_arena_bytes() + 3 * morph_arena_bytes();
   }
@@ -522,7 +522,7 @@ public:
   GeneratedPaletteBank(const GeneratedPaletteBank &) = delete;
   GeneratedPaletteBank &operator=(const GeneratedPaletteBank &) = delete;
 
-  /** @brief Arena bytes init() consumes, one generated cycler per harmony. */
+  /** @brief Conservative arena byte budget for init(), one generated cycler per harmony. */
   static constexpr size_t required_arena_bytes() {
     return 3 * PaletteCycler::generated_arena_bytes();
   }

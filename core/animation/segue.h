@@ -290,7 +290,7 @@ concept NeedsClasses = requires(S &s, const ArenaVector<uint16_t> &classes) {
 };
 
 /** @brief Whether a policy splits one frame's rasterizer work between the two
- * meshes with complementary pixel masks. MeshCarousel checks the signature but
+ * meshes with complementary edge-key masks. MeshCarousel checks the signature but
  * routes nothing: the effect calls mask_pair() itself and hands the two halves
  * to Plot::Mesh::draw's edge-list overload. Dissolve is the library policy. */
 template <typename S>
@@ -809,8 +809,8 @@ struct Dissolve : Base {
 
   /**
    * @brief Builds both halves of one frame's ownership split.
-   * @param phase Transition phase in [0, 1]; the incoming mesh owns this
-   *        fraction of the edges, the outgoing mesh the complement.
+   * @param phase Transition phase in [0, 1], scaled into the incoming mask
+   *        hash threshold; the outgoing mask takes the complementary keys.
    * @param frame Monotonic frame counter (temporal dither; never wall time).
    * @return The complementary pair.
    * @details The masks partition only when they share a threshold, and

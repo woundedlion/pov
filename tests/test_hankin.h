@@ -5,7 +5,7 @@
  * Unit tests for core/mesh/hankin.h.
  *
  * Coverage:
- *   - compile_hankin builds base_vertices, static_vertices, instructions,
+ *   - compile_hankin builds base_vertices, static_vertices,
  *     dynamic_instructions, and face arrays consistently.
  *   - update_hankin populates an output PolyMesh for both flat (angle=0)
  *     and twisted (angle≠0) configurations, and re-solves into a reused output
