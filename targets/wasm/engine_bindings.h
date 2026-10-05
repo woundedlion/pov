@@ -1036,7 +1036,7 @@ private:
     HS_CHECK(!restore_workbench || parameters_restored,
              "Geometry rebuild must restore the workbench configuration");
     if (!parameters_restored)
-      current_effect->restore_parameters(parameters);
+      current_effect->replay_parameter_writes(parameters);
     setAnimationsPaused(PAUSED);
     setClip(CLIP.x_start, CLIP.x_end, CLIP.y_start, CLIP.y_end);
     param_generation.observe(current_effect->getParameterSchemaGeneration());

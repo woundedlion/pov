@@ -2355,7 +2355,7 @@ inline void case_restore_parameters_unknown_name() {
   DeathEffect effect;
   const std::array values{
       std::pair<std::string, float>{"unknown", opaque(0.5f)}};
-  effect.restore_parameters(values);
+  effect.replay_parameter_writes(values);
 }
 
 inline void case_restore_parameters_readonly_name() {
@@ -2364,7 +2364,7 @@ inline void case_restore_parameters_readonly_name() {
   effect.register_param("readonly", &value, ParamSpec<float>{.readonly = true});
   const std::array values{
       std::pair<std::string, float>{"readonly", opaque(0.5f)}};
-  effect.restore_parameters(values);
+  effect.replay_parameter_writes(values);
 }
 
 inline void case_restore_parameters_singular_mobius() {
@@ -2380,7 +2380,7 @@ inline void case_restore_parameters_singular_mobius() {
       std::pair<std::string, float>{"Mobius C Im", opaque(0.0f)},
       std::pair<std::string, float>{"Mobius D Re", opaque(1.0f)},
       std::pair<std::string, float>{"Mobius D Im", opaque(0.0f)}};
-  static_cast<ParamHost &>(effect).restore_parameters(values);
+  effect.replay_parameter_writes(values);
 }
 
 /**
@@ -5730,13 +5730,13 @@ inline const Case *all_cases(int &n) {
        "(*ptr >= min && *ptr <= max) register_param: default *ptr outside [min,max] name=outside value_bits=40000000 min_bits=00000000 max_bits=3f800000"},
       {"restore_parameters_unknown_name", case_restore_parameters_unknown_name,
        "core/control/param_host.h",
-       "(def != nullptr && !def->readonly) restore_parameters: unknown or readonly parameter"},
+       "(def != nullptr && !def->readonly) replay_parameter_writes: unknown or readonly parameter"},
       {"restore_parameters_readonly_name",
        case_restore_parameters_readonly_name, "core/control/param_host.h",
-       "(def != nullptr && !def->readonly) restore_parameters: unknown or readonly parameter"},
+       "(def != nullptr && !def->readonly) replay_parameter_writes: unknown or readonly parameter"},
       {"restore_parameters_singular_mobius",
        case_restore_parameters_singular_mobius, "core/control/param_host.h",
-       "(parameter_write_admitted(def, def.get_requested())) restore_parameters: inadmissible final state"},
+       "(parameter_write_admitted(def, def.get_requested())) replay_parameter_writes: inadmissible final state"},
       {"register_enum_param_range", case_register_enum_param_range,
        "core/control/param_host.h",
        "(static_cast<int64_t>(option_count - 1) <= "
@@ -6067,8 +6067,8 @@ inline const Case *all_cases(int &n) {
       {"sdf_line_negative_thickness", case_sdf_line_negative_thickness,
        "core/render/sdf/shapes.h",
        "(thickness >= 0.0f) Line: negative stroke half-width"},
-      {"chain_zero_alignment",
-       case_chain_zero_alignment, "core/render/pullback/interpreter.h", "(layout.align != 0 && (layout.align & (layout.align - 1)) == 0 && layout.align <= alignof(std::max_align_t)) ChainProgram::bind_storage: invalid block alignment"},
+      {"chain_zero_alignment", case_chain_zero_alignment,
+       "core/render/pullback/interpreter.h", "(layout.align != 0 && (layout.align & (layout.align - 1)) == 0 && layout.align <= alignof(std::max_align_t)) ChainProgram::bind_storage: invalid block alignment"},
       {"chain_non_power_alignment", case_chain_non_power_alignment,
        "core/render/pullback/interpreter.h",
        "(layout.align != 0 && (layout.align & (layout.align - 1)) == 0 && layout.align <= alignof(std::max_align_t)) ChainProgram::bind_storage: invalid block alignment"},
