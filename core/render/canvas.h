@@ -383,7 +383,7 @@ private:
    * into both GCC constructor variants (C1/C2). Invoked from the ctor (not init())
    * because derived init() overrides do not chain to Effect::init().
    */
-  HS_FLASH_MEMBER void __attribute__((noinline)) clear_buffers() {
+  HS_COLD_MEMBER void __attribute__((noinline)) clear_buffers() {
     bufs[0] = buffer_a;
     std::fill_n(bufs[0], MAX_W * MAX_H, Pixel(0, 0, 0));
     bufs[1] = buffer_b;
@@ -666,7 +666,7 @@ private:
    * @brief Clears the current display clip, excluding its render margin.
    * @details Device builds keep this helper out of line and outside ITCM.
    */
-  HS_COLD_MEMBER void clear_display_clip_buffer() {
+  HS_FLASH_MEMBER void clear_display_clip_buffer() {
     const int c = effect.cur.load(std::memory_order_relaxed);
     const ClipRegion &clip = effect.clip_region;
     const int span = clip.x_end - clip.x_start;
