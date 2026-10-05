@@ -3106,8 +3106,8 @@ inline void test_arc_angular_distance_clamps_to_minor_arc() {
  * @brief Verifies Multiline::draw paints its geodesic edges and nothing else.
  * @details Every plotted position must lie on one of the polyline's geodesic
  * arcs, every control point must be reached, and the walk must be gap-free —
- * the three properties a caller drawing a path depends on. The tolerance is a
- * screen row, since the rasterizer samples at pixel centres.
+ * the three properties a caller drawing a path depends on. The tolerance is
+ * one screen row.
  */
 inline void test_multiline_draw_covers_only_its_geodesic_edges() {
   constexpr int W = 128, H = 64;
