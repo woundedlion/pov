@@ -743,17 +743,14 @@ struct IsrCycleScope {
 /**
  * @brief Times the enclosing scope, but only in a deep-profile build.
  * @param label Counter name (used both as the identifier suffix and log label).
- * @details The form shared render code must use for any scope entered more than
- *          once per draw call — per pixel, per cell, per face. Such a scope sits
- *          on every effect's hot path, so leaving it in the ordinary `profile`
- *          image would tax the whole roster's numbers to instrument one effect
- *          (the feedback composite's per-pixel set costs ~8 cyc per entry,
- *          ~2.5% of the flush). Off unless HS_PROFILE_DEEP_ENABLE is defined on
- *          top of HS_PROFILE_ENABLE, so a deep run is opt-in per capture
- *          (HS_PROFILE_DEEP=1 in profile_one.sh, or the third positional argument
- *          of `just profile`, e.g. `just profile MeshFeedback 150 1`).
- *          Per-frame scopes stay on plain HS_PROFILE — they are what the
- *          standard reports are built from.
+ * @details Shared per-pixel, per-cell and per-face instrumentation uses this
+ * form unless the standard report consumes its counter. Report counters such
+ * as filter_blend, scan_face_setup, scan_mesh_raster and plot_ps_* stay on
+ * plain HS_PROFILE, including their per-sample instrumentation cost.
+ * Deep scopes require HS_PROFILE_DEEP_ENABLE on top of HS_PROFILE_ENABLE:
+ * HS_PROFILE_DEEP=1 in profile_one.sh, or the third positional argument of
+ * `just profile`, e.g. `just profile MeshFeedback 150 1`.
+ * Per-frame counters also stay on plain HS_PROFILE.
  */
 #ifdef HS_PROFILE_DEEP_ENABLE
 #define HS_PROFILE_DEEP(label) HS_PROFILE(label)
