@@ -66,7 +66,7 @@
       },
       "accepted_limit": 256,
       "unit": "16-bit channel code",
-      "limit_provenance": "a 256-code ceiling above the AlienBrain palette-adjusted 151-code maximum",
+      "limit_provenance": "a 256-code ceiling above the AlienBrain palette-adjusted 147-code maximum",
       "measurement_provenance": "repo-owned native Debug capture with the composed AlienBrain bank plus release/strict-FP WASM captures at base_sha, both roster resolutions and named preset-4 probes"
     }
   ]
