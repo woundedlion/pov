@@ -2465,7 +2465,24 @@ inline void test_star_polygon_cull_covers_aa_fringe() {
   HS_EXPECT_GT(total, 1000);
 }
 
-/** @brief Verifies the interval cull covers every interior pixel across an orientation/radius grid. */
+/** @brief Annular angle bounds contain the reference angle before pixel rounding. */
+inline void test_annular_angles_bound_reference() {
+  static_assert(SDF::ANNULAR_ANGLE_PAD >= 5.1e-5f);
+  for (int i = 0; i <= 1000; ++i) {
+    const float cosine = 2.0f * i / 1000 - 1.0f;
+    float angle_min, angle_max;
+    HS_EXPECT_TRUE(SDF::annular_band_angles(cosine, cosine, 0, 0, 1, angle_min,
+                                            angle_max));
+    const float reference = std::acos(cosine);
+    HS_EXPECT_LE(angle_min, reference);
+    HS_EXPECT_GE(angle_max, reference);
+  }
+  float angle_min, angle_max;
+  HS_EXPECT_FALSE(
+      SDF::annular_band_angles(2, 3, 0, 0, 1, angle_min, angle_max));
+}
+
+/** @brief Verifies interval cull coverage over the sampled orientation/radius grid. */
 inline void test_cull_covers_interior_over_orientation_grid() {
   constexpr int W = 96, H = 48;
 
@@ -3749,6 +3766,7 @@ inline int run_sdf_tests() {
 
   test_warped_volume_bounding_distance_never_over_estimates();
 
+  test_annular_angles_bound_reference();
   test_cull_covers_interior_over_orientation_grid();
   test_pole_axis_ring_bounds_skip_pole_rows();
   test_linearized_ring_bounds_cover_visible_rows();
