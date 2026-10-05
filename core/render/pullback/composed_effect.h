@@ -1538,15 +1538,12 @@ private:
       } else if constexpr (Resource::KIND == ResourceKind::SURFACE) {
         if constexpr (std::is_same_v<typename Resource::Family,
                                      PeriodicRippleParams>)
-          clock.phase = fmodf(clock.phase + 1.0f, family.period);
+          Surface::advance_ripple_phase(clock.phase, family);
         else
           clock.phase = math::wrap_t(clock.phase + family.speed);
       } else if constexpr (Resource::KIND == ResourceKind::WARP) {
         if constexpr (std::is_same_v<typename Resource::Family, AffineParams>)
-          clock.rotation = math::TWO_PI_F *
-                           math::wrap_t((clock.rotation +
-                                         family.speed * family.rotation_rate) /
-                                        math::TWO_PI_F);
+          Warp::advance_affine_rotation(clock.rotation, family);
         clock.phase = math::wrap_t(clock.phase + family.speed);
       }
     });

@@ -154,7 +154,7 @@ struct DisplaceRipple : ValueStateModel<RipplePhaseState> {
   using Prepared = Surface::PreparedRipple;
 
   static void advance(State &state, const Params &params) {
-    state.phase = fmodf(state.phase + 1.0f, params.period);
+    Surface::advance_ripple_phase(state.phase, params);
   }
   static Prepared prepare(const FrameContext &, const Params &params,
                           const State &state) {
