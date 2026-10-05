@@ -24,6 +24,7 @@ from constraints import (ZONE_DEFAULTS, EXCLUDE_FP_SUBSTR, EXCLUDE_VAL_SUBSTR, M
 from kicad_common import atomic_write_text
 from kicad_common import (uid, reset_uid_sequence, fmt, F, arc_extrema,
                           export_netlist, kicad_cli, require_writable)
+from parts_rev13 import PARTS as REV13_PARTS
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 OUT = schematic_generator.OUT
@@ -478,6 +479,15 @@ def embed(libid, ref, value, x, y, rot, pad_net, netid, path=None, locked=False,
                     c.insert(-1, [sexp.Sym("hide"), sexp.Sym("yes")])
             elif c[1] == "Value":
                 c[2] = value
+    if _GENERATION.get()[0] == "1.3":
+        for name, value in REV13_PARTS.get(ref, {}).items():
+            existing = next((p for p in F(node, "property") if p[1] == name), None)
+            if existing is not None:
+                existing[2] = value
+            else:
+                node.append(sexp.parse_one(
+                    f'(property {sexp.quote(name)} {sexp.quote(value)} (at 0 0 0) '
+                    '(layer "F.Fab") (hide yes) (effects (font (size 1 1) (thickness 0.15))))'))
     # assign pad nets by name; `consumed` collects the (ref, pad) keys that matched
     for c in node:
         if isinstance(c, list) and c and c[0] == "pad":
@@ -1126,6 +1136,8 @@ def main(unplaced=False, force=False, force_teensy_library=False):
     ]
     legend_x = PLACE["U_MCU"][0]
     for text, y, size in back_silk:
+        if selected == "1.3" and text == "BOARD ID: ____":
+            continue
         lines.append(f'\t(gr_text {sexp.quote(text)} (at {fmt(legend_x)} {fmt(y)} 0)'
                      f' (layer "B.SilkS") (uuid "{uid()}") '
                      f'(effects (font (size {fmt(size)} {fmt(size)})'
