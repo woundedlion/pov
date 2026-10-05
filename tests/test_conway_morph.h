@@ -1010,11 +1010,12 @@ constexpr size_t MORPH_SCRATCH_B_BUDGET =
     HankinFx::SCRATCH_B_BYTES; /**< HankinSolids scratch_b split. */
 
 /**
- * @brief Verifies every edge's per-frame scratch peak (op + compile into a
- *        fresh arena pair) fits HankinSolids' 24 KB / 32 KB scratch split.
- * @details The seed lives in a persistent arena as the effect holds it;
- *          topology is t-constant, so one mid-sweep sample per edge is the
- *          frame peak. Reports the worst pair across the table.
+ * @brief Verifies every edge's op-plus-compile scratch peak fits
+ *        HankinSolids' 24 KB / 32 KB scratch split.
+ * @details The seed is persistent and topology is t-constant; one mid-sweep
+ * sample measures the op-plus-compile peak. OpLeg's constructor checks the
+ * blended-LUT term; effect smoke tests exercise the additional draw stack.
+ * Reports the worst arena pair across the edge table.
  */
 inline void test_edge_morph_frames_fit_scratch_budget() {
   constexpr size_t HALF = sizeof(morph_aux_buf) / 2;
