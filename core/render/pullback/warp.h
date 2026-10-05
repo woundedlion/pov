@@ -358,10 +358,10 @@ struct PreparedVortexSlot {
 
 /**
  * @brief Resolves one warp slot's per-frame rotation and transform.
- * @details One overload per parameter family, each returning the slot type its
- * warp policy reads. Every overload takes the slot's parameters and its phase
- * clock; only the affine family rotates with the frame, so only its overload
- * takes an accumulated rotation.
+ * @details Overloads cover transform-bearing families: wave shear, mirror,
+ * vector noise, vortex and affine. The second argument is the phase clock
+ * (unused by wave shear); affine also takes accumulated rotation. CurlFlow
+ * prepares its loop point in its policy; PolarChart needs no prepared state.
  * @param warp The slot's parameters.
  */
 HS_FLASH_INLINE inline PreparedRotation prepare(const WaveShearParams &warp,
