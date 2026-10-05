@@ -46,6 +46,7 @@
 # mention or diagnostic message would supply the reference the real call no
 # longer does.
 # -D args: TESTS_DIR (path to tests/), TOOLS_DIR (path to tools/).
+# CACHE_FILE is optional: skip when hashed inputs match the last passing run.
 # Both globs match check_includes.cmake's, so the two gates see one corpus.
 
 cmake_minimum_required(VERSION 3.29)
