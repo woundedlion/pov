@@ -625,9 +625,8 @@ inline uint8_t hankin_reso_target[512 * 1024];
 /**
  * @brief Verifies star points stay local at a resonance angle.
  * @details
- * The dodecahedron hk35/ambo/hk62/ambo/relax prefix at a 43-degree
- * contact
- * angle puts one corner class's contact planes near-parallel, so their ray
+ * The dodecahedron hk35/ambo/hk62/ambo/relax prefix at a 43-degree contact angle
+ * puts one corner class's contact planes near-parallel, so their ray
  * intersections land ~64 degrees from the corner. Without the far-star guard
  * the output grows sliver faces whose longest edge is ~24x the median; with it
  * every edge stays within MAX_SLIVER_EDGE_RATIO.
