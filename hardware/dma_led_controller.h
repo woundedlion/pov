@@ -131,15 +131,15 @@ public:
 
   // --- Diagnostics ---
   /**
-   * @brief Returns the count of frames handed to the DMA engine since start.
-   * @return Monotonic transfer counter (number of successful submit_frame()s).
+   * @brief Returns successful DMA submissions modulo 2^32 since start.
+   * @return Wrapping 32-bit transfer counter (successful submit_frame()s).
    */
   uint32_t get_transfer_count() const {
     return transfer_count.load(std::memory_order_relaxed);
   }
   /**
    * @brief Counts submit attempts refused while the prior transfer is in flight.
-   * @return Monotonic refusal counter; each retry of the same frame counts again.
+   * @return Wrapping 32-bit refusal counter; retries of the same frame count again.
    */
   uint32_t get_overrun_count() const {
     return overrun_count.load(std::memory_order_relaxed);
@@ -188,7 +188,7 @@ private:
    */
   int active_buffer;
   /**
-   * @brief Monotonic count of frames successfully handed to the DMA engine.
+   * @brief Wrapping 32-bit count of successful DMA submissions.
    * @details Atomic (ISR RMW + cross-context read); relaxed — an independent
    *          counter, not a happens-before signal.
    */
