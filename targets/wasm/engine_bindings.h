@@ -431,7 +431,7 @@ public:
    *          the range check and silently clip the wrong axis. Rejects malformed
    *          input at the untyped JS boundary rather than trapping, since a trap
    *          there aborts the whole WASM module. Bounds arrive as doubles: an
-   *          i32 embind parameter coerces NaN and out-of-range JS numbers to 0
+   *          i32 embind parameter coerces NaN and multiples of 2^32 to 0
    *          with no range check in a release build, installing an empty band
    *          under an APPLIED result. Segment workers always pass
    *          valid, ordered, in-range bounds. A cross-segment stateful effect
@@ -689,9 +689,9 @@ public:
    *          retained across setEffect(), so a caller mirroring it reads it
    *          back through getAnimationsPaused(). Parameter values move with the
    *          preset; re-read them via getParamValues(). The index arrives as a
-   *          double: a uint32_t embind parameter coerces NaN, negative and
-   *          past-2^32 JS numbers to 0 with no range check in a release build,
-   *          pinning the effect to preset 0 under a true result.
+   *          double: a uint32_t embind parameter wraps integers modulo 2^32
+   *          with no range check in a release build; NaN and multiples of
+   *          2^32 become 0, selecting preset 0 under a true result.
    */
   bool selectPreset(double index) {
     if (!current_effect || !preset_index_accepted(index, "selectPreset") ||
