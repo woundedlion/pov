@@ -217,7 +217,7 @@ inline std::vector<Color4> face_palette(int n) {
  * @details Observes the registered "Angle" param after every frame. The pin
  *          frame is the first exact-0 frame whose predecessor is a small
  *          non-zero sweep sample; the following morph leg leaves the angle
- *          untouched, so exact 0 must then hold for the whole leg — which also
+ *          untouched, so exact 0 must then hold for the whole sweep — which also
  *          rules out a mid-sweep zero crossing matching the predicate.
  */
 inline void test_bookend_angle_pin() {
@@ -238,7 +238,7 @@ inline void test_bookend_angle_pin() {
   }
 
   int pin = -1;
-  for (size_t i = 1; i + 40 < a.size(); ++i) {
+  for (size_t i = 1; i + ConwayGraph::SWEEP_FRAMES < a.size(); ++i) {
     if (a[i] != 0.0f || a[i - 1] == 0.0f)
       continue;
     // The penultimate sweep sample precedes the exact-zero cycle end.
@@ -252,7 +252,7 @@ inline void test_bookend_angle_pin() {
     return;
   HS_EXPECT_GT(a[pin - 1], 0.0f);
   HS_EXPECT_LT(a[pin - 1], 0.05f);
-  for (int i = pin; i < pin + 40; ++i)
+  for (int i = pin; i < pin + ConwayGraph::SWEEP_FRAMES; ++i)
     HS_EXPECT_EQ(a[i], 0.0f);
 }
 
