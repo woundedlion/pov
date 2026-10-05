@@ -1173,7 +1173,7 @@ inline void test_scan_region_seam_no_double_plot() {
         return run;
       });
 
-  // No pixel plotted more than once (the wrapped overlap at x=0,1 is not doubled).
+  // The shared column x=1 is plotted once.
   for (int x = 0; x < W; ++x)
     HS_EXPECT_LE(counts[x], 1);
 
