@@ -120,13 +120,16 @@ def analyze(root):
         find(p)
 
     bridges = []
+    label_points = {R(at) for kind in ("label", "global_label", "hierarchical_label")
+                    for node in F(root, kind)
+                    if len(at := sexp.val(node, "at", [])) >= 2}
+    span_anchors = label_points | set(junctions)
+    span_anchors.update(point for wire in wires for point in wire)
     for a, b in wires:
         union(a, b)
-        # Any point on this span is on the wire: a named pin, another wire's
-        # endpoint landing mid-span (a T-junction), or an explicit junction dot.
-        for p in allpts:
+        for p in span_anchors:
             if p != a and p != b and on_seg(p, a, b):
-                tag = (f"label/power {'+'.join(sorted(named[p]))}"
+                tag = (f"label {'+'.join(sorted(named[p]))}"
                        if p in named else "junction")
                 union(p, a)
                 bridges.append(f"{tag} on wire {a}-{b}")
