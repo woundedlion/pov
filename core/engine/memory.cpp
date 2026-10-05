@@ -87,7 +87,8 @@ struct ScratchBases {
  * @return Base offsets of the two scratch arenas.
  * @details Each input is bounded first so the align_up()/sum arithmetic cannot
  * wrap size_t. Each inter-arena boundary is aligned up to max_align_t (the real
- * callers pass 1 KiB multiples, so these rounds are no-ops); the budget check
+ * callers pass alignof(max_align_t) multiples, so these rounds are no-ops);
+ * the budget check
  * uses the aligned end so rounding cannot silently overrun. An over-subscribed
  * partition is a sizing/config bug, not recoverable, so it traps rather than
  * silently scaling down; the breadcrumb carries the numbers.
