@@ -129,8 +129,12 @@ void test_render_caps() {
 
 void test_feedback_endpoint_rings() {
   static_assert(hs::SphericalFieldLayout<W, H>::POLE_COUNT == 0);
-  for (int row : {0, H - 1})
+  for (int row : {0, H - 1}) {
     hs_test::pole_geometry::check_feedback_ring_centroid<W, H>(row);
+    for (float alpha : {0.5f, 1.0f})
+      hs_test::pole_geometry::check_feedback_ring_centroid<W, H>(row, 0, 1,
+                                                                 alpha);
+  }
 }
 
 } // namespace

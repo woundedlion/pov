@@ -114,7 +114,10 @@ public:
     const PolarRings POLAR = polar_rings(FIELD, RINGS);
     return (2 * RINGS * COLUMNS + 2 * FIELD.sample_count()) * sizeof(int16_t) +
            (POLAR.rows() * COLUMNS + POLAR.samples) * sizeof(CapOffset) +
-           (ds > 1 ? W * sizeof(::Pixel) : 0);
+           ((ds > 1 || !SphereField::HAS_NORTH_POLE ||
+             !SphereField::HAS_SOUTH_POLE)
+                ? W * sizeof(::Pixel)
+                : 0);
   }
 
   /**
@@ -594,9 +597,9 @@ private:
     const RenderBand &band = ctx.band;
     ctx.warp = select_warp_field(scratch, grid, band);
     populate_warp_field(grid, band, ctx.warp);
-    // The longitude filter runs only over the unclipped infill bands, which are
-    // empty at downsample 1; a banded flush never reaches them either.
-    ctx.filtered_row = (!band.x_clip.active && grid.downsample > 1)
+    ctx.filtered_row = (!band.x_clip.active &&
+                        (grid.downsample > 1 || !SphereField::HAS_NORTH_POLE ||
+                         !SphereField::HAS_SOUTH_POLE))
                            ? scratch.allocate_n<::Pixel>(W)
                            : nullptr;
 
