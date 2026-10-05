@@ -164,10 +164,9 @@ inline uint16_t lerp16_reference(uint16_t a, uint16_t b, uint16_t frac) {
  * @brief Verifies lerp16 is correct across the full 0..65535 operand range.
  * @details A signed 16x16 multiply would misread any operand >= 32768 (a frac,
  *          an inverse-frac, or a bright channel) as negative and corrupt the
- *          whole upper half by up to a full 65535; this pins unsigned-correct
- *          results so the device's MAC path stays within one LSB of the double
- *          reference. The native build can't run the ARM asm, so this guards the
- *          behavior, not the instruction.
+ *          whole upper half by up to a full 65535. lerp16 uses portable lerp_q16
+ *          on every target, so the host sweep covers the device arithmetic and
+ *          pins that no signed (smlad-style) multiply is introduced.
  */
 inline void test_lerp16_full_range_correct() {
   // The midpoint between maximal and zero channels is half scale.
