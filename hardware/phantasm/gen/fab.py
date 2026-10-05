@@ -14,9 +14,9 @@ against the ordered-package baseline fab-SHA256SUMS.txt beside the board once
 it is recorded (see ../1.1/README.md). Until then --verify reports the missing
 baseline. It runs no KiCad; gen/out/ is gitignored.
 
-It NEVER runs board.py / pcb.py: those rewrite phantasm.kicad_{sch,pcb} and
-discard the routing + silk. This script only reads the committed board and
-emits derived artifacts (all of gen/out/ is gitignored).
+Exports only the committed, hand-routed rev 1.1 board. board.py / pcb.py write
+the separate rev 1.2/1.3 projects and never touch 1.1/. This script emits derived
+artifacts (all of gen/out/ is gitignored).
 
 kicad-cli is found via $KICAD_CLI, else common install paths, else PATH.
 """
