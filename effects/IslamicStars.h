@@ -513,8 +513,8 @@ private:
 
     // Per-shape choreography: segue in, hold still one second, ripple, settle
     // one second, segue out. Duration is derived from the stage lengths so the
-    // stages never overlap. Trans Speed divides every stage length, each with a
-    // >=1-frame floor. The effective ripple duration/stagger are cached for the
+    // stages never overlap. Trans Speed divides every stage length, each floored
+    // at 1 frame (ripple duration at 8). The duration/stagger are cached for the
     // deferred ripple() callback, which fires before the next shape spawns.
     const float sp = std::max(1.0f, params.trans_speed);
     int fade = std::max(1, static_cast<int>(SPRITE_FADE_FRAMES / sp));
