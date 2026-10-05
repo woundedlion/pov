@@ -5238,8 +5238,8 @@ inline void test_planar_arc_cumul_monotone_and_endpoints() {
     HS_EXPECT_NEAR(Plot::planar_arc_length(a, b, basis), sampler.dist,
                    total_tol);
     // Spherical triangle inequality against the endpoints the table actually
-    // joins: a total that dropped, duplicated, or mis-scaled a chord violates
-    // it. No agreement between the accumulators can supply this.
+    // joins: a total below their separation violates this lower bound.
+    // Agreement between the accumulators does not establish it.
     const math::Vector chart_start =
         Plot::azimuthal_unproject(p1.first, p1.second, basis);
     const float endpoint_cos = math::dot(chart_start, span_end) /
