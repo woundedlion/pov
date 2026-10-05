@@ -162,8 +162,9 @@ typename E::Params preset_params_or_initial(size_t index) {
  * frames, and reads back every pixel without tripping an assert/OOB/hang, and
  * that get_pixel still aliases the displayed buffer once another frame has been
  * rendered and flipped in. Runs the dead-slider and animated-pause lints on
- * the <SMALL_W,SMALL_H> pass, which both depth tiers execute; the pause lint
- * renders at least 500 extra frames and leaves the effect paused. Finally requires
+ * the <SMALL_W,SMALL_H> pass, which both depth tiers execute. For effects
+ * with animated parameters, the pause lint renders at least 500 extra frames
+ * and leaves the effect paused. Finally requires
  * the effect to have overflowed no timeline event over its whole lifetime: a
  * drop is the one soft-degrade in the animation subsystem, and only this
  * per-effect delta attributes it.
