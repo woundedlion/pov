@@ -360,6 +360,14 @@ inline void case_normalize_zero() {
     std::printf("x");
 }
 
+/** @brief In-place normalization rejects a zero-length vector. */
+inline void case_vector_normalize_in_place_zero() {
+  math::Vector v{opaque(0.0f), opaque(0.0f), opaque(0.0f)};
+  v.normalize();
+  if (v.x == 42.0f)
+    std::printf("x");
+}
+
 /** @brief Death case: rotating in a degenerate coordinate plane must trap. */
 inline void case_rotate_plane_degenerate() {
   math::Mat4 m = math::Mat4::identity();
@@ -5238,6 +5246,9 @@ inline const Case *all_cases(int &n) {
        "(depth <= MAX_GENERATE_DEPTH) generate: recursion too deep"},
       {"normalize_zero", case_normalize_zero, "core/math/3dmath.h",
        "(m2 >= math::EPS_NORMALIZE_SQ) Vector: zero length"},
+      {"vector_normalize_in_place_zero", case_vector_normalize_in_place_zero,
+       "core/math/3dmath.h",
+       "(m2 >= math::EPS_NORMALIZE_SQ) Vector: zero length"},
       {"rotate_plane_degenerate", case_rotate_plane_degenerate,
        "core/math/4dmath.h",
        "(a >= 0 && a < VEC4_DIMENSIONS && b >= 0 && b < VEC4_DIMENSIONS && a "
@@ -6817,7 +6828,7 @@ inline constexpr GuardGapAllowance GUARD_GAP_ALLOW[] = {
     {"core/control/param_host.h", 15},
     {"core/control/preset_host.h", 2},
     {"core/engine/memory.h", 1},
-    {"core/math/3dmath.h", 3},
+    {"core/math/3dmath.h", 2},
     {"core/math/lenses.h", 1},
     {"core/math/pixel_mapping.h", 2},
     {"core/math/spherical_field.h", 2},
