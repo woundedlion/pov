@@ -325,7 +325,7 @@ struct Mesh {
    * memory as a Vector on device. Checked once per mesh, not per face: the
    * per-face spans are cut from exactly this array.
    */
-  HS_COLD_MEMBER
+  HS_NOINLINE_NOCLONE
   static void check_face_index_domain(const uint16_t *faces, size_t num_indices,
                                       size_t num_verts) {
     for (size_t k = 0; k < num_indices; ++k)
