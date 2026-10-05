@@ -108,7 +108,7 @@ template <typename FX> using TraitsOf = ComposedTraits<FX>;
 constexpr const char *UNGATED_COLOR_SLIDERS[] = {
     "Palette Chroma",     "Palette Mapping",         "Mapping Frequency",
     "Mapping Phase",      "Phase Oscillation Depth", "Phase Oscillation Speed",
-    "Opacity at Value 0", "Opacity at Value 1",      "Hue Shift Amount"};
+    "Opacity at Value 0", "Opacity at Value 1"};
 
 /** @brief The eight lens sliders a Mobius parameter family adds. */
 constexpr const char *MOBIUS_SLIDERS[] = {
@@ -350,6 +350,8 @@ inline void check_slider_registration(const char *name) {
     HS_EXPECT_EQ(params.find(slider) != nullptr, mobius);
   constexpr bool brightness =
       Traits::BRIGHTNESS != Pullback::Color::BrightnessEnvelope::NONE;
+  constexpr bool hue_shift = Traits::HUE != Pullback::HueMode::NONE;
+  HS_EXPECT_EQ(params.find("Hue Shift Amount") != nullptr, hue_shift);
   constexpr bool hue_noise = Traits::HUE == Pullback::HueMode::NOISE;
   HS_EXPECT_EQ(params.find("Brightness Bottom") != nullptr, brightness);
   HS_EXPECT_EQ(params.find("Brightness Top") != nullptr, brightness);
@@ -390,7 +392,7 @@ inline void check_slider_registration(const char *name) {
       warp_slot_count<FX, typename Params::template Family<"inner_warp">>() +
       (mobius ? std::size(MOBIUS_SLIDERS) : size_t{0}) +
       std::size(UNGATED_COLOR_SLIDERS) + (brightness ? size_t{2} : size_t{0}) +
-      (hue_noise ? size_t{2} : size_t{0});
+      (hue_noise ? size_t{2} : size_t{0}) + (hue_shift ? size_t{1} : size_t{0});
   HS_EXPECT_EQ(params.size(), expected);
   HS_EXPECT_LE(params.size(), params.capacity());
 }
@@ -2190,6 +2192,9 @@ public:
   }
 };
 
+template <int W, int H>
+using NoHueProbe = NoiseSourceProbe<W, H, Pullback::ProjectedNoiseSourceParams>;
+
 /**
  * @brief Both noise source families reach the derivation path.
  * @details Each source family implies its noise field; the plane-domain
@@ -2750,6 +2755,7 @@ inline int run_composed_effect_tests() {
   test_composed_hand_registered_families();
   test_composed_direct_surface_placement();
   test_composed_slider_registration();
+  check_slider_registration<NoHueProbe>("NoHueProbe");
   test_mobius_frame_admission();
   test_mobius_captured_parameter_restore();
   test_mobius_automatic_departures_retain_lens();
