@@ -248,7 +248,7 @@ struct HookSignature<R (C::*)(A...) const> {
 
 /** @brief Whether a policy keeps Base's always-present hook signatures. Every
  * policy inherits them, so this fails only on one that shadows a hook at a
- * drifted signature — a float `visible` converts silently to true, a
+ * drifted signature — a float `visible` converts silently to bool, a
  * `face_fade_frac` of another arity hides Base's without replacing it, and a
  * `fill` taking its edge distance by value drops the palette-gradient
  * renormalisation at a call site that still compiles. */
