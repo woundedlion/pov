@@ -1449,9 +1449,7 @@ inline void test_baked_palette_storage_and_views() {
 // ============================================================================
 
 /**
- * @brief Verifies baking a solid-color source reproduces it at every sample.
- * @details Baking a solid-color source reproduces that color (and alpha) at
- *          every sample.
+ * @brief Verifies baked endpoint samples match a solid-color source.
  */
 inline void test_baked_palette_matches_source_endpoints() {
   // Source: solid color palette so every entry is identical.
@@ -1604,6 +1602,14 @@ inline void test_baked_palette_clone_from_matches_source() {
     HS_EXPECT_EQ(a.color.b, b.color.b);
     HS_EXPECT_NEAR(a.alpha, b.alpha, 1e-6f);
   }
+
+  const Color4 CLONED = dst.get(0.5f);
+  SolidColorPalette replacement(Color4(Pixel(123, 456, 789), 0.25f));
+  src.rebake(replacement);
+  HS_EXPECT_PIXEL(src.get(0.5f).color, 123, 456, 789);
+  HS_EXPECT_PIXEL(dst.get(0.5f).color, CLONED.color.r, CLONED.color.g,
+                  CLONED.color.b);
+  HS_EXPECT_EQ(dst.get(0.5f).alpha, CLONED.alpha);
 }
 
 /**

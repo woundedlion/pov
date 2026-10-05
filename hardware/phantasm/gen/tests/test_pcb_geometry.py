@@ -64,9 +64,9 @@ class FootprintBoundsTests(unittest.TestCase):
 
     def test_arc_includes_cardinal_extrema(self):
         footprint = sexp.parse(
-            "(footprint (fp_arc (start 1 0) (mid 0 1) (end -1 0)))")[0]
+            "(footprint (fp_arc (start 0.8 0.6) (mid -0.6 0.8) (end -0.8 -0.6)))")[0]
         bounds = pcb.fp_bbox(footprint)
-        for actual, expected in zip(bounds, (-1.0, 0.0, 1.0, 1.0)):
+        for actual, expected in zip(bounds, (-1.0, -0.6, 0.8, 1.0)):
             self.assertAlmostEqual(actual, expected)
 
 

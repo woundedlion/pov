@@ -666,8 +666,7 @@ struct RingGroup {
     // Covering ring: every point of member s's centerline lies within its
     // plane/radius deviation of the middle member's, so the middle member
     // inflated by the worst deviation plus that member's thickness contains
-    // the whole group's stroke band — and, centered mid-group, its width is
-    // the true union's plus epsilon. The 1e-3 absorbs fast_acos error.
+    // the whole group's stroke band. The 1e-3 absorbs fast_acos error.
     const int mid = n / 2;
     float pad_th = shapes[mid].thickness;
     for (int s = 0; s < n; ++s) {

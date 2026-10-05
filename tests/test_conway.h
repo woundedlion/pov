@@ -152,7 +152,7 @@ inline void check_basic_invariants(const PolyMesh &m) {
 }
 
 /**
- * @brief Asserts the mesh is a closed genus-0 2-manifold (V - E + F == 2).
+ * @brief Checks two-face edge incidence and Euler characteristic V - E + F == 2.
  * @param m Mesh to validate.
  * @details Conway operators map a genus-0 seed to another genus-0 closed
  *          polyhedron, so every undirected edge must be shared by exactly two
@@ -160,8 +160,9 @@ inline void check_basic_invariants(const PolyMesh &m) {
  *          (shared >2) breaks the topology the renderer assumes; this catches
  *          both, then verifies Euler's formula.
  *          The edge scan reports the extreme fan-out across all edges.
+ *          Vertex-fan connectivity and connectedness are not checked.
  */
-inline void check_euler_genus0(const PolyMesh &m) {
+inline void check_euler_characteristic_two(const PolyMesh &m) {
   std::vector<std::pair<uint16_t, uint16_t>> edges;
   edges.reserve(m.faces.size());
   size_t offset = 0;
@@ -232,8 +233,8 @@ inline std::map<int, int> face_type_histogram(const PolyMesh &m) {
  * @brief Runs every primitive Conway operator on one seed and checks Euler plus
  *        the operator's element census.
  * @tparam Solid Platonic seed solid (e.g. Solids::Cube) to build and operate on.
- * @details Asserts each operator's result is a closed genus-0 manifold carrying
- *          the vertex / face / index counts its emitters derive from the seed's
+ * @details Checks each operator's result for two-face edge incidence and Euler
+ *          characteristic 2, plus the vertex / face / index counts its emitters derive from the seed's
  *          (V, E, F):
  *            dual     F,      V,      2E
  *            kis      V+F,    2E,     6E
@@ -269,7 +270,7 @@ template <typename Solid> inline void check_euler_for_seed() {
     PolyMesh seed;                                                             \
     build_solid<Solid>(seed, temp);                                            \
     PolyMesh out = MeshOps::CALL;                                              \
-    check_euler_genus0(out);                                                   \
+    check_euler_characteristic_two(out);                                       \
     HS_EXPECT_EQ((int)out.vertices.size(), (EXP_V));                           \
     HS_EXPECT_EQ((int)out.face_counts.size(), (EXP_F));                        \
     HS_EXPECT_EQ((int)out.faces.size(), (EXP_I));                              \
@@ -289,7 +290,7 @@ template <typename Solid> inline void check_euler_for_seed() {
     Arena arena(conway_target_buf, sizeof(conway_target_buf));
     PolyMesh seed;
     build_solid<Solid>(seed, arena);
-    check_euler_genus0(seed);
+    check_euler_characteristic_two(seed);
     HS_EXPECT_EQ((int)seed.vertices.size(), V);
     HS_EXPECT_EQ((int)seed.face_counts.size(), F);
   }
@@ -543,7 +544,7 @@ inline void test_truncate_t_over_half_crossed_cuts() {
   check_face_counts_consistent(tr);
   check_indices_in_range(tr);
   HS_EXPECT_EQ(count_same_direction_edge_violations(tr), 0);
-  check_euler_genus0(tr);
+  check_euler_characteristic_two(tr);
   check_all_unit_vertices(tr, 1e-3f); // on-sphere implies finite
 
   HS_EXPECT_EQ(tr.vertices.size(), (size_t)24); // 2 * E

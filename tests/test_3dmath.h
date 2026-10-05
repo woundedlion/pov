@@ -798,15 +798,15 @@ inline void test_quaternion_conjugate_inverse() {
  *        (non-mutating).
  */
 inline void test_quaternion_normalize() {
-  math::Quaternion p(2, 0, 0, 0);
+  math::Quaternion p(1, 2, -2, 4);
   p.normalize();
   HS_EXPECT_NEAR(p.magnitude(), 1.0f, 1e-6f);
-  HS_EXPECT_QUAT(p, math::Quaternion(1, 0, 0, 0), 1e-6f);
+  HS_EXPECT_QUAT(p, math::Quaternion(0.2f, 0.4f, -0.4f, 0.8f), 1e-6f);
 
-  math::Quaternion u(3, 0, 0, 0);
+  math::Quaternion u(3, 6, -6, 12);
   math::Quaternion n = u.normalized();
-  HS_EXPECT_NEAR(u.r, 3.0f, 1e-6f);
-  HS_EXPECT_QUAT(n, math::Quaternion(1, 0, 0, 0), 1e-6f);
+  HS_EXPECT_QUAT(u, math::Quaternion(3, 6, -6, 12), 1e-6f);
+  HS_EXPECT_QUAT(n, math::Quaternion(0.2f, 0.4f, -0.4f, 0.8f), 1e-6f);
 }
 
 /**
@@ -1028,6 +1028,8 @@ inline void test_rotate() {
       math::make_rotation(math::Vector(1, 2, 3).normalized(), 1.234f);
   math::Vector r = math::rotate(v, q);
   HS_EXPECT_NEAR(r.length(), v.length(), 1e-3f);
+  HS_EXPECT_VEC(math::rotate(v, math::Quaternion(0, 0, 0, 1)),
+                math::Vector(-1, -2, 3), 1e-6f);
 
   // Composition: rotate(rotate(v, q1), q2) == rotate(v, q2 * q1).
   math::Quaternion q1 = math::make_rotation(math::Vector(0, 1, 0), 0.3f);

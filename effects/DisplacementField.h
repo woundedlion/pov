@@ -533,7 +533,7 @@ private:
                                          slot_by_ring, n_slots, *candidates,
                                          ring_shader);
 
-    // ScalarFn's inplace_function member is not trivially destructible;
+    // The device ScalarFn's inplace_function member is not trivially destructible;
     // placement-built shapes must be destroyed before the storage is reused.
     for (int s = 0; s < n_slots; ++s)
       shapes[s].~DistortedRing();

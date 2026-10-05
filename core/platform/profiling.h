@@ -503,7 +503,7 @@ struct CycleCounter {
    * @brief Finds the first registered counter whose name ends with @p suffix.
    * @param suffix Name suffix to match (e.g. "_buffer_wait").
    * @return The counter, or nullptr if none is registered yet (counters
-   *         self-register on first scope entry).
+   *         self-register at construction).
    */
   static CycleCounter *find_suffix(const char *suffix) {
     const size_t sl = strlen(suffix);

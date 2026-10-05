@@ -144,8 +144,8 @@ struct Volume {
    * Steps are overrelaxed by OVERRELAX_OMEGA (Keinert et al., "Enhanced Sphere
    * Tracing"): each sample's unbounding sphere must overlap its predecessor's,
    * and a step that breaks that overlap is rewound to the predecessor's surface
-   * and the ray finished conservatively, so the trace still cannot cross a
-   * surface undetected.
+   * and the ray finished without overrelaxation. The minimum step can still
+   * skip features thinner than that step.
    */
   template <typename Shape>
   static __attribute__((always_inline)) float

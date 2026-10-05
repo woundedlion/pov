@@ -901,6 +901,13 @@ test('staggered paths apply easing before ordered group scheduling', () => {
     groups: ['sample.pattern-freq', 'project.central-meridian',
       'sample.weight-mode', 'sample.coverage-mode'],
   };
+  const quarter = evaluateTransition(document.descriptor, document.preset_bank, 'calm', 'fast', 30);
+  assert.equal(quarter.raw_progress, 0.25);
+  assert.ok(Math.abs(quarter.eased_progress - (1 - Math.SQRT1_2) / 2) < 1e-7);
+  assert.ok(Math.abs(quarter.values['sample.pattern-freq'] - (7 - 3 * Math.SQRT2)) < 1e-6);
+  assert.equal(quarter.values['project.central-meridian'], Math.fround(6));
+  assert.equal(quarter.values['sample.weight-mode'], 'projection');
+  assert.equal(quarter.values['sample.coverage-mode'], 'none');
   const result = evaluateTransition(document.descriptor, document.preset_bank, 'calm', 'fast', 60);
   assert.equal(result.eased_progress, Math.fround(0.5));
   assert.equal(result.values['sample.pattern-freq'], Math.fround(4));

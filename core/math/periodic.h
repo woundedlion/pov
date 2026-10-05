@@ -27,16 +27,17 @@ template <typename T> inline T wrap_positive(T value, T period) {
 
 /**
  * @brief Wraps a floating-point value around a modulo base (m).
- * @details Result is non-negative and in [0, m). Precondition: m > 0 (the debug
- *   `assert(m > 0)` enforces it; under NDEBUG the `fmax(m, min())` floor below
- *   clamps a non-positive m to the smallest positive value rather than yielding
- *   NaN/garbage). An all-integral call is rejected by static_assert; use the
+ * @details Requires m > 0 (checked by a debug assert). The effective base is
+ *   max(m, numeric_limits<R>::min()), where R is the common result type, so
+ *   positive subnormal bases also use the smallest positive normal value.
+ *   Under NDEBUG, non-positive or NaN bases use that floor too.
+ *   An all-integral call is rejected by static_assert; use the
  *   exact `wrap(int, int)` overload below.
  * @tparam T The type of the value being wrapped (e.g., float).
  * @tparam U The type of the modulo base.
- * @param x The value to wrap.
- * @param m The modulo base.
- * @return The wrapped value in the range [0, m), as `std::common_type_t<T, U>`
+ * @param x Finite value to wrap.
+ * @param m Positive modulo base, floored to the result type's minimum normal.
+ * @return The wrapped value in [0, effective base), as `std::common_type_t<T, U>`
  *   (preserves the float math, so `wrap(3, 2.5f)` yields 0.5f).
  */
 template <typename T, typename U>
@@ -46,7 +47,7 @@ inline std::common_type_t<T, U> wrap(T x, U m) {
                 "double fmod path; use the exact wrap(int, int) overload");
   using R = std::common_type_t<T, U>;
   assert(m > 0);
-  // Branchless floor to the smallest positive value (the hot SDF angular-repeat
+  // Branchless floor to the smallest positive normal (the hot SDF angular-repeat
   // path forbids a branch); fmax(NaN, y) == y also blocks a NaN base.
   const R mm = std::fmax(static_cast<R>(m), std::numeric_limits<R>::min());
   return wrap_positive(static_cast<R>(x), mm);
@@ -125,13 +126,12 @@ inline float fast_wrap(float x, int W) {
  * between two points on a circular domain.
  * @param a The first position.
  * @param b The second position.
- * @param m The modulo base (length of the domain).
- * @return The shortest distance in the range [0, m/2].
+ * @param m Positive domain length, floored to the minimum normal float.
+ * @return The shortest distance in [0, effective domain length / 2].
  */
 inline float shortest_distance(float a, float b, float m) {
   assert(m > 0.0f);
-  // Same floor as wrap(): under NDEBUG a non-positive m returns a finite value
-  // rather than a NaN from fmod by zero, without widening the return range.
+  // Same minimum-normal floor as wrap(), including positive subnormal bases.
   m = std::fmax(m, std::numeric_limits<float>::min());
   // Double-fmod for full range reduction of an arbitrary a - b into [0, m).
   float d = std::fmod(std::fmod(a - b, m) + m, m);

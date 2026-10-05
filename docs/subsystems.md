@@ -889,7 +889,7 @@ SolidBuilder(dodecahedron(a, b), a, b)
 
 ## 7.8 Generators (`memory.h`)
 
-`memory.h` provides a single universal generation wrapper that manages arena lifecycle for all procedural geometry creation:
+`memory.h` provides a generation wrapper that manages arena lifecycle around a supplied callable:
 
 ```cpp
 namespace hs {
@@ -898,13 +898,13 @@ auto generate(Arena &target, GenerateFn &&fn, Args &&...args);
 }
 ```
 
-It resets both scratch arenas only at the outermost call (depth zero), scopes them on every call, then invokes `fn(target, scratch_a, scratch_b, args...)`. Nested calls preserve the caller's live scratch allocations. Direct registry lookups and effect geometry creation go through this wrapper for a deterministic arena lifecycle:
+It resets both scratch arenas only at the outermost call (depth zero), scopes them on every call, then invokes `fn(target, scratch_a, scratch_b, args...)`. Nested calls preserve the caller's live scratch allocations. Callers can use the wrapper for registry lookups and effect geometry creation:
 
 ```cpp
 auto mesh = hs::generate(persistent_arena, Solids::get_by_name, std::string_view("icosahedron"));
 ```
 
-One deliberate exception: `SolidBuilder`'s fluent Conway chain (`solid_generators.h`) owns its own two-arena ping-pong, swapping the scratch arenas between operators, so it manages arena lifecycle directly rather than through `generate()`.
+`SolidBuilder`'s fluent Conway chain (`solid_generators.h`) owns its own two-arena ping-pong, swapping the scratch arenas between operators, so it manages arena lifecycle directly rather than through `generate()`.
 
 ## 7.9 The Preset System (`control/choreography.h`)
 
@@ -1194,7 +1194,7 @@ Any checksum mismatch, wrong digit count, out-of-range digit, or stale partial f
            forever).
 ```
 
-**Epoch commit sequence.** `EPOCH` at ZERO boundary **B** schedules an absolute commit at **B + R + K** (R = 3 repeats, K = 2 construction revolutions).  A board hearing any repeat infers its position in the train from its own revolution count and lands on the *same* boundary:
+**Epoch commit sequence.** `EPOCH` at ZERO boundary **B** schedules an absolute commit at **B + R + K** (R = 3 repeats, K = 2 construction revolutions). A board with an absolute synchronized revolution count infers a repeat's position in the train and lands on the *same* boundary. A beacon-joined modulo-64 count can instead commit late on its first epoch (spec §6.3.1):
 
 ```
  ZERO boundary:   B        B+1      B+2      B+3      B+4      B+5
@@ -1207,7 +1207,7 @@ Any checksum mismatch, wrong digit count, out-of-range digit, or stale partial f
  all boards:     ░░ outgoing renders, but output is dark ░░░░░░── new effect
 ```
 
-The construction window is identical (K revolutions) on every board because construction can't begin before B+R — only then is the window's start common knowledge regardless of which copy each board heard.  An effect that can't construct inside K revolutions trips `HS_CHECK` (fail-fast).  All boards reseed `hs::random()` per effect build from `HS_PHANTASM_EFFECT_SEEDS[]` in `targets/Phantasm/phantasm_playlist.h` — `hs::stable_effect_seed(hs::stable_effect_id<name<CANVAS_W, CANVAS_H>>(#name))` in `core/platform/rng.h`, with `hs::epoch_seed(effect index)` the fallback when no seed table is supplied.  That seed is identical on every visit, so an entry replays the same stream each time it comes round, and the new instance is bit-identical across boards no matter what each board rendered — or whether it even existed — before the epoch.
+With absolute synchronized revolution counts, the construction window is identical (K revolutions) on every board because construction can't begin before B+R — only then is the window's start common knowledge regardless of which copy each board heard. An effect that can't construct inside K revolutions trips `HS_CHECK` (fail-fast). All boards reseed `hs::random()` per effect build from `HS_PHANTASM_EFFECT_SEEDS[]` in `targets/Phantasm/phantasm_playlist.h` — `hs::stable_effect_seed(hs::stable_effect_id<name<CANVAS_W, CANVAS_H>>(#name))` in `core/platform/rng.h`, with `hs::epoch_seed(effect index)` the fallback when no seed table is supplied. That seed is identical on every visit, so an entry replays the same stream each time it comes round, and the new instance is bit-identical across boards no matter what each board rendered — or whether it even existed — before the epoch.
 
 **Output envelope.** Nothing on the strip cuts at the commit: the ISR scales every packed column by `effect_output_envelope` (`pov_sync_content.h`), a fade-through-clear driven from the synchronized `rev_in_effect` and the column index alone.  An entry fades up over its first two revolutions and back down over its last two, and once `rev_in_effect` reaches the entry's configured duration the envelope is **zero**.  That is exactly the revolution at which the master starts the EPOCH train, so the LEDs are already dark at **B** and stay dark through the announce phase as well as the construction window — R + K = 5 revolutions, ~0.63 s at 480 RPM — before the incoming entry fades up from its own frame 0.  The window itself, not the counter, is what forces the zero: the beacon carries only six bits of revolution, so a board that joined an entry longer than 64 revolutions counts congruent to the master rather than equal to it and would otherwise read full brightness at **B**.  It steps to black with everyone else and misses only the ramp into it.  Otherwise a pure function of already-synchronized state, it needs nothing extra on the wire and every board computes the same value for the same column; the pack loop tests for full brightness first, so a mid-effect revolution pays no multiply.
 

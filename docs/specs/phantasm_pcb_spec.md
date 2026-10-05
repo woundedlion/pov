@@ -145,8 +145,8 @@ clean to **≥30 MHz** so headroom exists.
   (§2.3, R-PWR-11), **not** on the card. The card keeps only a small **C_IN (≥100 µF)** on its logic feed.
 - **R-PWR-4** **0.1 µF (C_DEC)** decoupling at the Teensy VIN pin and the U1 Vcc pin, within 3 mm,
   short via to the ground plane; plus **C_LF** on the logic rail (R-PWR-5).
-- **R-PWR-5 — Logic rail filter.** Two nodes now (no strip rail on the card): **+5V_RAW** (J1 → F1 →
-  Q_REV) → ferrite bead (≈600 Ω @ 100 MHz) → **+5V_LOGIC** (Teensy VIN + U1 Vcc + C_DEC + R_LF; C_LF is on LF_DAMP after R_LF). The
+- **R-PWR-5 — Logic rail filter.** The reverse-protected **+5V_PROT** node (Q_REV source) feeds the
+  ferrite bead (≈600 Ω @ 100 MHz) → **+5V_LOGIC** (Teensy VIN + U1 Vcc + C_DEC + R_LF; C_LF is on LF_DAMP after R_LF). The
   bead carries only the **~0.15 A logic branch**, isolating it from conducted noise on the shared rotor
   rail. **Damp the bead-LC** — a bead into a low-ESR ceramic is a high-Q tank that *peaks* noise at f₀:
   a **small series R (default 1–2 Ω, R_LF) ahead of C_LF**, or a few µF of **tantalum/ESR cap** in

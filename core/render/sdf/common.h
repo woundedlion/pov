@@ -502,14 +502,12 @@ inline void merge_intervals(StaticCircularBuffer<Interval, N> &merged,
 }
 
 /**
- * @brief Fold any real angle into [0, π], equivalent to acosf(cosf(x)) without
- *        trig.
+ * @brief Folds a finite angle into [0, PI_F] using the TWO_PI_F period.
  * @param x Angle in radians (any finite value).
- * @return Folded angle in [0, π].
- * @details cos is even and 2π-periodic, so fold the sign, reduce mod 2π, then
- *          reflect the upper half-period across the south pole. The full fold
- *          (not the [-π, 2π]-only short form) holds the equivalence for any
- * input (e.g. a Ring radius > 2 driving center_phi ± target_angle past range).
+ * @return Folded angle in [0, PI_F].
+ * @details Fold the sign, reduce mod TWO_PI_F, then reflect the upper half-period.
+ * With an exact 2π period this is acos(cos(x)); the rounded floating-point period
+ * makes the result differ from acosf(cosf(x)), especially for large angles.
  */
 inline float clamp_phi(float x) {
   x = fabsf(x);                 // cos(-x) = cos(x): fold negatives
@@ -526,17 +524,17 @@ struct PhiBand {
 };
 
 /**
- * @brief Exact colatitude extent of the circle of angular radius
- * `target_angle` about an axis at colatitude `center_phi`.
+ * @brief Folds the endpoint colatitudes of a circle into a band.
  * @param center_phi Axis colatitude in [0, π] (radians).
  * @param target_angle Angular radius of the circle (radians, any sign or
  * magnitude).
- * @return {phi_min, phi_max}: the tight band the circle occupies.
- * @details On the circle cos φ = cos(center_phi)cos(target_angle) −
+ * @return {phi_min, phi_max}: sorted folded endpoint colatitudes.
+ * @details In exact arithmetic, on the circle cos φ = cos(center_phi)cos(target_angle) −
  * sin(center_phi)sin(target_angle)cos ψ, so cos φ sweeps exactly
  * [cos(center_phi + target_angle), cos(center_phi − target_angle)] and the two
  * folded endpoints are its extremes; min/max orders them for a target_angle
- * outside [0, π]. Single source for the Ring/DistortedRing
+ * outside [0, π]. Floating-point reduction uses clamp_phi's rounded period.
+ * Single source for the Ring/DistortedRing
  * get_vertical_bounds latitude fold so the two cannot drift apart.
  */
 inline PhiBand clamp_phi_band(float center_phi, float target_angle) {

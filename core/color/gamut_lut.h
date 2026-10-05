@@ -42,7 +42,7 @@ inline constexpr int GAMUT_LUT_ENTRIES =
  * @brief Arena bytes an (angle_steps x l_steps) bracket copy occupies.
  * @param angle_steps Diamond-angle buckets requested.
  * @param l_steps Lightness buckets requested.
- * @return Byte size of that grid plus its worst-case alignment padding, for
+ * @return Byte size of that grid plus an alignment allowance, for
  *         arena budget static_asserts.
  */
 inline constexpr size_t gamut_lut_bytes(int angle_steps, int l_steps) {

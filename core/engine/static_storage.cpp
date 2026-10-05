@@ -35,7 +35,7 @@ uint32_t global_timeline_t = 0;
  */
 int global_timeline_num_events = 0;
 /**
- * @brief Monotonic count of animations rejected because the timeline was full.
+ * @brief Modulo-2^32 count of animations rejected because the timeline was full.
  * @details Never reset, including across Timeline instances (see timeline.h).
  */
 uint32_t global_timeline_dropped = 0;

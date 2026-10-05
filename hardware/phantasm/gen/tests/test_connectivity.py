@@ -166,7 +166,7 @@ class CustomPrimitiveBoundsTests(unittest.TestCase):
         for primitive in (
                 "(gr_line (start -2 -1) (end 3 4) (width 0.2))",
                 "(gr_rect (start -2 -1) (end 3 4) (width 0.2))",
-                "(gr_arc (start 2 0) (mid 0 2) (end -2 0) (width 0.2))"):
+                "(gr_arc (start 1.6 1.2) (mid -1.2 1.6) (end -1.6 -1.2) (width 0.2))"):
             with self.subTest(primitive=primitive):
                 pad = sexp.parse_one(
                     '(pad "1" smd custom (at 0 0) (size 0.1 0.1) '
