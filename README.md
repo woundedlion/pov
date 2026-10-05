@@ -1352,7 +1352,7 @@ below are for Holosphere:
 1. Install [Arduino IDE](https://www.arduino.cc/en/software) with Teensyduino (or use [Visual Micro](https://www.visualmicro.com/) for Visual Studio).
 2. Install the `FastLED` library.
 3. Open `targets/Holosphere/Holosphere.ino`.
-4. In Visual Micro, set **Additional Include Directories** to: `../..;../../core;../../hardware`.
+4. In Visual Micro, set **Additional Include Directories** to: `../..;../../core;../../effects;../../hardware`.
 5. Select **Board: Teensy 4.0**, **CPU Speed: 600 MHz**.
 6. Upload.
 
