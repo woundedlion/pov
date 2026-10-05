@@ -1423,7 +1423,7 @@ private:
   };
 
   // init() takes the palette cycler's generated arena, the external ParamDef
-  // array and one State from the persistent arena.
+  // array, one State and qualified parameter names from the persistent arena.
   static constexpr size_t FOOTPRINT_BYTES =
       PaletteCycler::generated_arena_bytes() +
       PARAM_CAPACITY * sizeof(ParamDef) + sizeof(State) + alignof(State) +
