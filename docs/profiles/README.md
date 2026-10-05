@@ -33,11 +33,11 @@ render exceeded one 62.5 ms window. Colours are strict per config: 🟢 zero spi
 `63268c376` O3 versus `20ca3cb48` shipping; their image deltas include source
 changes. Other image deltas use each O3 capture's own same-source shipping pair, including
 retired shipping captures. They match the currently linked shipping report only
-where that report belongs to the same capture pair.
+where that report belongs to the same capture pair. GSReactionDiffusion’s O3
+column and image deltas predate the October 5 shipping optimization.
 
 | Effect | Dominant scope | Ship peak ms | O3 peak ms | Ship spilled | O3 spilled | FLASH code Δ | ITCM Δ | Captured |
 |---|---|--:|--:|--:|--:|--:|--:|---|
-| [GSReactionDiffusion](shipping/profile_gsreactiondiffusion_teensy_2026-09-30.md) / [O3](O3/profile_gsreactiondiffusion_teensy_2026-09-30.md) | `grd_render` | 🔴 313.695 | 🔴 279.686 | 🔴 443/443 (100.00%) | 🔴 538/538 (100.00%) | +16,024 B | +10,832 B | ship 2026-09-30 19:21<br>O3 2026-09-30 19:15 |
 | [Raymarch](shipping/profile_raymarch_teensy_2026-09-28.md) / [O3](O3/profile_raymarch_teensy_2026-09-20.md) | `rm_shader_draw` | 🟢 54.87 | 🟢 56.04 | 🟢 0/1087 (0.00%) | 🟢 0/1736 (0.00%) | +12,568 B | +7,904 B | ship 2026-09-28 19:09<br>O3 2026-09-20 23:07 |
 | [MindSplatter](shipping/profile_mindsplatter_architecture_teensy_2026-10-01.md) / [O3](O3/profile_mindsplatter_architecture_teensy_2026-10-01.md) § ● | `msp_draw_particles` | 🟢 54.457 (8) | 🟢 54.539 (8) | 🟢 0/1736 (0.00%) | 🟢 0/1736 (0.00%) | +21,976 B | +17,200 B | ship 2026-10-01 09:15<br>O3 2026-10-01 09:22 |
 | [ShapeShifter](shipping/profile_shapeshifter_teensy_2026-09-29.md) / [O3](O3/profile_shapeshifter_teensy_2026-09-25.md) § | `ss_draw_all` | 🟢 53.22 (9) | 🟢 60.05 (9) | 🟢 0/2448 (0.00%) | 🟢 0/2457 (0.00%) | +29,288 B | +24,496 B | ship 2026-09-29 22:38<br>O3 2026-09-25 07:29 |
@@ -50,6 +50,7 @@ where that report belongs to the same capture pair.
 | [KaleidoscopeStainedGlass](shipping/profile_kaleidoscopestainedglass_teensy_2026-09-28.md) / [O3](O3/profile_kaleidoscopestainedglass_teensy_2026-08-26.md) | `fx_shader_draw` | 🟢 43.50 | 🟢 46.99 | 🟢 0/1087 (0.00%) | 🟢 0/1088 (0%) | +13,784 B | +11,632 B | ship 2026-09-28 17:35<br>O3 2026-08-26 02:51 |
 | [DreamBalls](shipping/profile_dreamballs_teensy_2026-09-28.md) / [O3](O3/profile_dreamballs_teensy_2026-08-26.md) § | `db_timeline_step` | 🟢 42.66 (10) | 🟢 34.32 (11) | 🟢 0/3647 (0.00%) | 🟢 0/3648 (0%) | +26,896 B | +12,352 B | ship 2026-09-28 18:45<br>O3 2026-08-26 02:19 |
 | [MermaidSkin](shipping/profile_mermaidskin_teensy_2026-09-28.md) / [O3](O3/profile_mermaidskin_teensy_2026-08-26.md) | `fx_shader_draw` | 🟢 39.57 | 🟢 54.55 | 🟢 0/1087 (0.00%) | 🟢 0/1088 (0%) | +16,544 B | +11,952 B | ship 2026-09-28 18:49<br>O3 2026-08-26 02:43 |
+| [GSReactionDiffusion](shipping/profile_gsreactiondiffusion_teensy_2026-10-05.md) / [O3](O3/profile_gsreactiondiffusion_teensy_2026-09-30.md) ● | `grd_shader_draw` | 🟢 39.271 | 🔴 279.686 | 🟢 0/2032 (0.00%) | 🔴 538/538 (100.00%) | +16,024 B | +10,832 B | ship 2026-10-05 00:38<br>O3 2026-09-30 19:15 |
 | [KaleidoscopeHexOil](shipping/profile_kaleidoscopehexoil_teensy_2026-09-28.md) / [O3](O3/profile_kaleidoscopehexoil_teensy_2026-08-26.md) § | `fx_shader_draw` | 🟢 38.51 (2) | 🟢 38.94 (3) | 🟢 0/2207 (0.00%) | 🟢 0/2208 (0%) | +13,456 B | +10,608 B | ship 2026-09-28 18:54<br>O3 2026-08-26 02:49 |
 | [HyperLattice](shipping/profile_hyperlattice_architecture_teensy_2026-10-01.md) / [O3](O3/profile_hyperlattice_architecture_teensy_2026-10-01.md) § ● | `hl_shader_draw` | 🟢 36.839 (3) | 🟢 36.975 (3) | 🟢 0/2696 (0.00%) | 🟢 0/2696 (0.00%) | +9,616 B | +4,912 B | ship 2026-10-01 09:19<br>O3 2026-10-01 09:26 |
 | [LatticeMelt](shipping/profile_latticemelt_architecture_teensy_2026-10-01.md) / [O3](O3/profile_latticemelt_architecture_teensy_2026-10-01.md) § ● | `fx_shader_draw` | 🟢 36.583 (2) | 🟢 38.705 (2) | 🟢 0/1736 (0.00%) | 🟢 0/1736 (0.00%) | +25,752 B | +19,472 B | ship 2026-10-01 09:38<br>O3 2026-10-01 09:49 |
@@ -76,7 +77,7 @@ where that report belongs to the same capture pair.
 | [Voronoi](shipping/profile_voronoi_teensy_2026-09-28.md) / [O3](O3/profile_voronoi_teensy_2026-08-26.md) | `vo_shade` | 🟢 8.51 | 🟢 7.71 | 🟢 0/1087 (0.00%) | 🟢 0/1088 (0%) | +15,568 B | +12,688 B | ship 2026-09-28 19:15<br>O3 2026-08-26 01:39 |
 | [RingShower](shipping/profile_ringshower_teensy_2026-09-28.md) / [O3](O3/profile_ringshower_teensy_2026-08-26.md) | `rsh_draw_rings` | 🟢 4.33 | 🟢 3.86 | 🟢 0/1087 (0.00%) | 🟢 0/1088 (0%) | +16,336 B | +15,136 B | ship 2026-09-28 19:11<br>O3 2026-08-26 01:36 |
 
-● Architecture captures refreshed 2026-10-01: MindSplatter, HyperLattice, LatticeMelt, ChromaticLichen and KaleidoscopeSmooth. Setup frame 1 is excluded. Cycler buckets include every live owner-attributed transition frame; each report lists per-preset peaks, fractions and the worst preset. Captured times are local raw-log mtimes.
+● GSReactionDiffusion shipping refreshed 2026-10-05. Architecture captures refreshed 2026-10-01: MindSplatter, HyperLattice, LatticeMelt, ChromaticLichen and KaleidoscopeSmooth. Setup frame 1 is excluded. Cycler buckets include every live owner-attributed transition frame; each report lists per-preset peaks, fractions and the worst preset. Captured times are local raw-log mtimes.
 
 § Cyclers carry one aligned line per parser-owned colour bucket, worst first;
 (N) counts parser-owned preset, shape, or mode entries in that colour bucket.
