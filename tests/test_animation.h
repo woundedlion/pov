@@ -2637,20 +2637,19 @@ struct FinalSegue final : Segue::Base {
   math::Vector warp(const math::Vector &v, float, int) const { return v; }
 };
 
-/** @brief A policy shadowing Base's visible() with a float: every phase would
- * read as visible. */
+/** @brief A policy shadowing Base's visible() with a float: nonzero phases
+ * convert to true. */
 struct DriftedVisibleSegue : Segue::Base {
   float visible(float phase) const { return phase; }
 };
 
-/** @brief A policy taking fill()'s edge distance by value: the call site still
- * compiles and the remap it writes is discarded. */
+/** @brief A policy taking fill()'s edge distance by value instead of a mutable
+ * reference. */
 struct DriftedFillSegue : Segue::Base {
   float fill(float t, float) const { return t; }
 };
 
-/** @brief A policy grading through a Color4 reference: the call site still
- * compiles and every fragment lands on the last graded color. */
+/** @brief A policy taking grade()'s Color4 by reference instead of by value. */
 struct DriftedGradeSegue : Segue::Base {
   Color4 grade(Color4 &c, float) const { return c; }
 };
