@@ -222,8 +222,8 @@ public:
    *       bypass the transform.
    */
   virtual const Pixel &get_pixel(int x, int y) const {
-    // Debug-only bounds guard, matching the write-path accessors (stripped on
-    // device, catches an out-of-range display read in test/sim).
+    // Bounds guard is stripped in NDEBUG builds (device and release WASM);
+    // native tests and debug WASM catch out-of-range display reads.
     assert(x >= 0 && x < frame_width && y >= 0 && y < frame_height);
     return bufs[prev.load(std::memory_order_relaxed)][y * frame_width + x];
   }
