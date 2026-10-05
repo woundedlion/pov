@@ -18,8 +18,8 @@
  *     Euler characteristic 2 on the hankin(54 deg) seed, with the {DUAL, KIS}
  *     lowering matching MeshOps::needle.
  *   - Build-chain provenance: face-centroid spacing per intermediate mesh
- *     against PROVENANCE_TOL_SQ, nearest/second-nearest ambiguity of the
- *     lookups build_palette_mapping actually performs, and the mapping path
+ *     against PROVENANCE_TOL_SQ, nearest/second-nearest ambiguity bounding the
+ *     newborn lookups build_palette_mapping performs, and the mapping path
  *     and prev_faces each real leg takes.
  */
 #pragma once
@@ -981,7 +981,7 @@ inline void test_build_chain_provenance_ambiguity() {
       misidentified += leg_misidentified;
       worst_prefix_offset = std::max(worst_prefix_offset, max_prefix_offset);
 
-      // Newborn path: one nearest-centroid lookup per newborn face.
+      // Every newborn bounds production's first-newborn-per-class ambiguity.
       float max_ratio = 0.0f;
       float max_newborn_d1 = 0.0f;
       for (size_t f = prev_faces; f < total; ++f) {
