@@ -287,9 +287,8 @@ inline void test_withbg_length() {
 }
 
 /**
- * @brief The bytes the controller hands to DMA are exactly the HD107S wire image
- * an independently packed frame produces — pixels → correction → wire, verified
- * end-to-end through the controller.
+ * @brief Verifies the transmitted HD107S framing and BGR bytes against the
+ * input colors, then pins corrected white's encoded channels.
  */
 inline void test_end_to_end_wire_bytes() {
   hd107s_tests::reset_correction<N>();
