@@ -27,6 +27,9 @@ constexpr int SEARCH_FRAME_STRIDE = 8;
 constexpr unsigned long FRAME_MS = 16;
 constexpr unsigned long FRAME_US = 16000;
 constexpr uint32_t SEARCH_SEED = 1337;
+constexpr uint64_t ADAPTIVE_SCORE_WEIGHT = 64;
+constexpr uint64_t LONG_EDGE_SCORE_WEIGHT = 512;
+constexpr uint64_t SHADER_SCORE_WEIGHT = 8;
 constexpr uint32_t TRAIT_SATURATED = 1u << 0;
 constexpr uint32_t TRAIT_LONG_EDGE = 1u << 3;
 constexpr uint32_t TRAIT_MEASURED_WORST = 1u << 5;
@@ -78,8 +81,10 @@ Workload read_workload() {
   workload.fragment_shader_calls = counts.fragment_shader_calls;
   for (size_t taps = 1; taps < std::size(counts.aa_tap_masks); ++taps)
     workload.tap_writes += taps * counts.aa_tap_masks[taps];
-  workload.score = workload.adaptive_samples * 64 + workload.long_edges * 512 +
-                   workload.fragment_shader_calls * 8 + workload.tap_writes;
+  workload.score = workload.adaptive_samples * ADAPTIVE_SCORE_WEIGHT +
+                   workload.long_edges * LONG_EDGE_SCORE_WEIGHT +
+                   workload.fragment_shader_calls * SHADER_SCORE_WEIGHT +
+                   workload.tap_writes;
   return workload;
 }
 
@@ -260,11 +265,15 @@ int main(int argc, char **argv) {
   const std::string source =
       refresh
           ? frozen.source
-          : "seed=1337 presets=0.." +
+          : "seed=" + std::to_string(SEARCH_SEED) + " presets=0.." +
                 std::to_string(WhiteBox::preset_count<WIDTH, HEIGHT>() - 1) +
-                " frames=136..384/8 clips=quadrants "
-                "renderer=generic-reference "
-                "score=64*adaptive+512*long+8*shader+taps";
+                " frames=" + std::to_string(FIRST_SEARCH_FRAME) + ".." +
+                std::to_string(LAST_SEARCH_FRAME) + "/" +
+                std::to_string(SEARCH_FRAME_STRIDE) +
+                " clips=quadrants renderer=generic-reference score=" +
+                std::to_string(ADAPTIVE_SCORE_WEIGHT) + "*adaptive+" +
+                std::to_string(LONG_EDGE_SCORE_WEIGHT) + "*long+" +
+                std::to_string(SHADER_SCORE_WEIGHT) + "*shader+taps";
   uint32_t traits = refresh ? frozen.traits : TRAIT_MEASURED_WORST;
   if (selected->aggregate.long_edges > 0)
     traits |= TRAIT_LONG_EDGE;
