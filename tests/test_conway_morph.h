@@ -2340,7 +2340,7 @@ inline void test_relax_leg_on_recipe_seeds_holds_topology() {
 // truncate sweep down to dual(P). These gate the medial leg (the new slerp
 // segment) on the real DUAL-leg seeds: the endpoints match ambo(P)/ambo(dual(P))
 // to tolerance (the correspondence proof), and across the sampled slerp there
-// are no inward face normals or degenerate fan triangles, the signed total
+// are no inward face normals or collapsed total face areas, the signed total
 // solid angle stays at 4pi, consecutive vertices move by bounded steps, and
 // the endpoint inputs are not antipodal.
 // ---------------------------------------------------------------------------
@@ -2431,7 +2431,7 @@ inline double medial_total_solid_angle(const PolyMesh &m) {
   return total;
 }
 
-/** @brief Smallest planar triangle-fan area over all faces. */
+/** @brief Smallest face area, summed from its planar triangle fan. */
 inline double medial_min_face_area(const PolyMesh &m) {
   double mn = 1e9;
   size_t off = 0;
