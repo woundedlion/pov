@@ -318,6 +318,26 @@ concept Plottable =
       p.plot(cv, v, c, 0.0f, 0.0f);
     };
 
+/** @brief Dispatches a clip query through world stages or a bare plot provider. */
+template <typename PipelineT, typename Pred>
+inline bool pipeline_could_intersect_clip(PipelineT &pipeline,
+                                          const math::Vector &a,
+                                          const math::Vector &b,
+                                          const math::Basis *pb, Pred &&pred) {
+  if constexpr (requires {
+                  pipeline.could_intersect_clip(a, b, pb,
+                                                std::forward<Pred>(pred));
+                }) {
+    return pipeline.could_intersect_clip(a, b, pb, std::forward<Pred>(pred));
+  } else {
+    static_assert(
+        !requires { PipelineT::any_crosses_segments; },
+        "pipeline exposes any_crosses_segments but not "
+        "could_intersect_clip (signature drift)");
+    return pred(a, b, pb);
+  }
+}
+
 /**
  * @brief Non-owning, type-erased handle to a rasterizer pipeline.
  * @details Forwards plot() calls (2D screen-space or 3D world-space) to the
@@ -363,24 +383,8 @@ class PipelineRef {
     };
     cull = [](void *pipeline, const math::Vector &a, const math::Vector &b,
               const math::Basis *pb, CullEdgePredRef pred) -> bool {
-      // Real pipelines route the edge through their world stages; a bare
-      // plot-provider (test stub) has no world transform, so test it directly.
-      if constexpr (requires {
-                      static_cast<T *>(pipeline)->could_intersect_clip(a, b, pb,
-                                                                       pred);
-                    })
-        return static_cast<T *>(pipeline)->could_intersect_clip(a, b, pb, pred);
-      else {
-        // A filter pipeline (has any_crosses_segments) must answer the clip
-        // query; only a bare plot stub legitimately falls through to pred. Catch
-        // a could_intersect_clip signature drift that would else silently
-        // degrade world-aware culling to raw-geometry culling.
-        static_assert(
-            !requires { T::any_crosses_segments; },
-            "pipeline exposes any_crosses_segments but not "
-            "could_intersect_clip (signature drift)");
-        return pred(a, b, pb);
-      }
+      return pipeline_could_intersect_clip(*static_cast<T *>(pipeline), a, b,
+                                           pb, pred);
     };
   }
 

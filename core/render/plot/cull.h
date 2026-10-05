@@ -1529,18 +1529,8 @@ static inline bool
 edge_visible_in_clip_dispatch(PipelineT &pipeline, const math::Vector &a,
                               const math::Vector &b, const math::Basis *pb,
                               Pred &&pred) {
-  if constexpr (requires {
-                  pipeline.could_intersect_clip(a, b, pb,
-                                                std::forward<Pred>(pred));
-                }) {
-    return pipeline.could_intersect_clip(a, b, pb, std::forward<Pred>(pred));
-  } else {
-    static_assert(
-        !requires { PipelineT::any_crosses_segments; },
-        "pipeline exposes any_crosses_segments but not "
-        "could_intersect_clip (signature drift)");
-    return pred(a, b, pb);
-  }
+  return pipeline_could_intersect_clip(pipeline, a, b, pb,
+                                       std::forward<Pred>(pred));
 }
 
 /**
