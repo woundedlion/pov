@@ -20,7 +20,7 @@
  * @tparam W Framebuffer width in pixels.
  * @tparam H Framebuffer height in pixels.
  * @details Both systems run on the same 7680-node Fibonacci-lattice K-NN graph,
- * share a Languid random-walk view orientation, build the cached node positions
+ * share a Languid random-walk view orientation, build or bind the node positions
  * once at init (the lattice is static), interpolate with a compact biweight
  * kernel (C1 at the support edge), and seed fields with saturated blobs. This base
  * captures exactly that shared scaffolding. The physics (Lotka-Volterra
@@ -604,5 +604,5 @@ protected:
       cube_lut;      /**< Cubemap LUT for fast nearest-node seeding. */
   Timeline timeline; /**< Animation timeline advancing the orientation. */
   const math::Vector *nodes =
-      nullptr; /**< Fixed Fibonacci-lattice node positions (RD_N), built once by init_lattice() and shared by both systems. */
+      nullptr; /**< Fixed lattice node positions (RD_N): arena copy for BZ, flash table under FlashNodes for GS. */
 };
