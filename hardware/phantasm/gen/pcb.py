@@ -1185,7 +1185,7 @@ def main(unplaced=False, force=False, force_teensy_library=False):
         atomic_write_text(fplt, '(fp_lib_table\n\t(version 7)\n'
                 '\t(lib (name "phantasm")(type "KiCad")(uri "${KIPRJMOD}/phantasm.pretty")'
                 '(options "")(descr "PHANTASM custom footprints"))\n)\n')
-    print(f"wrote {OUTFILE}  footprints:{len(foot_nodes)} nets:{len(netid)} length:{L:.0f}mm")
+    print(f"wrote {OUTFILE}  footprints:{len(foot_nodes)} nets:{len(netid)} length:{fmt(L)}mm")
 
 
 def parse_args(argv=None):
