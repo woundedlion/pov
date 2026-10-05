@@ -80,15 +80,19 @@ def dangling_pins(root):
     libs = {node[1]: builder._index_unit_pins(node)
             for node in sexp.val(root, "lib_symbols", [])
             if isinstance(node, list) and node and node[0] == "symbol"}
-    named, wires, junctions = shorts.geometry(root)
-    anchors = set(named) | set(junctions)
+    _, wires, junctions = shorts.geometry(root)
+    anchors = set(junctions)
+    anchors.update(shorts.R(sexp.val(node, "at"))
+                   for kind in ("label", "global_label", "hierarchical_label")
+                   for node in F(root, kind))
     anchors.update(shorts.R(tuple(map(float, sexp.val(node, "at"))))
                    for node in F(root, "no_connect"))
     for a, b in wires:
         anchors.add(a)
         anchors.add(b)
-    loose = []
-    for inst in F(root, "symbol"):
+    placed = []
+    owners = {}
+    for index, inst in enumerate(F(root, "symbol")):
         at = sexp.val(inst, "at")
         mirror = sexp.val(inst, "mirror")
         units = libs[sexp.val(inst, "lib_id")[0]]
@@ -99,12 +103,31 @@ def dangling_pins(root):
                 float(at[0]), float(at[1]),
                 float(at[2]) if len(at) > 2 else 0.0,
                 mirror[0] if mirror else None, pin["x"], pin["y"]))
-            if point in anchors:
-                continue
             ref = next((p[2] for p in F(inst, "property")
                         if p[1] == "Reference"), None)
-            loose.append((ref, number, point))
-    return loose
+            placed.append((index, ref, number, point))
+            owners.setdefault(point, set()).add(index)
+    return [(ref, number, point) for index, ref, number, point in placed
+            if point not in anchors and not (owners[point] - {index})]
+
+
+class PowerPinAnchorTests(unittest.TestCase):
+    def test_floating_power_pin_is_reported(self):
+        root = sexp.parse_one('''(kicad_sch
+            (lib_symbols (symbol "power:GND" (symbol "GND_1_1"
+                (pin power_in line (at 0 0 90) (length 0)
+                    (name "GND") (number "1")))))
+            (symbol (lib_id "power:GND") (at 100 100 0) (unit 1)
+                (property "Reference" "#PWR1") (property "Value" "GND")))''')
+        self.assertEqual(dangling_pins(root), [("#PWR1", "1", (100.0, 100.0))])
+
+    def test_coincident_pins_from_other_symbols_are_anchors(self):
+        root = sexp.parse_one(LANDED.replace(
+            '(label "NET_B" (at 100 103.81 0))',
+            '(symbol (lib_id "Device:R") (at 100 107.62 0) (unit 1)'
+            ' (property "Reference" "R2"))'
+            ' (label "NET_C" (at 100 111.43 0))'))
+        self.assertEqual(dangling_pins(root), [])
 
 
 class BoardEntryPointTests(unittest.TestCase):
