@@ -314,9 +314,9 @@ template <typename A, typename B> struct SmoothUnion {
    * @note Only `dist` is blended across the weld; the auxiliary registers
    *       (`t`/`raw_dist`/`size`/UVs) snap to the nearer child, so a shader
    * keying off them sees a hard edge through the weld.
-   * @warning The cubic smin pulls `dist` below the true distance near the weld,
-   *          so this SDF is not sphere-tracing-safe (unlike WarpedVolume's
-   *          Lipschitz-corrected distance) — scanline rasterization only.
+   * @warning Child metrics need not bound spherical clearance, so this
+   *          operation supplies no sphere-tracing clearance guarantee;
+   *          use it with scanline rasterization.
    */
   template <bool ComputeUVs = true>
   void distance(const math::Vector &p, DistanceResult &res) const {
