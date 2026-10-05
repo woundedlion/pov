@@ -19,7 +19,7 @@ namespace Pullback {
 
 namespace Lens {
 
-/** @brief Empty parameter family; no composed or chain stage consumes it. */
+/** @brief Empty parameter family of the parameterless lens operators. */
 struct NoLensParams {
   static constexpr std::array<Field<NoLensParams>, 0> FIELDS{};
 };
