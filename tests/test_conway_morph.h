@@ -434,7 +434,7 @@ inline void test_jitterbug_octa_end_covers_octahedron() {
  *        the icosa point to the T_JITTERBUG_OCTA_MIN clamp with the tabled twist
  *        endpoints — holds V12/F20/E30 with two-face edge incidence,
  *        >= 3-side faces, and unit vertices, with the collapsing edge never
- *        shorter than the clamp chord (spec section 7.2 for the new edge).
+ *        shorter than the clamp chord (spec section 7.2 for the edge).
  */
 inline void test_jitterbug_sweep_holds_topology() {
   constexpr int SAMPLES = 17;
@@ -1993,11 +1993,9 @@ inline void test_opleg_hankin_sweep_smoke() {
                                              .prev_faces =
                                                  seed.face_counts.size()};
 
-    // Per-frame motion bound: growing star points out from their corners keeps
-    // every step small and unimodal. Re-solving the contact-plane intersection
-    // per frame instead sends star points on geodesic excursions (measured to
-    // 1.84 chord on ambo-of-hankin seeds), which draws as lines crossing the
-    // pattern; the bound is what stops that parameterization coming back.
+    // Growing star points from their corners keeps per-frame steps small and
+    // unimodal; per-frame contact-plane re-solves reach 1.84 chord on
+    // ambo-of-hankin seeds.
     constexpr float MAX_STEP_CHORD = 0.15f;
     LegDrawProbe probe;
     auto cb = [&](Canvas &, const MeshState &m,
@@ -2353,7 +2351,7 @@ inline void test_relax_leg_on_recipe_seeds_holds_topology() {
 // connectivity with both endpoint vertex sets a_e (== ambo(P)) and b_e
 // (== ambo(dual(P))). The smooth dual replaces the instant partition swap with
 // a truncate sweep to ambo(P), a slerp of every medial vertex a_e -> b_e, and a
-// truncate sweep down to dual(P). These gate the medial leg (the new slerp
+// truncate sweep down to dual(P). These gate the medial leg (the slerp
 // segment) on the real DUAL-leg seeds: the endpoints match ambo(P)/ambo(dual(P))
 // to tolerance (the correspondence proof), and across the sampled slerp there
 // are no inward face normals or collapsed total face areas, the signed total
@@ -3309,7 +3307,7 @@ inline void test_opleg_gated_swap_smoke() {
 }
 
 /**
- * @brief Smoke-tests one leg of each new recipe-step kind end to end.
+ * @brief Smoke-tests one leg of each recipe-step kind end to end.
  */
 inline void test_opleg_step_leg_smoke() {
   // Leg lengths mirror IslamicStars' budget (spec section 7): 24 frames for an
