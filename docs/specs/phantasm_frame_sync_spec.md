@@ -880,7 +880,7 @@ low-rate sync-symbol boundaries to EMI (section 10).
 
 Invariants:
 
-1. **Hot path stays branchless / time-light.** Each wake-up does one
+1. **Hot path stays time-light.** Each wake-up does one
    cycle-counter read and the 64-bit position computation; ~7 of 8 entries
    end there (≈1 % CPU at 600 MHz — the foreground keeps the rest for
    rendering), and a column change packs fresh pixels
