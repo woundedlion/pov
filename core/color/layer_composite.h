@@ -57,9 +57,9 @@ struct LayerComposite {
   }
 
   /**
-   * @brief Whether remaining transmittance is below the encodable alpha floor.
-   * @return True once the remaining transmittance is below the smallest
-   *   encodable alpha. Further layers can still change a rounded output code.
+   * @brief Whether remaining transmittance is below the per-sample alpha floor.
+   * @return True once the remaining transmittance is below MIN_ENCODABLE_ALPHA.
+   *   Further layers can still change a rounded output code.
    */
   bool saturated() const { return remaining < MIN_ENCODABLE_ALPHA; }
 
