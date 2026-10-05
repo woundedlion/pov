@@ -1431,9 +1431,8 @@ inline void test_mobius_automatic_departures_retain_lens() {
     expected.template get<"lens">().mobius = live;
     verify_params_equal(effect->params, expected);
     HS_EXPECT_FALSE(transition.active);
-    HS_EXPECT_TRUE(effect->synchronizePreset(0));
-    verify_params_equal(effect->params,
-                        preset_params_or_initial<MobiusFrameProbe>(0));
+    HS_EXPECT_TRUE(effect->synchronizePreset(1));
+    verify_params_equal(effect->params, target);
   }
 }
 
