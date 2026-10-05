@@ -928,7 +928,7 @@ public:
 
   /**
    * @brief Returns the effect-size map for the active resolution.
-   * @return JS object mapping each effect name to its hint size at the current
+   * @return JS object mapping each effect name to its sizeof, in bytes, at the current
    *         resolution; empty map if unsupported/uninitialized.
    */
   emscripten::val getEffectSizes() const {
@@ -1043,10 +1043,10 @@ private:
   }
 
   /**
-   * @brief Builds the {effect name -> hint size} map for the (W,H) factory.
+   * @brief Builds the {effect name -> sizeof, in bytes} map for the (W,H) factory.
    * @tparam W Canvas width in pixels.
    * @tparam H Canvas height in pixels.
-   * @return JS object mapping each effect name to its hint size, for the GUI.
+   * @return JS object mapping each effect name to its sizeof, in bytes, for the GUI.
    */
   template <int W, int H> static emscripten::val get_effect_sizes_helper() {
     emscripten::val s = emscripten::val::object();
