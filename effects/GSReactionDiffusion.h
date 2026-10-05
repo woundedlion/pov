@@ -384,8 +384,9 @@ private:
     }
   };
 
-  HS_O3_FN Pixel modified_palette_color(int seed, float t, float shift,
-                                        float lightness) const {
+  HS_HOT_FLASH_MEMBER Pixel modified_palette_color(int seed, float t,
+                                                   float shift,
+                                                   float lightness) const {
     if (shift == 0.0f && lightness == 0.0f)
       return palette_color(seed, t);
     const Color4 SOURCE(palette_color(seed, t), 1.0f);
@@ -395,7 +396,7 @@ private:
         .color;
   }
 
-  HS_O3_FN void refresh_color_palettes(bool complete = false) {
+  HS_HOT_FLASH_MEMBER void refresh_color_palettes(bool complete = false) {
     color_noise_enabled = params.hue_shift != 0.0f || params.shimmer != 0.0f;
     color_palette_exact = !color_noise_enabled ||
                           fabsf(params.hue_shift) > CACHED_HUE_LIMIT ||
