@@ -407,10 +407,10 @@ template <typename A, typename B> struct Subtract {
    *       FAR_SENTINEL past its reject band (blends_smoothly == false). The
    *       sentinel loses the max, so at the band edge the composite jumps from
    *       B's ramp to A's own distance instead of completing the outer half of
-   *       the fringe. Ring's band is exactly its stroke, putting that step on
-   *       the carve edge itself; the other clampers carry a margin of true
-   *       distance past their surface, which absorbs the step wherever that
-   *       margin outruns the AA reach.
+   *       the fringe. Ring and FlatDistortedRing have no reject margin;
+   *       DistortedRing also has none where its shift reaches the distortion
+   *       bound. See their reject_margin entries in common.h. A margin
+   *       absorbs the step only where it exceeds the AA reach.
    */
   template <bool ComputeUVs = true>
   void distance(const math::Vector &p, DistanceResult &res) const {
