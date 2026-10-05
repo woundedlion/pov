@@ -336,7 +336,7 @@ inline void test_timeline_clear_releases_fade() {
     HS_EXPECT_FALSE(effect.active());
   }
   effect.tick();
-  HS_EXPECT_EQ(effect.getPresetIndex(), 1u);
+  HS_EXPECT_EQ(effect.getPresetIndex(), 0u);
   HS_EXPECT_TRUE(effect.active());
 }
 
@@ -399,6 +399,35 @@ inline void test_cancelled_fade_notifies_committed_index() {
       HS_EXPECT_EQ(effect.value(), expected_value);
       HS_EXPECT_EQ(effect.opacity, 1.0f);
     }
+  }
+}
+
+/** @brief Fade navigation follows the displayed endpoint. */
+inline void test_fade_navigation_matches_display() {
+  for (const bool adopted : {false, true}) {
+    for (const bool next : {false, true}) {
+      hs_test::reset_globals();
+      FadePresetEffect effect;
+      effect.arm();
+      HS_EXPECT_TRUE(effect.attempt());
+      effect.progress(adopted ? 0.5f : 0.25f);
+      HS_EXPECT_EQ(effect.getPresetIndex(), size_t(adopted));
+      HS_EXPECT_TRUE(next ? effect.nextPreset() : effect.previousPreset());
+      HS_EXPECT_EQ(effect.getPresetIndex(), size_t(!adopted));
+      HS_EXPECT_EQ(effect.value(), adopted ? 1.0f : 2.0f);
+      HS_EXPECT_FALSE(effect.active());
+    }
+  }
+  for (const size_t target : {size_t{0}, size_t{1}}) {
+    hs_test::reset_globals();
+    FadePresetEffect effect;
+    effect.arm();
+    HS_EXPECT_TRUE(effect.attempt());
+    effect.progress(0.25f);
+    HS_EXPECT_TRUE(effect.synchronizePreset(target));
+    HS_EXPECT_EQ(effect.getPresetIndex(), target);
+    HS_EXPECT_EQ(effect.value(), float(target + 1));
+    HS_EXPECT_FALSE(effect.active());
   }
 }
 
@@ -474,6 +503,7 @@ inline int run_presets_tests() {
   test_preset_saturation_veto_restarts_dwell();
   test_preset_crossfade_rejects_rearming();
   test_completed_crossfade_adopts_exact_endpoint();
+  test_fade_navigation_matches_display();
   test_cancelled_fade_names_visible_preset();
   test_timeline_clear_releases_fade();
   test_cancelled_fade_notifies_committed_index();

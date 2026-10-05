@@ -2390,7 +2390,7 @@ inline void test_choreography_fade_departure() {
   HS_EXPECT_EQ(effect.getPresetCount(), size_t{3});
   run_probe_frames(effect, DWELL);
   HS_EXPECT_EQ(effect.opacity_samples, 0);
-  HS_EXPECT_EQ(effect.getPresetIndex(), size_t{1});
+  HS_EXPECT_EQ(effect.getPresetIndex(), size_t{0});
   HS_EXPECT_EQ(effect.level(), 0.25f);
 
   run_probe_frames(effect, FADE + 1);
