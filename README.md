@@ -593,7 +593,7 @@ for module ownership and local validation commands.
 ├── .github/                    CI, deployment workflows, and dependency updates
 ├── .githooks/                  Staged checks, pre-push gates, and fast-forward guard
 ├── .nvmrc                      Simulator CI Node version
-├── .gitattributes              Text and binary attribute rules
+├── .gitattributes              Automatic text detection with LF normalization
 ├── .gitignore                  Local dependency and installed-output exclusions
 ├── node_modules/               Ignored npm dependencies
 ├── three.js/                   Optional ignored Three.js checkout
