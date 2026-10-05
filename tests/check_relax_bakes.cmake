@@ -8,8 +8,7 @@
 # Match the top-level CMake policy version in script mode.
 cmake_minimum_required(VERSION 3.29)
 
-# Through a file rather than a pipe: execute_process cannot chain into a second
-# command without hiding the harness's own exit status.
+# Store the dump between the separately checked harness and emitter commands.
 execute_process(
   COMMAND "${HARNESS}"
   OUTPUT_FILE "${DUMP}"
