@@ -316,10 +316,8 @@ inline void test_arena_reset_high_water_mark() {
 /**
  * @brief Verifies reset() and rebind() each bump the debug-only generation
  *        counter that backs ArenaVector's stale-binding detection.
- * @details Debug builds only: generation tracking is `#ifndef NDEBUG`, so this
- *          is its sole automated cover. The canonical `tests` preset is a Debug
- *          build, so it runs in CI; a non-canonical Release/NDEBUG test build
- *          would skip it.
+ * @details Generation tracking is available only without NDEBUG; the Debug
+ * tests preset exercises this case.
  */
 #ifndef NDEBUG
 inline void test_arena_generation_bumps() {
