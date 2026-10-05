@@ -1559,13 +1559,12 @@ inline void test_gnomonic_roundtrip() {
 }
 
 // ============================================================================
-// wrap_index (core/math/rotate.h) — folds a float index into [0, m)
+// wrap_index (core/math/rotate.h) — ordinary samples and a half-step grid
 // ============================================================================
 
 /**
- * @brief Verifies wrap_index folds a float index into [0, m): preserves
- *        in-range values, wraps at/above the period, folds negatives, and
- *        stays in range over many periods.
+ * @brief Verifies wrap_index's ordinary samples and half-step grid: preserves
+ *        in-range values, wraps at/above the period, and folds negatives.
  */
 inline void test_wrap_index() {
   const int m = 288;
