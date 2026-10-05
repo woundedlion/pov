@@ -70,7 +70,7 @@ if(EMSCRIPTEN)
   # this compile line. The gate is in CI instead — the wasm job greps release, debug and strict-FP build
   # logs for warnings under first-party paths and fails on any
   # (.github/workflows/ci.yml), the same first-party/third-party split the device
-  # firmware ratchet uses (tools/teensy_warnings.py).
+  # firmware warning gate uses (tools/teensy_warnings.py).
   target_compile_options(${TARGET_NAME} PRIVATE "-Wall" "-Wextra")
 
   target_link_options(${TARGET_NAME} PRIVATE

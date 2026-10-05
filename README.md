@@ -1371,7 +1371,7 @@ firmware support.
 > compile/size blind spot VMicro alone leaves uncovered. CI runs the same build
 > and the same budgets on every master push and pull-request update as the
 > `teensy-size` job, alongside `teensy-warnings` (a cold rebuild enforcing the
-> first-party warning ratchet) and `python-tests` (all tracked host-Python tooling
+> zero first-party warning policy) and `python-tests` (all tracked host-Python tooling
 > suites, including budget/layout fixtures and PCB generators, plus routed PCB metadata checks) — the firmware is
 > compiled and gated in CI, and only running it on real hardware is manual.
 > Locally it coexists with VMicro (it owns `.pio/`, never `__vm/`) and asserts
