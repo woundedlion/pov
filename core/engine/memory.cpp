@@ -21,7 +21,8 @@ alignas(std::max_align_t) static uint8_t global_arena_block[GLOBAL_ARENA_SIZE];
 /**
  * @brief Persistent arena: storage retained across frames until reclamation.
  * @details Growing the persistent boundary goes through resplit_arenas(), which
- * re-bases both scratch arenas out of the way before moving the capacity.
+ * requires both scratch arenas to be empty and re-bases them past the new
+ * boundary.
  */
 Arena persistent_arena(global_arena_block, DEFAULT_PERSISTENT_SIZE);
 /** @brief First scratch arena: transient per-frame/per-effect storage. */
