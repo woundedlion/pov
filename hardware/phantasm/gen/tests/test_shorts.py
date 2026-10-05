@@ -129,6 +129,19 @@ class PowerFlagTests(unittest.TestCase):
 
 
 class SegmentGeometryTests(unittest.TestCase):
+    def test_midspan_power_pin_does_not_join_the_wire(self):
+        self.assertEqual(conflicts(
+            symbols=[power("power:GND", 105, 100)],
+            labels=[((110, 100), "NET_A")],
+            wires=[((100, 100), (110, 100))]), [])
+
+    def test_midspan_label_connects_a_coincident_power_pin(self):
+        found = conflicts(
+            symbols=[power("power:GND", 105, 100)],
+            labels=[((105, 100), "NET_A")],
+            wires=[((100, 100), (110, 100))])
+        self.assertEqual([nets for nets, _ in found], [["GND", "NET_A"]])
+
     def test_nearby_point_is_not_connected(self):
         self.assertFalse(shorts.on_seg((5.0, 0.019), (0.0, 0.0), (10.0, 0.0)))
 
