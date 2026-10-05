@@ -517,7 +517,7 @@ inline void test_truncate_t_half_is_ambo() {
   HS_EXPECT_EQ(tr.vertices.size(), (size_t)12);
   HS_EXPECT_EQ(tr.face_counts.size(), (size_t)14);
 
-  check_meshes_identical(tr, MeshOps::ambo(cube1, target, temp));
+  check_bitwise_equal_meshes(tr, MeshOps::ambo(cube1, target, temp));
 }
 
 /**

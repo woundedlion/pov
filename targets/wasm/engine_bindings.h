@@ -754,10 +754,10 @@ public:
    * @brief Sets near-pole azimuthal shading decimation.
    * @param aggressiveness Columns per shade are this over sin(colatitude);
    *        0 disables. NaN and negative inputs clamp to 0; positive infinity to 8.
-   * @details The physically-neutral setting is 1.0: at that value one shade
-   *          covers the columns sharing a physical LED footprint. Exposed so
-   *          the value can be tuned against real hardware. The setting is
-   *          engine-scoped: the constructor restores HS_POLE_LOD_DEFAULT, and
+   * @details The footprint depends on display aspect, LED angular size and
+   *          exposure. Exposed so the value can be tuned against real hardware.
+   *          The setting is engine-scoped: the constructor restores
+   *          HS_POLE_LOD_DEFAULT, and
    *          each WASM instance carries its own, so a segmented pool must
    *          re-send it to every worker (README §10.7).
    */

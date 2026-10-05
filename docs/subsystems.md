@@ -269,9 +269,9 @@ Convenience structs that construct an SDF shape and rasterize in a single `draw(
 
 ### Near-Pole Azimuthal LOD
 
-A row at colatitude φ has horizontal pixel pitch `sin(φ)` times the vertical, so `1/sin(φ)` columns share one physical LED footprint and need only one shade between them. The scan walk offers those columns as a block of `pole_lod_aggressiveness / sin(φ)` (`core/render/render_policy.h`, clamped to `POLE_LOD_MAX_RUN = 32`), and the sink settles the whole block from one probe wherever the probe can vouch for it. Only full canvas-aligned blocks are offered, so an offer never straddles two blocks and a settled column always takes its shade from its own block's anchor. A block truncated by a clip or span edge goes per column instead, so the columns beside a segment seam shade at full resolution rather than from the anchor the neighbouring segment would have used.
+A row at colatitude φ has horizontal pixel pitch that scales with `sin(φ)`; its ratio to row spacing also depends on the display aspect and latitude span. The scan walk offers those columns as a block of `pole_lod_aggressiveness / sin(φ)` (`core/render/render_policy.h`, clamped to `POLE_LOD_MAX_RUN = 32`), and the sink settles the whole block from one probe wherever the probe can vouch for it. Only full canvas-aligned blocks are offered, so an offer never straddles two blocks and a settled column always takes its shade from its own block's anchor. A block truncated by a clip or span edge goes per column instead, so the columns beside a segment seam shade at full resolution rather than from the anchor the neighbouring segment would have used.
 
-`pole_lod_aggressiveness` is a hardware-calibrated knob, not a derived constant: the true masking width depends on the LED's angular size and the per-column exposure. 1.0 tracks the footprint exactly; smaller values stay inside it; 0 makes every offer one column and the walk bit-identical to an undecimated one. It defaults to 0 (`HS_POLE_LOD_DEFAULT`). Firmware compiles it in as a `constexpr` with no setter — at the default, the decimation branches fold away entirely — while host and WASM builds keep it mutable so it can be tuned live (§10.2 `setPoleLod`).
+`pole_lod_aggressiveness` is a hardware-calibrated knob, not a derived constant: the true masking width depends on the display aspect, LED angular size and per-column exposure. Smaller values reduce the run; 0 makes every offer one column and the walk bit-identical to an undecimated one. It defaults to 0 (`HS_POLE_LOD_DEFAULT`). Firmware compiles it in as a `constexpr` with no setter — at the default, the decimation branches fold away entirely — while host and WASM builds keep it mutable so it can be tuned live (§10.2 `setPoleLod`).
 
 The knob reaches the walk, not every primitive. `Scan::RingGroup` and `Scan::DistortedRingStack` replace the per-ring walk with one fused scan over the group's union band and shade every column of it, so raising the knob leaves them undecimated. Their equivalence to rasterizing the members one by one is stated at aggressiveness 0 for exactly that reason.
 
@@ -1185,7 +1185,7 @@ Any checksum mismatch, wrong digit count, out-of-range digit, or stale partial f
            boundary symbol is, so it can still be mistaken once; the
            reject_fallback rejection threshold bounds the recovery (spec §9.1 mis-snap row).
            Renders black until it has BOTH phase (a snap) AND identity
-           (epoch/beacon).
+           (beacon).
  LOCKED  : accept a valid symbol only if implied correction ≤ G (4 col) AND
            boundary identity matches the prediction. Else reject (telemetry,
            no snap, no flip). After reject_fallback rejections the board concludes its OWN

@@ -1061,8 +1061,8 @@ inline void test_rev_resync_fold() {
  * @brief Verifies flywheel column position and fold cadence: zero truncation
  *        drift vs a long-double reference at nominal and ±40 ppm trim, correct
  *        signed-past folding, one crossing per half-rev, and exactness
- *        preserved across thousands of 32-bit counter wraps via the rebase
- *        rule.
+ *        preserved across thousands of half-rev folds and multiple 32-bit
+ *        counter wraps via the rebase rule.
  */
 inline void test_flywheel_position() {
   const Config cfg = test_config();

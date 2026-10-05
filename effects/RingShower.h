@@ -134,7 +134,7 @@ private:
 
     /**
      * @brief Linear radius for the frame currently being drawn.
-     * @return Radius in world units, in [0, RADIUS_MAX].
+     * @return Radius as a fraction of a hemisphere, in [0, RADIUS_MAX].
      * @details Uses age + 1 (not age) so the first draw renders one linear step
      *          in rather than radius 0, and the ring reaches RADIUS_MAX on its
      *          final visible frame (age + 1 == life).

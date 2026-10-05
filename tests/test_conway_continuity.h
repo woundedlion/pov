@@ -757,7 +757,7 @@ struct ShadingSnapshot {
 };
 
 /**
- * @brief Asserts two colors are bitwise equal (channels and alpha).
+ * @brief Asserts equal color channels and alpha values.
  */
 inline void expect_color_eq(const Color4 &a, const Color4 &b) {
   HS_EXPECT_EQ(a.color.r, b.color.r);

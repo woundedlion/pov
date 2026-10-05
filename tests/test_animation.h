@@ -3358,14 +3358,15 @@ inline void test_colorwipe_reaches_target_keys() {
 
   wipe.step(fake_canvas()); // t == duration: amount == 1 -> exact target keys
   HS_EXPECT_TRUE(wipe.done());
-  HS_EXPECT_NEAR(GenerativePalette::snapshot_key(from.snapshot(), 0).L,
-                 GenerativePalette::snapshot_key(target, 0).L, 1e-6f);
-  HS_EXPECT_NEAR(GenerativePalette::snapshot_key(from.snapshot(), 0).chroma,
-                 GenerativePalette::snapshot_key(target, 0).chroma, 1e-6f);
-  HS_EXPECT_NEAR(GenerativePalette::snapshot_key(from.snapshot(), 1).h,
-                 GenerativePalette::snapshot_key(target, 1).h, 1e-6f);
-  HS_EXPECT_NEAR(GenerativePalette::snapshot_key(from.snapshot(), 2).L,
-                 GenerativePalette::snapshot_key(target, 2).L, 1e-6f);
+  const auto actual = from.snapshot();
+  HS_EXPECT_EQ(actual.key_count, target.key_count);
+  for (int i = 0; i < target.key_count; ++i) {
+    const auto got = GenerativePalette::snapshot_key(actual, i);
+    const auto want = GenerativePalette::snapshot_key(target, i);
+    HS_EXPECT_EQ(got.L, want.L);
+    HS_EXPECT_EQ(got.chroma, want.chroma);
+    HS_EXPECT_EQ(got.h, want.h);
+  }
 }
 
 /**

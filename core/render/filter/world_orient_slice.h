@@ -121,8 +121,8 @@ public:
   void set_enabled(bool value) { enabled = value; }
 
   /**
-   * @brief Reports whether slice selection is active.
-   * @return False when the filter passes points through unrotated.
+   * @brief Reports the slice-selection enable flag.
+   * @return The flag set by set_enabled(); an empty orientation list still passes through.
    */
   bool is_enabled() const { return enabled; }
 

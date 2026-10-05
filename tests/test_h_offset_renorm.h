@@ -232,8 +232,8 @@ inline void test_boundary_energy_independent_of_x_fraction() {
  *          H_VIRT-aware trig tables. At the legacy offset-3 mapping row H-1 sits at
  *          colatitude (H-1)*PI/(H_VIRT-1), so every column of that row shares
  *          one latitude well off the pole while its azimuth sweeps a full turn.
- *          An H_OFFSET == 0 build collapses the whole row onto sin(phi) == 0,
- *          where every column shades the same direction.
+ *          An H_OFFSET == 0 build maps the row to the south pole up to float
+ *          rounding.
  */
 inline void test_scan_bottom_row_is_a_latitude_ring() {
   using LUT = math::TrigLUT<W, H>;

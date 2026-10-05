@@ -172,7 +172,7 @@ private:
  */
 struct ContentTracker {
   bool identity_known =
-      false;                /**< False until an epoch/beacon names the index. */
+      false; /**< False until the master is seeded or a beacon supplies the index. */
   int32_t effect_index = 0; /**< Currently displayed effect index. */
   /**
    * @brief ZERO crossings since effect start.
@@ -252,17 +252,17 @@ struct ContentTracker {
   }
 
   /**
-   * @brief Output envelope for one displayed column.
+   * @brief Output envelope, zero from the first accepted epoch until commit.
    * @param cfg Protocol configuration.
    * @param column Column being displayed.
    * @param width Canvas width, in columns.
    * @return Scale in [0, 1].
-   * @details Zero for the whole commit window — announce phase included, where
+   * @details Zero while commit_pending — announce phase included, where
    * the outgoing effect is still live. rev_in_effect is only congruent mod 64
    * on a beacon-joined board, so on an effect longer than 64 revolutions the
    * envelope's own end-of-effect test can still read full brightness at B; the
-   * window flag is absolute on every board that hears the train, so gating on
-   * it is what keeps such a board dark with the rest of the sphere. It misses
+   * window flag gates it dark after its first accepted epoch. A missed primary
+   * can leave it lit until a repeat at B+j. It misses
    * the F-revolution fade-out that leads into B: without an absolute
    * revolution count that ramp cannot be scheduled, and stepping to black is
    * the fail-dark side of the miss.

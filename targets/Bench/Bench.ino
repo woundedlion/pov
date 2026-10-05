@@ -8,9 +8,9 @@
  * Runs BenchPattern alone: one colour across the whole canvas, holding on red,
  * green, blue and white with slow ramps between. Nothing in the image depends
  * on the rotor's angle, so it reads with the sphere at rest — every LED on
- * every segment shows the same colour at the same instant, and a board whose
- * ID straps, LED transport or sync has failed shows as a dark or off-colour
- * arm.
+ * every segment shows the same colour at the same instant. Loss of output or
+ * colour-timing disagreement appears as a dark or off-colour arm; a stable
+ * wrong segment ID can remain indistinguishable under this uniform pattern.
  *
  * ID straps, sync wire and LED transport are the shipping Phantasm ones
  * (targets/Phantasm/phantasm_target.h). Flash the `phantasm` env to return to
