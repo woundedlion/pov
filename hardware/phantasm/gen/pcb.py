@@ -270,6 +270,11 @@ def terminal_library_dir(libid):
 
 def load_mod(libid):
     lib, name = libid.split(":", 1)
+    if lib != "phantasm" and not os.path.isdir(FP_DIR):
+        raise RuntimeError(
+            "KiCad stock footprint libraries not found; set KICAD_FOOTPRINT_DIR "
+            "to a share/kicad/footprints directory, or install KiCad in one "
+            "of: " + ", ".join(sexp.kicad_data_dir_patterns("footprints")))
     directory = terminal_library_dir(libid) if lib == "phantasm" else \
         os.path.join(FP_DIR, lib + ".pretty")
     key = (directory, libid)

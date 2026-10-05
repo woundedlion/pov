@@ -221,6 +221,26 @@ class OverwriteProtectionTests(unittest.TestCase):
 
 
 class TerminalFootprintTests(unittest.TestCase):
+    def test_stock_library_discovery_reports_the_override_and_keeps_local_loading(self):
+        with tempfile.TemporaryDirectory() as directory:
+            stock = Path(directory) / "stock"
+            library = stock / "Fixture.pretty"
+            library.mkdir(parents=True)
+            (library / "sample.kicad_mod").write_text('(footprint "sample")', encoding="utf-8")
+            local = Path(directory) / "local"
+            local.mkdir()
+            (local / "custom.kicad_mod").write_text('(footprint "custom")', encoding="utf-8")
+            with mock.patch.object(pcb, "_MOD_CACHE", {}), \
+                    mock.patch.object(pcb, "FP_DIR", str(stock)), \
+                    mock.patch.object(pcb, "LOCAL_FOOTPRINT_DIR", str(local)):
+                self.assertEqual(str(pcb.load_mod("Fixture:sample")[1]), "sample")
+                with mock.patch.object(pcb, "FP_DIR", str(stock / "missing")):
+                    with self.assertRaisesRegex(RuntimeError, "KICAD_FOOTPRINT_DIR") as caught:
+                        pcb.load_mod("Fixture:sample")
+                    for pattern in sexp.kicad_data_dir_patterns("footprints"):
+                        self.assertIn(pattern, str(caught.exception))
+                    self.assertEqual(str(pcb.load_mod("phantasm:custom")[1]), "custom")
+
     def test_revision_13_rejects_legacy_connector_footprints(self):
         token = pcb._GENERATION.set(("1.3", "test"))
         try:
