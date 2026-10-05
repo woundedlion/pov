@@ -43,7 +43,6 @@ SECTIONS
 		*(.text.startup*)
 		*(.text._ZN6Solids12SolidBuilder*)
 		*(.text._ZN7MeshOps5cloneI8PolyMeshE*)
-		*(.text._ZN12ShapeShifterILi288ELi144EE15schedule_presetEv*)
 		*(.text._ZN8TimelineC*Ev*)
 		*(.text._ZN8TimelineD*Ev*)
 		*(.text._ZN8Timeline14destroy_eventsEv*)
@@ -92,12 +91,11 @@ SECTIONS
 		*(.text._ZN8Timeline7add_getI*)
 		*(.text._ZZN8Timeline7add_getI*)
 		/* OpLeg scheduling and mesh build sections: timeline construction,
-		 * mesh move assignment, and star-point vectors. MeshState move
+		 * mesh move assignment. MeshState move
 		 * assignment also runs during per-frame compilation. */
 		*(.text._ZN8Timeline3addIN9Animation*)
 		*(.text._ZNO9Animation13AnimationBaseINS_5OpLeg*)
 		*(.text._ZN9MeshStateaSEOS_*)
-		*(.text._ZN11ArenaVectorIN9Animation5OpLeg9StarPoint*)
 		*(.text._ZN11ArenaVectorIiEaSEOS0_*)
 		/* Half-edge topology construction: the edge-record sort family and
 		 * mesh normalize also serve per-frame truncate/expand sweeps. */
