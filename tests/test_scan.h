@@ -1948,9 +1948,8 @@ inline void test_csg_stroke_aa_uses_winning_child_thickness() {
   const float thin = 0.05f, thick = 0.30f;
   // Thin line: equatorial arc +X -> +Z (great circle in the y=0 plane).
   SDF::Line thin_line(math::Vector(1, 0, 0), math::Vector(0, 0, 1), thin);
-  // Thick line: opposite equatorial quadrant, far from the test point so the
-  // Union always selects the thin line; it exists only to push the wrapper's
-  // max-thickness up to `thick`.
+  // The distant thick sibling makes sibling-max AA width observable while
+  // the Union selects the thin line.
   SDF::Line thick_line(math::Vector(-1, 0, 0), math::Vector(0, 0, -1), thick);
   SDF::Union<SDF::Line, SDF::Line> u(thin_line, thick_line);
   // Same geometry as `thin_line` but standalone, for the contrast check.
