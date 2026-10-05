@@ -7,8 +7,8 @@
 
 /**
  * @file Comets.h
- * @brief Comet heads tracing spherical Lissajous curves, dragging fading
- *        trails.
+ * @brief A comet head tracing spherical Lissajous curves, dragging a fading
+ *        trail.
  */
 
 #include "core/animation/orientation.h"
@@ -41,8 +41,9 @@ struct CometsParams {
  *        fading trail behind it.
  * @tparam W Canvas width in pixels.
  * @tparam H Canvas height in pixels.
- * @details The path function and color palette periodically roll over to the
- *          next entry in the function table, cross-fading via a ColorWipe.
+ * @details Automatic preset changes snap to the next Lissajous entry and
+ *          ColorWipe to a freshly generated palette. Manual selection restarts
+ *          the path and keeps the palette.
  * @note Sibling trail effects `Fishbowl` and `RingSpin` share the
  *       record + deep_tween skeleton and, with Fishbowl, the
  *       `Animation::TrailBody` aggregate at the same capacity and substep
