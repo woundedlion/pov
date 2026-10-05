@@ -3563,11 +3563,8 @@ inline void test_dreamballs_base_mesh_selector() {
 /**
  * @brief Renders the widest solid the dropdown reaches under medial topology and
  *        checks SCRATCH_A_PEAK_BYTES against the real frame peak.
- * @details No preset selects a MAX_SOLID_EDGES solid, so preset sweeps do not
- *          draw the widest woven staging the effect can bind. Medial topology
- *          is forced so the staging takes one vertex per source edge and one
- *          framed edge per
- *          medial edge — the worst case the static_assert bounds.
+ * @details Forced medial topology stages one vertex per source edge and
+ * one framed edge per medial edge at the static memory bound.
  */
 inline void test_dreamballs_max_edge_solid_render() {
   using WB = DreamBallsWhiteBox;
