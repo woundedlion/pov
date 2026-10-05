@@ -315,7 +315,7 @@ public:
 
 private:
   bool decoding = false;
-  /** @brief Result with enum status, legacy string code, and entry index. */
+  /** @brief Result with ChainStatus, commit or refusal code, and entry index. */
   static emscripten::val chain_result(Pullback::Interp::ChainStatus code,
                                       int entry_index) {
     emscripten::val result = emscripten::val::object();
