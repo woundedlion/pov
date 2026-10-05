@@ -509,7 +509,7 @@ inline void test_palette_carry_across_arrivals() {
     int landed[PALETTES] = {};
     int shown[PALETTES] = {};
     for (size_t f = 0; f < nf; ++f) {
-      ++landed[to_palette[math::wrap(topo[f], PALETTES)]];
+      ++landed[to_palette[MeshPaletteBank::slot_of(topo[f])]];
       ++shown[Probe::node_face_palette(fx)[f]];
     }
     const int failed_before = hs_test::stats().failed;
@@ -932,10 +932,9 @@ inline void test_collapsing_faces_land_on_host_palette() {
       bool hosted = false;
       for (size_t j = 0; j < survivors && !hosted; ++j) {
         const math::Vector d = arrival_cen[f] - arrival_cen[j];
-        hosted =
-            math::dot(d, d) <= best + HOST_TIE_SQ &&
-            math::wrap(static_cast<int>(landing.topology[f]), PALETTES) ==
-                math::wrap(static_cast<int>(landing.topology[j]), PALETTES);
+        hosted = math::dot(d, d) <= best + HOST_TIE_SQ &&
+                 MeshPaletteBank::slot_of(landing.topology[f]) ==
+                     MeshPaletteBank::slot_of(landing.topology[j]);
       }
       HS_EXPECT_TRUE(hosted);
     }
@@ -1592,7 +1591,7 @@ inline StrapSweepStats check_strap_crossfade_arrivals(uint32_t epoch,
     const size_t nf = Probe::node_faces(fx);
     bool star[PALETTES] = {}, strap[PALETTES] = {};
     for (size_t f = 0; f < mesh.topology.size(); ++f) {
-      const int slot = math::wrap(static_cast<int>(mesh.topology[f]), PALETTES);
+      const int slot = MeshPaletteBank::slot_of(mesh.topology[f]);
       (f < nf ? star[slot] : strap[slot]) = true;
     }
     const uint8_t mask = Probe::strap_blend_mask(fx);
