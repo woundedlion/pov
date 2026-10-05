@@ -301,7 +301,7 @@
 	                (pin passive line (at 0 -7.62 90) (length 2.54)
 	                    (name "GND" (effects (font (size 1.27 1.27))))
 	                    (number "3" (effects (font (size 1.27 1.27)))))))
-	(symbol "THVD1410DR"
+	(symbol "THVD2410DR"
 		(exclude_from_sim no)
 		(in_bom yes)
 		(on_board yes)
@@ -317,7 +317,7 @@
 				)
 			)
 		)
-		(property "Value" "THVD1410DR"
+		(property "Value" "THVD2410DR"
 			(at 1.905 13.97 0)
 			(show_name no)
 			(do_not_autoplace no)
@@ -339,7 +339,7 @@
 				)
 			)
 		)
-		(property "Datasheet" "https://www.ti.com/lit/ds/symlink/thvd1450.pdf"
+		(property "Datasheet" "https://www.ti.com/lit/ds/symlink/thvd2410.pdf"
 			(at 0 -33.02 0)
 			(show_name no)
 			(do_not_autoplace no)
@@ -350,7 +350,7 @@
 				)
 			)
 		)
-		(property "Description" "500-kbps 3.3-V to 5-V RS-485 transceiver, SOIC-8"
+		(property "Description" "500-kbps 70-V fault-protected RS-485 transceiver, SOIC-8"
 			(at 0 -27.94 0)
 			(show_name no)
 			(do_not_autoplace no)
@@ -383,7 +383,7 @@
 				)
 			)
 		)
-		(symbol "THVD1410DR_0_1"
+		(symbol "THVD2410DR_0_1"
 			(rectangle
 				(start -7.62 12.7)
 				(end 7.62 -12.7)
@@ -550,7 +550,7 @@
 				)
 			)
 		)
-		(symbol "THVD1410DR_1_1"
+		(symbol "THVD2410DR_1_1"
 			(circle
 				(center -0.762 2.54)
 				(radius 0.508)

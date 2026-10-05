@@ -18,6 +18,7 @@ from constraints import (DEFAULT_CLASS_MINIMUMS, NEW_LAYOUT_RULES, RULE_MINIMUMS
                          UNPLACED_DEFAULT_CLASS, UNPLACED_RULES, apply_project_floors)
 from kicad_common import atomic_write_text
 from kicad_common import require_writable, reset_uid_sequence
+from parts_rev13 import PARTS as REV13_PARTS
 
 OUT = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
                    B.REVISION)
@@ -180,13 +181,15 @@ def main(force=False, revision=B.REVISION, output_dir=None):
     if revision == "1.3":
         b.ensure_lib("Connector_Generic", "Conn_01x04")
         node = b._resolve("Interface_UART", "THVD1450D")
-        B._rename_subsymbols(node, "THVD1450D", "THVD1410DR")
+        B._rename_subsymbols(node, "THVD1450D", "THVD2410DR")
         for prop in [item for item in node if isinstance(item, list) and item and item[0] == "property"]:
             if prop[1] == "Value":
-                prop[2] = "THVD1410DR"
+                prop[2] = "THVD2410DR"
             elif prop[1] == "Description":
-                prop[2] = "500-kbps 3.3-V to 5-V RS-485 transceiver, SOIC-8"
-        b.register_custom(node, "phantasm:THVD1410DR")
+                prop[2] = "500-kbps 70-V fault-protected RS-485 transceiver, SOIC-8"
+            elif prop[1] == "Datasheet":
+                prop[2] = "https://www.ti.com/lit/ds/symlink/thvd2410.pdf"
+        b.register_custom(node, "phantasm:THVD2410DR")
         protection = '''(symbol "phantasm:CDSOT23-SM712"
             (pin_names (offset 0.5)) (in_bom yes) (on_board yes)
             (property "Reference" "D" (at 0 7.62 0)
@@ -214,7 +217,8 @@ def main(force=False, revision=B.REVISION, output_dir=None):
     # ---------------------------------------------------------------- helpers
     def place(lib, ref, val, x, y, rot=0, unit=1, fp="", dnp=False, in_bom=True):
         return b.place(B.Symbol(lib, ref, val, x, y, rot=rot, unit=unit,
-                                footprint=fp, dnp=dnp, in_bom=in_bom))
+                                footprint=fp, dnp=dnp, in_bom=in_bom,
+                                properties=REV13_PARTS.get(ref) if revision == "1.3" else None))
 
 
     def hw(x1, x2, y):
@@ -304,7 +308,9 @@ def main(force=False, revision=B.REVISION, output_dir=None):
 
 
     # ============================================================ BLOCK 1: POWER
-    b.text((25, 25), "POWER ENTRY / PROTECTION / RAIL FILTER  (logic ~0.15 A; LED 4.3 A off-board)", 2.2)
+    b.text((25, 25), "POWER ENTRY / PROTECTION / RAIL FILTER  " + (
+        "(logic budget 0.25 A; LED 4.3 A off-board)" if revision == "1.3" else
+        "(logic ~0.15 A; LED 4.3 A off-board)"), 2.2)
     Y_LOG, Y_GND = 60.96, 96.52
 
     # --- light logic feed only; LED 4.3 A power is delivered off-board (spec 2.3) ---
@@ -400,6 +406,10 @@ def main(force=False, revision=B.REVISION, output_dir=None):
     to_label(U1A, "2", "DATA_IN"); to_power(U1A, "1", GND); series_wire(U1A, "3", RD1, "DATA", "DATA_SRC")
     # ch B (CLK)
     to_label(U1B, "5", "CLK_IN"); to_power(U1B, "4", GND); series_wire(U1B, "6", RD2, "CLK", "CLK_SRC")
+    if revision == "1.3":
+        for ref, net, y in (("R_DATA_PD", "DATA_IN", 127.0), ("R_CLK_PD", "CLK_IN", 157.48)):
+            pull = place("Device:R", ref, "10k", 111.76, y, fp=SMD06)
+            to_label(pull, "1", net); to_power(pull, "2", GND)
     # ch C (SYNC)
     if revision == "1.2":
         to_label(U1C, "9", "SYNC_TX"); to_label(U1C, "10", "MASTER_EN"); series_wire(U1C, "8", RS, "SYNC_BUS", "SYNC_SRC")
@@ -457,7 +467,7 @@ def main(force=False, revision=B.REVISION, output_dir=None):
             to_label(J, "1", "SYNC_BUS"); to_power(J, "2", GND); to_label(J, "3", "SHIELD")
     else:
         b.text((220, 180), "RS-485 SYNC / 120R TWISTED-PAIR TRUNK", 2.2)
-        urs = place("phantasm:THVD1410DR", "U_SYNC", "THVD1410DR", 246.38, 210.82,
+        urs = place("phantasm:THVD2410DR", "U_SYNC", "THVD2410DR", 246.38, 210.82,
                     fp="Package_SO:SOIC-8_3.9x4.9mm_P1.27mm")
         to_label(urs, "1", "FRAME_SYNC"); to_power(urs, "2", GND)
         to_label(urs, "3", "MASTER_EN"); to_label(urs, "4", "SYNC_TX")
@@ -467,7 +477,7 @@ def main(force=False, revision=B.REVISION, output_dir=None):
         to_power(cbulk, "1", V3); to_power(cbulk, "2", GND)
         for ref, pin, net, y in (("R_A", "6", "SYNC_A", 200.66),
                                  ("R_B", "7", "SYNC_B", 217.17)):
-            resistor = place("Device:R", ref, "10R CRCW0603010RJNEAHP", 281.94, y,
+            resistor = place("Device:R", ref, "10R 1% pulse-proof", 281.94, y,
                              rot=270, fp=SMD06_HAND)
             series_wire(urs, pin, resistor, net, net + "_IC")
         dbus = place("phantasm:CDSOT23-SM712", "D_SYNC", "CDSOT23-SM712", 309.88, 248.92,
@@ -481,7 +491,7 @@ def main(force=False, revision=B.REVISION, output_dir=None):
                               fp="phantasm:TerminalBlock_GCT_TBC05-04-1-G-G")
             to_label(connector, "1", "SYNC_A"); to_label(connector, "2", "SYNC_B")
             to_power(connector, "3", GND); to_label(connector, "4", "SHIELD")
-        rterm = place("Device:R", "R_TERM", "120R 1% 0.25W", 279.4, 251.46, fp=SMD08_HAND)
+        rterm = place("Device:R", "R_TERM", "120R 1% 0.5W", 279.4, 251.46, fp=SMD08_HAND)
         jpterm = place("Jumper:SolderJumper_2_Open", "JP_TERM", "TERM endpoints only", 274.32, 271.78,
                        fp="Jumper:SolderJumper-2_P1.3mm_Open_RoundedPad1.0x1.5mm", in_bom=False)
         to_label(rterm, "1", "SYNC_A"); to_label(rterm, "2", "TERM_LINK")
