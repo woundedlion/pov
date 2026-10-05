@@ -1193,7 +1193,7 @@ async function main(probe) {
           dual.delete();
         }
 
-        // Drive the parameterized operators (float-arg truncate, double-arg relax
+        // Drive the parameterized operators (double-arg truncate, double-arg relax
         // with its clamp, finite-arg hankin reject) — arg-marshaling seams not
         // exercised above.
         const isValidMesh = (w) => {
@@ -1209,6 +1209,29 @@ async function main(probe) {
         const trunc = solid.truncate(0.3);
         if (!isValidMesh(trunc)) fail(`${solidName}.truncate(0.3) did not produce a valid mesh`);
         if (trunc) trunc.delete();
+
+        for (const fraction of [-1e300, 1e300]) {
+          const saturated = solid.truncate(fraction);
+          if (MeshOps.getLastResult() !== MR.OK || !MeshOps.getLastAdjusted())
+            fail(`${solidName}.truncate(${fraction}) did not report successful saturation`);
+          if (!isValidMesh(saturated))
+            fail(`${solidName}.truncate(${fraction}) did not produce a valid mesh`);
+          if (saturated) saturated.delete();
+        }
+        for (const twist of [-1e300, 1e300]) {
+          const saturated = solid.snub(0.5, twist);
+          if (MeshOps.getLastResult() !== MR.OK || !MeshOps.getLastAdjusted())
+            fail(`${solidName}.snub(0.5, ${twist}) did not report successful saturation`);
+          if (!isValidMesh(saturated) || !saturated.getVertices().every(Number.isFinite))
+            fail(`${solidName}.snub(0.5, ${twist}) did not produce a finite mesh`);
+          if (saturated) saturated.delete();
+        }
+        const roundedFraction = solid.snub(1 - Number.EPSILON / 2, 0);
+        if (MeshOps.getLastResult() !== MR.OK || !MeshOps.getLastAdjusted())
+          fail(`${solidName}.snub(1 - epsilon/2, 0) did not report representable-domain saturation`);
+        if (!isValidMesh(roundedFraction))
+          fail(`${solidName}.snub(1 - epsilon/2, 0) did not produce a valid mesh`);
+        if (roundedFraction) roundedFraction.delete();
 
         // relax(double) rejects non-finite counts and clamps finite ones before
         // converting to int. Probe one in-domain pass and an adjusted large count.
@@ -1226,7 +1249,7 @@ async function main(probe) {
         if (!isValidMesh(relaxedCap)) fail(`${solidName}.relax(1e9) did not clamp to a valid mesh`);
         if (relaxedCap) relaxedCap.delete();
 
-        // hankin(float): a non-finite arg must be rejected at the boundary
+        // hankin(double): a non-finite arg must be rejected at the boundary
         // (finite_arg → null) rather than abort the module.
         const hankinBad = solid.hankin(NaN);
         if (hankinBad) { fail(`${solidName}.hankin(NaN) should return null`); hankinBad.delete(); }
@@ -1239,6 +1262,12 @@ async function main(probe) {
         if (hankinWide) { fail(`${solidName}.hankin(π) should return null`); hankinWide.delete(); }
         if (MeshOps.getLastResult() !== MR.ANGLE_OUT_OF_DOMAIN) {
           fail(`${solidName}.hankin(π) did not report ANGLE_OUT_OF_DOMAIN`);
+        }
+        for (const angle of [-1e300, 1e300]) {
+          const rejected = solid.hankin(angle);
+          if (rejected) { fail(`${solidName}.hankin(${angle}) should return null`); rejected.delete(); }
+          if (MeshOps.getLastResult() !== MR.ANGLE_OUT_OF_DOMAIN)
+            fail(`${solidName}.hankin(${angle}) did not report ANGLE_OUT_OF_DOMAIN`);
         }
 
         solid.delete();

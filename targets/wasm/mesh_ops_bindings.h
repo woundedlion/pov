@@ -517,7 +517,7 @@ private:
    * @details Logs the adjustment and records it for getLastAdjusted(), the
    *          programmatic channel a JS caller reads it through.
    */
-  static float note_clamped_arg(float arg, bool out_of_domain, float clamped,
+  static float note_clamped_arg(double arg, bool out_of_domain, float clamped,
                                 const char *op, const char *domain) {
     last_mesh_op_adjusted = out_of_domain;
     if (out_of_domain)
@@ -544,7 +544,7 @@ public:
                  });                                                           \
   }
 /**
- * @brief Defines a one-float-argument operator whose argument is a [0,1]
+ * @brief Defines a one-number-argument operator whose argument is a [0,1]
  *        fraction, clamped at the JS boundary.
  * @param name MeshOps operator name; becomes the generated method name.
  * @param elements Multiple of the largest input element count (see MESHOP_LIST).
@@ -557,7 +557,7 @@ public:
  *          The clamp is recorded for getLastAdjusted() as well as logged.
  */
 #define MESHOP_1U(name, elements, degree, valence)                             \
-  std::unique_ptr<MeshOpsWrapper> name(float arg) {                            \
+  std::unique_ptr<MeshOpsWrapper> name(double arg) {                           \
     begin_mesh_op();                                                           \
     if (!finite_arg(arg, #name))                                               \
       return nullptr;                                                          \
@@ -571,7 +571,7 @@ public:
   }
 
 /**
- * @brief Defines a one-float-argument operator whose argument is a [0,1)
+ * @brief Defines a one-number-argument operator whose argument is a [0,1)
  *        fraction, clamped at the JS boundary.
  * @param name MeshOps operator name; becomes the generated method name.
  * @param elements Multiple of the largest input element count (see MESHOP_LIST).
@@ -582,7 +582,7 @@ public:
  *          of avoiding it.
  */
 #define MESHOP_1H(name, elements, degree, valence)                             \
-  std::unique_ptr<MeshOpsWrapper> name(float arg) {                            \
+  std::unique_ptr<MeshOpsWrapper> name(double arg) {                           \
     begin_mesh_op();                                                           \
     if (!finite_arg(arg, #name))                                               \
       return nullptr;                                                          \
@@ -654,7 +654,7 @@ public:
    *          in-domain pattern, so clamping would hand back geometry the caller
    *          did not ask for.
    */
-  std::unique_ptr<MeshOpsWrapper> hankin(float radians) {
+  std::unique_ptr<MeshOpsWrapper> hankin(double radians) {
     begin_mesh_op();
     if (!finite_arg(radians, "hankin"))
       return nullptr;
@@ -666,7 +666,7 @@ public:
     }
     return apply(hs_wasm::HANKIN_BOUNDS,
                  [radians](const PolyMesh &m, Arena &a, Arena &b) {
-                   return MeshOps::hankin(m, a, b, radians);
+                   return MeshOps::hankin(m, a, b, static_cast<float>(radians));
                  });
   }
 
@@ -675,7 +675,7 @@ public:
    * @param t Inset factor of each face toward its centroid, clamped to [0, 1)
    *          (its documented domain) at the JS boundary.
    * @param twist Per-face rotation about the face normal, in radians (0 = none);
-   *          unbounded, so only finiteness is checked.
+   *          finite values saturate to the engine float range before narrowing.
    * @return Owning pointer to a new wrapper, or null on invalid input, stale wrapper, or allocation failure.
    * @details Explicit (not a MESHOP_* macro) because MeshOps::snub takes TWO
    *          float controls, which neither the zero-arg nor the one-float
@@ -684,16 +684,25 @@ public:
    *          this 2-arg form exposes them to the solids editor. A clamped inset
    *          is recorded for getLastAdjusted() as well as logged.
    */
-  std::unique_ptr<MeshOpsWrapper> snub(float t, float twist) {
+  std::unique_ptr<MeshOpsWrapper> snub(double t, double twist) {
     begin_mesh_op();
     if (!finite_arg(t, "snub") || !finite_arg(twist, "snub"))
       return nullptr;
     const float ct =
         note_clamped_arg(t, hs_wasm::half_open_fraction_out_of_range(t),
                          hs_wasm::clamp_half_open_fraction(t), "snub", "[0,1)");
+    const bool inset_adjusted = last_mesh_op_adjusted;
+    const float clamped_twist = hs_wasm::clamp_finite_float(twist);
+    const float rotation =
+        note_clamped_arg(twist,
+                         twist != static_cast<double>(clamped_twist) &&
+                             (twist > std::numeric_limits<float>::max() ||
+                              twist < -std::numeric_limits<float>::max()),
+                         clamped_twist, "snub twist", "finite float range");
+    last_mesh_op_adjusted = last_mesh_op_adjusted || inset_adjusted;
     return apply(hs_wasm::SNUB_BOUNDS,
-                 [ct, twist](const PolyMesh &m, Arena &a, Arena &b) {
-                   return MeshOps::snub(m, a, b, ct, twist);
+                 [ct, rotation](const PolyMesh &m, Arena &a, Arena &b) {
+                   return MeshOps::snub(m, a, b, ct, rotation);
                  });
   }
   /**
