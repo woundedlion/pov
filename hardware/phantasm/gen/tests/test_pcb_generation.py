@@ -1,9 +1,9 @@
 """Self-tests for the board generator.
 
-pcb.py is the only writer of phantasm.kicad_pcb and refuses to overwrite the
-committed file, so nothing else in the repo executes it: every other gate reads
-the committed board. These tests run the generator into a temporary directory
-and push what it wrote back through the repo's KiCad-free readers.
+pcb.py refuses to overwrite an existing phantasm.kicad_pcb without --force.
+Board-generation, DFM and revision-generation tests run it into temporary
+directories; validation gates read the committed board. These tests push the
+generated board through the repo's KiCad-free readers.
 
 Generating needs KiCad's stock symbol and footprint libraries plus a kicad-cli
 on the pin for the netlist export; without them the whole class is skipped.
