@@ -357,8 +357,8 @@ inline void test_registry_count_matches_collections() {
 }
 
 // ---------------------------------------------------------------------------
-// Euler characteristic V - E + F == 2 across the closed solid registries. We build the half-edge mesh and count edges as half_edges/2, exactly
-// as test_mesh.h does.
+// Euler characteristic V - E + F == 2 across the closed solid registries.
+// Edges are counted as half_edges/2, as test_mesh.h does.
 // ---------------------------------------------------------------------------
 
 /**
