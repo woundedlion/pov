@@ -34,6 +34,10 @@
  *     the previous cycle (or an on-screen star palette when newborn) and
  *     glides to its target in bounded steps via the strap-face LUT; star
  *     faces stay bitwise on the bank entry, including on star-shared slots.
+ *   - Collapsing faces land on their host palette at the closing bookend.
+ *   - Leg-start seed frames preserve inherited face colors.
+ *   - Palette slots remain stable within each cycle.
+ *   - Strap-open fade, strap-close dissolve, and star-midpoint dissolve.
  */
 #pragma once
 
