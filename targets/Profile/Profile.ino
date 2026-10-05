@@ -451,7 +451,8 @@ private:
    * @details Window totals, like the counter tree; divide by the header's frame
    *          count for per-frame figures. walk = exact - convex - sector is the
    *          residual exact-edge walk. Alpha survivors are the raster_shade
-   *          scope's call count, already in the tree above.
+   *          scope's call count, present in the tree only with
+   *          HS_PROFILE_DEEP_ENABLE (HS_PROFILE_DEEP=1).
    */
   void dump_scan_totals() {
     const ScanTotals &t = scan_totals;

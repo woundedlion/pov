@@ -387,6 +387,25 @@ class ScanMetricsLines(unittest.TestCase):
         w = self._parse()[0]
         self.assertEqual(pp._metrics_row(w.scan, w.frames, 0).split()[-1], "nan")
 
+    def test_missing_deep_scope_reports_unavailable_shade_columns(self):
+        windows = self._parse()
+        del windows[0].counters["raster_shade"]
+        output, errors = io.StringIO(), io.StringIO()
+        with contextlib.redirect_stdout(output), contextlib.redirect_stderr(errors):
+            self.assertEqual(pp.cmd_metrics(windows), 0)
+        lines = output.getvalue().splitlines()
+        self.assertEqual(lines[1].split()[8:10], ["n/a", "n/a"])
+        self.assertEqual(lines[2].split()[9:11], ["n/a", "n/a"])
+        self.assertIn("HS_PROFILE_DEEP=1", errors.getvalue())
+
+    def test_mixed_deep_windows_do_not_publish_partial_aggregate_shades(self):
+        windows = self._parse() + self._parse()
+        del windows[1].counters["raster_shade"]
+        output = io.StringIO()
+        with contextlib.redirect_stdout(output), contextlib.redirect_stderr(io.StringIO()):
+            self.assertEqual(pp.cmd_metrics(windows), 0)
+        self.assertEqual(output.getvalue().splitlines()[-1].split()[9:11], ["n/a", "n/a"])
+
     def test_metrics_command_reports_missing_instrumentation(self):
         self.assertEqual(pp.cmd_metrics(self._parse(scan_line=None)), 2)
 
