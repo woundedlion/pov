@@ -3246,10 +3246,11 @@ inline void test_plot_line_antipodal_replay_parameter() {
 /**
  * @brief Verifies a geodesic line through the north pole plots the pole row.
  * @details GeodesicEdgeSampler/PlanarEdgeSampler build interpolated points with
- * fast_sinf/fast_cosf, which are ~0.04% non-unit; vector_to_pixel takes
+ * fast_sinf/fast_cosf, which are up to ~0.17% (1.7e-3) non-unit;
+ * vector_to_pixel takes
  * phi = acos(v.y) directly, and acos's infinite slope at y=1 amplifies that
  * tiny error into a multi-row shift unless interpolated positions are
- * re-normalized before mapping. The drawing phase re-normalizes, so the pole
+ * re-normalized before mapping. The drawing phase applies newton_unit(), so the pole
  * lands on row 0.
  */
 inline void test_plot_line_over_pole_reaches_row0() {
