@@ -720,10 +720,7 @@ struct RingGroup {
       }
     };
     for (int y = y_lo; y <= y_hi; ++y) {
-      // Band gate hoisted per row: bounds pad (0.95 * thickness) is narrower
-      // than the SDF's own band, so an out-of-band row can still eval alpha >
-      // 0.001; gating keeps each slot's domain identical to its solo
-      // rasterize. Ascending slot order preserves blend order.
+      // Per-slot domains match solo rasterization; slot order preserves blending.
       n_active = 0;
       for (int s = 0; s < n; ++s)
         if (y >= sy_min[s] && y <= sy_max[s])
