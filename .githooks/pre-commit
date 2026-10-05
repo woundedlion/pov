@@ -2,8 +2,6 @@
 # Staged-only checks that predict the fast, deterministic CI gates.
 set -eu
 
-
-
 CHANGED="$(git -c core.quotePath=false diff --cached --name-only --no-renames --diff-filter=ACMRD)"
 PRESENT="$(git -c core.quotePath=false diff --cached --name-only --diff-filter=ACMR)"
 [ -n "$CHANGED" ] || exit 0
@@ -57,76 +55,75 @@ INDEX_PATH="$(git rev-parse --path-format=absolute --git-path index)"
   git -C "$SNAPSHOT" init --quiet
   cp "$INDEX_PATH" "$SNAPSHOT/.git/index"
 
+  require_clang_format() {
+    CF="${CLANG_FORMAT:-clang-format}"
+    if ! command -v "$CF" >/dev/null 2>&1; then
+      echo "[pre-commit] $CF not found; install the pinned formatter."
+      exit 1
+    fi
+    # Install clang-format 22 through the pinned requirements.
+    "$PYTHON_BIN" "$SNAPSHOT/tools/build_pins.py" --check-tool clang-format
+  }
 
-require_clang_format() {
-  CF="${CLANG_FORMAT:-clang-format}"
-  if ! command -v "$CF" >/dev/null 2>&1; then
-    echo "[pre-commit] $CF not found; install the pinned formatter."
-    exit 1
-  fi
-  # Install clang-format 22 through the pinned requirements.
-  "$PYTHON_BIN" "$SNAPSHOT/tools/build_pins.py" --check-tool clang-format
-}
+  require_ruff() {
+    if ! command -v ruff >/dev/null 2>&1; then
+      echo "[pre-commit] ruff not found; pip install -r requirements/ruff.txt"
+      exit 1
+    fi
+    "$PYTHON_BIN" "$SNAPSHOT/tools/build_pins.py" --check-tool ruff
+  }
 
-require_ruff() {
-  if ! command -v ruff >/dev/null 2>&1; then
-    echo "[pre-commit] ruff not found; pip install -r requirements/ruff.txt"
-    exit 1
-  fi
-  "$PYTHON_BIN" "$SNAPSHOT/tools/build_pins.py" --check-tool ruff
-}
+  require_eslint() {
+    if [ ! -x node_modules/.bin/eslint ]; then
+      echo "[pre-commit] node_modules is missing; run npm ci."
+      exit 1
+    fi
+  }
 
-require_eslint() {
-  if [ ! -x node_modules/.bin/eslint ]; then
-    echo "[pre-commit] node_modules is missing; run npm ci."
-    exit 1
-  fi
-}
+  FORMAT="$(printf '%s\n' "$PRESENT" \
+    | grep -E '\.(h|hpp|cpp|cc|inl|ino)$' \
+    | grep -vE '(^|/)core/vendor/FastNoiseLite\.h$|(^|/)core/color/color_luts\.h$|(^|/)core/color/gamut_lut\.h$|(^|/)core/color/srgb_decode_lut\.h$|(^|/)core/color/mindsplatter_palette_luts\.h$|(^|/)core/mesh/relax_bakes_generated\.h$|(^|/)core/spatial/reaction_graph\.cpp$|(^|/)tests/mindsplatter_replay_corpus\.h$' \
+    || true)"
 
-FORMAT="$(printf '%s\n' "$PRESENT" \
-  | grep -E '\.(h|hpp|cpp|cc|inl|ino)$' \
-  | grep -vE '(^|/)core/vendor/FastNoiseLite\.h$|(^|/)core/color/color_luts\.h$|(^|/)core/color/gamut_lut\.h$|(^|/)core/color/srgb_decode_lut\.h$|(^|/)core/color/mindsplatter_palette_luts\.h$|(^|/)core/mesh/relax_bakes_generated\.h$|(^|/)core/spatial/reaction_graph\.cpp$|(^|/)tests/mindsplatter_replay_corpus\.h$' \
-  || true)"
-
-if [ -n "$FORMAT" ]; then
-  require_clang_format
-  CF="${CLANG_FORMAT:-clang-format}"
-  failed=
-  while IFS= read -r file; do
-    extract_staged "$file"
-    "$CF" --dry-run --Werror --style=file --assume-filename="$SNAPSHOT/$file" \
-      <"$STAGED_BLOB" >/dev/null 2>&1 \
-      || failed="$failed $file"
-  done <<EOF
+  if [ -n "$FORMAT" ]; then
+    require_clang_format
+    CF="${CLANG_FORMAT:-clang-format}"
+    failed=
+    while IFS= read -r file; do
+      extract_staged "$file"
+      "$CF" --dry-run --Werror --style=file --assume-filename="$SNAPSHOT/$file" \
+        <"$STAGED_BLOB" >/dev/null 2>&1 \
+        || failed="$failed $file"
+    done <<EOF
 $FORMAT
 EOF
-  if [ -n "$failed" ]; then
-    echo "[pre-commit] clang-format failed:$failed"
-    exit 1
+    if [ -n "$failed" ]; then
+      echo "[pre-commit] clang-format failed:$failed"
+      exit 1
+    fi
   fi
-fi
 
-PYTHON_FILES="$(printf '%s\n' "$PRESENT" | sed -n '/\.py$/p')"
-if [ -n "$PYTHON_FILES" ]; then
-  require_ruff
-  while IFS= read -r file; do
-    extract_staged "$file"
-    ruff check --no-cache --config "$SNAPSHOT/ruff.toml" --stdin-filename "$file" - <"$STAGED_BLOB"
-  done <<EOF
+  PYTHON_FILES="$(printf '%s\n' "$PRESENT" | sed -n '/\.py$/p')"
+  if [ -n "$PYTHON_FILES" ]; then
+    require_ruff
+    while IFS= read -r file; do
+      extract_staged "$file"
+      ruff check --no-cache --config "$SNAPSHOT/ruff.toml" --stdin-filename "$file" - <"$STAGED_BLOB"
+    done <<EOF
 $PYTHON_FILES
 EOF
-fi
+  fi
 
-JAVASCRIPT_FILES="$(printf '%s\n' "$PRESENT" | sed -n -E '/\.(js|cjs|mjs)$/p')"
-if [ -n "$JAVASCRIPT_FILES" ]; then
-  require_eslint
-  while IFS= read -r file; do
-    extract_staged "$file"
-    node_modules/.bin/eslint --config "$SNAPSHOT/eslint.config.mjs" --stdin --stdin-filename "$file" <"$STAGED_BLOB"
-  done <<EOF
+  JAVASCRIPT_FILES="$(printf '%s\n' "$PRESENT" | sed -n -E '/\.(js|cjs|mjs)$/p')"
+  if [ -n "$JAVASCRIPT_FILES" ]; then
+    require_eslint
+    while IFS= read -r file; do
+      extract_staged "$file"
+      node_modules/.bin/eslint --config "$SNAPSHOT/eslint.config.mjs" --stdin --stdin-filename "$file" <"$STAGED_BLOB"
+    done <<EOF
 $JAVASCRIPT_FILES
 EOF
-fi
+  fi
 
   if printf '%s\n' "$CHANGED" | grep -qx '.clang-format'; then
     require_clang_format
