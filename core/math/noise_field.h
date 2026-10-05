@@ -128,18 +128,18 @@ constexpr NoiseFieldKey noise_field_key(const NoiseFieldSpec &spec) {
 }
 
 /** Lattice offsets that decorrelate the three channels of a DIRECT_V1 vector. */
-constexpr std::array<math::Vector, 3> NOISE_CHANNEL_OFFSETS = {
+inline constexpr std::array<math::Vector, 3> NOISE_CHANNEL_OFFSETS = {
     math::Vector(0.0f, 0.0f, 0.0f), math::Vector(17.0f, -29.0f, 43.0f),
     math::Vector(-47.0f, 11.0f, -23.0f)};
 /** Second set of channel offsets, subtracted to recentre a ridged basis. */
-constexpr std::array<math::Vector, 3> NOISE_RIDGED_OFFSETS = {
+inline constexpr std::array<math::Vector, 3> NOISE_RIDGED_OFFSETS = {
     math::Vector(-73.271f, 19.119f, 5.0f),
     math::Vector(61.731f, 89.417f, -7.0f),
     math::Vector(13.571f, -59.213f, 97.331f)};
 /** Radius of the lattice circle phase traverses, in lattice units. */
-constexpr float NOISE_LOOP_RADIUS = 32.0f;
+inline constexpr float NOISE_LOOP_RADIUS = 32.0f;
 /** Arm length of the tetrahedral gradient stencil, in lattice units. */
-constexpr float NOISE_STENCIL_RADIUS = 1.0f / 64.0f;
+inline constexpr float NOISE_STENCIL_RADIUS = 1.0f / 64.0f;
 
 /**
  * @brief This frame's point on the sphere domain's time loop.
