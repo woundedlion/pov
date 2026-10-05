@@ -872,7 +872,8 @@ public:
 #endif
 
   /**
-   * @brief Reports the engine arena metrics for the mesh tooling HUD.
+   * @brief Reports the three engine and three tooling arena metrics for
+   *        the mesh tooling HUD.
    * @return JS object of {usage, high_water_mark, lifetime_high_water_mark,
    *         capacity} metrics per arena, in bytes.
    */
