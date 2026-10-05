@@ -5387,10 +5387,10 @@ inline void test_planar_one_pass_tangent_is_forward_and_orthogonal() {
 /**
  * @brief The SinglePass rasterizer draws the same gap-free planar edge as the
  *        cached two-pass path.
- * @details ShapeShifter is the only production caller, so nothing else pins
- *          this instantiation: it must plot unit-length samples, close every
- *          consecutive gap to roughly one dot, and trace the same curve the
- *          two-pass replay traces.
+ * @details The general planar configuration plots unit-length samples,
+ *          bounds consecutive gaps, and follows the cached two-pass curve.
+ *          ShapeShifter's sampled configuration is covered by the balanced-star
+ *          and band-split tests.
  */
 inline void test_rasterize_single_pass_planar_matches_two_pass() {
   constexpr int W = 128, H = 64;
@@ -5451,8 +5451,9 @@ inline void test_rasterize_single_pass_planar_matches_two_pass() {
 /**
  * @brief SinglePass honours omit_end and close_loop the way the cached path
  *        does.
- * @details ShapeShifter draws closed primitives with omit_end, so the seam
- *          handling is the instantiation that actually ships.
+ * @details Covers closed-loop seam handling in the general planar configuration;
+ *          the balanced-star and band-split tests cover ShapeShifter's sampled
+ *          configuration.
  */
 inline void test_rasterize_single_pass_closed_loop_matches_two_pass() {
   constexpr int W = 128, H = 64;
