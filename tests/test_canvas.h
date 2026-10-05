@@ -1422,7 +1422,9 @@ inline void test_typed_enum_storage_widths() {
   HS_EXPECT_EQ(u32, TestModeU32::SPARKLE);
 }
 
-/** @brief Typed descriptions admit independent policies for every target kind. */
+#include "tests/canvas/sparse_parameter_specs.h"
+
+/** @brief Typed descriptions admit independent policies for target kinds. */
 inline void test_typed_parameter_specs() {
   TestEffect fx(4, 4);
   static constexpr const char *MODES[] = {"None", "Warp", "Sparkle"};
@@ -1785,6 +1787,7 @@ inline int run_canvas_tests() {
   test_typed_enum_and_global_param_metadata();
   test_typed_enum_storage_widths();
   test_typed_parameter_specs();
+  test_sparse_parameter_specs();
 #if HS_ENABLE_PARAM_GUI_BRIDGE
   test_parameter_spec_preserves_requested_float();
 #endif
