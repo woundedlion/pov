@@ -5,16 +5,16 @@ The reaction-diffusion effects (BZ / Gray-Scott) diffuse over a 7680-point
 Fibonacci lattice on the unit sphere. core/spatial/reaction_graph.cpp is the checked-in
 K-nearest-neighbor table for that lattice: neighbors[i][k] is the index of the
 k-th nearest node to node i, ordered by increasing distance. This script is its
-generator of record. The runtime node() in core/spatial/reaction_graph.h MUST reproduce
-the same lattice positions this script uses, or find_nearest_node / CubemapLUT
-would descend a table built from points that disagree with the ones it samples.
+generator of record. The runtime consumes its generated float32 node_positions;
+node() in core/spatial/reaction_graph.h is the analytic reference for those positions.
 
 Provenance — DOUBLE PRECISION. node(i) is evaluated in IEEE double here, and the
 committed table reproduces bit-for-bit ONLY in double: computing y / radius in
 float32 (as a naive runtime port would) flips the sort order of a handful of rows
-at near-tie distances. core/spatial/reaction_graph.h::node() therefore folds y, radius,
-and theta in double and narrows once into the float Vector, symmetric with this
-generator. RD_N, RD_K, golden_angle and two_pi are parsed out of that header
+at near-tie distances. Neighbor sorting retains double precision; emitted node
+coordinates narrow to float32 before hex formatting. The analytic C++ node()
+likewise folds y, radius, and theta in double and narrows once into a float Vector.
+RD_N, RD_K, golden_angle and two_pi are parsed out of that header
 rather than restated here, so only the node() formula itself is mirrored by hand;
 any edit to it requires regenerating the table.
 
@@ -47,6 +47,7 @@ import argparse
 import io
 import math
 import re
+import struct
 from pathlib import Path
 
 HEADER = (Path(__file__).resolve().parent.parent / "core" / "spatial" /
@@ -160,7 +161,8 @@ def emit(table, out):
     out.write("\nHS_PROGMEM_UNIQUE(node_positions) const math::Vector "
               "ReactionGraph::node_positions[RD_N] = {\n")
     for idx in range(RD_N):
-        values = [float(value).hex() + "f" for value in node(idx)]
+        values = [struct.unpack("<f", struct.pack("<f", value))[0].hex() + "f"
+                  for value in node(idx)]
         comma = "," if idx + 1 < RD_N else ""
         out.write("  {" + ", ".join(values) + "}" + comma + "\n")
     out.write("};\n")
