@@ -137,7 +137,7 @@ inline float deposited_energy(Filter::Screen::AntiAlias<W, H> &aa, float x,
 /**
  * @brief Pins the offset and LUT used by the Scan, Plot, Feedback and Face cases.
  * @details H_VIRT is H + 3. The last physical row has sin(phi) > 0;
- *          the virtual bottom row reaches the pole exactly.
+ *          the virtual bottom row samples the pole with float rounding.
  */
 inline void test_offset_is_active_and_lut_nondegenerate() {
   using LUT = math::TrigLUT<W, H>;
@@ -152,7 +152,7 @@ inline void test_offset_is_active_and_lut_nondegenerate() {
   const float sin_last_phys = LUT::sin_phi[H - 1];
   HS_EXPECT_GT(sin_last_phys, 0.01f);
 
-  // Final virtual row reaches the pole: sin(PI) == 0.
+  // Final virtual row samples sin(PI_F), approximately zero.
   const float sin_virtual_pole = LUT::sin_phi[h_virt - 1];
   HS_EXPECT_NEAR(sin_virtual_pole, 0.0f, 1e-4f);
 }
