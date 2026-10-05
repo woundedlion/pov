@@ -261,11 +261,13 @@ inline void test_transition_paused_holds_value() {
 inline void test_mutation_applies_function_of_eased_time() {
   float v = 0.0f;
   const int duration = 5;
-  // f(e) = e * 10; at completion e==1 -> v==10.
   Animation::Mutation m(
-      v, [](float e) { return e * 10.0f; }, duration, math::ease_linear);
+      v, [](float e) { return e * 10.0f; }, duration,
+      [](float t) { return t * t; });
+  constexpr float EXPECTED[] = {0.4f, 1.6f, 3.6f, 6.4f, 10.0f};
   for (int i = 0; i < duration; ++i) {
     m.step(fake_canvas());
+    HS_EXPECT_NEAR(v, EXPECTED[i], 1e-3f);
   }
   HS_EXPECT_NEAR(v, 10.0f, 1e-3f);
   HS_EXPECT_TRUE(m.done());
