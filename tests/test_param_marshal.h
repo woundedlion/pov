@@ -300,9 +300,11 @@ inline void check_roster_order_pinned() {
   HS_EXPECT_EQ(ACTUAL_N, GOLDEN_N);
   HS_EXPECT_EQ(static_cast<int>(ACTUAL_N), HS_EFFECT_COUNT);
   const size_t n = ACTUAL_N < GOLDEN_N ? ACTUAL_N : GOLDEN_N;
-  for (size_t i = 0; i < n; ++i)
-    HS_EXPECT_TRUE(std::string_view(ACTUAL_ROSTER[i]) ==
-                   std::string_view(GOLDEN_ROSTER[i]));
+  for (size_t i = 0; i < n; ++i) {
+    HS_CONTEXT("roster index", i);
+    HS_EXPECT_EQ(std::string_view(ACTUAL_ROSTER[i]),
+                 std::string_view(GOLDEN_ROSTER[i]));
+  }
 }
 
 /** @brief The WASM token changes for replacement and local schema rebinds. */
