@@ -27,7 +27,7 @@ import pullback_capture as capture  # noqa: E402
 
 
 MANIFEST_DIR = ROOT / "tests/data/pullback"
-_, ORACLES, SCHEMA = generator.load_and_validate(MANIFEST_DIR)
+_, ORACLES, _ = generator.load_and_validate(MANIFEST_DIR)
 
 
 def _frame(programs, program, preset, case, resolution, probe, value=1):
