@@ -3636,9 +3636,11 @@ inline void test_rasterize_closed_loop_gap_free_no_dup() {
   HS_EXPECT_LE(max_consecutive_gap(pipe.plotted, /*wrap=*/true),
                1.5f * base_step);
   // No vertex plotted twice: consecutive samples stay distinct.
-  for (size_t i = 1; i < pipe.plotted.size(); ++i)
-    HS_EXPECT_GT(math::angle_between(pipe.plotted[i - 1], pipe.plotted[i]),
-                 1e-5f);
+  for (size_t i = 0; i < pipe.plotted.size(); ++i) {
+    const math::Vector delta =
+        pipe.plotted[i] - pipe.plotted[(i + 1) % pipe.plotted.size()];
+    HS_EXPECT_GT(math::dot(delta, delta), 1e-10f);
+  }
 }
 
 /**
