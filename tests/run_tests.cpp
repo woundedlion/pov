@@ -108,7 +108,7 @@ struct TestModule {
   bool effects_tier;
 };
 
-// Expands into MODULES[] and HS_TEST_MODULE_COUNT; mirrored by
+// Expands into MODULES[]; mirrored by
 // _hs_test_modules in tests/CMakeLists.txt.
 #define HS_TEST_MODULE_LIST(X)                                                 \
   X("3dmath", hs_test::math3d_tests::run_3dmath_tests, false)                  \
@@ -205,15 +205,6 @@ struct TestModule {
 #define HS_TEST_MODULE_ENTRY(name, fn, effects_tier) {name, fn, effects_tier},
 static const TestModule MODULES[] = {HS_TEST_MODULE_LIST(HS_TEST_MODULE_ENTRY)};
 #undef HS_TEST_MODULE_ENTRY
-
-#define HS_TEST_MODULE_COUNT_ADD(name, fn, effects_tier) +1
-constexpr int HS_TEST_MODULE_COUNT =
-    0 HS_TEST_MODULE_LIST(HS_TEST_MODULE_COUNT_ADD);
-#undef HS_TEST_MODULE_COUNT_ADD
-static_assert(
-    sizeof(MODULES) / sizeof(MODULES[0]) == HS_TEST_MODULE_COUNT,
-    "MODULES and HS_TEST_MODULE_COUNT disagree: both derive from "
-    "HS_TEST_MODULE_LIST, so this fires only if the list is malformed.");
 
 /**
  * @brief Prints the roster's module names, one indented per line.
