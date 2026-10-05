@@ -19,7 +19,7 @@ namespace Pullback {
 
 namespace Lens {
 
-/** @brief Lens placeholder for an effect with no parameterized lens. */
+/** @brief Empty parameter family; no composed or chain stage consumes it. */
 struct NoLensParams {
   static constexpr std::array<Field<NoLensParams>, 0> FIELDS{};
 };
