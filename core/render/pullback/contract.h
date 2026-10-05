@@ -823,10 +823,9 @@ struct LeafCallableRows<true, Binding, TypeList<Ls...>> {
 /**
  * @brief The staged, named-boolean validation surface over a chain's
  *        flattened semantic leaf list.
- * @details Earlier levels gate later ones: descriptor contract shape, then
- * CANONICAL, then the rank rows, then the bound callable checks — so a
- * malformed descriptor reports through its own named row instead of
- * detonating a later fold. Placement wrappers are invisible to every row.
+ * @details SHAPE gates carrier and binding rows. Bound callable rows also
+ * require BINDINGS and DESCRIPTOR_IDENTITY. The static_asserts gate rank
+ * diagnostics on CANONICAL. Placement wrappers do not contribute leaves.
  */
 template <typename Binding, typename... Entries> struct PipelineValidation {
   using NodeList = typename Detail::NormalizeEntries<Entries...>::Type;
