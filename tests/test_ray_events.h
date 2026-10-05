@@ -7,7 +7,6 @@
 #pragma once
 
 #include "core/render/ray/shade.h"
-#include "tests/test_cellular_wire.h"
 #include "tests/test_lattice_trace.h"
 #include "tests/test_harness.h"
 #include "tests/test_fixture.h"
@@ -247,7 +246,6 @@ inline void test_verified_filter_contracts() {
 
 inline int run_ray_event_tests() {
   hs_test::ModuleFixture fixture("ray_events");
-  cellular_wire_tests::run_cellular_wire_cases();
   lattice_trace_tests::run_lattice_trace_cases();
   test_single_group_capacity();
   test_failure_status_survives_flush();

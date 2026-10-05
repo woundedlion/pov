@@ -358,18 +358,27 @@ inline void check_hyper_lattice_pattern_view_dropdowns() {
                std::string_view("LatticeMode::FOUR_D_SLICE"));
   HS_EXPECT_FALSE(pattern->is_bool);
   HS_EXPECT_TRUE(pattern->is_integer);
-  HS_EXPECT_EQ(pattern->option_count,
-               (HS_ENABLE_HYPERLATTICE_EXPERIMENTS ? 7 : 1));
+  HS_EXPECT_EQ(pattern->option_count, 3);
   HS_EXPECT_EQ(std::string_view(pattern->options[0]),
                std::string_view("Cubic"));
   HS_EXPECT_EQ(std::string_view(pattern->export_options[0]),
                std::string_view("Pattern::CUBIC_WIRE"));
-#if HS_ENABLE_HYPERLATTICE_EXPERIMENTS
   HS_EXPECT_EQ(std::string_view(pattern->options[1]),
-               std::string_view("Experimental / Octet Truss"));
+               std::string_view("Octet Truss"));
   HS_EXPECT_EQ(std::string_view(pattern->export_options[1]),
                std::string_view("Pattern::OCTET"));
-#endif
+  HS_EXPECT_EQ(std::string_view(pattern->options[2]),
+               std::string_view("Shells"));
+  HS_EXPECT_EQ(std::string_view(pattern->export_options[2]),
+               std::string_view("Pattern::SHELLS"));
+  constexpr int64_t IDS[] = {0, 1, 6};
+  for (size_t i = 0; i < std::size(IDS); ++i)
+    HS_EXPECT_EQ(pattern->option_values[i], IDS[i]);
+  HS_EXPECT_EQ(effect.updateParameter("Pattern", 6), ParamSetResult::APPLIED);
+  hs_wasm::collect_param_views(effect, views);
+  for (const auto &entry : views)
+    if (std::string_view(entry.name) == "Pattern")
+      HS_EXPECT_EQ(entry.value, 6);
 }
 
 #if HS_ENABLE_PARAM_GUI_BRIDGE
