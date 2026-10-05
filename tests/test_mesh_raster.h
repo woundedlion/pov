@@ -14,7 +14,7 @@
 #include "core/math/geometry.h"
 #include "core/mesh/mesh.h"
 #include "core/render/sdf/face_class_bake.h"
-#include "core/engine/memory.h"
+#include "core/memory.h"
 #include "core/render/plot.h"
 #include "core/render/scan.h"
 #include "core/mesh/solids.h"

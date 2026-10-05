@@ -15,7 +15,7 @@
 #include "render/shading.h"
 #include "render/canvas.h"
 #include "engine/concepts.h"
-#include "engine/memory.h"
+#include "memory.h"
 #include "render/plot/raster.h"
 
 /**

@@ -14,7 +14,7 @@
 #include <cstdio>
 
 #include "targets/effects.h"
-#include "core/engine/memory.h"
+#include "core/memory.h"
 #include "tests/test_fixture.h"
 
 #if HS_ENABLE_TEST_HOOKS || HS_ENABLE_TEST_ORACLES ||                          \

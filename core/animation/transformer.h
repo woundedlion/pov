@@ -17,7 +17,7 @@
 #include "math/3dmath.h"
 #include "math/mobius.h"
 #include "engine/concepts.h"
-#include "engine/memory.h"
+#include "memory.h"
 #include <new>
 #include <type_traits>
 #include "vendor/FastNoiseLite.h"

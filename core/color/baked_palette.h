@@ -11,7 +11,7 @@
 #include <cstring>
 #include <utility>
 #include "color/palette.h"
-#include "engine/memory.h"
+#include "memory.h"
 #include "math/3dmath.h"
 
 /** @brief Samples a palette domain and copies its exact mirror or loop seam. */

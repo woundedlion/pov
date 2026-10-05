@@ -11,7 +11,7 @@
 #include "color/pixel.h"
 #include "color/gamut_lut.h"
 #include "math/3dmath.h"
-#include "engine/memory.h"
+#include "memory.h"
 
 /**
  * @brief High-precision sRGB float [0,1] -> linear float [0,1].

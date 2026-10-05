@@ -17,6 +17,9 @@
 # error (CMP0057). Matches the top-level CMakeLists.
 cmake_minimum_required(VERSION 3.29)
 
+include("${TESTS_DIR}/header_sections.cmake")
+hs_check_test_sections()
+
 file(READ "${SRC}" _text)
 string(REGEX REPLACE "/\\*[^*]*\\*+([^/*][^*]*\\*+)*/" "\n" _text "${_text}")
 string(REGEX REPLACE "//[^\n]*" "" _text "${_text}")
@@ -92,7 +95,7 @@ file(GLOB_RECURSE _headers RELATIVE "${TESTS_DIR}"
   "${TESTS_DIR}/*.hpp")
 set(_orphans "")
 foreach(_hdr IN LISTS _headers)
-  if(_hdr IN_LIST NON_MODULE_HEADERS)
+  if(_hdr MATCHES "^[A-Za-z0-9_]+/" OR _hdr IN_LIST NON_MODULE_HEADERS)
     continue()
   endif()
   if(NOT _text MATCHES "#include \"tests/${_hdr}\"")
