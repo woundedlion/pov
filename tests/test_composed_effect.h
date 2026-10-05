@@ -1402,7 +1402,40 @@ inline void test_composed_slider_registration() {
 
 struct MobiusFrameProbe : MobiusGrid<SMALL_W, SMALL_H> {
   using MobiusGrid<SMALL_W, SMALL_H>::params;
+  using MobiusGrid<SMALL_W, SMALL_H>::run_transition;
+  using MobiusGrid<SMALL_W, SMALL_H>::transition;
 };
+
+inline void test_mobius_automatic_departures_retain_lens() {
+  for (const bool fade : {false, true}) {
+    reset_effect_globals();
+    auto effect = std::make_unique<MobiusFrameProbe>();
+    effect->init();
+    const math::MobiusParams live{1.0f, 0.2f, 0.1f, 0.3f,
+                                  0.2f, 0.1f, 0.9f, -0.1f};
+    effect->params.template get<"lens">().mobius = live;
+    const auto target = preset_params_or_initial<MobiusFrameProbe>(1);
+    auto &transition = effect->transition;
+    transition.from = effect->params;
+    transition.to = target;
+    transition.frames = 3;
+    transition.elapsed_frames = 0;
+    transition.fades = fade;
+    transition.adopted = false;
+    transition.active = true;
+    for (const float progress : {0.25f, 0.5f, 1.0f}) {
+      effect->run_transition(progress);
+      verify_mobius_equal(effect->params.template get<"lens">().mobius, live);
+    }
+    auto expected = target;
+    expected.template get<"lens">().mobius = live;
+    verify_params_equal(effect->params, expected);
+    HS_EXPECT_FALSE(transition.active);
+    HS_EXPECT_TRUE(effect->synchronizePreset(0));
+    verify_params_equal(effect->params,
+                        preset_params_or_initial<MobiusFrameProbe>(0));
+  }
+}
 
 inline void test_mobius_captured_parameter_restore() {
 #if HS_ENABLE_PARAM_GUI_BRIDGE
@@ -2720,6 +2753,7 @@ inline int run_composed_effect_tests() {
   test_composed_slider_registration();
   test_mobius_frame_admission();
   test_mobius_captured_parameter_restore();
+  test_mobius_automatic_departures_retain_lens();
   test_composed_snapshot_contract();
   test_parameter_layout_reorder();
   test_composed_parameter_schema_pins();

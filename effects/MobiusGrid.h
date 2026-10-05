@@ -53,7 +53,9 @@ using MobiusGridParams = Pullback::ParamsFor<MobiusGridSpec>;
  * @brief A continuously animated Mobius lens over a mirrored twin wave.
  * @details Presets store an authored lens snapshot. Once the timeline steps,
  * the circular animation drives b on the unit circle; authored b is not a
- * rendered-frame promise.
+ * rendered-frame promise. Automatic Lerp and Fade departures retain all live
+ * lens coefficients; manual and synchronized preset snaps adopt the authored
+ * lens.
  * @tparam W Canvas width in pixels.
  * @tparam H Canvas height in pixels.
  */

@@ -40,7 +40,8 @@
  * Segue::Preset::Fade departure's opacity, and shadowing `adopt_params(target)`
  * / `transition_armed(target)` keeps state derived from the parameters
  * consistent across snaps and crossfade arming. `finish_blend(target)` may
- * specialize a Lerp's exact endpoint adoption. `initial_params()` overrides
+ * specialize automatic target adoption for Lerp endpoints and Fade midpoints.
+ * `initial_params()` overrides
  * the first preset as the startup default. A `Derived` keeping its hooks
  * non-public befriends this base. parameter_fields() supplies ordered registration,
  * range validation and the default blend; effects can override validation and
@@ -297,7 +298,10 @@ protected:
     const float PROGRESS = COMPLETE ? 1.0f : progress;
     if (transition.fades) {
       if (PROGRESS >= 0.5f && !transition.adopted) {
-        derived().adopt_params(transition.to);
+        if constexpr (requires { derived().finish_blend(transition.to); })
+          derived().finish_blend(transition.to);
+        else
+          derived().adopt_params(transition.to);
         transition.adopted = true;
         log_preset();
       }
