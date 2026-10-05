@@ -229,16 +229,16 @@ back-fill the skipped ones).
 **Clock source and rebase rule (load-bearing — resolves §11.2).** The clock is
 `DWT->CYCCNT`: highest resolution (1.67 ns), zero cost to read. It is 32-bit at
 600 MHz and wraps every **~7.16 s** — long enough to forget, short enough to
-corrupt any elapsed-time computation that coasts. Rather than *handling* wrap,
-make it structurally impossible: at every locally-crossed boundary the flywheel
-folds its own epoch forward,
+corrupt any elapsed-time computation that coasts. With regular service within
+the signed-safe window below, folding prevents wrap ambiguity: at every
+locally-crossed boundary the flywheel folds its own epoch forward,
 
 ```
 epoch_cycles += cycles_per_half_rev      // exact integer add, no drift
 ```
 
-so `now_cycles - epoch_cycles` never exceeds ~63 ms regardless of how long the
-board coasts between snaps. A snap re-bases `epoch_cycles` absolutely; the fold
+so after folding, `now_cycles - epoch_cycles` stays below one half-revolution
+(~63 ms nominal), regardless of how long the board coasts between snaps. A snap re-bases `epoch_cycles` absolutely; the fold
 keeps it fresh in between. (The same rule covers `micros()` and its 71.6-min
 wrap if the cycle counter is ever unavailable.)
 
@@ -1072,8 +1072,8 @@ strictly cleaner, not weaker.
    ~0.006-col seam ever shows, choosing `α` and the out-of-window reject
    guard then.
 2. **Free-running clock source — SHIPPED: `DWT->CYCCNT` + the §4.1 rebase
-   rule.** Highest resolution, free to read; the 7.16 s wrap is made
-   structurally impossible by folding `epoch_cycles` forward every boundary
+   rule.** Highest resolution, free to read; folding `epoch_cycles` forward
+   every boundary prevents wrap ambiguity while service stays within the signed-safe window
    (the same rule covers `micros()` if CYCCNT is ever unavailable). Position
    math is 64-bit with `cycles_per_half_rev` (= 37,500,000 nominal) as the
    single stored, optionally-trimmed timebase constant (§4.1).
