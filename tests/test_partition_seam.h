@@ -287,17 +287,16 @@ inline SeamStats compare(const std::vector<Pixel> &a,
   return st;
 }
 
-/** Gated-swap envelope. The swap's measured coverage delta has a
- * mean band width of 2-4 px along the child edges, 6.6-15.3 % of the canvas, so the bound is
- * on the changed fraction, the changed pixels' absolute energy and the deepest
- * pixel instead. Changed fraction, energy, deepest darkening and deepest band
- * are bracketed on both sides: a widened
- * band and a collapsed seam — children that no longer partition the parent, and
- * so leave the capture untouched — are both out of envelope. Each swap's
- * changed fraction is bracketed within ten percent of its measured value.
- * Fraction and energy both count only pixels past DELTA_THRESH, so a
- * uniform sub-threshold shift is
- * invisible to the gate. */
+/** Gated-swap envelope. The swap's measured coverage delta has a mean band
+ * width of 2-4 px along the child edges, 6.6-15.3 % of the canvas, so the bound
+ * is on the changed fraction, the changed pixels' absolute energy and the
+ * deepest pixel instead. Changed fraction, energy, deepest darkening and
+ * deepest band are bracketed on both sides: a widened band and a collapsed
+ * seam — children that no longer partition the parent, and so leave the
+ * capture untouched — are both out of envelope. Each swap's changed fraction
+ * is bracketed within ten percent of its measured value. Fraction and energy
+ * both count only pixels past DELTA_THRESH, so a uniform sub-threshold shift
+ * is invisible to the gate. */
 constexpr double CHANGED_FRAC_RELATIVE_MARGIN = 0.10;
 constexpr double MEASURED_CHANGED_FRAC_KIS_ICOSA = 0.1533;
 constexpr double MEASURED_CHANGED_FRAC_KIS_CUBE = 0.1019;
