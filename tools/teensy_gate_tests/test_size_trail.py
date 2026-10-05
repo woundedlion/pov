@@ -1,14 +1,8 @@
 #!/usr/bin/env python3
 """Host tests for the per-commit size trail (tools/teensy_size_trail.py).
 
-Two things carry the whole feature and both are pure functions, so both are
-tested here rather than against a firmware binary:
-  * the ELF32 section-header parser — the reason the recorder needs no ARM
-    toolchain. Exercised against a SYNTHETIC ELF assembled in-process (no
-    committed firmware image) plus the malformed variants that must raise
-    rather than silently report zero bytes.
-  * the regression classifier — deltas are per-environment, a first row is
-    never a regression, and a shrink is never one either.
+Covers synthetic ELF parsing, collection, backfill, pending capture, record
+inputs and paths, trail storage, regression classification, and rendering.
 
 Run:  python -m unittest discover -s tools/teensy_gate_tests
 """

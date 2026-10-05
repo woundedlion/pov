@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Host tests for profile_one.sh configuration verification."""
+"""Host tests for profile_one.sh verification, sweep rosters, and tree locks."""
 
 import hashlib
 import os
