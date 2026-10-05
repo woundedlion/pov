@@ -175,15 +175,15 @@ inline void test_resolution_dispatch() {
 }
 
 /**
- * @brief Checks the roster tables the engine bootstraps from.
- * @details The constructor starts on WASM_RESOLUTIONS[0] / EFFECT_REGISTRATIONS[0].name
- *          rather than a named preset, so both must be non-empty and the first
- *          row buildable.
+ * @brief Checks the constructor's bootstrap name resolves at its bootstrap row.
  */
 inline void test_bootstrap_rows() {
-  HS_EXPECT_TRUE(hs_wasm::wasm_resolution_supported(
-      hs_wasm::WASM_RESOLUTIONS[0].w, hs_wasm::WASM_RESOLUTIONS[0].h));
-  HS_EXPECT_TRUE(!hs_wasm::EFFECT_REGISTRATIONS[0].name.empty());
+  HS_EXPECT_TRUE(hs_wasm::dispatch_resolution(
+      hs_wasm::WASM_RESOLUTIONS[0].w, hs_wasm::WASM_RESOLUTIONS[0].h,
+      []<int W, int H>() {
+        HS_EXPECT_TRUE((hs_wasm::find_factory_entry<W, H>(
+                            hs_wasm::EFFECT_REGISTRATIONS[0].name) != nullptr));
+      }));
 }
 
 /** @brief Checks registry-owned stable preset identities without Effect vtable cost. */
