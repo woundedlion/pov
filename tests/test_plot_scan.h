@@ -3735,6 +3735,8 @@ inline void test_rasterize_planar_segment_gap_free_arclength() {
   fx.advance_display();
 
   HS_EXPECT_GT(pipe.plotted.size(), (size_t)10);
+  if (pipe.plotted.empty())
+    return;
   HS_EXPECT_LE(max_consecutive_gap(pipe.plotted, /*wrap=*/false),
                1.5f * base_step);
   // Endpoints land within PlanarEdgeSampler's project/unproject round-trip error.
