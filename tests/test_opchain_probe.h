@@ -762,12 +762,12 @@ inline void two_nearest(const math::Vector &c,
 
 /**
  * @brief Pins face-centroid spacing per intermediate build-chain mesh against
- *        PROVENANCE_TOL_SQ's 0.15 chord radius.
+ *        OpLeg's PROVENANCE_TOL_SQ chord radius.
  * @details The ratio is TOL over half the tightest centroid spacing, so a
  * denser chain mesh raises it. The cap is the measured worst plus margin.
  */
 inline void test_build_chain_centroid_spacing() {
-  constexpr float TOL = 0.15f;
+  const float TOL = std::sqrt(Animation::OpLeg::PROVENANCE_TOL_SQ);
   constexpr float MAX_MEASURED_TOL_RATIO = 5.17f;
   constexpr float TOL_RATIO_MARGIN = 0.25f;
   constexpr float MAX_TOL_RATIO = MAX_MEASURED_TOL_RATIO + TOL_RATIO_MARGIN;
@@ -819,7 +819,7 @@ inline void test_build_chain_centroid_spacing() {
 
 /** @brief Pins per-leg face counts and maximum nearest-centroid ambiguity. */
 inline void test_build_chain_provenance_ambiguity() {
-  constexpr float TOL_SQ = 0.15f * 0.15f;
+  constexpr float TOL_SQ = Animation::OpLeg::PROVENANCE_TOL_SQ;
   struct ExpectedLeg {
     const char *name;
     size_t leg, previous, total;

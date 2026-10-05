@@ -178,6 +178,12 @@ public:
    * count mid-leg). */
   static constexpr float K_EPS = 0.005f;
 
+  /** Max distance from a start-parameter face centroid to its departed
+   * counterpart: bounds the T_EPS-scale swap displacement while staying under
+   * half the face-centroid spacing of the largest node (~0.37 chord at 92
+   * faces). */
+  static constexpr float PROVENANCE_TOL_SQ = 0.15f * 0.15f;
+
   /** Default trailing blend window: frames over which a trailing-blend leg's
    * colour diverges from the held source palette to its target
    * (trailing_blend). Colour holds at `from` until this many frames remain,
@@ -1581,12 +1587,6 @@ private:
     }
     copy_topology(out, arena, tr.seed.face_counts, tr.seed.faces);
   }
-
-  /** Max distance from a start-parameter face centroid to its departed
-   * counterpart: bounds the T_EPS-scale swap displacement while staying under
-   * half the face-centroid spacing of the largest node (~0.37 chord at 92
-   * faces). */
-  static constexpr float PROVENANCE_TOL_SQ = 0.15f * 0.15f;
 
   /**
    * @brief Unit-sphere vertex-average centroid of every face.
