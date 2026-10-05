@@ -1525,6 +1525,9 @@ inline void test_parameter_spec_preserves_requested_float() {
                        .initial_value =
                            ParamInitialValue::PRESERVE_REQUESTED_FLOAT});
   const auto *def = fx.getParameters().find("Requested");
+  HS_EXPECT_TRUE(def != nullptr);
+  if (!def)
+    return;
   HS_EXPECT_EQ(requested, 7.0f);
   HS_EXPECT_EQ(def->get_requested(), 7.0f);
   HS_EXPECT_EQ(def->max, 1.0f);
