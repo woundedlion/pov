@@ -30,15 +30,15 @@ inline constexpr float degrees = 180 / math::PI_F;
 inline float mod_tau(float n) { return n - floorf(n / tau) * tau; }
 
 /**
- * @brief Wraps a floating-point index into [0, m), preserving the fraction.
+ * @brief Wraps a floating-point index modulo m, preserving the fraction.
  * @param x Source index, may be negative.
  * @param m Modulus (exclusive upper bound), in [1, INT_MAX/2].
  * @pre floorf(x) is representable as an int.
- * @return Wrapped index in [0, m) with the original fractional part retained.
+ * @return Wrapped index with the original fractional part retained; rounding
+ *  near the upper seam can produce exactly m.
  * @details Uses floorf (not a truncating cast) so negative inputs floor toward
  *  -inf, and the double-mod `((i % m) + m) % m` keeps the integer part
- *  non-negative. This guarantees the [0, m) contract even for x < 0, avoiding a
- *  negative pixel x downstream.
+ *  non-negative. The final float addition can round to m for a small negative x.
  */
 inline float wrap_index(float x, int m) {
   int i = static_cast<int>(floorf(x));
