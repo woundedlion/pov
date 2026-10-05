@@ -1041,8 +1041,9 @@ inline void test_fused_walks_ignore_pole_lod() {
 
 /**
  * @brief Verifies rasterize_face walks the pixels scan_region walks.
- * @details rasterize_face carries its own copy of scan_region's
- * wrap/coalesce/clip run builder. SDF::Face satisfies ScanShape, so the same
+ * @details rasterize_face shares coalesce_spans but hand-rolls the full-row
+ * check and clip split of scan_region's run builder. SDF::Face satisfies
+ * ScanShape, so the same
  * face drawn through Scan::rasterize and through Scan::rasterize_face must
  * light the same pixels with the same coverage; a constant-color shader makes
  * any divergence in either the run set or the AA band a framebuffer difference.
