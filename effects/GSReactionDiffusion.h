@@ -511,27 +511,7 @@ private:
     const int FACE = projection.face;
     const float U = FACE < 2 ? -projection.u : projection.u;
     const float V = FACE >= 2 && FACE < 4 ? -projection.v : projection.v;
-    constexpr float SCALE = 0.5f * (HueNoiseLutView::FACE_STEPS - 1);
-    const float X_POSITION = (U + 1.0f) * SCALE;
-    const float Y_POSITION = (V + 1.0f) * SCALE;
-    const int X_LOW =
-        std::min(static_cast<int>(X_POSITION), HueNoiseLutView::FACE_STEPS - 2);
-    const int Y_LOW =
-        std::min(static_cast<int>(Y_POSITION), HueNoiseLutView::FACE_STEPS - 2);
-    const float X_FRACTION = X_POSITION - X_LOW;
-    const float Y_FRACTION = Y_POSITION - Y_LOW;
-    const int OFFSET = FACE * HueNoiseLutView::FACE_SIZE +
-                       Y_LOW * HueNoiseLutView::FACE_STEPS + X_LOW;
-    const float ROW_LOW =
-        hs::lerp(static_cast<float>(color_noise_lut[OFFSET]),
-                 static_cast<float>(color_noise_lut[OFFSET + 1]), X_FRACTION);
-    const float ROW_HIGH =
-        hs::lerp(static_cast<float>(
-                     color_noise_lut[OFFSET + HueNoiseLutView::FACE_STEPS]),
-                 static_cast<float>(
-                     color_noise_lut[OFFSET + HueNoiseLutView::FACE_STEPS + 1]),
-                 X_FRACTION);
-    return hs::lerp(ROW_LOW, ROW_HIGH, Y_FRACTION) * (1.0f / 127.0f);
+    return sample_hue_noise_face({color_noise_lut, true}, FACE, U, V);
   }
 
   template <typename Sample>
