@@ -194,9 +194,9 @@ HS_O3_FN inline LinRGB oklab_to_linear_rgb(OKLab lab) {
 
 /**
  * @brief Tests whether a linear-RGB triple lies inside the [0,1] display cube.
- * @param r Linear red.
- * @param g Linear green.
- * @param b Linear blue.
+ * @param r Finite linear red.
+ * @param g Finite linear green.
+ * @param b Finite linear blue.
  * @return True if every channel is within [0,1] (with a small epsilon slack).
  * @details The epsilon slack absorbs float rounding that can leave an in-gamut
  * color a hair past 1.0 after the OKLab inverse.

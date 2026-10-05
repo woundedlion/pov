@@ -116,6 +116,8 @@ template <size_t Size> struct NormalizedLinearResult {
  * @param progress Fraction; outside [0,1] it snaps to the nearer endpoint
  *        (returned as supplied, without renormalizing).
  * @param epsilon Norm below which the interpolant has no direction.
+ * @pre The interior interpolant's squared norm is finite; @p epsilon is finite
+ *      and non-negative.
  * @return The unit-length interpolant with valid true, or the un-normalized
  *         interpolant with valid false when its norm is at or below @p epsilon.
  */

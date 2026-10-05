@@ -164,8 +164,8 @@ private:
 };
 /**
  * @brief Exclusive mutation rights to one arena-backed palette table.
- * @details Moves transfer mutation rights. Views remain valid until the arena
- * is reset and observe subsequent rebakes.
+ * @details Moves transfer mutation rights. Views remain valid while their arena
+ * storage remains live and observe subsequent rebakes.
  */
 class BakedPaletteStorage {
 public:

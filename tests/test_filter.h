@@ -1450,8 +1450,8 @@ inline void test_world_vertex_replicate_cull_edge_mirrors_plot() {
 
 /**
  * @brief Verifies Pipeline::could_intersect_clip walks the whole stage chain:
- *        each world stage's cull_edge feeds the next, a stage without one
- *        forwards the edge unchanged, and the sink runs the predicate.
+ *        each world stage's cull_edge feeds the next, an identity stage without
+ *        one forwards the edge unchanged, and the sink runs the predicate.
  * @details Composition order is what makes the bound sound — the tail stage sees
  *          the head's rotated copies, so an edge only the composed transform
  *          moves into the band survives the cull.
@@ -1521,8 +1521,8 @@ inline void test_pipeline_could_intersect_clip_forwards_through_stages() {
   HS_EXPECT_TRUE(hit);
   HS_EXPECT_EQ(n, 1);
 
-  // A stage without cull_edge forwards the edge unchanged, so the head's
-  // rotated copy still reaches the sink.
+  // An identity stage without cull_edge forwards the edge unchanged, so the
+  // head's rotated copy still reaches the sink.
   Pipeline<W, H, Filter::World::Orient, Filter::Screen::AntiAlias<W, H>> plain(
       ori);
   math::Vector plain_a{};

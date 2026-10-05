@@ -185,8 +185,8 @@ if(EMSCRIPTEN)
     VERBATIM)
 
   # Install into ../daydream; override with -DDAYDREAM_DIR=/path/to/daydream.
-  # Absolute destinations ignore CMAKE_INSTALL_PREFIX. A missing checkout skips
-  # installation; reconfigure after creating it.
+  # Absolute destinations ignore CMAKE_INSTALL_PREFIX. A missing checkout makes
+  # installation fail; reconfigure after creating it.
   set(DAYDREAM_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../daydream"
       CACHE PATH "Destination daydream checkout for the installed WASM module")
 

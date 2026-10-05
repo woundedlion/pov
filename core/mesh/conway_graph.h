@@ -124,7 +124,7 @@ inline constexpr float T_TRUNCATE_ARRIVAL_MIN = 0.002f;
  * <= 0.5) keeps its 0.5 - T_EPS_AMBO cap and clean-swaps. */
 inline constexpr float T_TRUNCATE_FAR_MAX = 1.0f - T_EPS_AMBO;
 /** Nudge off the exact t = 0.5 truncate short-circuit: at 0.5 truncate returns
- * ambo (V vertices, not 2E), a one-frame topology break for a far-side leg
+ * ambo (E vertices, not 2E), a one-frame topology break for a far-side leg
  * sweeping through the pinch. Only far-side legs (arrival > 0.5) ever reach
  * 0.5, so a 0.5 sample is pushed to 0.5 + this toward the arrival, staying on
  * the truncate branch. Small against the ~0.018 per-frame sweep step, so no

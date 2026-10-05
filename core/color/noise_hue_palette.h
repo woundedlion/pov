@@ -188,7 +188,8 @@ sample_hue_rotation_lut(const HueRotationLutView &view, float value,
 /**
  * @brief Samples the cube-map noise field along a nonzero direction.
  * @param view Prepared hue-noise LUT.
- * @param direction Finite, nonzero direction; normalization is not required.
+ * @param direction Finite direction with positive float squared length;
+ *          normalization is not required.
  * @return Noise value in [-1, 1].
  */
 HS_O3_FN inline float sample_hue_noise_lut(const HueNoiseLutView &view,
@@ -296,7 +297,8 @@ public:
 
   /**
    * @brief Resolves the hue rotation at a sphere direction.
-   * @param direction Finite, nonzero direction; normalization is not required.
+   * @param direction Finite direction with positive float squared length;
+   *          normalization is not required.
    * @param amount Hue rotation magnitude in turns.
    * @return Signed hue rotation in turns.
    */
@@ -355,7 +357,8 @@ public:
   /**
    * @brief Samples the palette with a sphere-domain noise hue rotation.
    * @param value Palette coordinate in [0, 1].
-   * @param direction Finite, nonzero direction; normalization is not required.
+   * @param direction Finite direction with positive float squared length;
+   *          normalization is not required.
    * @param amount Hue rotation magnitude in turns.
    * @return Noise-hue-rotated palette color.
    */

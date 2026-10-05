@@ -592,8 +592,8 @@ inline void test_ripple_small_angle_series_matches_exact() {
  *          sphere's π of angular range. Every other threshold test pins phase
  *          to π/2, where the [0, π] clamp is inert. Here the clamp collapses
  *          both bounds onto cos(π), so the front has left the sphere and every
- *          direction is fast-rejected; an inverted or dropped clamp reopens an
- *          arbitrary annulus of a wrapped phase and charges the whole sphere
+ *          non-antipodal direction is fast-rejected; an inverted or dropped clamp
+ *          reopens an arbitrary annulus of a wrapped phase and charges the whole sphere
  *          the per-pixel wavelet again.
  */
 inline void test_ripple_threshold_collapses_past_pi() {
@@ -943,12 +943,12 @@ inline void test_transformer_nonpinned_slot_reclaimed_after_compaction() {
 // ============================================================================
 
 /**
- * @brief Verifies a spawned animation completing after its pool is destroyed
- *        leaves the pool's storage alone.
+ * @brief Verifies removal of a canceled animation after its pool is destroyed
+ *        leaves the replacement pool's storage alone.
  * @details spawn() installs a then() callback holding the pool and a slot
  *          index. A pool held in a narrower scope than its timeline dies with
- *          that event still live, so the callback fires against a dead pool and
- *          must do nothing. A second pool is built at the freed address, so the
+ *          that event canceled but awaiting removal, so its callback references a
+ *          dead pool and must do nothing. A second pool is built at the freed address, so the
  *          rejection has to rest on identity rather than on the address: a
  *          callback that ran would deactivate the new pool's only slot.
  */
@@ -971,7 +971,7 @@ inline void test_transformer_callback_after_pool_destroyed() {
   HS_EXPECT_TRUE(second->spawn(0, math::Vector(1, 0, 0), 0.2f, 120) != nullptr);
   HS_EXPECT_EQ(second->active_count(), 1);
 
-  // Steps past the first pool's ripple, firing its now-stale callback.
+  // Removes the first pool's canceled ripple, firing its now-stale callback.
   for (int i = 0; i < 8; ++i)
     tl.step(cv);
 

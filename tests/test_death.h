@@ -3319,10 +3319,11 @@ inline void case_gradient_no_stops() {
 
 /**
  * @brief Death case: a Gradient stop position outside [0,1] must trap.
- * @details Color surface — a stop position indexes entries[256] via
- *          static_cast<int>(pos * 255); pos > 1 (or < 0) is an out-of-bounds
- *          table write. The constructor traps the authoring error always-on at
- *          the cold literal-construction seam rather than corrupting memory.
+ * @details Color surface — a stop position becomes a rounded LUT index via
+ *          static_cast<int>(pos * 255 + 0.5f); sufficiently out-of-range
+ *          positions can write beyond the table. The constructor traps the
+ *          authoring error always-on at the cold literal-construction seam
+ *          rather than corrupting memory.
  */
 inline void case_gradient_stop_out_of_range() {
   Gradient grad{{0.0f, CPixel(0u, 0u, 0u)},

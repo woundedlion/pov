@@ -27,7 +27,7 @@ public:
   static constexpr bool world_transform_is_identity = true;
   /**
    * @brief Constructs a hole centered at @p origin with angular @p radius.
-   * @param origin Center of the hole; squared length must be at least
+   * @param origin Center of the hole; squared length must be finite and at least
    *        math::EPS_NORMALIZE_SQ. Renormalized internally.
    * @param radius Angular radius of the hole in radians.
    */
@@ -37,7 +37,7 @@ public:
   /**
    * @brief Moves the hole center, renormalizing to enforce the unit-length
    * contract the angular mask assumes.
-   * @param new_origin New center; squared length must be at least
+   * @param new_origin New center; squared length must be finite and at least
    *        math::EPS_NORMALIZE_SQ. Renormalized internally.
    */
   void set_origin(const math::Vector &new_origin) {

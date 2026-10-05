@@ -130,6 +130,7 @@ public:
    * @param target Finite query point, in world units; all components must be finite.
    * @param k Number of neighbors to return; MUST be <= MAX_K (traps via HS_CHECK
    *        otherwise). Soft-capped at the point count.
+   * @pre Squared distances from the query to source points are finite.
    * @return Buffer of neighbors (point + source index + squared distance), closest first.
    */
   Neighbors nearest(const math::Vector &target, size_t k = 1) const {

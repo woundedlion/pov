@@ -1898,7 +1898,7 @@ private:
   Transients *buf = nullptr;  /**< Pointer to arena-allocated leg state. */
   Arena *leg_arena = nullptr; /**< Arena backing buf and the Transients
                                  vectors. */
-  size_t live_end = 0; /**< Arena offset just past the Transients block. */
+  size_t live_end = 0; /**< Arena offset past all sealed leg allocations. */
 #ifndef NDEBUG
   ArenaBlockStamp stamp;
   size_t live_bytes = 0;

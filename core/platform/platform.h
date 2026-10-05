@@ -23,7 +23,7 @@
 
 // ---------------------------------------------------------------------------
 /**
- * @brief Always-on invariant trap that survives NDEBUG and pulls in no stdio.
+ * @brief Always-on invariant trap that survives NDEBUG.
  * @param cond Condition that must hold; the macro traps when it is false.
  * @param ... Optional printf-style format string and arguments for the message.
  * @details Not stripped by NDEBUG, so it still fires in the optimized device

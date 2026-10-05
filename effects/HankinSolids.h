@@ -870,7 +870,7 @@ private:
   uint8_t node_visits[ConwayGraph::NUM_NODES] =
       {}; /**< Aged per-node visit counts (walk recency weighting). */
 #ifdef HS_PROFILE_ORDERED_CYCLE
-  uint32_t leg_counter = 0; /**< Monotonic leg count (ordered-cycle picks). */
+  uint32_t leg_counter = 0; /**< Leg count (ordered-cycle picks). */
 #endif
   const Animation::OpLeg::Landing *pending_landing =
       nullptr; /**< In-flight leg's arrival data (leg-arena backed). */

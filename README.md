@@ -684,7 +684,7 @@ Three `std::atomic<int>` indices manage the double buffer:
 
 The ISR never touches `cur`. The main loop atomically updates `next` inside `queue_frame()` with interrupts disabled. `advance_display()` is called by the ISR at every half-revolution to flip `prev` to `next`.
 
-The two framebuffers are placed in Teensy DMAMEM (OCRAM) for capacity — at `MAX_W * MAX_H` 16-bit pixels they are far too large for the tightly-coupled DTCM that holds the stack and hot data. They are software render targets, read by the ISR and packed into the LED controller's protocol frame; they are never DMA'd themselves (the eDMA TX buffer is `HD107SFrame::buffer`, in the controller, which is the buffer that actually clocks out over SPI):
+The two framebuffers are placed in Teensy DMAMEM (OCRAM). Each occupies 243 KiB at Phantasm's 288×144 resolution, leaving insufficient DTCM capacity alongside the stack and hot data; Holosphere's 96×20 buffers occupy 11.25 KiB each. They are software render targets, read by the ISR and packed into the LED controller's protocol frame; they are never DMA'd themselves (the eDMA TX buffer is `HD107SFrame::buffer`, in the controller, which is the buffer that actually clocks out over SPI):
 
 ```cpp
 static DMAMEM Pixel buffer_a[MAX_W * MAX_H];

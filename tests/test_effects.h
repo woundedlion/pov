@@ -1872,7 +1872,7 @@ inline void test_gs_reaction_edit_starts_dissolve() {
  *        point: one substep leaves it exactly unchanged.
  * @details With B=0 the reaction term A·B² and both Laplacians vanish and the
  *          feed term feed·(1-A) is zero at A=1, so the state must not move. A
- *          sign error or stray term in the update assembly perturbs it here.
+ *          stray nonzero term in the update assembly perturbs it here.
  */
 inline void test_gs_rest_state_is_fixed_point() {
   std::vector<uint16_t> cA(GSWhiteBox::N, 65535), cB(GSWhiteBox::N, 0),

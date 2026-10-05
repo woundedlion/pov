@@ -188,6 +188,7 @@ inline float hash01(uint32_t i, uint32_t seed) {
 /**
  * @brief 1D value noise: quintic-smoothed hash lattice.
  * @param x Sample coordinate; lattice points sit on the integers.
+ * @pre floorf(x) is strictly between -2^31 and 2^31, checked only in debug builds.
  * @param seed Stream selector forwarded to the lattice hash.
  * @return Noise value in [0, 1), C1-continuous in x.
  */
@@ -207,6 +208,8 @@ inline float value_noise_1d(float x, uint32_t seed = 0) {
  * @brief 2D value noise: bilinear quintic-smoothed hash lattice.
  * @param x First sample coordinate; lattice points sit on the integers.
  * @param y Second sample coordinate.
+ * @pre floorf(x) and floorf(y) are strictly between -2^31 and 2^31, checked only
+ *      in debug builds.
  * @param seed Stream selector forwarded to the lattice hash.
  * @return Noise value in [0, 1), C1-continuous in x and y.
  */
@@ -243,8 +246,8 @@ struct Spherical {
   Spherical(float theta, float phi) : theta(theta), phi(phi) {}
   /**
    * @brief Constructs a Spherical coordinate from a 3D Vector.
-   * @param v The Cartesian vector (must be non-degenerate; normalize() traps
-   *          on a zero/near-zero-length input below normalized()'s epsilon).
+   * @param v The Cartesian vector; its squared length must be finite and at
+   *          least EPS_NORMALIZE_SQ. normalize() traps below that threshold.
    * @note Uses fast_atan2/fast_acos (peak errors ~3.8e-3 rad azimuth and
    *       ~5e-5 rad polar). The round trip through Vector(Spherical) is not exact.
    */
@@ -402,6 +405,7 @@ struct Vector {
 
   /**
    * @brief Normalizes the vector in place (scales to unit length).
+   * @pre The squared length is finite and at least EPS_NORMALIZE_SQ.
    */
   void normalize() {
     float m2 = x * x + y * y + z * z;
@@ -414,6 +418,7 @@ struct Vector {
 
   /**
    * @brief Returns a unit-length copy without mutating `this`.
+   * @pre The squared length is finite and at least EPS_NORMALIZE_SQ.
    * @return A unit-length vector in the same direction.
    * @details Traps on a zero-length vector. Sites where a zero vector is a
    * legitimate geometric edge must use normalized_or() with an explicit fallback.
@@ -434,6 +439,7 @@ struct Vector {
  * @brief Normalizes, returning `fallback` when the vector is degenerate (zero
  * length) instead of trapping.
  * @param v The vector to normalize.
+ * @pre The squared length of @p v is finite.
  * @param fallback Direction returned when `v` has near-zero length.
  * @return A unit-length copy of `v`, or `fallback` if `v` is degenerate.
  * @details Use where a zero vector is a legitimate geometric edge (antipodal
@@ -882,6 +888,7 @@ struct Quaternion {
 
   /**
    * @brief Normalizes the quaternion in place (scales to unit magnitude).
+   * @pre The squared magnitude is finite and at least EPS_NORMALIZE_SQ.
    */
   void normalize() {
     float m2 = squared_magnitude();
@@ -893,6 +900,7 @@ struct Quaternion {
 
   /**
    * @brief Returns a unit-magnitude copy without mutating `this`.
+   * @pre The squared magnitude is finite and at least EPS_NORMALIZE_SQ.
    * @return A unit-magnitude quaternion.
    * @details Traps on a zero-magnitude quaternion — a degenerate input is a
    * logic bug.

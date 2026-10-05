@@ -7,6 +7,7 @@
 #pragma once
 
 #include <algorithm>
+#include <bit>
 #include <cmath>
 #include <cstdint>
 #include <cstring>
@@ -2534,7 +2535,9 @@ inline void test_medial_dual_bridge_wellformed() {
     for (size_t v = 0; v < pair_n; ++v) {
       const math::Vector &mv = med_a.vertices[v];
       const math::Vector &av = ambo_p.vertices[v];
-      if (mv.x != av.x || mv.y != av.y || mv.z != av.z) {
+      if (std::bit_cast<uint32_t>(mv.x) != std::bit_cast<uint32_t>(av.x) ||
+          std::bit_cast<uint32_t>(mv.y) != std::bit_cast<uint32_t>(av.y) ||
+          std::bit_cast<uint32_t>(mv.z) != std::bit_cast<uint32_t>(av.z)) {
         ++bit_diff;
         worst_bit = fold_worst(worst_bit, math::distance_between(mv, av));
       }

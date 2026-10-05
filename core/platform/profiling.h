@@ -129,7 +129,8 @@ struct PlotRenderCounts {
   uint32_t live_particles = 0;     /**< Active particles. */
   uint32_t full_histories = 0;     /**< Trails at full history length. */
   uint32_t partial_histories = 0;  /**< Trails still filling. */
-  uint32_t draining_histories = 0; /**< Trails draining after death. */
+  uint32_t draining_histories =
+      0; /**< Resident particles with zero remaining life. */
   uint32_t cartesian_latitude_rejects = 0; /**< Latitude-bound rejects. */
   uint32_t cartesian_meridian_rejects = 0; /**< Meridian-bound rejects. */
   uint32_t cartesian_fallbacks = 0;     /**< Cartesian fast-path fallbacks. */

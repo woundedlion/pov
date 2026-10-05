@@ -196,11 +196,8 @@ private:
       1, static_cast<int>(
              (2.0 * H / static_cast<double>(math::PI_F)) /
              math::constexpr_sqrt(MAX_SITES))); /**< Smallest adaptive block
-      edge: the render path's edge formula evaluated at MAX_SITES, so the
-      densest site count a resolution can reach still gets a block narrower
-      than one cell (that formula is ~0.56 of the cell extent). A fixed
-      floor would straddle whole cells at short H (H=20 puts every cell inside a
-      pixel row). */
+      edge: the render path's edge formula evaluated at MAX_SITES, floored at
+      one pixel. */
   static_assert(COHERENCE_BLOCK_MIN <= COHERENCE_BLOCK,
                 "Voronoi coherence block bounds are inverted");
 

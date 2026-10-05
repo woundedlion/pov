@@ -611,10 +611,9 @@ struct Ring {
 
 /**
  * @brief Azimuthal-equidistant edge projection policy.
- * @note Always renders with PLANAR (azimuthal-equidistant) edges, which bow
- *       LONGER than the great-circle chord. The rasterizer re-derives v0/v1 from
- *       that true rendered arc, so both track the drawn position rather than the
- *       shorter chord polygon.
+ * @note Selects PLANAR (azimuthal-equidistant) edges, with a geodesic fallback
+ *       near the chart antipode. The rasterizer derives v0/v1 from the selected
+ *       rendered path.
  */
 struct PlanarProjection {
   static const math::Basis *edge_basis(const math::Basis &basis, float radius,
@@ -1205,12 +1204,11 @@ public:
  * @brief Flower shape.
  * Registers:
  *  v0: Perimeter progress (0.0 -> 1.0)
- *  v1: Arc Length (radians) — cumulative rendered planar arc
+ *  v1: Arc Length (radians) — cumulative rendered arc
  *  v2: Vertex index
- * @note Always renders with PLANAR (azimuthal-equidistant) edges, which bow
- *       LONGER than the great-circle chord. The rasterizer re-derives v0/v1 from
- *       that true rendered arc, so both track the drawn position rather than the
- *       shorter chord polygon.
+ * @note Selects PLANAR (azimuthal-equidistant) edges, with a geodesic fallback
+ *       near the chart antipode. The rasterizer derives v0/v1 from the selected
+ *       rendered path.
  */
 struct Flower {
   /**
