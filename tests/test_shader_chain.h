@@ -857,8 +857,9 @@ inline void test_shader_chain_schema_and_field_ids() {
   // Warp batch: every op is PLANE->PLANE with "speed" first; the polar chart
   // carries the full sixteen-harmonic list; curl-flow exposes basis and integrator.
   for (const char *id :
-       {"warp.affine.v3", "warp.wave-shear.v2", "warp.vector-noise.v2",
-        "warp.mirror-tile.v2", "warp.polar-chart.v2", "warp.curl-flow.v2"}) {
+       {"warp.affine.v3", "warp.vortex.v2", "warp.wave-shear.v2",
+        "warp.vector-noise.v2", "warp.mirror-tile.v2", "warp.polar-chart.v2",
+        "warp.curl-flow.v2"}) {
     const In::OperatorDescriptor &warp = *In::find_operator(id);
     HS_EXPECT_EQ(static_cast<int>(warp.input),
                  static_cast<int>(In::CarrierId::PLANE));
