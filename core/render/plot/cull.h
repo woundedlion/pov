@@ -1827,6 +1827,53 @@ inline bool cap_may_touch_clip(const ClipRegion &cr, const math::Vector &dir,
   });
 }
 
+/** @brief Exclusive column boundary of an evenly divided, rounded-up chunk. */
+template <int CHUNKS> constexpr int chunk_end(int c, int lut_n) {
+  static_assert(CHUNKS > 0);
+  return ((c + 1) * lut_n + CHUNKS - 1) / CHUNKS;
+}
+
+/** @brief Ring azimuth chunks reaching a clip, padded for stroke and column rounding. */
+template <int H, int CHUNKS>
+__attribute__((always_inline)) inline uint32_t
+visible_chunk_mask(const ClipRegion &clip, const math::Basis &basis,
+                   float theta, float cos_t, float sin_t, float band_r,
+                   float thickness, const float *chunk_cos,
+                   const float *chunk_sin) {
+  static_assert(CHUNKS > 0 && CHUNKS < 32);
+  constexpr uint32_t MASK = (1u << CHUNKS) - 1;
+  const float chunk_reach = (math::PI_F / CHUNKS) * sin_t + band_r;
+  const float sin_reach = sinf(fminf(chunk_reach, math::PI_F));
+  uint32_t raw = 0u;
+  for (int c = 0; c < CHUNKS; ++c) {
+    math::Vector mid =
+        (basis.v * cos_t) +
+        ((basis.u * chunk_cos[c]) + (basis.w * chunk_sin[c])) * sin_t;
+    if (cap_may_touch_clip<H>(clip, mid, chunk_reach, sin_reach))
+      raw |= 1u << c;
+  }
+  if (!raw)
+    return 0u;
+  const float th_lo = theta - band_r;
+  const float th_hi = theta + band_r;
+  int pad_chunks = CHUNKS;
+  if (th_lo > 0.0f && th_hi < math::PI_F) {
+    float sin_lo = fminf(sinf(th_lo), sinf(th_hi));
+    // A band hugging a pole drives sin_lo to zero; clamp before the cast.
+    const float pad_f =
+        ceilf(thickness * CHUNKS / (2.0f * math::PI_F * sin_lo));
+    pad_chunks = 1 + static_cast<int>(
+                         hs::clamp(pad_f, 0.0f, static_cast<float>(CHUNKS)));
+  }
+  if (2 * pad_chunks >= CHUNKS)
+    return MASK;
+  uint32_t visible = raw;
+  for (int k = 1; k <= pad_chunks; ++k)
+    visible |=
+        (raw << k) | (raw >> (CHUNKS - k)) | (raw >> k) | (raw << (CHUNKS - k));
+  return visible & MASK;
+}
+
 /** @brief cap_may_touch_clip() for a single cap, deriving sin(half_angle). */
 template <int H>
 inline bool cap_may_touch_clip(const ClipRegion &cr, const math::Vector &dir,
