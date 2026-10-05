@@ -159,7 +159,7 @@ struct CloseStreams {
   Raycast::Contribution candidate(size_t i) const {
     Raycast::Contribution result;
     result.t = distance(i);
-    result.merge_identity = i == 1 ? 0 : i;
+    result.merge_identity = i == 1 || i == 2 ? 0 : i;
     result.material = i == 2 ? 1 : 0;
     result.coverage = i == 1 ? 0.8f : 0.3f;
     return result;
