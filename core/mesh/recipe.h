@@ -39,7 +39,7 @@ inline constexpr float CHAMFER_T_MAX = 0.63f;
  * CHAMFER is characterized up to CHAMFER_T_MAX. SNUB sweeps only a positive
  * inset, HANKIN only a positive contact angle and RELAX only a baked step or a
  * positive iteration count, the floors apply_step traps on. KIS and DUAL run as
- * smooth bridge legs (docs/specs/opchain_morph_spec.md, "Leg kinds"). AMBO sweeps
+ * smooth bridge legs (docs/specs/opchain_morph_spec.md, "Smooth dual/kis/needle"). AMBO sweeps
  * through the truncate arrival at its topology pinch. EXPAND has a leg
  * kind but no recipe and no sweep coverage on a hankin seed.
  */
