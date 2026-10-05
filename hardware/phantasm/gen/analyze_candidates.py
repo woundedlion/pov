@@ -22,7 +22,7 @@ geometry is checked independently because Quilter may replace uploaded defaults;
 candidates below 0.45/0.20 mm are ineligible. Project-rule and zone floors run
 independently of KiCad availability; refusals report as RULES.
 
-Scoring favors fewer fast-net vias, shorter fast nets and accessible connectors,
+Scoring favors fewer fast-net vias and shorter fast nets,
 with decoupling near U1, terminators near the strip connector and a compact sync divider.
 """
 import argparse
