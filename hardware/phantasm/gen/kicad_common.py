@@ -3,6 +3,7 @@ import glob
 import math
 import os
 import re
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -54,6 +55,9 @@ def find_kicad_cli():
                  f"  found: {', '.join(hits)}\n"
                  f"  Install KiCad {KICAD_VERSION} or set KICAD_CLI to its "
                  "kicad-cli.")
+    if shutil.which("kicad-cli") is None:
+        sys.exit(f"no kicad-cli found; install KiCad {KICAD_VERSION} or set "
+                 "KICAD_CLI to its kicad-cli.")
     version = kicad_cli_version("kicad-cli")
     if version == KICAD_VERSION:
         return "kicad-cli"
