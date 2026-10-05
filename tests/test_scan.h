@@ -326,7 +326,7 @@ inline void test_shader_clip_arc_matches_predicate() {
   };
 
   // 0/1: single-callback draw at 1x and 4x. 2/3: split vertex/fragment draw
-  // at 1x and 4x. 5/6: draw_cached. Default (4): draw_grid.
+  // at 1x and 4x. 5/6: draw_cached. 7: walk_grid. Default (4): draw_grid.
   auto draw_variant = [&](Canvas &c, int variant) {
     switch (variant) {
     case 0:
@@ -375,6 +375,14 @@ inline void test_shader_clip_arc_matches_predicate() {
       HS_EXPECT_EQ(row, H - 1);
       break;
     }
+    case 7:
+      Scan::Shader::walk_grid<W, H>(
+          c, [&](const math::Vector &center, const auto &grid, int x) {
+            const Color4 COLOR = positional(grid.at(x, 0));
+            HS_EXPECT_NEAR(center.magnitude(), 1.0f, 1e-6f);
+            return COLOR.color * COLOR.alpha;
+          });
+      break;
     default:
       Scan::Shader::draw_grid<W, H>(
           c, [](Fragment &) {},
@@ -405,7 +413,7 @@ inline void test_shader_clip_arc_matches_predicate() {
   // A plain arc, and one whose margin underflows column 0 into a wrapped band.
   const Band bands[] = {{8, 20, 2}, {0, 10, 3}};
 
-  for (int variant = 0; variant < 7; ++variant) {
+  for (int variant = 0; variant < 8; ++variant) {
     HS_CONTEXT("variant", variant, 0);
     // One live Effect at a time: read the unclipped render back before the
     // clipped fixture exists.
