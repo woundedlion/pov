@@ -213,7 +213,7 @@ inline bool field_identical(const PB::FieldSample &a,
          float_identical(a.path_length, b.path_length);
 }
 
-/** Writes every tabled float of a family to its low or high endpoint. */
+/** @brief Selects defaults or a tabled parameter endpoint. */
 enum class ValueSet { DEFAULTS, MINIMUMS, MAXIMUMS };
 
 /** Failure-context label for a value set. */
@@ -228,6 +228,7 @@ inline const char *value_set_name(ValueSet set) {
   }
 }
 
+/** @brief Applies tabled endpoints; DEFAULTS leaves the family unchanged. */
 template <typename T> void apply_value_set(T &params, ValueSet set) {
   if (set == ValueSet::DEFAULTS)
     return;
