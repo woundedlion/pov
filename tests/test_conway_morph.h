@@ -2061,6 +2061,9 @@ struct StepLegSite {
   PolyMesh (*seed)(Arena &a, Arena &b);     /**< Chain prefix up to the step. */
   float param;                              /**< Arrival t. */
   const MeshOps::RelaxBake *bake = nullptr; /**< Relax arrival bake. */
+  bool via_dt_macro = false; /**< Bridge follows the dt truncate leg. */
+  double min_face_area = 1e-3;
+  float seam_quiet_ratio = .70f;
 };
 
 inline PolyMesh probe_icosahedron(Arena &a, Arena &b) {
@@ -2189,7 +2192,10 @@ inline PolyMesh build_step_leg_seed(const StepLegSite &site, Arena &persist) {
   constexpr size_t HALF = sizeof(morph_aux_buf) / 2;
   Arena ga(morph_aux_buf, HALF);
   Arena gb(morph_aux_buf + HALF, HALF);
-  return Solids::finalize_solid(site.seed(ga, gb), persist);
+  PolyMesh seed = site.seed(ga, gb);
+  if (site.via_dt_macro)
+    seed = MeshOps::truncate(seed, gb, ga, RECONCILE_TRUNCATE_T);
+  return Solids::finalize_solid(seed, persist);
 }
 
 /**
@@ -2389,17 +2395,33 @@ inline PolyMesh probe_icosidodeca_trunc5_ambo(Arena &a, Arena &b) {
       .ambo()
       .build();
 }
-/** DUAL-leg sites: the mesh each recipe applies a smooth dual to (the gyro
- * snub-derived seeds, the ambo-of-hankin and ambo-of-truncate seeds, and the
- * needle's hankin seed). */
+/** @brief Smooth-dual bridge seeds, including the dt macro's truncate prefix. */
 inline constexpr StepLegSite DUAL_LEG_SITES[] = {
     {"icosahedron_kis_gyro", probe_icosa_kis_snub, 0.0f},
-    {"truncatedOctahedron_gyro", probe_toct_snub, 0.0f},
+    {"truncatedOctahedron_gyro", probe_toct_snub, 0.0f, nullptr, true},
     {"dodecahedron_hk72_ambo_dual", probe_dodeca_hk72_ambo, 0.0f},
     {"icosidodecahedron_truncate5d_ambo_dual", probe_icosidodeca_trunc5_ambo,
      0.0f},
     {"truncatedIcosahedron_ambo_relax100_hk54_needle",
-     build_ticosa_ambo_relax100_hk54, 0.0f},
+     build_ticosa_ambo_relax100_hk54, 0.0f, nullptr, true, 5e-4},
+    {"dodecahedron_bevel2_relax_gyro",
+     recipe_step_seed<Solids::DODECAHEDRON_BEVEL2_RELAX_GYRO_RECIPE,
+                      Solids::Op::DUAL>,
+     0.0f},
+    {"snubDodecahedron_truncate5d_ambo_dual",
+     recipe_step_seed<Solids::SNUB_DODECAHEDRON_TRUNCATE5D_AMBO_DUAL_RECIPE,
+                      Solids::Op::DUAL>,
+     0.0f, nullptr, false, 8.5e-4},
+    {"truncatedIcosidodecahedron_truncate50d_ambo_dual",
+     recipe_step_seed<
+         Solids::TRUNCATED_ICOSIDODECAHEDRON_TRUNCATE50D_AMBO_DUAL_RECIPE,
+         Solids::Op::DUAL>,
+     0.0f, nullptr, false, 1e-3, .65f},
+    {"truncatedIcosahedron_truncate50d_ambo_dual",
+     recipe_step_seed<
+         Solids::TRUNCATED_ICOSAHEDRON_TRUNCATE50D_AMBO_DUAL_RECIPE,
+         Solids::Op::DUAL>,
+     0.0f},
 };
 
 /** @brief Max nearest-vertex distance from every vertex of @p x to @p y. */
@@ -2499,9 +2521,6 @@ inline int medial_inverted_faces(const PolyMesh &m) {
  */
 inline void test_medial_dual_bridge_wellformed() {
   constexpr int SAMPLES = 33;
-  // Registry minima: icosahedron_kis_gyro 3.83e-3;
-  // icosidodecahedron_truncate5d_ambo_dual 1.22e-3.
-  constexpr double MIN_FACE_AREA = 1e-3;
   // Well clear of an antipodal/coincident slerp singularity.
   constexpr float MIN_ENDPOINT_DOT = 0.9f;
   constexpr float MAX_INTER_SAMPLE_STEP = 0.05f;
@@ -2628,7 +2647,7 @@ inline void test_medial_dual_bridge_wellformed() {
 
     HS_EXPECT_EQ(total_inv, 0);
     HS_EXPECT_LT(worst_4pi, 1e-5);
-    HS_EXPECT_GT(min_area, MIN_FACE_AREA);
+    HS_EXPECT_GT(min_area, site.min_face_area);
     HS_EXPECT_LT(max_step, MAX_INTER_SAMPLE_STEP);
 
     if (hs_test::stats().failed != failed_before)
@@ -2756,8 +2775,6 @@ inline void test_opleg_dual_bridge_seam_correspondence() {
   constexpr int SWEEP = 24;
   constexpr int RW = 288, RH = 144;
   constexpr float SEAM_MATCH_TOL = 0.02f;
-  // Measured minimum quiet-pixel ratio across sites: 0.781.
-  constexpr float SEAM_QUIET_RATIO = 0.70f;
   // Measured maximum absolute channel delta across sites: 917321.
   constexpr long long SEAM_SUMABS_MAX = 1100000ll;
 
@@ -2780,14 +2797,7 @@ inline void test_opleg_dual_bridge_seam_correspondence() {
     Arena leg(morph_target_buf, sizeof(morph_target_buf));
     Arena temp(morph_temp_buf, sizeof(morph_temp_buf));
 
-    // The needle reaches its bridge through the dt macro, so its seam runs on
-    // truncate(X, RECONCILE_TRUNCATE_T); other sites dual their recipe mesh directly.
     PolyMesh P = build_step_leg_seed(site, persist);
-    if (std::strstr(site.name, "needle")) {
-      Arena aux(morph_aux_buf, sizeof(morph_aux_buf));
-      P = Solids::finalize_solid(
-          MeshOps::truncate(P, aux, temp, RECONCILE_TRUNCATE_T), leg);
-    }
     const size_t PF = P.face_counts.size();
 
     // Departed mesh ambo(P): class-keyed palettes in medial face order.
@@ -3012,14 +3022,14 @@ inline void test_opleg_dual_bridge_seam_correspondence() {
       continue;
     const float quiet_ratio =
         static_cast<float>(seam_quiet) / static_cast<float>(ctrl_quiet);
-    HS_EXPECT_GT(quiet_ratio, SEAM_QUIET_RATIO);
+    HS_EXPECT_GT(quiet_ratio, site.seam_quiet_ratio);
     HS_EXPECT_LT(seam_sum, SEAM_SUMABS_MAX);
 
     std::printf("  [opleg seam] %s: F=%zu blocks %zu/%zu, seam diff "
                 "sumabs=%lld px=%d (control %lld/%d) quiet=%.3f/%.3f%s\n",
                 site.name, nf, DF, nf - DF, seam_sum, seam_px, ctrl_sum,
                 ctrl_px, static_cast<double>(quiet_ratio),
-                static_cast<double>(SEAM_QUIET_RATIO),
+                static_cast<double>(site.seam_quiet_ratio),
                 hs_test::stats().failed != failed_before ? " FAILED" : "");
   }
 }
