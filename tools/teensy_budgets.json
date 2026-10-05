@@ -26,7 +26,8 @@
       "flash": { "max_bytes": 1900000 },
       "ram1":  { "max_bytes": 490000 },
       // OCRAM: 44,160 B used, 480,128 B free. max_bytes is the hardware wall;
-      // free_min_bytes reserves 4 KiB for the allocator and boot overhead.
+      // free_min_bytes reserves 4 KiB for the heap-allocated effect object plus
+      // allocator and boot overhead.
       "ram2":  { "max_bytes": 524288, "free_min_bytes": 4096 }
     },
     "symbols": {
