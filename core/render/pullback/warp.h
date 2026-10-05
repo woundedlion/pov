@@ -357,9 +357,9 @@ struct PreparedVortexSlot {
 };
 
 /**
- * @brief Resolves one warp slot's per-frame rotation and transform.
- * @details Overloads cover transform-bearing families: wave shear, mirror,
- * vector noise, vortex and affine. The second argument is the phase clock
+ * @brief Resolves one warp slot's per-frame prepared state.
+ * @details Wave shear prepares rotation only; mirror, vector noise, vortex
+ * and affine prepare transform state. The second argument is the phase clock
  * (unused by wave shear); affine also takes accumulated rotation. CurlFlow
  * prepares its loop point in its policy; PolarChart needs no prepared state.
  * @param warp The slot's parameters.
