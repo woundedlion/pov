@@ -370,9 +370,8 @@ private:
    * (emission index < node_faces); see resolve_hankin_slot_luts.
    * @param strap_by_slot Resolved palette LUT per class slot for strap faces.
    * @param strap_open_fade Alpha multiplier for strap (emission index >=
-   * node_faces) faces over the opening window, in [0, 1]. Newborn straps split
-   * former star interiors in one frame; fading their coverage in turns that
-   * birth into a bounded reveal instead of a hard sliver pop.
+   * node_faces) faces over the opening window, in [0, 1]. Also blends toward
+   * the host rim color using the minimum of this and strap_close_blend.
    * @param strap_close_blend Blend of strap faces toward the rim color of the
    * base face they collapse onto, over the closing window, in [0, 1]. A strap
    * renders its full ramp even one pixel wide, so its interior differs from the
