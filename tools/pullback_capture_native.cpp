@@ -8,7 +8,6 @@
 #include "chain_capture_fixtures.h"
 
 #include <algorithm>
-#include <array>
 #include <bit>
 #include <cstdint>
 #include <cstdio>
