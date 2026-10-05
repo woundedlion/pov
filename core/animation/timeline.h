@@ -327,8 +327,11 @@ public:
     return ptr;
   }
 
-  /** @brief Cancels every event bound to the retiring lifetime owner. */
-  template <typename A> HS_COLD_MEMBER void cancel_owner(const void *owner) {
+  /**
+   * @brief Cancels every event bound to the retiring lifetime owner.
+   * @param owner Lifetime token shared by the events to cancel.
+   */
+  HS_COLD_MEMBER void cancel_owner(const void *owner) {
     bool retiring_predecessor = false;
     for (int i = 0; i < global_timeline_num_events; ++i) {
       const auto &event = global_timeline_events[i];
@@ -342,7 +345,7 @@ public:
     for (int i = 0; i < global_timeline_num_events; ++i) {
       auto &event = global_timeline_events[i];
       if (event.owner == owner && event.animation()) {
-        static_cast<A *>(event.animation())->cancel();
+        static_cast<Animation::AnimationCommon *>(event.animation())->cancel();
         event.paused = nullptr;
         event.owner = nullptr;
       }

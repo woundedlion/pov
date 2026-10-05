@@ -171,7 +171,7 @@ public:
       HS_CHECK(global_timeline_live,
                "TransformerPool outlived its Timeline: declare the Timeline "
                "before the pools that schedule on it");
-      timeline.template cancel_owner<AnimT>(this);
+      timeline.cancel_owner(this);
       timeline.remove_clear_hook(this);
     }
   }
