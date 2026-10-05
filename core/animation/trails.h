@@ -109,7 +109,8 @@ template <int CAP, int SUBSTEPS> struct TrailBody {
  * @tparam CAP The maximum number of snapshots to keep.
  * @details A Trail of snorm16 triples: 3x int16 per snapshot (6 bytes vs
  * Vector's 12). Components are clamped to [-1, 1] on record and round-trip
- * with error <= 1/65534 per component, so get() decodes and returns by value.
+ * at a 1/32767 quantization step with floating-point rounding, so get()
+ * decodes and returns by value.
  */
 template <int CAP> class QuantizedVectorTrail {
 public:

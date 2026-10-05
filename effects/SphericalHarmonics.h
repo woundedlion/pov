@@ -79,8 +79,8 @@ public:
      * @brief Sample the (possibly blended) harmonic at world point p.
      * @param p World-space sample point.
      * @return Signed field value; zero-crossings are the lobe boundaries.
-     * @details Rotates p into the shape's local frame and evaluates both modes
-     * there.
+     * @details Evaluates the first mode in the shape's local frame, blending the
+     * second only when blend exceeds 0.001.
      */
     float sample(const math::Vector &p) const {
       math::Vector local = orientation_conj.apply(p);

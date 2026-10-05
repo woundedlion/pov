@@ -1360,7 +1360,7 @@ def verify_main():
 
 
 def promote_package(staged, destination):
-    """Replace a complete package, restoring the previous directory on failure."""
+    """Replace a complete package; restore the backup if staged promotion fails."""
     backup = destination + ".previous"
     if os.path.lexists(backup):
         raise UploadPackageError(f"recover previous package before promotion: {backup}")

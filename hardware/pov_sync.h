@@ -605,7 +605,7 @@ private:
       saturating_increment(telemetry_counters.beacons_rejected);
     if (!ok)
       return;
-    // An index past the roster is corruption the checksum missed (p = 1/8):
+    // An index past the roster is corruption the checksum missed:
     // drop the frame whole (§6.4 rejection) rather than fold it onto a real
     // effect.
     if (f.effect_index >= protocol_config.effect_count) {
@@ -625,9 +625,9 @@ private:
       // construction-open to commit, the precondition the commit-time HS_CHECK
       // relies on. The next post-commit beacon re-verifies the index.
     } else if (idx != content_tracker.effect_index) {
-      // A shifted frame passes the checksum with p = 1/8, so a live board takes
-      // two consecutive beacons naming the same index before tearing down a
-      // healthy effect (spec §6.3.4). The join path above stays single-frame.
+      // One of eight intruder values lets a shifted frame pass the checksum.
+      // A live board takes two consecutive beacons naming the same index before
+      // tearing down a healthy effect (spec §6.3.4). The join path above stays single-frame.
       if (idx != beacon_index_candidate) {
         beacon_index_candidate = idx;
         return;

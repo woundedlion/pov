@@ -119,7 +119,7 @@ Each rasterizer family populates the Fragment registers with a consistent conven
 
 With a per-face setup callback, `Scan::Mesh::draw_specialized` runs its minimal-fragment loop: only `v1` is refreshed per pixel. `age` is an in/out register carried forward unless refreshed. Other fragment inputs are unavailable and are poisoned with NaN in debug builds; shaders must not read `v2` or `size` through `mesh_face_index()` or `fragment_edge_dist()`. The face index and face size reach the shader through the setup callback instead. `Scan::Mesh::draw` does not accept this callback.
 
-The `DistanceResult` struct is returned by each SDF shape's `distance<ComputeUVs>()` method. Distances and `size` use radians except for small `SDF::Face` shapes (inradius < 0.2), which use gnomonic tangent-plane units. The per-producer register table in `core/render/sdf/common.h` defines `t` and `raw_dist`:
+Each SDF shape's `distance<ComputeUVs>()` method writes a `DistanceResult`. Rings, lines and spherical polygons report angular distances; planar polygons, stars and flowers use chart-plane distances, and small `SDF::Face` shapes (inradius < 0.2) use gnomonic tangent-plane units. `size` follows the producer's distance units. The per-producer register table in `core/render/sdf/common.h` defines `t` and `raw_dist`:
 
 ```cpp
 struct DistanceResult {
@@ -188,9 +188,9 @@ admission; merely including their templates emits no registered firmware effect.
 
 The rendering pipeline splits shape definitions from rasterization. `sdf.h` defines the SDF shape primitives, each implementing three methods:
 
-1. **`get_vertical_bounds()`** — analytic tight bounding box in pixel-Y space (phi angle range). Only rows within this range are scanned.
-2. **`get_horizontal_intervals(y, out)`** — analytic scanline intervals per row. Called per row to skip empty columns without evaluating the distance function.
-3. **`distance<ComputeUVs>(p, result)`** — signed distance from a sphere-surface point `p` to the shape boundary, plus texture coordinate and auxiliary data in `DistanceResult`.
+1. **`get_vertical_bounds()`** — conservative row bounds, including the anti-aliasing fringe. Only rows within this range are scanned.
+2. **`get_horizontal_intervals(y, out)`** — scanline intervals per row, or `false` to request a full-row scan. Handled rows skip empty columns without evaluating the distance function.
+3. **`distance<ComputeUVs>(p, result)`** — signed shape-distance value at a sphere-surface point `p`, plus texture coordinate and auxiliary data in `DistanceResult`. Chart-plane values are not exact spherical boundary distances.
 
 `scan.h` is an umbrella over `core/render/scan/`: `core/render/scan/raster.h` defines `Scan::rasterize()`, which drives the scanline loop and anti-aliasing, plus convenience wrappers that pair SDF shapes with the rasterizer.
 
@@ -388,7 +388,7 @@ timeline.add(0, Animation::Rotation<W>(orientation, math::Y_AXIS, 2 * PI_F, 600,
 
 `VectorTrail<CAPACITY>` maintains a circular buffer of past world-space `Vector` positions — 12 B per sample, stored exactly. Used by HopfFibration for its per-fiber trails.
 
-`QuantizedVectorTrail<CAPACITY>` is the unit-sphere variant: each sample is three snorm16 components (6 B, half of `Vector`), clamped to [-1, 1] on record and decoded by value on `get()`, so the round-trip error is at most 1/65534 per component. Used by `ParticleSystem` to record per-particle trajectories for trail rendering.
+`QuantizedVectorTrail<CAPACITY>` is the unit-sphere variant: each sample is three snorm16 components (6 B, half of `Vector`), clamped to [-1, 1] on record and decoded by value on `get()`, with a quantization step of 1/32767 and additional float rounding during encoding and decoding. Used by `ParticleSystem` to record per-particle trajectories for trail rendering.
 
 ### `tween` and `deep_tween`
 
@@ -627,7 +627,7 @@ Modifiers compose around any palette source at compile time via
 `StaticPalette<Source, Coords<...>, Colors<...>, Wrap, Shade>`. There are two axes: a
 **coordinate** chain that remaps the lookup parameter `t` *before* the source is
 sampled, and a **color** chain that reshapes the resulting sample *after*, with
-the original coordinate in hand. Both chains are inlined by fold expression with
+the coordinate selected by `Shade`. Both chains are inlined by fold expression with
 zero runtime overhead. `Wrap` (default `true`) wraps the final coordinate into
 `[0,1)` before the lookup — leave it on for cycling modifiers that overflow the
 range; set it `false` for bounded remaps that must reach the source endpoints.
@@ -1039,7 +1039,7 @@ else
 | `EffectHandoff<T>` | `pov_handoff.h` | Foreground↔ISR effect ownership: the teardown counter handshake, the acquire/release publish and adopt of a pending effect, the consumed-generation gate that keeps the ISR off a deleted instance, and the display-window (clip) alternation. The foreground constructs and deletes instances; the ISR only ever dereferences what `live()` handed it. |
 | `SubmitGate`, `SyncPulseGate` | `pov_submit_gate.h` | The LED transport's accept/drop verdict and the sync pin's pulse width. Both submit paths — the fail-dark black frame and the image column — clear their pending state only on an accepted submit, and a dropped column latches retries on subsequent wakes, without repacking, until the transport accepts it or a new column or dark state replaces it. A wake that renders nothing has too short a body to carry a scheduled sync pulse, so the pin is held HIGH across the ISR boundary and dropped at the head of the next wake. |
 
-**Effect transparency**: Effects are written against the full 288×144 canvas with no per-segment code. Each board clips rendering to its half-width segment band for the current display window (`clip_to_segment`), except stateful effects (`needs_full_frame()` / `persists_pixels()`), which render the full canvas; the ISR then packs this board's LEDs. Every board reseeds the shared `Pcg32` at every effect build from `HS_PHANTASM_EFFECT_SEEDS[]`, which `targets/Phantasm/phantasm_playlist.h` builds as `hs::stable_effect_seed(hs::stable_effect_id<name<CANVAS_W, CANVAS_H>>(#name))` (`core/platform/rng.h`) so an entry's stream follows its persisted effect ID (or class name when no ID is declared) rather than its roster position; `hs::epoch_seed(effect index)` (epoch 0 is the identity seed `1337`) is the fallback for a board that supplies no seed table. Either way a board's canvas depends only on the beacon-synchronized index — a mid-show joiner renders bit-identically to boards that have been up for hours.
+**Effect transparency**: Effects are written against the full 288×144 canvas with no per-segment code. Each board clips rendering to its half-width segment band for the current display window (`clip_to_segment`), except stateful effects (`needs_full_frame()` / `persists_pixels()`), which render the full canvas; the ISR then packs this board's LEDs. Every board reseeds the shared `Pcg32` at every effect build from `HS_PHANTASM_EFFECT_SEEDS[]`, which `targets/Phantasm/phantasm_playlist.h` builds as `hs::stable_effect_seed(hs::stable_effect_id<name<CANVAS_W, CANVAS_H>>(#name))` (`core/platform/rng.h`) so an entry's stream follows its persisted effect ID (or class name when no ID is declared) rather than its roster position; `hs::epoch_seed(effect index)` (epoch 0 is the identity seed `1337`) is the fallback for a board that supplies no seed table. Aligned epoch reconstruction starts the same content stream on every board. A mid-show join can have a frame offset until a subsequent aligned epoch; the beacon index alone does not align rendered frames.
 
 | Parameter | Value (qualified N=4 default unless noted) |
 |---|---|

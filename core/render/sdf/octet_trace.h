@@ -123,8 +123,8 @@ trace_events(const Events &events, Raycast::Interval interval,
 /**
  * @brief Covered crossings in distance order, composited in trace_events()
  *        groups.
- * @details An uncovered crossing never closes a merge group, so the groups are
- * runs of covered crossings within the relative tolerance of their first
+ * @details Uncovered crossings do not join a merge group. Groups are runs of
+ * covered crossings within the relative tolerance of their first
  * distance, each one layer at that distance with the run's largest coverage.
  */
 struct CoveredCrossings {
@@ -392,7 +392,7 @@ trace_4d(const math::Vector &direction, const Raycast::PreparedCamera &camera,
   }
   // Plane coordinates and speeds of the all-positive family (index 0) and
   // the families flipping coordinates 0, 1 and 2, with one division for the
-  // four inverse speeds when none is zero.
+  // four inverse speeds when their common product clears its floor.
   std::array<float, 4> positions, speeds, inverses;
   {
     float position = 0.0f, speed = 0.0f;

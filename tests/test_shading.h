@@ -59,7 +59,7 @@ inline void test_fragment_lerp_endpoints() {
  */
 inline void test_fragment_lerp_midpoint_carries_registers() {
   Fragment a;
-  a.pos = math::Vector(2, 0, 0);
+  a.pos = math::Vector(2, 0, -6);
   a.v0 = 0.0f;
   a.v1 = 0.0f;
   a.v2 = 0.0f;
@@ -69,7 +69,7 @@ inline void test_fragment_lerp_midpoint_carries_registers() {
   a.color = Color4(Pixel(2000, 4000, 6000), 0.0f);
 
   Fragment b;
-  b.pos = math::Vector(0, 4, 0);
+  b.pos = math::Vector(0, 4, 10);
   b.v0 = 8.0f;
   b.v1 = 12.0f;
   b.v2 = 16.0f;
@@ -81,6 +81,7 @@ inline void test_fragment_lerp_midpoint_carries_registers() {
   Fragment m = Fragment::lerp(a, b, 0.5f);
   HS_EXPECT_NEAR(m.pos.x, 1.0f, 1e-6f);
   HS_EXPECT_NEAR(m.pos.y, 2.0f, 1e-6f);
+  HS_EXPECT_NEAR(m.pos.z, 2.0f, 1e-6f);
   HS_EXPECT_NEAR(m.v0, 4.0f, 1e-6f);
   HS_EXPECT_NEAR(m.v1, 6.0f, 1e-6f);
   HS_EXPECT_NEAR(m.v2, 8.0f, 1e-6f);

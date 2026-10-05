@@ -634,20 +634,35 @@ inline void test_timeline_shared_orientation_composes_motion_blur() {
  * skipped one leaves the identity it started at (+X stays +X).
  */
 inline void test_timeline_collapse_past_id_cache() {
+  struct CountedRotation : Animation::Rotation<288, 16> {
+    int &collapses;
+
+    CountedRotation(math::Orientation<16> &orientation, int &collapses)
+        : Animation::Rotation<288, 16>(orientation, math::Z_AXIS,
+                                       math::PI_F / 2, 1, math::ease_linear),
+          collapses(collapses) {}
+
+    void collapse_orientation() override {
+      ++collapses;
+      Animation::Rotation<288, 16>::collapse_orientation();
+    }
+  };
+
   constexpr int N = Timeline::MAX_COLLAPSE_IDS + 2;
   math::Orientation<16> orientations[N];
+  int collapses[N] = {};
   Timeline tl;
   for (int i = 0; i < N; ++i) {
     orientations[i].push(math::make_rotation(math::Z_AXIS, math::PI_F / 2));
-    tl.add(0,
-           Animation::Rotation<288, 16>(orientations[i], math::Z_AXIS,
-                                        math::PI_F / 2, 1, math::ease_linear));
+    tl.add(0, CountedRotation(orientations[i], collapses[i]));
   }
+  tl.add(0, CountedRotation(orientations[N - 1], collapses[N - 1]));
   tl.step(fake_canvas());
 
   for (int i = 0; i < N; ++i) {
     math::Vector oldest = orientations[i].orient(math::X_AXIS, 0);
     HS_EXPECT_NEAR(oldest.y, 1.0f, 1e-3f);
+    HS_EXPECT_EQ(collapses[i], 1);
   }
 }
 

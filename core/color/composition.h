@@ -890,8 +890,8 @@ concept CoordMod = requires(const T m, float t) {
 /**
  * @brief Concept for a color modifier.
  * @tparam T Type required to expose a const shade(Color4, float)->Color4 method.
- * @details Reshapes the sample after the lookup, with the original coordinate
- * in hand.
+ * @details Reshapes the sample after the lookup, with the coordinate selected
+ * by the composition.
  */
 template <typename T>
 concept ColorMod = requires(const T m, Color4 c, float t) {

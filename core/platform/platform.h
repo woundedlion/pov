@@ -378,11 +378,10 @@ check_fail(const char *site, const char *fmt, ...) {
   fprintf(stderr, "HS_CHECK failed: %s %s\n", site, msg);
   fflush(stderr);
   // The trap below compiles to wasm `unreachable`, which unwinds nothing: the
-  // shadow stack pointer keeps whatever the aborted frame left it at, so every
-  // later call runs on a permanently shortened stack and eventually writes past
-  // its end, unreported (release uses Emscripten's -O3 assertion default). The module is
-  // dead from here on, and the flag is what says so to a JS caller that catches
-  // the RuntimeError.
+  // shadow stack pointer keeps whatever the aborted frame left it at. Later
+  // calls can run with less stack space and corrupt memory without detection
+  // (release uses Emscripten's -O3 assertion default). The module is dead from
+  // here on, and the flag says so to a JS caller that catches the RuntimeError.
   EM_ASM({ Module['HS_MODULE_DEAD'] = true; });
 #elif defined(ARDUINO)
   hs::log_fragment("HS_CHECK failed: ");

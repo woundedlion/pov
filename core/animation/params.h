@@ -164,8 +164,6 @@ public:
    */
   void advance(Canvas &) {
     auto t_norm = normalized_progress();
-    // A non-finite sample is dropped: writing it would permanently poison
-    // `mutant`, which a GUI-registered float never recovers from.
     const float value = f(easing_fn(t_norm));
     if (std::isfinite(value))
       mutant.get() = value;

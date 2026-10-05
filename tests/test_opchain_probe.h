@@ -1043,7 +1043,8 @@ inline void test_build_chain_provenance_ambiguity() {
 
 // ---------------------------------------------------------------------------
 // Needle primitive lowering on the hankin(54 deg) test seed: direct DUAL then
-// KIS must produce closed manifolds and reproduce MeshOps::needle.
+// KIS retain two-face edge incidence and Euler characteristic 2, and reproduce
+// MeshOps::needle.
 // ---------------------------------------------------------------------------
 
 /**

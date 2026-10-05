@@ -89,7 +89,7 @@ def render_table(order: list[str], sizes_by_env: dict[str, dict]) -> str:
     """Side-by-side memory table: one row per teensy_size figure, one column
     per env. An env that produced no teensy_size output (compile/link failure)
     renders as '-' cells rather than being dropped, so the column set always
-    matches what was requested of pio."""
+    matches the environments announced in the build log."""
     rows = [[label] + [_cell(sizes_by_env.get(env, {}), region, key)
                        for env in order]
             for region, key, label in _ROWS]

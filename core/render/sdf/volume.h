@@ -283,10 +283,10 @@ struct Twist {
   /**
    * @brief Reciprocal of the Lipschitz constant, from an already-computed 1/s.
    * @param inv_s Reciprocal of the XZ radius, from sin_ntheta_inv().
-   * @return 1 / lipschitz(inv_s), in (0, 1].
-   * @details (√(1+γ²/4) - γ/2)(√(1+γ²/4) + γ/2) = 1 exactly, so the reciprocal
-   * needs no divide. The result never exceeds 1, so callers scale by it
-   * unconditionally.
+   * @return Floating-point reciprocal estimate; large gradients can round it
+   *         to zero or overflow.
+   * @details In exact arithmetic, (√(1+γ²/4) - γ/2)(√(1+γ²/4) + γ/2) = 1.
+   * The subtraction estimates the reciprocal without a divide.
    */
   float lipschitz_inv(float inv_s) const {
     if (twist == 0)

@@ -453,8 +453,9 @@ normalized_or(const Vector &v, const Vector &fallback) {
 /**
  * @brief A unit-sphere direction packed into three snorm16 components.
  * @details 6 bytes against Vector's 12. Components are clamped to [-1, 1] on
- * encode and round-trip with error <= 1/65534 each (max chord ~2.6e-5), so a
- * decoded value is near-unit rather than unit: renormalize where exact length
+ * encode with a 1/32767 quantization step plus floating-point rounding
+ * (max chord ~2.6e-5), so a decoded value is near-unit rather than unit:
+ * renormalize where exact length
  * matters.
  */
 struct Snorm3 {

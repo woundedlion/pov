@@ -16,8 +16,8 @@
  * Non-finite input rule: a constructor argument traps (HS_CHECK), because it is
  * a programmer-supplied constant. A value re-read from a live source each frame,
  * or written through a live-tunable setter, is ignored on non-finite and the
- * last good value kept — a GUI slider must not trap the device, and one NaN
- * frame would poison the driven state permanently. Driver::set_speed traps
+ * last good value kept — a GUI slider must not trap the device, and non-finite
+ * values must not reach rendering or accumulate in the driven state. Driver::set_speed traps
  * because it is the path for a Driver with no live source bound.
  */
 

@@ -108,7 +108,7 @@ constexpr int32_t beacon_rev_resync_delta(uint32_t beacon_rev_count,
 /**
  * @brief Assembles data bursts into beacon frames. Integrity by rejection
  * (spec §6.4): any out-of-range digit, stale partial frame, or checksum
- * mismatch drops the whole frame — the next beacon is one cadence away.
+ * mismatch drops the whole frame — later beacons can supply a replacement.
  */
 class BeaconParser {
 public:

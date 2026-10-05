@@ -5493,6 +5493,8 @@ inline void test_rasterize_single_pass_closed_loop_matches_two_pass() {
   HS_EXPECT_LE(
       math::angle_between(single.plotted.front(), single.plotted.back()),
       1.5f * base_step);
+  const math::Vector seam_delta = single.plotted.back() - points[0].pos;
+  HS_EXPECT_GT(math::dot(seam_delta, seam_delta), 1e-10f);
   for (const math::Vector &p : single.plotted) {
     float nearest = math::PI_F;
     for (const math::Vector &q : cached.plotted)
