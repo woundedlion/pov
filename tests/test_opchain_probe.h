@@ -496,7 +496,7 @@ inline void test_truncate001_birth_sweep_holds_topology() {
 // truncatedIcos{ahedron,idodecahedron}_truncate50d_ambo_dual recipes truncate
 // at t = 0.873, PAST the ambo pinch (t = 0.5). truncate emits a constant
 // topology (2E vertices, F+V faces, 3I indices) for every t != 0.5; only the
-// exact-0.5 short-circuit differs (returns ambo, V vertices). A far-side leg
+// exact-0.5 short-circuit differs (returns ambo, E vertices). A far-side leg
 // births on the near side (small t), sweeps through 0.5 with the pinch guard
 // nudging that one sample off the short-circuit, and arrives at 0.873 on the
 // intentionally self-intersecting truncate branch.
