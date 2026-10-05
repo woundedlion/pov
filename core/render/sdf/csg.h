@@ -241,8 +241,9 @@ template <typename A, typename B> struct SmoothUnion {
    * @param y The row index.
    * @param out Sink accepting (float start, float end).
    * @return True if the row was handled; false (full scan) if either child
-   *         falls back to full width, or if neither child covers a row still
-   *         within the weld's reach.
+   *         falls back to full width, if neither child covers a row still
+   *         within the weld's reach, or if the row lies within the blend's row
+   *         reach of either child's band edge.
    */
   template <int W, int H, typename OutputIt>
   bool get_horizontal_intervals(int y, OutputIt out) const {
