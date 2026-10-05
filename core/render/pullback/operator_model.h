@@ -191,7 +191,7 @@ struct OperatorRuntime {
 
 /**
  * @brief One operator's record: the single authority the interpreter table,
- *        the tool catalog and (later) promotion all read.
+ *        the tool catalog and promotion all read.
  * @details Always produced by make_operator_descriptor(), never aggregate
  * literals at call sites, so promotion fields can be added additively.
  */
