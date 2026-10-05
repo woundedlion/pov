@@ -106,8 +106,9 @@ inline void check_compile_hankin_invariants(size_t edges) {
 }
 
 /**
- * @brief Verifies compile_hankin's array invariants on the cube's 4-valent quad
- *        faces and on the icosahedron's 5-valent triangles, so the star-face
+ * @brief Verifies compile_hankin's array invariants on the cube's quadrilateral
+ *        faces and 3-valent vertices, and on the icosahedron's triangular faces
+ *        and 5-valent vertices, so the star-face
  *        and rosette-orbit arithmetic is covered on non-quad geometry too.
  */
 inline void test_compile_hankin_populates_arrays() {
