@@ -1293,13 +1293,15 @@ inline void test_pole_lod_runs_are_canvas_anchored() {
   check(ClipRegion::XClip{}, 0, W, full);
 
   for (int q = 0; q < 4; ++q) {
-    ClipRegion::XClip xc{};
-    xc.active = true;
-    xc.wrap = false;
-    xc.rs = q * (W / 4);
-    xc.re = xc.rs + (W / 4);
+    ClipRegion clip{};
+    clip.w = W;
+    clip.h = H;
+    clip.y_end = H;
+    clip.x_start = q * (W / 4);
+    clip.x_end = clip.x_start + (W / 4);
+    clip.margin = 0;
     std::array<int, W> part{};
-    check(xc, xc.rs, xc.re, part);
+    check(clip.x_clip(), clip.x_start, clip.x_end, part);
   }
 
   // Arc ends inside a block: the columns the truncated blocks keep are walked
