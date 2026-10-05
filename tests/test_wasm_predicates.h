@@ -169,6 +169,8 @@ inline void test_unit_fraction_clamp() {
   HS_EXPECT_EQ(hs_wasm::clamp_unit_fraction(1.001f), 1.0f);
   HS_EXPECT_EQ(hs_wasm::clamp_unit_fraction(-1e30f), 0.0f);
   HS_EXPECT_EQ(hs_wasm::clamp_unit_fraction(1e30f), 1.0f);
+  HS_EXPECT_EQ(hs_wasm::clamp_unit_fraction(1e300), 1.0f);
+  HS_EXPECT_EQ(hs_wasm::clamp_unit_fraction(-1e300), 0.0f);
 }
 
 /**
@@ -197,6 +199,13 @@ inline void test_half_open_fraction_clamp() {
   HS_EXPECT_EQ(hs_wasm::clamp_half_open_fraction(1.0f),
                hs_wasm::LARGEST_FRACTION_BELOW_ONE);
   HS_EXPECT_TRUE(hs_wasm::LARGEST_FRACTION_BELOW_ONE > 0.999999f);
+  HS_EXPECT_EQ(hs_wasm::clamp_half_open_fraction(1e300),
+               hs_wasm::LARGEST_FRACTION_BELOW_ONE);
+  HS_EXPECT_EQ(hs_wasm::clamp_half_open_fraction(std::nextafter(1.0, 0.0)),
+               hs_wasm::LARGEST_FRACTION_BELOW_ONE);
+  HS_EXPECT_TRUE(
+      hs_wasm::half_open_fraction_out_of_range(std::nextafter(1.0, 0.0)));
+  HS_EXPECT_EQ(hs_wasm::clamp_half_open_fraction(-1e300), 0.0f);
   HS_EXPECT_EQ(
       hs_wasm::clamp_half_open_fraction(hs_wasm::LARGEST_FRACTION_BELOW_ONE),
       hs_wasm::LARGEST_FRACTION_BELOW_ONE);
@@ -645,6 +654,13 @@ inline void test_hankin_angle_domain() {
   HS_EXPECT_TRUE(hs_wasm::hankin_angle_out_of_range(-0.001f, MAX));
   HS_EXPECT_TRUE(hs_wasm::hankin_angle_out_of_range(MAX + 0.01f, MAX));
   HS_EXPECT_TRUE(hs_wasm::hankin_angle_out_of_range(12.0f, MAX));
+  HS_EXPECT_TRUE(hs_wasm::hankin_angle_out_of_range(1e300, MAX));
+  HS_EXPECT_TRUE(hs_wasm::hankin_angle_out_of_range(-1e300, MAX));
+  HS_EXPECT_EQ(hs_wasm::clamp_finite_float(1e300),
+               std::numeric_limits<float>::max());
+  HS_EXPECT_EQ(hs_wasm::clamp_finite_float(-1e300),
+               -std::numeric_limits<float>::max());
+  HS_EXPECT_EQ(hs_wasm::clamp_finite_float(0.5), 0.5f);
 }
 
 /**

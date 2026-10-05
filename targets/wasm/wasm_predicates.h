@@ -20,6 +20,7 @@
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
+#include <limits>
 
 namespace hs_wasm {
 
@@ -108,7 +109,9 @@ inline int clamp_relax_iterations(double iterations, int max_iterations) {
 /**
  * @brief True when a [0,1] boundary fraction falls outside its domain.
  */
-inline bool unit_fraction_out_of_range(float t) { return t < 0.0f || t > 1.0f; }
+inline bool unit_fraction_out_of_range(double t) {
+  return t < 0.0f || t > 1.0f;
+}
 
 /**
  * @brief Clamps a [0,1] boundary fraction into range.
@@ -119,12 +122,12 @@ inline bool unit_fraction_out_of_range(float t) { return t < 0.0f || t > 1.0f; }
  *          module. Callers reject non-finite args first. Operators whose domain
  *          excludes 1 take clamp_half_open_fraction instead.
  */
-inline float clamp_unit_fraction(float t) {
+inline float clamp_unit_fraction(double t) {
   if (t < 0.0f)
     return 0.0f;
   if (t > 1.0f)
     return 1.0f;
-  return t;
+  return static_cast<float>(t);
 }
 
 /// Largest float strictly below 1 — the top of a half-open [0,1) domain.
@@ -133,10 +136,10 @@ static_assert(LARGEST_FRACTION_BELOW_ONE < 1.0f,
               "LARGEST_FRACTION_BELOW_ONE must satisfy a t < 1 domain check");
 
 /**
- * @brief True when a [0,1) boundary fraction falls outside its domain.
+ * @brief True when a fraction exceeds the representable [0,1) domain.
  */
-inline bool half_open_fraction_out_of_range(float t) {
-  return t < 0.0f || t >= 1.0f;
+inline bool half_open_fraction_out_of_range(double t) {
+  return t < 0.0f || t > LARGEST_FRACTION_BELOW_ONE;
 }
 
 /**
@@ -148,12 +151,26 @@ inline bool half_open_fraction_out_of_range(float t) {
  *          on the trap rather than avoid it. Callers reject non-finite args
  *          first.
  */
-inline float clamp_half_open_fraction(float t) {
+inline float clamp_half_open_fraction(double t) {
   if (t < 0.0f)
     return 0.0f;
-  if (t >= 1.0f)
+  if (t > LARGEST_FRACTION_BELOW_ONE)
     return LARGEST_FRACTION_BELOW_ONE;
-  return t;
+  return static_cast<float>(t);
+}
+
+/**
+ * @brief Saturates a finite JS scalar to the engine float range.
+ * @param value Finite value supplied by the JS caller.
+ * @return A finite float, including either saturation endpoint.
+ */
+inline float clamp_finite_float(double value) {
+  constexpr float MAX = std::numeric_limits<float>::max();
+  if (value > MAX)
+    return MAX;
+  if (value < -MAX)
+    return -MAX;
+  return static_cast<float>(value);
 }
 
 /**
@@ -308,7 +325,7 @@ inline bool mesh_op_face_degree_overflows(size_t max_face_degree,
  *          in-domain pattern instead of failing. Callers reject non-finite args
  *          first.
  */
-inline bool hankin_angle_out_of_range(float radians, float max_radians) {
+inline bool hankin_angle_out_of_range(double radians, float max_radians) {
   return radians < 0.0f || radians > max_radians;
 }
 
