@@ -1058,9 +1058,7 @@ inline void test_palette_mapping_total_all_edges() {
     HS_EXPECT_LE(seed.face_counts.size(), (size_t)128);
     if (seed.face_counts.size() > 128)
       continue;
-    // Class-keyed handoff (faces of one side count share a palette), as the
-    // effect hands off: per-face-arbitrary palettes would exceed the leg's
-    // MAX_BLEND_PAIRS pair budget on the large seeds.
+    // Per-face palette handoffs can exceed scratch_arena_b's blended-LUT budget.
     for (size_t f = 0; f < seed.face_counts.size(); ++f)
       pal[f] = static_cast<uint8_t>(seed.face_counts[f] %
                                     Animation::OpLeg::PALETTES);
