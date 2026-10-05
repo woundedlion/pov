@@ -489,46 +489,10 @@ private:
   }
 
   HS_FLASH_INLINE void refresh_color_noise() {
-    HS_CHECK(std::isfinite(params.noise_scale) && params.noise_scale > 0.0f,
-             "GSReactionDiffusion: invalid noise scale");
-    if (color_noise_cache.scale == params.noise_scale &&
-        color_noise_cache.phase == color_noise_phase)
-      return;
-    const math::Vector OFFSET =
-        math::noise_sphere_loop_offset(color_noise_phase);
-    constexpr int N = HueNoiseLutView::FACE_STEPS;
-    constexpr float STEP = 2.0f / (N - 1);
-    for (int face = 0; face < HueNoiseLutView::FACE_COUNT; face += 2) {
-      for (int y = 0; y < N; ++y) {
-        const float V = -1.0f + STEP * y;
-        for (int x = 0; x < N; ++x) {
-          const float U = -1.0f + STEP * x;
-          const math::Vector DIRECTION = hue_noise_face_direction(face, U, V);
-          const auto bake =
-              [&](int f, const math::Vector &direction)
-                  __attribute__((always_inline)) {
-                    const math::Vector Q =
-                        params.noise_scale * direction + OFFSET;
-                    // OpenSimplex2's default rotation at frequency 1.
-                    const float R = (Q.x + Q.y + Q.z) * (2.0f / 3.0f);
-                    const float SAMPLE =
-                        hs::clamp(color_noise.GetNoiseSingleTransformed(
-                                      R - Q.x, R - Q.y, R - Q.z),
-                                  -1.0f, 1.0f);
-                    color_noise_lut[f * N * N + y * N + x] =
-                        static_cast<int8_t>(SAMPLE * 127.0f +
-                                            (SAMPLE < 0.0f ? -0.5f : 0.5f));
-                  };
-          bake(face, DIRECTION);
-          bake(face + 1,
-               face == 2
-                   ? math::Vector(DIRECTION.x, -DIRECTION.y, -DIRECTION.z)
-                   : math::Vector(-DIRECTION.x, DIRECTION.y, -DIRECTION.z));
-        }
-      }
-    }
-    color_noise_cache.scale = params.noise_scale;
-    color_noise_cache.phase = color_noise_phase;
+    color_noise_cache.refresh<true>(std::span<int8_t, HueNoiseLutView::SIZE>(
+                                        color_noise_lut, HueNoiseLutView::SIZE),
+                                    color_noise, params.noise_scale,
+                                    color_noise_phase);
   }
 
   void advance_color_noise() {
