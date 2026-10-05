@@ -2,12 +2,8 @@
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
  * Licensed under the PolyForm Noncommercial License 1.0.0
  *
- * Golden-reference tests for the noise paths. The existing transformer tests
- * only check divergence/NaN/on-sphere invariants, so a silent change to the
- * FastNoiseLite OpenSimplex2 generator (or to noise_transform's sampling) would
- * still render deterministically and pass. These pin the actual produced values
- * of a fixed sample grid against golden values, so any drift in the noise
- * output fails here with a useful sample index.
+ * Golden-reference tests for OpenSimplex2 samples and noise_transform's
+ * displaced output, with fixed inputs and generator configuration.
  *
  * Coverage:
  *   - FastNoiseLite OpenSimplex2 2D/3D sample grids (default seed 1337, fixed
@@ -238,9 +234,7 @@ inline void test_noise2d_golden_grid() {
 /**
  * @brief Pins noise_transform's displaced output for fixed params and inputs.
  * @details An oracle for 3-channel sampling, tangent projection and normalization
- *          with the displacement cap inactive, not just its on-sphere
- *          invariant: a regression that still produced a unit vector but a
- *          different one would slip past the existing test_transformers checks.
+ *          with the displacement cap inactive.
  *          Re-derive the three outputs with noise_golden_gen under the native
  *          Clang tests preset (cmake/toolchain-native-clang.cmake).
  */
