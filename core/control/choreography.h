@@ -131,6 +131,12 @@ public:
   }
 
 protected:
+  size_t displayed_preset_index() const override {
+    return transition.active && transition.fades && !transition.adopted
+               ? transition.from_index
+               : preset_index;
+  }
+
   /** @brief Registers the derived effect's typed parameter descriptions. */
   HS_COLD_MEMBER void register_described_params() {
     Control::register_fields(
