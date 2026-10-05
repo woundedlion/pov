@@ -254,9 +254,10 @@ obtain a distance evaluator or a tracing constant.
 ### 3.3 Dependency direction and extraction boundaries
 
 The lower-level contracts depend only on existing math/platform/value types.
-Camera and generic query preparation depend on those contracts. Core pattern
-headers implement query capabilities and may include the contracts, but not
-the tracing backends. March/event backends depend on capabilities, not a
+Camera and generic query preparation depend on those contracts. Pure geometry
+definitions depend on the query contracts; combined pattern/rendering adapter
+headers also include shared tracing and appearance helpers. March/event
+backends depend on capabilities, not a
 concrete pattern catalog. Appearance depends on contribution contracts and
 existing color/shading primitives. The prepared pullback stage composes these
 helpers using the existing pullback contract.
