@@ -69,6 +69,17 @@ constexpr float PADDED_ROW_CHORD2 = 0.037f;
 // node() generator
 // ---------------------------------------------------------------------------
 
+/** @brief Compares generated flash positions with their analytic reference. */
+inline void test_generated_node_positions() {
+  for (int i = 0; i < RD_N; ++i) {
+    const math::Vector EXPECTED = node(i);
+    const math::Vector ACTUAL = ReactionGraph::node_positions[i];
+    HS_EXPECT_NEAR(ACTUAL.x, EXPECTED.x, 1e-7f);
+    HS_EXPECT_NEAR(ACTUAL.y, EXPECTED.y, 1e-7f);
+    HS_EXPECT_NEAR(ACTUAL.z, EXPECTED.z, 1e-7f);
+  }
+}
+
 /**
  * @brief Verifies node() places every lattice point on the unit sphere with
  *        the endpoints at the poles.
@@ -519,6 +530,7 @@ inline int run_reaction_graph_tests() {
   hs_test::ModuleFixture fixture("reaction_graph");
 
   test_nodes_on_unit_sphere();
+  test_generated_node_positions();
   test_node_ordered_and_distinct();
   test_d_avg_matches_rd_n();
   test_table_shape_matches_constants();

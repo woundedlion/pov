@@ -1256,6 +1256,36 @@ parameters and frame state.
 
 `kd_tree.h` provides arena-backed three-dimensional nearest-neighbor queries.
 `reaction_graph.h` defines the Fibonacci reaction lattice and node lookup;
-`reaction_graph.cpp` stores its generated neighbor table. The generator of record
-is `scripts/generate_reaction_graph.py`. Reaction-diffusion effects use these
-neighbors to advance their fields without rebuilding adjacency per frame.
+`reaction_graph.cpp` stores the generated neighbor table and immutable float
+node positions. The generator of record is `scripts/generate_reaction_graph.py`;
+its provenance gate covers both arrays. The analytic `ReactionGraph::node()`
+remains the reference, with a native comparison across all 7,680 positions.
+Reaction-diffusion effects use these neighbors without rebuilding adjacency.
+
+`ReactionDiffusionBase` can either build canonical positions in its persistent
+arena or bind the flash array through `init_lattice<true>()`. Its arena-budget
+check takes the matching `FLASH_NODES` flag; the oriented positions remain a
+per-frame scratch allocation. GS uses flash positions, releasing 92,160 bytes of
+persistent storage for its palette cache. BZ retains the arena-backed default.
+
+GS reuses the lattice cubemap projection for noise sampling, reversing the
+horizontal coordinate on the X faces and the vertical coordinate on the Y faces
+to match the noise cubemap orientation.
+
+GS caches 16 concentration coordinates by 15 shared-noise coordinates for each
+seed palette in float linear RGB, then interpolates those colors. Cache validity follows palette
+reseeding and changes to Hue Shift or Shimmer. Hue Shift magnitudes above 0.25,
+Shimmer above 0.4, and the unmodified palette use the procedural color path.
+Four antialiasing samples determine coverage from signed kernel mass relative to
+the visible B threshold. Two diagonal samples supply reciprocal total weights;
+their mean estimates the other two reciprocals for color concentration. A
+conservative center-support certificate and a signed-mass guard fall back to
+the complete four-weight kernel near numerical coverage boundaries.
+The refined center supplies its packed two-palette pigment mixture; each
+contributing palette is evaluated once at the shared concentration. Bilinear
+RGB weights accumulate directly into the pixel, with one final quantization.
+The fidelity oracle bounds this color approximation against four procedural
+color samples through growth and reseeding, and a dense aggregate pigment
+reference bounds nearest-node color selection separately. The scalar nearest-
+pigment reference bounds arithmetic rounding; the stencil oracle compares both
+geometries under the nearest-pigment color rule.
