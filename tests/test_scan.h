@@ -742,7 +742,7 @@ inline void test_ring_group_matches_sequential() {
   run_case(math::Vector(0.005f, 1.0f, 0.0f).normalized(), false);
 }
 
-/** @brief Distorted rings retain candidates beyond the pole bounds. */
+/** @brief Distorted rings wholly past a pole add no candidate cells. */
 inline void test_distorted_ring_candidates_outside_poles() {
   constexpr int W = 32, H = 16, KNOTS = 8;
   const math::Basis basis = math::make_basis(math::Quaternion(), math::Y_AXIS);
