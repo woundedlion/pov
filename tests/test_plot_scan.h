@@ -4195,15 +4195,17 @@ inline void test_particle_system_draws_active_trails_with_registers() {
 
   CapturePipeline pipe;
   float v2_lo = 1e9f, v2_hi = -1e9f, v3_lo = 1e9f, v3_hi = -1e9f;
+  int nonfinite_registers = 0;
   {
     Canvas c(fx);
-    Plot::ParticleSystem::draw<W, H>(pipe, c, sys,
-                                     [&](const math::Vector &, Fragment &f) {
-                                       v2_lo = std::min(v2_lo, f.v2);
-                                       v2_hi = std::max(v2_hi, f.v2);
-                                       v3_lo = std::min(v3_lo, f.v3);
-                                       v3_hi = std::max(v3_hi, f.v3);
-                                     });
+    Plot::ParticleSystem::draw<W, H>(
+        pipe, c, sys, [&](const math::Vector &, Fragment &f) {
+          nonfinite_registers += !std::isfinite(f.v2) || !std::isfinite(f.v3);
+          v2_lo = std::min(v2_lo, f.v2);
+          v2_hi = std::max(v2_hi, f.v2);
+          v3_lo = std::min(v3_lo, f.v3);
+          v3_hi = std::max(v3_hi, f.v3);
+        });
   }
   fx.advance_display();
 
@@ -4218,6 +4220,7 @@ inline void test_particle_system_draws_active_trails_with_registers() {
   HS_EXPECT_NEAR(v2_hi, 0.0f, 1e-4f);
   HS_EXPECT_NEAR(v3_lo, 0.6f, 1e-3f);
   HS_EXPECT_NEAR(v3_hi, 0.6f, 1e-3f);
+  HS_EXPECT_EQ(nonfinite_registers, 0);
 }
 
 /**
@@ -5320,7 +5323,7 @@ inline void test_planar_one_pass_matches_forward_difference() {
       worst_len = std::max(worst_len, std::abs(one.pos.length() - 1.0f));
       worst_pos = std::max(worst_pos, math::angle_between(one.pos, fd_pos));
       worst_tan_len =
-          std::max(worst_tan_len, std::abs(one.tan.length() - 1.0f));
+          fold_worst(worst_tan_len, std::abs(one.tan.length() - 1.0f));
       worst_tan_dot = std::min(worst_tan_dot, math::dot(one.tan, fd_tan));
       ++checked;
     }

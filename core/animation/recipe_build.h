@@ -835,8 +835,7 @@ protected:
 
   /**
    * @brief Build completion: recompiles the finished solid into the front slot
-   *        and hands the last leg's per-face colours to the sprite, so its
-   *        next frame is pixel-equal to the leg's last one.
+   *        and hands the last leg's landed per-face colours to the sprite.
    */
   HS_COLD_MEMBER void finish_build() {
     // The finished solid is build_seed (the last leg's clean endpoint): its

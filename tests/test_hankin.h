@@ -12,7 +12,8 @@
  *     mesh without consuming further arena bytes.
  *   - one-shot MeshOps::hankin convenience wrapper produces a valid mesh.
  *   - hankin compiles on its own output: the degree-2 star points raise quad
- *     rosettes and the result stays a closed genus-0 manifold.
+ *     rosettes; the result retains two-face edge incidence and Euler
+ *     characteristic 2.
  *   - the far-star guard keeps star points local at a resonance angle where
  *     contact planes go near-parallel.
  *   - CompiledHankin::clone makes an independent deep copy.
@@ -29,7 +30,7 @@
 #include "core/mesh/hankin.h"
 #include "core/mesh/solids.h"
 #include "tests/mesh_test_util.h"
-#include "tests/test_conway.h" // check_euler_genus0, check_consistent_winding
+#include "tests/test_conway.h" // check_euler_characteristic_two, check_consistent_winding
 #include "tests/test_fixture.h"
 #include "tests/test_harness.h"
 
@@ -461,7 +462,66 @@ inline void test_hankin_flat_and_twisted_differ() {
 // ---------------------------------------------------------------------------
 
 /**
- * @brief Verifies Hankin output is a closed genus-0 manifold with consistent
+ * @brief Checks that the vertex graph and each vertex's incident fan are connected.
+ * @param m Mesh to inspect.
+ */
+inline void check_manifold_connectivity(const PolyMesh &m) {
+  using Link = std::pair<uint16_t, uint16_t>;
+  std::vector<std::vector<Link>> links(m.vertices.size());
+  size_t offset = 0;
+  for (uint8_t count : m.face_counts) {
+    for (int k = 0; k < count; ++k) {
+      const uint16_t vertex = m.faces[offset + k];
+      const uint16_t prev = m.faces[offset + (k + count - 1) % count];
+      const uint16_t next = m.faces[offset + (k + 1) % count];
+      links[vertex].push_back({prev, next});
+    }
+    offset += count;
+  }
+
+  for (const auto &fan : links) {
+    HS_EXPECT_FALSE(fan.empty());
+    if (fan.empty())
+      continue;
+    std::vector<bool> visited(m.vertices.size(), false);
+    visited[fan.front().first] = true;
+    bool changed = true;
+    while (changed) {
+      changed = false;
+      for (const auto &[u, v] : fan) {
+        if (visited[u] != visited[v]) {
+          visited[u] = visited[v] = true;
+          changed = true;
+        }
+      }
+    }
+    bool connected = true;
+    for (const auto &[u, v] : fan)
+      connected &= visited[u] && visited[v];
+    HS_EXPECT_TRUE(connected);
+  }
+
+  HS_EXPECT_FALSE(links.empty());
+  if (links.empty())
+    return;
+  std::vector<bool> visited(m.vertices.size(), false);
+  std::vector<uint16_t> pending{0};
+  visited[0] = true;
+  for (size_t i = 0; i < pending.size(); ++i) {
+    for (const auto &[u, v] : links[pending[i]]) {
+      for (const uint16_t neighbor : {u, v}) {
+        if (!visited[neighbor]) {
+          visited[neighbor] = true;
+          pending.push_back(neighbor);
+        }
+      }
+    }
+  }
+  HS_EXPECT_EQ(pending.size(), m.vertices.size());
+}
+
+/**
+ * @brief Verifies Hankin output is a connected genus-0 manifold with consistent
  *        winding, for both a quad seed (cube) and a triangle seed
  *        (icosahedron).
  * @details The structural smoke above (face-count consistency, index range,
@@ -470,7 +530,8 @@ inline void test_hankin_flat_and_twisted_differ() {
  *          apply the same Euler + manifold-edge-degree + winding oracle Conway
  *          and solids use: every undirected edge bounds exactly two faces,
  *          V - E + F == 2, every face points outward, and no directed edge is
- *          reused in the same direction.
+ *          reused in the same direction. The vertex graph and each vertex fan
+ *          must also be connected.
  */
 inline void test_hankin_output_is_genus0_manifold() {
   {
@@ -479,8 +540,9 @@ inline void test_hankin_output_is_genus0_manifold() {
     PolyMesh cube;
     build_solid<Solids::Cube>(cube, temp);
     PolyMesh out = MeshOps::hankin(cube, target, temp, /*angle*/ 0.4f);
-    conway_tests::check_euler_genus0(out);
+    conway_tests::check_euler_characteristic_two(out);
     conway_tests::check_consistent_winding(out);
+    check_manifold_connectivity(out);
   }
   {
     Arena target(hankin_target_buf, sizeof(hankin_target_buf));
@@ -488,8 +550,9 @@ inline void test_hankin_output_is_genus0_manifold() {
     PolyMesh ico;
     build_solid<Solids::Icosahedron>(ico, temp);
     PolyMesh out = MeshOps::hankin(ico, target, temp, /*angle*/ 0.4f);
-    conway_tests::check_euler_genus0(out);
+    conway_tests::check_euler_characteristic_two(out);
     conway_tests::check_consistent_winding(out);
+    check_manifold_connectivity(out);
   }
 }
 
@@ -501,7 +564,8 @@ inline void test_hankin_output_is_genus0_manifold() {
  *          faces and 8E indices on that seed like any other, and its rosette
  *          side counts are twice the seed vertex degrees: a quad over every
  *          degree-2 star point, an octagon over every degree-4 midpoint. The
- *          solved mesh is a closed genus-0 manifold with consistent winding.
+ *          solved mesh is checked for two-face edge incidence, Euler
+ *          characteristic 2, and consistent winding.
  */
 inline void test_compile_hankin_on_hankin_output() {
   Arena target(hankin_target_buf, sizeof(hankin_target_buf));
@@ -546,7 +610,7 @@ inline void test_compile_hankin_on_hankin_output() {
   MeshOps::update_hankin(compiled, out, target, 0.4f);
   check_face_counts_consistent(out);
   check_indices_in_range(out);
-  conway_tests::check_euler_genus0(out);
+  conway_tests::check_euler_characteristic_two(out);
   conway_tests::check_consistent_winding(out);
 }
 

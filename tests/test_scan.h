@@ -2756,7 +2756,7 @@ inline void test_volume_raymarch_silhouette_and_registers() {
           ++hits;
           max_surf_err =
               std::max(max_surf_err, std::fabs(loc.length() - sphere_r));
-          max_reg_d = std::max(max_reg_d, std::fabs(frag.size));
+          max_reg_d = fold_worst(max_reg_d, std::fabs(frag.size));
           centroid_sum = centroid_sum + loc;
           frag.color = Color4(Pixel(60000, 60000, 60000), 1.0f);
         },

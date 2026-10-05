@@ -24,7 +24,7 @@
 #include "tests/conway_test_util.h"
 #include "tests/mesh_test_util.h"
 #include "tests/pixel_test_util.h"
-#include "tests/test_conway.h" // check_euler_genus0, face_type_histogram
+#include "tests/test_conway.h" // check_euler_characteristic_two, face_type_histogram
 #include "tests/test_fixture.h"
 #include "tests/test_harness.h"
 
@@ -431,7 +431,7 @@ inline void test_jitterbug_octa_end_covers_octahedron() {
 /**
  * @brief Verifies the jitterbug leg exactly as OpLeg runs it — t from
  *        the icosa point to the T_JITTERBUG_OCTA_MIN clamp with the tabled twist
- *        endpoints — holds constant V12/F20/E30 closed genus-0 topology,
+ *        endpoints — holds V12/F20/E30 with two-face edge incidence,
  *        >= 3-side faces, and unit vertices, with the collapsing edge never
  *        shorter than the clamp chord (spec section 7.2 for the new edge).
  */
@@ -464,7 +464,7 @@ inline void test_jitterbug_sweep_holds_topology() {
     check_face_counts_consistent(out);
     check_indices_in_range(out);
     check_all_unit_vertices(out, 1e-3f);
-    conway_tests::check_euler_genus0(out);
+    conway_tests::check_euler_characteristic_two(out);
 
     // The clamp keeps the shortest edge above the sliver threshold.
     float min_edge = 1e9f;
@@ -948,8 +948,8 @@ inline void edge_sweep_interval(const ConwayGraph::EdgeSpec &e, float &t_lo,
 
 /**
  * @brief Verifies every edge holds constant topology across its sweep:
- *        fixed V/F/I, closed genus-0 manifold, all faces >= 3 sides, unit
- *        vertices, no traps.
+ *        fixed V/F/I, two-face edge incidence, Euler characteristic 2,
+ *        all faces >= 3 sides, near-unit vertices, no traps.
  * @details Snub twist and clamped t interpolate with the same leg progress.
  */
 inline void test_edge_sweeps_hold_topology() {
@@ -990,7 +990,7 @@ inline void test_edge_sweeps_hold_topology() {
       check_face_counts_consistent(out);
       check_indices_in_range(out);
       check_all_unit_vertices(out, 1e-3f);
-      conway_tests::check_euler_genus0(out);
+      conway_tests::check_euler_characteristic_two(out);
     }
 
     if (hs_test::stats().failed != failed_before)
@@ -1288,8 +1288,8 @@ inline constexpr HankinAmboSite HANKIN_AMBO_SITES[] = {
 
 /**
  * @brief Steps a truncate (ambo-leg) sweep on every hankin seed the Islamic
- *        recipes ambo, asserting constant raw and compiled face counts and a
- *        closed genus-0 manifold at every sampled parameter.
+ *        recipes ambo, asserting constant raw and compiled face counts, two-face
+ *        edge incidence, and Euler characteristic 2 at each sampled parameter.
  */
 inline void test_ambo_leg_on_hankin_seed_holds_topology() {
   constexpr int SAMPLES = 33;
@@ -1334,7 +1334,7 @@ inline void test_ambo_leg_on_hankin_seed_holds_topology() {
       check_face_counts_consistent(swept);
       check_indices_in_range(swept);
       check_all_unit_vertices(swept, 1e-3f);
-      conway_tests::check_euler_genus0(swept);
+      conway_tests::check_euler_characteristic_two(swept);
     }
 
     if (hs_test::stats().failed != failed_before)
@@ -1393,8 +1393,8 @@ inline constexpr HankinSweepSite HANKIN_SWEEP_SITES[] = {
 
 /**
  * @brief Steps a hankin sweep on every Phase-1 hankin-leg seed, asserting
- *        constant raw and compiled face counts and a closed genus-0 manifold
- *        at every sampled angle from THETA_EPS to the arrival angle.
+ *        constant raw and compiled face counts, two-face edge incidence, and Euler
+ *        characteristic 2 at sampled angles from THETA_EPS to the arrival angle.
  */
 inline void test_hankin_sweep_on_islamic_seeds_holds_topology() {
   constexpr int SAMPLES = 17;
@@ -1439,7 +1439,7 @@ inline void test_hankin_sweep_on_islamic_seeds_holds_topology() {
       check_face_counts_consistent(swept);
       check_indices_in_range(swept);
       check_all_unit_vertices(swept, 1e-3f);
-      conway_tests::check_euler_genus0(swept);
+      conway_tests::check_euler_characteristic_two(swept);
     }
 
     if (hs_test::stats().failed != failed_before)
@@ -2143,7 +2143,7 @@ inline SweepFingerprint check_sweep_sample(const PolyMesh &swept, Arena &a,
   check_face_counts_consistent(swept);
   check_indices_in_range(swept);
   check_all_unit_vertices(swept, 1e-3f);
-  conway_tests::check_euler_genus0(swept);
+  conway_tests::check_euler_characteristic_two(swept);
   return {swept.vertices.size(), swept.face_counts.size(), swept.faces.size(),
           compiled.face_counts.size()};
 }
@@ -2176,8 +2176,8 @@ inline PolyMesh build_step_leg_seed(const StepLegSite &site, Arena &persist) {
 
 /**
  * @brief Steps a truncate sweep on every seed the recipes truncate, asserting
- *        constant raw and compiled face counts and a closed genus-0 manifold
- *        at every sampled parameter.
+ *        constant raw and compiled face counts, two-face edge incidence, and Euler
+ *        characteristic 2 at every sampled parameter.
  */
 inline void test_truncate_leg_on_recipe_seeds_holds_topology() {
   constexpr int SAMPLES = 33;
@@ -2219,8 +2219,8 @@ inline void test_truncate_leg_on_recipe_seeds_holds_topology() {
 
 /**
  * @brief Steps a snub sweep on every seed the recipes snub, asserting constant
- *        raw and compiled face counts and a closed genus-0 manifold at every
- *        sampled parameter.
+ *        raw and compiled face counts, two-face edge incidence, and Euler
+ *        characteristic 2 at every sampled parameter.
  */
 inline void test_snub_leg_on_recipe_seeds_holds_topology() {
   constexpr int SAMPLES = 33;

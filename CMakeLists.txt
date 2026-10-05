@@ -275,8 +275,7 @@ if(EMSCRIPTEN)
         # Emscripten glue that instantiates it — stale or hand-edited glue (embind
         # signature drift, wrong memory config) white-screens the live page against an
         # otherwise byte-verified binary. Local provenance tests read .wasm.sha256.
-        # Written only alongside the .sha so the provenance set is never half-written
-        # (a .wasm.sha256 without a .sha is a partial provenance set).
+        # Written after .sha when source identity is available.
         # The glue hash is taken over the LF-normalized copy written above.
         file(SHA256 \"${DAYDREAM_DIR}/generated/${TARGET_NAME}.wasm\" HS_WASM_SHA256)
         file(SHA256 \"${DAYDREAM_DIR}/generated/${TARGET_NAME}.js\" HS_GLUE_SHA256)
@@ -286,7 +285,7 @@ if(EMSCRIPTEN)
         message(STATUS \"Wrote artifact hashes ${TARGET_NAME}.wasm.sha256: .wasm=\${HS_WASM_SHA256} .js=\${HS_GLUE_SHA256}\")
 
         # Toolchain identity of the build event, read by local provenance tests.
-        # Written with the pair above, keeping the provenance set all-or-nothing.
+        # Written after the source and hash markers above.
         #
         # build_type and dev_bindings record the CONFIGURATION as well as the
         # compiler: the same source and the same emsdk produce a different module

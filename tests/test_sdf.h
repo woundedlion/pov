@@ -1214,7 +1214,7 @@ inline void test_twisted_torus_matches_recurrence() {
             const math::Vector expected_normal = warp.correct_normal_inv(
                 p, base.normal_raw(warped, inv_s), inv_s, cos_n);
             const math::Vector difference = torus.normal(p) - expected_normal;
-            worst_normal = std::max(worst_normal, difference.length());
+            worst_normal = fold_worst(worst_normal, difference.length());
           }
         }
       }
@@ -1383,7 +1383,7 @@ inline void test_warped_volume_bounding_distance_never_over_estimates() {
 
       const double bd = wv.bounding_distance(p);
       const double truth = twisted_torus_distance(p, c.R, c.r, c.n, c.A, 20000);
-      if (bd - truth > 1e-4)
+      if (!std::isfinite(bd) || bd - truth > 1e-4)
         ++violations;
       // The bound must also never exceed the slow path's raw warped distance.
       if (bd - static_cast<double>(wv.raw_distance(p)) > 1e-4)
@@ -1788,6 +1788,15 @@ inline void test_intersection_requires_both_inside() {
   math::Vector far_pt(-1, 0, 0);
   auto r2 = SDF::distance_of(inter, far_pt);
   HS_EXPECT_TRUE(r2.dist > 0.0f);
+
+  const math::Vector ONLY_A = math::Vector(1, 0, 1).normalized();
+  const math::Vector ONLY_B = math::Vector(1, 1, 0).normalized();
+  HS_EXPECT_LT(SDF::distance_of(la, ONLY_A).dist, 0.0f);
+  HS_EXPECT_GT(SDF::distance_of(lb, ONLY_A).dist, 0.0f);
+  HS_EXPECT_GT(SDF::distance_of(inter, ONLY_A).dist, 0.0f);
+  HS_EXPECT_GT(SDF::distance_of(la, ONLY_B).dist, 0.0f);
+  HS_EXPECT_LT(SDF::distance_of(lb, ONLY_B).dist, 0.0f);
+  HS_EXPECT_GT(SDF::distance_of(inter, ONLY_B).dist, 0.0f);
 }
 
 /**

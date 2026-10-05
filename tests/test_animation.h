@@ -1408,7 +1408,7 @@ inline void test_motion_codriven_survives_repeat_seam() {
 // ============================================================================
 
 /**
- * @brief Verifies ParticleSystem::spawn adds particles and silently drops
+ * @brief Verifies ParticleSystem::spawn adds particles and drops
  * spawns once the fixed pool is at capacity.
  */
 inline void test_particle_system_spawn_and_capacity_guard() {
@@ -1846,7 +1846,7 @@ inline void test_particle_system_signed_axis_trajectory() {
       color_seed_mismatches += a.color_seed != b.color_seed;
       max_position_error = std::max(
           max_position_error, max_component_delta(a.position, b.position));
-      max_velocity_error = std::max(
+      max_velocity_error = hs_test::fold_worst(
           max_velocity_error, max_component_delta(a.velocity, b.velocity));
       max_angle_error = fold_worst(max_angle_error,
                                    small_angle_between(a.position, b.position));

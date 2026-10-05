@@ -185,7 +185,7 @@ struct ContentTracker {
   uint32_t rev_in_effect = 0;
   bool commit_pending = false;       /**< An epoch commit is scheduled. */
   uint32_t commit_in_revs = 0;       /**< ZERO crossings remaining until the
-                                        absolute B+R+K boundary, with j already
+                                         scheduled commit boundary, with j already
                                         subtracted for the repeat this board
                                         heard (NOT the announce-phase length). */
   uint32_t refractory_revs_left = 0; /**< EPOCH dedup window (spec §6.1). */
@@ -195,14 +195,15 @@ struct ContentTracker {
    * @param cfg Protocol configuration.
    * @return True if it opened a commit window (false inside the refractory
    * window — the §6.3 redundancy repeats land here).
-   * @details The commit boundary is ABSOLUTE: B + R + K, where B is the primary
+   * @details With an absolute effect-revolution count, the commit boundary is
+   * B + R + K, where B is the primary
    * copy's boundary (R = epoch_repeats, K = commit_revs). Which copy of the
    * train this is (j, 0 = primary) is inferred from the shared revolution
    * count — the master starts the train exactly when rev_in_effect reaches
    * the active effect's configured duration, and by the time a symbol is
    * consumed the local crossing for its boundary has already incremented
    * rev_in_effect (classification
-   * completes ~13 columns after the boundary instant). So every board that
+   * completes ~13 columns after the boundary instant). So each such board that
    * hears ANY copy counts down to the same boundary, and hearing a repeat
    * instead of the primary cannot skew the commit (§6.3.1). A board whose
    * revolution count is not absolute (it beacon-joined mid-effect, §6.4)

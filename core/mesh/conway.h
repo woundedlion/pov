@@ -1133,8 +1133,8 @@ HS_COLD static PolyMesh chamfer(const PolyMesh &mesh, Arena &target,
 /**
  * @brief relax()'s early-stop gate on the squared largest spring force.
  * @details Tested after the forces are applied, so its square root bounds the
- *   step just taken, not the one relax declines to take; re-projection onto the
- *   sphere only shrinks that step further. No bound on the gap between two
+ *   unprojected force magnitude from the pass just taken; the sphere-projected
+ *   displacement can be larger. No bound on the gap between two
  *   relaxations of the same mesh under different float semantics (a flash bake,
  *   another toolchain) follows from it: they can stop at different iteration
  *   counts, and their vertices have already diverged by the time either reaches

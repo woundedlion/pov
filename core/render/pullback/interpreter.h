@@ -250,7 +250,7 @@ public:
    * @details Order: shape checks against the request alone, then budgets
    * against one arena's capacity, then layout into the inactive arena, then
    * state migration/init (a failing migrate tears the candidate down as a
-   * unit), then the active-index flip and loser teardown. Parameter blocks
+   * unit), then loser teardown and the active-index flip. Parameter blocks
    * are default-constructed; values re-apply through the value channel after
    * commit.
    */

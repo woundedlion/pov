@@ -407,8 +407,8 @@ public:
    * @param vel Initial velocity.
    * @param seed Color seed for palette offset.
    * @details A full pool is a designed, non-fatal condition (drop the spawn, keep
-   * rendering). A saturated pool is a steady state, so only the first drop logs;
-   * dropped_spawns() carries the rest.
+   * rendering). Logs when the wrapping drop count reaches 1, initially and
+   * after each counter wrap; dropped_spawns() carries that count.
    */
   void spawn(const math::Vector &pos, const math::Vector &vel, uint16_t seed) {
     HS_CHECK(pool.is_bound(), "ParticleSystem::spawn before init");
@@ -423,7 +423,7 @@ public:
 
   /**
    * @brief Spawns rejected so far because the pool was full.
-   * @return Total number of dropped spawn() calls.
+   * @return Number of dropped spawn() calls modulo 2^32.
    */
   uint32_t dropped_spawns() const { return dropped_count; }
 

@@ -9,13 +9,13 @@
  *   - Truncate sub-T_EPS birth and far-side pinch topology sweeps.
  *   - Chamfer zero-area birth limit: newborn hexagon area and preserved-face
  *     displacement as t -> 0, on simple seeds and on the shipping hankin seed.
- *   - Chamfer sweep: constant V/F/I and compiled face count, closed genus-0
- *     manifold, unit vertices, outward face normals, per-step displacement.
+ *   - Chamfer sweep: constant V/F/I and compiled face count, two-face edge incidence,
+ *     Euler characteristic 2, unit vertices, outward face normals, per-step displacement.
  *   - Chamfer birth epsilon: smallest t at which no newborn hexagon is culled
  *     by SDF::Face's collapsed-area reject, per seed.
  *   - Needle primitive lowering: the DUAL then KIS partition ops the needle
- *     recipe lowers to, each landing a well-formed closed manifold on the
- *     hankin(54 deg) seed, with the {DUAL, KIS} lowering matching
+ *     recipe lowers to, each landing with two-face edge incidence and
+ *     Euler characteristic 2 on the hankin(54 deg) seed, with the {DUAL, KIS} lowering matching
  * MeshOps::needle.
  *   - Build-chain provenance: face-centroid spacing per intermediate mesh
  *     against PROVENANCE_TOL_SQ, nearest/second-nearest ambiguity of the
@@ -39,7 +39,7 @@
 #include "core/mesh/solids.h"
 #include "core/render/sdf.h"
 #include "tests/mesh_test_util.h"
-#include "tests/test_conway.h" // check_euler_genus0
+#include "tests/test_conway.h" // check_euler_characteristic_two
 #include "tests/test_fixture.h"
 #include "tests/test_harness.h"
 
@@ -224,8 +224,9 @@ inline void test_chamfer_zero_area_birth_limit() {
 
 /**
  * @brief Steps a chamfer sweep from T_EPS to the shipping arrival on every
- *        chamfer seed, asserting constant raw and compiled face counts, a
- *        closed genus-0 manifold, unit vertices and outward face normals, and
+ *        chamfer seed, asserting constant raw and compiled face counts, two-face
+ *        edge incidence, Euler characteristic 2, near-unit vertices, and outward
+ *        face normals, and
  *        reporting the peak per-step vertex displacement.
  */
 inline void test_chamfer_sweep_holds_topology() {
@@ -275,7 +276,7 @@ inline void test_chamfer_sweep_holds_topology() {
       check_face_counts_consistent(swept);
       check_indices_in_range(swept);
       check_all_unit_vertices(swept, 1e-3f);
-      conway_tests::check_euler_genus0(swept);
+      conway_tests::check_euler_characteristic_two(swept);
 
       face_offsets(swept, off);
       std::vector<math::Vector> normal(swept.face_counts.size());
@@ -381,8 +382,8 @@ inline const float TRUNCATE001_T_STAR = [] {
 /**
  * @brief Steps the truncate001 leg from its derived birth floor to 0.01 on the
  *        shared truncate001 seed, asserting a real sweep (birth < arrival),
- *        constant raw and compiled face counts, a closed genus-0 manifold,
- *        unit vertices, every face positive-area, and no face inverting across
+ *        constant raw and compiled face counts, two-face edge incidence,
+ *        Euler characteristic 2, near-unit vertices, every face positive-area, and no face inverting across
  *        the sweep.
  * @details The silent on-screen failure these recipes carry (spec section 5.1)
  * is a truncate whose sub-T_EPS arrival clamps both endpoints to T_EPS -- a
@@ -440,7 +441,7 @@ inline void test_truncate001_birth_sweep_holds_topology() {
       check_face_counts_consistent(swept);
       check_indices_in_range(swept);
       check_all_unit_vertices(swept, 1e-3f);
-      conway_tests::check_euler_genus0(swept);
+      conway_tests::check_euler_characteristic_two(swept);
 
       face_offsets(swept, off);
       std::vector<math::Vector> normal(swept.face_counts.size());
@@ -1046,14 +1047,14 @@ inline void test_build_chain_provenance_ambiguity() {
 // ---------------------------------------------------------------------------
 
 /**
- * @brief Asserts a mesh is a closed genus-0 manifold of positive-area faces on
- *        the unit sphere; returns its compiled face count.
+ * @brief Checks two-face edge incidence, Euler characteristic 2, positive-area
+ *        faces, and near-unit vertices; returns the compiled face count.
  */
 inline size_t check_manifold_landing(const PolyMesh &m, Arena &a, Arena &b) {
   check_face_counts_consistent(m);
   check_indices_in_range(m);
   check_all_unit_vertices(m, 1e-3f);
-  conway_tests::check_euler_genus0(m);
+  conway_tests::check_euler_characteristic_two(m);
   std::vector<size_t> off;
   face_offsets(m, off);
   float min_area = 1e9f;
@@ -1072,7 +1073,8 @@ inline size_t check_manifold_landing(const PolyMesh &m, Arena &a, Arena &b) {
 
 /**
  * @brief Builds needle's DUAL then KIS primitive results on the hankin(54 deg)
- *        test seed, asserting closed manifolds and bitwise composite parity.
+ *        test seed, asserting two-face edge incidence, Euler characteristic 2,
+ *        and bitwise composite parity.
  */
 inline void test_needle_partition_lowering_builds_on_hankin() {
   const int failed_before = hs_test::stats().failed;
