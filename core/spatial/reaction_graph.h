@@ -53,8 +53,8 @@ static_assert(D_AVG * D_AVG * RD_N - 12.566370614f < 0.0006f &&
  * @param i Node index in [0, RD_N), ordered from north pole (i=0) southward;
  *        out of range traps.
  * @return Unit-length direction for lattice point i.
- * @details Recomputed on demand to avoid storing 90KB in flash. Only called at
- *          init, so the double-precision folding below is off the per-frame render
+ * @details Analytic reference for the generated node_positions array. Only called
+ *          at init, so the double-precision folding below is off the per-frame render
  *          path; see the implementation note for why the wider math is needed.
  */
 HS_COLD_MEMBER inline math::Vector node(int i) {
@@ -77,6 +77,10 @@ HS_COLD_MEMBER inline math::Vector node(int i) {
                       static_cast<float>(y),
                       static_cast<float>(std::sin(theta) * radius));
 }
+
+/** @brief Generated Fibonacci-lattice positions in flash. */
+extern HS_PROGMEM_UNIQUE(node_positions) const math::Vector
+    node_positions[RD_N];
 
 /**
  * @brief Precomputed K-nearest-neighbor indices for every lattice node.
@@ -128,6 +132,12 @@ validate_neighbors(const int16_t (&table)[RD_N][RD_K]) {
  */
 struct CubemapLUT {
   static constexpr int RES = 64;
+
+  struct Projection {
+    int face;
+    float u;
+    float v;
+  };
 
   /**
    * @brief Allocates and populates the LUT from the given arena (48 KB
@@ -189,8 +199,11 @@ public:
    *         global nearest node (see ReactionDiffusionBase::refine_render_center
    *         in effects/).
    */
-  int lookup(const math::Vector &p) const {
-    // debug-only: device hot path stays a single load (assert compiles out).
+  int lookup(const math::Vector &p) const { return lookup(project(p)); }
+
+  /** @brief Projects a unit direction into the lattice cubemap face coordinates. */
+  static __attribute__((always_inline)) Projection
+  project(const math::Vector &p) {
     assert(std::fabs(p.x * p.x + p.y * p.y + p.z * p.z - 1.0f) < 1e-3f);
     float ax = fabsf(p.x), ay = fabsf(p.y), az = fabsf(p.z);
     int face = 0;
@@ -231,13 +244,20 @@ public:
       }
     }
 
-    // Clamp before the cast: a zero or NaN `p` leaves u/v NaN, and only the
-    // float clamp's NaN->hi contract keeps that out of the cast.
+    return {face, u, v};
+  }
+
+  /** @brief Looks up a previously projected lattice cubemap coordinate. */
+  __attribute__((always_inline)) int
+  lookup(const Projection &projection) const {
+    const int FACE = projection.face;
+    const float U = projection.u, V = projection.v;
+    // Clamp nonfinite coordinates before converting them to integer texels.
     int ui = static_cast<int>(
-        hs::clamp((u + 1.0f) * 0.5f * RES, 0.0f, static_cast<float>(RES - 1)));
+        hs::clamp((U + 1.0f) * 0.5f * RES, 0.0f, static_cast<float>(RES - 1)));
     int vi = static_cast<int>(
-        hs::clamp((v + 1.0f) * 0.5f * RES, 0.0f, static_cast<float>(RES - 1)));
-    return data[static_cast<size_t>((face * RES + vi) * RES + ui)];
+        hs::clamp((V + 1.0f) * 0.5f * RES, 0.0f, static_cast<float>(RES - 1)));
+    return data[static_cast<size_t>((FACE * RES + vi) * RES + ui)];
   }
 
 private:

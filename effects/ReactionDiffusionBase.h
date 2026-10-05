@@ -428,16 +428,17 @@ protected:
    * cubemap LUT, the species state and the node array.
    * @tparam SCRATCH_PEAK_BYTES Largest of render()'s disjoint scratch phases.
    * @tparam SCRATCH_PEAK_TENANTS Separate allocations that phase makes.
+   * @tparam FLASH_NODES Bind the generated flash lattice without an arena copy.
    */
   template <typename StateT, size_t NSPECIES, size_t PERSISTENT_BYTES,
             size_t EXTRA_PERSISTENT_BYTES, size_t SCRATCH_PEAK_BYTES,
-            size_t SCRATCH_PEAK_TENANTS>
+            size_t SCRATCH_PEAK_TENANTS, bool FLASH_NODES = false>
   HS_COLD_MEMBER static void configure_rd_arenas() {
     constexpr size_t CUBE_LUT_BYTES = 6u * ReactionGraph::CubemapLUT::RES *
                                       ReactionGraph::CubemapLUT::RES *
                                       sizeof(uint16_t);
     constexpr size_t STATE_BYTES = NSPECIES * RD_N * sizeof(StateT);
-    constexpr size_t NODE_BYTES = RD_N * sizeof(math::Vector);
+    constexpr size_t NODE_BYTES = FLASH_NODES ? 0 : RD_N * sizeof(math::Vector);
     // allocate() may skip up to alignof - 1 bytes ahead of each block; one pad
     // per persistent tenant (the species arrays, the LUT, the node array).
     constexpr size_t ALIGN_SLACK_BYTES =
@@ -502,25 +503,31 @@ protected:
 
   /**
    * @brief Builds the shared lattice and cubemap LUT, then arms view animation.
+   * @tparam FlashNodes Bind the generated flash positions without an arena copy.
    * @details Reserves the RD_N nodes, fills the static Fibonacci lattice, builds
    * the cubemap lookup, and installs the orientation random walk. Call after
    * configure_arenas() and the derived class's persistent allocations.
    */
-  HS_COLD_MEMBER void init_lattice() {
+  template <bool FlashNodes = false> HS_COLD_MEMBER void init_lattice() {
     constexpr size_t CUBE_LUT_BYTES = 6u * ReactionGraph::CubemapLUT::RES *
                                       ReactionGraph::CubemapLUT::RES *
                                       sizeof(uint16_t);
     HS_CHECK(
         persistent_arena.get_capacity() - persistent_arena.get_offset() >=
-            RD_N * sizeof(math::Vector) + CUBE_LUT_BYTES +
+            (FlashNodes ? 0 : RD_N * sizeof(math::Vector)) + CUBE_LUT_BYTES +
                 alignof(math::Vector) + alignof(uint16_t),
         "ReactionDiffusion: persistent arena not sized for the shared node "
         "array and cubemap LUT; configure_arenas() must run before init_lattice()");
     // for_each_neighbor and the RD_K-degree Laplacian read every neighbor slot
     // unguarded.
     ReactionGraph::validate_neighbors(ReactionGraph::neighbors);
-    nodes = persistent_arena.allocate_n<math::Vector>(RD_N);
-    build_nodes(nodes);
+    if constexpr (FlashNodes) {
+      nodes = ReactionGraph::node_positions;
+    } else {
+      auto *storage = persistent_arena.allocate_n<math::Vector>(RD_N);
+      build_nodes(storage);
+      nodes = storage;
+    }
     cube_lut.build(persistent_arena, nodes);
     init_orientation_animation();
   }
@@ -596,6 +603,6 @@ protected:
   ReactionGraph::CubemapLUT
       cube_lut;      /**< Cubemap LUT for fast nearest-node seeding. */
   Timeline timeline; /**< Animation timeline advancing the orientation. */
-  math::Vector *nodes =
+  const math::Vector *nodes =
       nullptr; /**< Fixed Fibonacci-lattice node positions (RD_N), built once by init_lattice() and shared by both systems. */
 };

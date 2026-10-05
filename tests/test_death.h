@@ -521,6 +521,25 @@ inline void case_gs_neighbor_exceeds_history() {
   hs_test::effects_tests::GSWhiteBox::validate_physics_neighbors(&run, 1);
 }
 
+/** @brief Death case: GS rejects a zero color-noise scale. */
+inline void case_gs_color_noise_zero_scale() {
+  using WB = hs_test::effects_tests::GSWhiteBox;
+  WB::GS gs;
+  gs.init();
+  WB::set_color_params(gs, 0.0f, opaque(0.0f), 0.2f, 0.4f);
+  WB::advance_color_noise(gs);
+}
+
+/** @brief Death case: GS rejects a non-finite color-noise scale. */
+inline void case_gs_color_noise_nan_scale() {
+  using WB = hs_test::effects_tests::GSWhiteBox;
+  WB::GS gs;
+  gs.init();
+  WB::set_color_params(
+      gs, 0.0f, opaque(std::numeric_limits<float>::quiet_NaN()), 0.2f, 0.4f);
+  WB::advance_color_noise(gs);
+}
+
 /**
  * @brief Death case: an over-subscribed arena partition must trap.
  * @details Config surface — each request alone fits but the sum exceeds
@@ -5213,6 +5232,12 @@ inline const Case *all_cases(int &n) {
       {"gs_neighbor_exceeds_history", case_gs_neighbor_exceeds_history,
        "effects/GSReactionDiffusion.h",
        "(delta >= -PHYSICS_NEIGHBOR_REACH) GS neighbor exceeds delayed-write history"},
+      {"gs_color_noise_zero_scale", case_gs_color_noise_zero_scale,
+       "effects/GSReactionDiffusion.h",
+       "(std::isfinite(params.noise_scale) && params.noise_scale > 0.0f) GSReactionDiffusion: invalid noise scale"},
+      {"gs_color_noise_nan_scale", case_gs_color_noise_nan_scale,
+       "effects/GSReactionDiffusion.h",
+       "(std::isfinite(params.noise_scale) && params.noise_scale > 0.0f) GSReactionDiffusion: invalid noise scale"},
       {"arena_oversubscribed", case_arena_oversubscribed,
        "core/engine/memory.cpp", "(total <= GLOBAL_ARENA_SIZE) split_bases: "},
       {"arena_split_scratch_too_large", case_arena_split_scratch_too_large,
