@@ -109,7 +109,7 @@ for whether it *samples* pixels outside its band:
 - `true` on `World::Mobius` — the other filter that must override it, and
   not a history filter: the map is non-rigid, so no rotation-mirroring
   `cull_edge` can bound an edge's image and the effect must render the full
-  canvas (the `pipeline.h` static_assert on moving World stages names it).
+  canvas (the `core/render/filter/pipeline.h` static_assert on moving World stages names it).
 - `true` on `World::Trails` — already `true` by default (`has_history`), so
   this is documentation, not a required override. Its store happens at
   `plot()` time, upstream of projection; whether band clipping would

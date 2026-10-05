@@ -1,0 +1,165 @@
+/*
+ * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
+ * Licensed under the PolyForm Noncommercial License 1.0.0
+ */
+
+#include "memory.h"
+
+/**
+ * @brief Single contiguous memory block that all arenas partition.
+ * @details alignas keeps the block's base maximally aligned, so each arena's
+ * first allocation needs no leading padding; configure_arenas() likewise aligns
+ * the inter-arena boundaries. Carries NO DMAMEM: the arena is hot render memory,
+ * so on the device it lands in .bss/DTCM, the Cortex-M7's fastest zero-wait RAM.
+ * The framebuffers (buffer_a/buffer_b) and the timeline events in
+ * static_storage.cpp carry DMAMEM to place them in OCRAM instead — neither is a
+ * DMA source or target. Phantasm's 288x144 framebuffers are ~243 KiB each and
+ * exceed the remaining DTCM budget; Holosphere's 96x20 buffers are ~11.25 KiB each.
+ */
+alignas(std::max_align_t) static uint8_t global_arena_block[GLOBAL_ARENA_SIZE];
+
+/**
+ * @brief Persistent arena: storage retained across frames until reclamation.
+ * @details Growing the persistent boundary goes through resplit_arenas(), which
+ * requires both scratch arenas to be empty and re-bases them past the new
+ * boundary.
+ */
+Arena persistent_arena(global_arena_block, DEFAULT_PERSISTENT_SIZE);
+/** @brief First scratch arena: transient per-frame/per-effect storage. */
+Arena scratch_arena_a(global_arena_block + DEFAULT_PERSISTENT_SIZE,
+                      DEFAULT_SCRATCH_A_SIZE);
+/** @brief Second scratch arena: transient per-frame/per-effect storage. */
+Arena scratch_arena_b(global_arena_block + DEFAULT_PERSISTENT_SIZE +
+                          DEFAULT_SCRATCH_A_SIZE,
+                      DEFAULT_SCRATCH_B_SIZE);
+
+namespace {
+size_t abandoned_bytes_total = 0;
+size_t abandon_event_count = 0;
+} // namespace
+
+HS_COLD void note_arena_vector_abandon(size_t bytes) {
+  abandoned_bytes_total += bytes;
+  abandon_event_count++;
+}
+
+FLASHMEM void log_arena_vector_grow(size_t bytes, size_t old_capacity,
+                                    size_t new_capacity) {
+  note_arena_vector_abandon(bytes);
+  hs::log("ArenaVector grow abandons %lu bytes (cap %lu -> %lu)",
+          static_cast<unsigned long>(bytes),
+          static_cast<unsigned long>(old_capacity),
+          static_cast<unsigned long>(new_capacity));
+}
+
+FLASHMEM size_t arena_vector_abandoned_bytes() { return abandoned_bytes_total; }
+
+FLASHMEM size_t arena_vector_abandon_count() { return abandon_event_count; }
+
+[[noreturn]] HS_COLD void arena_oom_trap(const void *buffer, size_t size,
+                                         size_t offset, size_t padding,
+                                         size_t capacity) {
+  hs::log("[OOM] Arena @%08lx: req %lu, offset %lu, pad %lu / cap %lu "
+          "(ArenaVector abandoned %lu B in %lu blocks, all arenas since "
+          "boot, reclaims not subtracted)",
+          static_cast<unsigned long>(reinterpret_cast<uintptr_t>(buffer)),
+          static_cast<unsigned long>(size), static_cast<unsigned long>(offset),
+          static_cast<unsigned long>(padding),
+          static_cast<unsigned long>(capacity),
+          static_cast<unsigned long>(arena_vector_abandoned_bytes()),
+          static_cast<unsigned long>(arena_vector_abandon_count()));
+  hs::check_fail(HS_CHECK_SITE("false"), "Arena::allocate: out of memory");
+}
+
+namespace {
+/** @brief Offsets of the two scratch arena bases within global_arena_block. */
+struct ScratchBases {
+  size_t a; /**< Base offset of scratch arena A. */
+  size_t b; /**< Base offset of scratch arena B. */
+};
+
+/**
+ * @brief Resolves a requested split into aligned scratch base offsets.
+ * @param who Caller name for the out-of-budget breadcrumb.
+ * @param persistent Bytes requested for the persistent arena.
+ * @param scratch_a Bytes requested for scratch arena A.
+ * @param scratch_b Bytes requested for scratch arena B.
+ * @return Base offsets of the two scratch arenas.
+ * @details Each input is bounded first so the align_up()/sum arithmetic cannot
+ * wrap size_t. Each inter-arena boundary is aligned up to max_align_t (the real
+ * callers pass alignof(max_align_t) multiples, so these rounds are no-ops);
+ * the budget check
+ * uses the aligned end so rounding cannot silently overrun. An over-subscribed
+ * partition is a sizing/config bug, not recoverable, so it traps rather than
+ * silently scaling down; the breadcrumb carries the numbers.
+ */
+HS_COLD ScratchBases split_bases(const char *who, size_t persistent,
+                                 size_t scratch_a, size_t scratch_b) {
+  HS_CHECK(persistent <= GLOBAL_ARENA_SIZE && scratch_a <= GLOBAL_ARENA_SIZE &&
+               scratch_b <= GLOBAL_ARENA_SIZE,
+           "split_bases: %s asked %lu/%lu/%lu B (persistent/A/B) of a %lu B "
+           "block",
+           who, static_cast<unsigned long>(persistent),
+           static_cast<unsigned long>(scratch_a),
+           static_cast<unsigned long>(scratch_b),
+           static_cast<unsigned long>(GLOBAL_ARENA_SIZE));
+  constexpr size_t A = alignof(std::max_align_t);
+  auto align_up = [](size_t n) { return (n + (A - 1)) & ~(A - 1); };
+  size_t a_base = align_up(persistent);
+  size_t b_base = align_up(a_base + scratch_a);
+  size_t total = b_base + scratch_b;
+  HS_CHECK(total <= GLOBAL_ARENA_SIZE,
+           "split_bases: %s requested %lu > available %lu", who,
+           static_cast<unsigned long>(total),
+           static_cast<unsigned long>(GLOBAL_ARENA_SIZE));
+  return {a_base, b_base};
+}
+} // namespace
+
+/**
+ * @brief Re-partitions the single global block into persistent plus two scratch
+ * arenas of the requested byte sizes.
+ * @details Called once at init() so an effect can tune the split to the device
+ * budget; split_bases() aligns the boundaries and enforces the budget.
+ *
+ * Runs the ArenaResetHook list first: this is one of the paths that hands the
+ * storage under a persistent-arena-resident global out again. Owners re-arm
+ * from init(), which every swap path runs after this.
+ */
+FLASHMEM void configure_arenas(size_t persistent, size_t scratch_a,
+                               size_t scratch_b) {
+  ArenaResetHook::run_all();
+  const ScratchBases bases =
+      split_bases("configure_arenas", persistent, scratch_a, scratch_b);
+  persistent_arena.rebind(global_arena_block, persistent);
+  scratch_arena_a.rebind(global_arena_block + bases.a, scratch_a);
+  scratch_arena_b.rebind(global_arena_block + bases.b, scratch_b);
+}
+
+/**
+ * @brief Partitions the global block using the compiled-in DEFAULT_* sizes.
+ * @details Convenience wrapper over configure_arenas() with the default split.
+ */
+FLASHMEM void configure_arenas_default() {
+  configure_arenas(DEFAULT_PERSISTENT_SIZE, DEFAULT_SCRATCH_A_SIZE,
+                   DEFAULT_SCRATCH_B_SIZE);
+}
+
+FLASHMEM void resplit_arenas(size_t persistent, size_t scratch_a,
+                             size_t scratch_b) {
+  // A ScratchScope saved at offset 0 restores to 0 either way, so live scratch
+  // content would be silently rebased onto the new split, undetected.
+  HS_CHECK(scratch_arena_a.get_offset() == 0 &&
+               scratch_arena_b.get_offset() == 0,
+           "resplit_arenas: both scratch arenas must be empty");
+  const ScratchBases bases =
+      split_bases("resplit_arenas", persistent, scratch_a, scratch_b);
+  // Rebinding preserves persistent content and generation; high-water resets
+  // to the live offset for this shape's split.
+  persistent_arena.rebind_capacity(persistent);
+  persistent_arena.reset_high_water_mark();
+  // The scratch arenas are empty at the call point; rebind them onto their new
+  // bases (a fresh generation is harmless -- nothing is bound across the split).
+  scratch_arena_a.rebind(global_arena_block + bases.a, scratch_a);
+  scratch_arena_b.rebind(global_arena_block + bases.b, scratch_b);
+}

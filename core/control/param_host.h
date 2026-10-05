@@ -13,7 +13,7 @@
 
 #include "control/params.h"
 #include "control/param_spec.h"
-#include "engine/memory.h"
+#include "memory.h"
 #include "platform/platform.h"
 #include <array>
 #include <bit>

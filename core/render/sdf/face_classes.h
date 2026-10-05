@@ -7,7 +7,7 @@
 #include <cstddef>
 #include <cstdint>
 
-#include "engine/memory.h"
+#include "memory.h"
 #include "render/sdf/face.h"
 
 /**

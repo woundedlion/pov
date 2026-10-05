@@ -1,5 +1,7 @@
 cmake_minimum_required(VERSION 3.29)
 file(MAKE_DIRECTORY "${WORK}/tests" "${WORK}/tools")
+get_filename_component(_gate_dir "${GATE}" DIRECTORY)
+file(COPY "${_gate_dir}/header_sections.cmake" DESTINATION "${WORK}/tests")
 file(WRITE "${WORK}/tests/off_roster_headers.cmake" "set(HS_OFF_ROSTER_HEADER_NAMES)\n")
 file(WRITE "${WORK}/tests/test_alpha.h" "inline int run_alpha_tests() { return 0; }\n")
 file(WRITE "${WORK}/tests/test_beta.h" "inline int run_beta_tests() { return 0; }\n")

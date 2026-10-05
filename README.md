@@ -219,6 +219,7 @@ files define line-ending policy and working-artifact exclusions.
 │   │   ├── attributes.h            Placement and optimization attribute macros
 │   │   ├── diagnostics.h           hs::log / hs::flush_log sink + HS_OS_CYCLES cycle read
 │   │   ├── profiling.h             Cycle counters + HS_PROFILE / scan-metric macros
+│   │   ├── cycle_counting.h        Native and ARM cycle-count instrumentation
 │   │   ├── inplace_function.h      Fixed-capacity in-place callable storage behind Fn
 │   │   ├── rng.h                   Deterministic random number generation
 │   │   ├── arduino_mocks.h         Host-side FastLED / Arduino mock surface
@@ -231,12 +232,13 @@ files define line-ending policy and working-artifact exclusions.
 │   ├── containers/             Reusable fixed-capacity containers
 │   │   ├── static_circular_buffer.h Fixed-capacity non-allocating circular buffer
 │   │   └── triangular_bitset.h     Upper-triangular unordered-pair bitset
-│   ├── engine/                 Machinery: memory, callables, rosters, effect support
+│   ├── engine/                 Machinery: callables, rosters, effect support
 │   │   ├── engine.h                Engine API umbrella for handwritten effects; composed wrappers include composed_effect.h
 │   │   ├── effects_legacy.h        Pre-engine effects (TheMatrix, Spiral, etc.)
 │   │   ├── concepts.h              FunctionRef/Fn callable wrappers, PipelineRef type erasure, Tweenable concept
-│   │   ├── memory.h / memory.cpp   Arena allocator, ScratchScope, Persist<T>, generate()
 │   │   └── static_storage.cpp      Definitions of the framebuffer/timeline statics (DMAMEM placement)
+│   ├── memory.h / memory.cpp       Arena and container umbrella, storage and reset definitions
+│   ├── memory/                    Arena, vector, span, scratch, persistence, and generation sections
 │   ├── math/                   Vector/quaternion math and scalar curves
 │   │   ├── 3dmath.h                Vector, Quaternion, Spherical, Complex primitives, fast-math approximations, value noise, Snorm3
 │   │   ├── 4dmath.h                Vec4 / Mat4 four-dimensional primitives + coordinate-plane rotation
@@ -267,6 +269,9 @@ files define line-ending policy and working-artifact exclusions.
 │   │   ├── hankin.h                Hankin pattern compilation and update system
 │   │   ├── base_mesh.h             Base mesh identities, bounds, and authoring labels
 │   │   ├── solid_generators.h      Platonic vertex/face tables, SolidBuilder, and the named solid generators
+│   │   ├── solid_tables.h          Static mesh tables and their consistency checks
+│   │   ├── solid_builder.h         Fluent Conway and Hankin mesh builder
+│   │   ├── procedural_solids.h     Named procedural solid generators
 │   │   ├── solids.h                Solid registries, Recipe mirrors, and the name/index lookups
 │   │   ├── relax_bake.h             Relax payload and source identity checks
 │   │   ├── relax_bakes_generated.h Baked relaxed-mesh vertices (from tools/relax_bakes.py)
@@ -302,21 +307,27 @@ files define line-ending policy and working-artifact exclusions.
 │   │   ├── pullback.h              Typed inverse-render pipeline: umbrella over pullback/'s eleven stage headers
 │   │   ├── pullback/               Per-stage pullback headers (contract, fields, surface,
 │   │   │                            lens, projection, warp, source, material, color,
-│   │   │                            stage, ray), the operator layer (operator_model,
-│   │   │                            operator_table, operators, operators_common,
-│   │   │                            operators_field, operators_project, operators_sample,
-│   │   │                            operators_sphere, operators_warp, operators_snapshot, runtime_snapshot), the chain
-│   │   │                            interpreter (interpreter) with its catalog export
+│   │   │                            stage, ray), the chain interpreter
+│   │   │                            (interpreter) with its catalog export
 │   │   │                            (catalog_export), the shared runtime seeds
 │   │   │                            (runtime_seeds), named per-instance resources (composed_resources),
 │   │   │                            plus the composed-effect base
 │   │   │                            (composed_effect)
+│   │   │   ├── composed_providers.h    Composed-effect provider bindings
+│   │   │   ├── composed_parameters.h   Composed-effect parameter construction
+│   │   │   ├── composed_policies.h     Composed-effect stage policies
+│   │   │   ├── composed_descriptors.h  Composed-effect static descriptors
+│   │   │   ├── composed_runtime.h      Composed-effect runtime
+│   │   │   ├── runtime_snapshot.h      Chain runtime snapshot contracts
+│   │   │   ├── operators.h             Chain-operator umbrella and camera/color exit adapters
+│   │   │   └── operators/              Operator model, table, shared state, family adapters, and snapshot codecs
 │   │   ├── scan.h                  Scanline rasterizer: umbrella over scan/
 │   │   ├── scan/                   Per-family scan headers (raster, shapes, mesh,
 │   │   │                            shader, volume)
 │   │   ├── plot.h                  Curve rasterizer: umbrella over plot/
 │   │   ├── plot/                   Per-family plot headers (cull, raster, shapes,
 │   │   │                            mesh, particles, chords)
+│   │   │   └── cull/                   Cull strategy sections included by cull.h
 │   │   ├── filter.h                Composable render pipeline + all Filter::World/Screen/Pixel:
 │   │   │                            umbrella over filter/
 │   │   ├── filter/                 Pipeline composition (pipeline) and the shared splat
@@ -330,6 +341,8 @@ files define line-ending policy and working-artifact exclusions.
 │   │   ├── sdf/                    Per-family SDF headers (common, shapes, rings,
 │   │   │                            csg, face, volume, lattice, framework, lattice_field,
 │   │   │                            periodic_surface, affine_lattice, periodic_shells)
+│   │   │   ├── face_lut.h              Canonical face distance LUTs
+│   │   │   ├── face_geometry.h         Face construction and distance operations
 │   │   │   ├── cellular_wire.h     Analytic periodic diamond, honeycomb and rhombic struts
 │   │   │   ├── octet_trace.h       Front-to-back ray traces of the 3D and 4D octet trusses
 │   │   │   ├── lattice_trace.h     Prepared ray traces for lattice geometry families
@@ -434,6 +447,13 @@ files define line-ending policy and working-artifact exclusions.
 │   └── toolchain-native-clang.cmake  Native Clang toolchain behind the tests preset
 ├── platformio.ini              Teensy envs: the two shipping images plus the compile/profiling profiles
 ├── tests/                      Unit tests (CMake subdirectory)
+│   ├── animation/         Sections included by test_animation.h
+│   ├── conway_morph/      Sections included by test_conway_morph.h
+│   ├── death/             Sections included by test_death.h
+│   ├── effects/           Sections included by test_effects.h
+│   ├── filter/            Sections included by test_filter.h
+│   ├── plot_scan/         Sections included by test_plot_scan.h
+│   ├── shader_chain/      Sections included by test_shader_chain.h
 │   ├── mindsplatter_whitebox.h  White-box MindSplatter accessor shared by its tests and the replay tools
 │   ├── composed_chain_fixture.h   Document-built chain and compiled composed frame parity
 │   ├── mindsplatter_replay_metrics.h  Difference metrics + clip geometry shared by the replay generator and comparator
@@ -1413,7 +1433,7 @@ cmake --build  --preset wasm-release-install    # build + install into ../daydre
 Use `wasm-debug` for an unoptimized build with assertions (`-sASSERTIONS=1`). Build outputs go to `build/<preset>/`. The `justfile` provides cross-platform shortcuts that forward to these presets: `just build` (release), `just build-debug`, and `just install` (smoke + install into `../daydream`). `just smoke` rebuilds and then drives the shipped module through [`scripts/wasm_smoke.mjs`](https://github.com/woundedlion/pov/blob/master/scripts/wasm_smoke.mjs) under Node — the release runtime gate in CI's `wasm` job; `just smoke-debug` runs its debug/dev-bindings gate with the shared stack ceiling. The `just` recipe graph is `install → smoke → build`, so `just install` writes the module and provenance markers for the build the runtime gate exercised.
 
 The WASM target (`CMakeLists.txt`, `EMSCRIPTEN` branch) configures:
-- Source paths: `targets/wasm/wasm.cpp`, `core/engine/memory.cpp`, `core/engine/static_storage.cpp`, `core/spatial/reaction_graph.cpp`
+- Source paths: `targets/wasm/wasm.cpp`, `core/memory.cpp`, `core/engine/static_storage.cpp`, `core/spatial/reaction_graph.cpp`
 - Include paths: project root (for `effects/`, `hardware/`) and `core/` (for engine headers)
 - `-sALLOW_MEMORY_GROWTH=1` — WASM heap can grow for large meshes
 - `-sMODULARIZE=1 -sEXPORT_ES6=1` — ES6 module output

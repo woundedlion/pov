@@ -13,7 +13,7 @@
 #include "math/3dmath.h"
 #include "math/geometry.h"
 #include "mesh/mesh_state.h"
-#include "engine/memory.h"
+#include "memory.h"
 
 #include <algorithm>
 #include <cmath>

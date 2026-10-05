@@ -8,13 +8,13 @@
 
 #if HS_ENABLE_CHAIN_INTERPRETER
 
-#include "render/pullback/operator_model.h"
-#include "render/pullback/operators_common.h"
-#include "render/pullback/operators_field.h"
-#include "render/pullback/operators_project.h"
-#include "render/pullback/operators_sample.h"
-#include "render/pullback/operators_sphere.h"
-#include "render/pullback/operators_warp.h"
+#include "render/pullback/operators/model.h"
+#include "render/pullback/operators/common.h"
+#include "render/pullback/operators/field.h"
+#include "render/pullback/operators/project.h"
+#include "render/pullback/operators/sample.h"
+#include "render/pullback/operators/sphere.h"
+#include "render/pullback/operators/warp.h"
 #include "render/pullback/stage.h"
 
 /**

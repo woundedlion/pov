@@ -13,7 +13,7 @@
 #include <cstring>
 #include <new>
 
-#include "render/pullback/operator_table.h"
+#include "render/pullback/operators/table.h"
 
 /**
  * @file interpreter.h

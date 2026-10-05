@@ -51,6 +51,9 @@
 
 cmake_minimum_required(VERSION 3.29)
 
+include("${TESTS_DIR}/header_sections.cmake")
+hs_check_test_sections()
+
 file(GLOB_RECURSE _headers "${TESTS_DIR}/*.h" "${TESTS_DIR}/*.hpp")
 
 include("${TESTS_DIR}/off_roster_headers.cmake")
@@ -83,7 +86,8 @@ file(GLOB_RECURSE _driver_srcs "${TESTS_DIR}/*.cpp"
   "${TOOLS_DIR}/*.h" "${TOOLS_DIR}/*.hpp" "${TOOLS_DIR}/*.cpp")
 if(DEFINED CACHE_FILE)
   set(_cache_inputs ${_headers} ${_driver_srcs}
-    "${CMAKE_CURRENT_LIST_FILE}" "${TESTS_DIR}/off_roster_headers.cmake")
+    "${CMAKE_CURRENT_LIST_FILE}" "${TESTS_DIR}/off_roster_headers.cmake"
+    "${TESTS_DIR}/header_sections.cmake")
   list(SORT _cache_inputs)
   set(_cache_material "")
   foreach(_input IN LISTS _cache_inputs)
@@ -114,7 +118,7 @@ endforeach()
 # Assertion reachability includes helper functions across test headers.
 set(_assertion_functions "")
 foreach(_hdr IN LISTS _headers)
-  file(READ "${_hdr}" _assertion_text)
+  hs_read_test_header("${_hdr}" _assertion_text)
   string(REGEX REPLACE "\"([^\"\\\\\n]|\\\\.)*\"" "\"\"" _assertion_text "${_assertion_text}")
   string(REGEX REPLACE "/\\*[^*]*\\*+([^/*][^*]*\\*+)*/" "\n" _assertion_text "${_assertion_text}")
   string(REGEX REPLACE "//[^\n]*" "" _assertion_text "${_assertion_text}")
@@ -173,7 +177,10 @@ set(_uncalled "")
 set(_unasserted "")
 set(_sites 0)
 foreach(_hdr IN LISTS _headers)
-  file(READ "${_hdr}" _text)
+  if(_hdr MATCHES "/tests/[A-Za-z0-9_]+/")
+    continue()
+  endif()
+  hs_read_test_header("${_hdr}" _text)
   get_filename_component(_name "${_hdr}" NAME)
   # Blank string bodies, then drop block and line comment spans. Strings go
   # first so a `//` or `/*` inside a message cannot open a comment span; the

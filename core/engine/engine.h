@@ -35,7 +35,7 @@
 #include "render/shading.h" // Fragment + mesh-topology shading
 #include "spatial/reaction_graph.h"
 #include "engine/concepts.h"
-#include "engine/memory.h"
+#include "memory.h"
 #include "color/color.h"
 #include "color/palette_cycler.h"
 #include "animation/animation.h"
