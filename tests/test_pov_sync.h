@@ -284,10 +284,9 @@ inline void test_helpers() {
 
 /**
  * @brief Probes the remaining Config::valid() clauses at their boundaries.
- * @details Each config below violates exactly one clause, so a deleted clause
- * leaves the matching valid() call returning nullptr and turns its expectation
- * red. The clauses whose bound is a derived beacon quantity are probed in
- * test_helpers().
+ * @details Each rejection pins the named first failing clause. Removing it
+ * changes the reported reason even when another clause also rejects the config.
+ * Clauses whose bound is a derived beacon quantity are probed in test_helpers().
  */
 inline void test_config_validation() {
   Config zero_width = test_config();
