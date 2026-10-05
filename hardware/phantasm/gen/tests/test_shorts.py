@@ -1,8 +1,9 @@
 """Self-tests for the schematic short-detection gate.
 
 Run:  python -m unittest discover -s hardware/phantasm/gen/tests
-Every case is a synthetic .kicad_sch fragment, plus one regression case over the
-committed schematic, so the gate is proven to fire AND proven not to cry wolf.
+Synthetic fragments and regression cases cover the KiCad-authored rev 1.1
+schematic. Generated revisions are checked by test_board and
+test_revision_generation.
 """
 import contextlib
 import io
