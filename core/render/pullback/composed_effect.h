@@ -1345,7 +1345,7 @@ protected:
         target.template get<"color">().palette_mapping);
   }
 
-  /** @brief Adopts a Lerp endpoint while retaining animated lens coefficients. */
+  /** @brief Adopts an automatic target while retaining animated lens coefficients. */
   HS_COLD_MEMBER void finish_blend(const Params &target)
     requires(requires { Derived::ANIMATED_MOBIUS; } && Derived::ANIMATED_MOBIUS)
   {
