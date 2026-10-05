@@ -77,12 +77,10 @@ struct LinearPolar {};
 struct LogarithmicPolar {};
 
 /**
- * @brief Warp slot placeholder for a slot whose warp policy is an identity.
- * @details `speed` still advances that slot's phase clock, so an effect can drive
- * a phase it exposes no warp for.
+ * @brief Parameter family consumed by no composed or chain stage.
  */
 struct NoWarpParams {
-  float speed = 0.0f; /**< Per-frame advance of the slot's phase. */
+  float speed = 0.0f; /**< Described speed value; no stage consumes it. */
 
   static constexpr auto FIELDS = std::array{
       Field<NoWarpParams>{"speed", &NoWarpParams::speed, nullptr, -0.02f, 0.02f,
