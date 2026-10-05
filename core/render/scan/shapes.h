@@ -246,10 +246,9 @@ struct DistortedRingStack {
         k_begin = k_next - 1;
       }
       const float reach = ring.thickness + REACH_PAD;
-      const float band_lo = std::max(0.0f, ring.target_angle + gmin - reach);
-      const float band_hi =
-          std::min(math::PI_F, ring.target_angle + gmax + reach);
-      const float sin_min = std::min(sinf(band_lo), sinf(band_hi));
+      const float band_lo = fmaxf(0.0f, ring.target_angle + gmin - reach);
+      const float band_hi = fminf(math::PI_F, ring.target_angle + gmax + reach);
+      const float sin_min = fminf(sinf(band_lo), sinf(band_hi));
       bool whole = sin_min * SDF::DistortedRing::MAX_SEARCH_CELLS *
                        ring.knot_cell_angle <
                    reach;
@@ -274,8 +273,8 @@ struct DistortedRingStack {
         }
         const float p0 = ring.target_angle + lo - reach;
         const float p1 = ring.target_angle + hi + reach;
-        const int b0 = static_cast<int>(std::max(0.0f, p0) * bin_scale);
-        int b1 = static_cast<int>(std::min(math::PI_F, p1) * bin_scale);
+        const int b0 = static_cast<int>(fmaxf(0.0f, p0) * bin_scale);
+        int b1 = static_cast<int>(fminf(math::PI_F, p1) * bin_scale);
         if (b1 > Table::BINS - 1)
           b1 = Table::BINS - 1;
         if (b0 > b1)

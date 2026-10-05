@@ -143,22 +143,22 @@ inline float report_stretch(const SDF::AngularRepeat<Shape> &shape);
 template <typename A, typename B>
 __attribute__((always_inline)) inline float
 report_stretch(const SDF::Union<A, B> &shape) {
-  return std::max(report_stretch(shape.a), report_stretch(shape.b));
+  return fmaxf(report_stretch(shape.a), report_stretch(shape.b));
 }
 template <typename A, typename B>
 __attribute__((always_inline)) inline float
 report_stretch(const SDF::SmoothUnion<A, B> &shape) {
-  return std::max(report_stretch(shape.a), report_stretch(shape.b));
+  return fmaxf(report_stretch(shape.a), report_stretch(shape.b));
 }
 template <typename A, typename B>
 __attribute__((always_inline)) inline float
 report_stretch(const SDF::Intersection<A, B> &shape) {
-  return std::max(report_stretch(shape.a), report_stretch(shape.b));
+  return fmaxf(report_stretch(shape.a), report_stretch(shape.b));
 }
 template <typename A, typename B>
 __attribute__((always_inline)) inline float
 report_stretch(const SDF::Subtract<A, B> &shape) {
-  return std::max(report_stretch(shape.a), report_stretch(shape.b));
+  return fmaxf(report_stretch(shape.a), report_stretch(shape.b));
 }
 template <typename Shape>
 __attribute__((always_inline)) inline float
@@ -210,7 +210,7 @@ probe_bounds_block(float threshold, float block_slack) {
 template <int W, typename ShapeT>
 __attribute__((always_inline)) inline float
 pole_lod_block_slack(int run, float p_y, const ShapeT &shape) {
-  const float sin_phi = sqrtf(std::max(0.0f, 1.0f - p_y * p_y));
+  const float sin_phi = sqrtf(fmaxf(0.0f, 1.0f - p_y * p_y));
   return pole_lod_slack<W, ShapeT>(run, sin_phi) * report_stretch(shape);
 }
 
