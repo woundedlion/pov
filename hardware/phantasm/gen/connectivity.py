@@ -8,9 +8,9 @@ zone fills that touch on a shared layer, per net. A net whose pads land in more 
 open.
 
 Rectangular lands use rotated rectangles; custom lands use primitive bounding
-boxes, and circular/oval lands use circumscribed discs. The error runs
-towards passing: this gate answers "is the copper still there", not "does it
-meet clearance" -- kicad-cli DRC owns that.
+boxes, and circular/oval lands use circumscribed discs. Pad approximations err
+towards passing; arc chords can report false opens or false connections.
+This gate checks copper continuity; kicad-cli DRC owns clearance.
 """
 import argparse
 import math
