@@ -1,4 +1,6 @@
+import contextlib
 import importlib.util
+import io
 import os
 import subprocess
 import sys
@@ -127,15 +129,25 @@ class ExportNetlistTests(unittest.TestCase):
         self.assertIn("phantasm.kicad_sch", message)
 
     def test_rejects_unannotated_power_symbols_on_success(self):
+        result = subprocess.CompletedProcess([], 0, stdout="", stderr="")
+        schematic = '(kicad_sch (symbol (property "Reference" "#PWR") (unit 1)))'
+        with mock.patch.object(kicad_common.subprocess, "run", return_value=result), \
+                mock.patch("builtins.open", mock.mock_open(read_data=schematic)), \
+                self.assertRaisesRegex(SystemExit, "unannotated or duplicate"):
+            kicad_common.export_netlist("kicad-cli", "phantasm.kicad_sch")
+
+    def test_surfaces_annotation_warnings_from_either_stream(self):
+        schematic = '(kicad_sch (symbol (property "Reference" "U1") (unit 1)))'
+        warning = "Warning: schematic has annotation errors"
         for stream in ("stdout", "stderr"):
             with self.subTest(stream=stream):
                 result = subprocess.CompletedProcess([], 0, stdout="", stderr="")
-                setattr(result, stream, "Warning: schematic has annotation errors")
-                schematic = '(kicad_sch (symbol (property "Reference" "#PWR") (unit 1)))'
-                with mock.patch.object(kicad_common.subprocess, "run", return_value=result), \
-                        mock.patch("builtins.open", mock.mock_open(read_data=schematic)), \
-                        self.assertRaisesRegex(SystemExit, "unannotated or duplicate"):
-                    kicad_common.export_netlist("kicad-cli", "phantasm.kicad_sch")
+                setattr(result, stream, warning)
+                captured = io.StringIO()
+                with mock.patch("builtins.open", mock.mock_open(read_data=schematic)), \
+                        contextlib.redirect_stderr(captured):
+                    kicad_common.require_annotated_export(result, "board.sch")
+                self.assertIn(warning, captured.getvalue())
 
     def test_allows_descriptive_refs_and_distinct_units(self):
         schematic = '(kicad_sch (symbol (property "Reference" "U_MCU") (unit 1)) (symbol (property "Reference" "U1") (unit 1)) (symbol (property "Reference" "U1") (unit 2)))'
