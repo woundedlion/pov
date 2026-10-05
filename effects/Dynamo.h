@@ -191,7 +191,8 @@ private:
 
   /**
    * @brief Pushes a fresh palette at the front and animates its boundary angle
-   *        from 0 up to PI, sweeping the new colors across the sphere.
+   *        from -WIPE_BLEND_WIDTH up to PI + WIPE_BLEND_WIDTH, sweeping the
+   *        new colors and their blend band across the whole sphere.
    * @details Drops the wipe if the boundary buffer is full, logging once until
    *          a wipe lands again. That buffer is the
    *          binding capacity (MAX_PALETTES - 1) and is what keeps boundary_slot
