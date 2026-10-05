@@ -1,9 +1,5 @@
-# Require the device inline-storage audit in core/animation/animation.h to name
-# every concrete animation type. LARGEST_CONCRETE_ANIM_SIZE folds sizeof over a
-# hand-written pack, and the per-type static_assert in Timeline::add_get only
-# fires for types a given build actually add()s — so a new animation that no
-# build in the tree instantiates is measured by nothing, which is the gap the
-# audit exists to close.
+# Audit concrete animation declarations against LARGEST_CONCRETE_ANIM_SIZE.
+# Timeline::add_get checks instantiated types with a per-type static_assert.
 #
 # Animations are CRTP: `class X : public Base<X>`, rooted at AnimationBase.
 # Each declaration is classified by the base's template argument:
@@ -14,7 +10,8 @@
 #   * anything else (e.g. `Derived`)       -> intermediate CRTP base; its own
 #                                             subclasses are animations too.
 # The root set therefore grows to a fixpoint before the leaves are collected.
-# -D args: CORE_DIR (path to core/), ANIM_HEADER (path to animation.h).
+# -D args: CORE_DIR (path to core/), ANIM_HEADER (path to animation.h);
+# or FIXTURE_DIR alone for the declaration-classifier self-test.
 
 cmake_minimum_required(VERSION 3.29)
 
