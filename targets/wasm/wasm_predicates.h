@@ -49,9 +49,9 @@ inline float clamp_pole_lod_aggressiveness(float aggressiveness) {
  * @param height Canvas height; y1 must not exceed it.
  * @return true iff every bound is integral and the band is non-negative,
  *         ordered, and within the canvas.
- * @details Negatives would feed ClipRegion's modulo arithmetic; a transposed
- *          (y-first) JS call must fail the range check rather than clip the
- *          wrong axis. Rejecting here keeps the untyped boundary from trapping
+ * @details Negatives would feed ClipRegion's modulo arithmetic. Each axis is
+ *          checked against its own extent; transposed bounds are rejected only
+ *          when they violate those limits. Rejecting here keeps the boundary from trapping
  *          the whole WASM module. The bounds are taken as doubles because an
  *          i32 embind parameter coerces without a range check in a release
  *          build: NaN and multiples of 2^32 arrive as 0, which passes every ordering
