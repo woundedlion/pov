@@ -1652,7 +1652,7 @@ inline void test_mesh_dissolve_masks_partition_edges() {
  *        quadrant/wedge-clipped render is pixel-identical to the full render
  *        inside the render band, including its margin ring.
  * @details Random trail-like geodesic polylines (the MindSplatter stack) and
- *          planar disk polylines (the Ring/Petals stack) through the AntiAlias
+ *          planar disk polylines (the ShapeShifter planar-shape stack) through the AntiAlias
  *          pipeline. Clips cover both device quadrants, a narrow interior
  *          wedge, and a seam-adjacent wedge whose margin expansion wraps
  *          (rs > re). A cull false-negative drops in-band pixels and breaks
@@ -1676,7 +1676,7 @@ inline void test_rasterize_column_cull_pixel_parity() {
     math::Basis chart;
 
     if (planar) {
-      // Planar polyline: points on a chart disk, as Ring/Petals emit them.
+      // Planar polyline: points on a chart disk, as ShapeShifter planar shapes emit them.
       chart = basis_from_normal(rand_unit());
       float radius = hs::rand_f(0.3f, 1.3f);
       float a0 = hs::rand_f(0, 2 * math::PI_F);
