@@ -25,8 +25,8 @@ class PresetHost : public ParamHost {
 public:
   /** @brief Number of presets exposed for manual navigation. */
   size_t getPresetCount() const { return preset_count; }
-  /** @brief Index of the currently selected preset. */
-  size_t getPresetIndex() const { return preset_index; }
+  /** @brief Index of the preset currently displayed. */
+  size_t getPresetIndex() const { return displayed_preset_index(); }
   /** @brief Selects and pauses one preset, or reports that it is unavailable. */
   bool selectPreset(size_t index) {
     if (!change_preset(index, PresetChangeOrigin::MANUAL))
@@ -37,17 +37,18 @@ public:
   /** @brief Selects one preset without changing the animation pause state. */
   bool synchronizePreset(size_t index) {
     return preset_count > 0 &&
-           (index == preset_index ||
+           ((index == preset_index && index == displayed_preset_index()) ||
             change_preset(index, PresetChangeOrigin::SYNCHRONIZED));
   }
   /** @brief Selects and pauses the next preset. */
   bool nextPreset() {
-    return preset_count > 0 && selectPreset((preset_index + 1) % preset_count);
+    return preset_count > 0 &&
+           selectPreset((getPresetIndex() + 1) % preset_count);
   }
   /** @brief Selects and pauses the previous preset. */
   bool previousPreset() {
     return preset_count > 0 &&
-           selectPreset((preset_index + preset_count - 1) % preset_count);
+           selectPreset((getPresetIndex() + preset_count - 1) % preset_count);
   }
 
 protected:
@@ -62,6 +63,9 @@ protected:
     size_t to;                 /**< Candidate preset index. */
     PresetChangeOrigin origin; /**< Source of the preset change. */
   };
+
+  /** @brief Preset whose parameters currently drive the display. */
+  virtual size_t displayed_preset_index() const { return preset_index; }
 
   /** @brief Enables the shared preset controller for this effect. */
   HS_FLASH_MEMBER void configure_presets(size_t count) {
