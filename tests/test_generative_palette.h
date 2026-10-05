@@ -687,7 +687,7 @@ inline void test_generative_palette_get_nan_saturates_to_endpoint() {
 /** @brief Asserts two baked LUTs agree at every sample point. */
 inline void expect_baked_equal(const BakedPalette &a, const BakedPalette &b) {
   for (int i = 0; i < BakedPalette::LUT_SIZE; ++i) {
-    const float t = i / 255.0f;
+    const float t = static_cast<float>(i) / (BakedPalette::LUT_SIZE - 1);
     const Color4 ca = a.get(t);
     const Color4 cb = b.get(t);
     HS_EXPECT_EQ(ca.color.r, cb.color.r);
@@ -708,7 +708,7 @@ inline int expect_baked_near(const BakedPalette &a, const BakedPalette &b,
                              int tolerance) {
   int worst = 0;
   for (int i = 0; i < BakedPalette::LUT_SIZE; ++i) {
-    const float t = i / 255.0f;
+    const float t = static_cast<float>(i) / (BakedPalette::LUT_SIZE - 1);
     const Pixel pa = a.get(t).color;
     const Pixel pb = b.get(t).color;
     const int deltas[3] = {std::abs(int(pa.r) - int(pb.r)),
