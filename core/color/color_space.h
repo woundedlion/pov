@@ -66,8 +66,9 @@ struct LinRGB {
  * @param g Linear green in [0, 1].
  * @param b Linear blue in [0, 1].
  * @return The (l, m, s) cone responses, before the cube-root nonlinearity.
- * @details Shared by linear_rgb_to_oklab and hue_rotate; each applies its own
- * cube-root (exact cbrtf vs fast_cbrt) then calls lms_to_oklab.
+ * @details The OKLab conversions cube-root these responses before
+ * lms_to_oklab. Hue-shift composition and feedback also consume the
+ * cube-rooted responses through lms_cbrt_transform_rgb*.
  */
 HS_O3_FN inline LMS linear_rgb_to_lms(float r, float g, float b) {
   return {0.4122214708f * r + 0.5363325363f * g + 0.0514459929f * b,
