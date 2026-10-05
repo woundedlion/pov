@@ -1606,11 +1606,11 @@ inline void test_noise_product_field_parity() {
 /**
  * @brief Sweeps seeds, octave scales, field time, amplitude, and sample points
  *        to verify |noise_product_field| never exceeds field_bound().
- * @details field_bound() = |amplitude| holds only if the generator's own output
- * stays within [-1, 1] on both octaves, so the sweep measures that claim
- * directly rather than trusting it. The bound sizes displacement culls; a point
- * outside it would be culled while still displaced. The 49,152 samples
- * aggregate into violation counters.
+ * @details Outputs within [-1, 1] on both octaves guarantee
+ * field_bound() = |amplitude|; the sweep checks both octave ranges and the
+ * product bound. The bound sizes displacement culls; a point outside it would
+ * be culled while still displaced. The 49,152 point draws skip near-zero
+ * vectors before evaluation and aggregate accepted samples into counters.
  */
 inline void test_noise_product_field_bound_is_conservative() {
   hs::random().seed(20260801);
