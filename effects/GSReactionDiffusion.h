@@ -12,6 +12,7 @@
 
 #include <algorithm>
 #include <array>
+#include <bit>
 #include <cmath>
 #include <utility>
 #include "core/color/effect_palette_recipes.h"
@@ -82,18 +83,20 @@ public:
    */
   void init() override {
     constexpr size_t PALETTE_BYTES =
-        NUM_SEED_CLUSTERS * PALETTE_SIZE * sizeof(Pixel) + alignof(Pixel) +
-        HueNoiseLutView::SIZE * sizeof(int8_t);
+        NUM_SEED_CLUSTERS *
+            (PALETTE_SIZE * sizeof(Pixel) +
+             COLOR_VALUE_STEPS * COLOR_NOISE_STEPS * sizeof(FloatColor)) +
+        2 * alignof(Pixel) + HueNoiseLutView::SIZE * sizeof(int8_t);
     constexpr size_t PERSISTENT_BYTES = 192 * 1024 + 32;
     constexpr size_t PHYSICS_SCRATCH_BYTES =
         2u * RD_N * sizeof(float) + RD_N * sizeof(uint16_t) +
-        2u * (PHYSICS_NEIGHBOR_REACH + 1) * sizeof(float);
+        2u * PHYSICS_HISTORY_SIZE * sizeof(float);
     constexpr size_t RASTER_SCRATCH_BYTES =
         RD_N * sizeof(math::Vector) + 2u * RD_N * sizeof(uint8_t);
     constexpr size_t SCRATCH_BYTES =
         std::max(PHYSICS_SCRATCH_BYTES, RASTER_SCRATCH_BYTES);
     Base::template configure_rd_arenas<uint16_t, 3, PERSISTENT_BYTES,
-                                       PALETTE_BYTES, SCRATCH_BYTES, 3>();
+                                       PALETTE_BYTES, SCRATCH_BYTES, 3, true>();
 
     register_param("Feed", &params.feed, 0.0f, 0.1f);
     register_param("Kill", &params.k, 0.0f, 0.1f);
@@ -113,6 +116,8 @@ public:
     state.pigment = persistent_arena.allocate_n<uint16_t>(RD_N);
     palettes =
         persistent_arena.allocate_n<Pixel>(NUM_SEED_CLUSTERS * PALETTE_SIZE);
+    modified_palettes = persistent_arena.allocate_n<FloatColor>(
+        NUM_SEED_CLUSTERS * COLOR_VALUE_STEPS * COLOR_NOISE_STEPS);
     color_noise_lut =
         persistent_arena.allocate_n<int8_t>(HueNoiseLutView::SIZE);
     color_noise.SetNoiseType(FastNoiseLite::NoiseType_OpenSimplex2);
@@ -121,8 +126,9 @@ public:
     refresh_color_noise();
 
     validate_physics_neighbors();
-    init_lattice();
+    Base::template init_lattice<true>();
     seed_reaction();
+    refresh_color_palettes(true);
     reaction_edited(); // latch the defaults; frame 1 is not an edit
   }
 
@@ -137,6 +143,20 @@ private:
    */
   static constexpr int NUM_SEED_CLUSTERS = 30;
   static constexpr int PALETTE_SIZE = 32;
+  static constexpr int COLOR_NOISE_STEPS = 15;
+  static constexpr int COLOR_VALUE_STEPS = 16;
+  struct FloatColor {
+    float r, g, b;
+    FloatColor &operator=(const Pixel &p) {
+      r = p.r;
+      g = p.g;
+      b = p.b;
+      return *this;
+    }
+    Pixel pixel() const { return Pixel(r, g, b); }
+  };
+  static constexpr float CACHED_HUE_LIMIT = 0.25f;
+  static constexpr float CACHED_SHIMMER_LIMIT = 0.4f;
   static_assert(NUM_SEED_CLUSTERS <= 32);
   /** @brief Substep budget used to calibrate the stabilization threshold. */
   static constexpr int BASELINE_STEPS_PER_FRAME = 16;
@@ -223,13 +243,18 @@ private:
     return static_cast<uint16_t>(first | (second << 5) | (mix << 10));
   }
 
-  HS_COLD_MEMBER void seed_reaction() {
-    for (int i = 0; i < RD_N; ++i) {
-      state.A[i] = 65535;
-      state.B[i] = 0;
-      state.pigment[i] = 63u << 10;
+  HS_COLD_MEMBER void seed_reaction(int first = 0,
+                                    int end = NUM_SEED_CLUSTERS) {
+    HS_PROFILE(grd_seed_reaction);
+    if (first == 0) {
+      for (int i = 0; i < RD_N; ++i) {
+        state.A[i] = 65535;
+        state.B[i] = 0;
+        state.pigment[i] = 63u << 10;
+      }
+      color_palette_valid = false;
     }
-    for (int seed = 0; seed < NUM_SEED_CLUSTERS; ++seed) {
+    for (int seed = first; seed < end; ++seed) {
       auto palette = make_palette();
       for (int j = 0; j < PALETTE_SIZE; ++j)
         palettes[seed * PALETTE_SIZE + j] =
@@ -247,20 +272,100 @@ private:
     }
   }
 
-  void step_pigment(const float *a, const float *b, uint16_t *next) {
+  template <int PIGMENT_STEPS = 1>
+  HS_O3_FN void step_pigment(const float *a, const float *b, uint16_t *next) {
+    HS_PROFILE(grd_pigment);
     const float DT = params.dt * STEP_DT_SCALE;
     static_assert(RD_K == 6, "GS stability bound assumes a 6-NN lattice");
     const float DIFFUSION = params.d_b * DT;
-    for (int i = 0; i < RD_N; ++i) {
-      float weights[NUM_SEED_CLUSTERS] = {};
-      float retained = fmaxf(0.0f, b[i] * (1.0f - RD_K * DIFFUSION -
-                                           (params.k + params.feed) * DT) +
-                                       a[i] * b[i] * b[i] * DT);
-      add_pigment(weights, state.pigment[i], retained);
-      Base::template for_each_neighbor<true>(i, [&](int nb) {
-        add_pigment(weights, state.pigment[nb], b[nb] * DIFFUSION);
-      });
-      next[i] = pack_pigment(weights);
+    float weights[NUM_SEED_CLUSTERS] = {};
+    int i = 0;
+    for (unsigned r = 0; r < ReactionGraph::NEIGHBOR_RUN_COUNT; ++r) {
+      const auto &run = ReactionGraph::neighbor_runs[r];
+      for (; i < run.end; ++i) {
+        float retained = fmaxf(0.0f, b[i] * (1.0f - RD_K * DIFFUSION -
+                                             (params.k + params.feed) * DT) +
+                                         a[i] * b[i] * b[i] * DT);
+        float diffusion = DIFFUSION;
+        if constexpr (PIGMENT_STEPS > 1) {
+          float incoming = 0.0f;
+          for (int k = 0; k < RD_K; ++k)
+            incoming += b[i + run.delta[k]] * DIFFUSION;
+          float total = retained + incoming;
+          float r = total > 0.0f ? retained / total : 0.0f;
+          float power = 1.0f, scale = 1.0f;
+          for (int step = 1; step < PIGMENT_STEPS; ++step) {
+            power *= r;
+            scale += power;
+          }
+          retained *= power;
+          diffusion *= scale;
+        }
+        uint16_t uniform = state.pigment[i] & 0xfc1fu;
+        bool same = (uniform >> 10) == 63;
+        for (int k = 0; k < RD_K && same; ++k)
+          same = (state.pigment[i + run.delta[k]] & 0xfc1fu) == uniform;
+        if (same) {
+          float mass = retained;
+          for (int k = 0; k < RD_K; ++k)
+            mass += b[i + run.delta[k]] * diffusion;
+          int first = mass > 0.0f ? uniform & 31 : 0;
+          int second = first == 0 ? 1 : 0;
+          next[i] = static_cast<uint16_t>(first | (second << 5) | (63u << 10));
+          continue;
+        }
+        uint32_t touched = 0;
+        auto add = [&](int id, float mass) __attribute__((always_inline)) {
+          weights[id] += mass;
+          touched |= 1u << id;
+        };
+        auto gather = [&](int node, float mass) __attribute__((always_inline)) {
+          uint16_t pigment = state.pigment[node];
+          float first = static_cast<float>(pigment >> 10) * (1.0f / 63.0f);
+          add(pigment & 31, mass * first);
+          add((pigment >> 5) & 31, mass * (1.0f - first));
+        };
+        gather(i, retained);
+        for (int k = 0; k < RD_K; ++k) {
+          int nb = i + run.delta[k];
+          gather(nb, b[nb] * diffusion);
+        }
+        int first = 0, second = 1;
+        // Nonnegative IEEE-754 weights sort by their unsigned representations.
+        auto weight_bits = [&](int id) __attribute__((always_inline)) {
+          return std::bit_cast<uint32_t>(weights[id]) & 0x7fffffffu;
+        };
+        uint32_t first_bits = weight_bits(0);
+        uint32_t second_bits = weight_bits(1);
+        weights[0] = weights[1] = 0.0f;
+        if (second_bits > first_bits) {
+          std::swap(first, second);
+          std::swap(first_bits, second_bits);
+        }
+        uint32_t remaining = touched & ~3u;
+        while (remaining) {
+          int id = __builtin_ctz(remaining);
+          remaining &= remaining - 1;
+          uint32_t bits = weight_bits(id);
+          weights[id] = 0.0f;
+          if (bits > first_bits) {
+            second = first;
+            second_bits = first_bits;
+            first = id;
+            first_bits = bits;
+          } else if (bits > second_bits) {
+            second = id;
+            second_bits = bits;
+          }
+        }
+        float first_mass = std::bit_cast<float>(first_bits);
+        float second_mass = std::bit_cast<float>(second_bits);
+        float mass = first_mass + second_mass;
+        int mix = (first_bits | second_bits) != 0
+                      ? static_cast<int>(63.0f * first_mass / mass + 0.5f)
+                      : 63;
+        next[i] = static_cast<uint16_t>(first | (second << 5) | (mix << 10));
+      }
     }
     std::copy_n(next, RD_N, state.pigment);
   }
@@ -279,8 +384,8 @@ private:
     }
   };
 
-  Pixel modified_palette_color(int seed, float t, float shift,
-                               float lightness) const {
+  HS_O3_FN Pixel modified_palette_color(int seed, float t, float shift,
+                                        float lightness) const {
     if (shift == 0.0f && lightness == 0.0f)
       return palette_color(seed, t);
     const Color4 SOURCE(palette_color(seed, t), 1.0f);
@@ -290,11 +395,140 @@ private:
         .color;
   }
 
-  void refresh_color_noise() {
-    color_noise_cache.refresh(std::span<int8_t, HueNoiseLutView::SIZE>(
-                                  color_noise_lut, HueNoiseLutView::SIZE),
-                              color_noise, params.noise_scale,
-                              color_noise_phase);
+  HS_O3_FN void refresh_color_palettes(bool complete = false) {
+    color_noise_enabled = params.hue_shift != 0.0f || params.shimmer != 0.0f;
+    color_palette_exact = !color_noise_enabled ||
+                          fabsf(params.hue_shift) > CACHED_HUE_LIMIT ||
+                          params.shimmer > CACHED_SHIMMER_LIMIT;
+    const bool RESTART = !color_palette_valid ||
+                         color_palette_hue != params.hue_shift ||
+                         color_palette_shimmer != params.shimmer;
+    if (RESTART) {
+      color_palette_hue = params.hue_shift;
+      color_palette_shimmer = params.shimmer;
+      color_palette_valid = true;
+      color_palette_rows = 0;
+      color_palette_next_row = 0;
+    }
+    if (color_palette_next_row == COLOR_NOISE_STEPS ||
+        fabsf(params.hue_shift) > CACHED_HUE_LIMIT ||
+        params.shimmer > CACHED_SHIMMER_LIMIT ||
+        (params.hue_shift == 0.0f && params.shimmer == 0.0f))
+      return;
+    HS_PROFILE(grd_color_palette);
+    int count = complete ? COLOR_NOISE_STEPS : RESTART ? 5 : 2;
+    for (; count > 0 && color_palette_next_row < COLOR_NOISE_STEPS; --count) {
+      int index = color_palette_next_row++;
+      int n =
+          COLOR_NOISE_STEPS / 2 + ((index & 1) ? -(index + 1) / 2 : index / 2);
+      float noise = -1.0f + 2.0f * n / (COLOR_NOISE_STEPS - 1);
+      for (int seed = 0; seed < NUM_SEED_CLUSTERS; ++seed)
+        for (int t = 0; t < COLOR_VALUE_STEPS; ++t)
+          modified_palettes[(seed * COLOR_NOISE_STEPS + n) * COLOR_VALUE_STEPS +
+                            t] =
+              modified_palette_color(
+                  seed, static_cast<float>(t) / (COLOR_VALUE_STEPS - 1),
+                  noise * params.hue_shift,
+                  fmaxf(noise, 0.0f) * params.shimmer);
+      color_palette_rows |= 1u << n;
+    }
+  }
+
+  struct ColorNoiseSample {
+    int row;
+    uint16_t weight;
+    float value;
+    bool exact;
+  };
+
+  struct ColorValueSample {
+    int column;
+    uint16_t weight;
+    float value;
+  };
+
+  __attribute__((always_inline)) ColorNoiseSample
+  color_noise_sample(float noise) const {
+    float position =
+        hs::clamp((noise + 1.0f) * (0.5f * (COLOR_NOISE_STEPS - 1)), 0.0f,
+                  static_cast<float>(COLOR_NOISE_STEPS - 1));
+    int row = std::min(static_cast<int>(position), COLOR_NOISE_STEPS - 2);
+    return {row, static_cast<uint16_t>((position - row) * 65535.0f), noise,
+            !color_palette_valid ||
+                (color_palette_rows & (3u << row)) != (3u << row) ||
+                color_palette_exact};
+  }
+
+  __attribute__((always_inline)) static ColorValueSample
+  color_value_sample(float t) {
+    float position = t * (COLOR_VALUE_STEPS - 1);
+    int column = std::min(static_cast<int>(position), COLOR_VALUE_STEPS - 2);
+    return {column, lut_index_weight(position, column), t};
+  }
+
+  __attribute__((always_inline)) Pixel
+  cached_palette_color(int seed, const ColorValueSample &value,
+                       const ColorNoiseSample &noise) const {
+    if (noise.exact)
+      return modified_palette_color(seed, value.value,
+                                    noise.value * params.hue_shift,
+                                    fmaxf(noise.value, 0.0f) * params.shimmer);
+    const FloatColor *row =
+        modified_palettes +
+        (seed * COLOR_NOISE_STEPS + noise.row) * COLOR_VALUE_STEPS +
+        value.column;
+    Pixel first = row[0].pixel().lerp16(row[1].pixel(), value.weight);
+    Pixel second = row[COLOR_VALUE_STEPS].pixel().lerp16(
+        row[COLOR_VALUE_STEPS + 1].pixel(), value.weight);
+    return first.lerp16(second, noise.weight);
+  }
+
+  Pixel cached_palette_color(int seed, float t, float noise) const {
+    return cached_palette_color(seed, color_value_sample(t),
+                                color_noise_sample(noise));
+  }
+
+  HS_FLASH_INLINE void refresh_color_noise() {
+    HS_CHECK(std::isfinite(params.noise_scale) && params.noise_scale > 0.0f,
+             "GSReactionDiffusion: invalid noise scale");
+    if (color_noise_cache.scale == params.noise_scale &&
+        color_noise_cache.phase == color_noise_phase)
+      return;
+    const math::Vector OFFSET =
+        math::noise_sphere_loop_offset(color_noise_phase);
+    constexpr int N = HueNoiseLutView::FACE_STEPS;
+    constexpr float STEP = 2.0f / (N - 1);
+    for (int face = 0; face < HueNoiseLutView::FACE_COUNT; face += 2) {
+      for (int y = 0; y < N; ++y) {
+        const float V = -1.0f + STEP * y;
+        for (int x = 0; x < N; ++x) {
+          const float U = -1.0f + STEP * x;
+          const math::Vector DIRECTION = hue_noise_face_direction(face, U, V);
+          const auto bake =
+              [&](int f, const math::Vector &direction)
+                  __attribute__((always_inline)) {
+                    const math::Vector Q =
+                        params.noise_scale * direction + OFFSET;
+                    // OpenSimplex2's default rotation at frequency 1.
+                    const float R = (Q.x + Q.y + Q.z) * (2.0f / 3.0f);
+                    const float SAMPLE =
+                        hs::clamp(color_noise.GetNoiseSingleTransformed(
+                                      R - Q.x, R - Q.y, R - Q.z),
+                                  -1.0f, 1.0f);
+                    color_noise_lut[f * N * N + y * N + x] =
+                        static_cast<int8_t>(SAMPLE * 127.0f +
+                                            (SAMPLE < 0.0f ? -0.5f : 0.5f));
+                  };
+          bake(face, DIRECTION);
+          bake(face + 1,
+               face == 2
+                   ? math::Vector(DIRECTION.x, -DIRECTION.y, -DIRECTION.z)
+                   : math::Vector(-DIRECTION.x, DIRECTION.y, -DIRECTION.z));
+        }
+      }
+    }
+    color_noise_cache.scale = params.noise_scale;
+    color_noise_cache.phase = color_noise_phase;
   }
 
   void advance_color_noise() {
@@ -305,6 +539,34 @@ private:
 
   float sample_color_noise(const math::Vector &direction) const {
     return sample_hue_noise_lut({color_noise_lut, true}, direction);
+  }
+
+  HS_O3_FN __attribute__((always_inline)) float sample_color_noise(
+      const ReactionGraph::CubemapLUT::Projection &projection) const {
+    const int FACE = projection.face;
+    const float U = FACE < 2 ? -projection.u : projection.u;
+    const float V = FACE >= 2 && FACE < 4 ? -projection.v : projection.v;
+    constexpr float SCALE = 0.5f * (HueNoiseLutView::FACE_STEPS - 1);
+    const float X_POSITION = (U + 1.0f) * SCALE;
+    const float Y_POSITION = (V + 1.0f) * SCALE;
+    const int X_LOW =
+        std::min(static_cast<int>(X_POSITION), HueNoiseLutView::FACE_STEPS - 2);
+    const int Y_LOW =
+        std::min(static_cast<int>(Y_POSITION), HueNoiseLutView::FACE_STEPS - 2);
+    const float X_FRACTION = X_POSITION - X_LOW;
+    const float Y_FRACTION = Y_POSITION - Y_LOW;
+    const int OFFSET = FACE * HueNoiseLutView::FACE_SIZE +
+                       Y_LOW * HueNoiseLutView::FACE_STEPS + X_LOW;
+    const float ROW_LOW =
+        hs::lerp(static_cast<float>(color_noise_lut[OFFSET]),
+                 static_cast<float>(color_noise_lut[OFFSET + 1]), X_FRACTION);
+    const float ROW_HIGH =
+        hs::lerp(static_cast<float>(
+                     color_noise_lut[OFFSET + HueNoiseLutView::FACE_STEPS]),
+                 static_cast<float>(
+                     color_noise_lut[OFFSET + HueNoiseLutView::FACE_STEPS + 1]),
+                 X_FRACTION);
+    return hs::lerp(ROW_LOW, ROW_HIGH, Y_FRACTION) * (1.0f / 127.0f);
   }
 
   template <typename Sample>
@@ -349,15 +611,15 @@ private:
 
   /**
    * @brief Ends a dissolve by seeding the next reaction at fresh cluster sites.
-   * @details The field is already at rest (every node converted), so seeding
-   * alone reproduces init()'s starting condition at new random sites;
-   * feed/k are the user's and are left alone.
+   * @param staged Splits seeding across a black frame and a complete seed frame.
+   * @details Chemistry resumes after all seed clusters have been planted.
    */
-  HS_COLD_MEMBER void start_reaction() {
+  HS_COLD_MEMBER void start_reaction(bool staged = false) {
     transition.dissolve_frames = -1;
     transition.grow_frames = 0;
     transition.stable_frames = 0;
-    seed_reaction();
+    transition.next_seed = staged ? NUM_SEED_CLUSTERS / 2 : NUM_SEED_CLUSTERS;
+    seed_reaction(0, transition.next_seed);
   }
 
   /**
@@ -403,7 +665,7 @@ private:
       // Latch edits made mid-dissolve; this dissolve already covers them.
       reaction_edited();
       if (transition.dissolve_frames >= DISSOLVE_FRAMES)
-        start_reaction();
+        start_reaction(true);
       return;
     }
     if (reaction_edited()) {
@@ -447,6 +709,9 @@ private:
   }
 
   static constexpr int PHYSICS_NEIGHBOR_REACH = 144;
+  static constexpr int PHYSICS_HISTORY_SIZE = 256;
+  static_assert(PHYSICS_HISTORY_SIZE > PHYSICS_NEIGHBOR_REACH &&
+                (PHYSICS_HISTORY_SIZE & (PHYSICS_HISTORY_SIZE - 1)) == 0);
 
   HS_COLD_MEMBER static void validate_physics_neighbors(
       const ReactionGraph::NeighborRun *runs = ReactionGraph::neighbor_runs,
@@ -460,20 +725,21 @@ private:
   /** @brief Advances float A/B in place after their last stencil read. */
   HS_O3_FN void step_physics_inplace(float *a, float *b, float *pending_a,
                                      float *pending_b) {
-    constexpr int HISTORY_SIZE = PHYSICS_NEIGHBOR_REACH + 1;
+    HS_PROFILE(grd_physics);
+    constexpr int HISTORY_MASK = PHYSICS_HISTORY_SIZE - 1;
     step_physics_nodes(a, b, [&](int i, float next_a, float next_b) {
-      pending_a[i % HISTORY_SIZE] = next_a;
-      pending_b[i % HISTORY_SIZE] = next_b;
+      pending_a[i & HISTORY_MASK] = next_a;
+      pending_b[i & HISTORY_MASK] = next_b;
       // Node i is the last possible reader of i - PHYSICS_NEIGHBOR_REACH.
       if (i >= PHYSICS_NEIGHBOR_REACH) {
         int done = i - PHYSICS_NEIGHBOR_REACH;
-        a[done] = pending_a[done % HISTORY_SIZE];
-        b[done] = pending_b[done % HISTORY_SIZE];
+        a[done] = pending_a[done & HISTORY_MASK];
+        b[done] = pending_b[done & HISTORY_MASK];
       }
     });
     for (int i = RD_N - PHYSICS_NEIGHBOR_REACH; i < RD_N; ++i) {
-      a[i] = pending_a[i % HISTORY_SIZE];
-      b[i] = pending_b[i % HISTORY_SIZE];
+      a[i] = pending_a[i & HISTORY_MASK];
+      b[i] = pending_b[i & HISTORY_MASK];
     }
   }
 
@@ -488,7 +754,7 @@ private:
     int i = 0;
     for (unsigned r = 0; r < ReactionGraph::NEIGHBOR_RUN_COUNT; ++r) {
       const auto &run = ReactionGraph::neighbor_runs[r];
-      for (; i < run.end; ++i) {
+      auto calculate = [&](int i) __attribute__((always_inline)) {
         float a = c_a[i];
         float b = c_b[i];
 
@@ -530,7 +796,28 @@ private:
                                  0.0f, 1.0f);
         float next_b = hs::clamp(
             b + (d_b * l_b + abb - (KILL_RATE + feed) * b) * dt, 0.0f, 1.0f);
-        store(i, next_a, next_b);
+        return std::pair{next_a, next_b};
+      };
+      for (; i + 3 < run.end; i += 4) {
+        const auto first = calculate(i);
+        const auto second = calculate(i + 1);
+        const auto third = calculate(i + 2);
+        const auto fourth = calculate(i + 3);
+        store(i, first.first, first.second);
+        store(i + 1, second.first, second.second);
+        store(i + 2, third.first, third.second);
+        store(i + 3, fourth.first, fourth.second);
+      }
+      for (; i + 1 < run.end; i += 2) {
+        const auto first = calculate(i);
+        const auto second = calculate(i + 1);
+        store(i, first.first, first.second);
+        store(i + 1, second.first, second.second);
+      }
+      if (i < run.end) {
+        const auto next = calculate(i);
+        store(i, next.first, next.second);
+        ++i;
       }
     }
   }
@@ -560,6 +847,170 @@ private:
     return wb / tw;
   }
 
+  template <typename Grid, typename OnNode>
+  static __attribute__((always_inline)) void
+  accumulate_render_stencil(const Grid &grid, int x, int center,
+                            const math::Vector *nodes, OnNode &&on_node) {
+    const float st = math::TrigLUT<Grid::WIDTH, Grid::HEIGHT>::sin_theta[x];
+    const float ct = math::TrigLUT<Grid::WIDTH, Grid::HEIGHT>::cos_theta(x);
+    const auto &run =
+        ReactionGraph::neighbor_runs[ReactionGraph::neighbor_run_index[center]];
+    float radial_scale[2], cross_scale[2];
+    for (int row = 0; row < 2; ++row) {
+      radial_scale[row] = grid.sin_phi[row] * grid.cos_dtheta;
+      cross_scale[row] =
+          2.0f * grid.sin_phi[row] * grid.sin_dtheta * Base::INV_R2;
+    }
+    for (int slot = 0; slot < RD_K + 1; ++slot) {
+      const int node = slot == 0 ? center : center + run.delta[slot - 1];
+      const math::Vector &p = nodes[node];
+      auto on_weight = on_node(slot, node);
+      const float radial = ct * p.x + st * p.z;
+      const float tangent = st * p.x - ct * p.z;
+      for (int row = 0; row < 2; ++row) {
+        const float dot = radial_scale[row] * radial + grid.cos_phi[row] * p.y;
+        const float base_u = 1.0f - (2.0f - 2.0f * dot) * Base::INV_R2;
+        const float cross = cross_scale[row] * tangent;
+        const float LEFT = fmaxf(0.0f, base_u - cross);
+        const float RIGHT = fmaxf(0.0f, base_u + cross);
+        on_weight(2 * row, LEFT * LEFT);
+        on_weight(2 * row + 1, RIGHT * RIGHT);
+      }
+    }
+  }
+
+  HS_O3_FN __attribute__((always_inline)) Pixel shade_pigment(
+      uint16_t pigment, float t, float scale, float noise_value) const {
+    HS_PROFILE_DEEP(grd_shader_palette);
+    const float FIRST_MASS = (pigment >> 10) * (1.0f / 63.0f);
+    const int PALETTE_COUNT = (pigment >> 10) == 63 ? 1 : 2;
+    const float NOISE_POSITION =
+        hs::clamp((noise_value + 1.0f) * (0.5f * (COLOR_NOISE_STEPS - 1)), 0.0f,
+                  static_cast<float>(COLOR_NOISE_STEPS - 1));
+    const int NOISE_ROW =
+        std::min(static_cast<int>(NOISE_POSITION), COLOR_NOISE_STEPS - 2);
+    const bool EXACT =
+        !color_palette_valid ||
+        (color_palette_rows & (3u << NOISE_ROW)) != (3u << NOISE_ROW) ||
+        color_palette_exact;
+    const float VALUE_POSITION = t * (COLOR_VALUE_STEPS - 1);
+    const int VALUE_COLUMN =
+        std::min(static_cast<int>(VALUE_POSITION), COLOR_VALUE_STEPS - 2);
+    const float NOISE_WEIGHT = NOISE_POSITION - NOISE_ROW;
+    const float VALUE_WEIGHT = VALUE_POSITION - VALUE_COLUMN;
+    const float SCALE00 = (1.0f - VALUE_WEIGHT) * (1.0f - NOISE_WEIGHT) * scale;
+    const float SCALE01 = VALUE_WEIGHT * (1.0f - NOISE_WEIGHT) * scale;
+    const float SCALE10 = (1.0f - VALUE_WEIGHT) * NOISE_WEIGHT * scale;
+    const float SCALE11 = VALUE_WEIGHT * NOISE_WEIGHT * scale;
+    float accum_r = 0, accum_g = 0, accum_b = 0;
+    for (int component = 0; component < PALETTE_COUNT; ++component) {
+      int palette = component ? (pigment >> 5) & 31 : pigment & 31;
+      float mass = component ? 1.0f - FIRST_MASS : FIRST_MASS;
+      if (EXACT) {
+        Pixel rgb =
+            modified_palette_color(palette, t, noise_value * params.hue_shift,
+                                   fmaxf(noise_value, 0.0f) * params.shimmer);
+        float weight = mass * scale;
+        accum_r += rgb.r * weight;
+        accum_g += rgb.g * weight;
+        accum_b += rgb.b * weight;
+        continue;
+      }
+      const FloatColor *row =
+          modified_palettes +
+          (palette * COLOR_NOISE_STEPS + NOISE_ROW) * COLOR_VALUE_STEPS +
+          VALUE_COLUMN;
+      float w00 = mass * SCALE00, w01 = mass * SCALE01;
+      float w10 = mass * SCALE10, w11 = mass * SCALE11;
+      accum_r += row[0].r * w00 + row[1].r * w01 +
+                 row[COLOR_VALUE_STEPS].r * w10 +
+                 row[COLOR_VALUE_STEPS + 1].r * w11;
+      accum_g += row[0].g * w00 + row[1].g * w01 +
+                 row[COLOR_VALUE_STEPS].g * w10 +
+                 row[COLOR_VALUE_STEPS + 1].g * w11;
+      accum_b += row[0].b * w00 + row[1].b * w01 +
+                 row[COLOR_VALUE_STEPS].b * w10 +
+                 row[COLOR_VALUE_STEPS + 1].b * w11;
+    }
+    return Pixel(
+        static_cast<uint16_t>(hs::clamp(accum_r + 0.5f, 0.0f, 65535.0f)),
+        static_cast<uint16_t>(hs::clamp(accum_g + 0.5f, 0.0f, 65535.0f)),
+        static_cast<uint16_t>(hs::clamp(accum_b + 0.5f, 0.0f, 65535.0f)));
+  }
+
+  template <typename Grid>
+  HS_O3_FN Pixel shade_pixel_full(
+      int seed, const math::Vector &center_rv, const math::Vector *world_nodes,
+      const Grid &grid, int x, const uint8_t *hot_flags = nullptr,
+      const ReactionGraph::CubemapLUT::Projection *projection = nullptr) const {
+    if (seed < 0)
+      return Pixel(0, 0, 0);
+
+    constexpr uint32_t SAMPLES = Grid::SAMPLES;
+    float weights[SAMPLES] = {}, weighted_b[SAMPLES] = {};
+    uint16_t pigment;
+    {
+      HS_PROFILE_DEEP(grd_shader_stencil);
+      int center = Base::template refine_render_center<true>(center_rv,
+                                                             world_nodes, seed);
+      if (hot_flags && !hot_flags[center])
+        return Pixel(0, 0, 0);
+      pigment = state.pigment[center];
+      accumulate_render_stencil(
+          grid, x, center, world_nodes,
+          [&](int, int node) __attribute__((always_inline)) {
+            float b = state.B[node];
+            return [&, b](int sample, float weight)
+                       __attribute__((always_inline)) {
+                         weights[sample] += weight;
+                         weighted_b[sample] += b * weight;
+                       };
+          });
+    }
+    int covered = 0;
+    float t_sum = 0.0f;
+    for (int i = 0; i < Grid::SAMPLES; ++i) {
+      if (weights[i] <= Base::KERNEL_MIN_TOTAL_WEIGHT)
+        continue;
+      constexpr float CULL_MASS_SCALE =
+          (B_CULL_THRESHOLD / Q16_INV) * (1.0f - 1e-6f);
+      constexpr float SATURATED_MASS_SCALE =
+          ((B_COLOR_FLOOR + 1.0f / B_COLOR_SCALE) / Q16_INV) * (1.0f + 1e-6f);
+      if (weighted_b[i] < CULL_MASS_SCALE * weights[i])
+        continue;
+      if (weighted_b[i] >= SATURATED_MASS_SCALE * weights[i]) {
+        ++covered;
+        t_sum += 1.0f;
+        continue;
+      }
+      float b = weighted_b[i] * (Q16_INV / weights[i]);
+      if (b < B_CULL_THRESHOLD)
+        continue;
+      ++covered;
+      t_sum += hs::clamp((b - B_COLOR_FLOOR) * B_COLOR_SCALE, 0.0f, 1.0f);
+    }
+    if (!covered)
+      return Pixel(0, 0, 0);
+    float noise_value = 0;
+    {
+      HS_PROFILE_DEEP(grd_shader_noise);
+      if (color_noise_enabled)
+        noise_value = projection != nullptr
+                          ? sample_color_noise(*projection)
+                          : sample_color_noise(
+                                Base::inverse_orientation.apply(center_rv));
+    }
+    return shade_pigment(pigment, t_sum / covered, covered * (1.0f / SAMPLES),
+                         noise_value);
+  }
+
+  template <typename Grid>
+  static __attribute__((always_inline)) float render_support_limit() {
+    return Base::KERNEL_R * 0.99f -
+           0.25f * (math::RADIANS_PER_COLUMN<Grid::WIDTH> +
+                    math::RADIANS_PER_ROW<Grid::HEIGHT>);
+  }
+
   /**
    * @brief Shades one pixel's four sub-samples through an inlinable typed path.
    * @tparam Grid Scan::Shader::SsaaGrid type supplying the sub-pixel offsets.
@@ -576,76 +1027,98 @@ private:
    * at low vertical resolutions.
    */
   template <typename Grid>
-  HS_O3_FN Pixel shade_pixel(int seed, const math::Vector &center_rv,
-                             const math::Vector *world_nodes, const Grid &grid,
-                             int x) const {
+  HS_O3_FN Pixel shade_pixel(
+      int seed, const math::Vector &center_rv, const math::Vector *world_nodes,
+      const Grid &grid, int x, const uint8_t *hot_flags = nullptr,
+      const ReactionGraph::CubemapLUT::Projection *projection = nullptr) const {
     if (seed < 0)
       return Pixel(0, 0, 0);
 
-    float noise_value = 0.0f;
-    if (params.hue_shift != 0.0f || params.shimmer != 0.0f)
-      noise_value =
-          sample_color_noise(Base::inverse_orientation.apply(center_rv));
-    const float HUE_SHIFT = noise_value * params.hue_shift;
-    const float LIGHTNESS = fmaxf(0.0f, noise_value) * params.shimmer;
-    int center =
-        Base::template refine_render_center<true>(center_rv, world_nodes, seed);
+    static_assert(B_CULL_THRESHOLD == B_COLOR_FLOOR);
     constexpr uint32_t SAMPLES = Grid::SAMPLES;
-    float weights[SAMPLES] = {}, weighted_b[SAMPLES] = {};
-    float pigment_weights[RD_K + 1][SAMPLES] = {};
-    const auto &stencil_run =
-        ReactionGraph::neighbor_runs[ReactionGraph::neighbor_run_index[center]];
-    Base::accumulate_stencil_ssaa2x2(
-        grid, x, center, world_nodes,
-        [&](int slot, int node) __attribute__((always_inline)) {
-          const float b = state.B[node];
-          return [&, slot, b](int sample, float weight)
-                     __attribute__((always_inline)) {
-                       pigment_weights[slot][sample] = b * weight;
-                       weighted_b[sample] += b * weight;
-                       weights[sample] += weight;
-                     };
-        });
-    float accum_r = 0.0f, accum_g = 0.0f, accum_b = 0.0f;
+    float w00 = 0, w11 = 0;
+    float b00 = 0, b01 = 0, b10 = 0, b11 = 0;
+    uint16_t pigment;
+    {
+      HS_PROFILE_DEEP(grd_shader_stencil);
+      int center = Base::template refine_render_center<true>(center_rv,
+                                                             world_nodes, seed);
+      if (hot_flags && !hot_flags[center])
+        return Pixel(0, 0, 0);
+      const float LIMIT = render_support_limit<Grid>();
+      if (LIMIT <= 0.0f ||
+          Base::dist2(center_rv, world_nodes[center]) > LIMIT * LIMIT)
+        return shade_pixel_full(seed, center_rv, world_nodes, grid, x,
+                                hot_flags, projection);
+      pigment = state.pigment[center];
+      const float ST = math::TrigLUT<Grid::WIDTH, Grid::HEIGHT>::sin_theta[x];
+      const float CT = math::TrigLUT<Grid::WIDTH, Grid::HEIGHT>::cos_theta(x);
+      const auto &run = ReactionGraph::neighbor_runs
+          [ReactionGraph::neighbor_run_index[center]];
+      const float RADIAL0 = grid.sin_phi[0] * grid.cos_dtheta;
+      const float RADIAL1 = grid.sin_phi[1] * grid.cos_dtheta;
+      const float CROSS0 =
+          2.0f * grid.sin_phi[0] * grid.sin_dtheta * Base::INV_R2;
+      const float CROSS1 =
+          2.0f * grid.sin_phi[1] * grid.sin_dtheta * Base::INV_R2;
 #if defined(__GNUC__) && !defined(__clang__)
-#pragma GCC unroll 1
+#pragma GCC unroll 2
 #endif
-    for (int i = 0; i < Grid::SAMPLES; ++i) {
-      float tw = weights[i], wb = weighted_b[i];
-      if (tw <= Base::KERNEL_MIN_TOTAL_WEIGHT)
-        continue;
-      float b = wb * (Q16_INV / tw);
-      if (b < B_CULL_THRESHOLD)
-        continue;
-
-      float t = hs::clamp((b - B_COLOR_FLOOR) * B_COLOR_SCALE, 0.0f, 1.0f);
-      float scale = 1.0f / (wb * SAMPLES);
-      Pixel color_cache[NUM_SEED_CLUSTERS];
-      uint32_t cached = 0;
-      auto sample_palette = [&](int palette_id) {
-        uint32_t bit = 1u << palette_id;
-        if (!(cached & bit)) {
-          color_cache[palette_id] =
-              modified_palette_color(palette_id, t, HUE_SHIFT, LIGHTNESS);
-          cached |= bit;
-        }
-        return color_cache[palette_id];
-      };
-      for (int j = 0; j < RD_K + 1; ++j) {
-        float weight = pigment_weights[j][i] * scale;
-        if (weight <= 0.0f)
-          continue;
-        int ni = j == 0 ? center : center + stencil_run.delta[j - 1];
-        Pixel rgb = mix_pigment(state.pigment[ni], sample_palette);
-        accum_r += rgb.r * weight;
-        accum_g += rgb.g * weight;
-        accum_b += rgb.b * weight;
+      for (int slot = 0; slot < RD_K + 1; ++slot) {
+        const int NODE = slot == 0 ? center : center + run.delta[slot - 1];
+        const math::Vector &p = world_nodes[NODE];
+        const float B = state.B[NODE] - B_CULL_THRESHOLD / Q16_INV;
+        const float RADIAL = CT * p.x + ST * p.z;
+        const float TANGENT = ST * p.x - CT * p.z;
+        const float DOT0 = RADIAL0 * RADIAL + grid.cos_phi[0] * p.y;
+        const float DOT1 = RADIAL1 * RADIAL + grid.cos_phi[1] * p.y;
+        const float BASE0 = 1.0f - (2.0f - 2.0f * DOT0) * Base::INV_R2;
+        const float BASE1 = 1.0f - (2.0f - 2.0f * DOT1) * Base::INV_R2;
+        const float D0 = CROSS0 * TANGENT, D1 = CROSS1 * TANGENT;
+        float left = fmaxf(0.0f, BASE0 - D0), right = fmaxf(0.0f, BASE0 + D0);
+        left *= left;
+        right *= right;
+        w00 += left;
+        b00 += B * left;
+        b01 += B * right;
+        left = fmaxf(0.0f, BASE1 - D1);
+        right = fmaxf(0.0f, BASE1 + D1);
+        left *= left;
+        right *= right;
+        w11 += right;
+        b10 += B * left;
+        b11 += B * right;
       }
     }
-    return Pixel(
-        static_cast<uint16_t>(hs::clamp(accum_r + 0.5f, 0.0f, 65535.0f)),
-        static_cast<uint16_t>(hs::clamp(accum_g + 0.5f, 0.0f, 65535.0f)),
-        static_cast<uint16_t>(hs::clamp(accum_b + 0.5f, 0.0f, 65535.0f)));
+    // Seven weighted Q16 terms have less than 0.08 signed-mass rounding error.
+    constexpr float COVERAGE_ROUNDING_GUARD = 0.125f;
+    if (fabsf(b00) < COVERAGE_ROUNDING_GUARD ||
+        fabsf(b01) < COVERAGE_ROUNDING_GUARD ||
+        fabsf(b10) < COVERAGE_ROUNDING_GUARD ||
+        fabsf(b11) < COVERAGE_ROUNDING_GUARD)
+      return shade_pixel_full(seed, center_rv, world_nodes, grid, x, hot_flags,
+                              projection);
+    int covered = (b00 >= 0.0f) + (b01 >= 0.0f) + (b10 >= 0.0f) + (b11 >= 0.0f);
+    if (!covered)
+      return Pixel(0, 0, 0);
+    const float INVERSE0 = Q16_INV * B_COLOR_SCALE / w00;
+    const float INVERSE1 = Q16_INV * B_COLOR_SCALE / w11;
+    const float INVERSE_CROSS = 0.5f * (INVERSE0 + INVERSE1);
+    float t_sum = hs::clamp(b00 * INVERSE0, 0.0f, 1.0f) +
+                  hs::clamp(b11 * INVERSE1, 0.0f, 1.0f) +
+                  hs::clamp(b01 * INVERSE_CROSS, 0.0f, 1.0f) +
+                  hs::clamp(b10 * INVERSE_CROSS, 0.0f, 1.0f);
+    float noise_value = 0;
+    {
+      HS_PROFILE_DEEP(grd_shader_noise);
+      if (color_noise_enabled)
+        noise_value = projection != nullptr
+                          ? sample_color_noise(*projection)
+                          : sample_color_noise(
+                                Base::inverse_orientation.apply(center_rv));
+    }
+    return shade_pigment(pigment, t_sum / covered, covered * (1.0f / SAMPLES),
+                         noise_value);
   }
 
   /**
@@ -691,48 +1164,90 @@ private:
     }
   }
 
+  HS_O3_FN void draw_lattice(Canvas &canvas, const math::Vector *world_nodes,
+                             const uint8_t *hot1, const uint8_t *hot2) const {
+    Scan::check_canvas_dims<W, H>(canvas);
+    if (!math::TrigLUT<W, H>::initialized)
+      math::TrigLUT<W, H>::init();
+    const auto &clip = canvas.clip();
+    Scan::Shader::check_lut_domain<W, H>(clip);
+    const auto columns = clip.x_clip();
+    Scan::Shader::SsaaGrid<W, H> grid;
+    for (int y = clip.render_y_start(); y < clip.render_y_end(); ++y) {
+      const float sp = math::TrigLUT<W, H>::sin_phi[y];
+      const float cp = math::TrigLUT<W, H>::cos_phi[y];
+      grid.set_row(y);
+      Scan::walk_clip_columns<W>(columns, [&](int x) {
+        const math::Vector center(sp * math::TrigLUT<W, H>::cos_theta(x), cp,
+                                  sp * math::TrigLUT<W, H>::sin_theta[x]);
+        const math::Vector object_direction =
+            Base::inverse_orientation.apply(center);
+        const auto PROJECTION =
+            ReactionGraph::CubemapLUT::project(object_direction);
+        const int seed = Base::cube_lut.lookup(PROJECTION);
+        canvas(x, y) = hot2[seed] ? shade_pixel(seed, center, world_nodes, grid,
+                                                x, hot1, &PROJECTION)
+                                  : Pixel(0, 0, 0);
+      });
+    }
+  }
+
   /**
    * @brief Advances the sim STEPS_PER_FRAME substeps and rasterizes the B field.
    * @param canvas Destination canvas to draw the sphere into.
    * @details Rasterizes the B field onto the sphere via the orientation-aware
-   * SSAA shader pipeline after advancing the simulation.
+   * SSAA shader pipeline after advancing the simulation. Reseeding uses one
+   * black frame followed by a complete seed frame, both without partial-state
+   * chemistry or rendering.
    */
   void render(Canvas &canvas) {
     HS_PROFILE(grd_render);
-    advance_color_noise();
+    {
+      HS_PROFILE(grd_color_noise);
+      advance_color_noise();
+    }
     ScratchScope frame_guard(scratch_arena_a);
     float mean_db = 0.0f;
-    {
-      // Q16 quantization occurs once per frame.
-      HS_PROFILE(grd_simulate);
-      ScratchScope physics_guard(scratch_arena_a);
-      float *cur_a = scratch_arena_a.allocate_n<float>(RD_N);
-      float *cur_b = scratch_arena_a.allocate_n<float>(RD_N);
-      uint16_t *next_pigment = scratch_arena_a.allocate_n<uint16_t>(RD_N);
-      float *pending_a =
-          scratch_arena_a.allocate_n<float>(PHYSICS_NEIGHBOR_REACH + 1);
-      float *pending_b =
-          scratch_arena_a.allocate_n<float>(PHYSICS_NEIGHBOR_REACH + 1);
+    if (transition.next_seed < NUM_SEED_CLUSTERS) {
+      seed_reaction(transition.next_seed, NUM_SEED_CLUSTERS);
+      transition.next_seed = NUM_SEED_CLUSTERS;
+      reaction_edited();
+    } else {
+      {
+        // Q16 quantization occurs once per frame.
+        HS_PROFILE(grd_simulate);
+        ScratchScope physics_guard(scratch_arena_a);
+        float *cur_a = scratch_arena_a.allocate_n<float>(RD_N);
+        float *cur_b = scratch_arena_a.allocate_n<float>(RD_N);
+        uint16_t *next_pigment = scratch_arena_a.allocate_n<uint16_t>(RD_N);
+        float *pending_a =
+            scratch_arena_a.allocate_n<float>(PHYSICS_HISTORY_SIZE);
+        float *pending_b =
+            scratch_arena_a.allocate_n<float>(PHYSICS_HISTORY_SIZE);
 
-      for (int i = 0; i < RD_N; i++) {
-        cur_a[i] = from_q16(state.A[i]);
-        cur_b[i] = from_q16(state.B[i]);
+        for (int i = 0; i < RD_N; i++) {
+          cur_a[i] = from_q16(state.A[i]);
+          cur_b[i] = from_q16(state.B[i]);
+        }
+        step_pigment<STEPS_PER_FRAME>(cur_a, cur_b, next_pigment);
+        for (int step = 0; step < STEPS_PER_FRAME; ++step) {
+          step_physics_inplace(cur_a, cur_b, pending_a, pending_b);
+        }
+        uint32_t db_sum_q16 = 0;
+        for (int i = 0; i < RD_N; i++) {
+          state.A[i] = to_q16(cur_a[i]);
+          uint16_t next_b = to_q16(cur_b[i]);
+          int db = static_cast<int>(next_b) - state.B[i];
+          db_sum_q16 += static_cast<uint32_t>(db < 0 ? -db : db);
+          state.B[i] = next_b;
+        }
+        mean_db = static_cast<float>(db_sum_q16) * (Q16_INV / RD_N);
       }
-      for (int step = 0; step < STEPS_PER_FRAME; ++step) {
-        step_pigment(cur_a, cur_b, next_pigment);
-        step_physics_inplace(cur_a, cur_b, pending_a, pending_b);
-      }
-      uint32_t db_sum_q16 = 0;
-      for (int i = 0; i < RD_N; i++) {
-        state.A[i] = to_q16(cur_a[i]);
-        uint16_t next_b = to_q16(cur_b[i]);
-        int db = static_cast<int>(next_b) - state.B[i];
-        db_sum_q16 += static_cast<uint32_t>(db < 0 ? -db : db);
-        state.B[i] = next_b;
-      }
-      mean_db = static_cast<float>(db_sum_q16) * (Q16_INV / RD_N);
+      advance_transition(mean_db);
+      if (transition.next_seed < NUM_SEED_CLUSTERS)
+        return;
     }
-    advance_transition(mean_db);
+    refresh_color_palettes();
 
     // Physics scratch is popped; the raster phase reuses the arena for the
     // oriented lattice so the kernel walks stay in world space, plus the
@@ -750,21 +1265,9 @@ private:
       fill_hot_flags(state.B, hot1, hot2, RD_N, to_q16(B_CULL_THRESHOLD));
     }
 
-    // Seed the cubemap lookup once per pixel center; a seed whose two-ring
-    // sits below the render floor is culled for the whole pixel (v0 = -1).
-    auto vertex_shader = [&](Fragment &frag) {
-      if (!hot2[static_cast<int>(frag.v0)])
-        frag.v0 = -1.0f;
-    };
-
-    auto pixel_shader = [&](Fragment &frag, const auto &grid, int x) -> Pixel {
-      return shade_pixel(static_cast<int>(frag.v0), frag.pos, world_nodes, grid,
-                         x);
-    };
-
     {
       HS_PROFILE(grd_shader_draw);
-      rasterize_lattice(canvas, vertex_shader, pixel_shader);
+      draw_lattice(canvas, world_nodes, hot1, hot2);
     }
   }
 
@@ -782,6 +1285,7 @@ private:
    *        progress.
    */
   struct {
+    int next_seed = NUM_SEED_CLUSTERS; /**< First cluster awaiting placement. */
     int grow_frames = 0;        /**< Frames since this reaction was seeded. */
     int stable_frames = 0;      /**< Consecutive sub-floor frames. */
     int dissolve_frames = -1;   /**< Dissolve progress; -1 when inactive. */
@@ -794,6 +1298,14 @@ private:
 
   /** @brief Per-seed linear RGB ramps sampled by B concentration. */
   Pixel *palettes = nullptr;
+  FloatColor *modified_palettes = nullptr;
+  bool color_palette_valid = false;
+  bool color_palette_exact = true;
+  bool color_noise_enabled = false;
+  uint16_t color_palette_rows = 0;
+  uint8_t color_palette_next_row = 0;
+  float color_palette_hue = 0.0f;
+  float color_palette_shimmer = 0.0f;
   int8_t *color_noise_lut = nullptr;
   FastNoiseLite color_noise;
   HueNoiseBakeCache color_noise_cache;

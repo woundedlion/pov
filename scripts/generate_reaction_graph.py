@@ -157,6 +157,14 @@ def emit(table, out):
         out.write("  {" + ", ".join(str(v) for v in row) + "}" + comma + "\n")
     out.write("};\n")
 
+    out.write("\nHS_PROGMEM_UNIQUE(node_positions) const math::Vector "
+              "ReactionGraph::node_positions[RD_N] = {\n")
+    for idx in range(RD_N):
+        values = [float(value).hex() + "f" for value in node(idx)]
+        comma = "," if idx + 1 < RD_N else ""
+        out.write("  {" + ", ".join(values) + "}" + comma + "\n")
+    out.write("};\n")
+
     runs = []
     for idx, row in enumerate(table):
         delta = tuple(neighbor - idx for neighbor in row)

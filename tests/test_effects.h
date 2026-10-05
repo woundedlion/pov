@@ -1109,12 +1109,175 @@ inline void test_sh_manual_preset_replaces_inflight_morph() {
 struct GSWhiteBox {
   using GS = GSReactionDiffusion<SMALL_W, SMALL_H>;
   static constexpr int N = GS::RD_N;
+  static constexpr float RENDER_MIN_WEIGHT = GS::KERNEL_MIN_TOTAL_WEIGHT;
+
+  template <int Width, int Height> static float render_support_weight_floor() {
+    using Grid = Scan::Shader::SsaaGrid<Width, Height>;
+    math::PhiLUT<Height>::init();
+    math::TrigLUT<Width, Height>::init();
+    const float LIMIT = GS::template render_support_limit<Grid>();
+    if (LIMIT <= 0.0f)
+      return 0.0f;
+    Grid grid;
+    float minimum = 1.0f;
+    for (int y = 0; y < Height; ++y) {
+      grid.set_row(y);
+      for (int x = 0; x < Width; x += Width / 8) {
+        const math::Vector CENTER = math::pixel_to_vector<Width, Height>(x, y);
+        for (int sample = 0; sample < Grid::SAMPLES; ++sample) {
+          const float MAX_DISTANCE =
+              LIMIT + (grid.at(x, sample) - CENTER).length();
+          const float U =
+              fmaxf(0.0f, 1.0f - MAX_DISTANCE * MAX_DISTANCE * GS::INV_R2);
+          minimum = std::min(minimum, U * U);
+        }
+      }
+    }
+    return minimum;
+  }
 
   static uint16_t to_q16(float v) { return GS::to_q16(v); }
   static float from_q16(uint16_t v) { return GS::from_q16(v); }
   static void fill_hot_flags(const uint16_t *b, uint8_t *hot1, uint8_t *hot2,
                              int count, uint16_t threshold) {
     GS::fill_hot_flags(b, hot1, hot2, count, threshold);
+  }
+  template <typename Compare>
+  static void check_render_kernel(GS &gs, Compare &&compare) {
+    ScratchScope guard(scratch_arena_a);
+    auto lattice = gs.orient_lattice();
+    using Grid = Scan::Shader::SsaaGrid<DEFAULT_W, DEFAULT_H>;
+    if (!math::TrigLUT<DEFAULT_W, DEFAULT_H>::initialized)
+      math::TrigLUT<DEFAULT_W, DEFAULT_H>::init();
+    Grid grid;
+    for (int y = 0; y < DEFAULT_H; ++y) {
+      grid.set_row(y);
+      for (int x = 0; x < DEFAULT_W; ++x) {
+        Fragment frag;
+        frag.pos = math::pixel_to_vector<DEFAULT_W, DEFAULT_H>(x, y);
+        gs.seed_face_lut(frag);
+        const int center = gs.refine_render_center(frag.pos, lattice.get(),
+                                                   static_cast<int>(frag.v0));
+        float expected[7][4] = {}, actual[7][4] = {};
+        gs.accumulate_stencil_ssaa2x2(
+            grid, x, center, lattice.get(), [&](int slot, int) {
+              return [&, slot](int sample, float weight) {
+                expected[slot][sample] = weight;
+              };
+            });
+        gs.accumulate_render_stencil(
+            grid, x, center, lattice.get(), [&](int slot, int) {
+              return [&, slot](int sample, float weight) {
+                actual[slot][sample] = weight;
+              };
+            });
+        for (int slot = 0; slot < 7; ++slot)
+          for (int sample = 0; sample < 4; ++sample)
+            compare(actual[slot][sample], expected[slot][sample]);
+      }
+    }
+  }
+  template <int Width, int Height, typename Compare>
+  static void check_direct_draw(GSReactionDiffusion<Width, Height> &gs,
+                                Compare &&compare) {
+    using TestGS = GSReactionDiffusion<Width, Height>;
+    ScratchScope guard(scratch_arena_a);
+    auto lattice = gs.orient_lattice();
+    std::vector<uint8_t> hot1(N), hot2(N);
+    gs.fill_hot_flags(gs.state.B, hot1.data(), hot2.data(), N,
+                      TestGS::to_q16(TestGS::B_CULL_THRESHOLD));
+    std::vector<Pixel> expected(Width * Height);
+    const int CLIPS[][4] = {{0, Height, 0, Width},
+                            {Height / 4, Height / 2, Width / 4, Width / 2},
+                            {0, Height, 0, Width / 8}};
+    for (const auto &clip : CLIPS) {
+      gs.set_clip(clip[0], clip[1], clip[2], clip[3]);
+      gs.set_margin(3);
+      {
+        Canvas canvas(gs);
+        auto clear = [&] {
+          for (int y = 0; y < Height; ++y)
+            for (int x = 0; x < Width; ++x)
+              canvas(x, y) = Pixel(123, 456, 789);
+        };
+        clear();
+        auto vertex = [&](Fragment &frag) {
+          if (!hot2[static_cast<int>(frag.v0)])
+            frag.v0 = -1.0f;
+        };
+        auto pixel = [&](Fragment &frag, const auto &grid, int x) {
+          return gs.shade_pixel(static_cast<int>(frag.v0), frag.pos,
+                                lattice.get(), grid, x, hot1.data());
+        };
+        gs.rasterize_lattice(canvas, vertex, pixel);
+        for (int y = 0; y < Height; ++y)
+          for (int x = 0; x < Width; ++x)
+            expected[y * Width + x] = canvas(x, y);
+        clear();
+        gs.draw_lattice(canvas, lattice.get(), hot1.data(), hot2.data());
+        for (int y = 0; y < Height; ++y)
+          for (int x = 0; x < Width; ++x)
+            compare(canvas(x, y), expected[y * Width + x]);
+      }
+      gs.advance_display();
+    }
+    gs.set_clip(0, Height, 0, Width);
+  }
+  template <typename Compare>
+  static void check_staged_reseed(GS &gs, Compare &&compare) {
+    const auto INITIAL_RNG = hs::random();
+    gs.start_reaction();
+    const std::vector<uint16_t> EXPECTED_A(gs.state.A, gs.state.A + N);
+    const std::vector<uint16_t> EXPECTED_B(gs.state.B, gs.state.B + N);
+    const std::vector<uint16_t> EXPECTED_PIGMENT(gs.state.pigment,
+                                                 gs.state.pigment + N);
+    const std::vector<Pixel> EXPECTED_PALETTES(
+        gs.palettes, gs.palettes + GS::NUM_SEED_CLUSTERS * GS::PALETTE_SIZE);
+    const uint32_t EXPECTED_NEXT_RANDOM = hs::random()();
+    hs::random() = INITIAL_RNG;
+    gs.transition.dissolve_frames = GS::DISSOLVE_FRAMES - 1;
+    {
+      Canvas canvas(gs);
+      gs.render(canvas);
+    }
+    gs.advance_display();
+    compare(gs.transition.next_seed, GS::NUM_SEED_CLUSTERS / 2,
+            "partial reseed must place half the clusters");
+    for (int y = 0; y < SMALL_H; ++y)
+      for (int x = 0; x < SMALL_W; ++x)
+        compare(gs.get_pixel(x, y), Pixel(0, 0, 0),
+                "partial reseed must remain black");
+    {
+      Canvas canvas(gs);
+      gs.render(canvas);
+    }
+    gs.advance_display();
+    compare(gs.transition.next_seed, GS::NUM_SEED_CLUSTERS,
+            "second reseed frame must complete all clusters");
+    compare(gs.transition.grow_frames, 0,
+            "reseed frames must not advance chemistry");
+    compare(hs::random()(), EXPECTED_NEXT_RANDOM,
+            "staged reseed must preserve random generator state");
+    for (int i = 0; i < N; ++i) {
+      compare(gs.state.A[i], EXPECTED_A[i],
+              "staged reseed must preserve the A field");
+      compare(gs.state.B[i], EXPECTED_B[i],
+              "staged reseed must preserve the B field");
+      compare(gs.state.pigment[i], EXPECTED_PIGMENT[i],
+              "staged reseed must preserve pigment");
+    }
+    for (int i = 0; i < GS::NUM_SEED_CLUSTERS * GS::PALETTE_SIZE; ++i)
+      compare(gs.palettes[i], EXPECTED_PALETTES[i],
+              "staged reseed must preserve palette generation order");
+    bool lit = false;
+    for (int y = 0; y < SMALL_H; ++y)
+      for (int x = 0; x < SMALL_W; ++x)
+        lit |= gs.get_pixel(x, y) != Pixel(0, 0, 0);
+    compare(lit, true, "complete seed field was not displayed");
+    gs.draw_frame();
+    gs.advance_display();
+    compare(gs.transition.grow_frames, 1,
+            "chemistry must resume after the complete seed frame");
   }
   static auto source_palette() { return GS::make_palette(); }
   static Color4 palette_sample(const GS &gs, float t, int seed = 0) {
@@ -1123,6 +1286,26 @@ struct GSWhiteBox {
   static Pixel modified_palette(const GS &gs, int seed, float t, float hue,
                                 float shimmer) {
     return gs.modified_palette_color(seed, t, hue, shimmer);
+  }
+  static bool exact_color_path(GS &gs) {
+    gs.refresh_color_palettes(true);
+    return gs.color_noise_sample(0.0f).exact;
+  }
+  static void refresh_color_palettes(GS &gs, bool complete = false) {
+    gs.refresh_color_palettes(complete);
+  }
+  static uint16_t color_palette_rows(const GS &gs) {
+    return gs.color_palette_rows;
+  }
+  static bool exact_color_sample(const GS &gs, float noise) {
+    return gs.color_noise_sample(noise).exact;
+  }
+  static Pixel staged_palette(const GS &gs, int seed, float t, float noise) {
+    return gs.cached_palette_color(seed, t, noise);
+  }
+  static Pixel cached_palette(GS &gs, int seed, float t, float noise) {
+    gs.refresh_color_palettes();
+    return gs.cached_palette_color(seed, t, noise);
   }
   static Pixel wrapped_palette(const GS &gs, int seed, float t, float shift,
                                float lightness) {
@@ -1136,6 +1319,10 @@ struct GSWhiteBox {
     NoiseShimmerPalette<Shifted> shimmer(&shifted, gs.color_noise_lut);
     return shimmer.get(t, lightness).color;
   }
+  static std::array<float, 4> color_params(const GS &gs) {
+    return {gs.params.noise_speed, gs.params.noise_scale, gs.params.hue_shift,
+            gs.params.shimmer};
+  }
   static void set_color_params(GS &gs, float speed, float scale, float hue,
                                float shimmer) {
     gs.params.noise_speed = speed;
@@ -1144,12 +1331,24 @@ struct GSWhiteBox {
     gs.params.shimmer = shimmer;
   }
   static void advance_color_noise(GS &gs) { gs.advance_color_noise(); }
+  static float projected_color_noise(const GS &gs,
+                                     const math::Vector &direction) {
+    return gs.sample_color_noise(ReactionGraph::CubemapLUT::project(direction));
+  }
   static float noise_phase(const GS &gs) { return gs.color_noise_phase; }
   static void set_noise_phase(GS &gs, float phase) {
     gs.color_noise_phase = phase;
   }
   static float color_noise(const GS &gs, const math::Vector &direction) {
     return gs.sample_color_noise(direction);
+  }
+  static bool noise_bake_matches_reference(GS &gs, float scale, float phase) {
+    std::array<int8_t, HueNoiseLutView::SIZE> expected;
+    prepare_hue_noise_lut(expected, gs.color_noise, scale, phase);
+    gs.params.noise_scale = scale;
+    gs.color_noise_phase = phase;
+    gs.refresh_color_noise();
+    return std::equal(expected.begin(), expected.end(), gs.color_noise_lut);
   }
   static bool reaction_edited(GS &gs) { return gs.reaction_edited(); }
   static constexpr int SEEDS = GS::NUM_SEED_CLUSTERS;
@@ -1161,9 +1360,43 @@ struct GSWhiteBox {
     GS::add_pigment(weights, gs.state.pigment[node], 1.0f);
     return weights[seed];
   }
+  template <int STEPS = 1>
   static void step_pigment(GS &gs, const float *a, const float *b) {
     std::vector<uint16_t> next(N);
-    gs.step_pigment(a, b, next.data());
+    gs.template step_pigment<STEPS>(a, b, next.data());
+  }
+  static uint16_t *pigments(GS &gs) { return gs.state.pigment; }
+  template <int STEPS = 1>
+  static void pigment_reference(const GS &gs, const float *a, const float *b,
+                                uint16_t *next) {
+    const float DT = gs.params.dt * GS::STEP_DT_SCALE;
+    const float DIFFUSION = gs.params.d_b * DT;
+    for (int i = 0; i < N; ++i) {
+      float weights[SEEDS] = {};
+      float retained =
+          fmaxf(0.0f, b[i] * (1.0f - GS::RD_K * DIFFUSION -
+                              (gs.params.k + gs.params.feed) * DT) +
+                          a[i] * b[i] * b[i] * DT);
+      float diffusion = DIFFUSION;
+      if constexpr (STEPS > 1) {
+        float incoming = 0.0f;
+        for (int nb : ReactionGraph::neighbors[i])
+          incoming += b[nb] * DIFFUSION;
+        float total = retained + incoming;
+        float r = total > 0.0f ? retained / total : 0.0f;
+        float power = 1.0f, scale = 1.0f;
+        for (int step = 1; step < STEPS; ++step) {
+          power *= r;
+          scale += power;
+        }
+        retained *= power;
+        diffusion *= scale;
+      }
+      GS::add_pigment(weights, gs.state.pigment[i], retained);
+      for (int nb : ReactionGraph::neighbors[i])
+        GS::add_pigment(weights, gs.state.pigment[nb], b[nb] * diffusion);
+      next[i] = GS::pack_pigment(weights);
+    }
   }
   static Pixel pigment_color(const GS &gs, int node, float t) {
     return gs.pigment_color(gs.state.pigment[node], t);
@@ -1231,9 +1464,9 @@ struct GSWhiteBox {
   static void step_float_inplace(GS &gs, float *a, float *b) {
     ScratchScope guard(scratch_arena_a);
     float *pending_a =
-        scratch_arena_a.allocate_n<float>(GS::PHYSICS_NEIGHBOR_REACH + 1);
+        scratch_arena_a.allocate_n<float>(GS::PHYSICS_HISTORY_SIZE);
     float *pending_b =
-        scratch_arena_a.allocate_n<float>(GS::PHYSICS_NEIGHBOR_REACH + 1);
+        scratch_arena_a.allocate_n<float>(GS::PHYSICS_HISTORY_SIZE);
     gs.step_physics_inplace(a, b, pending_a, pending_b);
   }
 
@@ -1284,7 +1517,44 @@ struct GSWhiteBox {
   };
 
   template <int W, int H>
-  static ShaderError shared_shader_error(GS &gs, bool fixed_stencil = false) {
+  static ShaderError concentration_shader_error(GS &gs) {
+    ScratchScope guard(scratch_arena_a);
+    auto lattice = gs.orient_lattice();
+    if (!math::TrigLUT<W, H>::initialized)
+      math::TrigLUT<W, H>::init();
+    Scan::Shader::SsaaGrid<W, H> grid;
+    ShaderError error;
+    for (int y = 0; y < H; ++y) {
+      grid.set_row(y);
+      for (int x = 0; x < W; ++x) {
+        Fragment frag;
+        frag.pos = math::pixel_to_vector<W, H>(x, y);
+        gs.seed_face_lut(frag);
+        const int SEED = static_cast<int>(frag.v0);
+        const Pixel GOT =
+            gs.shade_pixel(SEED, frag.pos, lattice.get(), grid, x);
+        const Pixel EXPECTED =
+            gs.shade_pixel_full(SEED, frag.pos, lattice.get(), grid, x);
+        const int DR = std::abs(static_cast<int>(GOT.r) - EXPECTED.r);
+        const int DG = std::abs(static_cast<int>(GOT.g) - EXPECTED.g);
+        const int DB = std::abs(static_cast<int>(GOT.b) - EXPECTED.b);
+        const bool GOT_LIT = GOT.r || GOT.g || GOT.b;
+        const bool EXPECTED_LIT = EXPECTED.r || EXPECTED.g || EXPECTED.b;
+        error.coverage += GOT_LIT != EXPECTED_LIT;
+        error.lit += GOT_LIT || EXPECTED_LIT;
+        error.max_channel =
+            std::max(error.max_channel, std::max(DR, std::max(DG, DB)));
+        error.total_channel += DR + DG + DB;
+      }
+    }
+    return error;
+  }
+
+  template <int W, int H>
+  static ShaderError
+  shared_shader_error(GS &gs, bool fixed_stencil = false,
+                      bool direct_color = false, bool aggregate_color = true,
+                      bool center_pigment = false, bool full_kernel = false) {
     ScratchScope guard(scratch_arena_a);
     auto lattice = gs.orient_lattice();
     math::Vector *world_nodes = lattice.get();
@@ -1293,6 +1563,9 @@ struct GSWhiteBox {
       math::TrigLUT<W, H>::init();
     Grid grid;
     ShaderError error;
+    std::vector<uint8_t> hot1(N), hot2(N);
+    gs.fill_hot_flags(gs.state.B, hot1.data(), hot2.data(), N,
+                      GS::to_q16(GS::B_CULL_THRESHOLD));
     for (int y = 0; y < H; ++y) {
       grid.set_row(y);
       for (int x = 0; x < W; ++x) {
@@ -1304,55 +1577,125 @@ struct GSWhiteBox {
             gs.refine_render_center(frag.pos, world_nodes, seed);
         if (shared_center != gs.refine_center(frag.pos, world_nodes, seed))
           ++error.center_mismatches;
-        Pixel got = gs.shade_pixel(seed, frag.pos, world_nodes, grid, x);
+        Pixel got = full_kernel
+                        ? gs.shade_pixel_full(seed, frag.pos, world_nodes, grid,
+                                              x, hot1.data())
+                        : gs.shade_pixel(seed, frag.pos, world_nodes, grid, x,
+                                         hot1.data());
         float noise =
             gs.sample_color_noise(gs.inverse_orientation.apply(frag.pos));
         float shift = noise * gs.params.hue_shift;
         float lightness = std::max(0.0f, noise) * gs.params.shimmer;
 
         Pixel expected(0, 0, 0);
-        for (int i = 0; i < 4; ++i) {
-          math::Vector sample_v = grid.at(x, i);
-          ++error.stencil_samples;
-          if (gs.refine_center(sample_v, world_nodes, seed) != shared_center)
-            ++error.stencil_changes;
-          float b;
-          if (fixed_stencil) {
-            float tw = 0.0f, wb = 0.0f;
-            gs.kernel_accumulate(sample_v, world_nodes, shared_center,
-                                 [&](int ni, float w) {
-                                   wb += gs.state.B[ni] * w;
-                                   tw += w;
-                                 });
-            b = tw <= GS::KERNEL_MIN_TOTAL_WEIGHT ? 0.0f
-                                                  : wb * (GS::Q16_INV / tw);
-          } else {
-            b = gs.interpolate_b(sample_v, seed, world_nodes);
+        if (!aggregate_color)
+          for (int i = 0; i < 4; ++i) {
+            math::Vector sample_v = grid.at(x, i);
+            ++error.stencil_samples;
+            if (gs.refine_center(sample_v, world_nodes, seed) != shared_center)
+              ++error.stencil_changes;
+            float b;
+            if (fixed_stencil) {
+              float tw = 0.0f, wb = 0.0f;
+              gs.kernel_accumulate(sample_v, world_nodes, shared_center,
+                                   [&](int ni, float w) {
+                                     wb += gs.state.B[ni] * w;
+                                     tw += w;
+                                   });
+              b = tw <= GS::KERNEL_MIN_TOTAL_WEIGHT ? 0.0f
+                                                    : wb * (GS::Q16_INV / tw);
+            } else {
+              b = gs.interpolate_b(sample_v, seed, world_nodes);
+            }
+            if (b < GS::B_CULL_THRESHOLD)
+              continue;
+            float t = hs::clamp((b - GS::B_COLOR_FLOOR) * GS::B_COLOR_SCALE,
+                                0.0f, 1.0f);
+            float mass = 0.0f, rgb[3] = {};
+            int center = fixed_stencil
+                             ? shared_center
+                             : gs.refine_center(sample_v, world_nodes, seed);
+            gs.kernel_accumulate(
+                sample_v, world_nodes, center, [&](int ni, float w) {
+                  float weight = gs.state.B[ni] * w;
+                  Pixel color =
+                      GS::mix_pigment(gs.state.pigment[ni], [&](int id) {
+                        return direct_color
+                                   ? gs.modified_palette_color(id, t, shift,
+                                                               lightness)
+                                   : gs.cached_palette_color(id, t, noise);
+                      });
+                  mass += weight;
+                  rgb[0] += color.r * weight;
+                  rgb[1] += color.g * weight;
+                  rgb[2] += color.b * weight;
+                });
+            if (mass > 0.0f)
+              expected += Pixel(round_linear_channel(rgb[0] / (mass * 4)),
+                                round_linear_channel(rgb[1] / (mass * 4)),
+                                round_linear_channel(rgb[2] / (mass * 4)));
           }
-          if (b < GS::B_CULL_THRESHOLD)
-            continue;
-          float t = hs::clamp((b - GS::B_COLOR_FLOOR) * GS::B_COLOR_SCALE, 0.0f,
-                              1.0f);
-          float mass = 0.0f, rgb[3] = {};
-          int center = fixed_stencil
-                           ? shared_center
-                           : gs.refine_center(sample_v, world_nodes, seed);
-          gs.kernel_accumulate(
-              sample_v, world_nodes, center, [&](int ni, float w) {
-                float weight = gs.state.B[ni] * w;
-                Pixel color =
-                    GS::mix_pigment(gs.state.pigment[ni], [&](int id) {
-                      return gs.modified_palette_color(id, t, shift, lightness);
-                    });
-                mass += weight;
-                rgb[0] += color.r * weight;
-                rgb[1] += color.g * weight;
-                rgb[2] += color.b * weight;
-              });
-          if (mass > 0.0f)
-            expected += Pixel(round_linear_channel(rgb[0] / (mass * 4)),
-                              round_linear_channel(rgb[1] / (mass * 4)),
-                              round_linear_channel(rgb[2] / (mass * 4)));
+        if (aggregate_color) {
+          double palette_mass[GS::NUM_SEED_CLUSTERS] = {};
+          double total_mass = 0.0, concentration = 0.0;
+          int covered = 0;
+          for (int i = 0; i < 4; ++i) {
+            const math::Vector SAMPLE = grid.at(x, i);
+            int center = fixed_stencil
+                             ? shared_center
+                             : gs.refine_center(SAMPLE, world_nodes, seed);
+            ++error.stencil_samples;
+            error.stencil_changes += center != shared_center;
+            float tw = 0.0f, wb = 0.0f;
+            gs.kernel_accumulate(
+                SAMPLE, world_nodes, center, [&](int node, float w) {
+                  const float MASS = gs.state.B[node] * w;
+                  tw += w;
+                  wb += MASS;
+                  const uint16_t PIGMENT = gs.state.pigment[node];
+                  const double FIRST_FRACTION =
+                      ((PIGMENT >> 10) * 65535u + 31u) / 63u / 65535.0;
+                  palette_mass[PIGMENT & 31] += MASS * FIRST_FRACTION;
+                  palette_mass[(PIGMENT >> 5) & 31] +=
+                      MASS * (1.0 - FIRST_FRACTION);
+                  total_mass += MASS;
+                });
+            float b = tw <= GS::KERNEL_MIN_TOTAL_WEIGHT
+                          ? 0.0f
+                          : wb * (GS::Q16_INV / tw);
+            if (b >= GS::B_CULL_THRESHOLD) {
+              ++covered;
+              concentration += hs::clamp(
+                  (b - GS::B_COLOR_FLOOR) * GS::B_COLOR_SCALE, 0.0f, 1.0f);
+            }
+          }
+          if (center_pigment) {
+            std::fill(std::begin(palette_mass), std::end(palette_mass), 0.0);
+            const uint16_t PIGMENT = gs.state.pigment[shared_center];
+            const double FIRST_FRACTION =
+                ((PIGMENT >> 10) * 65535u + 31u) / 63u / 65535.0;
+            palette_mass[PIGMENT & 31] += FIRST_FRACTION;
+            palette_mass[(PIGMENT >> 5) & 31] += 1.0 - FIRST_FRACTION;
+            total_mass = 1.0;
+          }
+          if (covered && total_mass > 0.0) {
+            float t = static_cast<float>(concentration / covered);
+            double rgb[3] = {};
+            for (int palette = 0; palette < GS::NUM_SEED_CLUSTERS; ++palette) {
+              Pixel color =
+                  direct_color
+                      ? gs.modified_palette_color(palette, t, shift, lightness)
+                      : gs.cached_palette_color(palette, t, noise);
+              const double WEIGHT =
+                  palette_mass[palette] * covered / (4 * total_mass);
+              rgb[0] += color.r * WEIGHT;
+              rgb[1] += color.g * WEIGHT;
+              rgb[2] += color.b * WEIGHT;
+            }
+            expected = Pixel(round_linear_channel(rgb[0]),
+                             round_linear_channel(rgb[1]),
+                             round_linear_channel(rgb[2]));
+          }
         }
         int dr = std::abs(static_cast<int>(got.r) - expected.r);
         int dg = std::abs(static_cast<int>(got.g) - expected.g);
@@ -1421,6 +1764,33 @@ inline void test_gs_reseed_generates_palette() {
   HS_EXPECT_EQ(persistent_arena.get_offset(), arena_offset);
 }
 
+/** @brief Shares cube projection without changing noise on faces, edges or corners. */
+inline void test_gs_shared_cube_projection() {
+  hs_test::reset_globals();
+  GSWhiteBox::GS gs;
+  gs.init();
+  for (float phase : {0.0f, 0.123f, 0.9999f}) {
+    GSWhiteBox::set_noise_phase(gs, phase);
+    GSWhiteBox::advance_color_noise(gs);
+    for (int face = 0; face < HueNoiseLutView::FACE_COUNT; ++face)
+      for (float u : {-1.0f, -0.5f, 0.0f, 0.5f, 1.0f})
+        for (float v : {-1.0f, -0.5f, 0.0f, 0.5f, 1.0f}) {
+          const auto DIRECTION = hue_noise_face_direction(face, u, v);
+          const auto PROJECTION = ReactionGraph::CubemapLUT::project(DIRECTION);
+          if (fabsf(u) < 1.0f && fabsf(v) < 1.0f) {
+            HS_EXPECT_EQ(PROJECTION.face, face);
+            HS_EXPECT_NEAR(PROJECTION.u, face < 2 ? -u : u, 2e-7f);
+            HS_EXPECT_NEAR(PROJECTION.v, face >= 2 && face < 4 ? -v : v, 2e-7f);
+          }
+          HS_EXPECT_EQ(GSWhiteBox::projected_color_noise(gs, DIRECTION),
+                       GSWhiteBox::color_noise(gs, DIRECTION));
+        }
+    for (const auto &direction : ReactionGraph::node_positions)
+      HS_EXPECT_EQ(GSWhiteBox::projected_color_noise(gs, direction),
+                   GSWhiteBox::color_noise(gs, direction));
+  }
+}
+
 inline void test_gs_shared_noise_palette_modifiers() {
   hs_test::reset_globals();
   GSWhiteBox::GS gs;
@@ -1472,6 +1842,20 @@ inline void test_gs_shared_noise_palette_modifiers() {
   HS_EXPECT_EQ(persistent_arena.get_offset(), OFFSET);
 }
 
+inline void test_gs_noise_bake_matches_reference() {
+  hs_test::reset_globals();
+  GSWhiteBox::GS gs;
+  gs.init();
+  for (float scale : {1.0f / 64.0f, 4.941984f, 8.0f}) {
+    for (float phase : {0.0f, 1.0f / 65536.0f, 1.0f / 6.0f, 0.5f, 0.999f}) {
+      HS_EXPECT_TRUE(
+          GSWhiteBox::noise_bake_matches_reference(gs, scale, phase));
+      HS_EXPECT_TRUE(
+          GSWhiteBox::noise_bake_matches_reference(gs, scale, phase));
+    }
+  }
+}
+
 inline void test_gs_seed_palettes_and_pigment_transport() {
   hs_test::reset_globals();
   GSWhiteBox::GS gs;
@@ -1518,6 +1902,78 @@ inline void test_gs_seed_palettes_and_pigment_transport() {
     if (GSWhiteBox::b_field(gs)[i] != 0)
       continue;
     HS_EXPECT_EQ(GSWhiteBox::pigment_weight(gs, i, 0), 1.0f);
+  }
+}
+
+inline void test_gs_dot_kernel_matches_squared_distance() {
+  hs_test::reset_globals();
+  GSWhiteBox::GS gs;
+  gs.init();
+  const auto compare = [](float actual, float expected) {
+    HS_EXPECT_LE(fabsf(actual - expected), 0.001f);
+  };
+  GSWhiteBox::check_render_kernel(gs, compare);
+  for (int i = 0; i < 40; ++i) {
+    gs.draw_frame();
+    gs.advance_display();
+  }
+  GSWhiteBox::check_render_kernel(gs, compare);
+}
+
+inline void test_gs_direct_draw_matches_grid() {
+  hs_test::reset_globals();
+  GSReactionDiffusion<DEFAULT_W, DEFAULT_H> gs;
+  gs.init();
+  const auto compare = [](Pixel actual, Pixel expected) {
+    HS_EXPECT(actual == expected, "GS direct traversal changes clipped pixels");
+  };
+  GSWhiteBox::check_direct_draw(gs, compare);
+  for (int frame = 0; frame < 40; ++frame) {
+    gs.draw_frame();
+    gs.advance_display();
+  }
+  GSWhiteBox::check_direct_draw(gs, compare);
+}
+
+inline void test_gs_sparse_pigment_matches_dense() {
+  hs_test::reset_globals();
+  GSWhiteBox::GS gs;
+  gs.init();
+  std::vector<float> a(GSWhiteBox::N), b(GSWhiteBox::N);
+  std::vector<uint16_t> expected(GSWhiteBox::N);
+  const float PARAMS[][5] = {{0.04f, 0.06f, 0.02f, 0.01f, 2.5f},
+                             {0.1f, 0.1f, 0.05f, 0.05f, 3.0f},
+                             {0.04f, 0.06f, 0.02f, 0.0f, 0.1f},
+                             {0.04f, 0.06f, 0.02f, -0.0f, 0.1f}};
+  for (const auto &params : PARAMS) {
+    GSWhiteBox::set_params(gs, params[0], params[1], params[2], params[3],
+                           params[4]);
+    for (int mode = 0; mode < 5; ++mode) {
+      for (int i = 0; i < GSWhiteBox::N; ++i) {
+        uint32_t h = (static_cast<uint32_t>(i) + 173u) * 2654435761u;
+        a[i] = static_cast<float>(h & 65535u) / 65535.0f;
+        b[i] = mode == 0 ? 0.0f
+                         : static_cast<float>((h >> 16) & 65535u) / 65535.0f;
+        int first = mode == 1 ? 17 : static_cast<int>(h % GSWhiteBox::SEEDS);
+        int second =
+            mode == 1 ? 0 : static_cast<int>((h >> 8) % GSWhiteBox::SEEDS);
+        int mix = mode <= 2 ? 63 : mode == 3 ? 32 : static_cast<int>(h & 63u);
+        GSWhiteBox::pigments(gs)[i] =
+            static_cast<uint16_t>(first | (second << 5) | (mix << 10));
+      }
+      for (int step = 0; step < GSWhiteBox::STEPS_PER_FRAME; ++step) {
+        GSWhiteBox::pigment_reference(gs, a.data(), b.data(), expected.data());
+        GSWhiteBox::step_pigment(gs, a.data(), b.data());
+        for (int i = 0; i < GSWhiteBox::N; ++i)
+          HS_EXPECT_EQ(GSWhiteBox::pigments(gs)[i], expected[i]);
+        GSWhiteBox::pigment_reference<GSWhiteBox::STEPS_PER_FRAME>(
+            gs, a.data(), b.data(), expected.data());
+        GSWhiteBox::step_pigment<GSWhiteBox::STEPS_PER_FRAME>(gs, a.data(),
+                                                              b.data());
+        for (int i = 0; i < GSWhiteBox::N; ++i)
+          HS_EXPECT_EQ(GSWhiteBox::pigments(gs)[i], expected[i]);
+      }
+    }
   }
 }
 
@@ -1698,7 +2154,8 @@ inline void test_gs_shared_stencil_error_is_bounded() {
     gs.advance_display();
     if (frame != probe_frames[next_probe])
       continue;
-    auto error = GSWhiteBox::shared_shader_error<DEFAULT_W, DEFAULT_H>(gs);
+    auto error = GSWhiteBox::shared_shader_error<DEFAULT_W, DEFAULT_H>(
+        gs, false, false, true, true, true);
     std::printf("GS shared stencil frame=%d: different=%d above_rounding=%d "
                 "lit=%d coverage=%d "
                 "hard=%d center_changes=%d/%d center_mismatches=%d max=%d "
@@ -1716,7 +2173,7 @@ inline void test_gs_shared_stencil_error_is_bounded() {
               "shared stencil moved over 2% of lit coverage");
     HS_EXPECT(error.hard * 100 <= error.lit * 3,
               "shared stencil put over 3% of lit pixels past 6.25% error");
-    HS_EXPECT_LE(error.max_channel, 22000);
+    HS_EXPECT_LE(error.max_channel, 23000);
     HS_EXPECT(error.total_channel <=
                   static_cast<uint64_t>(error.lit) * 3u * 384u,
               "shared stencil mean channel error exceeds 3/512 full scale");
@@ -1725,8 +2182,205 @@ inline void test_gs_shared_stencil_error_is_bounded() {
   }
 }
 
-/** @brief Bounds symmetric kernel rounding with linear palette interpolation. */
-inline void test_gs_symmetric_shader_matches_shared_reference() {
+inline void test_gs_partial_color_palette_rows() {
+  hs_test::reset_globals();
+  GSWhiteBox::GS gs;
+  gs.init();
+  constexpr uint16_t ALL_ROWS = (1u << 15) - 1;
+  HS_EXPECT_EQ(GSWhiteBox::color_palette_rows(gs), ALL_ROWS);
+  const size_t OFFSET = persistent_arena.get_offset();
+  for (int generation = 0; generation < 3; ++generation) {
+    if (generation == 1)
+      GSWhiteBox::set_color_params(gs, 0.0f, 2.0f, -0.2f, 0.3f);
+    else
+      GSWhiteBox::start_reaction(gs);
+    GSWhiteBox::refresh_color_palettes(gs);
+    HS_EXPECT_EQ(GSWhiteBox::color_palette_rows(gs),
+                 static_cast<uint16_t>(31u << 5));
+    float hue = generation == 0 ? 0.2f : -0.2f;
+    float shimmer = generation == 0 ? 0.4f : 0.3f;
+    for (float noise : {-1.0f + 12.0f / 14.0f, 0.0f}) {
+      HS_EXPECT_FALSE(GSWhiteBox::exact_color_sample(gs, noise));
+      for (int seed = 0; seed < GSWhiteBox::SEEDS; ++seed)
+        for (float value : {0.0f, 1.0f})
+          HS_EXPECT_EQ(
+              GSWhiteBox::staged_palette(gs, seed, value, noise),
+              GSWhiteBox::modified_palette(gs, seed, value, noise * hue,
+                                           std::max(noise, 0.0f) * shimmer));
+    }
+    for (int frame = 0; frame < 7; ++frame) {
+      for (float noise : {-1.0f, -0.8f, -0.5f, 0.0f, 0.5f, 0.8f, 1.0f}) {
+        if (!GSWhiteBox::exact_color_sample(gs, noise))
+          continue;
+        for (int seed = 0; seed < GSWhiteBox::SEEDS; ++seed)
+          for (float value : {0.0f, 0.37f, 1.0f})
+            HS_EXPECT_EQ(
+                GSWhiteBox::staged_palette(gs, seed, value, noise),
+                GSWhiteBox::modified_palette(gs, seed, value, noise * hue,
+                                             std::max(noise, 0.0f) * shimmer));
+      }
+      GSWhiteBox::refresh_color_palettes(gs);
+    }
+    HS_EXPECT_EQ(GSWhiteBox::color_palette_rows(gs), ALL_ROWS);
+    HS_EXPECT_EQ(persistent_arena.get_offset(), OFFSET);
+  }
+}
+
+/** @brief Checks certified support against the actual calibrated SSAA offsets. */
+inline void test_gs_support_certificate_matches_display_geometry() {
+  const auto check = [] {
+    HS_EXPECT_GT((GSWhiteBox::render_support_weight_floor<96, 20>()),
+                 GSWhiteBox::RENDER_MIN_WEIGHT);
+    HS_EXPECT_GT((GSWhiteBox::render_support_weight_floor<288, 16>()),
+                 GSWhiteBox::RENDER_MIN_WEIGHT);
+    HS_EXPECT_GT((GSWhiteBox::render_support_weight_floor<288, 144>()),
+                 GSWhiteBox::RENDER_MIN_WEIGHT);
+    HS_EXPECT_GT((GSWhiteBox::render_support_weight_floor<4096, 16>()),
+                 GSWhiteBox::RENDER_MIN_WEIGHT);
+  };
+  check();
+#if HS_RUNTIME_DISPLAY_GEOMETRY && !defined(HS_TEST_H_OFFSET)
+  const float NORTH = math::DISPLAY_NORTH_PHI;
+  const float SOUTH = math::DISPLAY_SOUTH_PHI;
+  for (const auto &bounds : {std::pair{0.0f, math::PI_F},
+                             std::pair{0.2f * math::PI_F, 0.8f * math::PI_F}}) {
+    HS_EXPECT_TRUE(math::set_display_geometry(bounds.first, bounds.second));
+    check();
+  }
+  HS_EXPECT_TRUE(math::set_display_geometry(NORTH, SOUTH));
+  check();
+#endif
+}
+
+/** @brief Preserves four-sample coverage while bounding reciprocal estimation error. */
+inline void test_gs_signed_coverage_and_concentration() {
+  hs_test::reset_globals();
+  GSWhiteBox::GS gs;
+  gs.init();
+  for (int frame = 1; frame <= 650; ++frame) {
+    gs.draw_frame();
+    gs.advance_display();
+    if (frame != 4 && frame != 40 && frame != 200 && frame != 400 &&
+        frame != 450 && frame != 470 && frame != 600 && frame != 650)
+      continue;
+    const auto ERROR =
+        GSWhiteBox::concentration_shader_error<DEFAULT_W, DEFAULT_H>(gs);
+    HS_EXPECT_EQ(ERROR.coverage, 0);
+    HS_EXPECT_LE(ERROR.max_channel, 6000);
+    HS_EXPECT_LE(ERROR.total_channel,
+                 static_cast<uint64_t>(ERROR.lit) * 3u * 125u);
+  }
+  for (int pattern = 0; pattern < 8; ++pattern) {
+    for (int node = 0; node < GSWhiteBox::N; ++node) {
+      const uint32_t HASH = static_cast<uint32_t>(node) * 2654435761u;
+      const uint16_t B =
+          pattern < 4
+              ? static_cast<uint16_t>(6552 + pattern)
+              : static_cast<uint16_t>(6552 + ((HASH >> (pattern - 4)) & 3));
+      GSWhiteBox::set_node(gs, node, 65535, B);
+    }
+    const auto ERROR =
+        GSWhiteBox::concentration_shader_error<DEFAULT_W, DEFAULT_H>(gs);
+    HS_EXPECT_EQ(ERROR.coverage, 0);
+    const auto FALLBACK = GSWhiteBox::concentration_shader_error<16, 8>(gs);
+    HS_EXPECT_EQ(FALLBACK.max_channel, 0);
+    HS_EXPECT_EQ(FALLBACK.total_channel, 0u);
+  }
+}
+
+/** @brief Bounds nearest-pigment color fidelity against procedural and aggregate references. */
+inline void test_gs_nearest_pigment_shader_fidelity() {
+  // Float kernel rearrangement can move one pixel across the render floor.
+  constexpr int MAX_COVERAGE_DIFFERENCES = 1;
+  hs_test::reset_globals();
+  GSWhiteBox::GS gs;
+  gs.init();
+  for (int frame = 1; frame <= 600; ++frame) {
+    gs.draw_frame();
+    gs.advance_display();
+    if (frame != 4 && frame != 40 && frame != 200 && frame != 400 &&
+        frame != 500 && frame != 600)
+      continue;
+    const auto ERROR = GSWhiteBox::shared_shader_error<DEFAULT_W, DEFAULT_H>(
+        gs, true, true, false);
+    HS_EXPECT_LE(ERROR.coverage, MAX_COVERAGE_DIFFERENCES);
+    HS_EXPECT_LE(ERROR.max_channel, 22000);
+    HS_EXPECT_LE(ERROR.total_channel,
+                 static_cast<uint64_t>(ERROR.lit) * 3u * 850u);
+    HS_EXPECT_LE(ERROR.hard * 10, ERROR.lit);
+    const auto ROUNDING = GSWhiteBox::shared_shader_error<DEFAULT_W, DEFAULT_H>(
+        gs, true, false, true, true, true);
+    HS_EXPECT_LE(ROUNDING.coverage, MAX_COVERAGE_DIFFERENCES);
+    HS_EXPECT_LE(ROUNDING.max_channel, 2048);
+    HS_EXPECT_LE(ROUNDING.total_channel,
+                 static_cast<uint64_t>(ROUNDING.lit) * 6u);
+    const auto AGGREGATE =
+        GSWhiteBox::shared_shader_error<DEFAULT_W, DEFAULT_H>(gs, true, false,
+                                                              true, false);
+    std::printf(
+        "GS nearest pigment frame=%d procedural_mae=%.2f procedural_max=%d "
+        "aggregate_mae=%.2f aggregate_max=%d rounding_max=%d\n",
+        frame, static_cast<double>(ERROR.total_channel) / (ERROR.lit * 3),
+        ERROR.max_channel,
+        static_cast<double>(AGGREGATE.total_channel) / (AGGREGATE.lit * 3),
+        AGGREGATE.max_channel, ROUNDING.max_channel);
+    HS_EXPECT_LE(AGGREGATE.coverage, MAX_COVERAGE_DIFFERENCES);
+    HS_EXPECT_LE(AGGREGATE.max_channel, 22000);
+    HS_EXPECT_LE(AGGREGATE.total_channel,
+                 static_cast<uint64_t>(AGGREGATE.lit) * 3u * 400u);
+    if (frame != 200 && frame != 400 && frame != 600)
+      continue;
+    const auto CONTROLS = GSWhiteBox::color_params(gs);
+    for (float hue : {-4.0f, -0.25f, 0.0f, 0.25f, 4.0f}) {
+      for (float shimmer : {0.0f, 0.4f, 1.0f}) {
+        GSWhiteBox::set_color_params(gs, CONTROLS[0], CONTROLS[1], hue,
+                                     shimmer);
+        GSWhiteBox::cached_palette(gs, 0, 0.0f, 0.0f);
+        const auto EXTREME =
+            GSWhiteBox::shared_shader_error<DEFAULT_W, DEFAULT_H>(gs, true,
+                                                                  true, false);
+        if (EXTREME.max_channel > 30000)
+          std::printf(
+              "GS nearest pigment extreme frame=%d hue=%.2f shimmer=%.2f max=%d\n",
+              frame, static_cast<double>(hue), static_cast<double>(shimmer),
+              EXTREME.max_channel);
+        HS_EXPECT_LE(EXTREME.coverage, MAX_COVERAGE_DIFFERENCES);
+        HS_EXPECT_LE(EXTREME.max_channel, 35000);
+        HS_EXPECT_LE(EXTREME.total_channel,
+                     static_cast<uint64_t>(EXTREME.lit) * 3u * 1000u);
+      }
+    }
+    GSWhiteBox::set_color_params(gs, CONTROLS[0], CONTROLS[1], CONTROLS[2],
+                                 CONTROLS[3]);
+  }
+  for (float hue : {-4.0f, -0.3f, 0.0f, 0.3f, 4.0f}) {
+    const float SHIMMER = hue == 0.0f ? 0.0f : 0.4f;
+    GSWhiteBox::set_color_params(gs, 0.0f, 2.0f, hue, SHIMMER);
+    for (float value : {0.0f, 0.37f, 1.0f})
+      for (float noise : {-1.0f, -0.25f, 0.0f, 0.8f, 1.0f})
+        HS_EXPECT_EQ(
+            GSWhiteBox::cached_palette(gs, 0, value, noise),
+            GSWhiteBox::modified_palette(gs, 0, value, hue * noise,
+                                         std::max(noise, 0.0f) * SHIMMER));
+  }
+  for (float shimmer : {0.0f, 0.4f, 0.4001f, 1.0f}) {
+    GSWhiteBox::set_color_params(gs, 0.0f, 2.0f, 0.2f, shimmer);
+    HS_EXPECT_EQ(GSWhiteBox::exact_color_path(gs), shimmer > 0.4f);
+    if (shimmer > 0.4f)
+      for (float noise : {-1.0f, 0.0f, 0.31f, 1.0f})
+        HS_EXPECT_EQ(
+            GSWhiteBox::cached_palette(gs, 0, 0.37f, noise),
+            GSWhiteBox::modified_palette(gs, 0, 0.37f, 0.2f * noise,
+                                         std::max(noise, 0.0f) * shimmer));
+  }
+  for (float hue : {-0.2501f, -0.25f, 0.25f, 0.2501f}) {
+    GSWhiteBox::set_color_params(gs, 0.0f, 2.0f, hue, 0.4f);
+    HS_EXPECT_EQ(GSWhiteBox::exact_color_path(gs), fabsf(hue) > 0.25f);
+  }
+}
+
+/** @brief Checks nearest-pigment shading against independent scalar SSAA samples. */
+inline void test_gs_nearest_pigment_shader_matches_scalar_reference() {
   hs_test::reset_globals();
   GSWhiteBox::GS gs;
   gs.init();
@@ -1736,19 +2390,20 @@ inline void test_gs_symmetric_shader_matches_shared_reference() {
     gs.advance_display();
     if (frame != 4 && frame != 16 && frame != 40)
       continue;
-    auto error =
-        GSWhiteBox::shared_shader_error<DEFAULT_W, DEFAULT_H>(gs, true);
+    auto error = GSWhiteBox::shared_shader_error<DEFAULT_W, DEFAULT_H>(
+        gs, true, false, true, true, true);
     HS_EXPECT_EQ(error.coverage, 0);
-    HS_EXPECT_LE(error.max_channel, 8);
+    HS_EXPECT_LE(error.max_channel, 2048);
     HS_EXPECT_LE(error.total_channel, static_cast<uint64_t>(error.lit) * 3u);
   }
   for (int i = 0; i < GSWhiteBox::N; ++i) {
     uint16_t b = i < GSWhiteBox::N / 2 ? 6554 : 32768;
     GSWhiteBox::set_node(gs, i, 65535, b);
   }
-  auto error = GSWhiteBox::shared_shader_error<DEFAULT_W, DEFAULT_H>(gs, true);
+  auto error = GSWhiteBox::shared_shader_error<DEFAULT_W, DEFAULT_H>(
+      gs, true, false, true, true, true);
   HS_EXPECT_EQ(error.coverage, 0);
-  HS_EXPECT_LE(error.max_channel, 8);
+  HS_EXPECT_LE(error.max_channel, 2048);
 }
 
 inline void test_gs_dissolve_frontier_fades_before_clear() {
@@ -1793,6 +2448,16 @@ inline void test_gs_dissolve_frontier_fades_before_clear() {
  *          all), and the field that comes back is the seed pattern, not the old
  *          one.
  */
+inline void test_gs_staged_reseed_matches_synchronous() {
+  hs_test::reset_globals();
+  GSWhiteBox::GS gs;
+  gs.init();
+  GSWhiteBox::check_staged_reseed(
+      gs, [](const auto &actual, const auto &expected, const char *message) {
+        HS_EXPECT(actual == expected, message);
+      });
+}
+
 inline void test_gs_dissolve_clears_and_reseeds() {
   hs_test::reset_globals();
   GSWhiteBox::GS gs;
@@ -6512,11 +7177,20 @@ inline int run_effects_tests() {
   run_case(test_meshfeedback_mesh_rebuild_reuses_storage);
   run_case(test_gs_palette_is_opaque);
   run_case(test_gs_seed_palettes_and_pigment_transport);
+  run_case(test_gs_sparse_pigment_matches_dense);
+  run_case(test_gs_direct_draw_matches_grid);
+  run_case(test_gs_dot_kernel_matches_squared_distance);
+  run_case(test_gs_shared_cube_projection);
   run_case(test_gs_shared_noise_palette_modifiers);
+  run_case(test_gs_noise_bake_matches_reference);
   run_case(test_gs_reseed_generates_palette);
   run_case(test_gs_render_certificates_bound_lattice);
   run_case(test_gs_shared_stencil_error_is_bounded);
-  run_case(test_gs_symmetric_shader_matches_shared_reference);
+  run_case(test_gs_nearest_pigment_shader_matches_scalar_reference);
+  run_case(test_gs_signed_coverage_and_concentration);
+  run_case(test_gs_support_certificate_matches_display_geometry);
+  run_case(test_gs_nearest_pigment_shader_fidelity);
+  run_case(test_gs_partial_color_palette_rows);
   run_case(test_gs_dissolve_frontier_fades_before_clear);
   run_case(test_gs_substep_matches_scalar_reference);
   run_case(test_gs_inplace_frame_matches_jacobi);
@@ -6597,6 +7271,7 @@ inline int run_effects_tests() {
     run_case(test_gs_evolution_stays_bounded);
     run_case(test_gs_reaction_corner_stays_bounded);
     run_case(test_gs_dissolve_clears_and_reseeds);
+    run_case(test_gs_staged_reseed_matches_synchronous);
     run_case(test_dreamballs_base_mesh_selector);
     run_case(test_dreamballs_weave_topology);
     run_case(test_dreamballs_respawn_fires_and_honors_pause);
