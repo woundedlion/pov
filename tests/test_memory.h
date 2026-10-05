@@ -874,12 +874,21 @@ inline void test_arena_block_stamp_reset_and_rewind() {
   HS_EXPECT_FALSE(stamp.arena_reset());
   a.reset();
   HS_EXPECT_TRUE(stamp.arena_reset());
+  a.allocate(16);
+  a.set_offset(0);
   stamp.record(a);
   HS_EXPECT_FALSE(stamp.arena_reset());
   void *block = a.allocate(64);
+  HS_EXPECT_FALSE(stamp.block_reissued(block, 64));
+  HS_EXPECT_TRUE(stamp.block_alive(block, 64));
   HS_EXPECT_FALSE(stamp.block_uncovered(block, 64));
   a.set_offset(0);
   HS_EXPECT_TRUE(stamp.block_uncovered(block, 64));
+  a.allocate(128);
+  HS_EXPECT_FALSE(stamp.block_uncovered(block, 64));
+  HS_EXPECT_TRUE(stamp.block_reissued(block, 64));
+  HS_EXPECT_FALSE(stamp.block_alive(block, 64));
+  HS_EXPECT_FALSE(stamp.block_reissued(static_cast<uint8_t *>(block) + 32, 0));
 }
 #endif
 
