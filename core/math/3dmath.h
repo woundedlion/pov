@@ -595,12 +595,11 @@ __attribute__((always_inline)) inline float diamond_angle(float y, float x) {
 }
 
 /**
- * @brief Fast reciprocal for positive normal inputs with finite reciprocals.
- * @param x Input value; the domain is positive normal floats whose reciprocal
- * remains finite.
+ * @brief Fast reciprocal for positive normal inputs up to 2^125.
+ * @param x Positive normal float no greater than 2^125 (about 4.25e37).
  * @return An approximation of 1 / x.
  * @details Float-bit seed refined by two Newton steps; peak relative error is
- * below 7e-6 over normal inputs with normal outputs.
+ * below 7e-6 over the stated domain, where the seed estimate remains normal.
  */
 HS_O3_FN __attribute__((always_inline)) inline float fast_reciprocal(float x) {
   uint32_t bits;
