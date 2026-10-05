@@ -191,7 +191,7 @@ inline void test_event_stream_contracts() {
   HS_EXPECT_EQ(result.counters.layers, 2);
 }
 
-/** @brief Verified filtering preserves aggregate counters and unresolved status. */
+/** @brief Verified filtering preserves counters, unresolved status and invalid-query precedence. */
 inline void test_verified_filter_contracts() {
   const std::array<math::Vector, 4> directions{math::X_AXIS, math::Y_AXIS,
                                                math::Z_AXIS, -math::X_AXIS};
@@ -199,6 +199,8 @@ inline void test_verified_filter_contracts() {
   const auto filtered = Raycast::verified_filter(directions, [&](const auto &) {
     Raycast::ShadedTrace trace;
     trace.trace.counters.queries = 2;
+    trace.trace.counters.steps = 5;
+    trace.trace.counters.refinements = 7;
     trace.trace.counters.candidates = 3;
     trace.trace.counters.layers = 1;
     trace.trace.has_surface = sample < 2;
@@ -211,9 +213,19 @@ inline void test_verified_filter_contracts() {
   HS_EXPECT_EQ(filtered.color.alpha, .5f);
   HS_EXPECT_EQ(filtered.color.color.r, 100);
   HS_EXPECT_EQ(filtered.trace.counters.queries, 8);
+  HS_EXPECT_EQ(filtered.trace.counters.steps, 20);
+  HS_EXPECT_EQ(filtered.trace.counters.refinements, 28);
   HS_EXPECT_EQ(filtered.trace.counters.candidates, 12);
   HS_EXPECT_EQ(filtered.trace.counters.layers, 4);
   HS_EXPECT_EQ(filtered.trace.status, Raycast::TraceStatus::UNRESOLVED);
+  sample = 0;
+  const auto invalid = Raycast::verified_filter(directions, [&](const auto &) {
+    Raycast::ShadedTrace trace;
+    trace.trace.status = sample++ == 0 ? Raycast::TraceStatus::INVALID_QUERY
+                                       : Raycast::TraceStatus::UNRESOLVED;
+    return trace;
+  });
+  HS_EXPECT_EQ(invalid.trace.status, Raycast::TraceStatus::INVALID_QUERY);
 }
 
 inline int run_ray_event_tests() {
