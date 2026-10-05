@@ -10,9 +10,9 @@ Produces, into ../gen/out/:
     CSVs, and the zip
 
 --verify re-hashes an already-generated package against that manifest and
-against the committed baseline (fab-SHA256SUMS.txt beside the board), and runs
-no KiCad: gen/out/ is gitignored, so the baseline is the only tracked record of
-the bytes the fab received.
+against the ordered-package baseline fab-SHA256SUMS.txt beside the board once
+it is recorded (see ../1.1/README.md). Until then --verify reports the missing
+baseline. It runs no KiCad; gen/out/ is gitignored.
 
 It NEVER runs board.py / pcb.py: those rewrite phantasm.kicad_{sch,pcb} and
 discard the routing + silk. This script only reads the committed board and
