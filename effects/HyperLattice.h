@@ -24,9 +24,7 @@
 #include "core/engine/engine.h"
 #include "core/math/4dmath.h"
 #include "core/render/pullback.h"
-#if HS_ENABLE_HYPERLATTICE_EXPERIMENTS
 #include "core/render/sdf/lattice_trace.h"
-#endif
 
 namespace hs_test {
 namespace hyper_lattice_tests {
@@ -38,28 +36,15 @@ namespace HyperLatticeDetail {
 constexpr int DIMENSIONS = math::VEC4_DIMENSIONS;
 using LatticeMode = SDF::Lattice::Domain;
 using ShellCount = SDF::Lattice::ShellCount;
-enum class Pattern : uint8_t {
-  CUBIC_WIRE,
-  OCTET,
-  DIAMOND,
-  HEXAGONAL,
-  RHOMBIC,
-  AFFINE_CUBIC,
-  SHELLS
-};
+enum class Pattern : uint8_t { CUBIC_WIRE = 0, OCTET = 1, SHELLS = 6 };
 enum class ConfigurationId : uint8_t {
-  CUBIC_3D,
-  CUBIC_4D,
-  OCTET_3D,
-  OCTET_4D,
-  DIAMOND_3D,
-  HEXAGONAL_3D,
-  RHOMBIC_3D,
-  AFFINE_3D,
-  AFFINE_4D,
-  SHELLS_3D,
-  SHELLS_4D,
-  INVALID
+  CUBIC_3D = 0,
+  CUBIC_4D = 1,
+  OCTET_3D = 2,
+  OCTET_4D = 3,
+  SHELLS_3D = 9,
+  SHELLS_4D = 10,
+  INVALID = 11
 };
 struct Params {
   LatticeMode mode = LatticeMode::THREE_D;
@@ -75,19 +60,17 @@ struct Params {
   float spin_3d = 0.0024f;
   float spin_4d = 0.0f;
   ShellCount shells = ShellCount::TWO;
-  float shear = .55f;
-  float stretch = 1.4f;
   float shell_radius = .30f;
 
   /**
-   * @brief Interpolates every continuous field; the pattern, view and shell
+   * @brief Interpolates continuous fields; the pattern, view and shell
    *        count switch together at the midpoint.
    */
   HS_FLASH_INLINE void lerp(const Params &start, const Params &target,
                             float amount);
 };
 
-static_assert(sizeof(Params) == 60,
+static_assert(sizeof(Params) == 52,
               "HyperLattice parameter snapshot layout changed");
 
 using SDF::Lattice::CrossingList;
@@ -126,47 +109,35 @@ HS_FLASH_INLINE inline math::Mat4 view_embedding(const FrameState &frame) {
   }
   return embedding;
 }
-#if HS_ENABLE_HYPERLATTICE_EXPERIMENTS
-namespace Experiment = SDF::LatticeTrace;
+namespace Trace = SDF::LatticeTrace;
 
 static_assert(static_cast<uint8_t>(Pattern::OCTET) - 1 ==
-              static_cast<uint8_t>(Experiment::Geometry::OCTET));
-static_assert(static_cast<uint8_t>(Pattern::DIAMOND) - 1 ==
-              static_cast<uint8_t>(Experiment::Geometry::DIAMOND));
-static_assert(static_cast<uint8_t>(Pattern::HEXAGONAL) - 1 ==
-              static_cast<uint8_t>(Experiment::Geometry::HEXAGONAL));
-static_assert(static_cast<uint8_t>(Pattern::RHOMBIC) - 1 ==
-              static_cast<uint8_t>(Experiment::Geometry::RHOMBIC));
-static_assert(static_cast<uint8_t>(Pattern::AFFINE_CUBIC) - 1 ==
-              static_cast<uint8_t>(Experiment::Geometry::AFFINE_CUBIC));
+              static_cast<uint8_t>(Trace::Geometry::OCTET));
 static_assert(static_cast<uint8_t>(Pattern::SHELLS) - 1 ==
-              static_cast<uint8_t>(Experiment::Geometry::SHELLS));
+              static_cast<uint8_t>(Trace::Geometry::SHELLS));
 
-HS_FLASH_INLINE inline Experiment::Settings
-experimental_settings(const FrameState &frame, math::Vec4 center) {
+HS_FLASH_INLINE inline Trace::Settings trace_settings(const FrameState &frame,
+                                                      math::Vec4 center) {
   const auto &p = frame.params;
   if (p.mode == LatticeMode::THREE_D)
     center[3] = 0;
-  return {
-      p.mode == LatticeMode::FOUR_D_SLICE ? Raycast::SamplingDomain::SLICE_4D
-                                          : Raycast::SamplingDomain::SPATIAL_3D,
-      p.cell_size,
-      p.wire_radius * p.cell_size,
-      p.sphere_radius,
-      p.far_distance,
-      p.near_fade,
-      p.aa_strength,
-      center,
-      view_embedding(frame),
-      frame.pixel_half_angle,
-      frame.depth_palette,
-      static_cast<Experiment::Geometry>(static_cast<uint8_t>(p.pattern) - 1),
-      p.shear,
-      p.stretch,
-      p.shell_radius,
-      frame.gain};
+  return {p.mode == LatticeMode::FOUR_D_SLICE
+              ? Raycast::SamplingDomain::SLICE_4D
+              : Raycast::SamplingDomain::SPATIAL_3D,
+          p.cell_size,
+          p.wire_radius * p.cell_size,
+          p.sphere_radius,
+          p.far_distance,
+          p.near_fade,
+          p.aa_strength,
+          center,
+          view_embedding(frame),
+          frame.pixel_half_angle,
+          frame.depth_palette,
+          static_cast<Trace::Geometry>(static_cast<uint8_t>(p.pattern) - 1),
+          p.shell_radius,
+          frame.gain};
 }
-#endif
 inline PreparedTrace prepare_trace(const FrameState &frame) {
   HS_CHECK(frame.crossings, "HyperLattice: frame has no crossing list");
   const auto embedding = view_embedding(frame);
@@ -232,14 +203,12 @@ public:
       "cubic-flight",
       "cubic-wide-flight",
       "hypercube-flight",
-#if HS_ENABLE_HYPERLATTICE_EXPERIMENTS
-      "experimental-octet-flight",
-      "experimental-octet-wide-flight",
-      "experimental-octet-4d-flight",
-      "experimental-shell-flight",
-      "experimental-shell-close-flight",
-      "experimental-shell-4d-flight",
-#endif
+      "octet-flight",
+      "octet-wide-flight",
+      "octet-4d-flight",
+      "shell-flight",
+      "shell-close-flight",
+      "shell-4d-flight",
   });
   static constexpr size_t CUBIC_PRESET_INDEX = 0;
   static constexpr size_t WIDE_PRESET_INDEX = 1;
@@ -251,7 +220,7 @@ public:
   static constexpr size_t SHELL_CLOSE_PRESET_INDEX = 7;
   static constexpr size_t SHELL_4D_PRESET_INDEX = 8;
   static constexpr uint16_t PRESET_DWELL_FRAMES = 320;
-  static constexpr uint32_t PARAMETER_SCHEMA_VERSION = 14;
+  static constexpr uint32_t PARAMETER_SCHEMA_VERSION = 15;
 
   /**
    * @brief The preset at @p index and how it departs.
@@ -296,7 +265,6 @@ public:
       value.spin_4d = 0.015f;
       value.shells = ShellCount::TWO;
       break;
-#if HS_ENABLE_HYPERLATTICE_EXPERIMENTS
     case OCTET_PRESET_INDEX:
       value.pattern = Pattern::OCTET;
       value.mode = LatticeMode::THREE_D;
@@ -347,7 +315,6 @@ public:
       value.aa_strength = 2.0f;
       value.speed = .025f;
       value.spin_3d = FLIGHT ? .015f : .003f;
-      value.stretch = 1.0f;
       value.shell_radius = FLIGHT ? .1f : .15f;
       break;
     }
@@ -362,10 +329,8 @@ public:
       value.speed = .05f;
       value.spin_3d = .005f;
       value.spin_4d = .005f;
-      value.stretch = 1.0f;
       value.shell_radius = .15f;
       break;
-#endif
     default:
       break;
     }
@@ -377,83 +342,72 @@ public:
     const bool SLICE = mode == LatticeMode::FOUR_D_SLICE;
     if (pattern == Pattern::CUBIC_WIRE)
       return preset(SLICE ? HYPERCUBE_PRESET_INDEX : CUBIC_PRESET_INDEX).params;
-#if HS_ENABLE_HYPERLATTICE_EXPERIMENTS
     if (pattern == Pattern::OCTET)
       return preset(SLICE ? OCTET_4D_PRESET_INDEX : OCTET_PRESET_INDEX).params;
     if (pattern == Pattern::SHELLS)
       return preset(SLICE ? SHELL_4D_PRESET_INDEX : SHELL_PRESET_INDEX).params;
-#endif
     Params value;
     value.pattern = pattern;
     value.mode = mode;
-    value.sphere_radius = 0;
-    value.cell_size = pattern == Pattern::HEXAGONAL ? 1.4f : 2.0f;
-    value.wire_radius = .025f;
-    value.far_distance = 6.0f;
-    value.near_fade = .6f;
-    value.speed = .025f;
-    value.spin_3d = .003f;
-    value.spin_4d = mode == LatticeMode::FOUR_D_SLICE ? .004f : 0;
-    value.stretch = 1.4f;
     return value;
   }
 
   struct Configuration {
+    ConfigurationId id;
     Pattern pattern;
     LatticeMode domain;
     uint8_t max_candidates;
     uint8_t max_layers;
   };
   static constexpr auto CONFIGURATIONS = std::to_array<Configuration>({
-      {Pattern::CUBIC_WIRE, LatticeMode::THREE_D, 9, 9},
-      {Pattern::CUBIC_WIRE, LatticeMode::FOUR_D_SLICE, 12, 12},
-#if HS_ENABLE_HYPERLATTICE_EXPERIMENTS
-      {Pattern::OCTET, LatticeMode::THREE_D, 64, 32},
-      {Pattern::OCTET, LatticeMode::FOUR_D_SLICE, 64, 32},
-      {Pattern::DIAMOND, LatticeMode::THREE_D, 192, 32},
-      {Pattern::HEXAGONAL, LatticeMode::THREE_D, 192, 32},
-      {Pattern::RHOMBIC, LatticeMode::THREE_D, 192, 32},
-      {Pattern::AFFINE_CUBIC, LatticeMode::THREE_D, 96, 32},
-      {Pattern::AFFINE_CUBIC, LatticeMode::FOUR_D_SLICE, 96, 32},
-      {Pattern::SHELLS, LatticeMode::THREE_D, 64, 32},
-      {Pattern::SHELLS, LatticeMode::FOUR_D_SLICE, 64, 32},
-#endif
+      {ConfigurationId::CUBIC_3D, Pattern::CUBIC_WIRE, LatticeMode::THREE_D, 9,
+       9},
+      {ConfigurationId::CUBIC_4D, Pattern::CUBIC_WIRE,
+       LatticeMode::FOUR_D_SLICE, 12, 12},
+      {ConfigurationId::OCTET_3D, Pattern::OCTET, LatticeMode::THREE_D, 64, 32},
+      {ConfigurationId::OCTET_4D, Pattern::OCTET, LatticeMode::FOUR_D_SLICE, 64,
+       32},
+      {ConfigurationId::SHELLS_3D, Pattern::SHELLS, LatticeMode::THREE_D, 64,
+       32},
+      {ConfigurationId::SHELLS_4D, Pattern::SHELLS, LatticeMode::FOUR_D_SLICE,
+       64, 32},
   });
 
-  static constexpr ConfigurationId configuration_id(const Params &value) {
+  static constexpr size_t configuration_index(const Params &value) {
     for (size_t i = 0; i < CONFIGURATIONS.size(); ++i)
       if (CONFIGURATIONS[i].pattern == value.pattern &&
           CONFIGURATIONS[i].domain == value.mode)
-        return static_cast<ConfigurationId>(i);
-    return ConfigurationId::INVALID;
+        return i;
+    return CONFIGURATIONS.size();
+  }
+
+  static constexpr ConfigurationId configuration_id(const Params &value) {
+    const size_t index = configuration_index(value);
+    return index < CONFIGURATIONS.size() ? CONFIGURATIONS[index].id
+                                         : ConfigurationId::INVALID;
   }
 
   static constexpr bool supported_combination(const Params &value) {
     return configuration_id(value) != ConfigurationId::INVALID;
   }
 
-  static constexpr float SHEAR_MIN = -1.0f;
-  static constexpr float SHEAR_MAX = 1.0f;
-  static constexpr float STRETCH_MIN = 1.0f;
-  static constexpr float STRETCH_MAX = 1.5f;
   static constexpr float SHELL_RADIUS_MIN = .10f;
   static constexpr float SHELL_RADIUS_MAX = .32f;
 
   /** @brief Shared registration, validation and interpolation descriptions. */
   static constexpr auto parameter_fields() {
-    constexpr bool EXPERIMENTAL_PARAMETERS = HS_ENABLE_HYPERLATTICE_EXPERIMENTS;
     return std::tuple{
         Control::Field<Params, Pattern>{
             .id = "pattern",
             .member = &Params::pattern,
             .name = "Pattern",
             .spec = {.min = 0,
-                     .max =
-                         static_cast<int64_t>(std::size(PATTERN_OPTIONS)) - 1,
+                     .max = static_cast<int64_t>(Pattern::SHELLS),
                      .animated = true,
                      .options = PATTERN_OPTIONS,
                      .export_options = PATTERN_EXPORT_OPTIONS,
-                     .option_count = std::size(PATTERN_OPTIONS)}},
+                     .option_count = std::size(PATTERN_OPTIONS),
+                     .option_values = PATTERN_OPTION_VALUES}},
         Control::Field<Params, LatticeMode>{
             .id = "mode",
             .member = &Params::mode,
@@ -531,23 +485,12 @@ public:
                      .options = SHELL_OPTIONS,
                      .export_options = SHELL_EXPORT_OPTIONS,
                      .option_count = std::size(SHELL_OPTIONS)}},
-        Control::Field<Params, float>{
-            .id = "shear",
-            .member = &Params::shear,
-            .name = EXPERIMENTAL_PARAMETERS ? "Shear" : nullptr,
-            .spec = {.min = SHEAR_MIN, .max = SHEAR_MAX, .animated = true}},
-        Control::Field<Params, float>{
-            .id = "stretch",
-            .member = &Params::stretch,
-            .name = EXPERIMENTAL_PARAMETERS ? "Stretch" : nullptr,
-            .spec = {.min = STRETCH_MIN, .max = STRETCH_MAX, .animated = true}},
-        Control::Field<Params, float>{
-            .id = "shell_radius",
-            .member = &Params::shell_radius,
-            .name = EXPERIMENTAL_PARAMETERS ? "Shell Radius" : nullptr,
-            .spec = {.min = SHELL_RADIUS_MIN,
-                     .max = SHELL_RADIUS_MAX,
-                     .animated = true}}};
+        Control::Field<Params, float>{.id = "shell_radius",
+                                      .member = &Params::shell_radius,
+                                      .name = "Shell Radius",
+                                      .spec = {.min = SHELL_RADIUS_MIN,
+                                               .max = SHELL_RADIUS_MAX,
+                                               .animated = true}}};
   }
 
   static constexpr bool valid_params(const Params &value) {
@@ -576,7 +519,7 @@ public:
     begin_choreography();
     this->register_described_params();
 
-#if HS_ENABLE_HYPERLATTICE_EXPERIMENTS && HS_ENABLE_PARAM_GUI_BRIDGE
+#if HS_ENABLE_PARAM_GUI_BRIDGE
     this->register_readonly_param("Unfinished Rays", &unfinished_rays, 0,
                                   (W + 2) * (H + 2));
 #endif
@@ -585,13 +528,9 @@ public:
                                  0, PALETTE_FADE_FRAMES, math::ease_in_out_sin);
     crossing_list =
         persistent_arena.allocate_n<HyperLatticeDetail::CrossingList>(1);
-#if HS_ENABLE_HYPERLATTICE_EXPERIMENTS
     crossing_storage =
         persistent_arena.allocate_n<SDF::OctetTrace::CrossingStorage>(1);
     shell_layers = persistent_arena.allocate_n<SDF::ShellLayerStorage>(1);
-    cellular_hits =
-        persistent_arena.allocate_n<SDF::CellularWire::HitStorage>(1);
-#endif
   }
 
   HS_FLASH_MEMBER void draw_frame() override {
@@ -611,14 +550,12 @@ public:
         &depth_palette.palette(),
         preset_gain,
         crossing_list};
-#if HS_ENABLE_HYPERLATTICE_EXPERIMENTS
     unfinished_rays = 0;
     if (params.pattern != Pattern::CUBIC_WIRE) {
       HS_PROFILE(hl_shader_draw);
-      draw_experimental(canvas, context);
+      draw_traced(canvas, context);
       return;
     }
-#endif
     const auto prepared = HyperLatticeDetail::prepare_trace(context);
     {
       HS_PROFILE(hl_shader_draw);
@@ -722,20 +659,12 @@ private:
         this->mark_readonly("4D Spin", readonly);
       }
     }
-#if HS_ENABLE_HYPERLATTICE_EXPERIMENTS
     const bool CUBIC = params.pattern == Pattern::CUBIC_WIRE;
     this->mark_readonly("Lattice Planes", !CUBIC);
     this->mark_readonly("Softness", !CUBIC);
-    const bool AFFINE = params.pattern == Pattern::AFFINE_CUBIC;
     const bool SHELLS = params.pattern == Pattern::SHELLS;
-    this->mark_readonly("Shear", !AFFINE);
-    this->mark_readonly("Stretch", !AFFINE);
     this->mark_readonly("Shell Radius", !SHELLS);
     this->mark_readonly("Wire Radius", SHELLS);
-    this->mark_readonly("View", params.pattern == Pattern::DIAMOND ||
-                                    params.pattern == Pattern::HEXAGONAL ||
-                                    params.pattern == Pattern::RHOMBIC);
-#endif
   }
 
   HS_FLASH_MEMBER void advance_state() {
@@ -743,27 +672,16 @@ private:
         0.4815434f, 0.2993373f, 0.4034555f, 0.7223151f};
     static constexpr float RATE[6] = {1.0f, 0.731f, 0.517f,
                                       1.0f, 0.707f, 0.419f};
-#if HS_ENABLE_HYPERLATTICE_EXPERIMENTS
     if (params.pattern != Pattern::CUBIC_WIRE) {
       for (int axis = 0; axis < HyperLatticeDetail::DIMENSIONS; ++axis)
-        experimental_center[axis] += params.speed * VELOCITY[axis];
-      if (params.pattern == Pattern::AFFINE_CUBIC) {
-        experimental_center =
-            SDF::AffineLattice{params.cell_size, params.shear, params.stretch}
-                .wrap(experimental_center);
-      } else {
-        for (int axis = 0; axis < HyperLatticeDetail::DIMENSIONS; ++axis) {
-          float period = params.cell_size;
-          if (params.pattern == Pattern::OCTET)
-            period *= 1.4142135623730951f;
-          else if (params.pattern == Pattern::HEXAGONAL && axis < 2)
-            period *= axis == 0 ? 3.0f : 1.7320508075688772f;
-          experimental_center[axis] =
-              math::wrap(experimental_center[axis], period);
-        }
+        trace_center[axis] += params.speed * VELOCITY[axis];
+      for (int axis = 0; axis < HyperLatticeDetail::DIMENSIONS; ++axis) {
+        float period = params.cell_size;
+        if (params.pattern == Pattern::OCTET)
+          period *= 1.4142135623730951f;
+        trace_center[axis] = math::wrap(trace_center[axis], period);
       }
     } else
-#endif
       for (int axis = 0; axis < HyperLatticeDetail::DIMENSIONS; ++axis)
         origin[axis] =
             math::wrap_t(origin[axis] + params.speed * VELOCITY[axis]);
@@ -777,19 +695,14 @@ private:
           rotation_phase[plane] + SPIN_4D_STEP * RATE[plane], math::TWO_PI_F);
   }
 
-#if HS_ENABLE_HYPERLATTICE_EXPERIMENTS
   HS_FLASH_MEMBER void
-  draw_experimental(Canvas &canvas,
-                    const HyperLatticeDetail::FrameState &context) {
-    using namespace HyperLatticeDetail::Experiment;
-    auto settings =
-        HyperLatticeDetail::experimental_settings(context, experimental_center);
+  draw_traced(Canvas &canvas, const HyperLatticeDetail::FrameState &context) {
+    using namespace HyperLatticeDetail::Trace;
+    auto settings = HyperLatticeDetail::trace_settings(context, trace_center);
     settings.crossings = crossing_storage;
     settings.shell_layers = shell_layers;
-    settings.cellular_hits = cellular_hits;
     auto prepared = prepare(settings);
-    const auto &configuration =
-        CONFIGURATIONS[static_cast<size_t>(configuration_id(params))];
+    const auto &configuration = CONFIGURATIONS[configuration_index(params)];
     prepared.limits.max_candidates = configuration.max_candidates;
     prepared.limits.max_layers = configuration.max_layers;
     if (prepared.valid && prepared.geometry == Geometry::SHELLS &&
@@ -859,9 +772,8 @@ private:
                     });
   }
 
-  math::Vec4 experimental_center{{.255f, .465f, .645f, .375f}};
+  math::Vec4 trace_center{{.255f, .465f, .645f, .375f}};
   float unfinished_rays = 0;
-#endif
 
   static void next_depth_palette(void *, uint32_t sequence,
                                  GenerativePalette &out) {
@@ -886,22 +798,22 @@ private:
 
   static constexpr const char *PATTERN_OPTIONS[] = {
       "Cubic",
-#if HS_ENABLE_HYPERLATTICE_EXPERIMENTS
-      "Experimental / Octet Truss",
-      "Experimental / Diamond",
-      "Experimental / Honeycomb",
-      "Experimental / Rhombic Cells",
-      "Experimental / Sheared Cubic",
-      "Experimental / Shells",
-#endif
+      "Octet Truss",
+      "Shells",
   };
   static constexpr const char *PATTERN_EXPORT_OPTIONS[] = {
       "Pattern::CUBIC_WIRE",
-#if HS_ENABLE_HYPERLATTICE_EXPERIMENTS
-      "Pattern::OCTET",      "Pattern::DIAMOND",      "Pattern::HEXAGONAL",
-      "Pattern::RHOMBIC",    "Pattern::AFFINE_CUBIC", "Pattern::SHELLS",
-#endif
+      "Pattern::OCTET",
+      "Pattern::SHELLS",
   };
+  static constexpr int64_t PATTERN_OPTION_VALUES[] = {
+      static_cast<int64_t>(Pattern::CUBIC_WIRE),
+      static_cast<int64_t>(Pattern::OCTET),
+      static_cast<int64_t>(Pattern::SHELLS),
+  };
+  static_assert(std::size(PATTERN_OPTIONS) ==
+                std::size(PATTERN_EXPORT_OPTIONS));
+  static_assert(std::size(PATTERN_OPTIONS) == std::size(PATTERN_OPTION_VALUES));
   static constexpr const char *VIEW_OPTIONS[] = {"3D perspective", "4D slice"};
   static constexpr const char *VIEW_EXPORT_OPTIONS[] = {
       "LatticeMode::THREE_D", "LatticeMode::FOUR_D_SLICE"};
@@ -918,26 +830,18 @@ private:
   std::array<float, 6> rotation_phase{};
   PaletteCycler depth_palette;
   HyperLatticeDetail::CrossingList *crossing_list = nullptr;
-#if HS_ENABLE_HYPERLATTICE_EXPERIMENTS
   SDF::OctetTrace::CrossingStorage *crossing_storage = nullptr;
   SDF::ShellLayerStorage *shell_layers = nullptr;
-  SDF::CellularWire::HitStorage *cellular_hits = nullptr;
-#endif
 
   friend struct hs_test::hyper_lattice_tests::HyperLatticeWhiteBox;
 
   static constexpr size_t FOOTPRINT_BYTES =
       PaletteCycler::generated_arena_bytes() +
       sizeof(HyperLatticeDetail::CrossingList) +
-      alignof(HyperLatticeDetail::CrossingList)
-#if HS_ENABLE_HYPERLATTICE_EXPERIMENTS
-      + sizeof(SDF::OctetTrace::CrossingStorage) +
+      alignof(HyperLatticeDetail::CrossingList) +
+      sizeof(SDF::OctetTrace::CrossingStorage) +
       alignof(SDF::OctetTrace::CrossingStorage) +
-      sizeof(SDF::ShellLayerStorage) + alignof(SDF::ShellLayerStorage) +
-      sizeof(SDF::CellularWire::HitStorage) +
-      alignof(SDF::CellularWire::HitStorage)
-#endif
-      ;
+      sizeof(SDF::ShellLayerStorage) + alignof(SDF::ShellLayerStorage);
   static_assert(FOOTPRINT_BYTES <= DEVICE_PERSISTENT_BUDGET,
                 "HyperLattice persistent footprint exceeds the default "
                 "partition");

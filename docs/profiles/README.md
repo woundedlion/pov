@@ -92,7 +92,7 @@ and the chord walk; its workload differs from the linked shipping capture.
 [Arena high-water measurements](memory/arena_high_water.md) come from a host
 probe and are independent of the on-device timing tables.
 
-## Supplemental experimental presets
+## Historical fixed-preset captures
 
 Historical fixed opt-in captures; these do not change the normal firmware
 roster ranking. Triangular has since been removed.
@@ -113,10 +113,10 @@ Cubic Wide Flight (supporting artifact removed)
 has a separate fixed-preset shipping check: peak 50.804 ms, 0/616 spills,
 captured 2026-09-27 22:25.
 
-## HyperLattice experimental cycle
+## HyperLattice full-preset cycle
 
-Opt-in image (`HS_ENABLE_HYPERLATTICE_EXPERIMENTS=1`), full nine-preset cycle
-with family segues (lerp within a pattern and view, fade through black across), 345 s on COM3; setup frame 1 excluded. A bucket opens when
+Capture-time opt-in image (`HS_ENABLE_HYPERLATTICE_EXPERIMENTS=1`), full nine-preset cycle
+with family segues (lerp within a pattern and view, fade through black across), 345 s on COM3; setup frame 1 excluded. Cubic, Octet Truss, and Shells now ship together without an opt-in flag; these rows retain their recorded source and settings. A bucket opens when
 its preset's parameters are adopted: the morph into it, or the dark midpoint
 of a fade. Supersedes the octet and shell supplements
 below. [Report](shipping/profile_hyperlattice_teensy_2026-09-29.md#per-preset-table).

@@ -7,27 +7,17 @@
 /** @file lattice_trace.h
  * @brief Lattice event tracing adapters. */
 
-#include "render/sdf/affine_lattice.h"
-#include "render/sdf/cellular_wire.h"
 #include "render/sdf/octet_trace.h"
 #include "render/sdf/periodic_shells.h"
 
-/** @brief Experimental patterns: octet trusses, cellular wires, sheared cubic
- * lattice and shells. */
+/** @brief Event adapters for octet trusses and periodic shells. */
 namespace SDF::LatticeTrace {
 
 using SDF::OctetTrace::CrossingStorage;
 using SDF::OctetTrace::Sample;
 
-/** @brief Lattice each experimental pattern traces. */
-enum class Geometry : uint8_t {
-  OCTET,
-  DIAMOND,
-  HEXAGONAL,
-  RHOMBIC,
-  AFFINE_CUBIC,
-  SHELLS
-};
+/** @brief Geometry selected by a lattice trace. */
+enum class Geometry : uint8_t { OCTET = 0, SHELLS = 5 };
 
 /** @brief Frame settings; camera distances and near fading use world units. */
 struct Settings {
@@ -43,15 +33,12 @@ struct Settings {
   float pixel_half_angle = 0.0f;
   const BakedPalette *palette = nullptr;
   Geometry geometry = Geometry::OCTET;
-  float shear = .55f;
-  float stretch = 1.4f;
   float shell_radius = .30f;
   float gain = 1.0f; /**< Brightness scale of the whole frame. */
   /** Scratch the octet traces sort crossings in; required for OCTET. */
   CrossingStorage *crossings = nullptr;
   /** Scratch the shell march sorts layers in; required for SHELLS. */
   SDF::ShellLayerStorage *shell_layers = nullptr;
-  SDF::CellularWire::HitStorage *cellular_hits = nullptr;
 };
 
 /** @brief Frame state the traces read, built by prepare(). */
@@ -64,16 +51,12 @@ struct Prepared {
   SDF::OctetEvents::PreparedProjection octet_projection{};
   SDF::OctetFramework4 octet4;
   SDF::OctetEvents4::PreparedProjection octet4_projection{};
-  const SDF::CellularWire::Geometry *cellular = nullptr;
   SDF::PreparedPeriodicShells periodic_shells;
   bool valid = false;
   Geometry geometry = Geometry::OCTET;
-  float shear = .55f;
-  float stretch = 1.4f;
   float shell_radius = .30f;
   CrossingStorage *crossings = nullptr;
   SDF::ShellLayerStorage *shell_layers = nullptr;
-  SDF::CellularWire::HitStorage *cellular_hits = nullptr;
 };
 
 /** @brief Validates settings and precomputes the frame's trace state. */
@@ -103,12 +86,9 @@ HS_FLASH_INLINE inline Prepared prepare(const Settings &settings) {
   result.octet4.cell_size = settings.cell_size;
   result.octet4.wire_radius = settings.wire_radius;
   result.geometry = settings.geometry;
-  result.shear = settings.shear;
-  result.stretch = settings.stretch;
   result.shell_radius = settings.shell_radius;
   result.crossings = settings.crossings;
   result.shell_layers = settings.shell_layers;
-  result.cellular_hits = settings.cellular_hits;
   result.valid = result.camera.valid() &&
                  (settings.geometry != Geometry::OCTET || settings.crossings) &&
                  Raycast::finite(result.footprint.angular_radius) &&
@@ -120,21 +100,7 @@ HS_FLASH_INLINE inline Prepared prepare(const Settings &settings) {
   if (!result.valid)
     return result;
   if (settings.geometry != Geometry::OCTET) {
-    const bool CELLULAR = settings.geometry == Geometry::DIAMOND ||
-                          settings.geometry == Geometry::HEXAGONAL ||
-                          settings.geometry == Geometry::RHOMBIC;
-    result.valid =
-        (CELLULAR && settings.domain == Raycast::SamplingDomain::SPATIAL_3D &&
-         settings.cellular_hits) ||
-        settings.geometry == Geometry::AFFINE_CUBIC ||
-        settings.geometry == Geometry::SHELLS;
-    if (CELLULAR)
-      result.cellular = &SDF::CellularWire::geometry(
-          settings.geometry == Geometry::DIAMOND
-              ? SDF::CellularWire::Kind::DIAMOND
-          : settings.geometry == Geometry::HEXAGONAL
-              ? SDF::CellularWire::Kind::HEXAGONAL
-              : SDF::CellularWire::Kind::RHOMBIC);
+    result.valid = settings.geometry == Geometry::SHELLS;
     if (settings.geometry == Geometry::SHELLS) {
       result.periodic_shells =
           SDF::prepare_periodic_shells(result.camera, settings.cell_size,
@@ -221,23 +187,11 @@ HS_HOT_FLASH_MEMBER Sample shade(const math::Vector &direction,
         ((!SLICE_4D && prepared.periodic_shells.single_owner) ||
          prepared.periodic_shells.march))
       return shade_shells<SLICE_4D>(direction, prepared);
-    Raycast::ShadedTrace sample;
-    if (prepared.geometry == Geometry::AFFINE_CUBIC)
-      sample = SDF::shade_affine_lattice(
-          camera, direction, prepared.octet.cell_size,
-          prepared.octet.wire_radius, prepared.footprint, prepared.limits,
-          prepared.appearance, prepared.shear, prepared.stretch);
-    else if (prepared.geometry == Geometry::SHELLS)
-      sample = SDF::shade_periodic_shells(prepared.periodic_shells, camera,
-                                          direction, prepared.limits,
-                                          prepared.appearance);
-    else {
-      sample = SDF::CellularWire::shade(
-          *prepared.cellular, prepared.octet.cell_size,
-          prepared.octet.wire_radius, camera, prepared.footprint,
-          prepared.limits, prepared.appearance, *prepared.cellular_hits,
-          direction);
-    }
+    if (prepared.geometry != Geometry::SHELLS)
+      return {{}, Raycast::TraceStatus::INVALID_QUERY};
+    const auto sample =
+        SDF::shade_periodic_shells(prepared.periodic_shells, camera, direction,
+                                   prepared.limits, prepared.appearance);
     return {sample.color.color * sample.color.alpha, sample.trace.status};
   }
   return shade_octet<SLICE_4D>(direction, prepared);

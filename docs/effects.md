@@ -271,21 +271,21 @@ An affine primitive lattice rendered as soft iso contours through a folded gnomo
 
 ### HyperLattice
 
-A flight through periodic wire lattices and curved shells in 3D perspective or a rotating 4D slice. Schema 14 uses the following preset roster; indices 3–8 require `HS_ENABLE_HYPERLATTICE_EXPERIMENTS`.
+A flight through periodic wire lattices and curved shells in 3D perspective or a rotating 4D slice. Schema 15 includes Cubic, Octet Truss, and Shells in regular builds, each supporting both views. Numeric pattern IDs remain 0, 1, and 6.
 
 | Index | Preset ID |
 | --- | --- |
 | 0 | `cubic-flight` |
 | 1 | `cubic-wide-flight` |
 | 2 | `hypercube-flight` |
-| 3 | `experimental-octet-flight` |
-| 4 | `experimental-octet-wide-flight` |
-| 5 | `experimental-octet-4d-flight` |
-| 6 | `experimental-shell-flight` |
-| 7 | `experimental-shell-close-flight` |
-| 8 | `experimental-shell-4d-flight` |
+| 3 | `octet-flight` |
+| 4 | `octet-wide-flight` |
+| 5 | `octet-4d-flight` |
+| 6 | `shell-flight` |
+| 7 | `shell-close-flight` |
+| 8 | `shell-4d-flight` |
 
-**Parameters**: Pattern, View (3D perspective, 4D slice), Sphere Radius, Cell Size, Wire Radius, Softness, Near Fade, Far Distance, AA Strength, Speed, 3D Spin, 4D Spin, Lattice Planes. Shear, Stretch, and Shell Radius are available only with `HS_ENABLE_HYPERLATTICE_EXPERIMENTS` (disabled on device).
+**Parameters**: Pattern, View (3D perspective, 4D slice), Sphere Radius, Cell Size, Wire Radius, Softness, Near Fade, Far Distance, AA Strength, Speed, 3D Spin, 4D Spin, Lattice Planes. Shell Radius controls Shells; Wire Radius controls Cubic and Octet Truss.
 
 </td></tr></table>
 

@@ -614,17 +614,6 @@ add_test(NAME unit_relax_bake_form COMMAND ${CMAKE_COMMAND}
     -DDUMP=${CMAKE_CURRENT_BINARY_DIR}/relax_bakes.dump
     -P ${CMAKE_CURRENT_SOURCE_DIR}/check_relax_bakes.cmake)
 
-add_executable(hyper_lattice_shipping_check
-  ${CMAKE_CURRENT_SOURCE_DIR}/hyper_lattice_shipping_check.cpp
-  ${HS_ENGINE_SOURCES})
-target_compile_definitions(hyper_lattice_shipping_check PRIVATE
-  HS_ENABLE_HYPERLATTICE_EXPERIMENTS=0)
-target_link_libraries(hyper_lattice_shipping_check PRIVATE hs_test_support)
-target_include_directories(hyper_lattice_shipping_check PRIVATE ${HS_ENGINE_INCLUDES})
-_hs_warnings(hyper_lattice_shipping_check)
-_hs_sanitize(hyper_lattice_shipping_check)
-add_test(NAME unit_hyper_lattice_shipping COMMAND hyper_lattice_shipping_check)
-
 # Legacy offset mapping needs a separate TU: offset-3 and offset-0
 # PhiLUT/TrigLUT instantiations have incompatible definitions.
 add_executable(h_offset_renorm_check
