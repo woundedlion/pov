@@ -64,8 +64,8 @@ if(EMSCRIPTEN)
     HS_DISPLAY_PROFILE=0
     HS_GLOBAL_ARENA_BYTES=524288)
 
-  # Warning hygiene for the JS bridge: targets/wasm/ is built by no other target,
-  # so without this it is the one first-party TU with zero warning coverage. Not
+  # wasm.cpp and the embind headers compile only here; host-testable bridge
+  # headers also compile into run_tests. This covers the WASM-only TU. Not
   # -Werror: unlike the native suite, third-party emscripten system headers ride
   # this compile line. The gate is in CI instead — the wasm job greps release, debug and strict-FP build
   # logs for warnings under first-party paths and fails on any
