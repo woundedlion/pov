@@ -233,7 +233,7 @@ inline void test_ring_outside_band_returns_sentinel() {
   HS_EXPECT_TRUE(r.dist > 50.0f);
 }
 
-/** @brief Verifies just past the band edge still trips the sentinel (band edge is exclusive). */
+/** @brief Verifies a point just past the band edge trips the sentinel. */
 inline void test_ring_just_outside_band() {
   math::Basis b = equator_basis();
   SDF::Ring ring(b, 1.0f, 0.05f);
