@@ -418,6 +418,10 @@ INLINE_AUTHORITIES = {
 
 
 LITERAL_AUTHORITIES = {
+    'whitespace-rules': (
+        '.githooks/pre-commit',
+        'tools/whitespace_gate.sh',
+    ),
     'smoke-stack-ceiling-debug': (
         '.github/workflows/ci.yml',
         'justfile',
