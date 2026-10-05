@@ -2439,14 +2439,8 @@ inline void test_gs_dissolve_frontier_fades_before_clear() {
 }
 
 /**
- * @brief Verifies the dissolve clears the sphere and reseeds a fresh reaction.
- * @details Drives a real effect to its stabilization transition, then pins the
- *          two things the dissolve must do: coverage falls monotonically enough
- *          to reach near-zero by the end of the window (a scattered rest
- *          node is refilled by its autocatalytic neighbours in one frame, so a
- *          dissolve that only converts the newly-crossed band never clears at
- *          all), and the field that comes back is the seed pattern, not the old
- *          one.
+ * @brief The two-frame staged reseed matches start_reaction() fields, palettes
+ *        and RNG position.
  */
 inline void test_gs_staged_reseed_matches_synchronous() {
   hs_test::reset_globals();
@@ -2458,6 +2452,16 @@ inline void test_gs_staged_reseed_matches_synchronous() {
       });
 }
 
+/**
+ * @brief Verifies the dissolve clears the sphere and reseeds a fresh reaction.
+ * @details Drives a real effect to its stabilization transition, then pins the
+ *          two things the dissolve must do: coverage falls monotonically enough
+ *          to reach near-zero by the end of the window (a scattered rest
+ *          node is refilled by its autocatalytic neighbours in one frame, so a
+ *          dissolve that only converts the newly-crossed band never clears at
+ *          all), and the field that comes back is the seed pattern, not the old
+ *          one.
+ */
 inline void test_gs_dissolve_clears_and_reseeds() {
   hs_test::reset_globals();
   GSWhiteBox::GS gs;
