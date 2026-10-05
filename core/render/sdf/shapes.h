@@ -148,7 +148,8 @@ struct PlanarPolygon {
  * @brief Calculates signed distance to a spherical polygon (great-circle
  * edges).
  * @details Uses sector folding plus a precomputed great-circle plane normal for
- * O(1) per-pixel distance, with exact angular distances for smooth AA.
+ * O(1) per-pixel distance to the edge great circle. Past a vertex it is a
+ * lower bound; see distance().
  * Register semantics: the DistanceResult table (row: SphericalPolygon).
  */
 struct SphericalPolygon {
