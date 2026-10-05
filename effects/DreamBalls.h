@@ -640,7 +640,7 @@ private:
    * @details The per-vertex phase (i * VERTEX_PHASE_STAGGER) staggers the
    *          orbits by emission order; it does not encode spatial proximity.
    */
-  HS_COLD_MEMBER void
+  HS_FLASH_MEMBER void
   update_displaced_mesh(const MeshState &base, MeshState &target,
                         const ArenaVector<math::Vector> &tangent_u,
                         const Params &p, float angle_offset) {
@@ -738,9 +738,9 @@ private:
     }
   }
 
-  HS_COLD_MEMBER void draw_original_scene(Canvas &canvas, const Params &p,
-                                          const SolidData &solid,
-                                          FragmentShaderFn fragment_shader) {
+  HS_FLASH_MEMBER void draw_original_scene(Canvas &canvas, const Params &p,
+                                           const SolidData &solid,
+                                           FragmentShaderFn fragment_shader) {
     MeshState target;
     {
       HS_PROFILE(db_mesh_copy);
