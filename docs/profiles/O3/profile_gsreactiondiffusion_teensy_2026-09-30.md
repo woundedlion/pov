@@ -2,7 +2,9 @@
 
 Point-in-time snapshot (regenerate with the explicit `profile_o3` Reproduce command).
 
-[Shipping selective-O3 sibling](../shipping/profile_gsreactiondiffusion_teensy_2026-09-30.md).
+The same-source shipping sibling has been superseded by the
+[optimized shipping capture](../shipping/profile_gsreactiondiffusion_teensy_2026-10-05.md).
+This O3 report retains its September 30 source and image comparisons.
 
 Raw capture: preserved capture (supporting artifact removed), captured 2026-09-30 19:15 on COM4. Replaces the earlier 2026-09-30 report from before pigment blending, hue rotation and shimmer were enabled. Optimization campaign and current-state update (supporting artifact removed).
 
