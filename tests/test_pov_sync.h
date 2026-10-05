@@ -3214,6 +3214,7 @@ inline void test_construction_window_predicates() {
 //                                       buffer_free() gate; the epoch-bounded
 //                                       t recovery it relies on is pinned by
 //                                       test_sim_epoch_commit
+//   spurious EPOCH                   -> test_budget_spurious_epoch
 //   missed epoch (all copies)         → test_sim_drops_and_missed_epoch
 //   epoch repeat lockstep (§6.3.1)    → test_sim_epoch_repeat_lockstep,
 //                                       test_master_epoch_train_bounded
@@ -3238,6 +3239,40 @@ inline double max_err_over(Sim &sim, double revs) {
     worst = std::max(worst, sim.max_phase_err());
   }
   return worst;
+}
+
+/** @brief A gate-accepted spurious EPOCH advances one board, then beacons repair it. */
+inline void test_budget_spurious_epoch() {
+  const Config cfg = test_config();
+  const int32_t ppm[4] = {0, 0, 0, 0};
+  Sim sim(cfg, 4, ppm);
+  HS_EXPECT_TRUE(boot_join(sim, cfg));
+  const uint64_t REV = 2ull * PERIOD;
+  const uint64_t BOUNDARY = (sim.g / REV + 2) * REV;
+  sim.emi.push_back({BOUNDARY + COL, 2});
+  sim.emi.push_back({BOUNDARY + 3ull * COL, 2});
+  HS_EXPECT_TRUE(
+      sim.run_until([](Sim &s) { return s.boards[2].live_index == 1; }, 8.0));
+  HS_EXPECT_EQ(sim.boards[0].live_index, 0);
+  HS_EXPECT_EQ(sim.boards[1].live_index, 0);
+  HS_EXPECT_EQ(sim.boards[3].live_index, 0);
+  HS_EXPECT_TRUE(sim.run_until(
+      [](Sim &s) { return s.boards[2].live && s.boards[2].live_index == 0; },
+      double(2 * cfg.beacon_period_revs + cfg.join_grid_revs)));
+  HS_EXPECT_EQ(
+      sim.boards[2].board.telemetry_snapshot().beacon_index_corrections, 1u);
+  HS_EXPECT_TRUE(
+      sim.run_until([](Sim &s) { return s.board_pos(0) == 72; }, 1.1));
+  HS_EXPECT_EQ(sim.boards[2].t, sim.boards[0].t);
+  HS_EXPECT_TRUE(sim.run_until(
+      [](Sim &s) {
+        return s.boards[0].live_index == 1 && s.boards[2].live_index == 1;
+      },
+      double(cfg.revs_per_effect) + 6));
+  for (int i = 0; i < 4; ++i) {
+    HS_EXPECT_FALSE(sim.boards[i].trapped);
+    HS_EXPECT_EQ(sim.boards[i].live_index, sim.boards[0].live_index);
+  }
 }
 
 /**
@@ -3780,6 +3815,7 @@ inline int run_pov_sync_tests() {
   test_effect_output_envelope();
   test_joined_board_dark_through_commit_window();
 
+  test_budget_spurious_epoch();
   test_budget_lost_symbol();
   test_budget_emi_accepted_seam();
   test_budget_corrupted_timebase();
