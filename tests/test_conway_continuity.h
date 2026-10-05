@@ -1385,7 +1385,7 @@ inline void test_leg_start_seed_frame_continuity() {
                                 .settle_frames = e.settle ? SETTLE_FRAMES : 0},
                             leg_arena, cb, handoff);
       step_and_snapshot(anim, fx, snap);
-      HS_EXPECT_EQ(snap.colors.size(), total);
+      HS_EXPECT_SIZE_OR_RETURN(snap.colors, total);
       for (size_t f = 0; f < snap.colors.size(); ++f) {
         if (prev_faces == total || f < primary) {
           const uint8_t want = prev_faces == total ? pal[match_of[f]] : pal[f];
