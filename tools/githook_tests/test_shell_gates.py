@@ -100,6 +100,17 @@ class ShellGateTests(unittest.TestCase):
         self.git("add", "--", "omitted.py")
         self.assertNotEqual(self.gate("ruff_selection_guard.sh").returncode, 0)
 
+    def test_ruff_selection_reports_no_tracked_sources(self):
+        self.stub("ruff", "echo source.py")
+        result = self.gate("ruff_selection_guard.sh")
+        self.assertEqual(result.returncode, 1, result.stdout + result.stderr)
+        self.assertIn("no tracked Python sources", result.stdout)
+        self.assertNotIn("omitted tracked sources", result.stdout)
+        (self.root / "source.py").touch()
+        self.git("add", "--", "source.py")
+        result = self.gate("ruff_selection_guard.sh")
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+
     def test_eslint_selection_reports_no_tracked_sources(self):
         self.stub("npx", "echo '[]'")
         result = self.gate("eslint_selection_guard.sh")

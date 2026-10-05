@@ -34,7 +34,10 @@ expected = {pathlib.Path(path).resolve() for path in expected if path}
 selected = {pathlib.Path(path).resolve()
             for path in pathlib.Path(sys.argv[1]).read_text().splitlines() if path}
 missing = sorted(expected - selected)
-if not expected or missing:
+if not expected:
+    print("ruff selection guard found no tracked Python sources")
+    sys.exit(1)
+if missing:
     print("ruff omitted tracked sources:", *(str(path) for path in missing), sep="\n")
     sys.exit(1)
 PY
