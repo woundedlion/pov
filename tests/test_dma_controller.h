@@ -101,7 +101,7 @@ public:
    * @brief Records a transfer and snapshots its bytes.
    * @param data Pointer to the frame buffer being transmitted.
    * @param len Number of bytes in the transfer.
-   * @details Marks the channel in-flight; the test completes it via complete().
+   * @details Marks the channel in-flight; the test sets State::complete to finish it.
    */
   void transmit_async(const uint8_t *data, size_t len) {
     HS_EXPECT_TRUE(state().complete);
