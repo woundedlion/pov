@@ -9,6 +9,7 @@
  */
 #pragma once
 
+#include <bit>
 #include <cmath>
 #include <cstdint>
 #include <cstring>
@@ -909,7 +910,12 @@ inline void test_gamut_lut_release_and_passthrough() {
   // Deep inside the cell minimum: returned unchanged, bit for bit.
   OKLab deep = oklch_to_oklab({0.5f, 0.02f, 1.0f});
   OKLab kept = gamut_clip_preserve_chroma(deep);
-  HS_EXPECT_TRUE(kept.a == deep.a && kept.b == deep.b);
+  HS_EXPECT_EQ(std::bit_cast<uint32_t>(kept.L),
+               std::bit_cast<uint32_t>(deep.L));
+  HS_EXPECT_EQ(std::bit_cast<uint32_t>(kept.a),
+               std::bit_cast<uint32_t>(deep.a));
+  HS_EXPECT_EQ(std::bit_cast<uint32_t>(kept.b),
+               std::bit_cast<uint32_t>(deep.b));
 
   // Just inside the boundary but past the cell minimum: refined, not reduced.
   OKLab near_edge = oklch_to_oklab({0.6f, 0.144f, 1.0f});
@@ -920,7 +926,12 @@ inline void test_gamut_lut_release_and_passthrough() {
   const float c_lo = g_gamut_lut.table[cell_offset] * GAMUT_LUT_INV_SCALE;
   HS_EXPECT_GT(0.144f, c_lo);
   kept = gamut_clip_preserve_chroma(near_edge);
-  HS_EXPECT_TRUE(kept.a == near_edge.a && kept.b == near_edge.b);
+  HS_EXPECT_EQ(std::bit_cast<uint32_t>(kept.L),
+               std::bit_cast<uint32_t>(near_edge.L));
+  HS_EXPECT_EQ(std::bit_cast<uint32_t>(kept.a),
+               std::bit_cast<uint32_t>(near_edge.a));
+  HS_EXPECT_EQ(std::bit_cast<uint32_t>(kept.b),
+               std::bit_cast<uint32_t>(near_edge.b));
 
   // An achromatic input must not divide by zero on the way through.
   OKLab gray = gamut_clip_preserve_chroma({0.5f, 0.0f, 0.0f});

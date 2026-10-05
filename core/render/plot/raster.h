@@ -480,8 +480,8 @@ static void rasterize(PipelineT &source_pipeline, Canvas &canvas,
     steps_cache.bind(scratch_arena_a, max_cache);
 
   // PLANAR ARC REGISTERS (v0/v1): under a planar basis the rendered edge bows
-  // longer than the geodesic chord, so re-derive v0/v1 from the true rendered
-  // arc (`cumul`/`seg_base` track it, `total_arc` normalizes v0). Skipped for
+  // longer than the geodesic chord, so re-derive v0/v1 from sampled arc length
+  // (`cumul`/`seg_base` track it, `total_arc` normalizes v0). Skipped for
   // geodesic polylines or when DERIVE_PLANAR_ARC_REGISTERS is false.
   const bool has_planar_basis = (planar_basis != nullptr);
   const bool override_uv = DERIVE_PLANAR_ARC_REGISTERS && has_planar_basis;
@@ -525,10 +525,10 @@ static void rasterize(PipelineT &source_pipeline, Canvas &canvas,
   };
 
   // Adaptively sub-step and plot one segment. `sample(t)` returns the sphere
-  // point AND unit tangent at arc fraction t in [0,1] under the chosen strategy,
-  // `sample.pos(t)` the point alone; `total_dist` is the segment's on-sphere
-  // length (radians). Endpoints are omitted on interior / closed segments so a
-  // shared vertex isn't plotted twice.
+  // point and tangent estimate at arc fraction t in [0,1] under the chosen
+  // strategy, `sample.pos(t)` the point alone; `total_dist` is the segment's
+  // on-sphere length estimate (radians). Endpoints are omitted on interior /
+  // closed segments so a shared vertex isn't plotted twice.
   auto process_segment = [&](auto &&sample, const Fragment &curr,
                              const Fragment &next, float total_dist,
                              bool is_last_segment) {
@@ -894,7 +894,7 @@ static void rasterize(PipelineT &source_pipeline, Canvas &canvas,
 
       // `t` (hence the drawn POSITION) is parameterized by the RENDERED arc
       // length. Registers are lerped from the control points; under a planar
-      // basis set_arc_uv rewrites v0/v1 from the true rendered arc so a shader
+      // basis set_arc_uv rewrites v0/v1 from the sampled arc estimate so a shader
       // keying off them as an arc-length proxy tracks the drawn position across
       // the planar bow. Geodesic edges keep the lerped registers.
       HS_PLOT_STALL_START(replay_start);

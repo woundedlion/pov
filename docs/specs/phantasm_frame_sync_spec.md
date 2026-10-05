@@ -121,7 +121,7 @@ PCB rev 1.2 separates receive D3 from transmit D4; see the
 [PCB revision scope](phantasm_pcb_spec.md#phantasm-segment-board--pcb-design-specification).
 
 - **Sync wire (the only inter-board connection).** Master drives the shared
-  `PIN_FRAME_SYNC` 3 OUTPUT; downstream boards read the same pin INPUT and decode
+  `PIN_SYNC_TX` 3 OUTPUT; downstream boards read `PIN_SYNC_RX` 3 INPUT and decode
   on its RISING edge. `PIN_MASTER_EN` 5 gates the external sync-out level shifter
   (OUTPUT, LOW on the master, HIGH otherwise) so only the master drives the bus.
   Carries the **boundary** marks (Layer 2, 2/rev) and the **epoch** mark
@@ -129,8 +129,8 @@ PCB rev 1.2 separates receive D3 from transmit D4; see the
   Layer-1 flywheel (phase snap, optional frequency trim).
 - **No per-column clock wire.** Master runs the same flywheel as every other
   board and emits only the low-rate sync symbols. Pins 2 and 4 are free; pin 5
-  carries `PIN_MASTER_EN`. The shared `PIN_FRAME_SYNC` 3 serves both the master's
-  drive and downstream receive.
+  carries `PIN_MASTER_EN`. Both `PIN_SYNC_TX` and `PIN_SYNC_RX` name pin 3 on rev 1.1,
+  serving the master's drive and downstream receive respectively.
 
 ---
 
@@ -268,7 +268,9 @@ x_target = (x_boundary + ((now_cycles - epoch_cycles) · (W/2))
                           / cycles_per_half_rev) mod W
 ```
 
-with a 64-bit intermediate (the product peaks ≈ 5.4 × 10⁹). One long multiply
+with a 64-bit intermediate (the product is about 5.4 × 10⁹ over one
+half-revolution at nominal speed, and 86.4 × 10⁹ across the 16-half-revolution
+coast window). One long multiply
 and divide per 8× column wake at 18432 Hz for W=288 and 480 RPM.
 
 ### 4.2 Boundary-snap discipline (baseline)
@@ -497,8 +499,9 @@ late at a boundary (the first pulse would start > ~½ column after the
 boundary instant), it **self-censors**: it skips that boundary's symbol
 entirely rather than emit a late one (downstream coasts one half-rev, ~0.01
 col, §4.5); lateness detected *mid-burst* stops the remaining pulses. An odd partial boundary burst is invalidated with an extra pulse while the
-burst's gap window remains open, making its count even. This covers all odd
-partial counts (5 to 3, 5 to 1, and 3 to 1); they are not valid wire symbols.
+burst's gap window remains open, making its count even. While that gap remains
+open this covers all odd partial counts (5 to 3, 5 to 1, and 3 to 1). After the
+gap has closed, already-observed edges cannot be retracted.
 
 Decode (split across the two ISRs — the §8 single-writer model): the sync-wire
 **RISING** ISR is a pure *publisher* — it applies the glitch filter, increments
@@ -533,7 +536,7 @@ constants are tunables):
 - **ACQUIRE** (boot, mid-show reboot, or fallback): accept any *valid* symbol
   unconditionally — hard snap, no gate. The board displays **black** until it
   has both (a) phase, from one accepted boundary symbol, and (b) content
-  identity, from an epoch or beacon (§6.4) — it never renders a guessed effect
+  identity, from a beacon for a downstream board (§6.4) — it never renders a guessed effect
   (fail-fast doctrine: show nothing rather than the wrong thing). First
   accepted snap → LOCKED.
 - **LOCKED** (steady state): a valid symbol is accepted only if its implied
@@ -647,7 +650,8 @@ sequencing.
 #### 6.1.1 Fenced fade-through-clear envelope
 
 Device fades use `F = 2` revolutions on each side of the clear interval. The
-outgoing envelope is derived from the synchronized `rev_in_effect` counter, not
+outgoing envelope for boards with an absolute effect count is derived from
+the synchronized `rev_in_effect` counter, not
 from receipt time of the EPOCH symbol: it is exactly one through the earlier
 revolutions, follows `0.5 * (1 + cos(pi * progress))` over the final F
 revolutions, and is exactly zero at boundary B. A board that accepts only a
@@ -660,11 +664,14 @@ its own arithmetic still reads mid-effect at B. The envelope is zero for the
 whole commit window instead of only where the counter says so, and the window
 flag is set by the EPOCH the board hears rather than by its own count: such a
 board
-steps to black at B with everyone else and misses only the F-revolution ramp
-into it. Stepping is the fail-dark side of the miss; a counter-driven envelope
+steps to black when it accepts its first EPOCH copy and misses the
+F-revolution ramp into B. If the primary copy is lost, it can remain lit until
+the repeat at B+j; its commit can also be j revolutions late (§6.3.1).
+Stepping is the fail-dark side of the miss; a counter-driven envelope
 would leave it the one lit band on a cleared sphere.
 
-The output remains exactly zero from B through B+R+K. Outgoing resources are
+With an absolute count, the output remains exactly zero from B through B+R+K.
+Outgoing resources are
 released on the `EffectHandoff` counter handshake (`pov_handoff.h`), not on a
 display acknowledgement: the foreground bumps `release_req` and spins on
 `release_complete()` until the flywheel ISR has dropped its live pointer and
@@ -676,9 +683,11 @@ to the one the wire advertises, and destination identity commits with that
 adopt. The envelope then follows `0.5 * (1 - cos(pi * progress))` for F revolutions
 and reaches exact one at the end.
 
-Repeated EPOCH symbols are idempotent. Losing the primary or any proper subset
-of repeats does not affect envelope timing. A board that loses the entire train
-stays clear after its locally scheduled fade-out; the confirmed beacon recovery
+Repeated EPOCH symbols are idempotent. With an absolute effect count, losing
+the primary or any proper subset of repeats does not affect envelope timing.
+A board that loses the entire train stays clear after its locally scheduled
+fade-out if it has an absolute count; a beacon joiner can remain lit until the
+confirmed beacon recovery
 selects the destination and rejoins on the §6.5 grid with the incoming envelope
 derived from the synchronized revolution count. A replacement index confirmed
 before B replaces the pending destination. At or after the clear fence it is a
@@ -751,8 +760,8 @@ previous one cannot:
    beacon-corrected joiner starts the effect's history
    fresh mid-flight — stateless and stateful alike, since there is no frame
    fast-forward; full coherence restores at the next epoch.)
-3. **Fail-dark, not fail-wrong:** until a board has established the index from
-   an epoch or beacon it displays black (ACQUIRE, §5.3). If the index can never
+3. **Fail-dark, not fail-wrong:** until a downstream board has established the
+   index from a beacon it displays black (ACQUIRE, §5.3). If the index can never
    be established the segment stays dark — with the wire hard by construction
    (§9), that is the correct terminal fail-state, and it is visible at a glance
    rather than subtly wrong.
@@ -1167,9 +1176,10 @@ Following the `pov_segment_map.h` precedent (pure, host-tested index math):
   math at the trim extremes (`cycles_per_half_rev` ± worst-case ppm) and assert
   zero accumulated truncation drift over thousands of revolutions.
 - **Emission self-censor:** inject master-side ISR lateness (mask windows over
-  scheduled emission instants); assert the symbol is suppressed (not emitted
-  late), a mid-burst interruption truncates to an invalid count, and no
-  downstream snap correction ever exceeds the §5.3 gate as a result.
+  scheduled emission instants); assert a late start is suppressed, and a
+  mid-burst interruption produces an invalid count while its gap remains open.
+  After gap expiry, assert the remaining pulses stop; already-observed edges
+  cannot be retracted. Downstream snaps remain subject to the §5.3 gate.
 - **Acceptance gate:** assert a forged burst implying a ~W/2 correction (the
   two-coincident-edge-error residual) is rejected in LOCKED; assert a board
   seeded with a corrupted timebase re-acquires after `reject_fallback` (4) rejected symbols via the

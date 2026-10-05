@@ -95,8 +95,8 @@ protected:
   }
 
   // Compact biweight kernel (C1 at the support edge): w(d) = max(0, 1 - d²/R²)²
-  static constexpr float D_AVG =
-      ReactionGraph::D_AVG; /**< Mean inter-node spacing, sqrt(4π / RD_N). */
+  static constexpr float D_AVG = ReactionGraph::
+      D_AVG; /**< Characteristic inter-node spacing, sqrt(4π / RD_N). */
   static constexpr float KERNEL_R = 1.5f * D_AVG; /**< Kernel support radius. */
   static constexpr float INV_R2 =
       1.0f /
