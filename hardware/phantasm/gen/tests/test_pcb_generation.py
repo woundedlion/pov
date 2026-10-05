@@ -32,7 +32,7 @@ import fab              # noqa: E402
 import connectivity     # noqa: E402
 import pcb              # noqa: E402
 import sexp             # noqa: E402
-from kicad_common import F, export_netlist, is_copper_pour, kicad_cli  # noqa: E402
+from kicad_common import F, arc_extrema, export_netlist, is_copper_pour, kicad_cli  # noqa: E402
 
 COMMITTED_PCB = GEN.parent / "1.1" / pcb.PCB_FILE
 
@@ -164,6 +164,8 @@ def _graphic_points(node):
               for value in (sexp.val(node, key)
                             for key in ("start", "mid", "end", "center"))
               if value]
+    if str(node[0]) == "fp_arc":
+        points.extend(arc_extrema(*points[:3]))
     for vertex in (F(F(node, "pts")[0], "xy") if F(node, "pts") else []):
         points.append((float(vertex[1]), float(vertex[2])))
     if str(node[0]) == "fp_rect" and len(points) == 2:
@@ -193,6 +195,15 @@ def courtyard_box(footprint):
             xs.append(origin[0] + x)
             ys.append(origin[1] + y)
     return (min(xs), min(ys), max(xs), max(ys)) if xs else None
+
+
+class CourtyardBoundsTests(unittest.TestCase):
+    def test_arc_includes_cardinal_extrema(self):
+        footprint = sexp.parse(
+            '(footprint (at 0 0) (fp_arc (start 0.8 0.6) (mid -0.6 0.8) '
+            '(end -0.8 -0.6) (layer "F.CrtYd")))')[0]
+        for actual, expected in zip(courtyard_box(footprint), (-1.0, -0.6, 0.8, 1.0)):
+            self.assertAlmostEqual(actual, expected)
 
 
 class OverwriteProtectionTests(unittest.TestCase):
