@@ -3416,7 +3416,7 @@ inline void test_world_trails_set_lifetime_caps_ttl() {
  * @details A short-lived point buffered behind a long-lived older one dies in
  *          the middle of the ring; flush()'s swap-remove cull frees its slot, so
  *          live capacity is preserved and the next plot() fills the freed slot
- *          rather than evicting an older live point.
+ *          without evicting any live point.
  */
 inline void test_world_trails_midbuffer_expiry_reclaims_slot() {
   constexpr int Cap = 4;
@@ -3454,21 +3454,30 @@ inline void test_world_trails_midbuffer_expiry_reclaims_slot() {
   HS_EXPECT_TRUE(saw_p0);      // the oldest live point still draws
   HS_EXPECT_EQ(trails.size(), (size_t)(Cap - 1)); // dead p1's slot reclaimed
 
-  // Buffer has a free slot, so this plot fills it without evicting any live
-  // point; the oldest (p0) survives.
+  // The reclaimed slot admits p4 without evicting any live point.
   trails.plot(p4, Pixel(1, 1, 1), 0.0f, 1.0f, noop);
 
-  bool saw_p0_after = false, saw_p4_after = false;
+  bool saw_p0_after = false, saw_p2_after = false, saw_p3_after = false,
+       saw_p4_after = false;
+  int drawn_after = 0;
   auto trail2 = [&](const math::Vector &v, float) {
+    ++drawn_after;
     if (math::dot(v, p0) > 0.9f)
       saw_p0_after = true;
+    if (math::dot(v, p2) > 0.9f)
+      saw_p2_after = true;
+    if (math::dot(v, p3) > 0.9f)
+      saw_p3_after = true;
     if (math::dot(v, p4) > 0.9f)
       saw_p4_after = true;
     return Color4(Pixel(1, 1, 1), 1.0f);
   };
   trails.flush(WorldTrailFn(trail2), 1.0f, noop);
-  HS_EXPECT_TRUE(saw_p0_after); // the oldest live point was not evicted
-  HS_EXPECT_TRUE(saw_p4_after); // the new point made it in
+  HS_EXPECT_EQ(drawn_after, 4);
+  HS_EXPECT_TRUE(saw_p0_after);
+  HS_EXPECT_TRUE(saw_p2_after);
+  HS_EXPECT_TRUE(saw_p3_after);
+  HS_EXPECT_TRUE(saw_p4_after);
 }
 
 /**
