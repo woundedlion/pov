@@ -1011,7 +1011,8 @@ inline void test_beacon_out_of_range_index_rejected() {
 /**
  * @brief Verifies the §6.4 rev cross-check fold (beacon_rev_resync_delta)
  *        resolves the 63↔0 mod-64 seam.
- * @details Production effects span 960 revs and the sim configs span 40, so
+ * @details Production roster entries span hundreds of revolutions through
+ *          per-entry durations; the sim configs span 40, so
  *          rev_in_effect routinely exceeds 63 and its 6-bit residue wraps —
  *          but test_sim_rev_resync only ever slips a board by +2 at rev 5, far
  *          from the wrap, leaving the fold's `+96 %64 -32` seam arithmetic
