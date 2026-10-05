@@ -721,7 +721,7 @@ inline void test_frame_visible_only_after_advance_display() {
  * @brief Verifies that without persist, each frame draws into a freshly cleared
  * buffer, so pixels from the previous frame do not survive into the next.
  */
-inline void test_consecutive_frames_alternate_buffers() {
+inline void test_non_persist_frame_starts_cleared() {
   TestEffect fx(8, 8);
 
   {
@@ -1761,7 +1761,7 @@ inline int run_canvas_tests() {
   test_effect_transition_refusal_branches();
   test_preset_state_machine();
   test_frame_visible_only_after_advance_display();
-  test_consecutive_frames_alternate_buffers();
+  test_non_persist_frame_starts_cleared();
   test_clip_clear_exact_rectangle();
   test_clip_clear_alternates_clips_and_buffers();
   test_clip_clear_full_clip_matches_full_clear();
