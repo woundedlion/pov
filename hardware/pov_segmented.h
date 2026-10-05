@@ -27,8 +27,9 @@
  * (docs/specs/phantasm_frame_sync_spec.md):
  *
  *   Sync wire: segment 0 (the master/conductor) emits count-coded symbol
- *   bursts — two boundary marks per revolution, an epoch mark once per
- *   effect, and a mid-revolution index beacon.  Every board generates its
+ *   bursts — two boundary marks per revolution, an epoch train (primary +
+ *   epoch_repeats copies) once per effect, and a quarter-revolution (x ≈ W/4)
+ *   index beacon on beacon revolutions. Every board generates its
  *   own columns from a local flywheel timebase (position derived from the
  *   free-running cycle counter, never from counting timer interrupts); the
  *   symbols snap each flywheel's phase and synchronize buffer flips and
