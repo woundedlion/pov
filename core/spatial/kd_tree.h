@@ -93,7 +93,7 @@ public:
    * that (N points): 8000 B retained over a 1600 B transient at Voronoi's
    * MAX_SITES = 400.
    */
-  HS_COLD_MEMBER KDTree(Arena &arena, std::span<const math::Vector> points) {
+  HS_FLASH_MEMBER KDTree(Arena &arena, std::span<const math::Vector> points) {
     if (points.empty())
       return;
 
@@ -219,8 +219,8 @@ private:
    * @details Cycles the split axis by depth%3, partitioning around the median
    * along that axis and reordering `indices` in place.
    */
-  HS_COLD_MEMBER int build(std::span<const math::Vector> points, int *indices,
-                           int count, int depth) {
+  HS_FLASH_MEMBER int build(std::span<const math::Vector> points, int *indices,
+                            int count, int depth) {
     if (count <= 0)
       return -1; // legitimate empty-subtree sentinel (leaf recursion base case)
 
