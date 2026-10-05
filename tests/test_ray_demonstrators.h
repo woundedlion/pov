@@ -841,6 +841,9 @@ inline void test_shell_neighbor_march_matches_cell_traversal() {
       SDF::trace_periodic_shells_march<3>);
 }
 
+/**
+ * @brief Shell marches take radial_start from the prepared footprint.
+ */
 inline void test_shell_march_uses_footprint_radial_start() {
   const ShellMarchCase OWNER[] = {{1, .1f, 4, .5f, .03f, 7}};
   const ShellMarchCase NEIGHBORS[] = {{1, .1f, 5, .5f, .04f, 12}};
