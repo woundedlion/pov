@@ -567,5 +567,4 @@ private:
                 "module's default partition");
 };
 
-#include "core/control/registry.h"
 #endif // HS_ENABLE_CHAIN_INTERPRETER
