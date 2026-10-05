@@ -176,7 +176,9 @@ struct Base {
    * true. MeshCarousel holds one policy instance, so schedule()/retarget()
    * rewrite the per-transition state the outgoing sprite still reads;
    * MeshCarousel rejects that pairing for a per-face policy outright, and for
-   * any other unless it declares the rewrite harmless.
+   * other policies declaring retarget() unless RETARGET_SAFE_UNDER_OVERLAP is
+   * set. schedule() rewrites are unchecked; overlapping schedules must not
+   * write state their draw hooks read.
    */
   static constexpr bool OVERLAPS = false;
   /**
