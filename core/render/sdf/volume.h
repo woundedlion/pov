@@ -251,9 +251,9 @@ struct Twist {
   }
 
   /**
-   * @brief Analytical Lipschitz constant of the warp at a point.
+   * @brief Clamped angular-max bound on the warp Jacobian norm.
    * @param s Precomputed context (radial distance in the XZ plane).
-   * @return Operator norm of the warp Jacobian (>= 1), with the radial factor
+   * @return Angular-max bound (>= 1), with the radial factor
    * clamped at 1/max(s, R/2).
    * @note Precondition: the composed torus keeps r <= R/2, so its surface never
    * reaches s < R/2, where the clamp under-reports the true norm and a sphere
@@ -264,14 +264,14 @@ struct Twist {
   }
 
   /**
-   * @brief Analytical Lipschitz constant from an already-computed 1/s.
+   * @brief Clamped angular-max bound from an already-computed 1/s.
    * @param inv_s Reciprocal of the XZ radius, from sin_ntheta_inv().
-   * @return Operator norm of the warp Jacobian (>= 1), with the radial factor
+   * @return Angular-max bound (>= 1), with the radial factor
    * clamped as described below.
    * @details The warp Jacobian is the shear I - e_y·gᵀ with e_y ⊥ g and
-   * |g| = γ; its operator norm (largest singular value) is γ/2 + √(1 + γ²/4).
-   * γ uses |twist·amplitude| so the bound stays conservative regardless of
-   * sign, and min(1/s, 2/R) is the clamp 1/max(s, R/2).
+   * |g| = |twist·amplitude·cos(twist·theta)|/s. The bound replaces |g| with
+   * γ = |twist·amplitude|·min(1/s, 2/R) in γ/2 + √(1 + γ²/4),
+   * dropping the cosine and clamping the radial factor at 1/max(s, R/2).
    */
   float lipschitz(float inv_s) const {
     if (twist == 0)

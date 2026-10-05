@@ -71,7 +71,7 @@ inline void test_clip_bounds() {
   HS_EXPECT_TRUE(!hs_wasm::clip_bounds_valid(0, H, 0, W, W, H));
 
   // NaN is rejected on every position: an i32 parameter would coerce it to 0,
-  // which reads as an ordered empty band.
+  // which can turn invalid input into valid bounds.
   HS_EXPECT_TRUE(!hs_wasm::clip_bounds_valid(NAN, 48, 0, 10, W, H));
   HS_EXPECT_TRUE(!hs_wasm::clip_bounds_valid(0, NAN, 0, 10, W, H));
   HS_EXPECT_TRUE(!hs_wasm::clip_bounds_valid(0, 48, NAN, 10, W, H));

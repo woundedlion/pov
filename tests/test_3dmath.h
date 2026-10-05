@@ -18,6 +18,7 @@
 
 #include <algorithm>
 #include <array>
+#include <bit>
 
 namespace hs_test {
 namespace math3d_tests {
@@ -446,8 +447,10 @@ inline void test_fast_sincosf_0_pi() {
     float x = (i * math::PI_F) / 256.0f;
     float s, c;
     math::fast_sincosf_0_pi(x, s, c);
-    HS_EXPECT_EQ(s, math::fast_sinf(x));
-    HS_EXPECT_EQ(c, math::fast_cosf(x));
+    HS_EXPECT_EQ(std::bit_cast<uint32_t>(s),
+                 std::bit_cast<uint32_t>(math::fast_sinf(x)));
+    HS_EXPECT_EQ(std::bit_cast<uint32_t>(c),
+                 std::bit_cast<uint32_t>(math::fast_cosf(x)));
     HS_EXPECT_NEAR(s, std::sin(x), 1.8e-3f);
     HS_EXPECT_NEAR(c, std::cos(x), 1.8e-3f);
     HS_EXPECT_NEAR(s * s + c * c, 1.0f, 5e-3f);

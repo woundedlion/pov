@@ -6,6 +6,7 @@ import os
 import shlex
 import re
 import subprocess
+import sys
 import tempfile
 import unittest
 from pathlib import Path
@@ -269,6 +270,9 @@ class ProfileConfigVerification(unittest.TestCase):
                 'test -e .pio/build_cache/sentinel\n'
                 'test "$PLATFORMIO_BUILD_CACHE_DIR" != .pio/build_cache\n'
                 'test -d "$PLATFORMIO_BUILD_CACHE_DIR"\n'
+                f"{shlex.quote(sys.executable)} -c "
+                "'import os,sys; sys.exit(os.path.samefile(sys.argv[1], sys.argv[2]))' "
+                '"$PLATFORMIO_BUILD_CACHE_DIR" .pio/build_cache\n'
                 'rm -rf "$PLATFORMIO_BUILD_CACHE_DIR"\n'
             )
             result = subprocess.run(["bash", "-c", script], capture_output=True,

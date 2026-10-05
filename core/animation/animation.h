@@ -141,7 +141,7 @@ enum class Space {
 class AnimationCommon : public IAnimation {
 public:
   /**
-   * @brief Cancels the animation on the next step.
+   * @brief Marks the animation canceled.
    */
   void cancel() { canceled = true; }
   /**

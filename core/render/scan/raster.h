@@ -71,7 +71,7 @@ __attribute__((always_inline)) inline int pole_lod_block_anchor(int x,
  * @param run Columns in the block; 1 yields no slack.
  * @param sin_phi Sine of the row's colatitude.
  * @return Slack in the same units the walk's distance() reports.
- * @details Great-circle arc from a block's first column to its last -- a block
+ * @details Latitude-parallel arc from a block's first column to its last -- a block
  *          of longitude, foreshortened by sin(phi) -- times the shape's own
  *          change-per-arc factor (SDF::arc_stretch). A probe farther than this
  *          from the surface cannot change side anywhere in the block. A walk

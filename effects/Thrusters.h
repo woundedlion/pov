@@ -149,7 +149,7 @@ private:
 
     /**
      * @brief Linear ring radius for the frame being drawn.
-     * @return Radius in unit-sphere units, in [0, RADIUS_MAX].
+     * @return Radius as a fraction of a hemisphere, in [0, RADIUS_MAX].
      * @details Uses age + 1 (not age) so the first draw renders one linear step
      *          in rather than radius 0, reaching RADIUS_MAX after
      *          RADIUS_GROW_FRAMES frames.
@@ -247,9 +247,9 @@ private:
    * @brief Radial distortion of the ring at parameter t.
    * @param t Ring parameter in [0, 1) around the circumference.
    * @param phase Spatial warp phase in radians.
-   * @param amp Warp amplitude (unit-sphere units).
+   * @param amp Warp amplitude in radians.
    * @param frame Frame counter driving the temporal wave.
-   * @return Signed radial offset, in unit-sphere units.
+   * @return Signed angular radius offset in radians.
    * @details Product of a spatial warp wave (from `phase`) and a temporal wave
    *          (three cycles per 32 frames, from `frame`), scaled by `amp`. Pure in its
    *          arguments: callers pass an explicit snapshot of the warp state so
@@ -266,7 +266,7 @@ private:
    * @brief Draws one thruster as a white ring at the given radius.
    * @param c Canvas to render into.
    * @param ctx Thruster slot supplying orientation and thrust point.
-   * @param radius Ring radius in unit-sphere units.
+   * @param radius Ring radius as a fraction of a hemisphere.
    * @param opacity Fade factor in [0, 1]; multiplied by the global alpha param.
    */
   void draw_thruster(Canvas &c, const ThrusterContext &ctx, float radius,
@@ -346,7 +346,7 @@ private:
    * @brief User-tunable parameters exposed via register_param.
    */
   struct Params {
-    float radius = 1.0f; /**< Ring radius in unit-sphere units. */
+    float radius = 1.0f; /**< Ring radius as a fraction of a hemisphere. */
     float alpha = 0.2f;  /**< Global opacity multiplier in [0, 1]. */
   } params;
 };
