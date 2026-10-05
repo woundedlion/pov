@@ -2777,12 +2777,12 @@ inline void test_opleg_dual_bridge_seam_correspondence() {
     Arena temp(morph_temp_buf, sizeof(morph_temp_buf));
 
     // The needle reaches its bridge through the dt macro, so its seam runs on
-    // truncate(X, 1/3); every other site duals its recipe mesh directly.
+    // truncate(X, RECONCILE_TRUNCATE_T); other sites dual their recipe mesh directly.
     PolyMesh P = build_step_leg_seed(site, persist);
     if (std::strstr(site.name, "needle")) {
       Arena aux(morph_aux_buf, sizeof(morph_aux_buf));
-      P = Solids::finalize_solid(MeshOps::truncate(P, aux, temp, 1.0f / 3.0f),
-                                 leg);
+      P = Solids::finalize_solid(
+          MeshOps::truncate(P, aux, temp, RECONCILE_TRUNCATE_T), leg);
     }
     const size_t PF = P.face_counts.size();
 
