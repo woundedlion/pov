@@ -1233,7 +1233,7 @@ inline void test_srgb_linear_roundtrip_float() {
  * @brief Verifies a black->white gradient yields black at t=0 and white at t~1.
  */
 inline void test_gradient_endpoints() {
-  // Black at t=0, white at t=1, linear sRGB ramp between.
+  // Black at t=0, white at t=1, with OKLCH interpolation between stops.
   Gradient grad{{0.0f, CPixel(0u, 0u, 0u)}, {1.0f, CPixel(255u, 255u, 255u)}};
 
   Color4 c0 = grad.get(0.0f);
