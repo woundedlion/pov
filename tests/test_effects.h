@@ -76,26 +76,26 @@ constexpr int SMALL_H = 20;
  * @brief Per-effect smoke frame count, resolved from HS_SMOKE_FRAMES.
  * @details Shared with the arena/stack budget gates (tests/test_fixture.h), so
  * they measure over the base render window before parameter lints. Frame count is a
- * minor cost lever here: the module is dominated by full-resolution software
- * raster (~71 ms/frame at 288x144, once per HS_EFFECT_LIST entry), which the
- * QUICK tier skips entirely (see effects_full_suite()).
+ * minor cost lever here. The QUICK tier skips the production-resolution
+ * roster passes but retains full-resolution GS fidelity cases (see
+ * effects_full_suite()).
  */
 using hs_test::smoke_frames;
 
 /**
  * @brief Selects the effects test depth tier from the environment.
- * @return true for the FULL suite (the white-box cases costing a tenth of a
- * second or more + the production-resolution 288x144 roster passes), false for
- * the QUICK tier.
+ * @return true for the FULL suite (the production-resolution roster passes
+ * and the white-box cases in the FULL block), false for the QUICK tier.
  * @details The full suite renders every roster effect at the 288x144 production
  * resolution across a smoke pass, a determinism pass, and several full-frame
  * white-box tests — dominated by the ~71 ms/frame software raster of
  * 41,472-pixel frames. The QUICK tier (default) runs the small-aspect <96,20>
  * smoke + determinism passes, ~1,920-pixel frames that cover every effect's
  * construct/init/render/read-back and cross-run determinism, plus every
- * white-box case outside the FULL block. CI opts into the full suite on
+ * white-box case outside the FULL block, including full-resolution GS
+ * fidelity cases. CI opts into the full suite on
  * every master push and PR by setting HS_EFFECTS_FULL=1 (.github/workflows/ci.yml), so the
- * full-resolution passes and the slow white-box cases are the
+ * production-resolution roster passes and FULL-block white-box cases are the
  * authoritative gate there, not locally. Set HS_EFFECTS_FULL=1 to reproduce the
  * CI depth in a local commit. Read by the effects, effects_smoke,
  * effect_factory and mindsplatter modules.
@@ -7228,9 +7228,7 @@ inline int run_effects_tests() {
   run_case(test_bz_perturb_state_draw_count_pinned);
   run_case(test_hopf_projection_math);
   run_case(test_raymarch_constexpr_sqrt_converges);
-  // Both tiers: white-box cases costing under 50 ms each. Some build an effect
-  // at the production resolution; none renders enough of a frame for deferring
-  // it to buy PR runtime.
+  // Both tiers: additional white-box cases.
   run_case(test_needs_full_frame_gate);
   run_case(test_voronoi_axes_use_uniform_sampler);
   run_case(test_voronoi_segment_render_matches_full_frame);
@@ -7269,10 +7267,7 @@ inline int run_effects_tests() {
   run_case(test_islamicstars_burst_size_is_snapshotted_per_spawn);
   run_case(test_islamicstars_smooth_recipe_completion);
 
-  // FULL tier only (HS_EFFECTS_FULL=1; CI on every master push and PR). The partition
-  // is by measured cost, not by resolution: every case below runs for a tenth
-  // of a second or more, and the block totals about four minutes, over three of
-  // which are the two IslamicStars budget sweeps.
+  // FULL tier only (HS_EFFECTS_FULL=1; CI on every master push and PR).
   if (effects_full_suite()) {
     run_case(test_voronoi_union_candidates_cover_nearest);
     run_case(test_sh_pullback_matches_legacy_shader);
