@@ -403,9 +403,13 @@ def working_tree(cwd: str | Path | None = None) -> str:
 def cmd_record(args) -> int:
     envs = tuple(args.env) if args.env else DEFAULT_ENVIRONMENTS
     root = Path(_git(["rev-parse", "--show-toplevel"]))
-    paths = _git(["ls-files", "-z", "--", *BUILD_INPUTS], root).split("\0")
-    newest_input = max((root / path).stat().st_mtime_ns
-                       for path in paths if path and (root / path).is_file())
+    newest_input = None
+    if not args.built:
+        paths = _git(["ls-files", "-z", "--cached", "--others", "--exclude-standard",
+                      "--", *BUILD_INPUTS], root).split("\0")
+        newest_input = max(((root / path).stat().st_mtime_ns
+                            for path in paths if path and (root / path).is_file()),
+                           default=None)
     found = collect(args.build_dir, envs, warn=_warn, newest_input=newest_input)
     if not found:
         _warn("no firmware ELF parsed - nothing recorded.")
@@ -639,6 +643,8 @@ def build_parser() -> argparse.ArgumentParser:
     rec = sub.add_parser("record", help="parse built ELFs into a pending record")
     rec.add_argument("--build-dir", default=".pio/build")
     rec.add_argument("--out", help=f"default: <git-dir>/{PENDING_NAME}")
+    rec.add_argument("--built", action="store_true",
+                     help="record after a successful build, including unchanged cached ELFs")
     rec.add_argument("--env", action="append",
                      help="environment to record (repeatable); default "
                           + ", ".join(DEFAULT_ENVIRONMENTS))
