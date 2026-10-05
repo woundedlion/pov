@@ -1184,7 +1184,7 @@ jobs:
           restore-keys: pio-teensy-
       - name: Install pinned PlatformIO
         run: pip install --require-hashes -r requirements/platformio.txt
-      - name: Cold build + warning ratchet (all targets)
+      - name: Cold build + zero first-party warning gate (all targets)
         # An empty PLATFORMIO_BUILD_CACHE_DIR is ignored; remove both cache and build outputs.
         shell: bash
         run: |
