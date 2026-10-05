@@ -133,7 +133,7 @@ inline void test_relax_clamp() {
   HS_EXPECT_EQ(hs_wasm::clamp_relax_iterations(MAX + 1, MAX), MAX);
   HS_EXPECT_EQ(hs_wasm::clamp_relax_iterations(1000000000, MAX), MAX);
   // Counts past the 32-bit range saturate at the cap rather than wrapping
-  // negative and flooring at 0, which is what an i32 parameter would do.
+  // to an unrelated signed value, which an i32 parameter would do.
   HS_EXPECT_EQ(hs_wasm::clamp_relax_iterations(2147483648.0, MAX), MAX);
   HS_EXPECT_EQ(hs_wasm::clamp_relax_iterations(4294967296.0, MAX), MAX);
   HS_EXPECT_EQ(hs_wasm::clamp_relax_iterations(1e300, MAX), MAX);
