@@ -32,8 +32,8 @@
  * The run closes with a coverage line: how many of the engine's HS_CHECK sites
  * a case actually pins, against every site in the tree. Both numbers are
  * derived — the denominator from a build-time census of the sources
- * (tests/count_guard_sites.cmake), the numerator from the case table — so the
- * ratio is informational. Per-file unpinned counts are gated against
+ * (tests/count_guard_sites.cmake), the numerator from guard lines observed in
+ * cases that trapped — so the ratio is informational. Per-file unpinned counts are gated against
  * GUARD_GAP_ALLOW and must match exactly; gaps above or below fail the module.
  */
 #pragma once
