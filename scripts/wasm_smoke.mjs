@@ -1635,10 +1635,17 @@ async function main(probe) {
     if (!approxVec(id, v.x, v.y, v.z, 1e-3)) {
       fail(`mobius_transform identity = ${JSON.stringify(id)}, expected ${JSON.stringify(v)}`);
     }
-    // a=0, b=1, c=1, d=0 in the eight-float order; a transposed binding breaks this.
+    // a=0, b=1, c=1, d=0 in the eight-float coefficient order.
     const inv = Module.mobius_transform(v.x, v.y, v.z, 0, 0, 1, 0, 1, 0, 0, 0);
     if (!approxVec(inv, v.x, -v.y, -v.z, 1e-3)) {
       fail(`mobius_transform 1/z = ${JSON.stringify(inv)}, expected (${v.x}, ${-v.y}, ${-v.z})`);
+    }
+    // Stereographic z=1.2+1.6i, then (az+b)/(cz+d) and inverse projection.
+    // Distinct nonzero components expose coefficient and real/imaginary swaps.
+    const mapped = Module.mobius_transform(v.x, v.y, v.z,
+      0.8, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7);
+    if (!approxVec(mapped, 0.9255043973, 0.0062079669, -0.3786859803, 1e-3)) {
+      fail(`mobius_transform asymmetric coefficients = ${JSON.stringify(mapped)}`);
     }
   }
 
