@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Host tests for the Teensy 4 size/layout gate (tools/teensy_gate.py).
+"""Host tests for Teensy 4 size/layout, PlatformIO glue, and zero-warning gates.
 
 The gate must gate itself: a size/layout check that can never fail is worse than
 none (permanent false-green). So every layout invariant and region ceiling is
