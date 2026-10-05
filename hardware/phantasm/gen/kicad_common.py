@@ -88,14 +88,11 @@ def reset_uid_sequence():
 
 
 def uid():
-    """UUID for a generated element, derived from the call site and occurrence.
+    """UUID derived from the calling function and its occurrence count.
 
-    Deterministic uuid5, so one generator run reproduces another run's ids byte
-    for byte. Generated revisions 1.2 and 1.3 reproduce their committed ids.
-    KiCad wrote the routed rev 1.1 project with random v4 ids, so regenerating
-    that revision renumbers its uuids. The source file is part of the key, so
-    the schematic and board
-    generators draw from disjoint id spaces.
+    The key is source file + function name + occurrence. Deterministic uuid5
+    reproduces generated revisions 1.2 and 1.3 byte for byte. The schematic
+    and board generators draw from disjoint id spaces.
     """
     code = sys._getframe(1).f_code
     site = f"{os.path.basename(code.co_filename)}:{code.co_name}"
