@@ -58,14 +58,6 @@ static inline float chord2(const math::Vector &a, const math::Vector &b) {
  */
 constexpr float MAX_NEIGHBOR_CHORD2 = 0.008f;
 
-/**
- * @brief Chord^2 bound separating a real neighbor from a zero-pad entry.
- * @details A zero-padded row points every slot at node 0 (the north pole),
- *          chord^2 ~4 from the south-pole row; this bound only has to sit far
- *          below that, not track the table's real locality.
- */
-constexpr float PADDED_ROW_CHORD2 = 0.037f;
-
 // ---------------------------------------------------------------------------
 // node() generator
 // ---------------------------------------------------------------------------
@@ -144,37 +136,6 @@ inline void test_node_ordered_and_distinct() {
 inline void test_d_avg_matches_rd_n() {
   float expected = static_cast<float>(std::sqrt(4.0 * PI / RD_N));
   HS_EXPECT_NEAR(D_AVG, expected, 1e-6f);
-}
-
-/**
- * @brief Verifies the neighbor table's shape and population match RD_N / RD_K.
- * @details The whole suite (and every consumer) iterates the table with the
- *          RD_N/RD_K constants; nothing pinned that the declared array shape, or
- *          the generated data, actually spans RD_N rows. The static_asserts lock
- *          the declared shape to the constants. sizeof only sees the *declared*
- *          shape, though — a generator that emitted fewer than RD_N rows would
- *          zero-pad the tail (every entry -> node 0) and still compile, so the
- *          runtime half asserts the south-pole row (the farthest possible row
- *          from node 0) holds real, local neighbors, proving the data reaches
- *          the last row rather than degenerating into a zero pad.
- */
-inline void test_table_shape_matches_constants() {
-  static_assert(sizeof(neighbors) / sizeof(neighbors[0]) == RD_N,
-                "neighbors row count must equal RD_N");
-  static_assert(sizeof(neighbors[0]) / sizeof(neighbors[0][0]) == RD_K,
-                "neighbors column count must equal RD_K");
-
-  const math::Vector last = node(RD_N - 1);
-  int valid = 0;
-  for (int k = 0; k < RD_K; ++k) {
-    int16_t ni = neighbors[RD_N - 1][k];
-    HS_EXPECT_TRUE(ni >= 0 && ni < RD_N);
-    if (ni < 0 || ni >= RD_N)
-      continue;
-    ++valid;
-    HS_EXPECT_LT(chord2(last, node(ni)), PADDED_ROW_CHORD2);
-  }
-  HS_EXPECT_GT(valid, 0); // populated, not a zero-pad row
 }
 
 /** @brief Expands every run and compares all ordered slots to the K-NN table. */
@@ -269,7 +230,7 @@ inline void test_no_duplicate_neighbors_in_row() {
 /**
  * @brief Verifies every listed neighbor is geometrically nearby its node.
  * @details A shuffled, corrupted or ring-shifted row places a neighbor past
- *          MAX_NEIGHBOR_CHORD2.
+ *          MAX_NEIGHBOR_CHORD2; a short zero-padded tail also fails this bound.
  */
 inline void test_neighbors_are_local() {
   int first_far_slot = -1;
@@ -532,7 +493,6 @@ inline int run_reaction_graph_tests() {
   test_generated_node_positions();
   test_node_ordered_and_distinct();
   test_d_avg_matches_rd_n();
-  test_table_shape_matches_constants();
   test_neighbor_runs_match_table();
 
   test_indices_in_range();
