@@ -514,6 +514,12 @@ inline void test_mesh_op_growth_factors() {
   // An operator on the roster with no probe here would ship an unmeasured
   // factor.
   HS_EXPECT_EQ(std::size(MESH_OP_PROBES), hs_wasm::MESHOP_BOUNDS_COUNT);
+  for (const auto &entry : hs_wasm::MESHOP_BOUNDS) {
+    size_t matches = 0;
+    for (const MeshOpProbe &probe : MESH_OP_PROBES)
+      matches += std::strcmp(entry.name, probe.name) == 0;
+    HS_EXPECT_EQ(matches, size_t{1});
+  }
 
   // Face degree and vertex valence differ across these five (3/3, 4/3, 3/4,
   // 3/5, 5/3), so a factor keyed to the wrong measurement cannot pass on all.
