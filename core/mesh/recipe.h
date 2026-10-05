@@ -20,9 +20,8 @@
 
 namespace Solids {
 
-/** Largest chamfer thickness a leg is characterized at: the sweep, birth-limit
- * and birth-epsilon probes (tests/test_opchain_probe.h) run T_EPS -> 0.63 on
- * every chamfer seed. */
+/** Largest chamfer thickness a leg is characterized at: the chamfer sweep
+ * probe (tests/test_opchain_probe.h) runs T_EPS -> 0.63 on every chamfer seed. */
 inline constexpr float CHAMFER_T_MAX = 0.63f;
 
 /**
