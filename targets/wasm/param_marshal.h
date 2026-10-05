@@ -68,9 +68,11 @@ struct ParamView {
   bool readonly;   /**< True if the parameter is read-only (not editable). */
   bool preset;     /**< True if preset exports include the parameter. */
   const char *const *options; /**< Enum option labels, or null for a plain
-                                 param; the value is the selected index. */
+                                 param. */
   int option_count; /**< Number of option labels; > 0 marks an enum. */
   const char *const *export_options; /**< C++ enum literals, or null. */
+  const int64_t
+      *option_values; /**< IDs aligned with labels, or null for indices. */
 };
 
 /** @brief Reserved backing stores for the engine parameter streams. */
@@ -101,7 +103,13 @@ inline void collect_param_views(const Effect &effect,
         def.name, def.get(), def.get_requested(),
         effect.accepted_parameter_value(def), def.min, def.max, def.is_bool(),
         def.is_integer() || def.is_enum(), def.animated, def.readonly,
-        def.preset, def.options, def.option_count, def.export_options});
+        def.preset, def.options, def.option_count,
+#if HS_ENABLE_PARAM_GUI_BRIDGE
+        def.export_options,
+#else
+        nullptr,
+#endif
+        def.option_values});
   }
 }
 

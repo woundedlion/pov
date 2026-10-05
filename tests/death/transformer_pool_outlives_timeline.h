@@ -319,6 +319,21 @@ inline void case_register_int_param_min_inexact() {
   fx.reg_int("count", &slot, opaque(-std::numeric_limits<int32_t>::max()), 0);
 }
 
+inline void case_param_spec_invalid_option_values() {
+  DeathEffect fx;
+  static constexpr const char *LABELS[] = {"Zero", "One", "Six"};
+  static constexpr const int64_t IDS[] = {0, 1, 6};
+  uint8_t valid = 6;
+  uint8_t gap = opaque<uint8_t>(2);
+  const ParamSpec<uint8_t> spec{.min = 0,
+                                .max = 6,
+                                .options = LABELS,
+                                .option_count = 3,
+                                .option_values = IDS};
+  fx.register_param("valid", &valid, spec);
+  fx.register_param("gap", &gap, spec);
+}
+
 inline void case_param_spec_uint32_bound_outside_storage() {
   DeathEffect fx;
   uint32_t value = 0;

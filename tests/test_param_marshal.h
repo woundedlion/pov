@@ -121,10 +121,18 @@ inline RoundTripResult check_one(const char *name, FieldCoverage &coverage) {
     HS_EXPECT_TRUE(views[i].options == def.options);
     HS_EXPECT_EQ(views[i].option_count, def.option_count);
     HS_EXPECT_TRUE(views[i].export_options == def.export_options);
+    HS_EXPECT_TRUE(views[i].option_values == def.option_values);
     // An enum's current value is always a valid option index.
     if (def.option_count > 0) {
       HS_EXPECT_GE(views[i].value, 0.0f);
-      HS_EXPECT_LE(views[i].value, static_cast<float>(def.option_count - 1));
+      if (def.option_values == nullptr)
+        HS_EXPECT_LE(views[i].value, static_cast<float>(def.option_count - 1));
+      else {
+        bool listed = false;
+        for (int k = 0; k < def.option_count; ++k)
+          listed |= views[i].value == static_cast<float>(def.option_values[k]);
+        HS_EXPECT_TRUE(listed);
+      }
     }
     ++i;
   }
@@ -697,12 +705,49 @@ inline void test_authored_field_snapshot_validation() {
  *        validation/interpolation, and authored snapshot range checks.
  * @return The module's failure count.
  */
+inline void test_sparse_option_metadata() {
+  struct SparseEffect : Effect {
+    using Effect::register_param;
+    SparseEffect() : Effect(4, 4) {}
+    void draw_frame() override {}
+  } effect;
+  static constexpr const char *LABELS[] = {"Zero", "One", "Six"};
+  static constexpr const char *EXPORTS[] = {"Mode::ZERO", "Mode::ONE",
+                                            "Mode::SIX"};
+  static constexpr const int64_t IDS[] = {0, 1, 6};
+  uint8_t mapped = 6;
+  uint8_t dense = 2;
+  effect.register_param("Mapped", &mapped,
+                        ParamSpec<uint8_t>{.min = 0,
+                                           .max = 6,
+                                           .options = LABELS,
+                                           .export_options = EXPORTS,
+                                           .option_count = 3,
+                                           .option_values = IDS});
+  effect.register_param("Dense", &dense,
+                        ParamSpec<uint8_t>::enumerated(LABELS, 3));
+  std::vector<hs_wasm::ParamView> views;
+  hs_wasm::collect_param_views(effect, views);
+  HS_EXPECT_EQ(views.size(), size_t(2));
+  if (views.size() != 2)
+    return;
+  HS_EXPECT_TRUE(views[0].options == LABELS);
+  HS_EXPECT_TRUE(views[0].export_options == EXPORTS);
+  HS_EXPECT_TRUE(views[0].option_values == IDS);
+  HS_EXPECT_EQ(views[0].option_count, int(std::size(IDS)));
+  HS_EXPECT_EQ(views[0].value, 6.0f);
+  HS_EXPECT_EQ(views[0].max, 6.0f);
+  HS_EXPECT_TRUE(views[1].option_values == nullptr);
+  HS_EXPECT_EQ(views[1].value, 2.0f);
+}
+
 inline int run_param_marshal_tests() {
   hs_test::ModuleFixture fixture("param_marshal");
   test_choreography_descriptions_default();
   test_typed_field_invalid_metadata();
   test_typed_field_domains_and_exclusions();
   test_authored_field_snapshot_validation();
+  test_sparse_option_metadata();
   check_roster_order_pinned();
   check_generation_tracker();
   check_hyper_lattice_pattern_view_dropdowns();

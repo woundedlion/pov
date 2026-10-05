@@ -65,8 +65,12 @@ struct ParamDef {
   const char *const *options = nullptr; /**< Option labels for an enumerated
                              param (GUI dropdown), or null for a plain param.
                              Must outlive the effect (string literals). */
+#if HS_ENABLE_PARAM_GUI_BRIDGE
   const char *const *export_options =
       nullptr; /**< C++ enum literals indexed like options, or null. */
+#endif
+  const int64_t *option_values = nullptr; /**< IDs aligned with options; null
+                                             selects dense indices. */
   float min =
       0; /**< Lower bound for every non-bool target (integer bounds are exact in float). */
   float max =
@@ -195,11 +199,17 @@ public:
       value = roundf(value);
     if (!is_bool())
       value = std::clamp(value, min, max);
+    if (option_values != nullptr) {
+      for (int i = 0; i < option_count; ++i)
+        if (value == static_cast<float>(option_values[i]))
+          return ParamSetResult::APPLIED;
+      return ParamSetResult::INADMISSIBLE;
+    }
     return ParamSetResult::APPLIED;
   }
 };
 static_assert(sizeof(void *) != 4 ||
-                  sizeof(ParamDef) == (HS_ENABLE_PARAM_GUI_BRIDGE ? 36 : 32),
+                  sizeof(ParamDef) == (HS_ENABLE_PARAM_GUI_BRIDGE ? 40 : 32),
               "ParamDef must keep its 32-bit device footprint");
 
 /**

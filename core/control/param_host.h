@@ -309,7 +309,7 @@ protected:
                  spec.initial_value ==
                      ParamInitialValue::PRESERVE_REQUESTED_FLOAT,
              "register_param: invalid initial-value policy name=%s", name);
-    if (options != nullptr)
+    if (options != nullptr && spec.option_values.empty())
       HS_CHECK(option_count > 0 && min == 0 && max == option_count - 1,
                "register_param: option range does not match labels");
 
@@ -365,16 +365,18 @@ protected:
               options != nullptr && option_count > 0,
               "register_param: enum needs at least one option name=%s count=%d",
               name, option_count);
-          HS_CHECK(
-              static_cast<int64_t>(option_count - 1) <=
-                  static_cast<int64_t>(std::numeric_limits<Integer>::max()),
-              "register_param: options must fit the target enum type name=%s count=%d",
-              name, option_count);
-          HS_CHECK(
-              static_cast<int64_t>(static_cast<float>(option_count - 1)) ==
-                  option_count - 1,
-              "register_param: enum bound must be exactly representable as float name=%s count=%d",
-              name, option_count);
+          if (spec.option_values.empty()) {
+            HS_CHECK(
+                static_cast<int64_t>(option_count - 1) <=
+                    static_cast<int64_t>(std::numeric_limits<Integer>::max()),
+                "register_param: options must fit the target enum type name=%s count=%d",
+                name, option_count);
+            HS_CHECK(
+                static_cast<int64_t>(static_cast<float>(option_count - 1)) ==
+                    option_count - 1,
+                "register_param: enum bound must be exactly representable as float name=%s count=%d",
+                name, option_count);
+          }
         }
         HS_CHECK(min <= max,
                  "register_param: min must be <= max name=%s min=%lld max=%lld",
@@ -403,6 +405,8 @@ protected:
         target_type = integer_target_type<Integer>();
       }
     }
+    HS_CHECK(spec.valid_option_values(*ptr),
+             "register_param: invalid explicit option values name=%s", name);
     for (int i = 0; i < option_count; ++i) {
       HS_CHECK(options[i] != nullptr,
                "register_param: null option label name=%s index=%d", name, i);
@@ -416,7 +420,11 @@ protected:
     def.max = static_cast<float>(max);
     def.target_type = target_type;
     def.options = options;
+#if HS_ENABLE_PARAM_GUI_BRIDGE
     def.export_options = spec.export_options;
+#endif
+    def.option_values =
+        spec.option_values.empty() ? nullptr : spec.option_values.data();
     def.option_count = option_count;
     def.animated = spec.animated;
     def.readonly = spec.readonly;

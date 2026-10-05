@@ -5,6 +5,7 @@
 #pragma once
 
 #include <cstdint>
+#include <span>
 #include <type_traits>
 
 /** @brief Registration policy for a target's initial value. */
@@ -22,7 +23,7 @@ template <typename T> struct ParamInteger<T, true> {
 
 /**
  * @brief Typed construction-time parameter description.
- * @details Label arrays and their strings must outlive the registered host.
+ * @details Label arrays, value maps and their strings must outlive the host.
  * Integer bounds retain their exact values until registration validates them.
  */
 template <typename T> struct ParamSpec {
@@ -41,7 +42,34 @@ template <typename T> struct ParamSpec {
   const char *const *options = nullptr;
   const char *const *export_options = nullptr;
   int option_count = 0;
+  std::span<const int64_t> option_values{}; /**< Empty selects dense indices. */
   ParamInitialValue initial_value = ParamInitialValue::REQUIRE_IN_RANGE;
+
+  /** @brief Checks explicit IDs, their bounds, and the selected initial ID. */
+  constexpr bool valid_option_values(T initial) const {
+    if (option_values.empty())
+      return true;
+    if (options == nullptr || option_count <= 0 ||
+        option_values.size() != static_cast<size_t>(option_count))
+      return false;
+    bool includes_min = false;
+    bool includes_max = false;
+    bool includes_initial = false;
+    for (size_t i = 0; i < option_values.size(); ++i) {
+      const int64_t value = option_values[i];
+      if (value < INT32_MIN || value > UINT32_MAX ||
+          static_cast<int64_t>(static_cast<float>(value)) != value ||
+          value < min || value > max)
+        return false;
+      includes_min |= value == min;
+      includes_max |= value == max;
+      includes_initial |= static_cast<Bound>(initial) == value;
+      for (size_t j = 0; j < i; ++j)
+        if (value == option_values[j])
+          return false;
+    }
+    return includes_min && includes_max && includes_initial;
+  }
 
   /** @brief Describes a dropdown over the contiguous indices [0,count-1]. */
   static constexpr ParamSpec enumerated(const char *const *labels, int count,
