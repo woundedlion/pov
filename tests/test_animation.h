@@ -1511,7 +1511,7 @@ inline void test_particle_system_spawn_initializes_and_steps() {
   static uint8_t buf[256 * 1024];
   Arena arena(buf, sizeof(buf));
   Animation::ParticleSystem<32, 4> ps;
-  // gravity 0 and no attractor: the only state change is the step's bookkeeping.
+  // Zero gravity and no attractor isolate the particle's inertial step.
   ps.init(arena, /*friction=*/0.85f, /*gravity=*/0.0f, /*max_life=*/120.0f);
 
   const math::Vector pos(0.6f, 0.0f, 0.8f);
