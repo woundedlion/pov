@@ -716,7 +716,7 @@ inline void test_spherical_polygon_sine_distance_aa_error() {
         HS_EXPECT_TRUE(exact.dist == 0.0f || sine == 0.0f ||
                        std::signbit(exact.dist) == std::signbit(sine));
         if (std::abs(exact.dist) <= PIXEL_WIDTH) {
-          max_error = std::max(max_error, std::abs(exact.dist - sine));
+          max_error = fold_worst(max_error, std::abs(exact.dist - sine));
           ++edge_samples;
         }
       }
