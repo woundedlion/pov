@@ -171,10 +171,10 @@ exports run locally through `../gen/fab.py` when the package is regenerated.
   name carrying whitespace on either board. KiCad builds each Gerber's filename
   from the layer name, so an Altium-style alias such as `Ground Layer 1` ships a
   space in the upload zip.
-- **Board-revision gate:** `../gen/tests/test_revision.py` reads the revision off
-  the bottom silkscreen (`Phantasm Rev 1.1`) and requires the schematic title
-  block and the routed board's title block to agree with it. Generated artifacts
-  are checked separately against `../gen/builder.py`'s `REVISION` (1.2).
+- **Board-revision gate:** `../gen/tests/test_revision.py` requires the bottom
+  silkscreen stamp (`Phantasm Rev X`), schematic title block and board title
+  block of each of `1.1/`, `1.2/` and `1.3/` to name that directory's revision.
+  A separate test pins `../gen/builder.py`'s default `REVISION` at 1.2.
   `pcb.py` rejects a source schematic from another revision, and the electrical
   and assembly gates select their exact requirements by artifact revision.
   The board title block is what KiCad writes into the Gerber X2
