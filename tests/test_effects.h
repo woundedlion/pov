@@ -7207,11 +7207,11 @@ inline int run_effects_tests() {
   run_case(test_shapeshifter_slider_selections_render);
   run_case(test_manual_preset_navigation);
   run_case(test_hankinsolids_manual_pause_holds_morph);
-  // Arena budgets both tiers run: a mesh or fragment-count change reds these,
-  // and they cost under a second between them.
+  // Both tiers: arena budgets.
   run_case(test_fishbowl_scratch_estimate_covers_peak);
   run_case(test_hankinsolids_arena_budget_covers_every_solid);
   run_case(test_dreamballs_max_edge_solid_render);
+  // Both tiers: Raymarch geometry and presets.
   run_case(test_raymarch_volume_random_walks_are_independent);
   run_case(test_raymarch_preset_and_placement_solids);
   run_case(test_raymarch_surface_frame_uv);
