@@ -315,7 +315,7 @@ the strip, the heavy 5 V/GND LED harness, and the Belden 8451 STP for each inter
 - **Widened lands on the bench-tuned sync resistors — spec §11.1 is not met on this board.**
   §11.1 mandates the toe-extended KiCad `_HandSolder` land, which keeps the IPC-nominal
   inter-pad gap and adds no copper under the ceramic body. The shipped copper does neither,
-  and both parts are reflow-placed. `R1`, `R2` (divider ratio, spec §4.2), `R_PD` (bus idle
+  and the listed resistors are reflow-placed. `R1`, `R2` (divider ratio, spec §4.2), `R_PD` (bus idle
   pull-down) and `R_S` (source termination) keep the **stock**
   `Resistor_SMD:R_0603_1608Metric` / `R_0805_2012Metric` footprint id in
   `phantasm.kicad_pcb`, with the pads **widened in place**: the centres stay at the stock ±0.825 mm (0603) / ±0.9125 mm (0805) while the
