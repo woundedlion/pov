@@ -377,9 +377,10 @@ Three consequences for the design decisions:
 This is purely **board-vs-board** (differential) crystal drift. It is distinct
 from **image-vs-rotor** drift (motor holding RPM to ±%, not ±ppm — far larger),
 which is *common-mode*: all boards follow master's flywheel, so the image
-precesses uniformly and stays coherent (§2, rotor model). Crystal drift is the
-only differential error between boards, and is exactly what the snap (and
-optional trim) nulls.
+precesses uniformly and stays coherent (§2, rotor model). The snap (and optional
+trim) corrects differential crystal drift. Independent wake grids and ISR-entry
+jitter also contribute inter-board timing error (§4.1, §5.2); crystal drift alone
+does not bound the rendered-column skew.
 
 ---
 
@@ -834,10 +835,10 @@ separated *in time* on the same wire.
   counter the §6.3.1 j-inference reads; an uncorrected slip would skew every
   later epoch commit). An
   ACQUIRE/joining board adopts `(effect, rev)` as its content identity and
-  goes live at the next join-grid boundary (§6.5) with the effect at frame 0
-  — there is no frame fast-forward, so only the grid-aligned boot realizes
-  the ideal `t = 2·rev + parity` join; a mid-show rejoiner runs `t`-offset
-  until the next epoch (§6.2).
+  goes live when ready at an eligible join-grid boundary (§6.5), at frame 0
+  — there is no frame fast-forward, so a grid-aligned boot that joins at the
+  same crossing realizes the ideal `t = 2·rev + parity` join; a mid-show
+  rejoiner runs `t`-offset until the next epoch (§6.2).
 
 ### 6.5 The join grid — going live in lockstep
 
@@ -847,10 +848,10 @@ B+R+K and unaffected). This is what makes **boot** coherent: without it, the
 master would go live at its first boundary while downstream boards waited
 ~1–2 revolutions for beacon identity, leaving the master's `t` a few frames
 ahead of its neighbors for the entire first effect — a visible junction
-shear on fast effects. With the grid, every board (master included) holds
-dark until the same crossing — typically revolution 4, ~0.5 s after power-on
-— and starts frame 0 together. The grid length divides 64, so a
-beacon-joined board's mod-64 revolution count lands on the same grid as the
+shear on fast effects. With the grid, each board (master included) holds
+dark until an eligible crossing. Boards ready by the same crossing — typically
+revolution 4, ~0.5 s after power-on — start frame 0 together. The grid length
+divides 64, so a beacon-joined board's mod-64 revolution count lands on the same grid as the
 master's true count; a mid-show rejoiner waits ≤ 4 revolutions (500 ms),
 well inside the §9.1 25-revolution (~3.1 s) rejoin budget.
 
@@ -1255,7 +1256,7 @@ Following the `pov_segment_map.h` precedent (pure, host-tested index math):
   line.
 - **A second (column-clock) wire / per-column genlock** — *removed*, not merely
   unused. The flywheel + 2/rev snap is proven sub-column (§4.5), so the
-  continuous clock wire earns nothing and is deleted. Re-adding it would only buy
-  the difference between 0.006 col and ~0 — below the visible threshold either
-  way.
+  continuous clock wire is deleted. The crystal-drift term alone is about
+  0.006 col; wake-grid quantization and ISR-entry jitter contribute separately
+  (§4.1, §5.2).
 - **`pov_single` content/rotor changes** beyond an optional shared flywheel core.

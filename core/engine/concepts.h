@@ -428,7 +428,7 @@ public:
    * @param x Column position in pixels (screen space).
    * @param y Row position in pixels (screen space).
    * @param c Source color to plot.
-   * @param age Normalized trail age in [0, 1].
+   * @param age Temporal age in frames.
    * @param alpha Coverage/opacity in [0, 1].
    */
   void plot(Canvas &cv, float x, float y, const Pixel &c, float age,
@@ -441,7 +441,7 @@ public:
    * @param x Column position in pixels (screen space).
    * @param y Row position in pixels (screen space).
    * @param c Source color to plot.
-   * @param age Normalized trail age in [0, 1].
+   * @param age Temporal age in frames.
    * @param alpha Coverage/opacity in [0, 1].
    * @details Preserves integer coordinates when forwarding to the wrapped
    * pipeline.
@@ -455,7 +455,7 @@ public:
    * @param cv Target canvas to draw into.
    * @param v World-space position to project and plot.
    * @param c Source color to plot.
-   * @param age Normalized trail age in [0, 1].
+   * @param age Temporal age in frames.
    * @param alpha Coverage/opacity in [0, 1].
    */
   void plot(Canvas &cv, const math::Vector &v, const Pixel &c, float age,
