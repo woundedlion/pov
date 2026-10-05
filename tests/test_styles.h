@@ -412,7 +412,8 @@ inline void test_hue_rotate_lms_matrix_identity() {
  *        fade-then-rotate composition through the tabulated gamut clip.
  * @details Allows 64 u16-channel LSBs across preset fades, hue rotations,
  * saturated primaries, dark and gray tones. The reference rotates in OKLab
- * with exact trig and, when the rotated color leaves the cube, rescales its
+ * with the same cached trig pair and, when the rotated color leaves the cube,
+ * rescales its
  * chroma onto the flash grid's cell minimum, the clip hue_fade applies.
  */
 inline void test_hue_fade_matches_rotate_reference() {
