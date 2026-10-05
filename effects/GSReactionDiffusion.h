@@ -78,7 +78,8 @@ public:
   /**
    * @brief One-time setup: arenas, GUI params, A/B state, cubemap LUT, lattice.
    * @details Carves the persistent arena, registers the GUI params, allocates
-   * and seeds the A/B state, and builds the cubemap LUT and lattice nodes once.
+   * the A/B/pigment state, seed palettes and colour-noise LUT, seeds the first
+   * reaction, binds the flash lattice and builds the cubemap LUT once.
    */
   void init() override {
     constexpr size_t PALETTE_BYTES =
