@@ -7,8 +7,8 @@
  * wire-format and arithmetic is testable without a Teensy. Covers the bytes
  * that actually go on the SPI wire: frame layout, [0xFF][B][G][R] channel
  * order, and the linear-space correction pipeline.
- * The DMA/SPI driver itself (register access, eDMA, ISR) is hardware-only and
- * out of host-test scope.
+ * The Teensy SPI/DMA transport internals (register access, eDMA, ISR) are
+ * hardware-only and out of host-test scope.
  */
 #pragma once
 
