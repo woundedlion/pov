@@ -518,9 +518,9 @@ private:
   /**
    * @brief Advances one particle on the sphere surface for one frame.
    * @param p The particle to advance (modified in place).
-   * @param max_delta Per-frame surface-rotation cap (radians), one display
-   * column wide; the move below clamps to it so a fast particle never jumps more
-   * than one column per frame (trail/motion-blur aliasing).
+   * @param max_delta Per-frame surface-rotation cap (radians), the angular pitch
+   * of one equatorial display column. Near a pole the same surface step can
+   * cross several longitude columns.
    * @return True once the particle is dead, so the caller can remove it.
    * @details Ages, drags velocity, applies attractor gravity/steering, rotates
    * position+velocity along the surface, and updates the trail.
@@ -653,7 +653,7 @@ private:
           float speed = p.velocity.magnitude();
           math::Vector axis = math::cross(pos, p.velocity);
           if (speed > MOTION_MIN_SPEED && axis.magnitude() > MOTION_MIN_SPEED) {
-            // Cap the per-frame surface advance at one column to avoid aliasing;
+            // Cap surface advance at one equatorial column's angular pitch;
             // velocity keeps its full magnitude.
             speed = fminf(speed, max_delta);
             math::Quaternion dq = math::make_rotation(axis.normalized(), speed);
