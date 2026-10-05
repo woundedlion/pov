@@ -522,13 +522,8 @@ inline void test_truncated_icosahedron_wireframe_and_fill() {
 
   PolyMesh goldberg = Solids::Archimedean::truncatedIcosahedron(seed_a, seed_b);
   check_wireframe_pixels_on_edges<W, H>(goldberg, geom, 128); // 90 edges
-  Arena seed_a2(mr_seed_a, sizeof(mr_seed_a));
-  Arena seed_b2(mr_seed_b, sizeof(mr_seed_b));
   Arena geom2(mr_geom, sizeof(mr_geom));
-  // Rebuild: the SolidBuilder above consumed seed_a/seed_b as its op pipeline.
-  PolyMesh goldberg2 =
-      Solids::Archimedean::truncatedIcosahedron(seed_a2, seed_b2);
-  check_solid_fill_tiles<W, H>(goldberg2, geom2, scratch);
+  check_solid_fill_tiles<W, H>(goldberg, geom2, scratch);
 }
 
 /**
