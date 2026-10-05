@@ -2988,6 +2988,7 @@ inline int run_color_tests() {
   test_generative_palette_snapshot_lerp();
   test_generative_palette_lerp_accumulates_segment_deltas();
   test_generative_palette_snapshot_keeps_faint_chroma_chromatic();
+  test_generative_palette_snapshot_keeps_absolute_gray_achromatic();
   test_generative_palette_lerp_target_aliases_this();
   test_generative_palette_snapshot_lerp_closes_loop();
   test_generative_palette_cartesian_path_neutralizes_midpoint();
