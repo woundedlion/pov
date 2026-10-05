@@ -19,7 +19,7 @@ Rows rank by any spill, then peak render. 🟢 is zero spill, 🟡 is under 25% 
 | [KaleidoscopeStainedGlass](profile_kaleidoscopestainedglass_teensy_2026-09-28.md) | `fx_shader_draw` | 🟢 43.50 | 🟢 0/1087 (0.00%) | 2026-09-28 17:35 |
 | [DreamBalls](profile_dreamballs_teensy_2026-09-28.md) § | `db_timeline_step` | 🟢 42.66 (10) | 🟢 0/3647 (0.00%) | 2026-09-28 18:45 |
 | [MermaidSkin](profile_mermaidskin_teensy_2026-09-28.md) | `fx_shader_draw` | 🟢 39.57 | 🟢 0/1087 (0.00%) | 2026-09-28 18:49 |
-| [GSReactionDiffusion](profile_gsreactiondiffusion_teensy_2026-10-05.md) ● | `grd_shader_draw` | 🟢 39.271 | 🟢 0/2032 (0.00%) | 2026-10-05 00:38 |
+| [GSReactionDiffusion](profile_gsreactiondiffusion_teensy_2026-10-05.md) ● | `grd_shader_draw` | 🟢 39.371 | 🟢 0/2032 (0.00%) | 2026-10-05 12:20 |
 | [KaleidoscopeHexOil](profile_kaleidoscopehexoil_teensy_2026-09-28.md) § | `fx_shader_draw` | 🟢 38.51 (2) | 🟢 0/2207 (0.00%) | 2026-09-28 18:54 |
 | [HyperLattice](profile_hyperlattice_architecture_teensy_2026-10-01.md) § ● | `hl_shader_draw` | 🟢 36.839 (3) | 🟢 0/2696 (0.00%) | 2026-10-01 09:19 |
 | [LatticeMelt](profile_latticemelt_architecture_teensy_2026-10-01.md) § ● | `fx_shader_draw` | 🟢 36.583 (2) | 🟢 0/1736 (0.00%) | 2026-10-01 09:38 |
