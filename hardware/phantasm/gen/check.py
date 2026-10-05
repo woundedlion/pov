@@ -2,7 +2,8 @@
 
 Nodes are keyed on (ref, pin), so a connector or IC pinout permutation fails the
 gate as loudly as a short or a break does. gen/tests/test_check.py applies the
-same table to the committed board's pad nets; that is the leg CI runs.
+same table to the committed board's pad nets. CI gates that leg and the exported
+netlist through pcb.py in the KiCad-backed pcb-tests job.
 """
 import argparse
 import os
@@ -132,7 +133,7 @@ def netlist_nets(root):
 
 
 def check(got, revision=builder.REVISION):
-    """Report every net that differs from EXPECT; return True when all match.
+    """Report every net that differs from the revision's expected table; return True when all match.
 
     A named net absent from EXPECT is printed as an advisory NOTE and does not
     move the verdict: the gate partitions the nets it knows, it does not close
