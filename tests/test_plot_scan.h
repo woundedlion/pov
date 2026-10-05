@@ -5291,10 +5291,10 @@ inline Plot::PlanarEdgeSampler planar_sampler(const math::Vector &a,
  *        at the same position.
  * @details The oracle is derived here rather than taken from the sampler: pos()
  *          unprojects through azimuthal_unproject where sample_at inlines its
- *          own, so the two stay independent derivations of the same quantity. A
- *          sign flip or an off-by-one in projection_fraction would show here
- *          and nowhere else: the whole-effect framebuffer compare is far too
- *          loose to see it.
+ *          own, so the two stay independent derivations of the same quantity.
+ *          projection_fraction feeds both sides, so a reversed or plateaued
+ *          mapping shows here (backward or zero-length forward differences),
+ *          but a monotone mapping that is not arc-uniform does not.
  */
 inline void test_planar_one_pass_matches_forward_difference() {
   hs::random().seed(0x51F1);
@@ -5334,8 +5334,8 @@ inline void test_planar_one_pass_matches_forward_difference() {
   }
   HS_EXPECT_GT(checked, 1000);
   // Bounds are the fast_sinf/fast_cosf budget the two derivations each pay,
-  // not agreement to float precision; a sign flip or an off-by-one in
-  // projection_fraction misses them by orders of magnitude.
+  // not agreement to float precision; a sign flip in the analytic tangent or a
+  // reversed projection_fraction misses them by orders of magnitude.
   HS_EXPECT_LE(worst_len, 5e-3f);
   HS_EXPECT_LE(worst_pos, 2e-2f);
   HS_EXPECT_LE(worst_tan_len, 5e-3f);
