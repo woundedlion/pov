@@ -88,7 +88,8 @@ enum class EffectRestoreCapability : uint8_t {
  *   what request() returns to the caller and what
  *   EffectTransitionController::failure() reports afterwards. BUSY and
  *   UNAVAILABLE may originate in request() or the adapter's preflight();
- *   the remaining failures originate in the adapter.
+ *   RESTORE_REJECTED also originates in the controller when no restorable
+ *   state is available; the remaining failures originate in the adapter.
  */
 enum class EffectTransitionStatus : uint8_t {
   OK,          /**< Step accepted. */
