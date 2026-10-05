@@ -1713,7 +1713,7 @@ inline void test_strap_crossfade_across_cycle_start() {
   HS_EXPECT_GT(st.far_pairs, 0);
 }
 
-/** Epoch seeds for the seed-swept strap pin; epoch 0 is walked deeper above. */
+/** Epoch seeds for the seed-swept strap pin. */
 constexpr uint32_t STRAP_SWEEP_EPOCHS[] = {1, 2, 3, 5, 8, 13, 15};
 
 /** Arrival budget per swept seed (frame cap scales with it). */
