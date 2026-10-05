@@ -731,7 +731,7 @@ inline void test_noise_cross_hemisphere_cap() {
   HS_EXPECT_LE(worst_high, capped_angle + 1e-4f);
   HS_EXPECT_NEAR(sweep(4.0f * STYLE.amplitude), capped_angle, 1e-4f);
 
-  // 0.6 is the ceiling of every other noise test; the cap must be slack there.
+  // The cap stays slack at this lower amplitude.
   const float worst_low = sweep(0.6f);
   HS_EXPECT_LT(worst_low, capped_angle * 0.5f);
 }
