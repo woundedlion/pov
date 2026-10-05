@@ -33,6 +33,8 @@ inline constexpr float BOUNDS_MARGIN_WIDE = 0.1f;
 inline constexpr float MIN_HORIZONTAL_PROJ = 0.01f;
 /** Epsilon for near-zero denominators in interval math. */
 inline constexpr float INTERVAL_DENOM_EPS = 1e-6f;
+/** Annular angle slack covers the error bounded by test_fast_acos. */
+inline constexpr float ANNULAR_ANGLE_PAD = 6e-5f;
 /** Threshold for near-pole ring approximation safety. */
 inline constexpr float POLE_SAFE_MARGIN = 0.05f;
 /** Ring thickness ceiling as a fraction of tan(target_angle) for the
@@ -868,8 +870,8 @@ inline bool annular_band_angles(float cos_outer, float cos_inner, float ny,
   float max_cos = std::min(1.0f, C_max);
   if (min_cos > max_cos)
     return false; // Empty row
-  angle_min = math::fast_acos(max_cos);
-  angle_max = math::fast_acos(min_cos);
+  angle_min = math::fast_acos(max_cos) - ANNULAR_ANGLE_PAD;
+  angle_max = math::fast_acos(min_cos) + ANNULAR_ANGLE_PAD;
   return true;
 }
 
