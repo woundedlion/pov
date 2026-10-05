@@ -435,7 +435,7 @@ protected:
       prev_pal = host().slot_face_palette[host().carousel.front_index()];
     } else {
       // Depart from the palette the previous leg landed on.
-      HS_CHECK(build_from_pal && build_from_faces == prev_faces,
+      HS_CHECK(build_from_faces == prev_faces,
                "RecipeBuild: carried palette does not cover the leg seed");
       prev_pal = build_from_pal;
     }
