@@ -598,7 +598,12 @@ inline void test_blur_factor_zero_is_identity() {
   HS_EXPECT_NEAR(kept_alpha, 1.0f, 1e-5f);
   HS_EXPECT_NEAR(kept_x, 8.0f, 1e-5f);
   HS_EXPECT_NEAR(kept_y, 16.0f, 1e-5f);
+}
 
+/** @brief Blur folds sub-pole taps and drops virtual rows at all strengths. */
+inline void test_blur_folds_boundary_and_drops_virtual_rows() {
+  constexpr int W = 32, H = 32;
+  Filter::Screen::Blur<W, H> blur(0.0f);
   for (float factor : {0.0f, 1e-6f, 1.0f}) {
     blur.update(factor);
     float total = 0.0f;
@@ -3979,6 +3984,7 @@ inline int run_filter_tests() {
   test_antialias_clips_virtual_subpole_row();
 
   test_blur_factor_zero_is_identity();
+  test_blur_folds_boundary_and_drops_virtual_rows();
   test_blur_full_kernel_sums_to_alpha();
   test_blur_kernel_weights_by_offset();
   test_blur_update_changes_kernel();
