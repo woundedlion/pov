@@ -582,30 +582,24 @@ struct Spec {
 
 template <typename Family, typename Binding> struct SourcePolicyFor;
 template <typename B> struct SourcePolicyFor<GridSourceParams, B> {
-  static constexpr bool USES_NOISE = false;
   using Type = Pullback::Source::Grid<SourceProvider<B, GridSourceParams>>;
 };
 template <typename B> struct SourcePolicyFor<TwinWaveSourceParams, B> {
-  static constexpr bool USES_NOISE = false;
   using Type =
       Pullback::Source::TwinWave<SourceProvider<B, TwinWaveSourceParams>>;
 };
 template <typename B> struct SourcePolicyFor<SpiralSourceParams, B> {
-  static constexpr bool USES_NOISE = false;
   using Type = Pullback::Source::Spiral<SourceProvider<B, SpiralSourceParams>>;
 };
 template <typename B> struct SourcePolicyFor<LatticeSourceParams, B> {
-  static constexpr bool USES_NOISE = false;
   using Type = Pullback::Source::PrimitiveLattice<
       SourceProvider<B, LatticeSourceParams>>;
 };
 template <typename B> struct SourcePolicyFor<ProjectedNoiseSourceParams, B> {
-  static constexpr bool USES_NOISE = true;
   using Type = Pullback::Source::ProjectedNoise<
       SourceProvider<B, ProjectedNoiseSourceParams>, math::NoiseBasis::SIMPLEX>;
 };
 template <typename B> struct SourcePolicyFor<SphericalNoiseSourceParams, B> {
-  static constexpr bool USES_NOISE = true;
   using Type = Pullback::Source::SphericalNoise<
       SourceProvider<B, SphericalNoiseSourceParams>, math::NoiseBasis::SIMPLEX>;
 };
@@ -614,18 +608,15 @@ template <typename Family, typename Binding, ResourceKey Key, bool TrackPath>
 struct WarpPolicyFor;
 template <typename B, ResourceKey K, bool T>
 struct WarpPolicyFor<MirrorParams, B, K, T> {
-  static constexpr bool USES_NOISE = false;
   using Type = Pullback::Warp::MirrorTile<WarpProvider<B, K, MirrorParams, T>>;
 };
 template <typename B, ResourceKey K, bool T>
 struct WarpPolicyFor<WaveShearParams, B, K, T> {
-  static constexpr bool USES_NOISE = false;
   using Type =
       Pullback::Warp::WaveShear<WarpProvider<B, K, WaveShearParams, T>>;
 };
 template <typename B, ResourceKey K, bool T>
 struct WarpPolicyFor<VectorNoiseParams, B, K, T> {
-  static constexpr bool USES_NOISE = true;
   using Type =
       Pullback::Warp::VectorNoise<WarpProvider<B, K, VectorNoiseParams, T>,
                                   math::NoiseBasis::SIMPLEX,
@@ -633,12 +624,10 @@ struct WarpPolicyFor<VectorNoiseParams, B, K, T> {
 };
 template <typename B, ResourceKey K, bool T>
 struct WarpPolicyFor<AffineParams, B, K, T> {
-  static constexpr bool USES_NOISE = false;
   using Type = Pullback::Warp::AffineFrame<WarpProvider<B, K, AffineParams, T>>;
 };
 template <typename B, ResourceKey K, bool T>
 struct WarpPolicyFor<PolarParams, B, K, T> {
-  static constexpr bool USES_NOISE = false;
   using Type = Pullback::Warp::PolarChart<WarpProvider<B, K, PolarParams, T>,
                                           Pullback::Warp::LinearPolar, 1>;
 };
@@ -647,7 +636,6 @@ template <typename Family, typename Binding, bool TrackPath>
 struct SurfacePolicyFor;
 template <typename B, bool T>
 struct SurfacePolicyFor<SurfaceNoiseParams, B, T> {
-  static constexpr bool USES_NOISE = true;
   using Type =
       Pullback::Surface::CurlNoise<SurfaceProvider<B, SurfaceNoiseParams, T>,
                                    math::NoiseBasis::SIMPLEX,
@@ -655,14 +643,12 @@ struct SurfacePolicyFor<SurfaceNoiseParams, B, T> {
 };
 template <typename B, bool T>
 struct SurfacePolicyFor<DirectSurfaceParams, B, T> {
-  static constexpr bool USES_NOISE = true;
   using Type =
       Pullback::Surface::DirectNoise<SurfaceProvider<B, DirectSurfaceParams, T>,
                                      math::NoiseBasis::SIMPLEX>;
 };
 template <typename B, bool T>
 struct SurfacePolicyFor<PeriodicRippleParams, B, T> {
-  static constexpr bool USES_NOISE = false;
   using Type = Pullback::Surface::PeriodicRipple<
       SurfaceProvider<B, PeriodicRippleParams, T>>;
 };
