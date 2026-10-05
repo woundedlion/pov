@@ -54,8 +54,13 @@ public:
 protected:
   ~PresetHost() = default;
 
-  /** @brief Whether a preset move came from choreography or a user control. */
-  enum class PresetChangeOrigin : uint8_t { AUTOMATIC, MANUAL, SYNCHRONIZED };
+  /** @brief Source of a preset move or cancellation restoring its displayed index. */
+  enum class PresetChangeOrigin : uint8_t {
+    AUTOMATIC,
+    MANUAL,
+    SYNCHRONIZED,
+    RESTORED
+  };
 
   /** @brief One validated preset transition handed to the effect hook. */
   struct PresetChange {

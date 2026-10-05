@@ -363,7 +363,7 @@ private:
     const bool RESTORE = FADING && !transition.adopted && restore_preset &&
                          preset_index != transition.from_index;
     const PresetChange change{preset_index, transition.from_index,
-                              PresetChangeOrigin::AUTOMATIC};
+                              PresetChangeOrigin::RESTORED};
     transition.active = false;
     if (RESTORE)
       preset_index = change.to;
