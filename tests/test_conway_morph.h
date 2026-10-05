@@ -1936,9 +1936,10 @@ inline void test_hankin_sweep_vertex_stability() {
     PolyMesh bookend;
     Animation::OpLeg::arrival_mesh(leg.landing(), bookend, b);
     HS_EXPECT_EQ(drawn_frames.back().size(), bookend.vertices.size());
-    for (size_t vertex = 0; vertex < bookend.vertices.size(); ++vertex)
-      HS_EXPECT_VEC(drawn_frames.back()[vertex], bookend.vertices[vertex],
-                    1e-6f);
+    if (drawn_frames.back().size() == bookend.vertices.size())
+      for (size_t vertex = 0; vertex < bookend.vertices.size(); ++vertex)
+        HS_EXPECT_VEC(drawn_frames.back()[vertex], bookend.vertices[vertex],
+                      1e-6f);
     for (size_t i = 0; i < arrival.size(); ++i)
       HS_EXPECT_LE(
           (packed_arrival[i].normalized() - arrival[i].pos).magnitude(), 3e-5f);
@@ -2824,6 +2825,13 @@ inline void test_opleg_dual_bridge_seam_correspondence() {
     HS_EXPECT_EQ(landing2.faces, nf);
     HS_EXPECT_TRUE(landing2.arrival_topology != nullptr);
     HS_EXPECT_TRUE(landing2.arrival_point != nullptr);
+    HS_EXPECT_TRUE(landing2.from_palette != nullptr);
+    if (landing2.faces != nf || !landing2.arrival_topology ||
+        !landing2.arrival_point || !landing2.from_palette)
+      continue;
+    HS_EXPECT_EQ(landing2.arrival_topology->face_counts.size(), nf);
+    if (landing2.arrival_topology->face_counts.size() != nf)
+      continue;
     for (size_t f = 0; f < nf; ++f)
       HS_EXPECT_EQ(landing2.from_palette[f], pal2[f]);
     rasterize_at = SWEEP;
@@ -2893,6 +2901,8 @@ inline void test_opleg_dual_bridge_seam_correspondence() {
       Arena aux(morph_aux_buf, sizeof(morph_aux_buf));
       PolyMesh ambo_d = MeshOps::ambo(D, aux, temp);
       HS_EXPECT_EQ(ambo_d.face_counts.size(), nf);
+      if (ambo_d.face_counts.size() != nf)
+        continue;
       std::vector<char> used(nf, 0);
       int bad_match = 0, non_bijective = 0;
       size_t off = 0;
@@ -3317,7 +3327,7 @@ inline void test_opleg_step_paused_holds_frame() {
                        CHORD_MAX, math::ease_in_out_sin, &unpaused);
   check_step_leg_smoke(StepLegKind::TRUNCATE, TRUNCATE_LEG_SITES[0], FRAMES,
                        CHORD_MAX, math::ease_in_out_sin, &held, PAUSE_AFTER);
-  HS_EXPECT_EQ(unpaused.size(), (size_t)FRAMES);
+  HS_EXPECT_SIZE_OR_RETURN(unpaused, (size_t)FRAMES);
   HS_EXPECT_EQ(held.size(), (size_t)(FRAMES + PAUSED_REDRAWS));
   if (held.size() != (size_t)(FRAMES + PAUSED_REDRAWS))
     return;
@@ -4224,6 +4234,10 @@ inline void test_reconcile_bijection_wellposed() {
     HS_EXPECT_EQ(V, authored.vertices.size());
     HS_EXPECT_EQ(identity.face_counts.size(), authored.face_counts.size());
     HS_EXPECT_EQ(identity.faces.size(), authored.faces.size());
+    if (V != authored.vertices.size() ||
+        identity.face_counts.size() != authored.face_counts.size() ||
+        identity.faces.size() != authored.faces.size())
+      continue;
 
     // Greedy nearest-vertex map identity -> authored; must be a bijection.
     std::vector<bool> used(V, false);
@@ -4259,6 +4273,10 @@ inline void test_reconcile_bijection_wellposed() {
       HS_EXPECT_EQ(reconciled.vertices.size(), V);
       HS_EXPECT_EQ(reconciled.face_counts.size(), identity.face_counts.size());
       HS_EXPECT_EQ(reconciled.faces.size(), identity.faces.size());
+      if (reconciled.vertices.size() != V ||
+          reconciled.face_counts.size() != identity.face_counts.size() ||
+          reconciled.faces.size() != identity.faces.size())
+        continue;
       bool connectivity_kept = true;
       for (size_t f = 0; f < identity.face_counts.size(); ++f)
         connectivity_kept &=
