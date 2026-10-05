@@ -186,8 +186,6 @@ __attribute__((always_inline)) inline bool edge_metric_4d_at_bounded(
   }
 }
 
-// Unlike flash-resident smooth_ramp, this stays inline on the hot crossing
-// path.
 __attribute__((always_inline)) inline float
 lattice_ramp(float edge0, float edge1, float value) {
   return math::cubic_kernel((value - edge0) / (edge1 - edge0));
