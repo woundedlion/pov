@@ -273,7 +273,8 @@ private:
   }
 
   template <int PIGMENT_STEPS = 1>
-  HS_O3_FN void step_pigment(const float *a, const float *b, uint16_t *next) {
+  HS_HOT_FLASH_MEMBER void step_pigment(const float *a, const float *b,
+                                        uint16_t *next) {
     HS_PROFILE(grd_pigment);
     const float DT = params.dt * STEP_DT_SCALE;
     static_assert(RD_K == 6, "GS stability bound assumes a 6-NN lattice");
@@ -709,8 +710,8 @@ private:
   }
 
   template <typename StoreFn>
-  HS_O3_FN void step_physics_nodes(const float *c_a, const float *c_b,
-                                   StoreFn &&store) {
+  HS_HOT_FLASH_MEMBER void
+  step_physics_nodes(const float *c_a, const float *c_b, StoreFn &&store) {
     const float feed = params.feed;
     const float KILL_RATE = params.k;
     const float d_a = params.d_a;
