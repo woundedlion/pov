@@ -1181,7 +1181,7 @@ The `Daydream` class owns the entire render side. Features:
 | **Context-loss recovery** | `webglcontextlost` stops GL work, aborts recording, and presents an accessible reload prompt; `webglcontextrestored` clears the lost state and schedules a repaint. |
 | **Picture-in-picture** | A clone of the main camera, placed at the antipode of its orbit position each frame with the hemisphere cull re-aimed to match, renders the opposite hemisphere into a square 30%-sized bottom-left viewport. Suppressed when Show PiP is off, when `isMobile`, under `navigator.webdriver`, and while recording. |
 | **Axes overlay** | Three `THREE.Line`s for X/Y/Z visible on toggle, plus a `CSS2DRenderer`-backed `LabelPool` for the six axis-direction labels ("X / Y / Z" and "-X / -Y / -Z") with zero allocation per frame. |
-| **Resize observer** | `ResizeObserver` on the canvas container recomputes camera aspect, refits the orbit distance (about 200), and updates viewport and `isMobile` (width ≤ 900). |
+| **Resize observer** | `ResizeObserver` on the canvas container recomputes camera aspect, refits the orbit distance (about 200) while it remains at the previous fit, preserves user zoom, and updates viewport and `isMobile` (width ≤ 900). |
 | **Fixed-rate stepping** | The simulation ticks at `1/FPS` seconds independent of the actual render rate, with a time accumulator to keep effects deterministic. |
 
 ### 10.4 Application State (`state.js`)
