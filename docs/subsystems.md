@@ -374,7 +374,7 @@ The fragments compile only inside `animation.h` (a direct include fails with an 
 
 ```cpp
 timeline.add(0, Animation::Rotation<W>(orientation, math::Y_AXIS, 2 * PI_F, 600, ease_linear, true));
-// orientation.length() grows by 1 per sub-step
+// orientation.length() upsamples to min(substeps + 1, CAP) when larger
 // Filter::World::Orient distributes all steps → motion blur
 ```
 
@@ -406,7 +406,7 @@ Parameter and motion animations mutate external state that the rendering pipelin
 
 | Animation | Target State | What It Mutates |
 |---|---|---|
-| `Rotation`, `RandomWalk`, `Motion` | `Orientation<CAP>` | Quaternion orientation — pushes sub-frame steps into the orientation history, which `Filter::World::Orient` reads for motion blur |
+| `Rotation`, `RandomWalk`, `Motion` | `Orientation<CAP>` | Quaternion orientation — upsamples the history to the frame's sub-step count (capped at CAP) and writes each sub-step's rotation, which `Filter::World::Orient` reads for motion blur |
 | `Transition` | `float*` | Smoothly interpolates any float parameter (e.g. `speed`, `alpha`, `twist`) from current value to target with easing |
 | `Mutation` | `float*` | Applies an arbitrary scalar function `f(t)` to a float over time (more general than `Transition`) |
 | `Progress` | `void(float)` callback | Hands the caller eased progress each frame and writes nothing itself; every composed preset transition uses it to blend the authored parameter states |
