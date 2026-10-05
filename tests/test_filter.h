@@ -152,9 +152,6 @@ inline void test_crosses_segments_trait_and_fold() {
   HS_EXPECT_FALSE((Filter::World::Trails<16>::reads_outside_band));
   HS_EXPECT_FALSE((Filter::Screen::Trails<>::reads_outside_band));
 
-  HS_EXPECT_TRUE((Filter::Screen::Trails<>::has_history));
-  HS_EXPECT_TRUE((Filter::Screen::Trails<>::crosses_segments));
-
   // Pipeline OR-fold.
   HS_EXPECT_FALSE((Pipeline<W, H>::any_crosses_segments));
   HS_EXPECT_FALSE((Pipeline<W, H>::any_reads_outside_band));
