@@ -871,7 +871,11 @@ inline void test_periodic_surface_bounds_and_gradients() {
   HS_EXPECT_NEAR(cosine.field({0.0f, 0.0f, 0.0f}), 3.0f, 1e-6f);
   HS_EXPECT_NEAR(cosine.field({0.5f, 0.5f, 0.5f}), -3.0f, 1e-6f);
   HS_EXPECT_EQ(cosine.normal({0.0f, 0.0f, 0.0f}).magnitude(), 0.0f);
+  HS_EXPECT_NEAR(cosine.gradient({0.25f, 0.25f, 0.25f}).magnitude(),
+                 cosine.lipschitz(), 1e-5f);
   SDF::GyroidSurface gyroid;
+  HS_EXPECT_NEAR(gyroid.gradient({0.0f, 0.0f, 0.0f}).magnitude(),
+                 gyroid.lipschitz(), 1e-5f);
   HS_EXPECT_EQ(gyroid.field({0.0f, 0.0f, 0.0f}), 0.0f);
   HS_EXPECT_TRUE(gyroid.sample({0.0f, 0.0f, 0.0f}).boundary);
 }
