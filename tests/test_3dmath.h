@@ -1737,9 +1737,8 @@ inline void test_kaleidoscope_lens() {
  *        direction already inside is a fixed point.
  * @param mirrors Inward unit normals bounding the chamber.
  * @param fold Chamber fold under test.
- * @details A mistyped normal either leaves the fold non-convergent, which trips
- * its own reflection-limit check, or opens the chamber past a mirror, which the
- * half-space assertions catch.
+ * @details The half-space checks use the same mirror table as the fold; they
+ * check conformance to that table rather than its intended chamber geometry.
  */
 template <typename Fold>
 inline void expect_chamber_fold(const std::array<math::Vector, 3> &mirrors,
