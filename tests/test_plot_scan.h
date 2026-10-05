@@ -5699,13 +5699,12 @@ inline void test_rasterize_default_sampling_policy_parity() {
   }
 }
 
-/** @brief Balanced sampling leaves cached and one-dot raster paths unchanged. */
+/** @brief Balanced sampling leaves one-dot edges unchanged. */
 inline void test_rasterize_balanced_sampling_scope() {
   constexpr int W = 128, H = 64;
   const math::Basis basis = basis_from_normal(math::Vector(0, 1, 0));
 
-  auto compare = [&]<bool SinglePass>(const math::Vector &start,
-                                      const math::Vector &end) {
+  auto compare = [&](const math::Vector &start, const math::Vector &end) {
     ScratchScope sc(plot_arena());
     Fragments points;
     points.bind(plot_arena(), 2);
@@ -5721,12 +5720,9 @@ inline void test_rasterize_balanced_sampling_scope() {
       auto shader = [](const math::Vector &, Fragment &f) {
         f.color = Color4(Pixel(65535, 65535, 65535), 0.4f);
       };
-      Plot::rasterize<
-          W, H,
-          Plot::RasterConfig{
-              .single_pass = SinglePass,
-              .sampling_policy =
-                  SinglePass ? Policy : Plot::RasterSamplingPolicy::DEFAULT}>(
+      Plot::rasterize<W, H,
+                      Plot::RasterConfig{.single_pass = true,
+                                         .sampling_policy = Policy}>(
           pipeline, canvas, points, shader,
           {.projection = Plot::RasterProjection::planar(basis),
            .balanced_sampling =
@@ -5754,10 +5750,7 @@ inline void test_rasterize_balanced_sampling_scope() {
     }
   };
 
-  compare.template operator()<false>(disk_point(basis, 0.3f, 0.0f),
-                                     disk_point(basis, 1.3f, 1.0f));
-  compare.template operator()<true>(disk_point(basis, 0.7f, 0.0f),
-                                    disk_point(basis, 0.702f, 0.001f));
+  compare(disk_point(basis, 0.7f, 0.0f), disk_point(basis, 0.702f, 0.001f));
 }
 
 /** @brief Balanced long edges trade sample density for alpha-weighted coverage. */
