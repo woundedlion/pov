@@ -3556,13 +3556,12 @@ inline void test_unsweepable_recipe_steps_are_gated() {
 using IslamicFx = IslamicStars<288, 144>;
 
 constexpr size_t ISLAMIC_SCRATCH_A_BUDGET =
-    IslamicFx::GENERATED_BUDGET.scratch_a; /**< IslamicStars scratch_a split. */
+    IslamicFx::RECIPE_BUDGET.scratch_a; /**< IslamicStars recipe scratch_a. */
 constexpr size_t ISLAMIC_SCRATCH_B_BUDGET =
     IslamicFx::RECIPE_BUDGET.scratch_b; /**< IslamicStars build scratch_b. */
 /** Device persistent budget of IslamicStars' arena split. */
-constexpr size_t ISLAMIC_PERSISTENT_BUDGET = DEVICE_GLOBAL_ARENA_SIZE -
-                                             ISLAMIC_SCRATCH_A_BUDGET -
-                                             ISLAMIC_SCRATCH_B_BUDGET;
+constexpr size_t ISLAMIC_PERSISTENT_BUDGET =
+    IslamicFx::RECIPE_BUDGET.device_persistent();
 /** Scratch capacity the replay runs with, above every budget it gates. */
 constexpr size_t REPLAY_SCRATCH_CAPACITY = 512 * 1024;
 
