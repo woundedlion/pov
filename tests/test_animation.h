@@ -3337,8 +3337,8 @@ inline void test_meshcarousel_compact_drop_all_frees_both_slots() {
 // ============================================================================
 // ColorWipe
 // ----------------------------------------------------------------------------
-// OKLCH-lerps between caller-owned snapshots. The three RNG-free key
-// constructors keep these palettes deterministic.
+// OKLCH-lerps between caller-owned snapshots. make_palette builds from three
+// fixed keys via PaletteRecipes::from_colors without RNG draws.
 // ============================================================================
 
 /**
