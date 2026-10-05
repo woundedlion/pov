@@ -30,6 +30,25 @@ MANIFEST_DIR = ROOT / "tests/data/pullback"
 _, ORACLES, _ = generator.load_and_validate(MANIFEST_DIR)
 
 
+def _backend_stream(programs):
+    specs = capture.operation_specs(programs)
+    header = b"HSPB" + struct.pack("<HHHIH", 3, 1, 1, len(specs), len(ORACLES))
+    records = []
+    for spec in specs:
+        name = spec["name"].encode()
+        records.append(
+            struct.pack("<HHH", spec["preset"],
+                        capture.OPERATION_CODES[spec["mapping"]], len(name))
+            + name + struct.pack("<HHHHI", 0, 1, 0, 60, 1)
+            + struct.pack("<HHH", spec["preset"], 3, 4)
+        )
+    metrics = []
+    for oracle in ORACLES:
+        name = oracle["oracle_id"].encode()
+        metrics.append(struct.pack("<H", len(name)) + name + struct.pack("<HI", 0, 3))
+    return header, records, metrics
+
+
 def _frame(programs, program, preset, case, resolution, probe, value=1):
     total = resolution[0] * resolution[1]
     preset_count = sum(len(entry["presets"])
@@ -883,20 +902,7 @@ class CaptureComparison(unittest.TestCase):
     def test_backend_rejects_malformed_streams(self):
         programs, _ = _test_manifest()
         specs = capture.operation_specs(programs)
-        header = b"HSPB" + struct.pack("<HHHIH", 3, 1, 1, len(specs), len(ORACLES))
-        records = []
-        for spec in specs:
-            name = spec["name"].encode()
-            records.append(
-                struct.pack("<HHH", spec["preset"],
-                            capture.OPERATION_CODES[spec["mapping"]], len(name))
-                + name + struct.pack("<HHHHI", 0, 1, 0, 60, 1)
-                + struct.pack("<HHH", spec["preset"], 3, 4)
-            )
-        metrics = []
-        for oracle in ORACLES:
-            name = oracle["oracle_id"].encode()
-            metrics.append(struct.pack("<H", len(name)) + name + struct.pack("<HI", 0, 3))
+        header, records, metrics = _backend_stream(programs)
         body = b"".join(records)
         tail = b"".join(metrics)
         valid = header + body + tail
@@ -921,38 +927,49 @@ class CaptureComparison(unittest.TestCase):
             "missing_oracle": header[:-2] + struct.pack("<H", len(metrics) - 1) + body + b"".join(metrics[:-1]),
             "trailing_bytes": valid + b"trailing",
         }
+        expected_errors = {
+            "magic": "capture backend magic mismatch",
+            "truncated_header": "capture backend stream is truncated",
+            "version": "capture backend header mismatch",
+            "record_count": "capture backend header mismatch",
+            "truncated_name": "capture backend operation name is truncated",
+            "invalid_name": "capture backend operation name is invalid",
+            "duplicate_record": "invalid capture backend record",
+            "unknown_record": "invalid capture backend record",
+            "operation_code": "capture backend operation mismatch",
+            "truncated_pixels": "capture backend stream is truncated",
+            "missing_record": "capture backend operation name is truncated",
+            "duplicate_oracle": "invalid capture backend oracle metric",
+            "unknown_oracle": "invalid capture backend oracle metric",
+            "zero_samples": "invalid capture backend oracle metric",
+            "truncated_oracle_name": "capture backend oracle name is truncated",
+            "invalid_oracle_name": "capture backend oracle name is invalid",
+            "missing_oracle": "capture backend stream is incomplete or has trailing bytes",
+            "trailing_bytes": "capture backend stream is incomplete or has trailing bytes",
+        }
+        self.assertEqual(cases.keys(), expected_errors.keys())
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "capture.bin"
+            path.write_bytes(valid)
+            resolution, loaded_records, loaded_metrics = capture.load_backend(
+                path, programs, ORACLES
+            )
+            self.assertEqual(resolution, (1, 1))
+            self.assertEqual(len(loaded_records), len(specs))
+            self.assertEqual(set(loaded_metrics), {oracle["oracle_id"] for oracle in ORACLES})
             for name, data in cases.items():
                 with self.subTest(name=name):
                     path.write_bytes(data)
-                    with self.assertRaises(capture.CaptureError):
+                    with self.assertRaisesRegex(
+                        capture.CaptureError, expected_errors[name]
+                    ):
                         capture.load_backend(path, programs, ORACLES)
 
     def test_backend_stream_is_complete(self):
         programs, _ = _test_manifest()
         specs = capture.operation_specs(programs)
-        data = bytearray(b"HSPB")
-        data.extend(struct.pack("<HHHIH", 3, 1, 1, len(specs), len(ORACLES)))
-        for spec in specs:
-            name = spec["name"].encode()
-            mapping = spec["mapping"]
-            data.extend(
-                struct.pack(
-                    "<HHH",
-                    spec["preset"],
-                    capture.OPERATION_CODES[mapping],
-                    len(name),
-                )
-            )
-            data.extend(name)
-            data.extend(struct.pack("<HHHHI", 0, 1, 0, 60, 1))
-            data.extend(struct.pack("<HHH", spec["preset"], 3, 4))
-        for oracle in ORACLES:
-            name = oracle["oracle_id"].encode()
-            data.extend(struct.pack("<H", len(name)))
-            data.extend(name)
-            data.extend(struct.pack("<HI", 0, 3))
+        header, records, metrics = _backend_stream(programs)
+        data = header + b"".join(records) + b"".join(metrics)
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "capture.bin"
             path.write_bytes(data)
