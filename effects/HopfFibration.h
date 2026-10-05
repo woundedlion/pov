@@ -275,14 +275,14 @@ private:
   }
 
   /**
-   * @brief First trail index whose outgoing segment can still paint.
+   * @brief First trail index whose outgoing segment clears the alpha floor.
    * @param len Recorded trail length, at least 2.
    * @param alpha Master alpha, already known to clear MIN_VISIBLE_ALPHA.
    * @return Index in [0, len - 2]; the newest segment always survives, so the
    * staged polyline is never empty.
    * @details The tail fades to transparent, so leading points whose outgoing
    * segment peaks (at its newer endpoint) below MIN_ENCODABLE_ALPHA are
-   * dropped: at that peak even a full-scale palette colour encodes to sRGB 0.
+   * dropped. Per-channel rounding can still make a sub-floor peak encode nonzero.
    */
   static size_t trail_trim_start(size_t len, float alpha) {
     size_t first = 0;
