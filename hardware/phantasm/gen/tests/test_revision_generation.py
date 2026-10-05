@@ -181,9 +181,10 @@ class RevisionGenerationTests(unittest.TestCase):
         self.assertEqual(check.netlist_revision(root), "1.3")
         self.assertTrue(check.check(check.netlist_nets(root), "1.3"))
 
-    def test_rev_13_generation_reproduces_committed_board(self):
-        self.assertEqual((self.prototype / "phantasm.kicad_pcb").read_bytes(),
-                         (PROTOTYPE / "phantasm.kicad_pcb").read_bytes())
+    def test_rev_13_generation_reproduces_committed_project(self):
+        for path in REV_12_FILES:
+            self.assertEqual((self.prototype / path).read_bytes(),
+                             (PROTOTYPE / path).read_bytes(), path)
 
 
 if __name__ == "__main__":
