@@ -6002,7 +6002,7 @@ inline void test_rasterize_balanced_high_alpha_saturates() {
 }
 
 /**
- * @brief Balanced planar stars retain connected, energy-stable clipped coverage.
+ * @brief Balanced planar stars retain coverage and energy within the clipped budget.
  * @details A clipped tile and the full frame run the same instantiation over
  * the same edges, so their shared pixels agree exactly under IEEE. The clip
  * bounds the visited column span, which under -ffast-math gives the accumulated
