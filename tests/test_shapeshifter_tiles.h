@@ -131,9 +131,9 @@ inline void test_segment_tiles_reconstruct_full_frame() {
  * @brief Pins the star cap's azimuthal cull against narrow column clips.
  * @details Four full-height W/4 columns tile the canvas, so the y-band half of
  * the cull passes everything and only the azimuthal bound decides visibility.
- * A quarter-width column shrinks the cap half-width to a quarter turn, where the
- * bound rejects most of a dense star stack; any shape it drops that reaches the
- * column shows up as a mismatch against the unclipped frame.
+ * A quarter-width column shrinks the column half-width to an eighth of a turn,
+ * where the bound rejects most of a dense star stack; any shape it drops that
+ * reaches the column shows up as a mismatch against the unclipped frame.
  */
 inline void test_star_azimuthal_cull_spans_narrow_columns() {
   const OracleClip columns[] = {{0, ORACLE_H, 0, ORACLE_W / 4},
