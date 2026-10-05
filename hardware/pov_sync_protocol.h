@@ -643,7 +643,7 @@ public:
    * flywheel poll calls this every wake on downstream boards, so a stale
    * reference is cleared within one wake after the filter window elapses,
    * long before the counter can wrap. Must run
-   * under the same single-writer discipline as claim(): it writes have_prior,
+   * under the same IRQ-off bracket as try_claim(): it writes have_prior,
    * which the edge ISR also writes. `now` is sampled before the bracket opens,
    * so the signed re-check rejects the wrapped modular difference an edge
    * accepted in between would produce.
