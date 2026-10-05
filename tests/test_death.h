@@ -3309,10 +3309,8 @@ inline void case_baked_palette_bake_blend_self() {
 
 /**
  * @brief Death case: a Gradient built from an empty stop list must trap.
- * @details Color surface — with no stops the 256-entry LUT keeps its
- *          value-initialized state, so every lookup returns black. The
- *          constructor requires at least one stop rather than yielding a
- *          silently all-black palette.
+ * @details The constructor requires at least one stop before reading the
+ *          first stop's position and color.
  */
 inline void case_gradient_no_stops() {
   Gradient grad({}); // empty stop list -> HS_CHECK
