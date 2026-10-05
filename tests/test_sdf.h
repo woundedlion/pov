@@ -20,8 +20,8 @@
  *     straddling, full-width replay, empty and full children, no spans on a
  *     false return)
  *   - The scanline path driven directly: get_vertical_bounds<H> and
- *     get_horizontal_intervals<W,H> under Scan::scan_region for every
- *     primitive and combinator, held conservative against a brute-force
+ *     get_horizontal_intervals<W,H> under Scan::scan_region for the orientation
+ *     and composition fixtures, held conservative against a brute-force
  *     distance() sweep of the canvas (interior and AA fringe)
  *   - Face: cull fringe, vertical margin and latitude pad, pole-vertex raster,
  *     distance() against an exact point-to-polygon oracle rebuilt from the
@@ -2481,6 +2481,9 @@ inline void test_cull_covers_interior_over_orientation_grid() {
     for (float radius : {0.3f, 0.6f, 0.9f}) {
       SDF::Ring ring(basis, radius, /*thickness=*/0.25f);
       expect_cull_covers_interior<W, H>(ring, "ring");
+      SDF::FlatDistortedRing flat_ring(basis, radius, 0.25f);
+      expect_cull_covers_interior<W, H>(flat_ring, "flat distorted ring");
+      expect_cull_covers_fringe<W, H>(flat_ring, "flat distorted ring");
 
       SDF::SphericalPolygon spoly(basis, radius, /*sides=*/5, 0.0f);
       expect_cull_covers_interior<W, H>(spoly, "spherical polygon");
@@ -2491,6 +2494,9 @@ inline void test_cull_covers_interior_over_orientation_grid() {
       SDF::PlanarPolygon ppoly(basis, /*radius=*/radius / (math::PI_F / 2.0f),
                                /*sides=*/6, 0.0f);
       expect_cull_covers_interior<W, H>(ppoly, "planar polygon");
+      const SDF::Union combined(ppoly, star);
+      expect_cull_covers_interior<W, H>(combined, "polygon-star union");
+      expect_cull_covers_fringe<W, H>(combined, "polygon-star union");
 
       SDF::Flower flower(basis, radius, /*sides=*/5, 0.0f);
       expect_cull_covers_interior<W, H>(flower, "flower");
