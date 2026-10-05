@@ -298,8 +298,10 @@ inline constexpr int GAMUT_LUT_MIN_L_STEPS = 64;
 
 /**
  * @brief Downsamples GAMUT_LUT into @p arena and points the clip path at it.
- * @param arena Storage must stay valid until release_gamut_lut(); only
- *        persistent_arena is released automatically by configure_arenas().
+ * @param arena Storage must stay valid until release_gamut_lut(); only a copy
+ *        in persistent_arena is released automatically (configure_arenas(),
+ *        reset_persistent_arena()). Other arena owners must call
+ *        release_gamut_lut() before reusing that storage.
  * @param angle_steps Diamond-angle buckets; must divide GAMUT_LUT_ANGLE_STEPS
  *        and be at least GAMUT_LUT_MIN_ANGLE_STEPS.
  * @param l_steps Lightness buckets; must divide GAMUT_LUT_L_STEPS and be at
@@ -365,7 +367,8 @@ HS_COLD_MEMBER inline void init_gamut_lut(Arena &arena, int angle_steps,
 inline void release_gamut_lut() { g_gamut_lut = GamutLut{}; }
 
 /**
- * @brief Registration that makes every arena hand-out drop the copy.
+ * @brief Registration that drops the copy when the persistent arena is handed
+ * out again (configure_arenas(), reset_persistent_arena()).
  */
 inline const ArenaResetHook GAMUT_LUT_RESET_HOOK(release_gamut_lut);
 
