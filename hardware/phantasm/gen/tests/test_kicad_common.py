@@ -24,6 +24,7 @@ class FindKicadCliTests(unittest.TestCase):
         with mock.patch.dict(os.environ, {}, clear=True), \
                 mock.patch.object(kicad_common.glob, "glob",
                                   return_value=installs or []), \
+                mock.patch.object(kicad_common.shutil, "which", return_value="kicad-cli"), \
                 mock.patch.object(kicad_common.subprocess, "run",
                                   return_value=subprocess.CompletedProcess(
                                       [], 0, stdout=reported)) as run:
@@ -33,6 +34,15 @@ class FindKicadCliTests(unittest.TestCase):
 
     def test_exact_release_on_path(self):
         self.assertEqual(self.resolve(kicad_common.KICAD_VERSION), "kicad-cli")
+
+    def test_missing_path_binary_reports_not_found(self):
+        with mock.patch.dict(os.environ, {}, clear=True), \
+                mock.patch.object(kicad_common.glob, "glob", return_value=[]), \
+                mock.patch.object(kicad_common.shutil, "which", return_value=None), \
+                mock.patch.object(kicad_common, "kicad_cli_version") as version, \
+                self.assertRaisesRegex(SystemExit, "no kicad-cli found"):
+            kicad_common.find_kicad_cli()
+        version.assert_not_called()
 
     def test_adjacent_patch_is_rejected(self):
         with self.assertRaises(SystemExit):
