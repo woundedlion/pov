@@ -814,7 +814,7 @@ inline void test_catalog_semantic_export() {
   }
 }
 
-/** @brief The whole file as a string, or empty on a read failure. */
+/** @brief Reads available bytes, or returns empty if the file cannot be opened. */
 inline std::string read_document(const std::string &path) {
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wdeprecated-declarations"
