@@ -10,6 +10,7 @@ Run:  python -m unittest discover -s tools/profile_tests
 import contextlib
 import io
 import sys
+import tempfile
 import unittest
 from unittest import mock
 from pathlib import Path
@@ -53,7 +54,6 @@ class PresetAttribution(unittest.TestCase):
             self.assertEqual(next(row[1] for row in rows if row[0] == expected), 2)
 
     def test_epoch_reset_clears_streamed_frame_owners(self):
-        import tempfile
         lines = []
         for start in (1, 5, 1):
             if start == 5:
@@ -128,7 +128,6 @@ class ShortFrameRows(unittest.TestCase):
     ]) + "\n"
 
     def _parse(self, drop=None):
-        import tempfile
         text = "\n".join(line for line in self.LOG.splitlines()
                          if line != drop) + "\n"
         with tempfile.TemporaryDirectory() as directory:
@@ -147,8 +146,6 @@ class ShortFrameRows(unittest.TestCase):
         self.assertEqual(pp.spilled_frames(window), 2)
 
     def test_validate_fails_a_short_window(self):
-        import contextlib
-        import io
         windows, effect = self._parse(drop="f 3 w=200000 r=190000")
         with contextlib.redirect_stdout(io.StringIO()) as out:
             ok = pp.cmd_validate(windows, effect, "frame")
@@ -156,8 +153,6 @@ class ShortFrameRows(unittest.TestCase):
         self.assertIn("[FAIL] per-frame rows cover every frame", out.getvalue())
 
     def test_a_capture_without_per_frame_rows_is_not_faulted(self):
-        import contextlib
-        import io
         windows, effect = self._parse()
         for window in windows:
             window.frame_rows = []
@@ -280,7 +275,6 @@ class StraddleWindowAttribution(unittest.TestCase):
     """
 
     def _buckets(self, shapes):
-        import tempfile
         with tempfile.TemporaryDirectory() as d:
             p = _synth_log(Path(d) / "cap.log", shapes)
             windows, _ = pp.parse_capture(p)[:2]
@@ -321,7 +315,6 @@ class StraddleWindowAttribution(unittest.TestCase):
     def test_clean_hold_skips_a_window_two_shapes_share(self):
         # 6 frames each over windows of 4: the window at frames 5-8 holds two
         # frames of "cheap" and two of "expensive" at an equal draw-call count.
-        import tempfile
         with tempfile.TemporaryDirectory() as d:
             p = _synth_log(Path(d) / "cap.log",
                            [("cheap", 182, [10_000] * 6),
@@ -352,7 +345,6 @@ class ScanMetricsLines(unittest.TestCase):
         return path
 
     def _parse(self, **kw):
-        import tempfile
         with tempfile.TemporaryDirectory() as d:
             windows, _ = pp.parse_capture(self._log(Path(d) / "cap.log", **kw))[:2]
         return windows
@@ -423,7 +415,6 @@ class ProbeBreakdownLines(unittest.TestCase):
         return path
 
     def _parse(self, **kw):
-        import tempfile
         with tempfile.TemporaryDirectory() as d:
             windows, _ = pp.parse_capture(self._log(Path(d) / "cap.log", **kw))[:2]
         return windows
@@ -447,8 +438,6 @@ class ProbeBreakdownLines(unittest.TestCase):
         self.assertEqual(set(self._parse()[0].counters), {"frame"})
 
     def test_command_reports_net_of_the_measured_read_cost(self):
-        import contextlib
-        import io
         buf = io.StringIO()
         with contextlib.redirect_stdout(buf):
             self.assertEqual(pp.cmd_probe(self._parse()), 0)
@@ -460,8 +449,6 @@ class ProbeBreakdownLines(unittest.TestCase):
         self.assertEqual(row.split()[1:5], ["40", "100.0", "95.0", "38.0"])
 
     def test_printed_cyc_per_probe_column_sums_to_the_printed_total(self):
-        import contextlib
-        import io
         # alpha runs 50 times at 2.0 cyc/event, below the 5.0 cyc read cost,
         # so its net per probe is negative.
         cyc = self.CYC.replace("alpha=400", "alpha=100")
@@ -477,8 +464,6 @@ class ProbeBreakdownLines(unittest.TestCase):
         self.assertAlmostEqual(column, printed, places=1)
 
     def test_command_exits_2_without_the_flag(self):
-        import contextlib
-        import io
         with contextlib.redirect_stderr(io.StringIO()) as err:
             self.assertEqual(pp.cmd_probe(self._parse(cyc=None, cnt=None)), 2)
         self.assertIn("HS_PROBE_BREAKDOWN", err.getvalue())
@@ -503,7 +488,6 @@ class PlotCountLines(unittest.TestCase):
         return path
 
     def _parse(self, **kw):
-        import tempfile
         with tempfile.TemporaryDirectory() as d:
             windows, _ = pp.parse_capture(self._log(Path(d) / "cap.log", **kw))[:2]
         return windows
@@ -533,8 +517,6 @@ class PlotCountLines(unittest.TestCase):
         self.assertEqual(pp.cmd_plot(self._parse()), 0)
 
     def test_aggregate_uses_peak_cache_depth(self):
-        import contextlib
-        import io
         windows = self._parse()
         second = self._parse()[0]
         second.plot["steps_peak"] = 7
@@ -561,7 +543,6 @@ class MindSplatterInstrumentationLines(unittest.TestCase):
     ]) + "\n"
 
     def _parse(self):
-        import tempfile
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "capture.log"
             path.write_text(self.LOG, encoding="utf-8")
@@ -575,8 +556,6 @@ class MindSplatterInstrumentationLines(unittest.TestCase):
         self.assertEqual(set(window.counters), {"frame"})
 
     def test_aliased_stalls_are_retained_and_reported(self):
-        import contextlib
-        import io
         self.LOG += "plot stall aliased: stage=history_vertex cpi/lsu/exc understated\n"
         windows = self._parse()
         self.assertTrue(windows[0].msp_stalls["history_vertex"]["wrapped"])
@@ -599,8 +578,6 @@ class MindSplatterInstrumentationLines(unittest.TestCase):
         self.assertEqual(neutral.msp_stalls, legacy.msp_stalls)
 
     def test_commands_accept_instrumented_capture(self):
-        import contextlib
-        import io
         windows = self._parse()
         with contextlib.redirect_stdout(io.StringIO()):
             self.assertEqual(pp.cmd_msp_counts(windows), 0)
@@ -629,9 +606,6 @@ class ValidateRequiresData(unittest.TestCase):
         ])
 
     def _validate(self, text, scope="frame"):
-        import contextlib
-        import io
-        import tempfile
         with tempfile.TemporaryDirectory() as d:
             log = Path(d) / "prof.log"
             log.write_text(text, encoding="utf-8")
@@ -734,9 +708,6 @@ class ValidateCaptureIdentity(unittest.TestCase):
     ])
 
     def _validate(self, headers):
-        import contextlib
-        import io
-        import tempfile
         text = "\n".join(
             self.WINDOW.format(name=name, w=w, h=h,
                                start=1 + 10 * i, end=10 + 10 * i)
@@ -786,9 +757,6 @@ class FramesMode(unittest.TestCase):
     ])
 
     def test_frames_mode_prints_a_row_per_frame(self):
-        import contextlib
-        import io
-        import tempfile
         with tempfile.TemporaryDirectory() as d:
             log = Path(d) / "prof.log"
             log.write_text(self.LOG, encoding="utf-8")
@@ -841,9 +809,6 @@ class TruncatedTrailingWindow(unittest.TestCase):
         return path
 
     def _parse(self, **kw):
-        import contextlib
-        import io
-        import tempfile
         with tempfile.TemporaryDirectory() as d:
             path = self._log(Path(d) / "cap.log", **kw)
             with contextlib.redirect_stderr(io.StringIO()) as err:
@@ -851,8 +816,6 @@ class TruncatedTrailingWindow(unittest.TestCase):
         return windows, err.getvalue()
 
     def _windows_view(self, **kw):
-        import contextlib
-        import io
         windows, _ = self._parse(**kw)
         with contextlib.redirect_stdout(io.StringIO()) as out:
             pp.cmd_windows(windows, "frame")
@@ -877,9 +840,6 @@ class TruncatedTrailingWindow(unittest.TestCase):
     def test_a_capture_that_never_dumps_counters_keeps_its_last_window(self):
         # Only a window that differs from its peers is a cut dump; a build
         # whose windows all carry no counter tree is not truncated.
-        import contextlib
-        import io
-        import tempfile
         with tempfile.TemporaryDirectory() as d:
             path = Path(d) / "cap.log"
             path.write_text("\n".join(
@@ -896,7 +856,6 @@ class HeaderFrameRange(unittest.TestCase):
     """`frames` divides every per-frame figure, so the range must be forward."""
 
     def _parse(self, f_start, f_end):
-        import tempfile
         text = "\n".join([
             f"=== profile Fx [288x144] frames {f_start}-{f_end} "
             "window=62500 us ===",
@@ -923,9 +882,6 @@ class HeaderFrameRange(unittest.TestCase):
             self._parse(20, 11)
 
     def test_main_reports_the_bad_range_instead_of_raising(self):
-        import contextlib
-        import io
-        import tempfile
         with tempfile.TemporaryDirectory() as directory:
             log = Path(directory) / "capture.log"
             log.write_text(
@@ -949,9 +905,6 @@ class BucketOrdering(unittest.TestCase):
     """
 
     def _run(self, render_us, shader_us_per_frame, frames=4, scope="shader"):
-        import contextlib
-        import io
-        import tempfile
         lines = ["Spawning Shape: solid (V=1, E=1, F=74, I=1)"]
         for n in range(1, frames + 1):
             lines.append(f"f {n} w={render_us + 5_000} r={render_us}")
@@ -1017,15 +970,12 @@ class TaggedCounterRows(unittest.TestCase):
     ]) + "\n"
 
     def _parse(self, text=None):
-        import tempfile
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "capture.log"
             path.write_text(text or self.LOG, encoding="utf-8")
             return pp.parse_capture(path)[:2]
 
     def _validate(self, scope, text=None):
-        import contextlib
-        import io
         windows, effect = self._parse(text)
         with contextlib.redirect_stdout(io.StringIO()) as out:
             pp.cmd_validate(windows, effect, scope)
