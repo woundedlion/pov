@@ -411,6 +411,10 @@ inline void test_shader_clip_arc_matches_predicate() {
     // clipped fixture exists.
     std::vector<Pixel> reference;
     render(variant, 0, W, 0, reference);
+    size_t painted = 0;
+    for (const Pixel &p : reference)
+      painted += p.b == 30000;
+    HS_EXPECT_EQ(painted, static_cast<size_t>(W * H));
 
     for (const Band &b : bands) {
       ClipRegion cr;
