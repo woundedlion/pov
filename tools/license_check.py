@@ -167,6 +167,13 @@ def main(argv=None) -> int:
         print(f"[license-check] tooling error: {error}", file=sys.stderr)
         return 2
 
+    # No tracked sources means the checker was pointed somewhere it cannot see
+    # the repository; passing would certify nothing.
+    if not sources:
+        print(f"[license-check] tooling error: no tracked C/C++ sources under "
+              f"{args.root.resolve()}", file=sys.stderr)
+        return 2
+
     try:
         license_text = (args.root / "LICENSE").read_text(encoding="utf-8")
     except OSError as error:
@@ -200,12 +207,6 @@ def main(argv=None) -> int:
             print(issue)
         print(f"[license-check] FAIL - {len(issues)} issue(s)", file=sys.stderr)
         return 1
-    # No tracked sources means the checker was pointed somewhere it cannot see
-    # the repository; passing would certify nothing.
-    if not sources:
-        print(f"[license-check] tooling error: no tracked C/C++ sources under "
-              f"{args.root.resolve()}", file=sys.stderr)
-        return 2
     print(f"[license-check] PASS - {len(sources)} tracked source(s)")
     return 0
 
