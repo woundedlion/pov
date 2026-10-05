@@ -2691,7 +2691,8 @@ inline void test_noise_shimmer_palette() {
  * @brief Verifies the shared hue-noise bake cache rebuilds the table exactly
  *        when an input moved, and leaves it untouched otherwise.
  */
-inline void test_hue_noise_bake_cache() {
+template <bool OPENSIMPLEX2_UNIT>
+inline void test_hue_noise_bake_cache_variant() {
   static std::array<int8_t, HueNoiseLutView::SIZE> hue_noise;
   FastNoiseLite noise;
   noise.SetNoiseType(FastNoiseLite::NoiseType_OpenSimplex2);
@@ -2704,35 +2705,86 @@ inline void test_hue_noise_bake_cache() {
   HueNoiseBakeCache cache;
   HS_EXPECT_EQ(cache.scale, 0.0f);
   HS_EXPECT_EQ(cache.phase, 0.0f);
-  HS_EXPECT_TRUE(cache.refresh(hue_noise, noise, 2.0f, 0.25f));
+  HS_EXPECT_TRUE(
+      cache.refresh<OPENSIMPLEX2_UNIT>(hue_noise, noise, 2.0f, 0.25f));
   HS_EXPECT_EQ(cache.scale, 2.0f);
   HS_EXPECT_EQ(cache.phase, 0.25f);
 
   hue_noise[0] = POISON;
   hue_noise[LAST] = POISON;
-  HS_EXPECT_TRUE(!cache.refresh(hue_noise, noise, 2.0f, 0.25f));
+  HS_EXPECT_TRUE(
+      !cache.refresh<OPENSIMPLEX2_UNIT>(hue_noise, noise, 2.0f, 0.25f));
   HS_EXPECT_EQ(static_cast<int>(hue_noise[0]), static_cast<int>(POISON));
   HS_EXPECT_EQ(static_cast<int>(hue_noise[LAST]), static_cast<int>(POISON));
 
-  HS_EXPECT_TRUE(cache.refresh(hue_noise, noise, 2.5f, 0.25f));
+  HS_EXPECT_TRUE(
+      cache.refresh<OPENSIMPLEX2_UNIT>(hue_noise, noise, 2.5f, 0.25f));
   HS_EXPECT_NE(static_cast<int>(hue_noise[0]), static_cast<int>(POISON));
   HS_EXPECT_NE(static_cast<int>(hue_noise[LAST]), static_cast<int>(POISON));
   HS_EXPECT_EQ(cache.scale, 2.5f);
 
   hue_noise[0] = POISON;
   hue_noise[LAST] = POISON;
-  HS_EXPECT_TRUE(cache.refresh(hue_noise, noise, 2.5f, 0.5f));
+  HS_EXPECT_TRUE(
+      cache.refresh<OPENSIMPLEX2_UNIT>(hue_noise, noise, 2.5f, 0.5f));
   HS_EXPECT_NE(static_cast<int>(hue_noise[0]), static_cast<int>(POISON));
   HS_EXPECT_NE(static_cast<int>(hue_noise[LAST]), static_cast<int>(POISON));
   HS_EXPECT_EQ(cache.phase, 0.5f);
 
   // A rebuild matches a bake from the same inputs byte for byte.
   static std::array<int8_t, HueNoiseLutView::SIZE> reference;
-  prepare_hue_noise_lut(std::span<int8_t, HueNoiseLutView::SIZE>(reference),
-                        noise, 2.5f, 0.5f);
+  prepare_hue_noise_lut<OPENSIMPLEX2_UNIT>(
+      std::span<int8_t, HueNoiseLutView::SIZE>(reference), noise, 2.5f, 0.5f);
   HS_EXPECT_EQ(
       std::memcmp(hue_noise.data(), reference.data(), HueNoiseLutView::SIZE),
       0);
+}
+
+inline void test_hue_noise_bake_cache() {
+  test_hue_noise_bake_cache_variant<false>();
+  test_hue_noise_bake_cache_variant<true>();
+}
+
+/** @brief Compares paired cube-face bakes with independent scalar face walks. */
+inline void test_hue_noise_paired_bakes_match_reference() {
+  static std::array<int8_t, HueNoiseLutView::SIZE> actual, reference;
+  for (int variant = 0; variant < 4; ++variant) {
+    FastNoiseLite noise;
+    noise.SetSeed(6047 + variant);
+    noise.SetNoiseType(variant == 2 ? FastNoiseLite::NoiseType_Perlin
+                                    : FastNoiseLite::NoiseType_OpenSimplex2);
+    noise.SetFrequency(variant == 1 ? 0.7f : 1.0f);
+    if (variant == 3)
+      noise.SetRotationType3D(FastNoiseLite::RotationType3D_ImproveXYPlanes);
+    for (float scale : {0.0625f, 2.0f, 5.0f}) {
+      for (float phase : {0.0f, 0.25f, 0.625f}) {
+        const math::Vector offset = math::noise_sphere_loop_offset(phase);
+        constexpr int N = HueNoiseLutView::FACE_STEPS;
+        constexpr float STEP = 2.0f / (N - 1);
+        for (int face = 0; face < HueNoiseLutView::FACE_COUNT; ++face) {
+          for (int y = 0; y < N; ++y) {
+            for (int x = 0; x < N; ++x) {
+              const math::Vector d = hue_noise_face_direction(
+                  face, -1.0f + STEP * x, -1.0f + STEP * y);
+              const math::Vector q = scale * d + offset;
+              const float sample =
+                  hs::clamp(noise.GetNoiseSingle(q.x, q.y, q.z), -1.0f, 1.0f);
+              reference[face * N * N + y * N + x] = static_cast<int8_t>(
+                  sample * 127.0f + (sample < 0.0f ? -0.5f : 0.5f));
+            }
+          }
+        }
+        prepare_hue_noise_lut(actual, noise, scale, phase);
+        HS_EXPECT_EQ(
+            std::memcmp(actual.data(), reference.data(), actual.size()), 0);
+        if (variant == 0) {
+          prepare_hue_noise_lut<true>(actual, noise, scale, phase);
+          HS_EXPECT_EQ(
+              std::memcmp(actual.data(), reference.data(), actual.size()), 0);
+        }
+      }
+    }
+  }
 }
 
 /**
@@ -3019,6 +3071,7 @@ inline int run_color_tests() {
   test_noise_shimmer_palette();
   test_hue_noise_lut_seamless_across_faces();
   test_hue_noise_bake_cache();
+  test_hue_noise_paired_bakes_match_reference();
 
   // Clamp-before-cast / NaN-saturation checks, shared with the fast-math pass.
   const int before_clamp = hs_test::stats().passed + hs_test::stats().failed;

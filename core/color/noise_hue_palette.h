@@ -86,35 +86,69 @@ hue_noise_face_direction(int face, float u, float v) {
   }
 }
 
-/**
- * @brief Bakes a seamless cube-map view of a sphere-domain noise field.
- * @param output Destination LUT.
- * @param noise Configured noise source.
- * @param scale Spatial frequency over the sphere.
- * @param phase Loop phase in turns.
- */
-HS_FLASH_INLINE inline void
-prepare_hue_noise_lut(std::span<int8_t, HueNoiseLutView::SIZE> output,
-                      const FastNoiseLite &noise, float scale, float phase) {
+namespace hue_noise_detail {
+template <bool OPENSIMPLEX2_UNIT>
+HS_FLASH_INLINE __attribute__((always_inline)) inline void
+prepare(std::span<int8_t, HueNoiseLutView::SIZE> output,
+        const FastNoiseLite &noise, float scale, float phase) {
   const math::Vector loop_offset = math::noise_sphere_loop_offset(phase);
   constexpr float STEP = 2.0f / (HueNoiseLutView::FACE_STEPS - 1);
-  for (int face = 0; face < HueNoiseLutView::FACE_COUNT; ++face) {
-    const int face_offset = face * HueNoiseLutView::FACE_SIZE;
+  for (int face = 0; face < HueNoiseLutView::FACE_COUNT; face += 2) {
     for (int y = 0; y < HueNoiseLutView::FACE_STEPS; ++y) {
       const float v = -1.0f + STEP * y;
       for (int x = 0; x < HueNoiseLutView::FACE_STEPS; ++x) {
         const float u = -1.0f + STEP * x;
         const math::Vector direction = hue_noise_face_direction(face, u, v);
-        const math::Vector q = scale * direction + loop_offset;
-        const float sample =
-            hs::clamp(noise.GetNoiseSingle(q.x, q.y, q.z), -1.0f, 1.0f);
-        const int quantized =
-            static_cast<int>(sample * 127.0f + (sample < 0.0f ? -0.5f : 0.5f));
-        output[face_offset + y * HueNoiseLutView::FACE_STEPS + x] =
-            static_cast<int8_t>(quantized);
+        const auto bake = [&](int f, const math::Vector &d) __attribute__((
+                              always_inline)) {
+          const math::Vector q = scale * d + loop_offset;
+          float value;
+          if constexpr (OPENSIMPLEX2_UNIT) {
+            const float r = (q.x + q.y + q.z) * (2.0f / 3.0f);
+            value = noise.GetNoiseSingleTransformed(r - q.x, r - q.y, r - q.z);
+          } else {
+            value = noise.GetNoiseSingle(q.x, q.y, q.z);
+          }
+          const float sample = hs::clamp(value, -1.0f, 1.0f);
+          output[f * HueNoiseLutView::FACE_SIZE +
+                 y * HueNoiseLutView::FACE_STEPS + x] =
+              static_cast<int8_t>(sample * 127.0f +
+                                  (sample < 0.0f ? -0.5f : 0.5f));
+        };
+        bake(face, direction);
+        bake(face + 1,
+             face == 2 ? math::Vector(direction.x, -direction.y, -direction.z)
+                       : math::Vector(-direction.x, direction.y, -direction.z));
       }
     }
   }
+}
+
+} // namespace hue_noise_detail
+
+/**
+ * @brief Bakes a seamless cube-map view of a sphere-domain noise field.
+ * @tparam OPENSIMPLEX2_UNIT Use the unit-frequency OpenSimplex2 transform.
+ * @pre When OPENSIMPLEX2_UNIT is true, configure OpenSimplex2 at frequency 1
+ *      with the default 3D rotation.
+ * @param output Destination LUT.
+ * @param noise Configured noise source.
+ * @param scale Spatial frequency over the sphere.
+ * @param phase Loop phase in turns.
+ */
+template <bool OPENSIMPLEX2_UNIT = false>
+HS_FLASH_INLINE inline void
+prepare_hue_noise_lut(std::span<int8_t, HueNoiseLutView::SIZE> output,
+                      const FastNoiseLite &noise, float scale, float phase) {
+  hue_noise_detail::prepare<OPENSIMPLEX2_UNIT>(output, noise, scale, phase);
+}
+
+template <>
+HS_FLASH_INLINE __attribute__((always_inline)) inline void
+prepare_hue_noise_lut<true>(std::span<int8_t, HueNoiseLutView::SIZE> output,
+                            const FastNoiseLite &noise, float scale,
+                            float phase) {
+  hue_noise_detail::prepare<true>(output, noise, scale, phase);
 }
 
 /**
@@ -129,22 +163,27 @@ struct HueNoiseBakeCache {
 
   /**
    * @brief Rebakes @p output when its scale or phase changed.
+   * @tparam OPENSIMPLEX2_UNIT Use the unit-frequency OpenSimplex2 transform.
    * @param output Destination LUT.
    * @param noise Configured noise source.
    * @param bake_scale Spatial frequency over the sphere.
    * @param bake_phase Loop phase in turns.
    * @pre Keep the destination table and noise configuration unchanged until
    *      resetting this cache.
+   * @pre When OPENSIMPLEX2_UNIT is true, configure OpenSimplex2 at frequency 1
+   *      with the default 3D rotation.
    * @return Whether the table was rebuilt.
    */
-  HS_FLASH_INLINE bool refresh(std::span<int8_t, HueNoiseLutView::SIZE> output,
-                               const FastNoiseLite &noise, float bake_scale,
-                               float bake_phase) {
+  template <bool OPENSIMPLEX2_UNIT = false>
+  HS_FLASH_INLINE __attribute__((always_inline)) bool
+  refresh(std::span<int8_t, HueNoiseLutView::SIZE> output,
+          const FastNoiseLite &noise, float bake_scale, float bake_phase) {
     HS_CHECK(std::isfinite(bake_scale) && bake_scale > 0.0f,
              "HueNoiseBakeCache: scale must be finite and positive");
     if (scale == bake_scale && phase == bake_phase)
       return false;
-    prepare_hue_noise_lut(output, noise, bake_scale, bake_phase);
+    prepare_hue_noise_lut<OPENSIMPLEX2_UNIT>(output, noise, bake_scale,
+                                             bake_phase);
     scale = bake_scale;
     phase = bake_phase;
     return true;
