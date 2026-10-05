@@ -2189,7 +2189,7 @@ struct ChoreoProbeParams {
 /**
  * @brief Probe pinning a Segue::Preset::Fade departure.
  * @details Records every set_preset_opacity sample the base feeds it and the
- * level on screen while the opacity falls and rises, so the test can see the
+ * parameter level while the opacity falls and rises, so the test can see the
  * departing preset hold until dark and the next one brighten in.
  */
 template <int W, int H>
