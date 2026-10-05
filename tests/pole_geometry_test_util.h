@@ -52,7 +52,17 @@ inline math::Vector rotate_longitude(const math::Vector &v,
 
 /** @brief Check the longitude centroid of a warped endpoint ring. */
 template <int W, int H>
-inline void check_feedback_ring_centroid(int row, int lit_threshold = 0) {
+inline void check_feedback_ring_centroid(int row, int lit_threshold = 0,
+                                         int downsample = 4,
+                                         float alpha = 1.0f) {
+  const size_t SCRATCH_A = scratch_arena_a.get_capacity();
+  const size_t SCRATCH_B = scratch_arena_b.get_capacity();
+  const size_t REQUIRED =
+      (Filter::Pixel::Feedback<W, H>::UNCACHED_SCRATCH_BYTES(downsample) +
+       127) &
+      ~size_t{63};
+  configure_arenas(GLOBAL_ARENA_SIZE - REQUIRED - SCRATCH_B, REQUIRED,
+                   SCRATCH_B);
   constexpr Pixel BRIGHT(12000, 30000, 50000);
   constexpr int SOURCE_X = W / 3;
   hs_test::StubEffect effect(W, H);
@@ -60,7 +70,7 @@ inline void check_feedback_ring_centroid(int row, int lit_threshold = 0) {
   style.space_fn = &rotate_longitude;
   style.noise = nullptr;
   style.fade = 1.0f;
-  style.downsample = 4;
+  style.downsample = downsample;
   Pipeline<W, H, Filter::Pixel::Feedback<W, H>> pipeline{
       Filter::Pixel::Feedback<W, H>(style)};
   {
@@ -70,7 +80,7 @@ inline void check_feedback_ring_centroid(int row, int lit_threshold = 0) {
   effect.advance_display();
   {
     Canvas canvas(effect);
-    (void)pipeline.begin_frame(canvas, 1.0f);
+    (void)pipeline.begin_frame(canvas, alpha);
   }
   effect.advance_display();
   double mass = 0, moment = 0;
@@ -87,9 +97,11 @@ inline void check_feedback_ring_centroid(int row, int lit_threshold = 0) {
     mass += brightness;
     moment += brightness * dx;
   }
-  HS_EXPECT_GT(mass, BRIGHT.b * 0.5);
+  HS_EXPECT_GT(mass, BRIGHT.b * alpha * 0.5);
   HS_EXPECT_GT(lit, 0);
   HS_EXPECT_LT(lit, W);
   HS_EXPECT_NEAR(moment / mass, -0.6 * W / (2 * math::PI_F), 0.5);
+  configure_arenas(GLOBAL_ARENA_SIZE - SCRATCH_A - SCRATCH_B, SCRATCH_A,
+                   SCRATCH_B);
 }
 } // namespace hs_test::pole_geometry
