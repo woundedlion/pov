@@ -457,9 +457,8 @@ private:
       this->draw_sprite(canvas, phase, back);
     };
 
-    // Compact the back slot, rebaking palettes into the fresh arena rather than
-    // tracking them through the evacuation. A build regenerates both slots
-    // before either is drawn again, so the outgoing shape is dropped.
+    // Sequential segues leave no active sprite; the build rebuilds and selects
+    // the back slot before drawing resumes.
     auto rebake = [this](Arena &arena) { reclaim_persistent(arena); };
     if (recipe)
       carousel.compact_drop_all(rebake);
