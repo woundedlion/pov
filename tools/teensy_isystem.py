@@ -4,10 +4,9 @@ The firmware build runs -Wall -Wextra.
 First-party code (core/ effects/ hardware/ targets/) must keep its warnings
 visible. The vendored dependencies are a different matter: FastLED (under
 .pio/libdeps/<env>/) and the Teensy core + its bundled libraries (under the
-PlatformIO packages dir) are PINNED and gitignored, so their ~400 warnings are
-noise we cannot fix in place (an edit is lost on the next `pio run`). This hook
-removes that noise on both paths a warning can reach the log, each surgical so no
-first-party diagnostic is lost:
+PlatformIO packages dir) are pinned and gitignored. This hook demotes their
+header diagnostics and suppresses LDF library-builder warnings while leaving
+first-party diagnostics visible.
 
 1. Project sources (projenv / env): first-party TUs #include FastLED and Teensy
    core headers. Move those third-party include dirs from -I to -isystem so gcc
@@ -17,13 +16,11 @@ first-party diagnostic is lost:
    an absolute -isystem are distinct paths to gcc, and the -I (searched first)
    would win and keep warning.
 
-2. Library builders (FastLED / FrameworkArduino / SPI / ... compiling their OWN
-   .c/.cpp): -isystem cannot reach a warning in the body of the file being
-   compiled, only in its headers. These are third-party libraries we do not gate,
-   so disable their warnings wholesale with -w (which also covers the C-vs-C++
-   "valid for C++ but not C" cc1 notes the shared build_flags trigger on the core
-   .c files). First-party code is built by projenv, never a library builder, so
-   its -Wall/-Wextra coverage is untouched.
+2. LDF library builders (FastLED, SPI): -w suppresses diagnostics in their own
+   .c/.cpp bodies. FrameworkArduino is built from the main environment and does
+   not receive this -w. Its headers use -isystem, but its body warnings remain
+   for the warning gate's third-party path filter. Core C command-line cc1 notes
+   remain in the log; the gate's fileless-warning matcher selects cc1plus/ld.
 """
 
 import os
