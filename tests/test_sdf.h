@@ -49,8 +49,6 @@
 namespace hs_test {
 namespace sdf_tests {
 
-using hs_test::approx_vec;
-
 /**
  * @brief Builds the canonical equator-facing basis: v = +Y, u = +X, w = +Z.
  * @return A Basis oriented so its pole points along +Y.
