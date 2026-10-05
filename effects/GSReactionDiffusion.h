@@ -64,7 +64,6 @@ class GSReactionDiffusion
   using Base::refine_and_accumulate;
   using Base::refine_render_center;
   using Base::register_param;
-  using Base::rasterize_lattice;
   using Base::to_q16;
 
 public:
