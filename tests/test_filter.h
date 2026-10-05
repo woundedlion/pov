@@ -392,8 +392,9 @@ inline void test_pipeline_get_returns_correct_filter() {
   static_assert(std::is_same_v<decltype(pipe.get<CS>()), CS &>,
                 "get<CS>() returns CS&");
 
-  // Stages are reachable through get<T>(), not by converting the composed
-  // pipeline to its private implementation bases.
+  static_assert(!std::is_convertible_v<Pipeline<W, H, AA, Blur, CS> &, AA &>);
+  static_assert(!std::is_convertible_v<Pipeline<W, H, Blur, CS> &, Blur &>);
+  static_assert(!std::is_convertible_v<Pipeline<W, H, CS> &, CS &>);
   HS_EXPECT_TRUE(static_cast<const void *>(&bl) !=
                  static_cast<const void *>(&cs));
 
