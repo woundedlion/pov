@@ -2960,11 +2960,9 @@ inline void test_sim_rev_resync() {
  *          f.rev_count against `content_tracker.rev_in_effect & 63`, and the
  *          beacon_period_revs < 32 rule (Config::valid) exists precisely so the
  *          resulting signed-mod-64 resync is unambiguous as the residue wraps.
- *          A 90-rev effect crosses rev 64 mid-show. A dropped `& 63` would, via
- *          handle_beacon_burst's fold, "resync" a rev-64 board's counter
- *          backwards (64→32) against a beacon rev_count of 0 — corrupting both
- *          phase lockstep and the j = rev_in_effect − revs_per_effect inference
- *          the next epoch train depends on. This pins both staying correct.
+ *          A 90-rev effect crosses rev 64 mid-show. The full schedule counters
+ *          remain equal and the masked comparison reports no spurious beacon
+ *          mismatch. The next epoch still commits after this residue wrap.
  */
 inline void test_sim_rev_wrap_within_effect() {
   Config cfg = test_config();
@@ -2979,8 +2977,7 @@ inline void test_sim_rev_wrap_within_effect() {
     HS_EXPECT_EQ(sim.boards[i].live_index, 0);
 
   // Advance ACROSS the 63→0 seam and hold past it, sampling lockstep at stable
-  // mid-half instants (master ~x=72). A broken &63 cross-check corrupts
-  // rev_in_effect at rev 64 and would break phase / frame-counter lockstep here.
+  // mid-half instants (master ~x=72).
   bool crossed_seam = false;
   bool reached_end = false;
   for (int sample = 0; sample < 40; ++sample) {
@@ -2995,10 +2992,9 @@ inline void test_sim_rev_wrap_within_effect() {
       // The schedule counter tracks the master's exactly through the wrap, and
       // the &63 cross-check raises no spurious rev mismatch. A dropped mask on
       // the comparison reads a rev≥64 board's full counter as differing from the
-      // wrapped beacon rev_count and resyncs every beacon (climbing
-      // beacon_rev_mismatches); a dropped mask in the fold itself diverges the
-      // counter from the master. Phase/frame lockstep alone catches neither —
-      // those derive from the flywheel, not rev_in_effect.
+      // wrapped beacon rev_count and attempts resync every beacon, incrementing
+      // beacon_rev_mismatches even when the folded delta is zero. Phase/frame
+      // lockstep derives from the flywheel, not rev_in_effect.
       HS_EXPECT_EQ(content(sim.boards[i].board).rev_in_effect, rev);
       HS_EXPECT_EQ(
           sim.boards[i].board.telemetry_snapshot().beacon_rev_mismatches, 0u);
