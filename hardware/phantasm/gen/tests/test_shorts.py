@@ -210,6 +210,15 @@ class StackedNameTests(unittest.TestCase):
 class EmptyScanTests(unittest.TestCase):
     """An empty scan is a broken input, never a clean bill of health."""
 
+    def test_main_reports_missing_schematic_as_input_error(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "missing.kicad_sch"
+            error = io.StringIO()
+            with contextlib.redirect_stderr(error):
+                self.assertEqual(shorts.main([str(path)]), 2)
+            self.assertIn(str(path), error.getvalue())
+            self.assertNotIn("Traceback", error.getvalue())
+
     def test_empty_schematic_fails(self):
         with self.assertRaises(ValueError):
             shorts.analyze(sexp.parse("(kicad_sch)")[0])
