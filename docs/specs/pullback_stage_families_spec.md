@@ -768,8 +768,8 @@ gates run in CI rather than at compile time.
 ### 7.1 One operator authority
 
 **Status: PARTIAL.** `OperatorDescriptor` and `make_operator_descriptor()`
-(`core/render/pullback/operator_model.h`), the `OPERATOR_TABLE` built from
-those records (`core/render/pullback/operator_table.h`), and the generated
+(`core/render/pullback/operators/model.h`), the `OPERATOR_TABLE` built from
+those records (`core/render/pullback/operators/table.h`), and the generated
 catalog (`core/render/pullback/catalog_export.h`) golden-pinned by
 `tests/test_shader_chain.h`. The shipped factory derives one schema per model
 with the topology enum8s as ordinary fields rather than instantiating
@@ -945,7 +945,7 @@ registered pipelines have manifests, never that every shipping pipeline
 is registered. The effect roster that already gates device builds
 enumerates every composed effect, each naming its `RenderPipeline`, and
 the composed capture registry is generated from that roster. Runtime chains
-are admitted against the operator table in `core/render/pullback/operator_table.h`. The completeness check walks the derived
+are admitted against the operator table in `core/render/pullback/operators/table.h`. The completeness check walks the derived
 registry, reads each pipeline's `any_approximate` fold, and fails CI
 for any approximate entry absent from the manifest. Interpreted chains
 have no compile-time fold, so they take a **second path**: program
@@ -1219,8 +1219,8 @@ is the umbrella over the composition core only: the carrier contract, the
 field tables, the surface, lens, projection, warp, source, material, and
 color policy families, the ray stage (`core/render/pullback/ray.h`), and the
 stage combinators. The chain interpreter
-(`core/render/pullback/interpreter.h`, `core/render/pullback/operator_model.h`,
-`core/render/pullback/operator_table.h`, `core/render/pullback/operators.h`
+(`core/render/pullback/interpreter.h`, `core/render/pullback/operators/model.h`,
+`core/render/pullback/operators/table.h`, `core/render/pullback/operators.h`
 with its per-family `operators_*.h` headers, and
 `core/render/pullback/catalog_export.h`), the composed-effect base
 (`core/render/pullback/composed_effect.h`), and the shared runtime seeds

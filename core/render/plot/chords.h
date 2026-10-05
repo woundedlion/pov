@@ -12,7 +12,7 @@
  *        uses. Plot::PlanarBandSplit flags edge runs unable to reach a clip band.
  */
 
-#include "engine/memory.h"
+#include "memory.h"
 #include "math/display_geometry.h"
 #include "math/pixel_mapping.h"
 #include "render/canvas.h"

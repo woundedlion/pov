@@ -18,7 +18,7 @@
 
 #include <cfloat>
 #include <array>
-#include "engine/memory.h"
+#include "memory.h"
 
 /**
  * @brief A single node of the KDTree.

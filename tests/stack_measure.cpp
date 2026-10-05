@@ -28,7 +28,7 @@
 #include <new>
 
 #include "targets/effects.h"
-#include "core/engine/memory.h"
+#include "core/memory.h"
 #include "tests/test_fixture.h"
 
 namespace {

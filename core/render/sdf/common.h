@@ -12,7 +12,7 @@
 #include "math/geometry.h"
 #include "platform/constants.h"
 #include "render/render_policy.h"
-#include "engine/memory.h"
+#include "memory.h"
 #include "containers/static_circular_buffer.h"
 
 /**

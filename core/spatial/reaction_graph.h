@@ -17,7 +17,7 @@
 
 #include "platform/platform.h"
 #include "math/3dmath.h"
-#include "engine/memory.h"
+#include "memory.h"
 #include <cassert>
 #include <cmath>
 

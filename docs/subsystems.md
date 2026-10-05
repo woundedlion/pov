@@ -45,7 +45,7 @@ describes the shipped stage model.
 - [7.7 The Mesh System](#77-the-mesh-system-coremesh)
   - [Core MeshOps](#core-meshops-coremeshmeshh)
   - [Conway Operators](#conway-operators-conwayh)
-  - [Hankin Pattern System](#hankin-pattern-system-hankinh)
+- [Hankin Pattern System](#hankin-pattern-system-coremeshhankinh)
   - [Solids Library](#solids-library-solidsh-solid_generatorsh)
 - [7.8 Generators](#78-generators-memoryh)
 - [7.9 The Preset System](#79-the-preset-system-controlchoreographyh)
@@ -194,7 +194,7 @@ The rendering pipeline splits shape definitions from rasterization. `sdf.h` defi
 
 `scan.h` is an umbrella over `core/render/scan/`: `core/render/scan/raster.h` defines `Scan::rasterize()`, which drives the scanline loop and anti-aliasing, plus convenience wrappers that pair SDF shapes with the rasterizer.
 
-`sdf.h` is an umbrella over six of the headers in `core/render/sdf/`: the substrate every shape shares (azimuth intervals, row bounds, `DistanceResult`, the cap/annular span-emission helpers) in `common.h`, the polygon, star, flower and line leaves in `core/render/sdf/shapes.h`, the ring leaves in `rings.h`, the CSG operators in `csg.h`, `SDF::Face` with its congruence-class LUT in `face.h`, and the volumetric family in `core/render/sdf/volume.h`. Including `sdf.h` pulls in all six; the lattice, trace, framework and face-class headers are included directly by their consumers.
+`sdf.h` is an umbrella over six of the headers in `core/render/sdf/`: the substrate every shape shares (azimuth intervals, row bounds, `DistanceResult`, the cap/annular span-emission helpers) in `core/render/sdf/common.h`, the polygon, star, flower and line leaves in `core/render/sdf/shapes.h`, the ring leaves in `rings.h`, the CSG operators in `csg.h`, `SDF::Face` with its congruence-class LUT in `face.h`, and the volumetric family in `core/render/sdf/volume.h`. Including `sdf.h` pulls in all six; the lattice, trace, framework and face-class headers are included directly by their consumers.
 
 The `process_pixel` function applies anti-aliasing based on shape type:
 - **Solid shapes**: quintic smoothstep over a 2-pixel AA band centered on the edge (`-pixel_width <= d <= pixel_width`). Full interior pixels (`d < -pixel_width`) skip AA math entirely. `pixel_width` is the compile-time constant `2π/W` — the angular width of one *equatorial* pixel — so the band is a fixed angular thickness at every latitude, and near the poles (where columns converge) it spans more than two columns. At 288×144 the row and equatorial column arcs nearly match. At 96×20 a row spans about 2.4 column arcs (2.5 on the ideal profile the host build uses), so a horizontal edge has a narrower AA band in row units than a vertical edge has in column units.
@@ -331,8 +331,8 @@ Animation pause is opt-in per timeline event, not a global stop. Effects schedul
 | `timers.h` | Callbacks on a clock | `RandomTimer`, `PeriodicTimer` |
 | [params.h](../core/animation/params.h) | A caller-owned parameter, written each frame | `Transition`, `Mutation`, `Progress`, `Driver`, `Lerp`, `ColorWipe`, the `Mobius*` family, `Ripple`, `Noise`, `BallDrop`, `NoiseProduct` |
 | `motion.h` | An `Orientation` driven through space | `Path`/`ProceduralPath`, `Motion`, `Rotation`, `RandomWalk` |
-| `trails.h` | Recorded history | `Trail` and its `OrientationTrail`/`VectorTrail` aliases — index 0 is the oldest snapshot and `length()-1` the newest, the ordering the JS simulator mirrors — plus `QuantizedVectorTrail`, the `TrailBody` per-body aggregate, and the `tween`/`deep_tween` traversals |
-| `sprites.h` | Visible things | `Sprite`, `Particle`/`ParticleSystem` |
+| `core/animation/trails.h` | Recorded history | `Trail` and its `OrientationTrail`/`VectorTrail` aliases — index 0 is the oldest snapshot and `length()-1` the newest, the ordering the JS simulator mirrors — plus `QuantizedVectorTrail`, the `TrailBody` per-body aggregate, and the `tween`/`deep_tween` traversals |
+| `core/animation/sprites.h` | Visible things | `Sprite`, `Particle`/`ParticleSystem` |
 | `timeline.h` | Scheduling | `TimelineEvent`, `Timeline` |
 | `opleg.h` | One Conway-chain morph leg, swept per frame | `OpLeg` |
 | `segue.h` | How one mesh hands the sphere to the next | the `Segue` policies |
@@ -800,7 +800,7 @@ The mesh system uses these headers in `core/mesh/` and `core/render/sdf/`:
 - **`conway_graph.h`** — Constexpr 23-edge morph graph over the 18 simple-registry solids: per-edge operator/seed/reseed specs, bridge-aware walk weighting, and the closed `ORDERED_TOUR`
 - **`recipe_types.h`** — The authored op-chain model: the `Op` operator set, one `OpStep`, and the `Recipe` chain a registry generator mirrors, split out so the model is not read out of the registry tables written in it
 - **`recipe.h`** — Lowers an authored recipe to primitive steps (`expand_to_primitives`), sizes that lowering at compile time (`lowered_step_count`, `max_lowered_step_count`), replays either form through `SolidBuilder` (`build_recipe`, `build_steps`), and decides which lowered steps a morph leg can sweep (`is_morphable_step`)
-- **`hankin.h`** — Hankin pattern compilation and dynamic update
+- **`core/mesh/hankin.h`** — Hankin pattern compilation and dynamic update
 - **`core/render/sdf/face_class_bake.h`** — Congruence-class clustering plus one canonical distance-LUT bake per class, allocated by descending face count under an 18 KB per-mesh budget
 - **`core/render/sdf/face_classes.h`** — The class id space and the three record types the rasterizer binds per frame, split out so the clustering and bake machinery stays out of every rasterizer translation unit
 - **`mesh_state.h`** — `MeshState`, the flat-array renderer format, split out so mesh, Conway, Hankin and solids code can share the renderer-facing representation without the construction machinery
@@ -847,7 +847,7 @@ All Conway *geometry* operators (`dual` through `bevel` below) take `(const Poly
 | `MeshOps::normalize` | Project all vertices onto the unit sphere |
 | `MeshOps::reconcile_vertices` | Certify and reorder a nearest-vertex bijection into a non-scratch target arena using 4%/8% z bands |
 
-### Hankin Pattern System (`hankin.h`)
+### Hankin Pattern System (`core/mesh/hankin.h`)
 
 | Operation | Description |
 |---|---|

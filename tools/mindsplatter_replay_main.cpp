@@ -3,7 +3,7 @@
  * Licensed under the PolyForm Noncommercial License 1.0.0
  */
 
-#include "core/engine/memory.h"
+#include "core/memory.h"
 #include "tests/mindsplatter_replay_corpus.h"
 #include "tests/mindsplatter_whitebox.h"
 #include "tests/mindsplatter_replay_metrics.h"

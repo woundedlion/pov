@@ -31,7 +31,7 @@
 #endif
 #include "core/render/canvas.h"
 #include "core/math/geometry.h"
-#include "core/engine/memory.h"
+#include "core/memory.h"
 #include <utility>
 #include <new> // std::nothrow — fail-fast OOM check on the effect allocation
 

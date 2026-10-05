@@ -40,7 +40,7 @@ if(EMSCRIPTEN)
   set(TARGET_NAME holosphere_wasm)
   add_executable(${TARGET_NAME}
     ${CMAKE_CURRENT_SOURCE_DIR}/targets/wasm/wasm.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/core/engine/memory.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/core/memory.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/core/engine/static_storage.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/core/spatial/reaction_graph.cpp)
 
@@ -130,7 +130,7 @@ if(EMSCRIPTEN)
   # Build pullback_capture_wasm explicitly for tools/pullback_crosscheck.py.
   add_executable(pullback_capture_wasm EXCLUDE_FROM_ALL
     ${CMAKE_CURRENT_SOURCE_DIR}/tools/pullback_capture_native.cpp
-    ${HS_PULLBACK_CAPTURE_SOURCE_ROOT}/core/engine/memory.cpp
+    ${HS_PULLBACK_CAPTURE_SOURCE_ROOT}/core/memory.cpp
     ${HS_PULLBACK_CAPTURE_SOURCE_ROOT}/core/engine/static_storage.cpp
     ${HS_PULLBACK_CAPTURE_SOURCE_ROOT}/core/spatial/reaction_graph.cpp)
   include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/chain_capture_fixtures.cmake)

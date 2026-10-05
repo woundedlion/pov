@@ -2,7 +2,7 @@
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
  * Licensed under the PolyForm Noncommercial License 1.0.0
  *
- * Unit tests for core/engine/memory.h — Arena, ArenaVector, ArenaSpan,
+ * Unit tests for core/memory.h — Arena, ArenaVector, ArenaSpan,
  * ScratchScope, Persist<T>, and the scratch-scoped generate() wrapper.
  *
  * The always-on HS_CHECK traps are driven (in child processes) by the
@@ -28,7 +28,7 @@
 #include <cstdint>
 #include <cstring>
 #include <utility>
-#include "core/engine/memory.h"
+#include "core/memory.h"
 #include "tests/test_fixture.h"
 #include "tests/test_harness.h"
 

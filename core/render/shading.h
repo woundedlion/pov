@@ -12,7 +12,7 @@
 #include <array>
 #include <limits>
 
-#include "engine/memory.h"
+#include "memory.h"
 #include "math/geometry.h"
 #include "math/3dmath.h"
 #include "color/color.h"

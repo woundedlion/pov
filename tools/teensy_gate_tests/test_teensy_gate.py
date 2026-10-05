@@ -1023,13 +1023,13 @@ class TestWarningGateCaptureEvidence(unittest.TestCase):
 
     PIO_LINE = "Compiling .pio/build/phantasm/targets/Phantasm/Phantasm.ino.cpp.o"
     PIO_BANNER = _banner("phantasm", "targets/Phantasm/Phantasm.ino.cpp")
-    VERBOSE_LINE = ("arm-none-eabi-g++ -o .pio/build/phantasm/core/engine/memory.cpp.o "
-                    "-c core/engine/memory.cpp")
+    VERBOSE_LINE = ("arm-none-eabi-g++ -o .pio/build/phantasm/core/memory.cpp.o "
+                    "-c core/memory.cpp")
     # `pio run -v`: `-c` is a bare flag, the source is the LAST argument.
     VERBOSE_SOURCE_LAST = (
-        "arm-none-eabi-g++ -o .pio/build/phantasm/src/core/engine/memory.cpp.o "
+        "arm-none-eabi-g++ -o .pio/build/phantasm/src/core/memory.cpp.o "
         "-c -std=gnu++20 -fno-exceptions -O3 -DPLATFORMIO=60119 "
-        "-I. -Icore -Ieffects -Ihardware core/engine/memory.cpp")
+        "-I. -Icore -Ieffects -Ihardware core/memory.cpp")
 
     def _run(self, log_text):
         return _run_warning_gate(log_text)
@@ -1063,7 +1063,7 @@ class TestWarningGateCaptureEvidence(unittest.TestCase):
 
     def test_source_last_invocation_counts_as_first_party(self):
         self.assertEqual(tw.count_first_party_compiles(self.VERBOSE_SOURCE_LAST), 1)
-        banner = _banner("phantasm", "core/engine/memory.cpp")
+        banner = _banner("phantasm", "core/memory.cpp")
         self.assertEqual(self._run(banner + "\n" + self.VERBOSE_SOURCE_LAST + "\n"), 0)
 
     def test_include_flags_alone_are_not_evidence(self):
@@ -1077,7 +1077,7 @@ class TestWarningGateCaptureEvidence(unittest.TestCase):
     def test_link_line_naming_first_party_objects_is_not_evidence(self):
         # No -c: linking cannot emit a compile warning.
         line = ("arm-none-eabi-g++ -o .pio/build/phantasm/firmware.elf -T imxrt1062.ld "
-                ".pio/build/phantasm/src/core/engine/memory.cpp.o")
+                ".pio/build/phantasm/src/core/memory.cpp.o")
         self.assertEqual(tw.count_first_party_compiles(line), 0)
 
     def test_preprocess_only_invocation_is_not_evidence(self):
@@ -1095,7 +1095,7 @@ class TestColdCaptureAudit(unittest.TestCase):
     environment with nothing to keep in sync.
     """
 
-    TUS = ("core/engine/memory.cpp", "core/engine/static_storage.cpp",
+    TUS = ("core/memory.cpp", "core/engine/static_storage.cpp",
            "core/spatial/reaction_graph.cpp",
            "targets/Phantasm/Phantasm.ino.cpp")
 
@@ -1191,13 +1191,13 @@ class TestColdCaptureAudit(unittest.TestCase):
 
     def test_third_party_filter_terms_are_not_expected_tus(self):
         section, = tw.parse_env_sections(
-            _banner("phantasm", "core/engine/memory.cpp", "lib/Foo/foo.cpp"))
+            _banner("phantasm", "core/memory.cpp", "lib/Foo/foo.cpp"))
         self.assertEqual(tw.declared_first_party_sources(section),
-                         {"core/engine/memory.cpp"})
+                         {"core/memory.cpp"})
 
     def test_exclusion_term_removes_a_declared_tu(self):
         header = _banner("phantasm", *self.TUS).replace(
-            "; platform:", " -<core/engine/memory.cpp>; platform:")
+            "; platform:", " -<core/memory.cpp>; platform:")
         section, = tw.parse_env_sections(header)
         self.assertEqual(tw.declared_first_party_sources(section), set(self.TUS[1:]))
 
@@ -1210,7 +1210,7 @@ class TestExpectedEnvironmentSet(unittest.TestCase):
     the per-environment coldness audit has nothing to complain about.
     """
 
-    TU = "core/engine/memory.cpp"
+    TU = "core/memory.cpp"
     ENVS = ("holosphere", "holosphere_dma", "phantasm", "phantasm8",
             "profile", "profile_o3")
 
@@ -1272,7 +1272,7 @@ class TestRealColdVersusWarmCapture(unittest.TestCase):
 
     COLD = (REAL_DIR / "cold_env_section.txt").read_text(encoding="utf-8")
     WARM = (REAL_DIR / "warm_env_section.txt").read_text(encoding="utf-8")
-    TUS = {"core/engine/memory.cpp", "core/spatial/reaction_graph.cpp",
+    TUS = {"core/memory.cpp", "core/spatial/reaction_graph.cpp",
            "targets/Holosphere/Holosphere.ino.cpp"}
 
     def test_historical_banner_declares_three_first_party_tus(self):
@@ -1558,9 +1558,9 @@ class TestNonUtf8Captures(unittest.TestCase):
             self.assertEqual(rc, 0, msg=buf.getvalue())
 
     def test_warning_gate_reads_a_build_log_with_a_cp1252_byte(self):
-        log_text = (_banner("phantasm", "core/engine/memory.cpp") + "\n"
+        log_text = (_banner("phantasm", "core/memory.cpp") + "\n"
                     "arm-none-eabi-g++ -o .pio/build/phantasm/core/engine/"
-                    "memory.cpp.o -c core/engine/memory.cpp\n")
+                    "memory.cpp.o -c core/memory.cpp\n")
         with tempfile.TemporaryDirectory() as d:
             log = Path(d) / "build.log"
             log.write_bytes(log_text.encode("utf-8")

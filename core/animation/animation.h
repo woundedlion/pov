@@ -37,7 +37,7 @@
 #include "math/geometry.h"
 #include "engine/concepts.h" // Canvas, PlotFn/ScalarFn/TimerFn
 #include "mesh/mesh.h"       // MeshOps
-#include "engine/memory.h"
+#include "memory.h"
 #include "mesh/mesh_state.h"
 #include "containers/static_circular_buffer.h"
 #include "math/rotate.h"

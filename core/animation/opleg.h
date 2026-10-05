@@ -41,8 +41,8 @@ public:
   /** Capacity of the intern table: the full (from, to) pair space, so
    * interning can never overflow it. It is not the per-frame ceiling — each
    * distinct non-identity pair bakes a BakedPalette::required_arena_bytes()
-   * LUT into scratch_arena_b every frame, so that arena's capacity (16 KB by
-   * default, i.e. ~8 pairs) bounds a leg well below this constant.
+   * LUT into scratch_arena_b each frame. Its live capacity and
+   * BakedPalette::required_arena_bytes() bound simultaneous LUT storage.
    * build_palette_mapping checks a leg's table against it. */
   static constexpr int MAX_BLEND_PAIRS = PALETTES * PALETTES;
   static_assert(MAX_BLEND_PAIRS <= 256,

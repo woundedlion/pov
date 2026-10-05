@@ -21,7 +21,7 @@
 #include <cstdint>
 #include <cstdio>
 
-#include "core/engine/memory.h"
+#include "core/memory.h"
 #include "core/mesh/conway_graph.h"
 #include "effects/HankinSolids.h"
 #include "tests/conway_test_util.h"

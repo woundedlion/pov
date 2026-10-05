@@ -8,7 +8,7 @@
 #include <cstdint>
 #include <cstring>
 #include "math/spherical_field.h"
-#include "engine/memory.h"
+#include "memory.h"
 #include "render/filter/feedback_style.h"
 #include "render/filter/pipeline.h"
 

@@ -75,6 +75,9 @@ protected branch's `CI green` status is the authoritative correctness gate.
   pin (`pip install clang-format==22.1.8`) or point `CLANG_FORMAT` at a
   `clang-format-22` binary reporting that exact version. Every external tool version is single-sourced
   through `tools/build_pins.py`, whose `--check` fails a partial bump.
+- **Guard tests:** Prove that a valid companion fixture is accepted. For the
+  guarded fixture, assert the intended result or diagnostic. Deleting the
+  guarded line must fail the test; an unrelated rejection cannot satisfy it.
 - **Native suite:** `cmake --preset tests && cmake --build --preset tests` then
   `ctest --preset tests --output-on-failure --no-tests=error`. Every CI leg
   drives `HS_SMOKE_FRAMES=120`; at the 8-frame default no preset transition

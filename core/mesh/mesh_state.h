@@ -14,7 +14,7 @@
 #include <utility>
 
 #include "math/3dmath.h"
-#include "engine/memory.h"
+#include "memory.h"
 #include "platform/platform.h"
 
 namespace MeshOps {

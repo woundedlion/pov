@@ -15,7 +15,7 @@
 #pragma once
 
 #include <emscripten/bind.h>
-#include "core/engine/memory.h"
+#include "core/memory.h"
 
 /**
  * @brief Adds one arena's {usage, high_water_mark, lifetime_high_water_mark,

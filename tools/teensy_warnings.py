@@ -49,7 +49,7 @@ _SRC_FILTER_TERM_RE = re.compile(r"([+-])<([^>]*)>")
 # base section) is not one, hence the mandatory `:<name>`.
 _INI_ENV_RE = re.compile(r"^\s*\[env:([^\]\s]+)\]\s*$", re.MULTILINE)
 
-# SCons object-cache hit:  Retrieved `.pio/build/x/src/core/engine/memory.cpp.o' from cache
+# SCons object-cache hit:  Retrieved `.pio/build/x/src/core/memory.cpp.o' from cache
 _CACHE_HIT_RE = re.compile(r"^\s*Retrieved\s+[`'\"](.+?)['\"]\s+from cache\s*$")
 
 _GLOB_CHARS = "*?["

@@ -10,7 +10,7 @@
 #include "render/clip.h"
 #include "render/canvas.h"
 #include "engine/concepts.h"
-#include "engine/memory.h"
+#include "memory.h"
 #include "containers/triangular_bitset.h"
 #include "render/plot/raster.h"
 #include "render/plot/shapes.h"

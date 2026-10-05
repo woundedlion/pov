@@ -6,7 +6,7 @@
 
 #include <array>
 #include <type_traits>
-#include "engine/memory.h"
+#include "memory.h"
 #include "render/shading.h"
 #include "color/color.h"
 #include "render/canvas.h"

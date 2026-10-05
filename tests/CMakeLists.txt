@@ -61,7 +61,7 @@ endif()
 
 set(HS_ROOT ${CMAKE_CURRENT_SOURCE_DIR}/..)
 set(HS_ENGINE_SOURCES
-  ${HS_ROOT}/core/engine/memory.cpp
+  ${HS_ROOT}/core/memory.cpp
   ${HS_ROOT}/core/engine/static_storage.cpp
   ${HS_ROOT}/core/spatial/reaction_graph.cpp)
 set(HS_ENGINE_INCLUDES ${HS_ROOT} ${HS_ROOT}/core)
@@ -390,6 +390,12 @@ add_test(NAME unit_module_entry_controls COMMAND ${CMAKE_COMMAND}
 # Check reachability and assertion reach for column-0 void/bool/int/size_t
 # cases in tests/*.h and tests/*.hpp, including run_*_cases drivers. Shared
 # helpers resolve across tests/ and tools/; member definitions are excluded.
+add_test(NAME unit_header_sections COMMAND ${CMAKE_COMMAND}
+    -DWORK=${CMAKE_CURRENT_BINARY_DIR}/header_sections_fixture
+    -DCALL_GATE=${CMAKE_CURRENT_SOURCE_DIR}/check_case_calls.cmake
+    -DINCLUDE_GATE=${CMAKE_CURRENT_SOURCE_DIR}/check_includes.cmake
+    -P ${CMAKE_CURRENT_SOURCE_DIR}/check_header_sections_selftest.cmake)
+
 add_test(NAME unit_case_calls COMMAND ${CMAKE_COMMAND}
     -DCACHE_FILE=${CMAKE_CURRENT_BINARY_DIR}/case_calls.sha256
     -DTESTS_DIR=${CMAKE_CURRENT_SOURCE_DIR}
@@ -464,7 +470,7 @@ add_test(NAME unit_pullback_manifest COMMAND pullback_manifest_check)
 
 
 set(HS_CAPTURE_ENGINE_SOURCES
-  ${HS_PULLBACK_CAPTURE_SOURCE_ROOT}/core/engine/memory.cpp
+  ${HS_PULLBACK_CAPTURE_SOURCE_ROOT}/core/memory.cpp
   ${HS_PULLBACK_CAPTURE_SOURCE_ROOT}/core/engine/static_storage.cpp
   ${HS_PULLBACK_CAPTURE_SOURCE_ROOT}/core/spatial/reaction_graph.cpp)
 add_executable(pullback_capture_native
@@ -739,7 +745,7 @@ endforeach()
 # dumps; CTest exercises a one-frame dump and its reader.
 add_executable(feedback_divergence
   ${CMAKE_CURRENT_SOURCE_DIR}/feedback_divergence.cpp
-  ${HS_ROOT}/core/engine/memory.cpp
+  ${HS_ROOT}/core/memory.cpp
   ${HS_ROOT}/core/engine/static_storage.cpp)
 target_include_directories(feedback_divergence PRIVATE ${HS_ENGINE_INCLUDES})
 target_link_libraries(feedback_divergence PRIVATE hs_host_abi)
@@ -760,7 +766,7 @@ set_tests_properties(unit_feedback_compare PROPERTIES
 
 add_executable(feedback_divergence_io
   ${CMAKE_CURRENT_SOURCE_DIR}/feedback_divergence_io.cpp
-  ${HS_ROOT}/core/engine/memory.cpp
+  ${HS_ROOT}/core/memory.cpp
   ${HS_ROOT}/core/engine/static_storage.cpp)
 target_include_directories(feedback_divergence_io PRIVATE ${HS_ENGINE_INCLUDES})
 target_link_libraries(feedback_divergence_io PRIVATE hs_host_abi)

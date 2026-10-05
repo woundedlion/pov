@@ -8,7 +8,7 @@
 #include "color/color.h"
 #include "render/canvas.h"
 #include "engine/concepts.h"
-#include "engine/memory.h"
+#include "memory.h"
 
 /**
  * @file screen_trails.h

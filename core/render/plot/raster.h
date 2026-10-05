@@ -15,7 +15,7 @@
 #include "render/clip.h"
 #include "render/canvas.h"
 #include "engine/concepts.h"
-#include "engine/memory.h"
+#include "memory.h"
 #include "render/plot/cull.h"
 
 /**
