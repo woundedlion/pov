@@ -217,7 +217,8 @@ public:
 
   /**
    * @brief Crossfade-weight curve of a swept leg: resolved weight in [0, 1]
-   * for a 1-based leg frame over the whole leg duration (sweep plus settle).
+   * for a leg frame in [0, duration] (0 is the paused initial state) over the
+   * whole leg duration (sweep plus settle).
    * Supplied at construction with classic_blend as the default, mirroring
    * easing_fn. The gate crossfade uses trailing_blend.
    */
@@ -946,8 +947,8 @@ public:
   }
 
   /**
-   * @brief Trailing blend over the default TRAILING_BLEND_FRAMES window (the
-   * build legs); the BlendWeightFn form.
+   * @brief Trailing blend over the default TRAILING_BLEND_FRAMES window;
+   * the BlendWeightFn form.
    * @param frame Leg frame in [0, duration]; 0 is the paused initial state.
    * @param duration Whole leg length in frames (sweep plus settle).
    * @details Holds the inherited source palette through most of the leg, then
