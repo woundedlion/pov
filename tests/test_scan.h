@@ -2886,7 +2886,7 @@ inline void test_volume_probe_occluder_reports_background_graze_point() {
   TwoSphereSDF shape{math::Vector(0.0f, 0.0f, 0.20f), 0.18f,
                      math::Vector(0.28f, 0.0f, -0.20f), 0.30f};
 
-  // Silhouette-crossing corner, offset outward of both circles by ~0.004.
+  // Silhouette-crossing corner, offset outward of both circles by ~0.0033.
   const math::Vector ro(0.0357f, 0.1797f, 1.0f);
   const math::Vector vd(0.0f, 0.0f, -1.0f);
 
