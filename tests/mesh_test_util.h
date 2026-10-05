@@ -180,8 +180,8 @@ inline void check_indices_in_range(const PolyMesh &m) {
 inline constexpr float MAX_SLIVER_EDGE_RATIO = 6.0f;
 
 /**
- * @brief Verifies the mesh has no sliver faces: its longest geodesic edge stays
- *        within MAX_SLIVER_EDGE_RATIO times the median edge.
+ * @brief Verifies the longest geodesic edge is within MAX_SLIVER_EDGE_RATIO
+ *        times the median edge.
  * @param m Mesh whose face edges are measured as arcs on the unit sphere.
  */
 inline void check_no_sliver_edges(const PolyMesh &m) {

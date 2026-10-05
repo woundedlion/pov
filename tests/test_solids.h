@@ -15,7 +15,7 @@
  *     (fail-fast), so only the valid boundary (last index) is exercised here.
  *   - Determinism: building the same registry entry twice yields identical
  *     vertex counts and positions.
- *   - Sliver-face invariant: every Islamic recipe keeps its longest geodesic
+ *   - Edge-length outlier bound: every Islamic recipe keeps its longest geodesic
  *     edge within 6x the median edge.
  *   - Topology-hash rounding margin: no registered solid has an interior angle
  *     within TOPOLOGY_ANGLE_MARGIN_DEG of the X.5 boundary the classifier's
@@ -214,8 +214,8 @@ inline void test_islamic_registry_solids_are_valid() {
 }
 
 /**
- * @brief Verifies no Islamic-pattern solid has sliver faces
- *        (check_no_sliver_edges).
+ * @brief Verifies Islamic-pattern solids satisfy the longest-to-median
+ *        geodesic edge bound (check_no_sliver_edges).
  * @details A hankin contact angle near a resonance (contact planes of one
  *          corner class near-parallel) slings star points far from their
  *          corners, producing sliver faces that render as long lines.

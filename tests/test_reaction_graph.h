@@ -9,9 +9,10 @@
  * record and CI (reaction-graph-provenance) diffs the two, so regeneration is
  * checked. These tests additionally guard the in-tree table's content:
  * shape/population vs the RD_N/RD_K constants, structural invariants (range, no
- * self-loops, no duplicate rows), geometric sanity (listed neighbors are
- * actually nearby), a brute-force K-NN oracle on sampled rows (the table is the
- * neighbor set of node(), not merely a plausible one), an edge-reciprocity
+ * self-loops, no duplicate neighbors within a row), geometric sanity
+ * (listed neighbors are actually nearby), a brute-force K-NN oracle on sampled
+ * rows (the table is the neighbor set of node(), not merely a plausible one),
+ * an edge-reciprocity
  * measurement (gross-corruption tripwire — a raw K-NN graph is not required to
  * be perfectly symmetric), and the analytic node() generator.
  * Also exercises CubemapLUT round-trip (direction -> nearest node).

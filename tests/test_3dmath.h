@@ -685,6 +685,11 @@ inline void test_angle_between_vectors() {
   HS_EXPECT_NEAR(math::angle_between(x, x), 0.0f, 1e-3f);
   HS_EXPECT_NEAR(math::angle_between(x, -x), math::PI_F, 1e-3f);
   // Independent of operand magnitude.
+  const math::Vector diagonal(1.0f, 1.0f, 0.0f);
+  HS_EXPECT_NEAR(math::angle_between(x * 5.0f, diagonal * 0.3f),
+                 math::PI_F * 0.25f, 1e-3f);
+  HS_EXPECT_NEAR(math::angle_between(x * 0.3f, diagonal * 5.0f),
+                 math::PI_F * 0.25f, 1e-3f);
   HS_EXPECT_NEAR(math::angle_between(x * 5.0f, y * 0.3f), math::PI_F * 0.5f,
                  1e-3f);
 }

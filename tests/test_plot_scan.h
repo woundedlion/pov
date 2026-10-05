@@ -270,17 +270,19 @@ inline void test_line_sample_endpoints_and_unit_length() {
   points.bind(plot_arena(), 16);
 
   Fragment a, b;
-  a.pos = math::Vector(1, 0, 0);
-  b.pos = math::Vector(0, 1, 0);
+  a.pos = math::Vector(0.6f, 0.0f, 0.8f);
+  b.pos = math::Vector(-0.64f, 0.6f, 0.48f);
   const int density = 8;
   Plot::Line::sample(points, a, b, density);
 
   HS_EXPECT_SIZE_OR_RETURN(points, (size_t)(density + 1));
 
-  HS_EXPECT_NEAR(points[0].pos.x, a.pos.x, 1e-6f);
-  HS_EXPECT_NEAR(points[0].pos.y, a.pos.y, 1e-6f);
-  HS_EXPECT_NEAR(points[density].pos.x, b.pos.x, 1e-6f);
-  HS_EXPECT_NEAR(points[density].pos.y, b.pos.y, 1e-6f);
+  HS_EXPECT_EQ(points[0].pos.x, a.pos.x);
+  HS_EXPECT_EQ(points[0].pos.y, a.pos.y);
+  HS_EXPECT_EQ(points[0].pos.z, a.pos.z);
+  HS_EXPECT_EQ(points[density].pos.x, b.pos.x);
+  HS_EXPECT_EQ(points[density].pos.y, b.pos.y);
+  HS_EXPECT_EQ(points[density].pos.z, b.pos.z);
 
   for (size_t i = 0; i < points.size(); ++i) {
     HS_EXPECT_NEAR(points[i].pos.length(), 1.0f, 1e-3f);

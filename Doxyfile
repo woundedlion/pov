@@ -49,6 +49,7 @@ EXPAND_ONLY_PREDEF     = YES
 PREDEFINED             = FLASHMEM= \
                          FASTRUN= \
                          PROGMEM= \
+                         "HS_PROGMEM_UNIQUE(name)=" \
                          DMAMEM= \
                          "__attribute__(x)=" \
                          __EMSCRIPTEN__=1 \

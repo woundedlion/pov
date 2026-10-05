@@ -168,12 +168,12 @@ template <typename A, typename B> struct Union {
  * smin).
  * @tparam A First child shape type.
  * @tparam B Second child shape type.
- * @details Shapes organically blend together within radius k (radians).
+ * @details Blends child distance reports whose difference is below k.
  */
 template <typename A, typename B> struct SmoothUnion {
   const A &a; /**< First child shape. */
   const B &b; /**< Second child shape. */
-  float k;    /**< Smoothing radius in radians (e.g. 0.1). */
+  float k;    /**< Blend width in child distance-report units. */
   static constexpr bool is_solid =
       A::is_solid; /**< Both children share solidity, pinned by the
                         static_assert below. */
@@ -197,7 +197,7 @@ template <typename A, typename B> struct SmoothUnion {
    * @brief Builds a smooth union of two child shapes.
    * @param shape_a First child shape.
    * @param shape_b Second child shape.
-   * @param smoothness Blend radius k in radians.
+   * @param smoothness Blend width k in child distance-report units.
    */
   SmoothUnion(const A &shape_a, const B &shape_b, float smoothness)
       : a(shape_a), b(shape_b), k(smoothness) {
@@ -214,8 +214,7 @@ template <typename A, typename B> struct SmoothUnion {
   SmoothUnion(const A &&, const B &&, float) = delete;
 
   /**
-   * @brief Row bounds spanning both children's bands, padded by the blend
-   * radius.
+   * @brief Row bounds spanning both children's bands, padded by k.
    * @tparam H Canvas height in rows.
    * @return Inclusive row bounds expanded by k (converted to rows).
    */
@@ -226,9 +225,9 @@ template <typename A, typename B> struct SmoothUnion {
   }
 
   /**
-   * @brief The blend radius as a row count.
+   * @brief Blend padding as a row count.
    * @tparam H Canvas height in rows.
-   * @return k (radians) converted to rows, at least 1.
+   * @return k converted with the angular row scale, at least 1.
    */
   template <int H> int pad_rows() const {
     return std::max(1, static_cast<int>(ceilf(k * math::ROWS_PER_RADIAN<H>)));
@@ -262,7 +261,7 @@ template <typename A, typename B> struct SmoothUnion {
       return false;
     ScratchScope scratch(scratch_arena_b);
     MergedIntervalBuffer &merged = scratch_spans<MergedIntervalBuffer>(scratch);
-    // Great-circle weld radius k spans k/sin(phi) columns of azimuth; the
+    // Angular padding k spans k/sin(phi) columns of azimuth; the
     // equatorial conversion under-covers toward the poles. Clamp to full width
     // where the latitude factor diverges.
     float sin_phi = math::TrigLUT<W, H>::sin_phi[y];

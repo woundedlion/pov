@@ -29,7 +29,7 @@ inline void test_fragment_lerp_endpoints() {
   a.v3 = 4.0f;
   a.size = 5.0f;
   a.age = 6.0f;
-  a.color = Color4(Pixel(0, 0, 0), 0.2f);
+  a.color = Color4(Pixel(1000, 2000, 3000), 0.2f);
 
   Fragment b;
   b.pos = math::Vector(0, 1, 0);
@@ -39,17 +39,25 @@ inline void test_fragment_lerp_endpoints() {
   b.v3 = 40.0f;
   b.size = 50.0f;
   b.age = 60.0f;
-  b.color = Color4(Pixel(0, 0, 0), 0.8f);
+  b.color = Color4(Pixel(4000, 8000, 12000), 0.8f);
 
-  Fragment lo = Fragment::lerp(a, b, 0.0f);
-  HS_EXPECT_NEAR(lo.v0, a.v0, 1e-6f);
-  HS_EXPECT_NEAR(lo.size, a.size, 1e-6f);
-  HS_EXPECT_NEAR(lo.color.alpha, a.color.alpha, 1e-6f);
-
-  Fragment hi = Fragment::lerp(a, b, 1.0f);
-  HS_EXPECT_NEAR(hi.v3, b.v3, 1e-6f);
-  HS_EXPECT_NEAR(hi.age, b.age, 1e-6f);
-  HS_EXPECT_NEAR(hi.color.alpha, b.color.alpha, 1e-6f);
+  for (float t : {0.0f, 1.0f}) {
+    const Fragment actual = Fragment::lerp(a, b, t);
+    const Fragment &expected = t == 0.0f ? a : b;
+    HS_EXPECT_NEAR(actual.pos.x, expected.pos.x, 1e-6f);
+    HS_EXPECT_NEAR(actual.pos.y, expected.pos.y, 1e-6f);
+    HS_EXPECT_NEAR(actual.pos.z, expected.pos.z, 1e-6f);
+    HS_EXPECT_NEAR(actual.v0, expected.v0, 1e-6f);
+    HS_EXPECT_NEAR(actual.v1, expected.v1, 1e-6f);
+    HS_EXPECT_NEAR(actual.v2, expected.v2, 1e-6f);
+    HS_EXPECT_NEAR(actual.v3, expected.v3, 1e-6f);
+    HS_EXPECT_NEAR(actual.size, expected.size, 1e-6f);
+    HS_EXPECT_NEAR(actual.age, expected.age, 1e-6f);
+    HS_EXPECT_NEAR(actual.color.alpha, expected.color.alpha, 1e-6f);
+    HS_EXPECT_EQ(actual.color.color.r, expected.color.color.r);
+    HS_EXPECT_EQ(actual.color.color.g, expected.color.color.g);
+    HS_EXPECT_EQ(actual.color.color.b, expected.color.color.b);
+  }
 }
 
 /**

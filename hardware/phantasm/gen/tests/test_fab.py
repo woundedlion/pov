@@ -956,13 +956,14 @@ class UploadZipTests(unittest.TestCase):
     rather than left to whatever the host zlib defaults to."""
 
     MEMBER = "phantasm-F_Cu.gtl"
+    PAYLOAD = b"".join(
+        b"X%06dY%06dD02*\n" % (step, step * 7 % 99991)
+        for step in range(4000))
 
     def build(self, level="pinned"):
         directory = Path(self.enterContext(tempfile.TemporaryDirectory()))
         source = directory / self.MEMBER
-        source.write_bytes(b"".join(
-            b"X%06dY%06dD02*\n" % (step, step * 7 % 99991)
-            for step in range(4000)))
+        source.write_bytes(self.PAYLOAD)
         path = directory / fab.ARCHIVE
         if level == "pinned":
             fab.write_upload_zip(str(directory), [self.MEMBER], str(path))
@@ -981,6 +982,7 @@ class UploadZipTests(unittest.TestCase):
     def test_members_round_trip(self):
         with zipfile.ZipFile(io.BytesIO(self.build())) as archive:
             self.assertEqual(archive.namelist(), [self.MEMBER])
+            self.assertEqual(archive.read(self.MEMBER), self.PAYLOAD)
 
 
 class TimestampNormalizationTests(unittest.TestCase):

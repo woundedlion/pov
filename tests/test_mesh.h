@@ -305,6 +305,13 @@ inline void test_compile_polymesh_to_meshstate_basic() {
   HS_EXPECT_EQ(ms.face_counts.size(), cube.face_counts.size());
   HS_EXPECT_EQ(ms.faces.size(), cube.faces.size());
   HS_EXPECT_EQ(ms.face_offsets.size(), cube.face_counts.size());
+  for (size_t i = 0; i < cube.vertices.size(); ++i) {
+    HS_EXPECT_VEC(ms.vertices[i], cube.vertices[i], 0.0f);
+  }
+  for (size_t i = 0; i < cube.face_counts.size(); ++i)
+    HS_EXPECT_EQ(ms.face_counts[i], cube.face_counts[i]);
+  for (size_t i = 0; i < cube.faces.size(); ++i)
+    HS_EXPECT_EQ(ms.faces[i], cube.faces[i]);
   size_t expected_offset = 0;
   for (size_t i = 0; i < ms.face_offsets.size(); ++i) {
     HS_EXPECT_EQ(ms.face_offsets[i], (uint16_t)expected_offset);
