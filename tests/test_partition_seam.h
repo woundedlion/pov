@@ -287,8 +287,8 @@ inline SeamStats compare(const std::vector<Pixel> &a,
   return st;
 }
 
-/** Gated-swap envelope. The swap's measured coverage delta is a
- * 2-4 px band along the child edges, 6.6-15.3 % of the canvas, so the bound is
+/** Gated-swap envelope. The swap's measured coverage delta has a
+ * mean band width of 2-4 px along the child edges, 6.6-15.3 % of the canvas, so the bound is
  * on the changed fraction, the changed pixels' absolute energy and the deepest
  * pixel instead. Changed fraction, energy, deepest darkening and deepest band
  * are bracketed on both sides: a widened
