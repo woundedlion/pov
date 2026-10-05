@@ -12,8 +12,9 @@ archives into that directory. Pass explicit folders or .kicad_pcb files to overr
 
 A DRC gate runs kicad-cli on each candidate (env KICAD_CLI overrides discovery, and
 must name an existing file) so a geometry-clean but DRC-broken board can't
-win the ranking. With no KiCad on the pin installed the ranking still runs, ungated. Errors are split: 'refill-fixable' clearance/hole errors against a
-zone (Quilter exports pours without via antipads -- they clear on a KiCad zone refill)
+win the ranking. With no KiCad on the pin installed the ranking still runs, ungated.
+
+Errors are split: 'refill-fixable' clearance/hole errors against a zone (Quilter exports pours without via antipads -- they clear on a KiCad zone refill)
 vs 'REAL FAULTS' (shorts/crossings/opens, and track-to-track clearance), which
 disqualify a candidate from the recommended pick. A candidate whose DRC did not
 produce a result reports as NOT GATED, never as clean, and is likewise ineligible. Via
