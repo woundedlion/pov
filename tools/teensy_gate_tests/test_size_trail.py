@@ -322,6 +322,45 @@ class PendingCapture(unittest.TestCase):
         self.assertFalse(self.pending.exists())
 
 
+class RecordInputs(unittest.TestCase):
+    def test_non_firmware_edits_preserve_capture(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            tst._git(["init", "--quiet"], root)
+            tst._git(["config", "user.name", "Test"], root)
+            tst._git(["config", "user.email", "test@example.com"], root)
+            for path in ("platformio.ini", "targets/wasm/x.h", "tools/teensy_size_table.py"):
+                target = root / path
+                target.parent.mkdir(parents=True, exist_ok=True)
+                target.write_text("original", encoding="utf-8")
+                os.utime(target, ns=(1, 1))
+            tst._git(["add", "--", "platformio.ini", "targets/wasm/x.h",
+                      "tools/teensy_size_table.py"], root)
+            tst._git(["commit", "-m", "initial"], root)
+            elf = root / "build" / "phantasm" / tst.ELF_NAME
+            elf.parent.mkdir(parents=True)
+            elf.write_bytes(make_elf({".text.itcm": 17}))
+            os.utime(elf, ns=(2, 2))
+            pending = root / "pending.json"
+            trail = root / "trail.tsv"
+            real_git = tst._git
+            def in_repo(args, cwd=None, **kwargs):
+                return real_git(args, cwd or root, **kwargs)
+            for path in ("targets/wasm/x.h", "tools/teensy_size_table.py"):
+                (root / path).write_text("changed", encoding="utf-8")
+            with mock.patch.object(tst, "_git", side_effect=in_repo):
+                args = types.SimpleNamespace(env=["phantasm"], build_dir=root / "build",
+                                             out=pending)
+                self.assertEqual(tst.cmd_record(args), 0)
+                self.assertEqual(json.loads(pending.read_text())["envs"]["phantasm"]["itcm"], 17)
+                (root / "targets/wasm/x.h").write_text("later", encoding="utf-8")
+                tst._git(["add", "--", "targets/wasm/x.h", "tools/teensy_size_table.py"])
+                tst._git(["commit", "-m", "non-firmware"])
+                self.assertEqual(tst.cmd_commit(types.SimpleNamespace(
+                    pending=pending, trail=trail, repo=root, rev="HEAD")), 0)
+            self.assertEqual(tst.read_trail(trail)[0].sizes["itcm"], 17)
+
+
 class DefaultPaths(unittest.TestCase):
     """The trail is shared by every worktree; the pending record is not.
 
