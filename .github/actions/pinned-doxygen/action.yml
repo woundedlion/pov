@@ -7,9 +7,7 @@ description: Install the pinned Doxygen release plus Graphviz and apply the pinn
 runs:
   using: composite
   steps:
-    # Pin Doxygen to an exact release binary (apt's version trails and lacks
-    # newer config tags this Doxyfile uses). Graphviz comes from the pinned
-    # image. This matches the version used to validate the docs locally.
+    # Graphviz is installed from the runner's Ubuntu archive; its version is unpinned.
     - name: Install Doxygen 1.17.0 (pinned) + Graphviz
       shell: bash
       run: |
