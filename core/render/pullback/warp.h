@@ -223,6 +223,14 @@ struct AffineParams {
 static_assert(field_ids_unique<AffineParams>());
 static_assert(field_defaults_in_range<AffineParams>());
 
+/** @brief Advances the affine frame rotation by one frame. */
+inline void advance_affine_rotation(float &rotation,
+                                    const AffineParams &params) {
+  rotation = math::TWO_PI_F *
+             math::wrap_t((rotation + params.speed * params.rotation_rate) /
+                          math::TWO_PI_F);
+}
+
 /** @brief Warp parameters for the polar chart (Pullback::Warp::PolarChart). */
 struct PolarParams {
   float speed = 0.0f;         /**< Per-frame advance of the slot's phase, which
