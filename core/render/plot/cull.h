@@ -1555,7 +1555,8 @@ struct ScreenStepAxes {
   std::array<math::Vector, CAPACITY> up; /**< Rᵀŷ per copy. */
   int count = 0;                         /**< Live entries in up. */
   bool nonrigid = false; /**< A stage cannot report its copies. */
-  bool overflow = false; /**< More copies than CAPACITY. */
+  bool overflow =
+      false; /**< More copies than CAPACITY, or a stage forwarded a copy without its basis. */
 
   /** @brief True when the table replaces the per-sample stage walk. */
   bool usable() const { return !overflow; }
