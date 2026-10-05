@@ -132,7 +132,7 @@ public:
 
   /**
    * @brief Splits @p ring into @p out and flags each output edge.
-   * @param out Receives positions only; registers are dropped. Bound for
+   * @param out Empty destination receiving positions only; registers are dropped. Bound for
    * max_points(edges, pieces) points.
    * @param ring Open or closed polyline with @p edges + 1 points.
    * @param edges Edge count.
@@ -144,6 +144,7 @@ public:
   HS_HOT_FLASH_MEMBER std::span<const uint8_t>
   split(Fragments &out, const Fragments &ring, int edges, int pieces,
         const math::Basis &planar_basis, const ClipBand<W, H> &band) {
+    HS_CHECK(out.empty(), "PlanarBandSplit::split: out must be empty");
     HS_CHECK(max_points(edges, pieces) <= capacity,
              "PlanarBandSplit: %d edges of %d pieces exceed capacity %d", edges,
              pieces, capacity);
