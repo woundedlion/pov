@@ -97,9 +97,10 @@ constexpr uint32_t MIN_SAFE_HALF_REVS = 16;
  * @brief All protocol constants, in columns and cycle-counter cycles.
  *
  * "Cycles" are ticks of the per-board free-running clock (DWT->CYCCNT on the
- * device, a mock counter in tests). Timestamps are uint32_t and wrap; all
- * arithmetic on them is modular, and the flywheel's rebase rule (spec §4.1)
- * keeps every difference far below the wrap period.
+ * device, a mock counter in tests). Timestamps are uint32_t and wrap; their
+ * differences are modular. Servicing the flywheel within its signed-safe coast
+ * window lets the rebase rule (spec §4.1)
+ * keep its elapsed differences bounded across counter wrap.
  */
 struct Config {
   int32_t W = 288; /**< Columns per revolution. */

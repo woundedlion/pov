@@ -44,9 +44,10 @@ struct Crossing {
  *   x = (x_boundary + (now − epoch_cycles)·(W/2) / cycles_per_half_rev) mod W
  *
  * with a 64-bit intermediate. `epoch_cycles` is folded forward by exactly
- * cycles_per_half_rev at every locally-crossed boundary (the rebase rule), so
- * the elapsed term never exceeds ~one half-rev plus coast and the 32-bit
- * cycle-counter wrap is structurally impossible to observe. A snap re-bases
+ * cycles_per_half_rev at every locally-crossed boundary (the rebase rule).
+ * Servicing fold() within the signed-safe coast window keeps elapsed differences
+ * bounded across counter wrap; a full unattended wrap loses revolution history.
+ * A snap re-bases
  * the epoch to a symbol's first-edge timestamp; because position is always
  * "time since epoch", the elapsed-column compensation of spec §5.2 falls out
  * for free — classification completing ~13 columns after the boundary still
