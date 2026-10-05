@@ -3125,8 +3125,8 @@ inline void test_deep_tween_oldest_motionless_frame_no_gap() {
 /**
  * @brief Verifies a single-sample VectorTrail reads t = 1.0 (the lone trail
  * head), while a multi-sample sweep ramps 0 -> 1 oldest -> newest.
- * @details A freshly spawned or dying particle holds one history point; that
- * lone sample mirrors tween(Orientation) for a lone snapshot.
+ * @details A trail with its first recorded point mirrors tween(Orientation)
+ * for a lone snapshot.
  */
 inline void test_tween_vectortrail_single_sample_reaches_one() {
   Animation::VectorTrail<8> trail;
