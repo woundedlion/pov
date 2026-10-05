@@ -1282,7 +1282,8 @@ by origin: script loads are restricted to `'self'` plus the CDN origins that
 page actually uses. It is an origin boundary, not an XSS one — every page
 carries `'unsafe-inline'`, required by the `<script type="importmap">` that
 `vendor-importmap.js` injects on `index.html` and the four tool pages that load
-it, by the entry script's inline `onerror` fallback on `index.html`, and by
+it, by the inline classic `<script>` on `index.html` that registers the
+module SyntaxError overlay, by the entry script's inline `onerror` fallback, and by
 the inline `onerror` fallback on the five tool pages' self-hosted-font
 `<link>` — the only inline code on `palettes.html`, which loads no import map.
 No page carries an inline module block. Pages that load the WASM engine need `'wasm-unsafe-eval'`
