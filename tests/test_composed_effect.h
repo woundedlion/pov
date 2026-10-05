@@ -1675,7 +1675,8 @@ constexpr DerivationReach DERIVATION_REACH[] = {
     {"project.peirce-square-fast.v3", nullptr, {}},
     {"project.bonne.v3", nullptr, {}},
     {"project.airocean.v3", nullptr, {}},
-    // SourcePolicyFor has no policy for these plane samplers.
+    // SourcePolicyFor has no policy for these samplers; spherical-rings needs
+    // a prepared axis and phase (see the DerivableSource static_assert).
     {"sample.rings.v2", nullptr, {}},
     {"sample.spherical-rings.v3", nullptr, {}},
     {"sample.fractal.v2", nullptr, {}},
