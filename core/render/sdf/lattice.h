@@ -11,7 +11,6 @@
 #include "math/4dmath.h"
 #include "render/ray/contract.h"
 #include "render/ray/shade.h"
-#include "render/sdf/lattice_field.h"
 
 namespace SDF::Lattice {
 constexpr int DIMENSIONS = math::VEC4_DIMENSIONS;
