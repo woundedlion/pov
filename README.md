@@ -791,7 +791,7 @@ otherwise write-only scratch; its width comes from the pipeline's
 stage's output lands from the plotted position), floored at 1. Filtered effects
 derive all three from their pipelines.
 
-`canvas(x, y)` is a direct array subscript into the write buffer (`bufs[cur][y * width + x]`). No bounds checking, no virtual dispatch.
+`canvas(x, y)` is a direct array subscript into the write buffer (`bufs[cur][y * width + x]`). Bounds are asserted in native/debug builds and unchecked with `NDEBUG` on device. No virtual dispatch.
 
 ### The Filter Pipeline
 
