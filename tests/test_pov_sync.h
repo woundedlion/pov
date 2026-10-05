@@ -2485,7 +2485,8 @@ inline void test_sim_variable_effect_durations() {
             return false;
         return true;
       },
-      12.0));
+      double(effect_revolutions[1] + cfg.epoch_repeats + cfg.commit_revs) -
+          45.0 + 1.0));
 }
 
 /**
