@@ -236,5 +236,16 @@ class AtomicWriteTests(unittest.TestCase):
             self.assertEqual(path.read_bytes(), b"complete\n")
 
 
+class UidTests(unittest.TestCase):
+    def test_comprehensions_and_generators_use_the_enclosing_function(self):
+        kicad_common.reset_uid_sequence()
+        self.addCleanup(kicad_common.reset_uid_sequence)
+        direct = kicad_common.uid()
+        kicad_common.reset_uid_sequence()
+        self.assertEqual([kicad_common.uid() for _ in range(1)], [direct])
+        kicad_common.reset_uid_sequence()
+        self.assertEqual(next(kicad_common.uid() for _ in range(1)), direct)
+
+
 if __name__ == "__main__":
     unittest.main()

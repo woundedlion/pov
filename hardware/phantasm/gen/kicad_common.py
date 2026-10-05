@@ -94,11 +94,15 @@ def reset_uid_sequence():
 def uid():
     """UUID derived from the calling function and its occurrence count.
 
-    The key is source file + function name + occurrence. Deterministic uuid5
-    reproduces generated revisions 1.2 and 1.3 byte for byte. The schematic
-    and board generators draw from disjoint id spaces.
+    Comprehensions and generator expressions use the enclosing function.
+    The key is source file + function name + occurrence. Revision reproduction
+    is covered by the committed-project generation tests. The schematic and
+    board generators draw from disjoint id spaces.
     """
-    code = sys._getframe(1).f_code
+    frame = sys._getframe(1)
+    while frame.f_code.co_name.startswith("<") and frame.f_back is not None:
+        frame = frame.f_back
+    code = frame.f_code
     site = f"{os.path.basename(code.co_filename)}:{code.co_name}"
     n = _uid_seq[site] = _uid_seq.get(site, 0) + 1
     return str(_uuid.uuid5(UID_NAMESPACE, f"{site}#{n}"))
