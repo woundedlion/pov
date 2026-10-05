@@ -37,6 +37,8 @@ class AuthorityPresence(unittest.TestCase):
         for check, relative, original, replacement in (
                 (bp.check_shared_literals, '.githooks/pre-commit',
                  "grep -vE '", "grep -v -E '"),
+                (bp.check_shared_literals, '.githooks/pre-commit',
+                 'core.whitespace=', 'core.whitespace '),
                 (bp.check_inline_pins, 'requirements/ruff.in',
                  'ruff==', 'ruff >= ')):
             path = bp.ROOT / relative
