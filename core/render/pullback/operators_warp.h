@@ -81,10 +81,7 @@ struct WarpAffineV3 : ValueStateModel<AffineClockState> {
 
   static void advance(State &state, const Params &params) {
     state.phase = math::wrap_t(state.phase + params.speed);
-    state.rotation =
-        math::TWO_PI_F *
-        math::wrap_t((state.rotation + params.speed * params.rotation_rate) /
-                     math::TWO_PI_F);
+    Warp::advance_affine_rotation(state.rotation, params);
   }
   static Prepared prepare(const FrameContext &, const Params &params,
                           const State &state) {

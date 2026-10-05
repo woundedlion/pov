@@ -115,6 +115,12 @@ struct PeriodicRippleParams {
 static_assert(field_ids_unique<PeriodicRippleParams>());
 static_assert(field_defaults_in_range<PeriodicRippleParams>());
 
+/** @brief Advances the periodic ripple phase by one frame. */
+inline void advance_ripple_phase(float &phase,
+                                 const PeriodicRippleParams &params) {
+  phase = fmodf(phase + 1.0f, params.period);
+}
+
 /** @brief This frame's point on the displacement field's closed loop. */
 struct PreparedLoop {
   math::Vector loop_offset;
