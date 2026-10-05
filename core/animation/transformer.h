@@ -641,7 +641,8 @@ private:
  * superposition by summation; a caller whose entities must not stack composes
  * its own way over active_count()/active_params() (see
  * DominantFieldAccumulator). field_bound() bounds either composition, since the
- * dominant blend never exceeds the largest contribution in magnitude.
+ * dominant blend stays within the largest contribution up to floating-point
+ * rounding.
  */
 template <typename ParamsT, typename AnimT,
           float (*FieldFunc)(const math::Vector &, const ParamsT &),

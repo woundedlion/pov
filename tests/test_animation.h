@@ -3454,7 +3454,7 @@ inline void test_colorwipe_paused_holds_keys() {
 // Mobius warps (b-coefficient drivers)
 // ----------------------------------------------------------------------------
 // Each warp eases a normalized progress to an angle and writes Mobius param b.
-// At completion (progress == 1) angle == 2π, giving exact closed-form b values.
+// At completion (progress == 1) angle is float 2π; b closes within trig rounding.
 // ============================================================================
 
 /**

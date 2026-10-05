@@ -136,10 +136,12 @@ inline void test_normalized_linear() {
   const auto at_end =
       interp::normalized_linear<2>({1.0f, 0.0f}, {0.0f, 5.0f}, 1.0f, 1e-6f);
   HS_EXPECT_TRUE(at_end.valid);
+  HS_EXPECT_EQ(at_end.values[0], 0.0f);
   HS_EXPECT_EQ(at_end.values[1], 5.0f);
   const auto past_end =
       interp::normalized_linear<2>({1.0f, 0.0f}, {0.0f, 5.0f}, 2.0f, 1e-6f);
   HS_EXPECT_TRUE(past_end.valid);
+  HS_EXPECT_EQ(past_end.values[0], 0.0f);
   HS_EXPECT_EQ(past_end.values[1], 5.0f);
 
   const auto midpoint =

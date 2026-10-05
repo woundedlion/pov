@@ -4945,7 +4945,7 @@ inline void case_vertex_replicate_short_input() {
   Filter::World::VertexReplicate<3> replicate(vertices);
 }
 
-/** @brief Rejects a non-positive smooth-union radius. */
+/** @brief Rejects a non-positive smooth-union blend width. */
 inline void case_sdf_smooth_union_zero_radius() {
   const math::Basis basis{math::X_AXIS, math::Y_AXIS, math::Z_AXIS};
   const SDF::PlanarPolygon polygon(basis, .5f, 3, 0.f);

@@ -166,9 +166,9 @@ struct Config {
   /**
    * @brief Live-takeover grid: boards take a constructed effect live only at
    * revolutions ≡ 0 mod this.
-   * @details At boot every board (master included) therefore goes live at the
-   * SAME crossing with frame counters aligned, instead of master leading by
-   * however long downstream identity took. Must divide 64 so a beacon's
+   * @details Boards ready at the same grid crossing go live together with
+   * frame counters aligned; a board still awaiting identity or construction
+   * joins at a later eligible crossing. Must divide 64 so a beacon's
    * mod-64 revolution count lands on the same grid as the master's true
    * count. Mid-show rejoins wait ≤ grid revolutions past the beacon that named
    * their effect (spec §9.1, a term of rejoin_bound_revs()).
