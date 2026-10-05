@@ -485,8 +485,7 @@ inline void test_antialias_seam_wraps_left_column() {
   constexpr int W = 64, H = 64;
   Filter::Screen::AntiAlias<W, H> aa;
 
-  // x = -0.3 sits just left of the seam; y at the equator (y_m = 0) isolates
-  // the two X taps so only the wrap behaviour is under test.
+  // Integer y = 32 gives zero Y fraction, isolating the two X taps.
   const float in_alpha = 1.0f;
   float sum = 0.0f;
   bool all_in_range = true, saw_w_minus_1 = false, saw_zero = false;
