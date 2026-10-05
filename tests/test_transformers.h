@@ -1310,7 +1310,7 @@ inline void test_dominant_field_sign_crossing_is_continuous() {
   for (int i = 1; i <= steps; ++i) {
     const float b = lo + (hi - lo) * (float)i / (float)steps;
     const float cur = blend(b);
-    worst_step = std::max(worst_step, std::fabs(cur - prev));
+    worst_step = fold_worst(worst_step, std::fabs(cur - prev));
     prev = cur;
   }
   const float last = prev;
