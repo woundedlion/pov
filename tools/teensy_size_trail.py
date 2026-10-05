@@ -121,8 +121,11 @@ DEFAULT_ENVIRONMENTS: tuple[str, ...] = (
 
 ELF_NAME = "firmware.elf"
 BUILD_INPUTS = (
-    "core", "effects", "targets", ":(glob)hardware/*.h", "tools/phantasm.ld",
-    ":(glob)tools/teensy_*.py", "tools/teensy_budgets.json", "platformio.ini",
+    "core", "effects", "targets", ":(exclude)targets/wasm",
+    ":(glob)hardware/*.h", "tools/phantasm.ld", "tools/teensy_pre.py",
+    "tools/teensy_map.py", "tools/teensy_isystem.py", "tools/teensy_nano.py",
+    "tools/teensy_gate.py", "tools/teensy_gate_extra.py",
+    "tools/teensy_budgets.json", "platformio.ini",
 )
 
 
