@@ -484,9 +484,9 @@ struct ShadeSample {
 /**
  * @brief Per-channel slack, in 16-bit linear units, for a libm difference.
  * @details The palette lookup runs cbrtf/powf through the OKLab gamut search,
- * whose last bits differ between libm builds; sixteen linear units stay below
- * one sRGB code step at the dark end. This shade oracle permits sixteen
- * units; tests/mindsplatter_palette_check.cpp uses a separate four-unit band.
+ * whose last bits differ between libm builds. This shade oracle permits
+ * sixteen units; tests/mindsplatter_palette_check.cpp uses a separate
+ * four-unit band.
  */
 constexpr uint16_t MAX_SHADE_CHANNEL_DELTA = 16;
 
