@@ -1591,8 +1591,8 @@ inline void test_beacon_late_coast() {
 
     int pulses = 0;
     for (int32_t c = resume_col; c <= 150; ++c) {
-      // Round the column instant up: cycles_per_column() truncates, so a whole
-      // multiple of it lands a column short past ~column 100.
+      // Truncated cycles_per_column() falls before column c; position() floors
+      // that instant to c-1, so use the rounded-up rational instant.
       const uint32_t at =
           epoch1 +
           static_cast<uint32_t>((static_cast<uint64_t>(c) * period + 143u) /
