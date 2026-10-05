@@ -106,7 +106,7 @@ class RegionSizes(TypedDict):
     `components` is present only when the figures came from `teensy_size`, which
     breaks each region down; the `size -A` fallback can only total sections, so
     it omits the key entirely. evaluate() reports every configured per-component
-    ceiling as `component-missing` when it is absent, and main() refuses the
+    ceiling as `component-missing` when it is absent, and run() refuses the
     fallback outright for a budget that declares components.
     """
 
