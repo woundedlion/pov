@@ -691,21 +691,14 @@ TERMINAL_FIXED = {
     "C_DEC2": (31.3, 30.0, 180),
     "R_D1": (42.2, 27.77, 180),
     "R_D2": (42.2, 23.96, 180),
-    "R_S": (31.7, 24.0, 90),
-    "R_PD": (46.0, 23.0, 90),
     **SYNC_FILTER_PLACEMENTS,
-}
-TERMINAL_FIXED_FOOTPRINTS = {
-    "R_PD": "Resistor_SMD:R_0603_1608Metric",
-    "R_S": "Resistor_SMD:R_0805_2012Metric",
 }
 
 
 def fixed_placements(comps):
     revision = _GENERATION.get()[0]
     fixed = {ref: placement for ref, placement in TERMINAL_FIXED.items()
-             if ref in comps and (ref not in TERMINAL_FIXED_FOOTPRINTS or
-                                  comps[ref][1] == TERMINAL_FIXED_FOOTPRINTS[ref])}
+             if ref in comps}
     if revision == "1.3":
         fixed = {ref: placement for ref, placement in fixed.items()
                  if ref in ("JP_ID0", "JP_ID1", "JP_ID2", "JP_SHLD", "C_IN", "U_MCU", "C_DEC1")}
