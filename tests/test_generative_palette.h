@@ -542,7 +542,7 @@ inline void test_generative_palette_lerp_accumulates_segment_deltas() {
  * @details The snapshot chroma quantum (1/4095) is coarser than either
  * is_chromatic() threshold, so a chroma under half a quantum would round to
  * gray and lerp_keys would discard the key's hue for a whole morph. The encode
- * lifts any nonzero chroma to one quantum instead.
+ * lifts chromatic keys to one quantum instead.
  */
 inline void test_generative_palette_snapshot_keeps_faint_chroma_chromatic() {
   PaletteRecipe recipe;
@@ -556,6 +556,24 @@ inline void test_generative_palette_snapshot_keeps_faint_chroma_chromatic() {
   HS_EXPECT_GT(chroma, 0.0f);
   HS_EXPECT_GE(chroma, OKLCH_ACHROMATIC_C);
   HS_EXPECT_LT(chroma, 1e-3f);
+}
+
+inline void test_generative_palette_snapshot_keeps_absolute_gray_achromatic() {
+  const GenerativePalette from(PaletteRecipes::from_colors(
+      PaletteDomain::STRAIGHT, CPixel(255, 255, 255), CPixel(255, 0, 0),
+      CPixel(0, 0, 255)));
+  const GenerativePalette to(
+      PaletteRecipes::from_colors(PaletteDomain::STRAIGHT, CPixel(0, 255, 0),
+                                  CPixel(255, 0, 0), CPixel(0, 0, 255)));
+  HS_EXPECT_TRUE(from.morph_compatible(to));
+  HS_EXPECT_LT(GenerativePalette::snapshot_key(from.snapshot(), 0).chroma,
+               OKLCH_ACHROMATIC_C);
+  for (const float progress : {0.25f, 0.5f, 0.75f}) {
+    GenerativePalette morph;
+    morph.morph_palettes(from, to, progress);
+    HS_EXPECT_NEAR(morph.resolved_oklch_key(0).h, to.resolved_oklch_key(0).h,
+                   1e-4f);
+  }
 }
 
 inline void test_generative_palette_lerp_target_aliases_this() {
