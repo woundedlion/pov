@@ -99,9 +99,8 @@ public:
 
     register_param("Feed", &params.feed, 0.0f, 0.1f);
     register_param("Kill", &params.k, 0.0f, 0.1f);
-    // The six-step temporal block scales the Euler timestep by 5/3, which at
-    // the joint Speed/diffusion maximum exceeds the linear diffusion bound;
-    // step_physics' per-substep [0,1] clamp bounds that corner.
+    // step_physics_nodes clamps each substep to [0,1], including the joint
+    // Speed/diffusion maximum beyond the linear diffusion bound.
     register_param("dA", &params.d_a, 0.0f, 0.05f);
     register_param("dB", &params.d_b, 0.0f, 0.05f);
     register_param("Speed", &params.dt, 0.1f, 3.0f);
