@@ -98,6 +98,17 @@ inline void test_functionref_function_pointer() {
   int (*nullfp)(int) = nullptr;
   FunctionRef<int(int)> empty = nullfp;
   HS_EXPECT_FALSE((bool)empty);
+
+  auto nonthrowing_pointer = +[](int value) noexcept { return value + 3; };
+  FunctionRef<int(int)> stored = nonthrowing_pointer;
+  nonthrowing_pointer = nullptr;
+  HS_EXPECT_TRUE(static_cast<bool>(stored));
+  HS_EXPECT_EQ(stored(5), 8);
+  FunctionRef<int(int)> nonthrowing_empty = nonthrowing_pointer;
+  HS_EXPECT_FALSE(static_cast<bool>(nonthrowing_empty));
+  FunctionRef<int(int)> temporary =
+      +[](int value) noexcept { return value + 4; };
+  HS_EXPECT_EQ(temporary(5), 9);
 }
 
 /**

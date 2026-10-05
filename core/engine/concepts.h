@@ -117,9 +117,7 @@ public:
    * @param func Function pointer with signature Ret(Args...); stored in ctx.
    * @details The function-pointer <-> void* round-trip is only
    * *conditionally-supported* by the standard ([expr.reinterpret.cast]) but holds
-   * on every target this engine builds for (ARM Cortex-M7, x86-64, wasm32 all
-   * share pointer width); the static_assert turns any future target where that
-   * stops being true into a compile error. A null `func` produces an *empty*
+   * on the supported targets; the static_assert checks pointer width. A null `func` produces an *empty*
    * ref, matching a default-constructed FunctionRef, so a null func cannot
    * install a thunk that dereferences null on the first call.
    */
@@ -136,6 +134,10 @@ public:
           std::forward<Args>(args)...);
     };
   }
+
+  /** @brief Stores a non-throwing function pointer by value. */
+  FunctionRef(Ret (*func)(Args...) noexcept) noexcept
+      : FunctionRef(static_cast<Ret (*)(Args...)>(func)) {}
 
   /**
    * @brief Wraps a non-const lvalue callable (functor or lambda).
@@ -227,10 +229,6 @@ public:
 
   StoredFunctionRef() = default;
   StoredFunctionRef(std::nullptr_t) noexcept {}
-
-  /** @brief Stores a non-throwing function pointer by value. */
-  StoredFunctionRef(Ret (*func)(Args...) noexcept) noexcept
-      : FunctionRef<Ret(Args...)>(static_cast<Ret (*)(Args...)>(func)) {}
 
   // Reject rvalue temporaries the base would accept; the guards keep lvalue
   // callables and copy/move on the inherited ctors.
