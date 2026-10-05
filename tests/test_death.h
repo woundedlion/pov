@@ -895,7 +895,7 @@ inline void case_timeline_double_construct() {
  * @brief Death case: narrowing an index past the int16 topology range must trap.
  * @details Mesh-topology surface â€” both conway.h and hankin.h route every output
  *          vertex/face-index narrowing through this shared MeshOps guard, so a
- *          future MAX_VERTS bump traps at the bench instead of silently wrapping
+ *          future MeshLimits::MAX_VERTICES bump traps at the bench instead of silently wrapping
  *          an index and corrupting topology.
  */
 inline void case_mesh_narrow_index() {
