@@ -2417,6 +2417,8 @@ inline void test_choreography_fade_departure() {
   HS_EXPECT_EQ(effect.level(), 0.25f);
 
   // Paused mid-fade: full opacity, and no advance while paused.
+  HS_EXPECT_TRUE(effect.selectPreset(0));
+  effect.setAnimationsPaused(false);
   run_probe_frames(effect, DWELL + 2);
   HS_EXPECT_LT(effect.last_opacity, 1.0f);
   const size_t HELD = effect.getPresetIndex();
