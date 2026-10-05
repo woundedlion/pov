@@ -2056,9 +2056,10 @@ inline PolyMesh recipe_step_seed(Arena &a, Arena &b) {
 
 /** @brief One recipe-step leg site: the chain prefix the step sweeps on. */
 struct StepLegSite {
-  const char *name;                     /**< Diagnostic label. */
-  PolyMesh (*seed)(Arena &a, Arena &b); /**< Chain prefix up to the step. */
-  float param; /**< Arrival t, or relax iteration count. */
+  const char *name;                         /**< Diagnostic label. */
+  PolyMesh (*seed)(Arena &a, Arena &b);     /**< Chain prefix up to the step. */
+  float param;                              /**< Arrival t. */
+  const MeshOps::RelaxBake *bake = nullptr; /**< Relax arrival bake. */
 };
 
 inline PolyMesh probe_icosahedron(Arena &a, Arena &b) {
@@ -2085,7 +2086,7 @@ inline PolyMesh probe_ticosa_ambo(Arena &a, Arena &b) {
       .ambo()
       .build();
 }
-inline PolyMesh probe_ticosa_ambo_relax217(Arena &a, Arena &b) {
+inline PolyMesh probe_ticosa_ambo_relax_converged(Arena &a, Arena &b) {
   return recipe_step_seed<
       Solids::TRUNCATED_ICOSAHEDRON_AMBO_RELAX_TRUNCATE33_HK64_RECIPE,
       Solids::Op::TRUNCATE>(a, b);
@@ -2100,8 +2101,8 @@ inline PolyMesh probe_dodeca_ambo_bevel33(Arena &a, Arena &b) {
 /** Truncate-leg sites: the three pure-inflate recipes truncating at 0.33. */
 inline constexpr StepLegSite TRUNCATE_LEG_SITES[] = {
     {"icosahedron_ambo", probe_icosa_ambo, 0.33f},
-    {"truncatedIcosahedron_ambo_relax_converged", probe_ticosa_ambo_relax217,
-     0.33f},
+    {"truncatedIcosahedron_ambo_relax_converged",
+     probe_ticosa_ambo_relax_converged, 0.33f},
     {"icosahedron_snub_relax", probe_icosa_snub_relax, 0.33f},
 };
 
@@ -2110,11 +2111,31 @@ inline constexpr StepLegSite SNUB_LEG_SITES[] = {
     {"icosahedron", probe_icosahedron, 0.5f},
 };
 
-/** Standalone relax-leg sites, spanning short to long iteration counts. */
+template <const Solids::Recipe &RECIPE>
+inline constexpr StepLegSite relax_leg_site(const char *name) {
+  for (size_t i = 0; i < RECIPE.count; ++i)
+    if (RECIPE.steps[i].op == Solids::Op::RELAX)
+      return {name, recipe_step_seed<RECIPE, Solids::Op::RELAX>, 0.0f,
+              RECIPE.steps[i].bake};
+  return {};
+}
+
+/** Unique baked-relax seed sites in the shipping recipes. */
 inline constexpr StepLegSite RELAX_LEG_SITES[] = {
-    {"icosahedron_snub", probe_icosa_snub, 8.0f},
-    {"dodecahedron_ambo_bevel33", probe_dodeca_ambo_bevel33, 100.0f},
-    {"truncatedIcosahedron_ambo", probe_ticosa_ambo, 217.0f},
+    relax_leg_site<Solids::ICOSAHEDRON_SNUB_RELAX_TRUNCATE033_HANKIN62_RECIPE>(
+        "icosahedron_snub"),
+    relax_leg_site<Solids::DODECAHEDRON_AMBO_BEVEL33_RELAX_HK66_RECIPE>(
+        "dodecahedron_ambo_bevel33"),
+    relax_leg_site<
+        Solids::TRUNCATED_ICOSAHEDRON_AMBO_RELAX_TRUNCATE33_HK64_RECIPE>(
+        "truncatedIcosahedron_ambo"),
+    relax_leg_site<Solids::DODECAHEDRON_BEVEL2_RELAX_GYRO_RECIPE>(
+        "dodecahedron_bevel20"),
+    relax_leg_site<
+        Solids::TRUNCATED_ICOSIDODECAHEDRON_BEVEL5_RELAX_HK77_RECIPE>(
+        "truncatedIcosidodecahedron_bevel50"),
+    relax_leg_site<Solids::DODECAHEDRON_HK35_AMBO_HK62_AMBO_RELAX_HK42_RECIPE>(
+        "dodecahedron_hk35_ambo_hk62_ambo"),
 };
 
 /** @brief Topology fingerprint of one sweep sample. */
@@ -2257,7 +2278,7 @@ inline void test_snub_leg_on_recipe_seeds_holds_topology() {
 }
 
 /**
- * @brief Steps a relax slerp on every seed the recipes relax standalone,
+ * @brief Steps a baked-relax slerp on every unique shipping recipe seed,
  *        asserting the vertex count/order identity the kind rests on plus
  *        constant compiled face counts and unit vertices across the slerp.
  */
@@ -2271,7 +2292,7 @@ inline void test_relax_leg_on_recipe_seeds_holds_topology() {
 
     Arena a(morph_target_buf, sizeof(morph_target_buf));
     Arena b(morph_temp_buf, sizeof(morph_temp_buf));
-    PolyMesh relaxed = MeshOps::relax(seed, a, b, static_cast<int>(site.param));
+    PolyMesh relaxed = MeshOps::relax_baked(seed, a, *site.bake);
 
     // The precondition of a standalone relax leg: same vertex count, same
     // topology bytes, and vertex i still nearest its own seed vertex, so the
@@ -2321,9 +2342,8 @@ inline void test_relax_leg_on_recipe_seeds_holds_topology() {
         HS_EXPECT_EQ(compiled.face_counts.size(), first_compiled);
     }
 
-    std::printf("  [relax-leg] %s: iters=%d compiled=%zu across %d samples%s\n",
-                site.name, static_cast<int>(site.param), first_compiled,
-                SAMPLES,
+    std::printf("  [relax-leg] %s: baked compiled=%zu across %d samples%s\n",
+                site.name, first_compiled, SAMPLES,
                 hs_test::stats().failed != failed_before ? " FAILED" : "");
   }
 }
@@ -3058,7 +3078,7 @@ inline void check_step_leg_smoke(
       raw = MeshOps::snub(seed, ea, eb, site.param, 0.0f);
       break;
     case StepLegKind::RELAX:
-      raw = MeshOps::relax(seed, ea, eb, static_cast<int>(site.param));
+      raw = MeshOps::relax_baked(seed, ea, *site.bake);
       break;
     }
     endpoint = Solids::finalize_solid(raw, leg_arena);
@@ -3145,9 +3165,7 @@ inline void check_step_leg_smoke(
               leg_arena, cb, handoff, bookend, OpLeg::classic_blend, easing));
     break;
   case StepLegKind::RELAX:
-    run(OpLeg(seed,
-              OpLeg::RelaxSpec{.iterations = static_cast<int>(site.param),
-                               .sweep_frames = frames},
+    run(OpLeg(seed, OpLeg::RelaxSpec{.bake = site.bake, .sweep_frames = frames},
               leg_arena, cb, handoff, bookend, OpLeg::classic_blend, easing));
     break;
   }
