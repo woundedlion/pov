@@ -989,6 +989,9 @@ inline void test_clip_arcs_overlap() {
   HS_EXPECT_FALSE(ClipRegion::arcs_overlap(10, 5, 10, 0, W));
 }
 
+/**
+ * @brief geodesic_col_span declines an arc pole within AXIS_Y_EPS of horizontal.
+ */
 inline void test_col_span_rejects_ill_conditioned_pole() {
   const math::Vector a(1.0f, 0.0f, 0.0f);
   const math::Vector b = math::Vector(-1.0f, 0.0002f, 0.00000001f).normalized();
