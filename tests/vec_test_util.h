@@ -15,6 +15,10 @@
 
 namespace hs_test {
 
+/** @brief Snorm3 half-step quantization plus float encode/decode rounding. */
+inline constexpr float SNORM3_COMPONENT_BOUND =
+    0.5f / math::Snorm3::SCALE + 1e-7f;
+
 /**
  * @brief Tests whether two vectors agree componentwise within a tolerance.
  * @param a First vector operand.

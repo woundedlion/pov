@@ -3179,11 +3179,11 @@ inline void test_tween_vectortrail_single_sample_reaches_one() {
 
 /**
  * @brief Verifies QuantizedVectorTrail round-trips the sampled unit vectors
- * within 1/65534 per component, preserves 0 and ±1 exactly, clamps
+ * within SNORM3_COMPONENT_BOUND per component, preserves 0 and ±1 exactly, clamps
  * out-of-domain components, and keeps Trail's oldest-first ring semantics.
  */
 inline void test_quantized_vector_trail_roundtrip_and_ring() {
-  constexpr float QUANT_ERR = 1.0f / 65534.0f;
+  constexpr float QUANT_ERR = SNORM3_COMPONENT_BOUND;
 
   Animation::QuantizedVectorTrail<8> trail;
   trail.record(math::Vector(1, 0, 0));
