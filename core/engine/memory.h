@@ -462,8 +462,8 @@ private:
 #ifndef NDEBUG
 /**
  * @brief Debug-only snapshot of an arena's state when it handed out a block.
- * @details One copy per arena-resident owner (ArenaVector, ArenaSpan,
- * TransformerPool), so the three lifetime questions a block can be asked —
+ * @details One copy per arena-resident owner, so the three lifetime
+ * questions a block can be asked —
  * was the arena reset, was it rewound below the block, was the block reclaimed
  * by a rewind and reissued — have a single set of answers. Compiled out under
  * NDEBUG along with the Arena accessors it calls.
