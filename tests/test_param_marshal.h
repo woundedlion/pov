@@ -25,8 +25,14 @@
 #include "tests/test_fixture.h"
 #include "tests/test_harness.h"
 
+#include <algorithm>
+#include <array>
+#include <cmath>
 #include <cstdio>
+#include <limits>
 #include <string_view>
+#include <tuple>
+#include <type_traits>
 #include <vector>
 
 namespace hs_test {

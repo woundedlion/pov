@@ -18,7 +18,7 @@
 #include <cmath>
 #include <cstdio>
 #include <cstdlib>
-#include <string>
+#include <string_view>
 #include <vector>
 #if defined(_WIN32)
 #include <fcntl.h> // _O_BINARY
