@@ -3326,10 +3326,9 @@ inline void test_star_sample_unit_length_closed() {
   }
 }
 
-// sample() and sample_positions() instantiate one shared lambda separately, so
-// -ffast-math may contract and normalize the two apart. The vertices are unit
-// length, so the bound is absolute.
-constexpr float STAR_INSTANTIATION_DRIFT =
+// sample_positions() uses an angle-addition recurrence without normalization
+// (core/render/plot/shapes.h: ~4e-6 off-unit drift); the bound is absolute.
+constexpr float STAR_RECURRENCE_DRIFT =
     32.0f * std::numeric_limits<float>::epsilon();
 
 /**
@@ -3338,7 +3337,8 @@ constexpr float STAR_INSTANTIATION_DRIFT =
  * @details Positions are compared within float tolerance, not bit-for-bit. Both
  *   shipping targets build with -ffast-math, under which the compiler contracts
  *   the hand-written per-vertex reference differently from the hoisted path, and
- *   even the two instantiations of sample_impl's shared lambda differ by a ULP.
+ *   sample_positions() uses an angle-addition recurrence without the
+ *   per-vertex normalization performed by sample().
  *   The tolerance still catches every error the hoist can make — swapped
  *   inner/outer radii, wrong i&1 parity, a dropped phase — since each moves a
  *   vertex by orders of magnitude more than rounding. Only the registers
@@ -3401,13 +3401,13 @@ inline void test_star_sample_radius_trig_parity() {
           HS_EXPECT_NEAR(actual[i].pos.z, reference[i].pos.z, 1e-6f);
           HS_EXPECT_NEAR(actual[i].v0, reference[i].v0, 1e-6f);
           HS_EXPECT_NEAR(actual[i].v1, reference[i].v1, 1e-6f);
-          // Two instantiations of one lambda; still separately contracted.
+          // Recurrence positions omit per-vertex normalization.
           HS_EXPECT_NEAR(actual[i].pos.x, positions[i].pos.x,
-                         STAR_INSTANTIATION_DRIFT);
+                         STAR_RECURRENCE_DRIFT);
           HS_EXPECT_NEAR(actual[i].pos.y, positions[i].pos.y,
-                         STAR_INSTANTIATION_DRIFT);
+                         STAR_RECURRENCE_DRIFT);
           HS_EXPECT_NEAR(actual[i].pos.z, positions[i].pos.z,
-                         STAR_INSTANTIATION_DRIFT);
+                         STAR_RECURRENCE_DRIFT);
           HS_EXPECT_EQ(std::bit_cast<uint32_t>(positions[i].pos.x),
                        std::bit_cast<uint32_t>(cached_positions[i].pos.x));
           HS_EXPECT_EQ(std::bit_cast<uint32_t>(positions[i].pos.y),
