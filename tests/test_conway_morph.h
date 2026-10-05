@@ -2090,25 +2090,13 @@ inline PolyMesh probe_icosa_snub_relax(Arena &a, Arena &b) {
       Solids::ICOSAHEDRON_SNUB_RELAX_TRUNCATE033_HANKIN62_RECIPE,
       Solids::Op::TRUNCATE>(a, b);
 }
-inline PolyMesh probe_ticosa_ambo(Arena &a, Arena &b) {
-  return Solids::SolidBuilder(Solids::Archimedean::truncatedIcosahedron(a, b),
-                              a, b)
-      .ambo()
-      .build();
-}
 inline PolyMesh probe_ticosa_ambo_relax_converged(Arena &a, Arena &b) {
   return recipe_step_seed<
       Solids::TRUNCATED_ICOSAHEDRON_AMBO_RELAX_TRUNCATE33_HK64_RECIPE,
       Solids::Op::TRUNCATE>(a, b);
 }
-inline PolyMesh probe_dodeca_ambo_bevel33(Arena &a, Arena &b) {
-  return Solids::SolidBuilder(Solids::Platonic::dodecahedron(a, b), a, b)
-      .ambo()
-      .bevel(0.33f)
-      .build();
-}
 
-/** Truncate-leg sites: the three pure-inflate recipes truncating at 0.33. */
+/** @brief Representative chain prefixes for truncate-leg sweeps. */
 inline constexpr StepLegSite TRUNCATE_LEG_SITES[] = {
     {"icosahedron_ambo", probe_icosa_ambo, 0.33f},
     {"truncatedIcosahedron_ambo_relax_converged",
@@ -2116,7 +2104,7 @@ inline constexpr StepLegSite TRUNCATE_LEG_SITES[] = {
     {"icosahedron_snub_relax", probe_icosa_snub_relax, 0.33f},
 };
 
-/** Snub-leg sites: the one recipe snubbing, at the .snub() defaults. */
+/** @brief Representative snub-leg seed at the snub() defaults. */
 inline constexpr StepLegSite SNUB_LEG_SITES[] = {
     {"icosahedron", probe_icosahedron, 0.5f},
 };
@@ -2205,7 +2193,7 @@ inline PolyMesh build_step_leg_seed(const StepLegSite &site, Arena &persist) {
 }
 
 /**
- * @brief Steps a truncate sweep on every seed the recipes truncate, asserting
+ * @brief Steps truncate sweeps on TRUNCATE_LEG_SITES, asserting
  *        constant raw and compiled face counts, two-face edge incidence, and Euler
  *        characteristic 2 at every sampled parameter.
  */
@@ -2248,7 +2236,7 @@ inline void test_truncate_leg_on_recipe_seeds_holds_topology() {
 }
 
 /**
- * @brief Steps a snub sweep on every seed the recipes snub, asserting constant
+ * @brief Steps snub sweeps on SNUB_LEG_SITES, asserting constant
  *        raw and compiled face counts, two-face edge incidence, and Euler
  *        characteristic 2 at every sampled parameter.
  */
