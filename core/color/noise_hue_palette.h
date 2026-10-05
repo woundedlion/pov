@@ -224,6 +224,31 @@ sample_hue_rotation_lut(const HueRotationLutView &view, float value,
   return sample_row(value_low).lerp16(sample_row(value_high), value_weight);
 }
 
+/** @brief Bilinear noise tap in the hue LUT's face coordinates, u/v in [-1, 1]. */
+__attribute__((always_inline)) inline float
+sample_hue_noise_face(const HueNoiseLutView &view, int face, float u, float v) {
+  constexpr float SCALE =
+      0.5f * static_cast<float>(HueNoiseLutView::FACE_STEPS - 1);
+  const float x_position = (u + 1.0f) * SCALE;
+  const float y_position = (v + 1.0f) * SCALE;
+  const int x_low =
+      std::min(static_cast<int>(x_position), HueNoiseLutView::FACE_STEPS - 2);
+  const int y_low =
+      std::min(static_cast<int>(y_position), HueNoiseLutView::FACE_STEPS - 2);
+  const float x_fraction = x_position - x_low;
+  const float y_fraction = y_position - y_low;
+  const int offset = face * HueNoiseLutView::FACE_SIZE +
+                     y_low * HueNoiseLutView::FACE_STEPS + x_low;
+  const float row_low =
+      hs::lerp(static_cast<float>(view.data[offset]),
+               static_cast<float>(view.data[offset + 1]), x_fraction);
+  const float row_high = hs::lerp(
+      static_cast<float>(view.data[offset + HueNoiseLutView::FACE_STEPS]),
+      static_cast<float>(view.data[offset + HueNoiseLutView::FACE_STEPS + 1]),
+      x_fraction);
+  return hs::lerp(row_low, row_high, y_fraction) * (1.0f / 127.0f);
+}
+
 /**
  * @brief Samples the cube-map noise field along a nonzero direction.
  * @param view Prepared hue-noise LUT.
@@ -258,26 +283,7 @@ HS_O3_FN inline float sample_hue_noise_lut(const HueNoiseLutView &view,
     v = direction.y * inverse;
   }
 
-  constexpr float SCALE =
-      0.5f * static_cast<float>(HueNoiseLutView::FACE_STEPS - 1);
-  const float x_position = (u + 1.0f) * SCALE;
-  const float y_position = (v + 1.0f) * SCALE;
-  const int x_low =
-      std::min(static_cast<int>(x_position), HueNoiseLutView::FACE_STEPS - 2);
-  const int y_low =
-      std::min(static_cast<int>(y_position), HueNoiseLutView::FACE_STEPS - 2);
-  const float x_fraction = x_position - x_low;
-  const float y_fraction = y_position - y_low;
-  const int offset = face * HueNoiseLutView::FACE_SIZE +
-                     y_low * HueNoiseLutView::FACE_STEPS + x_low;
-  const float row_low =
-      hs::lerp(static_cast<float>(view.data[offset]),
-               static_cast<float>(view.data[offset + 1]), x_fraction);
-  const float row_high = hs::lerp(
-      static_cast<float>(view.data[offset + HueNoiseLutView::FACE_STEPS]),
-      static_cast<float>(view.data[offset + HueNoiseLutView::FACE_STEPS + 1]),
-      x_fraction);
-  return hs::lerp(row_low, row_high, y_fraction) * (1.0f / 127.0f);
+  return sample_hue_noise_face(view, face, u, v);
 }
 
 /**
