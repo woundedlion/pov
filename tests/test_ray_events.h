@@ -182,11 +182,13 @@ inline void test_event_stream_contracts() {
                                  [](const auto &) { return false; });
   HS_EXPECT_EQ(result.status, Raycast::TraceStatus::SATURATED);
   streams.live.fill(true);
+  streams.heads[2].t = 3;
+  streams.heads[4].t = 4;
   result = Raycast::trace_events(streams, {2, 3}, {}, [](const auto &hit) {
     HS_EXPECT_TRUE(hit.t == 2 || hit.t == 3);
     return true;
   });
-  HS_EXPECT_EQ(result.counters.layers, 1);
+  HS_EXPECT_EQ(result.counters.layers, 2);
 }
 
 /** @brief Verified filtering preserves aggregate counters and unresolved status. */
