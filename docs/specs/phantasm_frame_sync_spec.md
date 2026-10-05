@@ -1174,7 +1174,8 @@ Following the `pov_segment_map.h` precedent (pure, host-tested index math):
   two-coincident-edge-error residual) is rejected in LOCKED; assert a board
   seeded with a corrupted timebase re-acquires after `reject_fallback` (4) rejected symbols via the
   ACQUIRE fallback (no rejection deadlock); assert mid-rev beacon bursts are
-  never consumed as boundary symbols and vice versa (§6.4 demarcation).
+  never consumed as boundary symbols and vice versa in LOCKED (§6.4 demarcation).
+  Retain the isolated-burst ACQUIRE exception documented in §5.3.
 - **Epoch commit:** simulate per-board init-time spread inside the K-rev
   window; assert every board flips to the new effect's frame 0 at exactly
   B+R+K with black throughout the announce and construction phases, and that an init exceeding K traps (`HS_CHECK`), never
