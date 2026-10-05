@@ -183,6 +183,8 @@ class ShellGateTests(unittest.TestCase):
             self.assertNotEqual(result.returncode, 0, result.stdout + result.stderr)
             if run.startswith("|"):
                 self.assertIn("SC2154", result.stdout + result.stderr)
+            else:
+                self.assertIn("unsupported run scalar", result.stderr)
 
     def test_cold_build_removes_only_fixture_caches_and_preserves_pio_failure(self):
         script = self.root / "tools" / "teensy_cold_build.sh"
