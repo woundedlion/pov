@@ -689,7 +689,7 @@ inline void test_update_hankin_near_parallel_angle_is_continuous() {
   float max_step = 0.0f;
   float resonance_max_step = 0.0f;
   constexpr float STEP_DEGREES = 0.01f;
-  for (int step = 1; step <= 8900; ++step) {
+  for (int step = 1; step <= 9000; ++step) {
     output_arena.reset();
     PolyMesh output;
     MeshOps::update_hankin(compiled, output, output_arena,
