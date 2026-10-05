@@ -1133,7 +1133,7 @@ inline void test_linear_to_srgb_endpoints() {
   HS_EXPECT_EQ(linear_to_srgb_lut[65535], 255);
 }
 
-// The 8 KB split-decode must reproduce the 64 KB linear_to_srgb_lut for every
+// The ~1.5 KB split-decode must reproduce the 64 KB linear_to_srgb_lut for every
 // one of the 65536 inputs — the equivalence the pack hot path relies on.
 inline void test_linear_to_srgb8_decode_matches_lut() {
   long mismatches = 0;
