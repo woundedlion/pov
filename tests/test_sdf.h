@@ -1517,7 +1517,7 @@ inline void test_subtract_keeps_minuend_size_when_b_wins() {
   HS_EXPECT_NEAR(r.size, 0.1f, 1e-6f);
 }
 
-namespace sdf_subtract_detail {
+namespace sdf_interval_detail {
 /**
  * @brief Mock SDF shape that emits a fixed (possibly unsorted, multi-) interval list.
  * @details Exercises the CSG scanline interval paths independently of any real
@@ -1598,7 +1598,7 @@ struct MockEmitThenFullWidthShape {
     return false;
   }
 };
-} // namespace sdf_subtract_detail
+} // namespace sdf_interval_detail
 
 /**
  * @brief Verifies a solid B's spans never carve the minuend's scanline emission.
@@ -1609,7 +1609,7 @@ struct MockEmitThenFullWidthShape {
  */
 inline void test_subtract_solid_b_leaves_the_minuend_uncarved() {
   using P = std::pair<float, float>;
-  using Mock = sdf_subtract_detail::MockIntervalShape;
+  using Mock = sdf_interval_detail::MockIntervalShape;
   std::vector<P> a_ivs = {{0.0f, 40.0f}, {60.0f, 100.0f}};
   std::vector<P> b_ivs = {{60.0f, 70.0f}, {20.0f, 30.0f}}; // unsorted, multi
   Mock A{&a_ivs}, B{&b_ivs};
@@ -1681,7 +1681,7 @@ inline void test_subtract_star_notch_columns_survive_the_carve() {
  */
 inline void test_subtract_empty_b_passes_a_through_verbatim() {
   using P = std::pair<float, float>;
-  using Mock = sdf_subtract_detail::MockIntervalShape;
+  using Mock = sdf_interval_detail::MockIntervalShape;
   std::vector<P> a_ivs = {{50.0f, 60.0f}, {0.0f, 10.0f}}; // unsorted
   std::vector<P> b_ivs = {};                              // empty → passthrough
   Mock A{&a_ivs}, B{&b_ivs};
@@ -1705,8 +1705,8 @@ inline void test_subtract_empty_b_passes_a_through_verbatim() {
  */
 inline void test_subtract_full_width_b_still_emits_the_minuend() {
   using P = std::pair<float, float>;
-  using MockA = sdf_subtract_detail::MockIntervalShape;
-  using MockB = sdf_subtract_detail::MockFullWidthShape;
+  using MockA = sdf_interval_detail::MockIntervalShape;
+  using MockB = sdf_interval_detail::MockFullWidthShape;
   std::vector<P> a_ivs = {{0.0f, 100.0f}};
   MockA A{&a_ivs};
   MockB B;
@@ -1724,7 +1724,7 @@ inline void test_subtract_full_width_b_still_emits_the_minuend() {
 /** @brief Verifies Subtract forwards an unwrapped minuend band. */
 inline void test_subtract_seam_straddle_forwards_minuend() {
   using P = std::pair<float, float>;
-  using Mock = sdf_subtract_detail::MockIntervalShape;
+  using Mock = sdf_interval_detail::MockIntervalShape;
   std::vector<P> a_ivs = {{-10.0f, 10.0f}};  // seam band, negative frame
   std::vector<P> b_ivs = {{246.0f, 266.0f}}; // same band, [W,2W) frame (W=256)
   Mock A{&a_ivs}, B{&b_ivs};
@@ -1742,7 +1742,7 @@ inline void test_subtract_seam_straddle_forwards_minuend() {
 /** @brief Verifies Subtract preserves all minuend spans. */
 inline void test_subtract_many_arc_preserves_minuend() {
   using P = std::pair<float, float>;
-  using Mock = sdf_subtract_detail::MockIntervalShape;
+  using Mock = sdf_interval_detail::MockIntervalShape;
   std::vector<P> a_ivs = {{-6.0f, 4.0f},    {250.0f, 262.0f}, // seam straddlers
                           {20.0f, 30.0f},   {40.0f, 50.0f},   {60.0f, 70.0f},
                           {80.0f, 90.0f},   {100.0f, 110.0f}, {120.0f, 130.0f},
@@ -1804,7 +1804,7 @@ inline void test_intersection_requires_both_inside() {
  */
 inline void test_intersection_unsorted_child_yields_sorted_result() {
   using P = std::pair<float, float>;
-  using Mock = sdf_subtract_detail::MockIntervalShape;
+  using Mock = sdf_interval_detail::MockIntervalShape;
   std::vector<P> a_ivs = {{0.0f, 100.0f}};
   std::vector<P> b_ivs = {{60.0f, 80.0f}, {20.0f, 40.0f}}; // unsorted, multi
   Mock A{&a_ivs}, B{&b_ivs};
@@ -1831,8 +1831,8 @@ inline void test_intersection_unsorted_child_yields_sorted_result() {
  */
 inline void test_intersection_full_width_child_replays_other() {
   using P = std::pair<float, float>;
-  using MockI = sdf_subtract_detail::MockIntervalShape;
-  using MockF = sdf_subtract_detail::MockFullWidthShape;
+  using MockI = sdf_interval_detail::MockIntervalShape;
+  using MockF = sdf_interval_detail::MockFullWidthShape;
   std::vector<P> ivs = {{60.0f, 80.0f},
                         {20.0f, 40.0f}}; // multi, emission order
   MockI shape{&ivs};
@@ -1882,8 +1882,8 @@ inline void test_intersection_full_width_child_replays_other() {
  */
 inline void test_intersection_full_scan_emits_no_spans() {
   using P = std::pair<float, float>;
-  using MockE = sdf_subtract_detail::MockEmitThenFullWidthShape;
-  using MockF = sdf_subtract_detail::MockFullWidthShape;
+  using MockE = sdf_interval_detail::MockEmitThenFullWidthShape;
+  using MockF = sdf_interval_detail::MockFullWidthShape;
   MockE emitting;
   MockF full;
 
@@ -1915,7 +1915,7 @@ inline void test_intersection_full_scan_emits_no_spans() {
  */
 inline void test_intersection_seam_straddle_overlaps_across_wrap_frames() {
   using P = std::pair<float, float>;
-  using Mock = sdf_subtract_detail::MockIntervalShape;
+  using Mock = sdf_interval_detail::MockIntervalShape;
   std::vector<P> a_ivs = {{-10.0f, 10.0f}};  // seam band, negative frame
   std::vector<P> b_ivs = {{246.0f, 266.0f}}; // same band, [W,2W) frame (W=256)
   Mock A{&a_ivs}, B{&b_ivs};
@@ -2083,7 +2083,7 @@ inline void test_csg_combinators_reject_temporary_children() {
  */
 inline void test_union_merges_overlapping_intervals() {
   using P = std::pair<float, float>;
-  using Mock = sdf_subtract_detail::MockIntervalShape;
+  using Mock = sdf_interval_detail::MockIntervalShape;
   std::vector<P> a_ivs = {{0.0f, 40.0f}};
   std::vector<P> b_ivs = {{30.0f, 70.0f}};
   Mock A{&a_ivs}, B{&b_ivs};
@@ -2106,7 +2106,7 @@ inline void test_union_merges_overlapping_intervals() {
  */
 inline void test_union_seam_straddle_merges_overlapping_intervals() {
   using P = std::pair<float, float>;
-  using Mock = sdf_subtract_detail::MockIntervalShape;
+  using Mock = sdf_interval_detail::MockIntervalShape;
   std::vector<P> a_ivs = {{-10.0f, 6.0f}};
   std::vector<P> b_ivs = {{2.0f, 12.0f}};
   Mock A{&a_ivs}, B{&b_ivs};
@@ -2179,7 +2179,7 @@ inline void test_nested_union_emits_every_child_arc() {
  */
 inline void test_smooth_union_seam_straddle_merges_padded_intervals() {
   using P = std::pair<float, float>;
-  using Mock = sdf_subtract_detail::MockIntervalShape;
+  using Mock = sdf_interval_detail::MockIntervalShape;
   constexpr int W = 256, H = 128;
   math::init_geometry_luts<
       W,
@@ -2215,7 +2215,7 @@ inline void test_smooth_union_seam_straddle_merges_padded_intervals() {
  */
 inline void test_smooth_union_pad_widens_toward_pole() {
   using P = std::pair<float, float>;
-  using Mock = sdf_subtract_detail::MockIntervalShape;
+  using Mock = sdf_interval_detail::MockIntervalShape;
   constexpr int W = 256, H = 128;
   math::init_geometry_luts<
       W,
