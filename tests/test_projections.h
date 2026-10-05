@@ -308,7 +308,7 @@ inline void test_peirce_edge_distance_locates_the_singularities() {
                          .fade_edge_distance,
                      0.25f * math::PI_F, 1e-4f);
   }
-  // Distance falls monotonically as the equator walks into the singularity.
+  // Distance rises monotonically as the equator walks away from the singularity.
   float previous = -1.0f;
   for (int step = 0; step <= 16; ++step) {
     const float longitude = 0.25f * math::PI_F * (1.0f - step / 16.0f);
