@@ -7,10 +7,9 @@
  * rotation-matrix framebuffer parities, clip/clear display parity, preset
  * timeline bookkeeping and emission-phase wrapping.
  *
- * Split out of the effects module so the roster's heaviest single-effect block
- * is its own CTest and can be sharded independently. The cases share the
- * effects module's render fixtures and resolution constants, hence the
- * test_effects.h include and the using-directive below.
+ * Its own CTest module so it shards independently; the cases reuse the effects
+ * module's render fixtures and resolution constants through test_effects.h
+ * and the using-directive below.
  */
 #pragma once
 

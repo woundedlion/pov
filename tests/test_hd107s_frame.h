@@ -2,9 +2,8 @@
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
  * Licensed under the PolyForm Noncommercial License 1.0.0
  *
- * Host unit tests for the HD107S protocol buffer + color correction
- * (hardware/hd107s_frame.h), split out of dma_led.h precisely so this
- * wire-format and arithmetic is testable without a Teensy. Covers the bytes
+ * Host unit tests for the HD107S protocol buffer and color correction
+ * (hardware/hd107s_frame.h), which has no Teensy dependency. Covers the bytes
  * that actually go on the SPI wire: frame layout, [0xFF][B][G][R] channel
  * order, and the linear-space correction pipeline.
  * The Teensy SPI/DMA transport internals (register access, eDMA, ISR) are
