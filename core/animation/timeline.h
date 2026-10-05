@@ -105,7 +105,7 @@ extern DMAMEM TimelineEvent global_timeline_events[TIMELINE_MAX_EVENTS];
 extern bool global_timeline_live;
 extern uint32_t global_timeline_t;       // current global frame count
 extern int global_timeline_num_events;   // current number of active events
-extern uint32_t global_timeline_dropped; // monotonic full-timeline drop count
+extern uint32_t global_timeline_dropped; // wrapping full-timeline drop count
 // Set once per saturation episode, cleared whenever the event table empties.
 extern bool global_timeline_drop_logged;
 
@@ -351,11 +351,10 @@ public:
 
   /**
    * @brief Animations rejected so far because the timeline was full.
-   * @details Monotonic and process-wide: never reset, not even by clear() or a
-   * new Timeline. Only the first drop of each saturation episode logs; a drop
-   * permanently ends any chain that re-arms itself from a .then() callback, so
-   * a nonzero count is the only lasting evidence.
-   * @return Total number of dropped add()/add_get() calls.
+   * @details Process-wide and wraps modulo 2^32; clear() and a new Timeline do
+   * not reset it. Only the first drop of each saturation episode logs. A drop
+   * permanently ends any chain that re-arms itself from a .then() callback.
+   * @return Number of dropped add()/add_get() calls modulo 2^32.
    */
   static uint32_t dropped_events() { return global_timeline_dropped; }
 
