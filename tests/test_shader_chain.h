@@ -2190,9 +2190,13 @@ template <typename Model> inline void expect_project_frame_policy() {
   HS_EXPECT_EQ(state.walk_time, walk_time + 1);
   HS_EXPECT_NE(state.spin_phase, spin);
   program.prepare(ctx);
-  const math::Quaternion identity;
-  HS_EXPECT_NE(
-      std::memcmp(&prepared.conjugate, &identity, sizeof(math::Quaternion)), 0);
+  const math::Quaternion expected =
+      (math::make_rotation(math::Y_AXIS, state.spin_phase) *
+       ctx.projection_base * state.wander)
+          .conjugate();
+  HS_EXPECT_NE(std::memcmp(&expected, &base, sizeof(math::Quaternion)), 0);
+  HS_EXPECT_EQ(
+      std::memcmp(&prepared.conjugate, &expected, sizeof(math::Quaternion)), 0);
   program.clear();
 }
 
