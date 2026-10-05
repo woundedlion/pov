@@ -461,7 +461,6 @@ def embed(libid, ref, value, x, y, rot, pad_net, netid, path=None, locked=False,
             node.insert(2, attr)
         carried = {str(flag) for flag in attr[1:]}
         attr += [sexp.Sym(flag) for flag in flags if flag not in carried]
-    # insert at + uuid after layer
     node.insert(3, [sexp.Sym("at"), sexp.Sym(fmt(x)), sexp.Sym(fmt(y)), sexp.Sym(fmt(rot))])
     node.insert(4, [sexp.Sym("uuid"), uid()])
     # link to the schematic symbol so the board matches the schematic
