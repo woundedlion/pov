@@ -1206,7 +1206,7 @@ inline void test_ordered_tour_full_coverage_and_wrap() {
 
 // ---------------------------------------------------------------------------
 // Ambo-on-hankin probe (docs/specs/opchain_morph_spec.md, "Validation
-// contract"): every ambo leg the Islamic recipes run on a hankin mesh is a
+// contract"): HANKIN_AMBO_SITES samples ambo legs on hankin meshes as a
 // truncate sweep whose compiled face count must not move within the leg and
 // whose sampled meshes retain two-face edge incidence and Euler characteristic 2.
 // ---------------------------------------------------------------------------
@@ -1221,6 +1221,12 @@ inline PolyMesh probe_dodeca_hk62(Arena &a, Arena &b) {
   using Solids::IslamicStarPatterns::D2R;
   return Solids::SolidBuilder(Solids::Platonic::dodecahedron(a, b), a, b)
       .hankin(62.0f * D2R)
+      .build();
+}
+inline PolyMesh probe_dodeca_hk72(Arena &a, Arena &b) {
+  using Solids::IslamicStarPatterns::D2R;
+  return Solids::SolidBuilder(Solids::Platonic::dodecahedron(a, b), a, b)
+      .hankin(72.0f * D2R)
       .build();
 }
 inline PolyMesh probe_dodeca_hk35(Arena &a, Arena &b) {
@@ -1272,6 +1278,7 @@ inline PolyMesh probe_ticosa_hk54(Arena &a, Arena &b) {
 
 inline constexpr HankinAmboSite HANKIN_AMBO_SITES[] = {
     {"dodecahedron_hk62", probe_dodeca_hk62},
+    {"dodecahedron_hk72", probe_dodeca_hk72},
     {"dodecahedron_hk35", probe_dodeca_hk35},
     {"dodecahedron_hk35_ambo_hk62", probe_dodeca_hk35_ambo_hk62},
     {"dodecahedron_hk54", probe_dodeca_hk54},
@@ -1282,8 +1289,7 @@ inline constexpr HankinAmboSite HANKIN_AMBO_SITES[] = {
 };
 
 /**
- * @brief Steps a truncate (ambo-leg) sweep on every hankin seed the Islamic
- *        recipes ambo, asserting constant raw and compiled face counts, two-face
+ * @brief Steps a truncate (ambo-leg) sweep on HANKIN_AMBO_SITES, asserting constant raw and compiled face counts, two-face
  *        edge incidence, and Euler characteristic 2 at each sampled parameter.
  */
 inline void test_ambo_leg_on_hankin_seed_holds_topology() {
