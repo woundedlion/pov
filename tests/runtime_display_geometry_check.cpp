@@ -8,6 +8,7 @@
 #include "effects/MeshFeedback.h"
 #include "tests/test_fixture.h"
 #include "tests/test_harness.h"
+#include "tests/pole_geometry_test_util.h"
 #include <limits>
 
 namespace {
@@ -21,6 +22,13 @@ template <int W, int H> void check_geometry(float north, float south) {
   HS_EXPECT_EQ(Field::HAS_NORTH_POLE, north == 0.0f);
   HS_EXPECT_EQ(Field::HAS_SOUTH_POLE, south == math::PI_F);
   const Field field(4);
+  for (int row : {0, H - 1}) {
+    const bool pole = row == 0 ? Field::HAS_NORTH_POLE : Field::HAS_SOUTH_POLE;
+    if (!pole)
+      for (float alpha : {0.5f, 1.0f})
+        hs_test::pole_geometry::check_feedback_ring_centroid<W, H>(row, 0, 1,
+                                                                   alpha);
+  }
   const float poles[Field::POLE_STORAGE_COUNT] = {30.0f, 40.0f};
   for (int row : {0, H - 1}) {
     const float phi = row == 0 ? north : south;
