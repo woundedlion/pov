@@ -1,7 +1,8 @@
 """Generate a placed draft or Quilter board from the schematic + its netlist.
 
-Embeds each component's footprint (from KiCad stock libs, or a generated Teensy
-footprint), assigns pad nets by name from the exported netlist, skyline-packs them
+Embeds footprints from KiCad stock libraries, hand-maintained terminal blocks
+in phantasm.pretty, or the generated Teensy footprint. Assigns pad nets by name
+from the exported netlist, skyline-packs them
 into a PCB_W-wide board outline (R-MECH-6), and declares the nets.
 Emits a 4-layer SIG/GND/GND/SIG board: the physical stackup and the inner GND
 planes are encoded in the file, so an autoplacer/fab reads them on upload.
