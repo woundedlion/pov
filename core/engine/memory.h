@@ -67,18 +67,18 @@ constexpr size_t WASM_PERSISTENT_BUDGET =
  * event would bury the log. The running total is reported by the arena's OOM
  * trap. Out-of-line and non-template so the device image carries one copy for
  * every element type.
- * @note Cumulative across every arena and never decremented, so it is an upper
- * bound on bytes dropped since boot, not a live-leak figure: the chained mesh
+ * @note Cumulative across every arena modulo the size_t range, so it is not a
+ * live-leak figure: the chained mesh
  * ops that dominate it rewind their arena right after each step, reclaiming
  * what was counted. Subtracting reclaims would need each block's source arena
  * in release builds, which ArenaVector tracks only in debug builds.
  */
 HS_COLD void note_arena_vector_abandon(size_t bytes);
 
-/** @brief Bytes ArenaVector has abandoned so far. */
+/** @brief ArenaVector abandoned-byte count modulo the size_t range. */
 FLASHMEM size_t arena_vector_abandoned_bytes();
 
-/** @brief Move-assignments and grows that have abandoned a block so far. */
+/** @brief ArenaVector abandon-event count modulo the size_t range. */
 FLASHMEM size_t arena_vector_abandon_count();
 
 /**
@@ -1503,8 +1503,7 @@ constexpr int MAX_GENERATE_DEPTH = 16;
  * @pre An outermost call must not overlap any live scope or allocation in
  *   either engine scratch arena.
  * @details Resets and scopes both scratch arenas, then invokes
- *   fn(target, scratch_a, scratch_b, args...). All procedural geometry creation
- *   goes through this wrapper for a deterministic arena lifecycle. The fn signature
+ *   fn(target, scratch_a, scratch_b, args...). The fn signature
  *   must be: ReturnType fn(Arena& target, Arena& scratch_a, Arena& scratch_b, Args...)
  *
  *   Reentrant: a generator callback may itself call generate(). The full arena

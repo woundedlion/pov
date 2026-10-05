@@ -574,8 +574,8 @@ inline void test_ripple_small_angle_series_matches_exact() {
     const float amplitude =
         amp_lo + (amp_hi - amp_lo) * (float)i / (float)steps;
     const math::Vector got = at(amplitude);
-    worst_err = std::max(worst_err, err(got, exact(amplitude * envelope)));
-    worst_unit_err = std::max(worst_unit_err, std::fabs(got.length() - 1.0f));
+    worst_err = fold_worst(worst_err, err(got, exact(amplitude * envelope)));
+    worst_unit_err = fold_worst(worst_unit_err, std::fabs(got.length() - 1.0f));
   }
   HS_EXPECT_LE(worst_err, 5e-7f);
   HS_EXPECT_LE(worst_unit_err, 5e-7f);

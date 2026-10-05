@@ -383,6 +383,10 @@ inline void check_euler_for_index(size_t index, int expected_V = -1,
   // Half-edge construction needs its own scratch; reuse geom_b.
   Arena he_arena(solids_geom_b, sizeof(solids_geom_b));
   HalfEdgeMesh he(he_arena, m);
+  size_t unpaired = 0;
+  for (const HalfEdge &edge : he.half_edges)
+    unpaired += edge.pair == HE_NONE;
+  HS_EXPECT_EQ(unpaired, size_t(0));
 
   int V = static_cast<int>(m.vertices.size());
   int E = static_cast<int>(he.half_edges.size()) / 2;
@@ -424,14 +428,13 @@ inline void test_euler_platonic_solids() {
 }
 
 /**
- * @brief Verifies every Archimedean and Catalan entry is a closed 2-manifold
- *        (V-E+F==2).
+ * @brief Verifies Archimedean and Catalan entries have paired edges and V-E+F==2.
  * @details Extends the topological oracle over the two spherical families
  *          between the Platonic block and the Islamic block. Archimedean
  *          indices follow the Platonic block inside the simple registry; Catalan indices
  *          follow the whole simple block. Exact per-entry counts are not pinned
- *          here — the Euler invariant catches a generator regression that opens
- *          a seam, drops a face, or duplicates geometry.
+ *          here — the check rejects changes that alter the Euler characteristic,
+ *          with edge count taken as half the half-edge count.
  */
 inline void test_euler_archimedean_catalan_solids() {
   const size_t archimedean_base =
@@ -446,11 +449,10 @@ inline void test_euler_archimedean_catalan_solids() {
 }
 
 /**
- * @brief Verifies every Islamic-pattern entry is a closed 2-manifold
- *        (V-E+F==2).
+ * @brief Verifies every Islamic-pattern entry has paired edges and V-E+F==2.
  * @details Every registered Islamic pattern is a closed manifold with Euler
- *          characteristic 2. Exact per-entry counts may vary; opening a seam, dropping
- *          a face or duplicating geometry violates this contract.
+ *          characteristic 2. Exact per-entry counts may vary; the test checks
+ *          Euler characteristic and winding without certifying vertex fans.
  */
 inline void test_islamic_registry_solids_are_closed() {
   const size_t base = Solids::Collections::get_simple_solids().size() +

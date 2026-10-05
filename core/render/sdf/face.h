@@ -1439,9 +1439,9 @@ struct Face {
    * search over the monotonic vertex angle_keys), then takes the exact min
    * segment distance over only that sector's edge and its sector_kmax neighbors
    * each side (K1 = 1 for strict faces, K2 = 2 for mildly-bent faces whose bin
-   * can land a neighbor off). The sign comes free from the sector's boundary
-   * edge: the polygon is consistently wound, so a query on the interior side of
-   * edge s (matched to the winding) is inside. Near-exact for star faces because
+   * can land a neighbor off). The sign uses the nearest selected edge, with
+   * both incident edges tested when its nearest point is a vertex.
+   * Near-exact for star faces because
    * the true nearest edge is almost always the sector's own edge or an immediate
    * neighbor. Only enabled when build_sectors set sector_ok.
    */

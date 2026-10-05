@@ -1097,9 +1097,9 @@ strictly cleaner, not weaker.
    index + revolution count on the mid-rev beacon (≤21 revs across a commit,
    ≤25 revs for rejoin; about 2.6 s and 3.1 s at 480 RPM); fail-dark in ACQUIRE rather than
    assume index 0; two agreeing beacons before a mid-show index change, so a
-   frame-shifted beacon cannot fail *wrong*. Repeats are lockstep-safe: every
-   heard copy counts down
-   to the same absolute B+R+K boundary (§6.3.1). Shipped constants: R = 3,
+   frame-shifted beacon cannot fail *wrong*. With an absolute synchronized
+   revolution count, every heard copy counts down to the same B+R+K boundary;
+   a beacon-joined modulo-64 count can commit late on its first epoch (§6.3.1). Shipped constants: R = 3,
    beacon period 16 revs, refractory window 16 revs, construction window
    K = 2 revs (HS_CHECK-trapped; confirm against the slowest measured effect
    init on hardware), join grid 4 revs (§6.5).

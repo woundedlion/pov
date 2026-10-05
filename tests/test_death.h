@@ -4049,9 +4049,8 @@ inline void case_opleg_shading_face_out_of_range() {
 
 /**
  * @brief Death case: a Motion over an empty path must trap on the first step.
- * @details Animation surface — an unfilled Path samples the origin, and the
- *          angle between two zero vectors is a NaN that reaches the Orientation
- *          as a NaN quaternion rather than a visible fault.
+ * @details An unfilled Path samples the origin. Motion rejects its zero vectors
+ *          before computing an angle or updating Orientation.
  */
 inline void case_motion_empty_path_origin_sample() {
   constexpr int W = 32, H = 16;

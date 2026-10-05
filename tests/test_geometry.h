@@ -684,7 +684,8 @@ inline void test_orientation_set_at_normalized() {
 // --- wrap(float, m) / wrap_t ------------------------------------------------
 
 /**
- * @brief Verifies wrap(float, m) folds any real into [0, m) for an arbitrary base m.
+ * @brief Verifies wrap(float, m) folds the sampled values into [0, m)
+ *        for positive normal periods.
  * @details Checks in-range identity, negative fold-up, above-m fold-down, multiple
  *          periods, a non-unit base, and that results stay in [0, m) across signs.
  */

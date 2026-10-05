@@ -232,7 +232,7 @@ The normative table:
 | `SphereSample` | entry adapter | `dir` unit-length; `path_length` finite, ≥ 0, non-decreasing |
 | `PlaneSample`  | `Project`     | `provenance` and `sphere` immutable — endomorphisms advance `coords` and `path_length` only; provenance values in range (`value_weight`, `domain_coverage` ∈ [0, 1]; `fade_edge_distance` finite), a projection-policy obligation; `path_length` finite, ≥ 0, non-decreasing |
 | `FieldSample`  | `Sample`      | `value ∈ [0, 1]`; `coverage ∈ [0, 1]`, non-increasing; `sphere` immutable; `path_length` finite, ≥ 0, non-decreasing |
-| `Color4`       | `Colorize`    | straight alpha; channels and alpha stay in [0, 1] |
+| `Color4`       | `Colorize`    | straight alpha in [0, 1]; linear RGB channels are stored as uint16 values in [0, 65535] |
 
 `FieldSample.coverage ∈ [0, 1]` is established without a clamp:
 `ProjectionCoverage` policies are obliged to return [0, 1], and
@@ -661,12 +661,10 @@ Two rules keep it that flat:
   runs on the post-filter leaf list so diagnostics name the stages an
   author actually sees. Concrete pipelines never contain a conditional.
 
-The only conditional assembly in the codebase is ComposedEffect's
-derivation, which already computes per-family policies with
-`conditional_t` and now yields `void` where a family is absent, with
-placement selected by the author's `SurfacePlacement` template argument.
-A composed Spec declares only its actual sphere stages, including displacement
-placement and code emission:
+Each composed Spec declares its ranked `Pipeline` explicitly. Optional
+`*PolicyFor` helpers select concrete policies; parameter and resource discovery
+reads the declared stages. The author orders sphere stages and writes placement
+and code emission through `Stage::Placed`:
 
 ```cpp
 template <typename B>
@@ -1115,8 +1113,9 @@ concern.
   memory model is explicit: **two fixed arenas with an active index**,
   each sized to the full exported budget. Compilation lays the
   candidate out in the inactive arena while the active one stays
-  untouched and running; success flips the index and tears down the
-  loser; refusal tears down the candidate only. The steady-state
+  untouched and running; success destroys the old states before switching
+  the active index; refusal tears down the candidate
+  only. The steady-state
   transaction therefore never allocates and cannot fail for memory —
   the budget check runs at validation, before layout, against **one
   arena's capacity**, which is the figure the catalog exports; the
