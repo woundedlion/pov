@@ -212,7 +212,8 @@ public:
   /**
    * @brief Normalizes and replaces a historical quaternion.
    * @param i The frame index.
-   * @param q Replacement quaternion; must have nonzero magnitude.
+   * @param q Replacement quaternion; its squared magnitude must be finite and
+   * at least EPS_NORMALIZE_SQ.
    */
   void set_at_normalized(int i, Quaternion q) {
     HS_CHECK(i >= 0 && i < num_frames, "Orientation: frame index out of range");

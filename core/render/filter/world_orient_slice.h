@@ -103,7 +103,7 @@ public:
   /**
    * @brief Sets the slicing axis, renormalizing to enforce the unit-length
    * contract that the projection bucket math assumes.
-   * @param a New slicing axis; squared length must be at least
+   * @param a New slicing axis; squared length must be finite and at least
    *        math::EPS_NORMALIZE_SQ. Renormalized internally.
    */
   void set_axis(const math::Vector &a) { axis = a.normalized(); }

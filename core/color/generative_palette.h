@@ -60,7 +60,7 @@ public:
   struct Diagnostic {
     float L; /**< Realized OKLab lightness. */
     float C; /**< Realized OKLCh chroma. */
-    /** Gamut-relative chroma: the authored control under a gamut-relative
+    /** Gamut-relative chroma: the headroom-limited control under a gamut-relative
      *  basis, otherwise the realized C / C_max. Same meaning on every color
      *  path. */
     float q;

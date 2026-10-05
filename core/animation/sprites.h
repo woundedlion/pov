@@ -531,8 +531,8 @@ private:
    *
    * Ordering: friction damps the carried-in velocity BEFORE this frame's impulse
    * (v <- friction*v + impulse), so the impulse is not damped the same frame.
-   * Impulse magnitude scales with the attractor `strength` alone; presets
-   * pre-scale their strength to match (e.g. MindSplatter's Well Str).
+   * Attractor impulses use gravity * strength / distance_squared without an
+   * additional max_delta factor.
    */
   bool step_particle(Particle<TRAIL_LEN> &p, float max_delta) {
     bool active = p.life > 0;

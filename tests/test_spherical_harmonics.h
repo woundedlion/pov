@@ -210,7 +210,7 @@ inline void test_spherical_harmonic_poles_keep_only_the_zonal_modes() {
 }
 
 /** @brief The modes are orthonormal over the sphere, which pins the
- *         normalization constants no per-sample comparison can. */
+ *         normalization through the integrated Gram matrix. */
 inline void test_spherical_harmonics_are_orthonormal() {
   constexpr int MAX_DEGREE = 3;
   constexpr int MODES = (MAX_DEGREE + 1) * (MAX_DEGREE + 1);

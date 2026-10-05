@@ -806,7 +806,7 @@ ripple_transform(const math::Vector &v, const Animation::RippleParams &params) {
  * @details Samples three decorrelated noise channels (the second and third
  * field-shifted by 100 and 200 on all three axes) to build a displacement,
  * projects it onto the tangent plane at v so the point stays on the sphere,
- * soft-caps the slide to avoid cross-hemisphere jumps, then renormalizes. No-op
+ * caps the slide to avoid cross-hemisphere jumps, then renormalizes. No-op
  * when amplitude is negligible.
  */
 inline math::Vector noise_transform(const math::Vector &v,
@@ -1011,10 +1011,10 @@ using MobiusWarpTransformer =
                 math::mobius_transform, CAPACITY>;
 
 /**
- * @brief Performs circular Mobius warps that stay warped throughout, suitable
+ * @brief Performs circular Mobius warps at constant strength, suitable
  * for repeating animations.
  * @tparam CAPACITY Maximum number of concurrent circular Mobius warps.
- * @warning This variant never returns to identity — unlike MobiusWarpTransformer
+ * @warning With nonzero scale this variant never returns to identity — unlike MobiusWarpTransformer
  * (same `mobius_transform` but an animation that eases back to identity),
  * `Animation::MobiusWarpCircular` traces a closed loop that holds the warp at full
  * strength. Correct ONLY in a repeating slot, where the loop re-enters seamlessly;
@@ -1022,7 +1022,7 @@ using MobiusWarpTransformer =
  * one-frame teardown discontinuity). Use MobiusWarpTransformer for one-shot slots
  * that must land back on the unwarped sphere.
  * @note Spawn through spawn_pinned(): spawn()/spawn_pausable() reject a
- * repeating animation, and the repeating slot is the only correct one here.
+ * repeating animation. A zero-scale warp remains the identity.
  */
 template <int CAPACITY>
 using MobiusWarpCircularTransformer =

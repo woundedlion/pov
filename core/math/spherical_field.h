@@ -26,7 +26,8 @@ namespace hs {
  * @tparam W Longitude-domain width.
  * @tparam H Number of rendered latitude rows.
  * @tparam HOffset Legacy south offset; -1 selects the active display profile.
- * @details Rings are uniformly spaced in latitude. Each ring's periodic
+ * @details Rings follow the requested latitude-row spacing, with endpoint and
+ *          optional infill rings added. Each ring's periodic
  * longitude count follows sin(phi), producing approximately uniform physical
  * sample spacing and compact contiguous storage.
  */
