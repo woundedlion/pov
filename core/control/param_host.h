@@ -65,18 +65,19 @@ public:
 
 #if HS_ENABLE_PARAM_GUI_BRIDGE
   /** @brief Restores trusted captured writes in order, then validates the state. */
-  template <typename Values> void restore_parameters(const Values &values) {
+  template <typename Values>
+  void replay_parameter_writes(const Values &values) {
     check_parameter_storage();
     for (const auto &[name, value] : values) {
       auto *def = parameters.find(name.c_str());
       HS_CHECK(def != nullptr && !def->readonly,
-               "restore_parameters: unknown or readonly parameter");
+               "replay_parameter_writes: unknown or readonly parameter");
       apply_parameter(*def, value);
     }
     for (const auto &def : parameters)
       if (!def.readonly)
         HS_CHECK(parameter_write_admitted(def, def.get_requested()),
-                 "restore_parameters: inadmissible final state");
+                 "replay_parameter_writes: inadmissible final state");
   }
 #endif
 

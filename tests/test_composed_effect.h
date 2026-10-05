@@ -1451,7 +1451,7 @@ inline void test_mobius_captured_parameter_restore() {
       if (!def.readonly)
         captured.emplace_back(def.name, def.get_requested());
     HS_EXPECT_TRUE(effect->synchronizePreset(0));
-    static_cast<ParamHost &>(*effect).restore_parameters(captured);
+    effect->replay_parameter_writes(captured);
     verify_mobius_equal(effect->params.template get<"lens">().mobius, target);
     HS_EXPECT_TRUE(effect->animations_paused());
     for (const auto &[name, value] : captured) {
