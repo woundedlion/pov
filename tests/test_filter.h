@@ -2155,9 +2155,7 @@ inline void test_feedback_south_pole_uses_single_physical_sample() {
  *          resolution latitude outside that band, where each column pair
  *          composites as its box average, so the stripe flattens to its mean
  *          there too; rows 8 and H-9 have a one-pixel footprint and pass the
- *          stripe through. The
- *          southern half only holds when hs::H_OFFSET is 0, where row H-1 is
- *          a pole.
+ *          stripe through.
  */
 inline void test_feedback_polar_rows_use_spherical_footprint() {
   constexpr int W = 64, H = 34;
@@ -2417,9 +2415,8 @@ template <int W, int H>
 inline std::array<float, W>
 expected_feedback_source_row(int y, int downsample,
                              const ::Feedback::Style &style) {
-  const hs::SphericalFieldLayout<W, H> layout(
-      downsample, downsample, std::max(downsample - hs::H_OFFSET, 0),
-      W / downsample);
+  using Layout = hs::SphericalFieldLayout<W, H>;
+  const Layout layout(downsample, downsample, downsample, W / downsample);
   std::array<float, W> source{};
   std::array<float, W> reconstructed{};
   // Cap rows reconstruct each pixel's own target, so the reference is the
@@ -2429,9 +2426,10 @@ expected_feedback_source_row(int y, int downsample,
         layout.project(style.space_fn(math::pixel_to_vector<W, H>(x, y), style))
             .y;
   // The render only longitude-filters the dense infill rows.
-  const bool north_infill = y > 0 && y < downsample;
+  const bool north_infill =
+      y < downsample && (!Layout::HAS_NORTH_POLE || y > 0);
   const bool south_infill =
-      hs::H_OFFSET == 0 && y >= H - downsample && y < H - 1;
+      y >= H - downsample && (!Layout::HAS_SOUTH_POLE || y < H - 1);
   if (!north_infill && !south_infill)
     return source;
   layout.template reconstruct_longitude_row<FloatRowAccumulator>(
