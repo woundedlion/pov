@@ -811,21 +811,21 @@ inline void test_arenavec_move_assign_abandon_breadcrumb() {
   const size_t count_before = arena_vector_abandon_count();
 
   ArenaVector<int> fresh(a, 4);
-  ArenaVector<int> unbound_dst;
-  unbound_dst = std::move(fresh);
+  ArenaVector<int> dst;
+  dst = std::move(fresh);
   HS_EXPECT_EQ(arena_vector_abandoned_bytes(), bytes_before);
   HS_EXPECT_EQ(arena_vector_abandon_count(), count_before);
 
   ArenaVector<int> replacement(a, 2);
-  unbound_dst = std::move(replacement);
+  dst = std::move(replacement);
   HS_EXPECT_EQ(arena_vector_abandoned_bytes(), bytes_before + 4 * sizeof(int));
   HS_EXPECT_EQ(arena_vector_abandon_count(), count_before + 1);
 
   // Self-move keeps the block, so it is not an abandonment.
-  ArenaVector<int> *alias = &unbound_dst;
-  unbound_dst = std::move(*alias);
+  ArenaVector<int> *alias = &dst;
+  dst = std::move(*alias);
   HS_EXPECT_EQ(arena_vector_abandon_count(), count_before + 1);
-  HS_EXPECT_TRUE(unbound_dst.is_bound());
+  HS_EXPECT_TRUE(dst.is_bound());
 }
 
 /**
