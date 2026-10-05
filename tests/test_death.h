@@ -3,6 +3,8 @@
  * Licensed under the PolyForm Noncommercial License 1.0.0
  *
  * Death tests for the fail-fast (HS_CHECK / __builtin_trap) seams.
+ * Also hosts cross-process cold/warm effect determinism: capture-record
+ * mismatches in unit_death indicate an effect determinism failure.
  *
  * An HS_CHECK violation traps and aborts the whole process, so the in-process
  * HS_EXPECT_* harness cannot catch it. Each trap is exercised in a CHILD
