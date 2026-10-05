@@ -1387,9 +1387,8 @@ inline void case_update_hankin_nonfinite_angle() {
 
 /**
  * @brief Death case: reading a ParamDef with an unknown target type must trap.
- * @details Parameter surface — the descriptor records live in arena-backed
- *          external storage, so a corrupted tag would otherwise index the
- *          switch's jump table past its end.
+ * @details An unknown tag has no supported value representation and traps
+ *          before the descriptor reads the target.
  */
 inline void case_param_def_unknown_get_target_type() {
   float storage = 0.5f;
@@ -1402,8 +1401,8 @@ inline void case_param_def_unknown_get_target_type() {
 
 /**
  * @brief Death case: writing a ParamDef with an unknown target type must trap.
- * @details Parameter surface — the write reinterprets the void* target by the
- *          tag, so a corrupted one would store through the wrong type.
+ * @details An unknown tag has no supported value representation and traps
+ *          before the descriptor writes the target.
  */
 inline void case_param_def_unknown_set_target_type() {
   float storage = 0.5f;
