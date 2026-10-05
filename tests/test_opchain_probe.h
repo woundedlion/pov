@@ -140,7 +140,7 @@ inline constexpr float CHAMFER_T_STAR = Solids::CHAMFER_T_MAX;
 /**
  * @brief Measures chamfer's zero-area birth limit: newborn hexagon area and
  *        preserved-face displacement against t, on every chamfer seed.
- * @details The birth criterion (spec section 2) needs the created faces to
+ * @details The birth criterion needs the created faces to
  * reach zero area while the preserved faces are unchanged. Chamfer emits F
  * shrunk primaries then E hexagons, so the split is exact in emission order.
  */
@@ -384,10 +384,8 @@ inline const float TRUNCATE001_T_STAR = [] {
  *        constant raw and compiled face counts, two-face edge incidence,
  *        Euler characteristic 2, near-unit vertices, every face positive-area,
  *        and no face inverting across the sweep.
- * @details The silent on-screen failure these recipes carry (spec section 5.1)
- * is a truncate whose sub-T_EPS arrival clamps both endpoints to T_EPS -- a
- * still image ending on a mesh built at the wrong parameter. The birth floor
- * mirrors the OpLeg recipe-step clamp exactly.
+ * @details Covers the spec's "Truncate edge cases": the birth floor matches
+ * OpLeg's recipe-step clamp and stays below the sub-T_EPS arrival.
  */
 inline void test_truncate001_birth_sweep_holds_topology() {
   constexpr int SAMPLES = 32;
@@ -713,10 +711,7 @@ inline void test_chamfer_birth_epsilon() {
 }
 
 // ---------------------------------------------------------------------------
-// Provenance probe (spec section 8.3): PROVENANCE_TOL_SQ = 0.15^2 is sized for
-// F <= 92 nodes. The build chains reach several hundred faces, so measure the
-// centroid spacing they actually present and the ambiguity of the lookups
-// build_palette_mapping actually performs.
+// OpLeg provenance tolerance: core/animation/opleg.h.
 // ---------------------------------------------------------------------------
 
 /** @brief One shipping build chain, lowered to primitive steps. */
