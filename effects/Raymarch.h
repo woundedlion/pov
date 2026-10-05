@@ -618,8 +618,9 @@ private:
   BakedPaletteStorage baked_palette;
   NoiseHuePalette<BakedPalette> noise_palette;
 
-  // init() bakes one palette LUT into the persistent arena. Effect keeps the
-  // default arena split, so the total must fit the device persistent partition.
+  // init() bakes one palette LUT and allocates the MAX_POINTS VolumeSpin array
+  // and PaletteState from the persistent arena. The total must fit the default
+  // device persistent partition.
   static constexpr size_t FOOTPRINT_BYTES =
       BakedPalette::required_arena_bytes() + MAX_POINTS * sizeof(VolumeSpin) +
       alignof(VolumeSpin) + sizeof(PaletteState) + alignof(PaletteState);
