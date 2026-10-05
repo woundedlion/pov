@@ -12,7 +12,8 @@
 #include "render/sdf/octet_trace.h"
 #include "render/sdf/periodic_shells.h"
 
-/** @brief Experimental patterns: octet trusses, cellular wires and shells. */
+/** @brief Experimental patterns: octet trusses, cellular wires, sheared cubic
+ * lattice and shells. */
 namespace SDF::LatticeTrace {
 
 using SDF::OctetTrace::CrossingStorage;
