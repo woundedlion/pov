@@ -249,7 +249,7 @@ inline void smoke_one(const char *name) {
 
   // A full timeline soft-drops: add() discards add_get()'s nullptr, so a chain
   // that re-arms itself from a .then() callback ends for good. The counter is
-  // monotonic and process-wide, so this per-effect delta is the only thing that
+  // process-wide and wraps at uint32_t, so this per-effect delta is what
   // attributes a drop to the effect that overflowed the table.
   const uint32_t dropped = Timeline::dropped_events() - dropped_before;
   if (dropped != 0)
