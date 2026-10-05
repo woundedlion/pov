@@ -801,6 +801,7 @@ constexpr int SWEEP_SAMPLES = 16;
  *        its count and order frame to frame.
  */
 struct LegDrawProbe {
+  int ramp_count = 0;      /**< LUT array length for this leg. */
   size_t drawn = 0;        /**< Frames handed to the callback. */
   size_t faces = 0;        /**< Face count latched on the first frame. */
   float worst_step = 0.0f; /**< Largest per-vertex motion between frames. */
@@ -818,8 +819,7 @@ struct LegDrawProbe {
     else
       HS_EXPECT_EQ(sh.faces, faces);
     for (size_t f = 0; f < sh.faces; ++f)
-      HS_EXPECT_LT(static_cast<int>(sh.face_ramp[f]),
-                   Animation::OpLeg::MAX_BLEND_PAIRS);
+      HS_EXPECT_LT(static_cast<int>(sh.face_ramp[f]), ramp_count);
     if (!prev_v.empty()) {
       HS_EXPECT_EQ(m.vertices.size(), prev_v.size());
       for (size_t i = 0; i < m.vertices.size(); ++i)
@@ -1843,6 +1843,7 @@ inline void test_hankin_sweep_vertex_stability() {
                                           .theta_end = site.theta_star,
                                           .sweep_frames = SAMPLES - 1},
         leg_arena, draw, handoff);
+    draw_probe.ramp_count = leg.landing().blend_pairs;
     hs_test::StubEffect effect(288, 144);
     for (int sample = 0; sample < SAMPLES; ++sample) {
       {
@@ -2013,6 +2014,7 @@ inline void test_opleg_hankin_sweep_smoke() {
                           leg, cb, handoff);
 
     const Animation::OpLeg::Landing &landing = anim.landing();
+    probe.ramp_count = landing.blend_pairs;
     HS_EXPECT_EQ(landing.primary_faces, seed.face_counts.size());
     HS_EXPECT_EQ(landing.faces, seed.face_counts.size() + seed.vertices.size());
     HS_EXPECT_TRUE(landing.topology != nullptr);
@@ -2707,6 +2709,7 @@ inline void test_opleg_medial_leg_smoke() {
 
     OpLeg anim(P, OpLeg::MedialSpec{.sweep_frames = SWEEP}, leg, cb, handoff);
     const OpLeg::Landing &landing = anim.landing();
+    probe.ramp_count = landing.blend_pairs;
     // The medial connectivity is ambo(P), so the leg's face list is the whole
     // rectified polyhedron and every face lives the whole slerp.
     HS_EXPECT_EQ(landing.faces, prev_faces);
@@ -3123,6 +3126,7 @@ inline void check_step_leg_smoke(
 
   auto run = [&](OpLeg &&leg) {
     const OpLeg::Landing &landing = leg.landing();
+    probe.ramp_count = landing.blend_pairs;
     HS_EXPECT_EQ(landing.primary_faces, seed.face_counts.size());
     HS_EXPECT_TRUE(landing.topology != nullptr);
     for (int f = 0; f < frames; ++f) {
@@ -3251,10 +3255,17 @@ inline void check_gated_leg_smoke(Animation::OpLeg::SwapOp op,
   const int frames = 2 * gate + 1;
   int drawn = 0, swaps = 0, swap_frame = -1;
   size_t side_faces = 0;
+  int target_ramps = 0;
+  std::array<bool, OpLeg::PALETTES> seed_palettes{};
+  for (size_t f = 0; f < prev_faces; ++f)
+    seed_palettes[prev_pal[f]] = true;
+  const int SEED_RAMPS = static_cast<int>(
+      std::count(seed_palettes.begin(), seed_palettes.end(), true));
   auto cb = [&](Canvas &, const MeshState &m, const OpLeg::Shading &sh) {
     HS_EXPECT_EQ(m.face_counts.size(), sh.faces);
     for (size_t f = 0; f < sh.faces; ++f)
-      HS_EXPECT_LT(static_cast<int>(sh.face_ramp[f]), OpLeg::MAX_BLEND_PAIRS);
+      HS_EXPECT_LT(static_cast<int>(sh.face_ramp[f]),
+                   drawn < gate ? SEED_RAMPS : target_ramps);
 
     if (drawn == 0) {
       side_faces = sh.faces;
@@ -3271,6 +3282,7 @@ inline void check_gated_leg_smoke(Animation::OpLeg::SwapOp op,
   OpLeg leg(seed, OpLeg::GatedSwapSpec{.op = op, .gate_frames = gate},
             leg_arena, cb, handoff, bookend);
   const OpLeg::Landing &landing = leg.landing();
+  target_ramps = landing.blend_pairs;
   for (int f = 0; f < frames; ++f) {
     {
       Canvas c(fx);
@@ -3565,7 +3577,7 @@ inline void test_unsweepable_recipe_steps_are_gated() {
 // (every frame of every leg draws every face's (from, to) ramp bit-exact at
 // the leg's blend weight; each leg departs from the palette the previous leg
 // landed on), the final per-face sprite handoff, the per-final-class palette
-// symmetry of the finished shape, the distinct blend-pair ceiling, and the
+// symmetry of the finished shape, and the
 // persistent/scratch high-water against IslamicStars' configured split.
 // ---------------------------------------------------------------------------
 
@@ -3957,7 +3969,6 @@ inline ChainPeaks replay_build_chain(const char *name,
         }
       }
       peaks.blend_pairs = std::max(peaks.blend_pairs, landing.blend_pairs);
-      HS_EXPECT_LE(landing.blend_pairs, OpLeg::MAX_BLEND_PAIRS);
       for (size_t f = 0; f < landing.faces; ++f)
         carried_to[f] = landing.landed_palette(f);
 
