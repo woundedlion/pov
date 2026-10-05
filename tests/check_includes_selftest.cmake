@@ -1,0 +1,32 @@
+cmake_minimum_required(VERSION 3.29)
+file(MAKE_DIRECTORY "${WORK}/tests" "${WORK}/tools")
+file(WRITE "${WORK}/tests/off_roster_headers.cmake" "set(HS_OFF_ROSTER_HEADER_NAMES)\n")
+file(WRITE "${WORK}/tests/test_alpha.h" "inline int run_alpha_tests() { return 0; }\n")
+file(WRITE "${WORK}/tests/test_beta.h" "inline int run_beta_tests() { return 0; }\n")
+set(_prefix [=[#include "tests/test_alpha.h"
+#include "tests/test_beta.h"
+#define HS_TEST_MODULE_LIST(X)
+]=])
+set(_suffix "\n#define HS_TEST_MODULE_ENTRY\n")
+function(check_fixture rows should_pass)
+  file(WRITE "${WORK}/run_tests.cpp" "${_prefix}${rows}${_suffix}")
+  execute_process(COMMAND "${CMAKE_COMMAND}"
+    "-DSRC=${WORK}/run_tests.cpp" "-DTESTS_DIR=${WORK}/tests"
+    "-DTOOLS_DIR=${WORK}/tools" -P "${GATE}"
+    RESULT_VARIABLE _result OUTPUT_VARIABLE _output ERROR_VARIABLE _error)
+  if(should_pass AND NOT _result EQUAL 0)
+    message(FATAL_ERROR "valid roster rejected: ${_output}${_error}")
+  elseif(NOT should_pass AND _result EQUAL 0)
+    message(FATAL_ERROR "invalid roster accepted: ${rows}")
+  endif()
+endfunction()
+set(_valid [=[X("alpha", hs_test::alpha::run_alpha_tests, false)
+X("beta", hs_test::beta::run_beta_tests, false)]=])
+check_fixture("${_valid}" TRUE)
+check_fixture([=[X("alpha", hs_test::beta::run_beta_tests, false)
+X("beta", hs_test::beta::run_beta_tests, false)]=] FALSE)
+check_fixture([=[X("alpha", hs_test::alpha::run_missing_tests, false)
+X("beta", hs_test::beta::run_beta_tests, false)]=] FALSE)
+file(APPEND "${WORK}/tests/test_alpha.h" "inline int run_orphan_tests() { return 0; }\n")
+check_fixture("${_valid}" FALSE)
+message(STATUS "module entry-point controls passed")

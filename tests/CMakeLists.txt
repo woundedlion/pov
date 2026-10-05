@@ -382,6 +382,11 @@ add_test(NAME unit_module_includes COMMAND ${CMAKE_COMMAND}
     -DTOOLS_DIR=${HS_ROOT}/tools
     -P ${CMAKE_CURRENT_SOURCE_DIR}/check_includes.cmake)
 
+add_test(NAME unit_module_entry_controls COMMAND ${CMAKE_COMMAND}
+    -DGATE=${CMAKE_CURRENT_SOURCE_DIR}/check_includes.cmake
+    -DWORK=${CMAKE_CURRENT_BINARY_DIR}/module_entry_controls
+    -P ${CMAKE_CURRENT_SOURCE_DIR}/check_includes_selftest.cmake)
+
 # Check reachability and assertion reach for column-0 void/bool/int/size_t
 # cases in tests/*.h and tests/*.hpp, including run_*_cases drivers. Shared
 # helpers resolve across tests/ and tools/; member definitions are excluded.
