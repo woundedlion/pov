@@ -323,7 +323,7 @@ inline void test_timeline_clear_releases_fade() {
   HS_EXPECT_EQ(notification.change.from, size_t{1});
   HS_EXPECT_EQ(notification.change.to, size_t{0});
   HS_EXPECT_TRUE(notification.change.origin ==
-                 FadePresetEffect::Origin::AUTOMATIC);
+                 FadePresetEffect::Origin::RESTORED);
   HS_EXPECT_EQ(notification.visible_index, size_t{0});
   HS_EXPECT_FALSE(notification.active);
   HS_EXPECT_EQ(notification.opacity, 1.0f);
@@ -386,7 +386,7 @@ inline void test_cancelled_fade_notifies_committed_index() {
         const auto ORIGIN = action == Cancel::SYNCHRONIZED
                                 ? FadePresetEffect::Origin::SYNCHRONIZED
                             : REPLACEMENT ? FadePresetEffect::Origin::MANUAL
-                                          : FadePresetEffect::Origin::AUTOMATIC;
+                                          : FadePresetEffect::Origin::RESTORED;
         HS_EXPECT_TRUE(notification.change.origin == ORIGIN);
         HS_EXPECT_EQ(notification.visible_index, INDEX);
         HS_EXPECT_FALSE(notification.active);
