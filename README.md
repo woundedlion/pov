@@ -232,7 +232,7 @@ files define line-ending policy and working-artifact exclusions.
 │   │   ├── static_circular_buffer.h Fixed-capacity non-allocating circular buffer
 │   │   └── triangular_bitset.h     Upper-triangular unordered-pair bitset
 │   ├── engine/                 Machinery: memory, callables, rosters, effect support
-│   │   ├── engine.h                Engine API umbrella — included by every effect
+│   │   ├── engine.h                Engine API umbrella for handwritten effects; composed wrappers include composed_effect.h
 │   │   ├── effects_legacy.h        Pre-engine effects (TheMatrix, Spiral, etc.)
 │   │   ├── concepts.h              FunctionRef/Fn callable wrappers, PipelineRef type erasure, Tweenable concept
 │   │   ├── memory.h / memory.cpp   Arena allocator, ScratchScope, Persist<T>, generate()
