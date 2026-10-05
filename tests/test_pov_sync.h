@@ -2601,9 +2601,9 @@ inline void test_sim_masked_windows() {
 /**
  * @brief Verifies EMI on the sync wire (§5.2, §5.3, §9.1): isolated spurious
  *        edges form valid HALF symbols the LOCKED gate rejects, edges injected
- *        inside real bursts corrupt the count to invalid (discarded whole), and
- *        a single edge within G of a predicted boundary is the bounded accepted
- *        case — none unlock or desync the show.
+ *        inside or near real bursts corrupt the count to invalid (discarded
+ *        whole) — none unlock or desync the show. The accepted-EMI case is
+ *        covered by test_budget_emi_accepted_seam.
  */
 inline void test_sim_emi() {
   const Config cfg = test_config();
@@ -2625,9 +2625,7 @@ inline void test_sim_emi() {
   // even count = invalid, discarded whole; the crossing flip covers it.
   sim.emi.push_back({10 * rev + COL, 2});
   sim.emi.push_back({14 * rev + COL, 2});
-  // One edge within G of board 3's predicted HALF boundary: the §9.1
-  // accepted-EMI case — a ≤G-column seam for ≤½ rev, re-snapped by the next
-  // real symbol. It must not unlock or misclassify anything.
+  // The nearby forged edge merges with the real HALF into an invalid count.
   sim.emi.push_back({12 * rev + (PERIOD - 2ull * COL), 3});
   std::sort(sim.emi.begin(), sim.emi.end());
 
@@ -2639,6 +2637,8 @@ inline void test_sim_emi() {
   HS_EXPECT_GT(tm1.symbols_rejected_gate, 20u); // isolated EMI all rejected
   const Telemetry &tm2 = sim.boards[2].board.telemetry_snapshot();
   HS_EXPECT_GE(tm2.symbols_discarded_invalid, 2u); // corrupted bursts dropped
+  HS_EXPECT_GE(
+      sim.boards[3].board.telemetry_snapshot().symbols_discarded_invalid, 1u);
   HS_EXPECT_LE(sim.max_phase_err(), 2);
   for (int i = 1; i < 4; ++i) {
     HS_EXPECT_EQ(lock(sim.boards[i].board), LockState::LOCKED);
