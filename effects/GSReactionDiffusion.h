@@ -904,7 +904,7 @@ private:
         static_cast<uint16_t>(hs::clamp(accum_b + 0.5f, 0.0f, 65535.0f)));
   }
 
-  HS_O3_FN HS_NOINLINE_NOCLONE Pixel shade_render(
+  HS_HOT_FLASH_MEMBER Pixel shade_render(
       uint16_t pigment, float t, float scale, const math::Vector &center_rv,
       const ReactionGraph::CubemapLUT::Projection *projection) const {
     float noise_value = 0;
@@ -920,7 +920,7 @@ private:
   }
 
   template <typename Grid>
-  HS_O3_FN Pixel shade_pixel_full(
+  HS_HOT_FLASH_MEMBER Pixel shade_pixel_full(
       int seed, const math::Vector &center_rv, const math::Vector *world_nodes,
       const Grid &grid, int x, const uint8_t *hot_flags = nullptr,
       const ReactionGraph::CubemapLUT::Projection *projection = nullptr) const {
