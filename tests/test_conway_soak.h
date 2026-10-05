@@ -89,6 +89,7 @@ inline void test_full_graph_walk_soak(uint32_t seed) {
   int legs = 0;
   int frames = 0;
   int legs_at_coverage = -1;
+  int frames_at_coverage = -1;
   uint64_t render_energy = 0;
   // Dimmest sampled frame of the leg in flight; the sentinel distinguishes a
   // leg that got no sample from one that rendered a black frame.
@@ -176,8 +177,10 @@ inline void test_full_graph_walk_soak(uint32_t seed) {
     }
 
     if (visited_count == ConwayGraph::NUM_NODES) {
-      if (legs_at_coverage < 0)
+      if (legs_at_coverage < 0) {
         legs_at_coverage = legs;
+        frames_at_coverage = frames;
+      }
       if (legs >= legs_at_coverage + SOAK_EXTRA_LEGS)
         break;
     }
@@ -198,7 +201,7 @@ inline void test_full_graph_walk_soak(uint32_t seed) {
       "  [soak] %d legs (%d frames) to full %d-node coverage; "
       "persistent hw=%zu/%zu scratch_a hw=%zu/%zu scratch_b hw=%zu/%zu "
       "sampled frame energy=%llu\n",
-      legs_at_coverage, frames, ConwayGraph::NUM_NODES,
+      legs_at_coverage, frames_at_coverage, ConwayGraph::NUM_NODES,
       persistent_arena.get_high_water_mark(), Fx::DEVICE_PERSISTENT_BYTES,
       scratch_arena_a.get_high_water_mark(), scratch_arena_a.get_capacity(),
       scratch_arena_b.get_high_water_mark(), scratch_arena_b.get_capacity(),
