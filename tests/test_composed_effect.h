@@ -1404,6 +1404,34 @@ struct MobiusFrameProbe : MobiusGrid<SMALL_W, SMALL_H> {
   using MobiusGrid<SMALL_W, SMALL_H>::params;
 };
 
+inline void test_mobius_captured_parameter_restore() {
+#if HS_ENABLE_PARAM_GUI_BRIDGE
+  for (const math::MobiusParams target :
+       {math::MobiusParams{0, 0, 0, 0.704f, 0.304f, 0, 0, 0},
+        math::MobiusParams{0.7071f, -1, 0.7071f, -1, 0.7071f, 0, 0, 0}}) {
+    reset_effect_globals();
+    auto effect = std::make_unique<MobiusFrameProbe>();
+    effect->init();
+    HS_EXPECT_TRUE(Pullback::MobiusLensParams::nondegenerate(target));
+    effect->params.template get<"lens">().mobius = target;
+    std::vector<std::pair<std::string, float>> captured;
+    for (const auto &def : effect->getParameters())
+      if (!def.readonly)
+        captured.emplace_back(def.name, def.get_requested());
+    HS_EXPECT_TRUE(effect->synchronizePreset(0));
+    static_cast<ParamHost &>(*effect).restore_parameters(captured);
+    verify_mobius_equal(effect->params.template get<"lens">().mobius, target);
+    HS_EXPECT_TRUE(effect->animations_paused());
+    for (const auto &[name, value] : captured) {
+      const auto *def = effect->getParameters().find(name.c_str());
+      HS_EXPECT_TRUE(def != nullptr);
+      if (def != nullptr)
+        HS_EXPECT_EQ(def->get_requested(), value);
+    }
+  }
+#endif
+}
+
 inline void test_mobius_frame_admission() {
   reset_effect_globals();
   auto effect = std::make_unique<MobiusFrameProbe>();
@@ -2691,6 +2719,7 @@ inline int run_composed_effect_tests() {
   test_composed_direct_surface_placement();
   test_composed_slider_registration();
   test_mobius_frame_admission();
+  test_mobius_captured_parameter_restore();
   test_composed_snapshot_contract();
   test_parameter_layout_reorder();
   test_composed_parameter_schema_pins();

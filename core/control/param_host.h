@@ -59,23 +59,26 @@ public:
     if (!parameter_write_admitted(*def, value))
       return ParamSetResult::INADMISSIBLE;
 #endif
-    const bool animated = def->animated;
-    const bool preset = def->preset;
-    if (animated)
-      setAnimationsPaused(true);
-#if HS_ENABLE_PARAM_GUI_BRIDGE
-    const char *updated_name = def->name;
-    const bool updated_enum = def->is_enum();
-    def->write_unchecked(value);
-    if (parameter_updated_hook != nullptr)
-      parameter_updated_hook(this, updated_name, updated_enum);
-#else
-    def->write_unchecked(value);
-#endif
-    if (preset)
-      parameter_written();
+    apply_parameter(*def, value);
     return ParamSetResult::APPLIED;
   }
+
+#if HS_ENABLE_PARAM_GUI_BRIDGE
+  /** @brief Restores trusted captured writes in order, then validates the state. */
+  template <typename Values> void restore_parameters(const Values &values) {
+    check_parameter_storage();
+    for (const auto &[name, value] : values) {
+      auto *def = parameters.find(name.c_str());
+      HS_CHECK(def != nullptr && !def->readonly,
+               "restore_parameters: unknown or readonly parameter");
+      apply_parameter(*def, value);
+    }
+    for (const auto &def : parameters)
+      if (!def.readonly)
+        HS_CHECK(parameter_write_admitted(def, def.get_requested()),
+                 "restore_parameters: inadmissible final state");
+  }
+#endif
 
   /**
    * @brief Retrieves the list of registered parameters.
@@ -546,6 +549,25 @@ protected:
   }
 
 private:
+  void apply_parameter(ParamDef &parameter, float value) {
+    auto *def = &parameter;
+    const bool animated = def->animated;
+    const bool preset = def->preset;
+    if (animated)
+      setAnimationsPaused(true);
+#if HS_ENABLE_PARAM_GUI_BRIDGE
+    const char *updated_name = def->name;
+    const bool updated_enum = def->is_enum();
+    def->write_unchecked(value);
+    if (parameter_updated_hook != nullptr)
+      parameter_updated_hook(this, updated_name, updated_enum);
+#else
+    def->write_unchecked(value);
+#endif
+    if (preset)
+      parameter_written();
+  }
+
   HS_COLD_MEMBER ParamDef &append_parameter(const char *name) {
     HS_CHECK(parameters.count < parameters.capacity(),
              "register_param: exceeded ParamList capacity name=%s", name);
