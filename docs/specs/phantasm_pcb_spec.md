@@ -556,7 +556,7 @@ nets, the sync line, and the load-end signal-ground tie.
 - **R-SI-4 — Decoupling discipline.** 0.1 µF caps (R-PWR-4) on the **same side** as their IC, < 3 mm
   from the pin, with a dedicated via to the plane (minimize the Vcc→cap→GND loop).
 - **R-SI-5 — Sync conditioning.** 100 Ω source series (R-LS-1) + 10 k idle pull-down (R-SYNC-2) +
-  optional RC (R-SYNC-3). Route **SYNC adjacent to a ground return** (small loop), keep it **away from
+  populated node RC (R-SYNC-3). Route **SYNC adjacent to a ground return** (small loop), keep it **away from
   and orthogonal to** the CLK net and any motor/ESC leads.
 - **R-SI-6 — Logic-rail filtering.** The ferrite-bead filter (R-PWR-5) isolates the card's logic supply
   from conducted noise on the shared rotor rail; the heavy LED feed is a separate run (§2.3).
