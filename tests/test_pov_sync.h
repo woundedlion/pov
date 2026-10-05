@@ -1134,7 +1134,7 @@ inline void test_flywheel_position() {
     f.set_cycles_per_half_rev(period);
     uint32_t t = 0xFFFFFFFFu - period / 3; // wrap almost immediately
     f.seed(t);
-    for (int k = 1; k <= 5000; ++k) { // ~5.2 minutes of mock time, 43 wraps
+    for (int k = 1; k <= 5000; ++k) { // ~5.2 minutes of mock time, 44 wraps
       HS_CONTEXT("fold", k);
       t += period;
       const Crossing c = f.fold(t);
