@@ -183,10 +183,11 @@ public:
    *        the reciprocal never blows up.
    * @return A seed lattice node index in [0, RD_N) close to p. Two approximations
    *         stack (the table is built from find_nearest_node's hill-climb local
-   *         minimum, and the query is quantized to a face cell), so the result can
-   *         be off by a neighbor. Callers needing the true nearest node must refine
-   *         among the seed and its neighbors (see
-   *         ReactionDiffusionBase::refine_render_center in effects/).
+   *         minimum, and the query is quantized to a face cell), so the true
+   *         nearest node can lie beyond the seed's one-ring. Refining among the
+   *         seed and its neighbors improves the seed without guaranteeing a
+   *         global nearest node (see ReactionDiffusionBase::refine_render_center
+   *         in effects/).
    */
   int lookup(const math::Vector &p) const {
     // debug-only: device hot path stays a single load (assert compiles out).
