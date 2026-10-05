@@ -458,9 +458,8 @@ enum class Symbol : uint8_t { INVALID, HALF, ZERO, ZERO_EPOCH };
  * @brief Count-coded classification: odd-only, distance-2 alphabet.
  * @param rising_edges Number of rising edges in the burst.
  * @return The decoded Symbol, or INVALID.
- * @details Any other count (a lost or spurious edge lands on an even value) is
- * INVALID and the whole burst is discarded — fail to "missed", never to
- * "wrong".
+ * @details A single lost or spurious edge lands on an even, INVALID count.
+ * Multiple edge errors can produce another accepted odd count.
  */
 constexpr Symbol classify_count(uint32_t rising_edges) {
   switch (rising_edges) {
