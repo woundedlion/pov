@@ -133,6 +133,22 @@ class TestHeaderIssue(unittest.TestCase):
 
 
 class TestMain(unittest.TestCase):
+    def test_empty_successful_listing_is_a_tooling_error(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            subprocess.run(["git", "-C", str(root), "init", "-q"], check=True)
+            (root / "LICENSE").write_text(LICENSE_HEADING, encoding="utf-8")
+            with contextlib.redirect_stdout(io.StringIO()) as out, \
+                    contextlib.redirect_stderr(io.StringIO()) as err:
+                self.assertEqual(lc.main(["--root", str(root)]), 2)
+            self.assertIn("no tracked C/C++ sources", err.getvalue())
+            self.assertNotIn("EXCEPTIONS", out.getvalue())
+            (root / "sample.h").write_text(POLYFORM_HEADER, encoding="utf-8")
+            subprocess.run(["git", "-C", str(root), "add", "--", "sample.h"], check=True)
+            with mock.patch.object(lc, "EXCEPTIONS", {}), \
+                    contextlib.redirect_stdout(io.StringIO()):
+                self.assertEqual(lc.main(["--root", str(root)]), 0)
+
     def test_main_checks_tracked_sources_and_returns_failure(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
@@ -152,8 +168,6 @@ class TestMain(unittest.TestCase):
                     self.assertEqual(lc.main(["--root", str(root)]), 1)
 
     def test_a_git_that_cannot_be_run_is_a_tooling_error(self):
-        # Every failure the listing can raise -- no git, a timeout, output that
-        # is not UTF-8 -- must reach the exit-2 report, not a traceback.
         for error in (FileNotFoundError("git"),
                       subprocess.TimeoutExpired("git", 30),
                       UnicodeDecodeError("utf-8", b"\xff", 0, 1, "invalid")):
