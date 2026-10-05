@@ -309,16 +309,16 @@ inline void test_fast_cbrt3() {
     HS_EXPECT_NEAR(o[2], 2.0f, 2.3e-5f * 2.0f);
   }
 
-  // Just inside each end of the documented window the result still tracks the
-  // scalar helper; the tiny end is below fast_cbrt's own accurate domain, so
-  // only the re-association is under test there.
+  // Both window endpoints are within the scalar helper's accurate domain.
   for (float v : {1.0e11f, 1.0e-12f}) {
     float o[3];
     math::fast_cbrt3(v, v, v, o[0], o[1], o[2]);
     float ref = math::fast_cbrt(v);
+    float exact = std::cbrt(v);
     for (int j = 0; j < 3; ++j) {
       HS_EXPECT_TRUE(std::isfinite(o[j]));
       HS_EXPECT_TRUE(std::abs(o[j] - ref) / ref <= 1e-5f);
+      HS_EXPECT_TRUE(std::abs(o[j] - exact) / exact <= 2.3e-5f);
     }
   }
 }
