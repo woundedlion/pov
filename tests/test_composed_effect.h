@@ -1112,8 +1112,9 @@ apply_document_value(typename FX::Params &built, const DocumentSlot &slot,
  * JSON, but both are computed from the JSON, so a value edited in
  * initial_params()/preset() alone would leave them green. This check
  * closes that gap: every preset in patterns/<effect_id>.shader.json is rebuilt
- * into a Params through the engine's own field tables and compared bit-exactly,
- * family by family, against the effect's authored preset. The comparison is
+ * into a Params through the engine's own field tables and compared against the
+ * authored preset. Reciprocal lattice cell scale allows 1e-6 rounding error;
+ * other values are compared bit-exactly, family by family. The comparison is
  * two-directional — a document value the header does not reproduce and a
  * header value the document does not carry both surface as a family mismatch.
  * The preset roster, dwell and segue durations are pinned too, since they are
