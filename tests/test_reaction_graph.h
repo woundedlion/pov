@@ -495,8 +495,6 @@ inline void test_cubemap_lut_equatorial() {
   int exact = 0, near = 0, miss = 0;
   for (int j = 0; j < LONGITUDES; ++j) {
     float lon = (j + 0.5f) / LONGITUDES * 2.0f * static_cast<float>(PI);
-    // |y| just off the equator: the maximal-latitude seed distance from a node
-    // whose longitude is unrelated to the seed's.
     float y = (j & 1) ? 1e-4f : -1e-4f;
     float r = std::sqrt(1.0f - y * y);
     math::Vector q(std::cos(lon) * r, y, std::sin(lon) * r);
