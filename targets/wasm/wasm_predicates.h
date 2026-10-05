@@ -54,7 +54,7 @@ inline float clamp_pole_lod_aggressiveness(float aggressiveness) {
  *          wrong axis. Rejecting here keeps the untyped boundary from trapping
  *          the whole WASM module. The bounds are taken as doubles because an
  *          i32 embind parameter coerces without a range check in a release
- *          build: NaN and 2^31 both arrive as 0, which passes every ordering
+ *          build: NaN and multiples of 2^32 arrive as 0, which passes every ordering
  *          test as an empty band — a black render reported as a success.
  */
 inline bool clip_bounds_valid(double x0, double x1, double y0, double y1,
@@ -74,9 +74,9 @@ inline bool clip_bounds_valid(double x0, double x1, double y0, double y1,
  * @param preset_count Number of presets the effect exposes.
  * @return true iff the index is integral and in [0, preset_count).
  * @details The index is taken as a double because a uint32_t embind parameter
- *          coerces without a range check in a release build: NaN, a negative
- *          and 2^32 all arrive as 0, which selects preset 0 under a success
- *          result. Non-integral requests are rejected rather than truncated, so
+ *          coerces without a range check in a release build: NaN and multiples of
+ *          2^32 arrive as 0, while other out-of-range integers wrap modulo
+ *          2^32. A wrapped zero selects preset 0 under a success result. Non-integral requests are rejected rather than truncated, so
  *          a malformed message cannot land on a neighbouring preset.
  */
 inline bool preset_index_valid(double index, size_t preset_count) {

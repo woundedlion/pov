@@ -490,9 +490,8 @@ async function main(probe) {
         // both. A negative, over-extent, or inverted band reports
         // INVALID_BOUNDS, never traps. The range check precedes the
         // needs_full_frame branch, so the rejection is deterministic regardless
-        // of the effect. NaN, fractional and past-i32 numbers are the coercion
-        // cases an int parameter would have delivered as 0 (an empty band under
-        // an APPLIED result). INVALID_BOUNDS must stay distinct from NO_EFFECT
+        // of the effect. An int binding would map NaN and 2^32 to 0,
+        // and truncate the fractional bound to a different valid integer. INVALID_BOUNDS must stay distinct from NO_EFFECT
         // — the pool faults on the former and must not fault on the latter — so
         // pin the roster too.
         const C = Module.ClipSetResult;
