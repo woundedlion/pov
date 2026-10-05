@@ -192,10 +192,6 @@ public:
   }
 
 private:
-  static constexpr int chunk_end(int c, int lut_n) {
-    return ((c + 1) * lut_n + BAKE_CHUNKS - 1) / BAKE_CHUNKS;
-  }
-
   /** @brief Evaluates the active ball fields using cached ring geometry. */
   HS_O3_FN float ball_field(const math::Vector &p, const int *ks, int n,
                             float theta) const {
@@ -209,64 +205,9 @@ private:
   }
 
   /**
-   * @brief Marks the azimuth chunks of one ring's bake that can reach the clip.
-   * @param basis Ring frame; basis.v is the stack axis.
-   * @param theta Ring colatitude.
-   * @param cos_t Cosine of theta.
-   * @param sin_t Sine of theta.
-   * @param band_r World-angle radius of the ring's displaced band.
-   * @return Bit c set for chunk c of BAKE_CHUNKS, 0 when the whole ring misses
-   * the clip and CHUNK_MASK when the pad spans the ring.
-   * @details Chunk c owns bake columns [ceil(c * lut_n / BAKE_CHUNKS),
-   * ceil((c + 1) * lut_n / BAKE_CHUNKS)); the boundaries round up, so a chunk's
-   * span sits up to one column later than the even split whose midpoint this
-   * test samples. A clear bit skips that span's field and hue bake and leaves
-   * its columns stale. The raw per-chunk clip test is therefore widened by
-   * pad_chunks neighbors on both sides, since the rasterizer's soft stroke
-   * reaches params.thickness of azimuth away from a knot — that many chunks at
-   * the band's smallest circumference. pad_chunks is at least 1, so the same
-   * widening also absorbs the one-column rounding overhang.
-   */
-  __attribute__((always_inline)) uint32_t
-  visible_chunk_mask(const math::Basis &basis, float theta, float cos_t,
-                     float sin_t, float band_r) const {
-    HS_PROFILE(df_chunk_cull);
-    const float chunk_reach = (math::PI_F / BAKE_CHUNKS) * sin_t + band_r;
-    const float sin_reach = sinf(fminf(chunk_reach, math::PI_F));
-    uint32_t raw = 0u;
-    for (int c = 0; c < BAKE_CHUNKS; ++c) {
-      math::Vector mid =
-          (basis.v * cos_t) +
-          ((basis.u * chunk_cos[c]) + (basis.w * chunk_sin[c])) * sin_t;
-      if (Plot::cap_may_touch_clip<H>(clip(), mid, chunk_reach, sin_reach))
-        raw |= 1u << c;
-    }
-    if (!raw)
-      return 0u;
-    const float th_lo = theta - band_r;
-    const float th_hi = theta + band_r;
-    int pad_chunks = BAKE_CHUNKS;
-    if (th_lo > 0.0f && th_hi < math::PI_F) {
-      float sin_lo = fminf(sinf(th_lo), sinf(th_hi));
-      // A band hugging a pole drives sin_lo to zero; clamp before the cast.
-      const float pad_f =
-          ceilf(params.thickness * BAKE_CHUNKS / (2.0f * math::PI_F * sin_lo));
-      pad_chunks = 1 + static_cast<int>(hs::clamp(
-                           pad_f, 0.0f, static_cast<float>(BAKE_CHUNKS)));
-    }
-    if (2 * pad_chunks >= BAKE_CHUNKS)
-      return CHUNK_MASK;
-    uint32_t visible = raw;
-    for (int k = 1; k <= pad_chunks; ++k)
-      visible |= (raw << k) | (raw >> (BAKE_CHUNKS - k)) | (raw >> k) |
-                 (raw << (BAKE_CHUNKS - k));
-    return visible & CHUNK_MASK;
-  }
-
-  /**
    * @brief Chooses how one ring's bake evaluates its hue rotation.
    * @param lut_n Bake columns for the ring.
-   * @param visible Chunk mask from visible_chunk_mask.
+   * @param visible Chunk mask from Plot::visible_chunk_mask.
    * @param hue_extent Signed hue turns the ring's displacement range covers.
    * @param use_hue_table Out: sample a HUE_TABLE_SIZE-cell table instead of
    * rotating per column.
@@ -293,7 +234,7 @@ private:
     int visible_samples = 0;
     int x_begin = 0;
     for (int c = 0; c < BAKE_CHUNKS; ++c) {
-      const int x_end = chunk_end(c, lut_n);
+      const int x_end = Plot::chunk_end<BAKE_CHUNKS>(c, lut_n);
       if (visible & (1u << c))
         visible_samples += x_end - x_begin;
       x_begin = x_end;
@@ -422,7 +363,12 @@ private:
         uint32_t visible = CHUNK_MASK;
         if (try_cull) {
           const float band_r = band + noise_bound + params.thickness + pad;
-          visible = visible_chunk_mask(basis, theta, cos_t, sin_t, band_r);
+          {
+            HS_PROFILE(df_chunk_cull);
+            visible = Plot::visible_chunk_mask<H, BAKE_CHUNKS>(
+                clip(), basis, theta, cos_t, sin_t, band_r, params.thickness,
+                chunk_cos, chunk_sin);
+          }
           if (!visible)
             continue;
         }
@@ -449,7 +395,7 @@ private:
         {
           int x = 0;
           for (int c = 0; c < BAKE_CHUNKS; ++c) {
-            const int x_end = chunk_end(c, lut_n);
+            const int x_end = Plot::chunk_end<BAKE_CHUNKS>(c, lut_n);
             if (visible & (1u << c)) {
               for (; x < x_end; ++x)
                 max_shift = fmaxf(max_shift, std::fabs(slut[x]));
@@ -493,7 +439,7 @@ private:
         {
           int x = 0;
           for (int c = 0; c < BAKE_CHUNKS; ++c) {
-            const int x_end = chunk_end(c, lut_n);
+            const int x_end = Plot::chunk_end<BAKE_CHUNKS>(c, lut_n);
             if (visible & (1u << c)) {
               for (; x < x_end; ++x)
                 hlut[x] = hue_for_shift(slut[x]);
@@ -550,7 +496,7 @@ private:
    * @param cos_d Cosine of one knot cell's azimuth step.
    * @param sin_d Sine of one knot cell's azimuth step.
    * @param lut_n Knot count, a multiple of OCTAVE_GRID.
-   * @param visible Chunk mask from visible_chunk_mask.
+   * @param visible Chunk mask from Plot::visible_chunk_mask.
    * @param n_local Balls that can reach the ring (ball_local).
    * @param slut Receives the shift of every knot in a visible chunk.
    * @details The two octaves use OCTAVE1_STRIDE and OCTAVE2_STRIDE knot spacing
@@ -567,7 +513,7 @@ private:
     constexpr int D2 = OCTAVE2_STRIDE;
     int x = 0;
     for (int c = 0; c < BAKE_CHUNKS; ++c) {
-      const int x_end = chunk_end(c, lut_n);
+      const int x_end = Plot::chunk_end<BAKE_CHUNKS>(c, lut_n);
       const uint8_t v = static_cast<uint8_t>((visible >> c) & 1u);
       for (; x < x_end; ++x)
         knot_visible[x] = v;
@@ -658,7 +604,7 @@ private:
    * @param cos_d Cosine of one knot cell's azimuth step.
    * @param sin_d Sine of one knot cell's azimuth step.
    * @param lut_n Knot count.
-   * @param visible Chunk mask from visible_chunk_mask.
+   * @param visible Chunk mask from Plot::visible_chunk_mask.
    * @param n_local Balls that can reach the ring (ball_local).
    * @param slut Receives the shift of every knot in a visible chunk.
    * @details On the ring, a ball's cap test dot(p, center) > cos_radius reads
@@ -678,7 +624,7 @@ private:
     float *den = octave2;
     int x = 0;
     for (int c = 0; c < BAKE_CHUNKS; ++c) {
-      const int x_end = chunk_end(c, lut_n);
+      const int x_end = Plot::chunk_end<BAKE_CHUNKS>(c, lut_n);
       const uint8_t v = static_cast<uint8_t>((visible >> c) & 1u);
       for (; x < x_end; ++x)
         knot_visible[x] = v;
