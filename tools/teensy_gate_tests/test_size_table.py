@@ -117,6 +117,24 @@ class Main(unittest.TestCase):
         log = _env_chunk("holosphere", "good_teensy_size.txt")
         self.assertEqual(self._run(log, 0)[0], 0)
 
+    def test_record_trail_runs_after_a_successful_build_and_is_nonfatal(self):
+        for build_status in (0, 3):
+            with self.subTest(build_status=build_status):
+                events = []
+                process = self._FakePio([], build_status)
+                process.wait = lambda: events.append("built") or build_status
+                with mock.patch.object(tst.shutil, "which", return_value="pio"), \
+                        mock.patch.object(tst.subprocess, "Popen", return_value=process) as build, \
+                        mock.patch.object(tst.subprocess, "call", side_effect=lambda argv: events.append(argv) or 1), \
+                        contextlib.redirect_stdout(io.StringIO()):
+                    self.assertEqual(tst.main(["--record-trail"]), build_status)
+                self.assertEqual(build.call_args.args[0], ["pio", "run"])
+                expected = ["built"]
+                if build_status == 0:
+                    expected.append([sys.executable, str(TOOLS / "teensy_size_trail.py"),
+                                     "record", "--built"])
+                self.assertEqual(events, expected)
+
     def test_no_argument_builds_every_platformio_environment(self):
         # A bare `pio run` is what keeps a new environment size-gated with no
         # second list to edit.

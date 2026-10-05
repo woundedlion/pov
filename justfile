@@ -155,8 +155,7 @@ bench:
 # Build all firmware environments and check size budgets.
 teensy-size:
     {{ python_command }} tools/build_pins.py --check-tool platformio
-    bash tools/device_lock.sh tree {{ python_command }} tools/teensy_size_table.py
-    -{{ python_command }} tools/teensy_size_trail.py record --built
+    bash tools/device_lock.sh tree {{ python_command }} tools/teensy_size_table.py --record-trail
 
 # All tracked Python unit suites.
 python-test:
