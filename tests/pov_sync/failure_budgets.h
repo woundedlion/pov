@@ -438,6 +438,8 @@ inline void test_budget_wire_dead() {
   HS_EXPECT_GE(sim.boards[1].board.telemetry_snapshot().max_coast_halves, 250u);
 }
 
+// ── ContentTracker / output-envelope units ────────────────────────────────
+
 /** @brief Pins effect output envelope. */
 inline void test_effect_output_envelope() {
   constexpr uint32_t DURATION_REVS = 48;
