@@ -31,7 +31,7 @@ inline void test_feedback_style_binding() {
 
 /**
  * @brief Verifies Feedback::plot() forwards its input unchanged: one tap with
- *        the original coord and alpha, no Canvas touched.
+ *        the original coord, colour, age and alpha, no Canvas touched.
  * @details The feedback effect lives in flush, not plot.
  */
 inline void test_feedback_plot_is_passthrough() {
@@ -40,17 +40,22 @@ inline void test_feedback_plot_is_passthrough() {
   Filter::Pixel::Feedback<W, H> fb(style);
 
   int count = 0;
-  float kx = -1, ky = -1, ka = -1;
+  float kx = -1, ky = -1, kage = -1, ka = -1;
+  Pixel kc(0, 0, 0);
   Pixel src(7, 8, 9);
   fb.plot(3.0f, 4.0f, src, 1.5f, 0.75f,
-          [&](float x, float y, const Pixel &, float, float a) {
+          [&](float x, float y, const Pixel &c, float age, float a) {
             ++count;
             kx = x;
             ky = y;
+            kc = c;
+            kage = age;
             ka = a;
           });
   HS_EXPECT_EQ(count, 1);
   HS_EXPECT_NEAR(kx, 3.0f, 1e-6f);
   HS_EXPECT_NEAR(ky, 4.0f, 1e-6f);
+  HS_EXPECT_PIXEL(kc, 7, 8, 9);
+  HS_EXPECT_NEAR(kage, 1.5f, 1e-6f);
   HS_EXPECT_NEAR(ka, 0.75f, 1e-6f);
 }
