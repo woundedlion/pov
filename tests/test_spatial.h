@@ -421,9 +421,19 @@ inline void test_meshstate_clear_resets_views() {
   HS_EXPECT_EQ(m.num_vertices(), (size_t)0);
   HS_EXPECT_EQ(m.num_faces(), (size_t)0);
 
-  uint8_t counts[] = {1};
-  uint16_t faces[] = {0}, offsets[] = {0}, topology[] = {3};
-  m.set_borrowed({counts, 1}, {faces, 1}, {offsets, 1}, {topology, 1}, 0xABCD);
+  MeshState source;
+  source.face_counts.bind(arena, 1);
+  source.face_counts.push_back(1);
+  source.faces.bind(arena, 1);
+  source.faces.push_back(0);
+  source.face_offsets.bind(arena, 1);
+  source.face_offsets.push_back(0);
+  source.topology.bind(arena, 1);
+  source.topology.push_back(3);
+  m.set_borrowed(ArenaSpan<uint8_t>(source.face_counts),
+                 ArenaSpan<uint16_t>(source.faces),
+                 ArenaSpan<uint16_t>(source.face_offsets),
+                 ArenaSpan<uint16_t>(source.topology), 0xABCD);
   HS_EXPECT_EQ(m.get_face_counts_size(), size_t{1});
   HS_EXPECT_EQ(m.get_faces_size(), size_t{1});
   HS_EXPECT_EQ(m.get_face_offsets_size(), size_t{1});
