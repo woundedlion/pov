@@ -114,16 +114,6 @@ public:
     // corner, then shade every pixel of a block from the deduped union of its
     // four corners' pairs (<= 8 candidate sites) by an exact top-2 dot scan.
     // A cell missed by all four corners is dropped.
-    auto &cr = canvas.clip();
-    Scan::Shader::check_lut_domain<W, H>(cr);
-    const auto columns = cr.x_clip();
-    const int x0 = columns.active && !columns.wrap ? columns.rs : 0;
-    const int x1 = columns.active && !columns.wrap ? columns.re : W;
-    const int y0 = cr.render_y_start();
-    const int y1 = cr.render_y_end();
-    if (x1 <= x0 || y1 <= y0)
-      return;
-
     // Voronoi cell pixel size falls as ~1/sqrt(num_sites), so shrink the block
     // with the site count, floored at the edge MAX_SITES would give at this H.
     // Full-sphere row-pitch estimate: an equal-area cell spans sqrt(4π/n)·H/π
