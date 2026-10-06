@@ -60,24 +60,22 @@ EXCLUDE_FP_SUBSTR = ("TerminalBlock", "PinHeader", "JST_", "Molex_KK-254", "Sold
 EXCLUDE_VAL_SUBSTR = ("Teensy",)
 
 
-def rule_shortfalls(d, rule_minimums, class_minimums):
-    """Fields of project document d sitting below their fabrication floor.
+def rule_checks(d, rule_minimums, class_minimums):
+    """Every fabrication floor and severity checked on project document d.
 
     Maps the field name -- Default net class fields prefixed "Default." -- to
-    (current, minimum). A field KiCad has dropped reads as 0, the same as one
-    it re-zeroed.
+    (current, required, met). A field KiCad has dropped reads as 0, the same
+    as one it re-zeroed.
     """
     rules = d.get("board", {}).get("design_settings", {}).get("rules", {})
-    shortfalls = {}
+    checks = {}
     for field, minimum in {**rule_minimums, **NEW_LAYOUT_RULES}.items():
         current = rules.get(field, 0) or 0
-        if current < minimum:
-            shortfalls[field] = (current, minimum)
+        checks[field] = (current, minimum, current >= minimum)
 
     severity = d.get("board", {}).get("design_settings", {}).get(
         "rule_severities", {}).get("silk_over_copper")
-    if severity != "error":
-        shortfalls["rule_severities.silk_over_copper"] = (severity, "error")
+    checks["rule_severities.silk_over_copper"] = (severity, "error", severity == "error")
 
     classes = d.get("net_settings", {}).get("classes", [])
     default = next((item for item in classes if item.get("name") == "Default"), None)
@@ -85,9 +83,15 @@ def rule_shortfalls(d, rule_minimums, class_minimums):
         raise ValueError("missing Default net class")
     for field, minimum in class_minimums.items():
         current = default.get(field, 0) or 0
-        if current < minimum:
-            shortfalls[f"Default.{field}"] = (current, minimum)
-    return shortfalls
+        checks[f"Default.{field}"] = (current, minimum, current >= minimum)
+    return checks
+
+
+def rule_shortfalls(d, rule_minimums, class_minimums):
+    """The `rule_checks` entries of d that are not met, as field -> (current, required)."""
+    return {field: (current, required)
+            for field, (current, required, met)
+            in rule_checks(d, rule_minimums, class_minimums).items() if not met}
 
 
 def apply_project_floors(document, rule_minimums, class_minimums):
