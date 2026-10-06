@@ -20,8 +20,8 @@
 
 namespace {
 
-constexpr int W = 288; // Phantasm device canvas
-constexpr int H = 144;
+constexpr int W = CANVAS_W; // Phantasm device canvas
+constexpr int H = CANVAS_H;
 const int FRAMES = hs_test::smoke_frames();
 constexpr int CHUNK = 2048;
 constexpr size_t WIN = 256; // classifier granularity
