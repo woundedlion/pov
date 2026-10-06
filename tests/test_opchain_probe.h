@@ -363,13 +363,11 @@ inline const float TRUNCATE001_T_STAR = [] {
  *        constant raw and compiled face counts, two-face edge incidence,
  *        Euler characteristic 2, near-unit vertices, every face positive-area,
  *        and no face inverting across the sweep.
- * @details The birth floor mirrors OpLeg's recipe-step clamp.
+ * @details The birth floor is OpLeg's recipe-step truncate_birth_floor.
  */
 inline void test_truncate001_birth_sweep_holds_topology() {
   constexpr int SAMPLES = 32;
-  const float birth =
-      std::min(ConwayGraph::T_EPS,
-               TRUNCATE001_T_STAR * ConwayGraph::TRUNCATE_BIRTH_FRAC);
+  const float birth = ConwayGraph::truncate_birth_floor(TRUNCATE001_T_STAR);
   // A real animation, not a still image.
   HS_EXPECT_TRUE(birth < TRUNCATE001_T_STAR);
   HS_EXPECT_TRUE(TRUNCATE001_T_STAR >= ConwayGraph::T_TRUNCATE_ARRIVAL_MIN);
@@ -493,15 +491,12 @@ inline constexpr float FAR_SIDE_NEAR_LIMIT = 0.49f;
  * @brief Steps the far-side truncate leg from its near-side birth floor through
  *        the ambo pinch to 0.873 on both truncate50d seeds, asserting the leg
  *        does not trap and does not change topology across the pinch.
- * @details Mirrors the OpLeg recipe-step clamp: the leg births at min(T_EPS,
- * arrival * TRUNCATE_BIRTH_FRAC). Samples go through
+ * @details The leg births at OpLeg's truncate_birth_floor. Samples go through
  * ConwayGraph::truncate_off_pinch; past 0.5 only structural checks apply.
  */
 inline void test_truncate50d_far_side_sweep_holds_topology() {
   constexpr int SAMPLES = 48;
-  const float birth =
-      std::min(ConwayGraph::T_EPS,
-               TRUNCATE50D_T_STAR * ConwayGraph::TRUNCATE_BIRTH_FRAC);
+  const float birth = ConwayGraph::truncate_birth_floor(TRUNCATE50D_T_STAR);
   // A real animation across the pinch: birth on the near side, arrival past it,
   // arrival unclamped (below the far-side cap).
   HS_EXPECT_TRUE(birth < 0.5f);
@@ -907,9 +902,7 @@ inline void test_build_chain_provenance_ambiguity() {
         break;
       case Op::TRUNCATE:
         start = MeshOps::truncate(
-            seed, a, b,
-            std::min(ConwayGraph::T_EPS,
-                     step.param * ConwayGraph::TRUNCATE_BIRTH_FRAC));
+            seed, a, b, ConwayGraph::truncate_birth_floor(step.param));
         break;
       case Op::SNUB:
         start = MeshOps::snub(seed, a, b, ConwayGraph::T_EPS, 0.0f);
