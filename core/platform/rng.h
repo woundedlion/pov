@@ -19,10 +19,11 @@ namespace hs {
 /**
  * @brief Small deterministic PRNG (PCG XSH-RR 64/32) — the process-wide RNG.
  * @details Models a UniformRandomBitGenerator, so hs::rand_* consume it
- *          unchanged. DETERMINISM CONTRACT: device and host both seed this
- *          identical type with 1337, so the draw stream stays bit-identical
- *          across the two builds (the sim/device parity invariant); nothing may
- *          depend on the specific values, only on reproducibility. Consume it
+ *          unchanged. DETERMINISM CONTRACT: device and host derive the same
+ *          per-effect seed with stable_effect_seed(stable_effect_id); the
+ *          device uses epoch_seed(index) when identities are absent. The initial
+ *          seed is 1337. Nothing may depend on specific values, only on
+ *          reproducibility. Consume it
  *          only through hs:: helpers — a \<random\> algorithm or distribution
  *          draws an implementation-defined number of times and breaks the
  *          contract; use hs::shuffle, not std::shuffle. Reference: pcg32 by
@@ -107,8 +108,9 @@ constexpr uint64_t stable_effect_seed(std::string_view effect_id) {
 
 /**
  * @brief Returns the global deterministic random number generator.
- * @return Reference to the process-wide Pcg32 seeded with 1337.
- * @details DETERMINISM CONTRACT: this `Pcg32(1337)` is the only RNG that is
+ * @return Reference to the process-wide Pcg32, initially seeded with 1337 and
+ *         reseeded per effect with stable_effect_seed (device fallback epoch_seed).
+ * @details DETERMINISM CONTRACT: this Pcg32 is the only RNG that is
  *          bit-identical device-vs-simulator; parity-sensitive effects must draw
  *          through it via `hs::random()`/`hs::rand_f`/`hs::rand_int`, not the
  *          FastLED `random8()`/`random16()` or Arduino `random()` path: on
