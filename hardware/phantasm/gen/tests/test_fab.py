@@ -933,13 +933,12 @@ class ZipMemberTests(unittest.TestCase):
             source = Path(directory) / "phantasm-F_Cu.gtl"
             source.write_text("G04 gerber*\n", encoding="utf-8")
             os.utime(source, (mtime, mtime))
-            buffer = io.BytesIO()
-            with zipfile.ZipFile(buffer, "w", zipfile.ZIP_DEFLATED) as archive:
-                archive.writestr(fab.zip_member(source.name), source.read_bytes())
-            return buffer.getvalue()
+            archive = Path(directory) / fab.ARCHIVE
+            fab.write_upload_zip(directory, [source.name], archive)
+            return archive.read_bytes()
 
     def test_archive_is_independent_of_source_mtime(self):
-        self.assertEqual(self.build(315532800), self.build(1700000000))
+        self.assertEqual(self.build(946684800), self.build(1700000000))
 
     def test_member_carries_no_host_metadata(self):
         info = fab.zip_member("phantasm-F_Cu.gtl")
