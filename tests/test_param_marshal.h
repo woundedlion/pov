@@ -178,9 +178,8 @@ inline RoundTripResult check_one(const char *name, FieldCoverage &coverage) {
 /**
  * @brief Tallies an effect's parameter count, tracking the roster maximum.
  * @tparam E Effect template, instantiated at the test canvas size DEFAULT_W x DEFAULT_H.
- * @param max_count In/out running maximum; updated if this effect has more
- *        parameters, so the stability pass can size its reserve to the worst
- *        case.
+ * @param max_count In/out roster maximum, checked against ParamStreams::CAPACITY
+ *        by the stability pass.
  */
 template <template <int, int> class E>
 inline void count_one(size_t &max_count) {
@@ -807,9 +806,7 @@ inline int run_param_marshal_tests() {
             "by-name round-trip must run on at least one effect — the roster "
             "drifted to all-non-editable params and the check covers nothing");
 
-  // Size one pair of vectors to the roster's largest parameter set, then marshal
-  // every effect through them (the effect-switch path) and confirm the backing
-  // storage never reallocates — the memory-view stability the WASM bridge needs.
+  // Marshal the roster through the engine's fixed-capacity ParamStreams.
   size_t max_count = 0;
 #define HS_PARAM_COUNT(name) count_one<name>(max_count);
   HS_EFFECT_LIST(HS_PARAM_COUNT)
