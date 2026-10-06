@@ -16,13 +16,11 @@
 
 /**
  * @brief Structure linking an animation with its starting time.
- * @details Stores the animation inline to avoid arena allocation (survives
- * compaction).
+ * @details Stores the animation inline; no arena allocation.
  */
 struct TimelineEvent {
-  // Inline storage budget for a type-erased animation: 112 B for device/WASM.
-  // The 64-bit host inflates every embedded pointer, pushing pointer-bearing
-  // animations past that budget, so host effect harnesses use a 256 B slot.
+  // Inline storage budget for a type-erased animation: 112 B for device/WASM,
+  // 256 B for 64-bit host effect harnesses.
   static constexpr size_t MAX_ANIM_SIZE = HS_TIMELINE_MAX_ANIM_BYTES;
 
   uint32_t start =
@@ -49,10 +47,8 @@ struct TimelineEvent {
   /**
    * @brief The animation's IAnimation* view, captured by static_cast at
    * construction (and re-captured by the manager on every move).
-   * @details reinterpret_cast<IAnimation*> on the raw storage would be formally
-   * UB: animation types are non-standard-layout (virtual functions), so the
-   * standard does not guarantee the IAnimation base subobject sits at offset 0
-   * — only a properly-typed upcast performs the base adjustment.
+   * @details The IAnimation base need not sit at offset 0 of the storage, so a
+   * reinterpret_cast of the storage would be UB.
    */
   IAnimation *iface = nullptr;
 
@@ -67,8 +63,7 @@ struct TimelineEvent {
    * @param dst The destination slot to move into.
    */
   void move_into(TimelineEvent &dst) {
-    // Relocating a pinned event would dangle the caller's cached animation
-    // pointer (pinned animations are never meant to move); trap instead.
+    // Relocating a pinned event would dangle the caller's cached pointer.
     HS_CHECK(!pinned, "move_into would dangle a pinned animation's retained "
                       "pointer");
     HS_CHECK(!dst.manager,
@@ -101,7 +96,7 @@ struct TimelineEvent {
 inline constexpr int TIMELINE_MAX_EVENTS = 64;
 /** @brief Process-wide timeline storage shared by all template instances. */
 extern DMAMEM TimelineEvent global_timeline_events[TIMELINE_MAX_EVENTS];
-// True while a Timeline instance is alive (guards the single-singleton invariant).
+// True while a Timeline instance is alive.
 extern bool global_timeline_live;
 extern uint32_t global_timeline_t;       // current global frame count
 extern int global_timeline_num_events;   // current number of active events
@@ -112,10 +107,8 @@ extern bool global_timeline_drop_logged;
 /**
  * @brief Manages all active animations and their execution over time.
  *
- * Not templated: the entire instance is backed by one global event array
- * (`global_timeline_events`) sized to hold the largest effect, and the
- * live-guard permits exactly one instance at a time, so the capacity is a
- * single process-wide budget (`MAX_EVENTS`), not a per-instance knob.
+ * Backed by the process-wide `global_timeline_events` array; at most one
+ * instance may be live, and `MAX_EVENTS` is a process-wide budget.
  */
 class Timeline {
 public:
@@ -128,10 +121,7 @@ public:
   /**
    * @brief Constructs a Timeline.
    *
-   * Traps if one is already alive: all Timelines share global_timeline_events,
-   * so two live instances would corrupt each other's events. The real app keeps
-   * exactly one (destroys the old effect before building the next); this makes
-   * the latent footgun a bench-time crash instead of silent stomping.
+   * Traps if one is already alive: all Timelines share global_timeline_events.
    */
   Timeline() {
     HS_CHECK(!global_timeline_live,
@@ -156,17 +146,10 @@ public:
 
   /**
    * @brief Destroys all events, leaving the timeline empty and reusable.
-   * @details Traps if called from inside step() — a completion callback runs
-   * before its event is destroyed, so destroy_events() would free the callable
-   * whose frame is still executing. Traps on a pinned event
-   * (add_get(Pin::PINNED)) too: destroying one dangles the caller's retained
-   * animation pointer, the same contract move_into() and step()'s destroy branch
-   * enforce. The global frame cursor is deliberately NOT rewound — it is
-   * process-global and effects derive a phase from frame(), so a mid-run rewind
-   * desynchronises them. Only construction/destruction, which no retained handle
-   * spans, resets the cursor.
-   * TransformerPool::spawn_pinned() creates such a pinned event: clear() is
-   * unavailable while it remains live, regardless of the pool's clear hook.
+   * @details Traps if called from inside step() (it would free a running
+   * completion callback) or while a pinned event (add_get(Pin::PINNED)) is
+   * live. Runs the clear hooks first. Does not rewind the global frame cursor;
+   * only construction and destruction do.
    */
   void clear() {
     HS_CHECK(!stepping, "clear() from inside step() would destroy the "
@@ -188,8 +171,7 @@ public:
    * @param ctx Opaque pointer handed back to @p fn; also the removal key.
    * @param fn Callback; must not add or remove timeline events.
    * @details For state an owner reclaims from a completion callback, which
-   * clear() never runs (it destroys events outright), including TransformerPool
-   * slots and ChoreographedEffect transition state. Cold path: registration happens at effect init.
+   * clear() never runs.
    */
   HS_COLD_MEMBER void add_clear_hook(void *ctx, void (*fn)(void *)) {
     HS_CHECK(clear_hook_count < MAX_CLEAR_HOOKS,
@@ -200,8 +182,7 @@ public:
   /**
    * @brief Unregisters the hook added under @p ctx; a no-op if absent.
    * @param ctx The registration key passed to add_clear_hook().
-   * @details Hook order is not preserved (the last entry backfills the hole):
-   * the hooks are independent.
+   * @details Hook order is not preserved.
    */
   HS_COLD_MEMBER void remove_clear_hook(void *ctx) {
     for (int i = 0; i < clear_hook_count; ++i) {
@@ -221,7 +202,6 @@ public:
    * @return Reference to the Timeline object.
    */
   template <typename A> Timeline &add(int in_frames, A animation) {
-    // An add() caller keeps no handle, so the event compacts normally.
     add_get(in_frames, std::move(animation), Pin::UNPINNED);
     return *this;
   }
@@ -250,17 +230,12 @@ public:
    * animation. Use when you need to hold a reference for later mutation.
    * @tparam A The animation type.
    * @param in_frames The number of frames to delay before starting; 0 and 1 both
-   * start on the next step(), and every existing schedule is tuned to that.
+   * start on the next step().
    * @param animation The animation object.
-   * @param pin Pin::PINNED: the caller intends to RETAIN this pointer
-   * across frames, so the event is marked pinned and step()'s compaction traps
-   * (move_into) rather than relocating it out from under the cached pointer.
-   * Such a retained handle is only safe when the animation never completes on
-   * its own (infinite or repeating) and no finite, non-repeating event precedes it —
-   * the contract the direct callers rely on; the trap enforces it. Pass
-   * Pin::UNPINNED for a TRANSIENT pointer used only at the call site and not
-   * kept across frames (e.g. TransformerPool::spawn, whose finite animations are
-   * compacted normally and whose return is typically discarded).
+   * @param pin Pin::PINNED: the caller retains the pointer across frames, so
+   * the event must never move: the animation must be infinite or repeating and
+   * no finite, non-repeating event may precede it (both trap). Pin::UNPINNED:
+   * the pointer is valid only at the call site.
    * @param paused Optional event-level pause gate.
    * @param owner Optional lifetime owner used by cancel_owner().
    * @return Typed pointer to the inline-stored animation, or nullptr if full
@@ -279,12 +254,9 @@ public:
     HS_CHECK(delay <= UINT32_MAX - global_timeline_t,
              "Timeline start frame overflow");
     if (global_timeline_num_events >= MAX_EVENTS) {
-      // A pinned caller retains the return value; dropping hands back a nullptr
-      // no call site null-checks.
       HS_CHECK(pin == Pin::UNPINNED,
                "Timeline full, dropped a pinned animation");
-      // A saturated timeline is a steady state, so only the episode's first
-      // drop logs; dropped_events() carries the rest.
+      // Only the saturation episode's first drop logs.
       ++global_timeline_dropped;
       if (!global_timeline_drop_logged) {
         global_timeline_drop_logged = true;
@@ -299,8 +271,8 @@ public:
                "pinned animation must be infinite or repeating");
       // A finite, non-repeating predecessor is removed on completion and would
       // relocate this pinned event, so reject it up front. A repeating/infinite
-      // predecessor can still be removed if cancel()ed later; the move_into
-      // HS_CHECK is the real backstop for that case.
+      // predecessor can still be removed if cancel()ed later; move_into traps
+      // then.
       for (int i = 0; i < global_timeline_num_events; ++i) {
         IAnimation *prev = global_timeline_events[i].animation();
         HS_CHECK(!prev || !prev->is_finite() || prev->repeats(),
@@ -446,9 +418,7 @@ public:
           if (!anim->is_canceled())
             anim->step_paused(canvas);
           // step_paused() never advances the animation, so done() here means
-          // cancel() (or finish()). Complete the event as the unpaused path
-          // would — fire .then() and free the slot — instead of holding it
-          // for every paused frame.
+          // cancel() (or finish()); complete the event now.
           if (anim->done() && !anim->repeats()) {
             anim->post_callback();
             HS_CHECK(!e.pinned || anim->is_canceled(),
@@ -472,7 +442,6 @@ public:
         continue;
       }
 
-      // Step (Orientation already collapsed once-per-frame above)
       IAnimation *anim = e.animation();
       HS_CHECK(anim, "timeline event holds no animation");
       if (!anim->is_canceled())
@@ -504,9 +473,6 @@ public:
         }
         write_idx++;
       } else {
-        // A pinned event should never reach natural completion (pinned ⇒
-        // infinite); destroying one dangles the caller's pointer. cancel() is the
-        // one sanctioned teardown, so it is exempt.
         HS_CHECK(!e.pinned || anim->is_canceled(),
                  "pinned animation completed; only cancel() may destroy a "
                  "pinned event");
@@ -514,22 +480,19 @@ public:
       }
     }
 
-    // Move new events (added during callbacks) to fill the gap left by
-    //    completed ones. A pinned event spawned inside a callback would trap in
-    //    move_into here; callback-spawners pass Pin::UNPINNED, so this is safe.
+    // Move events added during callbacks into the gap left by completed ones;
+    // a pinned one would trap in move_into.
     HS_CHECK(global_timeline_num_events >= active_cnt,
              "callback shrank the timeline mid-step; "
              "new_vals_count would go negative");
     int new_vals_count = global_timeline_num_events - active_cnt;
-    // Each kept event advances write_idx by one, so it never outruns the events
-    // scanned.
     HS_CHECK(write_idx <= active_cnt,
              "timeline compaction wrote past the events it scanned");
     if (new_vals_count > 0 && write_idx < active_cnt) {
       // The source span [active_cnt, ...) and the destination span
       // [write_idx, ...) can overlap, but write_idx + i < active_cnt + i for
       // every i, so this forward loop reads each source slot before a write
-      // reaches it. Reversing the loop would overwrite unread sources.
+      // reaches it.
       for (int i = 0; i < new_vals_count; ++i) {
         global_timeline_events[active_cnt + i].move_into(
             global_timeline_events[write_idx + i]);
@@ -545,25 +508,18 @@ public:
    * @brief Current global frame count (number of step() calls since the
    * Timeline was constructed).
    * @return The shared timeline frame counter, advanced once per step().
-   * @details Lets an effect derive a phase from the timeline's own clock rather
-   *          than a parallel per-effect counter that can silently desync if it
-   *          isn't advanced in exact lockstep with step().
    */
   static uint32_t frame() { return global_timeline_t; }
 
   static constexpr int MAX_EVENTS =
       TIMELINE_MAX_EVENTS; /**< Must match global_timeline_events array size. */
 
-  /** @brief clear_hooks capacity: one hook per TransformerPool and per
-   * ChoreographedEffect. A choreographed effect fits MAX_CLEAR_HOOKS - 1 pools. */
+  /** @brief clear_hooks capacity. */
   static constexpr int MAX_CLEAR_HOOKS = 4;
 
   /**
    * @brief Distinct Orientation ids step()'s collapse pass caches per frame.
-   * @details Sized well above the handful of Orientations an effect binds, and
-   * far below MAX_EVENTS: the cache is a step() stack array, and step() sits on
-   * the deepest render chain of every timeline-driven effect. Exceeding it costs
-   * a rescan, not a wrong collapse.
+   * @details Exceeding it costs a rescan, not a wrong collapse.
    */
   static constexpr int MAX_COLLAPSE_IDS = 16;
 
@@ -606,9 +562,8 @@ private:
   /**
    * @brief Unguarded teardown for construction/destruction: destroys every event
    * and rewinds the global frame cursor.
-   * @details The instance boundary is the one point no add_get() handle can span
-   * (the live-guard permits a single instance), so this skips clear()'s pin
-   * check and owns the cursor rewind that starts each effect at frame 0.
+   * @details Skips clear()'s pin check: no add_get() handle spans an instance
+   * boundary.
    */
   void reset_storage() {
     destroy_events();

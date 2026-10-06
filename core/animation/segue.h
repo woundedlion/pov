@@ -47,26 +47,20 @@
  *
  * A policy defining face_offset must define face_phase; face_fade_frac is
  * Base's (1 = fade over the whole window) unless the policy shadows it.
- * MeshCarousel pairs each optional hook with a signature-agnostic name probe,
- * so declaring one at the wrong signature is a compile error rather than a
- * policy silently dropped off that hook.
+ * Declaring an optional hook at the wrong signature is a compile error.
  *
  * reorder and mask_pair are contracts on the effect, not the draw path: a
  * NeedsClasses policy left un-reordered fades every class as one, and a Masked
  * policy drawn without its masks rasterizes both meshes.
  *
- * The per-face hooks and the fragment hooks are mutually exclusive: a per-face
- * draw path resolves phase and opacity once per face and shades through a
- * palette pointer, so it never calls fill or grade. MeshCarousel
- * static_asserts the combination away rather than dropping the hooks silently.
+ * The per-face hooks and the fragment hooks are mutually exclusive: the
+ * per-face draw path never calls fill or grade.
  *
  * A per-face policy may also declare `static constexpr bool LOCAL_SWEEP =
  * true` to order faces by the untransformed mesh instead of world-space
- * centers: the front then rides the mesh's rotation rather than staying
- * fixed in the room.
+ * centers, so the front rides the mesh's rotation.
  *
- * Policies are resolved at compile time (no virtuals); Base's identity hooks
- * inline to nothing.
+ * Policies are resolved at compile time (no virtuals).
  */
 namespace Segue {
 
@@ -80,9 +74,7 @@ namespace Segue {
  * @param paused Optional event-level pause gate.
  * @return The clamped fade length, from which each policy derives its own
  * return offset.
- * @details Budgets the sprite's slot up front and traps instead: every
- * schedule() returns its delay whether or not the add landed, so a dropped
- * sprite hands the sphere a dark transition while the effect advances on time.
+ * @details Traps when the timeline has no free slot.
  */
 inline int schedule_faded_sprite(Timeline &timeline, SpriteFn draw_fn,
                                  int duration, int window,
@@ -146,10 +138,8 @@ inline int schedule_overlapped(Timeline &timeline, SpriteFn draw_fn,
  * @param band Softness of the front, in phase units.
  * @return The face-local phase in [0, 1]: 1 everywhere at phase 1, 0
  * everywhere at phase 0, with faces crossing the front in offset order.
- * @details The sqrt ease keeps the hand-off out of black: both meshes sit at
- * low phase around the swap, so a linear front would leave the sphere mostly
- * dark; accelerating the front through the low-phase end compresses that to a
- * blink. Endpoints stay exact (phase 1 remains the identity plateau).
+ * @details The sqrt ease accelerates the front through low phase, shortening
+ * the dark interval around the swap. Endpoints stay exact.
  */
 inline float sweep_phase(float phase, float offset, float band) {
   float p = std::sqrt(phase);
@@ -173,12 +163,10 @@ struct Base {
    * @brief Whether consecutive sprites coexist, so the previous transition is
    * still drawing when the next one is scheduled.
    * @details A policy scheduling through schedule_overlapped() must set this
-   * true. MeshCarousel holds one policy instance, so schedule()/retarget()
-   * rewrite the per-transition state the outgoing sprite still reads;
-   * MeshCarousel rejects that pairing for a per-face policy outright, and for
-   * other policies declaring retarget() unless RETARGET_SAFE_UNDER_OVERLAP is
-   * set. schedule() rewrites are unchecked; overlapping schedules must not
-   * write state their draw hooks read.
+   * true. One policy instance serves both coexisting sprites: a per-face
+   * policy may not overlap, a retarget() under overlap requires
+   * RETARGET_SAFE_UNDER_OVERLAP, and an overlapping schedule() must not write
+   * state its draw hooks read (unchecked).
    */
   static constexpr bool OVERLAPS = false;
   /**
@@ -188,16 +176,14 @@ struct Base {
    */
   static constexpr bool RETARGET_SAFE_UNDER_OVERLAP = false;
   /** @brief Default scheduling: one sequential sprite (see
-   * schedule_sequential). @p paused is the optional event-level pause gate
-   * every policy's schedule() takes and forwards. */
+   * schedule_sequential). @p paused is the optional event-level pause gate. */
   int schedule(Timeline &timeline, SpriteFn draw_fn, int duration, int window,
                const bool *paused = nullptr) {
     return schedule_sequential(timeline, std::move(draw_fn), duration, window,
                                paused);
   }
   /** @brief Whether drawing at this phase can produce visible output. The
-   * identity policy never culls; only a policy whose shading actually vanishes
-   * with phase shadows this with fades_to_black(). */
+   * identity policy never culls. */
   bool visible(float) const { return true; }
   /** @brief Global alpha at this phase. */
   float opacity(float) const { return 1.0f; }
@@ -224,9 +210,8 @@ struct Base {
 };
 
 /** @brief Whether a policy's schedule() hook takes the full argument set,
- * including the trailing pause gate the carousel forwards. A policy shadowing
- * schedule() with a shorter signature hides Base's and is rejected here rather
- * than silently losing the gate. */
+ * including the trailing pause gate. A policy shadowing schedule() with a
+ * shorter signature hides Base's and fails this concept. */
 template <typename S>
 concept Schedulable =
     requires(S &s, Timeline &timeline, SpriteFn draw_fn, const bool *paused) {
@@ -248,12 +233,9 @@ struct HookSignature<R (C::*)(A...) const> {
 
 } // namespace detail
 
-/** @brief Whether a policy keeps Base's always-present hook signatures. Every
- * policy inherits them, so this fails only on one that shadows a hook at a
- * drifted signature — a float `visible` converts silently to bool, a
- * `face_fade_frac` of another arity hides Base's without replacing it, and a
- * `fill` taking its edge distance by value drops the palette-gradient
- * renormalisation at a call site that still compiles. */
+/** @brief Whether a policy keeps Base's always-present hook signatures; fails
+ * on a hook shadowed at a drifted signature (e.g. a `fill` taking its edge
+ * distance by value, which still compiles at the call site). */
 template <typename S>
 concept HasPhaseHooks = requires(const S &s) {
   { s.visible(0.5f) } -> std::same_as<bool>;
@@ -268,9 +250,7 @@ concept HasPhaseHooks = requires(const S &s) {
 };
 
 /** @brief Whether a policy defines the per-face ordering hook, with or without
- * the face_phase that makes the set usable. MeshCarousel asserts the two
- * together, so a face_phase of the wrong arity is rejected rather than dropping
- * the policy off the per-face path. */
+ * the face_phase that makes the set usable. */
 template <typename S>
 concept HasFaceOffset =
     requires(const S &s, const math::Vector &c) { s.face_offset(c, 0, 0); };
@@ -292,9 +272,8 @@ concept NeedsClasses = requires(S &s, const ArenaVector<uint16_t> &classes) {
 };
 
 /** @brief Whether a policy splits one frame's rasterizer work between the two
- * meshes with complementary edge-key masks. MeshCarousel checks the signature but
- * routes nothing: the effect calls mask_pair() itself and hands the two halves
- * to Plot::Mesh::draw's edge-list overload. Dissolve is the library policy. */
+ * meshes with complementary edge-key masks. The effect calls mask_pair() itself
+ * and hands the two halves to Plot::Mesh::draw's edge-list overload. */
 template <typename S>
 concept Masked = requires(const S &s) {
   typename S::MaskPair;
@@ -326,10 +305,8 @@ concept LocalSweeps = requires {
  * @details Each carrier declares one hook or trait name; merged into a policy,
  * the name is ambiguous exactly when the policy declares it too — whatever
  * signature or type it carries, and including a template member the call-shaped
- * concepts above cannot see. MeshCarousel pairs each Declares* with its hook
- * concept, so a drifted signature is a compile error instead of a policy
- * silently dropped off the hook. A final or non-class policy cannot be merged
- * into and reports false.
+ * concepts cannot see. A final or non-class policy cannot be merged into and
+ * reports false.
  */
 namespace detail {
 
@@ -482,8 +459,7 @@ struct IrisBloom : Base {
  * @brief The fill drains until only a glowing band along the edges survives,
  * the meshes swap as lace, then the new fill floods back in.
  * @details The inverse mask of IrisBloom: fragments within the phase-driven
- * band of an edge survive. A line network changing shape reads far less
- * jarring than filled regions changing, which hides the swap.
+ * band of an edge survive.
  */
 struct Lace : Base {
   static constexpr float SOFT =
@@ -559,12 +535,9 @@ struct TerminatorSweep : Base {
     return 0.5f * (1.0f + math::dot(center, axis));
   }
   /** @brief Per-face fade length as a window fraction: a stable hash of the
-   * face index into the frame range, divided by the scheduled window. Computed
-   * once per face (not per fragment), so it must stay a pure function of the
-   * index, the seed and the sliders — the frame bounds are read live so a
-   * mid-transition slider move takes effect on the next frame. The bounds are
-   * independent sliders, so the range is normalized here rather than assumed
-   * ordered. */
+   * face index into the frame range, divided by the scheduled window. A pure
+   * function of the index, the seed and the live frame bounds, which may be
+   * unordered. */
   float face_fade_frac(int i) const {
     float t = math::hash01(static_cast<uint32_t>(i), fade_seed);
     float lo = min_fade_frac();
@@ -590,9 +563,7 @@ struct TerminatorSweep : Base {
   bool visible(float phase) const {
     return fades_to_black(face_phase(phase, 0.0f, min_fade_frac()));
   }
-  /** @brief Squared: alpha scales linear-light color, where a linear ramp
-   * reads mostly-bright almost immediately; the square spreads the perceived
-   * fade across the face's fade window. */
+  /** @brief Squared phase, for a perceptually even fade in linear light. */
   float opacity(float phase) const { return phase * phase; }
 
 private:
@@ -659,8 +630,7 @@ struct Shockwave : Base {
  * a unit. Class windows are abutting equal slices of the phase range (linear,
  * not sweep_phase's eased front). The BLACK_DWELL slice nearest the swap is
  * held fully black so the last class completes before the incoming mesh
- * appears, instead of popping. reorder() derives the class count from the
- * per-face classes, so it can never disagree with the mesh.
+ * appears.
  */
 struct Breakdown : Base {
   static constexpr int MAX_CLASSES = 16; /**< rank[] capacity. */
@@ -673,10 +643,9 @@ struct Breakdown : Base {
    * @brief Derives the class count from the per-face classes and re-randomizes
    *        the fade order for the next transition.
    * @param face_classes Per-face palette-slot class ids (dense [0, k), the same
-   *        values face_offset receives). num_classes is set to max+1, so a
-   *        caller can never mis-declare it. Traps past MAX_CLASSES: a slot id
-   *        comes from MeshPaletteBank, whose bank is far smaller, so an
-   *        over-range id means raw topology classes were handed over instead.
+   *        values face_offset receives). num_classes is set to max+1. Traps
+   *        past MAX_CLASSES, which signals raw topology classes rather than
+   *        palette slots.
    */
   template <typename Classes> void reorder(const Classes &face_classes) {
     int detected = 1;
@@ -727,8 +696,7 @@ struct Breakdown : Base {
 /**
  * @brief The whole mesh spins up around an axis until the POV display smears
  * it into bands, swaps at peak speed, and spins back down — a coin flip.
- * @details The warp is rigid, so there is no fold/overdraw hazard and the mesh
- * never fades; the swap hides in the motion blur.
+ * @details The warp is rigid and the mesh never fades.
  */
 struct SpinFlip : Base {
   static constexpr float REVS = 3.0f; /**< Extra revolutions at peak spin. */
@@ -778,15 +746,11 @@ struct GoldConvergence : Base {
  * @brief Stochastic wireframe dissolve with complementary edge-key ownership
  * and an incoming share tracking the phase.
  * @details The two draws receive complementary DissolveMasks (same threshold
- * and salt, opposite invert), which partition shared vertex-index keys. Each
- * draw scans its own edge list; the selected edges and their rasterization cost
- * depend on both meshes. Owned edges draw at full opacity; the spatial mix ratio is
- * blurred by POV persistence. The salt folds a frame counter into the
+ * and salt, opposite invert), which partition shared vertex-index keys. Owned
+ * edges draw at full opacity. The salt folds a frame counter into the
  * per-transition seed so the pattern re-rolls every frame (temporal dither).
- * Unlike the other policies this one partitions rasterizer work (see
- * DissolveMask) rather than fragments in the shader; effects pass the masks to
- * Plot::Mesh::draw's edge-list overload themselves. Only that path takes a
- * mask, so a solid-mesh pair cannot dissolve.
+ * Effects pass the masks to Plot::Mesh::draw's edge-list overload themselves;
+ * a solid-mesh pair cannot dissolve.
  */
 struct Dissolve : Base {
   static constexpr bool OVERLAPS = true;
@@ -797,7 +761,7 @@ struct Dissolve : Base {
   uint32_t seed =
       0x9e3779b9u; /**< Per-transition seed; rolled by retarget(). */
   /** @brief Re-rolls the ownership pattern for the next transition; the
-   * direction every other policy retargets on is unused. */
+   * direction is unused. */
   void retarget(const math::Vector &) {
     seed = static_cast<uint32_t>(hs::random()());
   }
@@ -815,10 +779,8 @@ struct Dissolve : Base {
    *        hash threshold; the outgoing mask takes the complementary keys.
    * @param frame Monotonic frame counter (temporal dither; never wall time).
    * @return The complementary pair.
-   * @details The masks partition only when they share a threshold, and
-   * schedule() puts the two draws on independent sprites carrying independent
-   * phases — so the pair is derived from one phase here and split by the
-   * caller, rather than each half deriving its own.
+   * @details The masks partition only when they share a threshold, so both
+   * halves derive from the one phase.
    */
   MaskPair mask_pair(float phase, uint32_t frame) const {
     const uint32_t thr =
@@ -826,9 +788,8 @@ struct Dissolve : Base {
     const uint32_t salt = frame * 0x9E3779B9u ^ seed;
     return {DissolveMask{thr, salt, false}, DissolveMask{thr, salt, true}};
   }
-  /** @brief Overlapping schedule, fixed at the full fade window: the two masks
-   * partition the edges only while both meshes are on the timeline, so a
-   * shorter overlap would leave the complement unlit. */
+  /** @brief Overlapping schedule, fixed at the full fade window: the masks
+   * partition the edges only while both meshes are on the timeline. */
   int schedule(Timeline &timeline, SpriteFn draw_fn, int duration, int window,
                const bool *paused = nullptr) {
     return schedule_overlapped(timeline, std::move(draw_fn), duration, window,
@@ -837,41 +798,34 @@ struct Dissolve : Base {
 };
 
 /**
- * @brief A pack of policies with the folds the conformance net and the
- * roster-wide tests run over.
+ * @brief A pack of policies with roster-wide conformance folds.
  * @tparam Ts The policies.
  */
 template <typename... Ts> struct PolicyList {
-  /** @brief Whether every listed policy keeps the hook signatures the carousel
-   * and the draw path call. */
+  /** @brief Whether every listed policy keeps the expected hook signatures. */
   static constexpr bool CONFORMING =
       ((Schedulable<Ts> && HasPhaseHooks<Ts>) && ...);
 
   /** @brief Whether every listed policy that is per-face also schedules
-   * sequentially. MeshCarousel asserts this too, but only for the policies an
-   * effect instantiates. */
+   * sequentially. */
   static constexpr bool SEQUENTIAL_PER_FACE =
       ((!PerFace<Ts> || !Ts::OVERLAPS) && ...);
 
   /** @brief Whether every listed policy that retargets per-transition state
    * either schedules sequentially or declares the state safe to rewrite
-   * mid-overlap. MeshCarousel asserts this too, but only for the policies an
-   * effect instantiates. */
+   * mid-overlap. */
   static constexpr bool RETARGET_SURVIVES_OVERLAP =
       ((!DeclaresRetarget<Ts> || !Ts::OVERLAPS ||
         Ts::RETARGET_SAFE_UNDER_OVERLAP) &&
        ...);
 
   /** @brief Whether every listed policy that declares LOCAL_SWEEP declares it
-   * as a constant-usable bool. MeshCarousel asserts this too, but only for the
-   * policies an effect instantiates. */
+   * as a constant-usable bool. */
   static constexpr bool LOCAL_SWEEPS_TYPED =
       ((!DeclaresLocalSweep<Ts> || LocalSweeps<Ts>) && ...);
 
-  /** @brief Whether every listed policy is a non-final class. The Declares*
-   * probes merge a name carrier into the policy; a final one answers false to
-   * every probe and passes them vacuously. MeshCarousel asserts this too, but
-   * only for the policies an effect instantiates. */
+  /** @brief Whether every listed policy is a non-final class; a final one
+   * answers false to every Declares* probe and passes them vacuously. */
   static constexpr bool MERGEABLE = (detail::Mergeable<Ts> && ...);
 
   /**
@@ -881,8 +835,7 @@ template <typename... Ts> struct PolicyList {
   template <typename F> static void for_each(F &&fn) { (fn(Ts{}), ...); }
 };
 
-/** @brief Every library policy, Base first. A policy left off this roster is
- * checked only where it is instantiated. */
+/** @brief Every library policy, Base first. */
 using AllPolicies =
     PolicyList<Base, Crossfade, IrisBloom, Lace, TerminatorSweep, Shockwave,
                Breakdown, SpinFlip, GoldConvergence, Dissolve>;

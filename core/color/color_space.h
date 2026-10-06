@@ -67,8 +67,7 @@ struct LinRGB {
  * @param b Linear blue in [0, 1].
  * @return The (l, m, s) cone responses, before the cube-root nonlinearity.
  * @details The OKLab conversions cube-root these responses before
- * lms_to_oklab. Hue-shift composition and feedback also consume the
- * cube-rooted responses through lms_cbrt_transform_rgb*.
+ * lms_to_oklab.
  */
 HS_O3_FN inline LMS linear_rgb_to_lms(float r, float g, float b) {
   return {0.4122214708f * r + 0.5363325363f * g + 0.0514459929f * b,
@@ -220,10 +219,7 @@ inline constexpr float OKLCH_ACHROMATIC_C = 1e-4f;
 
 /**
  * @brief Gamut boundary bracket grid and the scales indexing it.
- * @details Defaults to the full-resolution flash master, so the clip path is
- * always usable and no effect has to opt in to being correct. Grouped in one
- * object so the per-pixel path loads a single base address rather than five
- * unrelated globals.
+ * @details Defaults to the full-resolution flash master.
  */
 struct GamutLut {
   /** @brief Flash master, or an arena copy once one is armed. */
@@ -256,9 +252,7 @@ struct GamutCell {
  * @param a OKLab a coordinate of the hue direction.
  * @param b OKLab b coordinate of the hue direction.
  * @return The cell the ray falls in, plus its fractional coordinates.
- * @details One spelling of the binning for every reader, so a change to it
- * cannot leave the flash master and an arena copy disagreeing about which cell
- * a ray falls in. The direction is only binned, so it need not be unit length.
+ * @details The direction is only binned, so it need not be unit length.
  */
 __attribute__((always_inline)) inline GamutCell
 gamut_cell(const GamutLut &lut, float L, float a, float b) {
@@ -271,29 +265,24 @@ gamut_cell(const GamutLut &lut, float L, float a, float b) {
 
 /**
  * @brief The single live boundary grid.
- * @details Points at the flash master until an effect arms an arena copy, which
- * puts scattered per-pixel reads in RAM rather than QSPI flash. A coarser copy
- * also changes the clipping brackets and results. configure_arenas() restores
- * the flash default before the storage under a copy is handed out again.
+ * @details Points at the flash master until an effect arms an arena copy; a
+ * coarser copy changes the clipping brackets and results. configure_arenas()
+ * restores the flash default before the storage under a copy is handed out
+ * again.
  *
- * constinit is load-bearing: an inline variable's dynamic init is unordered
- * against other translation units' static initializers, so a runtime fill would
- * let a namespace-scope Gradient clip through a null table.
+ * constinit: a dynamic init would be unordered against other translation
+ * units' static initializers, which may clip through this table.
  */
 inline constinit GamutLut g_gamut_lut;
 
 /** @brief The full-resolution flash grid, whatever g_gamut_lut points at. */
 inline constexpr GamutLut GAMUT_LUT_MASTER{};
 
-/** @brief Coarsest accepted downsample: 128 x 64, deficit 0.0043, 9 overshoot rays.
- *  @details Over a 142,683-ray sweep the refined chroma falls short of the
- *  first exit by at most 0.0027 on the 256 x 128 master, 0.0043 at 128 x 64,
- *  0.0063 at 64 x 32 and 0.0070 at 32 x 16. Resolution does not bound the
- *  other direction: at every grid, the master included, the GAMUT_SCAN_STEPS
- *  walk strides a disconnected in-gamut interval on a handful of rays and lands
- *  past the first exit by up to 0.05 chroma, which the bisection cannot
- *  recover. A finer grid lowers how many rays do that — 5 at 256 x 128, 9 at
- *  128 x 64, 24 at 32 x 16 — but not by how far. */
+/** @brief Coarsest accepted downsample: 128 x 64, an empirical
+ *  clipping-quality limit.
+ *  @details At every grid the GAMUT_SCAN_STEPS walk can stride a disconnected
+ *  in-gamut interval on a few rays and land past the first exit by up to 0.05
+ *  chroma; a finer grid lowers how many rays do that, not by how far. */
 inline constexpr int GAMUT_LUT_MIN_ANGLE_STEPS = 128;
 inline constexpr int GAMUT_LUT_MIN_L_STEPS = 64;
 
@@ -307,20 +296,14 @@ inline constexpr int GAMUT_LUT_MIN_L_STEPS = 64;
  *        and be at least GAMUT_LUT_MIN_ANGLE_STEPS.
  * @param l_steps Lightness buckets; must divide GAMUT_LUT_L_STEPS and be at
  *        least GAMUT_LUT_MIN_L_STEPS.
- * @details Optional, and only worth its arena bytes at per-pixel clip rates:
- * the flash master already serves the clip correctly and at higher resolution.
- * gamut_max_chroma() and lms_cbrt_scale_to_gamut_lut() are the readers it
- * accelerates; gamut_continuous_chroma_sample() and the one-argument
- * gamut_scale_to_boundary_lut() consume the stored minima directly and stay on
- * the flash master, so an effect that uses only those two spends the arena for
- * nothing.
+ * @details Optional: the flash master already serves the clip at higher
+ * resolution. Affects the g_gamut_lut readers (gamut_max_chroma(),
+ * lms_cbrt_scale_to_gamut_lut()); gamut_continuous_chroma_sample() and the
+ * one-argument gamut_scale_to_boundary_lut() always read the flash master.
  * Call after the arenas are configured, from the owning effect's init(). A
  * coarse cell takes the minimum of the merged minima and the maximum of the
- * merged maxima. These guarded sampled estimates do not certify enclosure of
- * every ray's exact first exit. Cost in arena bytes is
- * gamut_lut_bytes(angle_steps, l_steps). Resolution changes the initial brackets;
- * finite runtime probes select the crossing refined by bisection. The minimum
- * resolution is an empirical clipping-quality limit (see GAMUT_LUT_MIN_ANGLE_STEPS).
+ * merged maxima, without certifying enclosure of every ray's exact first exit.
+ * Cost in arena bytes is gamut_lut_bytes(angle_steps, l_steps).
  */
 HS_COLD_MEMBER inline void init_gamut_lut(Arena &arena, int angle_steps,
                                           int l_steps) {
@@ -361,9 +344,6 @@ HS_COLD_MEMBER inline void init_gamut_lut(Arena &arena, int angle_steps,
 
 /**
  * @brief Drops any arena copy and points the clip path back at the flash master.
- * @details Runs before persistent storage is handed out again, so no owner can
- * leave a pointer into freed storage behind. Restores the full-resolution
- * flash grid in place of the arena copy.
  */
 inline void release_gamut_lut() { g_gamut_lut = GamutLut{}; }
 
@@ -374,18 +354,12 @@ inline void release_gamut_lut() { g_gamut_lut = GamutLut{}; }
 inline const ArenaResetHook GAMUT_LUT_RESET_HOOK(release_gamut_lut);
 
 // Equal steps the stored bracket is walked in, looking for the first one that
-// leaves the gamut. A walk rather than a straight bisection because the gate's
-// tolerance lets the in-gamut set along a ray break into pieces: bisecting a
-// bracket that spans a gap converges on the far side of it, which is in gamut
-// but past the first exit and discontinuous in L against the neighbouring cell.
-// The walk narrows that to the rays whose gap is shorter than one step rather
-// than to none; GAMUT_LUT_MIN_ANGLE_STEPS carries the measured residue.
+// leaves the gamut: the in-gamut set along a ray can break into pieces, and a
+// gap shorter than one step is still missed.
 inline constexpr int GAMUT_SCAN_STEPS = 4;
 
-// Bisections inside the walk step that straddles the crossing. Residual is the
-// bracket width over GAMUT_SCAN_STEPS, halved once per step, so this is an
-// accuracy knob and not a cap: three take the 256 x 128 grid's worst
-// mid-lightness bracket to 0.0016 chroma.
+// Bisections inside the walk step that straddles the crossing; the residual is
+// the bracket width over GAMUT_SCAN_STEPS, halved once per step.
 inline constexpr int GAMUT_BRACKET_STEPS = 3;
 /** Extra bisections over the whole-ray fallback [0, lo]; combined with
  * GAMUT_BRACKET_STEPS, eight halvings leave a residual bracket of lo/256. */
@@ -399,16 +373,11 @@ inline constexpr int GAMUT_FALLBACK_BRACKET_STEPS = 5;
  * @param lo Bracket lower bound; probed, not assumed to be in gamut.
  * @param hi Bracket upper bound; probed, and returned only if it is in gamut.
  * @return The refined scale, in gamut by construction.
- * @details With l_cbrt = L + A*u and (L + X*u)^3 expanded in u, every linear-RGB
- * channel is a cubic in u whose four coefficients depend only on L and the hue
- * direction and are built once here. A refinement step is then three Horner
- * evaluations and the six bound tests, not an OKLab round trip. The bound tests
- * use linear_rgb_in_gamut's own tolerance, so a solved crossing is the crossing
- * the gate reports. `lo` is probed before it is trusted: a cell minimum that
- * over-reads its region drops the search back to zero chroma rather than
- * returning a color outside the cube. The matrices are shared with
- * oklab_to_lms_cbrt() and lms_cbrt_to_linear_rgb(). The scan can miss an
- * out-of-gamut interval between its four probes.
+ * @details Every linear-RGB channel is a cubic in u whose coefficients depend
+ * only on L and the hue direction; each probe is three Horner evaluations
+ * tested with linear_rgb_in_gamut's tolerance. A `lo` outside the gamut drops
+ * the search back to [0, lo]. The scan can miss an out-of-gamut interval
+ * between its probes.
  */
 HS_O3_FN __attribute__((noinline)) inline float
 gamut_bracket_refine(float L, float a, float b, float lo, float hi) {
@@ -526,12 +495,9 @@ HS_O3_FN __attribute__((noinline)) inline float gamut_max_chroma(float L,
  * @param a OKLab a coordinate of the hue direction.
  * @param b OKLab b coordinate of the hue direction.
  * @return A conservative chroma boundary that varies continuously in L and hue.
- * @details Bracket-refined clipping uses gamut_max_chroma(); relative-chroma palette
- * generation uses the hue-smoothed wrapper below. The direction is only binned,
- * so it need not be exactly unit length.
+ * @details The direction is only binned, so it need not be exactly unit
+ * length.
  */
-// Bake-time only (relative-chroma palette generation); the per-pixel clip
-// stays on gamut_max_chroma.
 HS_FLASH_MEMBER inline float gamut_continuous_chroma_sample(float L, float a,
                                                             float b) {
   // Not g_gamut_lut: this path consumes the stored minima directly, so a
@@ -590,7 +556,7 @@ HS_FLASH_MEMBER inline float gamut_continuous_chroma_sample(float L, float h) {
  * @brief Returns a hue-smoothed, in-gamut chroma envelope.
  * @details The filtered value is capped by the center sample, so smoothing can
  * only move a color farther inside the gamut. The four offset taps rotate the
- * center direction by angle addition rather than calling sin/cos again.
+ * center direction by angle addition.
  */
 HS_FLASH_MEMBER inline float gamut_continuous_chroma(float L, float h) {
   constexpr float STEP_SIN = 0x1.415e54p-4f; // sinf(PI_F / 40.0f)
@@ -644,8 +610,7 @@ gamut_clip_preserve_chroma(OKLab lab) {
  * @param g Out: linear green.
  * @param b Out: linear blue.
  * @details Converts directly first; only when the result leaves the [0,1] cube
- * does it pay for gamut_clip_preserve_chroma and re-convert. In-gamut colors
- * cost one matrix mul plus the gate test, no search.
+ * does it apply gamut_clip_preserve_chroma and re-convert.
  */
 inline void oklab_to_linear_rgb_gamut(OKLab lab, float &r, float &g, float &b) {
   oklab_to_linear_rgb(lab, r, g, b);
@@ -785,10 +750,7 @@ inline void lms_cbrt_transform_rgb(const float k[9], float l_cbrt, float m_cbrt,
  * @param g1 Out: linear green of the second pixel.
  * @param b1 Out: linear blue of the second pixel.
  * @details Results match two lms_cbrt_transform_rgb calls bit for bit when
- * floating-point reassociation is disabled; only the
- * statement order differs, so an in-order FPU can overlap the two independent
- * chains. The uniform work stays interleaved and only the rare chroma-clip
- * fixups run per pixel.
+ * floating-point reassociation is disabled.
  */
 HS_O3_FN
 inline void lms_cbrt_transform_rgb2(const float k[9], float l0, float m0,
@@ -849,8 +811,7 @@ inline void lms_cbrt_transform_rgb2_lut(const float k[9], float l0, float m0,
  * @brief Quantizes a [0,1] linear channel to a 16-bit Pixel component.
  * @param v Linear channel value; clamped to [0, 1].
  * @return The channel as a 16-bit value in [0, 65535].
- * @details Clamps, then rounds (+0.5f) rather than truncating; truncation
- * would bias every channel down by up to ~1/65535.
+ * @details Clamps, then rounds to nearest.
  */
 HS_O3_FN inline uint16_t float_to_pixel16(float v) {
   return static_cast<uint16_t>(hs::clamp(v, 0.0f, 1.0f) * 65535.0f + 0.5f);
@@ -894,8 +855,8 @@ inline uint8_t linear_float_to_srgb8(float l) {
  * @param b In/out: linear blue.
  * @param ca Cosine of the rotation angle.
  * @param sa Sine of the rotation angle.
- * @details fast_cbrt forward, exact cubes inverse, direct 2D rotation of (a,b)
- * (no atan2/sqrt OKLCH polar round-trip). Preserves lightness to fast_cbrt
+ * @details fast_cbrt forward, exact cubes inverse, direct 2D rotation of
+ * (a,b). Preserves lightness to fast_cbrt
  * accuracy; out-of-gamut rotations reduce chroma during gamut mapping.
  */
 HS_O3_FN inline void hue_rotate_rgb(float &r, float &g, float &b, float ca,
@@ -914,8 +875,6 @@ HS_O3_FN inline void hue_rotate_rgb(float &r, float &g, float &b, float ca,
  * @param ca Cosine of the rotation angle.
  * @param sa Sine of the rotation angle.
  * @return The hue-rotated color.
- * @details Precomputed (ca, sa) lets frame-constant callers hoist sin/cos out
- * of the per-pixel loop.
  */
 inline Color4 hue_rotate(const Color4 &c, float ca, float sa) {
   LinRGB rgb = pixel_to_linrgb(c.color);
@@ -1012,7 +971,7 @@ inline Color4 hue_rotate(const HueRotateBase &hb, float amount) {
  * the stored cell minimum without the bracket refinement gamut_max_chroma()
  * runs, and normalizes with one Newton step off the reciprocal-square-root
  * seed. That single step is one-sided low, so the rescale lands at or inside
- * the boundary; fast_rsqrt()'s second step would only cost cycles here.
+ * the boundary.
  */
 __attribute__((always_inline)) inline OKLab
 gamut_scale_to_boundary_lut(OKLab lab, const GamutLut &lut) {
@@ -1238,8 +1197,7 @@ inline Pixel oklch_to_pixel(OKLCH lch) {
  * @brief Wraps an angle in radians to [-pi, pi].
  * @param x Angle to wrap; any magnitude.
  * @return The equivalent angle in [-pi, pi]. Both endpoints are reachable: an
- * exact half turn keeps the sign it arrived with. Callers use the result as a
- * shortest-arc delta, for which -pi and +pi are equivalent.
+ * exact half turn keeps the sign it arrived with.
  */
 inline float wrap_angle_pi(float x) {
   // At large |x| the subtraction below rounds away and the loop never finishes.

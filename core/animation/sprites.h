@@ -41,8 +41,7 @@ struct SpriteOptions {
 /**
  * @brief An animation that draws a sprite while managing its fade-in/out
  * effects.
- * @details Computes opacity inline rather than embedding Transition objects.
- * An indefinite sprite (duration -1) completes only when canceled; cancel()
+ * @details An indefinite sprite (duration -1) completes only when canceled; cancel()
  * fires its `.then()` callback.
  */
 class Sprite : public AnimationBase<Sprite> {
@@ -114,9 +113,8 @@ public:
 
 private:
   void draw_frame(Canvas &canvas, uint32_t frame) {
-    // Trapezoid envelope as the MIN of an independent fade-in and fade-out ramp.
-    // Computing both keeps opacity continuous when the windows overlap (the
-    // durations are independent GUI sliders), degrading to a triangle.
+    // Trapezoid envelope as the MIN of an independent fade-in and fade-out ramp;
+    // a triangle when the windows overlap.
     float fade_in = 1.0f;
     if (fade_in_duration > 0 &&
         frame < static_cast<uint32_t>(fade_in_duration)) {
@@ -166,9 +164,7 @@ template <int TRAIL_LEN = 8> struct Particle {
    * @param v Initial velocity vector.
    * @param seed Hue seed for palette offset.
    * @param l Life in frames; clamped into [0, 65535], and a non-finite l dies
-   *   at once. Both matter: a negative l would otherwise narrow to a huge
-   *   uint16_t and a NaN takes hs::clamp's NaN->hi contract, either way a
-   *   near-immortal particle rather than a dead one.
+   *   at once.
    */
   void init(const math::Vector &p, const math::Vector &v, uint16_t seed,
             float l) {
@@ -296,9 +292,7 @@ public:
   float friction = 0.85f;  /**< Per-frame velocity damping factor. */
   float gravity = 0.001f;  /**< Base gravitational constant for attractors. */
   uint16_t max_life = 600; /**< Default particle lifetime in frames. Writable
-                                after init(); particles already alive keep the
-                                life they spawned with, so a lowered value only
-                                shortens subsequent spawns. */
+                                after init(); applies to subsequent spawns. */
 
   using Attractor = Animation::Attractor; /**< Point attractor. */
 
@@ -364,8 +358,7 @@ public:
   /**
    * @brief Registers a per-frame emitter functor.
    * @param fn The emitter to add.
-   * @note Traps on overflow: emitters are registered at setup with fixed
-   * cardinality, so an overrun is a bug — unlike spawn()'s runtime soft-drop.
+   * @note Traps on overflow.
    */
   void add_emitter(EmitterFn fn) {
     HS_CHECK(emitters.is_bound(), "ParticleSystem::add_emitter before init");
@@ -378,8 +371,7 @@ public:
    * @param str Attractive force multiplier.
    * @param kill Kill radius (particles within it die).
    * @param horizon Event-horizon radius (steering becomes radial within it).
-   * @note Traps on overflow: attractors are registered at setup with fixed
-   * cardinality, so an overrun is a bug — unlike spawn()'s runtime soft-drop.
+   * @note Traps on overflow.
    */
   void add_attractor(const math::Vector &pos, float str, float kill,
                      float horizon) {
@@ -404,8 +396,7 @@ public:
    * @param pos Initial position.
    * @param vel Initial velocity.
    * @param seed Color seed for palette offset.
-   * @details A full pool is a designed, non-fatal condition (drop the spawn, keep
-   * rendering). Logs when the wrapping drop count reaches 1, initially and
+   * @details A full pool drops the spawn. Logs when the wrapping drop count reaches 1, initially and
    * after each counter wrap; dropped_spawns() carries that count.
    */
   void spawn(const math::Vector &pos, const math::Vector &vel, uint16_t seed) {
@@ -523,9 +514,7 @@ private:
    * @details Ages, drags velocity, applies attractor gravity/steering, rotates
    * position+velocity along the surface, and updates the trail.
    *
-   * Integration is forward Euler with implicit dt = 1 (one step == one frame),
-   * so motion is frame-rate dependent — intentional for a fixed-cadence display
-   * driver, not a wall-clock physics sim.
+   * Integration is forward Euler with implicit dt = 1 (one step == one frame).
    *
    * Ordering: friction damps the carried-in velocity BEFORE this frame's impulse
    * (v <- friction*v + impulse), so the impulse is not damped the same frame.
@@ -542,8 +531,6 @@ private:
     if (active) {
       math::Vector pos = p.position;
 
-      // Drag the carried velocity before this frame's impulse so a fresh impulse
-      // is not also damped this frame (forward Euler: v <- friction*v + impulse).
       p.velocity *= friction;
 
       if constexpr (SIGNED_AXIS_ATTRACTORS) {

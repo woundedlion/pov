@@ -41,9 +41,7 @@ public:
       // directly to honor the contract.
       this->post_callback();
     } else {
-      // finish(), not cancel(): Timeline's pin guard exempts cancellation, so
-      // a canceled one-shot would be destroyed under a retained pointer with no
-      // diagnostic.
+      // finish(), not cancel(): Timeline's pin guard exempts cancellation.
       this->finish();
     }
   }
@@ -136,11 +134,8 @@ public:
    * @brief Live-updates the trigger interval; reschedules the next trigger from
    * now when the clamped interval actually changes.
    * @param new_period New interval in frames; clamped to >= 1.
-   * @details Clamps to >= 1: a 0/negative period makes `next = t + period <= t`,
-   * which fires the callback every frame (and re-triggers on its own reset).
-   * An unchanged period returns without rescheduling: a repeating PeriodicTimer never
-   * reaches done(), so a per-frame call that always reset() would defer the
-   * callback forever with nothing to record it.
+   * @details An unchanged period does not reschedule, so calling this every
+   * frame cannot defer the callback forever.
    */
   void set_period(int new_period) {
     int clamped = clamp_period(new_period);
