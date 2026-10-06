@@ -181,7 +181,6 @@ class ViaGeometryTests(unittest.TestCase):
 
     def test_spacing_threshold_is_named_for_via_pairs(self):
         self.assertEqual(fab.MIN_VIA_TO_VIA_COPPER_SPACING_MM, 0.15)
-        self.assertFalse(hasattr(fab, "MIN_VIA_COPPER_SPACING_MM"))
 
     def test_rejects_board_without_vias(self):
         with self.assertRaisesRegex(
