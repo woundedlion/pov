@@ -1075,13 +1075,8 @@ inline void test_palette_mapping_deterministic() {
   MeshPaletteBank bank;
   bank.bake_all(bank_arena);
 
-  const int edge = [] {
-    for (int e = 0; e < ConwayGraph::NUM_EDGES; ++e)
-      if (ConwayGraph::EDGES[e].from_node == ConwayGraph::CUBE &&
-          ConwayGraph::EDGES[e].to_node == ConwayGraph::SNUB_CUBE)
-        return e;
-    return -1;
-  }();
+  const int edge = find_directed_edge(ConwayGraph::EDGES, ConwayGraph::CUBE,
+                                      ConwayGraph::SNUB_CUBE);
   HS_EXPECT_GE(edge, 0);
   if (edge < 0)
     return;
