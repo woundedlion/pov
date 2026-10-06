@@ -419,9 +419,6 @@ static void rasterize(PipelineT &source_pipeline, Canvas &canvas,
   const ScreenStepAxes step_axes =
       world_identity ? ScreenStepAxes{} : screen_step_axes(pipeline);
   size_t len = points.size();
-  // A degenerate path is not drawn; a dot needs the vertex duplicated.
-  if (len < 2)
-    return;
   for (const Fragment &point : points)
     HS_CHECK(std::isfinite(point.pos.x) && std::isfinite(point.pos.y) &&
                  std::isfinite(point.pos.z),
@@ -429,6 +426,9 @@ static void rasterize(PipelineT &source_pipeline, Canvas &canvas,
   // Trap an empty shader once per polyline, even when every edge culls.
   if constexpr (std::same_as<std::decay_t<FragmentShaderT>, FragmentShaderFn>)
     HS_CHECK(fragment_shader, "rasterize requires a non-null fragment_shader");
+  // A degenerate path is not drawn; a dot needs the vertex duplicated.
+  if (len < 2)
+    return;
   HS_CHECK(point_rows == nullptr || opts.point_projections.size() == len,
            "hoisted point projections need one entry per polyline point");
 
