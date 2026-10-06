@@ -233,6 +233,9 @@ class TerminalFootprintTests(unittest.TestCase):
     def test_revision_13_rejects_legacy_connector_footprints(self):
         token = pcb._GENERATION.set(("1.3", "test"))
         try:
+            comps = {ref: (ref, pcb.TERMINAL_LIBID["1.3"][ref], "", False)
+                     for ref in pcb.TERMINAL_EDGE_PLACEMENTS_1_3}
+            self.assertEqual(pcb.fixed_placements(comps), pcb.TERMINAL_EDGE_PLACEMENTS_1_3)
             comps = {ref: (ref, pcb.QUILTER_FIXED_FOOTPRINTS[ref], "", False)
                      for ref in pcb.TERMINAL_EDGE_PLACEMENTS_1_3}
             self.assertFalse(pcb.TERMINAL_EDGE_PLACEMENTS_1_3.keys() &
