@@ -407,6 +407,7 @@ struct DynamoWhiteBox {
   using Ring = Filter::World::Trails<D::TRAIL_CAPACITY>;
   static constexpr int trail_capacity() { return D::TRAIL_CAPACITY; }
   static constexpr int trail_len_max() { return D::TRAIL_LEN_MAX; }
+  static constexpr float speed_max() { return D::SPEED_MAX; }
   static void set_speed(D &d, float v) { d.params.speed = v; }
   static void set_trail_length(D &d, float v) { d.params.trail_length = v; }
   static float trail_ceiling(const D &d) { return d.params.trail_ceiling; }
@@ -436,7 +437,7 @@ inline void test_dynamo_trail_ceiling_bounds_the_ring() {
   WB::D effect;
   effect.init();
 
-  constexpr float MAX_SPEED = 10.0f; // "Speed" slider bound
+  constexpr float MAX_SPEED = WB::speed_max();
   constexpr float MAX_TRAIL = WB::trail_len_max();
   WB::set_speed(effect, MAX_SPEED);
   WB::set_trail_length(effect, MAX_TRAIL);

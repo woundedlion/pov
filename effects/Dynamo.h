@@ -58,7 +58,7 @@ public:
 
     nodes = persistent_arena.make_n<Node>(NUM_NODES);
 
-    register_param("Speed", &params.speed, -10.0f, 10.0f);
+    register_param("Speed", &params.speed, -SPEED_MAX, SPEED_MAX);
     register_param("Gap", &params.gap, 1.0f, GAP_MAX);
     register_int_param("Trail Len", &params.trail_length, 1, TRAIL_LEN_MAX);
     register_readonly_param("Trail Cap", &params.trail_ceiling, 1.0f,
@@ -450,6 +450,7 @@ private:
    *          shortest_distance() saturates at W/2, so a gap that can actually be
    *          reached keeps the loop making progress instead of circling forever.
    */
+  static constexpr float SPEED_MAX = 10.0f;
   static constexpr float GAP_MAX = 20.0f;
   static_assert(2.0f * GAP_MAX < static_cast<float>(W),
                 "Gap max must stay below W/2 so drag() terminates");

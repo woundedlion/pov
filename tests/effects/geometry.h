@@ -19,6 +19,7 @@ struct RaymarchWhiteBox {
   static constexpr float MAJOR = RM::MAJOR_K;
   static constexpr float MINOR = RM::MINOR_K;
   static constexpr float TWIST = RM::TWIST_K;
+  static constexpr int TWIST_MAX = static_cast<int>(RM::TWIST_MAX);
   static constexpr float VIS = RM::VIS_K;
   static constexpr float BOUNDS = RM::UNIT_BOUNDS;
 
@@ -250,8 +251,7 @@ inline void test_raymarch_unit_bounds_contains_twisted_tube() {
   double max_radius = 0.0;      // farthest surface point from the torus centre
   double min_on_shell = 1e30;   // least SDF value anywhere on the cull sphere
 
-  // twist_n rounds the "Twist" slider, whose range is 0..8.
-  for (int n = 0; n <= 8; ++n) {
+  for (int n = 0; n <= WB::TWIST_MAX; ++n) {
     const SDF::WarpedVolume<SDF::Torus, SDF::Warp::Twist> wv{
         SDF::Torus{static_cast<float>(R), static_cast<float>(r)},
         SDF::Warp::Twist{n, static_cast<float>(A), static_cast<float>(R)}};
