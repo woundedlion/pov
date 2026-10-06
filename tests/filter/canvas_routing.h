@@ -3,8 +3,6 @@
  * Licensed under the PolyForm Noncommercial License 1.0.0
  */
 
-// Included by tests/test_filter.h.
-
 // ============================================================================
 // End-to-end pipeline routing through a live Canvas
 //
@@ -569,11 +567,9 @@ inline void test_feedback_polar_rows_use_spherical_footprint() {
 
 /**
  * @brief Verifies flush() honors the segment clip like every other rasterizer.
- * @details On segmented hardware each board owns a Y-band, and a feedback flush
- *          that iterated the full canvas would composite the whole sphere into
- *          every board's buffer (wrong output + wasted work). Here the prev frame
- *          is bright at every row but the clip restricts rendering to a sub-band;
- *          rows outside the margin-expanded render band must stay untouched.
+ * @details The prev frame is bright at every row but the clip restricts
+ *          rendering to a sub-band; rows outside the margin-expanded render band
+ *          must stay untouched.
  */
 inline void test_feedback_flush_respects_clip() {
   constexpr int W = 32, H = 16; // both divisible by Smoke's downsample (4)
@@ -617,36 +613,19 @@ inline void test_feedback_flush_respects_clip() {
 /**
  * @brief Verifies the Pixel::Feedback::flush warp path under a NON-identity warp,
  *        end to end through the coarse-grid + bilinear-upsample pipeline.
- * @details The identity-warp flush tests above have no bound NoiseParams,
- *          so space_fn collapses to the identity map: the coarse warp
- *          field is all-zero and the bilinear upsample is exercised only on a
- *          degenerate (constant-zero) field — exactly the most bug-prone part left
- *          uncovered. This drives melt_warp instead, a deterministic-without-noise
- *          transform that slerps every sample direction toward the north pole by
- *          drip = speed * 0.04, so the previous frame "drips" south by a known
- *          amount. The spherical ring lattice has W/downsample samples on the
- *          equator ring and fewer toward the poles, bilinearly interpolated per
- *          pixel, so a correct displacement here
- *          proves the whole path (space_fn -> coarse deltas -> bilerp -> sample).
- *
- *          The displacement is predicted with the SAME production helpers the
- *          flush uses as its oracle: for output row y the warp samples source row
+ * @details melt_warp slerps every sample direction toward the north pole by
+ *          drip = speed * 0.04. For output row y the warp samples source row
  *          by(y) = phi_to_y(Spherical(slerp(pixel_to_vector(0,y), +Y, drip)).phi),
- *          which is < y (north of y) and independent of x (slerp toward a pole
- *          preserves longitude). A bright source band at row R therefore re-appears
- *          at the output row y* where by(y*) == R, strictly south of R. The test
- *          asserts the output band's brightest row matches y* (within the 1px the
- *          coarse-grid bilerp can shift it) and that the band's original row went
- *          dark — i.e. the content actually moved, ruling out an identity warp.
+ *          which is north of y and independent of x. A bright source band at
+ *          row R must reappear at the row y* where by(y*) == R (within the 1px
+ *          the coarse-grid bilerp can shift it), and row R must go dark.
  */
 inline void test_feedback_flush_melt_warp_displaces_south() {
   constexpr int W = 64, H = 64; // both divisible by the downsample (4)
   hs_test::StubEffect fx(W, H);
 
-  // The default zero hue_shift isolates the SPATIAL warp under test from any hue
-  // rotation; noise stays nullptr so melt_warp is fully deterministic (the noise
-  // wobble branch is gated on a bound NoiseParams). speed=6 -> drip=0.24 gives a
-  // clearly multi-pixel southward shift.
+  // Zero hue_shift isolates the spatial warp; with noise unbound melt_warp is
+  // deterministic. speed=6 -> drip=0.24, a multi-pixel southward shift.
   ::Feedback::Style style{};
   style.space_fn = &::Feedback::melt_warp;
   style.noise = nullptr;
@@ -717,9 +696,7 @@ inline void test_feedback_flush_melt_warp_displaces_south() {
   HS_EXPECT_TRUE(std::abs(peak_y - oracle_y) <= 1);
   HS_EXPECT_GT(oracle_y, R);   // melt drifts south (y increases)
   HS_EXPECT_GT(peak_y, R + 2); // a real, multi-pixel displacement
-  // The band's original location is now dark: its source row is north of the band,
-  // so nothing bright maps back onto row R — confirming the content moved, not an
-  // identity passthrough that would have left the band in place.
+  // Row R's source row is north of the band, so nothing bright maps back onto it.
   HS_EXPECT_LT(row_sum(R), peak / 4);
 }
 
@@ -818,10 +795,8 @@ inline void test_feedback_north_cap_uses_exact_control_rows() {
     else if (std::abs(offset - first_offset) > 1e-3f)
       offsets_vary = true;
   }
-  // Independent of the reference row: the claim is that each cap row evaluates
-  // the warp at its OWN latitude, so a collapse onto one shared control row —
-  // which the reference would follow if it were derived the same way — shows up
-  // as an identical displacement on every cap row.
+  // Each cap row evaluates the warp at its own latitude; a collapse onto one
+  // shared control row would give every cap row an identical displacement.
   HS_EXPECT_TRUE(offsets_vary);
 }
 
@@ -1028,9 +1003,8 @@ inline void test_feedback_spherical_ring_control_rows() {
 /**
  * @brief Verifies the compact ring field has directionally balanced error.
  * @details The last bound anchors the compact field against metric_approximate,
- * a baseline stepping sin(phi)-scaled rows instead of reading the ring table.
- * The compact field measures 1.370x that baseline's mean polar error, so the
- * bound below leaves ~4% for libm drift and nothing for a regression.
+ * a baseline stepping sin(phi)-scaled rows instead of reading the ring table,
+ * with ~4% headroom for libm drift.
  */
 inline void test_feedback_spherical_field_angular_error() {
   constexpr int W = 288, H = 144;
@@ -1219,8 +1193,7 @@ inline math::Vector opposed_seam_warp(const math::Vector &v,
  * @details populate_warp_field's seam correction can lift an interpolated
  * offset past the [-W, 2W) domain sample_bilinear contracts for; the resulting
  * out-of-range column index walks the flat framebuffer into a neighbouring row.
- * The band count and opposing step are tuned to place a control pair at that
- * extreme -- the excursion needs a near-half-turn against a small reverse step.
+ * The band count and opposing step place a control pair at that extreme.
  */
 inline void test_feedback_seam_warp_keeps_its_latitude_row() {
   constexpr int W = 288, H = 32;
@@ -1334,9 +1307,8 @@ inline void test_feedback_cached_north_cap_clips_share_control_rows() {
  * @details Encodes each pixel's own direction into the previous frame, flushes
  * once through the identity colour path, and decodes where each output pixel
  * sampled from. A strong static twist near the poles moves targets far in
- * longitude between lattice rings, where interpolating equirect offsets missed
- * by several degrees; the 3D target reconstruction stays within a fraction of
- * the 1.26 degree row pitch.
+ * longitude between lattice rings; the 3D target reconstruction must stay
+ * within a fraction of the 1.26 degree row pitch.
  */
 inline void test_feedback_polar_rows_hit_their_targets() {
   constexpr int W = 288, H = 144;
@@ -1402,10 +1374,8 @@ inline void test_feedback_polar_rows_hit_their_targets() {
  *          a static style (later frames hit the cache), a key-field mutation
  *          (amplitude), a generator seed change that no Style scalar mirrors,
  *          advancing noise time under nonzero speed (key changes every frame),
- *          and a mid-run init_storage() re-allocation (the effect's
- *          post-compaction path). Every frame must match the uncached reference
- *          pixel-exactly — reuse serves the same int16 deltas the populate pass
- *          would have written.
+ *          and a mid-run init_storage() re-allocation. Every frame must match
+ *          the uncached reference pixel-exactly.
  */
 inline void test_feedback_warp_cache_matches_uncached() {
   constexpr int W = 64, H = 64; // both divisible by the downsample (4)
@@ -1509,13 +1479,9 @@ inline math::Vector antipodal_ripple_warp(const math::Vector &v,
  * @details The antipodal ripple displaces every column by W/2 ± 1.5px, so the
  *          step-1 seam wrap flips sign between adjacent coarse columns
  *          (~ +16px vs ~ -15px at W=32) while the true field is smooth. The
- *          tap re-centering must unify the four taps onto one branch; a blend
- *          that sweeps across the cut instead samples near-zero displacements
- *          — pixels from the wrong side of the sphere, rendering as a
- *          longitudinal streak of foreign color. The previous frame encodes
- *          longitude seam-continuously (r=cos, g=sin), so each output pixel's
- *          actual sample source can be decoded and checked against the warp
- *          evaluated directly.
+ *          tap re-centering must unify the four taps onto one branch. The
+ *          previous frame encodes longitude seam-continuously (r=cos, g=sin), so
+ *          each output pixel's sample source can be decoded.
  */
 inline void test_feedback_flush_straddled_taps_stay_on_branch() {
   constexpr int W = 32, H = 16; // both divisible by the downsample (4)

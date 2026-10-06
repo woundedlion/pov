@@ -3,8 +3,6 @@
  * Licensed under the PolyForm Noncommercial License 1.0.0
  */
 
-// Included by tests/test_death.h.
-
 // --- Individual death cases — each MUST trap (HS_CHECK / __builtin_trap) ------
 
 // Sdf death fixtures and guard cases.
@@ -260,8 +258,7 @@ inline void case_sdf_line_negative_thickness() {
 /**
  * @brief Death case: a distorted ring built with a null shift callback must
  *        trap.
- * @details SDF ring surface — the callback is invoked per azimuth on every
- *          probe, so a null one faults deep inside the rasterizer instead.
+ * @details The callback is invoked per azimuth on every probe.
  */
 inline void case_sdf_distorted_ring_null_shift() {
   const math::Basis b{math::Vector(1, 0, 0), math::Vector(0, 1, 0),

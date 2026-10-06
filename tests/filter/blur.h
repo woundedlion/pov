@@ -3,8 +3,6 @@
  * Licensed under the PolyForm Noncommercial License 1.0.0
  */
 
-// Included by tests/test_filter.h.
-
 // ============================================================================
 // Screen::Blur::plot — kernel passthrough
 // ============================================================================
@@ -200,8 +198,6 @@ inline void test_blur_kernel_weights_by_offset() {
  * @brief Verifies the pole-clip renormalization: a full-blur tap on a pole row
  *        drops the off-pole neighbor row (poles don't wrap) yet still deposits
  *        the full input alpha, with no tap landing outside [0, H).
- * @details Mirrors AntiAlias's Y-clip renorm. Without it the surviving 6 taps
- *          sum to 1 - (2*corner + edge) < alpha and the pole rows darken.
  */
 inline void test_blur_pole_row_renormalizes() {
   constexpr int W = 32, H = 32;

@@ -6,8 +6,7 @@
  * tests/death_guard_sites.h.in — regenerated at build time whenever a
  * guard-bearing source changes, never edited.
  *
- * Per-source-path census of the engine's HS_CHECK fail-fast sites, consumed by
- * the death harness's coverage report (tests/test_death.h).
+ * Per-source-path census of the engine's HS_CHECK fail-fast sites.
  */
 #pragma once
 
@@ -24,7 +23,7 @@ struct GuardSiteCount {
 inline constexpr GuardSiteCount GUARD_SITE_COUNTS[] = {
 @HS_GUARD_SITE_ROWS@};
 
-/** Total HS_CHECK sites across all of them. */
+/** Total HS_CHECK sites. */
 inline constexpr int GUARD_SITE_TOTAL = @HS_GUARD_SITE_TOTAL@;
 
 } // namespace death_tests

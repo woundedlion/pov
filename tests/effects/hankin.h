@@ -3,8 +3,6 @@
  * Licensed under the PolyForm Noncommercial License 1.0.0
  */
 
-// Included by tests/test_effects.h.
-
 // ---------------------------------------------------------------------------
 // HankinSolids pause and DreamBalls geometry/lifecycle coverage
 // ---------------------------------------------------------------------------
@@ -64,17 +62,7 @@ inline void test_hankinsolids_manual_pause_holds_morph() {
   HS_EXPECT_GT(energy, 0u);
 }
 
-/**
- * @brief White-box accessor for DreamBalls' private preset-cycle bookkeeping
- *        (befriended in effects/DreamBalls.h).
- * @details spawn_sprite schedules its successor 320 frames out (a PeriodicTimer),
- *          beyond the default 120-frame base smoke/determinism window in CI.
- *          The parameter lints render additional frames but do not pin the
- *          preset advance, bake-slot ping-pong, or reseed guard. This seam drives
- *          spawn_sprite directly and reads the bake slot / preset index so those
- *          paths are pinned. <96,20> is used arbitrarily — the bookkeeping is
- *          resolution-independent.
- */
+/** @brief White-box accessor for DreamBalls' private preset-cycle bookkeeping. */
 struct DreamBallsWhiteBox {
   using DB = DreamBalls<SMALL_W, SMALL_H>;
   static constexpr int PRESETS = static_cast<int>(DB::PRESETS.size());
@@ -83,8 +71,7 @@ struct DreamBallsWhiteBox {
   static constexpr size_t SCRATCH_A_PEAK_BYTES = DB::SCRATCH_A_PEAK_BYTES;
 
   static int active_bake(const DB &db) { return db.active_bake; }
-  // Not-paused step: advance the choreography, then re-spawn (the scheduler's
-  // path).
+  // Advance the choreography, then re-spawn.
   static void advance(DB &db) {
     HS_EXPECT_TRUE(db.advance_preset());
     db.spawn_sprite();
@@ -161,17 +148,9 @@ struct DreamBallsWhiteBox {
 /**
  * @brief Drives spawn_sprite across a full preset cycle and asserts the bake-slot
  *        ping-pong, the modulo preset advance, and the reseed-on-change guard.
- * @details Drives the advance without the 320-frame wait, following the same
- *          progression the periodic callback uses: each step calls
- *          advance_preset() then re-spawns, so the active preset walks modulo
- *          the preset count.
- *          Each spawn must flip the bake slot (so a fading-out sprite keeps its
- *          own LUT) and, when the preset actually changes, reseed params to the
- *          new entry. A re-spawn of the SAME preset must instead hold params
- *          so a live slider edit survives.
- *          The preset rows themselves are pinned by structure only (base mesh,
- *          weave topology, palette); their magnitudes are checked against the
- *          registered slider ranges and for row-to-row distinctness.
+ * @details Each spawn flips the bake slot so a fading-out sprite keeps its own
+ *          LUT. A re-spawn of the same preset holds params so a live slider
+ *          edit survives.
  */
 inline void test_dreamballs_preset_cycle_bookkeeping() {
   using WB = DreamBallsWhiteBox;
@@ -185,11 +164,8 @@ inline void test_dreamballs_preset_cycle_bookkeeping() {
   HS_EXPECT_EQ(WB::active_bake(db), 1);
   HS_EXPECT_EQ(WB::live_mesh(db), WB::preset_mesh(0));
 
-  // A preset row is authored artistic data that is retuned freely, so its
-  // magnitudes (gap, copies, radius, speed, alpha) are not pinned: a golden
-  // copy of them reds on every intentional retune and reports nothing. The
-  // structural selections each row draws are pinned here; the magnitudes are
-  // swept against the registered slider ranges in the cycle below.
+  // Pins each row's structural selections; magnitudes are range-checked
+  // during the cycle.
   struct Row {
     WB::DB::BaseMesh base_mesh;
     WB::DB::WeaveTopology weave_topology;
@@ -220,8 +196,8 @@ inline void test_dreamballs_preset_cycle_bookkeeping() {
     HS_EXPECT_TRUE(WB::preset_palette(db, i) == rows[i].palette);
   }
 
-  // register_param traps on a default outside its range, but a preset row is
-  // assigned straight into params and never passes through it.
+  // Preset rows are assigned straight into params, bypassing register_param's
+  // range check.
   auto expect_in_range = [&]() {
     for (const auto &def : db.getParameters()) {
       HS_CONTEXT(def.name);
@@ -236,9 +212,7 @@ inline void test_dreamballs_preset_cycle_bookkeeping() {
     }
   };
 
-  // Not-paused advance chain: each step advances the selector then re-spawns, so
-  // the preset is step modulo the preset count. Drive two full cycles; the bake
-  // slot must ping-pong and params must reseed to the new index each step.
+  // Two full cycles: the bake slot ping-pongs and params reseed each step.
   int expect_bake = WB::active_bake(db); // 1
   std::vector<std::vector<float>> live_rows;
   for (int step = 1; step <= 2 * WB::PRESETS; ++step) {
@@ -258,8 +232,7 @@ inline void test_dreamballs_preset_cycle_bookkeeping() {
     }
   }
 
-  // Two rows that collapse onto the same parameter vector are one preset the
-  // cycle visits twice, which no range or selection check above would show.
+  // Identical parameter vectors would be one preset visited twice.
   for (size_t i = 0; i < live_rows.size(); ++i)
     for (size_t j = i + 1; j < live_rows.size(); ++j) {
       HS_CONTEXT("preset pair", static_cast<int>(i), static_cast<int>(j));
@@ -267,9 +240,8 @@ inline void test_dreamballs_preset_cycle_bookkeeping() {
                 "each DreamBalls preset must be distinct");
     }
 
-  // Same-preset path: re-spawn without advancing; params are only adopted on a
-  // preset change, so a live slider edit must survive the re-spawn — while the
-  // bake slot still flips.
+  // A same-preset re-spawn keeps a live slider edit but still flips the bake
+  // slot.
   const float sentinel = WB::num_copies(db) + 5.0f;
   WB::num_copies(db) = sentinel;
   const size_t held_idx = db.getPresetIndex();
@@ -362,7 +334,7 @@ inline void test_dreamballs_max_edge_solid_render() {
   }
 
   // Three per-vertex buffers plus the framed vertex + edge-head mesh, at the
-  // medial bound; a peak below this would mean the wide path never ran.
+  // medial bound.
   const size_t staged_bytes = 6 * widest_edges * sizeof(math::Vector);
   HS_EXPECT_GE(scratch_arena_a.get_high_water_mark(), staged_bytes);
   HS_EXPECT_LE(scratch_arena_a.get_high_water_mark(), WB::SCRATCH_A_PEAK_BYTES);

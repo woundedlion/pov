@@ -3,17 +3,11 @@
  * Licensed under the PolyForm Noncommercial License 1.0.0
  */
 
-// Included by tests/test_death.h.
-
 // --- Individual death cases — each MUST trap (HS_CHECK / __builtin_trap) ------
 
 // Memory death fixtures and guard cases.
 
-/**
- * @brief Death case: arena over-allocation must trap.
- * @details Memory surface — requests more than the arena's capacity so
- *          allocate() fires HS_CHECK.
- */
+/** @brief Death case: arena over-allocation must trap. */
 inline void case_arena_oom() {
   static uint8_t buf[64];
   Arena a(buf, sizeof(buf));
@@ -33,9 +27,7 @@ inline void case_arena_make_oom() {
 
 /**
  * @brief Death case: a zero-size arena allocation must trap.
- * @details Memory surface — a zero-size request returns a bump pointer that
- *          reserves nothing and aliases the next allocation's address, so it is
- *          rejected as misuse rather than handed back as ownable storage.
+ * @details A zero-size request would alias the next allocation's address.
  */
 inline void case_arena_zero_size_alloc() {
   static uint8_t buf[64];
@@ -56,9 +48,7 @@ inline void case_arena_allocate_n_overflow() {
 
 /**
  * @brief Death case: a non-power-of-two allocation alignment must trap.
- * @details Memory surface — allocate()'s padding math is a modulo against the
- *          requested alignment, which only yields an aligned address for a
- *          power of two.
+ * @details allocate()'s padding math assumes a power-of-two alignment.
  */
 inline void case_arena_bad_alignment() {
   static uint8_t buf[64];
@@ -70,9 +60,8 @@ inline void case_arena_bad_alignment() {
 
 /**
  * @brief Death case: a mid-run resplit with live scratch content must trap.
- * @details Config surface — resplit_arenas rebases both scratch arenas, and a
- *          ScratchScope saved at offset 0 restores to 0 either way, so live
- *          scratch content would be silently rebased onto the new split.
+ * @details resplit_arenas rebases both scratch arenas, which would silently
+ *          move live scratch content.
  */
 inline void case_resplit_scratch_not_empty() {
   configure_arenas_default();
@@ -85,9 +74,8 @@ inline void case_resplit_scratch_not_empty() {
 /**
  * @brief Death case: a resplit below the persistent arena's live offset must
  *        trap.
- * @details Config surface — resplit_arenas keeps the persistent arena's base,
- *          offset and content and only moves its capacity, so a budget under
- *          the live offset would strand the carousel and palette bank.
+ * @details resplit_arenas keeps the persistent arena's base, offset and content
+ *          and only moves its capacity.
  */
 inline void case_resplit_persistent_strands() {
   configure_arenas_default();
@@ -98,9 +86,8 @@ inline void case_resplit_persistent_strands() {
 
 /**
  * @brief Death case: moving the arena offset forward must trap.
- * @details Memory surface — set_offset only ever rewinds. A forward move stays
- *          inside capacity yet hands back bytes already reclaimed, so the guard
- *          is monotone decrease, not a capacity bound.
+ * @details set_offset only rewinds; a forward move inside capacity would hand
+ *          back reclaimed bytes.
  */
 inline void case_arena_set_offset_forward() {
   static uint8_t buf[64];
@@ -112,15 +99,8 @@ inline void case_arena_set_offset_forward() {
 
 /**
  * @brief Death case: non-LIFO ScratchScope teardown must trap.
- * @details The scratch-arena sharing contract between Pixel::Feedback::flush and
- *          Plot::rasterize is safe because scratch_arena_a is a LIFO bump
- *          allocator — but only while scopes are torn down in stack order.
- *          ~ScratchScope enforces that: an outer scope rewinding while an inner
- *          one is still live leaves the arena offset below the inner's saved
- *          mark, and the inner's destructor HS_CHECKs offset >= saved_offset.
- *          Here the outer scope is destroyed first (std::optional::reset),
- *          rewinding to 0; destroying the inner then sees offset 0 < its saved
- *          mark and traps.
+ * @details Destroying the outer scope first rewinds the offset below the inner
+ *          scope's saved mark; ~ScratchScope checks offset >= saved_offset.
  */
 inline void case_scratch_scope_non_lifo() {
   static uint8_t buf[64];
@@ -151,10 +131,7 @@ inline void case_arena_rewind_history_overflow() {
   }
 }
 
-/**
- * @brief Death case: ArenaVector fixed-capacity push_back overflow must trap.
- * @details Arena-container surface — a push_back past capacity fires HS_CHECK.
- */
+/** @brief Death case: ArenaVector fixed-capacity push_back overflow must trap. */
 inline void case_arena_vector_overflow() {
   static uint8_t buf[256];
   Arena a(buf, sizeof(buf));
@@ -166,8 +143,7 @@ inline void case_arena_vector_overflow() {
 
 /**
  * @brief Death case: ArenaVector fixed-capacity emplace_back overflow must trap.
- * @details Arena-container surface — the in-place construction path carries its
- *          own capacity guard, distinct from push_back's copy path.
+ * @details emplace_back carries its own capacity guard.
  */
 inline void case_arena_vector_emplace_overflow() {
   static uint8_t buf[256];
@@ -180,9 +156,8 @@ inline void case_arena_vector_emplace_overflow() {
 
 /**
  * @brief Death case: generate() with a scratch arena as its target must trap.
- * @details Generator surface — the depth-0 reset and the ScratchScope rewind
- *          would destroy output written into either engine scratch arena, so an
- *          aliasing target is rejected before the callback runs.
+ * @details The depth-0 reset and the ScratchScope rewind would destroy output
+ *          written into either engine scratch arena.
  */
 inline void case_generate_target_is_scratch() {
   configure_arenas_default();
@@ -195,10 +170,8 @@ inline void case_generate_target_is_scratch() {
 
 /**
  * @brief Death case: nesting generate() past MAX_GENERATE_DEPTH must trap.
- * @details Generator surface — every level stacks two ScratchScopes on a fixed
- *          scratch budget, so runaway reentrancy is capped at the wrapper rather
- *          than left to exhaust the arenas. The outermost call opens depth 1, so
- *          MAX_GENERATE_DEPTH further levels reach depth MAX_GENERATE_DEPTH + 1.
+ * @details The outermost call opens depth 1, so MAX_GENERATE_DEPTH further
+ *          levels reach depth MAX_GENERATE_DEPTH + 1.
  */
 inline void case_generate_recursion_too_deep() {
   configure_arenas_default();
@@ -208,10 +181,7 @@ inline void case_generate_recursion_too_deep() {
     std::printf("x");
 }
 
-/**
- * @brief Death case: a StaticCircularBuffer index past the live count must trap.
- * @details Container surface — index >= count fires HS_CHECK.
- */
+/** @brief Death case: a StaticCircularBuffer index past the live count must trap. */
 inline void case_circular_buffer_oob() {
   StaticCircularBuffer<int, 4> cb;
   cb.push_back(10);
@@ -223,9 +193,8 @@ inline void case_circular_buffer_oob() {
 
 /**
  * @brief Death case: front() on an empty StaticCircularBuffer must trap.
- * @details Container surface — the never-taken opaque(false) push keeps the
- *          optimizer from proving the buffer empty and folding the trap at
- *          compile time; is_empty() fires HS_CHECK.
+ * @details The never-taken opaque(false) push keeps the optimizer from folding
+ *          the trap at compile time.
  */
 inline void case_circular_buffer_front_empty() {
   StaticCircularBuffer<int, 4> cb;
@@ -255,8 +224,7 @@ inline void case_circular_buffer_const_back_empty() {
 
 /**
  * @brief Death case: ArenaVector::append_bulk past its fixed capacity must trap.
- * @details Memory surface — a distinct seam from element-at-a-time push_back;
- *          the bulk memcpy path has its own remaining-capacity guard.
+ * @details The bulk memcpy path has its own remaining-capacity guard.
  */
 inline void case_arena_vector_append_bulk_overflow() {
   static uint8_t buf[256];
@@ -320,11 +288,8 @@ inline void case_persist_forgot_reset() {
 
 /**
  * @brief Death case: a Persist naming one arena for both roles must trap.
- * @details Memory surface — ~Persist's watermark restore assumes the backup
- *          outlives the rewind of the arena it restores into, which a single
- *          arena cannot provide. The payload allocates nothing, so the
- *          post-restore watermark check cannot fire and the distinct-arena
- *          guard is the only reachable trap.
+ * @details The payload allocates nothing, so the distinct-arena guard is the
+ *          only reachable trap.
  */
 inline void case_persist_same_arena() {
   static uint8_t pbuf[256];
@@ -338,10 +303,7 @@ inline void case_persist_same_arena() {
 
 /**
  * @brief Death case: a swapped (unordered) TriangularBitset pair must trap.
- * @details Memory-safety surface — index() requires small < large < MAX_V; a
- *          swapped pair would alias the wrong bit and an out-of-range one would
- *          write adjacent memory, so the HS_CHECK traps the misuse on the cold
- *          edge-dedup setup path.
+ * @details index() requires small < large < MAX_V.
  */
 inline void case_triangular_bitset_unordered_pair() {
   TriangularBitset<128> bits;
