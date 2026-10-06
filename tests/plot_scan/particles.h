@@ -432,35 +432,6 @@ inline void test_particle_system_direct_trail_materialization_output_parity() {
   }
 }
 
-/** @brief Reference-lit and mismatching pixel counts over a canvas rectangle. */
-struct BandDiff {
-  int lit = 0;  /**< Reference pixels lit inside the rectangle. */
-  int diff = 0; /**< Pixels differing from the reference. */
-};
-
-/**
- * @brief Compares a rendered frame against a reference over [y0,y1) x [x0,x1).
- * @tparam W Canvas width, the row stride of @p ref.
- * @param fx Effect holding the frame under test (already advance_display'd).
- * @param ref Full-canvas reference pixels.
- */
-template <int W>
-inline BandDiff band_diff(const hs_test::StubEffect &fx,
-                          const std::vector<Pixel> &ref, int y0, int y1, int x0,
-                          int x1) {
-  BandDiff out;
-  for (int y = y0; y < y1; ++y)
-    for (int x = x0; x < x1; ++x) {
-      const Pixel &p = fx.get_pixel(x, y);
-      const Pixel &r = ref[static_cast<size_t>(y) * W + x];
-      if (r.r | r.g | r.b)
-        ++out.lit;
-      if (p.r != r.r || p.g != r.g || p.b != r.b)
-        ++out.diff;
-    }
-  return out;
-}
-
 /**
  * @brief Renders a system full-canvas through one combined vertex shader: the
  *        reference the band-clipped parity checks diff against.
@@ -596,7 +567,7 @@ inline void test_particle_system_deferred_shader_parity_and_skip() {
                                        deferred_pass);
     }
     fx.advance_display();
-    HS_EXPECT_EQ((band_diff<W>(fx, ref, 0, H, 0, W).diff), 0);
+    HS_EXPECT_EQ(render_band_diff<W>(fx, ref).diff, 0);
     HS_EXPECT_GT(deferred_calls[0], 0);
     HS_EXPECT_GT(deferred_calls[1], 0);
     HS_EXPECT_EQ(orig_mismatches, 0);
