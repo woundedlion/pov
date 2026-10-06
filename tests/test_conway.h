@@ -9,6 +9,7 @@
 #include <algorithm>
 #include <cmath>
 #include <cstdint>
+#include <initializer_list>
 #include <limits>
 #include <map>
 #include <vector>
@@ -1185,6 +1186,21 @@ inline void check_no_degenerate_faces(const PolyMesh &m) {
 }
 
 /**
+ * @brief Asserts the mesh's face sizes equal @p want, in order.
+ * @param m Mesh to validate.
+ * @param want Expected side count of each face.
+ */
+inline void check_face_census(const PolyMesh &m,
+                              std::initializer_list<int> want) {
+  HS_EXPECT_EQ(m.face_counts.size(), want.size());
+  if (m.face_counts.size() != want.size())
+    return;
+  size_t i = 0;
+  for (int sides : want)
+    HS_EXPECT_EQ(static_cast<int>(m.face_counts[i++]), sides);
+}
+
+/**
  * @brief Builds a minimal malformed digon: 2 vertices forming one 2-gon face.
  * @param m Mesh to populate (its arrays are bound from arena).
  * @param arena Arena providing backing storage for the mesh arrays.
@@ -1204,8 +1220,9 @@ inline void build_degenerate_digon(PolyMesh &m, Arena &arena) {
 
 /**
  * @brief Verifies expand/chamfer/snub drop degenerate primary faces.
- * @details Fed a digon, each operator drops the degenerate primary face so no
- *          output face has fewer than 3 sides.
+ * @details Fed a digon, each operator drops the degenerate primary face and
+ *          keeps only its edge faces: one quad (expand), one hexagon
+ *          (chamfer), two triangles (snub).
  */
 inline void test_conway_ops_drop_degenerate_primary_faces() {
   {
@@ -1213,21 +1230,27 @@ inline void test_conway_ops_drop_degenerate_primary_faces() {
     Arena temp(conway_temp_buf, sizeof(conway_temp_buf));
     PolyMesh m;
     build_degenerate_digon(m, temp);
-    check_no_degenerate_faces(MeshOps::expand(m, target, temp));
+    const PolyMesh out = MeshOps::expand(m, target, temp);
+    check_no_degenerate_faces(out);
+    check_face_census(out, {4});
   }
   {
     Arena target(conway_target_buf, sizeof(conway_target_buf));
     Arena temp(conway_temp_buf, sizeof(conway_temp_buf));
     PolyMesh m;
     build_degenerate_digon(m, temp);
-    check_no_degenerate_faces(MeshOps::chamfer(m, target, temp, 0.5f));
+    const PolyMesh out = MeshOps::chamfer(m, target, temp, 0.5f);
+    check_no_degenerate_faces(out);
+    check_face_census(out, {6});
   }
   {
     Arena target(conway_target_buf, sizeof(conway_target_buf));
     Arena temp(conway_temp_buf, sizeof(conway_temp_buf));
     PolyMesh m;
     build_degenerate_digon(m, temp);
-    check_no_degenerate_faces(MeshOps::snub(m, target, temp));
+    const PolyMesh out = MeshOps::snub(m, target, temp);
+    check_no_degenerate_faces(out);
+    check_face_census(out, {3, 3});
   }
 }
 
