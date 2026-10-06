@@ -201,7 +201,7 @@ enum FastLEDCheck {
 enum LEDType { WS2801 };
 /** @brief Mock LED color-order selector for addLeds template arguments. */
 enum ColorOrder { RGB };
-#define DATA_RATE_MHZ(x) (x)
+#define DATA_RATE_MHZ(x) (1000000u * (x))
 
 /**
  * @brief Mock implementation of the FastLED controller for simulation.
