@@ -3,8 +3,6 @@
  * Licensed under the PolyForm Noncommercial License 1.0.0
  */
 
-// Included by tests/test_shader_chain.h.
-
 // --- sphere-op mirrors ----------------------------------------------------
 
 /** Mirror frame for the sphere endomorphism batch; populated from the erased

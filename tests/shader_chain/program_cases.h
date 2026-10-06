@@ -3,8 +3,6 @@
  * Licensed under the PolyForm Noncommercial License 1.0.0
  */
 
-// Included by tests/test_shader_chain.h.
-
 // --- cases ----------------------------------------------------------------
 
 inline void test_shader_chain_program_lifetime() {
