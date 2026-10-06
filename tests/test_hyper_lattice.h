@@ -653,10 +653,12 @@ inline void test_specialized_slice_transition() {
       frame.pixel_half_angle = HL::pixel_half_angle<288, 144>();
       frame.depth_palette = HyperLatticeWhiteBox::depth_palette(effect);
       const HL::PreparedTrace prepared = HL::prepare_trace(frame);
+      int lit = 0;
       for (int y = 0; y < 144; ++y)
         for (int x = 0; x < 288; ++x) {
           const math::Vector direction = math::pixel_to_vector<288, 144>(x, y);
           const Color4 exact = HL::shade({direction, 0.0f}, frame, prepared);
+          lit += exact.alpha > 0.0f ? 1 : 0;
           const Color4 specialized = HL::shade_mode<true, SHELL_COUNT>(
               {direction, 0.0f}, frame, prepared);
           max_visible_error = hs_test::fold_worst(
@@ -677,6 +679,7 @@ inline void test_specialized_slice_transition() {
           max_alpha_error = hs_test::fold_worst(
               max_alpha_error, fabsf(specialized.alpha - exact.alpha));
         }
+      HS_EXPECT_GT(lit, 288 * 144 / 2);
     }
     HS_EXPECT_NEAR(max_visible_error, 0.0f, 1.0f);
     HS_EXPECT_NEAR(max_alpha_error, 0.0f, 5.0e-6f);
