@@ -290,7 +290,6 @@ def _rename_subsymbols(node, old_root, new_root):
 
 
 def _overlay_props(base, node):
-    # replace Value/Footprint/Reference/Datasheet/Description from node
     wanted = {}
     for c in node:
         if isinstance(c, list) and c and c[0] == "property":
@@ -298,9 +297,14 @@ def _overlay_props(base, node):
     newchildren = []
     for c in base:
         if isinstance(c, list) and c and c[0] == "property" and c[1] in wanted:
-            newchildren.append(copy.deepcopy(wanted[c[1]]))
+            newchildren.append(copy.deepcopy(wanted.pop(c[1])))
         else:
             newchildren.append(c)
+    last_property = max((index for index, child in enumerate(newchildren)
+                         if isinstance(child, list) and child and
+                         child[0] == "property"), default=1)
+    newchildren[last_property + 1:last_property + 1] = [
+        copy.deepcopy(prop) for prop in wanted.values()]
     base[:] = newchildren
 
 
