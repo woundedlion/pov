@@ -567,7 +567,10 @@ public:
                : 0;
   }
 
-  /** Stable preset IDs in the same order as the numeric navigation API. */
+  /**
+   * @brief Stable preset IDs in numeric navigation order.
+   * @return The preset ID array, empty when no effect or ID table is set.
+   */
   emscripten::val getPresetIds() const {
     emscripten::val ids = emscripten::val::array();
     if (!current_effect || !current_factory_entry ||
@@ -578,7 +581,14 @@ public:
     return ids;
   }
 
-  /** Selects a preset through its persisted identity. */
+  /**
+   * @brief Selects a preset through its persisted identity.
+   * @param preset_id Persisted preset identity.
+   * @return true when the preset was found and applied; false when no effect
+   * or ID table is set, the ID is empty or unknown, or selectPreset refuses it.
+   * @details Engages the animation pause as selectPreset does. A rejected call
+   * leaves the preset and pause untouched.
+   */
   bool selectPresetById(const std::string &preset_id) {
     if (!current_effect || !current_factory_entry ||
         !current_factory_entry->preset_id || preset_id.empty())
