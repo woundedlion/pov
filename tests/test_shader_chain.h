@@ -257,28 +257,44 @@ inline void test_shader_chain_snapshot_roundtrip() {
 }
 
 inline void test_shader_chain_snapshot_refusals() {
+  using WB = ShaderChainWhiteBox;
   reset_globals();
-  ShaderChainWhiteBox::FX effect;
+  WB::FX effect;
   effect.init();
+  const auto live = effect.snapshot();
+  // Candidates derive from a state that differs from the live one in every
+  // section, so any section committed before a refusal is observable.
+  param_as<In::Op::RotateChainParams>(WB::program(effect), 0).wander = 0.6f;
+  for (int frame = 0; frame < 64; ++frame)
+    WB::advance_without_render(effect);
   const auto saved = effect.snapshot();
+  HS_EXPECT_EQ(effect.restore_snapshot(live),
+               ChainSnapshotRestoreResult::APPLIED);
+  const auto walk_time = [](const ChainSnapshot &snapshot) {
+    return std::get<In::SpatialWalkSnapshot>((*snapshot.runtime)[0].state)
+        .walk_time;
+  };
+  HS_EXPECT_FALSE(
+      float_identical(saved.parameters[0].value, live.parameters[0].value));
+  HS_EXPECT_NE(saved.palette_bank->cycles[0].frame,
+               live.palette_bank->cycles[0].frame);
+  HS_EXPECT_FALSE(float_identical(walk_time(saved), walk_time(live)));
   const auto generation = effect.getParameterSchemaGeneration();
   const auto refused = [&](ChainSnapshot candidate,
                            ChainSnapshotRestoreResult expected) {
     HS_EXPECT_EQ(effect.restore_snapshot(candidate), expected);
     HS_EXPECT_EQ(effect.getParameterSchemaGeneration(), generation);
     const auto after = effect.snapshot();
-    HS_EXPECT_EQ(after.parameters.size(), saved.parameters.size());
-    for (size_t index = 0; index < saved.parameters.size(); ++index) {
+    HS_EXPECT_EQ(after.parameters.size(), live.parameters.size());
+    for (size_t index = 0; index < live.parameters.size(); ++index) {
       HS_EXPECT_TRUE(after.parameters[index].name ==
-                     saved.parameters[index].name);
+                     live.parameters[index].name);
       HS_EXPECT_TRUE(float_identical(after.parameters[index].value,
-                                     saved.parameters[index].value));
+                                     live.parameters[index].value));
     }
     HS_EXPECT_EQ(after.palette_bank->cycles[0].frame,
-                 saved.palette_bank->cycles[0].frame);
-    HS_EXPECT_EQ(
-        std::get<In::SpatialWalkSnapshot>((*after.runtime)[0].state).walk_time,
-        std::get<In::SpatialWalkSnapshot>((*saved.runtime)[0].state).walk_time);
+                 live.palette_bank->cycles[0].frame);
+    HS_EXPECT_TRUE(float_identical(walk_time(after), walk_time(live)));
   };
   auto candidate = saved;
   candidate.schema_version = 1;
