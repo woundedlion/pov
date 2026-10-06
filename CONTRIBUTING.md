@@ -53,6 +53,10 @@ that pins the figure; otherwise state the property without the number. Name
 code by its symbol in backticks; `tools/docs_check.py` fails when a backticked
 symbol or path in a C/C++ source comment no longer exists.
 
+A test's name and brief state the one behaviour it asserts, in one line; a
+file or suite header states its purpose, not an inventory of its cases. Update
+both when the assertions change.
+
 ## Design specs
 
 [The specifications index](docs/specs/README.md) lists the design contracts
