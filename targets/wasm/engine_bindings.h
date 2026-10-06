@@ -342,7 +342,7 @@ public:
     binding_state->height = pixel_height;
     current_effect->setAnimationsPaused(binding_state->paused);
     current_effect->init();
-    check_param_capacity();
+    hs_wasm::check_param_capacity(*current_effect);
     param_generation.replace(current_effect->getParameterSchemaGeneration());
     const size_t init_hwm = stack_high_water_mark();
     if (init_hwm > init_stack_peak)
@@ -971,18 +971,6 @@ private:
       return true;
     hs::log("WASM: %s index out of range (%g) — ignored", call, index);
     return false;
-  }
-
-  /**
-   * @brief Traps when a newly installed effect exposes more params than were
-   *        reserved.
-   * @details use_parameter_storage() lets an effect exceed ParamList's default
-   *          inline array, so the initialized effect's live count is the bound.
-   */
-  void check_param_capacity() const {
-    HS_CHECK(current_effect->getParameters().size() <= MAX_PARAMS,
-             "effect exposes %zu params, past the %zu reserved",
-             current_effect->getParameters().size(), MAX_PARAMS);
   }
 
   /** Channels per pixel in the readback buffer (linear RGB triples). */

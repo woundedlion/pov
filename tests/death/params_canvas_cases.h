@@ -132,6 +132,23 @@ inline void case_register_param_overflow() {
   }
 }
 
+/** @brief Death case: an effect past the WASM parameter streams must trap. */
+inline void case_wasm_param_capacity_exceeded() {
+  struct WideEffect : DeathEffect {
+    using Effect::use_parameter_storage;
+  } fx;
+  constexpr size_t COUNT = hs_wasm::ParamStreams::CAPACITY + 1;
+  static std::array<ParamDef, COUNT> storage;
+  static char names[COUNT][8];
+  static float slot = 0.0f;
+  fx.use_parameter_storage(storage);
+  for (size_t i = 0; i < opaque(COUNT); ++i) {
+    std::snprintf(names[i], sizeof(names[i]), "p%zu", i);
+    fx.reg(names[i], &slot);
+  }
+  hs_wasm::check_param_capacity(fx);
+}
+
 inline void case_register_param_duplicate() {
   DeathEffect fx;
   float value = 0.5f;

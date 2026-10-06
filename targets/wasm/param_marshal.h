@@ -80,6 +80,19 @@ struct ParamStreams {
 };
 
 /**
+ * @brief Traps when an effect exposes more params than ParamStreams reserves.
+ * @param effect Initialized effect whose live parameter count is checked.
+ * @details use_parameter_storage() lets an effect exceed ParamList's default
+ *          inline array, so the initialized effect's live count is the bound.
+ */
+inline void check_param_capacity(const Effect &effect) {
+  const size_t count = effect.getParameters().size();
+  HS_CHECK(count <= ParamStreams::CAPACITY,
+           "effect exposes %zu params, past the %zu reserved", count,
+           ParamStreams::CAPACITY);
+}
+
+/**
  * @brief Snapshot an effect's parameters into `out`, in definition order.
  * @param effect Effect whose getParameters() sequence defines the order.
  * @param out Destination vector, cleared then filled in definition order;
