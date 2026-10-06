@@ -142,9 +142,11 @@ class ProfileTreeLock(unittest.TestCase):
                 root = Path(directory)
                 lock = root / '.profile-lock'
                 lock.mkdir()
-                deadline = 1 if stale else 9999999999
-                (lock / 'info').write_text(f'token=peer\nstarted=1\ndeadline={deadline}\n')
+                dead_pid = subprocess.check_output(
+                    ['bash', '-c', 'echo $$'], text=True).strip()
+                owner = dead_pid if stale else '$$'
                 script = ('. "$1"\n'
+                          + f"printf 'token=peer\\npid=%s\\nstarted=1\\ndeadline=9999999999\\n' \"{owner}\" > \"$2/.profile-lock/info\"\n"
                           + 'TREE=$2; acquire_tree_lock\n'
                           + 'rc=$?; [ "$rc" != 0 ] || _hs_break_lock "$TREE_LOCK" "$TREE_TOKEN"; exit "$rc"\n')
                 result = subprocess.run(['bash', '-c', script, 'tree-lock-test',
