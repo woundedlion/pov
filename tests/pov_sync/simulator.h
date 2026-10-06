@@ -1175,7 +1175,7 @@ inline void test_sim_rev_wrap_within_effect() {
   }
 }
 
-// ── Scenario: same-tick EPOCH burst + boundary fold (§6.3.1 j-inference) ─────
+// ── Content protocol units: EPOCH burst + boundary fold (§6.3.1) ────────────
 
 /**
  * @brief Verifies §6.3.1 j-inference stays correct when an EPOCH burst is
