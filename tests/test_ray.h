@@ -200,7 +200,11 @@ inline void test_placement_and_shapes() {
       math::Vector(), math::Vector(sqrtf(3.0f) * 0.5f, 0.0f, 0.5f), {0, 10}};
   result = Raycast::surface_search(WARP_DOMAIN, DISPLACED_RAY, {});
   HS_EXPECT_EQ(result.status, Raycast::TraceStatus::SURFACE);
-  HS_EXPECT_NEAR(result.contribution.t, 1.770871f, 1e-4f);
+  const float HIT = result.contribution.t;
+  HS_EXPECT_TRUE(fabsf(HIT - 1.75f) > 1e-3f);
+  HS_EXPECT_TRUE(fabsf(WARPED.raw_distance(DISPLACED_RAY.at(HIT))) <= 1e-3f);
+  for (int k = 0; k < 64; ++k)
+    HS_EXPECT_TRUE(WARPED.distance(DISPLACED_RAY.at(HIT * k / 64.0f)) > 0.0f);
 }
 
 /** @brief Pins first boundary and tolerances. */
