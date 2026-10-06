@@ -65,7 +65,8 @@ inline float centered_sector_angle(float angle, float sector,
  * @param u Basis u axis.
  * @param w Basis w axis.
  * @param phase Azimuth phase offset (radians), added after the fold.
- * @return The azimuth folded into [0, 2*PI), offset by phase.
+ * @return The azimuth folded into [0, 2*PI], then offset by phase.
+ * A tiny negative angle may round to exactly 2*PI during the fold.
  */
 __attribute__((always_inline)) inline float basis_azimuth(const math::Vector &p,
                                                           const math::Vector &u,
