@@ -41,10 +41,11 @@ python -m unittest discover -s tools/teensy_gate_tests
 
 ## Fixture provenance
 
-The `good_*` and `broken_*` addresses, sizes and mangled names are hand-built to
-match the Teensy 4 memory map and the real source symbols rather than taken from
-a firmware link. The `broken_*` set stays hand-built by construction: it encodes
-link outcomes a real build never produces.
+The `good_*` and `broken_*` addresses and mangled names are hand-built to match
+the Teensy 4 memory map and the real source symbols rather than taken from a
+firmware link. Their sizes are illustrative: used and free figures need not sum
+to the region totals. The `broken_*` set stays hand-built by construction: it
+encodes link outcomes a real build never produces.
 
 The `real/*` fixtures are verbatim output from actual `[env:holosphere]` and
 `[env:phantasm]` builds (`teensy_size`, `readelf -sW`/`-SW`, `size -A`,
