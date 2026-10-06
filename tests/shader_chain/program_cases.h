@@ -549,11 +549,16 @@ inline void test_shader_chain_catalog_shape() {
     return catalog.find(needle) != std::string::npos;
   };
   HS_EXPECT_TRUE(contains("\"catalog_version\":2"));
-  HS_EXPECT_TRUE(contains("\"budgets\":{\"max_chain_ops\":32,"
-                          "\"arena_bytes\":98304,\"max_params\":224,"
-                          "\"max_instance_id_length\":48,"
-                          "\"per_op_overhead_bytes\":49,"
-                          "\"per_param_name_bytes\":81}"));
+  const std::string budgets =
+      "\"budgets\":{\"max_chain_ops\":" + std::to_string(In::MAX_CHAIN_OPS) +
+      ",\"arena_bytes\":" + std::to_string(In::CHAIN_ARENA_BYTES) +
+      ",\"max_params\":" + std::to_string(In::MAX_CHAIN_PARAMS) +
+      ",\"max_instance_id_length\":" + std::to_string(In::MAX_INSTANCE_ID) +
+      ",\"per_op_overhead_bytes\":" +
+      std::to_string(In::PER_OP_OVERHEAD_BYTES) +
+      ",\"per_param_name_bytes\":" + std::to_string(In::PER_PARAM_NAME_BYTES) +
+      "}";
+  HS_EXPECT_TRUE(contains(budgets.c_str()));
   HS_EXPECT_TRUE(
       contains("\"carriers\":[\"sphere\",\"plane\",\"field\",\"color\"]"));
   HS_EXPECT_TRUE(contains("\"id\":\"sphere.rotate.v2\""));
