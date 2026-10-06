@@ -70,10 +70,8 @@
 // code that executes from cached flash without telling the optimizer it is
 // cold. HS_COLD_MEMBER names the setup-only use; HS_FLASH_MEMBER also supports
 // explicitly measured code placement. On the -Os device image both use
-// HS_O3_FN. HS_FLASH_INLINE is the
-// variant for a free function declared `inline`, which GCC's -Wattributes
-// rejects the noinline on; `cold` alone still supplies the .text.unlikely.*
-// section, and a variadic [[noreturn]] body is not an inline candidate anyway.
+// HS_O3_FN. HS_FLASH_INLINE omits noinline so free functions remain inlinable
+// and compatible with always_inline; cold supplies the .text.unlikely.* section.
 // ---------------------------------------------------------------------------
 #if defined(__GNUC__) && !defined(__clang__)
 #define HS_COLD FLASHMEM __attribute__((noinline, noclone))
