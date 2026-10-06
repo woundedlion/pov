@@ -810,7 +810,6 @@ struct EdgeFadeShade {
    * @return The sample with its color faded near the edges.
    */
   Color4 shade(Color4 c, float t) const {
-    // 16-bit linear black: a CRGB blends in 8-bit sRGB and bands the fade.
     Pixel black(0, 0, 0);
     if (t < edge)
       return Color4(
