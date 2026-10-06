@@ -787,8 +787,9 @@ inline void test_feedback_north_cap_uses_exact_control_rows() {
   for (int y = 1; y < DOWNSAMPLE; ++y) {
     const auto expected =
         expected_feedback_source_row<W, H>(y, DOWNSAMPLE, style);
+    for (int x = 0; x < W; x += DOWNSAMPLE)
+      HS_EXPECT_NEAR(fx.get_pixel(x, y).r / ROW_SCALE, expected[x], 0.02f);
     const float sampled_y = fx.get_pixel(0, y).r / ROW_SCALE;
-    HS_EXPECT_NEAR(sampled_y, expected[0], 0.02f);
     const float offset = sampled_y - static_cast<float>(y);
     if (y == 1)
       first_offset = offset;
@@ -1271,12 +1272,15 @@ inline void test_feedback_cached_north_cap_clips_share_control_rows() {
     fx.advance_display();
   };
   // The reference is the exact target row; the lattice interpolates it.
+  // Column 0 sits on a polar sample; other columns interpolate between the
+  // ring's sparser samples.
   auto expect_rows = [&](int begin, int end) {
     for (int y = begin; y < end; ++y) {
       const auto expected =
           expected_feedback_source_row<W, H>(y, DOWNSAMPLE, style);
-      const float sampled_y = fx.get_pixel(0, y).r / ROW_SCALE;
-      HS_EXPECT_NEAR(sampled_y, expected[0], 0.03f);
+      HS_EXPECT_NEAR(fx.get_pixel(0, y).r / ROW_SCALE, expected[0], 0.03f);
+      for (int x = DOWNSAMPLE; x < W; x += DOWNSAMPLE)
+        HS_EXPECT_NEAR(fx.get_pixel(x, y).r / ROW_SCALE, expected[x], 0.25f);
     }
   };
 
