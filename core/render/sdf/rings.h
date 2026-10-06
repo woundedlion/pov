@@ -504,9 +504,8 @@ public:
    * @param sin_polar sqrtf(max(1 - d * d, POLE_SIN2_FLOOR)).
    * @param t_norm Pixel azimuth in [0, 1), phase applied.
    * @param res Output result. Wherever the stroke can light (dist < 0) it is
-   *        identical to distance<true>() except for undisplaced rings, which
-   *        take the exact polar distance (the zero-knot polyline agrees only to
-   *        within an ulp); elsewhere dist is only known to be non-negative.
+   *        equal to distance<true>() to float rounding; elsewhere dist is only
+   *        known to be non-negative.
    * @pre The ring is in knot mode.
    * @details Skips the chunk prefilter.
    */
