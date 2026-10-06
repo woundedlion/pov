@@ -37,6 +37,10 @@ inline void test_shader_chain_refusal_shape() {
   program.prepare(ctx);
   std::array<Color4, 14> baseline;
   snapshot_render(program, ctx, baseline);
+  const auto camera_before = state_as<In::Op::SpatialWalkState>(program, 0);
+  const auto source_before = state_as<In::Op::SourceClockState>(program, 2);
+  const auto color_before = state_as<In::Op::ColorClockState>(program, 3);
+  HS_EXPECT_GT(source_before.primary, 0.0f);
 
   expect_refusal(program, {}, In::ChainStatus::EMPTY, -1, ctx, baseline);
 
@@ -96,11 +100,28 @@ inline void test_shader_chain_refusal_shape() {
                  baseline);
 
   // State continuity: the shape refusals above left every clock untouched.
+  const auto &camera = state_as<In::Op::SpatialWalkState>(program, 0);
+  HS_EXPECT_EQ(std::memcmp(&camera.position, &camera_before.position,
+                           sizeof(math::Vector)),
+               0);
+  HS_EXPECT_EQ(std::memcmp(&camera.direction, &camera_before.direction,
+                           sizeof(math::Vector)),
+               0);
+  HS_EXPECT_EQ(std::memcmp(&camera.wander, &camera_before.wander,
+                           sizeof(math::Quaternion)),
+               0);
+  HS_EXPECT_EQ(camera.angular_velocity, camera_before.angular_velocity);
+  HS_EXPECT_EQ(camera.spin_phase, camera_before.spin_phase);
+  HS_EXPECT_EQ(camera.walk_time, camera_before.walk_time);
+  HS_EXPECT_EQ(camera.noise_seed, camera_before.noise_seed);
   const auto &source = state_as<In::Op::SourceClockState>(program, 2);
-  const float speed = param_as<In::Op::GridSampleParams>(program, 2).speed;
-  HS_EXPECT_GT(speed, 0.0f);
-  HS_EXPECT_EQ(source.primary,
-               fmodf(fmodf(speed, math::TWO_PI_F) + speed, math::TWO_PI_F));
+  HS_EXPECT_EQ(source.primary, source_before.primary);
+  HS_EXPECT_EQ(source.secondary, source_before.secondary);
+  HS_EXPECT_EQ(source.angle, source_before.angle);
+  const auto &color = state_as<In::Op::ColorClockState>(program, 3);
+  HS_EXPECT_EQ(color.hue_noise_seed, color_before.hue_noise_seed);
+  HS_EXPECT_EQ(color.oscillation_phase, color_before.oscillation_phase);
+  HS_EXPECT_EQ(color.hue_noise_phase, color_before.hue_noise_phase);
   program.clear();
 }
 
