@@ -17,8 +17,7 @@
 /**
  * @brief Represents a customizable path.
  * @tparam RESOLUTION Capacity of the internal point ring buffer.
- * @details Stores sampled points in a fixed ring buffer; Motion samples it
- * through get_point().
+ * @details Stores sampled points in a fixed ring buffer.
  */
 template <int RESOLUTION = 1024> class Path {
 public:
@@ -40,8 +39,7 @@ public:
                        ScalarFn easing) {
     // samples >= 1 also keeps the t / samples divide below non-zero.
     HS_CHECK(samples >= 1, "Path: samples must be positive");
-    // Account for the pop_back below: a non-empty path drops its last point
-    // before appending samples + 1, so the final size is (size - 1) + samples + 1.
+    // A non-empty path drops its last point before appending samples + 1.
     size_t retained = points.is_empty() ? points.size() : points.size() - 1;
     HS_CHECK(retained + static_cast<size_t>(samples) + 1 <= RESOLUTION,
              "Path: retained samples exceed resolution");
@@ -63,8 +61,7 @@ public:
   math::Vector get_point(float t) const {
     if (points.is_empty())
       return math::Vector(0, 0, 0);
-    // Clamp: a negative t makes raw_index negative, and casting that to size_t
-    // is UB (t > 1 is caught by the i >= size-1 guard below, t < 0 is not).
+    // Clamp: a negative raw_index cast to size_t is UB.
     t = hs::clamp(t, 0.0f, 1.0f);
     float raw_index = t * (points.size() - 1);
     size_t i = static_cast<size_t>(raw_index);
@@ -80,8 +77,7 @@ public:
    * @brief Collapses the path to its newest point only.
    */
   void collapse() {
-    // Clear in place rather than assigning a fresh buffer: a full
-    // StaticCircularBuffer temporary (~12.3 KB) overflows the WASM 8 KB stack.
+    // Clear in place: a full buffer temporary overflows the WASM stack.
     if (points.size() > 1) {
       math::Vector last = points.back();
       points.clear();
@@ -95,7 +91,7 @@ private:
 
 /**
  * @brief Represents a path defined by a single procedural function.
- * @details Matches the interface of Path for use in Motion animations.
+ * @details Exposes the same get_point() interface as Path.
  */
 struct ProceduralPath {
   PlotFn f; /**< The procedural function mapping t to a point. */
@@ -128,13 +124,9 @@ namespace Animation {
  * @param max_angle Per-column smoothness threshold in radians.
  * @return Sub-step count, clamped to [1, MAX_SUBSTEPS] (tight ceil in range, no
  * extra subdivision).
- * @details The caller upsamples the orientation trail to (result + 1) frames,
- * so the loop's (len-1) sub-intervals each stay <= max_angle. Shared by Motion
- * and Rotation so both size the trail identically for the same angle.
- * @note The upper clamp keeps the float->int conversion defined for an
- * arbitrarily large sweep; the result saturates instead, mirroring
- * Orientation::upsample's soft degrade past capacity (the caller clamps again to
- * its own trail capacity). A NaN or non-positive quotient yields 1.
+ * @details The caller upsamples the orientation trail to (result + 1) frames.
+ * @note The upper clamp keeps the float->int conversion defined. A NaN or
+ * non-positive quotient yields 1.
  */
 inline int rotation_substeps(float angle, float max_angle) {
   constexpr float MAX_SUBSTEPS = 4096.0f;
@@ -152,9 +144,7 @@ inline int rotation_substeps(float angle, float max_angle) {
  */
 template <int W, int CAP = 4>
 class Motion : public AnimationBase<Motion<W, CAP>> {
-  // Interpolates across (len-1) sub-intervals, len <= CAP. CAP == 1 collapses to
-  // len == 1: zero sub-intervals (Motion's loop never runs, Rotation divides by
-  // zero).
+  // Interpolates across (len-1) sub-intervals, len <= CAP.
   static_assert(CAP >= 2, "Motion requires an Orientation capacity >= 2");
 
 public:
@@ -170,8 +160,6 @@ public:
    *       outlive this Motion; a temporary is rejected at compile time (the
    *       rvalue overload is deleted).
    */
-  // No ctor emptiness guard: P is generic, and a borrowed path may still be
-  // filled after construction. step() traps on an origin sample instead.
   template <typename P>
   Motion(math::Orientation<CAP> &orientation, const P &path_obj, int duration,
          bool repeat = false, Space space = Space::World)
@@ -179,13 +167,12 @@ public:
         orientation(orientation),
         path_fn([&path_obj](float t) { return path_obj.get_point(t); }),
         space(space) {
-    // Reject the perpetual -1 the base permits: step() samples path_fn(t/duration),
-    // so a -1 duration walks the path at negative, decreasing parameters.
+    // Reject the perpetual -1 the base permits: step() samples
+    // path_fn(t/duration).
     HS_CHECK(duration >= 0, "Motion duration must be >= 0");
   }
 
-  // Borrow contract: path_fn captures &path_obj and reads it every frame, so the
-  // path must outlive the timeline — reject a temporary at compile time.
+  // path_fn borrows path_obj, so a temporary is rejected.
   template <typename P,
             typename = std::enable_if_t<!std::is_lvalue_reference_v<P>>>
   Motion(math::Orientation<CAP> &orientation, P &&path_obj, int duration,
@@ -219,14 +206,8 @@ public:
   /**
    * @brief Live-updates the traversal duration (frames per path loop).
    * @param frames New duration in frames; any value below 1 is clamped to 1.
-   * @details Clamps to 1 to avoid a divide-by-zero (0) or backward walk
-   * (negative). A changed duration rescales the elapsed `t` so the path
-   * parameter t/duration is preserved: without it, shortening the duration
-   * below the current position makes done() true at once, so Timeline rewinds
-   * the motion mid-traversal and fires post_callback() an extra time. The
-   * rescale also reanchors the baseline (see reanchor()): the carried
-   * prev_frame was sampled under the old parameterization, so the next delta
-   * would otherwise teleport the Orientation.
+   * @details A changed duration rescales the elapsed `t` so the path parameter
+   * t/duration is preserved, and reanchors the baseline.
    */
   void set_duration(int frames) {
     int clamped = (frames < 1 ? 1 : frames);
@@ -257,10 +238,8 @@ public:
   void step(Canvas &canvas) override {
     AnimationBase<Motion<W, CAP>>::step(canvas);
 
-    // Motion advances the Orientation by RELATIVE deltas only, so it composes
-    // with any co-driver of the same Orientation. Each delta's frame is a pure
-    // function of the path parameter (see path_frame), so deltas telescope
-    // drift-free.
+    // Relative deltas only, so Motion composes with any co-driver of the same
+    // Orientation.
     float t_prev = static_cast<float>(this->t - 1);
     math::Vector current_v = path_fn(t_prev / this->duration);
     float t_curr = static_cast<float>(this->t);
@@ -275,10 +254,8 @@ public:
     orientation.get().upsample(num_steps + 1);
     int len = orientation.get().length();
 
-    // Baseline = the frame Motion last drove to, carried across frames. At a
-    // repeat seam the carried baseline makes the first delta a relative jump-back
-    // a co-driver rides along. The i==0 delta is identity, so the loop starts at
-    // i==1.
+    // Baseline = the frame Motion last drove to, carried across frames and the
+    // repeat seam. The i==0 delta is identity.
     if (!have_prev_frame) {
       prev_frame = path_frame(t_prev / this->duration);
       have_prev_frame = true;
@@ -339,8 +316,7 @@ private:
   static constexpr float MAX_ANGLE =
       2 * math::PI_F /
       W; /**< Maximum rotation angle per step to ensure smoothness. */
-  /** Forward step (in path-parameter space) used to finite-difference the
-   * travel tangent in path_frame(). Fixed so the frame is a pure function of s. */
+  /** Path-parameter step for the finite-difference travel tangent. */
   static constexpr float FRAME_TANGENT_H = 1e-3f;
   std::reference_wrapper<math::Orientation<CAP>>
       orientation; /**< Reference to the Orientation state. */
@@ -359,8 +335,7 @@ private:
  */
 template <int W, int CAP = 4>
 class Rotation : public AnimationBase<Rotation<W, CAP>> {
-  // CAP == 1 collapses len to 1 and makes step_angle = delta / (len - 1) a
-  // divide-by-zero; at least two sub-frames are required (see Motion).
+  // CAP == 1 makes step_angle = delta / (len - 1) a divide-by-zero.
   static_assert(CAP >= 2, "Rotation requires an Orientation capacity >= 2");
 
 public:
@@ -376,10 +351,7 @@ public:
   /**
    * @brief Constructs a Rotation animation.
    * @param orientation The Orientation object to update.
-   * @param axis The rotation axis; normalized here so a non-unit axis cannot
-   *        silently skew the angle (make_rotation's trailing normalize folds a
-   *        length-L axis into tan(φ/2) = L·tan(θ/2), rotating by the wrong
-   *        amount with no visual tell). A zero axis traps in normalized().
+   * @param axis The rotation axis; normalized here. A zero axis traps.
    * @param angle The total rotation angle in radians.
    * @param duration The duration in frames.
    * @param easing_fn The easing function to use.
@@ -440,11 +412,8 @@ public:
         easing_fn(static_cast<float>(this->t) / this->duration) * total_angle;
     float delta = target_angle - last_angle;
 
-    // Sub-threshold increments accumulate across a multi-frame sweep: last_angle
-    // persists until the sum crosses MIN_STEP_ANGLE. The last frame has no
-    // successor to accumulate into — rewind() would discard the residual, so a
-    // repeat slips it every cycle — and neither does a one-shot (duration 1,
-    // the animate() path), so both apply unconditionally.
+    // Sub-threshold increments accumulate until the sum crosses MIN_STEP_ANGLE;
+    // the last frame and a one-shot apply unconditionally.
     if (this->duration > 1 && this->t < static_cast<uint32_t>(this->duration) &&
         std::abs(delta) < MIN_STEP_ANGLE) {
       return;
@@ -578,18 +547,14 @@ struct RandomWalkDelta {
  * @param options Walk tuning.
  * @param t Frame counter, incremented by the caller before this call.
  * @return The axis the step advanced about and the rotation it applied.
- * @details The single definition of the walk recurrence: RandomWalk drives an
- * Orientation from it, and the chain interpreter's spin-and-wander operators
- * accumulate its delta directly.
  */
 template <bool STABLE_ROTATION>
 __attribute__((always_inline)) inline RandomWalkDelta
 step_random_walk(math::Vector &position, math::Vector &direction,
                  float &angular_velocity, FastNoiseLite &noise,
                  const RandomWalkOptions &options, uint32_t t) {
-  // noise_scale is applied once via SetFrequency() by the caller; the 100x is a
-  // fixed base sample scale (scaling coords by noise_scale here too would make
-  // the spatial frequency quadratic in it).
+  // noise_scale is applied by the caller via SetFrequency(); 100x is a fixed
+  // base sample scale.
   // Past t == 2^24 (~77 h at 60 fps), float cannot distinguish every
   // consecutive frame, regardless of drift speed.
   const float target_pivot =
@@ -631,8 +596,7 @@ step_random_walk(math::Vector &position, math::Vector &direction,
  *          motion.
  *
  * PERPETUAL (duration -1, no repeat or self-reset): reaches done() only through
- * cancel(), which also fires any `.then()` callback. Drive follow-on behavior from a finite animation, or cancel()
- * the walk explicitly.
+ * cancel(), which also fires any `.then()` callback.
  * @tparam W The width of the LED display.
  * @tparam CAP Orientation sub-frame capacity.
  */
@@ -646,10 +610,8 @@ public:
    * @param orientation The Orientation object to update.
    * @param v_start The starting direction vector.
    * @param noise External noise generator (caller owns lifetime). The walk
-   *   takes exclusive control of its type, frequency, and seed; a generator
-   *   shared with another owner that re-configures it (e.g. an
-   *   Animation::NoiseParams whose sync() runs every frame) overrides
-   *   `options.noise_scale`. set_noise_scale() re-asserts it.
+   *   sets its type, frequency, and seed; another owner that re-configures it
+   *   overrides `options.noise_scale` until set_noise_scale().
    * @param options Configuration options.
    * @param seed Noise seed; 0 selects a random seed.
    */
@@ -676,8 +638,7 @@ public:
   /**
    * @brief Live-updates the per-frame movement speed (e.g. from a GUI slider).
    * @param new_speed The new per-frame movement speed; a non-finite value is
-   *   ignored, keeping the last good speed (it would poison v and direction
-   *   permanently).
+   *   ignored, keeping the last good speed.
    */
   void set_speed(float new_speed) {
     if (std::isfinite(new_speed))
@@ -686,8 +647,7 @@ public:
 
   /**
    * @brief Sets the noise frequency and pushes it to the bound generator.
-   * @param new_scale The new spatial frequency; a non-finite value is ignored
-   *   (it would poison every noise sample).
+   * @param new_scale The new spatial frequency; a non-finite value is ignored.
    * @details Also the way to re-assert the frequency on a generator shared with
    *   another owner.
    */
@@ -739,7 +699,7 @@ public:
 
 private:
   std::reference_wrapper<math::Orientation<CAP>>
-      orientation;        /**< Reference to the global Orientation state. */
+      orientation;        /**< Reference to the Orientation state. */
   math::Vector v;         /**< Current forward direction vector. */
   math::Vector direction; /**< Current pivoting direction (orthogonal to v). */
   Options options;        /**< Configuration options. */
