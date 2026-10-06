@@ -1152,6 +1152,7 @@ inline void test_gs_signed_coverage_and_concentration() {
       continue;
     const auto ERROR =
         GSWhiteBox::concentration_shader_error<DEFAULT_W, DEFAULT_H>(gs);
+    HS_EXPECT_GT(ERROR.lit, DEFAULT_W * DEFAULT_H / 100);
     HS_EXPECT_EQ(ERROR.coverage, 0);
     HS_EXPECT_LE(ERROR.max_channel, 6000);
     HS_EXPECT_LE(ERROR.total_channel,
@@ -1190,6 +1191,7 @@ inline void test_gs_nearest_pigment_shader_fidelity() {
       continue;
     const auto ERROR = GSWhiteBox::shared_shader_error<DEFAULT_W, DEFAULT_H>(
         gs, true, true, false);
+    HS_EXPECT_GT(ERROR.lit, DEFAULT_W * DEFAULT_H / 100);
     HS_EXPECT_LE(ERROR.coverage, MAX_COVERAGE_DIFFERENCES);
     HS_EXPECT_LE(ERROR.max_channel, 22000);
     HS_EXPECT_LE(ERROR.total_channel,
@@ -1197,6 +1199,7 @@ inline void test_gs_nearest_pigment_shader_fidelity() {
     HS_EXPECT_LE(ERROR.hard * 10, ERROR.lit);
     const auto ROUNDING = GSWhiteBox::shared_shader_error<DEFAULT_W, DEFAULT_H>(
         gs, true, false, true, true, true);
+    HS_EXPECT_GT(ROUNDING.lit, DEFAULT_W * DEFAULT_H / 100);
     HS_EXPECT_LE(ROUNDING.coverage, MAX_COVERAGE_DIFFERENCES);
     HS_EXPECT_LE(ROUNDING.max_channel, 2048);
     HS_EXPECT_LE(ROUNDING.total_channel,
@@ -1204,6 +1207,7 @@ inline void test_gs_nearest_pigment_shader_fidelity() {
     const auto AGGREGATE =
         GSWhiteBox::shared_shader_error<DEFAULT_W, DEFAULT_H>(gs, true, false,
                                                               true, false);
+    HS_EXPECT_GT(AGGREGATE.lit, DEFAULT_W * DEFAULT_H / 100);
     std::printf(
         "GS nearest pigment frame=%d procedural_mae=%.2f procedural_max=%d "
         "aggregate_mae=%.2f aggregate_max=%d rounding_max=%d\n",
@@ -1279,6 +1283,7 @@ inline void test_gs_nearest_pigment_shader_matches_scalar_reference() {
       continue;
     auto error = GSWhiteBox::shared_shader_error<DEFAULT_W, DEFAULT_H>(
         gs, true, false, true, true, true);
+    HS_EXPECT_GT(error.lit, DEFAULT_W * DEFAULT_H / 100);
     HS_EXPECT_EQ(error.coverage, 0);
     HS_EXPECT_LE(error.max_channel, 2048);
     HS_EXPECT_LE(error.total_channel, static_cast<uint64_t>(error.lit) * 3u);
