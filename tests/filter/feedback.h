@@ -4,7 +4,7 @@
  */
 
 // ============================================================================
-// Pixel::Feedback — Style binding + enable flag (no flush / no Canvas)
+// Pixel::Feedback — Style binding and plot passthrough (no flush / no Canvas)
 // ============================================================================
 
 /**
