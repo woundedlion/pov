@@ -636,7 +636,14 @@ add_executable(arena_measure
   ${CMAKE_CURRENT_SOURCE_DIR}/arena_measure.cpp
   ${HS_ENGINE_SOURCES})
 target_link_libraries(arena_measure PRIVATE hs_host_effect_runtime)
-target_compile_definitions(arena_measure PRIVATE HS_INLINE_PARAM_CAPACITY=16)
+file(READ ${HS_ROOT}/core/platform/build_features.h _hs_build_features)
+if(NOT _hs_build_features MATCHES
+   "#if defined\\(ARDUINO\\)\r?\n#define HS_INLINE_PARAM_CAPACITY ([0-9]+)\r?\n")
+  message(FATAL_ERROR "core/platform/build_features.h no longer states the "
+    "device HS_INLINE_PARAM_CAPACITY that arena_measure models")
+endif()
+target_compile_definitions(arena_measure PRIVATE
+  HS_INLINE_PARAM_CAPACITY=${CMAKE_MATCH_1})
 target_include_directories(arena_measure PRIVATE ${HS_ENGINE_INCLUDES})
 target_compile_options(arena_measure PRIVATE -Os -ffast-math -fno-finite-math-only)
 _hs_warnings(arena_measure)
