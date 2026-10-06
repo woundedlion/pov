@@ -3,14 +3,9 @@
  * Licensed under the PolyForm Noncommercial License 1.0.0
  *
  * Roster-wide effect sweeps: smoke, cross-run determinism, clip-clear parity
- * and paused rendering.
- *
- * These passes use no fixed IEEE reference values. Assertions are same-binary
- * comparisons or coarse properties (lit, moving, aliased). This is the effects
- * coverage the -ffast-math -fno-finite-math-only axis can run, which is the flag
- * pair both shipping targets build with (platformio.ini, CMakeLists.txt). The
- * white-box block in tests/test_effects.h checks against fixed references and
- * stays excluded from that axis.
+ * and paused rendering. Assertions are same-binary comparisons or coarse
+ * properties with no fixed IEEE reference values, so the module runs on the
+ * -ffast-math -fno-finite-math-only axis.
  */
 #pragma once
 
@@ -61,11 +56,8 @@ inline void test_every_effect_renders_while_paused() {
 /**
  * @brief Module entry point for the roster-wide effect sweeps.
  * @return Module result code from hs_test::end_module (0 on success).
- * @details Runs the smoke and determinism passes over every registered effect at
- * the small-aspect resolution, then the clip-clear parity and paused-render sweeps. The FULL tier
- * (HS_EFFECTS_FULL=1; CI on every master push and PR) adds the same smoke, determinism, and paused-render
- * passes at the 288x144 production resolution, which are the bulk of the cost —
- * full-frame software raster over 41,472-pixel frames.
+ * @details HS_EFFECTS_FULL=1 adds the smoke, determinism and paused-render
+ * passes at the 288x144 production resolution.
  */
 inline int run_effects_smoke_tests() {
   hs_test::ModuleFixture fixture("effects_smoke");

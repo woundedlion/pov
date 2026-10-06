@@ -2,11 +2,8 @@
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
  * Licensed under the PolyForm Noncommercial License 1.0.0
  *
- * Per-module fixture for the canonical process-global state. Tests mutate
- * process-wide singletons (the arena split, the shared Timeline event array and
- * frame cursor, the RNG); reset_globals() restores them to a known baseline so
- * module independence does not rest on every test hand-restoring what it
- * touched. ModuleFixture pairs the harness scope with that reset on entry.
+ * Per-module fixture that resets process-global state (arena split, shared
+ * Timeline, RNG, mock clock) to a known baseline.
  */
 #pragma once
 
@@ -23,9 +20,8 @@ namespace hs_test {
 
 /**
  * @brief Default per-effect frame count for every roster sweep.
- * @details Local sweeps default to 8 frames; CI sets HS_SMOKE_FRAMES=120
- * (.github/workflows/ci.yml). Effect smoke/determinism passes and arena/stack
- * budget gates resolve their base render window through smoke_frames().
+ * @details Overridden by HS_SMOKE_FRAMES; CI requires at least
+ * CI_MIN_SMOKE_FRAMES.
  */
 constexpr int DEFAULT_SMOKE_FRAMES = 8;
 constexpr int CI_MIN_SMOKE_FRAMES = 120;
@@ -67,9 +63,7 @@ inline bool require_ci_smoke_frames() {
 
 /**
  * @brief Per-frame clock advance in milliseconds for the roster sweeps (~30fps).
- * @details Identical across runs, so frame-to-frame animation driven by
- * hs::millis/micros or beatsin* is reproduced exactly rather than tracking the
- * wall clock.
+ * @details Fixed cadence, so clock-driven animation reproduces exactly.
  */
 constexpr unsigned long FRAME_MS = 33;
 /**
@@ -100,19 +94,14 @@ struct StubEffect : public Effect {
    */
   StubEffect(int w, int h) : Effect(w, h) {}
   /**
-   * @brief Per-frame draw hook; a no-op for every user of this fixture.
+   * @brief Per-frame draw hook; a no-op.
    */
   void draw_frame() override {}
 };
 
 /**
  * @brief Resets the canonical process-global state to a known baseline.
- * @details Restores the default arena split, clears the shared Timeline (events
- * and frame cursor), reseeds the RNG to the device-matching seed, releases the
- * mock clock, and returns the pole-LOD knob and the scan counters to their
- * defaults. No Timeline may be live at the call site: the temporary clears
- * global event state through the singleton's clear() the same way the per-test
- * sites do.
+ * @details No Timeline may be live at the call site.
  */
 inline void reset_globals() {
   configure_arenas_default();
@@ -130,12 +119,8 @@ inline void reset_globals() {
  * @param lo Lower bound (inclusive).
  * @param hi Upper bound (inclusive through rounding).
  * @return A float in [lo, hi], bit-identical on every platform.
- * @details std::uniform_real_distribution's mapping from generator draws to
- * floats is implementation-defined, so the same seed yields a different sample
- * set per standard library and a failure seen on one CI runner cannot be
- * reproduced on another. The integer draw is mapped here explicitly instead.
- * Draw one component at a time: argument evaluation order is unspecified, so a
- * multi-argument constructor call would reorder the stream per compiler.
+ * @details Draw one component at a time: argument evaluation order is
+ * unspecified, so a multi-argument call reorders the stream per compiler.
  */
 inline float rand_uniform(hs::Pcg32 &rng, float lo, float hi) {
   return lo + hs::random_to_unit(rng(), hs::Pcg32::max()) * (hi - lo);
@@ -143,9 +128,8 @@ inline float rand_uniform(hs::Pcg32 &rng, float lo, float hi) {
 
 /**
  * @brief Module scope that resets canonical global state on entry.
- * @details Constructed at the top of a module's run_*_tests(); resets the shared
- * singletons before any test runs and forwards begin_module/end_module so the
- * module still reports its pass/fail delta. Use result() as the module return.
+ * @details Construct at the top of a module's run_*_tests() and return
+ * result().
  */
 struct ModuleFixture {
   ModuleScope scope; /**< Underlying harness scope for the pass/fail delta. */
