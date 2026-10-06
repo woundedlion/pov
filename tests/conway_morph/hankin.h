@@ -4,8 +4,7 @@
  */
 
 // ---------------------------------------------------------------------------
-// MeshOps::hankin topology probe across the registry hankin legs'
-// contact-angle range.
+// MeshOps::hankin topology probe over sampled recipe prefixes.
 // ---------------------------------------------------------------------------
 
 /** @brief One hankin-sweep leg seed and its arrival angle. */
@@ -37,9 +36,10 @@ inline constexpr HankinSweepSite HANKIN_SWEEP_SITES[] = {
 };
 
 /**
- * @brief Steps a hankin sweep on every hankin-leg seed, asserting
- *        constant raw and compiled face counts, two-face edge incidence, and Euler
- *        characteristic 2 at sampled angles from THETA_EPS to the arrival angle.
+ * @brief Checks topology over the sampled dodecahedron, dodecahedron_hk62_ambo,
+ *        octahedron and octahedron_hk17_ambo prefixes.
+ * @details Asserts constant raw and compiled face counts, two-face edge incidence
+ *        and Euler characteristic 2 from THETA_EPS to each arrival angle.
  */
 inline void test_hankin_sweep_on_islamic_seeds_holds_topology() {
   constexpr int SAMPLES = 17;
