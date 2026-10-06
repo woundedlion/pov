@@ -406,7 +406,9 @@ def _oracle_metric_map(capture: dict, oracles: list[dict]) -> dict:
             or not isinstance(metric["unit"], str)
             or not metric["unit"]
             or not isinstance(metric["resolution_values"], dict)
-            or set(metric["resolution_values"]) != {"96x20", "288x144"}
+            or set(metric["resolution_values"]) != {
+                f"{w}x{h}" for w, h in capture["corpus"]["resolutions"]
+            }
             or any(
                 type(value) is not int or value < 0
                 for value in metric["resolution_values"].values()
