@@ -2,9 +2,7 @@
 """Check that every tracked C/C++ source carries the license header LICENSE grants it.
 
 LICENSE grants PolyForm Noncommercial to everything outside `effects/` and
-reserves all rights over `effects/`, with a named exception list. A header that
-disagrees with LICENSE is what a licensee acts on, so the two are gated against
-each other here.
+reserves all rights over `effects/`, with a named exception list.
 
 Scope is C/C++ sources; other files may carry the header but are ungated.
 """
@@ -36,9 +34,8 @@ _GIT_TIMEOUT_SECONDS = 30
 HEAD_BYTES = 600
 
 # Paths LICENSE names as carrying their own terms, each with the marker its
-# header must hold. A directory prefix covers everything beneath it. Every entry
-# names a marker: an exempt path asserts nothing, so stripping its banner would
-# pass. core/vendor/FastNoiseLite_config.h is first-party and is not here.
+# header must hold. A directory prefix covers everything beneath it.
+# core/vendor/FastNoiseLite_config.h is first-party and is not here.
 EXCEPTIONS = {
     "core/engine/effects_legacy.h": RESERVED,
     "workbench/": RESERVED,
@@ -52,10 +49,8 @@ UPSTREAM_HOLDERS = {
     "core/vendor/FastNoiseLite.h": ("Jordan Peck", "Contributors"),
 }
 
-# Markers that cannot stand beside each other: a header granting PolyForm while
-# reserving all rights tells a licensee two incompatible things, and so does a
-# third-party header carrying either. The two MIT markers spell one grant, so
-# they do not contradict each other.
+# Markers that cannot stand beside each other. The two MIT markers spell one
+# grant, so they do not contradict each other.
 CONTRADICTIONS = {
     POLYFORM: (RESERVED, MIT_GRANT, MIT_TITLE),
     RESERVED: (POLYFORM, MIT_GRANT, MIT_TITLE),

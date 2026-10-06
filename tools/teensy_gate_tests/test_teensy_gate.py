@@ -1,11 +1,9 @@
 #!/usr/bin/env python3
 """Host tests for Teensy 4 size/layout, PlatformIO glue, and zero-warning gates.
 
-The gate must gate itself: a size/layout check that can never fail is worse than
-none (permanent false-green). So every layout invariant and region ceiling is
-proven to FAIL on a deliberately-broken fixture and PASS on the good one. These
-are plain stdlib `unittest` tests — no ARM toolchain, no PlatformIO — so they run
-in milliseconds in the existing CI test lane.
+Every layout invariant and region ceiling is proven to FAIL on a
+deliberately-broken fixture and PASS on the good one. No ARM toolchain or
+PlatformIO is required.
 
 Run:  python -m unittest discover -s tools/teensy_gate_tests
 """
@@ -793,8 +791,7 @@ class TestDerivedComponentCeiling(unittest.TestCase):
 
     @staticmethod
     def _budget():
-        # Region + component checks only; the layout symbols have their own
-        # test class (TestLayoutInvariantsFail).
+        # Region + component checks only.
         budget = copy.deepcopy(BUDGETS["phantasm"])
         budget.pop("symbols", None)
         (budget["regions"]["ram1"]["components"]["code"]
@@ -1091,8 +1088,7 @@ class TestColdCaptureAudit(unittest.TestCase):
     """A partially cached build must FAIL, not pass on a shrunken warning set.
 
     Every expected first-party translation unit must compile. The set is derived from
-    `build_src_filter` in PlatformIO's own banner, so it tracks a new TU or a new
-    environment with nothing to keep in sync.
+    `build_src_filter` in PlatformIO's own banner.
     """
 
     TUS = ("core/memory.cpp", "core/engine/static_storage.cpp",
@@ -1354,8 +1350,7 @@ class TestRealCapture(unittest.TestCase):
 
     def test_real_phantasm_dma_tx_buffer_is_in_ocram(self):
         # Spelled from the budget, so a linkage-name drift between the shipped
-        # budget and the captured ELF fails here instead of passing on a name
-        # only this test still knows.
+        # budget and the captured ELF fails here.
         name = BUDGETS["phantasm"]["symbols"]["dma_tx_buffer"]["name"]
         syms = tg.parse_readelf_symbols((REAL_DIR / "phantasm_readelf_syms.txt").read_text())
         led = next(s for s in syms if s.name == name)
@@ -1446,9 +1441,8 @@ class TestSizeAFallback(unittest.TestCase):
         self.assertIn("not calibrated", out.lower())
 
     def test_fallback_pass_exit_code_differs_from_a_calibrated_pass(self):
-        # The exit status is what an automated caller reads: an uncalibrated
-        # PASS must not be reportable as a real one, and must stay distinct from
-        # the cannot-run code so a guess is not confused with a tooling break.
+        # An uncalibrated PASS exits distinctly from both a calibrated PASS and
+        # cannot-run.
         rc_advisory, out_advisory = self._run_main_size_a(
             _size_a(0x10000, 0x40000, 0x70000, 0x20000),
             "good_readelf_syms.txt", "holosphere")
@@ -1609,9 +1603,7 @@ class TestStripJsoncComments(unittest.TestCase):
 class TestToolingFailureExits(unittest.TestCase):
     """A tooling break exits 2 (cannot-run), never 1 (budget violation).
 
-    An uncaught exception exits 1, which every status-reading caller reads as a
-    size regression — the misattribution the gate's exit contract exists to
-    prevent.
+    An uncaught exception would exit 1, the budget-violation code.
     """
 
     def _run(self, **over):
@@ -1658,8 +1650,8 @@ class TestToolingFailureExits(unittest.TestCase):
         self.assertEqual(rc, 2, msg=text)
 
     def test_unlisted_env_is_cannot_run(self):
-        # Same verdict tools/teensy_gate_extra.py gives: an env with no budget
-        # entry is a budgets-file error, not a size-budget violation.
+        # An env with no budget entry is a budgets-file error, not a size-budget
+        # violation.
         with tempfile.TemporaryDirectory() as tmp:
             path = Path(tmp) / "budgets.json"
             path.write_text(json.dumps({"phantasm": BUDGETS["phantasm"]}), encoding="utf-8")
@@ -1903,8 +1895,7 @@ class TestGateExtra(unittest.TestCase):
         self.assertNotIn("PASS", out)
 
     def test_size_a_fallback_pass_exits_advisory_not_zero(self):
-        # CI accepts the build on this status, so a bucketed guess must not
-        # report as a calibrated PASS.
+        # A bucketed guess must not report as a calibrated PASS.
         self.ge._find_teensy_size = lambda env: None
 
         def _run(args, check=True):

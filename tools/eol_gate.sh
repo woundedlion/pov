@@ -2,10 +2,8 @@
 # Assert every tracked file whose .gitattributes entry declares an `eol` value
 # actually carries those line endings, in the index blob and in the working copy.
 #
-# A working copy that diverged from its eol=lf blob -- checked out before the
-# attribute was added, or rewritten by a CRLF-emitting tool -- is invisible to
-# `git status`, so the shell, clang-format and mirror gates then read different
-# bytes locally than they do on a fresh checkout.
+# A working copy that diverged from its eol=lf blob is invisible to
+# `git status`.
 #
 # usage: eol_gate.sh [--fix-worktree]
 set -eu

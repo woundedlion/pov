@@ -1,18 +1,13 @@
 #!/usr/bin/env python3
 """Regenerate the host relax-bake asset (core/mesh/relax_bakes_generated.h).
 
-The bake payloads are produced on the host: the `relax_bake_gen` harness
-(tools/relax_bake_harness.cpp, built with HS_RELAX_BAKE_EXTRACT) runs every
-bake-bearing SolidBuilder recipe and logs a RELAX_BAKE block per payload. This
-script parses that stream and writes the generated header. Because host relax
-is deterministic, the emitted bits load unchanged on host and device; the
-`unit_relax_bake_verify` ctest (HS_RELAX_BAKE_VERIFY) re-derives them and asserts
-bit-exact equality, so a stale asset fails the suite.
+The `relax_bake_gen` harness (tools/relax_bake_harness.cpp, built with
+HS_RELAX_BAKE_EXTRACT) runs every bake-bearing SolidBuilder recipe and logs a
+RELAX_BAKE block per payload. This script parses that stream and writes the
+generated header.
 
-That gate covers the payload values only. `check` covers the file's form —
-banner, chunking, declaration layout — by re-emitting the header from a fresh
-dump and diffing the full text, so a legitimate regeneration cannot arrive
-buried in a reformat the emitter drifted into meanwhile.
+`check` covers the file's form — banner, chunking, declaration layout — by
+re-emitting the header from a fresh dump and diffing the full text.
 
 Usage:
     <build>/relax_bake_gen | python tools/relax_bakes.py emit --stdin

@@ -135,11 +135,9 @@ def compiled_paths(line: str) -> list[str]:
 def count_first_party_compiles(build_log: str) -> int:
     """Compiler invocations on first-party sources visible in the log.
 
-    The warning gate's green and a broken capture both yield an empty warning set, so
-    the comparison is only meaningful once the log is known to hold a build that
-    could have emitted first-party warnings at all. A third-party-only build
-    (FastLED, the Teensy core) is NOT evidence: those TUs cannot emit a warning
-    the warning gate would ever look at.
+    A clean build and a broken capture both yield an empty warning set, so the
+    comparison is only meaningful once the log holds a build that could have
+    emitted first-party warnings. A third-party-only build is NOT evidence.
     """
     n = 0
     for line in build_log.splitlines():
@@ -226,10 +224,8 @@ def parse_env_sections(build_log: str) -> list[EnvSection]:
 def declared_first_party_sources(section: EnvSection) -> set[str]:
     """The first-party translation units this env's `build_src_filter` selects.
 
-    Derived from PlatformIO's own banner, so adding a TU or an environment moves
-    the expectation with no second place to edit. A glob that could select a
-    first-party source is not countable from the log and raises rather than
-    silently lowering the bar.
+    Derived from PlatformIO's own banner. A glob that could select a first-party
+    source is not countable from the log and raises.
     """
     m = _SRC_FILTER_RE.search(section.header)
     if m is None:
@@ -331,10 +327,9 @@ def declared_environments(ini_path: str | Path) -> tuple[str, ...]:
 def read_build_log(path: str | Path) -> str:
     """Read a captured build log, replacing undecodable bytes.
 
-    A Windows `pio run -v 2>&1 | tee` interleaves cp1252 bytes into the stream.
-    A strict decode would raise out of main() and replace the warning gate's
-    exit-code contract with a traceback; the warning fingerprints this module
-    matches are ASCII, so a substituted byte cannot alter the set.
+    A Windows `pio run -v 2>&1 | tee` interleaves cp1252 bytes into the stream;
+    the warning fingerprints this module matches are ASCII, so a substituted
+    byte cannot alter the set.
     """
     return Path(path).read_text(encoding="utf-8", errors="replace")
 

@@ -1,9 +1,6 @@
 #!/usr/bin/env python3
 """Host tests for the per-commit size trail (tools/teensy_size_trail.py).
 
-Covers synthetic ELF parsing, collection, backfill, pending capture, record
-inputs and paths, trail storage, regression classification, and rendering.
-
 Run:  python -m unittest discover -s tools/teensy_gate_tests
 """
 
@@ -367,11 +364,7 @@ class RecordInputs(unittest.TestCase):
 
 
 class DefaultPaths(unittest.TestCase):
-    """The trail is shared by every worktree; the pending record is not.
-
-    The pending record holds one commit in flight: sharing it would let two
-    worktrees committing at once stamp each other's sizes onto the wrong sha.
-    """
+    """The trail is shared by every worktree; the pending record is not."""
 
     @staticmethod
     def _rev_parse(args, cwd=None):

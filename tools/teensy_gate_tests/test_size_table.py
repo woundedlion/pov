@@ -1,10 +1,8 @@
 #!/usr/bin/env python3
 """Host tests for the `just teensy-size` summary table (tools/teensy_size_table.py).
 
-Covers the wrapper's own logic — attributing teensy_size lines to the right env
-in a multi-env `pio run` log and rendering them side-by-side. The teensy_size
-line PARSING is teensy_gate.parse_teensy_size, already covered by
-test_teensy_gate.py.
+Covers attributing teensy_size lines to the right env in a multi-env `pio run`
+log and rendering them side-by-side.
 
 Run:  python -m unittest discover -s tools/teensy_gate_tests
 """

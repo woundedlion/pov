@@ -11,10 +11,8 @@
 
 namespace {
 
-// Budget: PALETTE_COUNT * LUT_SIZE * sizeof(Pixel) = 393,216 B of flash, about
-// a fifth of the Teensy flash budget in tools/teensy_budgets.json, and the same
-// again in the WASM data segment. Raising either dimension is a size-gate
-// decision, not a cosmetic one.
+// Budget: PALETTE_COUNT * LUT_SIZE * sizeof(Pixel) = 393,216 B of flash, and
+// the same again in the WASM data segment.
 constexpr int PALETTE_COUNT = 256;
 constexpr int LUT_SIZE = 256;
 

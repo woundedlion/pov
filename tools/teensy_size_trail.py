@@ -5,7 +5,7 @@ Reads ELF32 section sizes with stdlib struct; no PlatformIO or ARM tools require
 Shared local history lives at `$(git rev-parse --git-common-dir)/teensy-size-trail.tsv`;
 per-worktree staging lives at `$(git rev-parse --absolute-git-dir)/teensy-size-trail.pending.json`.
 
-`record` parses linked ELFs before committing (also run by `just teensy-size`).
+`record` parses linked ELFs before committing.
 The post-commit `commit` phase stamps pending sizes with HEAD, date and subject,
 appends one row per environment and removes the pending record.
 Subcommand failures report warnings and non-zero statuses that hooks swallow.
@@ -43,11 +43,7 @@ class ElfFormatError(ValueError):
 
 
 def parse_elf_section_sizes(data: bytes) -> dict[str, int]:
-    """Return {section name: summed sh_size} for an ELF32 little-endian image.
-
-    Section SIZES are the figure of interest; addresses are the gate's business
-    (teensy_gate.region_for_address), not the trail's.
-    """
+    """Return {section name: summed sh_size} for an ELF32 little-endian image."""
     if len(data) < _EHDR32_OFF + struct.calcsize(_EHDR32):
         raise ElfFormatError("file shorter than an ELF32 header")
     if data[:4] != _ELF_MAGIC:
@@ -241,13 +237,10 @@ def instant(date: str) -> datetime:
 def compute_deltas(rows: list[TrailRow]) -> list[Delta]:
     """Annotate trail rows with per-region deltas, comparing within an env.
 
-    Rows are ordered by committer date, not append order: `backfill` appends
-    commits older than everything the hooks already recorded, and comparing
-    those in append order reports every delta backwards. Ordering on the raw
-    `%cI` string would compare local wall clocks, so rows recorded under two
-    UTC offsets (a DST shift, a travelling committer) can invert a delta pair
-    and blame the commit that shrank; sort on the parsed instant instead. The
-    sort is stable, so same-instant rows keep append order.
+    Rows are ordered by the parsed committer instant, not append order
+    (`backfill` appends older commits) and not the raw `%cI` string (which
+    compares local wall clocks across UTC offsets). The sort is stable, so
+    same-instant rows keep append order.
     """
     rows = sorted(rows, key=lambda r: instant(r.date))
     previous: dict[str, TrailRow] = {}
@@ -278,8 +271,7 @@ def find_regressions(rows: list[TrailRow], *, min_delta: int = 1,
                      region: str | None = None) -> list[Regression]:
     """Every (commit, env, region) whose size grew by >= min_delta, largest first.
 
-    A first row for an env has no predecessor and so is never a regression:
-    reporting its whole size as growth would bury every real one.
+    A first row for an env has no predecessor and so is never a regression.
     """
     wanted = REGIONS if region is None else (region,)
     out: list[Regression] = []
@@ -363,7 +355,7 @@ def collect(build_dir: str | Path, envs: tuple[str, ...],
     """Parse each environment's linked ELF under build_dir.
 
     An environment that did not build, or whose ELF will not parse, is warned
-    about and skipped — a partial record beats no record.
+    about and skipped.
     """
     root = Path(build_dir)
     found: dict[str, dict[str, int]] = {}
@@ -438,9 +430,8 @@ def cmd_commit(args) -> int:
               f"discarding it.", file=sys.stderr)
         pending.unlink(missing_ok=True)
         return 1
-    # A readable capture is the product of a full firmware build and belongs to
-    # the commit it was taken against, so a trail that cannot be written leaves
-    # it in place to be retried rather than throwing it away.
+    # A trail that cannot be written leaves the readable capture in place to be
+    # retried.
     try:
         sha, date, subject = head_stamp(args.repo, args.rev)
         if not payload.get("tree") or _git(

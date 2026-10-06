@@ -7,12 +7,7 @@
  * segment's arm side, LED-0 row, strip direction and full row traversal, plus
  * the arm-A/arm-B sampled column and segment_clip bands per canvas width.
  *
- * The committed hardware/pov_segment_map.json is diffed against this program's
- * output by the unit_pov_segment_map_golden CTest, so a convention change in
- * the header fails the suite until the golden is regenerated. The WASM install
- * copies the golden into the daydream checkout, where its
- * tests/segment_crosscheck.test.js reads it as the firmware reference rather
- * than re-porting the header in JS.
+ * The committed hardware/pov_segment_map.json is this program's output.
  *
  * Regenerate with:
  *   cmake --build --preset tests --target pov_segment_map_gen
