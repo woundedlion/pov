@@ -210,6 +210,12 @@ def load_backend(
     return (width, height), records, metrics
 
 
+def _framebuffer_metric(oracle: dict) -> dict:
+    return next(metric for metric in oracle["metrics"]
+                if metric["domain"] == "FRAMEBUFFER"
+                and metric["aggregation"] == "MAXIMUM")
+
+
 def validate_backend_oracles(
     metrics: dict,
     oracles: list[dict],
@@ -218,12 +224,7 @@ def validate_backend_oracles(
 ) -> None:
     for oracle in oracles:
         oracle_id = oracle["oracle_id"]
-        manifest_metric = next(
-            metric
-            for metric in oracle["metrics"]
-            if metric["domain"] == "FRAMEBUFFER"
-            and metric["aggregation"] == "MAXIMUM"
-        )
+        manifest_metric = _framebuffer_metric(oracle)
         observed = metrics[oracle_id]["value"]
         limit = manifest_metric["accepted_limit"]
         if observed > limit:
@@ -498,25 +499,11 @@ def produce(
                         frame["sha256"] = hashlib.sha256(
                             record["pixels"]).hexdigest()
                         frames.append(frame)
+    validate_backend_oracles(oracle_totals, oracles, configuration)
     oracle_metrics = []
     for oracle in oracles:
-        manifest_metric = next(
-            metric
-            for metric in oracle["metrics"]
-            if metric["domain"] == "FRAMEBUFFER"
-            and metric["aggregation"] == "MAXIMUM"
-        )
+        manifest_metric = _framebuffer_metric(oracle)
         observed = oracle_totals[oracle["oracle_id"]]
-        accepted_limit = manifest_metric["accepted_limit"]
-        if observed["value"] > accepted_limit:
-            raise CaptureError(
-                f'{oracle["oracle_id"]} framebuffer error exceeds its accepted '
-                f'limit: {observed["value"]} > {accepted_limit}'
-            )
-        print(
-            f'pullback metric: {configuration} aggregate {oracle["oracle_id"]} '
-            f'observed={observed["value"]} limit={accepted_limit}'
-        )
         oracle_metrics.append(
             {
                 "oracle_id": oracle["oracle_id"],
