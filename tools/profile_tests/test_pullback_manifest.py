@@ -357,6 +357,18 @@ class ManifestValidation(unittest.TestCase):
                                     "unsupported schema keywords.*format"):
             generator._validate_schema_shape(schema, schema_path)
 
+    def test_schema_metric_enums_follow_the_approximation_contract(self):
+        schema = generator._load(MANIFEST_DIR / "schema.json")
+        contract = (ROOT / "core/render/pullback/contract.h").read_text(encoding="utf-8")
+        metric = schema["$defs"]["metric"]["properties"]
+        for field, enum in (("domain", "ApproximationDomain"),
+                            ("aggregation", "ApproximationAggregation")):
+            with self.subTest(enum=enum):
+                body = re.search(rf"enum class {enum} : uint8_t \{{([^}}]*)\}};", contract)
+                self.assertIsNotNone(body, f"{enum} not found in contract.h")
+                names = [name.strip() for name in body[1].split(",") if name.strip()]
+                self.assertEqual(metric[field]["enum"], names)
+
     def test_schema_operations_follow_the_protocol_table(self):
         schema_path = MANIFEST_DIR / "schema.json"
         schema = generator._load(schema_path)
