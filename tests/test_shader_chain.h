@@ -224,9 +224,14 @@ inline void test_shader_chain_snapshot_roundtrip() {
     for (size_t frame = 0; frame < frames.size(); ++frame) {
       effect.draw_frame();
       effect.advance_display();
+      int lit = 0;
       for (int y = 0; y < 20; ++y)
-        for (int x = 0; x < 96; ++x)
-          frames[frame][y * 96 + x] = effect.get_pixel(x, y);
+        for (int x = 0; x < 96; ++x) {
+          const auto pixel = effect.get_pixel(x, y);
+          frames[frame][y * 96 + x] = pixel;
+          lit += pixel.r != 0 || pixel.g != 0 || pixel.b != 0;
+        }
+      HS_EXPECT_GT(lit, 200);
     }
   }
   reset_globals();
