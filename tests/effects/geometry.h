@@ -6,14 +6,7 @@
 // Included by tests/test_effects.h.
 
 // ---------------------------------------------------------------------------
-// Closed-form geometry pins: a ray-march cull sphere, a pixel-pitch star
-// radius, and a trail-vertex scratch budget.
-//
-// Each is a constant the effect derives once and then trusts. The smoke pass
-// renders all three and sees none of them: a cull sphere that understates its
-// volume just silently clips surface, a star radius off by a factor renders a
-// plausible frame at the wrong size, and a scratch estimate that under-counts
-// only shows up as an arena overrun on some other resolution.
+// Geometry, caches, presets and arena budgets across the effect roster.
 // ---------------------------------------------------------------------------
 
 /**
@@ -1998,7 +1991,7 @@ inline void test_hankinsolids_arena_budget_covers_every_solid() {
     }
 
     // Render peak: transform into scratch_a, then Scan::Mesh::draw stacks a
-    // FaceScratchBuffer on top (the scratch_a-binding path per init's comment).
+    // FaceScratchBuffer on top (the scratch_a-binding path documented on SCRATCH_A_BYTES).
     {
       ScratchScope a_guard(scratch_arena_a);
       math::Orientation<> orientation;
