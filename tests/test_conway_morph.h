@@ -53,6 +53,13 @@ inline uint8_t morph_aux_buf[256 * 1024];    /**< Seed / second-result arena. */
 inline uint8_t morph_persist_buf[64 * 1024]; /**< Persistent-seed arena. */
 inline uint8_t morph_bank_buf[64 * 1024];    /**< Baked palette LUT arena. */
 
+/** @brief Production recipe timings exposed to replay fixtures. */
+struct RecipeLegLengths : Animation::RecipeBuild<RecipeLegLengths, 1, 1> {
+  using Animation::RecipeBuild<RecipeLegLengths, 1, 1>::HANKIN_LEG_FRAMES;
+  using Animation::RecipeBuild<RecipeLegLengths, 1, 1>::SWEEP_LEG_FRAMES;
+  using Animation::RecipeBuild<RecipeLegLengths, 1, 1>::RELAX_LEG_FRAMES;
+};
+
 using ConwayGraph::T_EPS;
 
 #include "tests/conway_morph/seeds.h"
