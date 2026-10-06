@@ -464,9 +464,14 @@ inline void test_generative_palette_domain_invariants() {
 inline void test_generative_palette_morph_policy_contracts() {
   const GenerativePalette from(PaletteRecipes::balanced_analogous(0.1f));
   const GenerativePalette to(PaletteRecipes::balanced_analogous(0.3f));
-  const GenerativePalette policy(PaletteRecipes::isolight_spectral_loop(0.5f));
+  PaletteRecipe policy_recipe = PaletteRecipes::isolight_spectral_loop(0.5f);
+  policy_recipe.color_path = ColorPath::OKLAB_CARTESIAN;
+  policy_recipe.chroma.headroom = 0.8f;
+  const GenerativePalette policy(policy_recipe);
   HS_EXPECT_TRUE(from.morph_compatible(to));
   HS_EXPECT_TRUE(policy.palette_domain() != from.palette_domain());
+  HS_EXPECT_TRUE(policy.palette_color_path() != from.palette_color_path());
+  HS_EXPECT_TRUE(policy.palette_headroom() != from.palette_headroom());
   GenerativePalette whole = policy;
   whole.morph_palettes(from, to, 0.5f);
   HS_EXPECT_EQ(whole.palette_domain(), from.palette_domain());
