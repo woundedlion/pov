@@ -212,8 +212,7 @@ the real cable and four protection arrays add capacitance.
 
 The current firmware is not compatible with this pin and polarity contract.
 The rev 1.2 MASTER_EN signal has the opposite enable polarity. Do not run a
-legacy image on this prototype. The pulse-width redesign discussed separately
-is not implemented by the PCB generator.
+legacy image on this prototype.
 
 ## Validation before fabrication and operation
 
