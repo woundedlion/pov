@@ -78,7 +78,7 @@ inline constexpr StepLegSite relax_leg_site(const char *name) {
     if (RECIPE.steps[i].op == Solids::Op::RELAX)
       return {name, recipe_step_seed<RECIPE, Solids::Op::RELAX>, 0.0f,
               RECIPE.steps[i].bake};
-  return {};
+  throw "relax_leg_site: recipe has no RELAX step";
 }
 
 /** Unique baked-relax seed sites in the shipping recipes. */
