@@ -49,7 +49,9 @@ separately. The normal documentation gate still checks paths and counts.
 
 A comment records what a reader cannot get from the code. A cost, error bound,
 threshold or count stated in a comment needs a `static_assert` or test beside it
-that pins the figure; otherwise state the property without the number.
+that pins the figure; otherwise state the property without the number. Name
+code by its symbol in backticks; `tools/docs_check.py` fails when a backticked
+symbol or path in a C/C++ source comment no longer exists.
 
 ## Design specs
 
@@ -141,9 +143,9 @@ protected branch's `CI green` status is the authoritative correctness gate.
   actionlint last. CI applies the
   corresponding checks; the hook lints staged Python, JavaScript, and shell files.
 - **Documentation:** the ci.yml docs-markdown job runs `tools/docs_check.py`
-  without `--sync`: fences, links, anchors, every backticked repo path, the
-  README's file map against the tracked tree and its effect counts against
-  `HS_EFFECT_LIST`. `just docs-sync` regenerates the maps and counts first,
+  without `--sync`: fences, links, anchors, every backticked repo path, every
+  backticked symbol in a C/C++ comment, the README's file map against the
+  tracked tree and its effect counts against `HS_EFFECT_LIST`. `just docs-sync` regenerates the maps and counts first,
   then runs the same checker, so the repaired diff lands with the change.
   `python tools/docs_images.py` resolves every documented `<img>` against the
   tracked tree. It only reports; `--stage` copies the images into a built

@@ -10,7 +10,9 @@ docs/effects.md matches each effect's PRESET_IDS and the product group -- not
 that the prose is true. Links to other hosts are never visited, and a sibling
 checkout no --checkout root supplies leaves its fences and links unvalidated.
 
-The Doxyfile's PREDEFINED names must also appear in tracked C/C++ source.
+The Doxyfile's PREDEFINED names must also appear in tracked C/C++ source, and
+every code-spelled name or path a C/C++ comment puts in backticks must still
+occur in tracked code or the tracked tree.
 An explicit --retired-term scan rejects old behavior wording in tracked text.
 """
 
@@ -1117,6 +1119,242 @@ def composed_roster_issues(root: Path, effects_text: str,
     return issues
 
 
+# A C/C++ comment names code by its symbol in backticks; every such symbol
+# must still occur in tracked code, this repository's or a supplied sibling
+# checkout's. Comments in generated and vendored sources are not scanned, though
+# their code is indexed. Script comments are not scanned: JSDoc declares types
+# there that no code spells.
+SYMBOL_COMMENT_SUFFIXES = frozenset({".c", ".cc", ".cpp", ".h", ".hpp", ".inl",
+                                     ".ino"})
+SCRIPT_SUFFIXES = frozenset({".cjs", ".js", ".mjs", ".mts", ".ts"})
+SYMBOL_COMMENT_EXCLUDED_RE = re.compile(
+    r"^core/vendor/|effects_legacy"
+    r"|^core/color/(?:color_luts|gamut_lut|srgb_decode_lut"
+    r"|mindsplatter_palette_luts)\.h$"
+    r"|^core/mesh/relax_bakes_generated\.h$"
+    r"|^core/spatial/reaction_graph\.cpp$"
+    r"|^tests/mindsplatter_replay_corpus\.h$")
+# Other tracked text whose every word counts as code: build files, tool
+# scripts, configuration, and suffixless hook scripts.
+_SYMBOL_INDEX_SUFFIXES = frozenset({
+    "", ".cmake", ".def", ".in", ".ini", ".json", ".ld", ".py", ".sh",
+    ".toml", ".yaml", ".yml",
+})
+_SYMBOL_INDEX_NAMES = frozenset({"CMakeLists.txt", "justfile"})
+# Names libraries, toolchains and runtimes own; a chain rooted at one, or a
+# name with one of the prefixes, is never looked up.
+EXTERNAL_SYMBOL_ROOTS = frozenset({
+    "Array", "Atomics", "JSON", "Math", "Number", "Object", "Promise",
+    "WebAssembly", "console", "document", "emscripten", "navigator",
+    "performance", "std", "window",
+})
+EXTERNAL_SYMBOL_PREFIXES = ("__",)
+# Single external names the code never spells.
+EXTERNAL_SYMBOLS = frozenset({
+    "seconds16",  # FastLED
+})
+
+_C_LEXEME_RE = re.compile(
+    r"(?P<comment>//[^\n]*|/\*.*?\*/)"
+    r"|\"(?:\\.|[^\"\\\n])*\""
+    # A quote after a hex digit is a C++14 digit separator, not a character.
+    r"|(?<![0-9A-Fa-f])'(?:\\.|[^'\\\n])*'", re.DOTALL)
+_SCRIPT_LEXEME_RE = re.compile(
+    r"(?P<comment>//[^\n]*|/\*.*?\*/)"
+    r"|\"(?:\\.|[^\"\\\n])*\"|'(?:\\.|[^'\\\n])*'"
+    r"|`(?:\\.|[^`\\])*`"
+    # A slash after an operator or opening bracket starts a regex literal.
+    r"|(?<=[(,=:\[!&|?{};])[ \t]*/(?![/*])"
+    r"(?:\\.|\[(?:\\.|[^\]\\\n])*\]|[^/\\\n\[])+/", re.DOTALL)
+_WORD_RE = re.compile(r"[A-Za-z_$][\w$]*")
+_SPAN_STRING_RE = re.compile(r"\"(?:\\.|[^\"\\])*\"|'(?:\\.|[^'\\])*'")
+_SYMBOL_CHAIN_RE = re.compile(
+    r"(?<![\w$])~?[A-Za-z_]\w*(?:(?:::|\.|->)~?[A-Za-z_]\w*)*")
+_SYMBOL_PART_RE = re.compile(r"[A-Za-z_]\w*")
+_CAMEL_RE = re.compile(r"[a-z][a-z0-9]*(?:[A-Z][a-z0-9]*)+")
+_PASCAL_RE = re.compile(r"[A-Z][a-z0-9]+(?:[A-Z][a-z0-9]*)*")
+_SCREAMING_RE = re.compile(r"[A-Z][A-Z0-9_]*[A-Z0-9]")
+# A spaced binary operator makes a span an expression.
+_SPAN_EXPRESSION_RE = re.compile(r"\s(?:[-+*/%^<>=]|[=!<>]=|&&|\|\||<<|>>)\s")
+_COMMENT_PATH_RE = re.compile(r"^[\w.\-]+(?:/[\w.\-]+)+/?$")
+
+
+def split_source(text: str, script: bool) -> tuple[str, list[tuple[int, str]]]:
+    """Separates code from comments: the code text with every comment
+    removed, and each comment's text with the line it starts on."""
+    lexemes = _SCRIPT_LEXEME_RE if script else _C_LEXEME_RE
+    code = []
+    comments = []
+    position = 0
+    line = 1
+    for match in lexemes.finditer(text):
+        if match.group("comment") is None:
+            continue
+        code.append(text[position:match.start()])
+        line += text.count("\n", position, match.start())
+        comments.append((line, match.group("comment")))
+        line += match.group("comment").count("\n")
+        code.append("\n")
+        position = match.end()
+    code.append(text[position:])
+    return "".join(code), comments
+
+
+def is_symbol_like(name: str) -> bool:
+    """Whether a backticked word is spelled as code rather than as prose:
+    snake, SCREAMING, camel or Pascal case, or an acronym."""
+    if name.startswith(EXTERNAL_SYMBOL_PREFIXES) or name in EXTERNAL_SYMBOLS:
+        return False
+    return bool("_" in name.strip("_") or _CAMEL_RE.fullmatch(name)
+                or _PASCAL_RE.fullmatch(name) or _SCREAMING_RE.fullmatch(name))
+
+
+def span_symbols(span: str) -> list[str]:
+    """The code-spelled names a backticked comment span claims exist.
+
+    An expression's operands and a call's arguments are placeholders, not
+    claims, so neither is checked; the called name is, whatever its case.
+    """
+    span = _SPAN_STRING_RE.sub(" ", span)
+    if _SPAN_EXPRESSION_RE.search(span):
+        return []
+    names = []
+    for chain in _SYMBOL_CHAIN_RE.finditer(span):
+        prefix = span[:chain.start()]
+        if sum(prefix.count(open_) - prefix.count(close)
+               for open_, close in ("()", "[]", "{}")) > 0:
+            continue
+        parts = _SYMBOL_PART_RE.findall(chain.group())
+        if parts[0] in EXTERNAL_SYMBOL_ROOTS:
+            continue
+        called = span.startswith("(", chain.end())
+        names.extend(part for part in parts
+                     if is_symbol_like(part) or (
+                         called and part == parts[-1]
+                         and part not in EXTERNAL_SYMBOLS))
+    return names
+
+
+def _read_tracked(root: Path, revision: str | None,
+                  paths: list[PurePosixPath]) -> dict[PurePosixPath, str]:
+    """Tracked text by path, from the working tree or from revision."""
+    texts = {}
+    if revision is None:
+        for relative in paths:
+            try:
+                texts[relative] = root.joinpath(*relative.parts).read_text(
+                    encoding="utf-8-sig", errors="replace")
+            except OSError:
+                continue
+        return texts
+    request = "".join(f"{revision}:{path.as_posix()}\n" for path in paths)
+    result = subprocess.run(
+        ["git", "-c", f"safe.directory={root.as_posix()}", "-C", str(root),
+         "cat-file", "--batch"], input=request.encode("utf-8"), check=True,
+        stdout=subprocess.PIPE, timeout=_GIT_TIMEOUT_SECONDS)
+    output = result.stdout
+    offset = 0
+    for relative in paths:
+        header_end = output.index(b"\n", offset)
+        header = output[offset:header_end].split()
+        offset = header_end + 1
+        if len(header) != 3 or header[1] != b"blob":
+            continue
+        size = int(header[2])
+        texts[relative] = output[offset:offset + size].decode(
+            "utf-8-sig", errors="replace")
+        offset += size + 1
+    return texts
+
+
+def symbol_sources(root: Path, entries: set[PurePosixPath],
+                   revision: str | None = None) -> dict[PurePosixPath, str]:
+    """The tracked files whose words count as code, read from root."""
+    directories = {parent for entry in entries for parent in entry.parents}
+    return _read_tracked(root, revision, sorted(
+        entry for entry in entries - directories
+        if entry.suffix in SYMBOL_COMMENT_SUFFIXES | SCRIPT_SUFFIXES
+        | _SYMBOL_INDEX_SUFFIXES or entry.name in _SYMBOL_INDEX_NAMES))
+
+
+def scan_symbols(sources: dict[PurePosixPath, str], comments: bool = True
+                 ) -> tuple[set[str], list[tuple[PurePosixPath, int, str]]]:
+    """Code words and comment spans of sources.
+
+    The words are every word outside the comments of C/C++ and script
+    sources, and every word of any other source. The spans are the backticked
+    spans in the comments of scanned C/C++ sources, by line; comments=False
+    collects none.
+    """
+    words: set[str] = set()
+    spans = []
+    for relative, text in sources.items():
+        if relative.suffix not in SYMBOL_COMMENT_SUFFIXES | SCRIPT_SUFFIXES:
+            words.update(_WORD_RE.findall(text))
+            continue
+        code, found = split_source(text, relative.suffix in SCRIPT_SUFFIXES)
+        words.update(_WORD_RE.findall(code))
+        if (not comments or relative.suffix not in SYMBOL_COMMENT_SUFFIXES
+                or SYMBOL_COMMENT_EXCLUDED_RE.search(relative.as_posix())):
+            continue
+        for line, comment in found:
+            for offset, comment_line in enumerate(comment.splitlines()):
+                spans.extend((relative, line + offset, span)
+                             for span in _scan_code_spans(comment_line)[1])
+    return words, spans
+
+
+def _comment_path_exists(source: PurePosixPath, candidate: str,
+                         trees: list[set[PurePosixPath]]) -> bool | None:
+    """Whether a backticked path names a tracked file or directory; None when
+    no tree holds its first directory. The first tree is the source's own."""
+    candidate = candidate.rstrip("/")
+    if "/" not in candidate:
+        return any(entry.name == candidate
+                   for entries in trees for entry in entries)
+    in_scope = False
+    for entries in trees:
+        bases = [PurePosixPath(""), _IMPLICIT_PATH_ROOT]
+        if entries is trees[0]:
+            bases.append(source.parent)
+        for base in bases:
+            resolved = PurePosixPath(posixpath.normpath(
+                posixpath.join(base.as_posix(), candidate)))
+            scope = PurePosixPath(*resolved.parts[:len(base.parts) + 1])
+            if scope not in entries:
+                continue
+            in_scope = True
+            if resolved in entries:
+                return True
+    return False if in_scope else None
+
+
+def symbol_reference_issues(spans: list[tuple[PurePosixPath, int, str]],
+                            words: set[str],
+                            trees: list[set[PurePosixPath]]) -> list[Issue]:
+    """Reports backticked comment paths no tree tracks and names no code has.
+
+    trees holds this repository's tracked entries first, then each supplied
+    checkout's.
+    """
+    issues = []
+    for source, line, span in spans:
+        path = _PATH_SPAN_RE.match(span)
+        if path and (_COMMENT_PATH_RE.match(path.group(1)) or PurePosixPath(
+                path.group(1)).suffix in _SOURCE_SUFFIXES):
+            exists = _comment_path_exists(source, path.group(1), trees)
+            if exists is False:
+                issues.append(Issue(source.as_posix(), line,
+                                    f"comment names path {path.group(1)!r}, "
+                                    "which is not tracked"))
+            if exists is not None:
+                continue
+        issues.extend(Issue(source.as_posix(), line,
+                            f"comment names `{name}`, which no code spells")
+                      for name in span_symbols(span) if name not in words)
+    return issues
+
+
 def check_text(source: PurePosixPath, text: str,
                entries: set[PurePosixPath],
                anchors: dict[PurePosixPath, set[str]] | None = None,
@@ -1276,7 +1514,33 @@ def check_repository(
                     sorted(entry for entry in entries
                            if entry.suffix in _DOXYGEN_SOURCE_SUFFIXES),
                     {name for _, name in predefined})))
+    issues.extend(repository_symbol_issues(root, entries, checkout_roots or {},
+                                           checkouts, checkout_revisions or {}))
     return markdown, sorted(issues), _stale_allowances(entries, used, checkouts)
+
+
+def repository_symbol_issues(root: Path, entries: set[PurePosixPath],
+                             checkout_roots: dict[str, Path],
+                             checkouts: dict[str, set[PurePosixPath]],
+                             checkout_revisions: dict[str, str]) -> list[Issue]:
+    """Checks this repository's comment names against its own code and that
+    of every supplied checkout."""
+    sources = symbol_sources(root, entries)
+    selected = [relative for relative in sources
+                if relative.suffix in SYMBOL_COMMENT_SUFFIXES]
+    if selected and not any(
+            not SYMBOL_COMMENT_EXCLUDED_RE.search(relative.as_posix())
+            for relative in selected):
+        return [Issue(selected[0].as_posix(), 1,
+                      "every tracked C/C++ source is excluded from the comment "
+                      "symbol scan, so its references go unchecked")]
+    words, spans = scan_symbols(sources)
+    for name, checkout_root in checkout_roots.items():
+        words |= scan_symbols(symbol_sources(
+            checkout_root, checkouts[name], checkout_revisions.get(name)),
+            comments=False)[0]
+    return symbol_reference_issues(spans, words,
+                                   [entries, *checkouts.values()])
 
 
 def retired_term_issues(root: Path, terms: list[str]) -> list[Issue]:

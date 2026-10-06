@@ -981,5 +981,160 @@ class TestDocumentationChecker(unittest.TestCase):
             self.assertEqual(dc.main(["--root", str(root)]), 2)
 
 
+def _git_repository(root, files):
+    """A git repository at root tracking files, a {path: text} map."""
+    subprocess.run(["git", "init", "-q", str(root)], check=True)
+    for name, text in files.items():
+        path = root / name
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(text, encoding="utf-8")
+    subprocess.run(["git", "-C", str(root), "add", *files], check=True)
+
+
+class TestCommentSymbols(unittest.TestCase):
+    WORDS = frozenset({"Canvas", "draw_ring", "MAX_STOPS", "width",
+                       "renderFrame"})
+    ENTRIES = frozenset({PurePosixPath("core"), PurePosixPath("core/render"),
+                         PurePosixPath("core/render/canvas.h")})
+
+    def issues(self, *spans, trees=None):
+        return dc.symbol_reference_issues(
+            [(PurePosixPath("core/render/canvas.h"), line, span)
+             for line, span in enumerate(spans, 1)],
+            set(self.WORDS), trees or [set(self.ENTRIES)])
+
+    def names(self, *spans):
+        return [issue.message.split("`")[1] for issue in self.issues(*spans)]
+
+    def test_existing_symbols_and_paths_pass(self):
+        self.assertEqual(self.issues(
+            "Canvas::draw_ring", "MAX_STOPS", "width()", "renderFrame",
+            "core/render/canvas.h", "render/canvas.h", "canvas.h:12"), [])
+
+    def test_missing_symbol_is_reported_with_its_line(self):
+        issues = self.issues("Canvas", "Canvas::draw_rings")
+        self.assertEqual([(issue.path, issue.line) for issue in issues],
+                         [("core/render/canvas.h", 2)])
+        self.assertIn("`draw_rings`", issues[0].message)
+
+    def test_every_code_spelling_is_checked(self):
+        self.assertEqual(
+            self.names("snake_case", "SCREAMING_CASE", "ACRONYM", "camelCase",
+                       "PascalCase", "Pascal", "lower()"),
+            ["snake_case", "SCREAMING_CASE", "ACRONYM", "camelCase",
+             "PascalCase", "Pascal", "lower"])
+
+    def test_prose_expressions_arguments_and_external_names_pass(self):
+        self.assertEqual(self.issues(
+            "target", "from the frame", "1.0f", "0x1Fu",
+            "face_index * 3 + edge_index", "draw_ring(missing_arg, other_arg)",
+            "std::bit_cast", "Math.fround", "seconds16()", "__builtin_expect",
+            '"Missing_Name"'), [])
+
+    def test_external_names_are_exempt_only_by_list(self):
+        with mock.patch.object(dc, "EXTERNAL_SYMBOLS", frozenset()), \
+                mock.patch.object(dc, "EXTERNAL_SYMBOL_ROOTS", frozenset()):
+            self.assertEqual(self.names("seconds16()", "std::bit_cast"),
+                             ["seconds16", "bit_cast"])
+
+    def test_missing_path_is_reported_only_under_a_tracked_root(self):
+        issues = self.issues("core/render/gone.h", "render/gone/",
+                             "gone.h", "src/elsewhere.js", "dx/dt")
+        self.assertEqual([issue.line for issue in issues], [1, 2, 3])
+        self.assertIn("'core/render/gone.h'", issues[0].message)
+
+    def test_path_resolves_in_a_supplied_checkout(self):
+        checkout = {PurePosixPath("src"), PurePosixPath("src/engine.js")}
+        issues = self.issues("src/engine.js", "src/gone.js",
+                             trees=[set(self.ENTRIES), checkout])
+        self.assertEqual([issue.line for issue in issues], [2])
+
+    def test_comments_split_from_code_strings_and_separators(self):
+        code, comments = dc.split_source(
+            "int a = 1'000; // it's `alpha_name`\n"
+            'const char *s = "// not_comment";\n'
+            "/* `beta_name`\n   `gamma_name` */ int b;\n", script=False)
+        self.assertEqual([line for line, _ in comments], [1, 3])
+        self.assertIn("not_comment", code)
+        self.assertNotIn("alpha_name", code)
+        self.assertNotIn("gamma_name", code)
+        code, comments = dc.split_source(
+            "const t = `// in_template`; const r = /\\/\\/x/; "
+            "// `delta_name`\n", script=True)
+        self.assertEqual(len(comments), 1)
+        self.assertIn("in_template", code)
+        self.assertNotIn("delta_name", code)
+
+    def test_renamed_symbol_fails_the_repository_check(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            _git_repository(root, {
+                "README.md": "# Engine\n",
+                "core/ring.h": "// Draws with `draw_ring`.\nvoid draw_ring();\n",
+                "core/vendor/lib.h": "// `vendor_comment`\nint lib_name;\n",
+                "core/use.cpp": "// Calls `lib_name`; not `uncited_name`.\n"
+                                "// `comment_only_name`\n",
+                "core/other.cpp": "// `comment_only_name` is no code\n",
+            })
+            arguments = ["--root", str(root), "--skip-checkout", "daydream"]
+            with mock.patch.object(dc, "_REQUIRED_TREES", frozenset()), \
+                    contextlib.redirect_stdout(io.StringIO()) as output, \
+                    contextlib.redirect_stderr(io.StringIO()):
+                self.assertEqual(dc.main(arguments), 1)
+            self.assertEqual(
+                [line for line in output.getvalue().splitlines()
+                 if "comment names" in line],
+                ["core/other.cpp:1: comment names `comment_only_name`, which "
+                 "no code spells",
+                 "core/use.cpp:1: comment names `uncited_name`, which no code "
+                 "spells",
+                 "core/use.cpp:2: comment names `comment_only_name`, which no "
+                 "code spells"])
+            for name in ("core/use.cpp", "core/other.cpp"):
+                (root / name).write_text("// Calls `lib_name`.\n",
+                                         encoding="utf-8")
+            with mock.patch.object(dc, "_REQUIRED_TREES", frozenset()):
+                self.assertEqual(dc.check_repository(root)[1], [])
+            (root / "core/ring.h").write_text(
+                "// Draws with `draw_ring`.\nvoid draw_rings();\n",
+                encoding="utf-8")
+            with mock.patch.object(dc, "_REQUIRED_TREES", frozenset()):
+                issues = dc.check_repository(root)[1]
+            self.assertEqual([str(issue) for issue in issues], [
+                "core/ring.h:1: comment names `draw_ring`, which no code "
+                "spells"])
+
+    def test_checkout_code_resolves_names_at_its_revision(self):
+        with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as directory:
+            engine = Path(directory, "engine").resolve()
+            checkout = Path(directory, "daydream").resolve()
+            _git_repository(engine, {
+                "README.md": "# Engine\n",
+                "bind.h": "// Exported as `renderFrame`.\nint x;\n"})
+            _git_repository(checkout, {
+                "src/engine.js": "export function renderFrame() {}\n"})
+            revision = subprocess.check_output(
+                ["git", "-C", str(checkout), "write-tree"], text=True).strip()
+            (checkout / "src/engine.js").write_text("// renderFrame\n",
+                                                    encoding="utf-8")
+            _, entries = dc.tracked_entries(engine)
+            checkouts = {"daydream": dc.tracked_entries(checkout, revision)[1]}
+            self.assertEqual(dc.repository_symbol_issues(
+                engine, entries, {"daydream": checkout}, checkouts,
+                {"daydream": revision}), [])
+            issues = dc.repository_symbol_issues(engine, entries, {}, {}, {})
+            self.assertEqual([str(issue) for issue in issues], [
+                "bind.h:1: comment names `renderFrame`, which no code spells"])
+
+    def test_excluding_every_source_fails_closed(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            _git_repository(root, {"core/vendor/lib.h": "// `gone_name`\n"})
+            _, entries = dc.tracked_entries(root)
+            issues = dc.repository_symbol_issues(root, entries, {}, {}, {})
+        self.assertEqual(len(issues), 1)
+        self.assertIn("excluded from the comment symbol scan", issues[0].message)
+
+
 if __name__ == "__main__":
     unittest.main()
