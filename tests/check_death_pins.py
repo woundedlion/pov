@@ -60,7 +60,8 @@ def main():
     case_pins = pins((root / "tests/test_death.h").read_text(encoding="utf-8"))
     pinned_names = {Path(file).name for _, file, _ in case_pins}
     sources = {}
-    for directory in ("core", "effects", "workbench", "hardware", "targets", "tools"):
+    directories = (root / "tests/guard_directories.txt").read_text(encoding="utf-8").splitlines()
+    for directory in directories:
         for path in (root / directory).rglob("*"):
             if path.is_file() and path.name in pinned_names:
                 sources[path.relative_to(root).as_posix()] = list(

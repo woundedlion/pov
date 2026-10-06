@@ -139,8 +139,9 @@ add_dependencies(run_tests color_header_checks)
 # Census of the engine's HS_CHECK sites, so the death harness can print how
 # much of the fail-fast surface its cases actually pin. Generated, never
 # committed: a written-down guard list drifts away from the guards.
+file(STRINGS "${CMAKE_CURRENT_SOURCE_DIR}/guard_directories.txt" HS_GUARD_DIRS)
 set(_guard_sources)
-foreach(_dir core effects workbench hardware targets tools)
+foreach(_dir IN LISTS HS_GUARD_DIRS)
   file(GLOB_RECURSE _found CONFIGURE_DEPENDS
        "${HS_ROOT}/${_dir}/*.h" "${HS_ROOT}/${_dir}/*.cpp"
        "${HS_ROOT}/${_dir}/*.ino")
@@ -150,8 +151,9 @@ set(_guard_output "${CMAKE_CURRENT_BINARY_DIR}/death_guard_sites.h")
 add_custom_command(OUTPUT "${_guard_output}"
   COMMAND "${CMAKE_COMMAND}" "-DHS_ROOT=${HS_ROOT}"
           "-DHS_GUARD_OUTPUT=${_guard_output}"
+          "-DHS_GUARD_DIRS=${HS_GUARD_DIRS}"
           -P "${CMAKE_CURRENT_SOURCE_DIR}/count_guard_sites.cmake"
-  DEPENDS ${_guard_sources} count_guard_sites.cmake death_guard_sites.h.in
+  DEPENDS ${_guard_sources} guard_directories.txt count_guard_sites.cmake death_guard_sites.h.in
   VERBATIM)
 add_custom_target(death_guard_census DEPENDS "${_guard_output}")
 add_dependencies(run_tests death_guard_census)

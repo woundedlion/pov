@@ -11,9 +11,11 @@
 # discusses HS_CHECK in prose — and so is the head of every #define line, which
 # is where the macro and its test-build alias are written rather than used.
 #
-set(_guard_dirs core effects workbench hardware targets tools)
+if(NOT DEFINED HS_GUARD_DIRS)
+  file(STRINGS "${CMAKE_CURRENT_LIST_DIR}/guard_directories.txt" HS_GUARD_DIRS)
+endif()
 set(_guard_files "")
-foreach(_dir IN LISTS _guard_dirs)
+foreach(_dir IN LISTS HS_GUARD_DIRS)
   file(GLOB_RECURSE _found
        "${HS_ROOT}/${_dir}/*.h" "${HS_ROOT}/${_dir}/*.cpp"
        "${HS_ROOT}/${_dir}/*.ino")
