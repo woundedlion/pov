@@ -982,9 +982,8 @@ inline void test_rasterize_single_pass_geodesic_stress_arcs_are_gap_free() {
 
     HS_EXPECT_GT(pipeline.plotted.size(), size_t{2});
     HS_EXPECT_LE((max_projected_gap<W, H>(pipeline.plotted)), 1.5f);
-    HS_EXPECT_TRUE(!pipeline.plotted.empty());
     if (pipeline.plotted.empty())
-      return;
+      continue;
     HS_EXPECT_NEAR(math::angle_between(pipeline.plotted.front(), start), 0.0f,
                    1e-3f);
     HS_EXPECT_NEAR(math::angle_between(pipeline.plotted.back(), end), 0.0f,
