@@ -2,27 +2,7 @@
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
  * Licensed under the PolyForm Noncommercial License 1.0.0
  *
- * Unit tests for core/mesh/solids.h.
- *
- * Coverage:
- *   - Registry integrity: every registered solid (simple + catalan + islamic)
- *     builds into a non-empty mesh with finite vertices, in-range face indices,
- *     and consistent face_counts/faces totals.
- *   - Unit-sphere checks on the Platonic/Archimedean/Catalan generators.
- *   - Closed Euler-2 topology and outward winding on registry meshes,
- *     including Islamic patterns.
- *   - Bounds: get_entry() out-of-range and get_by_name() unknown name TRAP
- *     (fail-fast), so only the valid boundary (last index) is exercised here.
- *   - Determinism: building the same registry entry twice yields identical
- *     vertex counts and positions.
- *   - Edge-length outlier bound: every Islamic recipe keeps its longest geodesic
- *     edge within 6x the median edge.
- *   - Topology-hash rounding margin: no registered solid has an interior angle
- *     within TOPOLOGY_ANGLE_MARGIN_DEG of the X.5 boundary the classifier's
- *     whole-degree quantisation rounds on.
- *   - Recipe tables: every entry with a non-null recipe replays bitwise-equal
- *     to its generator, lowered (expand_to_primitives) replay is bitwise-equal
- *     to authored replay, and each composite op's decomposition is pinned.
+ * Unit tests for the Solids registry, generators and recipe tables.
  */
 #pragma once
 
@@ -94,18 +74,14 @@ namespace hs_test {
 namespace solids_tests {
 
 // Two scratch arenas (reset per solid) plus two geometry arenas, sized to match
-// the WASM tooling path's 4 MB scratch. The second geometry arena lets the
-// determinism check build the same solid twice without aliasing storage.
+// the WASM tooling path's 4 MB scratch.
 inline uint8_t solids_geom_a[4 * 1024 * 1024];
 inline uint8_t solids_geom_b[4 * 1024 * 1024];
 inline uint8_t solids_scratch_a[4 * 1024 * 1024];
 inline uint8_t solids_scratch_b[4 * 1024 * 1024];
 
 // ---------------------------------------------------------------------------
-// Structural invariants. check_face_counts_consistent(),
-// check_indices_in_range(), and the unit-sphere check (check_all_unit_vertices)
-// live in tests/mesh_test_util.h; the rest are specific to the registry path
-// here.
+// Structural invariants.
 // ---------------------------------------------------------------------------
 
 /**
@@ -150,7 +126,7 @@ inline void check_basic(const PolyMesh &m) {
  * @param index Registry entry index to build.
  * @param geom Geometry arena that holds the finalized mesh.
  * @return The finalized PolyMesh for the entry.
- * @details Uses fresh scratch arenas (reset each call) for the generation pass.
+ * @details Resets the scratch arenas on each call.
  */
 inline PolyMesh build_index(size_t index, Arena &geom) {
   Arena a(solids_scratch_a, sizeof(solids_scratch_a));
@@ -159,9 +135,7 @@ inline PolyMesh build_index(size_t index, Arena &geom) {
 }
 
 // ---------------------------------------------------------------------------
-// Registry integrity — spherical families (Platonic, Archimedean, Catalan).
-// These are designed to live on the unit sphere, so we additionally assert
-// unit magnitude.
+// Registry integrity: spherical families (Platonic, Archimedean, Catalan).
 // ---------------------------------------------------------------------------
 
 /**
@@ -216,9 +190,8 @@ inline void test_islamic_registry_solids_are_valid() {
 /**
  * @brief Verifies Islamic-pattern solids satisfy the longest-to-median
  *        geodesic edge bound (check_no_sliver_edges).
- * @details A hankin contact angle near a resonance (contact planes of one
- *          corner class near-parallel) slings star points far from their
- *          corners, producing sliver faces that render as long lines.
+ * @details A hankin contact angle near a resonance slings star points far
+ *          from their corners, producing sliver faces.
  */
 inline void test_islamic_solids_have_no_sliver_edges() {
   const size_t base = Solids::Collections::get_simple_solids().size() +
@@ -232,21 +205,14 @@ inline void test_islamic_solids_have_no_sliver_edges() {
 }
 
 // ---------------------------------------------------------------------------
-// Topology-hash rounding margin. classify_faces_impl quantises every interior
-// angle to whole degrees and hashes the sorted result into the topology id that
-// drives palette assignment. The region compiles -O3 -ffast-math on the device
-// image and unmodified on host, so an angle sitting on an X.5 boundary rounds
-// one way on host and can round the other on a board: a different palette class
-// for the same shape, on a rig that requires every board to agree.
+// Topology-hash rounding margin. classify_faces_impl quantises interior angles
+// to whole degrees under -ffast-math on device, so an angle near X.5 can round
+// differently on host and device.
 // ---------------------------------------------------------------------------
 
-// Minimum tolerated distance from an X.5 rounding boundary, in degrees. Derived
-// from two measured quantities, and asserted against both below: the roster's
-// tightest angle clears a boundary by 1.05e-3 deg
-// (truncatedOctahedron_gyro_kis_hk17, 98.501053 deg), and the worst float
-// rounding uncertainty of the angle expression itself is 2.47e-4 deg
-// (dodecahedron_hk35_ambo_hk62_ambo_relax_hk42). The floor sits ~2x above the
-// uncertainty and ~2x below the tightest angle.
+// Minimum tolerated distance from an X.5 rounding boundary, in degrees: ~2x
+// above the angle expression's float rounding uncertainty and ~2x below the
+// roster's tightest angle.
 inline constexpr float TOPOLOGY_ANGLE_MARGIN_DEG = 5e-4f;
 
 /**
@@ -256,10 +222,7 @@ inline constexpr float TOPOLOGY_ANGLE_MARGIN_DEG = 5e-4f;
  * @param count Sides in the face.
  * @param k Corner to measure.
  * @return The same expression in double.
- * @details Rounding-uncertainty oracle for the margin floor. The difference
- *          isolates how far float intermediate rounding can move the angle —
- *          the same lever -ffast-math pulls on device via reassociation, FMA
- *          contraction, and reciprocal division.
+ * @details Rounding-uncertainty oracle for the margin floor.
  */
 inline double classifier_angle_deg_ref(const PolyMesh &m, const uint16_t *idx,
                                        int count, int k) {
@@ -288,14 +251,6 @@ inline double classifier_angle_deg_ref(const PolyMesh &m, const uint16_t *idx,
  * @brief Verifies no registered solid has an interior angle within
  *        TOPOLOGY_ANGLE_MARGIN_DEG of a whole-degree rounding boundary, and
  *        that the floor still exceeds the expression's rounding uncertainty.
- * @details An angle at X.5 rounds on a coin flip between the host build and the
- *          device's -ffast-math classifier region, and the rounded angles are
- *          the topology hash, so the two builds would hand the same solid
- *          different palette classes. Sweeps every entry in all three
- *          registries, naming the offending entry, face, and corner. The second
- *          assertion keeps the floor honest: a generator retune that made the
- *          angle expression less well conditioned than the margin would leave a
- *          passing sweep meaningless.
  */
 inline void test_registry_angles_clear_rounding_boundary() {
   size_t measured = 0;
@@ -345,9 +300,8 @@ inline void test_registry_angles_clear_rounding_boundary() {
 }
 
 /**
- * @brief Verifies NUM_ENTRIES equals the sum of the three registries.
- * @details Confirms indexing the full range corresponds to the combined
- *          simple + Catalan + Islamic collection sizes.
+ * @brief Verifies NUM_ENTRIES equals the sum of the simple, Catalan and
+ *        Islamic registries.
  */
 inline void test_registry_count_matches_collections() {
   size_t sum = Solids::Collections::get_simple_solids().size() +
@@ -358,21 +312,15 @@ inline void test_registry_count_matches_collections() {
 
 // ---------------------------------------------------------------------------
 // Euler characteristic V - E + F == 2 across the closed solid registries.
-// Edges are counted as half_edges/2, as test_mesh.h does.
 // ---------------------------------------------------------------------------
 
 /**
  * @brief Builds the registry entry at `index`, derives its half-edge mesh, and
  *        asserts the Euler characteristic V - E + F == 2.
  * @param index Registry entry index to check.
- * @param expected_V,expected_E,expected_F Optional independent count oracles;
- *        pass -1 (the default) to skip a given check. When provided, each is
- *        asserted exactly. V - E + F == 2 alone is blind to a class-wide
- *        omission/duplication that preserves the relation (e.g. every face
- *        split in two), so a fixed expected-count oracle is the real guard.
- * @details Edges are counted as half_edges/2, matching test_mesh.h. Winding is
- *          asserted too: Euler alone passes on an inside-out solid, which the
- *          renderer would shade as backfaces.
+ * @param expected_V,expected_E,expected_F Optional exact counts; -1 (the
+ *        default) skips a given check.
+ * @details Edges are counted as half_edges/2. Outward winding is asserted too.
  */
 inline void check_euler_for_index(size_t index, int expected_V = -1,
                                   int expected_E = -1, int expected_F = -1) {
@@ -404,10 +352,6 @@ inline void check_euler_for_index(size_t index, int expected_V = -1,
 /**
  * @brief Verifies the Euler characteristic and the exact (V, E, F) counts for
  *        each Platonic solid (closed manifolds).
- * @details The per-solid counts are fixed mathematical constants, so they form
- *          an independent oracle: a builder bug that uniformly mis-counts
- *          vertices or faces while still satisfying V - E + F == 2 is caught
- *          here, where the bare relation check could not see it.
  */
 inline void test_euler_platonic_solids() {
   // simple_registry indices 0-4 are the Platonic solids, in this fixed order.
@@ -429,12 +373,6 @@ inline void test_euler_platonic_solids() {
 
 /**
  * @brief Verifies Archimedean and Catalan entries have paired edges and V-E+F==2.
- * @details Extends the topological oracle over the two spherical families
- *          between the Platonic block and the Islamic block. Archimedean
- *          indices follow the Platonic block inside the simple registry; Catalan indices
- *          follow the whole simple block. Exact per-entry counts are not pinned
- *          here — the check rejects changes that alter the Euler characteristic,
- *          with edge count taken as half the half-edge count.
  */
 inline void test_euler_archimedean_catalan_solids() {
   const size_t archimedean_base =
@@ -450,9 +388,6 @@ inline void test_euler_archimedean_catalan_solids() {
 
 /**
  * @brief Verifies every Islamic-pattern entry has paired edges and V-E+F==2.
- * @details Every registered Islamic pattern is a closed manifold with Euler
- *          characteristic 2. Exact per-entry counts may vary; the test checks
- *          Euler characteristic and winding without certifying vertex fans.
  */
 inline void test_islamic_registry_solids_are_closed() {
   const size_t base = Solids::Collections::get_simple_solids().size() +
@@ -462,13 +397,12 @@ inline void test_islamic_registry_solids_are_closed() {
 }
 
 // ---------------------------------------------------------------------------
-// Lookup boundaries (invalid lookups trap; see test_death.h).
+// Lookup boundaries (invalid lookups trap).
 // ---------------------------------------------------------------------------
 
 /**
  * @brief Verifies the last valid registry index builds correctly (range
  *        boundary).
- * @details Invalid lookups are covered by test_death.h.
  */
 inline void test_get_entry_last_valid_index_builds() {
   const Solids::Entry &e = Solids::get_entry(Solids::NUM_ENTRIES - 1);
@@ -500,11 +434,7 @@ inline void test_get_by_name_known_returns_that_solid() {
 /**
  * @brief Verifies registry names are globally unique and index/name lookups
  *        agree.
- * @details The WASM picker enumerates solids by global index but builds them by
- *          first-name match, so a name duplicated across the three registries
- *          would make those two paths silently diverge. Assert every name is
- *          distinct and that find_entry(get_entry(i).name) resolves back to
- *          that same entry.
+ * @details find_entry(get_entry(i).name) must resolve back to entry i.
  */
 inline void test_registry_names_unique_and_roundtrip() {
   for (int i = 0; i < Solids::NUM_ENTRIES; ++i) {
@@ -519,17 +449,13 @@ inline void test_registry_names_unique_and_roundtrip() {
 }
 
 // ---------------------------------------------------------------------------
-// Determinism: building the same entry twice yields identical geometry. We use
-// two distinct geometry arenas so the two results coexist for comparison.
+// Determinism: building the same entry twice yields identical geometry.
 // ---------------------------------------------------------------------------
 
 /**
  * @brief Builds the entry at `index` twice into separate arenas and asserts the
  *        two meshes are bitwise identical.
  * @param index Registry entry index to build twice.
- * @details A generator is deterministic or it is not: the same input through
- *          the same code path twice must reproduce every float bit. A near-equality
- *          window would admit a generator whose output drifts below the tolerance.
  */
 inline void check_determinism_for_index(size_t index) {
   Arena geom1(solids_geom_a, sizeof(solids_geom_a));
@@ -543,8 +469,6 @@ inline void check_determinism_for_index(size_t index) {
 
 /**
  * @brief Verifies determinism on a hardcoded solid (the cube).
- * @details The cube is pure data with no procedural ops, so two builds must be
- *          bit-identical.
  */
 inline void test_determinism_hardcoded_platonic() {
   const auto *entry = Solids::find_entry("cube");
@@ -557,7 +481,6 @@ inline void test_determinism_hardcoded_platonic() {
 
 /**
  * @brief Verifies determinism through a Conway op pipeline (cube -> ambo).
- * @details The procedural path must reproduce identical geometry across builds.
  */
 inline void test_determinism_archimedean_with_conway_ops() {
   const auto *entry = Solids::find_entry("cuboctahedron");
@@ -570,11 +493,6 @@ inline void test_determinism_archimedean_with_conway_ops() {
 
 /**
  * @brief Verifies determinism across the whole Islamic-pattern family.
- * @details The Islamic generators are the deepest Conway-op chains — the most
- *          likely to introduce order/RNG-dependent nondeterminism — and a
- *          nondeterministic op might be reached only by a later entry, not the
- *          first. So this re-builds and diffs every islamic index (mirroring
- *          the registry-integrity loops above), not just the first.
  */
 inline void test_determinism_complex_islamic() {
   const size_t base = Solids::Collections::get_simple_solids().size() +
@@ -585,11 +503,8 @@ inline void test_determinism_complex_islamic() {
 
 /**
  * @brief Verifies a chain leaves only its seed and its result resident.
- * @details Every operator returns its output in the arena the builder is
- *          writing, so after the role swap the live mesh is in the other one
- *          and the next step's arena holds nothing but spent intermediates. An
- *          even-length chain lands its result in `b`, so `a` ends back at the
- *          offset it held when the chain started — with only the seed below it.
+ * @details An even-length chain lands its result in `b`, so `a` ends back at
+ *          the offset it held when the chain started.
  */
 inline void test_solid_builder_reclaims_intermediates() {
   Arena a(solids_scratch_a, sizeof(solids_scratch_a));
@@ -617,19 +532,15 @@ inline void test_solid_builder_reclaims_intermediates() {
 }
 
 // ---------------------------------------------------------------------------
-// Recipe tables: the declarative chains in solids.h must replay bitwise-equal
-// to the generator functions they mirror, and expand_to_primitives' composite
-// decompositions must replay bitwise-equal to the authored composites.
+// Recipe tables: bitwise replay parity.
 // ---------------------------------------------------------------------------
 
-/** Lowered-step buffer capacity (deepest chain is 6 steps, meta emits 3). */
+/** Lowered-step buffer capacity. */
 constexpr size_t MAX_LOWERED_STEPS = 32;
 
 /**
  * @brief Verifies build_recipe replays every non-null recipe bitwise-identical
  *        to its entry's generator, across all three registries.
- * @details The anchor gate: it is what stops the recipe tables and the shipping
- *          geometry from silently diverging.
  */
 inline void test_recipes_match_generators_bitwise() {
   size_t checked = 0;
@@ -656,8 +567,7 @@ inline void test_recipes_match_generators_bitwise() {
       ++checked;
     }
   }
-  // Guards against a vacuous pass if the recipe pointers are dropped. Recipes
-  // are carried by the Islamic registry alone.
+  // Guards against a vacuous pass if the recipe pointers are dropped.
   HS_EXPECT_EQ(checked, Solids::Collections::get_islamic_solids().size());
 }
 
@@ -752,8 +662,6 @@ inline void check_composite_lowering(const Solids::OpStep &step) {
 /**
  * @brief Pins every composite decomposition (gyro/meta/needle/zip/bevel),
  *        including bevel(0.5) lowering its truncate half to ambo.
- * @details A transposed decomposition (e.g. needle = kd written as dk) fails
- *          here rather than producing a subtly wrong solid at runtime.
  */
 inline void test_composite_lowering_matches_composites() {
   check_composite_lowering({Solids::Op::GYRO});
@@ -777,21 +685,13 @@ inline void test_composite_lowering_matches_composites() {
 }
 
 // ---------------------------------------------------------------------------
-// Morph feasibility: every Islamic-pattern entry must ship a recipe whose every
-// lowered primitive step a morph leg can cover, so an infeasible shape reds CI
-// up front instead of silently cutting to a whole-generate fallback at runtime.
+// Morph feasibility.
 // ---------------------------------------------------------------------------
 
 /**
  * @brief Verifies every islamic_registry entry is morph-feasible: it carries a
  *        non-null recipe whose every lowered primitive step satisfies
  *        is_morphable_step.
- * @details Fail-hard gate for the morphing carousel's roster. A future recipe
- *          that lowers to a step outside recipe-morph coverage (EXPAND, or a
- *          truncate/chamfer param outside the characterized range) reds here and names the
- *          offending entry and lowered step, rather than cutting to a
- *          whole-generate fallback unannounced. expand_to_primitives mirrors the
- *          lowering the morph path runs, so this checks the same steps it will.
  */
 inline void test_islamic_recipes_are_morph_feasible() {
   size_t checked = 0;

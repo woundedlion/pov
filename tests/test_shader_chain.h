@@ -2,24 +2,15 @@
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
  * Licensed under the PolyForm Noncommercial License 1.0.0
  *
- * Chain-interpreter core: operator-table integrity, catalog golden pin,
- * static-versus-erased parity for every operator family,
- * plus roster-wide operator behavior checks,
- * transactional refusals, and instance-state identity/migration.
+ * Chain-interpreter core tests.
  *
  * Catalog regen: the golden at tests/data/shader_chain_catalog.json is
  * rewritten by the native build target:
  *   cmake --build --preset tests --target regenerate_shader_chain_catalog
- * then committing the file.
  *
- * The golden's block sizes and alignments are the native ABI, emitted by the
- * host build this suite runs in. scripts/engine_catalog.json is a second
- * catalog stating the wasm32 ABI the browser workbench budgets against,
- * rewritten by the Emscripten build's own generator target:
- *   cmake --build --preset wasm-release --target regenerate_engine_catalog
- * The two diverge only in the prepared block of the pointer-bearing operators:
- * they are not to be reconciled, and copying either over the other retargets a
- * consumer's budget math.
+ * The golden's block sizes and alignments are the native ABI; the wasm32
+ * catalog (regenerate_engine_catalog) is a separate file and is not
+ * interchangeable with it.
  */
 #pragma once
 
@@ -70,8 +61,7 @@ static_assert(In::Op::curl_intervals(In::Op::CurlIntegrator::MIDPOINT4) == 4);
 inline void test_shader_chain_hue_lut_bake_cache() {
   using WB = ShaderChainWhiteBox;
   using HueShiftMode = In::Op::HueShiftMode;
-  // Unreachable through the quantizer, whose range is [-127, 127], so a
-  // surviving poison means the bake was skipped rather than repeated.
+  // Outside the quantizer's [-127, 127] range.
   constexpr int8_t POISON = -128;
   constexpr size_t LAST = PB::Color::HueNoiseLutView::SIZE - 1;
   reset_globals();
@@ -141,8 +131,7 @@ inline void test_shader_chain_hue_lut_bake_cache() {
   HS_EXPECT_EQ(WB::baked_noise_phase(effect), moved);
 }
 
-// The wire spellings are the JS contract; the switch is the roster, so a new
-// ChainStatus value fails to compile here until its spelling is asserted.
+// The wire spellings are the JS contract.
 inline const char *expected_chain_status_name(In::ChainStatus status) {
   switch (status) {
   case In::ChainStatus::OK:

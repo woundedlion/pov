@@ -28,9 +28,8 @@ constexpr uint32_t BRIGHT_ENERGY = 12288;
 constexpr uint32_t COVERAGE_ENERGY = 512;
 constexpr uint32_t HIGH_CHANNEL_ERROR = 4096;
 
-/** High-count star budgets use the seven high-count/orientation measurements.
- * Whole-frame metrics allow 20% headroom; the worst channel allows 50%.
- * The oracle matrix has separate per-case error budgets. */
+/** Measured star baselines. Whole-frame metrics allow 20% headroom; the worst
+ * channel allows 50%. */
 constexpr double WHOLE_FRAME_HEADROOM = 1.2;
 constexpr double WORST_PIXEL_HEADROOM = 1.5;
 constexpr double MEASURED_MEAN_ABSOLUTE_ERROR = 187.5;
@@ -514,12 +513,8 @@ inline void test_buffer_comparator_statistics() {
 /**
  * @brief Verifies the reference render is reproducible and non-black over the
  *        whole matrix.
- * @details Both sides of the comparison are reference_renderer(), so this
- *          establishes determinism, not correctness: the capture harness
- *          reproduces a state bit-identically, and the reference frame carries
- *          energy. Those are the preconditions the candidate-vs-reference
- *          budget cases rest on — a nondeterministic harness or an all-black
- *          reference would make every error bound below vacuous.
+ * @details Both sides are reference_renderer(), so this pins determinism and
+ *          nonzero energy, not correctness.
  */
 inline void test_reference_matrix_is_deterministic_and_nonblack() {
   for (const OracleState &state : shape_function_matrix()) {

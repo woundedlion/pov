@@ -2,13 +2,7 @@
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
  * Licensed under the PolyForm Noncommercial License 1.0.0
  *
- * Direct unit tests for core/render/filter/feedback_style.h — the Feedback::Style POD: named presets,
- * scalar lerp with function-pointer/discrete snapping, the transform functions
- * (noise_warp — both the unbound identity path and the bound-noise production
- * branch — melt_warp, and hue_fade with its LMS rotation cache), sync_hue(),
- * and sync_noise().
- *
- * Self-contained header. run_styles_tests() returns the module failure count.
+ * Unit tests for the Feedback::Style POD.
  */
 #pragma once
 
@@ -62,10 +56,7 @@ inline void test_named_presets() {
 
 /**
  * @brief Verifies named presets retain their original per-frame hue rotations.
- * @details Drives the pinned shift through sync_hue() and recovers the angle
- *          from the cached cos/sin, so the preset table is compared against what
- *          the production path actually rotates by rather than against a
- *          restatement of its formula.
+ * @details Recovers the angle from sync_hue()'s cached cos/sin.
  */
 inline void test_named_presets_preserve_frame_hue() {
   struct Case {
@@ -89,8 +80,7 @@ inline void test_named_presets_preserve_frame_hue() {
   for (const Case &c : cases) {
     Feedback::Style s = c.style;
     s.sync_hue();
-    // The cached angle comes from fast trig, which lands within 2.3e-4 turns
-    // over this table; the bound carries ~4x margin.
+    // The cached angle comes from fast trig.
     HS_EXPECT_NEAR(std::atan2(s.hue_sa, s.hue_ca) / (2.0f * math::PI_F),
                    c.frame_shift, 1e-3f);
   }
@@ -99,13 +89,8 @@ inline void test_named_presets_preserve_frame_hue() {
 /**
  * @brief Pins sync_hue's per-frame rotation to hue_shift turns per e-fold of
  *        feedback brightness decay.
- * @details hue_shift is defined as turns of hue rotation per e-fold decrease in
- *          brightness, so a fade of exp(-n) — which loses exactly n e-folds per
- *          frame — must rotate by n * hue_shift turns. The expected angle comes
- *          from that rate and std cos/sin, independent of the production
- *          expression, so it pins the sign of the log and the hue_shift factor
- *          that a ratio-only invariant cannot see. Rates avoid half-turn
- *          multiples, where a sign flip is unobservable.
+ * @details A fade of exp(-n) must rotate by n * hue_shift turns. Rates avoid
+ *          half-turn multiples, where a sign flip is unobservable.
  */
 inline void test_sync_hue_rotates_per_efold() {
   constexpr float TURN_TOL = 2e-3f;
@@ -126,7 +111,7 @@ inline void test_sync_hue_rotates_per_efold() {
 // --- lerp -------------------------------------------------------------------
 
 /**
- * @brief Second ColorFn used only to observe lerp's function-pointer snapping.
+ * @brief Second ColorFn for observing lerp's function-pointer snapping.
  * @param p Source pixel color.
  * @param fade Per-frame scalar fade multiplier in [0, 1].
  * @return Pixel scaled by fade.
@@ -139,12 +124,8 @@ inline Pixel lerp_probe_fade(const Pixel &p, float fade,
 /**
  * @brief Verifies Style::lerp interpolates scalar fields linearly, snaps
  *        discrete fields, and pushes the blend into the subject's bound noise.
- * @details Scalar fields (fade, hue_shift, scale, ...) interpolate linearly;
- *          discrete fields (transform pointers, downsample, pole_half_res) snap to b at
- *          t >= 0.5 and stay on a below the midpoint. The subject's bound
- *          noise pointer must never be overwritten by a's or b's noise, and
- *          the NoiseParams it points at must carry the blended scalars, or
- *          the feedback filter's drift trap fires on the next flush.
+ * @details Discrete fields snap to b at t >= 0.5. The subject keeps its own
+ *          noise pointer, and that NoiseParams carries the blended scalars.
  */
 inline void test_lerp_scalars_and_snapping() {
   Animation::NoiseParams na;
@@ -164,9 +145,7 @@ inline void test_lerp_scalars_and_snapping() {
   Feedback::Style b{};
   b.fade = 1.0f;
   b.hue_shift = 1.0f;
-  // amplitude/frequency/speed carry endpoints whose midpoint differs from the
-  // Style default, so dropping their interpolation cannot land on the value the
-  // assertion expects.
+  // amplitude/frequency/speed midpoints differ from the Style default.
   b.amplitude = 3.0f;
   b.frequency = 0.7f;
   b.speed = 5.0f;
@@ -210,7 +189,6 @@ inline void test_lerp_scalars_and_snapping() {
 /**
  * @brief Verifies noise_warp passes the direction through unchanged when no
  *        NoiseParams is bound.
- * @details With nothing to sample, the warp must be the identity.
  */
 inline void test_noise_warp_null_is_identity() {
   Feedback::Style s{};
@@ -236,7 +214,7 @@ inline void test_melt_warp_drifts_toward_north() {
   math::Vector v(1.0f, 0.0f, 0.0f); // on the equator (y = 0)
   math::Vector out = Feedback::melt_warp(v, s);
   // speed=1 slerps 0.04 of the 90 deg arc toward the pole: y rises ~0.0628, x
-  // drops ~0.002. Pin a minimum drift so a no-op warp can't pass.
+  // drops ~0.002.
   HS_EXPECT_TRUE(out.y > 0.05f);
   HS_EXPECT_TRUE(out.x < 0.999f);
   HS_EXPECT_NEAR(out.length(), 1.0f, 1e-4f);
@@ -244,13 +222,9 @@ inline void test_melt_warp_drifts_toward_north() {
 
 /**
  * @brief Verifies noise_warp actually distorts when a NoiseParams is bound.
- * @details The null-noise test above only covers the identity early-out. Here a
- *          real NoiseParams is bound and primed via the production sync_noise()
- *          path (which pushes the Style's amplitude/frequency/speed/scale into
- *          it); noise_warp must then take the bound branch — delegating to
- *          noise_transform — and displace the direction off the input while
- *          keeping it on the unit sphere. Displacement is summed across samples
- *          so a single noise zero-crossing can't make the test flaky.
+ * @details NoiseParams is primed via sync_noise(); the output must leave the
+ *          input while staying unit length. Displacement is summed across
+ *          samples so a single noise zero-crossing cannot pass as identity.
  */
 inline void test_noise_warp_bound_distorts() {
   Animation::NoiseParams np;
@@ -276,11 +250,8 @@ inline void test_noise_warp_bound_distorts() {
 
 /**
  * @brief Verifies melt_warp's bound-noise branch perturbs the drip.
- * @details test_melt_warp_drifts_toward_north exercises only the noise-disabled
- *          drip. With a NoiseParams bound and amplitude above the wobble floor,
- *          melt_warp must take the `s.noise && s.amplitude > floor` branch and
- *          perturb the drifted point, so its output diverges from the same Style
- *          with noise unbound (the pure-drip result), while staying unit length.
+ * @details With amplitude above the wobble floor, the output diverges from the
+ *          same Style with noise unbound while staying unit length.
  */
 inline void test_melt_warp_bound_noise_perturbs() {
   Animation::NoiseParams np;
@@ -312,9 +283,6 @@ inline void test_melt_warp_bound_noise_perturbs() {
 /**
  * @brief Verifies hue_fade with a zero hue shift dims a gray pixel while
  *        keeping it gray.
- * @details Gray has no chroma to rotate, so this avoids depending on OKLCH
- *          round-trip precision; the channels stay equal within a small
- *          tolerance.
  */
 inline void test_hue_fade_zero_shift_preserves_gray() {
   Pixel gray(20000, 20000, 20000);
@@ -374,9 +342,7 @@ inline void test_sync_hue_matches_hue_at_equal_brightness() {
 /**
  * @brief Verifies hue_fade with a nonzero shift actually rotates a saturated
  *        pixel's hue via the sync_hue cache.
- * @details Unlike the gray-pixel zero-shift case, a saturated pixel has chroma to
- *          rotate: the rotated result must diverge from the plain (hue-preserving)
- *          fade. test_hue_fade_matches_rotate_reference covers rotation parity.
+ * @details The rotated result must diverge from the hue-preserving fade.
  */
 inline void test_hue_fade_nonzero_shift_rotates_saturated() {
   Pixel red(50000, 2000, 2000);
@@ -396,9 +362,7 @@ inline void test_hue_fade_nonzero_shift_rotates_saturated() {
 /**
  * @brief Verifies the identity rotation's cbrt-LMS matrix is the identity.
  * @details hue_rotate_lms_matrix folds oklab_to_lms_cbrt . rotate .
- *          lms_to_oklab; at rotation zero the fold must reduce to the identity
- *          within float error of the two OKLab matrices, which pins them as
- *          mutual inverses.
+ *          lms_to_oklab, so this pins the two OKLab matrices as mutual inverses.
  */
 inline void test_hue_rotate_lms_matrix_identity() {
   float k[9];
@@ -410,11 +374,9 @@ inline void test_hue_rotate_lms_matrix_identity() {
 /**
  * @brief Parity sweep: hue_fade's folded cbrt-LMS path vs the reference
  *        fade-then-rotate composition through the tabulated gamut clip.
- * @details Allows 64 u16-channel LSBs across preset fades, hue rotations,
- * saturated primaries, dark and gray tones. The reference rotates in OKLab
- * with the same cached trig pair and, when the rotated color leaves the cube,
- * rescales its
- * chroma onto the flash grid's cell minimum, the clip hue_fade applies.
+ * @details Allows 64 u16-channel LSBs. The reference rotates in OKLab with the
+ * same cached trig pair and, out of gamut, rescales chroma onto the flash
+ * grid's cell minimum.
  */
 inline void test_hue_fade_matches_rotate_reference() {
   constexpr float HUE_FADE_TOL = 64.0f;
@@ -457,8 +419,7 @@ inline void test_hue_fade_matches_rotate_reference() {
 /**
  * @brief Pins hue_fade_apply2 against the scalar hue_fade_apply at the
  *        quantized output, the level the display observes.
- * @details Compares paired and scalar paths across preset fades, hue rotations,
- * saturated primaries, and near-black inputs; allows 128 u16-channel LSBs.
+ * @details Allows 128 u16-channel LSBs.
  */
 inline void test_hue_fade_apply2_tracks_scalar() {
   constexpr int PAIR_TOL = 128;
@@ -513,8 +474,7 @@ inline void test_hue_fade_apply2_tracks_scalar() {
         }
     }
 
-  // An all-black pair stays exactly black, the state the composite writes to
-  // overwrite the stale double-buffer frame.
+  // An all-black pair stays exactly black.
   Feedback::Style s{};
   s.hue_shift = 0.2f;
   s.sync_hue();
@@ -533,8 +493,6 @@ inline void test_hue_fade_apply2_tracks_scalar() {
 /**
  * @brief Verifies sync_noise copies the Style's noise-related scalars into its
  *        bound NoiseParams and is a safe no-op when none is bound.
- * @details Pushes amplitude/frequency/speed/scale into the bound NoiseParams;
- *          an unbound sync must not dereference null.
  */
 inline void test_sync_noise_pushes_scalars() {
   Animation::NoiseParams np;

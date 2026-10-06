@@ -122,8 +122,7 @@ inline void test_longitude_stays_in_ring_at_negative_seam() {
 inline void test_longitude_saturates_out_of_domain_input() {
   constexpr hs::SphericalFieldLayout<64, 33, 0> layout(4);
   const auto ring = layout.ring(4);
-  // volatile keeps the non-finite inputs out of constant folding, so the cast
-  // runs at runtime where an unclamped NaN would index far outside the ring.
+  // volatile keeps the non-finite inputs out of constant folding.
   volatile float source[]{std::numeric_limits<float>::quiet_NaN(),
                           std::numeric_limits<float>::infinity(),
                           -std::numeric_limits<float>::infinity()};
@@ -170,8 +169,6 @@ inline void test_populate_recurrence_matches_exact_trig() {
   constexpr hs::SphericalFieldLayout<288, 144, 3> layout(4);
   static std::array<math::Vector, layout.sample_count()> values;
   hs::SphericalField<math::Vector, 288, 144, 3> field(values.data(), layout);
-  // The incremental rotation walks the whole ring from the meridian, so the
-  // longest ring is where any drift in the recurrence accumulates.
   field.populate(0, layout.ring_count() - 1,
                  [](const math::Vector &v, const auto &) { return v; });
   for (int i = 0; i < layout.ring_count(); ++i) {
@@ -286,8 +283,7 @@ inline void test_sampler_wraps_south_pole_with_virtual_rows() {
   HS_EXPECT_EQ(sample, 3200 + 7 + W / 2);
 }
 
-// Drives the generic sampler with the RGB sampler's own load and blend, so the
-// two agree only if they share one pole-tap policy.
+// Drives the generic sampler with the RGB sampler's own load and blend.
 template <int W, int H, int HOffset>
 inline void generic_sample_rgb(
     const hs::SphericalFieldLayout<W, H, HOffset> &layout, const Rgb *source,
