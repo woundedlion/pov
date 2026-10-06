@@ -89,8 +89,9 @@ class PowerFlagTests(unittest.TestCase):
             symbols=[power("power:GND", 100, 100),
                      power("power:PWR_FLAG", 110, 100),
                      power("power:+5V", 120, 100)],
-            wires=[((100, 100), (120, 100))])
+            wires=[((100, 100), (110, 100)), ((110, 100), (120, 100))])
         self.assertEqual([nets for nets, _ in found], [["+5V", "GND"]])
+        self.assertIn(("PWR_FLAG", (110, 100)), found[0][1])
 
     def test_two_rails_without_a_flag_fails(self):
         found = conflicts(
