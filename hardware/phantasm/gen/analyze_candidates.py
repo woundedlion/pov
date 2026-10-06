@@ -24,8 +24,8 @@ candidates below 0.45/0.20 mm are ineligible. Project-rule and zone floors run
 independently of KiCad availability; refusals report as RULES.
 
 Scoring favors fewer fast-net vias and shorter fast nets. Placement distances
-are reported for inspection: the reported groupings are locked in the rev 1.2
-upload and cannot distinguish its candidates.
+are reported unscored for inspection: decap, terminator and divider groupings
+are locked in the rev 1.2 upload, while R_S-to-J3A varies between candidates.
 """
 import argparse
 import glob
