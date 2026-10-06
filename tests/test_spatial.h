@@ -557,8 +557,8 @@ inline void test_meshstate_set_borrowed_drops_owned() {
 
 /**
  * @brief Verifies set_borrowed() accepts an empty face-offsets span.
- * @details Only the solid scan path carries offsets; an empty span skips the
- *          consistency checks and leaves the offsets accessor empty.
+ * @details An empty offsets span skips the offset checks; face counts must
+ * still sum to the flat face list, and the offsets accessor reads empty.
  */
 inline void test_meshstate_set_borrowed_empty_offsets() {
   Arena arena(spatial_buf, sizeof(spatial_buf));
