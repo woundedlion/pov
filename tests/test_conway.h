@@ -189,13 +189,17 @@ inline void check_euler_characteristic_two(const PolyMesh &m) {
  * @param m Mesh to inspect.
  * @details In a closed manifold a vertex's incident-face count equals its edge
  *          degree. An unreferenced (degree-0) vertex shows up as a {0, n}
- *          bucket.
+ *          bucket. Out-of-range face indices occupy the {-1, n} bucket.
  */
 inline std::map<int, int> vertex_degree_histogram(const PolyMesh &m) {
   std::vector<int> degree(m.vertices.size(), 0);
-  for (uint16_t idx : m.faces)
-    ++degree[idx];
   std::map<int, int> hist;
+  for (uint16_t idx : m.faces) {
+    if (idx < degree.size())
+      ++degree[idx];
+    else
+      ++hist[-1];
+  }
   for (int d : degree)
     ++hist[d];
   return hist;
