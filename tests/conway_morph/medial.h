@@ -158,7 +158,7 @@ inline int medial_inverted_faces(const PolyMesh &m) {
 
 /**
  * @brief Gates the medial dual bridge on every DUAL-leg seed: endpoint match
- *        plus slerp well-formedness (task-validated failure modes).
+ *        plus slerp well-formedness.
  */
 inline void test_medial_dual_bridge_wellformed() {
   constexpr int SAMPLES = 33;
