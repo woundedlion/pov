@@ -1,5 +1,6 @@
 cmake_minimum_required(VERSION 3.29)
 get_filename_component(_gate_dir "${CALL_GATE}" DIRECTORY)
+file(REMOVE_RECURSE "${WORK}")
 file(MAKE_DIRECTORY "${WORK}/tests/alpha" "${WORK}/tools")
 file(COPY "${_gate_dir}/header_sections.cmake" DESTINATION "${WORK}/tests")
 file(WRITE "${WORK}/tests/off_roster_headers.cmake" "set(HS_OFF_ROSTER_HEADER_NAMES)\n")
