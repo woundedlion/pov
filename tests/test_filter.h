@@ -102,7 +102,7 @@ inline int run_filter_tests() {
   test_pipeline_could_intersect_clip_forwards_through_stages();
   test_world_mobius_identity_and_transform();
 
-  test_pipeline_sink_2d_plot_blends_wraps_clips();
+  test_pipeline_sink_2d_plot_writes_wraps_clips();
   test_pipeline_composition_alpha_and_draw_order();
   test_pipeline_sink_3d_plot_routes_to_canvas();
   test_pipeline_world_replicate_fans_out();
