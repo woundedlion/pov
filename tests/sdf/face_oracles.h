@@ -6,10 +6,8 @@
 // ============================================================================
 // Face distance vs an independent exact oracle
 //
-// Face::distance computes the per-edge point-to-polygon distance in the
-// gnomonic tangent plane. This pins it against an oracle that projects the
-// source vertices through a frame of its own, over the face's whole gnomonic
-// box, to float precision.
+// Face distances match an independent oracle within 1e-4 inside and on
+// concave faces; convex exteriors stay within [0, oracle] with that tolerance.
 // ============================================================================
 
 /**
