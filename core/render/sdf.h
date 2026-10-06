@@ -6,8 +6,8 @@
 
 /**
  * @file sdf.h
- * @brief Signed-distance shapes, CSG operators and volumes: umbrella over
- *        render/sdf/.
+ * @brief Umbrella over the SDF common, shape, ring, CSG, face and volume
+ * headers. Other render/sdf/ primitives require their direct headers.
  */
 
 #include "render/sdf/common.h"
