@@ -39,11 +39,4 @@ struct ShaderChainWhiteBox {
   static int8_t *hue_noise_lut(FX &effect) {
     return effect.resources->hue_noise_lut.data();
   }
-  /** The inputs the resident hue-noise table was baked from. */
-  static float baked_noise_scale(const FX &effect) {
-    return effect.resources->hue_noise_bake.scale;
-  }
-  static float baked_noise_phase(const FX &effect) {
-    return effect.resources->hue_noise_bake.phase;
-  }
 };
