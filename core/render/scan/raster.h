@@ -276,7 +276,7 @@ inline const ClipRegion &source_clip(const PipelineT &pipeline,
 /**
  * @brief Validates that a type-erased fragment shader refers to a callable.
  * @param fragment_shader Shader the draw invokes per pixel.
- * @details FunctionRef::operator() only asserts on an empty ref.
+ * @details Traps with a scan-specific diagnostic before invoking the shader.
  */
 HS_NOINLINE_NOCLONE inline void
 check_fragment_shader(FragmentShaderFn fragment_shader) {
