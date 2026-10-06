@@ -409,7 +409,11 @@ inline void test_distorted_ring_stack_matches_sequential() {
     for (int s = 0; s < n_slots; ++s)
       shapes[s].~DistortedRing();
 
+#if defined(HS_TEST_FAST_MATH)
     constexpr int CHANNEL_TOL = N_RINGS; // one 16-bit step per composited blend
+#else
+    constexpr int CHANNEL_TOL = 0;
+#endif
     size_t lit = 0;
     for (int y = 0; y < H; ++y) {
       for (int x = 0; x < W; ++x) {
