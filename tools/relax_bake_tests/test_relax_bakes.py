@@ -46,7 +46,10 @@ class ParseDump(unittest.TestCase):
         self.assertEqual(b["topology_hash"], 0xABCD1234)
         self.assertEqual(b["source_hash"], 0x1234ABCD)
         self.assertEqual(b["output_hash"], out)
-        self.assertGreaterEqual(b["source_margin"], 1.0e-5)
+        self.assertEqual(b["source_margin"],
+                         relax_bakes.float_from_bits(relax_bakes.float_bits(2.0e-5)))
+        self.assertEqual((b["faces"], b["indices"]), (2, 6))
+        self.assertEqual(b["source_grid"], (2013, 0x3f3c7774, 0x3727c5ac))
         self.assertEqual(b["bits"], [1, 2, 3, 4, 5, 6])
 
     def test_dedupes_identical_repeat(self):
