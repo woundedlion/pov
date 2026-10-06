@@ -1,8 +1,6 @@
 #!/usr/bin/env python3
-"""Host tests for the shared Teensy device lock (tools/device_lock.sh).
-
-Staleness must never fire on a claim whose owner is alive; these drive
-_hs_lock_is_stale through bash directly.
+"""Host tests for the shared Teensy device lock (tools/device_lock.sh and
+tools/device_lock_guard.py).
 
 Run:  python -m unittest discover -s tools/profile_tests
 """
