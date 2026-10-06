@@ -605,9 +605,6 @@ def main() -> int:
         OSError,
         subprocess.SubprocessError,
     ) as error:
-        # Not parser.error: these are oracle/manifest violations, not argument
-        # mistakes, and its usage dump buries them under an exit code the
-        # caller cannot tell from a typo on the command line.
         print(f"pullback_capture: {error}", file=sys.stderr)
         return 1
     return 0
