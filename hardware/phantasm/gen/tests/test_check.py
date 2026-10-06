@@ -90,10 +90,11 @@ class NodeKeyTests(unittest.TestCase):
 
 class ExpectTableTests(unittest.TestCase):
     def test_every_fixed_pinout_node_carries_a_pin(self):
-        for name, keys in check.EXPECT.items():
-            for key in keys:
-                if key.split(".")[0] not in check.SYMMETRIC:
-                    self.assertIn(".", key, f"{name}: {key} has no pin")
+        for revision in ("1.1", "1.2", "1.3"):
+            for name, keys in check.expected_nets(revision).items():
+                for key in keys:
+                    if key.split(".")[0] not in check.SYMMETRIC:
+                        self.assertIn(".", key, f"{revision} {name}: {key} has no pin")
 
     def test_every_symmetric_ref_spans_two_nets(self):
         for revision in ("1.1", "1.2", "1.3"):
