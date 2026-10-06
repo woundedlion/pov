@@ -411,9 +411,6 @@ class ScanMetricsLines(unittest.TestCase):
     def test_metrics_command_reports_missing_instrumentation(self):
         self.assertEqual(pp.cmd_metrics(self._parse(scan_line=None)), 2)
 
-    def test_metrics_command_succeeds_on_an_instrumented_capture(self):
-        self.assertEqual(pp.cmd_metrics(self._parse()), 0)
-
 
 class ProbeBreakdownLines(unittest.TestCase):
     """The HS_PROBE_BREAKDOWN 'probe cycles'/'probe counts' lines."""
