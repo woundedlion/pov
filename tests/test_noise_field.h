@@ -176,6 +176,11 @@ inline void test_noise_field_direct_tangent() {
     HS_EXPECT_NEAR(quarter_turn.x, expected_turn.x, 1e-6f);
     HS_EXPECT_NEAR(quarter_turn.y, expected_turn.y, 1e-6f);
     HS_EXPECT_NEAR(quarter_turn.z, expected_turn.z, 1e-6f);
+    const math::Vector quarter_turns = math::sample_direct_tangent(
+        noise, math::NoiseBasis::SIMPLEX, q, v, 0.25f);
+    HS_EXPECT_NEAR(quarter_turns.x, quarter_turn.x, 1e-5f);
+    HS_EXPECT_NEAR(quarter_turns.y, quarter_turn.y, 1e-5f);
+    HS_EXPECT_NEAR(quarter_turns.z, quarter_turn.z, 1e-5f);
     HS_EXPECT_EQ(std::memcmp(&simplex, &specialized, sizeof(math::Vector)), 0);
     for (math::NoiseBasis basis :
          {math::NoiseBasis::FBM3, math::NoiseBasis::RIDGED3}) {
@@ -189,6 +194,12 @@ inline void test_noise_field_direct_tangent() {
       HS_EXPECT_NEAR(u0.x, u1.x, 1e-6f);
       HS_EXPECT_NEAR(u0.y, u1.y, 1e-6f);
       HS_EXPECT_NEAR(u0.z, u1.z, 1e-6f);
+      const math::Vector u_quarter =
+          math::sample_direct_tangent(noise, basis, q, v, 0.25f);
+      const math::Vector u0_turned = math::cross(v, u0);
+      HS_EXPECT_NEAR(u_quarter.x, u0_turned.x, 1e-5f);
+      HS_EXPECT_NEAR(u_quarter.y, u0_turned.y, 1e-5f);
+      HS_EXPECT_NEAR(u_quarter.z, u0_turned.z, 1e-5f);
     }
   }
 }
