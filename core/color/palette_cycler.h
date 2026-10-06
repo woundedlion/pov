@@ -212,32 +212,9 @@ public:
    * is bit-exact regardless of easing endpoint behavior.
    */
   HS_COLD_MEMBER void step() {
-    if ((paused != nullptr && *paused) ||
-        (provider == nullptr && entry_count < 2))
+    if (!advance_clock(true))
       return;
-    if (display_dirty && !fade_active) {
-      if (provider != nullptr)
-        rebake_display(*from_slot);
-      else
-        rebake_display_entry(entries[current]);
-      display_dirty = false;
-    }
-    ++frame;
-    if (!fade_active) {
-      if (frame >= dwell) {
-        if (provider == nullptr)
-          begin_fade();
-        fade_active = true;
-        frame = 0;
-      }
-      return;
-    }
-    if (frame >= fade) {
-      finish_fade();
-      return;
-    }
-    const float progress = static_cast<float>(frame) / static_cast<float>(fade);
-    const float w = easing != nullptr ? easing(progress) : progress;
+    const float w = fade_weight();
     if (provider != nullptr) {
       morph->morph_palettes(*from_slot, *to_slot, w);
       rebake_display(*morph);
@@ -260,24 +237,8 @@ public:
    *  @details Timeline and provider state still land exactly. A later step()
    *  immediately rebuilds the display at the current phase. */
   HS_COLD_MEMBER void advance_without_display() {
-    if ((paused != nullptr && *paused) ||
-        (provider == nullptr && entry_count < 2))
-      return;
-    ++frame;
-    if (!fade_active) {
-      if (frame >= dwell) {
-        if (provider == nullptr)
-          begin_fade();
-        fade_active = true;
-        frame = 0;
-      }
-      return;
-    }
-    if (frame >= fade) {
-      finish_fade(false);
-      return;
-    }
-    display_dirty = true;
+    if (advance_clock(false))
+      display_dirty = true;
   }
 
   /** @brief The display LUT effects shade from. */
@@ -303,8 +264,7 @@ public:
       rebake_display(*from_slot);
       return;
     }
-    const float progress = static_cast<float>(frame) / static_cast<float>(fade);
-    const float weight = easing != nullptr ? easing(progress) : progress;
+    const float weight = fade_weight();
     morph->morph_palettes(*from_slot, *to_slot, weight);
     rebake_display(*morph);
   }
@@ -349,9 +309,7 @@ public:
     fade_active = clock.fade_active;
     display_dirty = clock.display_dirty;
     if (fade_active) {
-      const float progress =
-          static_cast<float>(frame) / static_cast<float>(fade);
-      const float weight = easing != nullptr ? easing(progress) : progress;
+      const float weight = fade_weight();
       morph->morph_palettes(*from_slot, *to_slot, weight);
       rebake_display(*morph);
     } else {
@@ -360,6 +318,40 @@ public:
   }
 
 private:
+  __attribute__((always_inline)) inline bool
+  advance_clock(bool update_display) {
+    if ((paused != nullptr && *paused) ||
+        (provider == nullptr && entry_count < 2))
+      return false;
+    if (update_display && display_dirty && !fade_active) {
+      if (provider != nullptr)
+        rebake_display(*from_slot);
+      else
+        rebake_display_entry(entries[current]);
+      display_dirty = false;
+    }
+    ++frame;
+    if (!fade_active) {
+      if (frame >= dwell) {
+        if (provider == nullptr)
+          begin_fade();
+        fade_active = true;
+        frame = 0;
+      }
+      return false;
+    }
+    if (frame >= fade) {
+      finish_fade(update_display);
+      return false;
+    }
+    return true;
+  }
+
+  __attribute__((always_inline)) inline float fade_weight() const {
+    const float progress = static_cast<float>(frame) / static_cast<float>(fade);
+    return easing != nullptr ? easing(progress) : progress;
+  }
+
   int next_of(int index) const {
     return index + 1 == entry_count ? 0 : index + 1;
   }
