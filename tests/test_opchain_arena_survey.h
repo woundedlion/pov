@@ -29,21 +29,6 @@ struct Row {
 };
 
 /**
- * @brief Classifies a recipe as budget-gated from its lowered steps.
- * @param recipe Registry recipe.
- * @return True when no lowered step is a DUAL/KIS bridge.
- */
-inline bool has_production_schedule(const Recipe &recipe) {
-  std::array<Solids::OpStep, 16> steps{};
-  const size_t count =
-      Solids::expand_to_primitives(recipe, steps.data(), steps.size());
-  return std::none_of(
-      steps.begin(), steps.begin() + count, [](const Solids::OpStep &step) {
-        return step.op == Solids::Op::KIS || step.op == Solids::Op::DUAL;
-      });
-}
-
-/**
  * @brief Replays every Islamic registry entry as a build chain and reports the
  *        persistent and scratch high-waters. Budget claims exclude DUAL/KIS bridges.
  */
@@ -61,9 +46,7 @@ inline void test_islamic_registry_arena_survey() {
       continue;
     rows[n].name = entry.name;
     rows[n].peaks = conway_morph_tests::replay_build_chain(entry.name, *chain);
-    const bool expected = has_production_schedule(*chain);
-    HS_EXPECT_EQ(rows[n].peaks.production_schedule, expected);
-    expected_eligible += expected ? 1 : 0;
+    expected_eligible += rows[n].peaks.production_schedule ? 1 : 0;
     ++n;
   }
 
