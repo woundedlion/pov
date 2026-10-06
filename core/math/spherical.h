@@ -35,7 +35,6 @@ inline constexpr Vector UP = Y_AXIS;
  * @param eps The epsilon offset for the spiral.
  * @param i The index of the point to calculate.
  * @return The point on the unit sphere.
- * @note Setup-time generator; exact trig is intentional (not a per-pixel path).
  */
 inline Vector fib_spiral(int n, float eps, int i) {
   HS_CHECK(n > 0, "fib_spiral: n must be positive");
@@ -47,7 +46,7 @@ inline Vector fib_spiral(int n, float eps, int i) {
   constexpr double INV_PHI_PRECISE = 0.6180339887498948482;
   const float theta = static_cast<float>(
       std::fmod(2.0 * PI * static_cast<double>(i) * INV_PHI_PRECISE, 2.0 * PI));
-  // Y-up; unit by construction, so no normalize().
+  // Y-up; unit by construction.
   return Vector(radius * cosf(theta), y, radius * sinf(theta));
 }
 
@@ -89,10 +88,9 @@ struct LissajousParams {
  *          designer tools/lissajous.html).
  * @param t Time variable (or position along the domain).
  * @return The calculated 3D point (unit vector).
- * @note Setup-time generator; exact trig is intentional (not a per-pixel path).
  */
 inline Vector lissajous(float m1, float m2, float a, float t) {
-  // Unit by construction, so no normalize().
+  // Unit by construction.
   return Vector(sinf(m2 * t) * cosf(m1 * t - a), cosf(m2 * t),
                 sinf(m2 * t) * sinf(m1 * t - a));
 }
@@ -118,10 +116,9 @@ inline Basis rotate(const Basis &b, const Quaternion &q) {
 /**
  * @brief Creates a basis { u, v, w } from an orientation and normal.
  * @param orientation The orientation quaternion; MUST be unit length
- *   (HS_CHECK-trapped below — a non-unit quaternion would scale/shear the frame).
+ *   (HS_CHECK-trapped).
  * @param normal The normal vector; after rotation it becomes the 'v' axis. MUST
- *   be non-zero — a zero (or rotation-collapsed) normal traps in the
- *   `normalized()` of `v` below.
+ *   be non-zero; a zero (or rotation-collapsed) normal traps.
  * @return The constructed Basis.
  */
 inline Basis make_basis(const Quaternion &orientation, const Vector &normal) {
@@ -132,9 +129,8 @@ inline Basis make_basis(const Quaternion &orientation, const Vector &normal) {
                ? static_cast<int>(orientation_norm_sq * 1000.0f)
                : static_cast<int>(INT32_MIN));
   Vector v = rotate(normal, orientation).normalized();
-  // rotate preserves dot, so least_parallel_axis(normal) picks the same body
-  // axis as the rotated frame; rotate it into the frame for the cross. Only its
-  // direction matters, the cross below is normalized.
+  // rotate preserves dot, so the axis least parallel to normal, rotated, is
+  // least parallel to v.
   Vector ref = rotate(least_parallel_axis(normal), orientation);
   Vector u = cross(v, ref).normalized();
   // v and u are orthonormal, so the cross is unit by construction.
@@ -144,11 +140,9 @@ inline Basis make_basis(const Quaternion &orientation, const Vector &normal) {
 
 /**
  * @brief First tangent-basis vector at a unit vertex.
- * @details The frame's second vector is cross(normal, u), unit because normal
- *          and u are orthonormal; callers derive it rather than store it.
- *          Crosses against +Y, swapping to +X within POLE_REFERENCE_COS of a
- *          pole where the +Y cross collapses. The band is far wider than the one
- *          perpendicular_axis() seeds with, which crosses against +X instead.
+ * @details The frame's second vector is cross(normal, u). Crosses against
+ *          +Y, swapping to +X within POLE_REFERENCE_COS of a pole where the +Y
+ *          cross collapses.
  * @param normal Unit vertex normal.
  * @return A unit tangent at @p normal.
  */
@@ -169,11 +163,8 @@ inline constexpr float MIN_TRANSPORT_CROSS_SQ = 1e-4f;
  * @param to Unit vector the tangent is carried to.
  * @param tangent Tangent at @p from.
  * @return The tangent at @p to.
- * @details Traps once the pair is inside MIN_TRANSPORT_CROSS_SQ of antipodal
- *   rather than only at the exact antipode: any non-tangent component of
- *   @p tangent is amplified by 2/|cross(from, to)| there, capped at 200x by the
- *   bound. Gated on |cross|^2, which stays accurate where 1 + dot cancels; the
- *   dot > 0 half-space short-circuits before the cross product.
+ * @details Traps within MIN_TRANSPORT_CROSS_SQ of antipodal, where any
+ *   non-tangent component of @p tangent is amplified by 2/|cross(from, to)|.
  */
 inline Vector parallel_transport(const Vector &from, const Vector &to,
                                  const Vector &tangent) {

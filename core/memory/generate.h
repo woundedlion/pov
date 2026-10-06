@@ -14,10 +14,8 @@ namespace detail {
 /**
  * @brief Returns the shared generate() nesting-depth counter.
  * @return Reference to the process-wide recursion depth (starts at 0).
- * @details The counter is shared across ALL generate() instantiations, so it must
- *   live outside the template: a function-local static inside generate() would give
- *   each GenerateFn type its own counter, so a nested call (a different lambda type)
- *   would see depth==0 and reset the arena out from under its caller.
+ * @details Shared across all generate() instantiations, so a nested call with
+ *   a different GenerateFn type sees the caller's depth.
  */
 inline int &generate_depth() {
   static int depth = 0;
@@ -43,13 +41,9 @@ constexpr int MAX_GENERATE_DEPTH = 16;
  *   fn(target, scratch_a, scratch_b, args...). The fn signature
  *   must be: ReturnType fn(Arena& target, Arena& scratch_a, Arena& scratch_b, Args...)
  *
- *   Reentrant: a generator callback may itself call generate(). The full arena
- *   reset happens only at the outermost call; a nested call sub-scopes off the
- *   caller's live frame (via ScratchScope), so it sees only the scratch headroom
- *   above the outer allocations rather than clobbering them.
- * @note The scratch reset does not run ArenaResetHook::run_all(); that registry
- *   covers the persistent arena, and scratch storage is never cached in a
- *   global.
+ *   Reentrant: only the outermost call resets the arenas; a nested call
+ *   sub-scopes off the caller's live frame via ScratchScope.
+ * @note The scratch reset does not run ArenaResetHook::run_all().
  */
 template <typename GenerateFn, typename... Args>
 HS_COLD_MEMBER auto generate(Arena &target, GenerateFn &&fn, Args &&...args) {

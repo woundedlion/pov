@@ -12,18 +12,12 @@
 /**
  * @brief A read-only, non-owning view into arena-allocated data.
  * @tparam T Element type viewed by the span.
- * @details Makes owned (ArenaVector) vs borrowed data visible at the type level.
- *
- * LIFETIME CONTRACT: a span snapshots its source vector's elements pointer at
- * construction. Debug checks fault on an arena RESET, a source-vector RE-GROW or CLEAR,
- * a rewind below the borrowed block, or reclamation and reissue of that block.
- * The arena generation tracks reset, the per-vector rebind counter tracks grow and clear,
- * and the block stamp tracks rewind and reissue. A MOVE of the source vector is not
- * tracked: the span keeps its snapshotted elements (runtime-safe) but its debug
- * stamps reference the moved-from husk, so re-take the span after growing or
- * moving its source. Outliving the source VECTOR OBJECT (not its arena block —
- * a stack-local vector going out of scope) is worse than untracked: in debug the
- * staleness check reads source_vec, so the span must not outlive it.
+ * @details Snapshots the source vector's elements pointer at construction.
+ * Debug checks fault on an arena reset, a source-vector re-grow or clear, a
+ * rewind below the borrowed block, or reclamation and reissue of that block. A
+ * move of the source vector is not tracked; re-take the span after growing or
+ * moving its source. The span must not outlive the source vector object, which
+ * the debug check reads.
  */
 template <typename T> class ArenaSpan {
   const T *elements;    /**< Snapshotted pointer to the borrowed data. */
@@ -109,7 +103,7 @@ public:
    * @brief Copy and copy-assignment duplicate the borrow verbatim.
    * @details A span copy carries the same data pointer, size, and (in debug) the
    * source's lifetime stamps, so the copy trips the same staleness check as the
-   * original. Only construction from a temporary ArenaVector (above) is forbidden.
+   * original.
    */
   ArenaSpan(const ArenaSpan &) = default;
   ArenaSpan &operator=(const ArenaSpan &) = default;

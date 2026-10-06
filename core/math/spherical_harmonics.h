@@ -21,7 +21,6 @@ namespace SHMath {
  * @brief Factorial of n as a float.
  * @param n Non-negative integer whose factorial is computed; kept small.
  * @return n! as a float.
- * @details Float precision; large n would overflow float precision.
  */
 inline float factorial(int n) {
   if (n <= 1)
@@ -55,12 +54,8 @@ inline float legendre_seed(int m) {
  * @param m Order (0 <= m <= l).
  * @param x Argument, equal to cos(phi) with |x| <= 1.
  * @return P_l^m(x) / ((1 - x²)^(m/2) * P_m^m), a polynomial in x.
- * @details Standard upward recurrence in l, started from a unit seed. The
- * recurrence is linear and homogeneous in its two seeds, so the omitted P_m^m
- * scales the whole result and callers fold it into their per-mode constant
- * (harmonic_scale) instead of paying for it per sample. The sin(phi)^m factor
- * is restored by the caller's azimuthal term, which carries it in Cartesian
- * form.
+ * @details Upward recurrence in l from a unit seed; the recurrence is linear,
+ * so harmonic_scale() restores the omitted P_m^m.
  */
 inline float reduced_legendre(int l, int m, float x) {
   float pmm = 1.0f;
@@ -85,9 +80,8 @@ inline float reduced_legendre(int l, int m, float x) {
  * @param l Degree (l >= 0).
  * @param m Order in [-l, l].
  * @return Normalization factor N, constant per shape.
- * @details Traps on |m| > l: reduced_legendre() has no term to recur on there
- * and returns 0, so the mode renders black. Ratios smaller than the float
- * range may underflow to zero.
+ * @details Traps on |m| > l. Ratios smaller than the float range may
+ * underflow to zero.
  */
 inline float normalization(int l, int m) {
   int abs_m = std::abs(m);
@@ -120,8 +114,7 @@ inline float harmonic_scale(int l, int m) {
  * @return The harmonic value.
  * @details sin(phi)^|m| * cos(|m| theta) is Re((x + iz)^|m|), and the sine
  * counterpart is Im, so the (1 - y²)^(|m|/2) factor of P_l^m is exactly what
- * the Cartesian power supplies. Evaluating the pair together leaves the whole
- * harmonic polynomial in (x, y, z): no angle, sine, or square root.
+ * the Cartesian power supplies.
  */
 inline float spherical_harmonic(int l, int m, const math::Vector &p, float N) {
   int abs_m = std::abs(m);
