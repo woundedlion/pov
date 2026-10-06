@@ -17,9 +17,6 @@
 #include "core/engine/engine.h"
 #include "effects/ReactionDiffusionBase.h"
 
-// Unit-test accessor (tests/effects/reaction_diffusion_bz.h) reaching the private Q16
-// conversions, advance_species, perturb_state, and one physics substep, which
-// the smoke/determinism harness cannot pin.
 namespace hs_test {
 namespace effects_tests {
 struct BZWhiteBox;
@@ -33,32 +30,18 @@ struct BZWhiteBox;
  * @tparam H Canvas height in pixels.
  *
  * @details
- * Three competing chemical species (A, B, C) evolve via Lotka-Volterra dynamics
- * on a 7680-node Fibonacci lattice with K=6 nearest neighbors. The cyclic
- * competition (A→B→C→A) creates self-sustaining spiral waves that persist
- * indefinitely. State is stored as Q16 (uint16_t): at the low end of the Diff
- * slider the diffusion term moves a node by only ~3e-4 of full scale per
- * substep, and a store coarser than that rounds the spatial coupling away
- * entirely, leaving uncoupled per-node ODEs. Rendering interpolates with a
- * compact biweight kernel (C1 at the support edge) between lattice nodes.
- *
- * Shared lattice/orientation/kernel scaffolding lives in ReactionDiffusionBase.
- *
- * Memory budget (persistent arena, configured 184 KB):
- *   - Cubemap LUT:                  6 × 64² × 2B = 49,152 B
- *   - State:   3 arrays × 7680 × 2B (Q16)        = 46,080 B
- *   - Node XYZ: 7680 × 12B                       = 92,160 B  (fixed lattice, built once)
- *   - Total:                                       187,392 B (183 KB)
- *
- * Scratch arena (per frame, disjoint phases):
- *   - Physics: float generation mirror 3 × 7680 × 4B = 92,160 B
- *   - Raster:  oriented lattice 7680 × 12B           = 92,160 B
+ * Three species (A, B, C) evolve via cyclic Lotka-Volterra competition
+ * (A→B→C→A), sustaining spiral waves. State is Q16 (uint16_t): at the low end
+ * of the Diff slider the diffusion term moves a node by ~3e-4 of full scale
+ * per substep, which a coarser store rounds away. Rendering interpolates
+ * between lattice nodes with a compact biweight kernel (C1 at the support
+ * edge).
  */
 template <int W, int H>
 class BZReactionDiffusion
     : public ReactionDiffusionBase<BZReactionDiffusion<W, H>, W, H> {
   using Base = ReactionDiffusionBase<BZReactionDiffusion<W, H>, W, H>;
-  friend Base; // draw_frame() forwards to render()
+  friend Base;
 
   // Bring dependent-base names into scope (template base requires this).
   using Base::accumulate_stencil;
@@ -91,26 +74,22 @@ public:
    */
   void init() override {
     constexpr size_t PERSISTENT_BYTES = 184 * 1024;
-    // render()'s scratch peaks at the larger of the physics phase (the 3 float
-    // generation mirrors) and the raster phase (the oriented lattice); the two
-    // run under disjoint scopes.
+    // The physics and raster phases run under disjoint scratch scopes.
     constexpr size_t PHYSICS_SCRATCH_BYTES = 3u * RD_N * sizeof(float);
     constexpr size_t RASTER_SCRATCH_BYTES = RD_N * sizeof(math::Vector);
     constexpr size_t SCRATCH_BYTES =
         PHYSICS_SCRATCH_BYTES > RASTER_SCRATCH_BYTES ? PHYSICS_SCRATCH_BYTES
                                                      : RASTER_SCRATCH_BYTES;
-    // Blocks carved in the peak phase: the 3 generation mirrors, against the
-    // raster phase's single oriented lattice.
+    // Blocks carved in the peak phase: the 3 generation mirrors.
     constexpr size_t SCRATCH_TENANTS = 3;
     Base::template configure_rd_arenas<uint16_t, 3, PERSISTENT_BYTES, 0,
                                        SCRATCH_BYTES, SCRATCH_TENANTS>();
 
-    // Lotka-Volterra predation coefficient; bounded only by to_q16's [0,1] clamp
-    // (not the diffusion stability bound below), so a high value saturates.
+    // Predation coefficient; bounded only by to_q16's [0,1] clamp, so a high
+    // value saturates.
     register_param("Compete", &params.alpha, 0.0f, 4.0f);
-    // Explicit Euler is stable only while dt·D·λmax ≤ 2. The graph Laplacian on a
-    // degree-RD_K lattice has |λ|max ≤ 2·RD_K (= 12 at RD_K=6), bounding these
-    // Diff/Speed tops.
+    // Explicit Euler is stable while dt·D·λmax ≤ 2, with |λ|max ≤ 2·RD_K;
+    // this bounds the Diff/Speed tops.
     register_param("Diff", &params.D, 0.001f, 0.1f);
     register_param("Speed", &params.dt, 0.0f, 1.0f);
 
@@ -126,8 +105,6 @@ public:
   }
 
 private:
-  // Test seam: lets the unit tests reach the private Q16 helpers, physics, and
-  // params without exposing them to production callers.
   friend struct ::hs_test::effects_tests::BZWhiteBox;
 
   struct FloatRgb {
@@ -176,9 +153,8 @@ private:
 
   /**
    * @brief Seeds CLUSTERS_PER_SPECIES saturated blobs per species.
-   * @details Puts all three species on the sphere so the cyclic competition has
-   *          something to sustain spiral waves from. Seeds A, then B, then C:
-   *          the order fixes the RNG stream position for everything downstream.
+   * @details Seeds A, then B, then C; the order fixes the RNG stream
+   *          position for everything downstream.
    */
   HS_COLD_MEMBER void seed_spiral_nuclei() {
     uint16_t *species[] = {state.A, state.B, state.C};
@@ -214,13 +190,10 @@ private:
    * @param n_b Species B buffer to nudge (Q16, modified in place).
    * @param n_c Species C buffer to nudge (Q16, modified in place).
    * @details Nudges NUM_PERTURBATIONS random nodes by PERTURB_AMOUNT (Q16)
-   *          scaled by the timestep, saturating at 65535, to keep the dynamics
-   *          from settling on the closed manifold. The scaling matches the
-   *          reaction-diffusion terms: at dt = 0 the physics is frozen and the
-   *          nudge is 0, so a stopped sphere cannot drift to saturation.
-   * @note Draws from the global deterministic RNG (2*NUM_PERTURBATIONS draws per
-   *       call) whatever the timestep, so retuning the draw count is a
-   *       global-determinism change.
+   *          scaled by the timestep, saturating at 65535; at dt = 0 the nudge
+   *          is 0.
+   * @note Makes 2*NUM_PERTURBATIONS global RNG draws per call whatever the
+   *       timestep.
    */
   void perturb_state(uint16_t *n_a, uint16_t *n_b, uint16_t *n_c) {
     const int amount = static_cast<int>(PERTURB_AMOUNT * params.dt);
@@ -241,12 +214,9 @@ private:
    * @param f_a Float mirror (RD_N) of the current A generation.
    * @param f_b Float mirror (RD_N) of the current B generation.
    * @param f_c Float mirror (RD_N) of the current C generation.
-   * @details Jacobi: the whole current generation is mirrored into
-   *          f_a/f_b/f_c first, and the update loop reads only that mirror, so
-   *          writing the new generation over the state in place cannot feed a
-   *          half-updated neighbor back into the Laplacian. The mirror also
-   *          converts each node's Q16 sample once instead of once per neighbor
-   *          visit.
+   * @details Jacobi: the update reads only the float mirror of the current
+   *          generation, so writing the state in place never feeds a
+   *          half-updated neighbor into the Laplacian.
    */
   HS_O3_FN void step_physics(uint16_t *s_a, uint16_t *s_b, uint16_t *s_c,
                              float *f_a, float *f_b, float *f_c) {
@@ -294,14 +264,10 @@ private:
    * @param cb Palette color for species B.
    * @param cc Palette color for species C.
    * @return The finished, alpha-premultiplied pixel.
-   * @details The four ±0.25 px sub-samples share one interpolation stencil (the
-   * nearest node and its neighbors), refined and gathered once at the pixel
-   * center; only the biweight weights vary per sub-sample. A sub-sample
-   * straddling a Voronoi boundary reuses the center's stencil rather than its
-   * own. The row offset is 0.25 * RADIANS_PER_ROW<H>; stencil reuse can
-   * exceed one node spacing at low vertical resolutions.
-   * The whole body carries HS_O3_FN: an -Os loop around -O3 leaf calls forfeits
-   * most of the codegen win.
+   * @details The four ±0.25 px sub-samples share one stencil (the nearest node
+   * and its neighbors) gathered at the pixel center; only the biweight weights
+   * vary per sub-sample. Stencil reuse can exceed one node spacing at low
+   * vertical resolutions.
    */
   template <typename Grid>
   HS_O3_FN Pixel shade_pixel(int seed, const math::Vector &center_rv,
@@ -370,8 +336,7 @@ private:
         step_physics(state.A, state.B, state.C, f_a, f_b, f_c);
     }
 
-    // Physics scratch is popped; the raster phase reuses the arena for the
-    // oriented lattice so the kernel walks stay in world space.
+    // Physics scratch is popped; the oriented lattice reuses it.
     auto lattice = [this] {
       HS_PROFILE(bz_orient);
       return orient_lattice();

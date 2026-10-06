@@ -21,8 +21,6 @@ inline constexpr size_t MAX_BUILD_OPS = 8;
 inline constexpr size_t MAX_BUILD_FACES = 1152;
 } // namespace IslamicStarsDetail
 
-// Unit-test accessor reaching the private build-chain state (pre-init trans
-// speed, build_active, solid_idx) for the effects-module build smoke.
 namespace hs_test {
 namespace effects_tests {
 struct IslamicBuildProbe;
@@ -34,9 +32,8 @@ struct IslamicBuildProbe;
  *        transitioning one shape into the next while ripples distort the mesh.
  *        Entries with a non-null recipe are built op by op on screen: the
  *        recipe's seed solid sweeps in, one OpLeg per lowered primitive step
- *        morphs it into the finished pattern, then the usual still/ripple/fade
- *        choreography runs
- *        (docs/specs/opchain_morph_spec.md, "Recipe model").
+ *        morphs it into the finished pattern, then the still/ripple/fade
+ *        choreography runs.
  * @tparam W Target canvas width in pixels.
  * @tparam H Target canvas height in pixels.
  */
@@ -84,7 +81,6 @@ public:
     palette_bank.bake_all(persistent_arena);
 
     // Set BEFORE registering: register_param snaps *ptr as the slider default.
-    // Amplitude starts at the slider ceiling (see RIPPLE_AMP_MAX).
     ripple_gen.template_params.amplitude = RIPPLE_AMP_MAX;
     ripple_gen.template_params.thickness = RIPPLE_THICKNESS;
     ripple_gen.template_params.decay = 0.1f;
@@ -101,8 +97,7 @@ public:
     register_param("Face Fade Hi", &carousel.segue().fade_frames_max, 0.0f,
                    32.0f);
     register_int_param("Burst", &params.burst_size, 1, BURST_MAX);
-    // Amplitude slider capped at RIPPLE_AMP_MAX; thickness is fixed (not a
-    // slider), so no setting exceeds the ratio RIPPLE_AMP_MAX is sized for.
+    // Thickness is fixed, so RIPPLE_AMP_MAX bounds amp/thickness.
     register_param("Ripp Amp", &ripple_gen.template_params.amplitude, 0.0f,
                    RIPPLE_AMP_MAX);
     register_param("Ripp Decay", &ripple_gen.template_params.decay, 0.0f, 5.0f);
@@ -170,12 +165,9 @@ private:
   friend struct ::hs_test::effects_tests::IslamicBuildProbe;
 
   // Two-burst capacity reserves headroom for the previous shape's live ripples.
-  // Duration and burst size are cached before scheduling.
   static constexpr int RIPPLE_POOL_SIZE = 8;
   static constexpr int RIPPLE_STAGGER_FRAMES = 16;
-  /** Ripp Dur slider ceiling. Nothing downstream bounds it: the per-shape
-   * display window is derived from the burst span, so the burst always
-   * completes before the next shape spawns. */
+  /** Ripp Dur slider ceiling. */
   static constexpr int RIPPLE_DURATION_MAX = 143;
   static constexpr int BURST_MAX = 4;
   static constexpr int SPRITE_FADE_FRAMES = 16;
@@ -183,28 +175,23 @@ private:
       16; /**< 1 s hold (16 fps) between fade and ripple stages. */
   static constexpr float RIPPLE_THICKNESS =
       0.7f; /**< Fixed ripple wavelet width (radians). */
-  /** Amplitude ceiling. Equals RIPPLE_SMALL_ANGLE_MAX, so every ripple
-   * rotation takes the series-form quaternion. The displacement map
-   * d -> d + theta(d) is injective only below amp/thickness = 0.181; at
-   * 0.15/0.7 it folds across a <= 0.1 rad band by <= 0.012 rad (about half
-   * a pixel at W=288), and at the default decay only within ~1.7 rad of the
-   * origin. */
+  /** Amplitude ceiling; every ripple rotation takes the series-form
+   * quaternion. The displacement map d -> d + theta(d) is injective only below
+   * amp/thickness = 0.181; at 0.15/0.7 it folds by <= 0.012 rad. */
   static constexpr float RIPPLE_AMP_MAX = RIPPLE_SMALL_ANGLE_MAX;
   static_assert(
       2 * BURST_MAX <= RIPPLE_POOL_SIZE,
       "IslamicStars: ripple pool must reserve capacity for two bursts");
 
-  // orientation and noise are borrowed by the timeline-resident RandomWalk, so
-  // they are declared before the Timeline to outlive it; ripple_gen must stay
-  // after it, since a TransformerPool drops its clear hook through the
-  // reference it holds.
+  // orientation and noise are borrowed by the timeline's RandomWalk and must
+  // outlive it; ripple_gen drops its clear hook through its Timeline reference,
+  // so it must be declared after the Timeline.
   math::Orientation<> orientation;
   FastNoiseLite noise;
   Timeline timeline;
   Pipeline<W, H> filters;
   RippleTransformer<RIPPLE_POOL_SIZE> ripple_gen;
-  // Effective per-shape stage lengths after the Trans Speed divisor, written by
-  // spawn_shape and read by the deferred ripple() callback.
+  // Effective per-shape stage lengths after the Trans Speed divisor.
   int ripple_dur_eff = 80;
   int ripple_stagger_eff = RIPPLE_STAGGER_FRAMES;
   int burst_size_eff = 4;
@@ -216,18 +203,15 @@ private:
   static constexpr int NUM_PALETTES = MeshPaletteBank::N;
   MeshPaletteBank palette_bank;
   /** Per-slot per-face palette ids (persistent-arena backed, MAX_BUILD_FACES
-   * each). Written at spawn (class-keyed colours) and at finish_build (the
-   * last leg's landed colours); every compaction re-claims the same addresses,
-   * so the contents survive the reset. */
+   * each); compaction re-claims the same addresses, so the contents survive
+   * the reset. */
   uint8_t *slot_face_palette[2] = {};
 
   /**
    * @brief Claims the two per-slot face-palette arrays from the arena.
    * @param arena Persistent arena the arrays live in.
-   * @details Runs at init and inside every compaction rebake, directly after
-   * the ripple pool's claim: the allocation order is fixed, so the arrays
-   * re-land at their original addresses (asserted) and their bytes survive the
-   * reset.
+   * @details Must directly follow the ripple pool's claim so the arrays
+   * re-land at their original addresses (asserted).
    */
   void claim_face_palettes(Arena &arena) {
     for (uint8_t *&pal : slot_face_palette) {
@@ -253,8 +237,7 @@ private:
   /**
    * @brief Spawns one burst of burst_size ripples from a random origin,
    *        staggered ripple_stagger_eff frames apart, each expanding over
-   *        ripple_dur_eff frames. spawn_entry divides both intervals by Trans
-   *        Speed, with floors of 1 frame for staggering and 8 for duration.
+   *        ripple_dur_eff frames.
    * @param canvas Unused render target for the timer callback signature.
    */
   void ripple(Canvas &) {
@@ -270,8 +253,7 @@ private:
    * @brief Orients and ripple-distorts a mesh into scratch_arena_a.
    * @param base_state Undistorted source mesh.
    * @return The transformed mesh (scratch_arena_a-backed; the caller holds the
-   * scope). Shared by the sprite and build-leg draw paths so build frames ride
-   * the exact transform chain the held shape uses.
+   * scope).
    */
   HS_O3_FN MeshState transform_shape(const MeshState &base_state) {
     MeshState transformed_state;
@@ -290,9 +272,7 @@ private:
    * @param phase Sprite envelope phase: rises over the incoming window, holds 1,
    *        falls over the outgoing window.
    * @param back Carousel slot the shape was spawned into.
-   * @details Cold (flash): runs once per frame, so its own body stays out of
-   * ITCM (phantasm sits at the granule edge); only draw_shape's per-pixel scan
-   * is hot. During the build window an OpLeg draws instead (one mesh per frame).
+   * @details Draws nothing during the build window.
    */
   HS_COLD_MEMBER void draw_sprite(Canvas &canvas, float phase, int back) {
     if (build_active)
@@ -310,9 +290,6 @@ private:
    * @param base_state Undistorted source mesh to transform and draw; carries
    *        the per-face topology classes.
    * @param face_palette Per-face palette ids.
-   * @note Draws on the exact SDF path, not the congruence-class LUT
-   * (face_class_bake.h): ripple/segue deformation makes a canonical LUT mis-shade
-   * or pop. The facility is for effects whose meshes hold still.
    */
   HS_O3_FN HS_NOINLINE_NOCLONE void draw_shape(Canvas &canvas, float phase,
                                                const MeshState &base_state,
@@ -366,12 +343,8 @@ private:
                                 const Animation::OpLeg::Shading &sh) {
     if (mesh.vertices.is_empty())
       return;
-    // Own scope labels: sharing the sprite's would parent two draw paths under
-    // one counter, and a build-only window then prints an empty subtree while a
-    // mixed window prints the child above its own parent's total.
     HS_PROFILE(is_build_draw);
-    // Opened after the OpLeg's blended ramps, which the shader below
-    // reads, so only the scan's own scratch_b allocations unwind here.
+    // Opened after the OpLeg's blended ramps, which the shader reads.
     ScratchScope b_guard(scratch_arena_b);
     // The frame-local mesh and its source occupy scratch_a.
     OrientTransformer camera(orientation);
@@ -504,17 +477,13 @@ private:
     // Flip front eagerly for the overlapping sprite.
     carousel.set_front(back);
 
-    // Segues with a spatial anchor (sweep axis, wave origin, spin axis) get a
-    // fresh random one per transition. Safe mid-carousel: those segues are
-    // sequential, so the previous sprite has already finished.
+    // Segues with a spatial anchor get a fresh random one per transition.
     if constexpr (requires(SegueT &s, const math::Vector &v) { s.retarget(v); })
       carousel.segue().retarget(math::random_vector());
 
-    // Per-shape choreography: segue in, hold still one second, ripple, settle
-    // one second, segue out. Duration is derived from the stage lengths so the
-    // stages never overlap. Trans Speed divides every stage length, each floored
-    // at 1 frame (ripple duration at 8). The duration/stagger are cached for the
-    // deferred ripple() callback, which fires before the next shape spawns.
+    // Per-shape choreography: segue in, hold, ripple, settle, segue out. Trans
+    // Speed divides every stage length, floored at 1 frame (ripple duration
+    // at 8).
     const float sp = std::max(1.0f, params.trans_speed);
     int fade = std::max(1, static_cast<int>(SPRITE_FADE_FRAMES / sp));
     int still = std::max(1, static_cast<int>(STILL_FRAMES / sp));
@@ -524,9 +493,7 @@ private:
     burst_size_eff = params.burst_size;
     int burst_span = (burst_size_eff - 1) * ripple_stagger_eff + ripple_dur_eff;
 
-    // Recipe entries insert a build phase on the segue's phase-1 plateau:
-    // duration is lengthened by the build span rather than the carousel
-    // growing an asymmetric-window API.
+    // Recipe entries insert a build phase on the segue's phase-1 plateau.
     const int build_span = recipe ? plan_build_legs(sp) : 0;
 
     int duration = fade + build_span + still + burst_span + still + fade;
@@ -534,9 +501,8 @@ private:
     int next_delay =
         carousel.schedule_segue(timeline, back, draw_fn, duration, fade);
 
-    // Added after the sprite: on the frame this fires the sprite has already
-    // drawn the seed at the phase-1 boundary, and the first leg's first draw
-    // lands on the next frame — no gap, no double draw.
+    // Added after the sprite, so the first leg draws the frame after the
+    // sprite's last seed draw: no gap, no double draw.
     if (recipe) {
       timeline.add(fade, Animation::PeriodicTimer(
                              0,
@@ -552,8 +518,7 @@ private:
                      0, [this](Canvas &canvas) { ripple(canvas); }, false));
 
     // On a closed 2-manifold faces.size() (Σ face degrees) is exactly 2·E.
-    // A recipe shape spawns holding its seed, so these are the seed's counts;
-    // finish_build logs the finished solid's, which are what it rasterizes.
+    // A recipe shape spawns holding its seed, so these are the seed's counts.
     const MeshState &spawned = carousel.current();
     hs::log("Spawning Shape: %s (V=%d, E=%d, F=%d, I=%d)%s", entry.name,
             (int)spawned.vertices.size(), (int)(spawned.faces.size() / 2),
@@ -574,6 +539,6 @@ private:
     float ripple_duration =
         80.0f; /**< Frames each ripple takes to expand across the sphere. */
     float trans_speed =
-        1.0f; /**< Divides every per-shape stage length (fade, still holds, ripple span) and every build-leg budget: 1 = shipping cadence, higher cycles shapes faster. */
+        1.0f; /**< Divides every per-shape stage length and build-leg budget. */
   } params;
 };

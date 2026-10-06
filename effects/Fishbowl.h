@@ -17,8 +17,6 @@
 #include <array>
 #include <string_view>
 
-// Unit-test accessor reaching the private node so a test can count the vertices
-// deep_tween emits against the MAX_FRAGMENTS the scratch split is sized for.
 namespace hs_test {
 namespace effects_tests {
 struct FishbowlWhiteBox;
@@ -44,11 +42,6 @@ struct FishbowlParams {
  * @tparam H Canvas height in pixels.
  * @details A single node random-walks and follows a Lissajous path while a
  *          noise transformer warps its trail each frame.
- * @note Sibling trail effects `Comets` and `RingSpin` share the
- *       record + deep_tween skeleton (in the engine), and Comets shares the
- *       `Animation::TrailBody` aggregate at the same capacity and substep
- *       count. Draw primitive, transform chain and colour/fade are
- *       hand-propagated.
  */
 template <int W, int H>
 class Fishbowl : public ChoreographedEffect<Fishbowl<W, H>, FishbowlParams> {
@@ -161,9 +154,8 @@ public:
                       {1.00f, CPixel{0x000000}}}),
         cycle_phase(0.0f), noise_xform(timeline) {}
 
-  // Scratch A holds the per-frame vertices buffer and, during the draw call, the
-  // Multiline fragment buffer it binds (capacity vertices.size()+1) plus
-  // rasterize's own sub-step cache, so the worst case is all three live at once.
+  // Scratch A holds the vertices, the Multiline fragment buffer and
+  // rasterize's sub-step cache live at once.
   static constexpr size_t SCRATCH_A_BYTES = 234 * 1024;
   static constexpr size_t SCRATCH_A_ESTIMATE =
       MAX_FRAGMENTS * sizeof(TrailVertex) +
@@ -174,9 +166,7 @@ public:
                 "Multiline-draw fragment buffer and rasterize's sub-step cache "
                 "at once");
 
-  // init() allocates the noise transformer pool and the single Node
-  // (Orientation + OrientationTrail) from the persistent partition;
-  // static_palette binds in place with no arena storage.
+  // Persistent allocations: the noise transformer pool and the Node.
   using NoiseEntity = typename NoiseTransformer<1>::Entity;
   static constexpr size_t FOOTPRINT_BYTES = sizeof(Node) + sizeof(NoiseEntity) +
                                             alignof(NoiseEntity) + sizeof(int) +
@@ -188,10 +178,8 @@ public:
       "retune TRAIL_LENGTH/ORIENTATION_SUBSTEPS or enlarge the split");
 
   /**
-   * @brief Carves arenas, allocates the node, binds the palette, registers
-   *        sliders, installs the Lissajous path, and wires up the timeline
-   *        animations.
-   * @details Sets up the random walk, path motion, and cycle driver animations.
+   * @brief Carves arenas, installs the Lissajous path and wires up the
+   *        timeline.
    */
   HS_COLD_MEMBER void init() override {
     begin_choreography();
@@ -234,10 +222,6 @@ public:
 
   /**
    * @brief Advances and renders one frame of the effect.
-   * @details Steps the timeline, pushes live slider values into the noise
-   *          entities, records the latest orientation into the trail, tweens it
-   *          into per-vertex fragments warped by noise, and draws the colored
-   *          multiline.
    */
   void draw_frame() override {
     Canvas canvas(*this);
@@ -251,8 +235,7 @@ public:
       timeline.step(canvas);
     }
 
-    // Push live slider values onto the noise template; prepare_frame() copies
-    // them into each active entity (refresh_from) and re-syncs the generator.
+    // prepare_frame() copies the template into each active entity.
     {
       HS_PROFILE(fish_noise_prepare);
       noise_xform.template_params.frequency = params.noise_freq;
@@ -269,8 +252,7 @@ public:
 
     node->trail.record(node->orientation);
 
-    // Alpha below one slider LSB: skip building and rasterizing. The trail is
-    // still recorded above, so motion resumes when alpha rises.
+    // Alpha below one slider LSB: skip drawing; the trail still records.
     if (params.alpha < MIN_VISIBLE_ALPHA)
       return;
 
@@ -351,12 +333,9 @@ private:
    * @param scale_factor Palette coordinate scale factor.
    * @param trail_length Recorded trail length *before* this frame's record().
    * @return Phase advance to drive `cycle_phase` with this frame.
-   * @details A full trail evicts its oldest sample each frame, dropping every
-   * survivor one slot and shifting its palette coordinate for free; while
-   * filling, slots are static and the driver must supply that shift itself.
-   * Hence the pre-record length here against palette_fill_scale()'s
-   * post-record one: the frame that fills the last slot still evicts nothing
-   * and must stay compensated.
+   * @details A full trail shifts every sample one slot per frame; while it
+   * fills, slots are static and the driver supplies that shift. The frame that
+   * fills the last slot evicts nothing, hence the pre-record length.
    */
   static float palette_phase_speed(float cycle_speed, float scale_factor,
                                    size_t trail_length) {

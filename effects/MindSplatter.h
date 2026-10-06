@@ -15,11 +15,8 @@
 #include "core/math/mobius.h"
 #include "core/control/choreography.h"
 #include "core/engine/engine.h"
-// 256 x 256 Pixels = 393,216 B of flash, about a fifth of the Teensy budget;
-// the trade is stated in tools/mindsplatter_palette_gen.cpp.
 #include "core/color/mindsplatter_palette_luts.h"
 
-// Unit-test accessor for emitter and hole-kernel invariants.
 namespace hs_test {
 namespace effects_tests {
 struct MindSplatterWhiteBox;
@@ -73,8 +70,8 @@ public:
   using BaseMesh = Solids::BaseMesh;
   using Params = MindSplatterParams;
 
-  /** Every preset departs by crossfading the live parameters over 48
-      frames; pause freezes an in-flight crossfade. */
+  /** Crossfades the live parameters over 48 frames; pause freezes an
+      in-flight crossfade. */
   static constexpr Segue::Preset::Lerp DEPARTURE{48, math::ease_linear,
                                                  /*pausable=*/true};
   static constexpr uint32_t PARAMETER_SCHEMA_VERSION = 1;
@@ -100,8 +97,7 @@ public:
     ArenaSplit{SCRATCH_BYTES, 0}.configure();
     begin_choreography();
 
-    // Compile-time device-budget guard: GLOBAL_ARENA_SIZE is inflated on the
-    // host test build, so check against the real device arena literal.
+    // GLOBAL_ARENA_SIZE is inflated on host; check the device arena.
     static constexpr size_t DEVICE_ARENA_BYTES = DEVICE_GLOBAL_ARENA_SIZE;
     static constexpr size_t POOL_BYTES =
         sizeof(Animation::Particle<TRAIL_LEN>) * NUM_PARTICLES;
@@ -125,8 +121,7 @@ public:
 
     timeline.add(0, Animation::RandomWalk<W>(orientation, math::Y_AXIS, noise));
 
-    // First dwell spans a full cadence period, so the opening preset holds as
-    // long as every later one (dwell + blend).
+    // First dwell spans a full cadence period (dwell + blend).
     hold_initial_preset(PRESET_DWELL_FRAMES + DEPARTURE.frames);
 
     build_particle_system();
@@ -236,10 +231,9 @@ private:
   using Choreography::params;
   using Choreography::timeline;
 
-  // Test seam for emitter and attractor invariants.
   friend struct ::hs_test::effects_tests::MindSplatterWhiteBox;
 
-  /** @brief Per-particle trail length (feeds the pool footprint below). */
+  /** @brief Per-particle trail length. */
   static constexpr int TRAIL_LEN = 8;
 
   /** @brief Frames between stored trail anchors. */
@@ -247,11 +241,8 @@ private:
 
   /**
    * @brief Fixed particle pool capacity.
-   * @details Footprint is host/device-identical (fixed-width trail storage:
-   *          snorm16 entries, uint32_t ring indices): 88 B/particle × 1672 =
-   *          143.7 KiB of the 298 KiB device arena. init()'s static_assert
-   *          enforces the budget at compile time against the real device arena
-   *          literal.
+   * @details Footprint is host/device-identical (snorm16 trail entries,
+   *          uint32_t ring indices).
    */
   static constexpr int NUM_PARTICLES = 1672;
 
@@ -546,10 +537,9 @@ private:
 
   /**
    * @brief Builds the particle system.
-   * @details Inits the pool and installs the selected Platonic emitter solid
-   *          with its dual as the attractor solid. Single-shot: the arena has
-   *          no per-allocation free, so ParticleSystem::init traps on a second
-   *          call.
+   * @details Installs the selected Platonic emitter solid with its dual as
+   *          the attractor solid. Single-shot: ParticleSystem::init traps on a
+   *          second call.
    */
   HS_COLD_MEMBER void build_particle_system() {
     particle_system.init(persistent_arena, params.friction, GRAVITY,
@@ -619,9 +609,8 @@ private:
                        alpha * opacity);
     };
 
-    // v2 mapper used as a per-particle palette bind: ParticleSystem::draw calls
-    // it before the particle's fragments are shaded, so fragment_shader always
-    // reads this particle's palette. v2 itself is unused by the shader.
+    // v2 mapper doubles as a per-particle palette bind; it runs before the
+    // particle's fragments shade. v2 itself is unused.
     auto prepare_trail_palette = [&](const auto &p, int) {
       trail_palette = MINDSPLATTER_PALETTES[p.color_seed >> 8];
       return 0.0f;
