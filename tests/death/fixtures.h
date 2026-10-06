@@ -5,8 +5,6 @@
 
 // Included by tests/test_death.h.
 
-// --- Individual death cases — each MUST trap (HS_CHECK / __builtin_trap) ------
-
 // Shared death-test fixtures.
 
 /**
