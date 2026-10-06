@@ -138,6 +138,8 @@ inline int run_filter_tests() {
   test_screen_trails_negative_age_clamps_t();
   test_screen_trails_forwards_aged_emission();
   test_screen_trails_at_capacity_replaces_last_slot();
+  test_screen_trails_set_lifetime_caps_ttl();
+  test_trails_alpha_gates();
   test_mixed_domain_flush_drains_both_buffers();
 
   test_effect_needs_full_frame_default_false();
