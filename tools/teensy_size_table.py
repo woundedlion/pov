@@ -142,7 +142,8 @@ def main(argv: list[str] | None = None) -> int:
         print(render_table(order, sizes_by_env))
     if record_trail and rc == 0:
         subprocess.call([sys.executable, str(Path(__file__).with_name(
-            "teensy_size_trail.py")), "record", "--built"])
+            "teensy_size_trail.py")), "record", "--built",
+            *[f"--env={env}" for env in envs]])
     return rc
 
 

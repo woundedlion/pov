@@ -150,6 +150,17 @@ class Main(unittest.TestCase):
                 tst.main([])
         self.assertEqual(started.call_args.args[0], ["pio", "run"])
 
+    def test_record_trail_records_only_the_requested_environments(self):
+        with mock.patch.object(tst.shutil, "which", return_value="pio"), \
+                mock.patch.object(tst.subprocess, "Popen", return_value=self._FakePio([], 0)) as build, \
+                mock.patch.object(tst.subprocess, "call", return_value=0) as record, \
+                contextlib.redirect_stdout(io.StringIO()):
+            self.assertEqual(tst.main(["--record-trail", "phantasm", "bench"]), 0)
+        self.assertEqual(build.call_args.args[0], ["pio", "run", "-e", "phantasm", "-e", "bench"])
+        self.assertEqual(record.call_args.args[0],
+                         [sys.executable, str(TOOLS / "teensy_size_trail.py"),
+                          "record", "--built", "--env=phantasm", "--env=bench"])
+
 
 if __name__ == "__main__":
     unittest.main()
