@@ -6,10 +6,10 @@
 # silently flashing old code). On a marker/header mismatch it wipes the env
 # build dir and retries once.
 #
-# Host: Windows + Git Bash. The flash and the ELF attestation shell out to the
-# PlatformIO loader's .exe tools through cygpath, and device_lock.sh enumerates
-# boards by COM name. A run without an enumerated board fails at acquisition
-# before building the images.
+# Host: Windows + Git Bash. Flash uses the PlatformIO loader through cygpath.
+# ELF attestation runs the toolchain's arm-none-eabi-readelf.exe (override with
+# HS_ARM_READELF). device_lock.sh enumerates boards by COM name; acquisition
+# fails without an enumerated board, before building the images.
 #
 # tools/device_lock.sh holds a per-board lock through build+flash+capture.
 # HS_DEVICE_WAIT=<s> queues for a free board; HS_TEENSY_PORT=<COMn> pins one board.
