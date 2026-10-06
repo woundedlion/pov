@@ -448,6 +448,7 @@ files define line-ending policy and working-artifact exclusions.
 ├── tests/                      Unit tests (CMake subdirectory)
 │   ├── animation/         Sections included by test_animation.h
 │   ├── canvas/            Sections included by test_canvas.h
+│   ├── color/             Sections included by test_color.h
 │   ├── conway_morph/      Sections included by test_conway_morph.h
 │   ├── death/             Sections included by test_death.h
 │   ├── effects/           Sections included by test_effects.h
