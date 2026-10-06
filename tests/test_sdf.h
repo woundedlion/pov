@@ -1674,8 +1674,8 @@ inline void test_subtract_star_notch_columns_survive_the_carve() {
 }
 
 /**
- * @brief Verifies that when B removes nothing, every A interval passes through untouched.
- * @details Passthrough replays A's emission verbatim — no span dropped, merged
+ * @brief Verifies Subtract forwards A's intervals verbatim, including with empty B.
+ * @details Subtract never consults B's intervals. No A span is dropped, merged
  *   or reordered. Consumers (scan_region's coalescer, a CSG parent's merge)
  *   order the list themselves.
  */
@@ -1683,7 +1683,7 @@ inline void test_subtract_empty_b_passes_a_through_verbatim() {
   using P = std::pair<float, float>;
   using Mock = sdf_interval_detail::MockIntervalShape;
   std::vector<P> a_ivs = {{50.0f, 60.0f}, {0.0f, 10.0f}}; // unsorted
-  std::vector<P> b_ivs = {};                              // empty → passthrough
+  std::vector<P> b_ivs = {};
   Mock A{&a_ivs}, B{&b_ivs};
   SDF::Subtract<Mock, Mock> s(A, B);
 
