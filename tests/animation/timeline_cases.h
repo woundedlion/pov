@@ -479,32 +479,35 @@ inline void test_repeating_timer_fires_then_each_cycle() {
 /**
  * @brief Verifies a repeating timer canceled from inside its own callback fires
  * .then() exactly once and is removed.
- * @details The timer fires the per-cycle hook itself, and Timeline fires it
- * again from the removal branch; both run in the trigger frame unless the timer
- * reads repeats() (which drops on cancel) instead of the raw repeat flag.
+ * @details Cancellation completes through Timeline without rescheduling or
+ * consuming another random delay draw.
  */
 inline void test_repeating_timer_canceled_in_callback_fires_then_once() {
+  const auto SAVED_RNG = hs::random();
+  hs::random().seed(1337);
   Timeline tl;
   int thens = 0;
   struct {
     int triggers = 0;
-    Animation::PeriodicTimer *timer = nullptr;
+    Animation::RandomTimer *timer = nullptr;
   } st; // one capture keeps the callback inside TimerFn's inplace budget
-  st.timer = tl.add_get(0,
-                        Animation::PeriodicTimer(
-                            3,
-                            [&st](Canvas &) {
-                              st.triggers++;
-                              st.timer->cancel();
-                            },
-                            /*repeat=*/true)
-                            .then([&]() { thens++; }),
-                        Timeline::Pin::UNPINNED);
+  st.timer =
+      tl.add_get(0,
+                 Animation::RandomTimer({.min = 3, .max = 3, .repeat = true},
+                                        [&st](Canvas &) {
+                                          st.triggers++;
+                                          st.timer->cancel();
+                                        })
+                     .then([&]() { thens++; }),
+                 Timeline::Pin::UNPINNED);
+  auto expected_rng = hs::random();
   for (int i = 0; i < 9; ++i)
     tl.step(fake_canvas()); // would trigger at t=3,6,9 without the cancel
   HS_EXPECT_EQ(st.triggers, 1);
   HS_EXPECT_EQ(thens, 1);
   HS_EXPECT_EQ(global_timeline_num_events, 0);
+  HS_EXPECT_EQ(hs::random()(), expected_rng());
+  hs::random() = SAVED_RNG;
 }
 
 /** @brief Verifies cancellation within a timer's completion callback does not re-enter it. */
