@@ -1375,10 +1375,13 @@ inline void test_feedback_polar_rows_hit_their_targets() {
   fx.advance_display();
 
   float worst = 0.0f;
+  int compared = 0;
   for (int y = 1; y < H - 1; ++y) {
-    if (hs::SphericalFieldLayout<W, H>::latitude_sine(y) >= 0.45f)
+    if (hs::SphericalFieldLayout<W, H>::latitude_sine(y) >=
+        Filter::Pixel::Feedback<W, H>::POLAR_TARGET_SINE)
       continue;
     for (int x = 0; x < W; ++x) {
+      ++compared;
       const Pixel p = fx.get_pixel(x, y);
       const math::Vector got =
           math::Vector(decode(p.r), decode(p.g), decode(p.b)).normalized();
@@ -1388,6 +1391,7 @@ inline void test_feedback_polar_rows_hit_their_targets() {
                        std::acos(hs::clamp(math::dot(got, want), -1.0f, 1.0f)));
     }
   }
+  HS_EXPECT_GT(compared, 0);
   HS_EXPECT_LT(worst * 180.0f / math::PI_F, 0.5f);
 }
 
