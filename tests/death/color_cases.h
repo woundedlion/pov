@@ -5,7 +5,7 @@
 
 // --- Individual death cases — each MUST trap (HS_CHECK / __builtin_trap) ------
 
-// Color death fixtures and guard cases.
+// Color death cases.
 
 inline void case_gamut_lut_scratch_a() {
   init_gamut_lut(scratch_arena_a, GAMUT_LUT_MIN_ANGLE_STEPS,

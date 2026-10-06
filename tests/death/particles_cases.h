@@ -5,7 +5,7 @@
 
 // --- Individual death cases — each MUST trap (HS_CHECK / __builtin_trap) ------
 
-// Particles death fixtures and guard cases.
+// Particles death cases.
 
 /** @brief Death case: a zero particle lifetime must trap. */
 inline void case_particle_lifetime_zero() {

@@ -5,7 +5,7 @@
 
 // --- Individual death cases — each MUST trap (HS_CHECK / __builtin_trap) ------
 
-// Params canvas death fixtures and guard cases.
+// Params canvas death cases.
 
 /** @brief Rejects a margin below the filter pipeline requirement. */
 inline void case_effect_margin_below_pipeline() {

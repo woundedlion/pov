@@ -5,7 +5,7 @@
 
 // --- Individual death cases — each MUST trap (HS_CHECK / __builtin_trap) ------
 
-// Mesh death fixtures and guard cases.
+// Mesh death cases.
 
 /**
  * @brief Death case: CompiledHankin::clone rejects a self-aliased destination.

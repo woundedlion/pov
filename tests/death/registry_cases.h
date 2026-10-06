@@ -5,7 +5,7 @@
 
 // --- Individual death cases — each MUST trap (HS_CHECK / __builtin_trap) ------
 
-// Registry death fixtures and guard cases.
+// Registry death cases.
 
 /**
  * @brief Death case: a class name equal to another effect's stable ID must

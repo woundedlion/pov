@@ -5,7 +5,7 @@
 
 // --- Individual death cases — each MUST trap (HS_CHECK / __builtin_trap) ------
 
-// Transformers death fixtures and guard cases.
+// Transformers death cases.
 
 /**
  * @brief Death case: a second TransformerPool::init_storage() must trap.

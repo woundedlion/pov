@@ -5,7 +5,7 @@
 
 // --- Individual death cases — each MUST trap (HS_CHECK / __builtin_trap) ------
 
-// Plot filter death fixtures and guard cases.
+// Plot filter death cases.
 
 inline void case_scan_ring_stack_too_many_slots() {
   constexpr int W = 32, H = 16;
