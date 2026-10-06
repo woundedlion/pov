@@ -1416,10 +1416,10 @@ inline void test_pattern_view_controls() {
   HS_EXPECT_EQ(
       effect.serialize_parameters().params.wire_radius,
       Effect::preset(Effect::HYPERCUBE_PRESET_INDEX).params.wire_radius);
-  const auto *lattice_planes = required_param(effect, "Lattice Planes");
-  if (!lattice_planes)
+  const auto *four_d_lattice_planes = required_param(effect, "Lattice Planes");
+  if (!four_d_lattice_planes)
     return;
-  HS_EXPECT_FALSE(lattice_planes->readonly);
+  HS_EXPECT_FALSE(four_d_lattice_planes->readonly);
 }
 
 /** @brief Pins normal pattern views and rejects unsupported numeric IDs. */
