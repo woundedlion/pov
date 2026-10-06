@@ -102,8 +102,8 @@ inline void test_octet_crossing_coverage_against_ray_line_distance() {
       }
     }
   }
-  HS_EXPECT_TRUE(compared > 1000);
-  HS_EXPECT_TRUE(hits > compared / 20);
+  HS_EXPECT_GT(compared, 1000);
+  HS_EXPECT_GT(hits, compared / 20);
 }
 
 /** @brief Pins framework generic event rendering. */
@@ -445,7 +445,7 @@ inline void test_periodic_shell_traversal_budgets() {
                                                   limits, APPEARANCE);
   HS_EXPECT_EQ(PARTIAL.trace.status, Raycast::TraceStatus::BUDGET_EXHAUSTED);
   HS_EXPECT_EQ(PARTIAL.trace.counters.layers, 1);
-  HS_EXPECT_TRUE(PARTIAL.color.alpha > 0);
+  HS_EXPECT_GT(PARTIAL.color.alpha, 0);
   HS_EXPECT_NEAR(PARTIAL.trace.contribution.t, .2f, 1e-6f);
   limits.max_steps = 0;
   const auto EMPTY = SDF::shade_periodic_shells(camera, {1, 0, 0}, 1, .3f, {},
@@ -644,8 +644,8 @@ inline void compare_shell_march(const ShellMarchCase (&cases)[Count],
       }
     }
   }
-  HS_EXPECT_TRUE(hits > compared / 20);
-  HS_EXPECT_TRUE(mismatched <= compared / 2000);
+  HS_EXPECT_GT(hits, compared / 20);
+  HS_EXPECT_LE(mismatched, compared / 2000);
 }
 
 /**
