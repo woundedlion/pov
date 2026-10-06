@@ -695,7 +695,6 @@ struct PetalFlowWhiteBox {
         youngest = ring.rho;
     return youngest;
   }
-  static float spacing() { return PF::SPACING; }
   static float next_hue(const PF &pf) { return pf.next_hue; }
   static float live_spacing(const PF &pf) { return pf.spacing(); }
   static float move_dist(const PF &pf) { return pf.move_dist(); }
