@@ -16,7 +16,6 @@ set(HS_OFF_ROSTER_HEADER_NAMES
   "pole_geometry_test_util.h"
   "pov_tiling_test_util.h"
   "test_fixture.h"
-  "test_generative_palette.h"
   "test_h_offset_renorm.h"
   "test_harness.h"
   "test_lattice_trace.h"
