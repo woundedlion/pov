@@ -100,8 +100,8 @@ template <typename E, size_t MAX_BYTES = HS_PHANTASM_EFFECT_HEAP_BYTES>
 Effect *construct_effect() {
   static_assert(sizeof(E) <= MAX_BYTES,
                 "effect exceeds the heap-object budget");
-  // Eager-fill the scanline LUTs before the first frame so the flywheel ISR
-  // never observes a half-filled table.
+  // Eager-fill the scanline LUTs before the first frame; the per-pixel
+  // lazy-init guards are non-atomic and rely on this call.
   math::GeometryResolution<E>::init();
   configure_arenas_default(); // Reset before init so effects can override
   E *e = new (std::nothrow) E();
