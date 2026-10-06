@@ -14,6 +14,17 @@ inline void test_sparse_parameter_specs() {
                              .options = LABELS,
                              .option_count = 3,
                              .option_values = IDS};
+  struct SparseParams {
+    SparseMode mode;
+  };
+  const auto fields = std::tuple{Control::Field<SparseParams, SparseMode>{
+      "mode", &SparseParams::mode, "Mode", spec}};
+  for (int64_t id : IDS)
+    HS_EXPECT_TRUE(Control::valid_fields(
+        SparseParams{static_cast<SparseMode>(id)}, fields));
+  for (int64_t id : {2, 3, 4, 5, 7})
+    HS_EXPECT_FALSE(Control::valid_fields(
+        SparseParams{static_cast<SparseMode>(id)}, fields));
   HS_EXPECT_TRUE(spec.valid_option_values(SparseMode::SIX));
   HS_EXPECT_FALSE(spec.valid_option_values(static_cast<SparseMode>(2)));
   auto invalid = spec;
