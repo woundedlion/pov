@@ -3,19 +3,6 @@
  * Licensed under the PolyForm Noncommercial License 1.0.0
  *
  * Integrity tests for core/spatial/reaction_graph.{h,cpp}.
- *
- * The neighbor table (core/spatial/reaction_graph.cpp) is a 92 KB machine-generated
- * K-NN adjacency array; scripts/generate_reaction_graph.py is its generator of
- * record and CI (reaction-graph-provenance) diffs the two, so regeneration is
- * checked. These tests additionally guard the in-tree table's content:
- * shape/population vs the RD_N/RD_K constants, structural invariants (range, no
- * self-loops, no duplicate neighbors within a row), geometric sanity
- * (listed neighbors are actually nearby), a brute-force K-NN oracle on sampled
- * rows (the table is the neighbor set of node(), not merely a plausible one),
- * an edge-reciprocity
- * measurement (gross-corruption tripwire — a raw K-NN graph is not required to
- * be perfectly symmetric), and the analytic node() generator.
- * Also exercises CubemapLUT round-trip (direction -> nearest node).
  */
 #pragma once
 
@@ -51,10 +38,8 @@ static inline float chord2(const math::Vector &a, const math::Vector &b) {
 
 /**
  * @brief Upper bound on chord^2 from a node to any listed neighbor.
- * @details The shipped table's worst edge is chord^2 0.003808 (row 26 -> node
- *          60, 3.54 deg, ~1.5 lattice rings); the bound leaves ~2x headroom for
- *          regeneration and libm drift while a row shifted three rings
- *          (chord^2 ~0.015) trips it.
+ * @details About 2x the shipped table's worst edge (chord^2 0.003808); a row
+ *          shifted three rings (chord^2 ~0.015) exceeds it.
  */
 constexpr float MAX_NEIGHBOR_CHORD2 = 0.008f;
 
@@ -76,8 +61,6 @@ inline void test_generated_node_positions() {
 /**
  * @brief Verifies node() places every lattice point on the unit sphere with
  *        the endpoints at the poles.
- * @details Index 0 and RD_N-1 must sit at the poles, per the Fibonacci-lattice
- *          generator's contract.
  */
 inline void test_nodes_on_unit_sphere() {
   float worst_deviation = 0.0f;
@@ -96,11 +79,8 @@ inline void test_nodes_on_unit_sphere() {
  *        strictly southward with no coincident neighbors.
  */
 inline void test_node_ordered_and_distinct() {
-  // Frozen goldens: double-folded Fibonacci-lattice points cast to float32
-  // (host/device agree to the cast per the provenance contract). radius*i — the
-  // sensitivity of x/z to a theta error — peaks at i = 3*(RD_N-1)/4, and RD_N-2
-  // is the largest theta (~18400 rad) on a non-degenerate radius; a float32 fold
-  // moves all three by more than the tolerance.
+  // Frozen double-folded goldens at indices where a float32 theta fold moves
+  // x/z by more than the tolerance.
   HS_EXPECT_VEC(node(1234),
                 math::Vector(-0.416881472f, 0.678604007f, 0.604736686f), 1e-6f);
   HS_EXPECT_VEC(node(5759),
@@ -130,8 +110,6 @@ inline void test_node_ordered_and_distinct() {
 
 /**
  * @brief Pins the frozen D_AVG literal to its analytic value sqrt(4π / RD_N).
- * @details Mirrors reaction_graph.h's compile-time D_AVG/RD_N guard with an
- *          analytic runtime spacing check.
  */
 inline void test_d_avg_matches_rd_n() {
   float expected = static_cast<float>(std::sqrt(4.0 * PI / RD_N));
@@ -173,10 +151,7 @@ inline void test_neighbor_runs_match_table() {
 
 /**
  * @brief Verifies every table entry is a valid node index.
- * @details The contract admits no vacant-slot sentinel: consumers subscript
- *          neighbors[] unguarded, and ReactionGraph::validate_neighbors HS_CHECKs
- *          every slot lands in [0, RD_N) before the first such read, so an
- *          out-of-range entry traps there rather than here.
+ * @details The table has no vacant-slot sentinel.
  */
 inline void test_indices_in_range() {
   int first_bad_slot = -1;
@@ -191,8 +166,6 @@ inline void test_indices_in_range() {
 
 /**
  * @brief Verifies no node lists itself as a neighbor.
- * @details Self-loops would waste a slot and break consumers that assume
- *          distinct adjacency.
  */
 inline void test_no_self_loops() {
   int first_self_slot = -1;
@@ -205,8 +178,6 @@ inline void test_no_self_loops() {
 
 /**
  * @brief Verifies each neighbor index appears at most once per row.
- * @details A duplicate would shrink the effective fan-out and hint at a corrupt
- *          table.
  */
 inline void test_no_duplicate_neighbors_in_row() {
   int first_duplicate_slot = -1;
@@ -229,8 +200,6 @@ inline void test_no_duplicate_neighbors_in_row() {
 
 /**
  * @brief Verifies every listed neighbor is geometrically nearby its node.
- * @details A shuffled, corrupted or ring-shifted row places a neighbor past
- *          MAX_NEIGHBOR_CHORD2; a short zero-padded tail also fails this bound.
  */
 inline void test_neighbors_are_local() {
   int first_far_slot = -1;
@@ -253,9 +222,8 @@ inline void test_neighbors_are_local() {
 /**
  * @brief Verifies sampled rows are the true RD_K nearest neighbors of node().
  * @details Every STRIDE-th row is rebuilt by brute force over all other nodes
- *          under the generator's (chord^2, index) order, so the row must match
- *          slot for slot. The structural and locality cases pass on any
- *          nearby-but-wrong selection; only this pins the table to node().
+ *          under the generator's (chord^2, index) order and must match slot for
+ *          slot.
  */
 inline void test_neighbors_match_brute_force_knn() {
   constexpr int STRIDE = 37;
@@ -299,9 +267,7 @@ inline void test_neighbors_match_brute_force_knn() {
 /**
  * @brief Verifies the fraction of reciprocated directed edges stays high.
  * @details Measures what fraction of directed edges i->ni have a return edge
- *          ni->i. The shipped table reciprocates ~98.9% (legitimate K-NN
- *          asymmetry ~1%); the >95% threshold trips on a scrambled table while
- *          still clearing the real asymmetry by a wide margin.
+ *          ni->i; a K-NN graph is not exactly symmetric.
  */
 inline void test_edge_reciprocity_high() {
   long total = 0, reciprocated = 0;
@@ -403,9 +369,7 @@ inline void test_cubemap_lut_roundtrip() {
 /**
  * @brief Verifies lookup() on off-lattice query directions against a brute-force
  *        nearest-node oracle.
- * @details build() exercises nearest-node search for the cubemap texel centers.
- * Random off-lattice lookup queries check the resulting table against exhaustive
- * nearest-node search, allowing one neighbor of error.
+ * @details Allows one neighbor of error.
  */
 inline void test_cubemap_lut_offlattice() {
   const auto &lut = built_cubemap_lut();
@@ -445,8 +409,7 @@ inline void test_cubemap_lut_offlattice() {
 
 /**
  * @brief Checks equatorial cubemap lookups against a brute-force oracle.
- * @details build() performs nearest-node searches and checks convergence.
- * Equatorial lookup quantization permits at most 12 probes outside the
+ * @details Equatorial lookup quantization permits at most 12 probes outside the
  * oracle node and its direct neighbors among 720 fixed queries.
  */
 inline void test_cubemap_lut_equatorial() {
@@ -471,9 +434,6 @@ inline void test_cubemap_lut_equatorial() {
   std::printf(
       "  [info] cubemap equatorial: %d exact, %d neighbor, %d miss / %d\n",
       exact, near, miss, LONGITUDES);
-  // Unlike the other two probes this one is not miss-free: the equatorial
-  // longitude circle is where the LUT's texel quantization is coarsest against
-  // the lattice, and 9 of the 720 fixed queries land two hops out.
   HS_EXPECT_GT(exact + near, 0);
   HS_EXPECT_LE(miss, 12);
 }

@@ -2,15 +2,7 @@
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
  * Licensed under the PolyForm Noncommercial License 1.0.0
  *
- * Unit tests for core/platform/profiling.h — the instrumentation every on-device
- * timing report is built from. None of it renders a pixel, so a regression
- * surfaces as wrong numbers in a report rather than as a visible failure. These
- * cases pin the hand-rolled u64_dec formatter against its exact-fit buffer, the
- * CycleCounter registry walks (find_suffix, reset_all and the log_node tree
- * captured off stdout), the parent attribution CycleScope builds, and the
- * ISR-side accumulator.
- *
- * Self-contained header. run_profiling_tests() returns the module failure count.
+ * Unit tests for core/platform/profiling.h.
  */
 #pragma once
 
@@ -37,12 +29,8 @@ namespace profiling_tests {
  * @param out Destination buffer; receives the NUL-terminated report.
  * @param n Capacity of @p out.
  * @return True if the redirect was established and the report captured.
- * @details hs::log writes to C stdout, so the report is only observable through
- * an fd swap (the same idiom as test_platform.h's Serial.printf capture). A
- * scratch file rather than that capture's pipe, since the report can outrun a
- * pipe buffer and the write precedes any read. The file uses TEMP on Windows
- * with a CWD fallback, or TMPDIR on POSIX with a /tmp fallback. Its name
- * carries the pid so concurrent runs cannot collide.
+ * @details Captures through a pid-named scratch file in TEMP (Windows) or
+ * TMPDIR (POSIX); the report can outrun a pipe buffer.
  */
 inline bool capture_log_all(char *out, size_t n) {
   out[0] = '\0';
@@ -98,9 +86,7 @@ inline bool capture_log_all(char *out, size_t n) {
 
 /**
  * @brief u64_dec's exact-fit 21-byte buffer between two canary bands.
- * @details UINT64_MAX fills the buffer to its first byte, so an off-by-one in
- * the digit loop writes outside it; the bands make that visible without relying
- * on a sanitizer being enabled.
+ * @details UINT64_MAX fills the buffer to its first byte.
  */
 struct GuardedDecBuf {
   static constexpr char CANARY = 0x5a;
@@ -199,8 +185,7 @@ inline void test_find_suffix() {
   HS_EXPECT_TRUE(hs::CycleCounter::find_suffix("_prof_no_such_counter") ==
                  nullptr);
 
-  // Longer than any registered name: the length guard must reject it before the
-  // compare reads behind the name.
+  // Longer than any registered name.
   char long_suffix[200];
   std::memset(long_suffix, 'z', sizeof(long_suffix) - 1);
   long_suffix[sizeof(long_suffix) - 1] = '\0';
@@ -209,9 +194,7 @@ inline void test_find_suffix() {
 
 /**
  * @brief Verifies a destroyed counter leaves no child pointing at its storage.
- * @details log_all() and log_node() dereference `parent`, so a child that
- * latched a counter destroyed before it would read freed storage on the next
- * report. The orphan must come back as a root and re-latch on its next entry.
+ * @details The orphan comes back as a root and re-latches on its next entry.
  */
 inline void test_destructor_unlatches_children() {
   static hs::CycleCounter child("prof_orphan_child");
@@ -225,8 +208,7 @@ inline void test_destructor_unlatches_children() {
   }
   HS_EXPECT_TRUE(child.parent == nullptr);
 
-  // Re-latching, not a permanent root: the next enclosing counter takes over
-  // without the counter reporting a mixed parent.
+  // The next enclosing counter becomes the parent without a mixed-parent flag.
   {
     hs::CycleScope sr(regrown);
     hs::CycleScope sc(child);
@@ -262,7 +244,6 @@ inline void test_reset_all_clears_counts() {
   HS_EXPECT_EQ(outer.count, 0u);
   HS_EXPECT_EQ(inner.cycles, 0u);
   HS_EXPECT_EQ(inner.count, 0u);
-  // The flag describes the entries just discarded, so it cannot outlive them.
   HS_EXPECT_FALSE(inner.mixed_parent);
   HS_EXPECT_EQ(inner.parent, &outer);
   HS_EXPECT_TRUE(outer.parent == nullptr);
@@ -411,8 +392,7 @@ inline void test_mutual_nesting_keeps_a_root() {
     hs::CycleScope sr(right);
     hs::CycleScope sl(left);
   }
-  // Neither edge may be rewritten: a left<->right cycle would drop both from
-  // log_all()'s root walk.
+  // Neither edge is rewritten; left stays a root.
   HS_EXPECT_TRUE(left.parent == nullptr);
   HS_EXPECT_EQ(right.parent, &left);
   HS_EXPECT_TRUE(left.mixed_parent);
@@ -528,7 +508,7 @@ inline void test_isr_cycle_stats() {
 }
 
 /**
- * @brief Runs every profiling test case.
+ * @brief Runs the profiling test cases.
  * @return The module's failure count.
  */
 inline int run_profiling_tests() {

@@ -199,8 +199,7 @@ inline void check_peirce_fast_square_matches_exact(const math::Vector &v) {
 /** @brief Pins peirce fast square matches exact. */
 inline void test_peirce_fast_square_matches_exact() {
   // Half-step azimuths: the sector seams sit at even multiples of pi/96, so
-  // every sample lands in a sector interior. The snap band itself is covered by
-  // test_peirce_fast_square_ties_the_diagonal_band_to_its_seam.
+  // every sample lands in a sector interior.
   for (int latitude_step = 0; latitude_step <= 96; ++latitude_step) {
     const float y = -1.0f + 2.0f * latitude_step / 96.0f;
     const float radius = sqrtf(std::max(0.0f, 1.0f - y * y));
@@ -255,9 +254,7 @@ inline void test_peirce_fast_square_on_seams_and_poles() {
 /** @brief Pins peirce fast square ties the diagonal band to its seam. */
 inline void test_peirce_fast_square_ties_the_diagonal_band_to_its_seam() {
   // Inside peirce_sector_longitude's snap band the exact kernel folds the
-  // azimuth onto the boundary; the fast kernel's diagonal_tie must label
-  // those samples as the seam itself, so a glued edge reads the same from
-  // either side.
+  // azimuth onto the boundary; diagonal_tie labels those samples as the seam.
   constexpr float INV_SQRT_TWO = 0.7071067811865475f;
   constexpr float OFFSETS[] = {-1.0e-6f, -1.0e-7f, 1.0e-7f, 1.0e-6f};
   constexpr int QUADRANT_X[] = {1, -1, -1, 1};
