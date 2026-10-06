@@ -1105,17 +1105,14 @@ inline void test_gs_partial_color_palette_rows() {
 
 /** @brief Checks certified support against the fixed-profile SSAA offsets. */
 inline void test_gs_support_certificate_matches_display_geometry() {
-  const auto check = [] {
-    HS_EXPECT_GT((GSWhiteBox::render_support_weight_floor<96, 20>()),
-                 GSWhiteBox::RENDER_MIN_WEIGHT);
-    HS_EXPECT_GT((GSWhiteBox::render_support_weight_floor<288, 16>()),
-                 GSWhiteBox::RENDER_MIN_WEIGHT);
-    HS_EXPECT_GT((GSWhiteBox::render_support_weight_floor<288, 144>()),
-                 GSWhiteBox::RENDER_MIN_WEIGHT);
-    HS_EXPECT_GT((GSWhiteBox::render_support_weight_floor<4096, 16>()),
-                 GSWhiteBox::RENDER_MIN_WEIGHT);
-  };
-  check();
+  HS_EXPECT_GT((GSWhiteBox::render_support_weight_floor<96, 20>()),
+               GSWhiteBox::RENDER_MIN_WEIGHT);
+  HS_EXPECT_GT((GSWhiteBox::render_support_weight_floor<288, 16>()),
+               GSWhiteBox::RENDER_MIN_WEIGHT);
+  HS_EXPECT_GT((GSWhiteBox::render_support_weight_floor<288, 144>()),
+               GSWhiteBox::RENDER_MIN_WEIGHT);
+  HS_EXPECT_GT((GSWhiteBox::render_support_weight_floor<4096, 16>()),
+               GSWhiteBox::RENDER_MIN_WEIGHT);
 }
 
 /** @brief Preserves four-sample coverage while bounding reciprocal estimation error. */
