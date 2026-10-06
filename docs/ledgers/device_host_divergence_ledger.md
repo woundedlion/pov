@@ -48,8 +48,8 @@ Legend: ✅ reached by a device-value test · ❌ real device-only path with no 
 
 ## Standing risk
 
-**Three red rows:** rows 9 and 11 are bug-path-only accepted risks; row 13 is a
-read-before-write model gap. Row 9 (empty `Fn` invoke) fires only
+**Two red rows:** row 11 is a bug-path-only accepted risk; row 13 is a
+read-before-write model gap. Row 9 is an accepted divergence. Its empty `Fn` invoke fires only
 when a caller invokes an unbound callable; the cost of closing it is device codegen and ITCM
 footprint on every `Fn` instantiation. Row 11 (`addmod8` zero modulus) fires only on a zero
 modulus, which no shipped call site passes; closing it means guarding inside FastLED's own
