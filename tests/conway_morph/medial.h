@@ -10,31 +10,20 @@
 // ---------------------------------------------------------------------------
 
 inline PolyMesh probe_icosa_kis_snub(Arena &a, Arena &b) {
-  return Solids::SolidBuilder(Solids::Platonic::icosahedron(a, b), a, b)
-      .kis()
-      .snub()
-      .build();
+  return recipe_step_seed<Solids::ICOSAHEDRON_KIS_GYRO_RECIPE, Solids::Op::DUAL,
+                          0>(a, b);
 }
 inline PolyMesh probe_toct_snub(Arena &a, Arena &b) {
-  return Solids::SolidBuilder(Solids::Archimedean::truncatedOctahedron(a, b), a,
-                              b)
-      .snub()
-      .build();
+  return recipe_step_seed<Solids::TRUNCATED_OCTAHEDRON_GYRO_KIS_HK17_RECIPE,
+                          Solids::Op::DUAL, 0>(a, b);
 }
 inline PolyMesh probe_dodeca_hk72_ambo(Arena &a, Arena &b) {
-  using Solids::IslamicStarPatterns::D2R;
-  return Solids::SolidBuilder(Solids::Platonic::dodecahedron(a, b), a, b)
-      .hankin(72.0f * D2R)
-      .ambo()
-      .build();
+  return recipe_step_seed<Solids::DODECAHEDRON_HK72_AMBO_DUAL_HK20_RECIPE,
+                          Solids::Op::DUAL, 0>(a, b);
 }
 inline PolyMesh probe_icosidodeca_trunc5_ambo(Arena &a, Arena &b) {
-  using Solids::IslamicStarPatterns::TRUNCATE_T_NEAR;
-  return Solids::SolidBuilder(Solids::Archimedean::icosidodecahedron(a, b), a,
-                              b)
-      .truncate(TRUNCATE_T_NEAR)
-      .ambo()
-      .build();
+  return recipe_step_seed<Solids::ICOSIDODECAHEDRON_TRUNCATE5D_AMBO_DUAL_RECIPE,
+                          Solids::Op::DUAL, 0>(a, b);
 }
 /** @brief Smooth-dual bridge seeds, including the dt macro's truncate prefix. */
 inline constexpr StepLegSite DUAL_LEG_SITES[] = {
