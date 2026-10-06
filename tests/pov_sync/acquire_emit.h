@@ -102,21 +102,24 @@ inline void test_suspect_timeout_acquire_uncounted() {
   HS_EXPECT_EQ(board.telemetry_snapshot().symbols_rejected_gate, rejected);
 }
 
-/** @brief Pins isolated noise preserves recent boundary lock. */
+/** @brief Isolated noise costs at most one fallback strike per half-revolution. */
 inline void test_isolated_noise_preserves_recent_boundary_lock() {
   const Config cfg = test_config();
   const uint32_t col = cfg.cycles_per_column();
   SyncBoard board(cfg);
   board.seed(1000u, false);
   flywheel_mut(board).force_lock();
-  for (uint32_t column : {30u, 60u, 90u, 120u}) {
+  constexpr uint32_t COLUMNS[] = {30u, 60u, 90u, 120u};
+  HS_EXPECT_GE(static_cast<int32_t>(std::size(COLUMNS)), cfg.reject_fallback);
+  for (uint32_t column : COLUMNS) {
     const uint32_t head = 1000u + column * col;
     const BurstSnapshot noise{1, head, head};
     board.tick(head + 5u * col, &noise);
     board.tick(head + 26u * col, nullptr);
     HS_EXPECT_EQ(lock(board), LockState::LOCKED);
   }
-  HS_EXPECT_EQ(board.telemetry_snapshot().symbols_rejected_gate, 4u);
+  HS_EXPECT_EQ(board.telemetry_snapshot().symbols_rejected_gate,
+               std::size(COLUMNS));
 }
 
 /**
