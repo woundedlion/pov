@@ -106,7 +106,37 @@ inline void test_blend_outputs_denormal_alpha() {
   HS_EXPECT_NEAR(static_cast<float>(blended.color.g), 3000.0f, 1.0f);
   HS_EXPECT_NEAR(static_cast<float>(blended.color.b), 4000.0f, 1.0f);
   HS_EXPECT_EQ(blended.alpha, alpha);
+
+  const Color4 quarter = blend_outputs(from, to, 0.25f);
+  HS_EXPECT_NEAR(static_cast<float>(quarter.color.r), 1500.0f, 1.0f);
+  HS_EXPECT_NEAR(static_cast<float>(quarter.color.g), 2500.0f, 1.0f);
+  HS_EXPECT_NEAR(static_cast<float>(quarter.color.b), 3500.0f, 1.0f);
+  HS_EXPECT_EQ(quarter.alpha, alpha);
 #endif
+}
+
+/**
+ * @brief Verifies mix 0 and mix 1 return the endpoints verbatim.
+ * @details A transparent endpoint keeps its RGB, and out-of-range mixes clamp
+ *          onto the endpoints.
+ */
+inline void test_blend_outputs_endpoints_verbatim() {
+  const Color4 from(Pixel(1000, 2000, 3000), 0.0f);
+  const Color4 to(Pixel(40000, 50000, 60000), 0.75f);
+  for (float mix : {0.0f, -1.0f}) {
+    const Color4 out = blend_outputs(from, to, mix);
+    HS_EXPECT_EQ(out.color.r, from.color.r);
+    HS_EXPECT_EQ(out.color.g, from.color.g);
+    HS_EXPECT_EQ(out.color.b, from.color.b);
+    HS_EXPECT_EQ(out.alpha, from.alpha);
+  }
+  for (float mix : {1.0f, 2.0f}) {
+    const Color4 out = blend_outputs(from, to, mix);
+    HS_EXPECT_EQ(out.color.r, to.color.r);
+    HS_EXPECT_EQ(out.color.g, to.color.g);
+    HS_EXPECT_EQ(out.color.b, to.color.b);
+    HS_EXPECT_EQ(out.alpha, to.alpha);
+  }
 }
 
 inline void test_blend_outputs_tiny_normal_alpha() {

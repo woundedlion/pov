@@ -146,6 +146,7 @@ inline int run_color_tests() {
   test_color4_lerp_straight_alpha();
   test_blend_outputs_denormal_alpha();
   test_blend_outputs_tiny_normal_alpha();
+  test_blend_outputs_endpoints_verbatim();
   test_wrap_angle_pi_large_arguments();
   test_wrap_angle_pi_half_turn_keeps_sign();
   test_lerp16_full_range_correct();
