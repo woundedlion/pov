@@ -103,8 +103,7 @@ struct ParticleSystem {
    * @param vertex_shader Optional vertex shader (position pass).
    * @param deferred_shader Optional second vertex pass, given each fragment and
    *        its original pre-shader position. Under an active clip it runs only
-   *        for trails with at least one cull-surviving edge; a skipped trail
-   *        renders nothing, so output is identical to an undeferred shader.
+   *        for trails with at least one cull-surviving edge.
    *        Put per-point work that only affects shading registers here.
    * @param particle_v2 Optional mapper from particle and pool index to v2.
    *        The default stores the pool index. Contract: called exactly once per
@@ -141,7 +140,7 @@ struct ParticleSystem {
         return true;
     }();
 
-    // Segment-clip state for the trail-level deferred-shader gate below.
+    // Segment-clip state for the trail-level deferred-shader gate.
     const auto &cr = canvas.clip();
     const bool clip_active = !cr.is_full();
     const auto xc = cr.x_clip();
@@ -228,10 +227,9 @@ struct ParticleSystem {
         apply_vertex_shader(vertex_shader, trail);
       }
 
-      // Trail-level gate: precompute each edge's cull verdict from the
-      // position-shaded points. No visible edge means the trail renders
-      // nothing, so the optional deferred pass and the rasterize call are
-      // skipped whole; the bits feed rasterize so the cull is evaluated once.
+      // Trail-level gate: per-edge cull verdicts from the position-shaded
+      // points; a trail with no visible edge skips the deferred pass and
+      // rasterize.
       std::span<const uint8_t> vis;
       PointProjections projections;
       if (clip_active) {
@@ -250,10 +248,8 @@ struct ParticleSystem {
           if (cartesian_result != CartesianTrailGateResult::EXACT_FALLBACK)
             continue;
 
-          // No stage re-emits edges, so the predicate sees the raw points:
-          // per-point rows/columns are computed once and shared by every edge,
-          // and a conservative whole-trail bound rejects fully-invisible
-          // trails before any per-edge work.
+          // Per-point rows/columns are shared by every edge; a conservative
+          // whole-trail bound rejects fully-invisible trails first.
           const TrailGatePrologue pro =
               trail_gate_prologue<W, H>(cr, xc, trail);
           if (pro.rejected)

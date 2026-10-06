@@ -99,8 +99,7 @@ constexpr uint32_t instance_hash(std::string_view instance,
  * @brief The interpreter's per-frame snapshot: shared engine-owned resources
  *        and transforms the operators read.
  * @details Pointers alias engine-owned storage and are valid only within the
- * draw_frame() that built the context — the same lifetime contract as
- * ComposedEffect's FrameState.
+ * draw_frame() that built the context.
  */
 struct FrameContext {
   /** Base orientation composed under the projection spin/wander frame. */
@@ -190,10 +189,7 @@ struct OperatorRuntime {
 };
 
 /**
- * @brief One operator's record: the single authority the interpreter table,
- *        the tool catalog and promotion all read.
- * @details Always produced by make_operator_descriptor(), never aggregate
- * literals at call sites, so promotion fields can be added additively.
+ * @brief One operator's record.
  */
 struct OperatorDescriptor {
   const char *operator_id;
@@ -506,7 +502,7 @@ struct StatelessModel : ValueStateModel<EmptyState> {
  * from Input/Output, block layouts from sizeof/alignof, the schema from the
  * family FIELDS and TOPOLOGY tables, the callbacks as typed-to-erased
  * trampolines, and approximation metadata from the model's declarations.
- * @tparam Model The operator model; see the roster in operators/table.h.
+ * @tparam Model The operator model.
  */
 template <typename Model>
 constexpr OperatorDescriptor make_operator_descriptor() {

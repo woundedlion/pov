@@ -44,8 +44,7 @@ static_assert(std::size(COVERAGE_MODE_IDS) ==
 
 /**
  * @brief Bounds the Sample crossing's topology enum8s.
- * @details Called from prepare(), once per frame, so the per-pixel switches
- * below stay total and carry no guard.
+ * @details The per-pixel switches rely on this check and carry no guard.
  */
 inline void check_sample_topology(uint8_t weight_mode, uint8_t coverage_mode) {
   HS_CHECK(weight_mode <= static_cast<uint8_t>(WeightMode::PROJECTION),

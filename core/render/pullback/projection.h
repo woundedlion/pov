@@ -14,14 +14,14 @@
 
 namespace Pullback {
 
-/** @brief Canonical base orientation shared by projection hosts. */
+/** @brief Canonical base orientation of a projection. */
 inline math::Quaternion projection_base_orientation() {
   return math::make_rotation(math::Vector(0, 0, -1), math::Vector(0, -1, 0));
 }
 
 namespace Projection {
 
-/** @brief Projection and camera parameters, shared by every composed effect. */
+/** @brief Projection and camera parameters. */
 struct ProjectionParams {
   float singularity_fade = 1.0f; /**< Sharpness of the singularity attenuation:
                                       1 fades to the regular locus; 20 confines
@@ -60,9 +60,7 @@ static_assert(field_defaults_in_range<ProjectionParams>());
 enum class GnomonicHemisphere : uint8_t { FOLDED, FRONT, BACK };
 
 inline constexpr uint8_t FOLDED_FLAG = 1U << 0;
-/** Render-space divisor floor that caps gnomonic coordinates near 1000. The
- * math primitive uses STEREO_EQUATOR_EPS only to avoid division by zero before
- * clamping to its much larger point-at-infinity sentinel. */
+/** Render-space divisor floor that caps gnomonic coordinates near 1000. */
 inline constexpr float GNOMONIC_AXIS_EPS = 1e-3f;
 
 /**
@@ -126,7 +124,6 @@ stereographic(const math::Vector &input, float singularity_fade) {
            .flags = 0}};
 }
 
-// Out of line under Emscripten, inlined on every other target.
 #if defined(__EMSCRIPTEN__)
 __attribute__((noinline))
 #else
@@ -465,8 +462,7 @@ struct Peirce : ApproximationDefaults {
   }
 };
 
-/** @brief Approximation bounds of the fast square Peirce path, shared by the
-    template policy and the chain operator's descriptor. */
+/** @brief Approximation bounds of the fast square Peirce path. */
 inline constexpr std::array<ApproximationMetric, 3> PEIRCE_FAST_SQUARE_METRICS{{
     {ApproximationDomain::PROJECTED_COORDINATE,
      ApproximationAggregation::MAXIMUM, 1.2e-3f, "plane units"},

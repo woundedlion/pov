@@ -18,9 +18,7 @@ namespace Pullback {
 
 /**
  * @brief Shared carrier kernels: the normative stage transformations as free
- *        functions over the canonical carriers, called by the template
- *        combinators and any erased adapter, so the semantics cannot fork
- *        between execution paths.
+ *        functions over the canonical carriers.
  */
 namespace Kernel {
 
@@ -336,8 +334,7 @@ struct Lens : Contract<Lens<LensPolicyT>, SphereSample, SphereSample> {
  * @brief SPHERE→PLANE crossing: rotates into the projection frame, projects,
  *        and assembles the plane carrier.
  * @details The projection protocol has no sphere field: the sample point is
- * combinator state, written from the pre-projection point — a policy cannot
- * even accidentally control it.
+ * combinator state, written from the pre-projection point.
  * @tparam ProjectionPolicyT Projection policy returning a ProjectionResult.
  */
 template <typename ProjectionPolicyT>
@@ -434,9 +431,7 @@ struct Warp : Contract<Warp<WarpPolicyT>, PlaneSample, PlaneSample> {
  *        field, ramps, and seeds the field carrier — establishing the
  *        FieldSample invariant.
  * @details Coverage modes never stack: the crossing's coverage policy is one
- * slot from the ProjectionCoverage vocabulary. The raw signed field exists
- * only inside the crossing, which is why weighting is a crossing policy
- * rather than a stage.
+ * slot from the ProjectionCoverage vocabulary.
  * @tparam SourcePolicyT Scalar source policy.
  * @tparam WeightPolicyT Signal-weight policy over the raw signed field.
  * @tparam CoveragePolicyT Projected-coverage policy over the provenance.

@@ -39,8 +39,8 @@ struct Mesh {
   /**
    * @brief Max distinct vertices the edge-dedup bitset can track.
    * @details A mesh exceeding this traps while its faces are walked: at render
-   * time for the mesh draw() overload, or at setup for extract_edges()
-   * (used by MeshFeedback). Drawing extracted edges does not walk faces.
+   * time for the mesh draw() overload, or at setup for extract_edges().
+   * Drawing extracted edges does not walk faces.
    * Sized for a TriangularBitset of 128*127/2 bits = 1016
    * bytes.
    */
@@ -60,20 +60,15 @@ struct Mesh {
    * @param pipeline Render pipeline.
    * @param canvas Target canvas.
    * @param mesh Mesh supplying vertex positions.
-   * @param u,v Endpoint vertex indices (assumed in bounds — the callers run the
-   *            cold OOB/capacity traps before delegating here).
+   * @param u,v Endpoint vertex indices; must be in bounds.
    * @param edge_index Value written to each fragment's v2 register.
    * @param cb Clip-band cut boundaries, resolved once by the calling draw().
    * @param fragment_shader Shader function.
    * @param vertex_shader Optional vertex shader; displaces the edge's two
    *        endpoints, which then bound one geodesic — it does not deform the
    *        edge's interior.
-   * @details Shared body for both draw() overloads (face-walk and precomputed
-   * edge list); keeping it in one place is why the two paths stay bit-identical.
-   * The adaptive rasterizer already walks the true great-circle arc, so the edge
-   * is handed over whole; under a clip it is cut at the band's boundaries
-   * (geodesic_clip_splits) so the outside pieces cost nothing past their gate
-   * verdict.
+   * @details The edge is rasterized whole as a great-circle arc; under a clip
+   * it is cut at the band's boundaries (geodesic_clip_splits).
    */
   template <int W, int H, typename MeshT, typename PipelineT = PipelineRef>
   static void draw_edge(PipelineT &pipeline, Canvas &canvas, const MeshT &mesh,
@@ -142,7 +137,7 @@ struct Mesh {
                  "Mesh::draw_edge: %d cut points outside [2, %d]",
                  static_cast<int>(points.size()), EDGE_MAX_POINTS);
         if (points.size() == 2 && !vertex_shader) {
-          // Uncut, unshaded: the whole-edge test above already ran on it.
+          // Uncut, unshaded: already passed the whole-edge test.
           bits[0] = RasterOptions::EDGE_VISIBLE;
         } else if (!gate_trail_edges<W, H>(pipeline, cr, xc, points, bits)) {
           return;
@@ -189,11 +184,8 @@ struct Mesh {
    * @tparam MeshT Mesh type.
    * @tparam Fn Per-edge callback type.
    * @param mesh Mesh whose faces are walked for edges.
-   * @param visited Caller-owned dedup bitset; cleared before walking. Held by
-   *                the caller so each path picks its own arena/scope.
+   * @param visited Caller-owned dedup bitset; cleared before walking.
    * @param fn Invoked as fn(u, v) for the first occurrence of each edge.
-   * @details Shared face-walk/edge-dedup loop behind both draw() and
-   * extract_edges().
    */
   template <typename MeshT, typename Fn>
   static void for_each_unique_edge(const MeshT &mesh,
@@ -211,7 +203,7 @@ struct Mesh {
       int count = fc[i];
 
       // Trap malformed mesh data: an offset/count pair disagreeing with the flat
-      // index array yields out-of-bounds reads. Cold per-face check.
+      // index array yields out-of-bounds reads.
       HS_CHECK(offset + static_cast<size_t>(count) <= fi_size,
                "mesh face span exceeds face index array");
 
@@ -221,8 +213,7 @@ struct Mesh {
         int small = std::min(u, v);
         int large = std::max(u, v);
 
-        // A vertex index past the dedup bitset's capacity is a mesh-sizing bug;
-        // trap at the face-walk boundary rather than drop the edge.
+        // A vertex index past the dedup bitset's capacity is a mesh-sizing bug.
         HS_CHECK(large < DEDUP_CAPACITY,
                  "Mesh edge dedup: vertex index %d >= capacity %d", large,
                  DEDUP_CAPACITY);
@@ -250,9 +241,7 @@ struct Mesh {
                    VertexShaderRef vertex_shader) {
     int edge_index = 0;
 
-    // O(1) edge dedup in a 1016-byte triangular bit matrix, arena-allocated (deep
-    // render chain, tight DTCM stack). Held in scratch_arena_b so the per-edge
-    // scratch_arena_a scopes below keep their headroom.
+    // Edge dedup bitset in scratch_arena_b; per-edge scopes use scratch_arena_a.
     ScratchScope visited_guard(scratch_arena_b);
     auto &visited = *scratch_arena_b.make<TriangularBitset<DEDUP_CAPACITY>>();
 
@@ -305,9 +294,8 @@ struct Mesh {
    */
   template <typename MeshT>
   static void extract_edges(const MeshT &mesh, ArenaVector<Edge> &edges) {
-    // Dedup bitset (1016 B) in the arena, not the stack (deep setup chain). The
-    // output `edges` lives in a separate persistent arena, so scratch_arena_b
-    // cannot disturb it.
+    // Dedup bitset in scratch_arena_b; `edges` lives in a separate persistent
+    // arena.
     ScratchScope visited_guard(scratch_arena_b);
     auto &visited = *scratch_arena_b.make<TriangularBitset<DEDUP_CAPACITY>>();
 
@@ -452,9 +440,8 @@ struct Mesh {
     for (size_t ei = 0; ei < edges.size(); ++ei) {
       if (mask && !mask->owns(edges[ei].u, edges[ei].v))
         continue;
-      // Setup-boundary OOB guard (see the face-walk overload above): the raw
-      // edge list could outlive or mismatch its mesh, and mesh.vertices[] only
-      // asserts (compiled out on device).
+      // Setup-boundary OOB guard: the raw edge list could outlive or mismatch
+      // its mesh, and mesh.vertices[] only asserts (compiled out on device).
       HS_CHECK(edges[ei].u < mesh.vertices.size() &&
                    edges[ei].v < mesh.vertices.size(),
                "Mesh::draw: edge (%d, %d) outside vertex count %d", edges[ei].u,

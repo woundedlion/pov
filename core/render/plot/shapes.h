@@ -349,10 +349,7 @@ struct Multiline {
  * 0, v2: vertex index, age: 0. The trailing close vertex duplicates vertex 0's
  * position with v0 = 1 and the arc length continued across the wrap edge, so an
  * `omit_end` rasterize draws the wrap edge without a UV seam and without
- * replotting vertex 0. Shared skeleton for the accumulated-arc closed rings
- * (Star, Flower, DistortedRing); Ring keeps its own analytic-arc loop. For the
- * PLANAR callers the rasterizer overrides v0/v1, so these geodesic values seed
- * only the optional vertex shader.
+ * replotting vertex 0. Under a planar basis the rasterizer overrides v0/v1.
  */
 template <typename PosFn>
 inline void sample_closed_ring(Fragments &points, int num_verts, PosFn pos_fn) {
@@ -383,8 +380,7 @@ inline void sample_closed_ring(Fragments &points, int num_verts, PosFn pos_fn) {
 /**
  * @brief Tangent-plane vector at LUT index i rotated by phase.
  * @details Angle-addition identity: cos/sin(θ+φ) from the precomputed θ-grid,
- * then (u·cos_t + w·sin_t). Shared by the LUT-optimized Ring and DistortedRing
- * samplers so a future LUT-recovery correction stays in one place.
+ * then (u·cos_t + w·sin_t).
  */
 template <int W, int H>
 static inline math::Vector ring_tangent(int i, const math::Vector &u,
@@ -403,13 +399,9 @@ static inline math::Vector ring_tangent(int i, const math::Vector &u,
  *        pixel of its circumference.
  * @tparam W Rasterization width; the LUT grid and the equatorial column count.
  * @param r_val sin of the ring's colatitude — its circumference is 2π·r_val.
- * @details An azimuth step of stride·2π/W spans stride·r_val·2π/W radians of
- * arc, so stride <= 1/r_val holds consecutive control points within the
- * rasterizer's base_step (2π/W) — the density a great circle already gets at
- * stride 1. The rasterizer sub-steps every segment to SCREEN_STEP_PX, so a
- * coarser grid moves control points without thinning rendered coverage.
- * r_val is floored at 1/MAX_STRIDE, keeping a sub-pixel ring at
- * MIN_RING_SAMPLES vertices and the reciprocal finite.
+ * @details stride <= 1/r_val holds consecutive control points within the
+ * rasterizer's base_step (2π/W). r_val is floored at 1/MAX_STRIDE, keeping a
+ * sub-pixel ring at MIN_RING_SAMPLES vertices and the reciprocal finite.
  */
 template <int W> static inline int ring_lut_stride(float r_val) {
   constexpr int MIN_RING_SAMPLES = 8;
@@ -432,9 +424,7 @@ struct RingFrame {
  * @param basis Orientation basis.
  * @param radius Angular radius (0-2).
  * @details Folds radius > 1 to the antipode, then derives the colatitude and
- * its sine/cosine. Every ring-family sampler and DistortedRing::fn_point
- * resolve their frame here; a divergence would detach sampled points from the
- * visible ring.
+ * its sine/cosine.
  */
 inline RingFrame ring_frame(const math::Basis &basis, float radius) {
   auto res = math::get_antipode(basis, radius);
@@ -457,8 +447,7 @@ struct Ring {
    * @param radius Ring radius as a fraction of the hemisphere.
    * @param num_samples Number of evenly-spaced samples around the ring.
    * @param phase Rotation phase (radians).
-   * @details Runtime sample count for the polygon samplers, whose vertex counts
-   * do not match the TrigLUT grid; appends an overlap-close vertex. v1 is the
+   * @details Runtime sample count; appends an overlap-close vertex. v1 is the
    * analytic arc length (theta·sin(theta_eq), theta_eq being the ring's
    * colatitude).
    */
@@ -514,14 +503,9 @@ struct Ring {
    * @param basis Orientation basis.
    * @param radius Ring radius as a fraction of the hemisphere.
    * @param phase Rotation phase (radians).
-   * @details The angle grid (i*2π/W) is exactly TrigLUT<W,H>::cos_theta and
-   * sin_theta, so per-sample cosf(θ+φ)/sinf(θ+φ) becomes
-   * the precomputed θ-grid plus one angle-addition against cos/sin(φ), saving
-   * ~2*(W+1) libm trig calls per ring per frame. ring_lut_stride skips grid
-   * indices a ring narrower than the equator cannot resolve; v0/v1/v2 stay keyed
-   * to the grid index, so the analytic arc length and overlap close are
-   * unchanged. The runtime int-num_samples overload stays for the polygon
-   * samplers, whose vertex counts do not match the LUT grid.
+   * @details Samples the TrigLUT<W,H> θ grid (i*2π/W) with one angle addition
+   * against cos/sin(φ). ring_lut_stride skips grid indices a ring narrower than
+   * the equator cannot resolve; v0/v1/v2 stay keyed to the grid index.
    */
   template <int W, int H>
   static void sample(Fragments &points, const math::Basis &basis, float radius,
@@ -729,12 +713,9 @@ struct DistortedRing {
    * @param radius Base radius.
    * @param angle Angular position around the ring (radians).
    * @return Normalized unit sphere point on the distorted ring.
-   * @details Same geometry as sample() at phase 0, so the returned point lands
-   * on the drawn ring; any divergence would detach callers' sampled points from
-   * the visible ring off Radius=1. Computed with direct cosf/sinf where
-   * sample() uses TrigLUT angle addition, so the two agree in exact arithmetic
-   * but are not bit-identical. There is no phase parameter: a ring drawn with a
-   * non-zero phase is rotated away from the returned point.
+   * @details Same geometry as sample() at phase 0, computed with direct
+   * cosf/sinf, so not bit-identical to sample(). A ring drawn with a non-zero
+   * phase is rotated away from the returned point.
    */
   static math::Vector fn_point(ScalarFn shift_fn, const math::Basis &basis,
                                float radius, float angle) {

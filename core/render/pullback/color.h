@@ -52,7 +52,7 @@ inline constexpr TopologyGate BRIGHTNESS_ENVELOPE_GATE{
     live_values(BrightnessEnvelope::CUP, BrightnessEnvelope::BELL,
                 BrightnessEnvelope::ASCENDING, BrightnessEnvelope::DESCENDING)};
 
-/** @brief Continuous palette and hue controls shared by composed and chain effects. */
+/** @brief Continuous palette and hue controls. */
 struct ColorControls {
   float hue_shift_amount = 0.0f; /**< Hue rotation magnitude; 0 disables the
                                       rotation entirely. */
@@ -274,8 +274,7 @@ apply_generated_palette(const FieldSample &sample,
   return color;
 }
 
-/** @brief Approximation bounds of the generated-palette colorizer, shared by
-    the policy and the chain operator. */
+/** @brief Approximation bounds of the generated-palette colorizer. */
 inline constexpr std::array<ApproximationMetric, 3> GENERATED_PALETTE_METRICS{{
     {ApproximationDomain::COLOR_CHANNEL, ApproximationAggregation::MAXIMUM,
      7000.0f, "channel code"},
