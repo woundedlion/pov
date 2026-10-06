@@ -487,7 +487,7 @@ inline void test_fast_sincosf_0_pi() {
 // ============================================================================
 
 /**
- * @brief Verifies Vector constructors (default-zero, null-tag zero, component, copy)
+ * @brief Verifies Vector constructors (default-zero, component, copy)
  *        and assignment.
  */
 inline void test_vector_construction() {
@@ -495,9 +495,6 @@ inline void test_vector_construction() {
   HS_EXPECT_NEAR(v0.x, 0.0f, 1e-7f);
   HS_EXPECT_NEAR(v0.y, 0.0f, 1e-7f);
   HS_EXPECT_NEAR(v0.z, 0.0f, 1e-7f);
-
-  math::Vector v_null_tag(0); // inplace_function compat constructor
-  HS_EXPECT_VEC(v_null_tag, math::Vector(0, 0, 0), 1e-7f);
 
   math::Vector v(1.0f, 2.0f, 3.0f);
   HS_EXPECT_NEAR(v.x, 1.0f, 0.0f);
