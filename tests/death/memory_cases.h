@@ -5,7 +5,7 @@
 
 // --- Individual death cases — each MUST trap (HS_CHECK / __builtin_trap) ------
 
-// Memory death fixtures and guard cases.
+// Memory death cases.
 
 /** @brief Death case: arena over-allocation must trap. */
 inline void case_arena_oom() {

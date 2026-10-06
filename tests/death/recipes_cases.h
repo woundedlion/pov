@@ -5,7 +5,7 @@
 
 // --- Individual death cases — each MUST trap (HS_CHECK / __builtin_trap) ------
 
-// Recipes death fixtures and guard cases.
+// Recipes death cases.
 
 /** @brief Death case: an out-of-range solids index must trap. */
 inline void case_solids_index_oob() {

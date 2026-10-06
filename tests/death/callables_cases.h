@@ -5,7 +5,7 @@
 
 // --- Individual death cases — each MUST trap (HS_CHECK / __builtin_trap) ------
 
-// Callables death fixtures and guard cases.
+// Callables death cases.
 
 /**
  * @brief Death case: calling an empty (default-constructed) Fn must trap.
