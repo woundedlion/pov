@@ -561,26 +561,46 @@ inline void test_rasterize_balanced_pole_guard() {
   points.push_back(a);
   points.push_back(b);
 
-  hs_test::StubEffect fx(W, H);
-  AlphaCapturePipeline pipeline;
-  Canvas canvas(fx);
-  Plot::g_planar_full_samples = 0;
-  Plot::g_planar_position_samples = 0;
+  constexpr float POLICY_TOL = 1e-4f;
   auto shader = [](const math::Vector &, Fragment &f) {
     f.color = Color4(Pixel(65535, 65535, 65535), 0.4f);
   };
-  Plot::rasterize<W, H,
-                  Plot::RasterConfig{
-                      .single_pass = true,
-                      .derive_planar_arc_registers = false,
-                      .interpolate_registers = false,
-                      .sampling_policy =
-                          Plot::RasterSamplingPolicy::SELECTABLE}>(
-      pipeline, canvas, points, shader,
-      {.projection = Plot::RasterProjection::planar(basis),
-       .balanced_sampling = true});
-  HS_EXPECT_GT(Plot::g_planar_full_samples, uint32_t{2});
-  HS_EXPECT_EQ(Plot::g_planar_position_samples, uint32_t{0});
+  AlphaCapturePipeline pipeline;
+  {
+    hs_test::StubEffect fx(W, H);
+    Canvas canvas(fx);
+    Plot::rasterize<W, H,
+                    Plot::RasterConfig{
+                        .single_pass = true,
+                        .derive_planar_arc_registers = false,
+                        .interpolate_registers = false,
+                        .sampling_policy =
+                            Plot::RasterSamplingPolicy::SELECTABLE}>(
+        pipeline, canvas, points, shader,
+        {.projection = Plot::RasterProjection::planar(basis),
+         .balanced_sampling = true});
+  }
+  AlphaCapturePipeline standard;
+  {
+    hs_test::StubEffect fx(W, H);
+    Canvas canvas(fx);
+    Plot::rasterize<W, H,
+                    Plot::RasterConfig{
+                        .single_pass = true,
+                        .derive_planar_arc_registers = false,
+                        .interpolate_registers = false,
+                        .sampling_policy =
+                            Plot::RasterSamplingPolicy::DEFAULT}>(
+        standard, canvas, points, shader,
+        {.projection = Plot::RasterProjection::planar(basis)});
+  }
+  HS_EXPECT_GT(standard.plotted.size(), size_t{2});
+  HS_EXPECT_SIZE_OR_RETURN(pipeline.plotted, standard.plotted.size());
+  for (size_t i = 0; i < standard.plotted.size(); ++i) {
+    HS_EXPECT_NEAR(pipeline.plotted[i].x, standard.plotted[i].x, POLICY_TOL);
+    HS_EXPECT_NEAR(pipeline.plotted[i].y, standard.plotted[i].y, POLICY_TOL);
+    HS_EXPECT_NEAR(pipeline.plotted[i].z, standard.plotted[i].z, POLICY_TOL);
+  }
   for (float alpha : pipeline.alphas)
     HS_EXPECT_NEAR(alpha, 0.4f, 1e-6f);
 }
