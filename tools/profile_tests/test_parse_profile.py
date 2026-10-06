@@ -6,6 +6,7 @@ Run:  python -m unittest discover -s tools/profile_tests
 
 import contextlib
 import io
+import re
 import sys
 import tempfile
 import unittest
@@ -13,6 +14,7 @@ from unittest import mock
 from pathlib import Path
 
 TOOLS = Path(__file__).resolve().parent.parent
+REPO = TOOLS.parent
 sys.path.insert(0, str(TOOLS))
 
 import parse_profile as pp   # noqa: E402
@@ -1036,6 +1038,20 @@ class CleanHoldSelection(unittest.TestCase):
         rows = pp.clean_hold_rows([held, transition], "shader", None)
 
         self.assertEqual(rows, [("12", 2, 1, 50.0, 1.0, "")])
+
+
+class FirmwareConstants(unittest.TestCase):
+    def test_display_window_is_one_show_frame(self):
+        effects = (REPO / "targets" / "effects.h").read_text(encoding="utf-8")
+        fps = re.search(r"constexpr int HS_SHOW_FRAMES_PER_SECOND = (\d+);", effects)
+        self.assertIsNotNone(fps, "HS_SHOW_FRAMES_PER_SECOND not found in targets/effects.h")
+        self.assertEqual(pp.DISPLAY_WINDOW_US * int(fps[1]), 1_000_000)
+
+    def test_cpu_clock_is_the_device_clock(self):
+        ini = (REPO / "platformio.ini").read_text(encoding="utf-8")
+        f_cpu = re.search(r"^board_build\.f_cpu = (\d+)L", ini, re.M)
+        self.assertIsNotNone(f_cpu, "board_build.f_cpu not found in platformio.ini")
+        self.assertEqual(pp.CPU_HZ, int(f_cpu[1]))
 
 
 if __name__ == "__main__":
