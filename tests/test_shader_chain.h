@@ -14,7 +14,7 @@
  */
 #pragma once
 
-#include "math/mobius.h"
+#include "core/math/mobius.h"
 #include <cstdio>
 #include <cstring>
 #include <memory>

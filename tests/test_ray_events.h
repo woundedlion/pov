@@ -7,8 +7,8 @@
 #pragma once
 
 #include "core/render/ray/shade.h"
-#include "render/sdf/lattice.h"
-#include "render/sdf/lattice_trace.h"
+#include "core/render/sdf/lattice.h"
+#include "core/render/sdf/lattice_trace.h"
 #include "tests/test_harness.h"
 #include "tests/test_fixture.h"
 

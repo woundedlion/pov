@@ -7,7 +7,7 @@
  */
 #pragma once
 
-#include "math/mobius.h"
+#include "core/math/mobius.h"
 #include <array>
 #include <bit>
 #include <cstddef>

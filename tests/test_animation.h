@@ -7,7 +7,7 @@
 #pragma once
 
 #include "core/animation/orientation.h"
-#include "math/mobius.h"
+#include "core/math/mobius.h"
 #include <array>
 #include <cstring>
 #include <cmath>
