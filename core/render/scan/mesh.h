@@ -84,45 +84,16 @@ rasterize_face(PipelineT &pipeline, Canvas &canvas, const SDF::Face &shape,
     bool handled = shape.template get_horizontal_intervals<W, H>(
         y, [&](float t1, float t2) { SDF::push_interval(intervals, t1, t2); });
 
-    auto add_run = [&](int x1, int x2) {
-      auto push = [&](int a, int b) {
-        if (a >= b)
-          return;
-        HS_CHECK(num_runs < MAX_RUNS, "rasterize_face: run buffer overflow");
-        runs[num_runs++] = {a, b};
-      };
-      if (!xc.active) {
-        push(x1, x2);
-      } else if (xc.wrap) {
-        push(x1, std::min(x2, xc.re));
-        push(std::max(x1, xc.rs), x2);
-      } else {
-        push(std::max(x1, xc.rs), std::min(x2, xc.re));
-      }
+    auto push = [&](int a, int b) {
+      if (a >= b)
+        return;
+      HS_CHECK(num_runs < MAX_RUNS, "rasterize_face: run buffer overflow");
+      runs[num_runs++] = {a, b};
     };
-
-    if (!handled) {
-      add_run(0, W);
-    } else if (!intervals.is_empty()) {
-      bool full_row = false;
-      for (const auto &iv : intervals) {
-        if (iv.end - iv.start >= static_cast<float>(W)) {
-          full_row = true;
-          break;
-        }
-      }
-      if (full_row) {
-        add_run(0, W);
-      } else {
-        StaticCircularBuffer<SDF::Interval, 8> norm;
-        static_assert(decltype(norm)::CAPACITY ==
-                          2 * decltype(intervals)::CAPACITY,
-                      "norm must hold 2 spans per input interval (seam split)");
-        coalesce_spans<W>(intervals, norm);
-        for (const auto &run : norm)
-          add_run(static_cast<int>(run.start), static_cast<int>(run.end));
-      }
-    }
+    StaticCircularBuffer<SDF::Interval, 8> norm;
+    static_assert(decltype(norm)::CAPACITY == 2 * decltype(intervals)::CAPACITY,
+                  "norm must hold 2 spans per input interval (seam split)");
+    emit_row_runs<W>(handled, intervals, norm, xc, push);
   };
 
   const bool per_row =
