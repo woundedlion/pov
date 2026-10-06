@@ -1417,12 +1417,10 @@ class TestGateExtra(unittest.TestCase):
 
     def test_empty_regions_exits_2(self):
         # Tool output the parser no longer recognizes (no FLASH/RAM1/RAM2) is a
-        # format break -> exit(2), not a region-missing "violation". teensy_gate
-        # is the shared module, so restore parse_teensy_size after the patch.
+        # format break -> exit(2), not a region-missing "violation".
         self.ge._find_teensy_size = lambda env: "teensy_size"
         self.ge._run = lambda *a, **k: ""
-        with mock.patch.object(self.ge.teensy_gate, "parse_teensy_size", lambda text: {}):
-            rc, out = self._run_gate("holosphere")
+        rc, out = self._run_gate("holosphere")
         self.assertEqual(rc, 2)
         self.assertIn("parsed no FLASH/RAM1/RAM2 regions", out)
 
