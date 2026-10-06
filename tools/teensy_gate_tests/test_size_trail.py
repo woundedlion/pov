@@ -4,6 +4,8 @@
 Run:  python -m unittest discover -s tools/teensy_gate_tests
 """
 
+import contextlib
+import io
 import json
 import os
 import struct
@@ -316,14 +318,44 @@ class PendingCapture(unittest.TestCase):
 class RecordInputs(unittest.TestCase):
     def test_successful_build_accepts_unchanged_cached_elf(self):
         with tempfile.TemporaryDirectory() as directory:
-            out = Path(directory) / "pending.json"
-            args = tst.build_parser().parse_args(["record", "--built", "--out", str(out)])
-            with mock.patch.object(tst, "_git", return_value=directory), \
-                    mock.patch.object(tst, "working_tree", return_value="tree"), \
-                    mock.patch.object(tst, "collect", return_value={"phantasm": {"itcm": 17}}) as collect:
-                self.assertEqual(tst.cmd_record(args), 0)
-                self.assertIsNone(collect.call_args.kwargs["newest_input"])
-                self.assertEqual(json.loads(out.read_text())["tree"], "tree")
+            root = Path(directory)
+            tst._git(["init", "--quiet"], root)
+            tst._git(["config", "user.name", "Test"], root)
+            tst._git(["config", "user.email", "test@example.com"], root)
+            ini = root / "platformio.ini"
+            ini.write_text("original", encoding="utf-8")
+            tst._git(["add", "--", "platformio.ini"], root)
+            tst._git(["commit", "-m", "initial"], root)
+            elf = root / "build" / "phantasm" / tst.ELF_NAME
+            elf.parent.mkdir(parents=True)
+            elf.write_bytes(make_elf({".text.itcm": 17}))
+            os.utime(elf, ns=(1, 1))
+            ini.write_text("edited", encoding="utf-8")
+            pending = root / "pending.json"
+            real_git = tst._git
+
+            def in_repo(args, cwd=None, **kwargs):
+                return real_git(args, cwd or root, **kwargs)
+
+            def record(built):
+                args = tst.build_parser().parse_args(
+                    ["record", "--env", "phantasm", "--build-dir", str(root / "build"),
+                     "--out", str(pending), *(["--built"] if built else [])])
+                stderr = io.StringIO()
+                with mock.patch.object(tst, "_git", side_effect=in_repo), \
+                        contextlib.redirect_stderr(stderr):
+                    return tst.cmd_record(args), stderr.getvalue()
+
+            rc, warnings = record(built=False)
+            self.assertEqual(rc, 1)
+            self.assertIn("stale", warnings)
+            self.assertFalse(pending.exists())
+            rc, warnings = record(built=True)
+            self.assertEqual(rc, 0, warnings)
+            captured = json.loads(pending.read_text(encoding="utf-8"))
+            self.assertEqual(captured["envs"]["phantasm"]["itcm"], 17)
+            with mock.patch.object(tst, "_git", side_effect=in_repo):
+                self.assertEqual(captured["tree"], tst.working_tree(root))
 
     def test_non_firmware_edits_preserve_capture(self):
         with tempfile.TemporaryDirectory() as directory:
