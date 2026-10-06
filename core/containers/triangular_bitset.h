@@ -21,10 +21,8 @@
  * Total storage: MAX_V * (MAX_V - 1) / 2 bits.
  */
 template <int MAX_V> struct TriangularBitset {
-  // BITS (here) and index() below form an intermediate product ~MAX_V^2 in `int`;
-  // for MAX_V >= ~46341 that overflows int32 and corrupts the bit layout. The
-  // static_assert pins the ceiling so a future large-mesh instantiation fails at
-  // compile time, not at runtime.
+  // BITS and index() form an intermediate product ~MAX_V^2 in `int`; for
+  // MAX_V >= ~46341 that overflows int32 and corrupts the bit layout.
   static_assert(
       static_cast<long long>(MAX_V) * MAX_V <= INT_MAX,
       "TriangularBitset: MAX_V too large; index() product overflows int");
@@ -33,8 +31,7 @@ template <int MAX_V> struct TriangularBitset {
   static_assert(MAX_V >= 2, "TriangularBitset: MAX_V must be at least 2");
   static constexpr int BITS = MAX_V * (MAX_V - 1) / 2;
   static constexpr int BYTES = (BITS + 7) / 8;
-  uint8_t data[BYTES] = {}; /**< Packed bit storage; zero-initialized so a pair
-                                 read before clear() reads "unset" rather than UB. */
+  uint8_t data[BYTES] = {}; /**< Packed bit storage, zero-initialized. */
 
   /**
    * @brief Clears every pair bit to zero.

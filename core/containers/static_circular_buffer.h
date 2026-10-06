@@ -28,22 +28,14 @@
  * constructible from the forwarded arguments, so they are the path for a
  * non-assignable T.
  * @tparam N Capacity in elements; must be >= 1.
- * @details
- * - No dynamic memory allocation (prevents heap fragmentation).
- * - "Delete Oldest" strategy on overflow (never stops processing) — overflow is a
- *   designed, non-fatal condition.
- * - Misuse — front()/back() on an empty buffer, or operator[] out of range — is an
- *   invariant violation with no valid recovery, so it HS_CHECK-traps (survives
- *   NDEBUG) rather than reading garbage.
- * - Models the named requirements Container and ReversibleContainer, so generic
- *   std:: algorithms and range-based for work on it directly. It is deliberately
- *   NOT a SequenceContainer (pushes evict rather than grow, and there is no
- *   insert/erase/assign) and NOT a ContiguousContainer (the live run wraps around
- *   the backing array, so there is no data()).
+ * @details No dynamic allocation. Overflow evicts the oldest element.
+ * front()/back() on an empty buffer and out-of-range operator[] HS_CHECK-trap.
+ * Models Container and ReversibleContainer; not a SequenceContainer (no
+ * insert/erase/assign) or ContiguousContainer (the live run wraps, so there is
+ * no data()).
  */
 template <typename T, size_t N> class StaticCircularBuffer {
-  // Defined privately at the bottom; surfaced through the public usings below so
-  // external code can name StaticCircularBuffer<T,N>::iterator.
+  // Private; named publicly through the iterator usings.
   class Iterator;
   class ConstIterator;
 
@@ -60,8 +52,7 @@ public:
   using pointer = T *;
   using const_pointer = const T *;
 
-  /** @brief Compile-time fixed capacity, for static_asserts binding two buffers'
-   *  sizes (e.g. scan_region's seam-split `norm` == 2x its input span buffer). */
+  /** @brief Compile-time fixed capacity. */
   static constexpr size_t CAPACITY = N;
 
   // back() and the iterators form `head + count - 1` (up to 2N-2) before the `% N`
@@ -78,14 +69,8 @@ public:
    * @brief Constructs a buffer from a braced element list, filling front-to-back.
    * @tparam Args Element types, each constructible into T.
    * @param args Elements to insert, in order.
-   * @details Taking the elements as a parameter pack (rather than a runtime
-   * std::initializer_list) makes the count a compile-time constant, so an
-   * over-capacity list is rejected by static_assert instead of being silently
-   * truncated. The is_constructible guard keeps this from shadowing the copy, move,
-   * and default constructors (the zero-argument case routes to the default ctor).
-   * Elements are built with T{...} so narrowing conversions stay diagnosed.
-   * `explicit` so the forwarding pack cannot be an implicit single-argument
-   * conversion to StaticCircularBuffer.
+   * @details An over-capacity list fails a static_assert. Elements are built
+   * with T{...}, so narrowing conversions are diagnosed.
    */
   template <
       typename... Args,
@@ -515,26 +500,18 @@ public:
   }
 
 private:
-  // N == 0 would make every `% N` index update a division-by-zero (UB); all
-  // instantiations use N >= 1, so trap a zero-capacity buffer at compile time.
+  // N == 0 would make every `% N` index update a division by zero (UB).
   static_assert(N > 0, "StaticCircularBuffer requires N >= 1");
   std::array<T, N> buffer; /**< Backing storage; every slot is a live object. */
-  // Indices are uint32_t, not size_t, so pooled structs (Particle, VectorTrail,
-  // OrientationTrail) have an identical layout on the 32-bit device and the 64-bit
-  // native build (size_t would widen these three fields to 8 B on the host and make
-  // per-effect arena footprints unrepresentative of the device; see memory.h). On
-  // the device size_t IS uint32_t, so this is a host-only narrowing.
+  // uint32_t indices keep the layout identical on the 32-bit device and 64-bit
+  // host.
   uint32_t head;  /**< Index of the front element. */
   uint32_t tail;  /**< Index of the next free back slot. */
   uint32_t count; /**< Number of elements currently stored. */
 
   /**
    * @brief Removes the back element without an emptiness check.
-   * @details Caller-guaranteed contract: the buffer must be non-empty. Every caller
-   * gates first (pop_back() on is_empty(), the push_front/emplace_front eviction
-   * paths on is_full()); on an empty buffer this would decrement count past 0,
-   * wrapping it to a huge value (uint32_t) and corrupting size(), so the caller
-   * gating is load-bearing.
+   * @details The buffer must be non-empty; otherwise count wraps past 0.
    */
   void pop_back_internal() {
     tail = (tail + N - 1) % N; // + N first: never underflows (tail is uint32_t)
@@ -543,11 +520,7 @@ private:
 
   /**
    * @brief Removes the front element without an emptiness check.
-   * @details Caller-guaranteed contract: the buffer must be non-empty. Every caller
-   * gates first (pop_front() on is_empty(), the push_back/emplace_back eviction
-   * paths on is_full()); on an empty buffer this would decrement count past 0,
-   * wrapping it to a huge value (uint32_t) and corrupting size(), so the caller
-   * gating is load-bearing.
+   * @details The buffer must be non-empty; otherwise count wraps past 0.
    */
   void pop_front_internal() {
     head = (head + 1) % N;
@@ -561,15 +534,11 @@ private:
    * @param args Arguments forwarded to T's constructor.
    * @return Reference to the newly constructed element.
    * @details Ends the existing object's lifetime and constructs the new value
-   * directly in its storage. Unlike `buffer[idx] = T(args...)` this builds no
-   * temporary and requires only that T be constructible from Args, not assignable.
-   * std::launder covers the returned reference only: front(), back(),
-   * operator[], for_each() and operator== all reach the slot through the
-   * un-laundered `buffer` array, so T must still be transparently replaceable.
-   * @warning The old object is destroyed before the new one is constructed, so a
-   * throwing element constructor leaves the slot with no live object and a later
-   * construct_in_place re-destroys the dead slot (UB) — a throwing T is
-   * unsupported. Unreachable on device (-fno-exceptions, trivial T).
+   * directly in its storage; T need not be assignable. std::launder covers only
+   * the returned reference; other accessors read through the un-laundered
+   * `buffer` array, so T must be transparently replaceable.
+   * @warning The old object is destroyed first, so a throwing constructor leaves
+   * a dead slot that a later call re-destroys (UB); a throwing T is unsupported.
    */
   template <typename... Args>
   T &construct_in_place(uint32_t idx, Args &&...args) {

@@ -6,8 +6,7 @@
 
 /**
  * @file palettes.h
- * @brief The named procedural palettes, plus MeshPaletteBank, the palette
- *        bank the mesh effects share.
+ * @brief Named procedural palettes and the shared mesh-effect palette bank.
  */
 
 #include <array>
@@ -23,10 +22,7 @@
  * @brief X-macro roster of the named procedural palettes.
  * @param X Macro applied as X(name, A, B, C, D), where each coefficient vec3 is
  *          a parenthesized triple unpacked by HS_PALETTE_VEC3.
- * @details Expanded here to declare the Palettes:: instances, and in
- *          targets/wasm/math_exports.h to export name + coefficients, so the
- *          browser tool's mirror of this table is checked against the same
- *          literals the engine compiles.
+ * @details Source of truth for the browser tool's mirror of this table.
  */
 #define HS_PROCEDURAL_PALETTE_LIST(X)                                          \
   X(DARK_RAINBOW, (0.367f, 0.367f, 0.367f), (0.500f, 0.500f, 0.500f),          \
@@ -97,13 +93,9 @@ HS_PROCEDURAL_PALETTE_LIST(HS_DECLARE_PALETTE)
 } // namespace Palettes
 
 /**
- * @brief Shared mesh-effect palette bank used by HankinSolids / IslamicStars
- *        and any future mesh effect.
+ * @brief Shared mesh-effect palette bank.
  * @details Bundles the standard source-palette set, the bake-all step, and the
- *          per-shape index shuffle these effects share. Zero-overhead: the
- *          source list is constexpr and every accessor is a thin inline wrapper
- *          over BakedPaletteBank, so the per-pixel lookup remains
- *          BakedPalette::get() with no added indirection.
+ *          per-shape index shuffle over a BakedPaletteBank.
  */
 struct MeshPaletteBank {
   static constexpr int N = BakedPaletteBank::N;

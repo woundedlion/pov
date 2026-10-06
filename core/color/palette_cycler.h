@@ -13,21 +13,16 @@
 
 /**
  * @file palette_cycler.h
- * @brief Time-based palette orchestration: a display LUT cycling through an
- *        arbitrary sequence of palettes, and the three-harmony generated bank
- *        built on it.
+ * @brief Time-based palette cycling through a display LUT.
  */
 
 /**
  * @brief Cycles a display LUT through a sequence of palettes over time.
  * @details Dwells on each entry, then fades into the next over a fixed frame
- * count. Adjacent morph-compatible GenerativePalettes fade by key-space morph
- * (perceptually coherent hue travel); every other pair fades by baked-LUT
- * crossfade, so any mix of generative, composed, and prebaked palettes cycles
- * correctly. Entries are caller-owned and must outlive the cycler. Entries
- * and their palettes must remain unchanged between init() calls; morph
- * compatibility and dwell display tables are cached. Effects
- * call step() once per frame and shade from palette(); outside a fade the
+ * count. Adjacent morph-compatible GenerativePalettes fade by key-space morph;
+ * every other pair fades by baked-LUT crossfade. Entries are caller-owned,
+ * must outlive the cycler, and must remain unchanged between init() calls;
+ * morph compatibility and dwell display tables are cached. Outside a fade the
  * display LUT is a bit-exact bake of the current entry.
  */
 class PaletteCycler {
@@ -55,8 +50,7 @@ public:
     Entry(const Palette &palette) : source(&palette) {}
     Entry(const BakedPalette &palette) : baked(&palette) {}
 
-    // Borrow contract: the referenced palette is sampled every fade, so it must
-    // outlive the cycler; these deleted overloads reject a temporary.
+    // The referenced palette must outlive the cycler; reject temporaries.
     Entry(const GenerativePalette &&) = delete;
     Entry(const Palette &&) = delete;
     Entry(const BakedPalette &&) = delete;
@@ -316,8 +310,7 @@ public:
   }
 
   /** @brief Index of the roster entry currently dwelt on or faded away from.
-   *  @details Roster cycles only. A generated cycle (init_generated()) holds no
-   *  roster and leaves this at 0 for the effect's life. */
+   *  @details Always 0 for a generated cycle (init_generated()). */
   int current_index() const { return current; }
 
   /** @brief True while a fade toward the next entry is in flight. */
@@ -407,8 +400,6 @@ private:
 
   HS_COLD_MEMBER static void bake_entry(BakedPaletteStorage &lut, Arena &arena,
                                         const Entry &entry) {
-    // clone_from copies the prebaked table verbatim; sampling it through
-    // get() would round-trip every entry through the float interpolator.
     if (entry.baked != nullptr)
       lut.clone_from(*entry.baked, arena);
     else if (entry.generative != nullptr)
@@ -418,8 +409,7 @@ private:
   }
 
   // Generative entries bake through their concrete type: the mirror and loop
-  // domain shortcuts are invisible through the Palette base pointer, and a
-  // loop's exact seam entry comes only from the shortcut.
+  // domain shortcuts, and a loop's exact seam entry, need it.
   HS_COLD_MEMBER static void rebake_entry(BakedPaletteStorage &lut,
                                           const Entry &entry) {
     if (entry.baked != nullptr)

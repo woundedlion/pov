@@ -18,10 +18,9 @@
 #include <cstdint>
 #include <iterator>
 
-// Bucket geometry of the split-decode, authored here and read by the generator
-// of record (scripts/generate_srgb_decode.cpp, which includes this header): the
-// low region is 1<<LOW_SHIFT wide below VSPLIT, the high region 1<<HIGH_SHIFT
-// above it. Retuning any of the three requires regenerating srgb_decode_lut.h.
+// Split-decode bucket geometry, shared with scripts/generate_srgb_decode.cpp:
+// the low region is 1<<LOW_SHIFT wide below VSPLIT, the high region
+// 1<<HIGH_SHIFT above it. Retuning requires regenerating srgb_decode_lut.h.
 inline constexpr int SRGB_DECODE_VSPLIT = 4096;
 inline constexpr int SRGB_DECODE_LOW_SHIFT = 4;
 inline constexpr int SRGB_DECODE_HIGH_SHIFT = 7;
@@ -41,8 +40,8 @@ static_assert(
     "the high region must span a whole number of high-region buckets");
 
 #ifndef HS_SRGB_DECODE_GENERATOR
-// A committed table generated under different shifts would otherwise be copied
-// out of bounds below.
+// A committed table generated under different shifts would be copied out of
+// bounds.
 static_assert(std::size(srgb_decode_low_src) == SRGB_DECODE_LOW_N,
               "srgb_decode_low_src length disagrees with the low-region shift");
 static_assert(
@@ -75,11 +74,8 @@ extern std::array<uint16_t, SRGB_DECODE_HIGH_N> srgb_decode_high;
  * @brief Bit-exact linear-16 -> sRGB-8 encode via a two-region split-decode.
  * @param v Linear 16-bit channel value.
  * @return sRGB 8-bit output, identical to linear_to_srgb_lut[v] for all v.
- * @details Uses ~1.5 KB of DTCM tables. A fine 16-wide low region and a coarse
- * 128-wide high
- * region each hold at most one output step, so each side is a single branchless
- * compare: base + (frac >= step). Equivalence over all 65536 inputs is checked
- * by unit_color's test_linear_to_srgb8_decode_matches_lut.
+ * @details Uses ~1.5 KB of DTCM tables. Each bucket holds at most one output
+ * step, so each region is a single branchless compare: base + (frac >= step).
  */
 inline __attribute__((always_inline)) uint8_t linear_to_srgb8(uint16_t v) {
   if (v < SRGB_DECODE_VSPLIT) {

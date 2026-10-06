@@ -26,26 +26,21 @@
  *        automatic transitions by each preset's departure policy, manual preset
  *        snaps and schema-versioned parameter snapshots.
  * @details Curiously recurring: `Derived` supplies `PARAMETER_SCHEMA_VERSION`,
- * `PRESET_DWELL_FRAMES` and parameter_fields() or valid_params(params), plus its presets as rows
- * carrying their parameters and departure policy (`PresetEntry`): a `PRESETS`
- * table or a static `preset(index)`, and/or `PRESET_IDS` naming them. A member
- * `preset_params(index)` may derive a preset's live parameters from its row,
- * for an effect that patches runtime state into each preset; the row still
- * names the departure. The effect calls `begin_choreography()` once from
- * init() and `step_choreography()` every frame; each preset dwells for
- * `PRESET_DWELL_FRAMES`, then departs to the next over its own policy's frames,
- * and a single preset compiles the countdown out. Transition hooks:
- * `blend_params(progress)` writes the interpolated parameters of a
- * Segue::Preset::Lerp departure, `set_preset_opacity(value)` receives a
+ * `PRESET_DWELL_FRAMES` and parameter_fields() or valid_params(params), plus its
+ * presets as `PresetEntry` rows: a `PRESETS` table or a static `preset(index)`,
+ * and/or `PRESET_IDS` naming them. A member `preset_params(index)` may derive a
+ * preset's live parameters from its row; the row still names the departure.
+ * The effect calls `begin_choreography()` once from init() and
+ * `step_choreography()` every frame; each preset dwells for
+ * `PRESET_DWELL_FRAMES`, then departs to the next over its own policy's frames.
+ * Transition hooks: `blend_params(progress)` writes a Segue::Preset::Lerp
+ * departure's interpolated parameters, `set_preset_opacity(value)` receives a
  * Segue::Preset::Fade departure's opacity, and shadowing `adopt_params(target)`
- * / `transition_armed(target)` keeps state derived from the parameters
- * consistent across snaps and crossfade arming. `finish_blend(target)` may
- * specialize automatic target adoption for Lerp endpoints and Fade midpoints.
- * `initial_params()` overrides
+ * / `transition_armed(target)` keeps derived state consistent across snaps and
+ * crossfade arming. `finish_blend(target)` may specialize automatic target
+ * adoption for Lerp endpoints and Fade midpoints. `initial_params()` overrides
  * the first preset as the startup default. A `Derived` keeping its hooks
- * non-public befriends this base. parameter_fields() supplies ordered registration,
- * range validation and the default blend; effects can override validation and
- * blend hooks for cross-field rules or derived state.
+ * non-public befriends this base.
  * @tparam Derived The effect class deriving from this base.
  * @tparam ParamsT The effect's parameter-set type.
  */
@@ -86,9 +81,8 @@ public:
 
   /**
    * @brief Adopts a snapshot's parameters if it is admissible.
-   * @details An effect bumps `PARAMETER_SCHEMA_VERSION` whenever its `Params`
-   * layout changes, so a snapshot taken under a different layout is rejected
-   * rather than reinterpreted. On success any in-flight preset transition is
+   * @details A snapshot from a different `PARAMETER_SCHEMA_VERSION` is
+   * rejected. On success any in-flight preset transition is
    * cancelled and the preset dwell restarts. Cancelling an unadopted fade
    * restores its departing preset index; other cancellations retain the index.
    * On rejection nothing is touched.
@@ -106,8 +100,7 @@ public:
     return true;
   }
 
-  /** @brief Authored preset count, for the effect registry: the same
-      count preset_row() indexes. */
+  /** @brief Authored preset count: the count preset_row() indexes. */
   static consteval size_t authored_preset_count() { return preset_count_of(); }
 
   /** @brief The departure policy of the preset at @p index; a single preset
@@ -187,14 +180,12 @@ protected:
 
   /**
    * @brief Adopts a preset through the departing preset's policy.
-   * @details A manual or synchronized change snaps regardless of policy, since
-   * a user driving the control expects the preset it names immediately. An
+   * @details A manual or synchronized change snaps regardless of policy. An
    * AUTOMATIC change follows the departing preset's policy: Segue::Preset::Snap adopts
    * immediately, Segue::Preset::Lerp arms a crossfade from the live
    * parameters, and Segue::Preset::Fade dims, adopts at the first step at or
    * past half progress, and brightens. An odd frame count can skip zero
-   * opacity. A transition the timeline has no slot for restarts the dwell,
-   * so the next attempt is a dwell away rather than on the following frame.
+   * opacity. A transition the timeline has no slot for restarts the dwell.
    * @param change The requested preset move.
    * @return False if an automatic transition cannot be scheduled.
    */
@@ -241,9 +232,7 @@ protected:
 
   /**
    * @brief Ends an in-flight transition when the user takes a parameter over.
-   * @details A crossfade rewrites the whole parameter set every frame, so a
-   * transition left running would overwrite the write that just landed; a fade
-   * returns to full opacity. A manual preset-parameter edit restarts the preset dwell.
+   * @details A fade returns to full opacity, and the preset dwell restarts.
    */
   HS_COLD_MEMBER void parameter_written() override {
     end_transition();
@@ -345,8 +334,8 @@ private:
       derived().set_preset_opacity(value);
   }
 
-  /** @brief Marks the preset whose parameters now drive the frame, so a
-      profile attributes a fade's dimming frames to the departing preset. */
+  /** @brief Logs the preset whose parameters now drive the frame (profiling
+      builds only). */
   void log_preset() {
 #ifdef HS_PROFILE_ENABLE
     hs::log("Preset: %u/%u", static_cast<unsigned>(getPresetIndex() + 1),
@@ -404,10 +393,9 @@ private:
     }
   }
 
-  /** @brief Whether every departure fits inside the dwell, so a cancelled
-      crossfade's blend never outlives its own transition into the next one,
-      and the effect takes each departure's hook: blend_params for a Lerp,
-      set_preset_opacity for a Fade. */
+  /** @brief Whether every departure fits inside the dwell and the effect takes
+      each departure's hook: blend_params for a Lerp, set_preset_opacity for a
+      Fade. */
   static consteval bool departures_are_supported() {
     constexpr bool TAKES_OPACITY =
         requires(Derived &effect) { effect.set_preset_opacity(1.0f); };

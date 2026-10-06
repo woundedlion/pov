@@ -40,7 +40,7 @@ public:
    * the loop-closing hue: a snapshot lerp keeps the target palette's own.
    */
   struct Snapshot {
-    /** Compact owned state that keeps palette animations inside their budget. */
+    /** Quantized lightness and chroma plus the raw hue bits. */
     struct Key {
       std::array<uint8_t, 7> bytes{};
     };
@@ -97,7 +97,7 @@ public:
    * @param input Recipe to validate and normalize.
    * @param output Receives the compiled palette; untouched on rejection.
    * @param canonical Receives the normalized recipe the palette was built
-   * from — what an authoring tool should persist; untouched on rejection.
+   * from; untouched on rejection.
    * @param status Receives the verdict and the offending PaletteRecipeField on
    * both outcomes, and the bitmasks of every silent normalization on success;
    * a rejection clears them along with the recipe they described.
@@ -117,7 +117,7 @@ public:
   }
 
   /**
-   * @brief Captures the morphable state for morph_snapshots() and ColorWipe.
+   * @brief Captures the morphable state.
    * @return This palette's keys and axes, quantized into 48 bytes.
    */
   Snapshot snapshot() const {
@@ -173,9 +173,8 @@ public:
    *  @param chroma Chroma in [0, 1], read in the palette's ChromaBasis:
    *  gamut-relative under LOCAL_GAMUT, absolute OKLCh chroma under ABSOLUTE,
    *  where values past the hue's gamut boundary render out of gamut.
-   *  @details Collapses the chroma axis to a single value and keeps its curve,
-   *  which every curve then evaluates to that value; rewriting the curve would
-   *  break morph_compatible() against palettes the caller has not touched. */
+   *  @details Collapses the chroma axis to a single value but keeps its curve,
+   *  so morph_compatible() against untouched palettes is preserved. */
   HS_COLD_MEMBER void set_constant_chroma(float chroma) {
     chroma = hs::clamp(chroma, 0.0f, 1.0f);
     chroma_axis = {chroma, chroma, chroma_axis.curve};
@@ -183,11 +182,9 @@ public:
       keys[i].chroma = chroma;
   }
 
-  /** @brief True when the second half replays the first; BakedPaletteStorage::rebake
-   *  bakes only the first half and mirrors it. */
+  /** @brief True when the second half replays the first. */
   bool mirrors_domain() const { return domain == PaletteDomain::MIRROR; }
-  /** @brief True when t = 1 rejoins t = 0; BakedPaletteStorage::rebake copies entry
-   *  zero onto the last entry so the quantized seam is exact. */
+  /** @brief True when t = 1 rejoins t = 0. */
   bool loops_domain() const { return domain == PaletteDomain::LOOP; }
 
   /**
@@ -195,8 +192,6 @@ public:
    * @param t Palette coordinate; clamped to [0, 1].
    * @return The realized OKLCh values, the gamut envelope there and whether the
    * color needed clipping.
-   * @details Adds an OKLCh re-derivation and gamut test, plus an envelope lookup
-   * on absolute-basis and Cartesian paths where get() skips it.
    */
   Diagnostic diagnose(float t) const {
     const Evaluated value = finish_evaluation(evaluate_path(t, true));
@@ -224,16 +219,9 @@ public:
 
   /**
    * @brief True when this palette and @p other can be key-morphed by morph_palettes().
-   * @details Requires identical evaluation policy — domain, easing, color
-   * path, chroma basis, complementary evaluation, axis curves, key count,
-   * chroma headroom, torsion, falloff, input window — plus corresponding
-   * segment hue deltas within half a turn of each other, avoiding a whole-turn
-   * ambiguity in the interpolation. Opposite signed deltas can pass through
-   * zero during a morph. A loop
-   * additionally requires the same integer closing travel, or its seam breaks
-   * mid-morph.
-   * Incompatible palettes must transition through a baked crossfade
-   * (BakedPaletteStorage::rebake_crossfade) instead.
+   * @details Requires identical evaluation policy plus corresponding segment
+   * hue deltas within half a turn of each other. A loop additionally requires
+   * the same integer closing travel, or its seam breaks mid-morph.
    */
   bool morph_compatible(const GenerativePalette &other) const {
     if (domain != other.domain || easing != other.easing ||
@@ -269,7 +257,7 @@ public:
    * @param amount Blend amount; clamped to [0, 1].
    * @details Adopts @p from's evaluation policy, snapshot-lerps the keys, and
    * interpolates the loop-closing hue delta, which snapshots do not carry.
-   * Callers gate on morph_compatible().
+   * @p from and @p to must be morph_compatible().
    */
   HS_COLD_MEMBER void morph_palettes(const GenerativePalette &from,
                                      const GenerativePalette &to,
@@ -340,10 +328,7 @@ public:
 private:
   HS_COLD_MEMBER void lerp_keys(const Snapshot &from, const Snapshot &to,
                                 float amount) {
-    // Mixed axis curves morph through CUSTOM: the per-key samples below carry
-    // each side's own curve, while a non-CUSTOM curve would ignore them and
-    // evaluate the lerped low/high — wrong for the CUSTOM side, and a pop at
-    // the endpoint copy.
+    // Mixed axis curves morph through CUSTOM so the per-key samples apply.
     lightness_axis = {
         from.lightness_low + (to.lightness_low - from.lightness_low) * amount,
         from.lightness_high +
@@ -360,8 +345,6 @@ private:
     key_count = from.key_count;
     std::array<ControlKey, PALETTE_MAX_KEYS> from_keys{};
     std::array<ControlKey, PALETTE_MAX_KEYS> to_keys{};
-    // Both snapshots carry key_count keys, so each morphed key is one source
-    // key against its opposite number -- no resampling.
     for (int i = 0; i < key_count; ++i) {
       from_keys[i] = snapshot_key(from, i);
       to_keys[i] = snapshot_key(to, i);
@@ -377,10 +360,8 @@ private:
     const float anchor_delta =
         anchor >= 0 ? wrap_angle_pi(to_keys[anchor].h - from_keys[anchor].h)
                     : 0.0f;
-    // Travel relative to the anchor accumulates one wrapped segment delta per
-    // step: wrapping the whole anchor-to-key difference instead folds a chain
-    // whose segments sum past half a turn onto the opposite arc, which is the
-    // ambiguity morph_compatible's per-segment bound exists to exclude.
+    // Accumulate wrapped per-segment deltas: wrapping a whole anchor-to-key
+    // difference folds chains past half a turn onto the opposite arc.
     std::array<float, PALETTE_MAX_KEYS> relative{};
     if (anchor >= 0) {
       auto segment_delta = [&](int i) {

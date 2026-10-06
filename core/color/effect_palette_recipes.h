@@ -6,8 +6,7 @@
 
 /**
  * @file effect_palette_recipes.h
- * @brief The per-effect PaletteRecipe builders, plus the preset roster the
- *        palette authoring tool opens with.
+ * @brief Per-effect PaletteRecipe builders and the authoring preset roster.
  */
 
 #include <array>

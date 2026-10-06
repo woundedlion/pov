@@ -15,10 +15,8 @@
 /**
  * @brief Accumulates partially covering layers front to back into one Color4.
  * @details Each add() weights its color by the transmittance still left in
- * front of it, so callers may feed layers in depth order without tracking the
- * running alpha themselves. `remaining` is that transmittance; saturated() is
- * the early-out test over it. finish() un-premultiplies the sum, so the
- * returned color is the blended hue and the returned alpha its coverage.
+ * front of it. finish() un-premultiplies the sum: the returned color is the
+ * blended hue and the returned alpha its coverage.
  */
 struct LayerComposite {
   float red = 0.0f;

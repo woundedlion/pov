@@ -27,7 +27,6 @@ round_linear_channel(float value) {
 }
 
 #if defined(__ARM_FEATURE_DSP)
-// Inline assembly avoids a CMSIS header dependency for the saturating add.
 __attribute__((always_inline)) inline uint32_t inline_uqadd16(uint32_t a,
                                                               uint32_t b) {
   uint32_t res;
@@ -50,7 +49,7 @@ inline uint32_t inline_uqadd16(uint32_t a, uint32_t b) {
 
 struct Pixel;
 // Saturating per-channel add packed into two uqadd16 lanes (g|b in one 32-bit
-// word, r alone in another). Used by Pixel::operator+=.
+// word, r alone in another).
 inline Pixel pixel_blend_add_packed(const Pixel &c1, const Pixel &c2);
 
 /**
@@ -104,8 +103,6 @@ struct Pixel {
   /**
    * @brief Lossy 16-bit-linear -> 8-bit-sRGB downcast.
    * @return The color quantized to an 8-bit sRGB CRGB.
-   * @details Explicit so a stray Pixel in a CRGB context is a compile error,
-   * not a silent round-trip through 8-bit gamma.
    */
   explicit operator CRGB() const;
 
@@ -140,10 +137,8 @@ struct Pixel {
    * @brief Scales every channel by a float factor (saturated).
    * @param s Scale factor; may be any finite float (NaN maps to the hi bound).
    * @return A new pixel with each channel clamped to [0, 65535].
-   * @details Rounds to nearest (+0.5f, inside the clamp so the hi bound stays
-   * exactly 65535). Clamps in float before the cast: r*s can exceed INT_MAX and
-   * float->int is UB out of range; hs::clamp also maps a NaN scale to the hi
-   * bound before it can reach the cast.
+   * @details Rounds to nearest; clamps in float before the cast, since
+   * out-of-range float->int is UB.
    */
   Pixel operator*(float s) const {
     return Pixel(round_linear_channel(r * s), round_linear_channel(g * s),
@@ -157,8 +152,7 @@ struct Pixel {
    * @return The interpolated pixel, round-to-nearest per channel.
    * @details Round-to-nearest div-by-65535 via shifts:
    *   (x + (x>>16) + 32768) >> 16, within 1 LSB of round(x/65535) and exact at
-   * the endpoints (frac 0/65535 -> a/b). Plain 32-bit MACs, not packed `smlad`:
-   * smlad's signed 16x16 dual-MAC reads an operand >= 32768 as negative.
+   * the endpoints (frac 0/65535 -> a/b).
    */
   __attribute__((always_inline)) Pixel lerp16(const Pixel &other,
                                               uint16_t frac) const {
@@ -208,10 +202,9 @@ __attribute__((always_inline)) inline Pixel lut_entry_pixel(const Pixel &e) {
 
 /**
  * @brief Master-alpha gate: one 8-bit LSB of the user's opacity slider.
- * @details A whole-effect gate on the slider value, not a per-sample floor —
- * the framebuffer is 16-bit linear and sRGB's toe lifts a fragment at this
- * alpha to roughly 13 encoded levels. Per-sample cuts use
- * MIN_ENCODABLE_ALPHA.
+ * @details A whole-effect gate on the slider value, never a per-sample floor:
+ * sRGB's toe lifts a fragment at this alpha to roughly 13 encoded levels.
+ * Per-sample cuts use MIN_ENCODABLE_ALPHA.
  */
 inline constexpr float MIN_VISIBLE_ALPHA = 1.0f / 255.0f;
 
@@ -220,8 +213,7 @@ inline constexpr float MIN_VISIBLE_ALPHA = 1.0f / 255.0f;
  * @details linear_to_srgb8 first leaves zero at linear channel 10 of 65535
  * (sRGB's 12.92x toe puts the 0.5/255 rounding step at 1/(510*12.92) linear),
  * so the cull uses 10/65535. Per-channel rounding can still lift an unrounded
- * peak in [9.5, 10) to linear channel 10 and sRGB 1. Pinned against the decode
- * table by unit_color's test_min_encodable_alpha_is_the_encode_floor.
+ * peak in [9.5, 10) to linear channel 10 and sRGB 1.
  */
 inline constexpr float MIN_ENCODABLE_ALPHA = 10.0f / 65535.0f;
 
@@ -250,8 +242,6 @@ struct Color4 {
    * @param g Green channel in [0, 255].
    * @param b Blue channel in [0, 255].
    * @param a Alpha in [0, 1]; defaults to fully opaque.
-   * @details `explicit` so the sRGB->linear convention is opt-in, not taken by
-   *          a braced `{r,g,b}` from a caller modeling Color4 as already-linear.
    */
   explicit Color4(uint8_t r, uint8_t g, uint8_t b, float a = 1.0f)
       : color(Pixel(srgb_to_linear(r), srgb_to_linear(g), srgb_to_linear(b))),
@@ -271,8 +261,7 @@ struct Color4 {
    * @details Alpha is straight, not premultiplied: color and alpha interpolate
    * independently, so a fully transparent endpoint still contributes its RGB to
    * the blend. Endpoints intended to fade out must carry the color they fade
-   * towards. t clamped to [0,1] so out-of-range t saturates at an endpoint
-   * rather than letting alpha extrapolate while color stays clamped.
+   * towards.
    */
   Color4 lerp(const Color4 &other, float t) const {
     const float ct = hs::clamp(t, 0.0f, 1.0f);
@@ -285,7 +274,6 @@ struct Color4 {
   /**
    * @brief Converts to 8-bit sRGB CRGB, discarding alpha.
    * @return The pixel downcast to CRGB.
-   * @details Explicit so a Color4 never silently round-trips through 8-bit gamma.
    */
   explicit operator CRGB() const { return static_cast<CRGB>(color); }
 };
@@ -312,9 +300,7 @@ __attribute__((always_inline)) inline int lut_index_lo(float idx) {
  * @param lo Its lower entry, from lut_index_lo, with `lo + 1` still in range.
  * @return The fractional part quantized to [0, 65535].
  * @details One spelling of this arithmetic for every sampler: -ffast-math may
- * compile two spellings of the same expression differently. The fractional part
- * of a non-negative index is in [0, 1) by construction, so quantizing it needs
- * no clamp.
+ * compile two spellings of the same expression differently.
  */
 __attribute__((always_inline)) inline uint16_t lut_index_weight(float idx,
                                                                 int lo) {
@@ -358,7 +344,7 @@ inline uint16_t srgb_to_linear(uint8_t srgb) {
  * small upward (secant) bias versus exact powf.
  */
 inline uint16_t srgb_to_linear_interp(float s_srgb) {
-  // Clamp before the int cast: NaN/out-of-range would be float->int UB below.
+  // Clamp before the int cast: NaN/out-of-range is float->int UB.
   s_srgb = hs::clamp(s_srgb, 0.0f, 1.0f);
   float f = s_srgb * 255.0f;
   int i = static_cast<int>(f);
@@ -426,9 +412,6 @@ struct CPixel {
   /**
    * @brief Constructs a CPixel from a packed 0xRRGGBB hex value.
    * @param hex Packed color; bits 16-23 red, 8-15 green, 0-7 blue.
-   * @details `explicit` to match the file's explicit-cast policy: a packed hex
-   * is a deliberate construction (`CPixel{0xRRGGBB}`), so a stray int can't
-   * silently decay into a color through an implicit conversion.
    */
   constexpr explicit CPixel(uint32_t hex)
       : r((hex >> 16) & 0xFF), g((hex >> 8) & 0xFF), b(hex & 0xFF) {}
