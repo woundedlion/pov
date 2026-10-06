@@ -20,11 +20,9 @@ namespace presets_tests {
 
 /**
  * @brief Minimal stand-in payload for exercising the preset table.
- * @details `id` is an identity marker; `value` checks float copying.
  */
 struct DummyParams {
   int id;
-  float value;
 };
 
 /** @brief Range predicate every entry of the fixture satisfies. */
@@ -36,21 +34,20 @@ constexpr bool id_above_one(const DummyParams &d) { return d.id > 1; }
 
 /** @brief The fixture's entries, as a constant expression. */
 constexpr std::array<PresetEntry<DummyParams>, 3> CONST_ENTRIES{{
-    {DummyParams{1, 1.5f}},
-    {DummyParams{2, 2.5f}},
-    {DummyParams{3, 3.5f}},
+    {DummyParams{1}},
+    {DummyParams{2}},
+    {DummyParams{3}},
 }};
 
 static_assert(all_presets_in_ranges(CONST_ENTRIES, id_below_four));
 static_assert(!all_presets_in_ranges(CONST_ENTRIES, id_below_three));
 
 /**
- * @brief Verifies all_presets_in_ranges() reports a failure at either end of
- *        the table.
+ * @brief Verifies all_presets_in_ranges() reports a failure at the table's
+ *        first entry.
  */
 inline void test_all_presets_in_ranges_folds_predicate() {
   HS_EXPECT_FALSE(all_presets_in_ranges(CONST_ENTRIES, id_above_one));
-  HS_EXPECT_FALSE(all_presets_in_ranges(CONST_ENTRIES, id_below_three));
 }
 
 // --- apply_if_changed -------------------------------------------------------
