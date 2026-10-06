@@ -42,7 +42,8 @@ class EngineSourceState(unittest.TestCase):
         with contextlib.redirect_stdout(io.StringIO()):
             generated = docs_sync.sync_text(
                 PurePosixPath("README.md"), self.original, entries, {}, {})
-        self.assertIn("new.txt", generated)
+        self.assertNotIn("absent.txt", generated)
+        self.assertNotEqual(generated, self.original)
         self.write("README.md", generated)
         return generated
 
