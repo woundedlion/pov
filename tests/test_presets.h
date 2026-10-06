@@ -217,9 +217,8 @@ struct SaturatedPresetEffect
   }
   void saturate() {
     for (size_t i = 0; i < Timeline::MAX_EVENTS; ++i)
-      timeline.add(10000, Animation::PeriodicTimer(10000, [](Canvas &) {}));
+      timeline.add(0, Animation::PeriodicTimer(1, [](Canvas &) {}));
   }
-  void clear_events() { timeline.clear(); }
   void cancel() { parameter_written(); }
   void step_events(Canvas &canvas) { timeline.step(canvas); }
   void set_value(float value) { params.value = value; }
@@ -231,6 +230,7 @@ struct SaturatedPresetEffect
 inline void test_preset_saturation_veto_restarts_dwell() {
   hs_test::reset_globals();
   SaturatedPresetEffect effect;
+  Canvas canvas(effect);
   effect.arm();
   for (int i = 0; i < 10; ++i)
     effect.tick();
@@ -239,7 +239,8 @@ inline void test_preset_saturation_veto_restarts_dwell() {
   HS_EXPECT_EQ(effect.getPresetIndex(), size_t{0});
   HS_EXPECT_EQ(effect.value(), 1.0f);
   HS_EXPECT_FALSE(effect.blending());
-  effect.clear_events();
+  effect.step_events(canvas);
+  HS_EXPECT_EQ(Timeline::remaining(), Timeline::MAX_EVENTS);
   for (int i = 1; i < SaturatedPresetEffect::PRESET_DWELL_FRAMES; ++i)
     effect.tick();
   HS_EXPECT_EQ(effect.getPresetIndex(), size_t{0});
