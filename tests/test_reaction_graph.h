@@ -438,6 +438,82 @@ inline void test_cubemap_lut_equatorial() {
   HS_EXPECT_LE(miss, 12);
 }
 
+inline void test_cubemap_coherent_seeds() {
+  const auto &LUT = built_cubemap_lut();
+  constexpr int RES = ReactionGraph::CubemapLUT::RES;
+  int changed = 0, degraded = 0, misses = 0;
+  for (int face = 0; face < 6; ++face)
+    for (int y = 0; y < RES; ++y)
+      for (int x = 0; x < RES; ++x) {
+        const float U = (x + 0.5f) / RES * 2.0f - 1.0f;
+        const float V = (y + 0.5f) / RES * 2.0f - 1.0f;
+        math::Vector q;
+        switch (face) {
+        case 0:
+          q = {1, V, -U};
+          break;
+        case 1:
+          q = {-1, V, U};
+          break;
+        case 2:
+          q = {U, 1, -V};
+          break;
+        case 3:
+          q = {U, -1, V};
+          break;
+        case 4:
+          q = {U, V, 1};
+          break;
+        default:
+          q = {-U, V, -1};
+          break;
+        }
+        q = q.normalized();
+        int baseline =
+            static_cast<int>(hs::clamp((1.0f - q.y) * 0.5f * (RD_N - 1) + 0.5f,
+                                       0.0f, static_cast<float>(RD_N - 1)));
+        float distance = chord2(q, ReactionGraph::node_positions[baseline]);
+        for (int iter = 0; iter < 64; ++iter) {
+          bool improved = false;
+          for (int k = 0; k < RD_K; ++k) {
+            const int NEIGHBOR = neighbors[baseline][k];
+            const float D = chord2(q, ReactionGraph::node_positions[NEIGHBOR]);
+            if (D < distance) {
+              baseline = NEIGHBOR;
+              distance = D;
+              improved = true;
+            }
+          }
+          if (!improved)
+            break;
+        }
+        const int FOUND =
+            LUT.lookup(ReactionGraph::CubemapLUT::Projection{face, U, V});
+        const float FOUND_DISTANCE =
+            chord2(q, ReactionGraph::node_positions[FOUND]);
+        changed += FOUND != baseline;
+        degraded += FOUND_DISTANCE > distance + 1e-7f;
+        int nearest = 0;
+        float nearest_distance = chord2(q, ReactionGraph::node_positions[0]);
+        for (int i = 1; i < RD_N; ++i) {
+          const float D = chord2(q, ReactionGraph::node_positions[i]);
+          if (D < nearest_distance) {
+            nearest_distance = D;
+            nearest = i;
+          }
+        }
+        bool adjacent = FOUND == nearest;
+        for (int k = 0; k < RD_K; ++k)
+          adjacent |= neighbors[nearest][k] == FOUND;
+        misses += !adjacent;
+      }
+  std::printf("  [info] coherent cubemap: %d changed, %d degraded, %d misses\n",
+              changed, degraded, misses);
+  HS_EXPECT_EQ(changed, 0);
+  HS_EXPECT_EQ(degraded, 0);
+  HS_EXPECT_EQ(misses, 0);
+}
+
 // ---------------------------------------------------------------------------
 // Runner
 // ---------------------------------------------------------------------------
@@ -466,6 +542,7 @@ inline int run_reaction_graph_tests() {
   test_cubemap_lut_roundtrip();
   test_cubemap_lut_offlattice();
   test_cubemap_lut_equatorial();
+  test_cubemap_coherent_seeds();
 
   return fixture.result();
 }
