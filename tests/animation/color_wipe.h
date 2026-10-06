@@ -3,13 +3,10 @@
  * Licensed under the PolyForm Noncommercial License 1.0.0
  */
 
-// Included by tests/test_animation.h.
-
 // ============================================================================
 // ColorWipe
 // ----------------------------------------------------------------------------
-// OKLCH-lerps between caller-owned snapshots. make_palette builds from three
-// fixed keys via PaletteRecipes::from_colors without RNG draws.
+// OKLCH-lerps between caller-owned snapshots.
 // ============================================================================
 
 /**
@@ -83,7 +80,6 @@ inline void test_colorwipe_uses_owned_start_snapshot() {
 /**
  * @brief Verifies a slow wipe resolves a new key level on essentially every
  *        frame.
- * @details The `advanced` assertion bounds distinct key updates during the fade.
  */
 inline void test_colorwipe_slow_fade_resolves_every_frame() {
   GenerativePalette from =

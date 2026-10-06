@@ -8,19 +8,15 @@
  * @brief Pure (no-Emscripten) mesh-operator roster, growth factors and
  *        byte-per-element budgets.
  *
- * Every MeshOps boundary guard in mesh_ops_bindings.h prices a JS-driven
- * operator chain against these numbers, so one smaller than an operator's real
- * expansion or footprint lets a chain reach an engine trap the guard exists to
- * keep out of reach. They carry no Emscripten dependency, so they live here and
- * are measured against the real operators without the toolchain — see
- * tests/test_wasm_predicates.h. mesh_ops_bindings.h keeps the logging/embind
- * shell on top.
+ * The MeshOps boundary guards price a JS-driven operator chain against these
+ * numbers; one smaller than an operator's real expansion or footprint lets a
+ * chain reach an engine trap.
  */
 #pragma once
 
 #include <cstddef>
-#include <cstring>  // std::strcmp — roster lookup by operator name
-#include <iterator> // std::size — roster table length
+#include <cstring>
+#include <iterator>
 
 namespace hs_wasm {
 
@@ -45,47 +41,21 @@ struct MeshOpBounds {
  * @param OP0  Macro applied to each zero-argument operator.
  * @param OP1U Macro applied to each [0,1]-fraction operator.
  * @param OP1H Macro applied to each [0,1)-fraction operator.
- * @details Expanded at the roster consumers: with MESHOP_0/MESHOP_1U/MESHOP_1H to generate
- *          the wrapper methods in mesh_ops_bindings.h, with MESHOP_BIND to
- *          generate the embind .function() bindings there, and with
- *          MESHOP_BOUNDS_ENTRY below to publish the factors as data, and with
- *          MESHOP_COUNT_ONE to check cardinality.
- *          Each fraction operator's macro matches the domain its always-on
- *          engine trap asserts: truncate and bevel accept 1 and use OP1U;
- *          chamfer and expand assert t < 1 and use OP1H. relax, hankin,
- *          and snub have bespoke signatures/validation (snub takes two float
- *          controls, and clamps its inset to [0,1) for the same trap), so their
- *          wrapper methods are hand-written; their names live in
- *          MESHOP_IRREGULAR_LIST below and their bindings expand from it, so a
- *          new irregular op is bound the moment it joins the list, and their
- *          factors are the RELAX_BOUNDS/HANKIN_BOUNDS/SNUB_BOUNDS constants.
+ * @details Each fraction operator's macro matches the domain its engine trap
+ *          asserts: truncate and bevel accept 1 (OP1U); chamfer and expand
+ *          assert t < 1 (OP1H). Operators with bespoke signatures are in
+ *          MESHOP_IRREGULAR_LIST. The trailing arguments are the operator's
+ *          MeshOpBounds, in order.
  *
- *          The trailing arguments are the operator's MeshOpBounds, in order.
- *
- *          `elements` is the largest multiple of the input's biggest element
- *          count that any of its intermediate or output stages reaches. Read off
- *          the output bindings in core/mesh/conway.h with I as the input flat
- *          index count — dual I, ambo 2I, kis/truncate 3I, expand/chamfer 4I,
- *          snub 5I — and multiplied through for the compositions: gyro = d(snub)
- *          5I, needle = k(d) 3I, zip = d(k) 3I, meta = k(d(a)) 6I, bevel = t(a)
- *          6I. Every stage's vertex and face count stays under its operator's
- *          index expansion, so one factor bounds all three counts.
+ *          `elements` is the largest multiple of the input flat index count
+ *          that any intermediate or output stage reaches; compositions multiply
+ *          through (meta = k(d(a)) 6I). One factor bounds vertex, face and
+ *          index counts.
  *
  *          `degree` and `valence` are the multiples that reach
- *          narrow_face_count, from the three emitters: emit_shrunk_face and
- *          emit_primary_faces widen a face to verts_per_side x its side count
- *          (1 for ambo/expand/chamfer/snub, 2 for truncate),
- *          emit_vertex_orbit_faces emits one face per vertex at its valence, and
- *          Hankin doubles both (star faces 2x a face's sides, rosettes 2x a
- *          valence). kis emits only triangles, so it needs neither measurement.
- *          Compositions inherit their widest stage: needle's dual stage is
- *          valence-wide, zip's is 2x valence (its kis stage doubles valence
- *          first), meta's and gyro's ambo/snub stages are 1x both, and bevel's
- *          truncate stage doubles what its ambo stage already widened.
- *
- *          Faces an operator emits at a fixed side count regardless of its input
- *          (kis triangles, gyro pentagons, chamfer hexagons) cannot scale into
- *          the 8-bit side count, so no factor covers them.
+ *          narrow_face_count; compositions inherit their widest stage. Faces
+ *          emitted at a fixed side count (kis triangles, gyro pentagons,
+ *          chamfer hexagons) need no factor.
  */
 // clang-format off
 #define MESHOP_LIST(OP0, OP1U, OP1H)                                         \
@@ -111,9 +81,7 @@ inline constexpr MeshOpBounds SNUB_BOUNDS{5, 1, 1};
  * @brief Worst-case scratch bytes one operator allocates per element of its
  *        largest stage, counting vertices, faces and flat face indices alike.
  * @details The heaviest operator keeps an intermediate mesh, its output and its
- *          index scratch live in one arena. Measured against the real operators
- *          by tests/test_wasm_predicates.h; mesh_ops_bindings.h ties it to the
- *          tooling scratch arena size.
+ *          index scratch live in one arena.
  */
 inline constexpr size_t TOOLING_BYTES_PER_MESH_ELEMENT = 64;
 
@@ -122,8 +90,7 @@ inline constexpr size_t TOOLING_BYTES_PER_MESH_ELEMENT = 64;
  * @details One Vector of vertex, one uint8_t of side count, one uint16_t of
  *          index and the uint16_t topology code classifyFaces() later binds
  *          into the same arena, with slack for the four blocks' alignment
- *          padding. Measured against the real operators by
- *          tests/test_wasm_predicates.h.
+ *          padding.
  */
 inline constexpr size_t TOOLING_ARENA_BYTES_PER_MESH_ELEMENT = 20;
 
@@ -138,10 +105,8 @@ struct MeshOpBoundsEntry {
 
 /**
  * @brief Every operator's declared growth factors as data.
- * @details The roster's regular operators expand from MESHOP_LIST; the irregular
- *          three carry the constants their hand-written wrappers pass. Exists so
- *          a host test can measure the real operators against the same factors
- *          the Emscripten-only guards use.
+ * @details Regular operators expand from MESHOP_LIST; irregular rows carry the
+ *          constants their hand-written wrappers pass.
  */
 // clang-format off
 inline constexpr MeshOpBoundsEntry MESHOP_BOUNDS[] = {
@@ -156,9 +121,8 @@ inline constexpr MeshOpBoundsEntry MESHOP_BOUNDS[] = {
 /** @brief Number of rows in MESHOP_BOUNDS. */
 inline constexpr size_t MESHOP_BOUNDS_COUNT = std::size(MESHOP_BOUNDS);
 
-// The irregular rows are hand-written above, so count both roster lists back
-// against the table: an operator joining MESHOP_IRREGULAR_LIST is bound but
-// unmeasured until it gets a row here.
+// The irregular rows are hand-written: an operator joining
+// MESHOP_IRREGULAR_LIST needs a row in MESHOP_BOUNDS.
 #define MESHOP_COUNT_ONE(...) +1
 static_assert(
     MESHOP_BOUNDS_COUNT ==
