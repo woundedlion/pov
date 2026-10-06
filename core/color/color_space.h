@@ -203,10 +203,10 @@ HS_O3_FN inline LinRGB oklab_to_linear_rgb(OKLab lab) {
  * color a hair past 1.0 after the OKLab inverse.
  */
 HS_O3_FN inline bool linear_rgb_in_gamut(float r, float g, float b) {
-  constexpr float lo = -1e-4f, hi = 1.0f + 1e-4f;
+  constexpr float GATE_LO = -1e-4f, GATE_HI = 1.0f + 1e-4f;
   const float least = __builtin_fminf(__builtin_fminf(r, g), b);
   const float most = __builtin_fmaxf(__builtin_fmaxf(r, g), b);
-  return least >= lo && most <= hi;
+  return least >= GATE_LO && most <= GATE_HI;
 }
 
 // Chroma pulled back off the refined crossing; without it the caller's own

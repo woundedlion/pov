@@ -581,7 +581,7 @@ def check_mirrors(color_h_path, math_h_path):
     except ValueError as error:
         sys.stderr.write(f"could not parse linear_rgb_in_gamut: {error}\n")
         return False
-    m = re.search(r"lo\s*=\s*(%s)f\s*,\s*hi\s*=\s*(%s)f\s*\+\s*(%s)f"
+    m = re.search(r"GATE_LO\s*=\s*(%s)f\s*,\s*GATE_HI\s*=\s*(%s)f\s*\+\s*(%s)f"
                   % (NUM, NUM, NUM), gamut)
     if not m:
         sys.stderr.write("could not parse linear_rgb_in_gamut() slack\n")
