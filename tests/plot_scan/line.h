@@ -45,19 +45,16 @@ inline void test_line_sample_endpoints_and_unit_length() {
   HS_EXPECT_NEAR(total_angle, math::PI_F * 0.5f, 1e-4f);
 }
 
-/** Angular slack on a Line::sample position: fast_sincosf_0_pi has <= 1.7e-3
- * absolute error per component. Renormalization leaves about 2.4e-3 radians
- * of directional error, within this 4e-3 tolerance. */
+/** Angular slack on a Line::sample position: fast_sincosf_0_pi error leaves
+ * about 2.4e-3 rad of directional error after renormalization. */
 constexpr float LINE_SAMPLE_ANGLE_TOL = 4e-3f;
 
 /**
  * @brief Verifies interior Line::sample fragments lie on the minor arc itself,
  *        at even angular spacing, not merely inside a cone bounding it.
  * @details A point is on the minor arc iff its angles to the two endpoints sum
- * to the whole span; anywhere off the geodesic the triangle inequality makes
- * that sum strictly larger. Even parameterization then pins each sample's own
- * angle from the start to its share of the span, and the arc-length register
- * must agree with the geometry it reports.
+ * to the whole span. Each sample's angle from the start must match its share of
+ * the span, and the arc-length register must agree with the geometry.
  */
 inline void test_line_sample_interior_between_endpoints() {
   ScratchScope sc(plot_arena());
@@ -119,8 +116,7 @@ inline void test_line_sample_degenerate_segment() {
  *        endpoints so the arc stays finite, unit-length, and passes through a
  *        real ~90deg midpoint.
  * @details Antipodal endpoints (angle == pi) make cross(a, b) == 0, so the
- *          rotation axis is degenerate; a perpendicular fallback is required to
- *          avoid collapsing to the start point or NaN.
+ *          rotation axis needs a perpendicular fallback.
  */
 inline void test_line_sample_antipodal_stable_axis() {
   ScratchScope sc(plot_arena());
@@ -152,16 +148,11 @@ inline void test_line_sample_antipodal_stable_axis() {
 
 /**
  * @brief Antipodal endpoints one ULP apart in length still pick a stable axis
- *        through make_geodesic_edge_span, the setup every geodesic site shares.
+ *        through make_geodesic_edge_span.
  * @details acos' derivative diverges at ±1, so a single-ULP perturbation of the
- *          normalized dot moves angle_between off π by ~5e-4 rad — several times
- *          any angular tolerance the setup could name, while cross(a, b) stays
- *          exactly zero. Selecting the axis from |cross|² instead keeps the
- *          sampled arc agreeing with the geometry.
- *          The miss here comes out of correctly-rounded mul/div/sqrt alone —
- *          dot is exactly -1 while sqrt(m1·m2) rounds to 1 + 2^-23 — so it holds
- *          on every target regardless of FMA contraction or fast-math
- *          reciprocals.
+ *          normalized dot moves angle_between off π by ~5e-4 rad while
+ *          cross(a, b) stays exactly zero. The miss comes from correctly-rounded
+ *          mul/div/sqrt alone, so it holds on every target.
  */
 inline void test_line_sample_near_antipodal_ulp_stable_axis() {
   ScratchScope sc(plot_arena());

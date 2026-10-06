@@ -2,18 +2,11 @@
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
  * Licensed under the PolyForm Noncommercial License 1.0.0
  */
-// Tolerance pin for core/color/mindsplatter_palette_luts.h, the 393,216-byte palette bank
-// tools/mindsplatter_palette_gen.cpp emits. Recompiles every entry from the
-// recipe of record (EffectPaletteRecipes::mind_splatter) and compares it to the
-// committed one. Recipe, compiler or table changes that exceed the pinned
-// channel or mean tolerance fail the check.
-//
-// The sibling generated artifacts are byte-diffed against a regenerated copy;
-// this one cannot be. The recipe path runs powf/cbrtf through the OKLab gamut
-// search, whose last bits differ between libm builds, so a byte-diff would red
-// on whichever host did not bake the committed header. Entries are held to a
-// per-channel tolerance instead, and the worst observed delta is printed so a
-// drift that stays inside it is still visible.
+// Tolerance pin for core/color/mindsplatter_palette_luts.h: recompiles every
+// entry from EffectPaletteRecipes::mind_splatter and compares it to the
+// committed table within a per-channel and a mean tolerance. The recipe's
+// powf/cbrtf last bits differ between libm builds, so entries cannot be
+// byte-diffed.
 #include <algorithm>
 #include <cstdio>
 #include <cstdlib>
@@ -24,18 +17,12 @@
 
 namespace {
 
-// Per-channel slack in 16-bit linear units. Measured worst delta over the bank
-// is 1 at -O0 and at -O2 -ffast-math -fno-finite-math-only, so the band is four
-// times the observed libm spread — enough for a cbrtf/powf whose last bits
-// differ, and short of the 31 units a 0.03% shift in one recipe field reaches.
+// Per-channel slack in 16-bit linear units.
 constexpr int MAX_CHANNEL_DELTA = 4;
 
 // Mean absolute per-channel delta over the whole bank, in thousandths of a
-// linear unit. The per-entry band above is blind to a drift that moves every
-// channel by less than itself, which the form gate cannot see either: it
-// rewrites Pixel(N, N, N) to Pixel(VALUE) on both sides. Libm noise is sparse:
-// the measured mean is 0/1000, fewer than one channel in a thousand differing
-// at all, so a shift that moves the whole bank cannot hide under it.
+// linear unit; catches a drift that moves every channel by less than
+// MAX_CHANNEL_DELTA.
 constexpr long long MAX_MEAN_DELTA_MILLI = 30;
 
 /** @brief Per-channel differences between two bank entries. */

@@ -13,9 +13,7 @@
 /**
  * @brief Pipeline stub: records each plotted position; ignores color/age.
  * @details Carries both plot() overloads so it can also back a type-erased
- * PipelineRef (the Plot::ParticleSystem draw() entry points take one); only
- * the 3D world-space overload records — the 2D screen-space form is unused by
- * these paths.
+ * PipelineRef; only the 3D world-space overload records.
  */
 struct CapturePipeline {
   std::vector<math::Vector>

@@ -162,12 +162,10 @@ render_particle_materialization(const StubParticle &particle,
 /**
  * @brief Verifies ParticleSystem::draw rasterizes only the active prefix's trails
  *        and stamps the per-particle registers (v2 source index, v3 life ratio).
- * @details Pins three things the smoke loop never checks: (1) only particles in
- * [0, active_count) are drawn — an inactive particle parked on the ±Y poles never
- * contributes a point; (2) the drawn trail follows the particle's recorded
- * history (an equatorial +X→+Z arc); (3) every emitted fragment carries the
- * source index in v2 and life/max_life in v3, constant across the trail when
- * draw() uses its default register mappers.
+ * @details Only particles in [0, active_count) are drawn; the drawn trail
+ * follows the particle's recorded history (an equatorial +X→+Z arc); every
+ * emitted fragment carries the source index in v2 and life/max_life in v3,
+ * constant across the trail under the default register mappers.
  */
 inline void test_particle_system_draws_active_trails_with_registers() {
   constexpr int W = 288, H = 144;
@@ -209,13 +207,13 @@ inline void test_particle_system_draws_active_trails_with_registers() {
   }
   fx.advance_display();
 
-  // (1)+(2) Active trail follows its recorded arc; the inactive ±Y particle is absent.
+  // Active trail follows its recorded arc; the inactive ±Y particle is absent.
   HS_EXPECT_GT(pipe.plotted.size(), (size_t)2);
   for (const math::Vector &v : pipe.plotted) {
     HS_EXPECT_LE(arc_angular_distance(v, t0[0], t0[2]), 0.05f);
     HS_EXPECT_LT(std::fabs(v.y), 0.1f);
   }
-  // (3) Registers: v2 == source index 0; v3 == life/max_life == 0.6, constant.
+  // Registers: v2 == source index 0; v3 == life/max_life == 0.6, constant.
   HS_EXPECT_NEAR(v2_lo, 0.0f, 1e-4f);
   HS_EXPECT_NEAR(v2_hi, 0.0f, 1e-4f);
   HS_EXPECT_NEAR(v3_lo, 0.6f, 1e-3f);
@@ -331,9 +329,8 @@ inline void test_particle_system_sparse_history_live_tip() {
 
 /**
  * @brief v0 ramps 0 at the OLDEST retained sample to 1 at the newest (head).
- * @details Pins the register's orientation, not just its spacing: consumers fade
- * on v0 (MindSplatter's min(v0, v3)), so a reversed ramp would fade the head.
- * Uses a wrapped history, where the oldest survivor is not the first record.
+ * @details Pins the register's orientation, not just its spacing. Uses a
+ * wrapped history, where the oldest survivor is not the first record.
  */
 inline void test_particle_system_v0_zero_at_oldest_sample() {
   StubParticle particle;
@@ -387,10 +384,8 @@ inline void test_particle_system_custom_v2_mapper() {
     ++mapper_calls;
     return static_cast<float>(p.life) / 100.0f;
   };
-  // Bucket by tolerance, not by ==: the shipping -ffast-math pair may turn the
-  // mapper's division into a reciprocal multiply, and an exact compare would
-  // then silently drop every vertex into neither bucket — failing the counts
-  // below with a diagnostic that blames the vertex walk.
+  // Bucket by tolerance: -ffast-math may turn the mapper's division into a
+  // reciprocal multiply.
   auto vertex_shader = [&](Fragment &f) {
     if (hs_test::approx(f.v2, 0.25f, 1e-4f))
       ++first_vertices;
@@ -505,9 +500,7 @@ inline constexpr int PARTICLE_PARITY_BANDS[4][4] = {
  *          path through rasterize), trail 1 lies wholly outside (its deferred
  *          pass must never run). The position pass negates the sphere, so the
  *          deferred shader can verify its `orig` argument is the pre-shader
- *          position, not the shaded one. Reference is a single combined vertex
- *          shader on a full canvas; the clipped deferred render must match it
- *          exactly inside the render band, including its margin ring.
+ *          position, not the shaded one.
  */
 inline void test_particle_system_deferred_shader_parity_and_skip() {
   constexpr int W = 96, H = 48;
@@ -617,9 +610,8 @@ inline void test_particle_system_deferred_shader_parity_and_skip() {
  *        the render band, including its margin ring.
  * @details Random-walk trails, salted with pole-crossing and near-antipodal
  *          steps, drive the hoisted gate's coarse trail reject and per-edge
- *          bits through a hoistable pipeline; a cull false-negative drops
- *          in-band pixels. Bands cover seam-wrapping, interior, and y-only
- *          clips.
+ *          bits through a hoistable pipeline. Bands cover seam-wrapping,
+ *          interior, and y-only clips.
  */
 inline void test_particle_system_gate_pixel_parity_random_trails() {
   constexpr int W = 96, H = 48;
@@ -702,10 +694,9 @@ inline void test_particle_system_gate_pixel_parity_random_trails() {
 /**
  * @brief Verifies a clipped sub-pixel trail — the population the single-dot
  *        shortcut routes — is pixel-identical to the unclipped reference.
- * @details The gate-parity sweep above steps trails at ~2x base_step, so its
- *          edges mostly take the sampler. These trails step well under one
- *          screen step at several latitudes, so the shortcut (and its reuse of
- *          the gate's precomputed rows/columns) decides the pixels.
+ * @details These trails step well under one screen step at several
+ *          latitudes, so the shortcut (and its reuse of the gate's precomputed
+ *          rows/columns) decides the pixels.
  */
 inline void test_particle_system_subpixel_trail_dot_parity() {
   constexpr int W = 96, H = 48;

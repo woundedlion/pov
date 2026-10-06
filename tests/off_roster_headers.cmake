@@ -1,11 +1,6 @@
 # Test headers no HS_TEST_MODULE_LIST row reaches: helper headers included
-# mid-module, and entry points only a standalone tool binary runs.
-#
-# ONE list, two gates. check_includes.cmake reads the names as the set exempt
-# from "every test header is a run_tests.cpp include"; check_case_calls.cmake
-# uses them to allow references from other files. An entry is not an exemption
-# from being compiled: check_includes.cmake still requires some source under
-# tests/ or tools/ to include it.
+# mid-module, and entry points a standalone tool binary runs. An entry must
+# still be included by some source under tests/ or tools/.
 
 set(HS_OFF_ROSTER_HEADER_NAMES
   "color_test_util.h"

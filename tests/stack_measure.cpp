@@ -2,26 +2,13 @@
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
  * Licensed under the PolyForm Noncommercial License 1.0.0
  *
- * Host stack high-water-mark gate across every effect.
+ * Host stack high-water-mark gate across every effect: fails (non-zero exit)
+ * if the worst effect exceeds the device's DTCM stack reservation.
  *
- * Method: stack painting. Descend writing an address-keyed pattern, unwind (the
- * painted region is now free stack below SP), run one effect (which descends into
- * it), then find the deepest point it reached by paint DENSITY. Painting leaves
- * one small gap per paint() frame, so an untouched window is not perfectly
- * painted either; the deepest CONTROL_BYTES of the region, which no effect comes
- * near, calibrates that gap noise floor and the deepest window above it is the
- * reach. Keying each byte to its address stops a frame that writes runs of one
- * value from reading as unpainted. Built -Os + the device math flags so codegen
- * tracks the size build.
- *
- * The per-effect window is HS_SMOKE_FRAMES (default 8); CI drives the 120-frame
- * window the effects sweep uses, so the deepest call chains an effect only
- * reaches late in its lifecycle are inside the measured region. Frames advance
- * under the injected fixed-cadence clock (hs_test::pin_frame_clock), so a
- * time-driven effect recurses the same way whatever the runner's speed.
- *
- * CI gate: fails (non-zero exit) if the worst effect exceeds the device's DTCM
- * stack reservation (see below).
+ * Method: stack painting. Paint free stack below SP with an address-keyed
+ * pattern, run one effect for HS_SMOKE_FRAMES frames, then find the deepest
+ * window damaged past the paint-gap noise floor, which the deepest
+ * CONTROL_BYTES of the region calibrate.
  */
 #include <cstdint>
 #include <cstdio>
@@ -39,19 +26,15 @@ const int FRAMES = hs_test::smoke_frames();
 constexpr int CHUNK = 2048;
 constexpr size_t WIN = 256; // classifier granularity
 
-// Deepest slice of the painted region, taken as untouched: it ends ~380 KB
-// below the top, far past any plausible frame.
+// Deepest slice of the painted region, taken as untouched.
 constexpr size_t CONTROL_BYTES = 65536;
 
 #ifndef HS_DEVICE_STACK_FLOOR_BYTES
 #error "HS_DEVICE_STACK_FLOOR_BYTES must be defined by tests/CMakeLists.txt"
 #endif
 
-// The device's DTCM stack reservation, read from tools/teensy_budgets.json
-// (phantasm.regions.ram1.free_min_bytes) by tests/CMakeLists.txt. That is the
-// bytes the Teensy size gate holds free for locals, and the ITCM code ceiling
-// is derived from the same figure, so this gate and the device budget cannot
-// drift apart.
+// The device's DTCM stack reservation
+// (phantasm.regions.ram1.free_min_bytes in tools/teensy_budgets.json).
 constexpr size_t BUDGET_BYTES = HS_DEVICE_STACK_FLOOR_BYTES;
 
 volatile uint8_t *g_lo;
@@ -136,8 +119,7 @@ template <typename Effect> size_t measure(const char *name) {
                 "painted region\n",
                 name, floor_mismatch, WIN);
   } else {
-    // Deepest window damaged past the floor. Control-band windows cannot trip
-    // it: the floor is their own maximum.
+    // Deepest window damaged past the floor.
     for (uint8_t *p = lo; p + WIN < top; p += WIN)
       if (mismatch(p) > floor_mismatch) {
         peak = static_cast<size_t>(top - p);

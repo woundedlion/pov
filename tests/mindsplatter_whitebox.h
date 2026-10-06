@@ -19,7 +19,7 @@
 namespace hs_test {
 namespace effects_tests {
 
-/** @brief White-box accessor shared by MindSplatter tests and replay tools. */
+/** @brief White-box accessor for MindSplatter internals. */
 struct MindSplatterWhiteBox {
   using MS = MindSplatter<288, 144>;
 

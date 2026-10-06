@@ -9,8 +9,8 @@
 
 /**
  * @brief The [0, π] paired trig path is bit-exact with the general functions.
- * @details The ~525k probed angles aggregate into a first-divergence capture
- *          and a sample counter.
+ * @details Probes aggregate into a first-divergence capture and a sample
+ *          counter.
  */
 inline void test_geodesic_sincos_bit_parity() {
   float first_bad = -1.0f;

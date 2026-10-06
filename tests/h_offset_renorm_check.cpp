@@ -2,10 +2,9 @@
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
  * Licensed under the PolyForm Noncommercial License 1.0.0
  */
-// Recompiles the engine with -DHS_TEST_H_OFFSET=3 (set in tests/CMakeLists.txt)
-// so the bottom physical row stops short of the south pole. Y-clip
-// renormalization at that non-pole edge runs against an energy-conservation
-// oracle. HS_OFFSET_FULL_RESOLUTION also renders Comets and RingSpin at 96x20.
+// Engine built with -DHS_TEST_H_OFFSET=3, so the bottom physical row stops
+// short of the south pole; checks Y-clip renormalization at that edge against
+// an energy-conservation oracle.
 // Separate TU: offset-3 and offset-0 PhiLUT<H>/TrigLUT<W,H> clash under ODR.
 #include "core/engine/engine.h"
 #include "tests/test_h_offset_renorm.h"

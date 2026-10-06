@@ -45,8 +45,7 @@ inline void test_filter_trait_inheritance() {
   HS_EXPECT_TRUE((Filter::Screen::Trails<>::is_2d));
   HS_EXPECT_TRUE((Filter::Screen::Trails<>::has_history));
 
-  // is_pipeline separates a stage from a whole pipeline: the Pipeline's stage
-  // check reads it to reject a sink handed to it as a filter.
+  // is_pipeline separates a stage from a whole pipeline.
   HS_EXPECT_FALSE((Filter::Screen::AntiAlias<W, H>::is_pipeline));
   HS_EXPECT_FALSE((Filter::World::Replicate<W>::is_pipeline));
   HS_EXPECT_TRUE((Filter::Screen::DirectAntiAliasSink<W, H>::is_pipeline));
@@ -150,9 +149,8 @@ inline void test_crosses_segments_trait_and_fold() {
   static_assert(!ShiftStack::any_crosses_segments,
                 "a ChromaticShift stack must keep the segment clipping win");
 
-  // Ordering traits. Each one arms a Pipeline static_assert; a misspelled
-  // override inherits the FilterTraits default and disarms it silently, so pin
-  // both the stage value and the pipeline fold that reads it.
+  // Ordering traits: a misspelled override silently inherits the FilterTraits
+  // default, so pin both the stage value and the pipeline fold.
   HS_EXPECT_TRUE((Filter::Screen::AntiAlias<W, H>::emits_pixel_centers));
   HS_EXPECT_TRUE((Filter::Screen::Blur<W, H>::emits_pixel_centers));
   HS_EXPECT_FALSE((Filter::Pixel::ChromaticShift<W>::emits_pixel_centers));
@@ -198,9 +196,8 @@ inline void test_crosses_segments_trait_and_fold() {
 /**
  * @brief Verifies the `any_2d_history` / `any_3d_history` folds that gate the
  *        flush() overloads against a wrong-domain (silently empty) call.
- * @details The rejection itself is a static_assert inside the overload body, so
- *          it is not SFINAE-detectable; what a test can pin is the fold each
- *          assert reads.
+ * @details The rejection is a static_assert in the overload body, so this
+ *          pins the fold each assert reads.
  */
 inline void test_history_domain_folds() {
   constexpr int W = 32, H = 16;
@@ -229,13 +226,12 @@ inline void test_history_domain_folds() {
   HS_EXPECT_FALSE(PlainStack::any_2d_history);
   HS_EXPECT_FALSE(PlainStack::any_3d_history);
 
-  // Feedback is the 2D-history terminal MeshFeedback flushes.
+  // Feedback is a 2D-history terminal.
   HS_EXPECT_TRUE(
       (Pipeline<W, H, Filter::World::Orient, Filter::Screen::AntiAlias<W, H>,
                 Filter::Pixel::Feedback<W, H>>::any_2d_history));
 
-  // The direct sink publishes the same folds, so its flush() overloads reject a
-  // wrong-domain call exactly as the Pipeline it replaces does.
+  // The direct sink publishes the same folds as a Pipeline.
   using Direct = Filter::Screen::DirectAntiAliasSink<W, H>;
   HS_EXPECT_FALSE(Direct::any_2d_history);
   HS_EXPECT_FALSE(Direct::any_3d_history);

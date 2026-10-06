@@ -45,7 +45,7 @@ inline void test_distorted_ring_sample_angle_addition_identity() {
 /**
  * @brief Verifies a non-zero shift function moves each sampled vertex to the
  *        colatitude it asks for, and that fn_point lands on the same ring at
- *        phase 0 — the anchor Thrusters draws its flames from.
+ *        phase 0.
  */
 inline void test_distorted_ring_shift_matches_fn_point() {
   constexpr int W = 64;

@@ -33,12 +33,10 @@ inline Plot::PlanarEdgeSampler planar_sampler(const math::Vector &a,
 /**
  * @brief one_pass's analytic tangent agrees with a forward difference of pos(),
  *        at the same position.
- * @details The oracle is derived here rather than taken from the sampler: pos()
- *          unprojects through azimuthal_unproject where sample_at inlines its
- *          own, so the two stay independent derivations of the same quantity.
- *          projection_fraction feeds both sides, so a reversed or plateaued
- *          mapping shows here (backward or zero-length forward differences),
- *          but a monotone mapping that is not arc-uniform does not.
+ * @details pos() unprojects through azimuthal_unproject where sample_at inlines
+ *          its own, so the two are independent derivations. projection_fraction
+ *          feeds both sides, so a reversed or plateaued mapping shows here, but
+ *          a monotone mapping that is not arc-uniform does not.
  */
 inline void test_planar_one_pass_matches_forward_difference() {
   hs::random().seed(0x51F1);
@@ -77,14 +75,11 @@ inline void test_planar_one_pass_matches_forward_difference() {
     }
   }
   HS_EXPECT_GT(checked, 1000);
-  // Bounds are the fast_sinf/fast_cosf budget the two derivations each pay,
-  // not agreement to float precision; a sign flip in the analytic tangent or a
-  // reversed projection_fraction misses them by orders of magnitude.
+  // Bounds are the fast_sinf/fast_cosf budget the two derivations each pay.
   HS_EXPECT_LE(worst_len, 5e-3f);
   HS_EXPECT_LE(worst_pos, 2e-2f);
   HS_EXPECT_LE(worst_tan_len, 5e-3f);
-  // Same direction, not merely the same line: a flipped sign steps the
-  // sub-step sampler backwards.
+  // Same direction, not merely the same line.
   HS_EXPECT_GT(worst_tan_dot, 0.9998f);
 }
 
@@ -129,8 +124,6 @@ inline void test_planar_one_pass_tangent_is_forward_and_orthogonal() {
  *        cached two-pass path.
  * @details The general planar configuration plots unit-length samples,
  *          bounds consecutive gaps, and follows the cached two-pass curve.
- *          ShapeShifter's sampled configuration is covered by the balanced-star
- *          and band-split tests.
  */
 inline void test_rasterize_single_pass_planar_matches_two_pass() {
   constexpr int W = 128, H = 64;
@@ -191,8 +184,7 @@ inline void test_rasterize_single_pass_planar_matches_two_pass() {
 /**
  * @brief SinglePass honours omit_end and close_loop the way the cached path
  *        does.
- * @details Covers closed-loop seam handling in the general planar configuration;
- *          the balanced-star and band-split tests cover ShapeShifter's sampled
+ * @details Covers closed-loop seam handling in the general planar
  *          configuration.
  */
 inline void test_rasterize_single_pass_closed_loop_matches_two_pass() {
@@ -301,10 +293,8 @@ inline void test_rasterize_single_pass_balances_terminal_interval() {
  * @brief Exhausting the sub-step budget coarsens a segment in both rasterizer
  *        paths, and truncates it in neither.
  * @details The two-pass replay stretches its cached steps over the whole edge,
- *          so the single-pass emitter must reach the far endpoint too instead
- *          of stopping mid-edge. Driven by lowering the budget rather than by
- *          constructing a pathological edge: the taken branch is the same one,
- *          and the emitted spacing is comparable between the paths.
+ *          so the single-pass emitter must reach the far endpoint too. Driven by
+ *          lowering the budget.
  */
 inline void test_rasterize_step_budget_backstop_finishes_segment() {
   constexpr int W = 128, H = 64;
@@ -602,8 +592,7 @@ inline void test_rasterize_balanced_pole_guard() {
  * @brief Balanced geodesic edges take the sparser steps and the alpha gain
  * without the planar step reuse.
  * @details BALANCED and SELECTABLE-on are distinct instantiations of the same
- * expressions, so the pair is held to POLICY_TOL as in
- * test_rasterize_default_sampling_policy_parity().
+ * expressions, so the pair is held to POLICY_TOL.
  */
 inline void test_rasterize_balanced_geodesic_density_and_alpha() {
   constexpr int W = 128, H = 64;
@@ -750,12 +739,9 @@ inline void test_rasterize_balanced_high_alpha_saturates() {
 
 /**
  * @brief Balanced planar stars retain coverage and energy within the clipped budget.
- * @details A clipped tile and the full frame run the same instantiation over
- * the same edges, so their shared pixels agree exactly under IEEE. The clip
- * bounds the visited column span, which under -ffast-math gives the accumulated
- * coverage a different reassociation, so CLIP_CHANNEL_TOL is what the tile is
- * held to; it is far below the coverage threshold, so a dropped or misplaced
- * tile pixel still fails.
+ * @details The clip bounds the visited column span, which under -ffast-math
+ * reassociates the accumulated coverage, so the tile is held to
+ * CLIP_CHANNEL_TOL against the full frame.
  */
 inline void test_rasterize_balanced_star_visual_budget() {
   constexpr int W = 144, H = 72;

@@ -1,4 +1,4 @@
-# Expand module-owned section headers for the roster and case-call gates.
+# Expand module-owned section headers into their owning test header.
 
 function(hs_read_test_header path output)
   file(READ "${path}" _text)

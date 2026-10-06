@@ -112,8 +112,8 @@ template <int W, int H> inline size_t count_lit_region(const StubEffect &fx) {
  * @tparam Fx Effect type exposing get_pixel(x, y) const.
  * @param fx Effect whose displayed frame is read.
  * @param out Destination, resized to W * H and indexed y * W + x.
- * @details Reads through get_pixel rather than the raw buffer, so an effect
- *          that overrides it with a per-pixel transform is captured as displayed.
+ * @details Reads through get_pixel, so a per-pixel display transform is
+ *          captured.
  */
 template <int W, int H, typename Fx>
 inline void capture_frame(const Fx &fx, std::vector<Pixel> &out) {

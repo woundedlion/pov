@@ -94,12 +94,8 @@
 
 /**
  * @brief Test-module name, entry point and effects-tier participation.
- * @details An unfiltered run executes every module in array order; passing one
- * or more names on argv runs ONLY those modules, in the order given — the
- * iteration-speed counterpart to the HS_DEATH_CASE single-case dispatch below.
- * Modules own their fixtures. self_exe() is set in main, and hs_test::stats()
- * accumulates their results for the process exit status. Any subset can run
- * in isolation.
+ * @details An unfiltered run executes every module in array order; names on
+ * argv run only those modules, in the order given.
  */
 struct TestModule {
   const char *name; /**< Short module name matched against argv. */
@@ -219,8 +215,8 @@ static void print_modules(std::FILE *out) {
  * @brief Reports whether this invocation runs an effects module.
  * @param argc Argument count as passed to main.
  * @param argv Argument vector as passed to main; names the modules to run.
- * @return True for an unfiltered run, or a filtered run naming effects,
- * effects_smoke, effect_factory or mindsplatter.
+ * @return True for an unfiltered run, or a filtered run naming an
+ * effects-tier module.
  */
 static bool runs_effects(int argc, char **argv) {
   if (argc <= 1)
@@ -234,10 +230,8 @@ static bool runs_effects(int argc, char **argv) {
 
 /**
  * @brief Watchdog bound every CI leg has to set, in microseconds.
- * @details The Canvas constructor's buffer_free() spin trips a trap, not a
- * failed assertion, so a shared runner that deschedules the test thread past
- * the shipping 2 s bound kills the whole shard. CI raises it; 30 s still
- * catches a genuinely stalled display hand-off.
+ * @details A buffer_free() timeout traps the process instead of failing a
+ * test, so CI raises the shipping 2 s bound.
  */
 constexpr unsigned long CI_MIN_BUFFER_FREE_WATCHDOG_US = 30000000UL;
 
@@ -263,20 +257,9 @@ static bool skips_are_errors() {
  * @brief Verifies the environment carries the depth levers a CI run must set.
  * @param effects_invocation Whether this invocation runs an effects module.
  * @return 0 when every lever this invocation needs is set, else 1.
- * @details Every lever defaults to the shallow local tier when unset, so a
- * workflow step that stops exporting one drops the deep smoke window or the
- * full-resolution roster passes while still reporting green. Under CI that is
- * a failure, the same stance the death harness takes on a suite it cannot run.
- * The effects tier is scored only when an effects module actually runs, so jobs
- * selecting other modules are untouched; when one does run, both
- * HS_EFFECTS_FULL (which tier) and HS_REQUIRE_EFFECTS_FULL (whether FULL is
- * mandatory for this leg) must carry an explicit value. An absent or blank key
- * is a step that lost its declaration, not a vote for QUICK. The watchdog
- * lever is scored on every CI invocation: unlike the depth levers its absence
- * traps the process instead of reporting a test. HS_SKIPS_ARE_ERRORS is
- * scored on every invocation too: a skipped case asserts nothing and moves no
- * counter a green run shows, so whether this leg tolerates one has to be
- * declared rather than defaulted.
+ * @details Unset levers default to the shallow local tier, so under CI an
+ * unset or blank lever is a failure. HS_EFFECTS_FULL and
+ * HS_REQUIRE_EFFECTS_FULL are required only when an effects module runs.
  */
 static int check_ci_levers(bool effects_invocation) {
   if (!runs_in_ci())
@@ -341,10 +324,8 @@ static int check_ci_levers(bool effects_invocation) {
  * @param argc Count of trailing names (argv past --check-modules).
  * @param argv The expected module names.
  * @return 0 if the set matches MODULES exactly, 3 on any divergence.
- * @details Both directions are checked so a roster/expected-list drift in
- * either direction fails: every MODULES name must appear in argv, and every
- * argv name must be a roster module. Used by the CTest that pins
- * _hs_test_modules.
+ * @details Every MODULES name must appear in argv, and every argv name must be
+ * a roster module.
  */
 static int check_modules(int argc, char **argv) {
   int mismatches = 0;
@@ -439,8 +420,7 @@ int main(int argc, char **argv) {
 
   int failures = 0;
   if (argc > 1) {
-    // Filtered run: execute only the named modules. An unknown name fails fast
-    // (exit 2) so a typo never silently runs nothing.
+    // Filtered run: execute only the named modules; an unknown name exits 2.
     for (int i = 1; i < argc; ++i) {
       const TestModule *match = nullptr;
       for (const TestModule &m : MODULES) {
@@ -473,7 +453,6 @@ int main(int argc, char **argv) {
       ++failures;
     }
   }
-  // Collapse to 0/1: a process exit status is only 8 bits on POSIX, so
-  // returning a raw count would wrap (e.g. 256 failures -> 0 -> green CI).
+  // Collapse to 0/1: a POSIX exit status is 8 bits, so a raw count can wrap.
   return (failures || hs_test::stats().failed > 0) ? 1 : 0;
 }
