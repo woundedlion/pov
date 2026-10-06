@@ -205,7 +205,8 @@ protected:
    * (tests/test_reaction_graph.h) can remain unrecovered.
    * @details Off the render path: both systems center their stencils with
    * refine_render_center. This unconditional walk is the independent oracle
-   * tests/test_effects.h measures that certified early-out against.
+   * tests/effects/reaction_diffusion_bz.h and reaction_diffusion_gs.h measure
+   * that certified early-out against.
    */
   HS_O3_FN static int refine_center(const math::Vector &rv,
                                     const math::Vector *nodes, int seed) {
@@ -287,7 +288,7 @@ protected:
    * @param on_weight Callable invoked as `on_weight(node_index, weight)` for
    * every node inside the support radius.
    * @details Off the render path: its only caller is GSReactionDiffusion's
-   * interpolate_b, itself a tests/test_effects.h oracle. It stands as the
+   * interpolate_b, itself a tests/effects/reaction_diffusion_gs.h oracle. It stands as the
    * per-sample reference the shared-stencil shaders are bounded against. The
    * seed stencil's squared distances are computed once while tracking the
    * argmin: when the seed is already nearest they feed the kernel weights
