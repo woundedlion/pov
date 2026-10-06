@@ -54,15 +54,10 @@ struct CompiledHankin {
   int static_offset =
       0; /**< static_vertices.size(); base for dynamic indices in faces. */
   /** Resolved corner source: base_vertices in copy mode, the borrowed input
-   * vertices in borrow mode. HankinInstruction indices read through corner().
-   * A span, not a raw pointer: in debug builds it carries the source's arena
-   * stamps, so a corner read after the source arena was reset or rewound
-   * faults instead of returning reissued bytes. */
+   * vertices in borrow mode. HankinInstruction indices read through corner(). */
   ArenaSpan<math::Vector> corner_src;
   /** MeshOps::connectivity_key of the faces this pattern emits; 0 until
-   * compiled. Two seeds can share every census figure (a cube and an
-   * octahedron both compile to 14 faces over 96 indices), so this is what
-   * identifies the pattern a mesh's retained classification belongs to. */
+   * compiled. */
   uint32_t topology_key = 0;
 
   /** Returns the corner vertex a HankinInstruction index refers to. */
@@ -70,8 +65,7 @@ struct CompiledHankin {
 
   /**
    * @brief Empties all owned vectors and drops the corner source.
-   * @details ArenaVector::clear() zeroes the element count and keeps the arena
-   * binding; the storage is reclaimed by the arena, not here.
+   * @details The storage is reclaimed by the arena, not here.
    */
   void clear() {
     base_vertices.clear();
@@ -91,9 +85,7 @@ struct CompiledHankin {
    * @param dst Destination instance whose vectors are bound and filled.
    * @param arena Arena backing the destination's freshly bound vectors.
    * @details Required by Cloneable; each vector is rebound from @p arena and
-   * bulk-copied (all element types are trivially copyable). Traps if src
-   * aliases dst: copy_vector rebinds dst in place, then memcpy's the block onto
-   * itself.
+   * bulk-copied. Traps if src aliases dst.
    */
   HS_COLD_MEMBER static void clone(const CompiledHankin &src,
                                    CompiledHankin &dst, Arena &arena) {
@@ -131,12 +123,10 @@ HS_O3_BEGIN
  * @param borrow_base_vertices When true, corner reads alias @p mesh's vertices
  * instead of copying them; the caller must keep @p mesh alive for every
  * update_hankin/hankin_at call that reads the compiled topology. Defaults to
- * false (owned copy); a borrow remains valid while the source storage lives.
+ * false (owned copy).
  * @details Builds a half-edge mesh, emits one shared midpoint per edge into
  * static_vertices, reserves one dynamic (star-point) slot per half-edge, and
- * records the star and rosette faces. The closed-manifold precondition is
- * enforced up front, so every prev and pair read below is valid and never
- * HE_NONE.
+ * records the star and rosette faces.
  */
 HS_COLD static void compile_hankin(const PolyMesh &mesh,
                                    CompiledHankin &compiled,
@@ -225,8 +215,6 @@ HS_COLD static void compile_hankin(const PolyMesh &mesh,
                                                  narrow_index(idx_m1),
                                                  narrow_index(idx_m2)});
 
-        // The instruction pushed above owns this star point, so its index is
-        // the last instruction slot.
         uint16_t dyn_idx =
             narrow_index(compiled.dynamic_instructions.size() - 1);
         he_to_dynamic_idx[he_idx] = dyn_idx;
@@ -245,9 +233,7 @@ HS_COLD static void compile_hankin(const PolyMesh &mesh,
     bool *visited_verts = temp_arena.allocate_n<bool>(V);
     std::fill_n(visited_verts, V, false);
 
-    // Per-orbit scratch buffer. Each orbit step appends two indices (a
-    // midpoint and a dynamic vertex), so the absolute upper bound on entries
-    // is twice the total half-edge count.
+    // Per-orbit scratch: two indices (midpoint, dynamic vertex) per orbit step.
     uint16_t *face_indices = temp_arena.allocate_n<uint16_t>(2 * I);
 
     for (size_t i = 0; i < he_mesh.half_edges.size(); ++i) {
@@ -272,9 +258,7 @@ HS_COLD static void compile_hankin(const PolyMesh &mesh,
                 compiled.static_offset + he_to_dynamic_idx[next_edge_idx]);
           });
 
-      // count = 2 * vertex degree. Degree-2 is legal (hankin-of-hankin walks
-      // its own degree-2 midpoints -> quad rosette); only degree < 2
-      // degenerates.
+      // count = 2 * vertex degree; degree 2 (quad rosette) is legal.
       HS_CHECK(count >= 4, "Hankin rosette winding has degree < 2");
       compiled.face_counts.push_back(narrow_face_count(count));
       for (int k = count - 1; k >= 0; --k) {
@@ -289,8 +273,7 @@ HS_COLD static void compile_hankin(const PolyMesh &mesh,
 }
 
 /** Squared endpoints of the far-intersection blend: the edge-midpoint fallback
- * ramps in at 2.25 and fully replaces the intersection at 4.0. Measured healthy
- * registry intersections peak at 2.16. */
+ * ramps in at 2.25 and fully replaces the intersection at 4.0. */
 inline constexpr float STAR_FAR_BLEND_START_RATIO_SQ = 2.25f;
 inline constexpr float STAR_FAR_RATIO_SQ = 4.0f;
 /** Plane-cross squared floor below which fallback is always mixed in. */
@@ -302,13 +285,7 @@ inline constexpr float HANKIN_CONDITIONED_NEAR_RATIO_SQ = 1.44f;
 /** Raw chord ratio squared at full conditioning. */
 inline constexpr float HANKIN_CONDITIONED_FAR_RATIO_SQ = 9.0f;
 /** plane_cross_sq (= |cross(n_hankin1, n_hankin2)|^2) window gating the
- * far-star fallback. A far chord ratio alone is not instability: a large face
- * (hexagon, octagon) legitimately pushes its star point out to raw_ratio_sq ~3
- * while the two contact planes stay well-separated (plane_cross_sq ~0.8).
- * Near-parallel intersections — where the intersection direction is
- * noise-dominated — sit at plane_cross_sq below 0.01; healthy far points stay
- * above 0.5. plane_cross_sq varies smoothly with the sweep angle, so gating on
- * it keeps the transition continuous. */
+ * far-star fallback: fully on below LO (near-parallel planes), off above HI. */
 inline constexpr float HANKIN_PARALLEL_GATE_LO_SQ = 0.05f;
 inline constexpr float HANKIN_PARALLEL_GATE_HI_SQ = 0.30f;
 
@@ -318,17 +295,13 @@ inline constexpr float HANKIN_PARALLEL_GATE_HI_SQ = 0.30f;
  *   face_offsets.
  * @param compiled Baked angle-independent topology.
  * @param out_mesh Output mesh, allocated from @p target_arena. Its topology
- *   array is retained, not rebuilt, so one classification serves every angle
- *   re-solve of the same compiled pattern; a mesh reused for a DIFFERENT
- *   pattern must be cleared first, which the topology-key check below
- *   enforces.
+ *   array is retained, not rebuilt; a mesh reused for a different pattern must
+ *   be cleared first or this traps.
  * @param target_arena Arena backing @p out_mesh's vertex and face vectors.
  * @param angle Contact angle in radians; domain [0, pi/2]. At ~0 the star points
- *   collapse onto their corners (flat tiling); larger angles push the rays out so
- *   the rays from adjacent edges intersect to form sharper star points. Outside
- *   the domain the construction aliases onto an in-domain pattern rather than
- *   failing — it is 2*pi-periodic in the angle and mirrors under negation — so a
- *   caller at an untrusted boundary must range-check it.
+ *   collapse onto their corners (flat tiling); larger angles form sharper star
+ *   points. Outside the domain the construction aliases onto an in-domain
+ *   pattern (2*pi-periodic, mirrored under negation) without trapping.
  * @details A corner whose contact planes are near-parallel has no nearby
  *   intersection; its star point falls back to the edge-midpoint mean instead
  *   of being flung across the sphere (see STAR_FAR_RATIO_SQ).
@@ -338,9 +311,7 @@ HS_COLD_MEMBER inline void update_hankin(const CompiledHankin &compiled,
                                          MeshT &out_mesh, Arena &target_arena,
                                          float angle) {
 
-  // A borrowed MeshState carries its topology in a view that set_owned() drops,
-  // so the reuse check below reads the size through the mode-aware accessor
-  // first.
+  // Read the topology size before set_owned() drops a borrowed view.
   size_t prior_topology_size = out_mesh.topology.size();
   if constexpr (requires { out_mesh.get_topology_size(); }) {
     prior_topology_size = out_mesh.get_topology_size();
@@ -356,9 +327,7 @@ HS_COLD_MEMBER inline void update_hankin(const CompiledHankin &compiled,
            "update_hankin: reused out_mesh carries a topology from a different "
            "compiled pattern (clear it first)");
 
-  // A borrowed classification is gone with the view dropped above; the key
-  // describing it goes with it, so the output leaves here unclassified rather
-  // than keyed to a topology it no longer carries.
+  // A dropped borrowed classification takes its key with it.
   if (out_mesh.topology.size() == 0)
     out_mesh.topology_key = 0;
 
@@ -366,8 +335,6 @@ HS_COLD_MEMBER inline void update_hankin(const CompiledHankin &compiled,
 
   bool is_flat = std::abs(angle) < math::TOLERANCE;
 
-  // Star points are computed straight into the output: nothing reads them back
-  // across calls, so the compiled topology holds no vertex scratch of its own.
   out_mesh.vertices.bind(target_arena,
                          compiled.static_vertices.size() +
                              compiled.dynamic_instructions.size());
@@ -407,17 +374,14 @@ HS_COLD_MEMBER inline void update_hankin(const CompiledHankin &compiled,
     }
 
     math::Vector n_edge1 = cross1.normalized();
-    // Sign convention: the two edge normals are rotated by opposite-signed
-    // contact angles (+ha about m1, -ha about m2) so both Hankin planes tilt
-    // toward the shared corner; the dot(intersect, p_corner)<0 flip below then
-    // selects the corner-side hemisphere of their intersection.
-    // m1/m2 are unit (midpoints normalized at compile time), so (cos_ha,
-    // sin_ha*axis) is already a unit quaternion as rotate() requires.
+    // Opposite-signed contact angles (+ha about m1, -ha about m2) tilt both
+    // Hankin planes toward the shared corner. m1/m2 are unit, so (cos_ha,
+    // sin_ha*axis) is a unit quaternion.
     math::Quaternion q1(cos_ha, sin_ha * m1.x, sin_ha * m1.y, sin_ha * m1.z);
     math::Vector n_hankin1 = math::rotate(n_edge1, q1);
 
     math::Vector n_edge2 = cross2.normalized();
-    // cos(-x) = cos(x), sin(-x) = -sin(x); m2 unit per the precondition above.
+    // cos(-x) = cos(x), sin(-x) = -sin(x).
     math::Quaternion q2(cos_ha, -sin_ha * m2.x, -sin_ha * m2.y, -sin_ha * m2.z);
     math::Vector n_hankin2 = math::rotate(n_edge2, q2);
 
@@ -449,11 +413,8 @@ HS_COLD_MEMBER inline void update_hankin(const CompiledHankin &compiled,
     // Near-parallel contact planes fling the intersection geodesically far
     // from the corner, yielding a sliver face that renders as a long line.
     const float ratio_sq = math::distance_squared(intersect, cn) / local_sq;
-    // Gate the fallback on parallelism: blend_above(-plane_cross_sq, ...) rises
-    // as plane_cross_sq falls — 0 above the HI threshold (planes well-separated,
-    // keep the true intersection), 1 below LO (near-parallel, take the
-    // fallback). A far chord ratio then only triggers the fallback in the
-    // genuinely unstable regime.
+    // parallel_gate: 0 above HI (planes well-separated), 1 below LO
+    // (near-parallel).
     const float parallel_gate =
         blend_above(-plane_cross_sq, -HANKIN_PARALLEL_GATE_HI_SQ,
                     -HANKIN_PARALLEL_GATE_LO_SQ);
@@ -497,10 +458,9 @@ HS_COLD_MEMBER inline void update_hankin(const CompiledHankin &compiled,
 /**
  * @brief One-shot Hankin pattern: compile then update, returning the new mesh.
  * @param mesh Input closed-manifold mesh to derive the pattern from.
- * @param target Arena that backs the returned mesh's persistent data. In this
- *   one-shot path it also serves as compile_hankin's working arena (see the
- *   reversed polarity below), so it must hold max(compile scratch, output) —
- *   sizing it for the output mesh alone under-provisions.
+ * @param target Arena that backs the returned mesh's persistent data. It also
+ *   serves as compile_hankin's working arena, so it must hold max(compile
+ *   scratch, output).
  * @param temp Arena for the transient compiled topology, discarded on return.
  * @param angle Contact angle in radians; domain [0, pi/2] (see update_hankin).
  * @return The generated Hankin PolyMesh, allocated from @p target.
@@ -515,8 +475,7 @@ HS_COLD static PolyMesh hankin(const PolyMesh &mesh, Arena &target, Arena &temp,
   {
     ScratchScope temp_guard(temp);
     CompiledHankin compiled;
-    // Arena polarity is reversed from the streaming path: the throwaway
-    // CompiledHankin is allocated from `temp` while `target` serves as
+    // The throwaway CompiledHankin lives in `temp`; `target` is
     // compile_hankin's working arena, then update_hankin builds `out` into it.
     compile_hankin(mesh, compiled, temp, target,
                    /*borrow_base_vertices=*/true);

@@ -14,14 +14,11 @@ HS_O3_BEGIN
 
 /**
  * @brief Host-generated exact vertex payload for one deterministic relax input.
- * @details `iterations` is the relax count this payload was baked at
- * (early-stop on convergence applies, so any count past convergence yields the
- * same converged mesh; a count short of convergence deliberately freezes a
- * pre-converged configuration). The same bits are loaded on host and device, so
- * the relaxed vertices are bit-identical. Later stages use each platform's
- * own float semantics. `source_hash` and `topology_hash`
- * guard that the live source mesh's quantized vertices and connectivity still
- * match what was baked against.
+ * @details `iterations` is the relax count this payload was baked at; early
+ * stop applies, so any count past convergence yields the converged mesh. The
+ * same bits load on host and device. `source_hash` and `topology_hash` guard
+ * that the live source mesh's quantized vertices and connectivity still match
+ * what was baked against.
  */
 struct RelaxBake {
   const char *name;
@@ -65,8 +62,6 @@ inline constexpr uint32_t FNV1A_BASIS = 2166136261u;
  * @param hash Accumulator, seeded from FNV1A_BASIS.
  * @param word Word mixed into the accumulator.
  * @return The updated accumulator.
- * @details Shared by the relax topology hash, the baked-payload load check and
- *   the bake extract/verify tooling, which must agree bit-for-bit.
  */
 inline uint32_t fnv1a_step(uint32_t hash, uint32_t word) {
   return (hash ^ word) * 16777619u;

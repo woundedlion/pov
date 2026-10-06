@@ -26,8 +26,6 @@ namespace MeshOps {
  * @param src Pointer to the first source element (ignored when n == 0).
  * @param n Number of elements to copy.
  * @param arena Arena supplying storage for dst.
- * @details Shared by MeshState::clone, MeshOps::clone and
- * CompiledHankin::clone.
  */
 template <typename T>
 inline void copy_vector(ArenaVector<T> &dst, const T *src, size_t n,
@@ -105,10 +103,8 @@ struct MeshState {
 
   /**
    * @brief Resets to empty: clears owned buffers and drops the borrowed views.
-   * @details Every arena binding survives, so this is the wrong reset for a
-   * mesh whose arena has since been reset or rewound: bind()'s reuse path would
-   * hand the mesh back blocks the arena has already reclaimed. Replace such a
-   * mesh instead (`mesh = MeshState()`), as MeshOps::compile does.
+   * @details Every arena binding survives; a mesh whose arena has since been
+   * reset or rewound must be replaced instead (`mesh = MeshState()`).
    */
   void clear() {
     vertices.clear();
@@ -211,9 +207,7 @@ struct MeshState {
    * @param src Source mesh to copy from.
    * @param dst Destination mesh to populate.
    * @param arena Arena providing storage for the destination buffers.
-   * @details Required by Cloneable. Traps if src aliases dst: the set_owned()
-   * below would drop a borrowed src's views before they are read, yielding an
-   * empty mesh.
+   * @details Required by Cloneable. Traps if src aliases dst.
    */
   HS_COLD_MEMBER static void clone(const MeshState &src, MeshState &dst,
                                    Arena &arena) {
@@ -250,14 +244,11 @@ struct MeshState {
    *   counts before it.
    * @param face_counts_span Per-face vertex counts.
    * @param face_offsets_span Per-face start offsets into the flat faces list;
-   *   any length other than one entry per face count reports false rather than
-   *   indexing past the span.
+   *   a length other than one entry per face count reports false.
    * @return True when offset[i] equals counts[0] + ... + counts[i-1] for every
    *   face.
-   * @details Exact equality at each index, which also establishes that the
-   *   offsets are non-decreasing and that no two face spans overlap. Endpoint
-   *   agreement alone does not: interior offsets can be scrambled while the
-   *   first and last still line up.
+   * @details Also establishes that the offsets are non-decreasing and that no
+   *   two face spans overlap.
    */
   static bool offsets_are_prefix_sum(ArenaSpan<uint8_t> face_counts_span,
                                      ArenaSpan<uint16_t> face_offsets_span) {
@@ -279,8 +270,7 @@ struct MeshState {
    * @param face_counts_span Borrowed per-face vertex counts.
    * @param faces_span Borrowed flattened face vertex indices.
    * @param face_offsets_span Borrowed per-face start offsets into faces. Empty
-   *   when the source mesh carries no offsets (only the solid scan path needs
-   *   them); otherwise one entry per face.
+   *   when the source mesh carries no offsets; otherwise one entry per face.
    * @param topology_span Borrowed per-face topology class ids. Empty when the
    *   source mesh is unclassified; otherwise one entry per face.
    * @param key MeshOps::connectivity_key the topology span was classified for;
@@ -290,8 +280,7 @@ struct MeshState {
    *   whole flat faces list. With no offsets the counts must sum to the flat
    *   faces length. A present topology array must be one entry per face, and an
    *   absent one must come with a zero key. The interior offsets are audited
-   *   against the prefix sum under HS_AUDIT_CHECK only: this runs per frame
-   *   from MeshOps::transform, so the device pays nothing for the O(F) walk.
+   *   against the prefix sum under HS_AUDIT_CHECK only.
    */
   void set_borrowed(ArenaSpan<uint8_t> face_counts_span,
                     ArenaSpan<uint16_t> faces_span,
@@ -335,14 +324,13 @@ struct MeshState {
   }
 
 private:
-  // Private so set_borrowed() stays the only way to enter borrowed mode: its
-  // consistency traps are what downstream fi + fo[f] indexing rests on.
+  // Borrowed mode is entered only through set_borrowed().
   ArenaSpan<uint8_t>
-      face_counts_view; /**< Borrowed face-counts view, populated by MeshOps::transform. */
+      face_counts_view; /**< Borrowed face-counts view, set by set_borrowed(). */
   ArenaSpan<uint16_t>
-      faces_view; /**< Borrowed faces view, populated by MeshOps::transform. */
+      faces_view; /**< Borrowed faces view, set by set_borrowed(). */
   ArenaSpan<uint16_t>
-      face_offsets_view; /**< Borrowed face-offsets view, populated by MeshOps::transform. */
+      face_offsets_view; /**< Borrowed face-offsets view, set by set_borrowed(). */
   ArenaSpan<uint16_t>
-      topology_view; /**< Borrowed per-face topology view, populated by MeshOps::transform. */
+      topology_view; /**< Borrowed per-face topology view, set by set_borrowed(). */
 };
