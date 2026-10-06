@@ -18,6 +18,9 @@ inline void test_transition_reaches_target_linear() {
   HS_EXPECT_FALSE(tr.done());
   for (int i = 0; i < duration; ++i) {
     tr.step(fake_canvas());
+    HS_EXPECT_NEAR(v, 10.0f * static_cast<float>(i + 1), 1e-3f);
+    if (i < duration - 1)
+      HS_EXPECT_FALSE(tr.done());
   }
   HS_EXPECT_TRUE(tr.done());
   HS_EXPECT_NEAR(v, 100.0f, 1e-3f);
