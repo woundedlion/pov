@@ -658,18 +658,24 @@ class UnplacedBoardTests(TerminalBodyChecks, TerminalEdgePlacementChecks, unitte
         self.assertTrue({"SYNC IN", "SYNC OUT", "LED OUT"}.isdisjoint(texts))
 
     def test_labels_terminal_pin_functions(self):
-        marks = {(str(node[1]), tuple(float(v) for v in sexp.val(node, "at")[:2]))
+        marks = [(str(node[1]), *(float(v) for v in sexp.val(node, "at")[:2]))
                  for node in F(self.root, "gr_text")
-                 if str(sexp.val(node, "layer")[0]) == "F.SilkS"}
+                 if str(sexp.val(node, "layer")[0]) == "F.SilkS"]
+        reserves = pcb.mounting_reserve_rects(pcb.QUILTER_LENGTH)
         for ref, labels in (("J2", "DGC"), ("J3A", "SGH"), ("J3B", "SGH")):
             x, y, _ = pcb.TERMINAL_EDGE_PLACEMENTS[ref]
             for pin, label in enumerate(labels):
-                label_y = round(y + pin * 2.54, 2)
-                label_x = x + 4.5
-                if any(x0 <= label_x <= x1 and y0 <= label_y <= y1
-                       for x0, y0, x1, y1 in pcb.mounting_reserve_rects(pcb.QUILTER_LENGTH).values()):
-                    label_x = x + 2.5
-                self.assertIn((label, (label_x, label_y)), marks)
+                row = y + pin * 2.54
+                with self.subTest(ref=ref, pin=pin, label=label):
+                    hits = [(mx, my) for text, mx, my in marks if text == label]
+                    self.assertTrue(hits, sorted(marks))
+                    label_x, label_y = min(
+                        hits, key=lambda at: math.hypot(at[0] - x, at[1] - row))
+                    self.assertAlmostEqual(label_y, row, delta=1e-6)
+                    self.assertTrue(x < label_x <= x + 4.5, (label_x, x))
+                    for hole, (x0, y0, x1, y1) in reserves.items():
+                        self.assertFalse(x0 <= label_x <= x1 and y0 <= label_y <= y1,
+                                         f"{ref} {label} inside {hole} reservation")
 
     def test_front_silk_anchors_clear_mounting_reservations(self):
         for revision in ('1.2', '1.3'):
