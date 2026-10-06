@@ -2184,7 +2184,8 @@ inline void test_islamicstars_smooth_recipe_completion() {
  *        op-by-op build at max trans speed: the build must activate and
  *        finish without a trap, the built shape's per-face colours must never
  *        change from finish_build through its still/ripple/fade display, and
- *        the shape after it must start cleanly and light pixels.
+ *        entry 1 must complete its lifetime, and frames after entry 2 starts
+ *        must light pixels.
  */
 inline void test_islamicstars_recipe_build_smoke() {
   reset_effect_globals();
@@ -2236,7 +2237,7 @@ inline void test_islamicstars_recipe_build_smoke() {
   HS_EXPECT_GT(constant_frames, 0);
   HS_EXPECT_EQ(changed_after_build, 0);
 
-  // The following shape renders lit frames.
+  // Entry 2 has started; its frames may overlap entry 1's fade.
   for (int f = 0; f < 12; ++f) {
     effect.draw_frame();
     effect.advance_display();
