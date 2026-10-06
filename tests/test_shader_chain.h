@@ -54,14 +54,17 @@ static_assert(In::Op::curl_intervals(In::Op::CurlIntegrator::MIDPOINT2) == 2);
 static_assert(In::Op::curl_intervals(In::Op::CurlIntegrator::MIDPOINT4) == 4);
 
 #include "tests/shader_chain/fixtures.h"
+#include "tests/shader_chain/effect_fixture.h"
 #include "tests/shader_chain/slice_mirror.h"
 #include "tests/shader_chain/lifecycle.h"
 #include "tests/shader_chain/program_cases.h"
+#include "tests/shader_chain/lifecycle_cases.h"
 #include "tests/shader_chain/sphere_ops.h"
 #include "tests/shader_chain/warp_ops.h"
 #include "tests/shader_chain/projection_ops.h"
 #include "tests/shader_chain/field_ops.h"
 #include "tests/shader_chain/sample_ops.h"
+#include "tests/shader_chain/effect_cases.h"
 /** @brief The hue tables are bound only on the modes that read them, and the
     hue-noise bake is skipped while both of its inputs hold still. */
 inline void test_shader_chain_hue_lut_bake_cache() {
