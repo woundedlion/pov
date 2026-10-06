@@ -266,8 +266,10 @@ inline void test_planar_band_split_matches_whole_polyline() {
             ++uncovered;
         }
       HS_EXPECT_EQ(uncovered, size_t{0});
-      if (whole_energy == 0)
+      if (whole_energy == 0) {
+        HS_EXPECT_EQ(tile_energy, uint64_t{0});
         continue;
+      }
       const double drift = std::fabs(static_cast<double>(tile_energy) -
                                      static_cast<double>(whole_energy)) /
                            static_cast<double>(whole_energy);
@@ -336,8 +338,10 @@ inline void test_planar_chords_pole_split_matches_whole_star() {
             ++uncovered;
         }
       HS_EXPECT_EQ(uncovered, size_t{0});
-      if (whole_energy == 0)
+      if (whole_energy == 0) {
+        HS_EXPECT_EQ(tile_energy, uint64_t{0});
         continue;
+      }
       const double drift = std::fabs(static_cast<double>(tile_energy) -
                                      static_cast<double>(whole_energy)) /
                            static_cast<double>(whole_energy);
