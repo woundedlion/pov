@@ -5,45 +5,135 @@
 
 // Included by tests/test_death.h.
 
+// --- Individual death cases — each MUST trap (HS_CHECK / __builtin_trap) ------
+
+// Animation death fixtures and guard cases.
+
 /**
- * @brief Death case: a class name equal to another effect's stable ID must
+ * @brief Death case: relocating a retained (pinned) add_get() handle must trap.
+ * @details Animation surface — step()'s compaction routes every relocation
+ *          through TimelineEvent::move_into, which traps when the event was
+ *          handed out via add_get(Pin::PINNED), converting the dangling-handle
+ *          hazard into a fail-fast crash instead of silent corruption.
+ */
+inline void case_timeline_pinned_relocation() {
+  TimelineEvent src;
+  src.pinned = opaque(true); // as if handed out by add_get(Pin::PINNED)
+  TimelineEvent dst;
+  src.move_into(dst); // HS_CHECK(!pinned) -> trap
+}
+
+/**
+ * @brief Death case: relocating into a slot that still owns an animation must
  *        trap.
+ * @details Animation surface — move_into overwrites dst.manager/dst.iface, so a
+ *          live destination would lose its animation's destructor. step()'s
+ *          compaction only ever targets slots it has already vacated; the trap
+ *          pins that invariant for every relocation path.
  */
-inline void case_effect_registry_name_matches_stable_id() {
-  EffectRegistration first{};
-  first.name = "DeathFirst";
-  first.stable_id = "DeathPersistedAlias";
-
-  EffectRegistration second{};
-  second.name = "DeathPersistedAlias";
-  second.stable_id = "death-second";
-  validate_effect_registrations(std::array{first, second});
+inline void case_timeline_move_into_live_destination() {
+  Timeline tl;
+  float v = 0.0f;
+  tl.add(0, Animation::Transition(v, 1.0f, 10, math::ease_linear));
+  tl.add(0, Animation::Transition(v, 1.0f, 10, math::ease_linear));
+  global_timeline_events[opaque(0)].move_into(global_timeline_events[1]);
 }
 
 /**
- * @brief Death case: a Flywheel period of zero must trap at construction.
- * @details POV-sync surface — position() divides the int32 elapsed window by the
- *          period, so a zero divides by zero and an over-large one voids the
- *          signed-safe coast window; the constructor rejects both before the
- *          driver ever schedules a column.
+ * @brief Death case: a negative timeline delay must trap.
  */
-inline void case_flywheel_period_zero() {
-  pov::sync::Config cfg;
-  cfg.cycles_per_half_rev = opaque<uint32_t>(0);
-  pov::sync::Flywheel fw(cfg); // period 0 -> HS_CHECK
-  (void)fw;
+inline void case_timeline_negative_delay() {
+  Timeline tl;
+  float value = 0.0f;
+  tl.add(opaque(-1), Animation::Transition(value, 1.0f, 1, math::ease_linear));
 }
 
 /**
- * @brief Death case: a virtual height of one row must trap in the phi mapping.
- * @details Geometry surface — the row-to-angle scale divides by (h_virt - 1),
- *          so a single-row canvas would map every row to a non-finite phi.
+ * @brief Death case: a timeline start past UINT32_MAX must trap.
  */
-inline void case_y_to_phi_degenerate_height() {
-  float phi =
-      math::y_to_phi_virtual(opaque(0.0f), opaque(1)); // divisor 0 -> trap
-  if (phi == opaque(42.0f))
-    std::printf("x");
+inline void case_timeline_start_overflow() {
+  Timeline tl;
+  global_timeline_t = opaque<uint32_t>(UINT32_MAX - 1);
+  float value = 0.0f;
+  tl.add(opaque(2), Animation::Transition(value, 1.0f, 1, math::ease_linear));
+}
+
+/**
+ * @brief Death case: a pinned animation that COMPLETES must trap.
+ * @details Animation surface — the symmetric companion to
+ *          case_timeline_pinned_relocation, which guards the relocation path
+ *          (move_into). A pinned-but-finite animation that finishes as the
+ *          *last* event needs no relocation, so move_into never runs; step()'s
+ *          completion branch would otherwise e.destroy() it and dangle the
+ *          caller's retained pointer silently. The pin contract is
+ *          pinned => infinite, so a pinned animation that naturally completes is
+ *          misuse; the completion branch's HS_CHECK traps it. (A deliberate
+ *          cancel() is exempt — see is_canceled() — so this case completes
+ *          naturally rather than canceling.)
+ */
+inline void case_timeline_pinned_completion() {
+  static hs_test::StubEffect fx(8, 8);
+  static Canvas canvas(fx);
+  Timeline tl;
+  float v = 0.0f;
+  // add_get(Pin::PINNED) rejects a finite non-repeating animation up front (see
+  // case_timeline_pinned_finite_animation), so the event is marked pinned
+  // directly to reach step()'s completion branch. A 1-frame Transition is finite
+  // and the sole event, so step() routes it through completion/destroy.
+  tl.add(0, Animation::Transition(v, 1.0f, 1, math::ease_linear));
+  global_timeline_events[0].pinned = opaque(true);
+  tl.step(canvas); // t=1: done() && !repeats() && !canceled, keep=false -> trap
+}
+
+/**
+ * @brief Death case: pinning a finite, non-repeating animation must trap.
+ * @details Animation surface — add_get(Pin::PINNED) promises the caller a pointer
+ *          valid across frames, which only holds for an animation that never
+ *          completes on its own. The up-front check rejects the misuse at the
+ *          add site instead of leaving it to step()'s completion guard, which
+ *          fires only once the animation actually finishes.
+ */
+inline void case_timeline_pinned_finite_animation() {
+  Timeline tl;
+  float v = 0.0f;
+  tl.add_get(0, Animation::Transition(v, 1.0f, opaque(1), math::ease_linear),
+             Timeline::Pin::PINNED);
+}
+
+/**
+ * @brief Death case: dropping a pinned add on a full timeline must trap.
+ * @details Animation surface — the capacity guard returns nullptr, but an
+ *          add_get(Pin::PINNED) caller retains that pointer across frames and no
+ *          call site null-checks it. The guard traps on the pinned case so a
+ *          full timeline fails at the add instead of at the first use of the
+ *          stored handle.
+ */
+inline void case_timeline_pinned_add_on_full_timeline() {
+  Timeline tl;
+  float sink = 0.0f;
+  for (int i = 0; i < Timeline::MAX_EVENTS; ++i)
+    tl.add(0, Animation::Transition(sink, 1.0f, 10, math::ease_linear));
+  tl.add_get(0,
+             Animation::PeriodicTimer(
+                 1, [](Canvas &) {}, /*repeat=*/true),
+             opaque(Timeline::Pin::PINNED));
+}
+
+/**
+ * @brief Death case: a pinned one-shot timer must trap when it fires.
+ * @details Animation surface — a one-shot RandomTimer/PeriodicTimer ends itself
+ *          on its single trigger. Ending via finish() (not cancel()) keeps
+ *          is_canceled() false, so the destroy of a pinned timer hits step()'s
+ *          completion guard instead of slipping through its cancellation
+ *          exemption and dangling the retained pointer silently.
+ */
+inline void case_timeline_pinned_one_shot_timer() {
+  static hs_test::StubEffect fx(8, 8);
+  static Canvas canvas(fx);
+  Timeline tl;
+  tl.add(0, Animation::PeriodicTimer(1, [](Canvas &) {}, /*repeat=*/false));
+  global_timeline_events[0].pinned = opaque(true);
+  tl.step(canvas); // t=1: fires, finish() -> done() && !canceled -> trap
 }
 
 /**
@@ -57,219 +147,6 @@ inline void case_orientation_frame_index_oob() {
   const math::Quaternion &q = orientation.get(opaque(3));
   if (q.r == opaque(42.0f))
     std::printf("x");
-}
-
-/**
- * @brief Death case: make_basis with a non-unit quaternion must trap.
- * @details Geometry surface — the rotation assumes a unit quaternion, so a
- *          finite but over-long one would scale and shear the frame rather than
- *          rotate it; the guard fires before the axes are built.
- */
-inline void case_make_basis_nonunit_quaternion() {
-  math::Quaternion q(opaque(2.0f), opaque(0.0f), opaque(0.0f), opaque(0.0f));
-  math::Vector normal{opaque(0.0f), opaque(1.0f), opaque(0.0f)};
-  math::Basis b = math::make_basis(q, normal); // |q| = 2 -> HS_CHECK
-  if (b.u.x == opaque(42.0f))
-    std::printf("x");
-}
-
-/**
- * @brief Death case: parallel transport between antipodal endpoints must trap.
- * @details Geometry surface — the great circle through antipodes is
- *          ill-determined and the transport divides by 1 + dot, so the guard
- *          fires before the tangent is amplified.
- */
-inline void case_parallel_transport_antipodal() {
-  math::Vector from{opaque(1.0f), opaque(0.0f), opaque(0.0f)};
-  math::Vector to{opaque(-1.0f), opaque(0.0f), opaque(0.0f)};
-  math::Vector tangent{opaque(0.0f), opaque(1.0f), opaque(0.0f)};
-  math::Vector t =
-      math::parallel_transport(from, to, tangent); // dot = -1 -> HS_CHECK
-  if (t.x == opaque(42.0f))
-    std::printf("x");
-}
-
-/**
- * @brief Death case: a polyhedral fold that never converges must trap.
- * @details Lens surface — two opposed mirrors are not a chamber: each pass
- *          reflects the direction back across the other, so the bounded
- *          reflection loop exhausts its passes and fires the guard.
- */
-inline void case_polyhedral_kaleidoscope_no_converge() {
-  const std::array<math::Vector, 3> mirrors = {
-      math::Vector(opaque(1.0f), 0.0f, 0.0f),
-      math::Vector(opaque(-1.0f), 0.0f, 0.0f),
-      math::Vector(0.0f, opaque(1.0f), 0.0f)};
-  math::Vector v = lenses::polyhedral_kaleidoscope_lens(
-      math::Vector(opaque(0.5f), opaque(0.5f), 0.0f), mirrors);
-  if (v.x == opaque(42.0f))
-    std::printf("x");
-}
-
-/**
- * @brief Death case: a polygon with fewer than three sides must trap.
- * @details SDF surface — the sector fold divides a full turn by the side count,
- *          so a 2-gon has no interior for the distance to be measured against.
- */
-inline void case_sdf_polygon_side_count() {
-  const math::Basis b{math::Vector(1, 0, 0), math::Vector(0, 1, 0),
-                      math::Vector(0, 0, 1)};
-  SDF::PlanarPolygon poly(b, opaque(0.5f), opaque(2), opaque(0.0f));
-  if (poly.apothem == opaque(42.0f))
-    std::printf("x");
-}
-
-/**
- * @brief Death case: an angular repeat around a non-unit axis must trap.
- * @details SDF surface — the sector fold rotates the query point about the
- *          axis, so a non-unit one scales every folded copy off the sphere.
- */
-inline void case_sdf_angular_repeat_nonunit_axis() {
-  const math::Basis b{math::Vector(1, 0, 0), math::Vector(0, 1, 0),
-                      math::Vector(0, 0, 1)};
-  SDF::Ring ring(b, opaque(1.0f), opaque(0.1f));
-  math::Vector axis{opaque(0.0f), opaque(2.0f), opaque(0.0f)};
-  SDF::AngularRepeat<SDF::Ring> rep(ring, opaque(4), axis); // non-unit -> trap
-  if (rep.sector == opaque(42.0f))
-    std::printf("x");
-}
-
-/**
- * @brief Death case: a knot ring with no cells must trap.
- * @details SDF surface — the per-pixel cell index divides the azimuth by
- *          2π/n, so n == 0 wraps to knots[-1] on every probe.
- */
-inline void case_sdf_distorted_ring_zero_knots() {
-  const math::Basis b{math::Vector(1, 0, 0), math::Vector(0, 1, 0),
-                      math::Vector(0, 0, 1)};
-  const float knots[1] = {0.0f};
-  SDF::KnotPrefilter pf;
-  SDF::DistortedRing ring(b, opaque(0.5f), opaque(0.05f), knots, opaque(0),
-                          opaque(0.0f), pf); // no knot cells -> trap
-  if (ring.thickness == opaque(42.0f))
-    std::printf("x");
-}
-
-inline void case_sdf_distorted_ring_one_knots() {
-  const math::Basis b{math::Vector(1, 0, 0), math::Vector(0, 1, 0),
-                      math::Vector(0, 0, 1)};
-  const float knots[1] = {0.0f};
-  SDF::KnotPrefilter pf;
-  SDF::DistortedRing ring(b, opaque(0.5f), opaque(0.05f), knots, opaque(1),
-                          opaque(0.0f), pf);
-  if (ring.thickness == opaque(42.0f))
-    std::printf("x");
-}
-
-inline void case_sdf_distorted_ring_two_knots() {
-  const math::Basis b{math::Vector(1, 0, 0), math::Vector(0, 1, 0),
-                      math::Vector(0, 0, 1)};
-  const float knots[2] = {0.0f};
-  SDF::KnotPrefilter pf;
-  SDF::DistortedRing ring(b, opaque(0.5f), opaque(0.05f), knots, opaque(2),
-                          opaque(0.0f), pf);
-  if (ring.thickness == opaque(42.0f))
-    std::printf("x");
-}
-
-inline void case_gamut_lut_scratch_a() {
-  init_gamut_lut(scratch_arena_a, GAMUT_LUT_MIN_ANGLE_STEPS,
-                 GAMUT_LUT_MIN_L_STEPS);
-}
-
-inline void case_gamut_lut_scratch_b() {
-  init_gamut_lut(scratch_arena_b, GAMUT_LUT_MIN_ANGLE_STEPS,
-                 GAMUT_LUT_MIN_L_STEPS);
-}
-
-inline void case_scan_ring_stack_too_many_slots() {
-  constexpr int W = 32, H = 16;
-  const math::Basis b{math::Vector(1, 0, 0), math::Vector(0, 1, 0),
-                      math::Vector(0, 0, 1)};
-  const float knots[4] = {0.0f, 0.01f, 0.0f, -0.01f};
-  SDF::DistortedRing ring(b, 1.0f, 0.05f, knots, 4, 0.0f, nullptr);
-  const int8_t slot_by_ring[1] = {0};
-  hs_test::StubEffect fx(W, H);
-  Pipeline<W, H> pipeline;
-  Canvas canvas(fx);
-  static Scan::DistortedRingStack::CandidateTable<W, H> table;
-  Scan::DistortedRingStack::draw<W, H>(
-      pipeline, canvas, 1, &ring, slot_by_ring, opaque(INT8_MAX + 1), table,
-      [](int, const math::Vector &, Fragment &) {});
-}
-
-inline void case_scan_ring_stack_too_many_rings() {
-  constexpr int W = 32, H = 16;
-  const math::Basis b{math::Vector(1, 0, 0), math::Vector(0, 1, 0),
-                      math::Vector(0, 0, 1)};
-  const float knots[4] = {0.0f, 0.01f, 0.0f, -0.01f};
-  SDF::DistortedRing ring(b, 1.0f, 0.05f, knots, 4, 0.0f, nullptr);
-  int8_t slot_by_ring[256];
-  for (int8_t &s : slot_by_ring)
-    s = -1;
-  slot_by_ring[0] = 0;
-  hs_test::StubEffect fx(W, H);
-  Pipeline<W, H> pipeline;
-  Canvas canvas(fx);
-  static Scan::DistortedRingStack::CandidateTable<W, H> table;
-  Scan::DistortedRingStack::draw<W, H>(
-      pipeline, canvas, opaque(256), &ring, slot_by_ring, 1, table,
-      [](int, const math::Vector &, Fragment &) {}); // 256 > 255 -> trap
-}
-
-inline void case_scan_ring_stack_callback_ring() {
-  constexpr int W = 32, H = 16;
-  const math::Basis b{math::Vector(1, 0, 0), math::Vector(0, 1, 0),
-                      math::Vector(0, 0, 1)};
-  SDF::DistortedRing ring(
-      b, 1.0f, 0.05f, [](float) { return 0.0f; }, opaque(0.01f), 0.0f);
-  const int8_t slot_by_ring[1] = {0};
-  hs_test::StubEffect fx(W, H);
-  Pipeline<W, H> pipeline;
-  Canvas canvas(fx);
-  static Scan::DistortedRingStack::CandidateTable<W, H> table;
-  Scan::DistortedRingStack::draw<W, H>(
-      pipeline, canvas, 1, &ring, slot_by_ring, 1, table,
-      [](int, const math::Vector &, Fragment &) {}); // no knots -> trap
-}
-
-/**
- * @brief Death case: a twist warp around a zero-radius torus must trap.
- * @details SDF warp surface — the Lipschitz bound scales by 2/R, so a zero
- *          major radius hands the rasterizer a non-finite step bound.
- */
-inline void case_sdf_twist_zero_major_radius() {
-  SDF::Warp::Twist tw(opaque(2), opaque(0.1f), opaque(0.0f)); // R = 0 -> trap
-  if (tw.two_over_r == opaque(42.0f))
-    std::printf("x");
-}
-
-inline void case_transformed_torus_invalid_minor_radius() {
-  SDF::WarpedVolume<SDF::Torus, SDF::Warp::Twist> torus{
-      {opaque(1.0f), opaque(0.6f)}, {2, 0.1f, 1.0f}};
-  Scan::TransformedVolume volume(torus, math::Vector(), math::Quaternion());
-  volume.check_trace_preconditions();
-}
-
-/** @brief Draw callback for the OpLeg construction death cases; never runs. */
-inline void death_opleg_draw(Canvas &, MeshState &,
-                             const Animation::OpLeg::Shading &) {}
-
-/**
- * @brief A palette handoff complete enough to clear the OpLeg handoff guard.
- * @return A handoff naming a default bank and a one-face departed palette.
- * @details Lets a case reach a guard that sits behind the handoff check; the
- *          LUTs are never sampled, since every such case traps in the
- *          constructor before the first frame.
- */
-inline Animation::OpLeg::PaletteHandoff death_opleg_handoff() {
-  static const BakedPaletteBank bank;
-  static const uint8_t face_palette[1] = {0};
-  return {.bank = &bank,
-          .prev_face_palette = face_palette,
-          .prev_faces = 1,
-          .prev_face_centroid = nullptr,
-          .correspondence = Animation::OpLeg::FaceCorrespondence::GEOMETRIC};
 }
 
 inline void case_opleg_rewind_refill() {
@@ -305,20 +182,6 @@ inline void case_pick_next_edge_unknown_node() {
   if (e == opaque<int>(-42))
     std::printf("x");
 }
-
-/** @brief A well-formed non-settling graph edge for the OpLeg death cases. */
-inline constexpr ConwayGraph::EdgeSpec death_opleg_edge{
-    .from_node = 0,
-    .to_node = 0,
-    .seed_solid = 0,
-    .op = ConwayGraph::MorphOp::TRUNCATE,
-    .t_from = 0.0f,
-    .t_to = 0.4f,
-    .twist_from = 0.0f,
-    .twist_to = 0.0f,
-    .settle = false,
-    .reseed = ConwayGraph::Reseed::NONE,
-    .bridge = false};
 
 /**
  * @brief Death case: an edge-sweep leg without a graph edge must trap.
@@ -640,25 +503,149 @@ inline void case_motion_empty_path_origin_sample() {
 }
 
 /**
- * @brief Death case: a negative equator sample count must trap.
- * @details Spherical-field surface — the count sizes every ring's longitude
- *          walk, so a negative one underflows the per-ring sample allocation.
+ * @brief Death case: a live-source Driver built with a null speed pointer must trap.
+ * @details Animation surface — the guard traps rather than dereferencing the
+ *          null pointer in the member-init list.
  */
-inline void case_spherical_field_negative_equator_samples() {
-  hs::SphericalFieldLayout<32, 16, 0> layout(4, 0, 0, opaque(-1));
-  if (layout.sample_count() == 42)
+inline void case_driver_null_speed_src() {
+  static float mutant = 0.0f;
+  Animation::Driver d(mutant, opaque<const float *>(nullptr),
+                      1.0f); // -> HS_CHECK
+  (void)d;
+  if (mutant == 42.0f)
     std::printf("x");
 }
 
 /**
- * @brief Death case: a spherical polygon wider than a hemisphere must trap.
- * @details SDF surface — beyond the hemisphere the cap fold changes sign, so
- *          the shape must be built inverted about its antipode instead.
+ * @brief Death case: Path::append_segment with zero samples must trap.
+ * @details Animation surface — a zero sample count divides by zero in the
+ *          t / samples term (easing(0/0) = NaN) and the loop would silently
+ *          append a garbage point; the samples >= 1 guard traps the authoring
+ *          error on the cold path-construction seam instead.
  */
-inline void case_sdf_spherical_polygon_radius_over_hemisphere() {
-  const math::Basis b{math::Vector(1, 0, 0), math::Vector(0, 1, 0),
-                      math::Vector(0, 0, 1)};
-  SDF::SphericalPolygon poly(b, opaque(1.5f), opaque(5), opaque(0.0f));
-  if (poly.circumradius == opaque(42.0f))
+inline void case_path_append_zero_samples() {
+  Path<32> path;
+  path.append_segment([](float s) { return math::Vector(s, 0.0f, 0.0f); }, 1.0f,
+                      opaque(0),
+                      [](float t) { return t; }); // samples < 1 -> HS_CHECK
+}
+
+/**
+ * @brief Death case: a RandomTimer with min > max must trap.
+ * @details Animation surface — reset() draws hs::rand_int(min, max + 1), a
+ *          half-open range that is empty/inverted when min > max, giving an
+ *          implementation-defined garbage delay. The constructor traps the
+ *          inverted (or negative) range at the cold authoring seam.
+ */
+inline void case_random_timer_inverted_range() {
+  Animation::RandomTimer timer({.min = opaque(5), .max = opaque(2)},
+                               [](Canvas &) {}); // min > max -> HS_CHECK
+  (void)timer;
+}
+
+/**
+ * @brief Death case: clear()ing a pinned event must trap.
+ * @details Animation surface — the third teardown path, alongside
+ *          case_timeline_pinned_relocation (move_into) and
+ *          case_timeline_pinned_completion (step's destroy branch). The public
+ *          clear() would otherwise free an event whose animation pointer the
+ *          caller still holds. ~Timeline reaches the same events through the
+ *          unguarded reset_storage(), which is safe because no retained handle
+ *          spans the instance boundary.
+ */
+inline void case_timeline_clear_pinned() {
+  Timeline tl;
+  float v = 0.0f;
+  tl.add(0, Animation::Transition(v, 1.0f, 1, math::ease_linear));
+  global_timeline_events[0].pinned = opaque(true);
+  tl.clear(); // HS_CHECK(!pinned) -> trap
+}
+
+/**
+ * @brief Death case: clear()ing from a completion callback must trap.
+ * @details Animation surface — step() runs post_callback() and only afterwards
+ *          destroys the event, so a clear() inside that callback would free the
+ *          callable whose frame is still executing. The trap sits at the top of
+ *          clear(), ahead of destroy_events().
+ */
+inline void case_timeline_clear_during_step() {
+  static hs_test::StubEffect fx(8, 8);
+  static Canvas canvas(fx);
+  Timeline tl;
+  float v = 0.0f;
+  tl.add(0, Animation::Transition(v, 1.0f, 1, math::ease_linear).then([&tl]() {
+    tl.clear();
+  }));
+  tl.step(canvas); // t=1: completes -> callback -> clear() while stepping
+}
+
+/** @brief Death case: finite parameter animations reject the -1 sentinel. */
+inline void case_finite_param_perpetual_duration() {
+  float value = 0.0f;
+  Animation::Transition transition(value, 1.0f, opaque(-1), math::ease_linear);
+  if (transition.done())
     std::printf("x");
+}
+
+/** @brief Death case: a Transition target must be finite. */
+inline void case_transition_nonfinite_target() {
+  float value = 0.0f;
+  Animation::Transition transition(
+      value, opaque(std::numeric_limits<float>::quiet_NaN()), 1,
+      math::ease_linear);
+  if (transition.done())
+    std::printf("x");
+}
+
+/** @brief Death case: clear hooks must not mutate timeline event storage. */
+inline void case_timeline_clear_hook_adds_event() {
+  Timeline tl;
+  tl.add_clear_hook(&tl, add_event_from_clear_hook);
+  tl.clear();
+}
+
+/**
+ * @brief Death case: scheduling a segue sprite with no free timeline slot must
+ *        trap.
+ * @details Animation surface — every segue policy's schedule() returns the next
+ *          transition's delay whether or not its sprite landed, so a dropped add
+ *          leaves the sphere dark for a whole transition while the effect
+ *          advances on schedule. The budget guard traps at the schedule.
+ */
+inline void case_segue_sprite_no_slot() {
+  Timeline tl;
+  float sink = 0.0f;
+  while (Timeline::remaining() > 0)
+    tl.add(0, Animation::Transition(sink, 1.0f, 1000, math::ease_linear));
+  Segue::schedule_faded_sprite(tl, [](Canvas &, float) {}, 4, 1);
+}
+
+/** @brief Death case: a segue must target the already-flipped front slot. */
+inline void case_mesh_carousel_unflipped_slot() {
+  Timeline tl;
+  MeshCarousel<> carousel;
+  carousel.schedule_segue(tl, 1, [](Canvas &, float) {}, 4, 1);
+}
+
+/**
+ * @brief Death case: a second simultaneously-live Timeline must trap.
+ * @details Animation surface — every Timeline shares the single global event
+ *          array, so a second live instance would silently stomp the first's
+ *          events; the construction guard traps instead. The real app holds
+ *          exactly one (the old effect is destroyed before the next is built).
+ */
+inline void case_timeline_double_construct() {
+  Timeline a;
+  Timeline b; // second live ctor -> HS_CHECK(!global_timeline_live) -> trap
+  if (global_timeline_num_events == opaque(42))
+    std::printf("x");
+}
+
+inline void case_random_walk_nonfinite_options() {
+  math::Orientation<> orientation;
+  FastNoiseLite noise;
+  Animation::RandomWalkOptions options;
+  options.drift = opaque(std::numeric_limits<float>::quiet_NaN());
+  Animation::RandomWalk<32> walk(orientation, math::Vector(0, 0, 1), noise,
+                                 options);
 }

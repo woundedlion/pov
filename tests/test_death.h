@@ -136,14 +136,22 @@ template <typename T> inline T opaque(T v) {
   return x;
 }
 
-#include "tests/death/arena_guards.h"
-#include "tests/death/timeline_clear_pinned.h"
-#include "tests/death/hankin_clone_aliases_dst.h"
-#include "tests/death/transformer_pool_outlives_timeline.h"
-#include "tests/death/plot_mesh_vertex_over_capacity.h"
-#include "tests/death/effect_registry_name_matches_stable_id.h"
-#include "tests/death/sdf_flower_radius_over_hemisphere.h"
-#include "tests/death/pullback_operator_invalid_brightness_envelope.h"
+#include "tests/death/fixtures.h"
+#include "tests/death/animation_cases.h"
+#include "tests/death/callables_cases.h"
+#include "tests/death/color_cases.h"
+#include "tests/death/effects_cases.h"
+#include "tests/death/math_spatial_cases.h"
+#include "tests/death/memory_cases.h"
+#include "tests/death/mesh_cases.h"
+#include "tests/death/params_canvas_cases.h"
+#include "tests/death/particles_cases.h"
+#include "tests/death/plot_filter_cases.h"
+#include "tests/death/pullback_cases.h"
+#include "tests/death/recipes_cases.h"
+#include "tests/death/registry_cases.h"
+#include "tests/death/sdf_cases.h"
+#include "tests/death/transformers_cases.h"
 /**
  * @brief A named death case selected by HS_DEATH_CASE in the child process.
  */
