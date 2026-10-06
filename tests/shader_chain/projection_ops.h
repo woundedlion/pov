@@ -12,7 +12,10 @@ struct ProjMirrorFrame {
   math::Quaternion conjugate;
   In::Op::MeridianProjectChainParams meridian;
   In::Op::GnomonicChainParams gnomonic;
-  In::Op::BonneChainParams bonne;
+  In::Op::ProjectBonneV3::Params bonne;
+  In::Op::ProjectPeirceV3::Params peirce;
+  In::Op::ProjectPeirceSquareFastV3::Params peirce_fast;
+  In::Op::ProjectAiroceanV3::Params airocean;
 };
 
 struct ProjMirrorBinding {
@@ -45,20 +48,26 @@ struct GnomonicProjMirror : ProjMirrorBase<GnomonicProjMirror> {
 
 struct PeirceProjMirror : ProjMirrorBase<PeirceProjMirror> {
   static float central_meridian(const ProjMirrorFrame &frame) {
-    return frame.meridian.central_meridian;
+    return frame.peirce.central_meridian;
   }
-  static float layout_scroll(const ProjMirrorFrame &) { return 0.0f; }
-  static float coordinate_scale(const ProjMirrorFrame &) { return 1.0f; }
+  static float layout_scroll(const ProjMirrorFrame &frame) {
+    return frame.peirce.layout_scroll;
+  }
+  static float coordinate_scale(const ProjMirrorFrame &frame) {
+    return frame.peirce.coordinate_scale;
+  }
   static float singularity_fade(const ProjMirrorFrame &frame) {
-    return frame.meridian.singularity_fade;
+    return frame.peirce.singularity_fade;
   }
 };
 
 struct PeirceFastProjMirror : ProjMirrorBase<PeirceFastProjMirror> {
   static constexpr bool ZERO_CENTRAL_MERIDIAN = true;
-  static float coordinate_scale(const ProjMirrorFrame &) { return 1.0f; }
+  static float coordinate_scale(const ProjMirrorFrame &frame) {
+    return frame.peirce_fast.coordinate_scale;
+  }
   static float singularity_fade(const ProjMirrorFrame &frame) {
-    return frame.meridian.singularity_fade;
+    return frame.peirce_fast.singularity_fade;
   }
 };
 
@@ -69,14 +78,18 @@ struct BonneProjMirror : ProjMirrorBase<BonneProjMirror> {
   static float standard_parallel(const ProjMirrorFrame &frame) {
     return frame.bonne.standard_parallel;
   }
-  static float coordinate_scale(const ProjMirrorFrame &) { return 1.0f; }
+  static float coordinate_scale(const ProjMirrorFrame &frame) {
+    return frame.bonne.coordinate_scale;
+  }
 };
 
 struct AiroceanProjMirror : ProjMirrorBase<AiroceanProjMirror> {
   static float central_meridian(const ProjMirrorFrame &frame) {
-    return frame.meridian.central_meridian;
+    return frame.airocean.central_meridian;
   }
-  static float coordinate_scale(const ProjMirrorFrame &) { return 1.0f; }
+  static float coordinate_scale(const ProjMirrorFrame &frame) {
+    return frame.airocean.coordinate_scale;
+  }
 };
 
 /** Compiles a chain with one projection at entry 1 and applies the value set
@@ -114,10 +127,14 @@ inline ProjMirrorFrame project_mirror(In::ChainProgram &program,
   if (id == In::Op::ProjectGnomonic::ID) {
     mirror.gnomonic = param_as<In::Op::GnomonicChainParams>(program, 1);
   } else if (id == In::Op::ProjectBonneV3::ID) {
-    mirror.bonne = param_as<In::Op::BonneChainParams>(program, 1);
+    mirror.bonne = param_as<In::Op::ProjectBonneV3::Params>(program, 1);
   } else if (id == In::Op::ProjectPeirceSquareFastV3::ID) {
-    static_cast<In::Op::ProjectChainParams &>(mirror.meridian) =
-        param_as<In::Op::ProjectChainParams>(program, 1);
+    mirror.peirce_fast =
+        param_as<In::Op::ProjectPeirceSquareFastV3::Params>(program, 1);
+  } else if (id == In::Op::ProjectPeirceV3::ID) {
+    mirror.peirce = param_as<In::Op::ProjectPeirceV3::Params>(program, 1);
+  } else if (id == In::Op::ProjectAiroceanV3::ID) {
+    mirror.airocean = param_as<In::Op::ProjectAiroceanV3::Params>(program, 1);
   } else {
     mirror.meridian = param_as<In::Op::MeridianProjectChainParams>(program, 1);
   }
@@ -218,6 +235,25 @@ inline void expect_project_op_parity(In::ChainProgram &program,
   }
 }
 
+template <typename BoundStage>
+inline void expect_project_parameter_control(In::ChainProgram &program,
+                                             const In::FrameContext &ctx,
+                                             const ProjMirrorFrame &changed) {
+  program.prepare(ctx);
+  const ProjMirrorFrame mirror = project_mirror(program, ctx);
+  const auto prepared = BoundStage::prepare(mirror);
+  const auto changed_prepared = BoundStage::prepare(changed);
+  int differences = 0;
+  for (const auto &view : sweep_views()) {
+    const PB::SphereSample seed{view, 0.25f};
+    differences +=
+        !plane_identical(BoundStage::run(seed, mirror, prepared),
+                         BoundStage::run(seed, changed, changed_prepared));
+  }
+  HS_EXPECT_TRUE(differences > 0);
+  expect_project_op_parity<BoundStage>(program, ctx);
+}
+
 template <typename Policy, typename OpParams>
 inline void run_project_parity(const char *op_id, ValueSet set) {
   auto fixture = std::make_unique<ProgramFixture>();
@@ -227,6 +263,47 @@ inline void run_project_parity(const char *op_id, ValueSet set) {
   using Bound =
       typename PB::Stage::Project<Policy>::template Bind<ProjMirrorBinding>;
   expect_project_op_parity<Bound>(program, ctx);
+  if constexpr (requires(OpParams p) { p.coordinate_scale; }) {
+    auto &params = param_as<OpParams>(program, 1);
+    params = OpParams{};
+    params.coordinate_scale = 0.5f;
+    auto changed = project_mirror(program, ctx);
+    changed.peirce.coordinate_scale = 1.0f;
+    changed.peirce_fast.coordinate_scale = 1.0f;
+    changed.bonne.coordinate_scale = 1.0f;
+    changed.airocean.coordinate_scale = 1.0f;
+    expect_project_parameter_control<Bound>(program, ctx, changed);
+  }
+  program.clear();
+}
+
+template <projections::PeirceLayout Layout>
+inline void run_peirce_variant(ValueSet set) {
+  auto fixture = std::make_unique<ProgramFixture>();
+  auto &program = fixture->program;
+  arm_project_op_chain<In::Op::ProjectPeirceV3::Params>(
+      program, In::Op::ProjectPeirceV3::ID, 4, set);
+  param_as<In::Op::ProjectPeirceV3::Params>(program, 1).layout =
+      static_cast<uint8_t>(Layout);
+  using Bound = typename PB::Stage::Project<
+      PB::Projection::Peirce<PeirceProjMirror, static_cast<uint8_t>(Layout),
+                             true>>::template Bind<ProjMirrorBinding>;
+  const auto ctx = shared_resources().context();
+  expect_project_op_parity<Bound>(program, ctx);
+  auto &params = param_as<In::Op::ProjectPeirceV3::Params>(program, 1);
+  params = {};
+  params.layout = static_cast<uint8_t>(Layout);
+  params.coordinate_scale = 0.5f;
+  auto changed = project_mirror(program, ctx);
+  changed.peirce.coordinate_scale = 1.0f;
+  expect_project_parameter_control<Bound>(program, ctx, changed);
+  if constexpr (Layout == projections::PeirceLayout::HORIZONTAL ||
+                Layout == projections::PeirceLayout::VERTICAL) {
+    params.layout_scroll = 0.375f;
+    changed = project_mirror(program, ctx);
+    changed.peirce.layout_scroll = 0.0f;
+    expect_project_parameter_control<Bound>(program, ctx, changed);
+  }
   program.clear();
 }
 
@@ -240,21 +317,21 @@ inline void test_shader_chain_parity_project_ops() {
     run_project_parity<PB::Projection::Equirectangular<MeridianProjMirror>,
                        In::Op::MeridianProjectChainParams>(
         In::Op::ProjectEquirectangular::ID, set);
-    run_project_parity<
-        PB::Projection::Peirce<PeirceProjMirror, In::Op::PEIRCE_SQUARE_LAYOUT,
-                               true>,
-        In::Op::MeridianProjectChainParams>(In::Op::ProjectPeirceV3::ID, set);
+    run_peirce_variant<projections::PeirceLayout::DIAMOND>(set);
+    run_peirce_variant<projections::PeirceLayout::SQUARE>(set);
+    run_peirce_variant<projections::PeirceLayout::HORIZONTAL>(set);
+    run_peirce_variant<projections::PeirceLayout::VERTICAL>(set);
     run_project_parity<PB::Projection::PeirceFastSquare<PeirceFastProjMirror>,
-                       In::Op::ProjectChainParams>(
+                       In::Op::ProjectPeirceSquareFastV3::Params>(
         In::Op::ProjectPeirceSquareFastV3::ID, set);
     run_project_parity<
         PB::Projection::Airocean<AiroceanProjMirror, false, true>,
-        In::Op::AiroceanChainParams>(In::Op::ProjectAiroceanV3::ID, set);
+        In::Op::ProjectAiroceanV3::Params>(In::Op::ProjectAiroceanV3::ID, set);
     auto fixture = std::make_unique<ProgramFixture>();
     In::ChainProgram &program = fixture->program;
-    arm_project_op_chain<In::Op::AiroceanChainParams>(
+    arm_project_op_chain<In::Op::ProjectAiroceanV3::Params>(
         program, In::Op::ProjectAiroceanV3::ID, 4, set);
-    param_as<In::Op::AiroceanChainParams>(program, 1).layout = 1;
+    param_as<In::Op::ProjectAiroceanV3::Params>(program, 1).layout = 1;
     using Horizontal = typename PB::Stage::Project<PB::Projection::Airocean<
         AiroceanProjMirror, true, true>>::template Bind<ProjMirrorBinding>;
     expect_project_op_parity<Horizontal>(program, shared_resources().context());
@@ -275,7 +352,8 @@ inline void run_gnomonic_variant(In::ChainProgram &program,
 template <bool North>
 inline void run_bonne_variant(In::ChainProgram &program,
                               const In::FrameContext &ctx) {
-  param_as<In::Op::BonneChainParams>(program, 1).hemisphere = North ? 0 : 1;
+  param_as<In::Op::ProjectBonneV3::Params>(program, 1).hemisphere =
+      North ? 0 : 1;
   using Bound = typename PB::Stage::Project<PB::Projection::Bonne<
       BonneProjMirror, North>>::template Bind<ProjMirrorBinding>;
   expect_project_op_parity<Bound>(program, ctx);
@@ -296,7 +374,7 @@ inline void test_shader_chain_parity_project_hemispheres() {
     run_gnomonic_variant<Hemisphere::BACK>(program, ctx);
     program.clear();
 
-    arm_project_op_chain<In::Op::BonneChainParams>(
+    arm_project_op_chain<In::Op::ProjectBonneV3::Params>(
         program, In::Op::ProjectBonneV3::ID, 4, set);
     run_bonne_variant<true>(program, ctx);
     run_bonne_variant<false>(program, ctx);
