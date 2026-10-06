@@ -905,7 +905,7 @@ class TestDerivedComponentCeiling(unittest.TestCase):
 class TestWarningGate(unittest.TestCase):
     def test_toolchain_warning_uses_innermost_first_party_inline_frame(self):
         context = (
-            "In file included from ./core/spatial/kd_tree.h:6:\n"
+            "In file included from ./effects/Voronoi.h:3:\n"
             "    inlined from 'nearest' at ./core/spatial/kd_tree.h:182:14,\n"
             "    inlined from 'classify' at ./effects/Voronoi.h:295:28:\n")
         toolchain = "/x/.platformio/packages/toolchain-gccarmnoneeabi-teensy/include/bits/stl_algo.h"
