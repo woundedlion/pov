@@ -142,9 +142,8 @@ template <int S, int N, int RPM> class POVSegmented {
    */
   static constexpr int OVERSAMPLE = 8;
 
-  static_assert(
-      COLUMN_US / float(OVERSAMPLE) >= 1.0f,
-      "Flywheel wake period must be >= 1 us for IntervalTimer::begin");
+  static_assert(COLUMN_US / float(OVERSAMPLE) >= 1.0f,
+                "Flywheel wake period must be >= 1 us");
 
   /**
    * @brief NVIC priority for the sync-wire edge IRQ (Teensy 4 pin interrupts
