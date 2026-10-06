@@ -6,6 +6,8 @@
  */
 #pragma once
 
+#include <array>
+
 #include "core/animation/orientation.h"
 #include "core/math/geometry.h"
 #include "tests/vec_test_util.h"
@@ -571,9 +573,14 @@ inline void test_orientation_upsample_noop_if_already_long() {
   o.push(math::make_rotation(math::Vector(0, 1, 0), 0.1f));
   o.push(math::make_rotation(math::Vector(0, 1, 0), 0.2f));
   o.push(math::make_rotation(math::Vector(0, 1, 0), 0.3f));
-  int before = o.length();
-  o.upsample(static_cast<int>(before) - 1);
+  const int before = o.length();
+  std::array<math::Quaternion, 16> snapshot{};
+  for (int i = 0; i < before; ++i)
+    snapshot[static_cast<size_t>(i)] = o.get(i);
+  o.upsample(before - 1);
   HS_EXPECT_EQ(o.length(), before);
+  for (int i = 0; i < before; ++i)
+    HS_EXPECT_QUAT(o.get(i), snapshot[static_cast<size_t>(i)], 0.0f);
 }
 
 /**
