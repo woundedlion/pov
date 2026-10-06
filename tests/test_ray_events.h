@@ -7,7 +7,8 @@
 #pragma once
 
 #include "core/render/ray/shade.h"
-#include "tests/test_lattice_trace.h"
+#include "render/sdf/lattice.h"
+#include "render/sdf/lattice_trace.h"
 #include "tests/test_harness.h"
 #include "tests/test_fixture.h"
 
@@ -244,9 +245,11 @@ inline void test_verified_filter_contracts() {
   HS_EXPECT_EQ(invalid.trace.status, Raycast::TraceStatus::INVALID_QUERY);
 }
 
+#include "tests/ray_events/lattice_trace.h"
+
 inline int run_ray_event_tests() {
   hs_test::ModuleFixture fixture("ray_events");
-  lattice_trace_tests::run_lattice_trace_cases();
+  run_lattice_trace_cases();
   test_single_group_capacity();
   test_failure_status_survives_flush();
   test_event_stream_contracts();
