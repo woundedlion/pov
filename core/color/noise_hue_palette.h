@@ -153,9 +153,8 @@ prepare_hue_noise_lut<true>(std::span<int8_t, HueNoiseLutView::SIZE> output,
 
 /**
  * @brief Scale and phase a resident hue-noise table was baked from.
- * @details Scale 0 marks the table unbuilt; the parameter range starts at
- * 1/64, so no live scale collides with the sentinel. Owners keep the table
- * itself, and the `active` decision that says whether anything reads it.
+ * @details Scale 0 marks the table unbuilt; refresh() requires a positive
+ * scale. Owners keep the table itself and its `active` flag.
  */
 struct HueNoiseBakeCache {
   float scale = 0.0f;
