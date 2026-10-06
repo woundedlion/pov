@@ -402,6 +402,9 @@ inline void test_arena_reclaimed_since() {
   a.allocate(80);
   a.set_offset(60);
   HS_EXPECT_TRUE(a.reclaimed_since(b, 32, BIRTH));
+
+  a.reset();
+  HS_EXPECT_EQ(a.get_rewind_floor(), SIZE_MAX);
 }
 #endif
 
