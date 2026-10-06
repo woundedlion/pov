@@ -11,6 +11,13 @@
 namespace hs_test {
 namespace hyper_lattice_tests {
 
+template <typename Effect>
+inline const ParamDef *required_param(Effect &effect, const char *name) {
+  const auto *parameter = effect.getParameters().find(name);
+  HS_EXPECT_TRUE(parameter != nullptr);
+  return parameter;
+}
+
 namespace Trace = HyperLatticeDetail::Trace;
 
 /** @brief Prepares a traced frame over the tests' crossing scratch. */
@@ -858,7 +865,10 @@ inline void test_configuration_adoption_and_snapshots() {
   HS_EXPECT_EQ(effect.updateParameter("4D Spin", .01f),
                ParamSetResult::APPLIED);
   HS_EXPECT_TRUE(effect.restore_parameters(initial));
-  HS_EXPECT_TRUE(effect.getParameters().find("4D Spin")->readonly);
+  const auto *parameter1 = required_param(effect, "4D Spin");
+  if (!parameter1)
+    return;
+  HS_EXPECT_TRUE(parameter1->readonly);
   HL::Params start = Effect::preset(0).params;
   HL::Params target = Effect::preset(Effect::HYPERCUBE_PRESET_INDEX).params;
   target.cell_size = 4;
@@ -933,7 +943,9 @@ inline void test_dimension_dropdown_and_mode_lerp() {
   using Effect = HyperLatticeWhiteBox::Effect;
   Effect effect;
   effect.init();
-  const ParamDef *near_fade = effect.getParameters().find("Near Fade");
+  const auto *near_fade = required_param(effect, "Near Fade");
+  if (!near_fade)
+    return;
   HS_EXPECT_TRUE(near_fade != nullptr);
   HS_EXPECT_EQ(near_fade->get(), 0.5f);
   HS_EXPECT_EQ(effect.updateParameter("Near Fade", 1.2f),
@@ -949,13 +961,19 @@ inline void test_dimension_dropdown_and_mode_lerp() {
     fade_blended.near_fade = invalid;
     HS_EXPECT_FALSE(Effect::valid_params(fade_blended));
   }
-  const ParamDef *cell_size = effect.getParameters().find("Cell Size");
+  const auto *cell_size = required_param(effect, "Cell Size");
+  if (!cell_size)
+    return;
   HS_EXPECT_TRUE(cell_size != nullptr);
   HS_EXPECT_EQ(cell_size->max, 10.0f);
-  const ParamDef *far_distance = effect.getParameters().find("Far Distance");
+  const auto *far_distance = required_param(effect, "Far Distance");
+  if (!far_distance)
+    return;
   HS_EXPECT_TRUE(far_distance != nullptr);
   HS_EXPECT_TRUE(effect.getParameters().find("Far Cells") == nullptr);
-  const ParamDef *dimension = effect.getParameters().find("View");
+  const auto *dimension = required_param(effect, "View");
+  if (!dimension)
+    return;
   HS_EXPECT_TRUE(dimension != nullptr);
   HS_EXPECT_TRUE(dimension->is_enum());
   HS_EXPECT_EQ(dimension->option_count, 2);
@@ -1249,12 +1267,30 @@ inline void test_traced_presets() {
     auto selected = initial;
     selected.params = Effect::preset(i).params;
     HS_EXPECT_TRUE(effect.restore_parameters(selected));
-    HS_EXPECT_EQ(effect.getParameters().find("Pattern")->get(), 1);
-    HS_EXPECT_EQ(effect.getParameters().find("View")->get(), float(SLICE));
-    HS_EXPECT_EQ(effect.getParameters().find("4D Spin")->readonly, !SLICE);
-    HS_EXPECT_TRUE(effect.getParameters().find("Lattice Planes")->readonly);
-    HS_EXPECT_FALSE(effect.getParameters().find("Wire Radius")->readonly);
-    HS_EXPECT_FALSE(effect.getParameters().find("AA Strength")->readonly);
+    const auto *parameter2 = required_param(effect, "Pattern");
+    if (!parameter2)
+      return;
+    HS_EXPECT_EQ(parameter2->get(), 1);
+    const auto *parameter3 = required_param(effect, "View");
+    if (!parameter3)
+      return;
+    HS_EXPECT_EQ(parameter3->get(), float(SLICE));
+    const auto *parameter4 = required_param(effect, "4D Spin");
+    if (!parameter4)
+      return;
+    HS_EXPECT_EQ(parameter4->readonly, !SLICE);
+    const auto *parameter5 = required_param(effect, "Lattice Planes");
+    if (!parameter5)
+      return;
+    HS_EXPECT_TRUE(parameter5->readonly);
+    const auto *parameter6 = required_param(effect, "Wire Radius");
+    if (!parameter6)
+      return;
+    HS_EXPECT_FALSE(parameter6->readonly);
+    const auto *parameter7 = required_param(effect, "AA Strength");
+    if (!parameter7)
+      return;
+    HS_EXPECT_FALSE(parameter7->readonly);
     std::vector<Pixel> previous;
     for (int frame = 0; frame < 2; ++frame) {
       effect.draw_frame();
@@ -1272,7 +1308,9 @@ inline void test_traced_presets() {
       HS_EXPECT_GT(lit, 0);
       if (frame)
         HS_EXPECT_GT(changed, 0);
-      const auto *unfinished = effect.getParameters().find("Unfinished Rays");
+      const auto *unfinished = required_param(effect, "Unfinished Rays");
+      if (!unfinished)
+        return;
       HS_EXPECT_LE(unfinished->get(), unfinished->max);
     }
     const auto target = selected.params;
@@ -1287,8 +1325,14 @@ inline void test_traced_presets() {
                  hs::lerp(initial.params.cell_size, target.cell_size, .5f));
   }
   HS_EXPECT_TRUE(effect.restore_parameters(initial));
-  HS_EXPECT_EQ(effect.getParameters().find("View")->get(), 0);
-  HS_EXPECT_FALSE(effect.getParameters().find("Lattice Planes")->readonly);
+  const auto *parameter8 = required_param(effect, "View");
+  if (!parameter8)
+    return;
+  HS_EXPECT_EQ(parameter8->get(), 0);
+  const auto *parameter9 = required_param(effect, "Lattice Planes");
+  if (!parameter9)
+    return;
+  HS_EXPECT_FALSE(parameter9->readonly);
   HS_EXPECT_EQ(effect.updateParameter("Pattern", 1), ParamSetResult::APPLIED);
   HS_EXPECT_EQ(effect.serialize_parameters().params.pattern,
                Effect::Pattern::OCTET);
@@ -1301,15 +1345,22 @@ inline void test_pattern_view_controls() {
   Effect effect;
   effect.init();
   HS_EXPECT_TRUE(effect.getParameters().find("Configuration") == nullptr);
-  const auto *pattern = effect.getParameters().find("Pattern");
-  const auto *view = effect.getParameters().find("View");
+  const auto *pattern = required_param(effect, "Pattern");
+  if (!pattern)
+    return;
+  const auto *view = required_param(effect, "View");
+  if (!view)
+    return;
   HS_EXPECT_TRUE(pattern != nullptr && view != nullptr);
   HS_EXPECT_EQ(pattern->option_count, 3);
   HS_EXPECT_EQ(view->option_count, 2);
   HS_EXPECT_EQ(effect.updateParameter("View", 1), ParamSetResult::APPLIED);
   HS_EXPECT_EQ(pattern->get(), 0);
   HS_EXPECT_EQ(view->get(), 1);
-  HS_EXPECT_FALSE(effect.getParameters().find("4D Spin")->readonly);
+  const auto *parameter10 = required_param(effect, "4D Spin");
+  if (!parameter10)
+    return;
+  HS_EXPECT_FALSE(parameter10->readonly);
   HS_EXPECT_EQ(effect.updateParameter("Cell Size", 3), ParamSetResult::APPLIED);
   HS_EXPECT_EQ(effect.updateParameter("Pattern", 0), ParamSetResult::APPLIED);
   HS_EXPECT_EQ(effect.serialize_parameters().params.cell_size, 3);
@@ -1335,15 +1386,30 @@ inline void test_pattern_view_controls() {
   HS_EXPECT_EQ(octet4.params.cell_size,
                Effect::preset(Effect::OCTET_4D_PRESET_INDEX).params.cell_size);
   HS_EXPECT_EQ(octet4.params.near_fade, .37f);
-  HS_EXPECT_FALSE(effect.getParameters().find("4D Spin")->readonly);
+  const auto *parameter11 = required_param(effect, "4D Spin");
+  if (!parameter11)
+    return;
+  HS_EXPECT_FALSE(parameter11->readonly);
   HS_EXPECT_EQ(effect.updateParameter("View", 0), ParamSetResult::APPLIED);
   HS_EXPECT_EQ(pattern->get(), 1);
   HS_EXPECT_EQ(view->get(), 0);
-  HS_EXPECT_TRUE(effect.getParameters().find("4D Spin")->readonly);
+  const auto *parameter12 = required_param(effect, "4D Spin");
+  if (!parameter12)
+    return;
+  HS_EXPECT_TRUE(parameter12->readonly);
   HS_EXPECT_EQ(effect.serialize_parameters().params.spin_4d, 0);
-  HS_EXPECT_TRUE(effect.getParameters().find("Lattice Planes")->readonly);
-  HS_EXPECT_FALSE(effect.getParameters().find("Wire Radius")->readonly);
-  HS_EXPECT_FALSE(effect.getParameters().find("AA Strength")->readonly);
+  const auto *parameter13 = required_param(effect, "Lattice Planes");
+  if (!parameter13)
+    return;
+  HS_EXPECT_TRUE(parameter13->readonly);
+  const auto *parameter14 = required_param(effect, "Wire Radius");
+  if (!parameter14)
+    return;
+  HS_EXPECT_FALSE(parameter14->readonly);
+  const auto *parameter15 = required_param(effect, "AA Strength");
+  if (!parameter15)
+    return;
+  HS_EXPECT_FALSE(parameter15->readonly);
   HS_EXPECT_TRUE(effect.restore_parameters(four_d));
   HS_EXPECT_EQ(pattern->get(), 0);
   HS_EXPECT_EQ(view->get(), 1);
@@ -1355,7 +1421,10 @@ inline void test_pattern_view_controls() {
   HS_EXPECT_EQ(
       effect.serialize_parameters().params.wire_radius,
       Effect::preset(Effect::HYPERCUBE_PRESET_INDEX).params.wire_radius);
-  HS_EXPECT_FALSE(effect.getParameters().find("Lattice Planes")->readonly);
+  const auto *parameter16 = required_param(effect, "Lattice Planes");
+  if (!parameter16)
+    return;
+  HS_EXPECT_FALSE(parameter16->readonly);
 }
 
 /** @brief Pins normal pattern views and rejects unsupported numeric IDs. */
@@ -1371,7 +1440,9 @@ inline void test_regular_patterns() {
   effect.setAnimationsPaused(true);
   HS_EXPECT_TRUE(effect.getParameters().find("Shear") == nullptr);
   HS_EXPECT_TRUE(effect.getParameters().find("Stretch") == nullptr);
-  const auto *pattern = effect.getParameters().find("Pattern");
+  const auto *pattern = required_param(effect, "Pattern");
+  if (!pattern)
+    return;
   constexpr int64_t VALUES[] = {0, 1, 6};
   HS_EXPECT_EQ(pattern->option_count, static_cast<int>(std::size(VALUES)));
   for (size_t i = 0; i < std::size(VALUES); ++i)
@@ -1382,11 +1453,19 @@ inline void test_regular_patterns() {
         Effect::pattern_defaults(configuration.pattern, configuration.domain);
     HS_EXPECT_TRUE(effect.restore_parameters(snapshot));
     HS_EXPECT_EQ(Effect::configuration_id(snapshot.params), configuration.id);
-    HS_EXPECT_FALSE(effect.getParameters().find("View")->readonly);
+    const auto *parameter17 = required_param(effect, "View");
+    if (!parameter17)
+      return;
+    HS_EXPECT_FALSE(parameter17->readonly);
     const bool SHELLS = configuration.pattern == Effect::Pattern::SHELLS;
-    HS_EXPECT_EQ(effect.getParameters().find("Shell Radius")->readonly,
-                 !SHELLS);
-    HS_EXPECT_EQ(effect.getParameters().find("Wire Radius")->readonly, SHELLS);
+    const auto *parameter18 = required_param(effect, "Shell Radius");
+    if (!parameter18)
+      return;
+    HS_EXPECT_EQ(parameter18->readonly, !SHELLS);
+    const auto *parameter19 = required_param(effect, "Wire Radius");
+    if (!parameter19)
+      return;
+    HS_EXPECT_EQ(parameter19->readonly, SHELLS);
     effect.draw_frame();
     effect.advance_display();
     size_t lit = 0;
@@ -1474,7 +1553,10 @@ inline void test_speed_range() {
   reset_globals();
   Effect effect;
   effect.init();
-  HS_EXPECT_EQ(effect.getParameters().find("Speed")->max, 0.3f);
+  const auto *parameter20 = required_param(effect, "Speed");
+  if (!parameter20)
+    return;
+  HS_EXPECT_EQ(parameter20->max, 0.3f);
   HS_EXPECT_EQ(effect.updateParameter("Speed", 0.3f), ParamSetResult::APPLIED);
   auto snapshot = effect.serialize_parameters();
   HS_EXPECT_EQ(snapshot.params.speed, 0.3f);
