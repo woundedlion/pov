@@ -166,6 +166,13 @@ inline void test_fragment_edge_dist_degenerate_face() {
   f.v1 = -1.0f;
   f.size = 0.0f;
   HS_EXPECT_NEAR(fragment_edge_dist(f), 0.0f, 1e-6f);
+  f.size = 0.5f * math::TOLERANCE;
+  HS_EXPECT_NEAR(fragment_edge_dist(f), 0.0f, 1e-6f);
+  f.size = math::TOLERANCE;
+  HS_EXPECT_NEAR(fragment_edge_dist(f), 0.0f, 1e-6f);
+  f.v1 = -math::TOLERANCE;
+  f.size = 2.0f * math::TOLERANCE;
+  HS_EXPECT_NEAR(fragment_edge_dist(f), 0.5f, 1e-6f);
 }
 
 // --- mesh_topology_slot -----------------------------------------------------
