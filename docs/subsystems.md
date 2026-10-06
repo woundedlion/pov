@@ -636,9 +636,10 @@ Both directions are `static_assert`ed: an unbounded modifier rejects
 fold its 1.0 output to 0.0 and destroy the top endpoint). Only a modifier that
 re-bounds *arbitrary* input (`WrapModifier`'s fold, `FoldModifier`'s triangle
 wave, `InsetModifier`'s clamp) clears an unbounded predecessor; `ReverseModifier`,
-`MirrorModifier`, `QuantizeModifier`, and `PinchModifier` are bounded on `[0,1]` but pass an out-of-range coordinate
-straight through — chaining one after a cycling modifier needs a `WrapModifier`
-between them and `Wrap=false`.
+`MirrorModifier`, and `PinchModifier` are bounded on `[0,1]` but pass an out-of-range coordinate
+straight through. `QuantizeModifier` caps values above 1 and quantizes negative
+coordinates without rebounding them. Chaining any of these after a cycling
+modifier needs a `WrapModifier` between them and `Wrap=false`.
 
 `Shade` (a `ShadeCoord`, default `MATCH_WRAP`) selects which coordinate the
 color chain receives:
