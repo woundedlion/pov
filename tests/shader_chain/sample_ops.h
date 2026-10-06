@@ -790,6 +790,29 @@ inline void test_shader_chain_parity_sample_variants() {
   }
 }
 
+/** Checks entry 3 alone against the bound mirror stage on a sample with a
+    non-zero path length. */
+template <In::Op::HueShiftMode HueV, In::Op::EnvelopeMode EnvelopeV>
+void expect_colorize_op_parity(In::ChainProgram &program,
+                               const In::FrameContext &ctx) {
+  using Bound = PB::Stage::Colorize<PB::Color::GeneratedPalette<
+      MirrorColor<HueV, EnvelopeV>>>::template Bind<MirrorBinding>;
+  using Unrotated = PB::Stage::Colorize<PB::Color::GeneratedPalette<MirrorColor<
+      In::Op::HueShiftMode::NONE, EnvelopeV>>>::template Bind<MirrorBinding>;
+  const PB::FieldSample sample{0.4f, 1.0f, math::Vector(0, 1, 0), 0.37f};
+  Color4 erased;
+  program.ops()[3].op->runtime.run(
+      &sample, &erased, ctx, program.param_block(3), program.prepared_block(3));
+  const MirrorFrame mirror = mirror_from(program, ctx);
+  HS_EXPECT_TRUE(color4_identical(
+      erased, Bound::run(sample, mirror, Bound::prepare(mirror))));
+  if (HueV == In::Op::HueShiftMode::PATH_LENGTH &&
+      EnvelopeV == In::Op::EnvelopeMode::NONE &&
+      mirror.color.hue_shift_amount != 0.0f)
+    HS_EXPECT_FALSE(color4_identical(
+        erased, Unrotated::run(sample, mirror, Unrotated::prepare(mirror))));
+}
+
 template <In::Op::HueShiftMode HueV, In::Op::EnvelopeMode EnvelopeV>
 void run_colorize_variant(In::ChainProgram &program,
                           const In::FrameContext &ctx) {
@@ -802,6 +825,7 @@ void run_colorize_variant(In::ChainProgram &program,
       params.mapping_mode = mapping;
       expect_parity<PB::Weight::Projection, PB::ProjectionCoverage::Weight,
                     HueV, EnvelopeV>(program, ctx);
+      expect_colorize_op_parity<HueV, EnvelopeV>(program, ctx);
     }
   }
 }
