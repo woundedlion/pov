@@ -892,6 +892,16 @@ inline void test_arena_block_stamp_reset_and_rewind() {
   HS_EXPECT_TRUE(stamp.block_reissued(block, 64));
   HS_EXPECT_FALSE(stamp.block_alive(block, 64));
   HS_EXPECT_FALSE(stamp.block_reissued(static_cast<uint8_t *>(block) + 32, 0));
+
+  // A reset clears the rewind history, so only the generation sees the reuse.
+  a.reset();
+  stamp.record(a);
+  void *fresh = a.allocate(64);
+  a.reset();
+  a.allocate(128);
+  HS_EXPECT_FALSE(stamp.block_uncovered(fresh, 64));
+  HS_EXPECT_FALSE(stamp.block_reissued(fresh, 64));
+  HS_EXPECT_FALSE(stamp.block_alive(fresh, 64));
 }
 #endif
 
