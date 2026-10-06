@@ -668,7 +668,7 @@ class UnplacedBoardTests(TerminalBodyChecks, TerminalEdgePlacementChecks, unitte
                 label_x = x + 4.5
                 if any(x0 <= label_x <= x1 and y0 <= label_y <= y1
                        for x0, y0, x1, y1 in pcb.mounting_reserve_rects(pcb.QUILTER_LENGTH).values()):
-                    label_x = x - 4.5
+                    label_x = x + 2.5
                 self.assertIn((label, (label_x, label_y)), marks)
 
     def test_front_silk_anchors_clear_mounting_reservations(self):
