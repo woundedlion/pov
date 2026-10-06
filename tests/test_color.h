@@ -530,7 +530,10 @@ inline void test_oklch_to_pixel_saturates_and_preserves_in_gamut() {
   HS_EXPECT_EQ(float_to_pixel16(NAN), 65535);
   OKLCH vivid{1.0f, 0.4f, 1.0f};
   Pixel hi = oklch_to_pixel(vivid);
-  HS_EXPECT_TRUE(hi.r == 65535 || hi.g == 65535 || hi.b == 65535);
+  constexpr int WHITE_TOLERANCE = 4;
+  HS_EXPECT_GE(hi.r, 65535 - WHITE_TOLERANCE);
+  HS_EXPECT_GE(hi.g, 65535 - WHITE_TOLERANCE);
+  HS_EXPECT_GE(hi.b, 65535 - WHITE_TOLERANCE);
 
   OKLCH gray{0.5f, 0.0f, 0.0f};
   Pixel mid = oklch_to_pixel(gray);
