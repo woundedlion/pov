@@ -397,7 +397,7 @@ inline void test_islamic_registry_solids_are_closed() {
 }
 
 // ---------------------------------------------------------------------------
-// Lookup boundaries (invalid lookups trap).
+// Name and index lookups.
 // ---------------------------------------------------------------------------
 
 /**
