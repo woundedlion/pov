@@ -6,7 +6,7 @@
 // Included by tests/test_effects.h.
 
 // ---------------------------------------------------------------------------
-// MeshFeedback: draw_frame block-ordering coverage
+// MeshFeedback: draw ordering, base-mesh selection, export arity and storage
 // ---------------------------------------------------------------------------
 
 /**
