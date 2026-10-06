@@ -110,7 +110,8 @@ inline uint32_t feed_beacon_train(SyncBoard &board, const Config &cfg,
                                   const uint8_t d[5]) {
   uint32_t f = start;
   for (int i = 0; i < 5; ++i) {
-    const uint32_t span = static_cast<uint32_t>(d[i]) * col;
+    const uint32_t span =
+        static_cast<uint32_t>(d[i] * cfg.beacon_pitch_cols) * col;
     const BurstSnapshot s{static_cast<uint32_t>(d[i]) + 1u, f, f + span};
     board.tick(f + span + static_cast<uint32_t>(cfg.gap_timeout_cols) * col,
                &s);
