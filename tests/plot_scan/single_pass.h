@@ -64,11 +64,11 @@ inline void test_planar_one_pass_matches_forward_difference() {
       const math::Vector step = s.pos(fwd ? t + DT : t - DT);
       const math::Vector fd_tan =
           (fwd ? (step - fd_pos) : (fd_pos - step)).normalized();
-      worst_len = std::max(worst_len, std::abs(one.pos.length() - 1.0f));
-      worst_pos = std::max(worst_pos, math::angle_between(one.pos, fd_pos));
+      worst_len = fold_worst(worst_len, std::abs(one.pos.length() - 1.0f));
+      worst_pos = fold_worst(worst_pos, math::angle_between(one.pos, fd_pos));
       worst_tan_len =
           fold_worst(worst_tan_len, std::abs(one.tan.length() - 1.0f));
-      worst_tan_dot = std::min(worst_tan_dot, math::dot(one.tan, fd_tan));
+      worst_tan_dot = -fold_worst(-worst_tan_dot, -math::dot(one.tan, fd_tan));
       ++checked;
     }
   }
@@ -105,7 +105,8 @@ inline void test_planar_one_pass_tangent_is_forward_and_orthogonal() {
     for (int k = 0; k <= 4; ++k) {
       const float t = static_cast<float>(k) / 4.0f;
       Plot::SamplePT one = s.one_pass(t);
-      worst_orth = std::max(worst_orth, std::abs(math::dot(one.pos, one.tan)));
+      worst_orth =
+          fold_worst(worst_orth, std::abs(math::dot(one.pos, one.tan)));
       const float step = 1.0f / 64.0f;
       const math::Vector ahead = s.pos(std::min(1.0f, t + step));
       const math::Vector behind = s.pos(std::max(0.0f, t - step));
