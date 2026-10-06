@@ -489,3 +489,159 @@ inline void test_rasterize_planar_policy_parity() {
   HS_EXPECT_GT(derived_differences, (size_t)0);
   HS_EXPECT_GT(source_differences, (size_t)0);
 }
+
+/** @brief Captures the rendered positions after world-stage transforms. */
+struct WorldSampleCapture : Filter::Is3D {
+  static constexpr bool world_transform_is_identity = true;
+  std::vector<math::Vector> &points;
+  explicit WorldSampleCapture(std::vector<math::Vector> &points)
+      : points(points) {}
+  template <typename Pass>
+  void plot(const math::Vector &p, const Pixel &, float, float, Pass &&) {
+    points.push_back(p);
+  }
+};
+
+/** @brief Sampling follows rendered latitude, including cached one-dot flags. */
+inline void test_rasterize_sampling_follows_world_transforms() {
+  constexpr int W = 288, H = 144, N = 64;
+  const math::Quaternion TURN =
+      math::make_rotation(math::X_AXIS, -math::PI_F / 2);
+  hs_test::StubEffect fx(W, H);
+  Canvas canvas(fx);
+  ScratchScope scope(plot_arena());
+  Fragments points;
+  points.bind(plot_arena(), N);
+  for (int i = 0; i < N; ++i) {
+    const float ANGLE = 2 * math::PI_F * i / N;
+    Fragment f;
+    f.pos = {sinf(math::PI_F / 18) * cosf(ANGLE),
+             sinf(math::PI_F / 18) * sinf(ANGLE), cosf(math::PI_F / 18)};
+    points.push_back(f);
+  }
+  std::array<uint8_t, N> flags;
+  flags.fill(Plot::RasterOptions::EDGE_VISIBLE |
+             Plot::RasterOptions::EDGE_CLASSIFIED |
+             Plot::RasterOptions::EDGE_ONE_DOT);
+  auto draw = [&](auto &pipeline, bool classified = false) {
+    int samples = 0;
+    auto shade = [&](const math::Vector &, Fragment &f) {
+      ++samples;
+      f.color = Color4(Pixel(65535, 65535, 65535), 1.0f);
+    };
+    Plot::rasterize<W, H>(pipeline, canvas, points, shade,
+                          {.loop = Plot::RasterLoop::closed(),
+                           .projection = Plot::RasterProjection::geodesic(
+                               classified ? std::span<const uint8_t>(flags)
+                                          : std::span<const uint8_t>{})});
+    return samples;
+  };
+  std::vector<math::Vector> rendered;
+  Pipeline<W, H, WorldSampleCapture> direct{WorldSampleCapture(rendered)};
+  const int EQUATOR = draw(direct);
+  math::Orientation<> orientation(TURN);
+  Pipeline<W, H, Filter::World::Orient, WorldSampleCapture> rotated{
+      Filter::World::Orient(orientation), WorldSampleCapture(rendered)};
+  rendered.clear();
+  const int ROTATED = draw(rotated);
+  HS_EXPECT_GT(ROTATED, 300);
+  HS_EXPECT_GT(ROTATED, 3 * EQUATOR);
+  float max_gap = 0;
+  for (size_t i = 0; i < rendered.size(); ++i) {
+    const float A = math::vector_to_pixel<W, H>(rendered[i]).x;
+    const float B =
+        math::vector_to_pixel<W, H>(rendered[(i + 1) % rendered.size()]).x;
+    float gap = fabsf(A - B);
+    max_gap = std::max(max_gap, std::min(gap, W - gap));
+  }
+  HS_EXPECT_LT(max_gap, 1.1f);
+  HS_EXPECT_EQ(draw(rotated, true), ROTATED);
+  for (auto &point : points)
+    point.pos = math::rotate(point.pos, TURN);
+  const int POLE = draw(direct);
+  HS_EXPECT_NEAR(ROTATED, POLE, 4);
+  orientation.set(TURN.conjugate());
+  const int UNROTATED = draw(rotated);
+  HS_EXPECT_LT(UNROTATED, POLE / 2);
+  HS_EXPECT_NEAR(UNROTATED, EQUATOR, 4);
+  orientation.set(math::Quaternion());
+  orientation.push(math::Quaternion());
+  orientation.push(TURN.conjugate());
+  HS_EXPECT_GE(draw(rotated), POLE - 4);
+  for (auto &point : points)
+    point.pos = math::rotate(point.pos, TURN.conjugate());
+  math::Orientation<> half(math::make_rotation(math::X_AXIS, -math::PI_F / 4));
+  Pipeline<W, H, Filter::World::Orient, Filter::World::Orient,
+           WorldSampleCapture>
+      composed{Filter::World::Orient(half), Filter::World::Orient(half),
+               WorldSampleCapture(rendered)};
+  HS_EXPECT_NEAR(draw(composed), POLE, 4);
+  math::MobiusParams params;
+  Pipeline<W, H, Filter::World::Mobius, WorldSampleCapture> nonrigid{
+      Filter::World::Mobius(params), WorldSampleCapture(rendered)};
+  HS_EXPECT_GE(draw(nonrigid), POLE);
+  HS_EXPECT_EQ(draw(nonrigid, true), draw(nonrigid));
+  Pipeline<W, H, Filter::World::Replicate<W>> replicated{
+      Filter::World::Replicate<W>(2)};
+  PipelineRef erased(replicated);
+  const Plot::SamplePT STATIONARY{math::Y_AXIS, math::Vector(0, 0, 0)};
+  HS_EXPECT_EQ((Plot::pipeline_screen_step<W, H>(erased, STATIONARY, false)),
+               2.0f * math::PI_F / W);
+}
+
+/**
+ * @brief The segment cull follows a filter-chain orientation: an edge the
+ *        World::Orient stage rotates into a clip band is drawn, not culled.
+ * @details When orientation lives in the filter chain the rasterizer
+ *          must bound the edge by its RENDERED latitude, so the cull is routed
+ *          through the pipeline. 90° about X maps the equatorial +X->+Z arc onto
+ *          a polar meridian, so the rendered arc reaches the bottom band the
+ *          source arc never touches; a band-clipped worker there must match the
+ *          full render. Without the pipeline-routed cull the edge is bounded by
+ *          its un-rotated (equatorial) latitude and dropped.
+ */
+inline void test_rasterize_cull_follows_filter_orientation() {
+  constexpr int W = 128, H = 64;
+  constexpr int BAND = H / 4; // bottom band [H-BAND, H) the rotated arc enters
+
+  math::Orientation<> orientation(
+      math::make_rotation(math::X_AXIS, math::PI_F / 2.0f));
+  auto shade = [](const math::Vector &, Fragment &f) {
+    f.color = Color4(Pixel(65535, 65535, 65535), 1.0f);
+  };
+
+  auto band_lit = [&](int cy0, int cy1) -> int {
+    hs_test::StubEffect fx(W, H);
+    fx.set_clip(cy0, cy1, 0, W);
+    Pipeline<W, H, Filter::World::Orient> filters{
+        Filter::World::Orient(orientation)};
+    {
+      ScratchScope sc(plot_arena());
+      Fragments pts;
+      pts.bind(plot_arena(), 4);
+      Fragment a, b;
+      a.pos = math::Vector(1, 0, 0); // equator (+X)
+      b.pos = math::Vector(
+          0, 0, 1); // equator (+Z); 90° about X sends it to -Y (pole)
+      pts.push_back(a);
+      pts.push_back(b);
+      Canvas c(fx);
+      Plot::rasterize<W, H>(filters, c, pts, shade);
+    }
+    fx.advance_display();
+    int lit = 0;
+    for (int y = H - BAND; y < H; ++y)
+      for (int x = 0; x < W; ++x) {
+        Pixel p = fx.get_pixel(x, y);
+        if (p.r | p.g | p.b)
+          ++lit;
+      }
+    return lit;
+  };
+
+  int full = band_lit(0, H); // full canvas: rotated arc reaches the band
+  int banded = band_lit(H - BAND, H); // worker clipped to that band
+  HS_EXPECT_GT(full, 0);
+  HS_EXPECT_EQ(banded,
+               full); // routed cull keeps the edge; identical in the band
+}

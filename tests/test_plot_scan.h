@@ -97,6 +97,7 @@ static_assert(!Plot::RasterLoop{}.is_closed());
 static_assert(Plot::RasterLoop::closed().is_closed());
 
 #include "tests/plot_scan/sampling_fixture.h"
+#include "tests/plot_scan/geodesic_trig.h"
 #include "tests/plot_scan/raster_fixture.h"
 #include "tests/plot_scan/line.h"
 #include "tests/plot_scan/row_clip.h"
