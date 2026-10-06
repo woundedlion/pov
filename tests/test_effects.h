@@ -575,7 +575,7 @@ struct SphericalHarmonicsWhiteBox {
 };
 
 /**
- * @brief Pins HarmonicField's blend endpoints, polarity and local frame.
+ * @brief Pins HarmonicField's blend endpoints and local frame.
  */
 inline void test_sh_field_write_through_and_endpoints() {
   using Field = SphericalHarmonicsWhiteBox::Field;
@@ -620,7 +620,8 @@ inline void test_sh_field_write_through_and_endpoints() {
     }
   }
 
-  // A dipole must actually change sign, or the polarity split below is vacuous.
+  // A dipole must take both signs, or the endpoint and frame checks could pass
+  // on a zero field.
   HS_EXPECT_GT(positives, 0);
   HS_EXPECT_GT(negatives, 0);
 
