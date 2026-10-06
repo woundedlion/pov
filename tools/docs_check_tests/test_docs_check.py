@@ -667,7 +667,7 @@ class TestDocumentationChecker(unittest.TestCase):
                    PurePosixPath("effects/Comets.h"),
                    PurePosixPath("effects/Voronoi.h"),
                    PurePosixPath("effects/shared_palettes.h")}
-        row = ("├── effects/  3 headers: one per effect (2) plus the shared\n"
+        row = ("├── effects/  3 headers covering 2 effects plus the shared\n"
                + self._diagram(2))
         self.assertEqual(
             dc.effects_row_issues(row, entries, {"Comets", "Voronoi"}), [])
@@ -687,7 +687,7 @@ class TestDocumentationChecker(unittest.TestCase):
                    PurePosixPath("effects/Comets.h"),
                    PurePosixPath("effects/Voronoi.h"),
                    PurePosixPath("effects/shared_palettes.h")}
-        row = ("├── effects/  9 headers: one per effect (7) plus the shared\n"
+        row = ("├── effects/  9 headers covering 7 effects plus the shared\n"
                + self._diagram(2))
         issues = dc.effects_row_issues(row, entries, {"Comets", "Voronoi"})
         self.assertEqual([issue.line for issue in issues], [1, 1])
@@ -708,7 +708,7 @@ class TestDocumentationChecker(unittest.TestCase):
 
     def test_unreadable_roster_fails_the_effects_row(self):
         issues = dc.effects_row_issues(
-            "├── effects/  1 headers: one per effect (1) plus the shared\n"
+            "├── effects/  1 headers covering 1 effects plus the shared\n"
             + self._diagram(1),
             {PurePosixPath("effects"), PurePosixPath("effects/Comets.h")},
             None)
