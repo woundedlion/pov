@@ -96,6 +96,13 @@ inline constexpr float T_JITTERBUG_OCTA_MIN = 0.5104592f;
  * leg is born at min(T_EPS, arrival * TRUNCATE_BIRTH_FRAC), so an arrival at or
  * below T_EPS still sweeps from a positive birth. */
 inline constexpr float TRUNCATE_BIRTH_FRAC = 0.2f;
+/**
+ * @brief Birth param of a recipe-step truncate leg.
+ * @param arrival Larger endpoint of the leg's sweep.
+ */
+constexpr float truncate_birth_floor(float arrival) {
+  return std::min(T_EPS, arrival * TRUNCATE_BIRTH_FRAC);
+}
 /** Smallest truncate arrival a recipe-step leg sweeps to. */
 inline constexpr float T_TRUNCATE_ARRIVAL_MIN = 0.002f;
 /** Upper truncate clamp for a far-side leg (arrival > 0.5): stops just below
