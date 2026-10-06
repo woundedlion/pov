@@ -9,6 +9,7 @@
 #include "core/animation/orientation.h"
 #include "math/mobius.h"
 #include <array>
+#include <cstring>
 #include <cmath>
 #include <cstddef>
 #include <limits>
@@ -17,6 +18,7 @@
 #include "core/render/canvas.h"
 #include "core/math/easing.h"
 #include "core/mesh/mesh.h" // PolyMesh, MeshOps::compile (mesh test fixtures)
+#include "tests/fd_capture_util.h"
 #include "tests/test_fixture.h"
 #include "tests/test_harness.h"
 #include "tests/vec_test_util.h"

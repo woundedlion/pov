@@ -563,6 +563,46 @@ inline void test_timeline_instance_boundary_reclaims_pinned_event() {
 }
 
 /**
+ * @brief Runs @p fn with fd 1 redirected into a pipe and counts the timeline
+ * drop-log lines it writes.
+ * @return The line count, or -1 if the capture could not be established.
+ * @details The captured output must fit the pipe buffer or the write blocks.
+ */
+template <typename Fn> int count_timeline_drop_logs(Fn &&fn) {
+  int fds[2] = {-1, -1};
+  std::fflush(stdout);
+  if (fd_pipe(fds) != 0)
+    return -1;
+  const int saved_out = fd_dup(1);
+  if (saved_out < 0) {
+    fd_close(fds[0]);
+    fd_close(fds[1]);
+    return -1;
+  }
+  fd_dup2(fds[1], 1);
+  fn();
+  std::fflush(stdout);
+  fd_dup2(saved_out, 1);
+  fd_close(saved_out);
+  fd_close(fds[1]);
+  char buf[1024];
+  size_t n = 0;
+  for (;;) {
+    const long got = fd_read(fds[0], buf + n, sizeof(buf) - 1 - n);
+    if (got <= 0)
+      break;
+    n += static_cast<size_t>(got);
+  }
+  buf[n] = '\0';
+  fd_close(fds[0]);
+  int lines = 0;
+  for (const char *p = buf;
+       (p = std::strstr(p, "Timeline full, failed to add animation!")); ++p)
+    ++lines;
+  return lines;
+}
+
+/**
  * @brief Verifies add() is bounded by MAX_EVENTS (the shared global array
  * size): once full, a further add is rejected rather than overrunning, and the
  * once-per-episode drop log re-arms when the table drains.
@@ -580,26 +620,31 @@ inline void test_timeline_full_guard_rejects_overflow() {
   // The overflow event has its own target so a silent enqueue would show up.
   float rejected = 0.0f;
   const uint32_t dropped_before = Timeline::dropped_events();
-  tl.add(0, Animation::Transition(rejected, 42.0f, 10,
-                                  math::ease_linear)); // past full
+  HS_EXPECT_EQ(count_timeline_drop_logs([&] {
+                 for (int i = 0; i < 2; ++i)
+                   tl.add(0, Animation::Transition(rejected, 42.0f, 10,
+                                                   math::ease_linear));
+               }),
+               1);
   HS_EXPECT_EQ(tl.event_count(), Timeline::MAX_EVENTS);
-  HS_EXPECT_EQ(Timeline::dropped_events(), dropped_before + 1);
+  HS_EXPECT_EQ(Timeline::dropped_events(), dropped_before + 2);
 
   tl.step(fake_canvas());
   HS_EXPECT_NEAR(rejected, 0.0f, 1e-6f); // never ran
-  HS_EXPECT_TRUE(global_timeline_drop_logged);
 
   // Draining the table ends the saturation episode: the next overflow logs
   // again rather than riding the first episode's flag.
   for (int i = 0; i < 64 && tl.event_count() > 0; ++i)
     tl.step(fake_canvas());
   HS_EXPECT_EQ(tl.event_count(), 0);
-  HS_EXPECT_FALSE(global_timeline_drop_logged);
   for (int i = 0; i < Timeline::MAX_EVENTS; ++i)
     tl.add(0, Animation::Transition(sink, 1.0f, 10, math::ease_linear));
-  tl.add(0, Animation::Transition(rejected, 42.0f, 10, math::ease_linear));
-  HS_EXPECT_EQ(Timeline::dropped_events(), dropped_before + 2);
-  HS_EXPECT_TRUE(global_timeline_drop_logged);
+  HS_EXPECT_EQ(count_timeline_drop_logs([&] {
+                 tl.add(0, Animation::Transition(rejected, 42.0f, 10,
+                                                 math::ease_linear));
+               }),
+               1);
+  HS_EXPECT_EQ(Timeline::dropped_events(), dropped_before + 3);
 }
 
 /** @brief Clear hook that counts its invocations through its own ctx. */
