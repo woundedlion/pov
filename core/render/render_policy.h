@@ -29,7 +29,9 @@ inline constexpr int POLE_LOD_MAX_RUN = 32;
  * @details Horizontal pixel pitch scales with sin(phi). The column run is
  * aggressiveness / sin(phi); the footprint depends on the display aspect,
  * LED angular size and per-column exposure. At 0 every run is one column.
- * Firmware uses HS_POLE_LOD_DEFAULT as its hardware-calibrated value.
+ * Firmware has no setter and uses HS_POLE_LOD_DEFAULT, which is 0 unless
+ * overridden at build time. Zero compiles out the decimated walk; a nonzero
+ * value requires hardware calibration.
  */
 #ifndef HS_POLE_LOD_DEFAULT
 #define HS_POLE_LOD_DEFAULT 0.0f
