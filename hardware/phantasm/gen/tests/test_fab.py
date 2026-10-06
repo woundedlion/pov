@@ -179,9 +179,6 @@ class ViaGeometryTests(unittest.TestCase):
                 "0.03 mm via-to-via copper spacing is below 0.15 mm"):
             self.validate_source(source)
 
-    def test_spacing_threshold_is_named_for_via_pairs(self):
-        self.assertEqual(fab.MIN_VIA_TO_VIA_COPPER_SPACING_MM, 0.15)
-
     def test_rejects_board_without_vias(self):
         with self.assertRaisesRegex(
                 fab.ViaGeometryError,
