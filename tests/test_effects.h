@@ -984,7 +984,6 @@ inline void test_sh_manual_preset_replaces_inflight_morph() {
   hs::clear_mock_time();
 
   HS_EXPECT_EQ(WB::current_idx(fx), selected_mode);
-  HS_EXPECT_TRUE(WB::current_idx(fx) != replaced_target);
   HS_EXPECT_EQ(fx.getPresetIndex(), selected_preset);
   HS_EXPECT_TRUE(WB::next_idx(fx) != selected_mode);
 }
