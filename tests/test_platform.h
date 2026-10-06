@@ -401,13 +401,18 @@ inline void test_epoch_seed() {
   HS_EXPECT_TRUE(std::adjacent_find(draws.begin(), draws.end()) == draws.end());
 }
 
-/** @brief Pins stable effect seeds to case-sensitive effect identifiers. */
+/**
+ * @brief Pins stable effect seeds to case-sensitive effect identifiers.
+ * @details The literals are FNV-1a 64 of the identifier, xor 1337, through the
+ *          splitmix64 finalizer.
+ */
 inline void test_stable_effect_seed() {
-  constexpr uint64_t LATTICE_MELT_SEED = hs::stable_effect_seed("lattice-melt");
-  static_assert(LATTICE_MELT_SEED == hs::stable_effect_seed("lattice-melt"));
-  static_assert(LATTICE_MELT_SEED !=
+  constexpr uint64_t LATTICE_MELT_SEED = 0x8a8239b618698e89ULL;
+  constexpr uint64_t EMPTY_ID_SEED = 0x2e47f4ef9cdf08afULL;
+  HS_EXPECT_EQ(hs::stable_effect_seed("lattice-melt"), LATTICE_MELT_SEED);
+  HS_EXPECT_EQ(hs::stable_effect_seed(""), EMPTY_ID_SEED);
+  static_assert(hs::stable_effect_seed("lattice-melt") !=
                 hs::stable_effect_seed("kaleidoscope-smooth"));
-  HS_EXPECT_EQ(LATTICE_MELT_SEED, hs::stable_effect_seed("lattice-melt"));
   HS_EXPECT_TRUE(LATTICE_MELT_SEED != hs::stable_effect_seed("LatticeMelt"));
 }
 
