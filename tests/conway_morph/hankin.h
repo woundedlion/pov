@@ -15,32 +15,25 @@ struct HankinSweepSite {
   float theta_star;                     /**< Arrival contact angle, radians. */
 };
 
-inline PolyMesh probe_dodeca_hk62_ambo(Arena &a, Arena &b) {
-  using Solids::IslamicStarPatterns::D2R;
-  return Solids::SolidBuilder(Solids::Platonic::dodecahedron(a, b), a, b)
-      .hankin(62.0f * D2R)
-      .ambo()
-      .build();
-}
-inline PolyMesh probe_octahedron(Arena &a, Arena &b) {
-  return Solids::Platonic::octahedron(a, b);
-}
-inline PolyMesh probe_octa_hk17_ambo(Arena &a, Arena &b) {
-  using Solids::IslamicStarPatterns::D2R;
-  return Solids::SolidBuilder(Solids::Platonic::octahedron(a, b), a, b)
-      .hankin(17.0f * D2R)
-      .ambo()
-      .build();
+template <const Solids::Recipe &RECIPE, size_t OCCURRENCE>
+inline constexpr HankinSweepSite hankin_sweep_site(const char *name) {
+  size_t occurrence = 0;
+  for (size_t i = 0; i < RECIPE.count; ++i)
+    if (RECIPE.steps[i].op == Solids::Op::HANKIN && occurrence++ == OCCURRENCE)
+      return {name, recipe_step_seed<RECIPE, Solids::Op::HANKIN, OCCURRENCE>,
+              RECIPE.steps[i].param};
+  throw "hankin_sweep_site: recipe has no matching HANKIN step";
 }
 
 inline constexpr HankinSweepSite HANKIN_SWEEP_SITES[] = {
-    {"dodecahedron", probe_dodecahedron,
-     62.0f * Solids::IslamicStarPatterns::D2R},
-    {"dodecahedron_hk62_ambo", probe_dodeca_hk62_ambo,
-     62.0f * Solids::IslamicStarPatterns::D2R},
-    {"octahedron", probe_octahedron, 17.0f * Solids::IslamicStarPatterns::D2R},
-    {"octahedron_hk17_ambo", probe_octa_hk17_ambo,
-     73.0f * Solids::IslamicStarPatterns::D2R},
+    hankin_sweep_site<Solids::DODECAHEDRON_HK62_AMBO_HK62_RECIPE, 0>(
+        "dodecahedron"),
+    hankin_sweep_site<Solids::DODECAHEDRON_HK62_AMBO_HK62_RECIPE, 1>(
+        "dodecahedron_hk62_ambo"),
+    hankin_sweep_site<Solids::OCTAHEDRON_HK17_AMBO_HK73_RECIPE, 0>(
+        "octahedron"),
+    hankin_sweep_site<Solids::OCTAHEDRON_HK17_AMBO_HK73_RECIPE, 1>(
+        "octahedron_hk17_ambo"),
 };
 
 /**
