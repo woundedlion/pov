@@ -383,8 +383,8 @@ inline void test_opleg_medial_leg_smoke() {
  * medial's ([D-faces][D-vertex orbits] vs [P-faces][P-vertex orbits]). The
  * permutation is derived by exact centroid matching at the ambo point, and the
  * closing leg's from-palettes must follow it. A rendered A/B (leg-2 last frame
- * vs leg-3 first frame) must stay near one in-leg step. The needle site
- * (truncate(X, 1/3), unequal blocks) runs on the bridge arena split.
+ * vs leg-3 first frame) must stay near one in-leg step. Every site runs on the
+ * bridge arena split. The needle site (truncate(X, 1/3)) has unequal blocks.
  */
 inline void test_opleg_dual_bridge_seam_correspondence() {
   using Animation::OpLeg;
