@@ -782,3 +782,11 @@ inline void case_update_hankin_nonfinite_angle() {
   MeshOps::update_hankin(compiled, mesh, arena,
                          opaque(std::numeric_limits<float>::quiet_NaN()));
 }
+
+/** @brief Reconciliation cannot retain output in its scratch arena. */
+inline void case_reconcile_aliased_arenas() {
+  static uint8_t storage[64];
+  Arena arena(storage, sizeof(storage));
+  PolyMesh identity, authored, out;
+  MeshOps::reconcile_vertices(identity, authored, out, arena, arena);
+}
