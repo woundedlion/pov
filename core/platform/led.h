@@ -69,9 +69,6 @@ struct NoTempCorrection {
   NoTempCorrection &operator=(const NoTempCorrection &) = delete;
 };
 #else
-// The destructors reinstate the baseline (TypicalLEDStrip color, Candle
-// temperature), not the correction active at construction.
-
 /**
  * @brief Reinstates the engine's canonical baseline (TypicalLEDStrip color,
  * Candle temperature) and clears the guard liveness flag.
