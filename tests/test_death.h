@@ -2100,11 +2100,11 @@ inline void report_guard_coverage(const Case *cs, int n, const int *lines) {
     if (!in_census)
       ++off_census;
   }
-  std::printf("  guard coverage: %d/%d HS_CHECK sites pinned by a case (%d%%), "
-              "%d case(s) outside the census\n",
-              covered, GUARD_SITE_TOTAL,
-              GUARD_SITE_TOTAL ? covered * 100 / GUARD_SITE_TOTAL : 0,
-              off_census);
+  std::printf(
+      "  guard coverage: %d/%d fail-fast sites pinned by a case (%d%%), "
+      "%d case(s) outside the census\n",
+      covered, GUARD_SITE_TOTAL,
+      GUARD_SITE_TOTAL ? covered * 100 / GUARD_SITE_TOTAL : 0, off_census);
   std::printf("  widest gaps:");
   for (int slot = 0; slot < GAPS && worst[slot]; ++slot)
     std::printf(" %s %d/%d", worst[slot]->file,
