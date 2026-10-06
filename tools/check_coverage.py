@@ -31,9 +31,7 @@ def directory_coverage(document: object, directory: str) -> float:
     """Return the line percentage over one repository-relative directory.
 
     A directory the report names no file under -- or names only files with no
-    instrumented line -- is fatal, not vacuously covered: either would report
-    100% and satisfy any floor, and the aggregate floor already survives a
-    subsystem dropping out.
+    instrumented line -- is fatal, not vacuously covered.
     """
     if not isinstance(document, dict):
         raise ValueError("coverage document is not an object")

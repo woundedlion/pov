@@ -1,7 +1,6 @@
 #!/bin/bash
 # Advisory host-global, PER-BOARD lock for the bench Teensys. Source it, then
-# wrap any flash+capture in hs_device_acquire / hs_device_release
-# (profile_one.sh does).
+# wrap any flash+capture in hs_device_acquire / hs_device_release.
 #
 # Host: Windows + Git Bash. Board enumeration shells out to the PlatformIO
 # loader's teensy_ports.exe and matches COMn names. Acquisition requires an
@@ -38,19 +37,12 @@ _hs_lock_dir() {
 }
 _hs_now() { date +%s; }
 
-# Attached Teensys, one COM name per line, in the loader's own enumeration
-# order. teensy_ports.exe is the authority, not pyserial: the loader has been
-# seen listing a board pyserial no longer enumerated, and it is what the flash
-# resolves its USB location against. Empty output means no board is available;
-# acquisition waits for enumeration or fails before any build starts.
+# Attached Teensys, one COM name per line, in teensy_ports.exe's enumeration
+# order (the authority the flash resolves against, not pyserial). Empty output
+# means no board is available. A caller-set HS_TEENSY_PORT is checked against
+# that enumeration before it is handed back.
 #
-# A caller-set HS_TEENSY_PORT is checked against that enumeration before it is
-# handed back: a board replugged onto a new COM name leaves the old pin naming
-# nothing, and claiming it locks a port no board answers on — the run then
-# builds two full images before the flash reports the miss. rc 1 = the pin is
-# not attached.
-#
-# rc 2 = enumeration failed. Claims require an attached port.
+# rc 1 = the pin is not attached; rc 2 = enumeration failed.
 hs_device_ports() {
   local tools=${HS_TEENSY_TOOLS:-${PLATFORMIO_CORE_DIR:-$HOME/.platformio}/packages/tool-teensy}
   local attached="" listing rc=0 enumerated=0
@@ -217,9 +209,7 @@ hs_device_acquire() {
   local effect=$1 env=$2 eta=$3
   local waited=0 wait_for=${HS_DEVICE_WAIT:-0} forced=0 p port d
   _hs_resolve_python || return 2
-  # No claim can be recorded under a path that does not exist, and a claim
-  # that cannot be recorded is indistinguishable from a busy board: the
-  # status line then reads "ALL DEVICES BUSY" over a list of free ones.
+  # A claim that cannot be recorded would read as a busy board.
   local root; root=$(dirname "$(_hs_lock_base)")
   if [ ! -d "$root" ]; then
     echo "device: lock root $root does not exist, so no claim can be recorded." >&2
@@ -250,8 +240,7 @@ hs_device_acquire() {
         [ "$?" -eq 1 ] || return 2
       fi
     done
-    # Only once every board is busy: breaking a claim is a last resort, so a
-    # stale lock on board A must never be preferred over a free board B.
+    # Stale locks are broken only once every board is busy.
     for p in $ports; do
       port=$p
       d=$(_hs_lock_dir "$port")
@@ -284,9 +273,8 @@ hs_device_acquire() {
         return 0
       fi
     fi
-    # hs_device_status returns 1 when no board is claimable, which is exactly
-    # the case reached here. Left as the statement's own status under a
-    # caller's `set -e`, that aborts the run instead of queueing for a board.
+    # hs_device_status returns 1 here; `|| :` keeps a caller's `set -e` from
+    # aborting the run.
     if [ "$wait_for" -gt 0 ] && [ "$waited" -lt "$wait_for" ]; then
       if [ "$waited" = 0 ]; then
         echo "ALL DEVICES BUSY — waiting up to ${wait_for}s" >&2

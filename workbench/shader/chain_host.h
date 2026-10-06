@@ -556,9 +556,8 @@ private:
   Resources *resources = nullptr;
   GeneratedPaletteBank generated_palettes;
 
-  // Against the browser module's arena, not the build's: this effect never
-  // reaches the device, and the host suite's arena is far too loose to catch a
-  // widened chain arena before it traps at construction in the browser.
+  // Against the browser module's arena, not the build's: this effect runs only
+  // in the browser.
   static constexpr size_t FOOTPRINT_BYTES =
       PARAM_CAPACITY * sizeof(ParamDef) + sizeof(Resources) +
       alignof(Resources) +

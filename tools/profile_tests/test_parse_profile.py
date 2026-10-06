@@ -1,9 +1,6 @@
 #!/usr/bin/env python3
 """Host tests for the profile log parser (tools/parse_profile.py).
 
-Covers capture parsing, preset attribution, spill and render metrics, and
-command-line reporting and validation.
-
 Run:  python -m unittest discover -s tools/profile_tests
 """
 
@@ -27,7 +24,6 @@ def _window(renders=(), wall_sum=None, frames=None):
     """A Window carrying per-frame renders (us), or only a wall sum.
 
     Counters carry an fx_buffer_wait scope, so render_is_wall() is false.
-    RenderIsWall covers windows without a buffer_wait scope.
     """
     n = frames if frames is not None else len(renders)
     w = pp.Window("Fx", 288, 144, 1, n, 1)
@@ -110,9 +106,7 @@ class SpilledFrames(unittest.TestCase):
 class ShortFrameRows(unittest.TestCase):
     """A window whose per-frame rows do not cover its header frame range.
 
-    The rows are the spill numerator and the header range is its denominator,
-    so one row lost to the serial link turns a spilled capture into a clean
-    one and flips the cadence colour the profile reports are defined against.
+    The rows are the spill numerator and the header range is its denominator.
     """
 
     LOG = "\n".join([
@@ -212,8 +206,6 @@ class RenderIsWall(unittest.TestCase):
 
     def test_spill_uses_wall_formula_when_render_is_wall(self):
         # 4 frames, 8 windows of wall => 4 frames each took a second window.
-        # The per-frame >62.5ms test would also say 4 here, but it counts
-        # jitter above the boundary as a spill; the wall formula does not.
         self.assertEqual(pp.spilled_frames(self._w([125_000] * 4, wait_scope=False)), 4)
 
     def test_jitter_above_boundary_is_not_a_spill(self):
@@ -712,9 +704,7 @@ class ValidateRequiresData(unittest.TestCase):
 class ValidateCaptureIdentity(unittest.TestCase):
     """Every window of one capture names one effect at one resolution.
 
-    profile_one.sh greps the log for a foreign window name because a peer
-    flashing mid-capture splices its board's serial into ours; `validate` is
-    the mandatory pre-trust step and must catch the same splice.
+    A peer flashing mid-capture splices its board's serial into ours.
     """
 
     WINDOW = "\n".join([
@@ -795,9 +785,7 @@ class FramesMode(unittest.TestCase):
 class TruncatedTrailingWindow(unittest.TestCase):
     """A capture cut mid-dump leaves a header whose stats never arrived.
 
-    Read as a window, its frames enter the spill denominator unmeasured and its
-    absent per-frame render marks every OTHER window's exact peak a '~'
-    placeholder -- one severed serial line downgrading a whole run.
+    It must not be read as a window.
     """
 
     def _log(self, path, windows=3, truncated=False):
@@ -959,8 +947,7 @@ class BucketOrdering(unittest.TestCase):
         self.assertIn("43.47", row)
 
     def test_a_scope_no_window_carries_is_not_a_pass(self):
-        # A misspelled --scope leaves the guard nothing to compare, and the
-        # run that reads as ordered is one nothing was checked against.
+        # A misspelled --scope leaves the guard nothing to compare.
         status, _, err = self._run(34_940, 39_650, scope="shadre")
         self.assertEqual(status, 2)
         self.assertIn("shadre", err)
@@ -969,9 +956,7 @@ class BucketOrdering(unittest.TestCase):
 class TaggedCounterRows(unittest.TestCase):
     """Rows the firmware tagged MIXED-PARENT / DUPLICATE-NAME (profiling.h).
 
-    The tag follows the cycle count on the row it annotates. A regex ending at
-    `cyc` matches none of those rows, so the scope disappears from the parsed
-    tree and `validate` reports it missing from a log that carries it.
+    The tag follows the cycle count on the row it annotates.
     """
 
     LOG = "\n".join([

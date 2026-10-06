@@ -5,10 +5,9 @@ All decision logic lives in the toolchain-free, unit-tested tools/teensy_gate.py
 this file is glue: it locates the built ELF and the ARM tools, captures their
 output, and fails `pio run` on any violation.
 
-Why a post-ACTION that exits non-zero: a post-action that merely prints
-does NOT fail `pio run`; only a non-zero exit / raised exception propagates. So
-the gate raises on violation. Violations are emitted as GitHub `::error::`
-annotations first so they render inline on the PR (ci.yml convention).
+A post-action fails `pio run` only by exiting non-zero or raising, so the gate
+raises on violation, after emitting violations as GitHub `::error::`
+annotations.
 """
 
 import os
@@ -55,8 +54,7 @@ def _teensy_size_candidates(env):
     """Paths to probe for teensy_size: installed tool package first, PATH last.
 
     teensy_size ships inside the PlatformIO `tool-teensy` package and is not on
-    PATH, so a bare-name probe alone never finds it and the gate silently drops
-    to the uncalibrated `size -A` fallback.
+    PATH.
     """
     roots = []
     pio_platform = getattr(env, "PioPlatform", None)

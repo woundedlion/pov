@@ -2,7 +2,7 @@
 """Teensy 4 firmware size and memory-layout gate; stdlib only.
 
 Budgets in tools/teensy_budgets.json define region ceilings, DTCM stack-headroom
-floors and layout requirements. tools/teensy_gate_extra.py supplies build output.
+floors and layout requirements.
 Layout uses symbol runtime addresses (VMAs), not nm type letters; arena size must remain
 within [288 KiB, 320 KiB]. Missing configured symbols and malformed region lines
 fail validation. Budget loading rejects unknown keys and requires target regions,
@@ -83,12 +83,9 @@ class Violation:
 #   teensy_size: FLASH: code:62788, data:13684, headers:8460   free for files: 1979136
 #   teensy_size: RAM1: variables:343040, code:62240, padding:30496   free for local variables: 88512
 #   teensy_size: RAM2: variables:497920   free for malloc/new: 26368
-# The component blob and the "free for ..." figure are separated by run(s) of
-# whitespace whose width is not contractual — teensy_size has used 2+ spaces but
-# a single-space variant is a valid format the parser must not silently miss
-# (yielding a "region-missing" gate failure). `.*?` is lazy and "free for" is a
-# unique literal on the line, so `\s+` cannot over-consume the blob's own single
-# spaces (e.g. ", data:").
+# The component blob and the "free for ..." figure are separated by one or more
+# spaces. `.*?` is lazy and "free for" is a unique literal on the line, so `\s+`
+# cannot over-consume the blob's own single spaces (e.g. ", data:").
 _TS_REGION_RE = re.compile(
     r"\bteensy_size:\s*(FLASH|RAM1|RAM2):\s*(.*?)\s+free for [^:]+:\s*(-?\d+)",
     re.IGNORECASE,
@@ -105,9 +102,7 @@ class RegionSizes(TypedDict):
 
     `components` is present only when the figures came from `teensy_size`, which
     breaks each region down; the `size -A` fallback can only total sections, so
-    it omits the key entirely. evaluate() reports every configured per-component
-    ceiling as `component-missing` when it is absent, and run() refuses the
-    fallback outright for a budget that declares components.
+    it omits the key entirely.
     """
 
     used: int
@@ -370,9 +365,8 @@ def evaluate(
     result = GateResult(env=env)
     v = result.violations
 
-    # Both checks below iterate a budget key, so a budget carrying neither (a
-    # singular-key typo, a truncated edit) would satisfy every loop vacuously
-    # and report PASS. A gate that cannot fire is a hard failure.
+    # A budget carrying neither key would satisfy every loop vacuously; that
+    # is a hard failure.
     if not budget.get("regions") and not budget.get("symbols"):
         v.append(Violation(
             "budget-empty",
@@ -435,12 +429,9 @@ def evaluate(
     # --- Layout invariants: symbol -> region (+ magnitude) ---
     for key, spec in budget.get("symbols", {}).items():
         name = spec["name"]
-        # Consider only DEFINED symbol-table rows (real section + non-zero size).
-        # readelf -s can also carry a same-named UND reference row (size 0, ndx
-        # UND, null value); including it would spuriously trip "symbol-too-small"
-        # on its 0 size and mis-derive a region from address 0. The definition is
-        # the row that carries the object, so a name present ONLY as UND means the
-        # definition was removed/renamed -> still a hard "symbol-not-found" below.
+        # Consider only DEFINED symbol-table rows (real section + non-zero size);
+        # readelf -s can also carry a same-named UND reference row (size 0, null
+        # value). A name present ONLY as UND is "symbol-not-found".
         matches = [s for s in symbols
                    if s.name == name and s.ndx != "UND" and s.size > 0]
         if not matches:
@@ -582,10 +573,8 @@ _SYMBOL_REQUIRED_KEYS_BY_SYMBOL: dict[str, frozenset[str]] = {
     "arena": _SYMBOL_REQUIRED_KEYS | {"min_bytes", "max_bytes"},
 }
 
-# Region objects and layout symbols every target budget must declare. Both
-# loops in evaluate() iterate whatever the budget carries, so deleting a whole
-# object removes its ceiling / invariant with no violation and no unknown-key
-# error — the same false-green a misspelled key produces, one level up.
+# Region objects and layout symbols every target budget must declare; evaluate()
+# enforces only what the budget carries.
 _REQUIRED_REGIONS = frozenset({"flash", "ram1", "ram2"})
 _REQUIRED_SYMBOLS = frozenset({"arena", "framebuffer_a", "framebuffer_b"})
 
@@ -753,10 +742,9 @@ def validate_budgets(budgets: object) -> dict:
 def read_capture(path: str | Path) -> str:
     """Read captured toolchain output, replacing undecodable bytes.
 
-    A Windows `pio run -v 2>&1 | tee` interleaves cp1252 bytes into the stream.
-    A strict decode would raise out of main() and replace the gate's exit-code
-    contract with a traceback; the substituted bytes cannot reach a size figure,
-    which the parsers match as ASCII.
+    A Windows `pio run -v 2>&1 | tee` interleaves cp1252 bytes into the stream;
+    the substituted bytes cannot reach a size figure, which the parsers match as
+    ASCII.
     """
     return Path(path).read_text(encoding="utf-8", errors="replace")
 
@@ -796,8 +784,7 @@ def render_report(result: GateResult, *, github: bool = False) -> str:
 
 #: Exit code for a PASS produced from the uncalibrated `size -A` fallback.
 #: Distinct from 0 (calibrated PASS), 1 (violation) and 2 (the gate could not
-#: run: unknown env, unparseable `size -A`), so a caller can tell an advisory
-#: verdict from a real one by exit status alone.
+#: run: unknown env, unparseable `size -A`).
 EXIT_UNCALIBRATED_PASS = 3
 
 #: Note prefixed to any verdict computed from the `size -A` fallback.
@@ -809,11 +796,7 @@ UNCALIBRATED_NOTE = (
 
 
 def size_format_annotation(exc: ValueError) -> str:
-    """The `::error::` line an unparseable size capture earns.
-
-    Both gates print it: the CLI on stderr, the PlatformIO wrapper on the build
-    log SCons reads.
-    """
+    """The `::error::` line an unparseable size capture earns."""
     source = ("teensy_size output" if isinstance(exc, TeensySizeFormatError)
               else "`size -A` output")
     return (f"::error::teensy-gate: invalid {source} ({exc}). This is a "
@@ -825,9 +808,7 @@ def verdict(env: str, budget: dict, sizes: dict[str, RegionSizes],
             uncalibrated: bool, github: bool) -> tuple[str, int]:
     """Evaluate one env and render it; returns (report, exit code).
 
-    An uncalibrated PASS exits distinctly: the ADVISORY note is only visible to
-    a human reading the log, and a caller that reads the status alone would
-    otherwise accept a bucketed guess as a calibrated verdict.
+    An uncalibrated PASS exits with EXIT_UNCALIBRATED_PASS.
     """
     result = evaluate(env, budget, sizes, symbols, sections)
     if uncalibrated:

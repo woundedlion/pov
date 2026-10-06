@@ -4,28 +4,24 @@
  *
  * Host relax-bake generator. Compiled with HS_RELAX_BAKE_EXTRACT, every
  * SolidBuilder::relax_baked() call reproduces its payload by using
- * `bake.iterations` as the smoothing iteration cap and logs a RELAX_BAKE block (see
- * core/mesh/solid_builder.h). Running every bake-bearing generator once therefore
- * emits the full asset stream on stdout; tools/relax_bakes.py parses it into
- * core/mesh/relax_bakes_generated.h. Because host relax is deterministic, the
- * emitted bits load unchanged on both host and device.
+ * `bake.iterations` as the smoothing iteration cap and logs a RELAX_BAKE block,
+ * so running every bake-bearing generator once emits the full asset stream on
+ * stdout for tools/relax_bakes.py.
  *
  * Authoring: add or retune names and iterations in core/mesh/relax_bake_specs.h.
  * Ensure main() reaches each new generator, rebuild relax_bake_gen, regenerate,
  * and run relax_bake_verify. Raise MIN_RELAX_BAKES_VERIFIED for each added step.
  *
  * Compiled with HS_RELAX_BAKE_VERIFY instead, the same sweep asserts each
- * re-derivation against the committed payload (the unit_relax_bake_verify gate).
+ * re-derivation against the committed payload.
  */
 #include <cstdint>
 #include <cstdio>
 #include "core/mesh/solids.h"
 
 #if defined(HS_RELAX_BAKE_VERIFY)
-// relax_baked() steps the registries must reach. The assertions live inside
-// relax_baked(), so a sweep that reaches none of them still exits 0; this floor
-// is what distinguishes a passing gate from a gate that scored nothing. Raise it
-// for a new baked step; lower it only when one is deliberately retired.
+// relax_baked() steps the registries must reach; a sweep reaching none of them
+// still exits 0.
 static constexpr int MIN_RELAX_BAKES_VERIFIED = 21;
 #endif
 

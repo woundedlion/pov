@@ -15,9 +15,8 @@
 # HS_DEVICE_WAIT=<s> queues for a free board; HS_TEENSY_PORT=<COMn> pins one board.
 #
 # HS_PROFILE_DEEP=1 additionally enables the HS_PROFILE_DEEP sub-scopes (the
-# per-pixel/per-cell/per-face counters in shared render code, off by default
-# because they tax every effect's numbers). A deep capture writes its own
-# _deep.log so it cannot overwrite the roster log the standard reports cite.
+# per-pixel/per-cell/per-face counters in shared render code) and writes its
+# own _deep.log.
 #
 # The checkout containing this script is built by default, so linked worktrees
 # keep their logs and object directories isolated. HS_PROFILE_TREE=<path>
@@ -96,10 +95,7 @@ esac
 MODE_SUFFIX="${REPLAY_SUFFIX}${MSP_SUFFIX}"
 OUT=${HS_PROFILE_OUT:-build/prof/${LOWER}_${TAG}${DEEP_SUFFIX}${MODE_SUFFIX}.log}
 # Every per-run artifact hangs off the log's own stem, so HS_PROFILE_OUT moves
-# the whole set. Spelling out the default naming here instead would let an
-# overridden run (profile_islamic_big.sh) write its ELFs, maps, build logs and
-# envdumps over the standard run's, and leave the standard run's .provenance
-# naming the other configuration's ELF.
+# the whole set.
 STEM=${OUT%.log}
 PROVENANCE_OUT=$STEM.provenance
 PROFILE_BUILD_LOG=${STEM}_build.log
@@ -269,10 +265,8 @@ capture() {
   echo "=== $EFFECT [$ENV] board=${HS_TEENSY_PORT:-auto} window=$WINDOW seconds=$SECONDS_ARG deep=${DEEP:-off} extra='$EXTRA'"
   build_and_attest
   hs_teensy_flash "$ENV"
-  # Let the capture's stderr through: it dies on a device trap (USB drops) and
-  # on a port already held by a peer, and those look identical from the exit
-  # code alone. Under set -e this aborts the run, so without the message the
-  # failure reaches the caller with no reason attached.
+  # Let the capture's stderr through: a device trap and a port held by a peer
+  # share an exit code.
   if ! "$_HS_LOCK_PYTHON" tools/profile_capture.py --seconds "$SECONDS_ARG" --out "$OUT" >/dev/null; then
     echo "CAPTURE FAILED (device trap, or port held by a peer?): $OUT" >&2
     return 1
@@ -335,10 +329,8 @@ verify() {
       echo "NO '$MSP_MARKER' INSTRUMENTATION; stale build?"; return 1;
     }
   fi
-  # A flash that did not take leaves the previous image running, and the name
-  # checks above pass whenever it happens to be the same effect (an -Os log
-  # then publishes as the -O3 twin). The frame counter is the tell: a freshly
-  # flashed board starts at 1, and the capture attaches within the 30 s
+  # A flash that did not take leaves the previous image running. A freshly
+  # flashed board starts at frame 1 and the capture attaches within the 30 s
   # connect window, so a first frame past ~600 means no reboot happened.
   local first
   first=$(grep -m1 -oE "^f [0-9]+" "$OUT" | awk '{print $2}')
@@ -348,10 +340,8 @@ verify() {
 }
 
 # Armed before the claim: hs_device_release is a no-op until this shell holds a
-# token, so an early trap cannot touch a peer's lock, while arming it after the
-# claim leaks the lock dir on a signal in that gap. A signal handler that
-# returns resumes the script, which would then flash and capture a board the
-# release just freed, so INT/TERM exit and leave the release to the EXIT trap.
+# token. INT/TERM exit, leaving the release to the EXIT trap, so the script
+# never resumes onto a released board.
 trap cleanup EXIT
 trap 'exit 130' INT
 trap 'exit 143' TERM

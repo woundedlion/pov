@@ -262,8 +262,6 @@ int main(int argc, char **argv) {
       refresh ? frozen.id
               : "heavy_search_v1_p" + std::to_string(selected->preset) + "_f" +
                     std::to_string(selected->frame);
-  // No compiler identity here: it would pin the corpus to the machine that
-  // baked it, so a regenerate-and-diff check could never reproduce the file.
   const std::string source =
       refresh
           ? frozen.source

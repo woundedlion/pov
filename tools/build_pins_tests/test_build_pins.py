@@ -1,17 +1,6 @@
 #!/usr/bin/env python3
 """Host tests for the build-pin gate (tools/build_pins.py).
 
-The gate is the single source for every externally-installed version, and each
-check reads a foreign file shape: duplicates_pin scans workflow
-YAML using each line and the two above it, check_engine_ranges parses package.json's `>=X`
-string, and _version_tuple compares versions of unequal width. A drift in any
-of those shapes makes the check detect nothing while still printing PASS.
-
-The install-set check reads CMake rules in CMakeLists.txt's install() rules; a
-rule it stops recognising silently exempts those files from their line-ending
-pin. The FlexRAM check reads tools/phantasm.ld's derived symbols, and
-is the only tie between the budgets, the size gate and the linker script.
-
 Run:  python -m unittest discover -s tools/build_pins_tests
 """
 
@@ -310,12 +299,7 @@ class InlinePins(unittest.TestCase):
 
 
 class UnreadableScannedFile(unittest.TestCase):
-    """A renamed scanned path is an error line, not a traceback out of the hook.
-
-    Every scanned path is named in a table here, so a rename leaves the table
-    pointing at nothing; the pre-commit hook runs these checks, and a
-    FileNotFoundError there reports no finding at all.
-    """
+    """A renamed scanned path is an error line, not a traceback out of the hook."""
 
     def test_a_missing_inline_scan_entry_is_reported(self):
         missing = bp.ROOT / "no-such-build-file.yml"
@@ -376,13 +360,7 @@ class ConsumerCallSites(unittest.TestCase):
 
 
 class CheckTool(unittest.TestCase):
-    """--check-tool holds PATH to the pin, so it must be able to reach it.
-
-    A pin naming a git ref, a file digest or an SDK has no `--version` to
-    compare, and the install command differs per pin: the PyPI distribution of
-    `just` is rust-just, of `shellcheck` is shellcheck-py, and clang, Node,
-    Doxygen and Python do not come from pip at all.
-    """
+    """--check-tool holds PATH to the pin, so it must be able to reach it."""
 
     def _check(self, name, stdout):
         import contextlib
@@ -434,8 +412,7 @@ class CheckTool(unittest.TestCase):
             self.assertNotIn(name, bp.CHECK_TOOLS)
 
     def test_a_major_only_pin_is_met_by_a_release_of_that_major(self):
-        # clang's pin is a major; the binary reports the full version, which
-        # an equality test could never satisfy.
+        # clang's pin is a major; the binary reports the full version.
         self.assertEqual(
             self._check("clang", f"Ubuntu clang version {bp.INLINE_PINS['clang']}.1.8 (tags/x)")[0], 0)
         self.assertEqual(self._check("python", f"Python {bp.INLINE_PINS['python']}.9")[0], 0)
@@ -456,7 +433,7 @@ class CheckTool(unittest.TestCase):
 
     def test_a_packaging_suffix_is_not_expected_from_the_binary(self):
         # shellcheck-py's version is the release plus a suffix; shellcheck
-        # reports the release, so the pin was unsatisfiable by equality.
+        # reports only the release.
         pin = bp.PINS["shellcheck"]
         status, message = self._check(
             "shellcheck", "ShellCheck - shell script analysis tool\n"

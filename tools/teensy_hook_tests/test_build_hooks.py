@@ -2,11 +2,7 @@
 """Host tests for the PlatformIO build hooks (platformio.ini extra_scripts).
 
 Each hook is executed against a fake SCons construction environment and its
-build effects asserted directly: include classification, linker maps, reduced
-libc selection and sketch discovery. teensy_isystem fails if no vendored include
-directory is demoted. No ARM toolchain or PlatformIO is required.
-
-tools/teensy_gate_extra.py is covered by tools/teensy_gate_tests.
+build effects asserted directly. No ARM toolchain or PlatformIO is required.
 
 Run:  python -m unittest discover -s tools/teensy_hook_tests
 """
@@ -157,8 +153,7 @@ class TestExtraScriptsExist(unittest.TestCase):
 class TestBudgetedEnvsWireTheGate(unittest.TestCase):
     """The size/layout gate is a post hook, not a build step, and the envs that
     skip it re-type their extra_scripts block by hand (list options do not
-    merge). A budgeted env that loses the line builds green with no ceiling
-    enforced -- `pio run` and the teensy-size job both stay silent."""
+    merge)."""
 
     def test_configuration_uses_no_unresolved_extends(self):
         cfg = _pio_config()
@@ -206,10 +201,9 @@ class TestRequiredHooksReachEveryEnv(unittest.TestCase):
                                   f"env '{name}' does not wire {script}")
 
     def test_every_base_hook_but_the_gate_reaches_every_env(self):
-        # Derived from [env], not from REQUIRED_SCRIPTS: a hook added there that
-        # the re-typing envs never pick up is otherwise invisible, because the
-        # hand-maintained tuple only has to be a subset of what [env] declares.
-        # The gate hook is the one line those envs drop on purpose.
+        # Derived from [env], not from REQUIRED_SCRIPTS, which only has to be a
+        # subset of what [env] declares. The gate hook is the one line those
+        # envs drop on purpose.
         cfg = _pio_config()
         base = [s for s in _option_lines(cfg, "env", "extra_scripts")
                 if s != GATE_SCRIPT]

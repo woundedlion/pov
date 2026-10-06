@@ -1,11 +1,8 @@
 #!/usr/bin/env python3
 """Host tests for the shared Teensy device lock (tools/device_lock.sh).
 
-Bench boards are shared by concurrent sessions, and the failure mode is
-silent both ways: an evicted holder's capture gets spliced across two firmware
-images, and the evictor can capture the peer's firmware under its own effect
-name. So staleness must never fire on a claim whose owner is alive -- these
-drive _hs_lock_is_stale through bash directly.
+Staleness must never fire on a claim whose owner is alive; these drive
+_hs_lock_is_stale through bash directly.
 
 Run:  python -m unittest discover -s tools/profile_tests
 """
@@ -219,8 +216,7 @@ class LockStaleness(unittest.TestCase):
 
 class LockBreak(unittest.TestCase):
     """Evicting a stale claim. Two peers can judge one claim stale at the same
-    moment, so the eviction itself has to pick a single winner -- otherwise the
-    loser deletes the winner's fresh lock and both flash the same board."""
+    moment, so the eviction itself has to pick a single winner."""
 
     def setUp(self):
         self.root = Path(tempfile.mkdtemp())
@@ -430,8 +426,7 @@ class BoardSelection(unittest.TestCase):
         self.assertIn("ALL DEVICES BUSY", r.stderr)
 
     def test_free_board_is_preferred_over_breaking_a_stale_lock(self):
-        # Breaking a claim is a last resort; a stale lock on one board must
-        # never be taken while another board sits free.
+        # A stale lock is never broken while another board sits free.
         self.hold("COM3", deadline_in=-(GRACE + 60), pid=self._dead_pid())
         r = run_lock('hs_device_acquire E profile 60 && echo "PORT=$HS_TEENSY_PORT"',
                      self.base)
@@ -579,8 +574,8 @@ class BoardSelection(unittest.TestCase):
         self.assertNotIn("UNREACHED", r.stdout)
 
     def test_release_survives_errexit(self):
-        # profile_one.sh runs under `set -e`; a declined release must not abort
-        # the caller mid-teardown.
+        # Under a caller's `set -e`, a declined release must not abort
+        # mid-teardown.
         script = ('set -e; hs_device_acquire E profile 60; '
                   f'echo token=peer > "{self.base}-COM3.d/info"; '
                   'hs_device_release; echo DONE')
@@ -636,8 +631,7 @@ class MissingLockRoot(unittest.TestCase):
 class PinnedPortEnumeration(unittest.TestCase):
     """A caller-set HS_TEENSY_PORT is checked against the loader's board list.
 
-    A board replugged onto a new COM name leaves the old pin naming nothing, and
-    locking a port no board answers on only surfaces after two image builds.
+    A board replugged onto a new COM name leaves the old pin naming nothing.
     """
 
     def setUp(self):

@@ -1,14 +1,8 @@
 #!/usr/bin/env python3
 """Host tests for the Teensy serial capture (tools/profile_capture.py).
 
-The failure modes worth pinning are the ones a profiling session actually hits
-and cannot see: two Teensys attached, where enumeration order decides which
-board the capture reads, and a port another session still holds, where the
-retry window has to expire into a diagnosable exit rather than a hang or a
-half-written log.
-
-pyserial is not installed in the CI lane, so the transport is stubbed here
-before the module under test imports it; every test drives that stub.
+The pyserial transport is stubbed before the module under test imports it;
+every test drives that stub.
 
 Run:  python -m unittest discover -s tools/profile_tests
 """

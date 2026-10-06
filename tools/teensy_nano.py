@@ -1,21 +1,16 @@
 Import("env")
 # ============================================================================
-# newlib-nano for the Phantasm size build (the platformio.ini size relief
-# valve). nano swaps in the reduced libc/libstdc++ (libc_nano/
-# libstdc++_nano): smaller stdio, malloc, and an integer-only printf whose float
-# path is gated behind a `_printf_float` weak reference we deliberately do NOT
-# request — the device formats no floats — so newlib's _dtoa_r + the %f/%g bignum
-# helpers never link.
+# newlib-nano for the Phantasm size build: the reduced libc/libstdc++ with an
+# integer-only printf (no `_printf_float` reference is requested, so newlib's
+# float formatting never links).
 #
-# --specs=nano.specs must reach the LINK step (that is where the library is
-# selected); a flag placed only in build_flags reaches the compiler but not the
-# linker, so nano silently does not engage. Add it to CCFLAGS (shared by C and
-# C++ — a C++ command is `$CXXFLAGS $CCFLAGS`, so adding to CXXFLAGS too would
-# include nano.specs twice on one command and gcc fatals: "spec 'link' already
-# defined as nano_link") and to LINKFLAGS, each exactly once.
+# --specs=nano.specs must reach the LINK step; a flag only in build_flags never
+# reaches the linker. It goes to CCFLAGS (a C++ command is
+# `$CXXFLAGS $CCFLAGS`, so adding it to CXXFLAGS too repeats it and gcc fatals:
+# "spec 'link' already defined as nano_link") and to LINKFLAGS, each exactly
+# once.
 #
-# Safe to mix here because PlatformIO compiles the Teensy core and FastLED from
-# source under these same flags, so the whole image shares nano's _reent/stdio
-# ABI — the usual "prebuilt core built against full newlib" hazard does not apply.
+# The Teensy core and FastLED compile from source under these same flags, so the
+# whole image shares nano's _reent/stdio ABI.
 # ============================================================================
 env.Append(CCFLAGS=["--specs=nano.specs"], LINKFLAGS=["--specs=nano.specs"])

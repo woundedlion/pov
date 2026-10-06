@@ -86,8 +86,7 @@ def main():
     end = time.monotonic() + args.seconds
     captured = 0
     tail = deque(maxlen=20)
-    # An interrupted capture must still release the port: profile_one.sh
-    # retries immediately, and a held port fails that retry too.
+    # An interrupted capture must still release the port.
     try:
         with contextlib.closing(ser), \
                 open(args.out, "w", encoding="utf-8", newline="\n") as f:

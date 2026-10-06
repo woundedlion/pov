@@ -24,21 +24,10 @@ using WhiteBox = hs_test::effects_tests::MindSplatterWhiteBox;
 /**
  * @brief Visual bounds for the two replay oracles.
  * @details The reference terms bound single-pass sample phasing: the candidate
- * against a reference render produced by the same binary. Measured over the
- * corpus frame, 6,767 changed pixels (16.3%), 11,907 changed channels (9.6%),
- * peak channel error 2,298, total absolute error 120,849 (0.97 counts per
- * channel). The sparse trail's longer edges amplify the optimized transform's
- * numerical drift; changed channels retain 1.15x headroom, and the other
- * reference bounds retain roughly 1.5-2x headroom.
- * @details The corpus terms bound the candidate against the exact Clang 22
- * golden, so they admit supported host-toolchain codegen drift. Windows Clang
- * 23 Debug, optimized and sanitized builds measure at most 7,488 on one
- * channel, 56,575 total, 14,018 luminance and 11,496 luminance bias. The
- * bounds retain 25-35% headroom. Lit coverage is unchanged, so the fringe and
- * coverage terms keep their small absolute budgets.
- * @details Every area bound is a whole-frame budget, so a clipped pass spends
- * it over fewer pixels. The per-pixel densities do not scale down with the
- * region: the peak-workload quadrant carries the frame's densest splats.
+ * against a reference render produced by the same binary. The corpus terms
+ * bound the candidate against the exact Clang 22 golden, so they admit
+ * host-toolchain codegen drift. Every area bound is a whole-frame budget, so a
+ * clipped pass spends it over fewer pixels.
  */
 struct VisualGate {
   static constexpr uint32_t PIXELS = WIDTH * HEIGHT;

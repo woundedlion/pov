@@ -1,19 +1,11 @@
 #!/usr/bin/env python3
 """Run `pio run` for the given Teensy envs and append a combined memory table.
 
-`just teensy-size` drives this wrapper instead of calling pio directly. It
-streams the pio output unchanged, then re-prints the per-env teensy_size
-FLASH/RAM1/RAM2 details — which otherwise scroll past one env at a time — as a
-single side-by-side table after PlatformIO's own summary. The pio exit code is
-propagated, so a size-gate or compile failure still fails the recipe.
+Streams the pio output unchanged, then re-prints the per-env teensy_size
+FLASH/RAM1/RAM2 details as a single side-by-side table after PlatformIO's own
+summary. The pio exit code is propagated.
 
-Stdlib only; the teensy_size line parsing is teensy_gate.parse_teensy_size, so
-the table and the gate can never disagree about what a line means.
-
-With no argument every environment platformio.ini declares is built -- the set a
-bare `pio run` covers, which is also the set the warning gate expects -- so a
-new image is built and reported without a second list to edit here. Size/layout
-budgets are enforced only in environments enabling teensy_gate_extra.py.
+With no argument every environment platformio.ini declares is built.
 
 Run:  python tools/teensy_size_table.py [--record-trail] [<env> ...]
 """

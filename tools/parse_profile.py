@@ -138,9 +138,8 @@ class Window:
         self.wall = None  # (min, avg, max, sum)
         self.render = None  # (avg, max) per-frame render us (wall - sync wait)
         # per-frame (n, wall_us, render_us, owner_marker), when logged. The
-        # owner is stamped per FRAME, not per window: a window straddling a
-        # preset advance holds frames of both, so only the frame carries a
-        # truthful attribution.
+        # owner is stamped per FRAME: a window straddling a preset advance
+        # holds frames of both.
         self.frame_rows = []
         self.counters = {}  # label -> dict(us, pct, calls, cyc, depth)
         self.marker = None  # active preset marker at this window
@@ -183,26 +182,19 @@ class Window:
         """The telemetry's render is really wall: the effect has no wait scope.
 
         Profile.ino derives each frame's render as wall minus the effect's
-        *_buffer_wait counter delta. An effect that never opens such a scope
-        yields a zero delta, so the "peak render" would silently be a peak WALL
-        -- render plus the sync idle, quantized up to a whole display window.
+        *_buffer_wait counter delta, which is zero without such a scope.
 
         Read from the counter tree, not from per-frame equality: a saturated
-        window has no idle left to subtract (the firmware computes the wait by
-        integer-us division, so a sub-microsecond one reads 0) and its rows
-        carry render == wall while its scope is present and its renders exact.
+        window legitimately carries render == wall.
         """
         return not any(label.endswith("buffer_wait") for label in self.counters)
 
     def peak_render_ms(self):
         """(ms, exact) worst frame's render.
 
-        Exact from the per-frame telemetry when the capture has it; otherwise
-        a placeholder: this window's MEAN render, which understates the peak
-        it stands in for. Wall time is render + sync wait, so its max is not a
-        peak render and is never used here -- including when the telemetry
-        itself is wall for want of a *_buffer_wait scope, which falls back to
-        the same placeholder rather than passing wall off as a render peak.
+        Exact from the per-frame telemetry when the capture has it and it is
+        not wall; otherwise a placeholder: this window's MEAN render, which
+        understates the peak.
         """
         if self.render and not self.render_is_wall():
             return (self.render[1] / 1000.0, True)
@@ -213,12 +205,8 @@ class Window:
 def parse_capture(path):
     """Return (windows, effect_name). Markers are attached to trailing windows.
 
-    A marker logged mid-window (the effect advanced during a frame, so frames of
-    the OUTGOING preset already streamed into the open window) takes effect at
-    the next window boundary. Attaching it to the window about to close would
-    credit the outgoing preset's frames -- up to 15 of the 16 -- to the incoming
-    one, which reads as a spurious peak on whichever preset follows an expensive
-    one. A marker logged between windows applies immediately.
+    A marker logged mid-window takes effect at the next window boundary; one
+    logged between windows applies immediately.
     """
     windows = []
     cur = None
@@ -354,8 +342,7 @@ def parse_capture(path):
                 break
     # dump() logs the header, the wall/render stats and the counter tree in
     # that order, so a capture cut mid-dump leaves a trailing header whose
-    # window was never measured. Kept, it would put unmeasured frames in the
-    # spill denominator and mark every window's peak a placeholder.
+    # window was never measured.
     if (len(windows) > 1 and not windows[-1].counters
             and any(w.counters for w in windows[:-1])):
         cut = windows.pop()
@@ -386,12 +373,7 @@ def dominant_scope(windows):
 
 
 def frame_rows_complete(w):
-    """Every frame of the window's header range arrived as a per-frame row.
-
-    The rows are the spill numerator and the header range is its denominator,
-    so a row lost to a severed serial line would shrink the count without
-    shrinking what it is read against -- a spilled capture reading clean.
-    """
+    """Every frame of the window's header range arrived as a per-frame row."""
     return len(w.frame_rows) == w.frames
 
 
@@ -399,8 +381,7 @@ def spilled_frames(w):
     """Frames of this window that took >1 display window (62.5 ms).
 
     Counts FRAMES, not missed flips: a 180 ms frame misses two flips but is one
-    spilled frame, so spilled/frames stays a true fraction the cadence colour
-    thresholds can be read against.
+    spilled frame.
     """
     if frame_rows_complete(w) and not w.render_is_wall():
         # Renders start flip-aligned (the buffer_free gate opens at a flip),
@@ -408,15 +389,9 @@ def spilled_frames(w):
         return sum(1 for f in w.frame_rows if f[2] > DISPLAY_WINDOW_US)
     if not w.wall:
         return 0
-    # Either the per-frame rows are absent or short, or they carry wall for
-    # want of a *_buffer_wait scope. Wall already includes the sync idle and
-    # quantizes to whole windows, so testing it against one window would count
-    # jitter above 62.5 as a spill; the sum-derived estimate below is the
-    # treatment wall data gets either way.
-    # Without usable per-frame rows only the window's wall sum is known, and it
-    # gives the extra windows consumed (= missed flips), which bounds the
-    # spilled frames from above: at most every frame spilled. Marked '~' at the
-    # callers.
+    # Without usable per-frame render rows, the window's wall sum gives the
+    # extra windows consumed (= missed flips), an upper bound on spilled
+    # frames. Marked '~' at the callers.
     extra = max(0, round(w.wall[3] / DISPLAY_WINDOW_US) - w.frames)
     return min(extra, w.frames)
 
@@ -425,9 +400,7 @@ def cmd_windows(windows, scope):
     print(f"# window  frames        {scope} ms/f  calls/f  wall_ms  "
           f"peak_ms  spill  marker")
     # peak_ms is the worst frame's RENDER: exact from the per-frame telemetry,
-    # else '~' = the worst window's MEAN render as a placeholder until the
-    # effect is re-captured. Wall time is render + the display-sync wait, so
-    # its max is not a peak render and is never substituted here.
+    # else '~' = the worst window's MEAN render as a placeholder.
     agg_spill, agg_frames = 0, 0
     worst_peak = 0.0
     worst_peak_w = None
@@ -535,23 +508,15 @@ def cmd_presets(windows, scope, gate):
 def cmd_buckets(windows, scope, gate):
     """Per-preset cadence buckets: how many presets hold 16 fps vs spill.
 
-    A preset owns the FRAMES its marker was in force for, not whole windows: the
-    window straddling an advance holds frames of both the outgoing and incoming
-    preset, so crediting it to either invents a peak the preset never rendered
-    (whichever preset neighbours an expensive one inherits its cost). Per-frame
-    attribution needs the per-frame telemetry; without it this falls back to the
-    window-level split, which carries that error.
-
-    A preset's bucket holds every frame it was on screen for, including its
-    transitions in and out, so its peak render is over a superset of the frames
-    its clean holds average: a clean-hold scope time above the peak render is
-    arithmetically impossible and fails the run rather than reaching a report.
+    A preset owns the FRAMES its marker was in force for, including its
+    transitions in and out; without per-frame telemetry this falls back to the
+    window-level split. A clean-hold scope time above the peak render is
+    therefore impossible and fails the run.
 
     Colour is binary: no spill anywhere is green; any spilled frame is red.
     """
-    # The ordering guard compares the clean-hold scope time against the peak
-    # render. A scope no window carries yields no clean-hold rows, so the
-    # comparison has nothing to fail on and the run would certify itself.
+    # A scope no window carries yields no clean-hold rows for the ordering
+    # guard to compare.
     if not any(scope in w.counters for w in windows):
         print(f"no window carries the counter '{scope}': nothing for the "
               f"ordering guard to read", file=sys.stderr)
@@ -637,8 +602,7 @@ def cmd_metrics(windows):
     `shade` the ones that then survived the alpha test, read from the
     raster_shade scope's call count (the two differ by the alpha-rejected AA
     fringe). This scope needs HS_PROFILE_DEEP=1 as well as HS_SCAN_METRICS.
-    Missing shade counts and ratios are n/a. probes/shade is the figure a
-    cycles-per-probe estimate divides by.
+    Missing shade counts and ratios are n/a.
     """
     have = [w for w in windows if w.scan]
     if not have:
@@ -736,9 +700,7 @@ def cmd_probe(windows):
         mean = agg[stage] / den
         net = mean - read
         net_per_probe[stage] = net * den / probes
-    # Every printed stage is summed, negatives included: a stage whose mean
-    # falls below the measured read cost nets below zero, and dropping it from
-    # the total alone leaves a column that does not add up to what it prints.
+    # Every printed stage is summed, negatives included, so the column adds up.
     total = sum(net_per_probe.values())
     for stage, den_key in PROBE_STAGES:
         if stage not in net_per_probe:
@@ -854,8 +816,7 @@ def cmd_validate(windows, effect, scope):
     check(len(windows) >= 3, f"captured >=3 windows ({len(windows)})")
 
     # One capture is one effect at one resolution. A second name or geometry
-    # is a peer board's serial spliced into this log, and every aggregate
-    # below then averages two different runs into one number.
+    # is a peer board's serial spliced into this log.
     configs = sorted({(w.effect, w.w, w.h) for w in windows})
     check(len(configs) == 1,
           "every window names one effect and resolution ("
@@ -904,12 +865,7 @@ def cmd_validate(windows, effect, scope):
               f"shape markers advance and return to the first (cycle closed): {distinct} distinct")
 
     # Per-frame render telemetry is only render if the effect opened a
-    # *_buffer_wait scope for Profile.ino to subtract; without one it is wall,
-    # and every peak it feeds is a peak WALL wearing a render's name.
-    # The diagnosis belongs on the failing branch only: on the passing one it
-    # asserts the opposite of what was just measured, and a reader who takes it
-    # at face value carries "this effect has no buffer_wait scope" away from a
-    # run that proved it has one.
+    # *_buffer_wait scope for Profile.ino to subtract; without one it is wall.
     have_render = [w for w in windows if w.render or w.frame_rows]
     wall_render = [w for w in have_render if w.render_is_wall()]
     check(not wall_render,
@@ -918,9 +874,7 @@ def cmd_validate(windows, effect, scope):
           + (": the effect opens no *_buffer_wait scope)" if wall_render
              else ")"))
 
-    # A window short of its header range has lost rows to the serial link; the
-    # spill count it feeds is then a numerator over a denominator it no longer
-    # covers, which reads as a cleaner cadence than the capture measured.
+    # A window short of its header range has lost rows to the serial link.
     rowed = [w for w in windows if w.frame_rows]
     short = [w for w in rowed if not frame_rows_complete(w)]
     check(not short,
@@ -930,9 +884,8 @@ def cmd_validate(windows, effect, scope):
 
     # MIXED-PARENT cycles include entries made from callers other than the
     # parent the row prints under; a DUPLICATE-NAME row accounts for only one
-    # of several counters sharing its name. Neither is a defect, but neither
-    # total is an exclusive phase cost, so the reader is told which rows carry
-    # the tags rather than left to read them as ordinary scopes.
+    # of several counters sharing its name. Neither total is an exclusive phase
+    # cost.
     tagged = sorted({label for w in windows for label, node in w.counters.items()
                      if node.get("tags")})
     if tagged:
@@ -940,8 +893,7 @@ def cmd_validate(windows, effect, scope):
               + ", ".join(tagged))
 
     # Exactness: root cycles converted to us vs wall sum, richest window.
-    # Every check above is skip-on-absent, so this one carries the whole
-    # certification: without it a capture holding no counters at all is VALID.
+    # Without this check a capture holding no counters at all is VALID.
     scoped = [w for w in windows if scope in w.counters]
     check(bool(scoped), f"scope '{scope}' appears in at least one window")
     candidates = scoped or windows
