@@ -420,6 +420,15 @@ class TestBudgetSchema(unittest.TestCase):
         self.assertEqual(tg.validate_budgets(copy.deepcopy(raw)), raw)
         self.assertEqual(tg.load_budgets(path), raw)
 
+    def test_phantasm_ram2_reserve_covers_the_effect_heap_cap(self):
+        allocator_overhead = 512
+        target = (TOOLS.parent / "targets" / "Phantasm" / "phantasm_target.h").read_text(
+            encoding="utf-8")
+        cap = re.search(r"HS_PHANTASM_EFFECT_HEAP_BYTES = (\d+);", target)
+        self.assertIsNotNone(cap, "HS_PHANTASM_EFFECT_HEAP_BYTES not found")
+        self.assertEqual(BUDGETS["phantasm"]["regions"]["ram2"]["free_min_bytes"],
+                         int(cap[1]) + allocator_overhead)
+
     def test_required_limits_reject_null_and_malformed_values(self):
         paths = [("regions", "flash", "max_bytes"),
                  ("regions", "ram2", "free_min_bytes"),
