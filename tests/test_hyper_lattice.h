@@ -1288,7 +1288,7 @@ inline void test_traced_presets() {
       return;
     HS_EXPECT_FALSE(aa_strength->readonly);
     std::vector<Pixel> previous;
-    for (int frame = 0; frame < 2; ++frame) {
+    for (int draw = 0; draw < 2; ++draw) {
       effect.draw_frame();
       effect.advance_display();
       int lit = 0, changed = 0;
@@ -1296,13 +1296,13 @@ inline void test_traced_presets() {
         for (int x = 0; x < 96; ++x) {
           const auto PIXEL = effect.get_pixel(x, y);
           lit += PIXEL.r != 0 || PIXEL.g != 0 || PIXEL.b != 0;
-          if (frame == 0)
+          if (draw == 0)
             previous.push_back(PIXEL);
           else
             changed += PIXEL != previous[y * 96 + x];
         }
       HS_EXPECT_GT(lit, 0);
-      if (frame)
+      if (draw)
         HS_EXPECT_GT(changed, 0);
       const auto *unfinished = required_param(effect, "Unfinished Rays");
       if (!unfinished)
