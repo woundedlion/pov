@@ -1269,7 +1269,8 @@ inline void test_traced_presets() {
       HS_EXPECT_GT(lit, 0);
       if (frame)
         HS_EXPECT_GT(changed, 0);
-      HS_EXPECT_GE(effect.getParameters().find("Unfinished Rays")->get(), 0);
+      const auto *unfinished = effect.getParameters().find("Unfinished Rays");
+      HS_EXPECT_LE(unfinished->get(), unfinished->max);
     }
     const auto target = selected.params;
     HL::Params blend;
