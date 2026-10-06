@@ -9,13 +9,10 @@
 /**
  * @file led.h
  * @brief LED pin constants and the color-correction RAII guards effects share.
- * @details The POVDisplay driver itself lives in hardware/pov_single.h and is
- * included directly by target .ino files.
  */
 
-// USE_DMA_LEDS selects HD107S DMA in every Phantasm-class environment plus
-// holosphere_dma. phantasm_target.h supplies an IDE fallback. It is
-// undefined for WASM/sim and the shipping FastLED Holosphere image.
+// USE_DMA_LEDS selects the HD107S DMA driver; undefined for WASM/sim and
+// FastLED builds.
 
 /**
  * @brief Analog pin used for seeding the random number generator.
@@ -30,18 +27,14 @@ inline constexpr int PIN_DATA = 11;
  */
 inline constexpr int PIN_CLOCK = 13;
 
-// CONTRACT — at most ONE guard may be live at a time: NoColorCorrection and
-// NoTempCorrection share the single liveness flag below, so a second live guard
-// of EITHER type traps. Enforced in both the FastLED and DMA-stub builds.
+// At most one NoColorCorrection or NoTempCorrection may be live at a time; a
+// second live guard of either type traps.
 
 /**
  * @brief Shared liveness flag for the correction guards.
  * @return Reference to the single process-wide flag (false = no guard active).
- * @details A function-local static keeps one instance across translation units
- * without an out-of-line definition. Set after the liveness check in each
- * guard's ctor and cleared in its dtor.
- * @note Non-atomic and main-loop-only — never construct/destroy a correction
- * guard from an ISR or any preemptive context.
+ * @note Non-atomic; construct/destroy correction guards only from the main
+ * loop.
  */
 inline bool &correction_guard_live() {
   static bool live = false;
@@ -68,9 +61,6 @@ struct NoColorCorrection {
 };
 /**
  * @brief Scope guard with no effect on the DMA driver's configured temperature.
- * @details A distinct type, not an alias of NoColorCorrection: the FastLED
- * branch defines two, and overload/if-constexpr dispatch must resolve the same
- * way on both.
  */
 struct NoTempCorrection {
   NoTempCorrection() { acquire_correction_guard(); }
@@ -79,15 +69,12 @@ struct NoTempCorrection {
   NoTempCorrection &operator=(const NoTempCorrection &) = delete;
 };
 #else
-// CONTRACT — restore-to-baseline, NOT save/restore: the destructors reinstate
-// the engine's canonical baseline (TypicalLEDStrip color, Candle temperature),
-// not the correction active at construction (FastLED exposes no getter).
+// The destructors reinstate the baseline (TypicalLEDStrip color, Candle
+// temperature), not the correction active at construction.
 
 /**
  * @brief Reinstates the engine's canonical baseline (TypicalLEDStrip color,
  * Candle temperature) and clears the guard liveness flag.
- * @details Shared by both correction guards' destructors (see the
- * restore-to-baseline contract above).
  */
 inline void restore_correction_baseline() {
   FastLED.setCorrection(TypicalLEDStrip);
@@ -97,8 +84,7 @@ inline void restore_correction_baseline() {
 
 /**
  * @brief RAII guard to disable both color and temperature correction for its
- * scope, restoring the TypicalLEDStrip/Candle baseline on destruction (see the
- * restore-to-baseline contract above).
+ * scope, restoring the TypicalLEDStrip/Candle baseline on destruction.
  */
 struct NoColorCorrection {
   /**
@@ -120,8 +106,8 @@ struct NoColorCorrection {
 
 /**
  * @brief RAII guard to disable temperature correction (keeping TypicalLEDStrip
- * color correction) for its scope, restoring the Candle baseline on destruction
- * (see the restore-to-baseline contract above).
+ * color correction) for its scope, restoring the Candle baseline on
+ * destruction.
  */
 struct NoTempCorrection {
   /**

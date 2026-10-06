@@ -14,10 +14,7 @@
 /**
  * @brief Maximum horizontal resolution (width) for effects, from CANVAS_W.
  * @details Sizes the shared framebuffers (Effect::buffer_a/buffer_b) and bounds
- *          the Effect constructor, so a target that renders one small canvas
- *          reserves only what it draws (-DCANVAS_W/-DCANVAS_H per env). Builds
- *          that instantiate several resolutions — host tests and WASM — keep
- *          the 288x144 default, which is also Phantasm's own resolution.
+ *          the Effect constructor.
  */
 inline constexpr int MAX_W = CANVAS_W;
 

@@ -16,7 +16,7 @@
 
 #include <array>
 #include "math/geometry.h"
-#include "mesh/mesh.h" // For MeshOps
+#include "mesh/mesh.h"
 #include "mesh/recipe_types.h"
 #include "mesh/relax_bakes_generated.h"
 #include <cmath>
@@ -29,8 +29,7 @@ HS_O3_BEGIN
 
 /**
  * @brief Coarse generator-cost hint surfaced to the picker UI.
- * @details Display label only (Complex = Islamic star-pattern registry, Simple
- * = everything else); no runtime path gates on it.
+ * @details Complex = Islamic star-pattern registry; Simple = everything else.
  */
 enum class Category { Simple, Complex };
 
@@ -47,9 +46,7 @@ struct Entry {
 
 /**
  * @brief Registry of the Platonic and the 13 Archimedean solids.
- * @details Order is load-bearing:
- * Collections::get_platonic/archimedean_solids() slice this array by fixed
- * offsets (Platonic 0-4, Archimedean 5-17).
+ * @details Ordered Platonic (0-4) then Archimedean (5-17).
  */
 inline constexpr Entry simple_registry[] = {
 
@@ -469,9 +466,7 @@ inline constexpr int NUM_ENTRIES =
     sizeof(catalan_registry) / sizeof(catalan_registry[0]) +
     sizeof(islamic_registry) / sizeof(islamic_registry[0]);
 
-// simple_registry is [Platonic | Archimedean]; the static_asserts check the two
-// counts exactly tile it and name the entries either side of the slice
-// boundary, so a boundary move can't silently mis-slice.
+// simple_registry is [Platonic | Archimedean].
 inline constexpr size_t PLATONIC_COUNT = 5;
 inline constexpr size_t ARCHIMEDEAN_COUNT = 13;
 static_assert(PLATONIC_COUNT + ARCHIMEDEAN_COUNT == std::size(simple_registry),
@@ -579,8 +574,6 @@ inline std::span<const Entry> get_islamic_solids() {
 /**
  * @brief The three solid registries in flat global-index order.
  * @return Spans over the simple, then Catalan, then Islamic registries.
- * @details Single source of truth for the registry enumeration order; the
- * index- and name-based lookups below all derive from it.
  */
 inline constexpr std::array<std::span<const Entry>, 3> all_registries() {
   return {std::span<const Entry>(simple_registry),
@@ -675,7 +668,6 @@ inline const Entry &get_entry(size_t index) {
  * @param b Scratch arena for odd pipeline stages.
  * @param name Registry name of the solid to build; traps if unknown.
  * @return The finalized solid mesh owned by geom.
- * @details For trusted (firmware) callers; an unknown name fails fast.
  */
 [[maybe_unused]] FLASHMEM static PolyMesh
 get_by_name(Arena &geom, Arena &a, Arena &b, std::string_view name) {
@@ -696,8 +688,6 @@ get_by_name(Arena &geom, Arena &a, Arena &b, std::string_view name) {
  * @param nn_angle Out: per-vertex nearest-neighbour angle (radians), for
  *        sizing per-vertex geometry to its local gap.
  * @return The vertex count written.
- * @details Shared by the volume-scatter effects (Raymarch). HS_COLD:
- * setup-only, keeps the build loops out of ITCM.
  */
 [[maybe_unused]] HS_COLD static int
 build_vertex_directions(Arena &scratch, Arena &temp, const Entry &entry,

@@ -24,10 +24,8 @@ namespace hs {
 /**
  * @brief Logs one formatted line to Serial on the device.
  * @param msg printf-style format string; trailing args supply the values.
- * @details Formats into a fixed 256-byte stack buffer (no heap) via the
- *          integer-only vsniprintf, which keeps newlib's float formatter out of
- *          ITCM — the device never logs a float. A longer line is truncated to
- *          255 characters; the host sink below prints it whole.
+ * @details Integer-only vsniprintf (no float conversions) into a 256-byte
+ *          stack buffer; longer lines truncate to 255 characters.
  */
 HS_FLASH_INLINE inline void log(const char *msg, ...)
     __attribute__((format(printf, 1, 2)));
@@ -56,7 +54,7 @@ HS_FLASH_INLINE inline void log_fragment(const char *msg, ...) {
   Serial.print(buf);
 }
 
-/** @brief Blocks until pending Serial output has drained (used before trap). */
+/** @brief Blocks until pending Serial output has drained. */
 inline void flush_log() { Serial.flush(); }
 } // namespace hs
 
@@ -75,8 +73,8 @@ namespace hs {
 /**
  * @brief Logs one formatted line to stdout on the host.
  * @param fmt printf-style format string; trailing args supply the values.
- * @details Formats straight to stdout, so the line length is unbounded and
- *          float conversions work — both diverge from the device sink above.
+ * @details Unbounded line length and float conversions, unlike the device
+ *          sink.
  */
 inline void log(const char *fmt, ...) __attribute__((format(printf, 1, 2)));
 inline void log(const char *fmt, ...) {
@@ -100,7 +98,7 @@ inline void log_fragment(const char *fmt, ...) {
   va_end(args);
 }
 
-/** @brief Flushes stdout (used before trap so the breadcrumb is not lost). */
+/** @brief Flushes stdout. */
 inline void flush_log() { fflush(stdout); }
 } // namespace hs
 
@@ -116,7 +114,7 @@ inline constexpr bool DEBUG_TELEMETRY_DEFAULT = true;
 inline constexpr bool DEBUG_TELEMETRY_DEFAULT = false;
 #endif
 
-/** @brief Global debug-logging toggle, initialized off until target setup. */
+/** @brief Global debug-logging toggle; off by default. */
 inline bool debug = false;
 
 /** @brief Enables or disables debug telemetry from foreground code. */

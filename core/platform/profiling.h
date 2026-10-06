@@ -34,9 +34,7 @@ struct ScanMetrics {
   /** @brief Zeroes every counter. */
   void reset() { *this = {}; }
 };
-/** @brief Global scanline profiling counters. Compiled in only when
- *  HS_SCAN_METRICS is defined; otherwise HS_SCAN_METRIC(...) expands to nothing
- *  and this would be dead storage. */
+/** @brief Global scanline profiling counters (HS_SCAN_METRICS builds only). */
 #ifdef HS_SCAN_METRICS
 inline ScanMetrics g_scan_metrics;
 #endif
@@ -44,12 +42,9 @@ inline ScanMetrics g_scan_metrics;
 /**
  * @brief Per-probe cycle buckets splitting one Face::distance probe into its
  *        stages, plus the event counts each bucket divides by.
- * @details Accumulated from raw cycle-counter deltas rather than CycleScope
- * RAII, which at tens of thousands of probes per frame would cost more than the
- * stages being measured. One counter read per stage boundary; `tick` sums a
- * back-to-back read pair per probe so a capture measures its own read cost and
- * the buckets can be discounted by it. Report ratios from such a build, not
- * absolute times.
+ * @details Raw cycle-counter deltas, one read per stage boundary; `tick` sums
+ * a back-to-back read pair per probe to measure the read cost. Report ratios,
+ * not absolute times.
  */
 struct ProbeBreakdown {
   uint32_t point = 0;       /**< Cycles: probe entry through the radial cull. */
@@ -72,9 +67,7 @@ struct ProbeBreakdown {
   /** @brief Zeroes every bucket and count. */
   void reset() { *this = {}; }
 };
-/** @brief Global per-probe cycle buckets. Compiled in only when
- *  HS_PROBE_BREAKDOWN is defined; otherwise HS_PROBE_* expand to nothing and
- *  this would be dead storage. */
+/** @brief Global per-probe cycle buckets (HS_PROBE_BREAKDOWN builds only). */
 #ifdef HS_PROBE_BREAKDOWN
 inline ProbeBreakdown g_probe_breakdown;
 #endif
@@ -194,11 +187,9 @@ struct DwtStallBucket {
   /**
    * @brief Adds one interval to the bucket.
    * @param start Sample taken at the interval's start.
-   * @details The three event counters are 8-bit and each advances at most once
-   *          per cycle, so their deltas are unambiguous only for an interval
-   *          shorter than 256 cycles. A longer interval still accumulates —
-   *          truncated, hence understated — and is tallied in `wrapped`, since
-   *          neither direct callers nor DwtStallBatch enforce a cycle limit.
+   * @details The 8-bit event counters are exact only for intervals shorter
+   *          than 256 cycles; a longer interval accumulates truncated and is
+   *          tallied in `wrapped`.
    */
   void add(const DwtStallSample &start) {
     const uint32_t span = ARM_DWT_CYCCNT - start.cycles;
@@ -284,11 +275,7 @@ private:
 
 } // namespace hs
 
-// Per-pixel scan instrumentation is OFF by default: a g_scan_metrics increment is
-// a non-atomic global load-modify-store on a shared cache line for every pixel.
-// Define HS_SCAN_METRICS to compile the counters in (the native test build does,
-// to assert which Face::distance path each sample took); otherwise
-// HS_SCAN_METRIC(...) expands to nothing.
+// Per-pixel scan instrumentation, compiled in only under HS_SCAN_METRICS.
 #ifdef HS_SCAN_METRICS
 #define HS_SCAN_METRIC(stmt)                                                   \
   do {                                                                         \
@@ -298,12 +285,9 @@ private:
 #define HS_SCAN_METRIC(stmt) ((void)0)
 #endif
 
-// Per-probe stage timing, OFF by default: each boundary is a cycle-counter read
-// plus a global accumulate, which at the scan's probe rate distorts the very
-// stages it splits. Define HS_PROBE_BREAKDOWN to compile the buckets in and read
-// RATIOS from the capture, discounted by the self-measured `tick` read cost.
+// Per-probe stage timing, compiled in only under HS_PROBE_BREAKDOWN.
 // HS_PROBE_MARK opens a rolling timestamp; HS_PROBE_SPAN closes one stage and
-// reopens the next off the same read, so a chain of N stages costs N reads.
+// reopens the next off the same read.
 #ifdef HS_PROBE_BREAKDOWN
 #define HS_PROBE_MARK(var) uint32_t var = HS_OS_CYCLES()
 #define HS_PROBE_SPAN(field, var)                                              \

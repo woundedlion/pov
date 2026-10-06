@@ -8,8 +8,7 @@
  * @file arduino_mocks.h
  * @brief Emulates the Arduino/FastLED API surface off-device.
  *
- * Included from the host/sim branch of platform/platform.h, which supplies
- * hs::random/hs::millis.
+ * Requires hs::random/hs::millis to be declared before inclusion.
  */
 
 #include <cstdarg>
@@ -40,10 +39,8 @@ struct CHSV {
 // --- Mock FastLED Types ---
 /**
  * @brief RGB color structure mimicking FastLED's CRGB.
- * @details Implements the selected FastLED constructors, operators and helpers
- *          used by host effects. Default-initialization zeroes the channels,
- *          while FastLED leaves them uninitialized. HSV conversion also differs
- *          from the device (see CRGB(const CHSV&)).
+ * @details Default-initialization zeroes the channels (FastLED leaves them
+ *          uninitialized); HSV conversion differs from the device.
  */
 struct CRGB {
   /** @brief Red, green and blue channels, each in [0, 255]. */
@@ -72,10 +69,8 @@ struct CRGB {
    * @brief Constructs an RGB color by converting from HSV.
    * @param hsv Source color in HSV space.
    * @details Basic integer HSV-to-RGB conversion over six hue sectors.
-   * @warning NOT bit-identical to the device: FastLED's runtime path is
-   *          hsv2rgb_rainbow, while this is a 6-sector integer spectrum giving
-   *          visibly different RGB. A legacy-compat conversion only — do not use
-   *          on parity-sensitive paths (no modern effect uses CHSV).
+   * @warning Not bit-identical to the device's hsv2rgb_rainbow; do not use on
+   *          parity-sensitive paths.
    */
   constexpr CRGB(const CHSV &hsv) {
     unsigned char region, remainder, p, q, t;
@@ -210,9 +205,8 @@ enum ColorOrder { RGB };
 
 /**
  * @brief Mock implementation of the FastLED controller for simulation.
- * @details The simulator renders into its own framebuffer rather than driving
- *          real LEDs, so every method is a no-op except setCorrection and
- *          setTemperature, which record their selector.
+ * @details Every method is a no-op except setCorrection and setTemperature,
+ *          which record their selector.
  */
 struct FastLEDMock {
   /** @brief Selector last passed to setCorrection; -1 before any call. */
@@ -254,15 +248,11 @@ struct FastLEDMock {
 inline FastLEDMock FastLED;
 
 // --- Mock Arduino Functions ---
-// Global scope mirrors Arduino/FastLED, which expose random()/map() as free
-// globals; unqualified callers (e.g. the legacy effects) must resolve
-// identically on host and device.
+// Global scope, as on Arduino/FastLED.
 /**
  * @brief Returns a pseudo-random integer in [0, max) (Arduino random()).
  * @param max Exclusive upper bound.
  * @return A value in [0, max), or 0 when max <= 0.
- * @details Guards a degenerate range like the device: Arduino's random(0)
- *          returns 0, so the host avoids a modulo-by-zero SIGFPE and matches.
  */
 inline int random(int max) { return hs::rand_int(0, max); }
 /**
@@ -270,10 +260,6 @@ inline int random(int max) { return hs::rand_int(0, max); }
  * @param min Inclusive lower bound.
  * @param max Exclusive upper bound.
  * @return A value in [min, max), or min when max <= min.
- * @details Mirrors the device: random(min, max) with min >= max returns min,
- *          so the host avoids a modulo-by-zero SIGFPE.
- * @note The span is computed unsigned: `max - min` overflows int for a span
- *       wider than INT_MAX.
  */
 inline int random(int min, int max) { return hs::rand_int(min, max); }
 /**
@@ -286,18 +272,12 @@ inline int random(int min, int max) { return hs::rand_int(min, max); }
  * @return x scaled from [in_min, in_max] onto [out_min, out_max], rounded to
  *         nearest; the midpoint of the output range when the input range is
  *         degenerate (in_max == in_min).
- * @details Reproduces the integral overload in Teensyduino's
- *          cores/teensy4/wiring.h, which is not Arduino's traditional map():
- *          it biases the numerator by half the input range before a
- *          truncating divide, returns out_min + (out_max - out_min) / 2 on a
- *          degenerate input range, and applies the sign correction that keeps
- *          extrapolation past the input range linear (ArduinoCore-API #51).
+ * @details Reproduces the integral map() in Teensyduino's
+ *          cores/teensy4/wiring.h, not Arduino's traditional map().
  */
 inline long map(long x, long in_min, long in_max, long out_min, long out_max) {
-  // Device computes in 32-bit `long`. Every intermediate is formed in uint32_t
-  // (defined wrap mod 2^32) and reinterpreted where the device's arithmetic is
-  // signed, reproducing its two's-complement truncation without 64-bit
-  // widening (LP64) or signed-overflow UB.
+  // Emulates the device's 32-bit `long` in uint32_t: wraps mod 2^32 without
+  // LP64 widening or signed-overflow UB.
   const auto bits = [](long value) {
     return static_cast<uint32_t>(static_cast<int32_t>(value));
   };
@@ -325,11 +305,8 @@ inline long map(long x, long in_min, long in_max, long out_min, long out_max) {
 
 /**
  * @brief Rejects map() calls with a floating-point argument.
- * @details Teensyduino overloads map() for floating point; this mock has only
- *          the integral overload, so a float call would silently convert
- *          through `long` on host while the device kept full precision. No
- *          first-party caller passes floats, so the mismatch is a compile
- *          error rather than a host/device divergence.
+ * @details Teensyduino's floating-point map() keeps full precision; the
+ *          integral mock would truncate through `long`.
  */
 template <typename X, typename A, typename B, typename C, typename D,
           typename = std::enable_if_t<
@@ -386,14 +363,9 @@ struct SerialMock {
    * @brief Formats and writes a printf-style message (Arduino Serial.printf).
    * @param fmt printf-style format string.
    * @details Expands into a fixed 256-byte stack buffer (no heap) and emits.
-   * @warning Host/device divergence (mirrors the note on hs::log and check_fail):
-   *          this host mock uses full vsnprintf, so `%f`/`%g` format here. The
-   *          device hs::log/check_fail use integer-only vsniprintf to keep
-   *          newlib's float formatter out of ITCM, so a float conversion that
-   *          works in the simulator silently drops on hardware. vsniprintf is a
-   *          newlib extension and does not exist on the host, so the host cannot
-   *          simply match it — avoid `%f`/`%g` in any message destined for the
-   *          device path.
+   * @warning The host formats `%f`/`%g`; the device hs::log/check_fail use
+   *          integer-only vsniprintf. Avoid float conversions in device-bound
+   *          messages.
    */
   __attribute__((format(printf, 2, 3))) void printf(const char *fmt, ...) {
     char buf[256];
@@ -407,9 +379,7 @@ struct SerialMock {
 inline SerialMock Serial;
 
 // --- FastLED Mocks ---
-// These route through hs::random() (Pcg32) and do NOT match the device, where
-// random8/random16 are FastLED's LCG; used only by legacy effects (modern
-// effects use hs::rand_*).
+// Route through hs::random(); not bit-identical to the device's FastLED LCG.
 /**
  * @brief Returns a pseudo-random 8-bit value (FastLED random8).
  * @return A value in [0, 255].
@@ -419,10 +389,7 @@ inline uint8_t random8() { return hs::random()() % 256; }
  * @brief Returns a pseudo-random 8-bit value below a limit (FastLED random8).
  * @param top Exclusive upper bound.
  * @return A value in [0, top), or 0 when top == 0.
- * @details Host modulo, not the device's scaled multiply ((r*lim)>>8): like the
- *          other FastLED mocks here this is legacy-only and not bit-faithful (see
- *          the note above). The top==0 guard returns 0 to match the device's
- *          scaled form (which yields 0) and to avoid the host modulo's SIGFPE.
+ * @details Uses modulo, not the device's scaled multiply ((r*lim)>>8).
  */
 inline uint8_t random8(uint8_t top) {
   if (top == 0)
@@ -439,19 +406,14 @@ inline uint16_t random16() { return hs::random()() % 65536; }
  */
 inline void random16_add_entropy(uint16_t) {}
 
-// FastLED fixed-point sine + scaling primitives. The device pulls these from
-// <FastLED.h>; the host mock reproduces their exact integer semantics (LUT sine,
-// 8.8 beat sawtooth, scale8 range fit) so the simulator predicts the device
-// rather than approximating with a float sine.
+// FastLED fixed-point sine and scaling primitives, bit-exact with <FastLED.h>.
 
 /**
  * @brief Unsigned 8-bit fractional scale, scale8(i, sc) = i * (1 + sc) / 256.
  * @param i Value to scale, in [0, 255].
  * @param sc Scale factor, in [0, 255].
  * @return i scaled by (1 + sc)/256, truncated to an integer in [0, 255].
- * @details The (1 + sc) is FastLED's SCALE8_FIXED form, so scale8(x, 255) == x
- *          (a full-scale fade is the identity). Matching it keeps the simulator
- *          bit-exact rather than 1 LSB low on every fade.
+ * @details FastLED's SCALE8_FIXED form: scale8(x, 255) == x.
  */
 inline uint8_t scale8(uint8_t i, uint8_t sc) {
   return (static_cast<uint16_t>(i) * (1 + static_cast<uint16_t>(sc))) >> 8;
@@ -518,12 +480,9 @@ inline int16_t sin16(uint16_t theta) {
  * @param bpm88 Tempo as an 8.8 fixed-point beats-per-minute value.
  * @param timebase Millisecond offset for the zero of time.
  * @return The current phase in [0, 65535].
- * @details Sourced from hs::millis() so the test time-injection seam keeps beats
- *          deterministic. The * 280 constant is FastLED's ms->phase scale
- *          (~2^32 / (256 * 60000), including bpm88 scaling and >>16). The `unsigned long` intermediate wraps mod
- *          2^32 on the device but not on a LP64 host; harmless because only bits
- *          16..31 (the `>>16` result) are returned, and those are identical
- *          either way.
+ * @details Reads hs::millis(). 280 is FastLED's ms->phase scale
+ *          (~2^32 / (256 * 60000)). The intermediate wraps mod 2^32 on the
+ *          device but not on an LP64 host; the returned bits 16..31 agree.
  */
 inline uint16_t beat88(uint16_t bpm88, uint32_t timebase = 0) {
   return ((hs::millis() - timebase) * bpm88 * 280) >> 16;
@@ -557,11 +516,8 @@ inline uint8_t beat8(uint16_t bpm, uint32_t timebase = 0) {
  * @param timebase Millisecond offset for the zero of time.
  * @param phase_offset Phase shift added to the wave, in [0, 255].
  * @return An 8-bit value oscillating within [lowest, highest].
- * @pre lowest <= highest. The `highest - lowest` span is an unsigned subtraction,
- *      so passing lowest > highest underflows and escapes the documented range,
- *      matching the unguarded device <FastLED.h>.
- * @details The parameter order and LUT match <FastLED.h>, and the scale8 range
- *          fit keeps the result within [lowest, highest].
+ * @pre lowest <= highest; otherwise the unsigned span underflows, as on the
+ *      device.
  */
 inline uint8_t beatsin8(uint16_t bpm, uint8_t lowest = 0, uint8_t highest = 255,
                         uint32_t timebase = 0, uint8_t phase_offset = 0) {
@@ -577,9 +533,8 @@ inline uint8_t beatsin8(uint16_t bpm, uint8_t lowest = 0, uint8_t highest = 255,
  * @param timebase Millisecond offset for the zero of time.
  * @param phase_offset Phase shift added to the wave, in [0, 65535].
  * @return A 16-bit value oscillating within [lowest, highest].
- * @pre lowest <= highest. The `highest - lowest` span is an unsigned subtraction,
- *      so passing lowest > highest underflows and escapes the documented range,
- *      matching the unguarded device <FastLED.h> (see beatsin8).
+ * @pre lowest <= highest; otherwise the unsigned span underflows, as on the
+ *      device.
  */
 inline uint16_t beatsin16(uint16_t bpm, uint16_t lowest = 0,
                           uint16_t highest = 65535, uint32_t timebase = 0,
@@ -595,10 +550,8 @@ inline uint16_t beatsin16(uint16_t bpm, uint16_t lowest = 0,
  * @param b Second addend.
  * @param m Modulus.
  * @return The 8-bit-wrapped sum reduced mod m, or that sum when m == 0.
- * @details FastLED reduces the uint8_t-wrapped sum by repeated subtraction, so
- *          a sum past 255 wraps before the reduction: addmod8(200, 100, 7) is
- *          44 % 7, not 300 % 7. Its m == 0 loop subtracts zero forever on the
- *          device; the host returns the wrapped sum instead of hanging.
+ * @details The sum wraps at 256 before reduction: addmod8(200, 100, 7) is
+ *          44 % 7. On the device m == 0 loops forever.
  */
 inline uint8_t addmod8(uint8_t a, uint8_t b, uint8_t m) {
   uint8_t s = static_cast<uint8_t>(a + b);
@@ -613,10 +566,8 @@ inline uint8_t addmod8(uint8_t a, uint8_t b, uint8_t m) {
  * @param rangeStart Lower bound of the output range.
  * @param rangeEnd Upper bound of the output range.
  * @return in scaled via scale8 onto [rangeStart, rangeEnd].
- * @pre rangeStart <= rangeEnd. The `rangeEnd - rangeStart` span is an unsigned
- *      subtraction, so passing rangeStart > rangeEnd underflows and escapes the
- *      documented range, matching the unguarded device <FastLED.h> (see beatsin8).
- * @details Maps the fixed 0..255 input, not a remap of an arbitrary input range.
+ * @pre rangeStart <= rangeEnd; otherwise the unsigned span underflows, as on
+ *      the device.
  */
 inline uint8_t map8(uint8_t in, uint8_t rangeStart, uint8_t rangeEnd) {
   return rangeStart + scale8(in, rangeEnd - rangeStart);
