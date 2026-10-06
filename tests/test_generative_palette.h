@@ -1023,19 +1023,18 @@ inline void test_palette_cycler_pause_and_static() {
   HS_EXPECT_TRUE(cycler.fading());
 }
 
-inline void test_shader_ball_palette_rotations_morph_compatible() {
+inline void test_standalone_palette_rotations_morph_compatible() {
   constexpr float GOLDEN_STEP = 0.618034f;
   float rotation = 0.0f;
   GenerativePalette liquid_prev(
-      EffectPaletteRecipes::shader_ball_liquid_at(0.0f));
-  GenerativePalette flyby_prev(
-      EffectPaletteRecipes::shader_ball_flyby_at(0.0f));
+      EffectPaletteRecipes::standalone_liquid_at(0.0f));
+  GenerativePalette flyby_prev(EffectPaletteRecipes::standalone_flyby_at(0.0f));
   for (int i = 0; i < 24; ++i) {
     rotation = math::wrap_t(rotation + GOLDEN_STEP);
     GenerativePalette liquid(
-        EffectPaletteRecipes::shader_ball_liquid_at(rotation));
+        EffectPaletteRecipes::standalone_liquid_at(rotation));
     GenerativePalette flyby(
-        EffectPaletteRecipes::shader_ball_flyby_at(rotation));
+        EffectPaletteRecipes::standalone_flyby_at(rotation));
     HS_EXPECT_TRUE(liquid_prev.morph_compatible(liquid));
     HS_EXPECT_TRUE(flyby_prev.morph_compatible(flyby));
     liquid_prev = liquid;
