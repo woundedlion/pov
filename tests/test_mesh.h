@@ -3,17 +3,6 @@
  * Licensed under the PolyForm Noncommercial License 1.0.0
  *
  * Unit tests for core/mesh/mesh.h and core/containers/triangular_bitset.h.
- *
- * Coverage:
- *   - PolyMesh basic API (initialize, clear, accessors)
- *   - HalfEdgeMesh construction from PolyMesh and MeshState
- *     (Euler invariant V - E + F = 2, half-edge pairing, vertex/face refs)
- *   - MeshOps::compile (PolyMesh → MeshState, drops degenerate faces,
- *     populates face_offsets)
- *   - MeshOps::clone (deep copy into a target arena)
- *   - Topology classifier: regular and multi-class solids, aliased arenas,
- *     empty/degenerate faces and registry-wide collision/partition checks.
- *   - TriangularBitset pair dedup (sizing, index bijection, bit independence)
  */
 #pragma once
 
@@ -130,7 +119,7 @@ inline void test_half_edge_mesh_face_loop_closes() {
   HalfEdgeMesh he(arena, cube);
 
   // A valid ring visits each half-edge at most once, so anything longer than the
-  // total half-edge count cannot close — a mesh-derived bound, not a constant.
+  // total half-edge count cannot close.
   const int max_steps = static_cast<int>(he.half_edges.size()) + 1;
   for (size_t fi = 0; fi < he.faces.size(); ++fi) {
     uint16_t start = he.faces[fi].half_edge;
@@ -154,10 +143,7 @@ inline void test_half_edge_mesh_face_loop_closes() {
  * @brief Verifies that for a closed manifold (cube), every half-edge has a pair,
  *        the pairing is reciprocal (pair(pair(i)) == i), AND the twin is the
  *        geometric opposite — it traverses the same undirected edge in reverse.
- * @details Reciprocity alone is too weak: a pairing that consistently joined the
- *          wrong edges (e.g. swapped two twins) could still satisfy
- *          pair(pair(i)) == i. The opposite-direction check pins the geometry:
- *          for a half-edge u→v, its twin must run v→u, so head(pair) == tail(i)
+ * @details For a half-edge u→v, its twin must run v→u, so head(pair) == tail(i)
  *          and tail(pair) == head(i). `he.vertex` is the head (destination); the
  *          tail is the head of the previous half-edge in the face loop.
  */
@@ -187,11 +173,9 @@ inline void test_half_edge_mesh_pairs_are_symmetric() {
 /**
  * @brief Verifies the half-edge builder's boundary path: an open mesh leaves its
  *        outer edges unpaired (pair == HE_NONE).
- * @details Every closed-solid fixture above pairs *every* half-edge, so the
- *          boundary branch of pair_half_edges (a run of one half-edge on an
- *          undirected edge) is otherwise unexercised. Two triangles (0,1,2) and
- *          (0,2,3) share edge 0-2: that single interior edge pairs reciprocally;
- *          the other four half-edges border the open boundary and stay HE_NONE.
+ * @details Two triangles (0,1,2) and (0,2,3) share edge 0-2: that single
+ *          interior edge pairs reciprocally; the other four half-edges border
+ *          the open boundary and stay HE_NONE.
  */
 inline void test_half_edge_mesh_open_boundary_edges() {
   Arena arena(mesh_arena_a, sizeof(mesh_arena_a));
@@ -373,8 +357,8 @@ inline void test_compile_drops_degenerate_faces() {
 /**
  * @brief Verifies clone() of a MeshState yields equal sizes and values but
  *        independent storage in the destination arena (no aliasing of source).
- * @details compile() leaves topology empty, so it is filled with distinct
- *          per-face values first: clone() is the only path that carries it.
+ * @details topology is filled with distinct per-face values first, pinning its
+ *          copy element-wise.
  */
 inline void test_clone_meshstate_deep_copies() {
   Arena src_arena(mesh_arena_a, sizeof(mesh_arena_a));
@@ -421,8 +405,7 @@ inline void test_clone_meshstate_deep_copies() {
 /**
  * @brief Verifies clone() of a PolyMesh likewise copies all arrays into
  *        independent storage.
- * @details No Conway operator propagates topology, so clone() is the only path
- *          that carries it; distinct per-face values pin the copy element-wise.
+ * @details Distinct per-face topology values pin the copy element-wise.
  */
 inline void test_clone_polymesh_deep_copies() {
   Arena src_arena(mesh_arena_a, sizeof(mesh_arena_a));
@@ -517,11 +500,9 @@ inline void test_classify_faces_zero_sided_faces_share_class() {
 /**
  * @brief Verifies classify_faces_by_topology on an UNCOMPILED PolyMesh with a
  *        degenerate 2-gon neither self-pairs it nor trips the non-manifold trap.
- * @details compile() drops sub-triangle faces, but the public PolyMesh overload
- *          runs on raw input. A 2-gon reusing the triangle's edge would put a
- *          third half-edge on that edge and trap without the record-loop
- *          side-count guard; the guard leaves the degenerate edges unpaired so
- *          the triangle still classifies.
+ * @details A 2-gon reusing the triangle's edge puts a third half-edge on that
+ *          edge; the record-loop side-count guard leaves the degenerate edges
+ *          unpaired so the triangle still classifies.
  */
 inline void test_classify_faces_uncompiled_degenerate() {
   Arena geom(mesh_arena_a, sizeof(mesh_arena_a));
@@ -587,9 +568,8 @@ inline void test_classify_faces_tetrahedron_uniform_topology() {
 /**
  * @brief Verifies classify_faces_by_topology accepts one arena in all three
  *        roles, matching the three-arena classification exactly.
- * @details HankinSolids classifies its bookend mesh with scratch_arena_a passed
- *          for both scratch parameters and for persistent, so the aliasing is a
- *          supported contract, not an accident of the current allocation order.
+ * @details Aliasing one arena across both scratch parameters and persistent is
+ *          a supported contract.
  */
 inline void test_classify_faces_aliased_arenas() {
   Arena target(mesh_arena_a, sizeof(mesh_arena_a));
@@ -622,13 +602,9 @@ inline void test_classify_faces_aliased_arenas() {
 
 /**
  * @brief Verifies the classifier separates genuinely distinct face classes.
- * @details truncate(cube) is a mixed-face solid: 6 octagons + 8 triangles. The
- *          cube/tetrahedron tests above are all-equivalent faces, so the
- *          expected output is trivially all-zeros and would pass even if the
- *          neighbor-hash folding, HashNode sort, and dense-id assignment were
- *          broken. This exercises that discriminating logic: it must yield
- *          exactly two classes, group all octagons under one id and all
- *          triangles under another, and assign dense ids {0, 1}.
+ * @details truncate(cube) is a mixed-face solid: 6 octagons + 8 triangles. It
+ *          must yield exactly two classes, group all octagons under one id and
+ *          all triangles under another, and assign dense ids {0, 1}.
  */
 inline void test_classify_faces_truncated_cube_distinct_topology() {
   Arena target(mesh_arena_a, sizeof(mesh_arena_a));
@@ -686,12 +662,9 @@ struct FaceTopoRecord {
 /**
  * @brief Recomputes a face's canonical key and asks the classifier for its base
  *        topology hash.
- * @details The interior angle uses the classifier's own formulation (unnormalized
- *   edge dot over the length product, acosf, rounded to whole degrees) on
- *   purpose: a normalize-first variant lands on the other side of a degree
- *   boundary on relaxed meshes, which would split classes the classifier merges
- *   without either result being wrong. The key's identity, the neighbour
- *   canonicalization and the class partition stay independent.
+ * @details The interior angle mirrors the classifier's formulation (unnormalized
+ *   edge dot over the length product, acosf, rounded to whole degrees); a
+ *   normalize-first variant crosses degree boundaries on relaxed meshes.
  */
 inline FaceTopoRecord face_topo_record(const PolyMesh &mesh,
                                        const uint16_t *idx, int count) {
@@ -774,15 +747,9 @@ struct TopoHashTable {
  *        three solid registries.
  * @details A fmix32 collision merges two distinct face topologies into one
  *          class. Builds every roster solid and sweeps the pre-fold hash
- *          (count + sorted angles) and the neighbour-folded hash the topology
- *          ids are actually derived from, asserting each maps to one key.
- *
- *          The reference fold above is not the classifier, so it is also run
- *          against the real classify_faces_by_topology output: within each mesh
- *          the production ids and the reference keys must induce the SAME
- *          partition of faces, in both directions. Agreement between the hash
- *          primitives alone would survive a classifier that wired its stages
- *          up differently or skipped the fold entirely.
+ *          (count + sorted angles) and the neighbour-folded hash, asserting
+ *          each maps to one key. Within each mesh the classify_faces_by_topology
+ *          ids and the reference keys must induce the same face partition.
  */
 inline void test_classify_faces_roster_hash_collision_free() {
   static TopoHashTable pre_fold;

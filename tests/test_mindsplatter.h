@@ -2,14 +2,7 @@
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
  * Licensed under the PolyForm Noncommercial License 1.0.0
  *
- * MindSplatter white-box invariants: emitter/attractor mesh selection, the
- * serialization round-trip and replay determinism, the fused-vertex, hole-kernel, signed-axis and
- * rotation-matrix framebuffer parities, clip/clear display parity, preset
- * timeline bookkeeping and emission-phase wrapping.
- *
- * Its own CTest module so it shards independently; the cases reuse the effects
- * module's render fixtures and resolution constants through test_effects.h
- * and the using-directive below.
+ * MindSplatter white-box invariants, on the effects module's render fixtures.
  */
 #pragma once
 
@@ -249,9 +242,7 @@ inline void test_mindsplatter_replay_snapshot_exact() {
  * @details Single-pass stepping omits the cached endpoint normalization, so
  * interior sample phases, one fringe pixel, and accumulated channels can
  * differ; the bounds are the measured worst case (exact at 96x20 under IEEE)
- * with headroom. The production-resolution replay executable compares the
- * same candidate against draw_particles_replay_reference, the shipping filter
- * stack under reference screen stepping, not against this sink.
+ * with headroom.
  */
 inline void test_mindsplatter_saturated_quadrant_sink_parity() {
   constexpr int W = SMALL_W;
@@ -450,8 +441,7 @@ inline void test_mindsplatter_rotation_matrix_equivalence() {
   HS_EXPECT_LE(coverage_differences, 320);
   // Subpixel coverage knife-edge: a ~2-ULP positional drift between the two
   // rotation formulas can flip an anti-alias weight, and the amount depends on
-  // host libm rounding (Linux ~264 q16, Windows ~128). Geometric fidelity is
-  // guarded by the component/angular bounds above; this only caps the residual.
+  // host libm rounding (Linux ~264 q16, Windows ~128).
   HS_EXPECT_LE(max_q16_error, 512);
 }
 
@@ -825,11 +815,9 @@ inline void test_mindsplatter_attractor_hole_alpha_equivalence() {
 /**
  * @brief Verifies every per-emitter emission phase stays wrapped to [0, 2pi)
  *        across frames at the max angular rate.
- * @details Each emitter integrates Ang Spd into emit_phases[i] with fmodf(., 2pi)
- *          so a dropped wrap lets the phase grow unbounded (fast_sinf range
- *          reduction then bands). The range assertions only bind once the phase
- *          has passed 2pi at least once, so the sweep runs at the Ang Spd slider
- *          top and counts the laps it observes.
+ * @details The range assertions only bind once the phase has passed 2pi, so
+ *          the sweep runs at the Ang Spd slider top and counts the laps it
+ *          observes.
  */
 inline void test_mindsplatter_emit_phase_wrapped() {
   using WB = MindSplatterWhiteBox;
@@ -880,7 +868,7 @@ inline int run_mindsplatter_tests() {
   test_mindsplatter_manual_preset_survives_unpause();
   test_mindsplatter_full_timeline_retries_transition();
 
-  // FULL tier only (HS_EFFECTS_FULL=1), matching the effects module's split.
+  // FULL tier only (HS_EFFECTS_FULL=1).
   if (effects_full_suite())
     test_mindsplatter_emit_phase_wrapped();
   else

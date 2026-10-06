@@ -74,8 +74,7 @@ inline void test_noise_field_periodic_coordinates() {
 
 /**
  * @brief Verifies the hoisted-offset overloads reproduce the phase-taking ones
- *        bit for bit, so lifting the loop point out of a per-pixel walk is not
- *        a numeric change.
+ *        bit for bit.
  */
 inline void test_noise_field_hoisted_loop_offsets() {
   const math::Vector v = math::Vector(-0.6f, 0.3f, 0.7416198f).normalized();

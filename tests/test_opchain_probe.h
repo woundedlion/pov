@@ -4,23 +4,6 @@
  *
  * Geometry and provenance checks for the OpChainMorph build recipes
  * (docs/specs/opchain_morph_spec.md).
- *
- * Coverage:
- *   - Truncate sub-T_EPS birth and far-side pinch topology sweeps.
- *   - Chamfer zero-area birth limit: newborn hexagon area and preserved-face
- *     displacement as t -> 0, on simple seeds and on the shipping hankin seed.
- *   - Chamfer sweep: constant V/F/I and compiled face count, two-face edge incidence,
- *     Euler characteristic 2, unit vertices, outward face normals, per-step displacement.
- *   - Chamfer birth epsilon: smallest t at which no newborn hexagon is culled
- *     by SDF::Face's collapsed-area reject, per seed.
- *   - Needle primitive lowering: the DUAL then KIS partition ops the needle
- *     recipe lowers to, each landing with two-face edge incidence and
- *     Euler characteristic 2 on the hankin(54 deg) seed, with the {DUAL, KIS}
- *     lowering matching MeshOps::needle.
- *   - Build-chain provenance: face-centroid spacing per intermediate mesh
- *     against PROVENANCE_TOL_SQ, nearest/second-nearest ambiguity bounding the
- *     newborn lookups build_palette_mapping performs, and the mapping path
- *     and prev_faces each real leg takes.
  */
 #pragma once
 
@@ -134,7 +117,7 @@ inline constexpr ChamferSite CHAMFER_SITES[] = {
     {"truncatedIcosahedron_hk58", probe_ticosa_hk58},
 };
 
-/** Arrival parameter of the one shipping chamfer leg. */
+/** Arrival parameter of the shipping chamfer leg. */
 inline constexpr float CHAMFER_T_STAR = Solids::CHAMFER_T_MAX;
 
 /**
@@ -327,14 +310,10 @@ inline void test_chamfer_sweep_holds_topology() {
 }
 
 // ---------------------------------------------------------------------------
-// Truncate sub-T_EPS birth (docs/specs/opchain_morph_spec.md, "Truncate edge
-// cases"): the two
-// truncatedIcosahedron_ambo_relax_truncate001_hankin{59,73} recipes truncate at
-// 0.01, below the flat T_EPS birth floor. Both share the same truncate seed
-// (truncatedIcosahedron.ambo().relax()) and truncate param, so the leg is
-// identical; the hankin angle that differs is a later leg. The leg births at
-// min(T_EPS, 0.01 * TRUNCATE_BIRTH_FRAC) = 0.002 and sweeps to 0.01. This must
-// be a real, well-formed animation, not a still image or an inverted birth.
+// Truncate sub-T_EPS birth: the truncate001 recipes truncate their shared
+// truncatedIcosahedron.ambo().relax() seed at 0.01, below the T_EPS birth
+// floor. The leg births at min(T_EPS, 0.01 * TRUNCATE_BIRTH_FRAC) = 0.002 and
+// sweeps to 0.01.
 // ---------------------------------------------------------------------------
 
 template <const Solids::Recipe &RECIPE, Solids::Op OP>
@@ -365,7 +344,7 @@ inline constexpr TruncateSite TRUNCATE_SITES[] = {
     {"truncatedIcosahedron_ambo_relax_truncate001", probe_ticosa_ambo_relax},
 };
 
-/** Arrival parameter of the two truncate001 recipes. */
+/** Arrival parameter of the truncate001 recipes. */
 inline const float TRUNCATE001_T_STAR = [] {
   constexpr auto &RECIPE =
       Solids::TRUNCATED_ICOSAHEDRON_AMBO_RELAX_TRUNCATE001_HANKIN59_RECIPE;
@@ -384,8 +363,7 @@ inline const float TRUNCATE001_T_STAR = [] {
  *        constant raw and compiled face counts, two-face edge incidence,
  *        Euler characteristic 2, near-unit vertices, every face positive-area,
  *        and no face inverting across the sweep.
- * @details Covers the spec's "Truncate edge cases": the birth floor matches
- * OpLeg's recipe-step clamp and stays below the sub-T_EPS arrival.
+ * @details The birth floor mirrors OpLeg's recipe-step clamp.
  */
 inline void test_truncate001_birth_sweep_holds_topology() {
   constexpr int SAMPLES = 32;
@@ -489,21 +467,10 @@ inline void test_truncate001_birth_sweep_holds_topology() {
 }
 
 // ---------------------------------------------------------------------------
-// Far-side truncate sweep (docs/specs/opchain_morph_spec.md, "Truncate edge
-// cases"): the two
-// truncatedIcos{ahedron,idodecahedron}_truncate50d_ambo_dual recipes truncate
-// at t = 0.873, PAST the ambo pinch (t = 0.5). truncate emits a constant
-// topology (2E vertices, F+V faces, 3I indices) for every t != 0.5; only the
-// exact-0.5 short-circuit differs (returns ambo, E vertices). A far-side leg
-// births on the near side (small t), sweeps through 0.5 with the pinch guard
-// nudging that one sample off the short-circuit, and arrives at 0.873 on the
-// intentionally self-intersecting truncate branch.
-//
-// Past 0.5 the cut faces self-intersect BY DESIGN, so signed area, winding, and
-// closed-manifold checks do not apply. This test asserts only what stays
-// true across the pinch:
-// constant raw and compiled face count, constant V/F/I, finite unit vertices,
-// and no exact-0.5 evaluation. Positive area is asserted only on the near side.
+// Far-side truncate sweep: the truncate50d recipes truncate at t = 0.873, past
+// the ambo pinch (t = 0.5). truncate's topology (2E vertices, F+V faces, 3I
+// indices) is constant for every t != 0.5; exact 0.5 short-circuits to ambo.
+// Past 0.5 the cut faces self-intersect, so only structural invariants hold.
 // ---------------------------------------------------------------------------
 
 inline PolyMesh probe_ticosidodeca(Arena &a, Arena &b) {
@@ -515,7 +482,7 @@ inline constexpr TruncateSite FAR_TRUNCATE_SITES[] = {
     {"truncatedIcosidodecahedron_truncate50d_ambo_dual", probe_ticosidodeca},
 };
 
-/** Arrival parameter of the two truncate50d recipes: 0.873, past the pinch. */
+/** Arrival parameter of the truncate50d recipes: 0.873, past the pinch. */
 inline constexpr float TRUNCATE50D_T_STAR =
     Solids::IslamicStarPatterns::TRUNCATE_T_FAR;
 /** Below this t, the truncate cut faces do not yet self-intersect, so positive
@@ -527,12 +494,8 @@ inline constexpr float FAR_SIDE_NEAR_LIMIT = 0.49f;
  *        the ambo pinch to 0.873 on both truncate50d seeds, asserting the leg
  *        does not trap and does not change topology across the pinch.
  * @details Mirrors the OpLeg recipe-step clamp: the leg births at min(T_EPS,
- * arrival * TRUNCATE_BIRTH_FRAC) and the far-side arrival passes through
- * unclamped (below T_TRUNCATE_FAR_MAX). Every per-frame sample is routed
- * through ConwayGraph::truncate_off_pinch, so a sample landing exactly on 0.5
- * is nudged off the ambo short-circuit and the frame keeps the truncate
- * topology. STRUCTURAL checks only past 0.5 (self-intersecting by design): no
- * signed-area or manifold assertion there.
+ * arrival * TRUNCATE_BIRTH_FRAC). Samples go through
+ * ConwayGraph::truncate_off_pinch; past 0.5 only structural checks apply.
  */
 inline void test_truncate50d_far_side_sweep_holds_topology() {
   constexpr int SAMPLES = 48;
@@ -636,10 +599,8 @@ inline void test_truncate50d_far_side_sweep_holds_topology() {
 /**
  * @brief Finds the smallest chamfer t at which no newborn hexagon is rejected
  *        by SDF::Face's collapsed-area cull, per seed.
- * @details MeshOps::compile drops faces by side count only, so it never drops
- * a chamfer birth; the size-dependent reject is SDF::Face's
- * COLLAPSED_AREA_RATIO test at draw time. This bisects that boundary and
- * bounds it against the shipping T_EPS, which must clear the cull outright.
+ * @details Bisects the SDF::Face COLLAPSED_AREA_RATIO boundary and bounds it
+ * against T_EPS, which must clear the cull outright.
  */
 inline void test_chamfer_birth_epsilon() {
   // Worst measured birth epsilon is 1.8e-6, two decades under this cap and

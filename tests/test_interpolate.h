@@ -126,8 +126,7 @@ inline void test_shortest_periodic() {
 
 /** @brief Pins normalized linear. */
 inline void test_normalized_linear() {
-  // Endpoints come back as supplied — valid, and deliberately not
-  // renormalized.
+  // Endpoints come back as supplied, valid and not renormalized.
   const auto at_start =
       interp::normalized_linear<2>({3.0f, 4.0f}, {0.0f, 1.0f}, 0.0f, 1e-6f);
   HS_EXPECT_TRUE(at_start.valid);
