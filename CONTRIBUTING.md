@@ -36,6 +36,15 @@ non-fast-forward move of the ref, so a rewind needs a deliberate one-shot token
 One logical change is one commit, with an imperative subject naming the
 component (`scan: clamp the row index before the cast`).
 
+Before landing a refactor, search the old identifiers and behavior wording
+across source comments and maintained documentation with `rg -n -i -F --
+'old behavior phrase' .`. Read each match and correct stale contracts in the
+same commit. Repeat the search after editing. For wording that should disappear
+entirely, `python tools/docs_check.py --skip-checkout daydream --retired-term
+'old behavior phrase'` rejects remaining matches in tracked text; repeat
+`--retired-term` for each phrase. Review any accurate historical references
+separately. The normal documentation gate still checks paths and counts.
+
 ## Design specs
 
 [The specifications index](docs/specs/README.md) lists the design contracts
@@ -78,6 +87,12 @@ protected branch's `CI green` status is the authoritative correctness gate.
 - **Guard tests:** Prove that a valid companion fixture is accepted. For the
   guarded fixture, assert the intended result or diagnostic. Deleting the
   guarded line must fail the test; an unrelated rejection cannot satisfy it.
+- **Behavioral tests:** For every new or strengthened test, name a concrete
+  mutation of production code that must make it fail. Use an independent
+  expected result and assert the observable effect before a helper can perform
+  the behavior being tested. Exercise that mutation when practical, restore the
+  production code, and record the mutation and observed result in the change's
+  validation notes. A test that stays green needs a stronger assertion.
 - **Native suite:** `cmake --preset tests && cmake --build --preset tests` then
   `ctest --preset tests --output-on-failure --no-tests=error`. Every CI leg
   drives `HS_SMOKE_FRAMES=120`; at the 8-frame default no preset transition
