@@ -197,9 +197,10 @@ inline void test_col_span_covers_arc() {
   HS_EXPECT_GT(planar_fallbacks, 20);
 }
 
-// has_world_cull: false for screen-only pipelines, true whenever any stage
-// re-emits clip-cull edges (cull_edge).
+// Hoisted raw-geometry culls require identity world stages without cull_edge.
 static_assert(!Pipeline<96, 48>::has_world_cull);
+static_assert(Pipeline<96, 48, Filter::World::Mobius>::has_world_cull);
+static_assert(!Pipeline<96, 48, Filter::World::Hole>::has_world_cull);
 static_assert(
     !Pipeline<96, 48, Filter::Screen::AntiAlias<96, 48>>::has_world_cull);
 static_assert(Pipeline<96, 48, Filter::World::Orient>::has_world_cull);
