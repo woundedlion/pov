@@ -42,16 +42,6 @@ inline BurstSnapshot claim(EdgeMailbox &m) {
 }
 
 struct SyncBoardTestAccess {
-  static EdgeMailbox &mailbox(SyncBoard &b) { return b.mailbox(); }
-  static uint32_t gap_timeout_cycles(const SyncBoard &b) {
-    return b.gap_timeout_cycles();
-  }
-  static uint32_t max_burst_cycles(const SyncBoard &b) {
-    return b.max_burst_cycles();
-  }
-  static uint32_t glitch_filter_cycles(const SyncBoard &b) {
-    return b.glitch_filter_cycles();
-  }
   static Flywheel &flywheel(SyncBoard &b) { return b.flywheel_mut(); }
   static ContentTracker &content(SyncBoard &b) { return b.content_mut(); }
   static SymbolEmitter &emitter(SyncBoard &b) { return b.emitter; }
@@ -612,12 +602,12 @@ inline void test_seed_clears_mailbox() {
   board.seed(1000u, /*is_master=*/false);
   board.on_sync_edge(2000u);
   board.on_sync_edge(2000u + 4 * col);
-  HS_EXPECT_TRUE(burst_complete(SyncBoardTestAccess::mailbox(board),
-                                2000u + 100 * col, cfg.gap_timeout_cycles()));
   board.seed(3000u, false);
-  HS_EXPECT_FALSE(burst_complete(SyncBoardTestAccess::mailbox(board),
-                                 3000u + 100 * col, cfg.gap_timeout_cycles()));
-  HS_EXPECT_EQ(claim(SyncBoardTestAccess::mailbox(board)).count, 0u);
+  BurstSnapshot s;
+  HS_EXPECT_FALSE(board.claim_sync_burst(3000u + 100 * col, &s));
+  board.on_sync_edge(3000u + 200 * col);
+  HS_EXPECT_TRUE(board.claim_sync_burst(3000u + 300 * col, &s));
+  HS_EXPECT_EQ(s.count, 1u);
 }
 
 /**
@@ -640,16 +630,53 @@ inline void test_build_request_reset() {
   replacement.glitch_filter_cycles /= 2;
   board.configure(replacement);
   HS_EXPECT_EQ(config(board).effect_count, 3);
-  HS_EXPECT_EQ(SyncBoardTestAccess::gap_timeout_cycles(board),
-               replacement.gap_timeout_cycles());
-  HS_EXPECT_EQ(SyncBoardTestAccess::max_burst_cycles(board),
-               replacement.max_burst_cycles());
-  HS_EXPECT_EQ(SyncBoardTestAccess::glitch_filter_cycles(board),
-               replacement.glitch_filter_cycles);
   HS_EXPECT_EQ(board.build_word(), 0u);
 
   board.seed(3000u, true);
   HS_EXPECT_EQ(SyncBoard::build_gen_of(board.build_word()), 1u);
+}
+
+/**
+ * @brief Verifies burst claiming follows the gap, duration and glitch windows
+ *        of the configuration installed by configure().
+ */
+inline void test_configure_replaces_claim_windows() {
+  const Config cfg = test_config();
+  Config replacement = test_config(3);
+  replacement.cycles_per_half_rev /= 2;
+  replacement.glitch_filter_cycles /= 2;
+  const uint32_t gap = replacement.gap_timeout_cycles();
+  const uint32_t col = replacement.cycles_per_column();
+  const uint32_t t = 5000u;
+  BurstSnapshot s;
+  {
+    SyncBoard board(cfg);
+    board.configure(replacement);
+    board.on_sync_edge(t);
+    HS_EXPECT_FALSE(board.claim_sync_burst(t + gap - 1, &s));
+    HS_EXPECT_TRUE(board.claim_sync_burst(t + gap, &s));
+    HS_EXPECT_EQ(s.count, 1u);
+  }
+  {
+    SyncBoard board(cfg);
+    board.configure(replacement);
+    uint32_t edge = t;
+    while (edge - t < replacement.max_burst_cycles()) {
+      board.on_sync_edge(edge);
+      edge += col;
+    }
+    board.on_sync_edge(edge);
+    HS_EXPECT_TRUE(board.claim_sync_burst(edge + 1, &s));
+    HS_EXPECT_EQ(s.first_cycles, t);
+  }
+  {
+    SyncBoard board(cfg);
+    board.configure(replacement);
+    board.on_sync_edge(t);
+    board.on_sync_edge(t + replacement.glitch_filter_cycles);
+    HS_EXPECT_TRUE(board.claim_sync_burst(t + 100 * col, &s));
+    HS_EXPECT_EQ(s.count, 2u);
+  }
 }
 
 /**
@@ -3659,6 +3686,7 @@ inline int run_pov_sync_tests() {
   test_mailbox_rejects_backward_clock();
   test_seed_clears_mailbox();
   test_build_request_reset();
+  test_configure_replaces_claim_windows();
   test_multi_boundary_tick_window();
   test_beacon_codec();
   test_beacon_partial_frame_ages_out();
