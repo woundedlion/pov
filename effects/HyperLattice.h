@@ -225,8 +225,7 @@ public:
   /**
    * @brief The preset at @p index and how it departs.
    * @details A preset morphs through its parameters into the next preset of
-   * its pattern and view; any other departure fades through black, since the
-   * geometry cannot interpolate across a pattern or view.
+   * its pattern and view; any other departure fades through black.
    */
   HS_COLD_MEMBER static constexpr PresetEntry<Params> preset(size_t index) {
     constexpr Segue::Preset::Lerp MORPH{240, math::ease_in_out_sin,
@@ -500,9 +499,8 @@ public:
    * @brief Whether a parameter set matches a specialized slice pipeline.
    * @param value Parameters to test.
    * @return true when the parameters match the specialized trace assumptions.
-   * @details The shape is the hypercube preset's; the assert in draw_frame()
-   *          ties the two, so retuning that preset cannot leave the gate
-   *          behind.
+   * @details The shape is the hypercube preset's; draw_frame() asserts the
+   *          two agree.
    */
   static constexpr bool uses_specialized_slice(const Params &value) {
     return value.pattern == Pattern::CUBIC_WIRE &&

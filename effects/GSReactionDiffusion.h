@@ -19,7 +19,6 @@
 #include "core/engine/engine.h"
 #include "effects/ReactionDiffusionBase.h"
 
-// Unit-test accessor for private state the smoke harness cannot pin.
 namespace hs_test {
 namespace effects_tests {
 struct GSWhiteBox;
@@ -34,10 +33,9 @@ struct GSWhiteBox;
  *
  * @details
  * Two species (A, B) evolve via Gray-Scott dynamics (A·B² autocatalysis with
- * feed/kill) on the shared 7680-node lattice, producing spots/stripes/mazes.
+ * feed/kill) on the shared lattice, producing spots/stripes/mazes.
  * Persistent state is Q16 (uint16_t) for the cubic reaction-term precision;
- * substeps integrate in float and quantize back once per frame. Shared
- * lattice/orientation/kernel scaffolding lives in ReactionDiffusionBase.
+ * substeps integrate in float and quantize back once per frame.
  *
  * A reaction runs until its field has all but stopped moving, then dissolves off
  * the sphere and reseeds at new sites, so each cycle grows a different form from
@@ -51,7 +49,7 @@ template <int W, int H>
 class GSReactionDiffusion
     : public ReactionDiffusionBase<GSReactionDiffusion<W, H>, W, H> {
   using Base = ReactionDiffusionBase<GSReactionDiffusion<W, H>, W, H>;
-  friend Base; // draw_frame() forwards to render()
+  friend Base;
 
   // Bring dependent-base names into scope (template base requires this).
   using Base::for_each_neighbor;
@@ -76,9 +74,6 @@ public:
 
   /**
    * @brief One-time setup: arenas, GUI params, A/B state, cubemap LUT, lattice.
-   * @details Carves the persistent arena, registers the GUI params, allocates
-   * the A/B/pigment state, seed palettes and colour-noise LUT, binds the flash
-   * lattice and builds the cubemap LUT, then seeds the first reaction.
    */
   void init() override {
     constexpr size_t PALETTE_BYTES =
@@ -99,8 +94,8 @@ public:
 
     register_param("Feed", &params.feed, 0.0f, 0.1f);
     register_param("Kill", &params.k, 0.0f, 0.1f);
-    // step_physics_nodes clamps each substep to [0,1], including the joint
-    // Speed/diffusion maximum beyond the linear diffusion bound.
+    // Each substep clamps to [0,1], so the joint Speed/diffusion maximum may
+    // exceed the linear diffusion bound.
     register_param("dA", &params.d_a, 0.0f, 0.05f);
     register_param("dB", &params.d_b, 0.0f, 0.05f);
     register_param("Speed", &params.dt, 0.1f, 3.0f);
@@ -131,7 +126,6 @@ public:
   }
 
 private:
-  // Test seam for private state the smoke harness cannot pin.
   friend struct ::hs_test::effects_tests::GSWhiteBox;
 
   /**
@@ -176,10 +170,9 @@ private:
    * @brief Mean per-node |dB| per frame below which the field counts as
    * settled, at DEFAULT_DT and BASELINE_STEPS_PER_FRAME; the detector rescales
    * it by params.dt / DEFAULT_DT and by EVOLUTION_STEPS_PER_FRAME /
-   * BASELINE_STEPS_PER_FRAME. This is a calibration heuristic: Q16
-   * quantization makes the low-Speed response nonlinear.
-   * @details Loose relative to the 1.1e-6..4.0e-6 Q16 chatter a converged field
-   * floors at; fires at ~222 baseline frames.
+   * BASELINE_STEPS_PER_FRAME. A calibration heuristic: Q16 quantization makes
+   * the low-Speed response nonlinear.
+   * @details Well above the 1.1e-6..4.0e-6 Q16 chatter of a converged field.
    */
   static constexpr float MEAN_DB_STABLE = 2.0e-4f;
   /** @brief Speed the stabilization floor is calibrated at. */
@@ -203,10 +196,8 @@ private:
   static constexpr float B_COLOR_SCALE = 4.0f; /**< Slope mapping B above the
                                                     floor into palette t. */
   /**
-   * @brief Cull threshold; coincides with the color floor so there is no band
-   * between the two: a pixel is either fully transparent or on the gradient.
-   * @details A cull below the floor would map b in [cull, floor) to t==0,
-   * rendering an opaque flat plateau of the lowest palette color.
+   * @brief Cull threshold; coincides with the color floor, so a pixel is
+   * either fully transparent or on the gradient.
    */
   static constexpr float B_CULL_THRESHOLD = B_COLOR_FLOOR;
 
@@ -643,17 +634,13 @@ private:
 
   /**
    * @brief Jacobi reference substep for the in-place physics oracle tests.
-   * @details The render path uses step_physics_inplace.
    * @param c_a Current A field (read-only), float in [0, 1] per node.
    * @param c_b Current B field (read-only), float in [0, 1] per node.
    * @param n_a Next A field (write target), float in [0, 1] per node.
    * @param n_b Next B field (write target), float in [0, 1] per node.
    * @details Gray-Scott: dA/dt = dA·∇²A - A·B² + feed·(1-A);
-   * dB/dt = dB·∇²B + A·B² - (k+feed)·B. Double-buffered Jacobi: reads current
-   * buffers, writes next. The
-   * [0, 1] clamp saturates explicit-Euler overshoot past the stability bound
-   * (see "Speed"); substeps stay in float so the Q16 state quantizes once per
-   * frame, not once per substep.
+   * dB/dt = dB·∇²B + A·B² - (k+feed)·B. The [0, 1] clamp saturates
+   * explicit-Euler overshoot past the stability bound.
    */
   HS_O3_FN void step_physics(const float *__restrict c_a,
                              const float *__restrict c_b, float *__restrict n_a,
@@ -786,9 +773,7 @@ private:
    * @param nodes Node positions in the same frame as `p`.
    * @return Support-radius weighted average of B in [0, 1]; 0 if no node is
    * within the support radius.
-   * @details Off the render path: shade_pixel gathers the stencil once per
-   * pixel and re-weights it inline. This one-sample form is the oracle
-   * tests/effects/reaction_diffusion_gs.h bounds that shared stencil against.
+   * @details Single-sample test oracle for the per-pixel shared stencil.
    */
   float interpolate_b(const math::Vector &p, int seed,
                       const math::Vector *nodes) const {
@@ -981,9 +966,8 @@ private:
    * @return The finished alpha-premultiplied pixel.
    * @details Accepts seeds inside a proven nearest-node radius immediately;
    * boundary pixels check all six neighbors. The center stencil is shared
-   * across the four sub-pixel samples. The row offset is
-   * 0.25 * RADIANS_PER_ROW<H>; stencil reuse can exceed one node spacing
-   * at low vertical resolutions.
+   * across the four sub-pixel samples, so its reuse can exceed one node
+   * spacing at low vertical resolutions.
    */
   template <typename Grid>
   HS_O3_FN Pixel shade_pixel(
@@ -1080,10 +1064,8 @@ private:
    *        reaches the threshold.
    * @param count Node count.
    * @param threshold Q16 render floor.
-   * @details A kernel sample is a convex average over the refined stencil and
-   * the refined center is at most one hop from the seed, so a seed whose
-   * two-ring sits entirely below the floor cannot produce a renderable sample —
-   * culling on !hot2[seed] is exact, not approximate.
+   * @details A kernel sample is a convex average over a stencil at most one
+   * hop from the seed, so culling on !hot2[seed] is exact.
    */
   HS_O3_FN static void fill_hot_flags(const uint16_t *b, uint8_t *hot1,
                                       uint8_t *hot2, int count,
@@ -1132,10 +1114,8 @@ private:
   /**
    * @brief Advances the sim STEPS_PER_FRAME substeps and rasterizes the B field.
    * @param canvas Destination canvas to draw the sphere into.
-   * @details Rasterizes the B field onto the sphere via the orientation-aware
-   * SSAA shader pipeline after advancing the simulation. Reseeding uses one
-   * black frame followed by a complete seed frame, both without partial-state
-   * chemistry or rendering.
+   * @details Reseeding uses one black frame followed by a complete seed frame,
+   * both without partial-state chemistry or rendering.
    */
   void render(Canvas &canvas) {
     HS_PROFILE(grd_render);
@@ -1186,9 +1166,7 @@ private:
     }
     refresh_color_palettes();
 
-    // Physics scratch is popped; the raster phase reuses the arena for the
-    // oriented lattice so the kernel walks stay in world space, plus the
-    // two-ring cull flags.
+    // Physics scratch is popped; the oriented lattice and cull flags reuse it.
     HS_PROFILE(grd_rasterize);
     auto lattice = [this] {
       HS_PROFILE(grd_orient);
@@ -1228,9 +1206,8 @@ private:
     int stable_frames = 0;      /**< Consecutive sub-floor frames. */
     int dissolve_frames = -1;   /**< Dissolve progress; -1 when inactive. */
     uint32_t dissolve_seed = 0; /**< Per-transition node-order hash seed. */
-    /** Reaction constants as of the last frame; reaction_edited() latches them
-     *  to spot a user edit, seeded from params in init() so frame 1 is
-     *  clean. */
+    /** Reaction constants as of the last frame, latched by
+     *  reaction_edited(). */
     float last_feed = 0.0f, last_k = 0.0f, last_d_a = 0.0f, last_d_b = 0.0f;
   } transition;
 
