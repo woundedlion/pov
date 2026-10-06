@@ -20,8 +20,7 @@ namespace presets_tests {
 
 /**
  * @brief Minimal stand-in payload for exercising the preset table.
- * @details Avoids depending on any real preset struct; `id` doubles as an
- *          identity marker in assertions, while `value` checks float copying.
+ * @details `id` is an identity marker; `value` checks float copying.
  */
 struct DummyParams {
   int id;
@@ -46,10 +45,8 @@ static_assert(all_presets_in_ranges(CONST_ENTRIES, id_below_four));
 static_assert(!all_presets_in_ranges(CONST_ENTRIES, id_below_three));
 
 /**
- * @brief Verifies all_presets_in_ranges() folds the predicate over every entry.
- * @details The static_asserts above cover the constant-expression use the helper
- *          exists for; these calls pin that a failure at either end of the table
- *          is reported.
+ * @brief Verifies all_presets_in_ranges() reports a failure at either end of
+ *        the table.
  */
 inline void test_all_presets_in_ranges_folds_predicate() {
   HS_EXPECT_FALSE(all_presets_in_ranges(CONST_ENTRIES, id_above_one));
@@ -60,9 +57,7 @@ inline void test_all_presets_in_ranges_folds_predicate() {
 
 /**
  * @brief Verifies apply_if_changed invokes the callable only when the value changes.
- * @details The callable fires only when the incoming value differs from the latched
- *          `last`, then `last` is updated — the live-slider debounce idiom. The test
- *          covers no-change (no call), change (one call, latched), and repeat (no call).
+ * @details On a change, `last` latches the new value.
  */
 inline void test_apply_if_changed() {
   int last = 5;
@@ -101,8 +96,7 @@ struct BootParams {
 /**
  * @brief Effect declaring PRESET_IDS and a static preset(index), no
  *        initial_params().
- * @details Preset 0 carries a value the struct default cannot produce, so the
- * parameters the base boots with name which resolver supplied them.
+ * @details Preset 0 carries a value the struct default cannot produce.
  */
 struct PresetZeroBootEffect
     : public ChoreographedEffect<PresetZeroBootEffect, BootParams> {
@@ -126,9 +120,6 @@ struct PresetZeroBootEffect
 
 /**
  * @brief Verifies a PRESET_IDS-shaped effect boots at preset(0).
- * @details The base reports preset 0 from construction, so starting at the
- * struct defaults instead would render parameters no preset names while
- * claiming to be on the first one.
  */
 inline void test_preset_zero_supplies_startup_params() {
   hs_test::reset_globals();
@@ -147,9 +138,7 @@ struct HoldParams {
 
 /**
  * @brief Two-preset snapping effect exposing the choreography's dwell controls.
- * @details Segue::Preset::Snap keeps the advance synchronous, so a preset
- * index change lands on the frame the dwell retires with no crossfade in
- * between.
+ * @details Snap segues land the preset change on the frame the dwell retires.
  */
 struct HoldEffect : public ChoreographedEffect<HoldEffect, HoldParams> {
   static constexpr std::array<std::string_view, 2> PRESET_IDS{"first",
@@ -174,9 +163,6 @@ struct HoldEffect : public ChoreographedEffect<HoldEffect, HoldParams> {
 /**
  * @brief Verifies hold_initial_preset() replaces the dwell for the first
  *        transition only, and that zero holds nothing.
- * @details The override exists so an effect can stagger its first preset move
- * off the shared cadence; a hold that leaked into later moves would retune the
- * whole choreography instead of its opening frame.
  */
 inline void test_hold_initial_preset_overrides_first_dwell() {
   hs_test::reset_globals();
@@ -193,8 +179,7 @@ inline void test_hold_initial_preset_overrides_first_dwell() {
   HS_EXPECT_EQ(effect.getPresetIndex(), size_t{1});
   HS_EXPECT_EQ(effect.value(), HoldEffect::preset(1).params.value);
 
-  // The advance restored the authored dwell, so the next move is a full
-  // PRESET_DWELL_FRAMES away rather than another three frames.
+  // The advance restored the authored PRESET_DWELL_FRAMES dwell.
   for (uint16_t f = 1; f < HoldEffect::PRESET_DWELL_FRAMES; ++f)
     effect.tick();
   HS_EXPECT_EQ(effect.getPresetIndex(), size_t{1});
@@ -491,7 +476,7 @@ inline void test_completed_crossfade_adopts_exact_endpoint() {
 
 /**
  * @brief Runs the preset choreography test cases.
- * @return The module's failure count, as reported by end_module().
+ * @return The module's failure count.
  */
 inline int run_presets_tests() {
   hs_test::ModuleFixture fixture("presets");

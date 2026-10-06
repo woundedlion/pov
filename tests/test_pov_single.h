@@ -2,16 +2,8 @@
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
  * Licensed under the PolyForm Noncommercial License 1.0.0
  *
- * Host unit tests for the single-board POV math (hardware/pov_single_map.h, the
- * pure arithmetic the Arduino-only pov_single.h driver derives its show_col()
- * ISR mapping and run() cadence from). This is the one place the single-arm
- * index arithmetic reaches the physical LEDs, so an off-by-one or hemisphere
- * swap silently mis-paints the sphere — the same failure mode the segmented
- * tiling tests (test_pov_segmented.h) were written to prevent. Covers the
- * top/bottom strip split (reversed vs straight), the bottom-half
- * opposite-column x offset, that the S LED writes tile the two sampled canvas
- * columns exactly once, the column-period derivation, the overrun relation
- * against the transport's transfer bound, and the advance/flip cadence.
+ * Host unit tests for the single-board POV index math
+ * (hardware/pov_single_map.h).
  */
 #pragma once
 
@@ -55,10 +47,6 @@ static_assert(!step_column(0, 96).advance);
  * @param S Total physical LED count on the strip (S = 2*ROWS).
  * @param w Canvas width in columns; the bottom half samples column (x+w/2)%w.
  * @param x Rotation column in [0, w); top half samples this column directly.
- * @details Checks that S LED writes map onto 2*ROWS canvas pixels (top half at
- * column x, bottom half at (x+w/2)%w), every physical LED in [0, S) is written
- * exactly once with no gap or double-drive, and both sampled columns are fully
- * covered row for row.
  */
 inline void check_strip_tiling(int S, int w, int x) {
   const int ROWS = S / 2;
@@ -80,8 +68,7 @@ inline void check_strip_tiling(int S, int w, int x) {
     HS_EXPECT_TRUE(bot_led >= 0 && bot_led < S);
     if (top_led < 0 || top_led >= S || bot_led < 0 || bot_led >= S)
       continue;
-    // Interior ordering: top half strictly descends, bottom half strictly
-    // ascends, so a scrambled-but-bijective remap fails here, not just below.
+    // Top half strictly descends, bottom half strictly ascends.
     if (y > 0) {
       HS_EXPECT_TRUE(top_led < prev_top);
       HS_EXPECT_TRUE(bot_led > prev_bot);
@@ -97,9 +84,7 @@ inline void check_strip_tiling(int S, int w, int x) {
     writes += 2;
   }
 
-  // Bind LED range to hemisphere column: the top half [0, ROWS) paints col_top,
-  // the bottom half [ROWS, S) paints col_bot. An arm/hemisphere swap that still
-  // tiles bijectively flips these and fails here.
+  // Top half [0, ROWS) paints col_top; bottom half [ROWS, S) paints col_bot.
   for (int p = 0; p < ROWS; ++p)
     HS_EXPECT_EQ(led_col[static_cast<size_t>(p)], col_top);
   for (int p = ROWS; p < S; ++p)
@@ -170,9 +155,6 @@ inline void test_column_interval() {
  * @brief Verify the shipped single-board column period clears the per-column
  * transfer bound; the <= 2x bound requires strobing effects to run unstrobed
  * on the FastLED path.
- * @details run() rejects a configuration whose column period does not clear
- * this bound. show_col() drops an overrun column and tries again on the next
- * tick. The bound's rounding is pinned in test_dma_core.h.
  */
 inline void test_transfer_bound() {
   HS_EXPECT_EQ(pov::fastled_show_us(40, pov::FASTLED_CLOCK_MHZ), 1181UL);
@@ -188,11 +170,6 @@ inline void test_transfer_bound() {
 /**
  * @brief Verify the advance/flip cadence: exactly two display-buffer advances
  * per revolution, at columns 0 and w/2, and a sweep that closes on itself.
- * @details Each half revolution paints a whole frame (the two strip halves
- * sample opposite canvas columns), so an off-by-one here either double-advances
- * — tearing the frame the foreground is still drawing — or advances once per
- * revolution, halving the frame rate and stalling the foreground in
- * buffer_free().
  */
 inline void test_column_step_cadence() {
   for (int w : {8, 96, 288}) {
@@ -266,10 +243,6 @@ inline void test_single_column_sequence() {
 /**
  * @brief Run the single-board POV index-math suite.
  * @return Number of failed expectations in the suite (0 on full pass).
- * @details Exercises the strip split and column offset directly, then the full
- * tiling invariant across the production and large synthetic configs, plus a
- * small config swept
- * over every rotation column.
  */
 inline int run_pov_single_tests() {
   hs_test::ModuleFixture fixture("pov_single");

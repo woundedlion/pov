@@ -3,28 +3,7 @@
  * Licensed under the PolyForm Noncommercial License 1.0.0
  *
  * Unit tests for core/render/scan.h using framebuffer readback, recording
- * callbacks, and pixel sinks:
- *   - Scan::Shader::draw and its SSAA / split-shader variants: constant,
- *     positional, and clip-respecting fills.
- *   - Scan::rasterize through Scan::Ring: bounded output, band placement, the
- *     stroke AA ramp, empty clips, and the constant-color rasterize_solid path
- *     against the generic one.
- *   - The fused walks: RingGroup and DistortedRingStack against per-ring
- *     draws, rasterize_face against scan_region, and their independence from
- *     Render::pole_lod_aggressiveness.
- *   - scan_region itself: seam and fractional-boundary single plotting, clip
- *     arcs against the predicate, and near-pole LOD (canvas-anchored runs, the
- *     Render::POLE_LOD_MAX_RUN clamp, decimated vs undecimated shading).
- *   - CSG through the scan: report_stretch forwarding and the stroke AA
- *     thickness of the winning child.
- *   - Filled-shape placement oracles for Star, PlanarPolygon and Flower;
- *     SphericalPolygon's sine-distance framebuffer error; over-operator
- *     compositing of overlapping fills.
- *   - Scan::Circle and Scan::Point, the radius-0 ring regime.
- *   - Scan::Volume / TransformedVolume: orthographic ray-march silhouette,
- *     registers, occlusion, and the trace's closest-approach guarantees.
- *   - BoundingSphere trig initialization, MIN_ALPHA boundaries, SsaaGrid and
- *     draw_cached, scan epilogues, and replicated-clip parity.
+ * callbacks, and pixel sinks.
  */
 #pragma once
 
@@ -58,9 +37,6 @@ inline void build_ring_knots(float (&knots)[N][LUT_N + 1]) {
 
 /**
  * @brief Pins Render::pole_lod_aggressiveness for a scope and restores it on exit.
- * @details The knob is process-global, so an early return between a hand-rolled
- * save and restore would hand every later case in the module a different LOD
- * regime.
  */
 struct ScopedPoleLod {
   float saved; /**< Value in force at construction. */
@@ -136,8 +112,7 @@ inline void test_shader_constant_fills_canvas() {
   }
   fx.advance_display();
 
-  // Bit-exact readback: at alpha=1 the blend is the identity (src*1 + dst*0), so
-  // channels survive verbatim.
+  // At alpha=1 the blend is the identity, so channels survive verbatim.
   for (int y = 0; y < H; ++y) {
     for (int x = 0; x < W; ++x) {
       const Pixel &p = fx.get_pixel(x, y);
@@ -150,12 +125,8 @@ inline void test_shader_constant_fills_canvas() {
 
 /**
  * @brief Verifies SAMPLES==4 SSAA premultiplies each sub-sample before averaging.
- * @details On a partial-coverage pixel whose sub-samples vary in BOTH color and
- * alpha (here: two opaque red, two transparent black per pixel), correct
- * premultiplied SSAA writes (sum of color*alpha) / N. The straight-alpha
- * model — average color and alpha separately, then re-multiply — would apply
- * coverage twice and darken the result (red/4 instead of red/2). This pins the
- * premultiplied result.
+ * @details With two opaque red and two transparent black sub-samples per
+ * pixel, premultiplied SSAA writes (sum of color*alpha) / N = red/2.
  */
 inline void test_shader_ssaa_premultiplies_partial_coverage() {
   constexpr int W = 16, H = 8;
@@ -194,9 +165,8 @@ inline void test_shader_ssaa_premultiplies_partial_coverage() {
  *        over one per-pixel vertex seed.
  * @details The vertex shader runs once at the pixel center and the fragment
  * shader four times at the sub-pixel offsets, each sub-fragment inheriting the
- * seeded registers. Two of the four sub-samples land opaque (the same
- * theta-phase split the single-callback SSAA case uses), so the written pixel is
- * half the seeded intensity -- a value the SAMPLES==1 path cannot produce.
+ * seeded registers. Two of the four sub-samples land opaque, so the written
+ * pixel is half the seeded intensity.
  */
 inline void test_shader_split_ssaa_averages_subsamples() {
   constexpr int W = 16, H = 8;
@@ -243,8 +213,7 @@ inline void test_shader_split_ssaa_averages_subsamples() {
 
 /**
  * @brief Verifies a position-reading shader maps the sphere's latitude.
- * @details The +Y pole (top row) must render brighter than the -Y pole (bottom
- * row), confirming the shader receives the correct surface position.
+ * @details The +Y pole (top row) renders brighter than the -Y pole (bottom row).
  */
 inline void test_shader_positional_maps_latitude() {
   constexpr int W = 32, H = 32;
@@ -267,7 +236,6 @@ inline void test_shader_positional_maps_latitude() {
 
 /**
  * @brief Verifies the shader writes only inside the active clip band.
- * @details Rows outside the clip band must stay black (untouched by the clear).
  */
 inline void test_shader_respects_clip_band() {
   constexpr int W = 32, H = 16;
@@ -310,10 +278,8 @@ inline void test_ssaa_grid_sample_positions() {
 /**
  * @brief Verifies every Shader entry point paints exactly the columns the clip
  *        arc admits, with the values an unclipped draw produced.
- * @details The draws walk the arc's pieces instead of testing every column, so
- * pin the painted output against the unclipped render filtered by
- * XClip::clipped — under a plain arc and under one whose margin wraps the band
- * across the seam.
+ * @details Compared against the unclipped render filtered by XClip::clipped,
+ * under a plain arc and one whose margin wraps the band across the seam.
  */
 inline void test_shader_clip_arc_matches_predicate() {
   constexpr int W = 32, H = 16;
@@ -458,10 +424,8 @@ inline void test_shader_clip_arc_matches_predicate() {
 
 /**
  * @brief Verifies the SDF rasterize() path plots a complete hollow ring.
- * @details Two-sided mask oracle: every pixel inside the stroke core is lit and
- * every lit pixel lies within the stroke plus its AA fringe. A bounded count
- * alone passes a stroke that dropped columns or collapsed to a single row, and
- * test_ring_rasterize_lights_expected_row bounds only the outside of the band.
+ * @details Every pixel inside the stroke core is lit and every lit pixel lies
+ * within the stroke plus its AA fringe.
  */
 inline void test_ring_rasterize_produces_bounded_output() {
   constexpr int W = 64, H = 48;
@@ -516,11 +480,7 @@ inline void test_ring_rasterize_produces_bounded_output() {
 
 /**
  * @brief Verifies a radius past 1 shades the azimuth of the caller's own frame.
- * @details SDF::Ring covers the whole [0, 2] radius range directly. Rebuilding a
- * long-arc ring about its antipode reproduces the same latitude band but reads
- * the azimuth from a frame with u negated, so Fragment::v0 comes out mirrored
- * and half-turn-shifted from what the same basis and radius give through
- * SDF::Ring or Scan::DistortedRing.
+ * @details SDF::Ring covers the whole [0, 2] radius range directly.
  */
 inline void test_ring_long_radius_azimuth_unflipped() {
   constexpr int W = 96, H = 64;
@@ -555,15 +515,12 @@ inline void test_ring_long_radius_azimuth_unflipped() {
 
 /**
  * @brief Verifies a degenerate clip band makes rasterize plot nothing.
- * @details With y_start == y_end the rasterizer must early-out and leave the
- * canvas black.
  */
 inline void test_ring_rasterize_empty_clip_draws_nothing() {
   constexpr int W = 64, H = 48;
   hs_test::StubEffect fx(W, H);
   Pipeline<W, H> pipe;
 
-  // Degenerate clip (y_start == y_end) → rasterize must early-out, plot nothing.
   fx.set_clip(30, 30, 0, W);
   fx.set_margin(0);
 
@@ -644,10 +601,8 @@ inline void test_distorted_ring_flat_matches_zero_knot_raster() {
   check(true);
 }
 
-// AA-dust ceiling of the fused ring-group scan: a handful of stroke-edge pixels
-// at 1/128 of full scale is the widest divergence the doc below permits. Under
-// IEEE the two paths agree bit-exactly and the test holds them to that; under
-// -ffast-math each loop reassociates on its own, so only the ceiling applies.
+// AA-dust ceiling of the fused ring-group scan under -ffast-math: a handful of
+// stroke-edge pixels at 1/128 of full scale.
 constexpr int GROUP_MAX_CHANNEL_DELTA = 512;
 constexpr int GROUP_MAX_DIFF_PIXELS = 16;
 
@@ -771,27 +726,11 @@ inline void test_distorted_ring_candidates_outside_poles() {
 /**
  * @brief Verifies DistortedRingStack::draw matches rasterizing the stack's
  *        rings one by one.
- * @details Five evenly spaced same-axis knot rings with distinct thicknesses,
- * colors, and alphas, drawn sequentially through Scan::DistortedRing::draw with
- * suppress_pole_fill (the per-ring path the stack's doc claims to mirror) vs as
- * one fused stack scan. The shader keys its green channel on the azimuth v0 and
- * its alpha on the coverage v2, so a divergence in either register shows up in
- * the pixels. Covered: full frame, a partial clip with an x band, a culled
- * middle ring (slot_by_ring -1), and a near-pole axis that forces the
- * full-row-scan fallback on both paths. The claim is scoped to
- * Render::pole_lod_aggressiveness 0, which the test pins: the fused scan shades every
- * column while the per-ring path decimates near-pole rows.
- *
- * Which pixels light is exact. Channel values carry a tolerance: the shipping
- * builds are -ffast-math, which inlines the shared frame and coverage
- * arithmetic into two different loops and reassociates each copy on its own, so
- * the two blend weights agree to float rounding rather than bit-exactly. The
- * tolerance is derived, not fitted: blend_alpha quantizes the weight to 16 bits
- * and the reassociation divergence stays far inside one 1/65535 quantum, so
- * each blend's weight shifts by at most one step; lerp16's slope in both the
- * weight and the destination is at most 1 at 16-bit scale, so one blend moves a
- * channel by at most 1 and passes an incoming difference through undamped. At
- * most N_RINGS blends land on a pixel, so N_RINGS bounds the channel delta.
+ * @details The per-ring path uses suppress_pole_fill. The shader keys green on
+ * the azimuth v0 and alpha on the coverage v2. Scoped to
+ * Render::pole_lod_aggressiveness 0, where both paths shade every column. Lit
+ * pixels match exactly; under -ffast-math each composited blend may move a
+ * channel by one 16-bit step.
  */
 inline void test_distorted_ring_stack_matches_sequential() {
   constexpr int W = 96, H = 64;
@@ -946,11 +885,7 @@ inline void test_distorted_ring_stack_empty_clip_skips_table() {
 /**
  * @brief Verifies the fused RingGroup and DistortedRingStack walks ignore
  *        Render::pole_lod_aggressiveness.
- * @details Both replace the per-ring scan_region walk with one row-local scan
- * that shades every column, so the knob that decimates scan_region rows cannot
- * reach them. Each is rendered at aggressiveness 0 and at 4, where
- * pole_lod_run exceeds one column on every row, and the two frames are held
- * bit-identical.
+ * @details Frames at aggressiveness 0 and 4 are bit-identical.
  */
 inline void test_fused_walks_ignore_pole_lod() {
   constexpr int W = 96, H = 64;
@@ -1041,17 +976,9 @@ inline void test_fused_walks_ignore_pole_lod() {
 
 /**
  * @brief Verifies rasterize_face walks the pixels scan_region walks.
- * @details rasterize_face shares coalesce_spans but hand-rolls the full-row
- * check and clip split of scan_region's run builder. SDF::Face satisfies
- * ScanShape, so the same
- * face drawn through Scan::rasterize and through Scan::rasterize_face must
- * light the same pixels with the same coverage; a constant-color shader makes
- * any divergence in either the run set or the AA band a framebuffer difference.
- * Covered: a mid-latitude face, one whose azimuth wedge straddles theta=0, a
- * pole-touching face (per-row runs plus the full-row fallback), and both a
- * plain and a seam-wrapping x clip. Scoped to Render::pole_lod_aggressiveness 0 to
- * isolate the paths' LUT-versus-sqrt sin-phi evaluation and culling asymmetry
- * from near-pole row decimation.
+ * @details The same SDF::Face drawn through Scan::rasterize and
+ * Scan::rasterize_face lights the same pixels with the same coverage. Scoped to
+ * Render::pole_lod_aggressiveness 0.
  */
 inline void test_face_rasterize_matches_scan_region() {
   constexpr int W = 96, H = 64;
@@ -1147,10 +1074,8 @@ inline void test_face_rasterize_matches_scan_region() {
 
 /**
  * @brief Verifies the scan_region seam coalescer avoids double-plotting.
- * @details A span crossing x=0 must not double-plot the wrapped overlap shared
- * with another span. Drives scan_region with a sorted two-span row (a low span
- * plus a seam-crosser, as a shape's sorted output emits) so the wrapped columns
- * shared by both spans are plotted exactly once.
+ * @details A sorted two-span row (a low span plus a seam-crosser) plots the
+ * wrapped columns both spans share exactly once.
  */
 inline void test_scan_region_seam_no_double_plot() {
   constexpr int W = 96, H = 20;
@@ -1188,10 +1113,7 @@ inline void test_scan_region_seam_no_double_plot() {
 /**
  * @brief Verifies the scan_region forward coalescer handles fractional bounds.
  * @details Two abutting spans whose shared boundary falls fractionally inside
- * one pixel column must not both plot that column. Float span merging alone
- * would let prev end 5.4 (ceil paints x=5) and next start 5.6 (floor gives 5)
- * each touch x=5, doubling process_pixel / alpha; integer-space clamping
- * (last_x2) keeps x=5 single.
+ * one pixel column plot that column once.
  */
 inline void test_scan_region_fractional_boundary_no_double_plot() {
   constexpr int W = 96, H = 20;
@@ -1228,14 +1150,9 @@ inline void test_scan_region_fractional_boundary_no_double_plot() {
 /**
  * @brief Verifies near-pole runs are anchored to canvas columns, not to the
  *        span or the clip arc.
- * @details A run that straddled a stride block would shade from a column the
- * block does not own. Records the column each shade was probed at, not just the
- * block it fell in, and pins it against the offer rule: a column is settled from
- * its own block's anchor while the whole block fits inside the walked run, and
- * walked at its own column otherwise. A clip arc that cuts a block therefore
- * moves the shade source for the columns it leaves behind, so the probe column
- * is what a seam comparison has to read. Drives a near-pole row unclipped, under
- * each quarter clip, and under an arc whose ends fall inside blocks.
+ * @details A column is settled from its own block's anchor while the whole
+ * block fits inside the walked run, and walked at its own column otherwise.
+ * Records the column each shade was probed at.
  */
 inline void test_pole_lod_runs_are_canvas_anchored() {
   constexpr int W = 288;
@@ -1359,16 +1276,7 @@ inline void test_pole_lod_run_clamps_to_max_run() {
  *        undecimated walk.
  * @details A block is settled from one probe only where that probe bounds the
  * whole block, so a constant-color draw lands the same framebuffer at
- * Render::pole_lod_aggressiveness 1.0 as at 0: a cleared block paints nothing either
- * way, and a splatted interior block is at full coverage in every column. A
- * shape that reports FAR_SENTINEL past a zero-margin reject band bounds
- * nothing, so an ungated block test drops whole runs of opaque columns here.
- * Drives the stroke path (Scan::Ring, whose bounding annulus is the stroke band
- * itself), both face rasterizers, the folded-sector solids, and an
- * AngularRepeat whose child straddles a sector boundary -- across a boundary
- * the domain fold measures to the folded copy rather than the nearest one, so
- * its report jumps in position -- down both the shaded and the constant-color
- * scan, across rows whose stride exceeds 1.
+ * Render::pole_lod_aggressiveness 1.0 as at 0.
  */
 inline void test_pole_lod_shading_matches_undecimated() {
   constexpr int W = 96, H = 64;
@@ -1504,11 +1412,9 @@ inline void test_pole_lod_shading_matches_undecimated() {
   };
 
   // A polygon repeated about the canvas pole with its centre on a sector
-  // boundary. Across a boundary the fold snaps to the next copy, so distance()
-  // steps in position: it reports the distance to the folded copy rather than
-  // to the nearest one, over-reporting clearance right where a copy's fringe
-  // lies. A block settled from one such probe drops that fringe. Sector
-  // boundaries converge at the pole, so a block on a decimated row spans them.
+  // boundary. Across a boundary distance() reports the folded copy rather than
+  // the nearest one. Sector boundaries converge at the pole, so a block on a
+  // decimated row spans them.
   auto draw_repeat = [&](float lod, bool typed, int reps) {
     Render::pole_lod_aggressiveness = lod;
     hs_test::StubEffect fx(W, H);
@@ -1621,11 +1527,8 @@ inline void test_pole_lod_shading_matches_undecimated() {
     compare(draw_ring(0.0f, axis, radius), draw_ring(1.0f, axis, radius));
   }
 
-  // Triangles: the widest gap between inradius and circumradius, so the cull
-  // disk clears a vertex by least and a block probe just outside it can sit
-  // within the AA fringe's reach of the polygon. Both are small enough to take
-  // the linear_dist path, on which distance() reports the plane distance the
-  // cull margin is measured in.
+  // Triangles: the widest gap between inradius and circumradius. Both take the
+  // linear_dist path.
   struct FaceCase {
     float tilt, rho, phase;
   };
@@ -1645,8 +1548,7 @@ inline void test_pole_lod_shading_matches_undecimated() {
   // canvas pole: across it the sign alternates over a vanishing arc, which no
   // finite slack bounds.
   const math::Vector fold_axis = math::Vector(0.10f, -1.0f, 0.0f).normalized();
-  // 4.0 is inside the live WASM range and lengthens every run, so a slack that
-  // undercuts the shape's own stretch mis-shades a fringe column there.
+  // 4.0 lengthens every run.
   for (float lod : {1.0f, 4.0f})
     for (bool typed : {false, true}) {
       HS_CONTEXT("folded", static_cast<int>(lod), typed);
@@ -1882,9 +1784,8 @@ inline void test_scan_shader_v2_contract() {
 /**
  * @brief A composite's report_stretch bounds every child, not only the first.
  * @details SDF::Face reports gnomonic-plane distance, whose stretch over an
- * angular step is 1 + max_dist_sq. A Union of two differently sized faces must
- * report the larger factor either way round, or a block probe settles columns
- * its clearance does not bound.
+ * angular step is 1 + max_dist_sq. A Union of two differently sized faces
+ * reports the larger factor either way round.
  */
 inline void test_report_stretch_forwards_through_csg() {
   constexpr int H = 144, HV = H + hs::H_OFFSET;
@@ -1935,11 +1836,9 @@ inline void test_report_stretch_forwards_through_csg() {
 
 /**
  * @brief Verifies a CSG composite renders each stroke with its own thickness.
- * @details Each stroke must render with its OWN thickness, not as a hard solid
- * band and not scaled by a sibling's thickness. The formula-independent
- * invariant: a Union<thin, thick> evaluated at a point inside the thin stroke
- * yields the SAME AA alpha as the bare thin Line, and a DIFFERENT alpha from
- * the bare thick Line.
+ * @details A Union<thin, thick> evaluated at a point inside the thin stroke
+ * yields the same AA alpha as the bare thin Line and a different alpha from the
+ * bare thick Line.
  */
 inline void test_csg_stroke_aa_uses_winning_child_thickness() {
   constexpr int W = 288, H = 144;
@@ -1972,9 +1871,7 @@ inline void test_csg_stroke_aa_uses_winning_child_thickness() {
 
   HS_EXPECT_EQ(n_union, 1);
   HS_EXPECT_EQ(n_bare, 1);
-  // The composite reproduces the winning child's own AA, and the thin/thick
-  // falloffs are clearly separable so reproducing thin (not the wrapper-max
-  // thick) is a meaningful distinction.
+  // The composite reproduces the winning child's own AA.
   HS_EXPECT_NEAR(a_union, a_thin, 1e-4f);
   HS_EXPECT_GT(fabsf(a_thin - a_thick), 0.1f);
 }
@@ -1983,9 +1880,7 @@ inline void test_csg_stroke_aa_uses_winning_child_thickness() {
  * @brief Verifies the rasterized ring lights the analytically predicted row.
  * @details A ring of normalized radius r is centered on the basis axis at polar
  * angle target = r*(PI/2), lighting a single latitude band whose center row is
- * phi_to_y(target). Asserts the rasterizer output lands there (an analytic
- * position check, not just "some pixels, not all") and that rows well away from
- * the band stay dark.
+ * phi_to_y(target). Rows well away from the band stay dark.
  */
 inline void test_ring_rasterize_lights_expected_row() {
   constexpr int W = 96, H = 48;
@@ -2048,9 +1943,8 @@ inline void test_ring_rasterize_lights_expected_row() {
 /**
  * @brief Verifies the stroke anti-aliasing alpha is a monotone ramp.
  * @details The alpha falls from ~1 at the ring centerline to 0 at its outer
- * surface, not a hard binary edge. Samples the AA alpha process_pixel produces
- * while marching a point radially outward across the band and asserts it
- * decreases monotonically through intermediate values.
+ * surface through intermediate values, sampled radially outward across the
+ * band.
  */
 inline void test_stroke_aa_is_monotone_ramp() {
   constexpr int W = 288, H = 144;
@@ -2126,18 +2020,9 @@ template <int W> inline bool row_has_lit(const hs_test::StubEffect &fx, int y) {
  * @param r_min Angular radius of the largest cap inscribed in the shape (the
  *        shape's smallest boundary radius, radians).
  * @param r_max Angular radius of the cap circumscribing the shape (radians).
- * @details Drawn to actual pixels — the placement, not just distance()/cull
- *          coverage. With an angular radius well under PI/2 the far pole sits
- *          outside the fill, so a projection sign flip (wrong hemisphere) is
- *          caught here where a bare draw-without-asserting is not.
- *
- *          Rows are uniform in polar angle, so a pole cap of angular radius r
+ * @details Rows are uniform in polar angle, so a pole cap of angular radius r
  *          lights W*H*r/PI pixels and the shape's own count falls between its
- *          inscribed and circumscribed caps. The slack is 3 rows either way:
- *          half a row of quantization plus the antialiased fringe, a ~1 pixel
- *          band along a perimeter of at most a couple of canvas widths. A fill
- *          collapsed to a handful of pixels falls under the floor; a flooded
- *          hemisphere (W*H/2) sits over the ceiling for every radius here.
+ *          inscribed and circumscribed caps, with 3 rows of slack either way.
  */
 template <int W, int H>
 inline void expect_filled_cap(const hs_test::StubEffect &fx, bool cap_north,
@@ -2215,9 +2100,7 @@ inline void test_planar_polygon_pixel_placement() {
 
 /**
  * @brief Verifies a filled Flower caps the antipode (-Y) pole, not basis.v.
- * @details Flower's SDF scans from antipode = -basis.v, so the fill lands on the
- *          opposite pole from Star/PlanarPolygon — a placement detail only a
- *          pixel oracle pins.
+ * @details Flower's SDF scans from antipode = -basis.v.
  */
 inline void test_flower_pixel_placement() {
   constexpr int W = 96, H = 64;
@@ -2298,7 +2181,7 @@ inline void test_solid_color_path_matches_generic() {
           }
         }
         generic_fx.advance_display();
-        // A pair of all-black frames would satisfy the parity check below.
+        // Guard against both paths drawing nothing.
         const size_t generic_lit = count_lit_region<W, H>(generic_fx);
         HS_EXPECT_GT(generic_lit, (size_t)0);
         capture_frame<W, H>(generic_fx, generic_pixels);
@@ -2352,12 +2235,9 @@ inline void test_solid_color_path_matches_generic() {
 /**
  * @brief Bounds spherical sine-distance framebuffer error at device resolution.
  * @details The two paths' distance gap is fast_acos' ~5e-5 rad wherever the
- *   circumscribed-disc clamp wins (see the sine-domain note on
- *   SphericalPolygon::sine_distance); the coverage ramp scales that by the
+ *   circumscribed-disc clamp wins; the coverage ramp scales that by the
  *   quintic kernel's slope over 2*pixel_width, so a channel may swing up to
  *   ~2e-3 of full scale (about 100 codes at this color) near a vertex.
- *   Identical frames would mean the sine path never ran, so the count is also
- *   floored above zero.
  */
 inline void test_spherical_sine_distance_framebuffer_error() {
   constexpr int W = 288;
@@ -2385,7 +2265,7 @@ inline void test_spherical_sine_distance_framebuffer_error() {
           pipeline, canvas, basis, c.radius, c.sides, color, c.phase);
     }
     fx.advance_display();
-    // A pair of all-black frames would satisfy the error bounds below.
+    // Guard against both paths drawing nothing.
     const size_t lit = count_lit_region<W, H>(fx);
     HS_EXPECT_GT(lit, (size_t)0);
     std::vector<Pixel> pixels;
@@ -2425,9 +2305,7 @@ inline void test_spherical_sine_distance_framebuffer_error() {
  *          black frame, each at frag.alpha 0.5; their interiors are fully
  *          covered (AA alpha 1), so the pole pixel sees plot alpha exactly 0.5.
  *          First (red over black) yields red*0.5; second (green over that)
- *          yields red*0.25 + green*0.5. A draw-order or coverage bug (e.g.
- *          replacing instead of blending, or doubling coverage) moves the pole
- *          pixel off this composite.
+ *          yields red*0.25 + green*0.5.
  */
 inline void test_overlapping_fills_composite_blend() {
   constexpr int W = 96, H = 64;
@@ -2485,7 +2363,7 @@ struct SphereSDF {
  *        floating in front of a larger background sphere along the view axis.
  * @details The foreground silhouette has empty space immediately behind its edge
  * and the background surface a short march deeper, so a grazing ray at that edge
- * self-occludes the background — the case Volume::draw's occluder probe handles.
+ * self-occludes the background.
  */
 struct TwoSphereSDF {
   math::Vector fg_center; /**< Foreground sphere centre (nearer the camera). */
@@ -2676,8 +2554,7 @@ inline void test_volume_trace_nearly_tied_minimum() {
 
 /**
  * @brief Capturing volume sink: records plotted pixel coordinates and alpha.
- * @details Provides the three overloads PipelineRef erases; Volume::draw plots
- * at integer pixel centers, so only that overload records.
+ * @details Only the integer-coordinate plot() records.
  */
 struct VolumeSink {
   /** Pixel coordinates handed to the integer plot(). */
@@ -2695,10 +2572,6 @@ struct VolumeSink {
  * @brief Verifies TransformedVolume's world<->local contract: the round trip is
  *        the identity, the mapped ray direction stays unit length, and distance()
  *        delegates to the wrapped SDF.
- * @details Volume::draw's per-step bounding-sphere cull is only correct when
- * ray_to_local is a rigid (length-preserving) map and bounds_center lands at the
- * local origin — both HS_CHECKed once per draw. This pins the transform math
- * those asserts rely on, independent of the rasterizer.
  */
 inline void test_transformed_volume_world_local_roundtrip() {
   SphereSDF sphere{0.3f};
@@ -2736,14 +2609,10 @@ inline void test_transformed_volume_world_local_roundtrip() {
  * @brief Verifies Volume::draw ray-marches a sphere SDF into a bounded silhouette
  *        whose every shaded fragment's hit registers land on the surface, on the
  *        camera-facing cap.
- * @details Pins what the smoke loop never checks: (1) the rendered silhouette is
- * non-empty and strictly smaller than the canvas (a real hit set, not a full
- * clear or an empty frame), and there are no more plots than shades;
- * (2) each hit's frag.pos (closest_local) sits within the AA band of the sphere
- * surface (|pos| ≈ radius) and frag.size (closest_d) is inside the AA width — the
- * registers handed to the shader are genuine surface hits; (3) the hit centroid
- * lies on the +Z hemisphere, i.e. the visible cap faces the camera (rays travel
- * along -Z), so a projection/back-face sign flip would be caught.
+ * @details The silhouette is non-empty and smaller than the canvas, with no more
+ * plots than shades; each hit's frag.pos (closest_local) and frag.size
+ * (closest_d) lie within the AA band of the surface; the hit centroid lies on
+ * the +Z cap facing the camera (rays travel along -Z).
  */
 inline void test_volume_raymarch_silhouette_and_registers() {
   constexpr int W = 96, H = 64;
@@ -2778,17 +2647,17 @@ inline void test_volume_raymarch_silhouette_and_registers() {
         /*max_steps=*/24, aa_width);
   }
 
-  // (1) Real silhouette: some fragments, never the whole canvas; plotted ⊆ shaded.
+  // Real silhouette: some fragments, never the whole canvas; plotted ⊆ shaded.
   HS_EXPECT_GT(hits, 0);
   HS_EXPECT_LT((size_t)hits, (size_t)(W * H));
   HS_EXPECT_GT(sink.plotted.size(), (size_t)0);
   HS_EXPECT_LE(sink.plotted.size(), (size_t)hits);
 
-  // (2) Every shaded fragment is a genuine surface hit inside the AA band.
+  // Every shaded fragment is a genuine surface hit inside the AA band.
   HS_EXPECT_LE(max_surf_err, aa_width + 1e-3f);
   HS_EXPECT_LE(max_reg_d, aa_width);
 
-  // (3) The hit centroid is on the camera-facing (+Z) cap.
+  // The hit centroid is on the camera-facing (+Z) cap.
   math::Vector centroid = centroid_sum * (1.0f / static_cast<float>(hits));
   HS_EXPECT_GT(centroid.z, 0.1f);
 }
@@ -2796,15 +2665,9 @@ inline void test_volume_raymarch_silhouette_and_registers() {
 /**
  * @brief Verifies Volume::draw antialiases a self-occlusion edge over the surface
  *        behind it rather than fading the edge to black.
- * @details A small foreground sphere floats in front of a larger background sphere.
- * Around the foreground silhouette the grazing ray lands in the AA band while the
- * background sits a short march deeper, so probe_occluder reports a solid surface
- * and Volume::draw takes the occluded-edge branch: it lays the shaded background
- * down, then blends the foreground over it by the edge coverage — emitting TWO
- * plots at the same pixel (background first, foreground second). This pins that
- * branch: the duplicate-position signature must appear, the background must be
- * laid down opaque, and the foreground must be a partial (0<α<1) blend over it,
- * not a fade to black.
+ * @details Around the foreground silhouette Volume::draw plots the background
+ * opaque, then blends the foreground over it by the edge coverage (0<α<1) at the
+ * same pixel.
  */
 inline void test_volume_draw_occluded_edge_blends_over_background() {
   constexpr int W = 96, H = 64;
@@ -2814,9 +2677,8 @@ inline void test_volume_draw_occluded_edge_blends_over_background() {
 
   // Small foreground sphere nearer the camera (+Z local); larger background
   // sphere deeper and wider so it sits behind the whole foreground silhouette.
-  // The modest step budget lets the grazing ray stall on the foreground edge
-  // (landing in the AA band) rather than reaching the background solidly, so the
-  // occluder probe — not the main trace — is what discovers the surface behind.
+  // The step budget lets the grazing ray stall on the foreground edge in the AA
+  // band, so the occluder probe discovers the surface behind.
   TwoSphereSDF shape{math::Vector(0.0f, 0.0f, 0.20f), 0.18f,
                      math::Vector(0.0f, 0.0f, -0.20f), 0.30f};
   Scan::TransformedVolume vol(shape, center, math::Quaternion());
@@ -2848,8 +2710,7 @@ inline void test_volume_draw_occluded_edge_blends_over_background() {
   }
 
   HS_EXPECT_GT(occ_pairs, 0);
-  // Background laid down opaque; foreground blended over it as a partial edge, so
-  // the edge reads over the surface instead of fading to black.
+  // Background laid down opaque; foreground blended over it as a partial edge.
   HS_EXPECT_EQ(bg_alpha, 1.0f);
   HS_EXPECT_GT(fg_alpha, 0.0f);
   HS_EXPECT_LT(fg_alpha, bg_alpha);
@@ -2859,11 +2720,9 @@ inline void test_volume_draw_occluded_edge_blends_over_background() {
  * @brief Verifies trace_closest stops at the first silhouette graze instead of
  *        letting an occluded surface behind it steal the closest approach.
  * @details A ray grazes the foreground sphere's edge inside the AA band and then
- * passes solidly through the background sphere. The returned distance must be
- * the foreground graze and the returned point must sit on the foreground
- * silhouette, independent of the step budget — with a generous budget an
- * unguarded march reaches the background, collapsing the edge alpha to opaque
- * and moving the shading point to the wrong surface.
+ * passes solidly through the background sphere. The returned distance is the
+ * foreground graze and the returned point sits on the foreground silhouette,
+ * independent of the step budget.
  */
 inline void test_volume_trace_closest_stops_at_first_graze() {
   const float aa_width = 0.01f;
@@ -2926,11 +2785,10 @@ inline void test_volume_probe_occluder_reports_background_graze_point() {
 /**
  * @brief Verifies overrelaxed sphere tracing never steps over a surface.
  * @details Sweeps rays across a twisted torus whose Lipschitz-divided distance
- * badly underestimates the true one — the case overrelaxation exploits — and
- * compares each trace against a dense fixed-step scan of the same ray. A ray
- * whose true closest approach lies well inside the AA band must be reported as a
- * hit: an unsafe step scheme strides over the ring and reports a miss instead.
- * No ray may report a hit the dense scan cannot corroborate.
+ * badly underestimates the true one and compares each trace against a dense
+ * fixed-step scan of the same ray. A ray whose true closest approach lies well
+ * inside the AA band reports a hit; no ray reports a hit the dense scan cannot
+ * corroborate.
  */
 inline void test_volume_trace_closest_overrelax_never_skips_surface() {
   SDF::WarpedVolume<SDF::Torus, SDF::Warp::Twist> torus{{0.45f, 0.14f},
@@ -2977,12 +2835,9 @@ inline void test_volume_trace_closest_overrelax_never_skips_surface() {
 // ============================================================================
 // Scan::Circle::draw and Scan::Point::draw — the radius-0 ring regime
 //
-// Both wrappers build an SDF::Ring with radius 0, where target_angle is 0, the
-// linearized-distance shortcut is disabled, and the axis' horizontal projection
-// can fall under MIN_HORIZONTAL_PROJ so every row takes the full-row scan. The
-// shape that regime draws is a spherical cap of angular radius `thickness`
+// A radius-0 SDF::Ring draws a spherical cap of angular radius `thickness`
 // centred on the basis axis, with quintic coverage from 1 at the centre to 0 at
-// the rim — the analytic oracle these cases compare against.
+// the rim.
 // ============================================================================
 
 /**
@@ -3007,12 +2862,9 @@ inline float cap_coverage(const math::Vector &v, const math::Vector &axis,
 
 /**
  * @brief Verifies Point::draw paints exactly the analytic spherical cap.
- * @details Sweeps a pole-centred axis (where the ring's horizontal projection
- * collapses and every row full-row scans) and an equatorial axis (where the row
- * interval math runs), plus an oblique axis; requires each to reproduce
- * cap_coverage per pixel:
- * every covered direction lit, every uncovered one black, and the plotted
- * channel proportional to the coverage.
+ * @details Pole-centred, equatorial and oblique axes each reproduce cap_coverage
+ * per pixel: every covered direction lit, every uncovered one black, and the
+ * plotted channel proportional to the coverage.
  */
 inline void test_point_draws_the_analytic_cap() {
   constexpr int W = 96, H = 64;
@@ -3034,8 +2886,7 @@ inline void test_point_draws_the_analytic_cap() {
     }
     fx.advance_display();
 
-    // The cap centre must be the basis axis the wrapper built, not the raw
-    // vector: make_basis can reorient, so read it back rather than assuming.
+    // make_basis can reorient, so the cap centre is read back from the basis.
     const math::Basis basis = math::make_basis(math::Quaternion(), axis);
     size_t lit = 0, covered = 0;
     float worst_value_error = 0.0f;
@@ -3070,9 +2921,7 @@ inline void test_point_draws_the_analytic_cap() {
 /**
  * @brief Verifies a pole-centred cap really exercises the full-row-scan regime.
  * @details Point::draw at +Y builds a ring whose axis has no horizontal
- * projection, so get_horizontal_intervals refuses every row it is asked for and
- * the rasterizer falls back to scanning whole rows. Without this the cap case
- * above would be indistinguishable from the ordinary interval path.
+ * projection, so get_horizontal_intervals refuses every row.
  */
 inline void test_pole_centred_cap_takes_the_full_row_scan() {
   constexpr int W = 96, H = 64;
@@ -3089,8 +2938,7 @@ inline void test_pole_centred_cap_takes_the_full_row_scan() {
       ++full_scan_rows;
   HS_EXPECT_EQ(full_scan_rows, rows.y_max - rows.y_min + 1);
 
-  // An equatorial cap of the same size answers with intervals on most rows, so
-  // the two axes above cover both sides of the branch.
+  // An equatorial cap of the same size answers with intervals on most rows.
   const math::Basis equator =
       math::make_basis(math::Quaternion(), math::Vector(1.0f, 0.0f, 0.0f));
   const SDF::Ring ordinary(equator, 0.0f, 0.35f);
@@ -3131,9 +2979,8 @@ inline void test_circle_and_point_keep_exact_pixel_centers() {
 /**
  * @brief Verifies the Circle and Point wrappers are their documented rings.
  * @details Circle is a radius-0 ring whose stroke half-width is radius * pi/2;
- * Point is a radius-0 ring of the given thickness. Both must rasterize
- * bit-identically to the ring they claim to be, so the wrapper cannot drift
- * from the shape its callers (ShapeShifter, Comets) were tuned against.
+ * Point is a radius-0 ring of the given thickness. Both rasterize
+ * bit-identically to that ring.
  */
 inline void test_circle_and_point_match_their_rings() {
   constexpr int W = 96, H = 64;
@@ -3215,9 +3062,7 @@ inline void test_circle_and_point_match_their_rings() {
 /**
  * @brief Verifies a Circle's painted extent tracks its radius argument.
  * @details radius maps to a cap of angular half-width radius * pi/2, so the
- * lit area must grow with radius and the farthest lit direction must sit at
- * that angle. A wrapper that dropped the pi/2 or passed radius as the ring's
- * radius rather than its thickness fails both.
+ * lit area grows with radius and the farthest lit direction sits at that angle.
  */
 inline void test_circle_extent_follows_its_radius() {
   constexpr int W = 96, H = 64;
@@ -3427,7 +3272,7 @@ inline void test_replicated_clip_matches_full_frame() {
 // ============================================================================
 
 /**
- * @brief Runs every scan test under the "scan" module scope.
+ * @brief Runs the scan tests under the "scan" module scope.
  * @return The number of test failures recorded by the module.
  */
 inline int run_scan_tests() {

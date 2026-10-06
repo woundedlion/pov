@@ -4,23 +4,6 @@
  *
  * Host unit tests for the Phantasm synchronization core (hardware/pov_sync.h)
  * — the spec §12 test plan (docs/specs/phantasm_frame_sync_spec.md).
- *
- * Pure pieces are tested directly: symbol classification, the try_flip state
- * machine, the edge mailbox + glitch filter, the beacon codec, the flywheel's
- * 64-bit position math (incl. cycle-counter wrap and trim extremes), the
- * acceptance gate, and the master emitter's self-censoring.
- *
- * The multi-board scenarios run on a small event-driven simulator: one
- * master plus downstream SyncBoards with per-board crystal offsets, a
- * single-latch masked-IRQ model (an edge during a mask is delayed; two merge
- * — the i.MX RT pin-flag behavior the count coding is designed around),
- * symbol drop windows, EMI injection, a foreground model with effect
- * construction delays, and mid-show reboot.
- *
- * Shared run_wake_sequence code covers per-wake ordering.
- * Host mocks do not cover eDMA/SPI registers or ISR internals, Cortex-M7
- * interrupt preemption and memory barriers, real DWT timing and flywheel
- * jitter, or real sync-edge timestamp latency.
  */
 #pragma once
 
@@ -180,9 +163,8 @@ inline void test_helpers() {
   HS_EXPECT_EQ(c.glitch_filter_cycles, 60000u); // 100 µs
 
   // Flywheel::position() carries the elapsed cycle count as int32 across
-  // MIN_SAFE_HALF_REVS of coast, so a period whose product overflows that is a
-  // bad constant valid() must name, not a runtime condition the flywheel
-  // discovers at construction. Boundary is inclusive.
+  // MIN_SAFE_HALF_REVS of coast; valid() rejects a period whose product
+  // overflows it. Boundary is inclusive.
   Config pw = test_config();
   pw.cycles_per_half_rev =
       static_cast<uint32_t>(INT32_MAX) / MIN_SAFE_HALF_REVS;
@@ -191,9 +173,7 @@ inline void test_helpers() {
   expect_rejects(pw, "cycles_per_half_rev * MIN_SAFE_HALF_REVS <= INT32_MAX");
 
   // The beacon's 6-bit rev field resyncs a slip only in (-32, +32), so the
-  // beacon period must stay below the half-window: a period >= 32 leaves the
-  // resync precondition unenforced. Boundary is exclusive (32 is rejected, 31
-  // accepted).
+  // beacon period stays below 32. Boundary is exclusive.
   Config bp = test_config();
   bp.rejoin_budget_revs =
       64; // relax the budget so this isolates the resync bound
@@ -284,9 +264,7 @@ inline void test_helpers() {
 
 /**
  * @brief Probes the remaining Config::valid() clauses at their boundaries.
- * @details Each rejection pins the named first failing clause. Removing it
- * changes the reported reason even when another clause also rejects the config.
- * Clauses whose bound is a derived beacon quantity are probed in test_helpers().
+ * @details Each rejection pins the named first failing clause.
  */
 inline void test_config_validation() {
   Config zero_width = test_config();
@@ -521,9 +499,7 @@ inline void test_mailbox() {
 /**
  * @brief Verifies a burst the wire never lets go quiet is claimed on duration.
  * @details Noise at the glitch filter's pass rate refreshes last_cycles on every
- *          accepted edge, so the terminating gap never opens. Without the
- *          duration term the mailbox stays jammed for as long as the noise
- *          lasts: nothing claimed, nothing decoded, no telemetry counter moving.
+ *          accepted edge, so the terminating gap never opens.
  */
 inline void test_mailbox_overlong_burst() {
   const Config cfg = test_config();
@@ -562,10 +538,9 @@ inline void test_mailbox_overlong_burst() {
 
 /**
  * @brief Verifies the glitch-filter reference does not survive a counter wrap.
- * @details age_prior() (called every column by the flywheel poll) retires the
- *          prior once the wire is quiet past the filter window, so a real edge
- *          after wrap is never falsely rejected by a pseudo-random modular
- *          difference.
+ * @details age_prior() retires the prior once the wire is quiet past the filter
+ *          window, so a real edge after wrap is not rejected by a pseudo-random
+ *          modular difference.
  */
 inline void test_mailbox_prior_staleness() {
   const uint32_t GLITCH = 60000u;
@@ -590,8 +565,7 @@ inline void test_mailbox_prior_staleness() {
     m.on_edge(prior, GLITCH); // a one-edge burst…
     HS_EXPECT_TRUE(burst_complete(m, prior + 10 * COL, COL));
     HS_EXPECT_EQ(claim(m).count, 1u); // …claimed; the prior persists across it.
-    // The flywheel keeps polling during the silence and retires the stale
-    // reference within a column (COL > GLITCH), long before the counter wraps.
+    // A poll during the silence retires the stale reference (COL > GLITCH).
     m.age_prior(prior + 11 * COL, GLITCH);
     // A real edge after the counter has wrapped: its modular distance to the
     // old prior is only GLITCH/2, which the un-aged filter would reject.
@@ -605,12 +579,9 @@ inline void test_mailbox_prior_staleness() {
 /**
  * @brief Verifies the consumer's gap tests reject a clock sampled before an
  *        edge the publisher went on to accept.
- * @details The flywheel samples `now` some cycles before its IRQ-off bracket
- *          opens; a sync edge landing in that window leaves the mailbox
+ * @details A sync edge accepted after `now` was sampled leaves the mailbox
  *          timestamps ahead of `now`, and the unsigned difference underflows to
- *          ~2³². Claiming there would take a burst still in flight and
- *          misclassify the symbol; retiring the prior there would drop the
- *          glitch reference the very edge just set.
+ *          ~2³².
  */
 inline void test_mailbox_rejects_backward_clock() {
   const uint32_t GLITCH = 60000u;
@@ -634,8 +605,6 @@ inline void test_mailbox_rejects_backward_clock() {
 /**
  * @brief Verifies reboot seeding clears the wire mailbox so a re-seeded board
  *        cannot consume a stale pre-reboot burst.
- * @details The stale burst would otherwise feed ACQUIRE's unconditional
- *          hard-snap. The emitter is reset by the same code path.
  */
 inline void test_seed_clears_mailbox() {
   const Config cfg = test_config();
@@ -839,10 +808,9 @@ inline void test_beacon_codec() {
 /**
  * @brief Verifies wire silence past the ACQUIRE quiet window discards a partial
  *        beacon frame, so the next train assembles from its own digits alone.
- * @details The parser's own staleness test is a modular difference, so a partial
- *          frame left standing outlives a cycle-counter wrap and reads a fresh
- *          train's first digit as in-window; the tick-driven reset fires within
- *          columns of the truncated train, long before a wrap can accumulate.
+ * @details The parser's own staleness test is a modular difference that a
+ *          cycle-counter wrap defeats; the tick-driven reset fires within
+ *          columns of the truncated train.
  */
 inline void test_beacon_partial_frame_ages_out() {
   const Config cfg = test_config();
@@ -973,11 +941,8 @@ inline void test_beacon_shift_needs_confirmation() {
 /**
  * @brief Verifies a checksum-valid beacon naming an index past the roster is
  *        dropped whole (§6.4 integrity by rejection).
- * @details A 6-bit index leaves 60 unreachable values on this 4-effect roster
- *          — positive evidence of corruption that can still satisfy the
- *          3-bit checksum. Folding it mod effect_count would join a rebooting
- *          board to a wrong-but-valid effect, the fail-wrong outcome §6.3.3 rules
- *          out; the frame must count as rejected, like any corrupt frame.
+ * @details An out-of-roster index can still satisfy the 3-bit checksum; the
+ *          frame counts as rejected, like any corrupt frame.
  */
 inline void test_beacon_out_of_range_index_rejected() {
   const Config cfg = test_config(); // 4 effects: indices 4..63 are corrupt
@@ -1013,10 +978,9 @@ inline void test_beacon_out_of_range_index_rejected() {
 /**
  * @brief Verifies the §6.4 rev cross-check fold (beacon_rev_resync_delta)
  *        resolves the 63↔0 mod-64 seam.
- * @details Production durations and dedicated long-effect scenarios can exceed
- * 63 revolutions; the default 40-revolution simulation stays below the wrap.
- * The fold maps the beacon residue and current rev_in_effect to a signed slip
- * in [-32, 31], restoring the exact residue across the seam in either direction.
+ * @details The fold maps the beacon residue and current rev_in_effect to a
+ * signed slip in [-32, 31], restoring the exact residue across the seam in
+ * either direction.
  */
 inline void test_rev_resync_fold() {
   // Same-side residues subtract directly (no wrap).
@@ -1039,8 +1003,8 @@ inline void test_rev_resync_fold() {
   HS_EXPECT_EQ(beacon_rev_resync_delta(0, 32),
                -32); // min (32 ahead ≡ 32 behind)
 
-  // The applied fold lands on the beacon's residue across the seam, exactly as
-  // handle_beacon_burst uses it (rev_in_effect + delta, then re-read mod 64).
+  // The applied fold (rev_in_effect + delta, then re-read mod 64) lands on the
+  // beacon's residue across the seam.
   for (uint32_t cur : {62u, 63u, 64u, 65u, 130u, 131u}) {
     for (uint32_t beacon = 0; beacon < 64u; ++beacon) {
       const int32_t d = beacon_rev_resync_delta(beacon, cur);
@@ -1266,12 +1230,8 @@ inline void test_isolated_noise_preserves_recent_boundary_lock() {
  *        cannot capture a just-rebooted board mid-frame.
  * @details The head of the beacon for effect index 8 is a 2-pulse burst — an
  *          even count, no symbol — and its second digit is a single pulse, a
- *          valid HALF count 5 columns behind it. Without the guard that digit
- *          is a hard snap to a phase 5 columns off a beacon's mid-frame
- *          position. The same burst after t_QB of silence is the positive
- *          control: it snaps, so the assertion below is the gap, not the burst.
- *          The seed instant opens a window of its own — boot observed no quiet
- *          to measure a first burst against.
+ *          valid HALF count 5 columns behind it. The same burst after t_QB of
+ *          silence snaps. The seed instant opens a quiet window of its own.
  */
 inline void test_acquire_quiet_before_guard() {
   const Config cfg = test_config();
@@ -1320,15 +1280,9 @@ inline void test_acquire_quiet_before_guard() {
 /**
  * @brief Verifies a board still in ACQUIRE decodes a whole beacon train and
  *        adopts (effect, rev) from it (§6.4), instead of waiting for lock.
- * @details A train's first digit is preceded by the same wire silence a
- *          boundary symbol is, so the quiet-before guard routes it to the
- *          symbol path; withholding it from the parser would leave every frame
- *          begun in ACQUIRE one digit short forever. The head of the beacon for
- *          effect 9 is a 2-pulse burst — an even count, no symbol — so the
- *          board stays in ACQUIRE across the train, and the frame still
- *          completes. The isolated burst starts a fresh frame, so it can never
- *          both complete a frame and hard-snap: the closing symbol below snaps
- *          on a clean timebase with the beacon identity intact.
+ * @details A train's first digit reaches both the symbol path and the parser.
+ *          The head of the beacon for effect 9 is a 2-pulse burst — an even
+ *          count, no symbol — so the board stays in ACQUIRE across the train.
  */
 inline void test_acquire_beacon_train_joins() {
   const Config cfg = test_config(16);
@@ -1407,9 +1361,8 @@ inline void test_emitter() {
         Symbol::ZERO, 1000u, 1000u + cfg.late_censor_cycles() + 1, cfg));
   }
 
-  // Boundary scheduled in the FUTURE (now before at_cycles): not late — it must
-  // be accepted and then emitted once `now` reaches the boundary. An unsigned
-  // `now - at_cycles` wraps a future boundary to a huge positive lateness.
+  // Boundary scheduled in the future (now before at_cycles) is not late: it is
+  // accepted and emitted once `now` reaches the boundary.
   {
     SymbolEmitter e;
     const uint32_t at = 1000000u;
@@ -1554,12 +1507,9 @@ inline void test_master_beacon_busy_retry() {
  *        not queue a beacon whose tail overruns HALF and trips the emitter's
  *        wire-busy trap on the on-time HALF symbol.
  * @details Drives a master across the beacon-due revolution, resuming its first
- *          post-ZERO tick at a chosen column to model the coast. The bound is
- *          sized from the payload actually encoded, so the window spans many
- *          columns: the last admissible start emits fully before HALF, one
- *          column later is censored — no pulses in the beacon window and no
- *          trap at HALF. A start part-way into that last column is censored
- *          too, since the fit charges the emitter's lateness budget as well.
+ *          post-ZERO tick at a chosen column to model the coast. The last
+ *          admissible start emits fully before HALF; one column later is
+ *          censored, with no pulses in the beacon window and no trap at HALF.
  */
 inline void test_beacon_late_coast() {
   const Config cfg = test_config();
@@ -1580,7 +1530,7 @@ inline void test_beacon_late_coast() {
     const uint32_t epoch1 = t0 + 2u * period;
     m.tick(epoch1, nullptr);
     // Drain the rev-1 ZERO symbol's remaining pulses (columns 2, 4) so the
-    // emitter is idle before the coast, as it would be on real hardware.
+    // emitter is idle before the coast.
     m.tick(epoch1 + 2u * COL, nullptr);
     m.tick(epoch1 + 4u * COL, nullptr);
 
@@ -1608,26 +1558,22 @@ inline void test_beacon_late_coast() {
   for (int i = 0; i < 5; ++i)
     digit_sum += digits[i];
   const int32_t last_start = cfg.W / 2 - cfg.beacon_frame_cols(digit_sum) - 1;
-  // Sizing the bound from the payload rather than the all-sevens worst case is
-  // what keeps the window more than one column wide.
+  // The payload-sized window spans more than one column.
   HS_EXPECT_GT(last_start, cfg.W / 4);
 
-  // On-time at the beacon point: the frame schedules and emits fully (proves
-  // the beacon is due so the late-start contrast below is meaningful).
+  // On-time at the beacon point: the frame schedules and emits fully.
   HS_EXPECT_GT(run(cfg.W / 4), 0);
   // The last admissible start still emits.
   HS_EXPECT_GT(run(last_start), 0);
   HS_EXPECT_EQ(late_dropped, 0u);
   // Late start past the safe bound: censored — no beacon pulses, and the HALF
-  // crossing at column 144 schedules without tripping the wire-busy trap (a
-  // trap would __builtin_trap the whole suite).
+  // crossing at column 144 schedules without tripping the wire-busy trap.
   HS_EXPECT_EQ(run(last_start + 1), 0);
   // The skip is counted once for the revolution, not once per late tick.
   HS_EXPECT_EQ(late_dropped, 1u);
   // Resuming part-way through the last admissible column is late too: the frame
-  // is anchored on the tick, not on the column it falls in, and its last pulse
-  // may go out up to the emitter's ½-column lateness budget after its due time —
-  // together enough to leave the receiver less than its quiet window before HALF.
+  // is anchored on the tick, and its last pulse may go out up to the emitter's
+  // ½-column lateness budget after its due time.
   HS_EXPECT_EQ(run(last_start, COL / 2 + COL / 8), 0);
   HS_EXPECT_EQ(late_dropped, 1u);
 }
@@ -1636,9 +1582,7 @@ inline void test_beacon_late_coast() {
  * @brief Verifies a master coast past 2^31 cycles is counted and recovered
  *        rather than wedging the flywheel silently.
  * @details fold() reads (now - epoch_cycles) as int32 and reports no crossing on
- *          a negative one, so without the re-anchor the master would report
- *          no crossings or boundary symbols during that modular window. A
- *          full counter wrap would lose the elapsed revolution history.
+ *          a negative one; the master re-anchors its flywheel.
  */
 inline void test_master_fold_stall_recovers() {
   const Config cfg = test_config();
@@ -1676,7 +1620,7 @@ inline void test_master_fold_stall_recovers() {
  *        flips.
  * @details The re-anchor stamps ZERO whatever the pre-stall identity was, so a
  *          master whose last flip was HALF meets that same identity again on the
- *          next crossing; a stale dedup state would drop that flip silently.
+ *          next crossing.
  */
 inline void test_master_fold_stall_recovery_flips() {
   const Config cfg = test_config();
@@ -1710,9 +1654,7 @@ inline void test_master_fold_stall_recovery_flips() {
  * @details Sweeps every column of [W/4, W/2) a masked-ISR coast can resume on,
  *          at the 64-effect roster cap with the widest digit pattern the codec
  *          can encode and again with a narrow one, and requires each emitted
- *          frame's tail to clear acquire_quiet_cycles before the HALF burst. A
- *          closer tail is folded into the last digit burst by the receiver's
- *          gap timeout, consuming the boundary symbol instead of decoding it.
+ *          frame's tail to clear acquire_quiet_cycles before the HALF burst.
  *          Ticks run at the device's T0/OVERSAMPLE pacing so the HALF symbol
  *          clears its own lateness censor.
  */
@@ -1791,13 +1733,9 @@ inline void test_beacon_tail_quiet() {
  *        boundaries B..B+R even when a copy self-censors, so every copy stays
  *        inside the receiver's invertible j window.
  * @details Drives a lone master to its train-start boundary B and resumes a
- *          full column late there, censoring the primary copy (§5.2). A train
- *          that spent repeats only on symbols reaching the wire would slide a
- *          copy to B+R+1, where a receiver's j = rev_in_effect − revs_per_effect
- *          lands outside the window, falls back to j = 0, and commits R
- *          revolutions late; a fully censored train would emit past the commit
- *          into the new effect. Counts pulses in each boundary's burst window:
- *          5 = ZERO_EPOCH, 3 = plain ZERO.
+ *          full column late there, censoring the primary copy (§5.2). Counts
+ *          pulses in each boundary's burst window: 5 = ZERO_EPOCH, 3 = plain
+ *          ZERO.
  */
 inline void test_master_epoch_train_bounded() {
   const Config cfg = test_config();
@@ -2261,9 +2199,7 @@ inline void test_sim_boot_and_phase() {
   Sim sim(cfg, 4, ppm, 0xFFFFFFFFull - 10ull * 2 * PERIOD + 12345);
 
   // Birth phase, before a single symbol: every downstream board is tens of
-  // columns from the master, so the sub-2-column oracles below measure
-  // acquisition, not crystal drift. Bounded away from the gate too — none of
-  // these could be closed by a LOCKED snap.
+  // columns from the master, beyond what a LOCKED snap could close.
   for (int i = 1; i < 4; ++i) {
     const int32_t born = circ_dist(sim.board_pos(i), sim.board_pos(0), cfg.W);
     HS_EXPECT_GT(born, cfg.gate_cols);
@@ -2599,8 +2535,7 @@ inline void test_sim_masked_windows() {
  * @brief Verifies EMI on the sync wire (§5.2, §5.3, §9.1): isolated spurious
  *        edges form valid HALF symbols the LOCKED gate rejects, edges injected
  *        inside or near real bursts corrupt the count to invalid (discarded
- *        whole) — none unlock or desync the show. The accepted-EMI case is
- *        covered by test_budget_emi_accepted_seam.
+ *        whole) — none unlock or desync the show.
  */
 inline void test_sim_emi() {
   const Config cfg = test_config();
@@ -2758,8 +2693,7 @@ inline void test_sim_reboot(const Config &cfg) {
 /**
  * @brief Verifies the forged-plausible-burst defense (§8.4): the strongest
  *        cheap spurious-flip attack is held as a suspect and rejected, never
- *        snapped or flipped; flip cadence and content stay intact (attack
- *        construction detailed in the body).
+ *        snapped or flipped; flip cadence and content stay intact.
  */
 inline void test_sim_forged_burst() {
   const Config cfg = test_config();
@@ -2882,14 +2816,9 @@ inline void test_sim_epoch_repeat_lockstep() {
  * @brief Verifies the §6.4 beacon rev cross-check resyncs a slipped
  *        schedule counter within one beacon period, restoring exact
  *        j-inference before the next train.
- * @details A board whose rev_in_effect slipped against the master — a late
- *          commit through the §6.3.1 j-fallback, or a crossing hiccup while a
- *          corrupted timebase recovered — would infer j wrongly at every later
- *          epoch train and commit out of lockstep by the slip, in either
- *          direction, indefinitely (its own commit re-zeros the counter at its
- *          own, offset boundary, so the slip is self-sustaining). The
- *          cross-check corrects via the signed mod-64 difference, leaving
- *          content t untouched.
+ * @details A board whose rev_in_effect slipped against the master infers j
+ *          wrongly at every later epoch train. The cross-check corrects via the
+ *          signed mod-64 difference, leaving content t untouched.
  */
 inline void test_sim_rev_resync() {
   const Config cfg = test_config();
@@ -2906,8 +2835,6 @@ inline void test_sim_rev_resync() {
   content_mut(sim.boards[3].board).rev_in_effect += 2;
 
   // Detected and corrected at the next beacon (rev 9), within one period.
-  // (Pre-resync the counters differ by 2 — a crossing straddle changes the
-  // gap by at most 1, so this predicate cannot fire spuriously.)
   HS_EXPECT_TRUE(sim.run_until(
       [](Sim &s) {
         return content(s.boards[3].board).rev_in_effect ==
@@ -2955,12 +2882,8 @@ inline void test_sim_rev_resync() {
  *        correctly — as rev_in_effect rolls through its 6-bit (mod-64) residue
  *        within a single effect.
  * @details The beacon carries rev mod 64; the cross-check compares
- *          f.rev_count against `content_tracker.rev_in_effect & 63`, and the
- *          beacon_period_revs < 32 rule (Config::valid) exists precisely so the
- *          resulting signed-mod-64 resync is unambiguous as the residue wraps.
- *          A 90-rev effect crosses rev 64 mid-show. The full schedule counters
- *          remain equal and the masked comparison reports no spurious beacon
- *          mismatch. The next epoch still commits after this residue wrap.
+ *          f.rev_count against `content_tracker.rev_in_effect & 63`. A 90-rev
+ *          effect crosses rev 64 mid-show.
  */
 inline void test_sim_rev_wrap_within_effect() {
   Config cfg = test_config();
@@ -2988,11 +2911,7 @@ inline void test_sim_rev_wrap_within_effect() {
       HS_EXPECT_EQ(sim.boards[i].t, sim.boards[0].t);
       HS_EXPECT_FALSE(sim.boards[i].trapped);
       // The schedule counter tracks the master's exactly through the wrap, and
-      // the &63 cross-check raises no spurious rev mismatch. A dropped mask on
-      // the comparison reads a rev≥64 board's full counter as differing from the
-      // wrapped beacon rev_count and attempts resync every beacon, incrementing
-      // beacon_rev_mismatches even when the folded delta is zero. Phase/frame
-      // lockstep derives from the flywheel, not rev_in_effect.
+      // the &63 cross-check raises no spurious rev mismatch.
       HS_EXPECT_EQ(content(sim.boards[i].board).rev_in_effect, rev);
       HS_EXPECT_EQ(
           sim.boards[i].board.telemetry_snapshot().beacon_rev_mismatches, 0u);
@@ -3033,16 +2952,9 @@ inline void test_sim_rev_wrap_within_effect() {
  * @brief Verifies §6.3.1 j-inference stays correct when an EPOCH burst is
  *        consumed in the SAME tick() its boundary is folded.
  * @details on_epoch_symbol infers j = rev_in_effect − revs_per_effect, so it
- *          MUST observe the POST-fold rev. handle_burst guarantees this: its
- *          backstop apply_flip(ZERO) folds rev_in_effect (via on_zero_crossing)
- *          before the ZERO_EPOCH branch, and tick()'s later fold loop — which
- *          runs after handle_burst — is deduped by the flip gate. This pins the
- *          ordering directly on the content tracker: driving the exact
- *          fold-then-infer sequence handle_burst uses, every copy j of the train
- *          must commit at the same absolute B+R+K boundary whether the fold was
- *          deferred into the burst's tick or already applied a tick earlier. A
- *          closing assertion pins the precondition the backstop satisfies — the
- *          un-folded (pre-fold) rev mis-infers a repeat copy one short.
+ *          must observe the post-fold rev. Every copy j of the train commits at
+ *          the same absolute B+R+K boundary whether the fold was deferred into
+ *          the burst's tick or applied a tick earlier.
  */
 inline void test_epoch_same_tick_burst_fold() {
   const Config cfg = test_config();
@@ -3103,10 +3015,8 @@ inline void test_epoch_same_tick_burst_fold() {
     HS_EXPECT_EQ(commit_rev_for(j, /*same_tick=*/false), RPE + R + K);
   }
 
-  // Why the backstop fold is load-bearing: on_epoch_symbol on the PRE-fold rev
-  // infers a repeat copy one short (j−1), scheduling commit_in_revs a revolution
-  // too large — exactly the late commit handle_burst's apply_flip(ZERO) prevents
-  // by folding first.
+  // On the pre-fold rev, on_epoch_symbol infers a repeat copy one short (j−1),
+  // scheduling commit_in_revs a revolution too large.
   for (uint32_t j = 1; j <= R; ++j) {
     ContentTracker pre;
     pre.identity_known = true;
@@ -3141,12 +3051,9 @@ inline void test_epoch_refractory_window() {
  * @brief Pins ContentTracker::construction_opens and ::constructing directly:
  *        the window opens exactly once and lasts exactly K revolutions, for
  *        every repeat copy the board may have heard.
- * @details The simulator only observes these through dark_now, which cannot
- *          separate "the window opens here" from "the window is open", nor say
- *          which predicate an off-by-one came from. The window is anchored to
- *          the absolute commit boundary, so a board that heard the last repeat
- *          (announce phase already spent) opens it at the accept itself rather
- *          than at a later crossing — both spellings are covered here.
+ * @details The window is anchored to the absolute commit boundary, so a board
+ *          that heard the last repeat (announce phase already spent) opens it
+ *          at the accept itself.
  */
 inline void test_construction_window_predicates() {
   const Config cfg = test_config();
@@ -3196,30 +3103,8 @@ inline void test_construction_window_predicates() {
 
 // ── §9.1 failure-mode budget: artifact bounds and recovery times ────────────
 //
-// One scenario per spec §9.1 budget row that the tests above do not already
-// pin, asserting BOTH the worst-case artifact bound and the recovery time.
-// Coverage map (§9.1 row → test):
-//
-//   crystal drift (normal operation)  → test_sim_boot_and_phase
-//   masked-IRQ windows / self-censor  → test_sim_masked_windows
-//   lost boundary symbol              → test_budget_lost_symbol
-//   EMI, rejected cases               → test_sim_emi, test_sim_forged_burst
-//   EMI, accepted (binding) case      → test_budget_emi_accepted_seam
-//   mis-snap / corrupted timebase     → test_budget_corrupted_timebase
-//   mis-snap forged during ACQUIRE    → test_budget_acquire_mis_snap
-//   dropped render                    → not simulable here: frame pacing
-//                                       lives in the device's Canvas
-//                                       buffer_free() gate; the epoch-bounded
-//                                       t recovery it relies on is pinned by
-//                                       test_sim_epoch_commit
-//   spurious EPOCH                   -> test_budget_spurious_epoch
-//   missed epoch (all copies)         → test_sim_drops_and_missed_epoch
-//   epoch repeat lockstep (§6.3.1)    → test_sim_epoch_repeat_lockstep,
-//                                       test_master_epoch_train_bounded
-//   corrupted beacon frame            → test_budget_beacon_corruption
-//   board reboot mid-show             → test_sim_reboot
-//   commit deadline (HS_CHECK trap)   → test_sim_commit_deadline_trap
-//   sync wire dead / master dead      → test_budget_wire_dead
+// Each scenario asserts both the worst-case artifact bound and the recovery
+// time of a spec §9.1 budget row.
 
 /**
  * @brief Steps the sim for @p revs, the §9.1 artifact probe.
@@ -3370,9 +3255,7 @@ inline void test_budget_corrupted_timebase() {
   Sim sim(cfg, 4, ppm);
   HS_EXPECT_TRUE(boot_join(sim, cfg));
   // Park at rev 10 (≡ 2 mod the beacon period) so the ACQUIRE window stays
-  // clear of beacon trains: this test pins the common path, and the train's
-  // isolated first digit — which re-poisons an ACQUIRE board — is
-  // test_budget_acquire_mis_snap.
+  // clear of beacon trains.
   HS_EXPECT_TRUE(sim.run_until(
       [](Sim &s) { return content(s.boards[0].board).rev_in_effect == 10; },
       16.0));
@@ -3611,8 +3494,7 @@ inline void test_budget_wire_dead() {
   HS_EXPECT_TRUE(boot_join(sim, cfg));
   sim.run_revs(2.0);
   // Cut the wire at a quiet point (mid-half, no beacon this rev) so no
-  // burst is in flight: a half-received burst would register one truncated-
-  // count artifact, which is the lost-symbol row's case, not this one.
+  // burst is in flight.
   HS_EXPECT_TRUE(
       sim.run_until([](Sim &s) { return s.board_pos(0) == 40; }, 1.1));
 
@@ -3691,11 +3573,8 @@ inline void test_effect_output_envelope() {
  *        window, exactly like the boards that rode the effect from its start.
  * @details The beacon's rev field is six bits, so a board joining an effect
  *          longer than 64 revolutions adopts a count congruent to the master's
- *          but 64k short of it. Driving the envelope off that count alone
- *          leaves it reading full brightness at B, so the joined board is the
- *          only lit band on a sphere that has already cleared. Gating on
- *          commit_pending is what closes it: the flag is set by the EPOCH the
- *          board hears, not by its own arithmetic.
+ *          but 64k short of it. commit_pending, set by the EPOCH the board
+ *          hears, holds it dark.
  */
 inline void test_joined_board_dark_through_commit_window() {
   Config cfg = test_config();
@@ -3761,7 +3640,7 @@ inline void test_joined_board_dark_through_commit_window() {
 // ── Runner ──────────────────────────────────────────────────────────────────
 
 /**
- * @brief Runs every pov_sync test in order.
+ * @brief Runs the pov_sync tests.
  * @return The module's failure count.
  */
 inline int run_pov_sync_tests() {
