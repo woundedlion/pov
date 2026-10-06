@@ -164,6 +164,7 @@ inline int run_color_tests() {
   test_lerp_oklch_extrapolation_clamped();
   test_oklch_to_pixel_saturates_and_preserves_in_gamut();
   test_gamut_clip_preserves_hue();
+  test_gamut_bracket_refine_out_of_gamut_lower_bound();
   test_gamut_direction_lookup_matches_angle();
   test_gamut_refine_matrices_match_the_conversions();
   test_gamut_master_clip_lands_on_first_exit();
