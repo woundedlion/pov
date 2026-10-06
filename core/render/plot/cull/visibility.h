@@ -469,12 +469,12 @@ make_cartesian_quadrant_clip(const ClipRegion &cr) {
     const float boundary = math::DisplayGeometry<H>::row_to_phi(
         static_cast<float>(cr.render_y_end()));
     q.latitude_sign = 1.0f;
-    q.latitude_threshold = cosf(boundary);
+    q.latitude_threshold = cosf(fminf(math::PI_F, fmaxf(0.0f, boundary)));
   } else {
     const float boundary = math::DisplayGeometry<H>::row_to_phi(
         static_cast<float>(cr.render_y_start()) - GEODESIC_ROW_AA_PAD);
     q.latitude_sign = -1.0f;
-    q.latitude_threshold = -cosf(boundary);
+    q.latitude_threshold = -cosf(fminf(math::PI_F, fmaxf(0.0f, boundary)));
   }
 
   const float half_width =

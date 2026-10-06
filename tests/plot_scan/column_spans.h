@@ -1099,6 +1099,30 @@ inline void test_cartesian_quadrant_gate_classification() {
  *          contain no bilinear tap in the render region, including unbounded-pole cases.
  */
 inline void test_cartesian_quadrant_gate_is_conservative() {
+  for (int north : {0, 1}) {
+    ClipRegion cr;
+    cr.w = 96;
+    cr.h = 20;
+    cr.x_start = 0;
+    cr.x_end = 48;
+    cr.y_start = north ? 0 : 10;
+    cr.y_end = north ? 10 : 20;
+    cr.margin = 10;
+    const auto clip = Plot::make_cartesian_quadrant_clip<96, 20>(cr);
+    HS_EXPECT_TRUE(clip.active);
+    HS_EXPECT_EQ(clip.latitude_threshold, -1.0f);
+    ScratchScope scope(plot_arena());
+    Fragments trail;
+    trail.bind(plot_arena(), 2);
+    for (float x : {0.0001f, 0.0002f}) {
+      Fragment fragment;
+      fragment.pos =
+          math::Vector(x, north ? -1.0f : 1.0f, 0.0001f).normalized();
+      trail.push_back(fragment);
+    }
+    HS_EXPECT_EQ(Plot::cartesian_quadrant_trail_gate(clip, trail),
+                 Plot::CartesianTrailGateResult::EXACT_FALLBACK);
+  }
   constexpr int W = 288, H = 144;
   Pipeline<W, H, Filter::Screen::AntiAlias<W, H>> pipeline{
       Filter::Screen::AntiAlias<W, H>()};
