@@ -1139,7 +1139,7 @@ strictly cleaner, not weaker.
 
 ## 12. Test plan (host-testable where possible)
 
-Implemented as `tests/test_pov_sync.h`: pure units for every protocol piece
+Implemented as `tests/test_pov_sync.h` (sections under `tests/pov_sync/`): pure units for every protocol piece
 plus a variable-count event-driven simulator. Clean acquisition, join, phase,
 and content coherence run with both 4 and 8 boards; the fault matrix uses 2–4
 boards with per-board crystal ppm offsets, a single-latch masked-IRQ model (edges during a mask merge and arrive late,
