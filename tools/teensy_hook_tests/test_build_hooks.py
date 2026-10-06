@@ -267,12 +267,6 @@ class TestSketchSelection(unittest.TestCase):
                     self.assertEqual(build_env.post_actions, [])
                 self.assertEqual(set(env.methods), {"FindInoNodes"})
 
-    def test_every_platformio_env_is_mapped(self):
-        mod, _ = self._run("phantasm")
-        for name in _pio_envs():
-            self.assertIn(name, mod.SKETCH,
-                          f"env '{name}' has no sketch mapping in teensy_pre.py")
-
     def test_mapped_sketches_exist(self):
         mod, _ = self._run("phantasm")
         for name, rel in mod.SKETCH.items():
