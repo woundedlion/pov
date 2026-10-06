@@ -1571,8 +1571,8 @@ inline void test_gnomonic_roundtrip() {
   math::Complex zEq = projections::gnomonic(math::Vector(1.0f, 1e-10f, 0.0f));
   HS_EXPECT_TRUE(std::abs(zEq.re) >= projections::STEREO_INF - 1.0f);
 
-  // Round-trip identity through the singularity: |v.y| below ~2e-4 saturates
-  // the projection, and the inverse must still land on the input.
+  // Below |v.y| ~2e-4 the inverse snaps to the equator; below ~1e-4 the
+  // forward projection also clamps to STEREO_INF.
   for (float y : {2e-4f, 1e-5f, 1e-9f, 0.0f, -1e-9f, -1e-5f, -2e-4f}) {
     for (float theta = 0.0f; theta < 2.0f * math::PI_F; theta += 0.37f) {
       const math::Vector v =
