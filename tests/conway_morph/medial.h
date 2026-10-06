@@ -3,19 +3,10 @@
  * Licensed under the PolyForm Noncommercial License 1.0.0
  */
 
-// Included by tests/test_conway_morph.h.
-
 // ---------------------------------------------------------------------------
-// Medial (Conway-dual) bridge: MeshOps::medial produces one shared rectified
-// connectivity with both endpoint vertex sets a_e (== ambo(P)) and b_e
-// (== ambo(dual(P))). The smooth dual replaces the instant partition swap with
-// a truncate sweep to ambo(P), a slerp of every medial vertex a_e -> b_e, and a
-// truncate sweep down to dual(P). These gate the medial leg (the slerp
-// segment) on the real DUAL-leg seeds: the endpoints match ambo(P)/ambo(dual(P))
-// to tolerance (the correspondence proof), and across the sampled slerp there
-// are no inward face normals or collapsed total face areas, the signed total
-// solid angle stays at 4pi, consecutive vertices move by bounded steps, and
-// the endpoint inputs are not antipodal.
+// Medial (Conway-dual) bridge: MeshOps::medial yields one rectified
+// connectivity with endpoint vertex sets a_e (== ambo(P)) and b_e
+// (== ambo(dual(P))); the medial leg slerps a_e -> b_e.
 // ---------------------------------------------------------------------------
 
 inline PolyMesh probe_icosa_kis_snub(Arena &a, Arena &b) {
@@ -189,15 +180,10 @@ inline void test_medial_dual_bridge_wellformed() {
     ArenaVector<math::Vector> med_b;
     MeshOps::medial(P, med_a, med_b, a, b);
 
-    // Correspondence proof: s = 0 is ambo(P), s = 1 (b_e positions) is
-    // ambo(dual(P)). Both are the same rectified polyhedron (one face per
-    // primal face + one per primal vertex), so the FACE count is identical
-    // through the bridge and leg 3 sweeps truncate(dual(P)) on that same
-    // connectivity. Vertex identity is checked by position, not count: a
-    // hankin seed has degree-2 star-point vertices, so its dual is lossy
-    // (digon faces drop) and MeshOps::ambo(dual(P)) merges the coincident edge
-    // midpoints — leg 3's truncate(dual, 0.5-eps) keeps them apart, matching
-    // the medial's 2E vertices exactly, so the bridge stays continuous.
+    // s = 0 is ambo(P), s = 1 is ambo(dual(P)): one rectified connectivity, so
+    // the face count is constant. Vertex identity is checked by position: a
+    // hankin seed's dual is lossy, so ambo(dual(P)) merges coincident edge
+    // midpoints.
     PolyMesh ambo_p = MeshOps::ambo(P, b, aux);
     PolyMesh dual_p = MeshOps::dual(P, b, aux);
     PolyMesh ambo_dual_p = MeshOps::ambo(dual_p, aux, b);
@@ -210,9 +196,8 @@ inline void test_medial_dual_bridge_wellformed() {
     HS_EXPECT_TRUE(std::equal(med_a.faces.begin(), med_a.faces.end(),
                               ambo_p.faces.begin(), ambo_p.faces.end()));
 
-    // MeshOps::medial documents out_a as bit-identical to ambo(P), and the
-    // bridge's ambo(P)->medial seam depends on it. Pin exact float equality
-    // index-for-index, before the snorm16 packing below can absorb a drift.
+    // out_a is bit-identical to ambo(P); pin it before snorm16 packing can
+    // absorb a drift.
     const size_t pair_n =
         std::min(med_a.vertices.size(), ambo_p.vertices.size());
     size_t bit_diff = 0;
@@ -233,9 +218,7 @@ inline void test_medial_dual_bridge_wellformed() {
                   "worst |d|=%.3e\n",
                   site.name, bit_diff, pair_n, (double)worst_bit);
 
-    // The MEDIAL_SLERP leg stores both endpoint sets snorm16-packed, so gate the
-    // quantized-then-decoded positions the leg actually slerps, not the
-    // full-precision medial output.
+    // Gate the snorm16-decoded positions the MEDIAL_SLERP leg slerps.
     for (auto &v : med_a.vertices)
       v = math::Snorm3::encode(v).decode().normalized();
     for (auto &v : med_b)
@@ -408,17 +391,11 @@ inline void test_opleg_medial_leg_smoke() {
  * @brief Drives the dual bridge's medial -> closing-leg handoff on every
  *        DUAL-leg seed and pins the face correspondence across the seam.
  * @details The closing leg's face list is block-transposed against the
- * medial's ([D-faces][D-vertex orbits] vs [P-faces][P-vertex orbits]): the
- * k-th emitted P-vertex orbit is the k-th dual face, and each P-face is a
- * dual vertex whose orbit face lands somewhere in the trailing block. Both
- * sides coincide geometrically at the ambo point, so the probe derives the
- * permutation by exact centroid matching there and requires the closing
- * leg's from-palettes to follow it. A rendered A/B (leg-2 last frame vs
- * leg-3 first frame, real ramp LUTs, no camera) then gates the seam
- * at pixel level: the diff must stay near one in-leg step, not a flip. The
- * needle site runs on truncate(X, 1/3) -- the dt-macro bridge seed whose
- * valence-2 star tips make the blocks unequal (362 vs 720) -- on the
- * bridge arena split, so the closing leg's construction peak is covered.
+ * medial's ([D-faces][D-vertex orbits] vs [P-faces][P-vertex orbits]). The
+ * permutation is derived by exact centroid matching at the ambo point, and the
+ * closing leg's from-palettes must follow it. A rendered A/B (leg-2 last frame
+ * vs leg-3 first frame) must stay near one in-leg step. The needle site
+ * (truncate(X, 1/3), unequal blocks) runs on the bridge arena split.
  */
 inline void test_opleg_dual_bridge_seam_correspondence() {
   using Animation::OpLeg;
@@ -488,9 +465,8 @@ inline void test_opleg_dual_bridge_seam_correspondence() {
       capture_frame<RW, RH>(fx, out);
     };
 
-    // Leg 2: the medial slerp, departed from ambo(P). Crossfading handoffs,
-    // as IslamicStars drives the bridge; the seeded RNG keeps the per-leg
-    // target shuffles deterministic here.
+    // Leg 2: the medial slerp, departed from ambo(P), with crossfading
+    // handoffs; the seeded RNG keeps the target shuffles deterministic.
     OpLeg::PaletteHandoff handoff2{.bank = &bank.bank,
                                    .prev_face_palette = pal2.data(),
                                    .prev_faces = nf,
@@ -701,9 +677,8 @@ inline constexpr int PAUSED_REDRAWS = 2;
  * @param frames_out Optional sink receiving each drawn frame's vertices.
  * @param pause_after Leg frame after which two step_paused() redraws run; 0
  *        drives the leg unpaused.
- * @details Mirrors the hankin smoke test's shape: the departed palettes come
- * from the seed's own classification and the bookend from the step's clean
- * endpoint, exactly as IslamicStars derives them.
+ * @details The departed palettes come from the seed's own classification and
+ * the bookend from the step's clean endpoint.
  */
 inline void check_step_leg_smoke(
     StepLegKind kind, const StepLegSite &site, int frames, float max_step_chord,
@@ -995,16 +970,13 @@ inline void test_opleg_step_leg_smoke() {
 /**
  * @brief Pins a paused leg's redraw: the held frame, drawn again, with the
  *        sweep clock untouched.
- * @details A paused timeline drives every event through step_paused(); a leg
- * that dropped the redraw would blank the frame and one that advanced would run
- * the sweep out under the pause. Both paused draws must reproduce the held
- * frame's vertices bitwise, and the resumed frames must match the unpaused run
- * frame for frame.
+ * @details Both paused draws must reproduce the held frame's vertices bitwise,
+ * and the resumed frames must match the unpaused run frame for frame.
  */
 inline void test_opleg_step_paused_holds_frame() {
   constexpr int FRAMES = 8;
   constexpr int PAUSE_AFTER = 4;
-  // Short leg: the chord bound is the smoke test's concern, not this one.
+  // Loose chord bound: motion is not under test.
   constexpr float CHORD_MAX = 1.0f;
   std::vector<std::vector<math::Vector>> unpaused, held;
   check_step_leg_smoke(StepLegKind::TRUNCATE, TRUNCATE_LEG_SITES[0], FRAMES,
@@ -1047,13 +1019,9 @@ inline void test_opleg_step_paused_holds_frame() {
  * @brief Drives swept legs under an easing whose range leaves [0, 1], gating
  *        the sweep parameter against extrapolation past the arrival.
  * @details ease_out_elastic exceeds 1 over x in [0.075, 0.225], peaking near
- * 1.35. Unclamped, that drives the operator past the endpoint the constructor
- * pinned inside its topology-constant interval, and past the domain the ops
- * themselves guard (a reverse leg reaches negative t). Clamped, frames 2-5 of
- * 24 hold the arrival exactly, which the frame-4-vs-last comparison pins; frame
- * 1 is still mid-sweep, so a leg frozen from the start would not pass. The
- * chord bound is loose because elastic covers half the sweep in one frame by
- * design.
+ * 1.35. Clamped, frames 2-5 of 24 hold the arrival exactly (the
+ * frame-4-vs-last comparison); frame 1 is still mid-sweep. The chord bound is
+ * loose because elastic covers half the sweep in one frame.
  */
 inline void test_opleg_step_leg_overshooting_easing() {
   constexpr StepLegSite NEAR_AMBO{"icosahedron_ambo_truncate049",
@@ -1203,8 +1171,7 @@ inline void test_unsweepable_recipe_steps_are_gated() {
   HS_EXPECT_TRUE(Solids::is_morphable_step({Op::HANKIN, 62.0f * D2R}));
   HS_EXPECT_TRUE(Solids::is_morphable_step({Op::AMBO}));
   // 0.01 is below T_EPS but sweepable: the leg births at the derived
-  // per-arrival floor instead of clamping to a still image
-  // (docs/specs/opchain_morph_spec.md, "Truncate edge cases").
+  // per-arrival floor.
   HS_EXPECT_TRUE(Solids::is_morphable_step({Op::TRUNCATE, 0.01f}));
   HS_EXPECT_TRUE(!Solids::is_morphable_step({Op::TRUNCATE, 0.001f}));
   // At t == 1 the cut faces collapse.
@@ -1215,8 +1182,8 @@ inline void test_unsweepable_recipe_steps_are_gated() {
   HS_EXPECT_TRUE(Solids::is_morphable_step({Op::DUAL}));
   HS_EXPECT_TRUE(!Solids::is_morphable_step({Op::CHAMFER, 0.001f}));
   HS_EXPECT_TRUE(!Solids::is_morphable_step({Op::CHAMFER, 0.9f}));
-  // apply_step traps on a zero snub inset, a zero hankin contact angle and a
-  // bake-less relax below one iteration; none reaches a leg.
+  // Zero snub inset, zero hankin angle and bake-less relax below one iteration
+  // are not morphable.
   HS_EXPECT_TRUE(!Solids::is_morphable_step({Op::SNUB, 0.0f}));
   HS_EXPECT_TRUE(!Solids::is_morphable_step({Op::HANKIN, 0.0f}));
   HS_EXPECT_TRUE(!Solids::is_morphable_step({Op::RELAX, 0.0f}));

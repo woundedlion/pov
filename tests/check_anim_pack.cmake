@@ -1,5 +1,4 @@
 # Audit concrete animation declarations against LARGEST_CONCRETE_ANIM_SIZE.
-# Timeline::add_get checks instantiated types with a per-type static_assert.
 #
 # Animations are CRTP: `class X : public Base<X>`, rooted at AnimationBase.
 # Each declaration is classified by the base's template argument:
@@ -9,7 +8,6 @@
 #                                             the pack cannot name it.
 #   * anything else (e.g. `Derived`)       -> intermediate CRTP base; its own
 #                                             subclasses are animations too.
-# The root set therefore grows to a fixpoint before the leaves are collected.
 # -D args: CORE_DIR (path to core/), ANIM_HEADER (path to animation.h);
 # or FIXTURE_DIR alone for the declaration-classifier self-test.
 
@@ -45,8 +43,7 @@ foreach(_hdr IN LISTS _headers)
   string(REGEX REPLACE "\"([^\"\\\\\n]|\\\\.)*\"" "\"\"" _text "${_text}")
   string(REGEX REPLACE "/\\*[^*]*\\*+([^/*][^*]*\\*+)*/" "\n" _text "${_text}")
   string(REGEX REPLACE "//[^\n]*" "" _text "${_text}")
-  # clang-format wraps a long base-clause onto its own line, so allow newlines
-  # around the colon and after `public`.
+  # Allow newlines around the colon and after `public` (wrapped base-clauses).
   string(REGEX MATCHALL
     "(class|struct)[ \t\r\n]+[A-Za-z0-9_]+([ \t\r\n]+final)?[ \t\r\n]*:[ \t\r\n]*public[ \t\r\n]+[A-Za-z0-9_]+[ \t\r\n]*<[^;{]*>"
     _matches "${_text}")

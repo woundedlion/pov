@@ -1,53 +1,22 @@
-# Every recognized case must reach an HS_EXPECT assertion or static_assert,
-# directly or through helpers. Case return types are void, bool, int, or size_t; helper
-# assertion traversal also recognizes ChainPeaks. run_*_cases are case drivers;
-# run_*_tests are module entry points. Indented member definitions are excluded.
-#
 # Require every test case defined in a tests/*.h or tests/*.hpp header to be
-# REACHABLE from the module entry point its header defines: run_*_tests() calls
-# it, or a case run_*_tests() reaches does. Off-roster helpers defined in one
-# header and called from others resolve against the whole tests/ + tools/
-# corpus instead.
-# Cases are invoked by hand-written calls from the module's run_*_tests(), so
-# dropping a call leaves a definition that still compiles — and a cluster of
-# dropped cases that still call each other satisfies a plain "referenced
-# somewhere" count.
+# reachable from its header's run_*_tests() entry point, and to reach an
+# HS_EXPECT assertion or static_assert directly or through helpers (helper
+# traversal also recognizes ChainPeaks returns). run_*_cases are case drivers;
+# run_*_tests are module entry points.
 #
-# It sees void/bool/int/size_t definitions named `test_*(` / `check_*(` /
-# `case_*(` / `verify_*(` / `expect_*(`, plus the named
-# roster-wide sweep drivers and the `int run_*_tests(` entry points, at the
-# start of a line (optionally `inline`/`static` in either order, behind an
-# optional single-line `template <...>` head), which is how every case in the
-# tree is written; the head must start at column 0, so an indented member
-# function sharing a case-name prefix is not a case. `case_*` names the death
-# cases the death module's table drives, and `verify_*`/`expect_*` the
-# per-item bodies a case loops a sweep over, which hold the assertions the
-# loop amplifies. The name may sit on the next line, which is where
-# clang-format puts it when the signature wraps. A
-# module's header is the one defining its run_*_tests() entry point. Headers
-# outside the module roster — helper headers included mid-module
-# and entry points only a standalone tool binary runs — are listed in
-# off_roster_headers.cmake. That list is shared with check_includes.cmake, which
-# exempts the same headers from the include pin.
+# A case is a void/bool/int/size_t definition named test_*/check_*/case_*/
+# verify_*/expect_*, run_*_cases or a named sweep driver, with its head at
+# column 0 (optionally `inline`/`static`, behind an optional single-line
+# `template <...>`); the name may wrap onto the next line. Indented member
+# definitions are not cases. Headers in off_roster_headers.cmake and the
+# HS_CROSS_FILE_CASES drivers resolve against the whole tests/ + tools/ corpus.
 #
-# A sweep driver one roster header defines and another calls is named in
-# HS_CROSS_FILE_CASES below; its reference resolves against the whole-tree
-# corpus, like an off-roster helper's.
-#
-# The call graph comes from splitting each header at its definition heads. A
-# definition's own body runs to the first column-0 `}` — every case in the tree
-# is a top-level function, so that brace is its close. Whatever follows, up to
-# the next definition head, is file scope: dispatch tables, macros and the
-# helper functions this scan does not name. Those references seed the closure
-# alongside the entry point's, so a case only a table drives counts as reached.
-#
-# Comment spans and string bodies are stripped from both scan texts first: the
-# tree cross-references case names in prose, and an unstripped `@details`
-# mention or diagnostic message would supply the reference the real call no
-# longer does.
+# Each header is split at its definition heads; a body runs to the first
+# column-0 `}`, and file-scope text after it (dispatch tables, macros) seeds the
+# reachability closure alongside the entry point. Comments and string bodies are
+# stripped first so prose and diagnostics cannot supply a reference.
 # -D args: TESTS_DIR (path to tests/), TOOLS_DIR (path to tools/).
 # CACHE_FILE is optional: skip when hashed inputs match the last passing run.
-# Both globs match check_includes.cmake's, so the two gates see one corpus.
 
 cmake_minimum_required(VERSION 3.29)
 
@@ -58,8 +27,7 @@ file(GLOB_RECURSE _headers "${TESTS_DIR}/*.h" "${TESTS_DIR}/*.hpp")
 
 include("${TESTS_DIR}/off_roster_headers.cmake")
 
-# Roster-wide sweep drivers: test_effects.h defines them, test_effects_smoke.h
-# runs them over HS_EFFECT_LIST.
+# Roster-wide sweep drivers called from a header other than their own.
 set(HS_CROSS_FILE_CASES smoke_one determinism_one clip_clear_parity_one)
 
 # Case names the definition scan accepts.
@@ -72,16 +40,8 @@ set(_def_head "${_def_head}|int[ \t\r\n]+(${_entry_name}))\\(")
 # Closes the loop over a header's definition heads on the file's own tail.
 set(_end_marker "\nvoid test_hs_end_of_header(")
 
-# Whole-tree code text — every header and driver .cpp under tests/, plus the
-# sources under tools/, which is where the standalone tool binaries call the
-# helpers from — used as the reference scope for the off-roster helpers only.
-# A roster module's cases are reached from its own run_*_tests(), so widening
-# their scope this far would let a same-named token anywhere under tests/ stand
-# in for the call this gate exists to enforce.
-# String bodies and comments are stripped, in that order and for the same
-# reasons as the per-header pass below: the helper headers are named in prose by
-# several modules and in diagnostic messages, either of which would otherwise
-# read as a call site.
+# Whole-tree code text (tests/ headers and .cpp, tools/ sources), stripped of
+# strings and comments: the reference scope for cross-file cases only.
 file(GLOB_RECURSE _driver_srcs "${TESTS_DIR}/*.cpp"
   "${TOOLS_DIR}/*.h" "${TOOLS_DIR}/*.hpp" "${TOOLS_DIR}/*.cpp")
 if(DEFINED CACHE_FILE)
@@ -183,9 +143,7 @@ foreach(_hdr IN LISTS _headers)
   endif()
   hs_read_test_header("${_hdr}" _text)
   get_filename_component(_name "${_hdr}" NAME)
-  # Blank string bodies, then drop block and line comment spans. Strings go
-  # first so a `//` or `/*` inside a message cannot open a comment span; the
-  # blanked body is bounded by its own line, an over-eager comment span is not.
+  # Strings first, so a `//` or `/*` inside a message cannot open a comment span.
   string(REGEX REPLACE "\"([^\"\\\\\n]|\\\\.)*\"" "\"\"" _text "${_text}")
   string(REGEX REPLACE "/\\*[^*]*\\*+([^/*][^*]*\\*+)*/" "\n" _text "${_text}")
   string(REGEX REPLACE "//[^\n]*" "" _text "${_text}")
@@ -295,10 +253,7 @@ foreach(_hdr IN LISTS _headers)
     if(_case IN_LIST _reachable)
       continue()
     endif()
-    # An off-roster helper and a named cross-file sweep driver resolve against
-    # the whole corpus: their caller is in another file. Every declaration of
-    # the case is dropped first, so a forward declaration cannot stand in for
-    # the call.
+    # Declarations are dropped first so a forward declaration is not a call.
     if(_cross_file OR _case IN_LIST HS_CROSS_FILE_CASES)
       string(REGEX REPLACE "(void|bool|int|size_t)[ \t\r\n]+${_case}[ \t\r\n]*\\(" "" _scan
         "${_corpus}")

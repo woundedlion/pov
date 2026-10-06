@@ -1,8 +1,7 @@
 # Pin tools/phantasm.ld routing changes and the source Teensy framework release.
 # -D args: SCRIPT (tools/phantasm.ld), PLATFORMIO_INI (platformio.ini).
 
-# Script mode inherits no policies from the project, so every policy would
-# otherwise default to OLD. Matches the top-level CMakeLists.
+# Match the top-level CMake policy version in script mode.
 cmake_minimum_required(VERSION 3.29)
 
 file(READ "${SCRIPT}" _script)
@@ -29,8 +28,7 @@ if(_code_at EQUAL -1 OR _progmem_at EQUAL -1 OR _itcm_at EQUAL -1)
   list(APPEND _missing
     "phantasm.ld no longer defines all of .text.code, .text.progmem, .text.itcm")
 else()
-  # Both flash sections must precede .text.itcm's *(.text*) catch-all, which
-  # otherwise claims their input sections for ITCM first.
+  # Both flash sections must precede .text.itcm's *(.text*) catch-all.
   if(NOT _code_at LESS _itcm_at OR NOT _progmem_at LESS _itcm_at)
     list(APPEND _missing
       ".text.code / .text.progmem no longer precede .text.itcm")
@@ -66,8 +64,7 @@ else()
   endif()
 endif()
 
-# The stock script's .data claims *(.rodata*) too; leaving that line in place
-# would double-claim what .text.progmem now routes to flash.
+# .data must not also claim the .rodata that .text.progmem routes to flash.
 if(_script MATCHES "\\.data :[^}]*}")
   string(FIND "${CMAKE_MATCH_0}" ".rodata" _rodata_in_data)
   if(NOT _rodata_in_data EQUAL -1)

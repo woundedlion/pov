@@ -1,15 +1,10 @@
 # Regenerate core/color/color_luts.h via scripts/generate_luts.py and compare the
-# whitespace-normalized text against the committed file, so array names, element types, the
-# flash-section marker, the include and value signs gate alongside the numbers.
-# Counterpart of the lut-provenance job in .github/workflows/ci.yml.
-# The generator pipes its header through clang-format (CLANG_FORMAT or the one
-# on PATH) and refuses to emit without it. Skips with SKIP_CODE when clang-format is unavailable, or fails outright under REQUIRE_GENERATORS (CI, which
-# provisions both).
+# whitespace-normalized text against the committed file.
+# The generator requires clang-format (CLANG_FORMAT or the one on PATH). Skips
+# with SKIP_CODE when it is unavailable, or fails under REQUIRE_GENERATORS.
 # -D args: PYTHON_EXE, GENERATOR, COMMITTED, GENERATED, SKIP_CODE, REQUIRE_GENERATORS.
 
-# Script mode inherits no policies from the project, so every policy would
-# otherwise default to OLD, and the cmake_language(EXIT) below is a 3.29
-# feature. Matches the top-level CMakeLists.
+# Match the top-level CMake policy version in script mode.
 cmake_minimum_required(VERSION 3.29)
 
 if("$ENV{CLANG_FORMAT}" STREQUAL "")
@@ -54,7 +49,6 @@ if(NOT _rc EQUAL 0)
 endif()
 
 # Collapse whitespace to normalize CRLF and residual clang-format reflow.
-# The generator itself still requires clang-format.
 function(_normalized_text path out_var)
   file(READ "${path}" _text)
   string(REGEX REPLACE "[ \t\r\n]+" " " _text "${_text}")

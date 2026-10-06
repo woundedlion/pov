@@ -3,8 +3,6 @@
  * Licensed under the PolyForm Noncommercial License 1.0.0
  */
 
-// Included by tests/test_death.h.
-
 // --- Individual death cases — each MUST trap (HS_CHECK / __builtin_trap) ------
 
 // Math spatial death fixtures and guard cases.
@@ -48,9 +46,7 @@ inline void case_angle_between_zero() {
 /**
  * @brief Death case: normalizing a NaN vector must trap.
  * @details Math-core surface — a NaN coordinate poisons the length to NaN, and
- *          `NaN >= epsilon` is false, so the normalize guard fires. The suite's
- *          NaN/Inf fault case: proves a non-finite producer is trapped at the
- *          math seam rather than silently propagating NaN into geometry.
+ *          `NaN >= epsilon` is false, so the normalize guard fires.
  */
 inline void case_normalize_nan() {
   const float nan = opaque(std::numeric_limits<float>::quiet_NaN());
@@ -63,8 +59,7 @@ inline void case_normalize_nan() {
 /**
  * @brief Death case: requesting more KDTree neighbors than MAX_K must trap.
  * @details Spatial surface — k beyond the MAX_K-sized result/heap buffers makes
- *          nearest() trap rather than silently capping the result and masking
- *          the caller's sizing mistake.
+ *          nearest() trap.
  */
 inline void case_spatial_knn_over_max() {
   static uint8_t buf[512];
@@ -94,9 +89,8 @@ inline void case_reaction_graph_node_index_out_of_range() {
 
 /**
  * @brief Death case: a neighbor-table slot outside the lattice must trap.
- * @details Spatial surface — CubemapLUT's hill-climb and the reaction-diffusion
- *          Laplacian subscript neighbors[] rows unguarded, so validate_neighbors()
- *          traps on a slot that is not a node index before the first such read.
+ * @details Spatial surface — validate_neighbors() traps on a slot that is not
+ *          a node index.
  */
 inline void case_reaction_graph_slot_out_of_range() {
   static int16_t table[ReactionGraph::RD_N][ReactionGraph::RD_K] = {};
@@ -108,8 +102,7 @@ inline void case_reaction_graph_slot_out_of_range() {
  * @brief Death case: a Flywheel period of zero must trap at construction.
  * @details POV-sync surface — position() divides the int32 elapsed window by the
  *          period, so a zero divides by zero and an over-large one voids the
- *          signed-safe coast window; the constructor rejects both before the
- *          driver ever schedules a column.
+ *          signed-safe coast window.
  */
 inline void case_flywheel_period_zero() {
   pov::sync::Config cfg;
@@ -191,9 +184,7 @@ inline void case_spherical_field_negative_equator_samples() {
 /**
  * @brief Death case: a NaN endpoint fed to slerp must trap.
  * @details Math-core surface — the NaN poisons interpolation through both
- *          branches into the final strict normalized(), which traps rather than
- *          emitting a NaN direction into geometry. Proves the non-finite input
- *          is caught at the slerp seam, not just at bare normalize().
+ *          branches into the final strict normalized(), which traps.
  */
 inline void case_slerp_nan() {
   const float nan = opaque(std::numeric_limits<float>::quiet_NaN());
@@ -208,7 +199,7 @@ inline void case_slerp_nan() {
 /**
  * @brief Death case: make_rotation(from, to) with a NaN source must trap.
  * @details A NaN component fails the unit-vector precondition before rotation
- *          arithmetic, complementing the finite non-unit input case.
+ *          arithmetic.
  */
 inline void case_make_rotation_vectors_nan() {
   const float nan = opaque(std::numeric_limits<float>::quiet_NaN());

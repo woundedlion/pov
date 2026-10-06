@@ -1,8 +1,6 @@
 # Run the relax_bake_gen harness and diff the header tools/relax_bakes.py emits
 # from its dump against the committed core/mesh/relax_bakes_generated.h in full.
-# unit_relax_bake_verify pins the payload VALUES bit-exact; this pins the file's
-# FORM (banner, chunking, declaration layout), so a legitimate regeneration can
-# never arrive buried in an emitter reformat.
+# Pins the file's form (banner, chunking, declaration layout).
 # -D args: PYTHON_EXE, SCRIPT, HARNESS, DUMP.
 
 # Match the top-level CMake policy version in script mode.

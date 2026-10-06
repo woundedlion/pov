@@ -3,8 +3,6 @@
  * Licensed under the PolyForm Noncommercial License 1.0.0
  */
 
-// Included by tests/test_conway_morph.h.
-
 // ---------------------------------------------------------------------------
 // §7.3 Settle correspondence: relax output vertex order is the identity over
 // its input, so a relaxed endpoint is per-vertex slerpable.
@@ -14,8 +12,7 @@
  * @brief Verifies relax(50) on a registry form (expand(dodecahedron), the
  *        rhombicosidodecahedron chain) preserves vertex order and topology.
  * @details Counts equal, face_counts/faces byte-identical, and each relaxed
- *          vertex stays strictly nearest to its own input vertex — a relax
- *          rewrite that reorders vertices fails here loudly.
+ *          vertex stays strictly nearest to its own input vertex.
  */
 inline void test_relax_is_vertex_order_identity() {
   Arena target(morph_target_buf, sizeof(morph_target_buf));

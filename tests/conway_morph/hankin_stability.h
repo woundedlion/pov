@@ -3,13 +3,9 @@
  * Licensed under the PolyForm Noncommercial License 1.0.0
  */
 
-// Included by tests/test_conway_morph.h.
-
 // ---------------------------------------------------------------------------
 // Hankin-sweep stability probe: per-step branch, displacement and face-normal
-// diagnostics for the four hankin legs. The shipping path slerps
-// each dynamic vertex from its collapsed corner to the theta_star solve;
-// re-solve modes are print-only comparisons.
+// diagnostics for the hankin legs.
 // ---------------------------------------------------------------------------
 
 /** @brief Branch update_hankin took for one dynamic vertex. */
@@ -299,7 +295,7 @@ hankin_summarize(const std::vector<HankinStepStats> &table) {
 }
 
 /**
- * @brief Measures per-frame sweep stability of the four hankin legs
+ * @brief Measures per-frame sweep stability of the hankin legs
  *        under the shipping slerp-from-corner parameterization.
  * @details Re-solve modes are diagnostic comparisons. The slerp gates bound
  * displacement and face-normal reversals using snorm16 arrival vertices and
@@ -336,9 +332,7 @@ inline void test_hankin_sweep_vertex_stability() {
     for (const auto &point : arrival)
       packed_arrival.push_back(math::Snorm3::encode(point.pos).decode());
 
-    // Every metric below reads hankin_solve, not the shipping solver. Pin the
-    // two together over both sample grids first, else the whole suite measures
-    // the mirror.
+    // Every metric reads hankin_solve; pin it to the shipping solver first.
     float mirror_chord =
         std::max(hankin_check_mirror(compiled, 0.0f, b),
                  hankin_check_mirror(compiled, site.theta_star, b));
@@ -554,9 +548,6 @@ inline void test_opleg_hankin_sweep_smoke() {
                                              .prev_faces =
                                                  seed.face_counts.size()};
 
-    // Growing star points from their corners keeps per-frame steps small and
-    // unimodal; per-frame contact-plane re-solves reach 1.84 chord on
-    // ambo-of-hankin seeds.
     constexpr float MAX_STEP_CHORD = 0.15f;
     LegDrawProbe probe;
     auto cb = [&](Canvas &, const MeshState &m,

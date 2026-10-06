@@ -3,8 +3,6 @@
  * Licensed under the PolyForm Noncommercial License 1.0.0
  */
 
-// Included by tests/test_conway_morph.h.
-
 // ---------------------------------------------------------------------------
 // §7.5 Clean-swap invisibility: the boundary swaps exchange geometrically
 // matching meshes.

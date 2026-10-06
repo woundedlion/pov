@@ -3,11 +3,8 @@
  * Licensed under the PolyForm Noncommercial License 1.0.0
  */
 
-// Included by tests/test_conway_morph.h.
-
 // ---------------------------------------------------------------------------
-// Seeds: the solids the edge table sweeps from, including the two ambo-chain
-// seeds (cuboctahedron, icosidodecahedron), which are ambo of a platonic seed.
+// Seeds: the solids the edge table sweeps from.
 // ---------------------------------------------------------------------------
 
 /** @brief Sweep seeds of the OpLeg edge table. */

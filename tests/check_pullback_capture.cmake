@@ -2,8 +2,7 @@
 # captures and audit both against the manifest oracles via pullback_capture.py.
 # -D args: PYTHON, CAPTURE_SCRIPT, MANIFEST_DIR, PRODUCER, OUTPUT_DIR.
 
-# Script mode inherits no policies from the project, so every policy would
-# otherwise default to OLD. Matches the top-level CMakeLists.
+# Match the top-level CMake policy version in script mode.
 cmake_minimum_required(VERSION 3.29)
 
 set(OPERATIONS "${OUTPUT_DIR}/pullback_capture_operations.bin")

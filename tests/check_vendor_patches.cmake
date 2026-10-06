@@ -2,14 +2,11 @@
 # core/vendor/FastNoiseLite_config.h.
 # -D args: HEADER (FastNoiseLite.h), CONFIG (FastNoiseLite_config.h).
 
-# Script mode inherits no policies from the project, so every policy would
-# otherwise default to OLD. Matches the top-level CMakeLists.
+# Match the top-level CMake policy version in script mode.
 cmake_minimum_required(VERSION 3.29)
 
 set(VENDORED_VERSION "1.1.1")
-# The digest of the vendored body over LF bytes, which is what makes the
-# version above more than a self-assertion: an upstream bump or a hand-edit
-# changes it, and re-recording it is the reviewed step. Recompute with
+# SHA-256 of the vendored body over LF bytes. Recompute with
 #   cmake -E sha256sum core/vendor/FastNoiseLite.h
 # on a checkout whose line endings are LF.
 set(VENDORED_SHA256

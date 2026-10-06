@@ -3,13 +3,8 @@
  * Licensed under the PolyForm Noncommercial License 1.0.0
  */
 
-// Included by tests/test_animation.h.
-
 // ============================================================================
 // Sprite (opacity envelope + paused-hold)
-// ----------------------------------------------------------------------------
-// Sprite::step computes an opacity and forwards it to the user draw_fn; the
-// captured opacity drives the envelope and paused-hold assertions.
 // ============================================================================
 
 /**
@@ -49,8 +44,7 @@ inline void test_sprite_clamps_overshooting_fade_in() {
 /**
  * @brief Verifies that when fade_in + fade_out exceed duration the fades scale
  * proportionally into a continuous triangle that still peaks at full opacity.
- * @details There must be no jump where the fade-in hands off to the fade-out;
- * the slider ranges make this configuration user-reachable.
+ * @details There must be no jump where the fade-in hands off to the fade-out.
  */
 inline void test_sprite_overlapping_fades_stay_continuous() {
   std::vector<float> ops;
@@ -133,10 +127,6 @@ inline void test_timeline_pause_redraws_held_sprite() {
  * @brief Verifies a Sprite paused before its first step holds the opacity its
  * first unpaused frame would report, not the zero end of its fade-in ramp and
  * not a full-brightness plateau.
- * @details The pause holds t at 0, so reporting the ramp there would multiply
- * the consumer's draw to nothing for the whole pause; the effect roster is
- * paused before init() by the WASM load path. Reporting 1.0 instead would hold
- * the sprite brighter than any frame the transition draws.
  */
 inline void test_sprite_paused_before_first_step_holds_first_opacity() {
   Timeline timeline;
