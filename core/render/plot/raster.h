@@ -113,17 +113,11 @@ template <int W> inline constexpr size_t rasterize_step_budget() {
  * @param trail_points Point count of a ParticleSystem::draw trail; 0 for every
  *        other caller.
  * @return The cache size in bytes.
- * @details Effects sizing a custom scratch-A split must budget this alongside
- * their own buffers. Covers the adaptive sub-step cache plus, under a planar
- * basis, the per-segment arc and seam caches.
- *
- * ParticleSystem::draw allocates its trail-gate arrays — the per-edge
- * visibility bits and the hoisted per-point rows and columns — from the same
- * arena BEFORE the call and keeps them live across it, so @p trail_points folds
- * those three in (with the alignment slack between the byte and float blocks).
- * Its fourth buffer, the ArenaVector<Vector> of pre-shader positions, is bound
- * only when a deferred shader is supplied and so is not folded in: such a
- * caller budgets its own point_count * sizeof(Vector).
+ * @details Covers the adaptive sub-step cache plus, under a planar basis, the
+ * per-segment arc and seam caches. @p trail_points folds in ParticleSystem::draw's
+ * trail-gate arrays (per-edge bits, per-point rows and columns, alignment
+ * slack), which stay live across the call; its deferred-shader position buffer
+ * is not included.
  */
 template <int W>
 inline constexpr size_t rasterize_scratch_a_bytes(size_t planar_segments = 0,
@@ -209,8 +203,8 @@ private:
 
 /**
  * @brief Paired screen rows and columns for the same polyline points.
- * @details Rows use y_to_screen_row; columns use vector_to_theta. Consumed
- * only by pipelines without a world-space stage.
+ * @details Rows use y_to_screen_row; columns use vector_to_theta. Valid only
+ * for pipelines without a world-space stage.
  */
 class PointProjections {
 public:
@@ -241,10 +235,6 @@ private:
 /**
  * @brief Optional rasterize() behaviors beyond the plain open geodesic
  * polyline; every field defaults to that common case.
- * @details Taken BY VALUE, never by const reference: a reference escapes the
- * aggregate's address, so every call site materializes it and no field reaches
- * the callee as a constant. Owned by the callee, IPA-SRA splits it back into
- * scalar arguments.
  */
 struct RasterOptions {
   /** edge_flags bit: the edge intersects the clip region. */
@@ -259,10 +249,9 @@ struct RasterOptions {
   /** Skip the final endpoint of an open line so adjoining arcs tile once. */
   bool omit_end = false;
   /**
-   * Arc-fraction window outside which samples are not shaded or plotted.
-   * Lets a clipped caller keep the whole segment's step schedule -- so sample
-   * positions stay clip-independent -- while skipping the work the clip would
-   * discard anyway. Single-segment polylines only.
+   * Arc-fraction window outside which samples are not shaded or plotted; the
+   * step schedule stays the whole segment's, so sample positions are
+   * clip-independent. Single-segment polylines only.
    * @details Samples outside the window never reach pipeline stages. Widening
    * it may change history-stage state even when terminal clipping discards the
    * extra samples from the current framebuffer.
@@ -293,7 +282,7 @@ struct RasterOptions {
  *        polyline.
  * @return False when no edge is visible; bits are then all zero.
  * @details The hoisted per-point coordinates and the whole-trail culls come
- * from trail_gate_prologue, shared with ParticleSystem::draw's gate.
+ * from trail_gate_prologue.
  */
 HS_O3_BEGIN
 template <int W, int H, typename PipelineT>
@@ -322,12 +311,9 @@ static bool gate_trail_edges(const PipelineT &, const ClipRegion &cr,
     const math::Vector &ea = trail[e].pos;
     const math::Vector &eb = trail[e + 1].pos;
 
-    // Cheap row tier: the exact span's interior extremum lies within arc/2 of
-    // an endpoint and phi is 1-Lipschitz in arc length (arc <= (pi/2)*chord),
-    // so the endpoint rows widened by chord*pi*ROWS_PER_RADIAN/4 contain the exact
-    // span; the AA pad matches the exact test's own high end. A miss here
-    // therefore implies the exact test below also misses, keeping the bits
-    // identical while skipping the edge's cross/normalize/acos.
+    // Cheap row tier: endpoint rows widened by chord*pi*ROWS_PER_RADIAN/4
+    // contain the exact span (phi is 1-Lipschitz in arc, arc <= (pi/2)*chord),
+    // so a miss here implies the exact test also misses.
     {
       const math::Vector d = eb - ea;
       const float margin = sqrtf(math::dot(d, d)) *
@@ -369,8 +355,7 @@ HS_O3_END
  * @param fragment_shader Per-fragment shader applied before plotting; must be
  *                        non-null. An empty FragmentShaderFn traps once per
  *                        polyline; a typed shader cannot be empty.
- * @param opts Optional loop/projection/culling behaviors; taken by value (see
- *             RasterOptions).
+ * @param opts Optional loop/projection/culling behaviors.
  */
 HS_O3_BEGIN
 template <int W, int H, RasterConfig Cfg = {}, typename PipelineT = PipelineRef,
@@ -434,8 +419,7 @@ static void rasterize(PipelineT &source_pipeline, Canvas &canvas,
   const ScreenStepAxes step_axes =
       world_identity ? ScreenStepAxes{} : screen_step_axes(pipeline);
   size_t len = points.size();
-  // A degenerate path is not drawn — callers wanting a dot duplicate the vertex,
-  // as Line::sample does.
+  // A degenerate path is not drawn; a dot needs the vertex duplicated.
   if (len < 2)
     return;
   for (const Fragment &point : points)
@@ -464,9 +448,8 @@ static void rasterize(PipelineT &source_pipeline, Canvas &canvas,
   HS_CHECK(!plot_window || count == 1,
            "a plot window requires a single-segment polyline");
   HS_PLOT_ADD(edges, count);
-  // SCRATCH ARENA CONTRACT (load-bearing): scratch_arena_a is a LIFO bump
-  // allocator shared with Pixel::Feedback::flush; do not let a raw pointer into
-  // it outlive the scope that produced it.
+  // scratch_arena_a is a LIFO bump allocator; a raw pointer into it must not
+  // outlive the scope that produced it.
   ScratchScope sc_guard(scratch_arena_a);
   ArenaVector<float> steps_cache;
   // Cache one segment's adaptive steps; the simulation capacity is a backstop.
@@ -494,8 +477,7 @@ static void rasterize(PipelineT &source_pipeline, Canvas &canvas,
     return points[(i + 1) % len];
   };
   float total_arc = 0.0f;
-  // Per-segment rendered arc length and antipode-seam flag, reused by the draw
-  // loop below so the seam decision is taken in exactly one place.
+  // Per-segment rendered arc length and antipode-seam flag.
   ArenaVector<float> seg_arc_cache;
   ArenaVector<uint8_t> seg_seam_cache;
   if (override_uv) {
@@ -535,7 +517,7 @@ static void rasterize(PipelineT &source_pipeline, Canvas &canvas,
     constexpr bool NEWTON_UNIT_SAMPLER =
         requires { std::remove_cvref_t<decltype(sample)>::NEWTON_UNIT; };
     // Rewrite the arc registers from the rendered arc when a planar basis is in
-    // force (see the pre-pass above): `d` is the arc drawn so far within this
+    // force: `d` is the arc drawn so far within this
     // segment, `seg_base` the arc at its start. No-op for geodesic polylines.
     auto set_arc_uv = [&](Fragment &f, float d) {
       if constexpr (!DERIVE_PLANAR_ARC_REGISTERS)
@@ -622,9 +604,8 @@ static void rasterize(PipelineT &source_pipeline, Canvas &canvas,
     float first_step = adaptive_step(smp);
 
     // FAST PATH: the whole segment spans ≤ one screen step, so a single dot
-    // covers it. Keyed on SCREEN length, not arc length: a base_step arc can
-    // still cross several pixels on a steep/near-polar segment, which an
-    // arc-length test would undersample into a beaded line.
+    // covers it. Keyed on screen length: a base_step arc can still cross
+    // several pixels on a steep/near-polar segment.
     if (total_dist <= first_step) {
       HS_PLOT_COUNT(one_dot);
       if (PLOT_START) {
@@ -655,7 +636,7 @@ static void rasterize(PipelineT &source_pipeline, Canvas &canvas,
     }
 
     // Size each sub-step so consecutive samples land ~SCREEN_STEP_PX apart in
-    // screen space. `smp`/`first_step` above seed the first iteration.
+    // screen space. `smp`/`first_step` seed the first iteration.
     if constexpr (SINGLE_PASS) {
       HS_PROFILE_DEEP(plot_seg_single_pass);
       float current_dist = 0.0f;
@@ -721,10 +702,8 @@ static void rasterize(PipelineT &source_pipeline, Canvas &canvas,
         }
 
         if (++step_count >= max_cache) {
-          // Stretch factor matches the two-pass replay's; the hard stop below
-          // bounds the extra steps, and exits short of total_dist — the
-          // segment's tail goes unplotted, where the two-pass replay always
-          // stretches its cached steps over the whole segment.
+          // Stretch factor matches the two-pass replay's; the hard stop bounds
+          // the extra steps and can leave the segment's tail unplotted.
           if (backstop_stretch == 1.0f) {
             HS_PLOT_COUNT(backstops);
             HS_SCAN_METRIC(hs::g_scan_metrics.plot_backstop_hits++);

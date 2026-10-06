@@ -50,9 +50,7 @@ interpolate(const ComposedDetail::ParameterSet<
 /**
  * @brief Whether every field of a parameter family is inside its authored
  *        range.
- * @details Driven by the family's field table, so the admissibility ranges a
- * restored snapshot must pass are the same descriptors the sliders register
- * with.
+ * @details Ranges come from the family's field table.
  */
 template <Pullback::HasFields T> inline bool valid(const T &value) {
   return Pullback::Fields::valid(value);

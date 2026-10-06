@@ -58,9 +58,7 @@ enum class FieldGate : uint8_t {
 /**
  * @brief Which topology enum8 of the same family decides whether a field is
  *        read, and the value indices that keep it live.
- * @details A null `field` marks a field every variant reads. Declared on the
- * family rather than the operator, so every operator carrying the family
- * exports the same relation.
+ * @details A null `field` marks a field every variant reads.
  */
 struct TopologyGate {
   const char *field = nullptr;
@@ -85,11 +83,8 @@ template <typename... Values> consteval uint16_t live_values(Values... values) {
 
 /**
  * @brief One scalar field of a parameter family.
- * @details `name == nullptr` marks a field with no slider of its own:
- * register_fields skips it and the catalog exports a null display name. The
- * field is still interpolated and validated. A warp slot's `speed` is
- * registered under the slot's name instead, and the colour families' fields
- * under names the effect chooses.
+ * @details `name == nullptr` marks a field with no slider of its own; it is
+ * still interpolated and validated.
  * @tparam Owner The family struct the field belongs to.
  */
 template <typename Owner> struct Field {

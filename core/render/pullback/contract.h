@@ -57,7 +57,6 @@ using ProjectionBoundary = projections::ProjectionBoundary;
 
 /**
  * @brief Rank-0 carrier: a unit view direction plus the accumulated path.
- * @details Carries four floating-point components.
  */
 struct SphereSample {
   math::Vector dir;
@@ -161,8 +160,8 @@ template <size_t Index, typename... Ts> struct TypeAt<Index, TypeList<Ts...>> {
 } // namespace Detail
 
 /**
- * @brief The closed, ordered carrier set: the single authority every family
- *        fact derives from — membership, rank, and the runtime slot ABI.
+ * @brief The closed, ordered carrier set; membership, rank and the runtime
+ *        slot ABI derive from it.
  */
 using CarrierList =
     Detail::TypeList<SphereSample, PlaneSample, FieldSample, Color4>;
@@ -419,9 +418,8 @@ concept StageDescriptor = requires {
 
 /**
  * @brief Whether @p Descriptor's policies and providers agree with @p Binding.
- * @details Non-asserting: evaluated before the bind step instantiates
- * anything, so the pipeline's named BINDINGS assertion reports a foreign
- * binding instead of a template-formation abort inside Bind.
+ * @details Non-asserting; evaluated before the bind step instantiates
+ * anything.
  */
 template <typename Descriptor, typename Binding>
 consteval bool descriptor_bindable() {
@@ -463,9 +461,7 @@ namespace Stage {
 /**
  * @brief Helper base every stage descriptor derives from.
  * @details Derives the carrier pair and forwards Bind into the descriptor's
- * binding-templated `run` (and optional `prepare`) statics — which is how an
- * unbound descriptor defines execution that needs the binding-dependent
- * FrameState and Instrumentation.
+ * binding-templated `run` (and optional `prepare`) statics.
  * @tparam Derived The descriptor deriving from this base.
  * @tparam InputT The stage's input carrier.
  * @tparam OutputT The stage's output carrier.
@@ -483,8 +479,6 @@ template <typename Derived, typename InputT, typename OutputT> struct Contract {
     using Output = OutputT;
     using Prepared = Detail::DescriptorPrepared<Derived, BindingT>;
 
-    // Backstop only: pipeline assembly checks descriptor_bindable() first and
-    // reports through the named BINDINGS assertion.
     static_assert(descriptor_bindable<Derived, BindingT>(),
                   "pullback stage: malformed or foreign provider");
 
@@ -505,11 +499,8 @@ template <typename Derived, typename InputT, typename OutputT> struct Contract {
 /**
  * @brief Placement node: a contiguous run of stages emitted as one call unit
  *        under the given emission.
- * @details Invisible to the semantic leaf view — adding or removing a
- * placement wrapper never changes whether a chain validates or what a
- * predicate matches; placement affects exactly prepared-state layout and code
- * emission. Placements are deliberate, ITCM-ledger-scored decisions, always
- * written by the author.
+ * @details Invisible to the semantic leaf view; placement affects only
+ * prepared-state layout and code emission.
  */
 template <CodeEmission EmissionV, typename... Stages> struct Placed {
   static constexpr CodeEmission EMISSION = EmissionV;
@@ -943,9 +934,8 @@ struct PipelineCore<true, Binding, TypeList<Nodes...>> {
  * @brief The ranked pullback pipeline: one binding, then a chain of stage
  *        descriptors and placement nodes.
  * @details Binding appears exactly once — the first parameter binds the whole
- * list. `void` entries and empty placement groups vanish, which is the entire
- * hook a derivation layer needs; concrete pipelines never contain a
- * conditional. The chain must be non-decreasing in family rank, adjacent
+ * list. `void` entries and empty placement groups vanish. The chain must be
+ * non-decreasing in family rank, adjacent
  * carriers must agree, the first stage consumes SphereSample and the last
  * produces Color4. The semantic leaf view (validation, predicates,
  * STAGE_COUNT, stage_at) and the structural placement view (prepare/run over
@@ -1054,8 +1044,7 @@ public:
   /**
    * @brief Type-erased prepare for dynamic program dispatch.
    * @details @p storage must hold sizeof(PreparedTuple) bytes at
-   * alignof(PreparedTuple); both bounds are the supplying consumer's to pin,
-   * since the erased call site no longer knows the type.
+   * alignof(PreparedTuple); the caller guarantees both.
    */
   HS_FLASH_MEMBER static void prepare_into(const FrameState &ctx,
                                            void *storage) {

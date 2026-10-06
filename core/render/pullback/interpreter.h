@@ -32,8 +32,7 @@ inline constexpr size_t MAX_CHAIN_PARAMS = 224;
 /** Fixed per-entry arena cost beyond the cataloged blocks: the instance-id
     copy reservation. */
 inline constexpr size_t PER_OP_OVERHEAD_BYTES = MAX_INSTANCE_ID + 1;
-/** Longest schema field id, in bytes, excluding the NUL; pinned so the
-    per-field name reservation below is a table-independent constant. */
+/** Longest schema field id, in bytes, excluding the NUL. */
 inline constexpr size_t MAX_FIELD_ID = 31;
 /** Fixed arena reservation per schema field for its registered
     "{instance}.{field-id}" parameter name: worst-case instance id, the dot,
@@ -76,8 +75,7 @@ enum class ChainStatus : uint8_t {
   MIGRATE_FAILED
 };
 
-/** @brief Wire spelling of @p status; the embind boundary renames a committed
-    OK to "APPLIED". */
+/** @brief Wire spelling of @p status. */
 inline const char *chain_status_name(ChainStatus status) {
   switch (status) {
   case ChainStatus::OK:
@@ -196,8 +194,7 @@ public:
    * @param operator_table Resolution table; defaults to OPERATOR_TABLE.
    * @details Blocks must be disjoint, max_align-aligned and outlive the program. Bind
    * once, before the first compile(). No table entry may decrease carrier
-   * family rank, the invariant make_operator_descriptor() static_asserts and a
-   * hand-built table would otherwise slip past compile()'s carrier matching.
+   * family rank.
    */
   void bind_storage(uint8_t *block_a, uint8_t *block_b,
                     size_t block_capacity = CHAIN_ARENA_BYTES,
@@ -390,8 +387,6 @@ public:
   /**
    * @brief Traps an evaluate() that would run an uncommitted or unprepared
    *        program.
-   * @details Checked once per draw, not per pixel: neither bit moves while a
-   * draw is in flight.
    */
   void check_ready() const {
     HS_CHECK(has_program, "ChainProgram::evaluate without a program");
@@ -439,9 +434,8 @@ public:
 
   /** @brief Registered parameter name "{instance}.{field-id}" of schema entry
       @p schema_index of entry @p index.
-      @details Storage lives in the winning arena, so the pointer dies at the
-      next successful compile — the caller must re-register immediately after
-      every commit, before anything reads a previously registered name. */
+      @details Storage lives in the winning arena; the pointer dies at the next
+      successful compile, so re-register after every commit. */
   const char *param_name(size_t index, uint16_t schema_index) const {
     HS_CHECK(index < sides[active].count, "ChainProgram::param_name range");
     const ChainOp &op = sides[active].ops[index];
@@ -495,8 +489,7 @@ private:
   /**
    * @brief Computes the exact arena layout of a resolved chain.
    * @param out Side to fill with offsets, instance-id copies, and parameter
-   *        name slots, or null for the budget dry run — both paths share this
-   *        arithmetic, so the budget check equals the layout.
+   *        name slots, or null for the budget dry run.
    * @return Layout byte count, or capacity + 1 if it exceeds the arena budget.
    */
   size_t plan_layout(const OperatorDescriptor *const *resolved,
