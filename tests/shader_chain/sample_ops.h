@@ -286,7 +286,7 @@ inline void expect_sample_op_parity(In::ChainProgram &program,
   int view_index = 0;
   for (const math::Vector &view : sweep_views()) {
     HS_CONTEXT("view", view_index++);
-    const PB::PlaneSample input = warp_input(program, ctx, view);
+    const PB::PlaneSample input = projected_input(program, ctx, view);
     alignas(In::SLOT_ALIGN) uint8_t out[In::SLOT_SIZE];
     op.runtime.run(&input, out, ctx, program.param_block(2),
                    program.prepared_block(2));
