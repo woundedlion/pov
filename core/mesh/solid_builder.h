@@ -13,21 +13,10 @@ inline int relax_bakes_verified = 0;
 /**
  * @brief Fluent builder for chaining Conway operators with automatic arena
  * swapping.
- * @details Each method runs `mesh = op(mesh, output_arena, scratch_arena)` then
- * swaps the two arenas; every operator returns its output in the arena passed
- * as `target` (COMPOSITION POLARITY in conway.h), so after each step the mesh
- * sits in `scratch_arena` and the next step writes into the other arena.
- *
- * The seed may sit in either arena: a base solid builds into `a`, while a
- * nested chain leaves its result in whichever arena its last step wrote. So the
- * first operator may read its input from the arena it writes its output into.
- * No operator rewinds its output arena below its entry offset, and a bump arena
- * never rewinds below a live allocation.
- *
- * Each step then rewinds the arena the NEXT step writes into back to the offset
- * it held when the chain started, reclaiming that step's spent intermediates
- * (including the ones a composed operator leaves behind in `temp`). The seed
- * sits below both marks and stays for the life of the chain.
+ * @details Each method runs `mesh = op(mesh, output_arena, scratch_arena)`,
+ * swaps the two arenas, then rewinds the arena the next step writes into back
+ * to its chain-start offset. The seed may sit in either arena; it sits below
+ * both marks and stays for the life of the chain.
  */
 class SolidBuilder {
   PolyMesh mesh; /**< Mesh being built; updated in place by each operator. */
@@ -93,10 +82,8 @@ public:
   /**
    * @brief Applies the truncate operator (cut corners off each vertex).
    * @param t Truncation depth in [0, 1] along each edge (the fraction at which
-   *   each cut point sits). t < 0.5 keeps the cuts on their own half; t == 0.5
-   *   is rectification (short-circuits to ambo); t > 0.5 crosses the cuts past
-   *   each other for intentional self-intersecting faces (the *_truncate50d_*
-   *   recipes pass 50 deg ~= 0.873). See MeshOps::truncate.
+   *   each cut point sits). t == 0.5 short-circuits to ambo; t > 0.5 crosses
+   *   the cuts into self-intersecting faces. See MeshOps::truncate.
    * @return Reference to this builder for chaining.
    */
   SolidBuilder &truncate(float t = MeshOps::TRUNCATE_DEFAULT_T) {
@@ -165,15 +152,11 @@ public:
   }
   /**
    * @brief Applies a host-generated relaxation payload.
-   * @details The relaxed vertices load bit-identically on host and device;
-   * later stages use each platform's own float semantics.
-   * The payload's own `iterations` count defines it;
-   * there is no per-call-site count. In the two host tooling modes the payload
-   * is instead reproduced live by using `bake.iterations` as the smoothing iteration
-   * cap: EXTRACT dumps the resulting bits and freshly measured guards, so it
-   * can author a payload or recover from a topology change (generation), while
-   * VERIFY asserts both against the committed payload (the native
-   * re-derivation test).
+   * @details The relaxed vertices load bit-identically on host and device.
+   * Under HS_RELAX_BAKE_EXTRACT or HS_RELAX_BAKE_VERIFY the payload is instead
+   * reproduced live with `bake.iterations` as the iteration cap: EXTRACT logs
+   * the bits and measured guards, VERIFY asserts them against the committed
+   * payload.
    * @param bake Payload whose guarded topology must match the current mesh.
    * @return Reference to this builder for chaining.
    */
@@ -273,8 +256,7 @@ public:
   /**
    * @brief Applies the bevel operator (truncate composed with ambo).
    * @param t Truncation depth forwarded to the truncate step, in [0, 1]. At
-   *   exactly 0.5 truncate short-circuits to ambo, so the chain is ambo(ambo)
-   *   with that census rather than a bevel. See MeshOps::bevel.
+   *   exactly 0.5 the chain is ambo(ambo). See MeshOps::bevel.
    * @return Reference to this builder for chaining.
    */
   SolidBuilder &bevel(float t = MeshOps::BEVEL_DEFAULT_T) {

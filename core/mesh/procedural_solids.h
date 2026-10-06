@@ -318,13 +318,12 @@ namespace IslamicStarPatterns {
 /** Degrees-to-radians conversion factor. */
 inline constexpr float D2R = math::PI_F / 180.0f;
 
-/** Truncation depth of the `*_truncate5d_*` recipes, bit-exactly 5.0f * D2R
- * and named for it, consumed by truncate as a dimensionless edge fraction
- * short of the ambo pinch at t = 0.5. */
+/** Truncation depth of the `*_truncate5d_*` recipes: bit-exactly 5.0f * D2R,
+ * used as a dimensionless edge fraction short of the ambo pinch at t = 0.5. */
 inline constexpr float TRUNCATE_T_NEAR = 0.0872664601f;
-/** Truncation depth of the `*_truncate50d_*` recipes, bit-exactly 50.0f * D2R
- * and named for it, consumed by truncate as a dimensionless edge fraction past
- * the ambo pinch, where the cut faces self-intersect by design. */
+/** Truncation depth of the `*_truncate50d_*` recipes: bit-exactly 50.0f * D2R,
+ * used as a dimensionless edge fraction past the ambo pinch, where the cut
+ * faces self-intersect. */
 inline constexpr float TRUNCATE_T_FAR = 0.87266463f;
 static_assert(TRUNCATE_T_NEAR == 5.0f * D2R);
 static_assert(TRUNCATE_T_FAR == 50.0f * D2R);

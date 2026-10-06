@@ -184,12 +184,9 @@ struct Dodecahedron {
  * @return True when index, edge-incidence, Euler and unit-length checks pass.
  * @details Checks that face_counts spans the flat face list exactly, every face
  * index addresses a listed vertex, no directed edge repeats and every directed
- * edge has its reverse (so each undirected edge joins exactly two faces in
- * opposite orientation, making E = sum/2), Euler's formula holds, and every
- * squared vertex length passes the 1 ± 1e-4 comparisons. Finiteness, vertex fans,
- * connectivity, face planarity, convexity and non-self-intersection are not checked.
- * Compares squared lengths so the check is
- * constant-evaluable.
+ * edge has its reverse, Euler's formula holds, and every squared vertex length
+ * is within 1 ± 1e-4. Finiteness, vertex fans, connectivity, face planarity,
+ * convexity and non-self-intersection are not checked.
  */
 template <typename StaticMeshT> constexpr bool solid_tables_consistent() {
   size_t total_indices = 0;
@@ -202,7 +199,7 @@ template <typename StaticMeshT> constexpr bool solid_tables_consistent() {
     if (index < 0 || static_cast<size_t>(index) >= StaticMeshT::vertices.size())
       return false;
 
-  // Directed edge incidence; the V*V scratch keeps the pass O(indices + V^2).
+  // Directed edge incidence.
   constexpr size_t V = StaticMeshT::vertices.size();
   std::array<bool, V * V> used = {};
   size_t base = 0;
