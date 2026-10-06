@@ -29,6 +29,8 @@ constexpr size_t MORPH_SCRATCH_B_BUDGET =
  * Reports the worst arena pair across the edge table.
  */
 inline void test_edge_morph_frames_fit_scratch_budget() {
+  static_assert(sizeof(morph_target_buf) > MORPH_SCRATCH_A_BUDGET);
+  static_assert(sizeof(morph_temp_buf) > MORPH_SCRATCH_B_BUDGET);
   constexpr size_t HALF = sizeof(morph_aux_buf) / 2;
   size_t worst_a = 0, worst_b = 0;
   int worst_a_edge = 0, worst_b_edge = 0;
@@ -51,8 +53,8 @@ inline void test_edge_morph_frames_fit_scratch_budget() {
     const float t = t_lo + (t_hi - t_lo) * U;
     const float twist = e.twist_from + (e.twist_to - e.twist_from) * U;
 
-    Arena a(morph_target_buf, MORPH_SCRATCH_A_BUDGET);
-    Arena b(morph_temp_buf, MORPH_SCRATCH_B_BUDGET);
+    Arena a(morph_target_buf, sizeof(morph_target_buf));
+    Arena b(morph_temp_buf, sizeof(morph_temp_buf));
     {
       ScratchScope frame_a(a);
       ScratchScope frame_b(b);
@@ -71,6 +73,11 @@ inline void test_edge_morph_frames_fit_scratch_budget() {
       worst_b = b_peak;
       worst_b_edge = ei;
     }
+    if (a_peak > MORPH_SCRATCH_A_BUDGET || b_peak > MORPH_SCRATCH_B_BUDGET)
+      std::printf("  [morph scratch] %s -> %s: a=%zu/%zu B, b=%zu/%zu B\n",
+                  Solids::simple_registry[e.from_node].name,
+                  Solids::simple_registry[e.to_node].name, a_peak,
+                  MORPH_SCRATCH_A_BUDGET, b_peak, MORPH_SCRATCH_B_BUDGET);
     HS_EXPECT_LE(a_peak, MORPH_SCRATCH_A_BUDGET);
     HS_EXPECT_LE(b_peak, MORPH_SCRATCH_B_BUDGET);
   }
