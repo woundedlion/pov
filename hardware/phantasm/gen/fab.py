@@ -1489,7 +1489,6 @@ def main():
             sys.exit(str(exc))
 
         print("[8/9] BOM + CPL")
-        # BOM grouped by (value, footprint)
         groups = {}
         for r in assembled:
             lcsc = assembly_metadata[r]["lcsc"]
