@@ -168,6 +168,9 @@ inline void test_medial_dual_bridge_wellformed() {
     PolyMesh med_a;
     ArenaVector<math::Vector> med_b;
     MeshOps::medial(P, med_a, med_b, a, b);
+    HS_EXPECT_EQ(med_b.size(), med_a.vertices.size());
+    if (med_b.size() != med_a.vertices.size())
+      continue;
 
     // s = 0 is ambo(P), s = 1 is ambo(dual(P)): one rectified connectivity, so
     // the face count is constant. Vertex identity is checked by position: a
