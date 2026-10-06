@@ -1783,7 +1783,7 @@ private:
     tr.landing.blend_pairs = tr.num_ramps;
 
     // finish_frame's per-frame peak: the ramp array plus one baked LUT per
-    // non-identity pair. Necessary only; the compiled mesh shares the arena.
+    // non-identity pair.
     int blended = 0;
     for (int r = 0; r < tr.num_ramps; ++r)
       if (tr.ramp_from[r] != tr.ramp_to[r])
