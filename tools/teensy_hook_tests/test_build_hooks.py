@@ -256,10 +256,27 @@ class TestSketchSelection(unittest.TestCase):
         return load_hook("teensy_pre.py", env=env), env
 
     def test_firmware_builds_do_not_register_documentation_actions(self):
+        cfg = _pio_config()
         for name in _pio_envs():
             with self.subTest(env=name):
-                _, env = self._run(name)
-                self.assertEqual(env.pre_actions, [])
+                projenv = FakeEnv(CPPPATH=list(FIRST_PARTY))
+                env = FakeEnv(
+                    PIOENV=name, PROJECT_DIR=str(REPO),
+                    BUILD_DIR=os.path.join(".pio", "build", name),
+                    CPPPATH=FIRST_PARTY + [FRAMEWORK],
+                    PROJECT_PACKAGES_DIR=_abs("home", "runner", ".platformio", "packages"),
+                    PROJECT_LIBDEPS_DIR=_abs("work", "Holosphere", ".pio", "libdeps"))
+                hooks = [s.split(":", 1)[1]
+                         for s in _option_lines(cfg, f"env:{name}", "extra_scripts")
+                         if s != GATE_SCRIPT]
+                self.assertTrue(hooks)
+                for rel in hooks:
+                    self.assertEqual(Path(rel).parent, Path("tools"), rel)
+                    load_hook(Path(rel).name, env=env, projenv=projenv)
+                for build_env in (env, projenv):
+                    self.assertEqual(build_env.pre_actions, [])
+                    self.assertEqual(build_env.post_actions, [])
+                self.assertEqual(set(env.methods), {"FindInoNodes"})
 
     def test_every_platformio_env_is_mapped(self):
         mod, _ = self._run("phantasm")
