@@ -699,6 +699,9 @@ inline void test_star_options_and_shipping_presets_are_planar() {
                              "Screen Balanced") == 0);
   HS_EXPECT_TRUE(std::strcmp(ShapeShifterWhiteBox::spacing_export_option(1),
                              "RadiusSpacing::SCREEN_BALANCED") == 0);
+  for (size_t index = 0; index < ShapeShifterWhiteBox::PRESET_COUNT; ++index)
+    HS_EXPECT_NE(ShapeShifterWhiteBox::preset_shape(index),
+                 Shape::SPHERICAL_STAR);
   for (size_t index : {size_t{0}, size_t{2}, size_t{4}}) {
     HS_EXPECT_EQ(ShapeShifterWhiteBox::preset_shape(index), Shape::PLANAR_STAR);
     HS_EXPECT_EQ(ShapeShifterWhiteBox::preset_alpha_falloff(index),
