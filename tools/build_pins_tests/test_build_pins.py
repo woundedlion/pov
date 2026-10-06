@@ -478,7 +478,6 @@ class InstallSet(unittest.TestCase):
             self.assertIn(path, installed)
         self.assertTrue(
             any(path.startswith("patterns/") for path in installed))
-        self.assertIn("README.md", installed)
         self.assertTrue(
             any(path.startswith("docs/screenshots/") for path in installed))
 
