@@ -2151,9 +2151,10 @@ inline int run_death_tests() {
   const Case *cs = all_cases(n);
 
   // The sentinel proves the trap is observable independently of real cases.
-  if (!child_trapped(spawn_child(SHAPE_PROBE_CASE))) {
+  const int probe = spawn_child(SHAPE_PROBE_CASE);
+  if (!child_trapped(probe)) {
     report_unrunnable("trap sentinel did not trap; trap status is unobservable",
-                      0);
+                      probe);
     set_case_env("");
     return fixture.result();
   }
