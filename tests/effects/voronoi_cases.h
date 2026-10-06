@@ -171,7 +171,7 @@ inline void test_voronoi_union_candidates_cover_nearest() {
  *        full-canvas render does.
  * @details The coarse-coherence grid decides per block which sites reach a
  *          pixel's candidate union, so its phase must not follow the clip
- *          origin. The bands start off a block boundary.
+ *          origin. The clipped edges cut through blocks.
  */
 inline void test_voronoi_segment_render_matches_full_frame() {
   constexpr int W = DEFAULT_W;
