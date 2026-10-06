@@ -62,8 +62,7 @@ inline ChainPeaks replay_build_chain(const char *name,
                                      const Solids::Recipe &recipe) {
   ChainPeaks peaks;
   using Animation::OpLeg;
-  constexpr int HANKIN_LEG_FRAMES = 32, SWEEP_LEG_FRAMES = 24,
-                RELAX_LEG_FRAMES = 16, GATE_HALF_FRAMES = 6;
+  constexpr int GATE_HALF_FRAMES = 6;
   constexpr size_t MAX_FACES = 1152;
   constexpr size_t MAX_STEPS = 8;
 
@@ -120,9 +119,11 @@ inline ChainPeaks replay_build_chain(const char *name,
           steps[k].op == Solids::Op::KIS || steps[k].op == Solids::Op::DUAL;
       peaks.production_schedule &= !gated[k];
       leg_frames[k] = gated[k] ? 2 * GATE_HALF_FRAMES + 1
-                      : steps[k].op == Solids::Op::HANKIN ? HANKIN_LEG_FRAMES
-                      : steps[k].op == Solids::Op::RELAX  ? RELAX_LEG_FRAMES
-                                                          : SWEEP_LEG_FRAMES;
+                      : steps[k].op == Solids::Op::HANKIN
+                          ? RecipeLegLengths::HANKIN_LEG_FRAMES
+                      : steps[k].op == Solids::Op::RELAX
+                          ? RecipeLegLengths::RELAX_LEG_FRAMES
+                          : RecipeLegLengths::SWEEP_LEG_FRAMES;
     }
     peaks.legs = count;
     peaks.supported = supported;

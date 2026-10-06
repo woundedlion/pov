@@ -983,12 +983,13 @@ inline void test_opleg_gated_swap_smoke() {
  * @brief Smoke-tests one leg of each recipe-step kind end to end.
  */
 inline void test_opleg_step_leg_smoke() {
-  // Leg lengths mirror IslamicStars' budget (spec section 7): 24 frames for an
-  // operator sweep, 16 for a standalone relax.
-  check_step_leg_smoke(StepLegKind::TRUNCATE, TRUNCATE_LEG_SITES[0], 24, 0.15f);
-  check_step_leg_smoke(StepLegKind::SNUB, SNUB_LEG_SITES[0], 24, 0.15f);
+  check_step_leg_smoke(StepLegKind::TRUNCATE, TRUNCATE_LEG_SITES[0],
+                       RecipeLegLengths::SWEEP_LEG_FRAMES, 0.15f);
+  check_step_leg_smoke(StepLegKind::SNUB, SNUB_LEG_SITES[0],
+                       RecipeLegLengths::SWEEP_LEG_FRAMES, 0.15f);
   for (const StepLegSite &site : RELAX_LEG_SITES)
-    check_step_leg_smoke(StepLegKind::RELAX, site, 16, 0.15f);
+    check_step_leg_smoke(StepLegKind::RELAX, site,
+                         RecipeLegLengths::RELAX_LEG_FRAMES, 0.15f);
 }
 
 /**
