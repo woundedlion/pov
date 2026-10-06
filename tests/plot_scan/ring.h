@@ -36,34 +36,6 @@ inline void test_ring_sample_unit_length_and_progress() {
   HS_EXPECT_NEAR(points.back().pos.z, points[0].pos.z, 1e-3f);
 }
 
-/**
- * @brief Reconstructs a ring's W control vertices with libm cos/sin, bypassing
- *        the TrigLUT angle-addition identity Plot::Ring builds them from.
- * @param b Ring basis, as handed to Plot::Ring::sample.
- * @param radius Ring radius in [0,2], in hemisphere units as sample().
- * @param phase Angular offset added to every step.
- * @param W Number of control vertices (the close vertex is not emitted).
- * @return The W expected unit positions, in sample order.
- */
-inline std::vector<math::Vector>
-ring_vertices_direct(const math::Basis &b, float radius, float phase, int W) {
-  auto res = math::get_antipode(b, radius);
-  const math::Basis &wb = res.first;
-  const float theta_eq = res.second * (math::PI_F / 2.0f);
-  const float r_val = sinf(theta_eq);
-  const float d_val = cosf(theta_eq);
-  const float step = 2.0f * math::PI_F / W;
-
-  std::vector<math::Vector> expected;
-  expected.reserve(static_cast<size_t>(W));
-  for (int i = 0; i < W; ++i) {
-    const float t = i * step + phase;
-    const math::Vector u_temp = (wb.u * cosf(t)) + (wb.w * sinf(t));
-    expected.push_back(((wb.v * d_val) + (u_temp * r_val)).normalized());
-  }
-  return expected;
-}
-
 /** @brief sin of a ring's polar radius: the arc-length scale of its v1. */
 inline float ring_arc_scale(const math::Basis &b, float radius) {
   return sinf(math::get_antipode(b, radius).second * (math::PI_F / 2.0f));
