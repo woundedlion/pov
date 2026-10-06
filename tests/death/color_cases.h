@@ -67,6 +67,12 @@ inline void case_palette_cycler_mutated_policy() {
   cycler.step();
 }
 
+inline void case_palette_cycler_restore_without_generated_init() {
+  PaletteCycler cycler;
+  GenerativePalette palette;
+  cycler.restore_generated({}, palette, palette);
+}
+
 /**
  * @brief Death case: GeneratedPaletteBank::palette rejects a mode outside the
  *        harmony enum.

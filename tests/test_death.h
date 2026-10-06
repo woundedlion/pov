@@ -1064,6 +1064,11 @@ inline const Case *all_cases(int &n) {
       {"generated_palette_bank_unknown_mode",
        case_generated_palette_bank_unknown_mode, "core/color/palette_cycler.h",
        "(false) GeneratedPaletteBank::palette: unknown palette mode"},
+      {"palette_cycler_restore_without_generated_init",
+       case_palette_cycler_restore_without_generated_init,
+       "core/color/palette_cycler.h",
+       "(from_slot != nullptr && to_slot != nullptr && morph != nullptr) "
+       "PaletteCycler restore needs a generated cycle"},
       {"baked_palette_clone_from_self", case_baked_palette_clone_from_self,
        "core/color/baked_palette.h",
        "(&src != &table) BakedPaletteStorage::clone_from from itself"},
