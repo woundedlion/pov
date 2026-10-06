@@ -124,9 +124,7 @@ private:
       fade_in = fade_in_easing(hs::clamp(progress, 0.0f, 1.0f));
     }
 
-    // An indefinite sprite (duration < 0) has no end frame to fade toward, so
-    // the `duration >= 0` guard skips fade-out for it (load-bearing, not just
-    // overflow safety).
+    // An indefinite sprite (duration < 0) has no end frame and skips fade-out.
     float fade_out = 1.0f;
     if (duration >= 0 && fade_out_duration > 0 &&
         frame + static_cast<uint32_t>(fade_out_duration) >=
