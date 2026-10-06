@@ -159,6 +159,32 @@ inline void test_octet_preparation_matches_world_events() {
 }
 
 inline void run_lattice_trace_cases() {
+  namespace Trace = SDF::LatticeTrace;
+  alignas(std::max_align_t) uint8_t storage[4096];
+  Arena arena(storage, sizeof(storage));
+  BakedPaletteStorage palette;
+  palette.bake(arena, DepthPalette{});
+  Trace::CrossingStorage crossings;
+  SDF::ShellLayerStorage layers;
+  Trace::Settings settings;
+  settings.palette = &palette.view();
+  settings.crossings = &crossings;
+  settings.shell_layers = &layers;
+  for (const auto domain : {Raycast::SamplingDomain::SPATIAL_3D,
+                            Raycast::SamplingDomain::SLICE_4D}) {
+    settings.domain = domain;
+    settings.geometry = Trace::Geometry::OCTET;
+    settings.wire_radius = .05f;
+    HS_EXPECT_TRUE(Trace::prepare(settings).valid);
+    for (float radius :
+         {0.0f, -1.0f, std::numeric_limits<float>::quiet_NaN()}) {
+      settings.wire_radius = radius;
+      settings.geometry = Trace::Geometry::OCTET;
+      HS_EXPECT_TRUE(!Trace::prepare(settings).valid);
+      settings.geometry = Trace::Geometry::SHELLS;
+      HS_EXPECT_TRUE(Trace::prepare(settings).valid);
+    }
+  }
   test_cubic_compositor_matches_event_shading();
   test_octet_preparation_matches_world_events();
 }
