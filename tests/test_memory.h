@@ -992,6 +992,17 @@ inline void test_arenaspan_source_rebind_generation() {
   HS_EXPECT_EQ(current.debug_binding_generation(),
                source.debug_binding_generation());
   HS_EXPECT_EQ(current[0], 31);
+  source.clear();
+  source.push_back(47);
+  HS_EXPECT_NE(current.debug_binding_generation(),
+               source.debug_binding_generation());
+  ArenaSpan<int> after_clear(source);
+  HS_EXPECT_EQ(after_clear.debug_binding_generation(),
+               source.debug_binding_generation());
+  HS_EXPECT_EQ(after_clear[0], 47);
+  ArenaVector<int> unbound;
+  unbound.clear();
+  HS_EXPECT_TRUE(unbound.empty());
 }
 #endif
 
