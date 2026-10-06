@@ -26,8 +26,7 @@ namespace Interp {
 
 namespace Op {
 
-/** @brief Walk tuning shared with Animation::RandomWalk, which owns the
-    recurrence the spin-and-wander operators step. */
+/** @brief Animation::RandomWalk tuning for the spin-and-wander operators. */
 inline constexpr Animation::RandomWalkOptions WALK_OPTIONS{};
 
 /**
@@ -101,8 +100,7 @@ static_assert(std::size(NOISE_BASIS_IDS) ==
 
 /**
  * @brief Bounds a noise-driven operator's basis enum8.
- * @details Called from prepare(), once per frame, so the per-pixel basis
- * switches stay total and carry no guard.
+ * @details Per-pixel basis switches rely on this check and carry no guard.
  */
 inline void check_noise_basis(uint8_t basis) {
   HS_CHECK(basis <= static_cast<uint8_t>(math::NoiseBasis::RIDGED3),

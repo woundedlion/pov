@@ -34,10 +34,9 @@ using Warp::WaveShearParams;
 /**
  * @brief The public frame context the pipeline's stages prepare from and
  *        shade against, resolved before the scan.
- * @details Read through the providers below; each stage's private prepared
- * state lives in the pipeline's per-frame instance instead. Its pointers
- * alias the runtime's persistent state and the palette cycler's current
- * bake, so a frame outlives only the draw_frame() call that built it.
+ * @details Its pointers alias the runtime's persistent state and the palette
+ * cycler's current bake, so a frame outlives only the draw_frame() call that
+ * built it.
  */
 template <typename ParamsT> struct FrameState {
   /** Conjugate of the projection orientation; identity unless the effect sets
@@ -85,9 +84,6 @@ template <typename BindingT> struct OuterCameraProvider {
 /**
  * @brief Supplies the projection frame and its parameters to the
  *        Pullback::Projection policies.
- * @details Exposes the composed projection policies' accessors; an effect pays
- * only for the ones its chosen policy instantiates, so a projection that takes
- * no central meridian never reads that field.
  */
 template <typename BindingT> struct ProjectionProvider {
   using Binding = BindingT;
@@ -209,9 +205,8 @@ struct SurfaceProvider {
 
 /**
  * @brief Supplies the pattern and noise state to the Pullback::Source policies.
- * @details The pattern accessors read the
- * prepared phases, the noise accessors the NoiseSourceParams fields. Only the
- * accessors an effect's chosen source policy names are instantiated.
+ * @details The pattern accessors read the prepared phases, the noise accessors
+ * the NoiseSourceParams fields.
  */
 template <typename BindingT, typename Family, ResourceKey Key = "source">
 struct SourceProvider {
@@ -249,9 +244,6 @@ struct SourceProvider {
 /**
  * @brief Supplies the value-family fields to the Pullback::Transfer and
  *        Pullback::ValueCoverage and ProjectionCoverage::EdgeFade policies.
- * @details Names the five shared value-family fields; an effect's material
- * stage instantiates only the accessors its transfer and coverage policies
- * call, so an IsoValueParams effect never touches `edge_width` and vice versa.
  */
 template <typename BindingT, typename Family, ResourceKey Key = "value">
 struct ValueProvider {
@@ -281,8 +273,7 @@ struct ValueProvider {
 
 /**
  * @brief Whether the colorizer samples the hue-rotation LUT this frame.
- * @details The runtime rebuilds the LUT on exactly this condition, so the two
- * sites cannot disagree about which frames leave it stale.
+ * @details The runtime rebuilds the LUT on this same condition.
  */
 template <HueMode HueV>
 inline bool hue_rotation_active(const ColorParams &color) {
@@ -292,8 +283,8 @@ inline bool hue_rotation_active(const ColorParams &color) {
 /**
  * @brief Supplies the palette, mapping and hue state to
  *        Pullback::Color::GeneratedPalette.
- * @details Both LUT views carry their own active flag, so a stale LUT is never
- * sampled: the noise view additionally requires HueMode::NOISE.
+ * @details Each LUT view carries its own active flag; the noise view also
+ * requires HueMode::NOISE.
  * @tparam BindingT The effect's Binding.
  * @tparam HueV Hue-rotation source reported to the color stage.
  * @tparam BrightnessV Brightness envelope reported to the color stage.

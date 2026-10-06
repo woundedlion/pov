@@ -13,8 +13,7 @@
 
 /**
  * @file table.h
- * @brief The chain interpreter's operator table: the C++ ground truth the
- *        catalog is pinned to and setShaderChain resolves against.
+ * @brief The chain interpreter's operator table; the catalog is pinned to it.
  */
 
 namespace Pullback {
@@ -80,8 +79,7 @@ consteval bool operator_names_unique() {
   return true;
 }
 
-/** Per-op monotonicity is a table invariant: adjacency over monotone
-    operators yields a monotone chain, so compile() never re-walks it. */
+/** Every table operator is monotone, so any adjacent chain of them is too. */
 consteval bool operator_table_monotone() {
   for (const OperatorDescriptor &op : OPERATOR_TABLE)
     if (static_cast<uint8_t>(op.input) > static_cast<uint8_t>(op.output))

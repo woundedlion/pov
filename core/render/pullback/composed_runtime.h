@@ -8,32 +8,22 @@
 /**
  * @brief A complete composed effect: the shared lifecycle plus a pipeline
  *        declared by a ranked stage Spec.
- * @details The effect states its Spec and identity constants; parameter and
- * runtime storage derive from its pipeline providers. The shared
- * lifecycle — parameter registration, preset choreography, palette cycling,
- * camera walks and noise clocks — are assembled here. Required `Derived`
- * members are EFFECT_ID, PRESET_IDS, PARAMETER_SCHEMA_VERSION and
- * PRESET_DWELL_FRAMES. Presets and their departures resolve
- * through `preset(index)`, then `PRESETS`; only single-preset effects may fall
- * back to startup params.
- * `initial_params` is optional. Other optional members are `ANIMATED_MOBIUS`,
- * `CAMERA_SPIN_RATE` and an `after_composed_init()` hook; `WARP_NOISE_SEED` /
- * `SOURCE_NOISE_SEED` / `SURFACE_NOISE_SEED` are inherited members an effect
- * shadows to decorrelate its warp, source, or surface noise fields. A shade() shadow that forwards to
- * RenderPipeline::shade changes only the entry trampoline's placement; the
- * pipeline body remains in hot flash. Different body emission requires calling
+ * @details Parameter and runtime storage derive from the Spec's pipeline
+ * providers. Required `Derived` members: `EFFECT_ID` (registry identity),
+ * `PRESET_IDS` (immutable preset identities by preset number),
+ * `PARAMETER_SCHEMA_VERSION` (changes with the Params layout to reject stale
+ * snapshots) and `PRESET_DWELL_FRAMES` (frames held before the next
+ * transition). Presets and their departures resolve through `preset(index)`,
+ * then `PRESETS`; only single-preset effects may fall back to startup params.
+ * Optional members are `initial_params`, `ANIMATED_MOBIUS`, `CAMERA_SPIN_RATE`,
+ * an `after_composed_init()` hook, and shadows of `WARP_NOISE_SEED` /
+ * `SOURCE_NOISE_SEED` / `SURFACE_NOISE_SEED` that decorrelate noise fields. A
+ * shade() shadow that forwards to RenderPipeline::shade moves only the entry
+ * trampoline; different body emission requires calling
  * RenderPipeline::evaluate(view, frame.ctx, frame.prepared) from the shadow.
- * Surface-noise effects conventionally wrap the sphere run (displacement, lens
- * and projection) in Stage::Placed<CodeEmission::OUT_OF_LINE_FLASH, ...>.
- *
- * `EFFECT_ID` is the registry identity; `PRESET_IDS` lists immutable preset
- * identities indexed by preset number; `PARAMETER_SCHEMA_VERSION` changes
- * with the Params layout to reject stale snapshots; `PRESET_DWELL_FRAMES`
- * gives the frames held before the next transition.
  * `DESCRIPTOR_DIGEST` and `PRESET_BANK_DIGEST` pin the pattern document's
- * canonical descriptor (excluding parameter units) and preset bank. The
- * product-group generator parity tests check them; the runtime never reads
- * them. The browser computes its own matching digests from pattern documents.
+ * canonical descriptor (excluding parameter units) and preset bank; the
+ * runtime never reads them.
  * @tparam W Canvas width in pixels.
  * @tparam H Canvas height in pixels.
  * @tparam Derived The effect class deriving from this base.
@@ -127,8 +117,7 @@ public:
    * @details Every allocation this makes comes from `persistent_arena`, so the
    * effect heap-allocates nothing after init. `Derived::after_composed_init()`
    * runs last, once the parameters, palette cycler and camera walks are all
-   * live, which is what lets it adjust the dwell or start a timeline
-   * animation.
+   * live.
    */
   HS_COLD_MEMBER void init() override {
     this->begin_choreography();
@@ -501,9 +490,8 @@ private:
 
   /**
    * @brief Steps every phase clock the effect's parameter families define.
-   * @details Each clock is compiled in only when its field exists, so an effect
-   * pays for the clocks of its declared instances. Affine rotations are
-   * accumulated independently for each affine warp.
+   * @details Each clock is compiled in only when its field exists. Affine
+   * rotations accumulate independently for each affine warp.
    */
   HS_COLD_MEMBER void advance_runtime() {
     params.visit([&]<typename Resource>(const auto &family) {
@@ -541,11 +529,8 @@ private:
                      params.template get<"color">().phase_oscillation_speed);
   }
 
-  // Rotation samples are eased within each walk step; chain walks apply the
-  // recurrence directly and use different seeds. Nonzero wander differs.
+  // Rotation samples are eased within each walk step.
   HS_COLD_MEMBER void update_spatial_frames() {
-    // prepare_frame() reads projection_conjugate only for an animated
-    // projection.
     if constexpr (AnimatedProjection) {
       const math::Quaternion projection = this->projection_walk.get();
       const math::Quaternion projection_delta =

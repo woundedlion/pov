@@ -22,7 +22,7 @@ namespace Pullback {
 
 namespace Surface {
 
-/** @brief Empty parameter family; no composed or chain stage consumes it. */
+/** @brief Empty parameter family. */
 struct NoSurfaceParams {
   static constexpr std::array<Field<NoSurfaceParams>, 0> FIELDS{};
 };
