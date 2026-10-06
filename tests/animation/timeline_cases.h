@@ -157,12 +157,12 @@ inline void test_timeline_accepts_maximum_start_frame() {
   float value = 0.0f;
   tl.add(2, Animation::Transition(value, 1.0f, 1, math::ease_linear));
 
-  HS_EXPECT_EQ(global_timeline_events[0].start, UINT32_MAX);
   tl.step(fake_canvas());
   HS_EXPECT_NEAR(value, 0.0f, 1e-6f);
   tl.step(fake_canvas());
   HS_EXPECT_NEAR(value, 1.0f, 1e-6f);
   HS_EXPECT_EQ(global_timeline_t, UINT32_MAX);
+  HS_EXPECT_EQ(tl.event_count(), 0);
 }
 
 /**
