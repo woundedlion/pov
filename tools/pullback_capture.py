@@ -412,6 +412,9 @@ def produce(
 ) -> None:
     if changed_sources(checkout):
         raise CaptureError("capture checkout has uncommitted or untracked changes")
+    source_root = _cache_values(build_dir).get("HS_PULLBACK_CAPTURE_SOURCE_ROOT")
+    if source_root is None or Path(source_root).resolve() != checkout.resolve():
+        raise CaptureError("capture build was configured for a different source root")
     programs, oracles, schema = load_and_validate(manifest_dir)
     toolchain = attest_toolchain(build_dir, configuration, programs)
     checkout_sha = subprocess.run(

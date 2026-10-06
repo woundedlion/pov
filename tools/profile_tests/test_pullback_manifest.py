@@ -201,6 +201,25 @@ class CaptureCheckoutState(unittest.TestCase):
                                 ROOT / "capture.json")
         attest.assert_not_called()
 
+    def test_build_for_another_source_root_is_refused(self):
+        with tempfile.TemporaryDirectory() as directory:
+            other = Path(directory)
+            cache = {"HS_PULLBACK_CAPTURE_SOURCE_ROOT": other.as_posix()}
+            with mock.patch.object(capture, "changed_sources", return_value=[]),                     mock.patch.object(capture, "_cache_values", return_value=cache),                     mock.patch.object(capture, "attest_toolchain") as attest:
+                with self.assertRaisesRegex(capture.CaptureError, "different source root"):
+                    capture.produce("native-debug", ROOT, ROOT / "build", MANIFEST_DIR,
+                                    ROOT / "capture.json")
+            attest.assert_not_called()
+
+    def test_build_for_the_checkout_reaches_toolchain_attestation(self):
+        cache = {"HS_PULLBACK_CAPTURE_SOURCE_ROOT": ROOT.as_posix()}
+        with mock.patch.object(capture, "changed_sources", return_value=[]),                 mock.patch.object(capture, "_cache_values", return_value=cache),                 mock.patch.object(capture, "attest_toolchain",
+                                  side_effect=capture.CaptureError("attested")) as attest:
+            with self.assertRaisesRegex(capture.CaptureError, "attested"):
+                capture.produce("native-debug", ROOT, ROOT / "build", MANIFEST_DIR,
+                                ROOT / "capture.json")
+        attest.assert_called_once()
+
 
 class DuplicateJsonKeys(unittest.TestCase):
     def test_duplicate_keys_are_rejected(self):
