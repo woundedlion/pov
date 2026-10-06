@@ -97,8 +97,7 @@ struct Twist {
    * @brief Constructs a twist warp around a torus of major radius R.
    * @param oscillations Number of oscillations; must be >= 0 (HS_CHECK-enforced).
    * @param displacement Magnitude; must be >= 0 (HS_CHECK-enforced).
-   * @param major_radius Major radius; must be > 0. The Lipschitz bound scales
-   *        by 2/R, so R == 0 yields a non-finite bound on the XZ axis.
+   * @param major_radius Major radius; must be > 0 (HS_CHECK-enforced).
    */
   Twist(int oscillations, float displacement, float major_radius)
       : twist(oscillations), amplitude(displacement), R(major_radius),
