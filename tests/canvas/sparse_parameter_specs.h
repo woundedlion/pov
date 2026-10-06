@@ -37,9 +37,18 @@ inline void test_sparse_parameter_specs() {
   invalid = spec;
   invalid.option_values = DUPLICATE;
   HS_EXPECT_FALSE(invalid.valid_option_values(SparseMode::ZERO));
-  static constexpr const int64_t OUTSIDE[] = {0, 1, 7};
+  static constexpr const int64_t OUTSIDE[] = {0, 6, 7};
   invalid.option_values = OUTSIDE;
   HS_EXPECT_FALSE(invalid.valid_option_values(SparseMode::ZERO));
+  static constexpr const int64_t BELOW[] = {-1, 0, 6};
+  ParamSpec<int8_t> signed_spec{.min = 0,
+                                .max = 6,
+                                .options = LABELS,
+                                .option_count = 3,
+                                .option_values = IDS};
+  HS_EXPECT_TRUE(signed_spec.valid_option_values(0));
+  signed_spec.option_values = BELOW;
+  HS_EXPECT_FALSE(signed_spec.valid_option_values(0));
   static constexpr const int64_t MISSING_MIN[] = {1, 2, 6};
   invalid.option_values = MISSING_MIN;
   HS_EXPECT_FALSE(invalid.valid_option_values(SparseMode::ONE));
@@ -53,9 +62,24 @@ inline void test_sparse_parameter_specs() {
                            .option_count = 3,
                            .option_values = INEXACT};
   HS_EXPECT_FALSE(wide.valid_option_values(0));
-  static constexpr const int64_t TOO_WIDE[] = {0, 1, INT64_MAX};
+  static constexpr const int64_t WIDE_VALID[] = {0, 1, 33554432};
+  wide.option_values = WIDE_VALID;
+  HS_EXPECT_TRUE(wide.valid_option_values(0));
+  static constexpr const int64_t TOO_WIDE[] = {0, 1, 4294967296LL};
+  wide.max = 4294967296LL;
   wide.option_values = TOO_WIDE;
   HS_EXPECT_FALSE(wide.valid_option_values(0));
+  static constexpr const int64_t SIGNED_MIN_VALID[] = {INT32_MIN, 0, 6};
+  ParamSpec<int32_t> signed_wide{.min = INT32_MIN,
+                                 .max = 6,
+                                 .options = LABELS,
+                                 .option_count = 3,
+                                 .option_values = SIGNED_MIN_VALID};
+  HS_EXPECT_TRUE(signed_wide.valid_option_values(0));
+  static constexpr const int64_t TOO_LOW[] = {INT32_MIN - 256LL, 0, 6};
+  signed_wide.min = INT32_MIN - 256LL;
+  signed_wide.option_values = TOO_LOW;
+  HS_EXPECT_FALSE(signed_wide.valid_option_values(0));
   HS_EXPECT_TRUE(
       ParamSpec<uint8_t>::enumerated(LABELS, 3).valid_option_values(2));
 
