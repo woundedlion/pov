@@ -117,8 +117,8 @@ struct Line {
     else if (t >= 1.0f)
       f.pos = f2.pos;
     else {
-      // fast trig's 0.17% error breaks c^2+s^2==1, so renormalize: callers
-      // (vector_to_pixel's acos) require a unit position.
+      // Approximate trig leaves c^2+s^2 != 1; vector_to_pixel requires a unit
+      // position.
       float s, c;
       math::fast_sincosf_0_pi(es.total * t, s, c);
       math::Vector p = (f1.pos * c) + (perp * s);
