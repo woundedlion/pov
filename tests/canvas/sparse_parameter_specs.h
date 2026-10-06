@@ -78,8 +78,12 @@ inline void test_sparse_parameter_specs() {
   signed_wide.min = INT32_MIN - 256LL;
   signed_wide.option_values = TOO_LOW;
   HS_EXPECT_FALSE(signed_wide.valid_option_values(0));
-  HS_EXPECT_TRUE(
-      ParamSpec<uint8_t>::enumerated(LABELS, 3).valid_option_values(2));
+  const auto dense = ParamSpec<uint8_t>::enumerated(LABELS, 3);
+  HS_EXPECT_TRUE(dense.option_values.empty());
+  HS_EXPECT_EQ(dense.min, 0);
+  HS_EXPECT_EQ(dense.max, 2);
+  HS_EXPECT_EQ(dense.option_count, 3);
+  HS_EXPECT_TRUE(dense.options == LABELS);
 
   TestEffect fx(4, 4);
   SparseMode mode = SparseMode::SIX;
