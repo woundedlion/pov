@@ -16,17 +16,42 @@ import docs_check as dc  # noqa: E402
 
 class TestDocumentationChecker(unittest.TestCase):
     def test_explicit_checkout_uses_its_pinned_revision(self):
-        with tempfile.TemporaryDirectory() as directory:
-            root = Path(directory).resolve()
-            revisions = {"daydream": "pinned-revision"}
-            with mock.patch("docs_sync.checkout_revisions", return_value=revisions) as pins, \
-                    mock.patch.object(dc, "check_repository",
-                                      return_value=([root / "README.md"], [], [])) as check, \
-                    contextlib.redirect_stdout(io.StringIO()):
-                self.assertEqual(dc.main(["--root", str(root), "--checkout",
-                                          f"daydream={root}"]), 0)
-            pins.assert_called_once_with({"daydream": root})
-            self.assertEqual(check.call_args.args[3], revisions)
+        with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as directory:
+            engine = Path(directory, "engine").resolve()
+            checkout = Path(directory, "daydream").resolve()
+
+            def git(root, *args):
+                return subprocess.check_output(["git", "-C", str(root), *args],
+                                               text=True).strip()
+
+            for root in (engine, checkout):
+                root.mkdir()
+                git(root, "init", "-q")
+            (engine / "README.md").write_text(
+                "<!-- docs-check: tree exhaustive -->\n```\n"
+                "└── README.md  Overview\n```\n\n"
+                "<!-- docs-check: tree daydream exhaustive -->\n```\n"
+                "└── pinned.js  Pinned source\n```\n", encoding="utf-8")
+            git(engine, "add", "README.md")
+            (checkout / "pinned.js").write_text("original", encoding="utf-8")
+            git(checkout, "add", "pinned.js")
+            tree = git(checkout, "write-tree")
+            (checkout / "pinned.js").unlink()
+            (checkout / "live.js").write_text("new", encoding="utf-8")
+            git(checkout, "add", "pinned.js", "live.js")
+            arguments = ["--root", str(engine), "--checkout", f"daydream={checkout}"]
+            for revision, status in ((tree, 0), (None, 1)):
+                with self.subTest(revision=revision):
+                    output = io.StringIO()
+                    with mock.patch("docs_sync.checkout_revisions",
+                                    return_value={"daydream": revision}) as pins, \
+                            contextlib.redirect_stdout(output), \
+                            contextlib.redirect_stderr(output):
+                        self.assertEqual(dc.main(arguments), status, output.getvalue())
+                    pins.assert_called_once_with({"daydream": checkout})
+                    self.assertEqual("tree path 'pinned.js' does not exist" in output.getvalue(),
+                                     revision is None,
+                                     output.getvalue())
 
     def test_valid_links_images_references_and_fences(self):
         text = (FIXTURES / "valid.txt").read_text(encoding="utf-8")
