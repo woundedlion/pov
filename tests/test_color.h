@@ -521,8 +521,9 @@ inline void test_lerp_oklch_extrapolation_clamped() {
 
 /**
  * @brief Verifies pixel conversion saturation and OKLCH gamut mapping.
- * @details Full lightness maps to white; an in-gamut neutral gray has equal
- *          channels strictly inside the pixel range.
+ * @details Full lightness maps to white; an in-gamut neutral gray maps to
+ *          linear L^3 on every channel, and an in-gamut chromatic colour keeps
+ *          its linear sRGB value.
  */
 inline void test_oklch_to_pixel_saturates_and_preserves_in_gamut() {
   HS_EXPECT_EQ(float_to_pixel16(1.5f), 65535);
@@ -537,10 +538,15 @@ inline void test_oklch_to_pixel_saturates_and_preserves_in_gamut() {
 
   OKLCH gray{0.5f, 0.0f, 0.0f};
   Pixel mid = oklch_to_pixel(gray);
-  HS_EXPECT_GT(mid.r, 0);
-  HS_EXPECT_LT(mid.r, 65535);
+  HS_EXPECT_NEAR(mid.r, 0.125f * 65535.0f, 4.0f);
   HS_EXPECT_EQ(mid.r, mid.g);
   HS_EXPECT_EQ(mid.g, mid.b);
+
+  constexpr float ROUND_TRIP_TOL = 16.0f;
+  const Pixel green = oklch_to_pixel(srgb_to_oklch(64u, 180u, 75u));
+  HS_EXPECT_NEAR(green.r, srgb_to_linear(64u), ROUND_TRIP_TOL);
+  HS_EXPECT_NEAR(green.g, srgb_to_linear(180u), ROUND_TRIP_TOL);
+  HS_EXPECT_NEAR(green.b, srgb_to_linear(75u), ROUND_TRIP_TOL);
 }
 
 // ============================================================================
