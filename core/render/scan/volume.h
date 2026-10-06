@@ -36,13 +36,16 @@ template <typename SDF> struct TransformedVolume {
 
   /**
    * @brief Constructs the transform from a center and a local→world rotation.
-   * @param sdf Underlying SDF, stored by reference.
+   * @param sdf Underlying SDF, stored by reference; must outlive this transform.
    * @param center World-space origin of the local frame.
    * @param q Local→world rotation; its inverse is precomputed.
    */
   TransformedVolume(const SDF &sdf, const math::Vector &center,
                     const math::Quaternion &q)
       : sdf(sdf), center(center), q_inv(q.inverse()) {}
+
+  TransformedVolume(const SDF &&, const math::Vector &,
+                    const math::Quaternion &) = delete;
 
   void check_trace_preconditions() const {
     if constexpr (requires { sdf.check_trace_preconditions(); })
