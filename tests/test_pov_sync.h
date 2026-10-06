@@ -1013,15 +1013,10 @@ inline void test_beacon_out_of_range_index_rejected() {
 /**
  * @brief Verifies the §6.4 rev cross-check fold (beacon_rev_resync_delta)
  *        resolves the 63↔0 mod-64 seam.
- * @details Production roster entries span hundreds of revolutions through
- *          per-entry durations; the sim configs span 40, so
- *          rev_in_effect routinely exceeds 63 and its 6-bit residue wraps —
- *          but test_sim_rev_resync only ever slips a board by +2 at rev 5, far
- *          from the wrap, leaving the fold's `+96 %64 -32` seam arithmetic
- *          unexercised. Drive it directly: the fold maps a beacon residue and
- *          the board's current rev_in_effect to the smallest signed slip in
- *          [-32, 31], so applying it as `rev_in_effect + delta` restores the
- *          exact residue across the wrap, in either direction.
+ * @details Production durations and dedicated long-effect scenarios can exceed
+ * 63 revolutions; the default 40-revolution simulation stays below the wrap.
+ * The fold maps the beacon residue and current rev_in_effect to a signed slip
+ * in [-32, 31], restoring the exact residue across the seam in either direction.
  */
 inline void test_rev_resync_fold() {
   // Same-side residues subtract directly (no wrap).
