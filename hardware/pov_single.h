@@ -130,7 +130,7 @@ private:
     HS_CHECK(cols_per_min > 0, "column sweep rate is zero (width is 0)");
     const float interval_us = pov::column_interval_us(cols_per_min);
     HS_CHECK(interval_us >= 1,
-             "column interval rounded to 0 µs (RPM/width too high)");
+             "column interval below 1 µs (RPM/width too high)");
 #if defined(USE_DMA_LEDS)
     HS_CHECK(interval_us > COLUMN_TRANSFER_US,
              "LED transfer outlasts the column period (S, RPM and canvas width "
