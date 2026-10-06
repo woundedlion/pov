@@ -886,12 +886,10 @@ inline void test_class_lut_render_matches_exact_rippled() {
   MeshOps::MeshClassBake bake;
   build_islamic_bake(1, seed_a, seed_b, geom, mesh, bake);
 
-  // The real ripple transform at its shipped ceiling (amplitude 0.15,
-  // thickness 0.7): a Ricker wavelet that slides vertices tangentially away
-  // from the origin; the steep wavelet slope shears faces.
+  // The Ricker wavelet's steep slope shears faces at the amplitude ceiling.
   Animation::RippleParams rp;
   rp.center = math::Vector(0.3f, 0.8f, -0.52f).normalized();
-  rp.amplitude = 0.15f;
+  rp.amplitude = RIPPLE_SMALL_ANGLE_MAX;
   rp.thickness = 0.7f;
   rp.decay = 0.1f;
   rp.phase = 0.9f; // mid-expansion: wavefront crossing plenty of faces
