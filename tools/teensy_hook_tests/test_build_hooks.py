@@ -236,6 +236,9 @@ class TestRequiredHooksReachEveryEnv(unittest.TestCase):
                              f"env '{name}' lists a hook more than once: {resolved}")
 
 
+class TestHooksRegisterNoBuildActions(unittest.TestCase):
+    """The non-gate hooks only mutate build flags and sketch discovery."""
+
     def test_firmware_hooks_register_no_build_actions(self):
         cfg = _pio_config()
         for name in _pio_envs():
@@ -258,6 +261,7 @@ class TestRequiredHooksReachEveryEnv(unittest.TestCase):
                     self.assertEqual(build_env.pre_actions, [])
                     self.assertEqual(build_env.post_actions, [])
                 self.assertEqual(set(env.methods), {"FindInoNodes"})
+
 
 class TestSketchSelection(unittest.TestCase):
     """teensy_pre.py: PlatformIO globs $PROJECT_SRC_DIR/*.ino, so the sketch is
