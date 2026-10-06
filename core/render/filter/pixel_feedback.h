@@ -676,7 +676,8 @@ private:
     auto control_ring1 = ctx.control_ring1;
     int control_y0 = ctx.control_y0;
     int control_y1 = control_ring1.y;
-    // Latitude sine under which two columns subtend less than one row pitch.
+    // Latitude sine under which two columns subtend less than `pole_half_res`
+    // row pitches.
     const float half_res_sine = ctx.pole_half_res * W *
                                 SphereField::Geometry::RADIANS_PER_ROW *
                                 (1.0f / (4.0f * math::PI_F));
