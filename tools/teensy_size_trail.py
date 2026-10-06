@@ -488,8 +488,6 @@ def render_show(rows: list[TrailRow], last: int | None = None) -> str:
 
 
 def cmd_show(args) -> int:
-    # Unvalidated, a negative --last reaches deltas[-last:] and silently drops
-    # the OLDEST |N| rows instead of keeping the newest N.
     if args.last is not None and args.last < 1:
         print(f"[size-trail] --last must be >= 1 (got {args.last})",
               file=sys.stderr)
@@ -517,8 +515,6 @@ def render_regressions(items: list[Regression]) -> str:
 
 def cmd_regressions(args) -> int:
     trail = Path(args.trail) if args.trail else default_trail()
-    # Below 1 the filter admits unchanged rows (and shrinks), so every trailed
-    # commit reads as a regression.
     if args.min_delta < 1:
         print(f"[size-trail] --min-delta must be >= 1 (got {args.min_delta})",
               file=sys.stderr)
