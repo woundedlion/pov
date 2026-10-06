@@ -44,9 +44,9 @@ template <typename T> constexpr const void *effect_type_key() {
 
 /**
  * @brief Concrete factory record for one registered effect at a fixed resolution.
- * @details Populated by a registration's fill function; holds the effect's name,
- *          a creator closure that allocates an instance, the concrete type key
- *          the creator produces, and its byte size.
+ * @details The factory builder copies name and stable_id from EffectRegistration.
+ * The registration's fill function populates the resolution-specific creator,
+ * type_key, size, preset_count and preset_id.
  */
 struct FactoryEntry {
   using PresetIdFn = std::string_view (*)(size_t);
