@@ -405,7 +405,8 @@ inline void test_screen_trails_at_capacity_replaces_last_slot() {
 
 /** @brief Shortening screen trails caps remaining lifetime and fade progress. */
 inline void test_screen_trails_set_lifetime_caps_ttl() {
-  uint8_t buf[Filter::Screen::Trails<4>::STORAGE_BYTES];
+  alignas(std::max_align_t)
+      uint8_t buf[Filter::Screen::Trails<4>::STORAGE_BYTES];
   Arena arena(buf, sizeof(buf));
   Filter::Screen::Trails<4> trails(10);
   trails.init_storage(arena);
@@ -428,8 +429,10 @@ inline void test_screen_trails_set_lifetime_caps_ttl() {
 
 /** @brief Pins screen seeding and both domains' emission alpha floors. */
 inline void test_trails_alpha_gates() {
-  uint8_t screen_buf[Filter::Screen::Trails<4>::STORAGE_BYTES];
-  uint8_t world_buf[Filter::World::Trails<4>::STORAGE_BYTES];
+  alignas(std::max_align_t)
+      uint8_t screen_buf[Filter::Screen::Trails<4>::STORAGE_BYTES];
+  alignas(std::max_align_t)
+      uint8_t world_buf[Filter::World::Trails<4>::STORAGE_BYTES];
   Arena screen_arena(screen_buf, sizeof(screen_buf));
   Arena world_arena(world_buf, sizeof(world_buf));
   Filter::Screen::Trails<4> screen(10);
