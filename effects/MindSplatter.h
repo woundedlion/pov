@@ -139,26 +139,7 @@ public:
    */
   void draw_frame() override {
     Canvas canvas(*this);
-    {
-      HS_PROFILE(msp_timeline_step);
-      timeline.step(canvas);
-    }
-    step_choreography();
-
-    if (params.base_mesh != active_base_mesh)
-      configure_particle_geometry(params.base_mesh);
-
-    particle_system.friction = params.friction;
-    // All attractors share the one live (preset-animated) Well Str slider; the
-    // strength passed at add_attractor time is just a seed overwritten here.
-    for (size_t i = 0; i < particle_system.attractors.size(); ++i)
-      particle_system.attractors[i].strength = params.well_strength;
-    {
-      HS_PROFILE(msp_particle_step);
-      particle_system.step(canvas);
-    }
-    params.active_count = (float)particle_system.active();
-
+    step_state(canvas);
     draw_particles(canvas);
   }
 
@@ -229,6 +210,26 @@ public:
   }
 
 private:
+  __attribute__((always_inline)) void step_state(Canvas &canvas) {
+    {
+      HS_PROFILE(msp_timeline_step);
+      timeline.step(canvas);
+    }
+    step_choreography();
+
+    if (params.base_mesh != active_base_mesh)
+      configure_particle_geometry(params.base_mesh);
+
+    particle_system.friction = params.friction;
+    for (size_t i = 0; i < particle_system.attractors.size(); ++i)
+      particle_system.attractors[i].strength = params.well_strength;
+    {
+      HS_PROFILE(msp_particle_step);
+      particle_system.step(canvas);
+    }
+    params.active_count = (float)particle_system.active();
+  }
+
   using Choreography::begin_choreography;
   using Choreography::hold_initial_preset;
   using Choreography::step_choreography;
