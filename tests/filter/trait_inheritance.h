@@ -22,7 +22,7 @@ inline void test_filter_trait_inheritance() {
   HS_EXPECT_TRUE((Filter::Screen::Blur<W, H>::is_2d));
   HS_EXPECT_FALSE((Filter::Screen::Blur<W, H>::has_history));
 
-  // Pixel-space, stateless (tagged Is2D).
+  // Pixel-space, stateless (tagged IsPixel).
   HS_EXPECT_TRUE((Filter::Pixel::ChromaticShift<W>::is_2d));
   HS_EXPECT_FALSE((Filter::Pixel::ChromaticShift<W>::has_history));
 
