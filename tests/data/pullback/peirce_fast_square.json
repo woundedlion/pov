@@ -43,7 +43,7 @@
       "accepted_limit": 0.0012,
       "unit": "plane units",
       "limit_provenance": "ShaderChain fast-square release budget",
-      "measurement_provenance": "native Debug clang 23 exact-versus-fast latitude-longitude corpus; reproduced in the pre-review main-tree binary and review worktree on 2026-09-24"
+      "measurement_provenance": "native Debug clang 23 exact-versus-fast latitude-longitude corpus"
     },
     {
       "domain": "PROJECTED_EDGE_DISTANCE",
@@ -52,7 +52,7 @@
       "accepted_limit": 0.0002,
       "unit": "plane units",
       "limit_provenance": "ShaderChain fast-square edge oracle",
-      "measurement_provenance": "native Debug clang 23 exact-versus-fast latitude-longitude corpus; reproduced in the pre-review main-tree binary and review worktree on 2026-09-24"
+      "measurement_provenance": "native Debug clang 23 exact-versus-fast latitude-longitude corpus"
     },
     {
       "domain": "FRAMEBUFFER",
