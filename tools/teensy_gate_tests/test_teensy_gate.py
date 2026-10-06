@@ -1483,14 +1483,16 @@ class TestSizeAFallback(unittest.TestCase):
             with self.subTest(capture=name):
                 sizes = tg.fallback_sizes_from_size_a(
                     (REAL_DIR / name).read_text(encoding="utf-8"))
-                self.assertEqual(set(sizes), {"flash", "ram1", "ram2"})
                 authoritative = tg.parse_teensy_size(
                     (REAL_DIR / name.replace("size_a", "teensy_size")).read_text(
                         encoding="utf-8"))
                 self.assertLessEqual(abs(sizes["flash"]["used"] -
                                          authoritative["flash"]["used"]), 4)
-                for region, measured in sizes.items():
-                    self.assertGreater(measured["used"], 0, msg=region)
+                for region in ("ram1", "ram2"):
+                    for field in ("used", "free"):
+                        self.assertEqual(sizes[region][field],
+                                         authoritative[region][field],
+                                         msg=f"{region}.{field}")
 
     def test_real_holosphere_capture_reaches_an_advisory_verdict(self):
         rc, out = self._run_main(
