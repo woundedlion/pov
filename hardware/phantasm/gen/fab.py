@@ -11,12 +11,10 @@ Produces, into ../gen/out/:
 
 --verify re-hashes an already-generated package against that manifest and
 against the ordered-package baseline fab-SHA256SUMS.txt beside the board once
-it is recorded (see ../1.1/README.md). Until then --verify reports the missing
-baseline. It runs no KiCad; gen/out/ is gitignored.
+it is recorded. Until then --verify reports the missing baseline. It runs no
+KiCad; gen/out/ is gitignored.
 
-Exports only the committed, hand-routed rev 1.1 board. board.py / pcb.py write
-the separate rev 1.2/1.3 projects and never touch 1.1/. This script emits derived
-artifacts (all of gen/out/ is gitignored).
+Exports only the committed, hand-routed rev 1.1 board.
 
 kicad-cli is found via $KICAD_CLI, else common install paths, else PATH.
 """
@@ -70,16 +68,13 @@ ZIP_MEMBERS = {
 SUMS_FILE = "SHA256SUMS.txt"
 #: The upload zip, digested in the manifest alongside its own members.
 ARCHIVE = "phantasm-jlc-gerbers.zip"
-#: zlib level the upload zip is deflated at. The manifest digests the archive
-#: itself, so leaving the level to zlib's default would make the recorded digest
-#: a property of the host zlib build.
+#: zlib level the upload zip is deflated at, pinned so the archive digest does
+#: not depend on the host zlib build.
 ZIP_COMPRESS_LEVEL = 6
-#: Digest baseline of the package that was ordered, in the tracked tree because
-#: gen/out/ is not: without it nothing records the bytes the fab received.
+#: Digest baseline of the package that was ordered, in the tracked tree.
 SHIPPED_SUMS = os.path.join(PROJ, "fab-SHA256SUMS.txt")
 
-#: Assembly data JLC takes outside the upload zip. The PCBA house places parts
-#: from these, so they are digested with the rest of the package.
+#: Assembly data JLC takes outside the upload zip, digested with the package.
 ASSEMBLY_MEMBERS = ("phantasm-BOM.csv", "phantasm-CPL.csv")
 # Everything else the run writes into jlc/: assembly data, the zip itself,
 # and the zip's digest manifest.
@@ -87,15 +82,15 @@ ZIP_EXCLUDED = {*ASSEMBLY_MEMBERS, ARCHIVE, SUMS_FILE}
 
 
 #: Creation stamp written over KiCad's wall clock in every exported artifact,
-#: matching the zip member date below.
+#: matching the zip member date.
 FAB_TIMESTAMP = "1980-01-01T00:00:00+00:00"
 FAB_DATE = "1980-01-01 00:00:00"
 
 #: KiCad's four export-time stamp forms, each tagged with the stamp kind it
 #: rewrites: the Gerber X2 file attribute and its plain banner, the two Excellon
 #: header comments, and the job file's JSON field. Each substitution keeps the
-#: tool-version text so a toolchain upgrade still shows in the diff, and stops
-#: before the line ending: the Gerbers are CRLF and the Excellon files LF.
+#: tool-version text and stops before the line ending (Gerbers are CRLF, Excellon
+#: files LF).
 TIMESTAMP_SUBSTITUTIONS = (
     ("gerber attribute",
      re.compile(r"^%TF\.CreationDate,[^\r\n]*\*%(?=\r?$)", re.M),
@@ -115,10 +110,8 @@ TIMESTAMP_SUBSTITUTIONS = (
      r"\g<1>" + FAB_TIMESTAMP + r"\g<2>"),
 )
 
-#: The stamp kinds each artifact type records, keyed by file extension. A Gerber
-#: carries the export time twice and so does a drill file, so the full set is
-#: required: a file that matches one form and misses the other would ship a live
-#: export time while reporting itself stamped.
+#: The stamp kinds each artifact type records, keyed by file extension; every
+#: kind in the set is required.
 GERBER_STAMPS = frozenset({"gerber attribute", "gerber banner"})
 REQUIRED_STAMPS = {
     extension: GERBER_STAMPS
@@ -136,16 +129,11 @@ class TimestampNormalizationError(ValueError):
 def normalize_fab_timestamps(directory):
     """Stamp FAB_TIMESTAMP over KiCad's export time; return the names stamped.
 
-    Every Gerber, drill file and job file records the wall clock, so without
-    this two exports of an unchanged board differ in every artifact and a
-    re-run tells the reader nothing. The stamps are comments and metadata
-    attributes; the copper is untouched.
+    The stamps are comments and metadata attributes; the copper is untouched.
 
     Every artifact must carry the whole REQUIRED_STAMPS set for its type. One
-    that cannot be decoded, that is of no known type, or that a KiCad banner
-    respelling puts out of reach of one of its patterns raises rather than being
-    skipped: an unmatched form leaves that export time in place and only shrinks
-    the reported count.
+    that cannot be decoded, that is of no known type, or that misses one of its
+    patterns raises.
     """
     stamped_names = []
     diagnostics = []
@@ -188,12 +176,7 @@ def normalize_fab_timestamps(directory):
 
 
 def zip_member(name):
-    """Zip entry with fixed metadata, so an unchanged board rezips byte-identically.
-
-    Source mtimes, host permissions and the packing platform all vary between
-    runs; none of them belong in the fab package. The members themselves are
-    stamp-normalized by normalize_fab_timestamps().
-    """
+    """Zip entry with fixed metadata, so an unchanged board rezips byte-identically."""
     info = zipfile.ZipInfo(name, date_time=(1980, 1, 1, 0, 0, 0))
     info.compress_type = zipfile.ZIP_DEFLATED
     info.create_system = 3
@@ -214,9 +197,7 @@ def package_manifest(directory, members, archive):
     """`sha256sum -c` lines for every artifact the fab receives.
 
     Covers the zipped members, the assembly CSVs that travel beside the zip,
-    and the archive itself. zip_member() and normalize_fab_timestamps() make
-    the package byte-reproducible; the manifest is what a rebuild is checked
-    against.
+    and the archive itself.
     """
     return "".join(
         f"{sha256_file(os.path.join(directory, name))}  {name}\n"
@@ -231,8 +212,7 @@ def zip_members(names):
     """Sorted upload-zip members; every ZIP_MEMBERS file present, no others.
 
     The names bind every GERBER_LAYERS export plus both plated and unplated drill
-    files. An omitted layer or drill would otherwise zip clean and fabricate an
-    incomplete board.
+    files.
     """
     members = sorted(n for n in names if n in ZIP_MEMBERS)
     dropped = sorted(set(names) - set(members) - ZIP_EXCLUDED)
@@ -293,11 +273,9 @@ def read_manifest(path):
 def verify_package(directory=JLC, baseline=SHIPPED_SUMS):
     """Re-hash a generated package; return the number of digests checked.
 
-    The manifest records what a run produced and `baseline` what was ordered.
-    Reproducible exports are only worth the machinery if something reads the
-    digests back: this holds the package to both, so an edited artifact, a
-    dropped layer, or a package built from a different board is caught without
-    KiCad. `baseline` of None checks the package against its own manifest only.
+    The manifest records what a run produced and `baseline` what was ordered;
+    the package is held to both. `baseline` of None checks the package against
+    its own manifest only.
     """
     if not os.path.isdir(directory):
         raise PackageVerificationError(
@@ -412,8 +390,7 @@ def board_hole_counts(board):
     """{hole kind: count} the board drills: every via, plus every pad hole.
 
     A via is always plated; a pad's hole is plated unless the pad is
-    np_thru_hole. The Excellon export writes exactly these, so the board is
-    what the exported hole count has to agree with.
+    np_thru_hole.
     """
     counts = {"plated": len(F(board, "via")), "unplated": 0}
     for pad in board_pads(board):
@@ -426,10 +403,8 @@ def board_hole_counts(board):
 def validate_fab_content(directory, board):
     """Hold the exported Gerbers and drill files to what the board carries.
 
-    Membership is a filename test, so it passes a layer that plotted nothing
-    and a drill file that dropped holes - the last unchecked step between a
-    gated board and what is fabricated. Gerbers draw with apertures or region
-    contours; hole counts come from the board's own vias and pads.
+    Gerbers must draw with apertures or region contours; drill hole counts must
+    match the board's own vias and pads.
     """
     holes = board_hole_counts(board)
     diagnostics = []
@@ -483,8 +458,8 @@ ZONE_FEATURE_MINIMUMS = {
     "thermal_gap": MIN_ZONE_GAP_MM,
     "thermal_bridge_width": MIN_THERMAL_SPOKE_MM,
 }
-# Floors on what a routed board holds: the committed board carries 99 vias
-# (gen/board_metadata.py) and pours the In1/In2 reference planes.
+# Floors on what a routed board holds: the committed board's via count and
+# its In1/In2 reference planes.
 MIN_BOARD_VIAS = 99
 MIN_COPPER_POURS = 2
 
@@ -503,9 +478,8 @@ KNOWN_PARITY_WARNING_COUNTS = {
                 "D_BUS", "R_S", "J4", "R1")
 }
 
-# JLCPCB part assignments (LCSC #) keyed by reference. Kept here rather than in
-# the schematic so the JLC assembly output owns the supplier mapping. R_D1/R_D2
-# use an 0805 33R (C17634) to match their 0805 land pattern, not a 0603 part.
+# JLCPCB part assignments (LCSC #) keyed by reference. R_D1/R_D2 use an 0805
+# 33R (C17634) to match their 0805 land pattern.
 LCSC_BY_REF = {
     "C_DEC1": "C14663", "C_DEC2": "C14663",
     "C_LF": "C12891", "C_SYNC": "C1603",
@@ -701,8 +675,7 @@ def validate_project_rules(project_path=PRO):
 
     kicad-cli reads its constraints from the .kicad_pro, and KiCad re-zeroes
     min_clearance every time the project is opened in the GUI, so a DRC run
-    can report clean against a disabled floor. Gate the file the verdict is
-    computed under, not just the verdict.
+    can report clean against a disabled floor.
     """
     try:
         with open(project_path, encoding="utf-8") as project_file:
@@ -760,8 +733,7 @@ def require_schematic_parity(report_path):
     """Return the parity item count or raise on any unexpected difference.
 
     Every KNOWN_PARITY_ITEMS entry must appear exactly once with its expected
-    description: a count plus a membership test lets a duplicated item stand in
-    for a vanished one.
+    description.
     """
     try:
         with open(report_path, encoding="utf-8") as fh:
@@ -937,10 +909,8 @@ def board_assembly_exclusions(board):
 def validate_assembly_exclusions(comps, assembled, board):
     """Hold the assembly set to the board's own exclusion attributes.
 
-    The centroid export honours `exclude_from_pos_files`, so a part this run
-    assembles that the board excludes arrives as a missing centroid row rather
-    than as the policy divergence it is. Board-only refs - the mounting holes,
-    which have no symbol - are not in the netlist and so not in `comps`.
+    Board-only refs - the mounting holes, which have no symbol - are not in the
+    netlist and so not in `comps`.
     """
     excluded = board_assembly_exclusions(board)
     assembled = set(assembled)
@@ -1011,11 +981,7 @@ class BoardReadError(ValueError):
 
 
 def read_board(pcb_path, error=BoardReadError, what="board"):
-    """Parse a KiCad board; raise `error` naming `what` when it cannot be read.
-
-    The board is 400 KB of s-expressions and the geometry gates each need the
-    whole tree, so main() reads it once and hands the result to all six geometry gates.
-    """
+    """Parse a KiCad board; raise `error` naming `what` when it cannot be read."""
     try:
         with open(pcb_path, encoding="utf-8") as fh:
             return sexp.parse_one(fh.read())
@@ -1153,12 +1119,11 @@ def validate_via_geometry(pcb_path, min_vias=MIN_BOARD_VIAS, board=None):
 def validate_zone_geometry(pcb_path, min_pours=MIN_COPPER_POURS, board=None):
     """Gate copper-pour pad connection and fill features.
 
-    KiCad DRC never flags these: thermal reliefs are same-net geometry, so a
-    sub-process gap exports clean Gerbers that the fab resolves as a solid
-    pour, tying every through-hole GND pad to the full plane and starving the
-    hand-soldered joints R-ASM-6 protects. `connect_pads yes` reaches the same
-    end directly, and a zone carrying no `(fill ...)` node states no relief
-    features at all. A zone whose fill is not enabled pours nothing.
+    KiCad DRC never flags these: thermal reliefs are same-net geometry. A
+    sub-process gap fabricates as a solid pour, defeating the reliefs R-ASM-6
+    requires; `connect_pads yes` is a solid connection, and a zone with no
+    `(fill ...)` node states no relief features. A zone whose fill is not
+    enabled pours nothing.
     """
     root = board if board is not None else read_board(
         pcb_path, ZoneGeometryError, "PCB zones")
@@ -1498,7 +1463,7 @@ def main():
                               "--check-zones", "--layers", GERBER_LAYERS,
                               "-o", staged + os.sep, PCB])
         print("[7/9] Drill")
-        # Absolute origin, matching the gerbers and the centroid above.
+        # Absolute origin, matching the gerbers and the centroid.
         run_export("drill", [kicad_cli(), "pcb", "export", "drill", "--format",
                              "excellon", "--drill-origin", "absolute",
                              "--excellon-units", "mm", "--excellon-separate-th",

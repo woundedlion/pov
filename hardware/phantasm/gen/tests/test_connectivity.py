@@ -384,7 +384,7 @@ class EmptyScanTests(unittest.TestCase):
 
 
 class RoutedBoardTests(unittest.TestCase):
-    """The shipped board's copper, which no net-label gate reads."""
+    """The shipped board's copper."""
 
     @classmethod
     def setUpClass(cls):

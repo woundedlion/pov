@@ -7,12 +7,6 @@
  * @file pov_handoff.h
  * @brief Pure, host-testable effect-handoff state machine for POVSegmented.
  *
- * Kept free of Arduino dependencies so the concurrency glue between
- * the foreground effect builder and the flywheel ISR — the teardown handshake,
- * the acquire/release publish/adopt of the pending effect, the consumed-
- * generation gate, and the display-window (clip) alternation — is unit-testable
- * on the host, exactly as pov_sync.h is for the sync protocol.
- *
  * Ownership model (spec §8): the foreground constructs and deletes effect
  * instances; the ISR only ever dereferences the instance it has been handed via
  * live(). The commit-time generation check is the guard against a use-after-free
@@ -28,9 +22,6 @@
  *     ack (release). release_complete() is the foreground's wait predicate and
  *     loads ack with acquire, so the ISR's live_effect = nullptr is ordered
  *     before the caller's delete.
- *
- * Free of FastLED/Teensy/timer dependencies; templated on the effect pointee so
- * the host tests drive it with a stand-in type.
  */
 #pragma once
 
@@ -53,8 +44,7 @@ struct WakeInputs {
 
 /**
  * @brief Foreground↔ISR effect-handoff state machine.
- * @tparam T Effect pointee type (the device instantiates it with Effect; tests
- *           use a stand-in).
+ * @tparam T Effect pointee type.
  *
  * Single-writer per field (spec §8): live_effect is ISR-written; pending_effect
  * and pending_gen are foreground-written (published under a brief interrupts-off
@@ -137,8 +127,7 @@ public:
   /**
    * @brief Services a pending teardown request: drop the live pointer and ack.
    * @details Idempotent — a no-op when no release is outstanding. The ack is a
-   *          release store, pairing with release_complete()'s acquire load; the
-   *          barrier is paid only on the wake that services a request.
+   *          release store, pairing with release_complete()'s acquire load.
    */
   void service_release() {
     if (release_ack.load(std::memory_order_relaxed) !=
@@ -235,9 +224,7 @@ public:
    * half publishes before the caller's advance_display() unblocks a foreground
    * waiting in buffer_free(); and `live` is read after the adopt, so an effect
    * taken live this wake also flips this wake. Commit reports commit_ok=false
-   * for the caller to trap on, where join is conditional — a failed join gate
-   * waits for the next grid step. always_inline: the flywheel ISR must not pay
-   * a call for it.
+   * for the caller to trap on; a failed join gate waits for the next grid step.
    */
   __attribute__((always_inline)) Wake apply_wake(const WakeInputs &in) {
     service_release();

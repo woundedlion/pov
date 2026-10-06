@@ -1,9 +1,7 @@
 """Gate: export the schematic's netlist and verify its named-net partition.
 
 Nodes are keyed on (ref, pin), so a connector or IC pinout permutation fails the
-gate as loudly as a short or a break does. gen/tests/test_check.py applies the
-same table to the committed board's pad nets. CI gates that leg and the exported
-netlist through pcb.py in the KiCad-backed pcb-tests job.
+gate as loudly as a short or a break does.
 """
 import argparse
 import os

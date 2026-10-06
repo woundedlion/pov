@@ -29,14 +29,6 @@ struct RingSpinWhiteBox;
  * @tparam H Canvas height in pixels.
  * @details Each ring's orientation follows a random-walk over the sphere and
  * leaves a motion-blur trail that fades in color and alpha along its length.
- * @note Sibling trail effects `Comets` and `Fishbowl` share the
- *       record + deep_tween skeleton; draw primitive, transform chain and
- *       colour/fade are hand-propagated. Ring carries a palette and noise
- *       alongside the orientation + trail, so it does not use their
- *       `Animation::TrailBody`. Differences here: no `Screen::AntiAlias` (unlike Fishbowl), and
- *       `Orientation<>` (CAP 4) not `Orientation<16>` — a great-circle ring's
- *       successive trail frames overlap almost completely, so 4 sub-frames read
- *       identically to 16.
  */
 template <int W, int H> class RingSpin : public Effect {
 public:
@@ -51,9 +43,6 @@ public:
 
   /**
    * @brief Allocates rings, registers params, bakes palettes, and spawns rings.
-   * @details Allocates the ring storage from the persistent arena, registers the
-   * tunable parameters, bakes the vignette palettes into fast LUTs, and starts
-   * each ring's energetic random-walk.
    */
   HS_COLD_MEMBER void init() override {
     register_param("Alpha", &params.alpha, 0.0f, 1.0f);
@@ -163,10 +152,8 @@ private:
 
   /**
    * @brief One ring: palette, orientation, trail, and random-walk noise.
-   * @details Bundles the ring's palette, current orientation, the history
-   * trail used to render the fading motion blur, and the noise driving the
-   * orientation random-walk. The great circle is the Y_AXIS plane under each
-   * trail orientation, fixed at the draw site.
+   * @details The great circle is the Y_AXIS plane under each trail
+   * orientation.
    */
   struct Ring {
     const BakedPalette *palette;

@@ -1,11 +1,8 @@
 """Gate: walk the routed board's copper and verify every net is one island.
 
-The named-net gate in check.py reads pad net ATTRIBUTES -- what a pad is meant
-to sit on. Those survive deleting the tracks, vias or pour that realize them, so
-a board can pass every net-label gate and still ship an open circuit. This one
-unions the copper geometry instead: tracks (straight and arc), vias, pads and
-zone fills that touch on a shared layer, per net. A net whose pads land in more than one island is an
-open.
+Unions the copper geometry -- tracks (straight and arc), vias, pads and zone
+fills that touch on a shared layer, per net -- rather than pad net attributes. A
+net whose pads land in more than one island is an open.
 
 Rectangular lands use rotated rectangles; custom lands use primitive bounding
 boxes, and circular/oval lands use circumscribed discs. Pad approximations err

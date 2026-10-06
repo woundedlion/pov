@@ -266,11 +266,11 @@ private:
   static constexpr float SPEED_MIN = 0.0f;
   static constexpr float SPEED_MAX = 0.16f;
   static constexpr int PRESET_FRAMES = 240;
-  /** Every preset departs through black over 16 frames, so the two parameter
-      sets never render on the same frame. */
+  /** Departure fades through black, so the two parameter sets never render on
+      the same frame. */
   static constexpr Segue::Preset::Fade DEPARTURE{16};
   static constexpr uint32_t PARAMETER_SCHEMA_VERSION = 1;
-  /** Dwell + departure = the 240-frame preset cadence. */
+  /** Dwell + departure = PRESET_FRAMES. */
   static constexpr uint16_t PRESET_DWELL_FRAMES =
       PRESET_FRAMES - DEPARTURE.frames;
   static constexpr const char *SHAPE_OPTIONS[] = {
@@ -621,9 +621,7 @@ private:
    * @param color Contour color.
    * @param phase Star rotation in radians.
    * @param contour_index Contour slot in the baked radius-trig table.
-   * @details The path taken from DENSE_CONTOUR_COUNT contours up, where the
-   * per-edge setup of Plot::rasterize's adaptive walk outweighs the edges
-   * themselves.
+   * @details Used from DENSE_CONTOUR_COUNT contours up.
    */
   template <typename F>
   HS_FLASH_MEMBER void
@@ -701,9 +699,7 @@ private:
    * @param contour_index Index of this contour in the stack.
    * @param dense_contours Whether the stack is at or above DENSE_CONTOUR_COUNT
    * contours, selecting the screen-step-balanced star paths.
-   * @details Cold (flash): the five-way switch instantiates a sampler lambda
-   * per shape, so its body stays out of ITCM even though it runs once per
-   * shape (up to DRAW_LIMIT per frame); the hot work is inside Plot::rasterize.
+   * @details Cold (flash); the hot work is inside Plot::rasterize.
    */
   template <typename F>
   HS_FLASH_MEMBER void
@@ -839,9 +835,9 @@ private:
   float preset_opacity = 1.0f;
   float phase = 0.0f;
 
-  // init() allocates the six MAX_SHAPES-sized contour tables and the planar
-  // chord storage and flower band-split flags; prepare_count() bakes both palettes,
-  // from the persistent arena.
+  // init() allocates the contour tables, the planar chord storage and the
+  // flower band-split flags, and prepare_count() bakes the palettes, from the
+  // persistent arena.
   static_assert(SAMPLED_RASTER_CONFIG.single_pass &&
                 !SAMPLED_RASTER_CONFIG.derive_planar_arc_registers);
   static constexpr size_t SCRATCH_A_PEAK_BYTES = std::max(

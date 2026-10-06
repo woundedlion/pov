@@ -11,11 +11,7 @@ REVISION = "1.2"
 
 # ---------- transform: library local coords -> schematic screen coords ----------
 def transform(sx, sy, rot, mirror, lx, ly):
-    """Map a symbol-local pin coord to its global schematic coord.
-
-    Verified empirically against a kicad-cli netlist export (place the symbols,
-    export the schematic netlist, and confirm pins land on the expected nets).
-    """
+    """Map a symbol-local pin coord to its global schematic coord."""
     # Library Y is up; schematic Y is down -> flip Y first.
     x, y = lx, -ly
     # mirror is applied in the symbol (screen) frame, before rotation.
@@ -60,8 +56,7 @@ class Symbol:
         """Outward unit axis (dx,dy) in screen coords for a stub.
 
         Derived from the pin's own orientation (angle points tip->body, so
-        outward = angle+180), mapped through the verified placement transform.
-        Robust for tall symbols where distance-to-center would mislead.
+        outward = angle+180), mapped through the placement transform.
         """
         p = self._pins[str(number)]
         th = math.radians(p["angle"] + 180.0)

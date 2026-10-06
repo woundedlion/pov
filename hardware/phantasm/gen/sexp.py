@@ -211,8 +211,7 @@ def parse(s):
 def parse_one(s):
     """Parse `s` and return its single top-level node.
 
-    Raises ValueError when the text carries no document or more than one, so a
-    caller that already guards a parse failure need not also guard IndexError.
+    Raises ValueError when the text carries no document or more than one.
     """
     documents = parse(s)
     if len(documents) != 1:
