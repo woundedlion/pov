@@ -43,7 +43,17 @@ inline void test_lattice_melt_identity_and_presets() {
   using FX = WB::FX;
   HS_EXPECT_TRUE(FX::EFFECT_ID == "lattice-melt");
   HS_EXPECT_EQ(FX::PRESET_IDS.size(), size_t{2});
-  HS_EXPECT_EQ(sizeof(WB::Params), 25 * sizeof(float));
+  static_assert(WB::Params::template HAS<"projection"> &&
+                WB::Params::template HAS<"surface"> &&
+                WB::Params::template HAS<"source"> &&
+                WB::Params::template HAS<"color">);
+  static_assert(!WB::Params::template HAS<"lens"> &&
+                !WB::Params::template HAS<"inner_warp">);
+  static_assert(sizeof(WB::Params) ==
+                sizeof(Pullback::ProjectionParams) +
+                    sizeof(Pullback::SurfaceNoiseParams) +
+                    sizeof(Pullback::LatticeSourceParams) +
+                    sizeof(Pullback::ColorParams));
 
   // hue_rotation_active is false at zero shift and true otherwise; both presets shift.
   Pullback::ColorParams shift;
