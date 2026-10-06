@@ -6,10 +6,10 @@
 // Included by tests/test_animation.h.
 
 // ============================================================================
-// Mobius warps (b-coefficient drivers)
+// Mobius warps
 // ----------------------------------------------------------------------------
-// Each warp eases a normalized progress to an angle and writes Mobius param b.
-// At completion (progress == 1) angle is float 2π; b closes within trig rounding.
+// MobiusWarp and MobiusWarpCircular drive b along an eased angle closing at 2π.
+// MobiusWarpEvolving modulates all eight coefficients perpetually.
 // ============================================================================
 
 /**
