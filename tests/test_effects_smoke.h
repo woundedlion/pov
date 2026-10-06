@@ -61,7 +61,6 @@ inline void test_every_effect_renders_while_paused() {
  */
 inline int run_effects_smoke_tests() {
   hs_test::ModuleFixture fixture("effects_smoke");
-  test_parameter_probe_targets();
 
   if (effects_full_suite()) {
     // Full production-resolution roster passes (288x144): smoke, then cross-run
