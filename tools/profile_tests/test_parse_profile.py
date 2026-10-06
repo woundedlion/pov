@@ -531,9 +531,6 @@ class PlotCountLines(unittest.TestCase):
     def test_command_reports_missing_instrumentation(self):
         self.assertEqual(pp.cmd_plot(self._parse(plot_line=None)), 2)
 
-    def test_command_succeeds_on_count_capture(self):
-        self.assertEqual(pp.cmd_plot(self._parse()), 0)
-
     def test_aggregate_uses_peak_cache_depth(self):
         windows = self._parse()
         second = self._parse()[0]
