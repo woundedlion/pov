@@ -109,11 +109,6 @@ inline bool effects_full_suite() {
   return false;
 }
 
-/**
- * @brief Forward declaration of the registered-but-unread param lint.
- * @param effect Effect instance whose editable params are probed.
- * @param name Effect name used in diagnostic output.
- */
 inline void lint_dead_sliders(Effect &effect, const char *name);
 
 /**
@@ -259,8 +254,10 @@ inline void smoke_one(const char *name) {
   HS_EXPECT_EQ(dropped, 0u);
 }
 
+#include "tests/effects/parameter_probe.h"
+
 /**
- * @brief Build-time "registered-but-unread" lint for the live-art param system.
+ * @brief Runtime "registered-but-unread" lint for the live-art param system.
  * @param effect Effect instance whose editable params are probed.
  * @param name Effect name used in DEAD SLIDER diagnostic output.
  * @details Contract: a registered, editable param — one NOT flagged
@@ -273,8 +270,6 @@ inline void smoke_one(const char *name) {
  * pure telemetry. The check detects per-frame overwrites; it does not measure
  * a parameter's visual influence.
  */
-#include "tests/effects/parameter_probe.h"
-
 inline void lint_dead_sliders(Effect &effect, const char *name) {
   for (const auto &def : effect.getParameters()) {
     if (def.animated || def.readonly)
