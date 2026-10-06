@@ -79,10 +79,8 @@ namespace hs {
 [[noreturn]] HS_COLD void function_ref_empty_call() {
   check_fail(HS_CHECK_SITE("thunk != empty_thunk"), "empty FunctionRef called");
 }
-#ifndef ARDUINO
 [[noreturn]] HS_COLD void inplace_function_empty_call() {
   check_fail(HS_CHECK_SITE("vtable != empty"),
              "empty hs::inplace_function called");
 }
-#endif
 } // namespace hs
