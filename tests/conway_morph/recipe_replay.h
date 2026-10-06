@@ -16,8 +16,9 @@
 // (every frame of every leg draws every face's (from, to) ramp bit-exact at
 // the leg's blend weight; each leg departs from the palette the previous leg
 // landed on), the final per-face sprite handoff, the per-final-class palette
-// symmetry of the finished shape, and the
-// persistent/scratch high-water against IslamicStars' configured split.
+// symmetry of the finished shape. Persistent/scratch budgets are gated only
+// for chains without DUAL/KIS; this module's partition chains exclude that gate.
+// test_opchain_arena_survey.h supplies the registry budget coverage.
 // ---------------------------------------------------------------------------
 
 /** The arena split is canvas-independent; this instantiation names it. */
