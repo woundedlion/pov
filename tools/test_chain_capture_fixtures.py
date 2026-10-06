@@ -9,6 +9,8 @@ import struct
 import unittest
 
 import gen_chain_capture_fixtures as generator
+from generate_pullback_manifest_header import load_and_validate, protocol_definition
+from pullback_capture import operation_specs, oracle_operation_specs
 
 
 class ChainCaptureFixtureTests(unittest.TestCase):
@@ -23,13 +25,27 @@ class ChainCaptureFixtureTests(unittest.TestCase):
         ]
 
     def test_authored_corpus_is_complete_and_emits_typed_state(self):
-        self.assertEqual(len(self.records), 488)
-        for width, height in ((96, 20), (288, 144)):
-            selected = [
-                r for r in self.records if (r["width"], r["height"]) == (width, height)
-            ]
-            self.assertEqual(sum(r["kind"] == "frame" for r in selected), 227)
-            self.assertEqual(sum(r["kind"] == "oracle" for r in selected), 17)
+        directory = Path(__file__).resolve().parents[1] / "tests/data/pullback"
+        programs, oracles, _ = load_and_validate(directory)
+        codes = protocol_definition()[1]
+        expected = set()
+        for width, height in programs["corpus"]["resolutions"]:
+            for spec in operation_specs(programs):
+                expected.add(("frame", spec["name"], width, height,
+                              spec["preset"], codes[spec["mapping"]],
+                              struct.pack("<f", 0.0)))
+            for spec in oracle_operation_specs(oracles):
+                expected.add(("oracle", spec["oracle"], width, height,
+                              spec["preset"], codes[spec["mapping"]],
+                              struct.pack("<f", spec["hue_noise_phase"])))
+        actual = [
+            (record["kind"], record["name"], record["width"], record["height"],
+             record["preset"], record["operation"],
+             struct.pack("<f", record.get("hueNoisePhase", 0.0)))
+            for record in self.records
+        ]
+        self.assertEqual(set(actual), expected)
+        self.assertEqual(len(actual), len(expected))
         output = generator.generate(self.records)
         self.assertIn("SpatialWalkSnapshot", output)
         self.assertIn("GeneratedPaletteBank::Snapshot", output)
