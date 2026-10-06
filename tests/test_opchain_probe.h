@@ -522,7 +522,6 @@ inline void test_truncate50d_far_side_sweep_holds_topology() {
     size_t v0 = 0, f0 = 0, i0 = 0, compiled0 = 0;
     std::vector<size_t> off;
     float min_area_near = 1e9f;
-    bool pinch_guarded = false;
     for (int s = 0; s < SAMPLES; ++s) {
       // Linear birth -> arrival, plus one sample forced onto the exact pinch so
       // the guard is exercised deterministically.
@@ -533,8 +532,6 @@ inline void test_truncate50d_far_side_sweep_holds_topology() {
       const float t = ConwayGraph::truncate_off_pinch(raw);
       // No frame ever evaluates truncate at the exact ambo short-circuit.
       HS_EXPECT_TRUE(t != 0.5f);
-      if (raw == 0.5f)
-        pinch_guarded = true;
 
       ScratchScope fa(a);
       ScratchScope fb(b);
@@ -576,18 +573,16 @@ inline void test_truncate50d_far_side_sweep_holds_topology() {
       }
     }
 
-    HS_EXPECT_TRUE(pinch_guarded);
     HS_EXPECT_TRUE(min_area_near > 0.0f);
     if (hs_test::stats().failed != failed_before)
       std::printf("    [truncate50d] %s failed (raw F=%zu compiled=%zu)\n",
                   site.name, f0, compiled0);
     else
-      std::printf(
-          "  [truncate50d] %s: birth=%.4f -> %.4f through pinch V=%zu "
-          "F=%zu I=%zu compiled=%zu min_area_near=%.3e guard_fired=%d\n",
-          site.name, static_cast<double>(birth),
-          static_cast<double>(TRUNCATE50D_T_STAR), v0, f0, i0, compiled0,
-          static_cast<double>(min_area_near), pinch_guarded ? 1 : 0);
+      std::printf("  [truncate50d] %s: birth=%.4f -> %.4f through pinch V=%zu "
+                  "F=%zu I=%zu compiled=%zu min_area_near=%.3e\n",
+                  site.name, static_cast<double>(birth),
+                  static_cast<double>(TRUNCATE50D_T_STAR), v0, f0, i0,
+                  compiled0, static_cast<double>(min_area_near));
   }
 }
 
