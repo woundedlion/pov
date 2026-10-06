@@ -34,8 +34,8 @@ public:
   static constexpr const char *EFFECT_ID = "Dynamo";
 
   /**
-   * @brief Constructs the effect, seeding the initial palette, palette normal,
-   *        and filter pipeline.
+   * @brief Constructs the effect, seeding the initial palette and filter
+   *        pipeline.
    */
   HS_COLD_MEMBER Dynamo()
       : Effect(W, H, pipeline_config<decltype(filters)>({.strobe = true})),
