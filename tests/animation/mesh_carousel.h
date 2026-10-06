@@ -355,8 +355,6 @@ inline void test_sweep_phase_front_ordering() {
                Segue::sweep_phase(0.5f, 0.8f, band));
 }
 
-inline void build_octahedron(PolyMesh &mesh, Arena &arena);
-
 /** @brief Pins sweep coordinate selection and transformed topology slots. */
 inline void test_meshcarousel_face_phases_use_sweep_frame_and_slots() {
   hs_test::reset_globals();

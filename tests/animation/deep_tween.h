@@ -300,29 +300,3 @@ inline void test_quantized_vector_trail_roundtrip_and_ring() {
   HS_EXPECT_NEAR(ts[1], 0.5f, 1e-6f);
   HS_EXPECT_NEAR(ts.back(), 1.0f, 1e-6f);
 }
-
-/**
- * @brief Builds a hand-rolled octahedron (6 axis vertices, 8 triangular faces).
- * @param mesh Output mesh to populate with the octahedron geometry.
- * @param arena Arena backing the mesh's vertex/face/face-count buffers.
- * @details Vertices are well separated so the nearest-vertex correspondence is
- * unambiguous.
- */
-inline void build_octahedron(PolyMesh &mesh, Arena &arena) {
-  static const math::Vector verts[6] = {{1, 0, 0},  {-1, 0, 0}, {0, 1, 0},
-                                        {0, -1, 0}, {0, 0, 1},  {0, 0, -1}};
-  static const uint16_t tris[8][3] = {{0, 2, 4}, {2, 1, 4}, {1, 3, 4},
-                                      {3, 0, 4}, {2, 0, 5}, {1, 2, 5},
-                                      {3, 1, 5}, {0, 3, 5}};
-  mesh.vertices.bind(arena, 6);
-  mesh.face_counts.bind(arena, 8);
-  mesh.faces.bind(arena, 24);
-  for (const auto &v : verts)
-    mesh.vertices.push_back(v);
-  for (const auto &t : tris) {
-    mesh.face_counts.push_back(3);
-    mesh.faces.push_back(t[0]);
-    mesh.faces.push_back(t[1]);
-    mesh.faces.push_back(t[2]);
-  }
-}
