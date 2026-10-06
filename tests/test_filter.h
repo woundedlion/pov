@@ -67,7 +67,7 @@ inline int run_filter_tests() {
   test_history_domain_folds();
 
   test_replacing_terminal_without_history_flushes();
-  test_pipeline_sink_is_2d();
+  test_pipeline_sink_and_terminal_concept_surface();
   test_pipeline_get_returns_correct_filter();
 
   test_antialias_weights_partition();
