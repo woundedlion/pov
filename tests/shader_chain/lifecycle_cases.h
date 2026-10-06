@@ -5,10 +5,12 @@
 
 // Transactional refusals, migration, determinism and budgets.
 
+using SweepColors =
+    std::array<Color4, std::tuple_size_v<decltype(sweep_views())>>;
+
 /** Renders the sweep into @p out for a byte-identity comparison. */
 inline void snapshot_render(In::ChainProgram &program,
-                            const In::FrameContext &ctx,
-                            std::array<Color4, 14> &out) {
+                            const In::FrameContext &ctx, SweepColors &out) {
   const auto views = sweep_views();
   for (size_t index = 0; index < views.size(); ++index)
     out[index] = program.evaluate(views[index], ctx);
@@ -18,12 +20,12 @@ inline void expect_refusal(In::ChainProgram &program,
                            std::span<const In::ChainEntryRequest> request,
                            In::ChainStatus expected, int16_t expected_index,
                            const In::FrameContext &ctx,
-                           const std::array<Color4, 14> &baseline) {
+                           const SweepColors &baseline) {
   const In::ChainRefusal refusal = program.compile(request);
   HS_EXPECT_EQ(static_cast<int>(refusal.code), static_cast<int>(expected));
   HS_EXPECT_EQ(refusal.entry_index, expected_index);
   HS_EXPECT_EQ(program.ops().size(), 4u);
-  std::array<Color4, 14> after;
+  SweepColors after;
   snapshot_render(program, ctx, after);
   for (size_t index = 0; index < after.size(); ++index)
     HS_EXPECT_TRUE(color4_identical(after[index], baseline[index]));
@@ -35,7 +37,7 @@ inline void test_shader_chain_refusal_shape() {
   arm_default_chain(program, 2, ValueSet::MAXIMUMS);
   const In::FrameContext ctx = shared_resources().context();
   program.prepare(ctx);
-  std::array<Color4, 14> baseline;
+  SweepColors baseline;
   snapshot_render(program, ctx, baseline);
   const auto camera_before = state_as<In::Op::SpatialWalkState>(program, 0);
   const auto source_before = state_as<In::Op::SourceClockState>(program, 2);
@@ -253,7 +255,7 @@ inline void test_shader_chain_refusal_migrate_failed() {
   HS_EXPECT_EQ(state_as<CountingState>(program, 0).accumulator, 2.0f);
   const In::FrameContext ctx = shared_resources().context();
   program.prepare(ctx);
-  std::array<Color4, 14> baseline;
+  SweepColors baseline;
   snapshot_render(program, ctx, baseline);
 
   CountLifecycle::fail_migrate = true;
@@ -267,7 +269,7 @@ inline void test_shader_chain_refusal_migrate_failed() {
   // and the accumulated phase survives.
   HS_EXPECT_EQ(CountLifecycle::destroys, destroys_before);
   HS_EXPECT_EQ(state_as<CountingState>(program, 0).accumulator, 2.0f);
-  std::array<Color4, 14> after;
+  SweepColors after;
   snapshot_render(program, ctx, after);
   for (size_t index = 0; index < after.size(); ++index)
     HS_EXPECT_TRUE(color4_identical(after[index], baseline[index]));
@@ -296,7 +298,7 @@ inline void test_shader_chain_refusal_migrate_failed() {
   HS_EXPECT_EQ(CountLifecycle::migrates, migrates_before + 1);
   HS_EXPECT_EQ(CountLifecycle::destroys, deep_destroys_before + 1);
   HS_EXPECT_EQ(state_as<CountingState>(program, 0).accumulator, 2.0f);
-  std::array<Color4, 14> after_deep;
+  SweepColors after_deep;
   snapshot_render(program, ctx, after_deep);
   for (size_t index = 0; index < after_deep.size(); ++index)
     HS_EXPECT_TRUE(color4_identical(after_deep[index], baseline[index]));
