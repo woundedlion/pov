@@ -315,8 +315,7 @@ struct DistortedRingStack {
                    ShapeRange shapes, const int8_t *slot_by_ring, int n_slots,
                    CandidateTable<W, H> &table, RingShaderT &&shader) {
     using Table = CandidateTable<W, H>;
-    HS_CHECK(canvas.width() == W && canvas.height() == H,
-             "canvas size differs from the scan's W/H");
+    check_canvas_dims<W, H>(canvas);
     check_pipeline_prepared(pipeline, canvas);
     HS_CHECK(n_slots >= 1, "ring stack needs at least one slot");
     HS_CHECK(n_slots <= INT8_MAX,
@@ -588,8 +587,7 @@ struct RingGroup {
   static void draw(PipelineT &pipeline, Canvas &canvas, const SDF::Ring *shapes,
                    int n, RingShaderT &&shader, bool debug_bb = false) {
     static constexpr int MAX_RINGS = 8;
-    HS_CHECK(canvas.width() == W && canvas.height() == H,
-             "canvas size differs from the scan's W/H");
+    check_canvas_dims<W, H>(canvas);
     check_pipeline_prepared(pipeline, canvas);
     HS_CHECK(n >= 1 && n <= MAX_RINGS,
              "ring group size must be in [1, MAX_RINGS]");
