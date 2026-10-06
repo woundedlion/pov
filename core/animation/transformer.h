@@ -420,9 +420,8 @@ private:
 
   /**
    * @brief Frees every slot without touching the timeline.
-   * @details Runs from the Timeline clear hook: Timeline::clear() destroys
-   * events without running the completion callbacks that normally free slots.
-   * Must not run while the slots' animations are live.
+   * @details The slots' animations must not step afterwards. Timeline::clear()
+   * destroys them without completion callbacks after this hook returns.
    */
   HS_COLD_MEMBER void release_all() {
     HS_CHECK(entities,
