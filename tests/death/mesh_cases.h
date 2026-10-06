@@ -5,109 +5,326 @@
 
 // Included by tests/test_death.h.
 
+// --- Individual death cases — each MUST trap (HS_CHECK / __builtin_trap) ------
+
+// Mesh death fixtures and guard cases.
+
 /**
- * @brief Death case: clear()ing a pinned event must trap.
- * @details Animation surface — the third teardown path, alongside
- *          case_timeline_pinned_relocation (move_into) and
- *          case_timeline_pinned_completion (step's destroy branch). The public
- *          clear() would otherwise free an event whose animation pointer the
- *          caller still holds. ~Timeline reaches the same events through the
- *          unguarded reset_storage(), which is safe because no retained handle
- *          spans the instance boundary.
+ * @brief Death case: CompiledHankin::clone rejects a self-aliased destination.
+ * @details Each vector is rebound from the arena before the copy, so a
+ *          self-clone memcpy's a block onto itself from a stale source pointer.
  */
-inline void case_timeline_clear_pinned() {
-  Timeline tl;
-  float v = 0.0f;
-  tl.add(0, Animation::Transition(v, 1.0f, 1, math::ease_linear));
-  global_timeline_events[0].pinned = opaque(true);
-  tl.clear(); // HS_CHECK(!pinned) -> trap
+inline void case_hankin_clone_aliases_dst() {
+  static uint8_t buf[1024];
+  Arena arena(buf, sizeof(buf));
+  CompiledHankin compiled;
+  CompiledHankin::clone(compiled, compiled, arena);
 }
 
 /**
- * @brief Death case: clear()ing from a completion callback must trap.
- * @details Animation surface — step() runs post_callback() and only afterwards
- *          destroys the event, so a clear() inside that callback would free the
- *          callable whose frame is still executing. The trap sits at the top of
- *          clear(), ahead of destroy_events().
+ * @brief Death case: a face-offsets span with the wrong length must trap.
+ * @details Mesh-borrow surface — the accessors index offsets by face, so an
+ *          offsets array that is not one entry per face would read past its end
+ *          on the solid scan path; set_borrowed rejects it at the install site.
  */
-inline void case_timeline_clear_during_step() {
-  static hs_test::StubEffect fx(8, 8);
-  static Canvas canvas(fx);
-  Timeline tl;
-  float v = 0.0f;
-  tl.add(0, Animation::Transition(v, 1.0f, 1, math::ease_linear).then([&tl]() {
-    tl.clear();
-  }));
-  tl.step(canvas); // t=1: completes -> callback -> clear() while stepping
-}
-
-/** @brief Death case: finite parameter animations reject the -1 sentinel. */
-inline void case_finite_param_perpetual_duration() {
-  float value = 0.0f;
-  Animation::Transition transition(value, 1.0f, opaque(-1), math::ease_linear);
-  if (transition.done())
+inline void case_mesh_state_set_borrowed_offsets_count_mismatch() {
+  static uint8_t buf[1024];
+  Arena arena(buf, sizeof(buf));
+  ArenaVector<uint8_t> counts(arena, 1);
+  counts.push_back(opaque<uint8_t>(3));
+  ArenaVector<uint16_t> faces(arena, 3);
+  for (uint16_t i = 0; i < 3; ++i)
+    faces.push_back(opaque(i));
+  ArenaVector<uint16_t> offsets(arena, 2);
+  offsets.push_back(opaque<uint16_t>(0));
+  offsets.push_back(opaque<uint16_t>(3));
+  MeshState m;
+  // 2 offsets for 1 face -> HS_CHECK
+  m.set_borrowed(ArenaSpan<uint8_t>(counts), ArenaSpan<uint16_t>(faces),
+                 ArenaSpan<uint16_t>(offsets));
+  if (m.num_faces() == opaque<size_t>(0x7fff))
     std::printf("x");
 }
 
-/** @brief Death case: a Transition target must be finite. */
-inline void case_transition_nonfinite_target() {
-  float value = 0.0f;
-  Animation::Transition transition(
-      value, opaque(std::numeric_limits<float>::quiet_NaN()), 1,
-      math::ease_linear);
-  if (transition.done())
-    std::printf("x");
-}
-
-/** @brief Adds an event from a clear hook, violating the hook contract. */
-inline void add_event_from_clear_hook(void *ctx) {
-  static float value = 0.0f;
-  static_cast<Timeline *>(ctx)->add(
-      0, Animation::Transition(value, 1.0f, 1, math::ease_linear));
-}
-
-/** @brief Death case: clear hooks must not mutate timeline event storage. */
-inline void case_timeline_clear_hook_adds_event() {
-  Timeline tl;
-  tl.add_clear_hook(&tl, add_event_from_clear_hook);
-  tl.clear();
-}
-
 /**
- * @brief Death case: scheduling a segue sprite with no free timeline slot must
+ * @brief Death case: face offsets that do not span the flat faces list must
  *        trap.
- * @details Animation surface — every segue policy's schedule() returns the next
- *          transition's delay whether or not its sprite landed, so a dropped add
- *          leaves the sphere dark for a whole transition while the effect
- *          advances on schedule. The budget guard traps at the schedule.
+ * @details Mesh-borrow surface — the last offset plus that face's count must
+ *          reach the end of the flat list, or a walk of the final face reads
+ *          short of the data the view claims to cover.
  */
-inline void case_segue_sprite_no_slot() {
-  Timeline tl;
-  float sink = 0.0f;
-  while (Timeline::remaining() > 0)
-    tl.add(0, Animation::Transition(sink, 1.0f, 1000, math::ease_linear));
-  Segue::schedule_faded_sprite(tl, [](Canvas &, float) {}, 4, 1);
-}
-
-/** @brief Death case: a segue must target the already-flipped front slot. */
-inline void case_mesh_carousel_unflipped_slot() {
-  Timeline tl;
-  MeshCarousel<> carousel;
-  carousel.schedule_segue(tl, 1, [](Canvas &, float) {}, 4, 1);
+inline void case_mesh_state_set_borrowed_offsets_short_span() {
+  static uint8_t buf[1024];
+  Arena arena(buf, sizeof(buf));
+  ArenaVector<uint8_t> counts(arena, 1);
+  counts.push_back(opaque<uint8_t>(3));
+  ArenaVector<uint16_t> faces(arena, 4);
+  for (uint16_t i = 0; i < 4; ++i)
+    faces.push_back(opaque(i));
+  ArenaVector<uint16_t> offsets(arena, 1);
+  offsets.push_back(opaque<uint16_t>(0));
+  MeshState m;
+  // 0 + 3 != 4 -> HS_CHECK
+  m.set_borrowed(ArenaSpan<uint8_t>(counts), ArenaSpan<uint16_t>(faces),
+                 ArenaSpan<uint16_t>(offsets));
+  if (m.num_faces() == opaque<size_t>(0x7fff))
+    std::printf("x");
 }
 
 /**
- * @brief Death case: a second simultaneously-live Timeline must trap.
- * @details Animation surface — every Timeline shares the single global event
- *          array, so a second live instance would silently stomp the first's
- *          events; the construction guard traps instead. The real app holds
- *          exactly one (the old effect is destroyed before the next is built).
+ * @brief Death case: an empty topology span carrying a non-zero key must trap.
+ * @details Mesh-borrow surface — the key names the connectivity a topology was
+ *          classified for, so a key with no span behind it would hand a
+ *          downstream reuse check a classification the mesh does not carry.
  */
-inline void case_timeline_double_construct() {
-  Timeline a;
-  Timeline b; // second live ctor -> HS_CHECK(!global_timeline_live) -> trap
-  if (global_timeline_num_events == opaque(42))
+inline void case_mesh_state_set_borrowed_keyed_empty_topology() {
+  static uint8_t buf[1024];
+  Arena arena(buf, sizeof(buf));
+  ArenaVector<uint8_t> counts(arena, 1);
+  counts.push_back(opaque<uint8_t>(3));
+  ArenaVector<uint16_t> faces(arena, 3);
+  for (uint16_t i = 0; i < 3; ++i)
+    faces.push_back(opaque(i));
+  MeshState m;
+  m.set_borrowed(ArenaSpan<uint8_t>(counts), ArenaSpan<uint16_t>(faces), {}, {},
+                 opaque<uint32_t>(0x1234u));
+  if (m.num_faces() == opaque<size_t>(0x7fff))
     std::printf("x");
+}
+
+/**
+ * @brief Death case: face offsets that are not the counts' prefix sum must trap.
+ * @details Mesh-borrow surface — the count and span checks pass on the endpoints
+ *          alone, so an interior offset off the prefix sum would walk one face
+ *          over another's indices. The audit walk catches it.
+ */
+inline void case_mesh_state_set_borrowed_offsets_not_prefix_sum() {
+  static uint8_t buf[1024];
+  Arena arena(buf, sizeof(buf));
+  ArenaVector<uint8_t> counts(arena, 2);
+  counts.push_back(opaque<uint8_t>(3));
+  counts.push_back(opaque<uint8_t>(3));
+  ArenaVector<uint16_t> faces(arena, 6);
+  for (uint16_t i = 0; i < 6; ++i)
+    faces.push_back(opaque(i));
+  ArenaVector<uint16_t> offsets(arena, 2);
+  offsets.push_back(opaque<uint16_t>(1)); // prefix sum starts at 0
+  offsets.push_back(opaque<uint16_t>(3));
+  MeshState m;
+  m.set_borrowed(ArenaSpan<uint8_t>(counts), ArenaSpan<uint16_t>(faces),
+                 ArenaSpan<uint16_t>(offsets));
+  if (m.num_faces() == opaque<size_t>(0x7fff))
+    std::printf("x");
+}
+
+/**
+ * @brief Death case: a zero-side face must trap while building half-edges.
+ * @details Mesh-topology surface — a zero-count face emits no half-edges yet
+ *          still claims a face slot, whose half_edge entry would then point at
+ *          the next face's loop. The trailing triangle keeps the flat index
+ *          list non-empty so the pairing scratch is a real allocation.
+ */
+inline void case_half_edge_zero_side_face() {
+  static uint8_t buf[1024];
+  Arena arena(buf, sizeof(buf));
+  const uint8_t counts[] = {0, 3};
+  const uint16_t indices[] = {0, 1, 2};
+  PolyMesh mesh;
+  build_polymesh(mesh, arena, 3, counts, 2, indices, 3);
+  HalfEdgeMesh half_edges(arena, mesh); // face 0 has zero sides -> HS_CHECK
+  if (half_edges.faces.size() == opaque<size_t>(99))
+    std::printf("x");
+}
+
+/**
+ * @brief Death case: >2 half-edges on one undirected edge must trap.
+ * @details Mesh-topology surface — three faces share edge (0,1), so the pairing
+ *          pass sees a run of three where a 2-manifold allows at most two.
+ *          Pairing the first two would leave the third silently unpaired.
+ */
+inline void case_half_edge_non_manifold_edge() {
+  static uint8_t buf[2048];
+  Arena arena(buf, sizeof(buf));
+  const uint8_t counts[] = {3, 3, 3};
+  const uint16_t indices[] = {0, 1, 2, 0, 1, 3, 0, 1, 4};
+  PolyMesh mesh;
+  build_polymesh(mesh, arena, 5, counts, 3, indices, 9);
+  HalfEdgeMesh half_edges(arena, mesh); // 3 half-edges on (0,1) -> HS_CHECK
+  if (half_edges.faces.size() == opaque<size_t>(99))
+    std::printf("x");
+}
+
+/**
+ * @brief Death case: two faces wound the same way around a shared edge must
+ *        trap.
+ * @details Mesh-topology surface — both triangles traverse edge (0,1) in the
+ *          same direction, so the undirected pairing key matches and they would
+ *          otherwise pair into a mesh that passes require_closed_manifold while
+ *          every vertex_orbit walk through the pair runs backwards.
+ */
+inline void case_half_edge_inconsistent_winding() {
+  static uint8_t buf[2048];
+  Arena arena(buf, sizeof(buf));
+  const uint8_t counts[] = {3, 3};
+  const uint16_t indices[] = {0, 1, 2, 0, 1, 3};
+  PolyMesh mesh;
+  build_polymesh(mesh, arena, 4, counts, 2, indices, 6);
+  HalfEdgeMesh half_edges(arena, mesh); // both edges run 0->1 -> HS_CHECK
+  if (half_edges.faces.size() == opaque<size_t>(99))
+    std::printf("x");
+}
+
+/**
+ * @brief Death case: a face side count past uint8_t must trap.
+ * @details Mesh-topology surface — every operator narrows its output valence
+ *          through this shared guard, so a high-valence orbit traps instead of
+ *          wrapping the uint8_t face_counts entry.
+ */
+inline void case_mesh_narrow_face_count() {
+  uint8_t c = MeshOps::narrow_face_count(opaque(UINT8_MAX + 1)); // -> HS_CHECK
+  if (c == 0xEE)
+    std::printf("x");
+}
+
+/**
+ * @brief Death case: an open mesh must trap the closed-manifold requirement.
+ * @details Mesh-topology surface — operators size their output pools from
+ *          E = I/2, so a lone triangle's three unpaired half-edges are rejected
+ *          up front instead of overrunning a pool far from the cause.
+ */
+inline void case_mesh_require_closed_manifold() {
+  static uint8_t buf[1024];
+  Arena arena(buf, sizeof(buf));
+  const uint8_t counts[] = {3};
+  const uint16_t indices[] = {0, 1, 2};
+  PolyMesh mesh;
+  build_polymesh(mesh, arena, 3, counts, 1, indices, 3);
+  HalfEdgeMesh half_edges(arena, mesh);
+  // unpaired -> HS_CHECK
+  MeshOps::require_closed_manifold(half_edges, arena, "death");
+}
+
+/**
+ * @brief Death case: a bowtie vertex must trap the closed-manifold requirement.
+ * @details Mesh-topology surface — two tetrahedra joined at vertex 0 are closed
+ *          and edge-manifold, so only the fan pass catches them; the orbit
+ *          scaffolding would otherwise emit one face from the first fan and
+ *          silently drop the second.
+ */
+inline void case_mesh_require_vertex_manifold() {
+  static uint8_t buf[4096];
+  Arena arena(buf, sizeof(buf));
+  const uint8_t counts[] = {3, 3, 3, 3, 3, 3, 3, 3};
+  const uint16_t indices[] = {0, 1, 2, 0, 2, 3, 0, 3, 1, 1, 3, 2,
+                              0, 4, 5, 0, 5, 6, 0, 6, 4, 4, 6, 5};
+  PolyMesh mesh;
+  build_polymesh(mesh, arena, 7, counts, 8, indices, 24);
+  HalfEdgeMesh half_edges(arena, mesh);
+  // split fan at vertex 0 -> HS_CHECK
+  MeshOps::require_closed_manifold(half_edges, arena, "death");
+}
+
+/**
+ * @brief Death case: a half-edge mesh whose faces have different side counts
+ *        must trap even when the census matches.
+ * @details Mesh-topology surface — the reuse overloads walk face loops from the
+ *          half-edge mesh while sizing and indexing from the source mesh, so a
+ *          {3,4} pairing against a {4,3} source shares (V,F,I) yet emits every
+ *          face from the wrong span.
+ */
+inline void case_mesh_require_matching_face_sides() {
+  static uint8_t buf[2048];
+  Arena arena(buf, sizeof(buf));
+  const uint8_t he_counts[] = {3, 4};
+  const uint8_t mesh_counts[] = {4, 3};
+  const uint16_t indices[] = {0, 1, 2, 3, 4, 5, 6};
+  PolyMesh he_source;
+  build_polymesh(he_source, arena, 7, he_counts, 2, indices, 7);
+  HalfEdgeMesh half_edges(arena, he_source);
+  PolyMesh mesh;
+  build_polymesh(mesh, arena, 7, mesh_counts, 2, indices, 7);
+  // face 1 starts at 3 in he_source, 4 in mesh -> HS_CHECK
+  MeshOps::require_matching_half_edges(half_edges, mesh, "death");
+}
+
+/**
+ * @brief Death case: side counts that outrun the flat index list must trap.
+ * @details Mesh-topology surface -- the entry census compares the half-edge
+ *          count against the flat index length, so a source whose own side
+ *          counts sum past that length clears it and then indexes past the
+ *          end of every later face.
+ */
+inline void case_mesh_require_matching_half_edge_census() {
+  static uint8_t buf[2048];
+  Arena arena(buf, sizeof(buf));
+  const uint8_t he_counts[] = {3, 3};
+  const uint8_t mesh_counts[] = {3, 4};
+  const uint16_t indices[] = {0, 1, 2, 3, 4, 5};
+  PolyMesh he_source;
+  build_polymesh(he_source, arena, 7, he_counts, 2, indices, 6);
+  HalfEdgeMesh half_edges(arena, he_source);
+  PolyMesh mesh;
+  // counts sum to 7 over a 6-entry index list -> HS_CHECK
+  build_polymesh(mesh, arena, 7, mesh_counts, 2, indices, 6);
+  MeshOps::require_matching_half_edges(half_edges, mesh, "death");
+}
+
+/**
+ * @brief Death case: loops naming a different mesh's faces must trap.
+ * @details Mesh-topology surface -- census, side counts and vertex range all
+ *          match between two meshes over the same vertex set, so only the loop
+ *          head vertices distinguish a connectivity built from the wrong mesh.
+ */
+inline void case_mesh_require_matching_half_edge_loops() {
+  static uint8_t buf[2048];
+  Arena arena(buf, sizeof(buf));
+  const uint8_t counts[] = {3, 3};
+  const uint16_t he_indices[] = {0, 1, 2, 3, 4, 5};
+  const uint16_t mesh_indices[] = {0, 2, 1, 3, 4, 5};
+  PolyMesh he_source;
+  build_polymesh(he_source, arena, 6, counts, 2, he_indices, 6);
+  HalfEdgeMesh half_edges(arena, he_source);
+  PolyMesh mesh;
+  // face 0 winds 0,2,1 in mesh and 0,1,2 in he_source -> HS_CHECK
+  build_polymesh(mesh, arena, 6, counts, 2, mesh_indices, 6);
+  MeshOps::require_matching_half_edges(half_edges, mesh, "death");
+}
+
+/** @brief Death case: reconcile endpoints with different sizes must trap. */
+inline void case_reconcile_vertices_size_mismatch() {
+  static uint8_t identity_buf[64];
+  static uint8_t target_buf[64];
+  static uint8_t scratch_buf[64];
+  Arena identity_arena(identity_buf, sizeof(identity_buf));
+  Arena target(target_buf, sizeof(target_buf));
+  Arena scratch(scratch_buf, sizeof(scratch_buf));
+  PolyMesh identity;
+  identity.vertices.bind(identity_arena, 1);
+  identity.vertices.push_back(math::Vector{});
+  PolyMesh authored;
+  PolyMesh out;
+  MeshOps::reconcile_vertices(identity, authored, out, target, scratch);
+}
+
+/** @brief Rejects output aliasing a reconciliation input. */
+inline void case_reconcile_vertices_aliased_output() {
+  static uint8_t target_bytes[128], scratch_bytes[128];
+  Arena target(target_bytes, sizeof(target_bytes));
+  Arena scratch(scratch_bytes, sizeof(scratch_bytes));
+  PolyMesh identity, authored;
+  MeshOps::reconcile_vertices(identity, authored, identity, target, scratch);
+}
+
+/** @brief Death case: reconciling a vertex-less endpoint pair must trap. */
+inline void case_reconcile_vertices_empty() {
+  static uint8_t target_buf[64];
+  static uint8_t scratch_buf[64];
+  Arena target(target_buf, sizeof(target_buf));
+  Arena scratch(scratch_buf, sizeof(scratch_buf));
+  PolyMesh identity;
+  PolyMesh authored;
+  PolyMesh out;
+  MeshOps::reconcile_vertices(identity, authored, out, target, scratch);
 }
 
 /**
@@ -285,44 +502,6 @@ inline void case_conway_target_exhausted() {
   MeshOps::truncate(mesh, target, temp, opaque(0.25f));
 }
 
-/** @brief Vertex-bit payload words a tetrahedron bake needs (3 per vertex). */
-inline constexpr size_t TETRAHEDRON_BAKE_WORDS = 3 * 4;
-
-/**
- * @brief Builds a tetrahedron plus a relax bake that matches it exactly.
- * @param mesh Mesh to populate.
- * @param arena Arena backing the mesh arrays.
- * @param bits Payload storage, TETRAHEDRON_BAKE_WORDS words, filled with the
- *        mesh's own vertex bits; must outlive the relax_baked() call.
- * @return Bake relax_baked() accepts until the caller perturbs one field.
- * @details The source mesh's own vertices make both source and payload hashes
- *          match.
- */
-inline MeshOps::RelaxBake
-build_matching_relax_bake(PolyMesh &mesh, Arena &arena, uint32_t *bits) {
-  build_solid<Solids::Tetrahedron>(mesh, arena);
-  uint32_t output_hash = MeshOps::FNV1A_BASIS;
-  for (size_t i = 0; i < mesh.vertices.size(); ++i) {
-    const math::Vector &v = mesh.vertices[i];
-    bits[3 * i] = std::bit_cast<uint32_t>(v.x);
-    bits[3 * i + 1] = std::bit_cast<uint32_t>(v.y);
-    bits[3 * i + 2] = std::bit_cast<uint32_t>(v.z);
-    for (size_t k = 0; k < 3; ++k)
-      output_hash = MeshOps::fnv1a_step(output_hash, bits[3 * i + k]);
-  }
-  MeshOps::RelaxBake bake{};
-  bake.name = "death_tetrahedron";
-  bake.vertex_bits = bits;
-  bake.vertex_count = static_cast<uint16_t>(mesh.vertices.size());
-  bake.face_count = static_cast<uint16_t>(mesh.get_face_counts_size());
-  bake.index_count = static_cast<uint16_t>(mesh.get_faces_size());
-  bake.iterations = 0;
-  bake.source_hash = MeshOps::relax_source_hash(mesh);
-  bake.topology_hash = MeshOps::relax_topology_hash(mesh);
-  bake.output_hash = output_hash;
-  return bake;
-}
-
 /**
  * @brief Death case: relax_baked rejects a bake whose vertex count differs from
  *        the source mesh.
@@ -401,26 +580,6 @@ inline void case_relax_baked_output_hash_mismatch() {
   PolyMesh out = MeshOps::relax_baked(mesh, target, bake);
   if (out.vertices.size() == opaque<size_t>(0x7fff))
     std::printf("x");
-}
-
-/**
- * @brief Builds a one-face PolyMesh with independently sized count and index
- * data.
- * @param mesh Mesh to populate.
- * @param arena Arena backing the mesh arrays.
- * @param side_count Value stored in the face-count array.
- * @param num_indices Number of entries stored in the flat face-index array.
- */
-inline void build_mismatched_polymesh(PolyMesh &mesh, Arena &arena,
-                                      uint8_t side_count, size_t num_indices) {
-  mesh.vertices.bind(arena, 4);
-  for (size_t i = 0; i < 4; ++i)
-    mesh.vertices.push_back(math::Vector{});
-  mesh.face_counts.bind(arena, 1);
-  mesh.face_counts.push_back(opaque(side_count));
-  mesh.faces.bind(arena, num_indices);
-  for (size_t i = 0; i < num_indices; ++i)
-    mesh.faces.push_back(static_cast<uint16_t>(i));
 }
 
 /**
@@ -622,36 +781,4 @@ inline void case_update_hankin_nonfinite_angle() {
   MeshState mesh;
   MeshOps::update_hankin(compiled, mesh, arena,
                          opaque(std::numeric_limits<float>::quiet_NaN()));
-}
-
-/**
- * @brief Death case: reading a ParamDef with an unknown target type must trap.
- * @details An unknown tag has no supported value representation and traps
- *          before the descriptor reads the target.
- */
-inline void case_param_def_unknown_get_target_type() {
-  float storage = 0.5f;
-  ParamDef def;
-  def.target = &storage;
-  def.target_type = static_cast<ParamDef::TargetType>(opaque<uint8_t>(9));
-  if (def.get_from(&storage) == opaque(42.0f))
-    std::printf("x");
-}
-
-/**
- * @brief Death case: writing a ParamDef with an unknown target type must trap.
- * @details An unknown tag has no supported value representation and traps
- *          before the descriptor writes the target.
- */
-inline void case_param_def_unknown_set_target_type() {
-  float storage = 0.5f;
-  ParamDef def;
-  def.target = &storage;
-  def.target_type = static_cast<ParamDef::TargetType>(opaque<uint8_t>(9));
-  struct InternalWriter : ParamHost {
-    using ParamHost::write_parameter_unchecked;
-  };
-  InternalWriter::write_parameter_unchecked(def, opaque(1.0f));
-  if (storage == opaque(42.0f))
-    std::printf("x");
 }
