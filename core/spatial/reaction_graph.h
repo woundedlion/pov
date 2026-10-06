@@ -155,11 +155,12 @@ private:
   HS_COLD_MEMBER void fill(const math::Vector *lattice) {
     for (int face = 0; face < 6; ++face) {
       for (int y = 0; y < RES; ++y) {
+        int seed = -1;
         for (int x = 0; x < RES; ++x) {
           float u = (x + 0.5f) / RES * 2.0f - 1.0f;
           float v = (y + 0.5f) / RES * 2.0f - 1.0f;
-          data.push_back(static_cast<uint16_t>(
-              find_nearest_node(texel_direction(face, u, v), lattice)));
+          seed = find_nearest_node(texel_direction(face, u, v), lattice, seed);
+          data.push_back(static_cast<uint16_t>(seed));
         }
       }
     }
@@ -269,10 +270,11 @@ private:
 
   /**
    * @brief Finds the near-nearest Fibonacci node to p via greedy K-NN descent
-   *        from a latitude seed.
+   *        from a supplied node or a latitude seed.
    * @param p Query direction (expected unit-length) on the sphere.
    * @param lattice Precomputed node() positions for all RD_N points, indexed by
    *        node id.
+   * @param seed Starting node, or -1 to choose by latitude.
    * @return Lattice node index in [0, RD_N) at a local distance minimum.
    * @details Hill-climbs toward closer neighbors and stops at a local minimum; on
    *          the near-uniform Fibonacci sphere this lands on the true nearest node
@@ -284,10 +286,12 @@ private:
    *          equatorial query's node.
    */
   HS_COLD_MEMBER static int find_nearest_node(const math::Vector &p,
-                                              const math::Vector *lattice) {
-    int cur =
-        static_cast<int>(hs::clamp((1.0f - p.y) * 0.5f * (RD_N - 1) + 0.5f,
-                                   0.0f, static_cast<float>(RD_N - 1)));
+                                              const math::Vector *lattice,
+                                              int seed) {
+    int cur = seed >= 0 ? seed
+                        : static_cast<int>(
+                              hs::clamp((1.0f - p.y) * 0.5f * (RD_N - 1) + 0.5f,
+                                        0.0f, static_cast<float>(RD_N - 1)));
     float best_d = math::distance_squared(p, lattice[cur]);
     bool converged = false;
     for (int iter = 0; iter < 64; ++iter) {
