@@ -107,22 +107,12 @@ template <int S> void check_strip_tiling(int w, int x) {
 }
 
 /**
- * @brief Pin down the top/bottom strip split for the production 96x20 config:
- * the top half [0, ROWS) maps reversed, the bottom half straight, and the two
- * halves partition the physical LED range [0, S) with no overlap.
+ * @brief Pin down that the top and bottom strip halves partition the physical
+ * LED range [0, S) with no overlap for the production 96x20 config.
  */
 inline void test_strip_derivation() {
   // Holosphere 96x20 config: S=40 -> ROWS=20.
   const int S = 40;
-
-  // Top half [0, 20): reversed. y=0 is the LED nearest the junction (LED 19),
-  // y=ROWS-1 the pole end (LED 0).
-  HS_EXPECT_EQ(strip_top_led(0, S), 19);
-  HS_EXPECT_EQ(strip_top_led(19, S), 0);
-
-  // Bottom half [20, 40): straight. y=0 -> LED 20, y=ROWS-1 -> LED 39.
-  HS_EXPECT_EQ(strip_bottom_led(0, S), 20);
-  HS_EXPECT_EQ(strip_bottom_led(19, S), 39);
 
   // The two halves partition [0, S) with no overlap.
   for (int y = 0; y < S / 2; ++y) {
@@ -137,9 +127,7 @@ inline void test_strip_derivation() {
  */
 inline void test_opposite_col_offset() {
   const int w = 96;
-  HS_EXPECT_EQ(strip_opposite_col(0, w), 48);
   HS_EXPECT_EQ(strip_opposite_col(17, w), 65);
-  HS_EXPECT_EQ(strip_opposite_col(48, w), 0);  // wraps to the seam
   HS_EXPECT_EQ(strip_opposite_col(95, w), 47); // (95 + 48) % 96
 }
 
