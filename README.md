@@ -235,7 +235,7 @@ files define line-ending policy and working-artifact exclusions.
 │   ├── engine/                 Machinery: callables, rosters, effect support
 │   │   ├── engine.h                Engine API umbrella for handwritten effects; composed wrappers include composed_effect.h
 │   │   ├── effects_legacy.h        Pre-engine effects (TheMatrix, Spiral, etc.)
-│   │   ├── concepts.h              FunctionRef/Fn callable wrappers, PipelineRef type erasure, Tweenable concept
+│   │   ├── concepts.h              FunctionRef/StoredFunctionRef borrows, Fn-based aliases, PipelineRef, Plottable/Tweenable, DissolveMask
 │   │   └── static_storage.cpp      Definitions of the framebuffer/timeline statics (DMAMEM placement)
 │   ├── memory.h / memory.cpp       Arena and container umbrella, storage and reset definitions
 │   ├── memory/                    Arena, vector, span, scratch, persistence, and generation sections
