@@ -244,6 +244,29 @@ class TestGoodBuildPasses(unittest.TestCase):
 class TestLayoutInvariantsFail(unittest.TestCase):
     """One deliberately-broken fixture per invariant; each must turn the gate red."""
 
+    def test_arena_below_its_minimum_fails(self):
+        sizes = tg.parse_teensy_size(_read("good_teensy_size.txt"))
+        sections = tg.parse_readelf_sections(_read("good_readelf_secs.txt"))
+        symbols = tg.parse_readelf_symbols(_read("good_readelf_syms.txt"))
+        self.assertTrue(tg.evaluate("holosphere", BUDGETS["holosphere"], sizes,
+                                    symbols, sections).passed)
+        symbols = [dataclasses.replace(s, size=200000)
+                   if s.name == "_ZL18global_arena_block" else s for s in symbols]
+        result = tg.evaluate("holosphere", BUDGETS["holosphere"], sizes, symbols, sections)
+        self.assertEqual(_codes(result), ["symbol-too-small"])
+
+    def test_distinct_symbol_definitions_fail_but_identical_rows_pass(self):
+        sizes = tg.parse_teensy_size(_read("good_teensy_size.txt"))
+        sections = tg.parse_readelf_sections(_read("good_readelf_secs.txt"))
+        symbols = tg.parse_readelf_symbols(_read("good_readelf_syms.txt"))
+        arena = next(s for s in symbols if s.name == "_ZL18global_arena_block")
+        self.assertTrue(tg.evaluate("holosphere", BUDGETS["holosphere"], sizes,
+                                    symbols + [arena], sections).passed)
+        result = tg.evaluate("holosphere", BUDGETS["holosphere"], sizes,
+                             symbols + [dataclasses.replace(arena, value=arena.value + 32)],
+                             sections)
+        self.assertEqual(_codes(result), ["symbol-duplicate"])
+
     def test_framebuffer_dropped_dmamem_lands_in_dtcm(self):
         result = _eval("holosphere", "good_teensy_size.txt",
                        "broken_framebuffer_dtcm_syms.txt")
@@ -299,6 +322,17 @@ class TestLayoutInvariantsFail(unittest.TestCase):
 
 
 class TestRegionCeilingsFail(unittest.TestCase):
+    def test_missing_ram2_region_fails(self):
+        symbols = tg.parse_readelf_symbols(_read("good_readelf_syms.txt"))
+        sections = tg.parse_readelf_sections(_read("good_readelf_secs.txt"))
+        sizes = tg.parse_teensy_size(_read("good_teensy_size.txt"))
+        self.assertTrue(tg.evaluate("holosphere", BUDGETS["holosphere"], sizes,
+                                    symbols, sections).passed)
+        sizes = tg.parse_teensy_size("\n".join(
+            line for line in _read("good_teensy_size.txt").splitlines() if "RAM2:" not in line))
+        result = tg.evaluate("holosphere", BUDGETS["holosphere"], sizes, symbols, sections)
+        self.assertEqual(_codes(result), ["region-missing"])
+
     def test_ram2_floor_identifies_heap(self):
         sizes = tg.parse_teensy_size(_read("good_teensy_size.txt"))
         sizes["ram2"]["free"] = 0
