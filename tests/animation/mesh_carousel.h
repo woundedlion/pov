@@ -647,7 +647,7 @@ struct DriftedGradeSegue : Segue::Base {
  * (including the pause gate a shorter override would hide), against Base's
  * phase-hook signatures, and against a LOCAL_SWEEP declared as anything but a
  * constant bool. The Declares* assertions pin the name probes against the
- * drifted policies below, where the hook is present but uncallable at the
+ * drifted policies above, where the hook is present but uncallable at the
  * contract's argument list.
  */
 inline void test_per_face_segues_satisfy_draw_contract() {
