@@ -37,6 +37,19 @@ def _window(renders=(), wall_sum=None, frames=None):
 
 
 class PresetAttribution(unittest.TestCase):
+    def test_presets_refuses_an_absent_scope_and_accepts_a_present_scope(self):
+        for scope, expected in [('fx_buffer_wait', 0), ('fx_buffer_wiat', 2)]:
+            with self.subTest(scope=scope), \
+                    contextlib.redirect_stdout(io.StringIO()) as output, \
+                    contextlib.redirect_stderr(io.StringIO()) as error:
+                self.assertEqual(pp.cmd_presets([_window([1000])], scope, None), expected)
+                if expected:
+                    self.assertIn(scope, error.getvalue())
+                    self.assertEqual(output.getvalue(), '')
+                else:
+                    self.assertEqual(error.getvalue(), '')
+                    self.assertIn(scope, output.getvalue())
+
     def test_initial_indexed_preset_joins_its_cycle(self):
         for indices, expected in [([2, 1], "1"), ([1, 0], "0")]:
             windows = [_window([1000]) for _ in range(3)]
