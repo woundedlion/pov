@@ -674,3 +674,15 @@ inline void case_transformer_pinned_owner_order() {
   second.spawn_pinned(0);
   first->~Pool();
 }
+
+/** @brief Rejects a retired HyperLattice pattern ID. */
+inline void case_hyperlattice_pattern_defaults_invalid() {
+  using Effect = HyperLattice<32, 16>;
+  for (const auto &config : Effect::CONFIGURATIONS) {
+    const auto valid = Effect::pattern_defaults(config.pattern, config.domain);
+    HS_EXPECT_EQ(valid.pattern, config.pattern);
+    HS_EXPECT_EQ(valid.mode, config.domain);
+  }
+  Effect::pattern_defaults(static_cast<Effect::Pattern>(opaque(uint8_t{2})),
+                           Effect::LatticeMode::THREE_D);
+}
