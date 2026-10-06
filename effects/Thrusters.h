@@ -46,9 +46,9 @@ public:
   /**
    * @brief Registers tunable params, bakes the ring palette, and seeds the
    *        timeline.
-   * @details Adds a persistent ring sprite plus a random timer that fires
-   *          thrusters every 16-48 frames. The palette is immutable, so it is
-   *          baked once into a LUT keyed by dot(X, v) (see draw_ring).
+   * @details Adds a persistent ring sprite plus a random thruster-fire timer.
+   *          The palette is immutable, so it is baked once into a LUT keyed by
+   *          dot(X, v).
    */
   HS_COLD_MEMBER void init() override {
     // Radius 0 and 2 both collapse the ring to a point (ring_vec and its
@@ -123,8 +123,7 @@ private:
     static constexpr int LIFE = 16; /**< Visible lifetime in frames. */
     /**
      * @brief Frames over which the ring radius grows from 0 to RADIUS_MAX.
-     * @details After this many frames the radius holds. Derived from `age` in
-     *          draw_frame() (see radius_at()).
+     * @details After this many frames the radius holds.
      */
     static constexpr int RADIUS_GROW_FRAMES = 8;
     static constexpr float RADIUS_MAX = 0.3f; /**< Peak ring radius. */
@@ -138,8 +137,7 @@ private:
      * @param o Orientation snapshot to copy in.
      * @param p Thrust point on the unit sphere.
      * @details Trivially copyable: the circular buffer relocates slots by plain
-     *          memberwise copy. No member holds a reference into this slot, so a
-     *          copy never has to be rebound.
+     *          memberwise copy.
      */
     void reset(const math::Orientation<> &o, const math::Vector &p) {
       orientation = o;
@@ -169,17 +167,15 @@ private:
   StaticCircularBuffer<ThrusterContext, 16>
       thrusters; /**< Live thruster ring slots (FIFO). */
 
-  // Test seam: reaches warp_decay and the fire path the smoke sweep misses.
+  // Test seam: reaches warp_decay and the fire path.
   friend struct ::hs_test::effects_tests::ThrustersWhiteBox;
 
   /**
    * @brief Warp amplitude decay curve over a fire's life, t in [0, 1].
    * @param t Normalized progress through the warp Mutation, 0 at fire, 1 at end.
    * @return Warp amplitude: exactly 0.7 at t=0, decaying to exactly 0 at t=1.
-   * @details A bare 0.7*exp(-2t) bottoms out at 0.7*e^-2 ~= 0.095 and, once
-   *          done() freezes it, leaves a residual wobble; the shift-and-
-   *          renormalize below lands it on zero at t=1 so the ring fully relaxes
-   *          between fires.
+   * @details 0.7*exp(-2t) shifted and renormalized to land on zero at t=1, so
+   *          the ring fully relaxes between fires.
    */
   static float warp_decay(float t) {
     constexpr float FLOOR = 0.1353352832f; // expf(-2)
@@ -227,7 +223,6 @@ private:
                                            2 * math::PI_F, 8 * 16,
                                            math::ease_out_expo));
 
-    // spawn
     spawn_thruster(thrust_point);
     spawn_thruster(thrust_opp);
   }
@@ -251,10 +246,8 @@ private:
    * @param frame Frame counter driving the temporal wave.
    * @return Signed angular radius offset in radians.
    * @details Product of a spatial warp wave (from `phase`) and a temporal wave
-   *          (three cycles per 32 frames, from `frame`), scaled by `amp`. Pure in its
-   *          arguments: callers pass an explicit snapshot of the warp state so
-   *          the result can never depend on the order in which warp_phase /
-   *          amplitude / t_global are mutated relative to the call.
+   *          (three cycles per 32 frames, from `frame`), scaled by `amp`. Pure in
+   *          its arguments; callers pass a snapshot of the warp state.
    */
   static float ring_fn(float t, float phase, float amp, int frame) {
     // phase is radians; sin_wave's phase is cycles.

@@ -9,17 +9,8 @@
  * @brief Double-buffered high-level DMA LED controller, templated on its SPI/DMA
  *        transport.
  *
- * Kept free of Arduino dependencies so the double-buffer / overrun-drop / watchdog
- * orchestration is host-unit-testable against a mock transport, without the
- * Teensy peripherals (see tests/test_dma_controller.h). On device the transport
- * defaults to TeensySPIDMA; a host test substitutes a recording mock.
- *
- * The framing/decision math this drives lives in dma_led_core.h and the wire
- * format in hd107s_frame.h, both already host-tested.
- *
- * On ARDUINO the default transport TeensySPIDMA must be visible here, so this
- * header is included from dma_led.h *after* that class is defined; host builds
- * (ARDUINO undefined) carry no default and name the transport explicitly.
+ * On ARDUINO the default transport TeensySPIDMA must be defined before this
+ * header is included; host builds carry no default and name the transport.
  */
 
 #include <atomic>
@@ -34,9 +25,7 @@
  * @brief The transmit/completion/watchdog contract a controller transport must
  *        satisfy.
  * @tparam T Candidate transport type.
- * @details Mirrors what TeensySPIDMA exposes. Asserted on DMALEDController's
- *          template parameter, so a non-conforming transport fails at the
- *          instantiation site rather than inside submit_frame().
+ * @details Mirrors TeensySPIDMA.
  */
 template <class T>
 concept LedTransport = std::constructible_from<T, uint32_t> &&
@@ -54,14 +43,10 @@ concept LedTransport = std::constructible_from<T, uint32_t> &&
  *         LedTransport; defaults to TeensySPIDMA on device.
  * @note One instance per firmware image: it drives the singleton TeensySPIDMA
  *       backing the shared DMA-completion ISR, so a second begin() traps.
- * @note DMAMEM keeps the HD107SFrame TX buffers out of the RAM1/DTCM budget.
- *       Cached OCRAM requires arm_dcache_flush() before each transfer; DTCM
- *       is DMA-reachable and uncached. GCC silently drops the
- *       DMAMEM section attribute on a vague-linkage template static member, so
- *       such an instance must be defined as an explicit specialization, whose
- *       ordinary strong linkage keeps the attribute. The placement is checked
- *       for the Phantasm image by the `dma_tx_buffer` layout invariant in
- *       tools/teensy_budgets.json.
+ * @note A DMAMEM instance requires arm_dcache_flush() before each transfer.
+ *       GCC silently drops the DMAMEM section attribute on a vague-linkage
+ *       template static member, so such an instance must be defined as an
+ *       explicit specialization.
  *
  * Typical ISR usage (per column):
  *   auto& f = controller.back_frame();  // back buffer (not being DMA'd)
@@ -83,7 +68,6 @@ public:
   /**
    * @brief Constructs the controller, optionally overriding the SPI clock.
    * @param clock SPI clock in Hz forwarded to the transport.
-   *              The Phantasm driver passes 24 MHz (see pov_segmented.h).
    */
   explicit DMALEDController(uint32_t clock = DEFAULT_CLOCK_HZ)
       : spi(clock), active_buffer(0), transfer_count(0), overrun_count(0) {}
@@ -108,13 +92,11 @@ public:
    * @param with_bg If true, DMAs the composite buffer (image + trailing
    *               black frame) in a single transfer — zero gap, no spin.
    * @return true if the frame was handed to the DMA engine; false if dropped on
-   *         overrun (prior transfer still in flight). The fail-dark latch gates
-   *         on this; the segmented column path schedules a retry on failure.
+   *         overrun (prior transfer still in flight).
    */
   [[nodiscard]] bool submit_frame(bool with_bg = false) {
     if (!spi.is_complete()) {
-      // Drop on overrun. A transfer that NEVER completes is a wedged channel,
-      // not a transient, so surface it here — the drop path is where it shows.
+      // Drop on overrun; a transfer that never completes traps here.
       spi.check_stale_transfer();
       overrun_count.fetch_add(1, std::memory_order_relaxed);
       return false;
@@ -147,7 +129,7 @@ public:
 
   // --- Configuration pass-throughs ---
   // Write HD107SFrame<N>'s static color state, shared across all controllers of
-  // the same N (one controller per image, so this is per-image in practice).
+  // the same N.
 
   /**
    * @brief Sets the global brightness applied to every packed pixel.
@@ -183,14 +165,12 @@ private:
   Transport spi; /**< Low-level async DMA+SPI transport for this strip. */
   /**
    * @brief Index (0/1) of the front buffer currently being DMA'd.
-   * @details Plain int: every access is in the single column-ISR context; the
-   *          completion ISR never touches it, so no barrier is needed.
+   * @details Column-ISR context only.
    */
   int active_buffer;
   /**
    * @brief Wrapping 32-bit count of successful DMA submissions.
-   * @details Atomic (ISR RMW + cross-context read); relaxed — an independent
-   *          counter, not a happens-before signal.
+   * @details Relaxed: an independent counter, not a happens-before signal.
    */
   std::atomic<uint32_t> transfer_count;
   std::atomic<uint32_t>

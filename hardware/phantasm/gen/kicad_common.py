@@ -71,12 +71,7 @@ _KCLI = None
 
 
 def kicad_cli():
-    """find_kicad_cli(), resolved on first use and memoized.
-
-    Resolving at module scope would exit the interpreter during import on a
-    machine whose only KiCad is off the pin, taking down every test in the
-    importing suite, KiCad-dependent or not.
-    """
+    """find_kicad_cli(), resolved on first use and memoized."""
     global _KCLI
     if _KCLI is None:
         _KCLI = find_kicad_cli()
@@ -95,9 +90,7 @@ def uid():
     """UUID derived from the calling function and its occurrence count.
 
     Comprehensions and generator expressions use the enclosing function.
-    The key is source file + function name + occurrence. Revision reproduction
-    is covered by the committed-project generation tests. The schematic and
-    board generators draw from disjoint id spaces.
+    The key is source file + function name + occurrence.
     """
     frame = sys._getframe(1)
     while frame.f_code.co_name.startswith("<") and frame.f_back is not None:
@@ -130,8 +123,8 @@ def net_name(node):
 def is_copper_pour(zone):
     """True for a zone that pours copper.
 
-    A rule area carries a keepout node and pours nothing. Its net is not the
-    discriminator: gen/pcb.py writes keepouts with (net 0).
+    A rule area carries a keepout node and pours nothing; its net is not the
+    discriminator.
     """
     return not F(zone, "keepout")
 
@@ -225,8 +218,7 @@ def require_annotated_export(result, sch):
 def export_netlist(kcli, sch):
     """Export `sch` to a kicadsexpr netlist via kicad-cli; return its parsed root.
 
-    Exits with a diagnostic when kicad-cli is absent or the export fails: every
-    caller is a command-line gate, for which a traceback says less.
+    Exits with a diagnostic when kicad-cli is absent or the export fails.
     """
     fd, net = tempfile.mkstemp(suffix=".net")
     os.close(fd)

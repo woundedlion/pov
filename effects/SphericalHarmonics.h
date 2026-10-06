@@ -64,8 +64,7 @@ public:
      * @param l2 Degree of the second harmonic.
      * @param m2 Order of the second harmonic.
      * @param blend Morph fraction in [0, 1] from the first toward the second;
-     * folded to 0 when both modes are the same, so a self-blend evaluates the
-     * harmonic once instead of twice per sample.
+     * folded to 0 when both modes are the same.
      * @param q Orientation quaternion of the shape.
      */
     HarmonicField(int l1, int m1, int l2, int m2, float blend,
@@ -104,8 +103,6 @@ public:
 
   /**
    * @brief One-time setup of params, palette, shape, spin, and first morph.
-   * @details Registers params, bakes the palette, seeds the shape and the
-   * continuous spin, and kicks off the first morph.
    */
   HS_COLD_MEMBER void init() override {
     configure_presets(PRESET_IDS.size());
@@ -125,9 +122,6 @@ public:
 
   /**
    * @brief Render one frame of the morphing harmonic.
-   * @details Decodes the current and target modes, builds the field for this
-   * frame's morph state, and shades the sphere with the harmonic-coloring
-   * shader.
    */
   void draw_frame() override {
     Canvas canvas(*this);

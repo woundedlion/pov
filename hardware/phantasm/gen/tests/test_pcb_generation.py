@@ -1,13 +1,8 @@
 """Self-tests for the board generator.
 
-pcb.py refuses to overwrite an existing phantasm.kicad_pcb without --force.
-Board-generation, DFM and revision-generation tests run it into temporary
-directories; validation gates read the committed board. These tests push the
-generated board through the repo's KiCad-free readers.
-
 Generating needs KiCad's stock symbol and footprint libraries plus a kicad-cli
 on the pin for the netlist export; without them classes gated on GENERATES are
-skipped, while committed-board, footprint, courtyard and overwrite checks run.
+skipped.
 """
 import contextlib
 import io

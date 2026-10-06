@@ -1,14 +1,7 @@
 """Self-tests for the schematic generator.
 
-board.py is the only writer of phantasm.kicad_sch and refuses to overwrite the
-committed file. check.py and shorts.py read the committed schematic; board,
-PCB-generation and revision-generation tests run the generator into a
-temporary directory and assert on what it wrote.
-
 Generating needs KiCad's stock symbol libraries (sexp.KICAD_SHARE); the checks
-that do not are kept outside that guard and also run against the committed
-rev 1.2 schematic, which is generator output. The rev 1.1 schematic carries
-KiCad-authored content and is checked by test_shorts and test_builder.
+that do not also run against the committed rev 1.2 schematic.
 """
 import contextlib
 import io
@@ -171,8 +164,8 @@ class ProjectSeedTests(unittest.TestCase):
 
 
 class DanglingPinTests(unittest.TestCase):
-    """The landing check must fire on a broken board and stay quiet on a
-    connected one, or it proves nothing about the generated schematic."""
+    """The landing check fires on a broken board and stays quiet on a
+    connected one."""
 
     def test_a_connected_pin_is_not_reported(self):
         self.assertEqual(dangling_pins(sexp.parse(LANDED)[0]), [])
@@ -213,7 +206,7 @@ class BypassConnectionChecks:
 
 class CommittedSchematicTests(BypassConnectionChecks, unittest.TestCase):
     """Both checks read the file's own lib_symbols, so no stock library and no
-    kicad-cli is needed: they gate the shipped schematic on every push."""
+    kicad-cli is needed."""
 
     @classmethod
     def setUpClass(cls):

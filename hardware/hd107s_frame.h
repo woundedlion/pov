@@ -7,13 +7,10 @@
 /**
  * @file hd107s_frame.h
  * @brief Pre-formatted HD107S (APA102-compatible) protocol buffer + color
- *        correction. Pure CPU logic, no Teensy peripherals, so the wire-format
- *        and correction math are host-unit-testable (see
- *        tests/test_hd107s_frame.h). dma_led.h `#includes` this and adds the
- *        DMA/SPI hardware driver on top (Teensy-only).
+ *        correction, free of Teensy peripherals.
  *
- * All corrections are applied in linear 16-bit space; the closing linear → sRGB
- * conversion uses the split-decode tables from srgb_decode.h.
+ * All corrections are applied in linear 16-bit space before the linear → sRGB
+ * conversion.
  */
 
 #include <cassert>
@@ -21,9 +18,7 @@
 #include <cstdint>
 #include <cstring>
 
-#include "core/platform/platform.h" // HS_O3_FN — used directly below;
-// included explicitly rather than relying on color.h
-// pulling it (this header is independently host-tested)
+#include "core/platform/platform.h" // HS_O3_FN
 #include "core/color/color.h"       // Pixel
 #include "core/color/srgb_decode.h" // linear_to_srgb8: bit-exact DTCM split-decode
 
@@ -43,10 +38,8 @@ inline void reset_flush_observation() {
  * @brief Cleans a DMA source buffer out of the data cache.
  * @param data First byte of the buffer the DMA engine reads.
  * @param bytes Buffer length in bytes.
- * @details Forwards to arm_dcache_flush (Arduino.h), which cleans dirty lines
- *          without invalidating: a TX-only buffer must reach RAM but stay
- *          resident for the next frame's write. No DMA on host builds, so this
- *          is a no-op there.
+ * @details Cleans dirty lines without invalidating (arm_dcache_flush); a
+ *          no-op on host builds.
  */
 inline void dcache_flush(void *data, uint32_t bytes) {
 #if HS_ENABLE_TEST_HOOKS
@@ -133,10 +126,8 @@ public:
    * @param r In/out red channel, already-linear 16-bit (0..65535).
    * @param g In/out green channel, already-linear 16-bit (0..65535).
    * @param b In/out blue channel, already-linear 16-bit (0..65535).
-   * @details Inline: pack_pixel() calls it on the per-column ISR hot path. No
-   *          output clamp needed — factor() caps every multiplier at 256 (×1.0),
-   *          so each (v*f)>>8 with v ≤ 65535 stays inside linear_to_srgb8's
-   *          16-bit input domain.
+   * @details factor() caps every multiplier at 256 (×1.0), so each (v*f)>>8
+   *          with v ≤ 65535 stays inside linear_to_srgb8's 16-bit input domain.
    */
   HS_O3_FN inline void correct(uint32_t &r, uint32_t &g, uint32_t &b) const {
     r = (r * corr_r) >> 8;
@@ -154,11 +145,8 @@ public:
 
   /**
    * @brief Packs a single Pixel directly into the buffer with corrections.
-   * @param index LED index, must be in [0, N). Unchecked on the device hot path
-   *              (no clamp: an out-of-range index is UB); callers own the bound.
-   *              The assert below is a host-only trip-wire — a stripped assert,
-   *              not HS_CHECK, since this per-pixel ISR path can't afford an
-   *              always-on trap.
+   * @param index LED index, must be in [0, N). Unchecked on device (an
+   *              out-of-range index is UB); asserted on host builds only.
    * @param p     Linear 16-bit pixel.
    * @details Applies color/temperature/brightness corrections in linear 16-bit
    *          space then converts to sRGB 8-bit in a single pass (no intermediate

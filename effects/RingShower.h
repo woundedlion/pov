@@ -14,9 +14,7 @@
 #include "core/color/effect_palette_recipes.h"
 #include "core/engine/engine.h"
 
-// Forward declaration of the unit-test accessor (tests/effects/numeric_invariants.h) that
-// pins Ring::radius_at's age+1 endpoint convention (reaches RADIUS_MAX on the
-// final visible frame); the smoke harness only proves the rings render.
+// Unit-test accessor for Ring::radius_at's age+1 endpoint convention.
 namespace hs_test {
 namespace effects_tests {
 struct RingShowerWhiteBox;
@@ -46,8 +44,7 @@ public:
    * @brief Registers parameters, bakes per-slot palette LUTs, and arms the
    *        spawn timer.
    * @details Allocates each slot's palette LUT once up front; spawn_ring refills
-   *          it in place (rebake, no allocation). 16 * 256 entries amortizes
-   *          trivially.
+   *          it in place (rebake, no allocation).
    */
   HS_COLD_MEMBER void init() override {
     register_param("Alpha", &params.alpha, 0.0f, 1.0f);
@@ -69,10 +66,8 @@ public:
 
   /**
    * @brief Advances and draws every live ring for the current frame.
-   * @details Steps the spawn timer, then advances and draws each live ring from
-   *          its slot. Radius, fade-in, and lifetime are pure functions of `age`,
-   *          not per-ring animations capturing the slot: a slot is recyclable, so
-   *          a stale animation would draw whatever ring later lands in it.
+   * @details Radius, fade-in, and lifetime are pure functions of each slot's
+   *          `age`.
    */
   void draw_frame() override {
     Canvas canvas(*this);
@@ -108,7 +103,7 @@ private:
    */
   struct Ring {
     static constexpr int FADE_IN_FRAMES =
-        4; /**< Fade-in span; opacity uses age+1 so the first draw starts one linear step in (0.25 at 4) rather than 0, then holds at full (no fade-out). */
+        4; /**< Fade-in span; opacity uses age+1, then holds at full (no fade-out). */
     static constexpr float RADIUS_MAX =
         2.0f; /**< Maximum radius; the ring grows from 0 to this over its whole life. */
     static constexpr int LIFE_MIN =
@@ -124,8 +119,6 @@ private:
     /**
      * @brief 256-entry palette LUT, allocated once in init() and rebaked in
      *        place each spawn.
-     * @details Per-fragment lookup is then a LUT read, not a GenerativePalette
-     *          OKLCH evaluation (the palette is immutable after spawn).
      */
     BakedPaletteStorage palette;
     int age = 0; /**< Frames elapsed since (re)spawn. */
@@ -176,10 +169,8 @@ private:
    * @brief Reinitializes the first free ring slot with a new orientation, life,
    *        and palette.
    * @details Scans for a slot whose age has reached its life; if none is free,
-   *          the spawn is silently dropped. The pool can briefly fill, so a
-   *          dropped spawn is an EXPECTED transient (a missed ring is invisible
-   *          against the shower), NOT an invariant violation — do not convert
-   *          this to an HS_CHECK.
+   *          the spawn is dropped, an expected transient rather than an invariant
+   *          violation.
    */
   HS_COLD_MEMBER void spawn_ring() {
     for (size_t i = 0; i < MAX_RINGS; ++i) {

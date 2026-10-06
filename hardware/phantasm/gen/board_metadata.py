@@ -92,9 +92,7 @@ def _check_no_footprint_outline(root):
     """Rejects board-edge geometry drawn inside a footprint.
 
     _outline_bounds() reads top-level gr_* nodes only, so an outline drawn as
-    footprint graphics measures as a smaller board -- or as none at all -- and
-    the facts block ships wrong dimensions. Supporting it means resolving each
-    footprint's placement transform; until something needs that, refuse.
+    footprint graphics would measure as a smaller board or as none at all.
     """
     graphics = {"fp_line", "fp_rect", "fp_poly", "fp_arc", "fp_circle"}
     offenders = []
@@ -216,7 +214,7 @@ def parse_board(text):
         footprint_counts[side] += 1
 
     # Pours and keepout rule areas are both `(zone ...)` but are different
-    # facts: only the pours are copper, and gen/fab.py gates only those.
+    # facts: only the pours are copper.
     pour_counts = Counter()
     rule_area_counts = Counter()
     pours = 0

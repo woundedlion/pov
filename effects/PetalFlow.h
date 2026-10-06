@@ -48,8 +48,7 @@ public:
   /**
    * @brief Registers sliders, clears all rings, and seeds the timeline.
    * @details Runs once per effect instance: init_timeline() adds its events
-   * unconditionally, so a second call would stack a second spawner over the
-   * live rings. next_hue resets here so hue assignment is deterministic.
+   * unconditionally.
    */
   HS_COLD_MEMBER void init() override {
     register_param("Twist", &params.twist_factor, 0.0f, 5.0f);
@@ -98,19 +97,12 @@ private:
       2.5f; /**< Density slider maximum; sets the tightest live spacing, SPACING / DENSITY_MAX. */
   static constexpr float SPEED_MAX =
       20.0f; /**< Speed slider maximum; sets the longest per-frame travel. */
-  /**
-   * @brief Rho advanced per frame per unit of the Speed slider.
-   * @details Converts the unitless Speed control to per-frame motion along the
-   * path.
-   */
+  /** @brief Rho advanced per frame per unit of the Speed slider. */
   static constexpr float RHO_PER_SPEED = SPACING / 32.0f;
   /**
    * @brief Peak concurrent rings, at the tightest spacing and the fastest flow.
-   * @details check_spawn() runs before retirement and emits one ring per gap the
-   * frame's travel opens, so the newest ring can sit a whole frame of travel
-   * below START_RHO while the oldest still sits on END_RHO. Rings hold exactly
-   * one gap apart, so the peak is one per whole gap across that span plus the
-   * ring closing it.
+   * @details Spawning precedes retirement, so the span includes one frame of
+   * travel below START_RHO.
    */
   static constexpr int RINGS_ON_PATH =
       static_cast<int>((END_RHO - START_RHO + SPEED_MAX * RHO_PER_SPEED) *
@@ -163,17 +155,12 @@ private:
 
   Ring rings[MAX_RINGS]{}; /**< Fixed pool of ring slots, active or free. */
 
-  /**
-   * @brief Per-sample exp(radial wobble), cached once in init().
-   * @details The petal shift depends only on the normalized angle, so
-   * exp(shift) is identical for every ring and frame; caching it leaves a single
-   * exp(rho) per ring instead of one exp per sample.
-   */
+  /** @brief Per-sample exp(radial wobble), cached once in init(). */
   float exp_shift[NUM_SAMPLES];
   float gap_accumulator =
       0.0f; /**< Accumulated path travel awaiting the next spawn, in rho units. */
   float next_hue =
-      0.0f; /**< Per-instance hue cursor, advanced per spawn; reset in init() so hue assignment stays deterministic for the fixed-seed segmented driver. */
+      0.0f; /**< Per-instance hue cursor, advanced per spawn; reset in init(). */
 
   /** @brief Dropped spawns between successive pool-full log lines. */
   static constexpr uint32_t POOL_FULL_LOG_PERIOD = 240;
@@ -194,11 +181,7 @@ private:
 
   Timeline timeline; /**< Schedules the orientation rotation and the spawner. */
 
-  /**
-   * @brief Precomputes the geometry-static exp(petal wobble) per sample.
-   * @details The radial wobble is a function of the normalized angle alone, so
-   * its exponential is constant across rings and frames.
-   */
+  /** @brief Precomputes the geometry-static exp(petal wobble) per sample. */
   HS_COLD_MEMBER void build_shift_table() {
     for (int i = 0; i < NUM_SAMPLES; ++i) {
       float t_norm = static_cast<float>(i) / NUM_SAMPLES;
@@ -212,8 +195,7 @@ private:
   /**
    * @brief Seeds the timeline and pre-fills the path with rings.
    * @details Adds the looping orientation rotation and the spawner, then
-   * pre-fills the entire path with evenly spaced rings so the flow is full from
-   * frame zero rather than filling in over time.
+   * pre-fills the entire path with evenly spaced rings.
    */
   HS_COLD_MEMBER void init_timeline() {
     timeline.add(0, Animation::Rotation<W>(orientation, math::UP,
@@ -231,11 +213,7 @@ private:
     gap_accumulator = last_r - START_RHO;
   }
 
-  /**
-   * @brief Rho advanced this frame: the Speed slider scaled into per-frame
-   * motion. Spawn and render must step by the identical amount, so both read it
-   * here.
-   */
+  /** @brief Rho advanced this frame; spawn and render both step by it. */
   float move_dist() const { return params.speed * RHO_PER_SPEED; }
 
   /** @brief Live inter-ring spacing: the base SPACING scaled by the Density slider. */
@@ -264,9 +242,7 @@ private:
    * @param initial_rho Position along the path at which to place the ring, in
    * rho units.
    * @details Assigns the next hue and advances the hue cursor. No-op if all
-   * slots are in use, which RINGS_ON_PATH sizes the pool to prevent. A
-   * saturated pool drops one spawn per opened gap every frame, so the drop log
-   * is throttled to one line per POOL_FULL_LOG_PERIOD drops.
+   * slots are in use; drops are logged once per POOL_FULL_LOG_PERIOD.
    */
   HS_COLD_MEMBER void spawn_ring_at_pos(float initial_rho) {
     for (int i = 0; i < MAX_RINGS; ++i) {
@@ -349,8 +325,7 @@ private:
         float final_theta = theta + twist_angle;
 
         // Inverse stereographic projection of (radius exp(rho + wobble), angle
-        // final_theta) onto the unit sphere, poles on +/-Z; core's inv_stereo()
-        // is +/-Y-poled. exp_shift caches the geometry-static exp(wobble).
+        // final_theta) onto the unit sphere, poles on +/-Z.
         float R = exp_rho * exp_shift[i];
 
         float r2 = R * R;

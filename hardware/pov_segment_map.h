@@ -7,24 +7,13 @@
  * @file pov_segment_map.h
  * @brief Pure segment-ID and index arithmetic for the segmented POV driver.
  *
- * Kept free of Arduino dependencies so the load-bearing index math — which
- * segment owns which canvas column and rows, and in which direction its
- * physical strip runs — is unit-testable on the host without a Teensy. The
- * driver's boot-time configure_segment() and per-column ISR derive their
- * mapping from these functions, so the host tests cover the real arithmetic.
- * An off-by-one here silently mis-paints the sphere.
- *
  * Layout: two arms, with N/2 contiguous row bands per arm.
  *   Arm A samples canvas column x; arm B samples column (x + W/2) % W.
  *   Northern bands run toward the junction in increasing y order. Southern
  *   bands run toward the junction in decreasing y order.
  *
- * NOTE: the top-arm wiring convention deliberately differs from the single-board
- * rig (pov_single_map.h). Here the top segment wires LED 0 at the N pole, NOT
- * reversed (y_step = +1); the single-board rig reverses its top arm with LED 0
- * at the S pole, row S/2-1 (strip_top_led = S/2-1-y), with the midpoint LEDs
- * S/2-1 and S/2 at the N pole. The two are separate physical
- * builds — do not assume one map's top-arm direction carries over.
+ * NOTE: the top segment wires LED 0 at the N pole (y_step = +1), unlike the
+ * single-board rig's reversed top arm (pov_single_map.h).
  */
 #pragma once
 
@@ -128,8 +117,7 @@ constexpr int segment_pixel_base(const SegmentMap &m, int x_col, int w) {
  * @param w Canvas width in columns.
  * @return Signed index delta per LED; negative for a reversed southern band.
  * @details segment_pixel_base() plus i strides equals segment_y()'s row times
- * w plus x_col, so the column ISR walks rows by accumulation without a
- * per-pixel multiply.
+ * w plus x_col.
  */
 constexpr int segment_row_stride(const SegmentMap &m, int w) {
   return m.y_step * w;
@@ -172,9 +160,7 @@ constexpr SegmentClip segment_clip(const SegmentMap &m, bool arm_a_left, int S,
  * @brief Whether a segment renders only its segment_clip() rectangle.
  * @param full_frame The effect's needs_full_frame().
  * @param persists The effect's persists_pixels().
- * @return False when the effect reads cross-segment or prior-frame state, so
- * the driver keeps the full canvas and the per-frame arm-half alternation
- * leaves no stale pixels for trails and feedback to sample.
+ * @return False when the effect reads cross-segment or prior-frame state.
  */
 constexpr bool segment_clip_applies(bool full_frame, bool persists) {
   return !full_frame && !persists;

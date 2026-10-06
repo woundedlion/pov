@@ -19,16 +19,10 @@
  * @tparam Derived Concrete effect supplying the system-specific render().
  * @tparam W Framebuffer width in pixels.
  * @tparam H Framebuffer height in pixels.
- * @details Both systems run on the same 7680-node Fibonacci-lattice K-NN graph,
- * share a Languid random-walk view orientation, build or bind the node positions
- * once at init (the lattice is static), interpolate with a compact biweight
- * kernel (C1 at the support edge), and seed fields with saturated blobs. This base
- * captures exactly that shared scaffolding. The physics (Lotka-Volterra
- * 3-species vs Gray-Scott 2-species), params, palette, and rendering are
- * fundamentally different and stay in the derived classes.
- *
- * Dispatch is static (CRTP): draw_frame() forwards to Derived::render(); derived
- * classes befriend this base so render() can stay private.
+ * @details Holds the static Fibonacci-lattice K-NN graph, the Languid
+ * random-walk view orientation, the compact biweight kernel and blob seeding.
+ * draw_frame() forwards to Derived::render(); derived classes befriend this base
+ * so render() can stay private.
  */
 template <typename Derived, int W, int H>
 class ReactionDiffusionBase : public Effect {
@@ -46,8 +40,6 @@ public:
 
   /**
    * @brief Advances one animation frame and dispatches to the derived renderer.
-   * @details Advances the orientation timeline, then statically dispatches to
-   * Derived::render() for the system-specific physics and drawing.
    */
   void draw_frame() override {
     Canvas canvas(*this);
@@ -86,9 +78,7 @@ protected:
    * @brief Converts a normalized concentration to a Q16 fixed-point sample.
    * @param v Concentration; clamped to [0.0, 1.0] before scaling.
    * @return Q16 value in [0, 65535], rounded to nearest.
-   * @details Rounds to nearest (+0.5f); truncating would bias the dynamics down
-   *          by dropping sub-LSB positive updates. clamp bounds the input so
-   *          65535.5 -> 65535 with no overflow.
+   * @details clamp bounds the input so 65535.5 -> 65535 with no overflow.
    */
   static __attribute__((always_inline)) inline uint16_t to_q16(float v) {
     return static_cast<uint16_t>(hs::clamp(v, 0.0f, 1.0f) * Q16_SCALE + 0.5f);
@@ -127,8 +117,6 @@ protected:
    * @param d2 Squared distance from the query to the node.
    * @param on_weight Callable invoked as `on_weight(weight)` only when the node
    * lies inside the support radius.
-   * @details Passes the weight to a callback rather than returning it so the
-   * out-of-support test stays a branch around the caller's accumulation.
    */
   template <typename OnWeight>
   static __attribute__((always_inline)) void
@@ -199,14 +187,10 @@ protected:
    * @param rv Query direction (unit vector on the sphere).
    * @param nodes Node positions in the same frame as `rv`, indexed by node id.
    * @param seed Seed node id from the cubemap LUT.
-   * @return The id of the closest node among the seed and its direct neighbors.
-   * That is the true nearest node whenever the seed is that node or adjacent to
-   * it. Two-hop equatorial seeds tolerated by the cubemap LUT
-   * (tests/test_reaction_graph.h) can remain unrecovered.
-   * @details Off the render path: both systems center their stencils with
-   * refine_render_center. This unconditional walk is the independent oracle
-   * tests/effects/reaction_diffusion_bz.h and reaction_diffusion_gs.h measure
-   * that certified early-out against.
+   * @return The id of the closest node among the seed and its direct neighbors;
+   * the true nearest node whenever the seed is that node or adjacent to it.
+   * @details Unconditional walk; the reference for refine_render_center's
+   * certified early-out.
    */
   HS_O3_FN static int refine_center(const math::Vector &rv,
                                     const math::Vector *nodes, int seed) {
@@ -250,8 +234,7 @@ protected:
    * @param nodes Node positions in the same frame as `rv`, indexed by node id.
    * @param seed Seed node id from the cubemap LUT.
    * @return The id of the nearest node among the seed and its neighbors.
-   * @details The certificates are properties of the shared lattice, so either
-   * system may center its render stencil with this. A query lying within half
+   * @details A query lying within half
    * the distance from the seed to its closest lattice neighbor cannot be nearer
    * to any other node, so the seed is the argmin by triangle inequality. The
    * polar band carries its own, smaller certificate because the Fibonacci
@@ -287,9 +270,7 @@ protected:
    * @param seed Seed node id from the cubemap LUT.
    * @param on_weight Callable invoked as `on_weight(node_index, weight)` for
    * every node inside the support radius.
-   * @details Off the render path: its only caller is GSReactionDiffusion's
-   * interpolate_b, itself a tests/effects/reaction_diffusion_gs.h oracle. It stands as the
-   * per-sample reference the shared-stencil shaders are bounded against. The
+   * @details Per-sample reference for the shared-stencil shaders. The
    * seed stencil's squared distances are computed once while tracking the
    * argmin: when the seed is already nearest they feed the kernel weights
    * directly; otherwise the kernel re-walks the refined center's stencil.
@@ -370,9 +351,8 @@ protected:
   /**
    * @brief Vertex-shader seed: tags a fragment with its cubemap-LUT node id.
    * @param frag Fragment whose pos seeds frag.v0 with the cubemap-LUT node id.
-   * @details Shared by both systems' render() vertex shaders; the fragment
-   * shader selects the nearest node in this face-quantized seed's one-ring
-   * (see refine_render_center).
+   * @details The fragment shader refines this face-quantized seed to the
+   * nearest node in its one-ring (refine_render_center).
    */
   void seed_face_lut(Fragment &frag) {
     math::Vector rv = inverse_orientation.apply(frag.pos);
@@ -382,8 +362,8 @@ protected:
 private:
   /**
    * @brief Installs a Languid random-walk animation of the view orientation.
-   * @details Shared by both systems; seeds OpenSimplex2 noise and adds the
-   * random-walk animation to the timeline.
+   * @details Seeds OpenSimplex2 noise and adds the random-walk animation to the
+   * timeline.
    */
   void init_orientation_animation() {
     timeline.add(0, Animation::RandomWalk<W>(
@@ -407,9 +387,6 @@ private:
    * @param world Output world-space positions, count entries.
    * @param count Node count.
    * @param q Lattice-to-world rotation (the current view orientation).
-   * @details Rotating the lattice once per frame lets the per-sub-sample kernel
-   * walks compare world-space queries directly instead of un-orienting every
-   * query.
    */
   HS_O3_FN static void orient_nodes(const math::Vector *nodes,
                                     math::Vector *world, int count,
@@ -461,10 +438,9 @@ protected:
   /**
    * @brief One frame's oriented lattice, bundled with the scratch scope it is
    *        carved from.
-   * @details Ties the scope to the array the way init_lattice() ties the node
-   * reserve to the fill: a caller cannot take the world nodes without taking
-   * the reclaim. Nests LIFO like any other ScratchScope, so allocations made
-   * from the same arena after the handle is constructed must not outlive it.
+   * @details A caller cannot take the world nodes without taking the reclaim.
+   * Nests LIFO like any other ScratchScope, so allocations made from the same
+   * arena after the handle is constructed must not outlive it.
    */
   class OrientedLattice {
   public:
@@ -581,8 +557,8 @@ private:
    * @param center Center node id of the kernel.
    * @param on_weight Callable invoked as `on_weight(node_index, weight)` for
    * every node inside the support radius.
-   * @details The caller accumulates whatever fields it needs and applies the
-   * total-weight guard, so this stays agnostic to species count and fixed-point.
+   * @details The caller accumulates its fields and applies the total-weight
+   * guard.
    */
   template <typename OnWeight>
   HS_O3_FN static void kernel_accumulate(const math::Vector &rv,
@@ -605,5 +581,5 @@ protected:
       cube_lut;      /**< Cubemap LUT for fast nearest-node seeding. */
   Timeline timeline; /**< Animation timeline advancing the orientation. */
   const math::Vector *nodes =
-      nullptr; /**< Fixed lattice node positions (RD_N): arena copy for BZ, flash table under FlashNodes for GS. */
+      nullptr; /**< Fixed lattice node positions (RD_N): an arena copy, or the flash table under FlashNodes. */
 };

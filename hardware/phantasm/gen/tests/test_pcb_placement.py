@@ -37,8 +37,8 @@ class LockedPlacementTests(unittest.TestCase):
 
 
 class OutlineBoundsTests(unittest.TestCase):
-    """Both board paths run this gate: DRC never reports copper hanging past
-    Edge.Cuts, and the fab routs it away."""
+    """DRC never reports copper hanging past Edge.Cuts, and the fab routs it
+    away."""
 
     PADS = {"R1": (-2.0, -0.5, 2.0, 0.5)}
     LENGTH = 20.0

@@ -107,7 +107,7 @@ public:
     }();
 
     // One node for all per-pixel work (corner pre-pass + shading loop); never
-    // scope inside the per-pixel loop, filter.h counts blended pixels.
+    // scope inside the per-pixel loop.
     HS_PROFILE(vo_shade);
 
     // Coarse-grid coherence: classify the nearest pair once per coarse-grid
@@ -225,8 +225,6 @@ private:
    * @param d1 Dot with the second site; NO_DOT when the block held a single
    *        candidate.
    * @return The cell color, alpha 0 on a border seam.
-   * @details always_inline: the caller is the per-pixel loop, and an
-   *          out-of-line copy would put a call in it.
    */
   __attribute__((always_inline)) Color4 shade(uint16_t i0, float d0,
                                               uint16_t i1, float d1) const {

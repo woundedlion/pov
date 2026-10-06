@@ -8,17 +8,8 @@
  * @file dma_led.h
  * @brief Non-blocking DMA LED controller for HD107S (APA102-compatible) LEDs.
  *
- * Drives the strip via an async DMA pipeline so the main loop never blocks on
- * SPI:
- *   HD107SFrame  — pre-formatted protocol buffer with inline color correction
- *   TeensySPIDMA — low-level DMA+SPI hardware driver
- *   DMALEDController — double-buffered high-level controller
- *
- * Color correction uses the split linear-to-sRGB tables from srgb_decode.h.
- * All corrections are applied in linear 16-bit space.
- *
- * Only compiles on Teensy 4.x (ARDUINO defined). On WASM/sim builds this
- * header is a no-op.
+ * Only compiles on Teensy 4.x (ARDUINO defined); elsewhere this header is a
+ * no-op.
  */
 
 #ifdef ARDUINO
@@ -29,13 +20,8 @@
 #include <atomic>
 #include "core/platform/platform.h"
 
-// HD107SFrame (protocol buffer + color correction) lives in its own header so
-// its wire-format / correction math is host-unit-testable without the Teensy
-// peripherals below. See tests/test_hd107s_frame.h.
 #include "hd107s_frame.h"
 
-// Pure framing / transfer-length / stale-transfer math, host-unit-tested
-// without the Teensy peripherals below. See tests/test_dma_core.h.
 #include "dma_led_core.h"
 
 // ============================================================================
@@ -46,8 +32,7 @@
  * @brief Manages a single DMA channel wired to LPSPI4 (SPI) for async
  *        byte-stream transmission.
  *
- * Usage (both production callers run in the column ISR, where spinning on
- * completion deadlocks — see transmit_async's @pre):
+ * Usage (never spin on completion; see transmit_async's @pre):
  *   if (spi.is_complete())
  *     spi.transmit_async(buffer, length);  // returns immediately
  *   else
@@ -69,8 +54,7 @@ public:
    * @brief Initializes SPI and DMA hardware. Must be called from setup(),
    *        not from global constructors (peripherals may not be ready yet).
    *
-   * Call exactly once; a second call traps (re-running SPI.begin() would leak
-   * the open transaction).
+   * Call exactly once; a second call traps.
    */
   void init() {
     HS_CHECK(!initialized, "TeensySPIDMA::init() called twice");
@@ -106,17 +90,12 @@ public:
    * @brief Starts an async DMA transfer. Returns immediately.
    * @param data Pointer to byte buffer (must remain valid until complete).
    * @param len  Number of bytes to transmit.
-   * @pre The caller has cleaned the buffer from cache (submit_frame() does this
-   *      via frames[back].flush()); this method only enables the DMA and does
-   *      not flush.
+   * @pre The caller has cleaned the buffer from cache; this method does not
+   *      flush.
    * @pre No transfer is in flight (is_complete()). Callers must test and skip,
-   *      never spin: this runs in the column ISR, which the DMA-completion ISR
-   *      cannot preempt, so a spin never ends.
+   *      never spin: the DMA-completion ISR cannot preempt the column ISR.
    */
   void transmit_async(const uint8_t *data, size_t len) {
-    // Trap rather than spin on an in-flight transfer: this runs in the column
-    // ISR, where spinning would deadlock — the DMA-completion ISR that marks
-    // transfer_complete true cannot preempt an equal/lower-priority ISR.
     HS_CHECK(transfer_complete.load(std::memory_order_relaxed),
              "transmit_async entered with a transfer still in flight — "
              "submit_frame() must guard with is_complete()");
@@ -136,10 +115,7 @@ public:
 
   /**
    * @brief Surfaces a permanently wedged DMA channel from the overrun-drop path.
-   * @details submit_frame() drops on overrun rather than spinning, so a channel
-   *          whose completion ISR never fires would otherwise stay masked
-   *          forever. Traps once the in-flight transfer outlives the watchdog.
-   *          Only fires while submit_frame() is being called.
+   * @details Traps once the in-flight transfer outlives the watchdog.
    */
   void check_stale_transfer() {
     if (transfer_complete.load(std::memory_order_relaxed))
@@ -169,15 +145,14 @@ private:
   /**
    * @brief Completion flag handed between the DMA-completion ISR and the
    *        column ISR.
-   * @details Does NOT order the buffer for the DMA engine — the
-   *          caller's arm_dcache_flush() before transmit_async() does that.
+   * @details Does not order the buffer for the DMA engine; the caller's cache
+   *          flush before transmit_async() does that.
    */
   std::atomic<bool> transfer_complete;
   /**
    * @brief micros() at which the in-flight transfer was enabled.
-   * @details Touched only in column-ISR context (transmit_async /
-   *          check_stale_transfer), never the completion ISR, so a plain scalar is
-   *          correct. Only meaningful while transfer_complete is false.
+   * @details Column-ISR context only. Meaningful only while transfer_complete
+   *          is false.
    */
   unsigned long transfer_start_us = 0;
   SPISettings
@@ -193,19 +168,14 @@ private:
   /**
    * @brief Singleton pointer for ISR callback dispatch. Exactly one
    *        TeensySPIDMA per image; init() traps on a second instance.
-   * @details Written once from setup() before any ISR uses it, then read from
-   *          the completion ISR — race-free under the single-observer model (see
-   *          transfer_complete).
+   * @details Written once from setup() before any ISR uses it.
    */
   static TeensySPIDMA *instance;
 };
 
 inline TeensySPIDMA *TeensySPIDMA::instance = nullptr;
 
-// DMALEDController (double-buffered controller) lives in its own header so its
-// overrun-drop / double-buffer / watchdog orchestration is host-testable against
-// a mock transport. Included here, after TeensySPIDMA, so its default transport
-// resolves. See tests/test_dma_controller.h.
+// Included after TeensySPIDMA so its default transport resolves.
 #include "dma_led_controller.h"
 
 #endif // ARDUINO

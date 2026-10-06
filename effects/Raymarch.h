@@ -409,9 +409,8 @@ public:
                           Animation::RandomWalk<W>::Options::Energetic()));
     }
 
-    // spin_phase / palette_phase are effect-owned accumulators wrapped to [0,1)
-    // each step, so the trig argument never grows. spin_phase is scaled to
-    // radians by *2pi where consumed.
+    // spin_phase / palette_phase are wrapped to [0,1) each step; spin_phase is
+    // scaled to radians where consumed.
     timeline.add(0, Animation::Driver(spin_phase, &params.pulse_speed,
                                       1.5f / (60.0f * math::TWO_PI_F), true));
     timeline.add(0, Animation::Driver(palette_phase, &params.pulse_speed,

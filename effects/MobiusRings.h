@@ -173,8 +173,7 @@ private:
    * @brief Counter-rotation swinging the transformed-pole midpoint back onto +Z.
    * @param mid Sum of the two Möbius-transformed poles.
    * @return Rotation mapping the normalized midpoint to +Z, or identity when the
-   *         two poles cancel (mid ~ 0 at the strip singularity) and the direction
-   *         is undefined — feeding a zero vector to make_rotation is avoided.
+   *         two poles cancel (mid ~ 0 at the strip singularity).
    */
   static math::Quaternion counter_rotation(math::Vector mid) {
     if (mid.length() > 0.001f) {
@@ -191,7 +190,7 @@ private:
    * @param phase Scroll offset subtracted from the coordinate.
    * @return Palette coordinate in [0, 1]; the poles y = +/-1 saturate to 1.0
    *         before the singular conformal radius R = sqrt((1+y)/(1-y)) is
-   *         formed, so no non-finite intermediate is produced.
+   *         formed.
    */
   static float conformal_coord(float y, float phase) {
     constexpr float POLE_EPS = 1e-6f;
@@ -240,11 +239,8 @@ private:
    * @param q Counter-rotation applied after the Möbius warp.
    * @param curve_fn Supplies the {basis, radius} for curve i.
    * @param make_shader Builds curve i's fragment shader, once per curve.
-   * @details For each curve it asks curve_fn(i) for the {basis, radius}, samples
-   *          a spherical polygon, warps every point through the Möbius transform
-   *          plus counter-rotation q, then rasterizes through the shader
-   *          make_shader(i, opacity) returns. The two callbacks are all that
-   *          differs between the ring and longitude passes.
+   * @details Each curve is sampled as a spherical polygon, warped through the
+   *          Möbius transform plus counter-rotation q, then rasterized.
    */
   template <typename CurveFn, typename ShaderFn>
   void draw_curves(Canvas &canvas, float num, const math::Quaternion &q,
@@ -298,7 +294,6 @@ private:
                        float phase, const math::Quaternion &q) {
     const float range = CONFORMAL_LOG_MAX - CONFORMAL_LOG_MIN;
 
-    // normal is loop-invariant, so the basis is identical for every ring.
     const math::Basis ring_basis = math::make_basis(math::Quaternion(), normal);
 
     draw_curves(
@@ -324,9 +319,8 @@ private:
    * @param phase Scroll offset in [0, 1) advancing the hue gradient.
    * @param q Counter-rotation applied after the Möbius warp.
    * @details The color comes from the conformal radius of the source great
-   *          circle's parameter, not of the warped fragment position, so the
-   *          hue gradient is anchored to the pre-warp curve and scrolls with
-   *          phase.
+   *          circle's parameter, so the hue gradient is anchored to the pre-warp
+   *          curve and scrolls with phase.
    */
   void draw_longitudes(Canvas &canvas, float num, float phase,
                        const math::Quaternion &q) {
@@ -371,12 +365,11 @@ private:
    *          `timeline` so the counts outlive the Mutations that point here.
    */
   struct Params {
-    /** Animated latitude-ring count; the default is the ring Mutation's opening
-     * sample, so a pause held from before init() still draws a grid. */
+    /** Animated latitude-ring count; defaults to the ring Mutation's opening
+     * sample. */
     float num_rings = 12.0f;
-    /** Animated longitude-line count; the default is the line Mutation's
-     * opening sample, so the lines are drawn before that Mutation starts and
-     * under a pause held from before init(). */
+    /** Animated longitude-line count; defaults to the line Mutation's opening
+     * sample. */
     float num_lines = 1.0f;
     float alpha = 0.2f; /**< Overall opacity multiplier in [0, 1]. */
   } params;

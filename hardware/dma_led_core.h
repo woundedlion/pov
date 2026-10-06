@@ -6,9 +6,8 @@
 
 /**
  * @file dma_led_core.h
- * @brief Host-tested double-buffer, transfer-length, transfer-duration and
- *        stale-transfer math for DMALEDController in dma_led_controller.h.
- * @details TeensySPIDMA in dma_led.h supplies the Arduino-only transport.
+ * @brief Double-buffer, transfer-length, transfer-duration and stale-transfer
+ *        math for DMALEDController.
  */
 
 #include <cstddef>
@@ -48,9 +47,7 @@ constexpr std::size_t transfer_len(std::size_t base_size,
  * @param clock_hz Bit clock the transport runs at, in Hz.
  * @return Transfer duration including LPSPI byte framing, rounded up to µs.
  * @pre clock_hz > 0.
- * @details Rounded up so the driver's `column_interval_us > transfer_us` check
- *          never under-counts the transfer and admits a configuration that
- *          overruns the DMA every column.
+ * @details Rounded up so the result never under-counts the transfer.
  */
 constexpr unsigned long transfer_us(unsigned long bytes,
                                     unsigned long clock_hz) {
@@ -72,9 +69,8 @@ constexpr unsigned long transfer_us(unsigned long bytes,
  * @param now_us Current micros() timestamp.
  * @param watchdog_us Watchdog bound in µs.
  * @return true once now_us - start_us reaches watchdog_us.
- * @details Uses unsigned wrap-safe subtraction (now_us - start_us), matching the
- *          device's `micros() - transfer_start_us`: the elapsed delta stays
- *          correct across an unsigned-long micros() rollover.
+ * @details Unsigned subtraction keeps the delta correct across a micros()
+ *          rollover.
  */
 constexpr bool transfer_stale(unsigned long start_us, unsigned long now_us,
                               unsigned long watchdog_us) {
