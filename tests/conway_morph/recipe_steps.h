@@ -819,7 +819,8 @@ inline void test_opleg_edge_leg_crossfade() {
 inline void test_unsweepable_recipe_steps_are_gated() {
   using Solids::Op;
   using Solids::IslamicStarPatterns::D2R;
-  using Solids::IslamicStarPatterns::TRUNCATE_T_FAR;
+  using ConwayGraph::T_TRUNCATE_ARRIVAL_MIN;
+  using ConwayGraph::T_TRUNCATE_FAR_MAX;
 
   HS_EXPECT_TRUE(Solids::is_morphable_step({Op::TRUNCATE, 0.33f}));
   HS_EXPECT_TRUE(Solids::is_morphable_step({Op::TRUNCATE, 0.49f}));
@@ -829,18 +830,22 @@ inline void test_unsweepable_recipe_steps_are_gated() {
   HS_EXPECT_TRUE(Solids::is_morphable_step({Op::RELAX, 8.0f}));
   HS_EXPECT_TRUE(Solids::is_morphable_step({Op::HANKIN, 62.0f * D2R}));
   HS_EXPECT_TRUE(Solids::is_morphable_step({Op::AMBO}));
-  // 0.01 is below T_EPS but sweepable: the leg births at the derived
-  // per-arrival floor.
-  HS_EXPECT_TRUE(Solids::is_morphable_step({Op::TRUNCATE, 0.01f}));
-  HS_EXPECT_TRUE(!Solids::is_morphable_step({Op::TRUNCATE, 0.001f}));
-  // At t == 1 the cut faces collapse.
-  HS_EXPECT_TRUE(Solids::is_morphable_step({Op::TRUNCATE, TRUNCATE_T_FAR}));
-  HS_EXPECT_TRUE(!Solids::is_morphable_step({Op::TRUNCATE, 1.0f}));
-  HS_EXPECT_TRUE(Solids::is_morphable_step({Op::CHAMFER, 0.63f}));
+  HS_EXPECT_TRUE(
+      Solids::is_morphable_step({Op::TRUNCATE, T_TRUNCATE_ARRIVAL_MIN}));
+  HS_EXPECT_FALSE(Solids::is_morphable_step(
+      {Op::TRUNCATE, std::nextafter(T_TRUNCATE_ARRIVAL_MIN, 0.0f)}));
+  HS_EXPECT_TRUE(Solids::is_morphable_step({Op::TRUNCATE, T_TRUNCATE_FAR_MAX}));
+  HS_EXPECT_FALSE(Solids::is_morphable_step(
+      {Op::TRUNCATE, std::nextafter(T_TRUNCATE_FAR_MAX, 1.0f)}));
+  HS_EXPECT_TRUE(
+      Solids::is_morphable_step({Op::CHAMFER, Solids::CHAMFER_T_MAX}));
+  HS_EXPECT_FALSE(Solids::is_morphable_step(
+      {Op::CHAMFER, std::nextafter(Solids::CHAMFER_T_MAX, 1.0f)}));
+  for (Op op : {Op::EXPAND, Op::BEVEL, Op::GYRO, Op::META, Op::NEEDLE, Op::ZIP})
+    HS_EXPECT_FALSE(Solids::is_morphable_step({op}));
   HS_EXPECT_TRUE(Solids::is_morphable_step({Op::KIS}));
   HS_EXPECT_TRUE(Solids::is_morphable_step({Op::DUAL}));
   HS_EXPECT_TRUE(!Solids::is_morphable_step({Op::CHAMFER, 0.001f}));
-  HS_EXPECT_TRUE(!Solids::is_morphable_step({Op::CHAMFER, 0.9f}));
   // Zero snub inset, zero hankin angle and bake-less relax below one iteration
   // are not morphable.
   HS_EXPECT_TRUE(!Solids::is_morphable_step({Op::SNUB, 0.0f}));
