@@ -8,9 +8,7 @@
  * @brief JS-facing render bridge: the HolosphereEngine class and its embind
  *        registration.
  *
- * Owns the stack high-water instrumentation and the readback buffers JS renders
- * from, over the factory and HS_RESOLUTIONS dispatch in effect_factory.h.
- * Included only by targets/wasm/wasm.cpp.
+ * Owns the stack high-water instrumentation and the JS readback buffers.
  */
 #pragma once
 
@@ -22,14 +20,14 @@
 #include "hardware/pov_segment_map.h"
 #include "targets/wasm/arena_metrics.h"
 #include "targets/wasm/workbench_bindings.h"
-#include "targets/wasm/effect_factory.h" // pure, host-tested factory + dispatch
-#include "targets/wasm/param_marshal.h"  // pure, host-tested param marshaling
-#include "targets/wasm/wasm_predicates.h" // pure, host-tested boundary predicates
-#include <algorithm> // std::fill_n — blank-frame clear in drawFrame
+#include "targets/wasm/effect_factory.h"
+#include "targets/wasm/param_marshal.h"
+#include "targets/wasm/wasm_predicates.h"
+#include <algorithm>
 #include <cmath>
 #include <vector>
 #include <cstring>
-#include <climits> // INT_MAX — drawFrame pixel-index accumulator bound
+#include <climits>
 #include <memory>
 #include <string>
 
@@ -39,11 +37,8 @@ inline constexpr uint8_t STACK_CANARY = 0xCD;
 /**
  * @brief Lowest stack address the canary may occupy.
  * @return The stack end, raised past the runtime's stack cookie.
- * @details An -sASSERTIONS build (STACK_OVERFLOW_CHECK) writes two cookie words
- *          at the stack end, shifted one word up when that end is address 0.
- *          Painting over them would leave checkStackCookie() reporting an
- *          overflow that never happened, so the canary starts above the widest
- *          of those two placements.
+ * @details Clears both placements of the two -sASSERTIONS cookie words, so
+ *          checkStackCookie() never reports a false overflow.
  */
 static uintptr_t stack_canary_floor() {
   return emscripten_stack_get_end() + 4 * sizeof(uint32_t);
@@ -69,13 +64,8 @@ static void stack_paint_canary() {
  * @return Number of stack bytes that have been touched, in bytes (the high
  *         water mark), found by scanning from the canary floor upward to the
  *         first overwritten canary byte.
- * @details This is a LOWER bound, not an exact figure: a frame that wrote the
- *          coincidental byte 0xCD, or that reserved space it never actually
- *          stored to, reads back as still-canary and under-reports. Use it as a
- *          conservative "at least this deep" signal, not a precise measurement.
- *          The scan walks the whole still-canary region, so it runs word-wise
- *          and falls back to bytes only at the alignment head and the boundary
- *          word.
+ * @details A lower bound: a frame that wrote 0xCD, or reserved space it never
+ *          stored to, reads back as still-canary.
  */
 static size_t stack_high_water_mark() {
   uintptr_t base = emscripten_stack_get_base();
@@ -98,15 +88,11 @@ static size_t stack_high_water_mark() {
   return static_cast<size_t>(top - p);
 }
 
-// Deepest stack an effect's construction + init() has reached, as a running max
-// over every load. Latched because the very next repaint erases the canary
-// evidence: without it the only readable mark is the render path's, and a
-// stack-hungry constructor — what this instrumentation exists to catch — leaves
-// nothing a gate can fail on.
+// Running max of the stack depth reached by effect construction + init();
+// latched because the next repaint erases the canary.
 static size_t init_stack_peak = 0;
 
-// Bound on one effect's exposed parameters; covers ShaderChain's MAX_CHAIN_PARAMS
-// schema (static_assert below).
+// Bound on one effect's exposed parameters.
 inline constexpr size_t MAX_PARAMS = hs_wasm::ParamStreams::CAPACITY;
 
 #if HS_ENABLE_CHAIN_INTERPRETER
@@ -119,15 +105,11 @@ static_assert(MAX_PARAMS >= Effect::ParamList::FIXED_CAPACITY,
 
 /**
  * @brief Outcome of a HolosphereEngine::setClip() call.
- * @details Each outcome wants a different caller response, so they are separate
- *          enumerators rather than one bool: NO_EFFECT is the ordinary state
- *          after setResolution returns RESIZED, while
+ * @details NO_EFFECT is the ordinary state after a RESIZED setResolution();
  *          INVALID_BOUNDS is a caller bug. APPLIED and FULL_FRAME_KEPT are both
- *          successes, but only APPLIED means the band is in force — a segment
- *          pool needs the two apart to tell parallel speedup from N workers each
- *          computing the same full frame. Exposed to JS as the
- *          Module.ClipSetResult embind enum; compare against its values, never
- *          by truthiness (every enum value is a truthy object).
+ *          successes, but only APPLIED means the band is in force. Exposed to JS
+ *          as the Module.ClipSetResult embind enum; compare against its values,
+ *          never by truthiness (every enum value is a truthy object).
  */
 enum class ClipSetResult {
   APPLIED,         /**< Band installed; rendering is narrowed to it. */
@@ -140,12 +122,7 @@ enum class ClipSetResult {
 
 /**
  * @brief Outcome of a HolosphereEngine::setResolution() call.
- * @details Each outcome wants a different caller response, so they are separate
- *          enumerators rather than one bool: RESIZED tears the current effect
- *          down, so the caller must re-apply setEffect() — and any setClip() —
- *          before the next drawFrame(); ALREADY_ACTIVE tears nothing down, so
- *          the current effect, parameters, and clip all stay live; UNSUPPORTED
- *          keeps the prior valid state alive. Exposed to JS as the
+ * @details Exposed to JS as the
  *          Module.ResolutionSetResult embind enum; compare against its values,
  *          never by truthiness (every enum value is a truthy object).
  */
@@ -160,10 +137,9 @@ enum class ResolutionSetResult {
 
 /**
  * @brief Outcome of a HolosphereEngine::setEffect() call.
- * @details The two rejections leave the prior effect alive but demand different
- *          caller responses: UNKNOWN_EFFECT is a stale/typo'd name to drop from
- *          the UI, while UNSUPPORTED_RESOLUTION means no name can succeed until
- *          a supported setResolution() lands. Exposed to JS as the
+ * @details Both rejections keep the prior effect. UNSUPPORTED_RESOLUTION means
+ *          no name can succeed until a supported setResolution(). Exposed to JS
+ *          as the
  *          Module.EffectSetResult embind enum; compare against its values,
  *          never by truthiness (every enum value is a truthy object).
  */
@@ -183,8 +159,7 @@ static bool engine_alive = false;
 
 /**
  * @brief JS-facing render engine driving one resolution/effect at a time.
- * @details Owns the current effect and the stable readback buffers. Every public
- *          method is exported to JavaScript via EMSCRIPTEN_BINDINGS below.
+ * @details Owns the current effect and the stable readback buffers.
  *          At most one instance may be live: delete() the current engine before
  *          constructing another, or the constructor traps. Test isLive() before construction.
  */
@@ -193,28 +168,23 @@ public:
   /**
    * @brief Constructs the engine with a valid default resolution and effect.
    * @details Pre-sizes the JS-facing readback buffers to their maximum extent so
-   *          their backing storage never moves (the WASM memory-view contract),
-   *          and installs a default effect that JS overrides almost
-   *          immediately.
+   *          their backing storage never moves (the WASM memory-view contract).
    */
   HolosphereEngine() {
     HS_CHECK(!engine_alive,
              "HolosphereEngine is a singleton: delete() the live instance "
              "before constructing another (its Effect and arenas are shared "
              "module-global storage)");
-    // The scan reads Render::pole_lod_aggressiveness as a module global; claim it for
-    // this instance so a fresh engine never inherits a predecessor's setting.
+    // Module global: reset so a fresh engine never inherits a predecessor's.
     Render::pole_lod_aggressiveness = HS_POLE_LOD_DEFAULT;
     apply_display_geometry(0.0f, math::PI_F);
     stack_paint_canary();
 
-    // Pre-size view-backed buffers ONCE: reallocation invalidates their aliased
-    // storage even without heap growth; heap growth also detaches the view's
-    // ArrayBuffer. getPixels/getParamValues storage must never move.
+    // Pre-size once: getPixels/getParamValues views alias this storage, so it
+    // must never reallocate.
     pixel_buffer.assign(MAX_W * MAX_H * CHANNELS, 0);
 
-    // Bootstrap on the first row of each roster; daydream overrides both almost
-    // immediately.
+    // Bootstrap on the first row of each roster.
     const bool bootstrap_resolution_set =
         setResolution(hs_wasm::WASM_RESOLUTIONS[0].w,
                       hs_wasm::WASM_RESOLUTIONS[0].h) ==
@@ -233,11 +203,8 @@ public:
 
   /**
    * @brief Destroys the engine and admits the next construction.
-   * @details JS reaches this through the embind-generated delete(). Runs the
-   *          same teardown re-partition setResolution() and setEffect() do, so
-   *          the module-global engine arenas — still readable through the
-   *          static MeshOps.getArenaMetrics() — report the released state
-   *          rather than the destroyed effect's usage.
+   * @details Reached from JS via delete(). Re-partitions the module-global
+   *          engine arenas, so their metrics report the released state.
    */
   ~HolosphereEngine() {
 #if HS_ENABLE_CHAIN_INTERPRETER
@@ -254,9 +221,7 @@ public:
    * @return True from the end of a successful construction until that
    *         instance's delete().
    * @details Exposed to JS as the static Module.HolosphereEngine.isLive().
-   *          Construction over a live instance, decoder re-entry, and deletion
-   *          during decoding trap. Payload cloning may invoke getters; proxies
-   *          are rejected by structuredClone. This query reports singleton state.
+   *          Construction over a live instance traps.
    */
   static bool isLive() { return engine_alive; }
 
@@ -304,23 +269,13 @@ public:
    *         valid state was kept. Exposed to JS as the
    *         Module.ResolutionSetResult embind enum; compare against its
    *         values, never by truthiness.
-   * @details A RESIZED result tears down the current effect (a new one cannot
-   *          be carried across pixel dimensions), so the caller must call
-   *          setEffect() again before the next drawFrame() or it renders a
-   *          blank frame. Callers that use a sub-canvas clip (segmented
-   *          rendering) must likewise re-apply setClip() after a RESIZED
-   *          setResolution(): a prior clip was expressed in the old
-   *          resolution's pixel bounds and is not rescaled here, so it must be
-   *          recomputed for the new dimensions. The teardown re-partitions the
-   *          engine arenas, so getArenaMetrics() reports the released state
-   *          rather than the destroyed effect's usage. An outstanding
-   *          getPixels() view is left aliasing live memory at the previous
-   *          resolution's length rather than detached, so it must be re-fetched
-   *          and its length compared against getBufferLength().
+   * @details RESIZED tears down the current effect: call setEffect() before the
+   *          next drawFrame() (else it renders blank) and re-apply any setClip(),
+   *          whose bounds are not rescaled. The teardown re-partitions the
+   *          engine arenas. An outstanding getPixels() view keeps aliasing live
+   *          memory at the previous length; re-fetch it.
    */
   ResolutionSetResult setResolution(double w, double h) {
-    // Reject unsupported sizes and keep the prior valid state alive rather than
-    // switching to a null effect that renders blank with no signal to JS.
     if (!hs_wasm::wasm_resolution_supported(w, h)) {
       hs::log("WASM: Unsupported resolution %gx%g — ignored", w, h);
       return ResolutionSetResult::UNSUPPORTED;
@@ -345,22 +300,14 @@ public:
    * @param name Effect class name or stable EFFECT_ID to instantiate.
    * @return INSTALLED iff an effect was actually instantiated, else the
    *         rejection reason — UNKNOWN_EFFECT for an unknown/stale effect name
-   *         or UNSUPPORTED_RESOLUTION — so the frontend can detect a no-op
-   *         instead of believing the switch took. Exposed to JS as the
+   *         or UNSUPPORTED_RESOLUTION. Exposed to JS as the
    *         Module.EffectSetResult embind enum; compare against its values,
    *         never by truthiness.
-   * @details Validates the name against the factory for the current resolution
-   *          BEFORE tearing anything down, so a typo'd/stale UI string keeps the
-   *          prior valid state alive rather than blanking the engine. An
-   *          INSTALLED switch instantiates a fresh effect at the full-canvas
-   *          clip and with default parameter values, so callers that use a
-   *          sub-canvas clip (segmented rendering) or tuned parameters must
-   *          re-apply setClip() and setParameter() after every INSTALLED
-   *          setEffect(). The engine-owned animation pause state is retained.
+   * @details A rejected name keeps the prior effect. INSTALLED resets the clip
+   *          to the full canvas and parameters to defaults; re-apply setClip()
+   *          and setParameter(). The animation pause state is retained.
    */
   EffectSetResult setEffect(const std::string &name) {
-    // Validate against the current resolution's factory BEFORE tearing anything
-    // down, so a typo'd name keeps the prior valid state alive.
     const FactoryEntry *entry = nullptr;
     const bool dispatched = hs_wasm::dispatch_resolution(
         pixel_width, pixel_height, [&]<int W, int H>() {
@@ -385,11 +332,8 @@ public:
       math::init_geometry_luts<W,
                                H>(); // eager-fill LUTs before the first frame
     });
-    // Per-load RNG stream keyed by the effect's stable id, mirroring the
-    // device's per-effect reseed. Reseeded after the outgoing effect is gone, so
-    // a teardown draw cannot advance the incoming stream. Replica-safe with no
-    // protocol change — every instance loading the same effect derives the same
-    // seed locally, whatever its load history.
+    // Per-load RNG stream keyed by the effect's stable id; seeded after
+    // teardown so a teardown draw cannot advance it.
     hs::random().seed(hs::stable_effect_seed(entry->stable_id));
     current_effect = entry->creator();
     current_factory_entry = entry;
@@ -424,26 +368,17 @@ public:
    *         Module.ClipSetResult embind enum; compare against its values, never
    *         by truthiness. Both APPLIED and FULL_FRAME_KEPT are successes.
    *         NO_EFFECT is the ordinary answer between a resolution change and the
-   *         setEffect that follows it, so a caller that faults on a rejection
-   *         must fault on INVALID_BOUNDS only.
-   * @details Args are x-pair-first to match the (x, y) convention: embind binds
-   *          positionally, so a y-first order would let a transposed JS call pass
-   *          the range check and silently clip the wrong axis. Rejects malformed
-   *          input at the untyped JS boundary rather than trapping, since a trap
-   *          there aborts the whole WASM module. Bounds arrive as doubles: an
-   *          i32 embind parameter coerces NaN and multiples of 2^32 to 0
-   *          with no range check in a release build, installing an empty band
-   *          under an APPLIED result. Segment workers always pass
-   *          valid, ordered, in-range bounds. A cross-segment stateful effect
-   *          (needs_full_frame() or persists_pixels()) keeps the full-canvas clip instead
-   *          of narrowing to the band — see
-   *          docs/specs/segmented_stateful_effects_spec.md.
+   *         setEffect that follows it.
+   * @details Args are x-pair-first (embind binds positionally). Malformed input
+   *          is rejected, never trapped: a trap aborts the whole WASM module.
+   *          Bounds arrive as doubles: an i32 embind parameter coerces NaN and
+   *          multiples of 2^32 to 0 with no range check in a release build.
+   *          See docs/specs/segmented_stateful_effects_spec.md.
    */
   ClipSetResult setClip(double x0, double x1, double y0, double y1) {
     if (!current_effect)
       return ClipSetResult::NO_EFFECT;
-    // Reject malformed bounds from the untyped JS boundary (negatives would feed
-    // ClipRegion's modulo arithmetic); reject-and-return, never trap.
+    // Negatives would feed ClipRegion's modulo arithmetic.
     if (!hs_wasm::clip_bounds_valid(x0, x1, y0, y1, pixel_width,
                                     pixel_height)) {
       hs::log("WASM: setClip bounds out of range (x0=%g,x1=%g,y0=%g,y1=%g) — "
@@ -451,9 +386,7 @@ public:
               x0, x1, y0, y1);
       return ClipSetResult::INVALID_BOUNDS;
     }
-    // Cross-segment stateful effects must render the FULL canvas in every worker
-    // (a band-clipped worker has stale cv.prev outside its band, so trails seam);
-    // keep the full clip. See docs/specs/segmented_stateful_effects_spec.md.
+    // A band-clipped stateful effect has stale cv.prev outside its band.
     if (!pov::segment_clip_applies(current_effect->needs_full_frame(),
                                    current_effect->persists_pixels()))
       return ClipSetResult::FULL_FRAME_KEPT;
@@ -487,8 +420,7 @@ public:
     static_assert(static_cast<long long>(MAX_W) * MAX_H * CHANNELS <= INT_MAX,
                   "drawFrame pixel-index accumulators are int");
     // Display bounds, not render bounds: the margin expansion feeds stateful
-    // filters and is never shown. segment_worker.js extracts exactly this
-    // rectangle JS-side (README §10.7).
+    // filters and is never shown.
     const ClipRegion &band = current_effect->clip();
     if (!current_effect->overrides_get_pixel() &&
         current_effect->output_envelope_u16() == 65535u) {
@@ -530,10 +462,7 @@ public:
    *         (discrete columns with dark gaps); false if columns persist and
    *         smear horizontally into the next (a continuous, gap-free band).
    *         false when no effect is set.
-   * @details The simulator's dot mesh inherently renders discrete columns with
-   *          gaps — already the strobe == true look — so daydream reads this to
-   *          decide whether to fill the inter-column gap (false) or leave it
-   *          dark (true). See Effect::strobe_columns (core/render/canvas.h).
+   * @details See Effect::strobe_columns (core/render/canvas.h).
    */
   bool strobeColumns() const {
     return current_effect ? current_effect->strobe_columns() : false;
@@ -584,18 +513,13 @@ public:
    *         parameter's registered [min,max] — APPLIED does NOT imply the
    *         stored value equals the requested one. A consumer that needs the
    *         effective value should read it back via getParamValues().
-   * @details An APPLIED write to an *animated* param engages the engine's
-   *          animation pause, exactly as setAnimationsPaused(true) would: the
-   *          value the caller just set would otherwise be overwritten by the
-   *          animation on the next frame. The pause is retained across
-   *          setEffect(), so a caller mirroring it must read it back through
-   *          getAnimationsPaused() rather than track it separately.
+   * @details An APPLIED write to an *animated* param engages the animation
+   *          pause, as setAnimationsPaused(true) would; read it back through
+   *          getAnimationsPaused().
    */
   ParamSetResult setParameter(const std::string &name, float value) {
     if (!current_effect)
       return ParamSetResult::NO_EFFECT;
-    // The rejection classification is single-sourced in Effect::updateParameter,
-    // not re-checked here.
     const ParamSetResult result =
         current_effect->updateParameter(name.c_str(), value);
     binding_state->paused = current_effect->animations_paused();
@@ -606,9 +530,7 @@ public:
    * @brief Pauses or resumes the current effect's parameter animations.
    * @param paused true to pause animations, false to resume.
    * @details Retained across effect and resolution changes and applied to the
-   *          next effect when no effect is currently loaded. setParameter()
-   *          engages the same pause on an animated write, so this is not the
-   *          only writer.
+   *          next effect when no effect is currently loaded.
    */
   void setAnimationsPaused(bool paused) {
     binding_state->paused = paused;
@@ -619,17 +541,14 @@ public:
   /**
    * @brief Reports whether the engine's parameter animations are paused.
    * @return true while animations are frozen.
-   * @details The state setAnimationsPaused() writes and an animated
-   *          setParameter() write engages, so a caller reads the rule here
-   *          instead of re-implementing it.
+   * @details Also engaged by an APPLIED write to an animated param.
    */
   bool getAnimationsPaused() const { return binding_state->paused; }
 
   /**
    * @brief Number of presets the current effect exposes for manual navigation.
    * @return The preset count, 0 when no effect is set or the effect authored
-   *         none. A GUI reads this to decide whether to offer preset controls
-   *         at all.
+   *         none.
    */
   uint32_t getPresetCount() const {
     return current_effect
@@ -642,10 +561,8 @@ public:
    * @return The index, 0 when no effect is set — indistinguishable from a real
    *         selection of preset 0, so a caller tells the two apart by
    *         getPresetCount() != 0.
-   * @details Tracks engine-driven advancement as well as the calls below: an
-   *          effect whose choreography advances its own presets moves this
-   *          without any JS call, so a mirroring GUI polls it rather than
-   *          tracking the index it last wrote.
+   * @details Also moves with engine-driven preset advancement, without any JS
+   *          call.
    */
   uint32_t getPresetIndex() const {
     return current_effect
@@ -682,16 +599,11 @@ public:
    * @return true when the preset was applied; false when no effect is set, the
    *         index is malformed or out of range, or the effect refused the
    *         preset.
-   * @details Engages the animation pause exactly as setAnimationsPaused(true)
-   *          would, so the selected preset's values are not immediately
-   *          overwritten by the animation — the manual-navigation counterpart
-   *          to synchronizePreset(), which leaves the pause alone. The pause is
-   *          retained across setEffect(), so a caller mirroring it reads it
-   *          back through getAnimationsPaused(). Parameter values move with the
-   *          preset; re-read them via getParamValues(). The index arrives as a
-   *          double: a uint32_t embind parameter wraps integers modulo 2^32
-   *          with no range check in a release build; NaN and multiples of
-   *          2^32 become 0, selecting preset 0 under a true result.
+   * @details Engages the animation pause as setAnimationsPaused(true) would.
+   *          Parameter values move with the preset; re-read them via
+   *          getParamValues(). The index arrives as a double: a uint32_t embind
+   *          parameter wraps modulo 2^32 with no range check in a release build
+   *          and maps NaN to 0.
    */
   bool selectPreset(double index) {
     if (!current_effect || !preset_index_accepted(index, "selectPreset") ||
@@ -708,11 +620,8 @@ public:
    * @return true when the preset is the active one already or was applied;
    *         false when no effect is set, the index is malformed or out of
    *         range, or the effect refused the preset.
-   * @details The call a GUI uses to follow engine-driven preset advancement:
-   *          selectPreset() would freeze the choreography it is trying to
-   *          mirror, this one leaves it running. A request for the active index
-   *          is a success no-op. The index arrives as a double for the reason
-   *          selectPreset() gives.
+   * @details Leaves choreography running. A request for the active index is a
+   *          success no-op.
    */
   bool synchronizePreset(double index) {
     if (!current_effect || !preset_index_accepted(index, "synchronizePreset") ||
@@ -754,12 +663,8 @@ public:
    * @brief Sets near-pole azimuthal shading decimation.
    * @param aggressiveness Columns per shade are this over sin(colatitude);
    *        0 disables. NaN and negative inputs clamp to 0; positive infinity to 8.
-   * @details The footprint depends on display aspect, LED angular size and
-   *          exposure. Exposed so the value can be tuned against real hardware.
-   *          The setting is engine-scoped: the constructor restores
-   *          HS_POLE_LOD_DEFAULT, and
-   *          each WASM instance carries its own, so a segmented pool must
-   *          re-send it to every worker (README §10.7).
+   * @details Engine-scoped: the constructor restores HS_POLE_LOD_DEFAULT, and
+   *          each WASM instance carries its own.
    */
   void setPoleLod(float aggressiveness) {
     Render::pole_lod_aggressiveness =
@@ -787,8 +692,7 @@ public:
    *          renderer. `acceptedValue` is the accepted target and `warning`
    *          describes any adjustment or rejection. A boolean param's values are JS booleans and it carries
    *          no range; every other value is a number. step is 1 on an enum or
-   *          integer target and absent on a float one, so the GUI knows which
-   *          controls admit only whole values. An enum's optionValues maps its
+   *          integer target and absent on a float one. An enum's optionValues maps its
    *          labels to numeric IDs; when absent, values index options directly.
    *          An integer param carries a range instead of labels
    *          and exports as a plain numeric literal. preset marks the params a
@@ -802,8 +706,7 @@ public:
 
     current_effect->refresh_parameter_display();
     emscripten::val result = emscripten::val::array();
-    // Both streams walk the effect's registered ParamList in order. The
-    // generation token covers effect replacement and dynamic schema rebinds.
+    // Walks the registered ParamList in declaration order.
     hs_wasm::collect_param_views(*current_effect, param_streams.views);
 
     int i = 0;
@@ -812,8 +715,7 @@ public:
       entry.set("name", emscripten::val(v.name));
 
       if (v.is_bool) {
-        // Emit a JS boolean so the frontend renders a checkbox; toggles omit
-        // min/max (no range).
+        // Booleans carry no range.
         entry.set("value", emscripten::val(v.value > 0.5f));
         entry.set("requestedValue", emscripten::val(v.requested_value > 0.5f));
         entry.set("acceptedValue", emscripten::val(v.accepted_value > 0.5f));
@@ -860,15 +762,13 @@ public:
    *         same order as getParameterDefinitions(); empty array if no effect is
    *         set.
    * @details Same memory-view contract as getPixels(): the view aliases WASM
-   *          memory and must be consumed before the next allocation. param_streams.values
-   *          never reallocates here (size <= MAX_PARAMS), so emitting it triggers
-   *          no heap growth that could detach other outstanding views.
+   *          memory and must be consumed before the next allocation. Never
+   *          reallocates (size <= MAX_PARAMS), so it detaches no other view.
    */
   emscripten::val getParamValues() {
     if (!current_effect) {
-      // Empty Float32Array (not a JS Array) so callers get a consistent typed
-      // view whether or not an effect is set. clear() retains the ctor's
-      // reserve, which keeps the zero-length view's backing pointer valid.
+      // clear() keeps the reserved capacity, so the zero-length view's backing
+      // pointer stays valid.
       param_streams.values.clear();
       return emscripten::val(emscripten::typed_memory_view(
           param_streams.values.size(), param_streams.values.data()));
@@ -898,21 +798,16 @@ public:
 
   /**
    * @brief Reports engine arena and stack metrics for the JS memory HUD.
-   * @return JS object of the three engine arenas' metrics ({usage,
+   * @return JS object of the engine arenas' metrics ({usage,
    *         high_water_mark, lifetime_high_water_mark, capacity}) plus a
    *         "stack" entry ({high_water_mark, init_high_water_mark, capacity}),
    *         all in bytes.
-   * @details Read once per frame by the HUD, on the main thread and in every
-   *          segment worker. The tooling arenas are not included: an engine
-   *          instance never moves them, and MeshOps.getArenaMetrics() reports
-   *          all six on demand. An arena's `high_water_mark` covers only the
-   *          window since its last peak reset or rebind, so budget against
-   *          `lifetime_high_water_mark`. On the stack entry,
-   *          `high_water_mark` is the canary's live reading,
-   *          which a repaint resets and the render path then dominates;
+   * @details Excludes the tooling arenas. An arena's `high_water_mark` covers
+   *          only the window since its last peak reset or rebind; budget against
+   *          `lifetime_high_water_mark`. On the stack entry, `high_water_mark` is
+   *          the canary's live reading, which a repaint resets;
    *          `init_high_water_mark` is the latched deepest effect construction +
-   *          init(), which no repaint erases, so the two peaks can be gated
-   *          separately.
+   *          init().
    */
   emscripten::val getArenaMetrics() const {
     emscripten::val metrics = collect_engine_arena_metrics();
@@ -938,8 +833,7 @@ public:
    *         resolution; empty map if unsupported/uninitialized.
    */
   emscripten::val getEffectSizes() const {
-    emscripten::val sizes =
-        emscripten::val::object(); // unsupported/uninitialized — empty map
+    emscripten::val sizes = emscripten::val::object();
     hs_wasm::dispatch_resolution(
         pixel_width, pixel_height,
         [&]<int W, int H>() { sizes = get_effect_sizes_helper<W, H>(); });
@@ -970,13 +864,8 @@ public:
 
   /**
    * @brief Enumerates the resolutions the factory can build.
-   * @return JS array of [W, H] pairs, read from the same WASM_RESOLUTIONS
-   *         table the constructor bootstraps on, itself generated from the
-   *         HS_RESOLUTIONS list setResolution()/getEffectSizes() dispatch
-   *         through.
-   * @details Callers (e.g. the CI smoke test) can enumerate this instead of
-   *          hand-mirroring the list, so the supported set can never silently
-   *          drift.
+   * @return JS array of [W, H] pairs from WASM_RESOLUTIONS (generated from
+   *         HS_RESOLUTIONS).
    */
   static emscripten::val getSupportedResolutions() {
     emscripten::val out = emscripten::val::array();
@@ -1067,8 +956,8 @@ private:
    * @param index Requested index, as the double the binding takes.
    * @param call Entry-point name for the rejection log.
    * @return true iff the index is integral and inside the effect's roster.
-   * @details Rejects and logs rather than trapping, since a trap at the JS
-   *          boundary aborts the whole WASM module. Requires a live effect.
+   * @details Logs, never traps: a trap aborts the whole WASM module. Requires a
+   *          live effect.
    */
   bool preset_index_accepted(double index, const char *call) const {
     if (hs_wasm::preset_index_valid(index, current_effect->getPresetCount()))

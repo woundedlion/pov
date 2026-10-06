@@ -11,7 +11,7 @@
  * Owns the lazily-allocated tooling arenas, the wipe generation counter and the
  * re-entrancy guard the Conway/Goldberg operators run under, plus the boundary
  * guards that keep a JS-driven operator chain out of the engine's fail-fast
- * traps. Included only by targets/wasm/wasm.cpp.
+ * traps.
  */
 #pragma once
 
@@ -19,19 +19,17 @@
 #include "core/platform/platform.h"
 #include "core/mesh/solids.h"
 #include "targets/wasm/arena_metrics.h"
-#include "targets/wasm/mesh_op_bounds.h" // pure, host-tested operator roster
-#include "targets/wasm/wasm_predicates.h" // pure, host-tested boundary predicates
-#include <cstdlib> // std::malloc for the lazily-allocated tooling arenas
-#include <cmath>   // std::isfinite — validate MeshOps args at the JS boundary
+#include "targets/wasm/mesh_op_bounds.h"
+#include "targets/wasm/wasm_predicates.h"
+#include <cstdlib>
+#include <cmath>
 #include <cstddef>
 #include <memory>
 #include <string>
 #include <type_traits>
 
-// Arenas for the JS mesh-editor tools (8 MB build + two 4 MB scratch), used
-// only by MeshOpsWrapper. malloc'd lazily on first MeshOps use (start at
-// capacity 0) so engine/worker instances that never touch MeshOps don't reserve
-// 16 MB; the block lives for the module's lifetime (reset via clearToolingMemory).
+// Arenas for the JS mesh-editor tools, malloc'd lazily on first MeshOps use
+// (capacity 0 until then); the block lives for the module's lifetime.
 inline constexpr size_t TOOLING_ARENA_BYTES = 8 * 1024 * 1024;
 inline constexpr size_t TOOLING_SCRATCH_BYTES = 4 * 1024 * 1024;
 static Arena tooling_arena(nullptr, 0);
@@ -40,11 +38,9 @@ static Arena tooling_arena(nullptr, 0);
 static Arena tooling_scratch_a(nullptr, 0);
 static Arena tooling_scratch_b(nullptr, 0);
 
-// Largest element count any operator stage may reach. Half-edge construction and
-// the topology classifier both narrow face/index counts to uint16_t behind an
-// always-on HS_CHECK, so a mesh past this must be rejected at the JS boundary
-// rather than allowed to reach one. The scratch arenas hold exactly this many
-// elements, so the same ceiling also keeps Arena::allocate's trap out of reach.
+// Largest element count any operator stage may reach: face/index counts narrow
+// to uint16_t behind an always-on HS_CHECK, so a larger mesh is rejected at the
+// JS boundary.
 inline constexpr size_t MAX_MESH_CONNECTIVITY_ELEMENTS =
     MeshLimits::MAX_HALF_EDGES;
 static_assert(MAX_MESH_CONNECTIVITY_ELEMENTS <=
@@ -56,9 +52,8 @@ static_assert(sizeof(math::Vector) + sizeof(uint8_t) + 2 * sizeof(uint16_t) <
                   hs_wasm::TOOLING_ARENA_BYTES_PER_MESH_ELEMENT,
               "finalized mesh element must fit its predicted arena bytes");
 
-// Widest face a mesh can hold: PolyMesh stores per-face side counts as uint8_t
-// and narrow_face_count traps past this, so an operator that would emit a wider
-// face must be rejected at the JS boundary.
+// Widest face a mesh can hold: per-face side counts are uint8_t and
+// narrow_face_count traps past this.
 inline constexpr size_t MAX_MESH_FACE_DEGREE = MeshLimits::MAX_FACE_DEGREE;
 
 // Bumped on every clearToolingMemory(). Each wrapper records the generation it
@@ -81,12 +76,8 @@ struct ToolingOpGuard {
  * @brief Allocates and binds the tooling arenas on first MeshOps use.
  * @return True once the three arenas are bound, false when the block
  *         allocation failed and none of them is usable.
- * @details A no-op once bound, so it is cheap to call at the head of every
- *          MeshOps entry point. Reading an unbound arena's metrics
- *          (collect_arena_metrics) is safe and reports 0/0/0, so engine
- *          instances that never call MeshOps never trigger this allocation.
- *          A failure is reported to JS as ARENA_UNAVAILABLE rather than
- *          trapped: a trap at the untyped boundary takes the whole module down.
+ * @details A no-op once bound. Reading an unbound arena's metrics is safe and
+ *          reports 0/0/0.
  */
 static bool ensure_tooling_arenas() {
   if (tooling_arena.get_capacity() != 0)
@@ -108,13 +99,9 @@ static bool ensure_tooling_arenas() {
 
 /**
  * @brief Builds a {usage, high_water_mark, lifetime_high_water_mark, capacity}
- *        report for the three engine arenas and the three tooling arenas.
+ *        report for the engine and tooling arenas.
  * @return JS object mapping each arena name to its {usage, high_water_mark,
  *         lifetime_high_water_mark, capacity} metrics, in bytes.
- * @details Read on demand through MeshOps.getArenaMetrics(). The tooling scratch
- *          arenas are the regions TOOLING_BYTES_PER_MESH_ELEMENT is sized
- *          against, and an operator that overruns one takes the module down, so
- *          they are reported alongside the rest rather than left unobservable.
  */
 static emscripten::val collect_arena_metrics() {
   emscripten::val metrics = collect_engine_arena_metrics();
@@ -126,11 +113,9 @@ static emscripten::val collect_arena_metrics() {
 
 /**
  * @brief Why the most recent MeshOps call answered null.
- * @details A bare null collapses reasons that demand opposite caller actions —
- *          shrinking the op chain versus calling clearToolingMemory() — so the
- *          reason is recorded here and read back via MeshOps.getLastResult().
- *          Exposed to JS as the Module.MeshOpResult embind enum; compare
- *          against its values, never by truthiness.
+ * @details Read back via MeshOps.getLastResult(). Exposed to JS as the
+ *          Module.MeshOpResult embind enum; compare against its values, never by
+ *          truthiness.
  */
 enum class MeshOpResult {
   OK,                    /**< No rejection was recorded. */
@@ -159,18 +144,14 @@ static bool last_mesh_op_adjusted = false;
 
 /**
  * @brief JS-facing wrapper around a PolyMesh and the Conway/Goldberg operators.
- * @details Named to avoid collision with the MeshOps namespace. Each wrapper's
- *          mesh is built into the tooling arena and records the generation it was
+ * @details Each wrapper's mesh is built into the tooling arena and records the generation it was
  *          built under, so a wipe via clearToolingMemory() is detected by
  *          wrapper_live().
  */
 struct MeshOpsWrapper {
 private:
   PolyMesh mesh; /**< The wrapped mesh, stored in the tooling arena. */
-  /**
-   * Generation of the tooling arena this mesh was built into; compared against
-   * the live counter on every use (see wrapper_live()).
-   */
+  /** Generation of the tooling arena this mesh was built into. */
   uint32_t generation = tooling_generation;
 
 public:
@@ -195,12 +176,8 @@ private:
    * @brief Reports whether this wrapper outlived a clearToolingMemory() wipe.
    * @return true while its mesh still owns live arena storage; false — after
    *         logging and recording STALE_WRAPPER — once a wipe reclaimed it.
-   * @details A stale wrapper's mesh aliases reclaimed arena storage, which
-   *          release builds would otherwise read back as silently wrong
-   *          geometry. Called at every entry point that touches `mesh`, which
-   *          rejects rather than traps: a JS caller holding a wrapper across an
-   *          interleaved clearToolingMemory() is an ordering slip the page can
-   *          recover from, not an engine invariant violation.
+   * @details A stale wrapper's mesh aliases reclaimed arena storage. Rejects
+   *          rather than traps.
    */
   bool wrapper_live() const {
     if (generation == tooling_generation)
@@ -222,9 +199,7 @@ private:
    *        element; defaults to a whole finalized mesh.
    * @return true when the caller must answer null; last_mesh_op_result carries
    *         ARENA_UNAVAILABLE, CONNECTIVITY_OVERFLOW or ARENA_EXHAUSTED.
-   * @details Binds the arenas first, so a caller that must generate a mesh
-   *          before it can measure one calls ensure_tooling_arenas() itself and
-   *          reaches a no-op here.
+   * @details Binds the arenas first.
    */
   static bool
   tooling_bounds_reject(size_t verts, size_t faces, size_t indices,
@@ -262,18 +237,10 @@ private:
 public:
   /**
    * @brief Resets all tooling arenas to empty and invalidates live wrappers.
-   * @details Reclaims the storage behind every live wrapper and bumps the
-   *          generation so any wrapper built before this wipe is rejected on
-   *          next use (wrapper_live). JS-callable.
-   *
-   *          Despite the name, this does NOT shrink the module's linear memory:
-   *          the 16 MB tooling block is retained for the module's lifetime and
-   *          only its arena bump-pointers are reset. A JS caller will not see
-   *          memory usage drop; this frees the arenas for reuse, not the OS.
-   *
-   *          Not a post-trap recovery: a trap ends the module, and the
-   *          re-entrancy latch it leaves set (tooling_op_active) is not cleared
-   *          here, so no later op can run. Discard the instance instead.
+   * @details Bumps the generation so any wrapper built before this wipe is
+   *          rejected on next use. Does NOT shrink linear memory: only the arena
+   *          bump-pointers reset. Not a post-trap recovery: the re-entrancy latch
+   *          (tooling_op_active) stays set.
    */
   static void clearToolingMemory() {
     begin_mesh_op();
@@ -292,12 +259,8 @@ public:
    * @return Owning pointer to the new wrapper, or null for an unknown name, an
    *         unallocatable tooling arena, or a solid that would not fit what is
    *         left of tooling_arena; getLastResult() names which.
-   * @details Rejects an unknown name at the untrusted JS boundary rather than
-   *          tripping get_by_name()'s fail-fast HS_CHECK and aborting the module.
-   *          Generates into the scratch arenas and prices the finalized copy
-   *          against tooling_arena's remaining bytes before committing it, since
-   *          that arena accumulates one finalized mesh per created wrapper until
-   *          clearToolingMemory() and Arena::allocate traps when it runs out.
+   * @details Generates into the scratch arenas and prices the finalized copy
+   *          against tooling_arena's remaining bytes before committing it.
    */
   static std::unique_ptr<MeshOpsWrapper>
   fromSolidName(const std::string &name) {
@@ -382,9 +345,7 @@ public:
    *         storage was reclaimed, the mesh is past
    *         MAX_MESH_CONNECTIVITY_ELEMENTS, the tooling arena could not be
    *         allocated, or its topology block would not fit what is left of
-   *         tooling_arena; getLastResult() names which. Null
-   *         rather than an empty array so a caller can tell "no classification"
-   *         from "no faces" with a plain truthiness test.
+   *         tooling_arena; getLastResult() names which.
    * @details The mesh's topology buffer lives in tooling_arena until
    *          clearToolingMemory(). The returned Int32Array is a JS-owned copy,
    *          valid across later mesh operations and arena resets.
@@ -393,8 +354,7 @@ public:
     begin_mesh_op();
     if (!wrapper_live())
       return emscripten::val::null();
-    // Only the topology block lands in tooling_arena — one uint16_t per face,
-    // not a second finalized mesh.
+    // Only the topology block lands in tooling_arena: one uint16_t per face.
     if (tooling_bounds_reject(mesh.vertices.size(), mesh.get_face_counts_size(),
                               mesh.get_faces_size(), 1, "classifyFaces",
                               sizeof(uint16_t)))
@@ -404,7 +364,6 @@ public:
     tooling_scratch_b.reset();
     MeshOps::classify_faces_by_topology(mesh, tooling_scratch_a,
                                         tooling_scratch_b, tooling_arena);
-    // Copies (see the contract note above); does not alias WASM memory.
     return emscripten::val::global("Int32Array")
         .new_(emscripten::val(emscripten::typed_memory_view(
             mesh.topology.size(), mesh.topology.data())));
@@ -416,9 +375,7 @@ private:
   /**
    * @brief Highest vertex valence in this wrapper's mesh.
    * @return Faces meeting at the most-incident vertex, or 0 for an empty mesh.
-   * @details Counts incidences in tooling_scratch_a (4 bytes per vertex, released
-   *          before the operator runs), so the whole measurement is one pass over
-   *          the flat index list on top of clearing the counters.
+   * @details Counts incidences in tooling_scratch_a, released before return.
    */
   size_t max_vertex_valence() {
     const size_t verts = mesh.vertices.size();
@@ -444,19 +401,9 @@ private:
    *         MAX_MESH_FACE_DEGREE, the tooling arena could not be allocated, or
    *         its output would not fit what is left of tooling_arena;
    *         getLastResult() names which.
-   * @details Captures the shared operator boilerplate: reset both tooling scratch
-   *          arenas, run the op into a fresh PolyMesh, finalize it into
-   *          tooling_arena, and hand back a new wrapper. An input the operator
-   *          would grow past the engine's 16-bit connectivity range is rejected
-   *          here, at the untrusted JS boundary, rather than reaching
-   *          build_half_edge_mesh's fail-fast trap partway through a composition;
-   *          likewise an input holding a face or a vertex valence the operator
-   *          would widen past narrow_face_count's 8-bit side count, and a result
-   *          that would overrun tooling_arena, which accumulates one finalized
-   *          mesh per chained wrapper until clearToolingMemory().
-   *
-   *          Its caller has already run begin_mesh_op() and may have recorded an
-   *          argument clamp since, so this must not clear that record.
+   * @details Runs the op into the scratch arenas and finalizes the result into
+   *          tooling_arena. Does not call begin_mesh_op(): the caller's argument
+   *          clamp record must survive.
    */
   template <typename Op>
   std::unique_ptr<MeshOpsWrapper> apply(hs_wasm::MeshOpBounds bounds, Op &&op) {
@@ -466,7 +413,6 @@ private:
                               mesh.get_faces_size(), bounds.elements,
                               "MeshOps operator"))
       return nullptr;
-    // Before max_vertex_valence(), the first tooling-scratch use on this path.
     ToolingOpGuard guard;
     const size_t face_degree = hs_wasm::mesh_max_face_degree(
         mesh.get_face_counts_data(), mesh.get_face_counts_size());
@@ -494,9 +440,6 @@ private:
    *        double so a count-valued argument is tested at its own width.
    * @param op Operator name, for the rejection log message.
    * @return true if arg is finite; false (after logging) otherwise.
-   * @details A non-finite fraction would flow straight into the geometry math and
-   *          silently corrupt the mesh, so it is rejected (log + null) rather than
-   *          producing NaN geometry.
    */
   bool finite_arg(double arg, const char *op) const {
     if (std::isfinite(arg))
@@ -514,8 +457,7 @@ private:
    * @param op Operator name, for the adjustment log.
    * @param domain Domain notation for the adjustment log.
    * @return @p clamped.
-   * @details Logs the adjustment and records it for getLastAdjusted(), the
-   *          programmatic channel a JS caller reads it through.
+   * @details Logs the adjustment and records it for getLastAdjusted().
    */
   static float note_clamped_arg(double arg, bool out_of_domain, float clamped,
                                 const char *op, const char *domain) {
@@ -550,11 +492,8 @@ public:
  * @param elements Multiple of the largest input element count (see MESHOP_LIST).
  * @param degree Multiple of the widest input face's side count.
  * @param valence Multiple of the highest input vertex valence.
- * @details Rejects a non-finite arg (finite_arg), then clamps the fraction to
- *          [0,1] so a direct/API caller passing a finite out-of-range value
- *          stays within the operator's documented domain and cannot trip
- *          truncate's or bevel's always-on HS_CHECK and abort the whole module.
- *          The clamp is recorded for getLastAdjusted() as well as logged.
+ * @details Rejects a non-finite arg, then clamps to [0,1]; the clamp is
+ *          recorded for getLastAdjusted() and logged.
  */
 #define MESHOP_1U(name, elements, degree, valence)                             \
   std::unique_ptr<MeshOpsWrapper> name(double arg) {                           \
@@ -577,9 +516,7 @@ public:
  * @param elements Multiple of the largest input element count (see MESHOP_LIST).
  * @param degree Multiple of the widest input face's side count.
  * @param valence Multiple of the highest input vertex valence.
- * @details Like MESHOP_1U, but these operators assert `t < 1.0f`, so 1 is
- *          outside the domain and clamping to it would land on the trap instead
- *          of avoiding it.
+ * @details Like MESHOP_1U, for operators that assert `t < 1.0f`.
  */
 #define MESHOP_1H(name, elements, degree, valence)                             \
   std::unique_ptr<MeshOpsWrapper> name(double arg) {                           \
@@ -595,19 +532,13 @@ public:
                  });                                                           \
   }
 
-  // The roster and its growth factors live in targets/wasm/mesh_op_bounds.h,
-  // where a host test measures the real operators against them.
   MESHOP_LIST(MESHOP_0, MESHOP_1U, MESHOP_1H)
 
 #undef MESHOP_0
 #undef MESHOP_1U
 #undef MESHOP_1H
 
-  /**
-   * Engine-enforced ceiling on relax smoothing passes: an independent
-   * defense-in-depth limit for direct/API callers that bypass the editor's
-   * 500-pass slider cap.
-   */
+  /** Ceiling on relax smoothing passes. */
   static constexpr int MAX_RELAX_ITERATIONS = 1000;
 
   /**
@@ -636,9 +567,8 @@ public:
   }
 
   /**
-   * Inclusive upper bound of the Hankin contact-angle domain: at pi/2 the
-   * contact rays leave the edge perpendicular to it, and past that they tilt
-   * back into the neighbouring face, mirroring an angle already in domain.
+   * Inclusive upper bound of the Hankin contact-angle domain; past pi/2 an angle
+   * mirrors one already in domain.
    */
   static constexpr float MAX_HANKIN_ANGLE = math::PI_F / 2.0f;
 
@@ -648,11 +578,7 @@ public:
    *        expects), in the operator's [0, MAX_HANKIN_ANGLE] domain.
    * @return Owning pointer to a new wrapper holding the result, or null if the
    *         angle is non-finite or out of domain; getLastResult() names which.
-   * @details Explicit (not a MESHOP_* macro) so the radians unit contract the JS
-   *          caller relies on is carried here. The angle is rejected rather than
-   *          clamped: MeshOps::hankin aliases an out-of-domain angle onto an
-   *          in-domain pattern, so clamping would hand back geometry the caller
-   *          did not ask for.
+   * @details An out-of-domain angle is rejected, not clamped.
    */
   std::unique_ptr<MeshOpsWrapper> hankin(double radians) {
     begin_mesh_op();
@@ -677,12 +603,7 @@ public:
    * @param twist Per-face rotation about the face normal, in radians (0 = none);
    *          finite values saturate to the engine float range before narrowing.
    * @return Owning pointer to a new wrapper, or null on invalid input, stale wrapper, or allocation failure.
-   * @details Explicit (not a MESHOP_* macro) because MeshOps::snub takes TWO
-   *          float controls, which neither the zero-arg nor the one-float
-   *          generator can express. Binding it via MESHOP_0 hardcodes the
-   *          (0.5, 0.0) defaults and leaves both controls unreachable from JS;
-   *          this 2-arg form exposes them to the solids editor. A clamped inset
-   *          is recorded for getLastAdjusted() as well as logged.
+   * @details A clamped inset is recorded for getLastAdjusted() and logged.
    */
   std::unique_ptr<MeshOpsWrapper> snub(double t, double twist) {
     begin_mesh_op();
@@ -768,13 +689,9 @@ public:
    * @return JS object {seed: string, ops: [{op: string, param, twist}]}, or
    *         null for an unknown name (getLastResult() then reports
    *         UNKNOWN_NAME) or for a known entry without a recipe (OK).
-   * @details Pure table read: no arenas, no wrapper, no clearToolingMemory()
-   *          pairing. Params cross in engine-native units (radians for hankin,
-   *          raw t, relax iteration count), matching the MeshOps op bindings.
-   *          An unknown name is rejected at the untrusted JS boundary
-   *          (fromSolidName's precedent) rather than trapping; a recipe-less
-   *          known entry is the normal not-morphable case and returns null
-   *          without logging.
+   * @details Pure table read: no arenas, no wrapper. Params cross in
+   *          engine-native units (radians for hankin, raw t, relax iteration
+   *          count). A recipe-less known entry returns null without logging.
    */
   static emscripten::val getRecipe(const std::string &name) {
     begin_mesh_op();
@@ -787,8 +704,7 @@ public:
     if (!entry->recipe)
       return emscripten::val::null();
     const Solids::Recipe &recipe = *entry->recipe;
-    // recipe.seed indexes simple_registry specifically (get_entry spans all
-    // three registries and would misresolve it).
+    // recipe.seed indexes simple_registry, not get_entry's combined index.
     emscripten::val out = emscripten::val::object();
     out.set("seed", emscripten::val(Solids::simple_registry[recipe.seed].name));
     emscripten::val ops = emscripten::val::array();
@@ -810,12 +726,8 @@ public:
    * @return JS object with {max_v, v_name, max_f, f_name, max_i, i_name} giving
    *         the largest counts and the solids that produce them, or null if the
    *         tooling arenas could not be allocated.
-   * @details Dev-only roster measurement for sizing MAX_VERTS-style constants;
-   *          no UI consumer. Off by default; enable the HS_WASM_DEV_BINDINGS
-   *          CMake option to compile + re-export it
-   *          (`cmake --preset wasm-release -DHS_WASM_DEV_BINDINGS=ON`; see
-   *          CMakeLists.txt). Measures each solid in the scratch arenas only —
-   *          never tooling_arena, which backs live wrappers the JS side holds.
+   * @details Dev-only, compiled with the HS_WASM_DEV_BINDINGS CMake option.
+   *          Measures in the scratch arenas only, never tooling_arena.
    */
   static emscripten::val getMaxBounds() {
     begin_mesh_op();
@@ -832,8 +744,6 @@ public:
       return emscripten::val::null();
     }
     for (int i = 0; i < Solids::NUM_ENTRIES; ++i) {
-      // Measure in the scratch arenas only — never tooling_arena, which backs
-      // live wrappers the JS side holds.
       tooling_scratch_a.reset();
       tooling_scratch_b.reset();
       PolyMesh temp =
@@ -872,8 +782,7 @@ public:
 #endif
 
   /**
-   * @brief Reports the three engine and three tooling arena metrics for
-   *        the mesh tooling HUD.
+   * @brief Reports the engine and tooling arena metrics.
    * @return JS object of {usage, high_water_mark, lifetime_high_water_mark,
    *         capacity} metrics per arena, in bytes.
    */
@@ -882,9 +791,8 @@ public:
   /**
    * @brief Reports why the most recent checked mesh operation answered null.
    * @return OK when no rejection was recorded, otherwise the rejection reason.
-   * @details Covers fromSolidName, getVertices, getFaces, classifyFaces,
-   *          getRecipe and the operator methods. Read it immediately after the
-   *          null; the next such call overwrites it.
+   * @details Read it immediately after the null; the next checked call
+   *          overwrites it.
    */
   static MeshOpResult getLastResult() { return last_mesh_op_result; }
 
@@ -894,14 +802,10 @@ public:
    * @return true when the mesh that call produced was rendered from a value
    *         other than the one passed in. Meaningful only when the call
    *         returned a mesh.
-   * @details The fraction operators and relax clamp an out-of-domain argument
-   *          rather than reject it, so getLastResult() stays OK and the mesh
-   *          renders. A caller that only previews the mesh can ignore this; a
-   *          caller that exports the argument it passed — a chain validator, a
-   *          codegen tool — must read it, because the exported value would carry
-   *          an out-of-domain bound into the engine's always-on HS_CHECK. Read
-   *          it immediately after the operation. The next checked operation
-   *          overwrites it; getRegistry and getArenaMetrics preserve it.
+   * @details A clamped argument leaves getLastResult() OK; a caller exporting
+   *          the argument it passed must check this, since the raw value would
+   *          trip the engine's HS_CHECK. The next checked operation overwrites
+   *          it.
    */
   static bool getLastAdjusted() { return last_mesh_op_adjusted; }
 };
@@ -919,8 +823,7 @@ static void bind_mesh_ops() {
       .value("STALE_WRAPPER", MeshOpResult::STALE_WRAPPER)
       .value("ARENA_UNAVAILABLE", MeshOpResult::ARENA_UNAVAILABLE);
 
-  // No public .constructor<>(): all construction goes through fromSolidName so
-  // JS cannot wrap an empty mesh past the operator boundary's wrapper_live().
+  // No public .constructor<>(): construction goes through fromSolidName.
   emscripten::class_<MeshOpsWrapper>("MeshOps")
       .class_function("clearToolingMemory", &MeshOpsWrapper::clearToolingMemory)
       .class_function("getLastResult", &MeshOpsWrapper::getLastResult)

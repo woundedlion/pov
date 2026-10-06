@@ -3,23 +3,15 @@
  * Licensed under the PolyForm Noncommercial License 1.0.0
  */
 
-// Included by tests/test_animation.h.
-
 // ============================================================================
 // deep_tween (global_t span)
-// ----------------------------------------------------------------------------
-// deep_tween walks an OrientationTrail's frames and sub-frames, emitting a
-// global t in [0,1] across the trail. It skips sub-frame 0 of every frame after
-// the first (the shared boundary), so the emitted count is M + (N-1)*(M-1) for
-// N frames of M sub-frames.
 // ============================================================================
 
 /**
  * @brief Pins deep_tween's admissible input: an OrientationTrail, not a bare
  * Orientation.
  * @details A bare Orientation's get() yields a Quaternion, which has no
- * sub-frame history to flatten. Tweenable rejects it at the concept boundary
- * instead of failing deep inside deep_tween_frames' instantiation.
+ * sub-frame history to flatten.
  */
 inline void test_tweenable_rejects_bare_orientation() {
   static_assert(Tweenable<Animation::OrientationTrail<math::Orientation<8>, 8>>,
@@ -114,8 +106,7 @@ inline void test_deep_tween_collapsed_newest_frame_reaches_one() {
 /**
  * @brief Verifies that when every frame is motionless the lone plotted
  * orientation (the trail head) reads t = 1.0.
- * @details This mirrors tween(Orientation) for a lone snapshot; t = 0.0 would
- * render it invisible under quintic_kernel(0).
+ * @details Mirrors tween(Orientation) for a lone snapshot.
  */
 inline void test_deep_tween_all_collapsed_reaches_one() {
   using Ori = math::Orientation<8>;
@@ -177,7 +168,7 @@ inline void test_deep_tween_frames_groups_flat_emission() {
  * @brief Verifies a motionless interior frame leaves no hole in the age ramp.
  * @details A moving / motionless / moving trail: the length-1 interior frame
  * contributes no sample and is excluded from the span, so the remaining moving
- * frames stay evenly spaced across [0,1] instead of straddling a ~1/span gap.
+ * frames stay evenly spaced across [0,1].
  */
 inline void test_deep_tween_interior_motionless_frame_no_gap() {
   using Ori = math::Orientation<8>;

@@ -3,16 +3,12 @@
  * Licensed under the PolyForm Noncommercial License 1.0.0
  */
 
-// Included by tests/test_animation.h.
-
 // Orientation upsampling and collapse.
 
 /**
  * @brief Verifies Orientation::upsample SLERP-interpolates the recorded
  * sub-frames up to a target count (preserving endpoints) and collapse()
  * discards all but the newest.
- * @details These are the two primitives multi-animation motion blur is built
- * on.
  */
 inline void test_orientation_upsample_then_collapse() {
   math::Orientation<8> o; // identity, 1 frame

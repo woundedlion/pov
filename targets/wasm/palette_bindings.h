@@ -9,8 +9,8 @@
  *
  * Decodes a JS recipe object into a PaletteRecipe, compiles it through
  * GenerativePalette::try_compile() and bakes the 256-entry LUT (plus, for
- * inspectV4, per-sample diagnostics) into the module-global buffers below, which
- * cross back as typed memory views. Included only by targets/wasm/wasm.cpp.
+ * inspectV4, per-sample diagnostics) into module-global buffers that cross back
+ * as typed memory views.
  */
 #pragma once
 
@@ -88,12 +88,9 @@ private:
    *        INVALID_SCHEMA and anything the underlying type cannot hold as
    *        INVALID_ENUM. Each enum's own bound belongs to
    *        GenerativePalette::try_compile().
-   * @details A missing or misspelled key reads as undefined, which converts to
-   *          enumerator 0 rather than failing, so the numeric test comes first.
-   *          The range test runs in double, the JS number type: reading through
-   *          int would ToInt32-wrap an out-of-range field into an in-range
-   *          enumerator, and would sign-flip the ceiling of a wide underlying
-   *          type. NaN fails the test and is rejected.
+   * @details A missing key reads as undefined, which converts to enumerator 0,
+   *          so the numeric test comes first. The range test runs in double: an
+   *          int read would ToInt32-wrap an out-of-range field. NaN is rejected.
    */
   template <typename Enum>
   static bool decode_enum(const emscripten::val &object, const char *name,
@@ -113,8 +110,6 @@ private:
       status.field = field;
       return false;
     }
-    // as<int>() range-asserts under -sASSERTIONS=1 and throws out through the
-    // binding; checking as a double keeps NaN on INVALID_ENUM.
     const double value = field_value.as<double>();
     if (!(value >= 0.0 && value <= LAST) || value != std::floor(value)) {
       status.code = PaletteCompileCode::INVALID_ENUM;
@@ -129,9 +124,9 @@ private:
    * @brief Reads one leaf scalar off a recipe object.
    * @param value Value read off the object.
    * @return @p value as a float, or NaN when it is not a number.
-   * @details GenerativePalette::try_compile() rejects active-field NaNs as
-   *          NON_FINITE and names the field; inactive fields are canonicalized. A bare as<float>() instead throws a JS TypeError
-   *          out through the binding under -sASSERTIONS=1.
+   * @details try_compile() rejects active-field NaNs as NON_FINITE; inactive
+   *          fields are canonicalized. A bare as<float>() would throw a JS
+   *          TypeError under -sASSERTIONS=1.
    */
   static float leaf_float(const emscripten::val &value) {
     if (!value.isNumber())
@@ -336,12 +331,9 @@ private:
    * @param status Status to encode.
    * @return {code, field, wrappedFields, clampedFields, canonicalizedFields};
    *         the three adjustment masks cross as doubles, being 64-bit bitsets
-   *         keyed by PaletteRecipeField. Exact only while every field bit fits
-   *         the double mantissa, which the static_assert below holds.
+   *         keyed by PaletteRecipeField.
    */
   static emscripten::val encode_status(const PaletteCompileStatus &status) {
-    // A bitset wider than the mantissa would silently round on the JS boundary,
-    // dropping adjustment reports rather than failing.
     static_assert(static_cast<int>(PaletteRecipeField::COUNT) <=
                       std::numeric_limits<double>::digits,
                   "PaletteRecipeField has outgrown the double the adjustment "
@@ -410,7 +402,7 @@ private:
    * @param inspect Also fill the diagnostic and gamut-fallback buffers.
    * @details A mirroring domain samples the first half and reflects it, a
    *          looping domain samples 255 and repeats slot 0 at 255, so both seams
-   *          are exact rather than left to sampling round-off.
+   *          are exact.
    */
   static void bake(const GenerativePalette &palette, bool inspect) {
     bake_palette_schedule<256>(
@@ -472,11 +464,7 @@ private:
   }
 };
 
-/**
- * @brief Registers PaletteOps with embind.
- * @details Bound as instance methods: the JS palette tool and the two-repo
- *          parity tests call through a constructed PaletteOps.
- */
+/** @brief Registers PaletteOps with embind. */
 static void bind_palette_ops() {
   emscripten::enum_<PaletteCompileCode>("PaletteCompileCode")
       .value("OK", PaletteCompileCode::OK)

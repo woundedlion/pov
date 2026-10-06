@@ -172,9 +172,8 @@ public:
    *         otherwise the refusal name; status is the ChainStatus enum.
    *         entryIndex names the offending entry, -1 for a whole-chain refusal.
    * @details Synchronous: on APPLIED the parameter definitions are already
-   * rebuilt and the schema generation bumped before this returns, so the
-   * caller applies preset values by "{instance}.{field-id}" name immediately
-   * (apply order: setShaderChain -> values -> syncEffectGui -> invalidate).
+   * rebuilt and the schema generation bumped before this returns, so values
+   * can be applied by "{instance}.{field-id}" name immediately.
    * The boundary rejects a non-array payload or a non-string entry field as
    * MALFORMED_PAYLOAD; NOT_CHAIN_EFFECT reports that the
    * loaded effect is not ShaderChain, and covers an input whose accessors swap
@@ -195,8 +194,8 @@ public:
     if (!is_array(entries))
       return chain_result(ChainStatus::MALFORMED_PAYLOAD, -1);
     const size_t count = entries["length"].as<size_t>();
-    // The length cap precedes per-entry decode — compile()'s own shape order —
-    // so an oversized payload is TOO_LONG, never an unbounded decode.
+    // The length cap precedes per-entry decode, so an oversized payload is
+    // TOO_LONG.
     if (count > Pullback::Interp::MAX_CHAIN_OPS)
       return chain_result(ChainStatus::TOO_LONG, -1);
     std::vector<std::string> instances(count);
@@ -285,12 +284,8 @@ public:
   /**
    * @brief Exports the chain-interpreter operator catalog.
    * @return The catalog JSON — budgets, carriers, and every operator-table
-   *         entry. Budgets, carriers, operator ids and parameter schemas
-   *         match the native suite's golden pin; the block sizes do not.
-   *         These are wasm32 ABI figures, so a pointer-bearing operator's
-   *         `prepared` block is narrower here than in the LP64 golden.
-   *         An editor budgets arena bytes against these figures, which
-   *         are the ones this module's own runtime allocates from.
+   *         entry. Block sizes are wasm32 ABI figures: a pointer-bearing
+   *         operator's `prepared` block is narrower than on LP64.
    */
   static std::string getShaderChainCatalog() {
     std::string catalog;

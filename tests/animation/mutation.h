@@ -3,8 +3,6 @@
  * Licensed under the PolyForm Noncommercial License 1.0.0
  */
 
-// Included by tests/test_animation.h.
-
 // ============================================================================
 // Mutation
 // ============================================================================

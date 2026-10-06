@@ -8,17 +8,13 @@
 #   cmake --build --preset tests
 #   ctest --preset tests
 #
-# `just test` also builds excluded_targets, with CI smoke-frame and skip settings.
-#
-# The root adds tests/ only in its native branch; standalone Emscripten
-# configuration is also excluded here. The tests preset is the supported path.
+# Emscripten configurations are excluded.
 if(EMSCRIPTEN)
   return()
 endif()
 
-# Matches the root floor: the native-clang toolchain sets CMAKE_LINKER_TYPE
-# (added in CMake 3.29), which is silently ignored on older CMake. This applies
-# to the standalone `cmake -S tests` path too, so gate it here as well.
+# The native-clang toolchain sets CMAKE_LINKER_TYPE (CMake 3.29+), which older
+# CMake silently ignores.
 cmake_minimum_required(VERSION 3.29)
 
 # Allow standalone configuration (cmake -S tests) as well as being pulled in by
@@ -37,11 +33,8 @@ option(HS_REQUIRE_GENERATORS
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-# cmake/toolchain-native-clang.cmake falls back to an unversioned `clang` from
-# PATH, so the major is whatever the developer happens to have installed. Clang
-# 18 is the oldest the relaxed-template-template opt-in below was written for;
-# nothing older is built anywhere, so refuse it by version rather than let it
-# fail as a compile error.
+# The native-clang toolchain may fall back to an unversioned `clang` from PATH;
+# refuse anything older than 18.
 if(CMAKE_CXX_COMPILER_ID STREQUAL "Clang" AND CMAKE_CXX_COMPILER_VERSION VERSION_LESS 18)
   message(FATAL_ERROR
     "Clang ${CMAKE_CXX_COMPILER_VERSION} is below the 18 this suite is built "
@@ -49,12 +42,8 @@ if(CMAKE_CXX_COMPILER_ID STREQUAL "Clang" AND CMAKE_CXX_COMPILER_VERSION VERSION
     "cmake/toolchain-native-clang.cmake resolve the emsdk's.")
 endif()
 
-# Clang < 19 defaults to the pre-P0522 template-template matching rules and
-# rejects an effect with a defaulted extra template parameter as an argument
-# for the harness's
-# `template <int, int> class E` parameters. GCC and Clang >= 19 apply the
-# C++17 relaxed matching by default; opt older Clang in explicitly. Clang 20
-# removed the flag, so keep the gate.
+# Clang < 19 needs relaxed template-template matching opted in for the
+# harness's `template <int, int> class E` parameters; Clang 20 removed the flag.
 if(CMAKE_CXX_COMPILER_ID STREQUAL "Clang" AND CMAKE_CXX_COMPILER_VERSION VERSION_LESS 19)
   add_compile_options(-frelaxed-template-template-args)
 endif()
@@ -101,8 +90,8 @@ target_compile_definitions(hs_test_support INTERFACE
   HS_ENABLE_STRUCTURAL_AUDITS=1
   HS_ENABLE_EFFECT_CONTROL_API=1)
 
-# Every native executable below inherits host diagnostics and warning flags;
-# per-target optimization and math flags remain local.
+# Host diagnostics and warning flags; per-target optimization and math flags
+# remain local.
 function(_hs_warnings target)
   target_compile_options(${target} PRIVATE -Wall -Wextra -Werror)
 endfunction()
@@ -111,11 +100,8 @@ add_executable(run_tests
   ${CMAKE_CURRENT_SOURCE_DIR}/run_tests.cpp
   ${HS_ENGINE_SOURCES})
 
-# HS_SCAN_METRICS compiles the per-pixel g_scan_metrics counters back in (off in
-# the device/WASM release build, where they would be a per-pixel global store on
-# the hot loop). The Face distance-oracle test reads exact_hits to tell culled
-# samples from evaluated ones, so the suite needs them live. See
-# core/platform/profiling.h (HS_SCAN_METRIC) and core/render/sdf/face.h Face::distance.
+# HS_SCAN_METRICS compiles in the per-pixel g_scan_metrics counters
+# (HS_SCAN_METRIC, core/platform/profiling.h).
 target_compile_definitions(run_tests PRIVATE HS_SCAN_METRICS
   "HS_SHADER_CHAIN_CATALOG_PATH=\"${CMAKE_CURRENT_SOURCE_DIR}/data/shader_chain_catalog.json\""
   "HS_PROMOTED_PATTERNS_DIR=\"${HS_ROOT}/patterns\"")
@@ -136,9 +122,8 @@ _hs_warnings(color_header_checks)
 add_dependencies(run_tests color_header_checks)
 
 
-# Census of the engine's HS_CHECK sites, so the death harness can print how
-# much of the fail-fast surface its cases actually pin. Generated, never
-# committed: a written-down guard list drifts away from the guards.
+# Generated census of the engine's HS_CHECK sites, for the death harness's
+# coverage report.
 file(STRINGS "${CMAKE_CURRENT_SOURCE_DIR}/guard_directories.txt" HS_GUARD_DIRS)
 set(_guard_sources)
 foreach(_dir IN LISTS HS_GUARD_DIRS)
@@ -168,24 +153,14 @@ target_include_directories(run_tests PRIVATE ${HS_ENGINE_INCLUDES}
 _hs_warnings(run_tests)
 
 # Opt-in sanitizers for the native suite; enable with -DHS_SANITIZE=ON.
-# Two CI jobs (.github/workflows/ci.yml) build with it on every push and pull
-# request, one per flavour, because the flavour depends on the runtime the
-# toolchain ships:
-#   * Linux/full-LLVM ("sanitizers"): ASan + UBSan with diagnostics
-#     (-fno-sanitize-recover makes the first error a hard failure rather than
-#     logged-and-continue).
-#   * Windows emsdk clang ("windows-tests", one instrumented target): ships no
-#     ASan runtime for the MSVC target, so use runtime-free UBSan in trap mode —
-#     a UB hit becomes an immediate trap, consistent with the engine's always-on
-#     fail-fast doctrine.
+#   * Linux/full-LLVM: ASan + UBSan; the first error is a hard failure.
+#   * Windows emsdk clang: no ASan runtime for the MSVC target, so runtime-free
+#     UBSan in trap mode.
 option(HS_SANITIZE "Build the unit tests with sanitizers (ASan+UBSan, or UBSan-trap on Windows)" OFF)
 
-# ThreadSanitizer. The canvas and pov_segmented modules drive the Effect double
-# buffer from two real threads (a render thread against a display-ISR stand-in),
-# which is the engine's only genuine concurrency; nothing else in the suite would
-# gain from TSan. It cannot share a binary with ASan, so it is a separate option
-# and a separate CI job ("thread-sanitizer" in .github/workflows/ci.yml).
-# Linux/macOS only: clang ships no TSan runtime for the Windows target.
+# ThreadSanitizer, for the Effect double buffer driven from two real threads.
+# Cannot share a binary with ASan. Linux/macOS only: clang ships no TSan runtime
+# for the Windows target.
 option(HS_TSAN "Build the unit tests with ThreadSanitizer (excludes HS_SANITIZE)" OFF)
 if(HS_TSAN)
   if(HS_SANITIZE)
@@ -215,7 +190,7 @@ function(_hs_sanitize target)
     return()
   endif()
   # Suppress only signed-integer-overflow inside vendored FastNoiseLite (its
-  # hashing wraps signed ints by design); first-party code keeps full coverage.
+  # hashing wraps signed ints).
   set(_ignore "-fsanitize-ignorelist=${CMAKE_CURRENT_SOURCE_DIR}/ubsan-ignorelist.txt")
   if(WIN32)
     target_compile_options(${target} PRIVATE
@@ -294,8 +269,8 @@ add_test(NAME unit_mindsplatter_palette_form COMMAND ${CMAKE_COMMAND}
   -DGENERATED=${CMAKE_CURRENT_BINARY_DIR}/mindsplatter_palette_luts.generated.h
   -P ${CMAKE_CURRENT_SOURCE_DIR}/check_mindsplatter_palette_form.cmake)
 
-# Standalone tolerance check for all 393,216 bytes of palette data,
-# with its own error report and provenance gate.
+# Standalone tolerance check for the palette data, with its own error report
+# and provenance gate.
 add_executable(mindsplatter_palette_check
   ${CMAKE_CURRENT_SOURCE_DIR}/mindsplatter_palette_check.cpp
   ${HS_ENGINE_SOURCES})
@@ -316,11 +291,8 @@ _hs_warnings(mindsplatter_replay)
 _hs_sanitize(mindsplatter_replay)
 add_test(NAME unit_mindsplatter_replay COMMAND mindsplatter_replay)
 
-# Opt-in Clang source-based coverage for the main suite binary. Default OFF: the
-# instrumentation changes codegen and slows the run, so no correctness/test-verdict job may carry
-# it. The "code-coverage" CI job turns it on, publishes an llvm-cov report and
-# enforces a loose catastrophic floor. Needs clang_rt.profile, which the
-# Windows emsdk clang does not ship, so this is a Linux-toolchain option.
+# Opt-in Clang source-based coverage for run_tests. The instrumentation changes
+# codegen. Needs clang_rt.profile, which the Windows emsdk clang does not ship.
 option(HS_COVERAGE "Instrument run_tests for llvm-cov source-based coverage" OFF)
 if(HS_COVERAGE)
   target_compile_options(run_tests PRIVATE -fprofile-instr-generate -fcoverage-mapping)
@@ -348,8 +320,7 @@ set(_hs_test_modules
     dma_controller
     pov_segmented pov_single pov_sync param_marshal wasm_predicates led
     presets styles shading death)
-# Bound each module independently. The effects module takes about 227 s plain
-# and 620 s with ASan + UBSan; effects_smoke has its own 1200 s plain budget.
+# Bound each module independently.
 set(_hs_test_timeout 600)
 if(HS_SANITIZE OR HS_TSAN)
   set(_hs_test_timeout 1800)
@@ -366,18 +337,13 @@ add_test(NAME unit_death_child_dispatch COMMAND ${CMAKE_COMMAND}
     -DTEST_BIN=$<TARGET_FILE:run_tests>
     -P ${CMAKE_CURRENT_SOURCE_DIR}/check_death_child_dispatch.cmake)
 
-# Pin _hs_test_modules against run_tests' HS_TEST_MODULE_LIST: run_tests
-# --check-modules exits non-zero if the CMake list and the roster diverge in
-# either direction, so a module added to one but not the other can never run
-# silently in CI sharding.
+# run_tests --check-modules fails if _hs_test_modules and HS_TEST_MODULE_LIST
+# diverge in either direction.
 add_test(NAME unit_module_roster
     COMMAND run_tests --check-modules ${_hs_test_modules})
 
-# Pin run_tests.cpp's per-module include block against the roster, catching an
-# include left behind after a module is removed (which compiles silently), and
-# every tests/*.h and tests/*.hpp against that include block, catching a file
-# nothing ever compiles. The exempt list is pinned too: an entry must still be
-# included from tests/ or tools/.
+# Pin run_tests.cpp's per-module include block against the roster, and every
+# tests/*.h and tests/*.hpp against that include block.
 add_test(NAME unit_module_includes COMMAND ${CMAKE_COMMAND}
     -DSRC=${CMAKE_CURRENT_SOURCE_DIR}/run_tests.cpp
     -DTESTS_DIR=${CMAKE_CURRENT_SOURCE_DIR}
@@ -405,9 +371,7 @@ add_test(NAME unit_case_calls COMMAND ${CMAKE_COMMAND}
     -P ${CMAKE_CURRENT_SOURCE_DIR}/check_case_calls.cmake)
 
 # Pin the device inline-storage audit's hand-written type pack against the
-# AnimationBase subclasses actually declared under core/. The per-type
-# static_assert in Timeline::add_get only fires for types a build add()s, so an
-# animation missing from the pack is measured by nothing.
+# AnimationBase subclasses declared under core/.
 add_test(NAME unit_anim_pack COMMAND ${CMAKE_COMMAND}
     -DCORE_DIR=${HS_ROOT}/core
     -DANIM_HEADER=${HS_ROOT}/core/animation/animation.h
@@ -417,18 +381,14 @@ add_test(NAME unit_anim_pack_declarations COMMAND ${CMAKE_COMMAND}
     -P ${CMAKE_CURRENT_SOURCE_DIR}/check_anim_pack.cmake)
 
 # Pin the in-tree patches to vendored FastNoiseLite.h against the patch record
-# in core/vendor/FastNoiseLite_config.h. A version bump that drops them still
-# compiles: the size guard goes inert and the sampler loses selective -O3, both
-# silently.
+# in core/vendor/FastNoiseLite_config.h.
 add_test(NAME unit_vendor_patches COMMAND ${CMAKE_COMMAND}
     -DHEADER=${HS_ROOT}/core/vendor/FastNoiseLite.h
     -DCONFIG=${HS_ROOT}/core/vendor/FastNoiseLite_config.h
     -P ${CMAKE_CURRENT_SOURCE_DIR}/check_vendor_patches.cmake)
 
-# Pin the Phantasm linker script's fork base and flash-routing changes. It is a
-# second vendored fork -- of the stock Teensy 4 imxrt1062.ld -- that nothing in
-# the build re-derives, and a lost routing change reads as a Teensy size-gate
-# red far from its cause, on the hosts that have PlatformIO at all.
+# Pin the Phantasm linker script (a fork of the stock Teensy 4 imxrt1062.ld)
+# fork base and flash-routing changes.
 add_test(NAME unit_linker_patches COMMAND ${CMAKE_COMMAND}
     -DSCRIPT=${HS_ROOT}/tools/phantasm.ld
     -DPLATFORMIO_INI=${HS_ROOT}/platformio.ini
@@ -511,20 +471,16 @@ add_test(NAME unit_color_luts COMMAND ${CMAKE_COMMAND}
     -P ${CMAKE_CURRENT_SOURCE_DIR}/check_color_luts.cmake)
 set_tests_properties(unit_color_luts PROPERTIES SKIP_RETURN_CODE 77)
 
-# Host self-tests for the per-commit Teensy size trail (tools/teensy_size_trail.py):
-# the ELF32 section-header parser the pre-commit recorder reads firmware images
-# with, and the regression classifier. The ci.yml python-tests job runs the
-# same file through tools/run_python_tests.py.
+# Host self-tests for tools/teensy_size_trail.py: the ELF32 section-header
+# parser and the regression classifier.
 add_test(NAME unit_teensy_size_trail COMMAND ${CMAKE_COMMAND}
     -DPYTHON_EXE=${HS_PYTHON}
     -DHS_ROOT=${HS_ROOT}
     -P ${CMAKE_CURRENT_SOURCE_DIR}/check_teensy_size_trail.cmake)
 
 # Pin core/color/gamut_lut.h against its generator, the generator's copies of the
-# OKLab matrices and the gamut slack against core/color/color_space.h, and its diamond
-# angle against core/math/3dmath.h — drift there invalidates the brackets the
-# per-pixel bisection is confined to, or mis-indexes them. A full regeneration is
-# ~1 min of numpy.
+# OKLab matrices and the gamut slack against core/color/color_space.h, and its
+# diamond angle against core/math/3dmath.h.
 add_test(NAME unit_gamut_lut COMMAND ${CMAKE_COMMAND}
     -DPYTHON_EXE=${HS_PYTHON}
     -DGENERATOR=${HS_ROOT}/tools/gen_gamut_lut.py
@@ -533,12 +489,8 @@ add_test(NAME unit_gamut_lut COMMAND ${CMAKE_COMMAND}
     -P ${CMAKE_CURRENT_SOURCE_DIR}/check_gamut_lut.cmake)
 set_tests_properties(unit_gamut_lut PROPERTIES SKIP_RETURN_CODE 77 TIMEOUT 900)
 
-# Pin hardware/pov_segment_map.json against hardware/pov_segment_map.h. The JSON
-# is the firmware segment->canvas reference the simulator's cross-check (daydream
-# tests/segment_crosscheck.test.js) reads, and the WASM install copies it into the
-# daydream checkout alongside the module. Emitting it from a TU compiled against
-# the header — rather than re-porting the mapping in JS — means a segment
-# convention change here cannot leave the web tiling silently mis-partitioned.
+# Pin hardware/pov_segment_map.json against hardware/pov_segment_map.h, emitted
+# from a TU compiled against the header.
 add_executable(pov_segment_map_gen ${HS_ROOT}/tools/pov_segment_map_export.cpp)
 target_include_directories(pov_segment_map_gen PRIVATE ${HS_ROOT})
 _hs_warnings(pov_segment_map_gen)
@@ -549,41 +501,31 @@ add_test(NAME unit_pov_segment_map_golden COMMAND ${CMAKE_COMMAND}
     -DGENERATED=${CMAKE_CURRENT_BINARY_DIR}/pov_segment_map.generated.json
     -P ${CMAKE_CURRENT_SOURCE_DIR}/check_pov_segment_map.cmake)
 
-# Exercise the release math contract at -O3 on every local run. The CI fastmath
-# run_tests leg also covers it at -Os. The explicit -fno-finite-math-only keeps
-# NaN-aware clamps valid under -ffast-math; platform.h pins that requirement.
+# Exercise the release math contract at -O3. -fno-finite-math-only keeps
+# NaN-aware clamps valid under -ffast-math.
 add_executable(fastmath_clamp_check
   ${CMAKE_CURRENT_SOURCE_DIR}/fastmath_clamp_check.cpp
   ${HS_ENGINE_SOURCES})
 target_include_directories(fastmath_clamp_check PRIVATE ${HS_ENGINE_INCLUDES})
 target_link_libraries(fastmath_clamp_check PRIVATE hs_host_abi)
 target_compile_definitions(fastmath_clamp_check PRIVATE HS_ENABLE_TEST_ORACLES=1)
-# The WASM release math flags (CMakeLists.txt). -fno-finite-math-only MUST follow
-# -ffast-math: it re-enables the NaN/Inf semantics the contract needs. If a future
-# edit drops it, core/platform/platform.h's #error makes this TU fail to compile — exactly
-# the regression signal we want.
+# The WASM release math flags. -fno-finite-math-only MUST follow -ffast-math;
+# core/platform/platform.h #errors without it.
 target_compile_options(fastmath_clamp_check PRIVATE
   -O3 -ffast-math -fno-finite-math-only)
 _hs_warnings(fastmath_clamp_check)
 _hs_sanitize(fastmath_clamp_check)
 add_test(NAME unit_fastmath_clamp COMMAND fastmath_clamp_check)
 
-# Relax-bake re-derivation gate. The committed payloads in
-# core/mesh/relax_bakes_generated.h are host-generated and loaded verbatim on
-# both host and device. This harness recompiles every bake-bearing recipe with
-# HS_RELAX_BAKE_VERIFY, which re-runs smoothing with bake.iterations as the iteration cap
-# and asserts the result reproduces the committed bits — so a recipe edit that
-# silently drifts the geometry (even one that leaves topology unchanged) fails
-# the suite instead of shipping a stale asset. It MUST be its own TU: VERIFY
-# rewires SolidBuilder::relax_baked() globally, which the normal run_tests build
-# needs in its load-the-bits form.
+# Relax-bake re-derivation gate: recompiles every bake-bearing recipe with
+# HS_RELAX_BAKE_VERIFY and asserts smoothing reproduces the committed bits in
+# core/mesh/relax_bakes_generated.h. Its own TU: VERIFY rewires
+# SolidBuilder::relax_baked() globally.
 add_executable(relax_bake_verify ${HS_ROOT}/tools/relax_bake_harness.cpp
   ${HS_ENGINE_SOURCES})
 target_compile_definitions(relax_bake_verify PRIVATE HS_RELAX_BAKE_VERIFY)
 target_link_libraries(relax_bake_verify PRIVATE hs_host_abi)
-# IEEE float semantics whatever the build's global flags are: the committed
-# payload is a host-IEEE-captured constant, and live fast-math arithmetic does
-# not reproduce its bits. The device loads the payload, it never re-derives it.
+# IEEE float semantics: the committed payload is a host-IEEE-captured constant.
 target_compile_options(relax_bake_verify PRIVATE -fno-fast-math)
 target_include_directories(relax_bake_verify PRIVATE ${HS_ENGINE_INCLUDES})
 _hs_warnings(relax_bake_verify)
@@ -591,24 +533,19 @@ _hs_sanitize(relax_bake_verify)
 add_test(NAME unit_relax_bake_verify COMMAND relax_bake_verify)
 
 # The generator half of the same harness (HS_RELAX_BAKE_EXTRACT dumps the
-# payloads that tools/relax_bakes.py emits into the header). Built here so a
-# change that breaks generation is caught in CI; run it to regenerate:
+# payloads that tools/relax_bakes.py emits into the header). To regenerate:
 #   relax_bake_gen | python tools/relax_bakes.py emit --stdin
 add_executable(relax_bake_gen ${HS_ROOT}/tools/relax_bake_harness.cpp
   ${HS_ENGINE_SOURCES})
 target_compile_definitions(relax_bake_gen PRIVATE HS_RELAX_BAKE_EXTRACT)
 target_link_libraries(relax_bake_gen PRIVATE hs_host_abi)
-# Same IEEE pin as the verifier above: the two halves must share float semantics
-# or generation emits payloads the gate rejects.
+# Same IEEE pin as relax_bake_verify: the two halves must share float semantics.
 target_compile_options(relax_bake_gen PRIVATE -fno-fast-math)
 target_include_directories(relax_bake_gen PRIVATE ${HS_ENGINE_INCLUDES})
 _hs_warnings(relax_bake_gen)
 _hs_sanitize(relax_bake_gen)
 
-# Pin the asset's FORM against the emitter: unit_relax_bake_verify above proves
-# the committed payloads re-derive bit-exact, but nothing re-ran the emitter, so
-# a drift in the banner or the chunking would surface only as a large spurious
-# reformat inside the next legitimate regeneration.
+# Pin the asset's form (banner, chunking) against the emitter.
 add_test(NAME unit_relax_bake_form COMMAND ${CMAKE_COMMAND}
     -DPYTHON_EXE=${HS_PYTHON}
     -DSCRIPT=${HS_ROOT}/tools/relax_bakes.py
@@ -663,19 +600,11 @@ _hs_warnings(runtime_display_geometry_check)
 _hs_sanitize(runtime_display_geometry_check)
 add_test(NAME unit_runtime_display_geometry COMMAND runtime_display_geometry_check)
 
-# Host stack high-water-mark gate across every effect. Built -Os + the device
-# math flags so codegen frame sizes track the Phantasm size build as closely as a
-# host compiler can. stack_measure.cpp heap-constructs effects like the firmware
-# factory so their object storage is not charged to the measured call stack.
-# Run as a CTest: it exits non-zero if the worst effect exceeds its stack budget,
-# catching a regression before it can overflow the device's MPU-guarded stack.
-#
-# The budget is the device's own DTCM stack reservation, read out of
-# tools/teensy_budgets.json (phantasm.regions.ram1.free_min_bytes) — the same
-# figure tools/teensy_gate.py holds free for locals and derives the ITCM code
-# ceiling from. Reading it here means changing the device reservation moves this
-# gate with it, instead of leaving a stale copy behind. The file is JSONC, so
-# line comments are stripped before string(JSON).
+# Host stack high-water-mark gate across every effect, built -Os + the device
+# math flags to track device frame sizes. Fails if the worst effect exceeds the
+# device DTCM stack reservation, read from tools/teensy_budgets.json
+# (phantasm.regions.ram1.free_min_bytes). The file is JSONC, so line comments
+# are stripped before string(JSON).
 file(READ ${HS_ROOT}/tools/teensy_budgets.json _hs_teensy_budgets_jsonc)
 string(REGEX REPLACE "//[^\n]*" "" _hs_teensy_budgets_json
   "${_hs_teensy_budgets_jsonc}")
@@ -713,10 +642,8 @@ target_compile_options(arena_measure PRIVATE -Os -ffast-math -fno-finite-math-on
 _hs_warnings(arena_measure)
 add_test(NAME unit_arena_budget COMMAND arena_measure)
 
-# Render micro-benchmark, built at two opt levels to bracket the size config's
-# per-pixel codegen cost (perf_bench.cpp). Not CTests — wall time is noisy. The
-# O3 variant stays in the default build as a compile guard so perf_bench.cpp
-# can't bit-rot silently; excluded_targets compiles the Os variant.
+# Render micro-benchmark at two opt levels (perf_bench.cpp). Not CTests: wall
+# time is noisy. The O3 variant builds by default as a compile guard.
 foreach(_opt Os O3)
   set(_perf_exclude EXCLUDE_FROM_ALL)
   if(_opt STREQUAL "O3")
@@ -768,19 +695,15 @@ add_test(NAME unit_feedback_io COMMAND feedback_divergence_io
   "${CMAKE_CURRENT_BINARY_DIR}/feedback-io.bin")
 
 # Generator of record for core/color/srgb_decode_lut.h. EXCLUDE_FROM_ALL: run
-# with no argument it rewrites a committed header, so the sharded CI job only
-# compiles it; the srgb-decode-provenance job runs it to a temp path (argv[1])
-# and diffs. unit_color pins the table itself.
+# with no argument it rewrites the committed header; argv[1] redirects output.
 add_executable(srgb_decode_gen EXCLUDE_FROM_ALL
   ${HS_ROOT}/scripts/generate_srgb_decode.cpp)
 target_include_directories(srgb_decode_gen PRIVATE ${HS_ENGINE_INCLUDES})
 _hs_warnings(srgb_decode_gen)
 
 
-# Generator of record for tests/data/shader_chain_catalog.json, which
-# unit_shader_chain diffs the freshly generated catalog against.
-# Excluded from the default build; excluded_targets compiles it, and
-# regenerate_shader_chain_catalog below runs it to rewrite the golden.
+# Generator of record for tests/data/shader_chain_catalog.json; excluded from
+# the default build.
 add_executable(shader_chain_catalog_gen EXCLUDE_FROM_ALL
   ${CMAKE_CURRENT_SOURCE_DIR}/shader_chain_catalog_gen.cpp
   ${HS_ENGINE_SOURCES})
@@ -849,11 +772,8 @@ add_test(NAME unit_composed_edge_fade_controls COMMAND ${CMAKE_COMMAND}
   "-DCOMPILER=${CMAKE_CXX_COMPILER}" "-DROOT=${HS_ROOT}"
   -P ${CMAKE_CURRENT_SOURCE_DIR}/check_composed_edge_fade.cmake)
 
-# Backstop budget for every registered test. CTest's 1500 s default is longer
-# than the whole roster, so a test registered without an explicit TIMEOUT above
-# burns a shard on a hang instead of failing. Applied last, over the directory's
-# final test list, so a new add_test() inherits it with no further edit; an
-# explicit TIMEOUT set above wins.
+# Backstop TIMEOUT for every registered test without an explicit one. Applied
+# last, over the directory's final test list.
 get_property(_hs_registered_tests DIRECTORY PROPERTY TESTS)
 foreach(_hs_test IN LISTS _hs_registered_tests)
   get_test_property(${_hs_test} TIMEOUT _hs_existing_timeout)

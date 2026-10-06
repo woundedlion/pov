@@ -3,8 +3,6 @@
  * Licensed under the PolyForm Noncommercial License 1.0.0
  */
 
-// Included by tests/test_animation.h.
-
 // ============================================================================
 // MeshCarousel segues
 // ============================================================================
@@ -153,8 +151,6 @@ inline void test_dissolve_segue_reseeds_per_frame_and_transition() {
  *        whole fade window: its negative overlap selects the full window, so
  *        every frame of the transition has both halves of the mask pair
  *        drawing.
- * @details A sequential schedule would leave the complement's edges unlit for
- *          the entire transition — a half-black sphere, not a dissolve.
  */
 inline void test_dissolve_segue_overlaps_the_full_fade_window() {
   Timeline tl;
@@ -261,13 +257,8 @@ inline float segue_peak_weight(const S &seg, float phase) {
 /**
  * @brief Verifies every segue policy's visible() gate agrees with what that
  * policy actually shades, in both directions.
- * @details visible() is a whole-draw cull (IslamicStars gates draw_shape on
- * it). Culling a phase the policy still shades blinks black for those frames at
- * both ends of every transition: GoldConvergence floors opacity at 0.4 and
- * SpinFlip/IrisBloom/Lace/Dissolve never fade at all, so the fade-to-black gate
- * is wrong for them. Passing a phase the policy shades nothing at is the
- * converse failure — a full mesh rasterization for a frame with no light in it,
- * which is what a per-face policy inheriting a global-phase gate buys.
+ * @details visible() is a whole-draw cull: it must pass every phase the
+ * policy shades and cull phases where it shades nothing.
  */
 inline void test_segue_visible_gate_culls_only_dark_phases() {
   auto check = [](const auto &seg) {
@@ -500,8 +491,7 @@ inline void test_terminator_sweep_fades_faces_over_fixed_frames() {
 
 /**
  * @brief Verifies a mid-transition Face Fade slider move lands on the next
- * frame: face_fade_frac reads the frame bounds live rather than a fraction
- * frozen by the last schedule(), which only runs once per shape.
+ * frame: face_fade_frac reads the frame bounds live.
  */
 inline void test_terminator_sweep_fade_sliders_apply_without_reschedule() {
   Timeline tl;
@@ -633,22 +623,10 @@ struct DriftedGradeSegue : Segue::Base {
 };
 
 /**
- * @brief Pins every per-face segue against that call pattern, so a policy
- * carrying face_offset alone trips this static_assert instead of only breaking
- * whichever effect first selects it.
- * @details Also pins Base's default as the whole window. The fragment-hook
- * assertions pin the exclusivity MeshCarousel enforces: a per-face draw path
- * shades through a palette pointer and never calls fill/grade, so shadowing
- * either alongside face_offset would drop it silently. The NeedsClasses and
- * Masked assertions pin the two contracts an effect must honour: losing
- * Breakdown's reorder degrades it to a uniform fade, losing Dissolve's
- * mask_pair leaves both edge lists unmasked. The roster assertion pins
- * every shipped policy against the scheduling signature the carousel calls
- * (including the pause gate a shorter override would hide), against Base's
- * phase-hook signatures, and against a LOCAL_SWEEP declared as anything but a
- * constant bool. The Declares* assertions pin the name probes against the
- * drifted policies above, where the hook is present but uncallable at the
- * contract's argument list.
+ * @brief Pins every per-face segue against PerFaceSegueDrawable, plus the
+ * segue trait probes against conforming and drifted policies.
+ * @details A per-face draw path never calls fill/grade, so shadowing either
+ * alongside face_offset would drop it silently.
  */
 inline void test_per_face_segues_satisfy_draw_contract() {
   static_assert(PerFaceSegueDrawable<Segue::TerminatorSweep>);
@@ -720,10 +698,9 @@ inline void test_per_face_segues_satisfy_draw_contract() {
 /**
  * @brief Verifies every segue policy hands schedule()'s pause gate to the
  * sprite it schedules.
- * @details Schedulable pins the signature only: a policy can take the gate and
- * drop it on the way to the timeline, which is the failure that costs frames.
- * A gated sprite holds its envelope, so the opacity reaching the draw callback
- * must not move while the flag is set and must climb again once it clears.
+ * @details A gated sprite holds its envelope: the opacity reaching the draw
+ * callback must not move while the flag is set and must climb again once it
+ * clears.
  */
 inline void test_segue_policies_forward_pause_gate() {
   struct Probe {
@@ -803,8 +780,7 @@ inline void test_breakdown_fades_classes_sequentially() {
   }
 
   // Independent of the band algebra: every class is a clamped monotone ramp,
-  // and at any phase a later-ranked class is never behind an earlier one — the
-  // staggered order is what makes this a breakdown rather than a crossfade.
+  // and at any phase a later-ranked class is never behind an earlier one.
   for (int step = 0; step <= 40; ++step) {
     const float t = step / 40.0f;
     // Rank n-1 owns the earliest window, so descending rank never fades later.

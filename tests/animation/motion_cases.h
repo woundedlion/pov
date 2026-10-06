@@ -3,8 +3,6 @@
  * Licensed under the PolyForm Noncommercial License 1.0.0
  */
 
-// Included by tests/test_animation.h.
-
 // Motion repetition, reanchoring and co-driving.
 
 /** @brief Internal-angle allowance for float drift after 600 cycles, radians. */
@@ -12,15 +10,9 @@ constexpr float MOTION_WARP_TOL = 1e-4f;
 
 /**
  * @brief Verifies a repeating Motion does not drift across many cycles.
- * @details A repeating Motion advances its Orientation by relative deltas taken
- * between consecutive path frames, where each frame is a pure function of the
- * path parameter (point + tangent). Because the frame depends only on the phase,
- * the per-cycle product of deltas telescopes — there is no accumulating
- * quaternion chain to warp the traced curve. The decisive, precession-immune
- * signature is the set of rotation-INVARIANT internal angles between heads
- * sampled at fixed phases within a cycle: a rigid drift (holonomy) leaves them
- * unchanged, so any growth is genuine warp. A late cycle is compared against the
- * ideal Lissajous internal angles within accumulated float drift.
+ * @details Compares a late cycle's rotation-invariant internal angles between
+ * heads at fixed phases against the ideal Lissajous angles; a rigid drift
+ * leaves them unchanged, so any growth is genuine warp.
  */
 inline void test_motion_repeating_does_not_drift() {
   using Ori = math::Orientation<16>;
@@ -94,13 +86,10 @@ inline void test_motion_reanchor_after_path_swap() {
 /**
  * @brief A co-driver sharing a repeating Motion's Orientation survives the
  * repeat seam.
- * @details Motion re-seats via a relative delta; the co-driver's accumulated
- * rotation persists across the seam. With a CLOSED path Motion's per-cycle
- * contribution telescopes to identity, so the only thing that should move the
- * shared orientation at a seam is the co-driver's own small step — never a
- * large snap-back. Assert the probe's per-frame angular step stays bounded
- * across many seams while its cumulative travel is large (so the co-driver is
- * provably active, not a no-op).
+ * @details With a closed path Motion's per-cycle contribution telescopes to
+ * identity, so only the co-driver's small step moves the orientation at a
+ * seam. The probe's per-frame step stays bounded across many seams while its
+ * cumulative travel is large.
  */
 inline void test_motion_codriven_survives_repeat_seam() {
   using Ori = math::Orientation<16>;

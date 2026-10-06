@@ -7,16 +7,9 @@
  * @file param_marshal.h
  * @brief Pure (no-Emscripten) parameter-marshaling layer for the WASM bridge.
  *
- * The JS frontend consumes two parallel streams from the engine: the parameter
- * *definitions* (getParameterDefinitions) and the per-frame *values*
- * (getParamValues). They MUST agree on order — values[i] describes
- * definitions[i] — or every slider mis-binds. This layer takes two independent
- * passes over Effect::getParameters() at different times. Effect implementations
- * expose a schema-generation token; the WASM bridge joins it with effect
- * replacement so dynamic rebinds invalidate stale positional bindings. This
- * layer carries no Emscripten dependency (engine_bindings.h adds the
- * emscripten::val translation on top), so the contract is host-unit-testable
- * without an Emscripten toolchain — see tests/test_param_marshal.h.
+ * The parameter *definitions* (getParameterDefinitions) and per-frame *values*
+ * (getParamValues) streams MUST agree on order: values[i] describes
+ * definitions[i].
  */
 #pragma once
 
@@ -51,8 +44,7 @@ private:
 /**
  * @brief One parameter as the JS boundary sees it, in definition order.
  * @details Mirrors what getParameterDefinitions() emits per entry. `is_bool`
- *          toggles carry no meaningful range (the GUI keys off the type and
- *          ignores min/max for them).
+ *          toggles carry no meaningful range.
  */
 struct ParamView {
   const char *name;      /**< Parameter name, as exposed to the JS boundary. */
@@ -62,8 +54,8 @@ struct ParamView {
   float min;             /**< Inclusive lower bound; ignored when is_bool. */
   float max;             /**< Inclusive upper bound; ignored when is_bool. */
   bool is_bool;          /**< True if the parameter is a boolean toggle. */
-  bool is_integer; /**< True if the target stores whole numbers, so the GUI
-                       steps by one; set for enums and plain integers alike. */
+  bool is_integer; /**< True if the target stores whole numbers; set for enums
+                       and plain integers alike. */
   bool animated;   /**< True if registered as an animated parameter. */
   bool readonly;   /**< True if the parameter is read-only (not editable). */
   bool preset;     /**< True if preset exports include the parameter. */
@@ -119,14 +111,9 @@ inline void collect_param_views(const Effect &effect,
  * @param effect Effect whose getParameters() values are read, in order.
  * @param out Destination vector, cleared (retaining capacity) then filled so
  *            that out[i] corresponds to collect_param_views()'s view[i].
- * @details Iterates Effect's registered ParamList independently of
- *          collect_param_views(). Callers reject the stream when its schema
- *          generation differs from the definition snapshot. The stream carries raw
- *          floats even for is_bool params (a bool is emitted as 0.0/1.0, not a
- *          JS boolean); consumers key off the definition type from
- *          collect_param_views(), not this value. `out.clear()` retains
- *          capacity, so a caller that has reserved MAX-params up front gets a
- *          zero-reallocation guarantee for the per-frame memory-view contract.
+ * @details Carries raw floats even for is_bool params (0.0/1.0, not a JS
+ *          boolean). `out.clear()` retains capacity, so a pre-reserved vector
+ *          never reallocates.
  */
 inline void fill_param_values(const Effect &effect, std::vector<float> &out) {
   out.clear();

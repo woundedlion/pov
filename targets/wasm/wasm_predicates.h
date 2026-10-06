@@ -7,13 +7,8 @@
  * @file wasm_predicates.h
  * @brief Pure (no-Emscripten) boundary predicates for the WASM bridge.
  *
- * The JS frontend passes untyped integers across the embind boundary; the
- * binding headers (engine_bindings.h, mesh_ops_bindings.h) validate and clamp
- * them before they reach engine code that would otherwise trap or run
- * unbounded. Those checks are plain scalar arithmetic with no Emscripten
- * dependency, so they live here and are host-unit-testable without an
- * Emscripten toolchain — see tests/test_wasm_predicates.h. The binding headers
- * keep only the logging/embind shell on top.
+ * Validates and clamps untyped JS scalars before they reach engine code that
+ * would otherwise trap or run unbounded.
  */
 #pragma once
 
@@ -51,12 +46,9 @@ inline float clamp_pole_lod_aggressiveness(float aggressiveness) {
  * @return true iff every bound is integral and the band is non-negative,
  *         ordered, and within the canvas.
  * @details Negatives would feed ClipRegion's modulo arithmetic. Each axis is
- *          checked against its own extent; transposed bounds are rejected only
- *          when they violate those limits. Rejecting here keeps the boundary from trapping
- *          the whole WASM module. The bounds are taken as doubles because an
- *          i32 embind parameter coerces without a range check in a release
- *          build: NaN and multiples of 2^32 arrive as 0, which passes every ordering
- *          test as an empty band — a black render reported as a success.
+ *          checked against its own extent. Doubles because an i32 embind
+ *          parameter coerces NaN and multiples of 2^32 to 0 without a range
+ *          check in a release build.
  */
 inline bool clip_bounds_valid(double x0, double x1, double y0, double y1,
                               int width, int height) {
@@ -74,11 +66,9 @@ inline bool clip_bounds_valid(double x0, double x1, double y0, double y1,
  * @param index Requested preset index from the JS boundary, as a double.
  * @param preset_count Number of presets the effect exposes.
  * @return true iff the index is integral and in [0, preset_count).
- * @details The index is taken as a double because a uint32_t embind parameter
- *          coerces without a range check in a release build: NaN and multiples of
- *          2^32 arrive as 0, while other out-of-range integers wrap modulo
- *          2^32. A wrapped zero selects preset 0 under a success result. Non-integral requests are rejected rather than truncated, so
- *          a malformed message cannot land on a neighbouring preset.
+ * @details A double because a uint32_t embind parameter wraps modulo 2^32
+ *          without a range check in a release build (NaN arrives as 0).
+ *          Non-integral requests are rejected, not truncated.
  */
 inline bool preset_index_valid(double index, size_t preset_count) {
   // NaN fails the ordered comparison, so it needs no separate test.
@@ -92,11 +82,8 @@ inline bool preset_index_valid(double index, size_t preset_count) {
  * @param iterations Requested pass count from the JS boundary, as a double.
  * @param max_iterations Inclusive upper bound.
  * @return The clamped count.
- * @details relax(1e9) would freeze the main thread for billions of passes, so
- *          the unbounded JS count is clamped rather than trusted. Negative and
- *          NaN requests floor at 0. The count is taken as a double because a JS
- *          number past INT32_MAX wraps negative through an i32 parameter and
- *          would floor at 0 instead of saturating at the cap.
+ * @details Negative and NaN requests floor at 0. A double because a JS number
+ *          past INT32_MAX wraps negative through an i32 parameter.
  */
 inline int clamp_relax_iterations(double iterations, int max_iterations) {
   if (!(iterations > 0.0))
@@ -117,10 +104,7 @@ inline bool unit_fraction_out_of_range(double t) {
  * @brief Clamps a [0,1] boundary fraction into range.
  * @param t Requested fraction from the JS boundary.
  * @return t clamped to [0, 1]; a NaN passes through unchanged.
- * @details truncate/bevel feed their fraction to an always-on HS_CHECK, so an
- *          out-of-range value from a direct/API caller would abort the whole
- *          module. Callers reject non-finite args first. Operators whose domain
- *          excludes 1 take clamp_half_open_fraction instead.
+ * @details Callers reject non-finite args first.
  */
 inline float clamp_unit_fraction(double t) {
   if (t < 0.0f)
@@ -147,9 +131,8 @@ inline bool half_open_fraction_out_of_range(double t) {
  * @param t Requested fraction from the JS boundary.
  * @return t clamped to [0, LARGEST_FRACTION_BELOW_ONE]; a NaN passes through
  *         unchanged.
- * @details chamfer/snub/expand assert `t < 1.0f`, so clamping to 1 would land
- *          on the trap rather than avoid it. Callers reject non-finite args
- *          first.
+ * @details For operators that assert `t < 1.0f`. Callers reject non-finite
+ *          args first.
  */
 inline float clamp_half_open_fraction(double t) {
   if (t < 0.0f)
@@ -195,11 +178,7 @@ inline size_t mesh_largest_element_count(size_t verts, size_t faces,
  *        any of this operator's intermediate or output stages reaches; >= 1.
  * @param max_elements Ceiling every stage must stay within.
  * @return true when the operator must be rejected.
- * @details A ceiling on the input alone does not bound the intermediates a
- *          composition builds — bevel = truncate of ambo reaches six times the
- *          input index count, and gyro's snub stage five — so the admissible
- *          input scales down by the operator's expansion. Division, not
- *          multiplication, so the prediction itself cannot overflow.
+ * @details Divides rather than multiplies so the prediction cannot overflow.
  */
 inline bool mesh_op_expansion_over_ceiling(size_t verts, size_t faces,
                                            size_t indices, size_t expansion,
@@ -222,11 +201,8 @@ inline bool mesh_op_expansion_over_ceiling(size_t verts, size_t faces,
  * @param used_bytes Bytes already committed in the arena.
  * @param capacity_bytes Arena capacity in bytes.
  * @return true when the operator must be rejected.
- * @details The arena backing the live wrappers is rewound only by an explicit
- *          wipe, so every chained operator's finalized mesh accumulates in it.
- *          Each of the output's three counts is at most the predicted peak, so
- *          pricing all three at that peak bounds the whole mesh and keeps
- *          Arena::allocate's fail-fast trap out of reach of the JS boundary.
+ * @details Prices each of the output's counts at the predicted peak, which
+ *          bounds the whole mesh.
  */
 inline bool mesh_op_output_over_arena(size_t verts, size_t faces,
                                       size_t indices, size_t expansion,
@@ -263,11 +239,7 @@ inline size_t mesh_max_face_degree(const uint8_t *counts, size_t num_faces) {
  *        at least @p num_verts entries.
  * @param num_verts Vertex count; an index at or past it is skipped.
  * @return The highest incidence count, or 0 for a mesh with no faces.
- * @details One clearing pass over @p incidence plus one pass over @p faces. On a
- *          closed manifold — which every vertex-orbit operator requires — a
- *          vertex's incidence count is its valence, and its valence is the side
- *          count of the face those operators emit for it. Valence is not stored
- *          on the mesh, so there is nothing cheaper to read.
+ * @details On a closed manifold a vertex's incidence count is its valence.
  */
 inline size_t mesh_max_vertex_valence(const uint16_t *faces,
                                       size_t total_indices, uint32_t *incidence,
@@ -297,11 +269,7 @@ inline size_t mesh_max_vertex_valence(const uint16_t *faces,
  *        widest vertex-derived face reaches; 0 when it emits none.
  * @param max_degree Inclusive side-count ceiling (UINT8_MAX).
  * @return true when the operator must be rejected.
- * @details This is a separate dimension from the element-count ceiling: a mesh
- *          well inside every element bound can still hold one very high-valence
- *          vertex, and the operators that emit a face per vertex turn that
- *          valence straight into a side count. Division, not multiplication, so
- *          the prediction itself cannot overflow.
+ * @details Divides rather than multiplies so the prediction cannot overflow.
  */
 inline bool mesh_op_face_degree_overflows(size_t max_face_degree,
                                           size_t max_vertex_valence,
@@ -320,10 +288,8 @@ inline bool mesh_op_face_degree_overflows(size_t max_face_degree,
  * @param radians Contact angle from the JS boundary.
  * @param max_radians Inclusive upper bound of the operator's domain (pi/2).
  * @return true when the angle is out of domain.
- * @details The Hankin construction is 2*pi-periodic in the angle and mirrors
- *          under negation, so an out-of-domain angle silently aliases onto an
- *          in-domain pattern instead of failing. Callers reject non-finite args
- *          first.
+ * @details An out-of-domain angle aliases onto an in-domain pattern. Callers
+ *          reject non-finite args first.
  */
 inline bool hankin_angle_out_of_range(double radians, float max_radians) {
   return radians < 0.0f || radians > max_radians;

@@ -3,14 +3,11 @@
  * Licensed under the PolyForm Noncommercial License 1.0.0
  */
 
-// Included by tests/test_animation.h.
-
 // ============================================================================
 // Borrow-contract guards (compile-time)
 // ----------------------------------------------------------------------------
-// Motion/Lerp/MobiusFlow store non-owning borrows of effect-owned
-// state. These static_asserts lock the contract: an effect-owned lvalue is
-// accepted, a temporary (which would dangle) is rejected.
+// Animations that borrow effect-owned state accept an lvalue and reject a
+// temporary, which would dangle.
 // ============================================================================
 namespace borrow_guard {
 /** @brief Orientation alias used by the borrow-contract static_asserts. */

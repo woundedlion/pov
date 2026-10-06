@@ -8,15 +8,13 @@
  * @brief Free-function embind exports of the engine's color, palette and
  *        geometry math.
  *
- * The real engine math, exported so the JS tool ports (color.js,
- * palette_math.js, lissajous_math.js, mobius_transforms.js) can cross-check
- * their mirrors against it. Included only by targets/wasm/wasm.cpp.
+ * Exported so the JS tool ports can cross-check their mirrors against it.
  */
 #pragma once
 
 #include <emscripten/bind.h>
 #include "core/color/color.h"
-#include "core/color/palettes.h" // HS_PROCEDURAL_PALETTE_LIST — named-palette export
+#include "core/color/palettes.h"
 #include "core/platform/platform.h"
 #include "core/math/3dmath.h"
 #include "core/math/geometry.h"
@@ -42,7 +40,6 @@ static emscripten::val vector_to_xyz(const math::Vector &r) {
 /** @brief Registers the free color/palette/geometry exports with Embind. */
 static void bind_math_exports() {
   // ── Color / palette / geometry exports ─────────────────────────────────────
-  // The real engine math, exported so the JS tool ports can cross-check it.
   // Non-finite values pass through except where the engine requires a finite
   // input before an integer conversion.
 
@@ -62,7 +59,7 @@ static void bind_math_exports() {
                          return static_cast<int>(srgb_to_linear_interp(s));
                        }));
 
-  // OKLab matrix oracle used by daydream/tests/color_parity_wasm.test.js.
+  // OKLab matrix oracle.
   emscripten::function("linear_rgb_to_oklab",
                        emscripten::optional_override(
                            [](float r, float g, float b) -> emscripten::val {
@@ -94,9 +91,8 @@ static void bind_math_exports() {
       }));
 
   // HSV -> sRGB integer sextant path via the engine's CRGB(CHSV) constructor.
-  // Returns sRGB bytes; there is no JS mirror, so color_parity_wasm.test.js pins
-  // them to golden values. The uint8_t casts wrap h/s/v mod 256 (device CHSV
-  // semantics) and the pin covers out-of-range rows.
+  // Returns sRGB bytes. The uint8_t casts wrap h/s/v mod 256 (device CHSV
+  // semantics).
   emscripten::function(
       "hsv_to_rgb",
       emscripten::optional_override([](int h, int s, int v) -> emscripten::val {
@@ -110,8 +106,7 @@ static void bind_math_exports() {
       }));
 
   // ProceduralPalette cosine formula (palette_math.js ProceduralPalette). Returns
-  // the engine's 16-bit linear color so the JS test can pin both the cosine
-  // formula and the sRGB->linear interp (paired with srgb_to_linear_interp).
+  // the engine's 16-bit linear color.
   emscripten::function("procedural_palette_linear",
                        emscripten::optional_override(
                            [](float a0, float a1, float a2, float b0, float b1,
@@ -128,9 +123,7 @@ static void bind_math_exports() {
                            }));
 
   // The named procedural palettes (palette_math.js NAMED_PROCEDURAL_PALETTES),
-  // in core/color/palettes.h declaration order. Enumerated from the same X-macro
-  // the Palettes:: instances are declared from, so the browser tool's mirror is
-  // compared against the literals the engine compiles, not a second hand-copy.
+  // in declaration order, from HS_PROCEDURAL_PALETTE_LIST.
   emscripten::function(
       "named_procedural_palettes",
       emscripten::optional_override([]() -> emscripten::val {
@@ -168,8 +161,7 @@ static void bind_math_exports() {
           }));
 
   // Mobius sphere map (mobius_transforms.js coefficients), via core/math/mobius.h.
-  // The eight coefficient floats are taken in the order mobiusCodeString emits
-  // them, so the tool's MobiusParams initializer ordering is pinned too.
+  // The coefficient floats are taken in the order mobiusCodeString emits them.
   emscripten::function(
       "mobius_transform",
       emscripten::optional_override(
