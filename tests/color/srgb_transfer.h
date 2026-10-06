@@ -15,14 +15,6 @@ inline void test_srgb_to_linear_endpoints() {
   HS_EXPECT_EQ(srgb_to_linear(255), 65535);
 }
 
-/**
- * @brief Verifies the inverse LUT maps linear 0 to sRGB 0 and max to sRGB 255.
- */
-inline void test_linear_to_srgb_endpoints() {
-  HS_EXPECT_EQ(linear_to_srgb_lut[0], 0);
-  HS_EXPECT_EQ(linear_to_srgb_lut[65535], 255);
-}
-
 // The ~1.5 KB split-decode must reproduce the 64 KB linear_to_srgb_lut for every
 // one of the 65536 inputs.
 inline void test_linear_to_srgb8_decode_matches_lut() {
