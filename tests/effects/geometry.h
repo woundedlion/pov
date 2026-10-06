@@ -798,7 +798,8 @@ inline void test_petalflow_spawn_gap_bounded() {
 }
 
 /**
- * @brief White-box accessor for DisplacementField's hue-table bake.
+ * @brief White-box accessor for DisplacementField's phase machine, ball pool,
+ * span bake, and hue-table bake.
  */
 struct DisplacementFieldWhiteBox {
   template <int W, int H>
