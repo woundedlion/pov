@@ -9,8 +9,7 @@
  * @brief TransformerPool, its Transformer and FieldTransformer specializations,
  *        and the standalone OrientTransformer adapter.
  * @details Also holds the free warp and field functions those pools compose
- *          over Animation params. The Mobius sphere maps the Mobius pools
- *          compose live in math/mobius.h alongside their coefficients.
+ *          over Animation params.
  */
 
 #include "animation/orientation.h"
@@ -31,8 +30,8 @@ namespace transformer_detail {
  * @tparam T Params type.
  * @details Params types owned by this layer declare `NEEDS_REFRESH_FROM` and
  *          `NEEDS_SYNC` as members. A params type owned by a layer below
- *          animation specializes this instead, so the pool's contract stays out
- *          of that layer's header. A specialization must declare both constants.
+ *          animation specializes this instead. A specialization must declare
+ *          both constants.
  */
 template <typename T> struct ExternalParamsHooks {};
 
@@ -93,9 +92,8 @@ template <typename T> constexpr bool declared_needs_sync() {
  * @details Owns the entity slots, their timeline lifecycle (spawn, completion
  * reclaim), and the per-frame param refresh. Derived classes add the hot-path
  * composition over the active entities (Transformer composes Vector warps,
- * FieldTransformer sums scalar fields). Each pool claims one of the shared
- * Timeline's Timeline::MAX_CLEAR_HOOKS (4) clear-hook slots at init_storage(),
- * plus one hook per ChoreographedEffect; a choreographed effect fits three pools.
+ * FieldTransformer sums scalar fields). Each pool claims one Timeline
+ * clear-hook slot at init_storage().
  */
 template <typename ParamsT, typename AnimT, int CAPACITY = 32>
 class TransformerPool {
@@ -159,15 +157,12 @@ public:
   /**
    * @brief Cancels owned events and drops the pool's liveness record.
    * @pre Later pinned animation owners must retire first.
-   * @details A spawned animation's completion callback outlives the pool
-   * whenever the timeline does; dropping the liveness record is what turns
-   * those callbacks into no-ops instead of writes through a dead pool.
+   * @details Spawned animations' completion callbacks can outlive the pool;
+   * dropping the liveness record turns them into no-ops.
    */
   HS_COLD_MEMBER ~TransformerPool() {
     unlink_live();
     if (clear_hook_registered) {
-      // The timeline reference is used below, so an effect that declares its
-      // Timeline after its pools is a use-after-free, not a contract to bend.
       HS_CHECK(global_timeline_live,
                "TransformerPool outlived its Timeline: declare the Timeline "
                "before the pools that schedule on it");
@@ -176,8 +171,7 @@ public:
     }
   }
 
-  // spawn_impl's one-shot callbacks capture this+slot index; relocation would
-  // dangle them, so the object is fixed in place.
+  // Completion callbacks capture this and a slot index; the pool must not move.
   TransformerPool(const TransformerPool &) = delete;
   TransformerPool(TransformerPool &&) = delete;
 
@@ -186,8 +180,7 @@ public:
    * @param arena Persistent arena supplying CAPACITY entity slots.
    * @details Must be called from effect init(), not the constructor (arenas
    * aren't ready yet), after any configure_arenas() and before the first spawn.
-   * Registers one Timeline clear hook. ChoreographedEffect also claims one,
-   * leaving Timeline::MAX_CLEAR_HOOKS - 1 (3) slots for its pools.
+   * Registers one Timeline clear hook.
    */
   HS_COLD_MEMBER void init_storage(Arena &arena) {
     HS_CHECK(!entities, "TransformerPool: init_storage() called twice");
@@ -209,12 +202,10 @@ public:
    * @brief Re-claims the pool's storage after its arena was reset, preserving
    * live entities.
    * @param arena The arena init_storage() allocated from, freshly reset.
-   * @details For arenas that are compacted mid-effect (e.g. a mesh carousel's
-   * after-reset callback). Spawned animations hold Params references into the
-   * slots, so the blocks must re-land at their original addresses — the caller
-   * must replay the same allocation order after the reset as after
-   * init_storage() (asserted). The bytes are left untouched: an arena reset
-   * only rewinds the offset, so live entities carry through.
+   * @details For arenas that are compacted mid-effect. Spawned animations hold
+   * Params references into the slots, so the caller must replay the same
+   * allocation order after the reset as after init_storage() (asserted). The
+   * bytes are left untouched, so live entities carry through.
    */
   HS_COLD_MEMBER void reclaim_storage(Arena &arena) {
     HS_CHECK(entities,
@@ -263,8 +254,7 @@ public:
    * @return Pointer to the spawned animation, or nullptr if no pool slot or
    * timeline event is available.
    * @details Pin::UNPINNED: the returned pointer is transient (used at the call
-   * site, not retained across frames). These animations are often finite and
-   * are compacted normally; pinning them would trap on routine completion.
+   * site, not retained across frames).
    * The pool claims the animation's single then() slot to recycle the entity,
    * so the caller must not attach one (Animation::then() traps on a second).
    */
@@ -284,7 +274,7 @@ public:
    * @return Pointer to the spawned animation, or nullptr if no pool slot or
    * timeline event is available.
    * @details Freezes the whole event, delay included, the way
-   * Timeline::add_pausable does. Effects pass `&anims_paused`.
+   * Timeline::add_pausable does.
    */
   template <typename... Args>
   AnimT *spawn_pausable(const bool *paused, int in_frames, Args &&...args) {
@@ -302,16 +292,11 @@ public:
    * @param args Arguments forwarded to the Animation constructor (after the
    * Params& argument).
    * @return Pointer to the spawned animation, or nullptr if no pool slot is
-   * available. A full timeline traps here instead of returning null, which a
-   * retained handle would not check.
-   * @details Only valid when the spawned animation never completes on its own —
-   * infinite, or repeating (it rewinds rather than reaching done()) — and is
-   * added before any finite timeline event, so compaction never shifts it: the
-   * standard retained-handle contract (see Timeline::add_get). If that invariant
-   * is ever broken, step()'s compaction traps loudly instead of dangling it.
-   * The pool claims the animation's single then() slot to recycle the entity,
-   * so the retained handle must not attach one (Animation::then() traps on a
-   * second).
+   * available. A full timeline traps.
+   * @details Only valid when the spawned animation is infinite or repeating and
+   * is added before any finite timeline event (see Timeline::add_get). The pool
+   * claims the animation's single then() slot to recycle the entity, so the
+   * retained handle must not attach one (Animation::then() traps on a second).
    */
   template <typename... Args>
   AnimT *spawn_pinned(int in_frames, Args &&...args) {
@@ -348,11 +333,8 @@ public:
 protected:
   /**
    * @brief Compact list of the active slots, in spawn order.
-   * @details The derived compositions run per pixel, so they iterate only the
-   * active slots — O(active) instead of O(CAPACITY).
-   * Held in spawn order (append on activation, order-preserving removal) so the
-   * composition order follows spawn order; the warps are not all commutative, so the
-   * order is load-bearing and must not depend on which freed slot was recycled.
+   * @details Held in spawn order: the warps do not all commute, so composition
+   * order must follow spawn order, not slot recycling.
    */
   int *active_slots = nullptr;
   int active_slot_count =
@@ -427,8 +409,7 @@ private:
    * @details Asserts if the arena was reset or rebound after init_storage() —
    * the slots then alias reissued bytes — or rewound below either block, either
    * while the bytes are still uncovered or after a later allocation reissued
-   * them. The raw slot pointers stay non-null through all of it, so nothing else
-   * detects it.
+   * them.
    */
   void check_storage_alive() const {
     HS_ASSERT_BLOCK_ALIVE(stamp, entities, CAPACITY * sizeof(Entity),
@@ -439,12 +420,9 @@ private:
 
   /**
    * @brief Frees every slot without touching the timeline.
-   * @details Reachable only through the clear hook init_storage() registers:
-   * slots are normally reclaimed by each animation's completion callback, and
-   * Timeline::clear() destroys events without running those, so spawning past
-   * CAPACITY would otherwise return nullptr forever. Freeing slots while their
-   * animations are still live would hand a recycled slot's ParamsT to a second
-   * entity and let the stale completion callback deactivate it.
+   * @details Runs from the Timeline clear hook: Timeline::clear() destroys
+   * events without running the completion callbacks that normally free slots.
+   * Must not run while the slots' animations are live.
    */
   HS_COLD_MEMBER void release_all() {
     HS_CHECK(entities,
@@ -458,8 +436,7 @@ private:
 
   /**
    * @brief Appends a slot index to active_slots in spawn order.
-   * @param idx Slot index to insert; appended at the end so composition order
-   * follows spawn order regardless of which freed slot was recycled.
+   * @param idx Slot index to append.
    */
   void add_active(int idx) { active_slots[active_slot_count++] = idx; }
 
@@ -503,9 +480,7 @@ private:
         e.params = template_params;
         e.active = true;
         add_active(idx);
-        // Completion callback captures `this` + the slot index (both stable) to
-        // deactivate the slot and drop it from the active list, plus the serial
-        // is_live() needs to reject a pool destroyed before the callback fires.
+        // The serial lets the completion callback reject a destroyed pool.
         const uint32_t serial = pool_serial;
         auto anim = AnimT(e.params, std::forward<Args>(args)...);
         // The slot composes from here on, possibly before any prepare_frame(),
@@ -542,15 +517,14 @@ private:
             });
           }
         } else {
-          // Timeline pool full: undo the activation so the slot is not leaked
-          // (its reclaim callback above never registered).
+          // Timeline full: undo the activation so the slot is not leaked.
           e.active = false;
           remove_active(idx);
         }
         return p;
       }
     }
-    // If we get here, no free slots. Drop the spawn (safe failure).
+    // No free slot: drop the spawn.
     return nullptr;
   }
 };
@@ -574,7 +548,7 @@ public:
    * @param v Vector to transform.
    * @return The vector after every active transform has been composed onto it.
    * @note Reads each active entity's prepared state; see prepare_frame() for the
-   * ordering contract. Per-pixel hot path — no guard here by design.
+   * ordering contract.
    */
   HS_O3_FN math::Vector transform(math::Vector v) const {
     for (int k = 0; k < this->active_slot_count; ++k) {
@@ -656,7 +630,7 @@ public:
    * @param p Sample point (unit vector).
    * @return The superposed field value; 0 with no active entities.
    * @note Reads each active entity's prepared state; see prepare_frame() for the
-   * ordering contract. Per-sample hot path — no guard here by design.
+   * ordering contract.
    */
   float field(const math::Vector &p) const {
     float s = 0.0f;
@@ -677,7 +651,7 @@ public:
    * @brief Upper bound on |field()| over the sphere this frame.
    * @return Sum of the active entities' per-entity bounds.
    * @details Requires ParamsT::field_bound() (a true upper bound on
-   * |FieldFunc|); callers use it to size conservative culls.
+   * |FieldFunc|).
    */
   float field_bound() const {
     float b = 0.0f;
@@ -781,8 +755,7 @@ ripple_transform_at_distance(const math::Vector &v,
  */
 HS_O3_FN inline math::Vector
 ripple_transform(const math::Vector &v, const Animation::RippleParams &params) {
-  // Between ripples the envelope drives amplitude to 0; skip the whole per-pixel
-  // wavelet (fast_acos + fast_expf) when there is nothing to displace.
+  // Between ripples the envelope drives amplitude to 0.
   if (params.amplitude <= 0.001f)
     return v;
 
@@ -1012,13 +985,10 @@ using MobiusWarpTransformer =
  * @brief Performs circular Mobius warps at constant strength, suitable
  * for repeating animations.
  * @tparam CAPACITY Maximum number of concurrent circular Mobius warps.
- * @warning With nonzero scale this variant never returns to identity — unlike MobiusWarpTransformer
- * (same `mobius_transform` but an animation that eases back to identity),
- * `Animation::MobiusWarpCircular` traces a closed loop that holds the warp at full
- * strength. Correct ONLY in a repeating slot, where the loop re-enters seamlessly;
- * in a non-repeating slot it freezes off-identity on the final composed frame (a
- * one-frame teardown discontinuity). Use MobiusWarpTransformer for one-shot slots
- * that must land back on the unwarped sphere.
+ * @warning With nonzero scale this never returns to identity:
+ * `Animation::MobiusWarpCircular` traces a closed loop at full strength. Use it
+ * only in a repeating slot; a non-repeating slot freezes off-identity on its
+ * final frame. Use MobiusWarpTransformer for one-shot slots.
  * @note Spawn through spawn_pinned(): spawn()/spawn_pausable() reject a
  * repeating animation. A zero-scale warp remains the identity.
  */

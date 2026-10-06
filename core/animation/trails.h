@@ -16,7 +16,7 @@
 
 namespace Animation {
 
-/** @brief Shared motion sampling for Comets and Fishbowl. */
+/** @brief Shared trail motion sampling. */
 inline constexpr int TRAIL_HISTORY_LENGTH = 115;
 inline constexpr int TRAIL_ORIENTATION_SUBSTEPS = 16;
 
@@ -44,8 +44,7 @@ public:
   /**
    * @brief Gets a specific snapshot.
    * @param i Index into the history: 0 is the OLDEST snapshot, length()-1 the
-   *          newest. (record() appends the newest at the end of the underlying
-   *          ring buffer, whose operator[](0) is the oldest live element.)
+   *          newest.
    * @return Const reference to the requested snapshot.
    */
   const T &get(size_t i) const { return snapshots[i]; }
@@ -60,7 +59,7 @@ public:
   /**
    * @brief Visits every snapshot oldest-to-newest.
    * @param fn Invoked as `void(const T &, uint32_t i)`, i being the same index
-   *        get() takes. Walks the ring directly, without re-deriving i.
+   *        get() takes.
    */
   template <typename F> void for_each(F &&fn) const {
     snapshots.for_each(std::forward<F>(fn));
@@ -220,8 +219,7 @@ void tween(const Animation::VectorTrail<CAP> &trail, VectorTweenFn callback) {
  * @tparam CAP Trail capacity.
  * @param trail The trail to iterate.
  * @param callback The function to call for each frame: `void(const Vector&,
- * float t)`. Forwards to the member tween, which walks the ring directly
- * instead of re-deriving each index.
+ * float t)`. Forwards to the member tween.
  */
 template <int CAP>
 void tween(const Animation::QuantizedVectorTrail<CAP> &trail,

@@ -146,8 +146,6 @@ private:
     // to the hi bound (last entry) and guarantees idx >= 0.
     float idx =
         hs::clamp(t * (LUT_SIZE - 1), 0.0f, static_cast<float>(LUT_SIZE - 1));
-    // Split and weight through the same helpers lut_sample_pixel uses, so this
-    // path and get_color/get_color_unit share one spelling of the arithmetic.
     const int lo = lut_index_lo(idx);
     if (lo >= LUT_SIZE - 1) {
       out = Color4(colors[LUT_SIZE - 1],
@@ -221,9 +219,7 @@ public:
    * @tparam Source Type exposing Color4 get(float) const.
    * @param source Source palette or composition to sample.
    * @details Entry i samples t = i / (BakedPalette::LUT_SIZE - 1), so the last entry lands on
-   * t = 1 exactly. A composition with Wrap=true folds that sample back to 0 and
-   * collapses its last entry onto its first — bake such sources with Wrap=false.
-   * Mirrored sources copy the first half in reverse. Looping sources copy entry
+   * t = 1 exactly; wrapping sources are rejected. Mirrored sources copy the first half in reverse. Looping sources copy entry
    * zero to entry 255 so the quantized seam is exact.
    */
   template <typename Source> HS_COLD_MEMBER void rebake(const Source &source) {
@@ -324,9 +320,8 @@ public:
    * @param src Source palette to copy; must already be baked and must not be
    * this palette.
    * @param arena Arena to allocate the new LUT from.
-   * @details Used by Persist for arena compaction. The fresh allocation
-   * retargets this storage before the copy reads @p src, so a self-clone would
-   * memcpy uninitialized arena onto itself.
+   * @details The fresh allocation retargets this storage before the copy reads
+   * @p src, so a self-clone traps.
    */
   void clone_from(const BakedPalette &src, Arena &arena) {
     HS_CHECK(src.colors != nullptr && src.alpha_q16 != nullptr,
@@ -357,8 +352,8 @@ private:
  *        source palette's angle parameter.
  * @tparam Source Type exposing Color4 get(float) const over t = angle/PI.
  * @details Baking through this folds the d -> acos(d)/PI radial mapping into the
- * bake (256 acos per bake, not one per fragment): the fragment lookup keys the
- * LUT by the raw dot product via dot_key(d). dot_key inverts this mapping:
+ * bake, so the fragment lookup keys the LUT by the raw dot product via
+ * dot_key(d). dot_key inverts this mapping:
  * u -> d = 1 - 2u, get(u) returns the source at acos(d)/PI.
  */
 template <typename Source> struct DotKeyed {
