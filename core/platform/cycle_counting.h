@@ -118,7 +118,7 @@ struct CycleCounter {
   }
 
   /**
-   * @brief Finds the first registered counter whose name ends with @p suffix.
+   * @brief Finds the most recently registered counter whose name ends with @p suffix.
    * @param suffix Name suffix to match (e.g. "_buffer_wait").
    * @return The counter, or nullptr if none is registered yet (counters
    *         self-register at construction).
