@@ -1487,8 +1487,8 @@ inline void test_bump_field_bound_is_conservative() {
     p.axis = random_unit();
     p.radius = hs::rand_f(0.0f, 1.2f);
     p.envelope = hs::rand_f(0.0f, 1.0f);
-    // Well past the Ball Amp slider's 0.8 ceiling, into the saturating regime.
-    p.amplitude = hs::rand_f(0.0f, 3.0f);
+    // Ball Amp tops out at 0.8 * 4 = 3.2 drape gain.
+    p.amplitude = hs::rand_f(0.0f, 2.0f * 0.8f * 4.0f);
     p.sync();
     const float bound = p.field_bound();
 
