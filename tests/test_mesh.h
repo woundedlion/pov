@@ -822,9 +822,8 @@ inline void test_classify_faces_roster_hash_collision_free() {
           if (pair == HE_NONE)
             continue;
           const uint16_t neighbor = he.half_edges[pair].face;
-          uint32_t neigh_h = face_hashes[neighbor];
-          MeshOps::hash_combine(neigh_h, 0);
-          neighbor_acc += MeshOps::fmix32(neigh_h);
+          neighbor_acc +=
+              MeshOps::neighbor_topology_contribution(face_hashes[neighbor]);
           neighbor_keys[n_neighbors++] = face_keys[neighbor];
         }
         std::sort(neighbor_keys, neighbor_keys + n_neighbors);

@@ -812,6 +812,12 @@ static inline uint32_t connectivity_key(const uint8_t *face_counts, size_t F,
   return hash == 0 ? 1u : hash;
 }
 
+/** @brief Mixes a neighboring face's hash into its fold contribution. */
+static inline uint32_t neighbor_topology_contribution(uint32_t face_hash) {
+  hash_combine(face_hash, 0);
+  return fmix32(face_hash);
+}
+
 /** @brief Folds neighboring face hashes into a face's classifier hash. */
 static inline uint32_t fold_face_topology_hash(uint32_t face_hash,
                                                uint32_t neighbor_acc) {
@@ -982,9 +988,8 @@ classify_faces_impl(MeshT &mesh, Arena &scratch_a, Arena &scratch_b,
       for (int k = 0; k < count; ++k) {
         uint16_t p_idx = pair_array[offset + k];
         if (p_idx != HE_NONE) {
-          uint32_t neigh_h = face_hashes[he_to_face[p_idx]];
-          hash_combine(neigh_h, 0);
-          neighbor_acc += fmix32(neigh_h);
+          neighbor_acc +=
+              neighbor_topology_contribution(face_hashes[he_to_face[p_idx]]);
         }
       }
       final_hashes[fi] = fold_face_topology_hash(face_hashes[fi], neighbor_acc);
