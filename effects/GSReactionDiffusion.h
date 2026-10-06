@@ -77,8 +77,8 @@ public:
   /**
    * @brief One-time setup: arenas, GUI params, A/B state, cubemap LUT, lattice.
    * @details Carves the persistent arena, registers the GUI params, allocates
-   * the A/B/pigment state, seed palettes and colour-noise LUT, seeds the first
-   * reaction, binds the flash lattice and builds the cubemap LUT once.
+   * the A/B/pigment state, seed palettes and colour-noise LUT, binds the flash
+   * lattice and builds the cubemap LUT, then seeds the first reaction.
    */
   void init() override {
     constexpr size_t PALETTE_BYTES =
@@ -1209,12 +1209,13 @@ private:
   }
 
   /**
-   * @brief Persistent Q16 state buffers for the two species.
+   * @brief Persistent Q16 A/B concentrations and packed two-palette pigment.
    */
   struct {
     uint16_t *A = nullptr,
              *B = nullptr; /**< Per-node A/B concentrations, Q16. */
-    uint16_t *pigment = nullptr;
+    uint16_t *pigment =
+        nullptr; /**< Two 5-bit palette indices and a 6-bit mix weight per node. */
   } state;
 
   /**
