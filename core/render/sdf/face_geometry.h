@@ -98,8 +98,9 @@ setup_frame_and_polygon(std::span<const math::Vector> vertices,
 
 /**
    * @brief Computes the face "size" (inradius) from the projected polygon.
-   * @param scratch Scratch storage holding poly_2d and the per-edge vectors and
-   * squared lengths compute_full_bounds stored, which must run first.
+   * @param scratch Scratch storage holding poly_2d, per-edge vectors and
+   * reciprocal squared lengths (inv_edge_lengths_sq) from compute_full_bounds,
+   * which must run first.
    * @details size = minimum distance from the projected centroid to any edge,
    * floored to a fraction of the circumradius for degenerate slivers. A large
    * face converts it to radians, matching the metric distance() reports.
