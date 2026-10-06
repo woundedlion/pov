@@ -555,11 +555,13 @@ inline const Case *all_cases(int &n) {
       {"scratch_scope_non_lifo", case_scratch_scope_non_lifo,
        "core/memory/scratch.h",
        "(arena.get_offset() >= saved_offset) ScratchScope: non-LIFO teardown"},
+#ifndef NDEBUG
       {"arena_rewind_history_overflow", case_arena_rewind_history_overflow,
        "core/memory/arena.h",
        "(rewind_history_size < REWIND_HISTORY_CAPACITY) Arena: debug rewind history capacity exceeded"},
       {"scratch_scope_reset", case_scratch_scope_reset, "core/memory/scratch.h",
        "(arena.get_generation() == saved_generation) ScratchScope: arena reset during scope lifetime"},
+#endif
       {"arena_vector_overflow", case_arena_vector_overflow,
        "core/memory/vector.h",
        "(element_count < element_capacity) ArenaVector push_back exact "
@@ -2235,10 +2237,16 @@ inline constexpr GuardGapAllowance GUARD_GAP_ALLOW[] = {
  * @return The approved gap, or 0 for a file with no allowance row.
  */
 inline int allowed_guard_gap(const char *file) {
+  int debug_gap = 0;
+#ifdef NDEBUG
+  // The source census includes the two debug-only memory guards.
+  debug_gap = std::strcmp(file, "core/memory/arena.h") == 0 ||
+              std::strcmp(file, "core/memory/scratch.h") == 0;
+#endif
   for (const GuardGapAllowance &a : GUARD_GAP_ALLOW)
     if (std::strcmp(a.file, file) == 0)
-      return a.gap;
-  return 0;
+      return a.gap + debug_gap;
+  return debug_gap;
 }
 
 /**
