@@ -482,6 +482,7 @@ inline const Case *all_cases(int &n) {
       {"timeline_add_into_live_slot", case_timeline_add_into_live_slot,
        "core/animation/timeline.h",
        "(!e.manager) add_get would overwrite a live animation"},
+#ifndef NDEBUG
       {"feedback_storage_twice", case_feedback_storage_twice,
        "core/render/filter/pixel_feedback.h",
        "(!cached_warp_x || !stamp.block_alive(cached_warp_x, CACHE_CELLS * sizeof(int16_t))) feedback filter: storage already initialized"},
@@ -491,6 +492,7 @@ inline const Case *all_cases(int &n) {
       {"screen_storage_twice", case_screen_storage_twice,
        "core/render/filter/screen_trails.h",
        "(!points || !stamp.block_alive(points, STORAGE_BYTES)) screen filter: storage already initialized"},
+#endif
       {"sample_sphere_nan", case_sample_sphere_nan,
        "core/render/pullback/contract.h",
        "(value == value) unit clamp: NaN input"},
@@ -1539,9 +1541,11 @@ inline const Case *all_cases(int &n) {
       {"opleg_edge_sweep_no_edge", case_opleg_edge_sweep_no_edge,
        "core/animation/opleg.h",
        "(spec.edge) OpLeg: edge sweep carries no graph edge"},
+#ifndef NDEBUG
       {"opleg_rewind_refill", case_opleg_rewind_refill,
        "core/animation/opleg.h",
        "(stamp.block_alive(buf, live_bytes)) OpLeg: leg arena storage reclaimed under a live leg"},
+#endif
       {"opleg_zero_sweep_frames", case_opleg_zero_sweep_frames,
        "core/animation/opleg.h",
        "(spec.sweep_frames >= 1) OpLeg: parameter sweep needs a positive sweep length"},
@@ -2239,9 +2243,13 @@ inline constexpr GuardGapAllowance GUARD_GAP_ALLOW[] = {
 inline int allowed_guard_gap(const char *file) {
   int debug_gap = 0;
 #ifdef NDEBUG
-  // The source census includes the two debug-only memory guards.
+  // The source census includes debug-only guards.
   debug_gap = std::strcmp(file, "core/memory/arena.h") == 0 ||
-              std::strcmp(file, "core/memory/scratch.h") == 0;
+              std::strcmp(file, "core/memory/scratch.h") == 0 ||
+              std::strcmp(file, "core/animation/opleg.h") == 0 ||
+              std::strcmp(file, "core/render/filter/pixel_feedback.h") == 0 ||
+              std::strcmp(file, "core/render/filter/screen_trails.h") == 0 ||
+              std::strcmp(file, "core/render/filter/world_trails.h") == 0;
 #endif
   for (const GuardGapAllowance &a : GUARD_GAP_ALLOW)
     if (std::strcmp(a.file, file) == 0)
