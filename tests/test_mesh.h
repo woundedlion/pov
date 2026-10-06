@@ -212,9 +212,29 @@ inline void test_half_edge_mesh_open_boundary_edges() {
 }
 
 /**
+ * @brief Counts undirected edges from the half-edge twin links.
+ * @param he Mesh of a closed manifold.
+ * @return Number of symmetric twin pairs.
+ * @details Expects every half-edge to have a distinct, symmetric twin.
+ */
+inline int count_paired_edges(const HalfEdgeMesh &he) {
+  int edges = 0;
+  for (size_t i = 0; i < he.half_edges.size(); ++i) {
+    const uint16_t pair = he.half_edges[i].pair;
+    HS_EXPECT_TRUE(pair != HE_NONE);
+    if (pair == HE_NONE || pair >= he.half_edges.size())
+      continue;
+    HS_EXPECT_EQ(he.half_edges[pair].pair, i);
+    if (i < pair)
+      ++edges;
+  }
+  return edges;
+}
+
+/**
  * @brief Verifies the Euler characteristic V - E + F = 2 holds for the cube (a
  *        topological sphere), with the expected V=8, E=12, F=6.
- * @details E = half_edges/2 since each edge is two half-edges.
+ * @details E counts the twin pairs, so the check depends on edge pairing.
  */
 inline void test_half_edge_mesh_euler_invariant() {
   Arena arena(mesh_arena_a, sizeof(mesh_arena_a));
@@ -223,7 +243,8 @@ inline void test_half_edge_mesh_euler_invariant() {
   HalfEdgeMesh he(arena, cube);
 
   int V = static_cast<int>(cube.vertices.size());
-  int E = static_cast<int>(he.half_edges.size()) / 2;
+  int E = count_paired_edges(he);
+  HS_EXPECT_EQ(2 * E, static_cast<int>(he.half_edges.size()));
   int F = static_cast<int>(he.faces.size());
   HS_EXPECT_EQ(V - E + F, 2);
   HS_EXPECT_EQ(V, 8);
@@ -242,7 +263,8 @@ inline void test_half_edge_mesh_euler_tetrahedron() {
   HalfEdgeMesh he(arena, tet);
 
   int V = static_cast<int>(tet.vertices.size());
-  int E = static_cast<int>(he.half_edges.size()) / 2;
+  int E = count_paired_edges(he);
+  HS_EXPECT_EQ(2 * E, static_cast<int>(he.half_edges.size()));
   int F = static_cast<int>(he.faces.size());
   HS_EXPECT_EQ(V, 4);
   HS_EXPECT_EQ(E, 6);
