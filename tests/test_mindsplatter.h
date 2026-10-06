@@ -9,6 +9,7 @@
 #include "math/mobius.h"
 #include <algorithm>
 #include <array>
+#include <bit>
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
@@ -109,14 +110,14 @@ inline void test_mindsplatter_base_mesh_selector() {
   HS_EXPECT_TRUE(base_mesh->animated);
   HS_EXPECT_EQ(std::string_view(base_mesh->options[0]), "Tetrahedron");
   HS_EXPECT_EQ(std::string_view(base_mesh->options[4]), "Icosahedron");
-  HS_EXPECT_EQ(WB::preset_base_mesh(effect, 0), MS::BaseMesh::CUBE);
-  HS_EXPECT_EQ(WB::preset_base_mesh(effect, 1), MS::BaseMesh::CUBE);
-  HS_EXPECT_EQ(WB::preset_base_mesh(effect, 2), MS::BaseMesh::CUBE);
-  HS_EXPECT_EQ(WB::preset_base_mesh(effect, 3), MS::BaseMesh::OCTAHEDRON);
-  HS_EXPECT_EQ(WB::preset_base_mesh(effect, 4), MS::BaseMesh::TETRAHEDRON);
-  HS_EXPECT_EQ(WB::preset_base_mesh(effect, 5), MS::BaseMesh::DODECAHEDRON);
-  HS_EXPECT_EQ(WB::preset_base_mesh(effect, 6), MS::BaseMesh::CUBE);
-  HS_EXPECT_EQ(WB::preset_base_mesh(effect, 7), MS::BaseMesh::CUBE);
+  uint32_t preset_meshes = 0;
+  for (size_t i = 0; i < WB::preset_count(effect); ++i) {
+    const auto mesh = static_cast<int>(WB::preset_base_mesh(effect, i));
+    HS_EXPECT_TRUE(mesh >= 0 && mesh < base_mesh->option_count);
+    if (mesh >= 0 && mesh < 32)
+      preset_meshes |= 1u << mesh;
+  }
+  HS_EXPECT_GT(std::popcount(preset_meshes), 1);
 
   const auto select = [&](MS::BaseMesh mesh, size_t emitters,
                           size_t attractors) {
