@@ -425,7 +425,7 @@ inline void test_opleg_dual_bridge_seam_correspondence() {
   constexpr int SWEEP = 24;
   constexpr int RW = 288, RH = 144;
   constexpr float SEAM_MATCH_TOL = 0.02f;
-  // Measured maximum absolute channel delta across sites: 917321.
+  // Largest measured frame-wide sum of absolute channel deltas across sites: 917321.
   constexpr long long SEAM_SUMABS_MAX = 1100000ll;
 
   static Pipeline<RW, RH> filters;
