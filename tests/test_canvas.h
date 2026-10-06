@@ -2,15 +2,10 @@
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
  * Licensed under the PolyForm Noncommercial License 1.0.0
  *
- * Unit tests for core/render/canvas.h and core/control/transition.h: the Effect
- * double-buffer state machine and parameter system (register_param /
- * updateParameter / ParamList), the clip
- * setters, Canvas scoped drawing, output envelopes, EffectTransitionController,
- * preset state machines and PipelineRef.
+ * Unit tests for core/render/canvas.h and core/control/transition.h.
  *
- * Frame protocol note: a Canvas spins in its ctor while !buffer_free(), so every
- * sequential drawing test must advance_display() before the next Canvas;
- * a pending frame otherwise reaches the configured spin watchdog.
+ * A Canvas spins in its ctor while !buffer_free(), so a sequential drawing test
+ * must advance_display() before the next Canvas.
  */
 #pragma once
 
@@ -58,7 +53,7 @@ struct TestEffect : public Effect {
    */
   TestEffect(int W, int H, EffectConfig cfg = {}) : Effect(W, H, cfg) {}
   /**
-   * @brief Per-frame draw hook; intentionally a no-op for these tests.
+   * @brief Per-frame draw hook; a no-op.
    */
   void draw_frame() override {}
 
@@ -932,10 +927,7 @@ inline void test_persist_pixels_copies_previous_frame() {
  * single-threaded state machine.
  * @details The writer (main loop, cur) must never claim the buffer the display
  * side (ISR, prev) is reading, and a queued-but-not-displayed frame must not
- * disturb the live frame. True ISR concurrency isn't deterministically
- * unit-testable, but the single-threaded state machine that the acquire/release atomics
- * implement is — drive many cycles and assert the non-aliasing / no-torn-read
- * guarantee observably.
+ * disturb the live frame.
  */
 inline void test_double_buffer_handoff_no_aliasing() {
   TestEffect fx(8, 4);
@@ -998,32 +990,17 @@ inline void test_double_buffer_handoff_no_aliasing() {
 /**
  * @brief Hammers the double-buffer hand-off under real producer/consumer
  * contention, asserting no torn read and no out-of-order frame.
- * @details test_double_buffer_handoff_no_aliasing drives the same state machine
- * single-threaded; this runs the two roles on separate threads so the acquire/release
- * atomics are exercised under genuine concurrency. A PRODUCER thread plays the
- * main loop: it constructs a Canvas (whose ctor blocks on buffer_free(), so the
- * consumer rate-limits it), fills every pixel with a sentinel encoding the frame
- * index, and lets ~Canvas queue it. A CONSUMER thread plays the display ISR:
- * when a frame is queued (!buffer_free()) it advance_display()s and reads the
- * whole displayed buffer, asserting all pixels carry one sentinel (a torn read
- * mixing two frames trips torn_read) and that the sentinel strictly advances (a
- * doubly-displayed or regressed frame trips out_of_order). The buffer_free()
- * gate forces the producer one frame ahead at most, so every frame is displayed
- * exactly once — distinct_displayed must reach the full frame count, proving the
- * hand-off really happened rather than frames coalescing. The harness counters
- * are single-threaded, so both threads record into atomics and the main thread
- * runs all HS_EXPECT_* after join(). The Canvas ctor's configured watchdog
- * uses the real wall clock to bound the producer. The consumer terminates once it
- * has promoted every frame, so a logic break traps loudly instead of hanging.
+ * @details A producer thread fills each frame with a sentinel encoding the frame
+ * index; a consumer thread plays the display ISR, advance_display()s each
+ * queued frame and requires one sentinel per buffer, strictly advancing. Every
+ * frame must be displayed exactly once. The harness counters are
+ * single-threaded, so both threads record into atomics and the assertions run
+ * after join().
  */
 inline void test_double_buffer_handoff_concurrent() {
   hs::clear_mock_time(); // real wall clock keeps the ctor's spin watchdog live
   TestEffect fx(8, 4);
   const int N = 8 * 4;
-  // Kept short: every ctor spin is bounded by a configured watchdog that traps the
-  // whole shard, so a long run just multiplies the odds of a loaded CI runner
-  // descheduling the consumer past it. The hand-off invariants show up in tens
-  // of frames.
   const int FRAMES = 200;
   // r holds the frame index (FRAMES < 65536, so r alone is a unique sentinel).
   auto sentinel = [](int f) { return Pixel((uint16_t)f, 0, 0); };
@@ -1084,17 +1061,10 @@ inline void test_double_buffer_handoff_concurrent() {
 /**
  * @brief Verifies the Canvas ctor's buffer_free() spin-wait blocks until the
  * display side frees the buffer.
- * @details Directly exercises the one synchronization gate the rest of the
- * suite deliberately steps around by calling advance_display() before every
- * ctor. On real hardware the display ISR consumes frames asynchronously; here a
- * helper thread plays that ISR. With a frame queued-but-not-displayed the
- * buffer is busy, so the ctor MUST block. The release is deterministic, not
- * timing-based: the ctor can only return once prev == next, and the sole
- * writer of prev is advance_display() — which only the helper runs. So the
- * helper's "ctor has not returned yet" assertion holds by construction (it
- * checks before advancing), and an inverted gate (spin while buffer_free())
- * would let the ctor return early and fail it. The configured watchdog bounds
- * the spin.
+ * @details A helper thread plays the display ISR. With a frame
+ * queued-but-not-displayed the ctor must block until the helper's
+ * advance_display(); the helper records whether the ctor had returned before
+ * it advanced. The configured watchdog bounds the spin.
  */
 inline void test_ctor_spin_waits_for_buffer_free() {
   hs::clear_mock_time(); // use the real wall clock so the spin/watchdog are live
@@ -1114,12 +1084,8 @@ inline void test_ctor_spin_waits_for_buffer_free() {
 
   const unsigned long spins_before = Canvas::buffer_free_spin_count();
   std::thread display_isr([&] {
-    // Wait until the ctor is observably spinning on buffer_free() before freeing
-    // the buffer, so the release is gated on real progress rather than a fixed
-    // sleep a loaded CI host could outrun. Observing a spin iteration proves the
-    // ctor is in the wait loop and has not yet returned. The ctor_returned exit
-    // keeps a broken/inverted gate (ctor returns without spinning) from hanging
-    // here: it falls through and the assertions below fail loudly instead.
+    // Wait until the ctor is observably spinning on buffer_free(); the
+    // ctor_returned exit keeps an inverted gate from hanging here.
     while (Canvas::buffer_free_spin_count() == spins_before &&
            !ctor_returned.load(std::memory_order_acquire))
       std::this_thread::yield();
@@ -1144,10 +1110,6 @@ inline void test_ctor_spin_waits_for_buffer_free() {
 // ============================================================================
 // Canvas access
 // ============================================================================
-//
-// OOB pixel access is not a death-harness case: Canvas index accessors guard
-// with a debug-only `assert` (SIGABRT), not HS_CHECK's __builtin_trap (SIGILL)
-// that the death harness keys on. On device (NDEBUG) the access is unchecked.
 
 /**
  * @brief Verifies Canvas exposes 2D (x,y) and 1D (row-major index) writes that
@@ -1295,8 +1257,7 @@ inline void test_parameter_display_mirror() {
 
 /**
  * @brief Verifies the untrusted JS boundary cannot write readonly
- * (engine-written telemetry) params, even though the GUI already disables their
- * editing.
+ * (engine-written telemetry) params.
  */
 inline void test_update_parameter_rejects_readonly() {
   TestEffect fx(4, 4);
@@ -1544,9 +1505,7 @@ inline void test_parameter_spec_preserves_requested_float() {
  * @brief Verifies ParamList holds its full capacity of registered params.
  */
 inline void test_paramlist_fills_to_capacity() {
-  // The storage the static arrays below are sized from. An effect that armed
-  // external storage would report a larger capacity(), which the equality
-  // guard catches before the loop can run past the arrays.
+  // The storage the static arrays are sized from.
   constexpr size_t FIXED_CAP = ParamList::FIXED_CAPACITY;
   static_assert(FIXED_CAP <= 100, "the \"pNN\" names below hold two digits");
 
@@ -1708,10 +1667,6 @@ inline void test_pipeline_ref_routes_screen_coordinate_overloads() {
 
 /**
  * @brief Verifies PipelineRef is constructible only from a plot() provider.
- * @details The converting constructor is a viable implicit conversion during
- *          overload resolution, so a negative-only constraint would make it
- *          claim every lvalue and fail inside the erasing thunks instead of at
- *          the call.
  */
 inline void test_pipeline_ref_requires_plot_overloads() {
   struct NoPlot {};

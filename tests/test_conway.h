@@ -3,14 +3,6 @@
  * Licensed under the PolyForm Noncommercial License 1.0.0
  *
  * Unit tests for core/mesh/conway.h.
- *
- * Exercises Conway operators on Platonic seeds, open-mesh relaxation,
- * MeshState transforms, and half-edge reuse; verifies structural invariants:
- *   - non-empty output
- *   - all vertices on (approximately) the unit sphere
- *   - face_counts/faces arrays internally consistent (Σ face_counts == |faces|)
- *   - all face indices reference valid vertices
- *   - operator-specific counts (e.g. |dual.vertices| == |input.faces|)
  */
 #pragma once
 
@@ -36,10 +28,6 @@ inline uint8_t
 /** @brief Scratch arena for the Conway operator's temporary/intermediate mesh. */
 inline uint8_t
     conway_temp_buf[256 * 1024]; /**< Comfortable budget for cube-scale ops. */
-
-// build_solid(), check_all_unit_vertices(), check_face_counts_consistent(),
-// check_indices_in_range(), face_newell_normal(), and face_centroid_pos() live
-// in tests/mesh_test_util.h.
 
 // ---------------------------------------------------------------------------
 // Structural invariants
@@ -154,13 +142,9 @@ inline void check_basic_invariants(const PolyMesh &m) {
 /**
  * @brief Checks two-face edge incidence and Euler characteristic V - E + F == 2.
  * @param m Mesh to validate.
- * @details Conway operators map a genus-0 seed to another genus-0 closed
- *          polyhedron, so every undirected edge must be shared by exactly two
- *          faces. A boundary edge (shared once) or a non-manifold edge
- *          (shared >2) breaks the topology the renderer assumes; this catches
- *          both, then verifies Euler's formula.
- *          The edge scan reports the extreme fan-out across all edges.
- *          Vertex-fan connectivity and connectedness are not checked.
+ * @details Every undirected edge must be shared by exactly two faces; the scan
+ *          reports the extreme fan-out across all edges. Vertex-fan
+ *          connectivity and connectedness are not checked.
  */
 inline void check_euler_characteristic_two(const PolyMesh &m) {
   std::vector<std::pair<uint16_t, uint16_t>> edges;
@@ -204,9 +188,8 @@ inline void check_euler_characteristic_two(const PolyMesh &m) {
  * @brief Histogram of vertex degree (incident faces) → number of such vertices.
  * @param m Mesh to inspect.
  * @details In a closed manifold a vertex's incident-face count equals its edge
- *          degree, so this pins the local connectivity a bare vertex/face count
- *          cannot. Every vertex is tallied, so an unreferenced (degree-0) vertex
- *          shows up as a {0, n} bucket.
+ *          degree. An unreferenced (degree-0) vertex shows up as a {0, n}
+ *          bucket.
  */
 inline std::map<int, int> vertex_degree_histogram(const PolyMesh &m) {
   std::vector<int> degree(m.vertices.size(), 0);
@@ -254,9 +237,8 @@ inline std::map<int, int> face_type_histogram(const PolyMesh &m) {
  *          orbit face its source vertex's degree, so most histograms are
  *          seed-dependent; VDEG/FDEG pin only the degree an operator makes
  *          uniform whatever the seed (0 leaves that histogram unpinned).
- *          Templated on the seed so one body covers triangle-, quad-, and
- *          pentagon-faced Platonic solids. Each op gets a fresh target/temp
- *          pair with the seed rebuilt into temp, mirroring the per-op tests.
+ *          Each op gets a fresh target/temp pair with the seed rebuilt into
+ *          temp.
  */
 template <typename Solid> inline void check_euler_for_seed() {
   const int V = Solid::NUM_VERTS;
@@ -312,10 +294,8 @@ template <typename Solid> inline void check_euler_for_seed() {
 /**
  * @brief Verifies every Conway operator's element census and Euler
  *        characteristic.
- * @details Exercises check_euler_for_seed across triangle-, quad-, and
- *          pentagon-faced Platonic seeds, so an operator that is right on quads
- *          and wrong on pentagons is caught by its counts, not only by a broken
- *          manifold.
+ * @details Runs check_euler_for_seed on triangle-, quad-, and pentagon-faced
+ *          Platonic seeds.
  */
 inline void test_conway_ops_preserve_euler_characteristic() {
   check_euler_for_seed<Solids::Tetrahedron>();
@@ -499,11 +479,9 @@ inline void test_truncate_cube_has_truncated_topology() {
 
 /**
  * @brief Verifies truncate(t = 0.5) reproduces ambo() exactly.
- * @details At t = 0.5 the truncation midpoints coincide, collapsing to 12
- *          vertices and 14 faces — the cuboctahedron ambo() also produces. The
- *          short-circuit hands the same seed and connectivity to ambo's body,
- *          so the two results agree bit for bit, not merely in count: a
- *          reordered, rescaled or backwards-wound stand-in fails here.
+ * @details At t = 0.5 the truncation midpoints coincide, collapsing to the
+ *          cuboctahedron (12 vertices, 14 faces); the results agree with ambo()
+ *          bit for bit.
  */
 inline void test_truncate_t_half_is_ambo() {
   Arena target(conway_target_buf, sizeof(conway_target_buf));
@@ -524,12 +502,10 @@ inline void test_truncate_t_half_is_ambo() {
  * @brief Verifies truncate(t > 0.5) yields the crossed-cut topology with finite,
  *        on-sphere vertices.
  * @details For t in (0.5, 1] each edge's two cut points pass each other, forming
- *          the intentionally self-intersecting faces the truncate50d recipes
- *          rely on. The adjacency — and thus the counts — matches the t < 0.5
- *          regime (2E vertices, F + V faces, each primary face doubled to
- *          count*2 sides), but only this path exercises the crossed oriented-cut
- *          winding. The geometric outward-winding check is intentionally skipped:
- *          a Newell normal is ill-defined for a self-intersecting polygon.
+ *          self-intersecting faces. The counts match the t < 0.5 regime (2E
+ *          vertices, F + V faces, each primary face doubled to count*2 sides).
+ *          Outward winding is not checked: a Newell normal is ill-defined for a
+ *          self-intersecting polygon.
  */
 inline void test_truncate_t_over_half_crossed_cuts() {
   Arena target(conway_target_buf, sizeof(conway_target_buf));
@@ -633,11 +609,8 @@ inline void test_relax_preserves_topology() {
 
 /**
  * @brief Population variance of a mesh's edge lengths.
- * @details Sums every per-face edge (each shared edge of a closed mesh is
- *          counted exactly twice, so the uniform double-count leaves the variance
- *          unchanged). Doubles accumulate to keep the two-pass mean/variance
- *          stable. This is the quantity relax() drives down by pulling every edge
- *          toward the mesh-wide mean length.
+ * @details Sums every per-face edge; each shared edge of a closed mesh is
+ *          counted exactly twice, which leaves the variance unchanged.
  */
 template <typename MeshT> inline float edge_length_variance(const MeshT &m) {
   const auto *fc = m.get_face_counts_data();
@@ -677,10 +650,9 @@ template <typename MeshT> inline float edge_length_variance(const MeshT &m) {
 
 /**
  * @brief Verifies relax actually reduces edge-length variance — its purpose.
- * @details A cube has uniform edges, so it cannot show relax working. Truncating
- *          a cube yields corner triangles and face octagons whose edges differ in
- *          length; relax's spring system pulls every edge toward the mesh mean, so
- *          the post-relax edge-length variance must be strictly below the input's.
+ * @details A truncated cube's corner triangles and face octagons have unequal
+ *          edges; the post-relax edge-length variance must be strictly below
+ *          the input's.
  */
 inline void test_relax_reduces_edge_variance() {
   Arena target(conway_target_buf, sizeof(conway_target_buf));
@@ -715,12 +687,10 @@ inline void test_relax_reduces_edge_variance() {
  * @brief Verifies relax's boundary-tolerant orbit fallback does the partial
  *        relaxation it documents, not nothing and not a collapse.
  * @details Two triangles sharing one edge: the outer edges are boundary edges
- *          (shared once), so the per-vertex orbit must fall back to the
- *          boundary-tolerant path rather than HS_CHECK-trapping. Only the two
- *          endpoints of the shared edge have a paired incoming half-edge, so
- *          relax's @note says exactly those two feel a force and the other two
- *          feel none — and the forced pair must pull the over-long shared edge
- *          toward the mesh mean while staying on the sphere and apart.
+ *          (shared once), so the per-vertex orbit takes the boundary-tolerant
+ *          path. Only the shared edge's endpoints feel a force; they must pull
+ *          the over-long shared edge toward the mesh mean while staying on the
+ *          sphere and apart.
  */
 inline void test_relax_open_mesh_partial() {
   Arena target(conway_target_buf, sizeof(conway_target_buf));
@@ -779,7 +749,7 @@ inline void test_relax_open_mesh_partial() {
 // ---------------------------------------------------------------------------
 // Composition polarity: every operator, primitive or composed, returns its
 // output in `target` (even-length compositions start their ping-pong in
-// `temp`; see COMPOSITION POLARITY in conway.h).
+// `temp`).
 // ---------------------------------------------------------------------------
 
 /**
@@ -800,11 +770,9 @@ inline bool ptr_in_buffer(const void *p, const uint8_t *buf, size_t n) {
 /**
  * @brief Verifies every operator returns its output in `target`.
  * @details Covers a primitive (dual), the odd-length composition (meta), and
- *          each even-length composed operator (gyro/needle/zip/bevel). The seed
- *          is built in `temp` for every case, matching the per-operator tests
- *          and SolidBuilder's calling convention. Each output also satisfies
- *          the basic structural invariants, so the polarity check is asserted
- *          on a genuinely valid mesh.
+ *          each even-length composed operator (gyro/needle/zip/bevel), with the
+ *          seed built in `temp`. Each output must also satisfy the basic
+ *          structural invariants.
  */
 inline void test_conway_composition_polarity() {
   const uint8_t *tgt = conway_target_buf;
@@ -903,11 +871,9 @@ inline void test_geometry_error_helpers_retain_nan() {
 
 /**
  * @brief Pins meta to kis(dual(ambo)), not the same-count kis(ambo).
- * @details meta and kis(ambo) share vertex/edge/face counts on the cube, so the
- *          structural test cannot tell them apart. This rebuilds both references
- *          via SolidBuilder — with the same arena ping-pong meta uses internally,
- *          so the correct one matches vertex-for-vertex — and asserts meta equals
- *          kis(dual(ambo)) while differing from kis(ambo).
+ * @details meta and kis(ambo) share vertex/edge/face counts on the cube. Both
+ *          references are rebuilt via SolidBuilder with meta's arena ping-pong,
+ *          so the correct one matches vertex-for-vertex.
  */
 inline void test_meta_is_kis_dual_ambo() {
   std::vector<math::Vector> meta_verts, kda_verts, ka_verts;
@@ -980,13 +946,10 @@ inline void test_snub_cube_is_well_formed() {
 /**
  * @brief Verifies a non-zero snub twist rotates each primary face about its
  *        normal by the twist angle.
- * @details The structural test above only exercises twist = 0 (the do_twist
- *          block is skipped), yet the shipped snub-cube recipe twists by a
- *          non-zero angle. A twist is a rigid rotation of each primary face
- *          about its normal, so every in-face edge vector rotates by exactly
- *          `twist` relative to the untwisted run. The signed in-plane angle of
- *          an edge is centre-independent, pinning the rotation without
- *          recomputing the face centroid the operator used.
+ * @details A twist is a rigid rotation of each primary face about its normal,
+ *          so every in-face edge vector rotates by exactly `twist` relative to
+ *          the untwisted run. The signed in-plane angle of an edge is
+ *          centre-independent.
  */
 inline void test_snub_twist_rotates_primary_faces() {
   const float twist = 0.28f;
@@ -1126,12 +1089,11 @@ inline void test_transform_in_place_preserves_topology() {
 
 /**
  * @brief Verifies transform resets stale owned topology when reusing a dst.
- * @details transform() yields a BORROWED-mode mesh (owned vertices, topology
+ * @details transform() yields a borrowed-mode mesh (owned vertices, topology
  *          via *_view). Accessors discriminate on is_bound() and clear() does
- *          not unbind, so a destination reused from a prior owned-mode life
- *          carries still-bound owned topology that would shadow the freshly set
- *          views. This pins that transform() resets the owned topology, so the
- *          source views (sizes 1 / 3) win over the stale owned sizes (2 / 9).
+ *          not unbind, so a reused destination's still-bound owned topology
+ *          must be reset; the source views (sizes 1 / 3) win over the stale
+ *          owned sizes (2 / 9).
  */
 inline void test_transform_unbinds_stale_owned_topology_on_reuse() {
   Arena src_arena(conway_target_buf, sizeof(conway_target_buf) / 2);
@@ -1238,10 +1200,8 @@ inline void build_degenerate_digon(PolyMesh &m, Arena &arena) {
 
 /**
  * @brief Verifies expand/chamfer/snub drop degenerate primary faces.
- * @details Feeding each operator a digon must not leak a sub-triangular primary
- *          face: each drops the degenerate primary face (matching ambo/truncate
- *          and the vertex-orbit emitter) so no output face has fewer than 3
- *          sides.
+ * @details Fed a digon, each operator drops the degenerate primary face so no
+ *          output face has fewer than 3 sides.
  */
 inline void test_conway_ops_drop_degenerate_primary_faces() {
   {

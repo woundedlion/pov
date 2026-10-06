@@ -2,10 +2,7 @@
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
  * Licensed under the PolyForm Noncommercial License 1.0.0
  *
- * Unit tests for core/color/color.h and the palette layer built on it: 16-bit
- * lerp and additive blend, the OKLab/OKLCH conversions and gamut mapper,
- * perceptual hue rotation, the sRGB transfer LUTs, gradients, baked, procedural
- * and generative palettes, the palette modifiers and shades, and the cycler.
+ * Unit tests for core/color/color.h and the palette layer built on it.
  */
 #pragma once
 
@@ -53,8 +50,7 @@ inline void test_lerp16_endpoints() {
 
 /**
  * @brief Verifies frac~0.5 lands each channel on (a+b)/2 within rounding error.
- * @details Each channel lands on (a+b)/2 within the /65535 rounding error;
- *          equal endpoints stay put.
+ * @details Equal endpoints stay put.
  */
 inline void test_lerp16_midpoint() {
   Pixel a(0, 100, 65535);
@@ -84,8 +80,7 @@ inline void test_lerp16_rounds_to_nearest() {
 
 /**
  * @brief Verifies every interpolated channel lies within the endpoint envelope.
- * @details Each channel must lie within the [min,max] envelope of the two
- *          endpoints, with one LSB of rounding slack below the minimum.
+ * @details One LSB of rounding slack below the minimum.
  */
 inline void test_lerp16_bounded() {
   Pixel a(123, 45678, 60000);
@@ -162,11 +157,8 @@ inline uint16_t lerp16_reference(uint16_t a, uint16_t b, uint16_t frac) {
 
 /**
  * @brief Verifies lerp16 is correct across the full 0..65535 operand range.
- * @details A signed 16x16 multiply would misread any operand >= 32768 (a frac,
- *          an inverse-frac, or a bright channel) as negative and corrupt the
- *          whole upper half by up to a full 65535. lerp16 uses portable lerp_q16
- *          on every target, so the host sweep covers the device arithmetic and
- *          pins that no signed (smlad-style) multiply is introduced.
+ * @details Operands >= 32768 (a frac, an inverse-frac, or a bright channel)
+ *          must not be read as negative by a signed multiply.
  */
 inline void test_lerp16_full_range_correct() {
   // The midpoint between maximal and zero channels is half scale.
@@ -201,12 +193,9 @@ inline void test_lerp16_full_range_correct() {
 /**
  * @brief Pins the device's packed (uqadd16) saturating-add lane layout.
  * @details The device path of operator+= packs g|b into one 32-bit
- *          uqadd16 lane and r into another, then unpacks. That asm path never
- *          runs on the host, so a transposed g/b lane or a wrong unpack shift
- *          would ship silently (wrong colors, not a crash). pixel_blend_add_packed
- *          shares the exact lane layout with the device and compiles natively via
- *          the software uqadd16, so this checks it against an independent
- *          per-channel saturating reference across cases that stress each lane.
+ *          uqadd16 lane and r into another, then unpacks.
+ *          pixel_blend_add_packed shares that lane layout via the software
+ *          uqadd16 and is checked against a per-channel saturating reference.
  */
 inline void test_blend_add_packed_lane_layout() {
   auto ref = [](uint32_t x, uint32_t y) -> uint16_t {
@@ -261,7 +250,7 @@ inline void test_blend_alpha_clamps_before_cast() {
  * @brief Verifies Pixel * float clamps each scaled channel into [0,65535]
  *        before the cast.
  * @details Overflowing scales saturate, negatives clamp to 0, and NaN folds to
- *          the hi bound (matching blend_alpha) rather than invoking cast UB.
+ *          the hi bound rather than invoking cast UB.
  */
 inline void test_pixel_scale_clamps_before_cast() {
   Pixel c(100, 2000, 30000);
@@ -302,10 +291,7 @@ inline void test_pixel_quarter_accumulation_rounds_per_sample() {
 // OKLab / OKLCH round-trips
 // ============================================================================
 
-/** Allowed absolute error of an OKLab/OKLCH round trip in 8-bit sRGB levels.
-    The OKLab path is float throughout; the OKLCH path adds one 16-bit linear
-    quantization, worth under 0.03 of a level at the dark end. One level
-    bounds both with margin. */
+/** Allowed absolute error of an OKLab/OKLCH round trip in 8-bit sRGB levels. */
 inline constexpr float ROUNDTRIP_TOL255 = 1.0f;
 
 /**
@@ -389,13 +375,10 @@ inline void test_oklch_roundtrip() {
 
 /**
  * @brief Pins sRGB -> OKLab/OKLCH against published reference coordinates.
- * @details Round-trip and palette-golden tests only check the forward and
- *          inverse transforms agree; a transposed or otherwise wrong-but-
- *          invertible M1/M2 pair would round-trip cleanly. These triples are the
- *          canonical Ottosson sRGB references (white, pure red/green/blue) in the
- *          engine's units: L in [0,1], a/b Cartesian, h in radians. The tolerance
- *          (4e-3 on L/a/b, ~0.3deg on hue) catches a swapped matrix row/column
- *          while absorbing cbrtf rounding.
+ * @details Canonical Ottosson sRGB references (white, pure red/green/blue) in
+ *          the engine's units: L in [0,1], a/b Cartesian, h in radians. The
+ *          tolerance (4e-3 on L/a/b, ~0.3deg on hue) catches a swapped matrix
+ *          row/column while absorbing cbrtf rounding.
  */
 inline void test_oklab_reference_triples() {
   struct Ref {
@@ -462,10 +445,8 @@ inline void test_lerp_oklch_achromatic_hue() {
 /**
  * @brief Verifies lerp_oklch interpolates hue along the short arc across the seam.
  * @details atan2f puts h in [-PI, PI], so two hues straddling that seam are only
- *          a small arc apart even though their numeric difference is ~2*PI. A
- *          naive linear lerp would pass through h=0 (the opposite side of the
- *          wheel); the shortest-arc lerp must pass through the seam at +/-PI
- *          instead. This underpins the marquee color feature.
+ *          a small arc apart even though their numeric difference is ~2*PI; the
+ *          lerp must pass through the seam at +/-PI, not through h=0.
  */
 inline void test_lerp_oklch_shortest_arc_midpoint() {
   const float L = 0.6f, C = 0.15f;
@@ -566,12 +547,9 @@ inline void test_oklch_to_pixel_saturates_and_preserves_in_gamut() {
 /**
  * @brief Verifies the chroma-reduction map holds hue and lightness in-gamut.
  * @details A deeply out-of-gamut OKLCH (chroma far past the sRGB cusp at this L)
- *          must map back inside the cube by SHRINKING chroma — not by the
- *          per-channel RGB clip that twists hue on saturated colors. For a spread
- *          of hues: assert the direct conversion really is out of gamut (so the
- *          map is exercised), then assert the mapped color is in gamut, its L and
- *          hue match the input within tolerance, and its chroma is strictly
- *          smaller but still positive.
+ *          must map back inside the cube by shrinking chroma: L and hue match
+ *          the input within tolerance, and chroma is strictly smaller but still
+ *          positive.
  */
 inline void test_gamut_clip_preserves_hue() {
   const float L = 0.65f, C = 0.40f;
@@ -651,8 +629,7 @@ inline void test_gamut_refine_matrices_match_the_conversions() {
  * @param r Out: linear red.
  * @param g Out: linear green.
  * @param bl Out: linear blue.
- * @details Mirrors color.h oklab_to_linear_rgb so the reference below is
- *          independent of the float path under test.
+ * @details Double-precision mirror of oklab_to_linear_rgb (color.h).
  */
 inline void oklab_to_linear_rgb_ref(double L, double a, double b, double &r,
                                     double &g, double &bl) {
@@ -709,12 +686,9 @@ inline double gamut_first_exit_ref(double L, double ad, double bd, double cap) {
 /**
  * @brief Bounds the angular gamut-boundary lookup against the sampled exit
  *        reference and checks agreement with the direction overload.
- * @details The forwarder is one line, so the equality on its own could only
- *          ever catch an argument transposition. The double-precision oracle is
- *          what makes the returned chroma load-bearing: sampled rays must stay
- *          within the overshoot and deficit bounds of that reference estimate.
- *          Lightness runs to both ends of the sixteenth grid, past the
- *          [0.1, 0.9] band the sweeps below report, where the bracket widens.
+ * @details Sampled rays must stay within the overshoot and deficit bounds of the
+ *          double-precision reference. Lightness runs to both ends of the
+ *          sixteenth grid, where the bracket widens.
  */
 inline void test_gamut_direction_lookup_matches_angle() {
   const float DEFICIT_BOUND = 5e-3f;
@@ -857,8 +831,7 @@ inline void test_gamut_lut_clip_lands_on_first_exit() {
  *          into that cell.
  */
 inline void test_gamut_lut_downsample_preserves_bracket() {
-  // Half the master on both axes: the merge is what is under test, and the grid
-  // the effects arm is the master's own, which merges nothing.
+  // Half the master on both axes, so cells actually merge.
   constexpr int A = GAMUT_LUT_ANGLE_STEPS / 2, NL = GAMUT_LUT_L_STEPS / 2;
   const int sa = GAMUT_LUT_ANGLE_STEPS / A, sl = GAMUT_LUT_L_STEPS / NL;
   alignas(uint16_t) static uint8_t lut_buf[gamut_lut_bytes(A, NL)];
@@ -953,14 +926,10 @@ inline void test_gamut_lut_release_and_passthrough() {
 
 /**
  * @brief Pins the single-step normalization used by the LUT gamut path.
- * @details Provenance: no generator emits the reference chroma pair. It was
- * captured by printing scaled.a and scaled.b from this case built by the native
- * clang test toolchain (cmake/toolchain-native-clang.cmake), and is re-derived
- * the same way. The tolerance is relative rather than bit-exact because this
- * module also runs under the shipping -ffast-math -fno-finite-math-only pair,
- * which contracts and reassociates the Newton step; the rsqrt seed itself is
- * integer arithmetic on the exponent and cannot move. Hue and the one-sided-low
- * landing are asserted as form rather than as pinned bits.
+ * @details The reference chroma pair was captured by printing scaled.a and
+ * scaled.b from this case under the native clang test toolchain. The tolerance
+ * is relative because this module also runs under -ffast-math
+ * -fno-finite-math-only, which reassociates the Newton step.
  */
 inline void test_gamut_lut_boundary_scale_rounding() {
   const OKLab scaled = gamut_scale_to_boundary_lut({0.5f, 0.4f, 0.3f});
@@ -978,10 +947,7 @@ inline void test_gamut_lut_boundary_scale_rounding() {
 /**
  * @brief Verifies configure_arenas() drops an arena-resident copy.
  * @details The copy lives in the persistent arena, and configure_arenas() hands
- *          that storage out again; a pointer surviving the call would have the
- *          clip reading whatever the next effect allocates over it. Enforced in
- *          the engine rather than in each owner's destructor, so an effect that
- *          arms the grid cannot leak a stale pointer by forgetting to release.
+ *          that storage out again.
  */
 inline void test_configure_arenas_releases_gamut_lut() {
   init_gamut_lut(persistent_arena, TEST_GAMUT_ANGLE_STEPS, TEST_GAMUT_L_STEPS);
@@ -993,11 +959,10 @@ inline void test_configure_arenas_releases_gamut_lut() {
 
 /**
  * @brief Verifies oklch_to_pixel routes out-of-gamut colors through the
- *        chroma-reduction map, holding hue where a per-channel clip would not.
+ *        chroma-reduction map, holding hue.
  * @details Realizes a past-cusp OKLCH as a Pixel, reads the realized color back
  *          through the exact forward transform, and checks the hue survived the
- *          16-bit quantization. A per-channel clip on this color would swing the
- *          hue well past the tolerance toward the nearest primary.
+ *          16-bit quantization.
  */
 inline void test_oklch_to_pixel_holds_hue_out_of_gamut() {
   const float L = 0.62f, C = 0.42f, h = 0.9f;
@@ -1013,12 +978,8 @@ inline void test_oklch_to_pixel_holds_hue_out_of_gamut() {
 
 /**
  * @brief Verifies a perceptual hue rotation leaves a gray unchanged.
- * @details A gray (achromatic) color has zero chroma in OKLab, so rotating the
- *          (a,b) plane is a no-op and the color must come back unchanged for any
- *          amount, with alpha preserved. The OKLab matrices round-trip a gray
- *          channel exactly here (measured delta 0 of 65535), so the tolerance is
- *          1 LSB of the 16-bit linear channel, leaving room only for a stray
- *          rounding ULP.
+ * @details A gray has zero chroma in OKLab, so the color must come back
+ *          unchanged (within 1 LSB) for any amount, with alpha preserved.
  */
 inline void test_hue_rotate_preserves_gray() {
   Color4 gray(128, 128, 128, 0.5f);
@@ -1036,12 +997,9 @@ inline void test_hue_rotate_preserves_gray() {
 
 /**
  * @brief Verifies a full-turn rotation returns to the original color.
- * @details A full-turn rotation (amount = 1.0) should be the identity. The
- *          residual is the combined error of fast_cosf/fast_sinf at 2*PI (the
- *          turn never lands on an exact cos=1, sin=0) and the fast_cbrt OKLab
- *          round-trip: measured at most 4 LSB of the 16-bit linear channel on
- *          this saturated sample. The tolerance is 12 LSB, a ~3x margin over
- *          that measured error that tolerates minor float-rounding drift.
+ * @details The residual is the combined error of fast_cosf/fast_sinf at 2*PI
+ *          and the fast_cbrt OKLab round-trip: measured at most 4 LSB of the
+ *          16-bit linear channel on this saturated sample.
  */
 inline void test_hue_rotate_full_turn_identity() {
   Color4 c(200, 60, 30, 1.0f);
@@ -1056,17 +1014,12 @@ inline void test_hue_rotate_full_turn_identity() {
 
 /**
  * @brief Verifies a full turn taken in N steps holds hue, chroma and lightness.
- * @details Feedback re-rotates its own output every frame, so each step's
- *          16-bit requantization, fast-trig angle and fast_cbrt round trip
- *          compound instead of cancelling. Applying a 1/32-turn rotation 32
- *          times must land back on the input. Hue drift is bounded at 0.09 rad
- *          (~1.7x the 0.054 rad measured worst case across these bases) and
- *          lightness at 1e-3 (measured 3e-4). Chroma may only shrink: a color on
- *          the gamut boundary passes hues where the clip pulls it in and never
- *          gets that chroma back, but nothing may amplify chroma, which is what
- *          would run away under feedback. A base well inside the cusp at its
- *          lightness stays in gamut for every hue and so holds its chroma to
- *          2e-4 (measured 4e-5).
+ * @details Applying a 1/32-turn rotation 32 times must land back on the input;
+ *          per-step requantization and fast-math errors compound. Hue drift is
+ *          bounded at 0.09 rad (measured 0.054) and lightness at 1e-3 (measured
+ *          3e-4). Chroma may only shrink: a gamut-boundary color loses chroma
+ *          where the clip pulls it in. A base well inside the cusp holds its
+ *          chroma to 2e-4 (measured 4e-5).
  */
 inline void test_hue_rotate_full_turn_in_steps_holds_hue_and_chroma() {
   const int STEPS = 32;
@@ -1132,7 +1085,7 @@ inline void test_linear_to_srgb_endpoints() {
 }
 
 // The ~1.5 KB split-decode must reproduce the 64 KB linear_to_srgb_lut for every
-// one of the 65536 inputs — the equivalence the pack hot path relies on.
+// one of the 65536 inputs.
 inline void test_linear_to_srgb8_decode_matches_lut() {
   long mismatches = 0;
   for (int v = 0; v <= 65535; ++v)
@@ -1258,9 +1211,6 @@ inline void test_gradient_endpoints() {
 
 /**
  * @brief Verifies the in-range ramp yields a non-decreasing red channel.
- * @details Walking the in-range ramp of a black->white gradient yields a
- *          non-decreasing red channel. Out-of-range clamping is covered by the
- *          *_clamps_* test.
  */
 inline void test_gradient_in_range_valid_and_monotone() {
   Gradient grad{{0.0f, CPixel(0u, 0u, 0u)}, {1.0f, CPixel(255u, 255u, 255u)}};
@@ -1289,8 +1239,7 @@ inline void test_gradient_solid_color() {
 /**
  * @brief Verifies Gradient::get interpolates between LUT entries.
  * @details Two t values inside the same cell (both truncate to index 200) yield
- *          distinct colors, each bracketed by its neighbouring entries. A
- *          nearest-index lookup would band them together.
+ *          distinct colors, each bracketed by its neighbouring entries.
  */
 inline void test_gradient_interpolates_between_entries() {
   Gradient grad{{0.0f, CPixel(0u, 0u, 0u)}, {1.0f, CPixel(255u, 255u, 255u)}};
@@ -1357,9 +1306,8 @@ inline void test_gradient_first_stop_offset_flat_fills_prefix() {
 
 /**
  * @brief Verifies a >=3-stop gradient places the interior stop and interpolates flanks.
- * @details An interior stop not at 0/1 is the segment-join the 2-stop tests never
- *          exercise: the interior color must appear near its position and each
- *          flanking segment must blend between its bracketing stops.
+ * @details The interior color must appear near its position and each flanking
+ *          segment must blend between its bracketing stops.
  */
 inline void test_gradient_three_stops_interior_and_flanks() {
   // red -> green (interior, 0.5) -> blue.
@@ -1396,10 +1344,8 @@ inline void test_gradient_three_stops_interior_and_flanks() {
 /**
  * @brief Verifies two stops at the same quantized index produce a hard stop.
  * @details Coincident stop positions leave end==start, so the segment is skipped
- *          and the LUT jumps abruptly rather than interpolating. A smooth two-stop
- *          red->blue ramp would read as a red/blue mix on both sides of 0.5; the
- *          hard stop instead stays near-pure red below the boundary and near-pure
- *          blue above it.
+ *          and the LUT jumps abruptly: near-pure red below the boundary and
+ *          near-pure blue above it.
  */
 inline void test_gradient_hard_stop_is_abrupt() {
   Gradient grad{{0.0f, CPixel(255u, 0u, 0u)},
@@ -1515,9 +1461,7 @@ inline void test_baked_palette_in_range() {
 
 /**
  * @brief Verifies rebake samples the closed [0, 1] with divisor LUT_SIZE - 1.
- * @details The divisor fixes every entry's sampled coordinate, so a change to it
- *          shifts the whole LUT; the t = 1 endpoint pins it. StaticPalette
- *          exposes its wrapping policy, so BakedPalette can reject Wrap=true
+ * @details The t = 1 endpoint pins the divisor. BakedPalette rejects Wrap=true
  *          sources at compile time.
  */
 inline void test_baked_palette_rebake_samples_closed_interval() {
@@ -1667,8 +1611,7 @@ inline void test_dot_key_inverts_dot_keyed_coordinate() {
 
 /**
  * @brief Verifies a DotKeyed bake sampled at dot_key reproduces its source.
- * @details The end-to-end pairing two shipping effects key fragment color off:
- *          bake through dot_keyed(), then look the LUT up by the raw dot
+ * @details Bakes through dot_keyed(), then looks the LUT up by the raw dot
  *          product. A black-to-white ramp over t = angle/PI must land black on
  *          the axis, white on the antipode, and rise monotonically between
  *          them; interior samples match the source within LUT quantization.
@@ -1881,7 +1824,7 @@ inline void test_palette_modifiers() {
   float dyn_scale = 3.0f;
   HS_EXPECT_NEAR(ScaleModifier(1.0f, &dyn_scale).modify(0.2f), 0.6f, 1e-5f);
 
-  // Cycle adds the driver offset; a null driver is a deliberate pass-through.
+  // Cycle adds the driver offset; a null driver passes through.
   float off = 0.25f;
   HS_EXPECT_NEAR(CycleModifier(&off).modify(0.5f), 0.75f, 1e-5f);
   HS_EXPECT_NEAR(CycleModifier(nullptr).modify(0.5f), 0.5f, 1e-5f);
@@ -2013,12 +1956,9 @@ inline void test_drift_modifier() {
 
 /**
  * @brief Largest inter-channel split a gray may carry out of an OKLab shade.
- * @details A gray has a = b = 0, so a hue rotation or a chroma scale is the
- * identity on it and all three channels ride the same fast_cbrt round trip;
- * only the near-unity rows of the OKLab -> linear-RGB matrix and the
- * float -> uint16 rounding can separate them. Measured worst over the whole
- * 16-bit gray ramp is 1 LSB, IEEE and -ffast-math alike, so this carries 4x
- * headroom while still being 0.006% of full scale.
+ * @details A gray has a = b = 0, so only the OKLab -> linear-RGB rows and the
+ * float -> uint16 rounding separate its channels. Measured worst over the
+ * 16-bit gray ramp is 1 LSB, IEEE and -ffast-math alike.
  */
 inline constexpr float ACHROMATIC_TOL = 4.0f;
 
@@ -2057,8 +1997,7 @@ inline constexpr float HUE_SPIN_FOLD_TOL =
  *          preserve alpha, and refresh its memo when the driver moves.
  */
 inline void test_hue_spin_shade() {
-  // Whole-grid agreement: one sample cannot separate a refolded matrix from a
-  // rounding difference, so accumulate over the grid and gate mean and worst.
+  // Whole-grid agreement: gate the mean and the worst channel.
   {
     double sum = 0.0;
     long long n = 0;
@@ -2916,10 +2855,8 @@ inline void test_clamp_finite_bounds_backend_parity() {
       }
 }
 
-// Clamp-before-cast / NaN-saturation checks whose contract must also hold under
-// the shipping WASM fast-math codegen. fastmath_clamp_check.cpp iterates this
-// same list, so adding a case here automatically extends both the default-IEEE
-// run and the -ffast-math -fno-finite-math-only pass.
+// Clamp-before-cast / NaN-saturation checks that must also hold under
+// -ffast-math -fno-finite-math-only; fastmath_clamp_check.cpp iterates this list.
 #define HS_FASTMATH_CLAMP_TESTS(X)                                             \
   X(test_clamp_finite_bounds_backend_parity)                                   \
   X(test_blend_alpha_clamps_before_cast)                                       \
