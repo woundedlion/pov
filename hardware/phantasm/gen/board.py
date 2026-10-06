@@ -286,7 +286,7 @@ def main(force=False, revision=B.REVISION, output_dir=None):
     def series_wire(src_sym, src_pin, r_sym, far_label, src_label=None):
         """Wire src pin to the NEARER terminal of r_sym; label the far terminal.
         If src_label is given, name the source-side stub too (else KiCad auto-names
-        it Net-(R-PadN), which shows up cryptic in autoplacers like Quilter)."""
+        it Net-(R-PadN))."""
         tip = src_sym.pin(src_pin)
         t1, t2 = r_sym.pin("1"), r_sym.pin("2")
         d1 = abs(t1[0] - tip[0]) + abs(t1[1] - tip[1])

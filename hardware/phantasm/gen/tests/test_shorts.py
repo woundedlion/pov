@@ -2,8 +2,7 @@
 
 Run:  python -m unittest discover -s hardware/phantasm/gen/tests
 Synthetic fragments and regression cases cover the KiCad-authored rev 1.1
-schematic. Generated revisions are checked by test_board and
-test_revision_generation.
+schematic.
 """
 import contextlib
 import io

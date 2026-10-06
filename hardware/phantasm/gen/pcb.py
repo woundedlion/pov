@@ -239,7 +239,7 @@ def schematic_components(path=None):
 
 def is_hand_assembled(footprint, value):
     """Whether a part is hand-soldered, and so carries the board-level
-    assembly exclusions gen/fab.py also keeps out of the BOM and centroid."""
+    assembly exclusions."""
     return (any(token in footprint for token in EXCLUDE_FP_SUBSTR)
             or any(token in value for token in EXCLUDE_VAL_SUBSTR))
 
@@ -593,8 +593,7 @@ def fp_bbox(node, pads_only=False, graphic_layers=None):
 def _rot_bb(bb, rot):
     """Bounding box of `bb` rotated by a right angle.
 
-    The packer and the mounting-hole keepout gate measure parts through this,
-    so an angle it cannot rotate is an error, not the unrotated box.
+    Any other angle is an error, not the unrotated box.
     """
     mnx, mny, mxx, mxy = bb
     pts = [(mnx, mny), (mxx, mny), (mxx, mxy), (mnx, mxy)]
@@ -614,8 +613,7 @@ def _rotatable(ref):
     # Placement aligns the rotated bbox corner to the cell, so any origin packs
     # correctly. Rotate chip passives (R*/C*). Keep solder jumpers (JP*, custom
     # pads + clearance-outline trip DRC at 90), C_IN (a through-hole radial
-    # electrolytic), diodes, fuse, bead and ICs at rot 0. Connectors never reach
-    # here: pack() pins every one of them to a board end.
+    # electrolytic), diodes, fuse, bead and ICs at rot 0.
     if ref.startswith("JP") or ref == "C_IN":
         return False
     return ref[0] in "RC"
@@ -843,7 +841,7 @@ def pack(bxs, width, edge=1.0, gap=1.2):
                 merged.append(seg)
         return merged
 
-    # 0) hub-end screw heads: block their squares before anything is placed
+    # hub-end screw heads: block their squares before anything is placed
     half = MOUNTING_RESERVE_HALF_SIDE
     for cy in (MOUNTING_HOLE_INSET, width - MOUNTING_HOLE_INSET):
         yb = max(0.0, cy - half - edge)
@@ -851,14 +849,14 @@ def pack(bxs, width, edge=1.0, gap=1.2):
         if yt > yb:
             sky = reserve(yb, 2 * half, yt - yb, MOUNTING_HOLE_INSET - half - edge)
 
-    # 1) hub connectors: column at the left edge; reserve it so the interior packs right
+    # hub connectors: column at the left edge; reserve it so the interior packs right
     if hub:
         hubh = _column_height(hub, bxs, gap) + gap
         x0, y0 = best_pos(hubh) or (free_x(0.0, hubh), 0.0)
         hubw, _ = _stack(hub, bxs, x0, edge, gap, place, y0)
         sky = reserve(y0, hubw + gap, hubh, 0.0)
 
-    # 2) interior parts: Teensy + SMD + jumpers, bottom-left skyline pack
+    # interior parts: Teensy + SMD + jumpers, bottom-left skyline pack
     interior = sorted((r for r in bxs if r not in pinned),
                       key=lambda r: -max(bxs[r][2] - bxs[r][0], bxs[r][3] - bxs[r][1]))
     for ref in interior:
@@ -894,7 +892,7 @@ def pack(bxs, width, edge=1.0, gap=1.2):
             fgap = max(0.6, min(gap, (usable - sumh) / (len(far) - 1)))
         right, _ = _stack(far, bxs, right + gap, edge, fgap, place)
 
-    # 4) length: enough tail for the far-end screw heads to clear every part
+    # length: enough tail for the far-end screw heads to clear every part
     extent = max((x + _rot_bb(bxs[ref], rot)[2] for ref, (x, _, rot) in place.items()),
                  default=edge + right)
     tail = max(edge, MOUNTING_HOLE_INSET + MOUNTING_RESERVE_HALF_SIDE)

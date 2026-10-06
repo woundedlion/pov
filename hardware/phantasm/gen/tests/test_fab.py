@@ -951,8 +951,7 @@ class ZipMemberTests(unittest.TestCase):
 
 
 class UploadZipTests(unittest.TestCase):
-    """The manifest digests the archive itself, so its deflate level is pinned
-    rather than left to whatever the host zlib defaults to."""
+    """The manifest digests the archive itself, so its deflate level is pinned."""
 
     MEMBER = "phantasm-F_Cu.gtl"
     PAYLOAD = b"".join(
@@ -985,8 +984,7 @@ class UploadZipTests(unittest.TestCase):
 
 
 class TimestampNormalizationTests(unittest.TestCase):
-    """Every artifact records the export wall clock, so without normalization
-    two runs over an unchanged board differ in every file."""
+    """Every artifact's export wall-clock stamp is normalized."""
 
     # Gerbers are CRLF, Excellon and the job file LF.
     GERBER = ("%TF.GenerationSoftware,KiCad,Pcbnew,10.0.4*%\r\n"
@@ -1181,8 +1179,7 @@ class PackagePromotionTests(unittest.TestCase):
 
 
 class PackageManifestTests(unittest.TestCase):
-    """The fab run builds a byte-reproducible package; the manifest is what
-    lets a rebuild be checked against what was ordered."""
+    """The fab run builds a byte-reproducible package."""
 
     ARCHIVE = "phantasm-jlc-gerbers.zip"
 
@@ -1349,7 +1346,7 @@ class FabContentTests(unittest.TestCase):
 
 
 class PackageVerificationTests(unittest.TestCase):
-    """The manifest is only worth writing if something reads it back."""
+    """A generated package is re-hashed against its recorded digests."""
 
     def package(self):
         directory = Path(self.enterContext(tempfile.TemporaryDirectory()))

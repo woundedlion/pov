@@ -12,20 +12,18 @@ default revision. Extract Quilter archives into that directory. Pass explicit
 folders or .kicad_pcb files for other revisions.
 
 A DRC gate runs kicad-cli on each candidate (env KICAD_CLI overrides discovery, and
-must name an existing file) so a geometry-clean but DRC-broken board can't
-win the ranking. With no KiCad on the pin installed the ranking still runs, ungated.
+must name an existing file). With no KiCad on the pin installed the ranking still
+runs, ungated.
 
-Errors are split: 'refill-fixable' clearance/hole errors against a zone (Quilter exports pours without via antipads -- they clear on a KiCad zone refill)
-vs 'REAL FAULTS' (shorts/crossings/opens, and track-to-track clearance), which
-disqualify a candidate from the recommended pick. A candidate whose DRC did not
-produce a result reports as NOT GATED, never as clean, and is likewise ineligible. Via
-geometry is checked independently because Quilter may replace uploaded defaults;
-candidates below 0.45/0.20 mm are ineligible. Project-rule and zone floors run
-independently of KiCad availability; refusals report as RULES.
+Errors are split: 'refill-fixable' clearance/hole errors against a zone (they clear
+on a KiCad zone refill) vs 'REAL FAULTS' (shorts/crossings/opens, and track-to-track
+clearance), which disqualify a candidate from the recommended pick. A candidate
+whose DRC did not produce a result reports as NOT GATED and is likewise
+ineligible, as is one with vias below 0.45/0.20 mm. Project-rule and zone floors
+run independently of KiCad availability; refusals report as RULES.
 
 Scoring favors fewer fast-net vias and shorter fast nets. Placement distances
-are reported unscored for inspection: decap, terminator and divider groupings
-are locked in the rev 1.2 upload, while R_S-to-J3A varies between candidates.
+are reported unscored.
 """
 import argparse
 import glob
@@ -45,10 +43,9 @@ from kicad_common import F, kicad_cli, net_name
 HERE = os.path.dirname(os.path.abspath(__file__))
 CANDIDATES = os.path.join(os.path.dirname(HERE), builder.REVISION, "candidates")
 
-# clearance/hole errors against a pour usually clear on a KiCad zone refill (Quilter
-# exports pours without antipads around signal vias) -- flagged separately from real
-# faults. The same rule types also fire track-to-track, which no refill clears, so the
-# bucket is decided by the violation's items, not by its rule.
+# clearance/hole errors against a pour usually clear on a KiCad zone refill. The
+# same rule types also fire track-to-track, so the bucket is decided by the
+# violation's items, not by its rule.
 REFILL_FIXABLE = {"clearance", "hole_clearance"}
 # kicad-cli describes a violating pour as `Zone [NET] on <layers>`.
 ZONE_ITEM = re.compile(r"\bzone\b", re.I)
@@ -136,10 +133,8 @@ def resolve_kicad_cli():
     """Return a runnable kicad-cli, or None if there is no usable one.
 
     kicad_cli() yields either an absolute install path or the bare name
-    "kicad-cli" for a PATH install (Homebrew/flatpak/snap/~/.local/bin), so the
-    bare name has to be resolved through PATH rather than the filesystem. It
-    exits the process when no KiCad on the pin is installed; ranking candidates
-    is useful without one, so that exit becomes an ungated run instead."""
+    "kicad-cli" for a PATH install, resolved here through PATH. Its no-KiCad exit
+    becomes None unless KICAD_CLI is set."""
     try:
         cli = kicad_cli()
     except SystemExit:
@@ -154,11 +149,9 @@ def run_drc(pcb_path):
 
     status is DRC_OK (counts are real), DRC_MISSING (no usable kicad-cli) or DRC_FAILED
     (the run errored out), or DRC_RULES (project/zone floor refusal). The counts
-    are zero for anything but DRC_OK, so callers
-    must branch on status rather than read them as a clean result. `real` counts the
-    errors that are not refill-fixable zone artifacts -- the shorts/crossings that
-    disqualify a candidate. The report is read as JSON through fab's structural reader,
-    so a report whose shape changed reports as DRC_FAILED, never as clean."""
+    are zero for anything but DRC_OK. `real` counts the errors that are not
+    refill-fixable zone artifacts. A report whose shape changed reports as
+    DRC_FAILED."""
     refused = False
     for validate, path in (
             (fab.validate_project_rules, os.path.splitext(pcb_path)[0] + ".kicad_pro"),
@@ -248,8 +241,8 @@ def analyze(path):
         if n in CRIT and p:
             crit_via_pts.append(p)
 
-    # Every SI figure below is keyed on the critical net NAMES; a board that
-    # carries none of them scores a perfect 10 on nothing at all.
+    # Every SI figure is keyed on the critical net NAMES; a board that carries
+    # none of them would score a perfect 10.
     if not any(n in netlen or n in netvias for n in CRIT):
         raise ValueError(
             f"no critical net ({', '.join(CRIT)}) resolved by name in {path}; "
@@ -300,8 +293,7 @@ def score(r):
     si -= r["crit_len"] / 90.0          # total fast-net copper (reflection/EMI)
     si -= r["spi_vias"] * 0.6           # SPI-bus vias hurt most (stub + plane hop)
     si -= r["sync_vias"] * 0.4
-    # (crit_vias_stitched is reported but not penalised: both inner planes are the
-    #  same GND net, so a signal-via plane hop is benign vs a split-plane crossing.)
+    # crit_vias_stitched is unscored: both inner planes are the same GND net.
     return max(0.0, min(10.0, si))
 
 
@@ -344,9 +336,7 @@ def main(argv=None):
         m = re.search(r"Candidate[ _-]+(\w+)", d)
         name = m.group(1) if m else os.path.splitext(os.path.basename(d))[0]
         try:
-            # The label is scraped from the path, so two runs supply the same
-            # one: without this the later board silently replaces the earlier
-            # and the ranking covers fewer boards than were analyzed.
+            # The label is scraped from the path, so two boards can share one.
             if name in source:
                 raise ValueError(
                     f"candidate label {name!r} names two boards: {source[name]}"

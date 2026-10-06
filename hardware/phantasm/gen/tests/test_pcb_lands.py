@@ -156,7 +156,7 @@ class UnplacedBoardLandTests(unittest.TestCase):
 
 class RoutedBoardLandTests(unittest.TestCase):
     """The routed board is the fabrication source of truth, and its chip lands are
-    not all the library ones: four sync resistors are widened in place and D_BUS
+    not all the library ones: sync resistors are widened in place and D_BUS
     carries the Bourns land under a stock footprint id."""
 
     def test_every_routed_chip_passive_has_a_land_pin(self):
@@ -193,9 +193,7 @@ class PowerInletTests(unittest.TestCase):
 
 class TeensyLibraryTests(unittest.TestCase):
     """A board embeds its own copy of every footprint, so the generator, the
-    library and both committed boards each need pinning: generator drift there
-    invalidates the routing, and moving generator and library together leaves
-    the shipped copper holding the old Teensy pinout."""
+    library and both committed boards each pin the Teensy footprint."""
 
     def library_lands(self):
         return pad_lands(
