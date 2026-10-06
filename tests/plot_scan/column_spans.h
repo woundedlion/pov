@@ -1455,3 +1455,44 @@ inline void test_rasterize_gate_bits_pixel_parity() {
   }
   HS_EXPECT_GT(lit_total, 200); // the sweep must actually light the bands
 }
+
+/** @brief Four-regular extraction covers every edge once and medial indices name original edges. */
+inline void test_four_regular_and_medial_edge_extraction() {
+  configure_arenas_default();
+  alignas(std::max_align_t) static uint8_t storage[16 * 1024];
+  Arena arena(storage, sizeof(storage));
+  MeshState mesh;
+  build_meshstate_solid<Solids::Octahedron>(mesh, arena);
+  ArenaVector<Plot::Mesh::Edge> unique(arena, mesh.faces.size());
+  ArenaVector<Plot::Mesh::Edge> woven(arena, mesh.faces.size());
+  ArenaVector<Plot::Mesh::Edge> medial(arena, mesh.faces.size());
+  Plot::Mesh::extract_edges(mesh, unique);
+  Plot::Mesh::extract_four_regular_edges(mesh, woven, scratch_arena_a);
+  HS_EXPECT_SIZE_OR_RETURN(woven, unique.size());
+  for (const auto &edge : unique) {
+    int matches = 0;
+    for (const auto &candidate : woven)
+      matches += ((edge.u == candidate.u && edge.v == candidate.v) ||
+                  (edge.u == candidate.v && edge.v == candidate.u));
+    HS_EXPECT_EQ(matches, 1);
+    const auto index = Plot::Mesh::find_edge_index(woven, edge.v, edge.u);
+    HS_EXPECT_LT(index, woven.size());
+  }
+  Plot::Mesh::extract_medial_edges(mesh, unique, medial);
+  HS_EXPECT_SIZE_OR_RETURN(medial, mesh.faces.size());
+  std::vector<int> incidence(unique.size(), 0);
+  for (const auto &edge : medial) {
+    HS_EXPECT_LT(edge.u, unique.size());
+    HS_EXPECT_LT(edge.v, unique.size());
+    HS_EXPECT_NE(edge.u, edge.v);
+    if (edge.u >= unique.size() || edge.v >= unique.size())
+      continue;
+    const auto &a = unique[edge.u];
+    const auto &b = unique[edge.v];
+    HS_EXPECT_EQ((a.u == b.u) + (a.u == b.v) + (a.v == b.u) + (a.v == b.v), 1);
+    ++incidence[edge.u];
+    ++incidence[edge.v];
+  }
+  for (const int count : incidence)
+    HS_EXPECT_EQ(count, 4);
+}
