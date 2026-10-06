@@ -497,3 +497,127 @@ struct ArenaBlockStamp {
 #else
 #define HS_ASSERT_BLOCK_ALIVE(stamp, ptr, bytes, owner) ((void)0)
 #endif
+
+extern Arena scratch_arena_a;
+extern Arena scratch_arena_b;
+
+extern Arena persistent_arena;
+
+/**
+ * @brief Self-registering callback run before persistent arena storage is
+ *        handed out again.
+ * @details A global that caches a pointer into the persistent arena declares one
+ * static instance next to itself and drops the pointer from the callback,
+ * instead of the allocator naming every such owner. The registry head is
+ * constant-initialized, so registration during static init is order-independent;
+ * the list is intrusive, so it needs no storage of its own.
+ * @note Scoped to the persistent arena: generate() rewinds both engine scratch
+ * arenas per call without running the list, so no global may cache a pointer
+ * into scratch storage.
+ */
+struct ArenaResetHook {
+  using Handler = void (*)(); /**< Callback signature. */
+
+  Handler handler;      /**< Callback invoked by run_all(). */
+  ArenaResetHook *next; /**< Next link in the intrusive registry list. */
+
+  /**
+   * @brief Registers @p h with the global hook list.
+   * @param h Callback that drops the owner's pointer into arena storage.
+   */
+  explicit ArenaResetHook(Handler h) : handler(h), next(head) { head = this; }
+
+  /** @brief Unlinks this hook so run_all() never calls through a dead node. */
+  ~ArenaResetHook() {
+    for (ArenaResetHook **p = &head; *p; p = &(*p)->next) {
+      if (*p == this) {
+        *p = next;
+        return;
+      }
+    }
+    HS_CHECK(false, "ArenaResetHook: destroyed hook not in registry");
+  }
+
+  /** @brief Deleted copy constructor: a copy would double-link the registry. */
+  ArenaResetHook(const ArenaResetHook &) = delete;
+  /**
+   * @brief Deleted copy assignment (non-copyable).
+   * @return Reference to this (never invoked).
+   */
+  ArenaResetHook &operator=(const ArenaResetHook &) = delete;
+
+  /** @brief Runs every registered hook. */
+  HS_COLD_MEMBER static void run_all() {
+    for (const ArenaResetHook *h = head; h; h = h->next)
+      h->handler();
+  }
+
+private:
+  static inline ArenaResetHook *head =
+      nullptr; /**< Head of the intrusive registry list. */
+};
+
+/**
+ * @brief Rewinds the persistent arena to empty after dropping every cached
+ *        pointer into it.
+ * @details The only supported way to hand persistent storage out again: a bare
+ * `persistent_arena.reset()` leaves each registered global pointing at bytes the
+ * next allocation re-issues.
+ */
+HS_FLASH_INLINE inline void reset_persistent_arena() {
+  ArenaResetHook::run_all();
+  persistent_arena.reset();
+}
+
+/**
+ * @brief Repartitions the global arena budget across the three arenas.
+ * @param persistent Bytes to assign to the persistent arena.
+ * @param scratch_a Bytes to assign to scratch arena A.
+ * @param scratch_b Bytes to assign to scratch arena B.
+ */
+FLASHMEM void configure_arenas(size_t persistent, size_t scratch_a,
+                               size_t scratch_b);
+/** @brief Scratch capacities and the remaining persistent arena budget. */
+struct ArenaSplit {
+  size_t scratch_a;
+  size_t scratch_b;
+
+  constexpr size_t persistent(size_t total = DEVICE_GLOBAL_ARENA_SIZE) const {
+    HS_CHECK(scratch_a <= total && scratch_b <= total - scratch_a,
+             "ArenaSplit: scratch %lu+%lu exceeds %lu B",
+             static_cast<unsigned long>(scratch_a),
+             static_cast<unsigned long>(scratch_b),
+             static_cast<unsigned long>(total));
+    return total - scratch_a - scratch_b;
+  }
+
+  constexpr size_t device_persistent() const {
+    return persistent(DEVICE_GLOBAL_ARENA_SIZE);
+  }
+
+  HS_COLD_MEMBER void configure() const {
+    configure_arenas(persistent(GLOBAL_ARENA_SIZE), scratch_a, scratch_b);
+  }
+};
+
+/**
+ * @brief Restores the default arena partition.
+ */
+FLASHMEM void configure_arenas_default();
+
+/**
+ * @brief Re-partitions the arenas mid-run WITHOUT disturbing persistent content.
+ * @param persistent New persistent capacity; must be >= its current live offset.
+ * @param scratch_a New scratch-A capacity.
+ * @param scratch_b New scratch-B capacity.
+ * @details Unlike configure_arenas(), the persistent arena keeps its base
+ * (block start), offset, live content, and generation -- only its capacity
+ * boundary moves -- so the long-lived carousel slots + palette bank below its
+ * offset survive. The scratch arenas hold nothing across the call point
+ * (each consumer rewinds through ScratchScope), so they rebind to fresh bases.
+ * They are empty between frames. Callers MUST
+ * invoke this only when both scratch arenas are empty; a per-shape split at
+ * spawn (persistent at its ~baseline, scratch idle) satisfies this.
+ */
+FLASHMEM void resplit_arenas(size_t persistent, size_t scratch_a,
+                             size_t scratch_b);
