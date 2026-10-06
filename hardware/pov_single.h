@@ -11,9 +11,9 @@
  * The IntervalTimer ISR sweeps columns at a rate derived from RPM and
  * the virtual canvas width.
  *
- * Include directly from target .ino files:
+ * Include from target .ino files; the hardware include directory resolves it:
  * @code{.cpp}
- * #include "../../hardware/pov_single.h"
+ * #include "pov_single.h"
  * @endcode
  */
 #pragma once

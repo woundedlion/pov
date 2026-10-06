@@ -40,9 +40,10 @@
  * Effects use full-canvas coordinates with rendering clipped per board.
  * The ISR packs this segment's pixels into its local DMA frame.
  *
- * Include directly from target .ino files:
+ * Phantasm-class targets include this through targets/Phantasm/phantasm_target.h.
+ * The hardware include directory resolves the bare name:
  * @code{.cpp}
- * #include "../../hardware/pov_segmented.h"
+ * #include "pov_segmented.h"
  * @endcode
  */
 #pragma once
