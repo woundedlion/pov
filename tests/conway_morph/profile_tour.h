@@ -3,11 +3,8 @@
  * Licensed under the PolyForm Noncommercial License 1.0.0
  */
 
-// Included by tests/test_conway_morph.h.
-
 // ---------------------------------------------------------------------------
-// test_ordered_tour_full_coverage_and_wrap checks NUM_NODES coverage, legal
-// seed reconciliation, and return to the registry start state.
+// Ordered-tour coverage, seed reconciliation and wrap.
 // ---------------------------------------------------------------------------
 
 /**

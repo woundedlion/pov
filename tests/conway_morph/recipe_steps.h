@@ -3,13 +3,9 @@
  * Licensed under the PolyForm Noncommercial License 1.0.0
  */
 
-// Included by tests/test_conway_morph.h.
-
 // ---------------------------------------------------------------------------
-// Recipe-step leg kinds (docs/specs/opchain_morph_spec.md, "Leg kinds"): the
-// truncate, snub and relax legs the pure-inflate recipes need. Topology
-// constancy is sampled on the chain prefixes the shipping recipes actually
-// reach; the smoke tests drive a whole leg through OpLeg on the same seeds.
+// Recipe-step leg kinds: truncate, snub and relax legs, sampled on the chain
+// prefixes the shipping recipes reach.
 // ---------------------------------------------------------------------------
 
 template <const Solids::Recipe &RECIPE, Solids::Op OP>

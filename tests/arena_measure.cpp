@@ -4,23 +4,14 @@
  *
  * Host arena high-water-mark probe across every effect.
  *
- * Reads Arena::get_lifetime_high_water_mark() for the three global arenas after
- * running each effect's init + hs_test::smoke_frames() frames, to size the
- * DEVICE_GLOBAL_ARENA_SIZE (HS_DEVICE_ARENA_BYTES) against what effects actually touch. The lifetime
- * peak, not the windowed one: an effect that re-splits the arenas mid-window
- * (IslamicStars, per shape spawn) discards the windowed mark on every re-split,
- * leaving the single post-window sample reporting only the peak since the last
- * one. The host build uses an
- * 8 MiB host global arena so nothing OOMs mid-measure. The
- * window is HS_SMOKE_FRAMES (default 8); CI drives the 120-frame window the
- * effects sweep uses, which is where late-lifecycle allocation (slot reuse,
- * FIFO expiry, arena compaction) reaches its high-water mark. Frames advance
- * under the injected fixed-cadence clock (hs_test::pin_frame_clock), so a
- * time-driven effect allocates the same way whatever the runner's speed.
+ * Reads Arena::get_lifetime_high_water_mark() for the global arenas after each
+ * effect's init + hs_test::smoke_frames() frames under the fixed-cadence clock,
+ * to size DEVICE_GLOBAL_ARENA_SIZE (HS_DEVICE_ARENA_BYTES). The lifetime peak
+ * survives mid-window arena re-splits. The host global arena is 8 MiB so
+ * nothing OOMs mid-measure.
  *
- * CI gate: charges fixed partitions at capacity and the host-inflated
- * remainder at its high-water mark. Capacities are sampled after init and
- * each frame to account for effects that repartition the pool.
+ * Gate: charges fixed partitions at capacity and the host-inflated remainder
+ * at its high-water mark. Capacities are sampled after init and each frame.
  */
 #include <algorithm>
 #include <cstdint>

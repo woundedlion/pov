@@ -3,8 +3,6 @@
  * Licensed under the PolyForm Noncommercial License 1.0.0
  */
 
-// Included by tests/test_canvas.h.
-
 inline void test_sparse_parameter_specs() {
   static constexpr const char *LABELS[] = {"Zero", "One", "Six"};
   static constexpr const int64_t IDS[] = {0, 1, 6};

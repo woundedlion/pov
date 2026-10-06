@@ -75,11 +75,8 @@ if(NOT _committed_preamble STREQUAL _generated_preamble)
   message(FATAL_ERROR "MindSplatter replay corpus preamble differs from generated form")
 endif()
 
-# The replay's RandomWalk orientation uses libm under -ffast-math. CPU-specific
-# low-bit results amplify over the particle simulation, while instrumentation
-# changes can select a different worst-workload frame. Only form and revision
-# are portable. unit_mindsplatter_replay validates the committed payload against
-# the live renderer.
+# Only form and revision are portable: the replay payload depends on libm
+# low bits under -ffast-math.
 foreach(_symbol IN ITEMS
     "HEAVY_SEARCH_V1_STATE"
     "HEAVY_SEARCH_V1_FRAMEBUFFER"

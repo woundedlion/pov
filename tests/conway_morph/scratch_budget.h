@@ -3,13 +3,9 @@
  * Licensed under the PolyForm Noncommercial License 1.0.0
  */
 
-// Included by tests/test_conway_morph.h.
-
 // ---------------------------------------------------------------------------
-// Morph-frame scratch high-water gate at HankinSolids' shipping split
-// A morph frame runs one op plus MeshOps::compile in the scratch pair under
-// LIFO scopes;
-// host high-water marks are a conservative upper bound on the device figure.
+// Morph-frame scratch high-water gate at HankinSolids' shipping split. Host
+// high-water marks are a conservative upper bound on the device figure.
 // ---------------------------------------------------------------------------
 
 /** The arena split is canvas-independent; this instantiation names it. */
@@ -22,11 +18,10 @@ constexpr size_t MORPH_SCRATCH_B_BUDGET =
 
 /**
  * @brief Verifies every edge's op-plus-compile scratch peak fits
- *        HankinSolids' 24 KB / 32 KB scratch split.
+ *        HankinSolids' scratch split.
  * @details The seed is persistent and topology is t-constant; one mid-sweep
- * sample measures the op-plus-compile peak. OpLeg's constructor checks the
- * blended-LUT term; effect smoke tests exercise the additional draw stack.
- * Reports the worst arena pair across the edge table.
+ * sample measures the op-plus-compile peak. Reports the worst arena pair
+ * across the edge table.
  */
 inline void test_edge_morph_frames_fit_scratch_budget() {
   static_assert(sizeof(morph_target_buf) > MORPH_SCRATCH_A_BUDGET);

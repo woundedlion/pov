@@ -3,8 +3,6 @@
  * Licensed under the PolyForm Noncommercial License 1.0.0
  */
 
-// Included by tests/test_conway_morph.h.
-
 // ---------------------------------------------------------------------------
 // Shared oracles
 // ---------------------------------------------------------------------------
@@ -65,8 +63,7 @@ inline void check_pairwise_vertex_cover(const PolyMesh &got,
 
 /** Corner-match radius at a truncate's T_EPS end, where each seed corner has
  * split into two cut vertices. Above the widest T_EPS cut on the registry
- * seeds and far below their closest corner spacing, so a match cannot alias
- * onto a neighbouring corner. */
+ * seeds and far below their closest corner spacing. */
 constexpr float PRIMARY_CORNER_TOL_TRUNCATE = 0.08f;
 /** Same radius for the expand/snub/chamfer eps ends, whose single corner per
  * source moves less. */

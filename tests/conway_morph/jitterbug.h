@@ -3,8 +3,6 @@
  * Licensed under the PolyForm Noncommercial License 1.0.0
  */
 
-// Included by tests/test_conway_morph.h.
-
 // ---------------------------------------------------------------------------
 // Jitterbug bridge (icosahedron <-> octahedron on the tetra snub family):
 // both endpoint parameter pins plus the clamped-leg topology sweep.
@@ -39,9 +37,7 @@ inline void test_jitterbug_icosa_point_is_regular() {
 /**
  * @brief Verifies the jitterbug octa endpoint snub(tetrahedron, 0.5, -pi/3):
  *        the 12 vertices merge pairwise onto the registry octahedron's 6 and
- *        exactly the 12 edge-orbit faces are zero-area (the SDF zero-area cull
- *        hides them, so the clean swap to the held octahedron changes no
- *        pixels).
+ *        exactly the 12 edge-orbit faces are zero-area.
  */
 inline void test_jitterbug_octa_end_covers_octahedron() {
   Arena target(morph_target_buf, sizeof(morph_target_buf));

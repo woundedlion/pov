@@ -3,8 +3,6 @@
  * Licensed under the PolyForm Noncommercial License 1.0.0
  */
 
-// Included by tests/test_animation.h.
-
 // ============================================================================
 // Public animation APIs
 // ============================================================================
@@ -57,10 +55,7 @@ inline void test_random_timer_fires_within_range() {
 
 /**
  * @brief Verifies a one-shot timer ends by completion, not cancellation.
- * @details Timeline's pin-completion guard exempts is_canceled(), so a one-shot
- * timer that ended via cancel() would be destroyed under a retained add_get()
- * pointer with no diagnostic. Ending through duration keeps is_canceled() false
- * and routes a pinned one-shot into the guard.
+ * @details Timeline's pin-completion guard exempts is_canceled() animations.
  */
 inline void test_one_shot_timer_ends_by_completion_not_cancel() {
   Animation::PeriodicTimer periodic(2, [](Canvas &) {}, /*repeat=*/false);
@@ -99,9 +94,7 @@ private:
 /**
  * @brief Verifies finish() terminates a repeating animation instead of leaving
  * it done() && repeats().
- * @details Timeline rewinds and re-fires the .then() of anything reporting both,
- * so a repeating animation ending itself would re-fire every frame and never be
- * removed.
+ * @details Timeline rewinds and re-fires the .then() of anything reporting both.
  */
 inline void test_finish_terminates_a_repeating_animation() {
   SelfFinishing anim(2);
@@ -170,9 +163,7 @@ inline void test_periodic_timer_set_period_reschedules_from_now() {
 /**
  * @brief Verifies PeriodicTimer::set_period called every frame with an
  * unchanged period still lets the timer fire.
- * @details A PeriodicTimer never reaches done(), so an unconditional reset()
- * would push the trigger past every frame forever with nothing to record it.
- * Period 4 over 8 frames must fire at t=4 and t=8; non-positive periods
+ * @details Period 4 over 8 frames must fire at t=4 and t=8; non-positive periods
  * clamp to one frame and keep firing under repeated set_period calls.
  */
 inline void test_periodic_timer_set_period_unchanged_does_not_defer() {
@@ -265,9 +256,6 @@ inline void test_particle_system_emitter_dispatch() {
 /**
  * @brief Verifies Motion::set_duration rescales the elapsed frame count instead
  * of completing the motion when the new duration is below the current position.
- * @details Without the rescale a repeating motion is instantly done(), so
- * Timeline rewinds it, re-fires its .then() and restarts the path mid-traversal
- * — a full-cycle desync from one drag of a live duration slider.
  */
 inline void test_motion_set_duration_below_position_rescales() {
   using Ori = math::Orientation<16>;

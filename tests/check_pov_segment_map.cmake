@@ -1,10 +1,7 @@
 # Re-emit the segment->canvas mapping from hardware/pov_segment_map.h (via the
 # pov_segment_map_gen exporter, which compiles against that header) and compare
-# the FULL text against the committed hardware/pov_segment_map.json. That golden
-# is the firmware reference the simulator's tests/segment_crosscheck.test.js
-# reads, so any convention change in the header must land in the JSON — and
-# therefore in the web tiling's cross-check — instead of leaving a stale JS
-# port green.
+# the full text against the committed hardware/pov_segment_map.json, the
+# firmware reference for the simulator's segment cross-check.
 # -D args: EXPORTER, COMMITTED, GENERATED.
 
 cmake_minimum_required(VERSION 3.29)

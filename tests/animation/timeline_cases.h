@@ -3,18 +3,14 @@
  * Licensed under the PolyForm Noncommercial License 1.0.0
  */
 
-// Included by tests/test_animation.h.
-
 // Timeline scheduling, cancellation and storage lifecycle.
 
 /**
  * @brief Verifies two animations sharing one Orientation COMPOSE their
  * sub-frame motion-blur history within a frame instead of clobbering it.
- * @details A per-animation collapse would discard the first animation's
- * freshly-built sub-frame trail. The decisive signature is the OLDEST sub-frame
- * (index 0): with composition it still reflects the pre-frame orientation
- * (identity here). This test touches the global Timeline; Rotation::step never
- * dereferences the canvas.
+ * @details With composition the oldest sub-frame (index 0) still reflects the
+ * pre-frame orientation (identity here). Uses the global Timeline;
+ * Rotation::step never dereferences the canvas.
  */
 inline void test_timeline_shared_orientation_composes_motion_blur() {
   using Ori = math::Orientation<16>;
@@ -173,8 +169,7 @@ inline void test_timeline_accepts_maximum_start_frame() {
  * @brief Verifies a repeating animation rewinds at the end of each cycle
  * instead of being removed, replaying the curve.
  * @details Mutation writes f(easing(t/duration)) each step, so after completion
- * and rewind the next step drops back to the mid-cycle value; a non-rewinding
- * timer would clamp at 1.
+ * and rewind the next step drops back to the mid-cycle value.
  */
 inline void test_timeline_repeating_animation_rewinds_each_cycle() {
   Timeline tl;
@@ -196,9 +191,8 @@ inline void test_timeline_repeating_animation_rewinds_each_cycle() {
 /**
  * @brief Verifies a canceled repeating animation is removed, not rewound and
  * replayed forever.
- * @details cancel() makes done() permanently true; repeats() must drop on
- * cancel so Timeline routes it through the removal branch instead of keeping it
- * as a per-frame, callback-firing zombie.
+ * @details cancel() makes done() permanently true and repeats() false, so
+ * Timeline routes the event through the removal branch.
  */
 inline void test_timeline_cancel_removes_repeating_animation() {
   Timeline tl;
@@ -228,10 +222,8 @@ inline void test_timeline_cancel_removes_repeating_animation() {
 /**
  * @brief Verifies a repeating animation canceled from inside its own .then()
  * fires the callback exactly once and is removed in that frame.
- * @details The repeating branch rewinds and fires the per-cycle callback; a
- * cancel taken there leaves the animation done() and non-repeating, so keeping
- * the event would route it through the removal branch on the next frame and
- * fire .then() again.
+ * @details A cancel taken in the repeating branch leaves the animation done()
+ * and non-repeating; .then() must not fire again from the removal branch.
  */
 inline void test_timeline_repeating_canceled_in_callback_fires_then_once() {
   Timeline tl;
@@ -295,9 +287,7 @@ inline void test_timeline_cancel_suppresses_step_side_effects() {
  * @brief Verifies cancel() fires the animation's .then() as the event is
  * removed.
  * @details cancel() reaches Timeline's removal branch through done(), so the
- * post callback runs there. TransformerPool::spawn_pinned reclaims its pool slot
- * from exactly this path: a pinned animation is infinite or repeating, so
- * cancellation is its only route to the callback.
+ * post callback runs there.
  */
 inline void test_timeline_cancel_fires_post_callback() {
   Timeline tl;
@@ -524,9 +514,7 @@ inline void test_timer_then_self_cancellation_completes_once() {
 /**
  * @brief Verifies clear() destroys all events and leaves the timeline reusable,
  * without rewinding the global frame cursor.
- * @details This is the in-place reset the singleton offers in lieu of
- * reassignment. The cursor is shared with every consumer deriving a phase from
- * frame(), so a runtime clear() must leave it running.
+ * @details The frame cursor is shared, so a runtime clear() leaves it running.
  */
 inline void test_timeline_clear_destroys_events_keeping_frame() {
   Timeline tl;
@@ -551,9 +539,8 @@ inline void test_timeline_clear_destroys_events_keeping_frame() {
 /**
  * @brief Verifies construction/destruction tears down a pinned event and
  * rewinds the frame cursor, where the public clear() would trap.
- * @details The pin guard covers the runtime API only; the instance boundary is
- * unguarded because no retained add_get() handle can outlive it. The trapping
- * half is death case "timeline_clear_pinned".
+ * @details The pin guard covers the runtime API only. The trapping half is
+ * death case "timeline_clear_pinned".
  */
 inline void test_timeline_instance_boundary_reclaims_pinned_event() {
   {
@@ -622,8 +609,7 @@ inline void count_clear_hook(void *ctx) { ++*static_cast<int *>(ctx); }
  * @brief Verifies remove_clear_hook() unregisters by ctx, leaves the surviving
  *        hooks registered, and ignores a ctx that was never added.
  * @details The removal backfills the hole with the last entry, so dropping the
- * first of several must not drop the one moved into its place — the pattern
- * TransformerPool's destructor relies on when several pools share a Timeline.
+ * first of several must not drop the one moved into its place.
  */
 inline void test_timeline_remove_clear_hook_unregisters_by_ctx() {
   Timeline tl;

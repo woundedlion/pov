@@ -3,15 +3,13 @@
  * Licensed under the PolyForm Noncommercial License 1.0.0
  */
 
-// Included by tests/test_conway_morph.h.
-
 // ---------------------------------------------------------------------------
 // Walk policy: the recency-weighted random walk visits every node within a
 // bounded leg count and keeps long-run visitation balanced (no node above 3x
 // the mean share, none below a quarter of it).
 // ---------------------------------------------------------------------------
 
-/** Coverage limit enforced by test_walk_policy_coverage_and_balance. */
+/** Legs within which the walk must visit every node. */
 constexpr int WALK_COVERAGE_BOUND = 250;
 
 inline void reconcile_seed(int edge, int node, int &held) {

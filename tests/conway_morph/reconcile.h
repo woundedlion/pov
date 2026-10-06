@@ -3,14 +3,10 @@
  * Licensed under the PolyForm Noncommercial License 1.0.0
  */
 
-// Included by tests/test_conway_morph.h.
-
 // ---------------------------------------------------------------------------
 // Smooth kis/needle reconcile: the identity meshes (dt / dtd) and the authored
 // kis/needle meshes are topology-exact (identical V/E/F/I); the residual gap is
 // closed by a per-vertex great-circle slerp along the nearest-vertex bijection.
-// Checks seed bijections and residuals. test_effects.h pins the effect's
-// truncate depth with static_assert(IS::MACRO_TRUNCATE_T == RECONCILE_TRUNCATE_T).
 // ---------------------------------------------------------------------------
 
 /** One smooth-kis/needle macro site: how X is reached, and which identity vs
@@ -37,8 +33,7 @@ inline const ReconcileSite RECONCILE_SITES[] = {
  * endpoints and must reproduce it vertex for vertex.
  */
 inline void test_reconcile_bijection_wellposed() {
-  // Residual well under half the vertex spacing on the densest seed; a bijection
-  // failure would trip the injectivity check first, this bounds the slerp arc.
+  // Residual well under half the vertex spacing on the densest seed.
   constexpr float MAX_RESIDUAL_CHORD = 0.12f;
   for (const ReconcileSite &site : RECONCILE_SITES) {
     const int failed_before = hs_test::stats().failed;

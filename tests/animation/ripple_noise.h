@@ -3,8 +3,6 @@
  * Licensed under the PolyForm Noncommercial License 1.0.0
  */
 
-// Included by tests/test_animation.h.
-
 // ============================================================================
 // Ripple / Noise (the Animation:: classes, distinct from the pure transforms)
 // ============================================================================

@@ -3,8 +3,6 @@
  * Licensed under the PolyForm Noncommercial License 1.0.0
  */
 
-// Included by tests/test_death.h.
-
 // --- Individual death cases — each MUST trap (HS_CHECK / __builtin_trap) ------
 
 // Color death fixtures and guard cases.
@@ -186,9 +184,7 @@ inline void case_gradient_no_stops() {
  * @brief Death case: a Gradient stop position outside [0,1] must trap.
  * @details Color surface — a stop position becomes a rounded LUT index via
  *          static_cast<int>(pos * 255 + 0.5f); sufficiently out-of-range
- *          positions can write beyond the table. The constructor traps the
- *          authoring error always-on at the cold literal-construction seam
- *          rather than corrupting memory.
+ *          positions can write beyond the table.
  */
 inline void case_gradient_stop_out_of_range() {
   Gradient grad{{0.0f, CPixel(0u, 0u, 0u)},
@@ -200,7 +196,6 @@ inline void case_gradient_stop_out_of_range() {
  * @brief Death case: descending (unsorted) Gradient stops must trap.
  * @details Color surface — segments are only filled when end > start, so a
  *          transposed/unsorted pair would silently degenerate to wrong output.
- *          The constructor requires ascending positions and traps otherwise.
  */
 inline void case_gradient_stops_unsorted() {
   Gradient grad{{0.6f, CPixel(0u, 0u, 0u)},

@@ -3,14 +3,9 @@
  * Licensed under the PolyForm Noncommercial License 1.0.0
  */
 
-// Included by tests/test_conway_morph.h.
-
 // ---------------------------------------------------------------------------
 // §7.1 Endpoint exactness: sweeping to an edge endpoint arrives at the
-// registry generator's output — exactly where the composition is the registry
-// chain (same code path, same seed frame), within geometric tolerance where it
-// is not (dual-family ambo arrivals, bridge arrivals, flash-baked relax
-// arrivals, and t = 0 ends, which emit expanded topology).
+// registry generator's output.
 // ---------------------------------------------------------------------------
 
 /** How an edge endpoint is compared against its node's registry output. */
@@ -30,10 +25,8 @@ enum class EndRegime {
  * @brief Whether a simple-registry node's generator ends in relax_baked.
  * @param node Simple-registry index.
  * @return True for the nodes carrying a flash bake.
- * @details Their registry mesh is a table of float bits captured from a host
- *   IEEE relax(), while the leg runs relax() live under the build's own float
- *   semantics — so the two agree bitwise only on a build whose arithmetic
- *   matches the bake's, not on the -ffast-math shipping targets.
+ * @details The baked mesh holds host-IEEE relax() bits; a live relax agrees
+ *   bitwise only under matching float semantics.
  */
 inline bool is_relax_baked_node(uint8_t node) {
   return node == ConwayGraph::TRUNCATED_CUBOCTAHEDRON ||
@@ -74,12 +67,8 @@ inline EndRegime to_end_regime(const ConwayGraph::EdgeSpec &e) {
  *        vertex-for-vertex within the relax convergence gate.
  * @param got Mesh whose settle end ran a live relax.
  * @param want Registry mesh whose chain ends in a flash bake.
- * @details The bake froze relax()'s converged vertices at the generating host's
- *   IEEE arithmetic; a build with different float semantics reaches the gate at
- *   its own converged point. sqrt(RELAX_CONVERGE_EPS_SQ) is the scale of a
- *   converged step and the tolerance that divergence is held to, not a bound
- *   the gate proves. Everything integral — vertex order, face_counts, faces —
- *   stays exact.
+ * @details Vertex tolerance is sqrt(RELAX_CONVERGE_EPS_SQ); vertex order,
+ *   face_counts and faces stay exact.
  */
 inline void check_equal_within_relax_gate(const PolyMesh &got,
                                           const PolyMesh &want) {

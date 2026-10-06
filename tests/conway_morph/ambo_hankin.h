@@ -3,13 +3,9 @@
  * Licensed under the PolyForm Noncommercial License 1.0.0
  */
 
-// Included by tests/test_conway_morph.h.
-
 // ---------------------------------------------------------------------------
-// Ambo-on-hankin probe (docs/specs/opchain_morph_spec.md, "Validation
-// contract"): HANKIN_AMBO_SITES samples ambo legs on hankin meshes as a
-// truncate sweep whose compiled face count must not move within the leg and
-// whose sampled meshes retain two-face edge incidence and Euler characteristic 2.
+// Ambo-on-hankin probe: ambo legs on hankin meshes keep their face counts and
+// manifold topology across the sweep.
 // ---------------------------------------------------------------------------
 
 /** @brief One ambo-on-hankin sweep seed from the Islamic registry chains. */

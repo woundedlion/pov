@@ -1,15 +1,9 @@
-# Counts the engine's fail-fast sites — HS_CHECK and the HS_AUDIT_CHECK form the
-# test build enables — so the death harness can print what fraction of them a
-# death case actually pins.
-#
-# The count is derived here rather than written down anywhere: a hand-kept
-# second list of guards is exactly the thing that drifts away from the guards.
+# Counts the engine's fail-fast sites (HS_CHECK, HS_AUDIT_CHECK and direct
+# check_fail calls) per repository-relative source path, so the death harness
+# can print what fraction of them a death case pins.
 # Run at build time with HS_ROOT and HS_GUARD_OUTPUT set.
 # HS_GUARD_SITE_ROWS and HS_GUARD_SITE_TOTAL expand death_guard_sites.h.in.
-#
-# Counting is per repository-relative source path. Comment spans are stripped first — the tree
-# discusses HS_CHECK in prose — and so is the head of every #define line, which
-# is where the macro and its test-build alias are written rather than used.
+# Comments, string bodies and #define lines are stripped before counting.
 #
 if(NOT DEFINED HS_GUARD_DIRS)
   file(STRINGS "${CMAKE_CURRENT_LIST_DIR}/guard_directories.txt" HS_GUARD_DIRS)
@@ -37,9 +31,7 @@ foreach(_file IN LISTS _guard_files)
   file(RELATIVE_PATH _name "${HS_ROOT}" "${_file}")
   string(REGEX MATCHALL "HS_(AUDIT_)?CHECK\\(" _hits "${_text}")
   list(LENGTH _hits _n)
-  # A few traps call the reporter directly, where the macro's expression form
-  # would not satisfy a [[noreturn]] tail. platform.h is where the macro and the
-  # reporter are written rather than used, so its own mentions are not sites.
+  # platform.h defines the reporter; its own mentions are not sites.
   if(NOT _name STREQUAL "core/platform/platform.h")
     string(REGEX MATCHALL "(hs::)?check_fail\\(" _direct "${_text}")
     list(LENGTH _direct _n_direct)

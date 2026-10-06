@@ -3,8 +3,6 @@
  * Licensed under the PolyForm Noncommercial License 1.0.0
  */
 
-// Included by tests/test_death.h.
-
 // Shared death-test fixtures.
 
 /**
@@ -62,9 +60,7 @@ inline void death_opleg_draw(Canvas &, MeshState &,
 /**
  * @brief A palette handoff complete enough to clear the OpLeg handoff guard.
  * @return A handoff naming a default bank and a one-face departed palette.
- * @details Lets a case reach a guard that sits behind the handoff check; the
- *          LUTs are never sampled, since every such case traps in the
- *          constructor before the first frame.
+ * @details Lets a case reach a guard that sits behind the handoff check.
  */
 inline Animation::OpLeg::PaletteHandoff death_opleg_handoff() {
   static const BakedPaletteBank bank;
@@ -311,9 +307,7 @@ inline void scan_mesh_invalid_fixture(bool omit_offsets) {
 
 /**
  * @brief Minimal duck-typed mesh: one 2-gon face whose second index (130)
- *        exceeds the TriangularBitset<128> capacity. Shared by both the
- *        face-walk draw() and the extract_edges over-capacity death cases so the
- *        mock interface is defined once, not kept in sync across two copies.
+ *        exceeds the TriangularBitset<128> capacity.
  * @details The trap fires before any vertex or pipeline access, so the vertex
  *          store only needs to satisfy the interface.
  */
