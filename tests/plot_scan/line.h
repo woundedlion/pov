@@ -4,7 +4,7 @@
  */
 
 // ============================================================================
-// Plot::Line::sample
+// Plot::Line::sample / draw
 // ============================================================================
 
 /**
@@ -201,4 +201,64 @@ inline void test_line_sample_near_antipodal_ulp_stable_axis() {
                    std::isfinite(p.z));
     HS_EXPECT_NEAR(p.length(), 1.0f, 1e-3f);
   }
+}
+
+/** @brief Replay parameters stay within the interpolation domain at antipodes. */
+inline void test_plot_line_antipodal_replay_parameter() {
+  constexpr int W = 288, H = 144;
+  for (const auto &start : {math::Y_AXIS, math::X_AXIS,
+                            math::Vector(1.0f, 1.0f, 1.0f).normalized()}) {
+    hs_test::StubEffect fx(W, H);
+    CapturePipeline pipe;
+    Fragment from, to;
+    from.pos = start;
+    to.pos = start * -1.0f;
+    from.v0 = 0.0f;
+    to.v0 = 1.0f;
+    int samples = 0;
+    {
+      Canvas canvas(fx);
+      Plot::Line::draw<W, H>(pipe, canvas, from, to,
+                             [&](const math::Vector &, Fragment &f) {
+                               HS_EXPECT_GE(f.v0, 0.0f);
+                               HS_EXPECT_LE(f.v0, 1.0f);
+                               ++samples;
+                               f.color = Color4(Pixel(65535, 0, 0), 1.0f);
+                             });
+    }
+    fx.advance_display();
+    HS_EXPECT_GT(samples, 100);
+  }
+}
+
+/**
+ * @brief Verifies a geodesic line through the north pole plots the pole row.
+ * @details Interpolated points are up to 1.7e-3 non-unit, and acos's infinite
+ * slope at y=1 turns that into a multi-row shift unless the drawing phase
+ * re-normalizes with newton_unit().
+ */
+inline void test_plot_line_over_pole_reaches_row0() {
+  constexpr int W = 288, H = 144;
+  hs_test::StubEffect fx(W, H);
+  Pipeline<W, H> pipe; // bare sink (no AA) so we see raw sample placement
+
+  // Geodesic from 0.4 rad down the +Z side of the N pole to 0.4 rad down the
+  // -Z side; its midpoint is the pole (row 0).
+  Fragment f1, f2;
+  f1.pos = math::Vector(0.0f, cosf(0.4f), sinf(0.4f));
+  f2.pos = math::Vector(0.0f, cosf(0.4f), -sinf(0.4f));
+  {
+    Canvas c(fx);
+    Plot::Line::draw<W, H>(pipe, c, f1, f2,
+                           [](const math::Vector &, Fragment &f) {
+                             f.color = Color4(Pixel(60000, 60000, 60000), 1.0f);
+                           });
+  }
+  fx.advance_display();
+
+  size_t row0 = 0;
+  for (int x = 0; x < W; ++x)
+    if (!is_black(fx.get_pixel(x, 0)))
+      ++row0;
+  HS_EXPECT_GT(row0, (size_t)0);
 }
