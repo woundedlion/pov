@@ -6,9 +6,7 @@
 
 /**
  * @file scan.h
- * @brief The scanline rasterizer: Scan::rasterize, the SDF-backed draw
- *        primitives, the mesh path, the full-screen shader and the raymarcher:
- *        umbrella over render/scan/.
+ * @brief The scanline rasterizer: umbrella over render/scan/.
  */
 
 #include "render/scan/raster.h"

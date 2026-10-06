@@ -15,8 +15,8 @@
 
 /**
  * @file csg.h
- * @brief The CSG operators that combine shapes: Union, SmoothUnion, Subtract,
- * Intersection and the AngularRepeat domain fold.
+ * @brief The CSG operators that combine shapes and the AngularRepeat domain
+ * fold.
  */
 
 namespace SDF {
@@ -67,8 +67,7 @@ template <typename A, typename B> struct Union {
   const A &a; /**< First child shape. */
   const B &b; /**< Second child shape. */
   static constexpr bool is_solid =
-      A::is_solid; /**< Both children share solidity, pinned by the
-                        static_assert below. */
+      A::is_solid; /**< Both children share solidity. */
 
   static_assert(SDFShape<A> && SDFShape<B>,
                 "CSG Union children must be SDF shapes (is_solid)");
@@ -138,10 +137,7 @@ template <typename A, typename B> struct Union {
     if (merged.is_empty())
       return true;
 
-    // Emitted spans may straddle θ=0 and are not seam-normalized to [0,W): the
-    // union merge is frame-tolerant, so scan_region's wrap+coalesce is the seam
-    // authority (Intersection normalizes first because its pairwise
-    // span comparison is frame-sensitive).
+    // Emitted spans may straddle θ=0; the union merge is frame-tolerant.
     merge_intervals(merged, out);
     return true;
   }
@@ -175,8 +171,7 @@ template <typename A, typename B> struct SmoothUnion {
   const B &b; /**< Second child shape. */
   float k;    /**< Blend width in child distance-report units. */
   static constexpr bool is_solid =
-      A::is_solid; /**< Both children share solidity, pinned by the
-                        static_assert below. */
+      A::is_solid; /**< Both children share solidity. */
 
   static_assert(SDFShape<A> && SDFShape<B>,
                 "CSG SmoothUnion children must be SDF shapes (is_solid)");
@@ -272,8 +267,7 @@ template <typename A, typename B> struct SmoothUnion {
             : static_cast<float>(W);
 
     // One child fell back to full width: the whole row needs the full scan, so
-    // the merged buffer is discarded and B need not be evaluated. The weld
-    // still blends both children through distance() on every scanned pixel.
+    // the merged buffer is discarded and B need not be evaluated.
     bool has_a = a.template get_horizontal_intervals<W, H>(
         y, [&](float start, float end) {
           push_interval(merged, start - pad_px, end + pad_px);
@@ -289,18 +283,13 @@ template <typename A, typename B> struct SmoothUnion {
       return false;
 
     if (merged.is_empty()) {
-      // Neither child covers this row, so there is no span to pad, but the weld
-      // bulges outside both children's bands: a row within the blend reach must
-      // be scanned in full or its fringe never renders. Rows beyond the reach of
-      // either band hold no surface.
+      // Neither child covers this row, but the weld bulges outside both bands:
+      // a row within the blend reach needs a full scan.
       return !row_within_padded_band(A_BAND, y, PAD) &&
              !row_within_padded_band(B_BAND, y, PAD);
     }
 
-    // Emitted spans may straddle θ=0 and are not seam-normalized to [0,W): the
-    // union merge is frame-tolerant, so scan_region's wrap+coalesce is the seam
-    // authority (Intersection normalizes first because its pairwise
-    // span comparison is frame-sensitive).
+    // Emitted spans may straddle θ=0; the union merge is frame-tolerant.
     merge_intervals(merged, out);
     return true;
   }
@@ -404,13 +393,9 @@ template <typename A, typename B> struct Subtract {
    *       unsigned or supplementary quantity, not a signed metric, so it is
    *       not negated with `dist`.
    * @note The carve edge is anti-aliased on one side only when B clamps to
-   *       FAR_SENTINEL past its reject band (blends_smoothly == false). The
-   *       sentinel loses the max, so at the band edge the composite jumps from
-   *       B's ramp to A's own distance instead of completing the outer half of
-   *       the fringe. Ring and FlatDistortedRing have no reject margin;
-   *       DistortedRing also has none where its shift reaches the distortion
-   *       bound. See their reject_margin entries in common.h. A margin
-   *       absorbs the step only where it exceeds the AA reach.
+   *       FAR_SENTINEL past its reject band (blends_smoothly == false): the
+   *       sentinel loses the max, so the composite jumps from B's ramp to A's
+   *       own distance unless B's reject margin exceeds the AA reach.
    */
   template <bool ComputeUVs = true>
   void distance(const math::Vector &p, DistanceResult &res) const {
@@ -437,8 +422,7 @@ template <typename A, typename B> struct Intersection {
   const A &a; /**< First child shape. */
   const B &b; /**< Second child shape. */
   static constexpr bool is_solid =
-      A::is_solid; /**< Both children share solidity, pinned by the
-                        static_assert below. */
+      A::is_solid; /**< Both children share solidity. */
 
   static_assert(SDFShape<A> && SDFShape<B>,
                 "CSG Intersection children must be SDF shapes (is_solid)");
@@ -446,8 +430,7 @@ template <typename A, typename B> struct Intersection {
                 "CSG Intersection children must share solidity; a solid+stroke "
                 "mix renders the solid winner through the stroke AA branch");
   // Each child is collected into an IntervalBuffer (cap INTERVAL_SPAN_CAP)
-  // before the merge-sweep, so a child that could emit more spans must be
-  // rejected at compile time rather than trapping in push_interval at runtime.
+  // before the merge-sweep.
   static_assert(
       sdf_max_spans<A>::value <= INTERVAL_SPAN_CAP &&
           sdf_max_spans<B>::value <= INTERVAL_SPAN_CAP,
@@ -540,8 +523,8 @@ template <typename A, typename B> struct Intersection {
     normalize_intervals_to_range<W>(intervals_a, norm_a);
     normalize_intervals_to_range<W>(intervals_b, norm_b);
 
-    // The merge sweep requires both lists start-sorted; the seam split above
-    // can reorder them.
+    // The merge sweep requires both lists start-sorted; the seam split can
+    // reorder them.
     sort_intervals_by_start(norm_a);
     sort_intervals_by_start(norm_b);
 
@@ -653,10 +636,8 @@ template <typename Shape> struct AngularRepeat {
   /**
    * @brief Reports whether the fold axis is Y closely enough for the cull.
    * @return True when the axis' off-Y components are within the tolerated tilt.
-   * @details Gates on the components perpendicular to Y, which are the cross
-   * product with Y: an axis.y threshold is a squared bound on the same
-   * quantity, so it admits a far larger tilt than it reads as. Independent of
-   * the axis' normalization, which the constructor only bounds loosely.
+   * @details Gates on the components perpendicular to Y, independent of the
+   * axis' normalization.
    */
   bool folds_about_y() const {
     return axis.x * axis.x + axis.z * axis.z <= ANGULAR_REPEAT_Y_AXIS_TOL_SQ;
@@ -685,13 +666,9 @@ template <typename Shape> struct AngularRepeat {
    * @param out Sink accepting (float start, float end).
    * @return True when the emitted spans describe the row; false requests a
    *         full scan.
-   * @details A Y-axis fold shifts a pixel's azimuth by a whole sector and holds
-   * its latitude, so every column a copy covers is a child column shifted by a
-   * multiple of W / repetitions. Replaying every child span at every shift is a
-   * superset of the covered columns — a child span outside the sector the fold
-   * actually emits has no pre-image — which is the direction the cull contract
-   * allows. Any other axis rotates the copies off the row, so the child's spans
-   * cannot bound them and the row falls back to a full scan.
+   * @details A Y-axis fold shifts azimuth by whole sectors and holds latitude,
+   * so replaying every child span at every multiple of W / repetitions covers a
+   * superset of the copies' columns. Any other axis falls back to a full scan.
    */
   template <int W, int H, typename OutputIt>
   bool get_horizontal_intervals(int y, OutputIt out) const {

@@ -21,9 +21,6 @@
 
 namespace Scan {
 
-// Volume::draw has exactly one caller (effects/Raymarch.h), and
-// TransformedVolume is instantiated only there, so no other effect pays ITCM
-// for this region.
 HS_O3_BEGIN
 /**
  * @brief Generic wrapper that places an SDF in world space via a center point
@@ -67,8 +64,6 @@ template <typename SDF> struct TransformedVolume {
    * @brief Transforms only a ray origin from world to local space.
    * @param ro Ray origin in world space.
    * @return Local-space origin.
-   * @details The local direction is constant across the draw, so the volume loop
-   * precomputes it once and calls this per pixel to transform only the origin.
    */
   math::Vector origin_to_local(const math::Vector &ro) const {
     return math::rotate(ro - center, q_inv);
@@ -90,9 +85,7 @@ template <typename SDF> struct TransformedVolume {
  * @param hit_threshold Clearance at or below which coverage is full.
  * @param aa_width Clearance at which coverage reaches zero.
  * @return Quintic-smoothed coverage in [0, 1].
- * @details Divides by (aa_width - hit_threshold). Volume::draw traps
- *          aa_width <= 0 once per draw, and hit_threshold is a tenth of it,
- *          so the denominator is positive at every call.
+ * @details Requires aa_width > hit_threshold.
  */
 __attribute__((always_inline)) inline float
 volume_edge_coverage(float dist, float hit_threshold, float aa_width) {
@@ -138,14 +131,12 @@ struct Volume {
    * @param closest_local Output: local-space point of closest approach.
    * @return Signed distance at the closest approach (FLT_MAX if never sampled).
    * @details Inside the AA band, stops at the first rising local minimum (the
-   * silhouette graze owning the pixel's coverage); marching past it would let a
-   * deeper occluded surface steal the closest approach.
+   * silhouette graze owning the pixel's coverage).
    *
    * Steps are overrelaxed by OVERRELAX_OMEGA (Keinert et al., "Enhanced Sphere
-   * Tracing"): each sample's unbounding sphere must overlap its predecessor's,
-   * and a step that breaks that overlap is rewound to the predecessor's surface
-   * and the ray finished without overrelaxation. The minimum step can still
-   * skip features thinner than that step.
+   * Tracing"); a step whose unbounding sphere misses its predecessor's is
+   * rewound and the ray finished without overrelaxation. The minimum step can
+   * still skip features thinner than that step.
    */
   template <typename Shape>
   static __attribute__((always_inline)) float
@@ -203,7 +194,7 @@ struct Volume {
     float min_behind = FLT_MAX;
     math::Vector min_pos = closest_local;
     // Bracket samples around the running minimum, as offsets along the ray from
-    // min_pos, for the parabolic refinement below.
+    // min_pos, for the parabolic refinement.
     float s = 0.0f, prev_s = 0.0f, min_s = 0.0f;
     float bef_s = 0.0f, bef_pd = FLT_MAX;
     float aft_s = 0.0f, aft_pd = FLT_MAX;
@@ -243,11 +234,8 @@ struct Volume {
       s += step;
     }
 
-    // The coarse floored stride quantizes the graze minimum, and the sampling
-    // phase shifts every frame — corner coverage shimmers under motion. One
-    // parabolic-interpolation step through the bracket tightens the minimum
-    // (one extra distance eval, graze pixels only) and recovers a thin solid
-    // chord the stride stepped over.
+    // One parabolic-interpolation step through the bracket refines the graze
+    // minimum and can recover a thin solid chord the stride stepped over.
     if (min_behind < 2.0f * aa_width && bef_pd != FLT_MAX &&
         aft_pd != FLT_MAX) {
       float p = min_s - bef_s;
@@ -282,7 +270,7 @@ struct Volume {
    * @brief Raymarches and shades a volume shape over its bounding sphere.
    * @tparam W Canvas width in pixels.
    * @tparam H Canvas height in pixels.
-   * @tparam Shape Volume shape satisfying the concept below.
+   * @tparam Shape Volume shape satisfying the Shape concept.
    * @param pipeline Plotting pipeline receiving the final colors.
    * @param canvas Destination canvas.
    * @param bounds_center Bounding sphere center in physical LED space; must be
@@ -330,16 +318,11 @@ struct Volume {
                      local_bc.z * local_bc.z <
                  math::TOLERANCE,
              "Scan::Volume: bounds_center must map to the shape's origin");
-    // The scan band below is a cap around bounds_center of angular radius
-    // asin(bounds_radius), which equals the orthographic footprint only for a
-    // unit-length center: BoundingSphere reads center.y as cos(phi). Unit
-    // length also backs the ray start offset above: farther out along the view
-    // axis a ray can start in front of the shape.
+    // The scan band and the ray start offset assume a unit-length center.
     HS_CHECK(fabsf(math::dot(bounds_center, bounds_center) - 1.0f) <
                  math::TOLERANCE,
              "Scan::Volume: bounds_center must be unit length");
-    // aa_width > 0 is the contract: volume_edge_coverage divides by (aa_width -
-    // hit_threshold) == 0.9*aa_width, so a zero band-width gives 0/0 -> NaN.
+    // volume_edge_coverage divides by 0.9 * aa_width.
     HS_CHECK(aa_width > 0.0f, "Scan::Volume: aa_width must be positive");
 
     BoundingSphere<W, H> bounds(bounds_center, bounds_radius);
@@ -372,9 +355,7 @@ struct Volume {
                           pp_y - vd.y * start_offset,
                           pp_z - vd.z * start_offset);
 
-          // Transform the ray origin to local space once per pixel. The local
-          // direction is constant across the draw (local_vd, computed above), so
-          // only the origin is transformed here.
+          // Only the origin is transformed per pixel; local_vd is shared.
           math::Vector local_ro = shape.origin_to_local(ro);
           math::Vector closest_local;
 
@@ -383,9 +364,8 @@ struct Volume {
               trace_closest(shape, local_ro, local_vd, bounds_radius, max_steps,
                             aa_width, closest_local);
 
-          // No pole-LOD block skip here: trace_closest minimizes over the
-          // points it sampled, so its report is an upper bound on the ray's
-          // true clearance and cannot bound a neighbouring column.
+          // trace_closest's report upper-bounds the ray's clearance, so it
+          // cannot vouch for a pole-LOD block.
           if (closest_d >= aa_width)
             return 1;
 
@@ -415,10 +395,8 @@ struct Volume {
                 probe_occluder(shape, closest_local, local_vd, bounds_radius,
                                hit_threshold, aa_width, closest_d);
             if (occ.solid) {
-              // Self-occlusion edge: antialias the foreground over the surface it
-              // covers — lay the shaded background down, then blend the foreground
-              // over it by the edge coverage. Smooth, vs. fading to black (fringe)
-              // or snapping to opaque (jagged).
+              // Self-occlusion edge: lay the shaded background down, then blend
+              // the foreground over it by the edge coverage.
               Fragment bg;
               bg.pos = occ.behind;
               bg.size = occ.distance;

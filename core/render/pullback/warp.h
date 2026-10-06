@@ -184,11 +184,9 @@ static_assert(field_defaults_in_range<VectorNoiseParams>());
 /**
  * @brief Warp parameters for the affine frame change
  *        (Pullback::Warp::AffineFrame).
- * @details Translation is scaled by the plane units per lattice cell that
- * Warp::prepare receives: the composed path reads that from its
- * LatticeSourceParams source; the chain operator carries an explicit
- * lattice period. Only whole windings scroll seamlessly; a fractional
- * translation jumps when the phase wraps.
+ * @details Translation is in lattice cells, scaled to plane units by the
+ * lattice period Warp::prepare receives. Only whole windings scroll
+ * seamlessly; a fractional translation jumps when the phase wraps.
  */
 struct AffineParams {
   float speed = 0.0f;         /**< Per-frame advance of the slot's phase. */
@@ -348,8 +346,7 @@ struct PreparedVectorNoiseSlot {
   } transform;
 };
 
-/** @brief Vortex slot state: the vortex coefficients alone, the kernel spins
-    the plane about the vortex center rather than a slot rotation. */
+/** @brief Vortex slot state: the vortex coefficients; no slot rotation. */
 struct PreparedVortexSlot {
   struct {
     PreparedVortex vortex;
@@ -358,10 +355,9 @@ struct PreparedVortexSlot {
 
 /**
  * @brief Resolves one warp slot's per-frame prepared state.
- * @details Wave shear prepares rotation only; mirror, vector noise, vortex
- * and affine prepare transform state. The second argument is the phase clock
- * (unused by wave shear); affine also takes accumulated rotation. CurlFlow
- * prepares its loop point in its policy; PolarChart needs no prepared state.
+ * @details Wave shear prepares rotation only; the other overloads also
+ * prepare transform state. The second argument is the phase clock (unused by
+ * wave shear).
  * @param warp The slot's parameters.
  */
 HS_FLASH_INLINE inline PreparedRotation prepare(const WaveShearParams &warp,

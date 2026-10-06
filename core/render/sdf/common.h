@@ -17,9 +17,7 @@
 
 /**
  * @file common.h
- * @brief The scanline contract every SDF shape shares: azimuth intervals and
- * their span bounds, row bounds, the DistanceResult register table and the
- * cap/annular-band emission helpers the leaves stroke rows with.
+ * @brief The scanline contract shared by SDF shapes.
  */
 
 namespace SDF {
@@ -48,8 +46,7 @@ inline constexpr float STAR_INNER_RATIO = Render::STAR_INNER_RATIO;
  *  preventing degenerate near-zero inradii from collapsing AA. */
 inline constexpr float MIN_SIZE_RADIUS_RATIO = 0.25f;
 /** Distance reported in place of a true one past a shape's reject band, far
- *  enough that no AA reach or CSG blend reads it as near-surface. The shapes
- *  that clamp to it are exactly those with blends_smoothly == false. */
+ *  enough that no AA reach or CSG blend reads it as near-surface. */
 inline constexpr float FAR_SENTINEL = 100.0f;
 
 /** @brief Folds an angle into the centered interval for one sector. */
@@ -79,16 +76,11 @@ __attribute__((always_inline)) inline float basis_azimuth(const math::Vector &p,
 }
 
 /** Twice-signed-area (shoelace sum) to circumradius-squared ratio below which a Face is culled as
- *  fully collapsed (no enclosed region). Sits orders of magnitude above the
- *  float noise of an exactly collapsed polygon (~1e-7) and below the thinnest
- *  real sliver a mesh sweep draws (~1e-3), so the sim/device decision is
- *  identical under fast-math. */
+ *  fully collapsed (no enclosed region). */
 inline constexpr float COLLAPSED_AREA_RATIO = 1e-5f;
 
 /** Squared relative-turn epsilon for the convexity test: a turn registers only
- *  when |sin| between successive edge directions exceeds 1e-6. Shared with
- *  MeshOps::polygon_is_concave and Face::build_half_planes' convexity test;
- *  LUT eligibility also depends on the other topology checks. */
+ *  when |sin| between successive edge directions exceeds 1e-6. */
 inline constexpr float TURN_EPS_SQ = 1e-12f;
 
 /** AA fringe pad in radians applied to a face's azimuth intervals: one pixel
@@ -115,16 +107,12 @@ inline float face_azimuth_pad(int w, float sin_phi) {
 // get_horizontal_intervals: true emits the row spans; false requests a full-row
 // scan and must emit nothing. Composite scratch and LUT guards run per row.
 
-/** Maximum disjoint scanline spans a single shape (leaf) emits per row.
- *  scan_region's `intervals` buffer holds a top-level CSG emission, and its
- *  seam-split `norm` buffer is 2x intervals (one span can split in two at the
- *  x=0 seam); render/scan/raster.h statically checks both capacities. */
+/** Maximum disjoint scanline spans a single shape (leaf) emits per row. */
 inline constexpr size_t INTERVAL_SPAN_CAP = 32;
 
 /** A scanline span [start, end) in fractional column units. An aggregate, so
- *  a span buffer's slots are left uninitialized when the buffer is constructed;
- *  std::pair's default constructor value-initializes every slot, which the
- *  per-draw and per-row buffers below would pay on every construction. */
+ *  a span buffer's slots are left uninitialized when the buffer is constructed.
+ */
 struct Interval {
   float start; /**< Span start column. */
   float end;   /**< Span end column. */
@@ -135,8 +123,7 @@ struct Interval {
 using IntervalBuffer = StaticCircularBuffer<Interval, INTERVAL_SPAN_CAP>;
 
 /** Spans AngularRepeat may emit in one row before it falls back to a full
- *  scan. Fixed independently of the child so a repeat's compile-time span bound
- *  stays inside the CSG budget whatever it wraps. */
+ *  scan, independent of the child. */
 inline constexpr size_t ANGULAR_REPEAT_SPAN_CAP = 8;
 
 /** Azimuth slop, in radians, between the point AngularRepeat's fold hands the
@@ -161,10 +148,8 @@ using MergedIntervalBuffer =
  * @tparam Buf Buffer type to construct.
  * @param scratch Open scope over the arena; its rewind reclaims the buffer.
  * @return Reference to the fresh buffer, dead once `scratch` exits.
- * @details The combinators run under scan_region on the deepest render chain,
- * where the device DTCM stack is tight, so their spans go to the arena for the
- * same reason scan_region's do. Arena scopes are LIFO, so a nested combinator's
- * buffers rewind above its parent's.
+ * @details Arena scopes are LIFO, so a nested combinator's buffers rewind
+ * above its parent's.
  */
 template <typename Buf> inline Buf &scratch_spans(ScratchScope &scratch) {
   Arena &arena = scratch.get_arena();
@@ -188,18 +173,13 @@ struct Line;
 template <typename Shape> struct AngularRepeat;
 
 /** Compile-time upper bound on the scanline spans a shape may emit to its
- * parent in one row. An unrecognized shape falls back to INTERVAL_SPAN_CAP, the
- * runtime buffer capacity; the leaves below are pinned to what their
- * get_horizontal_intervals can actually emit. Union/SmoothUnion merge both
- * children into one MergedIntervalBuffer, so their bound is the SUM of the
- * children's, static_asserted against the buffer capacity to reject an
- *  overflowing nesting at compile time. */
+ * parent in one row. An unrecognized shape falls back to INTERVAL_SPAN_CAP.
+ * Union/SmoothUnion merge both children into one MergedIntervalBuffer, so their
+ * bound is the sum of the children's. */
 template <typename T> struct sdf_max_spans {
   static constexpr size_t value = INTERVAL_SPAN_CAP;
 };
 
-// Per-leaf emission bounds limit CSG nesting; runtime capacity remains
-// INTERVAL_SPAN_CAP (or its 2x / 2x+2 derivatives).
 // Annular bands emit two arcs, or one when touching a pole.
 template <> struct sdf_max_spans<Ring> {
   static constexpr size_t value = 2;
@@ -226,8 +206,7 @@ template <> struct sdf_max_spans<Star> {
 template <> struct sdf_max_spans<Line> {
   static constexpr size_t value = 1;
 };
-// Face replays its azimuth-coverage span, which always views
-// FaceScratchBuffer::intervals; tied to that array's size where it is defined.
+// Face replays its azimuth-coverage span from FaceScratchBuffer::intervals.
 template <> struct sdf_max_spans<Face> {
   static constexpr size_t value = 2;
 };
@@ -258,10 +237,8 @@ template <typename A, typename B> struct sdf_max_spans<Subtract<A, B>> {
 };
 
 /** True when a shape's distance() reports a usable signed distance outside its
- * surface, which is what SmoothUnion's weld term needs. Ring, DistortedRing,
- * FlatDistortedRing and Face instead clamp to FAR_SENTINEL past their reject
- * band. A combinator blends only if every child does; an unrecognized shape
- * is rejected. */
+ * surface, which is what SmoothUnion's weld term needs. A combinator blends
+ * only if every child does; an unrecognized shape is rejected. */
 template <typename T>
 inline constexpr bool blends_smoothly = [] {
   if constexpr (requires { T::BLENDS_SMOOTHLY; })
@@ -348,13 +325,10 @@ inline constexpr float ARC_STRETCH_UNBOUNDED = FLT_MAX;
 inline constexpr float ARC_STRETCH_PLANE = 1.25f;
 
 /** Most a shape's distance() can change per unit of great-circle arc, over the
- * band within a pixel or two of its surface -- the only band a walk that
- * vouches for a run of columns from one probe has to cross. Such a walk scales
- * the run's arc by this and report_stretch(shape). Face supplies an additional
- * instance factor of 1 + max_dist_sq; other leaves use 1. Against
- * ARC_STRETCH_UNBOUNDED no slack suffices and
- * the run must be walked per column. A combinator takes the loosest child. A
- * shape states its own factor; an unstated one is unbounded. */
+ * band within a pixel or two of its surface. A walk that vouches for a run of
+ * columns from one probe scales the run's arc by this and report_stretch(shape).
+ * Against ARC_STRETCH_UNBOUNDED the run must be walked per column. A combinator
+ * takes the loosest child; an unstated shape is unbounded. */
 template <typename T>
 inline constexpr float arc_stretch = ARC_STRETCH_UNBOUNDED;
 template <> inline constexpr float arc_stretch<Ring> = ARC_STRETCH_PLANE;
@@ -398,8 +372,7 @@ inline constexpr float arc_stretch<Subtract<A, B>> =
 
 /**
  * @brief Append a scanline interval, trapping on overflow.
- * @tparam N Buffer capacity (deduced); supports both the per-shape and the
- * two-child union accumulators.
+ * @tparam N Buffer capacity (deduced).
  * @param buf Per-row interval buffer to append to.
  * @param start Interval start column (float).
  * @param end Interval end column (float).
@@ -414,9 +387,7 @@ inline void push_interval(StaticCircularBuffer<Interval, N> &buf, float start,
 /**
  * @brief Insertion-sort an interval buffer in place by start coordinate.
  * @param buf Per-row interval buffer to sort in place.
- * @details Raw-pointer indexing (buffer freshly built, head == 0, contiguous)
- * avoids the per-access modulo. Shared by merge_intervals, Intersection and
- * coalesce_spans.
+ * @details Requires a linear buffer (head == 0).
  */
 template <size_t N>
 inline void sort_intervals_by_start(StaticCircularBuffer<Interval, N> &buf) {
@@ -444,9 +415,8 @@ inline void sort_intervals_by_start(StaticCircularBuffer<Interval, N> &buf) {
  * @param src Source intervals in unwrapped column space (may straddle θ=0).
  * @param dst Destination buffer; must hold up to 2x the source span count (one
  *        span splits into at most two at the seam).
- * @details Seam normalization shared by scan_region and Intersection. A
- * span of length >= W is emitted as a single full-row [0, W) span. For the
- * common in-[0,W) case this copies through unchanged.
+ * @details A span of length >= W is emitted as a single full-row [0, W)
+ * span; spans already in [0, W) copy through unchanged.
  */
 template <int W, size_t N, size_t M>
 inline void
@@ -474,13 +444,12 @@ normalize_intervals_to_range(const StaticCircularBuffer<Interval, N> &src,
 
 /**
  * @brief Sort an interval buffer by start, then emit the union of overlapping
- * intervals via out(start, end). Shared by Union/SmoothUnion.
+ * intervals via out(start, end).
  * @tparam N Buffer capacity (deduced).
  * @tparam OutputIt Sink type invoked as out(float start, float end).
  * @param merged Per-row interval buffer (sorted and merged in place).
  * @param out Sink receiving each merged interval.
- * @details Precondition: `merged` is non-empty (callers guard with is_empty()).
- * Templated on the output sink so it inlines at -O3.
+ * @details Precondition: `merged` is non-empty.
  */
 template <size_t N, typename OutputIt>
 inline void merge_intervals(StaticCircularBuffer<Interval, N> &merged,
@@ -537,8 +506,6 @@ struct PhiBand {
  * [cos(center_phi + target_angle), cos(center_phi − target_angle)] and the two
  * folded endpoints are its extremes; min/max orders them for a target_angle
  * outside [0, π]. Floating-point reduction uses clamp_phi's rounded period.
- * Single source for the Ring/DistortedRing
- * get_vertical_bounds latitude fold so the two cannot drift apart.
  */
 inline PhiBand clamp_phi_band(float center_phi, float target_angle) {
   float p1 = clamp_phi(center_phi - target_angle);
@@ -558,12 +525,9 @@ inline constexpr Bounds BOUNDS_CULLED{1, 0};
  * @brief Result of a signed distance query.
  *
  * `dist` and `size` have fixed meanings; `t`, `raw_dist` and `aux` are
- * per-shape registers whose authoritative meanings are the table below. The
- * scan rasterizer copies them into the Fragment register file with no
- * reinterpretation (see Scan::process_pixel): t -> Fragment::v0, raw_dist ->
- * Fragment::v1, aux -> Fragment::v3, size -> Fragment::size. Fragment::v2 is
- * generated downstream: Scan writes stroke AA coverage or 0 for solid shapes,
- * and Scan::Mesh replaces it with a face index.
+ * per-shape registers defined by the register table. The scan rasterizer copies
+ * them into the Fragment registers unchanged: t -> Fragment::v0, raw_dist ->
+ * Fragment::v1, aux -> Fragment::v3, size -> Fragment::size.
  *
  * Per-producer register semantics (a leaf built with ComputeUVs = false
  * reports t = 0; an initial bounds/cull miss reports dist = raw_dist =
@@ -588,14 +552,13 @@ inline constexpr Bounds BOUNDS_CULLED{1, 0};
  * and holding size to the minuend's when B wins; AngularRepeat reports the
  * child at the folded point (t is sector-local).
  *
- * Every current producer writes aux = 0; it is a pass-through register
- * reserved for shader-visible per-shape data, riding to Fragment::v3.
+ * aux is a pass-through register for shader-visible per-shape data.
  */
 struct DistanceResult {
   float dist; /**< Signed distance (negative inside); always this meaning. */
-  float t;    /**< Per-shape register; see the table above. */
-  float raw_dist;    /**< Per-shape register; see the table above. */
-  float aux;         /**< Per-shape register; see the table above. */
+  float t;    /**< Per-shape register; see the register table. */
+  float raw_dist;    /**< Per-shape register; see the register table. */
+  float aux;         /**< Per-shape register; see the register table. */
   float size = 1.0f; /**< Size metric for AA-falloff normalization. */
 
   /**
@@ -633,10 +596,8 @@ inline DistanceResult distance_of(const S &shape, const math::Vector &p) {
  * @brief Structural fingerprint of a CSG-composable SDF shape: a static
  * is_solid flag.
  * @tparam T Candidate shape type.
- * @details is_solid selects the rasterizer's AA path, so a composite must
- * expose one; the CSG combinators assert this concept on their children so a
- * wrong-type argument fails at the boundary. distance() and the scanline
- * members vary by render path and are not part of the shared contract.
+ * @details is_solid selects the rasterizer's AA path. distance() and the
+ * scanline members vary by render path and are not part of this contract.
  */
 template <typename T>
 concept SDFShape = requires {
@@ -650,11 +611,6 @@ concept SDFShape = requires {
  * @tparam T Candidate shape type.
  * @tparam W Canvas width in columns.
  * @tparam H Canvas height in rows.
- * @details Asserted by Scan::rasterize so a shape missing one of the three
- * fails at the rasterizer boundary rather than inside scan_region. The CSG
- * combinators stay on SDFShape: a child can be driven through another render
- * path (or, in tests, exercise the interval sweep alone) and carry only
- * is_solid.
  */
 template <typename T, int W, int H>
 concept ScanShape =
@@ -698,7 +654,6 @@ struct CapBounds {
 
 /**
  * @brief Projects a cap axis and derives its margin-widened latitude band.
- * Shared by the leaf shapes bounded by a cap around a single axis.
  * @param axis The cap axis (normalized).
  * @param radius Angular radius of the cap (radians).
  * @param invert When true the shape fills the complement, which touches every
@@ -723,8 +678,7 @@ inline CapBounds cap_bounds(const math::Vector &axis, float radius,
 /**
  * @brief Emit the single horizontal interval where a row crosses a great-circle
  * "cap" of half-angle `acos(cos_cap)` centred on an axis whose projection onto
- * the scan plane is (ny, r_val, alpha_angle). Shared by PlanarPolygon /
- * SphericalPolygon / Star / Flower / Line.
+ * the scan plane is (ny, r_val, alpha_angle).
  *
  * @tparam W Canvas width in columns.
  * @tparam OutputIt Sink type invoked as out(float start, float end).
@@ -756,7 +710,7 @@ inline bool emit_cap_interval(float cos_cap, float ny, float r_val,
     return false; // Full scan fallback
 
   // fast_acos: ~5e-5 rad peak error ≈ 0.002 px at W=288, far under the
-  // floor/ceil pad below. Matches the Ring/DistortedRing scanline path.
+  // floor/ceil pad.
   float d_alpha = math::fast_acos(C_min);
   float scale = W / math::TWO_PI_F;
   float x1 = floorf((alpha_angle - d_alpha) * scale);
@@ -781,7 +735,7 @@ inline bool emit_cap_interval(float cos_cap, float ny, float r_val,
  * @return False to request a full-width fallback scan, true if the (possibly
  *         empty) interval was handled.
  * @details The complement wraps every row, so sign < 0 always requests the full
- * scan. Shared by PlanarPolygon / SphericalPolygon / Star / Flower.
+ * scan.
  */
 template <int W, int H, typename OutputIt>
 inline bool emit_padded_cap_row(float sign, float cos_cap, float sin_cap,
@@ -791,8 +745,7 @@ inline bool emit_padded_cap_row(float sign, float cos_cap, float sin_cap,
     return false;
   if (!math::TrigLUT<W, H>::initialized)
     math::TrigLUT<W, H>::init();
-  // Column 1 of the theta LUT is one pixel of azimuth, so the cap pad is an
-  // angle addition rather than a per-row cosf.
+  // Column 1 of the theta LUT is one pixel of azimuth.
   const float cos_pad = math::TrigLUT<W, H>::cos_theta(1);
   // A cap padded past pi covers the sphere; cos turns back up there, so the
   // addition would report a cap tighter than the shape.
@@ -860,7 +813,7 @@ inline Bounds phi_bounds_to_rows(float phi_min, float phi_max) {
  * @return False if the band misses this row; true with angles written
  * otherwise.
  * @details cos decreases with angle, so the larger cosine (cos_inner) yields
- * the smaller angle. Shared by the annular scanline emitters.
+ * the smaller angle.
  */
 inline bool annular_band_angles(float cos_outer, float cos_inner, float ny,
                                 float cos_phi, float denom, float &angle_min,
@@ -931,9 +884,8 @@ annular_band_spans(float cos_outer, float cos_inner, float ny, float cos_phi,
  * @param denom Row scale factor R·sinφ.
  * @param alpha_angle Azimuth of the band axis (radians).
  * @param out Sink accepting (float start, float end).
- * @details Shared by Ring and DistortedRing, whose annular scanline math is
- * otherwise byte-identical; see annular_band_spans. Emits nothing for a missed
- * row; the caller reports the row handled either way.
+ * @details Emits nothing for a missed row; the caller reports the row handled
+ * either way.
  */
 template <int W, typename OutputIt>
 inline void emit_annular_band(float cos_outer, float cos_inner, float ny,
