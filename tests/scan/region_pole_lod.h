@@ -131,16 +131,8 @@ inline void test_scan_region_seam_no_double_plot() {
         return run;
       });
 
-  // The shared column x=1 is plotted once.
   for (int x = 0; x < W; ++x)
-    HS_EXPECT_LE(counts[x], 1);
-
-  // Coverage is exactly {0,1,2,3,4, W-2, W-1}.
-  const int covered[] = {0, 1, 2, 3, 4, W - 2, W - 1};
-  for (int x : covered)
-    HS_EXPECT_EQ(counts[x], 1);
-  HS_EXPECT_EQ(counts[5], 0);
-  HS_EXPECT_EQ(counts[W - 3], 0);
+    HS_EXPECT_EQ(counts[x], x <= 4 || x >= W - 2 ? 1 : 0);
 }
 
 /**
@@ -170,14 +162,7 @@ inline void test_scan_region_fractional_boundary_no_double_plot() {
       });
 
   for (int x = 0; x < W; ++x)
-    HS_EXPECT_LE(counts[x], 1);
-
-  // Coverage is exactly {2,3,4,5,6,7}; x=5 covered once, not twice.
-  const int covered[] = {2, 3, 4, 5, 6, 7};
-  for (int x : covered)
-    HS_EXPECT_EQ(counts[x], 1);
-  HS_EXPECT_EQ(counts[1], 0);
-  HS_EXPECT_EQ(counts[8], 0);
+    HS_EXPECT_EQ(counts[x], x >= 2 && x < 8 ? 1 : 0);
 }
 
 /**
