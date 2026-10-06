@@ -3,15 +3,8 @@
  * Licensed under the PolyForm Noncommercial License 1.0.0
  */
 
-// Included by tests/test_animation.h.
-
 // ============================================================================
 // MeshCarousel arena compaction
-// ----------------------------------------------------------------------------
-// compact_keep_front() evacuates the front slot to a scratch arena, resets the
-// persistent arena, and restores on scope exit; it drops the back slot and runs
-// after_reset before the front restore. compact_drop_all() evacuates nothing:
-// both slots are freed and after_reset sees the empty arena.
 // ============================================================================
 
 /**
