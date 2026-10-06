@@ -12,16 +12,17 @@
 enum class HankinBranch : uint8_t {
   INTERSECT, /**< Contact-plane intersection accepted. */
   COLLAPSED, /**< is_flat or zero-length edge: snapped to the corner. */
-  FALLBACK,  /**< Degenerate or far intersection: edge-midpoint mean. */
-  BLENDED,   /**< Partial fallback: 0 < fallback_blend < 1. */
+  FALLBACK, /**< Degenerate or far near-parallel intersection: edge-midpoint mean. */
+  BLENDED, /**< Partial fallback: 0 < fallback_blend < 1. */
 };
 
 /** @brief One dynamic vertex's solved position and the branch that made it. */
 struct HankinSolve {
   math::Vector pos;
   HankinBranch branch;
-  /** dist^2(star, corner) / max(dist^2(m, corner)); this mirror takes the
-   * fallback above STAR_FAR_RATIO_SQ. Zero on the non-intersect branches. */
+  /** dist^2(star, corner) / max(dist^2(m, corner)); full fallback requires
+   * far_ratio >= STAR_FAR_RATIO_SQ and near-parallel contact planes
+   * (parallel_gate = 1). Zero on degenerate and collapsed branches. */
   float far_ratio = 0;
 };
 
