@@ -39,15 +39,6 @@ static inline bool antialiased_dot_visible_in_clip(const ClipRegion &cr,
           (visible(t.x0, t.y1, t.v01) || visible(t.x1, t.y1, t.v11)));
 }
 
-template <typename PipelineT, typename Pred>
-static inline bool
-edge_visible_in_clip_dispatch(PipelineT &pipeline, const math::Vector &a,
-                              const math::Vector &b, const math::Basis *pb,
-                              Pred &&pred) {
-  return pipeline_could_intersect_clip(pipeline, a, b, pb,
-                                       std::forward<Pred>(pred));
-}
-
 /**
  * @brief World up axis, in object space, of every rigid world-stage copy.
  * @details screen_step reads only the y-components of the rotated position,
@@ -102,7 +93,7 @@ template <typename PipelineT>
 HS_HOT_FLASH_MEMBER ScreenStepAxes screen_step_axes(PipelineT &pipeline) {
   ScreenStepAxes axes;
   const math::Basis identity{math::X_AXIS, math::Y_AXIS, math::Z_AXIS};
-  axes.nonrigid = edge_visible_in_clip_dispatch(
+  axes.nonrigid = pipeline_could_intersect_clip(
       pipeline, math::X_AXIS, math::Y_AXIS, &identity,
       [&](const math::Vector &, const math::Vector &, const math::Basis *rb) {
         if (!rb || axes.count == ScreenStepAxes::CAPACITY) {
@@ -138,7 +129,7 @@ pipeline_screen_step(PipelineT &pipeline, const SamplePT &sample,
     if (axes && axes->usable())
       return screen_step_from_axes<W, H>(sample, *axes);
   // Rigid cull stages rotate both vectors; false visits every tween copy.
-  const bool nonrigid = edge_visible_in_clip_dispatch(
+  const bool nonrigid = pipeline_could_intersect_clip(
       pipeline, sample.pos, sample.tan, nullptr,
       [&](const math::Vector &pos, const math::Vector &tan, const math::Basis *)
           HS_HOT_FLASH_MEMBER {
@@ -191,7 +182,7 @@ edge_visible_in_clip(PipelineT &pipeline, const ClipRegion &cr,
     const PlanarEdgeSpan ps = make_planar_edge_span(ea, eb, *bp);
     return planar_edge_visible_in_clip<W, H>(cr, xc, ea, eb, *bp, ps);
   };
-  return edge_visible_in_clip_dispatch(pipeline, a, b, pb, pred);
+  return pipeline_could_intersect_clip(pipeline, a, b, pb, pred);
 }
 
 /**
@@ -221,7 +212,7 @@ edge_visible_in_clip(PipelineT &pipeline, const ClipRegion &cr,
           return geodesic_col_span<W>(ea, eb, es, col_s, col_len);
         });
   };
-  return edge_visible_in_clip_dispatch(pipeline, a, b, nullptr, pred);
+  return pipeline_could_intersect_clip(pipeline, a, b, nullptr, pred);
 }
 
 /** @brief Cap center and longitude wedge precomputed for a fixed clip. */
