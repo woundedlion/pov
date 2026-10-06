@@ -48,8 +48,9 @@
  * @brief Optional structural audit that traps when enabled.
  * @param cond Condition that must hold; the macro traps when it is false.
  * @param ... Optional printf-style format string and arguments for the message.
- * @details For host-reachable O(n) seam checks; device-reachable capacity and
- *          bounds guards use HS_CHECK.
+ * @details Opt-in (HS_ENABLE_STRUCTURAL_AUDITS) checks for preconditions too
+ *          costly to keep in release: O(n) structural audits and
+ *          per-sample or ISR-path range checks.
  */
 #if HS_ENABLE_STRUCTURAL_AUDITS
 #define HS_AUDIT_CHECK(cond, ...) HS_CHECK(cond __VA_OPT__(, ) __VA_ARGS__)
