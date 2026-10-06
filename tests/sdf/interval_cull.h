@@ -436,8 +436,7 @@ inline void test_angular_repeat_tilted_axis_forfeits_cull() {
   constexpr int W = 288, H = 144;
   constexpr int REPS = 5;
   math::init_geometry_luts<W, H>();
-  // ~5e-3 rad off +Y: well inside a 1e-4 axis.y threshold, well outside the
-  // tilt the padded spans can absorb.
+  // ~5e-3 rad off +Y exceeds the 1e-4 rad Y-fold axis tolerance.
   const float tilt = 5e-3f;
   SDF::Line ln(math::Vector(0.25f, 1, 0).normalized(),
                math::Vector(-0.25f, 1, 0).normalized(), /*thickness=*/0.12f);
