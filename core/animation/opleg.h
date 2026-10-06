@@ -172,7 +172,7 @@ public:
   static constexpr float K_EPS = 0.005f;
 
   /** Max distance from a start-parameter face centroid to its departed
-   * counterpart; under half the face-centroid spacing of the largest node. */
+   * counterpart; uniqueness is enforced by the used-face check. */
   static constexpr float PROVENANCE_TOL_SQ = 0.15f * 0.15f;
 
   /** Default trailing blend window: colour holds at `from` until this many
