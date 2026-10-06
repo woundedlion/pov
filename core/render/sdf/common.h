@@ -447,7 +447,7 @@ normalize_intervals_to_range(const StaticCircularBuffer<Interval, N> &src,
  * intervals via out(start, end).
  * @tparam N Buffer capacity (deduced).
  * @tparam OutputIt Sink type invoked as out(float start, float end).
- * @param merged Per-row interval buffer (sorted and merged in place).
+ * @param merged Per-row interval buffer; sorted in place, merged spans go to out.
  * @param out Sink receiving each merged interval.
  * @details Precondition: `merged` is non-empty.
  */
