@@ -64,6 +64,7 @@ static_assert(Plot::RasterLoop::closed().is_closed());
 #include "tests/plot_scan/row_clip.h"
 #include "tests/plot_scan/row_spans.h"
 #include "tests/plot_scan/column_spans.h"
+#include "tests/plot_scan/mesh_edges.h"
 #include "tests/plot_scan/screen_step.h"
 #include "tests/plot_scan/ring.h"
 #include "tests/plot_scan/distorted_ring.h"

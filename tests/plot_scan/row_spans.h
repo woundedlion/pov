@@ -8,41 +8,6 @@
 // ============================================================================
 
 /**
- * @brief Builds an orthonormal basis from a unit normal without a quaternion.
- * @param n Direction used as the basis normal; need not be pre-normalized.
- * @return Basis whose v is the normalized normal and whose u, w span the
- *         tangent plane.
- * @details Mirrors make_basis's construction; picks a reference axis that is not
- *          near-parallel to n to keep the cross products well-conditioned.
- */
-inline math::Basis basis_from_normal(const math::Vector &n) {
-  math::Vector v = n.normalized();
-  math::Vector ref =
-      std::abs(math::dot(v, math::X_AXIS)) > math::COS_AXIS_PARALLEL
-          ? math::Y_AXIS
-          : math::X_AXIS;
-  math::Vector u = math::cross(v, ref).normalized();
-  math::Vector w = math::cross(v, u).normalized();
-  return {u, v, w};
-}
-
-/** @brief Unit-sphere point on a basis-centered angular disk. */
-inline math::Vector disk_point(const math::Basis &basis, float colat,
-                               float az) {
-  const math::Vector dir = basis.u * cosf(az) + basis.w * sinf(az);
-  return (basis.v * cosf(colat) + dir * sinf(colat)).normalized();
-}
-
-/** @brief Random planar disk edge with the cull sweep's angular limits. */
-inline void random_disk_edge(const math::Basis &basis, math::Vector &a,
-                             math::Vector &b) {
-  const float radius = hs::rand_f(0.2f, 1.4f);
-  const float az = hs::rand_f(0, 2 * math::PI_F);
-  a = disk_point(basis, radius, az);
-  b = disk_point(basis, radius, az + hs::rand_f(0.3f, 2.3f));
-}
-
-/**
  * @brief Verifies the row-span helpers conservatively cover the rendered arc's
  *        screen-row extent, including the interior latitude bulge where the arc
  *        reaches rows beyond both endpoints.
