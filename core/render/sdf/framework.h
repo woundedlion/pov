@@ -16,6 +16,12 @@
 
 namespace SDF {
 
+__attribute__((always_inline)) inline float footprint_coverage(float width,
+                                                               float field) {
+  return width > 0.0f ? hs::clamp(0.5f - field / width, 0.0f, 1.0f)
+                      : (field <= 0.0f ? 1.0f : 0.0f);
+}
+
 struct FrameworkPlane {
   math::Vector normal;
   float spacing;
@@ -404,9 +410,7 @@ template <size_t Count> struct FrameworkPlaneStreams {
     Raycast::Contribution result;
     result.t = distance(index);
     const float WIDTH = footprint.at(result.t);
-    result.coverage = WIDTH > 0.0f
-                          ? hs::clamp(0.5f - sample.field / WIDTH, 0.0f, 1.0f)
-                          : (sample.field <= 0.0f ? 1.0f : 0.0f);
+    result.coverage = footprint_coverage(WIDTH, sample.field);
     result.feature = sample.feature;
     // Coincident plane reports define one approximate junction layer.
     result.merge_identity = 0;
@@ -498,8 +502,7 @@ template <size_t Count> struct OctetStreams {
 
   __attribute__((always_inline)) float coverage_of(float t, float field) const {
     const float WIDTH = footprint.at(t);
-    return WIDTH > 0.0f ? hs::clamp(0.5f - field / WIDTH, 0.0f, 1.0f)
-                        : (field <= 0.0f ? 1.0f : 0.0f);
+    return footprint_coverage(WIDTH, field);
   }
 
   Raycast::Contribution contribution(size_t index,
