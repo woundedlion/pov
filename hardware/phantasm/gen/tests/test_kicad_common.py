@@ -15,6 +15,9 @@ sys.path.insert(0, str(GEN))
 import kicad_common  # noqa: E402
 import sexp  # noqa: E402
 
+MAJOR, MINOR, PATCH = kicad_common.KICAD_VERSION.split(".")
+ADJACENT_PATCH = f"{MAJOR}.{MINOR}.{int(PATCH) + 1}"
+
 
 class FindKicadCliTests(unittest.TestCase):
     def test_version_agrees_with_pinned_major(self):
@@ -46,12 +49,12 @@ class FindKicadCliTests(unittest.TestCase):
 
     def test_adjacent_patch_is_rejected(self):
         with self.assertRaises(SystemExit):
-            self.resolve("10.0.5")
+            self.resolve(ADJACENT_PATCH)
 
     def test_windows_directory_does_not_substitute_for_reported_version(self):
         cli = r"C:\Program Files\KiCad\10.0\bin\kicad-cli.exe"
         with self.assertRaises(SystemExit):
-            self.resolve("10.0.5", [cli])
+            self.resolve(ADJACENT_PATCH, [cli])
         self.assertEqual(self.resolve(kicad_common.KICAD_VERSION, [cli]), cli)
 
     def test_env_override_requires_exact_release(self):
@@ -60,7 +63,7 @@ class FindKicadCliTests(unittest.TestCase):
             cli.touch()
             with mock.patch.dict(os.environ, {"KICAD_CLI": str(cli)}), \
                     mock.patch.object(kicad_common, "kicad_cli_version",
-                                      return_value="10.0.5"), \
+                                      return_value=ADJACENT_PATCH), \
                     self.assertRaises(SystemExit):
                 kicad_common.find_kicad_cli()
 
