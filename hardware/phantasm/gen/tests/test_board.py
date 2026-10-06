@@ -8,6 +8,7 @@ import io
 import importlib
 import json
 import os
+import re
 import sys
 import tempfile
 import unittest
@@ -184,20 +185,26 @@ class DanglingPinTests(unittest.TestCase):
                          [("R1", "2", (100.0, 103.81))])
 
 
+def pin_positions(root):
+    """(reference, pin number) -> schematic point, from the file's lib_symbols."""
+    libs = {node[1]: builder._index_unit_pins(node)
+            for node in sexp.val(root, "lib_symbols")}
+    positions = {}
+    for inst in F(root, "symbol"):
+        ref = next(p[2] for p in F(inst, "property") if p[1] == "Reference")
+        units = libs[sexp.val(inst, "lib_id")[0]]
+        pins = {**units.get(0, {}), **units.get(int(sexp.val(inst, "unit")[0]), {})}
+        x, y, angle = map(float, sexp.val(inst, "at"))
+        mirror = sexp.val(inst, "mirror", [None])[0]
+        for number, pin in pins.items():
+            positions[ref, number] = shorts.R(builder.transform(
+                x, y, angle, mirror, pin["x"], pin["y"]))
+    return positions
+
+
 class BypassConnectionChecks:
     def test_bypass_caps_are_wired_directly_to_their_parent_pins(self):
-        libs = {node[1]: builder._index_unit_pins(node)
-                for node in sexp.val(self.root, "lib_symbols")}
-        positions = {}
-        for inst in F(self.root, "symbol"):
-            ref = next(p[2] for p in F(inst, "property") if p[1] == "Reference")
-            units = libs[sexp.val(inst, "lib_id")[0]]
-            pins = {**units.get(0, {}), **units.get(int(sexp.val(inst, "unit")[0]), {})}
-            x, y, angle = map(float, sexp.val(inst, "at"))
-            mirror = sexp.val(inst, "mirror", [None])[0]
-            for number, pin in pins.items():
-                positions[ref, number] = shorts.R(builder.transform(
-                    x, y, angle, mirror, pin["x"], pin["y"]))
+        positions = pin_positions(self.root)
         _, wires, _ = shorts.geometry(self.root)
         connections = {frozenset((a, b)) for a, b in wires}
         for cap, parent, pin in (("C_DEC1", "U_MCU", "VIN"), ("C_DEC2", "U1", "14")):
@@ -218,6 +225,30 @@ class CommittedSchematicTests(BypassConnectionChecks, unittest.TestCase):
 
     def test_every_placed_pin_lands_on_the_wiring(self):
         self.assertEqual(dangling_pins(self.root), [])
+
+    def test_teensy_control_pins_match_the_firmware(self):
+        firmware = (GEN.parents[1] / "pov_segmented.h").read_text(encoding="utf-8")
+        board_rev = board.B.REVISION.replace(".", "")
+
+        def firmware_pin(name):
+            m = re.search(rf"static constexpr int {name} =\s*([^;]+);", firmware)
+            self.assertIsNotNone(m, f"{name} not found in hardware/pov_segmented.h")
+            expr = m[1].strip()
+            by_rev = re.fullmatch(r"HS_PHANTASM_BOARD_REV == (\d+) \? (\d+) : (\d+)", expr)
+            if by_rev:
+                return by_rev[2] if by_rev[1] == board_rev else by_rev[3]
+            self.assertRegex(expr, r"^\d+$", f"{name} = {expr} is not a pin number")
+            return expr
+
+        positions = pin_positions(self.root)
+        named, wires, _ = shorts.geometry(self.root)
+        for net, constant in (("ID0", "PIN_ID0"), ("ID1", "PIN_ID1"), ("ID2", "PIN_ID2"),
+                              ("FRAME_SYNC", "PIN_SYNC_RX"), ("SYNC_TX", "PIN_SYNC_TX"),
+                              ("MASTER_EN", "PIN_MASTER_EN")):
+            with self.subTest(net=net):
+                pad = positions["U_MCU", firmware_pin(constant)]
+                ends = {b if a == pad else a for a, b in wires if pad in (a, b)}
+                self.assertIn(net, set().union(*(named.get(end, set()) for end in ends)))
 
 
 @unittest.skipUnless(STOCK_SYMBOLS,
