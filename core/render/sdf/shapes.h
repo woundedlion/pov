@@ -117,13 +117,10 @@ struct PlanarPolygon {
    * @note `polar*cos(local) - apothem` is the azimuthal-equidistant chart's
    *       distance to the edge line: exact along the apothem inside the
    *       circumscribed disc, under-estimating near the sector corners
-   *       (gradient cos(PI/sides) there), and over-reporting beyond the disc,
-   *       where the chart stretches tangential distances by polar/sin(polar)
-   *       and the nearest boundary point is a vertex (2.02 vs 1.57 rad near
-   *       the antipode of a square of circumradius PI/2). The disc term
-   *       `polar - circumradius` is a lower bound of the true distance; the
-   *       max of the two is not, so for scanline shading, not a march-safe
-   *       metric.
+   *       (gradient cos(PI/sides) there), and over-reporting beyond the disc.
+   *       The disc term `polar - circumradius` is a lower bound of the true
+   *       distance; the max of the two is not, so it is for scanline shading,
+   *       not a march-safe metric.
    */
   template <bool ComputeUVs = true>
   void distance(const math::Vector &p, DistanceResult &res) const {
@@ -434,24 +431,17 @@ struct Star {
 
   /**
    * @brief Signed distance to the star, writing into res.
-   * @tparam ComputeUVs When true, also stores the normalized azimuth t. The
-   *        azimuth itself is always computed (the petal-sector geometry needs
-   *        it); only the final t store is gated, matching Ring/Flower.
+   * @tparam ComputeUVs When true, also stores the normalized azimuth t.
    * @param p Point on sphere (normalized).
    * @param res Output result; dist = signed distance to the nearest point edge,
    *        raw_dist = polar distance from center, t = normalized azimuth when
    *        ComputeUVs (0 otherwise).
-   * @note Folding a sector onto one edge half-plane gives a radial gradient of
-   *       |edge_nx| at a tip (0.309 at 5 points, 0.220 at 8), which reads a
-   *       fringe several pixels past the tip; the circumscribed-disc distance
-   *       `scan_dist - circumradius` is the tighter bound there. The edge term
-   *       is a chart-plane distance, so beyond the disc it over-reports the
-   *       true distance where the chart stretches tangential distances by
-   *       scan_dist/sin(scan_dist) and the nearest boundary point is a tip
-   *       (0.89 vs 0.78 rad at 1.47 rad along a notch of a 5-point star of
-   *       radius 0.6). The disc term is a lower bound of the true distance;
-   *       the max of the two is not, so for scanline shading, not a
-   *       march-safe metric.
+   * @note The folded edge half-plane has radial gradient |edge_nx| at a tip;
+   *       the circumscribed-disc distance `scan_dist - circumradius` is the
+   *       tighter bound there. The edge term is a chart-plane distance and
+   *       over-reports beyond the disc. The disc term is a lower bound of the
+   *       true distance; the max of the two is not, so it is for scanline
+   *       shading, not a march-safe metric.
    */
   template <bool ComputeUVs = true>
   void distance(const math::Vector &p, DistanceResult &res) const {
@@ -639,15 +629,10 @@ struct Line {
     len = math::angle_between(a, b);
     bool antipodal = false;
     math::Vector cr = math::cross(a, b);
-    // EPS_CROSS_SQ, not EPS_NORMALIZE_SQ: the bound is on the direction the
-    // cross carries, not on whether it normalizes at all. |cross| = sin of
-    // the endpoint separation, so 1e-8 names the same band an angular 1e-4
-    // does; above it the components' ~1e-7 of rounding leaves the arc plane
-    // and the bounding-cap axis under ~2e-3 rad of direction error, a tenth
-    // of a pixel at W = 288.
+    // |cross| = sin of the endpoint separation; EPS_CROSS_SQ bounds the arc
+    // plane's direction error, not just whether the cross normalizes.
     if (cr.x * cr.x + cr.y * cr.y + cr.z * cr.z < math::EPS_CROSS_SQ) {
-      // sin collapses at both ends of the range, so the dot's sign separates
-      // them; angle_between cannot, its acos having no resolution there.
+      // sin collapses at both ends of the range; the dot's sign separates them.
       if (math::dot(a, b) < 0.0f) {
         // Antipodal endpoints (len ~ π) leave the arc plane undefined: any great
         // circle through them serves, and distance() then measures the whole
@@ -793,8 +778,7 @@ struct Line {
   }
 };
 
-// Leaf roster for the CSG composition contract: a leaf that stops satisfying
-// SDFShape fails here rather than at whichever composition happens to use it.
+// Leaf roster for the CSG composition contract.
 static_assert(SDFShape<PlanarPolygon>);
 static_assert(SDFShape<SphericalPolygon>);
 static_assert(SDFShape<Star>);

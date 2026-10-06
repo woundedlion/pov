@@ -456,8 +456,7 @@ trace_4d(const math::Vector &direction, const Raycast::PreparedCamera &camera,
     const float FIRST = NEAR + (PLANE - position) * INVERSE;
     if (!Raycast::finite(FIRST) || !Raycast::finite(STEP) || !(STEP > 0.0f))
       return true;
-    // The first plane lies at or past NEAR. Counting the crossings up front
-    // keeps float compares out of the walk; one within rounding of FAR
+    // The first plane lies at or past NEAR. A crossing within rounding of FAR
     // carries no fog-weighted opacity either way.
     const int COUNT =
         FIRST <= FAR ? static_cast<int>((FAR - FIRST) * fabsf(speed)) + 1 : 0;

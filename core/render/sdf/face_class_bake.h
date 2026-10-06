@@ -18,20 +18,10 @@
  * @file face_class_bake.h
  * @brief Congruence-class clustering + canonical distance-LUT bake.
  *
- * Clusters a mesh's faces into congruence classes (geometric clustering seeded
- * per topology class) and bakes one signed-distance LUT per class
- * (SDF::build_canonical_distance_lut); Face::distance then serves sign-pure
- * probes from a bilinear lookup instead of the exact edge walk.
- *
- * ONLY FOR EFFECTS WHOSE MESHES HOLD STILL between spawns (rigid orientation is
- * fine — congruence is frame-invariant). Per-frame deformation breaks the
- * canonical premise, so SDF::ALIGN_MAX_DEV_DIAGS drops deviating faces.
- *
- * Clustering is never depended on: an unassigned face (NO_CLASS), a class
- * without a LUT, or a degenerate alignment all degrade to the exact path.
- *
- * Design and the measurements behind the deformation restriction:
- * docs/specs/congruence_class_lut_spec.md.
+ * Only for meshes that hold still between spawns (rigid orientation is fine);
+ * per-frame deformation breaks the canonical premise. An unassigned face
+ * (NO_CLASS), a class without a LUT, or a degenerate alignment all take the
+ * exact distance path.
  */
 namespace MeshOps {
 
@@ -43,15 +33,11 @@ inline constexpr float LUT_TARGET_DIAG_PX = 0.35f;
 /** Per-class LUT grid resolution bounds. */
 inline constexpr int CLASS_LUT_MIN_N = 32;
 inline constexpr int CLASS_LUT_MAX_N = 64;
-/** Per-mesh LUT byte budget. LUTs are allocated by descending face count
- *  until it is spent; remaining classes keep the exact distance path. Identical on every target
- *  (host/WASM/device) so sim and device output cannot fork. A consumer must
- *  provision lut_bytes + aux_bytes in its persistent partition and include
- *  its bakes in its persistent-budget sweep (tests/test_effects.h). */
+/** Per-mesh LUT byte budget, identical on every target. LUTs are allocated by
+ *  descending face count until it is spent; remaining classes keep the exact
+ *  distance path. */
 inline constexpr size_t CLASS_LUT_BUDGET = 18 * 1024;
-/** Minimum bake-predicted hit share for a class LUT to be kept: below this
- *  the probes mostly land in the fallback band and pay the guard for
- *  nothing (small faces relative to the cell diagonal). */
+/** Minimum bake-predicted hit share for a class LUT to be kept. */
 inline constexpr float MIN_CLASS_HIT_SHARE = 0.4f;
 
 /**
@@ -59,8 +45,7 @@ inline constexpr float MIN_CLASS_HIT_SHARE = 0.4f;
  * @param xy Polygon vertices, x/y pairs.
  * @param count Vertex count.
  * @return True when successive-edge turns have mixed signs, using the same
- *         relative-turn epsilon as Face::build_half_planes. Other convex-path
- *         bail-outs are evaluated by the face builder.
+ *         relative-turn epsilon as Face::build_half_planes.
  */
 inline bool polygon_is_concave(const float *xy, int count) {
   bool pos = false, neg = false;
@@ -101,14 +86,9 @@ inline bool polygon_is_concave(const float *xy, int count) {
  * @details Greedy clustering seeded per topology class: a face joins the
  * best-matching class when its canonical polygon aligns (over cyclic offset x
  * reflection x optimal rotation) within CONGRUENCE_EPS_PX RMS and the runtime
- * bind deviation cap at the finest allowed LUT grid, else founds a
- * new class from its own centered projection. Gnomonic projection about each
- * face's own centroid is position-covariant, so the clustering is valid for
- * any mesh orientation and is baked once per spawn.
- *
+ * bind deviation cap at the finest allowed LUT grid, else founds a new class.
  * LUTs are built for concave classes with >= 2 members, largest first, until
- * budget_bytes (default CLASS_LUT_BUDGET) is spent. Logs census telemetry (classes, coverage,
- * worst residual, predicted hit share) at the end.
+ * budget_bytes is spent.
  */
 [[maybe_unused]] HS_COLD static void
 build_mesh_class_bake(const MeshState &mesh, Arena &scratch, Arena &persistent,
@@ -141,8 +121,6 @@ build_mesh_class_bake(const MeshState &mesh, Arena &scratch, Arena &persistent,
   constexpr int MAX_VERTS = SDF::FaceScratchBuffer::MAX_VERTS;
   const float eps_plane = CONGRUENCE_EPS_PX * pixel_width;
 
-  // Arena-hosted (not stack): this runs inside the effect spawn path, whose
-  // stack high-water is budget-gated (tests/stack_measure.cpp).
   float *zx = scratch.allocate_n<float>(MAX_VERTS);
   float *zy = scratch.allocate_n<float>(MAX_VERTS);
   int *order = scratch.allocate_n<int>(MAX_CONGRUENCE_CLASSES);
@@ -155,10 +133,8 @@ build_mesh_class_bake(const MeshState &mesh, Arena &scratch, Arena &persistent,
     if (count < 3 || count > MAX_VERTS)
       continue;
 
-    // Gnomonic projection about the face's own centroid — the same projection
-    // Face::setup_frame_and_polygon builds per frame, so the canonical shape
-    // and the per-frame polygon differ only by an in-plane rotation
-    // (+ reflection), which the alignment correlation absorbs.
+    // Gnomonic projection about the face's own centroid; matches
+    // Face::setup_frame_and_polygon up to an in-plane rotation (+ reflection).
     HS_CHECK(static_cast<size_t>(fo[f]) + count <= fi_size,
              "mesh face span exceeds face index array");
     const uint16_t *idx = fi + fo[f];
@@ -300,8 +276,7 @@ build_mesh_class_bake(const MeshState &mesh, Arena &scratch, Arena &persistent,
     if (out.classes[c].members >= 2)
       out.shared_faces += out.classes[c].members;
 
-  // LUT build: concave shared classes only (convex faces already have the
-  // ~lookup-cheap half-plane path), largest first until the budget is spent.
+  // LUT build: concave shared classes, largest first until the budget is spent.
   int n_elig = 0;
   for (size_t c = 0; c < out.classes.size(); ++c) {
     const CongruenceClass &cls = out.classes[c];
@@ -320,18 +295,16 @@ build_mesh_class_bake(const MeshState &mesh, Arena &scratch, Arena &persistent,
   int degraded_classes = 0;
   float hit_share_acc = 0.0f;
   int dropped_classes = 0, dropped_faces = 0, lowq_classes = 0;
-  // Staging buffer: LUTs are built here first and promoted to the persistent
-  // arena only if their predicted hit share clears the quality bar, so a
-  // low-value LUT never spends persistent budget.
+  // Staging buffer: a LUT is promoted to the persistent arena only if its
+  // predicted hit share clears MIN_CLASS_HIT_SHARE.
   const size_t minimum_lut_bytes =
       CLASS_LUT_MIN_N * CLASS_LUT_MIN_N * sizeof(int16_t);
   int16_t *staging =
       n_elig > 0 && budget >= minimum_lut_bytes
           ? scratch.allocate_n<int16_t>(CLASS_LUT_MAX_N * CLASS_LUT_MAX_N)
           : nullptr;
-  // A null staging buffer never reaches the build below: every grid starts at
-  // CLASS_LUT_MIN_N or wider, so a budget too small to hold one drops each
-  // class at the degrade step before it is used.
+  // A null staging buffer is never read: a budget below minimum_lut_bytes
+  // drops every class at the degrade step.
   for (int e = 0; e < n_elig; ++e) {
     CongruenceClass &cls = out.classes[order[e]];
     out.concave_faces += cls.members;
@@ -351,8 +324,7 @@ build_mesh_class_bake(const MeshState &mesh, Arena &scratch, Arena &persistent,
         hs::clamp(ceilf(2.0f * sqrtf(Rx * Rx + Ry * Ry) / target_diag) + 1.0f,
                   static_cast<float>(CLASS_LUT_MIN_N),
                   static_cast<float>(CLASS_LUT_MAX_N)));
-    // Degrade resolution before dropping a class: a coarser grid on more
-    // classes buys more served probes than a fine grid on fewer.
+    // Degrade resolution before dropping a class.
     size_t bytes = static_cast<size_t>(n) * n * sizeof(int16_t);
     if (bytes > budget) {
       n = static_cast<int>(sqrtf(static_cast<float>(budget) / sizeof(int16_t)));
@@ -372,9 +344,7 @@ build_mesh_class_bake(const MeshState &mesh, Arena &scratch, Arena &persistent,
                                       lut);
 
     // Predicted hit share: fraction of cells inside the cull disk whose four
-    // corners are sign-pure and beyond the interpolation guard, weighted by
-    // the class's face count. A bake-time proxy for the runtime lut_hits
-    // ratio on LUT-bound faces (gate: >= MIN_CLASS_HIT_SHARE).
+    // corners are sign-pure and beyond the interpolation guard.
     float circ_sq = 0.0f;
     for (int k = 0; k < cls.n_verts; ++k) {
       float r2 = cls.canon_xy[2 * k] * cls.canon_xy[2 * k] +
@@ -406,8 +376,6 @@ build_mesh_class_bake(const MeshState &mesh, Arena &scratch, Arena &persistent,
     }
     float safe_frac = in_disk > 0 ? static_cast<float>(safe) / in_disk : 0.0f;
 
-    // A class serving too few probes pays the guard on every probe then walks
-    // anyway — keep the exact path instead of a LUT that rarely fires.
     if (safe_frac < MIN_CLASS_HIT_SHARE) {
       ++lowq_classes;
       continue;

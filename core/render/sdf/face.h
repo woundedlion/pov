@@ -88,8 +88,6 @@ static_assert(sdf_max_spans<Face>::value >= FaceScratchBuffer::MAX_INTERVALS,
 /**
  * @brief Order-preserving unsigned key for a non-NaN float: key(a) <= key(b)
  *        exactly when a <= b, with -0.0 and +0.0 mapping to the same key.
- * @details Lets the sector search compare in the core registers instead of
- * paying a vcmpe + vmrs FPU-to-core transfer per iteration.
  */
 __attribute__((always_inline)) inline uint32_t angle_key(float x) {
   uint32_t u = std::bit_cast<uint32_t>(x);
@@ -98,8 +96,7 @@ __attribute__((always_inline)) inline uint32_t angle_key(float x) {
 
 /**
  * @brief Diamond pseudo-angle of (x, y) in [0, 4), strictly monotonic with
- *        atan2 but trig-free. Used to bin a query point into a face's angular
- *        sector without an atan2 in the per-pixel path.
+ *        atan2 but trig-free.
  */
 __attribute__((always_inline)) inline float pseudo_angle(float y, float x) {
   float d = fabsf(x) + fabsf(y);
@@ -113,14 +110,10 @@ __attribute__((always_inline)) inline float pseudo_angle(float y, float x) {
 
 /**
  * @brief Represents a planar face for SDF rendering.
- * @details Computes the 2D projection and vertical/horizontal bounds used to
- * accelerate rasterization. Every span member below views the
- * FaceScratchBuffer handed to the constructor and owns none of it, so the
- * buffer must outlive the Face AND back no other live Face: building a second
- * Face over the same buffer silently retargets the first one's geometry. Two
- * Faces in one CSG composition (SDF::Union<Face, Face>) therefore need two
- * buffers. Every build stamps the claim, and get_vertical_bounds() traps on a
- * retargeted Face once per draw, ahead of any probe.
+ * @details The span members view the FaceScratchBuffer handed to the
+ * constructor and own none of it: the buffer must outlive the Face and back no
+ * other live Face, since building a second Face over it retargets the first.
+ * get_vertical_bounds() traps on a retargeted Face.
  */
 struct Face {
   math::Vector center; /**< Normalized face centroid (projection axis). */
@@ -301,8 +294,7 @@ struct Face {
       compute_azimuth_intervals(scratch);
     }
 
-    // Azimuth half of the cull, ahead of the bounds pass. The clip row band is
-    // conservative until the exact face bounds are available below.
+    // Azimuth half of the cull, against the conservative clip row band.
     if (clip && clip->render_y_start() < clip->render_y_end() &&
         !pole_within_circumcircle() &&
         clip_rejects_azimuth(*clip, clip->render_y_start(),
@@ -315,9 +307,8 @@ struct Face {
     {
       HS_PROFILE_DEEP(face_bounds);
 
-      // Vertical bounds via full arc-extrema + pole analysis. A vertex-only phi
-      // span misses the great-circle edge bulge toward a pole, leaving
-      // near-pole faces with unscanned rows; the arc-extrema path covers them.
+      // Vertical bounds via arc extrema + pole analysis: great-circle edges
+      // bulge poleward past their vertices.
       compute_full_bounds(scratch, count, center, geometry, height, y_min,
                           y_max, bounds_margin);
       compute_inradius(scratch);
@@ -364,9 +355,7 @@ struct Face {
    *         band lies outside the render rows, or its azimuth coverage lies
    *         outside the render columns. A full-width face or an inactive x-clip
    *         never rejects on the horizontal axis.
-   * @details Mirrors the scan's own culls (Scan::rasterize's vertical clamp and
-   *          per-fragment XClip), so a reject here drops only faces the scan
-   *          would have shaded nothing for.
+   * @details Mirrors Scan::rasterize's vertical clamp and per-fragment XClip.
    */
   bool clip_rejects(const ClipRegion &cr) const {
     if (y_max < cr.render_y_start() || y_min > cr.render_y_end() - 1)
@@ -422,8 +411,7 @@ struct Face {
 #include "render/sdf/face_geometry.h"
 };
 
-// Leaf roster for the CSG composition contract: a leaf that stops satisfying
-// SDFShape fails here rather than at whichever composition happens to use it.
+// Leaf roster for the CSG composition contract.
 static_assert(SDFShape<Face>);
 
 } // namespace SDF

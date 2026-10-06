@@ -55,8 +55,6 @@ __attribute__((always_inline)) void
 setup_frame_and_polygon(std::span<const math::Vector> vertices,
                         std::span<const uint16_t> indices,
                         FaceScratchBuffer &scratch) {
-  // Single gather over the shared pool: every later pass reads the local
-  // copy instead of chasing indices back into `vertices`.
   center = math::Vector(0, 0, 0);
   for (int i = 0; i < count; ++i) {
     const math::Vector &v = vertices[indices[i]];
@@ -166,8 +164,6 @@ __attribute__((always_inline)) void pack_edges(FaceScratchBuffer &scratch) {
 __attribute__((always_inline)) void
 build_half_planes(FaceScratchBuffer &scratch, float area2) {
   bool pos = false, neg = false;
-  // The turn test carries the previous edge in registers, so the ring closes
-  // without indexing edge_vectors through a modulo.
   const math::Vector *e1 = &edge_vectors[count - 1];
   float l1 = edge_lengths_sq[count - 1];
   for (int i = 0; i < count; ++i) {
@@ -214,15 +210,11 @@ build_half_planes(FaceScratchBuffer &scratch, float area2) {
    * @brief Builds the angular sector table for the concave sector walk.
    * @param scratch Scratch storage receiving the unwrapped vertex
    * pseudo-angles.
-   * @details Faces outside the convex half-plane path (concave, degenerate-edged
-   * or wrongly-oriented) with at least SECTOR_MIN_COUNT vertices qualify. A face that is star-shaped about its projected centroid (the
-   * gnomonic origin) has monotonic vertex pseudo-angles spanning a full turn;
-   * that monotonicity is what lets plane_dsq_sector bin a query point into one
-   * fan sector by angle alone. Strictly monotonic faces bin exactly (K1);
-   * mildly-bent faces whose worst vertex backtracks by no more than
-   * SECTOR_MONO_TOL still bin to within a neighbor and take the wider K2 walk.
-   * A larger inversion or wrong total turn (not star-shaped, e.g. heavily
-   * deformed) leaves sector_ok false and keeps the exact walk.
+   * @details Qualifies non-convex faces with at least SECTOR_MIN_COUNT
+   * vertices that are star-shaped about the projected centroid (vertex
+   * pseudo-angles monotonic over one full turn). Strictly monotonic faces bin
+   * exactly (K1); a worst backtrack within SECTOR_MONO_TOL bins to within a
+   * neighbor (K2). Otherwise sector_ok stays false.
    */
 __attribute__((always_inline)) void build_sectors(FaceScratchBuffer &scratch) {
   sector_ok = false;
@@ -261,10 +253,8 @@ __attribute__((always_inline)) void build_sectors(FaceScratchBuffer &scratch) {
     min_step = __builtin_fminf(cur - prev_s, min_step);
     prev_s = cur;
   }
-  // min_step > 0: strictly monotonic, sectors don't overlap, K1 bins exactly.
-  // A backtrack up to SECTOR_MONO_TOL overlaps sectors slightly, so the bin
-  // can land one neighbor off -> K2's wider walk still reaches the true edge.
-  // A larger inversion is not star-shaped; keep the exact walk.
+  // min_step > 0: K1 bins exactly. A backtrack within SECTOR_MONO_TOL can bin
+  // one neighbor off: K2.
   if (min_step <= -SECTOR_MONO_TOL)
     return;
   sector_kmax = (min_step > 0.0f) ? 1 : SECTOR_KMAX_MAX;
@@ -288,10 +278,9 @@ __attribute__((always_inline)) void build_sectors(FaceScratchBuffer &scratch) {
    * @return False when the correlation is degenerate (badly deformed face);
    *         the face then keeps the exact path.
    * @details One complex correlation over the vertices recovers the in-plane
-   * rotation placing the canonical shape at the face's least-squares pose, so
-   * the interior gradient follows the face's rigid motion through a ripple
-   * while edges stay exact. Rotational-symmetry ambiguity is harmless (the LUT
-   * is invariant under the shape's symmetry group).
+   * rotation placing the canonical shape at the face's least-squares pose.
+   * Rotational-symmetry ambiguity is harmless (the LUT is invariant under the
+   * shape's symmetry group).
    */
 HS_COLD_MEMBER bool bind_class_lut(const ClassLut *lut, const float *canon_xy,
                                    int vert_offset, bool reflected) {
@@ -318,10 +307,7 @@ HS_COLD_MEMBER bool bind_class_lut(const ClassLut *lut, const float *canon_xy,
   float c = a.rr * inv_r, s = a.ri * inv_r;
 
   // |d_true - d_canon| is bounded by the worst aligned vertex deviation, so
-  // widen the sign-purity guard by that bound: a bent face falls back to the
-  // exact walk near its true edges instead of serving wrong-signed canonical
-  // distances (faces separating under ripple). Faces bent beyond range keep
-  // the exact path.
+  // the sign-purity guard widens by that bound.
   float max_dev_sq = 0.0f;
   align_walk(
       count, vert_offset, reflected,
@@ -384,9 +370,6 @@ compute_thetas(FaceScratchBuffer &scratch) const {
    */
 __attribute__((always_inline)) void
 compute_azimuth_intervals(FaceScratchBuffer &scratch) {
-  // Insertion sort: faces carry a few dozen vertices at most, and std::sort
-  // stays out of line here (an __introsort_loop plus an __insertion_sort
-  // call per face).
   float *th = scratch.thetas.data();
   for (int i = 1; i < count; ++i) {
     float t = th[i];
@@ -414,7 +397,7 @@ compute_azimuth_intervals(FaceScratchBuffer &scratch) {
     full_width = false;
     float start_t = fmodf(gap_start + max_gap, math::TWO_PI_F);
     // fmodf can leave start_t at ~2*PI instead of ~0, producing a degenerate
-    // [~2*PI, 2*PI] sliver below; snap to 0.
+    // [~2*PI, 2*PI] sliver; snap to 0.
     if (start_t > math::TWO_PI_F - 1e-4f)
       start_t = 0.0f;
     float end_t = gap_start;
@@ -476,11 +459,9 @@ enum class PoleHit {
    * @param ppx Projected pole x in the face's 2D basis.
    * @param ppy Projected pole y in the face's 2D basis.
    * @return Where the pole falls relative to the closed polygon.
-   * @details A pole sitting exactly on a vertex or an edge - where a partition
-   * op plants an apex on the projection axis - leaves pole_inside_polygon's
-   * crossing parity decided by rounding, so congruent faces disagree on their
-   * azimuth coverage and the pole row loses part of its overlap. Testing the
-   * boundary band first makes the answer independent of that rounding.
+   * @details The boundary band is tested first: a pole exactly on a vertex or
+   * edge would otherwise leave pole_inside_polygon's crossing parity to
+   * rounding.
    */
 PoleHit pole_hit(float ppx, float ppy) const {
   if (!pole_within_circumcircle())
@@ -641,10 +622,8 @@ HS_O3_FN static void compute_full_bounds(FaceScratchBuffer &scratch, int count,
         (std::abs(edge.y) > 1e-12f) ? (1.0f / edge.y) : 0.0f;
     math::Vector normal = math::cross(v1, v2);
     float len_sq = math::dot(normal, normal);
-    // planes[] is COMPACTED: a degenerate edge pushes no plane, so planes[k]
-    // does NOT correspond to edge k (unlike the per-edge arrays indexed by
-    // i). Downstream consumers treat planes[] as a standalone set, never by
-    // edge.
+    // planes[] is compacted: a degenerate edge pushes no plane, so planes[k]
+    // is not edge k.
     if (len_sq > 1e-12f)
       scratch.planes[planes_count++] = normal.normalized();
     float phi_val = math::fast_acos(hs::clamp(v1.y, -1.0f, 1.0f));
@@ -739,7 +718,7 @@ bool horizontal_intervals_equal_rows(int first_y, int second_y) const {
    * construction-time azimuth cull ran against.
    * @tparam H Canvas height in rows.
    * @tparam OutputIt Sink type invoked as out(float start, float end).
-   * @param y Row index, which sets the pole widening below.
+   * @param y Row index, which sets the pole widening.
    * @param out Sink accepting (float start, float end).
    * @return True when the row was handled, possibly with no intervals outside
    *   the face's rows; false requests a full scan.
@@ -835,10 +814,8 @@ HS_O3_FN float plane_dsq_exact(float px, float py, bool &inside_out) const {
    * segment distance over only that sector's edge and its sector_kmax neighbors
    * each side (K1 = 1 for strict faces, K2 = 2 for mildly-bent faces whose bin
    * can land a neighbor off). The sign uses the nearest selected edge, with
-   * both incident edges tested when its nearest point is a vertex.
-   * Near-exact for star faces because
-   * the true nearest edge is almost always the sector's own edge or an immediate
-   * neighbor. Only enabled when build_sectors set sector_ok.
+   * both incident edges tested when its nearest point is a vertex. Requires
+   * sector_ok.
    */
 HS_O3_FN float plane_dsq_sector(float px, float py, bool &inside_out) const {
   float p = pseudo_angle(py, px) * sector_sgn;

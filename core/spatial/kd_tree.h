@@ -37,8 +37,7 @@ struct KDNode {
 
 /**
  * @brief A single neighbor returned by KDTree::nearest().
- * @details Carries the squared distance the search already computed; excludes
- * KDNode's internal tree links, which are meaningless outside the tree.
+ * @details Carries the squared distance the search already computed.
  */
 struct Neighbor {
   math::Vector point;          /**< Copy of the neighbor's position. */
@@ -70,9 +69,7 @@ public:
    * @brief Upper bound on source points, set by the int16_t node-link range.
    * @details One node per point, and node indices flow through int16_t
    * left/right links, so the point count must fit in [0, MAX_POINTS]. This also
-   * bounds original_index (uint16_t) since indices stay below the count. It is
-   * an index-range ceiling: MAX_POINTS nodes are 640 KB, beyond the
-   * device (298 KiB) and WASM (512 KiB) arenas.
+   * bounds original_index (uint16_t) since indices stay below the count.
    */
   static constexpr size_t MAX_POINTS = static_cast<size_t>(INT16_MAX) + 1;
 
@@ -84,14 +81,12 @@ public:
   /**
    * @brief Builds the tree from a span of points using arena storage.
    * @param arena Arena used for node storage and temporary index sorting.
-   * @param points Source points; std::span<const Vector> so callers need not
-   * const_cast read-only vertex arrays. Every coordinate must be finite (traps
-   * via HS_CHECK otherwise).
+   * @param points Source points. Every coordinate must be finite (traps via
+   * HS_CHECK otherwise).
    * @details Allocates one node per point in the arena. The scratch index array
    * is scoped to a ScratchScope so its arena offset rewinds once build() returns.
    * Retains N * sizeof(KDNode) bytes and peaks a further N * sizeof(int) over
-   * that (N points): 8000 B retained over a 1600 B transient at Voronoi's
-   * MAX_SITES = 400.
+   * that (N points).
    */
   HS_FLASH_MEMBER KDTree(Arena &arena, std::span<const math::Vector> points) {
     if (points.empty())
@@ -103,8 +98,6 @@ public:
         "KDTree source point count exceeds int16_t child-link index range");
     nodes.bind(arena, count);
 
-    // Scope the scratch index array so the arena offset rewinds once build()
-    // returns.
     ScratchScope scratch(arena);
     int *indices = arena.allocate_n<int>(count);
     for (size_t i = 0; i < count; ++i) {
@@ -139,9 +132,8 @@ public:
              "KDTree::nearest k exceeds MAX_K");
     if (root_index == -1 || k == 0)
       return result;
-    // A k above the point count can never fill the set, so worst_d_sq would
-    // stay FLT_MAX and neither the candidate test nor the subtree prune would
-    // ever reject: the query degrades to a full traversal.
+    // A k above the point count would never fill the set, so nothing would
+    // prune.
     k = std::min(k, nodes.size());
 
     auto *best = result.values.data();
@@ -149,7 +141,7 @@ public:
 
     // Cached pruning bound: the largest squared distance in `best` and its slot,
     // FLT_MAX until the set fills to k so nothing prunes early. Recomputed only
-    // when `best` changes, keeping the per-node prune test O(1).
+    // when `best` changes.
     float worst_d_sq = FLT_MAX;
     size_t worst_i = 0;
     auto recompute_worst = [&]() {
@@ -230,9 +222,8 @@ private:
     auto *start = indices;
     auto *end = indices + count;
 
-    // Total order (axis value, then source index): axis ties are the norm for
-    // polyhedron vertices, and an axis-only comparator leaves the tree shape up
-    // to the standard library's partition order.
+    // Total order (axis value, then source index) so axis ties build a
+    // deterministic tree.
     std::nth_element(start, start + mid, end, [&](int a, int b) {
       float va = (axis == 0)   ? points[a].x
                  : (axis == 1) ? points[a].y
@@ -267,9 +258,7 @@ private:
    * @param offer_candidate Callback that records a candidate in the k-best set.
    * @param get_worst_dist Callback returning the current pruning bound (squared distance).
    * @details Descends the near child first, then prunes the far child when the
-   * splitting plane is farther than the current worst hit. The k-best set and k
-   * itself are reached only through the callbacks, which capture them by
-   * reference in nearest().
+   * splitting plane is farther than the current worst hit.
    */
   template <typename PushFn, typename MaxDistFn>
   void search_k(int node_idx, const math::Vector &target,

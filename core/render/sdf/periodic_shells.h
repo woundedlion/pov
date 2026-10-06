@@ -188,8 +188,7 @@ __attribute__((always_inline)) inline ShellSample trace_periodic_shells_3d(
     }
     return true;
   };
-  // Counting the layers once keeps float compares out of the march; a layer
-  // within rounding of LAST holds nothing nearer than FAR.
+  // A layer within rounding of LAST holds nothing nearer than FAR.
   const int LAYERS =
       tau <= LAST ? static_cast<int>((LAST - tau) * fabsf(D[k])) + 1 : 0;
   for (int step = 0; step < std::min(LAYERS, limits.max_steps); ++step) {
@@ -333,8 +332,7 @@ __attribute__((always_inline)) inline ShellSample trace_periodic_shells_march(
         }
         return length2;
       };
-  // Counting the layers once keeps float compares out of the march; a layer
-  // within rounding of LAST holds nothing nearer than FAR.
+  // A layer within rounding of LAST holds nothing nearer than FAR.
   const int LAYERS =
       tau <= LAST ? static_cast<int>((LAST - tau) * fabsf(D[k])) + 1 : 0;
   for (int step = 0; step < std::min(LAYERS, limits.max_steps); ++step) {

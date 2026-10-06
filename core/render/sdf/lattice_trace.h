@@ -139,9 +139,6 @@ HS_FLASH_INLINE inline Prepared prepare(const Settings &settings) {
   return result;
 }
 
-// shade() calls each trace out of line, so a debug build's shade() frame
-// holds one trace's locals at a time instead of all of them.
-
 /** @brief shade() for a valid octet frame of the matching domain. */
 template <bool SLICE_4D>
 HS_HOT_FLASH_MEMBER Sample shade_octet(const math::Vector &direction,
