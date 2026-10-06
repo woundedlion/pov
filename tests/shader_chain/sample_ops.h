@@ -636,7 +636,10 @@ inline void test_shader_chain_large_finite_path_length() {
                                     program.prepared_block(13));
   const Color4 actual = program.evaluate(sphere.dir, ctx);
   HS_EXPECT_GT(expected.color.r, 1000);
+  HS_EXPECT_EQ(expected.color.g, 0);
+  HS_EXPECT_EQ(expected.color.b, 0);
   HS_EXPECT_NEAR(actual.color.r, expected.color.r, 2);
+  HS_EXPECT_EQ(actual.color.b, 0);
 }
 
 inline void test_shader_chain_parity_sample_tessellation() {
