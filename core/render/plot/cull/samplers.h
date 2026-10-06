@@ -368,8 +368,9 @@ struct GeodesicEdgeSpan {
       total; /**< Arc-length estimate from unit_arc_length(a, b), in radians. */
   bool antipodal; /**< axis came from stable_perpendicular_axis, not cross. */
   bool have_axis; /**< axis holds a unit arc pole. */
-  bool azimuth_bounded; /**< The unnormalized pole resolves sweep direction. */
-  math::Vector axis;    /**< Unit arc pole (valid iff have_axis). */
+  bool
+      azimuth_bounded; /**< |axis.y| >= AXIS_Y_EPS: the walked axis resolves the longitude sweep direction. */
+  math::Vector axis;   /**< Unit arc pole (valid iff have_axis). */
 };
 
 #if HS_ENABLE_TEST_ORACLES
