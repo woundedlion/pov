@@ -206,7 +206,10 @@ protected:
     return best;
   }
 
-  /** @brief Nodes at each pole packed tighter than the bulk minimum spacing. */
+  /**
+   * @brief Nodes nearest each pole, given the tighter polar certificate; covers
+   *        every polar node packed below the bulk minimum spacing.
+   */
   static constexpr int POLE_BAND = 4;
   /**
    * @brief Minimum nearest-neighbor spacing outside the polar band, as a
