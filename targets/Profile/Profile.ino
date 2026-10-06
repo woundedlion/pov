@@ -141,8 +141,10 @@ public:
                   "HS_MINDSPLATTER_REPLAY requires MindSplatter");
     Target::init();
     const auto &corpus = replay_corpus();
-    HS_CHECK(corpus.framebuffer_entries <= static_cast<size_t>(W) * H,
-             "MindSplatter replay framebuffer entries differ");
+    HS_CHECK(
+        corpus.framebuffer_entries <= static_cast<size_t>(W) * H,
+        "MindSplatter replay framebuffer has %zu entries, past the %dx%d canvas",
+        corpus.framebuffer_entries, W, H);
     const uint16_t particles = ReplayWhiteBox::restore_render(
         *this, {corpus.state, corpus.state_size});
     HS_CHECK(particles == corpus.particle_count,
