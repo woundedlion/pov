@@ -33,7 +33,9 @@ inline void test_mutation_applies_function_of_eased_time() {
 inline void test_mutation_duration_zero_finite() {
   float v = 0.0f;
   Animation::Mutation m(v, [](float e) { return e; }, 0, math::ease_linear);
+  HS_EXPECT_FALSE(m.done());
   m.step(fake_canvas());
+  HS_EXPECT_TRUE(m.done());
   HS_EXPECT_TRUE(std::isfinite(v));
   HS_EXPECT_NEAR(v, 1.0f, 1e-3f);
 }
