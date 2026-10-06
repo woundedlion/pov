@@ -215,6 +215,8 @@ class BoardMetadataTests(unittest.TestCase):
             1,
         )
 
+        self.assertIn(current, readme)
+        board_metadata.check_facts(readme, facts)
         with self.assertRaisesRegex(board_metadata.MetadataError, "facts are stale"):
             board_metadata.check_facts(stale, facts)
 
