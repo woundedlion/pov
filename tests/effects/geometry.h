@@ -580,10 +580,7 @@ inline void test_fishbowl_scratch_estimate_covers_peak() {
     worst_vertices = std::max(worst_vertices, WB::tween_vertices(fx));
   }
 
-  constexpr size_t PREDICTED =
-      EffectType::MAX_FRAGMENTS * sizeof(typename EffectType::TrailVertex) +
-      (EffectType::MAX_FRAGMENTS + 2) * sizeof(Fragment) +
-      Plot::rasterize_scratch_a_bytes<SMALL_W>();
+  constexpr size_t PREDICTED = EffectType::SCRATCH_A_ESTIMATE;
   HS_EXPECT_LE(scratch_arena_a.get_high_water_mark(), PREDICTED);
   // The trail fills, so the peak above is a saturated frame and not a warm-up.
   HS_EXPECT_GT(worst_vertices, (size_t)EffectType::TRAIL_LENGTH);
