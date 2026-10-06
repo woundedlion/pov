@@ -250,12 +250,6 @@ struct Vector {
    */
   constexpr Vector() {}
   /**
-   * @brief Constructs a zero vector from a null-pointer tag.
-   * @details Accepts the `Vector(0)` the device `teensy::inplace_function` empty
-   * state synthesizes without admitting `Vector(int)`.
-   */
-  explicit constexpr Vector(std::nullptr_t) : x(0), y(0), z(0) {}
-  /**
    * @brief Constructs a vector with explicit components.
    * @param x X-component.
    * @param y Y-component.
