@@ -177,10 +177,7 @@ struct ContentTracker {
   /**
    * @brief ZERO crossings since effect start.
    * @details For a beacon-joined board this starts from the beacon's mod-64
-   * value: congruent, not absolute. On an effect longer than 64 revolutions
-   * such a board's end-of-effect tests read late: the count trails the master's
-   * by a multiple of 64. output_envelope() gates the dark window on commit_pending rather than on
-   * this counter alone.
+   * value: congruent, not absolute.
    */
   uint32_t rev_in_effect = 0;
   bool commit_pending = false;       /**< An epoch commit is scheduled. */
@@ -195,22 +192,12 @@ struct ContentTracker {
    * @param cfg Protocol configuration.
    * @return True if it opened a commit window (false inside the refractory
    * window — the §6.3 redundancy repeats land here).
-   * @details With an absolute effect-revolution count, the commit boundary is
-   * B + R + K, where B is the primary
-   * copy's boundary (R = epoch_repeats, K = commit_revs). Which copy of the
-   * train this is (j, 0 = primary) is inferred from the shared revolution
-   * count — the master starts the train exactly when rev_in_effect reaches
-   * the active effect's configured duration, and by the time a symbol is
-   * consumed the local crossing for its boundary has already incremented
-   * rev_in_effect (classification
-   * completes ~13 columns after the boundary instant). So each such board that
-   * hears ANY copy counts down to the same boundary, and hearing a repeat
-   * instead of the primary cannot skew the commit (§6.3.1). A board whose
-   * revolution count is not absolute (it beacon-joined mid-effect, §6.4)
-   * lands outside the train window and falls back to j = 0 — it commits up
-   * to j revolutions late. The next beacon corrects the schedule counter,
-   * but the effect remains 2j display frames behind until the following
-   * epoch reconstructs it. Subsequent epochs are lockstep.
+   * @details The commit boundary is B + R + K, where B is the primary copy's
+   * boundary (R = epoch_repeats, K = commit_revs). The copy index j
+   * (0 = primary) is inferred from rev_in_effect, already incremented for the
+   * symbol's boundary, so any copy counts down to the same boundary (§6.3.1).
+   * A beacon-joined board without an absolute count falls back to j = 0 and
+   * commits up to j revolutions late.
    */
   bool on_epoch_symbol(const Config &cfg) {
     if (refractory_revs_left > 0)
@@ -234,9 +221,8 @@ struct ContentTracker {
    * @param cfg Protocol configuration.
    * @return True at the single crossing/accept where the construction window —
    * the last K revolutions before the commit boundary — opens.
-   * @details commit_in_revs strictly decreases, so == fires exactly once per
-   * window. The visible blackout spans R+K revolutions; the fail-dark
-   * construction window spans K.
+   * @details Fires exactly once per window. The visible blackout spans R+K
+   * revolutions; the fail-dark construction window spans K.
    */
   bool construction_opens(const Config &cfg) const {
     return commit_pending && commit_in_revs == cfg.commit_revs;
@@ -257,15 +243,9 @@ struct ContentTracker {
    * @param column Column being displayed.
    * @param width Canvas width, in columns.
    * @return Scale in [0, 1].
-   * @details Zero while commit_pending — announce phase included, where
-   * the outgoing effect is still live. rev_in_effect is only congruent mod 64
-   * on a beacon-joined board, so on an effect longer than 64 revolutions the
-   * envelope's own end-of-effect test can still read full brightness at B; the
-   * window flag gates it dark after its first accepted epoch. A missed primary
-   * can leave it lit until a repeat at B+j. It misses
-   * the F-revolution fade-out that leads into B: without an absolute
-   * revolution count that ramp cannot be scheduled, and stepping to black is
-   * the fail-dark side of the miss.
+   * @details Zero while commit_pending, announce phase included. A
+   * beacon-joined board on an effect longer than 64 revolutions steps to black
+   * at its first accepted epoch instead of fading.
    */
   float output_envelope(const Config &cfg, int32_t column,
                         int32_t width) const {

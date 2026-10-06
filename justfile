@@ -6,16 +6,13 @@
 # emsdk_env once) before invoking them. The `test` recipe is native-only and
 # does not need EMSDK.
 
-# The [windows] recipes use cmd.exe syntax (copy /y, if not exist); pin the interpreter so they run under cmd regardless of just's default
-# shell (a developer defaulting just to sh/pwsh would otherwise hit a syntax error).
+# The [windows] recipes use cmd.exe syntax.
 set windows-shell := ["cmd", "/c"]
 daydream_dir := env_var_or_default("DAYDREAM_DIR", "../daydream")
 
-# Python interpreter for every recipe that runs one. Stock Linux/macOS ship
-# `python3` only; on Windows a `python3` on PATH is usually the Store execution
-# alias, which resolves and then refuses to run. HS_PYTHON overrides, the same
-# override the .githooks probe loops honour. Exported so the `_doxygen-theme`
-# parameter default can reach it from inside a backtick.
+# Python interpreter for every recipe that runs one; HS_PYTHON overrides.
+# Exported so the `_doxygen-theme` parameter default can reach it from inside a
+# backtick.
 export py := env_var_or_default("HS_PYTHON", if os_family() == "windows" { "python" } else { "python3" })
 export quoted_py := '"' + py + '"'
 python_command := if os_family() == "windows" { "%quoted_py%" } else { quoted_py }
@@ -82,7 +79,7 @@ clang-format:
     {{ python_command }} tools/build_pins.py --check-tool clang-format
     bash tools/clang_format_gate.sh
 
-# Check license headers on tracked C/C++ sources; unit tests run via python-test.
+# Check license headers on tracked C/C++ sources.
 license-headers:
     {{ python_command }} tools/license_check.py
 
@@ -114,10 +111,8 @@ docs: docs-check _doxygen-theme _doxyfile-local
     doxygen Doxyfile.local
     {{ python_command }} tools/docs_images.py --stage
 
-# Fetch the exact doxygen-awesome revision used by CI. The clone guard is split
-# per-OS; the fetch and checkout also refresh existing clones. The pin is a
-# parameter default, not a justfile-level assignment: only that form defers the
-# backtick to this recipe, leaving every python-free recipe runnable without it.
+# Fetch the pinned doxygen-awesome revision. The pin is a parameter default so
+# its backtick runs only for this recipe.
 [unix]
 _doxygen-theme sha=`"$py" tools/build_pins.py doxygen-awesome`:
     test -d .doxygen-awesome/.git || git clone --filter=blob:none --no-checkout https://github.com/jothepro/doxygen-awesome-css.git .doxygen-awesome
@@ -130,9 +125,7 @@ _doxygen-theme sha=`%quoted_py% tools/build_pins.py doxygen-awesome`:
     git -C .doxygen-awesome fetch --depth 1 origin {{ sha }}
     git -C .doxygen-awesome checkout --detach {{ sha }}
 
-# Synthesize Doxyfile.local = Doxyfile + docs/doxygen-theme.cfg (the same theme
-# overrides docs.yml appends). The copy+append is shell-specific, so it's split
-# per-OS; the appended content is shared, not duplicated.
+# Synthesize Doxyfile.local = Doxyfile + docs/doxygen-theme.cfg.
 [unix]
 _doxyfile-local:
     cp Doxyfile Doxyfile.local

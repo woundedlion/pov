@@ -2,22 +2,14 @@
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
  * Licensed under the PolyForm Noncommercial License 1.0.0
  *
- * Target boilerplate shared by the Phantasm-class sketches (targets/Phantasm,
- * targets/Profile, targets/Bench): output-path selection, rotor/canvas geometry, the
- * POVSegmented alias and its LED-controller definition, the boot sequence, and
- * the effect construction sequence.
+ * Target boilerplate shared by the Phantasm-class sketches.
  *
- * Include it FIRST from the sketch — it selects the LED transport before
- * pulling in led.h — and from exactly ONE translation unit per image, since
- * HS_DEFINE_POV_SEGMENTED_LED_CONTROLLER emits a strong definition.
+ * Include it FIRST from the sketch (it selects the LED transport) and from
+ * exactly ONE translation unit per image (it emits a strong definition).
  */
 #pragma once
 
-// Select the DMA HD107S output path. Guarded because the PlatformIO envs also
-// pass -D USE_DMA_LEDS: an Arduino-IDE/VMicro build sees only this #define, a
-// PlatformIO build sees only the flag, and the #ifndef keeps the two from
-// colliding into a redefinition warning (the flag's value 1 vs this empty
-// define).
+// Select the DMA HD107S output path; PlatformIO builds pass -D USE_DMA_LEDS.
 #ifndef USE_DMA_LEDS
 #define USE_DMA_LEDS
 #endif
@@ -28,7 +20,7 @@
 
 #include <FastLED.h>
 #include <SPI.h>
-#include <new> // std::nothrow — fail-fast OOM check at the allocation sites
+#include <new>
 
 #include "core/math/geometry.h"
 #include "core/memory.h"
@@ -46,9 +38,8 @@ inline constexpr size_t HS_PHANTASM_EFFECT_HEAP_BYTES = 3584;
 
 using POV = POVSegmented<TOTAL_PIXELS, NUM_SEGMENTS, RPM>;
 
-// Out-of-line definition for this target's controller, emitted as the required
-// DMAMEM explicit specialization, keeping the TX buffers out of the RAM1/DTCM
-// budget. Cached OCRAM requires a cache flush before each DMA transfer.
+// DMAMEM keeps the TX buffers out of RAM1/DTCM. Cached OCRAM requires a cache
+// flush before each DMA transfer.
 HS_DEFINE_POV_SEGMENTED_LED_CONTROLLER(TOTAL_PIXELS, NUM_SEGMENTS, RPM);
 
 namespace {
@@ -66,12 +57,9 @@ FLASHMEM void boot_serial() {
 
 /**
  * @brief Logs the SoC reset cause latched since the last boot, then clears it.
- * @details Answers whether a board that stopped streaming reset itself or was
- * power-cycled by hand. A normal upload reboot reads back `por`, so that is the
- * uninformative baseline; `wdog` or `lockup-or-swreset` is the signal. SRC_SRSR
- * is write-1-to-clear and accumulates across resets, so leaving it set would
- * report every earlier boot's cause alongside this one. Bit 1 does not separate
- * a CPU lockup from a software SYSRESETREQ.
+ * @details A normal upload reboot reads back `por`. SRC_SRSR is
+ * write-1-to-clear and accumulates across resets. Bit 1 does not separate a
+ * CPU lockup from a software SYSRESETREQ.
  */
 FLASHMEM void log_reset_cause() {
   const uint32_t srsr = SRC_SRSR;
@@ -93,15 +81,12 @@ FLASHMEM void log_reset_cause() {
  * @tparam E Effect type to instantiate.
  * @tparam MAX_BYTES Heap-object budget the instance must fit within.
  * @return The constructed effect, owned by the caller.
- * @details Called from the driver's show loop during the epoch construction
- * window.
  */
 template <typename E, size_t MAX_BYTES = HS_PHANTASM_EFFECT_HEAP_BYTES>
 Effect *construct_effect() {
   static_assert(sizeof(E) <= MAX_BYTES,
                 "effect exceeds the heap-object budget");
-  // Eager-fill the scanline LUTs before the first frame; the per-pixel
-  // lazy-init guards are non-atomic and rely on this call.
+  // The per-pixel lazy-init guards are non-atomic and rely on this eager fill.
   math::GeometryResolution<E>::init();
   configure_arenas_default(); // Reset before init so effects can override
   E *e = new (std::nothrow) E();

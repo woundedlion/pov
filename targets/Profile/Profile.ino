@@ -37,14 +37,13 @@
 #error "Profile builds require HS_PROFILE_CONFIG_TAG"
 #endif
 
-// Further per-run knobs consumed elsewhere (all via PLATFORMIO_BUILD_FLAGS):
+// Further per-run knobs (all via PLATFORMIO_BUILD_FLAGS):
 //   HS_PROFILE_SPHERICAL_EXPERIMENT enables the spherical experiment probe
 //   HS_PROFILE_EFFECT_HEAP_BYTES static effect storage size with no-op delete
-//   HS_PROFILE_EPOCH_REVS    epoch length override (pov_segmented.h) so one
-//                            instance covers a full preset cycle
+//   HS_PROFILE_EPOCH_REVS    epoch length override so one instance covers a
+//                            full preset cycle
 //   HS_PROFILE_ORDERED_CYCLE random-next cyclers advance in order instead
-//                            (HankinSolids, SphericalHarmonics)
-//   HS_PROFILE_TRANS_SPEED   "Trans Speed" applied after init (below)
+//   HS_PROFILE_TRANS_SPEED   "Trans Speed" applied after init
 //   HS_PROFILE_PRESET        zero-based fixed preset selected after init
 //   HS_PROFILE_AUTO_RESUME   resume choreography after selecting that preset
 //   HS_SCAN_METRICS          compiles in the per-pixel hs::g_scan_metrics probe
@@ -100,10 +99,8 @@
 #error "HS_MINDSPLATTER_REPLAY_AB requires HS_MINDSPLATTER_REPLAY"
 #endif
 
-// The .ino -> .cpp converter injects prototypes for every function it detects
-// immediately before the first one, which here sits inside the anonymous
-// namespace below — giving the injected setup/loop internal linkage they never
-// get a definition for. Declaring them at global scope suppresses the injection.
+// Global-scope declarations stop the .ino converter injecting internal-linkage
+// setup/loop prototypes inside the anonymous namespace.
 FLASHMEM void setup();
 void loop();
 
@@ -221,8 +218,7 @@ public:
     const unsigned long wait_us =
         (unsigned long)((bw1 - bw0) / hs::CycleCounter::CYCLES_PER_US);
     const unsigned long render = dt > wait_us ? dt - wait_us : 0;
-    // One compact line per frame (the full counter tree still dumps per
-    // window — per-frame log_all would perturb the frames it measures).
+    // One compact line per frame; the full counter tree dumps per window.
     hs::log("f %lu w=%lu r=%lu", total_frames + 1, dt, render);
 #ifdef HS_SCAN_METRICS
     drain_scan_metrics();
@@ -452,9 +448,7 @@ private:
    * @brief Prints and resets this window's scan-probe totals.
    * @details Window totals, like the counter tree; divide by the header's frame
    *          count for per-frame figures. walk = exact - convex - sector is the
-   *          residual exact-edge walk. Alpha survivors are the raster_shade
-   *          scope's call count, present in the tree only with
-   *          HS_PROFILE_DEEP_ENABLE (HS_PROFILE_DEEP=1).
+   *          residual exact-edge walk.
    */
   void dump_scan_totals() {
     const ScanTotals &t = scan_totals;
@@ -596,8 +590,8 @@ private:
 
   /**
    * @brief Prints and resets this window's probe-stage cycle buckets.
-   * @details Window totals in cycles beside their event counts, as the scan
-   *          totals do. Each bucket carries one counter read; tick is the summed
+   * @details Window totals in cycles beside their event counts. Each bucket
+   *          carries one counter read; tick is the summed
    *          cost of a back-to-back read pair per probe, so tick/n_probe/2 is
    *          the per-read inflation to subtract from each bucket's mean.
    */
@@ -646,9 +640,7 @@ private:
 #endif
 };
 
-// Bytes the harness wrapper adds over the effect it profiles, derived so every
-// conditionally-compiled member (replay stats, scan totals, probe buckets) is
-// counted and the budget below stays a measurement of the effect alone.
+// Bytes the harness wrapper adds over the effect it profiles.
 static constexpr size_t PROFILE_WRAPPER_BYTES =
     sizeof(ProfiledEffect<CANVAS_W, CANVAS_H>) -
     sizeof(HS_PROFILE_TARGET<CANVAS_W, CANVAS_H>);
@@ -679,10 +671,7 @@ Effect *construct_profiled() {
 #endif
 #endif
 #ifdef HS_PROFILE_TRANS_SPEED
-  // Per-run knob (e.g. IslamicStars carousel speed-up so a single epoch walks
-  // the whole shape roster). The name is resolved at runtime, so this is the
-  // counterpart of the HS_PROFILE_PRESET static_assert: a capture whose knob
-  // never landed would report timings for the default speed.
+  // The name resolves at runtime, so a knob that never landed traps.
   const ParamSetResult trans_speed_set =
       e->updateParameter("Trans Speed", (float)(HS_PROFILE_TRANS_SPEED));
   HS_CHECK(trans_speed_set == ParamSetResult::APPLIED,
@@ -694,20 +683,14 @@ Effect *construct_profiled() {
 
 const POV::EffectFactory EFFECT_FACTORIES[] = {&construct_profiled};
 
-// One hour at RPM. The epoch only rebuilds the same effect here, under the
-// K-revolution commit budget the flywheel ISR traps on, and it resets the
-// profile counters mid-capture; park the boundary past any capture.
-// HS_PROFILE_EPOCH_REVS still overrides this (pov_segmented.h).
+// One hour at RPM: an epoch rebuilds the effect and resets the profile
+// counters, so park the boundary past any capture.
 constexpr uint32_t PROFILE_REVOLUTIONS[] = {RPM * 60};
 
-// Config::effect_revolutions must span the whole roster: valid() and
-// revolutions_for_effect() index it over [0, effect_count).
 static_assert(std::size(PROFILE_REVOLUTIONS) == std::size(EFFECT_FACTORIES));
 
-// The same per-effect RNG identity the shipping playlist builds, derived from
-// the profiled class rather than the ProfiledEffect wrapper. Without it the
-// driver falls back to hs::epoch_seed(0) and the harness measures a different
-// random realization than the show renders.
+// The shipping playlist's RNG identity for the profiled class, not the
+// ProfiledEffect wrapper.
 constexpr uint64_t PROFILE_SEEDS[] = {hs::stable_effect_seed(
     hs::stable_effect_id<HS_PROFILE_TARGET<CANVAS_W, CANVAS_H>>(
         HS_PROFILE_STR(HS_PROFILE_TARGET)))};

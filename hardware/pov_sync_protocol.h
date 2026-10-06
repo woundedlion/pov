@@ -5,23 +5,15 @@
 
 /**
  * @file pov_sync_protocol.h
- * @brief Shared vocabulary of the Phantasm sync protocol: signed-correct
- *        ring arithmetic, the Config constant block, the count-coded symbol
- *        alphabet, the boundary flip gate, the edge-ISR mailbox and the
- *        telemetry counters.
- *
- * Every other pov_sync header builds on this one; see pov_sync.h for the
- * architecture the pieces assemble into.
+ * @brief Shared vocabulary of the Phantasm sync protocol.
  */
 #pragma once
 
 #include <cstddef>
 #include <cstdint>
 
-#include "core/platform/platform.h" // HS_FLASH_MEMBER on Config::valid()
+#include "core/platform/platform.h"
 
-// Forward declaration of the unit-test accessor that reaches EdgeMailbox's
-// split consumer path (burst_complete()/claim()).
 namespace hs_test {
 namespace pov_sync_tests {
 struct EdgeMailboxTestAccess;
@@ -87,9 +79,8 @@ constexpr int32_t circ_dist(int32_t a, int32_t b, int32_t w) {
 /**
  * @brief Half-revolutions of coast Flywheel::position()'s int32 elapsed cast
  * must survive.
- * @details Caps cycles_per_half_rev: the product must stay inside INT32_MAX.
- * At 600 MHz that puts a floor of 135 RPM under the spindle rate a Config may
- * describe.
+ * @details Caps cycles_per_half_rev: the product must stay inside INT32_MAX
+ * (a 135 RPM floor at 600 MHz).
  */
 constexpr uint32_t MIN_SAFE_HALF_REVS = 16;
 
@@ -98,9 +89,7 @@ constexpr uint32_t MIN_SAFE_HALF_REVS = 16;
  *
  * "Cycles" are ticks of the per-board free-running clock (DWT->CYCCNT on the
  * device, a mock counter in tests). Timestamps are uint32_t and wrap; their
- * differences are modular. Servicing the flywheel within its signed-safe coast
- * window lets the rebase rule (spec §4.1)
- * keep its elapsed differences bounded across counter wrap.
+ * differences are modular.
  */
 struct Config {
   int32_t W = 288; /**< Columns per revolution. */
@@ -109,11 +98,7 @@ struct Config {
   uint32_t glitch_filter_cycles = 60000; /**< Min edge spacing (~100 µs). */
 
   // Symbol wire (spec §5.2): pitches/timeouts in columns.
-  int32_t pulse_pitch_cols = 2; /**< Boundary-burst pulse pitch (> mask M). */
-  // valid() requires beacon_frame_cols() < W/4 and acquire_quiet_cols >=
-  // 2*gap_timeout_cols + 7*beacon_pitch_cols + 1. At the shipped constants,
-  // gap_timeout_cols can decrease to pulse_pitch_cols + 1; pulse_pitch_cols
-  // may decrease when the external mask-M margin still holds.
+  int32_t pulse_pitch_cols = 2;  /**< Boundary-burst pulse pitch (> mask M). */
   int32_t beacon_pitch_cols = 1; /**< Beacon digit pulse pitch (checksummed). */
   int32_t gap_timeout_cols = 4;  /**< Quiet time that terminates a burst. */
 
@@ -148,16 +133,9 @@ struct Config {
   /**
    * @brief K: the construction window, the last K revolutions before the
    * commit.
-   * @details With an absolute effect-revolution count, the commit boundary is
-   * B + epoch_repeats + commit_revs from the train's primary copy at B, even
-   * when a board hears a repeat. A beacon-joined board with only a mod-64 count
-   * can commit late; both paths retain the full K-rev construction budget
-   * (spec §6.1, §6.3.1).
-   * The foreground polls the build request between frames, so the budget an
-   * effect actually gets is K revolutions less the render in flight when the
-   * request was published; overrunning it trips the driver's commit_ok trap on
-   * the board whose pending effect is not ready. Not checkable in valid(),
-   * which sees no render times.
+   * @details The commit boundary is B + epoch_repeats + commit_revs from the
+   * train's primary copy at B (spec §6.1, §6.3.1). The effective budget is K
+   * revolutions less the render in flight when the request was published.
    */
   uint32_t commit_revs = 2;
   uint32_t beacon_period_revs = 16; /**< Beacon cadence (spec §6.4). */
@@ -166,21 +144,16 @@ struct Config {
   /**
    * @brief Live-takeover grid: boards take a constructed effect live only at
    * revolutions ≡ 0 mod this.
-   * @details Boards ready at the same grid crossing go live together with
-   * frame counters aligned; a board still awaiting identity or construction
-   * joins at a later eligible crossing. Must divide 64 so a beacon's
-   * mod-64 revolution count lands on the same grid as the master's true
-   * count. Mid-show rejoins wait ≤ grid revolutions past the beacon that named
-   * their effect (spec §9.1, a term of rejoin_bound_revs()).
+   * @details Must divide 64 so a beacon's mod-64 revolution count lands on
+   * the same grid as the master's true count (spec §9.1).
    */
   uint32_t join_grid_revs = 4;
 
   /**
    * @brief Rejoin budget: the most revolutions a mid-show board may wait to go
    * live on the right effect (spec §9.1).
-   * @details The ceiling on rejoin_bound_revs(), enforced in valid() rather
-   * than left to prose. Expressed in revolutions so the bound is rotation-rate
-   * independent; 25 revolutions is ~3.1 s at the nominal 480 RPM.
+   * @details The ceiling on rejoin_bound_revs(); 25 revolutions is ~3.1 s at
+   * 480 RPM.
    */
   uint32_t rejoin_budget_revs = 25;
 
@@ -188,7 +161,7 @@ struct Config {
    * @brief Returns the configured duration for one roster entry.
    * @param effect_index Roster index in [0, effect_count).
    * @return Duration in revolutions.
-   * @details Indexes effect_revolutions unguarded — see its length contract.
+   * @details Indexes effect_revolutions unguarded.
    */
   constexpr uint32_t revolutions_for_effect(int32_t effect_index) const {
     return effect_revolutions ? effect_revolutions[effect_index]
@@ -198,9 +171,7 @@ struct Config {
   /**
    * @brief Cycles per column of rotation.
    * @return Cycle-counter cycles spanning one column.
-   * @details Truncates (~2.6 ppm); used only for pitches/thresholds — position
-   * math divides by the exact cycles_per_half_rev (spec §4.1, "stored period is
-   * per-half-rev").
+   * @details Truncates (~2.6 ppm); for pitches and thresholds only.
    */
   constexpr uint32_t cycles_per_column() const {
     return cycles_per_half_rev / static_cast<uint32_t>(W / 2);
@@ -238,11 +209,8 @@ struct Config {
    * @brief Ceiling on a burst's total duration, in cycles.
    * @return Widest legitimate burst span, plus the gap timeout and a column of
    * slack.
-   * @details Sustained wire noise inside the glitch filter's pass band refreshes
-   * a burst's last edge indefinitely, so the terminating gap never opens. This
-   * bound terminates such a burst anyway; it sits above every legitimate span —
-   * five boundary pulses at pulse_pitch_cols, eight beacon pulses at
-   * beacon_pitch_cols — so a real burst always ends on the gap first.
+   * @details Terminates a burst under sustained noise, where the gap never
+   * opens; a real burst always ends on the gap first.
    */
   constexpr uint32_t max_burst_cycles() const {
     const int32_t span = 4 * pulse_pitch_cols > 7 * beacon_pitch_cols
@@ -275,9 +243,7 @@ struct Config {
    * @brief Beacon frame span (first to last pulse) for one payload, in columns.
    * @param digit_sum Sum of the five base-8 digits (0–35).
    * @return Columns the frame's pulses span.
-   * @details Mirrors schedule_beacon's per-digit advance: each digit burst
-   * spans digit pitches, and four inter-burst gaps of gap_timeout_cols + 1
-   * separate the five bursts.
+   * @details Mirrors SymbolEmitter::schedule_beacon's per-digit advance.
    */
   constexpr int32_t beacon_span_cols(int32_t digit_sum) const {
     return digit_sum * beacon_pitch_cols + 4 * (gap_timeout_cols + 1);
@@ -292,12 +258,8 @@ struct Config {
    * instant a boundary burst may follow it.
    * @param digit_sum Sum of the five base-8 digits (0–35).
    * @return Pulse span plus the quiet a receiver needs after the last pulse.
-   * @details The quiet term is acquire_quiet_cols, the wider of the two windows
-   * the tail must clear: gap_timeout_cols terminates the last digit burst, and
-   * acquire_quiet_cols is what makes the following boundary burst read as an
-   * isolated symbol rather than another digit. valid()'s demarcation relation
-   * (acquire_quiet_cols >= 2*gap_timeout_cols + 7*beacon_pitch_cols + 1) puts
-   * it above the gap timeout for every pitch.
+   * @details The quiet term is acquire_quiet_cols, so the following boundary
+   * burst reads as an isolated symbol.
    */
   constexpr int32_t beacon_frame_cols(int32_t digit_sum) const {
     return beacon_span_cols(digit_sum) + acquire_quiet_cols;
@@ -312,11 +274,9 @@ struct Config {
    * @brief Worst-case revolutions from a mid-show join to going live on the
    * right effect (spec §9.1).
    * @return Widest beacon-to-beacon gap plus the join-grid wait.
-   * @details Beacons are suppressed for the whole commit window, so the widest
-   * gap between two beacons is one cadence plus that window (epoch_repeats
-   * announce revolutions + commit_revs), not the cadence alone; a board that
-   * joins just after a beacon waits that gap, then up to join_grid_revs more
-   * for the next live-takeover boundary. Requires epoch_repeats >= 0.
+   * @details Beacons are suppressed for the commit window, so the widest gap
+   * is one cadence plus epoch_repeats + commit_revs. Requires
+   * epoch_repeats >= 0.
    */
   constexpr uint32_t rejoin_bound_revs() const {
     return beacon_period_revs + join_grid_revs +
@@ -327,10 +287,8 @@ struct Config {
    * @brief Boot-time sanity check for the driver's HS_CHECK.
    * @return nullptr if every protocol constant is self-consistent, otherwise a
    * literal naming the first relation that failed.
-   * @details gate_cols < W/4 is what lets the gate's distance check subsume the
-   * boundary-identity check; see Flywheel::snap. Relations are tested in an
-   * order that makes each one's preconditions (nonzero divisors, non-negative
-   * casts) already established.
+   * @details Each relation's preconditions (nonzero divisors, non-negative
+   * casts) are tested before it.
    */
   HS_FLASH_MEMBER constexpr const char *valid() const {
     if (!(W > 0))
@@ -339,10 +297,6 @@ struct Config {
       return "W even";
     if (!(cycles_per_half_rev > 0))
       return "cycles_per_half_rev > 0";
-    // Flywheel::position() reads (now - epoch) as int32 and divides by the
-    // period, so the period must leave MIN_SAFE_HALF_REVS of coast inside the
-    // signed range. Flywheel::check_period traps the same bound; valid() runs
-    // first and names the offending constant.
     if (!(cycles_per_half_rev <=
           static_cast<uint32_t>(INT32_MAX) / MIN_SAFE_HALF_REVS))
       return "cycles_per_half_rev * MIN_SAFE_HALF_REVS <= INT32_MAX";
@@ -378,9 +332,7 @@ struct Config {
     if (!(acquire_quiet_cols >=
           2 * gap_timeout_cols + 7 * beacon_pitch_cols + 1))
       return "acquire_quiet_cols >= 2*gap_timeout + 7*beacon_pitch + 1";
-    // Stale-frame window order: tick()'s poll-path reset must be the tighter
-    // one, so a truncated train drops on wire silence rather than waiting for
-    // the next burst to reach BeaconParser::feed.
+    // The poll-path stale-frame reset must be tighter than BeaconParser's.
     if (!(acquire_quiet_cols + gap_timeout_cols <
           beacon_interdigit_timeout_cols))
       return "acquire_quiet_cols + gap_timeout < beacon_interdigit_timeout";
@@ -390,8 +342,7 @@ struct Config {
       return "effect_count <= 64";
     if (!(commit_revs > 0))
       return "commit_revs > 0";
-    // Gate epoch_repeats >= 0 first: a negative value casts to a huge uint32_t
-    // and wraps the refractory bound below.
+    // A negative epoch_repeats casts to a huge uint32_t.
     if (!(epoch_repeats >= 0))
       return "epoch_repeats >= 0";
     if (!(refractory_revs > commit_revs + static_cast<uint32_t>(epoch_repeats)))
@@ -404,13 +355,10 @@ struct Config {
         return "revolutions_for_effect(i) > refractory_revs";
     if (!(beacon_period_revs > commit_revs))
       return "beacon_period_revs > commit_revs";
-    // Beacon rev resync recovers a slip only in (-32, +32), so keep the period
-    // below the half-window.
+    // Beacon rev resync recovers a slip only in (-32, +32).
     if (!(beacon_period_revs < 32))
       return "beacon_period_revs < 32";
-    // §9.1 rejoin budget: cap the achieved bound, not the cadence alone — the
-    // commit window's beacon blackout and the join grid are part of what a
-    // rejoiner waits through.
+    // §9.1 rejoin budget.
     if (!(rejoin_bound_revs() <= rejoin_budget_revs))
       return "rejoin_bound_revs() <= rejoin_budget_revs";
     if (!(join_grid_revs > 0))
@@ -569,12 +517,8 @@ struct BurstSnapshot {
 /**
  * @brief The only state the sync-wire edge ISR writes. The publisher applies
  * the glitch filter and accumulates edge count + first/last timestamps; the
- * consumer (flywheel ISR) detects burst termination by gap timeout or duration
- * bound and claims the burst with try_claim(), which tests completion and takes
- * the burst in one
- * step so the two cannot be split around an edge. On the device that call runs
- * under a brief IRQ-off window (a mailbox snapshot, spec §8.2); on the host
- * it is plain.
+ * consumer detects burst termination by gap timeout or duration bound and
+ * claims the burst with try_claim() under an IRQ-off window (spec §8.2).
  */
 class EdgeMailbox {
 public:
@@ -605,16 +549,9 @@ public:
    * claimed regardless of the gap (Config::max_burst_cycles).
    * @param[out] out Burst snapshot, written only when true is returned.
    * @return True if a burst had terminated and was claimed.
-   * @details The edge ISR must not run between the completion test and the
-   * reset; the device brackets this call in IRQ-off.
-   * `now` is sampled before the bracket opens, so an edge landing in between
-   * leaves `last_cycles` ahead of it; the signed re-check rejects that wrapped
-   * modular difference instead of claiming a burst still in flight.
-   * The duration term takes the same re-check against `first_cycles`. It is what
-   * frees the mailbox under sustained noise, where every accepted edge pushes
-   * the gap out and the quiet term alone never fires. The claimed burst still
-   * undergoes ordinary count classification; duration expiry does not force
-   * an INVALID symbol.
+   * @details Must run with the edge ISR masked. `now` may precede an edge
+   * accepted after it was sampled; the signed re-checks reject that wrapped
+   * difference. Duration expiry does not force an INVALID symbol.
    */
   bool try_claim(uint32_t now, uint32_t gap_timeout_cycles,
                  uint32_t max_burst_cycles, BurstSnapshot *out) {
@@ -636,17 +573,9 @@ public:
    * quiet longer than the filter window.
    * @param now Current timestamp, in cycles.
    * @param glitch_filter_cycles Filter window, in cycles.
-   * @details Keeps `now - prior_cycles` bounded: `prior_cycles` otherwise
-   * persists indefinitely, and after ~7.16 s of wire silence the cycle counter
-   * wraps, making that modular difference pseudo-random — with p ≈ glitch/2³²
-   * it lands inside the reject window and falsely rejects a real edge. The
-   * flywheel poll calls this every wake on downstream boards, so a stale
-   * reference is cleared within one wake after the filter window elapses,
-   * long before the counter can wrap. Must run
-   * under the same IRQ-off bracket as try_claim(): it writes have_prior,
-   * which the edge ISR also writes. `now` is sampled before the bracket opens,
-   * so the signed re-check rejects the wrapped modular difference an edge
-   * accepted in between would produce.
+   * @details Keeps `now - prior_cycles` bounded across a counter wrap. Must
+   * run with the edge ISR masked (it writes have_prior); the signed re-check
+   * rejects an edge accepted after `now` was sampled.
    */
   void age_prior(uint32_t now, uint32_t glitch_filter_cycles) {
     if (have_prior && (now - prior_cycles) >= glitch_filter_cycles &&
@@ -655,8 +584,6 @@ public:
   }
 
 private:
-  // Split consumer path, kept private behind a test friend so production takes
-  // only the unsplittable try_claim().
   friend struct ::hs_test::pov_sync_tests::EdgeMailboxTestAccess;
 
   /**
@@ -695,8 +622,6 @@ private:
 /**
  * @brief Counters maintained by the flywheel ISR, polled by the foreground
  * behind hs::debug.
- * @details Degradation the protocol absorbs silently must still be visible in
- * one glance of debug output.
  */
 struct Telemetry {
   uint32_t symbols_accepted = 0;

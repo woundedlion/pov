@@ -1,9 +1,5 @@
-# Lint config for every Python file in the repo,
-# enforced by the `lint` job in .github/workflows/ci.yml.
-#
-# Defect rules only: pyflakes, the pycodestyle error classes and the pylint
-# error group. No formatter and no stylistic rules -- the tree passes this
-# unmodified, so the gate reports real breakage rather than layout opinions.
+# Lint config for every Python file in the repo: defect rules only (pyflakes,
+# the pycodestyle error classes and the pylint error group).
 
 [lint]
 select = ["E4", "E7", "E9", "F", "PLE"]

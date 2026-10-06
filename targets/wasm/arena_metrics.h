@@ -6,11 +6,6 @@
 /**
  * @file arena_metrics.h
  * @brief Arena metrics reporting shared by the WASM binding headers.
- *
- * The engine arenas are read both per-frame by HolosphereEngine's memory HUD
- * and on demand by the MeshOps tooling HUD, which appends the tooling arenas
- * to the same report. Included only by engine_bindings.h and
- * mesh_ops_bindings.h.
  */
 #pragma once
 
@@ -23,13 +18,10 @@
  * @param metrics Report object to extend.
  * @param name Key the entry is stored under.
  * @param arena Arena to measure.
- * @details Both peaks are published: high_water_mark is the window since the
- *          last peak reset/rebind, which an effect that re-splits the arenas mid-run
- *          (IslamicStars, on every shape spawn) restarts, while
- *          lifetime_high_water_mark folds every discarded window in and is the
- *          figure to size a budget against. It can exceed capacity legitimately
- *          — a re-split moves the boundary — so an overrun gate reads the
- *          windowed mark.
+ * @details high_water_mark covers the window since the last peak
+ *          reset/rebind; lifetime_high_water_mark folds every window in and can
+ *          legitimately exceed capacity after a re-split, so an overrun gate
+ *          reads the windowed mark.
  */
 static void add_arena_metrics(emscripten::val &metrics, const char *name,
                               const Arena &arena) {
@@ -45,9 +37,7 @@ static void add_arena_metrics(emscripten::val &metrics, const char *name,
  * @brief Builds a {usage, high_water_mark, lifetime_high_water_mark, capacity}
  *        report for the three engine arenas.
  * @return JS object mapping each engine arena name to its metrics, in bytes.
- * @details The per-frame HUD path. Every entry costs an embind round-trip, so
- *          this covers only the arenas an engine instance can move; the tooling
- *          arenas are reported by collect_arena_metrics().
+ * @details Engine arenas only; every entry costs an embind round-trip.
  */
 static emscripten::val collect_engine_arena_metrics() {
   emscripten::val metrics = emscripten::val::object();
