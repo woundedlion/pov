@@ -21,7 +21,7 @@ struct ProjMirrorBinding {
   using Instrumentation = PB::NoInstrumentation;
 };
 
-template <typename Derived> struct ProjMirrorBase {
+struct ProjMirrorBase {
   using Binding = ProjMirrorBinding;
   using FrameState = ProjMirrorFrame;
   static const math::Quaternion &conjugate(const ProjMirrorFrame &frame) {
@@ -29,7 +29,7 @@ template <typename Derived> struct ProjMirrorBase {
   }
 };
 
-struct MeridianProjMirror : ProjMirrorBase<MeridianProjMirror> {
+struct MeridianProjMirror : ProjMirrorBase {
   static float central_meridian(const ProjMirrorFrame &frame) {
     return frame.meridian.central_meridian;
   }
@@ -38,13 +38,13 @@ struct MeridianProjMirror : ProjMirrorBase<MeridianProjMirror> {
   }
 };
 
-struct GnomonicProjMirror : ProjMirrorBase<GnomonicProjMirror> {
+struct GnomonicProjMirror : ProjMirrorBase {
   static float singularity_fade(const ProjMirrorFrame &frame) {
     return frame.gnomonic.singularity_fade;
   }
 };
 
-struct PeirceProjMirror : ProjMirrorBase<PeirceProjMirror> {
+struct PeirceProjMirror : ProjMirrorBase {
   static float central_meridian(const ProjMirrorFrame &frame) {
     return frame.peirce.central_meridian;
   }
@@ -59,7 +59,7 @@ struct PeirceProjMirror : ProjMirrorBase<PeirceProjMirror> {
   }
 };
 
-struct PeirceFastProjMirror : ProjMirrorBase<PeirceFastProjMirror> {
+struct PeirceFastProjMirror : ProjMirrorBase {
   static constexpr bool ZERO_CENTRAL_MERIDIAN = true;
   static float coordinate_scale(const ProjMirrorFrame &frame) {
     return frame.peirce_fast.coordinate_scale;
@@ -69,7 +69,7 @@ struct PeirceFastProjMirror : ProjMirrorBase<PeirceFastProjMirror> {
   }
 };
 
-struct BonneProjMirror : ProjMirrorBase<BonneProjMirror> {
+struct BonneProjMirror : ProjMirrorBase {
   static float central_meridian(const ProjMirrorFrame &frame) {
     return frame.bonne.central_meridian;
   }
@@ -81,7 +81,7 @@ struct BonneProjMirror : ProjMirrorBase<BonneProjMirror> {
   }
 };
 
-struct AiroceanProjMirror : ProjMirrorBase<AiroceanProjMirror> {
+struct AiroceanProjMirror : ProjMirrorBase {
   static float central_meridian(const ProjMirrorFrame &frame) {
     return frame.airocean.central_meridian;
   }

@@ -31,7 +31,7 @@ struct SampleMirrorBinding {
   using Instrumentation = PB::NoInstrumentation;
 };
 
-template <typename Derived> struct ClockedSampleMirror {
+struct ClockedSampleMirror {
   using Binding = SampleMirrorBinding;
   using FrameState = SampleMirrorFrame;
   static PB::Source::PreparedSource prepare(const FrameState &frame) {
@@ -39,14 +39,14 @@ template <typename Derived> struct ClockedSampleMirror {
   }
 };
 
-struct TwinWaveSampleMirror : ClockedSampleMirror<TwinWaveSampleMirror> {
+struct TwinWaveSampleMirror : ClockedSampleMirror {
   static const In::Op::TwinWaveSampleParams &
   params(const SampleMirrorFrame &frame) {
     return frame.twin_wave;
   }
 };
 
-struct RingsSampleMirror : ClockedSampleMirror<RingsSampleMirror> {
+struct RingsSampleMirror : ClockedSampleMirror {
   static const In::Op::RingsSampleParams &
   params(const SampleMirrorFrame &frame) {
     return frame.rings;
@@ -66,7 +66,7 @@ struct SphericalRingsSampleMirror {
   }
 };
 
-struct SpiralSampleMirror : ClockedSampleMirror<SpiralSampleMirror> {
+struct SpiralSampleMirror : ClockedSampleMirror {
   static const In::Op::SpiralSampleParams &
   params(const SampleMirrorFrame &frame) {
     return frame.spiral;
@@ -82,15 +82,14 @@ struct LatticeSampleMirror {
   }
 };
 
-struct FractalSampleMirror : ClockedSampleMirror<FractalSampleMirror> {
+struct FractalSampleMirror : ClockedSampleMirror {
   static const In::Op::FractalSampleParams &
   params(const SampleMirrorFrame &frame) {
     return frame.fractal;
   }
 };
 
-struct TessellationSampleMirror
-    : ClockedSampleMirror<TessellationSampleMirror> {
+struct TessellationSampleMirror : ClockedSampleMirror {
   static const In::Op::TessellationSampleParams &
   params(const SampleMirrorFrame &frame) {
     return frame.tessellation;
