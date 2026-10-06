@@ -17,7 +17,7 @@
 #include "core/engine/engine.h"
 #include "effects/ReactionDiffusionBase.h"
 
-// Unit-test accessor (tests/test_effects.h) reaching the private Q16
+// Unit-test accessor (tests/effects/reaction_diffusion_bz.h) reaching the private Q16
 // conversions, advance_species, perturb_state, and one physics substep, which
 // the smoke/determinism harness cannot pin.
 namespace hs_test {

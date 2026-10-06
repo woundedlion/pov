@@ -788,7 +788,7 @@ private:
    * within the support radius.
    * @details Off the render path: shade_pixel gathers the stencil once per
    * pixel and re-weights it inline. This one-sample form is the oracle
-   * tests/test_effects.h bounds that shared stencil against.
+   * tests/effects/reaction_diffusion_gs.h bounds that shared stencil against.
    */
   float interpolate_b(const math::Vector &p, int seed,
                       const math::Vector *nodes) const {
