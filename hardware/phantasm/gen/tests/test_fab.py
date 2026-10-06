@@ -1120,19 +1120,23 @@ class ZipMembershipTests(unittest.TestCase):
 
 class PackagePromotionTests(unittest.TestCase):
     def test_invalid_members_preserve_the_previous_package(self):
-        for replacement in (None, "unexpected-In1_Cu.g1", "archive-failure"):
+        for replacement in (None, "unexpected-In1_Cu.g1", "archive-failure", "stale-backup"):
             with self.subTest(replacement=replacement), \
                     tempfile.TemporaryDirectory() as directory, \
                     contextlib.ExitStack() as stack:
                 out = Path(directory)
                 jlc = out / "jlc"
                 jlc.mkdir()
+                if replacement == "stale-backup":
+                    (out / "jlc.previous").mkdir()
                 previous = {fab.ARCHIVE: b"previous archive",
                             fab.SUMS_FILE: b"previous manifest"}
                 for name, content in previous.items():
                     (jlc / name).write_bytes(content)
 
                 def export(stage, args):
+                    if replacement == "stale-backup" and stage == "gerber":
+                        self.fail("stale backup must be diagnosed before gerber export")
                     target = Path(args[args.index("-o") + 1])
                     if stage == "netlist":
                         target.write_text('(export (design (sheet (name "/") '
@@ -1170,7 +1174,7 @@ class PackagePromotionTests(unittest.TestCase):
                     stack.enter_context(unittest.mock.patch.object(
                         fab, "write_upload_zip", side_effect=OSError("injected archive failure")))
                 with self.assertRaisesRegex((SystemExit, OSError),
-                                            "phantasm-In1_Cu.g1|unexpected-In1_Cu.g1|injected archive failure"):
+                                            "phantasm-In1_Cu.g1|unexpected-In1_Cu.g1|injected archive failure|recover previous package"):
                     fab.main()
                 self.assertEqual({p.name: p.read_bytes() for p in jlc.iterdir()}, previous)
 
