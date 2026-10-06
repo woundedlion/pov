@@ -371,12 +371,22 @@ inline void test_arena_covers() {
 inline void test_arena_reclaimed_since() {
   Arena a(test_buf_a, sizeof(test_buf_a));
   a.allocate(32);
+  HS_EXPECT_EQ(a.get_rewind_floor(), SIZE_MAX);
+  const auto INITIAL_SEQ = a.get_rewind_seq();
+  a.set_offset(a.get_offset());
+  {
+    ScratchScope empty(a);
+  }
+  HS_EXPECT_EQ(a.get_rewind_floor(), SIZE_MAX);
+  HS_EXPECT_EQ(a.get_rewind_seq(), INITIAL_SEQ);
   size_t mark = a.get_offset();
   uint64_t seq_at_birth = a.get_rewind_seq();
   void *p = a.allocate(64);
   HS_EXPECT_FALSE(a.reclaimed_since(p, 64, seq_at_birth));
 
   a.set_offset(mark);
+  HS_EXPECT_EQ(a.get_rewind_floor(), mark);
+  HS_EXPECT_EQ(a.get_rewind_seq(), INITIAL_SEQ + 1);
   HS_EXPECT_TRUE(a.reclaimed_since(p, 64, seq_at_birth));
 
   // A new owner takes the same bytes: covers() calls the region live again.
