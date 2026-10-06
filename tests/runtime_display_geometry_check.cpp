@@ -12,6 +12,7 @@
 #include <limits>
 
 namespace {
+constexpr int FEEDBACK_FRAMES = 4;
 template <int W, int H> void check_geometry(float north, float south) {
   using Geometry = math::DisplayGeometry<H>;
   using Field = hs::SphericalFieldLayout<W, H>;
@@ -68,9 +69,28 @@ template <int W, int H> void check_geometry(float north, float south) {
   hs_test::reset_globals();
   MeshFeedback<W, H> feedback;
   feedback.init();
-  feedback.draw_frame();
-  feedback.advance_display();
-  HS_EXPECT_TRUE(feedback.buffer_free());
+  int lit = 0;
+  int lit_endpoint_rows[2] = {0, 0};
+  for (int frame = 0; frame < FEEDBACK_FRAMES; ++frame) {
+    feedback.draw_frame();
+    feedback.advance_display();
+  }
+  for (int y = 0; y < H; ++y)
+    for (int x = 0; x < W; ++x) {
+      const Pixel &p = feedback.get_pixel(x, y);
+      if (!(p.r | p.g | p.b))
+        continue;
+      ++lit;
+      if (y == 0)
+        ++lit_endpoint_rows[0];
+      if (y == H - 1)
+        ++lit_endpoint_rows[1];
+    }
+  HS_EXPECT_GT(lit, 0);
+  if (!Field::HAS_NORTH_POLE)
+    HS_EXPECT_GT(lit_endpoint_rows[0], 0);
+  if (!Field::HAS_SOUTH_POLE)
+    HS_EXPECT_GT(lit_endpoint_rows[1], 0);
 }
 } // namespace
 
