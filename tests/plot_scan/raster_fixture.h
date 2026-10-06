@@ -78,3 +78,63 @@ inline float max_projected_gap(const std::vector<math::Vector> &points) {
   }
   return worst;
 }
+
+/** @brief Pixel counts from a clipped render-band/reference comparison. */
+struct RenderBandDiff {
+  int lit = 0;            /**< Lit reference pixels in the render band. */
+  int margin_lit = 0;     /**< Lit reference pixels outside the display band. */
+  int row_margin_lit = 0; /**< Lit reference pixels above or below display. */
+  int diff = 0;           /**< Pixels differing from the reference. */
+  int margin_diff = 0;    /**< Differing pixels outside the display band. */
+  int first_x = -1;       /**< Column of the first difference, or -1. */
+  int first_y = -1;       /**< Row of the first difference, or -1. */
+};
+
+/** @brief Initializes every pixel in the pending frame to black. */
+template <int W, int H> inline void initialize_parity_frame(Canvas &canvas) {
+  for (int y = 0; y < H; ++y)
+    for (int x = 0; x < W; ++x)
+      canvas(x, y) = Pixel{};
+}
+
+/** @brief Compares a frame with its full-canvas reference over the render band. */
+template <int W>
+inline RenderBandDiff render_band_diff(const hs_test::StubEffect &fx,
+                                       const std::vector<Pixel> &reference) {
+  RenderBandDiff out;
+  const ClipRegion &clip = fx.clip();
+  for (int y = clip.render_y_start(); y < clip.render_y_end(); ++y) {
+    for (int x = 0; x < W; ++x) {
+      if (!clip.contains_x(x))
+        continue;
+      const Pixel &actual = fx.get_pixel(x, y);
+      const Pixel &expected = reference[static_cast<size_t>(y) * W + x];
+      const bool in_display_row = y >= clip.y_start && y < clip.y_end;
+      const bool in_display =
+          in_display_row && x >= clip.x_start && x < clip.x_end;
+      const bool lit = (expected.r | expected.g | expected.b) != 0;
+      out.lit += lit;
+      out.margin_lit += !in_display && lit;
+      out.row_margin_lit += !in_display_row && lit;
+      if (actual == expected)
+        continue;
+      if (out.first_x < 0) {
+        out.first_x = x;
+        out.first_y = y;
+      }
+      ++out.diff;
+      out.margin_diff += !in_display;
+    }
+  }
+  return out;
+}
+
+/** @brief Reports one render-band parity result with its first mismatch. */
+inline void expect_render_band_parity(const char *label,
+                                      const RenderBandDiff &diff) {
+  if (diff.diff != 0)
+    std::printf("  [%s] diff=%d margin_diff=%d first=(%d,%d)\n", label,
+                diff.diff, diff.margin_diff, diff.first_x, diff.first_y);
+  HS_CONTEXT(label, diff.first_x, diff.first_y);
+  HS_EXPECT_EQ(diff.diff, 0);
+}
