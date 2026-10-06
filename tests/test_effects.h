@@ -198,10 +198,8 @@ inline void smoke_one(const char *name) {
     for (int y = 0; y < H; ++y)
       for (int x = 0; x < W; ++x) {
         const Pixel &pixel = effect.get_pixel(x, y);
-        for (uint16_t channel : {pixel.r, pixel.g, pixel.b}) {
-          hash = hs_test::fnv1a64_byte(hash, channel & 0xff);
-          hash = hs_test::fnv1a64_byte(hash, channel >> 8);
-        }
+        for (uint16_t channel : {pixel.r, pixel.g, pixel.b})
+          hash = hs_test::fnv1a64_channel(hash, channel);
       }
     if (f > frames / 2 && hash != previous_hash)
       motion = true;
@@ -420,9 +418,6 @@ inline void render_capture(std::vector<Pixel> &out, int frames,
   if (lit)
     *lit = false;
   uint64_t fold = hs_test::FNV1A64_BASIS;
-  const auto fold_byte = [&fold](uint8_t byte) {
-    fold = hs_test::fnv1a64_byte(fold, byte);
-  };
 
   E<W, H> effect;
   effect.init();
@@ -436,12 +431,8 @@ inline void render_capture(std::vector<Pixel> &out, int frames,
           const Pixel p = effect.get_pixel(x, y);
           if (lit && (p.r || p.g || p.b))
             *lit = true;
-          fold_byte(p.r & 0xFF);
-          fold_byte(p.r >> 8);
-          fold_byte(p.g & 0xFF);
-          fold_byte(p.g >> 8);
-          fold_byte(p.b & 0xFF);
-          fold_byte(p.b >> 8);
+          for (uint16_t channel : {p.r, p.g, p.b})
+            fold = hs_test::fnv1a64_channel(fold, channel);
         }
   }
   if (frame_fold)
