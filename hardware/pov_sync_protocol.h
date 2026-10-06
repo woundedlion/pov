@@ -145,7 +145,7 @@ struct Config {
    * @brief Live-takeover grid: boards take a constructed effect live only at
    * revolutions ≡ 0 mod this.
    * @details Must divide 64 so a beacon's mod-64 revolution count lands on
-   * the same grid as the master's true count (spec §9.1).
+   * the same grid as the master's true count (spec §6.5).
    */
   uint32_t join_grid_revs = 4;
 
