@@ -25,7 +25,7 @@ namespace hs {
  * @brief Allocation-free layout for a latitude-ring field on a sphere.
  * @tparam W Longitude-domain width.
  * @tparam H Number of rendered latitude rows.
- * @tparam HOffset Legacy south offset; -1 selects the active display profile.
+ * @tparam HOffset South offset; -1 selects the active display profile.
  * @details Rings follow the requested latitude-row spacing, with endpoint and
  *          optional infill rings added. Each ring's periodic
  * longitude count follows sin(phi), producing approximately uniform physical
@@ -202,8 +202,6 @@ public:
    *   vector does not bit-exactly invert the exact-trig `sample_vector()`.
    * @param value Unit vector on the sphere.
    * @return Coordinates with x in [-W/2, W/2]; missing caps project outside [0,H-1].
-   *   x is signed because Spherical::theta is atan2's [-pi, pi], unlike
-   *   sample_coordinates()' [0, W); longitude() accepts either convention.
    */
   Coordinates project(const math::Vector &value) const {
     const math::Spherical spherical(value);
@@ -214,8 +212,8 @@ public:
   /**
    * @brief sin(phi) at row y.
    * @param y Latitude row in the rendered domain.
-   * @return The row's latitude sine, from a Taylor series because sinf is not
-   *   constexpr; the longitude density of the row relative to the equator.
+   * @return The row's latitude sine (constexpr Taylor series); the longitude
+   *   density of the row relative to the equator.
    */
   static constexpr float latitude_sine(int y) {
     float phi = Geometry::row_to_phi(static_cast<float>(y));
@@ -251,8 +249,7 @@ public:
    * @param y Latitude row controlling the longitude footprint.
    * @param emit Receives each destination column and filtered value.
    * @note A footprint that spans the whole row emits the row mean, constant in
-   *   longitude. The odd-width sliding window would otherwise drop one column
-   *   per output and leave a pole row rippling with the source.
+   *   longitude.
    */
   template <typename Accumulator, typename Value, typename Emit>
   void reconstruct_longitude_row(const Value *source, int y,
@@ -410,8 +407,7 @@ public:
   /**
    * @brief Locates the samples bracketing a fractional longitude.
    * @param ring Target latitude ring.
-   * @param x Longitude in any range; wrapped into [0, W), so both project()'s
-   *   signed x and sample_coordinates()' [0, W) are accepted. A non-finite x
+   * @param x Longitude in any range; wrapped into [0, W). A non-finite x
    *   saturates to the ring's seam.
    * @return Absolute sample indices (ring.offset applied) and their mix.
    */
@@ -596,7 +592,7 @@ private:
   /**
    * @brief sample_bilinear_rgb()'s footprint outside the direct band.
    * @details Handles footprints that touch pole rows or leave the rendered
-   * domain; the direct-band path stays inline.
+   * domain.
    */
   template <typename Pixel>
   HS_NOINLINE_NOCLONE void sample_bilinear_rgb_poles(
@@ -671,16 +667,12 @@ public:
    * @param ring_begin First ring index to fill.
    * @param ring_end Last ring index to fill; must be below ring_count().
    * @param populate_sample Returns the Value stored at each sample.
-   * @details Walks each ring by an incremental rotation instead of per-sample
-   *   trig, so the `position` handed to the callback is only approximately
-   *   unit and accumulates rounding drift from the exact-trig sample_vector();
-   *   a callback that needs the exact vector must call
-   *   sample_vector() itself.
+   * @details Walks each ring by an incremental rotation, so `position` is only
+   *   approximately unit and drifts from the exact-trig sample_vector(); a
+   *   callback that needs the exact vector calls sample_vector() itself.
    */
   template <typename Populate>
   void populate(int ring_begin, int ring_end, Populate &&populate_sample) {
-    // next_ring() saturates at the last ring, so an overrun would silently
-    // re-populate it instead of trapping.
     HS_CHECK(ring_end < layout.ring_count(),
              "SphericalField::populate: ring_end %d past the last ring %d",
              ring_end, layout.ring_count() - 1);

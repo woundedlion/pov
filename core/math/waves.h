@@ -21,14 +21,12 @@ namespace math {
  * @param from The output value at the trough.
  * @param to The output value at the peak.
  * @param freq The frequency (cycles per unit time).
- * @param phase The starting phase offset, in cycles (phase = 1 is a full cycle),
- *        in the same units as tri_wave/square_wave.
+ * @param phase The starting phase offset, in cycles (phase = 1 is a full cycle).
  * @return A lambda mapping time t to the wave value.
- * @details At phase 0 this starts at the trough, matching tri_wave; square_wave starts high.
+ * @details At phase 0 this starts at the trough.
  */
 inline auto sin_wave(float from, float to, float freq, float phase) {
-  // Hoist only 2π·phase: reassociating freq·t·2π could shift the last bit,
-  // perturbing determinism for a given target (sinf's libm differs per target).
+  // Hoist only 2π·phase; reassociating freq·t·2π shifts the last bit.
   const float phase_term = 2 * math::PI_F * phase;
   return [=](float t) -> float {
     // −π/2 anchors t=0, phase=0 at the trough.
@@ -46,7 +44,7 @@ inline auto sin_wave(float from, float to, float freq, float phase) {
  * @param freq The frequency (cycles per unit time).
  * @param phase The starting phase offset, in cycles.
  * @return A lambda mapping time t to the wave value.
- * @details At phase 0 this starts at the trough, matching sin_wave; square_wave starts high.
+ * @details At phase 0 this starts at the trough.
  */
 inline auto tri_wave(float from, float to, float freq, float phase) {
   return [=](float t) -> float {
@@ -69,16 +67,14 @@ inline auto tri_wave(float from, float to, float freq, float phase) {
  * @param duty_cycle Fraction in [0, 1] of each cycle spent "on" (high).
  * @param phase The starting phase offset, in cycles.
  * @return A lambda mapping time t to the wave value.
- * @details At phase 0 this starts high while sin_wave and tri_wave start at the
- *          trough, unless duty_cycle is 0.
+ * @details At phase 0 this starts high unless duty_cycle is 0.
  */
 inline auto square_wave(float from, float to, float freq, float duty_cycle,
                         float phase) {
   HS_CHECK(duty_cycle >= 0.0f && duty_cycle <= 1.0f,
            "square_wave: duty_cycle must be in [0,1]");
   return [=](float t) -> float {
-    // wrap_t, not raw fmod: fmod keeps the dividend's sign, so a negative phase
-    // would stay < duty_cycle and wrongly latch the wave "on".
+    // wrap_t folds a negative phase into [0,1).
     if (math::wrap_t(t * freq + phase) < duty_cycle) {
       return to;
     }

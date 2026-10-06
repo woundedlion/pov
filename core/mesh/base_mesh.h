@@ -59,11 +59,7 @@ inline constexpr size_t PLATONIC_BASE_MESH_COUNT = 5;
 
 /**
  * @brief Geometry bounds every BaseMesh satisfies, for sizing arena storage.
- * @details The generators build at runtime, so these are authored ceilings the
- * loaders check each compiled solid against rather than derived counts. Tight:
- * the truncated icosidodecahedron hits 120 vertices and 180 edges, the
- * disdyakis triacontahedron 120 faces. A mesh drawn through Plot::Mesh must
- * also stay within its DEDUP_CAPACITY vertex ceiling.
+ * @details Authored ceilings, checked against each compiled solid.
  */
 inline constexpr size_t MAX_SOLID_VERTICES = 120;
 /** @brief Flat face-index slots; each undirected edge is walked twice. */

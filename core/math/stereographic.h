@@ -16,32 +16,24 @@ namespace projections {
 /**
  * @brief Conventional representation of the point at infinity on the complex
  * plane.
- * @details Single source of truth for the pole sentinel: every forward
- * projection that hits a singularity emits this magnitude, and every inverse
- * projection recognizes it (see the two thresholds below).
+ * @details Forward projections emit this magnitude at a singularity; inverses
+ * recognize it via STEREO_INF_RECOGNIZE.
  */
 inline constexpr float STEREO_INF = 1e4f;
 
 /**
  * @brief |z| at/above which inv_stereo() treats its input as the infinity
  * sentinel.
- * @details Half of STEREO_INF: an intervening Mobius map can scale the emitted
- * sentinel toward (not past) zero, so the inverse needs margin below the emitted
- * magnitude to snap it back to the pole.
+ * @details Half of STEREO_INF, so a sentinel shrunk by a Mobius map still
+ * snaps back to the pole.
  */
 inline constexpr float STEREO_INF_RECOGNIZE = STEREO_INF * 0.5f;
 
 /**
  * @brief 1 - v.y below which stereo() is inside the north-pole cap and emits the
  * sentinel magnitude instead of the raw quotient.
- * @details Placed at the algebraic crossover: on the unit sphere
- * |stereo(v)| = sqrt((1 + v.y) / (1 - v.y)) reaches STEREO_INF exactly here.
- * Float spacing puts that crossover out of reach, though — 1 - v.y is exact for
- * v.y in [0.5, 1] and its smallest nonzero value (2^-24) already quotients to
- * ~5.8e3, so the cap is entered only at 1 - v.y == 0 and the sentinel steps up
- * ~1.7x from the largest magnitude the quotient can produce. Both magnitudes
- * clear STEREO_INF_RECOGNIZE, so inv_stereo returns either to the pole. Any
- * retune below 2^-24 is inert.
+ * @details |stereo(v)| reaches STEREO_INF exactly here; in float, the cap is
+ * entered only at 1 - v.y == 0.
  */
 inline constexpr float STEREO_POLE_EPS = 2.0f / (STEREO_INF * STEREO_INF);
 
@@ -55,7 +47,7 @@ inline constexpr float STEREO_AZIMUTH_EPS = 1e-12f;
 /**
  * @brief |v.y| (a length) at or below which gnomonic() floors the projection
  * divisor to avoid div-by-zero at the equator, clamping the result to the
- * sentinel. Unrelated to the coincidentally-equal math::EPS_NORMAL_SQ.
+ * sentinel.
  */
 inline constexpr float STEREO_EQUATOR_EPS = 1e-9f;
 
@@ -81,7 +73,6 @@ inline math::Complex radial_scale(const math::Complex &direction, float length,
 inline math::Complex stereo(const math::Vector &v) {
   float denom = 1.0f - v.y;
   if (denom < STEREO_POLE_EPS) {
-    // North-pole cap: keep azimuth unless its planar radius is below the threshold.
     float r = sqrtf(v.x * v.x + v.z * v.z);
     if (r < STEREO_AZIMUTH_EPS)
       return math::Complex(STEREO_INF, 0.0f);
@@ -97,8 +88,7 @@ inline math::Complex stereo(const math::Vector &v) {
  * @return The corresponding point on the unit sphere.
  */
 inline math::Vector inv_stereo(const math::Complex &z) {
-  // |z| >= STEREO_INF_RECOGNIZE → North Pole (catches the sentinel and any point
-  // within ~0.02° of the pole; squared compare avoids a sqrt).
+  // Sentinel, or within ~0.02° of the pole → north pole.
   float r2 = z.squared_magnitude();
   if (r2 >= STEREO_INF_RECOGNIZE * STEREO_INF_RECOGNIZE)
     return math::Vector(0.0f, 1.0f, 0.0f);
@@ -118,19 +108,13 @@ inline math::Vector inv_stereo(const math::Complex &z) {
  * inv_gnomonic's `hemisphere_sign`.
  */
 inline math::Complex gnomonic(const math::Vector &v) {
-  // Floor the divisor to ±STEREO_EQUATOR_EPS to avoid div-by-zero at v.y == 0,
-  // then clamp the magnitude to STEREO_INF. A near-equator point clamps to the
-  // sentinel, which inv_gnomonic snaps back to the equator.
-  // copysignf, not a >= 0 test: -0.0f must floor negative like the values it
-  // is the limit of.
+  // copysignf: -0.0f floors negative like the values it is the limit of.
   float div = (std::abs(v.y) < STEREO_EQUATOR_EPS)
                   ? copysignf(STEREO_EQUATOR_EPS, v.y)
                   : v.y;
   float gx = v.x / div;
   float gz = v.z / div;
-  // Radial clamp, matching project_div: clamping the components separately
-  // would drag a saturated point towards the nearest diagonal, discarding the
-  // azimuth the inverse reads back.
+  // Radial clamp preserves the azimuth inv_gnomonic reads back.
   const float magnitude_sq = gx * gx + gz * gz;
   if (magnitude_sq > STEREO_INF * STEREO_INF) {
     return stereographic_detail::radial_scale(math::Complex(gx, gz),
@@ -151,11 +135,8 @@ inline math::Complex gnomonic(const math::Vector &v) {
  */
 inline math::Vector inv_gnomonic(const math::Complex &z,
                                  float hemisphere_sign) {
-  // Clamped-to-infinity → equator, recognized from STEREO_INF_RECOGNIZE (margin
-  // snaps a Mobius-shrunk sentinel back to the limit). Radial, matching the
-  // forward clamp: a per-component test would make the snap-back radius
-  // azimuth-dependent. Squared compare avoids a sqrt, and a magnitude past the
-  // float range overflows to infinity, which still clears the bound.
+  // Sentinel → equator; a magnitude past the float range overflows to infinity,
+  // which still clears the bound.
   if (z.squared_magnitude() >= STEREO_INF_RECOGNIZE * STEREO_INF_RECOGNIZE) {
     // Normalize by the larger component first: squaring a magnitude well past
     // the sentinel would overflow to infinity and yield a zero vector.

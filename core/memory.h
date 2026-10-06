@@ -6,8 +6,7 @@
 
 /**
  * @file memory.h
- * @brief Arena allocator, the engine's global arena budget, the containers
- *        built on top of it, and the scratch-scoped generate() wrapper.
+ * @brief Global arena budget and the arena memory facilities.
  */
 
 // platform.h supplies the Arduino IDE/VMicro NDEBUG fallback before <cassert>.
@@ -20,26 +19,18 @@
 #include <utility>
 #include <concepts>
 
-// Arena budgets come from platform/platform.h and the build definitions.
-// Native 64-bit pointer-containing structs can exceed device footprints.
-// DEVICE_GLOBAL_ARENA_SIZE uses the device budget across build targets.
+// DEVICE_GLOBAL_ARENA_SIZE is the device budget on every build target.
 constexpr size_t DEVICE_GLOBAL_ARENA_SIZE = HS_DEVICE_ARENA_BYTES;
 constexpr size_t GLOBAL_ARENA_SIZE = HS_GLOBAL_ARENA_BYTES;
 
 constexpr size_t DEFAULT_SCRATCH_A_SIZE = 16 * 1024;
 constexpr size_t DEFAULT_SCRATCH_B_SIZE = 16 * 1024;
-// An HS_GLOBAL_ARENA_BYTES override at or below the scratch split would wrap the
-// unsigned subtraction below, giving the persistent arena a capacity far larger
-// than global_arena_block; its two-argument constructor passes size as its own
-// extent, so nothing traps and the first allocation writes past the block.
 static_assert(GLOBAL_ARENA_SIZE >
                   DEFAULT_SCRATCH_A_SIZE + DEFAULT_SCRATCH_B_SIZE,
               "HS_GLOBAL_ARENA_BYTES must exceed the default scratch split");
 constexpr size_t DEFAULT_PERSISTENT_SIZE =
     GLOBAL_ARENA_SIZE - DEFAULT_SCRATCH_A_SIZE - DEFAULT_SCRATCH_B_SIZE;
-// Persistent budget on the real device split (from DEVICE_GLOBAL_ARENA_SIZE, not
-// the host-inflated GLOBAL_ARENA_SIZE) so an effect's default-split footprint
-// static_assert checks the true device figure even in the host suite.
+// Persistent budget on the device's default split, on every build target.
 constexpr size_t DEVICE_PERSISTENT_BUDGET =
     DEVICE_GLOBAL_ARENA_SIZE - DEFAULT_SCRATCH_A_SIZE - DEFAULT_SCRATCH_B_SIZE;
 

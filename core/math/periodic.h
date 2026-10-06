@@ -32,7 +32,7 @@ template <typename T> inline T wrap_positive(T value, T period) {
  *   positive subnormal bases also use the smallest positive normal value.
  *   Under NDEBUG, non-positive or NaN bases use that floor too.
  *   An all-integral call is rejected by static_assert; use the
- *   exact `wrap(int, int)` overload below.
+ *   exact `wrap(int, int)` overload.
  * @tparam T The type of the value being wrapped (e.g., float).
  * @tparam U The type of the modulo base.
  * @param x Finite value to wrap.
@@ -47,8 +47,7 @@ inline std::common_type_t<T, U> wrap(T x, U m) {
                 "double fmod path; use the exact wrap(int, int) overload");
   using R = std::common_type_t<T, U>;
   assert(m > 0);
-  // Branchless floor to the smallest positive normal (the hot SDF angular-repeat
-  // path forbids a branch); fmax(NaN, y) == y also blocks a NaN base.
+  // fmax(NaN, y) == y also floors a NaN base.
   const R mm = std::fmax(static_cast<R>(m), std::numeric_limits<R>::min());
   return wrap_positive(static_cast<R>(x), mm);
 }
@@ -71,10 +70,6 @@ __attribute__((always_inline)) inline float wrap_t(float t) {
  * @param x The value to wrap.
  * @param m The modulo base.
  * @return The wrapped value in the range [0, m), or x when m <= 0.
- * @details A zero modulus SIGFPEs on the host while the device returns x;
- *          return x to match the device, mirroring the zero-modulus guard in addmod8().
- *          A negative modulus takes the same exit: `x % m` cannot land in
- *          [0, m), and `INT_MIN % -1` is signed-overflow UB.
  */
 inline int wrap(int x, int m) {
   if (m <= 0)
@@ -107,7 +102,6 @@ inline int fast_wrap(int x, int W) {
  * @return The wrapped value in the range [0, W).
  * @details For tiny negative x, `x + period` rounds up to exactly `period`,
  *   violating the half-open contract; the guard folds that boundary back to 0.
- *   It sits inside the negative branch, leaving the in-range path untouched.
  */
 inline float fast_wrap(float x, int W) {
   const float period = static_cast<float>(W);
@@ -131,7 +125,6 @@ inline float fast_wrap(float x, int W) {
  */
 inline float shortest_distance(float a, float b, float m) {
   assert(m > 0.0f);
-  // Same minimum-normal floor as wrap(), including positive subnormal bases.
   m = std::fmax(m, std::numeric_limits<float>::min());
   // Double-fmod for full range reduction of an arbitrary a - b into [0, m).
   float d = std::fmod(std::fmod(a - b, m) + m, m);

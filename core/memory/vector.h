@@ -14,12 +14,8 @@
  * @param bytes Size of the abandoned block.
  * @param old_capacity Element capacity before the grow.
  * @param new_capacity Element capacity after the grow.
- * @details Also feeds note_arena_vector_abandon(), so the OOM trap's running
- * total covers grows as well as move-assignments. Out-of-line and non-template
- * so the device image carries one copy for every element type. The leak is
- * permanent until the arena is reset, so the line ships in release: without it a
- * persistent-arena grow surfaces only as a later, innocent-looking allocation
- * trapping on OOM.
+ * @details Also feeds note_arena_vector_abandon(). Logs in release builds; the
+ * abandoned block is leaked until the arena is reset.
  */
 FLASHMEM void log_arena_vector_grow(size_t bytes, size_t old_capacity,
                                     size_t new_capacity);
@@ -27,9 +23,8 @@ FLASHMEM void log_arena_vector_grow(size_t bytes, size_t old_capacity,
 /**
  * @brief Whether T is a sanctioned inline callable safe to store in an
  * ArenaVector despite not being trivially destructible.
- * @details Only the device's teensy::inplace_function needs the exemption; the
- * host/WASM hs::inplace_function is trivially destructible and passes on its own.
- * Stored captures remain subject to ArenaVector's element destructor contract.
+ * @details Stored captures remain subject to ArenaVector's element destructor
+ * contract.
  */
 template <typename T> struct is_arena_inplace_fn : std::false_type {};
 #ifdef ARDUINO
@@ -41,24 +36,17 @@ struct is_arena_inplace_fn<teensy::inplace_function<R(Args...), Cap, Align>>
 /**
  * @brief Arena-backed vector with a capacity fixed between bind() calls.
  *        Move-only.
- * @tparam T Element type; must satisfy the element destructor contract below.
+ * @tparam T Element type; must satisfy the element destructor contract.
  * @details CAPACITY CONTRACT: appending never grows the block — push_back()
- * traps once element_count reaches capacity(). Only bind() changes capacity,
- * and a grow there allocates a fresh block and abandons the old one until the
- * arena is reset (log_arena_vector_grow() reports the leaked bytes in release).
- * Element access follows std::vector: operator[] and back() require a valid
- * index/non-empty vector and check that precondition only in debug builds.
+ * traps once element_count reaches capacity(). Only bind() changes capacity; a
+ * grow there allocates a fresh block and abandons the old one until the arena
+ * is reset. operator[] and back() check their preconditions only in debug
+ * builds.
  *
- * ELEMENT DESTRUCTOR CONTRACT: ArenaVector does NOT run element
- * destructors — clear(), move, move-assign and going out of scope all leave
- * stored elements un-destructed. Storage is owned and reclaimed by the arena
- * (reset/compaction), not by this handle, and an arena can be reset out from
- * under a still-live ArenaVector (see bind()'s stale-binding handling), so a
- * handle-driven destructor pass could run on already-reclaimed memory. Only store
- * types whose destructor need not run for correctness: trivially-destructible
- * PODs, or Fn<> whose stored captures are themselves trivial. A type owning
- * heap/handles outside the arena must not be stored here — notably a raw
- * std::function, which would leak when this handle skips its destructor.
+ * ELEMENT DESTRUCTOR CONTRACT: ArenaVector never runs element destructors.
+ * Store only types whose destructor need not run for correctness:
+ * trivially-destructible PODs, or Fn<> whose stored captures are themselves
+ * trivial.
  */
 template <typename T> class ArenaVector {
   // ArenaSpan borrows our backing data and (in debug builds) our arena
@@ -203,11 +191,9 @@ public:
    * @param arena Arena to allocate from.
    * @param min_capacity Minimum element count to reserve.
    * @details If already bound with at least that capacity, resets size for reuse
-   * and keeps the larger prior capacity, so capacity() and the push_back
-   * overflow guard report the block actually held rather than this request.
-   * A grow against the same arena/generation reallocates a fresh block and
+   * and keeps the larger prior capacity. A grow reallocates a fresh block and
    * abandons the old one until the next reset; a stale binding (arena reset or
-   * a different arena) trips a debug-only contract assert.
+   * a different arena) trips a debug-only assert.
    */
   void bind(Arena &arena, size_t min_capacity) {
     static_assert(
@@ -216,31 +202,24 @@ public:
         "state outside the arena buffer: store a trivially-destructible "
         "type or a sanctioned Fn<> (no std::function/std::string).");
 #ifndef NDEBUG
-    // Rebinding a still-bound vector after its source arena was reset, or to a
-    // different arena, is a contract violation (the old block is already dead). A
-    // same-arena/same-generation grow is not stale and reallocates below.
     assert((!bound || element_capacity == 0 ||
             (stamp.source_arena == &arena &&
              stamp.birth_generation == arena.get_generation())) &&
            "ArenaVector::bind() on a stale binding: clear the handle before "
            "resetting or changing its arena");
 #endif
-    // The generation assert above misses a rewind, which leaves the reuse path
-    // below handing back bytes the arena has already reissued.
+    // Catches a rewind, which the generation check misses.
     check_alive();
     // Same arena, still live, and big enough → reuse the block in place.
     if (bound && element_capacity >= min_capacity) {
       element_count = 0;
 #ifndef NDEBUG
-      // Reuse dangles any span snapshotted before this point; bump so its
-      // check_alive() trips (the arena generation alone won't).
+      // Invalidates spans snapshotted before the reuse.
       rebind_generation++;
 #endif
       return;
     }
-    // Otherwise (unbound, or a grow that abandons the old block) → allocate
-    // fresh. A grow leaks the old block until the next arena reset/compaction; a
-    // zero-capacity binding owns no block, so growing out of one leaks nothing.
+    // A zero-capacity binding owns no block, so growing out of one leaks nothing.
     if (bound && element_capacity > 0)
       log_arena_vector_grow(element_capacity * sizeof(T), element_capacity,
                             min_capacity);
@@ -294,15 +273,13 @@ public:
         "append_bulk memcpy's the source; T must be trivially copyable");
     check_alive();
     check_bound();
-    // Subtractive, wrap-proof form: `element_count + count` could wrap for a
-    // colossal count.
+    // Subtractive form: cannot wrap for a colossal count.
     HS_CHECK(
         count <= element_capacity - element_count,
         "ArenaVector bulk append exceeds capacity! count=%lu append=%lu capacity=%lu",
         static_cast<unsigned long>(element_count),
         static_cast<unsigned long>(count),
         static_cast<unsigned long>(element_capacity));
-    // Skip memcpy on an empty append: a null src with count 0 is formal UB.
     if (count == 0)
       return;
     memcpy(static_cast<void *>(elements + element_count), src,
@@ -397,10 +374,7 @@ public:
 
   /**
    * @brief Resets the vector to empty without destroying elements.
-   * @details No check_bound() here on purpose: clear() only resets
-   * element_count (it neither frees nor touches elements), so it is a defined
-   * no-op on an unbound vector. MeshState::clear() relies on this to reset
-   * members that may never have been bound.
+   * @details A defined no-op on an unbound vector.
    */
   void clear() {
     check_alive();
@@ -414,11 +388,8 @@ public:
    * @brief Returns a pointer to the backing storage.
    * @return Mutable pointer to the first element, or nullptr if unbound or
    * moved-from.
-   * @details No check_bound() on data()/begin()/end() on purpose: an unbound (or
-   * moved-from) vector is elements==nullptr with element_count==0, a
-   * well-defined EMPTY range that callers rely on (std::span(vertices.data(),
-   * size()), std::sort(data(), data()+count) on a size-0 vector). The
-   * use-after-free guard (check_alive) still applies.
+   * @details An unbound or moved-from vector is a well-defined empty range
+   * (nullptr, 0).
    */
   T *data() {
     check_alive();

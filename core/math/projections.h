@@ -32,13 +32,8 @@
  * @file projections.h
  * @brief Sphere-to-plane projection kernels: folded sinusoidal,
  *        equirectangular, Bonne, Peirce quincuncial, and Fuller Airocean.
- * @details Each kernel maps a unit direction to plane coordinates; Bonne,
- * Peirce and Airocean return ProjectionKernelResult, adding the seam metadata
- * a shader needs to fade a cut and to keep a glued edge continuous, while
- * equirectangular returns bare coordinates and leaves its antimeridian cut to
- * the caller. Kernels are pure and frame-independent; the caller applies the
- * coordinate scale and the pole attenuation. Constants derive from PROJ at the
- * commit named in the header above.
+ * @details Kernels are pure and frame-independent; the caller applies the
+ * coordinate scale and the pole attenuation.
  */
 
 #include <algorithm>
@@ -81,11 +76,7 @@ constexpr uint8_t projection_traits(Traits... traits) {
 /**
  * @brief Boundary kind a kernel reports alongside `fade_edge_distance`.
  * @details Classifies the boundary that distance is measured toward, not
- * whether the sample has reached it. A kernel whose image carries one boundary
- * kind everywhere reports it on every sample (Bonne CUT); Peirce and Airocean
- * vary the mask per point: Peirce by whether a strip layout's equator cut is
- * nearer than the singularities, Airocean by whether the face it landed in has
- * a cut edge for the distance to run to.
+ * whether the sample has reached it.
  */
 enum class ProjectionBoundary : uint8_t {
   NONE = 0,
@@ -240,9 +231,7 @@ bonne_projection(const math::Vector &v, float central_meridian,
  * @details Clenshaw recurrence over an eight-term Chebyshev expansion in
  * y = 2*(2*phi/pi)^2 - 1. `C` holds the coefficients in descending order
  * (C[0] is the highest) and the order-zero coefficient C0 is applied halved,
- * per the Clenshaw convention. The coefficients come from PROJ at the commit
- * named in the file header; they are a fit, not a closed form, and cannot be
- * rederived from anything else here.
+ * per the Clenshaw convention. The coefficients are a PROJ fit.
  */
 inline float peirce_elliptic_integral(float phi) {
   constexpr float C0 = 2.19174570831038f;
@@ -438,7 +427,7 @@ peirce_projection(const math::Vector &v, float central_meridian,
 }
 
 /**
- * @brief Fast square-layout Peirce projection for the zero-meridian renderer.
+ * @brief Fast square-layout Peirce projection at central meridian 0.
  * @param v Unit direction on the sphere.
  * @return Square-layout coordinates and seam metadata with approximate angular
  *         terms.
@@ -659,7 +648,7 @@ struct AiroceanEdgeNormals {
 
 inline constexpr AiroceanEdgeNormals AIROCEAN_EDGE_NORMALS{};
 inline constexpr float AIROCEAN_CONTAINS_EPS = 1e-7f;
-/** Floor on the gnomonic ray's plane component; see airocean_projection. */
+/** Floor on the gnomonic ray's plane component. */
 inline constexpr float AIROCEAN_RAY_EPS = 1e-6f;
 /**
  * @brief Each face's vertex centroid, unnormalized.
@@ -848,9 +837,7 @@ inline constexpr float AIROCEAN_NET_HEIGHT = 5.78304223331047f;
 
 /**
  * @brief The net's torn edges as parallel (face, edge) arrays.
- * @details Authoring form of AIROCEAN_CUT_MASKS: 26 half-edges, one entry per
- * index in both arrays. AIROCEAN_CUT_MASKS is the per-face bitset the kernel
- * actually reads.
+ * @details Authoring form of AIROCEAN_CUT_MASKS, one half-edge per index.
  */
 inline constexpr uint8_t AIROCEAN_CUT_FACES[] = {
     3,  4,  4,  5,  5,  6,  6,  8,  9,  12, 12, 13, 13,
@@ -883,9 +870,7 @@ static_assert([] {
  * @brief Per (face, edge), the identity of that unfolded planar edge.
  * @details The identity is `canonical_face * 3 + canonical_edge`, where the
  * canonical half-edge is the lowest-numbered face carrying the same planar
- * segment. Both halves of a glued seam therefore report the same value, which lets
- * the shader treat the two sides asymmetrically without knowing which face it
- * landed on.
+ * segment, so both halves of a glued seam report the same value.
  */
 inline constexpr uint8_t AIROCEAN_EDGE_IDENTITIES[23][3] = {
     {0, 1, 2},    {3, 4, 0},    {6, 7, 3},    {9, 10, 6},   {2, 13, 14},
@@ -939,8 +924,6 @@ inline bool airocean_contains(const AiroceanVector &p, uint8_t face) {
  * @param p Direction to test; need not be normalized.
  * @param face Face index in [0, 23).
  * @return Largest positive half-space determinant, or 0 if none is positive.
- *         Used to pick the least-wrong face when rounding leaves
- *         a direction in no triangle at all.
  */
 inline float airocean_outside_score(const AiroceanVector &p, uint8_t face) {
   return std::max(0.0f,

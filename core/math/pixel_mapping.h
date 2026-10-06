@@ -77,14 +77,13 @@ template <int W, int H> constexpr float coarse_pixel_pitch() {
 
 /**
  * @brief Precomputed lookup table for scanline phi angles.
- * @tparam H Display height; legacy test profiles may append virtual rows.
+ * @tparam H Display height; test profiles may append virtual rows.
  */
 template <int H> struct PhiLUT {
   static constexpr int H_VIRT =
       H + (DisplayGeometry<H>::OFFSET > 0 ? DisplayGeometry<H>::OFFSET : 0);
   static std::array<float, H_VIRT> data; /**< phi per display row, radians. */
-  // Lazy-init check-then-set is non-atomic; safe only because rendering is
-  // single-threaded, NOT a concurrency guard.
+  // Non-atomic lazy init; assumes single-threaded rendering.
   static bool initialized; /**< Lazy-init guard; true once data is filled. */
   /**
    * @brief Fills the phi table for every display row and marks it initialized.
@@ -128,11 +127,9 @@ template <int H> inline float y_to_phi(float y) {
 /**
  * @brief Split trig lookup tables for efficient vector reconstruction.
  * @tparam W Width (column count).
- * @tparam H Display height; tables include legacy virtual rows only in tests.
- * @details Caches sin/cos for theta (per column) and phi (per row) separately,
- * reconstructing vectors with 3 multiplies. Memory: 1.25*W + 2*H_VIRT floats
- * (sin_theta carries the folded quarter turn) vs W*H_VIRT Vectors — a ~190x
- * reduction at 288x144.
+ * @tparam H Display height; tables include virtual rows only in tests.
+ * @details Caches sin/cos for theta (per column) and phi (per row) separately;
+ * a vector costs 3 multiplies to reconstruct.
  */
 template <int W, int H> struct TrigLUT {
   static_assert(W % 4 == 0,
@@ -140,8 +137,7 @@ template <int W, int H> struct TrigLUT {
                 "multiple of 4 for the quarter-turn offset to be exact");
   static constexpr int H_VIRT =
       H + (DisplayGeometry<H>::OFFSET > 0 ? DisplayGeometry<H>::OFFSET : 0);
-  // sin_theta carries W/4 extra trailing entries (one quarter turn) so cos(theta)
-  // reads back as sin_theta[x + W/4], avoiding a separate cos table.
+  // W/4 extra trailing entries: cos(theta) reads back as sin_theta[x + W/4].
   static constexpr int W_EXT = W + W / 4;
   static std::array<float, W_EXT> sin_theta; /**< sin(theta); cos via +W/4. */
   static std::array<float, H_VIRT> sin_phi;  /**< sin(phi) per virtual row. */
@@ -157,9 +153,7 @@ template <int W, int H> struct TrigLUT {
   }
   /**
    * @brief Fills the theta and phi tables and marks them initialized.
-   * @details Ensures PhiLUT<H> is populated first to source the phi angles. The
-   * extra W/4 sin_theta entries wrap naturally: sin is 2*pi-periodic, so
-   * sin(x*2*pi/W) for x in [W, W+W/4) equals the first-quarter values.
+   * @details Initializes PhiLUT<H> first if needed.
    */
   static void init() {
     if (!PhiLUT<H>::initialized) {
@@ -189,13 +183,9 @@ template <int W, int H> bool TrigLUT<W, H>::initialized = false;
  * @brief Eagerly fill the scanline LUTs for resolution <W, H>.
  * @tparam W Width (column count).
  * @tparam H Logical height.
- * @details Engine setup calls this once before the first frame so the tables are
- * populated before any rendering — and, on hardware, before the column-sweep ISR
- * could observe a partially-filled table. The per-call `if (!initialized) init()`
- * guard in the per-pixel leaf `pixel_to_vector<W, H>(int, int)` remains a lazy
- * fallback. `y_to_phi<H>(int)` provides lazy initialization for tests and tools.
- * Their non-atomic check-then-set relies on this
- * eager call and the single-render-thread assumption. Idempotent.
+ * @details Call before the first frame: the lazy-init guards in
+ * `pixel_to_vector` and `y_to_phi` are non-atomic, and the column-sweep ISR must
+ * not observe a partially-filled table. Idempotent.
  */
 template <int W, int H> inline void init_geometry_luts() {
   PhiLUT<H>::init();
@@ -203,12 +193,8 @@ template <int W, int H> inline void init_geometry_luts() {
 }
 
 /**
- * @brief Recovers an effect's compile-time <W, H> from its type so a driver's
- * `show<E>()` can eager-init the LUTs without the caller restating the
- * resolution.
+ * @brief Recovers an effect's compile-time <W, H> from its type.
  * @tparam E The effect type, of the form `Eff<W, H>`.
- * @details Every effect is `template <int W, int H> class E`, so the partial
- * specialization matches them all.
  */
 template <typename E> struct GeometryResolution;
 /**
@@ -279,9 +265,7 @@ template <int W, int H> Vector pixel_to_vector(float x, float y) {
  */
 template <int W>
 __attribute__((always_inline)) inline float vector_to_theta(const Vector &v) {
-  // fast_atan2 is bounded by |pi|, so t lands in [-W/2, W/2] and one conditional
-  // add wraps it. The upper guard keeps the half-open range when a tiny negative
-  // t rounds up to exactly W.
+  // t is in [-W/2, W/2]; a tiny negative t can round up to exactly W.
   float t = (fast_atan2(v.z, v.x) * W) / (2 * PI_F);
   if (t < 0.0f)
     t += W;
@@ -300,7 +284,6 @@ __attribute__((always_inline)) inline float vector_to_theta(const Vector &v) {
  * @return Pixel coordinates; rows in missing caps lie outside [0, H-1].
  */
 template <int W, int H> HS_O3_FN PixelCoords vector_to_pixel(const Vector &v) {
-  // phi = acos(v.y) is the true latitude only when |v| == 1; trap non-unit v in debug.
   assert(std::fabs(dot(v, v) - 1.0f) < math::EPS_UNIT_VEC_SQ);
   float phi = fast_acos(hs::clamp(v.y, -1.0f, 1.0f));
   PixelCoords p({vector_to_theta<W>(v), phi_to_y<H>(phi)});
