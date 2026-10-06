@@ -39,11 +39,16 @@ def shell_function(name):
     return match.group(0)
 
 
-def verify_log(text, expected="o3", provenance=True, marker=""):
+def verify_log(text, expected="o3", provenance=True, marker="", *,
+               preset="", expected_shape="", msp_marker="",
+               artifact_present=True, digest_override=None):
     with tempfile.TemporaryDirectory() as directory:
         artifact = Path(directory) / "firmware.elf"
         artifact.write_bytes(b"profile firmware")
-        digest = hashlib.sha256(artifact.read_bytes()).hexdigest()
+        digest = (hashlib.sha256(artifact.read_bytes()).hexdigest()
+                  if digest_override is None else digest_override)
+        if not artifact_present:
+            artifact.unlink()
         if provenance:
             text += (
                 "profile provenance: version=1\n"
@@ -53,14 +58,16 @@ def verify_log(text, expected="o3", provenance=True, marker=""):
         log = Path(directory) / "capture.log"
         log.write_text(text, encoding="utf-8")
         script = (
-            "set -e\n"
+            "set -euo pipefail\n"
             f"{shell_function('verify')}\n"
             f"{shell_function('file_sha256')}\n"
             'OUT=$1; EFFECT=Fx; TAG=$2; MARKER=$3\n'
+            'PROFILE_PRESET=$4; MSP_MARKER=$5; HS_PROFILE_EXPECT_SHAPE=$6\n'
             "verify\n"
         )
         return subprocess.run(
-            ["bash", "-c", script, "profile-test", str(log), expected, marker],
+            ["bash", "-c", script, "profile-test", str(log), expected, marker,
+             preset, msp_marker, expected_shape],
             capture_output=True,
             text=True,
             encoding="utf-8",
@@ -303,31 +310,43 @@ class ProfileConfigVerification(unittest.TestCase):
         self.assertIn("NO/INVALID PROFILE PROVENANCE", result.stdout)
 
     def test_artifact_hash_mismatch_fails(self):
-        with tempfile.TemporaryDirectory() as directory:
-            artifact = Path(directory) / "firmware.elf"
-            artifact.write_bytes(b"profile firmware")
-            text = capture_log("o3") + (
-                "profile provenance: version=1\n"
-                f"profile provenance: profile_elf_sha256={'0' * 64}\n"
-                f"profile provenance: artifact_profile_elf={artifact.as_posix()}\n"
-            )
-            log = Path(directory) / "capture.log"
-            log.write_text(text, encoding="utf-8")
-            script = (
-                "set -e\n"
-                f"{shell_function('verify')}\n"
-                f"{shell_function('file_sha256')}\n"
-                'OUT=$1; EFFECT=Fx; TAG=o3; MARKER=""\n'
-                "verify\n"
-            )
-            result = subprocess.run(
-                ["bash", "-c", script, "profile-test", str(log)],
-                capture_output=True,
-                text=True,
-                encoding="utf-8",
-            )
+        result = verify_log(capture_log("o3"), digest_override="0" * 64)
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("PROFILE ARTIFACT HASH MISMATCH", result.stdout)
+
+    def test_fixed_preset_requires_the_matching_capture_marker(self):
+        result = verify_log("Profile preset: 3/6\n" + capture_log("o3"), preset="3")
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        for line in ("", "Profile preset: 4/6\n"):
+            with self.subTest(line=line):
+                result = verify_log(line + capture_log("o3"), preset="3")
+                self.assertNotEqual(result.returncode, 0)
+                self.assertIn("PROFILE PRESET MISMATCH (expected 3)", result.stdout)
+
+    def test_expected_shape_requires_the_matching_spawn_marker(self):
+        result = verify_log("Spawning Shape: Cube\n" + capture_log("o3"), expected_shape="Cube")
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        for line in ("", "Spawning Shape: Sphere\n"):
+            with self.subTest(line=line):
+                result = verify_log(line + capture_log("o3"), expected_shape="Cube")
+                self.assertNotEqual(result.returncode, 0)
+                self.assertIn("PROFILE SHAPE MISMATCH (expected Cube)", result.stdout)
+
+    def test_mindsplatter_requires_the_selected_instrumentation(self):
+        for marker in ("plot render counts particles:", "plot stall: stage=history_vertex"):
+            with self.subTest(marker=marker):
+                result = verify_log(marker + " 1\n" + capture_log("o3"), msp_marker=marker)
+                self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+                result = verify_log(capture_log("o3"), msp_marker=marker)
+                self.assertNotEqual(result.returncode, 0)
+                self.assertIn(f"NO '{marker}' INSTRUMENTATION", result.stdout)
+
+    def test_missing_artifact_is_rejected_with_valid_provenance(self):
+        result = verify_log(capture_log("o3"))
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        result = verify_log(capture_log("o3"), artifact_present=False)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("MISSING PROFILE ARTIFACT", result.stdout)
 
     def test_a_foreign_window_name_is_reported(self):
         # A peer flashing mid-capture splices its board's serial into ours;
