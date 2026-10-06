@@ -148,8 +148,10 @@ bool read_u32(FILE *input, uint32_t &value) {
 void write_u16(FILE *output, uint16_t value) {
   const uint8_t bytes[] = {static_cast<uint8_t>(value),
                            static_cast<uint8_t>(value >> 8)};
-  if (std::fwrite(bytes, sizeof(bytes), 1, output) != 1)
+  if (std::fwrite(bytes, sizeof(bytes), 1, output) != 1) {
+    std::fprintf(stderr, "pullback output: write failed\n");
     std::abort();
+  }
 }
 
 void write_u32(FILE *output, uint32_t value) {
