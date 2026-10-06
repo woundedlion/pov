@@ -16,12 +16,8 @@
 /**
  * @brief Clip region for segment-based rendering.
  * @details Display bounds define the ISR's pixel range (exact segment).
- *          Render bounds expand by `margin` to accommodate filters that spread taps
- *          (AntiAlias, Blur and ChromaticShift); a Pipeline's `total_segment_margin` sums the
- *          demand of its stages.
- *          `w`/`h` are the active canvas size, set from W/H by the Effect
- *          constructor (core/render/canvas.h); the `MAX_W`/`MAX_H` defaults
- *          apply only to a standalone ClipRegion.
+ *          Render bounds expand by `margin` for filters that spread taps.
+ *          `w`/`h` are the active canvas size.
  */
 struct ClipRegion {
   int y_start = 0;   /**< Display top row (inclusive), in pixels. */
@@ -39,11 +35,8 @@ struct ClipRegion {
   /**
    * @brief Render-region top edge: display top expanded up by `margin`, floored at 0.
    * @return First render row (inclusive), in pixels.
-   * @details Only the low side is clamped: `y_start - margin` can underflow past
-   *          0, but no high-side clamp is needed because `y_start <= h` holds by
-   *          the driver's display-bounds invariant (with `margin >= 0`). That same
-   *          invariant gives `y_start <= y_end`, so paired with render_y_end the
-   *          range never inverts; only the two single-sided clamps are needed.
+   * @details Only the low side is clamped; `y_start <= h` by the
+   *          display-bounds invariant.
    */
   int render_y_start() const {
     return y_start - margin > 0 ? y_start - margin : 0;
@@ -51,18 +44,14 @@ struct ClipRegion {
   /**
    * @brief Render-region bottom edge: display bottom expanded down by `margin`, capped at h.
    * @return One-past-last render row (exclusive), in pixels.
-   * @details Mirror of render_y_start: only the high side is clamped (to h);
-   *          `y_end >= 0` makes a low-side clamp unnecessary.
+   * @details Only the high side is clamped; `y_end >= 0` by invariant.
    */
   int render_y_end() const { return y_end + margin < h ? y_end + margin : h; }
   /**
    * @brief Render-region left edge: display left expanded by `margin`, wrapped mod w (cylindrical).
    * @return First render column, in pixels, in [0, w).
-   * @pre 0 <= x_start <= w and 0 <= margin < w, as Effect::set_clip /
-   *      Effect::set_margin enforce. That puts `x_start - margin` in
-   *      [-(w-1), w], one period either side, so the wrap is a conditional add
-   *      plus a conditional subtract instead of a `%` (the high branch fires
-   *      only at x_start == w with margin == 0).
+   * @pre 0 <= x_start <= w and 0 <= margin < w, so `x_start - margin` is
+   *      within one period of [0, w).
    */
   int render_x_start() const {
     const int v = x_start - margin;
@@ -72,8 +61,7 @@ struct ClipRegion {
   /**
    * @brief Render-region right edge: display right expanded by `margin`, wrapped mod w (cylindrical).
    * @return One-past-last render column, in pixels, in [0, w).
-   * @pre 0 <= x_end <= w and 0 <= margin < w (see render_x_start); `x_end +
-   *      margin` is then in [0, 2w-1], so one conditional subtract wraps it.
+   * @pre 0 <= x_end <= w and 0 <= margin < w.
    */
   int render_x_end() const {
     const int v = x_end + margin;
@@ -101,11 +89,8 @@ struct ClipRegion {
    * @brief Pixel-level horizontal containment against the render (margin-expanded) bounds.
    * @param x Column index, in pixels.
    * @return True when x lies within the cylindrical render band.
-   * @details A render band spanning >= w columns (display width + both margins)
-   *          covers everything; past that test the band is a proper sub-arc, so
-   *          ends that coincide (rs == re) mean zero width and cover nothing;
-   *          otherwise the band may cross the seam, so test as a wrapped
-   *          interval.
+   * @details Once full coverage is excluded, coinciding ends (rs == re) mean a
+   *          zero-width band.
    */
   bool contains_x(int x) const {
     if (covers_all_columns())
@@ -146,8 +131,7 @@ struct ClipRegion {
      * @brief Band length in columns, seam-unwrapped.
      * @param w Cylinder width in columns.
      * @return Column count spanned by [rs, re), counting past the seam when the
-     *         band wraps, and the full w when no x clipping applies. Feeds
-     *         arcs_overlap as the clip arc's length.
+     *         band wraps, and the full w when no x clipping applies.
      */
     constexpr int length(int w) const {
       if (!active)
@@ -191,11 +175,7 @@ struct ClipRegion {
    * @param len2 Second arc length in columns.
    * @param w Cylinder width in columns.
    * @return True if the arcs share at least one column.
-   * @pre w > 0 and both starts in [0, w), as every caller's column mapping
-   *      guarantees. The seam-relative offset is then in (-w, w), so one
-   *      conditional add wraps it instead of a `%`; this runs per geodesic edge
-   *      and per face azimuth interval, where a runtime modulo costs a hardware
-   *      divide.
+   * @pre w > 0 and both starts in [0, w).
    */
   static bool arcs_overlap(int s1, int len1, int s2, int len2, int w) {
     if (len1 <= 0 || len2 <= 0)
@@ -214,7 +194,7 @@ struct ClipRegion {
 
 private:
   /**
-   * @brief Full-coverage predicate shared by contains_x() and x_clip().
+   * @brief Full-coverage predicate.
    * @return True when the render band (display width plus both margins) spans
    *         the whole cylinder, so no x clipping applies.
    */

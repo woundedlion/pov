@@ -25,8 +25,6 @@
 /**
  * @file canvas.h
  * @brief EffectConfig, the Effect base class, and the Canvas pixel buffer.
- * @details Effect's parameter registry and preset controller live in
- * control/param_host.h and control/preset_host.h.
  */
 
 class Canvas;
@@ -34,8 +32,6 @@ class Canvas;
 /**
  * @brief Construction-time flags for an Effect (see the accessors of the same
  *        name). Defaults suit a plain, non-strobing, band-clippable effect.
- * @details pipeline_config (render/filter/pipeline.h) folds a filter
- * pipeline's segment traits into this config.
  */
 struct EffectConfig {
   bool strobe = false;  /**< POV column strobe (Effect::strobe_columns). */
@@ -92,15 +88,12 @@ public:
         "Effect: a second Effect was constructed while one is still alive; "
         "buffer_a/buffer_b are shared static storage (one live Effect only)");
     s_alive = true;
-    // Point bufs at the shared static storage and clear both buffers.
     clear_buffers();
     clip_region.w = W;
     clip_region.h = H;
     clip_region.y_end = H;
     clip_region.x_end = W;
-    // Only widen: a filter fold of 0 must not shrink the coverage every effect
-    // already gets from the ClipRegion default. Routed through set_margin so an
-    // unrepresentable folded requirement traps instead of being weakened.
+    // Only widen the ClipRegion default margin.
     const int widened =
         cfg.margin > clip_region.margin ? cfg.margin : clip_region.margin;
     // A one-column canvas is already fully covered and has no representable
@@ -111,13 +104,13 @@ public:
   /**
    * @brief Destroys the Effect instance.
    * @details Clears the single-live-Effect guard so the next construction is
-   * admitted; every effect-swap path destroys the outgoing instance first.
+   * admitted.
    */
   virtual ~Effect() { s_alive = false; }
 
   /**
    * @brief Post-construction initialization. Override to move heavy
-   * setup logic here (avoids GCC C1/C2 constructor duplication).
+   * setup logic here.
    */
   virtual void __attribute__((noinline)) init() {}
 
@@ -139,21 +132,14 @@ public:
   /**
    * @brief Whether this effect must render the FULL canvas per simulator worker
    *        rather than be clipped to a segment band.
-   * @return True for an effect whose output can cross segment boundaries (for
-   *         example MeshFeedback's unbounded warp or World::Trails);
+   * @return True for an effect whose output can cross segment boundaries;
    *         false (the default) when each segment can render independently.
-   * @details Read by the segment drivers to leave the clip at full canvas for
-   *          stateful effects. Set once at construction from the filter
-   *          pipeline's `any_crosses_segments` fold; defaults to false.
    */
   [[nodiscard]] bool needs_full_frame() const { return full_frame; }
 
   /**
    * @brief Whether this effect copies its previous frame forward (trails/decay).
    * @return True when persist_pixels is set.
-   * @details The segmented device driver leaves a persisting effect at full
-   *          canvas, else its per-frame arm-half alternation breaks trail
-   *          continuity.
    */
   [[nodiscard]] bool persists_pixels() const { return persist_pixels; }
 
@@ -216,14 +202,11 @@ public:
    * @param x The horizontal coordinate.
    * @param y The vertical coordinate.
    * @return The Pixel color reference.
-   * @note An override that applies a per-pixel transform (rather than a plain
-   *       buffer read) must also override overrides_get_pixel() to return true;
-   *       otherwise ISR/readback fast paths that index display_buffer() directly
-   *       bypass the transform.
+   * @note An override that applies a per-pixel transform must also override
+   *       overrides_get_pixel() to return true.
    */
   virtual const Pixel &get_pixel(int x, int y) const {
-    // Bounds guard is stripped in NDEBUG builds (device and release WASM);
-    // native tests and debug WASM catch out-of-range display reads.
+    // Stripped under NDEBUG.
     assert(x >= 0 && x < frame_width && y >= 0 && y < frame_height);
     return bufs[prev.load(std::memory_order_relaxed)][y * frame_width + x];
   }
@@ -233,10 +216,8 @@ public:
    *        `width()` stride): `display_buffer()[y * width() + x]` equals
    *        `get_pixel(x, y)` for any effect that does not override `get_pixel`.
    *
-   * ISR fast path: index pixels directly, skipping the virtual `get_pixel`
-   * dispatch. Valid only until the next `advance_display()` flip. Effects that
-   * override `get_pixel` must NOT use this (it bypasses their transform); check
-   * `overrides_get_pixel()` first.
+   * Valid only until the next `advance_display()` flip. Bypasses any
+   * `get_pixel` transform; check `overrides_get_pixel()` first.
    */
   [[nodiscard]] const Pixel *display_buffer() const {
     return bufs[prev.load(std::memory_order_relaxed)];
@@ -246,10 +227,8 @@ public:
    * @brief Whether this effect overrides get_pixel with a per-pixel transform
    *        that display_buffer() does NOT reflect.
    *
-   * Base effects return false: `display_buffer()[y * width() + x]` equals
-   * `get_pixel(x, y)`, so ISR fast paths may index the buffer directly. An
-   * override that reads through a per-pixel transform (e.g. the RingTwist
-   * scroller) returns true, forcing those paths back to virtual dispatch.
+   * When true, readers must use virtual get_pixel() instead of
+   * display_buffer().
    */
   [[nodiscard]] virtual bool overrides_get_pixel() const { return false; }
 
@@ -284,9 +263,7 @@ public:
    * @brief Checks whether the queued frame has been picked up for display.
    * @return True when `prev == next` (no frame still waiting to be shown), so
    *         the writer is free to claim the other buffer.
-   * @details The acquire load pairs with `advance_display()`'s release store:
-   * everything the display ISR stored before the flip — the segmented driver's
-   * display-window half — is visible to the writer this gate releases.
+   * @details The acquire load pairs with `advance_display()`'s release store.
    */
   [[nodiscard]] inline bool buffer_free() const {
     return prev.load(std::memory_order_acquire) ==
@@ -295,11 +272,8 @@ public:
   /**
    * @brief Installs a callback run once per frame from the Canvas constructor.
    * @param hook Callback to install, or null to disable it.
-   * @details Runs after the buffer_free() wait returns and before
-   * `advance_buffer()` and the stale-pixel clear. That slot is the only one that
-   * sees the segment window the ISR settled on during the wait *and* still
-   * precedes the clear, so it is where the segmented driver sets the clip that
-   * governs which band gets cleared.
+   * @details Runs after the buffer_free() wait and before `advance_buffer()`
+   * and the stale-pixel clear, so a clip it sets governs the clear.
    */
   void set_buffer_ready_hook(BufferReadyHook hook) { buffer_ready_hook = hook; }
   /** @brief Runs after drawing, while the previous buffer is still stable. */
@@ -327,8 +301,7 @@ protected:
    */
   bool persist_pixels;
   /**
-   * @brief Full-canvas render gate (see needs_full_frame()); set once at
-   * construction from the filter pipeline `any_crosses_segments` trait.
+   * @brief Full-canvas render gate (see needs_full_frame()).
    */
   bool full_frame;
   /** @brief Whether frame generation samples pixels outside the display band. */
@@ -346,17 +319,13 @@ private:
    */
   inline void advance_buffer() {
     int c = cur.load(std::memory_order_relaxed) ? 0 : 1;
-    // The new write buffer must not be the one the ISR is scanning out (prev);
-    // with two buffers this holds only if buffer_free() gated the advance. Trap
-    // it here (once per frame, cold) instead of tearing.
+    // Holds only if buffer_free() gated the advance.
     HS_CHECK(c != prev.load(std::memory_order_relaxed),
              "advance_buffer: new write buffer is the one the display ISR is "
              "scanning out");
     cur.store(c, std::memory_order_relaxed);
     if (persist_pixels) {
-      // The trail base is the last COMPLETED frame (next). The buffer_free()
-      // gate forces prev == next, so copy from next and assert the equality
-      // rather than depend on the gate silently across methods.
+      // Trail base is the last completed frame (next == prev after the gate).
       int last = next.load(std::memory_order_relaxed);
       HS_CHECK(last == prev.load(std::memory_order_relaxed),
                "advance_buffer: trail base is not the last completed frame");
@@ -379,9 +348,6 @@ private:
 
   /**
    * @brief Points bufs at the shared static storage and zeroes both buffers.
-   * @details noinline so the two full-frame fills are emitted once, not inlined
-   * into both GCC constructor variants (C1/C2). Invoked from the ctor (not init())
-   * because derived init() overrides do not chain to Effect::init().
    */
   HS_COLD_MEMBER void __attribute__((noinline)) clear_buffers() {
     bufs[0] = buffer_a;
@@ -416,17 +382,13 @@ private:
   void check_clip_mutable() const {
     HS_CHECK(!canvas_active, "clip cannot change while a frame is active");
   }
-  // Shared static storage for the double buffer. PRECONDITION: at most one Effect
-  // live at a time (s_alive guard); a second would alias these arrays and the
-  // prev/cur/next indices.
+  // Shared static double-buffer storage: at most one Effect live at a time.
   static DMAMEM Pixel
       buffer_a[MAX_W * MAX_H]; /**< Static storage for buffer A (shared). */
   static DMAMEM Pixel
       buffer_b[MAX_W * MAX_H]; /**< Static storage for buffer B (shared). */
   Pixel *bufs[2]; /**< Pointers to the two buffer storage locations. */
-  // True while an Effect is constructed-but-not-destroyed. Guards the
-  // single-live-Effect precondition on the shared buffer_a/buffer_b: the ctor
-  // traps if already set, the dtor clears it.
+  // True while an Effect is live; enforces the single-live-Effect precondition.
   static bool s_alive;
   BufferReadyHook buffer_ready_hook = nullptr;
   BufferCompleteHook buffer_complete_hook = nullptr;
@@ -493,10 +455,6 @@ public:
    * @param x The horizontal coordinate.
    * @param y The vertical coordinate.
    * @return Copy of the Pixel from the previous frame.
-   * @details Returns by value, unlike `operator()`: the previous frame is
-   *          read-only, so a reference into it would invite an accidental write
-   *          to a buffer about to be recycled. A Pixel is small enough the copy
-   *          is free.
    */
   inline Pixel prev(int x, int y) const {
     assert(x >= 0 && x < effect.frame_width && y >= 0 &&
@@ -584,11 +542,6 @@ public:
   /**
    * @brief Checks if debug visuals are enabled.
    * @return True if debugging is active.
-   * @details Read by Scan::rasterize, Scan::rasterize_solid and
-   * Scan::RingGroup. The fused walks — Scan::rasterize_face (and so
-   * Scan::Mesh) and Scan::DistortedRingStack — ignore it and render
-   * identically either way; a per-shape fallback costs them the whole shared
-   * rasterizer in ITCM.
    */
   inline bool debug() const { return effect.debug_visuals; }
 
@@ -597,9 +550,6 @@ public:
    * @brief Test-only count of buffer_free() spin iterations across all Canvas
    *        ctors in this process.
    * @return The running spin-iteration count.
-   * @details Lets a test detect that a ctor has actually entered the wait loop
-   *          and release it on observed progress, rather than racing a fixed
-   *          sleep. Compiled out of the device/sim image.
    */
   static unsigned long buffer_free_spin_count() {
     return s_buffer_free_spins.load(std::memory_order_relaxed);
@@ -609,14 +559,10 @@ public:
 private:
   /**
    * @brief Spins until the effect has a free back buffer.
-   * @details Not a TOCTOU race: single-core, strict index ownership — the main
-   * loop writes cur/next, the ISR only sets prev = next, so the gate can't be
-   * falsified between check and flip. buffer_free() is re-satisfied only when the
-   * display ISR advances at a frame boundary, so an unbounded wait means that ISR
-   * stalled and the watchdog traps rather than hanging. The outer buffer_free()
-   * guard skips the micros() reads on the no-wait path. The counter name is
-   * load-bearing: Profile.ino derives each frame's render as wall minus the
-   * counter whose name ends in _buffer_wait.
+   * @details The main loop writes cur/next and the ISR only sets prev = next,
+   * so the gate cannot be falsified between check and flip. Traps via the
+   * watchdog if the display ISR stalls. The counter's `_buffer_wait` suffix is
+   * load-bearing for profiling reports.
    */
   void wait_for_free_buffer() {
     HS_PROFILE(canvas_buffer_wait);
@@ -640,14 +586,8 @@ private:
   /**
    * @brief Clears whatever of the freshly acquired buffer can still show stale
    *        pixels from the frame that last wrote it.
-   * @details For an effect that does not read outside its display clip, the
-   *          leftovers there are invisible and only the display band has to
-   *          be cleared. It does draw into the margin-expanded render bounds,
-   *          but that band is write-only scratch: nothing samples or displays
-   *          it. A filter that samples across the band edge needs the whole
-   *          buffer cleared, independently of whether its output crosses
-   *          segment boundaries. Unsegmented targets clip to the full canvas,
-   *          where the two are the same fill.
+   * @details Clears only the display band unless the effect reads outside it;
+   *          the render margin is write-only scratch.
    */
   void clear_stale_pixels() {
 #if HS_ENABLE_TEST_HOOKS
@@ -664,7 +604,6 @@ private:
 
   /**
    * @brief Clears the current display clip, excluding its render margin.
-   * @details Device builds keep this helper out of line and outside ITCM.
    */
   HS_FLASH_MEMBER void clear_display_clip_buffer() {
     const int c = effect.cur.load(std::memory_order_relaxed);
@@ -684,9 +623,7 @@ private:
     }
   }
 
-  /** Watchdog bound for the ctor buffer_free() spin (µs). One display
-   *  revolution is tens-to-hundreds of ms even at low RPM; 2 s is well above
-   *  that, so only a genuinely stalled display ISR trips it. */
+  /** Watchdog bound for the ctor buffer_free() spin (µs). */
   static constexpr unsigned long BUFFER_FREE_WATCHDOG_US = 2000000UL;
 
 #if HS_ENABLE_TEST_HOOKS
@@ -694,10 +631,7 @@ private:
    * @brief Test-only watchdog bound, overridable via HS_BUFFER_FREE_WATCHDOG_US.
    * @return The bound in µs; BUFFER_FREE_WATCHDOG_US unless the environment
    *         supplies a positive override.
-   * @details The watchdog is a trap, so tripping it kills the whole test
-   *          process rather than failing one test; a sanitizer job whose
-   *          threads deschedule past the shipping bound raises it here. Read
-   *          once per process, outside the spin loop.
+   * @details Read once per process.
    */
   static unsigned long buffer_free_watchdog_us() {
     static const unsigned long RESOLVED = [] {

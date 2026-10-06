@@ -26,11 +26,8 @@
  * @brief Always-on invariant trap that survives NDEBUG.
  * @param cond Condition that must hold; the macro traps when it is false.
  * @param ... Optional printf-style format string and arguments for the message.
- * @details Not stripped by NDEBUG, so it still fires in the optimized device
- *          build. Used at allocation and configuration seams and in guarded
- *          math helpers, including normalization, angle_between() and
- *          parallel_transport(), which can run per sample. On failure it logs
- *          a located breadcrumb and flushes before trapping.
+ * @details On failure it logs a located breadcrumb and flushes before
+ *          trapping.
  */
 #define HS_CHECK(cond, ...)                                                    \
   do {                                                                         \
@@ -51,8 +48,8 @@
  * @brief Optional structural audit that traps when enabled.
  * @param cond Condition that must hold; the macro traps when it is false.
  * @param ... Optional printf-style format string and arguments for the message.
- * @details Use for host-reachable O(n) seam checks. Device-reachable capacity
- *          and bounds guards remain HS_CHECK.
+ * @details For host-reachable O(n) seam checks; device-reachable capacity and
+ *          bounds guards use HS_CHECK.
  */
 #if HS_ENABLE_STRUCTURAL_AUDITS
 #define HS_AUDIT_CHECK(cond, ...) HS_CHECK(cond __VA_OPT__(, ) __VA_ARGS__)
@@ -91,13 +88,10 @@ inline void enable_interrupts() { interrupts(); }
 /**
  * @brief Disables interrupts and returns the mask state that preceded it.
  * @return PRIMASK as it was on entry; hand it to restore_interrupts().
- * @details The nestable form of disable_interrupts(): a bracket closed with
- *          enable_interrupts() unmasks unconditionally, so one entered from an
- *          ISR or from inside another IRQ-off region would open it early.
+ * @details Nestable, unlike disable_interrupts()/enable_interrupts(): safe
+ *          from an ISR or inside another IRQ-off region.
  */
 inline uint32_t save_disable_interrupts() {
-  // The Teensy 4 core exposes __disable_irq()/__enable_irq() but not CMSIS's
-  // PRIMASK accessors, so read and write the register directly.
   uint32_t primask;
   __asm__ volatile("mrs %0, primask" : "=r"(primask)::"memory");
   noInterrupts();
@@ -129,12 +123,7 @@ inline void restore_interrupts(uint32_t primask) {
 #include <cstdio>
 
 // ---------------------------------------------------------------------------
-// Test-only injectable clock (host builds only). Host timing reads the wall
-// clock, so tests pin time to a fixed per-frame schedule to make the cross-run
-// determinism check in tests/test_effects.h possible. OFF by default (real wall
-// clock, so sim/WASM is bit-for-bit unchanged); absent from the device (ARDUINO)
-// branch. The predicted-not-taken branch lives only in millis/micros (per-frame),
-// never the per-pixel hot loop.
+// Test-only injectable clock (host builds only); off by default.
 namespace hs {
 inline bool use_mock_time =
     false; /**< When true, millis/micros return mock values. */
@@ -155,10 +144,10 @@ inline void set_mock_time(unsigned long ms, unsigned long us) {
 /** @brief Restores the real wall clock after set_mock_time(). */
 inline void clear_mock_time() { use_mock_time = false; }
 /**
- * @brief Returns milliseconds since an arbitrary epoch (defined below).
- * @return Monotonic millisecond count; the beat/beatsin helpers route through it.
+ * @brief Returns milliseconds since an arbitrary epoch.
+ * @return Monotonic millisecond count.
  */
-inline unsigned long millis(); // defined below
+inline unsigned long millis();
 } // namespace hs
 
 #include "platform/arduino_mocks.h"
@@ -184,13 +173,9 @@ inline unsigned long millis(); // defined below
 /**
  * @brief Executes the guarded block at most once every N milliseconds.
  * @param N Interval in milliseconds.
- * @details Expands to a static throttle object plus one `if`, the same two-token
- * shape as the device's class-based FastLED macro (`static CEveryNMillis o(N);
- * if (o)`), so the body lines up statement-for-statement with the device's. Like
- * FastLED's, it cannot serve as the *unbraced* body of an outer control statement
- * (the trailing `if` would fall outside the throttle object's scope). The throttle object
- * is named from `__COUNTER__` so two uses on one source line do not collide. See
- * hs::EveryNMillis for the timing semantics.
+ * @details Expands to a static throttle object plus one `if`, like FastLED's
+ * macro, so it cannot serve as the unbraced body of an outer control statement.
+ * See hs::EveryNMillis for the timing semantics.
  */
 #define EVERY_N_MILLIS(N) EVERY_N_MILLIS_I(HS_CONCAT(hs_every_, __COUNTER__), N)
 
@@ -200,9 +185,8 @@ inline unsigned long millis(); // defined below
 /**
  * @brief Executes the guarded block at most once every N seconds.
  * @param N Interval in seconds.
- * @details Same two-token shape and naming scheme as EVERY_N_MILLIS. See
- * hs::EveryNSeconds for the timing semantics, which are whole-second quantized
- * rather than a millisecond throttle.
+ * @details Same shape as EVERY_N_MILLIS; whole-second quantized (see
+ * hs::EveryNSeconds).
  */
 #define EVERY_N_SECONDS(N)                                                     \
   EVERY_N_SECONDS_I(HS_CONCAT(hs_every_, __COUNTER__), N)
@@ -216,10 +200,8 @@ namespace hs {
 /**
  * @brief Returns milliseconds since an arbitrary epoch (host millis()).
  * @return Monotonic millisecond count, or the injected mock time when enabled.
- * @details Uses steady_clock (monotonic) so an NTP step or clock change cannot
- *          make millis() jump backward and wrap the unsigned `now - last` in
- *          EVERY_N_MILLIS. Narrowed through uint32_t so it wraps at 2^32 ms
- *          (~49 days), matching the device's 32-bit return on every host.
+ * @details steady_clock, narrowed through uint32_t so it wraps at 2^32 ms
+ *          (~49 days) like the device.
  */
 inline unsigned long millis() {
   if (use_mock_time)
@@ -232,10 +214,8 @@ inline unsigned long millis() {
 
 /**
  * @brief Host throttle backing EVERY_N_MILLIS, mirroring FastLED's CEveryNMillis.
- * @details EVERY_N_MILLIS expands to a static instance followed by an `if`.
- * `last` is seeded to `millis()` at construction
- * so the first evaluation waits a full period, matching the device; the stamp is
- * never reset across effect switches (function-local `static`).
+ * @details The first evaluation waits a full period; the stamp is not reset
+ * across effect switches.
  */
 class EveryNMillis {
 public:
@@ -265,12 +245,9 @@ private:
 /**
  * @brief Host throttle backing EVERY_N_SECONDS, mirroring FastLED's
  *        CEveryNSeconds.
- * @details Stamps and compares in whole seconds (FastLED's `seconds16()`,
- * uint16_t `millis() / 1000`), not milliseconds: a throttle constructed part-way through
- * a second first fires that fraction of a second short of a full period, which
- * is what the device does. `last` is never reset across effect switches
- * (function-local `static`). The host keeps 32-bit stamps and periods; the
- * device truncates periods and elapsed seconds to 16 bits.
+ * @details Compares whole seconds (FastLED's `seconds16()`), so the first fire
+ * can come up to a second early, as on the device. `last` is not reset across
+ * effect switches. The host keeps 32-bit stamps; the device truncates to 16.
  */
 class EveryNSeconds {
 public:
@@ -324,7 +301,7 @@ inline uint32_t save_disable_interrupts() { return 0; }
 /** @brief Restores a saved interrupt mask (no-op on host). */
 inline void restore_interrupts(uint32_t) {}
 
-/** @brief Legacy test mapping override. */
+/** @brief Test-only pixel-mapping height offset (HS_TEST_H_OFFSET). */
 #if defined(HS_TEST_H_OFFSET)
 inline constexpr int H_OFFSET = HS_TEST_H_OFFSET;
 #else
@@ -332,7 +309,6 @@ inline constexpr int H_OFFSET = 0;
 #endif
 } // namespace hs
 
-// Global millis/micros if needed, though prefer namespaced
 /**
  * @brief Global millis() alias forwarding to hs::millis().
  * @return Monotonic millisecond count.
@@ -355,10 +331,8 @@ namespace hs {
  * @brief Backing routine for HS_CHECK: logs a located breadcrumb then traps.
  * @param site Failed site as "file:line: (cond)", built by HS_CHECK_SITE.
  * @param fmt printf-style message format; trailing args supply the values.
- * @details Flushes the log before trapping, so a release/device build records
- *          which invariant fired and where. Formats msg into a fixed stack
- *          buffer (no heap) so it is safe to call from a corrupted-arena / OOM
- *          context. Never returns.
+ * @details Formats into a fixed stack buffer (no heap), so it is safe in an
+ *          OOM context; flushes the log before trapping.
  */
 [[noreturn]] HS_FLASH_INLINE __attribute__((format(printf, 2, 3))) inline void
 check_fail(const char *site, const char *fmt, ...) {
@@ -366,22 +340,18 @@ check_fail(const char *site, const char *fmt, ...) {
   va_list args;
   va_start(args, fmt);
 #ifdef ARDUINO
-  // Integer-only formatter keeps newlib's float path out of ITCM (matching hs::log).
+  // Integer-only formatter, as in hs::log.
   vsniprintf(msg, sizeof(msg), fmt, args);
 #else
   vsnprintf(msg, sizeof(msg), fmt, args);
 #endif
   va_end(args);
 #ifdef __EMSCRIPTEN__
-  // stderr rather than hs::log's stdout: fd 2 is what Emscripten routes to an
-  // installed Module.printErr, and the buffer only drains on the newline.
+  // fd 2 routes to Module.printErr; the buffer drains on the newline.
   fprintf(stderr, "HS_CHECK failed: %s %s\n", site, msg);
   fflush(stderr);
-  // The trap below compiles to wasm `unreachable`, which unwinds nothing: the
-  // shadow stack pointer keeps whatever the aborted frame left it at. Later
-  // calls can run with less stack space and corrupt memory without detection
-  // (release uses Emscripten's -O3 assertion default). The module is dead from
-  // here on, and the flag says so to a JS caller that catches the RuntimeError.
+  // wasm `unreachable` does not unwind the shadow stack, so the module is dead;
+  // flag it for a JS caller that catches the RuntimeError.
   EM_ASM({ Module['HS_MODULE_DEAD'] = true; });
 #elif defined(ARDUINO)
   hs::log_fragment("HS_CHECK failed: ");
@@ -398,9 +368,7 @@ check_fail(const char *site, const char *fmt, ...) {
   __builtin_trap();
 }
 
-// HS_CHECK(cond) with no message. Delegates with an empty formatted message
-// ("%s", "") rather than passing a literal "" as the format, so no zero-length
-// format string ever reaches the printf-format check (gcc -Wformat-zero-length).
+// HS_CHECK(cond) with no message; "%s" avoids -Wformat-zero-length.
 [[noreturn]] HS_FLASH_INLINE inline void check_fail(const char *site) {
   check_fail(site, "%s", "");
 }
@@ -408,24 +376,16 @@ check_fail(const char *site, const char *fmt, ...) {
 } // namespace hs
 
 // ---------------------------------------------------------------------------
-// Fn<Sig, Cap> — platform-aware callable wrapper. Both backends use heap-free
-// inline storage, so a captured closure is never heap-allocated (which, stored in
-// an ArenaVector that never destroys its elements, would leak under LSan).
+// Fn<Sig, Cap> — platform-aware heap-free callable wrapper.
 //   Teensy:     teensy::inplace_function
 //   Host/WASM:  hs::inplace_function
 //
-// Cap is a hard inline byte budget: a capture that overflows it is a compile
-// error, not a heap allocation. A pointer capture is wider on the 64-bit host, so
-// a pointer-capturing callsite picks a fixed byte Cap with headroom for the wider
-// host closure (e.g. SpriteFn's 16 B holds two host pointers) rather than
-// inflating every Fn here. See SpriteFn in concepts.h.
+// Cap is an inline byte budget; overflowing it is a compile error. A pointer
+// capture is wider on the 64-bit host.
 //
-// Invoking an unbound Fn diverges: hs::inplace_function traps via check_fail,
-// while the vendored teensy:: one returns a zero-initialized R. Row 9 of
-// docs/ledgers/device_host_divergence_ledger.md. That zero return is a
-// `static_cast<R>(0)` inside the empty vtable every teensy::inplace_function
-// instantiates, so on device R must be constructible from 0: an Fn returning a
-// type without that conversion compiles on host and fails only on device.
+// Invoking an unbound Fn diverges: hs::inplace_function traps, while
+// teensy::inplace_function returns static_cast<R>(0), so on device R must be
+// constructible from 0.
 // ---------------------------------------------------------------------------
 #ifdef ARDUINO
 #include <inplace_function.h>
@@ -455,17 +415,8 @@ using Fn = hs::inplace_function<Sig, Cap>;
 
 namespace hs {
 
-// The clamp NaN->hi contract below is load-bearing for engine-wide float->int
-// domain safety: Spherical, vector_to_pixel, blend_alpha, Gradient::get and every
-// palette lookup feed a possibly-NaN value through clamp as a saturating guard
-// before a float->int cast. In Spherical and vector_to_pixel the guard covers the
-// latitude channel only; fast_atan2 carries a NaN through the azimuth unclamped,
-// so those two still require a finite input vector from the caller.
-// -ffinite-math-only (implied by a bare -ffast-math)
-// lets the compiler assume no NaN/Inf and fold the guard away, reintroducing the
-// cast UB engine-wide; the WASM build keeps the contract by re-applying
-// -fno-finite-math-only after -ffast-math (see CMakeLists.txt). The #error below
-// traps at compile time on every target if that protection is ever lost.
+// hs::clamp maps NaN to hi and serves as the saturating guard before float->int
+// casts; -ffinite-math-only would fold that guard away.
 #if defined(__FINITE_MATH_ONLY__) && __FINITE_MATH_ONLY__ != 0
 #error                                                                         \
     "hs::clamp NaN->hi contract requires -fno-finite-math-only: a bare -ffast-math (or -ffinite-math-only) makes the compiler assume no NaN and folds the saturating clamp guard away, reintroducing float->int cast UB engine-wide."
@@ -479,11 +430,8 @@ namespace hs {
  * @param lo Lower bound; must not be NaN.
  * @param hi Upper bound; must not be NaN.
  * @return v clamped to [lo, hi]; hi when v is NaN.
- * @details CONTRACT (load-bearing): computes max(lo, min(v, hi)) with v as the
- *          FIRST operand to the inner min. The x86 minss instruction returns its
- *          SECOND source operand on any NaN, so min(NaN, hi) == hi. This backend
- *          is REORDER-SENSITIVE: swapping to min(hi, v) would yield NaN and break
- *          the contract. Do not reorder the min operands.
+ * @details minss returns its second operand on NaN, so v must stay the first
+ *          operand of min(v, hi).
  */
 inline constexpr __attribute__((always_inline)) float clamp(float v, float lo,
                                                             float hi) {
@@ -506,12 +454,8 @@ inline constexpr __attribute__((always_inline)) float clamp(float v, float lo,
  * @param lo Lower bound; must not be NaN.
  * @param hi Upper bound; must not be NaN.
  * @return v clamped to [lo, hi]; hi when v is NaN.
- * @details IEEE __builtin_fminf/fmaxf are NaN-SUPPRESSING (return the non-NaN
- *          operand regardless of position), so min(NaN, hi) == hi; this backend
- *          is REORDER-INSENSITIVE, operand order kept identical to the x86
- *          overload only for parity. NaN-suppression relies on
- *          -fno-finite-math-only surviving after -ffast-math (the
- *          __FINITE_MATH_ONLY__ preprocessor guard enforces it).
+ * @details __builtin_fminf/fmaxf return the non-NaN operand, given
+ *          -fno-finite-math-only.
  */
 inline constexpr __attribute__((always_inline)) float clamp(float v, float lo,
                                                             float hi) {
@@ -538,9 +482,8 @@ inline constexpr __attribute__((always_inline)) int clamp(int v, int lo,
  * @param b Value at t == 1.
  * @param t Interpolation parameter (typically in [0, 1]).
  * @return a + (b - a) * t.
- * @details Qualify calls as hs::lerp instead of an unqualified `lerp`: the
- *          latter resolves to a std::lerp global leak, which is not guaranteed
- *          on every build.
+ * @details Call as hs::lerp; an unqualified `lerp` may resolve to a leaked
+ *          std::lerp.
  */
 inline constexpr __attribute__((always_inline)) float lerp(float a, float b,
                                                            float t) {

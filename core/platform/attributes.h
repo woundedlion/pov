@@ -11,9 +11,7 @@
  */
 
 #ifndef ARDUINO
-// Off-device the Arduino storage qualifiers have no meaning; supply empty
-// definitions so the placement macros below expand everywhere. On device they
-// come from Arduino.h.
+// Off-device the Arduino storage qualifiers expand to nothing.
 #ifndef DMAMEM
 #define DMAMEM
 #endif
@@ -33,14 +31,10 @@
 
 // ---------------------------------------------------------------------------
 // HS_O3_BEGIN / HS_O3_END: compile the enclosed function definitions at -O3 on
-// the -Os device image (selective optimization).
-// Active only for device GCC building at -Os (__OPTIMIZE_SIZE__): the holosphere
-// -O3 image, host clang, and WASM see no-ops, so those builds are byte-identical.
-// The fast-math flags are restated because GCC 11's optimize pragma rebuilds
-// optimization flags from defaults, dropping the command-line ones for the
-// region. no-unswitch-loops keeps GCC 15 from emitting a second copy of the
-// region's per-pixel loop bodies, which only overflows ITCM: one copy ever runs.
-// HS_O3_FN is the shared single-function attribute and backs HS_COLD_MEMBER.
+// the -Os device image; no-op for every other build. HS_O3_FN is the
+// single-function form.
+// The optimize pragma resets flags to defaults, so fast-math is restated.
+// no-unswitch-loops stops GCC duplicating per-pixel loop bodies into ITCM.
 // ---------------------------------------------------------------------------
 #if defined(ARDUINO) && defined(__GNUC__) && !defined(__clang__) &&            \
     defined(__OPTIMIZE_SIZE__)
@@ -58,20 +52,12 @@
 #endif
 
 // ---------------------------------------------------------------------------
-// HS_COLD: keep a setup-only function off the fast ITCM banks. FLASHMEM routes it
-// to FLASH; noinline collapses per-call-site inline copies and noclone blocks the
-// .constprop/.isra IPA clones (which drop the section attribute and land in ITCM
-// regardless). Apply to free functions on cold paths (mesh/solid construction).
-// The family is gated on GCC, not on ARDUINO: a GCC host build keeps the
-// noinline/noclone, so only a clang host sees a no-op. HS_FLASH_MEMBER is the
-// inline/template member variant: GCC's `cold` attribute supplies a unique
-// .text.unlikely.* section, and tools/phantasm.ld routes that section to FLASH.
-// HS_HOT_FLASH_MEMBER uses the corresponding .text.hot.* route for measured hot
-// code that executes from cached flash without telling the optimizer it is
-// cold. HS_COLD_MEMBER names the setup-only use; HS_FLASH_MEMBER also supports
-// explicitly measured code placement. On the -Os device image both use
-// HS_O3_FN. HS_FLASH_INLINE omits noinline so free functions remain inlinable
-// and compatible with always_inline; cold supplies the .text.unlikely.* section.
+// HS_COLD: places a setup-only free function in FLASH. noclone blocks the
+// .constprop/.isra clones, which drop the section attribute and land in ITCM.
+// HS_FLASH_MEMBER: inline/template member variant; `cold` emits a unique
+// .text.unlikely.* section that tools/phantasm.ld routes to FLASH.
+// HS_HOT_FLASH_MEMBER: the same via .text.hot.*, without marking the code cold.
+// HS_FLASH_INLINE omits noinline so free functions stay inlinable.
 // ---------------------------------------------------------------------------
 #if defined(__GNUC__) && !defined(__clang__)
 #define HS_COLD FLASHMEM __attribute__((noinline, noclone))
@@ -91,15 +77,10 @@
 
 // ---------------------------------------------------------------------------
 // HS_PROGMEM_UNIQUE: flash placement for a table defined in a header. Use this,
-// never PROGMEM, for any COMDAT (inline/template) table.
-//
-// Teensy's PROGMEM is the single fixed section ".progmem", so every inline
-// PROGMEM variable in a translation unit lands in one section inside one COMDAT
-// group, signed by whichever symbol sits at offset 0. Two translation units that
-// pick the same signature make ld discard a whole group: the other tables in it
-// go too, their weak references resolve to address 0, and the first read faults
-// with no linker diagnostic. A per-variable section name gives each table its
-// own group, so tables dedupe individually. tools/phantasm.ld globs `.progmem*`.
+// never PROGMEM, for any COMDAT (inline/template) table: the shared ".progmem"
+// section groups a TU's tables into one COMDAT, and ld can discard the whole
+// group, resolving the other tables to address 0 without a diagnostic.
+// tools/phantasm.ld globs `.progmem*`.
 // ---------------------------------------------------------------------------
 #ifdef ARDUINO
 #define HS_PROGMEM_UNIQUE(name) __attribute__((section(".progmem." #name)))

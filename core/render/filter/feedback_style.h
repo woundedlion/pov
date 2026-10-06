@@ -38,10 +38,9 @@ using SpaceFn = math::Vector (*)(const math::Vector &, const Style &);
 /**
  * @brief Pointer type for a color (fade) transform.
  * @details Receives the pixel, the per-frame fade value, and the Style,
- * returning the faded/shifted pixel. The feedback filter's near-black floor,
- * which forces a decaying trail the last few LSBs to zero, engages only for
- * the built-in hue_fade; a custom transform must reach exact black on its own
- * or its residue persists for the life of the frame buffer.
+ * returning the faded/shifted pixel. The feedback filter's near-black floor
+ * applies only to hue_fade; a custom transform must reach exact black on its
+ * own or its residue persists.
  */
 using ColorFn = Pixel (*)(const Pixel &, float fade, const Style &);
 
@@ -70,11 +69,8 @@ inline math::Vector melt_warp(const math::Vector &v, const Style &s);
  * @param fade Per-frame scalar fade multiplier in [0, 1].
  * @param s Style supplying the precomputed hue rotation.
  * @return Faded and hue-rotated pixel.
- * @details The feedback filter matches this function by address rather than
- * calling it: it hoists the per-frame matrix prescale out of the pixel loop and
- * calls hue_fade_apply / hue_fade_apply2 directly (and drops to a plain
- * multiply when the rotation is identity). Editing this body alone therefore
- * changes nothing that renders — the shared math is in hue_fade_apply.
+ * @details The feedback filter matches this function by address and calls
+ * hue_fade_apply / hue_fade_apply2 directly; the shared math lives there.
  */
 inline Pixel hue_fade(const Pixel &p, float fade, const Style &s);
 
@@ -84,9 +80,8 @@ inline Pixel hue_fade(const Pixel &p, float fade, const Style &s);
  * @brief Named feedback preset: spatial/color transforms plus scalar params.
  * @details Trivially copyable, for a PRESETS table and lerp. The bound noise
  * pointer and per-frame hue cache survive lerp(), while a full-struct copy or
- * assignment overwrites them with the source's values. MeshFeedback re-binds
- * its NoiseParams into every adopted preset copy. A copy from an unbound named
- * preset sets noise to nullptr; bind it before using noise_warp.
+ * assignment overwrites them with the source's values. A copy from an unbound
+ * named preset sets noise to nullptr; bind it before using noise_warp.
  */
 struct Style {
   // --- Lerpable scalar params ---
@@ -105,26 +100,17 @@ struct Style {
   // --- Filter tuning (snap during lerp) ---
   /**
    * Coarse-grid downsample factor for the warp field. Higher = cheaper
-   * (~DS^2 fewer space_fn / atan2 / acos calls), lower = more detail. Uncached
-   * flushes hold the offset grid, spherical controls and one W-pixel row in
-   * scratch (288x144: DS=4 ≈ 30 KiB, DS=2 ≈ 91 KiB). With init_storage() at
-   * the default DS, the grid lives in the persistent warp cache; scratch holds
-   * a W-pixel row every frame, plus lattice controls and polar sample caps
-   * on frames that repopulate the cache.
-   * Uncached full-resolution flushes exceed the default 16 KiB scratch split;
-   * reserve Feedback<W,H>::UNCACHED_SCRATCH_BYTES(downsample) explicitly.
+   * (~DS^2 fewer space_fn calls), lower = more detail. Uncached full-resolution
+   * flushes exceed the default 16 KiB scratch split; reserve
+   * Feedback<W,H>::UNCACHED_SCRATCH_BYTES(downsample) explicitly.
    */
   int downsample = 4;
   /**
    * Column pairs per row pitch under which a row composites every other
-   * column. A row at latitude sine s spans 2*pi*s / W radians per column and
-   * RADIANS_PER_ROW per row, so at 1 the rows where two columns subtend less
-   * than one row pitch (s below about 0.5 at 288x144) sample each column pair
-   * once at its midpoint and expand the pairs back with a 3:1 blend toward each
-   * neighbouring pair, a one-column blur. Larger values widen the band toward
-   * the equator; 0 composites every row at full resolution. Rows the longitude
-   * filter reconstructs keep every column. Half-resolution compositing applies
-   * only at full opacity (alpha >= 1); translucent frames keep every column.
+   * column: each pair is sampled once at its midpoint and expanded with a 3:1
+   * blend toward each neighbouring pair. Larger values widen the band toward
+   * the equator; 0 composites every row at full resolution. Applies only at
+   * full opacity (alpha >= 1).
    */
   float pole_half_res = 1.0f;
 
@@ -133,8 +119,7 @@ struct Style {
 
   // --- Per-frame derived cache (NOT a preset; refreshed by sync_hue) ---
   // cos/sin of the fade-scaled per-frame hue angle plus its cbrt-LMS rotation
-  // matrix, read by hue_fade and by the filter's per-frame prescale. Defaults
-  // to identity until the first sync_hue().
+  // matrix; identity until the first sync_hue().
   float hue_ca = 1.0f;
   float hue_sa = 0.0f;
   float hue_k[9] = {1.0f, 0.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f, 1.0f};
@@ -145,10 +130,8 @@ struct Style {
    * @param b Style at t = 1.
    * @param t Interpolation fraction in [0, 1].
    * @details Scalar params blend continuously; function pointers and discrete
-   * tuning snap at t = 0.5. The bound noise pointer is left untouched (effect-
-   * owned state, not preset data; pulling it from a preset would null it and
-   * degrade noise_warp to identity), and the blended scalars are pushed into it
-   * so the feedback filter's drift trap stays satisfied.
+   * tuning snap at t = 0.5. The bound noise pointer is left untouched and
+   * receives the blended scalars.
    */
   void lerp(const Style &a, const Style &b, float t) {
     fade = hs::lerp(a.fade, b.fade, t);
@@ -166,12 +149,9 @@ struct Style {
 
   /**
    * @brief Precompute the fade-scaled hue rotation into hue_ca/hue_sa and hue_k.
-   * @details Each frame applies `hue_shift * -log(fade)` turns, making
-   * accumulated hue depend only on remaining brightness. A zero fade uses the
-   * identity rotation because no feedback remains visible. Traps on a fade
-   * outside [0, 1]: below 0, logf pushes NaN through the matrix into every
-   * feedback pixel, which clamps to white; above 1 the feedback loop no longer
-   * contracts.
+   * @details Each frame applies `hue_shift * -log(fade)` turns, so accumulated
+   * hue depends only on remaining brightness; a zero fade is the identity.
+   * Traps on a fade outside [0, 1].
    */
   void sync_hue() {
     HS_CHECK(fade >= 0.0f && fade <= 1.0f,
@@ -183,10 +163,8 @@ struct Style {
 
   /**
    * @brief Push this Style's scalar params into the bound NoiseParams.
-   * @details No-op if no NoiseParams is bound. Copies amplitude, frequency,
-   * speed, and scale, then calls NoiseParams::sync(). The feedback filter traps
-   * on flush when a bound NoiseParams has drifted from these scalars, so any
-   * write to them (slider, preset switch, lerp) must be followed by a call.
+   * @details No-op if no NoiseParams is bound. Call after any write to these
+   * scalars: the feedback filter traps when a bound NoiseParams has drifted.
    */
   void sync_noise() {
     if (!noise)
@@ -320,9 +298,7 @@ static_assert(std::is_trivially_copyable_v<Style>,
               "Style must stay trivially copyable: PRESETS tables and lerp() "
               "copy it field-wise.");
 
-// Compile-time anchor pinning Miasma's resolved fields by name: a reorder of
-// Style's same-typed scalar members would silently reassign the positional
-// preset literals, which this catches at compile time.
+// Pins the positional preset initializers to Style's field order.
 static_assert(Style::Miasma().fade == 0.80586f &&
                   Style::Miasma().hue_shift == 0.234f &&
                   Style::Miasma().amplitude == 2.61f &&
@@ -361,16 +337,13 @@ inline math::Vector melt_warp(const math::Vector &v, const Style &s) {
 
 /**
  * @brief Applies a cbrt-LMS rotation to linear-RGB channels.
- * @param k Rotation matrix already scaled by cbrt(fade/65535) (see hue_fade and
- *          the Feedback::flush fast path, which both prescale their fade here).
+ * @param k Rotation matrix already scaled by cbrt(fade/65535).
  * @param r Linear red channel (u16 magnitude, as float).
  * @param g Linear green channel.
  * @param b Linear blue channel.
  * @return The rotated, faded pixel.
- * @details Single source for the built-in hue-fade color math so hue_fade() and
- *          the flush() fast path that bypasses it cannot drift. Out-of-gamut
- *          results are chroma-scaled onto the tabulated gamut grid
- *          (lms_cbrt_transform_rgb_lut), not bisected.
+ * @details Out-of-gamut results are chroma-scaled onto the tabulated gamut
+ *          grid (lms_cbrt_transform_rgb_lut).
  */
 HS_O3_FN inline Pixel hue_fade_apply(const float k[9], float r, float g,
                                      float b) {
@@ -394,10 +367,8 @@ HS_O3_FN inline Pixel hue_fade_apply(const float k[9], float r, float g,
  * @param b1 Linear blue of the second pixel.
  * @param p0 Out: the rotated, faded first pixel.
  * @param p1 Out: the rotated, faded second pixel.
- * @details Both pixels' cube roots go through one fast_cbrt6 call, so the six
- * seed/Halley chains schedule against each other and the pair costs one divide.
- * The shared reciprocal changes rounding; gamut clipping can amplify it.
- * test_hue_fade_apply2_tracks_scalar bounds final u16-channel differences.
+ * @details Both pixels' cube roots share one fast_cbrt6 call, whose shared
+ * reciprocal can round differently from hue_fade_apply.
  */
 HS_O3_FN __attribute__((always_inline)) inline void
 hue_fade_apply2(const float k[9], float r0, float g0, float b0, float r1,
