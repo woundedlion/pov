@@ -186,6 +186,16 @@ public:
   }
 
 private:
+  static int noise_lut_samples(float feature_scale, float sin_theta,
+                               bool octave_path) {
+    const int samples =
+        hs::clamp(static_cast<int>(ceilf(LUT_SAMPLES_PER_UNIT * math::TWO_PI_F *
+                                         feature_scale * sin_theta)),
+                  LUT_MIN_SAMPLES, W);
+    return octave_path ? (samples + OCTAVE_GRID - 1) / OCTAVE_GRID * OCTAVE_GRID
+                       : samples;
+  }
+
   /** @brief Evaluates the active ball fields using cached ring geometry. */
   HS_O3_FN float ball_field(const math::Vector &p, const int *ks, int n,
                             float theta) const {
@@ -332,17 +342,12 @@ private:
         float cos_t = cosf(theta);
         float sin_t = sinf(theta);
 
-        lut_n = hs::clamp(
-            static_cast<int>(ceilf(LUT_SAMPLES_PER_UNIT * 2.0f * math::PI_F *
-                                   feature_scale * sin_t)),
-            LUT_MIN_SAMPLES, W);
         const Animation::NoiseProductParams *octaves =
             noise_field.active_count() == 1 &&
                     std::fabs(noise_field.active_params(0).amplitude) > 0.001f
                 ? &noise_field.active_params(0)
                 : nullptr;
-        if (octaves)
-          lut_n = (lut_n + OCTAVE_GRID - 1) / OCTAVE_GRID * OCTAVE_GRID;
+        lut_n = noise_lut_samples(feature_scale, sin_t, octaves != nullptr);
 
         uint32_t visible = CHUNK_MASK;
         if (try_cull) {
