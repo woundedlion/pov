@@ -49,12 +49,7 @@ struct Run {
 
   explicit Run(const Feedback::Style &s) : style(s) {
     style.noise = &noise;
-    noise.amplitude = style.amplitude;
-    noise.frequency = style.frequency;
-    noise.speed = style.speed;
-    noise.scale = style.scale;
-    noise.time = 0.0f;
-    noise.sync();
+    style.sync_noise();
     style.sync_hue();
     pipe.get<Filter::Pixel::Feedback<W, H>>().init_storage(persistent_arena);
   }
