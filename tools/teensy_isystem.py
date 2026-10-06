@@ -57,14 +57,11 @@ def _demote_includes(build_env):
 
 
 # Project sources: demote third-party headers to -isystem (keep first-party -I).
-# Every Teensy build carries the framework core dir (…/packages/framework-
-# arduinoteensy/cores/teensy4) on CPPPATH, so demoting nothing means the marker
-# set stopped matching PlatformIO's layout.
 if not sum(_demote_includes(build_env) for build_env in (projenv, env)):
     raise SystemExit(
         "teensy_isystem: demoted 0 third-party include dirs — no CPPPATH entry "
-        "matched " + ", ".join(_THIRD_PARTY_ROOTS) + "; the vendored-path "
-        "markers no longer match PlatformIO's layout.")
+        "matched " + ", ".join(_THIRD_PARTY_ROOTS) + "; no include path lies under "
+        "PlatformIO's packages or libdeps roots.")
 
 # Library builders: their own source is third-party; disable its warnings.
 for lib_builder in env.GetLibBuilders():
