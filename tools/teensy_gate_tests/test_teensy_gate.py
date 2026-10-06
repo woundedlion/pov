@@ -1752,16 +1752,9 @@ class TestGateExtra(unittest.TestCase):
             self.assertTrue(Path(path).is_file(), f"missing {path}")
 
     def test_tool_output_replaces_undecodable_bytes(self):
-        seen = {}
-
-        def run(*args, **kwargs):
-            seen.update(kwargs)
-            return subprocess.CompletedProcess(args, 0, "ok", "")
-
-        with mock.patch.object(self.ge.subprocess, "run", run):
-            self.assertEqual(self.ge._run(["tool"]), "ok")
-        self.assertEqual(seen["encoding"], "utf-8")
-        self.assertEqual(seen["errors"], "replace")
+        out = self.ge._run([sys.executable, "-c",
+                            "import sys; sys.stdout.buffer.write(b'don\\x92t')"])
+        self.assertEqual(out, "don\ufffdt")
 
     def test_tool_derives_sibling_arm_tools(self):
         self.assertEqual(self.ge._tool("/opt/arm/bin/arm-none-eabi-gcc", "size"),
