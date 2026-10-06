@@ -261,8 +261,8 @@ inline constexpr int BLINN_PHONG_SPECULAR_EXP = 32;
  *        light tilted off-axis along the surface tangent.
  * @param view_dir Direction toward the viewer in world space (unit length).
  * @param tangent Surface tangent used to tilt the specular highlight off-axis.
- * @return The unit half-vector, or the un-normalized sum when either
- *         intermediate degenerates to near-zero length.
+ * @return The unit half-vector, or the un-normalized light + view_dir sum
+ *         when that sum degenerates to near-zero length.
  * @details Headlight model: the light is the view direction tilted along the
  *          tangent. Depends on no per-pixel input.
  */
