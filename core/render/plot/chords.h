@@ -6,10 +6,8 @@
 
 /**
  * @file chords.h
- * @brief Plot::PlanarChords: strokes closed polylines that are straight in an
- *        azimuthal-equidistant chart as fixed-step screen chords, culled to the
- *        clip band, and Plot::ClipBand, the conservative chart-segment cull it
- *        uses. Plot::PlanarBandSplit flags edge runs unable to reach a clip band.
+ * @brief Strokes polylines that are straight in an azimuthal-equidistant
+ *        chart, culled conservatively against the clip band.
  */
 
 #include "memory.h"
@@ -104,12 +102,9 @@ template <int W, int H> struct ClipBand {
  *        Plot::rasterize never simulates them.
  * @tparam W Canvas width in pixels.
  * @tparam H Canvas height in pixels.
- * @details Points are added only where a run begins or ends, so a visible run
- * is walked in one piece. Its start depends on the clip, which moves the walk's
- * sample phase inside it: clipped strokes match the unclipped one to a fraction
- * of a pixel, not bit for bit. Edges touching the chart antipode keep the
- * rasterizer's geodesic fallback whole. Flag storage lives in arena storage
- * bound once by init_storage().
+ * @details Points are added only where a run begins or ends. A run's start
+ * depends on the clip, so clipped strokes match the unclipped one to a fraction
+ * of a pixel, not bit for bit. Edges touching the chart antipode stay whole.
  */
 template <int W, int H> class PlanarBandSplit {
 public:
@@ -220,18 +215,13 @@ inline constexpr RasterConfig PLANAR_CHORD_RASTER_CONFIG{
  *        chart as fixed-step chords between projected anchor points.
  * @tparam W Canvas width in pixels.
  * @tparam H Canvas height in pixels.
- * @details For dense stacks of short planar edges, where the per-edge setup of
- * Plot::rasterize's adaptive walk outweighs the edges themselves. Each edge is
- * subdivided into at most MAX_ANCHOR_INTERVALS azimuthal anchors and walked at
- * TARGET_STEP screen pixels, with no per-sample tangent or pole scaling. Edges
- * that cannot reach the clip band are skipped whole, and each chord walks only
- * the samples whose splat can reach it; both culls leave every drawn sample
- * where the unclipped walk puts it. Anchor intervals within POLE_PIECE_ROWS of
- * a pole, where the rasterizer's pole scaling is what closes the gaps, are
- * handed to Plot::rasterize under PLANAR_CHORD_RASTER_CONFIG with balanced
- * sampling. When band.x_active, PlanarBandSplit divides pole runs into
- * POLE_RUN_PIECES pieces; the clipped run matches to a fraction of a pixel.
- * Chart coordinates and scratch live in arena storage bound by init_storage().
+ * @details Each edge is subdivided into at most MAX_ANCHOR_INTERVALS azimuthal
+ * anchors and walked at TARGET_STEP screen pixels, with no per-sample tangent or
+ * pole scaling. Edges and samples that cannot reach the clip band are skipped
+ * without moving any drawn sample. Anchor intervals within POLE_PIECE_ROWS of a
+ * pole go to Plot::rasterize under PLANAR_CHORD_RASTER_CONFIG with balanced
+ * sampling; when band.x_active, PlanarBandSplit divides those runs into
+ * POLE_RUN_PIECES pieces.
  */
 template <int W, int H> class PlanarChords {
 public:

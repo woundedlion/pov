@@ -56,8 +56,7 @@ public:
    * @param age Temporal age channel (frames), forwarded unchanged.
    * @param alpha Blend alpha in [0, 1]; scaled by a quintic falloff inside the
    * radius, and the tap is dropped entirely once the falloff reaches zero.
-   * @tparam PassFnT Downstream callback type; a forwarding reference so the
-   * filter chain inlines with no per-point indirect call.
+   * @tparam PassFnT Downstream callback type.
    * @param pass Downstream 3D callback.
    */
   template <typename PassFnT>
@@ -74,11 +73,7 @@ public:
   }
 
 private:
-  /**
-   * @brief Falloff below which the attenuated tap is dropped instead of passed.
-   * @details Gates a raw, unnormalized weight, so it sits well below Blur's
-   * looser cutoff on normalized kernel taps.
-   */
+  /** @brief Falloff below which the attenuated tap is dropped instead of passed. */
   static constexpr float MASK_CUTOFF = 1e-8f;
 
   math::Vector origin; /**< Center of the hole (unit vector). */
