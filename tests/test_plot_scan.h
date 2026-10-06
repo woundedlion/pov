@@ -81,7 +81,6 @@ inline int run_plot_scan_tests() {
   hs_test::ModuleFixture fixture("plot_scan");
 
   test_four_regular_and_medial_edge_extraction();
-  hs::random().seed(1337);
 
   test_geodesic_sincos_bit_parity();
   test_line_sample_endpoints_and_unit_length();
