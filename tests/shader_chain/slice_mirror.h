@@ -198,3 +198,18 @@ inline void arm_default_chain(In::ChainProgram &program, int frames,
   for (int frame = 0; frame < frames; ++frame)
     program.advance();
 }
+
+/** @brief Runs the erased camera and projection entries (0, 1) over the seed. */
+inline PB::PlaneSample projected_input(In::ChainProgram &program,
+                                       const In::FrameContext &ctx,
+                                       const math::Vector &view) {
+  const PB::SphereSample seed{view, 0.0f};
+  alignas(In::SLOT_ALIGN) uint8_t rotated[In::SLOT_SIZE];
+  program.ops()[0].op->runtime.run(&seed, rotated, ctx, program.param_block(0),
+                                   program.prepared_block(0));
+  alignas(In::SLOT_ALIGN) uint8_t projected[In::SLOT_SIZE];
+  program.ops()[1].op->runtime.run(rotated, projected, ctx,
+                                   program.param_block(1),
+                                   program.prepared_block(1));
+  return *std::launder(reinterpret_cast<PB::PlaneSample *>(projected));
+}
