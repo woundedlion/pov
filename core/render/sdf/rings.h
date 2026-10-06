@@ -204,8 +204,8 @@ struct Ring {
 
 /**
  * @brief Per-azimuth-chunk knot ranges backing DistortedRing's knot prefilter.
- * @details Caller-owned, so the callback and undisplaced modes carry none of
- * it. One instance per knot-mode ring; must outlive the shape.
+ * @details Caller-owned; one instance per knot-mode ring; must outlive the
+ * shape.
  */
 struct KnotPrefilter {
   static constexpr int CHUNKS = 32; /**< Azimuth chunks in the prefilter. */
@@ -262,8 +262,8 @@ struct DistortedRing {
    * @param sf Per-azimuth centerline shift function, t in [0,1) -> radians.
    * @param md Maximum magnitude of sf over t in [0,1) (radians). PRECONDITION:
    *           md must be a true upper bound on |sf|. It widens the reject
-   * bands, so an underestimate silently culls genuine arcs. Pinned by the cull
-   *           tests, not checked here.
+   *           bands, so an underestimate silently culls genuine arcs. Not
+   *           checked here.
    * @param ph Azimuth phase offset (radians).
    * @details distance() measures polar separation at the query azimuth. It is
    *          not the exact distance to the shifted centerline, so steep shifts
@@ -335,15 +335,13 @@ public:
    * @param th Half-width of the stroke (radians).
    * @param kn n centerline shifts (radians), one per equal azimuth cell;
    *           closure wraps to entry 0; entry n is ignored if present.
-   *           Must outlive the shape. distance()
-   *           returns the exact distance to this polyline (within the local
-   *           tangent chart), so steep or sharply curved segments render at
-   *           full stroke width with no slope approximation.
+   *           Must outlive the shape. distance() returns the exact distance to
+   *           this polyline (within the local tangent chart).
    * @param n Number of knot cells; at least 3.
    * @param ph Azimuth phase offset (radians).
    * @param pf Prefilter storage filled here; must outlive the shape. nullptr
    *           skips the per-pixel prefilter, for callers that cull candidate
-   *           pixels themselves (Scan::DistortedRingStack).
+   *           pixels themselves.
    */
   DistortedRing(const math::Basis &b, float r, float th, const float *kn, int n,
                 float ph, KnotPrefilter *pf)
@@ -458,13 +456,8 @@ public:
 
     float denom = r_val * sin_phi;
     if (std::abs(denom) < INTERVAL_DENOM_EPS)
-      // r_val cleared MIN_HORIZONTAL_PROJ above, so a vanishing denom is the
-      // exact pole row: every column aliases to the one pole point. A displaced
-      // stroke reaches the pole at a single azimuth, but the degenerate row
-      // math can't recover which column, so the default (return false) full-row
-      // scans and fills the whole aliased row -- fine for a lone ring, but a
-      // dense ring stack renders it as a solid pole cap. suppress_pole_fill
-      // drops the row.
+      // Exact pole row: every column aliases to the one pole point, so the
+      // default full-row scan fills the whole row; suppress_pole_fill drops it.
       return suppress_pole_fill;
 
     emit_annular_band<W>(cos_min_limit, cos_max_limit, ny, cos_phi, denom,
@@ -515,10 +508,7 @@ public:
    *        take the exact polar distance (the zero-knot polyline agrees only to
    *        within an ulp); elsewhere dist is only known to be non-negative.
    * @pre The ring is in knot mode.
-   * @details Same-axis ring stacks share d/polar/sin_polar/t_norm across every
-   * ring at a pixel; hoisting them there drops the per-ring dot/acos/atan2
-   * recompute. The chunk prefilter is skipped: the stack's candidate table
-   * already culls the pixels it would reject.
+   * @details Skips the chunk prefilter.
    */
   __attribute__((always_inline)) void
   distance_from_frame(float d, float polar, float sin_polar, float t_norm,
@@ -546,8 +536,7 @@ private:
    * @brief Distance from a pixel to the knot polyline.
    * @param t_norm Pixel azimuth in [0, 1) (phase applied).
    * @param polar Pixel polar angle (radians).
-   * @param sin_polar sqrtf(max(1 - d * d, POLE_SIN2_FLOOR)) for the pixel;
-   *        hoisted to the caller so a ring stack pays it once per pixel.
+   * @param sin_polar sqrtf(max(1 - d * d, POLE_SIN2_FLOOR)) for the pixel.
    * @return Geodesic distance to the nearest polyline point (radians), exact
    *         within the local tangent chart for distances up to `thickness`, or
    *         a lower bound when the outward search hits its cell budget; past
@@ -558,10 +547,7 @@ private:
    * pixel: exact point-to-segment distances, searched outward from the
    * pixel's own cell. A segment o cells away is at least (o - 1) * cell_u
    * away, so the search stops once that gap exceeds the best distance found
-   * (or the stroke reach, past which alpha is zero regardless). True distance
-   * is 1-Lipschitz in screen position, so the stroke's alpha cannot ripple
-   * along the centerline the way slope-corrected vertical-distance estimates
-   * do at curvature extrema.
+   * (or the stroke reach, past which alpha is zero regardless).
    */
   HS_O3_FN float polyline_distance(float t_norm, float polar,
                                    float sin_polar) const {
@@ -581,7 +567,7 @@ private:
     // Prefilter: when a chunk's arc exceeds the stroke reach, only the pixel's
     // chunk and its neighbours can hold a within-reach curve point; a pixel
     // whose polar offset clears all three knot ranges by more than thickness
-    // skips the segment search (most band pixels, in a displaced ring).
+    // skips the segment search.
     constexpr int CHUNKS = KnotPrefilter::CHUNKS;
     const float chunk_u = (math::TWO_PI_F / CHUNKS) * sin_polar;
     if (UsePrefilter && prefilter && chunk_u >= thickness) {
@@ -615,8 +601,7 @@ private:
       return base + knots[m];
     };
     // Perpendicular foot on the segment rising cell_u wide from (u0, v0) to
-    // v1; contributes only when the foot lands inside the segment, so the
-    // division is paid roughly once per pixel.
+    // v1; contributes only when the foot lands inside the segment.
     auto interior_d2 = [&](float u0, float v0, float v1, float &best2) {
       float dv = v1 - v0;
       float numer = -(u0 * cell_u + v0 * dv);
@@ -668,19 +653,15 @@ private:
     }
     if (best2 < th2)
       return sqrtf(best2);
-    // A search stopped by the cell budget rather than by convergence or a full
-    // sweep leaves knots unvisited, each at least a frontier |u| away; report
-    // that bound so near-pole chart compression cannot sentinel a pixel the
-    // unreached cells could still light.
+    // A budget-capped search leaves knots unvisited, each at least a frontier
+    // |u| away; report that bound.
     if (budget_capped) {
       float frontier2 = fminf(ul * ul, ur * ur);
       if (frontier2 < th2)
         return sqrtf(frontier2);
     }
-    // Past the stroke reach the search leaves best2 an upper bound only, so
-    // report the reject band's far sentinel and skip the sqrt. Returning
-    // thickness instead would land dist on exactly 0, which a CSG parent reads
-    // as on-surface across the whole bounding annulus.
+    // Past the stroke reach best2 is only an upper bound: report the far
+    // sentinel (dist == 0 would read as on-surface to a CSG parent).
     return FAR_SENTINEL;
   }
 
@@ -695,10 +676,8 @@ private:
    * @details Once a knot cell spans at least half the stroke reach, the
    * outward search never passes the straddling cell's neighbours plus one more
    * cell on a side whose frontier knot sits inside the reach, so that window is
-   * evaluated straight through: the running minimum is a fraction compared by
-   * cross-multiplication, and only a hit pays the division and square root.
-   * Narrower cells (near the stack's poles) take the full search. Agrees with
-   * polyline_search<false>() to float rounding.
+   * evaluated straight through. Narrower cells take the full search. Agrees
+   * with polyline_search<false>() to float rounding.
    */
   __attribute__((always_inline)) float
   polyline_window(float t_norm, float polar, float sin_polar) const {
@@ -811,9 +790,7 @@ struct FlatDistortedRing : private DistortedRing {
    * @tparam H Canvas height in rows.
    * @return Inclusive row bounds covering the stroke.
    * @details distance() is the exact polar offset, so the band widened by
-   * `thickness` is already tight: every colatitude outside it clears the
-   * stroke at every azimuth. The displaced base class keeps the extra margin
-   * its chart distance needs.
+   * `thickness` is tight.
    */
   template <int H> Bounds get_vertical_bounds() const {
     PhiBand band = clamp_phi_band(center_phi, target_angle);
@@ -848,8 +825,7 @@ struct FlatDistortedRing : private DistortedRing {
   }
 };
 
-// Leaf roster for the CSG composition contract: a leaf that stops satisfying
-// SDFShape fails here rather than at whichever composition happens to use it.
+// Leaf roster for the CSG composition contract.
 static_assert(SDFShape<Ring>);
 static_assert(SDFShape<DistortedRing>);
 static_assert(SDFShape<FlatDistortedRing>);

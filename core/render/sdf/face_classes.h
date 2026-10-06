@@ -13,19 +13,13 @@
 /**
  * @file face_classes.h
  * @brief Records a congruence-class bake produces and the rasterizer reads.
- *
- * The runtime half of the congruence-class LUT feature: the class id space and
- * the three record types Scan::Mesh binds per frame. The clustering and LUT
- * bake that fill them live in face_class_bake.h, which the rasterizer does not
- * need — this header keeps the mesh-building machinery out of every rasterizer
- * translation unit.
  */
 namespace MeshOps {
 
 /** Sentinel class id: face keeps the per-face exact path. */
 inline constexpr uint8_t NO_CLASS = 0xFF;
-/** Congruence-class capacity per mesh (census max over the registry is 24;
- *  overflow degrades the excess faces to NO_CLASS, it never traps). */
+/** Congruence-class capacity per mesh; overflow degrades the excess faces to
+ *  NO_CLASS. */
 inline constexpr int MAX_CONGRUENCE_CLASSES = 32;
 static_assert(MAX_CONGRUENCE_CLASSES < NO_CLASS,
               "class ids must fit uint8_t without aliasing NO_CLASS");

@@ -336,13 +336,10 @@ template <bool SLICE_4D = false, uint8_t FIXED_SHELL_COUNT = 0> struct Events {
 };
 /**
  * @brief Composites one ray's plane crossings front to back.
- * @details Matches Raycast::shade_events over SDF::Lattice::Events. Each axis
- * evaluates its crossings with the axis fixed, and only covered crossings enter
- * the distance-ordered layer list: an uncovered crossing never closes a merge
- * group, so the groups are runs of covered crossings within the relative
- * tolerance of their first distance, each one layer at that distance with the
- * run's largest coverage. The stream capacity bounds every ray below the
- * candidate and layer budgets, so neither is tracked.
+ * @details Matches Raycast::shade_events over SDF::Lattice::Events. Only
+ * covered crossings enter the distance-ordered layer list; each run within the
+ * relative tolerance of its first distance composites as one layer at that
+ * distance with the run's largest coverage.
  */
 template <bool SLICE_4D, uint8_t SHELLS>
 __attribute__((always_inline)) inline LayerComposite
