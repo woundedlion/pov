@@ -76,8 +76,8 @@ struct FaceScratchBuffer {
       pseudo_angles; /**< Unwrapped vertex pseudo-angles for the sector walk. */
   std::array<uint32_t, MAX_VERTS + 1>
       sector_keys; /**< pseudo_angles as order-preserving integer keys. */
-  /** Bumped by every Face that finishes building over this buffer, so a Face
-   *  holding an older value has had its geometry retargeted. */
+  /** Bumped by every Face that writes geometry here, including post-projection
+   * culls; an older value identifies retargeted geometry. */
   uint32_t claim_seq = 0;
 };
 
