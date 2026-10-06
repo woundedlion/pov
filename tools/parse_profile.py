@@ -499,10 +499,15 @@ def clean_hold_rows(windows, scope, gate):
 
 def cmd_presets(windows, scope, gate):
     """One row per preset, read from its modal-call-count (clean-hold) windows."""
+    if not any(scope in window.counters for window in windows):
+        print(f"no window carries the counter '{scope}': nothing for the "
+              "preset table to read", file=sys.stderr)
+        return 2
     print(f"# preset   holds  clean  {scope} ms/f  calls/f  meta")
     for name, holds, clean, ms, cf, meta in sorted(
             clean_hold_rows(windows, scope, gate), key=lambda r: -r[3]):
         print(f"{name:>8}  {holds:5d}  {clean:5d}  {ms:8.2f}  {cf:7.1f}  {meta}")
+    return 0
 
 
 def cmd_buckets(windows, scope, gate):
@@ -949,7 +954,7 @@ def main():
                 spill = "n/a" if render_is_wall else str(int(render > DISPLAY_WINDOW_US))
                 print(f"{n:7d} {wall:8d} {render:9d} {spill:>5}")
     elif args.mode == "presets":
-        cmd_presets(windows, scope, args.gate)
+        return cmd_presets(windows, scope, args.gate)
     elif args.mode == "buckets":
         return cmd_buckets(windows, scope, args.gate)
     elif args.mode == "metrics":
