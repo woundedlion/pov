@@ -299,7 +299,8 @@ constexpr int MEASURED_MAX_BAND_KIS_ICOSA = 17;
 constexpr int MEASURED_MAX_BAND_KIS_CUBE = 45;
 constexpr int MEASURED_MAX_BAND_KIS_DODECA = 17;
 constexpr int MEASURED_MAX_BAND_DUAL_ICOSA = 35;
-/** The dual-cube seam spans a full column, so its band saturates at PS_H. */
+/** The dual-cube band reaches PS_H where a full changed column intersects
+ * a changed horizontal run of at least PS_H pixels. */
 constexpr int MEASURED_MAX_BAND_DUAL_CUBE = PS_H;
 constexpr int MEASURED_MAX_BAND_DUAL_DODECA = 35;
 constexpr int MAX_BAND_MARGIN = 2;
