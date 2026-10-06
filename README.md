@@ -134,7 +134,7 @@ Two physical targets share the same rendering engine:
 | Protocol | DMA (HD107S at 24 MHz) |
 | Rotation | 480 RPM (8 revolutions/second), 16 FPS from 2 sides of the ring |
 | Virtual resolution | 288 × 144 |
-| Driver | `POVSegmented<288, N, 480>` in `pov_segmented.h`, power-of-two `N ≤ 8` |
+| Driver | `POVSegmented<288, N, 480>` in `pov_segmented.h`, `N ∈ {4, 8}` (even power of two; `N=2` exceeds the per-column DMA budget at 288 px/480 RPM) |
 | Synchronization | 1-wire: count-coded sync symbols from segment 0 discipline a per-board flywheel timebase (`hardware/pov_sync.h`) |
 | Pin assignments | ID: pins 21–22 at N=4, plus pin 23 at N=8; Sync: rev 1.1 pin 3 (shared — master drives, downstream receive); rev 1.2 TX pin 4 via U1 (held LOW on downstream boards), RX pin 3, master-enable: pin 5, SPI: pins 11 + 13 |
 
