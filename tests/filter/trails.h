@@ -3,8 +3,6 @@
  * Licensed under the PolyForm Noncommercial License 1.0.0
  */
 
-// Included by tests/test_filter.h.
-
 // ============================================================================
 // World::Trails — int16 quantization round-trip + ring buffer / ttl lifecycle
 // ============================================================================

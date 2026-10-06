@@ -3,8 +3,6 @@
  * Licensed under the PolyForm Noncommercial License 1.0.0
  */
 
-// Included by tests/test_shader_chain.h.
-
 // --- projection-op mirrors ------------------------------------------------
 
 /** Mirror frame for the projection batch. */

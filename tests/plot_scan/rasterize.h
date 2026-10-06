@@ -3,8 +3,6 @@
  * Licensed under the PolyForm Noncommercial License 1.0.0
  */
 
-// Included by tests/test_plot_scan.h.
-
 // ============================================================================
 // Plot::rasterize — control-flow coverage through a capturing pipeline
 // ============================================================================

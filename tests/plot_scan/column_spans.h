@@ -3,8 +3,6 @@
  * Licensed under the PolyForm Noncommercial License 1.0.0
  */
 
-// Included by tests/test_plot_scan.h.
-
 // ============================================================================
 // ClipRegion::arcs_overlap + the col-span helpers — column-arc clip cull
 // ============================================================================

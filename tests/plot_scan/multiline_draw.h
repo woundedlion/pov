@@ -3,8 +3,6 @@
  * Licensed under the PolyForm Noncommercial License 1.0.0
  */
 
-// Included by tests/test_plot_scan.h.
-
 // ============================================================================
 // Plot::Multiline::draw — sampling plus rasterization, held against an
 // analytic point-to-geodesic-arc oracle.

@@ -3,8 +3,6 @@
  * Licensed under the PolyForm Noncommercial License 1.0.0
  */
 
-// Included by tests/test_plot_scan.h.
-
 // ---------------------------------------------------------------------------
 // Headless rasterize() harness. A stub pipeline records plotted world positions;
 // a no-op Effect supplies a Canvas with a full (unclipped) clip band.

@@ -3,8 +3,6 @@
  * Licensed under the PolyForm Noncommercial License 1.0.0
  */
 
-// Included by tests/test_shader_chain.h.
-
 // Transactional refusals, migration, determinism and budgets.
 
 /** Renders the sweep into @p out for a byte-identity comparison. */

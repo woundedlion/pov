@@ -3,8 +3,6 @@
  * Licensed under the PolyForm Noncommercial License 1.0.0
  */
 
-// Included by tests/test_plot_scan.h.
-
 // ============================================================================
 // Plot::geodesic_row_span / Plot::planar_row_span — arc-aware clip cull
 // ============================================================================
