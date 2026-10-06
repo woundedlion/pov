@@ -1483,6 +1483,11 @@ inline void test_four_regular_and_medial_edge_extraction() {
     HS_EXPECT_EQ(matches, 1);
     const auto index = Plot::Mesh::find_edge_index(woven, edge.v, edge.u);
     HS_EXPECT_LT(index, woven.size());
+    if (index >= woven.size())
+      continue;
+    const auto &found = woven[index];
+    HS_EXPECT_TRUE((found.u == edge.u && found.v == edge.v) ||
+                   (found.u == edge.v && found.v == edge.u));
   }
   Plot::Mesh::extract_medial_edges(mesh, unique, medial);
   HS_EXPECT_SIZE_OR_RETURN(medial, mesh.faces.size());
