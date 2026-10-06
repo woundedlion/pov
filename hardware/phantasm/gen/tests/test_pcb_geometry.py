@@ -1,6 +1,7 @@
 import os
 import math
 import sys
+import tempfile
 import unittest
 from pathlib import Path
 from unittest import mock
@@ -180,6 +181,8 @@ class IdStrapSilkscreenTests(unittest.TestCase):
                     self.assertEqual(actual, expected)
 
     def test_generator_keeps_jp_id2_outline_on_silkscreen(self):
+        fixture_root = self.enterContext(tempfile.TemporaryDirectory())
+        self.enterContext(mock.patch.object(pcb, "FP_DIR", fixture_root))
         source = _footprint(self.boards[ROUTED], "JP_ID0")
         libid = "Test:Jumper"
         with mock.patch.dict(pcb._MOD_CACHE, {(os.path.join(pcb.FP_DIR, "Test.pretty"), libid): source}):
