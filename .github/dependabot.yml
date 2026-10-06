@@ -6,8 +6,6 @@ updates:
     directory: /
     schedule:
       interval: monthly
-    # One pull request for the whole workflow set: the actions move together and
-    # a per-action PR would re-run the full matrix for each.
     groups:
       actions:
         patterns:

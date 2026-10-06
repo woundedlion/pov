@@ -20,8 +20,8 @@
  *        arena-compaction primitives effects need to swap between them, and a
  *        pluggable compile-time segue.
  * @tparam SegueT Segue policy (see namespace Segue) behind schedule_segue().
- * Clients that run their own transition animations (e.g. an `OpLeg`) keep
- * the default and simply never call it.
+ * Clients that run their own transition animations keep the default and never
+ * call it.
  * @details Holds two MeshState slots in `persistent_arena` and a front/back
  * index. Effects own generation and drawing (generate into a slot, flip the
  * front index, reclaim the old slot); the segue owns transition scheduling.
@@ -35,8 +35,7 @@
  * scratch_arena_a);
  *
  *   // To transition: generate into the back slot, flip, then let the segue
- *   // schedule the animation via schedule_segue (see
- *   // IslamicStars::spawn_shape for the pattern).
+ *   // schedule the animation via schedule_segue.
  */
 template <typename SegueT = Segue::Crossfade> class MeshCarousel {
   static_assert(!Segue::HasFaceOffset<SegueT> || Segue::PerFace<SegueT>,
@@ -177,14 +176,9 @@ public:
    * @param back_slot Slot to discard; must still be opposite the front slot.
    * @param after_reset Callback run immediately after the reset, while the
    * front slot is still evacuated.
-   * @details Runs `after_reset(persistent_arena)` immediately after the reset —
-   * while the front slot is still evacuated — so the caller can re-bake
-   * effect-owned persistent data (e.g. a palette bank) into the fresh arena
-   * *before* the front mesh is restored on top of it. Use when only the visible
-   * (front) shape must survive a regeneration of the back slot. Legal while no
-   * sprite still draws the back slot — an overlapping segue's outgoing sprite
-   * draws the slot it was spawned into, which set_front() already made the
-   * front one, so it is the slot this preserves.
+   * @details @p after_reset can re-bake effect-owned persistent data into the
+   * fresh arena before the front mesh is restored on top of it. Legal while no
+   * sprite still draws the back slot.
    */
   template <typename AfterReset>
   void compact_keep_front(int back_slot, AfterReset after_reset) {
@@ -200,10 +194,7 @@ public:
    * @brief Frees both slots and compacts, evacuating nothing.
    * @tparam AfterReset Callable type invoked as `void(Arena&)`.
    * @param after_reset Callback run immediately after the reset.
-   * @details Only legal while no sprite is still drawing either slot — with a
-   * sequential segue the outgoing sprite has finished by the time the next
-   * transition is scheduled. Callers that regenerate both slots before the next
-   * draw reclaim a whole MeshState over compact_keep_front.
+   * @details Only legal while no sprite is still drawing either slot.
    * @note The front index is left as it was and now names an empty slot, so a
    * caller that regenerates only one slot must set_front() to it; otherwise
    * current() renders nothing.

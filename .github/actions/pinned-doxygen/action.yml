@@ -1,6 +1,4 @@
 # Installs the Doxygen the API reference is built with and applies the theme.
-# Shared by ci.yml's docs-doxygen job and docs.yml's build job so the two
-# cannot drift; the surrounding checks each of them runs stay in the workflow.
 name: Pinned Doxygen
 description: Install the pinned Doxygen release plus Graphviz and apply the pinned doxygen-awesome theme.
 
@@ -17,9 +15,7 @@ runs:
         tar xzf doxygen.tar.gz
         echo "$PWD/doxygen-1.17.0/bin" >> "$GITHUB_PATH"
 
-    # Modern theme (third-party). Pinned to an exact commit (v2.3.4) rather
-    # than the mutable tag so a retagged release can't swap the theme CSS under
-    # a write/OIDC-scoped deploy. Drop this step for stock Doxygen styling.
+    # Third-party theme, pinned to an exact commit.
     - name: Apply doxygen-awesome theme
       shell: bash
       run: |

@@ -9,9 +9,8 @@ PRESENT="$(git -c core.quotePath=false diff --cached --name-only --diff-filter=A
 STAGED_BLOB="$(mktemp "${TMPDIR:-/tmp}/hs-staged.XXXXXX")"
 trap 'rm -f "$STAGED_BLOB"' EXIT INT TERM
 
-# The linters read the staged blob, not the working tree. Piping `git show`
-# straight into one hides its status behind the linter's, so a path the index
-# cannot produce lints as empty input and passes.
+# Lints read the staged blob; a failed read must fail the hook, not lint as
+# empty input.
 extract_staged() {
   if ! GIT_INDEX_FILE="$INDEX_PATH" git show ":$1" >"$STAGED_BLOB"; then
     echo "[pre-commit] cannot read staged $1 from the index."
@@ -153,8 +152,7 @@ $SHELL_FILES
 EOF
   fi
 
-  # No --sync: a repair here would land in the snapshot, not the index, and
-  # would pass a README whose maps or counts have drifted from the tree.
+  # No --sync: a repair would land in the snapshot, not the index.
   "$PYTHON_BIN" "$SNAPSHOT/tools/docs_check.py" --root "$SNAPSHOT" --skip-checkout daydream
   "$PYTHON_BIN" "$SNAPSHOT/tools/docs_images.py" --root "$SNAPSHOT"
   "$PYTHON_BIN" "$SNAPSHOT/tools/build_pins.py" --check

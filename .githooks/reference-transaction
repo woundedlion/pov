@@ -1,6 +1,5 @@
 #!/bin/sh
-# Refuse any non-fast-forward move or deletion of refs/heads/master so
-# concurrent code-review-fix sessions cannot clobber each other's landed work.
+# Refuse any non-fast-forward move or deletion of refs/heads/master.
 #
 # The fast-forward check derives the ref's current value itself (git update-ref
 # reports a zero old-OID to this hook, so the stdin old field cannot be trusted).

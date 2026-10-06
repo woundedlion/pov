@@ -26,8 +26,7 @@ class RecipeBuild {
   const Host &host() const { return static_cast<const Host &>(*this); }
 
 protected:
-  // Recipe-build leg lengths; divided by the Trans Speed divisor like every
-  // other stage.
+  // Recipe-build leg lengths, before the Trans Speed divisor.
   static constexpr int HANKIN_LEG_FRAMES = 32;
   static constexpr int SWEEP_LEG_FRAMES =
       24; /**< ambo / truncate / snub / chamfer. */
@@ -39,12 +38,9 @@ protected:
    * regular seeds (docs/specs/opchain_morph_spec.md, Smooth dual/kis/needle). */
   static constexpr float MACRO_TRUNCATE_T = 1.0f / 3.0f;
   // Build-chain state (entries with a non-null recipe): the shape is built op
-  // by op between the fade-in and the still hold. Null-recipe entries never
-  // touch any of it.
+  // by op between the fade-in and the still hold.
   bool build_active = false; /**< Legs draw; the sprite draw_fn is muted. */
-  /** Entry the resident shape was spawned from; must outlive its build (the
-   * registries are static). The build chain reads its recipe rather than
-   * re-indexing a registry, so a spawn is not tied to a registry slot. */
+  /** Entry the resident shape was spawned from; must outlive its build. */
   const Solids::Entry *build_entry = nullptr;
   Solids::OpStep
       build_step_chain[MAX_BUILD_STEPS];      /**< Lowered primitive chain. */
@@ -58,9 +54,9 @@ protected:
                                  its end on a hankin step. */
   size_t dual_bridge_ambo_faces =
       0; /**< ambo(P) face count for leg 3's palette handoff. */
-  /** Device persistent budget of the current shape's split, set by spawn_shape
-   * before any read; the host arena is over-provisioned, so gates check the
-   * resident persistent high-water against this. */
+  /** Device persistent budget of the current shape's split; the host arena is
+   * over-provisioned, so gates check the resident persistent high-water against
+   * this. */
   size_t device_persistent_budget = 0;
   const Animation::OpLeg::Landing *build_landing =
       nullptr; /**< Latest leg's arrival data (leg-arena backed). */
@@ -141,9 +137,6 @@ protected:
   /**
    * @brief Whether the lowered chain runs a smooth kis/needle bridge (a dt pair
    *        or a standalone kis), which spawns on the scratch_a-heavy split.
-   * @details Scanned at spawn to pick the per-shape arena split before the build
-   * grows the arenas. Every such shape fits the bridge split (needle is the
-   * largest).
    */
   bool build_uses_smooth_bridge() const {
     for (size_t k = 0; k < build_step_count; ++k)
@@ -247,17 +240,15 @@ protected:
       return;
     }
 
-    // A DUAL reaching here is a lone one: dt_pair_at() carries no eligibility
-    // predicate, so every DUAL,KIS pair took the macro above. The lone DUAL is
-    // the smooth three-leg bridge; it builds its own endpoints and chains its
-    // legs, then rejoins at finish_build_leg.
+    // A lone DUAL is the smooth three-leg bridge; it builds its own endpoints
+    // and chains its legs, then rejoins at finish_build_leg.
     if (step.op == Solids::Op::DUAL) {
       schedule_dual_bridge(BuildContinuation::FINISH);
       return;
     }
 
     // Build the endpoint before handoff arrays: generate() resets their scratch.
-    // Hankin uses its baked arrival topology (core/animation/opleg.h).
+    // Hankin uses its baked arrival topology.
     Animation::OpLeg::BookendClasses bookend;
     if (step.op != Solids::Op::HANKIN) {
       hs::generate(persistent_arena, [&](Arena &target, Arena &a, Arena &b) {
@@ -394,8 +385,6 @@ protected:
    * @brief Classifies the eagerly built endpoint into topology groups and
    * returns the bookend grouping keyed on it.
    * @return Bookend classes over build_next_seed's fresh classification.
-   * @details ScratchScope-guarded so the caller's prior allocations in the
-   * shared scratch arenas survive; a bare reset() would drop them.
    */
   HS_COLD_MEMBER Animation::OpLeg::BookendClasses next_seed_bookend() {
     MeshOps::classify_faces_by_topology(build_next_seed, scratch_arena_a,
@@ -426,10 +415,9 @@ protected:
     }
     const uint8_t *prev_pal;
     if (!build_from_pal) {
-      // The build's first leg departs the carousel seed slot: its per-face
-      // spawn colours are the chain's FROM state. Keyed on build_from_pal
-      // (reset to null per build) rather than build_step == 0, which a smooth
-      // kis/needle macro's later sub-legs can still sit on.
+      // The build's first leg departs the carousel seed slot's spawn colours.
+      // Keyed on build_from_pal (null per build), not build_step == 0, which a
+      // smooth kis/needle macro's later sub-legs can still sit on.
       HS_CHECK(prev_faces <= host().carousel.current().topology.size(),
                "RecipeBuild: spawn palette does not cover the leg seed");
       prev_pal = host().slot_face_palette[host().carousel.front_index()];
@@ -492,10 +480,7 @@ protected:
    * @brief Schedules the smooth dual as three legs: truncate P -> ambo(P), a
    * medial slerp to ambo(dual(P)), and truncate dual(P) back down to dual(P).
    * @details dual(P) is deferred to leg 3 so it never co-resides with the
-   * medial leg's peak. Each
-   * leg's scheduler compacts the arena before it runs, reclaiming the finished
-   * legs and the endpoints they no longer need -- the heaviest gyro and
-   * ambo_dual seeds run the whole bridge co-resident ~21 KB over budget.
+   * medial leg's peak. Each leg's scheduler compacts the arena before it runs.
    * @param done Build stage entered after the closing leg.
    */
   HS_COLD_MEMBER void schedule_dual_bridge(BuildContinuation done) {
@@ -628,9 +613,6 @@ protected:
    * @brief Adopts the eagerly built endpoint (build_next_seed) as the next
    * leg's seed, snapshots the palette the finished leg landed on so its
    * successor departs continuously, and compacts the finished leg's storage.
-   * @details The shared middle of finish_build_leg's non-last path, reused by
-   * the smooth kis/needle macro stages, which chain their own next leg rather
-   * than advancing build_step.
    */
   HS_COLD_MEMBER void carry_landing_to_seed() {
     const size_t landed_faces = build_next_seed.face_counts.size();

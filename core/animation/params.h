@@ -10,8 +10,7 @@
 
 /**
  * @file params.h
- * @brief Animation fragment: the parameter drivers (Transition, Mutation,
- * Progress, Driver, Lerp, ColorWipe), the Mobius warps, and the
+ * @brief Animation fragment: parameter drivers, Mobius warps, and
  * displacement-field animations.
  */
 
@@ -42,11 +41,10 @@ protected:
  * @brief Pause-gated step loop shared by the parameter animations.
  * @tparam Derived Concrete animation supplying `void advance(Canvas &)`.
  * @details A set pause flag skips both the frame counter and the derived work,
- * so a GUI slider bound to the same subject holds and a `.then`-chained
- * animation never completes - the whole chain halts with it.
+ * so a `.then`-chained animation never completes while paused.
  * @note An animation-level gate only early-returns from step(); an event's
  * pending start delay keeps elapsing under it. Timeline::add_pausable freezes
- * the delay too, and is what production pause paths use.
+ * the delay too.
  */
 template <typename Derived>
 class PausableParamAnimationBase : public FiniteParamAnimationBase<Derived> {
@@ -178,9 +176,8 @@ private:
 
 /**
  * @brief An animation that invokes a callback with eased progress each frame.
- * @details Drives state the caller owns and writes itself, where the other
- * parameter animations write a float or a lerp() subject for it.
- * Eased progress is clamped to [0, 1]; overshooting easings saturate at endpoints.
+ * @details Eased progress is clamped to [0, 1]; overshooting easings saturate
+ * at endpoints.
  */
 class Progress : public PausableParamAnimationBase<Progress> {
 public:
@@ -244,18 +241,15 @@ public:
    * @param scale Per-unit multiplier applied to *speed_src.
    * @param wrap If true, wraps the value back into the [0,1) range each step.
    * @param paused Optional pause gate; null = always runs.
-   * @details Re-reads speed_src each step, so callers need not set_speed() per
-   *   frame.
+   * @details speed_src is re-read each step and must outlive the Driver.
    */
-  // Borrow contract: speed_src is dereferenced every step, so the referent must
-  // outlive the Driver (e.g. an effect's registered param).
   Driver(float &mutant, const float *speed_src, float scale, bool wrap = true,
          const bool *paused = nullptr)
       : PausableParamAnimationBase(1, true, paused), mutant(mutant),
         speed(0.0f), wrap(wrap), speed_src(speed_src), scale(scale) {
     HS_CHECK(speed_src != nullptr, "Driver: live speed_src is null");
     HS_CHECK(std::isfinite(scale), "Driver: live speed scale must be finite");
-    // On a non-finite initial read keep the 0.0f seed (see step()).
+    // On a non-finite initial read keep the 0.0f seed.
     float s = *speed_src * scale;
     if (std::isfinite(s))
       speed = s;
@@ -265,8 +259,7 @@ public:
    * @brief Adds one unpaused frame's worth of speed to the mutant.
    */
   void advance(Canvas &) {
-    // Re-read the live source, keeping the last good speed on a non-finite read:
-    // a one-frame NaN/Inf would otherwise poison `mutant` permanently.
+    // Re-read the live source, keeping the last good speed on a non-finite read.
     if (speed_src) {
       float s = *speed_src * scale;
       if (std::isfinite(s))
@@ -345,8 +338,7 @@ public:
     };
   }
 
-  // Borrow contract: subject/start/target are read across many frames, so they
-  // must outlive the Timeline; these deleted overloads reject a temporary.
+  // subject/start/target are borrowed across frames; reject temporaries.
   template <typename T>
   Lerp(T &subject, const T &&start, const T &target, int duration,
        EasingFn easing_fn, const Options &options = {}) = delete;
@@ -445,8 +437,7 @@ public:
       : FiniteParamAnimationBase(duration, repeat), params(params),
         num_rings(num_rings), num_lines(num_lines) {}
 
-  // Borrow contract: num_rings/num_lines are read every frame, so they must
-  // outlive the Timeline; these deleted overloads reject a temporary scalar.
+  // num_rings/num_lines are borrowed every frame; reject temporaries.
   MobiusFlow(math::MobiusParams &params, const float &&num_rings,
              const float &num_lines, int duration, bool repeat = true) = delete;
   MobiusFlow(math::MobiusParams &params, const float &num_rings,
@@ -472,8 +463,7 @@ public:
     float flow_param = progress * log_period;
     float scale = expf(flow_param);
     float s = sqrtf(scale);
-    // Clamp lines to >= 1 before dividing (the slider bottoms out at 0 → 2π/0);
-    // a non-finite lines falls back to 1.
+    // Clamp lines to >= 1 before dividing; a non-finite lines falls back to 1.
     float lines = num_lines;
     if (!std::isfinite(lines) || lines < 1.0f)
       lines = 1.0f;
@@ -590,8 +580,7 @@ private:
  * @details Uses multiple frequencies for non-repeating chaos.
  *
  * PERPETUAL (duration -1, no repeat): reaches done() only through cancel(),
- * which also fires any `.then()` callback. Drive follow-on behavior from a
- * finite animation, or cancel() it explicitly.
+ * which also fires any `.then()` callback.
  */
 class MobiusWarpEvolving : public AnimationBase<MobiusWarpEvolving> {
 public:
@@ -707,10 +696,7 @@ struct RippleParams {
    */
   void sync() {
     float hw = half_width();
-    // Clamp into [0,π]: the active ring lies within the sphere's angular range,
-    // so cos(clamped) keeps the fast-reject band engaged past phase=π instead of
-    // collapsing both bounds to accept-all. cos(0)=1 and cos(π)=-1 reproduce the
-    // out-of-range sentinels at the endpoints.
+    // Clamp into [0,π] so the fast-reject band stays engaged past phase=π.
     float d_min = hs::clamp(phase - hw * 2.0f, 0.0f, math::PI_F);
     float d_max = hs::clamp(phase + hw * 2.0f, 0.0f, math::PI_F);
     cos_threshold_min = cosf(d_min);
@@ -720,11 +706,8 @@ struct RippleParams {
   /**
    * @brief Refreshes live-tunable config from a template snapshot.
    * @param t Template params carrying the current slider values.
-   * @details Copies only the shape fields, so a live edit reaches a ripple
-   * already in flight. `amplitude` is excluded: Ripple captures it as the peak
-   * at construction and publishes the enveloped value every step, so copying it
-   * would overwrite the envelope. prepare_frame() invokes this before sync(),
-   * which rebuilds the reject bounds a new `thickness` moves.
+   * @details Copies only the shape fields. `amplitude` is excluded: Ripple
+   * publishes the enveloped value every step.
    */
   void refresh_from(const RippleParams &t) {
     decay = t.decay;
@@ -742,9 +725,8 @@ public:
    * @param params Reference to the params struct to animate. `params.amplitude`
    *        is captured here as the ripple's peak and then reset to 0; set it
    *        before constructing, as later writes are ignored.
-   * @param center Direction the ripple radiates from; normalized here, as the
-   *        renderer reads dot(v, center) as a cosine. A zero center traps in
-   *        normalized().
+   * @param center Direction the ripple radiates from; normalized here. A zero
+   *        center traps.
    * @param speed How fast the waves travel.
    * @param duration How long the ripple lasts in frames.
    */
@@ -831,8 +813,7 @@ struct NoiseParams {
   /**
    * @brief Seeds the generator and mirrors the value in `seed`.
    * @param s Seed to install.
-   * @details Consumers that key a cache on the generator's configuration read
-   * `seed`; setting `noise.SetSeed()` directly leaves that mirror stale.
+   * @details Setting `noise.SetSeed()` directly leaves `seed` stale.
    */
   void set_seed(int s) {
     seed = s;
@@ -844,7 +825,7 @@ struct NoiseParams {
    * @param t Template params carrying the current slider values.
    * @details Copies the slider-driven fields but not the `time` axis or the
    * backing generator, so a live edit reaches a spawned entity without resetting
-   * its phase. prepare_frame() invokes this before sync().
+   * its phase.
    */
   void refresh_from(const NoiseParams &t) {
     amplitude = t.amplitude;
@@ -895,8 +876,7 @@ struct BumpParams {
   float radius = 0.5f; /**< Angular radius of the bump footprint (radians). */
   float amplitude =
       1.0f; /**< Drape gain; the weight saturates at full boundary clearance for gains > 1. */
-  float envelope =
-      0.0f; /**< Footprint scale in [0, 1], animated by BallDrop. */
+  float envelope = 0.0f; /**< Footprint scale in [0, 1]. */
   float cos_radius =
       1.0f; /**< Cached cos(radius * envelope) fast-reject bound. */
 
@@ -955,8 +935,7 @@ public:
     params.sync();
   }
 
-  // Borrow contract: the orientation is read every frame, so it must outlive
-  // the Timeline; this deleted overload rejects a temporary.
+  // The orientation is borrowed every frame; reject a temporary.
   BallDrop(BumpParams &params, const math::Orientation<CAP> &&orientation,
            const math::Vector &normal, float azimuth, int duration) = delete;
 
@@ -1044,7 +1023,7 @@ struct NoiseProductParams {
 /**
  * @brief Animates a noise-product field by integrating its time axis.
  * @details time += speed per frame keeps the field phase continuous under live
- * speed edits (an absolute time = t * speed would jump the phase).
+ * speed edits.
  */
 class NoiseProduct : public AnimationBase<NoiseProduct> {
 public:

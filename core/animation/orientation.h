@@ -22,7 +22,6 @@ namespace detail {
  * @param num_frames Live frame count; raised to the resampled count.
  * @param capacity Storage capacity; @p count is clamped to it.
  * @param count Target frame count; must be at least 1.
- * @details Shared by every Orientation<CAP>::upsample.
  */
 HS_NOINLINE_NOCLONE inline void
 upsample_frames(Quaternion *frames, int &num_frames, int capacity, int count) {
@@ -178,8 +177,7 @@ public:
   /**
    * @brief Collapses the orientation history, retaining only the latest
    * quaternion.
-   * @details Used after rendering a motion step to reset the motion blur
-   * history.
+   * @details Resets the motion blur history.
    * @return Reference to the Orientation object.
    */
   Orientation &collapse() {
@@ -226,17 +224,10 @@ public:
    * Slerp-resampling the existing frames (uniform in source index, not arc
    * length).
    * @param count The target number of steps in the history.
-   * @note When `count > CAPACITY` the trail is upsampled to `CAPACITY` instead:
-   * graceful degradation (the write stays in-bounds, the current orientation
-   * stays exact, only the motion-blur smear samples more coarsely), not a trap.
-   * Raise `CAP` to trade RAM for a smoother fast smear.
-   * @note A single-frame source (`num_frames == 1`, the common post-`set()`/
-   * `collapse()` state) upsamples to a flat smear of that one frame; real motion
-   * blur requires >=2 pushed frames.
-   * @note Resampling is uniform in source index, so a trail whose frames were
-   * pushed at a varying rate keeps that non-uniformity: the motion-blur streak
-   * stays dense over the slow stretches and sparse over the fast ones rather
-   * than spreading evenly along the arc.
+   * @note When `count > CAPACITY` the trail is upsampled to `CAPACITY`
+   * instead, not a trap.
+   * @note A single-frame source (`num_frames == 1`) upsamples to a flat smear of
+   * that one frame.
    */
   void upsample(int count) {
     detail::upsample_frames(orientations.data(), num_frames, CAPACITY, count);
