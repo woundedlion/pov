@@ -469,8 +469,7 @@ inline void test_rasterize_balanced_sampling_scope() {
     HS_EXPECT_SIZE_OR_RETURN(standard.plotted, balanced.plotted.size());
     HS_EXPECT_SIZE_OR_RETURN(standard.alphas, balanced.alphas.size());
     HS_EXPECT_GT(standard.plotted.size(), size_t{0});
-    const size_t compared =
-        std::min(standard.plotted.size(), balanced.plotted.size());
+    const size_t compared = standard.plotted.size();
     for (size_t i = 0; i < compared; ++i) {
       HS_EXPECT_EQ(std::bit_cast<uint32_t>(standard.plotted[i].x),
                    std::bit_cast<uint32_t>(balanced.plotted[i].x));
@@ -658,8 +657,7 @@ inline void test_rasterize_balanced_geodesic_density_and_alpha() {
 
   HS_EXPECT_SIZE_OR_RETURN(always_balanced.plotted, balanced.plotted.size());
   HS_EXPECT_SIZE_OR_RETURN(always_balanced.alphas, balanced.alphas.size());
-  const size_t compared =
-      std::min(always_balanced.plotted.size(), balanced.plotted.size());
+  const size_t compared = always_balanced.plotted.size();
   for (size_t i = 0; i < compared; ++i) {
     HS_EXPECT_NEAR(always_balanced.plotted[i].x, balanced.plotted[i].x,
                    POLICY_TOL);
