@@ -128,7 +128,7 @@ class ParseTests(unittest.TestCase):
 
 
 class ParseOneTests(unittest.TestCase):
-    """The single-document form; no input raises IndexError."""
+    """The single-document form; no input or several documents raise ValueError."""
 
     def test_returns_the_only_document(self):
         self.assertEqual(sexp.parse_one("(root a)"), ["root", "a"])
