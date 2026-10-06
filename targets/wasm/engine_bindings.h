@@ -374,7 +374,6 @@ public:
   ClipSetResult setClip(double x0, double x1, double y0, double y1) {
     if (!current_effect)
       return ClipSetResult::NO_EFFECT;
-    // Negatives would feed ClipRegion's modulo arithmetic.
     if (!hs_wasm::clip_bounds_valid(x0, x1, y0, y1, pixel_width,
                                     pixel_height)) {
       hs::log("WASM: setClip bounds out of range (x0=%g,x1=%g,y0=%g,y1=%g) — "
