@@ -198,8 +198,7 @@ class RenderIsWall(unittest.TestCase):
         self.assertAlmostEqual(peak, 125.0)
 
     def test_peak_is_not_reported_as_render(self):
-        # 125 ms wall is two display windows of a ~77 ms render plus idle;
-        # reporting 125 as a "peak render" is the bug this guards.
+        # Wall time across display windows does not establish a peak render time.
         peak, exact = self._w([125_000] * 4, wait_scope=False).peak_render_ms()
         self.assertIsNone(peak)
         self.assertFalse(exact)
@@ -240,8 +239,7 @@ def _synth_log(path, shapes, per_window=4):
     `shapes` is [(name, F, [render_us, ...])]. The marker is emitted before the
     shape's first frame line, exactly as the device logs it: spawn_shape runs
     during a frame, so its serial line precedes that frame's row and the
-    enclosing window's dump -- which is what made the window-level attribution
-    credit the outgoing shape's frames to the incoming one.
+    enclosing window's dump. Each frame belongs to the shape on screen for it.
     """
     lines = ["profile harness: effect=Fx segments=4 rpm=480 f_cpu=600000000"]
     rows, n = [], 0
@@ -269,9 +267,8 @@ def _synth_log(path, shapes, per_window=4):
 class StraddleWindowAttribution(unittest.TestCase):
     """A window spanning a shape advance holds frames of BOTH shapes.
 
-    Guards the bug where a cheap shape following an expensive one inherited the
-    expensive one's peak (two byte-identical 182-face solids reported 87.5 and
-    98.9 ms peaks -- their predecessors' -- against a true 51.2/52.4 ms).
+    Each shape's peak is computed from its own frames, including when a cheap
+    shape follows an expensive one.
     """
 
     def _buckets(self, shapes):
