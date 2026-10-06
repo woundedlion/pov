@@ -205,8 +205,7 @@ inline void test_fast_rsqrt() {
   HS_EXPECT_NEAR(math::fast_rsqrt(0.25f), 2.0f, 5e-6f * 2.0f);
 
   // Both exponent parities across ~12 decades: the bit-hack seed's quality
-  // alternates with the low exponent bit, so a one-decade sweep would miss half
-  // the error surface.
+  // alternates with the low exponent bit.
   for (int i = 0; i <= 512; ++i) {
     float x = std::pow(10.0f, -6.0f + (12.0f * i) / 512.0f);
     float ref = 1.0f / std::sqrt(x);
@@ -329,7 +328,7 @@ inline void test_fast_cbrt3() {
  * @details The shared reciprocal re-associates the arithmetic, so agreement
  *          with fast_cbrt is ~4e-7 relative rather than exact. Also pins the
  *          x<=0 -> 0 clamp and accuracy below the ~4.2e5 numerator-overflow
- *          ceiling, catching algorithm changes that lower that ceiling.
+ *          ceiling.
  */
 inline void test_fast_cbrt6() {
   // Agreement with the scalar helper across the u16-magnitude LMS range.
@@ -565,8 +564,6 @@ inline void test_vector_length() {
 /**
  * @brief Verifies Vector normalize()/normalized() and the normalized_or()
  *        fallback.
- * @details The zero vector is rejected by the strict normalize() path, so
- *          normalized_or() supplies a fallback for the degenerate case.
  */
 inline void test_vector_normalize() {
   math::Vector v(3, 0, 4);
@@ -1256,7 +1253,7 @@ inline void test_scaled_rotation_delta() {
   const math::Quaternion q =
       math::make_rotation(math::Vector(0, 1, 0), math::PI_F * 0.5f);
 
-  // Both extremes are exact and skip the slerp entirely.
+  // Both extremes are exact.
   HS_EXPECT_QUAT(math::scaled_rotation_delta(q, 1.0f), q, 1e-6f);
   HS_EXPECT_QUAT(math::scaled_rotation_delta(q, 0.0f), id, 1e-6f);
   // Identity in, identity out, at any fraction.
@@ -1312,7 +1309,7 @@ inline void test_stereo_roundtrip() {
   HS_EXPECT_EQ(zN.im, 0.0f);
 
   // Inside the pole cap (denom < STEREO_POLE_EPS) the sentinel preserves the
-  // (x,z) azimuth at magnitude STEREO_INF rather than collapsing onto +real.
+  // (x,z) azimuth at magnitude STEREO_INF.
   // At this scale the unit vector's y rounds to 1, so denom is exactly zero.
   math::Vector nearPole = math::Vector(6e-5f, 1.0f, 2.1e-5f).normalized();
   math::Complex zCap = projections::stereo(nearPole);
@@ -1601,9 +1598,8 @@ inline void test_wrap_index() {
 
 /**
  * @brief Verifies hash01's frozen outputs, range, and seed independence.
- * @details The sorted-set check is the load-bearing one: a seed that only
- * permutes the lattice passes pointwise inequality but reproduces the same
- * multiset of values, so two seeds would be one stream re-indexed.
+ * @details The sorted-set check catches a seed that only permutes the lattice:
+ * it passes pointwise inequality but reproduces the same multiset of values.
  */
 inline void test_hash01() {
   // Frozen mixer output: integer-only, so exact on every host.
@@ -1764,8 +1760,8 @@ inline void expect_chamber_fold(const std::array<math::Vector, 3> &mirrors,
 }
 
 /**
- * @brief Sweeps every reflection-group table wired into the lens catalog
- *        through the generic fold, plus the dodecahedral specialization.
+ * @brief Sweeps the lens catalog's reflection-group tables through the generic
+ *        fold, plus the dodecahedral specialization.
  */
 inline void test_polyhedral_kaleidoscope_chambers() {
   const std::array<math::Vector, 3> tables[] = {
@@ -1803,8 +1799,7 @@ constexpr std::array<std::array<int, 2>, 6> PLANE_AXES = {
 
 /**
  * @brief Slack allowed on a single plane rotation's unit properties.
- * @details rotate_plane builds its rotor from cosf/sinf, so the rotor
- * identity holds to rounding; the measured bound is 8.4e-8.
+ * @details The rotor identity holds to rounding; the measured bound is 8.4e-8.
  */
 constexpr float PLANE_ROTATION_TOLERANCE = 1e-6f;
 
@@ -1863,8 +1858,7 @@ inline void test_mat4_identity_and_apply() {
   for (int i = 0; i < math::VEC4_DIMENSIONS; ++i)
     HS_EXPECT_EQ(unchanged[i], v[i]);
 
-  // A transposed reading would still fix the identity, so apply() is also
-  // scored against an asymmetric matrix.
+  // An asymmetric matrix pins the row-major reading.
   math::Mat4 ramp{};
   for (int row = 0; row < math::VEC4_DIMENSIONS; ++row)
     for (int column = 0; column < math::VEC4_DIMENSIONS; ++column)
@@ -1931,7 +1925,7 @@ inline void test_rotate_plane_isometry() {
 
 /**
  * @brief Requires a quarter turn to carry the plane's first axis onto its
- *        second, so a rotation that degenerates to the identity cannot pass.
+ *        second.
  */
 inline void test_rotate_plane_quarter_turn() {
   for (const std::array<int, 2> &plane : PLANE_AXES) {
@@ -1976,8 +1970,8 @@ inline void test_rotate_plane_composition_order() {
 }
 
 /**
- * @brief Requires a six-plane composition — the orientation shape HyperLattice
- *        builds — to stay an isometry with orthonormal rows.
+ * @brief Requires a six-plane composition to stay an isometry with orthonormal
+ *        rows.
  */
 inline void test_rotate_plane_composition_stays_isometric() {
   math::Mat4 orientation = math::Mat4::identity();

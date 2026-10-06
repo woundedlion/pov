@@ -2,25 +2,8 @@
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
  * Licensed under the PolyForm Noncommercial License 1.0.0
  *
- * Base-contract sweep over every Pullback::ComposedEffect specialization: the
- * slider set init() registers, the schema-versioned parameter snapshot, the
- * preset choreography begin_choreography() wires, the family-by-family
- * parameter interpolation a preset crossfade runs on, and the value-level pin
- * of each effect's authored parameters against its promoted shader document in
- * patterns/. The base owns the first four, so each check is expressed against
- * the effect's parameter families and driven over the whole group rather than
- * over one effect.
- *
- * The specializations come from HS_SHADER_PRODUCT_GROUP, so a promoted effect
- * joins the sweep with its roster entry instead of a hand-copied list.
- *
- * The module also pins how much of the chain interpreter's operator catalog
- * the derivation layer can reach: the workbench catalog is wider, and the
- * difference is recorded against the live OPERATOR_TABLE rather than restated.
- *
- * Shading parity against the chain interpreter lives in tests/test_lattice_melt.h,
- * tests/test_kaleidoscope_smooth.h (verify_export), and
- * test_shader_chain_composed_frame_parity.
+ * Base-contract sweep over every Pullback::ComposedEffect specialization in
+ * HS_SHADER_PRODUCT_GROUP.
  */
 #pragma once
 
@@ -110,7 +93,7 @@ constexpr const char *UNGATED_COLOR_SLIDERS[] = {
     "Mapping Phase",      "Phase Oscillation Depth", "Phase Oscillation Speed",
     "Opacity at Value 0", "Opacity at Value 1"};
 
-/** @brief The eight lens sliders a Mobius parameter family adds. */
+/** @brief Lens sliders a Mobius parameter family adds. */
 constexpr const char *MOBIUS_SLIDERS[] = {
     "Mobius A Re", "Mobius A Im", "Mobius B Re", "Mobius B Im",
     "Mobius C Re", "Mobius C Im", "Mobius D Re", "Mobius D Im"};
@@ -123,10 +106,8 @@ struct ColorSliderBinding {
 
 /**
  * @brief Every color slider the base registers, paired with its descriptor.
- * @details ColorParams tables its fields with a null name, so the base names and
- * bounds them by hand instead of through register_fields(). The pairing is what
- * lets a slider's authored range be compared against the range the snapshot
- * validator enforces.
+ * @details Lets a slider's authored range be compared against the range the
+ * snapshot validator enforces.
  */
 constexpr ColorSliderBinding COLOR_SLIDER_BINDINGS[] = {
     {"Hue Shift Amount", "hue-shift-amount"},
@@ -301,11 +282,7 @@ verify_family_rejection(FX &effect,
  * @brief Pins the slider set one specialization's init() registers.
  * @tparam E Composed effect class template.
  * @param name Effect name, for the failure context.
- * @details The registered count is derived from the parameter families rather
- * than listed, so an extra slider the base grows, a family the base stops
- * registering, or a gated field that stops consulting its gate all show up.
- * Duplicate names, capacity overflow and an out-of-range default are hard
- * checks inside register_param(), so they are not restated here.
+ * @details The registered count is derived from the parameter families.
  */
 template <template <int, int> class E>
 inline void check_slider_registration(const char *name) {
@@ -531,10 +508,8 @@ inline void check_preset_choreography(const char *name) {
  * @brief Pins the parameter interpolation a preset crossfade runs on.
  * @tparam E Composed effect class template.
  * @param name Effect name, for the failure context.
- * @details Both endpoints must come back exactly — the crossfade's last frame is
- * what commits the incoming preset — and no sample in between may leave the
- * ranges the snapshot validator enforces, or a transition would pass through
- * parameters the effect itself refuses to restore.
+ * @details Both endpoints must come back exactly, and no sample in between may
+ * leave the ranges the snapshot validator enforces.
  */
 template <template <int, int> class E>
 inline void check_preset_interpolation(const char *name) {
@@ -962,9 +937,8 @@ template <typename Lens> constexpr std::string_view lens_symmetry_id() {
  * @brief Applies one document preset entry onto @p built, or verifies it
  *        against the effect's compile-time constants.
  * @return False when the key addresses nothing this effect owns.
- * @details Numeric entries write through the owning family's field table (the
- * same descriptors the sliders and the interpolator use), so a document key the
- * engine does not table fails loudly instead of being skipped. String entries
+ * @details Numeric entries write through the owning family's field table, so a
+ * document key the engine does not table fails loudly. String entries
  * are chain topology: the ones with a composed-effect equivalent are checked
  * against the effect's Spec, base-template arguments and DERIVATION_REACH.
  */
@@ -1110,17 +1084,11 @@ apply_document_value(typename FX::Params &built, const DocumentSlot &slot,
  * @brief Pins one effect's authored parameter values to its shader document.
  * @tparam E Composed effect class template.
  * @param name Effect name, for the failure context.
- * @details The digests pin the promoted header to the document's canonical
- * JSON, but both are computed from the JSON, so a value edited in
- * initial_params()/preset() alone would leave them green. This check
- * closes that gap: every preset in the effect's promoted shader document in patterns/ is rebuilt
- * into a Params through the engine's own field tables and compared against the
- * authored preset. Reciprocal lattice cell scale allows 1e-6 rounding error;
- * other values are compared bit-exactly, family by family. The comparison is
- * two-directional — a document value the header does not reproduce and a
- * header value the document does not carry both surface as a family mismatch.
- * The preset roster, dwell and segue durations are pinned too, since they are
- * authored in both places as well.
+ * @details Every preset in the effect's promoted shader document in patterns/ is
+ * rebuilt into a Params through the engine's own field tables and compared
+ * against the authored preset, both ways, family by family. Reciprocal lattice
+ * cell scale allows 1e-6 rounding error; other values are compared bit-exactly.
+ * The preset roster, dwell and segue durations are pinned too.
  */
 template <template <int, int> class E>
 inline void check_document_values(const char *name) {
@@ -1609,8 +1577,7 @@ concept DerivableSource = requires {
   typename Pullback::SourcePolicyFor<Family, ReachBinding>::Type;
 };
 
-// Derivation-side half of the reach table: widening one of these narrowings
-// reds here before the catalog-side counts below go stale.
+// Derivation-side half of the reach table.
 static_assert(DerivableSource<Pullback::GridSourceParams>);
 // The shared noise field group is not itself a family: it carries the fields
 // for both noise sources, so it names no single policy.
@@ -1676,7 +1643,7 @@ constexpr DerivationReach DERIVATION_REACH[] = {
     {"project.bonne.v3", nullptr, {}},
     {"project.airocean.v3", nullptr, {}},
     // SourcePolicyFor has no policy for these samplers; spherical-rings needs
-    // a prepared axis and phase (see the DerivableSource static_assert).
+    // a prepared axis and phase.
     {"sample.rings.v2", nullptr, {}},
     {"sample.spherical-rings.v3", nullptr, {}},
     {"sample.fractal.v2", nullptr, {}},
@@ -1785,12 +1752,10 @@ inline bool derivation_value_reachable(std::string_view operator_id,
 
 /**
  * @brief Pins the catalog vocabulary no ComposedEffect specialization emits.
- * @details The chain interpreter's OPERATOR_TABLE is the workbench's whole
- * catalog; the derivation layer builds a strictly narrower pipeline out of an
- * effect's families and Spec. DERIVATION_REACH records that difference and is
- * resolved against the live table here, so a renamed or removed operator,
- * topology enum8 or value reds. The four totals red whenever the catalog gains
- * an operator or a value the table has not classified.
+ * @details DERIVATION_REACH records how far the derivation layer falls short of
+ * the chain interpreter's OPERATOR_TABLE and is resolved against the live
+ * table, so a renamed or removed operator, topology enum8 or value reds, as
+ * does a catalog addition the table has not classified.
  */
 inline void test_composed_derivation_reach() {
   static_assert(AshCloudSpec::FIELD_COVERAGE ==
