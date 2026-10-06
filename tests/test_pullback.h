@@ -1182,6 +1182,11 @@ inline void test_pullback_warp_phase_loop() {
 }
 
 inline void test_pullback_periodic_ripple() {
+  Pullback::Surface::PeriodicRippleParams clock;
+  clock.period = 12.0f;
+  HS_EXPECT_EQ(Pullback::Surface::ripple_cycle(0.0f, clock), 0.0f);
+  HS_EXPECT_EQ(Pullback::Surface::ripple_cycle(6.0f, clock), 0.5f);
+  HS_EXPECT_EQ(Pullback::Surface::ripple_cycle(12.0f, clock), 1.0f);
   Pullback::Surface::PeriodicRippleParams params;
   params.strength = 0.15f;
   params.decay = 0.0f;
