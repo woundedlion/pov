@@ -810,11 +810,13 @@ public:
    *         "stack" entry ({high_water_mark, init_high_water_mark, capacity}),
    *         all in bytes.
    * @details Excludes the tooling arenas. An arena's `high_water_mark` covers
-   *          only the window since its last peak reset or rebind; budget against
-   *          `lifetime_high_water_mark`. On the stack entry, `high_water_mark` is
-   *          the canary's live reading, which a repaint resets;
-   *          `init_high_water_mark` is the latched deepest effect construction +
-   *          init().
+   *          only the window since its last peak reset or rebind, and an
+   *          overrun check compares it with `capacity`.
+   *          `lifetime_high_water_mark` is the sizing peak and may exceed the
+   *          current `capacity` after configure_arenas() re-splits the arenas.
+   *          On the stack entry, `high_water_mark` is the canary's live
+   *          reading, which a repaint resets; `init_high_water_mark` is the
+   *          latched deepest effect construction + init().
    */
   emscripten::val getArenaMetrics() const {
     emscripten::val metrics = collect_engine_arena_metrics();
