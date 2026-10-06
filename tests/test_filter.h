@@ -2,10 +2,7 @@
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
  * Licensed under the PolyForm Noncommercial License 1.0.0
  *
- * Unit tests for core/render/filter.h: the filter trait machinery, the
- * per-call plot kernels of the Screen and Pixel filters, and the Pipeline
- * sink, World/Screen/Pixel routing, Feedback flush and Trails ring buffers
- * driven through a live Canvas.
+ * Unit tests for core/render/filter.h.
  */
 #pragma once
 
@@ -27,10 +24,6 @@
 namespace hs_test {
 namespace filter_tests {
 
-// This module is only ever linked into the offset-0 run_tests driver, so the
-// pole cases below assert unconditionally rather than hiding behind a runtime
-// offset check that could never fire. The legacy offset-3 mapping compiles in
-// tests/h_offset_renorm_check.cpp, which includes tests/test_h_offset_renorm.h.
 static_assert(hs::H_OFFSET == 0,
               "test_filter.h assumes row H-1 is the south pole; the legacy "
               "offset-3 mapping belongs in tests/test_h_offset_renorm.h");

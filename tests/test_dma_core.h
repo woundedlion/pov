@@ -2,12 +2,7 @@
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
  * Licensed under the PolyForm Noncommercial License 1.0.0
  *
- * Host unit tests for the DMA LED controller's pure framing/decision math
- * (hardware/dma_led_core.h), used by DMALEDController (dma_led_controller.h)
- * and the Arduino-only TeensySPIDMA (dma_led.h). Covers the
- * double-buffer toggle, the with_bg transfer-length select, the per-column
- * transfer-duration bound, and the stale-transfer watchdog predicate at its
- * boundaries including a micros() unsigned-long rollover.
+ * Host unit tests for the DMA LED framing/decision math (hardware/dma_led_core.h).
  */
 #pragma once
 
@@ -81,7 +76,7 @@ inline void test_transfer_us_bound() {
   HS_EXPECT_EQ(dma::transfer_us(1ul, 12000000ul), 1ul);
   HS_EXPECT_EQ(dma::transfer_us(4ul, 3000000ul), 13ul);
 
-  // Swept: the bound never under-counts, and never overshoots by a whole µs.
+  // The bound never under-counts and never overshoots by a whole µs.
   for (unsigned long bytes : {1ul, 80ul, 336ul, 600ul, 4096ul}) {
     for (unsigned long clock : {1000000ul, 6000000ul, 7000000ul, 12000000ul,
                                 16500000ul, 24000000ul, 240000000ul}) {

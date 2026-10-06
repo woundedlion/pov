@@ -6,38 +6,6 @@
  * (docs/specs/conway_morph_spec.md §7.6): every mesh swap at a leg or cycle
  * boundary must exchange geometrically matching meshes whose positive-area
  * faces keep their colors.
- *
- * Coverage:
- *   - Bookend angle: the cycle-end frame and following leg hold exact 0.
- *     The sweep already closes on exact 0 with correctly rounded sinf; the
- *     effect also pins it for device libm and fast-math implementations.
- *   - Cycle joins: across several sprite -> sweep -> morph-leg handoffs no
- *     frame renders empty, so a one-frame scheduling gap turns the suite red.
- *   - Bookend swaps (per node, one solid per symmetry family): update_hankin
- *     at angle 0 emits first-F star faces whose boundary vertices lie on the
- *     base face's boundary; an in-memory framebuffer diff of the two renders
- *     under identity face colors changes no face colors; boundary AA pixels
- *     may differ by <= 2 LSB, bounded by QUANT_BAND_BUDGET. Zero-area
- *     rosette faces draw none.
- *   - Forward palette carry (per arrival, real effect): the palettes the leg
- *     landed carry their multiplicities into the new node's displayed base faces.
- *   - Leg swaps (cube seed, each swept op): base vs op(seed, T_EPS) and the reseed swaps
- *     (ADOPT bridge arrival, DUAL_SWAP ambo crossover) framebuffer-diff within
- *     a budget far below one face's area, so a face landing under the wrong
- *     palette mapping fails loudly (pinned by a deliberate wrong-mapping run).
- *   - Palette mapping/crossfade units: every mapping is total and
- *     deterministic; the crossfade is exact at its endpoints — the first sweep
- *     frame (w = 0) shades every surviving face from its inherited palette,
- *     the last (w = 1) from the leg's landed target assignment.
- *   - Strap-slot crossfade across cycle starts (boot seed plus a seven-seed
- *     epoch sweep): a strap-bearing slot opens on the color it displayed in
- *     the previous cycle (or an on-screen star palette when newborn) and
- *     glides to its target in bounded steps via the strap-face LUT; star
- *     faces stay bitwise on the bank entry, including on star-shared slots.
- *   - Collapsing faces land on their host palette at the closing bookend.
- *   - Leg-start seed frames preserve inherited face colors.
- *   - Palette slots remain stable within each cycle.
- *   - Strap-open fade, strap-close dissolve, and star-midpoint dissolve.
  */
 #pragma once
 
@@ -91,9 +59,7 @@ configure_hankin_split() {
 // capture the frame in memory.
 // ---------------------------------------------------------------------------
 
-/** Render size for the framebuffer diffs: the production resolution, where a
- * T_EPS corner cut spans ~1-2 px and the smallest compared face spans
- * thousands, so the diff budgets discriminate. */
+/** Render size for the framebuffer diffs (production resolution). */
 constexpr int FB_W = 288;
 constexpr int FB_H = 144;
 
@@ -157,12 +123,9 @@ inline bool is_flat(const Pixel &p, const std::vector<Color4> &palette) {
 
 /**
  * @brief Bucketed framebuffer diff.
- * @details The rasterizer anti-aliases face boundaries, and the two compared
- *          meshes tessellate the same outlines with different vertex lists, so
- *          boundary pixels blend at slightly different ratios; those band
- *          pixels say nothing about face-color continuity and are counted
- *          apart. The continuity signal is `flat`: pixels solidly inside a
- *          face on both sides that changed color.
+ * @details Boundary AA pixels blend differently between tessellations and
+ *          are counted apart; `flat` counts face-interior pixels that changed
+ *          color.
  */
 struct DiffStats {
   size_t newborn = 0; /**< Differing pixels the second render fills with the
@@ -263,12 +226,8 @@ inline void test_bookend_angle_pin() {
 /**
  * @brief Drives HankinSolids across several cycle joins and asserts no frame
  *        renders empty.
- * @details The cycle hands the canvas from the hankin sprite to the interlace
- *          sweep and on to the morph leg, on schedules whose frame arithmetic
- *          only lines up by construction. The effect does not persist pixels,
- *          so a one-frame scheduling gap draws nothing and reads back as an
- *          all-black frame; the mesh otherwise tiles the whole sphere, so every
- *          frame lights the great majority of the canvas.
+ * @details A one-frame scheduling gap at a sprite -> sweep -> morph-leg
+ *          handoff reads back as an all-black frame.
  */
 inline void test_no_empty_frame_across_cycle_joins() {
   reset_globals();
@@ -303,8 +262,7 @@ inline void test_no_empty_frame_across_cycle_joins() {
   std::printf("  [cycle-join] %d frames, min lit px=%zu, empty=%d (first %d)\n",
               FRAMES, min_lit, empty_frames, first_empty);
   HS_EXPECT_EQ(empty_frames, 0);
-  // Well under the steady-state coverage, so only a near-total dropout trips
-  // it — a sliver-thin frame is as much a broken join as a black one.
+  // A near-total dropout is a broken join too.
   HS_EXPECT_GT(min_lit, static_cast<size_t>(CW) * CH / 8);
 }
 
@@ -402,14 +360,11 @@ template <typename Solid> inline void check_bookend_swap_one() {
   render_faces(flat_px, flat_ms,
                [&](int f) { return f < F ? face_color(f) : sentinel; });
 
-  // Quantization-level channel flips are tolerated: the star 2n-gon's edge
-  // planes are fp-distinct from the base n-gon's, so a boundary AA blend can
-  // round up to 2 counts apart (a 1-ulp coverage difference through the
-  // 16-bit lerp); a recolored face moves channels by thousands.
+  // The star 2n-gon's edge planes are fp-distinct from the base n-gon's, so a
+  // boundary AA blend can differ by up to 2 counts; a recolored face moves
+  // channels by thousands.
   constexpr int AA_LSB_TOL = 2;
-  // Quantization flips are confined to the face-boundary AA band, whose area is
-  // set by the seeds' total edge length at FB_W x FB_H; a drift that moved every
-  // lit pixel by a count or two would land near the canvas count instead.
+  // Quantization flips are confined to the face-boundary AA band.
   constexpr size_t QUANT_BAND_BUDGET = 6000;
   size_t diff = 0;
   size_t quant_only = 0;
@@ -457,14 +412,9 @@ inline void test_bookend_swaps_per_family() {
 
 /**
  * @brief Verifies palette multiplicities across real leg arrivals.
- * @details This multiset comparison does not pin per-face provenance.
- *          Drives HankinSolids through several legs; the in-flight leg's
- *          Landing is snapshotted each frame, and on each arrival the
- *          displayed per-face palettes (node_face_palette) are compared with
+ * @details On each arrival the displayed per-face palettes are compared with
  *          the landed ones over the base-face emission prefix, as per-palette
- *          multisets — invariant under any correct provenance mapping, but
- *          broken by a class merge collapsing distinct landed palettes into
- *          one slot.
+ *          multisets; per-face provenance is not pinned.
  */
 inline void test_palette_carry_across_arrivals() {
   reset_globals();
@@ -813,12 +763,8 @@ inline math::Vector poly_face_centroid(const PolyMesh &m, size_t fi) {
  *        opening one: on a reverse leg into a seed node, every face that
  *        collapses lands on the palette of the arrival face it collapses onto,
  *        never a target class of its own.
- * @details Newborn faces open in the color of the face they are born inside;
- *          the mirror is that dying faces close into the color of the face they
- *          die into. A collapsed face is a T_EPS sliver, not zero area — on
- *          dodecahedron <- rhombicosidodecahedron it still covers ~12% of the
- *          lit pixels on the final frame — so a target class of its own reads
- *          as a hard color lattice that pops away at the swap.
+ * @details A collapsed face is a T_EPS sliver, not zero area, so it must
+ *          close into the color of the face it dies into.
  */
 inline void test_collapsing_faces_land_on_host_palette() {
   reset_globals();
@@ -1192,7 +1138,7 @@ inline void test_palette_mapping_deterministic() {
 
 // ---------------------------------------------------------------------------
 // Leg-start seed-frame continuity across KEEP, DUAL_SWAP in both families,
-// DERIVE_AMBO in both directions, and all four REGEN_TETRA bridges.
+// DERIVE_AMBO in both directions, and the REGEN_TETRA bridges.
 // The first morph frame must match the departed geometry and face colors.
 // ---------------------------------------------------------------------------
 
@@ -1444,8 +1390,7 @@ inline void test_leg_start_seed_frame_continuity() {
       std::printf("    [seed-frame] leg %zu edge %d -> '%s' broke\n", leg, ei,
                   Solids::simple_registry[node].name);
   }
-  // The script must end where cycle-accounting expects it: back at the cube
-  // pendant chain (guards against a silently mis-scripted walk).
+  // The script ends back at the cube.
   HS_EXPECT_EQ(node, (int)CUBE);
   HS_EXPECT_TRUE(kept);
   HS_EXPECT_TRUE(swapped_cube);
@@ -1458,8 +1403,7 @@ inline void test_leg_start_seed_frame_continuity() {
 // ---------------------------------------------------------------------------
 // In-cycle palette stability: the live class-slot assignment the hankin cycle
 // draws with may change only at leg completion (finish_morph_cycle), never at
-// leg construction or mid-cycle — a live rewrite would recolor the still-
-// visible rosette straps before the morph starts.
+// leg construction or mid-cycle.
 // ---------------------------------------------------------------------------
 
 /**
@@ -1502,12 +1446,10 @@ inline void test_palette_slots_stable_within_cycle() {
 
 // ---------------------------------------------------------------------------
 // Strap-slot crossfade across cycle starts: a strap-bearing class slot opens
-// each hankin cycle at the color its slot displayed in the previous cycle (or
-// at a star palette already on screen when the slot had no predecessor) and
-// glides to its target in bounded per-frame steps via the strap-face LUT;
-// star faces resolve to the assignment's exact bank entry at every frame,
-// keeping the bookend star colors bitwise exact even on slots the mod-PALETTES wrap
-// shares between a star and a rosette class.
+// each hankin cycle at the color it displayed in the previous cycle (or at a
+// star palette already on screen) and glides to its target in bounded
+// per-frame steps; star faces stay on the exact bank entry, including on slots
+// shared between a star and a rosette class.
 // ---------------------------------------------------------------------------
 
 /** Ceiling on one frame's smoothstep advance over the 20-frame window (max
@@ -1694,10 +1636,6 @@ inline StrapSweepStats check_strap_crossfade_arrivals(uint32_t epoch,
 
 /**
  * @brief Single-walk strap-crossfade pin at the boot seed (epoch 0).
- * @details Without the crossfade a strap slot's opening LUT is the fresh
- *          target, which jumps from the previous cycle's display by the full
- *          palette distance (printed as the would-be jump; the run must
- *          exercise at least one such far pair for the pin to discriminate).
  */
 inline void test_strap_crossfade_across_cycle_start() {
   constexpr int TARGET_ARRIVALS = 10;
@@ -1719,7 +1657,7 @@ constexpr uint32_t STRAP_SWEEP_EPOCHS[] = {1, 2, 3, 5, 8, 13, 15};
 constexpr int STRAP_SWEEP_ARRIVALS[] = {6, 6, 18, 6, 18, 26, 26};
 
 /**
- * @brief Seed-swept strap continuity: across seven epoch seeds, every strap
+ * @brief Seed-swept strap continuity: across STRAP_SWEEP_EPOCHS, every strap
  *        slot of every arrival opens on its previous displayed color and
  *        glides in bounded steps — including slots shared with a star class,
  *        whose star faces stay bitwise on the bank entry at the bookends.
@@ -1740,25 +1678,15 @@ inline void test_strap_crossfade_seed_swept() {
   std::printf("  [strap-sweep] %d star-shared far pairs, worst would-be "
               "shared open jump %d (crossfaded to per-frame steps)\n",
               shared_far, shared_jump);
-  // Both coverages must stay live or the crossfade pins above prove nothing:
-  // far strap turnovers at all, and turnovers on a slot a star class shares —
-  // the regression this sweep exists for.
+  // Far strap turnovers must occur, including on star-shared slots.
   HS_EXPECT_GT(far, 0);
   HS_EXPECT_GT(shared_far, 0);
 }
 
 // ---------------------------------------------------------------------------
-// Strap opening-fade: newborn straps reveal over the opening window instead of
-// popping into former star interiors in one frame.
-//
-// At the opening bookend (angle 0) the straps are zero-area and the frame is
-// the base solid's star faces. One frame later the interlace angle steps to
-// ~0.0038 rad and the strap faces are born as thin slivers cutting through
-// those star interiors; drawn at full coverage they hard-recolor the cut
-// pixels. Fading strap coverage by the opening shape weight over SHAPE_FRAMES
-// (~0.074 at the first frame) makes the
-// birth a bounded reveal: the first strap frame stays close to the bookend and
-// the straps ease to full coverage as the window closes.
+// Strap opening-fade: one frame after the angle-0 bookend the straps are born
+// as thin slivers cutting through the star interiors; their coverage fades in
+// by the opening shape weight over SHAPE_FRAMES.
 // ---------------------------------------------------------------------------
 
 /** Per-channel delta above which a pixel counts as a hard recolor (not an AA
@@ -1812,8 +1740,7 @@ inline void capture_opening(HankinSolids<W, H> &fx, float angle, float fade,
  * @details Drives to an arrival that cuts enough star interior to pin, then
  *          renders three frames at the same (unadvanced) camera: the angle-0
  *          bookend, the first strap frame at full coverage, and the same frame
- *          faded. The full-coverage pop must be large and the faded pop small,
- *          so the assertion is red without the fade and green with it.
+ *          faded. The full-coverage pop must be large and the faded pop small.
  */
 inline void test_strap_open_fade() {
   reset_globals();
@@ -1822,9 +1749,8 @@ inline void test_strap_open_fade() {
   HankinSolids<W, H> fx;
   fx.init();
 
-  // How much star interior the newborn straps cut depends on which node the
-  // walk arrives at, and some nodes barely cut any, so search arrivals for one
-  // whose full-coverage artifact is big enough to pin.
+  // Search arrivals for one whose newborn straps cut enough star interior to
+  // pin.
   constexpr int MAX_ARRIVALS = 12;
   constexpr int MIN_POP_FULL = 400;
   // First frame the sweep draws: the straps are born as thin slivers here.
@@ -1858,8 +1784,7 @@ inline void test_strap_open_fade() {
   std::printf("  [strap-open-fade] full-coverage pop=%d, faded pop=%d px\n",
               pop_full, pop_faded);
 
-  // The artifact must be real (else the pin is vacuous), and the fade must cut
-  // it to a small residue (the inherent star-face deformation at the step).
+  // The artifact must be real, and the fade must cut it to a small residue.
   HS_EXPECT_GT(pop_full, MIN_POP_FULL);
   HS_EXPECT_LT(pop_faded, pop_full / 4);
   HS_EXPECT_LT(pop_faded, 200);
@@ -1882,10 +1807,8 @@ inline long long frame_energy(const std::vector<Pixel> &a,
  *        host face's rim instead of winking out as a bright line.
  * @details Renders the last strap frame and the closing bookend at a fixed
  *          camera, unshaped and shaped, and compares the transition's energy.
- *          Unshaped, the strap holds its own ramp interior — a colored line
- *          against the rim it sits on — and the whole line disappears in one
- *          frame. Shaped, it is already the rim color and its terminal sliver
- *          is faded, so the step carries far less.
+ *          Shaped, the strap is already the rim color and its terminal sliver
+ *          is faded.
  */
 inline void test_strap_close_dissolve() {
   reset_globals();
@@ -1930,11 +1853,9 @@ inline void test_strap_close_dissolve() {
 /**
  * @brief Pins the mid-sweep star dissolve: the star's last sliver carries the
  *        rosette rim color it is closing into, not its own interior color.
- * @details The mirror of the strap close. At mid-sweep the star face shuts to
- *          zero area and the rosettes hosted inside it fill its place, so the
- *          transition resolves toward that rim. Rendered at a fixed camera,
- *          shaped against both the unshaped sliver and its fully resolved
- *          counterpart.
+ * @details At mid-sweep the star face shuts to zero area and the rosettes
+ *          hosted inside it fill its place, so the sliver resolves toward that
+ *          rim.
  */
 inline void test_star_midpoint_dissolve() {
   reset_globals();
@@ -1952,9 +1873,7 @@ inline void test_star_midpoint_dissolve() {
   HS_EXPECT_LT(guard, 400);
 
   // Drive on until a node whose rosettes carry a different palette from the
-  // star hosting them. On some solids the mod-NUM_PALETTES wrap aliases the two
-  // onto one slot, and the star then has nothing to cross-fade onto — a real
-  // no-op, but one that would make the pin below vacuous.
+  // star hosting them; the mod-NUM_PALETTES wrap can alias the two.
   const auto has_distinct_rim = [&]() {
     const uint8_t *own = Probe::node_face_palette(fx);
     const uint8_t *rim = Probe::star_rim_palette(fx);
@@ -1990,9 +1909,7 @@ inline void test_star_midpoint_dissolve() {
   capture_opening(fx, star_angle, 1.0f, sliver_target, 1.0f, 1.0f, cf, 0.0f);
 
   // Only star fragments are shaped, so the pixels where the two renders differ
-  // are exactly the star's. Score against the fully resolved rim target: the
-  // closed frame has different geometry and its anti-aliased composite is not
-  // a palette-independent color oracle.
+  // are exactly the star's; score them against the fully resolved rim target.
   long long e_plain = 0, e_shaped = 0;
   size_t star_px = 0;
   for (size_t i = 0; i < sliver_plain.size(); ++i) {

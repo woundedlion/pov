@@ -3,8 +3,7 @@
  * Licensed under the PolyForm Noncommercial License 1.0.0
  *
  * Unit tests for core/color/generative_palette.h and
- * core/color/palette_cycler.h. Included by tests/test_color.h, whose
- * run_color_tests() calls these cases.
+ * core/color/palette_cycler.h.
  */
 #pragma once
 
@@ -29,19 +28,10 @@ namespace color_tests {
 
 /**
  * @brief Pins a compiled TRIADIC/BELL ramp to frozen colors at nine stops.
- * @details Provenance: no generator emits this table. It was captured by
- *          printing `got` from the loop below — GenerativePalette(recipe)
- *          .get(i / 8.0f).color for i in [0, 8] — under the native clang test
- *          toolchain (cmake/toolchain-native-clang.cmake), so it detects change
- *          in the recipe compiler, the axis curves and the gamut mapper rather
- *          than standing as an independent oracle. Re-derive the same way after
- *          a deliberate retune, and only then.
- *          The tolerance is relative so the dark stops stay pinned: a flat
- *          16-bit band wide enough for the bright end would let the smallest
- *          channels pass as pure black. It absorbs a last-bit difference in the
- *          transcendentals the OKLab path runs through, and is far tighter than
- *          any change to the recipe compiler, the axis curves or the gamut
- *          mapper.
+ * @details A change detector captured from `got` under the native clang
+ *          toolchain, not an independent oracle; re-derive only after a
+ *          deliberate retune. The tolerance is relative so the dark stops stay
+ *          pinned.
  */
 inline void test_generative_palette_deterministic() {
   const PaletteRecipe recipe = PaletteRecipes::profile(

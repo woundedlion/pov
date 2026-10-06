@@ -3,11 +3,6 @@
  * Licensed under the PolyForm Noncommercial License 1.0.0
  *
  * Unit tests for core/math/easing.h and core/math/waves.h.
- *
- * Asserts the defining contract of each easing curve (anchored endpoints,
- * finiteness, monotonicity where the curve is monotone) and the bounded/shape
- * properties of the wave generators. Sampling i/N includes both endpoints
- * without accumulating floating-point step error.
  */
 #pragma once
 
@@ -35,9 +30,8 @@ static inline float frac(int i) { return static_cast<float>(i) / N; }
  * @brief Asserts a curve is finite over [0,1] and optionally monotone.
  * @tparam Fn Callable taking a float t and returning a float.
  * @param f Curve to sample at frac(0)..frac(N).
- * @param monotone If true, require each sample to be non-decreasing relative to
- *        the previous one (non-decreasing: these are exact-arithmetic curves) and pin
- *        both endpoints to f(0)=0, f(1)=1.
+ * @param monotone If true, require non-decreasing samples and pin f(0)=0,
+ *        f(1)=1.
  * @param name Label forwarded to HS_EXPECT for failure reporting.
  */
 template <typename Fn>
@@ -128,7 +122,6 @@ inline void test_easing_finite_and_monotone() {
 
 /**
  * @brief Pins reference interior values for the expo/elastic curves.
- * @details Pins analytic interior values and elastic's overshoot at x=0.5.
  */
 inline void test_easing_expo_elastic_interior_reference() {
   HS_EXPECT_NEAR(math::ease_out_expo(0.25f), 0.8232233f, 1e-4f);
@@ -161,10 +154,8 @@ inline void test_easing_in_out_symmetry_midpoint() {
 
 /**
  * @brief Verifies sin_wave bounds and its forward phase convention.
- * @details The wave stays within [from,to] and starts at the `from` end at t=0.
- *          Phase advances forward (+phase) consistently with
- *          tri_wave/square_wave, so a quarter-cycle phase puts t=0 at the rising
- *          midpoint, matching tri_wave's direction at the same value.
+ * @details The wave stays within [from,to] and starts at `from` at t=0.
+ *          Phase advances forward, matching tri_wave.
  */
 inline void test_sin_wave_bounds_and_phase() {
   const auto fast = math::sin_wave(0.0f, 1.0f, 2.0f, 0.0f);
@@ -189,11 +180,8 @@ inline void test_sin_wave_bounds_and_phase() {
 
 /**
  * @brief Verifies sin_wave reaches full amplitude and is periodic and symmetric.
- * @details A bounds-only check passes for a shrunk amplitude or a DC-offset
- *          drift, so pin the shape directly: the wave touches both rails
- *          (trough=from, peak=to half a cycle apart), repeats one period later,
- *          and opposite half-cycle phases sum to from+to (which fixes both the
- *          amplitude and the DC level).
+ * @details The wave touches both rails half a cycle apart, repeats one period
+ *          later, and opposite half-cycle phases sum to from+to.
  */
 inline void test_sin_wave_amplitude_period_symmetry() {
   auto w =
@@ -245,8 +233,7 @@ inline void test_tri_wave_shape() {
  * @brief Verifies square_wave emits only its two levels at the duty boundary.
  * @details The wave emits only `from` or `to`, switching at the duty-cycle
  *          boundary: the leading `duty_cycle` fraction of each period is high,
- *          the remainder low. Swept at 0.5, at an asymmetric 0.25 that
- *          distinguishes the duty from its complement, and at both endpoints.
+ *          the remainder low.
  */
 inline void test_square_wave_binary() {
   const auto fast = math::square_wave(0.0f, 1.0f, 2.0f, 0.5f, 0.125f);
@@ -286,10 +273,8 @@ inline void test_square_wave_binary() {
 
 /**
  * @brief Verifies square_wave stays periodic across the sign boundary.
- * @details A negative t*freq+phase must fold into [0,1) via wrap_t() so the wave
- *          stays periodic; a sign-preserving fold would leave a negative
- *          argument below the duty cycle and latch the wave permanently "on".
- *          Checks w(t-1) == w(t) over a full sweep.
+ * @details A negative t*freq+phase folds into [0,1) via wrap_t(), so
+ *          w(t-1) == w(t).
  */
 inline void test_square_wave_negative_phase() {
   auto w = math::square_wave(0.0f, 1.0f, 1.0f, 0.5f, 0.0f);

@@ -2,41 +2,14 @@
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
  * Licensed under the PolyForm Noncommercial License 1.0.0
  *
- * Death tests for the fail-fast (HS_CHECK / __builtin_trap) seams.
- * Also hosts cross-process cold/warm effect determinism: capture-record
- * mismatches in unit_death indicate an effect determinism failure.
+ * Death tests for the fail-fast (HS_CHECK / __builtin_trap) seams, plus
+ * cross-process cold/warm effect determinism.
  *
- * An HS_CHECK violation traps and aborts the whole process, so the in-process
- * HS_EXPECT_* harness cannot catch it. Each trap is exercised in a CHILD
- * process: the test binary re-exec's itself with HS_DEATH_CHILD=harness and HS_DEATH_CASE=<name> (handled
- * in main() before any module runs), runs exactly one trap-triggering case, and
- * the parent asserts the child died by the *specific* trap status — clang lowers
- * __builtin_trap() to an illegal instruction (x86 ud2), so the child dies by
- * SIGILL (POSIX) / STATUS_ILLEGAL_INSTRUCTION (Windows).
- *
- * The child is selected through an inherited env var and spawned shell-free —
- * fork()+execv() on POSIX, CreateProcessA() with a debug loop on Windows — so no shell can mangle the
- * re-exec path. A timeout probe runs first; the control "spawn check" then
- * proves re-exec works, so a spawn failure cannot pass the death tier.
- *
- * Dying by SIGILL alone proves only that SOMETHING trapped: under
- * -fsanitize-trap=undefined any UB in a case body lowers to the same illegal
- * instruction, so a case that stopped reaching its guard but tripped UB would
- * still look green. Each case therefore also pins the guard it must fire.
- * check_fail() logs "HS_CHECK failed: <file>:<line>: (<cond>) <msg>" and flushes
- * before trapping, so the child's stdout/stderr is captured to a file and the
- * parent requires the breadcrumb of that exact guard.
- *
- * Two fresh child processes also emit per-effect frame folds. Each cold render
- * must match its warm render, and both processes must emit identical records;
- * the complete roster output must fit in CHILD_OUTPUT_CAP.
- *
- * The run closes with a coverage line: how many of the engine's HS_CHECK sites
- * a case actually pins, against every site in the tree. Both numbers are
- * derived — the denominator from a build-time census of the sources
- * (tests/count_guard_sites.cmake), the numerator from guard lines observed in
- * cases that trapped — so the ratio is informational. Per-file unpinned counts are gated against
- * GUARD_GAP_ALLOW and must match exactly; gaps above or below fail the module.
+ * Each case runs in a re-exec'd child (HS_DEATH_CHILD=harness,
+ * HS_DEATH_CASE=<name>). The parent requires the illegal-instruction trap
+ * status (SIGILL / STATUS_ILLEGAL_INSTRUCTION) and the HS_CHECK breadcrumb of
+ * the case's exact guard: under -fsanitize-trap=undefined, UB lowers to the
+ * same instruction.
  */
 #pragma once
 
@@ -53,7 +26,7 @@
 #include <string>
 #include <utility>
 
-#include "death_guard_sites.h" // generated HS_CHECK census; see tests/CMakeLists.txt
+#include "death_guard_sites.h" // generated HS_CHECK census
 #include "tests/test_fixture.h"
 #include "tests/test_pullback.h"
 #include "tests/test_effects.h"
@@ -177,8 +150,6 @@ inline bool case_enabled(const Case &entry) {
  * @brief Returns the full death-case table.
  * @param n Out-param set to the number of cases in the table.
  * @return Pointer to the static case array.
- * @details Single source of truth shared by the child dispatcher and the
- *          parent's per-case spawn loop.
  */
 inline const Case *all_cases(int &n) {
   static const Case cases[] = {
@@ -1521,11 +1492,9 @@ inline constexpr const char *DETERMINISM_PROBE_CASE =
  * @brief Child entry point: runs exactly one named death case, then returns.
  * @param name Case selector; an unknown name (e.g. the "__spawn_check__"
  *             control) simply returns, so the child exits 0.
- * @details Called from main() with HS_DEATH_CHILD=harness and a non-empty
- *          HS_DEATH_CASE, without extra command-line arguments. The case is expected to
- *          trap before returning; returning means it did NOT trap, so the child
- *          exits 0 and the parent flags it. The determinism selector instead
- *          emits cold/warm per-effect frame folds for cross-process comparison.
+ * @details A case is expected to trap; returning means the child exits 0 and
+ *          the parent flags it. The determinism selector instead emits cold/warm
+ *          per-effect frame folds.
  */
 inline void run_child_case(const char *name) {
 #if defined(_WIN32)
@@ -1714,9 +1683,8 @@ inline bool &child_unhandled_illegal_instruction() {
 inline int spawn_child(const char *name, unsigned timeout_ms = 10000) {
   set_case_env(name);
   const char *capture_path = child_capture_path();
-  // Drop the previous spawn's capture up front: a spawn that fails before the
-  // redirect takes effect must leave an EMPTY capture, never the last child's
-  // breadcrumb, which would read as a pass for this case.
+  // A spawn that fails before the redirect must leave an EMPTY capture, not
+  // the last child's breadcrumb.
   child_output()[0] = '\0';
   std::remove(capture_path);
 #if defined(_WIN32)
@@ -1827,10 +1795,8 @@ inline int spawn_child(const char *name, unsigned timeout_ms = 10000) {
                  name);
   return rc;
 #else
-  // Shell-free spawn: fork and execv the binary directly so no /bin/sh parsing
-  // can mangle a self_exe() path containing a quote or shell metacharacter. The
-  // child sends stdout/stderr to the capture file and execs; the parent waits
-  // and returns the raw wait status that child_trapped() tests.
+  // Shell-free spawn: fork + execv with stdout/stderr redirected to the
+  // capture file; returns the raw wait status.
   std::fflush(stdout);
   std::fflush(stderr);
   const char *exe = self_exe();
@@ -1899,7 +1865,6 @@ inline bool child_trapped(int rc) {
  * @brief Tests whether the child exited cleanly (exit code 0).
  * @param rc The raw spawn_child() return value to interpret.
  * @return True iff the child exited normally with status 0.
- * @details Used by the control spawn check.
  */
 inline bool child_exited_clean(int rc) {
 #if defined(_WIN32)
@@ -2074,14 +2039,11 @@ inline int allowed_guard_gap(const char *file) {
  * @param cs The case table.
  * @param n Number of cases in it.
  * @param lines Matched source line for each successfully trapped case, or zero.
- * @details Both sides are derived, never written down: the denominator is the
- *          generated HS_CHECK census (death_guard_sites.h) and the numerator is
- *          the distinct source lines observed in successfully trapped cases.
- *          A case naming a file outside the census fails the module.
- *          The pinned count is
- *          gated against GUARD_GAP_ALLOW; the ratio itself is reported but not
- *          gated, since new engine guards move the denominator without
- *          weakening any case.
+ * @details The denominator is the generated HS_CHECK census
+ *          (death_guard_sites.h); the numerator is the distinct source lines
+ *          observed in trapped cases. A case naming a file outside the census
+ *          fails the module. Per-file gaps are gated against GUARD_GAP_ALLOW;
+ *          the ratio is not gated.
  */
 inline void report_guard_coverage(const Case *cs, int n, const int *lines) {
   int covered = 0;
@@ -2208,9 +2170,7 @@ inline int run_death_tests() {
       "HS_CHECK failed: notcore/render/sdf/shapes.h:12: (false) probe\n",
       "core/render/sdf/shapes.h", "(false) probe"));
 
-  // The same sentinel proves the capture channel: without the child's
-  // breadcrumb every per-case guard check below would fail identically and
-  // point at the cases instead of at the broken redirect.
+  // The same sentinel proves the capture channel.
   if (!breadcrumb_names_guard(child_output(), "tests/test_death.h",
                               "(false) death-harness trap-shape probe")) {
     report_unrunnable("cannot capture child output; which guard fired is "

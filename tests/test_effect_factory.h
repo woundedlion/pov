@@ -2,13 +2,7 @@
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
  * Licensed under the PolyForm Noncommercial License 1.0.0
  *
- * Host unit tests for the WASM engine's factory layer
- * (targets/wasm/effect_factory.h): the per-(W,H) FactoryEntry tables built from
- * HS_EFFECT_LIST registrations, the name lookup setEffect() validates against,
- * and the HS_RESOLUTIONS runtime dispatch. FactoryEntry::creator is the render
- * path's one std::make_unique; the browser is otherwise its only caller, at
- * -O3 -flto with assertions off, so it is driven here under live HS_CHECK and
- * the sanitizers.
+ * Host unit tests for the WASM factory layer (targets/wasm/effect_factory.h).
  */
 #pragma once
 
@@ -36,9 +30,8 @@ constexpr int FACTORY_OUTPUT_WINDOW = 64;
  * @brief Checks one resolution's factory table against the registry.
  * @tparam W Canvas width in pixels.
  * @tparam H Canvas height in pixels.
- * @details Every registration must yield one entry with a name, a creator and a
- *          non-zero size, and the table must be the same object on every call —
- *          setEffect() hands out pointers into it and holds them across frames.
+ * @details Every registration yields one entry with a name, a creator and a
+ *          non-zero size; the table is the same object on every call.
  */
 template <int W, int H> inline void verify_factory_table() {
   const std::vector<FactoryEntry> &table = hs_wasm::get_factory<W, H>();
@@ -62,10 +55,8 @@ template <int W, int H> inline void verify_factory_table() {
  * @brief Checks the name lookup setEffect() validates a UI string with.
  * @tparam W Canvas width in pixels.
  * @tparam H Canvas height in pixels.
- * @details Every HS_EFFECT_LIST name must resolve to the entry carrying it, and
- *          an unregistered name must return null rather than a neighbouring
- *          entry — setEffect() tears the running effect down only after this
- *          lookup succeeds.
+ * @details Every HS_EFFECT_LIST name resolves to the entry carrying it; an
+ *          unregistered name returns null.
  */
 template <int W, int H> inline void verify_factory_lookup() {
   const auto lookup = [](std::string_view name) {
@@ -93,10 +84,8 @@ template <int W, int H> inline void verify_factory_lookup() {
  * @brief Builds, renders and destroys every registered effect at one resolution.
  * @tparam W Canvas width in pixels.
  * @tparam H Canvas height in pixels.
- * @details The heap-allocated lifetime the browser drives: creator() ->
- *          init() -> frames -> reset(). Each instance is destroyed before the
- *          next is built, since Effect permits one live instance at a time, and
- *          the globals are reset per effect the way the roster sweeps do.
+ * @details creator() -> init() -> frames -> reset(). Each instance is
+ *          destroyed before the next is built: Effect permits one live instance.
  */
 template <int W, int H> inline void drive_factory_lifecycle() {
   std::printf("  -- factory create/render/destroy @ %dx%d --\n", W, H);
@@ -273,9 +262,7 @@ inline void test_phantasm_seed_identity() {
 /**
  * @brief Drives the create/render/destroy lifecycle at every HS_RESOLUTIONS
  *        row.
- * @details A row above the small-aspect pixel count carries the FULL tier's
- *          cost (a heap instance of every effect at that resolution), so it
- *          runs where the roster's other full-resolution sweeps do.
+ * @details Rows above the small-aspect pixel count run only in the FULL tier.
  */
 inline void test_factory_lifecycle() {
   constexpr int SMALL_PIXELS = effects_tests::SMALL_W * effects_tests::SMALL_H;
