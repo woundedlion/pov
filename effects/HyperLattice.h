@@ -812,6 +812,13 @@ private:
   static constexpr const char *SHELL_OPTIONS[] = {"1", "2", "3"};
   static constexpr const char *SHELL_EXPORT_OPTIONS[] = {
       "ShellCount::ONE", "ShellCount::TWO", "ShellCount::THREE"};
+  static_assert(std::size(VIEW_OPTIONS) ==
+                    static_cast<size_t>(LatticeMode::FOUR_D_SLICE) + 1 &&
+                std::size(VIEW_EXPORT_OPTIONS) == std::size(VIEW_OPTIONS));
+  static_assert(std::size(SHELL_OPTIONS) == SDF::Lattice::MAX_SHELLS &&
+                std::size(SHELL_OPTIONS) ==
+                    static_cast<size_t>(ShellCount::THREE) + 1 &&
+                std::size(SHELL_EXPORT_OPTIONS) == std::size(SHELL_OPTIONS));
 
   ConfigurationId selected_configuration = ConfigurationId::CUBIC_3D;
   float preset_gain = 1.0f;

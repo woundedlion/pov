@@ -293,6 +293,14 @@ private:
                                                     "Screen Balanced"};
   static constexpr const char *SPACING_EXPORT_OPTIONS[] = {
       "RadiusSpacing::UNIFORM", "RadiusSpacing::SCREEN_BALANCED"};
+  static_assert(std::size(SHAPE_OPTIONS) == NUM_SHAPES &&
+                std::size(SHAPE_EXPORT_OPTIONS) == NUM_SHAPES);
+  static_assert(std::size(FUNCTION_OPTIONS) == NUM_FUNCTIONS &&
+                std::size(FUNCTION_EXPORT_OPTIONS) == NUM_FUNCTIONS);
+  static_assert(std::size(ALPHA_FALLOFF_OPTIONS) == NUM_ALPHA_FALLOFFS &&
+                std::size(ALPHA_FALLOFF_EXPORT_OPTIONS) == NUM_ALPHA_FALLOFFS);
+  static_assert(std::size(SPACING_OPTIONS) == NUM_RADIUS_SPACINGS &&
+                std::size(SPACING_EXPORT_OPTIONS) == NUM_RADIUS_SPACINGS);
 
   /** @brief Half a turn per frame: the waveform's per-frame Nyquist limit. */
   static constexpr float NYQUIST_PHASE_STEP = 0.5f;
