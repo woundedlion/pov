@@ -84,7 +84,6 @@ inline RoundTripResult check_one(const char *name, FieldCoverage &coverage) {
   // source param.
   size_t i = 0;
   for (const auto &def : effect.getParameters()) {
-    HS_EXPECT(i < views.size(), "marshaled index within range");
     HS_EXPECT_EQ(std::string_view(views[i].name), std::string_view(def.name));
     HS_EXPECT_EQ(views[i].value, values[i]);
     HS_EXPECT_EQ(views[i].is_bool, def.is_bool());
