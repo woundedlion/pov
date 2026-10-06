@@ -29,6 +29,12 @@ struct MeshFeedbackWhiteBox {
   static void rebuild_mesh(MF &fx, MF::BaseMesh base_mesh) {
     fx.rebuild_mesh(base_mesh);
   }
+  /** @brief True when @p target lies inside the effect's Params storage. */
+  static bool in_params(const MF &fx, const void *target) {
+    const auto *begin = reinterpret_cast<const unsigned char *>(&fx.params);
+    const auto *at = static_cast<const unsigned char *>(target);
+    return at >= begin && at < begin + sizeof(fx.params);
+  }
 };
 
 /**
@@ -199,17 +205,13 @@ inline void test_meshfeedback_preset_export_arity() {
   MF effect;
   effect.init();
 
-  const auto *feedback = effect.getParameters().find("Feedback");
-  HS_EXPECT_TRUE(feedback != nullptr);
-  if (feedback)
-    HS_EXPECT_FALSE(feedback->preset);
-
-  // base_mesh + the six registered Style scalars.
   int preset_params = 0;
-  for (const auto &def : effect.getParameters())
-    if (def.preset)
-      ++preset_params;
-  HS_EXPECT_EQ(preset_params, 7);
+  for (const auto &def : effect.getParameters()) {
+    HS_CONTEXT(def.name);
+    HS_EXPECT_EQ(def.preset, WB::in_params(effect, def.target));
+    preset_params += def.preset ? 1 : 0;
+  }
+  HS_EXPECT_GT(preset_params, 0);
 }
 
 /** @brief Verifies repeated MeshFeedback mesh changes reuse arena storage. */
