@@ -88,7 +88,8 @@ inline void test_reconcile_bijection_wellposed() {
         identity.faces.size() != authored.faces.size())
       continue;
 
-    // Greedy nearest-vertex map identity -> authored; must be a bijection.
+    // Per-vertex nearest (argmax-dot) map identity -> authored;
+    // must be injective.
     std::vector<bool> used(V, false);
     std::vector<int> match(V, -1);
     float worst_chord = 0.0f;
