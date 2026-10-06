@@ -534,6 +534,8 @@ inline void test_opleg_dual_bridge_seam_correspondence() {
     const OpLeg::Landing &landing3 = leg3.landing();
     HS_EXPECT_EQ(landing3.faces, nf);
     HS_EXPECT_TRUE(landing3.from_palette != nullptr);
+    if (!landing3.from_palette)
+      continue;
 
     // Derive the true seam permutation from the exact geometry: ambo(D) has
     // the closing leg's face order and the seam's exact positions.
