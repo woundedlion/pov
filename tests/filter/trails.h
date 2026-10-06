@@ -434,11 +434,13 @@ inline void test_mixed_domain_flush_drains_both_buffers() {
     return Color4(Pixel(9, 9, 9), 1.0f);
   };
 
+  // The original point plus one re-emission per frame, seeded at ttl 3, 2, 1.
+  constexpr int EXPECTED_SCREEN[LIFETIME] = {2, 3, 4};
   for (int frame = 0; frame < LIFETIME; ++frame) {
     world_emits = screen_emits = 0;
     pipe.flush(c, WorldTrailFn(world_trail), ScreenTrailFn(screen_trail), 1.0f);
     HS_EXPECT_EQ(world_emits, 1);
-    HS_EXPECT_TRUE(screen_emits > 0);
+    HS_EXPECT_EQ(screen_emits, EXPECTED_SCREEN[frame]);
   }
 
   // ttl reached 0 on the last pass: the world buffer aged out.
