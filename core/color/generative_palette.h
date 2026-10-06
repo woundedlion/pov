@@ -171,8 +171,8 @@ public:
 
   /** @brief Sets every control key to one chroma.
    *  @param chroma Chroma in [0, 1], read in the palette's ChromaBasis:
-   *  gamut-relative under LOCAL_GAMUT, absolute OKLCh chroma under ABSOLUTE,
-   *  where values past the hue's gamut boundary render out of gamut.
+   *  gamut-relative under LOCAL_GAMUT or absolute OKLCh chroma under ABSOLUTE.
+   *  get() clips values past the hue's gamut boundary back to it.
    *  @details Collapses the chroma axis to a single value but keeps its curve,
    *  so morph_compatible() against untouched palettes is preserved. */
   HS_COLD_MEMBER void set_constant_chroma(float chroma) {
