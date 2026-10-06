@@ -86,28 +86,28 @@ inline void test_surface_boundaries() {
   const Raycast::Ray ENTRY{
       math::Vector(-3, 0, 0), math::Vector(1, 0, 0), {0, 6}};
   auto result = Raycast::surface_search(QUERY, ENTRY, {});
-  HS_EXPECT_TRUE(result.status == Raycast::TraceStatus::SURFACE);
+  HS_EXPECT_EQ(result.status, Raycast::TraceStatus::SURFACE);
   HS_EXPECT_NEAR(result.contribution.t, 2.0f, 1e-4f);
   HS_EXPECT_TRUE(result.contribution.verified);
   HS_EXPECT_EQ(result.counters.layers, 1);
   auto exit = ENTRY;
   exit.origin = math::Vector(0, 0, 0);
   result = Raycast::surface_search(QUERY, exit, {});
-  HS_EXPECT_TRUE(result.status == Raycast::TraceStatus::SURFACE);
+  HS_EXPECT_EQ(result.status, Raycast::TraceStatus::SURFACE);
   HS_EXPECT_NEAR(result.contribution.t, 1.0f, 1e-4f);
   const Raycast::VolumeQuery EXTERIOR_ONLY{SPHERE,
                                            Raycast::QueryCapabilities{}};
   result = Raycast::surface_search(EXTERIOR_ONLY, exit, {});
-  HS_EXPECT_TRUE(result.status == Raycast::TraceStatus::UNSUPPORTED_START);
+  HS_EXPECT_EQ(result.status, Raycast::TraceStatus::UNSUPPORTED_START);
   exit.origin = math::Vector(1, 0, 0);
   result = Raycast::surface_search(QUERY, exit, {});
-  HS_EXPECT_TRUE(result.status == Raycast::TraceStatus::SURFACE);
+  HS_EXPECT_EQ(result.status, Raycast::TraceStatus::SURFACE);
   HS_EXPECT_EQ(result.contribution.t, 0.0f);
   HS_EXPECT_EQ(result.counters.queries, 1);
   auto miss = ENTRY;
   miss.origin = math::Vector(-3, 2, 0);
   result = Raycast::surface_search(QUERY, miss, {});
-  HS_EXPECT_TRUE(result.status == Raycast::TraceStatus::RANGE_COMPLETE);
+  HS_EXPECT_EQ(result.status, Raycast::TraceStatus::RANGE_COMPLETE);
   HS_EXPECT_TRUE(!result.has_surface);
 }
 
@@ -115,7 +115,7 @@ inline void test_surface_boundaries() {
 inline void test_bounded_failures() {
   const Raycast::Ray RAY{math::Vector(), math::Vector(1, 0, 0), {0, 6}};
   auto result = Raycast::surface_search(ConstantQuery{}, RAY, {});
-  HS_EXPECT_TRUE(result.status == Raycast::TraceStatus::UNRESOLVED);
+  HS_EXPECT_EQ(result.status, Raycast::TraceStatus::UNRESOLVED);
   HS_EXPECT_TRUE(!result.has_surface);
   HS_EXPECT_EQ(result.counters.queries,
                Raycast::TraceLimits{}.max_refinements + 1);
@@ -124,20 +124,20 @@ inline void test_bounded_failures() {
   Raycast::TraceLimits limits;
   limits.max_queries = 1;
   result = Raycast::surface_search(ConstantQuery{}, RAY, {}, limits);
-  HS_EXPECT_TRUE(result.status == Raycast::TraceStatus::BUDGET_EXHAUSTED);
+  HS_EXPECT_EQ(result.status, Raycast::TraceStatus::BUDGET_EXHAUSTED);
   HS_EXPECT_EQ(result.counters.queries, 1);
   limits.max_queries = 96;
   limits.max_steps = 1;
   result = Raycast::surface_search(ConstantQuery{1, 0.1f}, RAY, {}, limits);
-  HS_EXPECT_TRUE(result.status == Raycast::TraceStatus::BUDGET_EXHAUSTED);
+  HS_EXPECT_EQ(result.status, Raycast::TraceStatus::BUDGET_EXHAUSTED);
   HS_EXPECT_EQ(result.counters.steps, 1);
   result = Raycast::surface_search(ConstantQuery{NAN, 1}, RAY, {});
-  HS_EXPECT_TRUE(result.status == Raycast::TraceStatus::INVALID_QUERY);
+  HS_EXPECT_EQ(result.status, Raycast::TraceStatus::INVALID_QUERY);
   result = Raycast::surface_search(ConstantQuery{1, -1}, RAY, {});
-  HS_EXPECT_TRUE(result.status == Raycast::TraceStatus::INVALID_QUERY);
+  HS_EXPECT_EQ(result.status, Raycast::TraceStatus::INVALID_QUERY);
   limits.position_tolerance = 0.0f;
   result = Raycast::surface_search(ConstantQuery{}, RAY, {}, limits);
-  HS_EXPECT_TRUE(result.status == Raycast::TraceStatus::INVALID_QUERY);
+  HS_EXPECT_EQ(result.status, Raycast::TraceStatus::INVALID_QUERY);
 }
 
 /** @brief Pins slice no phantom. */
@@ -152,11 +152,11 @@ inline void test_slice_no_phantom() {
   limits.max_queries = 1024;
   const auto RESULT = Raycast::surface_search(QUERY, RAY, {0.1f, 0}, limits);
   HS_EXPECT_TRUE(!RESULT.has_surface);
-  HS_EXPECT_TRUE(RESULT.status == Raycast::TraceStatus::RANGE_COMPLETE);
+  HS_EXPECT_EQ(RESULT.status, Raycast::TraceStatus::RANGE_COMPLETE);
   const SliceBall CUT_BALL{0.5f};
   const Raycast::DomainQuery4<SliceBall> CUT_QUERY{CUT_BALL, camera};
   const auto CUT = Raycast::surface_search(CUT_QUERY, RAY, {}, limits);
-  HS_EXPECT_TRUE(CUT.status == Raycast::TraceStatus::SURFACE);
+  HS_EXPECT_EQ(CUT.status, Raycast::TraceStatus::SURFACE);
   HS_EXPECT_NEAR(CUT.contribution.t, 2.0f - sqrtf(0.75f), 1e-4f);
 }
 
@@ -169,14 +169,14 @@ inline void test_placement_and_shapes() {
                               2.0f};
   const Raycast::Ray RAY{math::Vector(), math::Vector(1, 0, 0), {0, 10}};
   auto result = Raycast::surface_search(PLACED, RAY, {});
-  HS_EXPECT_TRUE(result.status == Raycast::TraceStatus::SURFACE);
+  HS_EXPECT_EQ(result.status, Raycast::TraceStatus::SURFACE);
   HS_EXPECT_NEAR(result.contribution.t, 3.0f, 1e-4f);
   HS_EXPECT_NEAR(PLACED.sample(math::Vector()).field, 3.0f, 1e-6f);
   HS_EXPECT_NEAR(PLACED.sample(math::Vector(5, 0, 0)).field, -2.0f, 1e-6f);
   PLACED.scale = 0.0f;
   HS_EXPECT_TRUE(!PLACED.valid());
   result = Raycast::surface_search(PLACED, RAY, {});
-  HS_EXPECT_TRUE(result.status == Raycast::TraceStatus::INVALID_QUERY);
+  HS_EXPECT_EQ(result.status, Raycast::TraceStatus::INVALID_QUERY);
   PLACED.scale = 1.0f;
   PLACED.inverse_rotation = math::Quaternion(0, 0, 0, 0);
   HS_EXPECT_TRUE(!PLACED.valid());
@@ -187,19 +187,19 @@ inline void test_placement_and_shapes() {
   const Raycast::DomainQuery3<decltype(TORUS_QUERY)> DOMAIN_QUERY{TORUS_QUERY,
                                                                   CAMERA};
   result = Raycast::surface_search(DOMAIN_QUERY, RAY, {});
-  HS_EXPECT_TRUE(result.status == Raycast::TraceStatus::SURFACE);
+  HS_EXPECT_EQ(result.status, Raycast::TraceStatus::SURFACE);
   HS_EXPECT_NEAR(result.contribution.t, 1.75f, 1e-4f);
   const SDF::WarpedVolume WARPED{TORUS, SDF::Warp::Twist{3, 0.1f, 2.0f}, 0.01f};
   const Raycast::VolumeQuery WARP_QUERY{WARPED, Raycast::QueryCapabilities{}};
   const Raycast::DomainQuery3<decltype(WARP_QUERY)> WARP_DOMAIN{WARP_QUERY,
                                                                 CAMERA};
   result = Raycast::surface_search(WARP_DOMAIN, RAY, {});
-  HS_EXPECT_TRUE(result.status == Raycast::TraceStatus::SURFACE);
+  HS_EXPECT_EQ(result.status, Raycast::TraceStatus::SURFACE);
   HS_EXPECT_NEAR(result.contribution.t, 1.75f, 1e-4f);
   const Raycast::Ray DISPLACED_RAY{
       math::Vector(), math::Vector(sqrtf(3.0f) * 0.5f, 0.0f, 0.5f), {0, 10}};
   result = Raycast::surface_search(WARP_DOMAIN, DISPLACED_RAY, {});
-  HS_EXPECT_TRUE(result.status == Raycast::TraceStatus::SURFACE);
+  HS_EXPECT_EQ(result.status, Raycast::TraceStatus::SURFACE);
   HS_EXPECT_NEAR(result.contribution.t, 1.770871f, 1e-4f);
 }
 
@@ -212,14 +212,14 @@ inline void test_first_boundary_and_tolerances() {
   Raycast::TraceLimits limits;
   limits.position_tolerance = 1e-5f;
   auto result = Raycast::surface_search(QUERY, ray, {}, limits);
-  HS_EXPECT_TRUE(result.status == Raycast::TraceStatus::SURFACE);
+  HS_EXPECT_EQ(result.status, Raycast::TraceStatus::SURFACE);
   HS_EXPECT_NEAR(result.contribution.t, 0.9998f, 1e-5f);
   ray.interval.far = 0.9f;
   result = Raycast::surface_search(QUERY, ray, {}, limits);
-  HS_EXPECT_TRUE(result.status == Raycast::TraceStatus::RANGE_COMPLETE);
+  HS_EXPECT_EQ(result.status, Raycast::TraceStatus::RANGE_COMPLETE);
   ray.interval = {1.0005f, 2.0f};
   result = Raycast::surface_search(QUERY, ray, {}, limits);
-  HS_EXPECT_TRUE(result.status == Raycast::TraceStatus::SURFACE);
+  HS_EXPECT_EQ(result.status, Raycast::TraceStatus::SURFACE);
   HS_EXPECT_NEAR(result.contribution.t, 1.0008f, 1e-5f);
   const Sphere SPHERE;
   Raycast::VolumeQuery sphere_query{
@@ -229,11 +229,11 @@ inline void test_first_boundary_and_tolerances() {
   ray.interval = {0, 0.001f};
   limits.position_tolerance = 1e-8f;
   result = Raycast::surface_search(TINY, ray, {}, limits);
-  HS_EXPECT_TRUE(result.status == Raycast::TraceStatus::SURFACE);
+  HS_EXPECT_EQ(result.status, Raycast::TraceStatus::SURFACE);
   HS_EXPECT_NEAR(result.contribution.t, 0.0004f, 1e-8f);
   sphere_query.guarantees.error = 0.001f;
   result = Raycast::surface_search(sphere_query, ray, {}, limits);
-  HS_EXPECT_TRUE(result.status == Raycast::TraceStatus::INVALID_QUERY);
+  HS_EXPECT_EQ(result.status, Raycast::TraceStatus::INVALID_QUERY);
   sphere_query.guarantees.error = 0;
   ray = {math::Vector(-2, 1, 0), math::Vector(1, 0, 0), {0, 4}};
   limits = {};
@@ -251,14 +251,14 @@ inline void test_limits_and_nonfinite() {
   limits.max_layers = 0;
   auto result = Raycast::surface_search(ConstantQuery{}, RAY, {}, limits);
   HS_EXPECT_EQ(result.counters.queries, 0);
-  HS_EXPECT_TRUE(result.status == Raycast::TraceStatus::BUDGET_EXHAUSTED);
+  HS_EXPECT_EQ(result.status, Raycast::TraceStatus::BUDGET_EXHAUSTED);
   limits.max_layers = 1;
   limits.max_refinements = 0;
   result = Raycast::surface_search(ConstantQuery{}, RAY, {}, limits);
   HS_EXPECT_EQ(result.counters.refinements, 0);
-  HS_EXPECT_TRUE(result.status == Raycast::TraceStatus::UNRESOLVED);
+  HS_EXPECT_EQ(result.status, Raycast::TraceStatus::UNRESOLVED);
   result = Raycast::surface_search(ConstantQuery{}, RAY, {-1, 0});
-  HS_EXPECT_TRUE(result.status == Raycast::TraceStatus::INVALID_QUERY);
+  HS_EXPECT_EQ(result.status, Raycast::TraceStatus::INVALID_QUERY);
 }
 
 /** @brief Pins nested query validation once. */
