@@ -17,16 +17,16 @@
 #include "core/platform/platform.h"
 #include "tests/test_fixture.h"
 #include "tests/test_harness.h"
+#include "tests/fd_capture_util.h"
 
 #include <cstdint>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
 #if defined(_WIN32)
-#include <io.h>      // _dup / _dup2 / _close / _fileno
 #include <process.h> // _getpid
 #else
-#include <unistd.h> // dup / dup2 / close / getpid
+#include <unistd.h> // getpid
 #endif
 
 namespace hs_test {
@@ -64,12 +64,11 @@ inline bool capture_log_all(char *out, size_t n) {
 #endif
 #pragma clang diagnostic pop
   std::fflush(stdout);
+  int saved_out = fd_dup(1);
 #if defined(_WIN32)
-  int saved_out = _dup(1);
   std::FILE *cap = nullptr;
   fopen_s(&cap, path, "w+");
 #else
-  int saved_out = dup(1);
   std::FILE *cap = std::fopen(path, "w+");
 #endif
   if (cap == nullptr || saved_out < 0) {
@@ -78,28 +77,15 @@ inline bool capture_log_all(char *out, size_t n) {
       std::remove(path);
     }
     if (saved_out >= 0) {
-#if defined(_WIN32)
-      _close(saved_out);
-#else
-      close(saved_out);
-#endif
+      fd_close(saved_out);
     }
     return false;
   }
-#if defined(_WIN32)
-  _dup2(_fileno(cap), 1);
-#else
-  dup2(fileno(cap), 1);
-#endif
+  fd_dup2(fd_fileno(cap), 1);
   hs::CycleCounter::log_all();
   std::fflush(stdout);
-#if defined(_WIN32)
-  _dup2(saved_out, 1);
-  _close(saved_out);
-#else
-  dup2(saved_out, 1);
-  close(saved_out);
-#endif
+  fd_dup2(saved_out, 1);
+  fd_close(saved_out);
   std::rewind(cap);
   size_t got = std::fread(out, 1, n - 1, cap);
   out[got] = '\0';
