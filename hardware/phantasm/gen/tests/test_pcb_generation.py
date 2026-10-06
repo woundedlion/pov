@@ -608,6 +608,18 @@ class CommittedTerminalEdgeTests(TerminalEdgePlacementChecks, unittest.TestCase)
     def setUpClass(cls):
         cls.root = read(GEN.parent / "1.2" / "phantasm.kicad_pcb")
 
+    def test_front_silk_anchors_clear_mounting_reservations(self):
+        for revision in ('1.2', '1.3'):
+            board_path = GEN.parent / revision / pcb.PCB_FILE
+            root = sexp.parse(board_path.read_text(encoding='utf-8'))[0]
+            for node in F(root, 'gr_text'):
+                if str(sexp.val(node, 'layer')[0]) != 'F.SilkS':
+                    continue
+                x, y = (float(v) for v in sexp.val(node, 'at')[:2])
+                for ref, (x0, y0, x1, y1) in pcb.mounting_reserve_rects(pcb.QUILTER_LENGTH).items():
+                    with self.subTest(revision=revision, label=str(node[1]), hole=ref):
+                        self.assertFalse(x0 <= x <= x1 and y0 <= y <= y1)
+
 
 @unittest.skipUnless(GENERATES, GENERATES_REASON)
 class UnplacedBoardTests(TerminalBodyChecks, TerminalEdgePlacementChecks, unittest.TestCase):
@@ -676,18 +688,6 @@ class UnplacedBoardTests(TerminalBodyChecks, TerminalEdgePlacementChecks, unitte
                     for hole, (x0, y0, x1, y1) in reserves.items():
                         self.assertFalse(x0 <= label_x <= x1 and y0 <= label_y <= y1,
                                          f"{ref} {label} inside {hole} reservation")
-
-    def test_front_silk_anchors_clear_mounting_reservations(self):
-        for revision in ('1.2', '1.3'):
-            board_path = GEN.parent / revision / pcb.PCB_FILE
-            root = sexp.parse(board_path.read_text(encoding='utf-8'))[0]
-            for node in F(root, 'gr_text'):
-                if str(sexp.val(node, 'layer')[0]) != 'F.SilkS':
-                    continue
-                x, y = (float(v) for v in sexp.val(node, 'at')[:2])
-                for ref, (x0, y0, x1, y1) in pcb.mounting_reserve_rects(pcb.QUILTER_LENGTH).items():
-                    with self.subTest(revision=revision, label=str(node[1]), hole=ref):
-                        self.assertFalse(x0 <= x <= x1 and y0 <= y <= y1)
 
 
 @unittest.skipUnless(GENERATES, GENERATES_REASON)
