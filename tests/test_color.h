@@ -744,8 +744,8 @@ inline void test_gamut_direction_lookup_matches_angle() {
 inline void expect_clip_lands_on_first_exit(const char *path) {
   HS_CONTEXT(path);
   const float DEFICIT_BOUND = 5e-3f;
-  // got is a float magnitude, the reference a double: ~17 float ULPs at the
-  // largest chroma sampled, and 15x under the 16-bit chroma quantum.
+  // About 33 float ULPs at the largest mapped chroma (~0.32), and 7.6x
+  // below the LUT chroma quantum (1/GAMUT_LUT_SCALE).
   const float OVERSAT_BOUND = 1e-6f;
   const float RESIDUE_BOUND = 0.05f;
   const double CHROMA_IN[3] = {0.6, 0.35, 0.25};
