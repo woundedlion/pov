@@ -3,12 +3,6 @@
  * Licensed under the PolyForm Noncommercial License 1.0.0
  *
  * Unit tests for core/animation/animation.h.
- *
- * Covers transitions, mutation, interpolation, drivers, rotation, timelines,
- * motion, segues, sprites, particle systems, ColorWipe, Mobius warps and mesh
- * carousels. Tests use a genuine Canvas over a tiny Effect where required.
- * Timelines share global event storage; tests scope their lifetimes and reset
- * the global cursors when inspecting them.
  */
 #pragma once
 
@@ -58,7 +52,7 @@ namespace animation_tests {
 inline int run_animation_tests() {
   hs_test::ModuleFixture fixture("animation");
 
-  // Module-scoped fake-canvas fixture (see "Stand-in Canvas reference" above).
+  // Module-scoped fake-canvas fixture.
   hs_test::StubEffect fake_fx(8, 8);
   Canvas fake_cv(fake_fx);
   fake_canvas_ptr() = &fake_cv;
@@ -208,7 +202,7 @@ inline int run_animation_tests() {
   test_motion_set_duration_below_position_rescales();
 
   const int result = fixture.result();
-  // Unpublish before fake_cv/fake_fx destruct below.
+  // Unpublish before fake_cv/fake_fx destruct.
   fake_canvas_ptr() = nullptr;
   return result;
 }

@@ -87,8 +87,7 @@ inline void test_functionref_overload_resolution() {
 /**
  * @brief Verifies the function-pointer ctor, including the null-pointer guard.
  * @details A live function pointer invokes through the thunk; a null pointer
- *          yields an EMPTY ref (operator bool is false) rather than installing a
- *          non-null thunk that would dereference null on the first call.
+ *          yields an empty ref (operator bool is false).
  */
 inline void test_functionref_function_pointer() {
   FunctionRef<int(int)> r = &plus_two;
@@ -142,10 +141,9 @@ struct CountedArg {
 /**
  * @brief Verifies a by-value argument crosses the erasure without an extra copy,
  *        and that reference and decayed-array parameters still bind.
- * @details The thunk takes Args&&, so an lvalue argument pays one copy into
- *          operator()'s parameter and one move into the callable's; a
- *          by-value thunk parameter would add a third. A reference parameter
- *          must still reach the callable as the caller's object.
+ * @details An lvalue argument pays one copy into operator()'s parameter and
+ *          one move into the callable's. A reference parameter must reach the
+ *          callable as the caller's object.
  */
 inline void test_functionref_argument_forwarding() {
   auto sink = [](CountedArg) {};
@@ -171,11 +169,9 @@ inline void test_functionref_argument_forwarding() {
 /**
  * @brief Verifies StoredFunctionRef enforces the borrow-vs-store lifetime
  *        contract in the type system.
- * @details A StoredFunctionRef must accept an lvalue callable (it outlives the
- *          call) but reject an rvalue temporary (binding one would dangle past
- *          the call); plain FunctionRef, by contrast, deliberately accepts the
- *          rvalue borrow. Constructibility is a compile-time property, so the
- *          static_asserts are the whole pin; the call below is the runtime half.
+ * @details A StoredFunctionRef accepts an lvalue callable but rejects an
+ *          rvalue temporary (it would dangle past the call); plain FunctionRef
+ *          accepts the rvalue borrow.
  */
 inline void test_stored_functionref_rvalue_rejection() {
   static_assert(
@@ -250,8 +246,7 @@ inline void test_callable_return_constraints() {
  *          live; a move leaves the source empty; assignment from a callable then
  *          back to nullptr toggles the empty state. Copy- and move-assigning one
  *          populated Fn onto another (each holding a different closure) exercises
- *          the overwrite path in operator=. The empty-state CALL trap is covered
- *          separately by the death harness (case_empty_fn_call).
+ *          the overwrite path in operator=.
  */
 inline void test_fn_copy_move_empty() {
   // ArenaVector accepts Fn only while it stays trivially destructible.
@@ -353,8 +348,6 @@ struct MissingCapacityModel : TweenableModel {
 /**
  * @brief Pins the Tweenable concept: only a two-level frame container satisfies
  *        it — a flat container and a scalar do not.
- * @details Concept satisfaction is a compile-time property, so the
- *          static_asserts are the whole pin.
  */
 inline void test_tweenable_concept() {
   static_assert(!Tweenable<SignedTrailModel>);
