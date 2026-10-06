@@ -145,23 +145,15 @@ struct DisplacementFieldWhiteBox {
   }
 
   template <int W, int H>
-  static int noise_lut_samples(const DisplacementField<W, H> &effect,
-                               float sin_theta) {
-    return noise_lut_samples(
-        effect, effect.params.scale1 + effect.params.scale2, sin_theta);
+  static int baked_lut_samples(const DisplacementField<W, H> &effect) {
+    return static_cast<int>(effect.slot_lut_nf[0]);
   }
 
-  /** @brief Knots a noise-displaced ring bakes at a feature scale. */
   template <int W, int H>
   static int noise_lut_samples(const DisplacementField<W, H> &,
                                float feature_scale, float sin_theta) {
-    using Effect = DisplacementField<W, H>;
-    const int lut_n = hs::clamp(
-        static_cast<int>(ceilf(Effect::LUT_SAMPLES_PER_UNIT * 2.0f *
-                               math::PI_F * feature_scale * sin_theta)),
-        Effect::LUT_MIN_SAMPLES, W);
-    return (lut_n + Effect::OCTAVE_GRID - 1) / Effect::OCTAVE_GRID *
-           Effect::OCTAVE_GRID;
+    return DisplacementField<W, H>::noise_lut_samples(feature_scale, sin_theta,
+                                                      true);
   }
 
   template <int W, int H>
@@ -472,7 +464,7 @@ inline void test_displacement_field_zero_hue_scale_is_exact() {
 
   Color4 base = DisplacementFieldWhiteBox::current_ring_color(effect, 0.5f);
   Pixel expected = hue_rotate(make_hue_rotate_base(base), 0.0f).color;
-  const int lut_n = DisplacementFieldWhiteBox::noise_lut_samples(effect, 1.0f);
+  const int lut_n = DisplacementFieldWhiteBox::baked_lut_samples(effect);
   for (int i = 0; i <= lut_n; ++i) {
     Pixel actual = DisplacementFieldWhiteBox::hue_lut_value(effect, i);
     HS_EXPECT_EQ(actual.r, expected.r);
