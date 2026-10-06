@@ -734,6 +734,14 @@ inline void test_non_persist_frame_starts_cleared() {
   fx.advance_display();
   HS_EXPECT_PIXEL(fx.get_pixel(2, 2), 0, 22, 0);
   HS_EXPECT_PIXEL(fx.get_pixel(1, 1), 0, 0, 0);
+
+  // Reuses the first frame's buffer.
+  {
+    Canvas c(fx);
+  }
+  fx.advance_display();
+  HS_EXPECT_PIXEL(fx.get_pixel(1, 1), 0, 0, 0);
+  HS_EXPECT_PIXEL(fx.get_pixel(2, 2), 0, 0, 0);
 }
 
 inline void prime_buffers(TestEffect &fx, Pixel a, Pixel b) {
