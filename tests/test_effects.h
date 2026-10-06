@@ -992,6 +992,7 @@ inline void test_sh_manual_preset_replaces_inflight_morph() {
 #include "tests/effects/reaction_diffusion_gs.h"
 #include "tests/effects/reaction_diffusion_bz.h"
 #include "tests/effects/hankin.h"
+#include "tests/effects/dreamballs.h"
 #include "tests/effects/mesh_feedback.h"
 #include "tests/effects/numeric_invariants.h"
 #include "tests/effects/geometry.h"
