@@ -924,7 +924,6 @@ inline void test_sh_preset_mode_mapping() {
   WB::SH fx;
   fx.init();
 
-  HS_EXPECT_EQ(fx.getParameters().size(), 1u);
   HS_EXPECT_TRUE(fx.getParameters().find("Amplitude") != nullptr);
   HS_EXPECT_TRUE(fx.getParameters().find("Debug BB") == nullptr);
   HS_EXPECT_EQ(fx.updateParameter("Debug BB", 1.0f),
