@@ -30,19 +30,6 @@ count_cartesian_trail_gate_result(CartesianTrailGateResult result) {
     HS_PLOT_RENDER_COUNT(cartesian_meridian_rejects);
   else
     HS_PLOT_RENDER_COUNT(cartesian_fallbacks);
-#if defined(HS_PROFILE_ENABLE) && defined(HS_PROFILE_CARTESIAN_COUNTS)
-  static hs::CycleCounter latitude("plot_ps_cartesian_latitude_reject");
-  static hs::CycleCounter meridian("plot_ps_cartesian_meridian_reject");
-  static hs::CycleCounter fallback("plot_ps_cartesian_fallback");
-  hs::CycleCounter *counter = &fallback;
-  if (result == CartesianTrailGateResult::LATITUDE_REJECT)
-    counter = &latitude;
-  else if (result == CartesianTrailGateResult::MERIDIAN_REJECT)
-    counter = &meridian;
-  ++counter->count;
-#else
-  (void)result;
-#endif
 }
 
 static inline void count_particle_edge_class(bool one_dot) {
@@ -50,21 +37,10 @@ static inline void count_particle_edge_class(bool one_dot) {
     HS_PLOT_RENDER_COUNT(one_dot_edges);
   else
     HS_PLOT_RENDER_COUNT(long_edges);
-#if defined(HS_PROFILE_ENABLE) && defined(HS_PROFILE_EDGE_CLASS_COUNTS)
-  static hs::CycleCounter one_dot_count("plot_ps_edge_one_dot");
-  static hs::CycleCounter long_count("plot_ps_edge_long");
-  ++(one_dot ? one_dot_count : long_count).count;
-#else
-  (void)one_dot;
-#endif
 }
 
 static inline void count_particle_exact_gate_fallback() {
   HS_PLOT_RENDER_COUNT(exact_gate_fallbacks);
-#if defined(HS_PROFILE_ENABLE) && defined(HS_PROFILE_EDGE_CLASS_COUNTS)
-  static hs::CycleCounter exact_count("plot_ps_edge_exact_fallback");
-  ++exact_count.count;
-#endif
 }
 
 /**
