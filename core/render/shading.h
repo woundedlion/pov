@@ -285,8 +285,8 @@ inline math::Vector blinn_phong_half(const math::Vector &view_dir,
  *        specular, Fresnel rim.
  * @param normal_w Surface normal in world space (unit length).
  * @param view_dir Direction toward the viewer in world space (unit length);
- *        the light is coincident with the viewer, so this is the light
- *        direction too and one dot product feeds both diffuse and Fresnel.
+ *        diffuse and Fresnel use this direction. Specular uses the tangent-
+ *        tilted light encoded in half_w by blinn_phong_half().
  * @param half_w Unit half-vector from blinn_phong_half().
  * @param diffuse_w Weight of the half-Lambert diffuse term.
  * @param specular_w Weight of the specular term.
