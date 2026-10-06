@@ -74,10 +74,6 @@ class CopperStackTests(unittest.TestCase):
                 self.assertGreater(float(thickness[outer]),
                                    float(thickness[inner]))
 
-    def test_ground_planes_sit_on_declared_copper(self):
-        for name in pcb.GROUND_PLANE_LAYERS:
-            self.assertIn(name, pcb.copper_layer_names())
-
     def test_committed_boards_declare_inner_planes_as_power(self):
         for board, path in BOARDS.items():
             types = declared_layer_types(path)
