@@ -305,10 +305,7 @@ inline void test_emitter() {
     HS_EXPECT_TRUE(e.idle());
   }
 
-  // A burst still in flight when a boundary crossing arrives is stale (a
-  // masked-ISR coast past HALF); drop_pending_emission clears it so the on-time
-  // boundary symbol schedules without tripping the overlap trap, and reports
-  // which kind it dropped.
+  // Drop a stale burst before scheduling the boundary, reporting its kind.
   using Dropped = SymbolEmitter::DroppedBurst;
   {
     SymbolEmitter e;
@@ -405,13 +402,11 @@ inline void test_master_beacon_busy_retry() {
 // ── Master beacon late-coast bound (§6.4) ───────────────────────────────────
 
 /**
- * @brief Verifies a masked-ISR coast that reaches the beacon point late does
- *        not queue a beacon whose tail overruns HALF and trips the emitter's
- *        wire-busy trap on the on-time HALF symbol.
+ * @brief Verifies a late beacon is censored before its tail can overrun HALF.
  * @details Drives a master across the beacon-due revolution, resuming its first
  *          post-ZERO tick at a chosen column to model the coast. The last
  *          admissible start emits fully before HALF; one column later is
- *          censored, with no pulses in the beacon window and no trap at HALF.
+ *          censored, with no beacon pulses and the HALF boundary emitted.
  */
 inline void test_beacon_late_coast() {
   const Config cfg = test_config();
@@ -468,8 +463,7 @@ inline void test_beacon_late_coast() {
   // The last admissible start still emits.
   HS_EXPECT_GT(run(last_start), 0);
   HS_EXPECT_EQ(late_dropped, 0u);
-  // Late start past the safe bound: censored — no beacon pulses, and the HALF
-  // crossing at column 144 schedules without tripping the wire-busy trap.
+  // A late start is censored; the HALF boundary still emits.
   HS_EXPECT_EQ(run(last_start + 1), 0);
   // The skip is counted once for the revolution, not once per late tick.
   HS_EXPECT_EQ(late_dropped, 1u);
