@@ -2,6 +2,7 @@ import contextlib
 import importlib.util
 import io
 import os
+import stat
 import subprocess
 import sys
 import tempfile
@@ -236,6 +237,45 @@ class AtomicWriteTests(unittest.TestCase):
             self.assertEqual(list(Path(directory).iterdir()), [path])
             kicad_common.atomic_write_text(path, "complete\n")
             self.assertEqual(path.read_bytes(), b"complete\n")
+
+    def test_replacement_takes_the_target_mode(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "board.kicad_sch"
+            path.write_text("original", encoding="utf-8")
+            with mock.patch.object(kicad_common, "replacement_mode",
+                                   return_value=0o640) as mode, \
+                    mock.patch.object(kicad_common.os, "chmod") as chmod:
+                kicad_common.atomic_write_text(path, "replacement")
+            mode.assert_called_once_with(path)
+            self.assertEqual(chmod.call_args.args[1], 0o640)
+            self.assertNotEqual(Path(chmod.call_args.args[0]), path)
+
+    @unittest.skipUnless(os.name == "posix", "POSIX permission bits")
+    def test_rewrite_keeps_permission_bits(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "board.kicad_sch"
+            path.write_text("original", encoding="utf-8")
+            path.chmod(0o644)
+            kicad_common.atomic_write_text(path, "replacement")
+            self.assertEqual(stat.S_IMODE(path.stat().st_mode), 0o644)
+            fresh = Path(directory) / "fresh.kicad_sch"
+            umask = os.umask(0o022)
+            try:
+                kicad_common.atomic_write_text(fresh, "new")
+            finally:
+                os.umask(umask)
+            self.assertEqual(stat.S_IMODE(fresh.stat().st_mode), 0o644)
+
+    def test_replacement_mode_reads_the_existing_target(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "board.kicad_sch"
+            path.write_text("original", encoding="utf-8")
+            self.assertEqual(kicad_common.replacement_mode(path),
+                             stat.S_IMODE(path.stat().st_mode))
+            umask = os.umask(0)
+            os.umask(umask)
+            self.assertEqual(kicad_common.replacement_mode(Path(directory) / "absent"),
+                             0o666 & ~umask)
 
 
 class UidTests(unittest.TestCase):

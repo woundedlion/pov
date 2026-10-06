@@ -4,6 +4,7 @@ import math
 import os
 import re
 import shutil
+import stat
 import subprocess
 import sys
 import tempfile
@@ -240,6 +241,16 @@ def export_netlist(kcli, sch):
             os.remove(net)
 
 
+def replacement_mode(path):
+    """Permission bits for a file written over `path`: its own, else the umask default."""
+    try:
+        return stat.S_IMODE(os.stat(path).st_mode)
+    except FileNotFoundError:
+        umask = os.umask(0)
+        os.umask(umask)
+        return 0o666 & ~umask
+
+
 def atomic_write_text(path, text, newline="\n"):
     """Replace one UTF-8 artifact only after its complete write succeeds."""
     temporary = None
@@ -251,6 +262,7 @@ def atomic_write_text(path, text, newline="\n"):
             output.write(text)
             output.flush()
             os.fsync(output.fileno())
+        os.chmod(temporary, replacement_mode(path))
         os.replace(temporary, path)
     finally:
         if temporary is not None and os.path.exists(temporary):
