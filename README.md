@@ -456,6 +456,7 @@ files define line-ending policy and working-artifact exclusions.
 │   ├── plot_scan/         Sections included by test_plot_scan.h
 │   ├── pov_sync/          Sections included by test_pov_sync.h
 │   ├── ray_events/        Sections included by test_ray_events.h
+│   ├── sdf/               Sections included by test_sdf.h
 │   ├── shader_chain/      Sections included by test_shader_chain.h
 │   ├── mindsplatter_whitebox.h  White-box MindSplatter accessor shared by its tests and the replay tools
 │   ├── composed_chain_fixture.h   Document-built chain and compiled composed frame parity
