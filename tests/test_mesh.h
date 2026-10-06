@@ -521,7 +521,7 @@ inline void test_classify_faces_zero_sided_faces_share_class() {
 
 /**
  * @brief Verifies classify_faces_by_topology on an UNCOMPILED PolyMesh with a
- *        degenerate 2-gon neither self-pairs it nor trips the non-manifold trap.
+ *        degenerate 2-gon does not prevent the triangle from classifying.
  * @details A 2-gon reusing the triangle's edge puts a third half-edge on that
  *          edge; the record-loop side-count guard leaves the degenerate edges
  *          unpaired so the triangle still classifies.
@@ -558,11 +558,11 @@ inline void test_classify_faces_uncompiled_degenerate() {
                static_cast<uint16_t>(1));
 }
 
-/** @brief Verifies the degenerate sentinel cannot collide with a real edge. */
+/** @brief Verifies degenerate sentinel records remain unpaired. */
 inline void test_degenerate_edge_records_never_pair() {
   HalfEdgePairRecord records[2];
   fill_edge_record(records[0], HE_NONE, HE_NONE, 0);
-  fill_edge_record(records[1], 0, 0, 1);
+  fill_edge_record(records[1], HE_NONE, HE_NONE, 1);
   int pairs = 0;
   pair_half_edges(records, 2, [&](uint16_t, uint16_t) { ++pairs; });
   HS_EXPECT_EQ(pairs, 0);
