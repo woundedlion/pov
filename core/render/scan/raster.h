@@ -167,9 +167,10 @@ report_stretch(const SDF::AngularRepeat<Shape> &shape) {
  * @brief Whether a walk over a shape may settle a whole pole-LOD block from one
  *        probe of it.
  * @tparam ShapeT Shape the probe reads distance() from.
- * @details False with the knob compiled out, and false for a shape whose
- * distance() has no finite change-per-arc factor: no slack makes one probe
- * vouch for its neighbours, so the walk stays per column.
+ * @details False with the knob compiled out, false for a shape with no reject
+ * band (`SDF::reject_margin` <= 0), and false for a shape whose distance() has
+ * no finite change-per-arc factor: no slack makes one probe vouch for its
+ * neighbours, so the walk stays per column.
  */
 template <typename ShapeT>
 inline constexpr bool pole_lod_blocks =
