@@ -104,16 +104,20 @@ inline void test_world_trails_capacity_evicts_one_slot() {
                  decoded.push_back(v);
                });
   HS_EXPECT_SIZE_OR_RETURN(decoded, Cap);
-  for (int i = 0; i < Cap; ++i) {
-    HS_EXPECT_NEAR(decoded[i].x,
-                   pushed[i == Cap - 1 ? Cap + Overflow - 1 : i].x,
-                   1.0f / 32767.0f + 1e-7f);
-    HS_EXPECT_NEAR(decoded[i].y,
-                   pushed[i == Cap - 1 ? Cap + Overflow - 1 : i].y,
-                   1.0f / 32767.0f + 1e-7f);
-    HS_EXPECT_NEAR(decoded[i].z,
-                   pushed[i == Cap - 1 ? Cap + Overflow - 1 : i].z,
-                   1.0f / 32767.0f + 1e-7f);
+  constexpr float TOLERANCE = 1.0f / 32767.0f + 1e-7f;
+  auto matches = [&](const math::Vector &want) {
+    int n = 0;
+    for (const math::Vector &v : decoded)
+      if (std::abs(v.x - want.x) <= TOLERANCE &&
+          std::abs(v.y - want.y) <= TOLERANCE &&
+          std::abs(v.z - want.z) <= TOLERANCE)
+        ++n;
+    return n;
+  };
+  // Each overflow push replaces the newest slot; the oldest Cap - 1 survive.
+  for (int i = 0; i < Cap + Overflow; ++i) {
+    const bool kept = i < Cap - 1 || i == Cap + Overflow - 1;
+    HS_EXPECT_EQ(matches(pushed[i]), (kept ? 1 : 0));
   }
 }
 
