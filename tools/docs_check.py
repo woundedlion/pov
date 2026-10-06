@@ -124,7 +124,8 @@ _EFFECT_ROSTER_DEFINE = "#define HS_EFFECT_LIST(X)"
 _COMMENT_RE = re.compile(r"/\*.*?\*/|//[^\n]*", re.DOTALL)
 _EFFECT_ROSTER_ENTRY_RE = re.compile(r"X\(\s*(\w+)\s*\)")
 
-# The device playlist repeats the full roster's cardinality in README prose.
+# README prose restates the device playlist's own cardinality (the roster minus
+# HS_PHANTASM_EXCLUDED_EFFECTS).
 PHANTASM_PLAYLIST_SOURCE = PurePosixPath("targets/Phantasm/phantasm_playlist.h")
 _PHANTASM_ROSTER_DEFINE = "#define HS_PHANTASM_EFFECT_LIST(X)"
 # The shader promotion product group lives beside HS_EFFECT_LIST.
