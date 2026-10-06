@@ -738,9 +738,10 @@ bool get_horizontal_intervals(int y, OutputIt out) const {
   const float pad = azimuth_pad_at_row<W, H>(y);
   if (pad == math::PI_F)
     return false;
+  const float column_scale = W / math::TWO_PI_F;
   for (const auto &iv : intervals) {
-    float f_x1 = (iv.start - pad) * W / math::TWO_PI_F;
-    float f_x2 = (iv.end + pad) * W / math::TWO_PI_F;
+    float f_x1 = (iv.start - pad) * column_scale;
+    float f_x2 = (iv.end + pad) * column_scale;
     out(floorf(f_x1), ceilf(f_x2));
   }
   return true;
