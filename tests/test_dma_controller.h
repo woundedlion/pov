@@ -64,11 +64,15 @@ public:
    */
   static void reset() { state() = State{}; }
 
+  static constexpr uint32_t DEFAULT_CLOCK_HZ = 12000000;
+
   /**
    * @brief Records the forwarded clock; matches the transport ctor contract.
    * @param clock SPI clock in Hz forwarded by the controller.
    */
-  explicit MockStrip(uint32_t clock = 12000000) { state().clock = clock; }
+  explicit MockStrip(uint32_t clock = DEFAULT_CLOCK_HZ) {
+    state().clock = clock;
+  }
 
   /**
    * @brief Counts a hardware-init call.
@@ -142,7 +146,7 @@ inline void test_begin_inits() {
 inline void test_ctor_forwards_clock() {
   using Controller = DMALEDController<N, MockStrip>;
   constexpr uint32_t OVERRIDE_CLOCK_HZ = 24000000;
-  static_assert(OVERRIDE_CLOCK_HZ != Controller::DEFAULT_CLOCK_HZ,
+  static_assert(OVERRIDE_CLOCK_HZ != MockStrip::DEFAULT_CLOCK_HZ,
                 "the override must not coincide with the transport default");
 
   MockStrip::reset();
