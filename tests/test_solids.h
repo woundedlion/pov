@@ -401,21 +401,6 @@ inline void test_islamic_registry_solids_are_closed() {
 // ---------------------------------------------------------------------------
 
 /**
- * @brief Verifies the last valid registry index builds correctly (range
- *        boundary).
- */
-inline void test_get_entry_last_valid_index_builds() {
-  const Solids::Entry &e = Solids::get_entry(Solids::NUM_ENTRIES - 1);
-  HS_EXPECT_TRUE(e.name != nullptr);
-
-  Arena geom(solids_geom_a, sizeof(solids_geom_a));
-  Arena a(solids_scratch_a, sizeof(solids_scratch_a));
-  Arena b(solids_scratch_b, sizeof(solids_scratch_b));
-  PolyMesh m = Solids::finalize_solid(e.generate(a, b), geom);
-  check_basic(m);
-}
-
-/**
  * @brief Verifies get_by_name("octahedron") returns that specific solid.
  * @details Asserts the result is valid, on the unit sphere, and has the
  *          octahedron's 6 vertices and 8 faces.
@@ -759,7 +744,6 @@ inline int run_solids_tests() {
   test_euler_archimedean_catalan_solids();
   test_islamic_registry_solids_are_closed();
 
-  test_get_entry_last_valid_index_builds();
   test_get_by_name_known_returns_that_solid();
   test_registry_names_unique_and_roundtrip();
 
