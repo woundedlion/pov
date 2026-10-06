@@ -83,8 +83,9 @@ template <typename... Values> consteval uint16_t live_values(Values... values) {
 
 /**
  * @brief One scalar field of a parameter family.
- * @details `name == nullptr` marks a field with no slider of its own; it is
- * still interpolated and validated.
+ * @details `name == nullptr` means no table-supplied display name. Table-driven
+ * registration skips it; a consumer may register it under its own name.
+ * It is still interpolated and validated.
  * @tparam Owner The family struct the field belongs to.
  */
 template <typename Owner> struct Field {
