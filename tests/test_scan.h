@@ -1829,6 +1829,18 @@ inline void test_report_stretch_forwards_through_csg() {
   HS_EXPECT_EQ(
       Scan::report_stretch(SDF::Subtract<SDF::Face, SDF::Face>{small, large}),
       large_stretch);
+  HS_EXPECT_EQ(Scan::report_stretch(
+                   SDF::Intersection<SDF::Face, SDF::Face>{large, small}),
+               large_stretch);
+  HS_EXPECT_EQ(
+      Scan::report_stretch(SDF::Subtract<SDF::Face, SDF::Face>{large, small}),
+      large_stretch);
+  HS_EXPECT_EQ(Scan::report_stretch(
+                   SDF::SmoothUnion<SDF::Face, SDF::Face>{small, large, 0.1f}),
+               large_stretch);
+  HS_EXPECT_EQ(Scan::report_stretch(
+                   SDF::SmoothUnion<SDF::Face, SDF::Face>{large, small, 0.1f}),
+               large_stretch);
   HS_EXPECT_EQ(
       Scan::report_stretch(SDF::AngularRepeat<SDF::Face>(large, 3, basis.v)),
       large_stretch);
