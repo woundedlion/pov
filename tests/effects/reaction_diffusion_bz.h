@@ -389,12 +389,19 @@ inline void test_bz_substep_diffuses() {
   BZWhiteBox::step(bz, sA.data(), sB.data(), sC.data());
 
   HS_EXPECT_GT((int)sA[seed], 0); // the seed decays but does not vanish/wrap
-  int spread = 0;
+  int spread = 0, reciprocal_neighbors = 0;
   for (int k = 0; k < ReactionGraph::RD_K; ++k) {
     int nb = ReactionGraph::neighbors[seed][k];
+    bool reciprocal = false;
+    for (int j = 0; j < ReactionGraph::RD_K; ++j)
+      reciprocal |= ReactionGraph::neighbors[nb][j] == seed;
+    if (!reciprocal)
+      continue;
+    ++reciprocal_neighbors;
     HS_EXPECT_GE(sA[nb], BZWhiteBox::advance_species(bz, 0, 0, 1.0f));
     spread += sA[nb] > 0;
   }
+  HS_EXPECT_GT(reciprocal_neighbors, 0);
   HS_EXPECT_GT(spread, 0); // A diffused into at least one empty neighbor
 }
 
