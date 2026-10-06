@@ -106,7 +106,6 @@ def stage(html_root: Path, repo_root: Path) -> tuple[list[str], int, int]:
         parts = urlsplit(src)
         if parts.scheme or parts.netloc:
             continue
-        checked += 1
         if not parts.path:
             errors.append(f"{where} has no path component")
             continue
@@ -114,9 +113,11 @@ def stage(html_root: Path, repo_root: Path) -> tuple[list[str], int, int]:
         if not target.is_relative_to(html_root):
             errors.append(f"{where} resolves outside the artifact")
             continue
+        source = repo_root / target.relative_to(html_root)
+        if source.is_file():
+            checked += 1
         if target.is_file():
             continue
-        source = repo_root / target.relative_to(html_root)
         if not source.is_file():
             errors.append(f"{where} is in neither the artifact nor the repository")
             continue

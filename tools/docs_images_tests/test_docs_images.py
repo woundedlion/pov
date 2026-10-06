@@ -43,7 +43,7 @@ class TestDocsImagesStage(unittest.TestCase):
         self.write_page('<img src="inherit_graph_0.png" alt="">')
         (self.html / "inherit_graph_0.png").write_bytes(b"generated")
         errors, staged, checked = di.stage(self.html, self.repo)
-        self.assertEqual((errors, staged, checked), ([], 0, 1))
+        self.assertEqual((errors, staged, checked), ([], 0, 0))
 
     def test_noncanonical_artifact_root_is_resolved(self):
         self.write_page('<img src="docs/A.png">')
@@ -100,6 +100,23 @@ class TestDocsImagesStage(unittest.TestCase):
                               "--root", str(self.repo)])
         self.assertEqual(status, 2)
         self.assertIn("tooling error", err.getvalue())
+
+    def test_doxygen_footer_cannot_certify_a_galleryless_artifact(self):
+        footer = '<img class="footer" src="doxygen.svg" alt="doxygen">'
+        self.write_page(footer)
+        (self.html / "doxygen.svg").write_bytes(b"generated")
+        with contextlib.redirect_stderr(io.StringIO()) as err:
+            status = di.main(["--stage", str(self.html), "--root", str(self.repo)])
+        self.assertEqual(status, 2)
+        self.assertIn("no repository-relative image references", err.getvalue())
+        self.write_asset("docs/gallery.png")
+        self.write_page(footer + '<img src="docs/gallery.png">')
+        with contextlib.redirect_stdout(io.StringIO()):
+            self.assertEqual(di.main(["--stage", str(self.html),
+                                      "--root", str(self.repo)]), 0)
+            self.assertEqual(di.main(["--stage", str(self.html),
+                                      "--root", str(self.repo)]), 0)
+        self.assertEqual(di.stage(self.html, self.repo), ([], 0, 1))
 
 
 class TestDocsImagesVerify(unittest.TestCase):
