@@ -124,7 +124,9 @@ class ReferenceTransactionHook(unittest.TestCase):
         self.assertEqual(
             self.git("commit", "--allow-empty", "--quiet", "-m", "next",
                      check=False).returncode, 0)
-        self.assertEqual(self.rev(MASTER), self.rev("HEAD"))
+        self.assertNotEqual(self.rev(MASTER), self.one)
+        self.assertEqual(self.rev(MASTER + "^"), self.one)
+        self.assertEqual(self.log_text(), "")
 
     def test_another_branch_may_move_backwards(self):
         self.assertEqual(self.git("update-ref", "refs/heads/ahead", self.base,
