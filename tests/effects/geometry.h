@@ -2340,7 +2340,7 @@ inline void test_islamicstars_roster_cycle_fits_budget() {
     const int entries = static_cast<int>(solids.size());
     constexpr int MAX_FRAMES = 20000;
     size_t a_peak = 0, b_peak = 0, persist_peak = 0;
-    size_t worst_p = 0, worst_p_budget = 0;
+    size_t worst_p = 0, worst_p_budget = 1;
     int worst_p_idx = -1; // shape at the worst persistent/budget ratio
     int frames = 0, shapes = 0, builds = 0;
     bool was_building = false;
@@ -2374,7 +2374,8 @@ inline void test_islamicstars_roster_cycle_fits_budget() {
       a_peak = std::max(a_peak, scratch_arena_a.get_high_water_mark());
       b_peak = std::max(b_peak, scratch_arena_b.get_high_water_mark());
       persist_peak = std::max(persist_peak, p);
-      if (p > worst_p) { // report the tightest persistent fit, not the raw max
+      if (p_budget &&
+          uint64_t(p) * worst_p_budget > uint64_t(worst_p) * p_budget) {
         worst_p = p;
         worst_p_budget = p_budget;
         worst_p_idx = cur;
