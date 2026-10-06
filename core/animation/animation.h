@@ -11,6 +11,7 @@
  * @details Non-finite input rule: a constructor argument traps (HS_CHECK). A
  * value re-read from a live source each frame, or written through a
  * live-tunable setter, is ignored on non-finite and the last good value kept.
+ * MobiusFlow substitutes rings=0 and lines=1 on non-finite live reads.
  * Driver::set_speed traps.
  */
 
