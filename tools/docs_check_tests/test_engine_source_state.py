@@ -56,6 +56,9 @@ class EngineSourceState(unittest.TestCase):
 
     def test_authored_prose_change_remains_dirty(self):
         generated = self.generate()
+        self.git("add", "README.md")
+        self.git("commit", "-qm", "generated documentation")
+        self.assertEqual(engine_source_state.changed_sources(self.root), [])
         self.write("README.md", generated.replace("Authored explanation", "Edited explanation"))
         self.assertEqual(engine_source_state.changed_sources(self.root), ["README.md"])
 
