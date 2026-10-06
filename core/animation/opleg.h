@@ -762,9 +762,9 @@ public:
   }
 
   /**
-   * @brief Steps the sweep: the kind's swept mesh (op at t(frame) plus settle
-   * slerp, the hankin_at slerp from each corner, or the relax slerp), then compile,
-   * palette pre-blend, draw.
+   * @brief Draws the leg's current frame: an op sweep plus settle, hankin,
+   * relax or medial slerp, or the gated swap's seed or partitioned mesh; then
+   * compile, palette pre-blend, draw.
    * @param canvas The canvas passed through to the draw callback.
    */
   HS_COLD_MEMBER void step(Canvas &canvas) override {
@@ -1210,8 +1210,9 @@ private:
    * @brief Steps a gated-swap leg: the seed or the partitioned mesh, then the
    * shared frame tail.
    * @param canvas The canvas passed through to the draw callback.
-   * @param frame Clamped frame index; the seed side draws frames [1, gate], the
-   * swap and opening side [gate + 1, 2 * gate + 1].
+   * @param frame Clamped frame index; the seed side draws frames [0, gate],
+   * with 0 the paused initial state; the swap and opening side draws
+   * [gate + 1, 2 * gate + 1].
    */
   HS_COLD_MEMBER void step_gated(Canvas &canvas, int frame) {
     Transients &tr = *buf;
