@@ -49,7 +49,6 @@ class Fishbowl : public ChoreographedEffect<Fishbowl<W, H>, FishbowlParams> {
   friend Choreography;
   using Choreography::params;
   using Choreography::timeline;
-  using Choreography::register_param;
   using Choreography::begin_choreography;
   using Choreography::step_choreography;
 
