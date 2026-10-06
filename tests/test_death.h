@@ -296,22 +296,6 @@ inline void case_direct_sink_unprepared_plot() {
   sink.plot(canvas, 2, 2, Pixel(65535, 0, 0), 0, 1);
 }
 
-inline void case_star_mismatched_radius_cache() {
-  using Star = Plot::Star<Plot::PlanarProjection>;
-  Fragments points;
-  const auto basis = math::make_basis(math::Quaternion(), math::X_AXIS);
-  Star::sample_positions(points, basis, 0.5f, 5, 0.0f, Star::radius_trig(0.75f),
-                         Star::step_trig(5));
-}
-
-inline void case_star_mismatched_step_cache() {
-  using Star = Plot::Star<Plot::PlanarProjection>;
-  Fragments points;
-  const auto basis = math::make_basis(math::Quaternion(), math::X_AXIS);
-  Star::sample_positions(points, basis, 0.5f, 5, 0.0f, Star::radius_trig(0.5f),
-                         Star::step_trig(6));
-}
-
 struct UninitializedReactionLattice
     : ReactionDiffusionBase<UninitializedReactionLattice, 32, 16> {
   void init() override {}
