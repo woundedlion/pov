@@ -1183,7 +1183,6 @@ class TestStripJsoncComments(unittest.TestCase):
             tg._strip_jsonc_comments('{"a":1} /* never closed')
 
     def test_round_trips_through_json_load(self):
-        import json
         cfg = json.loads(tg._strip_jsonc_comments(
             '{\n  // c\n  "x": 1, /* y */ "s": "10 // 2"\n}'))
         self.assertEqual(cfg, {"x": 1, "s": "10 // 2"})
