@@ -414,12 +414,14 @@ inline void check_snapshot_contract(const char *name) {
     moved.params.template get<"lens">().mobius.c = {0.5f, 0.6f};
     moved.params.template get<"lens">().mobius.d = {0.8f, -0.1f};
   }
+  constexpr size_t MAPPINGS =
+      std::size(Pullback::Interp::Op::PALETTE_MAPPING_IDS);
   moved.params.template get<"color">().palette_mapping =
       static_cast<Pullback::Color::PaletteMapping>(
           (static_cast<uint8_t>(
                captured.params.template get<"color">().palette_mapping) +
            1) %
-          4);
+          MAPPINGS);
   HS_EXPECT_TRUE(effect.restore_parameters(moved));
   verify_params_equal(effect.serialize_parameters().params, moved.params);
   HS_EXPECT_TRUE(effect.restore_parameters(captured));
@@ -436,8 +438,7 @@ inline void check_snapshot_contract(const char *name) {
 
   typename FX::ParameterSnapshot mapping = captured;
   mapping.params.template get<"color">().palette_mapping =
-      static_cast<Pullback::Color::PaletteMapping>(
-          static_cast<uint8_t>(Pullback::Color::PaletteMapping::REVERSE) + 1);
+      static_cast<Pullback::Color::PaletteMapping>(MAPPINGS);
   HS_EXPECT_FALSE(effect.restore_parameters(mapping));
   verify_params_equal(effect.serialize_parameters().params, captured.params);
 
