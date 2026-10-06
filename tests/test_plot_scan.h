@@ -40,7 +40,9 @@ static_assert(!BorrowableRasterBasis<const math::Basis>);
 
 static_assert(std::is_aggregate_v<Plot::RasterOptions>);
 static_assert(std::is_trivially_copyable_v<Plot::RasterOptions>);
-static_assert(sizeof(Plot::RasterOptions) == (sizeof(void *) == 8 ? 88 : 48));
+// passed by value on the rasterize hot path
+constexpr size_t RASTER_OPTIONS_BYTE_BUDGET = sizeof(void *) == 8 ? 88 : 48;
+static_assert(sizeof(Plot::RasterOptions) <= RASTER_OPTIONS_BYTE_BUDGET);
 static_assert(
     !std::is_constructible_v<Plot::RasterLoop, bool, const Fragment *>);
 static_assert(
