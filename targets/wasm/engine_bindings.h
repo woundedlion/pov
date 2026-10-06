@@ -506,7 +506,8 @@ public:
    *         NO_EFFECT (no effect is set), UNKNOWN_PARAM (the name is unknown to
    *         the effect), READONLY (engine-written telemetry the GUI must not
    *         poke), NON_FINITE (rejected before it can poison render math), or
-   *         INADMISSIBLE (a cross-parameter constraint refuses the value).
+   *         INADMISSIBLE (an unlisted option ID or a cross-parameter constraint
+   *         refuses the value).
    *         Exposed to JS as the Module.ParamSetResult embind enum; compare
    *         against its values, never by truthiness (every enum value is a
    *         truthy object). An APPLIED float is silently clamped to the
