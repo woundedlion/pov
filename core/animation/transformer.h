@@ -294,9 +294,10 @@ public:
    * @return Pointer to the spawned animation, or nullptr if no pool slot is
    * available. A full timeline traps.
    * @details Only valid when the spawned animation is infinite or repeating and
-   * is added before any finite timeline event (see Timeline::add_get). The pool
-   * claims the animation's single then() slot to recycle the entity, so the
-   * retained handle must not attach one (Animation::then() traps on a second).
+   * is added before any finite, non-repeating timeline event (see
+   * Timeline::add_get). The pool claims the animation's single then() slot to
+   * recycle the entity, so the retained handle must not attach one
+   * (Animation::then() traps on a second).
    */
   template <typename... Args>
   AnimT *spawn_pinned(int in_frames, Args &&...args) {
