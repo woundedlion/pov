@@ -20,8 +20,13 @@ def literals(text):
 def pins(text):
     """Read the literal fields of the death-case table."""
     pattern = (r'\{\s*"([^"\n]+)"\s*,\s*case_\w+\s*,\s*'
-               r'"([^"\n]+)"\s*,\s*((?:' + STRING + r'\s*)+)\}')
-    return [(m[1], m[2], literals(m[3])) for m in re.finditer(pattern, text)]
+               r'"([^"\n]+)"\s*,\s*((?:' + STRING + r'\s*)+)'
+               r'(?:,\s*(?:true|false)\s*)?\}')
+    rows = [(m[1], m[2], literals(m[3])) for m in re.finditer(pattern, text)]
+    heads = re.findall(r'\{\s*"[^"\n]+"\s*,\s*case_\w+\s*,', text)
+    if len(rows) != len(heads):
+        raise ValueError(f"parsed {len(rows)} of {len(heads)} death-case rows")
+    return rows
 
 
 def guard_texts(text):
