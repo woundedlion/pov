@@ -25,8 +25,8 @@ namespace hs_wasm {
  * @details Every field is a multiple of an input measurement that some stage of
  *          the operator reaches; see MESHOP_LIST for the per-operator values and
  *          where they come from. `elements` must be nonzero. A zero degree or
- *          valence means the operator emits nothing of that kind; a zero
- *          `valence` additionally skips the valence scan, the one measurement
+ *          valence means those faces have a fixed side count or are absent.
+ *          A zero `valence` additionally skips the valence scan, the measurement
  *          that costs a pass over the flat index list.
  */
 struct MeshOpBounds {
