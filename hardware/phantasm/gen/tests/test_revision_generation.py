@@ -18,6 +18,7 @@ import pcb  # noqa: E402
 import sexp  # noqa: E402
 import shorts  # noqa: E402
 from kicad_common import F, export_netlist, kicad_cli  # noqa: E402
+from courtyard_bounds import courtyard_box  # noqa: E402
 from test_board import dangling_pins  # noqa: E402
 from test_check import committed_board_nets  # noqa: E402
 from test_pcb_generation import GENERATES, GENERATES_REASON  # noqa: E402
@@ -116,7 +117,7 @@ class PrototypeContractTests(unittest.TestCase):
             self.assertFalse(check.check(nets, "1.3"))
 
     def test_locked_courtyards_clear_each_other_and_mounting_reservations(self):
-        positions, bounds = {}, {}
+        positions, bounds, courtyards = {}, {}, {}
         for footprint in F(self.board, "footprint"):
             if sexp.val(footprint, "locked") != ["yes"]:
                 continue
@@ -125,16 +126,13 @@ class PrototypeContractTests(unittest.TestCase):
                 continue
             positions[ref] = tuple(map(float, sexp.val(footprint, "at")))
             bounds[ref] = pcb.fp_bbox(footprint, graphic_layers=pcb.COURTYARD_LAYERS)
+            courtyards[ref] = courtyard_box(footprint)
+            self.assertIsNotNone(courtyards[ref], ref)
         self.assertEqual(pcb.keepout_clashes(positions, bounds, pcb.QUILTER_LENGTH), [])
         refs = list(positions)
         for index, ref in enumerate(refs):
-            x, y, angle = positions[ref]
-            x0, y0, x1, y1 = pcb._rot_bb(bounds[ref], angle)
-            box = (x + x0, y + y0, x + x1, y + y1)
             for other in refs[index + 1:]:
-                ox, oy, rotation = positions[other]
-                a, b, c, d = pcb._rot_bb(bounds[other], rotation)
-                self.assertFalse(pcb._boxes_overlap(box, (ox + a, oy + b, ox + c, oy + d)),
+                self.assertFalse(pcb._boxes_overlap(courtyards[ref], courtyards[other]),
                                  f"{ref}/{other}")
 
     def test_schematic_revision_mismatch_is_rejected_before_placement(self):
