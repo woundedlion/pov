@@ -26,8 +26,8 @@ W = pp.DISPLAY_WINDOW_US     # 62_500 us = one display window at 480 RPM
 def _window(renders=(), wall_sum=None, frames=None):
     """A Window carrying per-frame renders (us), or only a wall sum.
 
-    Wall is render plus a nonzero sync idle: equal wall and render is the
-    separate no-*_buffer_wait-scope case that RenderIsWall covers.
+    Counters carry an fx_buffer_wait scope, so render_is_wall() is false.
+    RenderIsWall covers windows without a buffer_wait scope.
     """
     n = frames if frames is not None else len(renders)
     w = pp.Window("Fx", 288, 144, 1, n, 1)
