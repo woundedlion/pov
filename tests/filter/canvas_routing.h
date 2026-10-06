@@ -14,7 +14,7 @@
  * @brief Verifies the bare 2D sink: int + float overloads, exact (alpha=1)
  *        write, x-wrap, and clip.
  */
-inline void test_pipeline_sink_2d_plot_blends_wraps_clips() {
+inline void test_pipeline_sink_2d_plot_writes_wraps_clips() {
   constexpr int W = 16, H = 8;
   Pipeline<W, H> pipe;
   // fx and fx2 alias the same static double buffer (Effect's single-live guard),
