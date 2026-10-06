@@ -384,8 +384,7 @@ public:
     HS_CHECK(!truncate || std::max(spec.t_start, spec.t_end) > 0.0f,
              "OpLeg: truncate sweep needs a positive endpoint");
     const float trunc_floor =
-        std::min(ConwayGraph::T_EPS, std::max(spec.t_start, spec.t_end) *
-                                         ConwayGraph::TRUNCATE_BIRTH_FRAC);
+        ConwayGraph::truncate_birth_floor(std::max(spec.t_start, spec.t_end));
     auto clamp_param = [&](float t) {
       t = std::max(t, truncate ? trunc_floor : ConwayGraph::T_EPS);
       if (truncate)
