@@ -278,7 +278,7 @@ inventory must not emit executable code, lookup data, or static registration.
 | tests/test_ray.h | Implemented | Camera/domain, query capabilities, shared marcher, analytic-stream merger, filtering, statuses, and synthetic-geometry tests without effect dependencies |
 | tests/test_sdf_patterns.h | Implemented | Cubic/hypercubic fields, framework geometry, periodic surfaces, bounds, scale/translation invariance, and native reference comparisons |
 | tests/test_hyper_lattice.h | Existing | Preset/configuration/schema behavior, choreography, frame preparation, and effect-level compatibility captures |
-| tests/test_scan.h | Existing | Orthographic volume regressions, including first-graze and background-graze ownership after extraction |
+| tests/scan/volume_march.h | Existing | Orthographic volume regressions, including first-graze and background-graze ownership after extraction |
 | tests/test_pullback.h | Existing | New shared stage's prepared-state and `SphereSample -> Color4` contract integration |
 | docs/specs/spherical_perspective_spec.md | Existing | This subsystem's architecture and numerical contracts |
 | docs/subsystems.md | Existing | Shipped ray/query facilities and their public entry points, updated when implementation lands |
