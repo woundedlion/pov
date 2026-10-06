@@ -14,7 +14,7 @@
 #include "core/color/effect_palette_recipes.h"
 #include "core/engine/engine.h"
 
-// Forward declaration of the unit-test accessor (tests/test_effects.h) that
+// Forward declaration of the unit-test accessor (tests/effects/numeric_invariants.h) that
 // pins Ring::radius_at's age+1 endpoint convention (reaches RADIUS_MAX on the
 // final visible frame); the smoke harness only proves the rings render.
 namespace hs_test {
