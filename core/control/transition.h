@@ -84,8 +84,9 @@ enum class EffectRestoreCapability : uint8_t {
 
 /**
  * @brief Outcome of a request() or of one adapter step.
- * @details The controller tests only OK versus not-OK; request() returns the
- *   specific failure and EffectTransitionController::failure() reports it.
+ * @details request() returns a refusal directly;
+ *   EffectTransitionController::failure() reports the adapter-step status
+ *   that forced the most recent rollback or fail-safe.
  */
 enum class EffectTransitionStatus : uint8_t {
   OK,          /**< Step accepted. */
