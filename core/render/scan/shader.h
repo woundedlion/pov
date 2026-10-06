@@ -236,7 +236,6 @@ public:
                    VertexShaderRef vertex_shader) {
     static_assert(SAMPLES == 1 || SAMPLES == 4,
                   "Scan::Shader SSAA supports only SAMPLES == 1 or 4");
-    // FunctionRef only asserts on a null ref.
     HS_CHECK(vertex_shader,
              "Scan::Shader::draw requires a non-null vertex_shader");
     HS_CHECK(fragment_shader,
