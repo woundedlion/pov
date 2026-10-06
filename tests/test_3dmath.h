@@ -102,6 +102,34 @@ inline void test_quintic_kernel() {
 }
 
 // ============================================================================
+// unit_cup / unit_bell
+// ============================================================================
+
+/**
+ * @brief Verifies the unit cup and bell curves: endpoint and midpoint values,
+ *        symmetry about 0.5, and bell as the complement of cup.
+ */
+inline void test_unit_cup_and_bell() {
+  HS_EXPECT_EQ(math::unit_cup(0.0f), 1.0f);
+  HS_EXPECT_EQ(math::unit_cup(0.25f), 0.5f);
+  HS_EXPECT_EQ(math::unit_cup(0.5f), 0.0f);
+  HS_EXPECT_EQ(math::unit_cup(0.75f), 0.5f);
+  HS_EXPECT_EQ(math::unit_cup(1.0f), 1.0f);
+
+  HS_EXPECT_EQ(math::unit_bell(0.0f), 0.0f);
+  HS_EXPECT_EQ(math::unit_bell(0.25f), 0.5f);
+  HS_EXPECT_EQ(math::unit_bell(0.5f), 1.0f);
+  HS_EXPECT_EQ(math::unit_bell(0.75f), 0.5f);
+  HS_EXPECT_EQ(math::unit_bell(1.0f), 0.0f);
+
+  for (int i = 0; i <= 64; ++i) {
+    const float T = static_cast<float>(i) / 64.0f;
+    HS_EXPECT_EQ(math::unit_cup(T), math::unit_cup(1.0f - T));
+    HS_EXPECT_NEAR(math::unit_cup(T) + math::unit_bell(T), 1.0f, 1e-7f);
+  }
+}
+
+// ============================================================================
 // fast_atan2 / fast_acos / fast_sinf / fast_cosf
 // (measured peak errors: atan2 ~3.8e-3 rad, acos ~5.0e-5 rad, sin ~1.6e-3)
 // ============================================================================
@@ -2010,6 +2038,7 @@ inline int run_3dmath_tests() {
   test_constants();
   test_projection_pattern_bounds();
   test_quintic_kernel();
+  test_unit_cup_and_bell();
   test_hash01();
   test_value_noise();
   test_twist_lens();
