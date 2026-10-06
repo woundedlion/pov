@@ -774,9 +774,6 @@ class TestDerivedComponentCeiling(unittest.TestCase):
     ceil((variables + free_min_bytes) / bank) FlexRAM banks and code may fill
     the remaining banks. phantasm's ram1.code uses this form."""
 
-    FLOOR = 12288      # phantasm ram1.free_min_bytes
-    BANK = 32768
-
     @staticmethod
     def _ts(variables, code):
         padding = ((code + 32767) // 32768) * 32768 - code
