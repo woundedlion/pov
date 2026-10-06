@@ -219,7 +219,7 @@ files define line-ending policy and working-artifact exclusions.
 │   │   ├── attributes.h            Placement and optimization attribute macros
 │   │   ├── diagnostics.h           hs::log / hs::flush_log sink + HS_OS_CYCLES cycle read
 │   │   ├── profiling.h             Cycle counters + HS_PROFILE / scan-metric macros
-│   │   ├── cycle_counting.h        Native and ARM cycle-count instrumentation
+│   │   ├── cycle_counting.h        Cycle counters and scopes (DWT CYCCNT on Teensy; 0 elsewhere)
 │   │   ├── inplace_function.h      Fixed-capacity in-place callable storage behind Fn
 │   │   ├── rng.h                   Deterministic random number generation
 │   │   ├── arduino_mocks.h         Host-side FastLED / Arduino mock surface
