@@ -452,6 +452,12 @@ struct MindSplatterWhiteBox {
     Canvas canvas(ms);
     ms.draw_particles(canvas, opacity);
   }
+  template <int W, int H, typename Inspect>
+  static void draw_particles_inspect(MindSplatter<W, H> &ms, Inspect inspect) {
+    Canvas canvas(ms);
+    ms.draw_particles(canvas);
+    inspect(canvas, ms.clip());
+  }
   template <int W, int H>
   static void draw_particles_candidate(MindSplatter<W, H> &ms, Canvas &canvas) {
     ms.draw_particles(canvas);
