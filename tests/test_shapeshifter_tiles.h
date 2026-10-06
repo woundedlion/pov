@@ -4,8 +4,8 @@
  *
  * Clipped-tile parity for the ShapeShifter oracle: a mosaic of segment renders
  * must reproduce the unclipped frame pixel for pixel. The candidate Flower's
- * band split cuts at clip-dependent points, so its tiles are exempt. Exact
- * parity runs with Plot::PlanarChords' pole-run split off.
+ * band split cuts at clip-dependent points, so its tiles use an energy and
+ * coverage budget. Exact parity runs with Plot::PlanarChords' pole-run split off.
  *
  * Parity holds only under IEEE: under -ffast-math the clipped and unclipped
  * planar samplers reassociate differently and can move a whole splat.
