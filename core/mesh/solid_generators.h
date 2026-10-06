@@ -6,9 +6,8 @@
 
 /**
  * @file solid_generators.h
- * @brief The hardcoded Platonic vertex/face tables, the SolidBuilder that
- *        chains Conway and Hankin operators over them, and the named
- *        generators the solid registry points at.
+ * @brief Umbrella for solid tables, SolidBuilder and procedural generators,
+ *        with shared truncation/snub constants and finalize_solid.
  */
 
 #include <array>

@@ -268,7 +268,7 @@ files define line-ending policy and working-artifact exclusions.
 │   │   ├── recipe.h                Recipe lowering to primitive Conway steps + replay
 │   │   ├── hankin.h                Hankin pattern compilation and update system
 │   │   ├── base_mesh.h             Base mesh identities, bounds, and authoring labels
-│   │   ├── solid_generators.h      Platonic vertex/face tables, SolidBuilder, and the named solid generators
+│   │   ├── solid_generators.h      Solid tables/builder/generators umbrella, shared constants, and finalize_solid
 │   │   ├── solid_tables.h          Static mesh tables and their consistency checks
 │   │   ├── solid_builder.h         Fluent Conway and Hankin mesh builder
 │   │   ├── procedural_solids.h     Named procedural solid generators
