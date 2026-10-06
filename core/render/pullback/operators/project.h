@@ -284,7 +284,7 @@ inline constexpr uint8_t PEIRCE_SQUARE_LAYOUT =
 inline constexpr const char *BONNE_HEMISPHERE_IDS[] = {"north", "south"};
 static_assert(std::size(BONNE_HEMISPHERE_IDS) == 2);
 
-/** @brief Standard parallel magnitude of the chain's Bonne projection. */
+/** @brief Default standard-parallel magnitude of project.bonne.v3. */
 inline constexpr float BONNE_STANDARD_PARALLEL = math::PI_F * 0.25f;
 
 /** @brief Parameter family of project.bonne.v3. */
