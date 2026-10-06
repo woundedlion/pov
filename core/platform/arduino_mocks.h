@@ -8,7 +8,7 @@
  * @file arduino_mocks.h
  * @brief Emulates the Arduino/FastLED API surface off-device.
  *
- * Requires hs::random/hs::millis to be declared before inclusion.
+ * Requires hs::random, hs::rand_int and hs::millis before inclusion.
  */
 
 #include <cstdarg>
