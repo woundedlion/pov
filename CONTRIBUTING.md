@@ -45,6 +45,12 @@ entirely, `python tools/docs_check.py --skip-checkout daydream --retired-term
 `--retired-term` for each phrase. Review any accurate historical references
 separately. The normal documentation gate still checks paths and counts.
 
+## Comments
+
+A comment records what a reader cannot get from the code. A cost, error bound,
+threshold or count stated in a comment needs a `static_assert` or test beside it
+that pins the figure; otherwise state the property without the number.
+
 ## Design specs
 
 [The specifications index](docs/specs/README.md) lists the design contracts
