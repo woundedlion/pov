@@ -242,6 +242,13 @@ inline void test_transformed_volume_world_local_roundtrip() {
   const math::Vector center(0.2f, -0.5f, 0.8f);
   const math::Quaternion q =
       math::make_rotation(math::Vector(0.3f, 1.0f, -0.2f).normalized(), 0.7f);
+  using Volume = Scan::TransformedVolume<decltype(sphere)>;
+  static_assert(
+      std::is_constructible_v<Volume, const decltype(sphere) &,
+                              const math::Vector &, const math::Quaternion &>);
+  static_assert(
+      !std::is_constructible_v<Volume, decltype(sphere) &&,
+                               const math::Vector &, const math::Quaternion &>);
   Scan::TransformedVolume vol(sphere, center, q);
 
   // bounds_center maps to the local origin (the cull precondition).
