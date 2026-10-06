@@ -30,7 +30,7 @@ template <typename T> struct EffectTypeTag {
 
 /**
  * @brief RTTI-free identity token for one concrete effect type.
- * @tparam T Effect type at a fixed resolution, e.g. Shader<288, 144>.
+ * @tparam T Effect type at a fixed resolution, e.g. ShaderChain<288, 144>.
  * @return An address unique to T for the module's lifetime.
  * @details Proves an Effect base pointer's concrete type before a downcast.
  */
