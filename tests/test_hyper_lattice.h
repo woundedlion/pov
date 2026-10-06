@@ -690,7 +690,7 @@ inline void test_specialized_slice_transition() {
     HS_EXPECT_NEAR(max_alpha_error, 0.0f, 5.0e-6f);
   };
   compare_shells.operator()<2>(HL::ShellCount::TWO);
-  compare_shells.operator()<3>(HL::ShellCount::THREE);
+  compare_shells.operator()<0>(HL::ShellCount::THREE);
 }
 
 /**
