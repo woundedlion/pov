@@ -33,9 +33,9 @@ inline void test_replacing_terminal_without_history_flushes() {
 }
 
 /**
- * @brief Verifies the bare (filter-free) pipeline sink is 2D.
+ * @brief Pins bare sink dimensionality and replacing-terminal concept surface.
  */
-inline void test_pipeline_sink_is_2d() {
+inline void test_pipeline_sink_and_terminal_concept_surface() {
   HS_EXPECT_TRUE((Pipeline<32, 32>::is_2d));
   HS_EXPECT_FALSE((Pipeline<32, 32>::is_terminal));
   using Terminal = Pipeline<32, 32, Filter::Pixel::Feedback<32, 32>>;
