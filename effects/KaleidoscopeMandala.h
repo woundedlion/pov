@@ -52,7 +52,7 @@ struct KaleidoscopeMandalaSpec : Pullback::Spec {
 using KaleidoscopeMandalaParams = Pullback::ParamsFor<KaleidoscopeMandalaSpec>;
 
 /**
- * @brief Folded-gnomonic wave field reflected through a dodecahedral lens.
+ * @brief A wave-sheared grid moving across dodecahedral facets.
  * @tparam W Canvas width in pixels.
  * @tparam H Canvas height in pixels.
  */
