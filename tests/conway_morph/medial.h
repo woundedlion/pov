@@ -944,7 +944,7 @@ inline void test_opleg_gated_swap_smoke() {
 }
 
 /**
- * @brief Smoke-tests one leg of each recipe-step kind end to end.
+ * @brief Smoke-tests the first truncate and snub sites and every baked relax site end to end.
  */
 inline void test_opleg_step_leg_smoke() {
   check_step_leg_smoke(StepLegKind::TRUNCATE, TRUNCATE_LEG_SITES[0],
