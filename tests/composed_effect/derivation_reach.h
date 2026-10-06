@@ -140,8 +140,7 @@ constexpr DerivationReach DERIVATION_REACH[] = {
     {"sample.lattice.v2",
      "coverage-mode",
      {{"weight", "weight-squared", "edge-fade"}}},
-    // PaletteHarmony, ColorParams, HueMode and BrightnessEnvelope together
-    // reach every colorize value.
+    // Shipped Specs select only the none and cup brightness envelopes.
     {"colorize.generated-palette.v3",
      "palette-mode",
      {{"triadic", "complementary", "analogous"}}},
