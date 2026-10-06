@@ -165,9 +165,11 @@ public:
   // Multiline fragment buffer it binds (capacity vertices.size()+1) plus
   // rasterize's own sub-step cache, so the worst case is all three live at once.
   static constexpr size_t SCRATCH_A_BYTES = 234 * 1024;
-  static_assert(SCRATCH_A_BYTES >= MAX_FRAGMENTS * sizeof(TrailVertex) +
-                                       (MAX_FRAGMENTS + 2) * sizeof(Fragment) +
-                                       Plot::rasterize_scratch_a_bytes<W>(),
+  static constexpr size_t SCRATCH_A_ESTIMATE =
+      MAX_FRAGMENTS * sizeof(TrailVertex) +
+      (MAX_FRAGMENTS + 2) * sizeof(Fragment) +
+      Plot::rasterize_scratch_a_bytes<W>();
+  static_assert(SCRATCH_A_BYTES >= SCRATCH_A_ESTIMATE,
                 "scratch arena A must fit the vertices buffer, the "
                 "Multiline-draw fragment buffer and rasterize's sub-step cache "
                 "at once");
