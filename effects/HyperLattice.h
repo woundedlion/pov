@@ -346,10 +346,8 @@ public:
       return preset(SLICE ? OCTET_4D_PRESET_INDEX : OCTET_PRESET_INDEX).params;
     if (pattern == Pattern::SHELLS)
       return preset(SLICE ? SHELL_4D_PRESET_INDEX : SHELL_PRESET_INDEX).params;
-    Params value;
-    value.pattern = pattern;
-    value.mode = mode;
-    return value;
+    HS_CHECK(false, "HyperLattice: unsupported pattern");
+    return {};
   }
 
   struct Configuration {
@@ -612,11 +610,9 @@ private:
   HS_COLD_MEMBER bool parameter_write_admitted(const ParamDef &parameter,
                                                float value) override {
     Params candidate = params;
-    if (parameter.target == &params.pattern) {
+    if (parameter.target == &params.pattern)
       candidate.pattern = static_cast<Pattern>(value);
-      if (!supported_combination(candidate))
-        candidate.mode = LatticeMode::THREE_D;
-    } else if (parameter.target == &params.mode)
+    else if (parameter.target == &params.mode)
       candidate.mode = static_cast<LatticeMode>(value);
     else
       return true;
@@ -626,8 +622,6 @@ private:
 
   HS_COLD_MEMBER void parameter_written() override {
     Choreography::parameter_written();
-    if (!supported_combination(params))
-      params.mode = LatticeMode::THREE_D;
     const auto configuration = configuration_id(params);
     if (selected_configuration != configuration) {
       const float near_fade = params.near_fade;

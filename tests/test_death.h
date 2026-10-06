@@ -458,6 +458,9 @@ inline const Case *all_cases(int &n) {
        "core/render/sdf/lattice.h",
        "(settings.softness > 0 && settings.cell_size > 0 && "
        "settings.aa_strength >= 0) lattice requires positive softness"},
+      {"hyperlattice_pattern_defaults_invalid",
+       case_hyperlattice_pattern_defaults_invalid, "effects/HyperLattice.h",
+       "(false) HyperLattice: unsupported pattern"},
       {"hyperlattice_frame_without_crossings",
        case_hyperlattice_frame_without_crossings, "effects/HyperLattice.h",
        "(frame.crossings) HyperLattice: frame has no crossing list"},
