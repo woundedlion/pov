@@ -229,7 +229,7 @@ class MainTests(unittest.TestCase):
         result, output = self.rank_sources([SYNTHETIC_BOARD, shorter], [clean, clean])
         self.assertEqual(result, 0)
         self.assertIn(">> best by signal integrity: Candidate 2", output)
-        self.assertNotIn("top geometric scorer failed", output)
+        self.assertNotIn("top geometric scorer", output)
 
     def test_clean_drc_does_not_admit_undersized_vias(self):
         clean = {"status": analyze_candidates.DRC_OK,
@@ -240,7 +240,17 @@ class MainTests(unittest.TestCase):
         self.assertEqual(result, 0)
         self.assertIn("SMALL VIAS", output)
         self.assertIn(">> best by signal integrity: Candidate 1", output)
-        self.assertIn("top geometric scorer failed the DRC gate -- skipped", output)
+        self.assertIn("top geometric scorer Candidate 2 was ineligible: VIA -- skipped", output)
+
+    def test_project_rules_refusal_names_the_rules_gate(self):
+        clean = {"status": analyze_candidates.DRC_OK,
+                 "errors": 0, "real": 0, "unconnected": 0}
+        shorter = SYNTHETIC_BOARD.replace("(end 10 0)", "(end 2 0)")
+        result, output = self.rank_sources(
+            [SYNTHETIC_BOARD, shorter],
+            [clean, analyze_candidates.no_drc(analyze_candidates.DRC_RULES)])
+        self.assertEqual(result, 0)
+        self.assertIn("top geometric scorer Candidate 2 was ineligible: RULES -- skipped", output)
 
     def test_refill_only_candidate_remains_eligible(self):
         refill = {"status": analyze_candidates.DRC_OK,

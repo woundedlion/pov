@@ -461,7 +461,8 @@ def main(argv=None):
         if eligible:
             best = max(eligible)[1]
             note = "" if max(eligible) == max(ranked) else \
-                "  (top geometric scorer failed the DRC gate -- skipped)"
+                f"  (top geometric scorer Candidate {max(ranked)[1]} was ineligible: " \
+                f"{drc_tag(max(ranked)[1])} -- skipped)"
         else:
             print("\nNo eligible candidate: " + ", ".join(
                 f"Candidate {k}: {drc_tag(k)}" for _, k in ranked))
