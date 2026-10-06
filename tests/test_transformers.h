@@ -813,7 +813,8 @@ inline void test_transformer_live_edit_preserves_instance_phase_and_seed() {
  * @details An unpaused pool with the same delay and duration is the control.
  *          After a window long enough for both, only the control's slot is
  *          reclaimed; releasing the flag leaves the gated ripple waiting out an
- *          untouched delay.
+ *          untouched delay. The control's completion relocates the gated event,
+ *          so the pause gate must survive compaction.
  */
 inline void test_transformer_spawn_pausable_freezes_start_delay() {
   Timeline tl;
@@ -842,11 +843,11 @@ inline void test_transformer_spawn_pausable_freezes_start_delay() {
   HS_EXPECT_EQ(gated.active_count(), 1);
 
   paused = false;
-  for (int i = 0; i < DURATION + 2; ++i)
+  for (int i = 0; i < DELAY; ++i)
     tl.step(cv);
   HS_EXPECT_EQ(gated.active_count(), 1); // delay resumed where it stopped
 
-  for (int i = 0; i < DELAY + DURATION + 4; ++i)
+  for (int i = 0; i < DURATION; ++i)
     tl.step(cv);
   HS_EXPECT_EQ(gated.active_count(), 0);
 }
