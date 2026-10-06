@@ -51,6 +51,7 @@ inline uint8_t morph_target_buf[256 * 1024]; /**< Op output arena. */
 inline uint8_t morph_temp_buf[256 * 1024];   /**< Op scratch arena. */
 inline uint8_t morph_aux_buf[256 * 1024];    /**< Seed / second-result arena. */
 inline uint8_t morph_persist_buf[64 * 1024]; /**< Persistent-seed arena. */
+inline uint8_t morph_bank_buf[64 * 1024];    /**< Baked palette LUT arena. */
 
 using ConwayGraph::T_EPS;
 

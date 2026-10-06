@@ -13,8 +13,6 @@
 // retain two-face edge incidence and Euler characteristic 2.
 // ---------------------------------------------------------------------------
 
-inline uint8_t morph_bank_buf[64 * 1024]; /**< Baked palette LUT arena. */
-
 /** @brief One Phase-1 hankin-sweep leg seed and its arrival angle. */
 struct HankinSweepSite {
   const char *name;                     /**< Diagnostic label. */
