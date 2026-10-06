@@ -1425,14 +1425,14 @@ inline void test_gs_reaction_edit_starts_dissolve() {
  *          stray nonzero term in the update assembly perturbs it here.
  */
 inline void test_gs_rest_state_is_fixed_point() {
-  std::vector<uint16_t> cA(GSWhiteBox::N, 65535), cB(GSWhiteBox::N, 0),
-      nA(GSWhiteBox::N), nB(GSWhiteBox::N);
+  std::vector<float> a(GSWhiteBox::N, 1.0f), b(GSWhiteBox::N, 0.0f),
+      na(GSWhiteBox::N), nb(GSWhiteBox::N);
   GSWhiteBox::GS gs;
   GSWhiteBox::set_params(gs, 0.04f, 0.06f, 0.02f, 0.01f, 2.5f); // defaults
-  GSWhiteBox::step(gs, cA.data(), cB.data(), nA.data(), nB.data());
+  GSWhiteBox::step_float(gs, a.data(), b.data(), na.data(), nb.data());
   int moved = 0;
   for (int i = 0; i < GSWhiteBox::N; ++i)
-    if (nA[i] != 65535 || nB[i] != 0)
+    if (na[i] != 1.0f || nb[i] != 0.0f)
       ++moved;
   HS_EXPECT_EQ(moved, 0);
 }
