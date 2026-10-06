@@ -43,15 +43,9 @@ HS_O3_BEGIN
  * @param canvas Destination canvas.
  * @param shape Face to rasterize.
  * @param fragment_shader Shader invoked per covered pixel.
- * @details Self-contained (the shared rasterize/scan_region/process_pixel
- * kernel stays -Os; GCC reuses that existing -Os instantiation rather than
- * re-optimizing it into a region caller). A Face's column intervals are
- * row-independent whenever latitude widening leaves their rounded endpoints
- * unchanged. Those faces run the wrap/sort/coalesce pass — per-row in
- * scan_region — and the clip-arc intersection once; the per-pixel body mirrors
- * process_pixel's solid path.
- * Takes no debug flag and does not read canvas.debug(): the bounding-box tint
- * would need the shared rasterizer instantiated for SDF::Face, +2.5 KB ITCM.
+ * @details Faces whose column intervals are row-independent build their runs
+ * once. The per-pixel body mirrors process_pixel's solid path. Does not read
+ * canvas.debug().
  */
 template <int W, int H, typename PipelineT, bool MinimalFragment = false,
           typename FragmentShaderT>
@@ -90,9 +84,6 @@ rasterize_face(PipelineT &pipeline, Canvas &canvas, const SDF::Face &shape,
     bool handled = shape.template get_horizontal_intervals<W, H>(
         y, [&](float t1, float t2) { SDF::push_interval(intervals, t1, t2); });
 
-    // Hand-rolled rather than the shared clip_run/emit_row_runs: this consumer
-    // materializes runs into a cached array instead of walking them, and either
-    // shared spelling costs 272 B of ITCM here.
     auto add_run = [&](int x1, int x2) {
       auto push = [&](int a, int b) {
         if (a >= b)
@@ -151,8 +142,7 @@ rasterize_face(PipelineT &pipeline, Canvas &canvas, const SDF::Face &shape,
   SDF::DistanceResult res;
   Fragment frag;
 
-  // 1.0002 margin keeps the sqrt-free cull strictly conservative against the
-  // widest threshold a probe is tested on below.
+  // 1.0002 margin keeps the sqrt-free cull strictly conservative.
   const float base_reject_rad = pixel_width * 1.0002f;
   const float base_reject_dsq = base_reject_rad * base_reject_rad;
   [[maybe_unused]] const float plane_stretch = report_stretch(shape);
@@ -202,8 +192,8 @@ rasterize_face(PipelineT &pipeline, Canvas &canvas, const SDF::Face &shape,
     float reject_dsq = base_reject_dsq;
     if constexpr (pole_lod_blocks<SDF::Face>) {
       block_slack = pole_lod_slack<W, SDF::Face>(stride, sp) * plane_stretch;
-      // the block test below reads d, so the cull must not sentinel a probe
-      // inside that threshold
+      // the block test reads d, so the cull must not sentinel a probe inside
+      // its threshold
       const float reject_rad = (pixel_width + block_slack) * 1.0002f;
       reject_dsq = reject_rad * reject_rad;
     }
@@ -225,12 +215,8 @@ rasterize_face(PipelineT &pipeline, Canvas &canvas, const SDF::Face &shape,
                                                  probe_flags, probe_min_cos);
         const float d = res.dist;
 
-        // Columns this one shade covers. Only a canvas-aligned block that fits
-        // in the run and that the surface cannot cross qualifies; anything
-        // holding an edge stays per-column, so coverage is identical either way
-        // and only the shade's source column moves. The clear side additionally
-        // needs the probe to carry a distance rather than the cull's sentinel;
-        // an inside probe is never culled.
+        // Columns this one shade covers: a canvas-aligned block within the run
+        // that the surface cannot cross; edge-holding blocks stay per-column.
         int span = 1;
         if constexpr (pole_lod_blocks<SDF::Face>) {
           if (stride > 1 && x == next_block) {
@@ -298,8 +284,7 @@ HS_O3_END
  * @brief Arena-hosts one per-mesh Face scratch buffer.
  * @param arena Scratch arena supplying the storage.
  * @return The constructed buffer, valid until the caller's ScratchScope closes.
- * @details Default-init: every field is written by SDF::Face before it is read,
- * and value-init would zero ~7.7 KB per mesh draw.
+ * @details Default-initialized; SDF::Face writes every field before reading it.
  */
 HS_NOINLINE_NOCLONE inline SDF::FaceScratchBuffer *
 new_face_scratch(Arena &arena) {
@@ -311,8 +296,7 @@ HS_O3_BEGIN
  * @brief Rasterizes a polygonal mesh by drawing each face as an SDF::Face,
  *        threading the face index through register v2 so the shader can vary
  *        color per face.
- * @details Every face goes through rasterize_face, so canvas.debug() does not
- * tint a mesh.
+ * @details canvas.debug() does not tint a mesh.
  */
 struct Mesh {
   /**
@@ -320,10 +304,7 @@ struct Mesh {
    * @param faces Flat per-face vertex index array.
    * @param num_indices Entries in @p faces.
    * @param num_verts Vertices the mesh carries.
-   * @details SDF::Face reads the vertex pool through a std::span, whose
-   * operator[] only asserts, so a stale index domain would read arbitrary
-   * memory as a Vector on device. Checked once per mesh, not per face: the
-   * per-face spans are cut from exactly this array.
+   * @details SDF::Face indexes the vertex pool through an unchecked std::span.
    */
   HS_NOINLINE_NOCLONE
   static void check_face_index_domain(const uint16_t *faces, size_t num_indices,
@@ -350,13 +331,11 @@ struct Mesh {
    *        aligned to its canonical class shape after construction and the
    *        class distance LUT is bound for the probe loop.
    * @param face_shader_setup Optional callback receiving the face index and
-   *        size. When supplied, it runs once before rasterizing the face and
-   *        the shader is invoked directly with only v1 refreshed per pixel —
-   *        the callback never sees the fragment, so the index and size reach
-   *        the shader only through what it hoists here, not through v2 and
-   *        size. The fragment is per-face, so a shader on this path must write
-   *        frag.color unconditionally: returning early leaves the previous
-   *        pixel's color to be plotted again.
+   *        size, run once before each face. When supplied, the shader is
+   *        invoked directly with only v1 refreshed per pixel, so the index and
+   *        size reach it only through what the callback hoists. The fragment
+   *        persists across pixels, so the shader must write frag.color
+   *        unconditionally.
    */
   template <int W, int H, typename PipelineT, typename FragmentShaderT,
             typename FaceShaderSetupT>
@@ -365,12 +344,9 @@ struct Mesh {
             FragmentShaderT &fragment_shader, Arena &scratch_arena,
             const MeshOps::MeshClassBake *bake,
             FaceShaderSetupT &face_shader_setup) {
-    // Once per mesh, not per face: rasterize_face indexes the phi LUT by the
-    // canvas' own rows and hands SDF::Face the template H.
     check_canvas_dims<W, H>(canvas);
     check_pipeline_prepared(pipeline, canvas);
-    // The per-face wrapper below is itself always non-null, so the erased
-    // shader it wraps has to be checked here or not at all.
+    // the per-face wrapper is never null; check the erased shader it wraps
     if constexpr (std::is_same_v<FragmentShaderT, FragmentShaderFn>)
       check_fragment_shader(fragment_shader);
 
@@ -378,8 +354,6 @@ struct Mesh {
     auto *scratch = new_face_scratch(scratch_arena);
     if (!math::TrigLUT<W, H>::initialized)
       math::TrigLUT<W, H>::init();
-    // Keep this table transient: a 288x144 cache would retain 588 bytes per
-    // instantiation in DTCM instead of borrowing frame-local scratch.
     float *azimuth_pads = scratch_arena.allocate_n<float>(H);
     for (int y = 0; y < H; ++y)
       azimuth_pads[y] =
@@ -396,8 +370,7 @@ struct Mesh {
 
     check_face_index_domain(fi, fi_size, mesh.vertices.size());
 
-    // An empty bake (build skipped) is equivalent to none; a populated one
-    // must cover every face — records are indexed by face order.
+    // An unbound bake is treated as none; records are indexed by face order.
     if (bake && !bake->face_recs.is_bound())
       bake = nullptr;
     HS_CHECK(!bake || bake->face_recs.size() == num_f,
@@ -407,8 +380,6 @@ struct Mesh {
     for (size_t i = 0; i < num_f; ++i) {
       size_t count = fc[i];
 
-      // Trap malformed mesh data: an offset/count pair disagreeing with the flat
-      // index array yields an out-of-bounds span for SDF::Face. Cold per-face check.
       HS_CHECK(static_cast<size_t>(fo[i]) + count <= fi_size,
                "mesh face span exceeds face index array");
 
@@ -416,8 +387,7 @@ struct Mesh {
                                           mesh.vertices.size());
       std::span<const uint16_t> indices(fi + fo[i], count);
 
-      // IIFE so the HS_PROFILE scope measures Face construction alone (prvalue
-      // elided in place), not the rasterize below.
+      // IIFE scopes HS_PROFILE to Face construction (prvalue elided in place).
       SDF::Face shape = [&] {
         HS_PROFILE(scan_face_setup);
         return SDF::Face(verts, indices, *scratch, math::LatitudeGeometry(H), H,
@@ -425,9 +395,8 @@ struct Mesh {
                          std::max(SDF::BOUNDS_MARGIN, math::TWO_PI_F / W));
       }();
 
-      // Bind the face's congruence-class LUT: a vertex correlation aligns the
-      // current projection to the canonical frame. Culled faces (y_min > y_max)
-      // skip it; a missing LUT or degenerate alignment stays on the exact path.
+      // Bind the face's congruence-class LUT; culled faces (y_min > y_max) skip
+      // it.
       if (bake && shape.y_min <= shape.y_max) {
         const MeshOps::FaceClassRec &rec = bake->face_recs[i];
         if (rec.class_id != MeshOps::NO_CLASS) {
@@ -443,7 +412,6 @@ struct Mesh {
       if constexpr (std::is_same_v<FaceShaderSetupT, std::nullptr_t>) {
         auto wrapper = [&](const math::Vector &p, Fragment &f_in) {
           // v2 carries the face index (decoded by mesh_face_index()).
-          // Exact for i < 2^24 (float mantissa); meshes never approach that face count.
           f_in.v2 = static_cast<float>(i);
           fragment_shader(p, f_in);
         };
@@ -483,8 +451,7 @@ struct Mesh {
                    const MeshOps::MeshClassBake *bake,
                    FaceShaderSetupT &face_shader_setup) {
     FunctionRef<void(size_t, float)> erased_setup = face_shader_setup;
-    // Cold (once per draw): the erasure hides a null setup from draw_impl's
-    // nullptr_t branch, which would then call a null thunk per face.
+    // the erasure hides a null setup from draw_impl's nullptr_t branch
     HS_CHECK(erased_setup, "Scan::Mesh::draw_specialized requires a non-null "
                            "face_shader_setup");
     draw_impl<W, H>(pipeline, canvas, mesh, fragment_shader, scratch_arena,
@@ -501,9 +468,7 @@ struct Mesh {
    * @param gain Edge-distance shading gain, divided by the face size.
    * @param alpha Coverage applied to every fragment.
    * @param scratch_arena Arena backing the scan's per-face buffers.
-   * @details Face-hoisted: the ramp and the gain/inradius gradient scale
-   * resolve once per face, leaving a multiply, a clamp and one LUT fetch per
-   * fragment.
+   * @details The ramp and gradient scale resolve once per face.
    */
   template <int W, int H, typename PipelineT, typename ShadingT>
   static void draw_opleg_shading(PipelineT &pipeline, Canvas &canvas,

@@ -16,12 +16,7 @@ namespace Render {
  */
 inline constexpr float STAR_INNER_RATIO = 0.382f;
 
-/**
- * @brief Longest column run a single shade may be splatted across.
- * @details Bounds the near-pole run so one shade never covers a visually
- *          significant arc, and keeps a run short relative to the narrowest
- *          clip segment.
- */
+/** @brief Longest column run a single shade may be splatted across. */
 inline constexpr int POLE_LOD_MAX_RUN = 32;
 
 /**
@@ -29,28 +24,22 @@ inline constexpr int POLE_LOD_MAX_RUN = 32;
  * @details Horizontal pixel pitch scales with sin(phi). The column run is
  * aggressiveness / sin(phi); the footprint depends on the display aspect,
  * LED angular size and per-column exposure. At 0 every run is one column.
- * Firmware has no setter and uses HS_POLE_LOD_DEFAULT, which is 0 unless
- * overridden at build time. Zero compiles out the decimated walk; a nonzero
- * value requires hardware calibration.
+ * Firmware fixes it at HS_POLE_LOD_DEFAULT; zero compiles out the decimated
+ * walk there. A nonzero value requires hardware calibration.
  */
 #ifndef HS_POLE_LOD_DEFAULT
 #define HS_POLE_LOD_DEFAULT 0.0f
 #endif
 #ifdef ARDUINO
 inline constexpr float pole_lod_aggressiveness = HS_POLE_LOD_DEFAULT;
-/**
- * @brief Whether the decimated scan walk is compiled into this build.
- * @details Firmware has no setter, so the aggressiveness is a constant and a
- *          build left at 0 drops the decimation path outright.
- */
+/** @brief Whether the decimated scan walk is compiled into this build. */
 inline constexpr bool POLE_LOD_ENABLED = HS_POLE_LOD_DEFAULT > 0.0f;
 #else
 inline float pole_lod_aggressiveness = HS_POLE_LOD_DEFAULT;
 /**
  * @brief Whether the decimated scan walk is compiled into this build.
- * @details Host and WASM builds can raise `pole_lod_aggressiveness` at runtime,
- *          so the path is always compiled in and an aggressiveness of 0
- *          disables it per scan instead.
+ * @details Always on host and WASM, where an aggressiveness of 0 disables it
+ *          per scan.
  */
 inline constexpr bool POLE_LOD_ENABLED = true;
 #endif
