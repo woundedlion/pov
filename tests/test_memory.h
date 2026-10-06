@@ -406,6 +406,22 @@ inline void test_arena_reclaimed_since() {
   a.reset();
   HS_EXPECT_EQ(a.get_rewind_floor(), SIZE_MAX);
 }
+
+/**
+ * @brief Verifies repeated rewinds to one mark replace its history entry
+ *        rather than accumulating past the history capacity.
+ */
+inline void test_arena_repeated_rewind_to_same_mark() {
+  Arena a(test_buf_a, sizeof(test_buf_a));
+  a.allocate(32);
+  const size_t mark = a.get_offset();
+  for (int i = 0; i < 300; ++i) {
+    a.allocate(16);
+    a.set_offset(mark);
+  }
+  HS_EXPECT_EQ(a.get_offset(), mark);
+  HS_EXPECT_EQ(a.get_rewind_floor(), mark);
+}
 #endif
 
 /**
@@ -1399,10 +1415,13 @@ inline int run_memory_tests() {
   test_arena_generation_bumps();
   test_arena_covers();
   test_arena_reclaimed_since();
+  test_arena_repeated_rewind_to_same_mark();
 #else
   skip_case("test_arena_generation_bumps", "requires debug arena tracking");
   skip_case("test_arena_covers", "requires debug arena tracking");
   skip_case("test_arena_reclaimed_since", "requires debug arena tracking");
+  skip_case("test_arena_repeated_rewind_to_same_mark",
+            "requires debug arena tracking");
 #endif
   test_configure_arenas_repartition();
   test_resplit_arenas_preserves_persistent();
