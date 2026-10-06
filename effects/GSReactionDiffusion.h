@@ -1058,8 +1058,8 @@ private:
   /**
    * @brief Builds per-node two-ring "renderable" flags for the B field.
    * @param b Per-node B concentrations, Q16.
-   * @param hot1 Scratch: per-node flag, set when any of {node, neighbors}
-   *        reaches the threshold.
+   * @param hot1 Output: per-node flag, set when any of {node, neighbors}
+   *        reaches the threshold; read by the per-center shader cull.
    * @param hot2 Output: per-node flag, set when any node within two hops
    *        reaches the threshold.
    * @param count Node count.
