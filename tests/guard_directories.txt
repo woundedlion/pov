@@ -1,0 +1,6 @@
+core
+effects
+workbench
+hardware
+targets
+tools
