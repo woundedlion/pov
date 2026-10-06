@@ -355,15 +355,15 @@ add_test(NAME unit_module_entry_controls COMMAND ${CMAKE_COMMAND}
     -DWORK=${CMAKE_CURRENT_BINARY_DIR}/module_entry_controls
     -P ${CMAKE_CURRENT_SOURCE_DIR}/check_includes_selftest.cmake)
 
-# Check reachability and assertion reach for column-0 void/bool/int/size_t
-# cases in tests/*.h and tests/*.hpp, including run_*_cases drivers. Shared
-# helpers resolve across tests/ and tools/; member definitions are excluded.
 add_test(NAME unit_header_sections COMMAND ${CMAKE_COMMAND}
     -DWORK=${CMAKE_CURRENT_BINARY_DIR}/header_sections_fixture
     -DCALL_GATE=${CMAKE_CURRENT_SOURCE_DIR}/check_case_calls.cmake
     -DINCLUDE_GATE=${CMAKE_CURRENT_SOURCE_DIR}/check_includes.cmake
     -P ${CMAKE_CURRENT_SOURCE_DIR}/check_header_sections_selftest.cmake)
 
+# Check reachability and assertion reach for column-0 void/bool/int/size_t
+# cases in tests/*.h and tests/*.hpp, including run_*_cases drivers. Shared
+# helpers resolve across tests/ and tools/; member definitions are excluded.
 add_test(NAME unit_case_calls COMMAND ${CMAKE_COMMAND}
     -DCACHE_FILE=${CMAKE_CURRENT_BINARY_DIR}/case_calls.sha256
     -DTESTS_DIR=${CMAKE_CURRENT_SOURCE_DIR}
