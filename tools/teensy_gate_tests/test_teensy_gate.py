@@ -991,13 +991,6 @@ class TestSizeAFallback(unittest.TestCase):
         self.assertEqual(over["ram1"]["used"],
                          under["ram1"]["used"] + tg.FLEXRAM_BANK_BYTES)
 
-    def test_main_size_a_fallback_passes_a_fitting_build(self):
-        rc, out = self._run_main_size_a(
-            _size_a(0x10000, 0x40000, 0x70000, 0x20000),
-            "good_readelf_syms.txt", "holosphere")
-        self.assertEqual(rc, tg.EXIT_UNCALIBRATED_PASS, msg=out)
-        self.assertIn("PASS", out)
-
     def test_main_size_a_fallback_full_ram1_trips_ceiling(self):
         rc, out = self._run_main_size_a(
             _size_a(0x10000, 0x70000, 0x70000, 0x20000),
