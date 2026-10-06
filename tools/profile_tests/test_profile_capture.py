@@ -218,6 +218,9 @@ class TestOpenPort(unittest.TestCase):
             with self.assertRaises(SystemExit) as caught:
                 pc.open_port(3.0)
         self.assertIn("[any]", str(caught.exception))
+        self.assertIn("VID 0x16C0 enumerated", str(caught.exception))
+        self.assertIn("within 3 s", str(caught.exception))
+        self.assertNotIn("None", str(caught.exception))
 
     def test_an_absent_pinned_board_exits_naming_the_pin(self):
         # The other Teensy is attached and openable; the pin must still fail.
