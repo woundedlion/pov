@@ -228,7 +228,8 @@ struct MeshState {
   }
 
   /**
-   * @brief Drops borrowed topology views.
+   * @brief Drops the borrowed face_counts, faces, face_offsets and topology
+   *   views.
    * @details Accessors prefer bound owned arrays; dropping views prevents stale
    *   data from showing through arrays left unbound, notably topology.
    */
