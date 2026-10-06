@@ -38,7 +38,7 @@ def _backend_stream(programs):
         name = spec["name"].encode()
         records.append(
             struct.pack("<HHH", spec["preset"],
-                        capture.OPERATION_CODES[spec["mapping"]], len(name))
+                        generator.protocol_definition()[1][spec["mapping"]], len(name))
             + name + struct.pack("<HHHHI", 0, 1, 0, 60, 1)
             + struct.pack("<HHH", spec["preset"], 3, 4)
         )
@@ -199,6 +199,25 @@ class DuplicateJsonKeys(unittest.TestCase):
 
 
 class ManifestValidation(unittest.TestCase):
+    def test_invalid_protocol_definition_uses_the_cli_diagnostic(self):
+        for content in (None, 'invalid protocol'):
+            with self.subTest(content=content), tempfile.TemporaryDirectory() as directory:
+                path = Path(directory) / 'operations.def'
+                if content is not None:
+                    path.write_text(content, encoding='utf-8')
+                generator.protocol_definition.cache_clear()
+                stderr = io.StringIO()
+                try:
+                    with mock.patch.object(generator, 'PROTOCOL_DEFINITION', path), \
+                            contextlib.redirect_stderr(stderr), \
+                            self.assertRaises(SystemExit) as raised:
+                        generator.main(['--manifest-dir', str(MANIFEST_DIR), '--validate-only'])
+                    self.assertEqual(raised.exception.code, 2)
+                    self.assertIn(str(path), stderr.getvalue())
+                    self.assertNotIn('Traceback', stderr.getvalue())
+                finally:
+                    generator.protocol_definition.cache_clear()
+
     def test_generator_main_returns_success_for_validation(self):
         self.assertEqual(generator.main([
             "--manifest-dir", str(MANIFEST_DIR), "--validate-only"
@@ -210,8 +229,8 @@ class ManifestValidation(unittest.TestCase):
         second = generator.generate_header(programs, oracles, schema)
         self.assertEqual(first, second)
         self.assertIn("0x40000", first)
-        self.assertEqual(generator.PRESET_COUNT, 24)
-        self.assertEqual(generator.OPERATION_CODES["FULL_FRAME"], 18)
+        self.assertEqual(generator.protocol_definition()[0], 24)
+        self.assertEqual(generator.protocol_definition()[1]["FULL_FRAME"], 18)
 
     def test_validate_only_runs_header_generation(self):
         programs, oracles, schema = generator.load_and_validate(MANIFEST_DIR)

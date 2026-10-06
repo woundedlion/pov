@@ -15,7 +15,7 @@ from pathlib import Path
 
 from generate_pullback_manifest_header import (
     ManifestError,
-    OPERATION_CODES,
+    protocol_definition,
     load_and_validate,
     manifest_sha256,
 )
@@ -102,16 +102,16 @@ def write_operations(programs: dict, oracles: list[dict], path: Path) -> None:
     for spec in specs:
         name = spec["name"].encode("utf-8")
         mapping = spec["mapping"]
-        if mapping not in OPERATION_CODES:
+        if mapping not in protocol_definition()[1]:
             raise CaptureError(f"unknown capture operation mapping {mapping}")
         data.extend(
-            struct.pack("<HHH", spec["preset"], OPERATION_CODES[mapping], len(name))
+            struct.pack("<HHH", spec["preset"], protocol_definition()[1][mapping], len(name))
         )
         data.extend(name)
     for spec in oracle_specs:
         name = spec["oracle"].encode("utf-8")
         mapping = spec["mapping"]
-        if mapping not in OPERATION_CODES:
+        if mapping not in protocol_definition()[1]:
             raise CaptureError(f"unknown oracle operation mapping {mapping}")
         data.extend(struct.pack("<H", len(name)))
         data.extend(name)
@@ -119,7 +119,7 @@ def write_operations(programs: dict, oracles: list[dict], path: Path) -> None:
             struct.pack(
                 "<HHf",
                 spec["preset"],
-                OPERATION_CODES[mapping],
+                protocol_definition()[1][mapping],
                 spec["hue_noise_phase"],
             )
         )
@@ -161,7 +161,7 @@ def load_backend(
         key = (preset, name)
         if key in records or key not in specs:
             raise CaptureError(f"invalid capture backend record {key}")
-        expected_code = OPERATION_CODES[specs[key]["mapping"]]
+        expected_code = protocol_definition()[1][specs[key]["mapping"]]
         if operation_code != expected_code:
             raise CaptureError(f"capture backend operation mismatch for {key}")
         end = offset + width * height * 6

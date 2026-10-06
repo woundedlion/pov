@@ -8,6 +8,7 @@ import hashlib
 import json
 import math
 import re
+from functools import cache
 from pathlib import Path
 
 
@@ -39,7 +40,7 @@ SCHEMA_KEYWORDS = {
 }
 
 
-def _load_protocol_definition(path: Path = PROTOCOL_DEFINITION):
+def _load_protocol_definition(path: Path):
     try:
         source = path.read_text(encoding="utf-8")
     except OSError as error:
@@ -65,7 +66,9 @@ def _require(condition: bool, message: str) -> None:
         raise ManifestError(message)
 
 
-PRESET_COUNT, OPERATION_CODES = _load_protocol_definition()
+@cache
+def protocol_definition():
+    return _load_protocol_definition(PROTOCOL_DEFINITION)
 
 
 def _reject_json_constant(token: str):
@@ -220,6 +223,7 @@ def _validate_common(document: dict, path: Path) -> None:
 
 
 def _validate_programs(document: dict, path: Path) -> None:
+    preset_count, _ = protocol_definition()
     _validate_common(document, path)
     _require(document.get("kind") == "pullback-programs",
              f"{path}: kind must be pullback-programs")
@@ -247,7 +251,7 @@ def _validate_programs(document: dict, path: Path) -> None:
         presets = program.get("presets")
         _require(isinstance(presets, list) and presets,
                  f"{path}: {program_id}.presets must be non-empty")
-        _require(all(type(index) is int and 0 <= index < PRESET_COUNT
+        _require(all(type(index) is int and 0 <= index < preset_count
                      for index in presets),
                  f"{path}: {program_id}.presets contains an invalid index")
         covered_presets.extend(presets)
@@ -284,7 +288,7 @@ def _validate_programs(document: dict, path: Path) -> None:
                  f"{path}: {program_id} exceeds the channel-delta license")
         _require(_is_number(fraction) and 0 <= fraction <= 0.001,
                  f"{path}: {program_id} exceeds the differing-pixel license")
-    _require(sorted(covered_presets) == list(range(PRESET_COUNT)),
+    _require(sorted(covered_presets) == list(range(preset_count)),
              f"{path}: presets must be covered exactly once")
     _require(set(probe_operations) == referenced_probes,
              f"{path}: probe operation mappings must exactly cover referenced probes")
@@ -426,6 +430,7 @@ def _validate_schema_shape(schema: dict, path: Path) -> None:
 
 
 def load_and_validate(directory: Path) -> tuple[dict, list[dict], dict]:
+    protocol_definition()
     schema_path = directory / "schema.json"
     schema = _load(schema_path)
     _validate_schema_shape(schema, schema_path)
@@ -511,7 +516,7 @@ def generate_header(programs: dict, oracles: list[dict], schema: dict) -> str:
         "",
         f'inline constexpr std::string_view BASE_SHA = "{programs["base_sha"]}";',
         f'inline constexpr std::string_view MANIFEST_SHA256 = "{digest}";',
-        f"inline constexpr uint32_t PRESET_COUNT = {PRESET_COUNT};",
+        f"inline constexpr uint32_t PRESET_COUNT = {protocol_definition()[0]};",
         f"inline constexpr std::array<ProgramEntry, {len(entries)}> PROGRAMS{{{{",
         *entries,
         "}};",
