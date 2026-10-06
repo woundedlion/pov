@@ -1,5 +1,5 @@
 
-Symbol table '.symtab' contains 9 entries:
+Symbol table '.symtab' contains 10 entries:
    Num:    Value  Size Type    Bind   Vis      Ndx Name
      0: 00000000     0 NOTYPE  LOCAL  DEFAULT  UND
      1: 00000000     0 FILE    LOCAL  DEFAULT  ABS memory.cpp
@@ -10,3 +10,4 @@ Symbol table '.symtab' contains 9 entries:
      6: 20060000 92160 OBJECT  GLOBAL DEFAULT    4 _ZN13ReactionGraph9neighborsE
      7: 20279800   256 OBJECT  GLOBAL DEFAULT    6 global_timeline_events
      8: 60000200  1284 FUNC    GLOBAL DEFAULT    2 setup
+     9: 2027a000  1280 OBJECT  GLOBAL DEFAULT    6 _ZN12POVSegmentedILi288ELi4ELi480EE13ledControllerE

@@ -263,7 +263,7 @@ class TestLayoutInvariantsFail(unittest.TestCase):
         result = _eval("phantasm", "good_teensy_size.txt",
                        "broken_reaction_graph_ram_syms.txt")
         self.assertFalse(result.passed)
-        self.assertIn("symbol-wrong-region", _codes(result))
+        self.assertEqual(_codes(result), ["symbol-wrong-region"])
         self.assertTrue(any("reaction_graph" in v.message for v in result.violations))
 
     def test_dma_tx_buffer_dropped_dmamem_lands_in_dtcm(self):
