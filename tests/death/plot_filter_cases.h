@@ -659,3 +659,30 @@ inline void case_scan_mesh_class_id_out_of_range() {
   Scan::Mesh::draw<W, H>(
       pipe, c, mesh, [](const math::Vector &, Fragment &) {}, scratch, &bake);
 }
+
+inline void case_star_mismatched_chart() {
+  using Star = Plot::Star<Plot::PlanarProjection>;
+  Fragments points;
+  float x[10], y[10];
+  const auto basis = math::make_basis(math::Quaternion(), math::X_AXIS);
+  const auto wrong = math::make_basis(math::Quaternion(), math::Y_AXIS);
+  Star::sample_chart_positions(points, x, y, basis, 0.5f, 5, 0.0f,
+                               Star::radius_trig(0.5f), Star::step_trig(5),
+                               wrong);
+}
+
+inline void case_star_mismatched_radius_cache() {
+  using Star = Plot::Star<Plot::PlanarProjection>;
+  Fragments points;
+  const auto basis = math::make_basis(math::Quaternion(), math::X_AXIS);
+  Star::sample_positions(points, basis, 0.5f, 5, 0.0f, Star::radius_trig(0.75f),
+                         Star::step_trig(5));
+}
+
+inline void case_star_mismatched_step_cache() {
+  using Star = Plot::Star<Plot::PlanarProjection>;
+  Fragments points;
+  const auto basis = math::make_basis(math::Quaternion(), math::X_AXIS);
+  Star::sample_positions(points, basis, 0.5f, 5, 0.0f, Star::radius_trig(0.5f),
+                         Star::step_trig(6));
+}

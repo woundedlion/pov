@@ -49,17 +49,6 @@ inline void case_chain_table_rank_decreases() {
       std::span<const Pullback::Interp::OperatorDescriptor>(&descriptor, 1));
 }
 
-inline void case_star_mismatched_chart() {
-  using Star = Plot::Star<Plot::PlanarProjection>;
-  Fragments points;
-  float x[10], y[10];
-  const auto basis = math::make_basis(math::Quaternion(), math::X_AXIS);
-  const auto wrong = math::make_basis(math::Quaternion(), math::Y_AXIS);
-  Star::sample_chart_positions(points, x, y, basis, 0.5f, 5, 0.0f,
-                               Star::radius_trig(0.5f), Star::step_trig(5),
-                               wrong);
-}
-
 inline void case_chain_overlapping_storage() {
   Pullback::Interp::ChainProgram program;
   alignas(std::max_align_t) uint8_t block[128];
