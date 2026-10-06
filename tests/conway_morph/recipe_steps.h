@@ -264,6 +264,10 @@ inline void test_relax_leg_on_recipe_seeds_holds_topology() {
     HS_EXPECT_EQ(relaxed.vertices.size(), seed.vertices.size());
     HS_EXPECT_EQ(relaxed.face_counts.size(), seed.face_counts.size());
     HS_EXPECT_EQ(relaxed.faces.size(), seed.faces.size());
+    if (relaxed.vertices.size() != seed.vertices.size() ||
+        relaxed.face_counts.size() != seed.face_counts.size() ||
+        relaxed.faces.size() != seed.faces.size())
+      continue;
     HS_EXPECT_EQ(std::memcmp(relaxed.face_counts.data(),
                              seed.face_counts.data(),
                              seed.face_counts.size() * sizeof(uint8_t)),
