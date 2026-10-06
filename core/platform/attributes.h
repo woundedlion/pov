@@ -58,6 +58,10 @@
 // .text.unlikely.* section that tools/phantasm.ld routes to FLASH.
 // HS_HOT_FLASH_MEMBER: the same via .text.hot.*, without marking the code cold.
 // HS_FLASH_INLINE omits noinline so free functions stay inlinable.
+// HS_COLD_MEMBER: alias of HS_FLASH_MEMBER (selective -O3 plus `cold`), for
+// inline, template and COMDAT functions, member or free; unlike HS_COLD it
+// carries the optimization override.
+// HS_NOINLINE_NOCLONE: noinline/noclone; no section or optimization change.
 // ---------------------------------------------------------------------------
 #if defined(__GNUC__) && !defined(__clang__)
 #define HS_COLD FLASHMEM __attribute__((noinline, noclone))
