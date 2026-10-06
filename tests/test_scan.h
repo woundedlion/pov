@@ -2768,8 +2768,9 @@ inline void test_volume_raymarch_silhouette_and_registers() {
         sink, c, center, bounds_radius, vol,
         [&](const math::Vector &loc, Fragment &frag) {
           ++hits;
+          HS_EXPECT_VEC(frag.pos, loc, 0.0f);
           max_surf_err =
-              std::max(max_surf_err, std::fabs(loc.length() - sphere_r));
+              fold_worst(max_surf_err, std::fabs(frag.pos.length() - sphere_r));
           max_reg_d = fold_worst(max_reg_d, std::fabs(frag.size));
           centroid_sum = centroid_sum + loc;
           frag.color = Color4(Pixel(60000, 60000, 60000), 1.0f);
