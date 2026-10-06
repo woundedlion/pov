@@ -347,6 +347,8 @@ public:
   HS_COLD_MEMBER void restore_generated(const GeneratedClock &clock,
                                         const GenerativePalette &from,
                                         const GenerativePalette &to) {
+    HS_CHECK(from_slot != nullptr && to_slot != nullptr && morph != nullptr,
+             "PaletteCycler restore needs a generated cycle");
     *from_slot = from;
     *to_slot = to;
     frame = static_cast<int>(clock.frame);
