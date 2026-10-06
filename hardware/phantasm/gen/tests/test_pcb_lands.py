@@ -159,9 +159,6 @@ class RoutedBoardLandTests(unittest.TestCase):
     not all the library ones: sync resistors are widened in place and D_BUS
     carries the Bourns land under a stock footprint id."""
 
-    def test_every_routed_chip_passive_has_a_land_pin(self):
-        self.assertEqual(set(routed_chip_lands()), set(SHIPPED_CHIP_LANDS))
-
     def test_routed_board_ships_the_pinned_lands(self):
         self.assertEqual(routed_chip_lands(), SHIPPED_CHIP_LANDS)
 
