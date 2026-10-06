@@ -1527,19 +1527,15 @@ inline void test_composed_document_values() {
 
 /**
  * @brief Pins the two families the base registers by hand, not by table.
- * @details register_parameters() never runs register_fields() on the color or
- * lens families, so a name added to either table would author a slider nothing
- * registers.
+ * @details Color fields have no slider names; the composed Mobius lens has no
+ * field table.
  */
 inline void test_composed_hand_registered_families() {
   for (const auto &field : Pullback::ColorParams::FIELDS) {
     HS_CONTEXT(field.id);
     HS_EXPECT_TRUE(field.name == nullptr);
   }
-  for (const auto &field : Pullback::Lens::NoLensParams::FIELDS) {
-    HS_CONTEXT(field.id);
-    HS_EXPECT_TRUE(field.name == nullptr);
-  }
+  static_assert(!Pullback::HasFields<Pullback::MobiusLensParams>);
   for (const ColorSliderBinding &binding : COLOR_SLIDER_BINDINGS) {
     HS_CONTEXT(binding.slider);
     HS_EXPECT_TRUE(find_field<Pullback::ColorParams>(binding.field_id) !=
