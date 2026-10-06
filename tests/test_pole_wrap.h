@@ -2,12 +2,11 @@
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
  * Licensed under the PolyForm Noncommercial License 1.0.0
  *
- * pole_wrap tap-reflection cases, shared by both offset builds.
+ * pole_wrap tap-reflection cases, run under both offset builds.
  *
  * The south-pole contract differs by hs::H_OFFSET: at 0 the last rendered row
- * is the pole, at the legacy offset-3 mapping the rows below it are a virtual gap that
- * holds no data. Included by tests/test_geometry.h (offset 0) and
- * tests/test_h_offset_renorm.h (-DHS_TEST_H_OFFSET=3) so both halves run.
+ * is the pole; at offset 3 the rows below it are a virtual gap that holds no
+ * data.
  */
 #pragma once
 
@@ -57,7 +56,7 @@ inline void test_pole_wrap_north_reflects_half_turn() {
 
 /**
  * @brief Verifies south-edge reflection about the pole row and rejection of
- *        the virtual gap in the legacy offset mapping.
+ *        the virtual gap in the offset-3 mapping.
  */
 inline void test_pole_wrap_south_reflects_about_virtual_pole() {
   constexpr int W = 64, H = 64;

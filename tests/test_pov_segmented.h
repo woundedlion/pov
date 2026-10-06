@@ -2,17 +2,9 @@
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
  * Licensed under the PolyForm Noncommercial License 1.0.0
  *
- * Host unit tests for the segmented-POV index math (hardware/pov_segment_map.h,
- * the pure arithmetic the Arduino-only pov_segmented.h driver derives its ISR
- * mapping from). This is the one place index arithmetic reaches the physical
- * LEDs, so an off-by-one silently mis-paints the sphere. Covers per-segment
- * derivation (arm side and north/south band direction), active-low ID decode,
- * the arm-B half-image x offset,
- * and that each segment's (i -> x_col, y) writes tile the canvas exactly once.
- * Also covers pov_handoff.h's release/commit/join protocol and two-thread
- * acquire/release handoff, pov_submit_gate.h's SubmitGate and SyncPulseGate,
- * pov_submit_gate.h's wake ordering, and pov_segment_frame.h's
- * preserve_segment_half behavior.
+ * Host unit tests for the segmented-POV driver's pure logic: segment index math
+ * (hardware/pov_segment_map.h), effect handoff, submit gates and segment-half
+ * preservation.
  */
 #pragma once
 
@@ -49,8 +41,7 @@ using pov::SubmitAction;
 using pov::SubmitGate;
 using pov::SyncPulseGate;
 
-// Compile-time mapping spot checks; configure_segment computes the GPIO-selected
-// mapping once at boot, off the ISR hot path.
+// Compile-time mapping spot checks.
 static_assert(segment_map(1, 288, 4).y_base == 143);
 static_assert(segment_map(1, 288, 4).y_step == -1);
 static_assert(segment_map(1, 288, 8).y_base == 36);
@@ -103,9 +94,7 @@ inline void check_tiling(int S, int N, int w, int x) {
       HS_EXPECT_TRUE(y >= 0 && y < ROWS);
       if (y < 0 || y >= ROWS)
         continue;
-      // The column ISR walks the display buffer by accumulating stride onto
-      // base rather than evaluating segment_y per pixel; pin the two forms
-      // equal so the shipped recurrence is the arithmetic tested here.
+      // The accumulated stride recurrence must equal segment_y per pixel.
       const int off =
           segment_pixel_base(m, x_col, w) + i * segment_row_stride(m, w);
       HS_EXPECT_EQ(off, y * w + x_col);
@@ -351,8 +340,7 @@ struct NoreturnCommitFailure {
  * pointer.
  * @details The foreground bumps the request counter and spins on
  * release_complete(); a single ISR service_release() must ack and null the live
- * pointer — the use-after-free guard, since the foreground frees the instance
- * only once the ISR can no longer reach it.
+ * pointer before the foreground frees the instance.
  */
 inline void test_release_handshake() {
   EffectHandoff<FakeEffect> h;
@@ -461,9 +449,7 @@ inline void test_join_adopt_and_gen_gating() {
  * @brief Full teardown→publish→commit cycle across two generations.
  * @details Runs the foreground rebuild sequence single-threaded: adopt gen1,
  * clear pending work, tear it down via the handshake, publish gen2, commit
- * gen2. Exercises
- * the ordering the device relies on without a live effect ever being adopted
- * while a release is outstanding.
+ * gen2. No live effect is adopted while a release is outstanding.
  */
 inline void test_full_handoff_cycle() {
   EffectHandoff<FakeEffect> h;
@@ -530,11 +516,10 @@ inline void test_window_alternation() {
 }
 
 /**
- * @brief The flywheel ISR's per-wake handoff sequence: every ordering the
- * device's emitted behaviour depends on.
- * @details Pins the four steps the ISR would otherwise carry untested — the
- * teardown handshake ahead of the adopt, the join arm's dark gate, the window
- * publish ahead of the reported advance, and the live re-read after the adopt.
+ * @brief The flywheel ISR's per-wake handoff sequence.
+ * @details Pins the teardown handshake ahead of the adopt, the join arm's dark
+ * gate, the window publish ahead of the reported advance, and the live re-read
+ * after the adopt.
  */
 inline void test_apply_wake_sequence() {
   FakeEffect e1, e2;
@@ -1079,10 +1064,9 @@ inline void test_handoff_release_acquire_across_threads() {
 
 /**
  * @brief A column dropped on DMA overrun is re-submitted on the next wake.
- * @details The flywheel reports render_column < 0 for the ~7 remaining wakes of
- * a column it has already decided to draw, so a drop that left no pending state
- * would paint that column dark for a whole revolution. The retry re-submits the
- * frame still packed in back_frame() until the transport takes it.
+ * @details The flywheel reports render_column < 0 for the remaining wakes of a
+ * column it has already decided to draw; the retry re-submits the frame still
+ * packed in back_frame() until the transport takes it.
  */
 inline void test_submit_retries_dropped_column() {
   SubmitGate g;
@@ -1130,8 +1114,7 @@ inline void test_submit_fresh_column_supersedes_retry() {
 
 /**
  * @brief The fail-dark black frame latches only once the transport accepts it.
- * @details Latching on a drop would hold the stale bright column lit for the
- * whole dark window; the latch clears again on the first lit wake.
+ * @details The latch clears again on the first lit wake.
  */
 inline void test_submit_dark_latch_gates_on_acceptance() {
   SubmitGate g;
@@ -1267,8 +1250,7 @@ inline void test_sync_pulse_deferred_drop_precedes_next_pulse() {
 
 /**
  * @brief A rendering wake without a pulse leaves the sync pin alone.
- * @details Only the master's scheduled pulse may drive the shared wire; a stray
- * LOW from a rendering wake would inject an edge downstream boards decode.
+ * @details Only the master's scheduled pulse may drive the shared wire.
  */
 inline void test_sync_pulse_render_without_pulse_is_silent() {
   SyncPinTrace t;

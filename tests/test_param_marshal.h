@@ -3,18 +3,7 @@
  * Licensed under the PolyForm Noncommercial License 1.0.0
  *
  * Host unit tests for the WASM parameter-marshaling layer
- * (targets/wasm/param_marshal.h). The bridge exposes two parallel streams to
- * JS — parameter definitions and per-frame values — and the GUI binds them
- * positionally, so a single order mismatch mis-binds every slider. These tests
- * run the marshaling against every registered effect and
- * assert the value stream stays index-aligned with the definition stream, the
- * bool/float distinction is preserved, and a write-by-name round-trips to the
- * same index. The emscripten::val translation in engine_bindings.h is a thin shell over
- * this layer and is exercised by the WASM build, not here.
- *
- * Also covers Control::Field metadata, domains, exclusions and interpolation,
- * authored snapshot range validation, generation tracking, default choreography
- * descriptions, HyperLattice pattern dropdowns, and integer/float endpoints.
+ * (targets/wasm/param_marshal.h).
  */
 #pragma once
 
@@ -43,11 +32,9 @@ constexpr int DEFAULT_H = 144;
 
 /**
  * @brief Tracks whether the roster can distinguish a transposed ParamView pair.
- * @details ParamView is an aggregate built by positional
- *   initialization, with min/max adjacent and animated/readonly adjacent. The
- *   per-field assertions below only catch a swap when some param actually has
- *   min != max (or animated != readonly), so the roster's ability to catch one
- *   is asserted rather than assumed.
+ * @details ParamView is positionally initialized; a transposed min/max or
+ *   animated/readonly pair is only detectable when some param has distinct
+ *   values.
  */
 struct FieldCoverage {
   bool range_distinguishing = false; /**< Some param has min != max. */
@@ -67,7 +54,7 @@ enum class RoundTripResult { COVERED, NO_EDITABLE_FLOAT, STREAM_MISMATCH };
  *        distinguish a transposed field pair.
  * @details Checks equal length, index-aligned name/value/type/range/flags, and
  *          a write-by-name that round-trips to the same index without disturbing
- *          order. This is the core correctness check per effect.
+ *          order.
  */
 template <template <int, int> class E>
 inline RoundTripResult check_one(const char *name, FieldCoverage &coverage) {
@@ -101,9 +88,7 @@ inline RoundTripResult check_one(const char *name, FieldCoverage &coverage) {
     HS_EXPECT_EQ(std::string_view(views[i].name), std::string_view(def.name));
     HS_EXPECT_EQ(views[i].value, values[i]);
     HS_EXPECT_EQ(views[i].is_bool, def.is_bool());
-    // getParameterDefinitions() emits `step: 1` off this flag, and every
-    // whole-numbered param — enums included, whatever their target type —
-    // must carry it or the GUI hands the effect a fractional option index.
+    // Every whole-numbered param, enums included, carries the integer flag.
     HS_EXPECT_EQ(views[i].is_integer, def.is_integer() || def.is_enum());
     coverage.float_enum_present |= def.is_enum() && !def.is_integer();
     HS_EXPECT_EQ(views[i].value, def.get());
@@ -178,8 +163,7 @@ inline RoundTripResult check_one(const char *name, FieldCoverage &coverage) {
 /**
  * @brief Tallies an effect's parameter count, tracking the roster maximum.
  * @tparam E Effect template, instantiated at the test canvas size DEFAULT_W x DEFAULT_H.
- * @param max_count In/out roster maximum, checked against ParamStreams::CAPACITY
- *        by the stability pass.
+ * @param max_count In/out roster maximum.
  */
 template <template <int, int> class E>
 inline void count_one(size_t &max_count) {
@@ -237,15 +221,8 @@ check_stability_one(const char *name, std::vector<hs_wasm::ParamView> &views,
 
 /**
  * @brief Freezes the effect roster ORDER, not just its count.
- * @details HS_EFFECT_LIST is the single source of truth for the effect ordinal
- *   the WASM factory enumerates and the JS app surfaces (effect-list order, plus
- *   any index-keyed consumer). The per-effect marshaling below guarantees
- *   within-effect index alignment; it does not notice a reorder. This
- *   independent golden list turns any reorder/insertion/removal into a
- *   deliberate, reviewable diff — if it fires,
- *   update GOLDEN_ROSTER on purpose to match the new HS_EFFECT_LIST order.
- *   (Sliders bind by parameter name, so a reorder does not mis-bind a slider; it
- *   shifts the effect ordinal, which is what this pins.)
+ * @details GOLDEN_ROSTER pins the HS_EFFECT_LIST order that sets the effect
+ *   ordinal; update it deliberately on any reorder, insertion or removal.
  */
 inline void check_roster_order_pinned() {
   // Independent hand-maintained copy of the intended roster order. Must NOT be
@@ -754,9 +731,7 @@ inline void test_sparse_option_metadata() {
 }
 
 /**
- * @brief Module entry point: runs the per-effect stream-consistency check
- *        across the whole roster, cross-effect memory stability, Control::Field
- *        validation/interpolation, and authored snapshot range checks.
+ * @brief Runs the param-marshal module.
  * @return The module's failure count.
  */
 inline int run_param_marshal_tests() {
