@@ -3,8 +3,6 @@
  * Licensed under the PolyForm Noncommercial License 1.0.0
  */
 
-// Included by tests/test_plot_scan.h.
-
 // ============================================================================
 // ClipRegion::could_intersect_y  (clip.h — pure clip culling)
 // ============================================================================

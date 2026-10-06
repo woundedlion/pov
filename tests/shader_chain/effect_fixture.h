@@ -3,8 +3,6 @@
  * Licensed under the PolyForm Noncommercial License 1.0.0
  */
 
-// Included by tests/test_shader_chain.h.
-
 // ShaderChain effect white-box fixture.
 
 /** Reaches the effect's committed program, palette state, and hue bakes. */
