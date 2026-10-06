@@ -193,7 +193,9 @@ def analyze(path):
     with open(path, encoding="utf-8") as fh:
         root = sexp.parse(fh.read())[0]
     title = blocks(root, "title_block")
-    revision = field(title[0], "rev") if title else "1.1"
+    revision = field(title[0], "rev") if title else None
+    if not revision:
+        raise ValueError(f"{path}: no title_block rev")
     if revision == "1.3":
         raise ValueError("rev 1.3 prototype has no validated differential-bus scoring model")
     if revision not in ("1.1", "1.2"):
