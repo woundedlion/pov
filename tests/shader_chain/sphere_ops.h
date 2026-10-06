@@ -61,7 +61,7 @@ struct RippleMirrorProvider {
     return frame.ripple;
   }
   static float phase(const FrameState &frame) {
-    return frame.phase / frame.ripple.period;
+    return PB::Surface::ripple_cycle(frame.phase, frame.ripple);
   }
   static bool path_length_required(const FrameState &) { return true; }
 };

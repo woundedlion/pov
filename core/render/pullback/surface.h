@@ -121,6 +121,11 @@ inline void advance_ripple_phase(float &phase,
   phase = fmodf(phase + 1.0f, params.period);
 }
 
+/** @brief Converts the ripple clock in frames to a normalized cycle. */
+inline float ripple_cycle(float phase, const PeriodicRippleParams &params) {
+  return phase / params.period;
+}
+
 /** @brief This frame's point on the displacement field's closed loop. */
 struct PreparedLoop {
   math::Vector loop_offset;
@@ -359,6 +364,7 @@ struct CurlNoise : ApproximationDefaults {
  * @brief PeriodicRipple surface policy.
  * @tparam State Provider with Binding and FrameState types and
  * params(frame), phase(frame), path_length_required(frame) accessors.
+ * phase(frame) returns a normalized cycle, as produced by ripple_cycle().
  */
 template <typename State> struct PeriodicRipple : ApproximationDefaults {
   using FrameState = typename State::FrameState;

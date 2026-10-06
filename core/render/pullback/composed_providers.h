@@ -188,8 +188,9 @@ struct SurfaceProvider {
   __attribute__((always_inline)) static float phase(const FrameState &frame) {
     using SurfaceParams = Family;
     if constexpr (std::is_same_v<SurfaceParams, PeriodicRippleParams>)
-      return frame.resources.template get<Key>().phase /
-             frame.params.template get<Key>().period;
+      return Pullback::Surface::ripple_cycle(
+          frame.resources.template get<Key>().phase,
+          frame.params.template get<Key>());
     else
       return frame.resources.template get<Key>().phase;
   }

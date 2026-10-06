@@ -158,7 +158,8 @@ struct DisplaceRipple : ValueStateModel<RipplePhaseState> {
   }
   static Prepared prepare(const FrameContext &, const Params &params,
                           const State &state) {
-    return Surface::prepare_ripple(params, state.phase / params.period);
+    return Surface::prepare_ripple(params,
+                                   Surface::ripple_cycle(state.phase, params));
   }
   static SphereSample run(const SphereSample &input, const FrameContext &,
                           const Params &, const Prepared &prepared) {
