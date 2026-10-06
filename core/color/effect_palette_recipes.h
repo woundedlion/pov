@@ -166,14 +166,14 @@ HS_FLASH_MEMBER inline PaletteRecipe raymarch() {
 
 /** @brief The liquid recipe at an arbitrary hue rotation; every rotation is
  *  morph-compatible with every other
- *  (see test_shader_ball_palette_rotations_morph_compatible).
+ *  (see test_standalone_palette_rotations_morph_compatible).
  *  @param rotation_turns Hue rotation in turns applied to every key.
  *  @return The recipe.
  *  @details Palindromic keys: hue travels a half turn out to the complement
  *  and back while lightness dives bright-dark-bright; the wrapped
  *  palette coordinate crosses the 1 -> 0 seam without a hard line. */
 HS_FLASH_MEMBER inline PaletteRecipe
-shader_ball_liquid_at(float rotation_turns) {
+standalone_liquid_at(float rotation_turns) {
   constexpr float BASE_TURNS = 0.2933125f;
   PaletteRecipe recipe;
   recipe.domain = PaletteDomain::STRAIGHT;
@@ -190,8 +190,8 @@ shader_ball_liquid_at(float rotation_turns) {
 }
 
 /** @brief The liquid recipe at its authored hue. */
-HS_FLASH_MEMBER inline PaletteRecipe shader_ball_liquid() {
-  return shader_ball_liquid_at(0.0f);
+HS_FLASH_MEMBER inline PaletteRecipe standalone_liquid() {
+  return standalone_liquid_at(0.0f);
 }
 
 /**
@@ -199,15 +199,15 @@ HS_FLASH_MEMBER inline PaletteRecipe shader_ball_liquid() {
  * @param base_turns Base hue in turns.
  * @return The recipe.
  */
-HS_FLASH_MEMBER inline PaletteRecipe shader_ball_flyby_at(float base_turns) {
+HS_FLASH_MEMBER inline PaletteRecipe standalone_flyby_at(float base_turns) {
   return PaletteRecipes::profile(PaletteDomain::STRAIGHT,
                                  PaletteHarmony::SPLIT_COMPLEMENTARY,
                                  AxisCurve::CONSTANT, base_turns);
 }
 
 /** @brief The flyby recipe at its authored hue. */
-HS_FLASH_MEMBER inline PaletteRecipe shader_ball_flyby() {
-  return shader_ball_flyby_at(PaletteRecipes::hue_turns(42));
+HS_FLASH_MEMBER inline PaletteRecipe standalone_flyby() {
+  return standalone_flyby_at(PaletteRecipes::hue_turns(42));
 }
 
 /** @brief One row of the authoring tool's preset roster. */
@@ -234,8 +234,8 @@ HS_FLASH_MEMBER inline std::array<Preset, 11> presets() {
            {"GSReactionDiffusion", true, gs_reaction_diffusion(preview_hue)},
            {"MobiusRings", true, mobius_rings(preview_hue)},
            {"Raymarch", false, raymarch()},
-           {"Standalone Liquid", false, shader_ball_liquid()},
-           {"Standalone Flyby", false, shader_ball_flyby()},
+           {"Standalone Liquid", false, standalone_liquid()},
+           {"Standalone Flyby", false, standalone_flyby()},
            {"HyperLattice", false, hyper_lattice()},
            {"MindSplatter", true, mind_splatter(preview_hue)}}};
 }
