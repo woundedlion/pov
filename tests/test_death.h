@@ -156,12 +156,22 @@ template <typename T> inline T opaque(T v) {
  * @brief A named death case selected by HS_DEATH_CASE in the child process.
  */
 struct Case {
-  const char *name;       /**< Case selector matched against HS_DEATH_CASE. */
-  void (*fn)();           /**< The trap-triggering case body to run. */
-  const char *guard_file; /**< Repo-relative path of the guard source. */
-  const char *guard_text; /**< Expected "(condition) message" tail of that
+  const char *name;        /**< Case selector matched against HS_DEATH_CASE. */
+  void (*fn)();            /**< The trap-triggering case body to run. */
+  const char *guard_file;  /**< Repo-relative path of the guard source. */
+  const char *guard_text;  /**< Expected "(condition) message" tail of that
                                guard's breadcrumb line. */
+  bool debug_only = false; /**< Guard absent in NDEBUG builds. */
 };
+
+inline bool case_enabled(const Case &entry) {
+#ifdef NDEBUG
+  return !entry.debug_only;
+#else
+  (void)entry;
+  return true;
+#endif
+}
 
 /**
  * @brief Returns the full death-case table.
@@ -274,17 +284,18 @@ inline const Case *all_cases(int &n) {
       {"timeline_add_into_live_slot", case_timeline_add_into_live_slot,
        "core/animation/timeline.h",
        "(!e.manager) add_get would overwrite a live animation"},
-#ifndef NDEBUG
       {"feedback_storage_twice", case_feedback_storage_twice,
        "core/render/filter/pixel_feedback.h",
-       "(!cached_warp_x || !stamp.block_alive(cached_warp_x, CACHE_CELLS * sizeof(int16_t))) feedback filter: storage already initialized"},
+       "(!cached_warp_x || !stamp.block_alive(cached_warp_x, CACHE_CELLS * sizeof(int16_t))) feedback filter: storage already initialized",
+       true},
       {"world_storage_twice", case_world_storage_twice,
        "core/render/filter/world_trails.h",
-       "(!items || !stamp.block_alive(items, STORAGE_BYTES)) world filter: storage already initialized"},
+       "(!items || !stamp.block_alive(items, STORAGE_BYTES)) world filter: storage already initialized",
+       true},
       {"screen_storage_twice", case_screen_storage_twice,
        "core/render/filter/screen_trails.h",
-       "(!points || !stamp.block_alive(points, STORAGE_BYTES)) screen filter: storage already initialized"},
-#endif
+       "(!points || !stamp.block_alive(points, STORAGE_BYTES)) screen filter: storage already initialized",
+       true},
       {"sample_sphere_nan", case_sample_sphere_nan,
        "core/render/pullback/contract.h",
        "(value == value) unit clamp: NaN input"},
@@ -349,13 +360,13 @@ inline const Case *all_cases(int &n) {
       {"scratch_scope_non_lifo", case_scratch_scope_non_lifo,
        "core/memory/scratch.h",
        "(arena.get_offset() >= saved_offset) ScratchScope: non-LIFO teardown"},
-#ifndef NDEBUG
       {"arena_rewind_history_overflow", case_arena_rewind_history_overflow,
        "core/memory/arena.h",
-       "(rewind_history_size < REWIND_HISTORY_CAPACITY) Arena: debug rewind history capacity exceeded"},
+       "(rewind_history_size < REWIND_HISTORY_CAPACITY) Arena: debug rewind history capacity exceeded",
+       true},
       {"scratch_scope_reset", case_scratch_scope_reset, "core/memory/scratch.h",
-       "(arena.get_generation() == saved_generation) ScratchScope: arena reset during scope lifetime"},
-#endif
+       "(arena.get_generation() == saved_generation) ScratchScope: arena reset during scope lifetime",
+       true},
       {"arena_vector_overflow", case_arena_vector_overflow,
        "core/memory/vector.h",
        "(element_count < element_capacity) ArenaVector push_back exact "
@@ -1234,11 +1245,10 @@ inline const Case *all_cases(int &n) {
       {"sdf_line_negative_thickness", case_sdf_line_negative_thickness,
        "core/render/sdf/shapes.h",
        "(thickness >= 0.0f) Line: negative stroke half-width"},
-      {"chain_zero_alignment",
-       case_chain_zero_alignment, "core/render/pullback/interpreter.h", "(layout.align != 0 && (layout.align & (layout.align - 1)) == 0 && layout.align <= alignof(std::max_align_t)) ChainProgram::bind_storage: invalid block alignment"},
-      {"chain_non_power_alignment", case_chain_non_power_alignment,
+      {"chain_zero_alignment", case_chain_zero_alignment,
        "core/render/pullback/interpreter.h",
        "(layout.align != 0 && (layout.align & (layout.align - 1)) == 0 && layout.align <= alignof(std::max_align_t)) ChainProgram::bind_storage: invalid block alignment"},
+      {"chain_non_power_alignment", case_chain_non_power_alignment, "core/render/pullback/interpreter.h", "(layout.align != 0 && (layout.align & (layout.align - 1)) == 0 && layout.align <= alignof(std::max_align_t)) ChainProgram::bind_storage: invalid block alignment"},
       {"chain_overaligned_block", case_chain_overaligned_block,
        "core/render/pullback/interpreter.h",
        "(layout.align != 0 && (layout.align & (layout.align - 1)) == 0 && layout.align <= alignof(std::max_align_t)) ChainProgram::bind_storage: invalid block alignment"},
@@ -1338,11 +1348,10 @@ inline const Case *all_cases(int &n) {
       {"opleg_edge_sweep_no_edge", case_opleg_edge_sweep_no_edge,
        "core/animation/opleg.h",
        "(spec.edge) OpLeg: edge sweep carries no graph edge"},
-#ifndef NDEBUG
       {"opleg_rewind_refill", case_opleg_rewind_refill,
        "core/animation/opleg.h",
-       "(stamp.block_alive(buf, live_bytes)) OpLeg: leg arena storage reclaimed under a live leg"},
-#endif
+       "(stamp.block_alive(buf, live_bytes)) OpLeg: leg arena storage reclaimed under a live leg",
+       true},
       {"opleg_zero_sweep_frames", case_opleg_zero_sweep_frames,
        "core/animation/opleg.h",
        "(spec.sweep_frames >= 1) OpLeg: parameter sweep needs a positive sweep length"},
@@ -1552,7 +1561,7 @@ inline void run_child_case(const char *name) {
   int n;
   const Case *cs = all_cases(n);
   for (int i = 0; i < n; ++i)
-    if (std::strcmp(cs[i].name, name) == 0) {
+    if (case_enabled(cs[i]) && std::strcmp(cs[i].name, name) == 0) {
       cs[i].fn();
       return;
     }
@@ -2040,13 +2049,19 @@ inline constexpr GuardGapAllowance GUARD_GAP_ALLOW[] = {
 inline int allowed_guard_gap(const char *file) {
   int debug_gap = 0;
 #ifdef NDEBUG
-  // The source census includes debug-only guards.
-  debug_gap = std::strcmp(file, "core/memory/arena.h") == 0 ||
-              std::strcmp(file, "core/memory/scratch.h") == 0 ||
-              std::strcmp(file, "core/animation/opleg.h") == 0 ||
-              std::strcmp(file, "core/render/filter/pixel_feedback.h") == 0 ||
-              std::strcmp(file, "core/render/filter/screen_trails.h") == 0 ||
-              std::strcmp(file, "core/render/filter/world_trails.h") == 0;
+  int n;
+  const Case *cs = all_cases(n);
+  for (int i = 0; i < n; ++i) {
+    if (!cs[i].debug_only || std::strcmp(cs[i].guard_file, file) != 0)
+      continue;
+    bool duplicate = false;
+    for (int j = 0; j < i; ++j)
+      duplicate |= cs[j].debug_only &&
+                   std::strcmp(cs[j].guard_file, file) == 0 &&
+                   std::strcmp(cs[j].guard_text, cs[i].guard_text) == 0;
+    if (!duplicate)
+      ++debug_gap;
+  }
 #endif
   for (const GuardGapAllowance &a : GUARD_GAP_ALLOW)
     if (std::strcmp(a.file, file) == 0)
@@ -2250,6 +2265,8 @@ inline int run_death_tests() {
 
   std::vector<int> lines(static_cast<size_t>(n));
   for (int i = 0; i < n; ++i) {
+    if (!case_enabled(cs[i]))
+      continue;
     int rc = spawn_child(cs[i].name);
     bool trapped = child_trapped(rc);
     // Dying is not enough: the child must die at THIS case's guard. Any other

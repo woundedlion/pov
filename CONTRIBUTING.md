@@ -91,7 +91,8 @@ protected branch's `CI green` status is the authoritative correctness gate.
   capture-descent test; first run `npm ci` and `npx playwright install chromium`.
 - **Native variants and coverage:** `sanitizers`, `thread-sanitizer`,
   `optimized-tests` and `windows-tests` exercise distinct runtime and platform
-  configurations. `code-coverage` enforces aggregate and directory coverage.
+  configurations. `optimized-tests` also runs the death harness with `NDEBUG`.
+  `code-coverage` enforces aggregate and directory coverage.
 - **Generated-source provenance:** `lut-provenance`, `reaction-graph-provenance`,
   `gamut-lut-provenance`, `srgb-decode-provenance` and `patterns-provenance`
   regenerate their artifacts and compare them with committed bytes. Change the

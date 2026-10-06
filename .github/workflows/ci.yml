@@ -251,12 +251,20 @@ jobs:
             optimization: -O2 -g
             float_flags: ""
             test_exclude: *generated_exclude
+            test_include: ".*"
             skips_are_errors: 1
           - flavor: fastmath
             optimization: -Os -g
             test_exclude: "^unit_(3dmath|sdf|effects|mindsplatter|shapeshifter_tiles|conway_continuity|partition_seam|mesh|shader_chain|pullback_capture_determinism|pov_sync|color_luts|gamut_lut)$"
             float_flags: -ffast-math -fno-finite-math-only -DHS_TEST_FAST_MATH=1
+            test_include: ".*"
             skips_are_errors: 0
+          - flavor: ndebug-death
+            optimization: -O2 -g -DNDEBUG
+            float_flags: ""
+            test_exclude: *generated_exclude
+            test_include: "^unit_death$"
+            skips_are_errors: 1
     runs-on: ubuntu-24.04
     timeout-minutes: 45
     env:
@@ -313,6 +321,7 @@ jobs:
           HS_BUFFER_FREE_WATCHDOG_US: *deep_smoke_watchdog
         run: >
           ctest --preset tests --output-on-failure --no-tests=error
+          -R "${{ matrix.test_include }}"
           -E "${{ matrix.test_exclude }}"
 
   code-coverage:
