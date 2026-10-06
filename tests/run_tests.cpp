@@ -93,8 +93,7 @@
 #endif
 
 /**
- * @brief One entry in the test-module roster: a short name plus its entry
- * point.
+ * @brief Test-module name, entry point and effects-tier participation.
  * @details An unfiltered run executes every module in array order; passing one
  * or more names on argv runs ONLY those modules, in the order given — the
  * iteration-speed counterpart to the HS_DEATH_CASE single-case dispatch below.
@@ -105,7 +104,8 @@
 struct TestModule {
   const char *name; /**< Short module name matched against argv. */
   int (*run)();     /**< Entry point; returns the module's failure count. */
-  bool effects_tier;
+  bool
+      effects_tier; /**< Reads effects_full_suite(); selects CI tier-lever checks. */
 };
 
 // Expands into MODULES[]; mirrored by
