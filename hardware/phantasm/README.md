@@ -27,8 +27,9 @@ terminal bodies; D_BUS is released for placement outside their keepouts.
 J2/J3A/J3B in revisions 1.2 and 1.3 have no wire-access reservation.
 The right-column connectors' wire openings sit about 1.5 mm from the Teensy PCB edge. Before fabrication,
 verify harness insertion at the module's mounted height, including any ferrules.
-Check whether wiring before seating the Teensy or selecting a socket height that
-clears the harness is required; the placement and DRC gates do not verify this.
+If the harness cannot be inserted with the Teensy seated, land the J2/J3A/J3B
+wires before seating it or use a socket tall enough for the harness to clear;
+the placement and DRC gates do not check this.
 
 Rev 1.2 omits the J4 debug header and SERIAL1_TX connection; Teensy pin 1 is
 unconnected. R_MEN and MASTER_EN remain part of the sync control circuit.
