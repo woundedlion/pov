@@ -55,7 +55,7 @@ endforeach()
 
 list(LENGTH _guard_names _guard_file_count)
 message(STATUS
-  "death-harness guard census: ${HS_GUARD_SITE_TOTAL} HS_CHECK sites across "
+  "death-harness guard census: ${HS_GUARD_SITE_TOTAL} fail-fast sites across "
   "${_guard_file_count} files")
 
 configure_file("${HS_ROOT}/tests/death_guard_sites.h.in"
