@@ -843,6 +843,10 @@ add_test(NAME unit_excluded_targets COMMAND ${CMAKE_COMMAND}
   "-DCOVERED_TARGETS=$<TARGET_PROPERTY:excluded_targets,MANUALLY_ADDED_DEPENDENCIES>"
   -P ${CMAKE_CURRENT_SOURCE_DIR}/check_excluded_targets.cmake)
 
+add_test(NAME unit_composed_edge_fade_controls COMMAND ${CMAKE_COMMAND}
+  "-DCOMPILER=${CMAKE_CXX_COMPILER}" "-DROOT=${HS_ROOT}"
+  -P ${CMAKE_CURRENT_SOURCE_DIR}/check_composed_edge_fade.cmake)
+
 # Backstop budget for every registered test. CTest's 1500 s default is longer
 # than the whole roster, so a test registered without an explicit TIMEOUT above
 # burns a shard on a hang instead of failing. Applied last, over the directory's

@@ -90,6 +90,9 @@ public:
   using RenderPipeline = typename SpecT::template Pipeline<Binding>;
   using Metadata =
       ComposedDetail::PipelineMetadata<Spec, Binding, RenderPipeline>;
+  static_assert(Spec::COVERAGE != ProjectionCoverageMode::EDGE_FADE ||
+                    Metadata::ProjectStage::EDGE_DISTANCE_AVAILABLE,
+                "edge-fade coverage requires projection edge distance");
   static_assert(Metadata::PATH_TRACKED == (Spec::HUE == HueMode::PATH_LENGTH),
                 "path length hue metadata must match pipeline tracking");
   static_assert(Metadata::COVERAGE_MATCHES,
