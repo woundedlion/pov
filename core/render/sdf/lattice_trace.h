@@ -54,7 +54,6 @@ struct Prepared {
   SDF::PreparedPeriodicShells periodic_shells;
   bool valid = false;
   Geometry geometry = Geometry::OCTET;
-  float shell_radius = .30f;
   CrossingStorage *crossings = nullptr;
   SDF::ShellLayerStorage *shell_layers = nullptr;
 };
@@ -86,7 +85,6 @@ HS_FLASH_INLINE inline Prepared prepare(const Settings &settings) {
   result.octet4.cell_size = settings.cell_size;
   result.octet4.wire_radius = settings.wire_radius;
   result.geometry = settings.geometry;
-  result.shell_radius = settings.shell_radius;
   result.crossings = settings.crossings;
   result.shell_layers = settings.shell_layers;
   result.valid = result.camera.valid() &&
