@@ -454,18 +454,12 @@ class BoardSelection(unittest.TestCase):
         self.assertTrue((directory / "info").is_file())
 
     def test_a_claim_retaken_mid_break_is_not_evicted(self):
-        # Two peers judge one claim stale at once: the first evicts it and takes
-        # the board, and the second must not then delete that fresh lock. The
-        # stub replays the interleaving by re-claiming during our own read.
         self.hold("COM3", deadline_in=-(GRACE + 60), pid=self._dead_pid())
         self.hold("COM4")
         script = (
-            'MARK="%s"; _hs_lock_field() { '
-            'if [ "$2" = token ] && [ ! -e "$MARK" ]; then : > "$MARK"; '
-            'sed -n "s/^token=//p" "$1/info" | head -1; '
-            'echo "token=peerB" > "$1/info"; return; fi; '
-            'sed -n "s/^$2=//p" "$1/info" 2>/dev/null | head -1; }; '
-            'hs_device_acquire E profile 60' % (self.base.parent / "seen"))
+            '_hs_break_stale() { echo "token=peerB" > "$1/info"; '
+            '_hs_break_lock "$1" "$2"; }; '
+            'hs_device_acquire E profile 60')
         r = run_lock(script, self.base)
         self.assertEqual(r.returncode, 1)
         self.assertIn("token=peerB",
