@@ -95,6 +95,26 @@ inline void test_pipeline_get_returns_correct_filter() {
   const Blur &cbl = cpipe.get<Blur>();
   HS_EXPECT_TRUE(&cbl == &bl);
 
+  const char *pipe_begin = reinterpret_cast<const char *>(&pipe);
+  auto in_pipe = [&](const void *p) {
+    const char *q = static_cast<const char *>(p);
+    return q >= pipe_begin && q < pipe_begin + sizeof(pipe);
+  };
+  HS_EXPECT_TRUE(in_pipe(&pipe.get<AA>()));
+  HS_EXPECT_TRUE(in_pipe(&bl));
+  HS_EXPECT_TRUE(in_pipe(&cs));
+
+  // An identity kernel on the pipeline's own Blur leaves the source pixel and
+  // its green fringe copy; the constructed factor-1 kernel would spread both.
+  bl.update(0.0f);
+  StubEffect fx(W, H);
+  {
+    Canvas c(fx);
+    pipe.plot(c, 10.0f, 10.0f, Pixel(0, 40000, 0), 0.0f, 1.0f);
+  }
+  fx.advance_display();
+  HS_EXPECT_EQ(count_lit_canvas(fx), size_t{2});
+
   // get<T>() on an absent stage is a hard compile error, not SFINAE-detectable.
   using Absent = Filter::Pixel::Feedback<W, H>;
 
