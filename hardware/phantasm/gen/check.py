@@ -133,8 +133,8 @@ def netlist_nets(root):
 def check(got, revision=builder.REVISION):
     """Report every net that differs from the revision's expected table; return True when all match.
 
-    A named net absent from EXPECT is printed as an advisory NOTE and does not
-    move the verdict: the gate partitions the nets it knows, it does not close
+    A named net absent from the revision's expected table is printed as an
+    advisory NOTE and does not move the verdict: the gate partitions the nets it knows, it does not close
     the set.
     """
     expected = expected_nets(revision)
