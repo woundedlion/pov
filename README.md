@@ -740,7 +740,7 @@ JS:  wasmEngine.getPixels()
 
 ### End-to-End Flow
 
-A typical effect frame follows a four-stage pipeline. Not every effect uses every stage — some skip generation entirely, others skip transformations, and full-screen shader effects such as the composed pullback roster and Raymarch extend `Effect` directly and bypass the filter pipeline altogether — but the available primitives compose along this flow:
+A typical effect frame follows a four-stage pipeline. Not every effect uses every stage — some skip generation entirely, others skip transformations, and full-screen shader effects such as the composed pullback roster and Raymarch derive from `ChoreographedEffect` and bypass the filter pipeline altogether — but the available primitives compose along this flow:
 
 ```
 ┌─────────────┐     ┌──────────────┐     ┌──────────────┐     ┌──────────────┐
