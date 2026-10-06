@@ -1124,8 +1124,7 @@ class TestColdCaptureAudit(unittest.TestCase):
         self.assertEqual(_run_warning_gate(log), 0)
 
     def test_short_count_from_the_object_cache_fails(self):
-        # The reproduced failure: only the sketch recompiles, the shared core TUs
-        # come from build_cache_dir.
+        # Cached shared core TUs do not satisfy the per-environment cold-build gate.
         log = self._log(("holosphere", "phantasm", "profile"),
                         self.TUS[2:], cached=self.TUS[:2])
         self.assertEqual(_run_warning_gate(log), 1)
