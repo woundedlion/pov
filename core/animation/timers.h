@@ -38,7 +38,6 @@ public:
       // directly to honor the contract.
       this->post_callback();
     } else {
-      // finish(), not cancel(): Timeline's pin guard exempts cancellation.
       this->finish();
     }
   }
