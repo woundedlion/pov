@@ -173,10 +173,8 @@ static __attribute__((always_inline)) inline float wrap_one_period(float d) {
  * @param es Shared setup from make_geodesic_edge_span(a, b).
  * @param col_s Output: arc start column, in [0, W).
  * @param col_len Output: arc length in columns (may reach W = full width).
- * @return False when no useful bound exists (degenerate cross on a
- *         non-collapsed edge, or a near-meridian axis whose y-component is
- *         float noise and the longitude can jump across a pole) — the caller
- *         must skip the horizontal cull.
+ * @return False when the arc pole has |y| below AXIS_Y_EPS, making longitude
+ *         ill-conditioned; the caller must skip the horizontal cull.
  * @details Longitude is globally monotone along the rendered circle — with
  * pos(ang) = a·cos + cross(axis, a)·sin, the atan2(z, x) rate numerator
  * pos.x·tan.z - pos.z·tan.x folds to -axis.y, a constant. The arc therefore
@@ -206,8 +204,6 @@ geodesic_col_span_cols(float ca, float cb, const math::Vector &a,
       len_f = W - d;
     }
   } else {
-    if (!es.have_axis)
-      return false;
     if (!es.azimuth_bounded)
       return false;
 
