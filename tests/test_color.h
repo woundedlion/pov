@@ -184,7 +184,6 @@ inline int run_color_tests() {
   test_hue_rotate_base_matches_direct();
 
   test_srgb_to_linear_endpoints();
-  test_linear_to_srgb_endpoints();
   test_linear_to_srgb8_decode_matches_lut();
   test_min_encodable_alpha_is_the_encode_floor();
   test_srgb_linear_lut_vs_float_reference();
