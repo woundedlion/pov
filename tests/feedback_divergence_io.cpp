@@ -7,7 +7,6 @@
 #include "tests/test_fixture.h"
 #include "core/render/filter.h"
 #include "core/render/filter/pixel_feedback.h"
-#include <limits>
 
 #include <cstdio>
 #include <cstdlib>
