@@ -1155,6 +1155,9 @@ inline void test_unsweepable_recipe_steps_are_gated() {
   using Solids::IslamicStarPatterns::TRUNCATE_T_FAR;
 
   HS_EXPECT_TRUE(Solids::is_morphable_step({Op::TRUNCATE, 0.33f}));
+  HS_EXPECT_TRUE(Solids::is_morphable_step({Op::TRUNCATE, 0.49f}));
+  HS_EXPECT_TRUE(!Solids::is_morphable_step({Op::TRUNCATE, 0.5f}));
+  HS_EXPECT_TRUE(Solids::is_morphable_step({Op::TRUNCATE, 0.51f}));
   HS_EXPECT_TRUE(Solids::is_morphable_step({Op::SNUB, 0.5f}));
   HS_EXPECT_TRUE(Solids::is_morphable_step({Op::RELAX, 8.0f}));
   HS_EXPECT_TRUE(Solids::is_morphable_step({Op::HANKIN, 62.0f * D2R}));
