@@ -274,7 +274,3 @@ inline void test_feedback_banded_diverges_from_full() {
   HS_EXPECT_TRUE(differs);
   HS_EXPECT_GT(full_bot_lit, 0);
 }
-
-// ============================================================================
-// Runner
-// ============================================================================

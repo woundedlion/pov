@@ -335,7 +335,3 @@ inline void test_trail_body_records_independent_orientation_history() {
   HS_EXPECT_VEC(body.trail.get(0).orient(body.v), -math::X_AXIS, 1e-5f);
   HS_EXPECT_VEC(body.trail.get(1).orient(body.v), math::Y_AXIS, 1e-6f);
 }
-
-// ============================================================================
-// Runner
-// ============================================================================
