@@ -9,18 +9,9 @@
  *        (docs/specs/phantasm_frame_sync_spec.md): one local flywheel timebase per
  *        board, disciplined over a single sync-symbol wire.
  *
- * Kept free of Arduino dependencies so every load-bearing
- * decision — position math, symbol classification, the acceptance gate, epoch
- * scheduling, beacon framing, emission self-censoring — is unit-testable on
- * the host, exactly as pov_segment_map.h is for the index math. The device
- * driver is a thin shell over SyncBoard: it reads the cycle counter, services
- * two ISRs, packs pixels, and toggles one pin.
- *
  * Architecture (spec §3): every board derives its column position from a
- * free-running hardware cycle counter (`x = f(now - epoch)`), never from
- * counting timer interrupts, so masked-IRQ windows do not accumulate phase
- * drift; intervening columns can still be skipped. The
- * master emits count-coded symbol bursts on the one wire — 2/revolution
+ * free-running hardware cycle counter (`x = f(now - epoch)`), so masked-IRQ
+ * windows skip columns but do not accumulate phase drift. The master emits count-coded symbol bursts on the one wire — 2/revolution
  * boundary marks, an epoch train (primary + epoch_repeats copies) once per
  * effect, and a quarter-revolution (x ≈ W/4) data beacon on beacon revolutions —
  * and downstream boards snap their flywheel phase to them. Three layers ride
@@ -46,10 +37,8 @@
 #include <atomic>
 #include <cstdint>
 
-#include "core/platform/platform.h" // HS_COLD_MEMBER on the setup-only members
+#include "core/platform/platform.h"
 
-// Forward declaration of the unit-test accessor that reaches SyncBoard's
-// mutable views of ISR-owned members.
 namespace hs_test {
 namespace pov_sync_tests {
 struct SyncBoardTestAccess;
@@ -87,8 +76,6 @@ struct TickActions {
    * flip gate N times — counters and the epoch/join schedule stay exact — but
    * advances the display once, so N windows consume one queued frame and an
    * even N leaves the frame clipped for the opposite arm half (spec §5.1).
-   * N > 1 needs a wake gap past one half-revolution, out of reach on the
-   * shipped DMA path.
    */
   bool flip = false;
   /**
@@ -161,15 +148,10 @@ public:
   void seed(uint32_t now, bool is_master) {
     is_master_board = is_master;
     fly.seed(now);
-    // A reboot must not inherit wire state from the prior incarnation: a stale
-    // mailbox burst would feed ACQUIRE's unconditional hard-snap, and a stale
-    // emitter queue would resume a half-sent beacon/boundary train (spec §8.5).
+    // A reboot must not inherit mailbox or emitter state (spec §8.5).
     reset_runtime_state();
-    // Boot observed no wire history, so the ACQUIRE quiet-before guard has
-    // nothing to measure the first burst against and would hard-snap it.
-    // Anchoring on the seed instant makes a burst inside the first quiet window
-    // beacon data, so a board powering up mid-train cannot snap to an interior
-    // digit.
+    // Anchor the ACQUIRE quiet-before guard on the seed instant, so a board
+    // powering up mid-train cannot snap to an interior digit.
     have_prev_burst = true;
     prev_burst_end = now;
     if (is_master) {
@@ -229,25 +211,15 @@ public:
       }
     }
 
-    // Age out a stale previous-burst timestamp once the wire has been quiet past
-    // the ACQUIRE window plus a burst gap; otherwise a cycle-counter wrap
-    // collapses the quiet-gap difference and misroutes the first post-silence
-    // symbol. Signed re-check rejects a wrapped modular difference. valid()'s
-    // demarcation relation holds acquire_quiet_cols at or above the widest
-    // inter-digit advance, and the added gap_timeout_cols is margin against the
-    // emitter's wake-grid quantization of that advance, so this never fires
-    // between two digit bursts of one beacon frame.
+    // Age out a stale previous-burst timestamp after the ACQUIRE window plus a
+    // burst gap, before a cycle-counter wrap collapses the quiet-gap difference.
+    // The signed re-check rejects a wrapped modular difference.
     if (have_prev_burst && (now - prev_burst_end) > prev_burst_stale_cycles &&
         static_cast<int32_t>(now - prev_burst_end) > 0) {
       have_prev_burst = false;
-      // The same silence ends any partial beacon frame: feed()'s staleness test
-      // is itself a modular difference, so a partial frame left standing can
-      // outlive a counter wrap and concatenate with a fresh train. A burst
-      // claimed this tick was folded in above, so a live digit train is never
-      // cut here. valid() pins this window below feed()'s, so this is where a
-      // truncated train is normally dropped — count it like any other drop. A
-      // lone digit is the isolated boundary symbol ACQUIRE feeds to both paths,
-      // not a train, so a dropped frame needs two.
+      // The same silence ends any partial beacon frame, which could otherwise
+      // outlive a counter wrap. A lone digit is an isolated boundary symbol, so
+      // a dropped frame needs two.
       if (beacon_parser.digit_count() >= 2)
         saturating_increment(telemetry_counters.beacons_rejected);
       beacon_parser.reset();
@@ -341,10 +313,8 @@ public:
   /**
    * @brief Telemetry counters, copied under an IRQ-off window.
    * @return Snapshot of the telemetry block.
-   * @details The bracket is taken here rather than left to the caller, so a
-   * snapshot cannot mix pre- and post-increment fields. It saves and restores
-   * the mask instead of unmasking, so a call from an ISR or from inside an
-   * IRQ-off region cannot open the surrounding critical section early.
+   * @details Saves and restores the interrupt mask, so it is safe to call from
+   * an ISR or inside an IRQ-off region.
    */
   Telemetry telemetry_snapshot() const {
     const uint32_t primask = hs::save_disable_interrupts();
@@ -359,8 +329,6 @@ public:
   }
 
 private:
-  // Test-only access, kept private behind the test friend so production code
-  // cannot race the ISR-owned single-writer state.
   friend struct ::hs_test::pov_sync_tests::SyncBoardTestAccess;
 
   /**
@@ -422,8 +390,6 @@ private:
 
   /**
    * @brief Recomputes the tick-path bounds derived from protocol_config.
-   * @details Every wake tests them, and the division col_cycles() costs is
-   * wasted there: the config only moves in the constructor and configure().
    */
   HS_COLD_MEMBER void cache_config_bounds() {
     cached_gap_timeout_cycles = protocol_config.gap_timeout_cycles();
@@ -436,8 +402,6 @@ private:
   /**
    * @brief Restores every member to its post-construction value except
    * protocol_config, cached bounds, fly and is_master_board.
-   * @details The single reset both configure() and seed() run, so the two
-   * cannot drift apart.
    */
   HS_COLD_MEMBER void reset_runtime_state() {
     gate = FlipGate{};
@@ -493,8 +457,7 @@ private:
       else if (!content_tracker.commit_pending &&
                (content_tracker.rev_in_effect %
                 protocol_config.join_grid_revs) == 0)
-        // Marks "a late joiner could snap in here"; the shell acts on it only
-        // when it has no live effect.
+        // Late-join point for a board with no live effect.
         a.join_boundary = true;
     }
   }
@@ -513,8 +476,8 @@ private:
     prev_burst_end = s.last_cycles;
     have_prev_burst = true;
 
-    // Any follow-up burst inside the interdigit window proves the pending
-    // suspect (see below) was the head of a beacon data train: clear it.
+    // A follow-up burst inside the interdigit window proves the pending suspect
+    // was the head of a beacon data train.
     if (suspect_pending && (s.first_cycles - suspect_last_cycles) <=
                                protocol_config.interdigit_timeout_cycles())
       suspect_pending = false;
@@ -549,10 +512,8 @@ private:
         handle_beacon_burst(s);
         return;
       }
-      // A train's first digit is isolated exactly as a boundary symbol is, so
-      // before lock the burst must reach both paths or no frame started here
-      // ever completes. Discarding the stale partial first makes it the head of
-      // a fresh frame: a hard snap can never share a burst with a completion.
+      // Before lock an isolated burst may be a train's first digit, so it
+      // reaches both paths, as the head of a fresh frame.
       beacon_parser.reset();
       handle_beacon_burst(s);
     }
@@ -606,9 +567,7 @@ private:
       saturating_increment(telemetry_counters.beacons_rejected);
     if (!ok)
       return;
-    // An index past the roster is corruption the checksum missed:
-    // drop the frame whole (§6.4 rejection) rather than fold it onto a real
-    // effect.
+    // An index past the roster is corruption the checksum missed (§6.4).
     if (f.effect_index >= protocol_config.effect_count) {
       saturating_increment(telemetry_counters.beacons_rejected);
       return;
@@ -622,13 +581,11 @@ private:
       content_tracker.rev_in_effect = f.rev_count;
       publish_build(idx);
     } else if (content_tracker.commit_pending) {
-      // Do NOT publish_build mid-window: pending_gen must stay stable from
-      // construction-open to commit, the precondition the commit-time HS_CHECK
-      // relies on. The next post-commit beacon re-verifies the index.
+      // No publish_build mid-window: pending_gen must stay stable from
+      // construction-open to commit.
     } else if (idx != content_tracker.effect_index) {
-      // One of eight intruder values lets a shifted frame pass the checksum.
-      // A live board takes two consecutive beacons naming the same index before
-      // tearing down a healthy effect (spec §6.3.4). The join path above stays single-frame.
+      // A shifted frame can pass the checksum, so a live board needs two
+      // consecutive beacons naming the same index (spec §6.3.4).
       if (idx != beacon_index_candidate) {
         beacon_index_candidate = idx;
         return;
@@ -642,10 +599,8 @@ private:
     } else {
       beacon_index_candidate = -1;
       if (f.rev_count != (content_tracker.rev_in_effect & 63u)) {
-        // The schedule counter slipped against the master's; left alone it
-        // skews every later epoch commit by mis-inferred j. Resync via the
-        // signed mod-64 difference, which recovers any slip under 32
-        // revolutions.
+        // Resync a slipped rev counter via the signed mod-64 difference, which
+        // recovers any slip under 32 revolutions.
         saturating_increment(telemetry_counters.beacon_rev_mismatches);
         const int32_t d =
             beacon_rev_resync_delta(f.rev_count, content_tracker.rev_in_effect);
@@ -720,15 +675,13 @@ private:
     // index, and a board joining off it would adopt stale identity.
     if (content_tracker.commit_pending)
       return;
-    // Schedule test first: it reads only the revolution counter, while the
-    // position below costs one 64-bit divmod on every wake.
     const uint32_t rev = content_tracker.rev_in_effect;
     const bool due = (rev % protocol_config.beacon_period_revs) == 1u ||
                      (rev >= 1u && rev <= static_cast<uint32_t>(
                                               protocol_config.epoch_repeats));
     if (!due)
       return;
-    // A coalesced coast past the boundary skips this beacon; boundaries take precedence.
+    // A coalesced coast past the boundary skips this beacon.
     position = fly.position(now);
     if (position < protocol_config.W / 4)
       return;
@@ -744,8 +697,7 @@ private:
             protocol_config.beacon_frame_cols(digit_sum)) +
         protocol_config.late_censor_cycles();
     if (static_cast<int32_t>(frame_cycles) > fly.cycles_to_next_boundary(now)) {
-      // The margin only shrinks until the next ZERO crossing clears the latch,
-      // so this revolution's frame can never come to fit: stop re-fitting it.
+      // The margin only shrinks this revolution.
       beacon_done_this_rev = true;
       saturating_increment(telemetry_counters.beacons_late_dropped);
       return;

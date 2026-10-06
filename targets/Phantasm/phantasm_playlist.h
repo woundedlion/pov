@@ -11,10 +11,7 @@
  * @brief Phantasm device playlist: the HS_PHANTASM_EFFECT_LIST X-macro with
  *        per-entry show durations, plus its roster drift guards.
  *
- * Only the Phantasm firmware target and the roster cross-checks consume this;
- * the registry, tests, and gallery stay on HS_EFFECT_LIST's full roster.
- * tools/docs_check.py, scripts/effect_roster.mjs, and tools/profile_sweep.sh
- * parse the macro body out of this file's source text.
+ * Tooling parses the macro body out of this file's source text.
  */
 
 /**
@@ -22,9 +19,8 @@
  *        and the HS_PHANTASM_EXCLUDED_EFFECTS entries.
  * @param X Function-like macro applied to each effect type name and its show
  *          duration in seconds.
- * @details Entry order is the device show order, chosen independently of
- *   HS_EFFECT_LIST. The static_assert below HS_PHANTASM_EFFECT_COUNT forces
- *   this list to be revisited whenever HS_EFFECT_LIST gains or loses an entry.
+ * @details Entry order is the device show order, independent of
+ *   HS_EFFECT_LIST.
  */
 #define HS_PHANTASM_EFFECT_LIST(X)                                             \
   X(BZReactionDiffusion, 120)                                                  \
@@ -70,8 +66,7 @@
 
 #define HS_PHANTASM_EFFECT_COUNT_ADD(name, duration_seconds) +1
 /**
- * @brief Number of entries in HS_PHANTASM_EFFECT_LIST, derived rather than
- *        hand-counted.
+ * @brief Number of entries in HS_PHANTASM_EFFECT_LIST.
  */
 constexpr int HS_PHANTASM_EFFECT_COUNT =
     0 HS_PHANTASM_EFFECT_LIST(HS_PHANTASM_EFFECT_COUNT_ADD);
@@ -135,9 +130,7 @@ constexpr bool hs_phantasm_effect_list_is_subset() {
 }
 
 /**
- * @brief Roster effects the Phantasm playlist deliberately omits: the
- *        low-resolution-only entries. ShaderChain is omitted by
- *        its HS_ENABLE_CHAIN_INTERPRETER build flag instead.
+ * @brief Low-resolution-only roster effects the Phantasm playlist omits.
  * @param X Function-like macro applied to each excluded effect class name.
  */
 #define HS_PHANTASM_EXCLUDED_EFFECTS(X)                                        \
@@ -146,7 +139,7 @@ constexpr bool hs_phantasm_effect_list_is_subset() {
   X(Thrusters)
 
 #define HS_PHANTASM_EXCLUDED_COUNT_ADD(cls) +1
-/** @brief Number of HS_PHANTASM_EXCLUDED_EFFECTS entries, derived from it. */
+/** @brief Number of HS_PHANTASM_EXCLUDED_EFFECTS entries. */
 constexpr int HS_PHANTASM_EXCLUDED_COUNT =
     0 HS_PHANTASM_EXCLUDED_EFFECTS(HS_PHANTASM_EXCLUDED_COUNT_ADD);
 #undef HS_PHANTASM_EXCLUDED_COUNT_ADD

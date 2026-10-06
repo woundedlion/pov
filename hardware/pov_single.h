@@ -10,18 +10,11 @@
  * One Teensy controls one LED strip spanning both sides of the ring.
  * The IntervalTimer ISR sweeps columns at a rate derived from RPM and
  * the virtual canvas width.
- *
- * Include from target .ino files; the hardware include directory resolves it:
- * @code{.cpp}
- * #include "pov_single.h"
- * @endcode
  */
 #pragma once
 #include "core/platform/led.h" // PIN_DATA, PIN_CLOCK (FastLED path)
-#include "pov_single_map.h"    // pure strip index math (host-tested)
+#include "pov_single_map.h"
 
-// Arduino-only: depends on IntervalTimer, FastLED/DMA, and the Teensy runtime.
-// Pure strip index math is in pov_single_map.h (host-tested).
 #ifdef ARDUINO
 #include <Arduino.h>
 #ifdef USE_DMA_LEDS
@@ -33,14 +26,12 @@
 #include "core/math/geometry.h"
 #include "core/memory.h"
 #include <utility>
-#include <new> // std::nothrow — fail-fast OOM check on the effect allocation
+#include <new>
 
 /**
  * @brief Manages the display loop for a single-Teensy POV rig.
  * @tparam S Total LED count on the strip (both sides of the ring).
  * @tparam RPM The rotations per minute of the device.
- *
- * Used by Holosphere (96x20 with one Teensy owning the full strip).
  */
 template <int S, int RPM> class POVDisplay {
   static_assert(S > 0 && S % 2 == 0,
@@ -74,9 +65,8 @@ public:
    * @tparam Args Effect constructor argument types.
    * @param duration The time in seconds to run the effect.
    * @param args Arguments forwarded to the effect constructor.
-   * @details Eagerly fills the scanline LUTs for E's resolution before the
-   * first frame so the ISR never observes a half-filled table, then configures
-   * the arenas, constructs, runs, and deletes the effect.
+   * @details Fills the scanline LUTs for E's resolution before the first
+   * frame, so the ISR never observes a half-filled table.
    */
   template <typename E, typename... Args>
   static void show(unsigned long duration, Args &&...args) {
@@ -93,17 +83,14 @@ private:
 #if defined(USE_DMA_LEDS)
   /**
    * @brief HD107S SPI clock for the single-board DMA path, in Hz.
-   * @details Forwarded to ledController by
-   * HS_DEFINE_POV_SINGLE_LED_CONTROLLER, so the transfer budget below and the
-   * transport cannot drift apart.
    */
   static constexpr uint32_t SPI_CLOCK_HZ =
       DMALEDController<S>::DEFAULT_CLOCK_HZ;
 
   /**
    * @brief Worst-case duration of one column's LED transfer, in µs.
-   * @details Image frame plus the trailing black frame strobe_columns() appends,
-   * at SPI_CLOCK_HZ.
+   * @details Image frame plus the trailing strobe black frame, at
+   * SPI_CLOCK_HZ.
    */
   static constexpr unsigned long COLUMN_TRANSFER_US =
       dma::transfer_us(HD107SFrame<S>::COMPOSITE_SIZE, SPI_CLOCK_HZ);
@@ -116,34 +103,23 @@ private:
   /**
    * @brief Non-template core of show(): drives the column ISR for the effect's
    * lifetime.
-   * @param e Effect to run; borrowed, not owned. The caller (show) retains
-   * ownership and deletes it.
+   * @param e Effect to run; borrowed, not owned.
    * @param duration The time in seconds to run the effect.
-   * @details Publishes e to the ISR-visible effect only while the timer ISR is
-   * attached, then unpublishes it; does not delete e. Traps a driver/effect
-   * resolution mismatch and a failed timer start before either becomes a dark
-   * strip or an unguarded OOB read in the column ISR.
+   * @details Publishes e to the ISR only while the timer is attached.
    */
   static void run(Effect *e, unsigned long duration) {
-    // Unsigned start + (millis() - start) stays correct across the millis()
-    // wraparound; a signed start would mis-compare on overflow.
+    // Unsigned (millis() - start) stays correct across the millis() wrap.
     const unsigned long start = millis();
-    // duration * 1000 must fit in unsigned long.
     HS_CHECK(
         duration <= ~0UL / 1000UL,
         "show duration too long (duration*1000 ms overflows unsigned long)");
     const unsigned long duration_ms = duration * 1000;
-    // show_col() dereferences `effect` unguarded; an overlapping run() would
-    // publish a second pointer over the one the live ISR is reading.
     HS_CHECK(effect == nullptr,
              "POVDisplay::run() re-entered while an effect is live");
     effect = e;
-    // show_col() indexes buf[y * width + x] for y in [0, S/2), in-bounds only
-    // when the effect's canvas height equals the strip's half-height.
     HS_CHECK(effect->height() == S / 2,
              "POVDisplay: effect canvas height must equal S/2");
-    // strip_opposite_col's (x + w/2) % w antipode and the x == w/2 swap cadence
-    // both truncate w/2 on odd width, misregistering the bottom hemisphere.
+    // Odd width truncates w/2, misregistering the bottom hemisphere.
     HS_CHECK(effect->width() % 2 == 0,
              "POVDisplay: effect canvas width must be even");
     x = 0;
@@ -153,13 +129,9 @@ private:
         static_cast<unsigned long>(RPM) * effect->width();
     HS_CHECK(cols_per_min > 0, "column sweep rate is zero (width is 0)");
     const float interval_us = pov::column_interval_us(cols_per_min);
-    // A pathological RPM/width could round the period to 0 µs, an undefined
-    // IntervalTimer period.
     HS_CHECK(interval_us >= 1,
              "column interval rounded to 0 µs (RPM/width too high)");
 #if defined(USE_DMA_LEDS)
-    // A dropped column holds the last transfer for one period: the prior
-    // column, or black after a strobed column.
     HS_CHECK(interval_us > COLUMN_TRANSFER_US,
              "LED transfer outlasts the column period (S, RPM and canvas width "
              "would overrun the DMA every column)");
@@ -234,12 +206,9 @@ private:
       leds[S]; /**< Array holding the CRGB data for the physical LED strip. */
 #endif
   static Effect *effect; /**< Currently running effect; the ISR only reads it.
-                              Written by run() solely while the column timer is
-                              detached (before begin(), after end()), never
-                              mid-show. */
+                              Written only while the column timer is detached. */
   static int x; /**< Current column index being displayed (virtual position).
-                     ISR-owned like `effect`: run() seeds it to 0 only while the
-                     column timer is detached. */
+                     Seeded only while the column timer is detached. */
 #if defined(USE_DMA_LEDS)
   static DMALEDController<S>
       ledController; /**< HD107S DMA controller driving the physical strip. */
@@ -255,10 +224,9 @@ template <int S, int RPM> CRGB POVDisplay<S, RPM>::leds[S];
 #endif
 
 #if defined(USE_DMA_LEDS)
-// ledController has no out-of-line definition: DMAMEM survives only on an
-// explicit specialization (see DMALEDController in dma_led_controller.h). Each
-// instantiating single-board target invokes
-// HS_DEFINE_POV_SINGLE_LED_CONTROLLER(S, RPM) once at file scope.
+// DMAMEM survives only on an explicit specialization, so each instantiating
+// single-board target invokes HS_DEFINE_POV_SINGLE_LED_CONTROLLER(S, RPM) once
+// at file scope.
 #define HS_DEFINE_POV_SINGLE_LED_CONTROLLER(S, RPM)                            \
   template <> DMAMEM DMALEDController<S> POVDisplay<S, RPM>::ledController {   \
     POVDisplay<S, RPM>::SPI_CLOCK_HZ                                           \

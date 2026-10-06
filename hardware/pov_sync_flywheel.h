@@ -15,7 +15,7 @@
 #include <cassert>
 #include <cstdint>
 
-#include "core/platform/platform.h" // HS_CHECK used in Flywheel's constructor guard
+#include "core/platform/platform.h"
 
 namespace pov {
 namespace sync {
@@ -44,14 +44,10 @@ struct Crossing {
  *   x = (x_boundary + (now − epoch_cycles)·(W/2) / cycles_per_half_rev) mod W
  *
  * with a 64-bit intermediate. `epoch_cycles` is folded forward by exactly
- * cycles_per_half_rev at every locally-crossed boundary (the rebase rule).
- * Servicing fold() within the signed-safe coast window keeps elapsed differences
- * bounded across counter wrap; a full unattended wrap loses revolution history.
- * A snap re-bases
- * the epoch to a symbol's first-edge timestamp; because position is always
- * "time since epoch", the elapsed-column compensation of spec §5.2 falls out
- * for free — classification completing ~13 columns after the boundary still
- * yields the time-correct current column.
+ * cycles_per_half_rev at every locally-crossed boundary (the rebase rule); a
+ * full unattended counter wrap loses revolution history. A snap re-bases the
+ * epoch to a symbol's first-edge timestamp, so late classification still
+ * yields the time-correct column (spec §5.2).
  */
 class Flywheel {
 public:
@@ -78,8 +74,7 @@ public:
 
   /**
    * @brief Forces the flywheel LOCKED.
-   * @details Master is the reference by definition — it never snaps and is born
-   * locked (spec §2: "Master's flywheel IS the reference").
+   * @details For the master, which is the reference (spec §2).
    */
   void force_lock() { lock_state = LockState::LOCKED; }
 
@@ -92,13 +87,9 @@ public:
    */
   int32_t position(uint32_t at) const {
     const uint32_t elapsed = at - epoch_cycles; // modular
-    // Signed-safe window: `at` must lie within MIN_SAFE_HALF_REVS half-revs
-    // either side of the epoch, the coast the constructor sized the int32 cast
-    // for. Either sign is reachable — demarcation and the snap gate evaluate a
-    // past first-edge timestamp, and both run before tick()'s fold loop, so
-    // elapsed spans the whole coast since the last fold. Test the unsigned
-    // magnitude: a forward elapsed past the window wraps to a small-negative
-    // int32 that slips under a signed bound.
+    // `at` must lie within MIN_SAFE_HALF_REVS half-revs either side of the
+    // epoch. Test the unsigned magnitude: a forward elapsed past the window
+    // wraps to a small-negative int32 that slips under a signed bound.
     assert(
         (elapsed < static_cast<uint32_t>(MIN_SAFE_HALF_REVS) * period ||
          elapsed >= 0u - static_cast<uint32_t>(MIN_SAFE_HALF_REVS) * period) &&
@@ -116,9 +107,7 @@ public:
    * boundary has been passed.
    * @param now Current timestamp, in cycles.
    * @return A Crossing; crossed=false when no boundary was passed.
-   * @details If @p now has passed the next boundary, fold the epoch forward by
-   * exactly one half-rev (integer add — no drift) and report the crossing.
-   * Call in a loop until it returns crossed=false; a long coast (masked window)
+   * @details Call in a loop until it returns crossed=false; a long coast
    * yields several crossings, each at its exact instant.
    */
   Crossing fold(uint32_t now) {
@@ -153,13 +142,9 @@ public:
    * @param error_cols Out: implied correction distance, in columns (may be
    * null).
    * @return ACCEPTED, REJECTED, or REJECTED_FELL_BACK.
-   * @details LOCKED: accept only if the implied correction is ≤ G columns.
-   * Because G < W/4 (Config::valid), passing the distance gate also proves the
-   * named boundary is the flywheel's nearest predicted boundary — the identity
-   * check is subsumed. reject_fallback consecutive rejections fall back to
-   * ACQUIRE so the gate can never deadlock a genuinely-lost board. ACQUIRE:
-   * hard snap, no gate (the SyncBoard applies the quiet-before routing guard
-   * before calling this).
+   * @details LOCKED: accept only if the implied correction is ≤ G columns;
+   * since G < W/4 this also checks boundary identity. reject_fallback
+   * consecutive rejections fall back to ACQUIRE. ACQUIRE: hard snap, no gate.
    */
   SnapOutcome snap(Boundary b, uint32_t edge_cycles, int32_t *error_cols) {
     const int32_t target = boundary_column(b, w);
@@ -181,9 +166,7 @@ public:
    * @brief Count one implausible-symbol rejection toward the ACQUIRE fallback.
    * @return True when reject_fallback consecutive rejections concluded this
    * board's own timebase — not the wire — is at fault.
-   * @details Shared by the snap gate and the SyncBoard's suspect-burst timeout
-   * (spec §5.3: the fallback is mandatory; a gate without an escape deadlocks a
-   * lost board into rejecting good symbols forever).
+   * @details No-op outside LOCKED (spec §5.3).
    */
   bool note_rejection() {
     if (lock_state != LockState::LOCKED)
@@ -216,7 +199,7 @@ public:
     return static_cast<int32_t>(epoch_cycles + period - now);
   }
   /**
-   * @brief §4.3 frequency trim hook (snap-only ships; tests exercise extremes).
+   * @brief §4.3 frequency trim hook.
    * @param c New half-rev period, in cycles.
    */
   void set_cycles_per_half_rev(uint32_t c) {
@@ -228,9 +211,7 @@ private:
   /**
    * @brief Traps a half-rev period position()'s arithmetic cannot carry.
    * @param p Candidate cycles_per_half_rev.
-   * @details position() reinterprets (at - epoch_cycles) as int32 and divides by
-   * the period, so zero divides by zero and a period above INT32_MAX /
-   * MIN_SAFE_HALF_REVS voids the signed-safe coast window.
+   * @details Valid range is (0, INT32_MAX / MIN_SAFE_HALF_REVS].
    */
   static void check_period(uint32_t p) {
     HS_CHECK(p > 0 &&
