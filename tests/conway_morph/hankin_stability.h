@@ -584,5 +584,35 @@ inline void test_opleg_hankin_sweep_smoke() {
     std::printf("  [opleg hankin] worst per-frame vertex step %.4f chord "
                 "(bound %.2f)\n",
                 (double)probe.worst_step, (double)MAX_STEP_CHORD);
+
+    Arena arrival_arena(morph_aux_buf, sizeof(morph_aux_buf));
+    PolyMesh arrival;
+    Animation::OpLeg::arrival_mesh(landing, arrival, arrival_arena);
+    std::vector<math::Vector> seed_centers(seed.face_counts.size());
+    for (size_t f = 0, off = 0; f < seed.face_counts.size();
+         off += seed.face_counts[f], ++f)
+      seed_centers[f] = face_centroid_unit(seed, off, seed.face_counts[f]);
+    HS_EXPECT_GE(arrival.face_counts.size(), landing.primary_faces);
+    for (size_t f = 0, off = 0;
+         f < landing.primary_faces && f < arrival.face_counts.size();
+         off += arrival.face_counts[f], ++f) {
+      const math::Vector c =
+          face_centroid_unit(arrival, off, arrival.face_counts[f]);
+      size_t best = 0;
+      float best_d = INFINITY, runner_d = INFINITY;
+      for (size_t g = 0; g < seed_centers.size(); ++g) {
+        const float d = (seed_centers[g] - c).magnitude();
+        if (d < best_d) {
+          runner_d = best_d;
+          best_d = d;
+          best = g;
+        } else if (d < runner_d) {
+          runner_d = d;
+        }
+      }
+      HS_CONTEXT(site.name, f);
+      HS_EXPECT_EQ(best, f);
+      HS_EXPECT_LT(best_d, 0.5f * runner_d);
+    }
   }
 }
