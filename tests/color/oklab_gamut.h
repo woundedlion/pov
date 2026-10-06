@@ -729,6 +729,23 @@ inline void test_oklch_to_pixel_holds_hue_out_of_gamut() {
 // ============================================================================
 
 /**
+ * @brief Verifies hue_sincos tracks libm cosine and sine of a turn angle.
+ * @details Covers turns outside [-0.5, 0.5) so the wrap is exercised; the
+ *          approximation error stays under 2e-3.
+ */
+inline void test_hue_sincos_matches_libm() {
+  for (int i = -192; i <= 384; ++i) {
+    HS_CONTEXT("turn 192ths", i);
+    const float turns = i / 192.0f + 0.0013f;
+    float cosine, sine;
+    hue_sincos(turns, cosine, sine);
+    const double angle = 2.0 * 3.14159265358979323846 * turns;
+    HS_EXPECT_NEAR(cosine, static_cast<float>(std::cos(angle)), 2e-3f);
+    HS_EXPECT_NEAR(sine, static_cast<float>(std::sin(angle)), 2e-3f);
+  }
+}
+
+/**
  * @brief Verifies a perceptual hue rotation leaves a gray unchanged.
  * @details A gray has zero chroma in OKLab, so the color must come back
  *          unchanged (within 1 LSB) for any amount, with alpha preserved.
