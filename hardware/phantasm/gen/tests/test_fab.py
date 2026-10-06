@@ -1,4 +1,5 @@
 import contextlib
+import csv
 import hashlib
 import io
 import json
@@ -1119,6 +1120,94 @@ class ZipMembershipTests(unittest.TestCase):
 
 
 class PackagePromotionTests(unittest.TestCase):
+    def test_success_promotes_bom_cpl_archive_and_manifest(self):
+        with tempfile.TemporaryDirectory() as directory, contextlib.ExitStack() as stack:
+            out = Path(directory)
+            jlc = out / "jlc"
+            jlc.mkdir()
+            (jlc / "previous.txt").write_text("previous package", encoding="utf-8")
+            comps = {
+                "R_A": {"value": "33R", "footprint": "Resistor:R_0805", "dnp": False},
+                "R_B": {"value": "33R", "footprint": "Resistor:R_0805", "dnp": False},
+                "R_C": {"value": "47R", "footprint": "Resistor:R_0805", "dnp": False},
+                "R_D": {"value": "33R", "footprint": "Resistor:R_0603", "dnp": False},
+                "R_E": {"value": "33R", "footprint": "Resistor:R_0805", "dnp": False},
+                "U1": {"value": "74AHCT125", "footprint": "Logic:SOIC-14", "dnp": False},
+            }
+            metadata = {
+                ref: {"lcsc": "C17634", "pos_x": str(index + 10),
+                      "pos_y": str(index + 20), "side": "top", "rotation": 17.0}
+                for index, ref in enumerate(comps)
+            }
+            metadata["R_E"].update(lcsc="C17408", side="bottom")
+            metadata["U1"].update(lcsc="C155176", rotation=180.0)
+
+            def export(stage, args):
+                target = Path(args[args.index("-o") + 1])
+                if stage == "netlist":
+                    target.write_text('(export (design (sheet (name "/") '
+                                      '(title_block (rev "1.1")))))', encoding="utf-8")
+                elif stage == "centroid":
+                    target.write_text("Ref,PosX,PosY,Rot,Side\n", encoding="utf-8")
+                elif stage == "gerber":
+                    for name in ZipMembershipTests.EXPORTED:
+                        (target / name).write_bytes(f"fixture export: {name}\n".encode())
+
+            for name, value in {"OUT": str(out), "JLC": str(jlc)}.items():
+                stack.enter_context(mock.patch.object(fab, name, value))
+            gates = {
+                "kicad_cli": "fixture-cli", "read_board": [],
+                "validate_plot_origin": None, "validate_via_geometry": 0,
+                "validate_solder_mask": None, "validate_zone_geometry": 0,
+                "validate_project_rules": 0, "run_drc": (0, 0),
+                "run_erc": 0, "run_parity": 0, "validate_netlist_spec": 0,
+                "parse_components": comps, "validate_assembled_refs": None,
+                "validate_rotation_refs": None, "validate_assembly_metadata": metadata,
+                "validate_part_catalog": None, "normalize_fab_timestamps": [],
+                "validate_fab_content": {"plated": 0, "unplated": 0},
+            }
+            for name, value in gates.items():
+                stack.enter_context(mock.patch.object(fab, name, return_value=value))
+            stack.enter_context(mock.patch.object(fab, "run_export", side_effect=export))
+            stack.enter_context(contextlib.redirect_stdout(io.StringIO()))
+            fab.main()
+
+            expected_files = set(ZipMembershipTests.EXPORTED) | {
+                "phantasm-BOM.csv", "phantasm-CPL.csv", fab.ARCHIVE, fab.SUMS_FILE}
+            self.assertEqual({path.name for path in jlc.iterdir()}, expected_files)
+            self.assertFalse((out / "jlc.previous").exists())
+            self.assertFalse(any(path.name.startswith(fab.STAGE_PREFIX) for path in out.iterdir()))
+            with (jlc / "phantasm-BOM.csv").open(newline="", encoding="utf-8") as stream:
+                bom = list(csv.reader(stream))
+            self.assertEqual(bom[0], ["Comment", "Designator", "Footprint", "LCSC Part #",
+                                      "Manufacturer", "Manufacturer Part Number", "Description"])
+            self.assertEqual([row[:4] for row in bom[1:]], [
+                ["33R", "R_D", "R_0603", "C17634"],
+                ["33R", "R_E", "R_0805", "C17408"],
+                ["33R", "R_A,R_B", "R_0805", "C17634"],
+                ["47R", "R_C", "R_0805", "C17634"],
+                ["74AHCT125", "U1", "SOIC-14", "C155176"],
+            ])
+            for row in bom[1:]:
+                part = fab.PART_BY_LCSC[row[3]]
+                self.assertEqual(row[4:], [part["manufacturer"], part["mpn"], part["description"]])
+            with (jlc / "phantasm-CPL.csv").open(newline="", encoding="utf-8") as stream:
+                cpl = list(csv.reader(stream))
+            self.assertEqual(cpl, [
+                ["Designator", "Mid X", "Mid Y", "Layer", "Rotation"],
+                ["R_A", "10", "20", "top", "17.000000"],
+                ["R_B", "11", "21", "top", "17.000000"],
+                ["R_C", "12", "22", "top", "17.000000"],
+                ["R_D", "13", "23", "top", "17.000000"],
+                ["R_E", "14", "24", "bottom", "17.000000"],
+                ["U1", "15", "25", "top", "90.000000"],
+            ])
+            with zipfile.ZipFile(jlc / fab.ARCHIVE) as archive:
+                self.assertEqual(archive.namelist(), sorted(ZipMembershipTests.EXPORTED))
+                for name in archive.namelist():
+                    self.assertEqual(archive.read(name), (jlc / name).read_bytes())
+            self.assertEqual(fab.verify_package(str(jlc), None), len(expected_files) - 1)
+
     def test_invalid_members_preserve_the_previous_package(self):
         for replacement in (None, "unexpected-In1_Cu.g1", "archive-failure", "stale-backup"):
             with self.subTest(replacement=replacement), \
@@ -1180,7 +1269,7 @@ class PackagePromotionTests(unittest.TestCase):
 
 
 class PackageManifestTests(unittest.TestCase):
-    """The fab run builds a byte-reproducible package."""
+    """Fabrication manifest membership and digests."""
 
     ARCHIVE = "phantasm-jlc-gerbers.zip"
 
