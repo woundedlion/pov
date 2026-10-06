@@ -14,7 +14,7 @@ host suite. Teensy builds expose serial diagnostics when a monitor is attached.
 This ledger collects them in one place so the question *"which forks are reached by a device-value
 test, and which are not?"* has a single, auditable answer.
 
-**Citation style:** rows name the *symbol* (`H_OFFSET`, `addmod8`, `case_empty_fn_call`) and the
+**Citation style:** rows name the *symbol* (`HS_TEST_H_OFFSET`, `addmod8`, `case_empty_fn_call`) and the
 file that holds it, never a line number. Line numbers in a ledger that is only worth its
 auditability drift silently — `tools/docs_check.py` validates the file half of a `path:line`
 span and cannot check the number. Grep for the symbol.
