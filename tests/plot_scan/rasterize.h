@@ -44,7 +44,7 @@ inline void test_rasterize_subpixel_open_segment_plots_both_endpoints() {
 
 /**
  * @brief A normal-length open segment is sampled densely enough to be gap-free
- *        (no inter-sample gap exceeds one pixel column) and lands on both
+ *        (no inter-sample gap exceeds 1.5 pixel columns) and lands on both
  *        endpoints.
  */
 inline void test_rasterize_open_segment_gap_free() {
