@@ -42,7 +42,7 @@ struct DistortedRing {
    * @param phase Angular phase offset in radians.
    * @param debug_bb When true, renders the bounding box for debugging.
    * @param suppress_pole_fill Drop the degenerate exact-pole row instead of
-   *        full-row filling it (dense ring stacks; see get_horizontal_intervals).
+   *        full-row filling it.
    */
   template <int W, int H, bool ComputeUVs = true>
   static void draw_flat(PipelineRef pipeline, Canvas &canvas,
@@ -103,7 +103,7 @@ struct DistortedRing {
    * @param phase Angular phase offset in radians.
    * @param debug_bb When true, renders the bounding box for debugging.
    * @param suppress_pole_fill Drop the degenerate exact-pole row instead of
-   *        full-row filling it (dense ring stacks; see get_horizontal_intervals).
+   *        full-row filling it.
    */
   template <int W, int H, bool ComputeUVs = true>
   static void draw(PipelineRef pipeline, Canvas &canvas,
@@ -160,12 +160,9 @@ struct DistortedRingStack {
    * @param slot_by_ring n_rings entries mapping ring index -> slot, -1 if
    *        culled.
    * @param n_slots Number of shapes; every occupied entry must index below it.
-   * @details The fused scan derives one phase-free azimuth per pixel for the
-   * whole stack, so a non-zero ring phase would index the wrong knot cell and
-   * mislabel v0. That frame is read from slot 0 alone, so a divergent basis
-   * would silently render its ring at slot 0's orientation. Not cold: a cold
-   * call on draw's entry path marks the whole scan unlikely, which moves it to
-   * flash and compiles it for size.
+   * @details The fused scan derives one phase-free azimuth frame per pixel
+   * from slot 0, so a ring with a non-zero phase or a divergent basis would
+   * render wrong.
    */
   template <typename ShapeRange>
   HS_HOT_FLASH_MEMBER static void
@@ -196,15 +193,10 @@ struct DistortedRingStack {
    * @param slot_by_ring n_rings entries mapping ring index -> slot, -1 if
    *        culled.
    * @param table Table to fill.
-   * @details A ring lights a pixel only through a polyline point within its
-   * thickness in the pixel's (azimuth * sin(polar), polar) chart. Within one
-   * azimuth chunk the polyline stays inside the chunk's knot range (a segment
-   * registers in every chunk it touches), and at the narrowest circle of the
-   * ring's band the stroke reaches k chunks sideways, so a chunk's span is the
-   * knot range of the chunk and its k neighbours on each side, widened by the
-   * thickness. Where the chart compresses past the search budget, the search
-   * reports its frontier rather than a curve point, so the ring claims its
-   * whole band instead.
+   * @details A chunk's span is the knot range of the chunk and the k
+   * neighbours on each side the stroke can reach at the ring band's narrowest
+   * circle, widened by the thickness. A ring whose chart compresses past the
+   * search budget claims its whole band.
    */
   template <int W, int H, typename ShapeRange>
   HS_HOT_FLASH_MEMBER static void
@@ -310,22 +302,12 @@ struct DistortedRingStack {
    * @param n_slots Number of shapes, in [1, 127].
    * @param table Candidate map storage, rebuilt here.
    * @param shader Per-ring fragment shader (see RingShaderT).
-   * @details The per-pixel frame shared by every ring at a pixel (axis dot,
-   * fast_acos, fast_atan2) is computed once, the frame's (polar, azimuth) cell
-   * in the candidate table names the rings that can reach the pixel, and each
-   * candidate runs its own cos reject + exact polyline distance via
-   * SDF::DistortedRing::distance_from_frame. Candidates evaluate in ascending
-   * ring index, so the pixels plotted, their per-pixel blend order and their
-   * colors match rasterizing the rings one by one at pole_lod_aggressiveness 0;
-   * only the redundant per-ring frame recompute is elided. Blend weights match
-   * to float rounding, not bit-exactly: the shared arithmetic is spelled once
-   * but inlined into two different loops, which -ffast-math reassociates
-   * independently. This scan shades every column, so a non-zero aggressiveness,
-   * which decimates the per-ring scan_region walk, breaks that equivalence. The
-   * aliased exact-pole rows are dropped, matching the per-ring path under
-   * suppress_pole_fill. Takes no debug flag and does not read canvas.debug():
-   * unlike RingGroup there is no per-ring fallback, so the bounding-box tint
-   * never reaches a stack.
+   * @details The per-pixel frame (axis dot, fast_acos, fast_atan2) is computed
+   * once; the candidate table names the rings that can reach the pixel, each
+   * evaluated in ascending ring index via
+   * SDF::DistortedRing::distance_from_frame. At pole_lod_aggressiveness 0 the
+   * output matches rasterizing the rings one by one under suppress_pole_fill,
+   * to float rounding. Does not read canvas.debug().
    */
   template <int W, int H, typename PipelineT, typename RingShaderT,
             typename ShapeRange>
@@ -333,9 +315,6 @@ struct DistortedRingStack {
                    ShapeRange shapes, const int8_t *slot_by_ring, int n_slots,
                    CandidateTable<W, H> &table, RingShaderT &&shader) {
     using Table = CandidateTable<W, H>;
-    // Spelled inline rather than through check_canvas_dims: the helper is
-    // HS_NOINLINE_NOCLONE, and calling out to it from inside this HS_O3 region
-    // costs 1,616 B of ITCM.
     HS_CHECK(canvas.width() == W && canvas.height() == H,
              "canvas size differs from the scan's W/H");
     check_pipeline_prepared(pipeline, canvas);
@@ -369,9 +348,8 @@ struct DistortedRingStack {
     }
     constexpr float bin_scale = Table::BINS / math::PI_F;
 
-    // The per-ring path suppresses the aliased exact-pole rows
-    // (suppress_pole_fill); its full-scan fallback for a near-canvas-pole
-    // axis (r_val below the projection floor) scans every row.
+    // Aliased exact-pole rows are skipped unless the axis is near a canvas pole
+    // (r_val below the projection floor).
     SDF::AxisProjection ap = SDF::project_axis(shapes[0].normal);
     const bool skip_pole_rows = ap.r_val >= SDF::MIN_HORIZONTAL_PROJ;
 
@@ -539,9 +517,7 @@ struct Ring {
    * @param fragment_shader Shader invoked per covered pixel.
    * @param phase Angular phase offset in radians.
    * @param debug_bb When true, renders the bounding box for debugging.
-   * @details SDF::Ring spans the whole [0, 2] radius range in the given frame,
-   * so the shape is built unflipped: a radius past 1 keeps the caller's
-   * azimuth origin and handedness, matching DistortedRing at the same radius.
+   * @details A radius past 1 keeps the caller's azimuth origin and handedness.
    */
   template <int W, int H, bool ComputeUVs = true>
   static void draw(PipelineRef pipeline, Canvas &canvas,
@@ -599,30 +575,19 @@ struct RingGroup {
    * @param shapes Ring shapes in draw order.
    * @param n Number of shapes, in [1, MAX_RINGS] (8).
    * @param shader Per-ring fragment shader (see RingShaderT).
-   * @param debug_bb When true, falls back to per-ring rasterizes so the
-   *        bounding-box tint keeps per-shape scan bounds; canvas.debug() takes
-   *        the same fallback. Each ring is then scanned against its own row
-   *        intervals rather than the covering ring's, so even a conforming
-   *        shader renders the AA-tail difference described below, and the
-   *        fallback fills v0/v1/v3 per pixel on top of that.
-   * @details Row intervals come from one covering ring — the middle member (n/2) inflated by
-   * the group's maximum plane/radius deviation plus thickness — which contains
-   * every member's band, so the per-row interval math runs once, not per
-   * member. Per pixel the members evaluate in ascending slot order via the
-   * inline stroke_alpha eval, so blend order matches rasterizing the rings
-   * one by one. At pole_lod_aggressiveness 0 the only output divergence is
-   * AA-tail pixels (alpha barely above the 0.001 cutoff) that a member's own
-   * interval clip drops but the covering scan paints. This scan shades every
-   * column, so a non-zero aggressiveness, which decimates the per-ring
-   * scan_region walk, widens the divergence beyond that dust.
+   * @param debug_bb When true, or under canvas.debug(), falls back to per-ring
+   *        rasterizes, which scan each ring's own row intervals and fill
+   *        v0/v1/v3 per pixel.
+   * @details Row intervals come from one covering ring: the middle member (n/2)
+   * inflated by the group's maximum plane/radius deviation plus thickness.
+   * Members evaluate per pixel in ascending slot order. At
+   * pole_lod_aggressiveness 0 the only divergence from rasterizing the rings
+   * one by one is AA-tail pixels a member's own interval clip would drop.
    */
   template <int W, int H, typename PipelineT, typename RingShaderT>
   static void draw(PipelineT &pipeline, Canvas &canvas, const SDF::Ring *shapes,
                    int n, RingShaderT &&shader, bool debug_bb = false) {
     static constexpr int MAX_RINGS = 8;
-    // Spelled inline rather than through check_canvas_dims: the helper is
-    // HS_NOINLINE_NOCLONE, and calling out to it from inside this HS_O3 region
-    // costs 1,616 B of ITCM.
     HS_CHECK(canvas.width() == W && canvas.height() == H,
              "canvas size differs from the scan's W/H");
     check_pipeline_prepared(pipeline, canvas);
@@ -662,10 +627,8 @@ struct RingGroup {
     if (y_lo > y_hi)
       return;
 
-    // Covering ring: every point of member s's centerline lies within its
-    // plane/radius deviation of the middle member's, so the middle member
-    // inflated by the worst deviation plus that member's thickness contains
-    // the whole group's stroke band. The 1e-3 absorbs fast_acos error.
+    // Covering ring: the middle member inflated by the worst centerline
+    // deviation plus thickness. The 1e-3 absorbs fast_acos error.
     const int mid = n / 2;
     float pad_th = shapes[mid].thickness;
     for (int s = 0; s < n; ++s) {
@@ -818,7 +781,6 @@ struct Point {
   static void draw(PipelineRef pipeline, Canvas &canvas, const math::Vector &p,
                    float thickness, FragmentShaderFn fragment_shader,
                    bool debug_bb = false) {
-    // Point is a Ring with radius 0.
     math::Basis basis = math::make_basis(math::Quaternion(), p);
     Ring::draw<W, H>(pipeline, canvas, basis, 0.0f, thickness, fragment_shader,
                      0.0f, debug_bb);
@@ -910,8 +872,7 @@ struct Flower {
 /**
  * @brief Draws a solid spherical polygon.
  * @details Both entry points add half a sector to the caller's phase, so phase
- * 0 puts a vertex on the basis u-axis where the sibling shapes put an edge
- * midpoint.
+ * 0 puts a vertex on the basis u-axis.
  */
 struct SphericalPolygon {
   /**

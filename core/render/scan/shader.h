@@ -22,35 +22,14 @@ namespace Scan {
 
 /**
  * @brief Full-screen per-pixel shaders with SAMPLES× SSAA.
- *
- * Entry points:
- * - draw(canvas, shader): one callable ShaderFn(const Vector &v) -> Color4
- *   or premultiplied Pixel, invoked SAMPLES× per pixel at sub-pixel offsets
- *   and averaged.
- * - draw_cached(canvas, shader): the same typed draw with its traversal placed
- *   in cached flash.
- * - draw(canvas, fragment_shader, vertex_shader): splits per-pixel setup
- *   (vertex_shader, once at the pixel center) from per-sub-sample evaluation.
- *   Both callables are required; a null one traps.
- * - draw_block_coherent(canvas, block, positions, scratch, classify, shade):
- *   shades from the union of a canvas-anchored block's corner candidates.
- * - draw_grid(canvas, vertex_shader, pixel_shader): hands the seeded fragment
- *   and the row's SsaaGrid to pixel_shader, which owns the sampling and returns
- *   the finished pixel.
- * - walk_grid(canvas, pixel_shader): hands the center vector and row's SsaaGrid
- *   to pixel_shader without constructing a Fragment.
- *
  * @details Every entry point assigns the finished premultiplied color to the
- * canvas rather than plotting it, so the destination is overwritten: alpha < 1
- * darkens the pixel instead of blending with what is under it, and no
- * plot-time filter stage (Filter::World / Filter::Screen / Filter::Pixel) sees it. These entry
- * points take no pipeline; an effect needing the filter chain must plot
- * through it itself. They take no debug flag and do not read canvas.debug():
- * every pixel is covered, so there is no scan bound for the bounding-box tint
- * to mark.
+ * canvas rather than plotting it: alpha < 1 darkens the pixel instead of
+ * blending, and no plot-time filter stage (Filter::World / Filter::Screen /
+ * Filter::Pixel) sees it. Entry points take no pipeline and do not read
+ * canvas.debug().
  */
 struct Shader {
-  // --- Shared SSAA helpers (used by every entry point) -----------------------
+  // --- Shared SSAA helpers ---------------------------------------------------
   /**
    * @brief Per-draw sub-pixel trig for the 2×2 SSAA sample grid, derived from
    *        the resident engine trig LUT.
@@ -113,7 +92,7 @@ struct Shader {
   };
 
   /**
-   * @brief Validates the LUT-domain invariant shared by every entry point.
+   * @brief Validates the clip region against the LUT domain.
    * @tparam W Canvas width in pixels.
    * @tparam H Canvas height in pixels.
    * @param cr Clip region whose bounds are checked against the LUT extents.
@@ -251,19 +230,13 @@ public:
    * @param canvas Destination canvas.
    * @param fragment_shader Per-sub-sample shader, called SAMPLES× per pixel.
    * @param vertex_shader Per-pixel shader, called once at the pixel center.
-   * @details Splits expensive per-pixel work (vertex_shader, once at pixel
-   * center) from per-sub-sample evaluation (fragment_shader, SAMPLES×).
-   *
-   * @note SAMPLES defaults to 1 (no SSAA), matching the single-callback overload.
    */
   template <int W, int H, int SAMPLES = 1>
   static void draw(Canvas &canvas, FragmentShaderFn fragment_shader,
                    VertexShaderRef vertex_shader) {
-    // Only 1 and 4 are supported (see the single-callback overload).
     static_assert(SAMPLES == 1 || SAMPLES == 4,
                   "Scan::Shader SSAA supports only SAMPLES == 1 or 4");
-    // Cold (once per draw), not per-pixel: trap null shaders here so they fail
-    // deterministically instead of calling a null thunk under NDEBUG.
+    // FunctionRef only asserts on a null ref.
     HS_CHECK(vertex_shader,
              "Scan::Shader::draw requires a non-null vertex_shader");
     HS_CHECK(fragment_shader,
@@ -271,9 +244,7 @@ public:
     check_canvas_dims<W, H>(canvas);
     if (!math::TrigLUT<W, H>::initialized)
       math::TrigLUT<W, H>::init();
-    // frag_base is per pixel, not per draw: each pixel starts from a default
-    // Fragment, so a vertex shader writing only some registers (v0-v3/size/age/
-    // color) can't inherit the previous pixel's values.
+    // frag_base is per pixel, so registers never carry over between pixels.
     if constexpr (SAMPLES == 1) {
       const auto &cr = canvas.clip();
       check_lut_domain<W, H>(cr);
@@ -289,8 +260,6 @@ public:
           frag_base.pos = center_v;
           vertex_shader(frag_base);
           fragment_shader(center_v, frag_base);
-          // Premultiply by alpha, matching the single-callback overload and the
-          // process_pixel/Volume contract.
           canvas(x, y) = frag_base.color.color * frag_base.color.alpha;
         });
       }
@@ -314,8 +283,7 @@ public:
           frag_base.pos = center_v;
           vertex_shader(frag_base);
 
-          // Premultiplied SSAA: accumulate coverage-weighted color directly (see
-          // the single-callback overload).
+          // Premultiplied SSAA: accumulate coverage-weighted color directly.
           Pixel accum(0, 0, 0);
 
           for (int i = 0; i < SAMPLES; ++i) {
@@ -347,12 +315,7 @@ public:
    * @param vertex_shader Per-pixel shader, called once at the pixel center.
    * @param pixel_shader Owns the pixel: receives the seeded fragment, the
    *        sub-pixel SSAA grid for the current row, and the pixel column, and
-   *        returns the final (premultiplied) pixel. A template, not a
-   *        type-erased FunctionRef: the whole body inlines into this loop, and
-   *        the effect can hoist work its sub-samples share.
-   * @details Same outer scaffolding as the SSAA draw() overloads (clip,
-   * LUT-domain check, trig-LUT init, per-row SsaaGrid); the
-   * per-pixel work is delegated whole so the caller controls the sampling.
+   *        returns the final (premultiplied) pixel.
    */
   template <int W, int H, typename VertexFn, typename PixelFn>
   HS_O3_FN static void draw_grid(Canvas &canvas, VertexFn &&vertex_shader,
@@ -474,7 +437,6 @@ public:
       }
 
     // One candidate set per block column, rebuilt on each block-row change.
-    // Positions are copied in so the per-pixel scan runs over contiguous data.
     const int nblk = nbx - 1;
     BlockCandidates<K> *cands = scratch.allocate_n<BlockCandidates<K>>(nblk);
     auto build_candidate_row = [&](int ky) {

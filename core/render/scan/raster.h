@@ -35,8 +35,7 @@ inline constexpr float MIN_ALPHA = 0.001f;
  * @param sin_phi Sine of the row's colatitude; sign is ignored.
  * @return Run length in columns, 1 when decimation is off or unwarranted.
  * @details `Render::pole_lod_aggressiveness / sin(phi)`, clamped to Render::POLE_LOD_MAX_RUN.
- *          Returns 1 at aggressiveness 0, which makes every caller's walk
- *          bit-identical to an undecimated one.
+ *          Returns 1 at aggressiveness 0.
  */
 inline int pole_lod_run(float sin_phi) {
   const float lod = Render::pole_lod_aggressiveness;
@@ -88,8 +87,7 @@ __attribute__((always_inline)) inline float pole_lod_slack(int run,
 /**
  * @brief Factor from an angular step to the units a shape's distance() reports.
  * @details A block probe's slack is an arc, so a shape reporting in another
- * unit has to scale it. Spelled per shape rather than defaulted: a shape whose
- * reporting unit is unstated has no overload and does not compile.
+ * unit scales it. A shape without an overload does not compile.
  */
 __attribute__((always_inline)) inline float report_stretch(const SDF::Ring &) {
   return 1.0f;
@@ -127,8 +125,7 @@ __attribute__((always_inline)) inline float
 report_stretch(const SDF::Face &shape) {
   return 1.0f + shape.max_dist_sq;
 }
-// Declared ahead of their definitions so a nested composite's recursive call
-// resolves against the whole set, not just the overloads above it.
+// Forward-declared so a nested composite's recursive call sees every overload.
 template <typename A, typename B>
 inline float report_stretch(const SDF::Union<A, B> &shape);
 template <typename A, typename B>
@@ -187,10 +184,9 @@ inline constexpr bool pole_lod_blocks =
  * @param block_slack Extra clearance demanded of a block probe.
  * @return True when a report at or above threshold + block_slack holds for
  *         every column in the block.
- * @details Past its reject band a shape may report FAR_SENTINEL instead of a
- * distance (SDF::reject_margin), and the sentinel bounds nothing. The block
- * test is trustworthy only where the widened threshold sits inside the margin,
- * so that a sentinel implies the surface is genuinely that far away.
+ * @details Past its reject band (SDF::reject_margin) a shape may report
+ * FAR_SENTINEL, which bounds nothing; the block test holds only where the
+ * widened threshold sits inside the margin.
  */
 template <typename ShapeT>
 __attribute__((always_inline)) inline bool
@@ -235,9 +231,8 @@ pole_lod_block_settles(float clearance, float threshold, float block_slack) {
  * @tparam W Canvas width in pixels.
  * @tparam H Canvas height in pixels.
  * @param canvas Destination canvas.
- * @details Checked once per draw, not per row or pixel. Canvas dimensions must
- * match the trig LUT extents and the pipeline's wrap period and framebuffer
- * stride.
+ * @details Canvas dimensions must match the trig LUT extents and the
+ * pipeline's wrap period and framebuffer stride.
  */
 template <int W, int H>
 HS_NOINLINE_NOCLONE inline void check_canvas_dims(const Canvas &canvas) {
@@ -251,8 +246,7 @@ HS_NOINLINE_NOCLONE inline void check_canvas_dims(const Canvas &canvas) {
  * @param canvas Destination canvas.
  * @details A direct-raster sink writes through a cached framebuffer base; the
  * canvas double-buffers, so a stale base is the buffer the display is scanning
- * out. Compiles away for a pipeline without the hook; an erased sink was
- * checked when its PipelineRef was built.
+ * out. Compiles away for a pipeline without the hook.
  */
 template <typename PipelineT>
 inline void check_pipeline_prepared(PipelineT &pipeline, Canvas &canvas) {
@@ -282,8 +276,7 @@ inline const ClipRegion &source_clip(const PipelineT &pipeline,
 /**
  * @brief Validates that a type-erased fragment shader refers to a callable.
  * @param fragment_shader Shader the draw invokes per pixel.
- * @details Checked once per draw, not per pixel: FunctionRef::operator() guards
- * an empty ref with assert alone, so an optimized build calls a null thunk.
+ * @details FunctionRef::operator() only asserts on an empty ref.
  */
 HS_NOINLINE_NOCLONE inline void
 check_fragment_shader(FragmentShaderFn fragment_shader) {
@@ -379,8 +372,7 @@ inline int process_pixel(int x, int y, const math::Vector &p,
       return span;
 
     // Scratch Fragment is reused across pixels; reset color each call so a
-    // conditionally-writing shader starts from a clean color/alpha (matches
-    // Plot::rasterize).
+    // conditionally-writing shader starts from a clean color/alpha.
     frag_scratch.color = Color4(0, 0, 0, 0);
     frag_scratch.pos = p;
     frag_scratch.v0 = result_scratch.t;
@@ -417,12 +409,9 @@ inline int process_pixel(int x, int y, const math::Vector &p,
  * @param intervals Source spans in fractional column units; one of length >= W
  *        normalizes to the full row instead of seam-splitting.
  * @param norm Scratch, cleared here, receiving coalesced integer column runs.
- * @details Wrapping each start into [0, W) and splitting spans that cross the
- * x=0 seam gives the forward sweep sorted, non-wrapping input even when a
- * shape/CSG straddles θ=0. Runs are emitted monotone and disjoint: last_x2
- * clamps a run's start past the previous run's end so two spans sharing a
- * fractional column do not both paint it (double shade / alpha). The clamp can
- * leave a run empty (x1 == x2); consumers iterate [x1, x2) and skip it.
+ * @details Starts wrap into [0, W) and seam-crossing spans split, so the sweep
+ * sees sorted, non-wrapping input. Runs are monotone and disjoint, so a shared
+ * fractional column is painted once; a run may be empty (x1 == x2).
  */
 template <int W, typename IntervalBufT, typename NormBufT>
 HS_NOINLINE_NOCLONE inline void coalesce_spans(const IntervalBufT &intervals,
@@ -493,8 +482,6 @@ clip_run(int x1, int x2, ClipRegion::XClip xc, EmitFn &&emit) {
  * @param xc Column-arc clip.
  * @param body Sink receiving each surviving column, in the same ascending order
  *        a per-column `clipped()` test would leave.
- * @details The arc's pieces are collected before they are walked, so `body`
- * inlines once rather than once per clip_run emission.
  */
 template <int W, typename BodyFn>
 __attribute__((always_inline)) inline void
@@ -521,9 +508,7 @@ walk_clip_columns(ClipRegion::XClip xc, BodyFn &&body) {
  * @param xc Column-arc clip.
  * @param body Sink receiving each surviving column, in the same order
  *        walk_clip_columns() visits them.
- * @details Walks both arc pieces in one loop. -O3 fully unrolls
- * walk_clip_columns()' two-piece loop, which copies an always-inline body once
- * per piece.
+ * @details Walks both arc pieces in one loop, so the body is emitted once.
  */
 template <int W, typename BodyFn>
 __attribute__((always_inline)) inline void
@@ -566,10 +551,8 @@ walk_clip_columns_once(ClipRegion::XClip xc, BodyFn &&body) {
  * @param norm Scratch for the seam split; clobbered.
  * @param xc Column-arc clip applied to every run before it is emitted.
  * @param emit Sink receiving clipped pieces; empty pieces are no-ops.
- * @details Shared by scan_region and by the fused RingGroup walk, which cannot
- * call scan_region itself. With a non-wrapping clip, non-empty runs arrive in
- * ascending column order. A wrapping clip does not provide a global ordering
- * guarantee across callbacks.
+ * @details With a non-wrapping clip, non-empty runs arrive in ascending column
+ * order; a wrapping clip gives no global ordering across callbacks.
  */
 template <int W, typename IntervalBufT, typename NormBufT, typename EmitFn>
 __attribute__((always_inline)) inline void
@@ -582,10 +565,7 @@ emit_row_runs(bool handled, const IntervalBufT &intervals, NormBufT &norm,
   if (intervals.is_empty())
     return;
 
-  // A single span covering the full circle (len >= W) paints every column;
-  // detect it up front and skip the seam-split/sort/coalesce path. Coverage
-  // assembled from multiple abutting spans is not caught here — it falls to the
-  // slow path, which still paints every covered column.
+  // A single span of length >= W paints every column.
   for (const auto &iv : intervals) {
     if (iv.end - iv.start >= static_cast<float>(W)) {
       clip_run(0, W, xc, emit);
@@ -602,7 +582,7 @@ emit_row_runs(bool handled, const IntervalBufT &intervals, NormBufT &norm,
  *  ceiling on sdf_max_spans of any shape handed to a rasterizer. Covers a
  *  top-level Union/SmoothUnion (|A|+|B|) and Subtract (|A|); a top-level
  *  Intersection (2·|A| + 2·|B|) fits when |A| + |B| <=
- *  INTERVAL_SPAN_CAP + 1 (33 spans). */
+ *  INTERVAL_SPAN_CAP + 1. */
 inline constexpr size_t TOP_SPAN_CAP = 2 * SDF::INTERVAL_SPAN_CAP + 2;
 
 /** Traps at compile time when a top-level shape can emit more spans per row
@@ -628,27 +608,12 @@ inline constexpr bool fits_top_span_cap =
  *                 the whole offer, else 1 (never 0).
  * @param xc Column-arc clip; pixel runs are intersected with the arc before
  *           walking, so pixel_fn is never called for a clipped column.
- * @details Iterates y in [y_min, y_max], collects float intervals per row via
- * get_intervals, wraps x coordinates, and offers pixel_fn column runs.
+ * @details Near-pole rows offer only full canvas-aligned blocks of
+ * pole_lod_run(sin(phi)) columns; a block a clip or span edge truncates is
+ * walked per column.
  *
- * Near-pole rows offer whole blocks of `Render::pole_lod_aggressiveness / sin(phi)`
- * columns (render_policy.h) so the sink can settle physically-overlapping columns
- * with one probe; the sink keeps per-column resolution wherever its probe
- * cannot vouch for the block. Only full canvas-aligned blocks are offered, so an
- * offer never straddles two blocks and a settled column always takes its shade
- * from its own block's anchor. A block a clip or span edge truncates goes per
- * column instead, so the columns beside a segment seam shade at full resolution
- * rather than from the anchor the neighbouring segment would have used. At
- * aggressiveness 0 every offer is one column and the walk is bit-identical to an
- * undecimated one.
- *
- * Producer contract: emitted endpoints are in fractional column units and need
- * NOT lie in [0,W) — a start may be negative or a span may straddle θ=0 (this
- * is the single point that wraps and seam-splits them into range). Span length
- * is unconstrained: length >= W means the whole row. emit_row_runs paints the
- * row and drops the rest of its spans on the first such span, and any that
- * reach normalize_intervals_to_range become a single [0,W) span rather than a
- * seam split, so one never claims the two norm slots a split would.
+ * Producer contract: endpoints are in fractional column units and need not lie
+ * in [0,W); a span may straddle θ=0. A span of length >= W means the whole row.
  */
 template <int W, int H, typename IntervalFn, typename PixelFn>
 inline void scan_region(int y_min, int y_max, IntervalFn &&get_intervals,
@@ -672,10 +637,8 @@ inline void scan_region(int y_min, int y_max, IntervalFn &&get_intervals,
       math::TrigLUT<W, H>::sin_theta.data() + W / 4; // cos via +W/4
   const float *sin_theta = math::TrigLUT<W, H>::sin_theta.data();
 
-  // A full canvas-aligned block of `stride` columns is offered to the sink as
-  // one call probed at the block's first column; the sink returns how many
-  // columns it consumed. A block the run truncates is walked per column, so a
-  // settled column is always settled from its own block's anchor.
+  // A full block is offered as one call probed at its first column; a block
+  // the run truncates is walked per column.
   auto walk = [&](int x1, int x2, int y, float sp, float cp, int stride) {
     [[maybe_unused]] int next_block = x1;
     if constexpr (Render::POLE_LOD_ENABLED)
@@ -699,8 +662,7 @@ inline void scan_region(int y_min, int y_max, IntervalFn &&get_intervals,
     }
   };
 
-  // Inverted range (y_min > y_max) is a no-op: a disjoint CSG Intersection or a
-  // fully-culled Face reports y_min=1, y_max=0, and the loop never runs.
+  // Inverted range (y_min > y_max) is a no-op.
   for (int y = y_min; y <= y_max; ++y) {
     float sp = math::TrigLUT<W, H>::sin_phi[y];
     float cp = math::TrigLUT<W, H>::cos_phi[y];
@@ -760,8 +722,7 @@ template <int W, int H> struct BoundingSphere {
    * @return Always true (an interval is always produced).
    */
   template <typename OutFn> bool get_intervals(int y, OutFn &&out) const {
-    // Phi trig from the static LUT (bit-identical to sinf(y_to_phi(y))), as on the
-    // rest of the Volume hot path.
+    // Phi trig from the static LUT (bit-identical to sinf(y_to_phi(y))).
     float sin_phi = math::TrigLUT<W, H>::sin_phi[y];
     float cos_phi = math::TrigLUT<W, H>::cos_phi[y];
     float theta_span;
@@ -778,10 +739,8 @@ template <int W, int H> struct BoundingSphere {
       float dtheta = acosf(cos_dtheta < 1.0f ? cos_dtheta : 1.0f);
       theta_span = dtheta * W / (2.0f * math::PI_F);
     }
-    // +1 absorbs ceil/round-off at the span edges; the downstream per-pixel
-    // ray-sphere test rejects any extra column. The half-width caps emit at
-    // most one row, with full rows using emit_row_runs' length >= W fast path.
-    // Endpoints are not clamped to [0,W); scan_region wraps them.
+    // +1 absorbs round-off at the span edges; the per-pixel test rejects extra
+    // columns. Endpoints are not clamped to [0,W).
     int span = static_cast<int>(ceilf(theta_span)) + 1;
     int x_lo = std::min(W / 2, span);
     int x_hi = std::min((W + 1) / 2, span);
