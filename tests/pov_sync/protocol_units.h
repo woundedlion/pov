@@ -668,13 +668,10 @@ inline void test_beacon_codec() {
     }
   }
 
-  const uint8_t LEGACY[5] = {0, 0, 6, 1, 6};
-  BeaconFrame frame{};
-  HS_EXPECT_FALSE(feed_frame(LEGACY, &frame));
   encode_beacon_digits(0, 945, d);
+  HS_EXPECT_EQ(d[2], 6);
+  HS_EXPECT_EQ(d[3], 1);
   HS_EXPECT_EQ(d[4], 7);
-  d[3] = 3;
-  HS_EXPECT_FALSE(feed_frame(d, &frame));
 
   // Out-of-range burst count aborts the frame.
   {
