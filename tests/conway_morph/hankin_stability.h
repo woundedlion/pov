@@ -296,7 +296,8 @@ hankin_summarize(const std::vector<HankinStepStats> &table) {
 }
 
 /**
- * @brief Measures per-frame sweep stability of the hankin legs
+ * @brief Measures sweep stability over the sampled dodecahedron,
+ *        dodecahedron_hk62_ambo, octahedron and octahedron_hk17_ambo prefixes
  *        under the shipping slerp-from-corner parameterization.
  * @details Re-solve modes are diagnostic comparisons. The slerp gates bound
  * displacement and face-normal reversals using snorm16 arrival vertices and
