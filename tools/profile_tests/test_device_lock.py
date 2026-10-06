@@ -193,7 +193,7 @@ class LockStaleness(unittest.TestCase):
         self._write_info(self._live_pid(), now - 900, now - GRACE - 60)
         self.assertFalse(is_stale(self.d))
 
-    def test_holder_just_past_eta_within_grace_is_not_stale(self):
+    def test_incomplete_pidless_claim_past_eta_within_grace_is_not_stale(self):
         now = int(time.time())
         (self.d / "info").write_text(
             f"started={now - 900}\ndeadline={now - 10}\n", encoding="utf-8")
