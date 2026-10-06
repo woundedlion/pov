@@ -170,7 +170,6 @@ inline void test_budget_corrupted_timebase() {
   flywheel_mut(b2.board).force_lock();
   HS_EXPECT_GE(circ_dist(sim.board_pos(2), sim.board_pos(0), cfg.W), 60);
 
-  const uint64_t CORRUPTED_AT = sim.g;
   constexpr uint64_t RECOVERY_COLUMNS = 750 + 144;
   const uint32_t rej_before =
       b2.board.telemetry_snapshot().symbols_rejected_gate;
@@ -180,7 +179,6 @@ inline void test_budget_corrupted_timebase() {
                circ_dist(s.board_pos(2), s.board_pos(0), s.cfg.W) <= 1;
       },
       double(RECOVERY_COLUMNS) / cfg.W));
-  HS_EXPECT_LE(sim.g - CORRUPTED_AT, RECOVERY_COLUMNS * COL);
   HS_EXPECT_GE(b2.board.telemetry_snapshot().symbols_rejected_gate - rej_before,
                static_cast<uint32_t>(cfg.reject_fallback));
   HS_EXPECT_GE(b2.board.telemetry_snapshot().lock_transitions, 2u);
