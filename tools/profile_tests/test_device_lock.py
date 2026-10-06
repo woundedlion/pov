@@ -558,10 +558,7 @@ class BoardSelection(unittest.TestCase):
                          ["lock-COM3.d", "lock-COM3.d.guard"])
 
     def test_wait_queues_under_errexit(self):
-        # hs_device_status returns 1 when no board is claimable, which is the
-        # case every time the wait branch is reached. Under `set -e` that
-        # aborted the caller where it should have queued, so neither the loop
-        # nor the guidance that follows it ran.
+        # Under set -e, an unclaimable board still reaches the wait loop and guidance.
         self.hold("COM3")
         self.hold("COM4")
         script = ('set -e; sleep() { :; }; hs_device_acquire E profile 60; '
