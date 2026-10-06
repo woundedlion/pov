@@ -15,8 +15,6 @@
 #include "core/color/effect_palette_recipes.h"
 #include "core/engine/engine.h"
 
-// Unit-test accessor reaching palette_boundaries to stage the overlapping-wipe
-// band inversion and assert color() stays memory-safe and in-range.
 namespace hs_test {
 namespace effects_tests {
 struct DynamoWhiteBox;
@@ -42,8 +40,6 @@ public:
   HS_COLD_MEMBER Dynamo()
       : Effect(W, H, pipeline_config<decltype(filters)>({.strobe = true})),
         palettes{make_palette()},
-        // draw_frame() pushes the live "Trail Len" slider before the first
-        // flush(), so this seed lifetime never reaches the output.
         filters(Filter::World::Trails<TRAIL_CAPACITY>(1),
                 Filter::World::Replicate<W>(STRAND_COPIES),
                 Filter::World::Orient(orientation),
@@ -70,9 +66,7 @@ public:
                                      (NUM_NODES - 1));
     }
 
-    // Allocate the LUT pool once: bake() allocates, rebake() refills in place,
-    // so push/pop churn never grows the arena. The bake also seeds slot 0, the
-    // only live palette at this point.
+    // Allocate the LUT pool once; rebake() refills in place.
     for (auto &bp : baked_palettes)
       bp.bake(persistent_arena, palettes[0]);
 
@@ -87,16 +81,12 @@ public:
 
   /**
    * @brief Renders one frame.
-   * @details Syncs the live trail length, steps the timeline, advances the
-   *          strand by the accumulated whole steps, plots it, then flushes the
-   *          filter pipeline through color().
    */
   void draw_frame() override {
     Canvas canvas(*this);
 
-    // Push the live "Trail Len" slider into the Trails filter, capped to what
-    // the ring can hold for the current emission rate. The cap is published as
-    // read-only telemetry so the GUI can show why a long trail renders short.
+    // Cap "Trail Len" to what the ring holds at the current emission rate;
+    // the cap is published as read-only telemetry.
     const int ceiling = trail_length_ceiling();
     params.trail_ceiling = static_cast<float>(ceiling);
     filters.template get<Filter::World::Trails<TRAIL_CAPACITY>>().set_lifetime(
@@ -107,7 +97,7 @@ public:
       timeline.step(canvas);
     }
 
-    // Collapse finished wipes (FIFO) before their boundaries are read below.
+    // Collapse finished wipes (FIFO).
     reap_completed_wipes();
 
     HS_CHECK(palettes.size() == palette_boundaries.size() + 1,
@@ -136,9 +126,8 @@ public:
     }
     points_per_emission = emitted_points / (steps > 0 ? steps : 1);
 
-    // The Trails filter replays each buffered point with t = its age fraction;
-    // feeding that as color()'s palette parameter fades the trail along the
-    // palette with age (newest t=0, oldest t=1) rather than just dimming.
+    // Trails replays each point with t = its age fraction (newest 0, oldest
+    // 1), so the trail fades along the palette.
     {
       HS_PROFILE(dy_filter_flush);
       filters.flush(
@@ -175,8 +164,7 @@ private:
 
   /**
    * @brief Flips travel direction via a private sign.
-   * @details Toggles speed_direction so animation never overwrites the "Speed"
-   *          slider; effective speed is params.speed * speed_direction.
+   * @details Effective speed is params.speed * speed_direction.
    */
   void reverse() { speed_direction *= -1; }
 
@@ -193,11 +181,8 @@ private:
    * @brief Pushes a fresh palette at the front and animates its boundary angle
    *        from -WIPE_BLEND_WIDTH up to PI + WIPE_BLEND_WIDTH, sweeping the
    *        new colors and their blend band across the whole sphere.
-   * @details Drops the wipe if the boundary buffer is full, logging once until
-   *          a wipe lands again. That buffer is the
-   *          binding capacity (MAX_PALETTES - 1) and is what keeps boundary_slot
-   *          from aliasing a reissued ring slot; palettes stays one ahead of it,
-   *          so its own push is covered by the same guard.
+   * @details Drops the wipe, logging once, while the boundary buffer is full;
+   *          that bound keeps boundary_slot from aliasing a reissued ring slot.
    */
   void color_wipe() {
     if (palette_boundaries.is_full()) {
@@ -226,9 +211,8 @@ private:
   /**
    * @brief Collapses color wipes whose Transition has finished (boundary
    *        stamped with WIPE_COMPLETE).
-   * @details Pops only from the back (FIFO, oldest first), so a wipe that
-   *          finished early waits its turn and no live boundary is evicted;
-   *          front-indexed palettes and LUTs stay in place, needing no rebake.
+   * @details Pops only from the back (FIFO), so a wipe that finished early
+   *          waits its turn.
    */
   void reap_completed_wipes() {
     while (!palette_boundaries.is_empty() &&
@@ -241,14 +225,10 @@ private:
   /**
    * @brief Realigns the LUT pool after a palettes push_front and bakes the new
    *        front.
-   * @details baked_palettes mirrors palettes[] by logical index, so a push_front
-   *          shifts every entry by one. Rotating the pointer-sized LUT handles
-   *          carries each existing bake to its new index, leaving one
-   *          GenerativePalette evaluation pass per wipe instead of one per live
-   *          palette. Slot MAX_PALETTES-1 is always dead here (color_wipe()
-   *          drops the wipe when the boundary buffer is full, so palettes holds
-   *          at most MAX_PALETTES-1 entries before its push_front), so recycling
-   *          it to the front strands no LUT storage.
+   * @details baked_palettes mirrors palettes[] by logical index; rotating the
+   *          LUT handles carries each bake to its new index. Slot
+   *          MAX_PALETTES-1 is dead here: palettes holds at most
+   *          MAX_PALETTES-1 entries before its push_front.
    */
   void rotate_and_rebake_front() {
     BakedPaletteStorage recycled = std::move(baked_palettes[MAX_PALETTES - 1]);
@@ -319,11 +299,8 @@ private:
    * @brief Plots the strand for this sub-step.
    * @param canvas Target canvas to plot into.
    * @param age Trail age fed to the Trails filter (0 = newest).
-   * @details The head node is a single half-alpha point; each following node is
-   *          a half-alpha line back to its predecessor. Trails buffers points
-   *          with positive remaining lifetime; the same-frame flush() re-emits
-   *          them at their rounded age divided by the trail lifetime, using
-   *          color()'s alpha in addition to the half-alpha live draw.
+   * @details The head node is a half-alpha point; each following node is a
+   *          half-alpha line back to its predecessor.
    */
   void draw_nodes(Canvas &canvas, float age) {
     for (size_t i = 0; i < NUM_NODES; ++i) {
@@ -359,12 +336,9 @@ private:
    * @brief Longest trail, in frames, the ring can hold at the current rate.
    * @return Frame count in [1, TRAIL_LEN_MAX]; TRAIL_LEN_MAX before the first
    *         frame is measured.
-   * @details Steady-state occupancy is points-per-frame x lifetime, so a longer
-   *          trail than this would overrun the ring and evict live points of
-   *          arbitrary age (flush()'s compaction leaves the ring unordered),
-   *          punching holes in the tail rather than shortening it. The step
-   *          count is bounded by |speed| + 1: speed_accumulator carries at most
-   *          one extra whole step into any frame.
+   * @details Steady-state occupancy is points-per-frame x lifetime; a longer
+   *          trail overruns the unordered ring and evicts points of arbitrary
+   *          age. A frame takes at most |speed| + 1 steps.
    */
   int trail_length_ceiling() const {
     if (points_per_emission == 0)
@@ -398,10 +372,8 @@ private:
    * @details If moving one step would leave the gap too wide, the follower
    *          adopts the leader's velocity and closes the slack until within
    *          `gap`; otherwise it just steps once.
-   * @note The slack loop terminates only while `leader.v != 0` — move() is a
-   *       no-op at zero velocity. It holds by construction: a node still at
-   *       v == 0 has never moved, so it shares its leader's column and the gap
-   *       test is false.
+   * @note The slack loop needs `leader.v != 0`; a node still at v == 0 shares
+   *       its leader's column, so the gap test is false.
    */
   void drag(Node &leader, Node &follower) {
     int dest = math::wrap(follower.x + follower.v, W);
@@ -426,8 +398,6 @@ private:
    * @brief Computes the unit travel direction for a signed speed.
    * @param speed Signed speed value.
    * @return -1 for negative speed, otherwise +1.
-   * @note `speed == 0` maps to +1, but this is unobservable: a zero speed never
-   *       advances the step accumulator, so pull() never runs.
    */
   int dir(float speed) const { return speed < 0 ? -1 : 1; }
 
@@ -444,13 +414,8 @@ private:
                 "Dynamo needs three timers, one rotation, and all live wipes");
   static constexpr int TRAIL_LEN_MAX =
       100; /**< "Trail Len" slider max, and the ceiling "Trail Cap" reports. */
-  /**
-   * @brief Upper bound of the "Gap" slider (target node spacing).
-   * @details Held below W/2 so drag()'s slack-closing loop always terminates:
-   *          shortest_distance() saturates at W/2, so a gap that can actually be
-   *          reached keeps the loop making progress instead of circling forever.
-   */
   static constexpr float SPEED_MAX = 10.0f;
+  /** @brief Upper bound of the "Gap" slider; below W/2 so drag() terminates. */
   static constexpr float GAP_MAX = 20.0f;
   static_assert(2.0f * GAP_MAX < static_cast<float>(W),
                 "Gap max must stay below W/2 so drag() terminates");
@@ -476,9 +441,7 @@ private:
   static constexpr math::Vector PALETTE_NORMAL = math::Z_AXIS;
   /**
    * @brief Compile-time Trails storage capacity (max buffered trail points).
-   * @details Sized to the persistent partition left by the nodes and the baked
-   *          palette LUTs; trail_length_ceiling() keeps the live trail inside it
-   *          so the ring never evicts.
+   * @details trail_length_ceiling() keeps the live trail inside it.
    */
   static constexpr int TRAIL_CAPACITY = 29000;
   StaticCircularBuffer<GenerativePalette, MAX_PALETTES>
@@ -487,22 +450,17 @@ private:
       palette_boundaries; /**< Wipe boundary angles. */
   /**
    * @brief Baked 256-entry LUTs mirroring palettes[] in logical order.
-   * @details Read by the per-pixel color() path (lerp16 lookup, not OKLCH lerp);
-   *          a wipe push rotates them to match (rotate_and_rebake_front) and a
-   *          reap pops from the back, which shifts nothing. One slot per possible
-   *          live palette, so churn never reallocates.
+   * @details A wipe push rotates them to match (rotate_and_rebake_front); a
+   *          reap pops from the back, which shifts nothing.
    */
   std::array<BakedPaletteStorage, MAX_PALETTES> baked_palettes;
 
-  // init() allocates the nodes, Trails ring buffer, and baked palette LUTs from
-  // the persistent arena.
+  // Persistent allocations: nodes, the Trails ring and the baked palette LUTs.
   static constexpr size_t FOOTPRINT_BYTES =
       NODE_CAPACITY * sizeof(Node) +
       TRAIL_CAPACITY *
           sizeof(typename Filter::World::Trails<TRAIL_CAPACITY>::Item) +
       MAX_PALETTES * BakedPalette::required_arena_bytes();
-  // Effect keeps the default arena split, so the footprint must fit the device
-  // persistent partition. Guards a TRAIL_CAPACITY/MAX_PALETTES retune.
   static_assert(FOOTPRINT_BYTES <= DEVICE_PERSISTENT_BUDGET,
                 "Dynamo persistent footprint exceeds the default partition; "
                 "retune TRAIL_CAPACITY/MAX_PALETTES or carve arenas");
@@ -510,13 +468,12 @@ private:
   Node *nodes = nullptr; /**< Arena-backed strand nodes. */
 
   /**
-   * @brief Travel direction toggled by reverse(); kept separate from the "Speed"
-   *        slider so animation never clobbers the user's value.
+   * @brief Travel direction toggled by reverse(); separate from the "Speed"
+   *        slider.
    */
   int speed_direction = 1;
   /**
-   * @brief Fractional-step carry so |speed| < 1 still advances the strand over
-   *        multiple frames instead of truncating to zero.
+   * @brief Fractional-step carry so |speed| < 1 still advances the strand.
    */
   float speed_accumulator = 0.0f;
 

@@ -55,11 +55,9 @@ using LatticeMeltParams = Pullback::ParamsFor<LatticeMeltSpec>;
 
 /**
  * @brief Composed folded-sinusoidal lattice displaced by sphere-space curl noise.
- * @details Supplies the render pipeline and preset bank; Pullback::ComposedEffect
- * supplies parameter registration, preset choreography and the palette,
- * camera-walk and noise clocks. The lattice source is read through a folded
- * sinusoidal projection; the surface stage carries curl displacement and the
- * pipeline has no warp stage.
+ * @details The lattice source is read through a folded sinusoidal projection;
+ * the surface stage carries curl displacement and the pipeline has no warp
+ * stage.
  * @tparam W Canvas width in pixels.
  * @tparam H Canvas height in pixels.
  */

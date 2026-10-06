@@ -17,8 +17,6 @@
 #include "core/control/choreography.h"
 #include "core/engine/engine.h"
 
-// Unit-test accessor verifying each authored Lissajous entry closes
-// (path_fn(domain) == path_fn(0)).
 namespace hs_test {
 namespace effects_tests {
 struct CometsWhiteBox;
@@ -44,12 +42,6 @@ struct CometsParams {
  * @details Automatic preset changes snap to the next Lissajous entry and
  *          ColorWipe to a freshly generated palette. Manual selection restarts
  *          the path and keeps the palette.
- * @note Sibling trail effects `Fishbowl` and `RingSpin` share the
- *       record + deep_tween skeleton and, with Fishbowl, the
- *       `Animation::TrailBody` aggregate at the same capacity and substep
- *       count. Draw primitive, transform chain and colour/fade are
- *       hand-propagated. Comets uses an empty pipeline (no Screen::AntiAlias)
- *       since Scan::Point glows carry their own softness.
  */
 template <int W, int H>
 class Comets : public ChoreographedEffect<Comets<W, H>, CometsParams> {
@@ -67,9 +59,7 @@ public:
       TRAIL_ORIENTATION_SUBSTEPS; /**< Interpolation slots per Orientation, shared by the recorded trail
                and Motion. */
 
-  /** Every preset departs by snapping: a path function swap has no
-      meaningful interpolation; the palette rolls over separately via a
-      ColorWipe. */
+  /** Snaps the path function; the palette rolls over via a ColorWipe. */
   static constexpr Segue::Preset::Snap DEPARTURE{};
   static constexpr uint32_t PARAMETER_SCHEMA_VERSION = 1;
   /** Preset cadence: two default-duration motion cycles. */
@@ -136,8 +126,6 @@ public:
 
   /**
    * @brief Allocates state and wires up the animation timeline.
-   * @details Allocates the node, bakes the palette LUT, registers params, and
-   *          builds the timeline: an infinite RandomWalk plus the head Motion.
    */
   HS_COLD_MEMBER void init() override {
     begin_choreography();
@@ -147,13 +135,11 @@ public:
 
     this->register_described_params();
 
-    // Runs before motion exists, so its reanchor() is a no-op here; the path it
-    // sets is still live because Motion below captures `path` by reference.
+    // motion is null here; Motion captures `path` by reference.
     update_path();
     timeline.add(
         0, Animation::RandomWalk<W>(orientation, math::random_vector(), noise));
-    // Motion is infinite and added before any finite animation, so the
-    // timeline never relocates it and the retained handle stays valid.
+    // Infinite and pinned, so the retained handle stays valid.
     motion = timeline.add_get(
         0,
         Animation::Motion<W, ORIENTATION_SUBSTEPS>(
@@ -163,9 +149,6 @@ public:
 
   /**
    * @brief Advances and renders one frame of the comet.
-   * @details Steps the timeline and choreography, live-applies Cycle Dur,
-   *          rebakes the palette while a wipe is in flight, records the trail,
-   *          and draws the comet body along the trail.
    */
   void draw_frame() override {
     Canvas canvas(*this);
@@ -187,8 +170,7 @@ public:
 
     node->trail.record(node->orientation);
 
-    // Alpha below one slider LSB: skip rasterizing. The trail is still
-    // recorded above, so motion resumes when alpha rises.
+    // Alpha below one slider LSB: skip rasterizing; the trail still records.
     if (params.alpha < MIN_VISIBLE_ALPHA)
       return;
 
@@ -252,8 +234,6 @@ private:
       update_palette();
   }
 
-  // Test seam: asserts the closing-loop invariant the smoke harness cannot
-  // observe.
   friend struct ::hs_test::effects_tests::CometsWhiteBox;
 
   /**
@@ -261,11 +241,9 @@ private:
    * @param config The Lissajous parameters whose domain is being snapped.
    * @return The closing domain: lissajous(m1, m2, a, closed_domain) equals the
    *         t=0 start (0,1,0) up to float error.
-   * @details A spherical Lissajous point returns to the t=0 start (0,1,0) only
-   *          when m2*domain is an exact multiple of 2*PI. Authored domains miss
-   *          that by up to ~1.4 deg; snapping is a <=0.32% nudge. Floor the cycle
-   *          count at 1 so m2*domain < PI does not round to 0 and freeze the head
-   *          at path_fn(0) (the table is authored data that gets extended).
+   * @details The curve returns to (0,1,0) only when m2*domain is a multiple
+   *          of 2*PI. The cycle count floors at 1 so m2*domain < PI does not
+   *          freeze the head at path_fn(0).
    */
   static float closing_domain(const math::LissajousParams &config) {
     HS_CHECK(config.m2 > 0,
@@ -285,19 +263,13 @@ private:
    */
   void update_path() {
     math::LissajousParams config = params.function;
-    // Snap so path_fn(domain) == path_fn(0); an unclosed endpoint pinches the
-    // curve to a stray point each cycle.
     float closed_domain = closing_domain(config);
-    // Capture only the three scalars + closed_domain (16 B): the whole
-    // LissajousParams (16 B) plus closed_domain overflows PlotFn's 16 B inline
-    // capacity (no heap fallback on Arduino).
+    // Four scalars fill PlotFn's 16 B inline capacity (no heap fallback).
     const float m1 = config.m1, m2 = config.m2, a = config.a;
     path.f = [m1, m2, a, closed_domain](float t) {
       return math::lissajous(m1, m2, a, t * closed_domain);
     };
-    // Re-anchor Motion's baseline to the freshly-swapped path: the two curves'
-    // travel-tangent frames differ at the seam, so a missing re-anchor teleports
-    // the head for one frame.
+    // Without a re-anchor the head teleports for one frame at the path swap.
     if (motion)
       motion->reanchor();
   }
@@ -308,9 +280,7 @@ private:
    *          rollover while a previous wipe is still in flight.
    */
   void update_palette() {
-    // A second wipe would clobber the snapshots the live one still references.
-    // Rollovers arrive on the preset cadence, which outlasts WIPE_FRAMES, so
-    // this only trips if that cadence is shortened.
+    // A second wipe would clobber the snapshots the live one references.
     if (wipe.in_flight())
       return;
     wipe.arm(palette,
@@ -325,12 +295,9 @@ private:
   static constexpr int WIPE_FRAMES =
       48; /**< Duration of a palette cross-fade ColorWipe, in frames. */
 
-  // init() allocates the comet Node (holds the OrientationTrail) and one baked
-  // palette LUT from the persistent arena.
+  // Persistent allocations: the comet Node and the baked palette LUT.
   static constexpr size_t FOOTPRINT_BYTES =
       BakedPalette::required_arena_bytes() + sizeof(Node);
-  // Effect keeps the default arena split, so the footprint must fit the device
-  // persistent partition. Guards a TRAIL_LENGTH retune.
   static_assert(FOOTPRINT_BYTES <= DEVICE_PERSISTENT_BUDGET,
                 "Comets persistent footprint exceeds the default partition; "
                 "retune TRAIL_LENGTH or carve arenas");
@@ -345,9 +312,8 @@ private:
       palette; /**< Active color palette (mutated by an in-flight ColorWipe). */
   BakedPaletteStorage
       baked_palette; /**< LUT-baked copy of `palette` sampled by the shader. */
-  /** @brief Authored Lissajous preset table; each preset varies only the path
-   *  function, so entries hold the LissajousParams and preset_params() patches
-   *  them into the live parameter set.
+  /** @brief Authored Lissajous preset table; preset_params() patches each
+   *  entry into the live parameter set.
    *  @details Each row is a LissajousParams {m1, m2, a, domain}: m1 axial (X/Z)
    *           frequency, m2 orbital (Y) frequency, a phase shift in radians,
    *           domain the traversal length t (closing_domain() snaps it so the

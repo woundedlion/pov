@@ -15,8 +15,6 @@
 #include "core/engine/engine.h"
 #include <span>
 
-// Unit-test accessor reaching the private per-frame cache and hopf_project() to
-// pin the S3-lift + stereographic projection math directly.
 namespace hs_test {
 namespace effects_tests {
 struct HopfWhiteBox;
@@ -40,9 +38,6 @@ public:
 
   /**
    * @brief Constructs the effect and configures the trail pipeline.
-   * @details Enables the POV column strobe, folds the trail pipeline's
-   * segment traits into the effect config, and seeds the pipeline with a
-   * screen-space anti-alias filter sized to W x H.
    */
   HS_COLD_MEMBER HopfFibration()
       : Effect(W, H,
@@ -51,9 +46,6 @@ public:
 
   /**
    * @brief Initializes params, buffers, fibers, and timeline animations.
-   * @details Registers tuning params, bakes the trail palette, allocates the
-   * fiber and trail arrays from the persistent arena, seeds fibers, and
-   * wires the ambient spin plus the phase-driver animations onto the timeline.
    */
   HS_COLD_MEMBER void init() override {
     register_param("Flow Spd", &params.flow_speed, 0.0f, 20.0f);
@@ -64,7 +56,6 @@ public:
 
     baked_sunset.bake(persistent_arena, Palettes::RICH_SUNSET);
 
-    // Persistent storage and one trail's scratch staging fit the default split.
     fibers = persistent_arena.allocate_n<math::Spherical>(ACTUAL_FIBERS);
 
     trails = persistent_arena.make_n<Animation::VectorTrail<TRAIL_LEN>>(
@@ -84,9 +75,6 @@ public:
 
   /**
    * @brief Advances one frame: steps animations, records and renders trails.
-   * @details Steps the timeline, refreshes cached tumble/phase values, records
-   * each fiber's projected model-space point into its trail, then renders all
-   * trails.
    */
   void draw_frame() override {
     Canvas canvas(*this);
@@ -120,30 +108,25 @@ private:
   static constexpr float PHASE_STEP = math::PI_F / ACTUAL_FIBERS;
 
   // Persistent allocations: palette LUT + one Spherical and one trail per fiber,
-  // each block plus the alignment slack its allocate() call can waste.
+  // each with its alignment slack.
   static constexpr size_t FOOTPRINT_BYTES =
       BakedPalette::required_arena_bytes() +
       ACTUAL_FIBERS * sizeof(math::Spherical) + alignof(math::Spherical) +
       ACTUAL_FIBERS * sizeof(Animation::VectorTrail<TRAIL_LEN>) +
       alignof(Animation::VectorTrail<TRAIL_LEN>);
-  // Effect keeps the default arena split, so the footprint must fit the device
-  // persistent partition. Guards a RINGS/PER_RING/TRAIL_LEN retune.
   static_assert(FOOTPRINT_BYTES <= DEVICE_PERSISTENT_BUDGET,
                 "HopfFibration persistent footprint exceeds the default "
                 "partition; retune RINGS/PER_RING/TRAIL_LEN or carve arenas");
 
-  // render_trails stages one fiber's points (up to TRAIL_LEN) in scratch_a at a
-  // time, alongside the trail gate's hoisted per-point arrays and rasterize's
-  // own sub-step cache.
+  // scratch_a stages one fiber's points with the trail gate arrays and
+  // rasterize's sub-step cache.
   static_assert(TRAIL_LEN * sizeof(Fragment) +
                         Plot::rasterize_scratch_a_bytes<W>(0, TRAIL_LEN) <=
                     DEFAULT_SCRATCH_A_SIZE,
                 "HopfFibration trail staging exceeds the default scratch_a "
                 "budget; retune TRAIL_LEN or carve a larger scratch arena");
 
-  // Keeps the projection denominator (1 + eps) - q3 positive at the pole
-  // (q3 == 1); only needed to keep the pre-normalize direction NaN-free, since
-  // normalized_or() substitutes its fallback axis there.
+  // Keeps the projection denominator (1 + eps) - q3 positive at q3 == 1.
   static constexpr float STEREO_POLE_EPSILON = 0.001f;
 
   // Phases accumulate as wrapped fractions of their period ("turns") and scale
@@ -158,7 +141,7 @@ private:
   static constexpr float TUMBLE_X_RATE = 0.003f / TUMBLE_X_PERIOD;
   static constexpr float TUMBLE_Y_RATE = 0.005f / TUMBLE_Y_PERIOD;
 
-  // Wrapped phase accumulators in [0, 1) turns (driven in init()).
+  // Wrapped phase accumulators in [0, 1) turns.
   float flow_offset = 0.0f;
   float tumble_angle_x = 0.0f;
   float tumble_angle_y = 0.0f;
@@ -181,22 +164,19 @@ private:
     float alpha = 1.0f; /**< Global trail opacity multiplier in [0, 1]. */
   } params;
 
-  // orientation and the phase accumulators above are borrowed by
-  // timeline-resident animations, as are the params speeds the Drivers point
-  // at, so all of them are declared before the Timeline to outlive it.
+  // Borrowed by timeline-resident animations, with the phase accumulators and
+  // params; declared before the Timeline to outlive it.
   math::Orientation<> orientation;
   Timeline timeline;
   BakedPaletteStorage baked_sunset;
 
-  // AA only; trail points are oriented by hand in render_trails, so no Orient
-  // filter is needed.
+  // AA only; render_trails orients the points itself.
   Pipeline<W, H, Filter::Screen::AntiAlias<W, H>> trail_pipeline;
 
   /**
    * @brief Seeds the base fibers as a spherical lattice.
-   * @details Lays out a RINGS x PER_RING grid of spherical coordinates, evenly
-   * spaced in polar bands and azimuth around each band. Stored as Spherical;
-   * hopf_project derives each fiber's S3 phase inline.
+   * @details A RINGS x PER_RING grid, evenly spaced in polar bands and in
+   * azimuth around each band.
    */
   HS_COLD_MEMBER void init_fibers() {
     int idx = 0;
@@ -212,8 +192,6 @@ private:
 
   /**
    * @brief Refreshes the per-frame cache from the wrapped phase accumulators.
-   * @details Recomputes the tumble rotation sines/cosines, the fold_base offset,
-   * and the radian-scaled flow and tumble-y phases shared across all fibers.
    */
   void advance_tumble() {
     // Scale wrapped [0,1)-turn phases back to radians (ax < 4pi, ty_rad < 2pi).
@@ -296,16 +274,12 @@ private:
   /**
    * @brief Renders all fiber trails as anti-aliased polylines.
    * @param canvas Target canvas to rasterize the trail polylines onto.
-   * @details Orients each trail's stored model-space points into the current
-   * view and shades them with the sunset palette so the tail fades from newest
-   * (opaque) to oldest (transparent). Under an active segment clip each staged
-   * polyline is gated in place by Plot::gate_trail_edges: a trail with no
-   * visible edge is skipped whole and the per-edge bits feed rasterize as its
-   * cull.
+   * @details The tail fades from newest (opaque) to oldest (transparent).
+   * Under an active segment clip, a trail with no visible edge is skipped and
+   * the per-edge gate bits feed rasterize as its cull.
    */
   HS_O3_FN void render_trails(Canvas &canvas) {
-    // Alpha below one slider LSB: skip rasterizing. Trails are still
-    // recorded in draw_frame(), so motion resumes when alpha rises.
+    // Alpha below one slider LSB: skip rasterizing; trails still record.
     if (params.alpha < MIN_VISIBLE_ALPHA)
       return;
     HS_PROFILE(hf_render_trails);

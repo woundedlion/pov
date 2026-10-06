@@ -14,8 +14,6 @@
 #include "core/animation/orientation.h"
 #include "core/engine/engine.h"
 
-// Unit-test accessor reaching the private pixel-pitch constant the star sizes
-// are authored against.
 namespace hs_test {
 namespace effects_tests {
 struct GnomonicStarsWhiteBox;
@@ -37,8 +35,6 @@ public:
 
   /**
    * @brief Constructs the effect at face resolution W x H.
-   * @details Default-initializes the orientation and timeline and binds the
-   *          Möbius transformer to the timeline.
    */
   HS_COLD_MEMBER GnomonicStars()
       : Effect(W, H, pipeline_config<decltype(filters)>({.strobe = true})),
@@ -46,9 +42,7 @@ public:
 
   /**
    * @brief Registers the user params and arms the timeline.
-   * @details Exposes the user params and arms the timeline with an infinite
-   *          Möbius warp whose speed is bound to a slider, plus a Languid
-   *          RandomWalk that reorients the field.
+   * @details Arms an infinite Möbius warp and a Languid RandomWalk.
    */
   HS_COLD_MEMBER void init() override {
     transformer.init_storage(persistent_arena);
@@ -60,8 +54,7 @@ public:
                    7.0f * radius_px());
     register_int_param("Sides", &params.star_sides, 3, 8);
 
-    // Args are (scale, speed): fixed 0.5 magnitude; speed is a don't-care here
-    // since draw_frame mirrors params.warp_speed into the warp every frame.
+    // Args are (scale, speed); speed is overwritten from params each frame.
     warp = transformer.spawn_pinned(0, 0.5f, 0.0f);
     HS_CHECK(warp, "GnomonicStars: pinned warp spawn must succeed");
     register_param("Warp Speed", &params.warp_speed, 0.0f, 1.0f);
@@ -100,14 +93,10 @@ public:
     const float radius = params.star_radius;
     const int sides = params.star_sides;
 
-    // The base spiral depends only on (points, i) — the warp and orientation
-    // animate downstream — so rebuild the trig-heavy fib_spiral only when
-    // "Points" changes.
+    // The base spiral depends only on (points, i).
     if (points != cached_points) {
       HS_PROFILE(gn_spiral_build);
-      // eps 0.5 centers the sample band: both endpoints sit half a step off
-      // their pole, so neither cap is bare and no star pins to the projection
-      // pole.
+      // eps 0.5 puts both endpoints half a step off their pole.
       for (int i = 0; i < points; i++) {
         spiral_cache[i] = math::fib_spiral(points, /*eps=*/0.5f, i);
       }
@@ -119,8 +108,7 @@ public:
       for (int i = 0; i < points; i++) {
         math::Vector v = transformer.transform(spiral_cache[i]);
 
-        // make_basis() rotates its normal by the orientation; pass the raw warp
-        // output so the orientation is applied exactly once, not twice.
+        // make_basis() applies the orientation; pass the unrotated point.
         math::Basis basis = math::make_basis(orientation.get(), v);
 
         {
@@ -147,9 +135,7 @@ private:
     return math::coarse_pixel_pitch<W, H>() * 2.0f / math::PI_F;
   }
 
-  // Persistent allocations: the warp pool, the MAX_POINTS spiral lattice, and
-  // the palette LUT. Effect keeps the default arena split, so the footprint must
-  // fit the device persistent partition. Guards a MAX_POINTS bump.
+  // Persistent allocations: warp pool, spiral lattice and palette LUT.
   using MobiusEntity = typename MobiusWarpGnomonicTransformer<1>::Entity;
   static constexpr size_t FOOTPRINT_BYTES =
       sizeof(MobiusEntity) + alignof(MobiusEntity) + sizeof(int) +
@@ -177,8 +163,6 @@ private:
 
   /**
    * @brief Live-tunable controls for the star field.
-   * @details Star count, per-star radius, polygon sides, warp speed, and a
-   * bounding-box debug toggle.
    */
   struct Params {
     int points = 600; /**< Number of stars scattered on the spiral. */

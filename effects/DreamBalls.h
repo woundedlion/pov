@@ -22,9 +22,6 @@ namespace DreamBallsDetail {
 inline constexpr float WEAVE_GAP_DEFAULT = 0.18f;
 }
 
-// Unit-test accessor reaching the private preset-cycle bookkeeping; the smoke
-// harness renders ~120 frames, short of the 320-frame re-spawn period, so those
-// paths are driven directly through this seam.
 namespace hs_test {
 namespace effects_tests {
 struct DreamBallsWhiteBox;
@@ -33,8 +30,7 @@ struct DreamBallsWhiteBox;
 
 /**
  * @brief DreamBalls' live, slider-bound render parameters; also the per-preset
- *        value set. The per-preset palette lives beside the effect's preset
- *        table, not here, so parameter snapshots stay pointer-free.
+ *        value set.
  */
 struct DreamBallsParams {
   using BaseMesh = Solids::BaseMesh;
@@ -56,8 +52,8 @@ struct DreamBallsParams {
 };
 
 /**
- * @brief Orbiting copies of a polyhedral wireframe, cycling through ten
- *        solid presets.
+ * @brief Orbiting copies of a polyhedral wireframe, cycling through solid
+ *        presets.
  * @tparam W Canvas width in pixels.
  * @tparam H Canvas height in pixels.
  * @details Each vertex is displaced in its own tangent plane before being
@@ -76,12 +72,11 @@ public:
   using BaseMesh = Solids::BaseMesh;
   using WeaveTopology = Params::WeaveTopology;
 
-  /** Every preset departs by snapping. The sprite chain owns the automatic
-      cadence — a preset advances at each sprite hand-off, so the dwell
-      countdown never runs and step_choreography() is never called. */
+  /** Snaps. Presets advance at each sprite hand-off; the dwell countdown
+      never runs. */
   static constexpr Segue::Preset::Snap DEPARTURE{};
   static constexpr uint32_t PARAMETER_SCHEMA_VERSION = 1;
-  /** Bookkeeping only (see DEPARTURE); mirrors the sprite hand-off period. */
+  /** Bookkeeping only; mirrors the sprite hand-off period. */
   static constexpr uint16_t PRESET_DWELL_FRAMES = 320;
 
   /** @brief Shared registration, validation and interpolation descriptions. */
@@ -153,8 +148,7 @@ public:
     setup_solids();
 
     blood_stream_composition.bind(&blood_stream_palette, &blood_stream_fade);
-    // Deduced extent, not a std::array brace list: a short list would leave the
-    // tail preset's palette null and deref it at the first advance.
+    // Deduced extent: a short list would leave a preset's palette null.
     const Palette *const palettes[] = {
         &blood_stream_falloff,   &blood_stream_falloff,
         &Palettes::RICH_SUNSET,  &Palettes::LAVENDER_LAKE,
@@ -206,9 +200,8 @@ private:
   /**
    * @brief Tracks the committed preset's palette; a non-automatic change also
    *        retargets the live sprite.
-   * @details An automatic advance leaves the rebake to the spawn_sprite() call
-   * that follows it in the hand-off timer, so the new palette lands on the
-   * fresh sprite's slot rather than the finished one's.
+   * @details An automatic advance leaves the rebake to the following
+   * spawn_sprite(), so the new palette lands on the fresh sprite's slot.
    */
   HS_FLASH_MEMBER void
   preset_changed(const Effect::PresetChange &change) override {
@@ -242,7 +235,7 @@ private:
   static_assert(std::size(WEAVE_TOPOLOGY_OPTIONS) ==
                 std::size(WEAVE_TOPOLOGY_EXPORT_OPTIONS));
 
-  /** Orbit phase in turns, wrapped to [0,1) by the live-speed Driver below. */
+  /** Orbit phase in turns, wrapped to [0,1). */
   float orbit_phase = 0.0f;
 
   /** Per-vertex phase increment (radians), keyed by vertex emission order to
@@ -312,9 +305,8 @@ private:
       Solids::MAX_SOLID_EDGES > Solids::MAX_SOLID_VERTICES
           ? Solids::MAX_SOLID_EDGES
           : Solids::MAX_SOLID_VERTICES;
-  // draw_woven_scene stages three per-vertex buffers plus the framed
-  // vertex + edge-head mesh in scratch_a, all live across Plot::Mesh::draw's
-  // per-edge fragment scope and rasterize's sub-step cache.
+  // Woven staging in scratch_a: per-vertex buffers and the framed mesh, live
+  // across the mesh draw's fragments and rasterize's sub-step cache.
   static constexpr size_t SCRATCH_A_PEAK_BYTES =
       (4 * WOVEN_VERTEX_BOUND + 2 * Solids::MAX_SOLID_EDGES) *
           sizeof(math::Vector) +
@@ -337,9 +329,8 @@ private:
                              the next spawn flips this before baking. */
   /**
    * @brief Per-sprite render-param snapshots, ping-ponged with baked_palettes.
-   * @details Each sprite renders from its spawn-time slot; draw_frame() mirrors
-   *          live sliders into the active slot only, so edits reach the drawing
-   *          sprite without touching the previous snapshot.
+   * @details Each sprite renders from its spawn-time slot; live sliders reach
+   *          only the active slot.
    */
   Params param_slots[2];
   /** @brief Sprite hand-off crossfade; overlap is CROSSFADE_OVERLAP, set at
@@ -387,8 +378,7 @@ private:
        DEPARTURE},
   }};
 
-  /** @brief Per-preset palette, patched at init(); kept beside PRESETS rather
-   *  than inside Params so parameter snapshots carry no pointer. */
+  /** @brief Per-preset palette, patched at init(). */
   std::array<const Palette *, PRESET_COUNT> preset_palettes = {};
   /** @brief The committed preset's palette; spawns bake from this. */
   const Palette *live_palette = nullptr;
@@ -490,7 +480,6 @@ private:
   /**
    * @brief Generates each selectable solid and bakes its geometry into the
    *        persistent arena once at init.
-   * @details Bakes vertices, faces, tangent frames, and the unique edge list.
    */
   HS_COLD_MEMBER void setup_solids() {
     size_t four_regular_solids = 0;
@@ -568,9 +557,7 @@ private:
    *          rebakes the inactive palette slot for the fresh sprite.
    */
   HS_COLD_MEMBER void spawn_sprite() {
-    // Ping-pong to the inactive slot so the rebake never lands on the previous
-    // sprite's palette and params. draw_frame() keeps the active slot tracking
-    // sliders.
+    // Ping-pong so the rebake never lands on the previous sprite's slot.
     active_bake ^= 1;
     baked_palettes[active_bake].rebake(*live_palette);
     const int bake_slot = active_bake;
@@ -647,8 +634,6 @@ private:
     size_t count = base.vertices.size();
     float r = p.offset_radius;
 
-    // MeshOps::transform pre-sizes target.vertices to match base; the indexed
-    // writes below rely on it.
     HS_CHECK(target.vertices.size() == base.vertices.size(),
              "DreamBalls: displaced-mesh target not pre-sized to base");
 
@@ -804,7 +789,6 @@ private:
   /**
    * @brief Kicks off a full-turn rotation of the global orientation about a
    *        fresh random axis.
-   * @details Scheduled periodically to keep the whole cluster slowly tumbling.
    */
   void spin_slices() {
     math::Vector axis = math::random_vector();

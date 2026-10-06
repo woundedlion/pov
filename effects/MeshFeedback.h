@@ -15,7 +15,6 @@
 #include "core/engine/engine.h"
 #include "core/render/filter/pixel_feedback.h"
 
-// Unit-test accessor reaching the private style/noise/preset bookkeeping.
 namespace hs_test {
 namespace effects_tests {
 struct MeshFeedbackWhiteBox;
@@ -50,15 +49,13 @@ public:
   using Style = Feedback::Style;
   using BaseMesh = Solids::BaseMesh;
 
-  /** Every preset departs by snapping — Style embeds a noise binding and
-      base_mesh drives an arena-rewinding mesh rebuild, so parameter blending
-      is never legal. */
+  /** Snap: Style embeds a noise binding and base_mesh rewinds the mesh arena,
+      so parameters cannot blend. */
   static constexpr Segue::Preset::Snap DEPARTURE{};
   static constexpr uint32_t PARAMETER_SCHEMA_VERSION = 1;
   static constexpr uint16_t PRESET_DWELL_FRAMES = 241;
 
-  // Gamut boundary bracket grid bought from the persistent arena (131,074 B),
-  // at the flash master's own resolution, so the copy is verbatim.
+  // Persistent gamut boundary bracket grid at the flash master's resolution.
   static constexpr int GAMUT_ANGLE_STEPS = GAMUT_LUT_ANGLE_STEPS;
   static constexpr int GAMUT_L_STEPS = GAMUT_LUT_L_STEPS;
 
@@ -155,9 +152,8 @@ public:
 
   /**
    * @brief Wires up noise, orientation, and the filter pipeline.
-   * @details The Feedback filter binds `params.style` by reference; `params`
-   * lives in the Choreography base subobject, so it is constructed before
-   * every member here.
+   * @details The Feedback filter binds `params.style` by reference; the
+   * Choreography base constructs `params` first.
    */
   HS_COLD_MEMBER MeshFeedback()
       : Choreography(W, H,
@@ -169,21 +165,16 @@ public:
 
   /**
    * @brief One-time effect setup.
-   * @details Binds the shared noise into the live style, builds the selected
-   * mesh, samples the mesh shade, registers tunable params, and schedules the
-   * noise/walk timers.
    */
   HS_COLD_MEMBER void init() override {
     begin_choreography();
 
-    // Configure the noise type before apply_params(): it calls sync_noise(),
-    // which would otherwise propagate the default noise type on the first frame.
+    // Configure the noise type before apply_params() calls sync_noise().
     noise_params.noise.SetNoiseType(FastNoiseLite::NoiseType_OpenSimplex2);
     noise_params.set_seed(hs::rand_int(0, 65536));
     noise_params.sync();
 
-    // The base initialized params from the static initial_params(), which
-    // cannot bind the noise pointer; adopt_params() does.
+    // initial_params() cannot bind the noise pointer; adopt_params() does.
     adopt_params(params);
 
     mesh_shade = Palettes::PEACH_POP.get(0.0f);
@@ -207,11 +198,9 @@ public:
 
   /**
    * @brief Renders one frame.
-   * @details Advances the preset choreography, applies params, steps the
-   * timeline, runs the feedback decay flush, then draws the mesh. The preset
-   * switch leads apply_params() so the noise scalars and the fade/hue the flush
-   * reads come from the same preset, and the flush leads the mesh draw so this
-   * frame's wireframe is not decayed by its own flush.
+   * @details The preset step precedes apply_params() so the flush reads one
+   * preset's style; the flush precedes the mesh draw so it does not decay this
+   * frame's wireframe.
    */
   void draw_frame() override {
     Canvas canvas(*this);
@@ -294,9 +283,7 @@ private:
   }
 
   /**
-   * @brief Pushes UI-tunable state into the live style/filters each frame.
-   * @details Refreshes the noise binding, applies the pole resolution knob,
-   * and toggles the feedback filter from `feedback_enabled`.
+   * @brief Pushes UI-tunable state into the mesh, style and filters.
    */
   void apply_params() {
     if (!mesh_ready || params.base_mesh != active_base_mesh)
@@ -311,9 +298,8 @@ private:
   /** Feedback::Style::pole_half_res; global, so preset snaps keep it. */
   float pole_half_res = 1.0f;
   Animation::NoiseParams noise_params;
-  // Dedicated walk generator: RandomWalk's ctor takes exclusive control of its
-  // frequency and seed, and noise_params.sync() runs every frame off the
-  // "Distort Freq" slider.
+  // Separate walk generator: RandomWalk owns its frequency and seed, and
+  // noise_params.sync() rewrites the shared one every frame.
   FastNoiseLite walk_noise;
 
   math::Orientation<> orientation;

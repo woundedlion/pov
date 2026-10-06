@@ -13,9 +13,6 @@
 #include "core/animation/orientation.h"
 #include "core/engine/engine.h"
 
-// Unit-test accessor reaching the private graph-walk state (current node, held
-// seed identity) so the §7.8 soak can pin node coverage and the per-state
-// post-compaction arena footprint.
 namespace hs_test {
 namespace conway_soak_tests {
 struct HankinWalkProbe;
@@ -32,9 +29,8 @@ struct HankinPauseWhiteBox;
  * @details Sweeps the interlace angle continuously, then transitions by
  * walking the Conway edge graph: each leg sweeps the destination solid's own
  * operator parameter, so faces visibly truncate, expand, and twist into the
- * next solid (docs/specs/conway_morph_spec.md). Exactly one mesh is on
- * screen at all times; faces are colored by topology class via shuffled mesh
- * palettes with per-leg crossfades.
+ * next solid. Exactly one mesh is on screen at all times; faces are colored
+ * by topology class via shuffled mesh palettes with per-leg crossfades.
  */
 template <int W, int H> class HankinSolids : public Effect {
 public:
@@ -47,16 +43,13 @@ public:
       : Effect(W, H, pipeline_config<decltype(filters)>({.strobe = true})),
         filters() {}
 
-  /** Render-path peak: draw_mesh transforms the mesh into scratch_a and
-   * Scan::Mesh::draw stacks an SDF::FaceScratchBuffer on top; morph frames
-   * stack the swept mesh + compile output under it. */
+  /** Render-path peak: the transformed mesh, the scan's face scratch and,
+   * on morph frames, the swept mesh and compile output. */
   static constexpr size_t SCRATCH_A_BYTES = 24 * 1024;
   /** Largest of the generation intermediates, the morph-cycle Persist set, and
    * a morph frame's blended palette LUTs. */
   static constexpr size_t SCRATCH_B_BYTES = 32 * 1024;
-  /** Persistent partition this split leaves on the device. The host arena is
-   * over-provisioned, so the graph-walk soak gates the resident persistent
-   * high-water against this figure rather than the live capacity. */
+  /** Persistent partition this split leaves on the device. */
   static constexpr size_t DEVICE_PERSISTENT_BYTES =
       ArenaSplit{SCRATCH_A_BYTES, SCRATCH_B_BYTES}.device_persistent();
   static_assert(SCRATCH_A_BYTES + SCRATCH_B_BYTES < DEVICE_GLOBAL_ARENA_SIZE,
@@ -78,9 +71,8 @@ public:
 
     palette_bank.bake_all(persistent_arena);
 
-    // The walk starts at the tetrahedron with the registry seed; every family
-    // seed is later derived from it (bridge ADOPTs), which is what lets a
-    // reverse bridge regenerate the registry tetrahedron frame-exactly.
+    // Every family seed derives from this registry tetrahedron, so a reverse
+    // bridge regenerates it frame-exactly.
     hs::generate(persistent_arena, [&](Arena &target, Arena &a, Arena &b) {
       seed_base =
           Solids::finalize_solid(Solids::Platonic::tetrahedron(a, b), target);
@@ -102,8 +94,7 @@ public:
     classify_mesh_topology(hankin_mesh);
     record_node_palettes();
     resolve_host_faces();
-    // First cycle has no predecessor to crossfade from: every slot opens on
-    // its shuffled palette directly (strap_blend_mask stays 0).
+    // First cycle has no predecessor to crossfade from.
     strap_from = palette_idx;
 
     start_hankin_cycle();
@@ -128,15 +119,11 @@ private:
   /** Largest node base-mesh face count (snubDodecahedron, F = 92). */
   static constexpr size_t MAX_NODE_FACES = 92;
   /** Largest hankin mesh face count (star faces plus the rosette/strap faces
-   * born inside them); guarded by an HS_CHECK in resolve_host_faces. */
+   * born inside them). */
   static constexpr size_t MAX_HANKIN_FACES = 256;
-  /** Frames in one interlace-angle sweep; the cycle-relative frame constants
-   * below are windows carved out of it. */
+  /** Frames in one interlace-angle sweep. */
   static constexpr int HANKIN_SWEEP_FRAMES = 64;
-  /** Frames over which the terminal rosette sliver fades out. Below about a
-   * pixel wide the rosette is anti-aliasing only, so fading it uncovers
-   * nothing — but it removes the one-frame snap as the last sliver and the
-   * star-face boundary it holds off both disappear at once. */
+  /** Frames over which the terminal rosette sliver fades out. */
   static constexpr int STRAP_TERMINAL_FRAMES = 3;
   /** Frames shaping a face into or out of its neighbor at strap birth/close
    * and the midpoint star collapse. */
@@ -144,9 +131,7 @@ private:
   /** star_rim_palette sentinel: no rosette resolved for this star face yet. */
   static constexpr uint8_t NO_RIM = 0xFF;
   /** Strap-crossfade window: frames of the hankin sweep over which a reborn
-   * strap slot glides from its previous color to the fresh target. The sweep
-   * opens quadratically — straps reach visibility around frame 3-7 and about
-   * half their peak area by frame 20. */
+   * strap slot glides from its previous color to the fresh target. */
   static constexpr int STRAP_BLEND_FRAMES = 20;
 
   MeshPaletteBank palette_bank;
@@ -155,9 +140,6 @@ private:
    * @brief Classifies mesh faces into topology groups.
    * @param mesh Mesh whose faces are classified; the result is stored in
    * persistent_arena.
-   * @details Saves/restores the scratch high-water marks rather than hard-
-   * resetting to base, so a caller's prior allocations in the shared scratch
-   * arenas survive.
    */
   HS_COLD_MEMBER void classify_mesh_topology(MeshState &mesh) {
     MeshOps::classify_faces_by_topology(mesh, scratch_arena_a, scratch_arena_b,
@@ -239,18 +221,11 @@ private:
    * @param cycle_frame Sprite draws since the cycle's opening bookend.
    * @param blended Per-slot storage for this frame's blend results.
    * @param star_by_slot Receives the star-face LUT per class slot: always the
-   * assignment's bank entry, bitwise (the star-face bookend exactness
-   * contract).
+   * assignment's bank entry, bitwise.
    * @param strap_by_slot Receives the strap-face LUT per class slot: armed
-   * slots run a (from, to) pre-blend over the opening window so reborn straps
-   * open in their previous displayed color and glide to the fresh target
-   * while still small; unarmed slots alias the star entry. The fragment path
-   * stays a single LUT lookup either way.
+   * slots run a (from, to) pre-blend over the opening window; unarmed slots,
+   * and every slot past the window, alias the star entry.
    * @param scratch Arena receiving mid-blend LUT bakes (frame lifetime).
-   * @details Past the crossfade window the blend resolves to the star entry's
-   * own LUT storage, so armed slots alias it there rather than re-bake a copy:
-   * identical shading, and the draw path drops its per-fragment role select
-   * for the rest of the sweep.
    */
   void resolve_hankin_slot_luts(
       int cycle_frame, BakedPalette (&blended)[NUM_PALETTES],
@@ -272,23 +247,14 @@ private:
   }
 
   /**
-   * @brief Arms the opening-window strap crossfade for the new hankin cycle
-   * (the spec-2.6 turnover applied to the rosette rebirths, which the
-   * zero-area-birth assumption alone does not hide).
+   * @brief Arms the opening-window strap crossfade for the new hankin cycle.
    * @param prev_idx Slot -> palette assignment the previous cycle displayed.
    * @param prev_used Slots the previous cycle put on screen at all.
    * @details A strap-bearing slot opens at its previous cycle's displayed
-   * color — or, with no on-screen predecessor, at the host palette of its
-   * first emitted strap face (births inherit the underlying face's colors,
-   * matching the leg-swap newborn rule; a slot's straps can sit under hosts of
-   * differing palettes, and the first represents them as in
-   * resolve_host_faces) — and glides to its fresh target. A slot whose opening
-   * color already equals its target does not arm. resolve_host_faces must precede it:
-   * the host is resolved at the sweep peak, where a centroid match is
-   * unambiguous, and hankin_mesh here sits at the closed bookend.
-   * Slots a star class shares (the mod-NUM_PALETTES wrap can alias a rosette
-   * class onto a star class's slot) arm like any other: the blend feeds only
-   * the strap-face LUT, so the star faces stay on the exact bank entry.
+   * color, or with no on-screen predecessor at the host palette of its first
+   * emitted strap face, and glides to its fresh target. A slot whose opening
+   * color already equals its target does not arm. resolve_host_faces must
+   * precede it.
    */
   HS_COLD_MEMBER void
   prepare_strap_crossfade(const std::array<int, NUM_PALETTES> &prev_idx,
@@ -296,8 +262,8 @@ private:
     strap_blend_mask = 0;
     for (int s = 0; s < NUM_PALETTES; ++s)
       strap_from[s] = palette_idx[s];
-    // Seen is tracked apart from armed: a slot whose first face opens on its
-    // target arms nothing, and must not fall through to a later face's host.
+    // A slot whose first face opens on its target arms nothing and must not
+    // fall through to a later face's host.
     bool slot_seen[NUM_PALETTES] = {};
     // host_face_palette is filled only over the compiled face range.
     const size_t faces = compiled_hankin.face_counts.size();
@@ -373,23 +339,13 @@ private:
    * node_faces) faces over the opening window, in [0, 1]. Also blends toward
    * the host rim color using the minimum of this and strap_close_blend.
    * @param strap_close_blend Blend of strap faces toward the rim color of the
-   * base face they collapse onto, over the closing window, in [0, 1]. A strap
-   * renders its full ramp even one pixel wide, so its interior differs from the
-   * rim it closes onto and it winks out on vanishing; lerping toward that rim
-   * first dissolves it into the face. resolve_host_faces resolves the host.
+   * base face they collapse onto, over the closing window, in [0, 1].
    * @param strap_terminal_fade Alpha multiplier over the last frames of the
-   * close, in [0, 1]. The final sliver is anti-aliasing only, so fading it
-   * uncovers nothing while removing the last-frame snap.
+   * close, in [0, 1].
    * @param star_close_blend Blend of star faces toward the rim color of the
-   * rosettes hosted inside them, over the sweep's midpoint, in [0, 1]. The
-   * mirror of the strap close: at mid-sweep the star closes to nothing and the
-   * rosettes fill its place, so it dissolves into their rim and comes back out
-   * of it as it reopens, rather than winking out in its own color.
-   * @details Strap opening and closing windows are disjoint. Star closing
-   * blends act around mid-cycle. At either angle-0 bookend the straps are
-   * zero-area, so a 0 changes no pixels and the star-face bookend stays
-   * bitwise exact. Palette, counterpart blend and coverage resolve per
-   * face.
+   * rosettes hosted inside them, over the sweep's midpoint, in [0, 1].
+   * @details At either angle-0 bookend the straps are zero-area, so the
+   * star-face bookend stays bitwise exact.
    */
   void draw_mesh(Canvas &canvas, const MeshState &mesh,
                  const BakedPalette *const (&star_by_slot)[NUM_PALETTES],
@@ -493,11 +449,9 @@ private:
   /**
    * @brief Resolves, per hankin-added face, the palette of the base face it
    * lives inside — the rim it opens from and collapses back onto.
-   * @details A rosette is born on a base face's interior walls and opens inward
-   * from them, so it belongs wholly to one base face. The host is found by
-   * rebuilding the mesh at the sweep peak (angle PI_F / 2) and matching each
-   * rosette's unit centroid against the base face centroids. Runs once per
-   * cycle; record_node_palettes must precede it.
+   * @details The host is the base face whose centroid is nearest the
+   * rosette's unit centroid at the sweep peak (angle PI_F / 2).
+   * record_node_palettes must precede it.
    */
   HS_COLD_MEMBER void resolve_host_faces() {
     const size_t faces = compiled_hankin.face_counts.size();
@@ -507,10 +461,8 @@ private:
              "HankinSolids: topology classification omitted hankin faces");
     for (size_t j = 0; j < MAX_NODE_FACES; ++j)
       star_rim_palette[j] = NO_RIM;
-    // Rebuild at the sweep peak, where every rosette is fully open and
-    // unambiguously inside its face, and match by unit centroid there. Shared
-    // vertices do not discriminate: hankin builds on edge midpoints, which
-    // belong to both faces meeting at that edge.
+    // At the sweep peak every rosette is fully open inside its face. Shared
+    // vertices do not discriminate: hankin builds on edge midpoints.
     ScratchScope host_guard(scratch_arena_a);
     MeshState open_mesh;
     MeshOps::update_hankin(compiled_hankin, open_mesh, scratch_arena_a,
@@ -532,9 +484,7 @@ private:
         }
       }
       host_face_palette[f] = node_face_palette[best];
-      // Inverse leg: at the sweep's midpoint the star face closes to nothing
-      // and the rosettes hosted in it fill its place. Rosettes sharing a host
-      // share a class; the first one found represents them.
+      // Rosettes sharing a host share a class; the first one represents them.
       if (star_rim_palette[best] == NO_RIM)
         star_rim_palette[best] = static_cast<uint8_t>(
             palette_idx[MeshPaletteBank::slot_of(hankin_mesh.topology[f])]);
@@ -550,11 +500,8 @@ private:
    * @brief Schedules one interlace-angle sweep plus the sprite that
    * re-evaluates and draws the mesh each frame.
    * @details The sweep starts one frame after the sprite and the sprite runs
-   * one frame longer, so the first drawn frame renders the exact angle-0
-   * bookend the leg completion pinned, and the sweep's completion pins the
-   * closing bookend before the sprite's final draw. Both are gated on the
-   * same pause flag so grabbing the slider holds the frame instead of
-   * blanking it.
+   * one frame longer, so the first and last draws render the exact angle-0
+   * bookends. Both share the pause flag.
    * @note resolve_host_faces must have run for this cycle's mesh.
    */
   HS_COLD_MEMBER void start_hankin_cycle() {
@@ -570,7 +517,7 @@ private:
                               }),
                           &anims_paused);
 
-    // Snapshot the angle-independent counts for the per-frame HS_CHECK below.
+    // Snapshot the angle-independent counts.
     hankin_vertex_count = compiled_hankin.static_vertices.size() +
                           compiled_hankin.dynamic_instructions.size();
     hankin_face_count = compiled_hankin.face_counts.size();
@@ -578,16 +525,14 @@ private:
         0,
         Animation::Sprite(
             [this](Canvas &c, float) {
-              // update_hankin re-binds the mesh's vectors against
-              // persistent_arena every frame; the angle never changes the
-              // vertex/face counts, so bind reuses the blocks in place.
+              // update_hankin re-binds against persistent_arena every
+              // frame; unchanged counts reuse the blocks in place.
               {
                 HS_PROFILE(hk_update_hankin);
                 MeshOps::update_hankin(compiled_hankin, hankin_mesh,
                                        persistent_arena, params.hankin_angle);
               }
-              // Always-on guard: grown counts would leak persistent_arena
-              // every frame on a permanent install.
+              // Grown counts would leak persistent_arena every frame.
               HS_CHECK(hankin_mesh.vertices.size() == hankin_vertex_count &&
                            hankin_mesh.face_counts.size() == hankin_face_count,
                        "HankinSolids: per-frame mesh counts changed; the "
@@ -595,18 +540,15 @@ private:
               const int cycle_frame = hankin_cycle_frame;
               if (!anims_paused)
                 ++hankin_cycle_frame;
-              // Blended strap LUTs live in scratch_b for this frame only;
-              // the draw path below uses scratch_a exclusively.
+              // Blended strap LUTs live in scratch_b for this frame only.
               ScratchScope blend_guard(scratch_arena_b);
               BakedPalette blended[NUM_PALETTES];
               const BakedPalette *star_by_slot[NUM_PALETTES];
               const BakedPalette *strap_by_slot[NUM_PALETTES];
               resolve_hankin_slot_luts(cycle_frame, blended, star_by_slot,
                                        strap_by_slot, scratch_arena_b);
-              // Three collapse points, each shaped only within SHAPE_FRAMES of
-              // itself: the strap births at the opening bookend, closes at the
-              // closing one, and the star closes at the midpoint. Every weight
-              // is exactly 0 at its collapse and 1 beyond the window.
+              // Collapse points: strap birth at the opening bookend, strap
+              // close at the closing one, star close at the midpoint.
               const ShapeWeights weights = shape_weights(cycle_frame);
               draw_mesh(c, hankin_mesh, star_by_slot, strap_by_slot,
                         weights.strap_open, weights.strap_close,
@@ -670,10 +612,8 @@ private:
         .prev_faces = node_faces,
         .prev_face_centroid = node_face_centroid};
 
-    // Bookend grouping of the arrival node: the closing bookend displays one
-    // palette per hankin star-face class, so the leg's color targets key on
-    // that classification. Built from the same arrival mesh finish_morph_cycle
-    // rebuilds, so the class ids match at completion.
+    // The closing bookend displays one palette per hankin star-face class,
+    // so the leg's color targets key on the arrival node's classification.
     uint16_t arrival_topo[MAX_NODE_FACES];
     size_t arrival_faces = 0;
     {
@@ -689,8 +629,7 @@ private:
       MeshOps::compile_hankin(arrival, ch, scratch_arena_b, scratch_arena_a);
       MeshState hk;
       MeshOps::update_hankin(ch, hk, scratch_arena_b, 0.0f);
-      // One arena serves classify's scratch and output (LIFO-stacked scopes),
-      // keeping scratch_b free for the compiled hankin + mesh peak.
+      // One arena serves classify's scratch and output (LIFO-stacked scopes).
       MeshOps::classify_faces_by_topology(hk, scratch_arena_a, scratch_arena_a,
                                           scratch_arena_a);
       for (size_t f = 0; f < arrival_faces; ++f)
@@ -743,16 +682,15 @@ private:
     node = arrived;
     hs::log("Loading shape: '%s'", Solids::simple_registry[node].name);
 
-    // Outgoing cycle's display state, consumed by the strap-crossfade prep
-    // below: the per-slot colors, and which slots were on screen at all.
+    // Outgoing cycle's display state: per-slot colors and which slots were on
+    // screen at all.
     const std::array<int, NUM_PALETTES> prev_idx = palette_idx;
     bool prev_used[NUM_PALETTES] = {};
     for (size_t f = 0; f < hankin_mesh.topology.size(); ++f)
       prev_used[MeshPaletteBank::slot_of(hankin_mesh.topology[f])] = true;
 
-    // Build the arrived base mesh from the held seed and compile the hankin
-    // pattern from that mesh — never a registry regenerate, so bridge
-    // arrivals keep the orientation the walk produced.
+    // Built from the held seed so bridge arrivals keep the walk's
+    // orientation.
     hs::generate(persistent_arena, [&](Arena &target, Arena &a, Arena &b) {
       PolyMesh base = node_mesh_at(seed_base, e, arrived_at_to, a, b);
       if (adopts_seed(e, arrived, arrived_at_to)) {
@@ -761,9 +699,8 @@ private:
           seed_base = Solids::finalize_solid(base, target);
           seed_identity = node;
         } else if (arrived == ICOSAHEDRON) {
-          // Reverse jitterbug arrival: hold the icosahedron node's canonical
-          // relax form (the mesh the tetra -> icosa bridge adopts), not the
-          // unrelaxed jitterbug form the bookend displays.
+          // Reverse jitterbug arrival: hold the icosahedron's canonical
+          // relax form, not the unrelaxed form the bookend displays.
           PolyMesh s;
           MeshOps::clone(seed_base, s, a);
           seed_base = Solids::finalize_solid(
@@ -792,8 +729,6 @@ private:
     MeshPaletteBank::shuffle_indices(palette_idx);
     bool slot_mapped[NUM_PALETTES] = {};
     for (size_t f = 0; f < node_faces; ++f) {
-      // The leg's targets keyed on this same classification (computed at leg
-      // start from the same arrival mesh); drift here would pop the bookend.
       HS_CHECK(landing.topology[f] == hankin_mesh.topology[f],
                "HankinSolids: arrival classification drifted across the leg");
       int slot = MeshPaletteBank::slot_of(hankin_mesh.topology[f]);
@@ -831,9 +766,7 @@ private:
   MeshState hankin_mesh; /**< The single on-screen mesh (hankin form). */
   CompiledHankin compiled_hankin; /**< Active during the hankin cycle. */
   PolyMesh seed_base;             /**< Held Platonic seed of the graph walk. */
-  std::array<int, NUM_PALETTES> palette_idx =
-      {}; /**< Class slot -> palette; value-init so a missed shuffle reads 0,
-             not garbage. */
+  std::array<int, NUM_PALETTES> palette_idx = {}; /**< Class slot -> palette. */
   std::array<int, NUM_PALETTES> strap_from =
       {}; /**< Per-slot crossfade origin palette for the current cycle's
              opening window (equals palette_idx on unarmed slots). */
@@ -849,12 +782,10 @@ private:
       {}; /**< Displayed palette per node base face. */
   uint8_t star_rim_palette[MAX_NODE_FACES] =
       {}; /**< Per star face, the palette of the rosettes hosted inside it —
-             the rim color it dissolves into as it closes at the sweep's
-             midpoint. See resolve_host_faces. */
+             the rim color it dissolves into at the sweep's midpoint. */
   uint8_t host_face_palette[MAX_HANKIN_FACES] =
       {}; /**< Per hankin-added face, the palette of the base face it lives
-             inside — the rim color it collapses onto. See
-             resolve_host_faces. */
+             inside — the rim color it collapses onto. */
   math::Vector node_face_centroid[MAX_NODE_FACES] =
       {};                /**< Unit centroid per node base face (geometric
                              palette provenance). */

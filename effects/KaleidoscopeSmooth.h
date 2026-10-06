@@ -56,10 +56,8 @@ using KaleidoscopeSmoothParams = Pullback::ParamsFor<KaleidoscopeSmoothSpec>;
 
 /**
  * @brief Mirrored grids folded through a dodecahedral stereographic lens.
- * @details Supplies the render pipeline and preset bank; Pullback::ComposedEffect
- * supplies parameter registration, preset choreography and the palette,
- * camera-walk and noise clocks. The dodecahedral fold is the Lens stage and
- * the mirror tiling is the inner planar warp; the pipeline has no surface stage.
+ * @details The dodecahedral fold is the Lens stage and the mirror tiling is
+ * the inner planar warp; the pipeline has no surface stage.
  * @tparam W Canvas width in pixels.
  * @tparam H Canvas height in pixels.
  */

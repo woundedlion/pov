@@ -77,7 +77,7 @@ public:
   // End generated identity.
   static constexpr uint32_t PARAMETER_SCHEMA_VERSION = 2;
 
-  // Hot entry trampoline; RenderPipeline::shade uses hot flash.
+  // Hot entry trampoline.
   static HS_HOT_FLASH_MEMBER Color4
   shade(const math::Vector &view,
         const typename KaleidoscopeMandala::Frame &frame) {

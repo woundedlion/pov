@@ -29,17 +29,12 @@ struct DisplacementFieldWhiteBox;
  * bumps.
  * @tparam W Canvas width in pixels.
  * @tparam H Canvas height in pixels.
- * @details Rings share one axis and are spaced evenly in colatitude across the
- * whole sphere. Each ring vertex is displaced along
- * the stack axis by the dominant blend of active ball fields plus the noise field sampled at the vertex's
- * world-space position. The noise phase opens the effect and fades in from
- * zero before dwelling at full strength, then fades out into a ball phase.
- * Cap-shaped ball bumps fall from world +Y to -Y on random meridians,
- * pushing ring vertices along the oriented stack axis.
- * Fragments are shaded from a circular analogous palette that spins across the
- * stack, with hue rotated proportionally to the local displacement magnitude; a
- * ColorWipe slowly fades the palette to a freshly generated one every ~11
- * seconds. Orientation random-walks over time.
+ * @details Rings share one axis and are spaced evenly in colatitude. Each ring
+ * vertex is displaced along the stack axis by the dominant blend of active ball
+ * fields plus the noise field at the vertex's world-space position. A noise
+ * phase (fade in, dwell, fade out) alternates with a ball phase in which
+ * cap-shaped bumps fall from world +Y to -Y on random meridians. Hue rotates
+ * with the local displacement magnitude.
  */
 template <int W, int H> class DisplacementField : public Effect {
   friend struct ::hs_test::effects_tests::DisplacementFieldWhiteBox;
@@ -154,9 +149,8 @@ public:
       noise_field.prepare_frame();
     }
 
-    // Ball events freeze with anims_paused and never retire, so the phase
-    // machine freezes with them: spawning against frozen balls saturates the
-    // pool and the zero-active exit never arrives.
+    // Ball events freeze while paused and never retire, so the phase machine
+    // freezes with them.
     if (!anims_paused) {
       switch (phase) {
       case Phase::BALLS:
@@ -253,21 +247,12 @@ private:
    * stack in one fused scan.
    * @param canvas Render target for the ring fragments.
    * @param opacity Sprite fade multiplied into each fragment's alpha.
-   * @details Per ring, the displacement stack is baked per azimuth column into
-   * a pooled slot: the centerline shift knots together with the hue-rotated
-   * ring color. The bake evaluates only the balls whose support can reach the
-   * ring's colatitude in the oriented stack frame, each only
-   * across the azimuth arc its cap covers; the noise octaves are sampled on
-   * every other knot and spline-filled between. A ring nothing can displace
-   * takes a constant LUT. The LUT resolution is adaptive: enough samples for
-   * the finest active feature along the ring's actual circumference. Under a
-   * partial clip, rings whose displaced band cannot touch the clip are skipped
-   * whole, and invisible azimuth chunks skip the field/hue bake. The hue table
-   * is filled only up to the largest shift the ring actually reaches. The
-   * baked rings then rasterize as soft SDF strokes with a quintic
-   * cross-section falloff against the exact distance to each knot polyline, in
-   * a single fused scan (Scan::DistortedRingStack) that hoists the shared-axis
-   * pixel frame out of the per-ring distance evaluation.
+   * @details Each ring's centerline shifts and hue-rotated colors are baked per
+   * azimuth column into a pooled slot, at a resolution set by the finest
+   * active feature. Under a partial clip, rings that cannot touch the clip are
+   * skipped and invisible azimuth chunks skip the bake. The baked rings
+   * rasterize as soft quintic SDF strokes in one fused
+   * Scan::DistortedRingStack pass.
    */
   HS_O3_FN void draw_rings(Canvas &canvas, float opacity) {
     HS_PROFILE(df_draw_rings);
@@ -334,9 +319,8 @@ private:
 
       int lut_n;
       if (band + noise_bound <= 0.0f) {
-        // Flat rings take the zero-knot LUT path even under -Os: the fused
-        // candidate loop needs every ring in the shared pass to keep per-pixel
-        // blend order.
+        // Flat rings still take a LUT: the fused scan needs every ring to
+        // keep per-pixel blend order.
         Pixel flat = hue_rotate(hue_base, 0.0f).color;
         lut_n = LUT_MIN_SAMPLES;
         for (int x = 0; x <= lut_n; ++x) {
@@ -387,10 +371,9 @@ private:
                           visible, n_local, slut);
         }
 
-        // Culled chunks keep hlut stale; the pad_chunks widening of `visible`
-        // above keeps a rasterized pixel from ever sampling their columns.
-        // Their shifts are zeroed, since DistortedRing's constructor scans
-        // every knot and stale cells would perturb its shift bounds.
+        // Culled chunks keep hlut stale; the padded `visible` mask keeps
+        // rasterized pixels off their columns. Their shifts are zeroed:
+        // DistortedRing scans every knot for its shift bounds.
         float max_shift = 0.0f;
         {
           int x = 0;
@@ -760,12 +743,7 @@ private:
    * @brief Spawns one falling ball with a random meridian, footprint, and
    * speed drawn from the Speed Min/Max sliders; dropped safely if the ball pool
    * or the timeline is full.
-   * @details A full pool is logged before the spawn rather than by testing
-   * spawn()'s result: consuming that return value costs ~960 B of ITCM, which
-   * the phantasm budget cannot spare. A timeline-full drop is already logged by
-   * the timeline itself. A saturated pool drops most of a phase's spawns, and
-   * hs::log blocks on the serial write, so only the first drop of each ball
-   * phase is logged.
+   * @details Only the first pool-full drop of each ball phase is logged.
    */
   HS_COLD_MEMBER void spawn_ball() {
     balls.template_params.radius =
@@ -819,22 +797,20 @@ private:
   Timeline timeline;
   Pipeline<W, H> filters;
 
-  // Each in-flight ball is one timeline event, so at high Ball Rate x slow
-  // Speed the spawner saturates the pool and drops spawns safely instead of
-  // starving the effect's own events.
+  // Each in-flight ball is one timeline event; a saturated pool drops spawns.
   static constexpr int MAX_BALLS =
       56; /**< Concurrent falling-ball pool slots. */
   static constexpr int RESERVED_EVENTS =
-      6; /**< Non-ball timeline events: pinned noise field, ring Sprite, orientation RandomWalk, palette PeriodicTimer, one master-gain Transition, one palette ColorWipe. */
+      6; /**< Non-ball timeline events the effect schedules. */
   static_assert(MAX_BALLS + RESERVED_EVENTS <= Timeline::MAX_EVENTS,
                 "DisplacementField: a full ball pool plus the effect's own "
                 "events exceeds the shared timeline budget");
   static constexpr int BALL_PHASE_FRAMES =
-      900; /**< Ball-phase spawning window (~56 s at 16 fps); balls keep coming the whole window. */
+      900; /**< Ball-phase spawning window. */
   static constexpr float BALL_RATE_FPS =
-      60.0f; /**< Frames per Ball Rate / Speed slider unit; one unit spans ~3.75 s at the 16 fps device cadence. */
+      60.0f; /**< Frames per Ball Rate / Speed slider unit. */
   static constexpr float BALL_DRAPE_PER_AMPLITUDE =
-      4.0f; /**< Drape gain per Ball Amp unit: the 0.1 default gives gain 0.4. */
+      4.0f; /**< Drape gain per Ball Amp unit. */
   static constexpr int NOISE_FADE_FRAMES =
       150; /**< Noise amplitude ramp on each phase handoff. */
   static constexpr int NOISE_HOLD_FRAMES =
@@ -869,9 +845,9 @@ private:
       0; /**< Frames until the noise phase begins fading back out. */
 
   static constexpr int PALETTE_CYCLE_FRAMES =
-      180; /**< Palette rollover period (~11 s at the 16 fps cadence). */
+      180; /**< Palette rollover period. */
   static constexpr int PALETTE_WIPE_FRAMES =
-      168; /**< Wipe duration; slightly under the cycle so a wipe is never still in flight when the next rollover fires. */
+      168; /**< Wipe duration, shorter than the rollover period. */
   // The wipe is armed mid-step and first steps on the next frame, so it spans
   // PALETTE_WIPE_FRAMES + 1 frames.
   static_assert(PALETTE_CYCLE_FRAMES > PALETTE_WIPE_FRAMES + 1,
@@ -1018,9 +994,7 @@ private:
                 "DisplacementField Thickness default falls outside its "
                 "W-scaled slider range at this build resolution");
 
-  // init() allocates the per-slot bake pools, the ball prefilter scratch, the
-  // hue table, the chunk-azimuth table, the ring shapes, the scan's candidate
-  // table, and both transformer pools from the persistent arena.
+  // Every persistent allocation init() makes.
   static constexpr size_t FOOTPRINT_BYTES =
       RING_SLOTS * (W + 1) * (sizeof(float) + sizeof(Pixel)) +
       RING_SLOTS *
