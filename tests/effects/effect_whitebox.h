@@ -676,7 +676,7 @@ inline void test_ringspin_trail_hugs_its_great_circles() {
   HS_EXPECT_EQ(still_lit, 0);
 }
 
-// White-box bounds for spawn gaps, emit phases and pool indices on every frame.
+// PetalFlow spawn-gap, hue-cursor and ring-pool bounds on every frame.
 
 /**
  * @brief White-box accessor for PetalFlow's spawn-gap accumulator and hue
