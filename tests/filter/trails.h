@@ -4,7 +4,7 @@
  */
 
 // ============================================================================
-// World::Trails — int16 quantization round-trip + ring buffer / ttl lifecycle
+// World/Screen::Trails: quantization, capacity replacement and ttl lifecycle
 // ============================================================================
 
 /**
@@ -183,7 +183,7 @@ inline void test_world_trails_set_lifetime_caps_ttl() {
  * @brief Verifies flush() reclaims a dead mid-buffer item (heterogeneous TTLs),
  *        not just dead items at the head.
  * @details A short-lived point buffered behind a long-lived older one dies in
- *          the middle of the ring; flush()'s swap-remove cull frees its slot, so
+ *          the middle of the array; flush()'s swap-remove cull frees its slot, so
  *          live capacity is preserved and the next plot() fills the freed slot
  *          without evicting any live point.
  */
@@ -441,7 +441,7 @@ inline void test_mixed_domain_flush_drains_both_buffers() {
     HS_EXPECT_TRUE(screen_emits > 0);
   }
 
-  // ttl reached 0 on the last pass: the world ring aged out.
+  // ttl reached 0 on the last pass: the world buffer aged out.
   HS_EXPECT_EQ(pipe.get<WorldTrails>().size(), (size_t)0);
 
   world_emits = screen_emits = 0;
