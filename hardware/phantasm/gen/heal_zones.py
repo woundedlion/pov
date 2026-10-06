@@ -1,7 +1,8 @@
 """Restore routed copper-zone feature sizes to the generator's defaults.
 
-Writes a separate board with cached fills removed. Refill all zones in KiCad,
-save, and rerun DRC and the fabrication gates before using the output.
+Writes a separate board. When a zone is repaired, cached fills are removed:
+refill all zones in KiCad, save, and rerun DRC and the fabrication gates before
+using the output. A board needing no repair is copied unchanged.
 """
 import argparse
 import math
