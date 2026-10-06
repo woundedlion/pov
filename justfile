@@ -162,7 +162,7 @@ python-test:
     {{ python_command }} tools/run_python_tests.py
 
 # Python tests and routed PCB metadata.
-teensy-gate-test: python-test
+python-ci: python-test
     {{ python_command }} hardware/phantasm/gen/board_metadata.py --check
 
 # Windows only: build, flash, and capture one effect under the device lock.
