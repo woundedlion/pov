@@ -7,8 +7,9 @@ strip, DATA_IN/CLK_IN from the Teensy, and the SYNC pair).
 Usage:
     python analyze_candidates.py [DIR ...]
 
-With no args it globs `<revision>/candidates/*Candidate[ _-]*`. Extract Quilter
-archives into that directory. Pass explicit folders or .kicad_pcb files to override.
+With no args it globs `<builder.REVISION>/candidates/*Candidate[ _-]*` using the
+default revision. Extract Quilter archives into that directory. Pass explicit
+folders or .kicad_pcb files for other revisions.
 
 A DRC gate runs kicad-cli on each candidate (env KICAD_CLI overrides discovery, and
 must name an existing file) so a geometry-clean but DRC-broken board can't
