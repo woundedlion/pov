@@ -151,6 +151,14 @@ class AnalyzeTests(unittest.TestCase):
             self.analyze_source(source)
         self.analyze_source(source.replace('(rev "1.2")', '(rev "1.1")'))
 
+    def test_rejects_a_missing_title_block_revision(self):
+        self.analyze_source(SYNTHETIC_BOARD)
+        for source in (SYNTHETIC_BOARD.replace('(rev "1.2")', ''),
+                       SYNTHETIC_BOARD.replace('(title_block (rev "1.2"))', '')):
+            with self.subTest(source=source):
+                with self.assertRaisesRegex(ValueError, "no title_block rev"):
+                    self.analyze_source(source)
+
     def test_rejects_a_zero_length_critical_net(self):
         source = SYNTHETIC_BOARD.replace("(end 10 0)", "(end 0 0)")
 
