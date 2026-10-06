@@ -29,8 +29,8 @@ namespace filter_tests {
 
 // This module is only ever linked into the offset-0 run_tests driver, so the
 // pole cases below assert unconditionally rather than hiding behind a runtime
-// offset check that could never fire. The legacy offset-3 mapping compiles in its own TU
-// (tests/test_h_offset_renorm.h), which carries the offset-3 pole coverage.
+// offset check that could never fire. The legacy offset-3 mapping compiles in
+// tests/h_offset_renorm_check.cpp, which includes tests/test_h_offset_renorm.h.
 static_assert(hs::H_OFFSET == 0,
               "test_filter.h assumes row H-1 is the south pole; the legacy "
               "offset-3 mapping belongs in tests/test_h_offset_renorm.h");
