@@ -47,13 +47,13 @@ template <> struct ExternalParamsHooks<math::MobiusParams> {
  * @tparam T Candidate params type.
  */
 template <typename T> constexpr bool declares_hooks() {
-  constexpr bool refresh_declared = requires {
+  constexpr bool REFRESH_DECLARED = requires {
     T::NEEDS_REFRESH_FROM;
   } || requires { ExternalParamsHooks<T>::NEEDS_REFRESH_FROM; };
-  constexpr bool sync_declared = requires { T::NEEDS_SYNC; } || requires {
+  constexpr bool SYNC_DECLARED = requires { T::NEEDS_SYNC; } || requires {
     ExternalParamsHooks<T>::NEEDS_SYNC;
   };
-  return refresh_declared && sync_declared;
+  return REFRESH_DECLARED && SYNC_DECLARED;
 }
 
 /**
@@ -837,10 +837,10 @@ inline math::Vector noise_transform(const math::Vector &v,
   math::Vector surface_distortion = raw_noise - (v * inward_pull);
 
   // Soft-cap the slide distance to prevent cross-hemisphere grabs.
-  constexpr float max_slide = 0.5f;
+  constexpr float MAX_SLIDE = 0.5f;
   float sd_len_sq = math::dot(surface_distortion, surface_distortion);
-  if (sd_len_sq > max_slide * max_slide) {
-    surface_distortion = surface_distortion * (max_slide / sqrtf(sd_len_sq));
+  if (sd_len_sq > MAX_SLIDE * MAX_SLIDE) {
+    surface_distortion = surface_distortion * (MAX_SLIDE / sqrtf(sd_len_sq));
   }
 
   return (v + surface_distortion).normalized();
