@@ -12,9 +12,7 @@ set(HS_PULLBACK_CAPTURE_PRESET "" CACHE STRING
 #   * Native clang toolchain -> unit-test executable + CTest      [else]
 # Use the presets in CMakePresets.json (cmake --preset wasm-release / tests).
 
-# Enable ccache if available (both modes benefit). find_program stores the
-# resolved executable PATH (or <var>-NOTFOUND), so use CMake's CCACHE_PROGRAM
-# convention rather than a _FOUND name that reads as a boolean but holds a path.
+# Enable ccache if available.
 find_program(CCACHE_PROGRAM ccache)
 if(CCACHE_PROGRAM AND NOT DEFINED CMAKE_CXX_COMPILER_LAUNCHER)
   set(CMAKE_CXX_COMPILER_LAUNCHER ${CCACHE_PROGRAM})
@@ -34,9 +32,8 @@ if(EMSCRIPTEN)
     set(CMAKE_BUILD_TYPE Release CACHE STRING "" FORCE)
   endif()
 
-  # Shipping module: sources come from CMAKE_CURRENT_SOURCE_DIR, the root the
-  # install rules below record provenance against. Only the capture backends
-  # follow HS_PULLBACK_CAPTURE_SOURCE_ROOT.
+  # Shipping module sources come from CMAKE_CURRENT_SOURCE_DIR, the root its
+  # install provenance records; HS_PULLBACK_CAPTURE_SOURCE_ROOT does not apply.
   set(TARGET_NAME holosphere_wasm)
   add_executable(${TARGET_NAME}
     ${CMAKE_CURRENT_SOURCE_DIR}/targets/wasm/wasm.cpp
@@ -58,19 +55,13 @@ if(EMSCRIPTEN)
     VERBATIM)
 
   # WASM reserves two chain arenas plus ShaderChain's shared color resources.
-  # The native unit_arena_budget sweep enforces the device budget separately.
   target_compile_definitions(${TARGET_NAME} PRIVATE
     HS_RUNTIME_DISPLAY_GEOMETRY=1
     HS_DISPLAY_PROFILE=0
     HS_GLOBAL_ARENA_BYTES=524288)
 
-  # wasm.cpp and the embind headers compile only here; host-testable bridge
-  # headers also compile into run_tests. This covers the WASM-only TU. Not
-  # -Werror: unlike the native suite, third-party emscripten system headers ride
-  # this compile line. The gate is in CI instead — the wasm job greps release, debug and strict-FP build
-  # logs for warnings under first-party paths and fails on any
-  # (.github/workflows/ci.yml), the same first-party/third-party split the device
-  # firmware warning gate uses (tools/teensy_warnings.py).
+  # Not -Werror: emscripten system headers ride this compile line. CI gates
+  # first-party warnings from the build logs.
   target_compile_options(${TARGET_NAME} PRIVATE "-Wall" "-Wextra")
 
   target_link_options(${TARGET_NAME} PRIVATE
@@ -110,10 +101,8 @@ if(EMSCRIPTEN)
       "-sSTACK_SIZE=8192")
   endif()
 
-  # Optional dev-only WASM bindings (off by default, so a normal build is
-  # unchanged). Enables MeshOps::getMaxBounds() — a roster measurement tool for
-  # sizing MAX_VERTS-style constants, with no UI/runtime consumer (see
-  # HS_WASM_DEV_BINDINGS in targets/wasm/mesh_ops_bindings.h). Enable with:
+  # Optional dev-only WASM bindings: MeshOps::getMaxBounds(), a roster
+  # measurement tool for sizing MAX_VERTS-style constants. Enable with:
   #   cmake --preset wasm-debug -DHS_WASM_DEV_BINDINGS=ON
   option(HS_WASM_DEV_BINDINGS "Re-export dev-only WASM bindings (getMaxBounds)" OFF)
   if(HS_WASM_DEV_BINDINGS)
@@ -170,12 +159,8 @@ if(EMSCRIPTEN)
   set_target_properties(pullback_capture_wasm PROPERTIES SUFFIX ".cjs")
 
   # Generator of record for scripts/engine_catalog.json, the wasm32 operator ABI
-  # catalog scripts/wasm_smoke.mjs diffs the running module against and the
-  # browser workbench budgets chains with. Its native counterpart is
-  # tests/data/shader_chain_catalog.json, rewritten by
-  # regenerate_shader_chain_catalog; the two state different ABIs and are never
-  # copied over one another. Out of the default build: running it rewrites that
-  # committed artifact.
+  # catalog. Out of the default build: running it rewrites that committed
+  # artifact.
   add_custom_target(regenerate_engine_catalog
     COMMAND node
       "${CMAKE_CURRENT_SOURCE_DIR}/scripts/export_engine_catalog.mjs"
@@ -190,9 +175,7 @@ if(EMSCRIPTEN)
   set(DAYDREAM_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../daydream"
       CACHE PATH "Destination daydream checkout for the installed WASM module")
 
-  # A typo'd or stale cache value must not receive runtime files. Require a
-  # marker only a daydream checkout carries. src/app/daydream.js is tracked there and is
-  # written by no install rule here, so a previous run cannot have planted it.
+  # Install only into a checkout carrying a marker no install rule here writes.
   set(HS_DAYDREAM_MARKER "${DAYDREAM_DIR}/src/app/daydream.js")
 
   if(EXISTS "${HS_DAYDREAM_MARKER}")
@@ -204,8 +187,7 @@ if(EMSCRIPTEN)
     install(TARGETS ${TARGET_NAME} DESTINATION "${DAYDREAM_DIR}/generated")
     install(FILES "${CMAKE_CURRENT_BINARY_DIR}/${TARGET_NAME}.wasm"
             DESTINATION "${DAYDREAM_DIR}/generated")
-    # Firmware golden from hardware/pov_segment_map.h; consumed by daydream
-    # tests/segment_crosscheck.test.js and included in engine bundle provenance.
+    # Firmware golden from hardware/pov_segment_map.h.
     install(FILES "${CMAKE_CURRENT_SOURCE_DIR}/hardware/pov_segment_map.json"
             DESTINATION "${DAYDREAM_DIR}/generated")
     install(FILES
@@ -235,10 +217,8 @@ if(EMSCRIPTEN)
     install(DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/docs/screenshots/"
             DESTINATION "${DAYDREAM_DIR}/docs/screenshots"
             FILES_MATCHING PATTERN "*.png")
-    # Record the engine commit this WASM module was built from, the content hashes
-    # of the module's two shipped halves (.wasm binary, .js glue), and the toolchain
-    # that produced them. Daydream local provenance and parity tests consume
-    # this set; deployments use only the CI-published engine bundle.
+    # Record the engine commit, the .wasm and .js content hashes, and the
+    # toolchain that produced them.
     install(CODE "
       # Normalize Windows glue to LF; escape literal @ tokens before CONFIGURE.
       set(HS_AT \"@\")

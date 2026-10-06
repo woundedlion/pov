@@ -8,17 +8,10 @@
  * @file animation.h
  * @brief Animation umbrella header: the IAnimation interface, the AnimationBase
  * CRTP base, and the fragment includes.
- * @details The fragments span three scopes: namespace Animation (the animations
- * themselves), namespace Segue (the transition policies), and global scope
- * (Timeline/TimelineEvent, MeshCarousel, Path/ProceduralPath, and the tween
- * traversals).
- *
- * Non-finite input rule: a constructor argument traps (HS_CHECK), because it is
- * a programmer-supplied constant. A value re-read from a live source each frame,
- * or written through a live-tunable setter, is ignored on non-finite and the
- * last good value kept — a GUI slider must not trap the device, and non-finite
- * values must not reach rendering or accumulate in the driven state. Driver::set_speed traps
- * because it is the path for a Driver with no live source bound.
+ * @details Non-finite input rule: a constructor argument traps (HS_CHECK). A
+ * value re-read from a live source each frame, or written through a
+ * live-tunable setter, is ignored on non-finite and the last good value kept.
+ * Driver::set_speed traps.
  */
 
 #include "animation/orientation.h"
@@ -45,7 +38,6 @@
 
 /**
  * @brief Non-templated interface for all animations.
- * @details Enables virtual dispatch in Timeline without std::visit.
  */
 class IAnimation {
 public:
@@ -62,8 +54,7 @@ public:
   /**
    * @brief Renders a held frame without advancing animation state.
    * @param canvas The current canvas buffer.
-   * @details Timeline event-level pause calls this only after the event has
-   * started. Animations with no held-frame rendering keep the default no-op.
+   * @details Defaults to a no-op.
    */
   virtual void step_paused(Canvas &canvas) { (void)canvas; }
 
@@ -89,9 +80,7 @@ public:
   /**
    * @brief Reports whether the animation was explicitly canceled.
    * @return True if cancel() drove it to done(); false for a natural end.
-   * @details Lets Timeline distinguish a deliberate teardown from a natural
-   * completion (the pin-completion guard exempts cancellation). Defaults to
-   * false for animations with no cancel concept.
+   * @details Defaults to false for animations with no cancel concept.
    */
   virtual bool is_canceled() const { return false; }
 
@@ -114,9 +103,8 @@ public:
   /**
    * @brief Identity of the owned Orientation.
    * @return Pointer identifying the owned Orientation, or nullptr if none.
-   * @details Used by Timeline to collapse each distinct Orientation exactly
-   * once per frame, so animations sharing one Orientation compose their
-   * motion-blur history instead of clobbering it.
+   * @details Animations sharing one Orientation return the same id, so it is
+   * collapsed once per frame.
    */
   virtual const void *orientation_id() const { return nullptr; }
 };
@@ -135,8 +123,6 @@ enum class Space {
 /**
  * @brief Type-independent timing, cancellation and completion-callback state
  * shared by every animation.
- * @details Non-template so one copy of each virtual serves every animation
- * type; AnimationBase adds only the Derived-typed then() chaining.
  */
 class AnimationCommon : public IAnimation {
 public:
@@ -154,9 +140,7 @@ public:
   /**
    * @brief Checks if the animation should repeat after finishing.
    * @return True if repeating.
-   * @details A canceled animation must not repeat: done() is permanently true
-   * once canceled, so without the !canceled guard Timeline::step would rewind it
-   * and re-fire its .then() every frame, never removing it — a per-frame zombie.
+   * @details A canceled animation never repeats.
    */
   bool repeats() const override { return repeat && !canceled; }
   /**
@@ -215,12 +199,8 @@ protected:
 
   /**
    * @brief Ends the animation now through its duration rather than cancel().
-   * @details duration 0 makes done() true at any t while is_canceled() stays
-   * false, so the end reads as a natural completion. Timeline's pin-completion
-   * guard exempts cancellation, so a self-terminating animation must end this
-   * way to stay diagnosable when pinned. Clears `repeat` as well: a repeating
-   * animation left done() && repeats() is rewound and re-fires its .then() every
-   * frame, never removed — the zombie repeats()' !canceled guard prevents.
+   * @details done() becomes true while is_canceled() stays false, so the end
+   * reads as a natural completion. Also clears `repeat`.
    */
   void finish() {
     duration = 0;
@@ -231,9 +211,6 @@ protected:
    * @brief Evaluates a wired pause flag.
    * @param flag Optional pointer to an effect's pause bool (may be null).
    * @return True when a non-null flag points to a set bool.
-   * @details Shared gate for the pausable animations
-   * (Transition/Mutation/Progress/Driver/Lerp/ColorWipe/Sprite) so pause semantics live
-   * in one place.
    */
   static bool is_paused(const bool *flag) { return flag && *flag; }
 
@@ -248,12 +225,9 @@ protected:
 
   int duration;   /**< Total length of the animation in frames. */
   bool repeat;    /**< Flag indicating if the animation should repeat. */
-  uint32_t t = 0; /**< Internal frame counter. Finite animations bound it by
-                     `duration`; perpetual ones (duration == -1) increment it
-                     forever. Unsigned so `t++` and the `t >= next` trigger
-                     comparisons wrap with defined behavior past 2^32 frames
-                     (~552 days at 90 fps) rather than incurring signed-overflow
-                     UB. Restart before then if uptime can approach that bound. */
+  uint32_t t = 0; /**< Internal frame counter. Perpetual animations
+                     (duration == -1) increment it forever; unsigned so the
+                     wrap past 2^32 frames is defined. */
 
 private:
   bool canceled;       /**< Flag to signal immediate cancellation. */
@@ -272,17 +246,11 @@ public:
    * @brief Sets a callback fired at the end of each completion cycle.
    *
    * Fires when the animation reaches done(): once for a one-shot, per cycle for
-   * a repeating one, once per frame for a Driver. Repeating RandomTimer and
-   * PeriodicTimer fire it from step() each trigger; one-shot timers reach done()
-   * and fire it once on removal.
-   * Do not attach a one-shot callback to a repeating target.
-   *
-   * Single post slot: then() traps (HS_CHECK) rather than overwrite an existing
-   * callback.
+   * a repeating one. Do not attach a one-shot callback to a repeating target.
+   * Traps (HS_CHECK) if a callback is already set.
    *
    * A callback that re-arms the chain by adding the next animation ends it for
-   * good if that add is dropped on a full timeline: nothing retries, and
-   * Timeline::dropped_events() is the only record.
+   * good if that add is dropped on a full timeline; nothing retries.
    *
    * @param callback The function to execute at each completion.
    * @return LValue Reference to the derived animation object.
@@ -311,9 +279,7 @@ protected:
 
 } // namespace Animation
 
-// Internal fragments, in dependency order: every animation type derives from
-// AnimationBase above; sprites builds on trails, segue on timeline and sprites,
-// carousel on segue.
+// Internal fragments, in dependency order.
 #define HS_ANIMATION_INTERNAL
 #include "animation/timers.h"
 #include "animation/params.h"
@@ -326,18 +292,14 @@ protected:
 #include "animation/carousel.h"
 #undef HS_ANIMATION_INTERNAL
 
-// Device inline-storage budget audit. The per-type static_assert in
-// Timeline::add only fires for types actually add()ed in this build, so pin the
-// largest concrete animation type here to check it in every build that includes
-// this header. Compared against MAX_ANIM_SIZE (the real 112 B device budget on
-// the 32-bit WASM/device build, widened to 256 B in the native test suite).
+// Inline-storage budget audit over every concrete animation type, checked in
+// every build that includes this header.
 /** @brief Largest sizeof over a pack of types. */
 template <typename... Ts> constexpr size_t largest_sizeof() {
   return std::max({sizeof(Ts)...});
 }
 
-// Add every new non-templated Animation type to this pack; the audit folds over
-// it, so the static_assert tracks the list automatically.
+// Every non-templated Animation type belongs in this pack.
 constexpr size_t LARGEST_CONCRETE_ANIM_SIZE = largest_sizeof<
     Animation::RandomTimer, Animation::PeriodicTimer, Animation::Transition,
     Animation::Mutation, Animation::Progress, Animation::Driver,

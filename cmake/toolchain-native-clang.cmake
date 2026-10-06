@@ -1,17 +1,9 @@
-# Native (non-Emscripten) toolchain for the Holosphere unit tests.
+# Native (non-Emscripten) Clang toolchain for the Holosphere unit tests; the
+# engine uses GCC/Clang extensions MSVC rejects. On Windows it also provides
+# lld-link and the SDK resource compiler, so no Developer Prompt is needed.
 #
-# The engine relies on GCC/Clang extensions (__attribute__((always_inline)),
-# noinline, etc.) that MSVC does not accept, so the native test build must use
-# Clang. On Windows this also smooths over two CMake/Clang papercuts so the
-# suite configures from a plain shell (no Visual Studio Developer Prompt):
-#   * provides the lld-link the emsdk omits, and
-#   * locates the Windows SDK resource compiler.
-#
-# Compiler resolution order:
-#   1. An explicitly provided CMAKE_CXX_COMPILER (respected, not overridden).
-#   2. $ENV{EMSDK}/upstream/bin/clang++         (set by emsdk_env).
-#   3. <repo>/../emsdk/upstream/bin/clang++     (sibling emsdk checkout).
-#   4. clang/clang++ from PATH                  (PATH setups).
+# Compiler resolution order: an explicit CMAKE_CXX_COMPILER, then
+# $ENV{EMSDK}/upstream/bin, then a sibling <repo>/../emsdk, then PATH.
 
 # --- Locate the Clang bin directory (used for both the compiler and lld) ---
 set(_hs_clang_dir "")
@@ -33,7 +25,7 @@ if(NOT CMAKE_CXX_COMPILER)
     set(CMAKE_C_COMPILER   "${_hs_clang_dir}/clang"   CACHE FILEPATH "")
     set(CMAKE_CXX_COMPILER "${_hs_clang_dir}/clang++" CACHE FILEPATH "")
   else()
-    # Whatever clang PATH resolves; tests/CMakeLists.txt holds the version floor.
+    # Whatever clang PATH resolves.
     set(CMAKE_C_COMPILER   clang   CACHE FILEPATH "")
     set(CMAKE_CXX_COMPILER clang++ CACHE FILEPATH "")
   endif()
@@ -49,12 +41,10 @@ if(WIN32)
   endif()
   set(CMAKE_LINKER_TYPE LLD)
 
-  # CMake still enables the RC language for Windows-Clang and test-compiles a
-  # stub .rc, so a resource compiler must exist even though we compile no .rc.
+  # CMake test-compiles a stub .rc for Windows-Clang, so a resource compiler
+  # must exist.
   if(NOT CMAKE_RC_COMPILER)
-    # Windows Kits installs under a Program Files root, so take those roots from
-    # the environment; the literal C: paths are the last resort for a stripped
-    # environment.
+    # Program Files roots from the environment; literal C: paths as fallback.
     set(_hs_sdk_roots "")
     foreach(_hs_pf "$ENV{ProgramFiles\(x86\)}" "$ENV{ProgramFiles}")
       if(NOT _hs_pf STREQUAL "")
@@ -75,9 +65,7 @@ if(WIN32)
     endforeach()
     file(GLOB _hs_rc_candidates ${_hs_rc_globs})
     if(_hs_rc_candidates)
-      # NATURAL so version components sort numerically (10.0.22621 > 10.0.9...);
-      # a plain lexical sort would rank 10.0.9xxxx above 10.0.22xxx and pick an
-      # older SDK's rc.exe.
+      # NATURAL sorts version components numerically (10.0.22621 > 10.0.9...).
       list(SORT _hs_rc_candidates COMPARE NATURAL)
       list(GET _hs_rc_candidates -1 _hs_rc)  # highest SDK version sorts last
       set(CMAKE_RC_COMPILER "${_hs_rc}" CACHE FILEPATH "")
