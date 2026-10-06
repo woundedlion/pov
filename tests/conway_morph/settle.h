@@ -30,6 +30,10 @@ inline void test_relax_is_vertex_order_identity() {
   HS_EXPECT_EQ(relaxed.vertices.size(), unrelaxed.vertices.size());
   HS_EXPECT_EQ(relaxed.face_counts.size(), unrelaxed.face_counts.size());
   HS_EXPECT_EQ(relaxed.faces.size(), unrelaxed.faces.size());
+  if (relaxed.vertices.size() != unrelaxed.vertices.size() ||
+      relaxed.face_counts.size() != unrelaxed.face_counts.size() ||
+      relaxed.faces.size() != unrelaxed.faces.size())
+    return;
   HS_EXPECT_EQ(std::memcmp(relaxed.face_counts.data(),
                            unrelaxed.face_counts.data(),
                            relaxed.face_counts.size() * sizeof(uint8_t)),
