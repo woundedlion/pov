@@ -11,6 +11,7 @@ that the prose is true. Links to other hosts are never visited, and a sibling
 checkout no --checkout root supplies leaves its fences and links unvalidated.
 
 The Doxyfile's PREDEFINED names must also appear in tracked C/C++ source.
+An explicit --retired-term scan rejects old behavior wording in tracked text.
 """
 
 from __future__ import annotations
@@ -1278,12 +1279,37 @@ def check_repository(
     return markdown, sorted(issues), _stale_allowances(entries, used, checkouts)
 
 
+def retired_term_issues(root: Path, terms: list[str]) -> list[Issue]:
+    """Locate literal, case-insensitive retired wording in tracked UTF-8 text."""
+    _, entries = tracked_entries(root)
+    issues = []
+    for relative in sorted(entries):
+        path = root.joinpath(*relative.parts)
+        if not path.is_file():
+            continue
+        data = path.read_bytes()
+        if b"\0" in data:
+            continue
+        try:
+            text = data.decode("utf-8-sig")
+        except UnicodeDecodeError:
+            continue
+        for number, line in enumerate(text.splitlines(), 1):
+            for term in terms:
+                if term.casefold() in line.casefold():
+                    issues.append(Issue(relative.as_posix(), number,
+                                        f"retired wording {term!r}: {line.strip()}"))
+    return issues
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
         description="Check tracked Markdown fences and repository links.")
     parser.add_argument("--root", type=Path, default=Path("."))
     parser.add_argument("--sync", action="store_true",
                         help="refresh repository maps and derived counts before checking")
+    parser.add_argument("--retired-term", action="append", default=[], metavar="TEXT",
+                        help="reject literal old behavior wording in tracked text; repeat for each phrase")
     parser.add_argument("--auto-checkout", action="store_true",
                         help="use locally available pinned Daydream; fail if unavailable (pass --checkout or --skip-checkout daydream)")
     parser.add_argument(
@@ -1294,6 +1320,8 @@ def main(argv: list[str] | None = None) -> int:
         help="accept `tree <NAME>` fences unvalidated; without it a fence "
              "naming a checkout given no --checkout root fails")
     args = parser.parse_args(argv)
+    if any(not term.strip() for term in args.retired_term):
+        parser.error("--retired-term must contain non-whitespace text")
 
     checkout_roots = {}
     for option in args.checkout:
@@ -1323,6 +1351,8 @@ def main(argv: list[str] | None = None) -> int:
                 docs_sync.sync_repository(args.root.resolve(), checkout_roots, revisions)
         markdown, issues, stale = check_repository(
             args.root.resolve(), checkout_roots, skipped, revisions)
+        if args.retired_term:
+            issues.extend(retired_term_issues(args.root.resolve(), args.retired_term))
     except (OSError, subprocess.SubprocessError, UnicodeError, ValueError) as error:
         print(f"[docs-check] tooling error: {error}", file=sys.stderr)
         return 2

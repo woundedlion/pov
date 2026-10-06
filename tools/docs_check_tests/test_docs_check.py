@@ -15,6 +15,48 @@ import docs_check as dc  # noqa: E402
 
 
 class TestDocumentationChecker(unittest.TestCase):
+    def test_retired_behavior_wording_is_rejected_until_removed(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            subprocess.run(["git", "init", "-q", str(root)], check=True)
+            (root / "README.md").write_text(
+                "# Contract\n<!-- docs-check: tree exhaustive -->\n```\n"
+                "└── engine.h  Engine\n```\n"
+                "<!-- docs-check: tree daydream exhaustive -->\n```\n```\n",
+                encoding="utf-8")
+            source = root / "engine.h"
+            source.write_text("// Trips the wire-busy trap.\n", encoding="utf-8")
+            (root / "ignored.md").write_text("wire-busy trap\n", encoding="utf-8")
+            subprocess.run(["git", "-C", str(root), "add", "README.md", "engine.h"],
+                           check=True)
+            arguments = ["--root", str(root), "--skip-checkout", "daydream",
+                         "--retired-term", "WIRE-BUSY TRAP"]
+            with contextlib.redirect_stdout(io.StringIO()) as output:
+                self.assertEqual(dc.main(arguments), 1)
+            self.assertIn("engine.h:1: retired wording", output.getvalue())
+            source.write_text("// Returns false while busy.\n", encoding="utf-8")
+            with contextlib.redirect_stdout(io.StringIO()):
+                self.assertEqual(dc.main(arguments), 0)
+
+    def test_retired_terms_are_literal_repeatable_and_skip_binary_files(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            subprocess.run(["git", "init", "-q", str(root)], check=True)
+            (root / "contract.js").write_text("// a+b\n// restarts the path\n", encoding="utf-8")
+            (root / "data.bin").write_bytes(b"\0a+b\n")
+            subprocess.run(["git", "-C", str(root), "add", "contract.js", "data.bin"],
+                           check=True)
+            issues = dc.retired_term_issues(root, ["a+b", "restarts the path"])
+            self.assertEqual([(issue.path, issue.line) for issue in issues],
+                             [("contract.js", 1), ("contract.js", 2)])
+            self.assertIn("'a+b'", issues[0].message)
+
+    def test_empty_retired_term_is_a_usage_error(self):
+        with contextlib.redirect_stderr(io.StringIO()):
+            with self.assertRaises(SystemExit) as error:
+                dc.main(["--retired-term", "  "])
+        self.assertEqual(error.exception.code, 2)
+
     def test_explicit_checkout_uses_its_pinned_revision(self):
         with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as directory:
             engine = Path(directory, "engine").resolve()
