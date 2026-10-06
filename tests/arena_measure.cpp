@@ -22,7 +22,7 @@
 #include "tests/test_fixture.h"
 
 namespace {
-constexpr int W = 288, H = 144;
+constexpr int W = CANVAS_W, H = CANVAS_H;
 const int FRAMES = hs_test::smoke_frames();
 
 size_t g_max_p = 0, g_max_a = 0, g_max_b = 0, g_worst_total = 0;
