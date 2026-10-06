@@ -639,9 +639,27 @@ class PinnedPortEnumeration(unittest.TestCase):
         self.assertEqual(r.returncode, 1)
         self.assertIn("not attached", r.stderr)
 
+    def hold(self, port):
+        d = Path(f"{self.base}-{port}.d")
+        d.mkdir()
+        now = int(time.time())
+        (d / "info").write_text(
+            f"token=peer\nsession=peer\npid={_live_pid(self)}\n"
+            f"port={port}\neffect=Peer\nenv=profile\nstarted={now}\n"
+            f"deadline={now + 600}\n")
+
     def test_status_distinguishes_an_unattached_pin_from_busy(self):
         result = self.run_pinned("hs_device_status", "COM3")
         self.assertEqual(result.returncode, 2)
+        self.hold("COM7")
+        result = self.run_unpinned("hs_device_status")
+        self.assertEqual(result.returncode, 0, result.stdout)
+        self.assertIn("COM7 BUSY", result.stdout)
+        self.assertIn("COM9 free", result.stdout)
+        self.hold("COM9")
+        result = self.run_unpinned("hs_device_status")
+        self.assertEqual(result.returncode, 1, result.stdout)
+        self.assertIn("COM9 BUSY", result.stdout)
 
     def test_acquire_refuses_an_unattached_pin_without_locking(self):
         r = self.run_pinned("hs_device_acquire E profile 60", "COM3")
