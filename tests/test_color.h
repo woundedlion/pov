@@ -539,14 +539,14 @@ inline void test_lerp_oklch_extrapolation_clamped() {
 }
 
 /**
- * @brief Verifies oklch_to_pixel saturates out-of-gamut and preserves in-gamut.
- * @details `p.channel <= 65535` is a tautology for any uint16_t implementation,
- *          so instead pin real behavior: a deeply out-of-gamut high-lightness
- *          color must clamp at least one channel to exactly 65535 (a wrapping
- *          overflow cast would not), and an in-gamut neutral gray must land
- *          strictly inside the range with its three channels equal.
+ * @brief Verifies pixel conversion saturation and OKLCH gamut mapping.
+ * @details Full lightness maps to white; an in-gamut neutral gray has equal
+ *          channels strictly inside the pixel range.
  */
 inline void test_oklch_to_pixel_saturates_and_preserves_in_gamut() {
+  HS_EXPECT_EQ(float_to_pixel16(1.5f), 65535);
+  HS_EXPECT_EQ(float_to_pixel16(-0.25f), 0);
+  HS_EXPECT_EQ(float_to_pixel16(NAN), 65535);
   OKLCH vivid{1.0f, 0.4f, 1.0f};
   Pixel hi = oklch_to_pixel(vivid);
   HS_EXPECT_TRUE(hi.r == 65535 || hi.g == 65535 || hi.b == 65535);
