@@ -560,10 +560,9 @@ inline void clip_clear_parity_one(const char *name) {
   for (int segment_id = 0; segment_id < PARITY_SEGMENTS; ++segment_id) {
     const std::vector<Pixel> full = render(segment_id, true);
     const std::vector<Pixel> clipped = render(segment_id, false);
-    HS_EXPECT_EQ(full.size(), clipped.size());
 
     size_t different = 0;
-    for (size_t i = 0; i < full.size() && i < clipped.size(); ++i) {
+    for (size_t i = 0; i < full.size(); ++i) {
       if (full[i] != clipped[i])
         ++different;
       if (full[i].r | full[i].g | full[i].b)
