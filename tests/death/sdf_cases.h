@@ -5,7 +5,7 @@
 
 // --- Individual death cases — each MUST trap (HS_CHECK / __builtin_trap) ------
 
-// Sdf death fixtures and guard cases.
+// SDF death cases.
 
 /**
  * @brief Death case: a polygon with fewer than three sides must trap.

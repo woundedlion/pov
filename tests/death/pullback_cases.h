@@ -5,7 +5,7 @@
 
 // --- Individual death cases — each MUST trap (HS_CHECK / __builtin_trap) ------
 
-// Pullback death fixtures and guard cases.
+// Pullback death cases.
 
 inline void case_pullback_mobius_degenerate() {
   Pullback::Interp::Op::MobiusChainParams params;

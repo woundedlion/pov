@@ -5,7 +5,7 @@
 
 // --- Individual death cases — each MUST trap (HS_CHECK / __builtin_trap) ------
 
-// Math spatial death fixtures and guard cases.
+// Math spatial death cases.
 
 /**
  * @brief Death case: normalizing a degenerate (zero-length) vector must trap.

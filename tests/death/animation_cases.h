@@ -5,7 +5,7 @@
 
 // --- Individual death cases — each MUST trap (HS_CHECK / __builtin_trap) ------
 
-// Animation death fixtures and guard cases.
+// Animation death cases.
 
 /**
  * @brief Death case: relocating a retained (pinned) add_get() handle must trap.
