@@ -472,14 +472,10 @@ inline void test_dot_keyed_bake_round_trips_through_dot_key() {
 }
 
 /**
- * @brief Verifies a non-finite blend weight bakes a finite LUT.
- * @details bake_palette_blend's endpoint gates (w <= 0, w >= 1) are both false
- *          for NaN, so a degenerate weight reaches bake_blend. Every entry must
- *          still be a finite color at full alpha rather than a NaN alpha or an
- *          out-of-range quantized weight.
+ * @brief Verifies a NaN blend weight selects the destination LUT.
  */
 inline void test_bake_palette_blend_nan_weight_stays_finite() {
-  SolidColorPalette black(Color4(Pixel(0, 0, 0), 1.0f));
+  SolidColorPalette black(Color4(Pixel(0, 0, 0), 0.25f));
   SolidColorPalette white(Color4(Pixel(65535, 65535, 65535), 1.0f));
 
   alignas(std::max_align_t) static uint8_t
@@ -497,6 +493,9 @@ inline void test_bake_palette_blend_nan_weight_stays_finite() {
     Color4 c = dst.get(i / 64.0f);
     HS_EXPECT_TRUE(std::isfinite(c.alpha));
     HS_EXPECT_NEAR(c.alpha, 1.0f, 1e-6f);
+    HS_EXPECT_EQ(c.color.r, to.get(i / 64.0f).color.r);
+    HS_EXPECT_EQ(c.color.g, to.get(i / 64.0f).color.g);
+    HS_EXPECT_EQ(c.color.b, to.get(i / 64.0f).color.b);
   }
 }
 
