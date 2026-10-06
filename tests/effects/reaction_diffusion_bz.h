@@ -159,8 +159,8 @@ struct BZWhiteBox {
   }
 };
 
-/** @brief Pins the BZ species colors. */
-inline void test_bz_legacy_palette() {
+/** @brief Pins the authored BZ species colors. */
+inline void test_bz_authored_palette() {
   reset_effect_globals();
   BZWhiteBox::BZ bz;
   bz.init();
