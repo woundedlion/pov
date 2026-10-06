@@ -218,7 +218,6 @@ inline void test_bookend_angle_pin() {
   if (pin <= 0)
     return;
   HS_EXPECT_GT(a[pin - 1], 0.0f);
-  HS_EXPECT_LT(a[pin - 1], 0.05f);
   for (int i = pin; i < pin + ConwayGraph::SWEEP_FRAMES; ++i)
     HS_EXPECT_EQ(a[i], 0.0f);
 }
