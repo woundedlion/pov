@@ -590,18 +590,21 @@ struct RingSpinWhiteBox {
   }
 };
 
+/** @brief Strobe configuration preserves a nonblack RingSpin render. */
 inline void test_ringspin_strobe_configuration_preserves_rendering() {
   std::vector<Pixel> expected;
-  render_capture<RingSpin, 96, 20>(expected, 2);
+  bool lit = false;
+  render_capture<RingSpin, SMALL_W, SMALL_H>(expected, 2, nullptr, &lit);
+  HS_EXPECT_TRUE(lit);
   reset_effect_globals();
   pin_frame_clock(0);
   {
-    RingSpin<96, 20> roster_effect;
+    RingSpin<SMALL_W, SMALL_H> roster_effect;
     HS_EXPECT_TRUE(roster_effect.strobe_columns());
   }
   reset_effect_globals();
   pin_frame_clock(0);
-  RingSpin<96, 20> firmware_effect(false);
+  RingSpin<SMALL_W, SMALL_H> firmware_effect(false);
   HS_EXPECT_FALSE(firmware_effect.strobe_columns());
   firmware_effect.init();
   for (int frame = 0; frame < 2; ++frame) {
@@ -609,11 +612,11 @@ inline void test_ringspin_strobe_configuration_preserves_rendering() {
     firmware_effect.draw_frame();
     firmware_effect.advance_display();
   }
-  HS_EXPECT_EQ(expected.size(), size_t{96 * 20});
-  for (int y = 0; y < 20; ++y)
-    for (int x = 0; x < 96; ++x) {
+  HS_EXPECT_EQ(expected.size(), size_t{SMALL_W * SMALL_H});
+  for (int y = 0; y < SMALL_H; ++y)
+    for (int x = 0; x < SMALL_W; ++x) {
       const Pixel &actual = firmware_effect.get_pixel(x, y);
-      const Pixel &reference = expected[y * 96 + x];
+      const Pixel &reference = expected[y * SMALL_W + x];
       HS_EXPECT_EQ(actual.r, reference.r);
       HS_EXPECT_EQ(actual.g, reference.g);
       HS_EXPECT_EQ(actual.b, reference.b);
