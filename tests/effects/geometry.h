@@ -2411,8 +2411,9 @@ inline void test_islamicstars_dual_bridge_fits_budget() {
   HS_EXPECT_GE(IslamicBuildProbe::dual_bridges(effect), TARGET_BRIDGES);
 }
 
-template <typename EffectT>
-inline void check_manual_preset_navigation(size_t expected_count) {
+template <typename EffectT> inline void check_manual_preset_navigation() {
+  constexpr size_t expected_count = EffectT::authored_preset_count();
+  HS_EXPECT_GT(expected_count, size_t(1));
   reset_effect_globals();
   EffectT effect;
   effect.init();
@@ -2428,9 +2429,9 @@ inline void check_manual_preset_navigation(size_t expected_count) {
 }
 
 inline void test_manual_preset_navigation() {
-  check_manual_preset_navigation<MindSplatter<SMALL_W, SMALL_H>>(8);
-  check_manual_preset_navigation<DreamBalls<SMALL_W, SMALL_H>>(10);
-  check_manual_preset_navigation<Comets<SMALL_W, SMALL_H>>(12);
-  check_manual_preset_navigation<MeshFeedback<SMALL_W, SMALL_H>>(12);
-  check_manual_preset_navigation<ShapeShifter<SMALL_W, SMALL_H>>(9);
+  check_manual_preset_navigation<MindSplatter<SMALL_W, SMALL_H>>();
+  check_manual_preset_navigation<DreamBalls<SMALL_W, SMALL_H>>();
+  check_manual_preset_navigation<Comets<SMALL_W, SMALL_H>>();
+  check_manual_preset_navigation<MeshFeedback<SMALL_W, SMALL_H>>();
+  check_manual_preset_navigation<ShapeShifter<SMALL_W, SMALL_H>>();
 }
