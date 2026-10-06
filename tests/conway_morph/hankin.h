@@ -6,14 +6,13 @@
 // Included by tests/test_conway_morph.h.
 
 // ---------------------------------------------------------------------------
-// Hankin-sweep probe (docs/specs/opchain_morph_spec.md, "Leg kinds"): the four
-// Phase-1 hankin legs re-run the one-shot MeshOps::hankin (the update-path
-// geometry) per sampled angle; V/F/I and the compiled face count must not
-// move from THETA_EPS to the recipe's arrival angle, and every sample must
-// retain two-face edge incidence and Euler characteristic 2.
+// MeshOps::hankin topology probe across the contact-angle range of the four
+// registry hankin legs: V/F/I and compiled face counts stay constant, with
+// two-face edge incidence and Euler characteristic 2. The shipping legs slerp;
+// hankin_stability.h covers that path.
 // ---------------------------------------------------------------------------
 
-/** @brief One Phase-1 hankin-sweep leg seed and its arrival angle. */
+/** @brief One hankin-sweep leg seed and its arrival angle. */
 struct HankinSweepSite {
   const char *name;                     /**< Diagnostic label. */
   PolyMesh (*seed)(Arena &a, Arena &b); /**< Chain prefix up to the hankin. */
@@ -49,7 +48,7 @@ inline constexpr HankinSweepSite HANKIN_SWEEP_SITES[] = {
 };
 
 /**
- * @brief Steps a hankin sweep on every Phase-1 hankin-leg seed, asserting
+ * @brief Steps a hankin sweep on every hankin-leg seed, asserting
  *        constant raw and compiled face counts, two-face edge incidence, and Euler
  *        characteristic 2 at sampled angles from THETA_EPS to the arrival angle.
  */
