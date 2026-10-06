@@ -409,6 +409,33 @@ inline double gamut_first_exit_ref(double L, double ad, double bd, double cap) {
 }
 
 /**
+ * @brief Verifies an out-of-gamut lower bound refines over the whole ray.
+ * @details With @p lo outside the gamut the search covers [0, lo] and must
+ *          return an in-gamut scale within lo/256 below the first exit.
+ */
+inline void test_gamut_bracket_refine_out_of_gamut_lower_bound() {
+  const float LO = 0.45f, HI = 0.5f;
+  for (int il = 3; il <= 8; ++il) {
+    const float L = il / 10.0f;
+    for (int ih = 0; ih < 32; ++ih) {
+      HS_CONTEXT("L tenths, hue step", il, ih);
+      const float h = math::TWO_PI_F * ih / 32.0f;
+      const float a = cosf(h), b = sinf(h);
+      float r, g, bl;
+      oklab_to_linear_rgb({L, a * LO, b * LO}, r, g, bl);
+      HS_EXPECT_FALSE(linear_rgb_in_gamut(r, g, bl));
+
+      const float got = gamut_bracket_refine(L, a, b, LO, HI);
+      oklab_to_linear_rgb({L, a * got, b * got}, r, g, bl);
+      HS_EXPECT_TRUE(linear_rgb_in_gamut(r, g, bl));
+      const float ref = static_cast<float>(gamut_first_exit_ref(L, a, b, LO));
+      HS_EXPECT_LE(ref - got, LO / 256.0f + 1e-5f);
+      HS_EXPECT_LE(got - ref, 1e-5f);
+    }
+  }
+}
+
+/**
  * @brief Bounds the angular gamut-boundary lookup against the sampled exit
  *        reference and checks agreement with the direction overload.
  * @details Sampled rays must stay within the overshoot and deficit bounds of the
