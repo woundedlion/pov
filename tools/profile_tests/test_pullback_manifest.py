@@ -7,6 +7,7 @@ import contextlib
 import hashlib
 import io
 import json
+import re
 import shutil
 import struct
 import sys
@@ -223,14 +224,24 @@ class ManifestValidation(unittest.TestCase):
             "--manifest-dir", str(MANIFEST_DIR), "--validate-only"
         ]), 0)
 
-    def test_generation_is_deterministic(self):
+    def test_header_rows_encode_each_programs_presets(self):
         programs, oracles, schema = generator.load_and_validate(MANIFEST_DIR)
-        first = generator.generate_header(programs, oracles, schema)
-        second = generator.generate_header(programs, oracles, schema)
-        self.assertEqual(first, second)
-        self.assertIn("0x40000", first)
-        self.assertEqual(generator.protocol_definition()[0], 24)
-        self.assertEqual(generator.protocol_definition()[1]["FULL_FRAME"], 18)
+        header = generator.generate_header(programs, oracles, schema)
+        rows = {
+            program_id: {bit for bit in range(int(mask, 16).bit_length())
+                         if int(mask, 16) >> bit & 1}
+            for program_id, mask in re.findall(
+                r'^    \{"([A-Z0-9_]+)", 0x([0-9a-f]+), \{\{', header, re.MULTILINE)
+        }
+        expected = {program["id"]: set(program["presets"])
+                    for program in programs["programs"]}
+        self.assertEqual(rows, expected)
+        self.assertTrue(any(len(presets) > 1 for presets in expected.values()))
+        preset_count, operations = generator.protocol_definition()
+        self.assertEqual(
+            re.findall(r"PRESET_COUNT = (\d+);", header), [str(preset_count)])
+        self.assertEqual(set().union(*expected.values()), set(range(preset_count)))
+        self.assertIn("FULL_FRAME", operations)
 
     def test_validate_only_runs_header_generation(self):
         programs, oracles, schema = generator.load_and_validate(MANIFEST_DIR)
