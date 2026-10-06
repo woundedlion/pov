@@ -7,8 +7,7 @@
 /**
  * @file presets.h
  * @brief PresetEntry and all_presets_in_ranges: the preset-table row type and
- *        its compile-time range check. ChoreographedEffect
- *        (control/choreography.h) owns the tables built from these.
+ *        its compile-time range check.
  */
 
 #include <array>
@@ -33,8 +32,6 @@ template <typename Params> struct PresetEntry {
  * @param entries The preset table to check.
  * @param in_ranges Predicate testing one preset against its slider ranges.
  * @return True when every entry passes.
- * @details For a `static_assert` over a preset table: the loop covers appended
- * entries, which an unrolled conjunction over literal indices does not.
  */
 template <typename Params, size_t N, typename Predicate>
 constexpr bool

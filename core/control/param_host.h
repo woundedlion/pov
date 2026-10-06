@@ -26,15 +26,14 @@
 /**
  * @brief Owns an effect's registered parameters and the pause gate their
  *        writes engage.
- * @details Naming split: methods on the JS/embind boundary (updateParameter,
- * getParameters, setAnimationsPaused) are camelCase to match the WASM bridge;
- * the internal C++ API (register_param, reset_parameters) is snake_case.
+ * @details JS/embind boundary methods are camelCase; the internal C++ API is
+ * snake_case.
  */
 class ParamHost {
 public:
-  /** @brief Runtime parameter descriptor (see control/params.h). */
+  /** @brief Runtime parameter descriptor. */
   using ParamDef = ::ParamDef;
-  /** @brief Fixed-capacity parameter registry (see control/params.h). */
+  /** @brief Fixed-capacity parameter registry. */
   using ParamList = ::ParamList;
 
   /**
@@ -42,8 +41,7 @@ public:
    * @param name The name of the parameter.
    * @param value The new value (mapped to bool if necessary).
    * @return APPLIED if the value was written; otherwise the rejection reason
-   *         (UNKNOWN_PARAM, READONLY, NON_FINITE, or INADMISSIBLE). The WASM bridge forwards
-   *         this so the frontend can report why a write was dropped.
+   *         (UNKNOWN_PARAM, READONLY, NON_FINITE, or INADMISSIBLE).
    * @details An accepted write to an animated parameter engages the effect's
    *          animation pause before storing the manual value.
    */
@@ -257,10 +255,8 @@ protected:
 #endif
   /**
    * @brief Pause gate for parameter-driving animations.
-   * @details Pass `&anims_paused` to Timeline::add_pausable, which freezes the
-   * whole event: a not-yet-started event's delay counts active frames only.
-   * Mutation/Driver/Lerp/Sprite also take an animation-level `paused` pointer,
-   * which freezes stepping alone — a pending start delay keeps elapsing.
+   * @details Timeline::add_pausable freezes the whole event, including a pending
+   * start delay; an animation-level `paused` pointer freezes stepping only.
    */
   bool anims_paused = false;
 
@@ -288,9 +284,8 @@ protected:
 
   /**
    * @brief Registers one typed description without changing its target.
-   * @details Registration appends one descriptor and advances its schema token
-   * once. PRESERVE_REQUESTED_FLOAT admits finite out-of-range GUI requests only
-   * for ordinary float targets; subsequent edits still obey the published bounds.
+   * @details PRESERVE_REQUESTED_FLOAT admits a finite out-of-range initial value
+   * for non-enum float targets; later edits obey the published bounds.
    */
   template <typename T>
   HS_COLD_MEMBER void register_param(const char *name, T *ptr,

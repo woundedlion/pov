@@ -14,7 +14,7 @@
 
 namespace math {
 
-/** @brief Component count of the four-dimensional primitives below. */
+/** @brief Component count of the four-dimensional primitives. */
 inline constexpr int VEC4_DIMENSIONS = 4;
 
 /**

@@ -84,12 +84,8 @@ enum class EffectRestoreCapability : uint8_t {
 
 /**
  * @brief Outcome of a request() or of one adapter step.
- * @details The controller tests only OK versus not-OK; the specific failure is
- *   what request() returns to the caller and what
- *   EffectTransitionController::failure() reports afterwards. BUSY and
- *   UNAVAILABLE may originate in request() or the adapter's preflight();
- *   RESTORE_REJECTED also originates in the controller when no restorable
- *   state is available; the remaining failures originate in the adapter.
+ * @details The controller tests only OK versus not-OK; request() returns the
+ *   specific failure and EffectTransitionController::failure() reports it.
  */
 enum class EffectTransitionStatus : uint8_t {
   OK,          /**< Step accepted. */
@@ -155,8 +151,8 @@ struct EffectHandoffState {
  * @details Operations run in the order EffectTransitionState documents. The status-returning methods are the failure points: returning
  *   anything but OK diverts the controller (to the caller for preflight(), to
  *   RESTORING_OUT for the construct/prepare steps, to CLEAR_FAILSAFE for the
- *   restore steps). Only OK-ness is tested, so the enumerator named on each
- *   method is a convention that makes failure() legible, not a checked one.
+ *   restore steps). Only OK-ness is tested; the enumerator named on each
+ *   method is a convention.
  */
 class EffectTransitionAdapter {
 public:
@@ -270,9 +266,8 @@ public:
    *         whatever the adapter's preflight() refused with.
    * @details Accepted only from STEADY_OUT, STEADY_IN, FADING_OUT and
    *   CLEAR_FAILSAFE. Re-requesting during FADING_OUT re-aims the in-flight
-   *   fade: the elapsed fraction is remapped onto the new fade_ticks so the
-   *   envelope carries on down rather than snapping back to full. A rejected
-   *   request changes nothing.
+   *   fade: the elapsed fraction is remapped onto the new fade_ticks. A
+   *   rejected request changes nothing.
    */
   EffectTransitionStatus request(const EffectTransitionRequest &next,
                                  const EffectHandoffState &next_handoff = {}) {

@@ -6,11 +6,8 @@
 
 /**
  * @file 3dmath.h
- * @brief Four families: the core primitives (Vector, Quaternion, Complex,
- *        Spherical) with the geometric epsilons; the fast-math approximations
- *        (trig, exp, rsqrt, cbrt, atan2); the hash and value-noise lattice;
- *        and the Snorm3 direction packing. Stereographic and gnomonic maps
- *        live in stereographic.h; fractional-linear maps live in mobius.h.
+ * @brief Core 3D math primitives, geometric epsilons, fast-math
+ *        approximations, hash/value noise, and Snorm3 direction packing.
  */
 
 #include <cmath>
@@ -72,28 +69,20 @@ inline constexpr float EPS_LEN_SQ = 1e-6f;
 /**
  * @brief Squared |cross(from, to)| below which make_rotation synthesizes a π
  *        turn instead of using the half-vector form.
- * @details The two branches balance here: the half-vector form's angular error
- * runs at ~2*ULP(1)/|cross| and the synthesized turn's at |cross|, so both sit
- * near 4e-4 rad at this band. A tighter band widens the ill-conditioned branch
- * rather than narrowing it.
+ * @details The half-vector form's angular error (~2*ULP(1)/|cross|) and the
+ * synthesized turn's (|cross|) both sit near 4e-4 rad at this band.
  */
 inline constexpr float EPS_ANTIPARALLEL_SQ = 4e-7f;
 inline constexpr float EPS_CROSS_SQ = 1e-8f;
 inline constexpr float EPS_NORMAL_SQ = 1e-9f;
 inline constexpr float EPS_NORMALIZE_SQ = 1e-12f;
-/**
- * @brief Squared length below which a blend of two directions has cancelled.
- * @details Sits above EPS_NORMALIZE_SQ: the residual of two near-opposite unit
- * inputs is float cancellation noise long before normalize() loses the
- * direction outright, so a blend bails two orders of magnitude earlier in length.
- */
+/** @brief Squared length below which a blend of two directions has cancelled. */
 inline constexpr float EPS_BLEND_LEN_SQ = 1e-8f;
 inline constexpr float EPS_UNIT_QUAT_SQ = 0.01f;
 inline constexpr float EPS_UNIT_VEC_SQ = 0.02f;
 /**
  * @brief Cosine above which a vector is treated as parallel to a reference axis.
- * @details Above this callers pick an alternate axis to avoid a near-zero
- * (degenerate) cross when building a frame. Switches only near-parallel (~0.8°).
+ * @details About 0.8° from parallel.
  */
 inline constexpr float COS_AXIS_PARALLEL = 1.0f - TOLERANCE;
 /**
@@ -146,11 +135,8 @@ HS_O3_FN inline float smooth_ramp(float edge0, float edge1, float value) {
  * @brief Compile-time square root by Newton-Raphson.
  * @param x Radicand.
  * @return sqrt(x) to within one ulp, or 0 for a non-positive @p x.
- * @details The seed is the first Newton step from 1, which lands at or above
- *          sqrt(x) for every positive x; the iteration then descends
- *          monotonically, so it stops at the fixed point instead of after a
- *          fixed count that only converges over O(1) radicands. For run-time
- *          use call sqrtf.
+ * @details Seeded at or above sqrt(x), the iteration descends monotonically
+ *          to its fixed point. For run-time use call sqrtf.
  */
 constexpr float constexpr_sqrt(float x) {
   if (x <= 0.0f)
@@ -170,13 +156,9 @@ constexpr float constexpr_sqrt(float x) {
  * @param i Index to hash.
  * @param seed Stream selector; different seeds give independent hashes.
  * @return The hashed value in [0, 1).
- * @details PCG output hash (RXS-M-XS). Stateless, so a hashed value stays
- * fixed across frames — unlike a draw from the global RNG, which advances
- * every frame and would make the value jitter.
- *
- * The seed enters twice: once into the index, once into the output state.
- * Folding it into the index alone would only permute the lattice, leaving
- * every seed the same multiset of values re-indexed by i -> i ^ seed.
+ * @details Stateless PCG output hash (RXS-M-XS). The seed enters both the
+ * index and the output state; folding it into the index alone would only
+ * permute the lattice.
  */
 inline float hash01(uint32_t i, uint32_t seed) {
   uint32_t h = (i ^ seed) * 747796405u + 2891336453u;
@@ -269,12 +251,10 @@ struct Vector {
   constexpr Vector() {}
   /**
    * @brief Constructs a zero vector from a null-pointer tag.
-   * @details For the device `teensy::inplace_function` empty state, which
-   * synthesizes `Vector(0)`; `nullptr_t` accepts the literal `0` while rejecting
-   * the `Vector(int)` footgun.
+   * @details Accepts the `Vector(0)` the device `teensy::inplace_function` empty
+   * state synthesizes without admitting `Vector(int)`.
    */
-  explicit constexpr Vector(std::nullptr_t)
-      : x(0), y(0), z(0) {} // inplace_function empty-state compat
+  explicit constexpr Vector(std::nullptr_t) : x(0), y(0), z(0) {}
   /**
    * @brief Constructs a vector with explicit components.
    * @param x X-component.
@@ -285,8 +265,6 @@ struct Vector {
   /**
    * @brief Copy constructor (defaulted, trivial).
    * @param v The vector to copy.
-   * @details Defaulted to keep Vector trivially copyable, required for the
-   * memcpy/vectorized bulk-copy fast paths to be well-defined.
    */
   constexpr Vector(const Vector &v) = default;
   /**
@@ -310,7 +288,6 @@ struct Vector {
    * @brief Copy assignment (defaulted, trivial).
    * @param v The vector to copy from.
    * @return Reference to this vector.
-   * @details Defaulted to keep Vector trivially copyable.
    */
   constexpr Vector &operator=(const Vector &v) = default;
 
@@ -442,9 +419,6 @@ struct Vector {
  * @pre The squared length of @p v is finite.
  * @param fallback Direction returned when `v` has near-zero length.
  * @return A unit-length copy of `v`, or `fallback` if `v` is degenerate.
- * @details Use where a zero vector is a legitimate geometric edge (antipodal
- * endpoints, a Hopf-fiber pole, a Möbius singularity), unlike the trapping
- * Vector::normalized().
  */
 [[nodiscard]] __attribute__((always_inline)) inline Vector
 normalized_or(const Vector &v, const Vector &fallback) {
@@ -460,9 +434,7 @@ normalized_or(const Vector &v, const Vector &fallback) {
  * @brief A unit-sphere direction packed into three snorm16 components.
  * @details 6 bytes against Vector's 12. Components are clamped to [-1, 1] on
  * encode with a 1/32767 quantization step plus floating-point rounding
- * (max chord ~2.6e-5), so a decoded value is near-unit rather than unit:
- * renormalize where exact length
- * matters.
+ * (max chord ~2.6e-5), so a decoded value is near-unit rather than unit.
  */
 struct Snorm3 {
   int16_t x; /**< X-component, snorm16. */
@@ -510,8 +482,7 @@ private:
  * to the full quadrant as the magnitude approaches the nudge.
  */
 __attribute__((always_inline)) inline float fast_atan2(float y, float x) {
-  // +1e-10f keeps abs_y strictly positive so the (0,0) origin stays finite
-  // instead of NaN; callers tolerate an arbitrary angle at the undefined origin.
+  // +1e-10f keeps abs_y strictly positive so the (0,0) origin stays finite.
   float abs_y = std::abs(y) + 1e-10f;
   float abs_x = std::abs(x);
   float r, angle;
@@ -553,8 +524,7 @@ __attribute__((always_inline)) inline float atan_unit(float r) {
  * @param y Y (numerator) coordinate.
  * @param x X (denominator) coordinate.
  * @return The angle of (x, y) in [-pi, pi]; 0 at the origin.
- * @details One divide and an odd degree-11 minimax arctangent on [0, 1], two
- * orders tighter than fast_atan2 for callers that cannot cancel its bias.
+ * @details One divide and an odd degree-11 minimax arctangent on [0, 1].
  */
 __attribute__((always_inline)) inline float precise_atan2(float y, float x) {
   const float abs_y = std::abs(y);
@@ -632,8 +602,7 @@ HS_O3_FN inline float fast_rsqrt(float x) {
 }
 
 // Halley numerator/denominator for one cube root. A non-positive input gets a
-// zero numerator and a unit denominator so it cannot poison the shared product
-// in fast_cbrt3.
+// zero numerator and a unit denominator, leaving a shared product unchanged.
 HS_O3_FN inline void cbrt_halley_terms(float x, float &num, float &den) {
   if (x <= 0.0f) {
     num = 0.0f;
@@ -698,14 +667,12 @@ HS_O3_FN inline void fast_cbrt3(float x1, float x2, float x3, float &o1,
  * @param x Six inputs; same domain as fast_cbrt (x <= 0 yields 0).
  * @param o Six outputs, the cube roots of the corresponding inputs.
  * @details Same bit-hack seed and Halley step as fast_cbrt, evaluated through
- * one reciprocal instead of six divides, so the six seed chains schedule
- * against each other on an in-order FPU. Accuracy matches fast_cbrt (peak
+ * one reciprocal instead of six divides. Accuracy matches fast_cbrt (peak
  * relative error ~2.3e-5 against cbrtf for x >= 1e-6). Each denominator is
  * ~3x. The numerator times five foreign denominators overflows once all six
  * inputs exceed ~4.2e5; the six-denominator product itself overflows at ~8.5e5
  * and underflows when all six inputs are below ~1.2e-7, making the shared
- * reciprocal infinite and the outputs Inf/NaN. Callers must keep the
- * denominator product representable; the feedback path uses u16 magnitudes.
+ * reciprocal infinite and the outputs Inf/NaN.
  */
 HS_O3_FN inline void fast_cbrt6(const float x[6], float o[6]) {
   float n[6], d[6];
@@ -726,7 +693,7 @@ HS_O3_FN inline void fast_cbrt6(const float x[6], float o[6]) {
     o[i] = n[i] * (pre[i] * suf[i]) * inv;
 }
 
-// Forward declarations (defined at end of file)
+// Forward declarations
 inline float fast_acos(float x);
 inline float fast_sinf(float x);
 inline float fast_cosf(float x);
@@ -735,8 +702,7 @@ inline float fast_expf(float x);
 inline Spherical::Spherical(const Vector &v) {
   Vector n(v);
   n.normalize();
-  // At the poles (n.y == ±1) theta is arbitrary but harmless. theta is
-  // fast_atan2's [-π, π], not [0,2π); consumers needing the latter wrap.
+  // theta is in [-π, π], not [0, 2π), and arbitrary at the poles.
   theta = fast_atan2(n.z, n.x);
   phi = fast_acos(hs::clamp(n.y, -1.0f, 1.0f));
 }
@@ -1052,9 +1018,7 @@ __attribute__((always_inline)) constexpr Vector operator*(const Vector &v,
  */
 constexpr Vector operator*(float s, const Vector &v) { return v * s; }
 
-// Hot-path primitive: no device-build s == 0 trap (yields ±Inf/NaN); callers
-// guard with HS_CHECK when s may be zero. The debug assert surfaces unguarded
-// misuse at zero device cost.
+// No release-build s == 0 trap (yields ±Inf/NaN); only a debug assert.
 constexpr Vector operator/(const Vector &v, float s) {
   assert(s != 0.0f);
   return Vector(v.x / s, v.y / s, v.z / s);
@@ -1154,8 +1118,8 @@ constexpr float distance_squared(const Vector &a, const Vector &b) {
  * @param v2 Second vector.
  * @return The angle in radians.
  * @note Traps on a degenerate input: both vectors must have length squared at
- * least math::EPS_LEN_SQ. The check stays on in per-pixel callers (README §2).
- * This is 10^6 stricter than normalized(): angles become numerically unstable
+ * least math::EPS_LEN_SQ. This is 10^6 stricter than normalized(): angles
+ * become numerically unstable
  * while a direction can still be normalized reliably.
  */
 inline float angle_between(const Vector &v1, const Vector &v2) {
@@ -1221,11 +1185,7 @@ constexpr Quaternion operator*(float s, const Quaternion &q) { return q * s; }
  * @param q Quaternion.
  * @param s Scalar.
  * @return The resulting quaternion.
- *
- * Like operator/(Vector, float), no device-build s == 0 trap; callers dividing
- * by a possibly-zero magnitude must guard themselves (e.g. Quaternion::inverse()
- * HS_CHECKs the squared magnitude first). The debug assert surfaces unguarded
- * misuse at zero device cost.
+ * @details No release-build s == 0 trap; only a debug assert.
  */
 constexpr Quaternion operator/(const Quaternion &q, float s) {
   assert(s != 0.0f);
@@ -1251,8 +1211,7 @@ constexpr float dot(const Quaternion &q1, const Quaternion &q2) {
  * @pre `axis` is unit length and non-zero. A zero/degenerate axis collapses the
  *      quaternion's vector part to zero; at `theta = pi` the scalar part is also
  *      ~0, so the magnitude falls below `normalized()`'s epsilon and it traps.
- *      Callers that may produce a degenerate axis must guard it (e.g. via
- *      `normalized_or`) first. A non-unit axis is not an error either: the
+ *      A non-unit axis does not trap: the
  *      trailing `normalized()` rescales `(cos(theta/2), sin(theta/2) * axis)` as
  *      a pair, so the realized rotation angle is not `theta`.
  */
@@ -1264,10 +1223,7 @@ inline Quaternion make_rotation(const Vector &axis, float theta) {
  * @brief Returns +X, or +Y when @p v is near-parallel to +X.
  * @param v Vector to find a well-conditioned reference axis for.
  * @return +X unless @p v is near-parallel to it, in which case +Y.
- * @details Seed for building a cross-product frame around @p v: crossing @p v
- *          with a near-parallel axis collapses to ~zero, so pick the axis that
- *          is safely off-axis. (Lives here, not in spherical.h with X_AXIS/Y_AXIS,
- *          so make_rotation below can use it without an include cycle.)
+ * @details Seed for building a cross-product frame around @p v.
  */
 inline Vector least_parallel_axis(const Vector &v) {
   // Scale-invariant: compare v.x^2 against the threshold scaled by |v|^2, so a
@@ -1282,10 +1238,8 @@ inline Vector least_parallel_axis(const Vector &v) {
  * @pre The cross product with least_parallel_axis(v) must have squared
  * magnitude at least EPS_NORMALIZE_SQ.
  * @return cross(v, least_parallel_axis(v)), normalized.
- * @details The canonical "some tangent at @p v": which one is unspecified, only
- *          that it is unit and well-conditioned for every @p v. Distinct from
- *          spherical.h's tangent_axis(), which seeds from +Y and so returns a
- *          different frame.
+ * @details Which perpendicular is unspecified, only that it is unit and
+ *          well-conditioned for every @p v.
  */
 inline Vector perpendicular_axis(const Vector &v) {
   return cross(v, least_parallel_axis(v)).normalized();
@@ -1422,8 +1376,8 @@ inline float fast_expf(float x) {
  * @param sign Sign of the half-period `x` was folded out of, +1 or -1.
  * @return The approximate sine, `sign * sin(x)`. Absolute error <= 1.7e-3
  * (~0.1 deg), peaking near x = 0.2; relative error reaches 1.9% near the zeros.
- * @details The single spelling of the kernel: every fast sine path funnels
- * through it, so no two paths can be reassociated apart under -ffast-math.
+ * @details Shared by the fast sine and cosine paths so they cannot be
+ * reassociated apart under -ffast-math.
  */
 __attribute__((always_inline)) inline float bhaskara_sinf(float x, float sign) {
   float xpi = x * (PI_F - x);
@@ -1449,11 +1403,9 @@ __attribute__((always_inline)) inline float sinf_0_2pi(float x) {
  * @param x Angle in radians (range-reduced internally).
  * @return The approximate sine of `x`.
  * @details Absolute error <= 1.7e-3 (~0.1 degrees), peaking near x = 0.2.
- * Relative error reaches 1.9% near the zeros, so a consumer taking a ratio of
- * two values (Vector slerp) carries the 1.9% figure, not the absolute one.
+ * Relative error reaches 1.9% near the zeros.
  * @warning Accuracy degrades for large |x|: the `x - floor(x/2π)·2π` range
- * reduction loses precision as a float's ULP grows past the period, so callers
- * driving large arguments must bound them first (see STEREO_PATTERN_ARG_LIMIT).
+ * reduction loses precision as a float's ULP grows past the period.
  */
 __attribute__((always_inline)) inline float fast_sinf(float x) {
   constexpr float INV_2PI = 1.0f / (2.0f * PI_F);
@@ -1464,14 +1416,10 @@ __attribute__((always_inline)) inline float fast_sinf(float x) {
  * @brief Fast cosine, equal to fast_sinf(x + π/2).
  * @param x Angle in radians.
  * @return The approximate cosine of `x`.
- * @details Reduces x into [-π/2, 3π/2) rather than reducing x + π/2 into
- * [0, 2π), so the quarter-turn shift is the last step here exactly as it is in
- * fast_sincosf_0_pi. On [0, π] the reduction subtracts an exact zero, leaving
- * both paths one shared expression over the same bits whatever the compiler
- * reassociates.
+ * @details Reduces x into [-π/2, 3π/2) and applies the quarter-turn shift
+ * last, so on [0, π] it matches fast_sincosf_0_pi bit for bit.
  * @warning Accuracy degrades for large |x|: the `x - floor(x/2π)·2π` range
- * reduction loses precision as a float's ULP grows past the period, so callers
- * driving large arguments must bound them first (see STEREO_PATTERN_ARG_LIMIT).
+ * reduction loses precision as a float's ULP grows past the period.
  */
 __attribute__((always_inline)) inline float fast_cosf(float x) {
   constexpr float INV_2PI = 1.0f / (2.0f * PI_F);
@@ -1541,9 +1489,7 @@ inline Vector slerp(const Vector &v1, const Vector &v2, float t) {
     return rotate(v1, make_rotation(axis, t * PI_F));
   }
   float theta = fast_acos(d);
-  // The 1/sinθ factor cancels under the final normalize(), so it is omitted
-  // (also dodging a divide by a small sin(θ) near θ→π). Fast trig here tolerates
-  // the bounded error a direction blend permits.
+  // The 1/sinθ factor cancels under the final normalize().
   float s1 = fast_sinf((1 - t) * theta);
   float s2 = fast_sinf(t * theta);
   return ((s1 * v1) + (s2 * v2)).normalized();
@@ -1583,8 +1529,6 @@ inline Quaternion slerp(const Quaternion &q1, const Quaternion &q2, float t,
     Quaternion n(-p.v.x, p.r, -p.v.z, p.v.y);
     return (cosf(t * PI_F) * p + sinf(t * PI_F) * n).normalized();
   }
-  // Exact acosf/sinf here: orientation interpolation is more sensitive to
-  // angular error than a direction blend.
   float theta = acosf(hs::clamp(d, -1.0f, 1.0f));
   float sin_theta = sinf(theta);
   float s1 = sinf((1 - t) * theta) / sin_theta;

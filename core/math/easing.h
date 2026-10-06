@@ -18,12 +18,9 @@
 
 namespace math {
 
-// Convention: t is the normalized time factor in [0, 1]. Most easings are
-// UNCLAMPED (matching the easings.net reference) — an out-of-[0,1] t
-// extrapolates and cubic/elastic variants can return values outside [0, 1]. The
-// exceptions carry only the guards their math requires (circ floors the radicand
-// against sqrt NaN; expo/elastic pin exact endpoints and floor the negative-t
-// branch). Callers feeding an unbounded drive must clamp t (or the output).
+// t is the normalized time factor in [0, 1]. Easings are unclamped apart from
+// the guards their math requires: t outside [0, 1] extrapolates, and
+// cubic/elastic variants can return values outside [0, 1].
 
 /**
  * @brief Easing function: Cubic Interpolation (In-Out).
@@ -88,8 +85,8 @@ inline float ease_linear(float t) { return t; }
  * @return The eased factor.
  */
 inline float ease_out_expo(float t) {
-  // Endpoint guards: the upper pins exactly 1.0f (the formula only reaches
-  // 1 - 2^-10), the lower floors at 0 (2^(-10t) explodes for t < 0).
+  // Pin exactly 1 (the formula reaches 1 - 2^-10); floor at 0 (2^(-10t)
+  // explodes for t < 0).
   return t <= 0.0f ? 0.0f : t == 1.0f ? 1.0f : 1.0f - exp2f(-10.0f * t);
 }
 
@@ -99,7 +96,7 @@ inline float ease_out_expo(float t) {
  * @return The eased factor.
  */
 inline float ease_out_circ(float t) {
-  // Clamp the radicand; see ease_in_circ.
+  // Clamp the radicand against sqrt NaN.
   return sqrtf(fmaxf(0.0f, 1 - (t - 1) * (t - 1)));
 }
 

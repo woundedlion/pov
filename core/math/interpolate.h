@@ -6,11 +6,9 @@
 
 /**
  * @file interpolate.h
- * @brief One interpolator per parameter domain — unconstrained scalar,
- *        positive scale, periodic angle, unit vector — plus a progress clamp
- *        for callers. Every interpolator carries its own endpoint guard: exact
- *        at both endpoints and snapping to the nearer one outside [0,1], so a
- *        caller that has already clamped its progress pays nothing for it.
+ * @brief Interpolators per parameter domain — unconstrained scalar, positive
+ *        scale, periodic angle, unit vector — plus a progress clamp. Each is
+ *        exact at both endpoints and snaps to the nearer one outside [0,1].
  */
 
 #include "math/periodic.h"

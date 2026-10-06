@@ -6,16 +6,10 @@
 
 /**
  * @file engine.h
- * @brief Engine API umbrella: pulls in the full public API (geometry, color,
- *        animation, plotting, palettes, presets, ...) for handwritten
- *        effects. Composed effects include render/pullback/composed_effect.h.
- *
- * Distinct from targets/effects.h, which is the effect *roster* (it pulls
- * in every effect header); include this from an effect, never that.
+ * @brief Engine API umbrella header for handwritten effects.
  */
 
-// platform.h supplies the Arduino IDE/VMicro NDEBUG fallback before <cassert>;
-// PlatformIO defines NDEBUG for every TU on the command line.
+// platform.h supplies the NDEBUG fallback and must precede <cassert>.
 #include "platform/platform.h"
 
 #include <algorithm>
