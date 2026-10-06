@@ -236,15 +236,7 @@ class TestRequiredHooksReachEveryEnv(unittest.TestCase):
                              f"env '{name}' lists a hook more than once: {resolved}")
 
 
-class TestSketchSelection(unittest.TestCase):
-    """teensy_pre.py: PlatformIO globs $PROJECT_SRC_DIR/*.ino, so the sketch is
-    chosen here or setup()/loop() never link."""
-
-    def _run(self, pioenv):
-        env = FakeEnv(PIOENV=pioenv, PROJECT_DIR=str(REPO))
-        return load_hook("teensy_pre.py", env=env), env
-
-    def test_firmware_builds_do_not_register_documentation_actions(self):
+    def test_firmware_hooks_register_no_build_actions(self):
         cfg = _pio_config()
         for name in _pio_envs():
             with self.subTest(env=name):
@@ -266,6 +258,14 @@ class TestSketchSelection(unittest.TestCase):
                     self.assertEqual(build_env.pre_actions, [])
                     self.assertEqual(build_env.post_actions, [])
                 self.assertEqual(set(env.methods), {"FindInoNodes"})
+
+class TestSketchSelection(unittest.TestCase):
+    """teensy_pre.py: PlatformIO globs $PROJECT_SRC_DIR/*.ino, so the sketch is
+    chosen here or setup()/loop() never link."""
+
+    def _run(self, pioenv):
+        env = FakeEnv(PIOENV=pioenv, PROJECT_DIR=str(REPO))
+        return load_hook("teensy_pre.py", env=env), env
 
     def test_mapped_sketches_exist(self):
         mod, _ = self._run("phantasm")
