@@ -45,9 +45,9 @@ inline void test_line_sample_endpoints_and_unit_length() {
   HS_EXPECT_NEAR(total_angle, math::PI_F * 0.5f, 1e-4f);
 }
 
-/** Angular slack on a Line::sample position: fast_sincosf carries 0.17% of a
- * quarter turn, and the renormalization that follows leaves the direction
- * within that of the exact slerp. */
+/** Angular slack on a Line::sample position: fast_sincosf_0_pi has <= 1.7e-3
+ * absolute error per component. Renormalization leaves about 2.4e-3 radians
+ * of directional error, within this 4e-3 tolerance. */
 constexpr float LINE_SAMPLE_ANGLE_TOL = 4e-3f;
 
 /**
