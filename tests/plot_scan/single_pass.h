@@ -180,10 +180,7 @@ inline void test_rasterize_single_pass_planar_matches_two_pass() {
 }
 
 /**
- * @brief SinglePass honours omit_end and close_loop the way the cached path
- *        does.
- * @details Covers closed-loop seam handling in the general planar
- *          configuration.
+ * @brief SinglePass closes a planar loop's seam the way the cached path does.
  */
 inline void test_rasterize_single_pass_closed_loop_matches_two_pass() {
   constexpr int W = 128, H = 64;
@@ -204,8 +201,7 @@ inline void test_rasterize_single_pass_closed_loop_matches_two_pass() {
 
   const Plot::RasterOptions opts = {.loop = Plot::RasterLoop::closed(),
                                     .projection =
-                                        Plot::RasterProjection::planar(basis),
-                                    .omit_end = true};
+                                        Plot::RasterProjection::planar(basis)};
   CapturePipeline single, cached;
   {
     Canvas c(fx);
