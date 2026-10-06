@@ -4,9 +4,9 @@
  *
  * Host unit tests for the WASM boundary predicates
  * (targets/wasm/wasm_predicates.h) and the mesh-operator growth factors those
- * predicates are fed (targets/wasm/mesh_op_bounds.h). These checks gate untyped
- * integers crossing the embind boundary before they reach engine code that would
- * trap (clip bounds) or run unbounded (relax iterations). They compile only
+ * predicates are fed (targets/wasm/mesh_op_bounds.h). These checks gate raw JS
+ * numbers: indices, clip bounds, iteration counts, fractions, angles and finite
+ * floats, before engine code that would trap or run unbounded. They compile only
  * under Emscripten inside wasm.cpp, so the pure predicates are extracted and
  * exercised here without the toolchain; the growth factors and the two
  * byte-per-element budgets are measured against the real operators.
