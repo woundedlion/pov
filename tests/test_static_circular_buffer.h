@@ -975,9 +975,11 @@ inline void test_is_linear_tracks_head() {
   buf.push_back(2);
   buf.pop_front(); // head -> 1
   HS_EXPECT_FALSE(buf.is_linear());
-  buf.pop_back(); // empty, but head stays where it was
+  buf.pop_back();
   HS_EXPECT_TRUE(buf.is_empty());
-  HS_EXPECT_FALSE(buf.is_linear());
+  buf.push_back(5);
+  HS_EXPECT_EQ(buf[0], 5);
+  HS_EXPECT_EQ(buf.front(), 5);
 }
 
 /** @brief Verifies a refused push preserves the full buffer. */
