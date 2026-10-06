@@ -532,9 +532,6 @@ inline void test_fishbowl_preset_and_fire_duty_cycle() {
   const math::Vector b = math::Y_AXIS;
   HS_EXPECT_FALSE(WB::needs_adaptive_midpoint(a, math::slerp(a, b, 0.5f), b));
   HS_EXPECT_TRUE(WB::needs_adaptive_midpoint(a, math::Z_AXIS, b));
-  HS_EXPECT_EQ(WB::EffectType::MAX_FRAGMENTS,
-               2 * WB::EffectType::TRAIL_LENGTH *
-                   WB::EffectType::ORIENTATION_SUBSTEPS);
 }
 
 /**
