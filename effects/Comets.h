@@ -192,7 +192,6 @@ public:
 private:
   using Choreography::begin_choreography;
   using Choreography::params;
-  using Choreography::register_param;
   using Choreography::step_choreography;
   using Choreography::timeline;
 
