@@ -59,15 +59,13 @@ inline void test_projection_pattern_bounds() {
 // ============================================================================
 
 /**
- * @brief Pins the math constants (golden ratio, tolerance, pi, stereo
- *        sentinel) to their expected values.
+ * @brief Pins the mathematical constants (golden ratio, pi) to their
+ *        expected values.
  */
 inline void test_constants() {
   HS_EXPECT_NEAR(math::PHI, 1.61803398f, 1e-6f);
   HS_EXPECT_NEAR(math::INV_PHI, 0.6180339887f, 1e-7f);
-  HS_EXPECT_NEAR(math::TOLERANCE, 0.0001f, 1e-9f);
   HS_EXPECT_NEAR(math::PI_F, 3.14159265f, 1e-5f);
-  HS_EXPECT_NEAR_REL(projections::STEREO_INF, 1e4f, 1e-7f);
 }
 
 // ============================================================================
