@@ -251,9 +251,9 @@ public:
       HS_CHECK(rewind_history_size < REWIND_HISTORY_CAPACITY,
                "Arena: debug rewind history capacity exceeded");
       rewind_history[rewind_history_size++] = {rewind_seq, new_offset};
+      if (new_offset < rewind_floor)
+        rewind_floor = new_offset;
     }
-    if (new_offset < rewind_floor)
-      rewind_floor = new_offset;
 #endif
     offset = new_offset;
   }
