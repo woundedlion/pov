@@ -31,9 +31,9 @@ struct IslamicBuildProbe;
  * @brief Effect that displays a sequence of Islamic-geometry polyhedra,
  *        transitioning one shape into the next while ripples distort the mesh.
  *        Entries with a non-null recipe are built op by op on screen: the
- *        recipe's seed solid sweeps in, one OpLeg per lowered primitive step
- *        morphs it into the finished pattern, then the still/ripple/fade
- *        choreography runs.
+ *        recipe's seed solid sweeps in, then OpLegs morph the lowered chain
+ *        into the finished pattern, using multiple legs for smooth dual/kis
+ *        bridges. The still/ripple/fade choreography follows.
  * @tparam W Target canvas width in pixels.
  * @tparam H Target canvas height in pixels.
  */
