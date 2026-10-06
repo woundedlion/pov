@@ -97,7 +97,7 @@ inline int run_plot_scan_tests() {
   test_clip_arcs_overlap();
   test_col_span_rejects_ill_conditioned_pole();
   test_col_span_covers_arc();
-  test_edge_visible_in_clip_matches_span_composition();
+  test_edge_visible_in_clip_is_conservative();
   test_rasterize_column_cull_pixel_parity();
   test_mesh_edge_gate_pixel_parity();
   test_rasterize_window_preserves_terminal_sample();
