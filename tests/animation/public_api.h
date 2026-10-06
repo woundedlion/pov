@@ -279,9 +279,14 @@ inline void test_motion_set_duration_below_position_rescales() {
   motion.set_duration(20);
   HS_EXPECT_FALSE(motion.done());
 
-  // Phase is preserved, so the next step stays incremental.
+  // Reanchoring keeps the first relative step incremental.
   motion.step(fake_canvas());
   HS_EXPECT_LT(math::angle_between(before, o.orient(probe)), 0.5f);
+  for (int i = 1; i < 6; ++i)
+    motion.step(fake_canvas());
+  HS_EXPECT_FALSE(motion.done());
+  motion.step(fake_canvas());
+  HS_EXPECT_TRUE(motion.done());
 }
 
 /** @brief Verifies Progress pause behavior and eased output bounds. */
