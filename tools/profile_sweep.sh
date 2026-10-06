@@ -1,26 +1,18 @@
 #!/bin/bash
 # profile_sweep.sh <group: g1_ship..g6_ship | check>
 # Phantasm-roster profiling sweep, one group per invocation.
-# Covers the 288x144 Phantasm playlist. Dynamo, MobiusRings and Thrusters are Holosphere
-# 96x20-only (HS_PHANTASM_EXCLUDED_EFFECTS), so they are not profiled
-# here.
-# The per-effect duration/window/epoch knobs are hand-tuned, so the groups below
-# cannot be generated from the roster -- but their union is cross-checked
-# against HS_PHANTASM_EFFECT_LIST on every invocation, and `check` runs that
-# alone (no board needed). A newly added Phantasm effect otherwise goes
-# unprofiled with nothing reporting it.
+# Covers the 288x144 Phantasm playlist; HS_PHANTASM_EXCLUDED_EFFECTS are not
+# profiled here.
+# The per-effect duration/window/epoch knobs are hand-tuned; the groups' union
+# is cross-checked against HS_PHANTASM_EFFECT_LIST on every invocation, and
+# `check` runs that alone (no board needed).
 # Sequential profile_one.sh calls per group. A failed capture is recorded and
-# the group carries on: the board can drop USB mid-capture, and aborting the
-# group turns one dropped effect into every later one missing.
-# The group exits non-zero listing what failed, so
-# a re-run only needs those effects.
+# the group carries on, then exits non-zero listing what failed.
 # A capture must fit inside one epoch: crossing a boundary re-inits the effect
 # mid-run, and an init that overruns the K-revolution commit window traps the
-# board. The profile image's epoch is one hour (targets/Profile/Profile.ino);
-# HS_PROFILE_EPOCH_REVS replaces it (hardware/pov_segmented.h); the overrides
-# below shorten it. Attach latency must fit between the capture duration
-# and the epoch boundary (at least 20 s of slack for the entries below).
-# parse_profile validate rejects captures that cross an epoch reset.
+# board. HS_PROFILE_EPOCH_REVS replaces the profile image's one-hour epoch; the
+# overrides shorten it. Attach latency must fit between the capture duration
+# and the epoch boundary (at least 20 s of slack).
 set -uo pipefail
 P="$(dirname "$0")/profile_one.sh"
 PLAYLIST_H="$(dirname "$0")/../targets/Phantasm/phantasm_playlist.h"
@@ -29,10 +21,8 @@ GROUP=${1:-}
 
 # The firmware playlist, in HS_PHANTASM_EFFECT_LIST order. The macro body runs
 # from the #define to the first line without a trailing backslash.
-# Shared X-row spelling with tools/docs_check.py and scripts/effect_roster.mjs:
-# whitespace inside the parens is tolerated so a reformat to `X( Foo , 12 )`
-# cannot silently shrink one roster reader's count. Anchoring at the line start
-# is what excludes a commented-out row.
+# X-row spelling mirrored by tools/docs_check.py; whitespace inside the parens
+# is tolerated, and anchoring at the line start excludes a commented-out row.
 playlist_roster() {
   tr -d '\r' < "$PLAYLIST_H" \
     | sed -n '/^#define HS_PHANTASM_EFFECT_LIST(X)/,/[^\\]$/p' \

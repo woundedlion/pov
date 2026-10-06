@@ -3,40 +3,23 @@
 by gamut_clip_preserve_chroma.
 
 Preserve-chroma clipping holds L and hue fixed and scales (a, b) uniformly.
-The table brackets sampled estimates of the first-exit chroma; the runtime
-refines those brackets against the channel cubics. Finite probes can skip a
-narrow out-of-gamut interval and select a later crossing.
-
-The table is indexed by the diamond angle of (b, a) -- the trig-free angle from
-diamond_angle() in core/math/3dmath.h -- and by L. Each cell stores guarded
-extrema of sampled C_max estimates. These brackets do not certify enclosure of
-every ray's exact first exit. The per-pixel path scans four subintervals, then
-bisects the selected subinterval three times against the channel cubics.
-
-A cell minimum alone is not enough: the gamut cusp jumps to a different RGB-cube
-edge as hue crosses a cube vertex, a feature narrower than any affordable cell,
-so the minimum under-saturates by up to 0.041 chroma at every resolution tried.
-The sampled bracket and runtime refinement reduce this deficit on tested rays.
-Finite sampling and scans can still miss a narrow gap.
+The table is indexed by the diamond angle of (b, a) (diamond_angle() in
+core/math/3dmath.h) and by L. Each cell stores guarded extrema of sampled
+first-exit chroma estimates, which the runtime refines against the channel
+cubics. Finite probes can miss a narrow out-of-gamut interval, so the brackets
+do not certify enclosure of every ray's exact first exit.
 
 BOUNDARY DEFINITION. C_max is the FIRST EXIT: the smallest C > 0 that leaves the
 gamut. That is not the same as "the largest in-gamut C" -- linear_rgb_in_gamut's
-+-1e-4 slack lets a channel graze zero, leave the tolerance and re-enter, so the
-in-gamut set along a ray is occasionally disconnected (~0.1% of sampled rays;
-the widest gap observed spans C 0.251 to 0.286 at L 0.419). A plain bisection
-lands on either side of such a gap depending on where its midpoints fall, which
-makes it discontinuous in L by up to 0.038. First exit bounds the connected
-component containing C = 0. It can jump when a disconnected gap appears or
-disappears; it agrees with bisection where the in-gamut set is connected.
++-1e-4 slack can make the in-gamut set along a ray disconnected.
 
 Usage: python tools/gen_gamut_lut.py [output_path]
        python tools/gen_gamut_lut.py --check
 
 --check regenerates the table in memory and diffs it against the committed
-header in full, pins the constants mirrored below against core/color/color_space.h,
+header in full, pins the mirrored constants against core/color/color_space.h,
 pins the mirrored diamond angle against core/math/3dmath.h, and round-trips the
-angle parameterization. Wired as ctest unit_gamut_lut and CI
-gamut-lut-provenance.
+angle parameterization.
 """
 
 import argparse
@@ -50,15 +33,6 @@ import numpy as np
 
 # Flash master resolution. init_gamut_lut() downsamples by integer factors, so
 # these bound the finest grid any effect can request.
-#
-# Resolution changes the sampled brackets and runtime search intervals.
-# Worst first-exit deficit over the color
-# suite's sweep, against that suite's 5e-3 bound:
-#   512x256 0.00132 | 256x128 0.00139 | 128x64 0.00235
-#   128x32  0.00291 | 64x64 0.00347 | 64x32 0.00360 | 32x16 0.00530
-# This grid avoids stride-over in the color suite's sweep, at a quarter of
-# 512x256's flash. On a few other rays, every resolution can stride over a
-# disconnected in-gamut interval; see GAMUT_LUT_MIN_ANGLE_STEPS in color_space.h.
 ANGLE_STEPS = 256
 L_STEPS = 128
 # 65535 / 0.5: OKLab chroma inside sRGB stays below 0.5, so this spends the full
@@ -465,9 +439,7 @@ def check_angle_roundtrip():
 
     Every cell of the table is filled along a direction from
     diamond_direction(), and every runtime lookup indexes it by the diamond
-    angle. Both sides live here, so this catches only a half-applied edit to
-    this file; the C++ the runtime actually calls is pinned separately by
-    check_mirrors().
+    angle.
     """
     n = ANGLE_STEPS * SUBSAMPLES
     t = np.arange(n) * (4.0 / n)
@@ -484,9 +456,7 @@ def check_angle_roundtrip():
 def check_diamond_angle_mirror(math_h_path):
     """Diffs the mirrored diamond angle against 3dmath.h's definition.
 
-    Parses the C++ into a callable and sweeps it against the mirror, so a
-    re-parameterization on the side every runtime cell lookup indexes by fails
-    here instead of silently re-indexing the whole table.
+    Parses the C++ into a callable and sweeps it against the mirror.
     """
     with open(math_h_path, "r", encoding="utf-8") as f:
         text = f.read()
@@ -599,9 +569,7 @@ def check_provenance(committed_path):
 
     Whole text, not numeric tokens: the array names, the flash-section marker,
     the constants, the includes and the doc comments are as much a divergence
-    as a shifted value, and the header is excluded from the clang-format job
-    (it is emitted, not hand-formatted), so this gate is the only thing that
-    reads them.
+    as a shifted value.
     """
     if not os.path.exists(committed_path):
         sys.stderr.write("missing %s\n" % committed_path)

@@ -34,9 +34,7 @@ inline bool finite_vec(const math::Vector &v) {
  * @brief Tests whether two vectors are bit-for-bit identical.
  * @param a,b Vectors to compare.
  * @return True when every component shares the exact IEEE-754 bit pattern.
- * @details Used to prove an identity short-circuit returned its input VERBATIM,
- * not merely a (possibly different) non-finite value. A NaN component compares
- * unequal to itself under ==, so the raw bits are compared instead.
+ * @details Compares raw bits, so a NaN component matches itself.
  */
 inline bool vec_bits_equal(const math::Vector &a, const math::Vector &b) {
   auto bits = [](float f) {
@@ -73,12 +71,9 @@ inline void test_orient_transformer_identity() {
 
 /**
  * @brief Verifies a non-identity orientation rotates by exactly the quaternion
- *        it was built from, catching a transform that ignored its rotation.
- * @details The orientation is a +90° rotation about the +y axis. By the
- *          right-hand rule that maps (x, y, z) → (z, y, -x) — an oracle computed
- *          independently of the quaternion-rotation code under test. The
- *          identity-only case (test_orient_transformer_identity) passes even for
- *          a no-op transform; this case fails unless the rotation is applied.
+ *        it was built from.
+ * @details +90° about +y maps (x, y, z) → (z, y, -x) by the right-hand rule,
+ *          independent of the quaternion code under test.
  */
 inline void test_orient_transformer_known_rotation() {
   math::Orientation<> ori(math::make_rotation(
@@ -116,14 +111,10 @@ inline void test_mobius_identity_roundtrip() {
 }
 
 /**
- * @brief Verifies a non-identity Mobius map produces its hand-computed image,
- *        catching a transform that ignored its coefficients.
- * @details The map f(z) = 1/z (a=0, b=1, c=1, d=0) is, under this file's
+ * @brief Verifies a non-identity Mobius map produces its hand-computed image.
+ * @details f(z) = 1/z (a=0, b=1, c=1, d=0) is, under this file's
  *          stereographic convention (origin↔south pole, ∞↔north pole), a 180°
  *          rotation of the sphere about the x-axis: (x, y, z) → (x, -y, -z).
- *          That image is derived analytically, not from the stereo/mobius code
- *          under test, so a coefficient-ignoring (identity) implementation —
- *          which the existing round-trip case cannot distinguish — fails here.
  */
 inline void test_mobius_known_rotation() {
   math::MobiusParams inv(0, 0, 1, 0, 1, 0, 0, 0); // f(z) = 1/z
@@ -144,8 +135,7 @@ inline void test_mobius_known_rotation() {
  *          is independent of the homogeneous formulation under test. Points
  *          inside the pole cap are excluded from the value comparison — there
  *          the oracle's own quotient is ill-conditioned — but their image is
- *          still required to be finite and unit. The 4000 draws aggregate into
- *          worst-error accumulators.
+ *          still required to be finite and unit.
  */
 inline void test_mobius_matches_double_precision_oracle() {
   hs::random().seed(20260720);
@@ -279,13 +269,11 @@ inline void test_gnomonic_mobius_identity_roundtrip() {
 
 /**
  * @brief Verifies a non-identity gnomonic Mobius map produces its hand-computed
- *        image, catching a transform that ignored its coefficients.
- * @details The map f(z) = -z (a=-1, b=0, c=0, d=1) is, under the gnomonic
+ *        image.
+ * @details f(z) = -z (a=-1, b=0, c=0, d=1) is, under the gnomonic
  *          projection (tangent at the north pole, hemisphere restored from the
  *          sign of v.y), a 180° rotation about the y-axis: for an upper-
- *          hemisphere point, (x, y, z) → (-x, y, -z). The image is derived
- *          analytically (inv_len = v.y collapses the projection algebra), so an
- *          identity implementation that the round-trip case admits fails here.
+ *          hemisphere point, (x, y, z) → (-x, y, -z).
  */
 inline void test_gnomonic_mobius_known_rotation() {
   math::MobiusParams neg(-1, 0, 0, 0, 0, 0, 1, 0); // f(z) = -z
@@ -302,11 +290,9 @@ inline void test_gnomonic_mobius_known_rotation() {
 /**
  * @brief Verifies an equator point round-trips through the identity map for
  *        either signed zero.
- * @details The hemisphere sign has to key on the sign bit: a >= 0 test sends
- *          y == -0.0f to the divisor sign of +0.0f but the hemisphere sign of a
- *          tiny negative, which reflects the result 180° instead of returning
- *          it. The equator is its own antipode's neighbour, so the flip only
- *          shows as a broken round-trip.
+ * @details The hemisphere sign keys on the sign bit; a >= 0 test would give
+ *          y == -0.0f mismatched divisor and hemisphere signs and reflect the
+ *          result 180°.
  */
 inline void test_gnomonic_mobius_signed_zero_equator() {
   math::MobiusParams id;
@@ -381,16 +367,10 @@ inline void test_ripple_active_rotates_on_sphere() {
 }
 
 /**
- * @brief Exercises the sync() fast-reject band the production
- *        renderer relies on (prepare_frame() calls it per active entity).
- * @details test_ripple_active_rotates_on_sphere deliberately leaves the default
- *          degenerate bounds (min=1, max=-1) in place, so the reject `if` is
- *          never taken there. Here real bounds are computed: a point at the
- *          wavelet peak (inside the band) is rotated, while points on either
- *          side — closer to the center than d_min, and farther than d_max —
- *          take the two reject legs and return unchanged. A sync()
- *          that swapped or mis-derived its bounds would either reject the peak
- *          (no move) or pass the off-band points (they move), failing here.
+ * @brief Exercises the sync() fast-reject band.
+ * @details A point at the wavelet peak (inside the band) is rotated, while
+ *          points closer to the center than d_min or farther than d_max take
+ *          the two reject legs and return unchanged.
  */
 inline void test_ripple_threshold_reject_path() {
   Animation::RippleParams p;
@@ -437,12 +417,9 @@ inline void test_ripple_threshold_reject_path() {
 /**
  * @brief Verifies the decay parameter attenuates the ripple's rotation with
  *        angular distance from the center.
- * @details Every other ripple test pins decay to 0 (max strength), so the
- *          attenuation term expf(-decay * d) ships unexercised. Here the same
- *          peak point (d == 90° from the center) is transformed at several decay
- *          rates: a positive decay must move it strictly less than decay 0, a
- *          larger decay less still, and a strong decay collapses the rotation to
- *          ~identity — a decay term that was ignored (or sign-flipped) fails.
+ * @details The same peak point (d == 90° from the center) is transformed at
+ *          increasing decay rates: each must move it strictly less, and a
+ *          strong decay collapses the rotation to ~identity.
  */
 inline void test_ripple_decay_attenuates() {
   Animation::RippleParams base;
@@ -472,14 +449,10 @@ inline void test_ripple_decay_attenuates() {
 }
 
 /**
- * @brief Pins the sync() reject band at its edges, not just well
- *        outside them.
- * @details test_ripple_threshold_reject_path samples points 0.05 rad beyond each
- *          edge, so a band misplaced by up to ~0.05 rad would still pass. Here a
- *          point a hair inside each edge takes the slow path (the wavelet tail is
- *          tiny but nonzero, so it moves), while a point a hair outside is
- *          fast-rejected and returned bit-for-bit unchanged. The asymmetry
- *          (moves vs. exactly-equal) brackets the edge to within the epsilon.
+ * @brief Pins the sync() reject band at its edges.
+ * @details A point a hair inside each edge takes the slow path (the wavelet
+ *          tail is tiny but nonzero, so it moves), while a point a hair outside
+ *          is fast-rejected and returned bit-for-bit unchanged.
  */
 inline void test_ripple_threshold_boundary() {
   Animation::RippleParams p;
@@ -516,17 +489,10 @@ inline void test_ripple_threshold_boundary() {
  * @brief Verifies the truncated small-angle quaternion series reproduces the
  *        exact libm rotation it stands in for, and that the two branches meet
  *        at RIPPLE_SMALL_ANGLE_MAX.
- * @details The |theta| <= RIPPLE_SMALL_ANGLE_MAX branch replaces
- *          make_rotation's sin/cos with truncated series, so nothing but a
- *          comparison against the exact form pins its coefficients — the one
- *          test that crosses the boundary asserts only monotonicity, which a
- *          wrong coefficient survives while seaming visibly on device. theta is
- *          exactly proportional to amplitude for a fixed geometry, so one
- *          reading taken in the exact branch calibrates the envelope (the
- *          approximate acos/expf that produce it are common to both branches
- *          and cancel), and every series-branch amplitude is then judged
- *          against rotate(v, make_rotation(axis, theta)) — the closed form the
- *          series stands in for.
+ * @details theta is proportional to amplitude for a fixed geometry, so one
+ *          reading in the exact branch calibrates the envelope, and each
+ *          series-branch amplitude is judged against
+ *          rotate(v, make_rotation(axis, theta)).
  */
 inline void test_ripple_small_angle_series_matches_exact() {
   Animation::RippleParams p;
@@ -586,15 +552,9 @@ inline void test_ripple_small_angle_series_matches_exact() {
 }
 
 /**
- * @brief Pins the sync() band past π, where every ripple ends its life.
- * @details A Ripple advances phase by `speed` per frame for `duration` frames,
- *          so its defaults (0.2, 100) walk it out to ~20 rad — many times the
- *          sphere's π of angular range. Every other threshold test pins phase
- *          to π/2, where the [0, π] clamp is inert. Here the clamp collapses
- *          both bounds onto cos(π), so the front has left the sphere and every
- *          non-antipodal direction is fast-rejected; an inverted or dropped clamp
- *          reopens an arbitrary annulus of a wrapped phase and charges the whole sphere
- *          the per-pixel wavelet again.
+ * @brief Pins the sync() band at a phase past π.
+ * @details The [0, π] clamp collapses both bounds onto cos(π), so every
+ *          non-antipodal direction is fast-rejected.
  */
 inline void test_ripple_threshold_collapses_past_pi() {
   Animation::RippleParams p;
@@ -620,9 +580,8 @@ inline void test_ripple_threshold_collapses_past_pi() {
 /**
  * @brief Feeds non-finite (NaN/Inf) directions through the transforms' identity
  *        short-circuits and confirms they pass the input through verbatim.
- * @details The active noise path checks finite input with HS_AUDIT_CHECK,
- * pinned by case_noise_transform_nan. Active ripple returns a NaN input
- * unchanged when its degenerate-axis comparison fails.
+ * @details Active ripple returns a NaN input unchanged when its degenerate-axis
+ * comparison fails.
  */
 inline void test_transforms_nonfinite_passes_through_identity() {
   const float inf = HUGE_VALF;
@@ -663,11 +622,8 @@ inline void test_noise_zero_amplitude_is_identity() {
 /**
  * @brief Verifies an active noise warp keeps every sample finite and on the
  *        unit sphere, and actually displaces the points.
- * @details The displacement assertion is the companion to
- *          test_noise_zero_amplitude_is_identity: without it, a noise_transform
- *          that returned the input unchanged would still pass the finite /
- *          on-sphere checks. Displacement is summed across samples so a single
- *          noise zero-crossing at one point cannot make the test flaky.
+ * @details Displacement is summed across samples so a single noise
+ *          zero-crossing cannot make the test flaky.
  */
 inline void test_noise_active_stays_on_sphere() {
   Animation::NoiseParams p;
@@ -756,10 +712,9 @@ inline void test_transformer_no_entities_is_identity() {
  * @brief Verifies the compact active-slot list: a spawned entity is applied by
  *        transform(), and two active entities compose while staying on the unit
  *        sphere.
- * @details Noise is used (rather than Ripple) because its ctor leaves the
- *          copied amplitude intact, so the spawned entity displaces immediately
- *          — no Canvas / timeline stepping needed. The local Timeline's
- *          destructor clears the global event buffer on scope exit.
+ * @details A spawned Noise entity displaces immediately, with no timeline
+ *          stepping. The local Timeline's destructor clears the global event
+ *          buffer on scope exit.
  */
 inline void test_transformer_spawn_applies_and_composes() {
   Timeline tl;
@@ -847,12 +802,10 @@ inline void test_transformer_live_edit_preserves_instance_phase_and_seed() {
 /**
  * @brief Verifies spawn_pausable() freezes the spawned event's pending start
  *        delay, not just the animation once it has begun.
- * @details An unpaused pool spawned with the same delay and duration runs
- *          alongside as the control. After a window long enough for both, only
- *          the control's slot is reclaimed. Releasing the flag then leaves the
- *          gated ripple waiting out an untouched delay: a gate reaching the
- *          animation but not the delay would have burned the delay during the
- *          pause and completed within DURATION frames of the release.
+ * @details An unpaused pool with the same delay and duration is the control.
+ *          After a window long enough for both, only the control's slot is
+ *          reclaimed; releasing the flag leaves the gated ripple waiting out an
+ *          untouched delay.
  */
 inline void test_transformer_spawn_pausable_freezes_start_delay() {
   Timeline tl;
@@ -897,13 +850,10 @@ inline void test_transformer_spawn_pausable_freezes_start_delay() {
 /**
  * @brief Verifies a non-pinned spawned transform's pool slot is reclaimed after
  *        the timeline relocates its event during compaction.
- * @details spawn() (unlike spawn_pinned) registers a finite, non-repeating event
- *          whose then() callback frees the entity slot — but only if that callback
- *          survives the event being move_into-relocated by step()'s compaction.
- *          An earlier finite event is added first so that, when it completes, the
- *          spawned ripple's event shifts down into the vacated slot. The pool has
- *          CAPACITY 1, so a leaked slot would make the post-completion re-spawn
- *          return nullptr; its success proves the relocated event's callback
+ * @details spawn() registers a finite event whose then() callback frees the
+ *          entity slot. An earlier finite event completes first, so step()'s
+ *          compaction relocates the ripple's event. With CAPACITY 1 the
+ *          post-completion re-spawn succeeds only if the relocated callback
  *          reclaimed the slot.
  */
 inline void test_transformer_nonpinned_slot_reclaimed_after_compaction() {
@@ -981,10 +931,8 @@ inline void test_transformer_callback_after_pool_destroyed() {
 /**
  * @brief Verifies Timeline::clear() frees the pool slots of the animations it
  *        destroys.
- * @details clear() destroys events outright, so their then() callbacks — the
- *          only other reclaim path — never run. Without the pool's clear hook
- *          the slots stay active forever and the effect silently stops warping
- *          after CAPACITY spawns.
+ * @details clear() destroys events without running their then() callbacks, so
+ *          the pool's clear hook must reclaim the slots.
  */
 inline void test_transformer_slots_released_by_timeline_clear() {
   Timeline tl;
@@ -1200,9 +1148,8 @@ inline void test_field_transformer_slot_reclaimed() {
 /**
  * @brief Verifies reclaim_storage() carries a live entity across an arena
  *        rewind: the re-claimed slots keep their addresses and contents.
- * @details Rewinds via set_offset to the pre-init_storage mark, standing in
- *          for the reset() a mesh carousel compaction performs, then replays
- *          the pool allocation as the carousel's after-reset callback does.
+ * @details Rewinds via set_offset to the pre-init_storage mark, then replays
+ *          the pool allocation.
  */
 inline void test_field_transformer_storage_survives_arena_rewind() {
   Timeline tl;
@@ -1226,10 +1173,6 @@ inline void test_field_transformer_storage_survives_arena_rewind() {
  * @brief Verifies the documented blend identities: nothing added reports 0, a
  *        lone field passes through exactly, and repeats of one value neither
  *        stack nor shift.
- * @details Pass-through is the property a swapped numerator/denominator power
- *          destroys — sum(s^2)/sum(s^3) reports 1/s for a lone field, which
- *          matches s only at s == 1. Repeats pin the "dominate without stacking"
- *          contract that motivates the accumulator over plain summation.
  */
 inline void test_dominant_field_identities() {
   HS_EXPECT_NEAR(DominantFieldAccumulator().value(), 0.0f, 0.0f);
@@ -1279,12 +1222,10 @@ inline void test_dominant_field_strongest_wins_without_stacking() {
 /**
  * @brief Verifies the blend crosses an opposite-signed cancellation smoothly
  *        rather than jumping the way a hard max by magnitude would.
- * @details A fixed +1 field is swept against a partner from -1.5 to -0.5. At
- *          exact cancellation the blend is 0; a hard max by magnitude would
- *          instead flip from -1.5 to +1 across that point, a step of 2.5. The
- *          sweep asserts every consecutive step stays far below that, that the
- *          output changes sign across the crossing, and that it moves
- *          substantially overall (so a constant-0 accumulator cannot pass).
+ * @details A fixed +1 field is swept against a partner from -1.5 to -0.5,
+ *          across which a hard max would step by 2.5. Every consecutive step
+ *          must stay far below that, the output must change sign, and it must
+ *          move substantially overall.
  */
 inline void test_dominant_field_sign_crossing_is_continuous() {
   const int steps = 1000;
@@ -1460,10 +1401,6 @@ inline void test_bump_field_envelope_gates() {
 /**
  * @brief Sweeps footprint, envelope, gain, cap centre and stack axis to verify
  *        |bump_field| never exceeds field_bound().
- * @details field_bound() sizes the displacement culls, so a bump that pushes
- *          past its bound is culled while still displacing — the same safety
- *          role noise_product_field's bound is swept for. The 49,152 samples
- *          aggregate into violation counters.
  */
 inline void test_bump_field_bound_is_conservative() {
   hs::random().seed(20260803);
@@ -1513,11 +1450,8 @@ inline void test_bump_field_bound_is_conservative() {
 
 /**
  * @brief Pins NoiseParams::seed against the generator it mirrors.
- * @details FastNoiseLite keeps its seed private, so `seed` is the only handle
- *          the Pixel::Feedback warp cache has on it. A set_seed that wrote one
- *          half and not the other, or a default that disagreed with
- *          FastNoiseLite's own, would key that cache on a stale value and reuse
- *          a warp field built from different noise.
+ * @details FastNoiseLite keeps its seed private, so `seed` is the readable
+ *          copy; set_seed must write both, and the defaults must agree.
  */
 inline void test_noise_params_seed_mirrors_generator() {
   constexpr float SX = 0.3f, SY = 0.7f, SZ = 1.1f;
@@ -1601,9 +1535,7 @@ inline void test_noise_product_field_parity() {
  *        to verify |noise_product_field| never exceeds field_bound().
  * @details Outputs within [-1, 1] on both octaves guarantee
  * field_bound() = |amplitude|; the sweep checks both octave ranges and the
- * product bound. The bound sizes displacement culls; a point outside it would
- * be culled while still displaced. The 49,152 point draws skip near-zero
- * vectors before evaluation and aggregate accepted samples into counters.
+ * product bound. Near-zero point draws are skipped.
  */
 inline void test_noise_product_field_bound_is_conservative() {
   hs::random().seed(20260801);

@@ -107,8 +107,7 @@ ACTIONS = ROOT / ".github/actions"
 
 
 def workflow_files() -> tuple[Path, ...]:
-    """Every workflow and composite action, so a new one is scanned with no
-    second edit here."""
+    """Every workflow and composite action under .github."""
     found = set(WORKFLOWS.glob("*.yml")) | set(WORKFLOWS.glob("*.yaml"))
     found |= set(ACTIONS.glob("*/action.yml"))
     found |= set(ACTIONS.glob("*/action.yaml"))
@@ -143,8 +142,7 @@ CONSUMERS = {
     ),
 }
 
-# Files scanned for INLINE_PINS occurrences. Every workflow and composite action
-# is covered, so a new one cannot spell a pin its own way and still pass --check.
+# Files scanned for INLINE_PINS occurrences.
 INLINE_SCAN = (
     *workflow_files(),
     ROOT / "justfile",
@@ -157,8 +155,7 @@ INLINE_SCAN = (
     ROOT / "scripts/generate_luts.py",
     ROOT / ".githooks/pre-commit",
     ROOT / "hardware/phantasm/gen/sexp.py",
-    # Prose, but a contributor installs what it tells them to: a stale spelling
-    # here sends them to a version the format gate then rejects.
+    # Prose that contributors install from.
     ROOT / "README.md",
     ROOT / "CONTRIBUTING.md",
     ROOT / "hardware/phantasm/README.md",
@@ -209,19 +206,14 @@ INLINE_USES = (
 # the pre-commit hook matches the same set over staged paths.
 FORMAT_EXTENSIONS = ("h", "hpp", "cpp", "cc", "inl", "ino")
 
-# The float flags both shipping targets build with: the device firmware
-# (platformio.ini) and the WASM modules (CMakeLists.txt). The CI leg runs the
-# suite under the same pair and defines which test contract applies.
-# -fno-finite-math-only must follow -ffast-math, which otherwise implies
-# -ffinite-math-only and folds every std::isfinite() boundary predicate to
-# constant true; a spelling that loses it builds green.
+# The float flags both shipping targets build with. -fno-finite-math-only must
+# follow -ffast-math, which otherwise implies -ffinite-math-only and folds every
+# std::isfinite() boundary predicate to constant true.
 FLOAT_FLAGS = ("-ffast-math", "-fno-finite-math-only")
 FAST_MATH_TEST_FLAGS = (*FLOAT_FLAGS, "-DHS_TEST_FAST_MATH=1")
 
-# Strings that must read identically in several build files. The pre-commit hook
-# is POSIX shell run per commit, ci.yml is workflow YAML, the justfile is a
-# recipe list and the gate scripts are bash, so none can source a value from
-# another; --check asserts every occurrence matches this one.
+# Strings that must read identically in several build files that cannot source
+# one another; --check asserts every occurrence matches this one.
 SHARED_LITERALS = {
     "whitespace-rules": "blank-at-eol,blank-at-eof",
     "shell-selection": r"\.sh$|^\.githooks/",
@@ -245,8 +237,7 @@ SHARED_LITERALS = {
     "float-flags": " ".join(FLOAT_FLAGS),
     "float-test-flags": " ".join(FAST_MATH_TEST_FLAGS),
     "float-flags-cmake": " ".join(f'"{flag}"' for flag in FLOAT_FLAGS),
-    # The per-effect smoke window every CI leg drives. The justfile and
-    # CONTRIBUTING repeat it because neither can read the workflow.
+    # The per-effect smoke window every CI leg drives.
     "smoke-frames": "120",
     "smoke-stack-ceiling-debug": "6144",
 }
@@ -276,13 +267,8 @@ SHARED_LITERAL_USES = (
 
 # --check-tool targets: pin name -> (version command, how to install the pin,
 # the form of the pin that command reports). `{pin}` in either is filled with
-# the pin value. A pin absent here has nothing to interrogate: two git refs and
-# three file digests name no program, and the emsdk and KiCad pins are checked
-# where they are used (the WASM toolchain marker written beside the build,
-# kicad_common.find_kicad_cli). The targets a recipe runs are invoked from
-# it (CONSUMERS pins those call sites). The native build reaches clang through
-# the CMake toolchain, which may be emsdk's. actionlint-release is the derived
-# release form of actionlint and is checked through that pin.
+# the pin value. A pin absent here names no program or is checked where it is
+# used.
 CHECK_TOOLS = {
     "cmake": (["cmake", "--version"], "pip install cmake=={pin}", lambda v: v),
     "actionlint": (["actionlint", "-version"],
@@ -314,10 +300,8 @@ CHECK_TOOLS = {
                    lambda v: v.rsplit(".", 1)[0]),
 }
 
-# (manifest, JSON path to a `>=X` range, pin name). The range is the floor the
-# tree's own tooling needs -- registerHooks requires Node >= 22.15 -- and
-# the pin is what every CI job installs, so a pin below the floor would run the
-# suite on an interpreter the manifest already rejects.
+# (manifest, JSON path to a `>=X` range, pin name); the pin must satisfy the
+# range.
 ENGINE_RANGES = (
     (ROOT / "package.json", ("engines", "node"), "node"),
 )
@@ -565,8 +549,7 @@ def check_flexram_geometry() -> list[str]:
         budgets = teensy_gate.load_budgets(budgets_path)
     except (OSError, ValueError) as exc:
         # An unreadable file, a BudgetSchemaError, a JSON syntax error and an
-        # unterminated block comment all land here; a traceback out of a hook is
-        # not a report.
+        # unterminated block comment all land here.
         return [f"tools/teensy_budgets.json: {exc}"]
     try:
         derived = budgets["phantasm"]["regions"]["ram1"][
@@ -611,11 +594,9 @@ def installed_sources() -> list[str]:
     """Return the repository files CMakeLists.txt installs into daydream.
 
     An install(DIRECTORY) rule contributes whatever its FILES_MATCHING patterns
-    select right now, so a document dropped into patterns/ joins the set by
-    existing rather than by being listed anywhere.
+    currently select.
     """
-    # An unreadable CMakeLists.txt yields no install source, which
-    # check_install_eol reports rather than raising out of the hook.
+    # An unreadable CMakeLists.txt yields no install source.
     try:
         text = (ROOT / "CMakeLists.txt").read_text(encoding="utf-8")
     except OSError:
@@ -652,11 +633,8 @@ def installed_sources() -> list[str]:
 def check_install_eol(paths: list[str]) -> list[str]:
     """Return one error per installed file carrying no line-ending pin.
 
-    daydream's deploy gate byte-compares its copy of each installed file
-    against this repository's, over LF bytes. Without an eol=lf (or binary)
-    attribute the working copy holds whatever the host checked out, so an
-    install run on Windows ships CRLF and forks the mirror -- which a Linux
-    runner cannot reproduce.
+    daydream's deploy gate byte-compares each installed file over LF bytes, so
+    each needs an eol=lf (or binary) attribute.
     """
     if not paths:
         return ["CMakeLists.txt: no DAYDREAM_DIR install sources found"]
@@ -723,9 +701,6 @@ def check_consumers() -> int:
 
 def check_tool(name: str) -> int:
     """Fail unless the installed tool reports the version pinned here.
-
-    A recipe that just invokes a linter runs whatever the developer installed,
-    which gates the tree on a different rule set than CI's.
 
     The pin's precision is the comparison's: a major-only pin such as clang's
     is met by any release of that major, which is all the pin claims.

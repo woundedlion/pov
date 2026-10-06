@@ -3,17 +3,12 @@
 
 Structure only. A green run means every fence closes, every anchor resolves,
 every link into this repository or a supplied sibling checkout resolves, every
-recognized backticked path under a tracked repository root exists (bare
-basenames must be unambiguous unless a sibling matches; unknown first segments
-are not checked), every tree fence matches
-the tracked tree it draws, the cardinalities CARDINALITY_CLAIMS names match their source
-macros, and the composed-effect roster in docs/effects.md matches each
-effect's PRESET_IDS and the product group -- not that the prose is true. A
-link to any other host is never visited, and a sibling checkout no --checkout
-root supplies leaves its fences
-and links unvalidated, which the verdict line says. A renamed symbol in a
-table, a number no claim names, and any path written without backticks or a
-link are all invisible here.
+recognized backticked path under a tracked repository root exists, every tree
+fence matches the tracked tree it draws, the cardinalities CARDINALITY_CLAIMS
+names match their source macros, and the composed-effect roster in
+docs/effects.md matches each effect's PRESET_IDS and the product group -- not
+that the prose is true. Links to other hosts are never visited, and a sibling
+checkout no --checkout root supplies leaves its fences and links unvalidated.
 
 The Doxyfile's PREDEFINED names must also appear in tracked C/C++ source.
 """
@@ -55,9 +50,7 @@ _HTML_TAG_RE = re.compile(r"<[^>]*>")
 _INLINE_LINK_TEXT_RE = re.compile(r"!?\[([^\]]*)\]\([^)]*\)|!?\[([^\]]*)\]\[[^\]]*\]")
 _SLUG_DROP_RE = re.compile(r"[^\w\- ]", re.UNICODE)
 # GitHub renders #L12 / #L12-L20 as a line range on a blob, not a document
-# anchor. No structural check can tell whether the line still holds its subject,
-# so a repo-relative link is not allowed to pin one: link the file and name the
-# symbol in the link text, which a reader can verify and a rename breaks loudly.
+# anchor; a repo-relative link may not pin one.
 _LINE_FRAGMENT_RE = re.compile(r"^L\d+(?:-L?\d+)?$", re.IGNORECASE)
 
 # A backticked token is linted as a repo path only when it carries one of these
@@ -111,27 +104,21 @@ _CHECKOUT_REPO_PATH_RE = re.compile(
     r"^/woundedlion/(?!pov/)(?P<checkout>[^/]+)/(?:blob|tree|raw)/[^/]+/"
     r"(?P<path>.+)$")
 
-# The `effects/` row summarizes its subtree instead of drawing it, so no tree
-# gate sees the counts it states. Both are derivable: headers from the tracked
-# tree, effects from the roster macro's cardinality.
+# The `effects/` summary row's counts: headers from the tracked tree, effects
+# from the roster macro's cardinality.
 _EFFECTS_TREE_ROW = "README.md"
 EFFECTS_ROW_RE = re.compile(
     r"\beffects/\s+(?P<headers>\d+) headers(?: covering (?P<effects>\d+) effects|: "
     r"one per effect \((?P<legacy_effects>\d+)\))")
-# The architecture diagram restates the roster's cardinality in its own words,
-# outside any tree fence and in a spelling the summary row's regex never
-# matches, so it is derivable from the same source and gated the same way.
+# The architecture diagram's roster cardinality, gated against the same source.
 EFFECTS_DIAGRAM_RE = re.compile(
     r"\beffects/\s+\((?P<effects>\d+) visual algorithms\)")
 EFFECTS_DIR = PurePosixPath("effects")
 EFFECT_ROSTER_SOURCE = PurePosixPath("targets/effects.h")
 _EFFECT_ROSTER_DEFINE = "#define HS_EFFECT_LIST(X)"
-# Shared X-row spelling with scripts/effect_roster.mjs and tools/profile_sweep.sh:
-# whitespace inside the parens is tolerated so a reformat to `X( Foo )` cannot
-# silently shrink one roster reader's count while the others keep the full set.
-# Comments are stripped before matching, as effect_roster.mjs does, so a
-# commented-out row is not counted -- including one inside a block comment that
-# spans lines, which no line-anchored pattern can exclude.
+# X-row spelling mirrored by scripts/effect_roster.mjs; whitespace inside the
+# parens is tolerated. Comments, including multi-line block comments, are
+# stripped before matching.
 _COMMENT_RE = re.compile(r"/\*.*?\*/|//[^\n]*", re.DOTALL)
 _EFFECT_ROSTER_ENTRY_RE = re.compile(r"X\(\s*(\w+)\s*\)")
 
@@ -894,11 +881,7 @@ def effect_roster(source: str) -> set[str]:
 
 def effects_row_issues(text: str, entries: set[PurePosixPath],
                        roster: set[str] | None) -> list[Issue]:
-    """Checks the summary row's header and effect counts against the tree.
-
-    A count nobody derives drifts silently: the row elides its own subtree, so
-    the exhaustive-tree gate never reaches it.
-    """
+    """Checks the summary row's header and effect counts against the tree."""
     headers = sum(1 for entry in entries
                   if entry.parent == EFFECTS_DIR and entry.suffix == ".h")
     issues = []
@@ -1220,7 +1203,7 @@ def check_repository(
         path = root.joinpath(*relative.parts)
         try:
             # utf-8-sig: a leading BOM would otherwise ride on the first line
-            # and hide a directive or a fence from every check below.
+            # and hide a directive or a fence.
             sources[relative] = path.read_text(encoding="utf-8-sig")
         except (OSError, UnicodeError) as error:
             issues.append(Issue(relative.as_posix(), 1,
@@ -1344,14 +1327,10 @@ def main(argv: list[str] | None = None) -> int:
     except (OSError, subprocess.SubprocessError, UnicodeError, ValueError) as error:
         print(f"[docs-check] tooling error: {error}", file=sys.stderr)
         return 2
-    # An unvalidated tree fence or sibling link is not a pass: it went ungated,
-    # so it can be edited through a green run. Accepting that is allowed --
-    # a developer without the sibling checkout must still be able to run the
-    # checker -- but only by naming the checkout in --skip-checkout, and the
-    # verdict line says so either way.
+    # An unvalidated tree fence or sibling link is not a pass unless
+    # --skip-checkout names its checkout; the verdict line says so either way.
     unvalidated = skipped - set(args.skip_checkout)
-    # Warning only, like a stale UNTRACKED_ALLOWED entry: a name that skips
-    # nothing is a stale exemption, and dropping it must not red a commit.
+    # Warning only: a name that skips nothing is a stale exemption.
     unused_skips = sorted(set(args.skip_checkout) - skipped)
     if unused_skips:
         print(f"::warning::--skip-checkout names no unvalidated tree fence "
@@ -1360,8 +1339,7 @@ def main(argv: list[str] | None = None) -> int:
         print(f"::{'error' if unvalidated else 'warning'}::tree fences and "
               f"sibling links NOT validated - no --checkout root for: "
               f"{', '.join(sorted(skipped))}")
-    # Warning only: dropping the last citation of an exempt path improves the
-    # tree and must not red the build for whoever lands that commit.
+    # Warning only: stale allowlist entries.
     if markdown and stale:
         print("::warning::allowlists in tools/docs_check.py are stale - "
               f"drop these entries: {', '.join(stale)}")

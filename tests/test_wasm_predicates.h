@@ -2,14 +2,8 @@
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
  * Licensed under the PolyForm Noncommercial License 1.0.0
  *
- * Host unit tests for the WASM boundary predicates
- * (targets/wasm/wasm_predicates.h) and the mesh-operator growth factors those
- * predicates are fed (targets/wasm/mesh_op_bounds.h). These checks gate raw JS
- * numbers: indices, clip bounds, iteration counts, fractions, angles and finite
- * floats, before engine code that would trap or run unbounded. They compile only
- * under Emscripten inside wasm.cpp, so the pure predicates are extracted and
- * exercised here without the toolchain; the growth factors and the two
- * byte-per-element budgets are measured against the real operators.
+ * Host unit tests for the WASM boundary predicates and mesh-operator growth
+ * factors.
  */
 #pragma once
 
@@ -433,12 +427,8 @@ inline size_t fixed_emitter_degree(const char *name) {
  * @param target Arena receiving the output mesh; reset here.
  * @param temp Arena for the operator's intermediates; reset here.
  * @param finalized Arena standing in for the bridge's tooling arena; reset here.
- * @details A declared factor below the real expansion is the dangerous
- *          direction: the boundary guard then admits a mesh whose operator
- *          reaches build_half_edge_mesh's or narrow_face_count's always-on
- *          HS_CHECK and takes the module down. The two byte-per-element budgets
- *          are checked the same way: a budget below the real footprint lets a
- *          chain reach Arena::allocate's trap instead of a JS-visible rejection.
+ * @details Fails when a declared factor or byte-per-element budget is below the
+ *          measured value.
  */
 inline void check_mesh_op_growth(const MeshOpProbe &probe, const PolyMesh &in,
                                  Arena &target, Arena &temp, Arena &finalized) {

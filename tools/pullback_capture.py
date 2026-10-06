@@ -168,9 +168,8 @@ def load_backend(
         if end > len(data):
             raise CaptureError("capture backend stream is truncated")
         # Corpus pixels are the backend's three little-endian 16-bit channels
-        # plus an opaque alpha, held as that byte string rather than a list per
-        # pixel: it is what the frame hash is taken over, and a full-resolution
-        # roster of four-element lists costs gigabytes.
+        # plus an opaque alpha, held as the byte string the frame hash is taken
+        # over.
         channels = data[offset:end]
         offset = end
         pixels = bytearray(width * height * 8)
