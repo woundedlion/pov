@@ -78,13 +78,9 @@ geodesic_row_span(const math::Vector &a, const math::Vector &b,
  * @param row_lo Output: minimum screen row touched by the edge.
  * @param row_hi Output: maximum screen row touched by the edge.
  * @details No closed-form latitude extremum exists, so the endpoint rows are
- * extended over the shared samples and widened by the arc's Lipschitz bound.
- * The cull and renderer do NOT take bit-identical samples, so gap-freeness
- * comes from the Lipschitz + one-row margin: phi is 1-Lipschitz in angular
- * distance, so between samples |Δrow| ≤ (Δarc)·ROWS_PER_RADIAN<H>. The samples take
- * the renderer's newton_unit() correction first: phi = acos(y) amplifies the
- * fast-trig residual on the raw unprojection past the one-row epsilon once
- * sin(phi) falls under a few hundredths.
+ * extended over the shared samples and widened by the Lipschitz bound
+ * |Δrow| ≤ Δarc·ROWS_PER_RADIAN<H> plus one row. Samples take newton_unit()
+ * first: near a pole acos(y) amplifies the raw fast-trig residual past a row.
  */
 template <int H>
 static inline void planar_row_span(const math::Vector &a, const math::Vector &b,
@@ -175,16 +171,10 @@ static __attribute__((always_inline)) inline float wrap_one_period(float d) {
  * @param col_len Output: arc length in columns (may reach W = full width).
  * @return False when the arc pole has |y| below AXIS_Y_EPS, making longitude
  *         ill-conditioned; the caller must skip the horizontal cull.
- * @details Longitude is globally monotone along the rendered circle — with
- * pos(ang) = a·cos + cross(axis, a)·sin, the atan2(z, x) rate numerator
- * pos.x·tan.z - pos.z·tan.x folds to -axis.y, a constant. The arc therefore
- * sweeps from a's column toward the end column in the direction sign(-axis.y),
- * and one full revolution sweeps exactly W, so the directed modular difference
- * is the exact sweep. Antipodal symmetry (λ(-p) = λ(p) + π) makes every
- * half-circle sweep exactly W/2 and shorter arcs less, so the span is always
- * the endpoints' short-way separation — the direction only disambiguates the
- * near-antipodal boundary, where short-way is float noise. The column mapping
- * is the renderer's vector_to_theta.
+ * @details Longitude is monotone along the rendered circle: its atan2 rate
+ * numerator pos.x·tan.z - pos.z·tan.x folds to -axis.y. The arc sweeps from
+ * a's column toward the end column in direction sign(-axis.y), so the directed
+ * modular difference is the exact sweep.
  */
 template <int W>
 static inline bool
@@ -276,8 +266,6 @@ struct ClipCutBounds {
  * @param xc Precomputed x-clip predicate for @p cr.
  * @return Boundary geometry to hand every geodesic_clip_splits call under
  *         @p cr.
- * @details The band is fixed for a draw, so its boundary directions and
- * latitudes resolve once rather than per edge.
  */
 template <int W, int H>
 static inline ClipCutBounds make_clip_cut_bounds(const ClipRegion &cr,
@@ -317,27 +305,12 @@ static inline ClipCutBounds make_clip_cut_bounds(const ClipRegion &cr,
  * @param ts Output, up to GEODESIC_CLIP_MAX_SPLITS fractions in (0, 1),
  *        ascending and separated enough that no piece is degenerate.
  * @return Number of fractions written.
- * @details Every resulting piece lies wholly inside or wholly outside the band. The
- * boundaries are the RENDER band's, already widened by the clip margin to cover
- * filter reach; the only spacing added on top is the cull's own footprint
- * (CLIP_CUT_COL_PAD, CLIP_CUT_ROW_PAD), without which the outside piece lands
- * inside the span pad and is kept anyway.
- *
- * Both solves run against pos(ang) = a·cos(ang) + cross(axis, a)·sin(ang), the
- * arc the renderer walks, over the same boundary directions the projection
- * reads (TrigLUT). A boundary meridian's half-plane, direction d in the (x, z)
- * plane, is met where the cross with d vanishes and the dot is positive: one
- * atan2, resolved to the sign the half-plane wants. Longitude is globally
- * monotone along the circle and one edge sweeps at most half a revolution
- * (geodesic_col_span_cols), so a meridian is met at most once; the near-
- * horizontal arc pole that same bound refuses is skipped here too. A boundary
- * row is a latitude, and y(ang) folds to R·cos(ang − delta), so its two
- * crossings come from one acos.
- *
- * The solve's fast trig puts a cut within a small fraction of a pixel of the
- * boundary. That is harmless in either direction: each piece is gated by the
- * exact span of the arc between its own endpoints, so a mis-sided cut draws a
- * piece rather than dropping one.
+ * @details Every resulting piece lies wholly inside or wholly outside the
+ * render band, with cuts placed CLIP_CUT_COL_PAD / CLIP_CUT_ROW_PAD outside it.
+ * Both solves run against pos(ang) = a·cos(ang) + cross(axis, a)·sin(ang) over
+ * the TrigLUT boundary directions: a meridian half-plane is met at most once
+ * (one atan2), a latitude row at most twice (one acos). A cut misplaced by fast
+ * trig keeps a piece rather than dropping one.
  */
 static inline int geodesic_clip_splits(const math::Vector &a,
                                        const math::Vector &b,
@@ -445,9 +418,6 @@ static inline int geodesic_clip_splits(const math::Vector &a,
  * @param col_span Column-arc source, evaluated only once the row span survives
  *        and x clipping is active.
  * @return True if the rendered edge could produce a pixel inside the clip.
- * @details The exact geodesic segment cull used by rasterize through
- * edge_visible_in_clip. The parity-tested raw_geodesic_edge_gate is a fast
- * path for particle trails and defers here for sensitive geometry.
  */
 template <int W, int H, typename ColSpanFn>
 static __attribute__((always_inline)) inline bool
@@ -582,16 +552,11 @@ raw_geodesic_edge_gate(const ClipRegion &cr, const ClipRegion::XClip &xc,
  * @return False when no useful bound exists — the edge nears a pole or the
  *         Lipschitz margin exceeds the short-way-delta proof — the caller
  *         must skip the horizontal cull.
- * @details Longitude is not monotone along the chart line, so accumulate
- * short-way column deltas over the shared samples and widen by the azimuth
- * Lipschitz bound (W/2π)/sin(φ) per inter-sample gap. sin(φ) over the whole
- * edge is bounded below from the samples minus the 1-Lipschitz gap drift; the
- * short-way delta reading is valid only while the per-gap bound stays under
- * W/4, and both that and the near-pole case fall back to no-cull (return
- * false). The sin(φ) reads take the renderer's newton_unit() correction first:
- * the raw unprojection is off unit by the fast-trig residual, which near a pole
- * outweighs sin(φ) itself and would shrink the margin. The column mapping is
- * scale-invariant, so it reads the raw sample.
+ * @details Longitude is not monotone along the chart line, so short-way column
+ * deltas are accumulated over the shared samples and widened by the azimuth
+ * Lipschitz bound (W/2π)/sin(φ) per inter-sample gap, valid while that bound
+ * stays under W/4. The sin(φ) reads take newton_unit() first; the column
+ * mapping is scale-invariant, so it reads the raw sample.
  */
 template <int W>
 static inline bool
@@ -702,29 +667,21 @@ static __attribute__((always_inline)) inline float screen_rsqrt(float x) {
  * @param cross_y pos.x·tan.z - pos.z·tan.x, the longitude-rate numerator.
  * @param base_step Equatorial step 2π/W; also the maximum returned step.
  * @return Arc-length step that advances ~SCREEN_STEP_PX pixels on screen.
- * @details Converts the object-space tangent to a screen-space velocity (pixels
- * per radian of arc) under the canvas map x = θ·W/2π, y = (φ - NORTH_PHI)·ROWS_PER_RADIAN<H>, then
- * returns step = SCREEN_STEP_PX / |v_screen|. With φ the colatitude and λ the
- * longitude, dφ/ds = -tan.y/sin(φ) and dλ/ds = (pos.x·tan.z - pos.z·tan.x)/sin²φ.
- * Tracking the full 2-D screen speed (not just longitudinal pole-crowding)
- * deposits ~one sample per pixel everywhere on the curve.
- *
- * Clamped to [base_step·MIN_POLE_SCALE, base_step]: the lower bound caps
- * oversampling at the poles (where dλ/ds diverges → speed → ∞ → step → 0); the
- * upper bound keeps the equator near one sample per column.
+ * @details Converts the tangent to a screen-space velocity under the canvas map
+ * x = θ·W/2π, y = (φ - NORTH_PHI)·ROWS_PER_RADIAN<H>, with
+ * dφ/ds = -tan.y/sin(φ) and dλ/ds = (pos.x·tan.z - pos.z·tan.x)/sin²φ, and
+ * returns SCREEN_STEP_PX / |v_screen| clamped to
+ * [base_step·MIN_POLE_SCALE, base_step].
  */
 template <int W, int H>
 static inline float screen_step_components(float pos_y, float tan_y,
                                            float cross_y, float base_step) {
   const float KX = W / (2.0f * math::PI_F);  // columns per radian of longitude
   const float KY = math::ROWS_PER_RADIAN<H>; // rows per radian of colatitude
-  // sin²φ = 1 - y²; floored so the pole (sin φ → 0) yields a finite, large
-  // velocity (hence the min-clamped step) rather than a divide-by-zero.
+  // Floored so the pole yields a finite speed.
   const float sin2 = fmaxf(1e-7f, 1.0f - pos_y * pos_y);
   const float vx_num = KX * cross_y;
   const float vy_num = KY * tan_y;
-  // Factoring the common sin(phi) denominator avoids a separate reciprocal
-  // square root while preserving the screen-speed floor.
   const float speed2_num =
       fmaxf(vx_num * vx_num + vy_num * vy_num * sin2, 1e-12f * sin2 * sin2);
   // Degenerate-speed floor: guards 1/speed when a zero/near-zero tangent stalls

@@ -139,9 +139,8 @@ using Is3DWithHistory = FilterTraits<false, true>;
 /**
  * @brief Trait base for a screen-space sink that stands in for a whole Pipeline
  * instead of running as a stage inside one.
- * @details Keeps the stage vocabulary the Pipeline folds read, so a sink handed
- * to `Pipeline<>` still reaches the ordering asserts and is rejected there by
- * `is_pipeline` rather than deep inside plot() overload resolution.
+ * @details Carries the stage vocabulary, so a sink listed in `Pipeline<>` is
+ * rejected by the `is_pipeline` assert.
  */
 struct IsPipelineSink : FilterTraits<true, false> {
   static constexpr bool is_pipeline = true;
@@ -150,13 +149,9 @@ struct IsPipelineSink : FilterTraits<true, false> {
 /**
  * @brief The pipeline-level trait surface a whole pipeline answers, as opposed
  *        to the stage vocabulary in FilterTraits.
- * @details The single authority for the list. A direct sink stands in for a
- * Pipeline<> and hand-mirrors every member, so a new fold member belongs here
- * too: pipeline_config reads its members unguarded, but the hoist and
- * direct-raster readers in render/plot/cull.h and engine/concepts.h are
- * `requires`-guarded and treat a type that never grew the member as neither
- * hoistable nor direct-raster, so a sink that omits one silently loses those
- * fast paths rather than failing to compile.
+ * @details A direct sink hand-mirrors every member. The hoist and direct-raster
+ * readers are `requires`-guarded, so a sink missing a member silently loses
+ * those fast paths instead of failing to compile.
  */
 template <typename T>
 concept PipelineFoldSurface = requires {
@@ -179,9 +174,7 @@ concept PipelineStorageSurface =
     PipelineFoldSurface<T> &&
     requires(T &sink, Arena &arena) { sink.init_storage(arena); };
 
-/**
- * @brief Probe callable for the has_world_cull detection below.
- */
+/** @brief Probe callable for has_cull_edge detection. */
 struct PipelineCullEdgeProbe {
   bool operator()(const math::Vector &, const math::Vector &,
                   const math::Basis *) const {
@@ -207,11 +200,7 @@ inline constexpr bool has_cull_edge =
  *        reads_outside_band, margin or required_margin requirements.
  * @return @p base with full_frame, reads_outside_band, margin and
  *         required_margin requirements combined in; other fields are untouched.
- * @details The single definition of the fold: an effect that stacks a filter
- *          crossing segment boundaries gets the full-frame render without
- *          restating the four requirements at its base initializer. All four are
- *          "at least this much" requirements, so the fold widens and never
- *          clears what the caller asked for.
+ * @details Each field is a minimum requirement, so the fold only widens @p base.
  */
 template <Filter::PipelineFoldSurface PipelineT>
 constexpr EffectConfig pipeline_config(EffectConfig base = {}) {
@@ -324,9 +313,9 @@ template <int W, int H> struct Pipeline<W, H> {
   static constexpr int total_segment_margin = 0;
   static constexpr bool any_2d_history = false;
   static constexpr bool any_3d_history = false;
-  /** @brief No stage re-emits clip-cull edges (see the recursive case). */
+  /** @brief No stage re-emits clip-cull edges. */
   static constexpr bool has_world_cull = false;
-  /** @brief No stage runs in world space (see the recursive case). */
+  /** @brief No stage runs in world space. */
   static constexpr bool has_world_stage = false;
   /** @brief Occurrences of stage type T in this pipeline (base case: none). */
   template <typename T> static constexpr int stage_count = 0;
@@ -505,8 +494,7 @@ struct Pipeline<W, H, Head, Tail...>
       Head::crosses_segments || Next::any_crosses_segments;
   static constexpr bool any_reads_outside_band =
       Head::reads_outside_band || Next::any_reads_outside_band;
-  // Sum, not max: each stage displaces the taps the stages before it already
-  // displaced, so chained spreading stages compose additively.
+  // Chained stages displace already-displaced taps, so margins add.
   static constexpr int total_segment_margin =
       Head::segment_margin + Next::total_segment_margin;
 
@@ -616,11 +604,8 @@ struct Pipeline<W, H, Head, Tail...>
   /**
    * @brief Hands @p arena to every stage that owns arena storage.
    * @param arena Persistent arena the storage-bearing stages allocate from.
-   * @details Walks the whole stage list, so a pipeline carrying more than one
-   * storage-bearing stage cannot be left half-initialised. Call it from the
-   * effect's init(), after any configure_arenas().
-   * The allocated storage must remain live for every subsequent pipeline use.
-   * Stages may retain the arena for lifetime validation; keep it alive too.
+   * @details Call from the effect's init(), after any configure_arenas(). The
+   * arena and its allocations must outlive every subsequent pipeline use.
    */
   void init_storage(Arena &arena) {
     if constexpr (requires { Head::init_storage(arena); })
@@ -685,9 +670,6 @@ private:
    * @param c Source color.
    * @param age Temporal age channel (frames).
    * @param alpha Blend alpha in [0, 1].
-   * @details Unlike the filter-less sink's int overload (which wraps directly),
-   * a filtered pipeline promotes to float so the int sample takes the same path
-   * as every filter stage. Both agree for in-range ints.
    */
   void plot_prepared(Canvas &cv, int x, int y, const ::Pixel &c, float age,
                      float alpha) {
@@ -722,12 +704,10 @@ public:
   /**
    * @brief Clip-cull: routes the edge through Head's world transform, then Tail.
    * @tparam Pred Predicate `bool(const Vector&, const Vector&, const Basis*)`.
-   * @details A stage that moves world geometry (World::Orient) overrides
-   *          cull_edge to re-emit the edge under each rotation it applies at
-   *          plot() time, so the rasterizer culls by the RENDERED latitude, not
-   *          the source geometry. Identity stages forward unchanged; a nonidentity
-   *          stage without cull_edge conservatively returns true.
-   *          Returns true once any transformed copy could intersect the band.
+   * @details A stage's cull_edge re-emits the edge under each transform it
+   *          applies at plot() time; identity stages forward unchanged and a
+   *          moving stage without cull_edge returns true. Returns true once any
+   *          transformed copy could intersect the band.
    */
   template <typename Pred>
   bool could_intersect_clip(const math::Vector &a, const math::Vector &b,
@@ -906,8 +886,7 @@ private:
    * @param trailFn Callback producing trail color/alpha per screen point.
    * @param alpha Global blend alpha in [0, 1].
    * @details Only a 2D history-bearing Head emits; other Heads pass through.
-   * Recursion target of flush(), below the domain assert — a Tail is free to
-   * carry no history of its own.
+   * Skips flush()'s domain asserts, so a Tail may carry no history.
    */
   void flush_stages(Canvas &cv, const ScreenTrailFn &trailFn, float alpha) {
     if constexpr (Head::has_history && Head::is_2d && !Head::is_terminal) {
@@ -924,7 +903,6 @@ private:
    * @brief Flushes a terminal stage, then recurses into the Tail.
    * @param cv Target canvas.
    * @param alpha Global blend alpha in [0, 1].
-   * @details Recursion target of flush(), below the domain asserts.
    */
   void flush_stages(Canvas &cv, float alpha) {
     if constexpr (Head::is_terminal) {
@@ -939,7 +917,6 @@ private:
    * @param trailFn Callback producing trail color/alpha per world point.
    * @param alpha Global blend alpha in [0, 1].
    * @details Only a 3D history-bearing Head emits; other Heads pass through.
-   * Recursion target of flush(), below the domain assert.
    */
   void flush_stages(Canvas &cv, const WorldTrailFn &trailFn, float alpha) {
     if constexpr (Head::has_history) {

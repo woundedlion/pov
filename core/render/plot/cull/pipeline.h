@@ -8,8 +8,8 @@
 /**
  * @brief True when @p P statically declares it has no world cull stage, so a
  *        cull predicate may be evaluated against the raw geometry.
- * @tparam P Pipeline type; types without the has_world_cull member (e.g. the
- *           type-erased PipelineRef) are conservatively not hoistable.
+ * @tparam P Pipeline type; types without the has_world_cull member are
+ *           conservatively not hoistable.
  */
 template <typename P> static consteval bool pipeline_hoistable_cull() {
   if constexpr (requires { P::has_world_cull; })
@@ -21,8 +21,8 @@ template <typename P> static consteval bool pipeline_hoistable_cull() {
 /**
  * @brief True when @p P statically declares it has no world-space stage, so a
  *        caller may plot a point through precomputed screen coordinates.
- * @tparam P Pipeline type; types without the has_world_stage member (e.g. the
- *           type-erased PipelineRef) are conservatively not hoistable.
+ * @tparam P Pipeline type; types without the has_world_stage member are
+ *           conservatively not hoistable.
  */
 template <typename P> static consteval bool pipeline_hoistable_projection() {
   if constexpr (requires { P::has_world_stage; })
@@ -37,14 +37,11 @@ template <typename P> static consteval bool pipeline_hoistable_projection() {
  * @tparam W,H Rasterization resolution (pixel grid).
  * @param a Edge start (unit sphere point).
  * @param b Edge end (unit sphere point).
- * @details Tightened (never looser) form of the rasterizer fast-path test
- * `total_dist <= screen_step(sample(0))`, in multiplies only — no trig,
- * divides or square roots. theta and sin(theta) are eliminated via
- * sin(theta)*tangent = b - a*cos(theta) and theta/sin(theta) <= F on
- * theta <= base_step (enforced by the chord cap, which also keeps the edge
- * under screen_step's upper clamp). A false negative falls through to the
- * exact test; true also implies theta >= EPS_GEOMETRIC, so a routed edge can
- * never be one process_segment would have treated as degenerate.
+ * @details Tightened form of the fast-path test
+ * `total_dist <= screen_step(sample(0))` in multiplies only, via
+ * sin(theta)*tangent = b - a*cos(theta) and theta/sin(theta) <= F for
+ * theta <= base_step (enforced by the chord cap). True also implies
+ * theta >= EPS_GEOMETRIC.
  */
 HS_O3_BEGIN
 template <int W, int H>
@@ -60,7 +57,7 @@ static inline bool edge_fits_one_dot(const math::Vector &a,
   constexpr float SCREEN_RSQRT_MIN2 = 0.999f * 0.999f;
   // chord^2 caps: (2 sin(BASE/2))^2 >= B2*(1 - B2/12) bounds theta <= BASE.
   // The lower cap stays above process_segment's EPS_GEOMETRIC degenerate
-  // branch, which plots the start dot only on a last segment.
+  // branch.
   constexpr float CHORD2_MAX = B2 * (1.0f - B2 / 12.0f);
   constexpr float CHORD2_MIN = 4.0e-6f;
   // (theta/sin(theta))^2 <= F2 for theta <= BASE, plus float-rounding slack.
