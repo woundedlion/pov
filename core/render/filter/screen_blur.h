@@ -56,8 +56,7 @@ public:
    * @param color Source color, forwarded to each tap.
    * @param age Temporal age channel (frames), forwarded unchanged.
    * @param alpha Blend alpha in [0, 1]; scaled per tap by its kernel weight.
-   * @tparam PassFnT Downstream callback type; a forwarding reference so the
-   * filter chain inlines with no per-point indirect call.
+   * @tparam PassFnT Downstream callback type.
    * @param pass Downstream 2D callback.
    */
   template <typename PassFnT>
@@ -124,8 +123,6 @@ private:
   /**
    * @brief Kernel weight below which a tap contributes nothing worth emitting,
    * and the reciprocal guard on the edge-renormalization sum.
-   * @details Looser than SPLAT_TAP_CUTOFF because these weights are normalized
-   * 3x3 kernel taps, not raw bilinear coverage products.
    */
   static constexpr float TAP_CUTOFF = 1e-5f;
   static_assert(TAP_CUTOFF > SPLAT_TAP_CUTOFF,

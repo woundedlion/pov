@@ -27,28 +27,24 @@ namespace Pixel {
  * @tparam W Canvas width in pixels.
  * @tparam H Canvas height in pixels.
  * @details The Style's spatial warp is computed on a spherical latitude-ring
- * field, then interpolated within and between rings.
- * flush() iterates the full pixel grid within the active clip band. TERMINAL:
- * flush() composites directly into the Canvas rather than re-emitting downstream,
- * so it must be the last Pipeline stage. The effect must call Pipeline::begin_frame() BEFORE
- * the frame's plot() calls (see `terminal_replaces`); flushing last blanks
- * the frame at alpha >= 1.
+ * field, then interpolated within and between rings. TERMINAL: flush()
+ * composites directly into the Canvas, so it must be the last Pipeline stage,
+ * and Pipeline::begin_frame() must run BEFORE the frame's plot() calls;
+ * flushing last blanks the frame at alpha >= 1.
  *
  * Away from the poles the warp is stored as equirect pixel offsets. Rows whose
- * latitude sine is under POLAR_TARGET_SINE interpolate offsets in the cap plane
- * of their pole instead (angle from the pole along the longitude, smooth
- * through the pole) and convert each pixel's own target back, since longitude
- * offsets grow as 1/sin(phi) there and interpolating them across rings lands
- * pixels degrees away from their targets.
- * At full opacity (alpha >= 1), rows whose columns outnumber the row pitch two
- * to one composite every other column (Style::pole_half_res), unless the
- * longitude filter reconstructs them. Translucent frames keep every column.
+ * latitude sine is under POLAR_TARGET_SINE interpolate offsets in their pole's
+ * cap plane instead and convert each pixel's own target back, since longitude
+ * offsets grow as 1/sin(phi) there.
+ * At alpha >= 1, rows whose columns outnumber the row pitch two to one
+ * composite every other column (Style::pole_half_res), unless the longitude
+ * filter reconstructs them.
  */
 template <int W, int H> class Feedback : public Is2DWithHistory {
   using SphereField = hs::SphericalFieldLayout<W, H>;
 
   /** @brief Coarse grid downsample the warp cache is sized for (the default
-   *  Style's; every preset keeps it). Other values render uncached. */
+   *  Style's). Other values render uncached. */
   static constexpr int CACHE_DOWNSAMPLE = ::Feedback::Style{}.downsample;
   static constexpr int CACHE_SOUTH_INFILL = CACHE_DOWNSAMPLE;
   static constexpr int CACHE_COLUMNS = W / CACHE_DOWNSAMPLE;
@@ -71,7 +67,7 @@ public:
   static constexpr bool terminal_replaces = true;
 
   // Covers only the default-constructed Style; a runtime-swapped style's
-  // downsample is validated in flush() (the HS_CHECK below).
+  // downsample is checked per flush.
   static_assert(
       ::Feedback::Style{}.downsample > 0 &&
           W % ::Feedback::Style{}.downsample == 0,
@@ -91,8 +87,7 @@ public:
    * @param color Source color, forwarded unchanged.
    * @param age Temporal age channel (frames), forwarded unchanged.
    * @param alpha Blend alpha in [0, 1], forwarded unchanged.
-   * @tparam PassFnT Downstream callback type; a forwarding reference so the
-   * filter chain inlines with no per-point indirect call.
+   * @tparam PassFnT Downstream callback type.
    * @param pass Downstream 2D callback.
    */
   template <typename PassFnT>
@@ -124,11 +119,9 @@ public:
   /**
    * @brief Allocates the warp-field cache from the persistent arena.
    * @param arena Persistent arena supplying STORAGE_BYTES bytes.
-   * @details Must be called from effect init(), not the constructor (arenas
-   * aren't ready yet), and again after any compaction that resets the arena —
-   * the cache is derived data, so it just re-populates on the next flush.
-   * Without storage every flush needs UNCACHED_SCRATCH_BYTES(downsample)
-   * scratch bytes; the default 16 KiB partition is insufficient at 288x144.
+   * @details Call from effect init(), not the constructor, and again after
+   * any arena reset. Without storage every flush needs
+   * UNCACHED_SCRATCH_BYTES(downsample) scratch bytes.
    */
   HS_COLD_MEMBER void init_storage(Arena &arena) {
 #ifndef NDEBUG
@@ -870,7 +863,7 @@ private:
   /**
    * @brief Composites one polar row from its cap-plane offsets.
    * @details Each lane converts its own target back to field coordinates, one
-   * lane per step. Out of line so the equirect rows' loop keeps its registers.
+   * lane per step.
    */
   template <typename TransformPixelT>
   __attribute__((noinline)) void
@@ -1019,8 +1012,7 @@ private:
     uint32_t y_bits, x_bits;
     std::memcpy(&y_bits, &y, sizeof(y_bits));
     std::memcpy(&x_bits, &x, sizeof(x_bits));
-    // Sign-cleared bit patterns order like the magnitudes, so the octant tests
-    // stay in the integer pipeline.
+    // Sign-cleared bit patterns order like the magnitudes.
     const bool steep = (y_bits & 0x7fffffffu) > (x_bits & 0x7fffffffu);
     const float abs_y = fabsf(y), abs_x = fabsf(x);
     // A floor on the denominator keeps a pair's shared product normal; only
@@ -1091,10 +1083,8 @@ private:
    * @param begin First column of the run.
    * @param end One past the run's last column.
    * @details Each column takes three quarters of its own pair's sample and a
-   * quarter of the neighbouring pair's on its side, the linear reconstruction
-   * between pair midpoints, so a row keeps its centroid instead of drifting a
-   * column per frame. A full row wraps across the seam; a clipped run repeats
-   * its end pairs.
+   * quarter of the neighbouring pair's on its side. A full row wraps across
+   * the seam; a clipped run repeats its end pairs.
    */
   static void reconstruct_half_res_run(::Pixel *output, int begin, int end) {
     const bool full_row = begin == 0 && end == W;
@@ -1248,11 +1238,7 @@ private:
     return out;
   }
 
-  /**
-   * @brief Calls @p transform out of line.
-   * @details The equirect rows' pair loop runs faster calling the colour pair
-   * than with it inlined, which GCC does once this is its only call site.
-   */
+  /** @brief Calls @p transform out of line. */
   template <typename TransformPairT>
   __attribute__((noinline)) static void
   transform_pair_call(TransformPairT &transform, float r0, float g0, float b0,
@@ -1263,22 +1249,14 @@ private:
   /** @brief Quantizes an unclamped [0, 65535]-scale channel to a ::Pixel
    *  component, round-to-nearest; NaN maps to the hi bound. */
   static uint16_t quantize16(float v) {
-    // clamp guards the cast against overshoot and maps NaN to the hi bound.
     return static_cast<uint16_t>(hs::clamp(v, 0.0f, 65535.0f) + 0.5f);
   }
 
   /**
    * @brief The bound generator's own configuration, as a cache-key scalar.
-   * @details Frequency, amplitude, speed, scale and time are already WarpKey
-   * fields, and `FASTNOISELITE_ONLY_OPENSIMPLEX2` routes generation past the
-   * noise-type switch. Fractal and rotation settings on NoiseParams::noise
-   * must remain at defaults, or the persistent arena must be reset before
-   * re-running init_storage() after changes.
-   * `NoiseParams::set_seed` keeps the seed mirror in step.
-   *
-   * Hashing FastNoiseLite's object representation instead is not portable: ARM
-   * EABI packs its eight enum members to one byte each, so the struct carries
-   * padding whose bytes are indeterminate.
+   * @details Only the seed is keyed. Fractal and rotation settings on
+   * NoiseParams::noise must remain at defaults, or the persistent arena must be
+   * reset before re-running init_storage() after changes.
    */
   static uint32_t noise_config_key(const Animation::NoiseParams *noise) {
     return noise ? static_cast<uint32_t>(noise->seed) : 0u;

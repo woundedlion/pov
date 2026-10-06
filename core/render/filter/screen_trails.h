@@ -85,16 +85,13 @@ public:
    * @param color Source color, forwarded unchanged this frame.
    * @param age Incoming age (frames); ttl = lifetime - age, seeded only if positive.
    * @param alpha Blend alpha in [0, 1]; samples at or below MIN_TRAIL_ALPHA
-   * seed no trail point but are still forwarded downstream. World::Trails
-   * deliberately differs, seeding on every sample.
-   * @tparam PassFnT Downstream callback type; a forwarding reference so the
-   * filter chain inlines with no per-point indirect call.
+   * seed no trail point but are still forwarded downstream.
+   * @tparam PassFnT Downstream callback type.
    * @param pass Downstream 2D callback.
-   * @details At MAX_PIXELS the last occupied slot is replaced, as in
-   * World::Trails. Decay compacts slots without preserving age order.
-   * A fresh sample is forwarded
-   * immediately and emitted again by flush() in the same frame, so both
-   * contributions composite at its position.
+   * @details At MAX_PIXELS the last occupied slot is replaced. Decay compacts
+   * slots without preserving age order. A fresh sample is forwarded immediately
+   * and emitted again by flush() in the same frame, so both contributions
+   * composite at its position.
    */
   template <typename PassFnT>
   void plot(float x, float y, const ::Pixel &color, float age, float alpha,
@@ -119,8 +116,7 @@ public:
    * @brief Re-emits each buffered trail point colored by @p trailFn.
    * @param trailFn Callback producing trail color/alpha from (x, y, t).
    * @param alpha Global blend alpha in [0, 1].
-   * @tparam PassFnT Downstream callback type; a forwarding reference so the
-   * filter chain inlines with no per-point indirect call.
+   * @tparam PassFnT Downstream callback type.
    * @param pass Downstream 2D callback.
    * @details The unused Canvas parameter satisfies the 2D flush signature; ages
    * all points one frame via decay() after emission.
@@ -162,7 +158,6 @@ private:
   /**
    * @brief Trail alpha below which a sample seeds nothing and a buffered point
    * emits nothing.
-   * @details Gates seeding as well as emission.
    */
   static constexpr float MIN_TRAIL_ALPHA = TRAIL_EMIT_ALPHA_FLOOR;
 
@@ -175,9 +170,8 @@ private:
 
   /**
    * @brief Debug-only use-after-free check on the arena-owned point array.
-   * @details A compaction that resets or rewinds the persistent arena without a
-   * fresh init_storage() leaves points dangling; every plot()/flush() then reads
-   * and writes MAX_PIXELS DecayPixels through it.
+   * @details A persistent-arena reset without a fresh init_storage() leaves
+   * points dangling.
    */
   void check_storage_alive() const {
     HS_ASSERT_BLOCK_ALIVE(stamp, points, STORAGE_BYTES, "Screen::Trails");

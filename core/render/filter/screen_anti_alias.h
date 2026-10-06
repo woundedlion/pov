@@ -39,8 +39,6 @@ public:
    * @param age Temporal age channel (frames), forwarded unchanged.
    * @param alpha Blend alpha in [0, 1]; scaled per tap by its quintic-eased splat weight.
    * @param pass Downstream 2D callback receiving each weighted tap.
-   * @details @p pass is a forwarding-reference template so the densest fan-out
-   * in the family inlines its taps.
    */
   template <typename PassFnT>
   void plot(float x, float y, const ::Pixel &c, float age, float alpha,

@@ -44,8 +44,7 @@ public:
    * @param color Source color, forwarded unchanged to every copy.
    * @param age Temporal age channel (frames), shared by every copy.
    * @param alpha Blend alpha in [0, 1], forwarded unchanged.
-   * @tparam PassFnT Downstream callback type; a forwarding reference so the
-   * filter chain inlines with no per-point indirect call.
+   * @tparam PassFnT Downstream callback type.
    * @param pass Downstream 3D callback.
    */
   template <typename PassFnT>

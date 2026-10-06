@@ -44,7 +44,7 @@ static inline bool antialiased_dot_visible_in_clip(const ClipRegion &cr,
  * @details screen_step reads only the y-components of the rotated position,
  * tangent and their cross product; for rotation R each equals a dot product of
  * the unrotated vector with Rᵀŷ. The copies' rotations do not depend on the
- * rasterized geometry, so one pass per stroke replaces a stage walk per sample.
+ * rasterized geometry.
  */
 struct ScreenStepAxes {
   static constexpr int CAPACITY = 16;
@@ -159,8 +159,6 @@ pipeline_screen_step(PipelineT &pipeline, const SamplePT &sample,
  * @param b Edge end (unit sphere point).
  * @param pb Planar projection basis for the edge, or null for geodesic.
  * @return True if the rendered edge could produce a pixel inside the clip.
- * @details Geodesic edges route to exact_geodesic_edge_visible; the planar
- * branch is the single definition of the planar segment cull.
  */
 template <int W, int H, typename PipelineT>
 static inline bool
@@ -332,13 +330,9 @@ inline bool cap_may_touch_clip(const ClipRegion &cr, const CapCenter &center,
  * @brief Conservative test: can a spherical cap reach a clip's render region?
  * @tparam H Canvas height in rows.
  * @param cr Clip region to test against.
- * @param dir Cap center direction (unit vector). A ring passes its axis with
- * half_angle = colatitude + displacement bound (the cap of that radius
- * contains the ring's band); a ring chunk passes its midpoint with
- * half_angle = chunk half-arc + displacement bound.
+ * @param dir Cap center direction (unit vector).
  * @param half_angle Cap angular radius including stroke/AA pad (radians).
- * @param sin_half_angle sinf(min(half_angle, PI)), hoisted by callers testing
- * many caps of one radius.
+ * @param sin_half_angle sinf(min(half_angle, PI)).
  * @return False only when no fragment inside the cap can land in the clip's
  * render region; true is always safe.
  * @details Rows: the cap's polar range about the display's Y axis is
@@ -623,10 +617,8 @@ trail_gate_prologue(const ClipRegion &cr, const ClipRegion::XClip &xc,
     cols[0] = math::vector_to_theta<W>(trail[0].pos);
     for (size_t k = 1; k < n; ++k) {
       cols[k] = math::vector_to_theta<W>(trail[k].pos);
-      // A geodesic edge's column sweep never exceeds W/2 (antipodal symmetry,
-      // see geodesic_col_span_cols), so the short-way delta covers it
-      // regardless of direction — except at ~exactly W/2, where the delta's
-      // sign (which semicircle) is float noise.
+      // A geodesic edge sweeps at most W/2 columns, so the short-way delta
+      // covers it except near exactly W/2, where its sign is float noise.
       float d = cols[k] - cols[k - 1];
       if (d > W * 0.5f)
         d -= W;
@@ -634,11 +626,9 @@ trail_gate_prologue(const ClipRegion &cr, const ClipRegion::XClip &xc,
         d += W;
       if (std::abs(d) >= W * 0.5f - 3.0f)
         walk_safe = false;
-      // geodesic_col_span_cols refuses to bound an edge whose great-circle
-      // axis is near-horizontal, and the per-edge tier then treats it as
-      // visible; the endpoint columns walked here do not bound such an edge
-      // either. |axis.y| = |cy| / |cross| and |cross| <= 1, so testing the
-      // unnormalized cy covers every case it rejects.
+      // Endpoint columns do not bound an edge with a near-horizontal axis.
+      // |axis.y| = |cy| / |cross| and |cross| <= 1, so testing the
+      // unnormalized cy covers every such edge.
       const math::Vector &ca_pos = trail[k - 1].pos;
       const math::Vector &cb_pos = trail[k].pos;
       if (std::abs(ca_pos.z * cb_pos.x - ca_pos.x * cb_pos.z) < AXIS_Y_EPS)
@@ -650,9 +640,8 @@ trail_gate_prologue(const ClipRegion &cr, const ClipRegion::XClip &xc,
       gate_batch.step();
 #endif
     }
-    // Near a pole the plotted column is float noise (same caution as the
-    // per-edge spans), so only cull by the column arc when the whole trail
-    // provably stays clear.
+    // Near a pole the plotted column is float noise, so only cull by the
+    // column arc when the whole trail provably stays clear.
     if (walk_safe && sqrtf(fmaxf(0.0f, min_sp2)) - max_arc >= MIN_SIN_PHI) {
       int col_s, col_len;
       finish_col_span<W>(cols[0] + cum_lo, cum_hi - cum_lo, col_s, col_len);

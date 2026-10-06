@@ -25,8 +25,7 @@ class Mobius : public Is3D {
 public:
   static constexpr bool requires_unit_world_input = true;
   /**
-   * @brief The map is non-rigid, so no rotation-mirroring cull_edge can bound
-   *        the image of an edge; the effect must render the full canvas.
+   * @brief The map is non-rigid, so the effect must render the full canvas.
    */
   static constexpr bool crosses_segments = true;
   /**
@@ -40,8 +39,7 @@ public:
    * @param color Source color, forwarded unchanged.
    * @param age Temporal age channel (frames), forwarded unchanged.
    * @param alpha Blend alpha in [0, 1], forwarded unchanged.
-   * @tparam PassFnT Downstream callback type; a forwarding reference so the
-   * filter chain inlines with no per-point indirect call.
+   * @tparam PassFnT Downstream callback type.
    * @param pass Downstream 3D callback.
    */
   template <typename PassFnT>

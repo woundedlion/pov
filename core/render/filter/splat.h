@@ -29,11 +29,7 @@ struct SplatTaps {
       v11; /**< Bilinear coverage per tap, row-major from (x0, y0). */
 };
 
-/**
- * @brief Splat weight below which a tap contributes nothing worth emitting.
- * @details Looser in Blur: these are raw bilinear coverage products, Blur's are
- * normalized 3x3 kernel taps.
- */
+/** @brief Splat weight below which a tap contributes nothing worth emitting. */
 inline constexpr float SPLAT_TAP_CUTOFF = 1e-8f;
 
 /**
@@ -52,9 +48,7 @@ template <int W, int H>
 __attribute__((always_inline)) inline SplatTaps splat_taps(float x, float y) {
   // Non-finite coords make the int casts below UB and bypass the wrap.
   assert(std::isfinite(x) && std::isfinite(y));
-  // Floors x, so the window runs to 2W; a producer that may instead reach a
-  // rounding consumer (the Canvas sink, Screen::Blur, Pixel::ChromaticShift)
-  // must stay under 2W - 0.5.
+  // Floors x, so the window runs to 2W; rounding consumers need x < 2W - 0.5.
   assert(x >= -W && x < 2 * W);
   // y never wraps; bounded only so the cast below stays in range.
   assert(y >= -H && y < 2 * H);

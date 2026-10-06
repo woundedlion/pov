@@ -94,10 +94,8 @@ public:
    * @param age Incoming age (frames), non-negative; rounded to the nearest
    * frame before subtracting from lifetime, and seeded only if ttl is positive.
    * @param alpha Blend alpha in [0, 1], forwarded unchanged and NOT gated: a
-   * transparent sample still consumes a buffer slot. Screen::Trails deliberately
-   * differs, dropping samples at its own MIN_TRAIL_ALPHA.
-   * @tparam PassFnT Downstream callback type; a forwarding reference so the
-   * filter chain inlines with no per-point indirect call.
+   * transparent sample still consumes a buffer slot.
+   * @tparam PassFnT Downstream callback type.
    * @param pass Downstream 3D callback.
    * @details A point seeded here is still live for this frame's flush(), which
    * re-emits it at the rounded incoming age divided by lifetime (t = 0 for
@@ -125,8 +123,7 @@ public:
    * point one frame and culls the dead.
    * @param trailFn Callback producing trail color/alpha from (point, t).
    * @param alpha Global blend alpha in [0, 1].
-   * @tparam PassFnT Downstream callback type; a forwarding reference so the
-   * filter chain inlines with no per-point indirect call.
+   * @tparam PassFnT Downstream callback type.
    * @param pass Downstream 3D callback.
    * @details Emits before aging, so a point still renders on the frame its ttl
    * reaches 1 rather than being culled unseen.
@@ -187,9 +184,8 @@ private:
 
   /**
    * @brief Debug-only use-after-free check on the arena-owned buffer.
-   * @details A compaction that resets or rewinds the persistent arena without a
-   * fresh init_storage() leaves items dangling; every plot()/flush() then reads
-   * and writes Capacity Items through it.
+   * @details A persistent-arena reset without a fresh init_storage() leaves
+   * items dangling.
    */
   void check_storage_alive() const {
     HS_ASSERT_BLOCK_ALIVE(stamp, items, STORAGE_BYTES, "World::Trails");

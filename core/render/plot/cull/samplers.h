@@ -13,8 +13,7 @@
  * @param basis Projection basis; center is basis.v, axes basis.u/basis.w.
  * @return Plane coordinates whose radius is the great-circle angle from the
  *         basis center (radians) and whose azimuth follows the basis u/w axes.
- * @details Shared by the planar rasterization strategy and the clip-cull
- * arc-extent sampler; azimuthal_unproject is the inverse map.
+ * @details azimuthal_unproject is the inverse map.
  */
 static inline std::pair<float, float>
 azimuthal_project(const math::Vector &p, const math::Basis &basis) {
@@ -55,8 +54,7 @@ static inline math::Vector azimuthal_unproject(float Px, float Py,
 /**
  * @brief A rasterized sample: its sphere position and arc-length tangent.
  * @details `tan` estimates the curve's unit tangent with respect to ARC LENGTH
- * at the sample, used by screen_step() to size the next sub-step. Zero for a degenerate
- * edge, where screen_step's speed floor maps it to a base_step (one-dot) step.
+ * at the sample; zero for a degenerate edge.
  */
 struct SamplePT {
   math::Vector pos;
@@ -68,8 +66,8 @@ struct SamplePT {
  * @param v A sampler position, unit up to the fast sin/cos residual.
  * @return v scaled to unit length to second order.
  * @details The fast sin/cos kernels leave a sampled position up to 2e-3 off
- * unit, and vector_to_pixel's phi = acos(v.y) turns that into a near-pole row
- * offset. One Newton step leaves 5e-6 without the exact normalize's divides.
+ * unit, which phi = acos(v.y) turns into a near-pole row offset. One Newton
+ * step leaves 5e-6.
  */
 static inline math::Vector newton_unit(const math::Vector &v) {
   const float norm2 = math::dot(v, v);
@@ -85,9 +83,6 @@ constexpr int PLANAR_LEN_SAMPLES = 4;
  * @details arc_cumul[0] = 0; arc_cumul.back() is the PLANAR_LEN_SAMPLES-chord sum,
  * an arc-length estimate. Trig and angle approximations prevent a guaranteed
  * one-sided error bound, even on radial edges.
- * Shared by the planar rasterizer (which inverts the table for arc-uniform
- * stepping) and rasterize()'s perimeter pre-pass (which takes the total), so
- * both sample identical points and sum identical lengths.
  */
 static inline void
 planar_arc_cumul(const std::pair<float, float> &proj, float dx, float dy,
@@ -108,9 +103,8 @@ planar_arc_cumul(const std::pair<float, float> &proj, float dx, float dy,
 
 /**
  * @brief Arc-uniform sampler for one azimuthal-equidistant straight edge.
- * @details Every edge sampler exposes both entry points the rasterizer needs:
- * `pos(t)` for the drawing phase, which wants the position alone, and
- * `operator()(t)` for the simulation phase, which also needs the tangent.
+ * @details `pos(t)` returns the position alone; `operator()(t)` adds the
+ * tangent.
  */
 struct PlanarEdgeSampler {
   std::pair<float, float> proj1; /**< Projection of the edge start. */
@@ -158,8 +152,6 @@ struct PlanarEdgeSampler {
    *        analytic tangent when `WithTangent`.
    * @tparam WithTangent Also derive and normalize the tangent; the position-only
    *         instantiation discards the rate terms before they are computed.
-   * @details always_inline so the position-only callers pay for neither the
-   * discarded tangent nor a call.
    */
   template <bool WithTangent>
   __attribute__((always_inline)) SamplePT sample_at(float p) const {
@@ -203,8 +195,7 @@ struct PlanarEdgeSampler {
   /**
    * @brief Position at arc fraction s in [0,1].
    * @details Inverts the piecewise-linear cumulative-arc table to a projection
-   * parameter, then unprojects. A short scan over PLANAR_LEN_SAMPLES floats —
-   * no trig.
+   * parameter, then unprojects.
    */
   math::Vector pos(float s) const { return unproject(projection_fraction(s)); }
 
@@ -223,11 +214,7 @@ struct PlanarEdgeSampler {
     return sample_at<false>(projection_fraction_monotonic(s, interval)).pos;
   }
 
-  /**
-   * @brief Position and unit tangent at arc fraction s in [0,1].
-   * @details Feeds the same screen-velocity sub-step sampler as the geodesic
-   * path.
-   */
+  /** @brief Position and unit tangent at arc fraction s in [0,1]. */
   SamplePT operator()(float s) const { return one_pass(s); }
 };
 
@@ -259,9 +246,8 @@ make_planar_edge_sampler(const math::Vector &a, const math::Vector &b,
  * @param process_segment Receives the arc-length sampler, endpoints, on-sphere
  *                        length (radians), and the last-segment flag.
  * @details The path is a straight line in the azimuthal-equidistant projection.
- * Projection-uniform stepping is NOT arc-uniform under the anisotropic metric,
- * so a short cumulative-arc table is inverted to turn an arc-length fraction into
- * a projection parameter, making planar sampling arc-uniform with no new trig.
+ * Projection-uniform stepping is not arc-uniform, so a short cumulative-arc
+ * table maps an arc-length fraction to a projection parameter.
  */
 template <typename ProcessSegmentFn>
 static void
@@ -278,11 +264,9 @@ rasterize_planar_strategy(const Fragment &curr, const Fragment &next,
  * @brief Chord-sum estimate (radians) of the on-sphere length of the
  *        azimuthal-equidistant straight edge a->b, the path planar
  *        interpolation actually renders.
- * @details Shares planar_arc_cumul with rasterize_planar_strategy, so
- * rasterize()'s perimeter pre-pass and per-segment arc accumulator sum exactly
- * the lengths the draw phase walks — the guarantee v1 relies on, not absolute
- * accuracy. Trig and angle approximations prevent a guaranteed one-sided
- * error bound, even on radial edges.
+ * @details Sums the same planar_arc_cumul lengths the planar sampler walks.
+ * Trig and angle approximations prevent a guaranteed one-sided error bound,
+ * even on radial edges.
  */
 static inline float planar_arc_length(const math::Vector &a,
                                       const math::Vector &b,
@@ -299,10 +283,8 @@ static inline float planar_arc_length(const math::Vector &a,
  * @brief Unit axis perpendicular to v, stable for an antipodal geodesic.
  * @param v Unit endpoint of a near-antipodal great-circle segment.
  * @return A unit axis perpendicular to v.
- * @details Antipodal endpoints leave cross(v1, v2) ~= 0 (infinitely many
- * connecting geodesics), so normalizing it yields a garbage axis. Cross v with
- * whichever world axis is least parallel to it and normalize for a well-defined
- * rotation axis.
+ * @details Antipodal endpoints leave cross(v1, v2) ~= 0, so the axis is taken
+ * from the world axis least parallel to v.
  */
 static inline math::Vector stable_perpendicular_axis(const math::Vector &v) {
   HS_PLOT_COUNT(normalizations);
@@ -382,10 +364,6 @@ inline uint32_t g_geodesic_edge_span_builds = 0;
  * @brief Computes the shared geodesic edge setup once per edge.
  * @param a Edge start (unit sphere point).
  * @param b Edge end (unit sphere point).
- * @details The single slerp-axis decision every geodesic path builds on: the
- * renderer's sampler, Line::sample's presampled polyline, and the row/column
- * span bounds that cull them all resolve the same axis from it. always_inline
- * so the per-edge setup costs no call on the rasterizer's hot path.
  */
 static __attribute__((always_inline)) inline GeodesicEdgeSpan
 make_geodesic_edge_span(const math::Vector &a, const math::Vector &b) {
@@ -452,18 +430,16 @@ HS_O3_END
 
 constexpr int PLANAR_SPAN_SAMPLES = 8;
 
-// make_planar_edge_sampler reads the arc-length table straight out of the span's
-// interior samples at stride 2, so the span count must be exactly twice the
-// arc-table count.
+// make_planar_edge_sampler(span) reads the arc table from the span's interior
+// samples at stride 2.
 static_assert(PLANAR_SPAN_SAMPLES == 2 * PLANAR_LEN_SAMPLES);
 
 /**
  * @brief Shared per-edge planar setup for the row/column span bounds.
  * @details Projects the edge and samples its chart line through the
  *          rasterizer's unprojection map once per edge. interior holds the
- *          k/PLANAR_SPAN_SAMPLES samples for k in [1, PLANAR_SPAN_SAMPLES);
- *          the endpoint sample is deferred to planar_col_span (the row span
- *          never needs it).
+ *          k/PLANAR_SPAN_SAMPLES samples for k in [1, PLANAR_SPAN_SAMPLES),
+ *          excluding the endpoint.
  */
 struct PlanarEdgeSpan {
   std::pair<float, float> p1; /**< Projection of the edge start. */

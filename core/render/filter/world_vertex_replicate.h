@@ -53,8 +53,7 @@ public:
    * @param color Source color, forwarded unchanged to every copy.
    * @param age Temporal age channel (frames), shared by every copy.
    * @param alpha Blend alpha in [0, 1], forwarded unchanged.
-   * @tparam PassFnT Downstream callback type; a forwarding reference so the
-   * filter chain inlines with no per-point indirect call.
+   * @tparam PassFnT Downstream callback type.
    * @param pass Downstream 3D callback.
    */
   template <typename PassFnT>
@@ -73,9 +72,7 @@ public:
    * @param pb Optional planar basis, rotated alongside the endpoints.
    * @param forward Tail-of-pipeline cull continuation.
    * @return True if any vertex copy of the edge could intersect the clip band.
-   * @details Mirrors plot(). The rotations move latitude, so culling by the
-   *          un-rotated endpoints would drop copies the fan-out places inside a
-   *          segment band (docs/specs/segmented_stateful_effects_spec.md).
+   * @details Mirrors plot().
    */
   template <typename FwdFn>
   bool cull_edge(const math::Vector &a, const math::Vector &b,

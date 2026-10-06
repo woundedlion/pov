@@ -36,24 +36,17 @@ unit_arc_length(const math::Vector &a, const math::Vector &b) {
 
 /**
  * @brief Geodesic segment shorter than this (radians) collapses to a point.
- * @details 100× math::EPS_GEOMETRIC (1e-3 vs 1e-5): a slerp-axis stability
- * bound that picks the interpolation strategy, not a positional near-equality
- * test, so it does not track math::EPS_GEOMETRIC.
+ * @details A slerp-axis stability bound that picks the interpolation strategy,
+ * independent of math::EPS_GEOMETRIC.
  */
 inline constexpr float EPS_GEODESIC_SEGMENT = 0.001f;
 
 /**
  * @brief Minimum |cross(a, b)|² for which the arc pole of a geodesic edge is
  *        taken from the cross product rather than a stable perpendicular.
- * @details The bound is on the quantity the pole normalization consumes rather
- * than on angle_between, whose derivative diverges as the normalized dot
- * approaches ±1: one ULP there moves the reported angle by ~3.5e-4 rad, so no
- * angular band narrow enough to be useful can also be wide enough to hold, and
- * an antipodal edge reaches a cross product it cannot normalize. |cross| =
- * sin(angle), so 1e-8 names the same geometric band an angular 1e-4 does,
- * without the amplification. Above it the cross components carry ~1e-7 of
- * absolute rounding, bounding the pole's direction error at ~2e-3 rad — a tenth
- * of a pixel at W=288.
+ * @details Bounds the quantity the pole normalization consumes. |cross| =
+ * sin(angle), so 1e-8 is the angular 1e-4 band without angle_between's ULP
+ * amplification near a normalized dot of ±1.
  */
 inline constexpr float EPS_ARC_POLE_SQ = 1e-8f;
 
@@ -75,19 +68,15 @@ inline constexpr float MIN_SIN_PHI = 0.05f;
 
 /**
  * @brief Floor on the adaptive sub-step length, as a fraction of base_step.
- * @details Caps sub-steps per segment so polar curves don't oversample: the
- * screen-velocity step sampler (screen_step) drives the step toward zero where
- * the azimuthal velocity diverges at the poles, and this is the lower clamp that
- * bounds it. A clamp, not a tolerance.
+ * @details Lower clamp on the screen-velocity step, which tends to zero where
+ * the azimuthal velocity diverges at the poles.
  */
 inline constexpr float MIN_POLE_SCALE = 0.05f;
 
 /**
  * @brief Target screen-space spacing (pixels) between adaptive sub-samples.
- * @details The rasterizer sizes each sub-step so consecutive samples land about
- * this far apart in SCREEN space. Slightly sub-pixel so the bilinear AntiAlias
- * splat of neighbouring samples overlaps and the rendered curve has no holes;
- * smaller = denser = smoother but costlier.
+ * @details Slightly sub-pixel so neighbouring AntiAlias splats overlap without
+ * holes.
  */
 inline constexpr float SCREEN_STEP_PX = 0.9f;
 
@@ -111,10 +100,8 @@ inline constexpr float GEODESIC_ROW_AA_PAD = 1.0f;
 
 /**
  * @brief Columns outside the render band a clip cut is placed at.
- * @details A piece ending exactly on the band edge still overlaps it once
- * finish_col_span widens the span by COL_FOOTPRINT, so a cut there would leave
- * the outside piece visible and buy nothing. One column past that footprint
- * also absorbs the fast-trig error in the cut.
+ * @details A piece ending on the band edge still overlaps it after the
+ * COL_FOOTPRINT widening; the extra column absorbs fast-trig error in the cut.
  */
 inline constexpr int CLIP_CUT_COL_PAD = COL_FOOTPRINT + 1;
 

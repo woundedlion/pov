@@ -42,8 +42,7 @@ public:
    * @param color Source color, forwarded unchanged.
    * @param age Incoming age (frames); offset by fractional (1 - t) per tween step.
    * @param alpha Blend alpha in [0, 1], forwarded unchanged.
-   * @tparam PassFnT Downstream callback type; a forwarding reference so the
-   * filter chain inlines with no per-point indirect call.
+   * @tparam PassFnT Downstream callback type.
    * @param pass Downstream 3D callback.
    * @details Passes through untouched when disabled or the orientation list is empty.
    */
@@ -79,8 +78,8 @@ public:
    * @param pb Optional planar basis, rotated alongside the endpoints.
    * @param forward Tail-of-pipeline cull continuation.
    * @return True if any candidate slice's tweened copy could intersect the band.
-   * @details The endpoints may fall in different slices, so bound conservatively
-   *          over all candidates rather than replicating the per-point selector.
+   * @details The endpoints may fall in different slices, so every candidate is
+   *          tested.
    */
   template <typename FwdFn>
   bool cull_edge(const math::Vector &a, const math::Vector &b,

@@ -13,8 +13,7 @@
 /**
  * @file world_orient.h
  * @brief Filter::World::Orient: rotates world points by a live Orientation,
- * sweeping its intra-frame SLERP history. Carries the rotated-edge cull helper
- * the rigid World stages share.
+ * sweeping its intra-frame SLERP history, and the rotated-edge cull helper.
  */
 
 namespace Filter {
@@ -61,8 +60,7 @@ public:
    * @param color Source color, forwarded unchanged.
    * @param age Incoming age (frames); offset by the fractional (1 - t) per tween step.
    * @param alpha Blend alpha in [0, 1], forwarded unchanged.
-   * @tparam PassFnT Downstream callback type; a forwarding reference so the
-   * filter chain inlines with no per-point indirect call.
+   * @tparam PassFnT Downstream callback type.
    * @param pass Downstream 3D callback.
    */
   template <typename PassFnT>
@@ -81,11 +79,8 @@ public:
    * @param pb Optional planar basis, rotated alongside the endpoints.
    * @param forward Tail-of-pipeline cull continuation.
    * @return True if any tweened copy of the edge could intersect the clip band.
-   * @details Mirrors plot()'s tween so the cull spans the same motion-blur sweep
-   *          the renderer draws. Without it the rasterizer would cull by the
-   *          un-rotated latitude and drop geometry an off-axis orientation
-   *          moves into a segment band
-   *          (docs/specs/segmented_stateful_effects_spec.md).
+   * @details Mirrors plot()'s tween so the cull spans the same motion-blur
+   *          sweep.
    */
   template <typename FwdFn>
   bool cull_edge(const math::Vector &a, const math::Vector &b,

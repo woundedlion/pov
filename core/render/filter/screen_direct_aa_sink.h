@@ -22,10 +22,8 @@ namespace Screen {
 
 /**
  * @brief Terminal four-tap anti-alias sink with direct framebuffer writes.
- * @details Opt-in replacement for `Pipeline<W, H, AntiAlias<W, H>>` when no
- * downstream filter is required. It preserves AntiAlias tap ordering and the
- * base sink's q16 source-over blend while resolving rows, columns and clipping
- * once per sample.
+ * @details Stands in for `Pipeline<W, H, AntiAlias<W, H>>` when no downstream
+ * filter is required, with the same tap order and q16 source-over blend.
  */
 HS_O3_BEGIN
 template <int W, int H> class DirectAntiAliasSink : public IsPipelineSink {
@@ -148,8 +146,7 @@ public:
   /**
    * @brief Trail flush (nothing to flush).
    * @tparam TrailFn ScreenTrailFn or WorldTrailFn.
-   * @details Dependent-false guard matching the filterless Pipeline: this sink
-   * carries no history, so the call would emit nothing.
+   * @details Dependent-false guard: this sink carries no history.
    */
   template <typename TrailFn> void flush(Canvas &, const TrailFn &, float) {
     static_assert(
