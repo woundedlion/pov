@@ -26,10 +26,14 @@ inline void case_effect_registry_name_matches_stable_id() {
  * @brief Death case: registering two effects under one name must trap.
  */
 inline void case_effect_registry_duplicate_name() {
-  EffectRegistration reg{};
-  reg.name = "DeathDuplicate";
-  reg.stable_id = "death-duplicate";
-  validate_effect_registrations(std::array{reg, reg});
+  EffectRegistration first{};
+  first.name = "DeathDuplicate";
+  first.stable_id = "death-dup-a";
+
+  EffectRegistration second{};
+  second.name = "DeathDuplicate";
+  second.stable_id = "death-dup-b";
+  validate_effect_registrations(std::array{first, second});
 }
 
 /** @brief Death case: two effects declaring the same stable ID must trap. */
