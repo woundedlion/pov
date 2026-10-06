@@ -482,7 +482,7 @@ private:
   }
 
   /**
-   * @brief Clip @p e to this segment's quadrant for the upcoming display window.
+   * @brief Clip @p e to this segment's display rectangle for the upcoming window.
    * @param e Effect to clip.
    * @param arm_a_left True if the window this frame displays in sweeps arm-A
    *        columns [0, CANVAS_W/2); arm B paints the opposite half.
