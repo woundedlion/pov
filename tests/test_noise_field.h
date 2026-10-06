@@ -73,6 +73,30 @@ inline void test_noise_field_periodic_coordinates() {
 }
 
 /**
+ * @brief Verifies both time loops trace a NOISE_LOOP_RADIUS circle: the sphere
+ *        loop in the lattice xy plane, the projected loop with x == y.
+ */
+inline void test_noise_field_loop_offset_geometry() {
+  const math::Vector sphere0 = math::noise_sphere_loop_offset(0.0f);
+  const math::Vector sphere_quarter = math::noise_sphere_loop_offset(0.25f);
+  HS_EXPECT_NEAR((sphere_quarter - sphere0).length(),
+                 math::NOISE_LOOP_RADIUS * 1.41421356f, 1e-3f);
+  const math::Vector projected0 = math::noise_projected_loop_offset(0.0f);
+  const math::Vector projected_quarter =
+      math::noise_projected_loop_offset(0.25f);
+  HS_EXPECT_NEAR((projected_quarter - projected0).length(),
+                 math::NOISE_LOOP_RADIUS * 1.41421356f, 1e-3f);
+  for (float phase : {0.0f, 0.125f, 0.25f, 0.4f, 0.9375f, -0.3f}) {
+    const math::Vector sphere = math::noise_sphere_loop_offset(phase);
+    HS_EXPECT_NEAR(sphere.length(), math::NOISE_LOOP_RADIUS, 1e-4f);
+    HS_EXPECT_EQ(sphere.z, 0.0f);
+    const math::Vector projected = math::noise_projected_loop_offset(phase);
+    HS_EXPECT_NEAR(projected.length(), math::NOISE_LOOP_RADIUS, 1e-4f);
+    HS_EXPECT_EQ(projected.x, projected.y);
+  }
+}
+
+/**
  * @brief Verifies the hoisted-offset overloads reproduce the phase-taking ones
  *        bit for bit.
  */
@@ -378,6 +402,7 @@ inline int run_noise_field_tests() {
   hs_test::ModuleFixture fixture("noise_field");
   test_noise_field_key_identity();
   test_noise_field_periodic_coordinates();
+  test_noise_field_loop_offset_geometry();
   test_noise_field_hoisted_loop_offsets();
   test_noise_field_octave_formulas();
   test_noise_field_ridged_channel_pairs();
