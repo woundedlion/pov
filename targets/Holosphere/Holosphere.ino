@@ -36,7 +36,7 @@ void setup() {
 }
 
 FLASHMEM static void run_show_sequence() {
-  POV::show<RingSpin<96, 20>>(120, false);
+  POV::show<RingSpin<CANVAS_W, CANVAS_H>>(120, false);
 }
 
 void loop() {
