@@ -116,10 +116,10 @@ inline void test_ring_sample_lut_matches_direct() {
 /**
  * @brief Verifies a ring drawn on the strided LUT grid stays an unbroken curve
  *        tracking the full-W control grid, for radii where the stride thins.
- * @details The lit set stays one 8-connected component (columns wrap) and
- *          every pixel the full-W runtime sampler lights has a lit neighbour
- *          within one pixel. Coverage is not compared pixel-for-pixel: the full-W
- *          grid's accumulated splat tails widen its stroke by a pixel.
+ * @details The lit set stays one 8-connected component (columns wrap), and
+ *          each render's lit pixels have a lit pixel of the other within one
+ *          pixel. Coverage is not compared pixel-for-pixel: the full-W grid's
+ *          accumulated splat tails widen its stroke by a pixel.
  */
 inline void test_ring_draw_stride_tracks_full_grid() {
   constexpr int W = 96, H = 48;
@@ -202,26 +202,31 @@ inline void test_ring_draw_stride_tracks_full_grid() {
       }
       HS_EXPECT_EQ(reached, lit);
 
-      // The drawn curve stays on the reference ring, to within one pixel.
-      int drifted = 0;
-      for (int y = 0; y < H; ++y)
-        for (int x = 0; x < W; ++x) {
-          if (!ref[static_cast<size_t>(y) * W + x])
-            continue;
-          bool near = false;
-          for (int dy = -1; dy <= 1 && !near; ++dy) {
-            int ny = y + dy;
-            if (ny < 0 || ny >= H)
+      // Pixels of `from` with no `to` pixel within one pixel.
+      auto strays = [&](const std::vector<uint8_t> &from,
+                        const std::vector<uint8_t> &to) {
+        int count = 0;
+        for (int y = 0; y < H; ++y)
+          for (int x = 0; x < W; ++x) {
+            if (!from[static_cast<size_t>(y) * W + x])
               continue;
-            for (int dx = -1; dx <= 1 && !near; ++dx) {
-              int nx = ((x + dx) % W + W) % W;
-              near = cur[static_cast<size_t>(ny) * W + nx] != 0;
+            bool near = false;
+            for (int dy = -1; dy <= 1 && !near; ++dy) {
+              int ny = y + dy;
+              if (ny < 0 || ny >= H)
+                continue;
+              for (int dx = -1; dx <= 1 && !near; ++dx) {
+                int nx = ((x + dx) % W + W) % W;
+                near = to[static_cast<size_t>(ny) * W + nx] != 0;
+              }
             }
+            if (!near)
+              ++count;
           }
-          if (!near)
-            ++drifted;
-        }
-      HS_EXPECT_EQ(drifted, 0);
+        return count;
+      };
+      HS_EXPECT_EQ(strays(ref, cur), 0);
+      HS_EXPECT_EQ(strays(cur, ref), 0);
     }
   }
 }
