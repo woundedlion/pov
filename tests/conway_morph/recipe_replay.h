@@ -347,6 +347,8 @@ inline ChainPeaks replay_build_chain(const char *name,
       HS_EXPECT_EQ(drawn, (size_t)leg_frames[k]);
       HS_EXPECT_EQ(landing.faces, leg_faces);
       HS_EXPECT_TRUE(landing.from_palette != nullptr);
+      if (!landing.from_palette)
+        return peaks;
       // Every frame drew every face's (from, to) ramp bit-exact.
       HS_EXPECT_EQ(off_palette_frames, 0);
 
