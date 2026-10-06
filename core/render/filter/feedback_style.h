@@ -106,11 +106,12 @@ struct Style {
    */
   int downsample = 4;
   /**
-   * Column pairs per row pitch under which a row composites every other
-   * column: each pair is sampled once at its midpoint and expanded with a 3:1
-   * blend toward each neighbouring pair. Larger values widen the band toward
-   * the equator; 0 composites every row at full resolution. Applies only at
-   * full opacity (alpha >= 1).
+   * Column-pair width, in row pitches, below which a row composites every
+   * other column (1: two columns span less than one row pitch). Each pair is
+   * sampled once at its midpoint and expanded with a 3:1 blend toward each
+   * neighbouring pair. Larger values widen the band toward the equator; 0
+   * composites every row at full resolution. Applies only at full opacity
+   * (alpha >= 1).
    */
   float pole_half_res = 1.0f;
 
