@@ -75,8 +75,6 @@ inline float ring_arc_scale(const math::Basis &b, float radius) {
  * @brief Verifies Ring::sample<W,H> built from the TrigLUT angle-addition
  *        identity matches a direct cos/sin(theta+phase) construction of the same
  *        ring, in both position and the analytic arc-length register.
- * @details Covers Ring::draw's full-resolution path, which uses the LUT identity
- *          instead of a per-sample libm cos/sin.
  */
 inline void test_ring_sample_lut_matches_direct() {
   constexpr int W = 64;
@@ -120,13 +118,10 @@ inline void test_ring_sample_lut_matches_direct() {
 /**
  * @brief Verifies a ring drawn on the strided LUT grid stays an unbroken curve
  *        tracking the full-W control grid, for radii where the stride thins.
- * @details Ring::draw emits ceil(W/stride)+1 control points and the rasterizer
- *          sub-steps each segment to SCREEN_STEP_PX, so a coarser grid must not
- *          bead the ring: the lit set stays one 8-connected component (columns
- *          wrap) and every pixel the full-W runtime sampler lights has a lit
- *          neighbour within one pixel. Coverage is not compared pixel-for-pixel
- *          — the full-W grid oversamples a small ring several times per pixel,
- *          and the accumulated splat tails widen its stroke by a pixel.
+ * @details The lit set stays one 8-connected component (columns wrap) and
+ *          every pixel the full-W runtime sampler lights has a lit neighbour
+ *          within one pixel. Coverage is not compared pixel-for-pixel: the full-W
+ *          grid's accumulated splat tails widen its stroke by a pixel.
  */
 inline void test_ring_draw_stride_tracks_full_grid() {
   constexpr int W = 96, H = 48;

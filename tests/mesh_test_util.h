@@ -17,7 +17,7 @@
 namespace hs_test {
 
 /** The identity truncate depth the smooth path sweeps to (the "uniform" Conway
- * depth); RecipeBuild::MACRO_TRUNCATE_T is pinned to this by IslamicBuildProbe. */
+ * depth). */
 inline constexpr float RECONCILE_TRUNCATE_T = 1.0f / 3.0f;
 
 /**
@@ -79,8 +79,7 @@ inline void build_icosahedron_meshstate(Arena &seed_a, Arena &seed_b,
     mesh.faces.push_back(base.faces[i]);
 }
 
-/** Step table for the ambo/relax/hk54/needle recipe: a test fixture, not in
- * islamic_registry; the reconcile tests' canonical needle-ending recipe. */
+/** Step table for the ambo/relax/hk54/needle test-fixture recipe. */
 inline constexpr Solids::OpStep
     TRUNCATED_ICOSAHEDRON_AMBO_RELAX_HK54_NEEDLE_STEPS[] = {
         {Solids::Op::AMBO},
@@ -101,8 +100,6 @@ inline constexpr Solids::Recipe
  * @param a Output arena for the built mesh.
  * @param b Scratch arena for the intermediate meshes.
  * @return The dodecahedron, allocated in @p a.
- * @details Shared by the morph and opchain probe suites, whose site tables both
- *          name it as an un-transformed seed.
  */
 inline PolyMesh probe_dodecahedron(Arena &a, Arena &b) {
   return Solids::Platonic::dodecahedron(a, b);
@@ -115,10 +112,8 @@ inline PolyMesh probe_dodecahedron(Arena &a, Arena &b) {
  * @param a Output arena for the built mesh.
  * @param b Scratch arena for the intermediate meshes.
  * @return The hankin(54 deg) arrival, allocated in @p a.
- * @details Shared by the morph and opchain probe suites, which both pin shapes
- *          against this chain; a spec change must move exactly one build here.
- *          The relax is live at 100 iterations rather than the fixture step's
- *          baked payload, so the probes measure the operator, not the bake.
+ * @details The relax runs live at 100 iterations, not from the fixture step's
+ *          baked payload.
  */
 inline PolyMesh build_ticosa_ambo_relax100_hk54(Arena &a, Arena &b) {
   using Solids::IslamicStarPatterns::D2R;
@@ -176,7 +171,7 @@ inline void check_indices_in_range(const PolyMesh &m) {
 }
 
 /** Longest geodesic edge a healthy solid reaches, as a multiple of its median
- * edge: registry recipes measure at most ~3.4x, a hankin resonance sling ~24x. */
+ * edge. */
 inline constexpr float MAX_SLIVER_EDGE_RATIO = 6.0f;
 
 /**
@@ -244,8 +239,6 @@ inline int find_directed_edge(const Edges &edges, Node from, Node to) {
  * @param count Number of vertices (sides) in the face.
  * @return Unnormalised normal vector for the face; its magnitude is twice the
  *         planar face area.
- * @details Newell's method is robust for non-planar faces (e.g. curved faces
- *          on the unit sphere) where a simple cross product would be ambiguous.
  */
 inline math::Vector face_newell_normal(const PolyMesh &m,
                                        size_t face_idx_offset, int count) {

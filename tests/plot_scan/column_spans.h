@@ -54,16 +54,9 @@ inline void test_col_span_rejects_ill_conditioned_pole() {
  *        screen-column sweep and stay within the half-width sweep bound.
  * @details Densely samples the renderer's own circle (same axis selection as
  *          rasterize_geodesic_strategy) and asserts modular containment of
- *          every sample column, plus the antipodal-symmetry bound: a geodesic
- *          arc sweeps at most half the canvas in longitude, so every span must
- *          fit W/2 plus padding. Near-half sweeps (pole-grazing near-meridian
- *          arcs) stress the direction logic: covering the wrong side of an
- *          ambiguous near-half separation fails on the mid-arc samples.
- *          Non-vacuity counters require many genuinely cullable spans and many
- *          near-half sweeps.
- *          The ~7.2M dense containment samples aggregate into escape counters;
- *          sample counters keep a sweep that stopped generating samples from
- *          passing vacuously.
+ *          every sample column, plus the antipodal-symmetry bound: every span
+ *          must fit W/2 plus padding. Non-vacuity counters require cullable
+ *          spans, near-half sweeps, and samples.
  */
 inline void test_col_span_covers_arc() {
   constexpr int TW = 288;
@@ -206,9 +199,8 @@ inline void test_col_span_covers_arc() {
   HS_EXPECT_GT(planar_fallbacks, 20);
 }
 
-// has_world_cull gates ParticleSystem::draw's hoisted per-point gate path: it
-// must be false for screen-only pipelines and true whenever any stage re-emits
-// clip-cull edges (cull_edge).
+// has_world_cull: false for screen-only pipelines, true whenever any stage
+// re-emits clip-cull edges (cull_edge).
 static_assert(!Pipeline<96, 48>::has_world_cull);
 static_assert(
     !Pipeline<96, 48, Filter::Screen::AntiAlias<96, 48>>::has_world_cull);
@@ -216,9 +208,8 @@ static_assert(Pipeline<96, 48, Filter::World::Orient>::has_world_cull);
 static_assert(Pipeline<96, 48, Filter::World::Orient,
                        Filter::Screen::AntiAlias<96, 48>>::has_world_cull);
 
-// has_world_stage gates rasterize's precomputed screen-coordinate shortcut: it
-// must be true for every world-space stage, including the ones that define no
-// cull_edge.
+// has_world_stage: true for every world-space stage, including the ones that
+// define no cull_edge.
 static_assert(!Pipeline<96, 48>::has_world_stage);
 static_assert(
     !Pipeline<96, 48, Filter::Screen::AntiAlias<96, 48>>::has_world_stage);
@@ -411,8 +402,7 @@ inline void expect_render_band_parity(const char *label,
  *        strokes inside the render band, including its margin ring.
  * @details Covers the whole-edge reject and the per-piece bits that replace
  *          rasterize's own cull. Random orientations put edges across both
- *          poles and the seam; an over-cull drops a whole stroke, which shows
- *          as a long run of unlit pixels along a row.
+ *          poles and the seam.
  *
  *          Cut pieces collapse into one windowed segment, preserving the full
  *          edge's step schedule and sample positions inside the render band.
@@ -698,12 +688,10 @@ inline void test_mesh_dissolve_masks_partition_edges() {
  * @brief End-to-end conservativeness of the rasterizer's column cull: a
  *        quadrant/wedge-clipped render is pixel-identical to the full render
  *        inside the render band, including its margin ring.
- * @details Random trail-like geodesic polylines (the MindSplatter stack) and
- *          planar disk polylines (the ShapeShifter planar-shape stack) through the AntiAlias
- *          pipeline. Clips cover both device quadrants, a narrow interior
- *          wedge, and a seam-adjacent wedge whose margin expansion wraps
- *          (rs > re). A cull false-negative drops in-band pixels and breaks
- *          the comparison.
+ * @details Random trail-like geodesic polylines and planar disk polylines
+ *          through the AntiAlias pipeline. Clips cover both device quadrants, a
+ *          narrow interior wedge, and a seam-adjacent wedge whose margin
+ *          expansion wraps (rs > re).
  */
 inline void test_rasterize_column_cull_pixel_parity() {
   constexpr int W = 96, H = 48;
@@ -723,7 +711,7 @@ inline void test_rasterize_column_cull_pixel_parity() {
     math::Basis chart;
 
     if (planar) {
-      // Planar polyline: points on a chart disk, as ShapeShifter planar shapes emit them.
+      // Planar polyline: points on a chart disk.
       chart = basis_from_normal(rand_unit());
       float radius = hs::rand_f(0.3f, 1.3f);
       float a0 = hs::rand_f(0, 2 * math::PI_F);
@@ -1203,8 +1191,7 @@ inline void test_cartesian_quadrant_gate_is_conservative() {
  * @details Random geodesic step-walk trails over the device band shapes. A
  *          false return must leave every byte zero AND every edge individually
  *          invisible (the whole-trail bound is conservative); a true return's
- *          bytes must equal the per-edge predicate exactly (rasterize consumes
- *          them as its cull).
+ *          bytes must equal the per-edge predicate exactly.
  */
 inline void test_gate_trail_edges_matches_edge_visible() {
   constexpr int TW = 288, TH = 144;
@@ -1273,12 +1260,10 @@ inline void test_gate_trail_edges_matches_edge_visible() {
 
 /**
  * @brief Verifies visible arc samples belong to pieces the clip gate keeps.
- * @details Conservativeness proof for the clip cut: sweeps the rendered great circle of
- *          random edges against bands covering both seam topologies: a sample
- *          whose plotted pixel falls in the render region must belong to a kept
- *          piece. Kept and culled piece counts are floored too, so a cut that
- *          stops separating the band (or stops cutting at all) cannot pass by
- *          keeping everything.
+ * @details Sweeps the rendered great circle of random edges against bands
+ *          covering both seam topologies: a sample whose plotted pixel falls in
+ *          the render region must belong to a kept piece. Kept and culled piece
+ *          counts are floored.
  */
 inline void test_mesh_clip_cut_separates_band() {
   constexpr int TW = 288, TH = 144;
@@ -1354,10 +1339,8 @@ inline void test_mesh_clip_cut_separates_band() {
   HS_EXPECT_GT(cuts, 400);
   HS_EXPECT_GT(kept, 400);
   HS_EXPECT_GT(culled, 400);
-  // Tightness, the half the gate cannot supply on its own: it keeps any piece
-  // straddling the band edge, so a cut that stops separating shows only as
-  // drawn arc past what the region shows. Measured 1.08x; dropping the cut
-  // entirely gives 1.96x and cutting inside the band 1.76x.
+  // Tightness: the gate keeps any piece straddling the band edge, so a cut
+  // that stops separating shows only as drawn arc past what the region shows.
   HS_EXPECT_LT(drawn_arc * 2, shown_arc * 3);
 }
 

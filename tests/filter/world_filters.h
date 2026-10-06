@@ -43,8 +43,7 @@ inline void test_world_hole_masks_cap() {
   HS_EXPECT_NEAR(got.alpha, 0.8f, 1e-6f);
   HS_EXPECT_NEAR(got.v.y, -1.0f, 1e-6f);
 
-  // Exact center: d=0 -> quintic_kernel(0)=0 -> the tap is dropped, so a fully
-  // masked point cannot composite opaque black over the destination.
+  // Exact center: d=0 -> quintic_kernel(0)=0 -> the tap is dropped.
   n = 0;
   hole.plot(math::Vector(0, 1, 0), Pixel(10000, 20000, 30000), 0.0f, 1.0f,
             [&](const math::Vector &, const Pixel &, float, float) { ++n; });
@@ -115,8 +114,7 @@ inline void test_world_hole_setters() {
  * @brief Verifies Orient rotates by the bound Orientation, and a single-frame
  *        (stationary) orientation emits one tap with age left untouched.
  * @details A lone snapshot is the newest sub-position (t = 1), so the (1 - t)
- *          age offset is zero. A static orientation must not drift the temporal
- *          channel frame over frame.
+ *          age offset is zero.
  */
 inline void test_world_orient_rotates_and_keeps_static_age() {
   math::Quaternion q =
@@ -169,8 +167,6 @@ inline void test_world_orient_motion_blur_sweep_ages() {
  *        rotations plot() applies, short-circuits on the first hit, rotates a
  *        planar basis alongside the endpoints, and keeps an edge the bound
  *        orientation carries into the band.
- * @details The rotation moves latitude, so culling by the un-rotated endpoints
- *          would drop geometry the orientation sweeps into a segment band.
  */
 inline void test_world_orient_cull_edge_mirrors_plot() {
   static_assert(Filter::has_cull_edge<Filter::World::Orient>);
@@ -299,7 +295,7 @@ inline void test_world_orient_slice_selects_by_projection() {
  *        through when disabled or empty, and keeps an edge the selected slice
  *        carries into the band.
  * @details The endpoints can fall in different slices, so the cull spans all
- *          candidates instead of replicating plot()'s per-point selector.
+ *          candidates.
  */
 inline void test_world_orient_slice_cull_edge_bounds_all_slices() {
   static_assert(Filter::has_cull_edge<Filter::World::OrientSlice>);
@@ -452,8 +448,6 @@ inline void test_world_vertex_replicate_fanout_and_age() {
 /**
  * @brief Verifies VertexReplicate's clip-cull re-emits the edge under the same
  *        rotations plot() applies, and short-circuits on the first hit.
- * @details The rotations move latitude, so culling by the un-rotated endpoints
- *          would drop copies the fan-out places inside a segment band.
  */
 inline void test_world_vertex_replicate_cull_edge_mirrors_plot() {
   constexpr int N = 3;
@@ -514,9 +508,7 @@ inline void test_world_vertex_replicate_cull_edge_mirrors_plot() {
  * @brief Verifies Pipeline::could_intersect_clip walks the whole stage chain:
  *        each world stage's cull_edge feeds the next, an identity stage without
  *        one forwards the edge unchanged, and the sink runs the predicate.
- * @details Composition order is what makes the bound sound — the tail stage sees
- *          the head's rotated copies, so an edge only the composed transform
- *          moves into the band survives the cull.
+ * @details The tail stage sees the head's rotated copies.
  */
 inline void test_pipeline_could_intersect_clip_forwards_through_stages() {
   constexpr int W = 32, H = 16;
@@ -561,8 +553,7 @@ inline void test_pipeline_could_intersect_clip_forwards_through_stages() {
   HS_EXPECT_NEAR(seen_b[1].z, tail_b.z, 1e-4f);
 
   // Only the composed transform reaches this target: neither the source
-  // geometry nor the head-only image does, so a chain that stopped forwarding
-  // after the head would cull an edge the renderer draws inside the band.
+  // geometry nor the head-only image does.
   auto near_target = [&](const math::Vector &a, const math::Vector &,
                          const math::Basis *) {
     return math::distance_between(a, tail_a) < 1e-3f;
@@ -702,8 +693,8 @@ inline void test_world_mobius_identity_and_transform() {
       }
   }
 
-  // The map moves latitude non-rigidly and offers no cull_edge bound, so it
-  // must force a full-canvas render through the pipeline fold.
+  // Mobius offers no cull_edge bound, so the pipeline fold forces a
+  // full-canvas render.
   static_assert(!Filter::has_cull_edge<Filter::World::Mobius>);
   HS_EXPECT_TRUE(Filter::World::Mobius::crosses_segments);
   HS_EXPECT_TRUE(

@@ -36,9 +36,8 @@ inline void test_rasterize_subpixel_open_segment_plots_both_endpoints() {
 
   // Fast path on an open last segment plots curr and next.
   HS_EXPECT_SIZE_OR_RETURN(pipe.plotted, (size_t)2);
-  // Chord, not angle_between: acos' derivative diverges at |dot| = 1, so the
-  // angle a unit pair reports quantizes in ~3.5e-4 steps and cannot resolve a
-  // tolerance this tight. The chord tracks the angle to within angle^3/24.
+  // Chord, not angle_between: near |dot| = 1 the acos angle quantizes in
+  // ~3.5e-4 steps, coarser than this tolerance.
   HS_EXPECT_NEAR((pipe.plotted.front() - a.pos).length(), 0.0f, 1e-4f);
   HS_EXPECT_NEAR((pipe.plotted.back() - b.pos).length(), 0.0f, 1e-4f);
   for (const math::Vector &p : pipe.plotted)
@@ -170,16 +169,11 @@ inline void test_rasterize_antipodal_seam_planar_falls_back_geodesic() {
 }
 
 /**
- * @brief A non-seam planar segment renders gap-free in ARC length: the
- *        arc-length parameterization (PlanarEdgeSampler's cumulative-arc inversion)
- *        keeps every plotted step near one pixel column and lands on both
- *        endpoints, with no clustering or gaps the projection-linear chord would
- *        otherwise leave.
- * @details Exercises the planar strategy path (rasterize_planar_strategy +
- *          PlanarEdgeSampler); the antipodal-seam case falls back to geodesic. Pins the
- *          end-to-end arc-uniform sampling the PLANAR_LEN_SAMPLES table provides; it
- *          does not isolate the table's contribution from the rasterizer's
- *          adaptive (sin-phi) sub-stepping, which also shapes local density.
+ * @brief A non-seam planar segment renders gap-free in ARC length: every
+ *        plotted step stays near one pixel column and lands on both endpoints.
+ * @details Exercises rasterize_planar_strategy + PlanarEdgeSampler end to end;
+ *          does not isolate the PLANAR_LEN_SAMPLES table from the rasterizer's
+ *          adaptive (sin-phi) sub-stepping.
  */
 inline void test_rasterize_planar_segment_gap_free_arclength() {
   constexpr int W = 128, H = 64;
@@ -226,9 +220,7 @@ inline void test_rasterize_planar_segment_gap_free_arclength() {
  * @brief A planar segment's v0/v1 registers measure the RENDERED azimuthal arc,
  *        not the geodesic chord: v1 rises monotonically to the planar arc length
  *        (strictly longer than the endpoints' great-circle distance) and v0 spans
- *        0..1 over that same arc. Locks in the rasterizer's arc-register
- *        re-derivation for planar-policy polygons and stars plus Flower, which
- *        the sample()-level tests cannot observe.
+ *        0..1 over that same arc.
  */
 inline void test_rasterize_planar_arc_registers_track_drawn_arc() {
   constexpr int W = 128, H = 64;
@@ -237,8 +229,8 @@ inline void test_rasterize_planar_arc_registers_track_drawn_arc() {
   Fragments points;
   points.bind(plot_arena(), 4);
 
-  // Same non-seam planar disk edge as the gap-free test: colatitude 0.3 -> 1.3
-  // across azimuths, so the rendered edge bows well clear of its chord.
+  // Non-seam planar disk edge: colatitude 0.3 -> 1.3 across azimuths, so the
+  // rendered edge bows well clear of its chord.
   math::Basis basis = basis_from_normal(math::Vector(0, 1, 0));
   Fragment a, b;
   a.pos = disk_point(basis, 0.3f, 0.0f);
@@ -317,13 +309,9 @@ inline void test_rasterize_planar_arc_registers_track_drawn_arc() {
 
 /**
  * @brief Cull-sample reuse rebuilds the same planar sampler as a fresh build.
- * @details Both overloads evaluate identical expressions on identical inputs
- * (the reuse path's stride-2 read of the cull span's eighth points IS the
- * rebuild path's quarter points), so they agree bit for bit under IEEE. The
- * shipping -ffast-math pair reassociates each overload in its own inlining
- * context, which moves the shared unproject/angle chains, so PARITY_TOL is the
- * asserted contract; a wrong sample index or a dropped endpoint moves these
- * registers by ~0.1 rad.
+ * @details Both overloads evaluate identical expressions on identical inputs;
+ * -ffast-math reassociates each in its own inlining context, so PARITY_TOL is
+ * the asserted contract.
  */
 inline void test_planar_sampler_from_cull_parity() {
   constexpr int W = 128;
@@ -391,10 +379,9 @@ inline void test_planar_sampler_from_cull_parity() {
 
 /**
  * @brief Planar compile-time policies preserve positions and default registers.
- * @details The register policies select what is derived, never how a position
- * is computed, so every stream walks the same expressions and the positions
- * agree bit for bit under IEEE. Each instantiation is reassociated in its own
- * inlining context under -ffast-math, so POLICY_TOL is the asserted contract.
+ * @details Register policies never change how a position is computed;
+ * -ffast-math reassociates each instantiation in its own inlining context, so
+ * POLICY_TOL is the asserted contract.
  */
 inline void test_rasterize_planar_policy_parity() {
   constexpr int W = 128, H = 64;
@@ -592,13 +579,11 @@ inline void test_rasterize_sampling_follows_world_transforms() {
 /**
  * @brief The segment cull follows a filter-chain orientation: an edge the
  *        World::Orient stage rotates into a clip band is drawn, not culled.
- * @details When orientation lives in the filter chain the rasterizer
- *          must bound the edge by its RENDERED latitude, so the cull is routed
- *          through the pipeline. 90° about X maps the equatorial +X->+Z arc onto
+ * @details The cull is routed through the pipeline, bounding the edge by its
+ *          RENDERED latitude. 90° about X maps the equatorial +X->+Z arc onto
  *          a polar meridian, so the rendered arc reaches the bottom band the
  *          source arc never touches; a band-clipped worker there must match the
- *          full render. Without the pipeline-routed cull the edge is bounded by
- *          its un-rotated (equatorial) latitude and dropped.
+ *          full render.
  */
 inline void test_rasterize_cull_follows_filter_orientation() {
   constexpr int W = 128, H = 64;
