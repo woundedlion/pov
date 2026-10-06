@@ -107,16 +107,7 @@ inline void test_edge_fits_one_dot_is_conservative() {
                        (n % 14 == 0) ? std::cos(e) : -std::cos(e),
                        s * std::sin(az));
     } else {
-      for (;;) {
-        const float rx = hs::rand_f(-1, 1);
-        const float ry = hs::rand_f(-1, 1);
-        const float rz = hs::rand_f(-1, 1);
-        math::Vector r(rx, ry, rz);
-        if (r.length() > 0.1f) {
-          a = r.normalized();
-          break;
-        }
-      }
+      a = rand_unit();
     }
     const float raw_x = hs::rand_f(-1, 1);
     const float raw_y = hs::rand_f(-1, 1);
