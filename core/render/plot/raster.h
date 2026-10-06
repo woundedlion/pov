@@ -110,14 +110,15 @@ template <int W> inline constexpr size_t rasterize_step_budget() {
  * @param planar_segments Segment count of a planar-basis draw that derives arc
  *        registers; 0 for a geodesic polyline, which binds no per-segment
  *        cache.
- * @param trail_points Point count of a ParticleSystem::draw trail; 0 for every
- *        other caller.
+ * @param trail_points Gated-trail point count, covering gate arrays live
+ *        across the call or a preceding gate peak; 0 otherwise.
  * @return The cache size in bytes.
  * @details Covers the adaptive sub-step cache plus, under a planar basis, the
- * per-segment arc and seam caches. @p trail_points folds in ParticleSystem::draw's
- * trail-gate arrays (per-edge bits, per-point rows and columns, alignment
- * slack), which stay live across the call; its deferred-shader position buffer
- * is not included.
+ * per-segment arc and seam caches. @p trail_points adds trail-gate arrays
+ * (per-edge bits, per-point rows and columns, alignment slack).
+ * ParticleSystem::draw keeps them live across the call; a caller may also
+ * include them to cover a preceding gate's peak. Deferred-shader position
+ * buffers are not included.
  */
 template <int W>
 inline constexpr size_t rasterize_scratch_a_bytes(size_t planar_segments = 0,
