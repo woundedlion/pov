@@ -8,13 +8,6 @@
  * @brief Pure strip index and column-cadence arithmetic for the single-board
  *        POV driver.
  *
- * Kept free of Arduino dependencies so the load-bearing math — which physical
- * LED samples which canvas column and row, how long a column lasts, and when
- * the display buffer advances — is unit-testable on the host without a Teensy.
- * The single-board show_col() ISR and run() loop derive their behaviour from
- * these functions, so the host tests cover the real arithmetic. An off-by-one
- * here silently mis-paints the sphere or freezes the strip.
- *
  * Layout (one Teensy owns the whole S-LED strip; ROWS = S/2 = canvas height):
  *   The strip spans both sides of the ring. Its first half [0, S/2) is the top
  *   arm, physically reversed (LED 0 at the S pole, row S/2-1), and samples canvas
@@ -23,12 +16,9 @@
  *   the two halves together paint exactly the two canvas columns x and
  *   (x + W/2) % W, one LED per (column, row).
  *
- * NOTE: the top-arm wiring convention deliberately differs from the segmented
- * rig (pov_segment_map.h). Here the top arm is reversed with LED 0 at the
- * S pole, row S/2-1 (strip_top_led = S/2-1-y). The strip midpoint, LEDs
- * S/2-1 and S/2, sits at the N pole. The segmented rig wires its top segment
- * with LED 0 at the N pole, NOT reversed (y_step = +1). The two are separate
- * physical builds — do not assume one map's top-arm direction carries over.
+ * The strip midpoint, LEDs S/2-1 and S/2, sits at the N pole. The segmented
+ * rig (pov::segment_map) wires its top segment the other way, LED 0 at the
+ * N pole.
  */
 #pragma once
 
@@ -77,7 +67,7 @@ constexpr int strip_opposite_col(int x, int w) { return (x + w / 2) % w; }
  * @brief Column-sweep timer period, in µs.
  * @param cols_per_min Columns swept per minute: RPM × canvas width.
  * @return Fractional microseconds per column.
- * @pre cols_per_min > 0; the driver traps a zero before calling.
+ * @pre cols_per_min > 0.
  */
 constexpr float column_interval_us(unsigned long cols_per_min) {
   return 60000000.0f / static_cast<float>(cols_per_min);

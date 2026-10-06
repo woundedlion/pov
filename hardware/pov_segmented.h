@@ -22,37 +22,23 @@
  *     Segment 2 (top):    LED 0 at N end (y=0)   → LED 71 at junction (y=71)
  *     Segment 3 (bottom):  LED 0 at S end (y=143) → LED 71 at junction (y=72)  ← reversed
  *
- * Each Teensy reads a hardware ID from GPIO pins at boot to determine
- * which segment it owns.  One wire connects all boards
- * (docs/specs/phantasm_frame_sync_spec.md):
- *
- *   Sync wire: segment 0 (the master/conductor) emits count-coded symbol
- *   bursts — two boundary marks per revolution, an epoch train (primary +
- *   epoch_repeats copies) once per effect, and a quarter-revolution (x ≈ W/4)
- *   index beacon on beacon revolutions. Every board generates its
- *   own columns from a local flywheel timebase (position derived from the
- *   free-running cycle counter, never from counting timer interrupts); the
- *   symbols snap each flywheel's phase and synchronize buffer flips and
- *   the effect playlist.  All protocol logic lives in pov_sync.h
- *   (host-tested); this file is the device shell: it reads the cycle
- *   counter, services two ISRs, packs pixels, and toggles one pin.
+ * Each Teensy reads a hardware ID from GPIO straps at boot to determine
+ * which segment it owns. Segment 0 (the master) emits count-coded symbol
+ * bursts on one shared sync wire (docs/specs/phantasm_frame_sync_spec.md);
+ * every board generates its columns from a local flywheel timebase derived
+ * from the free-running cycle counter, and the symbols snap each flywheel's
+ * phase and synchronize buffer flips and the effect playlist. This file is
+ * the device shell around pov::sync::SyncBoard.
  *
  * Effects use full-canvas coordinates with rendering clipped per board.
- * The ISR packs this segment's pixels into its local DMA frame.
- *
- * Phantasm-class targets include this through targets/Phantasm/phantasm_target.h.
- * The hardware include directory resolves the bare name:
- * @code{.cpp}
- * #include "pov_segmented.h"
- * @endcode
  */
 #pragma once
 #include "core/platform/led.h"
-#include "pov_segment_map.h" // pure index math (host-testable; see that file)
+#include "pov_segment_map.h"
 #include "pov_segment_frame.h"
-#include "pov_sync.h"    // pure sync protocol (host-testable; see that file)
-#include "pov_handoff.h" // pure effect-handoff state machine (host-testable)
-#include "pov_submit_gate.h" // pure LED-submit decision (host-testable)
+#include "pov_sync.h"
+#include "pov_handoff.h"
+#include "pov_submit_gate.h"
 
 #ifdef ARDUINO
 #include <Arduino.h>
@@ -151,11 +137,8 @@ template <int S, int N, int RPM> class POVSegmented {
   /**
    * @brief Flywheel wake-up oversampling factor.
    *
-   * Wakes are advisory (position comes from the cycle counter); a coarse grid
-   * only quantizes when a column renders/emits. 8× per column keeps that lag
-   * well inside the §5.2 self-censor budget. position() is time-derived and
-   * tick() is idempotent/skip-tolerant, so the exact grid does not affect
-   * correctness.
+   * Wakes are advisory (position comes from the cycle counter); the grid only
+   * quantizes when a column renders/emits, within the §5.2 self-censor budget.
    */
   static constexpr int OVERSAMPLE = 8;
 
@@ -167,34 +150,27 @@ template <int S, int N, int RPM> class POVSegmented {
    * @brief NVIC priority for the sync-wire edge IRQ (Teensy 4 pin interrupts
    *        all share IRQ_GPIO6789).
    *
-   * The edge ISR timestamps the edge with ARM_DWT_CYCCNT, and snap() re-bases
-   * the flywheel epoch onto that stamp — so it must preempt the flywheel ISR or
-   * the stamp becomes a service time up to one full column-ISR body late. The
-   * Cortex-M7 NVIC implements 4 priority bits (levels in steps of 16, lower =
-   * higher priority) and Teensy defaults every IRQ, IntervalTimer included, to
-   * 128; 16 puts the edge above all of them while leaving 0 free.
+   * Must preempt the flywheel ISR so the ARM_DWT_CYCCNT stamp is the edge
+   * time, not a service time. Cortex-M7 levels step by 16 (lower = higher
+   * priority); Teensy defaults every IRQ to 128.
    */
   static constexpr uint8_t SYNC_EDGE_IRQ_PRIORITY = 16;
 
   /**
    * @brief HD107S SPI clock for the Phantasm DMA path, in Hz.
-   *
-   * 24 MHz (vs the 12 MHz default) halves the per-column transfer time. The
-   * column ISR, not the strip, is the binding budget.
    */
   static constexpr uint32_t SPI_CLOCK_HZ = dma::SEGMENTED_CLOCK_HZ;
 
   /**
    * @brief Worst-case duration of one column's LED transfer, in µs.
-   * @details Image frame plus the trailing black frame strobe_columns() appends,
-   * SPI data and per-byte framing clocks, rounded up so the overrun check
-   * below never under-counts.
+   * @details Image frame plus the trailing strobe black frame, SPI data and
+   * per-byte framing clocks, rounded up.
    */
   static constexpr unsigned long COLUMN_TRANSFER_US =
       dma::transfer_us(HD107SFrame<PPS>::COMPOSITE_SIZE, SPI_CLOCK_HZ);
 
-  // A transfer wider than the column period overruns every column; the submit
-  // gate absorbs the drops, so it surfaces as a dim image, not as a fault.
+  // An overrunning transfer surfaces as a dim image (dropped columns), not a
+  // fault.
   static_assert(COLUMN_TRANSFER_US < COLUMN_US,
                 "LED transfer outlasts the column period (S, N, RPM and "
                 "SPI_CLOCK_HZ overrun the DMA every column)");
@@ -203,9 +179,8 @@ public:
   /**
    * @brief Foreground effect constructor: builds, arena-configures, and
    *  init()s one roster entry, ready to draw its first frame.
-   * @details CONTRACT — returns a non-null, init()ed Effect; run_show()
-   *  dereferences the result unguarded. The shipped construct_effect() traps
-   *  on a failed allocation itself.
+   * @details Must return a non-null, init()ed Effect; the result is
+   *  dereferenced unguarded.
    */
   using EffectFactory = Effect *(*)();
 
@@ -213,11 +188,8 @@ public:
    * @brief Drives MASTER_EN to its disabled level, parking the external
    *        sync-out buffer.
    * @details Call as the first statement of setup(). MASTER_EN is the '125
-   *          channel-C/D /OE and only takes its board-role level in run_show();
-   *          until this runs, only the R_MEN pull-up (PCB rule R-LS-5) holds a
-   *          board's sync driver off the shared bus, and a driver that is
-   *          enabled while a peer drives the bus source-fights undetectably
-   *          (see read_id()).
+   *          channel-C/D /OE; until this runs, only the R_MEN pull-up (PCB rule
+   *          R-LS-5) holds a board's sync driver off the shared bus.
    */
   HS_COLD_MEMBER static void park_sync_out() {
     digitalWriteFast(PIN_MASTER_EN, HIGH);
@@ -271,13 +243,10 @@ public:
   /**
    * @brief Runs the synchronized show forever (spec §6).
    *
-   * The playlist is epoch-counted, not millis()-gated: the master counts
-   * revolutions on its own timebase and broadcasts an EPOCH symbol when an
-   * effect's revolutions elapse; every board (master included) then tears
-   * down its current effect, constructs the next roster entry during the
-   * K-revolution commit window (display black), and swaps to its frame 0 at
-   * exactly the same boundary. Downstream boards join the running show via
-   * the index beacon — they never assume the playlist position.
+   * The master broadcasts an EPOCH symbol when an effect's revolutions
+   * elapse; every board then constructs the next roster entry during the
+   * K-revolution commit window (display black) and swaps to its frame 0 at
+   * the same boundary. Downstream boards join via the index beacon.
    *
    * @tparam R            Roster length, deduced from `factories`.
    * @param factories     One constructor per roster entry (HS_PHANTASM_EFFECT_LIST
@@ -288,11 +257,7 @@ public:
    * @param stable_effect_seeds Optional RNG identity for each roster entry;
    *                           without it the per-visit stream is seeded from
    *                           the roster index alone.
-   * @details Both optional tables are taken as pointers to arrays of R, so a
-   * table that does not span the roster is a compile error rather than an
-   * unguarded index: revolutions_for_effect() and Config::valid()'s own sweep
-   * read effect_revolutions over [0, R), and the per-effect reseed below reads
-   * stable_effect_seeds at the published index.
+   * @details Both optional tables must span the roster (arrays of R).
    */
   template <int R>
   [[noreturn]] static void
@@ -310,8 +275,7 @@ public:
     if (effect_revolutions)
       cfg.set_effect_revolutions(*effect_revolutions);
 #ifdef HS_PROFILE_EPOCH_REVS
-    // Profiling knob: stretch the epoch so one effect instance covers a full
-    // preset cycle in a single capture.
+    // Profiling: stretch the epoch over a full preset cycle.
     cfg.revs_per_effect = HS_PROFILE_EPOCH_REVS;
     cfg.clear_effect_revolutions();
 #endif
@@ -327,16 +291,12 @@ public:
     }
     if (!master || HS_PHANTASM_BOARD_REV == 12) {
       pinMode(PIN_SYNC_RX, INPUT);
-      // Schmitt-trigger the sync input. The on-board divider + C_SYNC RC slows the
-      // edge to reject BLDC/LED spikes; pad hysteresis then gives exactly one clean
-      // interrupt per edge instead of multiple threshold recrossings on the slow
-      // ramp. pinMode rewrites the pad-control register, so enable HYS afterward.
+      // Pad hysteresis gives one interrupt per slow RC-filtered edge. pinMode
+      // rewrites the pad-control register, so enable HYS afterward.
       *(portControlRegister(PIN_SYNC_RX)) |= IOMUXC_PAD_HYS;
     }
-    // park_sync_out() already left MASTER_EN an output at its disabled level, so
-    // this write is what enables the sync-bus driver: take the board-role level
-    // only once PIN_SYNC_TX is driven, or a pad keeper puts one spurious edge
-    // on the wire that downstream boards read as a symbol.
+    // Enables the sync-bus driver; PIN_SYNC_TX must already be driven or a pad
+    // keeper puts a spurious edge on the wire.
     digitalWriteFast(PIN_MASTER_EN, master ? LOW : HIGH);
 
     sync.seed(ARM_DWT_CYCCNT, master);
@@ -344,8 +304,7 @@ public:
     if (!master) {
       attachInterrupt(digitalPinToInterrupt(PIN_SYNC_RX), sync_edge_isr,
                       RISING);
-      // attachInterrupt leaves the IRQ at the Teensy default (128), equal to
-      // the flywheel's; raise it so the edge stamp is taken at the edge.
+      // Above the flywheel's default 128 so the stamp is taken at the edge.
       NVIC_SET_PRIORITY(IRQ_GPIO6789, SYNC_EDGE_IRQ_PRIORITY);
     }
     HS_CHECK(timer.begin(flywheel_isr, COLUMN_US / float(OVERSAMPLE)),
@@ -378,10 +337,7 @@ public:
             },
             [&] { delete cur; },
             [&] {
-              // Restart the shared RNG stream per effect, seeded from the beacon-
-              // synchronized effect index (spec §2): every board derives the same
-              // per-visit stream locally, regardless of boot/join history — a board
-              // wrong about the index is already building the wrong effect.
+              // Per-effect RNG seed from the synchronized effect index (spec §2).
               HS_CHECK(effect_index >= 0 && effect_index < R,
                        "sync published an out-of-roster effect index");
               hs::random().seed(
@@ -413,10 +369,8 @@ public:
               hs::restore_interrupts(primask);
             });
         built_gen = gen;
-        // `build` includes release, teardown, construction, and the first frame.
-        // `window` starts at the previous poll, before the request arrived;
-        // `margin` is the commit budget minus that window. A missed commit
-        // traps on the board whose pending effect is not ready.
+        // `build` includes release, teardown, construction, and the first frame;
+        // `window` starts at the previous poll, before the request arrived.
         const uint32_t done_cycles = ARM_DWT_CYCCNT;
         const unsigned long window_us =
             (done_cycles - poll_prev_cycles) / cycles_per_us;
@@ -493,10 +447,9 @@ private:
   /**
    * @brief Reads the hardware segment ID from the GPIO straps (log2(N) bits).
    *
-   * @details Inverted INPUT_PULLUP readings assign grounded straps 1 and all-open
-   *          straps master ID 0. Triple sampling detects local instability, but
-   *          stable duplicate peer IDs cause undetected push-pull bus contention;
-   *          assembly requires unique soldered IDs and one master (R-ID-2/R-ID-4).
+   * @details Grounded straps read 1; all-open straps are master ID 0. Duplicate
+   *          peer IDs cause undetected bus contention; assembly requires unique
+   *          IDs and one master (R-ID-2/R-ID-4).
    */
   HS_COLD_MEMBER static void read_id() {
     pinMode(PIN_ID0, INPUT_PULLUP);
@@ -506,8 +459,7 @@ private:
       pinMode(PIN_ID2, INPUT_PULLUP);
     delay(10); // settle time for pull-ups
 
-    // Debounce: three samples ~5 ms apart must agree; an unstable strap reads as
-    // a second master and drives the push-pull sync wire into bus contention.
+    // Debounce: three samples ~5 ms apart must agree.
     const int raw0 = sample_strap();
     for (int i = 0; i < 2; ++i) {
       delay(5);
@@ -515,8 +467,6 @@ private:
                "unstable segment-ID strap (field/manufacturing fault)");
     }
 
-    // Invert the reading (all-floating pull-ups => ID 0), then mask to log2(N)
-    // bits; the mask is load-bearing.
     segment_id = pov::decode_segment_id(raw0, N);
   }
 
@@ -536,9 +486,7 @@ private:
    * @param e Effect to clip.
    * @param arm_a_left True if the window this frame displays in sweeps arm-A
    *        columns [0, CANVAS_W/2); arm B paints the opposite half.
-   * @details Left full-canvas for an effect that reads cross-segment or prior-
-   *          frame state (needs_full_frame / persists_pixels), so trails and
-   *          feedback stay correct under the per-frame arm-half alternation.
+   * @details No-op for an effect that needs_full_frame() or persists_pixels().
    */
   static void clip_to_segment(Effect *e, bool arm_a_left) {
     if (!pov::segment_clip_applies(e->needs_full_frame(), e->persists_pixels()))
@@ -560,21 +508,17 @@ private:
    * @brief Sync-wire edge ISR (downstream boards only): a pure publisher.
    *
    * Applies the glitch filter and records the edge into the mailbox; touches
-   * no flywheel, flip, or epoch state (spec §8.2 single-writer model). It runs
-   * above the flywheel ISR (SYNC_EDGE_IRQ_PRIORITY) so the captured cycle count
-   * is the edge time rather than a service time; that preemption is also what
-   * makes the consumer's interrupt-save bracket around the mailbox claim
-   * load-bearing.
+   * no flywheel, flip, or epoch state (spec §8.2 single-writer model). Preempts
+   * the flywheel ISR, so the mailbox claim must run with interrupts saved off.
    */
   static void sync_edge_isr() { sync.on_sync_edge(ARM_DWT_CYCCNT); }
 
   /**
    * @brief Flywheel ISR: the sole owner of all sync state (spec §8).
    *
-   * Paced by an IntervalTimer at T0/OVERSAMPLE as a wake-up only — the
-   * cycle counter decides which column it is (spec §4.1), so a late, early,
-   * or coalesced wake-up cannot inject drift: the ISR is idempotent when the
-   * column is unchanged and skip-tolerant when it jumped.
+   * Paced by an IntervalTimer at T0/OVERSAMPLE as a wake-up only; the cycle
+   * counter decides the column (spec §4.1). Idempotent when the column is
+   * unchanged, skip-tolerant when it jumped.
    */
   static void flywheel_isr() {
     HS_ISR_PROFILE(hs::g_flywheel_wake_cycles);
@@ -622,16 +566,12 @@ private:
    *          column x + W/2.
    * @return true if the LED transport accepted the frame; false if it was
    *         dropped on a DMA overrun (caller retries via resubmit_frame()).
-   * @details The loop is branchless — all per-segment decisions are resolved at
-   *          boot in configure_segment().  Arm B segments read from x + W/2
-   *          (opposite half of the image).
    */
   [[nodiscard]] HS_O3_FN static bool pack_column(Effect *e, int x) {
     const int w = e->width();
     const int x_col = pov::segment_x_col(segment.arm_b, x, w);
 
-    // ISR fast path: index the display buffer directly, dropping PPS per-pixel
-    // virtual get_pixel() dispatches. No effect on this path overrides get_pixel.
+    // Bypasses get_pixel(); effects are checked not to override it.
     const Pixel *buf = e->display_buffer();
 
     auto &frame = ledController.back_frame();
@@ -683,9 +623,9 @@ private:
 
   /**
    * @brief The sync engine: sole owner of all sync/flywheel state.
-   * @details Written ONLY by the flywheel ISR (tick()) and the edge ISR
-   *          (mailbox publisher) per the spec §8 single-writer model. Foreground
-   *          reads are single aligned words (build_word) or debug telemetry.
+   * @details Written only by the flywheel ISR (tick()) and the edge ISR
+   *          (mailbox publisher), spec §8. Foreground reads are single aligned
+   *          words (build_word) or debug telemetry.
    */
   static pov::sync::SyncBoard sync;
   static IntervalTimer timer; /**< Flywheel wake-up timer (PIT channel).   */
@@ -695,23 +635,16 @@ private:
 
   /**
    * @brief Effect handoff state machine between the foreground and the ISR.
-   * @details The teardown handshake, the acquire/release publish/adopt of the
-   *          pending effect, the consumed-generation gate, and the display-window
-   *          alternation live in pov_handoff.h (host-tested). Ownership: the
-   *          foreground constructs and deletes; the ISR only ever dereferences
-   *          the instance it has been handed via live().
+   * @details The foreground constructs and deletes; the ISR only dereferences
+   *          the instance handed to it via live().
    */
   static pov::EffectHandoff<Effect> handoff;
   /**
    * @brief Per-wake LED-submit decision and its overrun-retry latches.
-   * @details The accept/drop bookkeeping lives in pov_submit_gate.h
-   *          (host-tested); the ISR only performs the action it names.
    */
   static pov::SubmitGate submit_gate;
   /**
    * @brief Sync-pulse width decision and its deferred-drop latch.
-   * @details Lives in pov_submit_gate.h (host-tested); the ISR only performs
-   *          the pin writes it names.
    */
   static pov::SyncPulseGate sync_pulse;
 
@@ -750,10 +683,9 @@ template <int S, int N, int RPM> int POVSegmented<S, N, RPM>::segment_id = 0;
 template <int S, int N, int RPM>
 pov::SegmentMap POVSegmented<S, N, RPM>::segment{false, 0, 1};
 
-// ledController has no out-of-line definition: DMAMEM survives only on an
-// explicit specialization (see DMALEDController in dma_led_controller.h). Each
-// instantiating target invokes HS_DEFINE_POV_SEGMENTED_LED_CONTROLLER(S, N, RPM)
-// once at file scope — see targets/Phantasm/phantasm_target.h.
+// DMAMEM survives only on an explicit specialization, so each instantiating
+// target invokes HS_DEFINE_POV_SEGMENTED_LED_CONTROLLER(S, N, RPM) once at file
+// scope.
 #define HS_DEFINE_POV_SEGMENTED_LED_CONTROLLER(S, N, RPM)                      \
   template <>                                                                  \
   DMAMEM DMALEDController<(S) / (N)> POVSegmented<S, N, RPM>::ledController {  \

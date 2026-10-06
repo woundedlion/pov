@@ -51,9 +51,8 @@
 /**
  * @brief Single source of truth for the registered effect roster, as an X-macro.
  * @param X Function-like macro applied to each effect type name in the roster.
- * @details The WASM factory and native smoke suite expand this roster directly;
- * factory names are checked for uniqueness at compile time. Composed includes
- * are generated; other effect includes and all X() rows are authored here.
+ * @details Composed includes are generated; other effect includes and all X()
+ * rows are authored here.
  */
 #define HS_EFFECT_LIST(X)                                                      \
   X(BZReactionDiffusion)                                                       \
@@ -102,9 +101,8 @@
 /// Phantasm renders one frame per half-revolution, so 480 RPM is 16 fps.
 constexpr int HS_SHOW_FRAMES_PER_SECOND = 16;
 
-/** Canvas the preset cadence is read at. Spelling one out keeps the derived
- * durations identical across targets whose CANVAS_W/CANVAS_H differ, so the
- * device playlist and the gallery agree on a show length. */
+/** Canvas the preset cadence is read at, so targets with different
+ * CANVAS_W/CANVAS_H agree on a show length. */
 inline constexpr int HS_PRESET_WINDOW_W = 96;
 /** Height half of the cadence-reading canvas (see HS_PRESET_WINDOW_W). */
 inline constexpr int HS_PRESET_WINDOW_H = 20;
@@ -169,7 +167,7 @@ constexpr int hs_preset_window_seconds() {
  */
 #define HS_EFFECT_COUNT_ADD(name) +1
 /**
- * @brief Number of entries in HS_EFFECT_LIST, derived rather than hand-counted.
+ * @brief Number of entries in HS_EFFECT_LIST.
  */
 constexpr int HS_EFFECT_COUNT = 0 HS_EFFECT_LIST(HS_EFFECT_COUNT_ADD);
 #undef HS_EFFECT_COUNT_ADD

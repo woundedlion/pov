@@ -8,23 +8,11 @@
  * @brief Pure, host-testable LED-submit and sync-pulse decisions for the
  *        POVSegmented ISR.
  *
- * Kept free of Arduino dependencies so the one place the driver
- * reacts to the DMA transport's accept/drop verdict is unit-testable on the
- * host, exactly as pov_handoff.h is for the effect handoff. The transport is
- * not modelled here: the verdict is injected as a bool.
- *
- * DMALEDController::submit_frame() drops a frame when the previous transfer is
- * still in flight, so both submit paths — the fail-dark black frame and the
- * image column — clear their pending state only on an accepted submit. A drop
- * retries on the next flywheel wake (~54 µs at 8× oversampling), and on later
- * wakes if the transport is still busy. The flywheel's idempotent wake-up
- * contract (spec §4.1) reports no new
- * column until the arm advances, so the ~7 remaining wakes of a dropped column
- * would otherwise all be no-ops and show the previous transfer: black for
- * strobed effects, the prior column otherwise.
- *
- * Re-submission needs no repack — an overrun returns before the controller
- * swaps buffers, so the dropped frame's pixels are still packed in back_frame().
+ * The transport's accept/drop verdict is injected as a bool. Both submit
+ * paths (fail-dark black frame and image column) clear their pending state
+ * only on an accepted submit; a drop retries on later flywheel wakes.
+ * Re-submission needs no repack: an overrun returns before the controller
+ * swaps buffers.
  */
 #pragma once
 
@@ -46,8 +34,7 @@ enum class SubmitAction : uint8_t {
 
 /**
  * @brief Per-wake LED-submit decision and its two retry latches.
- * @details ISR-owned: every access is in the flywheel-ISR context, so the
- *          latches are plain bools.
+ * @details ISR-owned: every access is in the flywheel-ISR context.
  */
 class SubmitGate {
 public:
@@ -61,8 +48,7 @@ public:
    */
   SubmitAction choose(bool dark, int32_t render_column) {
     if (dark) {
-      // A dropped image column is stale once the wake goes dark, and the black
-      // frame overwrites the back buffer it was packed into.
+      // The black frame overwrites the dropped column's back buffer.
       resubmit_needed = false;
       return black_frame_accepted ? SubmitAction::NONE : SubmitAction::BLACK;
     }
@@ -108,14 +94,10 @@ private:
 
 /**
  * @brief Width decision for the master's sync pulse on the shared sync wire.
- * @details ISR-owned, like SubmitGate. The pin is driven HIGH by the flywheel
- *          tick that schedules the pulse, not at ISR entry. A wake that
- *          renders a frame widens the pulse to the rest of its ~8-13 µs body
- *          (spec §5.2), so the pin drops before the wake returns — the path a
- *          scheduled pulse almost always takes, since pulses fall on column
- *          boundaries. A wake that renders nothing has a ~1 µs body, so it
- *          holds the pin HIGH across the ISR boundary and drops it at the head
- *          of the next wake, one wake period (~54 µs) later.
+ * @details ISR-owned. A wake that renders a frame drops the pin before it
+ *          returns, widening the pulse to the rest of its body (spec §5.2); a
+ *          wake that renders nothing holds the pin HIGH across the ISR
+ *          boundary and drops it at the head of the next wake.
  */
 class SyncPulseGate {
 public:
@@ -157,8 +139,7 @@ private:
 /**
  * @brief Effect-ownership state machine one wake advances.
  * @tparam T Candidate handoff type.
- * @details Mirrors what pov::EffectHandoff exposes, so a mismatched state
- *          machine fails at the run_wake_sequence() call rather than inside it.
+ * @details Mirrors pov::EffectHandoff.
  */
 template <class T>
 concept WakeHandoff = requires(T t, const WakeInputs &in) {

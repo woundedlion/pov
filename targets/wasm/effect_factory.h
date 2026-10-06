@@ -7,9 +7,6 @@
  * @file effect_factory.h
  * @brief Per-(W,H) effect factory and resolution dispatch behind the WASM
  *        engine, free of emscripten types.
- *
- * The native suite compiles and drives it under live HS_CHECK, ASan/UBSan
- * and -O0 (tests/test_effect_factory.h).
  */
 #pragma once
 
@@ -17,7 +14,7 @@
 #include "core/control/registry.h"
 #include "targets/effects.h"
 #include <array>
-#include <iterator> // std::size — X-macro roster tables
+#include <iterator>
 #include <string_view>
 #include <vector>
 
@@ -59,13 +56,9 @@ template <int W, int H> const std::vector<FactoryEntry> &get_factory() {
  * @tparam W Canvas width in pixels.
  * @tparam H Canvas height in pixels.
  * @param name Effect class name or stable EFFECT_ID to look up.
- * @return Pointer to the matching entry, or null if the class name or ID is unknown (a
- *         typo'd/stale UI string). The entry belongs to the static per-(W,H)
- *         table and stays valid for the module's lifetime.
- * @details Cheap linear scan used by setEffect() to validate a stale/typo'd UI
- *          string BEFORE it tears down the running effect, so an unknown name is
- *          a transactional no-op rather than a blanked engine; the returned
- *          entry then creates the effect without a second lookup.
+ * @return Pointer to the matching entry, or null if the class name or ID is
+ *         unknown. The entry belongs to the static per-(W,H) table and stays
+ *         valid for the module's lifetime.
  */
 template <int W, int H>
 const FactoryEntry *find_factory_entry(std::string_view name) {

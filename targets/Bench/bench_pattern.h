@@ -17,13 +17,9 @@
  * @brief Whole-canvas colour cycle that holds on red, green, blue and white.
  * @tparam W Canvas width in pixels.
  * @tparam H Canvas height in pixels.
- * @details Uniform in x, so a rotor at rest shows a steady colour rather than a
- * smear of columns, and uniform in y, so every segment of every arm shows the
- * same colour at the same instant. The phase is the frame counter and each
- * board draws exactly one frame per display window from a shared epoch, so a
- * board whose sync has slipped reads directly as a mismatched arm. The holds
- * on full primaries expose a dead channel or a swapped LED colour order, which
- * a continuous sweep hides.
+ * @details Uniform in x and y. The phase is the frame counter, so a board
+ * whose sync has slipped reads as a mismatched arm; the holds on full
+ * primaries expose a dead channel or a swapped LED colour order.
  */
 template <int W, int H> class BenchPattern : public Effect {
 public:

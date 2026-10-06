@@ -52,8 +52,7 @@ public:
     const int32_t lateness = static_cast<int32_t>(now - at_cycles);
     if (lateness > static_cast<int32_t>(cfg.late_censor_cycles()))
       return false; // late at the boundary: skip the whole symbol
-    // Retire a fully drained beacon frame here as well as in tick(), so a live
-    // queue_len always means the in-flight pulses belong to a beacon.
+    // A live queue_len means the in-flight pulses belong to a beacon.
     queue_len = queue_pos = 0;
     pulses_left = symbol_pulse_count(symbol);
     next_due = at_cycles;
@@ -67,12 +66,11 @@ public:
    * @param now Current timestamp (frame start), in cycles.
    * @param cfg Protocol configuration.
    * @return False when another emission is still active.
-   * @details Called when the master reaches the beacon point (x ≈ W/4).
    */
   bool schedule_beacon(const uint8_t digits[5], uint32_t now,
                        const Config &cfg) {
     if (pulses_left > 0 || queue_pos < queue_len)
-      return false; // defensive: never interleave with an active emission
+      return false;
     uint32_t start = now;
     const uint32_t col = cfg.cycles_per_column();
     for (int i = 0; i < 5; ++i) {
@@ -134,11 +132,6 @@ public:
   /**
    * @brief Drops any in-flight or queued burst so a boundary symbol can schedule.
    * @return What was discarded, for caller telemetry.
-   * @details Usually a beacon that overran its pre-HALF window under a masked-ISR
-   * coast, but a boundary symbol masked for most of a half-rev can also still
-   * have undrained pulses. schedule_boundary() refuses an active emission;
-   * this discard makes room for the new boundary symbol and reports its kind
-   * for telemetry.
    */
   DroppedBurst drop_pending_emission() {
     if (pulses_left == 0 && queue_pos >= queue_len)
