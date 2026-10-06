@@ -1168,7 +1168,12 @@ class TestColdCaptureAudit(unittest.TestCase):
     def test_missing_banner_fails_rather_than_falling_back(self):
         # If PlatformIO's banner format ever changes the expectation cannot be
         # derived; that must go red, not silently revert to "at least one compile".
-        self.assertEqual(_run_warning_gate(self._compile("phantasm", self.TUS[0]) + "\n"), 1)
+        buf = io.StringIO()
+        with contextlib.redirect_stdout(buf):
+            rc = _run_warning_gate(self._compile("phantasm", self.TUS[0]) + "\n",
+                                   envs=("phantasm",))
+        self.assertEqual(rc, 1)
+        self.assertIn("no `Processing <env> (...)` banner", buf.getvalue())
 
     def test_banner_without_build_src_filter_fails(self):
         log = ("Processing phantasm (board: teensy40; platform: teensy@5.2.0)\n"
