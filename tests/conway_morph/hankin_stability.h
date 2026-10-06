@@ -7,7 +7,7 @@
 
 // ---------------------------------------------------------------------------
 // Hankin-sweep stability probe: per-step branch, displacement and face-normal
-// diagnostics for the four Phase-1 hankin legs. The shipping path slerps
+// diagnostics for the four hankin legs. The shipping path slerps
 // each dynamic vertex from its collapsed corner to the theta_star solve;
 // re-solve modes are print-only comparisons.
 // ---------------------------------------------------------------------------
@@ -299,7 +299,7 @@ hankin_summarize(const std::vector<HankinStepStats> &table) {
 }
 
 /**
- * @brief Measures per-frame sweep stability of the four Phase-1 hankin legs
+ * @brief Measures per-frame sweep stability of the four hankin legs
  *        under the shipping slerp-from-corner parameterization.
  * @details Re-solve modes are diagnostic comparisons. The slerp gates bound
  * displacement and face-normal reversals using snorm16 arrival vertices and
