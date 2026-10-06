@@ -65,7 +65,7 @@ inline void advance_walk(SpatialWalkState &state, float wander,
 }
 
 /** @brief Instance state of the noise-driven operators: the owned field plus
-    the loop phase its `speed` field advances. */
+    the loop phase PhaseClockModel advances. */
 struct NoisePhaseState {
   FastNoiseLite noise;
   float phase = 0.0f;
