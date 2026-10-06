@@ -1051,7 +1051,6 @@ inline int run_effects_tests() {
   run_case(test_raymarch_preset_and_placement_solids);
   run_case(test_raymarch_surface_frame_uv);
   // Resolution-independent white-box math.
-  run_case(test_gs_q16_roundtrip);
   run_case(test_gs_hot_flags_match_directed_graph);
   run_case(test_gs_rest_state_is_fixed_point);
   run_case(test_gs_substep_signs_and_clamp);

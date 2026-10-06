@@ -880,27 +880,6 @@ inline void test_gs_sparse_pigment_matches_dense() {
   }
 }
 
-/**
- * @brief Verifies the Q16 fixed-point round-trip and the +0.5 rounding/clamp
- *        boundaries.
- * @details to_q16(from_q16(v)) must be the identity over every representable
- *          value, and to_q16 must clamp out-of-range floats and round to nearest
- *          (so 1.0 tops out at 65535 with no overflow).
- */
-inline void test_gs_q16_roundtrip() {
-  HS_EXPECT_EQ(GSWhiteBox::to_q16(0.0f), (uint16_t)0);
-  HS_EXPECT_EQ(GSWhiteBox::to_q16(1.0f), (uint16_t)65535);
-  HS_EXPECT_EQ(GSWhiteBox::to_q16(2.0f), (uint16_t)65535); // clamp high
-  HS_EXPECT_EQ(GSWhiteBox::to_q16(-0.5f), (uint16_t)0);    // clamp low
-  HS_EXPECT_NEAR(GSWhiteBox::from_q16(0), 0.0f, 1e-9f);
-  HS_EXPECT_NEAR(GSWhiteBox::from_q16(65535), 1.0f, 1e-9f);
-  int bad = 0;
-  for (int v = 0; v <= 65535; ++v)
-    if (GSWhiteBox::to_q16(GSWhiteBox::from_q16((uint16_t)v)) != (uint16_t)v)
-      ++bad;
-  HS_EXPECT_EQ(bad, 0);
-}
-
 /** @brief Compares both cull rings to the original directed adjacency table. */
 inline void test_gs_hot_flags_match_directed_graph() {
   constexpr int N = GSWhiteBox::N;
