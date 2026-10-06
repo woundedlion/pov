@@ -205,7 +205,7 @@ The `process_pixel` function applies anti-aliasing based on shape type:
 | Shape | Description |
 |---|---|
 | `SDF::Ring` | Geodesic circle at a given radius and thickness |
-| `SDF::DistortedRing` | Ring with per-azimuth radius perturbation via a callback |
+| `SDF::DistortedRing` | Ring whose centerline is shifted per azimuth, either by a callback (polar-separation distance) or by a knot polyline (exact polyline distance) |
 | `SDF::PlanarPolygon` | Regular N-gon in the tangent plane of a basis vector |
 | `SDF::SphericalPolygon` | Regular N-gon with geodesic (great-circle) edges |
 | `SDF::Star` | N-pointed star using the standard inradius/circumradius construction |
