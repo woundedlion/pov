@@ -52,8 +52,8 @@ inline ChainPeaks replay_build_chain(const char *name,
   ChainPeaks peaks;
   using Animation::OpLeg;
   constexpr int GATE_HALF_FRAMES = 6;
-  constexpr size_t MAX_FACES = 1152;
-  constexpr size_t MAX_STEPS = 8;
+  constexpr size_t MAX_FACES = IslamicStarsDetail::MAX_BUILD_FACES;
+  constexpr size_t MAX_STEPS = IslamicStarsDetail::MAX_BUILD_OPS;
 
   {
     const int failed_before = hs_test::stats().failed;
