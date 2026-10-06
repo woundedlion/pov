@@ -1208,9 +1208,12 @@ inline void test_leg_start_seed_frame_continuity() {
     const bool reverse = (e.to_node == node);
     const int failed_before = hs_test::stats().failed;
 
-    // Seed reconciliation, exactly as start_morph_cycle applies it.
-    const SeedFix fix = seed_fix_at_start(ei, seed_identity);
+    SeedFix fix;
+    const int RECONCILED =
+        reconciled_seed_identity(ei, node, seed_identity, fix);
     HS_EXPECT_TRUE(fix != SeedFix::INVALID);
+    if (fix == SeedFix::INVALID)
+      return;
     kept |= fix == SeedFix::KEEP;
     if (fix == SeedFix::DUAL_SWAP) {
       swapped_cube |= seed_identity == CUBE || seed_identity == OCTAHEDRON;
@@ -1229,13 +1232,12 @@ inline void test_leg_start_seed_frame_continuity() {
       PolyMesh d = MeshOps::dual(seed_base, work, temp);
       seed_arena.reset();
       seed_base = Solids::finalize_solid(d, seed_arena);
-      seed_identity = dual_platonic(seed_identity);
     } else if (fix == SeedFix::REGEN_TETRA) {
       PolyMesh t = Solids::Platonic::tetrahedron(work, temp);
       seed_arena.reset();
       seed_base = Solids::finalize_solid(t, seed_arena);
-      seed_identity = TETRAHEDRON;
     }
+    seed_identity = RECONCILED;
     PolyMesh derived_seed;
     if (fix == SeedFix::DERIVE_AMBO)
       derived_seed = MeshOps::ambo(seed_base, work, temp);
