@@ -350,6 +350,16 @@ inline void check_hyper_lattice_pattern_view_dropdowns() {
   HS_EXPECT_FALSE(view->is_bool);
   HS_EXPECT_TRUE(view->is_integer);
   HS_EXPECT_EQ(view->option_count, 2);
+  HS_EXPECT_EQ(pattern->option_count, 3);
+  HS_EXPECT_TRUE(view->options != nullptr);
+  HS_EXPECT_TRUE(view->export_options != nullptr);
+  HS_EXPECT_TRUE(pattern->options != nullptr);
+  HS_EXPECT_TRUE(pattern->export_options != nullptr);
+  HS_EXPECT_TRUE(pattern->option_values != nullptr);
+  if (view->option_count != 2 || pattern->option_count != 3 || !view->options ||
+      !view->export_options || !pattern->options || !pattern->export_options ||
+      !pattern->option_values)
+    return;
   HS_EXPECT_EQ(std::string_view(view->options[0]),
                std::string_view("3D perspective"));
   HS_EXPECT_EQ(std::string_view(view->options[1]),
@@ -358,7 +368,6 @@ inline void check_hyper_lattice_pattern_view_dropdowns() {
                std::string_view("LatticeMode::FOUR_D_SLICE"));
   HS_EXPECT_FALSE(pattern->is_bool);
   HS_EXPECT_TRUE(pattern->is_integer);
-  HS_EXPECT_EQ(pattern->option_count, 3);
   HS_EXPECT_EQ(std::string_view(pattern->options[0]),
                std::string_view("Cubic"));
   HS_EXPECT_EQ(std::string_view(pattern->export_options[0]),
