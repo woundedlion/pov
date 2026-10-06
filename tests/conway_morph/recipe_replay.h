@@ -543,6 +543,9 @@ inline constexpr Solids::OpStep CHAIN_AMBO_DUAL[] = {{Solids::Op::AMBO},
 inline constexpr Solids::OpStep CHAIN_HK62_DUAL[] = {
     {Solids::Op::HANKIN, 62.0f * Solids::IslamicStarPatterns::D2R},
     {Solids::Op::DUAL}};
+/** Sweep-only chain: every leg is a production leg with a landed carry. */
+inline constexpr Solids::OpStep CHAIN_AMBO_TRUNCATE[] = {
+    {Solids::Op::AMBO}, {Solids::Op::TRUNCATE, 0.33f}};
 inline constexpr Solids::Recipe DODECAHEDRON_KIS_RECIPE = {
     Solids::SEED_DODECAHEDRON, CHAIN_KIS, std::size(CHAIN_KIS)};
 inline constexpr Solids::Recipe CUBE_KIS_DUAL_RECIPE = {
@@ -551,6 +554,9 @@ inline constexpr Solids::Recipe ICOSAHEDRON_AMBO_DUAL_RECIPE = {
     Solids::SEED_ICOSAHEDRON, CHAIN_AMBO_DUAL, std::size(CHAIN_AMBO_DUAL)};
 inline constexpr Solids::Recipe DODECAHEDRON_HK62_DUAL_RECIPE = {
     Solids::SEED_DODECAHEDRON, CHAIN_HK62_DUAL, std::size(CHAIN_HK62_DUAL)};
+inline constexpr Solids::Recipe ICOSAHEDRON_AMBO_TRUNCATE_RECIPE = {
+    Solids::SEED_ICOSAHEDRON, CHAIN_AMBO_TRUNCATE,
+    std::size(CHAIN_AMBO_TRUNCATE)};
 
 /** @brief Identity measurements for one generated relax source. */
 struct RelaxSourceIdentity {
@@ -591,4 +597,9 @@ inline void test_recipe_chain_build_replay() {
   replay_build_chain("cube_kis_dual", CUBE_KIS_DUAL_RECIPE);
   replay_build_chain("icosahedron_ambo_dual", ICOSAHEDRON_AMBO_DUAL_RECIPE);
   replay_build_chain("dodecahedron_hk62_dual", DODECAHEDRON_HK62_DUAL_RECIPE);
+  const ChainPeaks sweep = replay_build_chain("icosahedron_ambo_truncate",
+                                              ICOSAHEDRON_AMBO_TRUNCATE_RECIPE);
+  HS_EXPECT_TRUE(sweep.supported);
+  HS_EXPECT_TRUE(sweep.production_schedule);
+  HS_EXPECT_EQ(sweep.legs, (size_t)2);
 }
