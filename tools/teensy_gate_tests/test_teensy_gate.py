@@ -14,6 +14,7 @@ import dataclasses
 import io
 import json
 import os
+import re
 import subprocess
 import sys
 import tempfile
@@ -1158,6 +1159,16 @@ class TestNonUtf8Captures(unittest.TestCase):
 
 class TestStripJsoncComments(unittest.TestCase):
     """The bespoke JSONC comment stripper guarding the budgets file."""
+
+    def test_real_budgets_match_the_cmake_line_comment_reader(self):
+        path = TOOLS / "teensy_budgets.json"
+        raw = path.read_text(encoding="utf-8")
+        try:
+            cmake_budgets = json.loads(re.sub(r"//[^\n]*", "", raw))
+        except json.JSONDecodeError as error:
+            self.fail(f"teensy_budgets.json must support CMake's line-comment reader: {error}")
+        self.assertEqual(cmake_budgets, tg.load_budgets(path),
+                         "CMake and teensy_gate must read identical budgets")
 
     def test_strips_line_and_block_comments(self):
         text = '{\n  // line\n  "a": 1, /* block */ "b": 2\n}'
