@@ -121,8 +121,10 @@ inline void test_kaleidoscope_smooth_transition_contract() {
   HS_EXPECT_TRUE(WB::transition_active(effect));
 
   for (uint16_t frame = frames;
-       frame < Segue::Preset::frames(FX::preset_departure(0)); ++frame)
+       frame + 1 < Segue::Preset::frames(FX::preset_departure(0)); ++frame)
     drive(0.5f);
+  HS_EXPECT_TRUE(WB::transition_active(effect));
+  drive(0.5f);
   HS_EXPECT_NEAR(WB::params(effect).template get<"source">().complexity,
                  FX::preset(1).params.template get<"source">().complexity,
                  0.0f);
