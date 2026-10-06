@@ -855,8 +855,6 @@ static void rasterize(PipelineT &source_pipeline, Canvas &canvas,
       pipeline.plot(canvas, start_pos, f.color.color, f.age, f.color.alpha);
     }
 
-    // The size() - 1 cannot underflow: HS_CHECK(sim_dist > 0) above implies the
-    // simulation pushed at least one step.
     size_t loop_limit = omit_last ? steps_cache.size() - 1 : steps_cache.size();
     float current_dist = 0.0f;
 
@@ -864,7 +862,6 @@ static void rasterize(PipelineT &source_pipeline, Canvas &canvas,
       float step = steps_cache[j] * scale;
       current_dist += step;
 
-      // total_dist > 0 here (HS_CHECK(sim_dist > 0) implies >=1 sim step).
       const bool terminal = !omit_last && j == loop_limit - 1;
       float t = terminal ? 1.0f : fminf(current_dist / total_dist, 1.0f);
 
