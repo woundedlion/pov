@@ -504,8 +504,7 @@ inline void case_motion_empty_path_origin_sample() {
 
 /**
  * @brief Death case: a live-source Driver built with a null speed pointer must trap.
- * @details Animation surface — the guard traps rather than dereferencing the
- *          null pointer in the member-init list.
+ * @details The guard traps before the constructor body reads *speed_src.
  */
 inline void case_driver_null_speed_src() {
   static float mutant = 0.0f;
