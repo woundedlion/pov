@@ -15,9 +15,9 @@
  * @details Makes owned (ArenaVector) vs borrowed data visible at the type level.
  *
  * LIFETIME CONTRACT: a span snapshots its source vector's elements pointer at
- * construction. Debug checks fault on an arena RESET, a source-vector RE-GROW,
+ * construction. Debug checks fault on an arena RESET, a source-vector RE-GROW or CLEAR,
  * a rewind below the borrowed block, or reclamation and reissue of that block.
- * The arena generation tracks reset, the per-vector rebind counter tracks grow,
+ * The arena generation tracks reset, the per-vector rebind counter tracks grow and clear,
  * and the block stamp tracks rewind and reissue. A MOVE of the source vector is not
  * tracked: the span keeps its snapshotted elements (runtime-safe) but its debug
  * stamps reference the moved-from husk, so re-take the span after growing or

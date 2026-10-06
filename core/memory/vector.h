@@ -404,6 +404,9 @@ public:
    */
   void clear() {
     check_alive();
+#ifndef NDEBUG
+    rebind_generation++;
+#endif
     element_count = 0;
   }
 
