@@ -29,8 +29,9 @@ inline constexpr float CHAMFER_T_MAX = 0.63f;
  *   recipe to the caller's whole-generate fallback.
  * @details A sub-T_EPS TRUNCATE arrival births at min(T_EPS, arrival *
  * TRUNCATE_BIRTH_FRAC); an arrival above 0.5 is a far-side leg that sweeps
- * through the ambo pinch on the constant-topology truncate branch. SNUB,
- * HANKIN and RELAX admit exactly the parameters apply_step accepts.
+ * through the ambo pinch on the constant-topology truncate branch. SNUB and
+ * HANKIN require a positive parameter; RELAX requires a bake or at least one
+ * live iteration. apply_step validates the replay parameters separately.
  */
 inline constexpr bool is_morphable_step(const OpStep &step) {
   switch (step.op) {
