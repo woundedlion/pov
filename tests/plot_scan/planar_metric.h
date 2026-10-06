@@ -42,9 +42,7 @@ inline float az_arc_exact(const math::Vector &p, const math::Vector &q) {
 
 /**
  * @brief azimuthal_project's radius equals the great-circle angle from center.
- * @details The projection's defining property: |proj| == angle_between(p,
- *          center). Checked against an independent angle_between, so an axis or
- *          scale error in the projection would break it.
+ * @details Radius is checked against an independent libm great-circle angle.
  */
 inline void test_azimuthal_project_radius_is_geodesic_angle() {
   hs::random().seed(0xA21E);
@@ -52,7 +50,7 @@ inline void test_azimuthal_project_radius_is_geodesic_angle() {
   for (int trial = 0; trial < 4000; ++trial) {
     math::Basis basis = basis_from_normal(rand_unit());
     math::Vector p = rand_unit();
-    float geo = math::angle_between(p, basis.v);
+    float geo = az_arc_exact(p, basis.v);
     auto proj = Plot::azimuthal_project(p, basis);
     float r = std::hypot(proj.first, proj.second);
     HS_EXPECT_NEAR(r, geo, 5e-3f * (geo + 1.0f));
