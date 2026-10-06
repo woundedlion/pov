@@ -654,6 +654,43 @@ inline int expect_face_cull_covers_fringe(int sides, float rho,
   return paintable;
 }
 
+/** @brief Pins azimuth culling to the columns emitted at a rounded boundary. */
+inline void test_face_azimuth_cull_matches_boundary_column() {
+  constexpr int W = 288, H = 144, Y = 72;
+  const math::Vector VERTS[] = {math::Vector(1.0f, 0.1f, 0.0f).normalized(),
+                                math::Vector(1.0f, -0.1f, 0.1f).normalized(),
+                                math::Vector(1.0f, -0.1f, -0.1f).normalized()};
+  const uint16_t INDICES[] = {0, 1, 2};
+  SDF::FaceScratchBuffer scratch;
+  SDF::Face face(VERTS, INDICES, scratch, math::LatitudeGeometry(H), H);
+  std::array<float, H> pads;
+  pads.fill(0.05f);
+  SDF::Interval interval{0x1.e3930ap-1f, 1.1f};
+  face.intervals = std::span<SDF::Interval>(&interval, 1);
+  face.full_width = false;
+  face.y_min = Y;
+  face.y_max = Y;
+  face.build_azimuth_pads = pads.data();
+  int start = -1, end = -1;
+  HS_EXPECT_TRUE((face.get_horizontal_intervals<W, H>(Y, [&](float a, float b) {
+    start = static_cast<int>(a);
+    end = static_cast<int>(b);
+  })));
+  HS_EXPECT_EQ(start, 40);
+  HS_EXPECT_GT(end, start);
+  ClipRegion clip{.y_start = Y,
+                  .y_end = Y + 1,
+                  .x_start = start,
+                  .x_end = start + 1,
+                  .margin = 0,
+                  .w = W,
+                  .h = H};
+  HS_EXPECT_TRUE(!face.clip_rejects_azimuth(clip, Y, Y));
+  clip.x_start = start - 1;
+  clip.x_end = start;
+  HS_EXPECT_TRUE(face.clip_rejects_azimuth(clip, Y, Y));
+}
+
 /** @brief Verifies Face culling includes the AA fringe near column boundaries. */
 inline void test_face_cull_covers_aa_fringe() {
   constexpr int W = 256, H = 128;

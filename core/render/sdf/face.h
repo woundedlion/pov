@@ -391,11 +391,11 @@ struct Face {
       pw = face_azimuth_pad(Wd, sin_phi);
     }
     const int band_len = xc.length(Wd);
+    const float COLUMN_SCALE = Wd / math::TWO_PI_F;
     for (const auto &iv : intervals) {
-      // Mirrors get_horizontal_intervals' radians->column mapping, so the cull
-      // matches the emitted columns exactly.
-      int a = static_cast<int>(floorf((iv.start - pw) * Wd / math::TWO_PI_F));
-      int b = static_cast<int>(ceilf((iv.end + pw) * Wd / math::TWO_PI_F));
+      // Match get_horizontal_intervals' radians-to-column rounding.
+      int a = static_cast<int>(floorf((iv.start - pw) * COLUMN_SCALE));
+      int b = static_cast<int>(ceilf((iv.end + pw) * COLUMN_SCALE));
       int len = b - a;
       if (len <= 0)
         continue;
