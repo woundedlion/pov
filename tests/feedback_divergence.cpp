@@ -245,8 +245,7 @@ int compare(const char *pa, const char *pb) {
   const bool equal = a == b;
 
   for (int p = 0; p < na; ++p) {
-    printf("\n=== %s: %d frames ===\n",
-           p < NPRESET ? preset_names[p] : "preset", fa);
+    printf("\n=== %s: %d frames ===\n", preset_names[p], fa);
     printf("%6s %12s %10s %10s\n", "frame", "differing", "max|d|", "mean|d|");
     int worst = 0, worst_frame = 0;
     long worst_count = 0, spikes = 0, spike_chans = 0;
