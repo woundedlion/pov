@@ -68,8 +68,7 @@ inline math::Complex project_div(const math::Complex &num,
 /**
  * @brief Coefficients of a Mobius transform f(z) = (az + b) / (cz + d).
  * @details Stores the four coefficients as first-class `Complex` values;
- * animators mutate the `.re`/`.im` components in place. The eight-float
- * constructor is retained for terse literal initialization.
+ * animators mutate the `.re`/`.im` components in place.
  */
 struct MobiusParams {
   math::Complex a, b, c, d; /**< The four transform coefficients. */
