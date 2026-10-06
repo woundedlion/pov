@@ -17,13 +17,19 @@ GEN = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(GEN))
 
 import fab  # noqa: E402
+from constraints import NEW_LAYOUT_RULES  # noqa: E402
+
+
+def checked_rule_count(project):
+    document = json.loads(Path(project).read_text(encoding="utf-8"))
+    return len(fab.rule_checks(document, fab.RULE_MINIMUMS, fab.DEFAULT_CLASS_MINIMUMS))
 
 
 class ProjectRulesTests(unittest.TestCase):
     def write_project(self, directory, rules=None, default=None):
         document = {
             "board": {"design_settings": {
-                "rules": {**fab.RULE_MINIMUMS, **fab.NEW_LAYOUT_RULES},
+                "rules": {**fab.RULE_MINIMUMS, **NEW_LAYOUT_RULES},
                 "rule_severities": {"silk_over_copper": "error"}}},
             "net_settings": {
                 "classes": [dict(fab.DEFAULT_CLASS_MINIMUMS, name="Default")]
@@ -38,10 +44,8 @@ class ProjectRulesTests(unittest.TestCase):
     def test_accepts_project_at_the_floor(self):
         with tempfile.TemporaryDirectory() as directory:
             project = self.write_project(directory)
-            self.assertEqual(
-                fab.validate_project_rules(project),
-                len(fab.RULE_MINIMUMS) + len(fab.NEW_LAYOUT_RULES)
-                + len(fab.DEFAULT_CLASS_MINIMUMS) + 1)
+            self.assertEqual(fab.validate_project_rules(project),
+                             checked_rule_count(project))
 
     def test_rejects_gui_rezeroed_clearance(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -75,13 +79,10 @@ class ProjectRulesTests(unittest.TestCase):
                 fab.validate_project_rules(project)
 
     def test_committed_project_meets_the_fabrication_floors(self):
-        self.assertEqual(
-            fab.validate_project_rules(),
-            len(fab.RULE_MINIMUMS) + len(fab.NEW_LAYOUT_RULES)
-            + len(fab.DEFAULT_CLASS_MINIMUMS) + 1)
+        self.assertEqual(fab.validate_project_rules(), checked_rule_count(fab.PRO))
 
     def test_rejects_disabled_layout_constraints(self):
-        for field in fab.NEW_LAYOUT_RULES:
+        for field in NEW_LAYOUT_RULES:
             with self.subTest(field=field), tempfile.TemporaryDirectory() as directory:
                 project = self.write_project(directory, rules={field: 0})
                 with self.assertRaisesRegex(fab.ProjectRulesError, field):

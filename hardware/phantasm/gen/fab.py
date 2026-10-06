@@ -37,9 +37,8 @@ from connectivity import footprint_reference
 from constraints import (DEFAULT_CLASS_MINIMUMS, EXCLUDE_FP_SUBSTR,
                          EXCLUDE_VAL_SUBSTR, MIN_SOLDER_MASK_WEB_MM,
                          MIN_THERMAL_GAP_MM, MIN_THERMAL_SPOKE_MM,
-                         MIN_VIA_TO_VIA_COPPER_SPACING_MM,
-                         NEW_LAYOUT_RULES, RULE_MINIMUMS)
-from constraints import rule_shortfalls
+                         MIN_VIA_TO_VIA_COPPER_SPACING_MM, RULE_MINIMUMS,
+                         rule_checks)
 from kicad_common import net_name, F, is_copper_pour, kicad_cli, require_annotated_export
 
 GEN = os.path.dirname(os.path.abspath(__file__))
@@ -689,19 +688,20 @@ def validate_project_rules(project_path=PRO):
             f"cannot read project file: {project_path}") from exc
 
     try:
-        shortfalls = rule_shortfalls(document, RULE_MINIMUMS,
-                                     DEFAULT_CLASS_MINIMUMS)
+        checks = rule_checks(document, RULE_MINIMUMS, DEFAULT_CLASS_MINIMUMS)
     except ValueError as exc:
         raise ProjectRulesError(f"{project_path}: {exc}") from exc
 
+    shortfalls = sorted((field, current, required)
+                        for field, (current, required, met) in checks.items() if not met)
     if shortfalls:
         summary = "; ".join(
-            f"{field} is {current!r}, requires {minimum!r}"
-            for field, (current, minimum) in sorted(shortfalls.items()))
+            f"{field} is {current!r}, requires {required!r}"
+            for field, current, required in shortfalls)
         raise ProjectRulesError(
             f"{project_path} would compute DRC under relaxed constraints: "
             f"{summary}. Run gen/heal_clearance.py before fab.py.")
-    return len(RULE_MINIMUMS) + len(NEW_LAYOUT_RULES) + len(DEFAULT_CLASS_MINIMUMS) + 1
+    return len(checks)
 
 
 def run_drc(report_path):

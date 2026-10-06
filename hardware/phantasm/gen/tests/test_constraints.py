@@ -8,7 +8,8 @@ UNPLACED_PROJECT = GEN.parent / "1.2" / "phantasm.kicad_pro"
 sys.path.insert(0, str(GEN))
 
 from constraints import (DEFAULT_CLASS_MINIMUMS, NEW_LAYOUT_RULES, RULE_MINIMUMS,  # noqa: E402
-                         UNPLACED_DEFAULT_CLASS, UNPLACED_RULES)
+                         UNPLACED_DEFAULT_CLASS, UNPLACED_RULES, rule_checks,
+                         rule_shortfalls)
 
 
 def default_class(project):
@@ -50,6 +51,35 @@ class UnplacedProjectConstraintTests(unittest.TestCase):
         for field, minimum in DEFAULT_CLASS_MINIMUMS.items():
             with self.subTest(field=f"Default.{field}"):
                 self.assertGreaterEqual(default[field], minimum)
+
+
+class RuleCheckTests(unittest.TestCase):
+    def project(self):
+        return {
+            "board": {"design_settings": {
+                "rules": {**RULE_MINIMUMS, **NEW_LAYOUT_RULES},
+                "rule_severities": {"silk_over_copper": "error"}}},
+            "net_settings": {"classes": [dict(DEFAULT_CLASS_MINIMUMS, name="Default")]},
+        }
+
+    def test_checks_every_floor_and_the_silk_severity(self):
+        checks = rule_checks(self.project(), RULE_MINIMUMS, DEFAULT_CLASS_MINIMUMS)
+        self.assertEqual(
+            set(checks),
+            {*RULE_MINIMUMS, *NEW_LAYOUT_RULES, "rule_severities.silk_over_copper",
+             *(f"Default.{field}" for field in DEFAULT_CLASS_MINIMUMS)})
+        self.assertTrue(all(met for _, _, met in checks.values()))
+        self.assertEqual(rule_shortfalls(self.project(), RULE_MINIMUMS,
+                                         DEFAULT_CLASS_MINIMUMS), {})
+
+    def test_shortfalls_are_the_unmet_checks(self):
+        project = self.project()
+        project["board"]["design_settings"]["rule_severities"]["silk_over_copper"] = "warning"
+        project["net_settings"]["classes"][0]["via_drill"] = 0
+        self.assertEqual(
+            rule_shortfalls(project, RULE_MINIMUMS, DEFAULT_CLASS_MINIMUMS),
+            {"rule_severities.silk_over_copper": ("warning", "error"),
+             "Default.via_drill": (0, DEFAULT_CLASS_MINIMUMS["via_drill"])})
 
 
 if __name__ == "__main__":
