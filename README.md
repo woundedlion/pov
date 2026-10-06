@@ -1093,7 +1093,7 @@ program readback and complete snapshots. Its static `getShaderChainCatalog()`
 exports the catalog. [Chain snapshots](docs/specs/chain_snapshot_spec.md) define
 state restoration and archive conversion.
 
-`wasm.cpp` compiles to `holosphere_wasm.js` + `.wasm` and exposes a single `HolosphereEngine` class. At most one instance may be live per module — its effect and arenas are shared module-global storage — so `delete()` the current engine before constructing another; the constructor traps otherwise. Decoder re-entry and deletion during payload decoding also trap. The payloads
+`wasm.cpp` compiles to `holosphere_wasm.js` + `.wasm` and exposes the `HolosphereEngine` render class alongside `ShaderChainBindings`, `MeshOps` and `PaletteOps`. At most one engine instance may be live per module — its effect and arenas are shared module-global storage — so `delete()` the current engine before constructing another; the constructor traps otherwise. Decoder re-entry and deletion during payload decoding also trap. The payloads
 for `setShaderChain`, `setShaderChainParameters`, `restoreSnapshot`,
 and PaletteOps recipe compilation and inspection
 are cloned before decoding. Cloning can invoke getters; `structuredClone` rejects
