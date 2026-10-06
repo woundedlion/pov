@@ -107,13 +107,19 @@ inline void test_timeline_sequences_events_by_start_frame() {
   HS_EXPECT_EQ(tl.event_count(), 0);
 }
 
-/** @brief Verifies event-level pause freezes delays, steps, and callbacks. */
+/**
+ * @brief Verifies event-level pause freezes delays, steps, and callbacks.
+ * @details A one-frame event ahead of the pausable one completes first, so the
+ * pause gate must survive the compaction that relocates the pausable event.
+ */
 inline void test_timeline_pausable_event_uses_active_time() {
   Timeline tl;
   bool paused = true;
+  float lead = 0.0f;
   float value = 0.0f;
   float ambient = 0.0f;
   int completions = 0;
+  tl.add(0, Animation::Transition(lead, 1.0f, 1, math::ease_linear));
   tl.add_pausable(
       3, Animation::Transition(value, 9.0f, 3, math::ease_linear).then([&]() {
         ++completions;
@@ -123,6 +129,7 @@ inline void test_timeline_pausable_event_uses_active_time() {
 
   for (int i = 0; i < 5; ++i)
     tl.step(fake_canvas());
+  HS_EXPECT_NEAR(lead, 1.0f, 1e-6f);
   HS_EXPECT_NEAR(value, 0.0f, 1e-6f);
   HS_EXPECT_NEAR(ambient, 1.0f, 1e-6f);
   HS_EXPECT_EQ(completions, 0);
