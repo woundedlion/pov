@@ -18,7 +18,7 @@
 namespace hs_test {
 namespace dma_controller_tests {
 
-constexpr int N = 8; // BUFFER_SIZE=40, COMPOSITE_SIZE=80
+constexpr int N = 8;
 
 using Frame = HD107SFrame<N>;
 
@@ -30,7 +30,7 @@ using Frame = HD107SFrame<N>;
  */
 class MockStrip {
 public:
-  static constexpr int CAPTURE_CAP = 128; // >= COMPOSITE_SIZE for this N
+  static constexpr int CAPTURE_CAP = Frame::COMPOSITE_SIZE;
 
   /**
    * @brief State observed and driven by the test.
