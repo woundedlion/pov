@@ -66,10 +66,11 @@ void __verbose_terminate_handler() {
 // Teensyduino >= 1.62 supplies a strong handler; override it via set_terminate
 // before setup().
 namespace {
-const std::terminate_handler s_fail_fast_terminate = std::set_terminate([] {
-  hs::flush_log();
-  __builtin_trap();
-});
+const std::terminate_handler REPLACED_TERMINATE_HANDLER =
+    std::set_terminate([] {
+      hs::flush_log();
+      __builtin_trap();
+    });
 } // namespace
 #endif
 #endif
