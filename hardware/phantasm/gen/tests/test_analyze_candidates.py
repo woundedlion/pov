@@ -182,6 +182,47 @@ class ScoreTests(unittest.TestCase):
 
 
 class MainTests(unittest.TestCase):
+    def rank_sources(self, sources, results):
+        with tempfile.TemporaryDirectory() as directory:
+            boards = []
+            for index, source in enumerate(sources, 1):
+                board = Path(directory) / f"Candidate {index}.kicad_pcb"
+                board.write_text(source, encoding="utf-8")
+                boards.append(str(board))
+            with mock.patch("builtins.print") as emit, mock.patch.object(
+                    analyze_candidates, "run_drc", side_effect=results):
+                result = analyze_candidates.main(boards)
+        output = "\n".join(" ".join(map(str, call.args)) for call in emit.call_args_list)
+        return result, output
+
+    def test_clean_candidates_recommend_shorter_copper(self):
+        clean = {"status": analyze_candidates.DRC_OK,
+                 "errors": 0, "real": 0, "unconnected": 0}
+        shorter = SYNTHETIC_BOARD.replace("(end 10 0)", "(end 2 0)")
+        result, output = self.rank_sources([SYNTHETIC_BOARD, shorter], [clean, clean])
+        self.assertEqual(result, 0)
+        self.assertIn(">> best by signal integrity: Candidate 2", output)
+        self.assertNotIn("top geometric scorer failed", output)
+
+    def test_clean_drc_does_not_admit_undersized_vias(self):
+        clean = {"status": analyze_candidates.DRC_OK,
+                 "errors": 0, "real": 0, "unconnected": 0}
+        small = SYNTHETIC_BOARD.replace("(end 10 0)", "(end 2 0)").replace(
+            "(size 0.6) (drill 0.3)", "(size 0.4) (drill 0.15)")
+        result, output = self.rank_sources([SYNTHETIC_BOARD, small], [clean, clean])
+        self.assertEqual(result, 0)
+        self.assertIn("SMALL VIAS", output)
+        self.assertIn(">> best by signal integrity: Candidate 1", output)
+        self.assertIn("top geometric scorer failed the DRC gate -- skipped", output)
+
+    def test_refill_only_candidate_remains_eligible(self):
+        refill = {"status": analyze_candidates.DRC_OK,
+                  "errors": 2, "real": 0, "unconnected": 0}
+        result, output = self.rank_sources([SYNTHETIC_BOARD], [refill])
+        self.assertEqual(result, 0)
+        self.assertIn("refill-fixable (zone)", output)
+        self.assertIn(">> best by signal integrity: Candidate 1", output)
+
     def test_ineligible_candidates_are_not_recommended(self):
         with tempfile.TemporaryDirectory() as directory:
             board = Path(directory) / "Candidate 1.kicad_pcb"
