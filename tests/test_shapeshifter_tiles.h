@@ -3,24 +3,12 @@
  * Licensed under the PolyForm Noncommercial License 1.0.0
  *
  * Clipped-tile parity for the ShapeShifter oracle: a mosaic of segment renders
- * must reproduce the unclipped frame pixel for pixel. The candidate Flower is
- * exempt: its band split restarts each visible run at a clip-dependent cut, so
- * its tiles match only to a fraction of a pixel (pinned in plot_scan by
- * test_planar_band_split_matches_whole_polyline). Exact parity runs with
- * Plot::PlanarChords' pole-run split off; a separate case enables it and
- * checks the approximate energy budget.
+ * must reproduce the unclipped frame pixel for pixel. The candidate Flower's
+ * band split cuts at clip-dependent points, so its tiles are exempt. Exact
+ * parity runs with Plot::PlanarChords' pole-run split off.
  *
- * Separate from the shapeshifter_oracle module because this is the one property
- * there that holds only under IEEE. An active clip switches Plot::rasterize to
- * the planar sampler rebuilt from the cull span; that construction is
- * bit-identical to the unclipped one under IEEE, but the two are inlined into
- * different contexts and reassociate separately under -ffast-math
- * -fno-finite-math-only, which moves a sample across a pixel boundary and with
- * it a whole splat. The divergence is bounded (6.9e-5 of frame energy) but not
- * by anything a channel tolerance can separate from a real geometry defect, so
- * this module is excluded from the fast-math axis and the rest of the oracle —
- * the reference-versus-candidate visual budgets, which compare two renders from
- * the same binary — keeps running there.
+ * Parity holds only under IEEE: under -ffast-math the clipped and unclipped
+ * planar samplers reassociate differently and can move a whole splat.
  */
 #pragma once
 
@@ -129,11 +117,8 @@ inline void test_segment_tiles_reconstruct_full_frame() {
 
 /**
  * @brief Pins the star cap's azimuthal cull against narrow column clips.
- * @details Four full-height W/4 columns tile the canvas, so the y-band half of
- * the cull passes everything and only the azimuthal bound decides visibility.
- * A quarter-width column shrinks the column half-width to an eighth of a turn,
- * where the bound rejects most of a dense star stack; any shape it drops that
- * reaches the column shows up as a mismatch against the unclipped frame.
+ * @details Full-height W/4 columns leave only the azimuthal bound deciding
+ * visibility.
  */
 inline void test_star_azimuthal_cull_spans_narrow_columns() {
   const OracleClip columns[] = {{0, ORACLE_H, 0, ORACLE_W / 4},
