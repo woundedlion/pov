@@ -142,9 +142,9 @@ export function paramStreamProblems(defs, values) {
  * source controls. An unresolved writable id refuses the whole apply, so
  * the preview-versus-compiled comparison writes no value at all. Nothing else
  * pins the two vocabularies together: the digests are computed from the
- * document alone, and the value pin in tests/test_composed_effect.h maps ids
- * onto parameter families by chain operator, so a label the alias table does
- * not know still lands.
+ * document alone, and the value pin in tests/composed_effect/document_values.h
+ * maps ids onto parameter families by chain operator, so a label the alias
+ * table does not know still lands.
  *
  * @param {object} run
  * @param {{document: string, effect: string, parameterIds: string[], presets?: object[], descriptor?: object}[]} run.documents
