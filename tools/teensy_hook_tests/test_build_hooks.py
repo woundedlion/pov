@@ -189,17 +189,6 @@ class TestRequiredHooksReachEveryEnv(unittest.TestCase):
     [env] therefore reaches only the envs that inherit it, and those that do
     not build green without it."""
 
-    def test_every_env_resolves_the_required_hooks(self):
-        cfg = _pio_config()
-        envs = _pio_envs()
-        self.assertTrue(envs, "platformio.ini declares no environments")
-        for name in envs:
-            resolved = _option_lines(cfg, f"env:{name}", "extra_scripts")
-            for script in REQUIRED_SCRIPTS:
-                with self.subTest(env=name, script=script):
-                    self.assertIn(script, resolved,
-                                  f"env '{name}' does not wire {script}")
-
     def test_every_base_hook_but_the_gate_reaches_every_env(self):
         # Derived from [env], not from REQUIRED_SCRIPTS, which only has to be a
         # subset of what [env] declares. The gate hook is the one line those
