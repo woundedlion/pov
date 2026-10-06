@@ -281,3 +281,20 @@ inline void case_sdf_distorted_ring_negative_distortion() {
   if (ring.thickness == opaque(42.0f))
     std::printf("x");
 }
+
+/** @brief Rejects a non-positive smooth-union blend width. */
+inline void case_sdf_smooth_union_zero_radius() {
+  const math::Basis basis{math::X_AXIS, math::Y_AXIS, math::Z_AXIS};
+  const SDF::PlanarPolygon polygon(basis, .5f, 3, 0.f);
+  SDF::SmoothUnion<SDF::PlanarPolygon, SDF::PlanarPolygon> shape(
+      polygon, polygon, opaque(0.f));
+  (void)shape;
+}
+
+/** @brief Rejects an angular repeat with no copies. */
+inline void case_sdf_angular_repeat_zero_copies() {
+  const math::Basis basis{math::X_AXIS, math::Y_AXIS, math::Z_AXIS};
+  const SDF::Ring ring(basis, 1.f, .1f);
+  SDF::AngularRepeat<SDF::Ring> shape(ring, opaque(0), math::Y_AXIS);
+  (void)shape;
+}
