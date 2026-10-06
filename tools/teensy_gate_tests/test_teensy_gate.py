@@ -961,9 +961,13 @@ class TestWarningGate(unittest.TestCase):
             "/root/.platformio/lib/SomeLib/effects/reverb.h:5:1: warning: w [-Wx]"))
         self.assertIsNone(tw.normalize(
             "/x/.pio/libdeps/teensy40/Foo/lib/core/bar.h:2:1: warning: w [-Wy]"))
-        # No `lib/` segment: libdeps/ itself has to carry the exclusion.
         self.assertIsNone(tw.normalize(
             "/x/.pio/libdeps/teensy40/Foo/src/effects/baz.h:2:1: warning: w [-Wz]"))
+        # No toolchain root: a third-party dir under the first-party anchor
+        # carries the exclusion.
+        self.assertIsNone(tw.normalize(
+            "/home/runner/work/Holosphere/Holosphere/effects/lib/Foo/x.h:2:1: "
+            "warning: w [-Wx]"))
 
     def test_nested_paths_do_not_alias_to_one_key(self):
         # A nested targets/.../effects/Foo.h and a top-level effects/Foo.h are
