@@ -989,9 +989,10 @@ private:
         ConwayGraph::MorphOp::TRUNCATE; /**< Swept operator (CONWAY_SWEEP). */
     SwapOp swap_op = SwapOp::KIS;       /**< Partition op (GATED_SWAP). */
     bool reverse = false;               /**< Traversing to_node -> from_node. */
-    int sweep_frames = 1;               /**< Operator-sweep frames. */
-    int settle_frames = 0;              /**< Relax-slerp frames. */
-    float t_start = 0, t_end = 0;       /**< Clamped sweep endpoints. */
+    /** Operator-sweep frames N; GATED_SWAP gate length on each side of the swap. */
+    int sweep_frames = 1;
+    int settle_frames = 0;                /**< Relax-slerp frames. */
+    float t_start = 0, t_end = 0;         /**< Clamped sweep endpoints. */
     float twist_start = 0, twist_end = 0; /**< Snub twist endpoints. */
     ArenaVector<math::Vector>
         relaxed; /**< Relaxed endpoint vertices (settling and relax legs). */
