@@ -271,10 +271,6 @@ inline void test_segment_clip_applies() {
   static_assert(!segment_clip_applies(true, false));
   static_assert(!segment_clip_applies(false, true));
   static_assert(!segment_clip_applies(true, true));
-  HS_EXPECT_TRUE(segment_clip_applies(false, false));
-  HS_EXPECT_FALSE(segment_clip_applies(true, false));
-  HS_EXPECT_FALSE(segment_clip_applies(false, true));
-  HS_EXPECT_FALSE(segment_clip_applies(true, true));
 
   {
     ConfigEffect plain(EffectConfig{});
