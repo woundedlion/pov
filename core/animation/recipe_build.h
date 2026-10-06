@@ -465,8 +465,8 @@ protected:
   }
 
   /**
-   * @brief Frame count of DUAL bridge sub-leg `sub` (0/1/2), summing to the
-   * step's budget.
+   * @brief Frame count of DUAL bridge sub-leg `sub` (0/1/2); each is at least
+   * one frame and they sum to the step's budget when it is at least three.
    */
   int dual_sub_frames(int sub) const {
     const int total = build_leg_frames[build_step];
