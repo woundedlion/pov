@@ -137,22 +137,6 @@ inline void arm_warp_op_chain(In::ChainProgram &program, const char *op_id,
     program.advance();
 }
 
-/** The warp's input carrier for @p view: the erased camera and projection
-    entries run over the seed, so both parity sides read one real sample. */
-inline PB::PlaneSample warp_input(In::ChainProgram &program,
-                                  const In::FrameContext &ctx,
-                                  const math::Vector &view) {
-  const PB::SphereSample seed{view, 0.0f};
-  alignas(In::SLOT_ALIGN) uint8_t rotated[In::SLOT_SIZE];
-  program.ops()[0].op->runtime.run(&seed, rotated, ctx, program.param_block(0),
-                                   program.prepared_block(0));
-  alignas(In::SLOT_ALIGN) uint8_t projected[In::SLOT_SIZE];
-  program.ops()[1].op->runtime.run(rotated, projected, ctx,
-                                   program.param_block(1),
-                                   program.prepared_block(1));
-  return *std::launder(reinterpret_cast<PB::PlaneSample *>(projected));
-}
-
 /** Erased-vs-bound parity of the warp at entry 2. */
 template <typename BoundStage>
 inline void expect_warp_op_parity(In::ChainProgram &program,
@@ -164,7 +148,7 @@ inline void expect_warp_op_parity(In::ChainProgram &program,
   int view_index = 0;
   for (const math::Vector &view : sweep_views()) {
     HS_CONTEXT("view", view_index++);
-    const PB::PlaneSample input = warp_input(program, ctx, view);
+    const PB::PlaneSample input = projected_input(program, ctx, view);
     alignas(In::SLOT_ALIGN) uint8_t out[In::SLOT_SIZE];
     op.runtime.run(&input, out, ctx, program.param_block(2),
                    program.prepared_block(2));
