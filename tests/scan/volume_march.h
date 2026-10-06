@@ -457,9 +457,9 @@ inline void test_volume_probe_occluder_reports_background_graze_point() {
  * @brief Verifies overrelaxed sphere tracing never steps over a surface.
  * @details Sweeps rays across a twisted torus whose Lipschitz-divided distance
  * badly underestimates the true one and compares each trace against a dense
- * fixed-step scan of the same ray. A ray whose true closest approach lies well
- * inside the AA band reports a hit; no ray reports a hit the dense scan cannot
- * corroborate.
+ * fixed-step scan of the same march-safe distance along the ray. A dense-scan
+ * distance well inside the AA band reports a hit; no ray reports a hit the
+ * dense scan cannot corroborate.
  */
 inline void test_volume_trace_closest_overrelax_never_skips_surface() {
   SDF::WarpedVolume<SDF::Torus, SDF::Warp::Twist> torus{{0.45f, 0.14f},
@@ -477,7 +477,7 @@ inline void test_volume_trace_closest_overrelax_never_skips_surface() {
       float closest_d = Scan::Volume::trace_closest(
           torus, ro, vd, bounds_radius, 18, aa_width, closest_local);
 
-      // Dense reference: true closest approach along the same ray segment.
+      // Dense reference: minimum march-safe distance along the ray segment.
       float ref_min = FLT_MAX;
       for (int s = 0; s <= 4000; ++s) {
         math::Vector p(ro.x, ro.y, ro.z - s * (2.0f * bounds_radius / 4000.0f));
@@ -488,7 +488,7 @@ inline void test_volume_trace_closest_overrelax_never_skips_surface() {
 
       if (closest_d < aa_width) {
         ++hits;
-        // A reported hit must correspond to a real approach on the ray.
+        // The dense scan of the same distance must corroborate the hit.
         HS_EXPECT_LT(ref_min, aa_width);
       }
       // Rays grazing the band edge may legitimately land either side of it;
