@@ -348,7 +348,7 @@ composite_crossings(const math::Vector &normal,
   static_assert(SHELLS <= MAX_SHELLS);
   HS_PROFILE_DEEP(hl_shade);
   using SDF::Lattice::DIRECTION_EPSILON;
-  constexpr float RELATIVE_TOLERANCE = 1.0e-4f;
+  constexpr float RELATIVE_TOLERANCE = Raycast::MERGE_RELATIVE_TOLERANCE;
   static_assert(CrossingList::CAPACITY <= Raycast::TraceLimits{}.max_layers);
   const auto &lattice = prepared.lattice;
   const math::Vec4 direction =

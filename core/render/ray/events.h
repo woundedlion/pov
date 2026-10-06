@@ -13,6 +13,8 @@
 
 namespace Raycast {
 
+inline constexpr float MERGE_RELATIVE_TOLERANCE = 1.0e-4f;
+
 /**
  * @brief Merges bounded monotone candidate streams in deterministic order.
  * @details Adapter::GROUP_CAPACITY optionally bounds distinct merge identities
@@ -22,7 +24,8 @@ namespace Raycast {
 template <typename Adapter, typename Consume>
 __attribute__((always_inline)) inline TraceResult
 trace_events(Adapter &adapter, Interval interval, const TraceLimits &limits,
-             Consume consume, float relative_tolerance = 1.0e-4f) {
+             Consume consume,
+             float relative_tolerance = MERGE_RELATIVE_TOLERANCE) {
   TraceResult result;
   if (!interval.valid() || !finite(relative_tolerance) ||
       relative_tolerance < 0) {

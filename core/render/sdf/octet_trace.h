@@ -44,7 +44,7 @@ trace_events(const Events &events, Raycast::Interval interval,
              const Raycast::TraceLimits &limits,
              const Raycast::Appearance &appearance) {
   constexpr size_t SLOTS = Events::OWNER_CAPACITY;
-  constexpr float RELATIVE_TOLERANCE = 1.0e-4f;
+  constexpr float RELATIVE_TOLERANCE = Raycast::MERGE_RELATIVE_TOLERANCE;
   std::array<float, SLOTS> next;
   std::array<float, SLOTS> step;
   std::array<uint8_t, SLOTS> stream;
@@ -150,7 +150,7 @@ struct CoveredCrossings {
   __attribute__((always_inline)) Sample
   composite(const Raycast::TraceLimits &limits,
             const Raycast::Appearance &appearance) const {
-    constexpr float RELATIVE_TOLERANCE = 1.0e-4f;
+    constexpr float RELATIVE_TOLERANCE = Raycast::MERGE_RELATIVE_TOLERANCE;
     Sample result;
     LayerComposite layers;
     int composited = 0;
