@@ -4,9 +4,6 @@
  *
  * Host FastLED/Arduino mocks in core/platform/arduino_mocks.h and RNG in
  * core/platform/rng.h, included through core/platform/platform.h.
- *
- * Covers FastLED integer math, Arduino timing and output, deterministic RNG
- * streams and seeds, shuffle, colour construction, and harness diagnostics.
  */
 #pragma once
 
@@ -76,7 +73,7 @@ inline void test_sin16_golden() {
       max_err = err;
   }
   // sin16_C's 8-section linear LUT tracks the true sine to within 226 of 32767
-  // (~0.7%); a broken secoffset8 truncation or slope table would blow far past.
+  // (~0.7%).
   HS_EXPECT_LT(max_err, 227);
 }
 
@@ -84,7 +81,7 @@ inline void test_sin16_golden() {
  * @brief Verifies scale8/scale16 implement FastLED's SCALE8_FIXED fades at the
  *        full-scale, half-scale, and zero corners.
  * @details The fades are (i*(1+sc))>>8 and (i*(1+sc))>>16, so a full scale
- *          (sc==max) is the identity. Pins the corners that effects rely on.
+ *          (sc==max) is the identity.
  */
 inline void test_scale_golden() {
   HS_EXPECT_EQ(scale8(255, 255), 255); // 255*256>>8 — full scale is identity
@@ -279,10 +276,8 @@ inline void test_beatsin16_golden() {
 
 /**
  * @brief Verifies Serial.printf and comparison-operand output.
- * @details SerialMock writes to C stdout, so the only way to observe it is to
- *          swap fd 1. The capture target is a pipe rather than a scratch file so
- *          the test needs no writable directory; the message is orders of
- *          magnitude below the pipe buffer, so the write cannot block.
+ * @details SerialMock writes to C stdout, so the test captures fd 1 through a
+ *          pipe; the message fits the pipe buffer, so the write cannot block.
  */
 inline void test_stdout_formatting() {
   int fds[2] = {-1, -1};
@@ -371,9 +366,8 @@ inline void test_rand_f_half_open() {
  * @brief Verifies hs::epoch_seed: epoch 0 is the exact identity seed (the
  *        stream is byte-identical to a default Pcg32), and distinct epochs
  *        yield distinct seeds and draw streams.
- * @details The collision sweep over epochs 0..1000 is a mixing sanity check,
- *          not a cryptographic claim. Only local Pcg32 instances are used, so
- *          the shared hs::random() stream is untouched.
+ * @details Only local Pcg32 instances are used, so the shared hs::random()
+ *          stream is untouched.
  */
 inline void test_epoch_seed() {
   // Epoch 0 is the identity: seeding with it reproduces the default stream.
@@ -420,17 +414,13 @@ inline void test_stable_effect_seed() {
 /**
  * @brief Pins Pcg32's draw stream to golden values taken from the published PCG
  *        XSH-RR 64/32 reference.
- * @details The determinism contract makes this stream the sim/device parity
- *          invariant and every seeded effect's visuals ride it, yet nothing else
- *          pins its values: test_epoch_seed only compares Pcg32 against Pcg32.
- *          The literals were computed from M. E. O'Neill's published
+ * @details The literals were computed from M. E. O'Neill's published
  *          pcg32_srandom_r / pcg32_random_r (state 0, inc (seq << 1) | 1, one
  *          warmup draw, state += seed, a second warmup draw) with
  *          seq = Pcg32::STREAM_SEQ = 0x14057b7ef767814f; that transcription was
  *          validated against the published (state 42, seq 54) demo vector
  *          0xa15c02b7, 0x7b47f409, 0xba1d3330, 0x83d2f293, 0xbfa4784b,
- *          0xcbed606e. An edit to the multiplier, the stream id, or either
- *          warmup draw moves every value below.
+ *          0xcbed606e.
  */
 inline void test_pcg32_golden_stream() {
   // Seed 1337: the default, and what hs::random() and epoch 0 both use.
@@ -453,16 +443,9 @@ inline void test_pcg32_golden_stream() {
 /**
  * @brief Pins hs::shuffle's exact permutation and its draw count for a fixed
  *        seed and array.
- * @details hs::shuffle exists because std::shuffle's permutation AND draw count
- *          are implementation-defined; it is the only legal shuffle here, so
- *          both its descending Fisher-Yates order and its one-draw-per-step
- *          consumption are load-bearing — the draw count alone decides where
- *          every later consumer of the shared stream lands. Derived by hand from
- *          that definition over the golden Pcg32(1337) draws above:
- *          j = draw % (i + 1) for i = 7 down to 1 yields j = 3, 1, 5, 0, 2, 2, 1.
- *          Reversing the direction, changing the modulus, or drawing a different
- *          number of times per step moves the permutation, the residual stream
- *          position, or both.
+ * @details Descending Fisher-Yates, one draw per step. Derived by hand over
+ *          the GOLDEN_1337 Pcg32 draws: j = draw % (i + 1) for i = 7 down to 1
+ *          yields j = 3, 1, 5, 0, 2, 2, 1.
  */
 inline void test_shuffle_golden_permutation() {
   hs::random().seed(1337u);

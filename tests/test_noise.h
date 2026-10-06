@@ -3,21 +3,12 @@
  * Licensed under the PolyForm Noncommercial License 1.0.0
  *
  * Golden-reference tests for OpenSimplex2 samples and noise_transform's
- * displaced output, with fixed inputs and generator configuration.
- *
- * Coverage:
- *   - FastNoiseLite OpenSimplex2 2D/3D sample grids (default seed 1337, fixed
- *     frequency 0.125): tolerance-checked sample grids.
- *   - noise_transform: pinned displaced output for fixed params and inputs.
+ * displaced output.
  *
  * Capture: cmake --build --preset tests --target noise_golden_gen, then run
- * build/tests/tests/noise_golden_gen to print candidate grid arrays.
- * Provenance: the OpenSimplex2 arrays were captured against vendored FastNoiseLite
- * (upstream VERSION 1.1.1 plus the in-tree patches core/vendor/
- * FastNoiseLite_config.h records), built by the native clang test toolchain
- * (cmake/toolchain-native-clang.cmake). A vendor update requires independent
- * verification of any changed samples against the upstream implementation
- * and an explanation of the intended algorithm change before updating them.
+ * build/tests/tests/noise_golden_gen to print candidate grid arrays. Goldens
+ * are from vendored FastNoiseLite 1.1.1 plus the patches in
+ * core/vendor/FastNoiseLite_config.h, under cmake/toolchain-native-clang.cmake.
  */
 #pragma once
 
@@ -193,8 +184,7 @@ inline void test_noise3d_golden_grid() {
 
 /**
  * @brief Checks a fixed 2D OpenSimplex2 sample grid.
- * @details Same generator config, an 8x8 grid over [-3, 2.25]; backs the 2D
- *          GetNoise path that projected noise consumers sample.
+ * @details Same generator config, an 8x8 grid over [-3, 2.25].
  */
 inline void test_noise2d_golden_grid() {
   static constexpr float GOLDEN[] = {

@@ -2,12 +2,8 @@
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
  * Licensed under the PolyForm Noncommercial License 1.0.0
  *
- * Host unit tests for the HD107S protocol buffer and color correction
- * (hardware/hd107s_frame.h), which has no Teensy dependency. Covers the bytes
- * that actually go on the SPI wire: frame layout, [0xFF][B][G][R] channel
- * order, and the linear-space correction pipeline.
- * The Teensy SPI/DMA transport internals (register access, eDMA, ISR) are
- * hardware-only and out of host-test scope.
+ * Host unit tests for the HD107S wire buffer and color correction
+ * (hardware/hd107s_frame.h).
  */
 #pragma once
 
@@ -24,8 +20,7 @@ namespace hd107s_tests {
 
 constexpr int N = 40; // small strip: END_FRAME_BYTES=4, COMPOSITE=336 bytes
 
-// Shipping Phantasm segment: TOTAL_PIXELS 288 over NUM_SEGMENTS 4.
-// Past N=64, the padded end frame grows to 8 bytes.
+// Shipping Phantasm segment size; past N=64 the end frame grows to 8 bytes.
 constexpr int PHANTASM_PPS = 72;
 
 using Frame = HD107SFrame<N>;
@@ -46,9 +41,8 @@ inline const uint8_t *pixel(const Frame &f, int i) {
  *        (255 = exact ×1.0).
  * @tparam S Pixel count of the frame instantiation to reset; the correction
  *           state is a static of HD107SFrame<S>, so each S carries its own.
- * @details Resets the per-channel correction, temperature, and brightness so a
- * test starts from an identity color pipeline; these are static frame settings.
- * Shared with the DMA controller suite, which drives a different S.
+ * @details Resets the per-channel correction, temperature, and brightness to an
+ * identity color pipeline.
  */
 template <int S> inline void reset_correction() {
   HD107SFrame<S>::set_correction(255, 255, 255);
@@ -75,10 +69,7 @@ inline void test_layout_constants() {
 
 /**
  * @brief Verifies the layout constants at the shipping Phantasm segment size.
- * @details N=40 and the dma_controller module's N=8 both land on the 4-byte
- * end-frame floor, so a ceil-div slip that only shows past the first
- * multiple-of-4 boundary stays invisible. 72 pixels is the size the device
- * actually instantiates, past the N=64 boundary for an 8-byte end frame.
+ * @details 72 pixels is past the N=64 boundary, so the end frame is 8 bytes.
  */
 inline void test_layout_constants_phantasm() {
   HS_EXPECT_EQ(PhantasmFrame::END_FRAME_BYTES, 8);
@@ -170,12 +161,8 @@ inline void test_correct_pipeline() {
 
 /**
  * @brief Exercises the shipped multi-factor compounding.
- * @details test_correct_pipeline only varies brightness with every other factor
- * at unity, so the non-unity correction + temperature gains the production config
- * sets (hd107s_frame.h: correction 255,176,240; temperature 255,147,41) are never
- * asserted together. This case applies those shipped gains and checks both that
- * the two factors compound (temperature attenuates on top of correction, not
- * instead of it) and the exact per-channel result.
+ * @details Applies correction 255,176,240 and temperature 255,147,41, and checks
+ * that they compound and the exact per-channel result.
  */
 inline void test_correct_multifactor() {
   static_assert(

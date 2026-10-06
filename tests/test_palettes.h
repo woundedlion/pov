@@ -3,15 +3,6 @@
  * Licensed under the PolyForm Noncommercial License 1.0.0
  *
  * Unit tests for core/color/palettes.h — the named generative/OKLCH palette layer.
- *
- * Coverage:
- *   - All 27 named procedural palettes pinned by upper-byte hash.
- *   - Named ProceduralPalette endpoints: pinned 16-bit linear colors at t=0/1,
- *     including the cos(0)=1 channels derivable from the cosine coefficients.
- *   - lerp_oklch shortest-arc hue direction across the +/-PI seam, using
- *     named-palette endpoint colors as inputs.
- *   - MeshPaletteBank: slot 0 reproduces its embers source, every slot bakes a
- *     distinct LUT, and shuffle_indices is a permutation of [0, N).
  */
 #pragma once
 
@@ -102,12 +93,9 @@ inline void test_named_procedural_palette_endpoints() {
 /**
  * @brief Verifies hue interpolates along the short arc for a seam-straddling
  *        named-palette pair.
- * @details undersea's endpoints sit at h ~= -2.00 and +2.49 rad: ~1.80 rad
- *          apart the short way (through the +/-PI seam), ~4.48 rad apart the
- *          long way (through 0). lerp_oklch must drive the midpoint across the
- *          seam (a hue on the negative/|h|>PI/2 side), NOT through ~+0.25 where
- *          a naive average of the two angles would land. This is the hue-arc
- *          contract of lerp_oklch; named palettes themselves use cosine colors.
+ * @details undersea's endpoints sit at h ~= -2.00 and +2.49 rad, ~1.80 rad
+ *          apart through the +/-PI seam; the midpoint must cross the seam, not
+ *          land near the naive average ~+0.25.
  */
 inline void test_named_palette_hue_short_arc() {
   OKLCH a = pixel_to_oklch(Palettes::UNDERSEA.get(0.0f).color);
@@ -126,10 +114,8 @@ inline void test_named_palette_hue_short_arc() {
 
 /**
  * @brief Verifies MeshPaletteBank bakes its sources and indexes them distinctly.
- * @details Slot 0's baked endpoints must match the first source, proving the
- *          bank baked the right palette into the right slot; every slot must
- *          produce a distinct LUT so a
- *          slot-mapping bug can't collapse them.
+ * @details Slot 0's baked endpoints match the first source, and every slot
+ *          produces a distinct LUT.
  */
 inline void test_mesh_palette_bank_lookup() {
   alignas(std::max_align_t) static uint8_t
@@ -174,10 +160,7 @@ inline void test_mesh_palette_bank_lookup() {
 
 /**
  * @brief Verifies shuffle_indices yields a permutation of [0, N).
- * @details Each of 0..N-1 must appear exactly once: a shuffle that dropped or
- *          duplicated a slot would leave a palette unassigned or doubled.
- *          The global generator is saved and restored so the shuffle can't
- *          perturb the stream position other RNG-touching tests observe.
+ * @details The global generator is saved and restored around the shuffle.
  */
 inline void test_mesh_palette_bank_shuffle_is_permutation() {
   auto saved = hs::random();

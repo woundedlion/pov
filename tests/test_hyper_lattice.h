@@ -493,9 +493,7 @@ struct ShadeSample {
 /**
  * @brief Per-channel slack, in 16-bit linear units, for a libm difference.
  * @details The palette lookup runs cbrtf/powf through the OKLab gamut search,
- * whose last bits differ between libm builds. This shade oracle permits
- * sixteen units; tests/mindsplatter_palette_check.cpp uses a separate
- * four-unit band.
+ * whose last bits differ between libm builds.
  */
 constexpr uint16_t MAX_SHADE_CHANNEL_DELTA = 16;
 
@@ -524,10 +522,8 @@ inline uint64_t shade_signature(const ShadeSample *samples, size_t count) {
  * @param count Row count of both tables.
  * @param per_preset Rows per preset, so a failing row names preset and sample.
  * @param pin Signature the golden table folds to.
- * @details The signature is one comparison over the whole table and is all a
- * matching run pays. A run whose hash moved falls through to the per-channel
- * band, which names the preset, sample and channel that drifted rather than
- * printing two 64-bit numbers.
+ * @details A run whose signature moved falls through to the per-channel band,
+ * which names the preset, sample and channel that drifted.
  */
 inline void expect_shade_samples(const char *label, const ShadeSample *rendered,
                                  const ShadeSample *golden, size_t count,
@@ -550,15 +546,11 @@ inline void expect_shade_samples(const char *label, const ShadeSample *rendered,
 
 /**
  * @brief Pins shade() over a fixed direction and preset sample.
- * @details GOLDEN is the oracle; the FNV-1a 64 signature over it is the
- * one-comparison pre-check a matching run pays. Provenance: no generator emits
- * either. Re-derive by printing the sample table's RGB and Q16 alpha from this
- * case built by the native clang test toolchain
- * (cmake/toolchain-native-clang.cmake) and pasting the table and its fold back.
- * Unlike test_specialized_render_signature(), this path takes its coverage ramp
- * through an IEEE division rather than fast_reciprocal()'s Newton step, so it
- * reproduces under the shipping -ffast-math -fno-finite-math-only pair the
- * fast-math CI leg builds this module with, and carries no skip.
+ * @details GOLDEN is the oracle; its FNV-1a 64 signature is the pre-check.
+ * Re-derive by printing the sample table's RGB and Q16 alpha from this case
+ * built by the native clang test toolchain (cmake/toolchain-native-clang.cmake)
+ * and pasting the table and its fold back. The coverage ramp here is an IEEE
+ * division, so the table reproduces under -ffast-math -fno-finite-math-only.
  */
 inline void test_render_signature() {
   reset_globals();
@@ -697,7 +689,7 @@ inline void test_specialized_slice_transition() {
  * @brief Pins the specialized 4D-slice pipeline over the same style of sample.
  * @details Same table layout and signature pre-check as test_render_signature(), over
  * SpecializedRenderPipeline<2>'s prepare/evaluate pair at HYPERCUBE_PRESET_INDEX.
- * Provenance: no generator emits either. Re-derive by printing the RGB and Q16
+ * Re-derive by printing the RGB and Q16
  * alpha of the sample table from an IEEE build of this case and pasting the table
  * and its fold back.
  */

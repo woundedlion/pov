@@ -4,47 +4,6 @@
  *
  * Unit tests for core/render/plot.h and the ClipRegion helpers in
  * core/render/clip.h.
- *
- * Focus: PURE sampling / geometry paths that produce Fragments from geometry
- * WITHOUT a live Canvas, plus the Plot draw entry points through a capturing
- * pipeline or a StubEffect. The Scan:: rasterizer is covered in test_scan.h.
- *
- * Coverage:
- *   - Plot::Line::sample        : geodesic endpoints unit-length, span, v0/v1;
- *                                 degenerate and (near-)antipodal segments.
- *   - Plot::Line::draw          : a geodesic through the pole reaches row 0.
- *   - ClipRegion (clip.h)       : could_intersect_y, the x-band topologies and
- *                                 wrap, arcs_overlap, and the row-span and
- *                                 column-span arc culls.
- *   - Plot::Mesh edge gates     : edge_visible_in_clip, the quadrant and
- *                                 gate-trail column culls, clip cuts, and the
- *                                 Segue::Dissolve edge partition.
- *   - Plot::screen_step and the antialiased-dot clip footprint.
- *   - Plot::Ring::sample / draw : unit-length, angular progress, LUT parity,
- *                                 stride and direct-sink draws.
- *   - Plot::DistortedRing::sample : angle-addition identity (LUT) matches
- *                                   direct cos/sin within tolerance.
- *   - Plot::Multiline::sample / draw : arc-length parameterization, v0 in
- *                                 [0,1]; open and closed edge coverage.
- *   - Plot::Star<Plot::PlanarProjection>::sample / Flower::sample :
- *     unit-length, closed loop, trig parity, the continuous star across the
- *     equator and at the antipode.
- *   - Plot::PlanarChords        : stroke brightness and coverage against the
- *                                 balanced adaptive walk.
- *   - Plot::rasterize           : gap-free open and closed segments, planar
- *                                 and geodesic edges, the antipodal seam
- *                                 fallback, register tracking, sampling-policy
- *                                 parity, and the filter-orientation cull.
- *   - Plot::ParticleSystem      : trail rasterization, registers, deferred
- *                                 shader and gate parity.
- *   - Azimuthal-equidistant projection and the dual-metric planar arc length.
- *   - PlanarEdgeSampler::one_pass / SinglePass : analytic tangent vs the
- *                                 forward-difference pos(), two-pass
- *                                 parity, balanced sampling, the step budget,
- *                                 and geodesic endpoints, poles, seams, long
- *                                 arcs and quadrant clips.
- *   - PlanarBandSplit, Cartesian quadrant trails, raw geodesic edge gates,
- *     and four-regular/medial edge extraction.
  */
 #pragma once
 #include "tests/pixel_test_util.h"

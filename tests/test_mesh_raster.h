@@ -29,9 +29,6 @@ namespace mesh_raster_tests {
 /**
  * @brief Dedicated test arenas, kept alive for the whole test so the built
  *        mesh's ArenaVectors stay valid while it is drawn.
- * @details The global scratch_arena_a that Plot::Mesh::draw uses internally for
- *          per-edge line sampling is a different arena
- *          (configure_arenas_default()), so the source mesh is never clobbered.
  */
 inline uint8_t mr_seed_a[256 * 1024];
 inline uint8_t mr_seed_b[256 * 1024];
@@ -222,8 +219,8 @@ inline void test_solid_fill_covers_faces_and_tiles_sphere() {
   }
   fx.advance_display();
 
-  // (a) Each face interior is lit: project the centroid and assert a lit pixel
-  //     there. A face whose bounding cull dropped its rows leaves it dark.
+  // Each face interior is lit: project the centroid and assert a lit pixel
+  // there. A face whose bounding cull dropped its rows leaves it dark.
   const uint8_t *fc = mesh.get_face_counts_data();
   const uint16_t *fi = mesh.get_faces_data();
   const uint16_t *fo = mesh.get_face_offsets_data();
@@ -238,7 +235,7 @@ inline void test_solid_fill_covers_faces_and_tiles_sphere() {
     HS_EXPECT_TRUE((lit_near<W, H>(fx, p.x, p.y, 2)));
   }
 
-  // (b) The fill covers far more than the wireframe.
+  // The fill covers far more than the wireframe.
   const size_t fill_lit = count_lit_region<W, H>(fx);
   HS_EXPECT_GT(fill_lit, wire_lit * 4);
 
@@ -351,12 +348,7 @@ inline void test_face_shader_setup_matches_face_index() {
 }
 
 // ============================================================================
-// Generic oracles over an arbitrary closed convex solid — exercise the
-// wireframe edge-arc and solid-fill tiling paths beyond the octahedron, on
-// quad faces (cube), pentagon faces (dodecahedron), and a large mixed-face
-// Goldberg mesh (truncated icosahedron: 60 V, 90 E, 32 mixed pentagon/hexagon
-// faces). Mixed-face face-walk, larger edge dedup, and the per-face bounding
-// cull at higher face counts are pixel-unverified on the octahedron alone.
+// Generic oracles over an arbitrary closed convex solid
 // ============================================================================
 
 /**
@@ -408,14 +400,9 @@ inline void check_wireframe_pixels_on_edges(PolyMesh &mesh, Arena &geom,
 
 /**
  * @brief Geometric oracle: every lit wireframe pixel lies ON an edge arc.
- * @details The midpoint test above proves each edge IS drawn; this proves
- *          nothing is drawn OFF the edges. Each lit pixel is mapped back to its
- *          world direction and must fall within ~a few pixels (angular) of the
- *          nearest edge's analytic great-circle arc. A misprojected sample, a
- *          stray seam-wrap plot, or an edge routed to the wrong vertices would
- *          leave lit pixels off every arc and fail here — exactly the
- * off-by-one / projection class the "nonempty subset" check (above) passes
- * through.
+ * @details Each lit pixel is mapped back to its world direction and must fall
+ *          within a few pixels (angular) of the nearest edge's analytic
+ *          great-circle arc.
  */
 inline void test_wireframe_pixels_lie_on_edges() {
   constexpr int W = 288, H = 144;
@@ -508,9 +495,8 @@ inline void test_dodecahedron_wireframe_and_fill() {
 
 /**
  * @brief Wireframe + solid-fill oracles on a large mixed-face Goldberg mesh.
- * @details The truncated icosahedron (60 V, 90 E, 32 mixed pentagon/hexagon
- *          faces) is the effect-payload scale the rasterizer-bound hot path
- *          actually runs, with non-triangular mixed faces the octahedron lacks.
+ * @details The truncated icosahedron: 60 V, 90 E, 32 mixed pentagon/hexagon
+ *          faces.
  */
 inline void test_truncated_icosahedron_wireframe_and_fill() {
   HS_CONTEXT("truncated icosahedron");
@@ -531,8 +517,8 @@ inline void test_truncated_icosahedron_wireframe_and_fill() {
  * @details Renders a sphere-tiling mixed-face solid full-canvas, then under
  * several clip bands, and asserts the clipped output equals the full output at
  * every pixel inside each band. The solid tiles the sphere, so faces straddle
- * every row/column boundary including the poles (rows 0 / H-1) and the x=0 seam
- * — exactly the great-circle-arc cases an unsafe vertex-based cull would drop.
+ * every row/column boundary including the poles (rows 0 / H-1) and the x=0
+ * seam.
  */
 inline void test_clip_band_matches_full() {
   constexpr int W = 288, H = 144;
@@ -597,14 +583,6 @@ inline void test_clip_band_matches_full() {
 
 // ============================================================================
 // Congruence-class bake — census invariants + rendered A/B
-//
-// build_mesh_class_bake clusters a spawned mesh's faces into congruence
-// classes (geometric clustering seeded per topology class) and bakes one
-// canonical distance LUT per concave shared class. The census over the whole
-// registry established: every islamic mesh's faces land 100% in shared
-// classes, with <= 24 classes and worst Procrustes residual < 0.25 px at
-// W=288. These tests pin those invariants on registry meshes and verify the
-// LUT-served render matches the exact render.
 // ============================================================================
 
 /**
@@ -635,10 +613,9 @@ inline void build_islamic_bake(size_t islamic_idx, Arena &seed_a, Arena &seed_b,
 /**
  * @brief Verifies build_mesh_class_bake clusters a borrowed-mode mesh into the
  *        same classes as its owned-mode source.
- * @details MeshOps::transform hands the draw path a mesh whose topology is a
- *          borrowed view with the owned array dropped, so a direct field read
- *          would report the mesh as unclassified. Both bakes run with no LUT
- *          budget: only the clustering is under test.
+ * @details A borrowed-mode mesh's topology is a view with the owned array
+ *          dropped. Both bakes run with no LUT budget: only the clustering is
+ *          under test.
  */
 inline void test_class_bake_borrowed_mode() {
   configure_arenas_default();
@@ -757,10 +734,7 @@ inline void test_class_bake_census_invariants() {
  * @brief Sweeps the whole islamic registry and pins what
  *        MeshOps::MAX_CONGRUENCE_CLASSES is sized from.
  * @details Per mesh the clustering must fit the class table, leaving no face
- * degraded to NO_CLASS by a full one. The registry-wide maximum is gated too:
- * the capacity is headroom over that census, and a build-path change that
- * pushes a shape past it spends the headroom without tripping any per-mesh
- * assertion.
+ * degraded to NO_CLASS by a full one; the registry-wide maximum is gated too.
  */
 inline void test_class_bake_registry_capacity() {
   configure_arenas_default();
@@ -822,8 +796,6 @@ inline void shade_by_distance(const math::Vector &, Fragment &f) {
  * convention, a mis-rotated alignment, or a sign flip near a deformed edge
  * (face-separation cracks) blows the mean; the per-pixel cap bounds the
  * legitimate bilinear + congruence + deformation-margin deviation.
- * Frame-budget-tight deltas are the offline visual gate's job (400-frame
- * dump), not this smoke's.
  */
 inline void
 check_class_lut_render_matches_exact(const MeshState &mesh,
@@ -900,12 +872,9 @@ inline void test_class_lut_render_matches_exact() {
 /**
  * @brief Rendered A/B on a deformed mesh against its spawn-time bake — the
  *        facility's deformation safety net.
- * @details The class-LUT facility is for meshes that hold still (see
- * face_class_bake.h); this pins what happens when a consumer's mesh deforms
- * anyway: the per-frame alignment must drop bent faces to the exact path (or
+ * @details The per-frame alignment must drop bent faces to the exact path (or
  * widen its guard) so the output stays inside the static interpolation
- * envelope. A fixed one-cell guard flips signs near the true edges and opens
- * visible cracks between faces.
+ * envelope.
  */
 inline void test_class_lut_render_matches_exact_rippled() {
   configure_arenas_default();
@@ -919,9 +888,7 @@ inline void test_class_lut_render_matches_exact_rippled() {
 
   // The real ripple transform at its shipped ceiling (amplitude 0.15,
   // thickness 0.7): a Ricker wavelet that slides vertices tangentially away
-  // from the origin — the steep wavelet slope shears faces, which is what
-  // breaks a rigid canonical alignment. (Radial displacement would be a
-  // false-pass: the gnomonic projection divides it out.)
+  // from the origin; the steep wavelet slope shears faces.
   Animation::RippleParams rp;
   rp.center = math::Vector(0.3f, 0.8f, -0.52f).normalized();
   rp.amplitude = 0.15f;
@@ -998,7 +965,7 @@ inline void expect_bake_partition(const BakeAccounting &a) {
 
 /**
  * @brief Exercises the LUT-budget branches (shrink recompute, class drop,
- *        low-quality discard) that the census tests leave uncovered.
+ *        low-quality discard).
  */
 inline void test_class_bake_budget_accounting() {
   const size_t min_lut =
@@ -1167,10 +1134,9 @@ inline void test_polygon_is_concave() {
  *        turn test over one registry mesh.
  * @param islamic_idx Index into the islamic registry.
  * @details The predicate and Face::build_half_planes carry separate copies of
- *          the same relative-turn scan; a divergence would spend class-LUT
- *          budget on faces the rasterizer serves from the convex fast path.
- *          Runs the predicate over each face's own per-frame projection and
- *          pins it against the verdict Face reached from the same vertices.
+ *          the same relative-turn scan. Runs the predicate over each face's own
+ *          per-frame projection and pins it against the verdict Face reached
+ *          from the same vertices.
  */
 inline void check_face_concavity_agrees(size_t islamic_idx) {
   configure_arenas_default();

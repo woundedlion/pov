@@ -2,13 +2,11 @@
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
  * Licensed under the PolyForm Noncommercial License 1.0.0
  *
- * Partition-op rasterizer seam calibration
- * Measures the framebuffer delta of a `kis` or `dual` swap at the shipping
- * canvas size. A flat fill isolates coverage discontinuity from shading.
- *
- * Doubles as the gated swap's seam regression: every swap is asserted against
- * the envelope this calibration fixed. Set HS_SEAM_DUMP=<dir> to write the
- * captures as PNG and to run the non-asserting gradient sweep.
+ * Partition-op rasterizer seam calibration and regression: measures the
+ * framebuffer delta of a `kis` or `dual` swap at the shipping canvas size. A
+ * flat fill isolates coverage discontinuity from shading. Set
+ * HS_SEAM_DUMP=<dir> to write the captures as PNG and to run the non-asserting
+ * gradient sweep.
  */
 #pragma once
 
@@ -287,16 +285,9 @@ inline SeamStats compare(const std::vector<Pixel> &a,
   return st;
 }
 
-/** Gated-swap envelope. The swap's measured coverage delta has a mean band
- * width of 2-4 px along the child edges, 6.6-15.3 % of the canvas, so the bound
- * is on the changed fraction, the changed pixels' absolute energy and the
- * deepest pixel instead. Changed fraction, energy, deepest darkening and
- * deepest band are bracketed on both sides: a widened band and a collapsed
- * seam — children that no longer partition the parent, and so leave the
- * capture untouched — are both out of envelope. Each swap's changed fraction
- * is bracketed within ten percent of its measured value. Fraction and energy
- * both count only pixels past DELTA_THRESH, so a uniform sub-threshold shift
- * is invisible to the gate. */
+/** Gated-swap envelope. Changed fraction, energy, deepest darkening and
+ * deepest band are bracketed on both sides, so a widened band and a collapsed
+ * seam both fail. Fraction and energy count only pixels past DELTA_THRESH. */
 constexpr double CHANGED_FRAC_RELATIVE_MARGIN = 0.10;
 constexpr double MEASURED_CHANGED_FRAC_KIS_ICOSA = 0.1533;
 constexpr double MEASURED_CHANGED_FRAC_KIS_CUBE = 0.1019;
@@ -314,15 +305,11 @@ constexpr int MEASURED_MAX_BAND_DUAL_DODECA = 35;
 constexpr int MAX_BAND_MARGIN = 2;
 constexpr double MAX_ABS_ENERGY = 0.02;
 
-/** Half the smallest absolute energy measured over the six swaps (0.96 %, dual
- * cube). A seam that stopped moving pixels reads as zero energy. */
+/** Half the smallest measured absolute energy (0.96 %, dual cube). */
 constexpr double MIN_ABS_ENERGY = 0.005;
 
-/** Deepest pixel measured over the six IEEE calibration swaps: a seam pixel
- * that both children claim at half coverage composites to 3/4 of the parent's
- * fill. A child that loses its
- * share of such a pixel leaves half, so the margin stays well under 0.5. All
- * six swaps reach it exactly, so the darkening is bracketed on both sides. */
+/** Deepest measured pixel delta: a seam pixel both children claim at half
+ * coverage composites to 3/4 of the parent's fill. */
 constexpr float MAX_MEASURED_PIXEL_DELTA = 0.25f;
 constexpr float PIXEL_DELTA_MARGIN = 0.05f;
 constexpr float MAX_PIXEL_DELTA = MAX_MEASURED_PIXEL_DELTA + PIXEL_DELTA_MARGIN;

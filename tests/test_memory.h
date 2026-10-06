@@ -4,24 +4,6 @@
  *
  * Unit tests for core/memory.h — Arena, ArenaVector, ArenaSpan,
  * ScratchScope, Persist<T>, and the scratch-scoped generate() wrapper.
- *
- * The always-on HS_CHECK traps are driven (in child processes) by the
- * death harness in tests/test_death.h; its case table and GUARD_GAP_ALLOW are
- * the only inventory of which guards are pinned.
- *
- * The ArenaVector lifetime guards (unbound access, use-after-free) are debug
- * asserts, not HS_CHECK traps — they compile out under NDEBUG so the per-access
- * check stays free in the device/WASM build. The death harness therefore can't
- * cover them; instead the bookkeeping they key on is exercised in-process here:
- * the bound flag through the construct/bind/move lifecycle
- * (test_arenavec_default_unbound / _bind / _move_construct / _move_assign), and
- * ArenaBlockStamp reset and rewind behavior is tested directly. Span/source
- * rebind generations are compared after both reuse and growth by
- * test_arenaspan_source_rebind_generation. A re-bind that grows is a supported
- * pattern (it abandons the old block until the next arena reset — see ArenaVector::bind), covered by
- * test_arenavec_rebind_grows. Move-assignment onto a bound handle abandons a
- * block the same way and accounts the bytes for the arena's OOM report, covered
- * by test_arenavec_move_assign_abandon_breadcrumb.
  */
 #pragma once
 
@@ -37,13 +19,9 @@ namespace memory_tests {
 
 /**
  * @brief Backing storage for arenas used in these tests.
- * @details Sized generously so OOM tests can be exercised explicitly.
- *
- *   Reset boundary: these buffers are module-scope and reused by every test.
- *   Each test re-bases the bump pointer by constructing (or rebind()-ing) a
- *   fresh Arena over the buffer at entry, which is the per-test reset; no
- *   allocation persists across that construction. Do not retain an ArenaVector
- *   pointing into a buffer past its own test scope.
+ * @details Module-scope and reused by every test; each test constructs (or
+ *   rebind()s) a fresh Arena over the buffer at entry. Do not retain an
+ *   ArenaVector pointing into a buffer past its own test scope.
  */
 inline uint8_t test_buf_a[64 * 1024]; /**< 64 KiB primary test arena buffer. */
 inline uint8_t
@@ -261,8 +239,7 @@ inline void test_arena_set_offset() {
 /**
  * @brief Verifies the legal boundary: an allocation that fills the arena
  *        exactly to capacity succeeds with in-range pointers.
- * @details Over-allocation is an invariant violation that HS_CHECK-traps inside
- *          allocate(), exercised by the death harness rather than here.
+ * @details Over-allocation HS_CHECK-traps inside allocate().
  */
 inline void test_arena_fills_to_capacity() {
   uint8_t tiny[64];
@@ -316,8 +293,7 @@ inline void test_arena_reset_high_water_mark() {
 /**
  * @brief Verifies reset() and rebind() each bump the debug-only generation
  *        counter that backs ArenaVector's stale-binding detection.
- * @details Generation tracking is available only without NDEBUG; the Debug
- * tests preset exercises this case.
+ * @details Generation tracking is available only without NDEBUG.
  */
 #ifndef NDEBUG
 inline void test_arena_generation_bumps() {
@@ -337,8 +313,7 @@ inline void test_arena_generation_bumps() {
  * @brief Verifies covers() reports a byte region live until the arena is
  *        rewound below it, backing ArenaSpan's rewind-staleness detection.
  * @details Debug builds only: covers() is `#ifndef NDEBUG`. A set_offset()
- *          rewind reclaims bytes without bumping the generation, so covers() is
- *          the only signal a borrowed span has that a rewind freed its region.
+ *          rewind reclaims bytes without bumping the generation.
  */
 #ifndef NDEBUG
 inline void test_arena_covers() {
@@ -359,13 +334,9 @@ inline void test_arena_covers() {
 /**
  * @brief Verifies reclaimed_since() keeps reporting a rewind after fresh
  *        allocations re-cover the reclaimed bytes, where covers() goes blind.
- * @details Debug builds only, like the stamps it reads. Re-covered bytes are the
- *          dangerous case, not the harmless one: the region now belongs to a
- *          second owner. A rewind that stops above a block must stay silent, so
- *          one case pins the absence of a false positive. The floor case frees
- *          a block while staying above an earlier deeper rewind's floor. The
- *          closing case checks that a later shallower rewind does not mask an
- *          earlier deeper rewind that freed the block.
+ * @details Debug builds only, like the stamps it reads. A rewind that stops
+ *          above a block must stay silent, and a later shallower rewind must
+ *          not mask an earlier deeper rewind that freed the block.
  */
 #ifndef NDEBUG
 inline void test_arena_reclaimed_since() {
@@ -431,8 +402,7 @@ inline void test_arena_reclaimed_since() {
  *          inter-arena align_up() boundaries are no-ops and the three arenas tile
  *          the block exactly, which lets the bases be checked by exact arithmetic.
  *          Each base is recovered via a 1-byte, align-1 allocation (padding 0, so
- *          it returns buffer+0). Restores the default split on exit so later tests
- *          (and the effect smoke passes) see the canonical partition.
+ *          it returns buffer+0). Restores the default split on exit.
  */
 inline void test_configure_arenas_repartition() {
   constexpr size_t P = 60 * 1024; // multiples of alignof(max_align_t) so the
@@ -475,14 +445,12 @@ inline void test_configure_arenas_repartition() {
 /**
  * @brief Verifies resplit_arenas() rebases the scratch arenas while the
  *        persistent arena keeps its base, offset, and live content.
- * @details The mid-run repartition an effect uses to claim a bigger scratch
- *          split: persistent survives untouched apart from its capacity
- *          boundary and a windowed high-water rebased to the live offset (the
- *          discarded window folded into the lifetime peak), and both
- *          scratch arenas land on the new (empty) boundaries. Sizes are
- *          max_align_t multiples so the inter-arena align_up()s are no-ops and
- *          the new bases can be checked by exact arithmetic. Restores the
- *          default split on exit.
+ * @details Persistent survives untouched apart from its capacity boundary and
+ *          a windowed high-water rebased to the live offset (the discarded
+ *          window folded into the lifetime peak); both scratch arenas land on
+ *          the new (empty) boundaries. Sizes are max_align_t multiples so the
+ *          new bases can be checked by exact arithmetic. Restores the default
+ *          split on exit.
  */
 inline void test_resplit_arenas_preserves_persistent() {
   constexpr size_t P0 = 48 * 1024, A0 = 8 * 1024, B0 = 8 * 1024;
@@ -529,8 +497,8 @@ inline void test_resplit_arenas_preserves_persistent() {
   HS_EXPECT_EQ(scratch_arena_b.get_capacity(), DEFAULT_SCRATCH_B_SIZE);
 }
 
-/** Counters the ArenaResetHook probes below bump; file-scope so the handlers
-    match the registry's plain function-pointer signature. */
+/** Counters the ArenaResetHook probes bump; file-scope so the handlers match
+    the registry's plain function-pointer signature. */
 namespace reset_hook_probe {
 inline int outer_calls = 0;
 inline int inner_calls = 0;
@@ -549,8 +517,7 @@ inline void record_state() {
  * @brief Verifies ArenaResetHook registers on construction, dispatches every
  *        registered handler, and unlinks itself on destruction.
  * @details The registry is intrusive and its head is private, so registration
- *          is observable only through run_all(). A hook that failed to unlink
- *          would call through a dead node on the next arena hand-out.
+ *          is observable only through run_all().
  */
 inline void test_arena_reset_hook_dispatch_and_unlink() {
   using namespace reset_hook_probe;
@@ -578,9 +545,7 @@ inline void test_arena_reset_hook_dispatch_and_unlink() {
 
 /**
  * @brief Verifies configure_arenas() runs the hook list before it rebinds.
- * @details The production seam the registry exists for: the storage under an
- *          arena-resident global is handed out again here, so every owner must
- *          have dropped its pointer first. Restores the default split.
+ * @details Restores the default split.
  */
 inline void test_arena_reset_hook_runs_on_configure() {
   using namespace reset_hook_probe;
@@ -600,9 +565,7 @@ inline void test_arena_reset_hook_runs_on_configure() {
 
 /**
  * @brief Verifies reset_persistent_arena() runs the hook list before rewinding.
- * @details The other seam that re-issues persistent storage. A bare
- *          Arena::reset() cannot run the registry, so the free function is the
- *          only correct spelling for a caller that rewinds to empty.
+ * @details A bare Arena::reset() does not run the registry.
  */
 inline void test_reset_persistent_arena_runs_hooks() {
   using namespace reset_hook_probe;
@@ -1149,8 +1112,7 @@ inline void test_persist_scratch_offset_restored() {
 }
 
 /**
- * @brief Verifies compaction: the documented Persist use case (HankinSolids'
- *        shape rebuild) is not a bare reset.
+ * @brief Verifies compaction, which is not a bare reset.
  * @details It evacuates survivors, resets persistent, RE-LAYS the long-lived
  *          data more tightly, then restores. The survivor must come back intact
  *          at its NEW (relocated) address, sitting after the compacted data
@@ -1374,8 +1336,7 @@ inline int gen_deep_level(Arena &t, Arena &a, Arena &b, int level,
 
 /**
  * @brief Stress-tests the reentrant scratch protocol across many nested levels.
- * @details The single-nest test proves one inner call does not clobber its
- * caller; this drives DEEP_LEVELS stacked frames and verifies each one stacked
+ * @details Drives DEEP_LEVELS stacked frames and verifies each one stacked
  * strictly above the previous level's live high-water (the reset fires only at
  * the outermost call) and that the outermost scope rolled both arenas back to
  * empty. Per-level sentinel survival is asserted inside gen_deep_level.
