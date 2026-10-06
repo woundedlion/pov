@@ -173,9 +173,12 @@ class ScoreTests(unittest.TestCase):
         short = analyze_candidates.score({**base, "crit_len": 90.0})
         long = analyze_candidates.score({**base, "crit_len": 180.0})
 
-        self.assertEqual(short, (9.0, 10.0))
-        self.assertEqual(long, (8.0, 10.0))
-        self.assertGreater(short[0], long[0])
+        self.assertEqual(short, 9.0)
+        self.assertEqual(long, 8.0)
+        self.assertGreater(short, long)
+        changed_placement = {**base, "crit_len": 90.0, "ergo": {
+            "decap_u1": 50.0, "divider": 40.0, "term_j2": 120.0}}
+        self.assertEqual(analyze_candidates.score(changed_placement), short)
 
 
 class MainTests(unittest.TestCase):
@@ -190,7 +193,7 @@ class MainTests(unittest.TestCase):
         output = "\n".join(" ".join(map(str, call.args)) for call in emit.call_args_list)
         self.assertEqual(result, 1)
         self.assertIn("No eligible candidate", output)
-        self.assertNotIn("best by composite", output)
+        self.assertNotIn("best by signal integrity", output)
 
     def test_floor_refusals_have_a_distinct_report(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -221,7 +224,7 @@ class MainTests(unittest.TestCase):
         self.assertEqual(result, 1)
         self.assertIn("unrouted critical nets", output)
         self.assertNotIn("PAIR SKEW", output)
-        self.assertNotIn("COMPOSITE SCORE", output)
+        self.assertNotIn("SIGNAL-INTEGRITY SCORE", output)
         run_drc.assert_not_called()
 
     def test_two_runs_of_one_label_stop_rather_than_rank_one(self):

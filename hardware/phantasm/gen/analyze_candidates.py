@@ -1,8 +1,8 @@
-"""Rank Quilter autoplace/autoroute candidates by signal integrity + ergonomics.
+"""Rank Quilter autoplace/autoroute candidates by signal integrity.
 
 Parses each candidate's `phantasm.kicad_pcb` (KiCad 10 s-expr) directly
 -- no KiCad needed -- and scores the fast nets (the 24 MHz SPI DATA/CLK to the
-strip, DATA_IN/CLK_IN from the Teensy, and the SYNC pair) plus placement quality.
+strip, DATA_IN/CLK_IN from the Teensy, and the SYNC pair).
 
 Usage:
     python analyze_candidates.py [DIR ...]
@@ -22,8 +22,9 @@ geometry is checked independently because Quilter may replace uploaded defaults;
 candidates below 0.45/0.20 mm are ineligible. Project-rule and zone floors run
 independently of KiCad availability; refusals report as RULES.
 
-Scoring favors fewer fast-net vias and shorter fast nets,
-with decoupling near U1, terminators near the strip connector and a compact sync divider.
+Scoring favors fewer fast-net vias and shorter fast nets. Placement distances
+are reported for inspection: the reported groupings are locked in the rev 1.2
+upload and cannot distinguish its candidates.
 """
 import argparse
 import glob
@@ -292,32 +293,15 @@ def analyze(path):
     )
 
 
-def ergo_penalty(value, limit, weight):
-    """Ergonomics deduction for a spacing past `limit`; a missing part (nan)
-    forfeits the whole score."""
-    if math.isnan(value):
-        return 10.0
-    return max(0.0, value - limit) * weight
-
-
 def score(r):
-    """Cheap composite scores (0-10) for a quick ranking. Lower fast-net length,
-    fewer fast-net vias, and tighter functional grouping all score higher."""
+    """Signal-integrity score (0-10) from fast-net copper length and vias."""
     si = 10.0
     si -= r["crit_len"] / 90.0          # total fast-net copper (reflection/EMI)
     si -= r["spi_vias"] * 0.6           # SPI-bus vias hurt most (stub + plane hop)
     si -= r["sync_vias"] * 0.4
     # (crit_vias_stitched is reported but not penalised: both inner planes are the
     #  same GND net, so a signal-via plane hop is benign vs a split-plane crossing.)
-    e = r["ergo"]
-    erg = 10.0
-    # (rs_sync is reported for inspection but not penalised: sync boundary edges
-    #  are ~868 us apart, with receive edges filtered by C_SYNC, so R_S spacing
-    #  is not a lever the way the fast-net groupings are.)
-    erg -= ergo_penalty(e["decap_u1"], 5, 0.3)
-    erg -= ergo_penalty(e["divider"], 4, 0.25)
-    erg -= ergo_penalty(e["term_j2"], 12, 0.08)
-    return max(0.0, min(10.0, si)), max(0.0, min(10.0, erg))
+    return max(0.0, min(10.0, si))
 
 
 def candidate_board(path):
@@ -454,7 +438,7 @@ def main(argv=None):
         print(f"{k:>6}  " + "   ".join(cells))
 
     print("\n" + "=" * 76)
-    print("ERGONOMICS  (mm; smaller = better-grouped)")
+    print("PLACEMENT DISTANCES (mm; inspection only, unscored)")
     print("=" * 76)
     print(f"{'Cand':>6} {'decap->U1':>10} {'term->J2':>9} {'R_S->J3A':>9} {'divider':>8}")
     for k in sorted(R):
@@ -463,14 +447,12 @@ def main(argv=None):
               f"{e['rs_sync']:>9.1f} {e['divider']:>8.1f}")
 
     print("\n" + "=" * 76)
-    print("COMPOSITE SCORE (rough, 0-10)")
+    print("SIGNAL-INTEGRITY SCORE (rough, 0-10)")
     print("=" * 76)
-    print(f"{'Cand':>6} {'SignalInteg':>12} {'Ergonomics':>11} {'Overall':>8}  DRC")
+    print(f"{'Cand':>6} {'SignalInteg':>12}  DRC")
     ranked = []
     for k in sorted(R):
-        si, erg = score(R[k])
-        overall = 0.6 * si + 0.4 * erg
-        ranked.append((overall, k, si, erg))
+        ranked.append((score(R[k]), k))
 
     def drc_tag(k):
         if R[k]["small_vias"]:
@@ -486,8 +468,8 @@ def main(argv=None):
             return "ok"
         return "REAL" if (dc["real"] or dc["unconnected"]) else "refill"
 
-    for overall, k, si, erg in sorted(ranked, reverse=True):
-        print(f"{k:>6} {si:>12.1f} {erg:>11.1f} {overall:>8.1f}  {drc_tag(k)}")
+    for si, k in sorted(ranked, reverse=True):
+        print(f"{k:>6} {si:>12.1f}  {drc_tag(k)}")
     if ranked:
         # A candidate must pass both the via and DRC gates.
         eligible = [t for t in ranked if drc_tag(t[1]) in ("ok", "refill")]
@@ -497,9 +479,9 @@ def main(argv=None):
                 "  (top geometric scorer failed the DRC gate -- skipped)"
         else:
             print("\nNo eligible candidate: " + ", ".join(
-                f"Candidate {k}: {drc_tag(k)}" for _, k, _, _ in ranked))
+                f"Candidate {k}: {drc_tag(k)}" for _, k in ranked))
             return 1
-        print(f"\n>> best by composite: Candidate {best}{note}")
+        print(f"\n>> best by signal integrity: Candidate {best}{note}")
         print("   verify by eye -- these are auto-routed; refill zones + DRC, then"
               " hand-polish the winner. 'refill'-tagged DRC clears on a KiCad zone refill.")
     return 0
