@@ -133,6 +133,28 @@ inline void case_plot_canvas_dim_mismatch() {
                         [](const math::Vector &, Fragment &) {});
 }
 
+inline void case_raster_empty_path_null_shader() {
+  ArenaVector<Fragment> points;
+  points.bind(scratch_arena_a, 1);
+  DeathEffect fx;
+  Canvas canvas(fx);
+  Pipeline<32, 16> pipe;
+  Plot::rasterize<32, 16>(pipe, canvas, points, FragmentShaderFn{});
+}
+
+inline void case_raster_single_nonfinite_point() {
+  ArenaVector<Fragment> points;
+  points.bind(scratch_arena_a, 1);
+  Fragment point;
+  point.pos.x = opaque(std::numeric_limits<float>::quiet_NaN());
+  points.push_back(point);
+  DeathEffect fx;
+  Canvas canvas(fx);
+  Pipeline<32, 16> pipe;
+  Plot::rasterize<32, 16>(pipe, canvas, points,
+                          [](const math::Vector &, Fragment &) {});
+}
+
 /**
  * @brief Death case: a plot window over a multi-segment polyline must trap.
  * @details The window narrows one segment's arc fraction.
