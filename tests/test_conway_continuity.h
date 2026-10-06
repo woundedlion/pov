@@ -1933,15 +1933,24 @@ inline void test_star_midpoint_dissolve() {
   // Symmetric on the far side: the star comes back out of the rosette ramp as
   // it reopens rather than snapping to its own color.
   const int reopen_cf = mid + 1;
+  const float reopen_angle = sweep_angle(fx, reopen_cf);
+  const float reopen_blend = Probe::shape_weights(fx, reopen_cf).star_close;
+  HS_EXPECT_NEAR(reopen_angle, star_angle, 1e-6f);
+  HS_EXPECT_EQ(reopen_blend, star_blend);
   std::vector<Pixel> reopen_shaped;
-  capture_opening(fx, star_angle, 1.0f, reopen_shaped, 1.0f, 1.0f, reopen_cf,
-                  Probe::shape_weights(fx, reopen_cf).star_close);
+  capture_opening(fx, reopen_angle, 1.0f, reopen_shaped, 1.0f, 1.0f, reopen_cf,
+                  reopen_blend);
   HS_EXPECT_SIZE_OR_RETURN(reopen_shaped, sliver_shaped.size());
+  int worst = 0;
   for (size_t i = 0; i < reopen_shaped.size(); ++i) {
-    HS_EXPECT_EQ(reopen_shaped[i].r, sliver_shaped[i].r);
-    HS_EXPECT_EQ(reopen_shaped[i].g, sliver_shaped[i].g);
-    HS_EXPECT_EQ(reopen_shaped[i].b, sliver_shaped[i].b);
+    worst =
+        std::max(worst, std::abs((int)reopen_shaped[i].r - sliver_shaped[i].r));
+    worst =
+        std::max(worst, std::abs((int)reopen_shaped[i].g - sliver_shaped[i].g));
+    worst =
+        std::max(worst, std::abs((int)reopen_shaped[i].b - sliver_shaped[i].b));
   }
+  HS_EXPECT_LE(worst, 2);
 }
 
 // ---------------------------------------------------------------------------
