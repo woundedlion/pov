@@ -66,7 +66,7 @@ inline void test_sprite_overlapping_fades_stay_continuous() {
   float max_jump = 0.0f;
   for (size_t i = 1; i < ops.size(); ++i)
     max_jump = std::max(max_jump, std::abs(ops[i] - ops[i - 1]));
-  HS_EXPECT_LT(max_jump, 0.3f);
+  HS_EXPECT_LE(max_jump, 0.2f + 1e-4f);
   // Rises to full opacity at the apex, then falls (a triangle).
   HS_EXPECT_NEAR(ops[4], 1.0f, 1e-3f);
   HS_EXPECT_GT(ops[4], ops[0]);
