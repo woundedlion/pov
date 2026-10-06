@@ -61,43 +61,52 @@ class FakePort:
 
 
 class FakeClock:
-    """Stands in for the `time` module, advancing a step per monotonic() read.
+    """Stands in for the `time` module; time passes only where the code blocks."""
 
-    profile_capture polls a wall-clock deadline, so a real clock would make the
-    retry and capture loops take their configured seconds to run.
-    """
-
-    def __init__(self, step=1.0):
+    def __init__(self):
         self.now = 0.0
-        self.step = step
         self.sleeps = []
 
     def monotonic(self):
-        value = self.now
-        self.now += self.step
-        return value
+        return self.now
 
     def sleep(self, seconds):
         self.sleeps.append(seconds)
+        self.now += seconds
 
 
 class FakeSerial:
-    """An opened port that replays a fixed sequence of readline() results."""
+    """An opened port that replays a fixed sequence of readline() results.
 
-    def __init__(self, port, lines=()):
+    An empty read costs the port's 1 s timeout on `clock`; a line costs 10 ms.
+    """
+
+    def __init__(self, port, lines=(), clock=None):
         self.port = port
         self.lines = list(lines)
+        self.clock = clock
         self.closed = False
 
     def readline(self):
-        return self.lines.pop(0) if self.lines else b""
+        line = self.lines.pop(0) if self.lines else b""
+        self.clock.now += 0.01 if line else 1.0
+        return line
 
     def close(self):
         self.closed = True
 
 
 def ports(*rows):
-    return mock.patch.object(pc.list_ports, "comports", lambda: list(rows))
+    """Patch the bus to list `rows`; a runaway poll fails at 100 enumerations."""
+    polls = []
+
+    def comports():
+        polls.append(None)
+        if len(polls) > 100:
+            raise AssertionError("port enumeration polled without backing off")
+        return list(rows)
+
+    return mock.patch.object(pc.list_ports, "comports", comports)
 
 
 class TestFindPort(unittest.TestCase):
@@ -156,12 +165,17 @@ class TestOpenPort(unittest.TestCase):
         self.addCleanup(self.enter.stop)
 
     def _serial(self, *results):
-        """Patch serial.Serial with one result (value or exception) per call."""
+        """Patch serial.Serial with one result (value or exception) per call.
+
+        The last result repeats; a runaway retry loop fails at 100 calls.
+        """
         calls = []
 
         def factory(port, **kwargs):
             calls.append((port, kwargs))
-            result = results[len(calls) - 1]
+            if len(calls) > 100:
+                raise AssertionError("open_port retried without backing off")
+            result = results[min(len(calls), len(results)) - 1]
             if isinstance(result, Exception):
                 raise result
             return result
@@ -197,15 +211,16 @@ class TestOpenPort(unittest.TestCase):
         # A peer session still holding the port: every attempt raises, so the
         # deadline has to end the retry loop rather than spin forever.
         busy = _SerialException("could not open port COM3: Access is denied.")
-        calls, patched = self._serial(busy, busy)
+        calls, patched = self._serial(busy)
         with ports(FakePort("COM3")), patched:
             with self.assertRaises(SystemExit) as caught:
                 pc.open_port(3.0, "COM3")
         message = str(caught.exception)
         self.assertIn("COM3", message)
         self.assertIn("Access is denied.", message)
-        self.assertEqual(len(calls), 2)
-        self.assertEqual(self.clock.sleeps, [0.5, 0.5])
+        self.assertGreaterEqual(len(calls), 2)
+        self.assertGreaterEqual(sum(self.clock.sleeps), 3.0 - 0.5)
+        self.assertLessEqual(sum(self.clock.sleeps), 3.0)
 
     def test_no_board_at_all_exits_naming_any(self):
         with ports(), mock.patch.object(pc.serial, "Serial", None):
@@ -239,7 +254,7 @@ class TestMain(unittest.TestCase):
         self.dir = tempfile.TemporaryDirectory()
         self.addCleanup(self.dir.cleanup)
         self.out = os.path.join(self.dir.name, "nested", "capture.log")
-        self.clock = FakeClock(step=0.3)
+        self.clock = FakeClock()
         patched = mock.patch.object(pc, "time", self.clock)
         patched.start()
         self.addCleanup(patched.stop)
@@ -251,7 +266,7 @@ class TestMain(unittest.TestCase):
         terminal's cp1252 encoding cannot print the replacement characters the
         undecodable-bytes case produces.
         """
-        argv = ["profile_capture.py", "--out", self.out, "--seconds", "1.0"]
+        argv = ["profile_capture.py", "--out", self.out, "--seconds", "5.0"]
         stdout = io.StringIO()
         with mock.patch.object(sys, "argv", argv + list(extra)), \
                 mock.patch.object(pc, "open_port", lambda *a: serial_port), \
@@ -260,7 +275,7 @@ class TestMain(unittest.TestCase):
         return stdout.getvalue()
 
     def test_capture_writes_the_streamed_lines_and_creates_the_directory(self):
-        opened = FakeSerial("COM3", [b"phase 1\r\n", b"", b"phase 2\n"])
+        opened = FakeSerial("COM3", [b"phase 1\r\n", b"", b"phase 2\n"], self.clock)
         printed = self._run(opened)
         self.assertTrue(opened.closed)
         with open(self.out, encoding="utf-8", newline="") as handle:
@@ -271,7 +286,7 @@ class TestMain(unittest.TestCase):
         self.assertIn("2 lines", printed)
 
     def test_undecodable_bytes_do_not_abort_the_capture(self):
-        opened = FakeSerial("COM3", [b"\xff\xfe ok\n"])
+        opened = FakeSerial("COM3", [b"\xff\xfe ok\n"], self.clock)
         self._run(opened)
         with open(self.out, encoding="utf-8") as handle:
             self.assertIn("ok", handle.read())
@@ -293,7 +308,7 @@ class TestMain(unittest.TestCase):
     def test_a_silent_board_leaves_no_log_behind(self):
         # A wrong or hung image enumerates and streams nothing; an empty log
         # reads downstream as a real capture.
-        opened = FakeSerial("COM3")
+        opened = FakeSerial("COM3", clock=self.clock)
         with self.assertRaises(SystemExit) as caught:
             self._run(opened)
         self.assertIn("streamed nothing", str(caught.exception))
@@ -307,7 +322,7 @@ class TestMain(unittest.TestCase):
         with open(self.out, "w", encoding="utf-8") as handle:
             handle.write("previous run\n")
         with self.assertRaises(SystemExit):
-            self._run(FakeSerial("COM3"))
+            self._run(FakeSerial("COM3", clock=self.clock))
         self.assertFalse(os.path.exists(self.out))
 
     def test_a_nonpositive_duration_is_rejected(self):
@@ -330,7 +345,8 @@ class TestBoardPinForwarding(unittest.TestCase):
         self.dir = tempfile.TemporaryDirectory()
         self.addCleanup(self.dir.cleanup)
         self.out = os.path.join(self.dir.name, "capture.log")
-        patched = mock.patch.object(pc, "time", FakeClock(step=0.3))
+        self.clock = FakeClock()
+        patched = mock.patch.object(pc, "time", self.clock)
         patched.start()
         self.addCleanup(patched.stop)
 
@@ -340,7 +356,7 @@ class TestBoardPinForwarding(unittest.TestCase):
         def fake_open_port(timeout_s, want=None):
             seen["timeout"] = timeout_s
             seen["want"] = want
-            return FakeSerial("COM9", [b"line\n"])
+            return FakeSerial("COM9", [b"line\n"], self.clock)
 
         argv = ["profile_capture.py", "--out", self.out, "--seconds", "1.0"]
         with mock.patch.dict(os.environ, {}, clear=False), \
