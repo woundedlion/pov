@@ -3,23 +3,6 @@
  * Licensed under the PolyForm Noncommercial License 1.0.0
  *
  * Unit tests for core/mesh/hankin.h.
- *
- * Coverage:
- *   - compile_hankin builds base_vertices, static_vertices,
- *     dynamic_instructions, and face arrays consistently.
- *   - update_hankin populates an output PolyMesh for both flat (angle=0)
- *     and twisted (angle≠0) configurations, and re-solves into a reused output
- *     mesh without consuming further arena bytes.
- *   - one-shot MeshOps::hankin convenience wrapper produces a valid mesh.
- *   - hankin compiles on its own output: the degree-2 star points raise quad
- *     rosettes; the result retains two-face edge incidence and Euler
- *     characteristic 2.
- *   - the far-star guard keeps star points local at a resonance angle where
- *     contact planes go near-parallel.
- *   - CompiledHankin::clone makes an independent deep copy.
- *   - dual seeds compile to distinct topology keys despite one census.
- *   - a borrowed-mode re-solve keeps its own pattern but sheds the topology key
- *     that described the dropped view.
  */
 #pragma once
 
@@ -139,12 +122,10 @@ inline void test_compile_hankin_normalizes_antipodal_fallback() {
 /**
  * @brief Verifies each static vertex is the normalised midpoint of the input
  *        edge it represents, not merely some unit-length point.
- * @details The size and unit-length checks above accept any twelve points on
- *          the sphere; this pins their geometry. Every dynamic instruction names a
- *          corner and its two flanking edges (idx_m1 = edge v_prev–v_corner,
- *          idx_m2 = edge v_corner–v_next), so recompute each edge's normalised
- *          midpoint straight from base_vertices and require the referenced
- *          static vertex to match. Walking all instructions touches every edge midpoint.
+ * @details Every dynamic instruction names a corner and its two flanking
+ *          edges (idx_m1 = edge v_prev–v_corner, idx_m2 = edge
+ *          v_corner–v_next); each referenced static vertex must match the
+ *          normalised midpoint recomputed from base_vertices.
  */
 inline void test_compile_hankin_static_vertices_are_edge_midpoints() {
   Arena target(hankin_target_buf, sizeof(hankin_target_buf));
@@ -184,8 +165,7 @@ inline void test_compile_hankin_static_vertices_are_edge_midpoints() {
  *        face per base face, emitted first, in base-face order, before any
  *        rosette faces.
  * @tparam Solid Seed solid descriptor to compile.
- * @details The bookend hankin↔base palette mapping is the identity because of
- *          this order. Star face fi is pinned to base face fi structurally: it
+ * @details Star face fi is pinned to base face fi structurally: it
  *          has 2x the base face's sides, alternates midpoint (< static_offset)
  *          and star-point (>= static_offset) entries starting with a midpoint,
  *          and its star points' instruction corners are exactly base face fi's
@@ -359,8 +339,6 @@ inline void test_update_hankin_populates_output_mesh() {
 /**
  * @brief Verifies the documented steady state: re-solving into an already-sized
  *        output mesh against the same arena consumes no further arena bytes.
- * @details HankinSolids re-solves the angle every frame against a persistent
- *   arena, so a per-call allocation here grows that arena without bound.
  */
 inline void test_update_hankin_reuse_allocates_nothing() {
   Arena target(hankin_target_buf, sizeof(hankin_target_buf));
@@ -524,14 +502,9 @@ inline void check_manifold_connectivity(const PolyMesh &m) {
  * @brief Verifies Hankin output is a connected genus-0 manifold with consistent
  *        winding, for both a quad seed (cube) and a triangle seed
  *        (icosahedron).
- * @details The structural smoke above (face-count consistency, index range,
- *          loose unit-length) accepts a non-manifold or backwards-wound mesh.
- *          Hankin is the family most likely to open a seam or invert a face, so
- *          apply the same Euler + manifold-edge-degree + winding oracle Conway
- *          and solids use: every undirected edge bounds exactly two faces,
- *          V - E + F == 2, every face points outward, and no directed edge is
- *          reused in the same direction. The vertex graph and each vertex fan
- *          must also be connected.
+ * @details Every undirected edge bounds exactly two faces, V - E + F == 2,
+ *          every face points outward, no directed edge repeats, and the vertex
+ *          graph and each vertex fan are connected.
  */
 inline void test_hankin_output_is_genus0_manifold() {
   {
@@ -627,9 +600,8 @@ inline uint8_t hankin_reso_target[512 * 1024];
  * @details
  * The dodecahedron hk35/ambo/hk62/ambo/relax prefix at a 43-degree contact angle
  * puts one corner class's contact planes near-parallel, so their ray
- * intersections land ~64 degrees from the corner. Without the far-star guard
- * the output grows sliver faces whose longest edge is ~24x the median; with it
- * every edge stays within MAX_SLIVER_EDGE_RATIO.
+ * intersections land ~64 degrees from the corner. The far-star guard keeps
+ * every edge within MAX_SLIVER_EDGE_RATIO.
  */
 inline void test_update_hankin_resonance_star_points_stay_local() {
   Arena target(hankin_reso_target, sizeof(hankin_reso_target));
@@ -658,10 +630,9 @@ inline void test_update_hankin_resonance_star_points_stay_local() {
  * @brief Verifies near-parallel star intersections move continuously with the
  *        contact angle.
  * @details Sweeps the full HankinSolids angle range on the bevel(0.5)
- *          truncated-icosidodecahedron star prefix (baked at 100 relax iterations). The
- *          tighter 44-50 degree sub-bound covers its plane-normal resonance; on this
- *          plateau geometry the passage is rougher than a fully-relaxed one but stays
- *          far below the sliver-blowup threshold the general bound guards.
+ *          truncated-icosidodecahedron star prefix (baked at 100 relax
+ *          iterations); a tighter 44-50 degree sub-bound covers its plane-normal
+ *          resonance.
  */
 inline void test_update_hankin_near_parallel_angle_is_continuous() {
   Arena prefix_arena(hankin_reso_target, sizeof(hankin_reso_target));
@@ -894,8 +865,7 @@ inline void test_hankin_dual_seeds_share_census_not_key() {
  * @brief Verifies a borrowed-mode re-solve against the matching pattern is
  *        accepted and leaves the output unclassified rather than keyed.
  * @details update_hankin drops the borrowed topology view on entry, so the
- *   classification it described is gone; retaining its key would leave a mesh
- *   claiming a topology it no longer carries, which set_borrowed then rejects.
+ *   output carries no topology key.
  */
 inline void test_update_hankin_borrowed_reuse_drops_topology_key() {
   Arena target(hankin_target_buf, sizeof(hankin_target_buf));

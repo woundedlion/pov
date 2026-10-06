@@ -2,17 +2,8 @@
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
  * Licensed under the PolyForm Noncommercial License 1.0.0
  *
- * Per-effect sweep primitives and the effects white-box suite.
- *
- * Defines the per-effect sweep primitives:
- *   1. smoke_one  — construct/init/render/read-back, under native asserts.
- *   2. determinism_one — renders each effect twice under an injected, fixed
- *      per-frame clock (hs::set_mock_time) and asserts the two final frames are
- *      byte-identical.
- *   3. clip_clear_parity_one — renders under a moving segment clip with each
- *      clear scope and requires the displayed pixels to agree.
- * The roster sweeps that apply them are the effects_smoke module
- * (tests/test_effects_smoke.h); this module holds the white-box invariants.
+ * Per-effect sweep primitives (smoke_one, determinism_one,
+ * clip_clear_parity_one) and the effects white-box suite.
  */
 #pragma once
 
@@ -44,9 +35,6 @@ namespace effects_tests {
 
 /**
  * @brief Primary production render width in pixels.
- * @details The daydream simulator default and the device's full sphere; the
- * configuration effects are exercised at in deployment, so it is the
- * representative smoke target.
  */
 constexpr int DEFAULT_W = 288;
 /**
@@ -57,13 +45,7 @@ constexpr int DEFAULT_H = 144;
 
 /**
  * @brief Small-aspect render width in pixels.
- * @details <96,20> is built by the holosphere and holosphere_dma hardware
- * environments. The native suite is the only place the <96,20>
- * specialization runs under asserts (the device forces NDEBUG; the CI WASM
- * smoke runs assert-free), so a second roster pass at this resolution exercises
- * height-20-specific paths (PhiLUT<20> indexing, small-aspect arena sizing,
- * H_OFFSET interactions) that bypass every assert-enabled layer otherwise. Both
- * are in HS_RESOLUTIONS (core/control/registry.h).
+ * @details The holosphere <96,20> resolution, run here under asserts.
  */
 constexpr int SMALL_W = 96;
 /**
@@ -74,11 +56,6 @@ constexpr int SMALL_H = 20;
 
 /**
  * @brief Per-effect smoke frame count, resolved from HS_SMOKE_FRAMES.
- * @details Shared with the arena/stack budget gates (tests/test_fixture.h), so
- * they measure over the base render window before parameter lints. Frame count is a
- * minor cost lever here. The QUICK tier skips the production-resolution
- * roster passes but retains full-resolution GS fidelity cases (see
- * effects_full_suite()).
  */
 using hs_test::smoke_frames;
 
@@ -86,19 +63,7 @@ using hs_test::smoke_frames;
  * @brief Selects the effects test depth tier from the environment.
  * @return true for the FULL suite (the production-resolution roster passes
  * and the white-box cases in the FULL block), false for the QUICK tier.
- * @details The full suite renders every roster effect at the 288x144 production
- * resolution across a smoke pass, a determinism pass, and several full-frame
- * white-box tests — dominated by the ~71 ms/frame software raster of
- * 41,472-pixel frames. The QUICK tier (default) runs the small-aspect <96,20>
- * smoke + determinism passes, ~1,920-pixel frames that cover every effect's
- * construct/init/render/read-back and cross-run determinism, plus every
- * white-box case outside the FULL block, including full-resolution GS
- * fidelity cases. CI opts into the full suite on
- * every master push and PR by setting HS_EFFECTS_FULL=1 (.github/workflows/ci.yml), so the
- * production-resolution roster passes and FULL-block white-box cases are the
- * authoritative gate there, not locally. Set HS_EFFECTS_FULL=1 to reproduce the
- * CI depth in a local commit. Read by the effects, effects_smoke,
- * effect_factory and mindsplatter modules.
+ * @details HS_EFFECTS_FULL=1 selects the FULL tier; QUICK is the default.
  */
 inline bool effects_full_suite() {
 #pragma clang diagnostic push
@@ -120,12 +85,8 @@ inline void lint_animated_pause(Effect &effect, const char *name);
 
 /**
  * @brief Resets the process-global effect state to a clean per-effect baseline.
- * @details Forwards to hs_test::reset_globals(). Every effect aliases the same
- *          static double buffer, global RNG, arenas, and timeline; without this
- *          reset leftover events reference the previous (destroyed) effect
- *          instance. The mock clock is released too, so a case that wants one
- *          pins it itself rather than inheriting whichever clock the previous
- *          case left behind.
+ * @details Forwards to hs_test::reset_globals(), which also releases the mock
+ *          clock.
  */
 inline void reset_effect_globals() { hs_test::reset_globals(); }
 
@@ -153,16 +114,10 @@ typename E::Params preset_params_or_initial(size_t index) {
  * @tparam W Render width in pixels (defaults to DEFAULT_W).
  * @tparam H Render height in pixels (defaults to DEFAULT_H).
  * @param name Effect name used in the [ok] / diagnostic output.
- * @details Verifies the effect constructs, init's, renders smoke_frames()
- * frames, and reads back every pixel without tripping an assert/OOB/hang, and
- * that get_pixel still aliases the displayed buffer once another frame has been
- * rendered and flipped in. Runs the dead-slider and animated-pause lints on
- * the <SMALL_W,SMALL_H> pass, which both depth tiers execute. For effects
- * with animated parameters, the pause lint renders at least 500 extra frames
- * and leaves the effect paused. Finally requires
- * the effect to have overflowed no timeline event over its whole lifetime: a
- * drop is the one soft-degrade in the animation subsystem, and only this
- * per-effect delta attributes it.
+ * @details Renders smoke_frames() frames and reads back every pixel, checks
+ * get_pixel aliases the displayed buffer, runs the parameter lints at
+ * <SMALL_W,SMALL_H>, and requires no dropped timeline event. The pause lint
+ * leaves the effect paused.
  */
 template <template <int, int> class E, int W = DEFAULT_W, int H = DEFAULT_H>
 inline void smoke_one(const char *name) {
@@ -176,9 +131,6 @@ inline void smoke_one(const char *name) {
   HS_EXPECT_EQ(effect.width(), W);
   HS_EXPECT_EQ(effect.height(), H);
 
-  // A wider render margin costs rendered pixels, so it may only appear when a
-  // filter's segment_margin asks for it; no roster pipeline asks past the
-  // ClipRegion default today.
   HS_EXPECT_EQ(effect.clip().margin, ClipRegion{}.margin);
 
   const int frames = smoke_frames();
@@ -220,9 +172,7 @@ inline void smoke_one(const char *name) {
     HS_EXPECT(acc > 0, "effect must produce non-black output");
   }
 
-  // The display read-back paths index display_buffer() directly (see
-  // overrides_get_pixel), so get_pixel must still be its row-major view after
-  // the flip advance_display performs.
+  // get_pixel must stay the row-major view of display_buffer() after a flip.
   effect.draw_frame();
   effect.advance_display();
   const Pixel *displayed = effect.display_buffer();
@@ -234,17 +184,13 @@ inline void smoke_one(const char *name) {
   HS_EXPECT(unaliased == 0,
             "get_pixel must read the displayed buffer at the row-major offset");
 
-  // The parameter lints are resolution-independent; run them once, on the pass
-  // both depth tiers execute.
   if constexpr (W == SMALL_W && H == SMALL_H) {
     lint_dead_sliders(effect, name);
     lint_animated_pause(effect, name);
   }
 
-  // A full timeline soft-drops: add() discards add_get()'s nullptr, so a chain
-  // that re-arms itself from a .then() callback ends for good. The counter is
-  // process-wide and wraps at uint32_t, so this per-effect delta is what
-  // attributes a drop to the effect that overflowed the table.
+  // The drop counter is process-wide and wraps at uint32_t; take the
+  // per-effect delta.
   const uint32_t dropped = Timeline::dropped_events() - dropped_before;
   if (dropped != 0)
     std::printf("  TIMELINE FULL %-20s dropped %u animation(s) over %d frames "
@@ -260,15 +206,9 @@ inline void smoke_one(const char *name) {
  * @brief Runtime "registered-but-unread" lint for the live-art param system.
  * @param effect Effect instance whose editable params are probed.
  * @param name Effect name used in DEAD SLIDER diagnostic output.
- * @details Contract: a registered, editable param — one NOT flagged
- * animated and NOT flagged mark_readonly() — must be genuinely
- * user-controllable, i.e. a value written through updateParameter() must persist
- * across frames. If the engine overwrites it every frame (a Mutation/Driver/Lerp
- * bound to the same member, or output-only telemetry), the slider is dead: the
- * author must drive a private member and register_animated_param() it, or
- * mark_readonly()
- * pure telemetry. The check detects per-frame overwrites; it does not measure
- * a parameter's visual influence.
+ * @details A registered param that is neither animated nor mark_readonly()
+ * must keep a value written through updateParameter() across frames. Detects
+ * per-frame overwrites, not visual influence.
  */
 inline void lint_dead_sliders(Effect &effect, const char *name) {
   for (const auto &def : effect.getParameters()) {
@@ -317,9 +257,8 @@ inline void lint_dead_sliders(Effect &effect, const char *name) {
  * @brief Checks paused rendering for advertised animated parameters.
  * @param effect Effect instance whose automated params are probed.
  * @param name Effect name used in PAUSE LEAK diagnostic output.
- * @details Parameters are audited one at a time so independent valid controls
- *          are not combined into an invalid cross-field configuration. The
- *          aggregate frame span derives from PAUSE_AUDIT_FRAMES.
+ * @details Parameters are audited one at a time over PAUSE_AUDIT_FRAMES in
+ *          total.
  */
 inline void lint_animated_pause(Effect &effect, const char *name) {
   std::vector<const char *> names;
@@ -393,10 +332,8 @@ inline void lint_animated_pause(Effect &effect, const char *name) {
  * @tparam H Render height in pixels (defaults to DEFAULT_H).
  * @param out Receives the final displayed frame, sized W*H pixels (row-major).
  * @param frames Number of frames to render before capture.
- * @param frame_fold Optional out-param receiving an FNV-1a running checksum
- * folded over every displayed frame (not just the last). Lets a caller detect
- * mid-run nondeterminism that reconverges before the final frame, which the
- * final-buffer copy alone cannot see. Ignored when nullptr.
+ * @param frame_fold Optional out-param receiving an FNV-1a checksum folded over
+ * every displayed frame. Ignored when nullptr.
  * @param lit Optional output: whether any displayed frame contains a lit pixel.
  * @details Resets every shared global the smoke path does (RNG seed, arenas,
  * Timeline, pole-LOD knob, scan counters) and pins the mock clock to the frame
@@ -464,9 +401,8 @@ constexpr int PARITY_SEGMENTS = 4;
  * @tparam W Render width in pixels (defaults to DEFAULT_W).
  * @tparam H Render height in pixels (defaults to DEFAULT_H).
  * @param name Effect name used in the NONDETERMINISTIC diagnostic output.
- * @details The clock seam neutralizes wall-time, so a divergence here is real
- * nondeterminism (uninitialized read or stale global) —
- * the defect class smoke coverage cannot see.
+ * @details The clock seam neutralizes wall-time, so a divergence is real
+ * nondeterminism (uninitialized read or stale global).
  */
 template <template <int, int> class E, int W = DEFAULT_W, int H = DEFAULT_H>
 inline void determinism_one(const char *name) {
@@ -480,7 +416,7 @@ inline void determinism_one(const char *name) {
   hs::clear_mock_time();
 
   // Per-frame fold catches mid-run divergence that reconverges by the final
-  // frame; the final-buffer comparison below alone would miss it.
+  // frame.
   if (fold_a != fold_b)
     std::printf("  NONDETERMINISTIC %-20s per-frame checksum %llu != %llu over "
                 "%d frames\n",
@@ -576,11 +512,7 @@ inline void clip_clear_parity_one(const char *name) {
     HS_EXPECT(different == 0,
               "clip clearing must not change any displayed pixel");
   }
-  // Two all-black renders agree pixel for pixel, so the comparison above only
-  // means something once the sweep has produced output. Sparse effects can miss
-  // a single arm segment, so the requirement spans the whole sweep, and the
-  // sweep length is chosen so no effect is still exempt at it — an exemption
-  // here would make every assertion above vacuous.
+  // Two all-black renders agree trivially; require output across the sweep.
   if (lit == 0)
     std::printf("  CLIP-CLEAR DARK %-20s no lit pixel over %zu displayed "
                 "pixels\n",
@@ -595,11 +527,7 @@ inline constexpr std::array<int, 24> SH_PRESET_MODES{
 
 /**
  * @brief White-box accessor for SphericalHarmonics' morph chain and shader inputs.
- * @details Befriended in effects/SphericalHarmonics.h. The morph legs are 64
- *          frames and the chain re-arms only from a Transition::then() callback,
- *          so a frozen chain renders a perfectly valid (static) sphere that the
- *          smoke and determinism sweeps both accept. This seam reads the mode
- *          bookkeeping and the palette/orientation the draw_frame shader consumed.
+ * @details Befriended in effects/SphericalHarmonics.h.
  */
 struct SphericalHarmonicsWhiteBox {
   using SH = SphericalHarmonics<SMALL_W, SMALL_H>;
@@ -635,8 +563,7 @@ struct SphericalHarmonicsWhiteBox {
   }
 
   // Pinning both morph endpoints on one mode makes the blend an identity, so a
-  // frame renders one pure harmonic whatever morph_alpha has reached. The
-  // production roll excludes this state; only a test wants it.
+  // frame renders one pure harmonic whatever morph_alpha has reached.
   static void pin_mode(SH &fx, int idx) {
     fx.current_idx = idx;
     fx.next_idx = idx;
@@ -649,9 +576,6 @@ struct SphericalHarmonicsWhiteBox {
 
 /**
  * @brief Pins HarmonicField's blend endpoints, polarity and local frame.
- * @details Nothing downstream can tell a frozen blend, a reversed blend, or a
- *          shape rotated the wrong way from a legitimate mode — every one of
- *          them still paints a plausible sphere.
  */
 inline void test_sh_field_write_through_and_endpoints() {
   using Field = SphericalHarmonicsWhiteBox::Field;
@@ -823,15 +747,11 @@ inline void sh_render_pinned_mode(int idx, float amplitude, FnT &&inspect) {
 
 /**
  * @brief Pins the diverging palette split and the ambient-occlusion shaping.
- * @details Reads the rendered frame back and classifies each pixel by the sign
- *          and magnitude the field carries there, so the assertions are on
- *          observed colors rather than on a second copy of the shader. Covers
- *          three contracts nothing else touches: a saturated positive lobe wears
- *          the palette's top color unmodified (which is also AO_AMBIENT +
- *          AO_RANGE == 1, i.e. no residual dimming at saturation), the negative
- *          lobe wears that same color with red and blue swapped and green
- *          dimmed, and below the AO falloff every pixel is scaled well under the
- *          palette entry its own magnitude selects.
+ * @details Classifies each rendered pixel by the field's sign and magnitude: a
+ *          saturated positive lobe wears the palette's top color unmodified, the
+ *          negative lobe wears it with red and blue swapped and green dimmed,
+ *          and below the AO falloff every pixel is dimmed under its palette
+ *          entry.
  */
 inline void test_sh_polarity_split_and_ao_shaping() {
   using WB = SphericalHarmonicsWhiteBox;
@@ -839,8 +759,7 @@ inline void test_sh_polarity_split_and_ao_shaping() {
   constexpr int DIPOLE_IDX = 2;
 
   // Amplitude 10 (the slider maximum) saturates the palette across most of both
-  // lobes, leaving a wide margin above the |val| the classification thresholds
-  // on even if the rasterizer's sample point differs from ours in the last bits.
+  // lobes.
   sh_render_pinned_mode(
       DIPOLE_IDX, 10.0f,
       [](const WB::SH &fx, const WB::Field &field, float amp) {
@@ -937,10 +856,8 @@ inline void test_sh_polarity_split_and_ao_shaping() {
 /**
  * @brief Verifies the morph chain re-arms itself and keeps advancing modes.
  * @details start_morph() schedules a 64-frame Transition whose then() callback
- *          commits the target and calls start_morph() again; a chain that failed
- *          to re-arm would freeze the sphere on one mode while every smoke,
- *          determinism and math check still passed. Drives enough frames for at
- *          least three commits, so the callback must have re-armed twice.
+ *          commits the target and calls start_morph() again; three commits mean
+ *          the callback re-armed twice.
  */
 inline void test_sh_morph_chain_rearms() {
   using WB = SphericalHarmonicsWhiteBox;
@@ -1081,10 +998,8 @@ inline void test_sh_manual_preset_replaces_inflight_morph() {
 /**
  * @brief Module entry point for the effects white-box suite.
  * @return Module result code from hs_test::end_module (0 on success).
- * @details Per-effect invariants with an explicit oracle. The roster-wide smoke,
- * determinism and clip-clear parity sweeps live in the separate effects_smoke
- * module (tests/test_effects_smoke.h), which is IEEE-agnostic and so runs on the
- * fast-math axis this module is excluded from.
+ * @details Per-effect invariants with an explicit oracle; excluded from the
+ * fast-math axis.
  */
 inline int run_effects_tests() {
   hs_test::ModuleFixture fixture("effects");
@@ -1181,7 +1096,7 @@ inline int run_effects_tests() {
   run_case(test_islamicstars_burst_size_is_snapshotted_per_spawn);
   run_case(test_islamicstars_smooth_recipe_completion);
 
-  // FULL tier only (HS_EFFECTS_FULL=1; CI on every master push and PR).
+  // FULL tier only (HS_EFFECTS_FULL=1).
   if (effects_full_suite()) {
     run_case(test_voronoi_union_candidates_cover_nearest);
     run_case(test_sh_pullback_matches_legacy_shader);

@@ -2,9 +2,7 @@
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
  * Licensed under the PolyForm Noncommercial License 1.0.0
  *
- * Axis constants, spherical/pixel conversions, parametric curves, random
- * directions, bases and antipodes, Orientation, wrapping, shortest distances,
- * cubic kernels, and smooth ramps.
+ * Unit tests for core/math/geometry.h and Orientation.
  */
 #pragma once
 
@@ -60,11 +58,8 @@ inline void test_phi_to_y_virtual() {
  * @brief Pins the south-pole row-index contract: phi=PI can land a float hair
  *        *above* H_VIRT-1, but the floored row a caller indexes with must stay
  *        in [0, H_VIRT-1].
- * @details The proximity (HS_EXPECT_NEAR) checks pass even at H_VIRT-1+epsilon
- *          and do not pin the ceiling. The raw float overshoots for some heights
- *          (e.g. h_virt=64); flooring is the documented caller fix, so the bound
- *          is asserted on static_cast<int>(y), across the free function, the
- *          templated phi_to_y<H>, and vector_to_pixel of the south pole.
+ * @details The raw float overshoots for some heights (e.g. h_virt=64), so
+ *          the bound is asserted on static_cast<int>(y).
  */
 inline void test_phi_to_y_south_pole_row_in_bounds() {
   for (int h_virt : {16, 64, 145, 23}) {
@@ -147,10 +142,8 @@ inline void test_pixel_to_vector_unit_length() {
  */
 inline void test_pixel_to_vector_known_samples() {
   constexpr int W = 32, H = 32;
-  // Integer y rarely lands exactly on phi=π/2 (equator is y=(H_VIRT-1)/2): the
-  // sampled row sits a half row south, residual 0.051, against 0.151 for a
-  // one-row shift. The magnitude cannot separate the two shift directions
-  // (adjacent rows straddle the equator symmetrically), so the sign does.
+  // The sampled row sits half a row south of the equator; the sign of v.y
+  // pins the shift direction.
   math::Vector v = math::pixel_to_vector<W, H>(0, (H + hs::H_OFFSET) / 2);
   HS_EXPECT_VEC(v, math::Vector(1, 0, 0), 0.09f);
   HS_EXPECT_LT(v.y, 0.0f);
@@ -164,9 +157,8 @@ inline void test_pixel_to_vector_known_samples() {
  * @brief Pins pixel_to_vector's fractional-y (float) branch to y_to_phi<H>, so
  *        the float and integer LUT paths cannot diverge on a build with non-zero
  *        H_OFFSET.
- * @details y_to_phi<H> is the same phi source the integer LUT path and every
- *          SDF/scan shape use. At x=0, Vector(Spherical(0, phi)) =
- *          (sin phi, cos phi, 0), so the recovered phi is acos(v.y).
+ * @details At x=0, Vector(Spherical(0, phi)) = (sin phi, cos phi, 0), so the
+ *          recovered phi is acos(v.y).
  */
 inline void test_pixel_to_vector_float_branch_matches_phi_lut() {
   constexpr int W = 32, H = 32;
@@ -200,12 +192,9 @@ inline void test_pixel_to_vector_float_out_of_lut_domain() {
 /**
  * @brief Verifies vector_to_pixel inverts pixel_to_vector to within the
  *        angular-primitive error for non-degenerate samples.
- * @details Poles are excluded, where azimuth wrap is undefined. The tolerances
- *          are the suite's pinned fast_atan2 and fast_acos errors (4e-3 and
- *          2e-4 rad, test_3dmath.h) carried into pixels at W = H = 64: 0.041 px
- *          in x, 0.004 px in y. Measured worst case is 0.0348 px in x and
- *          0.0010 px in y, so the bounds sit narrow enough to catch a
- *          half-pixel index-convention shift in phi_to_y or vector_to_theta.
+ * @details Poles are excluded. The tolerances are the fast_atan2 and
+ *          fast_acos errors (4e-3 and 2e-4 rad) carried into pixels at
+ *          W = H = 64.
  */
 inline void test_vector_to_pixel_roundtrip_via_pixel_to_vector() {
   constexpr int W = 64, H = 64;
@@ -238,9 +227,7 @@ inline void test_fib_spiral_unit_length() {
 
 /**
  * @brief Pins fib_spiral samples to frozen coordinates across the index range.
- * @details Endpoints, midpoint and an off-lattice index; between them they
- *          constrain the polar ladder, the golden-angle azimuth and the
- *          handedness, so any change to the generator moves at least one.
+ * @details Samples the endpoints, the midpoint and an off-lattice index.
  */
 inline void test_fib_spiral_deterministic() {
   HS_EXPECT_VEC(math::fib_spiral(64, 0.5f, 0),
@@ -272,8 +259,7 @@ inline void test_fib_spiral_endpoints() {
 
 /**
  * @brief Verifies consecutive fib_spiral samples advance in azimuth by a
- *        constant golden-angle step, the property that gives the spiral its
- *        even spread (a wrong-but-unit-length placement would fail here).
+ *        constant golden-angle step.
  * @details Sample i's azimuth is 2*pi*i*INV_PHI, so consecutive samples differ
  *        by a fixed golden step (mod 2*pi). Mid-range indices are used because
  *        near the poles sin(phi) -> 0 makes the recovered azimuth noisy.
@@ -313,12 +299,9 @@ inline void test_lissajous_unit_length() {
 
 /**
  * @brief Verifies the lissajous phase a is in RADIANS: it computes
- *        cos(m1*t - a), matching the designer's radians-labelled slider and raw
- *        export.
+ *        cos(m1*t - a).
  * @details With m1=m2=1, a=1, t=1 the phase arg is 1-1=0, so the point is
- *          (sin1*cos0, cos1, sin1*sin0) = (sin1, cos1, 0). A scale-by-PI
- *          convention would put the arg at 1-PI and shift x/z sharply, which
- *          this rules out.
+ *          (sin1*cos0, cos1, sin1*sin0) = (sin1, cos1, 0).
  */
 inline void test_lissajous_phase_is_radians() {
   math::Vector v = math::lissajous(1.0f, 1.0f, 1.0f, 1.0f);
@@ -347,11 +330,7 @@ inline void test_random_vector_unit_length() {
 /**
  * @brief random_vector is a pure function of the shared RNG stream: reseeding
  *        the generator reproduces the exact same sequence bit-for-bit.
- * @details The unit-length test alone would also pass if random_vector pulled
- *          from a nondeterministic source (time/entropy). Pinning reproducibility
- *          guards the sim↔device determinism contract documented on hs::random().
- *          The global generator is saved and restored so this test can't perturb
- *          the stream position other RNG-touching tests observe.
+ * @details The global generator is saved and restored.
  */
 inline void test_random_vector_deterministic() {
   auto saved = hs::random();
@@ -371,15 +350,9 @@ inline void test_random_vector_deterministic() {
 /**
  * @brief random_vector is approximately uniform on the sphere — not biased
  *        toward an axis or hemisphere.
- * @details A degenerate generator that always returned the same direction (or a
- *          biased one) would still pass the unit-length check. Over many samples
- *          the per-axis means must sit near zero, each axis must split roughly
- *          evenly across its sign, and pooled absolute components must occupy
- *          [0,1] uniformly. Bounds are deliberately loose (the per-axis
- *          mean's standard error at N=4000 is ~0.009, so ±0.08 is ~9σ; the sign
- *          split's σ is ~32 counts, so ±400 is ~12σ) — a true uniform generator
- *          passes with vast margin while a stuck/biased one fails. Seeded for
- *          reproducibility; the generator is saved and restored.
+ * @details Per-axis means sit near zero, each axis splits evenly across its
+ *          sign, and pooled absolute components occupy [0,1] uniformly. Bounds
+ *          are ~9-12 sigma at N=4000. The generator is saved and restored.
  */
 inline void test_random_vector_distribution() {
   auto saved = hs::random();
@@ -753,8 +726,7 @@ inline void test_wrap_int() {
 /**
  * @brief Verifies a mixed (int, float) wrap call returns the common type (float).
  * @details The template yields std::common_type_t (float), so the fractional part
- *          survives rather than being truncated to an int; (float, int) also uses
- *          float math, which geometry.h relies on.
+ *          survives; (float, int) also uses float math.
  */
 inline void test_wrap_mixed_type() {
   static_assert(std::is_same_v<decltype(math::wrap(3, 2.5f)), float>,
@@ -769,9 +741,7 @@ inline void test_wrap_mixed_type() {
 
 /**
  * @brief Verifies fast_wrap folds x with a single add or subtract.
- * @details fast_wrap assumes x is at most one period out of range, valid only for
- *          x in [-W, 2W); the test covers in-range identity, one period high, one
- *          period low, and the whole legal window landing in [0, W).
+ * @details fast_wrap is valid only for x in [-W, 2W).
  */
 inline void test_fast_wrap() {
   constexpr int W = 8;
@@ -790,8 +760,8 @@ inline void test_fast_wrap() {
 
 /**
  * @brief Verifies the float fast_wrap overload folds into the half-open [0, W).
- * @details Mirrors the integer cases, then pins the boundary the naive add
- *          misses: a tiny negative x rounds `x + W` up to exactly W.
+ * @details A tiny negative x rounds `x + W` up to exactly W, which must fold
+ *          to 0.
  */
 inline void test_fast_wrap_float() {
   constexpr int W = 8;

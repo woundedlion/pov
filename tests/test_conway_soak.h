@@ -2,19 +2,8 @@
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
  * Licensed under the PolyForm Noncommercial License 1.0.0
  *
- * Native soak for the OpLeg graph walk
- * (docs/specs/conway_morph_spec.md §7.8):
- * runs the real HankinSolids frame loop across enough legs to visit every
- * graph node, under native asserts. Surviving is most of the assertion — any
- * trap (seed reconciliation, per-frame hankin count guard, scratch overflow)
- * aborts the process. On top of that it pins:
- *   - full node coverage within a bounded leg count (deterministic RNG seed),
- *   - zero persistent-arena growth across leg compactions: the post-compaction
- *     offset is a pure function of (node, held seed), so every revisit must
- *     land on the byte-identical offset — steady state, not monotonic creep,
- *   - no arena high-water growth on a repeated directed transition with the same seed,
- *   - a per-leg floor on lit pixels and frame energy, so no single leg may
- *     render dark.
+ * Native soak of the OpLeg graph walk through the real HankinSolids frame
+ * loop (docs/specs/conway_morph_spec.md §7.8).
  */
 #pragma once
 
@@ -31,8 +20,7 @@
 namespace hs_test {
 namespace conway_soak_tests {
 
-/** Soak render size: small enough to keep the raster cheap, large enough that
- * every hankin face still covers pixels. */
+/** Soak render size. */
 constexpr int SOAK_W = 96;
 constexpr int SOAK_H = 20;
 
@@ -46,12 +34,10 @@ constexpr int SOAK_EXTRA_LEGS = 8;
 /** Frame ceiling backstopping the leg bound (a leg is ~115-127 frames). */
 constexpr int SOAK_FRAME_CAP = (SOAK_LEG_BOUND + SOAK_EXTRA_LEGS) * 140;
 
-/** Every sampled frame lights the whole frame; the floor leaves slack for a
- * future node whose silhouette does not. */
+/** Per-leg minimum lit pixels in a sampled frame. */
 constexpr int SOAK_MIN_LIT_PIXELS = SOAK_W * SOAK_H * 3 / 4;
 
-/** Summed-channel floor per sampled frame, ~1% of an all-white frame and about
- * a third of the dimmest frame the walk actually renders. */
+/** Summed-channel floor per sampled frame (~1% of an all-white frame). */
 constexpr uint64_t SOAK_MIN_FRAME_ENERGY = 4000000ull;
 
 /**
@@ -124,12 +110,9 @@ inline void test_full_graph_walk_soak(uint32_t seed) {
     if (node == prev_node)
       continue;
 
-    // Leg completion: finish_morph_cycle compacted the persistent arena this
-    // frame, so the offset now is the steady-state footprint of the arrived
-    // (node, seed) pair and must reproduce exactly on every revisit.
+    // Leg completion: the post-compaction persistent offset must reproduce
+    // exactly on every revisit of (node, seed).
     ++legs;
-    // Per-leg render floor: a leg that went dark cannot hide behind the rest of
-    // the run still being lit.
     HS_EXPECT_NE(leg_min_energy, UINT64_MAX);
     if (leg_min_energy != UINT64_MAX) {
       HS_EXPECT_GE(leg_min_lit, SOAK_MIN_LIT_PIXELS);
@@ -190,9 +173,7 @@ inline void test_full_graph_walk_soak(uint32_t seed) {
   HS_EXPECT_GT(legs_at_coverage, 0);
   HS_EXPECT_LE(legs_at_coverage, SOAK_LEG_BOUND);
 
-  // The host persistent arena is over-provisioned, so only the device figure
-  // gates it; both scratch arenas run at their device sizes and are
-  // trap-enforced.
+  // The host persistent arena is over-provisioned; gate on the device figure.
   using Fx = HankinSolids<SOAK_W, SOAK_H>;
   HS_EXPECT_LE(persistent_arena.get_high_water_mark(),
                Fx::DEVICE_PERSISTENT_BYTES);

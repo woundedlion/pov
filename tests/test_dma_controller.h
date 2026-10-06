@@ -2,16 +2,8 @@
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
  * Licensed under the PolyForm Noncommercial License 1.0.0
  *
- * Host unit tests for the double-buffered DMA LED controller
- * (hardware/dma_led_controller.h). The controller is templated on its SPI/DMA
- * transport, so these run it against MockStrip — a recording double standing in
- * for the Arduino-only TeensySPIDMA — to cover the orchestration the pure-math
- * (test_dma_core.h) and wire-format (test_hd107s_frame.h) suites cannot reach:
- * the clock forwarded into the transport, the double-buffer flip, the
- * overrun-drop path (and its watchdog consult), the with_bg transfer-length
- * select, and the end-to-end byte stream a real strip would clock in. The register/eDMA/ISR internals of TeensySPIDMA stay
- * hardware-only and out of host-test scope. test_overrun_drop covers the watchdog
- * consult; the trap itself is device-only.
+ * Host unit tests for DMALEDController (hardware/dma_led_controller.h),
+ * driven through the MockStrip recording transport.
  */
 #pragma once
 
@@ -32,12 +24,9 @@ using Frame = HD107SFrame<N>;
 
 /**
  * @brief Recording transport double for DMALEDController.
- * @details Mirrors TeensySPIDMA's transmit/completion/watchdog contract while
- *          capturing each transfer's pointer, length, and byte snapshot and
- *          letting a test drive completion. The controller owns its transport by
- *          value and constructs it from a clock alone, so the observable state
- *          lives in a single static block (the device likewise holds exactly one
- *          transport per image); reset() clears it between tests.
+ * @details Mirrors TeensySPIDMA's transmit/completion/watchdog contract and
+ *          captures each transfer. The controller constructs its transport by
+ *          value, so observable state lives in a static block; reset() clears it.
  */
 class MockStrip {
 public:
@@ -147,10 +136,8 @@ inline void test_begin_inits() {
 
 /**
  * @brief The controller hands its SPI clock to the transport it constructs.
- * @details The override is the 24 MHz the Phantasm driver passes. It has to
- *          differ from MockStrip's own default argument, which coincides with
- *          DEFAULT_CLOCK_HZ: at the default rate a controller that dropped the
- *          forward would leave exactly the expected value behind.
+ * @details The override differs from MockStrip's default argument so a
+ *          dropped forward is detected.
  */
 inline void test_ctor_forwards_clock() {
   using Controller = DMALEDController<N, MockStrip>;

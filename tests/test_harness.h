@@ -2,10 +2,8 @@
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
  * Licensed under the PolyForm Noncommercial License 1.0.0
  *
- * Shared test harness — single global Stats counter, HS_EXPECT_* macros,
- * and per-module begin/end scope helpers. Per-module reporters compute their
- * own pass/fail counts as deltas from the global counter so multiple test
- * suites can coexist in one driver.
+ * Shared test harness: global Stats counter, HS_EXPECT_* macros, and
+ * per-module scopes that report deltas from that counter.
  */
 #pragma once
 
@@ -63,12 +61,9 @@ inline uint64_t fnv1a64_bytes(const void *data, size_t n,
 
 /**
  * @brief Process-wide pass/fail tally shared by every test suite.
- * @details Single-threaded by contract: the counters are plain ints, so every
- * HS_EXPECT_* must be evaluated on the test's main thread. This keeps the hot
- * assertion path free of atomic RMWs across the whole suite. A test that spawns
- * a helper thread must capture its cross-thread observation into a std::atomic
- * and assert on the main thread after join() — never calling HS_EXPECT_* from
- * the helper.
+ * @details Single-threaded: the counters are plain ints, so every HS_EXPECT_*
+ * must run on the main thread. A helper thread hands its observation back
+ * through a std::atomic and the main thread asserts after join().
  */
 struct Stats {
   int passed = 0; /**< Count of comparisons that succeeded. */
@@ -92,9 +87,6 @@ inline constexpr int FAIL_PRINT_CAP = 50;
 /**
  * @brief Per-module FAIL-line print budget.
  * @details Only printing is capped; Stats::failed still counts every failure.
- * A per-element assertion loop over a multi-million-element suite would
- * otherwise emit one line per element, and ctest buffers a test's whole output
- * before printing it.
  */
 struct FailPrintBudget {
   int printed = 0;    /**< FAIL lines printed since the current begin_module. */
@@ -144,11 +136,8 @@ template <typename T> inline T fold_worst(T worst, T error) {
  * @param b Second value.
  * @param tol Maximum allowed absolute difference, in the same units as a and b.
  * @return True iff both values are finite and within tol of each other.
- * @details Double-domain overload. HS_EXPECT_NEAR captures its operands as
- * double, so the comparison must stay in double — downcasting to float would
- * round both sides to ~1e-7 resolution and silently mask a sub-float-epsilon
- * regression in a double-valued expression. Float call sites bind the float
- * overload above by exact match, so this is additive.
+ * @details HS_EXPECT_NEAR captures operands as double; comparing in float
+ * would mask sub-float-epsilon differences.
  */
 inline bool approx(double a, double b, double tol) {
   return std::isfinite(a) && std::isfinite(b) && std::abs(a - b) <= tol;
@@ -172,10 +161,8 @@ inline bool approx_rel(double a, double b, double rel_tol) {
 
 namespace detail {
 /**
- * @brief Structural detection for the engine's small value types so
- * print_operand can show components without test_harness.h depending on the
- * engine headers. Pixel exposes r/g/b; Vector exposes x/y/z; Quaternion
- * exposes r/v; Color4 exposes color/alpha; Complex exposes re/im.
+ * @brief Structural detection for the engine's small value types, so
+ * print_operand shows components without depending on the engine headers.
  */
 template <class T, class = void> struct has_rgb : std::false_type {};
 template <class T>
@@ -213,10 +200,7 @@ struct has_color_alpha<T,
 
 /**
  * @brief One frame of the scoped assertion-context stack.
- * @details Holds a label pointer and up to two integer coordinates rather than
- * formatted text: a frame pushed inside a per-pixel loop must not cost a
- * vsnprintf on the passing path, so formatting happens only when a failure
- * prints.
+ * @details Formatting happens only when a failure prints.
  */
 struct ContextFrame {
   const char *label = nullptr; /**< Caller-owned static label. */
@@ -257,10 +241,8 @@ inline void print_context() {
 
 /**
  * @brief RAII label naming what the enclosing block is asserting about.
- * @details HS_EXPECT_* stamps __func__, which inside a shared helper names the
- * helper rather than the call that reached it. Every live scope is printed with
- * each failure, so a helper's assertions say which caller and which sample they
- * came from.
+ * @details Every live scope is printed with each failure, identifying the
+ * caller and sample behind a shared helper's assertion.
  */
 class ContextScope {
 public:
@@ -286,12 +268,8 @@ private:
  * @tparam T Operand type; bool, floating-point, enum, integral, pointer, and the
  * strings and the engine's r/g/b and x/y/z value types are formatted specially.
  * @param v The operand value to print.
- * @details Lets a failing HS_EXPECT_* line show the actual values, not just the
- * stringified expr. Pixel (r,g,b), Vector (x,y,z), Quaternion (r,v), Complex
- * (re,im) and Color4 (color,alpha) are detected structurally — so an
- * HS_EXPECT_EQ/CMP on those prints components rather than "?" — and their fields
- * recurse through this same printer. Any other non-arithmetic operand still
- * falls back to "?".
+ * @details Value types are detected structurally and their fields recurse
+ * through this printer; any other non-arithmetic operand prints "?".
  */
 template <class T> inline void print_operand(const T &v) {
   if constexpr (std::is_null_pointer_v<T>) {

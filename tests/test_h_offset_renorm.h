@@ -2,8 +2,8 @@
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
  * Licensed under the PolyForm Noncommercial License 1.0.0
  *
- * South-pole Y-clip renormalization coverage for the legacy H_OFFSET mapping.
- * Compiled with HS_TEST_H_OFFSET=3; shipping targets use H_OFFSET == 0.
+ * South-pole Y-clip renormalization coverage for the H_OFFSET == 3 mapping.
+ * Compiled with HS_TEST_H_OFFSET=3.
  */
 #pragma once
 
@@ -135,7 +135,7 @@ inline float deposited_energy(Filter::Screen::AntiAlias<W, H> &aa, float x,
 }
 
 /**
- * @brief Pins the offset and LUT used by the Scan, Plot, Feedback and Face cases.
+ * @brief Pins the offset and the trig LUT.
  * @details H_VIRT is H + 3. The last physical row has sin(phi) > 0;
  *          the virtual bottom row samples the pole with float rounding.
  */
@@ -159,13 +159,9 @@ inline void test_offset_is_active_and_lut_nondegenerate() {
 
 /**
  * @brief Energy conservation across a y-sweep straddling the south-pole clip.
- * @details For every sample whose center row is still on-image (y < H, so the
- *          y0 = floor(y) tap survives), the renorm must redistribute the clipped
- *          Y tap so the deposited alphas sum back to the input alpha. For a
- *          sample fully below the last row (y >= H) every tap is clipped and the
- *          deposited energy is zero — the LEDs stop short of the pole, so the
- *          image is clipped, not stretched. The boundary band [H-1, H) folds
- *          the clipped Y weight onto the surviving row, as in the ideal host profile.
+ * @details A sample with y < H deposits the full input alpha (the clipped Y
+ *          weight folds onto the surviving row); a sample with y >= H deposits
+ *          nothing.
  */
 inline void test_energy_conserved_through_clip_boundary() {
   Filter::Screen::AntiAlias<W, H> aa;
@@ -190,7 +186,7 @@ inline void test_energy_conserved_through_clip_boundary() {
 /**
  * @brief The boundary row splits across two columns and conserves alpha.
  * @details X weights depend on the framebuffer fraction at every latitude.
- *          The clipped y1 weight folds into y0 (wy0 == 1), as in the ideal host profile.
+ *          The clipped y1 weight folds into y0 (wy0 == 1).
  */
 inline void test_boundary_row_splits_two_columns_and_conserves() {
   Filter::Screen::AntiAlias<W, H> aa;
@@ -209,10 +205,8 @@ inline void test_boundary_row_splits_two_columns_and_conserves() {
 
 /**
  * @brief Energy conservation at the boundary is independent of the X fraction.
- * @details Sweeps the X sub-pixel offset across a full cell at a fixed boundary
- *          y. The renorm sets wy0 = 1, so the deposited energy is wy0 * (sum of
- *          the X weights) = 1 * 1 for every X offset, regardless of how the
- *          quintic-eased split lands between the columns.
+ * @details The renorm sets wy0 = 1, so the deposited energy equals the X-weight
+ *          sum for every X offset.
  */
 inline void test_boundary_energy_independent_of_x_fraction() {
   Filter::Screen::AntiAlias<W, H> aa;
@@ -228,12 +222,8 @@ inline void test_boundary_energy_independent_of_x_fraction() {
 
 /**
  * @brief The last physical row shades as a latitude ring under Scan, not a pole.
- * @details Scan::Shader reconstructs each pixel's direction through the
- *          H_VIRT-aware trig tables. At the legacy offset-3 mapping row H-1 sits at
- *          colatitude (H-1)*PI/(H_VIRT-1), so every column of that row shares
- *          one latitude well off the pole while its azimuth sweeps a full turn.
- *          An H_OFFSET == 0 build maps the row to the south pole up to float
- *          rounding.
+ * @details Row H-1 sits at colatitude (H-1)*PI/(H_VIRT-1), so every column
+ *          shares one latitude off the pole while its azimuth sweeps a full turn.
  */
 inline void test_scan_bottom_row_is_a_latitude_ring() {
   using LUT = math::TrigLUT<W, H>;
@@ -275,11 +265,8 @@ inline void test_scan_bottom_row_is_a_latitude_ring() {
 
 /**
  * @brief Plot maps latitude through H_VIRT, so the sub-pole gap holds no data.
- * @details The LED ring stops H_OFFSET rows short of the south pole. A stroke
- *          past the last physical row therefore has no hardware to light and
- *          must be dropped, while one at the bottom row still draws. On an
- *          H_OFFSET == 0 build both colatitudes land on real rows and the
- *          distinction does not exist.
+ * @details The LED ring stops H_OFFSET rows short of the south pole: a stroke
+ *          past the last physical row is dropped, one at the bottom row draws.
  */
 inline void test_plot_below_last_row_is_clipped() {
   const float bottom_row_phi = math::y_to_phi<H>(static_cast<float>(H - 1));
@@ -291,14 +278,10 @@ inline void test_plot_below_last_row_is_clipped() {
 
 /**
  * @brief Verifies the feedback compositor drives the bottom row as a
- *        mid-latitude ring, not as a pole, at the legacy offset-3 mapping.
+ *        mid-latitude ring, not as a pole, at the offset-3 mapping.
  * @details A rotation about +Y moves a mid-latitude ring by its angle and
- *          leaves a pole fixed. On the host (H_OFFSET == 0) row H-1 IS the
- *          south pole, so the compositor pins its warp origin and the row
- *          cannot move; test_filter.h covers that collapse. With the legacy offset-3
- *          mapping the LED ring stops short of the pole, so the same row has to
- *          carry the full longitude shift. Nothing else compiles the feedback
- *          pole path at this offset.
+ *          leaves a pole fixed; row H-1 is off the pole here, so it carries the
+ *          full longitude shift.
  */
 inline void test_feedback_bottom_row_rotates_in_longitude() {
   using LUT = math::TrigLUT<W, H>;
