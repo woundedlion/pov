@@ -122,8 +122,8 @@ struct Style {
    * than one row pitch (s below about 0.5 at 288x144) sample each column pair
    * once at its midpoint and expand the pairs back with a 3:1 blend toward each
    * neighbouring pair, a one-column blur. Larger values widen the band toward
-   * the equator; 0 composites every row at full resolution. Rows the longitude
-   * filter reconstructs keep every column.
+   * the equator; 0 composites every row at full resolution. Rows the longitude    * filter reconstructs keep every column. Half-resolution compositing applies
+    * only at full opacity (alpha >= 1); translucent frames keep every column.
    */
   float pole_half_res = 1.0f;
 

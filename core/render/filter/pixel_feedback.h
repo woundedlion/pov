@@ -40,8 +40,9 @@ namespace Pixel {
  * through the pole) and convert each pixel's own target back, since longitude
  * offsets grow as 1/sin(phi) there and interpolating them across rings lands
  * pixels degrees away from their targets.
- * Rows whose columns outnumber the row pitch two to one composite every other
- * column (Style::pole_half_res).
+ * At full opacity (alpha >= 1), rows whose columns outnumber the row pitch two
+ * to one composite every other column (Style::pole_half_res), unless the
+ * longitude filter reconstructs them. Translucent frames keep every column.
  */
 template <int W, int H> class Feedback : public Is2DWithHistory {
   using SphereField = hs::SphericalFieldLayout<W, H>;
