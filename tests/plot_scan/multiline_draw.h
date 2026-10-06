@@ -6,10 +6,8 @@
 // Included by tests/test_plot_scan.h.
 
 // ============================================================================
-// Plot::Multiline::draw — sampling plus rasterization, through the live entry
-// point Fishbowl calls. The cases above cover sample() alone; these run
-// the whole draw and hold the plotted positions against an analytic
-// point-to-geodesic-arc oracle.
+// Plot::Multiline::draw — sampling plus rasterization, held against an
+// analytic point-to-geodesic-arc oracle.
 // ============================================================================
 
 /** @brief Four non-coplanar control directions used by the Multiline cases. */
@@ -34,9 +32,8 @@ inline void test_arc_angular_distance_clamps_to_minor_arc() {
 /**
  * @brief Verifies Multiline::draw paints its geodesic edges and nothing else.
  * @details Every plotted position must lie on one of the polyline's geodesic
- * arcs, every control point must be reached, and the walk must be gap-free —
- * the three properties a caller drawing a path depends on. The tolerance is
- * one screen row.
+ * arcs, every control point must be reached, and the walk must be gap-free.
+ * The tolerance is one screen row.
  */
 inline void test_multiline_draw_covers_only_its_geodesic_edges() {
   constexpr int W = 128, H = 64;
@@ -88,9 +85,9 @@ inline void test_multiline_draw_covers_only_its_geodesic_edges() {
 
 /**
  * @brief Verifies the closed flag draws the last->first seam edge.
- * @details Closing routes a loop_seam fragment through draw_fragments; without
- * it the wrap edge is silently dropped. The seam's own midpoint separates the
- * two renders: it is off every open edge and on the closed one.
+ * @details Closing routes a loop_seam fragment through draw_fragments. The
+ * seam's own midpoint separates the two renders: it is off every open edge and
+ * on the closed one.
  */
 inline void test_multiline_draw_closed_adds_the_seam_edge() {
   constexpr int W = 128, H = 64;
@@ -169,13 +166,9 @@ inline void test_plot_line_antipodal_replay_parameter() {
 
 /**
  * @brief Verifies a geodesic line through the north pole plots the pole row.
- * @details GeodesicEdgeSampler/PlanarEdgeSampler build interpolated points with
- * fast_sinf/fast_cosf, which are up to ~0.17% (1.7e-3) non-unit;
- * vector_to_pixel takes
- * phi = acos(v.y) directly, and acos's infinite slope at y=1 amplifies that
- * tiny error into a multi-row shift unless interpolated positions are
- * re-normalized before mapping. The drawing phase applies newton_unit(), so the pole
- * lands on row 0.
+ * @details Interpolated points are up to 1.7e-3 non-unit, and acos's infinite
+ * slope at y=1 turns that into a multi-row shift unless the drawing phase
+ * re-normalizes with newton_unit().
  */
 inline void test_plot_line_over_pole_reaches_row0() {
   constexpr int W = 288, H = 144;

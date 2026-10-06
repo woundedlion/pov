@@ -149,7 +149,7 @@ inline void test_row_span_covers_arc_bulge() {
 
   // Exact-antipodal geodesic edges: cross(a, b) collapses, so the renderer
   // slerps the semicircle about stable_perpendicular_axis. Ground truth is
-  // built about that same axis; an endpoint-only span would cull the arc.
+  // built about that same axis.
   for (int trial = 0; trial < 500; ++trial) {
     const float rax = hs::rand_f(-1, 1);
     const float ray = hs::rand_f(-1, 1);
@@ -183,9 +183,8 @@ inline void test_row_span_covers_arc_bulge() {
 /**
  * @brief Verifies cap_may_touch_clip never rejects a cap that reaches the
  *        clip's render region.
- * @details A rejecting predicate wired into a shipping effect drops geometry on
- *          a false negative, so only false positives are admissible. Sweeps
- *          random caps against the device band shapes and grids each cap in
+ * @details Only false positives are admissible. Sweeps random caps against
+ *          the device band shapes and grids each cap in
  *          (azimuth, polar offset) for ground truth, mapping every sample the
  *          way the predicate maps its own center. Counts genuine rejections and
  *          genuine reaches so neither branch is vacuous.

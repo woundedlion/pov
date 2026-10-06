@@ -2,10 +2,8 @@
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
  * Licensed under the PolyForm Noncommercial License 1.0.0
  */
-// Gates the generated pullback manifest on the two identity properties
-// generate_pullback_manifest_header.py does not check: distinct program
-// topology keys, and distinct (oracle, domain, aggregation) metric triples.
-// A duplicate metric triple would shadow the first-match baseline lookup.
+// Gates the generated pullback manifest on distinct program topology keys and
+// distinct (oracle, domain, aggregation) metric triples.
 #include "pullback_manifest.generated.h"
 
 #include <cstddef>

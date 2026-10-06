@@ -15,9 +15,7 @@
  *        close), and that the vertices form a genuine star — not a flower.
  * @details Shape-discriminating check: the colatitude (angle from the shape's
  *          center axis) alternates between an outer and an inner radius, with
- *          inner/outer == STAR_INNER_RATIO. The Flower test below pins the
- *          opposite invariant (constant colatitude), so the pair would catch a
- *          regression that swapped the two shapes or dropped the star's notches.
+ *          inner/outer == STAR_INNER_RATIO.
  */
 inline void test_star_sample_unit_length_closed() {
   ScratchScope sc(plot_arena());
@@ -145,10 +143,8 @@ inline void test_star_sample_radius_trig_parity() {
 
 /**
  * @brief Continuous Star levels preserve the standard near-side geometry.
- * @details Compared componentwise rather than through angle_between: an
- * acos-derived angle between two near-parallel unit vectors bottoms out around
- * 3.5e-4 rad, so no radian bound below that can distinguish agreement from
- * one-ULP noise in the normalizing divide.
+ * @details Compared componentwise: an acos-derived angle between two
+ * near-parallel unit vectors bottoms out around 3.5e-4 rad.
  */
 inline void test_star_continuous_matches_standard_near_side() {
   constexpr float NEAR_SIDE_TOL = 1e-5f;
@@ -218,9 +214,7 @@ inline void test_star_continuous_collapses_at_antipode() {
  *        closing fragment matching the first vertex (closed loop), and that the
  *        vertices form a genuine flower — constant radius, not a star.
  * @details Shape-discriminating check: every vertex sits at the SAME colatitude
- *          about the center axis (a constant polar radius), the opposite of the
- *          star's alternating outer/inner notches. The pair pins the two shapes
- *          apart at the sample level.
+ *          about the center axis (a constant polar radius).
  */
 inline void test_flower_sample_unit_length_closed() {
   ScratchScope sc(plot_arena());

@@ -24,8 +24,6 @@ inline constexpr int SEARCH_CLIP_COUNT = 4;
  * @param index Quadrant id in [0, SEARCH_CLIP_COUNT): bit 0 selects the right
  *        half, bit 1 the bottom half.
  * @return Clip region covering that quadrant.
- * @details Corpus::peak_clip indexes these, so the generator's search and the
- * replay derive the rectangle from this one definition.
  */
 template <int W, int H> constexpr ClipRegion search_clip(int index) {
   ClipRegion clip;
@@ -50,7 +48,7 @@ struct ReferenceStats {
 /**
  * @brief Difference metrics against a golden corpus frame.
  * @details Adds the luminance and lit-coverage terms, which need the corpus's
- * expanded sparse framebuffer and so are written only by compare_frame.
+ * expanded sparse framebuffer.
  */
 struct FrameStats : ReferenceStats {
   uint64_t total_luminance_error = 0;

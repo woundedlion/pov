@@ -3,8 +3,7 @@
  * Licensed under the PolyForm Noncommercial License 1.0.0
  */
 // Generator of record for tests/data/shader_chain_catalog.json, the native-ABI
-// operator catalog unit_shader_chain golden-pins. Built with the same feature
-// set as run_tests so the bytes it writes are the bytes the suite compares.
+// operator catalog golden.
 #include <cstdio>
 #include <fstream>
 #include <string>
@@ -29,8 +28,7 @@ int main(int argc, char **argv) {
   }
   out.write(catalog.data(), static_cast<std::streamsize>(catalog.size()));
 
-  // Closed explicitly: the destructor's flush swallows its own failure, and a
-  // short write would leave a truncated golden behind an exit status of 0.
+  // Closed explicitly: the destructor's flush swallows its own failure.
   out.close();
   if (!out) {
     std::fprintf(stderr, "cannot write %s\n", argv[1]);

@@ -42,10 +42,7 @@ inline void test_clip_could_intersect_y() {
 
 /**
  * @brief Asserts contains_x() and !XClip::clipped() agree on every column.
- * @details The runtime hot loops pick one predicate or the other (filters query
- *          contains_x() per fragment; the scanline rasterizer precomputes XClip
- *          once per draw), so any divergence would blank or leak pixels on one
- *          path but not the other. Parity over [0, w) pins them together.
+ * @details Parity over [0, w) pins the two predicates together.
  */
 inline void expect_xclip_parity(const ClipRegion &cr) {
   const ClipRegion::XClip xc = cr.x_clip();
@@ -57,15 +54,8 @@ inline void expect_xclip_parity(const ClipRegion &cr) {
 /**
  * @brief Exercises the cylindrical x-clip predicates (render_x_*, contains_x,
  *        x_clip/XClip) across every documented band topology.
- * @details Covers a non-wrapping sub-band, a partial seam-crossing band
- *          (rs > re), the exact wrap to full width (rs == re with the coverage
- *          test forcing active == false), an over-wrap band whose display width
- *          plus both margins exceeds w (must read as full coverage, not a thin
- *          wrap sliver), the explicit full-width band (x_end - x_start >= w),
- *          and the empty band (rs == re with zero width). Each case checks the
- *          XClip flags and membership at the band edges, then asserts
- *          contains_x()/XClip parity over all columns. Uses the hardware-like
- *          w = 96 so a small margin exercises a real seam cross.
+ * @details Each case checks the XClip flags and membership at the band edges,
+ *          then asserts contains_x()/XClip parity over all columns, at w = 96.
  */
 inline void test_clip_x_band_topologies() {
   constexpr int W = 96;
@@ -82,7 +72,7 @@ inline void test_clip_x_band_topologies() {
     return cr;
   };
 
-  // 1) Non-wrapping sub-band: [20,60) expanded by 2 -> render band [18,62).
+  // Non-wrapping sub-band: [20,60) expanded by 2 -> render band [18,62).
   {
     ClipRegion cr = make(20, 60, 2);
     HS_EXPECT_EQ(cr.render_x_start(), 18);
@@ -99,9 +89,9 @@ inline void test_clip_x_band_topologies() {
     expect_xclip_parity(cr);
   }
 
-  // 2) Partial seam-crossing band: [2,90) expanded by 3 -> render band wraps to
-  //    [95, w) U [0, 93), i.e. rs (95) > re (93); the 2-column gap {93,94} stays
-  //    clipped (display width + both margins = 94 < w, so it is a true sub-arc).
+  // Partial seam-crossing band: [2,90) expanded by 3 -> render band wraps to
+  // [95, w) U [0, 93), i.e. rs (95) > re (93); the 2-column gap {93,94} stays
+  // clipped (display width + both margins = 94 < w, so it is a true sub-arc).
   {
     ClipRegion cr = make(2, 90, 3);
     HS_EXPECT_EQ(cr.render_x_start(), 95);
@@ -117,10 +107,9 @@ inline void test_clip_x_band_topologies() {
     expect_xclip_parity(cr);
   }
 
-  // 3) Exact wrap to full width: [10,50) with margin 28 spans exactly w
-  //    columns, so both edges land on the same column (rs == re == 78). The
-  //    full-coverage test deactivates the clip before the coincident ends read
-  //    as an empty band.
+  // Exact wrap to full width: [10,50) with margin 28 spans exactly w columns,
+  // so both edges land on the same column (rs == re == 78). The full-coverage
+  // test deactivates the clip before the coincident ends read as an empty band.
   {
     ClipRegion cr = make(10, 50, 28);
     HS_EXPECT_EQ(cr.render_x_start(), 78);
@@ -133,8 +122,8 @@ inline void test_clip_x_band_topologies() {
     expect_xclip_parity(cr);
   }
 
-  // 4) Explicit full-width band: x_end - x_start >= w covers everything
-  //    regardless of margin.
+  // Explicit full-width band: x_end - x_start >= w covers everything
+  // regardless of margin.
   {
     ClipRegion cr = make(0, W, 0);
     HS_EXPECT_TRUE(cr.is_full());
@@ -145,10 +134,9 @@ inline void test_clip_x_band_topologies() {
     expect_xclip_parity(cr);
   }
 
-  // 5) Over-wrap to full coverage: [2,90) expanded by 8 gives display width 88 +
-  //    both margins = 104 >= w, so every column renders. render_x_start (90) !=
-  //    render_x_end (2) would otherwise fold to an 8-column sliver and wrongly
-  //    clip the display band's own interior; the full-coverage test forbids it.
+  // Over-wrap to full coverage: [2,90) expanded by 8 gives display width 88 +
+  // both margins = 104 >= w, so every column renders even though
+  // render_x_start (90) != render_x_end (2).
   {
     ClipRegion cr = make(2, 90, 8);
     HS_EXPECT_EQ(cr.render_x_start(), 90);
@@ -162,8 +150,8 @@ inline void test_clip_x_band_topologies() {
     expect_xclip_parity(cr);
   }
 
-  // 6) Empty band: a zero-width display band with no margin covers no column, so
-  //    the coincident ends must clip everything rather than fold to full width.
+  // Empty band: a zero-width display band with no margin covers no column, so
+  // the coincident ends clip everything.
   {
     ClipRegion cr = make(30, 30, 0);
     HS_EXPECT_EQ(cr.render_x_start(), 30);
@@ -182,14 +170,10 @@ inline void test_clip_x_band_topologies() {
 /**
  * @brief Pins render_x_start/render_x_end (and contains_x) to modular
  *        arithmetic over the whole domain Canvas::set_clip/set_margin allow.
- * @details The accessors wrap with conditional add/subtract rather than `%`
- *          because contains_x() runs per plotted pixel. Sweeping every
- *          (w, x_start, x_end, margin) in the invariant domain — 0 <= x_start <=
- *          x_end <= w, 0 <= margin < w — against a `%` reference catches any
- *          operand that leaves more than one period to correct, including the
- *          x_start == w / margin == 0 corner where the low branch alone is not
- *          enough. contains_x() is checked column by column against a reference
- *          built from the same `%` values.
+ * @details Sweeps every (w, x_start, x_end, margin) with 0 <= x_start <=
+ *          x_end <= w, 0 <= margin < w against a `%` reference, including the
+ *          x_start == w / margin == 0 corner. contains_x() is checked column by
+ *          column against a reference built from the same `%` values.
  */
 inline void test_clip_x_wrap_matches_modulo() {
   auto ref_start = [](int x_start, int margin, int w) {

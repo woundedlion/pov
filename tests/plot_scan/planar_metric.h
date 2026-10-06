@@ -6,14 +6,9 @@
 // Included by tests/test_plot_scan.h.
 
 // ============================================================================
-// Azimuthal-equidistant projection + dual-metric planar arc length
-//
-// These pin plot.h's dual-metric core directly against independent oracles (a
-// libm great-circle reconstruction, a fine on-sphere quadrature) instead of
-// against the primitives themselves, which the sample()/rasterize() tests reuse
-// as their own ground truth. Radial displacement is isometric on the sphere;
-// azimuthal displacement stretches by R/sin R, and the arc integrator must
-// track that anisotropy.
+// Azimuthal-equidistant projection + dual-metric planar arc length, pinned
+// against independent oracles (libm great-circle reconstruction, fine on-sphere
+// quadrature).
 // ============================================================================
 
 /**
@@ -32,9 +27,9 @@ inline math::Vector az_unproject_exact(float Px, float Py,
 
 /**
  * @brief Great-circle angle between two unit vectors, accurate for tiny angles.
- * @details atan2(|p x q|, p.q) stays well-conditioned near 0 where acos is flat;
- *          fast_acos (via angle_between) collapses sub-milliradian steps to zero,
- *          which would corrupt a fine-quadrature reference.
+ * @details atan2(|p x q|, p.q) stays well-conditioned near 0 where acos is
+ *          flat; fast_acos (via angle_between) collapses sub-milliradian steps
+ *          to zero.
  */
 inline float az_arc_exact(const math::Vector &p, const math::Vector &q) {
   return std::atan2(math::cross(p, q).length(), math::dot(p, q));
@@ -60,10 +55,7 @@ inline void test_azimuthal_project_radius_is_geodesic_angle() {
   HS_EXPECT_GT(mid, 1000);
 }
 
-/** Relative allowance on a plane->sphere->plane roundtrip, scaled by (R + 1)
- * so it holds at the chart centre and at the R -> pi rim alike. The chart runs
- * through a float acos and an atan2, whose error grows with R; the sampled
- * radii stop 0.05 short of both degenerate spots. */
+/** Relative allowance on a plane->sphere->plane roundtrip, scaled by R + 1. */
 constexpr float AZ_ROUNDTRIP_REL_TOL = 2e-2f;
 
 /**
@@ -100,8 +92,7 @@ inline void test_azimuthal_roundtrip_identity() {
 /**
  * @brief azimuthal_unproject lands on the great-circle point at (R, theta).
  * @details Oracle is an independent libm reconstruction
- *          v*cos(R) + (u*cos(th)+w*sin(th))*sin(R); a sign or axis swap in the
- *          fast-trig unprojection would diverge from it.
+ *          v*cos(R) + (u*cos(th)+w*sin(th))*sin(R).
  */
 inline void test_azimuthal_unproject_hits_great_circle_point() {
   hs::random().seed(0xC0DE);
@@ -126,13 +117,10 @@ inline void test_azimuthal_unproject_hits_great_circle_point() {
 
 /**
  * @brief planar_arc_length matches a fine libm quadrature of the edge.
- * @details Compares the 4-panel table against a 2000-panel libm reference (a
- *          full-precision unprojection summed with a small-angle-robust arc) on
- *          the short polygon-edge regime the primitive is built for. Non-vacuity:
- *          most edges bow past their great-circle chord. Long edges sweeping near
- *          the chart center are out of the primitive's domain — 4 samples
- *          straddle the azimuth singularity — and are excluded, as real polygon
- *          edges are.
+ * @details Compares the 4-panel table against a 2000-panel libm reference on
+ *          short polygon edges; most edges must bow past their great-circle
+ *          chord. Long edges sweeping near the chart center straddle the azimuth
+ *          singularity and are excluded.
  */
 inline void test_planar_arc_length_matches_fine_quadrature() {
   hs::random().seed(0xD41A);
@@ -181,8 +169,7 @@ inline void test_planar_arc_length_matches_fine_quadrature() {
  * @details A constant-azimuth edge is a meridian great circle, so its planar
  *          arc length equals the geodesic angle exactly; a constant-radius edge
  *          bows strictly past its chord, and the bow grows with radius as the
- *          azimuthal stretch R/sin R rises. This separates the two metrics
- *          directly, which the end-to-end tests cannot.
+ *          azimuthal stretch R/sin R rises.
  */
 inline void test_dual_metric_radial_vs_azimuthal() {
   hs::random().seed(0xE1A5);
@@ -225,12 +212,9 @@ inline void test_dual_metric_radial_vs_azimuthal() {
 
 /**
  * @brief planar_arc_cumul is monotone and totals what the rasterizer walks.
- * @details Locks the table shared by the rasterizer's pre-pass and per-segment
- *          accumulator: it starts at 0, rises strictly, and totals what the
- *          span-based edge sampler independently accumulates from its cached
- *          interior points, so both consumers sum identical lengths. The total
- *          is also bounded below by the geodesic angle, which no amount of
- *          agreement between the two paths would give.
+ * @details Starts at 0, rises strictly, totals what the span-based edge
+ *          sampler accumulates from its cached interior points, and is bounded
+ *          below by the geodesic angle.
  */
 inline void test_planar_arc_cumul_monotone_and_endpoints() {
   hs::random().seed(0xF00D);
@@ -258,9 +242,8 @@ inline void test_planar_arc_cumul_monotone_and_endpoints() {
     for (int k = 1; k <= Plot::PLANAR_LEN_SAMPLES; ++k)
       HS_EXPECT_GT(cumul[k], cumul[k - 1]);
     // The per-segment sampler rebuilds the table from the cull span's cached
-    // interior points — a second implementation, not a second call to this one
-    // — and the pre-pass takes planar_arc_length. All three must total the
-    // same length.
+    // interior points, and the pre-pass takes planar_arc_length. All three must
+    // total the same length.
     const Plot::PlanarEdgeSpan span = Plot::make_planar_edge_span(a, b, basis);
     const math::Vector span_end = Plot::azimuthal_unproject(
         span.p1.first + span.dX, span.p1.second + span.dY, basis);
@@ -272,7 +255,6 @@ inline void test_planar_arc_cumul_monotone_and_endpoints() {
                    total_tol);
     // Spherical triangle inequality against the endpoints the table actually
     // joins: a total below their separation violates this lower bound.
-    // Agreement between the accumulators does not establish it.
     const math::Vector chart_start =
         Plot::azimuthal_unproject(p1.first, p1.second, basis);
     const float endpoint_cos = math::dot(chart_start, span_end) /

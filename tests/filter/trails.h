@@ -62,8 +62,7 @@ inline void test_world_trails_clamps_out_of_range() {
   Filter::World::Trails<Cap> trails(/*lifetime=*/10);
   trails.init_storage(arena);
 
-  // x = 1.8 > 1: 1.8*32767 = 58980 would overflow int16 and wrap to ~-0.2 on
-  // decode without the clamp. z = -1.5 likewise. Both must saturate to +/-1.
+  // 1.8*32767 and -1.5*32767 overflow int16; both must saturate to +/-1.
   const math::Vector v = math::Vector(1.8f, 0.5f, -1.5f);
   trails.plot(v, Pixel(1, 1, 1), 0.0f, 1.0f,
               [](const math::Vector &, const Pixel &, float, float) {});
@@ -268,8 +267,7 @@ inline void test_screen_trails_store_emit_decay() {
                          8); // flush takes a Canvas& (unused by Screen::Trails)
   Canvas c(fx);
 
-  // age=1 (0<age<lifetime): forwarded this frame AND stored. The forward
-  // mirrors World::Trails — every live point paints the current frame.
+  // age=1 (0<age<lifetime): forwarded this frame AND stored.
   int passthru = 0;
   float fwd_age = -1.0f;
   trails.plot(10.0f, 4.0f, Pixel(5, 6, 7), 1.0f, 1.0f,
@@ -406,10 +404,8 @@ inline void test_screen_trails_at_capacity_replaces_last_slot() {
 /**
  * @brief Verifies the two-callback flush() drains a pipeline that carries
  *        history in both domains.
- * @details Aging happens inside flush(), so a single-domain flush would leave
- *          the world ring pinned at its seeded size forever. The 3D pass runs
- *          first, so its re-emissions reach Screen::Trails in the same frame
- *          they are drawn.
+ * @details The 3D pass runs first, so its re-emissions reach Screen::Trails
+ *          in the same frame they are drawn.
  */
 inline void test_mixed_domain_flush_drains_both_buffers() {
   constexpr int W = 32, H = 16, CAP = 8, MAXP = 64, LIFETIME = 3;
@@ -447,7 +443,7 @@ inline void test_mixed_domain_flush_drains_both_buffers() {
     HS_EXPECT_TRUE(screen_emits > 0);
   }
 
-  // ttl reached 0 on the last pass: the world ring aged out instead of pinning.
+  // ttl reached 0 on the last pass: the world ring aged out.
   HS_EXPECT_EQ(pipe.get<WorldTrails>().size(), (size_t)0);
 
   world_emits = screen_emits = 0;
