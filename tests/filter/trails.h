@@ -409,6 +409,73 @@ inline void test_screen_trails_at_capacity_replaces_last_slot() {
  * @details The 3D pass runs first, so its re-emissions reach Screen::Trails
  *          in the same frame they are drawn.
  */
+inline void test_screen_trails_set_lifetime_caps_ttl() {
+  uint8_t buf[Filter::Screen::Trails<4>::STORAGE_BYTES];
+  Arena arena(buf, sizeof(buf));
+  Filter::Screen::Trails<4> trails(10);
+  trails.init_storage(arena);
+  hs_test::StubEffect fx(32, 8);
+  Canvas canvas(fx);
+  auto pass = [](float, float, const Pixel &, float, float) {};
+  trails.plot(3.0f, 4.0f, Pixel(1, 2, 3), 0.0f, 1.0f, pass);
+  trails.set_lifetime(2);
+  std::vector<float> ages;
+  auto trail = [&](float, float, float t) {
+    ages.push_back(t);
+    return Color4(Pixel(1, 2, 3), 1.0f);
+  };
+  for (int frame = 0; frame < 3; ++frame)
+    trails.flush(canvas, ScreenTrailFn(trail), 1.0f, pass);
+  HS_EXPECT_SIZE_OR_RETURN(ages, 2);
+  HS_EXPECT_EQ(ages[0], 0.0f);
+  HS_EXPECT_EQ(ages[1], 0.5f);
+}
+
+/** @brief Pins screen seeding and both domains' emission alpha floors. */
+inline void test_trails_alpha_gates() {
+  uint8_t screen_buf[Filter::Screen::Trails<4>::STORAGE_BYTES];
+  uint8_t world_buf[Filter::World::Trails<4>::STORAGE_BYTES];
+  Arena screen_arena(screen_buf, sizeof(screen_buf));
+  Arena world_arena(world_buf, sizeof(world_buf));
+  Filter::Screen::Trails<4> screen(10);
+  Filter::World::Trails<4> world(10);
+  screen.init_storage(screen_arena);
+  world.init_storage(world_arena);
+  hs_test::StubEffect fx(32, 8);
+  Canvas canvas(fx);
+  int forwards = 0, emitted = 0;
+  auto pass = [&](float, float, const Pixel &, float, float) { ++forwards; };
+  screen.plot(1, 2, Pixel(1, 2, 3), 0, 0, pass);
+  screen.plot(1, 2, Pixel(1, 2, 3), 0, TRAIL_EMIT_ALPHA_FLOOR, pass);
+  HS_EXPECT_EQ(forwards, 2);
+  auto visible = [](float, float, float) {
+    return Color4(Pixel(1, 2, 3), 1.0f);
+  };
+  auto screen_emit = [&](float, float, const Pixel &, float, float) {
+    ++emitted;
+  };
+  screen.flush(canvas, ScreenTrailFn(visible), 1, screen_emit);
+  HS_EXPECT_EQ(emitted, 0);
+  screen.plot(1, 2, Pixel(1, 2, 3), 0, 1, pass);
+  world.plot(math::X_AXIS, Pixel(1, 2, 3), 0, 1,
+             [](const math::Vector &, const Pixel &, float, float) {});
+  for (float alpha : {0.0f, TRAIL_EMIT_ALPHA_FLOOR, 1.0f}) {
+    emitted = 0;
+    auto screen_trail = [=](float, float, float) {
+      return Color4(Pixel(1, 2, 3), alpha);
+    };
+    auto world_trail = [=](const math::Vector &, float) {
+      return Color4(Pixel(1, 2, 3), alpha);
+    };
+    screen.flush(canvas, ScreenTrailFn(screen_trail), 1, screen_emit);
+    world.flush(
+        WorldTrailFn(world_trail), 1,
+        [&](const math::Vector &, const Pixel &, float, float) { ++emitted; });
+    HS_EXPECT_EQ(emitted, alpha == 1.0f ? 2 : 0);
+  }
+}
+
+/** @brief Drains a pipeline carrying history in both domains, world first. */
 inline void test_mixed_domain_flush_drains_both_buffers() {
   constexpr int W = 32, H = 16, CAP = 8, MAXP = 64, LIFETIME = 3;
   static uint8_t buf[CAP * 16 + MAXP * 32];
