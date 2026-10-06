@@ -674,8 +674,8 @@ inline void test_opleg_step_paused_holds_frame() {
 /**
  * @brief Drives swept legs under an easing whose range leaves [0, 1], gating
  *        the sweep parameter against extrapolation past the arrival.
- * @details ease_out_elastic exceeds 1 over x in [0.075, 0.225], peaking near
- * 1.35. Clamped, frames 2-5 of 24 hold the arrival exactly (the
+ * @details ease_out_elastic's first overshoot lobe spans x in [0.075, 0.225],
+ * peaking near 1.37. Frames 2-5 of 24 fall in it and clamp to the arrival (the
  * frame-4-vs-last comparison); frame 1 is still mid-sweep. The chord bound is
  * loose because elastic covers half the sweep in one frame.
  */
