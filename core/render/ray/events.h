@@ -19,7 +19,8 @@ inline constexpr float MERGE_RELATIVE_TOLERANCE = 1.0e-4f;
  * @brief Merges bounded monotone candidate streams in deterministic order.
  * @details Adapter::GROUP_CAPACITY optionally bounds distinct merge identities
  * in one tolerance window; the default is STREAM_COUNT. Overflow retains the
- * buffered contributions and returns BUDGET_EXHAUSTED.
+ * buffered contributions and returns BUDGET_EXHAUSTED unless the consumer
+ * refuses a retained contribution during the flush, yielding SATURATED.
  */
 template <typename Adapter, typename Consume>
 __attribute__((always_inline)) inline TraceResult
