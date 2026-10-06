@@ -1781,6 +1781,17 @@ inline void test_scan_shader_v2_contract() {
   HS_EXPECT_EQ(solid_v2, 0.0f);
 }
 
+/** @brief Metadata fixture for CSG distance-report stretch forwarding. */
+struct CsgStretchFixture {
+  static constexpr bool is_solid = true;
+  static constexpr bool BLENDS_SMOOTHLY = true;
+  float stretch;
+
+  friend float report_stretch(const CsgStretchFixture &shape) {
+    return shape.stretch;
+  }
+};
+
 /**
  * @brief A composite's report_stretch bounds every child, not only the first.
  * @details SDF::Face reports gnomonic-plane distance, whose stretch over an
@@ -1835,11 +1846,15 @@ inline void test_report_stretch_forwards_through_csg() {
   HS_EXPECT_EQ(
       Scan::report_stretch(SDF::Subtract<SDF::Face, SDF::Face>{large, small}),
       large_stretch);
+  const CsgStretchFixture smooth_small{small_stretch},
+      smooth_large{large_stretch};
   HS_EXPECT_EQ(Scan::report_stretch(
-                   SDF::SmoothUnion<SDF::Face, SDF::Face>{small, large, 0.1f}),
+                   SDF::SmoothUnion<CsgStretchFixture, CsgStretchFixture>{
+                       smooth_small, smooth_large, 0.1f}),
                large_stretch);
   HS_EXPECT_EQ(Scan::report_stretch(
-                   SDF::SmoothUnion<SDF::Face, SDF::Face>{large, small, 0.1f}),
+                   SDF::SmoothUnion<CsgStretchFixture, CsgStretchFixture>{
+                       smooth_large, smooth_small, 0.1f}),
                large_stretch);
   HS_EXPECT_EQ(
       Scan::report_stretch(SDF::AngularRepeat<SDF::Face>(large, 3, basis.v)),
