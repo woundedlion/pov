@@ -214,7 +214,7 @@ private:
   HS_FLASH_MEMBER int build(std::span<const math::Vector> points, int *indices,
                             int count, int depth) {
     if (count <= 0)
-      return -1; // legitimate empty-subtree sentinel (leaf recursion base case)
+      return -1;
 
     int axis = depth % 3;
     int mid = count / 2;
