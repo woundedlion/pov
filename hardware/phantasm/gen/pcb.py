@@ -1108,7 +1108,7 @@ def main(unplaced=False, force=False, force_teensy_library=False):
                     label_x = x + 4.5
                     if any(x0 <= label_x <= x1 and y0 <= label_y <= y1
                            for x0, y0, x1, y1 in mounting_reserve_rects(L).values()):
-                        label_x = x - 4.5
+                        label_x = x + 2.5
                     front_silk.append((mark, label_x, label_y, 0))
         for text, x, y, angle in front_silk:
             lines.append(f'\t(gr_text {sexp.quote(text)} (at {fmt(x)} {fmt(y)} {angle})'
