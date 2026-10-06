@@ -384,7 +384,10 @@ class TestBudgetSchema(unittest.TestCase):
             return tg.load_budgets(path)
 
     def test_shipped_budgets_validate_unchanged(self):
-        self.assertEqual(tg.validate_budgets(copy.deepcopy(BUDGETS)), BUDGETS)
+        path = TOOLS / "teensy_budgets.json"
+        raw = json.loads(tg._strip_jsonc_comments(path.read_text(encoding="utf-8")))
+        self.assertEqual(tg.validate_budgets(copy.deepcopy(raw)), raw)
+        self.assertEqual(tg.load_budgets(path), raw)
 
     def test_required_limits_reject_null_and_malformed_values(self):
         paths = [("regions", "flash", "max_bytes"),
