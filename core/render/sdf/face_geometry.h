@@ -6,8 +6,7 @@
 // Included by core/render/sdf/face.h.
 
 // ---------------------------------------------------------------------------
-// Construction phases: single-call-site helpers factored out of the ctor,
-// force-inlined.
+// Face construction, per-frame binding, bounds and distance queries.
 // ---------------------------------------------------------------------------
 
 /**
@@ -214,8 +213,8 @@ build_half_planes(FaceScratchBuffer &scratch, float area2) {
    * @brief Builds the angular sector table for the concave sector walk.
    * @param scratch Scratch storage receiving the unwrapped vertex
    * pseudo-angles.
-   * @details Only concave faces with at least SECTOR_MIN_COUNT vertices
-   * qualify. A face that is star-shaped about its projected centroid (the
+   * @details Faces outside the convex half-plane path (concave, degenerate-edged
+   * or wrongly-oriented) with at least SECTOR_MIN_COUNT vertices qualify. A face that is star-shaped about its projected centroid (the
    * gnomonic origin) has monotonic vertex pseudo-angles spanning a full turn;
    * that monotonicity is what lets plane_dsq_sector bin a query point into one
    * fan sector by angle alone. Strictly monotonic faces bin exactly (K1);
