@@ -1450,6 +1450,9 @@ def main():
     except PartCatalogError as exc:
         sys.exit(str(exc))
 
+    if os.path.lexists(JLC + ".previous"):
+        sys.exit(f"recover previous package before promotion: {JLC}.previous")
+
     # TemporaryDirectory only removes its own: an aborted run strands its
     # staging directory under OUT, where nothing else clears it.
     for name in os.listdir(OUT):
@@ -1529,7 +1532,10 @@ def main():
         with open(manifest_path, "w", encoding="utf-8", newline="\n") as fh:
             fh.write(package_manifest(staged, members, os.path.basename(zpath)))
 
-        promote_package(staged, JLC)
+        try:
+            promote_package(staged, JLC)
+        except UploadPackageError as exc:
+            sys.exit(str(exc))
     zpath = os.path.join(JLC, ARCHIVE)
     manifest_path = os.path.join(JLC, SUMS_FILE)
     print(f"  creation stamps: {len(stamped)} artifact(s) normalized to {FAB_TIMESTAMP}")
