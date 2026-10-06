@@ -4,7 +4,7 @@
  */
 
 // ============================================================================
-// World filters — direct plot() coverage (no Canvas; capture the PassFn3D taps)
+// World filters — plot/cull taps, Pipeline cull routing and Mobius canvas parity
 // ============================================================================
 
 /**
