@@ -50,6 +50,9 @@ def open_port(timeout_s, want=None):
                 last_err = e
         time.sleep(0.5)
     which = want or "any"
+    if last_err is None:
+        raise SystemExit(f"profile_capture: no Teensy with VID 0x{TEENSY_VID:04X} "
+                         f"enumerated [{which}] within {timeout_s:g} s")
     raise SystemExit(f"profile_capture: no Teensy serial port [{which}] "
                      f"({last_err})")
 
