@@ -145,17 +145,24 @@ class RepositorySync(unittest.TestCase):
     def test_a_correct_spelled_out_count_is_left_alone(self):
         header = self.root / dc.EFFECT_ROSTER_SOURCE
         header.parent.mkdir(parents=True)
-        header.write_text("#define HS_EFFECT_LIST(X) \\\n    X(One) \\\n    X(Two)\n", encoding="utf-8")
+        header.write_text("#define HS_EFFECT_LIST(X) \\\n    X(One) \\\n    X(Two)\n"
+                          "#define HS_SHADER_PRODUCT_GROUP(X) \\\n    X(One, 10) \\\n    X(Two, 10)\n",
+                          encoding="utf-8")
         playlist = self.root / dc.PHANTASM_PLAYLIST_SOURCE
         playlist.parent.mkdir(parents=True)
         playlist.write_text("#define HS_PHANTASM_EFFECT_LIST(X) \\\n    X(One, 10)\n", encoding="utf-8")
-        readme = self.root / "README.md"
-        readme.write_text("The playlist contains one effects today.\n", encoding="utf-8")
-        self.git("add", "README.md", str(dc.EFFECT_ROSTER_SOURCE), str(dc.PHANTASM_PLAYLIST_SOURCE))
-        with contextlib.redirect_stdout(io.StringIO()):
-            ds.sync_repository(self.root, {}, {})
-        self.assertEqual(readme.read_text(encoding="utf-8"), "The playlist contains one effects today.\n")
-
+        effects = self.root / "docs" / "effects.md"
+        effects.parent.mkdir(parents=True)
+        self.git("add", str(dc.EFFECT_ROSTER_SOURCE), str(dc.PHANTASM_PLAYLIST_SOURCE))
+        for before, after in (("two", "two"), ("three", "2")):
+            with self.subTest(claim=before):
+                effects.write_text(f"These {before} effects form the product-only group.\n",
+                                   encoding="utf-8")
+                self.git("add", "docs/effects.md")
+                with contextlib.redirect_stdout(io.StringIO()):
+                    ds.sync_repository(self.root, {}, {})
+                self.assertEqual(effects.read_text(encoding="utf-8"),
+                                 f"These {after} effects form the product-only group.\n")
 
 
 class DiscoveryAndCounts(unittest.TestCase):
