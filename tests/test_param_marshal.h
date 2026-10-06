@@ -716,12 +716,7 @@ inline void test_authored_field_snapshot_validation() {
   HS_EXPECT_EQ(out.active_count, 123);
 }
 
-/**
- * @brief Module entry point: runs the per-effect stream-consistency check
- *        across the whole roster, cross-effect memory stability, Control::Field
- *        validation/interpolation, and authored snapshot range checks.
- * @return The module's failure count.
- */
+/** @brief Sparse enum IDs pass through ParamView; dense enums have no ID table. */
 inline void test_sparse_option_metadata() {
   struct SparseEffect : Effect {
     using Effect::register_param;
@@ -758,6 +753,12 @@ inline void test_sparse_option_metadata() {
   HS_EXPECT_EQ(views[1].value, 2.0f);
 }
 
+/**
+ * @brief Module entry point: runs the per-effect stream-consistency check
+ *        across the whole roster, cross-effect memory stability, Control::Field
+ *        validation/interpolation, and authored snapshot range checks.
+ * @return The module's failure count.
+ */
 inline int run_param_marshal_tests() {
   hs_test::ModuleFixture fixture("param_marshal");
   test_choreography_descriptions_default();
