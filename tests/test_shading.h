@@ -193,10 +193,18 @@ inline void test_mesh_topology_slot_in_range_wraps() {
  *        rather than reading out of bounds.
  */
 inline void test_mesh_topology_slot_out_of_range_falls_back() {
-  const uint16_t topology[] = {3, 3, 3}; // class 3 everywhere
+  const uint16_t topology[] = {3, 3, 3, 3};
   Fragment over;
   over.v2 = 9.0f; // >= num_faces -> class 0
   HS_EXPECT_EQ((mesh_topology_slot<4>(over, topology, 3)), 0);
+
+  Fragment at_end;
+  at_end.v2 = 3.0f;
+  HS_EXPECT_EQ((mesh_topology_slot<4>(at_end, topology, 3)), 0);
+
+  Fragment last;
+  last.v2 = 2.0f;
+  HS_EXPECT_EQ((mesh_topology_slot<4>(last, topology, 3)), 3);
 
   Fragment neg;
   neg.v2 = -1.0f; // negative -> class 0
