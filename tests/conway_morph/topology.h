@@ -3,8 +3,6 @@
  * Licensed under the PolyForm Noncommercial License 1.0.0
  */
 
-// Included by tests/test_conway_morph.h.
-
 // ---------------------------------------------------------------------------
 // §7.2 Topology-constancy sweep: connectivity is fixed on the open interval,
 // so classification and palette assignment can hoist to once per leg.
@@ -94,11 +92,7 @@ inline size_t degree_two_vertex_count(const PolyMesh &m) {
  *          (2E, F+V, 3E), expand (2E, F+V+E, 4E), snub (2E, F+V+2E, 5E),
  *          chamfer (V+2E, F+E, 4E) as (V', F', E'); the returned index count
  *          is 2E'. Truncate additionally drops the 2-gon each degree-2 vertex
- *          would raise, costing one face and one edge apiece; the other three
- *          are the min-degree-3 forms, which is what their seeds are. Deriving
- *          these from the seed is what separates "constant across the sweep"
- *          from "constant and correct": a latched sample cannot tell a
- *          wrong-but-manifold count apart.
+ *          would raise, costing one face and one edge apiece.
  */
 inline OpCounts morph_op_counts(ConwayGraph::MorphOp op, const PolyMesh &seed) {
   const size_t v = seed.vertices.size();

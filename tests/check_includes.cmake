@@ -1,20 +1,11 @@
-# Pin the direct module include count against HS_TEST_MODULE_LIST.
-# Transitive includes can satisfy roster declarations; equal counts alone do
-# not prove a one-to-one mapping between direct includes and roster entries.
-# Convention: every direct test-header include is a roster module.
-#
-# The count comparison alone cannot see a test header that exists on disk but
-# is included nowhere, so the second half of this script walks the directory and
-# requires every test header outside off_roster_headers.cmake to be included by
-# name. The exemption itself is then held to the same bar: an entry must be
-# included by some other source under tests/ or tools/, so listing a header
-# there cannot buy it out of ever being compiled.
+# Pin the direct module include count against HS_TEST_MODULE_LIST, require
+# every top-level test header outside off_roster_headers.cmake to be included by
+# run_tests.cpp, and require every off-roster header to be included by some
+# other source under tests/ or tools/.
 # -D args: SRC (path to run_tests.cpp), TESTS_DIR (path to tests/),
 # TOOLS_DIR (path to tools/).
 
-# Script mode inherits no policies from the project, so without this every
-# policy defaults to OLD and the IN_LIST below is a hard "Unknown arguments"
-# error (CMP0057). Matches the top-level CMakeLists.
+# Script mode defaults every policy to OLD; IN_LIST needs CMP0057.
 cmake_minimum_required(VERSION 3.29)
 
 include("${TESTS_DIR}/header_sections.cmake")
@@ -26,9 +17,7 @@ string(REGEX REPLACE "//[^\n]*" "" _text "${_text}")
 
 string(REGEX MATCHALL "#include \"tests/test_[A-Za-z0-9_]+\\.h(pp)?\"" _includes "${_text}")
 
-# Count roster rows inside the HS_TEST_MODULE_LIST block only: an X(" elsewhere
-# would otherwise pad the count and mask the orphaned include this gate exists
-# to catch.
+# Count roster rows inside the HS_TEST_MODULE_LIST block only.
 string(FIND "${_text}" "#define HS_TEST_MODULE_LIST(X)" _begin)
 string(FIND "${_text}" "#define HS_TEST_MODULE_ENTRY" _end)
 if(_begin LESS 0 OR _end LESS _begin)
@@ -85,8 +74,7 @@ foreach(_function IN LISTS _roster_functions)
   endif()
 endforeach()
 
-# Headers that are deliberately not roster modules. check_case_calls.cmake uses
-# the same list to allow their cases to be called from another file.
+# Headers that are not roster modules.
 include("${TESTS_DIR}/off_roster_headers.cmake")
 set(NON_MODULE_HEADERS ${HS_OFF_ROSTER_HEADER_NAMES})
 

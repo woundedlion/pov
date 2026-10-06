@@ -3,8 +3,6 @@
  * Licensed under the PolyForm Noncommercial License 1.0.0
  */
 
-// Included by tests/test_conway_morph.h.
-
 // ---------------------------------------------------------------------------
 // §7.4 Bridge convergence: the tetrahedral edges that cross symmetry families.
 // ---------------------------------------------------------------------------
@@ -12,8 +10,7 @@
 /**
  * @brief Verifies snub(tetrahedron, 0.5, SNUB_BRIDGE_TWIST).relax(50) is the
  *        regular icosahedron: 12 vertices, 20 triangles, equal edges on the
- *        unit sphere (relax supplies the canonical form, as the registry snub
- *        chains rely on), at the bridge's tabled arrival twist.
+ *        unit sphere, at the bridge's tabled arrival twist.
  */
 inline void test_snub_tetrahedron_relax_converges_to_icosahedron() {
   Arena target(morph_target_buf, sizeof(morph_target_buf));

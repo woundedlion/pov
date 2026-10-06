@@ -2,14 +2,12 @@
 # mirrored in the generator against core/color/color_space.h and its diamond angle
 # against core/math/3dmath.h, then regenerates the table and diffs it against
 # the committed core/color/gamut_lut.h in full.
-# Skips with SKIP_CODE when numpy is unavailable, or fails outright
-# under REQUIRE_GENERATORS (CI, which provisions both).
+# Skips with SKIP_CODE when numpy is unavailable, or fails under
+# REQUIRE_GENERATORS.
 # -D args: PYTHON_EXE, GENERATOR, SKIP_CODE, REQUIRE_GENERATORS.
 # CACHE_FILE is optional: skip when hashed inputs match the last passing run.
 
-# Script mode inherits no policies from the project, so every policy would
-# otherwise default to OLD, and the cmake_language(EXIT) below is a 3.29
-# feature. Matches the top-level CMakeLists.
+# Match the top-level CMake policy version in script mode.
 cmake_minimum_required(VERSION 3.29)
 
 execute_process(

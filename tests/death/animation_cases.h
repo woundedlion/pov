@@ -3,18 +3,14 @@
  * Licensed under the PolyForm Noncommercial License 1.0.0
  */
 
-// Included by tests/test_death.h.
-
 // --- Individual death cases — each MUST trap (HS_CHECK / __builtin_trap) ------
 
 // Animation death fixtures and guard cases.
 
 /**
  * @brief Death case: relocating a retained (pinned) add_get() handle must trap.
- * @details Animation surface — step()'s compaction routes every relocation
- *          through TimelineEvent::move_into, which traps when the event was
- *          handed out via add_get(Pin::PINNED), converting the dangling-handle
- *          hazard into a fail-fast crash instead of silent corruption.
+ * @details Animation surface — TimelineEvent::move_into traps when the event
+ *          was handed out via add_get(Pin::PINNED).
  */
 inline void case_timeline_pinned_relocation() {
   TimelineEvent src;
@@ -27,9 +23,7 @@ inline void case_timeline_pinned_relocation() {
  * @brief Death case: relocating into a slot that still owns an animation must
  *        trap.
  * @details Animation surface — move_into overwrites dst.manager/dst.iface, so a
- *          live destination would lose its animation's destructor. step()'s
- *          compaction only ever targets slots it has already vacated; the trap
- *          pins that invariant for every relocation path.
+ *          live destination would lose its animation's destructor.
  */
 inline void case_timeline_move_into_live_destination() {
   Timeline tl;
@@ -60,26 +54,18 @@ inline void case_timeline_start_overflow() {
 
 /**
  * @brief Death case: a pinned animation that COMPLETES must trap.
- * @details Animation surface — the symmetric companion to
- *          case_timeline_pinned_relocation, which guards the relocation path
- *          (move_into). A pinned-but-finite animation that finishes as the
- *          *last* event needs no relocation, so move_into never runs; step()'s
- *          completion branch would otherwise e.destroy() it and dangle the
- *          caller's retained pointer silently. The pin contract is
- *          pinned => infinite, so a pinned animation that naturally completes is
- *          misuse; the completion branch's HS_CHECK traps it. (A deliberate
- *          cancel() is exempt — see is_canceled() — so this case completes
- *          naturally rather than canceling.)
+ * @details Animation surface — the pin contract is pinned => infinite, so
+ *          step()'s completion branch traps a pinned animation that completes.
+ *          cancel() is exempt (is_canceled()), so this case completes naturally.
  */
 inline void case_timeline_pinned_completion() {
   static hs_test::StubEffect fx(8, 8);
   static Canvas canvas(fx);
   Timeline tl;
   float v = 0.0f;
-  // add_get(Pin::PINNED) rejects a finite non-repeating animation up front (see
-  // case_timeline_pinned_finite_animation), so the event is marked pinned
-  // directly to reach step()'s completion branch. A 1-frame Transition is finite
-  // and the sole event, so step() routes it through completion/destroy.
+  // add_get(Pin::PINNED) rejects a finite non-repeating animation, so the event
+  // is marked pinned directly. A 1-frame Transition as the sole event goes
+  // through completion/destroy.
   tl.add(0, Animation::Transition(v, 1.0f, 1, math::ease_linear));
   global_timeline_events[0].pinned = opaque(true);
   tl.step(canvas); // t=1: done() && !repeats() && !canceled, keep=false -> trap
@@ -89,9 +75,7 @@ inline void case_timeline_pinned_completion() {
  * @brief Death case: pinning a finite, non-repeating animation must trap.
  * @details Animation surface — add_get(Pin::PINNED) promises the caller a pointer
  *          valid across frames, which only holds for an animation that never
- *          completes on its own. The up-front check rejects the misuse at the
- *          add site instead of leaving it to step()'s completion guard, which
- *          fires only once the animation actually finishes.
+ *          completes on its own.
  */
 inline void case_timeline_pinned_finite_animation() {
   Timeline tl;
@@ -102,11 +86,8 @@ inline void case_timeline_pinned_finite_animation() {
 
 /**
  * @brief Death case: dropping a pinned add on a full timeline must trap.
- * @details Animation surface — the capacity guard returns nullptr, but an
- *          add_get(Pin::PINNED) caller retains that pointer across frames and no
- *          call site null-checks it. The guard traps on the pinned case so a
- *          full timeline fails at the add instead of at the first use of the
- *          stored handle.
+ * @details Animation surface — the capacity guard returns nullptr, which an
+ *          add_get(Pin::PINNED) caller would retain across frames.
  */
 inline void case_timeline_pinned_add_on_full_timeline() {
   Timeline tl;
@@ -121,11 +102,8 @@ inline void case_timeline_pinned_add_on_full_timeline() {
 
 /**
  * @brief Death case: a pinned one-shot timer must trap when it fires.
- * @details Animation surface — a one-shot RandomTimer/PeriodicTimer ends itself
- *          on its single trigger. Ending via finish() (not cancel()) keeps
- *          is_canceled() false, so the destroy of a pinned timer hits step()'s
- *          completion guard instead of slipping through its cancellation
- *          exemption and dangling the retained pointer silently.
+ * @details Animation surface — a one-shot timer ends itself via finish(), not
+ *          cancel(), so a pinned one hits step()'s completion guard.
  */
 inline void case_timeline_pinned_one_shot_timer() {
   static hs_test::StubEffect fx(8, 8);
@@ -518,9 +496,7 @@ inline void case_driver_null_speed_src() {
 /**
  * @brief Death case: Path::append_segment with zero samples must trap.
  * @details Animation surface — a zero sample count divides by zero in the
- *          t / samples term (easing(0/0) = NaN) and the loop would silently
- *          append a garbage point; the samples >= 1 guard traps the authoring
- *          error on the cold path-construction seam instead.
+ *          t / samples term (easing(0/0) = NaN).
  */
 inline void case_path_append_zero_samples() {
   Path<32> path;
@@ -532,9 +508,8 @@ inline void case_path_append_zero_samples() {
 /**
  * @brief Death case: a RandomTimer with min > max must trap.
  * @details Animation surface — reset() draws hs::rand_int(min, max + 1), a
- *          half-open range that is empty/inverted when min > max, giving an
- *          implementation-defined garbage delay. The constructor traps the
- *          inverted (or negative) range at the cold authoring seam.
+ *          half-open range that is empty/inverted when min > max. The
+ *          constructor traps an inverted or negative range.
  */
 inline void case_random_timer_inverted_range() {
   Animation::RandomTimer timer({.min = opaque(5), .max = opaque(2)},
@@ -544,13 +519,8 @@ inline void case_random_timer_inverted_range() {
 
 /**
  * @brief Death case: clear()ing a pinned event must trap.
- * @details Animation surface — the third teardown path, alongside
- *          case_timeline_pinned_relocation (move_into) and
- *          case_timeline_pinned_completion (step's destroy branch). The public
- *          clear() would otherwise free an event whose animation pointer the
- *          caller still holds. ~Timeline reaches the same events through the
- *          unguarded reset_storage(), which is safe because no retained handle
- *          spans the instance boundary.
+ * @details Animation surface — clear() would otherwise free an event whose
+ *          animation pointer the caller still holds.
  */
 inline void case_timeline_clear_pinned() {
   Timeline tl;
@@ -606,10 +576,8 @@ inline void case_timeline_clear_hook_adds_event() {
 /**
  * @brief Death case: scheduling a segue sprite with no free timeline slot must
  *        trap.
- * @details Animation surface — every segue policy's schedule() returns the next
- *          transition's delay whether or not its sprite landed, so a dropped add
- *          leaves the sphere dark for a whole transition while the effect
- *          advances on schedule. The budget guard traps at the schedule.
+ * @details Animation surface — a dropped sprite add would leave the sphere
+ *          dark for a whole transition.
  */
 inline void case_segue_sprite_no_slot() {
   Timeline tl;
@@ -629,9 +597,7 @@ inline void case_mesh_carousel_unflipped_slot() {
 /**
  * @brief Death case: a second simultaneously-live Timeline must trap.
  * @details Animation surface — every Timeline shares the single global event
- *          array, so a second live instance would silently stomp the first's
- *          events; the construction guard traps instead. The real app holds
- *          exactly one (the old effect is destroyed before the next is built).
+ *          array, so a second live instance would stomp the first's events.
  */
 inline void case_timeline_double_construct() {
   Timeline a;

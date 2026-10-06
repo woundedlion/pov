@@ -3,13 +3,9 @@
  * Licensed under the PolyForm Noncommercial License 1.0.0
  */
 
-// Included by tests/test_conway_morph.h.
-
 // ---------------------------------------------------------------------------
-// MeshOps::hankin topology probe across the contact-angle range of the four
-// registry hankin legs: V/F/I and compiled face counts stay constant, with
-// two-face edge incidence and Euler characteristic 2. The shipping legs slerp;
-// hankin_stability.h covers that path.
+// MeshOps::hankin topology probe across the registry hankin legs'
+// contact-angle range.
 // ---------------------------------------------------------------------------
 
 /** @brief One hankin-sweep leg seed and its arrival angle. */

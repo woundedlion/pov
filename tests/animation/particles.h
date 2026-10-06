@@ -3,12 +3,8 @@
  * Licensed under the PolyForm Noncommercial License 1.0.0
  */
 
-// Included by tests/test_animation.h.
-
 // ============================================================================
 // ParticleSystem
-// ----------------------------------------------------------------------------
-// Covers spawn (+ capacity guard), life expiry and attractor kill-radius removal.
 // ============================================================================
 
 /**
@@ -208,11 +204,8 @@ inline float max_component_delta(const math::Vector &a, const math::Vector &b) {
  * @param a First vector (non-zero).
  * @param b Second vector (non-zero).
  * @return The angle in radians.
- * @details angle_between() reads fast_acos of a float cosine. For vectors this
- * close that cosine rounds to 1 - k*2^-24, and fast_acos(1 - d) is sqrt(2*d), so
- * its output quantizes to sqrt(2*k)*2^-12 — 3.4e-4 at k = 1, four orders above
- * the angle under measurement. Differencing the normalized endpoints in double
- * keeps the subtraction exact and resolves an angle of 1e-8.
+ * @details angle_between() quantizes near-parallel angles to ~3.4e-4 rad;
+ * this differences the normalized endpoints in double and resolves 1e-8.
  */
 inline double small_angle_between(const math::Vector &a,
                                   const math::Vector &b) {
@@ -295,10 +288,8 @@ inline void test_particle_system_signed_axis_one_step_equivalence() {
               "norm=%.9g\n",
               reference.active(), max_position_error, max_velocity_error,
               max_angle_error, max_norm_drift);
-  // The angle bound is the component bound, not a free constant: two vectors
-  // whose components agree to COMPONENT_BOUND lie at most sqrt(3)*COMPONENT_BOUND
-  // of chord apart, and normalizing each endpoint can move it by that chord
-  // again, so the angle cannot exceed twice that.
+  // Components within COMPONENT_BOUND give a chord of at most
+  // sqrt(3)*COMPONENT_BOUND; normalizing each endpoint at most doubles it.
   constexpr float COMPONENT_BOUND = 2e-7f;
   const double angle_bound = 2.0 * std::sqrt(3.0) * COMPONENT_BOUND;
   HS_EXPECT_EQ(color_seed_mismatches, 0);

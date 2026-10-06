@@ -14,8 +14,7 @@ namespace conway_morph_tests {
  * @brief Repartitions the global arena for the enclosing scope and restores the
  *        default split on the way out.
  * @details Declare it ahead of every Arena the scope carves out of the global
- * block, so the restore runs once those are gone. Without it the bespoke split
- * leaks into whatever case runs next.
+ * block, so the restore runs once those are gone.
  */
 struct ScopedArenaSplit {
   /**
@@ -61,11 +60,7 @@ inline PolyMesh run_edge_op(const ConwayGraph::EdgeSpec &e,
 } // namespace conway_morph_tests
 namespace conway_soak_tests {
 /**
- * @brief White-box accessor for HankinSolids' graph-walk state (befriended in
- *        effects/HankinSolids.h).
- * @details The soak needs the current node and held seed identity to pin
- *          coverage and the per-state post-compaction arena offset; neither is
- *          observable through the public effect surface.
+ * @brief White-box accessor for HankinSolids' graph-walk state.
  */
 struct HankinWalkProbe {
   /** @brief Builds a clean endpoint mesh from the held seed. */
@@ -200,10 +195,8 @@ struct HankinWalkProbe {
    * @brief Rebuilds the hankin mesh at `angle` and renders it through the
    * production draw path at the current (unadvanced) orientation, with the
    * given strap opening-fade weight.
-   * @details Rendering without stepping the timeline keeps the camera fixed
-   * across successive calls, so a diff isolates the mesh/fade change. Used to
-   * pin the strap opening-fade: the newborn straps at a small angle must, when
-   * faded, leave the angle-0 bookend nearly unchanged.
+   * @details The timeline is not stepped, so the camera stays fixed across
+   * calls.
    */
   template <int W, int H>
   static void render_at_angle(HankinSolids<W, H> &fx, Canvas &canvas,

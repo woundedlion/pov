@@ -3,22 +3,10 @@
  * Licensed under the PolyForm Noncommercial License 1.0.0
  */
 
-// Included by tests/test_conway_morph.h.
-
 // ---------------------------------------------------------------------------
-// Recipe chain build replay (docs/specs/opchain_morph_spec.md, "Validation
-// contract"): test-local partition chains are lowered and replayed leg by leg
-// using individual OpLegs. DUAL/KIS use gated swaps here; RecipeBuild instead
-// schedules bridges/macros, so those chains do not establish production budgets.
-// test_opchain_arena_survey.h covers the registry.
-// Each leg is stepped frame by frame with a recording draw callback.
-// Gates per-leg compiled-face-count constancy, the crossfade colour model
-// (every frame of every leg draws every face's (from, to) ramp bit-exact at
-// the leg's blend weight; each leg departs from the palette the previous leg
-// landed on), the final per-face sprite handoff, the per-final-class palette
-// symmetry of the finished shape. Persistent/scratch budgets are gated only
-// for chains without DUAL/KIS; this module's partition chains exclude that gate.
-// test_opchain_arena_survey.h supplies the registry budget coverage.
+// Recipe chain build replay: chains are lowered and replayed leg by leg
+// through individual OpLegs with a recording draw callback. DUAL/KIS run as
+// gated swaps, so arena budgets are gated only for chains without them.
 // ---------------------------------------------------------------------------
 
 /** The arena split is canvas-independent; this instantiation names it. */
@@ -71,9 +59,8 @@ inline ChainPeaks replay_build_chain(const char *name,
     const int failed_before = hs_test::stats().failed;
 
     reset_globals();
-    // Capacities are the host's, not the device split: a chain that overruns a
-    // budget must report its high-water, not OOM-trap the replay before the
-    // measurement. The budgets below are what the peaks are gated against.
+    // Host capacities, so an over-budget chain reports its high-water instead
+    // of OOM-trapping.
     const ScopedArenaSplit split(
         GLOBAL_ARENA_SIZE - 2 * REPLAY_SCRATCH_CAPACITY,
         REPLAY_SCRATCH_CAPACITY, REPLAY_SCRATCH_CAPACITY);
@@ -422,11 +409,9 @@ inline ChainPeaks replay_build_chain(const char *name,
         OpLeg::arrival_mesh(landing, next, scratch_arena_a);
       }
 
-      // Full-precision final classification for the symmetry pin, rebuilt as
-      // the leg's constructor builds its arrival (before the snorm16 pack).
-      // Test-local arenas keep the replay's gated peaks untouched; a
-      // non-hankin final leg lands on the clean endpoint, whose full-precision
-      // classification the closing compile below provides.
+      // Full-precision final classification for the symmetry pin, rebuilt in
+      // test-local arenas as the leg's constructor builds its arrival (before
+      // the snorm16 pack). A non-hankin final leg lands on the clean endpoint.
       if (k + 1 == count && hankin_step) {
         Arena pa(morph_target_buf, sizeof(morph_target_buf));
         Arena pb(morph_temp_buf, sizeof(morph_temp_buf));
@@ -440,12 +425,9 @@ inline ChainPeaks replay_build_chain(const char *name,
         full_topo.assign(full.topology.begin(), full.topology.end());
       }
 
-      // Mirror finish_build_leg's boundary compaction: the finished leg's
-      // transients are reclaimed and only the endpoint the next leg sweeps
-      // from crosses the reset. Without it the replay accumulates every leg
-      // and reports peaks the effect never reaches. The last leg's landing is
-      // consumed by the final swap below, so it is left standing exactly as
-      // the effect leaves it for the next shape's compaction.
+      // Mirror finish_build_leg's boundary compaction: only the endpoint the
+      // next leg sweeps from crosses the reset. The last leg's landing is left
+      // standing for the final swap.
       if (k + 1 < count) {
         Persist<PolyMesh> pn(next, scratch_arena_b, persistent_arena);
         cur = PolyMesh();
@@ -512,8 +494,7 @@ inline ChainPeaks replay_build_chain(const char *name,
 
     // Symmetry pin: on the finished shape any two faces with the same
     // full-precision final class wear the same palette — the landed palette
-    // is a function of the final classification alone. A
-    // quantized-classification regression shatters classes and breaks this.
+    // is a function of the final classification alone.
     {
       HS_EXPECT_EQ(full_topo.size(), landed_faces);
       int asymmetric = 0;
@@ -553,8 +534,7 @@ inline ChainPeaks replay_build_chain(const char *name,
   return peaks;
 }
 
-/** Partition chains replayed as gated swaps, without production bridges/macros.
- * Registry partition recipes are surveyed in test_opchain_arena_survey.h. */
+/** Partition chains replayed as gated swaps, without production bridges/macros. */
 inline constexpr Solids::OpStep CHAIN_KIS[] = {{Solids::Op::KIS}};
 inline constexpr Solids::OpStep CHAIN_KIS_DUAL[] = {{Solids::Op::KIS},
                                                     {Solids::Op::DUAL}};
