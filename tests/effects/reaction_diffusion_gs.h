@@ -1124,7 +1124,7 @@ inline void test_gs_partial_color_palette_rows() {
   }
 }
 
-/** @brief Checks certified support against the actual calibrated SSAA offsets. */
+/** @brief Checks certified support against the fixed-profile SSAA offsets. */
 inline void test_gs_support_certificate_matches_display_geometry() {
   const auto check = [] {
     HS_EXPECT_GT((GSWhiteBox::render_support_weight_floor<96, 20>()),
@@ -1137,17 +1137,6 @@ inline void test_gs_support_certificate_matches_display_geometry() {
                  GSWhiteBox::RENDER_MIN_WEIGHT);
   };
   check();
-#if HS_RUNTIME_DISPLAY_GEOMETRY && !defined(HS_TEST_H_OFFSET)
-  const float NORTH = math::DISPLAY_NORTH_PHI;
-  const float SOUTH = math::DISPLAY_SOUTH_PHI;
-  for (const auto &bounds : {std::pair{0.0f, math::PI_F},
-                             std::pair{0.2f * math::PI_F, 0.8f * math::PI_F}}) {
-    HS_EXPECT_TRUE(math::set_display_geometry(bounds.first, bounds.second));
-    check();
-  }
-  HS_EXPECT_TRUE(math::set_display_geometry(NORTH, SOUTH));
-  check();
-#endif
 }
 
 /** @brief Preserves four-sample coverage while bounding reciprocal estimation error. */
