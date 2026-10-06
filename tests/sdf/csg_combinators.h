@@ -504,7 +504,6 @@ inline void test_smooth_union_blends_inside_band() {
   float soft = SDF::distance_of(su, p).dist;
   HS_EXPECT_NEAR(soft, std::min(dA, dB) - m, 1e-4f);
   HS_EXPECT_LT(soft, std::min(dA, dB) - 1e-4f);
-  HS_EXPECT_NEAR(std::min(dA, dB) - soft, m, 1e-4f);
   // Independent of the cubic: the smooth min never rises above the hard min,
   // and k/6 is the deepest it can dip below it anywhere.
   HS_EXPECT_LE(soft, std::min(dA, dB) + 1e-5f);
