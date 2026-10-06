@@ -11,8 +11,6 @@ genuinely fork on a device-only constant are the engine's blind spot, because a 
 build compiles the host value and leaves device-only execution outside the normal
 host suite. Teensy builds expose serial diagnostics when a monitor is attached.
 
-Fork notes appear in `tests/test_conway_morph.h` and
-`tests/test_h_offset_renorm.h`.
 This ledger collects them in one place so the question *"which forks are reached by a device-value
 test, and which are not?"* has a single, auditable answer.
 
