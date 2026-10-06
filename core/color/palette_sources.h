@@ -23,8 +23,7 @@ public:
   /**
    * @brief Builds the 256-entry LUT by interpolating between color stops.
    * @param points Sorted-ascending (position in [0,1], color) stops.
-   * @details Emptiness, stop bounds and ordering are trapped always-on
-   * (construction is cold).
+   * @details Emptiness, stop bounds and ordering are trapped always-on.
    */
   HS_FLASH_MEMBER
   Gradient(std::initializer_list<std::pair<float, CPixel>> points) : entries() {
@@ -59,8 +58,7 @@ public:
       int start = static_cast<int>(prev_pos * 255.0f + 0.5f);
       int end = static_cast<int>(next_pos * 255.0f + 0.5f);
 
-      // end == start (two stops quantizing to the same index) is the intended
-      // "hard stop" — an abrupt color boundary, not a dropped stop.
+      // end == start (two stops quantizing to the same index) is a hard stop.
       if (end > start) {
         OKLCH a = srgb_to_oklch(prev_color.r, prev_color.g, prev_color.b);
         OKLCH b = srgb_to_oklch(next_color.r, next_color.g, next_color.b);
@@ -85,7 +83,6 @@ public:
    * @brief LUT lookup with linear interpolation between adjacent entries.
    * @param t Lookup coordinate; clamped to [0, 1].
    * @return The interpolated color (alpha 1.0).
-   * @details Interpolated, not nearest-index, to avoid visible banding.
    */
   Color4 get(float t) const override {
     // Clamp before sampling: negative indices are invalid, and NaN maps to 1.
@@ -125,8 +122,7 @@ public:
    * @param t Lookup coordinate.
    * @return The color at t (alpha 1.0).
    * @details Computes color in float sRGB space, then converts to 16-bit linear
-   * via the interpolated LUT, avoiding 8-bit quantization without a per-channel
-   * powf.
+   * via the interpolated LUT.
    */
   Color4 get(float t) const override {
     float r_srgb =

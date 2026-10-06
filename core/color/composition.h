@@ -20,26 +20,20 @@
 ///////////////////////////////////////////////////////////////////////////////
 
 /**
- * @brief Soft-limit on the |phase| a caller may hand to the fast-trig
- * modifiers below.
- * @details fast_sinf/fast_cosf range-reduce by `x - floor(x/2pi)*2pi`, whose
- * error is one ULP of the argument: past this bound the reduction error crosses
- * ~5e-4 rad and the oscillation quantizes and drifts. A free-running per-frame
- * accumulator — the natural driver for these — passes it in hours, so the
- * driver, not the modifier, owns the wrap: fold the accumulator back into
- * [0, 2pi) at the source. Folding here instead would cost a per-sample floorf
- * and could not recover the precision the driver already lost. Each consuming
- * body carries a stripped assert on the bound, so an unfolded driver trips in
- * the host build and costs nothing on device; a driver in turns asserts against
- * its radian-scaled value.
+ * @brief Soft-limit on the |phase| a caller may hand to the fast-trig palette
+ * modifiers.
+ * @details fast_sinf/fast_cosf range-reduction error is one ULP of the
+ * argument; past this bound it exceeds ~5e-4 rad and the oscillation quantizes
+ * and drifts. The driver owns the wrap: fold accumulators into [0, 2pi) at the
+ * source. Consumers assert the bound in host builds; a driver in turns asserts
+ * against its radian-scaled value.
  */
 inline constexpr float PALETTE_PHASE_ARG_LIMIT = 4096.0f;
 
 /**
  * @brief Linearly cycles the palette coordinate.
  *
- * Null offset driver is a deliberate "no cycling, static" mode (modify() passes
- * t through), not an error.
+ * A null offset driver is static: modify() passes t through.
  */
 struct CycleModifier {
   /** @brief Output leaves [0,1]; the consuming palette must have Wrap=true. */
@@ -74,8 +68,7 @@ struct BreatheModifier {
   float amplitude;
   /**
    * @brief Per-instance memo of fast_sinf(*phase).
-   * @details *phase is frame-constant, so the sine is recomputed once per frame,
-   * not per pixel. mutable so const modify() can update the memo.
+   * @details Recomputed only when *phase changes.
    */
   mutable float cached_phase = 0.0f;
   mutable float cached_sin = 0.0f; /**< Memoized sine of cached_phase. */
@@ -86,9 +79,7 @@ struct BreatheModifier {
    * @param driver_phase Pointer to the per-frame phase; must not be null.
    *   The non-null pointee must outlive this modifier.
    * @param amp Oscillation amplitude; defaults to 0.1.
-   * @details Mandatory phase driver: a null one is trapped at construction so
-   * per-pixel modify() can dereference unconditionally. The driver must keep
-   * |phase| under PALETTE_PHASE_ARG_LIMIT.
+   * @details The driver must keep |phase| under PALETTE_PHASE_ARG_LIMIT.
    */
   BreatheModifier(const float *driver_phase, float amp = 0.1f)
       : phase(driver_phase), amplitude(amp) {
@@ -129,9 +120,8 @@ struct RippleModifier {
    *   The non-null pointee must outlive this modifier.
    * @param freq Spatial frequency of the ripple; defaults to 3.0.
    * @param amp Distortion amplitude; defaults to 0.1.
-   * @details Mandatory phase driver (no default) — trap a null one at
-   * construction rather than silently passing t through on every pixel. The
-   * caller must keep |t * freq * 2pi + phase| under PALETTE_PHASE_ARG_LIMIT.
+   * @details The caller must keep |t * freq * 2pi + phase| under
+   * PALETTE_PHASE_ARG_LIMIT.
    */
   RippleModifier(const float *phase, float freq = 3.0f, float amp = 0.1f)
       : phase(phase), frequency(freq), amplitude(amp) {
@@ -151,9 +141,8 @@ struct RippleModifier {
 };
 
 /**
- * @brief Warps the palette coordinate with smooth value noise — the organic,
- * aperiodic counterpart to RippleModifier's sine: colors wander and smear
- * instead of oscillating.
+ * @brief Warps the palette coordinate with smooth value noise, so colors
+ * wander and smear.
  */
 struct NoiseWarpModifier {
   /** @brief Output leaves [0,1]; the consuming palette must have Wrap=true. */
@@ -190,8 +179,8 @@ struct NoiseWarpModifier {
 };
 
 /**
- * @brief Meanders the whole palette along a smooth noise walk — unlike
- * CycleModifier's linear scroll, the offset wanders, hesitates, and reverses.
+ * @brief Meanders the whole palette along a smooth noise walk: the offset
+ * wanders, hesitates, and reverses.
  */
 struct DriftModifier {
   /** @brief Output leaves [0,1]; the consuming palette must have Wrap=true. */
@@ -203,9 +192,8 @@ struct DriftModifier {
   uint32_t seed;
   /**
    * @brief Per-instance memo of the frame's centered walk sample.
-   * @details *time is frame-constant, so the noise walk is sampled once per
-   * frame, not per pixel. mutable so const modify() can update the memo.
-   * Keyed on *time alone, so speed and seed must not change between frames.
+   * @details Keyed on *time alone, so speed and seed must not change between
+   * frames.
    */
   mutable float cached_time = 0.0f;
   mutable float cached_walk = 0.0f; /**< Memoized walk in [-1, 1]. */
@@ -246,7 +234,7 @@ struct DriftModifier {
  * A folds value of 2.0 maps [0...1] to [1 -> 0 -> 1] (one full bounce);
  * each unit of folds adds another half-bounce.
  *
- * Null phase driver is the deliberate "no phase offset" mode (shift = 0).
+ * A null phase driver means no phase offset.
  */
 struct FoldModifier {
   /** @brief Output stays in [0,1] and hits 1; palette needs Wrap=false. */
@@ -286,9 +274,8 @@ struct FoldModifier {
  * positive tension pulls colors toward the center, negative pushes them to the
  * edges.
  *
- * Null tension driver is the deliberate "no pinch" pass-through mode.
- * @details A bound driver costs a powf per sample; suited to bake-time sampling
- * (BakedPaletteStorage::rebake) rather than tight per-pixel loops.
+ * A null tension driver passes t through.
+ * @details A bound driver costs a powf per sample.
  */
 struct PinchModifier {
   /** @brief In-range input stays in [0,1] and hits 1; palette needs Wrap=false.
@@ -502,9 +489,7 @@ struct HueSpinShade {
   const float *amount; /**< Rotation driver in turns (0..1 = full turn). */
   /**
    * @brief Per-instance memo of the rotation folded into a cbrt-LMS 3x3.
-   * @details *amount is frame-constant, so the matrix is rebuilt once per
-   * frame; the per-sample cost is one fast_cbrt3 plus the folded transform.
-   * mutable so const shade() can update the memo.
+   * @details Rebuilt only when *amount changes.
    */
   mutable float matrix[9] = {};
   mutable float cached_amount =
@@ -551,8 +536,7 @@ struct HueSpinShade {
 /**
  * @brief Rotates hue by an amount that varies along the palette domain, so
  * different parts of the gradient drift in opposite directions (iridescence).
- * @details Builds a rotation per sample; suited to bake-time sampling
- * (BakedPaletteStorage::rebake) rather than tight per-pixel loops.
+ * @details Builds a rotation per sample.
  */
 struct HueWobbleShade {
   const float *phase;
@@ -643,9 +627,7 @@ struct ChromaPulseShade {
   float depth;
   /**
    * @brief Per-instance memo of fast_sinf(*phase).
-   * @details *phase is frame-constant, so the sine is recomputed once per
-   * frame, not per sample. depth is applied outside the memo, so a live depth
-   * change lands on a frozen phase. mutable so const shade() can update the
+   * @details Recomputed only when *phase changes; depth is applied outside the
    * memo.
    */
   mutable float cached_phase = 0.0f;
@@ -694,10 +676,9 @@ struct ChromaPulseShade {
 };
 
 /**
- * @brief Grains the palette's brightness with an evolving noise field —
- * a subtler shimmer than SparkleShade's white glints.
+ * @brief Grains the palette's brightness with an evolving noise field.
  * @details Scales all three linear channels uniformly before per-channel
- * rounding; a gain above 1 clips bright channels. No OKLab round-trip.
+ * rounding; a gain above 1 clips bright channels.
  */
 struct LightnessGrainShade {
   const float *time;
@@ -829,8 +810,7 @@ struct EdgeFadeShade {
    * @return The sample with its color faded near the edges.
    */
   Color4 shade(Color4 c, float t) const {
-    // 16-bit linear black, not CRGB: a CRGB temporary would route the blend
-    // through an 8-bit sRGB lerp and band the fade.
+    // 16-bit linear black: a CRGB blends in 8-bit sRGB and bands the fade.
     Pixel black(0, 0, 0);
     if (t < edge)
       return Color4(
@@ -927,9 +907,7 @@ template <typename M> constexpr bool coord_bounded_output() {
  * [0,1].
  * @tparam M Coordinate modifier type.
  * @return M::rebounds_input when declared, false otherwise.
- * @details Stronger than bounded_output, which only describes in-range input:
- * ReverseModifier and MirrorModifier are bounded on [0,1] but carry an
- * out-of-range coordinate straight through.
+ * @details Stronger than bounded_output, which describes only in-range input.
  */
 template <typename M> constexpr bool coord_rebounds_input() {
   if constexpr (requires { M::rebounds_input; })
@@ -994,16 +972,11 @@ enum class ShadeCoord : uint8_t {
  * @tparam ColorList Colors<> type-list of color modifiers.
  * @tparam Wrap Folds the coordinate into [0,1) before the source lookup.
  * @tparam Shade Which coordinate the color-modifier chain receives.
- * @details Default construct, then bind() (ArenaVector idiom); both chains are
- * inlined by fold expression. get() applies the coord mods to t in order,
- * samples the source (wrapping the coordinate unless Wrap is false), then
- * applies the color mods with the coordinate Shade selects. Wrap=false suits
- * inset/falloff pipelines that must reach the source's exact endpoints
- * (wrap_t(1)==0 would otherwise fold the top edge). Wrap is checked at compile
- * time: `requires_wrap` on any unbounded modifier rejects Wrap=false unless a
- * later modifier declares `rebounds_input`, and `bounded_output` on the final
- * coord modifier rejects Wrap=true — so a chain can force Wrap, which is why
- * the shading coordinate is a separate knob rather than a second meaning of it.
+ * @details Default construct, then bind(). Wrap=false lets the source reach
+ * its exact endpoints (wrap_t(1) == 0). Wrap is checked at compile time:
+ * `requires_wrap` on an unbounded modifier rejects Wrap=false unless a later
+ * modifier declares `rebounds_input`, and `bounded_output` on the final coord
+ * modifier rejects Wrap=true.
  */
 template <typename Source, typename CoordList = Coords<>,
           typename ColorList = Colors<>, bool Wrap = true,
@@ -1051,9 +1024,6 @@ public:
    * @param src Source palette; must not be null.
    * @param cms Coordinate-modifier pointers, one per CMods entry; none null.
    * @param xms Color-modifier pointers, one per XMods entry; none null.
-   * @details get()'s source assert is stripped on-device and a null read does
-   * not fault on Teensy 4.x, so null binds are trapped here (always-on HS_CHECK,
-   * empty packs fold to true) at the cold init seam.
    */
   void bind(const Source *src, const CMods *...cms, const XMods *...xms) {
     HS_CHECK(src != nullptr, "StaticPalette bound to null source");
@@ -1107,14 +1077,8 @@ private:
 /**
  * @brief Runtime Palette facade over a compile-time StaticPalette composition.
  * @tparam SP StaticPalette composition type exposing Color4 get(float) const.
- * @details Bridges a zero-overhead StaticPalette into the polymorphic
- * `const Palette*` world (preset tables, BakedPaletteStorage::bake). The virtual call
- * is paid only at bake time (cold), never on the per-pixel path.
- *
- * SP must not wrap its coordinate. A wrapping source folds t = 1 back to 0 and
- * collapses a bake's last entry onto its first; BakedPalette rejects one at
- * compile time, but the erasure to `const Palette&` this class performs is what
- * would hide it from that check.
+ * @details SP must not wrap its coordinate: a wrapping source folds t = 1 back
+ * to 0 and collapses a bake's last entry onto its first.
  */
 template <typename SP> class PaletteFacade : public Palette {
   static_assert(!palette_wraps_coordinate<SP>(),

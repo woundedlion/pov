@@ -38,9 +38,8 @@ enum class AxisCurve : uint8_t {
 /**
  * @brief The reference a chroma axis is measured against.
  * @details PATH_MINIMUM is reserved and unimplemented: a recipe naming it fails
- * compilation with INVALID_ENUM. Its ordinal is held rather than reclaimed
- * because the numbering is mirrored by the palette authoring tools and by
- * persisted recipes.
+ * compilation with INVALID_ENUM. The numbering is persisted; do not reclaim
+ * the ordinal.
  */
 enum class ChromaBasis : uint8_t { LOCAL_GAMUT, PATH_MINIMUM, ABSOLUTE };
 
@@ -68,7 +67,7 @@ struct HueControls {
   float spread_turns = 0.07f;
   float sweep_turns = 1.0f;
   /** CUSTOM uses exactly the first three keys; the fourth is canonicalized
-   * to zero. Four-key runs are available through HARMONY. */
+   * to zero. */
   std::array<float, PALETTE_MAX_KEYS> custom_turns{};
 };
 
@@ -114,9 +113,8 @@ struct PaletteRecipe {
 
 /**
  * @brief The verdict a recipe compile returns.
- * @details INCOMPATIBLE_OPTIONS is reserved and never produced. Its ordinal is
- * held rather than reclaimed because the numbering is mirrored by the palette
- * authoring tools and by persisted status records.
+ * @details INCOMPATIBLE_OPTIONS is reserved and never produced. The numbering
+ * is persisted; do not reclaim the ordinal.
  */
 enum class PaletteCompileCode : uint8_t {
   OK,
