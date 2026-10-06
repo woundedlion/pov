@@ -78,6 +78,46 @@ inline uint64_t planar_chord_energy(const std::vector<Pixel> &frame) {
   return energy;
 }
 
+template <int W, int H>
+inline void expect_covered_within_one_pixel(const std::vector<Pixel> &reference,
+                                            const std::vector<Pixel> &candidate,
+                                            int y0, int y1, int x0, int x1,
+                                            int pole_rows, double max_drift) {
+  uint64_t reference_energy = 0, candidate_energy = 0;
+  size_t uncovered = 0;
+  for (int y = y0; y < y1; ++y)
+    for (int x = x0; x < x1; ++x) {
+      const size_t i = static_cast<size_t>(y) * W + x;
+      const Pixel &p = reference[i];
+      const Pixel &q = candidate[i];
+      reference_energy += static_cast<uint64_t>(p.r) + p.g + p.b;
+      candidate_energy += static_cast<uint64_t>(q.r) + q.g + q.b;
+      // Pole rows turn a sub-pixel sample-phase shift into whole columns.
+      if (static_cast<uint32_t>(p.r) + p.g + p.b < 12288 || y < pole_rows ||
+          y >= H - pole_rows)
+        continue;
+      bool covered = false;
+      for (int dy = -1; dy <= 1 && !covered; ++dy)
+        for (int dx = -1; dx <= 1 && !covered; ++dx) {
+          const int sy = y + dy;
+          if (sy < 0 || sy >= H)
+            continue;
+          covered = !is_black(
+              candidate[static_cast<size_t>(sy) * W + (x + dx + W) % W]);
+        }
+      uncovered += !covered;
+    }
+  HS_EXPECT_EQ(uncovered, size_t{0});
+  if (reference_energy == 0) {
+    HS_EXPECT_EQ(candidate_energy, uint64_t{0});
+    return;
+  }
+  const double drift = std::fabs(static_cast<double>(candidate_energy) -
+                                 static_cast<double>(reference_energy)) /
+                       static_cast<double>(reference_energy);
+  HS_EXPECT_LT(drift, max_drift);
+}
+
 /** @brief Stars away from the poles, near a pole, and past the equator. */
 inline std::array<PlanarChordStar, 4> planar_chord_stars() {
   return {{
@@ -103,33 +143,9 @@ inline void test_planar_chords_match_rasterize_brightness() {
   for (const PlanarChordStar &star : planar_chord_stars()) {
     const auto reference = render_planar_chord_star<W, H>(fx, star, false);
     const auto chords = render_planar_chord_star<W, H>(fx, star, true);
-    const uint64_t reference_energy = planar_chord_energy(reference);
-    const uint64_t chord_energy = planar_chord_energy(chords);
-    HS_EXPECT_GT(reference_energy, uint64_t{0});
-    const double drift = std::fabs(static_cast<double>(chord_energy) -
-                                   static_cast<double>(reference_energy)) /
-                         static_cast<double>(reference_energy);
-    HS_EXPECT_LT(drift, 0.026);
-    size_t uncovered = 0;
-    for (int y = 0; y < H; ++y)
-      for (int x = 0; x < W; ++x) {
-        const Pixel &p = reference[static_cast<size_t>(y) * W + x];
-        if (static_cast<uint32_t>(p.r) + p.g + p.b < 12288)
-          continue;
-        bool covered = false;
-        for (int dy = -1; dy <= 1 && !covered; ++dy)
-          for (int dx = -1; dx <= 1 && !covered; ++dx) {
-            const int sy = y + dy;
-            if (sy < 0 || sy >= H)
-              continue;
-            const Pixel &q =
-                chords[static_cast<size_t>(sy) * W + (x + dx + W) % W];
-            covered = !is_black(q);
-          }
-        if (!covered)
-          ++uncovered;
-      }
-    HS_EXPECT_EQ(uncovered, size_t{0});
+    HS_EXPECT_GT(planar_chord_energy(reference), uint64_t{0});
+    expect_covered_within_one_pixel<W, H>(reference, chords, 0, H, 0, W, 0,
+                                          0.026);
   }
 }
 
@@ -240,40 +256,9 @@ inline void test_planar_band_split_matches_whole_polyline() {
     for (const ClipRegion &clip : quadrants) {
       const auto tile = render_band_split_flower<W, H>(fx, flower, clip, true);
       skipped += tile.skipped_edges;
-      uint64_t whole_energy = 0, tile_energy = 0;
-      size_t uncovered = 0;
-      for (int y = clip.y_start; y < clip.y_end; ++y)
-        for (int x = clip.x_start; x < clip.x_end; ++x) {
-          const Pixel &p = whole[static_cast<size_t>(y) * W + x];
-          const Pixel &q = tile.pixels[static_cast<size_t>(y) * W + x];
-          whole_energy += static_cast<uint64_t>(p.r) + p.g + p.b;
-          tile_energy += static_cast<uint64_t>(q.r) + q.g + q.b;
-          // A pole row's columns span almost no arc, so a sub-pixel shift
-          // in sample phase moves a dot there by whole columns.
-          if (static_cast<uint32_t>(p.r) + p.g + p.b < 12288 || y < POLE_ROWS ||
-              y >= H - POLE_ROWS)
-            continue;
-          bool covered = false;
-          for (int dy = -1; dy <= 1 && !covered; ++dy)
-            for (int dx = -1; dx <= 1 && !covered; ++dx) {
-              const int sy = y + dy;
-              if (sy < 0 || sy >= H)
-                continue;
-              covered = !is_black(
-                  tile.pixels[static_cast<size_t>(sy) * W + (x + dx + W) % W]);
-            }
-          if (!covered)
-            ++uncovered;
-        }
-      HS_EXPECT_EQ(uncovered, size_t{0});
-      if (whole_energy == 0) {
-        HS_EXPECT_EQ(tile_energy, uint64_t{0});
-        continue;
-      }
-      const double drift = std::fabs(static_cast<double>(tile_energy) -
-                                     static_cast<double>(whole_energy)) /
-                           static_cast<double>(whole_energy);
-      HS_EXPECT_LT(drift, 0.035);
+      expect_covered_within_one_pixel<W, H>(whole, tile.pixels, clip.y_start,
+                                            clip.y_end, clip.x_start,
+                                            clip.x_end, POLE_ROWS, 0.035);
     }
   }
   HS_EXPECT_GT(skipped, size_t{0});
@@ -310,42 +295,13 @@ inline void test_planar_chords_pole_split_matches_whole_star() {
       const auto unsplit = render_planar_chord_star<W, H>(fx, star, true);
       Plot::g_planar_chords_split_pole_runs = true;
       const auto tile = render_planar_chord_star<W, H>(fx, star, true);
-      uint64_t whole_energy = 0, tile_energy = 0;
-      size_t uncovered = 0;
       for (int y = q[0]; y < q[1]; ++y)
         for (int x = q[2]; x < q[3]; ++x) {
           const size_t i = static_cast<size_t>(y) * W + x;
           split_changed += !(tile[i] == unsplit[i]);
-          const Pixel &p = whole[i];
-          whole_energy += static_cast<uint64_t>(p.r) + p.g + p.b;
-          tile_energy +=
-              static_cast<uint64_t>(tile[i].r) + tile[i].g + tile[i].b;
-          // A pole row's columns span almost no arc, so a sub-pixel shift
-          // in sample phase moves a dot there by whole columns.
-          if (static_cast<uint32_t>(p.r) + p.g + p.b < 12288 || y < POLE_ROWS ||
-              y >= H - POLE_ROWS)
-            continue;
-          bool covered = false;
-          for (int dy = -1; dy <= 1 && !covered; ++dy)
-            for (int dx = -1; dx <= 1 && !covered; ++dx) {
-              const int sy = y + dy;
-              if (sy < 0 || sy >= H)
-                continue;
-              covered = !is_black(
-                  tile[static_cast<size_t>(sy) * W + (x + dx + W) % W]);
-            }
-          if (!covered)
-            ++uncovered;
         }
-      HS_EXPECT_EQ(uncovered, size_t{0});
-      if (whole_energy == 0) {
-        HS_EXPECT_EQ(tile_energy, uint64_t{0});
-        continue;
-      }
-      const double drift = std::fabs(static_cast<double>(tile_energy) -
-                                     static_cast<double>(whole_energy)) /
-                           static_cast<double>(whole_energy);
-      HS_EXPECT_LT(drift, 0.005);
+      expect_covered_within_one_pixel<W, H>(whole, tile, q[0], q[1], q[2], q[3],
+                                            POLE_ROWS, 0.005);
     }
   }
   fx.set_clip(0, H, 0, W);
