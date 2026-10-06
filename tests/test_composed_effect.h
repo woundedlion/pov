@@ -371,7 +371,7 @@ inline void check_slider_registration(const char *name) {
       std::size(UNGATED_COLOR_SLIDERS) + (brightness ? size_t{2} : size_t{0}) +
       (hue_noise ? size_t{2} : size_t{0}) + (hue_shift ? size_t{1} : size_t{0});
   HS_EXPECT_EQ(params.size(), expected);
-  HS_EXPECT_LE(params.size(), params.capacity());
+  HS_EXPECT_EQ(params.size(), params.capacity());
 }
 
 /**
