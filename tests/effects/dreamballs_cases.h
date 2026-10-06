@@ -12,6 +12,7 @@ struct DreamBallsWhiteBox {
   static constexpr size_t SOLID_COUNT = DB::SOLID_COUNT;
   static constexpr size_t MAX_SOLID_EDGES = Solids::MAX_SOLID_EDGES;
   static constexpr size_t SCRATCH_A_PEAK_BYTES = DB::SCRATCH_A_PEAK_BYTES;
+  static constexpr float WEAVE_GAP_MIN = DB::WEAVE_GAP_MIN;
 
   static int active_bake(const DB &db) { return db.active_bake; }
   // Advance the choreography, then re-spawn.
@@ -433,6 +434,33 @@ inline void test_dreamballs_weave_topology() {
   }
   const uint64_t energy = frame_energy<SMALL_W, SMALL_H>(db);
   HS_EXPECT_GT(energy, 0u);
+}
+
+/** @brief Renders the defect weave topology and its gap fade. */
+inline void test_dreamballs_defect_weave_renders() {
+  using WB = DreamBallsWhiteBox;
+  auto render_defects = [](float weave_gap) {
+    reset_effect_globals();
+    WB::DB defects;
+    defects.init();
+    HS_EXPECT_EQ(defects.updateParameter("Base Mesh", 0.0f),
+                 ParamSetResult::APPLIED);
+    HS_EXPECT_EQ(defects.updateParameter("Weave Topology", 1.0f),
+                 ParamSetResult::APPLIED);
+    HS_EXPECT_EQ(defects.updateParameter("Weave Gap", weave_gap),
+                 ParamSetResult::APPLIED);
+    defects.setAnimationsPaused(false);
+    for (int frame = 0; frame < 20; ++frame) {
+      defects.draw_frame();
+      defects.advance_display();
+    }
+    HS_EXPECT_GT((frame_energy<SMALL_W, SMALL_H>(defects)), 0u);
+    std::vector<Pixel> frame;
+    capture_frame<SMALL_W, SMALL_H>(defects, frame);
+    return frame;
+  };
+  HS_EXPECT(render_defects(WB::WEAVE_GAP_MIN) != render_defects(0.25f),
+            "the defect weave gap must reach the rendered frame");
 }
 
 /**

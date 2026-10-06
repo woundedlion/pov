@@ -1108,6 +1108,7 @@ inline int run_effects_tests() {
     run_case(test_gs_staged_reseed_matches_synchronous);
     run_case(test_dreamballs_base_mesh_selector);
     run_case(test_dreamballs_weave_topology);
+    run_case(test_dreamballs_defect_weave_renders);
     run_case(test_dreamballs_respawn_fires_and_honors_pause);
     run_case(test_meshfeedback_flush_precedes_mesh_draw);
     run_case(test_meshfeedback_preset_rotation_syncs_noise);
