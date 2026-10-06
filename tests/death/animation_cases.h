@@ -649,3 +649,50 @@ inline void case_random_walk_nonfinite_options() {
   Animation::RandomWalk<32> walk(orientation, math::Vector(0, 0, 1), noise,
                                  options);
 }
+
+/** @brief A full timeline must refuse an OpLeg continuation. */
+inline void case_opleg_no_event_slot() {
+  Timeline tl;
+  float sink = 0.0f;
+  for (int i = 0; i < Timeline::MAX_EVENTS; ++i)
+    tl.add(0, Animation::Transition(sink, 1.0f, 10, math::ease_linear));
+  Animation::OpLeg::require_event_slot();
+}
+
+/** @brief Rejects non-finite ball-drop azimuth. */
+inline void case_ball_drop_nonfinite_azimuth() {
+  Animation::BumpParams params;
+  params.radius = 0.5f;
+  math::Orientation<> orientation;
+  Animation::BallDrop<> drop(params, orientation, math::Y_AXIS,
+                             opaque(std::numeric_limits<float>::quiet_NaN()),
+                             10);
+}
+
+/** @brief A cached bump offset must agree with the sample's cap distance. */
+inline void case_bump_offset_outside_cap_distance() {
+  Animation::BumpParams params;
+  params.center = math::Y_AXIS;
+  params.axis = math::Y_AXIS;
+  params.radius = 0.5f;
+  params.amplitude = 1.0f;
+  params.envelope = 1.0f;
+  params.sync();
+  (void)bump_field_with_y(math::Y_AXIS, params, opaque(0.25f));
+}
+
+inline void case_timeline_add_into_live_slot() {
+  Timeline timeline;
+  float value = 0;
+  timeline.add(0, Animation::Transition(value, 1.0f, 10, math::ease_linear));
+  global_timeline_num_events = 0;
+  timeline.add(0, Animation::Transition(value, 1.0f, 10, math::ease_linear));
+}
+
+/** @brief Rejects a random-timer maximum whose inclusive bound overflows. */
+inline void case_random_timer_max_int() {
+  Animation::RandomTimer timer(
+      {.min = 0, .max = opaque(std::numeric_limits<int>::max())},
+      [](Canvas &) {});
+  (void)timer;
+}

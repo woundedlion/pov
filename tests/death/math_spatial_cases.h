@@ -352,3 +352,19 @@ inline void case_latitude_geometry_reversed_span() {
   if (geometry.row_to_phi(0) == 42.0f)
     std::printf("x");
 }
+
+inline void case_peirce_invalid_layout() {
+  (void)projections::peirce_projection(
+      math::Vector(0, 1, 0), 0,
+      static_cast<projections::PeirceLayout>(opaque<uint8_t>(255)), 0);
+}
+
+/** @brief Rejects a square-wave duty cycle outside its unit interval. */
+inline void case_square_wave_invalid_duty() {
+  (void)math::square_wave(0.f, 1.f, 1.f, opaque(-.1f), 0.f);
+}
+
+/** @brief Rejects a Fibonacci spiral with no points. */
+inline void case_fib_spiral_zero_points() {
+  (void)math::fib_spiral(opaque(0), .5f, 0);
+}

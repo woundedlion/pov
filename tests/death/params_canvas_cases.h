@@ -355,3 +355,9 @@ inline void case_arcs_overlap_start_out_of_range() {
   if (hit)
     std::printf("x");
 }
+
+/** @brief Rejects a margin equal to the canvas width. */
+inline void case_effect_margin_equal_width() {
+  StubEffect effect(32, 16);
+  effect.set_margin(opaque(32));
+}

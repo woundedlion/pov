@@ -686,3 +686,47 @@ inline void case_star_mismatched_step_cache() {
   Star::sample_positions(points, basis, 0.5f, 5, 0.0f, Star::radius_trig(0.5f),
                          Star::step_trig(6));
 }
+
+inline void case_screen_storage_twice() {
+  static uint8_t storage[8192];
+  Arena arena(storage, sizeof(storage));
+  Filter::Screen::Trails<4> stage(10);
+  stage.init_storage(arena);
+  stage.init_storage(arena);
+}
+
+inline void case_world_storage_twice() {
+  static uint8_t storage[8192];
+  Arena arena(storage, sizeof(storage));
+  Filter::World::Trails<4> stage(10);
+  stage.init_storage(arena);
+  stage.init_storage(arena);
+}
+
+inline void case_feedback_storage_twice() {
+  static uint8_t storage[8192];
+  Arena arena(storage, sizeof(storage));
+  ::Feedback::Style style{};
+  Filter::Pixel::Feedback<16, 8> stage(style);
+  stage.init_storage(arena);
+  stage.init_storage(arena);
+}
+
+inline void case_direct_sink_wrong_dimensions() {
+  hs_test::StubEffect effect(16, 8);
+  Canvas canvas(effect);
+  Filter::Screen::DirectAntiAliasSink<32, 8> sink;
+  sink.prepare(canvas);
+}
+
+inline void case_direct_sink_unprepared_plot() {
+  hs_test::StubEffect effect(16, 8);
+  Canvas canvas(effect);
+  Filter::Screen::DirectAntiAliasSink<16, 8> sink;
+  sink.plot(canvas, 2, 2, Pixel(65535, 0, 0), 0, 1);
+}
+
+inline void case_vertex_replicate_short_input() {
+  std::array<math::Vector, 2> vertices{};
+  Filter::World::VertexReplicate<3> replicate(vertices);
+}

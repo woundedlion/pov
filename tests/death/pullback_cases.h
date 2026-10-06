@@ -265,3 +265,44 @@ inline void case_pullback_operator_invalid_palette_mapping() {
           .palette != nullptr)
     std::printf("x");
 }
+
+/** @brief A field transfer must preserve the normalized value domain. */
+inline void case_field_transfer_outside_range() {
+  Pullback::Kernel::transfer(Pullback::FieldSample{}, opaque(1.1f));
+}
+
+/** @brief Field coverage cannot grow after the sample crossing. */
+inline void case_field_coverage_increases() {
+  Pullback::Kernel::coverage(Pullback::FieldSample{}, opaque(1.1f));
+}
+
+/** @brief The Sample crossing rejects a coverage factor outside [0, 1]. */
+inline void case_field_sample_coverage_outside_range() {
+  Pullback::Kernel::sample(Pullback::PlaneSample{}, 0.0f, opaque(1.1f));
+}
+
+inline void case_projection_invalid_frame_advance() {
+  using Op = Pullback::Interp::Op::ProjectStereographic;
+  Op::Params params;
+  params.frame = opaque<uint8_t>(255);
+  Op::State state;
+  Op::advance(state, params);
+}
+
+inline void case_projection_invalid_frame_prepare() {
+  using Op = Pullback::Interp::Op::ProjectStereographic;
+  Op::Params params;
+  params.frame = opaque<uint8_t>(255);
+  Op::State state;
+  (void)Op::prepare(Pullback::Interp::FrameContext{}, params, state);
+}
+
+inline void case_sample_plane_nan() {
+  const float NAN_VALUE = opaque(std::numeric_limits<float>::quiet_NaN());
+  (void)Pullback::Kernel::sample(Pullback::PlaneSample{}, NAN_VALUE, 1.0f);
+}
+
+inline void case_sample_sphere_nan() {
+  const float NAN_VALUE = opaque(std::numeric_limits<float>::quiet_NaN());
+  (void)Pullback::Kernel::sample(Pullback::SphereSample{}, NAN_VALUE);
+}

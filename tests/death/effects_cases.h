@@ -177,3 +177,16 @@ inline void case_hyperlattice_pattern_defaults_invalid() {
   Effect::pattern_defaults(static_cast<Effect::Pattern>(opaque(uint8_t{2})),
                            Effect::LatticeMode::THREE_D);
 }
+
+struct UninitializedReactionLattice
+    : ReactionDiffusionBase<UninitializedReactionLattice, 32, 16> {
+  void init() override {}
+  void render(Canvas &) {}
+  using ReactionDiffusionBase::orient_lattice;
+};
+
+inline void case_reaction_lattice_uninitialized() {
+  UninitializedReactionLattice effect;
+  auto lattice = effect.orient_lattice();
+  (void)lattice;
+}
