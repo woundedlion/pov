@@ -233,7 +233,8 @@ inline constexpr float MOBIUS_COEFFICIENT_LIMIT =
 /** @brief Parameter family of sphere.lens.mobius.v2: the flat coefficient
     fields the chain registers.
     @details The composed-effect path registers the same eight coefficients by
-    hand over Lens::MobiusLensParams (composed_effect.h); the two spellings
+    hand over Lens::MobiusLensParams (register_lens_fields in composed_runtime.h;
+    names in composed_descriptors.h); the two spellings
     stay separate because that family nests MobiusParams and cannot carry a
     flat FIELDS table. */
 struct MobiusChainParams {
