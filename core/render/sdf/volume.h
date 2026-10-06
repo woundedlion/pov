@@ -14,16 +14,14 @@
 /**
  * @file volume.h
  * @brief 3D volumetric signed-distance shapes and the domain warps composed
- * with them, marched by Scan::Volume.
+ * with them.
  */
 
 namespace SDF {
 
 // ============================================================================
-// 3D Volumetric SDF Shapes (for Scan::Volume raymarching)
+// 3D Volumetric SDF Shapes
 // ============================================================================
-// Raymarch's Scan::Volume march is their only production caller.
-// These shapes share that region's -O3 options.
 
 HS_O3_BEGIN
 /**
@@ -32,10 +30,7 @@ HS_O3_BEGIN
  * The torus ring lies in the XZ plane with symmetry axis along Y.
  * Major radius R = ring centerline distance from origin.
  * Minor radius r = tube cross-section radius.
- *
- * Unlike the spherical SDF shapes in the sibling headers (which use DistanceResult),
- * 3D volumetric shapes return plain float distances and operate in
- * Cartesian ray-space.
+ * Returns plain float distances in Cartesian ray-space.
  */
 struct Torus {
   float R; /**< Major radius (ring centerline). */
@@ -103,8 +98,7 @@ struct Twist {
    * @param oscillations Number of oscillations; must be >= 0 (HS_CHECK-enforced).
    * @param displacement Magnitude; must be >= 0 (HS_CHECK-enforced).
    * @param major_radius Major radius; must be > 0. The Lipschitz bound scales
-   *        by 2/R, so R == 0 yields a non-finite bound on the XZ axis. Guarded
-   *        at the cold construction site, not per-call.
+   *        by 2/R, so R == 0 yields a non-finite bound on the XZ axis.
    */
   Twist(int oscillations, float displacement, float major_radius)
       : twist(oscillations), amplitude(displacement), R(major_radius),
@@ -144,9 +138,7 @@ struct Twist {
    * @param s Precomputed context (radial distance in the XZ plane).
    * @return sin(twist * theta).
    * @details Chebyshev recurrence sin((k+1)t) = 2cos(t)sin(kt) - sin((k-1)t),
-   * seeded from (cos t, sin t) = (x/s, z/s), so the cost is one reciprocal
-   * rather than an atan2 and a sine. Exact to float rounding, where
-   * fast_atan2/fast_sinf each carry approximation error.
+   * seeded from (cos t, sin t) = (x/s, z/s). Exact to float rounding.
    */
   float sin_ntheta(const math::Vector &p, Ctx s) const {
     return sin_ntheta_inv(p, s).sin_n;
@@ -156,9 +148,8 @@ struct Twist {
   struct SinInv {
     float sin_n;         /**< sin(twist * theta). */
     float lipschitz_arg; /**< 1/s; 2/R where the recurrence degenerates. Only
-                            valid as a lipschitz()/lipschitz_inv() argument —
-                            correct_normal_inv() marks the axis with 0 instead
-                            and would read 2/R as a finite radius. */
+                            valid as a lipschitz()/lipschitz_inv() argument;
+                            correct_normal_inv() expects 0 on the axis. */
   };
 
   /**
@@ -167,8 +158,7 @@ struct Twist {
    * @param s Precomputed context (radial distance in the XZ plane).
    * @return sin(twist * theta) and 1/s, the latter feeding lipschitz().
    * @details On the degenerate axis lipschitz_arg carries 2/R, the value the
-   * Lipschitz clamp would select there anyway, so no caller needs a second
-   * branch.
+   * Lipschitz clamp would select there anyway.
    */
   SinInv sin_ntheta_inv(const math::Vector &p, Ctx s) const {
     if (twist == 0 || s <= math::TOLERANCE)
@@ -218,8 +208,6 @@ struct Twist {
    * @param p Query point.
    * @param s Precomputed context (radial distance in the XZ plane).
    * @return Both harmonics, matching sin_ntheta/cos_ntheta bit for bit.
-   * @details For the hit path, which needs both: the march path needs only the
-   * sine and calls sin_ntheta so it does not pay for the cosine sequence.
    */
   SinCos sincos_ntheta(const math::Vector &p, Ctx s) const {
     return sincos_ntheta_inv(p, (s > math::TOLERANCE) ? 1.0f / s : 0.0f);
@@ -323,8 +311,7 @@ struct Twist {
    * @param cos_n cos(twist * theta) at `p`.
    * @return The corrected unit normal.
    * @details The correction is a linear map of base_n, so scaling base_n scales
-   * the result and the final normalize cancels it — an unnormalized base normal
-   * gives the identical unit result and saves a normalize.
+   * the result and the final normalize cancels it.
    */
   math::Vector correct_normal(const math::Vector &p, const math::Vector &base_n,
                               Ctx s, float cos_n) const {
@@ -412,7 +399,7 @@ template <typename Shape, typename WarpT> struct WarpedVolume {
    */
   float precision = 0.0f;
 
-  /** True when the base/warp pair admits the tight per-axis bound below. */
+  /** True when the base/warp pair admits the tight per-axis bound. */
   static constexpr bool TORUS_TWIST = std::is_same_v<Shape, ::SDF::Torus> &&
                                       std::is_same_v<WarpT, ::SDF::Warp::Twist>;
 
@@ -442,8 +429,7 @@ template <typename Shape, typename WarpT> struct WarpedVolume {
     if constexpr (TORUS_TWIST) {
       // Twist moves only y, by at most bounding_inflation(), so the warped
       // surface lies inside the torus swept +-A along y; this is that solid's
-      // exact distance, hence a lower bound. Relaxing the y term alone keeps it
-      // far tighter than subtracting A from the whole distance.
+      // exact distance, hence a lower bound.
       return sqrtf(torus_bound_squared(p, sqrtf(p.x * p.x + p.z * p.z))) -
              base.r;
     } else {

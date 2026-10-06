@@ -30,9 +30,6 @@
  * unrefreshed input registers are NaN in debug builds and stale in release.
  * A shader must write color unconditionally and may read only registers
  * refreshed by its rasterizer or written by the shader itself, plus age.
- * Scan::process_pixel and Scan::DistortedRingStack refresh every field;
- * Scan::RingGroup refreshes pos, v2, size, age and color; Scan::rasterize_face
- * with MinimalFragment refreshes v1 alone.
  */
 struct Fragment {
   math::Vector pos;  /**< Position (typically a unit vector on the sphere). */
@@ -59,8 +56,7 @@ struct Fragment {
    * @param b End fragment.
    * @param t Interpolation factor (0.0 to 1.0).
    * @return A fragment with v0-v3, age and size interpolated; pos and color keep
-   * their struct defaults. For callers that supply both themselves (the
-   * rasterizer's drawing loop).
+   * their struct defaults.
    */
   static Fragment lerp_registers(const Fragment &a, const Fragment &b,
                                  float t) {
@@ -80,8 +76,7 @@ struct Fragment {
    * @param b End fragment.
    * @param t Interpolation factor (0.0 to 1.0).
    * @return The interpolated fragment; pos, v0-v3, age, size, and color are all
-   * interpolated, so no register (notably size, the fragment_edge_dist
-   * denominator) resets to its struct default.
+   * interpolated.
    */
   static Fragment lerp(const Fragment &a, const Fragment &b, float t) {
     Fragment f = lerp_registers(a, b, t);
@@ -93,8 +88,7 @@ struct Fragment {
 
 /**
  * @brief Mutable view of a fragment's shading registers, without its position.
- * @details Handed to the deferred vertex pass, which runs after the rasterizer
- * has projected each point and classified its edges: a position written there
+ * @details For passes that run after projection, where a written position
  * would plot at the stale screen coordinate.
  */
 struct FragmentRegisters {
@@ -122,7 +116,6 @@ struct FragmentRegisters {
  * inside the face) and size holds the face's reference size.
  * @return `-v1 / size` (inward depth in face-relative units), or 0 for
  * degenerate (near-zero-size) faces.
- * @details For shaders that gradient-map inward face depth.
  */
 inline float fragment_edge_dist(const Fragment &f) {
   return (f.size > math::TOLERANCE) ? (-f.v1 / f.size) : 0.0f;
@@ -130,7 +123,7 @@ inline float fragment_edge_dist(const Fragment &f) {
 
 /**
  * @brief The mesh face index carried by a rasterized fragment.
- * @param f Mesh-rasterized fragment; Scan::Mesh writes the face index into v2.
+ * @param f Mesh-rasterized fragment; v2 holds the face index.
  * @return The face index.
  */
 inline int mesh_face_index(const Fragment &f) { return static_cast<int>(f.v2); }
@@ -186,8 +179,7 @@ shade_mesh_topology(const Fragment &f, const uint16_t *topology, int num_faces,
  * once per face and passes it directly, so the per-fragment path skips the
  * topology-slot lookup and palette-bank indirection.
  * @tparam Palette Baked palette type exposing `Color4 get(float) const`.
- * @tparam SegueT Segue policy type (see namespace Segue in animation/segue.h);
- * duck-typed, so this header needs no dependency on it.
+ * @tparam SegueT Segue policy type exposing fill/grade/opacity hooks.
  * @param f Rasterized fragment.
  * @param palette The face's already-resolved palette.
  * @param gain Multiplier on the edge-distance gradient before clamping to [0,1].
@@ -211,12 +203,10 @@ inline Color4 shade_mesh_topology(const Fragment &f, const Palette &palette,
 /**
  * @brief Face-hoisted palette shader for the mesh scan path.
  * @details The caller resolves the face's palette and gradient scale once per
- * face (Scan::Mesh's face-setup hook), leaving a multiply, a clamp and one LUT
- * fetch per fragment, plus a second fetch and a blend on faces with a
- * counterpart palette. `scale` multiplies the inward edge depth `-v1`, so a
- * caller working from a face size passes the reciprocal. Writes frag.color
- * unconditionally, as the minimal-fragment scan path requires. set_palette()
- * must run before the first fragment; operator() debug-asserts it.
+ * face. `scale` multiplies the inward edge depth `-v1`, so a caller working
+ * from a face size passes the reciprocal. Writes frag.color unconditionally.
+ * set_palette() must run before the first fragment; operator() debug-asserts
+ * it.
  */
 struct FacePaletteShader {
   float scale = 1.0f;
@@ -273,11 +263,8 @@ inline constexpr int BLINN_PHONG_SPECULAR_EXP = 32;
  * @param tangent Surface tangent used to tilt the specular highlight off-axis.
  * @return The unit half-vector, or the un-normalized sum when either
  *         intermediate degenerates to near-zero length.
- * @details Headlight model: shade_blinn_phong feeds one dot product to both its
- *          diffuse and Fresnel terms, so the light is the view direction and
- *          only the tangent tilt separates the two. Depends on no per-pixel
- *          input, so a shader over a fixed view/tangent frame computes the
- *          half-vector once and passes it to every shade_blinn_phong call.
+ * @details Headlight model: the light is the view direction tilted along the
+ *          tangent. Depends on no per-pixel input.
  */
 HS_O3_BEGIN
 inline math::Vector blinn_phong_half(const math::Vector &view_dir,

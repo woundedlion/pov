@@ -9,10 +9,8 @@
  * @file reaction_graph.h
  * @brief Fibonacci lattice K-NN graph and nearest-node lookup.
  *
- * The neighbors[] table (reaction_graph.cpp) is emitted by
- * scripts/generate_reaction_graph.py; node() below MUST stay in lockstep with
- * that generator's lattice math. CI reaction-graph-provenance checks the table;
- * tests/test_reaction_graph.h checks node() goldens and brute-force K-NN parity.
+ * node() mirrors the lattice math of scripts/generate_reaction_graph.py, which
+ * emits neighbors[].
  */
 
 #include "platform/platform.h"
@@ -23,16 +21,13 @@
 
 namespace ReactionGraph {
 
-// Changing RD_N requires regenerating neighbors[] (generate_reaction_graph.py)
-// and re-pasting D_AVG below — both are guarded, neither is auto-derived.
+// Changing RD_N requires regenerating neighbors[] and updating D_AVG.
 inline constexpr int RD_N = 7680;
 inline constexpr int RD_K = 6;
 
 /**
  * @brief Characteristic spacing sqrt(4π / RD_N) for an RD_N-point unit-sphere
- *        lattice, rather than a measured mean nearest-neighbor distance.
- * @details Used as the base radius for reaction-diffusion interpolation kernels
- *          (BZ / GS). Precomputed because std::sqrt isn't constexpr here.
+ *        lattice, not a measured mean nearest-neighbor distance.
  */
 inline constexpr float D_AVG = 0.0404505398f; // sqrt(4π / 7680)
 
@@ -53,19 +48,14 @@ static_assert(D_AVG * D_AVG * RD_N - 12.566370614f < 0.0006f &&
  * @param i Node index in [0, RD_N), ordered from north pole (i=0) southward;
  *        out of range traps.
  * @return Unit-length direction for lattice point i.
- * @details Analytic reference for the generated node_positions array. Only called
- *          at init, so the double-precision folding below is off the per-frame render
- *          path; see the implementation note for why the wider math is needed.
+ * @details Analytic reference for the generated node_positions array.
  */
 HS_COLD_MEMBER inline math::Vector node(int i) {
   HS_CHECK(i >= 0 && i < RD_N, "node() index outside the lattice");
-  // Must fold y, radius, and theta in double to reproduce neighbors[] bit-for-bit:
+  // Folds y, radius, and theta in double to reproduce neighbors[] bit-for-bit:
   // float32 flips near-tie sort order, and theta = golden_angle*i reaches ~18,400
-  // rad at i=RD_N-1 where a float holds only ~1e-3 rad of azimuth. Bit-exact
-  // reproduction is a CI-pinned-toolchain provenance contract, not a portable
-  // runtime guarantee; the runtime tolerates drift (find_nearest_node is a
-  // nearest-node search, not a table-index equality), so a ULP drift degrades
-  // seeding quality at worst, never correctness.
+  // rad at i=RD_N-1. Bit-exactness is a pinned-toolchain provenance contract;
+  // the runtime tolerates ULP drift.
   constexpr double golden_angle = 2.399963229728653;
   constexpr double two_pi = 6.283185307179586;
   double y = 1.0 - (static_cast<double>(i) / (RD_N - 1)) * 2.0;
@@ -85,13 +75,8 @@ extern HS_PROGMEM_UNIQUE(node_positions) const math::Vector
 /**
  * @brief Precomputed K-nearest-neighbor indices for every lattice node.
  * @details neighbors[i][k] is the node index of the k-th nearest neighbor of node
- *          i. The lattice yields a full RD_K-neighbor ring, so every slot is a
- *          node index in [0, RD_N) and there is no vacant-slot sentinel; consumers
- *          subscript the row unguarded and validate_neighbors() proves the
- *          contract before the first such read. Total size 92160 bytes
- *          (RD_N × RD_K × 2B). The flash placement is a no-op on the supported
- *          flat-address targets, where direct `neighbors[i][k]` subscripting
- *          works.
+ *          i. Every slot is a node index in [0, RD_N), with no vacant-slot
+ *          sentinel; validate_neighbors() checks this.
  */
 extern HS_PROGMEM_UNIQUE(neighbors) const int16_t neighbors[RD_N][RD_K];
 
@@ -146,15 +131,12 @@ struct CubemapLUT {
    *        retained) plus a transient ~90 KB lattice scratch, scoped to build() and
    *        rewound on return. A caller must provision for the peak (~138 KB), not
    *        the 48 KB persistent table alone, or this traps mid-build.
-   * @details The triple loop visits texels in linear (face, y, x) order — exactly
-   *          the index (face*RES+y)*RES+x used by lookup() — so sequential
-   *          push_back fills the table in place with no random-access writes.
+   * @details Texels are filled in lookup()'s (face*RES+y)*RES+x index order.
    */
   HS_COLD_MEMBER void build(Arena &arena) {
     validate_neighbors(neighbors);
     data.bind(arena, 6 * RES * RES);
-    // node() is double-precision trig; precompute every lattice point once into
-    // scratch so the hill-climb reads a table instead of recomputing per hop.
+    // Precompute every lattice point once into scratch for the hill-climb.
     ScratchScope lattice_guard(arena);
     math::Vector *lattice = arena.allocate_n<math::Vector>(RD_N);
     for (int i = 0; i < RD_N; ++i)
@@ -187,17 +169,11 @@ public:
   /**
    * @brief O(1) cubemap lookup projecting a unit vector to an approximately
    *        nearest lattice node.
-   * @param p Query direction; MUST be unit-length. Load-bearing for the divide
-   *        below: the dominant-axis magnitude is the divisor with no zero-guard,
-   *        and only a unit `p` guarantees that axis is `>= 1/sqrt(3)` (~0.577), so
-   *        the reciprocal never blows up.
-   * @return A seed lattice node index in [0, RD_N) close to p. Two approximations
-   *         stack (the table is built from find_nearest_node's hill-climb local
-   *         minimum, and the query is quantized to a face cell), so the true
-   *         nearest node can lie beyond the seed's one-ring. Refining among the
-   *         seed and its neighbors improves the seed without guaranteeing a
-   *         global nearest node (see ReactionDiffusionBase::refine_render_center
-   *         in effects/).
+   * @param p Query direction; MUST be unit-length. The dominant-axis magnitude
+   *        divides with no zero-guard; a unit `p` keeps it >= 1/sqrt(3).
+   * @return A seed lattice node index in [0, RD_N) close to p. The table holds
+   *         hill-climb local minima at quantized face cells, so the true
+   *         nearest node can lie beyond the seed's one-ring.
    */
   int lookup(const math::Vector &p) const { return lookup(project(p)); }
 
@@ -263,11 +239,6 @@ public:
 private:
   /**
    * @brief Texel-to-node table, indexed (face*RES+y)*RES+x.
-   * @details Arena-backed rather than a bare uint16_t*: inherits ArenaVector's
-   *          debug generation tracking (use-after-free if the arena is reset out
-   *          from under the LUT) and bound-check (lookup() before build() traps via
-   *          check_bound, not a silent garbage read). On device (NDEBUG) the checks
-   *          compile out, so lookup() is a single load.
    */
   ArenaVector<uint16_t> data;
 
@@ -277,9 +248,7 @@ private:
    * @param u Horizontal texel coordinate in [-1, 1].
    * @param v Vertical texel coordinate in [-1, 1].
    * @return Unit-length direction vector for the texel.
-   * @details One axis is always ±1, so the length is >= 1; the strict
-   *          normalized() traps if that invariant is ever broken instead of
-   *          dividing by zero.
+   * @details One axis is always ±1, so the length is >= 1.
    */
   static math::Vector texel_direction(int face, float u, float v) {
     math::Vector dir;
@@ -303,22 +272,16 @@ private:
    *        from a latitude seed.
    * @param p Query direction (expected unit-length) on the sphere.
    * @param lattice Precomputed node() positions for all RD_N points, indexed by
-   *        node id; built once by the caller to avoid recomputing node()'s trig
-   *        per hop.
+   *        node id.
    * @return Lattice node index in [0, RD_N) at a local distance minimum.
    * @details Hill-climbs toward closer neighbors and stops at a local minimum; on
    *          the near-uniform Fibonacci sphere this lands on the true nearest node
    *          in practice but is not guaranteed to (not a global argmin).
    *
-   *          LOAD-BEARING: the inner loop reassigns `cur` (and `best_d`) the instant
-   *          it sees a closer neighbor, so each later `k` reads `neighbors[cur]` of
-   *          the just-updated node — one `iter` chains through several nodes. The
-   *          64-iteration cap depends on this: the seed is latitude-only, so an
-   *          equatorial query's true node can sit dozens of hops around the
-   *          longitude circle. A refactor that scanned all RD_K neighbors of a fixed
-   *          `cur` before moving would advance one hop per iter, exceed 64 near the
-   *          equator, and trigger the convergence trap. Cubemap build() exercises
-   *          this search at texel centers; lookup() only reads the built table.
+   *          The inner loop moves `cur` the instant it sees a closer neighbor, so
+   *          one `iter` can chain several hops; the 64-iteration cap depends on
+   *          this, since the latitude-only seed can start dozens of hops from an
+   *          equatorial query's node.
    */
   HS_COLD_MEMBER static int find_nearest_node(const math::Vector &p,
                                               const math::Vector *lattice) {
