@@ -146,13 +146,15 @@ inline void check_regular_form(const PolyMesh &got, const PolyMesh &want,
  *          itself).
  */
 inline void test_edge_endpoints_match_registry() {
-  constexpr size_t HALF = sizeof(morph_target_buf) / 2;
+  constexpr size_t TARGET_HALF = sizeof(morph_target_buf) / 2;
+  constexpr size_t TEMP_HALF = sizeof(morph_temp_buf) / 2;
+  constexpr size_t AUX_HALF = sizeof(morph_aux_buf) / 2;
   for (int ei = 0; ei < ConwayGraph::NUM_EDGES; ++ei) {
     const ConwayGraph::EdgeSpec &e = ConwayGraph::EDGES[ei];
     const int failed_before = hs_test::stats().failed;
 
-    Arena sa(morph_aux_buf, HALF);
-    Arena sb(morph_aux_buf + HALF, HALF);
+    Arena sa(morph_aux_buf, AUX_HALF);
+    Arena sb(morph_aux_buf + AUX_HALF, AUX_HALF);
     PolyMesh seed = Solids::simple_registry[e.seed_solid].generate(sa, sb);
 
     // from end: t = 0 emits expanded topology, so compare op(seed, T_EPS)
@@ -161,8 +163,8 @@ inline void test_edge_endpoints_match_registry() {
     // icosa point, which is regular in the tetra frame, not the registry
     // orientation.
     {
-      Arena oa(morph_temp_buf, HALF);
-      Arena ob(morph_temp_buf + HALF, HALF);
+      Arena oa(morph_temp_buf, TEMP_HALF);
+      Arena ob(morph_temp_buf + TEMP_HALF, TEMP_HALF);
       if (e.t_from == 0.0f) {
         PolyMesh got = run_edge_op(e, seed, oa, ob, T_EPS, e.twist_from);
         const int per_corner = e.op == ConwayGraph::MorphOp::TRUNCATE ? 2 : 1;
@@ -171,8 +173,8 @@ inline void test_edge_endpoints_match_registry() {
                               : PRIMARY_CORNER_TOL_SINGLE;
         check_primary_faces_match_seed(seed, got, per_corner, tol);
       } else {
-        Arena ra(morph_target_buf, HALF);
-        Arena rb(morph_target_buf + HALF, HALF);
+        Arena ra(morph_target_buf, TARGET_HALF);
+        Arena rb(morph_target_buf + TARGET_HALF, TARGET_HALF);
         PolyMesh want = Solids::simple_registry[e.from_node].generate(ra, rb);
         PolyMesh got = run_edge_op(e, seed, oa, ob, e.t_from, e.twist_from);
         if (ConwayGraph::is_jitterbug_edge(e))
@@ -184,12 +186,12 @@ inline void test_edge_endpoints_match_registry() {
 
     // to end.
     {
-      Arena ra(morph_target_buf, HALF);
-      Arena rb(morph_target_buf + HALF, HALF);
+      Arena ra(morph_target_buf, TARGET_HALF);
+      Arena rb(morph_target_buf + TARGET_HALF, TARGET_HALF);
       PolyMesh want = Solids::simple_registry[e.to_node].generate(ra, rb);
 
-      Arena oa(morph_temp_buf, HALF);
-      Arena ob(morph_temp_buf + HALF, HALF);
+      Arena oa(morph_temp_buf, TEMP_HALF);
+      Arena ob(morph_temp_buf + TEMP_HALF, TEMP_HALF);
       PolyMesh got = run_edge_op(e, seed, oa, ob, e.t_to, e.twist_to);
       if (e.settle)
         got = MeshOps::relax(got, ob, oa, ConwayGraph::SETTLE_RELAX_ITERATIONS);
