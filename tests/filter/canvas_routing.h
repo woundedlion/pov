@@ -982,20 +982,17 @@ inline void test_feedback_spherical_ring_control_rows() {
     HS_EXPECT_NEAR(sampled_y, expected_y, 0.02f);
   }
 
-  // Warp fields and projected origins span all cells; cap offsets span polar cells.
-  constexpr size_t BYTES_PER_ROW =
-      (W / DOWNSAMPLE) *
-      (2 * sizeof(int16_t) + sizeof(decltype(layout)::Coordinates));
-  size_t cap_rows = 0;
-  for (int i = 0; i < layout.ring_count(); ++i)
-    if (decltype(layout)::latitude_sine(layout.ring(i).y) <
-        Filter::Pixel::Feedback<W, H>::POLAR_TARGET_SINE)
-      ++cap_rows;
+  // init_storage makes four allocations, each padded by less than alignof.
   constexpr size_t STORAGE = Filter::Pixel::Feedback<W, H>::STORAGE_BYTES;
-  const size_t EXPECTED =
-      BYTES_PER_ROW * static_cast<size_t>(layout.ring_count()) +
-      cap_rows * (W / DOWNSAMPLE) * 2 * sizeof(int16_t);
-  HS_EXPECT_EQ(STORAGE, EXPECTED);
+  {
+    ScratchScope persistent_scope(persistent_arena);
+    Filter::Pixel::Feedback<W, H> storage_probe(style);
+    const size_t before = persistent_arena.get_offset();
+    storage_probe.init_storage(persistent_arena);
+    const size_t allocated = persistent_arena.get_offset() - before;
+    HS_EXPECT_GE(allocated, STORAGE);
+    HS_EXPECT_LT(allocated, STORAGE + 4 * alignof(std::max_align_t));
+  }
   HS_EXPECT_LE(layout.sample_count(), (W / DOWNSAMPLE) * layout.ring_count());
 }
 
