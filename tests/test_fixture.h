@@ -53,7 +53,7 @@ inline bool require_ci_smoke_frames() {
       (frames && std::atoi(frames) >= CI_MIN_SMOKE_FRAMES))
     return true;
   std::fprintf(stderr,
-               "run_tests: CI=on but HS_SMOKE_FRAMES is unset or below %d — "
+               "CI=on but HS_SMOKE_FRAMES is unset or below %d — "
                "a shallower window skips frame-cyclic paths and arms no "
                "preset transition. Set HS_SMOKE_FRAMES in the workflow "
                "step's env.\n",
