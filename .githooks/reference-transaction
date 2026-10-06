@@ -27,12 +27,6 @@ while read -r old new ref; do
 		exit 1
 	fi
 	[ "$ref" = "refs/heads/master" ] || continue
-	if [ -z "$new" ]; then
-		ts=$(date -u +%Y-%m-%dT%H:%M:%SZ 2>/dev/null)
-		echo "$ts REFUSED master malformed empty new OID" >> "$logfile"
-		echo "reference-transaction: REFUSED malformed empty new OID for master." >&2
-		exit 1
-	fi
 	cur=$(git rev-parse --verify -q "$ref" 2>/dev/null) || cur=''
 	[ -z "$cur" ] && continue                                # creation
 	case "$new" in
