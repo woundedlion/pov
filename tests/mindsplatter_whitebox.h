@@ -5,7 +5,7 @@
 #pragma once
 
 #include "core/animation/orientation.h"
-#include "math/mobius.h"
+#include "core/math/mobius.h"
 #include "effects/MindSplatter.h"
 
 #include <array>
