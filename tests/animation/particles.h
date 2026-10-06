@@ -105,13 +105,8 @@ inline void test_particle_system_attractor_kills_within_radius() {
 /**
  * @brief Verifies spawn() initializes a particle's fields and that one step
  * advances it (life decrements, trail records) without dropping it.
- * @details The capacity test only inspects active_count, so a spawn that left
- *          the position/velocity/seed/life unset — or a step that mis-managed a
- *          freshly spawned particle — would pass it. Here the spawned particle
- *          is checked field-by-field (it carries the requested position,
- *          velocity, and seed, the system's max_life, and an empty trail), then
- *          a single step is asserted to keep it alive, decrement its life by
- *          one, and record its first trail point.
+ * @details Checks the spawned position, velocity, seed, max_life and empty
+ *          trail, then one step: alive, life decremented and one trail point.
  */
 inline void test_particle_system_spawn_initializes_and_steps() {
   static uint8_t buf[256 * 1024];
@@ -164,15 +159,9 @@ inline void test_particle_system_sparse_trail_sampling() {
 }
 
 /**
- * @brief Pins the attractor kill check at its radius boundary, not just at
- * distance 0.
- * @details The kill test places the attractor on top of the particle (distance
- *          0), so it can't tell `dist < kill_radius` from `dist <= kill_radius`.
- *          Here a particle at (1,0,0) faces an attractor placed an exact
- *          distance away along +x: just inside the radius it is killed, exactly
- *          at the radius it survives (the check is strict `<`), and just outside
- *          it survives. The kill check reads the start-of-step position, so one
- *          step suffices and the distance is the spawn distance.
+ * @brief Pins the strict attractor kill-radius boundary.
+ * @details Probes the start-of-step distance at radius-0.01, radius and
+ *          radius+0.01: only the inside particle is killed.
  */
 inline void test_particle_system_attractor_kill_radius_boundary() {
   static uint8_t buf[256 * 1024];
