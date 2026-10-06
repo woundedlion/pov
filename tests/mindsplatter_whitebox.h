@@ -274,15 +274,7 @@ struct MindSplatterWhiteBox {
   template <int W, int H>
   static void step_state_without_render(MindSplatter<W, H> &ms) {
     Canvas canvas(ms);
-    ms.timeline.step(canvas);
-    ms.step_choreography();
-    if (ms.params.base_mesh != ms.active_base_mesh)
-      ms.configure_particle_geometry(ms.params.base_mesh);
-    ms.particle_system.friction = ms.params.friction;
-    for (size_t i = 0; i < ms.particle_system.attractors.size(); ++i)
-      ms.particle_system.attractors[i].strength = ms.params.well_strength;
-    ms.particle_system.step(canvas);
-    ms.params.active_count = static_cast<float>(ms.particle_system.active());
+    ms.step_state(canvas);
   }
 
   template <int W, int H>
