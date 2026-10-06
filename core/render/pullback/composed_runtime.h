@@ -660,6 +660,11 @@ private:
       "Pullback::Color::PaletteMapping::BELL",
       "Pullback::Color::PaletteMapping::LINEAR",
       "Pullback::Color::PaletteMapping::REVERSE"};
+  static_assert(
+      std::size(PALETTE_MAPPING_OPTIONS) ==
+          static_cast<size_t>(Pullback::Color::PaletteMapping::REVERSE) + 1 &&
+      std::size(PALETTE_MAPPING_EXPORT_OPTIONS) ==
+          std::size(PALETTE_MAPPING_OPTIONS));
 
   State *state = nullptr;
   Pullback::Color::PaletteMappingWeights palette_mapping =

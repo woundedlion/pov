@@ -234,6 +234,8 @@ private:
                                    std::size(Solids::catalan_registry));
   static_assert(std::size(WEAVE_TOPOLOGY_OPTIONS) ==
                 std::size(WEAVE_TOPOLOGY_EXPORT_OPTIONS));
+  static_assert(std::size(WEAVE_TOPOLOGY_OPTIONS) ==
+                static_cast<size_t>(WeaveTopology::MEDIAL) + 1);
 
   /** Orbit phase in turns, wrapped to [0,1). */
   float orbit_phase = 0.0f;
