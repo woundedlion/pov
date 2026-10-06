@@ -217,16 +217,26 @@ edge_visible_in_clip(PipelineT &pipeline, const ClipRegion &cr,
 
 /** @brief Cap center and longitude wedge precomputed for a fixed clip. */
 struct CapCenter {
-  float beta;
-  float sin_beta;
-  float column_distance;
-  float column_half_width;
-  bool columns_active;
+  float beta;     /**< Center colatitude, radians. */
+  float sin_beta; /**< Sine of beta when columns_active. */
+  float
+      column_distance; /**< Wrapped distance to the clip longitude, radians. */
+  float column_half_width; /**< Clip half-width including one column of pad. */
+  bool columns_active;     /**< The clip restricts longitude. */
 };
 
+/** @brief Angular slack for fast_acos, radians. */
 inline constexpr float CAP_ACOS_PAD = 1e-3f;
+/** @brief Angular slack for fast_atan2, radians. */
 inline constexpr float CAP_ATAN2_PAD = 5e-3f;
 
+/**
+ * @brief Precomputes the longitude wedge for a cap and clip.
+ * @param cr Clip region.
+ * @param dir Unit cap center direction.
+ * @param beta Center colatitude, radians.
+ * @return Cap center with longitude bounds when the clip restricts columns.
+ */
 inline CapCenter cap_column_center(const ClipRegion &cr,
                                    const math::Vector &dir, float beta) {
   CapCenter center{beta, 0, 0, 0, false};
@@ -248,13 +258,27 @@ inline CapCenter cap_column_center(const ClipRegion &cr,
   return center;
 }
 
-/** @brief Hoists a cap center's angles and column wedge for one clip. */
+/**
+ * @brief Hoists a cap center's angles and column wedge for one clip.
+ * @param cr Clip region.
+ * @param dir Unit cap center direction.
+ * @return Center data reusable against the same clip.
+ */
 inline CapCenter make_cap_center(const ClipRegion &cr,
                                  const math::Vector &dir) {
   return cap_column_center(cr, dir,
                            math::fast_acos(hs::clamp(dir.y, -1.0f, 1.0f)));
 }
 
+/**
+ * @brief Rejects a cap outside the clip rows before testing its columns.
+ * @tparam H Canvas height.
+ * @param cr Clip region.
+ * @param beta Cap center colatitude, radians.
+ * @param half_angle Cap radius including stroke/AA pad, radians.
+ * @param columns Callback receiving the radius clamped to PI.
+ * @return False for disjoint rows, otherwise the column callback result.
+ */
 template <int H, typename ColumnTest>
 __attribute__((always_inline)) inline bool
 cap_may_touch_clip_rows(const ClipRegion &cr, float beta, float half_angle,
@@ -268,6 +292,13 @@ cap_may_touch_clip_rows(const ClipRegion &cr, float beta, float half_angle,
   return columns(t2);
 }
 
+/**
+ * @brief Conservatively tests a cap against its precomputed longitude wedge.
+ * @param center Data derived from the same clip and cap center.
+ * @param t2 Cap radius clamped to PI, radians.
+ * @param sin_half_angle sinf(t2).
+ * @return False only when the cap misses the clip columns.
+ */
 inline bool cap_may_touch_clip_columns(const CapCenter &center, float t2,
                                        float sin_half_angle) {
   if (!center.columns_active || center.beta <= t2 + CAP_ACOS_PAD ||
@@ -280,7 +311,15 @@ inline bool cap_may_touch_clip_columns(const CapCenter &center, float t2,
          dlam + center.column_half_width + CAP_ACOS_PAD + CAP_ATAN2_PAD;
 }
 
-/** @brief Tests a cap using a center hoisted against the same clip. */
+/**
+ * @brief Tests a cap using a center hoisted against the same clip.
+ * @tparam H Canvas height.
+ * @param cr Clip used to compute center.
+ * @param center Hoisted cap center.
+ * @param half_angle Cap radius including stroke/AA pad, radians.
+ * @param sin_half_angle sinf(min(half_angle, PI)).
+ * @return False only when the cap misses the clip.
+ */
 template <int H>
 inline bool cap_may_touch_clip(const ClipRegion &cr, const CapCenter &center,
                                float half_angle, float sin_half_angle) {
@@ -323,13 +362,36 @@ inline bool cap_may_touch_clip(const ClipRegion &cr, const math::Vector &dir,
   });
 }
 
-/** @brief Exclusive column boundary of an evenly divided, rounded-up chunk. */
+/**
+ * @brief Exclusive column boundary of an evenly divided, rounded-up chunk.
+ * @tparam CHUNKS Positive number of chunks.
+ * @param c Zero-based chunk index in [0, CHUNKS).
+ * @param lut_n Total column count.
+ * @return ceil((c + 1) * lut_n / CHUNKS). Chunk c starts at ceil(c * lut_n / CHUNKS).
+ */
 template <int CHUNKS> constexpr int chunk_end(int c, int lut_n) {
   static_assert(CHUNKS > 0);
   return ((c + 1) * lut_n + CHUNKS - 1) / CHUNKS;
 }
 
-/** @brief Ring azimuth chunks reaching a clip, padded for stroke and column rounding. */
+/**
+ * @brief Ring azimuth chunks reaching a clip, padded for stroke and column rounding.
+ * @tparam H Canvas height.
+ * @tparam CHUNKS Number of azimuth chunks, in [1, 31].
+ * @param clip Render region.
+ * @param basis Ring basis; midpoint azimuths are in its u-w plane.
+ * @param theta Ring colatitude about basis.v, radians.
+ * @param cos_t cosf(theta).
+ * @param sin_t sinf(theta).
+ * @param band_r Angular displacement bound including stroke/AA pad.
+ * @param thickness Stroke angular width used to widen chunk ownership.
+ * @param chunk_cos CHUNKS midpoint azimuth cosines.
+ * @param chunk_sin CHUNKS midpoint azimuth sines, paired with chunk_cos.
+ * @return Bit c marks visible chunk c; zero when the ring misses the clip,
+ * and all CHUNKS bits when the pad spans the ring.
+ * @details Chunk c owns [ceil(c*n/CHUNKS), ceil((c+1)*n/CHUNKS)) bake columns.
+ * The minimum one-chunk pad covers the rounded column overhang.
+ */
 template <int H, int CHUNKS>
 __attribute__((always_inline)) inline uint32_t
 visible_chunk_mask(const ClipRegion &clip, const math::Basis &basis,
