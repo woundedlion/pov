@@ -973,10 +973,11 @@ inline void test_build_chain_provenance_ambiguity() {
   std::printf("  [prov] %zu prefix legs, %zu full-correspondence legs, %zu "
               "misidentified prefix faces; max prev_faces=%zu on %s; "
               "worst newborn d1/d2=%.3f; worst prefix "
-              "offset=%.4f (tol 0.15)\n",
+              "offset=%.4f (tol %.2f)\n",
               prefix_legs, full_legs, misidentified, max_prev_faces,
               max_prev_name, static_cast<double>(worst_newborn_ratio),
-              static_cast<double>(worst_prefix_offset));
+              static_cast<double>(worst_prefix_offset),
+              static_cast<double>(std::sqrt(TOL_SQ)));
   // None of the swept ops scanned here takes the tolerance-checked
   // full-correspondence path, so PROVENANCE_TOL_SQ never applies to them.
   HS_EXPECT_EQ(full_legs, static_cast<size_t>(0));
