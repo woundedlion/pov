@@ -8,18 +8,12 @@
 /**
  * @file inplace_function.h
  * @brief hs::inplace_function — heap-free, inline-storage callable for the
- *        host/WASM build, behind Fn<Sig,Cap> (see platform.h); modeled on SG14
+ *        host/WASM build, behind Fn<Sig,Cap>; modeled on SG14
  *        stdext::inplace_function.
  *
- * The buffer is fixed at Capacity bytes: a closure that overflows it is a hard
- * *compile error*, not a silent heap allocation. Because Capacity counts bytes,
- * a pointer-capturing closure is wider on the 64-bit host than on the 32-bit
- * device; callsites pick a fixed Cap with headroom for the wider host closure
- * (see SpriteFn in concepts.h).
- *
- * Included from platform.h's non-ARDUINO branch; the device build uses the
- * vendored teensy::inplace_function instead. Nothing here needs platform.h:
- * the empty-call trap is only declared below and defined in core/engine/static_storage.cpp.
+ * A closure that overflows the Capacity-byte buffer is a compile error.
+ * Capacity counts bytes, so a pointer-capturing closure is wider on the 64-bit
+ * host than on the 32-bit device.
  */
 
 #include <cstddef>
@@ -31,20 +25,12 @@ namespace hs {
 
 /**
  * @brief Diverges when an empty inplace_function is invoked.
- * @details One out-of-line routine every instantiation's empty vtable entry
- * calls, so the trapping empty state costs a call per signature rather than a
- * formatted call site.
  */
 [[noreturn]] void inplace_function_empty_call();
 
-// Alignment defaults to a pointer, not max_align_t: the captures here are
-// pointers/ints/floats/small PODs (max align == a pointer), so pointer alignment
-// keeps the object to one pointer of overhead instead of rounding every Fn up to
-// 16 B and inflating Fn-bearing animation types past TimelineEvent::MAX_ANIM_SIZE.
-// A rare over-aligned capture trips the alignof(D) <= Alignment static_assert
-// below — and the threshold is target-dependent, mirroring the Capacity skew:
-// alignof(void *) is 8 on the 64-bit host but 4 on wasm32, so a capture wanting
-// 8-byte alignment (double, int64_t) compiles natively and fails only in WASM.
+// Alignment defaults to a pointer, not max_align_t. alignof(void *) is 8 on the
+// 64-bit host but 4 on wasm32, so an 8-byte-aligned capture (double, int64_t)
+// fails to compile only in WASM.
 template <typename Signature, size_t Capacity = 16,
           size_t Alignment = alignof(void *)>
 class inplace_function; // primary template intentionally undefined
@@ -70,9 +56,7 @@ template <typename R, typename... Args> struct ipf_vtable {
 
 // Concrete operations for a captured callable C placed in the inline buffer.
 template <typename C, typename R, typename... Args> struct ipf_ops {
-  // The C was placement-new'd into an unsigned char buffer, which is not
-  // pointer-interconvertible with it; std::launder makes each access refer to
-  // the created object rather than the byte array.
+  // The byte buffer is not pointer-interconvertible with C; launder each access.
   static R invoke(void *storage, Args &&...args) {
     C &callable = *std::launder(static_cast<C *>(storage));
     if constexpr (std::is_void_v<R>) {
@@ -88,19 +72,12 @@ template <typename C, typename R, typename... Args> struct ipf_ops {
     ::new (dst) C(std::move(*std::launder(static_cast<C *>(src))));
   }
 
-  // C++17: static constexpr data members are implicitly inline, so this needs no
-  // out-of-line definition and yields one shared vtable address per (C,R,Args).
   static constexpr ipf_vtable<R, Args...> value{&invoke, &copy, &move};
 };
 
-// Empty-state operations: calling an empty inplace_function is a fail-fast trap,
-// matching the project's no-silent-fallback habit (std::function would instead
-// throw bad_function_call). copy/move are no-ops on the empty buffer.
+// Empty-state operations: invoke traps; copy/move are no-ops.
 template <typename R, typename... Args> struct ipf_empty_ops {
-  static R invoke(void *, Args &&...) {
-    // Unconditional [[noreturn]] call: no trailing return needed even for R!=void.
-    ::hs::inplace_function_empty_call();
-  }
+  static R invoke(void *, Args &&...) { ::hs::inplace_function_empty_call(); }
   static void copy(void *, const void *) {}
   static void move(void *, void *) {}
 
@@ -115,12 +92,9 @@ template <typename R, typename... Args> struct ipf_empty_ops {
  * @tparam Args Argument types of the call signature.
  * @tparam Capacity Inline storage budget in bytes for the captured callable.
  * @tparam Alignment Inline storage alignment.
- * @details Construction static_asserts that the decayed callable fits within
- *          Capacity/Alignment, so an oversized closure is a compile error rather
- *          than a heap allocation. The stored callable must be trivially
- *          destructible, which makes inplace_function trivially destructible in
- *          turn, so an ArenaVector may hold one. operator() is const-qualified
- *          (the buffer is mutable).
+ * @details The stored callable must be trivially destructible, so
+ *          inplace_function is too. operator() is const-qualified (the buffer
+ *          is mutable).
  */
 template <typename R, typename... Args, size_t Capacity, size_t Alignment>
 class inplace_function<R(Args...), Capacity, Alignment> {
@@ -134,10 +108,6 @@ class inplace_function<R(Args...), Capacity, Alignment> {
   alignas(Alignment) mutable unsigned char storage[Capacity];
 
 public:
-  // No ctor initializes storage: the empty vtable's copy/move are no-ops and its
-  // invoke traps, so no operation ever reads an empty function's buffer; the
-  // value-carrying ctor placement-news over it.
-
   /** @brief Constructs an empty function; calling it traps. */
   inplace_function() noexcept {}
   /** @brief Constructs an empty function (nullptr overload). */
@@ -193,8 +163,6 @@ public:
 
   inplace_function &operator=(const inplace_function &o) noexcept {
     if (this != &o) {
-      // Trivially destructible: the incoming callable is placement-new'd over
-      // the old one, which needs no destructor call.
       vtable = o.vtable;
       vtable->copy(storage, o.storage);
     }
@@ -213,8 +181,6 @@ public:
                 !detail::is_inplace_function<std::decay_t<C>>::value &&
                 std::is_invocable_r_v<R, std::decay_t<C> &, Args...>>>
   inplace_function &operator=(C &&c) {
-    // Build a temporary so the capacity/copyability static_asserts live in one
-    // place (the converting constructor), then move it in.
     *this = inplace_function(std::forward<C>(c));
     return *this;
   }
