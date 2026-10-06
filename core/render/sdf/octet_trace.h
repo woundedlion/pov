@@ -299,9 +299,7 @@ trace_3d(const math::Vector &direction, const Raycast::PreparedCamera &camera,
                 continue;
               const float FIELD = sqrtf(numerator / denominator) - WIRE_RADIUS;
               const float WIDTH = footprint.at(t);
-              const float COVERAGE =
-                  WIDTH > 0.0f ? hs::clamp(0.5f - FIELD / WIDTH, 0.0f, 1.0f)
-                               : (FIELD <= 0.0f ? 1.0f : 0.0f);
+              const float COVERAGE = footprint_coverage(WIDTH, FIELD);
               if (COVERAGE > 0.0f)
                 covered.insert(t, COVERAGE);
             }
@@ -568,9 +566,7 @@ trace_4d(const math::Vector &direction, const Raycast::PreparedCamera &camera,
         continue;
       const float FIELD = SCALE * sqrtf(numerator / denominator) - WIRE_RADIUS;
       const float WIDTH = footprint.at(t);
-      const float COVERAGE = WIDTH > 0.0f
-                                 ? hs::clamp(0.5f - FIELD / WIDTH, 0.0f, 1.0f)
-                                 : (FIELD <= 0.0f ? 1.0f : 0.0f);
+      const float COVERAGE = footprint_coverage(WIDTH, FIELD);
       // The counted walk can round its last crossing past FAR.
       if (COVERAGE > 0.0f && t <= FAR)
         covered.insert(t, COVERAGE);
