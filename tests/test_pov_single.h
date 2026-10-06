@@ -42,14 +42,15 @@ static_assert(step_column(95, 96).advance);
 static_assert(!step_column(0, 96).advance);
 
 /**
- * @brief At a fixed rotation column x, assert the strip's per-LED writes tile
- * exactly the two canvas columns the arms sample, each row covered once.
- * @param S Total physical LED count on the strip (S = 2*ROWS).
+ * @brief At a fixed rotation column x, assert the strip's per-LED writes from
+ * pov::run_single_column tile exactly the two canvas columns the arms sample,
+ * each row covered once.
+ * @tparam S Total physical LED count on the strip (S = 2*ROWS).
  * @param w Canvas width in columns; the bottom half samples column (x+w/2)%w.
  * @param x Rotation column in [0, w); top half samples this column directly.
  */
-inline void check_strip_tiling(int S, int w, int x) {
-  const int ROWS = S / 2;
+template <int S> void check_strip_tiling(int w, int x) {
+  constexpr int ROWS = S / 2;
   const int col_top = x;
   const int col_bot = strip_opposite_col(x, w);
   HS_EXPECT_EQ(col_bot, (x + w / 2) % w);
@@ -58,30 +59,36 @@ inline void check_strip_tiling(int S, int w, int x) {
   std::vector<int> led_hits(static_cast<size_t>(S), 0);
   // The column each physical LED ends up painting; -1 == unwritten.
   std::vector<int> led_col(static_cast<size_t>(S), -1);
+  // The LED each row lands on per arm; -1 == unwritten.
+  std::vector<int> top_led(static_cast<size_t>(ROWS), -1);
+  std::vector<int> bot_led(static_cast<size_t>(ROWS), -1);
   int writes = 0;
-  int prev_top = -1, prev_bot = -1;
+  int submits = 0;
 
-  for (int y = 0; y < ROWS; ++y) {
-    const int top_led = strip_top_led(y, S);
-    const int bot_led = strip_bottom_led(y, S);
-    HS_EXPECT_TRUE(top_led >= 0 && top_led < S);
-    HS_EXPECT_TRUE(bot_led >= 0 && bot_led < S);
-    if (top_led < 0 || top_led >= S || bot_led < 0 || bot_led >= S)
-      continue;
-    // Top half strictly descends, bottom half strictly ascends.
-    if (y > 0) {
-      HS_EXPECT_TRUE(top_led < prev_top);
-      HS_EXPECT_TRUE(bot_led > prev_bot);
-    }
-    prev_top = top_led;
-    prev_bot = bot_led;
-    led_hits[static_cast<size_t>(top_led)]++;
-    led_hits[static_cast<size_t>(bot_led)]++;
-    led_col[static_cast<size_t>(top_led)] = col_top;
-    led_col[static_cast<size_t>(bot_led)] = col_bot;
-    cover[static_cast<size_t>(col_top) * ROWS + y]++;
-    cover[static_cast<size_t>(col_bot) * ROWS + y]++;
-    writes += 2;
+  pov::run_single_column<S>(
+      x, w, [w](int cx, int cy) { return cy * w + cx; },
+      [&](int led, int pixel) {
+        ++writes;
+        HS_EXPECT_TRUE(led >= 0 && led < S);
+        const int cx = pixel % w;
+        const int cy = pixel / w;
+        HS_EXPECT_TRUE(cx >= 0 && cx < w && cy >= 0 && cy < ROWS);
+        if (led < 0 || led >= S || cx < 0 || cx >= w || cy < 0 || cy >= ROWS)
+          return;
+        led_hits[static_cast<size_t>(led)]++;
+        led_col[static_cast<size_t>(led)] = cx;
+        cover[static_cast<size_t>(cx) * ROWS + cy]++;
+        (led < ROWS ? top_led : bot_led)[static_cast<size_t>(cy)] = led;
+      },
+      [&] { ++submits; }, [] {});
+  HS_EXPECT_EQ(submits, 1);
+
+  // Top half strictly descends with y, bottom half strictly ascends.
+  for (int y = 1; y < ROWS; ++y) {
+    HS_EXPECT_TRUE(top_led[static_cast<size_t>(y)] <
+                   top_led[static_cast<size_t>(y - 1)]);
+    HS_EXPECT_TRUE(bot_led[static_cast<size_t>(y)] >
+                   bot_led[static_cast<size_t>(y - 1)]);
   }
 
   // Top half [0, ROWS) paints col_top; bottom half [ROWS, S) paints col_bot.
@@ -257,15 +264,15 @@ inline int run_pov_single_tests() {
   // Holosphere 96x20: S=40, swept over representative rotation columns including
   // the x=0 and x=w/2 frame boundaries and the wrap seam.
   for (int x : {0, 1, 47, 48, 95})
-    check_strip_tiling(/*S=*/40, /*w=*/96, x);
+    check_strip_tiling<40>(/*w=*/96, x);
 
   // Large synthetic 288x144 config: S=288.
   for (int x : {0, 1, 143, 144, 287})
-    check_strip_tiling(/*S=*/288, /*w=*/288, x);
+    check_strip_tiling<288>(/*w=*/288, x);
 
   // Small config swept over every rotation column: S=8 -> ROWS=4, w=8.
   for (int x = 0; x < 8; ++x)
-    check_strip_tiling(/*S=*/8, /*w=*/8, x);
+    check_strip_tiling<8>(/*w=*/8, x);
 
   return fixture.result();
 }
