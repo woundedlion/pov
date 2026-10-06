@@ -12,6 +12,7 @@ set(HS_OFF_ROSTER_HEADER_NAMES
   "composed_frame_fixture.h"
   "composed_chain_fixture.h"
   "conway_test_util.h"
+  "fd_capture_util.h"
   "mesh_test_util.h"
   "mindsplatter_replay_corpus.h"
   "mindsplatter_replay_metrics.h"
