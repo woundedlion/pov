@@ -622,9 +622,9 @@ inline void test_union_merges_overlapping_intervals() {
 }
 
 /**
- * @brief Verifies Union welds two overlapping seam-straddling spans into one.
- * @details Both children emit bands straddling θ=0 in the same negative frame
- *   (A [-10,6], B [2,12]); their overlap must coalesce to a single [-10,12] span.
+ * @brief Verifies Union welds a seam-straddling span with an overlapping one.
+ * @details A [-10,6] straddles θ=0 in the negative frame and overlaps B's
+ *   in-frame [2,12]; the overlap must coalesce to a single [-10,12] span.
  */
 inline void test_union_seam_straddle_merges_overlapping_intervals() {
   using P = std::pair<float, float>;
@@ -688,10 +688,11 @@ inline void test_nested_union_emits_every_child_arc() {
 }
 
 /**
- * @brief Verifies SmoothUnion's k-padded union welds overlapping seam-straddling spans.
+ * @brief Verifies SmoothUnion's k-padded union welds a seam-straddling span
+ *        with an overlapping one.
  * @details Each child interval is inflated by pad_px = k·W/(2π·sinφ) before the
- *   merge; two overlapping seam-straddling bands must coalesce to one padded
- *   span.
+ *   merge; a band straddling θ=0 and an overlapping in-frame band must coalesce
+ *   to one padded span.
  */
 inline void test_smooth_union_seam_straddle_merges_padded_intervals() {
   using P = std::pair<float, float>;
