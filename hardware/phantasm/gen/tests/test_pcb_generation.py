@@ -664,7 +664,24 @@ class UnplacedBoardTests(TerminalBodyChecks, TerminalEdgePlacementChecks, unitte
         for ref, labels in (("J2", "DGC"), ("J3A", "SGH"), ("J3B", "SGH")):
             x, y, _ = pcb.TERMINAL_EDGE_PLACEMENTS[ref]
             for pin, label in enumerate(labels):
-                self.assertIn((label, (x + 4.5, round(y + pin * 2.54, 2))), marks)
+                label_y = round(y + pin * 2.54, 2)
+                label_x = x + 4.5
+                if any(x0 <= label_x <= x1 and y0 <= label_y <= y1
+                       for x0, y0, x1, y1 in pcb.mounting_reserve_rects(pcb.QUILTER_LENGTH).values()):
+                    label_x = x - 4.5
+                self.assertIn((label, (label_x, label_y)), marks)
+
+    def test_front_silk_anchors_clear_mounting_reservations(self):
+        for revision in ('1.2', '1.3'):
+            board_path = GEN.parent / revision / pcb.PCB_FILE
+            root = sexp.parse(board_path.read_text(encoding='utf-8'))[0]
+            for node in F(root, 'gr_text'):
+                if str(sexp.val(node, 'layer')[0]) != 'F.SilkS':
+                    continue
+                x, y = (float(v) for v in sexp.val(node, 'at')[:2])
+                for ref, (x0, y0, x1, y1) in pcb.mounting_reserve_rects(pcb.QUILTER_LENGTH).items():
+                    with self.subTest(revision=revision, label=str(node[1]), hole=ref):
+                        self.assertFalse(x0 <= x <= x1 and y0 <= y <= y1)
 
 
 @unittest.skipUnless(GENERATES, GENERATES_REASON)

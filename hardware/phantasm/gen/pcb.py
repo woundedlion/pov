@@ -1103,8 +1103,13 @@ def main(unplaced=False, force=False, force_teensy_library=False):
         for ref, pin_marks in (("J2", "DGC"), ("J3A", sync_marks), ("J3B", sync_marks)):
             if fixed.get(ref) == edge_placements[ref]:
                 x, y, _ = fixed[ref]
-                front_silk.extend((mark, x + 4.5, y + pin * 2.54, 0)
-                                  for pin, mark in enumerate(pin_marks))
+                for pin, mark in enumerate(pin_marks):
+                    label_y = y + pin * 2.54
+                    label_x = x + 4.5
+                    if any(x0 <= label_x <= x1 and y0 <= label_y <= y1
+                           for x0, y0, x1, y1 in mounting_reserve_rects(L).values()):
+                        label_x = x - 4.5
+                    front_silk.append((mark, label_x, label_y, 0))
         for text, x, y, angle in front_silk:
             lines.append(f'\t(gr_text {sexp.quote(text)} (at {fmt(x)} {fmt(y)} {angle})'
                          f' (layer "F.SilkS") (uuid "{uid()}") '
