@@ -195,8 +195,7 @@ inline void test_pixel_to_vector_float_out_of_lut_domain() {
  * @brief Verifies vector_to_pixel inverts pixel_to_vector to within the
  *        angular-primitive error for non-degenerate samples.
  * @details Poles are excluded. The tolerances are the fast_atan2 and
- *          fast_acos errors (4e-3 and 2e-4 rad) carried into pixels at
- *          W = H = 64.
+ *          fast_acos errors carried into pixels at W = H = 64.
  */
 inline void test_vector_to_pixel_roundtrip_via_pixel_to_vector() {
   constexpr int W = 64, H = 64;
