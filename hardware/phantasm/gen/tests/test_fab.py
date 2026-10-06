@@ -756,7 +756,7 @@ class SchematicParityTests(unittest.TestCase):
                                  "items": [{"description": "Footprint R_PDX"}]}]
 
         with self.assertRaisesRegex(
-                fab.SchematicParityError, "re-route it in Quilter"):
+                fab.SchematicParityError, "Update PCB from Schematic"):
             self.require(entries)
 
     def test_rejects_missing_footprint(self):
