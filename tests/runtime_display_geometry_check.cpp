@@ -21,6 +21,15 @@ template <int W, int H> void check_geometry(float north, float south) {
   HS_EXPECT_NEAR(math::RADIANS_PER_ROW<H>, (south - north) / (H - 1), 1e-6f);
   HS_EXPECT_EQ(Field::HAS_NORTH_POLE, north == 0.0f);
   HS_EXPECT_EQ(Field::HAS_SOUTH_POLE, south == math::PI_F);
+  constexpr int DOWNSAMPLE = ::Feedback::Style{}.downsample;
+  constexpr Field CACHE_FIELD(DOWNSAMPLE, DOWNSAMPLE, DOWNSAMPLE,
+                              W / DOWNSAMPLE);
+  constexpr size_t CACHE_CELLS = (W / DOWNSAMPLE) * CACHE_FIELD.ring_count();
+  constexpr size_t EXPECTED_STORAGE =
+      CACHE_CELLS * (4 * sizeof(int16_t) + sizeof(typename Field::Coordinates));
+  static_assert(HS_RUNTIME_DISPLAY_GEOMETRY);
+  HS_EXPECT_EQ((Filter::Pixel::Feedback<W, H>::STORAGE_BYTES),
+               EXPECTED_STORAGE);
   const Field field(4);
   for (int row : {0, H - 1}) {
     const bool pole = row == 0 ? Field::HAS_NORTH_POLE : Field::HAS_SOUTH_POLE;
