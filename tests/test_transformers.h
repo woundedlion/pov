@@ -579,7 +579,8 @@ inline void test_ripple_threshold_collapses_past_pi() {
 
 /**
  * @brief Feeds non-finite (NaN/Inf) directions through the transforms' identity
- *        short-circuits and confirms they pass the input through verbatim.
+ *        short-circuits and an active ripple, and confirms they pass the input
+ *        through verbatim.
  * @details Active ripple returns a NaN input unchanged when its degenerate-axis
  * comparison fails.
  */
@@ -593,6 +594,13 @@ inline void test_transforms_nonfinite_passes_through_identity() {
     Animation::RippleParams rp;
     rp.amplitude = 0.0f;
     HS_EXPECT_TRUE(vec_bits_equal(ripple_transform(v, rp), v));
+    Animation::RippleParams active;
+    active.center = math::Vector(0.0f, 1.0f, 0.0f);
+    active.amplitude = 0.5f;
+    active.phase = math::PI_F * 0.5f;
+    active.thickness = 1.0f;
+    active.decay = 0.0f;
+    HS_EXPECT_TRUE(vec_bits_equal(ripple_transform(v, active), v));
     Animation::NoiseParams np;
     np.amplitude = 0.0f;
     HS_EXPECT_TRUE(vec_bits_equal(noise_transform(v, np), v));
