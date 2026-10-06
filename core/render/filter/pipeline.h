@@ -225,8 +225,9 @@ template <int W, int H, typename... Filters> struct Pipeline;
 /**
  * @brief Plot-capable state returned after a replacing terminal is flushed.
  * @tparam PipelineT Owning pipeline type.
- * @details Constructed only by Pipeline::begin_frame(). It has no flush
- * operation. Callers must not invoke begin_frame() again after plotting.
+ * @details A private pipeline base exposed by reference through begin_frame().
+ * It has no flush operation. Callers must not invoke begin_frame() again after
+ * plotting.
  */
 template <typename PipelineT> class PreparedTerminalFrame {
   PipelineT &pipeline() { return static_cast<PipelineT &>(*this); }
