@@ -87,8 +87,10 @@ class NewProjectMarginsTests(unittest.TestCase):
     def test_regeneration_updates_floors_and_preserves_other_settings(self):
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "phantasm.kicad_pro"
-            project = json.loads(board.project_seed("root"))
+            board.write_project(path, "root")
+            project = json.loads(path.read_text(encoding="utf-8"))
             settings = project["board"]["design_settings"]
+            self.assertEqual(settings["rule_severities"]["silk_over_copper"], "error")
             settings["rules"]["min_silk_clearance"] = 0
             settings["rules"]["min_track_width"] = 0.4
             settings["rule_severities"]["silk_over_copper"] = "ignore"
@@ -99,6 +101,8 @@ class NewProjectMarginsTests(unittest.TestCase):
             rules = updated["board"]["design_settings"]["rules"]
             self.assertEqual(rules["min_silk_clearance"], 0.15)
             self.assertEqual(rules["min_track_width"], 0.4)
+            self.assertEqual(updated["board"]["design_settings"]
+                             ["rule_severities"]["silk_over_copper"], "error")
             self.assertEqual(updated["text_variables"],
                          {"CUSTOM": "preserved", "PHANTASM_LAYOUT": "unplaced"})
             self.assertEqual(updated["sheets"], [["new-root", "Root"]])
