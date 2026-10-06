@@ -1232,11 +1232,17 @@ inline void test_gradient_in_range_valid_and_monotone() {
  */
 inline void test_gradient_solid_color() {
   Gradient grad{{0.0f, CPixel(10u, 20u, 30u)}, {1.0f, CPixel(10u, 20u, 30u)}};
-  Color4 a = grad.get(0.0f);
-  Color4 b = grad.get(0.5f);
-  HS_EXPECT_EQ(a.color.r, b.color.r);
-  HS_EXPECT_EQ(a.color.g, b.color.g);
-  HS_EXPECT_EQ(a.color.b, b.color.b);
+  const Pixel want = oklch_to_pixel(srgb_to_oklch(10u, 20u, 30u));
+  constexpr float ROUND_TRIP_TOL = 16.0f;
+  HS_EXPECT_NEAR(want.r, srgb_to_linear(10u), ROUND_TRIP_TOL);
+  HS_EXPECT_NEAR(want.g, srgb_to_linear(20u), ROUND_TRIP_TOL);
+  HS_EXPECT_NEAR(want.b, srgb_to_linear(30u), ROUND_TRIP_TOL);
+  for (float t : {0.0f, 0.25f, 0.5f, 1.0f}) {
+    const Color4 got = grad.get(t);
+    HS_EXPECT_EQ(got.color.r, want.r);
+    HS_EXPECT_EQ(got.color.g, want.g);
+    HS_EXPECT_EQ(got.color.b, want.b);
+  }
 }
 
 /**
