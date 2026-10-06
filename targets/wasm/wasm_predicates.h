@@ -264,9 +264,9 @@ inline size_t mesh_max_vertex_valence(const uint16_t *faces,
  * @param max_face_degree Widest face in the input mesh.
  * @param max_vertex_valence Highest vertex valence in the input mesh.
  * @param face_degree_factor Multiple of @p max_face_degree that the operator's
- *        widest face-derived face reaches; 0 when it emits none.
+ *        widest face-derived face reaches; 0 for fixed-side faces or no faces.
  * @param valence_factor Multiple of @p max_vertex_valence that the operator's
- *        widest vertex-derived face reaches; 0 when it emits none.
+ *        widest vertex-derived face reaches; 0 for fixed-side faces or no faces.
  * @param max_degree Inclusive side-count ceiling (UINT8_MAX).
  * @return true when the operator must be rejected.
  * @details Divides rather than multiplies so the prediction cannot overflow.
