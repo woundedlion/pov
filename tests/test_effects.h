@@ -558,7 +558,7 @@ struct SphericalHarmonicsWhiteBox {
     return Pipeline::evaluate(view, frame.ctx, frame.prepared);
   }
 
-  static Color4 shade_legacy(const SH &fx, float value, float amplitude) {
+  static Color4 shade_direct(const SH &fx, float value, float amplitude) {
     return SH::colorize_harmonic(value, {&fx.baked_palette.view(), amplitude});
   }
 
@@ -666,7 +666,7 @@ inline void test_sh_field_stays_inside_unit_range() {
 }
 
 /** @brief Bounds color drift from the signed-to-unit carrier round trip. */
-inline void test_sh_pullback_matches_legacy_shader() {
+inline void test_sh_pullback_matches_direct_colorize() {
   using WB = SphericalHarmonicsWhiteBox;
   reset_effect_globals();
   WB::SH fx;
@@ -686,7 +686,7 @@ inline void test_sh_pullback_matches_legacy_shader() {
     auto [l1, m1] = SHMath::decode_lm(first);
     auto [l2, m2] = SHMath::decode_lm(second);
     for (float blend : BLENDS) {
-      const WB::Field legacy_field(l1, m1, l2, m2, blend, orientation);
+      const WB::Field direct_field(l1, m1, l2, m2, blend, orientation);
       for (float amplitude : AMPLITUDES) {
         const WB::PipelineFrame frame = WB::prepare_pipeline(
             fx, l1, m1, l2, m2, blend, orientation, amplitude);
@@ -696,19 +696,19 @@ inline void test_sh_pullback_matches_legacy_shader() {
             const float theta = math::TWO_PI_F * j / THETA_STEPS;
             const math::Vector point(sinf(phi) * cosf(theta), cosf(phi),
                                      sinf(phi) * sinf(theta));
-            const Color4 legacy =
-                WB::shade_legacy(fx, legacy_field.sample(point), amplitude);
+            const Color4 direct =
+                WB::shade_direct(fx, direct_field.sample(point), amplitude);
             const Color4 pullback = WB::shade_pipeline(point, frame);
-            const int red = std::abs(static_cast<int>(legacy.color.r) -
+            const int red = std::abs(static_cast<int>(direct.color.r) -
                                      static_cast<int>(pullback.color.r));
-            const int green = std::abs(static_cast<int>(legacy.color.g) -
+            const int green = std::abs(static_cast<int>(direct.color.g) -
                                        static_cast<int>(pullback.color.g));
-            const int blue = std::abs(static_cast<int>(legacy.color.b) -
+            const int blue = std::abs(static_cast<int>(direct.color.b) -
                                       static_cast<int>(pullback.color.b));
             const int delta = std::max({red, green, blue});
             max_channel_delta = std::max(max_channel_delta, delta);
             differing_pixels += static_cast<int>(delta != 0);
-            HS_EXPECT_EQ(legacy.alpha, pullback.alpha);
+            HS_EXPECT_EQ(direct.alpha, pullback.alpha);
           }
         }
       }
@@ -1101,7 +1101,7 @@ inline int run_effects_tests() {
   // FULL tier only (HS_EFFECTS_FULL=1).
   if (effects_full_suite()) {
     run_case(test_voronoi_union_candidates_cover_nearest);
-    run_case(test_sh_pullback_matches_legacy_shader);
+    run_case(test_sh_pullback_matches_direct_colorize);
     run_case(test_sh_morph_chain_rearms);
     run_case(test_gs_evolution_stays_bounded);
     run_case(test_gs_reaction_corner_stays_bounded);
