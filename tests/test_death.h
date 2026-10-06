@@ -67,6 +67,7 @@
 #include "core/containers/static_circular_buffer.h"
 #include "core/animation/transformer.h"
 #include "hardware/pov_sync.h"
+#include "targets/wasm/param_marshal.h"
 
 #if !defined(_WIN32)
 #include <csignal>    // SIGILL — the expected trap signal
@@ -866,6 +867,10 @@ inline const Case *all_cases(int &n) {
        "core/control/param_host.h",
        "(parameters.count < parameters.capacity()) register_param: "
        "exceeded ParamList capacity"},
+      {"wasm_param_capacity_exceeded", case_wasm_param_capacity_exceeded,
+       "targets/wasm/param_marshal.h",
+       "(count <= ParamStreams::CAPACITY) effect exposes 257 params, past the "
+       "256 reserved"},
       {"register_param_duplicate", case_register_param_duplicate,
        "core/control/param_host.h",
        "(parameters.find(name) == nullptr) register_param: duplicate parameter name name=duplicate"},
@@ -2007,9 +2012,9 @@ inline constexpr GuardGapAllowance GUARD_GAP_ALLOW[] = {
     {"targets/Phantasm/phantasm_target.h", 1},
     {"targets/Profile/Profile.ino", 4},
     // WASM-only bootstrap and reconstruction invariants; exercised by engine contracts.
-    {"targets/wasm/engine_bindings.h", 9},
+    {"targets/wasm/engine_bindings.h", 8},
     {"targets/wasm/mesh_ops_bindings.h", 2},
-    {"targets/wasm/workbench_bindings.h", 3},
+    {"targets/wasm/workbench_bindings.h", 2},
     {"workbench/shader/chain_host.h", 1},
 };
 

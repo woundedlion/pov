@@ -93,12 +93,6 @@ protected:
     return emscripten::val::global("Array").call<bool>("isArray", value);
   }
 
-  void check_param_capacity() const {
-    HS_CHECK(state->effect->getParameters().size() <=
-                 hs_wasm::ParamStreams::CAPACITY,
-             "workbench parameter capacity exceeded");
-  }
-
 private:
   const uint64_t generation;
 };
@@ -142,7 +136,7 @@ public:
     with_effect<ShaderChain>(
         [&](auto &chain) { restored = chain.restore_snapshot(snapshot); });
     if (restored == Result::APPLIED) {
-      check_param_capacity();
+      hs_wasm::check_param_capacity(*state->effect);
       state->paused = state->effect->animations_paused();
     }
     return restored;
@@ -225,7 +219,7 @@ public:
           std::span<const Pullback::Interp::ChainEntryRequest>(request));
     });
     if (refusal.code == ChainStatus::OK)
-      check_param_capacity();
+      hs_wasm::check_param_capacity(*state->effect);
     return chain_result(refusal.code, refusal.entry_index);
   }
 
