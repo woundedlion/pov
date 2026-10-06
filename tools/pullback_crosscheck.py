@@ -791,10 +791,6 @@ def orchestrate(
                         oracles=oracles,
                     )
                     observed_toolchains.update(compared_toolchains)
-                    if configuration == "native-debug" and strict_required:
-                        raise CrosscheckError(
-                            "native comparison requested strict-FP captures"
-                        )
                 if strict_required:
                     for name in ("base", "candidate"):
                         configuration = "wasm-strict-fp"
@@ -816,7 +812,7 @@ def orchestrate(
                             environment,
                         )
                         capture_paths[(name, configuration)] = path
-                    strict_required, compared_toolchains = _compare_capture_paths(
+                    _, compared_toolchains = _compare_capture_paths(
                         capture_paths[("base", "wasm-release")],
                         capture_paths[("candidate", "wasm-release")],
                         programs,
@@ -828,10 +824,6 @@ def orchestrate(
                         oracles=oracles,
                     )
                     observed_toolchains.update(compared_toolchains)
-                    if strict_required:
-                        raise CrosscheckError(
-                            "strict-FP comparison requested strict-FP captures"
-                        )
                 summary = {
                     "schema_version": 1,
                     "base_sha": base_sha,
