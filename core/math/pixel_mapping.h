@@ -129,7 +129,7 @@ template <int H> inline float y_to_phi(float y) {
  * @tparam W Width (column count).
  * @tparam H Display height; tables include virtual rows only in tests.
  * @details Caches sin/cos for theta (per column) and phi (per row) separately;
- * a vector costs 3 multiplies to reconstruct.
+ * a vector reconstructs from table reads, with sin(phi) scaling only x and z.
  */
 template <int W, int H> struct TrigLUT {
   static_assert(W % 4 == 0,
