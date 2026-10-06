@@ -374,14 +374,14 @@ inline void test_bz_perturb_scales_with_timestep() {
 /**
  * @brief Verifies one fused physics substep diffuses a seeded species into its
  *        neighborhood with the right sign, in place.
- * @details A single step from one fully-seeded interior node: A must diffuse
+ * @details A single step from one fully-seeded lattice node: A must diffuse
  *          into at least one empty neighbor and the seed must stay lit. The step
  *          writes the new generation over the state it read.
  */
 inline void test_bz_substep_diffuses() {
   std::vector<uint16_t> sA(BZWhiteBox::N, 0), sB(BZWhiteBox::N, 0),
       sC(BZWhiteBox::N, 0);
-  const int seed = 4000; // interior lattice node with a full neighbor ring
+  const int seed = 4000;
   sA[seed] = 65535;
 
   BZWhiteBox::BZ bz;
@@ -392,10 +392,8 @@ inline void test_bz_substep_diffuses() {
   int spread = 0;
   for (int k = 0; k < ReactionGraph::RD_K; ++k) {
     int nb = ReactionGraph::neighbors[seed][k];
-    if (nb >= 0) {
-      HS_EXPECT_GE(sA[nb], BZWhiteBox::advance_species(bz, 0, 0, 1.0f));
-      spread += sA[nb] > 0;
-    }
+    HS_EXPECT_GE(sA[nb], BZWhiteBox::advance_species(bz, 0, 0, 1.0f));
+    spread += sA[nb] > 0;
   }
   HS_EXPECT_GT(spread, 0); // A diffused into at least one empty neighbor
 }

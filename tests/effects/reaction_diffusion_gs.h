@@ -1509,7 +1509,7 @@ inline void test_gs_inplace_frame_matches_jacobi() {
 inline void test_gs_substep_signs_and_clamp() {
   std::vector<uint16_t> cA(GSWhiteBox::N, 65535), cB(GSWhiteBox::N, 0),
       nA(GSWhiteBox::N), nB(GSWhiteBox::N);
-  const int seed = 4000; // an interior lattice node with a full neighbor ring
+  const int seed = 4000;
   cB[seed] = 65535;
   GSWhiteBox::GS gs;
   GSWhiteBox::set_params(gs, 0.04f, 0.06f, 0.02f, 0.01f, 2.5f);
@@ -1522,7 +1522,7 @@ inline void test_gs_substep_signs_and_clamp() {
   int spread = 0;
   for (int k = 0; k < ReactionGraph::RD_K; ++k) {
     int nb = ReactionGraph::neighbors[seed][k];
-    if (nb >= 0 && nB[nb] > 0)
+    if (nB[nb] > 0)
       ++spread;
   }
   HS_EXPECT_GT(spread, 0);
