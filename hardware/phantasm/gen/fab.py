@@ -798,9 +798,10 @@ def require_schematic_parity(report_path):
         messages = []
         if diagnostics:
             messages.append(
-                f"{PCB} no longer matches {SCH}; regenerate the board with "
-                "gen/pcb.py --unplaced, re-route it in Quilter and promote the "
-                "result before shipping these gerbers:\n  " +
+                f"{PCB} no longer matches {SCH}; update the routed rev 1.1 board "
+                "from its schematic in Pcbnew (Update PCB from Schematic), "
+                "re-route the affected nets and re-run DRC before shipping "
+                "these gerbers:\n  " +
                 "\n  ".join(diagnostics))
         if land_diagnostics:
             messages.append("Land edits: inspect footprint pads against the shipped-land "
