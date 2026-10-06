@@ -6,7 +6,7 @@
 // Included by tests/test_effects.h.
 
 // ---------------------------------------------------------------------------
-// HankinSolids: morph-budget coverage
+// HankinSolids pause and DreamBalls geometry/lifecycle coverage
 // ---------------------------------------------------------------------------
 
 /** @brief Test access to HankinSolids' morph-chain state. */
