@@ -99,6 +99,7 @@ inline int run_animation_tests() {
   test_timeline_repeating_animation_rewinds_each_cycle();
   test_timeline_cancel_removes_repeating_animation();
   test_timeline_cancel_suppresses_step_side_effects();
+  test_timeline_paused_event_redraws_from_start_frame();
   test_timeline_repeating_canceled_in_callback_fires_then_once();
   test_timeline_cancel_fires_post_callback();
   test_timeline_cancel_while_paused_removes_event();

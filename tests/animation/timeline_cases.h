@@ -291,6 +291,28 @@ inline void test_timeline_cancel_suppresses_step_side_effects() {
 }
 
 /**
+ * @brief Verifies a paused event redraws on the first step at or after its
+ * start frame; delays 0 and 1 both start on the next step().
+ */
+inline void test_timeline_paused_event_redraws_from_start_frame() {
+  struct PausedProbe : Animation::AnimationBase<PausedProbe> {
+    int *draws;
+    explicit PausedProbe(int &count) : draws(&count) {}
+    void step_paused(Canvas &) override { ++*draws; }
+  };
+  for (int delay : {0, 1}) {
+    Timeline tl;
+    int draws = 0;
+    bool paused = true;
+    tl.add_pausable(delay, PausedProbe(draws), &paused);
+    tl.step(fake_canvas());
+    HS_EXPECT_EQ(draws, 1);
+    tl.step(fake_canvas());
+    HS_EXPECT_EQ(draws, 2);
+  }
+}
+
+/**
  * @brief Verifies cancel() fires the animation's .then() as the event is
  * removed.
  * @details cancel() reaches Timeline's removal branch through done(), so the
