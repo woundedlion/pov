@@ -659,6 +659,23 @@ inline void test_world_mobius_identity_and_transform() {
       [&](const math::Vector &o, const Pixel &, float, float) { out2 = o; });
   HS_EXPECT_NEAR(out2.length(), 1.0f, 1e-3f);
   HS_EXPECT_GT(math::distance_between(out2, v), 0.05f);
+  const math::Vector want = math::mobius_transform(v, shift);
+  HS_EXPECT_NEAR(out2.x, want.x, 1e-6f);
+  HS_EXPECT_NEAR(out2.y, want.y, 1e-6f);
+  HS_EXPECT_NEAR(out2.z, want.z, 1e-6f);
+
+  // The filter reads its bound parameters live.
+  shift.b.re = 2.0f;
+  math::Vector out3{};
+  mob2.plot(
+      v, Pixel(1, 1, 1), 0.0f, 1.0f,
+      [&](const math::Vector &o, const Pixel &, float, float) { out3 = o; });
+  const math::Vector want3 = math::mobius_transform(v, shift);
+  HS_EXPECT_GT(math::distance_between(want3, want), 0.05f);
+  HS_EXPECT_NEAR(out3.x, want3.x, 1e-6f);
+  HS_EXPECT_NEAR(out3.y, want3.y, 1e-6f);
+  HS_EXPECT_NEAR(out3.z, want3.z, 1e-6f);
+  shift.b.re = 1.0f;
 
   constexpr int W = 32, H = 16;
   std::array<Pixel, W * H> expected;
