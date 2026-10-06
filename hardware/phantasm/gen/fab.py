@@ -351,14 +351,18 @@ def read_export(path):
             f"cannot read exported artifact: {path}") from exc
 
 
+def gerber_commands(text):
+    """Word commands of a Gerber, with extended `%...%` blocks removed."""
+    return [command.strip()
+            for command in re.sub(r"%[^%]*%", "", text).split("*")]
+
+
 def gerber_has_region(text):
     """Whether balanced region statements contain contour drawing commands."""
     in_region = False
     region_drawn = False
     completed = False
-    commands = re.sub(r"%[^%]*%", "", text).split("*")
-    for command in commands:
-        command = command.strip()
+    for command in gerber_commands(text):
         if command == "G36":
             if in_region:
                 return False
@@ -432,8 +436,8 @@ def validate_fab_content(directory, board):
             if not gerber_has_region(text):
                 diagnostics.append(
                     f"{name}: defines no apertures or drawn regions")
-        elif not any(GERBER_OPERATION.fullmatch(command.strip())
-                     for command in text.split("*")):
+        elif not any(GERBER_OPERATION.fullmatch(command)
+                     for command in gerber_commands(text)):
             diagnostics.append(f"{name}: draws with none of its apertures")
 
     if diagnostics:

@@ -1394,6 +1394,13 @@ class FabContentTests(unittest.TestCase):
                 self.assertEqual(self.validate({"phantasm-F_Cu.gtl": layer}),
                                  {"plated": 2, "unplated": 1})
 
+    def test_accepts_flashes_preceded_by_object_attributes(self):
+        layer = self.GERBER.replace(
+            "X1000000Y2000000D03*\r\n",
+            "%TO.P,J1,1*%\r\n%TO.N,GND*%\r\nX1000000Y2000000D03*\r\n%TD*%\r\n")
+        self.assertEqual(self.validate({"phantasm-F_Cu.gtl": layer}),
+                         {"plated": 2, "unplated": 1})
+
     def test_rejects_a_layer_that_plots_nothing(self):
         with self.assertRaisesRegex(fab.FabContentError,
                                     "phantasm-F_Cu.gtl: defines no apertures"):
