@@ -3,8 +3,6 @@
  * Licensed under the PolyForm Noncommercial License 1.0.0
  */
 
-// Included by tests/test_death.h.
-
 // --- Individual death cases — each MUST trap (HS_CHECK / __builtin_trap) ------
 
 // Params canvas death fixtures and guard cases.
@@ -52,11 +50,8 @@ inline void case_param_def_unknown_set_target_type() {
 
 /**
  * @brief Death case: a second simultaneously-live Effect must trap.
- * @details Canvas surface — the structural twin of case_timeline_double_construct.
- *          Every Effect aliases the same two static framebuffers and double-buffer
- *          indices, so a second live instance would scribble over the first's
- *          frames; the construction guard traps instead. The real app builds the
- *          next effect only after destroying the outgoing one.
+ * @details Every Effect aliases the same static framebuffers and double-buffer
+ *          indices.
  */
 inline void case_effect_double_construct() {
   DeathEffect a;
@@ -83,10 +78,8 @@ inline void case_effect_height_over_max() {
 
 /**
  * @brief Death case: a second simultaneously-live correction guard must trap.
- * @details LED surface — NoColorCorrection and NoTempCorrection share one
- *          liveness flag and set the global FastLED correction/temperature, so a second
- *          live guard of either type would leave the wrong baseline on the earlier
- *          guard's exit; the construction guard traps instead.
+ * @details NoColorCorrection and NoTempCorrection share one liveness flag and
+ *          set the global FastLED correction/temperature.
  */
 inline void case_correction_guard_double_construct() {
   NoColorCorrection a;
@@ -97,10 +90,7 @@ inline void case_correction_guard_double_construct() {
 
 /**
  * @brief Death case: a live NoColorCorrection plus a NoTempCorrection must trap.
- * @details LED surface — the two guard types share the one liveness flag, so a
- *          second live guard of the OTHER type is as unsafe as a same-type
- *          double-construct; this is the case the shared "either type" contract
- *          exists to guarantee. The construction guard traps on either.
+ * @details The two guard types share one liveness flag.
  */
 inline void case_correction_guard_cross_type() {
   NoColorCorrection a;
@@ -129,12 +119,7 @@ inline void case_float_options_wrong_range() {
   effect.reg_float_options(&value, options, 1);
 }
 
-/**
- * @brief Death case: overflowing the fixed ParamList must trap.
- * @details Canvas surface — register_param traps rather than silently dropping a
- *          registration, which would desync the GUI and, on WASM, break the
- *          no-realloc memory-view invariant.
- */
+/** @brief Death case: overflowing the fixed ParamList must trap. */
 inline void case_register_param_overflow() {
   DeathEffect fx;
   static float slot = 0.0f;
@@ -343,11 +328,10 @@ inline void case_set_clip_x_out_of_bounds() {
 
 /**
  * @brief Death case: an arc start outside [0, w) must trap.
- * @details Clip surface — arcs_overlap wraps the seam-relative offset with one
- *          conditional add instead of a modulo, which only lands in range while
- *          both starts are already reduced; a start outside the cylinder would
- *          silently report the wrong overlap. Both lengths are positive and
- *          under w so the early-out branches do not preempt the guard.
+ * @details arcs_overlap wraps the seam-relative offset with one conditional
+ *          add, which assumes both starts are already reduced. Both lengths are
+ *          positive and under w so the early-out branches do not preempt the
+ *          guard.
  */
 inline void case_arcs_overlap_start_out_of_range() {
   bool hit = ClipRegion::arcs_overlap(opaque(-1), opaque(2), opaque(0),

@@ -3,8 +3,6 @@
  * Licensed under the PolyForm Noncommercial License 1.0.0
  */
 
-// Included by tests/test_filter.h.
-
 // ============================================================================
 // Pixel::ChromaticShift::plot — channel-split fan-out
 // ============================================================================

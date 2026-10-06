@@ -3,8 +3,6 @@
  * Licensed under the PolyForm Noncommercial License 1.0.0
  */
 
-// Included by tests/test_filter.h.
-
 // ============================================================================
 // Screen::AntiAlias::plot — pure bilinear weight partition
 // ============================================================================
@@ -107,8 +105,7 @@ inline void test_antialias_seam_wraps_left_column() {
  *        (x_floor == 2W-1) wraps both taps in range instead of deriving the
  *        right tap from an unwrapped 2W column.
  * @details At x_floor == 2W-1 the second tap's source column is 2W, one past
- *          fast_wrap's x < 2W precondition: it traps the debug assert and writes
- *          column W (out of bounds) in release. The taps must wrap onto W-1 and 0.
+ *          fast_wrap's x < 2W precondition.
  */
 inline void test_antialias_far_seam_wraps_both_taps() {
   constexpr int W = 64, H = 64;

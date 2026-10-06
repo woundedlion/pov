@@ -15,8 +15,7 @@
 
 namespace hs_test {
 
-// The fd primitives below differ from POSIX only by the Windows underscore
-// prefix; _pipe additionally takes a buffer size and a text/binary mode.
+// POSIX fd primitives with their underscore-prefixed Windows equivalents.
 inline int fd_pipe(int fds[2]) {
 #if defined(_WIN32)
   return _pipe(fds, 4096, _O_BINARY);

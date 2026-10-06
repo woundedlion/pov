@@ -3,16 +3,11 @@
  * Licensed under the PolyForm Noncommercial License 1.0.0
  */
 
-// Included by tests/test_effects.h.
-
 // ---------------------------------------------------------------------------
 // Geometry, caches, presets and arena budgets across the effect roster.
 // ---------------------------------------------------------------------------
 
-/**
- * @brief White-box accessor for Raymarch's torus proportions (befriended in
- *        effects/Raymarch.h).
- */
+/** @brief White-box accessor for Raymarch's torus proportions. */
 struct RaymarchWhiteBox {
   using RM = Raymarch<DEFAULT_W, DEFAULT_H>;
   static constexpr int MAX_POINTS = RM::MAX_POINTS;
@@ -194,11 +189,7 @@ inline void test_raymarch_surface_frame_uv() {
 
 /**
  * @brief Pins the constexpr Newton square root behind UNIT_BOUNDS against libm.
- * @details It runs only at compile time, so nothing else would notice it
- *          under-converging, and its consumers are the Raymarch cull-sphere
- *          radius — where a low answer culls real surface — and Voronoi's
- *          coherence-block floor at MAX_SITES. A non-positive radicand
- *          short-circuits to 0.
+ * @details A non-positive radicand short-circuits to 0.
  */
 inline void test_raymarch_constexpr_sqrt_converges() {
   using WB = RaymarchWhiteBox;
@@ -231,15 +222,11 @@ inline void test_raymarch_constexpr_sqrt_converges() {
 
 /**
  * @brief Verifies UNIT_BOUNDS really bounds the twisted tube it culls against.
- * @details Raymarch hands scale*UNIT_BOUNDS (+ the AA pad) to Scan::Volume::draw
- *          as the ray-march cull sphere, so any surface outside it is dropped
- *          with no other tell. The twisted torus surface has a closed form —
- *          the tube circle of radius MINOR_K about the centerline
- *          (MAJOR_K, TWIST_K*sin(n*theta)) in the (xz-radius, y) half plane —
- *          so the whole surface is swept over the "Twist" slider's integer
- *          domain, checked against the production SDF's zero set, and required
- *          to sit inside the sphere. The sphere is also required to be tight: a
- *          slack radius is wasted ray steps at every vertex.
+ * @details The twisted torus surface is the tube circle of radius MINOR_K
+ *          about the centerline (MAJOR_K, TWIST_K*sin(n*theta)) in the
+ *          (xz-radius, y) half plane. Swept over the "Twist" slider's integer
+ *          domain, it must match the production SDF's zero set and sit inside
+ *          the sphere, and the sphere must be tight.
  */
 inline void test_raymarch_unit_bounds_contains_twisted_tube() {
   using WB = RaymarchWhiteBox;
@@ -301,7 +288,7 @@ inline void test_raymarch_unit_bounds_contains_twisted_tube() {
 
 /**
  * @brief White-box accessor for GnomonicStars' pixel-pitch star radius and its
- *        spiral cache (befriended in effects/GnomonicStars.h).
+ *        spiral cache.
  */
 struct GnomonicStarsWhiteBox {
   template <int W, int H> static constexpr float radius_px() {
@@ -433,10 +420,7 @@ inline void test_gnomonicstars_radius_px_covers_both_axes() {
   HS_EXPECT_GE(max_arc, (SPAN_PX - 2) * pixel_pitch);
 }
 
-/**
- * @brief White-box accessor for Fishbowl's trail node (befriended in
- *        effects/Fishbowl.h).
- */
+/** @brief White-box accessor for Fishbowl's trail node. */
 struct FishbowlWhiteBox {
   using EffectType = Fishbowl<SMALL_W, SMALL_H>;
   static size_t tween_vertices(const EffectType &fx) {
@@ -556,13 +540,10 @@ inline void test_fishbowl_preset_and_fire_duty_cycle() {
 /**
  * @brief Verifies the scratch-A split's predicted worst case really covers a
  *        saturated Fishbowl frame.
- * @details SCRATCH_A_BYTES is carved from the global arena against a closed-form
- *          worst case — the MAX_FRAGMENTS vertex buffer, the Multiline fragment
- *          buffer it binds, and rasterize's sub-step cache, all live at once.
- *          The static_assert only checks that estimate against the split, never
- *          against a real frame, so an estimate that under-counts would go
- *          unnoticed until the split shrank. Runs past TRAIL_LENGTH frames so
- *          the trail is full when the peak is read.
+ * @details SCRATCH_A_BYTES is sized against a closed-form worst case: the
+ *          MAX_FRAGMENTS vertex buffer, the Multiline fragment buffer it binds,
+ *          and rasterize's sub-step cache, all live at once. Runs past
+ *          TRAIL_LENGTH frames so the trail is full when the peak is read.
  */
 inline void test_fishbowl_scratch_estimate_covers_peak() {
   reset_effect_globals();
@@ -587,10 +568,7 @@ inline void test_fishbowl_scratch_estimate_covers_peak() {
   HS_EXPECT_LE(worst_vertices, (size_t)EffectType::MAX_FRAGMENTS);
 }
 
-/**
- * @brief White-box accessor for RingSpin's ring pool (befriended in
- *        effects/RingSpin.h).
- */
+/** @brief White-box accessor for RingSpin's ring pool. */
 struct RingSpinWhiteBox {
   using RS = RingSpin<DEFAULT_W, DEFAULT_H>;
 
@@ -644,13 +622,9 @@ inline void test_ringspin_strobe_configuration_preserves_rendering() {
 
 /**
  * @brief Verifies every lit RingSpin pixel sits on one of its great circles.
- * @details RingSpin draws SDF::Ring at radius 1 (a great circle) about each
- *          ring's rotated plane normal, so on the first frame — where the trail
- *          holds a single orientation step — every lit pixel must lie within the
- *          stroke half-width of some ring's equator. This catches a basis,
- *          radius or trail-record regression that still renders a plausible
- *          frame. Alpha 0 must then blank the frame, pinning the trail-colour
- *          early-out.
+ * @details On the first frame, where the trail holds a single orientation
+ *          step, every lit pixel must lie within the stroke half-width of some
+ *          ring's equator. Alpha 0 must then blank the frame.
  */
 inline void test_ringspin_trail_hugs_its_great_circles() {
   reset_effect_globals();
@@ -662,9 +636,7 @@ inline void test_ringspin_trail_hugs_its_great_circles() {
   fx.draw_frame();
   fx.advance_display();
 
-  // Polar deviation from the equator that the stroke half-width admits. The
-  // pipeline carries no Screen::AntiAlias, so there is no fringe to allow for;
-  // the measured worst case is 0.011 against this 0.035 bound.
+  // Polar deviation from the equator that the stroke half-width admits.
   const float band = std::sin(WB::head_half_width(fx));
   int lit = 0, off_circle = 0;
   float worst = 0.0f;
@@ -707,8 +679,8 @@ inline void test_ringspin_trail_hugs_its_great_circles() {
 // White-box bounds for spawn gaps, emit phases and pool indices on every frame.
 
 /**
- * @brief White-box accessor for PetalFlow's spawn-gap accumulator and hue cursor
- *        (befriended in effects/PetalFlow.h).
+ * @brief White-box accessor for PetalFlow's spawn-gap accumulator and hue
+ *        cursor.
  */
 struct PetalFlowWhiteBox {
   using PF = PetalFlow<DEFAULT_W, DEFAULT_H>;
@@ -743,15 +715,10 @@ struct PetalFlowWhiteBox {
 /**
  * @brief Verifies the spawn-gap accumulator drains every frame, the hue cursor
  *        stays wrapped, and the ring pool absorbs the worst slider corner.
- * @details check_spawn() integrates Speed*RHO_PER_SPEED into gap_accumulator and
- *          drains it by the live spacing per spawn, so after any frame the
- *          residue must satisfy 0 <= gap < spacing() — a runaway (missing drain)
- *          or a negative residue both fail here. Run at Speed_max x Density_max:
- *          the only corner where a frame's travel exceeds the live spacing, so
- *          the while-loop's multi-spawn branch runs, and the corner RINGS_ON_PATH
- *          is derived for, where the pool bound has no margin left — a dropped
- *          spawn there is a real defect, not a rounding allowance. next_hue is
- *          advanced wrap(.,1) per spawn and must stay [0, 1).
+ * @details After any frame the residue must satisfy 0 <= gap < spacing() and
+ *          next_hue must stay in [0, 1). At Speed_max x Density_max a frame's
+ *          travel exceeds the live spacing and the pool bound RINGS_ON_PATH has
+ *          no margin.
  */
 inline void test_petalflow_spawn_gap_bounded() {
   using WB = PetalFlowWhiteBox;
@@ -924,8 +891,7 @@ struct DisplacementFieldWhiteBox {
 
   template <int W, int H>
   static Pixel hue_lut_value(const DisplacementField<W, H> &effect, int index) {
-    // Slot 0 of the pooled bake: the first (only, in the one-ring tests)
-    // drawn ring's hue LUT.
+    // Slot 0 of the pooled bake: the first drawn ring's hue LUT.
     return effect.hue_pool[index];
   }
 
@@ -1033,13 +999,8 @@ inline void test_displacement_field_lazy_hue_table_matches_eager() {
 
 /**
  * @brief Bounds dynamic and periodic hue tables over effect palette colors.
- * @details Every bound below is the measured worst case over the sweep with
- * headroom: peak deltaE is 0.0015 default / 0.0053 cyclic against 0.002 / 0.006
- * bounds, and the paired peaks in encoded space are 8 / 19 sRGB8 codes against
- * 10 / 21. The sRGB8 pair is the looser gate because the encode is non-linear —
- * the same table-interpolation error spans more 8-bit codes where the transfer
- * curve is steep than deltaE weights it — so it is bounded rather than pinned to
- * the perceptual figure.
+ * @details Each bound is the sweep's measured worst case plus headroom. The
+ * sRGB8 bounds are looser because the encode is non-linear.
  */
 inline void test_displacement_field_hue_table_fidelity() {
   reset_effect_globals();
@@ -1282,13 +1243,11 @@ inline void test_displacement_field_zero_hue_scale_is_exact() {
  * @brief Verifies DisplacementField's clipped render tiles the full render:
  *        under a quadrant clip, every display-region pixel matches the
  *        full-canvas render within one 16-bit channel step, frame by frame.
- * @details Identical seeds and mock clock per run, so a divergence isolates
- *          the clip-only paths (the per-ring cap cull and the azimuth-chunk
- *          bake cull) dropping a reachable fragment or sampling a stale LUT
- *          entry. The test explicitly enters the ball phase, whose
- *          footprints drive both culls. Both culls widen with the ring band,
- *          so each quadrant runs at the registered defaults and again at the
- *          full ring pool with maximum thickness and displacement amplitudes.
+ * @details Identical seeds and mock clock per run isolate the clip-only paths
+ *          (the per-ring cap cull and the azimuth-chunk bake cull). The test
+ *          enters the ball phase, and each quadrant runs at the registered
+ *          defaults and again at the full ring pool with maximum thickness and
+ *          displacement amplitudes.
  */
 inline void test_displacement_field_clip_tiles_full() {
   struct Quad {
@@ -1297,8 +1256,7 @@ inline void test_displacement_field_clip_tiles_full() {
   const Quad quads[] = {{0, DEFAULT_W / 2, 0, DEFAULT_H / 2},
                         {DEFAULT_W / 2, DEFAULT_W, DEFAULT_H / 2, DEFAULT_H}};
   const int frames = 60;
-  // A widest-footprint frame costs ~7x a default one; the shorter window still
-  // sits inside the same displacement phase.
+  // The shorter window still sits inside the same displacement phase.
   const int widest_frames = 24;
 
   size_t lit = 0;
@@ -1478,14 +1436,10 @@ inline void test_mobius_rings_conformal_and_counter_rotation() {
 
 /**
  * @brief Verifies ShapeShifter's slider contract and preset-row invariants.
- * @details A preset row is authored artistic data that is retuned freely, so its
- *          magnitudes (count, sides, amplitude, speed) are not pinned: a golden
- *          copy of them reds on every intentional retune and reports nothing. The
- *          invariants a retune must not break are pinned instead — every value
- *          inside the range register_param bound it to, the structural selections
- *          each row draws, the non-preset Alpha slider surviving a selection, the
- *          shape/falloff pairing, and every row landing on a distinct parameter
- *          vector.
+ * @details Preset magnitudes are not pinned. Every value must sit inside its
+ *          registered range, each row keeps its structural selections and
+ *          shape/falloff pairing, the non-preset Alpha slider survives a
+ *          selection, and every row is a distinct parameter vector.
  */
 inline void test_shapeshifter_preset_defaults() {
   reset_effect_globals();
@@ -1500,8 +1454,8 @@ inline void test_shapeshifter_preset_defaults() {
     return -1.0f;
   };
 
-  // register_param traps on a default outside its range, but a preset row is
-  // assigned straight into params and never passes through it.
+  // Preset rows are assigned straight into params, bypassing register_param's
+  // range check.
   auto expect_in_range = [&](const char *label) {
     HS_CONTEXT(label);
     for (const auto &def : ss.getParameters()) {
@@ -1582,9 +1536,7 @@ inline void test_shapeshifter_preset_defaults() {
 
   HS_EXPECT_EQ(ss.updateParameter("Alpha", 0.37f), ParamSetResult::APPLIED);
 
-  // Structural selections: which primitive and falloff each row draws. These
-  // pin the index -> row mapping the profile reports are keyed by; the
-  // magnitudes each row sets are deliberately left free.
+  // Structural selections: which primitive and falloff each row draws.
   const float expected_shapes[] = {3.0f, 1.0f, 3.0f, 2.0f, 3.0f,
                                    1.0f, 1.0f, 1.0f, 2.0f};
   const float expected_falloffs[] = {1.0f, 0.0f, 1.0f, 0.0f, 1.0f,
@@ -1609,8 +1561,7 @@ inline void test_shapeshifter_preset_defaults() {
     rows.push_back(row);
   }
 
-  // Two rows that collapse onto the same parameter vector are one preset the
-  // cycle visits twice, which no range or selection check above would show.
+  // Identical parameter vectors would be one preset visited twice.
   for (size_t i = 0; i < rows.size(); ++i)
     for (size_t j = i + 1; j < rows.size(); ++j) {
       HS_CONTEXT("preset pair", static_cast<int>(i), static_cast<int>(j));
@@ -1624,9 +1575,8 @@ inline void test_shapeshifter_preset_defaults() {
  * @details Each primitive is exercised at radii on both sides of the antipode
  * fold while the four phase functions advance through the same Plot pipeline.
  * Every selection renders one frame from an identical fresh state with the
- * preset timer paused, so the only input that moves between renders is the
- * slider: two selections folding to the same frame means the selection switch
- * did not dispatch on them.
+ * preset timer paused; two selections producing the same frame means the
+ * switch did not dispatch on them.
  */
 inline void test_shapeshifter_slider_selections_render() {
   using SS = ShapeShifter<SMALL_W, SMALL_H>;
@@ -1675,13 +1625,12 @@ inline void test_shapeshifter_slider_selections_render() {
 /**
  * @brief Checks the full-frame query on four constructed effects.
  * @details MeshFeedback and Dynamo fold any_crosses_segments true; the two
- *          sampled non-crossing effects keep segment clipping. The WASM
- *          setClip bridge reads this non-virtual Effect accessor.
+ *          sampled non-crossing effects keep segment clipping.
  */
 inline void test_needs_full_frame_gate() {
   // Each effect aliases the same static double buffer (single-live guard) and
   // reconfigures the shared arenas/timeline in init(), so construct one at a
-  // time with the same fresh setup smoke_one uses.
+  // time.
   auto reset = [] { reset_effect_globals(); };
   auto check = [&](Effect &fx, bool expected, const char *name) {
     fx.init();
@@ -1879,12 +1828,8 @@ inline void test_voronoi_union_candidates_cover_nearest() {
  * @brief Requires a Voronoi segment band to shade every pixel exactly as the
  *        full-canvas render does.
  * @details The coarse-coherence grid decides per block which sites reach a
- *          pixel's candidate union, so a grid whose phase follows the clip
- *          origin shades the same pixel differently depending on which band
- *          renders it — a discontinuity pinned to the segment seam, since
- *          Voronoi is neither full-frame nor persisting. The bands below start
- *          off a block boundary (the adaptive block is 6 px at the default site
- *          count), which an aligned split would hide.
+ *          pixel's candidate union, so its phase must not follow the clip
+ *          origin. The bands start off a block boundary.
  */
 inline void test_voronoi_segment_render_matches_full_frame() {
   constexpr int W = DEFAULT_W;
@@ -1949,7 +1894,6 @@ inline void test_voronoi_segment_render_matches_full_frame() {
 /**
  * @brief Bounds whole-solid generation, classification and rendering scratch
  * against HankinSolids' exported budgets at the device height.
- * @details The graph-walk soak separately exercises the shipping OpLeg path.
  */
 inline void test_hankinsolids_arena_budget_covers_every_solid() {
   constexpr int W = 288, H = 144;
@@ -1989,7 +1933,7 @@ inline void test_hankinsolids_arena_budget_covers_every_solid() {
     }
 
     // Render peak: transform into scratch_a, then Scan::Mesh::draw stacks a
-    // FaceScratchBuffer on top (the scratch_a-binding path documented on SCRATCH_A_BYTES).
+    // FaceScratchBuffer on top.
     {
       ScratchScope a_guard(scratch_arena_a);
       math::Orientation<> orientation;
@@ -2007,8 +1951,7 @@ inline void test_hankinsolids_arena_budget_covers_every_solid() {
 
     // Morph compaction peak: the CompiledHankin + palette bank survive into
     // scratch_b, the mesh + walk seed into scratch_a, then persistent is
-    // reset — the same Persist discipline finish_morph_cycle uses to compact
-    // between legs.
+    // reset.
     {
       Persist<CompiledHankin> ph(hankin, scratch_arena_b, persistent_arena);
       Persist<MeshState> pf(mesh, scratch_arena_a, persistent_arena);
@@ -2031,12 +1974,8 @@ inline void test_hankinsolids_arena_budget_covers_every_solid() {
 }
 
 /**
- * @brief White-box accessor for IslamicStars' private build-chain state
- *        (befriended in effects/IslamicStars.h).
- * @details init() opens on recipe entry 0 (dodecahedron_hk62_ambo_hk62).
- * Its build starts after the 16-frame seed fade-in. The probe pre-sets Trans
- * Speed to shorten the build and reads build_active/solid_idx to pin completion.
- * Build bookkeeping is resolution-independent.
+ * @brief White-box accessor for IslamicStars' private build-chain state.
+ * @details Build bookkeeping is resolution-independent.
  */
 struct IslamicBuildProbe {
   using IS = IslamicStars<SMALL_W, SMALL_H>;
@@ -2131,9 +2070,7 @@ inline PolyMesh generate_needle_recipe_solid(Arena &a, Arena &b) {
       TRUNCATED_ICOSAHEDRON_AMBO_RELAX_HK54_NEEDLE_RECIPE, a, b);
 }
 
-/** The needle-ending recipe as a spawnable entry. It is not in
- * islamic_registry, so the arena gate below builds it from the recipe constant
- * rather than finding it in the roster. */
+/** The needle-ending recipe as a spawnable entry. */
 inline constexpr Solids::Entry NEEDLE_ENTRY = {
     "truncatedIcosahedron_ambo_relax_hk54_needle", generate_needle_recipe_solid,
     Solids::Category::Complex,
@@ -2309,13 +2246,9 @@ inline void test_islamicstars_recipe_build_smoke() {
  * @brief Drives IslamicStars through every registry entry and then through the
  *        needle recipe, pinning the persistent arena against the effect's own
  *        budget.
- * @details The per-chain gate measures a build in isolation, which misses what
- *          the effect actually holds: a build follows whatever shape preceded
- *          it. Cycling the roster exercises builds against their predecessors. The roster runs at 288x144 with Trans Speed 8; the
- *          separate dual-bridge gate covers closing legs that this fast
- *          cadence can omit. An arena overrun traps.
- *          The needle is the heaviest smooth-bridge shape and sets the
- *          scratch_a-heavy split, so it is measured separately.
+ * @details Cycling the roster at 288x144 with Trans Speed 8 exercises each
+ *          build against its predecessor; an arena overrun traps. The needle
+ *          sets the scratch_a-heavy split, so it is measured separately.
  */
 inline void test_islamicstars_roster_cycle_fits_budget() {
   reset_effect_globals();
@@ -2440,12 +2373,9 @@ inline void test_islamicstars_roster_cycle_fits_budget() {
 /**
  * @brief Drives IslamicStars until TARGET_BRIDGES dual bridges complete,
  *        pinning the scratch peaks against the effect's budget.
- * @details The roster gate at Trans Speed 8 compresses each build so far that a
- *          heavy shape's closing dual leg can be dropped before it runs; this
- *          drives at a modest speed so closing bridge legs can complete. The
- *          bridge's leg 3 rebuilds the medial for
- *          its handoff centroids, whose scratch must not co-reside with the
- *          leg's own arrival mesh -- an over-budget leg traps in the host arena.
+ * @details Drives at a modest Trans Speed so closing bridge legs complete. The
+ *          bridge's leg 3 rebuilds the medial for its handoff centroids, whose
+ *          scratch must not co-reside with the leg's own arrival mesh.
  */
 inline void test_islamicstars_dual_bridge_fits_budget() {
   reset_effect_globals();

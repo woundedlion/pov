@@ -3,8 +3,6 @@
  * Licensed under the PolyForm Noncommercial License 1.0.0
  */
 
-// Included by tests/test_death.h.
-
 // --- Individual death cases — each MUST trap (HS_CHECK / __builtin_trap) ------
 
 // Plot filter death fixtures and guard cases.
@@ -62,10 +60,8 @@ inline void case_scan_ring_stack_callback_ring() {
 
 /**
  * @brief Death case: a face vertex index past the edge-dedup bitset must trap.
- * @details Plot surface — a vertex index beyond the TriangularBitset<128>
- *          capacity makes the face-walk draw() overload trap on the cold
- *          per-edge setup path instead of silently dropping the edge, which
- *          would leave a wireframe with missing lines and mask the sizing bug.
+ * @details The face-walk draw() overload traps on a vertex index beyond the
+ *          TriangularBitset<128> capacity.
  */
 inline void case_plot_mesh_vertex_over_capacity() {
   constexpr int W = 32, H = 16;
@@ -107,13 +103,7 @@ inline void case_plot_find_missing_edge() {
     std::printf("x");
 }
 
-/**
- * @brief Death case: extract_edges with an over-capacity vertex index must trap.
- * @details Plot surface — the precomputed-edge path traps on the same cold setup
- *          path as the face-walk draw() overload, rather than silently filtering
- *          the edge out (which would produce an edge list with missing lines and
- *          mask the sizing bug).
- */
+/** @brief Death case: extract_edges with an over-capacity vertex index must trap. */
 inline void case_plot_extract_edges_vertex_over_capacity() {
   OverCapacityMockMesh mesh;
   ArenaVector<Plot::Mesh::Edge> edges;
@@ -123,8 +113,7 @@ inline void case_plot_extract_edges_vertex_over_capacity() {
 
 /**
  * @brief Death case: a plot rejects a canvas that is not its <W, H>.
- * @details Plot surface -- the fragment walk projects onto the <W, H> grid and
- *          the sink strides the framebuffer by its own W, so a canvas of a
+ * @details The sink strides the framebuffer by its own W, so a canvas of a
  *          different size writes past the row it means to.
  */
 inline void case_plot_canvas_dim_mismatch() {
@@ -146,10 +135,7 @@ inline void case_plot_canvas_dim_mismatch() {
 
 /**
  * @brief Death case: a plot window over a multi-segment polyline must trap.
- * @details Plot surface -- the window narrows one segment's arc fraction, so a
- *          multi-segment polyline would apply the same [start, end] to every
- *          segment and silently drop whole edges rather than the intended
- *          out-of-band tail.
+ * @details The window narrows one segment's arc fraction.
  */
 inline void case_plot_window_multi_segment() {
   constexpr int W = 32, H = 16;
@@ -173,11 +159,8 @@ inline void case_plot_window_multi_segment() {
 
 /**
  * @brief Death case: a feedback downsample that doesn't divide the resolution must trap.
- * @details Filter surface — Pixel::Feedback::flush traps rather than silently
- *          turning the whole feedback effect into a no-op; a cold
- *          authoring/config error the project routes to HS_CHECK (enabled
- *          remains the supported way to switch feedback off). The trap fires
- *          before any_pixel_lit / scratch allocation, so no buffers needed.
+ * @details The trap fires before any scratch allocation, so no buffers are
+ *          needed.
  */
 inline void case_feedback_downsample_indivisible() {
   constexpr int W = 32, H = 16;
@@ -208,9 +191,7 @@ inline void case_feedback_uncached_scratch_budget() {
 
 /**
  * @brief Death case: retuning a screen trail to a non-positive lifetime must trap.
- * @details Filter surface — Screen::Trails::set_lifetime carries the
- *          constructor's bound, so a slider that reaches zero traps here rather
- *          than dividing by it in flush()'s fade progress.
+ * @details flush()'s fade progress divides by the lifetime.
  */
 inline void case_screen_trails_set_lifetime_nonpositive() {
   Filter::Screen::Trails<8> trails(4);
@@ -219,32 +200,21 @@ inline void case_screen_trails_set_lifetime_nonpositive() {
 
 /**
  * @brief Death case: a world trail lifetime past the ttl byte must trap.
- * @details Filter surface — World::Trails packs the remaining lifetime into a
- *          uint8_t ttl, so a lifetime above 255 would wrap on seeding and give
- *          a near-dead trail instead of the long one asked for.
+ * @details World::Trails packs the remaining lifetime into a uint8_t ttl.
  */
 inline void case_world_trails_lifetime_over_max() {
   Filter::World::Trails<8> trails(opaque(256)); // lifetime > 255 -> HS_CHECK
   (void)trails;
 }
 
-/**
- * @brief Death case: seeding a screen trail before init_storage() must trap.
- * @details Filter surface — plot() seeds the ring buffer, so without storage it
- *          would silently drop every trail point and an effect that never
- *          flushes would render trail-free instead of failing.
- */
+/** @brief Death case: seeding a screen trail before init_storage() must trap. */
 inline void case_screen_trails_plot_without_storage() {
   Filter::Screen::Trails<8> trails(4); // no init_storage() -> HS_CHECK
   trails.plot(1.0f, 1.0f, Pixel(1, 1, 1), 0.0f, 1.0f,
               [](float, float, const Pixel &, float, float) {});
 }
 
-/**
- * @brief Death case: seeding a world trail before init_storage() must trap.
- * @details Filter surface — the 3D counterpart of the screen guard: plot()
- *          pushes into the ring buffer, which does not exist yet.
- */
+/** @brief Death case: seeding a world trail before init_storage() must trap. */
 inline void case_world_trails_plot_without_storage() {
   Filter::World::Trails<8> trails(4); // no init_storage() -> HS_CHECK
   trails.plot(math::Vector(0, 1, 0), Pixel(1, 1, 1), 0.0f, 1.0f,
@@ -310,9 +280,8 @@ inline void case_raster_edge_flags_short() {
 /**
  * @brief Death case: hoisted point projections shorter than the polyline must
  *        trap.
- * @details Plot surface — rasterize indexes point_rows/point_cols by point
- *          index, so an array sized to the EDGE count (as edge_flags is) reads
- *          one past the end on the last point.
+ * @details rasterize indexes point_rows/point_cols by point index, not edge
+ *          index.
  */
 inline void case_raster_point_projections_short() {
   constexpr int W = 32, H = 16;
@@ -338,11 +307,8 @@ inline void case_raster_point_projections_short() {
 
 /**
  * @brief Death case: a negative feedback fade must trap in sync_hue.
- * @details Style is a public aggregate, so nothing but a slider bound keeps fade
- *          non-negative. logf of a negative yields NaN, the hue matrix carries it
- *          into every feedback pixel, and float_to_pixel16 clamps NaN to 65535 —
- *          a white buffer with no other symptom. The guard also catches a NaN
- *          fade, which compares false against zero.
+ * @details logf of a negative fade yields NaN, which whitens every feedback
+ *          pixel. The guard also catches a NaN fade.
  */
 inline void case_feedback_negative_fade() {
   ::Feedback::Style style = ::Feedback::Style::Smoke();
@@ -352,9 +318,7 @@ inline void case_feedback_negative_fade() {
 
 /**
  * @brief Death case: an infinite feedback fade must trap in sync_hue.
- * @details A comparison against zero admits +INFINITY, whose -logf is -inf; the
- *          turn-to-cos/sin reduction of an infinite angle is NaN, which spreads
- *          through all nine hue matrix entries and whitens every feedback pixel.
+ * @details -logf(+INFINITY) is -inf, whose cos/sin reduction is NaN.
  */
 inline void case_feedback_infinite_fade() {
   ::Feedback::Style style = ::Feedback::Style::Smoke();
@@ -624,9 +588,8 @@ inline void case_scan_mesh_face_index_out_of_range() {
 
 /**
  * @brief Death case: a class bake naming a class the class table does not hold.
- * @details ArenaVector::operator[] only asserts, so an out-of-range class id
- *          would read arbitrary memory as a CongruenceClass and hand its LUT to
- *          the per-pixel probe. Scan::Mesh bounds the id per face.
+ * @details ArenaVector::operator[] only asserts; Scan::Mesh bounds the id
+ *          per face.
  */
 inline void case_scan_mesh_class_id_out_of_range() {
   constexpr int W = 32, H = 16;

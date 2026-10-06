@@ -3,26 +3,19 @@
  * Licensed under the PolyForm Noncommercial License 1.0.0
  */
 
-// Included by tests/test_effects.h.
-
 // ---------------------------------------------------------------------------
 // In-code-flagged numeric invariants with no oracle in the smoke harness
 // ---------------------------------------------------------------------------
 
 /**
  * @brief White-box accessor for Comets' Lissajous-loop closing snap.
- * @details Befriended in effects/Comets.h. Reaches the private closing_domain()
- *          snap and the authored function table to verify every entry closes —
- *          path_fn(domain) == path_fn(0) — so the per-cycle drift reset never
- *          teleports the head. A wrong snap still renders a (discontinuous)
- *          curve, invisible to the smoke harness.
+ * @details Every authored entry must close: path_fn(domain) == path_fn(0).
  */
 struct CometsWhiteBox {
   /**
    * @brief Verifies every authored function table entry closes its loop.
-   * @details For each entry the snapped endpoint must coincide with the t=0
-   *          start (0,1,0), and the snap must stay positive (the floor-at-1
-   *          guard keeps the head moving rather than freezing at path_fn(0)).
+   * @details The snapped endpoint must coincide with the t=0 start (0,1,0),
+   *          and the snap must stay positive.
    */
   static void check_paths_close() {
     using C = Comets<DEFAULT_W, DEFAULT_H>;
@@ -31,8 +24,7 @@ struct CometsWhiteBox {
       const math::LissajousParams &cfg = entry.params;
       const float cd = C::closing_domain(cfg);
       HS_EXPECT_GT(cd, 0.0f); // floor-at-1 keeps the head moving
-      // Every authored entry must clear the floor (m2*domain >= PI rounds to >= 1
-      // closing cycle) so the floor never silently rewrites an authored domain.
+      // m2*domain >= PI keeps the floor from rewriting an authored domain.
       HS_EXPECT_GE(cfg.m2 * cfg.domain, math::PI_F);
       const math::Vector start = math::lissajous(cfg.m1, cfg.m2, cfg.a, 0.0f);
       const math::Vector end = math::lissajous(cfg.m1, cfg.m2, cfg.a, cd);
@@ -86,13 +78,9 @@ inline bool palette_snapshots_equal(const GenerativePalette::Snapshot &a,
 
 /**
  * @brief Pins Comets' mid-wipe rollover skip.
- * @details A future dwell shorter than WIPE_FRAMES could trigger a rollover
- *          while a ColorWipe is still animating.
- *          The guard drops that rollover; without it the second wipe would
- *          overwrite palette_start/palette_target, which the live ColorWipe
- *          still holds references to. Both wipes still render, so the smoke
- *          pass cannot see the difference — assert the snapshots survive the
- *          mid-wipe call and that a rollover arms again once the wipe drains.
+ * @details A rollover while a ColorWipe is animating is dropped, since the
+ *          live ColorWipe holds references to palette_start/palette_target. A
+ *          rollover arms again once the wipe drains.
  */
 inline void test_comets_rollover_skipped_mid_wipe() {
   using WB = CometsWhiteBox;
@@ -167,14 +155,8 @@ inline void test_comets_manual_preset_restarts_path() {
 
 /**
  * @brief Pins that AshCloud's value cutout reaches the rendered frame.
- * @details AshCloud is the roster's only FieldCoverageKind::VALUE_CUTOUT
- *          tenant. The kernel has a parity oracle against the chain
- *          interpreter (tests/test_shader_chain.h), but that exercises the
- *          stage standalone, not the composed wiring that feeds it: a pipeline
- *          that dropped the coverage stage would still render, and every other
- *          check would stay green. Sweeping cutout-threshold across its whole
- *          authored range must open the frame at one end and close it at the
- *          other.
+ * @details Sweeping cutout-threshold across its authored range must open the
+ *          frame at one end and close it at the other.
  */
 inline void test_ash_cloud_value_cutout_gates_the_frame() {
   using FX = AshCloud<SMALL_W, SMALL_H>;
@@ -205,16 +187,7 @@ inline void test_ash_cloud_value_cutout_gates_the_frame() {
   HS_EXPECT_EQ(lit_pixels(1.0f), size_t{0});
 }
 
-/**
- * @brief White-box accessor for the Thrusters warp curve and fire path.
- * @details Befriended in effects/Thrusters.h. Reaches the private warp_decay()
- *          curve to pin its shift-and-renormalized endpoints: a bare
- *          0.7*exp(-2t) would bottom out at ~0.095 and leave a residual wobble,
- *          which still renders and so passes the smoke harness. Also drives
- *          on_fire_thruster() directly: the roster smoke sweep never reaches a
- *          fire at the local 8-frame default, so the opposed pair, the
- *          spin-axis fallback and the FIFO pairing are otherwise unobserved.
- */
+/** @brief White-box accessor for the Thrusters warp curve and fire path. */
 struct ThrustersWhiteBox {
   using FX = Thrusters<DEFAULT_W, DEFAULT_H>;
   using Slot = typename FX::ThrusterContext;
@@ -251,9 +224,7 @@ struct ThrustersWhiteBox {
    * @brief Verifies a collapsed ring still fires.
    * @details theta_eq is radius * pi/2, so a sub-microradian ring puts both
    *          thrust points on ring_vec and drops the spin-axis cross product
-   *          below EPS_NORMALIZE_SQ. Without the normalized_or() fallback the
-   *          normalize() inside the fire traps, so reaching the assertions is
-   *          the check.
+   *          below EPS_NORMALIZE_SQ. Reaching the assertions is the check.
    */
   static void check_collapsed_ring_falls_back_to_a_spin_axis() {
     reset_effect_globals();
@@ -330,13 +301,7 @@ private:
   }
 };
 
-/**
- * @brief White-box accessor for RingShower's radius easing endpoints.
- * @details Befriended in effects/RingShower.h. Reaches the private Ring type to
- *          pin its age+1 convention: the ring must reach RADIUS_MAX on its final
- *          visible frame (age+1 == life) and render a non-zero first step rather
- *          than radius 0. An off-by-one in the convention still renders a ring.
- */
+/** @brief White-box accessor for RingShower's radius easing endpoints. */
 struct RingShowerWhiteBox {
   /**
    * @brief Verifies radius_at hits RADIUS_MAX on the final frame and is non-zero
@@ -365,8 +330,7 @@ struct DynamoWhiteBox {
    * @brief Verifies color() is memory-safe and in-range under inverted bands.
    */
   static void check_overlapping_wipes_stay_in_range() {
-    // Dynamo::init() bakes from persistent_arena and schedules on the shared
-    // global timeline, so reset the shared globals as smoke_one does.
+    // init() bakes from persistent_arena and schedules on the global timeline.
     reset_effect_globals();
 
     Dynamo<DEFAULT_W, DEFAULT_H> effect;
@@ -381,11 +345,9 @@ struct DynamoWhiteBox {
     effect.color_wipe();
     HS_EXPECT_EQ(effect.palette_boundaries.size(), static_cast<size_t>(2));
 
-    // Force the documented worst case: the newer band (index 0) has overtaken
-    // the older (index 1) -> non-monotonic order. The chosen magnitudes also push
-    // the scan past the first iteration into the second boundary and the
-    // baked_palettes[i+1] access for part of the sweep, exercising the bounds
-    // path the safety claim rests on.
+    // The newer band (index 0) overtakes the older (index 1): non-monotonic
+    // order. These magnitudes also reach the second boundary and the
+    // baked_palettes[i+1] access for part of the sweep.
     effect.palette_boundaries[0] = 1.5f; // newer, overtaken ahead of the older
     effect.palette_boundaries[1] = 0.5f; // older, left behind
 
@@ -421,14 +383,9 @@ struct DynamoWhiteBox {
 /**
  * @brief Pins Dynamo's trail-ring ceiling as the thing that keeps the ring from
  *        evicting.
- * @details trail_length_ceiling() caps the live trail at what the ring can hold
- *          for the current emission rate; past it the ring overruns and evicts
- *          points of arbitrary age (flush()'s compaction leaves it unordered),
- *          punching holes in the tail rather than shortening it — corruption
- *          that still renders, so the smoke pass never sees it. Drive the
- *          worst case both sliders allow and assert the requested trail really
- *          would have overrun while the ceiling keeps steady-state occupancy
- *          inside the ring.
+ * @details Past trail_length_ceiling() the ring would evict points of
+ *          arbitrary age. At both sliders' maxima the requested trail would
+ *          overrun while steady-state occupancy stays inside the ring.
  */
 inline void test_dynamo_trail_ceiling_bounds_the_ring() {
   using WB = DynamoWhiteBox;
@@ -461,14 +418,10 @@ inline void test_dynamo_trail_ceiling_bounds_the_ring() {
 
 /**
  * @brief Pins what Dynamo's emitted_points counter actually measures.
- * @details draw_nodes() bumps it from inside the strand's fragment shader, so
- *          the trail-ring ceiling derived from it is only a valid bound while
- *          the rasterizer runs that shader exactly once per point it hands to
- *          the pipeline. Assert that directly: with a trail long enough that
- *          nothing ages out over the window, the ring's growth across a frame
- *          must equal the frame's emitted_points. A rasterizer that shaded a
- *          fragment it then dropped, or plotted one it never shaded, would
- *          silently rescale the bound.
+ * @details draw_nodes() bumps it from the strand's fragment shader, so the
+ *          trail-ring ceiling holds only while the rasterizer shades exactly
+ *          once per point it hands the pipeline. With nothing aging out, the
+ *          ring's growth across a frame must equal emitted_points.
  */
 inline void test_dynamo_emitted_points_counts_ring_seeds() {
   using WB = DynamoWhiteBox;
@@ -493,12 +446,10 @@ inline void test_dynamo_emitted_points_counts_ring_seeds() {
 
 /**
  * @brief White-box accessor for HopfFibration's S3-lift + stereographic
- *        projection (befriended in effects/HopfFibration.h).
- * @details The smoke/determinism harness only proves the effect renders and
- *          reproduces; it never pins hopf_project()'s numeric output. This seam
- *          sets the private per-frame cache (tumble sines/cosines, fold/flow/
+ *        projection.
+ * @details Sets the private per-frame cache (tumble sines/cosines, fold/flow/
  *          tumble-y phases) and a fiber's base coordinates, then calls the real
- *          projection so a test can compare it to the closed form.
+ *          projection.
  */
 struct HopfWhiteBox {
   using HF = HopfFibration<DEFAULT_W, DEFAULT_H>;
@@ -529,14 +480,10 @@ struct HopfWhiteBox {
  *        unit-direction/finite invariant under a nontrivial 4D tumble.
  * @details Identity tumble with zero folding and twist reduces fiber 0
  *          (beta == 0) to a plain S3 lift, whose stereographic image is the
- *          normalized (q0, q1, q2); the check uses the same fast trig the effect
- *          does so it pins the projection, not the trig approximation. The second
- *          pass exercises every fiber under active tumble/fold/twist and requires
- *          each result be finite, unit-length (normalized_or), and deterministic.
+ *          normalized (q0, q1, q2). The second pass requires every fiber to be
+ *          finite, unit-length and deterministic under active tumble/fold/twist.
  */
 inline void test_hopf_projection_math() {
-  // init() bakes from persistent_arena and schedules on the shared timeline, so
-  // reset the shared globals as smoke_one does.
   reset_effect_globals();
   using WB = HopfWhiteBox;
 
@@ -580,20 +527,15 @@ inline void test_hopf_projection_math() {
 }
 
 /**
- * @brief Checks HopfFibration's supported trail lengths at the alpha samples
- *        listed below.
- * @details render_trails() stages points [first, len) and rasterizes
- *          len - first fragments, so a trim that reached len would bind an
- *          empty polyline; the visibility gate ahead of it guarantees
- *          alpha >= MIN_VISIBLE_ALPHA, which clears the trim's own
- *          MIN_ENCODABLE_ALPHA floor and so bounds first at len - 2.
- *          The trim must match its per-sample cutoff and be monotone in alpha:
- *          a brighter trail can never show less of its tail.
+ * @brief Checks HopfFibration's trail trim across supported trail lengths and
+ *        visible alphas.
+ * @details For alpha >= MIN_VISIBLE_ALPHA, first stays at or below len - 2. The
+ *          trim must match its per-sample cutoff and be monotone in alpha.
  */
 inline void test_hopf_trail_trim_keeps_a_segment() {
   using WB = HopfWhiteBox;
   using HF = HopfFibration<DEFAULT_W, DEFAULT_H>;
-  // Ascending, and all at or above the gate render_trails() applies first.
+  // Ascending, all at or above MIN_VISIBLE_ALPHA.
   const float alphas[] = {MIN_VISIBLE_ALPHA, 0.005f, 0.01f, 0.05f, 0.4f, 1.0f};
   for (size_t len = 2; len <= static_cast<size_t>(HF::TRAIL_LEN); ++len) {
     size_t brighter = len;

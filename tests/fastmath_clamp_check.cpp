@@ -2,10 +2,8 @@
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
  * Licensed under the PolyForm Noncommercial License 1.0.0
  */
-// Compiles the same NaN-clamp assertions as run_tests but under the WASM release
-// math flags (-O3 -ffast-math -fno-finite-math-only, set in tests/CMakeLists.txt)
-// so the hs::clamp NaN->hi contract is verified against the codegen that ships,
-// not only the default-IEEE-semantics build.
+// Runs the hs::clamp NaN->hi assertions under the WASM release math flags
+// (-O3 -ffast-math -fno-finite-math-only).
 #include "core/engine/engine.h"
 #include "tests/test_color.h"
 #include "tests/test_harness.h"

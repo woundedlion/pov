@@ -3,8 +3,6 @@
  * Licensed under the PolyForm Noncommercial License 1.0.0
  */
 
-// Included by tests/test_death.h.
-
 // --- Individual death cases — each MUST trap (HS_CHECK / __builtin_trap) ------
 
 // Mesh death fixtures and guard cases.
@@ -23,9 +21,8 @@ inline void case_hankin_clone_aliases_dst() {
 
 /**
  * @brief Death case: a face-offsets span with the wrong length must trap.
- * @details Mesh-borrow surface — the accessors index offsets by face, so an
- *          offsets array that is not one entry per face would read past its end
- *          on the solid scan path; set_borrowed rejects it at the install site.
+ * @details The accessors index offsets by face, so an offsets array that is
+ *          not one entry per face would read past its end.
  */
 inline void case_mesh_state_set_borrowed_offsets_count_mismatch() {
   static uint8_t buf[1024];
@@ -73,9 +70,7 @@ inline void case_mesh_state_set_borrowed_offsets_short_span() {
 
 /**
  * @brief Death case: an empty topology span carrying a non-zero key must trap.
- * @details Mesh-borrow surface — the key names the connectivity a topology was
- *          classified for, so a key with no span behind it would hand a
- *          downstream reuse check a classification the mesh does not carry.
+ * @details The key names the connectivity a topology was classified for.
  */
 inline void case_mesh_state_set_borrowed_keyed_empty_topology() {
   static uint8_t buf[1024];
@@ -140,7 +135,6 @@ inline void case_half_edge_zero_side_face() {
  * @brief Death case: >2 half-edges on one undirected edge must trap.
  * @details Mesh-topology surface — three faces share edge (0,1), so the pairing
  *          pass sees a run of three where a 2-manifold allows at most two.
- *          Pairing the first two would leave the third silently unpaired.
  */
 inline void case_half_edge_non_manifold_edge() {
   static uint8_t buf[2048];
@@ -158,9 +152,7 @@ inline void case_half_edge_non_manifold_edge() {
  * @brief Death case: two faces wound the same way around a shared edge must
  *        trap.
  * @details Mesh-topology surface — both triangles traverse edge (0,1) in the
- *          same direction, so the undirected pairing key matches and they would
- *          otherwise pair into a mesh that passes require_closed_manifold while
- *          every vertex_orbit walk through the pair runs backwards.
+ *          same direction, so the undirected pairing key matches.
  */
 inline void case_half_edge_inconsistent_winding() {
   static uint8_t buf[2048];
@@ -176,9 +168,7 @@ inline void case_half_edge_inconsistent_winding() {
 
 /**
  * @brief Death case: a face side count past uint8_t must trap.
- * @details Mesh-topology surface — every operator narrows its output valence
- *          through this shared guard, so a high-valence orbit traps instead of
- *          wrapping the uint8_t face_counts entry.
+ * @details Traps instead of wrapping the uint8_t face_counts entry.
  */
 inline void case_mesh_narrow_face_count() {
   uint8_t c = MeshOps::narrow_face_count(opaque(UINT8_MAX + 1)); // -> HS_CHECK
@@ -186,12 +176,7 @@ inline void case_mesh_narrow_face_count() {
     std::printf("x");
 }
 
-/**
- * @brief Death case: an open mesh must trap the closed-manifold requirement.
- * @details Mesh-topology surface — operators size their output pools from
- *          E = I/2, so a lone triangle's three unpaired half-edges are rejected
- *          up front instead of overrunning a pool far from the cause.
- */
+/** @brief Death case: an open mesh must trap the closed-manifold requirement. */
 inline void case_mesh_require_closed_manifold() {
   static uint8_t buf[1024];
   Arena arena(buf, sizeof(buf));
@@ -207,9 +192,7 @@ inline void case_mesh_require_closed_manifold() {
 /**
  * @brief Death case: a bowtie vertex must trap the closed-manifold requirement.
  * @details Mesh-topology surface — two tetrahedra joined at vertex 0 are closed
- *          and edge-manifold, so only the fan pass catches them; the orbit
- *          scaffolding would otherwise emit one face from the first fan and
- *          silently drop the second.
+ *          and edge-manifold, so only the fan pass catches them.
  */
 inline void case_mesh_require_vertex_manifold() {
   static uint8_t buf[4096];
@@ -327,13 +310,7 @@ inline void case_reconcile_vertices_empty() {
   MeshOps::reconcile_vertices(identity, authored, out, target, scratch);
 }
 
-/**
- * @brief Death case: narrowing an index past the int16 topology range must trap.
- * @details Mesh-topology surface — both conway.h and hankin.h route every output
- *          vertex/face-index narrowing through this shared MeshOps guard, so a
- *          future MeshLimits::MAX_VERTICES bump traps at the bench instead of silently wrapping
- *          an index and corrupting topology.
- */
+/** @brief Death case: narrowing an index past the int16 topology range must trap. */
 inline void case_mesh_narrow_index() {
   size_t over = static_cast<size_t>(INT16_MAX) + 1;
   uint16_t i = MeshOps::narrow_index(opaque(over)); // > INT16_MAX -> HS_CHECK
@@ -505,8 +482,6 @@ inline void case_conway_target_exhausted() {
 /**
  * @brief Death case: relax_baked rejects a bake whose vertex count differs from
  *        the source mesh.
- * @details Baked-payload surface — the dimension check is what stops a payload
- *          baked against different geometry from being read past its end.
  */
 inline void case_relax_baked_dimension_mismatch() {
   static uint8_t source_buf[4096];
@@ -524,9 +499,7 @@ inline void case_relax_baked_dimension_mismatch() {
 
 /**
  * @brief Death case: relax_baked rejects a bake whose topology hash differs.
- * @details Baked-payload surface — dimensions alone do not pin connectivity, so
- *          this check is what stops a bake replaying onto a mesh of the same
- *          size but different face wiring.
+ * @details Dimensions alone do not pin connectivity.
  */
 inline void case_relax_baked_topology_mismatch() {
   static uint8_t source_buf[4096];
@@ -564,9 +537,7 @@ inline void case_relax_baked_source_mismatch() {
 /**
  * @brief Death case: relax_baked rejects a payload whose re-hash differs from
  *        the bake's output hash.
- * @details Baked-payload surface — the only check covering the vertex words
- *          themselves, so a corrupt or truncated flash payload stops here
- *          rather than shipping as geometry.
+ * @details Covers the baked vertex words themselves.
  */
 inline void case_relax_baked_output_hash_mismatch() {
   static uint8_t source_buf[4096];
@@ -676,9 +647,8 @@ inline void case_mesh_compile_face_span_over_16bit() {
 /**
  * @brief Death case: update_hankin rejects a retained topology that no
  *        classification of this pattern's output ever produced.
- * @details The topology array survives an angle re-solve on purpose, so a mesh
- *          pointed at a new pattern would otherwise carry class ids that no
- *          longer match the faces written into it.
+ * @details The topology array survives an angle re-solve, so a mesh pointed at
+ *          a new pattern would carry stale class ids.
  */
 inline void case_update_hankin_stale_topology() {
   static uint8_t geom_buf[64 * 1024];
@@ -733,10 +703,8 @@ inline void case_update_hankin_dual_seed_topology() {
 /**
  * @brief Death case: update_hankin rejects a borrowed-mode topology from a
  *        different compiled pattern.
- * @details A borrowed MeshState reports its topology through the view, not the
- *          owned array, and update_hankin drops that view on entry — so the
- *          reuse check has to sample the size before the drop or a borrowed
- *          mesh walks past it.
+ * @details A borrowed MeshState reports its topology through the view, which
+ *          update_hankin drops on entry.
  */
 inline void case_update_hankin_borrowed_stale_topology() {
   static uint8_t geom_buf[192 * 1024];
@@ -770,9 +738,7 @@ inline void case_update_hankin_borrowed_stale_topology() {
 
 /**
  * @brief Death case: update_hankin rejects a non-finite contact angle.
- * @details Hankin surface — the half-angle sine and cosine carry a NaN into
- *          every star point, and normalized_or's dot(v, v) < EPS guard is
- *          false for NaN, so the whole pattern mesh reaches the rasterizer.
+ * @details normalized_or's dot(v, v) < EPS guard is false for NaN.
  */
 inline void case_update_hankin_nonfinite_angle() {
   static uint8_t buf[1024];

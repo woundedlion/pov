@@ -3,8 +3,6 @@
  * Licensed under the PolyForm Noncommercial License 1.0.0
  */
 
-// Included by tests/test_death.h.
-
 // --- Individual death cases — each MUST trap (HS_CHECK / __builtin_trap) ------
 
 // Registry death fixtures and guard cases.
@@ -26,8 +24,6 @@ inline void case_effect_registry_name_matches_stable_id() {
 
 /**
  * @brief Death case: registering two effects under one name must trap.
- * @details Registry surface — the name keys the factory lookup and the
- *          lookup namespace, so duplicate names must be rejected.
  */
 inline void case_effect_registry_duplicate_name() {
   EffectRegistration reg{};

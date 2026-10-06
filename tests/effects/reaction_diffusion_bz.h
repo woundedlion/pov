@@ -3,22 +3,14 @@
  * Licensed under the PolyForm Noncommercial License 1.0.0
  */
 
-// Included by tests/test_effects.h.
-
 // ---------------------------------------------------------------------------
 // Belousov-Zhabotinsky reaction-diffusion: white-box dynamics coverage
 // ---------------------------------------------------------------------------
 
 /**
  * @brief White-box accessor for BZReactionDiffusion's private fixed-point and
- *        physics internals (befriended in effects/BZReactionDiffusion.h).
- * @details The matching seam to GSWhiteBox: the smoke/determinism harness cannot
- *          see a Q16 round-trip error, a sign/clamp slip in the Lotka-Volterra
- *          update, or a perturbation that wraps past the Q16 rail, so the
- *          conversions, one species step, the perturbation, and one fused physics
- *          substep are pinned directly. The lattice is the same fixed 7680-node
- *          graph as GS, independent of <W,H>, so the small-aspect resolution is
- *          used arbitrarily.
+ *        physics internals.
+ * @details The lattice is independent of <W,H>.
  */
 struct BZWhiteBox {
   using BZ = BZReactionDiffusion<SMALL_W, SMALL_H>;
@@ -78,10 +70,8 @@ struct BZWhiteBox {
   /**
    * @brief Sweeps a <W,H> frame of cubemap-LUT seeds and compares the certified
    *        render-center early-out against the unconditional argmin walk.
-   * @details Mirrors GSWhiteBox::shared_shader_error's center check. The seeds
-   *          come from seed_face_lut, the way render() draws them, so a
-   *          quantized seed that is not already the nearest node actually
-   *          reaches the walk; refined_seeds counts those.
+   * @details Seeds come from seed_face_lut, so a quantized seed that is not
+   *          the nearest node reaches the walk; refined_seeds counts those.
    */
   template <int W, int H> static CenterError render_center_error(BZ &bz) {
     ScratchScope guard(scratch_arena_a);
@@ -169,7 +159,7 @@ struct BZWhiteBox {
   }
 };
 
-/** @brief Pins the three legacy BZ species colors. */
+/** @brief Pins the BZ species colors. */
 inline void test_bz_legacy_palette() {
   reset_effect_globals();
   BZWhiteBox::BZ bz;
@@ -193,8 +183,7 @@ inline void test_bz_legacy_palette() {
  *        boundaries.
  * @details to_q16(from_q16(v)) must be the identity over every representable
  *          value, and to_q16 must clamp out-of-range floats and round to nearest
- *          (so 1.0 tops out at 65535 with no overflow). A truncating or unclamped
- *          regression — which would bias the RD dynamics downward — fails here.
+ *          (so 1.0 tops out at 65535 with no overflow).
  */
 inline void test_bz_q16_roundtrip() {
   HS_EXPECT_EQ(BZWhiteBox::to_q16(0.0f), (uint16_t)0);
@@ -213,12 +202,8 @@ inline void test_bz_q16_roundtrip() {
 /**
  * @brief Verifies the state resolution carries Diff's minimum step at default Speed.
  * @details A cold node beside one saturated neighbour at Diff's 0.001 floor
- *          and the default Speed (0.35) receives D·lap·dt =
- *          0.001·1·0.35 = 3.5e-4 of full scale. A store whose half-LSB exceeds
- *          that discards it, the node never changes, and the lattice degrades
- *          into uncoupled per-node ODEs while the reaction term keeps running.
- *          Drive advance_species at exactly that operating point and require the
- *          stored sample to move.
+ *          and Speed 0.35 receives D·lap·dt = 3.5e-4 of full scale; the stored
+ *          sample must move.
  */
 inline void test_bz_min_diffusion_step_survives_quantization() {
   BZWhiteBox::BZ bz;
@@ -226,8 +211,7 @@ inline void test_bz_min_diffusion_step_survives_quantization() {
   // Cold node, one saturated neighbour out of RD_K: lap = 1, reaction term 0.
   HS_EXPECT_GT((int)BZWhiteBox::advance_species(bz, 0.0f, 0.0f, /*lap*/ 1.0f),
                0);
-  // The same gradient one LSB above the floor still resolves, so the response
-  // is graded rather than a single lucky rounding boundary.
+  // The same gradient one LSB above the floor still resolves.
   const float lsb = BZWhiteBox::from_q16(1);
   HS_EXPECT_GT((int)BZWhiteBox::advance_species(bz, lsb, 0.0f, /*lap*/ 1.0f),
                (int)BZWhiteBox::to_q16(lsb));
@@ -238,12 +222,8 @@ inline void test_bz_min_diffusion_step_survives_quantization() {
  *        that the Q16 clamp backstop holds even past the Euler stability bound.
  * @details advance_species is the single-species core of the BZ update:
  *          conc + (D·laplacian + conc·(1 − conc − α·predator))·dt, mapped through
- *          to_q16. Checks: an empty rest cell stays empty (no spurious growth);
- *          diffusion from higher neighbors grows an empty cell; logistic growth
- *          lifts a half-filled, predator-free cell; predation underflow clamps to
- *          0 (not a uint16 wrap to 65535); and extreme over-/under-shoots — the
- *          documented to_q16 backstop the comment in the effect promises — clamp
- *          to the [0, 65535] rails rather than wrapping.
+ *          to_q16. Extreme over- and under-shoots clamp to the [0, 65535]
+ *          rails rather than wrapping.
  */
 inline void test_bz_advance_species_signs_and_clamp() {
   BZWhiteBox::BZ bz;
@@ -276,18 +256,14 @@ inline void test_bz_advance_species_signs_and_clamp() {
 /**
  * @brief Verifies perturb_state nudges nodes by a fixed Q16 amount and saturates
  *        at the 65535 rail without wrapping.
- * @details Two RNG-agnostic invariants, at the dt = 1 top of the Speed slider
- *          where the nudge is the full PERTURB_AMOUNT. (1) A fully-saturated
- *          field stays fully saturated: every nudge is a saturating add, so a
- *          node already at 65535 cannot wrap to a low value. (2) On a zero
- *          field, each touched entry is a small positive multiple of the nudge
- *          step and stays within [0, 65535], and at least one entry is touched —
- *          whichever nodes the deterministic RNG happens to select.
+ * @details At dt = 1 the nudge is the full PERTURB_AMOUNT. A saturated field
+ *          stays saturated; on a zero field every touched entry is a multiple
+ *          of the nudge step, and at least one entry is touched.
  */
 inline void test_bz_perturb_state_saturates_and_nudges() {
   BZWhiteBox::BZ bz;
   BZWhiteBox::set_params(bz, /*alpha*/ 3.0f, /*D*/ 0.05f, /*dt*/ 1.0f);
-  // (1) Saturation / no-wrap: all rails stay at the rail.
+  // Saturation / no-wrap: all rails stay at the rail.
   {
     std::vector<uint16_t> a(BZWhiteBox::N, 65535), b(BZWhiteBox::N, 65535),
         c(BZWhiteBox::N, 65535);
@@ -298,7 +274,7 @@ inline void test_bz_perturb_state_saturates_and_nudges() {
         ++wrapped;
     HS_EXPECT_EQ(wrapped, 0);
   }
-  // (2) Zero field: touched entries are small positive multiples of the step.
+  // Zero field: touched entries are small positive multiples of the step.
   {
     const int step = BZWhiteBox::perturb_amount();
     std::vector<uint16_t> a(BZWhiteBox::N, 0), b(BZWhiteBox::N, 0),
@@ -321,16 +297,8 @@ inline void test_bz_perturb_state_saturates_and_nudges() {
 /**
  * @brief Pins perturb_state's per-frame draw count on the shared RNG stream.
  * @details perturb_state advances hs::random() by exactly 2*NUM_PERTURBATIONS
- *          draws (idx + species per nudge). That count is part of the global
- *          determinism contract: every later effect's stream position depends on
- *          it, so a substep/perturbation retune that changes the draw count
- *          silently shifts all downstream effects. Reproduce the post-call stream
- *          position with a private generator stepped exactly that many times and
- *          require the global generator to be at the same position (next outputs
- *          equal), failing if the count drifts in either direction. Checked at
- *          both ends of the Speed slider: the nudge magnitude scales with dt but
- *          the draw count must not, or a paused sphere would desynchronise every
- *          downstream effect.
+ *          draws (idx + species per nudge) at both ends of the Speed slider;
+ *          downstream stream positions depend on that count.
  */
 inline void test_bz_perturb_state_draw_count_pinned() {
   const int expected_draws = 2 * BZWhiteBox::num_perturbations();
@@ -406,16 +374,9 @@ inline void test_bz_perturb_scales_with_timestep() {
 /**
  * @brief Verifies one fused physics substep diffuses a seeded species into its
  *        neighborhood with the right sign, in place.
- * @details Seed species A fully at one interior node on an otherwise-empty field
- *          and run a single step. The seed's neighbors start empty but border a
- *          saturated node, so their graph-Laplacian is positive and A must
- *          diffuse into at least one of them; the seed node itself stays lit
- *          (it decays but does not vanish or wrap in one step). The step writes
- *          the new generation over the state it read, so the same buffers carry
- *          the result — a Laplacian reading the half-written state instead of
- *          the float mirror would spread the seed asymmetrically along node
- *          order. The stochastic perturbation runs too, but the seed-neighbor
- *          diffusion is independent of which nodes it nudges.
+ * @details A single step from one fully-seeded interior node: A must diffuse
+ *          into at least one empty neighbor and the seed must stay lit. The step
+ *          writes the new generation over the state it read.
  */
 inline void test_bz_substep_diffuses() {
   std::vector<uint16_t> sA(BZWhiteBox::N, 0), sB(BZWhiteBox::N, 0),
@@ -441,8 +402,8 @@ inline void test_bz_substep_diffuses() {
 
 /**
  * @brief Pins the optimized BZ raster against its scalar sampling contract.
- * @details reference_shade composites the four SSAA samples the naive way: it
- *          normalizes each sample to concentrations, blends the palette into a
+ * @details reference_shade normalizes each SSAA sample to concentrations,
+ *          blends the palette into a
  *          uint16 Pixel, premultiplies by that sample's coverage, and adds the
  *          result into a uint16 accumulator. shade_pixel fuses the same algebra
  *          into float species coefficients and quantizes once at the end, so
@@ -507,14 +468,11 @@ inline void test_bz_raster_matches_reference() {
 /**
  * @brief Requires BZ's certified render-center early-out to agree with the
  *        unconditional argmin on production-resolution, LUT-seeded pixels.
- * @details shade_pixel centers its stencil with refine_render_center, which
- *          returns the seed unwalked inside BULK_CERTIFIED_D2 /
- *          POLE_CERTIFIED_D2. Only a cubemap-LUT seed — what render()'s vertex
- *          shader produces — can be a non-nearest node, so a sweep seeded from
- *          an exact argmin cannot tell the two refiners apart at all. A few
- *          frames of the orientation random walk move the lattice off its
- *          initial alignment first. refined_seeds must be nonzero or the
- *          comparison passed without ever exercising the walk.
+ * @details refine_render_center returns the seed unwalked inside
+ *          BULK_CERTIFIED_D2 / POLE_CERTIFIED_D2. Only a cubemap-LUT seed can be
+ *          a non-nearest node. A few frames of the orientation random walk move
+ *          the lattice off its initial alignment first; refined_seeds must be
+ *          nonzero.
  */
 inline void test_bz_render_center_matches_reference() {
   hs_test::reset_globals();

@@ -3,21 +3,11 @@
  * Licensed under the PolyForm Noncommercial License 1.0.0
  */
 
-// Included by tests/test_effects.h.
-
 // ---------------------------------------------------------------------------
 // MeshFeedback: draw ordering, base-mesh selection, export arity and storage
 // ---------------------------------------------------------------------------
 
-/**
- * @brief White-box accessor for MeshFeedback's style / noise / preset state.
- * @details Befriended in effects/MeshFeedback.h. draw_frame runs four blocks
- *          whose ORDER is the contract — the preset switch leads apply_params()
- *          so the flush reads one preset's scalars, and the flush leads the mesh
- *          draw so the frame's own wireframe survives it. Reordering them is the
- *          cheapest possible refactor and changes the image. The roster sweeps
- *          do not inspect switch-frame noise state.
- */
+/** @brief White-box accessor for MeshFeedback's style / noise / preset state. */
 struct MeshFeedbackWhiteBox {
   using MF = MeshFeedback<SMALL_W, SMALL_H>;
 
@@ -46,8 +36,6 @@ struct MeshFeedbackWhiteBox {
  * @param out Receives the displayed frame, SMALL_W * SMALL_H pixels row-major.
  * @param frames Number of frames to render.
  * @param feedback Value written to the Feedback toggle before the first frame.
- * @details Resets the same globals render_capture() does, so a feedback-on and a
- *          feedback-off run draw the identical wireframe on the identical frame.
  */
 inline void meshfeedback_capture(std::vector<Pixel> &out, int frames,
                                  bool feedback) {
@@ -71,14 +59,9 @@ inline void meshfeedback_capture(std::vector<Pixel> &out, int frames,
 
 /**
  * @brief Verifies the feedback flush never decays the same frame's wireframe.
- * @details The flush composites the warped previous frame at alpha 1, i.e. it
- *          OVERWRITES the draw buffer; running it after the mesh draw would
- *          erase the frame's own wireframe and leave nothing but exponentially
- *          decaying history. Compares a feedback-on render against a
- *          feedback-off one of the same frame: with the flush leading, every
- *          channel of the on-render is at least the off-render's (the wireframe
- *          is laid over a brighter-or-equal background), and the trails make it
- *          strictly greater somewhere.
+ * @details The flush overwrites the draw buffer with the warped previous
+ *          frame. With the flush leading, every channel of a feedback-on render
+ *          is at least the feedback-off render's, and strictly greater somewhere.
  */
 inline void test_meshfeedback_flush_precedes_mesh_draw() {
   // Well past the empty-history early-out, short of the preset rotation.
@@ -109,13 +92,8 @@ inline void test_meshfeedback_flush_precedes_mesh_draw() {
 
 /**
  * @brief Drives the preset rotation and pins the switch-frame noise sync.
- * @details PRESET_DWELL_FRAMES is 241. Crosses two boundaries and requires the selector to
- *          step one entry each time — the second boundary only lands on frame
- *          482 if the first switch re-armed the dwell — and, the ordering
- *          contract, requires the bound NoiseParams to already carry the
- *          incoming preset's scalars when the switch frame ends: apply_params()
- *          runs after step_choreography(), so the flush that frame
- *          reads one preset's fade and noise, not two.
+ * @details Crosses two dwell boundaries. The bound NoiseParams must already
+ *          carry the incoming preset's scalars when the switch frame ends.
  */
 inline void test_meshfeedback_preset_rotation_syncs_noise() {
   using WB = MeshFeedbackWhiteBox;

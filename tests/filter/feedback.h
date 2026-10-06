@@ -3,8 +3,6 @@
  * Licensed under the PolyForm Noncommercial License 1.0.0
  */
 
-// Included by tests/test_filter.h.
-
 // ============================================================================
 // Pixel::Feedback — Style binding + enable flag (no flush / no Canvas)
 // ============================================================================
