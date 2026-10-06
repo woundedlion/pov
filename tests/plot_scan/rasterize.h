@@ -160,8 +160,7 @@ inline void test_rasterize_antipodal_seam_planar_falls_back_geodesic() {
   fx.advance_display();
 
   HS_EXPECT_SIZE_OR_RETURN(planar_pipe.plotted, geo_pipe.plotted.size());
-  size_t n = std::min(planar_pipe.plotted.size(), geo_pipe.plotted.size());
-  for (size_t i = 0; i < n; ++i)
+  for (size_t i = 0; i < planar_pipe.plotted.size(); ++i)
     HS_EXPECT_NEAR((planar_pipe.plotted[i] - geo_pipe.plotted[i]).length(),
                    0.0f, 1e-5f);
 }
