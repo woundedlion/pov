@@ -151,6 +151,18 @@ def _stop_bash(process, pid):
         "fixture-wait", str(pid)], check=True, timeout=5)
 
 
+def _live_pid(test_case):
+    p, pid = _live_bash()
+    test_case.addCleanup(_stop_bash, p, pid)
+    return pid
+
+
+def _dead_pid():
+    p, pid = _live_bash()
+    _stop_bash(p, pid)
+    return pid
+
+
 class LockStaleness(unittest.TestCase):
     def setUp(self):
         self.d = Path(tempfile.mkdtemp()) / "lock.d"
@@ -160,11 +172,6 @@ class LockStaleness(unittest.TestCase):
     def _write_info(self, pid, started, deadline):
         (self.d / "info").write_text(
             f"pid={pid}\nstarted={started}\ndeadline={deadline}\n")
-
-    def _live_pid(self):
-        p, pid = _live_bash()
-        self.addCleanup(_stop_bash, p, pid)
-        return pid
 
     def _age_dir(self, seconds):
         old = time.time() - seconds
@@ -182,12 +189,12 @@ class LockStaleness(unittest.TestCase):
 
     def test_live_holder_within_eta_is_not_stale(self):
         now = int(time.time())
-        self._write_info(self._live_pid(), now, now + 600)
+        self._write_info(_live_pid(self), now, now + 600)
         self.assertFalse(is_stale(self.d))
 
     def test_live_holder_past_eta_and_grace_is_not_stale(self):
         now = int(time.time())
-        self._write_info(self._live_pid(), now - 900, now - GRACE - 60)
+        self._write_info(_live_pid(self), now - 900, now - GRACE - 60)
         self.assertFalse(is_stale(self.d))
 
     def test_incomplete_pidless_claim_past_eta_within_grace_is_not_stale(self):
@@ -198,20 +205,14 @@ class LockStaleness(unittest.TestCase):
 
     def test_dead_holder_is_stale(self):
         now = int(time.time())
-        self._write_info(self._dead_pid(), now - 300, now + 600)
+        self._write_info(_dead_pid(), now - 300, now + 600)
         self.assertTrue(is_stale(self.d))
 
     def test_dead_holder_claimed_seconds_ago_is_not_stale(self):
         # A dead holder with a complete claim stays within its 60 s start grace.
         now = int(time.time())
-        self._write_info(self._dead_pid(), now, now + 600)
+        self._write_info(_dead_pid(), now, now + 600)
         self.assertFalse(is_stale(self.d))
-
-    @staticmethod
-    def _dead_pid():
-        p, pid = _live_bash()
-        _stop_bash(p, pid)
-        return pid
 
 
 class LockBreak(unittest.TestCase):
@@ -396,14 +397,9 @@ class BoardSelection(unittest.TestCase):
         d.mkdir(parents=True)
         now = int(time.time())
         (d / "info").write_text(
-            f"token=peer\nsession=peer\npid={pid or self._live_pid()}\n"
+            f"token=peer\nsession=peer\npid={pid or _live_pid(self)}\n"
             f"port={port}\neffect=Peer\nenv=profile\nstarted={now}\n"
             f"deadline={now + deadline_in}\n")
-
-    def _live_pid(self):
-        p, pid = _live_bash()
-        self.addCleanup(_stop_bash, p, pid)
-        return pid
 
     def test_acquires_a_board_and_pins_the_port(self):
         r = run_lock('hs_device_acquire E profile 60 && echo "PORT=$HS_TEENSY_PORT"',
@@ -427,14 +423,14 @@ class BoardSelection(unittest.TestCase):
 
     def test_free_board_is_preferred_over_breaking_a_stale_lock(self):
         # A stale lock is never broken while another board sits free.
-        self.hold("COM3", deadline_in=-(GRACE + 60), pid=self._dead_pid())
+        self.hold("COM3", deadline_in=-(GRACE + 60), pid=_dead_pid())
         r = run_lock('hs_device_acquire E profile 60 && echo "PORT=$HS_TEENSY_PORT"',
                      self.base)
         self.assertIn("PORT=COM4", r.stdout)
         self.assertNotIn("breaking", r.stderr)
 
     def test_stale_lock_is_broken_when_no_board_is_free(self):
-        self.hold("COM3", deadline_in=-(GRACE + 60), pid=self._dead_pid())
+        self.hold("COM3", deadline_in=-(GRACE + 60), pid=_dead_pid())
         self.hold("COM4")
         r = run_lock('hs_device_acquire E profile 60 && echo "PORT=$HS_TEENSY_PORT"',
                      self.base)
@@ -454,7 +450,7 @@ class BoardSelection(unittest.TestCase):
         self.assertTrue((directory / "info").is_file())
 
     def test_a_claim_retaken_mid_break_is_not_evicted(self):
-        self.hold("COM3", deadline_in=-(GRACE + 60), pid=self._dead_pid())
+        self.hold("COM3", deadline_in=-(GRACE + 60), pid=_dead_pid())
         self.hold("COM4")
         script = (
             '_hs_break_stale() { echo "token=peerB" > "$1/info"; '
@@ -567,12 +563,6 @@ class BoardSelection(unittest.TestCase):
         r = run_lock(script, self.base)
         self.assertIn("DONE", r.stdout)
         self.assertEqual(r.returncode, 0)
-
-    @staticmethod
-    def _dead_pid():
-        p, pid = _live_bash()
-        _stop_bash(p, pid)
-        return pid
 
 
 class MissingLockRoot(unittest.TestCase):
