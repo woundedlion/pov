@@ -1666,13 +1666,18 @@ inline void test_scan_region_clip_arc_matches_predicate() {
   for (bool handled : {true, false}) {
     int reference[W];
     run(no_clip, handled, reference);
+    for (int x = 0; x < W; ++x)
+      HS_EXPECT_EQ(reference[x], !handled || x <= 4 || x >= W - 4 ? 1 : 0);
     for (const auto &xc : {arc, wrap_arc}) {
       int counts[W];
       run(xc, handled, counts);
+      int kept = 0;
       for (int x = 0; x < W; ++x) {
         HS_EXPECT_LE(counts[x], 1);
         HS_EXPECT_EQ(counts[x], xc.clipped(x) ? 0 : reference[x]);
+        kept += counts[x];
       }
+      HS_EXPECT_GT(kept, 0);
     }
   }
 }
