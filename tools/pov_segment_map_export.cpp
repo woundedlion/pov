@@ -30,7 +30,7 @@ struct Config {
   int segments; /**< N: segment count (power of two <= 8). */
 };
 
-// Configurations swept by tests/segment_crosscheck.test.js.
+// Configurations swept by daydream's tests/segment_crosscheck.test.js.
 constexpr Config CONFIGS[] = {
     {288, 2}, {288, 4}, {288, 8}, {8, 4}, {8, 8},
 };
