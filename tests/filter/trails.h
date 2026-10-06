@@ -403,12 +403,7 @@ inline void test_screen_trails_at_capacity_replaces_last_slot() {
   HS_EXPECT_EQ(emitted[MAXP - 1], static_cast<float>(MAXP + 1));
 }
 
-/**
- * @brief Verifies the two-callback flush() drains a pipeline that carries
- *        history in both domains.
- * @details The 3D pass runs first, so its re-emissions reach Screen::Trails
- *          in the same frame they are drawn.
- */
+/** @brief Shortening screen trails caps remaining lifetime and fade progress. */
 inline void test_screen_trails_set_lifetime_caps_ttl() {
   uint8_t buf[Filter::Screen::Trails<4>::STORAGE_BYTES];
   Arena arena(buf, sizeof(buf));
@@ -446,7 +441,7 @@ inline void test_trails_alpha_gates() {
   int forwards = 0, emitted = 0;
   auto pass = [&](float, float, const Pixel &, float, float) { ++forwards; };
   screen.plot(1, 2, Pixel(1, 2, 3), 0, 0, pass);
-  screen.plot(1, 2, Pixel(1, 2, 3), 0, TRAIL_EMIT_ALPHA_FLOOR, pass);
+  screen.plot(1, 2, Pixel(1, 2, 3), 0, Filter::TRAIL_EMIT_ALPHA_FLOOR, pass);
   HS_EXPECT_EQ(forwards, 2);
   auto visible = [](float, float, float) {
     return Color4(Pixel(1, 2, 3), 1.0f);
@@ -459,7 +454,7 @@ inline void test_trails_alpha_gates() {
   screen.plot(1, 2, Pixel(1, 2, 3), 0, 1, pass);
   world.plot(math::X_AXIS, Pixel(1, 2, 3), 0, 1,
              [](const math::Vector &, const Pixel &, float, float) {});
-  for (float alpha : {0.0f, TRAIL_EMIT_ALPHA_FLOOR, 1.0f}) {
+  for (float alpha : {0.0f, Filter::TRAIL_EMIT_ALPHA_FLOOR, 1.0f}) {
     emitted = 0;
     auto screen_trail = [=](float, float, float) {
       return Color4(Pixel(1, 2, 3), alpha);
