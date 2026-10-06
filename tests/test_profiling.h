@@ -236,12 +236,18 @@ inline void test_reset_all_clears_counts() {
   }
   HS_EXPECT_TRUE(inner.mixed_parent);
   outer.cycles = 4242;
+  outer.mixed_parent = true;
   inner.cycles = 99;
+  other.cycles = 77;
 
   hs::CycleCounter::reset_all();
 
   HS_EXPECT_EQ(outer.cycles, 0u);
   HS_EXPECT_EQ(outer.count, 0u);
+  HS_EXPECT_FALSE(outer.mixed_parent);
+  HS_EXPECT_EQ(other.cycles, 0u);
+  HS_EXPECT_EQ(other.count, 0u);
+  HS_EXPECT_FALSE(other.mixed_parent);
   HS_EXPECT_EQ(inner.cycles, 0u);
   HS_EXPECT_EQ(inner.count, 0u);
   HS_EXPECT_FALSE(inner.mixed_parent);
