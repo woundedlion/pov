@@ -1,5 +1,6 @@
 import sys
 import unittest
+from unittest import mock
 from pathlib import Path
 
 GEN = Path(__file__).resolve().parent.parent
@@ -114,6 +115,33 @@ class DumpsTests(unittest.TestCase):
 
     def test_repeated_junctions_collapse_to_one(self):
         self.assertEqual(self.build().dumps().count("\t(junction\n"), 1)
+
+    def test_derived_properties_override_and_extend_the_base(self):
+        base = ['symbol', 'Base', ['property', 'Value', 'base'],
+                ['symbol', 'Base_1_1']]
+        derived = ['symbol', 'Derived', ['property', 'Value', 'derived'],
+                   ['property', 'Manufacturer', 'Vendor']]
+        builder._overlay_props(base, derived)
+        self.assertEqual(base, ['symbol', 'Base',
+                               ['property', 'Value', 'derived'],
+                               ['property', 'Manufacturer', 'Vendor'],
+                               ['symbol', 'Base_1_1']])
+        derived[3][2] = 'changed'
+        self.assertEqual(base[3][2], 'Vendor')
+
+    def test_flattened_stock_symbol_keeps_derived_only_fields(self):
+        symbols = {
+            'Base': ['symbol', 'Base', ['property', 'Value', 'base'],
+                     ['symbol', 'Base_1_1']],
+            'Derived': ['symbol', 'Derived', ['extends', 'Base'],
+                        ['property', 'Manufacturer', 'Vendor']],
+        }
+        with mock.patch.object(sexp, 'get_symbol', side_effect=lambda lib, name: symbols[name]):
+            resolved = builder.Builder('Test')._resolve('Test', 'Derived')
+        self.assertEqual(resolved[1], 'Derived')
+        self.assertEqual(sexp.val(resolved, 'property'), ['Value', 'base'])
+        self.assertIn(['property', 'Manufacturer', 'Vendor'], resolved)
+        self.assertIn(['symbol', 'Derived_1_1'], resolved)
 
 
 class SchematicPinnedTests(unittest.TestCase):
