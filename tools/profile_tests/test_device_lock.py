@@ -525,15 +525,6 @@ class BoardSelection(unittest.TestCase):
                      env={"HS_TEENSY_PORT": "COM3"})
         self.assertIn("PIN=[COM3]", r.stdout)
 
-    def test_release_leaves_a_lock_reclaimed_by_a_peer(self):
-        # Our claim was broken as stale and re-taken; our teardown must not
-        # unlock the board out from under whoever holds it now.
-        script = ('hs_device_acquire E profile 60; '
-                  f'echo token=peer > "{self.base}-COM3.d/info"; '
-                  'hs_device_release')
-        run_lock(script, self.base)
-        self.assertTrue(self.lock_dir("COM3").is_dir())
-
     def test_release_restores_a_peers_claim_it_declined_to_free(self):
         # A declined release preserves the peer's claim and leaves no scratch directory.
         script = ('hs_device_acquire E profile 60; '
