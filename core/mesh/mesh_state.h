@@ -234,10 +234,9 @@ struct MeshState {
   }
 
   /**
-   * @brief Switches to owned mode by dropping the borrowed topology views so the
-   *   is_bound() accessors read the owned buffers.
-   * @details Call on a possibly-borrowed MeshState after (re)binding its owned
-   *   topology, so a leftover view can't shadow the owned data.
+   * @brief Drops borrowed topology views.
+   * @details Accessors prefer bound owned arrays; dropping views prevents stale
+   *   data from showing through arrays left unbound, notably topology.
    */
   void set_owned() {
     face_counts_view = {};

@@ -346,8 +346,7 @@ HS_COLD_MEMBER inline void update_hankin(const CompiledHankin &compiled,
     prior_topology_size = out_mesh.get_topology_size();
   }
 
-  // Drop any borrowed-mode views a reused MeshState may still carry, so the
-  // owned vertex and face arrays bound below are not shadowed by a stale view.
+  // topology remains unbound; discard any borrowed classification.
   if constexpr (requires { out_mesh.set_owned(); }) {
     out_mesh.set_owned();
   }
