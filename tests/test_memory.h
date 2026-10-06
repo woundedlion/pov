@@ -435,6 +435,9 @@ inline void test_arena_repeated_rewind_to_same_mark() {
  *          it returns buffer+0). Restores the default split on exit.
  */
 inline void test_configure_arenas_repartition() {
+  static_assert(ArenaSplit{300, 200}.persistent(1000) == 500);
+  static_assert(ArenaSplit{0, 0}.persistent(1000) == 1000);
+
   constexpr size_t P = 60 * 1024; // multiples of alignof(max_align_t) so the
   constexpr size_t A = 8 * 1024;  // boundary align_up()s are no-ops and the
   constexpr size_t B = 4 * 1024;  // three arenas pack contiguously, no gaps.
