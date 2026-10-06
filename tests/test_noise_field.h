@@ -258,7 +258,7 @@ inline void test_vector_noise_rotation_setter_order() {
   struct Case {
     FastNoiseLite::RotationType3D rotation;
     math::Vector simplex;
-    math::Vector grid;
+    math::Vector untransformed;
   };
   const Case CASES[] = {
       {FastNoiseLite::RotationType3D_None,
@@ -273,6 +273,7 @@ inline void test_vector_noise_rotation_setter_order() {
   };
   for (const Case &test : CASES) {
     HS_CONTEXT("rotation", static_cast<int>(test.rotation));
+    // FASTNOISELITE_ONLY_OPENSIMPLEX2 leaves warp type selecting the 3D transform.
     for (const auto warp : {FastNoiseLite::DomainWarpType_OpenSimplex2,
                             FastNoiseLite::DomainWarpType_BasicGrid}) {
       HS_CONTEXT("warp", static_cast<int>(warp));
@@ -288,8 +289,9 @@ inline void test_vector_noise_rotation_setter_order() {
       HS_EXPECT_EQ(a.y, b.y);
       HS_EXPECT_EQ(a.z, b.z);
       const math::Vector &EXPECTED =
-          warp == FastNoiseLite::DomainWarpType_OpenSimplex2 ? test.simplex
-                                                             : test.grid;
+          warp == FastNoiseLite::DomainWarpType_OpenSimplex2
+              ? test.simplex
+              : test.untransformed;
       HS_EXPECT_NEAR(a.x, EXPECTED.x, 2e-6f);
       HS_EXPECT_NEAR(a.y, EXPECTED.y, 2e-6f);
       HS_EXPECT_NEAR(a.z, EXPECTED.z, 2e-6f);
