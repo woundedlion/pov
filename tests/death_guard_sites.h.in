@@ -6,7 +6,8 @@
  * tests/death_guard_sites.h.in — regenerated at build time whenever a
  * guard-bearing source changes, never edited.
  *
- * Per-source-path census of the engine's HS_CHECK fail-fast sites.
+ * Per-source-path census of fail-fast guard sites: HS_CHECK, HS_AUDIT_CHECK
+ * and direct check_fail calls.
  */
 #pragma once
 
@@ -16,14 +17,14 @@ namespace death_tests {
 /** @brief One source file's fail-fast guard count. */
 struct GuardSiteCount {
   const char *file; /**< Repo-relative source path. */
-  int sites;        /**< HS_CHECK sites in it. */
+  int sites;        /**< fail-fast sites in it. */
 };
 
 /** Every guard-bearing engine file, in path order. */
 inline constexpr GuardSiteCount GUARD_SITE_COUNTS[] = {
 @HS_GUARD_SITE_ROWS@};
 
-/** Total HS_CHECK sites. */
+/** Total fail-fast sites. */
 inline constexpr int GUARD_SITE_TOTAL = @HS_GUARD_SITE_TOTAL@;
 
 } // namespace death_tests
