@@ -1126,6 +1126,12 @@ inline void test_vector_slerp() {
   math::Vector lerp_result = math::slerp(v1, v2, 0.5f);
   HS_EXPECT_NEAR(lerp_result.length(), 1.0f, 1e-3f);
 
+  const math::Vector same = math::Vector(0.2f, -0.6f, 0.75f).normalized();
+  for (int step = 0; step <= 4; ++step) {
+    const float T = static_cast<float>(step) / 4.0f;
+    HS_EXPECT_VEC(math::slerp(same, same, T), same, 1e-6f);
+  }
+
   // Antipodal endpoints: the great-circle direction is undefined, so slerp picks
   // a perpendicular axis and sweeps a monotone half-turn — the midpoint must NOT
   // collapse back onto p.
