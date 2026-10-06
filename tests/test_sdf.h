@@ -2,30 +2,7 @@
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
  * Licensed under the PolyForm Noncommercial License 1.0.0
  *
- * Unit tests for core/render/sdf.h.
- *
- * Coverage:
- *   - clamp_phi and the centered-sector angle helper
- *   - Spherical SDF primitives: Ring, DistortedRing and FlatDistortedRing
- *     (polyline distance vs brute force, knot extrema, far sentinel, the
- *     ring-stack frame distance vs distance()),
- *     PlanarPolygon, SphericalPolygon (exact vs sine distance), Star, Flower,
- *     Line (arc, endpoints, degenerate and near-coincident), and the inverted
- *     (complement) fill
- *   - 3D Torus, and WarpedVolume with Warp::Twist (Lipschitz bound,
- *     sphere-trace safety, normal correction)
- *   - CSG operators (Union, SmoothUnion, Subtract, Intersection) and
- *     AngularRepeat: distance(), solidity, the blends_smoothly trait, rvalue
- *     child rejection, and the horizontal-interval protocol (merging, seam
- *     straddling, full-width replay, empty and full children, no spans on a
- *     false return)
- *   - The scanline path driven directly: get_vertical_bounds<H> and
- *     get_horizontal_intervals<W,H> under Scan::scan_region for the orientation
- *     and composition fixtures, held conservative against a brute-force
- *     distance() sweep of the canvas (interior and AA fringe)
- *   - Face: cull fringe, vertical margin and latitude pad, pole-vertex raster,
- *     distance() against an exact point-to-polygon oracle rebuilt from the
- *     vertices, and the congruence-class LUT against the same oracle
+ * Unit tests for the SDF shapes, CSG combinators and scanline cull.
  */
 #pragma once
 
@@ -97,8 +74,7 @@ inline void test_clamp_phi_full_range() {
 /**
  * @brief Verifies clamp_phi_band reports the exact colatitude extent of the
  *        circle it bounds, against a brute-force sweep of that circle.
- * @details The extremes sit at psi = 0 and psi = π, both sampled exactly, so
- *   the sweep is an exact oracle rather than an approximation.
+ * @details The extremes sit at psi = 0 and psi = π, both sampled exactly.
  */
 inline void test_clamp_phi_band_matches_circle_extent() {
   constexpr int SAMPLES = 512;
@@ -383,10 +359,8 @@ inline void test_distorted_ring_flat_matches_zero_knots() {
 /**
  * @brief Verifies the knot overload's raw_dist matches a brute-force geodesic
  *        minimum over the densely sampled polyline, within the stroke reach.
- * @details Probes pixels around crests, steep flanks, and the wrap seam of a
- *   high-harmonic knot polyline on a tilted ring. Accuracy is only contracted
- *   for true distances below thickness (the outward search stops at that
- *   reach); every probe is placed inside it.
+ * @details Accuracy is contracted only for true distances below thickness,
+ *   the outward search's reach; every probe is placed inside it.
  */
 template <int LUT_N> inline void expect_polyline_distance_matches_bruteforce() {
   math::Basis b =
@@ -496,10 +470,8 @@ inline void test_distorted_ring_knot_extrema_tighten_band() {
 
 /**
  * @brief Verifies a knot ring reports the far sentinel past its stroke reach.
- * @details The outward search stops at the reach, so a pixel the prefilter lets
- *   through but no segment comes within thickness of has no distance to report.
- *   Reporting the reach itself puts dist on exactly 0 — the surface — and a
- *   Subtract then carves its minuend across the whole bounding annulus.
+ * @details A pixel no segment comes within thickness of has no distance to
+ *   report; reporting the reach itself would put dist on the surface.
  */
 inline void test_distorted_ring_past_reach_reports_far_sentinel() {
   constexpr int LUT_N = 32;
@@ -535,14 +507,11 @@ inline void test_distorted_ring_past_reach_reports_far_sentinel() {
 /**
  * @brief Verifies distance_from_frame() lights exactly where distance() does,
  *        at the same distance.
- * @details The ring-stack scan evaluates rings through distance_from_frame(),
- *          which skips the chunk prefilter and runs a fixed-window search when
- *          a knot cell spans at least half the stroke; distance() runs the
- *          prefiltered outward search. Sweeps a band of pixels around knot
- *          rings whose cells range from a sliver of the stroke to several
- *          strokes wide, and down to the axis where the search budget caps, so
- *          both paths and the fallback run. Where either lights (dist < 0) both
- *          must, with raw distances equal to float rounding.
+ * @details distance_from_frame() skips the chunk prefilter and runs a
+ *          fixed-window search when a knot cell spans at least half the stroke.
+ *          Knot cells range from a sliver of the stroke to several strokes wide,
+ *          down to the axis where the search budget caps. Where either lights
+ *          (dist < 0) both must, with raw distances equal to float rounding.
  */
 inline void test_distorted_ring_frame_distance_matches_distance() {
   const math::Basis basis = math::make_basis(
@@ -670,12 +639,9 @@ inline void test_spherical_polygon_center_and_edge_magnitude() {
 
 /**
  * @brief Bounds sine-domain distance error across the device-width AA band.
- * @details Where the edge dot wins, the two paths share it verbatim and differ
- *   only by sin(x) - x (~1.7e-6 at one pixel_width). Where the
- *   circumscribed-disc clamp wins, distance() spends fast_acos on polar while
- *   sine_distance forms sin(polar - circumradius) from exact trig, so the gap
- *   widens to fast_acos' ~5e-5 rad peak -- under 1% of a pixel_width, and the
- *   sine path is the more accurate of the two there.
+ * @details Where the edge dot wins, the paths differ only by sin(x) - x. Where
+ *   the circumscribed-disc clamp wins, distance() uses fast_acos, so the gap
+ *   widens to its ~5e-5 rad peak.
  */
 inline void test_spherical_polygon_sine_distance_aa_error() {
   constexpr int W = 288;
@@ -760,10 +726,8 @@ inline void test_spherical_polygon_sine_full_interior() {
 
 /**
  * @brief Verifies SphericalPolygon satisfies SDFShape and composes under CSG.
- * @details Every combinator static_asserts SDFShape on its children, so a leaf
- *   that fails it is barred from all of them and its sdf_max_spans
- *   specialization never applies. Two disjoint polygons must emit their two arcs
- *   through the span-bounded scanline path.
+ * @details Two disjoint polygons must emit their two arcs through the
+ *   span-bounded scanline path.
  */
 inline void test_spherical_polygon_composes_under_csg() {
   static_assert(SDF::SDFShape<SDF::SphericalPolygon>,
@@ -1048,10 +1012,7 @@ inline void test_line_degenerate_zero_length() {
 /**
  * @brief Verifies near-coincident endpoints stay point-like, not antipodal.
  * @details These two unit vectors are 1.2e-5 rad apart, so |cross|² lands under
- *   EPS_CROSS_SQ — the same band a π separation occupies — while
- *   angle_between's acos reports 4.9e-4 (quantisation, not geometry). Read as
- *   antipodal, the arc becomes a substituted great circle: every canvas row in
- *   bounds and no horizontal cull, i.e. a full-width scan per row for one dot.
+ *   EPS_CROSS_SQ, the same band a π separation occupies.
  */
 inline void test_line_near_coincident_endpoints_stay_point_like() {
   math::Vector a(0.30058673f, -0.500977874f, 0.811584115f);
@@ -1322,10 +1283,7 @@ inline void test_warped_volume_distance_is_sphere_trace_safe() {
  * @brief Verifies WarpedVolume::bounding_distance never over-estimates the
  *        distance to the warped surface, over randomized points and torus/twist
  *        parameter sets.
- * @details The fast path returns this bound directly, so an over-estimate would
- * let a sphere trace step through the surface. Covers twist 0, amplitude 0,
- * amplitude larger than the major radius, points on the y axis (s == 0), points
- * inside the tube and points hugging the surface.
+ * @details The fast path returns this bound directly.
  */
 inline void test_warped_volume_bounding_distance_never_over_estimates() {
   struct Case {
@@ -1520,9 +1478,6 @@ inline void test_subtract_keeps_minuend_size_when_b_wins() {
 namespace sdf_interval_detail {
 /**
  * @brief Mock SDF shape that emits a fixed (possibly unsorted, multi-) interval list.
- * @details Exercises the CSG scanline interval paths independently of any real
- *   shape. The combinator paths read is_solid, BLENDS_SMOOTHLY,
- *   get_vertical_bounds and get_horizontal_intervals.
  */
 struct MockIntervalShape {
   static constexpr bool BLENDS_SMOOTHLY = true;
@@ -1577,9 +1532,7 @@ struct MockFullWidthShape {
 
 /**
  * @brief Mock that violates the interval protocol by emitting before falling back.
- * @details The protocol requires a false return to emit nothing. Nothing in the
- *   shape library does this; the mock exists so a CSG parent's fallback path can
- *   be checked for propagating the violation upward.
+ * @details The protocol requires a false return to emit nothing.
  */
 struct MockEmitThenFullWidthShape {
   static constexpr bool is_solid =
@@ -1602,10 +1555,8 @@ struct MockEmitThenFullWidthShape {
 
 /**
  * @brief Verifies a solid B's spans never carve the minuend's scanline emission.
- * @details A child's spans BOUND its coverage (a polygon or star emits its
- *   circumscribed cap, padded a pixel for AA), so differencing them would cull
- *   columns B does not cover. Every subtrahend is carved per pixel by
- *   max(A, -B) instead, leaving A's spans intact whatever B emits.
+ * @details A child's spans bound its coverage, so every subtrahend is carved
+ *   per pixel by max(A, -B), leaving A's spans intact whatever B emits.
  */
 inline void test_subtract_solid_b_leaves_the_minuend_uncarved() {
   using P = std::pair<float, float>;
@@ -1629,11 +1580,9 @@ inline void test_subtract_solid_b_leaves_the_minuend_uncarved() {
 
 /**
  * @brief Verifies a star notch inside the subtrahend's bounding cap still gets scanned.
- * @details Star emits its circumscribed disc as one span, so carving that span
- *   out of the polygon would drop every column between the star's points -- all
- *   of them inside the difference -- plus the carve-edge AA fringe. The notch
- *   point below is outside the star, inside the polygon, and inside the
- *   difference, so its column must lie in an emitted span.
+ * @details Star emits its circumscribed disc as one span. The notch point is
+ *   outside the star and inside the polygon, so its column must lie in an
+ *   emitted span.
  */
 inline void test_subtract_star_notch_columns_survive_the_carve() {
   using P = std::pair<float, float>;
@@ -1676,8 +1625,7 @@ inline void test_subtract_star_notch_columns_survive_the_carve() {
 /**
  * @brief Verifies Subtract forwards A's intervals verbatim, including with empty B.
  * @details Subtract never consults B's intervals. No A span is dropped, merged
- *   or reordered. Consumers (scan_region's coalescer, a CSG parent's merge)
- *   order the list themselves.
+ *   or reordered.
  */
 inline void test_subtract_empty_b_passes_a_through_verbatim() {
   using P = std::pair<float, float>;
@@ -1699,9 +1647,7 @@ inline void test_subtract_empty_b_passes_a_through_verbatim() {
 
 /**
  * @brief Verifies a subtrahend that cannot produce intervals costs the minuend nothing.
- * @details Subtract never consults B's intervals, so B's fallback neither widens
- *   the row to a full scan nor erases A: the row is handled with A's own spans
- *   and scan_region evaluates distance()=max(A,-B) inside them.
+ * @details B's fallback neither widens the row to a full scan nor erases A.
  */
 inline void test_subtract_full_width_b_still_emits_the_minuend() {
   using P = std::pair<float, float>;
@@ -1874,11 +1820,8 @@ inline void test_intersection_full_width_child_replays_other() {
 
 /**
  * @brief Verifies Intersection emits nothing whenever it requests a full-row scan.
- * @details The interval protocol pairs a false return with an empty emission: the
- *   caller walks every column and never reads the buffer, so a span emitted first
- *   is dropped or shaded twice. Intersection replays a buffered child, which makes
- *   it the one combinator that could pair both. Driven by a child that itself
- *   violates the protocol, so the check does not rest on leaf behaviour.
+ * @details The interval protocol pairs a false return with an empty emission.
+ *   Driven by a child that itself violates the protocol.
  */
 inline void test_intersection_full_scan_emits_no_spans() {
   using P = std::pair<float, float>;
@@ -1909,9 +1852,8 @@ inline void test_intersection_full_scan_emits_no_spans() {
 /**
  * @brief Verifies a seam-straddling band shared by both children is intersected across wrap frames.
  * @details A emits the seam band as [-10, 10]; B emits the SAME physical band as
- *   [W-10, W+10]. A raw-coordinate overlap test sees no shared columns and
- *   under-reports the seam. After normalizing both into [0, W) the bands coincide
- *   and the intersection is the full shared band, split at the seam.
+ *   [W-10, W+10]. After normalizing both into [0, W) the bands coincide and the
+ *   intersection is the full shared band, split at the seam.
  */
 inline void test_intersection_seam_straddle_overlaps_across_wrap_frames() {
   using P = std::pair<float, float>;
@@ -1952,11 +1894,8 @@ inline void test_smooth_union_matches_union_far_from_boundary() {
 
 /**
  * @brief Verifies the cubic smin blend term inside the blend band.
- * @details The far-from-boundary test only re-checks the hard-union min (the
- *   blend term m is zero there). This exercises the smin core: at a point
- *   roughly equidistant from both children (|dA - dB| < k) the smooth distance
- *   must dip strictly below min(dA, dB) by the expected m, and outside the band
- *   it must collapse back to the hard min (m == 0).
+ * @details Where |dA - dB| < k the smooth distance dips below min(dA, dB) by
+ *   the expected m; outside the band it collapses to the hard min.
  */
 inline void test_smooth_union_blends_inside_band() {
   SDF::Line la(math::Vector(1, 0, 0), math::Vector(0, 0, 1), 0.1f);
@@ -2038,10 +1977,7 @@ inline void test_sentinel_clampers_are_not_blendable() {
 
 /**
  * @brief Verifies the CSG combinators reject a temporary child.
- * @details Every combinator holds its children by reference and reads them on
- *   each pixel, so a temporary bound at construction dangles for the whole
- *   render. The leaves delete the rvalue-Basis overloads for the same reason;
- *   an accepted rvalue here is the same defect one level up.
+ * @details Every combinator holds its children by reference.
  */
 inline void test_csg_combinators_reject_temporary_children() {
   using L = SDF::Line;
@@ -2077,9 +2013,8 @@ inline void test_csg_combinators_reject_temporary_children() {
 
 /**
  * @brief Verifies Union coalesces two overlapping child intervals into one span.
- * @details merge_intervals sorts by start and welds spans that touch or overlap;
- *   the children emit overlapping bands (A [0,40], B [30,70]) that must collapse
- *   to a single [0,70] — emitting both would double-paint the [30,40] overlap.
+ * @details The children emit overlapping bands (A [0,40], B [30,70]) that must
+ *   collapse to a single [0,70].
  */
 inline void test_union_merges_overlapping_intervals() {
   using P = std::pair<float, float>;
@@ -2101,8 +2036,7 @@ inline void test_union_merges_overlapping_intervals() {
 /**
  * @brief Verifies Union welds two overlapping seam-straddling spans into one.
  * @details Both children emit bands straddling θ=0 in the same negative frame
- *   (A [-10,6], B [2,12]); their overlap must coalesce to a single [-10,12] span,
- *   not two duplicate spans the downstream seam-split would then double-paint.
+ *   (A [-10,6], B [2,12]); their overlap must coalesce to a single [-10,12] span.
  */
 inline void test_union_seam_straddle_merges_overlapping_intervals() {
   using P = std::pair<float, float>;
@@ -2124,11 +2058,7 @@ inline void test_union_seam_straddle_merges_overlapping_intervals() {
 /**
  * @brief Verifies three- and four-way nested Unions of real leaves compile and
  *        emit every child arc.
- * @details The nesting depth a combinator admits is gated by sdf_max_spans; a
- *   leaf pinned to its true emission (2 for the annular-band rings) keeps a
- *   four-deep union at 8 spans, far under the 2*INTERVAL_SPAN_CAP accumulator.
- *   Sizing the types alone would prove the static_asserts pass, so the test also
- *   runs the scanline path and counts the merged arcs: four coaxial rings at
+ * @details Nesting depth is gated by sdf_max_spans. Four coaxial rings at
  *   disjoint radii cross an equatorial row in 8 disjoint spans, which is also
  *   the bound the trait reports.
  */
@@ -2172,10 +2102,8 @@ inline void test_nested_union_emits_every_child_arc() {
 /**
  * @brief Verifies SmoothUnion's k-padded union welds overlapping seam-straddling spans.
  * @details Each child interval is inflated by pad_px = k·W/(2π·sinφ) before the
- *   merge, so a tiny k keeps the bounds near the raw spans while still routing
- *   through the pad path; two overlapping seam-straddling bands must coalesce to
- *   one padded span rather than two overlapping spans. The pad mirrors the
- *   latitude-scaled production formula at the sampled row.
+ *   merge; two overlapping seam-straddling bands must coalesce to one padded
+ *   span.
  */
 inline void test_smooth_union_seam_straddle_merges_padded_intervals() {
   using P = std::pair<float, float>;
@@ -2209,9 +2137,8 @@ inline void test_smooth_union_seam_straddle_merges_padded_intervals() {
 
 /**
  * @brief Verifies the weld pad widens toward the poles by the 1/sinφ factor.
- * @details A point interval's emitted span is exactly twice the row pad. Sampling
- *   a near-pole row (small sinφ) against the equator (sinφ ≈ 1) must yield a
- *   strictly wider span, so near-pole welds are not clipped to the equatorial pad.
+ * @details A point interval's emitted span is exactly twice the row pad, so a
+ *   near-pole row (small sinφ) must yield a strictly wider span than the equator.
  */
 inline void test_smooth_union_pad_widens_toward_pole() {
   using P = std::pair<float, float>;
@@ -2282,10 +2209,7 @@ inline void test_angular_repeat_creates_copies() {
 /**
  * @brief Verifies AngularRepeat's child UV (t) is sector-local, not global.
  * @details distance() folds p into one sector before evaluating the child, so
- *   the child's azimuthal t resets every sector. A point and its copy one full
- *   sector away fold to the same point and thus share a t, even though the
- *   un-repeated ring reports two distinct global azimuths for them. This pins
- *   the documented sector-local convention so a future change is caught.
+ *   a point and its copy one full sector away share a t.
  */
 inline void test_angular_repeat_t_is_sector_local() {
   math::Basis b = equator_basis();
@@ -2317,14 +2241,8 @@ inline void test_angular_repeat_t_is_sector_local() {
 }
 
 // ============================================================================
-// Interval-cull conservativeness  ("interval cull == full-row scan")
-//
-// The cull must be conservative: it may over-visit but must never drop a pixel
-// belonging to the shape. Invariant: a pixel clearly inside (distance().dist <
-// -pixel_width, one pixel deep into body or stroke band) is among those
-// scan_region visits. expect_cull_covers_interior stays one pixel deep, clear
-// of a stroke's outer rim and fast-trig noise. Solid AA halo coverage is pinned
-// by expect_cull_covers_fringe below.
+// Interval-cull conservativeness: the cull may over-visit but must never drop
+// a pixel belonging to the shape.
 // ============================================================================
 
 /**
@@ -2334,7 +2252,7 @@ inline void test_angular_repeat_t_is_sector_local() {
  * @tparam Shape SDF shape type providing the cull and interval interface.
  * @param shape Shape whose culled coverage is being captured.
  * @param visited Output flag grid (W*H), set to 1 for each visited pixel.
- * @details Drives the full canvas with no clip, mirroring the rasterizer.
+ * @details Drives the full canvas with no clip.
  */
 template <int W, int H, typename Shape>
 inline void cull_visited(const Shape &shape, std::vector<uint8_t> &visited) {
@@ -2363,12 +2281,10 @@ inline void cull_visited(const Shape &shape, std::vector<uint8_t> &visited) {
  * @tparam H Canvas height in pixels.
  * @tparam Shape SDF shape type providing the cull and distance interface.
  * @param shape Shape under test.
- * @param label Caller-identifying label; every failure here reports it plus the
- *   pixel, since __func__ names this shared helper for all of them.
+ * @param label Caller-identifying label reported with each failing pixel.
  * @return Count of interior pixels (dist < -pixel_width) found.
  * @details Interior pixels are found by a brute-force full-canvas exact distance
- *   scan. Asserts the case is non-trivial (at least one interior pixel) so no
- *   shape silently contributes zero coverage.
+ *   scan. Asserts at least one interior pixel.
  */
 template <int W, int H, typename Shape>
 inline int expect_cull_covers_interior(const Shape &shape, const char *label) {
@@ -2400,13 +2316,9 @@ inline int expect_cull_covers_interior(const Shape &shape, const char *label) {
  * @tparam H Canvas height in pixels.
  * @tparam Shape SDF shape type providing the cull and distance interface.
  * @param shape Shape under test.
- * @param label Caller-identifying label; every failure here reports it plus the
- *   pixel, since __func__ names this shared helper for all of them.
+ * @param label Caller-identifying label reported with each failing pixel.
  * @return Count of paintable pixels (dist < pixel_width) found.
- * @details The stricter sibling of expect_cull_covers_interior: the shade path
- *   returns early only at dist >= pixel_width, so every pixel under that
- *   threshold carries non-zero coverage and dropping one steps the fringe to
- *   zero mid-ramp.
+ * @details Every pixel under pixel_width carries non-zero coverage.
  */
 template <int W, int H, typename Shape>
 inline int expect_cull_covers_fringe(const Shape &shape, const char *label) {
@@ -2435,12 +2347,9 @@ inline int expect_cull_covers_fringe(const Shape &shape, const char *label) {
 /**
  * @brief Verifies the Star / PlanarPolygon / SphericalPolygon cull covers the
  *   whole AA fringe.
- * @details All three fold a sector onto one edge and read a shallow radial
- *   gradient at the tips (|nx| = 0.309 at 5 star points, cos(PI/sides) at a
- *   polygon vertex), which without the circumscribed-disc clamp in distance()
- *   ramps coverage well past the one-pixel cap pad and steps it to zero there.
- *   The grid spans pole, equator and oblique axes at sub-pixel through
- *   near-hemisphere radii.
+ * @details All three read a shallow radial gradient at the tips, which the
+ *   circumscribed-disc clamp in distance() bounds. The grid spans pole, equator
+ *   and oblique axes at sub-pixel through near-hemisphere radii.
  */
 inline void test_star_polygon_cull_covers_aa_fringe() {
   constexpr int W = 96, H = 48;
@@ -2564,10 +2473,9 @@ inline void test_linearized_ring_bounds_cover_visible_rows() {
 /**
  * @brief Verifies the Intersection interval cull covers every interior pixel of
  *        a real leaf pair.
- * @details The seam-split normalization and the merge sweep are otherwise driven
- *   only by mock span lists. The last pose centers both polygons on +X, so their
- *   overlap straddles theta = 0 and each child can emit its span in a different
- *   wrap frame.
+ * @details The last pose centers both polygons on +X, so their overlap
+ *   straddles theta = 0 and each child can emit its span in a different wrap
+ *   frame.
  */
 inline void test_intersection_cull_covers_interior_over_polygon_pairs() {
   constexpr int W = 96, H = 48;
@@ -2601,13 +2509,8 @@ inline void test_intersection_cull_covers_interior_over_polygon_pairs() {
 /**
  * @brief Verifies the Subtract interval cull covers every interior pixel of a
  *        real leaf pair.
- * @details The rest of the Subtract suite drives mock span lists, which stand in
- *   for coverage exactly; a real leaf emits its circumscribed cap padded a pixel
- *   for AA, so its spans only bound it. Subtract answers that by emitting the
- *   minuend's spans and carving per pixel, and this sweeps the whole canvas to
- *   pin that no pixel the carve leaves solid falls outside them. A star
- *   subtrahend is the hostile case: its cap covers the notches the difference
- *   keeps. The last pose centers both on +X, so the minuend's spans straddle
+ * @details A star subtrahend's cap covers the notches the difference keeps.
+ *   The last pose centers both on +X, so the minuend's spans straddle
  *   theta = 0.
  */
 inline void test_subtract_cull_covers_interior_over_leaf_pairs() {
@@ -2643,10 +2546,8 @@ inline void test_subtract_cull_covers_interior_over_leaf_pairs() {
  * @brief Verifies the SmoothUnion interval cull covers every AA-fringe pixel of a
  *        real leaf pair.
  * @details The weld bulges the surface outside both children, so the cull rests
- *   entirely on the k pad — and the pad is an equatorial column count divided by
- *   sin(phi), which the mock span lists exercise only at fixed rows. Real leaves
- *   put the weld at every latitude the poses reach. The last pose centers both
- *   on +X so the padded spans straddle theta = 0.
+ *   on the k pad, an equatorial column count divided by sin(phi). The last pose
+ *   centers both on +X so the padded spans straddle theta = 0.
  */
 inline void test_smooth_union_cull_covers_fringe_over_leaf_pairs() {
   constexpr int W = 288, H = 144;
@@ -2681,11 +2582,9 @@ inline void test_smooth_union_cull_covers_fringe_over_leaf_pairs() {
 /**
  * @brief Verifies the SmoothUnion cull scans the rows past both children's
  *        spans.
- * @details Welding a polygon to itself puts the smin at its peak everywhere, so
- *   the surface dilates by k/6 in every direction — past the last row either
- *   child emits a span for. Those rows carry no interval to pad, and skipping
- *   them clips the weld's polar fringe; they must request a full scan instead.
- *   A row past the blend reach still holds no surface and stays culled.
+ * @details Welding a polygon to itself dilates the surface by k/6, past the
+ *   last row either child emits a span for; those rows must request a full
+ *   scan. A row past the blend reach stays culled.
  */
 inline void test_smooth_union_scans_rows_past_both_children() {
   constexpr int W = 96, H = 48;
@@ -2711,10 +2610,9 @@ inline void test_smooth_union_scans_rows_past_both_children() {
 
 /**
  * @brief Verifies AngularRepeat around a non-Y axis culls in the full canvas, covering all copies.
- * @details A non-Y axis sweeps the folded copies through latitudes the un-repeated
- *   child never occupies, so the child's vertical band no longer bounds them.
- *   get_vertical_bounds must fall back to the full canvas; forwarding the child's
- *   narrow band would row-clip every off-band copy out of the scan and drop it.
+ * @details A non-Y axis sweeps the folded copies through latitudes the
+ *   un-repeated child never occupies, so get_vertical_bounds must fall back to
+ *   the full canvas.
  */
 inline void test_angular_repeat_non_y_axis_cull_covers_copies() {
   constexpr int W = 96, H = 48;
@@ -2731,10 +2629,8 @@ inline void test_angular_repeat_non_y_axis_cull_covers_copies() {
  * @brief Verifies a Y-axis AngularRepeat culls to its copies' columns without
  *        dropping any of them.
  * @details A Y-axis fold shifts azimuth by a whole sector and holds latitude,
- *   so the child's spans replayed once per copy bound every copy. The cull has
- *   to cover the whole AA fringe and to actually narrow the row — a full-width
- *   fallback satisfies the coverage half on its own, so the span count and the
- *   visited-pixel budget are asserted alongside it.
+ *   so the child's spans replayed once per copy bound every copy. The span count
+ *   and visited-pixel budget pin that the row is actually narrowed.
  */
 inline void test_angular_repeat_y_axis_cull_narrows_rows() {
   constexpr int W = 288, H = 144;
@@ -2771,8 +2667,7 @@ inline void test_angular_repeat_y_axis_cull_narrows_rows() {
  * @brief Verifies a slightly tilted fold axis forfeits the Y-fold cull.
  * @details The copies of a tilted fold drift in latitude and azimuth by the
  *   tilt, past what the fold slop pads, so the child's band and spans no longer
- *   bound them. An axis.y threshold is a squared bound on the tilt and lets
- *   such an axis through; the off-axis test must reject it.
+ *   bound them.
  */
 inline void test_angular_repeat_tilted_axis_forfeits_cull() {
   constexpr int W = 288, H = 144;
@@ -2798,8 +2693,7 @@ inline void test_angular_repeat_tilted_axis_forfeits_cull() {
 /**
  * @brief Verifies the arc-extrema cull widens phi to a Line's great-circle bulge.
  * @details The Line's two endpoints share a latitude but its great-circle arc
- *   bulges to a pole between them. Endpoint-only vertical bounds clip the polar
- *   portion of the stroke; the arc-extrema test must widen phi to the bulge.
+ *   bulges to a pole between them.
  */
 inline void test_line_arc_bulge_cull_covers_interior() {
   constexpr int W = 96, H = 48;
@@ -2813,11 +2707,8 @@ inline void test_line_arc_bulge_cull_covers_interior() {
 
 /**
  * @brief Verifies the cull covers a Line whose antipodal endpoints select no arc.
- * @details With antipodal endpoints the arc plane is undefined and distance()
- *   measures the whole great circle, not a segment. Endpoint-derived phi bounds
- *   and a half-circle bounding cap both describe a segment, so they clip that
- *   circle to a sliver; the bounds must cover the circle the shape actually
- *   renders.
+ * @details With antipodal endpoints distance() measures the whole great
+ *   circle, which the bounds must cover.
  */
 inline void test_line_antipodal_cull_covers_interior() {
   const math::Vector a(-0.21973225f, -0.52185529f, -0.82424802f);
@@ -2838,9 +2729,7 @@ inline void test_line_antipodal_cull_covers_interior() {
 /**
  * @brief Verifies the cull covers a Line whose bounding cap radius exceeds pi.
  * @details A quarter arc with a stroke this wide gives half-length + thickness
- *   ≈ 3.39 rad, past the pi where cos turns back up: an unclamped cos reports a
- *   cap tighter than the whole sphere the stroke actually covers, and the
- *   horizontal cull then drops interior columns.
+ *   ≈ 3.39 rad, past the pi where cos turns back up.
  */
 inline void test_line_thick_cap_past_pi_cull_covers_interior() {
   constexpr int W = 96, H = 48;
@@ -2883,11 +2772,8 @@ inline void test_ring_pole_wrap_cull_covers_interior() {
 /**
  * @brief Verifies the DistortedRing cull drops no interior arc column under
  *        high-frequency centerline shifts with exact max_distortion bounds.
- * @details max_distortion widens the row/column/per-pixel reject bands; an
- *   underestimate silently culls genuine arcs. This is the pin that the caller's
- *   analytic amplitude is a true bound: sweeps spiky high-harmonic, off-grid-phase
- *   shift_fns at their exact analytic peak and asserts expect_cull_covers_interior
- *   — a full-canvas distance() reference — drops no interior column.
+ * @details max_distortion widens the row/column/per-pixel reject bands; each
+ *   shift_fn passes its exact analytic peak.
  */
 inline void test_distorted_ring_cull_covers_interior_high_freq() {
   constexpr int W = 256, H = 128;
@@ -2952,9 +2838,9 @@ inline void test_distorted_ring_cull_covers_interior_high_freq() {
  * @brief Verifies the Face azimuth-interval cull covers every paintable pixel
  *        (including the outer AA fringe column at a silhouette edge).
  * @return The paintable-pixel count, so the caller confirms the case is non-trivial.
- * @details A pixel is paintable when its exact distance < pixel_width — the AA
- *   reach the polygon family's one-pixel cap pad is sized for. Brute-forces the full canvas and
- *   asserts each paintable pixel is among those scan_region visits.
+ * @details A pixel is paintable when its exact distance < pixel_width.
+ *   Brute-forces the full canvas and asserts each paintable pixel is among
+ *   those scan_region visits.
  */
 template <int W, int H>
 inline int expect_face_cull_covers_fringe(int sides, float rho,
@@ -3285,13 +3171,10 @@ inline void test_face_pole_vertex_matches_full_scan() {
  * @param linear_dist Whether the face reports plane units rather than radians.
  * @return The value Face::distance must reproduce: negative inside, mapped
  *         through fast_atan2 unless the face carries linear distance.
- * @details Rebuilds the gnomonic frame from the vertices alone -- the
- *          normalized centroid as the projection axis, the first vertex's
- *          tangent as the plane's u axis -- and projects the ring and the
- *          probe into it, so the face's own projection, edge packing and basis
- *          never reach the comparison. Per-edge segment distance plus a
- *          crossing-parity inside test, both invariant to the plane's
- *          rotation, so the frame need not match the face's.
+ * @details Rebuilds the gnomonic frame from the vertices alone (normalized
+ *          centroid as the projection axis), independent of the face's own
+ *          projection, edge packing and basis. Per-edge segment distance plus a
+ *          crossing-parity inside test.
  */
 inline float exact_plane_distance(std::span<const math::Vector> verts,
                                   const math::Vector &p, bool linear_dist) {
@@ -3478,12 +3361,7 @@ inline void test_face_distance_matches_exact_oracle() {
 //
 // Face::distance with a bound ClassLut serves sign-pure probes >= one cell
 // diagonal from the boundary via a bilinear lookup in the canonical class
-// frame; everything else falls back to the exact walk on the true edges. This
-// pins the invariants across canonical alignment (cyclic vertex offset, 3D rotation, mirror family):
-//   1. SIGN is always correct on the LUT path (sign-purity guard).
-//   2. The LUT never serves a near-boundary magnitude (>= safe_dist floor).
-//   3. LUT-served values stay within the interpolation bound of the oracle.
-//   4. Fallback samples still match the oracle to float precision.
+// frame; everything else falls back to the exact walk on the true edges.
 // ============================================================================
 
 /**
@@ -3550,8 +3428,8 @@ inline void check_face_class_lut(int &lut_total, int cyc, bool reflected,
   static int16_t lut_data[64 * 64];
   SDF::ClassLut lut;
   SDF::build_canonical_distance_lut(canon, n_verts, 64, lut_data, lut);
-  // Cell diagonal of the 64x64 grid over this star's box, ~0.023. Pinned from
-  // above because the sweep tolerance below is a multiple of it.
+  // Cell diagonal of the 64x64 grid over this star's box, ~0.023; the sweep
+  // tolerance is a multiple of it.
   HS_EXPECT_GT(lut.safe_dist, 0.0f);
   HS_EXPECT_LT(lut.safe_dist, 0.03f);
 

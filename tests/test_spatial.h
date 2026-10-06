@@ -2,11 +2,7 @@
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
  * Licensed under the PolyForm Noncommercial License 1.0.0
  *
- * Unit tests for core/spatial/kd_tree.h (KDTree) and core/mesh/mesh_state.h
- * (MeshState).
- *
- * Tests deliberately avoid invoking the asserts in dependent types
- * (out-of-bounds, unbound access).
+ * Unit tests for KDTree and MeshState.
  */
 #pragma once
 
@@ -23,13 +19,12 @@
 namespace hs_test {
 namespace spatial_tests {
 
-// Module-scope scratch buffer; each test re-bases the bump pointer by
-// constructing a fresh Arena over it at entry. Do NOT retain an ArenaVector or
-// pointer into this buffer past its own test scope.
+// Module-scope scratch buffer, re-based by a fresh Arena in each test; nothing
+// pointing into it outlives its test.
 inline constexpr size_t SPATIAL_BUF_BYTES = 128 * 1024;
 inline uint8_t spatial_buf[SPATIAL_BUF_BYTES];
 
-// Split offset for the one test needing two disjoint arenas over this buffer.
+// Split offset for two disjoint arenas over this buffer.
 inline constexpr size_t SPATIAL_BUF_SPLIT = SPATIAL_BUF_BYTES / 2;
 
 // ============================================================================
@@ -165,8 +160,6 @@ inline void test_kdtree_default_unbuilt() {
 
 /**
  * @brief Verifies the KDTree nearest neighbor matches a brute-force scan.
- * @details With 16 deterministic points, the nearest neighbor must match a
- *          manual scan over all distances.
  */
 inline void test_kdtree_matches_brute_force() {
   Arena arena(spatial_buf, sizeof(spatial_buf));
@@ -201,13 +194,9 @@ inline void test_kdtree_matches_brute_force() {
 
 /**
  * @brief Verifies nearest() handles coincident (duplicate) points and a full
- *        k == MAX_K request, the classic degenerate cases.
- * @details Three points share a location, so a k-nearest query produces distance
- *          ties — including at the k boundary, where only some of the equidistant
- *          points fit. nearest() ranks by (squared distance, source index), a
- *          total order, so the whole result is pinned index by index against a
- *          brute-force k-smallest scan, and every returned neighbor is
- *          cross-checked against its source point and recomputed distance.
+ *        k == MAX_K request.
+ * @details nearest() ranks by (squared distance, source index), so ties at the
+ *          k boundary are pinned index by index against a brute-force scan.
  */
 inline void test_kdtree_duplicates_and_max_k() {
   Arena arena(spatial_buf, sizeof(spatial_buf));
@@ -260,14 +249,6 @@ inline void test_kdtree_duplicates_and_max_k() {
 
 /**
  * @brief Verifies k>1 nearest matches brute force on 100 random distinct points.
- * @details The k>1 brute-force checks elsewhere use coincident/collinear points
- *          where bbox pruning can't err. This builds a tree over 100 randomly
- *          placed distinct points (locally seeded generator, and an explicit
- *          draw-to-float mapping so every platform gets the same set) and,
- *          for several queries, compares the tree's k-nearest set against a
- *          brute-force k-smallest scan. Distances are well separated, so the
- *          comparison is per-rank on sorted squared distance plus a point/index
- *          cross-check.
  */
 inline void test_kdtree_k_nearest_brute_force_random() {
   Arena arena(spatial_buf, sizeof(spatial_buf));
@@ -336,9 +317,7 @@ inline void test_meshstate_default_unbound() {
 /**
  * @brief Verifies clone() deep-copies vertices, face counts, faces, and
  *        topology into the destination arena.
- * @details The copy is value-equal yet backed by separate storage. topology is
- *          carried by clone() alone, so it is asserted element-wise with
- *          distinct values.
+ * @details The copy is value-equal yet backed by separate storage.
  */
 inline void test_meshstate_clone_deep_copies() {
   Arena src_arena(spatial_buf, SPATIAL_BUF_SPLIT);
@@ -490,9 +469,8 @@ inline void test_meshstate_view_fallback() {
 /**
  * @brief Verifies set_borrowed() switches to borrowed mode by dropping the
  *        owned face arrays, so they cannot shadow the installed views.
- * @details Every topology accessor must read the borrowed spans, the installed
- *          topology key survives, and the owned vertices are untouched by the
- *          switch.
+ * @details The installed topology key survives and the owned vertices are
+ *          untouched.
  */
 inline void test_meshstate_set_borrowed_drops_owned() {
   Arena arena(spatial_buf, sizeof(spatial_buf));
@@ -582,8 +560,7 @@ inline void test_meshstate_set_borrowed_empty_offsets() {
 /**
  * @brief Verifies set_owned() drops the borrowed views so they cannot shadow
  *        the owned arrays.
- * @details With the owned arrays left unbound, a surviving view would still be
- *          reported by the accessors; after set_owned() they read empty.
+ * @details With the owned arrays unbound, the accessors read empty.
  */
 inline void test_meshstate_set_owned_drops_views() {
   Arena arena(spatial_buf, sizeof(spatial_buf));
@@ -620,8 +597,7 @@ inline void test_meshstate_set_owned_drops_views() {
 /**
  * @brief Verifies moving a borrowed-mode MeshState hands the views to the
  *        destination and clears them in the source.
- * @details Covers both the move constructor and move assignment, so a
- *          moved-from mesh holds no dangling borrow.
+ * @details Covers both the move constructor and move assignment.
  */
 inline void test_meshstate_move_clears_source_views() {
   Arena arena(spatial_buf, sizeof(spatial_buf));

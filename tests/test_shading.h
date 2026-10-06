@@ -61,9 +61,8 @@ inline void test_fragment_lerp_endpoints() {
 }
 
 /**
- * @brief Verifies the midpoint interpolates every register, so a sample between
- *        two control points carries pos/v0-v3/age/size/color rather than
- *        resetting size and color to their struct defaults.
+ * @brief Verifies the midpoint interpolates every register:
+ *        pos/v0-v3/age/size/color.
  */
 inline void test_fragment_lerp_midpoint_carries_registers() {
   Fragment a;

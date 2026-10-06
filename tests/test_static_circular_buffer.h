@@ -2,11 +2,7 @@
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
  * Licensed under the PolyForm Noncommercial License 1.0.0
  *
- * Unit tests for core/containers/static_circular_buffer.h.
- *
- * front(), back(), and operator[] trap on misuse, so the empty/OOB paths are
- * not exercised here — they are driven (in child processes) by the
- * death harness in tests/test_death.h.
+ * Unit tests for StaticCircularBuffer.
  */
 #pragma once
 
@@ -111,8 +107,6 @@ inline void test_initializer_list_within_capacity() {
 
 /**
  * @brief Verifies an initializer list filling the buffer exactly to capacity.
- * @details An over-capacity list is a compile-time error via static_assert in
- *          the variadic constructor, so only the at-capacity fill is exercised.
  */
 inline void test_initializer_list_at_capacity() {
   StaticCircularBuffer<int, 3> buf{1, 2, 3};
@@ -307,9 +301,6 @@ inline void test_emplace_front_constructs_in_place() {
 
 /**
  * @brief Constructible but non-assignable type.
- * @details emplace must construct directly in the slot's storage rather than
- *          assign a temporary; using this type forces that path to compile and
- *          run.
  */
 struct EmplaceOnly {
   int x, y; /**< Stored coordinate pair. */
@@ -329,13 +320,13 @@ struct EmplaceOnly {
    */
   EmplaceOnly(const EmplaceOnly &) = default;
   /**
-   * @brief Deleted copy assignment; the type is intentionally non-assignable.
+   * @brief Deleted copy assignment.
    * @param other Source instance (unused; overload is deleted).
    * @return Reference to this (never invoked).
    */
   EmplaceOnly &operator=(const EmplaceOnly &) = delete;
   /**
-   * @brief Deleted move assignment; the type is intentionally non-assignable.
+   * @brief Deleted move assignment.
    * @param other Source instance (unused; overload is deleted).
    * @return Reference to this (never invoked).
    */
@@ -360,9 +351,6 @@ inline void test_emplace_constructs_non_assignable_type() {
 
 /**
  * @brief Element that tallies its own constructions and destructions.
- * @details The eviction path destroys the evicted slot's object before
- *          constructing the replacement in its storage; the tally is what makes
- *          that visible.
  */
 struct LifetimeCounted {
   static inline int constructed = 0; /**< Constructor calls since reset(). */
@@ -478,8 +466,7 @@ inline void test_pop_back_removes_last() {
 }
 
 /**
- * @brief Verifies pop_front and pop_back on an empty buffer are safe no-ops (they
- *        must not crash).
+ * @brief Verifies pop_front and pop_back on an empty buffer are no-ops.
  */
 inline void test_pop_on_empty_is_noop() {
   StaticCircularBuffer<int, 4> buf;
@@ -923,10 +910,6 @@ inline void test_for_each_visits_front_to_back() {
 
 /**
  * @brief Verifies for_each on a wrapped buffer agrees with operator[].
- * @details for_each walks the backing slots directly and folds the index
- *          itself instead of routing through operator[]'s modulo, so a wrapped
- *          buffer (head != 0, live run split across the array end) is the case
- *          where the two traversals could diverge.
  */
 inline void test_for_each_after_wrap_matches_indexing() {
   StaticCircularBuffer<int, 3> buf;
