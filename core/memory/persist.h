@@ -12,10 +12,6 @@
 /**
  * @brief Concept requiring a static clone(const T&, T&, Arena&) method.
  * @tparam T Type that must provide static void clone(const T&, T&, Arena&).
- * @note Cloneable only constrains the clone hook. `Persist<T>` needs more (T
- *       default-initializable and assignable, because ~Persist does
- *       `target = T()` before restoring) and enforces those extra requirements
- *       with its own static_asserts rather than widening this concept.
  */
 template <typename T>
 concept Cloneable = requires(const T &src, T &dst, Arena &arena) {
@@ -41,14 +37,10 @@ template <Cloneable T> class Persist {
                                           dtor traps unless the caller rewound
                                           below this watermark. */
 
-  // Declaration order matters! scratch must be declared BEFORE backup
-  // so that backup is destroyed before the scratch arena is rolled back.
+  // scratch must be declared before backup so backup is destroyed first.
   ScratchScope scratch; /**< Scratch scope holding the backup's storage. */
   T backup;             /**< Cloned backup of the target in scratch memory. */
 
-  // ~Persist does `target = T()` before re-cloning the backup, so T needs more
-  // than Cloneable. Assert the extra requirements here so a Cloneable-but-not-
-  // default-constructible/assignable T fails with a clear message at instantiation.
   static_assert(
       std::default_initializable<T>,
       "Persist<T>: ~Persist resets target = T() before restoring, so "
@@ -77,15 +69,10 @@ public:
 
   /**
    * @brief Restores the target by cloning the backup into the persistent arena.
-   * @details The restore clones into `persistent` at its *current* offset, so
-   * it only reconstructs the object usefully if the caller rewound the
-   * persistent arena during the scope (the canonical
-   * `reset_persistent_arena()`). Without that reset the clone appends a second
-   * copy and grows the arena. The post-restore `<=` check traps a
-   * forgot-to-reset restore, which pushes the offset past the construction
-   * watermark. Callers may legitimately STACK several Persists over one
-   * `reset()`, so the check bounds the aggregate, not each individual restore —
-   * a backstop, not a proof.
+   * @details Clones into `persistent` at its current offset, so the caller
+   * must rewind the persistent arena during the scope (e.g.
+   * `reset_persistent_arena()`). The `<=` check bounds the aggregate of stacked
+   * Persists, not each individual restore.
    */
   HS_COLD_MEMBER ~Persist() {
     target = T();

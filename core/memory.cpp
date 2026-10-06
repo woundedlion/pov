@@ -7,22 +7,12 @@
 
 /**
  * @brief Single contiguous memory block that all arenas partition.
- * @details alignas keeps the block's base maximally aligned, so each arena's
- * first allocation needs no leading padding; configure_arenas() likewise aligns
- * the inter-arena boundaries. Carries NO DMAMEM: the arena is hot render memory,
- * so on the device it lands in .bss/DTCM, the Cortex-M7's fastest zero-wait RAM.
- * The framebuffers (buffer_a/buffer_b) and the timeline events in
- * static_storage.cpp carry DMAMEM to place them in OCRAM instead — neither is a
- * DMA source or target. Phantasm's 288x144 framebuffers are ~243 KiB each and
- * exceed the remaining DTCM budget; Holosphere's 96x20 buffers are ~11.25 KiB each.
+ * @details Carries no DMAMEM, so on the device it lands in DTCM.
  */
 alignas(std::max_align_t) static uint8_t global_arena_block[GLOBAL_ARENA_SIZE];
 
 /**
  * @brief Persistent arena: storage retained across frames until reclamation.
- * @details Growing the persistent boundary goes through resplit_arenas(), which
- * requires both scratch arenas to be empty and re-bases them past the new
- * boundary.
  */
 Arena persistent_arena(global_arena_block, DEFAULT_PERSISTENT_SIZE);
 /** @brief First scratch arena: transient per-frame/per-effect storage. */
@@ -86,12 +76,8 @@ struct ScratchBases {
  * @param scratch_b Bytes requested for scratch arena B.
  * @return Base offsets of the two scratch arenas.
  * @details Each input is bounded first so the align_up()/sum arithmetic cannot
- * wrap size_t. Each inter-arena boundary is aligned up to max_align_t (the real
- * callers pass alignof(max_align_t) multiples, so these rounds are no-ops);
- * the budget check
- * uses the aligned end so rounding cannot silently overrun. An over-subscribed
- * partition is a sizing/config bug, not recoverable, so it traps rather than
- * silently scaling down; the breadcrumb carries the numbers.
+ * wrap size_t. Boundaries align up to max_align_t; an over-subscribed partition
+ * traps.
  */
 HS_COLD ScratchBases split_bases(const char *who, size_t persistent,
                                  size_t scratch_a, size_t scratch_b) {
@@ -119,12 +105,8 @@ HS_COLD ScratchBases split_bases(const char *who, size_t persistent,
 /**
  * @brief Re-partitions the single global block into persistent plus two scratch
  * arenas of the requested byte sizes.
- * @details Called once at init() so an effect can tune the split to the device
- * budget; split_bases() aligns the boundaries and enforces the budget.
- *
- * Runs the ArenaResetHook list first: this is one of the paths that hands the
- * storage under a persistent-arena-resident global out again. Owners re-arm
- * from init(), which every swap path runs after this.
+ * @details Runs the ArenaResetHook list first, since the storage under a
+ * persistent-arena-resident global is handed out again.
  */
 FLASHMEM void configure_arenas(size_t persistent, size_t scratch_a,
                                size_t scratch_b) {
@@ -138,7 +120,6 @@ FLASHMEM void configure_arenas(size_t persistent, size_t scratch_a,
 
 /**
  * @brief Partitions the global block using the compiled-in DEFAULT_* sizes.
- * @details Convenience wrapper over configure_arenas() with the default split.
  */
 FLASHMEM void configure_arenas_default() {
   configure_arenas(DEFAULT_PERSISTENT_SIZE, DEFAULT_SCRATCH_A_SIZE,
@@ -147,8 +128,6 @@ FLASHMEM void configure_arenas_default() {
 
 FLASHMEM void resplit_arenas(size_t persistent, size_t scratch_a,
                              size_t scratch_b) {
-  // A ScratchScope saved at offset 0 restores to 0 either way, so live scratch
-  // content would be silently rebased onto the new split, undetected.
   HS_CHECK(scratch_arena_a.get_offset() == 0 &&
                scratch_arena_b.get_offset() == 0,
            "resplit_arenas: both scratch arenas must be empty");
@@ -158,8 +137,6 @@ FLASHMEM void resplit_arenas(size_t persistent, size_t scratch_a,
   // to the live offset for this shape's split.
   persistent_arena.rebind_capacity(persistent);
   persistent_arena.reset_high_water_mark();
-  // The scratch arenas are empty at the call point; rebind them onto their new
-  // bases (a fresh generation is harmless -- nothing is bound across the split).
   scratch_arena_a.rebind(global_arena_block + bases.a, scratch_a);
   scratch_arena_b.rebind(global_arena_block + bases.b, scratch_b);
 }

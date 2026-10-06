@@ -13,9 +13,8 @@
  * @brief RAII guard that saves/restores an arena offset.
  * @note Only allocations made after construction are reclaimed: anything bound
  * to the arena before the scope opens sits below the saved offset and survives.
- * An operator that produces output in the same arena it scratches (e.g. the
- * Conway operators' output-mesh vectors over `target`) must therefore bind that
- * output before constructing the scope, or scope exit reclaims it.
+ * Output produced in the same arena must be bound before constructing the
+ * scope, or scope exit reclaims it.
  */
 struct ScratchScope {
 private:

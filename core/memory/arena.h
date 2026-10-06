@@ -12,17 +12,10 @@
 /**
  * @brief Records an ArenaVector block abandoned by a move-assignment or a grow.
  * @param bytes Size of the abandoned block.
- * @details Move-assignment only accumulates, never logging the line
- * log_arena_vector_grow() emits: it runs deep inside mesh work, where the
- * formatter's stack frame does not fit the device stack budget and one line per
- * event would bury the log. The running total is reported by the arena's OOM
- * trap. Out-of-line and non-template so the device image carries one copy for
- * every element type.
- * @note Cumulative across every arena modulo the size_t range, so it is not a
- * live-leak figure: the chained mesh
- * ops that dominate it rewind their arena right after each step, reclaiming
- * what was counted. Subtracting reclaims would need each block's source arena
- * in release builds, which ArenaVector tracks only in debug builds.
+ * @details Accumulates without logging; the arena's OOM trap reports the
+ * running total.
+ * @note Cumulative across every arena modulo the size_t range, with reclaims
+ * not subtracted, so it is not a live-leak figure.
  */
 HS_COLD void note_arena_vector_abandon(size_t bytes);
 
@@ -39,10 +32,7 @@ FLASHMEM size_t arena_vector_abandon_count();
  * @param offset Live offset before the request.
  * @param padding Alignment padding the request needed.
  * @param capacity Arena capacity.
- * @details Out-of-line and non-template so the bump path in allocate() carries
- * one branch to a call, not a seven-argument formatter inlined at every site.
- * Reads the move-assign abandon totals itself rather than taking them as
- * arguments. Never returns.
+ * @details Also logs the ArenaVector abandon totals. Never returns.
  */
 [[noreturn]] HS_COLD void arena_oom_trap(const void *buffer, size_t size,
                                          size_t offset, size_t padding,
@@ -52,8 +42,7 @@ FLASHMEM size_t arena_vector_abandon_count();
  * @brief Bump allocator over a fixed caller-owned buffer.
  * @details Allocation is offset advancement; individual frees are unsupported —
  * memory is reclaimed wholesale via reset() (rewind to 0) or set_offset()
- * (rewind to a saved mark). Over-allocation traps rather than returning null
- * (see allocate()).
+ * (rewind to a saved mark). Over-allocation traps.
  */
 class Arena {
   uint8_t *buffer;
@@ -96,11 +85,9 @@ public:
    * @param size Number of bytes to allocate.
    * @param align Required alignment in bytes; defaults to max_align_t.
    * @return Pointer into the buffer for the allocated block.
-   * @details Traps via arena_oom_trap() on over-allocation rather than
-   * returning null.
-   * Updates the high-water mark. `size` must be > 0: a zero-size request returns a
-   * bump pointer that reserves no storage (it aliases the next allocation's
-   * address), so it is trapped as misuse rather than handed back as ownable.
+   * @details Traps via arena_oom_trap() on over-allocation. Updates the
+   * high-water mark. `size` must be > 0: a zero-size block would alias the next
+   * allocation.
    */
   void *allocate(size_t size, size_t align = alignof(std::max_align_t)) {
     HS_CHECK(size > 0, "Arena::allocate: zero-size request");
@@ -109,8 +96,7 @@ public:
              static_cast<unsigned long>(align));
     uintptr_t current = reinterpret_cast<uintptr_t>(buffer + offset);
     size_t padding = (align - (current % align)) % align;
-    // Subtractive form: offset <= capacity is invariant, so it cannot wrap the
-    // way `offset + padding + size > capacity` would for a colossal `size`.
+    // Subtractive form: cannot wrap for a colossal `size`.
     if (padding > capacity - offset || size > capacity - offset - padding)
       arena_oom_trap(buffer, size, offset, padding, capacity);
     offset += padding;
@@ -126,8 +112,7 @@ public:
    * @tparam T Element type; sizes and aligns the block from the type.
    * @param n Element count (must be > 0, per allocate()).
    * @return Pointer to the block, cast to `T*`.
-   * @details Thin wrapper over allocate() that derives `sizeof`/`alignof` from
-   * `T` so a call site cannot mis-pair them. Does not construct the elements.
+   * @details Does not construct the elements.
    */
   template <typename T> T *allocate_n(size_t n) {
     HS_CHECK(
@@ -169,8 +154,7 @@ public:
    * @param n Element count (must be > 0, per allocate()).
    * @return Pointer to the first constructed element.
    * @details Scalar elements are zero-initialized; class members follow their
-   * type's initialization rules. `make_default_initialized()` default-initializes
-   * one object instead.
+   * type's initialization rules.
    */
   template <typename T> T *make_n(size_t n) {
     T *elements = allocate_n<T>(n);
@@ -215,11 +199,8 @@ public:
   /**
    * @brief Returns the peak allocation offset over the arena's whole lifetime.
    * @return Largest offset any allocation has reached, in bytes.
-   * @details Survives every reset_high_water_mark() and rebind(), each of which
-   * folds the window it discards into this figure; reset_peak_tracking() is the
-   * only way to clear it. This is the figure to size a budget against: an effect
-   * that re-splits the arena mid-run leaves get_high_water_mark() reporting only
-   * the peak since its last re-split.
+   * @details Survives reset_high_water_mark() and rebind(); only
+   * reset_peak_tracking() clears it.
    */
   size_t get_lifetime_high_water_mark() const {
     return high_water_mark > lifetime_high_water_mark
@@ -230,12 +211,8 @@ public:
   /**
    * @brief Rewinds the offset to a previously saved mark.
    * @param new_offset Offset to rewind to; must be <= the current offset.
-   * @details A mark is only valid as a rewind target: jumping the offset *forward*
-   * would hand out backing bytes never reserved by an allocate() call, so any
-   * non-rewind traps. (new_offset <= offset also implies new_offset <= capacity,
-   * preserving the no-wrap bounds math in allocate().) Alignment is not re-checked:
-   * allocate() recomputes leading padding from the true address on every call, so
-   * restoring an unaligned mark is safe.
+   * @details A forward jump traps: it would hand out bytes no allocate()
+   * reserved. Alignment is not re-checked; allocate() pads from the true address.
    */
   void set_offset(size_t new_offset) {
     HS_CHECK(new_offset <= offset,
@@ -276,8 +253,6 @@ public:
    * @brief Point the arena at a different buffer/capacity and reset to empty.
    * @param buf Pointer to the new backing buffer.
    * @param new_capacity Capacity of the new buffer in bytes.
-   * @details Used by configure_arenas to repartition the global budget at
-   * runtime.
    */
   void rebind(uint8_t *buf, size_t new_capacity) {
     buffer = buf;
@@ -294,8 +269,7 @@ public:
 
   /**
    * @brief Reset windowed peak-usage tracking to the current offset.
-   * @details E.g. to measure a single frame's allocation peak in isolation. The
-   * window being closed is folded into the lifetime peak, which is unaffected.
+   * @details The closed window is folded into the lifetime peak.
    */
   void reset_high_water_mark() {
     fold_lifetime_peak();
@@ -325,8 +299,7 @@ public:
    * @param bytes Region length in bytes.
    * @return True iff [p, p+bytes) falls within [buffer, buffer+offset).
    * @details A set_offset() rewind reclaims bytes without bumping the
-   * generation. ArenaBlockStamp also checks rewind history to detect regions
-   * reclaimed and subsequently covered by fresh allocations.
+   * generation.
    */
   bool covers(const void *p, size_t bytes) const {
     uintptr_t base = reinterpret_cast<uintptr_t>(buffer);
@@ -358,7 +331,8 @@ public:
    * @return True iff a rewind since those samples dropped the offset below the
    *         region's end.
    * @details The debug history retains suffix-minimum rewind targets. It traps
-   * on more than 256 increasing targets without an intervening deeper rewind.
+   * on more than REWIND_HISTORY_CAPACITY increasing targets without an
+   * intervening deeper rewind.
    */
   bool reclaimed_since(const void *p, size_t bytes, uint64_t birth_seq) const {
     uintptr_t base = reinterpret_cast<uintptr_t>(buffer);
@@ -397,10 +371,7 @@ private:
    * base, offset, content, and generation.
    * @param new_capacity New capacity in bytes; must be >= the live
    *        offset.
-   * @details The caller must have vacated whatever
-   * else held those bytes. resplit_arenas() alone reaches it — it re-bases both
-   * scratch arenas onto the new split and bounds the request against the global
-   * block.
+   * @details The caller must have vacated whatever else held those bytes.
    */
   void rebind_capacity(size_t new_capacity) {
     HS_CHECK(offset <= new_capacity,
@@ -413,11 +384,7 @@ private:
 #ifndef NDEBUG
 /**
  * @brief Debug-only snapshot of an arena's state when it handed out a block.
- * @details One copy per arena-resident owner, so the three lifetime
- * questions a block can be asked —
- * was the arena reset, was it rewound below the block, was the block reclaimed
- * by a rewind and reissued — have a single set of answers. Compiled out under
- * NDEBUG along with the Arena accessors it calls.
+ * @details Compiled out under NDEBUG.
  */
 struct ArenaBlockStamp {
   Arena *source_arena = nullptr; /**< Arena the block was allocated from. */
@@ -485,12 +452,11 @@ struct ArenaBlockStamp {
 /**
  * @brief Faults when an arena-owned block has been reset, rewound below or
  *        reissued since it was stamped.
- * @param stamp ArenaBlockStamp recorded by the owner's init_storage().
+ * @param stamp ArenaBlockStamp recorded when the block was allocated.
  * @param ptr First byte of the block.
  * @param bytes Block length in bytes.
  * @param owner String literal naming the owner in the failure message.
- * @details The owner's stamp member is itself debug-only, so this expands to
- * nothing under NDEBUG rather than to a call that would name it.
+ * @details Expands to nothing under NDEBUG, where the stamp does not exist.
  */
 #define HS_ASSERT_BLOCK_ALIVE(stamp, ptr, bytes, owner)                        \
   assert((stamp).block_alive(ptr, bytes) && owner " use-after-free!")
@@ -507,13 +473,10 @@ extern Arena persistent_arena;
  * @brief Self-registering callback run before persistent arena storage is
  *        handed out again.
  * @details A global that caches a pointer into the persistent arena declares one
- * static instance next to itself and drops the pointer from the callback,
- * instead of the allocator naming every such owner. The registry head is
- * constant-initialized, so registration during static init is order-independent;
- * the list is intrusive, so it needs no storage of its own.
- * @note Scoped to the persistent arena: generate() rewinds both engine scratch
- * arenas per call without running the list, so no global may cache a pointer
- * into scratch storage.
+ * static instance and drops the pointer from the callback. The registry head is
+ * constant-initialized, so registration during static init is order-independent.
+ * @note Persistent arena only; no global may cache a pointer into scratch
+ * storage.
  */
 struct ArenaResetHook {
   using Handler = void (*)(); /**< Callback signature. */
@@ -560,9 +523,8 @@ private:
 /**
  * @brief Rewinds the persistent arena to empty after dropping every cached
  *        pointer into it.
- * @details The only supported way to hand persistent storage out again: a bare
- * `persistent_arena.reset()` leaves each registered global pointing at bytes the
- * next allocation re-issues.
+ * @details A bare `persistent_arena.reset()` leaves each registered global
+ * pointing at bytes the next allocation re-issues.
  */
 HS_FLASH_INLINE inline void reset_persistent_arena() {
   ArenaResetHook::run_all();
@@ -610,14 +572,9 @@ FLASHMEM void configure_arenas_default();
  * @param persistent New persistent capacity; must be >= its current live offset.
  * @param scratch_a New scratch-A capacity.
  * @param scratch_b New scratch-B capacity.
- * @details Unlike configure_arenas(), the persistent arena keeps its base
- * (block start), offset, live content, and generation -- only its capacity
- * boundary moves -- so the long-lived carousel slots + palette bank below its
- * offset survive. The scratch arenas hold nothing across the call point
- * (each consumer rewinds through ScratchScope), so they rebind to fresh bases.
- * They are empty between frames. Callers MUST
- * invoke this only when both scratch arenas are empty; a per-shape split at
- * spawn (persistent at its ~baseline, scratch idle) satisfies this.
+ * @details Unlike configure_arenas(), the persistent arena keeps its base,
+ * offset, live content, and generation; only its capacity boundary moves. Both
+ * scratch arenas MUST be empty; they rebind to fresh bases.
  */
 FLASHMEM void resplit_arenas(size_t persistent, size_t scratch_a,
                              size_t scratch_b);
