@@ -96,9 +96,7 @@ static void bind_math_exports() {
   // HSV -> sRGB integer sextant path via the engine's CRGB(CHSV) constructor.
   // Returns sRGB bytes; there is no JS mirror, so color_parity_wasm.test.js pins
   // them to golden values. The uint8_t casts wrap h/s/v mod 256 (device CHSV
-  // semantics) and the pin covers out-of-range rows; recipe compilation validates
-  // its HSV keys, so the two paths handle out-of-range inputs differently by
-  // design.
+  // semantics) and the pin covers out-of-range rows.
   emscripten::function(
       "hsv_to_rgb",
       emscripten::optional_override([](int h, int s, int v) -> emscripten::val {
