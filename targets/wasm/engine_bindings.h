@@ -88,8 +88,7 @@ static size_t stack_high_water_mark() {
   return static_cast<size_t>(top - p);
 }
 
-// Running max of the stack depth reached by effect construction + init();
-// latched because the next repaint erases the canary.
+// Running max of effect construction + init() stack depth; survives repaints.
 static size_t init_stack_peak = 0;
 
 // Bound on one effect's exposed parameters.
@@ -369,10 +368,7 @@ public:
    *         by truthiness. Both APPLIED and FULL_FRAME_KEPT are successes.
    *         NO_EFFECT is the ordinary answer between a resolution change and the
    *         setEffect that follows it.
-   * @details Args are x-pair-first (embind binds positionally). Malformed input
-   *          is rejected, never trapped: a trap aborts the whole WASM module.
-   *          Bounds arrive as doubles: an i32 embind parameter coerces NaN and
-   *          multiples of 2^32 to 0 with no range check in a release build.
+   * @details Malformed input is rejected without trapping.
    *          See docs/specs/segmented_stateful_effects_spec.md.
    */
   ClipSetResult setClip(double x0, double x1, double y0, double y1) {
