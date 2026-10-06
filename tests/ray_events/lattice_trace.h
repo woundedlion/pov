@@ -2,13 +2,6 @@
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
  * Licensed under the PolyForm Noncommercial License 1.0.0
  */
-#pragma once
-
-#include "render/sdf/lattice.h"
-#include "render/sdf/lattice_trace.h"
-#include "tests/test_harness.h"
-
-namespace hs_test::lattice_trace_tests {
 
 struct DepthPalette {
   Color4 get(float t) const {
@@ -169,5 +162,3 @@ inline void run_lattice_trace_cases() {
   test_cubic_compositor_matches_event_shading();
   test_octet_preparation_matches_world_events();
 }
-
-} // namespace hs_test::lattice_trace_tests
