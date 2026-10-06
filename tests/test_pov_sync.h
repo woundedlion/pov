@@ -59,7 +59,6 @@ struct SyncBoardTestAccess {
     int32_t position = -1;
     b.maybe_schedule_beacon(now, position);
   }
-  static bool beacon_done(const SyncBoard &b) { return b.beacon_done_this_rev; }
   static const Flywheel &flywheel(const SyncBoard &b) { return b.flywheel(); }
   static const ContentTracker &content(const SyncBoard &b) {
     return b.content();
@@ -1487,17 +1486,21 @@ inline void test_master_beacon_busy_retry() {
       emitter.schedule_boundary(Symbol::ZERO, beacon_at + COL, beacon_at, cfg));
 
   SyncBoardTestAccess::maybe_schedule_beacon(board, beacon_at);
-  HS_EXPECT_FALSE(SyncBoardTestAccess::beacon_done(board));
   HS_EXPECT_EQ(board.telemetry_snapshot().beacons_busy_dropped, 1u);
 
   SyncBoardTestAccess::maybe_schedule_beacon(board, beacon_at);
-  HS_EXPECT_FALSE(SyncBoardTestAccess::beacon_done(board));
   HS_EXPECT_EQ(board.telemetry_snapshot().beacons_busy_dropped, 1u);
 
-  emitter.drop_pending_emission();
+  HS_EXPECT_EQ(emitter.drop_pending_emission(),
+               SymbolEmitter::DroppedBurst::BOUNDARY);
   SyncBoardTestAccess::maybe_schedule_beacon(board, beacon_at);
-  HS_EXPECT_TRUE(SyncBoardTestAccess::beacon_done(board));
   HS_EXPECT_EQ(board.telemetry_snapshot().beacons_busy_dropped, 1u);
+  HS_EXPECT_EQ(emitter.drop_pending_emission(),
+               SymbolEmitter::DroppedBurst::BEACON);
+
+  SyncBoardTestAccess::maybe_schedule_beacon(board, beacon_at);
+  HS_EXPECT_EQ(emitter.drop_pending_emission(),
+               SymbolEmitter::DroppedBurst::NONE);
 }
 
 // ── Master beacon late-coast bound (§6.4) ───────────────────────────────────
