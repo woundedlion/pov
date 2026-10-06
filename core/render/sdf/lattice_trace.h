@@ -94,9 +94,10 @@ HS_FLASH_INLINE inline Prepared prepare(const Settings &settings) {
                  Raycast::finite(result.footprint.angular_radius) &&
                  Raycast::finite(result.appearance.inv_far) &&
                  Raycast::finite(result.appearance.near_inv_span) &&
-                 (settings.domain == Raycast::SamplingDomain::SLICE_4D
-                      ? result.octet4.valid()
-                      : result.octet.valid());
+                 (settings.geometry != Geometry::OCTET ||
+                  (settings.domain == Raycast::SamplingDomain::SLICE_4D
+                       ? result.octet4.valid()
+                       : result.octet.valid()));
   if (!result.valid)
     return result;
   if (settings.geometry != Geometry::OCTET) {
