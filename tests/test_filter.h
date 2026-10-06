@@ -51,6 +51,7 @@ concept ReplacementFrameStarter = requires(P &pipeline, Canvas &canvas) {
 #include "tests/filter/feedback.h"
 #include "tests/filter/world_filters.h"
 #include "tests/filter/canvas_routing.h"
+#include "tests/filter/feedback_flush.h"
 #include "tests/filter/trails.h"
 #include "tests/filter/segmented_bounds.h"
 /**
