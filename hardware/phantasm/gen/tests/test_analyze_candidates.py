@@ -118,6 +118,25 @@ class AnalyzeTests(unittest.TestCase):
 
         self.assertEqual(self.analyze_source(source)["small_vias"], 1)
 
+    def test_u1_spacing_uses_its_own_decoupler(self):
+        footprints = (
+            '(footprint "Logic" (at 0 0) (property "Reference" "U1"))'
+            '(footprint "Capacitor" (at 3 4) (property "Reference" "C_DEC2"))'
+        )
+        for vin_cap in (
+                '(footprint "Capacitor" (at 0 1) (property "Reference" "C_DEC1"))',
+                ''):
+            with self.subTest(vin_cap=vin_cap):
+                source = SYNTHETIC_BOARD.rstrip()[:-1] + footprints + vin_cap + ')'
+                self.assertEqual(self.analyze_source(source)["ergo"]["decap_u1"], 5.0)
+
+    def test_u1_spacing_is_missing_without_its_decoupler(self):
+        source = SYNTHETIC_BOARD.rstrip()[:-1] + (
+            '(footprint "Logic" (at 0 0) (property "Reference" "U1"))'
+            '(footprint "Capacitor" (at 0 1) (property "Reference" "C_DEC1")))'
+        )
+        self.assertTrue(math.isnan(self.analyze_source(source)["ergo"]["decap_u1"]))
+
     def test_reads_the_id_first_net_form(self):
         source = (SYNTHETIC_BOARD.replace('(net "/DATA")', '(net 9 "/DATA")')
                   .replace('(net "GND")', '(net 1 "GND")'))
@@ -297,17 +316,6 @@ class MainTests(unittest.TestCase):
         for board in boards:
             self.assertIn(board, output)
         self.assertEqual(run_drc.call_count, 1)
-
-
-class ClosestSpacingTests(unittest.TestCase):
-    NAN = float("nan")
-
-    def test_returns_the_smaller_spacing(self):
-        self.assertEqual(analyze_candidates.closest(5.0, 3.0), 3.0)
-
-    def test_a_missing_part_forfeits_whichever_one_vanished(self):
-        self.assertTrue(math.isnan(analyze_candidates.closest(self.NAN, 3.0)))
-        self.assertTrue(math.isnan(analyze_candidates.closest(3.0, self.NAN)))
 
 
 class ResolveKicadCliTests(unittest.TestCase):
