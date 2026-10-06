@@ -406,10 +406,10 @@ inline void test_shader_chain_parity_warp_polar_chart() {
 template <math::NoiseBasis Basis, typename Integrator>
 inline void run_curl_flow_variant(In::ChainProgram &program,
                                   const In::FrameContext &ctx,
-                                  uint8_t integrator) {
+                                  In::Op::CurlIntegrator integrator) {
   auto &params = param_as<In::Op::CurlFlowWarpParams>(program, 2);
   params.basis = static_cast<uint8_t>(Basis);
-  params.integrator = integrator;
+  params.integrator = static_cast<uint8_t>(integrator);
   using Bound = typename PB::Stage::Warp<
       PB::Warp::CurlFlow<CurlFlowMirrorProvider, Basis,
                          Integrator>>::template Bind<WarpMirrorBinding>;
@@ -419,9 +419,12 @@ inline void run_curl_flow_variant(In::ChainProgram &program,
 template <math::NoiseBasis Basis>
 inline void run_curl_flow_basis(In::ChainProgram &program,
                                 const In::FrameContext &ctx) {
-  run_curl_flow_variant<Basis, PB::Warp::Euler1>(program, ctx, 0);
-  run_curl_flow_variant<Basis, PB::Warp::Midpoint2>(program, ctx, 1);
-  run_curl_flow_variant<Basis, PB::Warp::Midpoint4>(program, ctx, 2);
+  run_curl_flow_variant<Basis, PB::Warp::Euler1>(
+      program, ctx, In::Op::CurlIntegrator::EULER1);
+  run_curl_flow_variant<Basis, PB::Warp::Midpoint2>(
+      program, ctx, In::Op::CurlIntegrator::MIDPOINT2);
+  run_curl_flow_variant<Basis, PB::Warp::Midpoint4>(
+      program, ctx, In::Op::CurlIntegrator::MIDPOINT4);
 }
 
 inline void test_shader_chain_parity_warp_curl_flow() {
