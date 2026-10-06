@@ -6,10 +6,7 @@
 
 /**
  * @file noise_field.h
- * @brief Sphere-domain noise sampling: field specs and their cache keys, the
- *        looped sample coordinates, the octave/basis kernels, the scalar,
- *        direct and curl tangent-field kernels, and the sphere exponential map
- *        that advects a point along one.
+ * @brief Sphere-domain noise field specs and sampling kernels.
  */
 
 #include <array>
@@ -82,8 +79,7 @@ struct NoiseFieldSpec {
 /**
  * @brief Identity of a shared generator: a spec without its per-frame drive.
  * @details Only seed, noise_type and generator_frequency configure the
- * generator; the rest of the key separates consumers that walk one generator
- * differently, so each keeps its own cached resource.
+ * generator; the rest of the key separates consumers that walk it differently.
  */
 struct NoiseFieldKey {
   /** Coordinate the caller hands the lattice. */
@@ -102,8 +98,7 @@ struct NoiseFieldKey {
   uint8_t stencil_layout = 1;
   /** FastNoiseLite::NoiseType the generator is set to. */
   uint8_t noise_type = FastNoiseLite::NoiseType_OpenSimplex2;
-  /** Frequency the generator is set to; the spec's scale is applied by the
-   *  caller instead, so one generator serves every scale. */
+  /** Frequency the generator is set to; the caller applies the spec's scale. */
   float generator_frequency = 1.0f;
 
   HS_COLD_MEMBER constexpr bool
@@ -251,8 +246,8 @@ HS_O3_FN inline float sample_noise_octaves(const FastNoiseLite &noise,
  * @param q Lattice coordinate.
  * @param channel Component index in [0, 3), selecting the lattice offset.
  * @return Noise value in [-1, 1].
- * @details RIDGED3 takes half the difference of two ridged stacks at independent
- * offsets — six generator samples against the other bases' one or three.
+ * @details RIDGED3 takes half the difference of two ridged stacks at
+ * independent offsets.
  */
 HS_O3_FN inline float sample_noise_vector_channel(const FastNoiseLite &noise,
                                                   NoiseBasis basis,
@@ -273,8 +268,7 @@ HS_O3_FN inline float sample_noise_vector_channel(const FastNoiseLite &noise,
  * @param noise Prepared generator.
  * @param q Lattice coordinate.
  * @return The displacement the generator applies to @p q.
- * @details The DIRECT_VECTOR_V2 path: one simplex vector-noise call in place
- * of the three scalar samples DIRECT_V1 costs for SIMPLEX. Simplex only.
+ * @details The DIRECT_VECTOR_V2 path. Simplex only.
  */
 __attribute__((always_inline)) inline math::Vector
 sample_simplex_vector(const FastNoiseLite &noise, const math::Vector &q) {
@@ -289,9 +283,8 @@ sample_simplex_vector(const FastNoiseLite &noise, const math::Vector &q) {
  * @brief Scales a tangent down to unit length in place, leaving shorter ones
  *   untouched so a quiet field keeps its own magnitude.
  * @param u Tangent to clamp.
- * @details One spelling for every tangent sampler: fast_rsqrt is one-sided low,
- * so a rescaled tangent lands at most 1 to within its final multiply, while a
- * divide by the length can land a ULP above.
+ * @details fast_rsqrt is one-sided low, so a rescaled tangent lands at most 1
+ * to within its final multiply.
  */
 __attribute__((always_inline)) inline void
 clamp_tangent_to_unit(math::Vector &u) {
@@ -368,12 +361,8 @@ sample_direct_simplex_tangent(const FastNoiseLite &noise, const math::Vector &q,
  * @param q Lattice coordinate the gradient is taken at.
  * @param sample The scalar field.
  * @return The estimated gradient.
- * @details Four probes on a regular tetrahedron of arm NOISE_STENCIL_RADIUS,
- * which is the fewest that spans three dimensions. The arms sum to zero, so the
- * constant term cancels, but they are not antipodal pairs and the curvature
- * term survives — the estimate is first-order in the arm, where a paired
- * central difference would be second-order. Each probe costs whatever
- * @p sample costs, so a three-octave basis pays twelve generator samples.
+ * @details Four probes on a regular tetrahedron of arm NOISE_STENCIL_RADIUS.
+ * The arms are not antipodal pairs, so the estimate is first-order in the arm.
  */
 template <typename Sample>
 inline math::Vector tetrahedral_gradient(const math::Vector &q, Sample sample) {
@@ -409,8 +398,7 @@ HS_O3_FN inline math::Vector curl_from_gradient(const math::Vector &gradient,
  * @param q Lattice coordinate.
  * @param v Unit point the tangent is taken at.
  * @return A tangent at @p v of length at most 1.
- * @details The CURL_ANALYTIC_V2 path: one generator call, against the four
- * samples the stencil costs. Simplex only.
+ * @details The CURL_ANALYTIC_V2 path. Simplex only.
  */
 HS_O3_FN inline math::Vector
 sample_simplex_curl_tangent(const FastNoiseLite &noise, const math::Vector &q,
@@ -472,16 +460,9 @@ inline constexpr float EXP_MAP_HALF_RADIAN_ARC_SQ_LIMIT = 0.250001f;
  * @param tangent Tangent at @p v; its length is the arc travelled in radians,
  *   and must not exceed half a radian (asserted).
  * @return The unit point reached after that arc.
- * @details cos and sin/x carried to their degree-6 Taylor terms, so the arc
- *   must stay within about half a radian: truncation error is under ~1e-7
- *   there, and grows as the eighth power of the arc beyond it. Takes the
- *   squared length, so it needs no sqrt and no branch at a zero tangent.
- *
- *   Nothing here clamps the arc; every caller must bound it. The sphere
- *   displacement stages (Pullback::Surface) hold the bound by construction:
- *   their tangent kernels return length at most 1 and their "Surface Noise
- *   Strength" field is registered over [-0.5, 0.5]. Widening that range, or
- *   feeding a tangent from anywhere else, breaks the approximation silently.
+ * @details cos and sin/x carried to their degree-6 Taylor terms: truncation
+ *   error is under ~1e-7 within half a radian and grows as the eighth power of
+ *   the arc beyond it. Nothing here clamps the arc; callers must bound it.
  */
 HS_O3_FN inline math::Vector
 sphere_exp_map_half_radian(const math::Vector &v, const math::Vector &tangent) {

@@ -28,9 +28,8 @@ inline constexpr float MOBIUS_POLE_EPS = 1e-12f;
  * a near-singular divisor still yields a finite point). Only an exactly zero
  * numerator is the indeterminate 0/0 form, which returns (0,0); a nonzero
  * numerator keeps its direction however small it is.
- * @details NOT general complex division (see Complex::operator/): the STEREO_INF
- * clamp and the 0/0 -> 0 case are the point-at-infinity conventions the sphere
- * projections depend on.
+ * @details Not general complex division: the STEREO_INF clamp and 0/0 -> 0
+ * are point-at-infinity conventions.
  */
 inline math::Complex project_div(const math::Complex &num,
                                  const math::Complex &den) {
@@ -65,11 +64,7 @@ inline math::Complex project_div(const math::Complex &num,
                        (num_im * den_re - num_re * den_im) / denom);
 }
 
-/**
- * @brief Coefficients of a Mobius transform f(z) = (az + b) / (cz + d).
- * @details Stores the four coefficients as first-class `Complex` values;
- * animators mutate the `.re`/`.im` components in place.
- */
+/** @brief Coefficients of a Mobius transform f(z) = (az + b) / (cz + d). */
 struct MobiusParams {
   math::Complex a, b, c, d; /**< The four transform coefficients. */
 
@@ -121,12 +116,8 @@ inline math::Complex mobius(const math::Complex &z,
  * @param v Unit vector to transform.
  * @param params Mobius transformation coefficients.
  * @return The transformed vector.
- * @details Fused stereographic projection, Mobius map and inverse projection.
- * Carrying the plane coordinate as the homogeneous pair (p : s) — the
- * projection's numerator and denominator, never their quotient — keeps the
- * whole composition one complex fraction n/m, so it costs a single divide and
- * the pole is an ordinary value (s = 0) rather than the STEREO_INF sentinel
- * the split form needs.
+ * @details Fused stereographic projection, Mobius map and inverse projection
+ * over the homogeneous plane coordinate (p : s); the pole is s = 0.
  */
 inline math::Vector mobius_transform(const math::Vector &v,
                                      const MobiusParams &params) {
@@ -170,8 +161,8 @@ inline math::Vector gnomonic_mobius_transform(const math::Vector &v,
                                               const MobiusParams &params) {
   math::Complex z = projections::gnomonic(v);
   math::Complex w = mobius(z, params);
-  // copysignf keys on the sign bit, matching gnomonic's divisor floor: a >= 0
-  // test would send v.y == -0.0f to the opposite hemisphere from the divisor.
+  // copysignf keys on the sign bit, matching gnomonic's divisor floor for
+  // v.y == -0.0f.
   return projections::inv_gnomonic(w, copysignf(1.0f, v.y));
 }
 
