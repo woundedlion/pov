@@ -85,6 +85,17 @@ class PreCommitHook(unittest.TestCase):
             ["sh", HOOK.as_posix()], cwd=self.repo, env=env,
             capture_output=True, text=True, check=False)
 
+    def formatter(self):
+        formatter = self.repo / "clang-format"
+        formatter.write_text(
+            "#!/bin/sh\n"
+            "case \"${1:-}\" in --version) echo 'clang-format version 22.1.8'; exit 0;; esac\n"
+            "grep -q UNFORMATTED && exit 1\n"
+            "exit 0\n",
+            encoding="utf-8")
+        formatter.chmod(0o755)
+        return formatter
+
     def test_python_uses_staged_lint_configuration(self):
         if shutil.which("ruff") is None:
             if os.environ.get("CI"):
@@ -110,8 +121,15 @@ class PreCommitHook(unittest.TestCase):
         config.write_text(config.read_text() + "\n# updated\n", encoding="utf-8", newline="\n")
         self.git("add", ".clang-format")
         gate.write_text("exit 0\n", encoding="utf-8", newline="\n")
-        done = self.run_hook()
+        done = self.run_hook(CLANG_FORMAT=self.formatter().as_posix())
         self.assertNotEqual(done.returncode, 0)
+        self.assertIn("SNAPSHOT_FORMAT_GATE", done.stdout + done.stderr)
+
+        gate.write_text('#!/bin/sh\necho SNAPSHOT_FORMAT_GATE\nexit 0\n',
+                        encoding="utf-8", newline="\n")
+        self.git("add", "tools/clang_format_gate.sh")
+        done = self.run_hook(CLANG_FORMAT=self.formatter().as_posix())
+        self.assertEqual(done.returncode, 0, done.stdout + done.stderr)
         self.assertIn("SNAPSHOT_FORMAT_GATE", done.stdout + done.stderr)
 
     def test_python_lints_temporary_commit_indexes(self):
@@ -256,14 +274,7 @@ class PreCommitHook(unittest.TestCase):
         self.assertIn("staged whitespace errors", done.stdout + done.stderr)
 
     def test_clang_format_reads_the_index(self):
-        formatter = self.repo / "clang-format"
-        formatter.write_text(
-            "#!/bin/sh\n"
-            "case \"${1:-}\" in --version) echo 'clang-format version 22.1.8'; exit 0;; esac\n"
-            "grep -q UNFORMATTED && exit 1\n"
-            "exit 0\n",
-            encoding="utf-8")
-        formatter.chmod(0o755)
+        formatter = self.formatter()
         source = self.repo / "sample.cpp"
         source.write_bytes(b"int good;\n")
         self.git("add", "sample.cpp")
