@@ -21,6 +21,19 @@ FLASHMEM void log_arena_vector_grow(size_t bytes, size_t old_capacity,
                                     size_t new_capacity);
 
 /**
+ * @brief Whether T is a sanctioned inline callable safe to store in an
+ * ArenaVector despite not being trivially destructible.
+ * @details Stored captures remain subject to ArenaVector's element destructor
+ * contract.
+ */
+template <typename T> struct is_arena_inplace_fn : std::false_type {};
+#ifdef ARDUINO
+template <typename R, typename... Args, size_t Cap, size_t Align>
+struct is_arena_inplace_fn<teensy::inplace_function<R(Args...), Cap, Align>>
+    : std::true_type {};
+#endif
+
+/**
  * @brief Arena-backed vector with a capacity fixed between bind() calls.
  *        Move-only.
  * @tparam T Element type; must satisfy the element destructor contract.
@@ -184,7 +197,7 @@ public:
    */
   void bind(Arena &arena, size_t min_capacity) {
     static_assert(
-        std::is_trivially_destructible_v<T>,
+        std::is_trivially_destructible_v<T> || is_arena_inplace_fn<T>::value,
         "ArenaVector never runs element destructors, so T must own no "
         "state outside the arena buffer: store a trivially-destructible "
         "type or a sanctioned Fn<> (no std::function/std::string).");
