@@ -1368,14 +1368,9 @@ inline void test_gs_staged_reseed_matches_synchronous() {
 }
 
 /**
- * @brief Verifies the dissolve clears the sphere and reseeds a fresh reaction.
- * @details Drives a real effect to its stabilization transition, then pins the
- *          two things the dissolve must do: coverage falls monotonically enough
- *          to reach near-zero by the end of the window (a scattered rest
- *          node is refilled by its autocatalytic neighbours in one frame, so a
- *          dissolve that only converts the newly-crossed band never clears at
- *          all), and the field that comes back is the seed pattern, not the old
- *          one.
+ * @brief Verifies dissolve coverage falls below one eighth and reseeds.
+ * @details On the last dissolve frame, coverage is below one eighth of the
+ *          grown pattern. The closing frame restores the fresh seed pattern.
  */
 inline void test_gs_dissolve_clears_and_reseeds() {
   hs_test::reset_globals();
@@ -1406,8 +1401,7 @@ inline void test_gs_dissolve_clears_and_reseeds() {
   HS_EXPECT(grown > GSWhiteBox::N / 20,
             "default reaction grew no pattern to dissolve");
 
-  // Step to the last frame before the window closes: the sphere must be all but
-  // clear, and still mid-dissolve.
+  // Sample the last frame before the dissolve window closes.
   for (int i = 0; i < GSWhiteBox::DISSOLVE_FRAMES - 1; ++i) {
     gs.draw_frame();
     gs.advance_display();
