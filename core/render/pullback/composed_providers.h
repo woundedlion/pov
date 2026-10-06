@@ -205,7 +205,8 @@ struct SurfaceProvider {
 
 /**
  * @brief Supplies the pattern and noise state to the Pullback::Source policies.
- * @details The pattern accessors read the prepared phases, the noise accessors
+ * @details The pattern accessors read the advanced clocks. noise() and
+ * noise_time() read runtime resources; noise_scale() and noise_contrast() read
  * the NoiseSourceParams fields.
  */
 template <typename BindingT, typename Family, ResourceKey Key = "source">
