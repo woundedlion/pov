@@ -154,6 +154,17 @@ inline void test_arena_make_n_indexed() {
   HS_EXPECT_TRUE(a.get_offset() >= 4 * sizeof(MoveOnlyValue));
 }
 
+/** @brief Verifies make_n() zero-initializes every scalar element. */
+inline void test_arena_make_n_value_initializes() {
+  std::memset(test_buf_a, 0xA5, sizeof(test_buf_a));
+  Arena a(test_buf_a, sizeof(test_buf_a));
+  int *values = a.make_n<int>(4);
+
+  for (size_t index = 0; index < 4; ++index) {
+    HS_EXPECT_EQ(values[index], 0);
+  }
+}
+
 /**
  * @brief Verifies the high-water mark tracks the peak offset: it only ever
  *        rises, never falls on rewind or smaller re-allocation.
@@ -1373,6 +1384,7 @@ inline int run_memory_tests() {
   test_arena_make_constructs();
   test_arena_make_lifetime();
   test_arena_make_n_indexed();
+  test_arena_make_n_value_initializes();
   test_arena_high_water_mark();
   test_arena_lifetime_high_water_mark();
   test_arena_reset();
