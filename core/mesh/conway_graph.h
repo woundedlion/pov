@@ -71,63 +71,39 @@ static_assert(NUM_NODES == static_cast<int>(std::size(Solids::simple_registry)),
 
 /**
  * @brief Parameterized Conway operator a leg sweeps.
- * @details CHAMFER is carried for recipe-step legs only; no graph edge uses it,
- * since no simple-registry endpoint is a chamfered form.
+ * @details CHAMFER is a recipe-step leg kind; no graph edge uses it.
  */
 enum class MorphOp : uint8_t { TRUNCATE, EXPAND, SNUB, CHAMFER };
 
 /**
  * @brief Reseed primitive tabled on an edge.
  * @details ADOPT replaces the held family seed with the arrived solid at leg
- * completion. The consumer gates it on a Platonic arrival, so only the bridge
- * rows table it. An ambo chain's leg seed instead comes from seed_fix_at_start
- * keying SeedFix::DERIVE_AMBO off seed_solid, and the ambo-crossover dual swap
- * is likewise untabled: seed_fix_at_start decides it at leg start against the
- * held seed identity.
+ * completion (see adopts_seed).
  */
 enum class Reseed : uint8_t { NONE, ADOPT };
 
-/** Graph-edge sweep floor. Recipe truncate legs start at
- * min(T_EPS, arrival * TRUNCATE_BIRTH_FRAC);
- * far-side legs can extend to 0.995 rather than 0.5 - T_EPS_AMBO. */
+/** Graph-edge sweep floor. */
 inline constexpr float T_EPS = 0.02f;
-/** Truncate clamp at the ambo (t = 0.5) end. Tighter than T_EPS: near 0.5 no
- * face degenerates (only the residual seed-edge segments shrink), and the
- * clean-swap gap this leaves is sub-pixel at H = 144 where T_EPS's would be a
- * visible ~2 px boundary jump plus a gradient rescale at every leg boundary
- * touching the ambo form. */
+/** Truncate clamp at the ambo (t = 0.5) end; its clean-swap gap is sub-pixel
+ * at H = 144. */
 inline constexpr float T_EPS_AMBO = 0.005f;
 /** Snub clamp at the jitterbug bridge's octahedron end (t = 0.5, where the 12
- * vertices merge pairwise onto the octahedron's 6): the leg stops where the
- * collapsing edge measures 0.02 chord — T_EPS-sized, ~1-2 px at H = 144 —
- * then clean-swaps to the held octahedron. */
+ * vertices merge pairwise onto the octahedron's 6): the collapsing edge
+ * measures 0.02 chord here. */
 inline constexpr float T_JITTERBUG_OCTA_MIN = 0.5104592f;
 
 /** Truncate birth-floor fraction of the arrival param: a recipe-step truncate
  * leg is born at min(T_EPS, arrival * TRUNCATE_BIRTH_FRAC), so an arrival at or
- * below T_EPS still sweeps from a smaller positive birth instead of collapsing
- * to a still image (t_start == t_end). The 0.2 fraction crosses over to the
- * flat T_EPS birth at arrival = T_EPS / 0.2 = 0.1: only the registry truncate
- * arrivals under that crossover (0.01 and 0.087) are born at the scaled floor;
- * every arrival at or above the crossover has a T_EPS birth. */
+ * below T_EPS still sweeps from a positive birth. */
 inline constexpr float TRUNCATE_BIRTH_FRAC = 0.2f;
-/** Smallest truncate arrival a recipe-step leg sweeps to; below it the
- * birth-to-arrival span is too few pixels to read as motion. Its birth floor
- * (arrival * TRUNCATE_BIRTH_FRAC) stays a valid positive-area truncate. */
+/** Smallest truncate arrival a recipe-step leg sweeps to. */
 inline constexpr float T_TRUNCATE_ARRIVAL_MIN = 0.002f;
-/** Upper truncate clamp for a far-side leg (arrival > 0.5, e.g. the two
- * truncate50d recipes at t = 0.873): stops just below t = 1, where every
- * cut point reaches the opposite endpoint and the cut faces collapse. A
- * far-side leg sweeps through the ambo pinch on the constant-topology truncate
- * branch instead of clean-swapping to ambo; the ambo-equivalent leg (arrival
- * <= 0.5) keeps its 0.5 - T_EPS_AMBO cap and clean-swaps. */
+/** Upper truncate clamp for a far-side leg (arrival > 0.5): stops just below
+ * t = 1, where the cut faces collapse. A far-side leg sweeps through the ambo
+ * pinch on the constant-topology truncate branch. */
 inline constexpr float T_TRUNCATE_FAR_MAX = 1.0f - T_EPS_AMBO;
-/** Nudge off the exact t = 0.5 truncate short-circuit: at 0.5 truncate returns
- * ambo (E vertices, not 2E), a one-frame topology break for a far-side leg
- * sweeping through the pinch. Only far-side legs (arrival > 0.5) ever reach
- * 0.5, so a 0.5 sample is pushed to 0.5 + this toward the arrival, staying on
- * the truncate branch. Small against the ~0.018 per-frame sweep step, so no
- * visible hitch. */
+/** Nudge off the exact t = 0.5 truncate short-circuit, where truncate returns
+ * ambo (E vertices, not 2E). */
 inline constexpr float T_EPS_TRUNCATE_PINCH = 1e-4f;
 
 /** @brief Returns @p t clear of the exact t = 0.5 truncate ambo short-circuit.
@@ -143,11 +119,9 @@ inline constexpr int SWEEP_FRAMES = 48;
 /** Settle (relax-slerp) frames appended to a settling leg; 0 for the rest. */
 inline constexpr int SETTLE_FRAMES = 12;
 
-/** Snub-dodecahedron cosmetic sweep twist; registry uses 0 (tuned from
- * renders). */
+/** Snub-dodecahedron cosmetic sweep twist. */
 inline constexpr float SNUB_DODECAHEDRON_TWIST = 0.0f;
-/** Tetra -> icosa bridge snub twist; relax canonicalizes any value (tuned from
- * renders: -0.40 cuts the settle rotation from 23.4 to 17.3 degrees). */
+/** Tetra -> icosa bridge snub twist; relax canonicalizes any value. */
 inline constexpr float SNUB_BRIDGE_TWIST = -0.40f;
 /** Live relax iteration cap at a settling edge's to_node end. */
 inline constexpr int SETTLE_RELAX_ITERATIONS = 50;
@@ -247,8 +221,7 @@ static_assert(NUM_EDGES == 23);
 /**
  * @brief Whether an edge is the icosahedron <-> octahedron jitterbug bridge:
  * a snub sweep whose t = 0.5 end collapses onto the octahedron by pairwise
- * vertex merge. The T_JITTERBUG_OCTA_MIN clamp and the ambo endpoint swap key
- * on it.
+ * vertex merge.
  */
 constexpr bool is_jitterbug_edge(const EdgeSpec &e) {
   return e.op == MorphOp::SNUB && e.to_node == OCTAHEDRON;
@@ -276,8 +249,6 @@ constexpr int jitterbug_edge_count() {
   return n;
 }
 
-// A second snub row landing on the octahedron would silently inherit the
-// jitterbug clamp and the ambo endpoint swap.
 static_assert(jitterbug_edge_count() == 1);
 
 /**
@@ -291,8 +262,6 @@ constexpr bool no_edge_sweeps_chamfer() {
   return true;
 }
 
-// CHAMFER is a recipe-step leg kind: no simple-registry endpoint is a chamfered
-// form, so a chamfer row would have no reachable node.
 static_assert(no_edge_sweeps_chamfer());
 
 static_assert(
@@ -445,12 +414,7 @@ inline constexpr uint32_t WALK_BRIDGE_RIPE_WEIGHT = 12;
 inline constexpr int BRIDGE_RIPE_LEGS = 4;
 
 /** Recency scale: non-bridge candidate weights are base * SCALE^3 divided by
- * (1 + target visit count)^3, so seldom-visited targets strongly outweigh the
- * hubs a degree-proportional walk over-samples (10k-leg simulation: max/min
- * node share drops from ~11-15x to ~4x, near the ~3x structural floor set by
- * the cut-vertex hubs' forced pendant transits). Bridges stay recency-exempt
- * at base * SCALE^2 — between fresh and stale sibling weights — which keeps
- * the family-change cadence at the unweighted walk's ~6-7 legs. */
+ * (1 + target visit count)^3. Bridges are recency-exempt at base * SCALE^2. */
 inline constexpr uint32_t WALK_RECENCY_SCALE = 12;
 /** Visit-count ceiling: reaching it halves every node's count, so the counts
  * track a sliding window instead of converging and flattening the weighting
@@ -461,9 +425,7 @@ inline constexpr uint8_t WALK_VISIT_CAP = 8;
  * @brief Pick weight of one candidate edge.
  * @param edge Index into EDGES.
  * @param legs_in_family Completed legs since the last family change.
- * @return Unscaled relative weight; pick_next_edge applies the recency scaling
- *         on top, leaving a ripe bridge above the stale siblings but below the
- *         fresh ones.
+ * @return Unscaled relative weight, before pick_next_edge's recency scaling.
  */
 constexpr uint32_t edge_weight(int edge, int legs_in_family) {
   if (!EDGES[edge].bridge)
@@ -572,8 +534,7 @@ static_assert(ordered_tour_valid());
 
 /**
  * @brief Whether ORDERED_TOUR traverses every settle edge and every family
- * bridge — all three crossings: tetra <-> octa, tetra <-> icosa, and the
- * icosa <-> octa jitterbug.
+ * bridge.
  */
 constexpr bool ordered_tour_covers_heavy_legs() {
   bool has[NUM_EDGES] = {};
@@ -589,8 +550,7 @@ static_assert(ordered_tour_covers_heavy_legs());
 /**
  * @brief Deterministic edge choice for HS_PROFILE_ORDERED_CYCLE builds: one
  * pass of ORDERED_TOUR covers all 18 nodes, then the cycle repeats.
- * @param node Current node id (positional: the tour expects the walk at its
- * leg_index-th node; the caller's edge_touches check traps a desync).
+ * @param node Current node id; unused (the tour is positional).
  * @param prev_edge Edge the walk arrived on; unused.
  * @param leg_index Monotonic leg counter.
  * @return Index into EDGES of the tour's next leg.
@@ -638,10 +598,8 @@ constexpr int dual_platonic(int solid) {
 /**
  * @brief Action required on the held seed before a leg may start.
  * @details The persistent seed mesh is always one of the five Platonic solids;
- * DERIVE_AMBO legs build their working seed as ambo(held seed) at construction
- * without replacing it, which is what lets the out-and-back through
- * truncatedCuboctahedron / truncatedIcosidodecahedron return to a node whose
- * departures all need a Platonic seed.
+ * DERIVE_AMBO legs build their working seed as ambo(held seed) without
+ * replacing it.
  */
 enum class SeedFix : uint8_t {
   KEEP,        /**< Held seed already matches the edge's seed_solid. */

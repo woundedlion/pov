@@ -6,9 +6,8 @@
 
 /**
  * @file recipe.h
- * @brief Lowering and replay of Solids::Recipe op chains (the chain model
- *        itself is in mesh/recipe_types.h), plus the leg-kind coverage rules
- *        the morph animation depends on.
+ * @brief Lowering and replay of Solids::Recipe op chains, plus the leg-kind
+ *        coverage rules for morph animation.
  */
 
 #include <cstddef>
@@ -20,8 +19,7 @@
 
 namespace Solids {
 
-/** Largest chamfer thickness a leg is characterized at: the chamfer sweep
- * probe (tests/test_opchain_probe.h) runs T_EPS -> 0.63 on every chamfer seed. */
+/** Largest chamfer thickness a leg is characterized at. */
 inline constexpr float CHAMFER_T_MAX = 0.63f;
 
 /**
@@ -29,19 +27,10 @@ inline constexpr float CHAMFER_T_MAX = 0.63f;
  * @param step Lowered primitive step.
  * @return True when the recipe-morph path supports the step; false leaves the whole
  *   recipe to the caller's whole-generate fallback.
- * @details TRUNCATE below ConwayGraph::T_TRUNCATE_ARRIVAL_MIN sweeps too few
- * pixels to read as motion. A sub-T_EPS arrival (0.01) still sweeps: the leg
- * births at the derived per-arrival floor (min(T_EPS, arrival *
- * TRUNCATE_BIRTH_FRAC)). Above 0.5
- * is a far-side leg: it sweeps through the ambo pinch on the constant-topology
- * truncate branch (the two truncate50d recipes arrive at 0.873), up to
- * T_TRUNCATE_FAR_MAX.
- * CHAMFER is characterized up to CHAMFER_T_MAX. SNUB sweeps only a positive
- * inset, HANKIN only a positive contact angle and RELAX only a baked step or a
- * positive iteration count, the floors apply_step traps on. KIS and DUAL run as
- * smooth bridge legs (docs/specs/opchain_morph_spec.md, "Smooth dual/kis/needle"). AMBO sweeps
- * through the truncate arrival at its topology pinch. EXPAND has a leg
- * kind but no recipe and no sweep coverage on a hankin seed.
+ * @details A sub-T_EPS TRUNCATE arrival births at min(T_EPS, arrival *
+ * TRUNCATE_BIRTH_FRAC); an arrival above 0.5 is a far-side leg that sweeps
+ * through the ambo pinch on the constant-topology truncate branch. SNUB,
+ * HANKIN and RELAX admit exactly the parameters apply_step accepts.
  */
 inline constexpr bool is_morphable_step(const OpStep &step) {
   switch (step.op) {
@@ -71,10 +60,7 @@ inline constexpr bool is_morphable_step(const OpStep &step) {
   return false;
 }
 
-// The shipping steps sitting on the coverage bounds: raising one past its bound
-// drops the whole recipe to the whole-generate fallback, silently. Each pins the
-// op it addresses as well, so a step inserted ahead of the index cannot leave
-// the bound assert passing on an unconditionally-morphable op.
+// Shipping steps on the coverage bounds; each assert also pins the step's op.
 static_assert(
     TRUNCATED_ICOSAHEDRON_HK58_CHAMFER63_STEPS[1].op == Op::CHAMFER &&
         is_morphable_step(TRUNCATED_ICOSAHEDRON_HK58_CHAMFER63_STEPS[1]),
@@ -148,7 +134,7 @@ inline constexpr size_t max_lowered_step_count(const Entry (&entries)[N]) {
 }
 
 /**
- * @brief Lowers a recipe's authored steps to the eight primitives plus AMBO.
+ * @brief Lowers a recipe's authored steps to primitive steps.
  * @param recipe Recipe whose authored steps are lowered.
  * @param out Output buffer receiving the lowered steps.
  * @param cap Capacity of `out`; traps on overflow.
@@ -216,8 +202,6 @@ HS_COLD_MEMBER inline size_t expand_to_primitives(const Recipe &recipe,
  * @param step Step to apply.
  * @param allow_composite Whether composite steps (bevel, gyro, meta, needle,
  *   zip) are legal; a composite step traps when false.
- * @details Single dispatch shared by both replay paths, so an authored replay
- * and a lowered primitive replay cannot diverge on a step.
  */
 FLASHMEM static void apply_step(SolidBuilder &builder, const OpStep &step,
                                 bool allow_composite) {
@@ -293,7 +277,7 @@ FLASHMEM static void apply_step(SolidBuilder &builder, const OpStep &step,
 /**
  * @brief Replays a recipe's authored chain from its simple_registry seed.
  * @param recipe Recipe to replay; composites run through the SolidBuilder
- *   composite methods, so the replay matches the generator functions exactly.
+ *   composite methods.
  * @param a Output arena for even pipeline stages.
  * @param b Scratch arena for odd pipeline stages.
  * @return The rebuilt PolyMesh, backed by `a` for an odd `recipe.count` and by
@@ -314,8 +298,7 @@ FLASHMEM static void apply_step(SolidBuilder &builder, const OpStep &step,
 /**
  * @brief Replays a primitive step list from a simple_registry seed.
  * @param seed simple_registry index of the base solid.
- * @param steps Primitive steps (the eight primitives plus AMBO); a composite
- *   step traps.
+ * @param steps Primitive steps; a composite step traps.
  * @param count Number of steps.
  * @param a Output arena for even pipeline stages.
  * @param b Scratch arena for odd pipeline stages.

@@ -21,8 +21,8 @@ namespace Solids {
 
 /**
  * @brief Authored Conway operator, including the composite ops.
- * @details expand_to_primitives() (mesh/recipe.h) lowers composites to the
- * primitives plus AMBO; authored recipes keep the composite.
+ * @details Authored recipes keep the composite; expand_to_primitives() lowers
+ * it.
  */
 enum class Op : uint8_t {
   TRUNCATE,
@@ -48,30 +48,23 @@ struct OpStep {
   Op op; /**< Operator applied at this step. */
   /**
    * @brief t / contact angle (radians) / RELAX iterations.
-   * @details Unread on a RELAX step carrying a `bake`; such steps leave it at
-   * zero rather than naming a count the replay never runs. A bake-less RELAX
-   * step must name at least one iteration: the zero default would replay as a
-   * normalize-only pass-through, so apply_step traps on it.
+   * @details Unread, and left at zero, on a RELAX step carrying a `bake`. A
+   * bake-less RELAX step must name at least one iteration.
    */
   float param = 0.0f;
   float twist = 0.0f; /**< SNUB face rotation, radians. */
   /**
    * @brief RELAX bake this step lands on, mirroring the generator's
    * relax_baked() call; null replays `param` live iterations.
-   * @details When set, every replay of the step (bitwise gate, on-screen build
-   * leg, and eager clean endpoint) resolves through the baked converged mesh
-   * instead of `param` smoothing steps, so the recipe lands on the shipped
-   * geometry rather than a mid-convergence freeze. Left null for a mid-chain
-   * relax on a mesh with no bake, which keeps iterating.
+   * @details When set, every replay of the step resolves through the baked
+   * mesh. Left null for a relax on a mesh with no bake.
    */
   const MeshOps::RelaxBake *bake = nullptr;
 };
 
 /**
  * @brief Declarative op chain mirroring a registry generator.
- * @details Parallel declaration of a generator's chain, proven bitwise-equal
- * to it in tests/test_solids.h. The generators stay the source of truth for
- * shipping geometry.
+ * @details The generators are the source of truth for shipping geometry.
  */
 struct Recipe {
   uint8_t seed;        /**< simple_registry index of the base solid. */

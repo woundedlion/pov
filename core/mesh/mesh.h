@@ -30,8 +30,7 @@ struct PolyMesh {
   /**
    * @brief Per-face topology class id, as filled by
    * classify_faces_by_topology.
-   * @details Carried only by clone(); no Conway operator propagates it, so an
-   * operator's output arrives with this array empty and the caller reclassifies.
+   * @details Empty until classified; clone() copies it.
    */
   ArenaVector<uint16_t> topology;
   /**
@@ -47,10 +46,8 @@ struct PolyMesh {
 
   /**
    * @brief Resets all arrays to empty without releasing arena storage.
-   * @details Every arena binding survives, so this is the wrong reset for a
-   * mesh whose arena has since been reset or rewound: bind()'s reuse path would
-   * hand the mesh back blocks the arena has already reclaimed. Replace such a
-   * mesh instead (`mesh = PolyMesh()`), as MeshOps::medial and MeshOps::reconcile_vertices do.
+   * @details Every arena binding survives; a mesh whose arena has since been
+   * reset or rewound must be replaced instead (`mesh = PolyMesh()`).
    */
   inline void clear() {
     vertices.clear();
@@ -108,14 +105,11 @@ struct PolyMesh {
 };
 
 /**
- * @brief The read surface PolyMesh and MeshState both present, and the one the
- * MeshOps templates written against "a mesh" are spelled in terms of.
- * @details The two types carry the same five members and the same accessor,
- * count, reset and clone surface; they differ only in how the accessors resolve
- * — PolyMesh always owns its arrays and forwards, MeshState discriminates
- * owned arrays against borrowed views. MeshState's extras (face_offsets, the
- * topology accessors, set_owned/set_borrowed) stay outside the concept, so a
- * template that can exploit them probes for them with `requires` instead.
+ * @brief The read surface PolyMesh and MeshState both present.
+ * @details PolyMesh always owns its arrays and forwards; MeshState
+ * discriminates owned arrays against borrowed views. MeshState's extras
+ * (face_offsets, the topology accessors, set_owned/set_borrowed) stay outside
+ * the concept; templates probe for them with `requires`.
  */
 template <typename M>
 concept MeshLike = requires(M &mesh, const M &const_mesh, Arena &arena) {
@@ -173,8 +167,6 @@ struct HalfEdgePairRecord {
  * @param u One edge endpoint vertex index.
  * @param v The other edge endpoint vertex index.
  * @param he The half-edge index this record represents.
- * @details Single source of the (min_v, max_v) key for both record-building
- * loops (build_half_edge_mesh, classify_faces_by_topology).
  */
 inline void fill_edge_record(HalfEdgePairRecord &rec, uint16_t u, uint16_t v,
                              uint16_t he) {
@@ -203,9 +195,7 @@ sort_edge_records(HalfEdgePairRecord *records, size_t n) {
  * @param n Number of records in the array.
  * @param set_pair Callback linking the two half-edges of each interior edge.
  * @details Traps on a non-manifold edge (>2 half-edges sharing one undirected
- * edge). A record whose min_v is HE_NONE is skipped and never paired: that is
- * the sentinel a caller fills in to keep a face's slots aligned while excluding
- * them from pairing.
+ * edge). A record whose min_v is HE_NONE is never paired.
  */
 template <typename SetPairFn>
 inline void pair_half_edges(HalfEdgePairRecord *records, size_t n,
@@ -254,8 +244,8 @@ class HalfEdgeMesh;
 /**
  * @brief Inclusive representable bounds enforced by mesh builders and operators.
  * @details Indices use uint16_t with HE_NONE/REFERENCED/UNREFERENCED
- * sentinels; the vertex cap also bounds Hankin output. Face degree uses uint8_t.
- * Exceeding a bound traps before conversion. Arena byte capacity is independent.
+ * sentinels. Face degree uses uint8_t. Exceeding a bound traps before
+ * conversion. Arena byte capacity is independent.
  */
 namespace MeshLimits {
 inline constexpr size_t MAX_VERTEX_INDEX = INT16_MAX;
@@ -302,9 +292,7 @@ public:
    * @param mesh Source mesh whose owned vertices/face_counts/faces are read.
    * @details Retains 2F + 10I bytes and peaks a further 6I bytes of pairing
    * records, LIFO-rewound before the constructor returns (F faces, I flat face
-   * indices). At the roster's largest shape (F = 362, I = 2160) that is 22324 B
-   * retained over a 12960 B transient; the 16-bit index guard caps I at 65535,
-   * so the transient never exceeds 384 KB.
+   * indices).
    */
   explicit HalfEdgeMesh(Arena &arena, const PolyMesh &mesh) {
     build_half_edge_mesh(*this, arena, mesh.vertices.size(),
@@ -318,9 +306,6 @@ public:
    * @param arena Arena supplying storage for the half-edge arrays and the
    * transient edge-pairing records; same footprint as the PolyMesh constructor.
    * @param mesh Source mesh; vertices are owned but face connectivity may be borrowed.
-   * @details MeshState's vertices are always owned, but its face connectivity
-   * (face counts/indices) may be borrowed (view spans); route it through the
-   * unified accessors so both owned and borrowed modes work.
    */
   explicit HalfEdgeMesh(Arena &arena, const MeshState &mesh) {
     build_half_edge_mesh(*this, arena, mesh.vertices.size(),
@@ -335,9 +320,8 @@ build_half_edge_mesh(HalfEdgeMesh &out, Arena &arena, size_t num_verts,
                      const uint8_t *counts, size_t num_faces,
                      const uint16_t *faces_arr, size_t total_indices) {
   require_flat_face_length(counts, num_faces, total_indices);
-  // Vertices carry narrow_index's ceiling so an oversized mesh trips here
-  // rather than inside a downstream operator's emitter; total_indices counts
-  // half-edges, which are only ever stored as uint16_t.
+  // Vertices carry narrow_index's ceiling; total_indices counts half-edges,
+  // stored as uint16_t.
   HS_CHECK(num_verts <= MeshLimits::MAX_VERTICES &&
                total_indices <= MeshLimits::MAX_HALF_EDGES,
            "half-edge mesh exceeds 16-bit index range");
@@ -359,12 +343,8 @@ build_half_edge_mesh(HalfEdgeMesh &out, Arena &arena, size_t num_verts,
     for (size_t fi = 0; fi < num_faces; ++fi) {
       int count = counts[fi];
 
-      // A zero-count face emits no half-edges yet still gets its half_edge set
-      // below, mis-linking it to the next face. A 2-gon is accepted: its two
-      // directed edges share one undirected edge, so pair_half_edges links them
-      // to each other, and that self-pair is what lets the connectivity-driven
-      // operators degrade instead of trapping (classify_faces_impl wants the
-      // opposite and fills the HE_NONE sentinel for sub-triangular faces).
+      // A zero-count face would mis-link its half_edge to the next face. A
+      // 2-gon is accepted: its two directed edges pair with each other.
       HS_CHECK(count > 0, "half-edge mesh face has zero sides");
 
       out.faces.emplace_back();
@@ -399,9 +379,7 @@ build_half_edge_mesh(HalfEdgeMesh &out, Arena &arena, size_t num_verts,
     }
 
     pair_half_edges(records, total_indices, [&](uint16_t a, uint16_t b) {
-      // Opposite half-edges of a shared edge end at different vertices; equal
-      // heads mean both faces wind the same way around it, which would leave
-      // every vertex_orbit walk through the pair broken.
+      // Equal heads mean both faces wind the same way around the shared edge.
       HS_CHECK(out.half_edges[a].vertex != out.half_edges[b].vertex,
                "half-edge mesh faces are inconsistently wound");
       out.half_edges[a].pair = b;
@@ -456,7 +434,7 @@ HS_COLD_MEMBER inline void face_centroids_into(const PolyMesh &m,
  * @param i Container index to narrow.
  * @return The index as a uint16_t.
  * @details The vertex cap reserves the HE_NONE/REFERENCED/UNREFERENCED
- * sentinel range and bounds Hankin output indices before conversion.
+ * sentinel range.
  */
 inline uint16_t narrow_index(size_t i) {
   HS_CHECK(i <= MeshLimits::MAX_VERTEX_INDEX,
@@ -468,9 +446,7 @@ inline uint16_t narrow_index(size_t i) {
  * @brief Trapping int -> uint8_t cast for a face's side count.
  * @param count Face side count to narrow.
  * @return The side count as a uint8_t.
- * @details A face side count wider than 255 (high-valence orbit, count*2 in
- * truncate, a long Hankin rosette walk) would silently wrap the uint8_t
- * face_counts array; bounds to [0, UINT8_MAX] and traps instead.
+ * @details Traps outside [0, UINT8_MAX] instead of wrapping.
  */
 inline uint8_t narrow_face_count(int count) {
   HS_CHECK(count >= 0 && count <= MeshLimits::MAX_FACE_DEGREE,
@@ -483,9 +459,8 @@ inline uint8_t narrow_face_count(int count) {
  * @param face_offsets Destination offsets array, already bound.
  * @param current_offset Cumulative half-edge offset the face starts at.
  * @param count The face's side count.
- * @details face_offsets indexes half-edges, so it is bounded by UINT16_MAX
- * rather than narrow_index's INT16_MAX vertex bound. The face's end offset is
- * what the bound is checked against, so the last face cannot overrun unseen.
+ * @details face_offsets indexes half-edges, so it is bounded by UINT16_MAX.
+ * The face's end offset is checked against the bound.
  */
 inline void push_face_offset(ArenaVector<uint16_t> &face_offsets,
                              int current_offset, int count) {
@@ -566,12 +541,8 @@ inline math::Vector edge_midpoint(const HalfEdgeMesh &he_mesh,
  * Requires 2 * (largest referenced vertex index + 1) bytes, plus alignment;
  * at MeshLimits::MAX_VERTICES this is 65,536 bytes.
  * @param op Operator name, interpolated into the trap message on failure.
- * @details Operators size output pools assuming a closed manifold (E = I/2); an
- * unpaired half-edge would otherwise overrun them and trap far from the cause.
- * Edge-manifoldness is not enough for the orbit scaffolding, which emits one
- * output face per source vertex from a single incident-edge ring walk: at a bowtie
- * vertex that walk closes over one fan and the rest are silently dropped, so
- * the walk length is checked against the vertex's incident half-edge count.
+ * @details Each vertex's fan walk length is checked against its incident
+ * half-edge count, so a bowtie vertex traps.
  */
 HS_COLD static inline void require_closed_manifold(const HalfEdgeMesh &he_mesh,
                                                    Arena &scratch,
@@ -621,12 +592,8 @@ HS_COLD static inline void require_closed_manifold(const HalfEdgeMesh &he_mesh,
  * @param he_mesh Prebuilt connectivity handed to an operator's reuse overload.
  * @param mesh Source mesh the operator reads positions and census from.
  * @param op Operator name, interpolated into the trap message on failure.
- * @details The reuse overloads size their output pools from `mesh` and index
- * `mesh`'s vertices through `he_mesh`, so a pair from two different meshes
- * overruns both. Checks the census, the per-face side counts, the vertex
- * range and each loop's head vertices. Runs only on the overload path: the
- * single-shot entries build their own connectivity and satisfy this by
- * construction.
+ * @details Checks the census, the per-face side counts, the vertex range and
+ * each loop's head vertices.
  */
 HS_COLD static inline void
 require_matching_half_edges(const HalfEdgeMesh &he_mesh, const PolyMesh &mesh,
@@ -649,8 +616,7 @@ require_matching_half_edges(const HalfEdgeMesh &he_mesh, const PolyMesh &mesh,
   HS_CHECK(face_offset == he_mesh.half_edges.size(),
            "MeshOps::%s: half-edge mesh census differs from the source mesh",
            op);
-  // Each loop's head vertices are the source face's own indices, which a
-  // census and side-count match against a different mesh would still satisfy.
+  // Each loop's head vertices must be the source face's own indices.
   const uint16_t *faces = mesh.get_faces_data();
   const size_t num_verts = mesh.vertices.size();
   face_offset = 0;
@@ -678,12 +644,10 @@ require_matching_half_edges(const HalfEdgeMesh &he_mesh, const PolyMesh &mesh,
  * @param scratch Scratch arena for the transient old->new vertex remap
  * (LIFO-restored before return).
  * @details Removes degenerate faces (faces with < 3 vertices), then compacts
- * the vertex array to the set the surviving faces reference, so the compiled
- * vertex count matches what vertex-count consumers (e.g. OpLeg) see rather
- * than carrying orphans left by the stripped faces. Traps if geom_arena aliases
- * scratch, the flat face lengths disagree, or the cumulative face offset
- * exceeds the 16-bit range. The destination topology array is empty on return;
- * callers that consume topology classes must classify the compiled mesh first.
+ * the vertex array to the set the surviving faces reference. Traps if
+ * geom_arena aliases scratch, the flat face lengths disagree, or the
+ * cumulative face offset exceeds the 16-bit range. The destination topology
+ * array is empty on return.
  */
 HS_COLD static inline void compile(const PolyMesh &src, MeshState &dst,
                                    Arena &geom_arena, Arena &scratch) {
@@ -692,8 +656,7 @@ HS_COLD static inline void compile(const PolyMesh &src, MeshState &dst,
   require_flat_face_length(src.get_face_counts_data(),
                            src.get_face_counts_size(), src.get_faces_size());
   // Unbind, not clear(): a reused MeshState's bindings may name blocks its
-  // arena has already reclaimed, and bind()'s reuse path would then write
-  // through them.
+  // arena has already reclaimed.
   dst = MeshState();
 
   size_t valid_faces = 0;
@@ -706,10 +669,9 @@ HS_COLD static inline void compile(const PolyMesh &src, MeshState &dst,
     }
   }
 
-  // Old->new vertex remap on scratch (LIFO bump, restored on scope exit).
-  // UNREFERENCED is an unused slot, REFERENCED a vertex seen on a surviving
-  // face but not yet numbered; both sit above the INT16_MAX index bound
-  // narrow_index enforces, so neither aliases a real compacted index.
+  // Old->new vertex remap. UNREFERENCED is an unused slot, REFERENCED a vertex
+  // seen on a surviving face but not yet numbered; both sit above the
+  // INT16_MAX index bound, so neither aliases a compacted index.
   constexpr uint16_t UNREFERENCED = 0xFFFF;
   constexpr uint16_t REFERENCED = 0xFFFE;
   ScratchScope scratch_guard(scratch);
@@ -775,11 +737,7 @@ HS_COLD static inline void compile(const PolyMesh &src, MeshState &dst,
  * @param src Source mesh to copy from.
  * @param dst Destination mesh, populated in place from the given arena.
  * @param arena Arena supplying storage for the destination arrays.
- * @details Safe for memory compaction and bouncing between arenas. MeshState
- * delegates to MeshState::clone (the Cloneable interface used by Persist) so the
- * two can't drift; the generic body handles PolyMesh (no face_offsets). Traps if
- * src aliases dst: copy_vector rebinds dst in place, then memcpy's the block
- * onto itself.
+ * @details MeshState delegates to MeshState::clone. Traps if src aliases dst.
  */
 template <MeshLike MeshT>
 inline void clone(const MeshT &src, MeshT &dst, Arena &arena) {
@@ -839,8 +797,7 @@ static inline uint32_t face_topology_base_hash(int count,
  * @param faces Flat per-face vertex indices.
  * @param I Flat index count.
  * @return Nonzero key over the whole connectivity; 0 is reserved for "unkeyed".
- * @details Every count and index in order: census figures alone do not identify
- * a topology, since dual seeds agree on all of them.
+ * @details Hashes every count and index in order.
  */
 static inline uint32_t connectivity_key(const uint8_t *face_counts, size_t F,
                                         const uint16_t *faces, size_t I) {
@@ -872,12 +829,8 @@ static inline uint32_t fold_face_topology_hash(uint32_t face_hash,
  * @details Hashes each face by side count and interior angles, folds in
  * neighbor hashes via the half-edge pairing, then sorts and assigns a dense
  * topology id per distinct hash. Traps if the flat face lengths disagree or the
- * half-edge or face count exceeds the 16-bit index range.
- *
- * All three arenas may be the same object, unlike MeshOps::compile which
- * forbids it: the pairing records nest inside the scratch_a scope in LIFO
- * order, and the topology bind precedes the scratch scope so the rewind cannot
- * free it.
+ * half-edge or face count exceeds the 16-bit index range. All three arenas may
+ * be the same object.
  */
 template <typename MeshT>
 __attribute__((always_inline)) inline void
@@ -888,15 +841,10 @@ classify_faces_impl(MeshT &mesh, Arena &scratch_a, Arena &scratch_b,
   const uint8_t *face_counts = mesh.get_face_counts_data();
   const uint16_t *faces = mesh.get_faces_data();
   size_t I = mesh.get_faces_size();
-  // Above the topology_key publish: a key over connectivity that disagrees with
-  // its counts must never be handed out.
+  // Validate before publishing topology_key.
   require_flat_face_length(face_counts, F, I);
 
-  // Bound above the scratch guard: persistent may alias scratch_a, whose rewind
-  // would free the topology block on return. Binding unconditionally reuses the
-  // block in place when persistent already backs it with room, and trips
-  // bind()'s stale-binding contract if a different arena is passed while
-  // capacity happens to suffice.
+  // Bound before the scratch guard: persistent may alias scratch_a.
   mesh.topology.bind(persistent, F);
   // A face-less mesh has nothing to classify, and the half-edge and node
   // allocations below reject zero-size requests.
@@ -938,10 +886,8 @@ classify_faces_impl(MeshT &mesh, Arena &scratch_a, Arena &scratch_b,
   for (size_t i = 0; i < F; ++i) {
     int count = face_counts[i];
 
-    // Pre-fold hash: count + sorted whole-degree interior angles. Class
-    // identity is the neighbor-folded hash below, where a collision merges two
-    // distinct face topologies. Acceptable for the fixed polyhedron roster.
-    // Degenerate faces have no interior-angle vector and hash on count alone.
+    // Pre-fold hash: count + sorted whole-degree interior angles. Degenerate
+    // faces hash on count alone.
     if (count >= 3) {
       for (int k = 0; k < count; ++k) {
         HS_CHECK(faces[offset + k] < vertex_count,
@@ -999,10 +945,8 @@ classify_faces_impl(MeshT &mesh, Arena &scratch_a, Arena &scratch_b,
       for (size_t fi = 0; fi < F; ++fi) {
         int count = face_counts[fi];
         if (count < 3) {
-          // A degenerate face has no real edges; reserve its half-edge slots
-          // with the never-pair sentinel so the neighbor-fold indexing
-          // stays aligned while pair_half_edges leaves them unpaired — a 2-gon's
-          // two opposite directed edges would otherwise self-pair.
+          // Reserve a degenerate face's half-edge slots with the never-pair
+          // sentinel, keeping indexing aligned and a 2-gon unpaired.
           for (int k = 0; k < count; ++k) {
             fill_edge_record(records[he_idx], HE_NONE, HE_NONE,
                              static_cast<uint16_t>(he_idx));
@@ -1029,10 +973,8 @@ classify_faces_impl(MeshT &mesh, Arena &scratch_a, Arena &scratch_b,
       });
     }
 
-    // Commutative by design: the wrapping sum makes class identity the multiset
-    // of neighbour hashes, not their cyclic order, so faces whose neighbourhoods
-    // differ only by rotation or reflection share a class. Faces whose neighbour
-    // hashes merely sum equally merge with them.
+    // The wrapping sum makes class identity the multiset of neighbour hashes,
+    // not their cyclic order.
     offset = 0;
     for (size_t fi = 0; fi < F; ++fi) {
       int count = face_counts[fi];

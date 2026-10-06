@@ -109,8 +109,7 @@ inline math::Vector face_normal(const HalfEdgeMesh &he_mesh, const MeshT &mesh,
 }
 
 /**
- * @brief Emit one output face per source-vertex orbit for dual, ambo, expand,
- * snub, truncate, and medial.
+ * @brief Emit one output face per source-vertex orbit.
  * @tparam DIR Orbit direction passed through to vertex_orbit.
  * @tparam ValueFn Callable mapping a half-edge index to an output vertex index.
  * @param he_mesh Half-edge connectivity to walk.
@@ -210,10 +209,8 @@ inline void emit_shrunk_face(const HalfEdgeMesh &he_mesh, PolyMesh &out_mesh,
  *   and filled here for both halves of each edge.
  * @param edge_fn Per-edge hook for a caller carrying a parallel payload; runs
  *   after the midpoint vertex is pushed and mapped into edge_to_vert.
- * @details The degenerate (antipodal) midpoint falls back to an endpoint. Shared
- *   by ambo and medial, whose vertex lists must stay bit-identical. Requires a
- *   closed manifold: the map is written through he.pair, so an unpaired
- *   half-edge traps rather than writing past the end of edge_to_vert.
+ * @details The degenerate (antipodal) midpoint falls back to an endpoint.
+ *   Requires a closed manifold; an unpaired half-edge traps.
  */
 template <typename EdgeFn>
 inline void emit_edge_midpoints(const HalfEdgeMesh &he_mesh,
@@ -247,9 +244,8 @@ inline void emit_edge_midpoints(const HalfEdgeMesh &he_mesh,
  * @param verts_per_side Indices emit_fn pushes per half-edge; scales the emitted
  *   face's side count.
  * @param emit_fn Pushes a half-edge's output vertex indices.
- * @details Faces with fewer than 3 sides are skipped entirely. Unlike
- *   emit_shrunk_face, the output vertices already exist; this pass only walks the
- *   loop. Shared by ambo, medial and truncate.
+ * @details Faces with fewer than 3 sides are skipped. The output vertices must
+ *   already exist; this pass only walks the loop.
  */
 template <typename EmitFn>
 inline void emit_primary_faces(const HalfEdgeMesh &he_mesh,
@@ -304,8 +300,8 @@ inline void for_each_edge(const HalfEdgeMesh &he_mesh, bool *visited_edges,
 }
 
 /**
- * @brief Emit the shell expand and snub share: a shrunk face per source face,
- *   a face per source-vertex orbit, then a caller-shaped face group per edge.
+ * @brief Emit an expanded shell: a shrunk face per source face, a face per
+ *   source-vertex orbit, then a caller-shaped face group per edge.
  * @tparam CornerFactory Callable (size_t face_index, const Vector &centroid)
  *   returning that face's corner position function for emit_shrunk_face; the
  *   returned callable must own the per-face state it needs.
@@ -314,15 +310,12 @@ inline void for_each_edge(const HalfEdgeMesh &he_mesh, bool *visited_edges,
  * @param mesh Source mesh supplying the vertex positions.
  * @param he_mesh Half-edge connectivity to walk.
  * @param out_mesh Destination mesh; its pools are bound by the caller.
- * @param scratch Arena for the index buffers, LIFO-restored on return. Expand
- *   draws them from its target arena and snub from its temp arena, so which
- *   arena feeds them is the caller's to pick.
+ * @param scratch Arena for the index buffers, LIFO-restored on return.
  * @param V Source vertex count.
  * @param I Source half-edge/index count.
  * @param corner_factory Builds a face's corner position function.
  * @param edge_fn Appends one edge's faces.
- * @details The three passes run in this order for both operators, and every
- *   output vertex and face index depends on it.
+ * @details Output vertex and face indices depend on this pass order.
  */
 template <typename CornerFactory, typename EdgeFn>
 inline void
@@ -348,7 +341,7 @@ emit_expanded_shell(const PolyMesh &mesh, const HalfEdgeMesh &he_mesh,
   }
 
   // Orbit and edge faces are emitted regardless of primary-face
-  // well-formedness (unlike the shrunk primary face above).
+  // well-formedness.
   emit_vertex_orbit_faces<OrbitDir::PAIR_NEXT>(
       he_mesh, out_mesh, visited_verts, orbit_buf, V, I, /*reverse=*/true,
       [&](uint16_t idx) {
@@ -374,9 +367,7 @@ emit_expanded_shell(const PolyMesh &mesh, const HalfEdgeMesh &he_mesh,
  * @note Input must be owned-mode (its topology is exposed as borrowed views in
  *   the output). The output is borrowed-mode, so it cannot be re-fed as input:
  *   transform(transform(x)) is unsupported and traps at the owned-mode check.
- * @note Traps if mesh aliases transformed: set_borrowed() would drop the owned
- *   topology before it is read and the vertex rebind would empty the source.
- *   transform_in_place() is the self-apply path.
+ * @note Traps if mesh aliases transformed; transform_in_place() self-applies.
  */
 template <typename... Transformers>
 inline void transform(const MeshState &mesh, MeshState &transformed,
@@ -409,9 +400,7 @@ inline void transform(const MeshState &mesh, MeshState &transformed,
  * @param mesh Mesh whose vertices are overwritten; topology untouched.
  * @param transformers Vertex transformers, applied left to right and unrolled at
  *   compile time via a fold; matches transform()'s fold order.
- * @note Per-vertex independent, so in place is safe and allocates nothing. Use
- *   when the source mesh is a throwaway that need not survive the transform;
- *   transform() (which copies) is for a reused source.
+ * @note Allocates nothing; the source vertices are overwritten.
  */
 template <typename... Transformers>
 inline void transform_in_place(MeshState &mesh,
@@ -454,8 +443,7 @@ inline void transform_in_place(MeshState &mesh,
  * @param v Source vertex to fall back to.
  * @return @p blended, or @p v when @p blended is shorter than the normalize
  *   epsilon.
- * @note Unlike normalized_or, this leaves the length alone: the operator's
- *   trailing normalize(out_mesh) unitizes every corner anyway.
+ * @note Leaves the length unnormalized.
  */
 __attribute__((always_inline)) inline math::Vector
 corner_or(const math::Vector &blended, const math::Vector &v) {
@@ -468,7 +456,7 @@ corner_or(const math::Vector &blended, const math::Vector &v) {
  * @param mesh Mesh whose vertices are normalized in place.
  * @note Mesh utility, not a Conway operator.
  * @note Traps on a zero-length vertex; guard centroid-derived inputs with
- *   normalized_or (e.g. a centrally-symmetric face centroid; see kis/dual).
+ *   normalized_or.
  */
 template <typename MeshT> static void normalize(MeshT &mesh) {
   for (auto &v : mesh.vertices) {
@@ -646,8 +634,7 @@ HS_COLD static PolyMesh ambo(const PolyMesh &mesh, Arena &target, Arena &temp) {
  * @param mesh Source mesh; must be a closed manifold.
  * @param he_mesh Connectivity for @p mesh, built by the caller and reused.
  * @param target Arena receiving the output mesh and its index scratch.
- * @param temp Arena for the operator's own scratch; @p he_mesh may live in it,
- *   as the operator only ever rewinds to its entry offset.
+ * @param temp Arena for the operator's own scratch; @p he_mesh may live in it.
  * @return Fresh ambo PolyMesh allocated in `target`.
  */
 [[maybe_unused]] HS_COLD static PolyMesh ambo(const PolyMesh &mesh,
@@ -669,15 +656,10 @@ HS_COLD static PolyMesh ambo(const PolyMesh &mesh, Arena &target, Arena &temp) {
  *   faces f, g.
  * @param target Arena receiving out_a, out_b, and index scratch.
  * @param temp Arena holding the transient HalfEdgeMesh and dual positions.
- * @details ambo(mesh) and ambo(dual(mesh)) are the same polyhedron
- *   combinatorially (one vertex per primal edge, one face per primal face, one
- *   per primal vertex); only the vertex positions differ. Holding this shared
- *   connectivity fixed and slerping each vertex a_e -> b_e is the smooth dual
- *   bridge's medial leg. dual_g is the normalized centroid of face g, matching
- *   MeshOps::dual's vertex, so out_b reaches the ambo(dual(mesh)) positions to
- *   within one normalization pass — unlike out_a, which is bit-exact against
- *   ambo(mesh). Where dual is lossy (dropped sub-triangular orbits),
- *   ambo(dual(mesh)) also merges midpoints that out_b keeps apart.
+ * @details ambo(mesh) and ambo(dual(mesh)) share this connectivity; only the
+ *   vertex positions differ. out_b matches the ambo(dual(mesh)) positions to
+ *   within one normalization pass. Where dual drops sub-triangular orbits,
+ *   ambo(dual(mesh)) merges midpoints that out_b keeps apart.
  */
 HS_COLD static inline void medial(const PolyMesh &mesh, PolyMesh &out_a,
                                   ArenaVector<math::Vector> &out_b,
@@ -706,9 +688,7 @@ HS_COLD static inline void medial(const PolyMesh &mesh, PolyMesh &out_a,
     HalfEdgeMesh he_mesh(temp, mesh);
     require_closed_manifold(he_mesh, temp, "medial");
 
-    // Dual vertex per source face: its normalized centroid (see MeshOps::dual).
-    // The degenerate-centroid fallback is normalized too, so every dual_pos —
-    // and so every out_b entry — is unit even for a non-normalized source mesh.
+    // Dual vertex per source face: its unit centroid, as in MeshOps::dual.
     math::Vector *dual_pos = temp.allocate_n<math::Vector>(F);
     for (size_t i = 0; i < he_mesh.faces.size(); ++i)
       dual_pos[i] = dual_vertex(he_mesh, mesh, i);
@@ -720,10 +700,8 @@ HS_COLD static inline void medial(const PolyMesh &mesh, PolyMesh &out_a,
 
     uint16_t *orbit_buf = target.allocate_n<uint16_t>(I);
 
-    // Vertices: one per edge, a_e at the midpoint (ambo) and b_e at the two
-    // flanking dual vertices' midpoint (ambo of the dual). The shared midpoint
-    // pass emits in the same half-edge order ambo uses, so out_a is
-    // bit-identical to ambo(mesh); the per-edge hook fills out_b in step.
+    // One vertex per edge: a_e at the edge midpoint, b_e at the flanking dual
+    // vertices' midpoint.
     emit_edge_midpoints(
         he_mesh, mesh, out_a, edge_to_vert, [&](const HalfEdge &he) {
           HS_CHECK(he.face != HE_NONE && he.pair != HE_NONE &&
@@ -734,7 +712,7 @@ HS_COLD static inline void medial(const PolyMesh &mesh, PolyMesh &out_a,
           out_b.push_back(math::normalized_or(db, dual_pos[he.face]));
         });
 
-    // Reconstruct Original Faces (Shrunk) — the ambo primary-face layout.
+    // Reconstruct Original Faces (Shrunk).
     emit_primary_faces(he_mesh, mesh, out_a, 1, [&](uint16_t he_idx) {
       out_a.faces.push_back(edge_to_vert[he_idx]);
     });
@@ -744,8 +722,6 @@ HS_COLD static inline void medial(const PolyMesh &mesh, PolyMesh &out_a,
         he_mesh, out_a, visited_verts, orbit_buf, V, I, /*reverse=*/false,
         [&](uint16_t idx) { return edge_to_vert[idx]; });
   }
-  // out_b's entries are already unit vectors (normalized_or); normalize only
-  // touches out_a.vertices, matching ambo.
   normalize(out_a);
 }
 
@@ -759,10 +735,8 @@ HS_COLD static inline void medial(const PolyMesh &mesh, PolyMesh &out_a,
  * @param he_idx Half-edge (tail->head) whose oriented cut pair is recovered.
  * @return {tail-side cut, head-side cut}; the stored order is reversed when the
  *   tail is not the canonical k1.
- * @details Centralizes winding so every caller emits a consistent order instead
- *   of re-deriving the `vi==k1` test inline. The sides are combinatorial, not
- *   metric: at t > 0.5 the two cut points cross past each other, so the
- *   tail-side cut lies geometrically nearer the head.
+ * @details The sides are combinatorial, not metric: at t > 0.5 the tail-side
+ *   cut lies nearer the head.
  */
 inline std::pair<uint16_t, uint16_t>
 truncate_oriented_cut(const HalfEdgeMesh &he_mesh,
@@ -782,8 +756,7 @@ truncate_oriented_cut(const HalfEdgeMesh &he_mesh,
  * @param he_mesh Connectivity for @p mesh.
  * @param target Arena receiving the output mesh and its index scratch.
  * @param temp Arena for the manifold check's scratch.
- * @param t Truncation depth, range-checked by the callers and never 0.5 (they
- *   short-circuit that to ambo).
+ * @param t Truncation depth in [0..1], never 0.5.
  * @return Fresh truncated PolyMesh allocated in `target`.
  */
 HS_COLD static PolyMesh truncate_impl(const PolyMesh &mesh,
@@ -851,9 +824,7 @@ HS_COLD static PolyMesh truncate_impl(const PolyMesh &mesh,
     emit_vertex_orbit_faces<OrbitDir::PREV_PAIR>(
         he_mesh, out_mesh, visited_verts, orbit_buf, V, I, /*reverse=*/false,
         [&](uint16_t idx) {
-          // Orbit walks the half-edges leaving this vertex; each contributes
-          // its tail-side cut, the one cut of the pair assigned to the shared
-          // vertex (nearest it only for t < 0.5).
+          // Each outgoing half-edge contributes its tail-side cut.
           return truncate_oriented_cut(he_mesh, edge_to_vert, idx).first;
         });
   }
@@ -871,12 +842,9 @@ inline constexpr float TRUNCATE_DEFAULT_T = 0.25f;
  * @param temp Arena holding the transient HalfEdgeMesh.
  * @param t Truncation depth, the fraction along each edge at which the two cut
  *   points sit, in [0..1]. Each edge `(k1,k2)` yields `k1+(k2-k1)*t` and
- *   `k2+(k1-k2)*t`. For `t<0.5` the cut points stay on their own half; at
- *   exactly `0.5` both reach the midpoint and this short-circuits to `ambo`;
- *   for `t>0.5` the two points cross past each other, producing intentional
- *   self-intersecting cut faces (used by the `*_truncate50d_*` solids). `t`
- *   outside `[0..1]` would place a cut point beyond the edge endpoints, so it
- *   traps per the fail-fast doctrine.
+ *   `k2+(k1-k2)*t`. At exactly `0.5` this short-circuits to `ambo`; for
+ *   `t>0.5` the cut points cross, producing self-intersecting cut faces. Traps
+ *   outside `[0..1]`.
  * @return Fresh truncated PolyMesh allocated in `target` (or the ambo result
  *   when t == 0.5).
  */
@@ -898,12 +866,9 @@ HS_COLD static PolyMesh truncate(const PolyMesh &mesh, Arena &target,
  *   truncate topology is the same at every @p t, so one build serves a whole
  *   parameter sweep.
  * @param target Arena receiving the output mesh and its index scratch.
- * @param temp Arena for the operator's own scratch; @p he_mesh may live in it,
- *   as the operator only ever rewinds to its entry offset.
- * @param t Truncation depth in [0..1]; see the single-shot entry. Exactly 0.5
- *   short-circuits to `ambo`, whose face census differs from truncate's at
- *   every other @p t, so a sweep that must hold one topology stops short of
- *   it (ConwayGraph::T_EPS_AMBO).
+ * @param temp Arena for the operator's own scratch; @p he_mesh may live in it.
+ * @param t Truncation depth in [0..1]. Exactly 0.5 short-circuits to `ambo`,
+ *   whose topology differs from truncate's at every other @p t.
  * @return Fresh truncated PolyMesh allocated in `target` (or the ambo result
  *   when t == 0.5).
  */
@@ -951,8 +916,7 @@ HS_COLD static PolyMesh expand_impl(const PolyMesh &mesh,
         mesh, he_mesh, out_mesh, target, V, I,
         [&](size_t, const math::Vector &centroid) {
           return [&mesh, &he_mesh, centroid, t](uint16_t he_idx) {
-            // Corner map keyed on the half-edge head; the quad emitter below
-            // indexes it that way.
+            // Corner map keyed on the half-edge head.
             math::Vector v = mesh.vertices[he_mesh.half_edges[he_idx].vertex];
             return corner_or(v + (centroid - v) * t, v);
           };
@@ -977,8 +941,7 @@ HS_COLD static PolyMesh expand_impl(const PolyMesh &mesh,
  * @param target Arena receiving the output mesh and its index scratch.
  * @param temp Arena holding the transient HalfEdgeMesh.
  * @param t Expansion factor: the fraction each face corner moves toward the
- *   face centroid, in [0..1); at 1 a face's corners all meet at its centroid,
- *   collapsing it, so it traps per the fail-fast doctrine. Default
+ *   face centroid, in [0..1); traps at 1, which collapses each face. Default
  *   EXPAND_DEFAULT_T.
  * @return Fresh expanded PolyMesh allocated in `target`.
  */
@@ -998,9 +961,8 @@ HS_COLD static PolyMesh expand(const PolyMesh &mesh, Arena &target, Arena &temp,
  *   expand topology is the same at every @p t, so one build serves a whole
  *   parameter sweep.
  * @param target Arena receiving the output mesh and its index scratch.
- * @param temp Arena for the operator's own scratch; @p he_mesh may live in it,
- *   as the operator only ever rewinds to its entry offset.
- * @param t Expansion factor in [0..1); see the single-shot entry.
+ * @param temp Arena for the operator's own scratch; @p he_mesh may live in it.
+ * @param t Expansion factor in [0..1).
  * @return Fresh expanded PolyMesh allocated in `target`.
  */
 [[maybe_unused]] HS_COLD static PolyMesh expand(const PolyMesh &mesh,
@@ -1054,8 +1016,7 @@ HS_COLD static PolyMesh chamfer_impl(const PolyMesh &mesh,
       emit_shrunk_face(
           he_mesh, out_mesh, start, count,
           [&](uint16_t he_idx) {
-            // Corner map keyed on the half-edge tail, not the head as in
-            // expand/snub; the hexagon emitter below indexes it that way.
+            // Corner map keyed on the half-edge tail.
             uint16_t vi =
                 he_mesh.half_edges[he_mesh.half_edges[he_idx].prev].vertex;
             math::Vector v = mesh.vertices[vi];
@@ -1096,8 +1057,8 @@ inline constexpr float CHAMFER_DEFAULT_T = 0.5f;
  * @param target Arena receiving the output mesh.
  * @param temp Arena holding the transient HalfEdgeMesh and index scratch.
  * @param t Thickness factor for the new hexagons, the fraction each face corner
- *   moves toward the face centroid, in [0..1); at 1 a face's corners collapse
- *   to its centroid, so it traps per the fail-fast doctrine.
+ *   moves toward the face centroid, in [0..1); traps at 1, which collapses
+ *   each face.
  * @return Fresh chamfered PolyMesh allocated in `target`.
  */
 HS_COLD static PolyMesh chamfer(const PolyMesh &mesh, Arena &target,
@@ -1117,8 +1078,8 @@ HS_COLD static PolyMesh chamfer(const PolyMesh &mesh, Arena &target,
  *   parameter sweep.
  * @param target Arena receiving the output mesh.
  * @param temp Arena holding the operator's index scratch; @p he_mesh may live
- *   in it, as the operator only ever rewinds to its entry offset.
- * @param t Thickness factor in [0..1); see the single-shot entry.
+ *   in it.
+ * @param t Thickness factor in [0..1).
  * @return Fresh chamfered PolyMesh allocated in `target`.
  */
 [[maybe_unused]] HS_COLD static PolyMesh chamfer(const PolyMesh &mesh,
@@ -1132,13 +1093,9 @@ HS_COLD static PolyMesh chamfer(const PolyMesh &mesh, Arena &target,
 
 /**
  * @brief relax()'s early-stop gate on the squared largest spring force.
- * @details Tested after the forces are applied, so its square root bounds the
- *   unprojected force magnitude from the pass just taken; the sphere-projected
- *   displacement can be larger. No bound on the gap between two
- *   relaxations of the same mesh under different float semantics (a flash bake,
- *   another toolchain) follows from it: they can stop at different iteration
- *   counts, and their vertices have already diverged by the time either reaches
- *   the gate.
+ * @details Tested after the forces are applied; its square root bounds the
+ *   unprojected force magnitude of that pass, not the sphere-projected
+ *   displacement.
  */
 inline constexpr float RELAX_CONVERGE_EPS_SQ = 1e-7f;
 
@@ -1153,13 +1110,10 @@ inline constexpr int RELAX_DEFAULT_ITERATIONS = 8;
  * @param iterations Maximum spring-relaxation passes; stops early on
  *   convergence. Must be non-negative; 0 is a normalize-only pass-through.
  * @return Fresh relaxed PolyMesh allocated in `target`.
- * @note relax tolerates a boundary mesh, but relaxes it only partially. A vertex whose incoming half-edges
- *   are all unpaired gets no force at all. A boundary vertex with at least one
- *   paired incoming half-edge orbits from whichever pair the half-edge scan hit
- *   first, and the pair->next walk stops at the boundary, so it feels only the
- *   neighbours in that one fan segment — which ones are dropped follows
- *   half-edge index order. The target edge length still averages over every
- *   edge, boundary edges included.
+ * @note A boundary mesh relaxes only partially. A vertex whose incoming
+ *   half-edges are all unpaired gets no force; a boundary vertex feels only the
+ *   neighbours in the one fan segment its orbit start reaches. The target edge
+ *   length averages over every edge, boundary edges included.
  */
 HS_COLD static PolyMesh relax(const PolyMesh &mesh, Arena &target, Arena &temp,
                               int iterations = RELAX_DEFAULT_ITERATIONS) {
@@ -1196,9 +1150,7 @@ HS_COLD static PolyMesh relax(const PolyMesh &mesh, Arena &target, Arena &temp,
 
     HalfEdgeMesh he_mesh(temp, out_mesh);
 
-    // Per-vertex orbit start: an outgoing half-edge (pair of an interior
-    // incoming edge). Scanning the half-edges finds a paired incoming edge per
-    // vertex; a boundary incoming edge would otherwise drop the 1-ring.
+    // Per-vertex orbit start: the pair of a paired incoming half-edge.
     ArenaVector<uint16_t> orbit_start;
     orbit_start.bind(temp, V);
     for (size_t i = 0; i < V; ++i)
@@ -1268,17 +1220,14 @@ HS_COLD static PolyMesh relax(const PolyMesh &mesh, Arena &target, Arena &temp,
         break;
     }
   }
-  // iterations == 0 skips the in-loop sphere projection; normalize so the
-  // pass-through still lands on the unit sphere (idempotent otherwise).
+  // iterations == 0 skips the in-loop sphere projection.
   normalize(out_mesh);
   return out_mesh;
 }
 
 /**
  * @brief Replaces a relax pass with a host-captured payload of its result.
- * @details The payload's vertex bits are loaded verbatim on host and device;
- * neither recomputes them, so neither platform's own arithmetic has to
- * reproduce them.
+ * @details The payload's vertex bits are loaded verbatim on host and device.
  * @param mesh Source mesh; its dimensions, connectivity, and quantized vertices
  * must match the bake, and its face list is copied through to the output.
  * @param target Arena receiving the baked vertices and the copied face list.
@@ -1335,10 +1284,8 @@ relax_baked(const PolyMesh &mesh, Arena &target, const RelaxBake &bake) {
  *   callers.
  * @param twist Per-face rotation about the face normal, in radians.
  * @return Fresh snub PolyMesh allocated in `target`.
- * @details Uses Newell's method for face normals, robust to non-planar faces on
- *   the unit sphere and to collinear vertex triplets. A face with neither a
- *   usable Newell normal nor a usable centroid direction has no twist axis and
- *   skips the twist.
+ * @details A face with neither a usable Newell normal nor a usable centroid
+ *   direction skips the twist.
  */
 HS_COLD static PolyMesh snub_impl(const PolyMesh &mesh,
                                   const HalfEdgeMesh &he_mesh, Arena &target,
@@ -1360,7 +1307,7 @@ HS_COLD static PolyMesh snub_impl(const PolyMesh &mesh,
     emit_expanded_shell(
         mesh, he_mesh, out_mesh, temp, V, I,
         [&](size_t fi, const math::Vector &centroid) {
-          // Newell's method face normal — robust for sphere-projected faces.
+          // Newell's method face normal.
           math::Vector normal_raw = face_normal(he_mesh, mesh, fi);
           math::Vector normal(0, 0, 0);
           if (math::dot(normal_raw, normal_raw) > math::EPS_NORMAL_SQ) {
@@ -1378,8 +1325,7 @@ HS_COLD static PolyMesh snub_impl(const PolyMesh &mesh,
 
           return [&mesh, &he_mesh, centroid, t, do_twist,
                   twist_q](uint16_t he_idx) {
-            // Corner map keyed on the half-edge head; the triangle emitter
-            // below indexes it that way.
+            // Corner map keyed on the half-edge head.
             math::Vector v = mesh.vertices[he_mesh.half_edges[he_idx].vertex];
             math::Vector new_v = v + (centroid - v) * t;
             if (do_twist) {
@@ -1417,9 +1363,8 @@ inline constexpr float SNUB_DEFAULT_TWIST = 0.0f;
  * @param mesh Source mesh; must be a closed manifold.
  * @param target Arena receiving the output mesh.
  * @param temp Arena holding the transient HalfEdgeMesh and index scratch.
- * @param t Inset factor of each face toward its centroid, in [0..1); at 1 a
- *   face's corners collapse to its centroid, so it traps per the fail-fast
- *   doctrine.
+ * @param t Inset factor of each face toward its centroid, in [0..1); traps at
+ *   1, which collapses each face.
  * @param twist Per-face rotation about the face normal, in radians; 0 disables
  *   the twist pass. Unbounded (angles wrap).
  * @return Fresh snub PolyMesh allocated in `target`.
@@ -1442,8 +1387,8 @@ HS_COLD static PolyMesh snub(const PolyMesh &mesh, Arena &target, Arena &temp,
  *   whole parameter sweep.
  * @param target Arena receiving the output mesh.
  * @param temp Arena holding the operator's index scratch; @p he_mesh may live
- *   in it, as the operator only ever rewinds to its entry offset.
- * @param t Inset factor in [0..1); see the single-shot entry.
+ *   in it.
+ * @param t Inset factor in [0..1).
  * @param twist Per-face rotation about the face normal, in radians.
  * @return Fresh snub PolyMesh allocated in `target`.
  */
@@ -1460,8 +1405,7 @@ snub(const PolyMesh &mesh, const HalfEdgeMesh &he_mesh, Arena &target,
  * @param mesh Source mesh.
  * @param target Arena receiving the output mesh.
  * @param temp Ping-pong scratch arena for the intermediate step.
- * @return Composed PolyMesh allocated in `target` (see COMPOSITION POLARITY at
- *   the top of the operator block).
+ * @return Composed PolyMesh allocated in `target` (see COMPOSITION POLARITY).
  */
 HS_COLD static PolyMesh gyro(const PolyMesh &mesh, Arena &target, Arena &temp) {
   HS_CHECK(&target != &temp, "gyro: target and temp must differ");
@@ -1473,7 +1417,7 @@ HS_COLD static PolyMesh gyro(const PolyMesh &mesh, Arena &target, Arena &temp) {
 //
 // Compositions of primitive operators (equivalences from Hart's reference
 // implementation); each uses (target, temp) ping-pong storage and leaves its
-// intermediate mesh in temp (see COMPOSITION POLARITY above).
+// intermediate mesh in temp (see COMPOSITION POLARITY).
 //   meta   m = kj = kda = kis of dual of ambo (j = da)
 //   needle n = kd = kis of dual
 //   zip    z = dk = dual of kis (truncated dual)
@@ -1487,8 +1431,7 @@ HS_COLD static PolyMesh gyro(const PolyMesh &mesh, Arena &target, Arena &temp) {
  * @param target Arena receiving the output mesh.
  * @param temp Ping-pong scratch arena for the intermediate steps; must not
  *   alias @p target, which is rewound to its entry offset mid-composition.
- * @return Composed PolyMesh allocated in `target` (see COMPOSITION POLARITY at
- *   the top of the operator block).
+ * @return Composed PolyMesh allocated in `target` (see COMPOSITION POLARITY).
  */
 HS_COLD static PolyMesh meta(const PolyMesh &mesh, Arena &target, Arena &temp) {
   HS_CHECK(&target != &temp, "meta: target and temp must differ");
@@ -1505,8 +1448,7 @@ HS_COLD static PolyMesh meta(const PolyMesh &mesh, Arena &target, Arena &temp) {
  * @param mesh Source mesh.
  * @param target Arena receiving the output mesh.
  * @param temp Ping-pong scratch arena for the intermediate step.
- * @return Composed PolyMesh allocated in `target` (see COMPOSITION POLARITY at
- *   the top of the operator block).
+ * @return Composed PolyMesh allocated in `target` (see COMPOSITION POLARITY).
  */
 HS_COLD static PolyMesh needle(const PolyMesh &mesh, Arena &target,
                                Arena &temp) {
@@ -1519,8 +1461,7 @@ HS_COLD static PolyMesh needle(const PolyMesh &mesh, Arena &target,
  * @param mesh Source mesh.
  * @param target Arena receiving the output mesh.
  * @param temp Ping-pong scratch arena for the intermediate step.
- * @return Composed PolyMesh allocated in `target` (see COMPOSITION POLARITY at
- *   the top of the operator block).
+ * @return Composed PolyMesh allocated in `target` (see COMPOSITION POLARITY).
  */
 HS_COLD static PolyMesh zip(const PolyMesh &mesh, Arena &target, Arena &temp) {
   HS_CHECK(&target != &temp, "zip: target and temp must differ");
@@ -1536,10 +1477,8 @@ inline constexpr float BEVEL_DEFAULT_T = 0.25f;
  * @param target Arena receiving the output mesh.
  * @param temp Ping-pong scratch arena for the intermediate step.
  * @param t Truncation depth forwarded to the truncate step, in [0..1]. At
- *   exactly 0.5, truncate aliases to ambo, so the composition is ambo(ambo)
- *   with that operator's vertex and face census rather than a true bevel.
- * @return Composed PolyMesh allocated in `target` (see COMPOSITION POLARITY at
- *   the top of the operator block).
+ *   exactly 0.5 the composition is ambo(ambo).
+ * @return Composed PolyMesh allocated in `target` (see COMPOSITION POLARITY).
  */
 HS_COLD static PolyMesh bevel(const PolyMesh &mesh, Arena &target, Arena &temp,
                               float t = BEVEL_DEFAULT_T) {
@@ -1559,13 +1498,10 @@ HS_COLD static PolyMesh bevel(const PolyMesh &mesh, Arena &target, Arena &temp,
  *   is cleared, since the new connectivity has not been classified.
  * @param target Arena backing @p out.
  * @param scratch Arena for the z-order index and the injectivity bookkeeping.
- * @details Closes the residual gap between a Conway identity's output (kis =
- * dtd, needle = dt) and the authored operator's mesh. The two-stage z search
- * certifies its nearest match: once the full squared distance fits inside the
- * z band, every vertex outside that band is farther away in z alone. The 4%
- * band handles the regular endpoints and the 8% band covers asymmetric dtd
- * endpoints. A wider gap or a non-injective match traps rather than silently
- * folding a face.
+ * @details The two-stage z search certifies its nearest match: once the full
+ * squared distance fits inside the z band, every vertex outside that band is
+ * farther away in z alone. A gap wider than the last band or a non-injective
+ * match traps.
  */
 HS_COLD static inline void reconcile_vertices(const PolyMesh &identity,
                                               const PolyMesh &authored,
