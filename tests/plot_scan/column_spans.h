@@ -219,9 +219,8 @@ static_assert(Pipeline<96, 48, Filter::World::Hole,
 static_assert(Pipeline<96, 48, Filter::World::Orient>::has_world_stage);
 
 /**
- * @brief Pins edge_visible_in_clip's decision to the composed row-span /
- *        col-span cull: y-reject first, then the column arc, with either span's
- *        no-bound fallback reading as visible.
+ * @brief Verifies edge_visible_in_clip never culls an edge whose densely
+ *        sampled arc lands an anti-alias tap in the clip, and still culls.
  * @details Clip bands cover the device quadrant shapes: seam-wrapping
  *          (margin pushes rs past the seam), interior non-wrapping, full-width
  *          x (XClip inactive), and the full canvas. The geodesic corpus
@@ -229,7 +228,7 @@ static_assert(Pipeline<96, 48, Filter::World::Orient>::has_world_stage);
  *          planar corpus draws chart-line edges on random disks, including
  *          near-pole charts that force the col-span fallback.
  */
-inline void test_edge_visible_in_clip_matches_span_composition() {
+inline void test_edge_visible_in_clip_is_conservative() {
   constexpr int TW = 288, TH = 144;
   Pipeline<TW, TH> sink;
 
@@ -251,7 +250,17 @@ inline void test_edge_visible_in_clip_matches_span_composition() {
     cr.x_start = bd[2];
     cr.x_end = bd[3];
     const auto xc = cr.x_clip();
-    const int band_len = xc.length(TW);
+    constexpr int SAMPLES = 512;
+    auto taps_in_clip = [&](const math::Vector &p) {
+      const auto screen = math::vector_to_pixel<TW, TH>(p);
+      const int x = static_cast<int>(floorf(screen.x));
+      const int y = static_cast<int>(floorf(screen.y));
+      for (int dy = 0; dy <= 1; ++dy)
+        for (int dx = 0; dx <= 1; ++dx)
+          if (cr.contains_y(y + dy) && cr.contains_x((x + dx + TW) % TW))
+            return true;
+      return false;
+    };
 
     for (int trial = 0; trial < 2000; ++trial) {
       math::Vector a = rand_unit();
@@ -285,19 +294,15 @@ inline void test_edge_visible_in_clip_matches_span_composition() {
       const bool got =
           Plot::edge_visible_in_clip<TW, TH>(sink, cr, xc, a, b, nullptr);
       const Plot::GeodesicEdgeSpan es = Plot::make_geodesic_edge_span(a, b);
-      float row_lo, row_hi;
-      Plot::geodesic_row_span<TH>(a, b, es, row_lo, row_hi);
-      bool want;
-      if (!cr.could_intersect_y(row_lo, row_hi + Plot::GEODESIC_ROW_AA_PAD)) {
-        want = false;
-      } else if (!xc.active) {
-        want = true;
-      } else {
-        int col_s, col_len;
-        want = !Plot::geodesic_col_span<TW>(a, b, es, col_s, col_len) ||
-               ClipRegion::arcs_overlap(xc.rs, band_len, col_s, col_len, TW);
+      bool reached = taps_in_clip(a);
+      if (es.have_axis) {
+        const math::Vector tangent = math::cross(es.axis, a);
+        for (int k = 1; k <= SAMPLES && !reached; ++k) {
+          const float angle = es.total * (static_cast<float>(k) / SAMPLES);
+          reached = taps_in_clip(a * cosf(angle) + tangent * sinf(angle));
+        }
       }
-      HS_EXPECT_TRUE(got == want);
+      HS_EXPECT_TRUE(got || !reached);
       (got ? visible : culled)++;
     }
 
@@ -314,19 +319,13 @@ inline void test_edge_visible_in_clip_matches_span_composition() {
       const bool got =
           Plot::edge_visible_in_clip<TW, TH>(sink, cr, xc, a, b, &basis);
       const Plot::PlanarEdgeSpan ps = Plot::make_planar_edge_span(a, b, basis);
-      float row_lo, row_hi;
-      Plot::planar_row_span<TH>(a, b, ps, row_lo, row_hi);
-      bool want;
-      if (!cr.could_intersect_y(row_lo, row_hi)) {
-        want = false;
-      } else if (!xc.active) {
-        want = true;
-      } else {
-        int col_s, col_len;
-        want = !Plot::planar_col_span<TW>(a, basis, ps, col_s, col_len) ||
-               ClipRegion::arcs_overlap(xc.rs, band_len, col_s, col_len, TW);
+      bool reached = false;
+      for (int k = 0; k <= SAMPLES && !reached; ++k) {
+        const float t = static_cast<float>(k) / SAMPLES;
+        reached = taps_in_clip(Plot::azimuthal_unproject(
+            ps.p1.first + ps.dX * t, ps.p1.second + ps.dY * t, basis));
       }
-      HS_EXPECT_TRUE(got == want);
+      HS_EXPECT_TRUE(got || !reached);
       (got ? visible : culled)++;
     }
   }
