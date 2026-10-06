@@ -3,21 +3,14 @@
  * Licensed under the PolyForm Noncommercial License 1.0.0
  */
 
-// Included by tests/test_effects.h.
-
 // ---------------------------------------------------------------------------
 // Gray-Scott reaction-diffusion: white-box dynamics coverage
 // ---------------------------------------------------------------------------
 
 /**
  * @brief White-box accessor for GSReactionDiffusion's private fixed-point and
- *        physics internals (befriended in effects/GSReactionDiffusion.h).
- * @details The generic smoke/determinism harness only proves the effect doesn't
- *          crash and renders reproducibly — it cannot see a Q16 round-trip error
- *          or a numerically-unstable-but-deterministic blow-up. This seam pins
- *          the conversions and one Gray-Scott substep directly. The lattice is a
- *          fixed 7680-node graph, independent of <W,H>, so the small-aspect
- *          resolution is used arbitrarily.
+ *        physics internals.
+ * @details The lattice is independent of <W,H>.
  */
 struct GSWhiteBox {
   using GS = GSReactionDiffusion<SMALL_W, SMALL_H>;
@@ -352,9 +345,7 @@ struct GSWhiteBox {
 
   static void step(GS &gs, const uint16_t *cA, const uint16_t *cB, uint16_t *nA,
                    uint16_t *nB) {
-    // The production substep is float-resident; this seam keeps the tests'
-    // Q16-in/Q16-out contract by converting at the edges, as render() does
-    // once per frame.
+    // The production substep is float-resident; convert Q16 at the edges.
     std::vector<float> fA(N), fB(N), gA(N), gB(N);
     for (int i = 0; i < N; ++i) {
       fA[i] = GS::from_q16(cA[i]);
@@ -367,8 +358,7 @@ struct GSWhiteBox {
     }
   }
 
-  // Float-domain substep: the Q16 edges of step() clamp on their own, so a test
-  // that means to observe the substep's own bound has to read it undigested.
+  // Float-domain substep, without step()'s clamping Q16 edges.
   static void step_float(GS &gs, const float *cA, const float *cB, float *nA,
                          float *nB) {
     gs.step_physics(cA, cB, nA, nB);
@@ -891,12 +881,11 @@ inline void test_gs_sparse_pigment_matches_dense() {
 }
 
 /**
- * @brief Verifies the Q16 fixed-point round-trip and the documented +0.5
- *        rounding/clamp boundaries.
+ * @brief Verifies the Q16 fixed-point round-trip and the +0.5 rounding/clamp
+ *        boundaries.
  * @details to_q16(from_q16(v)) must be the identity over every representable
  *          value, and to_q16 must clamp out-of-range floats and round to nearest
- *          (so 1.0 tops out at 65535 with no overflow). A truncating or
- *          unclamped regression — which would bias the RD dynamics — fails here.
+ *          (so 1.0 tops out at 65535 with no overflow).
  */
 inline void test_gs_q16_roundtrip() {
   HS_EXPECT_EQ(GSWhiteBox::to_q16(0.0f), (uint16_t)0);
@@ -985,21 +974,15 @@ inline void test_gs_hot_flags_match_directed_graph() {
  * @brief Re-measures the lattice and requires refine_render_center's early-out
  *        certificates to bound the true minimum node spacing.
  * @details The early-out returns the seed unwalked whenever the query lies
- *          within sqrt(safe_d2) of it. That is the nearest node only while
+ *          within sqrt(safe_d2) of it, which is the nearest node only while
  *          safe_d2 stays at or under a quarter of the seed's true
- *          nearest-neighbor distance squared, so BULK_CERTIFIED_D2 /
- *          POLE_CERTIFIED_D2 / BULK_MIN_SPACING_FRAC / POLE_BAND are all
- *          hand-measured properties of the generated lattice. The shipped
- *          static_asserts only cross-check them against each other: a change to
- *          RD_N, to the generator, or to the index-to-latitude mapping would
- *          leave every one of them silently wrong and the early-out returning a
- *          non-nearest node. This recomputes them from node() and fails if the
- *          shipped constants stop bounding the measurement.
+ *          nearest-neighbor distance squared. The certificates are hand-measured
+ *          properties of the generated lattice; this recomputes them from
+ *          node().
  *
- *          The per-node minimum is exact, not sampled: node()'s y is strictly
- *          decreasing in the index and chord distance is at least |dy|, so
- *          scanning outward from each index and stopping once |dy| reaches the
- *          running best cannot skip a closer node.
+ *          The per-node minimum is exact: node()'s y is strictly decreasing in
+ *          the index and chord distance is at least |dy|, so the outward scan
+ *          stops once |dy| reaches the running best.
  */
 inline void test_gs_render_certificates_bound_lattice() {
   const int n = GSWhiteBox::N;
@@ -1559,15 +1542,10 @@ inline void test_gs_substep_signs_and_clamp() {
 /**
  * @brief Verifies the explicit-Euler integrator does not diverge over many
  *        substeps at a high-diffusion stable setting.
- * @details At this high-diffusion setting the stability product dt·D·|λ|max =
- *          5·0.03·12 = 1.8 ≤ 2, so the scheme must stay bounded. A genuine
- *          instability (dt·D·|λ|max > 2) oscillates and the Q16 clamp pins the
- *          oscillating nodes to the 0/65535 rails — a saturate/oscillate blow-up
- *          that renders identically across runs and so slips past the
- *          determinism pass. After 256 steps from seeded nuclei almost no node
- *          should sit at the upper rail; assert that directly. (Whether B
- *          ultimately persists or decays is regime-dependent and not asserted —
- *          high diffusion legitimately dilutes the seeds toward the rest state.)
+ * @details The stability product dt·D·|λ|max = 5·0.03·12 = 1.8 ≤ 2, so the
+ *          scheme must stay bounded: after 256 steps from seeded nuclei almost
+ *          no node may sit at the upper rail. Whether B persists or decays is
+ *          regime-dependent and not asserted.
  */
 inline void test_gs_evolution_stays_bounded() {
   std::vector<uint16_t> a(GSWhiteBox::N, 65535), b(GSWhiteBox::N, 0),

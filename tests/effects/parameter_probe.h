@@ -3,8 +3,6 @@
  * Licensed under the PolyForm Noncommercial License 1.0.0
  */
 
-// Included by tests/test_effects.h.
-
 /** @brief Chooses a distant writable value for a parameter lint. */
 inline float parameter_probe_target(const ParamDef &def, float current) {
   if (def.option_values != nullptr) {

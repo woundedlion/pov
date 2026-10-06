@@ -7,12 +7,10 @@
  * @brief Divergence trace for perturbations of the feedback colour path.
  * @details Drives Filter::Pixel::Feedback::flush over N frames from a fixed
  * seed with sustained emission, then either dumps every frame or compares two
- * dumps frame by frame. The colour path re-enters as input each frame, so a
- * perturbation that looks negligible in one pass can compound; the trace shape
- * is the answer (flat or decaying = absorbed, rising = compounding).
+ * dumps frame by frame. A flat or decaying trace means the perturbation is
+ * absorbed; a rising one means it compounds.
  *
- * Two builds are needed because the paths being compared are compile-time
- * choices; keeping the switch out of shipping code costs nothing here:
+ * The compared paths are compile-time choices, so two builds are needed:
  *
  *   (at the base revision)  feedback_divergence --dump base.bin
  *   (with the change)       feedback_divergence --dump alt.bin
@@ -21,11 +19,9 @@
  * --check-comparator <base> <alt> verifies equal dumps, mutates one byte in
  * alt, and requires the comparator to reject it; alt must be disposable.
  *
- * Emission and noise advance are pure functions of the frame index, so both
- * runs see identical input and the only variable is the code under test.
+ * Emission and noise advance are pure functions of the frame index.
  */
-// Host tool: the Windows CRT deprecates fopen in favour of fopen_s, which the
-// other toolchains do not have.
+// The Windows CRT deprecates fopen.
 #define _CRT_SECURE_NO_WARNINGS
 
 #include "tests/test_fixture.h"
@@ -63,8 +59,7 @@ struct Run {
     pipe.get<Filter::Pixel::Feedback<W, H>>().init_storage(persistent_arena);
   }
 
-  // Saturated seed: divergences cluster on primaries driving the gamut-clip
-  // path, so a washed-out seed understates the perturbation.
+  // Saturated primaries drive the gamut-clip path.
   void seed() {
     {
       Canvas c(fx);
@@ -95,8 +90,7 @@ struct Run {
     fx.advance_display();
   }
 
-  // Without fresh geometry the seed decays to black and a zero divergence
-  // would mean the image died, not that the perturbation was absorbed.
+  // Fresh geometry keeps the image from decaying to black.
   static void emit(Canvas &c, int frame) {
     const float t = frame * 0.05f;
     const int cx = (int)(W * 0.5f + W * 0.30f * math::fast_cosf(t));

@@ -3,18 +3,14 @@
  * Licensed under the PolyForm Noncommercial License 1.0.0
  */
 
-// Included by tests/test_filter.h.
-
 // ============================================================================
 // Segmented-mode rendering bound
-// (docs/specs/segmented_stateful_effects_spec.md)
 // ============================================================================
 
 /**
  * @brief The base Effect::needs_full_frame() defaults to false.
- * @details A plain effect with no cross-segment filter keeps the segmented
- *          clipping win; effects whose filter pipeline folds any_crosses_segments
- *          true (MeshFeedback and Dynamo) force full-frame rendering.
+ * @details Effects whose filter pipeline folds any_crosses_segments true force
+ *          full-frame rendering.
  */
 inline void test_effect_needs_full_frame_default_false() {
   constexpr int W = 8, H = 8;
@@ -105,15 +101,10 @@ inline void test_screen_trails_banded_matches_full() {
 /**
  * @brief Proves Screen::Trails holds up under a clip that MOVES between frames,
  *        the segmented driver's per-frame arm-half alternation.
- * @details The band test above drives one fixed clip for every frame, so it
- *          cannot see a trail buffer whose contents depend on where the clip
- *          stood when a point was seeded — an optimization that skipped seeding
- *          out-of-band samples would pass it and still break the driver. Here
- *          the clip alternates between the left half [0, W/2) and the right half
- *          [W/2, W) on successive frames; each frame's written half must equal
- *          that half of a full-canvas instance fed the same seed sequence, so a
- *          point seeded while its half was clipped away must still re-emit at
- *          its own coordinate once the clip swings back.
+ * @details The clip alternates between [0, W/2) and [W/2, W) on successive
+ *          frames; each frame's written half must equal that half of a
+ *          full-canvas instance, so a point seeded while its half was clipped
+ *          away must still re-emit once the clip swings back.
  */
 inline void test_screen_trails_alternating_clip_matches_full() {
   constexpr int W = 32, H = 16, MAXP = 512;
@@ -200,14 +191,8 @@ inline void test_screen_trails_alternating_clip_matches_full() {
  * @brief Proves a band-clipped feedback effect DIVERGES from the full-frame
  *        render — i.e. why crosses_segments forces full-frame for Pixel::Feedback.
  * @details Feedback reads cv.prev at unbounded warp offsets. A melt warp drips
- *          content south across the segment boundary, so the bottom band's output
- *          depends on source rows in the top half. The full-frame instance (what
- *          the needs_full_frame() gate produces in every worker) carries that
- *          cross-band content; a worker clipped to the bottom band never seeded
- *          those northern rows, so its bottom-band output differs — the dropped-
- *          pixel failure the gate prevents. The companion full-vs-banded test is
- *          the reach-0 case above; for unbounded reach the only correct bound is
- *          full-frame, so here we assert the band-clipped path is NOT equivalent.
+ *          content south across the segment boundary from rows a worker clipped
+ *          to the bottom band never seeded.
  */
 inline void test_feedback_banded_diverges_from_full() {
   constexpr int W = 64, H = 64; // divisible by the downsample (4)

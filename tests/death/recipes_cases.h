@@ -3,26 +3,18 @@
  * Licensed under the PolyForm Noncommercial License 1.0.0
  */
 
-// Included by tests/test_death.h.
-
 // --- Individual death cases — each MUST trap (HS_CHECK / __builtin_trap) ------
 
 // Recipes death fixtures and guard cases.
 
-/**
- * @brief Death case: an out-of-range solids index must trap.
- * @details Lookup/registry surface — get_entry past NUM_ENTRIES fires HS_CHECK.
- */
+/** @brief Death case: an out-of-range solids index must trap. */
 inline void case_solids_index_oob() {
   const auto &e = Solids::get_entry(opaque<size_t>(Solids::NUM_ENTRIES));
   if (e.name == nullptr)
     std::printf("x");
 }
 
-/**
- * @brief Death case: looking up an unknown solid name must trap.
- * @details Registry-by-name surface — an unknown name has no valid fallback.
- */
+/** @brief Death case: looking up an unknown solid name must trap. */
 inline void case_solids_unknown_name() {
   PolyMesh m = Solids::get_by_name(persistent_arena, scratch_arena_a,
                                    scratch_arena_b, "definitely_not_a_solid");
@@ -46,9 +38,7 @@ inline void case_recipe_bake_live_iterations() {
 
 /**
  * @brief Death case: a HANKIN step with no contact angle must trap.
- * @details Recipe-replay surface — the zero default collapses every star point
- *          onto its corner, so an authored step that forgot its angle replays
- *          as a flat tiling instead of failing.
+ * @details A zero angle collapses every star point onto its corner.
  */
 inline void case_apply_step_hankin_no_angle() {
   static uint8_t a_buf[64 * 1024];
@@ -63,9 +53,8 @@ inline void case_apply_step_hankin_no_angle() {
 
 /**
  * @brief Death case: a BEVEL step with no depth must trap.
- * @details Recipe-replay surface — the composite lowers to ambo, truncate(t),
- *          so a zero default is the depthless truncate the lowered replay
- *          already traps on; the authored replay must not diverge from it.
+ * @details The composite lowers to ambo, truncate(t); a zero depth is a
+ *          depthless truncate.
  */
 inline void case_apply_step_bevel_no_depth() {
   static uint8_t a_buf[64 * 1024];
