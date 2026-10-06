@@ -1,0 +1,61 @@
+/*
+ * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
+ * Licensed under the PolyForm Noncommercial License 1.0.0
+ */
+
+// Included by tests/test_death.h.
+
+// --- Individual death cases — each MUST trap (HS_CHECK / __builtin_trap) ------
+
+// Registry death fixtures and guard cases.
+
+/**
+ * @brief Death case: a class name equal to another effect's stable ID must
+ *        trap.
+ */
+inline void case_effect_registry_name_matches_stable_id() {
+  EffectRegistration first{};
+  first.name = "DeathFirst";
+  first.stable_id = "DeathPersistedAlias";
+
+  EffectRegistration second{};
+  second.name = "DeathPersistedAlias";
+  second.stable_id = "death-second";
+  validate_effect_registrations(std::array{first, second});
+}
+
+/**
+ * @brief Death case: registering two effects under one name must trap.
+ * @details Registry surface — the name keys the factory lookup and the
+ *          lookup namespace, so duplicate names must be rejected.
+ */
+inline void case_effect_registry_duplicate_name() {
+  EffectRegistration reg{};
+  reg.name = "DeathDuplicate";
+  reg.stable_id = "death-duplicate";
+  validate_effect_registrations(std::array{reg, reg});
+}
+
+/** @brief Death case: two effects declaring the same stable ID must trap. */
+inline void case_effect_registry_duplicate_stable_id() {
+  EffectRegistration first{};
+  first.name = "DeathStableA";
+  first.stable_id = "death-stable";
+
+  EffectRegistration second{};
+  second.name = "DeathStableB";
+  second.stable_id = "death-stable";
+  validate_effect_registrations(std::array{first, second});
+}
+
+/** @brief Death case: a stable ID equal to another effect's name must trap. */
+inline void case_effect_registry_stable_id_matches_name() {
+  EffectRegistration first{};
+  first.name = "DeathClassAlias";
+  first.stable_id = "death-first";
+
+  EffectRegistration second{};
+  second.name = "DeathOther";
+  second.stable_id = "DeathClassAlias";
+  validate_effect_registrations(std::array{first, second});
+}
