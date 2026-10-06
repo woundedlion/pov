@@ -177,6 +177,7 @@ inline int run_color_tests() {
   test_configure_arenas_releases_gamut_lut();
   test_oklch_to_pixel_holds_hue_out_of_gamut();
 
+  test_hue_sincos_matches_libm();
   test_hue_rotate_preserves_gray();
   test_hue_rotate_full_turn_identity();
   test_hue_rotate_full_turn_in_steps_holds_hue_and_chroma();
