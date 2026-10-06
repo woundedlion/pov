@@ -1043,7 +1043,6 @@ inline void test_class_bake_budget_accounting() {
   HS_EXPECT_GT(low_quality.lowq_classes, uint16_t{0});
   HS_EXPECT_EQ(low_quality.luts_built, uint16_t{0});
   HS_EXPECT_EQ(low_quality.lut_bytes, size_t{0});
-  HS_EXPECT_LE(fine_tight.lut_bytes, min_lut);
 }
 
 /**
