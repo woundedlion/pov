@@ -19,7 +19,7 @@ The project spans **two repositories** that ship as one product:
 | [**Holosphere**](https://github.com/woundedlion/pov) | C++ engine + firmware | All rendering code, effects, hardware drivers (`pov_single.h`, `pov_segmented.h`), the Emscripten/WASM target, unit tests, and this README. |
 | [**daydream**](https://github.com/woundedlion/daydream) | Web simulator | Three.js renderer, the compiled `generated/holosphere_wasm.{js,wasm}` artifacts (output of Holosphere's WASM build), GUI/sidebar, recorder, segmented-POV Web Workers, and standalone design tools. |
 
-Building the WASM target in Holosphere installs the `.js`/`.wasm` module and its SHA/hash/toolchain provenance triple, `hardware/pov_segment_map.json`, the shader workbench helpers, generated operator catalog, shader documents, this README, and `docs/screenshots/` into the sibling `daydream/` checkout. The live demo is daydream served from GitHub Pages.
+Installing the WASM target (`cmake --build --preset wasm-release-install` or `just install`) writes the `.js`/`.wasm` module and its SHA/hash/toolchain provenance triple, `hardware/pov_segment_map.json`, the shader workbench helpers, generated operator catalog, shader documents, this README, and `docs/screenshots/` into the sibling `daydream/` checkout. The live demo is daydream served from GitHub Pages.
 
 ---
 
