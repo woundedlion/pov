@@ -704,7 +704,7 @@ inline void test_sh_field_write_through_and_endpoints() {
   if (worst_start > 0.0 || worst_end > 1e-5 || worst_frame > 1e-5)
     std::printf("  SH field: blend0 err=%g blend1 err=%g frame err=%g\n",
                 worst_start, worst_end, worst_frame);
-  // blend == 0 is the first mode and blend == 1 is the second, exactly.
+  // Blend 0 is exact; blend 1 reaches the second mode within lerp rounding.
   HS_EXPECT_EQ(worst_start, 0.0);
   HS_EXPECT_LT(worst_end, 1e-5);
   HS_EXPECT_LT(worst_frame, 1e-5);
