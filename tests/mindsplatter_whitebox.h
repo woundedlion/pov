@@ -239,7 +239,8 @@ struct MindSplatterWhiteBox {
         static_cast<typename Snapshot::BaseMesh>(reader.read_u8());
     HS_CHECK(static_cast<size_t>(active_base_mesh) <
                  Solids::PLATONIC_BASE_MESH_COUNT,
-             "MindSplatter replay base mesh differs");
+             "MindSplatter replay base mesh %u is out of range",
+             static_cast<unsigned>(active_base_mesh));
     HS_CHECK(ms.particle_system.active() == 0);
     HS_CHECK(particle_count <= ms.particle_system.pool.capacity());
 
