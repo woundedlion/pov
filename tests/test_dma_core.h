@@ -33,14 +33,26 @@ static_assert(!dma::transfer_stale(0, 99, 100)); // just below
 static_assert(dma::transfer_stale(0, 100, 100)); // at bound
 static_assert(dma::transfer_stale(0, 101, 100)); // above
 
+// Watchdog policy tolerates this many complete back-to-back transfers.
+constexpr unsigned WATCHDOG_TOLERATED_TRANSFERS = 19;
+// A stalled transfer must be reported before this many columns at 480 RPM.
+constexpr unsigned WATCHDOG_MAX_COLUMN_PERIODS = 12;
+constexpr unsigned WATCHDOG_POLICY_RPM = 480;
+
 static_assert(dma::TRANSFER_WATCHDOG_US >
-              19 * dma::transfer_us(HD107SFrame<40>::COMPOSITE_SIZE,
-                                    dma::DEFAULT_CLOCK_HZ));
+              WATCHDOG_TOLERATED_TRANSFERS *
+                  dma::transfer_us(HD107SFrame<40>::COMPOSITE_SIZE,
+                                   dma::DEFAULT_CLOCK_HZ));
 static_assert(dma::TRANSFER_WATCHDOG_US >
-              19 * dma::transfer_us(HD107SFrame<72>::COMPOSITE_SIZE,
-                                    dma::SEGMENTED_CLOCK_HZ));
-static_assert(dma::TRANSFER_WATCHDOG_US < 12 * (60000000UL / (480 * 96)));
-static_assert(dma::TRANSFER_WATCHDOG_US < 12 * (60000000UL / (480 * 288)));
+              WATCHDOG_TOLERATED_TRANSFERS *
+                  dma::transfer_us(HD107SFrame<72>::COMPOSITE_SIZE,
+                                   dma::SEGMENTED_CLOCK_HZ));
+static_assert(dma::TRANSFER_WATCHDOG_US <
+              WATCHDOG_MAX_COLUMN_PERIODS *
+                  (60000000UL / (WATCHDOG_POLICY_RPM * 96)));
+static_assert(dma::TRANSFER_WATCHDOG_US <
+              WATCHDOG_MAX_COLUMN_PERIODS *
+                  (60000000UL / (WATCHDOG_POLICY_RPM * 288)));
 
 /**
  * @brief Pin the transfer-length select for both with_bg values.
