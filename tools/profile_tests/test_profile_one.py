@@ -376,17 +376,56 @@ class ProfileConfigVerification(unittest.TestCase):
         self.assertNotEqual(result.returncode, 0)
 
 
+def build_and_attest_calls():
+    """Run build_and_attest with stubbed tools; returns (env, step) per call."""
+    with tempfile.TemporaryDirectory() as directory:
+        root = Path(directory)
+        calls = root / "calls"
+        script = (
+            "set -e\n"
+            f"{shell_function('build_and_attest')}\n"
+            f'pio() {{ echo "pio $*" >> {shlex.quote(calls.as_posix())}; }}\n'
+            f'build_image() {{ echo "build $1" >> {shlex.quote(calls.as_posix())}; }}\n'
+            "assert_matching_toolchains() { :; }\n"
+            "_hs_resolve_python() { _HS_LOCK_PYTHON=envdump_filter; }\n"
+            "envdump_filter() { cat >/dev/null; }\n"
+            "cp() { :; }\n"
+            "git() { echo 0000000000000000000000000000000000000000; }\n"
+            "file_sha256() { echo abc; }\n"
+            "ENV=profile\n"
+            f"cd {shlex.quote(root.as_posix())}\n"
+            "ATTEST_DIR=attest\n"
+            "for name in PHANTASM_ENVDUMP PROFILE_ENVDUMP PHANTASM_BUILD_LOG "
+            "PROFILE_BUILD_LOG PHANTASM_ELF PHANTASM_MAP PROFILE_ELF PROFILE_MAP "
+            "PROVENANCE_OUT; do printf -v \"$name\" 'attest/%s' \"$name\"; done\n"
+            "ARTIFACT_BASE=artifacts/run\n"
+            "build_and_attest\n"
+        )
+        result = subprocess.run(["bash", "-c", script], capture_output=True,
+                                text=True, encoding="utf-8")
+        if result.returncode != 0:
+            raise AssertionError(result.stdout + result.stderr)
+        lines = calls.read_text(encoding="utf-8").splitlines()
+    steps = []
+    for line in lines:
+        words = line.split()
+        if words[0] == "build":
+            steps.append((words[1], "build"))
+            continue
+        target = words[words.index("-t") + 1] if "-t" in words else "build"
+        steps.append((words[words.index("-e") + 1], target))
+    return steps
+
+
 class ToolchainAttestation(unittest.TestCase):
     def test_envdump_precedes_each_attested_build(self):
-        body = shell_function("build_and_attest")
-        self.assertLess(
-            body.index('pio run -e phantasm -t envdump'),
-            body.index('build_image phantasm'),
-        )
-        self.assertLess(
-            body.index('pio run -e "$ENV" -t envdump'),
-            body.index('build_image "$ENV"'),
-        )
+        steps = build_and_attest_calls()
+        for env in ("phantasm", "profile"):
+            with self.subTest(env=env):
+                self.assertIn((env, "envdump"), steps)
+                self.assertIn((env, "build"), steps)
+                self.assertLess(steps.index((env, "envdump")),
+                                steps.index((env, "build")))
 
     def test_matching_compiler_passes(self):
         result = attest_toolchains("GCC 15.2.1", "GCC 15.2.1")
