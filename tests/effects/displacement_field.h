@@ -220,17 +220,18 @@ inline void test_displacement_field_lazy_hue_table_matches_eager() {
     }
 
     DisplacementFieldWhiteBox::clear_hue_table(effect);
-    uint64_t valid[2] = {0, 0};
+    std::vector<uint64_t> valid((table_size + 64) / 64);
     for (int i = 0; i <= SAMPLE_COUNT; ++i) {
       const float amount = table_case.max_amount * i / SAMPLE_COUNT;
       Pixel actual = DisplacementFieldWhiteBox::sample_hue_table_cached(
-          effect, amount, table_case.domain, table_case.cyclic, base, valid);
+          effect, amount, table_case.domain, table_case.cyclic, base,
+          valid.data());
       HS_EXPECT_EQ(actual.r, expected[i].r);
       HS_EXPECT_EQ(actual.g, expected[i].g);
       HS_EXPECT_EQ(actual.b, expected[i].b);
     }
-    HS_EXPECT_EQ(valid[0], ~uint64_t{0});
-    HS_EXPECT_TRUE(valid[1] & uint64_t{1});
+    for (int i = 0; i <= table_size; ++i)
+      HS_EXPECT_TRUE(valid[i >> 6] & (uint64_t{1} << (i & 63)));
     for (int i = 0; i <= table_size; ++i) {
       Pixel actual = DisplacementFieldWhiteBox::hue_table_value(effect, i);
       HS_EXPECT_EQ(actual.r, endpoints[i].r);
