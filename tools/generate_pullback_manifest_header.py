@@ -388,10 +388,17 @@ def _validate_oracle(document: dict, path: Path) -> None:
 
 
 def _validate_schema_shape(schema: dict, path: Path) -> None:
+    operation_names = protocol_definition()[1]
+
     def check_keywords(node: dict, location: str) -> None:
         unknown = sorted(set(node) - SCHEMA_KEYWORDS)
         _require(not unknown,
                  f"{path}: {location} uses unsupported schema keywords {unknown}")
+        if location.endswith((".probe_operations.additionalProperties",
+                              ".operations.items")):
+            _require(isinstance(node.get("enum"), list) and
+                     all(name in operation_names for name in node["enum"]),
+                     f"{path}: {location} must enumerate protocol operations")
         for container in ("$defs", "properties"):
             for name, child in node.get(container, {}).items():
                 check_keywords(child, f"{location}.{container}.{name}")

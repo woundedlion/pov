@@ -357,6 +357,19 @@ class ManifestValidation(unittest.TestCase):
                                     "unsupported schema keywords.*format"):
             generator._validate_schema_shape(schema, schema_path)
 
+    def test_schema_operations_follow_the_protocol_table(self):
+        schema_path = MANIFEST_DIR / "schema.json"
+        schema = generator._load(schema_path)
+        generator._validate_schema_shape(schema, schema_path)
+        preset_count, operations = generator.protocol_definition()
+        for name in ("COLUMN_ZERO", "FULL_FRAME"):
+            changed = {key: value for key, value in operations.items() if key != name}
+            with self.subTest(removed=name), mock.patch.object(
+                    generator, "protocol_definition", return_value=(preset_count, changed)):
+                with self.assertRaisesRegex(generator.ManifestError,
+                                            "must enumerate protocol operations"):
+                    generator._validate_schema_shape(schema, schema_path)
+
     def test_schema_const_rejects_boolean_versions(self):
         programs, _, _ = generator.load_and_validate(MANIFEST_DIR)
         schema = generator._load(MANIFEST_DIR / "schema.json")
