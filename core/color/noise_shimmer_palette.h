@@ -41,7 +41,7 @@ public:
 
   /** @brief Resolves a lightness lift from positive noise and an amount in [0, 1]. */
   float lightness_shift(const math::Vector &direction, float amount) const {
-    return std::max(0.0f, noise(direction)) * amount;
+    return fmaxf(0.0f, noise(direction)) * amount;
   }
 
   /**
