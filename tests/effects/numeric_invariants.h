@@ -155,8 +155,7 @@ inline void test_comets_manual_preset_restarts_path() {
 
 /**
  * @brief Pins that AshCloud's value cutout reaches the rendered frame.
- * @details Sweeping cutout-threshold across its authored range must open the
- *          frame at one end and close it at the other.
+ * @details Threshold 0 lights pixels; threshold 1 blanks the frame.
  */
 inline void test_ash_cloud_value_cutout_gates_the_frame() {
   using FX = AshCloud<SMALL_W, SMALL_H>;
