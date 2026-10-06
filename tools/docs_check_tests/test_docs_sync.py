@@ -207,9 +207,7 @@ class DiscoveryAndCounts(unittest.TestCase):
         after = ds.sync_text(PurePosixPath("README.md"), before, paths, {}, counts)
         self.assertEqual(after, "effects/ 2 headers covering 3 effects\neffects/ (3 visual algorithms)\n")
         self.assertEqual(ds.sync_text(PurePosixPath("README.md"), after, paths, {}, counts), after)
-        legacy = "effects/ 99 headers: one per effect (88)\n"
-        self.assertEqual(ds.sync_text(PurePosixPath("README.md"), legacy, paths, {}, counts),
-                         "effects/ 2 headers: one per effect (3)\n")
+
 
 if __name__ == "__main__":
     unittest.main()

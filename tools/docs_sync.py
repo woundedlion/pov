@@ -173,7 +173,7 @@ def sync_text(relative: PurePosixPath, text: str, entries: set[PurePosixPath],
             count = counts["HS_EFFECT_LIST"]
             headers = sum(entry.parent == dc.EFFECTS_DIR and entry.suffix == ".h" for entry in entries)
             text = dc.EFFECTS_ROW_RE.sub(lambda match: replace_count(match, {
-                "headers": headers, "effects": count, "legacy_effects": count}), text)
+                "headers": headers, "effects": count}), text)
             text = dc.EFFECTS_DIAGRAM_RE.sub(lambda match: replace_count(match, {"effects": count}), text)
     for document, pattern, macro, _ in dc.CARDINALITY_CLAIMS:
         if relative.as_posix() == document and macro in counts:

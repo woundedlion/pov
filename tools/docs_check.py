@@ -108,8 +108,7 @@ _CHECKOUT_REPO_PATH_RE = re.compile(
 # from the roster macro's cardinality.
 _EFFECTS_TREE_ROW = "README.md"
 EFFECTS_ROW_RE = re.compile(
-    r"\beffects/\s+(?P<headers>\d+) headers(?: covering (?P<effects>\d+) effects|: "
-    r"one per effect \((?P<legacy_effects>\d+)\))")
+    r"\beffects/\s+(?P<headers>\d+) headers covering (?P<effects>\d+) effects")
 # The architecture diagram's roster cardinality, gated against the same source.
 EFFECTS_DIAGRAM_RE = re.compile(
     r"\beffects/\s+\((?P<effects>\d+) visual algorithms\)")
@@ -913,7 +912,7 @@ def effects_row_issues(text: str, entries: set[PurePosixPath],
                 _EFFECTS_TREE_ROW, number,
                 f"effects/ row claims {drawn_headers} headers, "
                 f"the tracked tree has {headers}"))
-        drawn_effects = int(match.group("effects") or match.group("legacy_effects"))
+        drawn_effects = int(match.group("effects"))
         if roster is None:
             issues.append(Issue(
                 _EFFECTS_TREE_ROW, number,
