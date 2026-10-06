@@ -141,7 +141,7 @@ private:
 
   __attribute__((always_inline)) void sample_into(float t, Color4 &out) const {
     assert(colors != nullptr && alpha_q16 != nullptr &&
-           "BakedPaletteStorage::get before bake()");
+           "BakedPalette::get before bake()");
     // Clamp before the int cast: static_cast<int>(NaN) is UB. hs::clamp maps NaN
     // to the hi bound (last entry) and guarantees idx >= 0.
     float idx =
