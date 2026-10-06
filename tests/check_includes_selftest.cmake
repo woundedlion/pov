@@ -1,4 +1,5 @@
 cmake_minimum_required(VERSION 3.29)
+file(REMOVE_RECURSE "${WORK}")
 file(MAKE_DIRECTORY "${WORK}/tests" "${WORK}/tools")
 get_filename_component(_gate_dir "${GATE}" DIRECTORY)
 file(COPY "${_gate_dir}/header_sections.cmake" DESTINATION "${WORK}/tests")
