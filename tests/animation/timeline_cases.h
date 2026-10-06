@@ -248,8 +248,12 @@ inline void test_timeline_repeating_canceled_in_callback_fires_then_once() {
                              st.anim->cancel();
                            }),
                        Timeline::Pin::UNPINNED);
-  for (int i = 0; i < 6; ++i)
-    tl.step(fake_canvas()); // cycles complete at t=2, 4, 6 without the cancel
+  tl.step(fake_canvas());
+  tl.step(fake_canvas()); // first cycle completes; the callback cancels
+  HS_EXPECT_EQ(st.thens, 1);
+  HS_EXPECT_EQ(tl.event_count(), 0);
+  for (int i = 0; i < 4; ++i)
+    tl.step(fake_canvas()); // cycles complete at t=4, 6 without the cancel
   HS_EXPECT_EQ(st.thens, 1);
   HS_EXPECT_EQ(tl.event_count(), 0);
 }
