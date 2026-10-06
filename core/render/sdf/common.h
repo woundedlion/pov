@@ -562,7 +562,8 @@ struct DistanceResult {
   float size = 1.0f; /**< Size metric for AA-falloff normalization. */
 
   /**
-   * @brief Default-constructs an uninitialized result.
+   * @brief Default-constructs a result with size = 1 and the other members
+   * uninitialized.
    */
   DistanceResult() = default;
   /**
