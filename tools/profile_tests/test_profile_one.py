@@ -378,21 +378,23 @@ class ProfileConfigVerification(unittest.TestCase):
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("STALE IMAGE: first frame 900", result.stdout)
 
-    def test_platformio_failure_propagates_from_build(self):
-        script = (
-            "pio() { return 23; }\n"
-            f"{shell_function('build_image')}\n"
-            "build_image profile $1\n"
-        )
-        with tempfile.TemporaryDirectory() as directory:
-            log = Path(directory) / "build.log"
-            result = subprocess.run(
-                ["bash", "-c", script, "profile-test", str(log)],
-                capture_output=True,
-                text=True,
-                encoding="utf-8",
+    def test_platformio_status_propagates_from_build(self):
+        for status, expected in ((0, 0), (23, 1)):
+            script = (
+                f"pio() {{ echo pio-called; return {status}; }}\n"
+                f"{shell_function('build_image')}\n"
+                "build_image profile $1\n"
             )
-        self.assertNotEqual(result.returncode, 0)
+            with self.subTest(status=status), tempfile.TemporaryDirectory() as directory:
+                log = Path(directory) / "build.log"
+                result = subprocess.run(
+                    ["bash", "-c", script, "profile-test", str(log)],
+                    capture_output=True,
+                    text=True,
+                    encoding="utf-8",
+                )
+                self.assertEqual(result.returncode, expected, result.stderr)
+                self.assertIn("pio-called", log.read_text(encoding="utf-8"))
 
 
 def build_and_attest_calls():
