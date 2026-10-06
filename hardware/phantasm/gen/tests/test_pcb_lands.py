@@ -9,6 +9,7 @@ GEN_DIR = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(GEN_DIR))
 
 import fab  # noqa: E402
+import connectivity  # noqa: E402
 import pcb  # noqa: E402
 import sexp  # noqa: E402
 from kicad_common import F  # noqa: E402
@@ -86,15 +87,6 @@ def pad_lands(node):
     return tuple(sorted(lands))
 
 
-def reference(node):
-    for child in node:
-        if (isinstance(child, list) and child and child[0] == "property"
-                and child[1] == "Reference"):
-            return child[2]
-    return next((child[2] for child in F(node, "fp_text")
-                 if child[1] == "reference"), None)
-
-
 def is_chip_passive(node):
     """True for a fitted two-terminal surface-mount component."""
     attrs = {str(value) for value in sexp.val(node, "attr", [])}
@@ -105,7 +97,7 @@ def board_lands(path, ref):
     """Pad lands the named footprint carries on a committed board."""
     root = sexp.parse(path.read_text(encoding="utf-8"))[0]
     for node in F(root, "footprint"):
-        if reference(node) == ref:
+        if connectivity.footprint_reference(node) == ref:
             return pad_lands(node)
     return None
 
@@ -113,7 +105,7 @@ def board_lands(path, ref):
 def routed_chip_lands():
     root = sexp.parse(ROUTED.read_text(encoding="utf-8"))[0]
     return {
-        reference(node): (str(node[1]), pad_lands(node))
+        connectivity.footprint_reference(node): (str(node[1]), pad_lands(node))
         for node in F(root, "footprint")
         if is_chip_passive(node)
     }
@@ -154,8 +146,8 @@ class UnplacedBoardLandTests(unittest.TestCase):
         root = sexp.parse(UNPLACED.read_text(encoding="utf-8"))[0]
         families = {}
         for node in F(root, "footprint"):
-            ref = reference(node)
-            self.assertIsNotNone(ref)
+            ref = connectivity.footprint_reference(node)
+            self.assertNotEqual(ref, "?")
             families.setdefault(str(node[1]), {})[ref] = pad_lands(node)
         self.assertTrue(families)
         for libid, lands in sorted(families.items()):
@@ -188,7 +180,7 @@ class PowerInletTests(unittest.TestCase):
 
     def test_routed_board_ships_the_unkeyed_header(self):
         root = sexp.parse(ROUTED.read_text(encoding="utf-8"))[0]
-        footprints = {reference(node): str(node[1])
+        footprints = {connectivity.footprint_reference(node): str(node[1])
                       for node in F(root, "footprint")}
         self.assertEqual(footprints["J1"], self.SHIPPED)
 
