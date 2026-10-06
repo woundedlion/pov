@@ -91,7 +91,8 @@ inline IsrCycleStats g_dma_submit_cycles;
  *
  * Each segment drives S/N LEDs on a single arm. Northern segments count
  * upward; southern segments count downward from the S pole toward the
- * junction. N=2 assigns one forward strip to each complete arm.
+ * junction. N=2 assigns one strip per arm only when the per-column DMA budget
+ * permits it; at S=288 and 480 RPM, the supported counts are N=4 or N=8.
  */
 template <int S, int N, int RPM> class POVSegmented {
 
