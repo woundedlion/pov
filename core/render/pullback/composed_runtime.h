@@ -38,7 +38,6 @@ class ComposedEffect : public ChoreographedEffect<Derived, ParamsFor<SpecT>>,
   static constexpr PaletteHarmony Harmony = SpecT::HARMONY;
   static constexpr HueMode HueV = SpecT::HUE;
   static constexpr Color::BrightnessEnvelope BrightnessV = SpecT::BRIGHTNESS;
-  static constexpr bool AnimatedProjection = SpecT::ANIMATED_PROJECTION;
 #if HS_ENABLE_TEST_HOOKS
   friend struct hs_test::ComposedFrameWhiteBox;
 #endif
@@ -64,7 +63,7 @@ public:
       "value-cutout coverage requires threshold and softness");
   using FrameState = Pullback::FrameState<ParamsT>;
   using Binding = Pullback::Binding<FrameState>;
-  static constexpr bool ANIMATED_PROJECTION = AnimatedProjection;
+  static constexpr bool ANIMATED_PROJECTION = SpecT::ANIMATED_PROJECTION;
   template <ResourceKind Kind> static consteval bool has_noise() {
     bool result = false;
     Params{}.visit([&]<typename Resource>(const auto &) {
@@ -150,7 +149,7 @@ public:
     });
     palette_cycler.init_generated(persistent_arena, next_palette, this, 0, 600,
                                   math::ease_in_out_sin);
-    if constexpr (AnimatedProjection)
+    if constexpr (ANIMATED_PROJECTION)
       timeline.add(0, Animation::RandomWalk<W>(
                           this->projection_walk, math::UP,
                           state->projection_walk_noise,
@@ -367,7 +366,7 @@ protected:
   }
 
 private:
-  struct State : ProjectionWalkNoise<AnimatedProjection>,
+  struct State : ProjectionWalkNoise<ANIMATED_PROJECTION>,
                  OptionalHueRotationLut<HueV != HueMode::NONE>,
                  OptionalHueNoiseLut<HueV == HueMode::NOISE> {
     ComposedDetail::ResourceStorage<ComposedDetail::ResourceNoise,
@@ -514,7 +513,7 @@ private:
         clock.phase = math::wrap_t(clock.phase + family.speed);
       }
     });
-    if constexpr (AnimatedProjection)
+    if constexpr (ANIMATED_PROJECTION)
       this->projection_spin = fmodf(
           this->projection_spin + params.template get<"projection">().spin_rate,
           math::TWO_PI_F);
@@ -531,7 +530,7 @@ private:
 
   // Rotation samples are eased within each walk step.
   HS_COLD_MEMBER void update_spatial_frames() {
-    if constexpr (AnimatedProjection) {
+    if constexpr (ANIMATED_PROJECTION) {
       const math::Quaternion projection = this->projection_walk.get();
       const math::Quaternion projection_delta =
           projection * this->projection_walk_previous.conjugate();
