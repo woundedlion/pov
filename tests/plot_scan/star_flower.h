@@ -61,16 +61,9 @@ constexpr float STAR_RECURRENCE_DRIFT =
 /**
  * @brief Star radius-trig reuse reproduces per-vertex evaluation, and the two
  *        sampling entry points place the same vertices.
- * @details Positions are compared within float tolerance, not bit-for-bit. Both
- *   shipping targets build with -ffast-math, under which the compiler contracts
- *   the hand-written per-vertex reference differently from the hoisted path, and
- *   sample_positions() uses an angle-addition recurrence without the
- *   per-vertex normalization performed by sample().
- *   The tolerance separates the tested radius, parity, and phase errors — swapped
- *   inner/outer radii, wrong i&1 parity, a dropped phase — since each moves a
- *   vertex by orders of magnitude more than rounding. Only the registers
- *   sample_positions leaves untouched stay an exact comparison: they are exact
- *   zeros, which no rounding mode perturbs.
+ * @details Positions against the per-vertex reference and sample() use float
+ * tolerance. Cached and uncached sample_positions() share sample_positions_impl
+ * and are compared bit for bit, as are the untouched zero registers.
  */
 inline void test_star_sample_radius_trig_parity() {
   ScratchScope sc(plot_arena());
