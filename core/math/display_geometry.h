@@ -155,8 +155,7 @@ template <int H> struct DisplayGeometry<H, -1> {
   /** @brief Whether the last LED row reaches the south pole. */
   inline static bool HAS_SOUTH_POLE = true;
 
-  /** @brief Refreshes the initial ideal mapping after set_display_geometry().
-   * @details Driven by PhiLUT::init() and init_geometry_luts(). */
+  /** @brief Refreshes the initial ideal mapping after set_display_geometry(). */
   static void refresh() {
     NORTH_PHI = DISPLAY_NORTH_PHI;
     SOUTH_PHI = DISPLAY_SOUTH_PHI;

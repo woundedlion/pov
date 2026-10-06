@@ -7,10 +7,7 @@
 
 /**
  * @file concepts.h
- * @brief Callable wrappers (FunctionRef, StoredFunctionRef, the Fn aliases),
- *        the shader, trail and sprite callback aliases the render pipeline is
- *        written against, PipelineRef type erasure, the DissolveMask ownership
- *        hash, and the Plottable and Tweenable concepts.
+ * @brief Callable wrappers, render callback aliases, and pipeline concepts.
  */
 
 #include <concepts>
@@ -25,34 +22,18 @@
 namespace math {
 struct Basis;
 }
-class Canvas; // core/render/canvas.h; used only behind references below
+class Canvas;
 
-// ---------------------------------------------------------------------------
-// Callable wrappers — two complementary types:
-//
-//   FunctionRef<Sig>   Non-owning, borrows the callable. Zero overhead.
-//                      Use for parameters that are only invoked during the
-//                      call (e.g. pipeline pass callbacks, shader functors).
-//                      Must NOT outlive the referenced callable.
-//
-//   Fn<Sig, Cap>       Owning, inline storage (teensy::inplace_function on
-//                      Teensy, hs::inplace_function on host/WASM — both
-//                      heap-free). Use for stored
-//                      callbacks that must persist beyond the creating scope
-//                      (e.g. registered timers, sprite functions).
-// ---------------------------------------------------------------------------
+// FunctionRef<Sig>: non-owning borrow for call-scoped callbacks; must not
+// outlive the callable. Fn<Sig, Cap>: owning, heap-free inline storage for
+// callbacks kept past the creating scope.
 
 struct Fragment;
 struct FragmentRegisters;
 template <typename Signature> class FunctionRef;
 
 namespace hs {
-/**
- * @brief Diverges when an empty FunctionRef is invoked.
- * @details One out-of-line routine every instantiation's empty thunk tail-calls,
- * so the trapping empty state costs a branch per signature rather than a
- * formatted call site.
- */
+/** @brief Diverges when an empty FunctionRef is invoked. */
 [[noreturn]] void function_ref_empty_call();
 } // namespace hs
 
@@ -64,8 +45,7 @@ namespace hs {
  * heap allocation. The referenced callable must outlive the FunctionRef.
  */
 template <typename Ret, typename... Args> class FunctionRef<Ret(Args...)> {
-  // Empty state's thunk, mirroring hs::inplace_function's empty vtable: an
-  // empty ref diverges with a breadcrumb instead of calling through null.
+  // Empty state's thunk: an empty ref diverges instead of calling through null.
   [[noreturn]] static Ret empty_thunk(void *, Args &&...) {
     ::hs::function_ref_empty_call();
   }
@@ -115,11 +95,9 @@ public:
   /**
    * @brief Wraps a plain function pointer.
    * @param func Function pointer with signature Ret(Args...); stored in ctx.
-   * @details The function-pointer <-> void* round-trip is only
-   * *conditionally-supported* by the standard ([expr.reinterpret.cast]) but holds
-   * on the supported targets; the static_assert checks pointer width. A null `func` produces an *empty*
-   * ref, matching a default-constructed FunctionRef, so a null func cannot
-   * install a thunk that dereferences null on the first call.
+   * @details The function-pointer <-> void* round-trip is
+   * conditionally-supported ([expr.reinterpret.cast]). A null `func` produces
+   * an empty ref.
    */
   FunctionRef(Ret (*func)(Args...)) noexcept
       : ctx(reinterpret_cast<void *>(func)) {
@@ -160,19 +138,13 @@ public:
 
   /**
    * @brief Wraps a const lvalue callable (functor or lambda).
-   * @tparam Callable Type of the callable; must be *const*-invocable with Args...
-   * (the thunk invokes it through a `const Callable*`, so a mutable-only callable
-   * is rejected here rather than failing inside the thunk) and not itself a
-   * FunctionRef.
+   * @tparam Callable Type of the callable; must be const-invocable with Args...
+   * and not itself a FunctionRef.
    * @param callable Const callable whose address is stored; must outlive this
    * ref. The const is cast away into ctx and restored in the thunk.
-   * @details This overload also binds rvalues (temporary lambdas), so the
-   * immediate-use borrow `take_callback([](...){ ... })` keeps working — the whole
-   * purpose of a function_ref-style type. StoredFunctionRef refuses temporaries
-   * for callables kept past the call. A `mutable` temporary lambda binds to
-   * neither overload — the non-const one takes an lvalue, this one needs a
-   * const-invocable callable — and reports only "no matching function"; drop the
-   * `mutable` or pass a named lvalue.
+   * @details Also binds temporaries for immediate-use borrows. A `mutable`
+   * temporary lambda binds to neither overload; drop the `mutable` or pass a
+   * named lvalue.
    */
   template <typename Callable>
     requires std::is_invocable_r_v<Ret, const Callable &, Args...> &&
@@ -194,9 +166,6 @@ public:
    * @brief Invokes the wrapped callable.
    * @param args Arguments forwarded to the callable.
    * @return Result of the wrapped callable.
-   * @details Per-pixel hot path (trail/transform callbacks): the empty state
-   * carries a trapping thunk rather than a null one, so this costs no per-call
-   * branch on-device and an empty ref still fails fast.
    */
   inline Ret operator()(Args... args) const {
     return thunk(ctx, std::forward<Args>(args)...);
@@ -213,12 +182,8 @@ public:
  * @brief A FunctionRef meant to be STORED past the call that builds it (e.g. a
  * class member invoked across many frames), not just borrowed for one call.
  * @tparam Signature The callable signature `Ret(Args...)`.
- * @details Identical to FunctionRef except it refuses to bind a borrowed rvalue temporary:
- * binding a temporary into something kept alive past the full expression dangles.
- * Storing sites use this type so the lifetime contract is enforced by the type
- * instead of a hand-rolled `= delete` at each site; plain FunctionRef stays right
- * for call-scoped parameters. Adds no data members, so it remains the same
- * two-pointer trivially-copyable payload as FunctionRef.
+ * @details Identical to FunctionRef except it refuses to bind an rvalue
+ * temporary, which would dangle. Adds no data members.
  */
 template <typename Signature> class StoredFunctionRef;
 
@@ -242,17 +207,14 @@ public:
   StoredFunctionRef(Callable &&) = delete;
 };
 
-// Borrow-only aliases. Stored callbacks use StoredFunctionRef, as MorphDrawFn
-// does in animation/opleg.h.
+// Borrow-only aliases; stored callbacks use StoredFunctionRef.
 using ScreenTrailFn = FunctionRef<Color4(float, float, float)>;
 using WorldTrailFn = FunctionRef<Color4(const math::Vector &, float)>;
 using FragmentShaderFn = FunctionRef<void(const math::Vector &, Fragment &)>;
 using VertexShaderRef = FunctionRef<void(Fragment &)>;
 // Deferred per-control-point shader: receives the (position-shaded) fragment's
-// shading registers and its original pre-shader position. Position is out of
-// reach by type: the pass runs after the rasterizer's projections and edge
-// classification. Plot::ParticleSystem::draw runs it only for trails the
-// segment cull keeps, skipping trails that render nothing.
+// shading registers and its original pre-shader position. It runs after
+// projection, so it cannot move the fragment.
 using DeferredShaderRef =
     FunctionRef<void(FragmentRegisters, const math::Vector &)>;
 using TweenFn = FunctionRef<void(const math::Quaternion &, float)>;
@@ -265,13 +227,10 @@ using CullEdgePredRef = FunctionRef<bool(
 
 /**
  * @brief Deterministic ownership mask for dissolve transitions.
- * @details Ownership is hashed from an integer key pair, not from a pixel
- * coordinate. The wireframe path (Plot::Mesh::draw's edge-list overload) keys
- * owns() on an edge's endpoint indices and skips an unowned edge before any of
- * its geometry work; no solid-mesh scan consumes a mask. Two masks with the same
- * threshold/salt and opposite `invert` partition matching key pairs exactly.
- * Different edge lists or projected geometry do not share a rasterize-cost bound. The salt must derive from frame counters/seeds,
- * never wall time: the mask is part of the sim/device parity surface.
+ * @details Ownership is hashed from an integer key pair, not a pixel
+ * coordinate. Two masks with the same threshold/salt and opposite `invert`
+ * partition key pairs exactly. The salt must derive from frame counters/seeds,
+ * never wall time (sim/device parity).
  */
 struct DissolveMask {
   uint32_t threshold; /**< Owned fraction in [0, 65536]. */
@@ -280,9 +239,7 @@ struct DissolveMask {
 
   /**
    * @brief Ownership of the element identified by the key pair (a, b).
-   * @param a,b Key components; order-sensitive. The only consumer passes an
-   *        edge's endpoint indices, emitting each edge once with one
-   *        orientation.
+   * @param a,b Key components; order-sensitive.
    */
   bool owns(int a, int b) const {
     uint32_t h = static_cast<uint32_t>(a) * 0x9E3779B1u ^
@@ -340,15 +297,10 @@ inline bool pipeline_could_intersect_clip(PipelineT &pipeline,
 
 /**
  * @brief Non-owning, type-erased handle to a rasterizer pipeline.
- * @details Forwards plot() calls (2D screen-space or 3D world-space) to the
- * wrapped object's plot() methods. Like FunctionRef, it borrows the target and
- * must not outlive it. The erasure is a code-size choice: one indirect plot() call
- * per pixel, but the scanline machine instantiates once per <W,H> instead of once
- * per (shape x shader-lambda x filter-stack), which would explode device flash /
- * wasm size across the effects' distinct shader closures and filter-stack types.
- *
- * Erasure also hides prepared_for() from a draw's guard, so a direct-raster sink
- * only converts through the Canvas-taking constructor, which checks it.
+ * @details Forwards 2D screen-space and 3D world-space plot() calls to the
+ * wrapped object; borrows the target and must not outlive it. A direct-raster
+ * sink converts only through the Canvas-taking constructor, which checks
+ * prepared_for().
  */
 class PipelineRef {
   struct Erase {};
@@ -394,14 +346,9 @@ public:
 
   /**
    * @brief Wraps any object exposing 2D and 3D plot() methods.
-   * @tparam T Pipeline type; must satisfy Plottable, and is excluded from being
-   *         PipelineRef itself and from the direct-raster sinks the
-   *         Canvas-taking constructor below takes.
+   * @tparam T Pipeline type; must satisfy Plottable and be neither PipelineRef
+   *         nor a direct-raster sink.
    * @param t Pipeline object whose address is stored; must outlive this ref.
-   * @details Excludes PipelineRef itself (mirroring FunctionRef): without this,
-   * copying from a non-const lvalue binds this template (exact T& match) instead
-   * of the implicit copy ctor, wrapping a ref-to-a-ref — an extra plot()
-   * indirection per pixel and a dangling ctx if the source dies first.
    */
   template <typename T>
     requires(Plottable<T> && !std::same_as<std::decay_t<T>, PipelineRef> &&
@@ -412,10 +359,8 @@ public:
    * @brief Erases a direct-raster sink for a draw into @p cv.
    * @param t Sink whose address is stored; must outlive this ref.
    * @param cv Canvas the draw writes into.
-   * @details The sink writes through a framebuffer base cached by prepare();
-   * the canvas double-buffers, so a stale base is the buffer the display is
-   * scanning out. The erased handle no longer answers prepared_for(), so the
-   * draw's own guard cannot see it — it is checked here, once per draw.
+   * @details Checks prepared_for(@p cv): the sink writes through a framebuffer
+   * base cached by prepare(), and a stale base is the buffer being scanned out.
    */
   template <typename T>
     requires(Plottable<T> && pipeline_direct_raster_path<std::decay_t<T>>())
@@ -484,7 +429,6 @@ using PlotFn = Fn<math::Vector(float), 16>;
 // 16 B: holds two pointers on the 64-bit host, four on device.
 using SpriteFn = Fn<void(Canvas &, float), 16>;
 using TimerFn = Fn<void(Canvas &), 16>;
-// 32: ScalarFn holds the wave/shift builders' captures, larger than 16 B.
 using ScalarFn = Fn<float(float), 32>;
 using EasingFn = float (*)(float);
 
@@ -493,13 +437,9 @@ using EasingFn = float (*)(float);
  * each carrying its own sub-frame quaternion history.
  * @tparam T Candidate type; must expose length() and get(index) yielding a
  * frame.
- * @details Matches OrientationTrail (get -> Orientation). The element must
- * itself be frame-structured — a static CAPACITY plus its own length()/get() —
- * because deep_tween flattens both levels. A bare Orientation, whose get()
- * yields a Quaternion, is rejected here rather than deep in instantiation; use
- * tween() for that. The trail's own length() is consumed as an unsigned count —
- * a signed type could wrap negative into a huge loop bound; the frame's is
- * signed, matching Orientation's int index APIs.
+ * @details Each frame needs a static CAPACITY plus its own length()/get(),
+ * since deep_tween flattens both levels; a bare Orientation is rejected (use
+ * tween()). The trail length is unsigned, the frame length signed.
  */
 template <typename T>
 concept Tweenable = requires(const T &t, size_t i) {

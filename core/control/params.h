@@ -23,13 +23,7 @@
 
 class ParamHost;
 
-/**
- * @brief Outcome of a named parameter write (Effect::updateParameter, surfaced
- *        to JS by the WASM bridge's setParameter).
- * @details NO_EFFECT is produced only by the bridge, which may have no effect
- *          installed to forward the write to; Effect::updateParameter itself
- *          never returns it.
- */
+/** @brief Outcome of a named parameter write. */
 enum class ParamSetResult {
   APPLIED,           /**< Value written (floats clamped to [min,max] first). */
   NO_EFFECT,         /**< No effect is installed to receive the write. */
@@ -77,10 +71,8 @@ struct ParamDef {
       1; /**< Upper bound for every non-bool target (integer bounds are exact in float). */
   int option_count = 0; /**< Number of labels; > 0 marks an enum target. */
   TargetType target_type = TargetType::FLOAT; /**< Target storage format. */
-  bool animated = false; /**< True if an animation drives this member; the GUI
-                             surfaces these as auto-pausing sliders. */
-  bool readonly = false; /**< True if this is engine-written telemetry; the
-                             GUI shows it live but disables editing. */
+  bool animated = false; /**< True if an animation drives this member. */
+  bool readonly = false; /**< True if this is engine-written telemetry. */
   bool preset = true;    /**< Whether preset exports include this parameter. */
 
   template <typename Integer> static float get_integer(const void *source) {
@@ -176,8 +168,7 @@ public:
 
   /**
    * @brief Whether the target's storage is whole-numbered.
-   * @details False for a float-backed enum; callers that mean "steps by one"
-   * test is_enum() as well.
+   * @details False for a float-backed enum.
    */
   bool is_integer() const {
     return target_type != TargetType::FLOAT && target_type != TargetType::BOOL;
@@ -214,8 +205,7 @@ static_assert(sizeof(void *) != 4 ||
 
 /**
  * @brief Fixed-capacity registry of an effect's runtime parameters.
- * @details Fixed-capacity inline array (or arena-backed external storage)
- * that never reallocates; capacity is enforced at registration time.
+ * @details Inline or arena-backed external storage; never reallocates.
  */
 struct ParamList {
   // Only ParamHost may mutate; non-const handles select private overloads.
@@ -277,9 +267,6 @@ struct ParamList {
   }
 
 private:
-  // Storage bookkeeping and the writable accessors, reachable only by the
-  // friended ParamHost (see the note at the top of the struct). Kept private so
-  // value writes route through updateParameter.
   std::array<ParamDef, FIXED_CAPACITY>
       elements; /**< Default fixed-capacity storage. */
 #if HS_PARAM_EXTERNAL_STORAGE
@@ -313,10 +300,6 @@ private:
 /**
  * @brief Invokes `apply(current)` only when `current` differs from `last`,
  * then latches `last = current`.
- * @details Live-apply a slider value only on change, so a per-frame push does
- *   no work while the slider sits still. The animation setters it usually feeds
- *   (`set_duration`/`set_period`) guard the no-change case themselves, so this
- *   is a work filter, not a correctness gate.
  * @note Floating-point callers must reject non-finite values upstream. A NaN
  *   never compares equal to the latched NaN, so it invokes `apply` on every call.
  * @param current The latest parameter value to test against the cached one.
@@ -325,8 +308,7 @@ private:
  */
 template <typename T, typename F>
 inline void apply_if_changed(const T &current, T &last, F &&apply) {
-  // T must compare with exact equality: a tolerance comparator (e.g. Vector's
-  // operator!=) is non-transitive and could re-fire or latch incorrectly.
+  // A tolerance comparator (e.g. Vector's operator!=) is non-transitive.
   static_assert(std::is_arithmetic_v<T>,
                 "apply_if_changed requires an exact-equality T (scalar/int)");
   if (current != last) {

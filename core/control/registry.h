@@ -7,9 +7,7 @@
 /**
  * @file registry.h
  * @brief Effect factory records generated from the target effect roster.
- * @details Enabled for the WASM build and registry tests. On firmware it is a
- *          no-op, so effect registration pulls in no std::vector/std::function
- *          overhead.
+ * @details Compiled only when HS_ENABLE_EFFECT_REGISTRY is set.
  */
 
 #include "platform/build_features.h"
@@ -23,7 +21,7 @@
 #include <functional>
 #include <memory>
 
-class Effect; // forward decl — defined in canvas.h
+class Effect;
 
 /** @brief Storage for a concrete effect type identity. */
 template <typename T> struct EffectTypeTag {
@@ -34,9 +32,7 @@ template <typename T> struct EffectTypeTag {
  * @brief RTTI-free identity token for one concrete effect type.
  * @tparam T Effect type at a fixed resolution, e.g. Shader<288, 144>.
  * @return An address unique to T for the module's lifetime.
- * @details Lets a holder of an Effect base pointer prove which concrete type the
- *          factory built before downcasting to it, without RTTI and without
- *          trusting a name string.
+ * @details Proves an Effect base pointer's concrete type before a downcast.
  */
 template <typename T> constexpr const void *effect_type_key() {
   return &EffectTypeTag<T>::id;
@@ -44,9 +40,8 @@ template <typename T> constexpr const void *effect_type_key() {
 
 /**
  * @brief Concrete factory record for one registered effect at a fixed resolution.
- * @details The factory builder copies name and stable_id from EffectRegistration.
- * The registration's fill function populates the resolution-specific creator,
- * type_key, size, preset_count and preset_id.
+ * @details name and stable_id come from EffectRegistration; its fill function
+ * sets the resolution-specific fields.
  */
 struct FactoryEntry {
   using PresetIdFn = std::string_view (*)(size_t);
@@ -64,33 +59,25 @@ struct FactoryEntry {
       nullptr; /**< Registry-only stable preset lookup, when declared. */
 };
 
-// Single source of truth for the supported render resolutions. Adding a resolution
-// is ONE edit here: the EffectRegistration fields, the get_fill_fn dispatch, and
-// the factory fill-pointer list below all expand from this X-macro, so they
-// cannot drift out of sync.
+// Supported render resolutions; per-resolution registration code expands from
+// this X-macro.
 #define HS_RESOLUTIONS(X)                                                      \
   X(96, 20)                                                                    \
   X(288, 144)
 
-// Every listed resolution must fit the framebuffers the Effect constructor
-// bounds, or its factory would only fail once invoked.
 #define HS_REG_RESOLUTION_FITS(W, H)                                           \
   static_assert(W <= MAX_W && H <= MAX_H,                                      \
                 "HS_RESOLUTIONS entry exceeds MAX_W/MAX_H");
 HS_RESOLUTIONS(HS_REG_RESOLUTION_FITS)
 #undef HS_REG_RESOLUTION_FITS
 
-// The instantiation stable-id queries are answered from. EFFECT_ID does not
-// depend on <W,H>, so every resolution names the same id; spelling one out
-// keeps the persisted identity — and the per-effect RNG stream behind it — off
-// HS_RESOLUTIONS' ordering.
+// Instantiation that answers stable-id queries; fixed so the persisted id and
+// its RNG stream do not depend on HS_RESOLUTIONS order.
 #define HS_REG_IDENTITY_RESOLUTION 96, 20
 
 /**
  * @brief Resolution-specific fill functions for one registered effect.
- * @details Fill functions are templated per <W,H> but stored as concrete
- *          function pointers, one field per supported resolution — generated
- *          from HS_RESOLUTIONS as `fill_<W>_<H>` (e.g. `fill_96_20`).
+ * @details One `fill_<W>_<H>` function pointer per HS_RESOLUTIONS entry.
  */
 struct EffectRegistration {
   std::string_view name; /**< Effect class/header stem. */
@@ -137,10 +124,7 @@ template <int> constexpr bool unsupported_resolution = false;
  * @tparam H Frame height in pixels.
  * @param reg Registration holding one fill pointer per supported resolution.
  * @return The fill function pointer for <W,H>.
- * @details Resolutions are enumerated from HS_RESOLUTIONS: each generates one
- *          `if constexpr` branch below, and the trailing static_assert turns an
- *          unlisted <W,H> into a COMPILE error instead of silently
- *          mis-instantiating an unrecognised resolution.
+ * @details An unlisted <W,H> is a compile error.
  */
 template <int W, int H>
 constexpr auto get_fill_fn(const EffectRegistration &reg) {
