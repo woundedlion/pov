@@ -209,6 +209,8 @@ inline void test_mobiusflow_degenerate_inputs_remain_finite() {
       HS_EXPECT_TRUE(std::isfinite(params.d.im));
       HS_EXPECT_NEAR(params.a.re * params.d.re - params.a.im * params.d.im,
                      1.0f, 1e-4f);
+      HS_EXPECT_NEAR(params.a.re * params.d.im + params.a.im * params.d.re,
+                     0.0f, 1e-4f);
     }
   }
 }
