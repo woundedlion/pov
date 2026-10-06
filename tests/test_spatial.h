@@ -405,8 +405,7 @@ inline void test_meshstate_clone_deep_copies() {
 }
 
 /**
- * @brief Verifies clear() empties the mesh's vertex and face views, returning
- *        the counts to zero.
+ * @brief Verifies clear() empties owned storage, drops views and resets topology.
  */
 inline void test_meshstate_clear_resets_views() {
   Arena arena(spatial_buf, sizeof(spatial_buf));
@@ -421,6 +420,25 @@ inline void test_meshstate_clear_resets_views() {
   m.clear();
   HS_EXPECT_EQ(m.num_vertices(), (size_t)0);
   HS_EXPECT_EQ(m.num_faces(), (size_t)0);
+
+  uint8_t counts[] = {1};
+  uint16_t faces[] = {0}, offsets[] = {0}, topology[] = {3};
+  m.set_borrowed({counts, 1}, {faces, 1}, {offsets, 1}, {topology, 1}, 0xABCD);
+  HS_EXPECT_EQ(m.get_face_counts_size(), size_t{1});
+  HS_EXPECT_EQ(m.get_faces_size(), size_t{1});
+  HS_EXPECT_EQ(m.get_face_offsets_size(), size_t{1});
+  HS_EXPECT_EQ(m.get_topology_size(), size_t{1});
+  HS_EXPECT_EQ(m.topology_key, 0xABCDu);
+  m.clear();
+  HS_EXPECT_EQ(m.get_face_counts_size(), size_t{0});
+  HS_EXPECT_EQ(m.get_faces_size(), size_t{0});
+  HS_EXPECT_EQ(m.get_face_offsets_size(), size_t{0});
+  HS_EXPECT_EQ(m.get_topology_size(), size_t{0});
+  HS_EXPECT_TRUE(m.get_face_counts_data() == nullptr);
+  HS_EXPECT_TRUE(m.get_faces_data() == nullptr);
+  HS_EXPECT_TRUE(m.get_face_offsets_data() == nullptr);
+  HS_EXPECT_TRUE(m.get_topology_data() == nullptr);
+  HS_EXPECT_EQ(m.topology_key, 0u);
 }
 
 /**
