@@ -430,43 +430,38 @@ trace_4d(const math::Vector &direction, const Raycast::PreparedCamera &camera,
                         int flipped, float sign,
                         const std::array<Pair, CLASSES>
                             &pairs) __attribute__((always_inline)) {
-    std::array<float, CLASSES> transverses, denominators, dks, dls;
-    // Bit c marks a class not parallel to the ray (positive denominator).
-    uint32_t owned = 0;
-    for (size_t c = 0; c < CLASSES; ++c) {
-      const auto &PAIR = pairs[c];
+    // Only the largest-coordinate sum can be parallel in the canonical unit frame.
+    uint32_t owned = (1u << CLASSES) - 1u;
+    if constexpr (CLASSES == 1) {
+      const auto &PAIR = pairs[0];
       const float ALONG = components[PAIR.i] + sign * components[PAIR.j];
-      denominators[c] = 1.0f - 0.5f * ALONG * ALONG;
-      transverses[c] = 0.5f * (components[PAIR.i] - sign * components[PAIR.j]);
-      dks[c] = components[PAIR.k];
-      dls[c] = components[PAIR.l];
+      const float DENOMINATOR = 1.0f - 0.5f * ALONG * ALONG;
       uint32_t bits;
-      std::memcpy(&bits, &denominators[c], sizeof(bits));
-      owned |= static_cast<uint32_t>(bits - 1 < 0x7F7FFFFFu) << c;
+      std::memcpy(&bits, &DENOMINATOR, sizeof(bits));
+      owned = static_cast<uint32_t>(bits - 1 < 0x7F7FFFFFu);
+      if (!owned)
+        return true;
     }
-    if (!owned)
-      return true;
     const float position = positions[flipped + 1];
+    // Canonical owner speeds are non-negative.
     const float speed = speeds[flipped + 1];
     if (speed == 0.0f)
       return true;
-    const float PLANE = speed > 0.0f ? ceilf(position) : floorf(position);
+    const float PLANE = ceilf(position);
     const float INVERSE = inverses[flipped + 1];
-    const float STEP = fabsf(INVERSE);
+    const float STEP = INVERSE;
     const float FIRST = NEAR + (PLANE - position) * INVERSE;
     if (!Raycast::finite(FIRST) || !Raycast::finite(STEP) || !(STEP > 0.0f))
       return true;
     // The first plane lies at or past NEAR. A crossing within rounding of FAR
     // carries no fog-weighted opacity either way.
     const int COUNT =
-        FIRST <= FAR ? static_cast<int>((FAR - FIRST) * fabsf(speed)) + 1 : 0;
+        FIRST <= FAR ? static_cast<int>((FAR - FIRST) * speed) + 1 : 0;
     crossings += COUNT;
     if (crossings > BUDGET)
       return false;
     if (COUNT == 0)
       return true;
-    // Squared |n . v| over the unit ray, with a margin for rounding.
-    const float PLANE_SHARE = 0.9999f * (speed * SCALE) * (speed * SCALE);
     // The plane bound runs in 16-bit fixed point: the low 16 bits of Q * 2^16
     // wrap exactly as Q mod 1, so their signed value is Q's residual to the
     // nearest integer, and a wrapped sum or difference of two is a class's
@@ -474,16 +469,18 @@ trace_4d(const math::Vector &direction, const Raycast::PreparedCamera &camera,
     // move a residual by under FIXED_ERROR over the candidate budget, which
     // loosens each squared term by at most that much.
     constexpr float FIXED_ONE = 65536.0f;
-    constexpr float FIXED_ERROR = 1.5e-3f;
-    const float THRESHOLD_SCALE = FIXED_ONE * FIXED_ONE / PLANE_SHARE;
+    constexpr float FIXED_ERROR = 2.0e-3f;
+    const float INVERSE_PLANE = INVERSE * INVERSE_SCALE;
+    const float THRESHOLD_SCALE =
+        (FIXED_ONE * FIXED_ONE / 0.9999f) * INVERSE_PLANE * INVERSE_PLANE;
     const float THRESHOLD_MARGIN = 3 * FIXED_ERROR * FIXED_ONE * FIXED_ONE;
+    const float ADVANCE_STEP = COUNT > 1 ? STEP : 0.0f;
     std::array<uint32_t, 4> starts, advances;
     for (int m = 0; m < 4; ++m) {
-      starts[m] = static_cast<uint32_t>(static_cast<int32_t>(
-          roundf((origins[m] + rates[m] * FIRST) * FIXED_ONE)));
-      advances[m] = COUNT > 1 ? static_cast<uint32_t>(static_cast<int32_t>(
-                                    roundf(rates[m] * STEP * FIXED_ONE)))
-                              : 0u;
+      starts[m] = static_cast<uint32_t>(
+          static_cast<int32_t>((origins[m] + rates[m] * FIRST) * FIXED_ONE));
+      advances[m] = static_cast<uint32_t>(
+          static_cast<int32_t>(rates[m] * ADVANCE_STEP * FIXED_ONE));
     }
     float t = FIRST - STEP;
     for (uint32_t index = 0; index < static_cast<uint32_t>(COUNT); ++index) {
@@ -500,6 +497,24 @@ trace_4d(const math::Vector &direction, const Raycast::PreparedCamera &camera,
       }
       // Each class's line lies no nearer than half its squared across
       // residual plus its free coordinates' squared residuals.
+      const uint32_t THRESHOLD = static_cast<uint32_t>(
+          fminf(SUPPORT2 * THRESHOLD_SCALE + THRESHOLD_MARGIN, 4294967040.0f));
+      uint32_t free_nearest = UINT32_MAX;
+      if constexpr (CLASSES == 6) {
+        free_nearest =
+            std::min(std::min(squares[0] + squares[1], squares[2] + squares[3]),
+                     std::min(squares[0], squares[1]) +
+                         std::min(squares[2], squares[3]));
+      } else if constexpr (CLASSES == 2) {
+        free_nearest = std::min(squares[pairs[0].k], squares[pairs[1].k]) +
+                       std::min(squares[pairs[0].l], squares[pairs[1].l]);
+      } else {
+        for (const auto &pair : pairs)
+          free_nearest =
+              std::min(free_nearest, squares[pair.k] + squares[pair.l]);
+      }
+      if (free_nearest > THRESHOLD) [[likely]]
+        continue;
       std::array<uint32_t, CLASSES> bounds;
       uint32_t nearest = UINT32_MAX;
       for (size_t c = 0; c < CLASSES; ++c) {
@@ -511,9 +526,6 @@ trace_4d(const math::Vector &direction, const Raycast::PreparedCamera &camera,
                     squares[PAIR.k] + squares[PAIR.l];
         nearest = std::min(nearest, bounds[c]);
       }
-      // Class bounds never exceed 2^29 + 2^31; clamp the threshold below 2^32.
-      const uint32_t THRESHOLD = static_cast<uint32_t>(
-          fminf(SUPPORT2 * THRESHOLD_SCALE + THRESHOLD_MARGIN, 4294967040.0f));
       if (nearest > THRESHOLD)
         continue;
       std::array<float, 4> residual;
@@ -537,6 +549,8 @@ trace_4d(const math::Vector &direction, const Raycast::PreparedCamera &camera,
         // neither can a farther class it would otherwise have beaten.
         if (!(owned & (1u << c)) || bounds[c] > THRESHOLD)
           continue;
+        const float ALONG = components[PAIR.i] + sign * components[PAIR.j];
+        const float DENOMINATOR = 1.0f - 0.5f * ALONG * ALONG;
         float across = residual[PAIR.i] - sign * residual[PAIR.j];
         // |across| <= 1, and ties round to even: -1, 0 or 1 as the
         // strict half-way comparisons give.
@@ -554,11 +568,14 @@ trace_4d(const math::Vector &direction, const Raycast::PreparedCamera &camera,
             rl -= copysignf(1.0f, rl);
         }
         const float OFFSET2 = 0.5f * across * across + rk * rk + rl * rl;
-        const float DOT = across * transverses[c] + rk * dks[c] + rl * dls[c];
-        const float N = fmaxf(0.0f, OFFSET2 * denominators[c] - DOT * DOT);
-        if (N * denominator < numerator * denominators[c]) {
+        const float TRANSVERSE =
+            0.5f * (components[PAIR.i] - sign * components[PAIR.j]);
+        const float DOT = across * TRANSVERSE + rk * components[PAIR.k] +
+                          rl * components[PAIR.l];
+        const float N = fmaxf(0.0f, OFFSET2 * DENOMINATOR - DOT * DOT);
+        if (N * denominator < numerator * DENOMINATOR) {
           numerator = N;
-          denominator = denominators[c];
+          denominator = DENOMINATOR;
         }
       }
       if (numerator > SUPPORT2 * denominator)
