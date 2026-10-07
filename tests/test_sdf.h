@@ -169,6 +169,7 @@ inline int run_sdf_tests() {
   test_angular_repeat_y_axis_cull_narrows_rows();
   test_angular_repeat_tilted_axis_forfeits_cull();
   test_line_arc_bulge_cull_covers_interior();
+  test_face_arc_extrema_bounds();
   test_line_antipodal_cull_covers_interior();
   test_line_thick_cap_past_pi_cull_covers_interior();
   test_ring_pole_wrap_cull_covers_interior();

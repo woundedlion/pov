@@ -584,25 +584,23 @@ refine_phi_from_arc_extremum(const math::Vector &n, const math::Vector &v1,
   if (std::abs(ny) < 0.99999f) {
     float nx = n.x;
     float nz = n.z;
+    const float cx1 = nz * v1.x - nx * v1.z;
+    const float cx2 = nx * v2.z - nz * v2.x;
+    const bool north = cx1 > 0.0f && cx2 > 0.0f;
+    const bool south = cx1 < 0.0f && cx2 < 0.0f;
+    if (!north && !south)
+      return;
     float tx = -nx * ny;
     float ty = 1.0f - ny * ny;
     float tz = -nz * ny;
     float t_len_sq = tx * tx + ty * ty + tz * tz;
     if (t_len_sq > 1e-12f) {
       float inv_len = 1.0f / sqrtf(t_len_sq);
-      float ptx = tx * inv_len;
       float pty = ty * inv_len;
-      float ptz = tz * inv_len;
-      float cx1 = (v1.y * ptz - v1.z * pty) * nx +
-                  (v1.z * ptx - v1.x * ptz) * ny +
-                  (v1.x * pty - v1.y * ptx) * nz;
-      float cx2 = (pty * v2.z - ptz * v2.y) * nx +
-                  (ptz * v2.x - ptx * v2.z) * ny +
-                  (ptx * v2.y - pty * v2.x) * nz;
-      if (cx1 > 0 && cx2 > 0)
+      if (north)
         min_phi = __builtin_fminf(math::fast_acos(hs::clamp(pty, -1.0f, 1.0f)),
                                   min_phi);
-      if (cx1 < 0 && cx2 < 0)
+      if (south)
         max_phi = __builtin_fmaxf(math::fast_acos(hs::clamp(-pty, -1.0f, 1.0f)),
                                   max_phi);
     }
@@ -659,6 +657,8 @@ HS_O3_FN static void compute_full_bounds(FaceScratchBuffer &scratch, int count,
                                          int &y_max_out, float bounds_margin) {
   float min_phi = 100.0f;
   float max_phi = -100.0f;
+  float min_y = 2.0f;
+  float max_y = -2.0f;
   int planes_count = 0;
   for (int i = 0; i < count; ++i) {
     const math::Vector &v1 = scratch.verts_3d[i];
@@ -677,9 +677,8 @@ HS_O3_FN static void compute_full_bounds(FaceScratchBuffer &scratch, int count,
     // is not edge k.
     if (len_sq > 1e-12f)
       scratch.planes[planes_count++] = normal.normalized();
-    float phi_val = math::fast_acos(hs::clamp(v1.y, -1.0f, 1.0f));
-    min_phi = __builtin_fminf(phi_val, min_phi);
-    max_phi = __builtin_fmaxf(phi_val, max_phi);
+    min_y = __builtin_fminf(v1.y, min_y);
+    max_y = __builtin_fmaxf(v1.y, max_y);
     // Arc Extrema Logic: only when this edge pushed its own plane, else
     // planes[planes_count - 1] is a prior edge's normal against these
     // endpoints.
@@ -687,6 +686,10 @@ HS_O3_FN static void compute_full_bounds(FaceScratchBuffer &scratch, int count,
       refine_phi_from_arc_extremum(scratch.planes[planes_count - 1], v1, v2,
                                    min_phi, max_phi);
   }
+  min_phi =
+      __builtin_fminf(math::fast_acos(hs::clamp(max_y, -1.0f, 1.0f)), min_phi);
+  max_phi =
+      __builtin_fmaxf(math::fast_acos(hs::clamp(min_y, -1.0f, 1.0f)), max_phi);
   snap_phi_for_pole_planes(scratch, planes_count, center, min_phi, max_phi);
   Bounds rows = phi_bounds_to_rows(min_phi - bounds_margin,
                                    max_phi + bounds_margin, geometry, height);
