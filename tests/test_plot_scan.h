@@ -163,6 +163,7 @@ inline int run_plot_scan_tests() {
   test_particle_system_custom_v2_mapper();
   test_particle_system_direct_trail_materialization_output_parity();
   test_particle_system_deferred_shader_parity_and_skip();
+  test_particle_system_fused_optional_deferred_shader();
   test_particle_system_gate_pixel_parity_random_trails();
   test_particle_system_subpixel_trail_dot_parity();
 

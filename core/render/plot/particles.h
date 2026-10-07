@@ -296,10 +296,13 @@ struct ParticleSystem {
       if (!clip_active)
         HS_PLOT_RENDER_COUNT(visible_trails);
 
-      if (has_deferred_shader) {
-        HS_PROFILE(plot_ps_deferred);
-        for (size_t k = 0; k < trail.size(); ++k)
-          deferred_shader(FragmentRegisters(trail[k]), orig[k]);
+      if constexpr (!std::is_same_v<std::remove_cvref_t<DeferredShaderT>,
+                                    std::nullptr_t>) {
+        if (has_deferred_shader) {
+          HS_PROFILE(plot_ps_deferred);
+          for (size_t k = 0; k < trail.size(); ++k)
+            deferred_shader(FragmentRegisters(trail[k]), orig[k]);
+        }
       }
       {
         HS_PROFILE(plot_ps_raster);
