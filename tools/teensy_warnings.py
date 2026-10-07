@@ -362,8 +362,8 @@ def main(argv: list[str] | None = None) -> int:
 
     try:
         audit = audit_capture(build_log)
-        declared = declared_environments(args.platformio_ini)
-        expected = tuple(args.env) if args.env else declared
+        expected = (tuple(args.env) if args.env
+                    else declared_environments(args.platformio_ini))
     except CaptureError as exc:
         print(f"{prefix}[teensy-warnings] FAIL - {exc} ({args.build_log}).")
         return 1
