@@ -40,8 +40,8 @@
 // Further per-run knobs (all via PLATFORMIO_BUILD_FLAGS):
 //   HS_PROFILE_SPHERICAL_EXPERIMENT enables the spherical experiment probe
 //   HS_PROFILE_EFFECT_HEAP_BYTES static effect storage size with no-op delete
-//   HS_PROFILE_EPOCH_REVS    epoch length override so one instance covers a
-//                            full preset cycle
+//   HS_PROFILE_EPOCH_REVS    epoch length override in revolutions (default:
+//                            one hour at RPM)
 //   HS_PROFILE_ORDERED_CYCLE random-next cyclers advance in order instead
 //   HS_PROFILE_TRANS_SPEED   "Trans Speed" applied after init
 //   HS_PROFILE_PRESET        zero-based fixed preset selected after init
