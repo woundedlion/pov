@@ -59,8 +59,11 @@ class PreCommitHook(unittest.TestCase):
         tools.mkdir()
         (self.repo / "README.md").write_bytes(b"valid\n")
         (tools / "docs_check.py").write_text(
-            "import pathlib, sys\n"
+            "import pathlib, subprocess, sys\n"
             "root = pathlib.Path(sys.argv[sys.argv.index('--root') + 1])\n"
+            "tracked = subprocess.run(['git', '-C', str(root), 'ls-files'],\n"
+            "                         check=True, capture_output=True, text=True)\n"
+            "print('TRACKED', tracked.stdout.split())\n"
             "raise SystemExit('BROKEN' in (root / 'README.md').read_text())\n",
             encoding="utf-8")
         for name in ["docs_images.py", "build_pins.py", "license_check.py"]:
@@ -162,6 +165,43 @@ class PreCommitHook(unittest.TestCase):
         readme.write_bytes(b"BROKEN working tree\n")
         done = self.run_hook()
         self.assertEqual(done.returncode, 0, done.stdout + done.stderr)
+
+    def test_split_index_snapshot_holds_only_staged_entries(self):
+        self.git("config", "core.splitIndex", "true")
+        (self.repo / "staged.md").write_bytes(b"staged\n")
+        self.git("add", "staged.md")
+        self.git("update-index", "--split-index")
+        (self.repo / "unstaged.md").write_bytes(b"unstaged\n")
+        readme = self.repo / "README.md"
+        readme.write_bytes(b"BROKEN working tree\n")
+        index = self.repo / ".git" / "index"
+        before = index.read_bytes()
+        done = self.run_hook()
+        self.assertEqual(done.returncode, 0, done.stdout + done.stderr)
+        self.assertIn("'staged.md'", done.stdout)
+        self.assertNotIn("unstaged.md", done.stdout)
+        self.assertEqual(index.read_bytes(), before)
+
+        self.git("add", "README.md")
+        readme.write_bytes(b"valid working tree\n")
+        self.assertNotEqual(self.run_hook().returncode, 0)
+
+    def test_linked_worktree_split_index_commits(self):
+        worktree = self.repo.parent / f"{self.repo.name}-linked"
+        self.git("worktree", "add", "--quiet", str(worktree))
+        self.addCleanup(shutil.rmtree, worktree, ignore_errors=True)
+        self.git("config", "core.hooksPath", HOOK.parent.as_posix())
+        self.git("config", "core.splitIndex", "true")
+        (worktree / "staged.md").write_bytes(b"staged\n")
+        subprocess.run(["git", "-C", str(worktree), "add", "staged.md"],
+                       env=self.env, check=True)
+        subprocess.run(["git", "-C", str(worktree), "update-index", "--split-index"],
+                       env=self.env, check=True)
+        done = subprocess.run(
+            ["git", "-C", str(worktree), "commit", "-m", "linked"],
+            env=self.env, capture_output=True, text=True, check=False)
+        self.assertEqual(done.returncode, 0, done.stdout + done.stderr)
+        self.assertIn("'staged.md'", done.stdout + done.stderr)
 
     def test_unsupported_python_reports_the_required_floor(self):
         old_python = self.repo / "old-python"
