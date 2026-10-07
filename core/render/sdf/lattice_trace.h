@@ -90,7 +90,7 @@ HS_FLASH_INLINE inline Prepared prepare(const Settings &settings) {
   result.valid = result.camera.valid() &&
                  (settings.geometry != Geometry::OCTET || settings.crossings) &&
                  Raycast::finite(result.footprint.angular_radius) &&
-                 Raycast::finite(result.appearance.inv_far) &&
+                 result.appearance.valid_for(result.camera.interval) &&
                  Raycast::finite(result.appearance.near_inv_span) &&
                  (settings.geometry != Geometry::OCTET ||
                   (settings.domain == Raycast::SamplingDomain::SLICE_4D

@@ -19,6 +19,18 @@
 
 namespace hs_test::ray_demonstrator_tests {
 
+/** @brief Palette sampling requires the appearance to cover the ray interval. */
+inline void test_appearance_palette_interval() {
+  Raycast::Appearance appearance;
+  appearance.inv_far = 0.1f;
+  HS_EXPECT_TRUE(appearance.valid_for({0.0f, 10.0f}));
+  HS_EXPECT_FALSE(appearance.valid_for({0.0f, 11.0f}));
+  appearance.inv_far = 0.0f;
+  HS_EXPECT_TRUE(appearance.valid_for({0.0f, 11.0f}));
+  appearance.inv_far = -0.1f;
+  HS_EXPECT_FALSE(appearance.valid_for({0.0f, 10.0f}));
+}
+
 /** @brief Pins octet crossing coverage against ray line distance. */
 inline void test_octet_crossing_coverage_against_ray_line_distance() {
   int compared = 0;
@@ -774,6 +786,7 @@ inline void test_shell_slice_march_matches_cell_traversal() {
 
 inline int run_ray_demonstrator_tests() {
   hs_test::ModuleFixture fixture("ray_demonstrators");
+  test_appearance_palette_interval();
   test_octet_crossing_coverage_against_ray_line_distance();
   test_periodic_shell_roots_and_slices();
   test_periodic_shell_traversal_budgets();

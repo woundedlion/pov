@@ -14,12 +14,23 @@
 
 namespace Raycast {
 
+/**
+ * @brief Depth appearance for nonnegative ray distances.
+ * @pre inv_far is finite and nonnegative, and t * inv_far <= 1 for every
+ * shaded distance t.
+ */
 struct Appearance {
   float inv_far = .1f;
   float near_start = 0;
   float near_inv_span = 1;
   const BakedPalette *palette = nullptr;
   float gain = 1; /**< Brightness scale applied to every layer's color. */
+
+  /** @brief Whether an interval keeps depth palette lookups in [0, 1]. */
+  bool valid_for(Interval interval) const {
+    return interval.valid() && finite(inv_far) && inv_far >= 0.0f &&
+           interval.far * inv_far <= 1.0f;
+  }
 
   __attribute__((always_inline)) float opacity(float t) const {
     const float fog = fmaxf(0.0f, 1.0f - t * inv_far);

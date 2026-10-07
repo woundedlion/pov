@@ -177,6 +177,9 @@ Geometry-specific candidates live in the lattice and triangular-framework SDF
 headers. `Appearance`, `shade_events`, `shade_surface`, and `verified_filter`
 reuse straight-alpha `LayerComposite` composition and shade verified subrays
 independently. Unresolved subrays retain diagnostic failure status.
+An `Appearance` needs finite, nonnegative `inv_far` and must keep
+`t * inv_far <= 1` across its nonnegative trace interval;
+`LatticeTrace::prepare` checks this when preparing a frame.
 
 [RayStage](../core/render/pullback/ray.h) binds a frame-prepared renderer to the
 existing `SphereSample -> Color4` contract. HyperLattice owns presets, palettes,
