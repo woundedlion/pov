@@ -303,6 +303,13 @@ __attribute__((always_inline)) void build_y_walk(FaceScratchBuffer &scratch) {
         active ^= uint64_t{1} << previous;
     }
     for (int j = first; j < last; ++j) {
+      const int vertex = cache.indices[j];
+      const int previous = vertex == 0 ? count - 1 : vertex - 1;
+      const float next_y = poly_2d[vertex + 1].y;
+      const float previous_y = poly_2d[previous].y;
+      // Horizontal edges belong to their start vertex in either traversal.
+      cache.edge_flags[j] = (next_y <= y ? 1 : 0) | (previous_y < y ? 2 : 0) |
+                            (next_y >= y ? 4 : 0) | (previous_y > y ? 8 : 0);
       scratch.pseudo_angles[j] = y;
       cache.masks[j] = active;
     }
@@ -311,6 +318,7 @@ __attribute__((always_inline)) void build_y_walk(FaceScratchBuffer &scratch) {
   y_coordinates = std::span<const float>(scratch.pseudo_angles.data(), count);
   y_masks = std::span<const uint64_t>(cache.masks.data(), count);
   y_indices = std::span<const uint8_t>(cache.indices.data(), count);
+  y_edge_flags = std::span<const uint8_t>(cache.edge_flags.data(), count);
 }
 
 /**
@@ -856,12 +864,7 @@ HS_O3_FN float plane_dsq_exact(float px, float py, bool &inside_out) const {
    */
 HS_O3_FN float plane_dsq_y_walk(float px, float py, bool &inside_out) const {
   float d = FLT_MAX;
-  uint64_t visited = 0;
   auto edge_dsq = [&](int i) {
-    const uint64_t bit = uint64_t{1} << i;
-    if (visited & bit)
-      return;
-    visited |= bit;
     const auto &ep = packed_edges[i];
     const float wx = px - ep.vx, wy = py - ep.vy;
     const float t =
@@ -901,14 +904,20 @@ HS_O3_FN float plane_dsq_y_walk(float px, float py, bool &inside_out) const {
     if (left_far && right_far)
       break;
     if (!left_far) {
+      const uint8_t flags = y_edge_flags[left];
       const int vertex = y_indices[left--];
-      edge_dsq(vertex);
-      edge_dsq(vertex == 0 ? count - 1 : vertex - 1);
+      if (flags & 1)
+        edge_dsq(vertex);
+      if (flags & 2)
+        edge_dsq(vertex == 0 ? count - 1 : vertex - 1);
     }
     if (!right_far) {
+      const uint8_t flags = y_edge_flags[right];
       const int vertex = y_indices[right++];
-      edge_dsq(vertex);
-      edge_dsq(vertex == 0 ? count - 1 : vertex - 1);
+      if (flags & 4)
+        edge_dsq(vertex);
+      if (flags & 8)
+        edge_dsq(vertex == 0 ? count - 1 : vertex - 1);
     }
   }
   return d;

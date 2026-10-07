@@ -78,7 +78,10 @@ struct FaceScratchBuffer {
         masks; /**< Edges crossing each row interval. */
     std::array<uint8_t, MAX_VERTS>
         indices; /**< Original vertex index at each row. */
+    std::array<uint8_t, MAX_VERTS>
+        edge_flags; /**< Incident edges owned by lower/upper row traversal. */
   };
+  static_assert(sizeof(YWalkCache) <= sizeof(HalfPlane) * MAX_VERTS);
   union {
     std::array<HalfPlane, MAX_VERTS>
         half_planes;   /**< Convex edge half-planes. */
@@ -178,9 +181,11 @@ struct Face {
   float sector_sgn = 1.0f;  /**< Winding: +1 CCW, -1 CW. Folded into the
                                table and base so the sector search
                                compares one direction. */
-  std::span<const float> y_coordinates; /**< Sorted exact-walk vertex rows. */
-  std::span<const uint64_t> y_masks;    /**< Row-interval crossing edges. */
-  std::span<const uint8_t> y_indices;   /**< Sorted original vertex indices. */
+  std::span<const float> y_coordinates;  /**< Sorted exact-walk vertex rows. */
+  std::span<const uint64_t> y_masks;     /**< Row-interval crossing edges. */
+  std::span<const uint8_t> y_indices;    /**< Sorted original vertex indices. */
+  std::span<const uint8_t> y_edge_flags; /**< Lower bits 0/1, upper bits 2/3:
+                                            outgoing/previous incident edges. */
   bool sector_ok =
       false; /**< Star-shaped about centroid; sector walk usable. */
 
