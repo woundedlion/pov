@@ -739,13 +739,17 @@ inline void test_rasterize_balanced_high_alpha_saturates() {
 
 /**
  * @brief Balanced planar stars retain coverage and energy within the clipped budget.
- * @details The clip bounds the visited column span, which under -ffast-math
- * reassociates the accumulated coverage, so the tile is held to
- * CLIP_CHANNEL_TOL against the full frame.
+ * @details The clip bounds the visited column span. Render-band pixels match
+ * exactly under IEEE math; -ffast-math reassociates accumulated coverage, so
+ * the tile allows a 16-level channel difference there.
  */
 inline void test_rasterize_balanced_star_visual_budget() {
   constexpr int W = 144, H = 72;
+#if defined(HS_TEST_FAST_MATH)
   constexpr int CLIP_CHANNEL_TOL = 16;
+#else
+  constexpr int CLIP_CHANNEL_TOL = 0;
+#endif
   struct StarState {
     math::Quaternion orientation;
     float radius;
