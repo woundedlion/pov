@@ -218,8 +218,8 @@ inline std::map<int, int> face_type_histogram(const PolyMesh &m) {
 }
 
 /**
- * @brief Runs every primitive Conway operator on one seed and checks Euler plus
- *        the operator's element census.
+ * @brief Runs every Conway topology operator (primitives and Hart compositions)
+ *        on one seed and checks Euler plus the operator's element census.
  * @tparam Solid Platonic seed solid (e.g. Solids::Cube) to build and operate on.
  * @details VDEG/FDEG pin only the degree an operator makes uniform whatever
  *          the seed; 0 leaves that histogram unpinned.
