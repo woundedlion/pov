@@ -688,6 +688,84 @@ inline int expect_face_cull_covers_fringe(int sides, float rho,
   return paintable;
 }
 
+/** @brief Clipped face construction preserves every paintable render-row pixel. */
+inline void test_face_hemisphere_clip_covers_fringe() {
+  constexpr int W = 288, H = 144, HV = H + hs::H_OFFSET;
+  const float pixel_width = math::TWO_PI_F / W;
+  const float bounds_margin = std::max(SDF::BOUNDS_MARGIN, pixel_width);
+  if (!math::TrigLUT<W, H>::initialized)
+    math::TrigLUT<W, H>::init();
+  int early_rejects = 0;
+  int covered = 0;
+  for (int sides : {3, 5, 8})
+    for (float phi : {0.35f, 0.9f, 1.55f, 1.59f, 2.2f, 2.8f})
+      for (float rho : {0.025f, 0.25f, 0.65f}) {
+        HS_CONTEXT("hemisphere clip", sides);
+        HS_CONTEXT("angles mrad", static_cast<int>(phi * 1000),
+                   static_cast<int>(rho * 1000));
+        const auto basis = math::make_basis(
+            math::Quaternion(), math::Vector(sinf(phi), cosf(phi), 0));
+        math::Vector vertices[8];
+        uint16_t indices[8];
+        for (int i = 0; i < sides; ++i) {
+          const float angle = math::TWO_PI_F * i / sides + 0.37f;
+          vertices[i] =
+              (basis.v * cosf(rho) +
+               (basis.u * cosf(angle) + basis.w * sinf(angle)) * sinf(rho))
+                  .normalized();
+          indices[i] = static_cast<uint16_t>(i);
+        }
+        const auto verts = std::span<const math::Vector>(vertices, sides);
+        const auto idx = std::span<const uint16_t>(indices, sides);
+        SDF::FaceScratchBuffer reference_scratch;
+        const SDF::Face reference(verts, idx, reference_scratch, HV, H, nullptr,
+                                  nullptr, bounds_margin);
+        std::vector<uint8_t> reference_visited;
+        cull_visited<W, H>(reference, reference_visited);
+        std::vector<float> distances(W * H);
+        for (int y = 0; y < H; ++y)
+          for (int x = 0; x < W; ++x)
+            distances[y * W + x] =
+                SDF::distance_of(reference, math::pixel_to_vector<W, H>(x, y))
+                    .dist;
+        for (int margin : {0, 1, 3})
+          for (int y_start = 0; y_start < H; y_start += 12) {
+            const ClipRegion clip{.y_start = y_start,
+                                  .y_end = y_start + 12,
+                                  .x_start = 0,
+                                  .x_end = W,
+                                  .margin = margin,
+                                  .w = W,
+                                  .h = H};
+            SDF::FaceScratchBuffer clipped_scratch;
+            const SDF::Face clipped(verts, idx, clipped_scratch, HV, H, &clip,
+                                    nullptr, bounds_margin);
+            const bool early_rejected = reference.compute_phi_extent(
+                verts, idx, reference.build_geometry, H, bounds_margin, &clip);
+            early_rejects += early_rejected;
+            std::vector<uint8_t> visited;
+            cull_visited<W, H>(clipped, visited);
+            for (int y = clip.render_y_start(); y < clip.render_y_end(); ++y)
+              for (int x = 0; x < W; ++x) {
+                const float distance = distances[y * W + x];
+                if (distance >= pixel_width)
+                  continue;
+                HS_CONTEXT("clip rows", y_start, margin);
+                HS_CONTEXT("clip pixel", x, y);
+                ++covered;
+                HS_EXPECT_TRUE(!early_rejected);
+                HS_EXPECT_EQ(visited[y * W + x], reference_visited[y * W + x]);
+                HS_EXPECT_NEAR(
+                    SDF::distance_of(clipped, math::pixel_to_vector<W, H>(x, y))
+                        .dist,
+                    distance, 1e-6f);
+              }
+          }
+      }
+  HS_EXPECT_GT(early_rejects, 100);
+  HS_EXPECT_GT(covered, 10000);
+}
+
 /** @brief Pins azimuth culling to the columns emitted at a rounded boundary. */
 inline void test_face_azimuth_cull_matches_boundary_column() {
   constexpr int W = 288, H = 144, Y = 72;
