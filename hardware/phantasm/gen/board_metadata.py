@@ -301,7 +301,10 @@ def replace_facts(readme, facts):
     if readme.count(FACTS_START) != 1 or readme.count(FACTS_END) != 1:
         raise MetadataError("README must contain exactly one routed PCB facts block")
     start = readme.index(FACTS_START)
-    end = readme.index(FACTS_END, start) + len(FACTS_END)
+    end = readme.index(FACTS_END)
+    if end < start:
+        raise MetadataError("README routed PCB facts END marker precedes START")
+    end += len(FACTS_END)
     return readme[:start] + facts + readme[end:]
 
 
