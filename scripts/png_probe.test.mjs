@@ -35,7 +35,8 @@ function chunk(type, data) {
 // chunks are placed between IHDR and IDAT. The options override the IHDR
 // method bytes and the inflated raster size.
 function makeTypedPng(width, height, depth, colorType, channels, extra = [],
-  { compression = 0, filter = 0, interlace = 0, rawBytes = null, rawData = null } = {}) {
+  { compression = 0, filter = 0, interlace = 0, rawBytes = null, rawData = null,
+    afterPixels = [] } = {}) {
   const ihdr = Buffer.alloc(13);
   ihdr.writeUInt32BE(width, 0);
   ihdr.writeUInt32BE(height, 4);
@@ -51,6 +52,7 @@ function makeTypedPng(width, height, depth, colorType, channels, extra = [],
     chunk('IHDR', ihdr),
     ...extra,
     chunk('IDAT', deflateSync(raw)),
+    ...afterPixels,
     chunk('IEND', Buffer.alloc(0)),
   ]);
 }
@@ -195,6 +197,81 @@ test('a palette image reports its dimensions once PLTE is present', () => {
   const png = makeTypedPng(4, 2, 8, 3, 1, [chunk('PLTE', Buffer.alloc(3))]);
   assert.deepEqual(inspectPng(png), { width: 4, height: 2 });
 });
+
+test('palettes contain complete triples within their entry limits', () => {
+  for (const depth of [1, 2, 4, 8]) {
+    for (const entries of [1, 2 ** depth])
+      assert.deepEqual(inspectPng(makeTypedPng(4, 2, depth, 3, 1,
+        [chunk('PLTE', Buffer.alloc(entries * 3))])), { width: 4, height: 2 });
+    if (depth < 8)
+      assert.throws(() => inspectPng(makeTypedPng(4, 2, depth, 3, 1,
+        [chunk('PLTE', Buffer.alloc((2 ** depth + 1) * 3))])), /indexed bit depth/);
+  }
+  for (const length of [0, 1, 2, 4, 767, 769, 771])
+    assert.throws(() => inspectPng(makeTypedPng(4, 2, 8, 3, 1,
+      [chunk('PLTE', Buffer.alloc(length))])), /1 to 256 three-byte entries/);
+});
+
+test('optional palettes remain legal only for truecolor', () => {
+  for (const [colorType, channels] of [[2, 3], [6, 4]])
+    for (const entries of [1, 256])
+      assert.deepEqual(inspectPng(makeTypedPng(4, 2, 8, colorType, channels,
+        [chunk('PLTE', Buffer.alloc(entries * 3))])), { width: 4, height: 2 });
+  for (const [colorType, channels] of [[0, 1], [4, 2]]) {
+    assert.deepEqual(inspectPng(makeTypedPng(4, 2, 8, colorType, channels)), { width: 4, height: 2 });
+    assert.throws(() => inspectPng(makeTypedPng(4, 2, 8, colorType, channels,
+      [chunk('PLTE', Buffer.alloc(3))])), /PLTE is forbidden/);
+  }
+});
+
+test('PLTE precedes pixels and dependent chunks without duplication', () => {
+  const palette = chunk('PLTE', Buffer.alloc(3));
+  assert.deepEqual(inspectPng(makeTypedPng(4, 2, 8, 3, 1, [palette])), { width: 4, height: 2 });
+  assert.throws(() => inspectPng(makeTypedPng(4, 2, 8, 3, 1, [palette, palette])), /duplicate PLTE/);
+  assert.throws(() => inspectPng(makeTypedPng(4, 2, 8, 3, 1, [],
+    { afterPixels: [palette] })), /PLTE follows IDAT/);
+  for (const [type, data] of [['bKGD', Buffer.alloc(1)], ['hIST', Buffer.alloc(2)],
+    ['tRNS', Buffer.from([255])]]) {
+    const dependent = chunk(type, data);
+    assert.deepEqual(inspectPng(makeTypedPng(4, 2, 8, 3, 1, [palette, dependent])), { width: 4, height: 2 });
+    assert.throws(() => inspectPng(makeTypedPng(4, 2, 8, 3, 1, [dependent, palette])),
+      /PLTE follows a palette-dependent chunk/);
+  }
+});
+
+test('color metadata that precedes PLTE cannot follow it', () => {
+  const palette = chunk('PLTE', Buffer.alloc(3));
+  for (const [type, data] of [['cHRM', Buffer.alloc(32)], ['gAMA', Buffer.from([0, 0, 177, 143])],
+    ['iCCP', Buffer.concat([Buffer.from([112, 0, 0]), deflateSync(Buffer.alloc(128))])],
+    ['sBIT', Buffer.from([8, 8, 8])], ['sRGB', Buffer.from([0])]]) {
+    const metadata = chunk(type, data);
+    assert.deepEqual(inspectPng(makeTypedPng(4, 2, 8, 3, 1, [metadata, palette])), { width: 4, height: 2 });
+    assert.throws(() => inspectPng(makeTypedPng(4, 2, 8, 3, 1, [palette, metadata])),
+      new RegExp(`${type} follows PLTE`));
+  }
+});
+
+test('Chromium decoding agrees on malformed short indexed palettes',
+  { skip: process.env.HS_BROWSER_TESTS !== '1' }, async () => {
+    const { chromium } = await import('playwright');
+    const browser = await chromium.launch({ headless: true });
+    try {
+      const page = await browser.newPage();
+      for (const length of [0, 1, 2, 3]) {
+        const png = makeTypedPng(4, 2, 8, 3, 1, [chunk('PLTE', Buffer.alloc(length))]);
+        if (length === 3) assert.deepEqual(inspectPng(png), { width: 4, height: 2 });
+        else assert.throws(() => inspectPng(png), /1 to 256 three-byte entries/);
+        const decoded = await page.evaluate(async (source) => {
+          const image = new globalThis.Image();
+          image.src = source;
+          try { await image.decode(); return true; } catch { return false; }
+        }, `data:image/png;base64,${png.toString('base64')}`);
+        assert.equal(decoded, length === 3);
+      }
+    } finally {
+      await browser.close();
+    }
+  });
 
 test('sample committed gallery PNGs decode at the stored size', async () => {
   for (const effect of ['IslamicStars', 'Thrusters', 'Voronoi']) {

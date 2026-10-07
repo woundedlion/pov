@@ -85,6 +85,7 @@ export function inspectPng(bytes) {
   let header = null;
   let ended = false;
   let palette = false;
+  let paletteFollower = false;
   const pixelChunks = [];
   while (!ended) {
     if (offset === bytes.length) throw new Error('no IEND chunk');
@@ -101,11 +102,24 @@ export function inspectPng(bytes) {
       if (header !== null) throw new Error('duplicate IHDR chunk');
       header = readHeader(data);
     } else if (type === 'PLTE') {
+      if (palette) throw new Error('duplicate PLTE chunk');
+      if (pixelChunks.length > 0) throw new Error('PLTE follows IDAT');
+      if (paletteFollower) throw new Error('PLTE follows a palette-dependent chunk');
+      if (header.colorType === 0 || header.colorType === 4)
+        throw new Error(`PLTE is forbidden for color type ${header.colorType}`);
+      if (length === 0 || length % 3 !== 0 || length > 256 * 3)
+        throw new Error('PLTE must contain 1 to 256 three-byte entries');
+      if (header.colorType === 3 && length / 3 > 2 ** header.depth)
+        throw new Error('PLTE has more entries than the indexed bit depth allows');
       palette = true;
     } else if (type === 'IDAT') {
       pixelChunks.push(data);
     } else if (type === 'IEND') {
       ended = true;
+    } else if (['bKGD', 'hIST', 'tRNS'].includes(type)) {
+      paletteFollower = true;
+    } else if (palette && ['cHRM', 'gAMA', 'iCCP', 'sBIT', 'sRGB'].includes(type)) {
+      throw new Error(`${type} follows PLTE`);
     }
     offset += 12 + length;
   }
