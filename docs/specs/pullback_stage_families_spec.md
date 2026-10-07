@@ -251,7 +251,9 @@ at §6 step 2 is required.
 ## 4. Stage vocabulary
 
 > **Historical migration terminology:** References below to `ProjectionSample`, `WarpResult`, `SourceInput`, `MaterialInput`,
-> `MaterialSample`, and `SurfaceProject` describe the pre-cut-over API.
+> `MaterialSample`, `SurfaceProject`, and the ShaderWorkbench `CoveragePolicy`
+> modes (`OPAQUE`, `PROJECTION_WEIGHT`, `PROJECTION_WEIGHT_SQUARED`,
+> `EDGE_FADE`, `VALUE_CUTOUT`) describe the pre-cut-over API.
 > The migration is complete; the shipped carriers and combinators are in
 > `core/render/pullback/contract.h` and `core/render/pullback/stage.h`.
 
