@@ -71,7 +71,7 @@ frame                  187.455 ms 112.473 Mcyc 100.0%
 
 ## Column-ISR / DMA marshaling cost
 
-`isr_wake` 3.04%, `isr_pack` 1.55%, `isr_dma_submit` 0.21% of CPU, about 4.8% combined, leaving about 59.5 ms of foreground time per 62.5 ms window. Pack is the CPU-side LED marshaling; submit launches the asynchronous 600-byte DMA (about 230 µs on the wire at the requested 24 MHz, LPSPI framing model).
+`isr_wake` 3.04% of CPU, inclusive of the nested `isr_pack` 1.55% and `isr_dma_submit` 0.21%, leaving about 60.6 ms of foreground time per 62.5 ms window before unmeasured DMA-completion and other interrupts. Pack is the CPU-side LED marshaling; submit launches the asynchronous 600-byte DMA (about 230 µs on the wire at the requested 24 MHz, LPSPI framing model).
 
 ## Summary ranking
 

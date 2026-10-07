@@ -17,8 +17,9 @@ and `core/render/ray/shade.h` (`Appearance`).
 The display interval is 62.5 ms. A frame that renders in more than that waits
 for the next flip, so every Octet preset currently displays at 8 fps. The
 target is a mean and peak render time of 58 ms or less on the shipping
-selective-O3 `profile` image, which leaves the measured 4.9 % ISR share plus a
-margin inside one interval and lifts the presets to 16 fps with zero spills.
+selective-O3 `profile` image, which leaves the measured ~3.1 % inclusive
+flywheel ISR share plus a margin inside one interval and lifts the presets to
+16 fps with zero spills.
 
 Each frame evaluates 10,658 samples (the 144×72 quadrant plus its one-pixel
 shader margin). Preserve, clear and timeline stepping cost about 0.3 ms, so

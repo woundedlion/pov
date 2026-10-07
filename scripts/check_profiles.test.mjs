@@ -7,6 +7,7 @@ import {
   checkProfiles,
   checkProfileLinks,
   checkIndexCells,
+  checkIsrShares,
   profileDirectories,
   PROFILES_DIR,
   reportsIn,
@@ -87,6 +88,34 @@ test('validateReport accepts the checked-in timing report contract', async () =>
   assert.ok(directories.includes('O3'));
   assert.ok(directories.includes('shipping'));
   assert.ok(reportCount > 0);
+  assert.deepEqual(errors, []);
+});
+
+const isrRows = '```\n'
+  + 'isr_wake        2301.7/f 0.563/1.680/12.975 us  3.09%\n'
+  + 'isr_pack         287.7/f 6.231/6.836/9.918 us  1.57%\n'
+  + 'isr_dma_submit   287.7/f 0.691/0.953/1.030 us  0.21%\n'
+  + '```\n\n';
+
+test('checkIsrShares rejects nested ISR counters summed into a total', () => {
+  const errors = [];
+  checkIsrShares(`${isrRows}ISR CPU shares total 4.87%, leaving about 59.4 ms.\n`,
+    'summed', errors);
+  checkIsrShares(`${isrRows}Wake plus children is 4.87% of CPU time.\n`,
+    'unphrased', errors);
+  checkIsrShares('`isr_wake` 3.04%, `isr_pack` 1.55%, `isr_dma_submit` 0.21% of '
+    + 'CPU, about 4.8% of the interrupt budget.\n', 'inline', errors);
+  assert.deepEqual(errors.map(error => error.split(' ')[0]),
+    ['summed', 'unphrased', 'inline']);
+});
+
+test('checkIsrShares accepts the inclusive wake share', () => {
+  const errors = [];
+  checkIsrShares(`${isrRows}Inclusive \`isr_wake\` share is 3.09% (pack and `
+    + 'submit are nested inside it), leaving about 60.6 ms per interval.\n',
+  'inclusive', errors);
+  checkIsrShares('`isr_wake` 3.04% of CPU, inclusive of the nested `isr_pack` '
+    + '1.55% and `isr_dma_submit` 0.21%.\n', 'inline', errors);
   assert.deepEqual(errors, []);
 });
 
