@@ -555,8 +555,9 @@ claim is gated, not assumed:
   **rhombicDodecahedron 1.65 and rhombicTriacontahedron 1.80 are clean** and
   render as coherent interlaces across the full sweep. The kis family
   (1.5–3.2, non-monotonic) and the deltoidal/disdyakis/pentagonal snub-duals
-  (peak **5.08**, well past the `STAR_FAR_RATIO_SQ` chord of 2.0 at which the
-  fallback fully replaces the intersection) near-resonate mid-sweep — they
+  (peak **5.08**, well past the `STAR_FAR_RATIO_SQ` chord ratio of 2.0 where
+  the ratio ramp saturates; full fallback also requires near-parallel contact
+  planes) near-resonate mid-sweep — they
   render as sliver hairlines and star-face overlap. Mixed vertex degree is
   harmless; kis/snub-dual corner geometry is the discriminator.
 - **Islamic registry**: chains end in hankin/multi-op stacks and would need
