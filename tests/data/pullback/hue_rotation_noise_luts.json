@@ -39,7 +39,7 @@
       "aggregation": "MAXIMUM",
       "measured_baseline": 6893,
       "accepted_limit": 7000,
-      "unit": "16-bit channel code",
+      "unit": "channel code",
       "limit_provenance": "AlienBrain CUP-mapping prepared-hue stage budget",
       "measurement_provenance": "unit_shader_chain direct-versus-prepared hue corpus with the composed AlienBrain bank"
     },
@@ -48,7 +48,7 @@
       "aggregation": "MEAN",
       "measured_baseline": 213,
       "accepted_limit": 256,
-      "unit": "16-bit channel code",
+      "unit": "channel code",
       "limit_provenance": "ShaderChain combined prepared-hue stage budget",
       "measurement_provenance": "unit_shader_chain direct-versus-prepared hue corpus with the composed AlienBrain bank"
     },
@@ -63,7 +63,7 @@
         "wasm-strict-fp": { "96x20": 2099, "288x144": 2188 }
       },
       "accepted_limit": 3066,
-      "unit": "16-bit channel code",
+      "unit": "channel code",
       "limit_provenance": "worst recorded configuration/resolution baseline 2810 plus 256 channel codes of margin (3066)",
       "measurement_provenance": "repo-owned native Debug capture with the composed AlienBrain bank plus release/strict-FP WASM captures at base_sha, both roster resolutions and named preset-6/7/10 probes"
     }

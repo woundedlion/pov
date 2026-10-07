@@ -498,7 +498,8 @@ def generate_header(programs: dict, oracles: list[dict], schema: dict) -> str:
                 f'"{oracle["oracle_id"]}", "{metric["domain"]}", '
                 f'"{metric["aggregation"]}", '
                 f'{metric["measured_baseline"]}, '
-                f'{metric["accepted_limit"]}'
+                f'{metric["accepted_limit"]}, '
+                f'{json.dumps(metric["unit"])}'
                 "},")
     return "\n".join((
         "#pragma once",
@@ -519,6 +520,7 @@ def generate_header(programs: dict, oracles: list[dict], schema: dict) -> str:
         "  std::string_view aggregation;",
         "  float measured_baseline;",
         "  float accepted_limit;",
+        "  std::string_view unit;",
         "};",
         "",
         f'inline constexpr std::string_view BASE_SHA = "{programs["base_sha"]}";',
