@@ -163,9 +163,10 @@ isr_dma_submit    144.0/frame 0.58/0.94/10.29 us CPU 0.22%
 Times are per-call min/weighted-average/max. Pack averages
 7.08 µs/call; submit 0.94 µs/call.
 The 600-byte image/black-strobe transfer is asynchronous; its 24 MHz SPI
-bound including byte framing is 230 µs, not CPU submit time. ISR share
-4.74% leaves approximately 59.54 ms foreground CPU per
-62.5 ms window. Render already includes ISRs; peak render needs
+bound including byte framing is 230 µs, not CPU submit time. Inclusive
+`isr_wake` share 2.90% (pack and submit run nested inside it)
+leaves approximately 60.69 ms foreground CPU per
+62.5 ms window before unmeasured interrupts. Render already includes ISRs; peak render needs
 1.000× speedup to fit the display budget.
 
 ## Summary ranking

@@ -114,7 +114,7 @@ isr_dma_submit  144.00/f 0.61/0.93/11.77 us 0.22% CPU
 
 - DMA submit averages 0.93 us/event; packing averages 7.04 us/event. Wire transmission continues asynchronously.
 - The 24 MHz requested SPI clock, 600-byte composite frame and configured LPSPI divider/delays model **230 us** per transfer; this is a framing-model duration, not an independently measured wire trace.
-- Total measured ISR CPU share is 4.97%, leaving approximately 59.392 ms of CPU-only work per 62.5 ms window. Render scopes already include interrupts, so this budget must not be subtracted from measured render a second time. No measured regime requires a speedup to hold 16 fps.
+- Measured inclusive flywheel ISR (`isr_wake`) share is 3.13%, leaving approximately 60.544 ms of CPU-only work per 62.5 ms window; `isr_pack` and `isr_dma_submit` are nested inside it, not additional. DMA-completion and other interrupts are not measured. Render scopes already include interrupts, so this budget must not be subtracted from measured render a second time. No measured regime requires a speedup to hold 16 fps.
 
 ## Summary ranking
 

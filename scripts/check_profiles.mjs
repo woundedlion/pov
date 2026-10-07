@@ -93,6 +93,63 @@ export function validateReport(report, directory, key, date, file, errors) {
     if (bodyStart === 0 || report.slice(bodyStart, end).trim() === '')
       errors.push(`${subject} has no content under ${REQUIRED_SECTIONS[i]}`);
   }
+  checkIsrShares(report, subject, errors);
+}
+
+const ISR_ROW_RE = /^\s*(?:\|[^|]*?)?(isr_wake|isr_pack|isr_dma_submit)\b/;
+const ISR_INLINE_RE =
+  /`(isr_wake|isr_pack|isr_dma_submit)`\s+(\d+(?:\.\d+)?)\s*%/g;
+const ISR_SUM_PHRASE_RE =
+  /ISR counters total|Combined ISR share|ISR CPU shares total|Total (?:measured )?ISR (?:CPU )?share|ISR share totals/i;
+
+/**
+ * @brief Rejects prose that adds nested ISR counters into a total.
+ * @details `isr_wake` is inclusive of `isr_pack` and `isr_dma_submit`, so a
+ *          stated percentage matching wake + pack + submit double-counts them.
+ */
+export function checkIsrShares(report, subject, errors) {
+  const lines = report.replace(/```[^\n]*\n[\s\S]*?```/g, match =>
+    match.replace(/[^\n]/g, '')).split(/\r?\n/);
+  const groups = [];
+  const record = (name, share) => {
+    if (name === 'isr_wake') groups.push({ isr_wake: Number(share) });
+    else if (groups.length) groups.at(-1)[name] = Number(share);
+  };
+  for (const line of report.split(/\r?\n/)) {
+    const row = ISR_ROW_RE.exec(line);
+    if (!row) {
+      for (const inline of line.matchAll(ISR_INLINE_RE))
+        record(inline[1], inline[2]);
+      continue;
+    }
+    const share = [...line.matchAll(/(\d+(?:\.\d+)?)\s*%/g)].at(-1);
+    if (share) record(row[1], share[1]);
+  }
+  const sums = groups
+    .filter(group => 'isr_pack' in group && 'isr_dma_submit' in group)
+    .map(group => ({
+      wake: group.isr_wake,
+      sum: group.isr_wake + group.isr_pack + group.isr_dma_submit,
+    }));
+  const paragraphs = lines.filter(line => !ISR_ROW_RE.test(line)).join('\n')
+    .split(/\n\s*\n/);
+  for (const paragraph of paragraphs) {
+    if (!/ISR|interrupt|isr_|wake/i.test(paragraph)) continue;
+    if (ISR_SUM_PHRASE_RE.test(paragraph)) {
+      errors.push(`${subject} sums nested ISR counters; report the inclusive isr_wake share`);
+      continue;
+    }
+    for (const match of paragraph.matchAll(/(\d+\.\d+)(?:\s*[–-]\s*(\d+\.\d+))?\s*%/g)) {
+      for (const text of [match[1], match[2]].filter(Boolean)) {
+        const value = Number(text);
+        const tolerance = 0.5 * 10 ** -text.split('.')[1].length + 0.011;
+        if (sums.some(({ wake, sum }) => Math.abs(value - sum) <= tolerance
+            && Math.abs(value - wake) > tolerance))
+          errors.push(`${subject} states ${text}% = isr_wake + isr_pack + isr_dma_submit; `
+            + 'pack and submit are nested in wake, report the inclusive isr_wake share');
+      }
+    }
+  }
 }
 
 function compareSets(subject, actual, expected, errors) {

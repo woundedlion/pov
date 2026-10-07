@@ -82,7 +82,7 @@ isr_pack         288.0/f 5.988/6.586/10.260 us  1.52%
 isr_dma_submit   288.0/f 0.582/0.939/ 2.227 us  0.22%
 ```
 
-Columns show calls/frame, minimum/mean/maximum per-call time, and CPU share. Combined ISR share is 4.50%, leaving approximately 59.685 ms foreground time per display interval. Render measurements already include interrupts. Mean/peak render divided by the 62.5 ms interval is 1.092/1.195.
+Columns show calls/frame, minimum/mean/maximum per-call time, and CPU share. Inclusive `isr_wake` share is 2.77% (`isr_pack` and `isr_dma_submit` are nested inside it), leaving approximately 60.769 ms foreground time per display interval before unmeasured DMA-completion and other interrupts. Render measurements already include interrupts. Mean/peak render divided by the 62.5 ms interval is 1.092/1.195.
 
 Pack performs CPU-side LED marshaling; submit launches asynchronous DMA. The 600-byte payload occupies about 230 µs of wire time at the requested 24 MHz (LPSPI framing model).
 

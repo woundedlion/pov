@@ -118,7 +118,7 @@ isr_dma_submit   143.5/frame  min/avg/max 0.63/0.93/1.01 us  cpu 0.21%
   reported above without treating asynchronous LED transfer as render work.
 - LED wire transfer runs asynchronously; display synchronization remains
   isolated in the effect's `*_buffer_wait` scope.
-- The selected window's ISR counters total 4.74% CPU. The worst render
+- The selected window's inclusive flywheel ISR (`isr_wake`) share is 2.93% CPU; `isr_pack` and `isr_dma_submit` are nested inside it, not additional. DMA-completion and other interrupts are not measured. The worst render
   already fits one display interval with 9.71 ms of margin.
 
 ## Summary ranking
