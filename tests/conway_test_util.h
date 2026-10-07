@@ -6,9 +6,28 @@
 
 #include "core/memory.h"
 #include "core/mesh/conway_graph.h"
+#include "core/mesh/solids.h"
 #include "effects/HankinSolids.h"
+#include "tests/test_harness.h"
 
 namespace hs_test {
+
+template <const Solids::Recipe &RECIPE, Solids::Op OP, size_t OCCURRENCE = 0>
+inline PolyMesh recipe_step_seed(Arena &a, Arena &b) {
+  constexpr size_t CAPACITY = Solids::lowered_step_count(RECIPE);
+  Solids::OpStep lowered[CAPACITY];
+  const size_t count = Solids::expand_to_primitives(RECIPE, lowered, CAPACITY);
+  size_t prefix = 0;
+  size_t occurrence = 0;
+  while (prefix < count) {
+    if (lowered[prefix].op == OP && occurrence++ == OCCURRENCE)
+      break;
+    ++prefix;
+  }
+  HS_EXPECT_LT(prefix, count);
+  return Solids::build_steps(RECIPE.seed, lowered, prefix, a, b);
+}
+
 namespace conway_morph_tests {
 /**
  * @brief Repartitions the global arena for the enclosing scope and restores the

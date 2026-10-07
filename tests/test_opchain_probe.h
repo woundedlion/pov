@@ -21,6 +21,7 @@
 #include "core/mesh/recipe.h"
 #include "core/mesh/solids.h"
 #include "core/render/sdf.h"
+#include "tests/conway_test_util.h"
 #include "tests/mesh_test_util.h"
 #include "tests/test_conway.h" // check_euler_characteristic_two
 #include "tests/test_fixture.h"
@@ -310,18 +311,6 @@ inline void test_chamfer_sweep_holds_topology() {
 // Truncate sub-T_EPS birth: the truncate001 recipes arrive below the T_EPS
 // birth floor.
 // ---------------------------------------------------------------------------
-
-template <const Solids::Recipe &RECIPE, Solids::Op OP>
-inline PolyMesh recipe_step_seed(Arena &a, Arena &b) {
-  constexpr size_t CAPACITY = Solids::lowered_step_count(RECIPE);
-  Solids::OpStep lowered[CAPACITY];
-  const size_t count = Solids::expand_to_primitives(RECIPE, lowered, CAPACITY);
-  size_t prefix = 0;
-  while (prefix < count && lowered[prefix].op != OP)
-    ++prefix;
-  HS_EXPECT_LT(prefix, count);
-  return Solids::build_steps(RECIPE.seed, lowered, prefix, a, b);
-}
 
 /** @brief One truncate-leg seed. */
 struct TruncateSite {

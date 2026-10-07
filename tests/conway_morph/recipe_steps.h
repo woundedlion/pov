@@ -8,22 +8,6 @@
 // prefixes the shipping recipes reach.
 // ---------------------------------------------------------------------------
 
-template <const Solids::Recipe &RECIPE, Solids::Op OP, size_t OCCURRENCE = 0>
-inline PolyMesh recipe_step_seed(Arena &a, Arena &b) {
-  constexpr size_t CAPACITY = Solids::lowered_step_count(RECIPE);
-  Solids::OpStep lowered[CAPACITY];
-  const size_t count = Solids::expand_to_primitives(RECIPE, lowered, CAPACITY);
-  size_t prefix = 0;
-  size_t occurrence = 0;
-  while (prefix < count) {
-    if (lowered[prefix].op == OP && occurrence++ == OCCURRENCE)
-      break;
-    ++prefix;
-  }
-  HS_EXPECT_LT(prefix, count);
-  return Solids::build_steps(RECIPE.seed, lowered, prefix, a, b);
-}
-
 /** @brief One recipe-step leg site: the chain prefix the step sweeps on. */
 struct StepLegSite {
   const char *name;                         /**< Diagnostic label. */
