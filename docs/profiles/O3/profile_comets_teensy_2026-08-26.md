@@ -1,6 +1,6 @@
 # Comets on-device profile — Teensy 4.0, segmented mode (2026-08-26, **-O3**)
 
-Global-O3 capture. Current [shipping report](../shipping/profile_comets_teensy_2026-09-28.md).
+Global-O3 capture. Current [shipping report](../shipping/profile_comets_teensy_2026-10-06.md).
 Point-in-time snapshot (regenerate with `bash tools/profile_one.sh Comets profile_o3 260 16 "-D HS_PROFILE_EPOCH_REVS=2400"`). Raw capture:
 `build/prof/comets_o3.log`, captured 2026-08-26 02:02 local. This is the first archived global-O3 report for this effect.
 

@@ -1,6 +1,6 @@
 # HyperLattice on-device profile — Teensy 4.0, segmented mode (2026-10-01, **selective -O3**)
 
-Point-in-time architecture snapshot. Raw capture: checkpoint1-hyperlattice-profile.txt (supporting artifact removed); capture provenance (supporting artifact removed). Updates the current ranking alongside the preserved earlier capture [profile_hyperlattice_teensy_2026-09-29.md](profile_hyperlattice_teensy_2026-09-29.md). Earlier reports used different source tips and are not the architecture baseline.
+Point-in-time architecture snapshot. Raw capture: checkpoint1-hyperlattice-profile.txt (supporting artifact removed); capture provenance (supporting artifact removed). Superseded in the ranking by [profile_hyperlattice_teensy_2026-10-06.md](profile_hyperlattice_teensy_2026-10-06.md). Earlier reports used different source tips and are not the architecture baseline.
 
 ## Setup
 

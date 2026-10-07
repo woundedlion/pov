@@ -1,6 +1,6 @@
 # HyperLattice on-device profile — Teensy 4.0, segmented mode (2026-09-27, **-O3**)
 
-[Shipping selective-O3 sibling](../shipping/profile_hyperlattice_teensy_2026-09-29.md).
+[Shipping selective-O3 sibling](../shipping/profile_hyperlattice_teensy_2026-10-06.md).
 
 Point-in-time snapshot (regenerate with the explicit `profile_o3` Reproduce command).
 Replaces the 2026-09-26 standard report with a fresh full-cycle capture of the
