@@ -46,8 +46,10 @@ Rows rank by any spill, then peak render. 🟢 is zero spill, 🟡 is under 25% 
 | [Voronoi](profile_voronoi_teensy_2026-10-06.md) | `vo_shade` | 🟢 8.00 | 🟢 0/1087 (0.00%) | 2026-10-06 18:25 |
 | [RingShower](profile_ringshower_teensy_2026-10-06.md) | `rsh_draw_rings` | 🟢 4.32 | 🟢 0/1087 (0.00%) | 2026-10-06 18:20 |
 
-The whole roster was re-captured on 2026-10-06 at `e2f5b0a3d` across two boards
-(COM3 and COM4); each report names its board. Setup frame 1 is excluded from every
+The roster was re-captured on 2026-10-06 at `e2f5b0a3d` across two boards
+(COM3 and COM4), except HyperLattice, re-captured after its 4D optimization at
+`a13c149d4`; its linked report records the 51.774 ms peak. Each report names its
+board. Setup frame 1 is excluded from every
 peak and spill figure; each report states its frame-1 render.
 
 HankinSolids, HyperLattice and DisplacementField were re-captured with longer
