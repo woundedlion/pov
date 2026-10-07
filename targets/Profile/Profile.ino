@@ -77,6 +77,7 @@
 #define HS_PROFILE_STR(x) HS_PROFILE_STR2(x)
 
 #include "../Phantasm/phantasm_target.h"
+#include "tools/profile_isr_window.h"
 
 #ifdef HS_PROFILE_SPHERICAL_EXPERIMENT
 #include "tools/profile_spherical_experiment.h"
@@ -122,6 +123,8 @@ template <int W, int H> class ProfiledEffect : public HS_PROFILE_TARGET<W, H> {
 #endif
 
 public:
+  ProfiledEffect() { capture_isr_stats(); }
+
 #ifdef HS_PROFILE_EFFECT_HEAP_BYTES
   static void *operator new(size_t size, const std::nothrow_t &) noexcept {
     return size <= sizeof(effect_storage) ? effect_storage : nullptr;
@@ -274,6 +277,7 @@ private:
 #endif
 
   void dump() {
+    const hs::ProfileIsrSnapshot isr = capture_isr_stats();
     const unsigned long now = micros();
     hs::log("=== profile %s [%dx%d] frames %lu-%lu window=%lu us ===",
             HS_PROFILE_STR(HS_PROFILE_TARGET), W, H,
@@ -305,7 +309,10 @@ private:
 #ifdef HS_PROFILE_PULLBACK_PROJECTION
     dump_pullback_projection();
 #endif
-    dump_isr_stats(now - window_start);
+    hs::log("ISR window=%lu us", (unsigned long)isr.window_us);
+    log_isr("isr_wake", isr.wake, isr.window_us);
+    log_isr("isr_pack", isr.pack, isr.window_us);
+    log_isr("isr_dma_submit", isr.submit, isr.window_us);
     hs::CycleCounter::reset_all();
     window_frames = 0;
     wall_sum = 0;
@@ -316,26 +323,12 @@ private:
     window_start = micros();
   }
 
-  /**
-   * @brief Prints and resets the column-ISR accumulators for this window.
-   * @param window_us Window wall-clock span, for the CPU-share figure.
-   * @details Copy + reset under a brief IRQ-off window (the ISR is the sole
-   * writer). Per-call figures are exact cycles; us/ns derive from
-   * CycleCounter::CYCLES_PER_US.
-   */
-  static void dump_isr_stats(unsigned long window_us) {
-    hs::IsrCycleStats wake, pack, submit;
-    const uint32_t primask = hs::save_disable_interrupts();
-    wake = hs::g_flywheel_wake_cycles;
-    pack = hs::g_column_pack_cycles;
-    submit = hs::g_dma_submit_cycles;
-    hs::g_flywheel_wake_cycles.reset();
-    hs::g_column_pack_cycles.reset();
-    hs::g_dma_submit_cycles.reset();
-    hs::restore_interrupts(primask);
-    log_isr("isr_wake", wake, window_us);
-    log_isr("isr_pack", pack, window_us);
-    log_isr("isr_dma_submit", submit, window_us);
+  hs::ProfileIsrSnapshot capture_isr_stats() {
+    return isr_window.capture(
+        hs::g_flywheel_wake_cycles, hs::g_column_pack_cycles,
+        hs::g_dma_submit_cycles, [] { return micros(); },
+        [] { return hs::save_disable_interrupts(); },
+        [](uint32_t mask) { hs::restore_interrupts(mask); });
   }
 
   static_assert((uint64_t)hs::CycleCounter::CYCLES_PER_US * 1000000u ==
@@ -630,6 +623,7 @@ private:
   hs::CycleCounter *buffer_wait =
       nullptr; /**< The effect's *_buffer_wait counter. */
   unsigned long window_start = micros(); /**< Window wall-clock start (µs). */
+  hs::ProfileIsrWindow isr_window;
 #ifdef HS_MINDSPLATTER_REPLAY
 #ifdef HS_MINDSPLATTER_REPLAY_AB
   mindsplatter_replay::ReferenceStats replay_stats;
