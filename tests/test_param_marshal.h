@@ -767,9 +767,10 @@ inline int run_param_marshal_tests() {
   HS_EXPECT(coverage.flags_distinguishing,
             "no roster param has animated != readonly — a transposed "
             "animated/readonly pair in ParamView would ride green");
-  HS_EXPECT(coverage.float_enum_present,
-            "no roster param is a float-backed enum — the step-presence check "
-            "above would ride green on ParamDef::is_integer() alone");
+  HS_EXPECT(
+      coverage.float_enum_present,
+      "no roster param is a float-backed enum — the is_integer flag check "
+      "above would ride green on ParamDef::is_integer() alone");
   std::printf("  param-marshal by-name round-trip exercised on %d/%d effects "
               "(%d skipped: no editable float param; %d stream mismatches)\n",
               rt_covered, rt_total, rt_skipped, rt_mismatched);
