@@ -433,6 +433,26 @@ class TestRealColdVersusWarmCapture(unittest.TestCase):
         self.assertEqual(audit.first_party_cache_hits, 2)
         self.assertEqual(_run_warning_gate(self.WARM), 1)
 
+    def _run_without_ini(self, log_text, *extra):
+        with tempfile.TemporaryDirectory() as d:
+            log = Path(d) / "build.log"
+            log.write_text(log_text, encoding="utf-8")
+            return tw.main(["--build-log", str(log), "--platformio-ini",
+                            str(Path(d) / "platformio.ini"), *extra])
+
+    def test_explicit_env_passes_without_platformio_ini(self):
+        self.assertEqual(self._run_without_ini(self.COLD, "--env", "holosphere"), 0)
+
+    def test_implicit_env_fails_without_platformio_ini(self):
+        self.assertEqual(self._run_without_ini(self.COLD), 1)
+
+    def test_explicit_env_absent_from_capture_fails_without_platformio_ini(self):
+        self.assertEqual(self._run_without_ini(
+            self.COLD, "--env", "holosphere", "--env", "phantasm"), 1)
+
+    def test_explicit_env_short_capture_fails_without_platformio_ini(self):
+        self.assertEqual(self._run_without_ini(self.WARM, "--env", "holosphere"), 1)
+
 
 class TestRealVerboseCapture(unittest.TestCase):
     """Capture evidence against REAL `pio run -v` lines, both CI and Windows.
