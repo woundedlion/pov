@@ -11,6 +11,7 @@ describes the shipped stage model.
   - [The Fragment](#the-fragment)
   - [Shader Signatures](#shader-signatures)
   - [Register Conventions by Rasterizer](#register-conventions-by-rasterizer)
+  - [Spherical ray rendering](#spherical-ray-rendering)
 - [7.1 SDF Shapes and the Scan Rasterizer](#71-sdf-shapes-sdfh-and-the-scan-rasterizer-scanh)
   - [SDF Shape Primitives](#sdf-shape-primitives-sdfh)
   - [Volumetric Shapes](#volumetric-shapes-sdfvolumeh)
@@ -45,7 +46,7 @@ describes the shipped stage model.
 - [7.7 The Mesh System](#77-the-mesh-system-coremesh)
   - [Core MeshOps](#core-meshops-coremeshmeshh)
   - [Conway Operators](#conway-operators-conwayh)
-- [Hankin Pattern System](#hankin-pattern-system-coremeshhankinh)
+  - [Hankin Pattern System](#hankin-pattern-system-coremeshhankinh)
   - [Solids Library](#solids-library-solidsh-solid_generatorsh)
 - [7.8 Generators](#78-generators-memoryh)
 - [7.9 The Preset System](#79-the-preset-system-controlchoreographyh)
@@ -125,7 +126,7 @@ Each SDF shape's `distance<ComputeUVs>()` method writes a `DistanceResult`. Ring
 struct DistanceResult {
   float dist;        // Signed distance (negative = inside)
   float t;           // Shape-dependent parameter or angle
-  float raw_dist;    // Unsigned / supplementary distance
+  float raw_dist;    // Per-shape register (signed for mesh faces)
   float aux;         // Auxiliary (0 for every current producer)
   float size = 1.0f; // Size metric
 };
@@ -192,9 +193,9 @@ The rendering pipeline splits shape definitions from rasterization. `sdf.h` defi
 2. **`get_horizontal_intervals(y, out)`** — scanline intervals per row, or `false` to request a full-row scan. Handled rows skip empty columns without evaluating the distance function.
 3. **`distance<ComputeUVs>(p, result)`** — signed shape-distance value at a sphere-surface point `p`, plus texture coordinate and auxiliary data in `DistanceResult`. Chart-plane values are not exact spherical boundary distances.
 
-`scan.h` is an umbrella over `core/render/scan/`: `core/render/scan/raster.h` defines `Scan::rasterize()`, which drives the scanline loop and anti-aliasing, plus convenience wrappers that pair SDF shapes with the rasterizer.
+`scan.h` is an umbrella over `core/render/scan/`: `core/render/scan/raster.h` defines `Scan::rasterize()`, which drives the scanline loop and anti-aliasing; `core/render/scan/shapes.h`, `core/render/scan/mesh.h`, `core/render/scan/shader.h` and `core/render/scan/volume.h` hold the convenience wrappers that pair SDF shapes with the rasterizer.
 
-`sdf.h` is an umbrella over six of the headers in `core/render/sdf/`: the substrate every shape shares (azimuth intervals, row bounds, `DistanceResult`, the cap/annular span-emission helpers) in `core/render/sdf/common.h`, the polygon, star, flower and line leaves in `core/render/sdf/shapes.h`, the ring leaves in `rings.h`, the CSG operators in `csg.h`, `SDF::Face` with its congruence-class LUT in `face.h`, and the volumetric family in `core/render/sdf/volume.h`. Including `sdf.h` pulls in all six; the lattice, trace, framework and face-class headers are included directly by their consumers.
+`sdf.h` is an umbrella over six of the headers in `core/render/sdf/`: the substrate every shape shares (azimuth intervals, row bounds, `DistanceResult`, the cap/annular span-emission helpers) in `core/render/sdf/common.h`, the polygon, star, flower and line leaves in `core/render/sdf/shapes.h`, the ring leaves in `rings.h`, the CSG operators in `csg.h`, `SDF::Face` with its congruence-class LUT in `face.h`, and the volumetric family in `core/render/sdf/volume.h`. Including `sdf.h` pulls in all six; the lattice, trace, framework, periodic-surface and face-class headers are included directly by their consumers.
 
 The `process_pixel` function applies anti-aliasing based on shape type:
 - **Solid shapes**: quintic smoothstep over a 2-pixel AA band centered on the edge (`-pixel_width <= d <= pixel_width`). Full interior pixels (`d < -pixel_width`) skip AA math entirely. `pixel_width` is the compile-time constant `2π/W` — the angular width of one *equatorial* pixel — so the band is a fixed angular thickness at every latitude, and near the poles (where columns converge) it spans more than two columns. At 288×144 the row and equatorial column arcs nearly match. At 96×20 a row spans about 2.4 column arcs (2.5 on the ideal profile the host build uses), so a horizontal edge has a narrower AA band in row units than a vertical edge has in column units.
@@ -252,7 +253,7 @@ Convenience structs that construct an SDF shape and rasterize in a single `draw(
 | Primitive | Description |
 |---|---|
 | `Scan::Ring` | Rasterizes a ring (from `SDF::Ring`) |
-| `Scan::RingGroup` | Fused single-pass rasterizer for a small group of rings — one scan over the union band paints every member in slot order, so the per-row interval math runs once instead of per ring. Fragments carry position, stroke coverage and size only (no UVs, no raw distance) |
+| `Scan::RingGroup` | Fused single-pass rasterizer for a small group of rings — one scan over the union band paints every member in slot order, so the per-row interval math runs once instead of per ring. Fragments carry position, stroke coverage, size and age only (no UVs, no raw distance) |
 | `Scan::Circle` | Disc (ring with radius-wide thickness) — stroke coverage ramps quintically from center to rim, and the shader styles it from register 2 |
 | `Scan::Point` | Dot at a sphere-surface position, with the same center-to-rim coverage ramp |
 | `Scan::Line` | Geodesic line segment between two points |
@@ -263,7 +264,7 @@ Convenience structs that construct an SDF shape and rasterize in a single `draw(
 | `Scan::PlanarPolygon` | Regular N-gon in the tangent plane |
 | `Scan::SphericalPolygon` | Regular N-gon with geodesic (great-circle) edges |
 | `Scan::Mesh` | Rasterizes all faces of a `MeshState` |
-| `Scan::Shader` | Full-screen per-pixel shaders with configurable SSAA (super-sample anti-aliasing), across typed entry points. `draw(canvas, shader)` takes a single fragment shader; `draw_cached(canvas, shader)` provides the same typed draw with its traversal placed in cached flash and is the path composed effects use. `draw(canvas, fragment_shader, vertex_shader)` separates a per-pixel vertex shader (called once at pixel center) from a per-subsample fragment shader (called SAMPLES×), so expensive per-pixel work is computed once — both callables are required, and a null one traps. BZReactionDiffusion uses `draw_grid`; GSReactionDiffusion uses `walk_grid(canvas, pixel_shader)`, which hands the centre vector and the row's `SsaaGrid` to the pixel shader. `draw_block_coherent(canvas, block, positions, scratch, classify, shade)` supplies Voronoi's block classification and shading path. `draw_grid(canvas, vertex_shader, pixel_shader)` hands the seeded fragment and the row's sub-pixel grid to a templated pixel shader that owns the sampling and returns the finished pixel. `draw_cached(canvas, shader, begin_row)` also exposes integer coordinates and a per-row setup callback while preserving wrapped clip margins. |
+| `Scan::Shader` | Full-screen per-pixel shaders with configurable SSAA (super-sample anti-aliasing), across typed entry points. `draw(canvas, shader)` takes a single fragment shader; `draw_cached(canvas, shader)` provides the same typed draw with its traversal placed in cached flash and is the path composed effects use. `draw(canvas, fragment_shader, vertex_shader)` separates a per-pixel vertex shader (called once at pixel center) from a per-subsample fragment shader (called SAMPLES×), so expensive per-pixel work is computed once — both callables are required, and a null one traps. BZReactionDiffusion uses `draw_grid`; GSReactionDiffusion uses `walk_grid(canvas, pixel_shader)`, which hands the centre vector and the row's `SsaaGrid` to the pixel shader. `draw_block_coherent(canvas, block, positions, scratch, classify, shade)` supplies Voronoi's block classification and shading path. `draw_grid(canvas, vertex_shader, pixel_shader)` hands the seeded fragment and the row's sub-pixel grid to a templated pixel shader that owns the sampling and returns the finished pixel. `draw_cached(canvas, shader, begin_row)` also takes a per-row setup callback while preserving wrapped clip margins. |
 | `Scan::TransformedVolume` | Wraps an SDF shape with a world-space position and orientation quaternion for volumetric rendering |
 | `Scan::Volume` | Volumetric ray-marcher that steps along the view direction through a `TransformedVolume`, applying a fragment shader at the hit point with configurable step count and AA width |
 
@@ -286,7 +287,7 @@ Plot::Multiline::draw<W, H>(pipeline, canvas, vertices, fragment_shader);
 
 `Plot::Multiline` accepts a `Fragments` array (an arena-backed `ArenaVector<Fragment>`), while `Plot::Line` accepts its two `Fragment` endpoints. The parametric primitives (`Ring`, `Polygon`, `DistortedRing`, `Star`, and `Flower`) take their geometric parameters and sample into a `Fragments` array internally. Each fragment carries position, texture registers (v0–v3), age, and color.
 
-- **Edge interpolation** — how consecutive fragments are joined. *Geodesic* (the default) walks the great-circle arc between endpoints; *planar* interpolates along an azimuthal-equidistant straight line in a basis's tangent plane (for effects that live in a 2D local space). This is selected by whether a **planar basis** is supplied to the draw call (`null` ⇒ geodesic).
+- **Edge interpolation** — how consecutive fragments are joined. *Geodesic* (the default) walks the great-circle arc between endpoints; *planar* interpolates along an azimuthal-equidistant straight line in a basis's tangent plane (for effects that live in a 2D local space). `Plot::Polygon` and `Plot::Star` select it with their `Projection` template parameter, the other parametric primitives fix it, and `rasterize` takes it as `RasterProjection::planar(basis)` or `RasterProjection::geodesic()`.
 
 ### Sampling Policy
 
@@ -299,7 +300,7 @@ Balanced sampling stretches each adaptive step by `BALANCED_SCREEN_STEP_PX / SCR
 - **Emitted alpha changes.** Sparser samples lay down less coverage per unit arc, so each fragment's alpha is scaled by `balanced_sample_alpha()` — gain `1 + (ratio - 1) * (0.88 - 0.20 * alpha)`, saturating at 1, with `ratio` the balanced step over the default step. The gain shrinks as alpha rises because opaque samples compound less; it is a linear fit to source-over accumulation, close to exact below alpha 0.4 and over-boosting above it, so a stroke past alpha ~0.85 saturates at 1 and loses its soft edge. A balanced draw is not pixel-identical to a default one.
 - **Step evaluation is reused, on planar edges only.** Where the walk is locally straight and clear of the poles (tangent dot > 0.995, step change under 10%, step under 0.9 base steps), the next sample recomputes position only and carries the previous step forward, skipping the tangent and the screen-velocity step. The reuse needs the monotonic position-only entry that only `PlanarEdgeSampler` exposes; a geodesic edge takes the sparser steps and the alpha gain without it.
 
-`ShapeShifter` is the sole caller: `SELECTABLE`, on for policy-selected stars at 32 or more contours and off for every other primitive. Of those, only the dense planar star's pole-crossing edges collect the step reuse; the spherical star's edges are geodesic.
+`ShapeShifter` is the only effect that reaches it, through two `SELECTABLE` instantiations: its own sampled draw, on for the spherical star at 32 or more contours and off for every other primitive, and `Plot::PlanarChords`, which strokes the dense planar star and hands the anchor intervals near a pole to `rasterize` with balanced sampling always on. Of those, only the planar star's pole-run edges can collect the step reuse; the spherical star's edges are geodesic.
 
 ### Plot Primitives
 
@@ -322,7 +323,7 @@ Balanced sampling stretches each adaptive step by `BALANCED_SCREEN_STEP_PX / SCR
 
 The `Timeline` class manages a list of running `IAnimation` objects. Each frame, `timeline.step(canvas)` advances all active animations. Finished animations are removed; repeating animations are rewound. All animation types inherit from `AnimationBase` and support method chaining via `.then()` for sequencing.
 
-Animation pause is opt-in per timeline event, not a global stop. Effects schedule parameter drivers and preset choreography with `timeline.add_pausable(..., &anims_paused)`; while the flag is set, both the animation step and any pending start delay are frozen. Passing a pause pointer to an animation constructor freezes only its `step()` call, so the timeline event's start delay still elapses. Events added with `add()` and motion advanced directly by `draw_frame()` continue to run, which lets the GUI pause animated controls without stopping ambient motion.
+Animation pause is opt-in per timeline event, not a global stop. Effects schedule parameter drivers with `timeline.add_pausable(..., &anims_paused)`, and preset choreography passes the same flag as its transition event's pause gate (a `Lerp` departure only when marked pausable); while the flag is set, both the animation step and any pending start delay are frozen. Passing a pause pointer to an animation constructor freezes only its `step()` call, so the timeline event's start delay still elapses. Events added with `add()` and motion advanced directly by `draw_frame()` continue to run, which lets the GUI pause animated controls without stopping ambient motion.
 
 `animation.h` defines the contract every animation implements — `IAnimation`, the CRTP `AnimationBase`, and `Animation::Space` — and then includes nine fragment headers grouped by what they animate:
 
@@ -411,7 +412,7 @@ Parameter and motion animations mutate external state that the rendering pipelin
 | `Mutation` | `float*` | Applies an arbitrary scalar function `f(t)` to a float over time (more general than `Transition`) |
 | `Progress` | `void(float)` callback | Hands the caller eased progress each frame and writes nothing itself; every composed preset transition uses it to blend the authored parameter states |
 | `Driver` | `float*` | Continuously increments a float each frame, optionally wrapping at 0..1 — used for phase accumulators |
-| `Lerp` | `T*` (type-erased) | Interpolates any type with a `lerp()` function — `MeshState`, params structs, etc. The caller owns start, subject, and target; Lerp holds pointers |
+| `Lerp` | `T*` (type-erased) | Interpolates any type with a `lerp()` member — params structs, styles, etc. The caller owns start, subject, and target; Lerp holds pointers |
 | `ColorWipe` | `GenerativePalette*` | Interpolates palette keys between caller-owned start and target snapshots in OKLCH; both snapshots must remain unchanged and outlive the animation |
 | `Ripple`, `MobiusWarp`, `Noise` | `RippleParams`, `MobiusParams`, `NoiseParams` | Animate transformer parameters (expansion radius, warp strength, noise time axis) which the transformer pool reads during `MeshOps::transform()` |
 | `BallDrop` | `BumpParams` | Walks the bump center down a meridian and re-derives the push axis from the stack's orientation, ramping the footprint envelope; the field pool sums the caps during `field()` |
@@ -426,8 +427,8 @@ Orientation<> orientation;   // CAP is the sub-frame capacity, not the display w
 float twist = 0.0f;
 GenerativePalette palette;
 GenerativePalette target_palette;
-const auto palette_start = palette.snapshot();
-const auto palette_target = target_palette.snapshot();
+const GenerativePalette::Snapshot palette_start = palette.snapshot();
+const GenerativePalette::Snapshot palette_target = target_palette.snapshot();
 
 // Timeline drives state via animations:
 timeline.add(0, Animation::Rotation<W>(orientation, math::Y_AXIS, 2 * PI_F, 600, ease_linear, true));
@@ -439,7 +440,7 @@ void draw_frame() {
     Canvas canvas(*this);
     timeline.step(canvas);  // all state updated automatically
     // orientation, twist, palette are now current-frame values
-    pipeline.plot(canvas, v, palette.get(t), 0.0f, 1.0f);
+    pipeline.plot(canvas, v, palette.get(t).color, 0.0f, 1.0f);
 }
 ```
 
@@ -479,7 +480,7 @@ Transformers integrate with the `MeshOps::transform()` pipeline and can be chain
 Both classes derive from `TransformerPool`, which fixes the call order:
 
 1. `init_storage(Arena&)` — from the effect's `init()`, after any `configure_arenas()` and before the first spawn. It also claims one of the shared `Timeline`'s `MAX_CLEAR_HOOKS` (4) clear-hook slots, and each `ChoreographedEffect` claims one hook, so a choreographed effect fits at most three pools; exhausting the hook table traps at registration.
-2. `spawn(in_frames, args...)` — the returned pointer is transient; use it at the call site, not across frames.
+2. `spawn(in_frames, args...)` — the returned pointer is transient; use it at the call site, not across frames. The animation must be finite and non-repeating; anything else traps (use `spawn_pinned()`).
 3. `spawn_pausable(paused, in_frames, args...)` — same as `spawn()`, but the whole timeline event, start delay included, freezes while `*paused` is set, the way `Timeline::add_pausable` does. It is the only pool entry point that honours a GUI pause — `spawn()` animates straight through one — and the flag must outlive the event.
 4. `spawn_pinned(in_frames, args...)` — same as `spawn()`, but the pointer may be retained (e.g. registered as a live GUI param). Valid only for an animation that never completes on its own — infinite, or repeating (it rewinds rather than reaching `done()`) — and is added before any finite, non-repeating timeline event, so compaction cannot shift it.
 5. `prepare_frame()` — each frame before `transform()` / `field()`, whenever active params changed through animation or live config. The composition reads that prepared state but cannot verify it is current. Its per-entity hooks (`refresh_from(const ParamsT&)` for live config, `sync()` for derived state) are found by detection, so every `ParamsT` must declare one bool per hook (or supply them through a `transformer_detail::ExternalParamsHooks<ParamsT>` specialization) — `static constexpr bool NEEDS_REFRESH_FROM` and `static constexpr bool NEEDS_SYNC` — each true only when that hook is carried. Either mismatch is its own `static_assert`, which is what turns a renamed or signature-drifted hook into a compile error instead of a silently unrefreshed entity.
@@ -619,7 +620,7 @@ The clip reads the 256 × 128 flash master by default. An effect that clips per 
 
 `MeshFeedback::init()` is the only production call site that arms an arena copy. It takes the full 256 × 128 grid, `gamut_lut_bytes(256, 128)` = 131,074 B of persistent arena. The Shader workbench, `ShaderChain`, and composed effects clip against the flash master without allocating a gamut copy.
 
-The feedback flush's colour path (`hue_fade_apply`, `hue_fade_apply2`) does not walk the bracket: `lms_cbrt_transform_rgb_lut` rescales an out-of-gamut pixel's chroma straight onto the armed grid's cell minimum through `lms_cbrt_scale_to_gamut_lut`, so a clipped trail pixel costs one grid read. The sampled cell minimum has no certified deficit bound against the exact boundary. The feedback loop re-clips every bright trail pixel each frame, which is where the per-pixel walk was spent.
+The feedback flush's colour path (`hue_fade_apply`, `hue_fade_apply2`) does not walk the bracket: `lms_cbrt_transform_rgb_lut` (two pixels at a time in `lms_cbrt_transform_rgb2_lut`) rescales an out-of-gamut pixel's chroma straight onto the armed grid's cell minimum through `lms_cbrt_scale_to_gamut_lut`, so a clipped trail pixel costs one grid read. The sampled cell minimum has no certified deficit bound against the exact boundary. The feedback loop re-clips every bright trail pixel each frame, which is where the per-pixel walk was spent.
 
 ### Palette Modifiers
 
@@ -635,9 +636,9 @@ Both directions are `static_assert`ed: an unbounded modifier rejects
 `Wrap=false`, and a bounded final modifier rejects `Wrap=true` (wrapping would
 fold its 1.0 output to 0.0 and destroy the top endpoint). Only a modifier that
 re-bounds *arbitrary* input (`WrapModifier`'s fold, `FoldModifier`'s triangle
-wave, `InsetModifier`'s clamp) clears an unbounded predecessor; `ReverseModifier`,
-`MirrorModifier`, and `PinchModifier` are bounded on `[0,1]` but pass an out-of-range coordinate
-straight through. `QuantizeModifier` caps values above 1 and quantizes negative
+wave, `InsetModifier`'s clamp) clears an unbounded predecessor; `ReverseModifier`
+and `PinchModifier` are bounded on `[0,1]` but pass an out-of-range coordinate
+straight through, and `MirrorModifier` maps one to another out-of-range value. `QuantizeModifier` caps values above 1 and quantizes negative
 coordinates without rebounding them. Chaining any of these after a cycling
 modifier needs a `WrapModifier` between them and `Wrap=false`.
 
@@ -692,7 +693,8 @@ driver decorrelate by seed. Frame-constant work memoizes against the driver
 value (`HueSpinShade`'s rotation matrix, `ChromaPulseShade`'s pulse factor,
 `DriftModifier`'s walk offset). The OKLab shades still pay a per-sample
 conversion, so they pair well with `BakedPaletteStorage::rebake`, which re-samples a
-256-entry LUT once per frame; the noise and cosine shades are cheap enough for
+256-entry LUT once per frame (the source must be a `Wrap=false` composition;
+`rebake` rejects wrapping sources); the noise and cosine shades are cheap enough for
 live per-pixel paths.
 
 ```cpp
@@ -766,7 +768,7 @@ per-effect recipes the roster renders.
 
 `PaletteCycler` (`core/color/palette_cycler.h`) drives a display LUT through a
 sequence of palettes over time: it dwells on an entry for `dwell_frames`, then
-fades into the next over `fade_frames` (a zero dwell chains fades back to back).
+fades into the next over `fade_frames` (a dwell of 0 behaves as 1: the next fade begins on the following step).
 Effects call `step()` once per frame and shade from `palette()`, a
 `BakedPalette` — outside a fade the display is a bit-exact bake of the current
 entry.
@@ -805,7 +807,7 @@ The mesh system uses these headers in `core/mesh/` and `core/render/sdf/`:
 - **`core/render/sdf/face_class_bake.h`** — Congruence-class clustering plus one canonical distance-LUT bake per class, allocated by descending face count under an 18 KB per-mesh budget
 - **`core/render/sdf/face_classes.h`** — The class id space and the three record types the rasterizer binds per frame, split out so the clustering and bake machinery stays out of every rasterizer translation unit
 - **`mesh_state.h`** — `MeshState`, the flat-array renderer format, split out so mesh, Conway, Hankin and solids code can share the renderer-facing representation without the construction machinery
-- **`solid_generators.h`** — Hardcoded Platonic vertex/face tables, the `SolidBuilder` operator chain, and the named Archimedean / Catalan / Islamic Star Pattern generators
+- **`solid_generators.h`** — Umbrella over `solid_tables.h` (hardcoded Platonic vertex/face tables), `solid_builder.h` (the `SolidBuilder` operator chain) and `procedural_solids.h` (the named Archimedean / Catalan / Islamic Star Pattern generators)
 - **`solids.h`** — The three solid registries, the authored `Recipe` mirrors of the generators, and the name/index lookups over them
 - **`relax_bake_specs.h`** — Authored bake names and iteration budgets. The extraction harness reads these inputs without loading generated payloads.
 - **`relax_bakes_generated.h`** — Baked relaxed-mesh vertices behind `MeshOps::relax_baked`, generated by `tools/relax_bakes.py`; never hand-edited, regenerate with `<build>/relax_bake_gen | python tools/relax_bakes.py emit --stdin`. Grid constants come from the harness dump.
@@ -860,7 +862,7 @@ All Conway *geometry* operators (`dual` through `bevel` below) take `(const Poly
 
 ### Solids Library (`solids.h`, `solid_generators.h`)
 
-`solid_generators.h` provides constexpr vertex/face data for all Platonic solids plus procedural generators for Archimedean, Catalan, and Islamic Star Pattern families; `solids.h` organizes them into three registries. Firmware builds by name via `Solids::get_by_name(arena, a, b, name)`, which fails fast on an unknown name; the WASM bridge validates with `Solids::find_entry(name)` first and generates from the entry; the WASM geometry tools enumerate the registries by index with `Solids::get_entry(index)` to populate the picker, then build the selected solid by name:
+`solid_generators.h` provides constexpr vertex/face data for all Platonic solids plus procedural generators for Archimedean, Catalan, and Islamic Star Pattern families; `solids.h` organizes them into three registries. Firmware effects build by registry index via `Solids::get_entry(index)`; `Solids::get_by_name(arena, a, b, name)` builds by name and fails fast on an unknown name; the WASM bridge validates with `Solids::find_entry(name)` first and generates from the entry; the WASM geometry tools enumerate the registries by index with `Solids::get_entry(index)` to populate the picker, then build the selected solid by name:
 
 | Registry | Count | Description |
 |---|---|---|
@@ -884,13 +886,13 @@ return SolidBuilder(to_polymesh<Icosahedron>(a), a, b)
 Islamic Star Pattern recipes chain multiple operators with Hankin pattern generation:
 
 ```cpp
-SolidBuilder(dodecahedron(a, b), a, b)
+SolidBuilder(Platonic::dodecahedron(a, b), a, b)
     .hankin(54.0f * D2R).ambo().hankin(72.0f * D2R).build();
 ```
 
 ## 7.8 Generators (`memory.h`)
 
-`memory.h` provides a generation wrapper that manages arena lifecycle around a supplied callable:
+`memory.h` provides (through `core/memory/generate.h`) a generation wrapper that manages arena lifecycle around a supplied callable:
 
 ```cpp
 namespace hs {
@@ -909,7 +911,7 @@ auto mesh = hs::generate(persistent_arena, Solids::get_by_name, std::string_view
 
 ## 7.9 The Preset System (`control/choreography.h`)
 
-`ChoreographedEffect<Derived, Params>` provides the runtime preset lifecycle: an `Effect` base owning the effect's live parameter set, its preset table, and the choreography that moves between presets. `Derived` declares its presets — a `PRESETS` table (`std::array<PresetEntry<Params>, N>`) or a static `preset(index)` returning one entry, and/or `PRESET_IDS` naming them — plus a dwell, a parameter schema version, and a validity predicate. Each entry pairs a parameter set with its departure, the `Segue::Preset::Departure` that carries the effect from that preset to the next:
+`ChoreographedEffect<Derived, Params>` provides the runtime preset lifecycle: an `Effect` base owning the effect's live parameter set, its preset table, and the choreography that moves between presets. `Derived` declares its presets — a `PRESETS` table (`std::array<PresetEntry<Params>, N>`) or a static `preset(index)` returning one entry, and/or `PRESET_IDS` naming them — plus a dwell, a parameter schema version, and either `parameter_fields()` (from which the base derives `valid_params()` and `blend_params()`; a `Params::FIELDS` table supplies it) or its own `valid_params()`. Each entry pairs a parameter set with its departure, the `Segue::Preset::Departure` that carries the effect from that preset to the next:
 
 ```cpp
 static constexpr Segue::Preset::Fade DEPARTURE{16};
@@ -1040,7 +1042,7 @@ else
 | `EffectHandoff<T>` | `pov_handoff.h` | Foreground↔ISR effect ownership: the teardown counter handshake, the acquire/release publish and adopt of a pending effect, the consumed-generation gate that keeps the ISR off a deleted instance, and the display-window (clip) alternation. The foreground constructs and deletes instances; the ISR only ever dereferences what `live()` handed it. |
 | `SubmitGate`, `SyncPulseGate` | `pov_submit_gate.h` | The LED transport's accept/drop verdict and the sync pin's pulse width. Both submit paths — the fail-dark black frame and the image column — clear their pending state only on an accepted submit, and a dropped column latches retries on subsequent wakes, without repacking, until the transport accepts it or a new column or dark state replaces it. A wake that renders nothing has too short a body to carry a scheduled sync pulse, so the pin is held HIGH across the ISR boundary and dropped at the head of the next wake. |
 
-**Effect transparency**: Effects are written against the full 288×144 canvas with no per-segment code. Each board clips rendering to its half-width segment band for the current display window (`clip_to_segment`), except stateful effects (`needs_full_frame()` / `persists_pixels()`), which render the full canvas; the ISR then packs this board's LEDs. Every board reseeds the shared `Pcg32` at every effect build from `HS_PHANTASM_EFFECT_SEEDS[]`, which `targets/Phantasm/phantasm_playlist.h` builds as `hs::stable_effect_seed(hs::stable_effect_id<name<CANVAS_W, CANVAS_H>>(#name))` (`core/platform/rng.h`) so an entry's stream follows its persisted effect ID (or class name when no ID is declared) rather than its roster position; `hs::epoch_seed(effect index)` (epoch 0 is the identity seed `1337`) is the fallback for a board that supplies no seed table. Aligned epoch reconstruction starts the same content stream on every board. A mid-show join can have a frame offset until a subsequent aligned epoch; the beacon index alone does not align rendered frames.
+**Effect transparency**: Effects are written against the full 288×144 canvas with no per-segment code. Each board clips rendering to its half-width segment band for the display window the frame will be shown in, one ahead of the open one (`clip_to_segment`), except stateful effects (`needs_full_frame()` / `persists_pixels()`), which render the full canvas; the ISR then packs this board's LEDs. Every board reseeds the shared `Pcg32` at every effect build from `HS_PHANTASM_EFFECT_SEEDS[]`, which `targets/Phantasm/phantasm_playlist.h` builds as `hs::stable_effect_seed(hs::stable_effect_id<name<CANVAS_W, CANVAS_H>>(#name))` (`core/platform/rng.h`) so an entry's stream follows its persisted effect ID (or class name when no ID is declared) rather than its roster position; `hs::epoch_seed(effect index)` (epoch 0 is the identity seed `1337`) is the fallback for a board that supplies no seed table. Aligned epoch reconstruction starts the same content stream on every board. A mid-show join can have a frame offset until a subsequent aligned epoch; the beacon index alone does not align rendered frames.
 
 | Parameter | Value (qualified N=4 default unless noted) |
 |---|---|
@@ -1148,7 +1150,7 @@ Boundary symbols (`ZERO`/`HALF`) serve **two** layers at once: they snap the fly
 
 * **Layer 1 — Column phase.** Boundary symbols snap each flywheel twice per revolution; inter-snap crystal drift is **~0.006 column** at 40 ppm. The larger downstream phase term is the flywheel wake grid: up to **~54.25 microseconds (0.125 column)** per receiver before it processes a boundary. The master has no receive-wake delay. Both terms fit below one column; crystal drift alone does not bound the seam error.  In **LOCKED** a symbol is accepted only if its implied correction is **≤ G = 4 columns** and its boundary identity matches the flywheel's prediction (the plausibility gate).
 * **Layer 2 — Buffer flip.** The local boundary crossing flips the display buffer; the symbol is a deduplicated backstop.  `try_flip`, keyed on boundary identity (boundaries strictly alternate `ZERO, HALF, …`), makes the flip **exactly-once** even when both the crossing and the symbol fire.  Losing both paths in one half-rev is the only glitch, and it self-heals the next half-rev.
-* **Layer 3 — Content.** The playlist is **epoch-counted**, not `millis()`-gated.  Duration is **per roster entry**, not uniform: `HS_PHANTASM_EFFECT_LIST` carries a seconds column beside each name and `targets/Phantasm/Phantasm.ino` converts it to `EFFECT_REVOLUTIONS[]` at `seconds · RPM / 60`, spanning 38 s (304 revolutions) to 240 s (1,920 revolutions) across the playlist.  The master emits the `EPOCH` mark (plus R = 3 redundancy repeats) when the current entry's revolutions elapse; every board counts down to the same **absolute** commit boundary regardless of which copy it heard, constructs the next roster entry during the final K = 2-revolution **construction window** (display black on all boards simultaneously), and all swap to its frame 0 at the same boundary.  The beacon broadcasts the absolute effect index so a board that missed every epoch repeat corrects after two confirming beacons (up to 21 revolutions between beacons; recovery within 4 s, spec section 9.1), and a rebooted board rejoins at the correct effect — **fail-dark, never fail-wrong** (a board with no established identity shows black rather than a guessed effect).  Every one of those revolution budgets is absolute, so on a 304-revolution entry the 25-revolution rejoin bound still costs 8% of the effect's airtime.
+* **Layer 3 — Content.** The playlist is **epoch-counted**, not `millis()`-gated.  Duration is **per roster entry**, not uniform: `HS_PHANTASM_EFFECT_LIST` carries a seconds column beside each name and `targets/Phantasm/Phantasm.ino` converts it to `EFFECT_REVOLUTIONS[]` at `seconds · RPM / 60`, spanning 38 s (304 revolutions) to 300 s (2,400 revolutions) across the playlist.  The master emits the `EPOCH` mark (plus R = 3 redundancy repeats) when the current entry's revolutions elapse; every board counts down to the same **absolute** commit boundary regardless of which copy it heard, constructs the next roster entry during the final K = 2-revolution **construction window** (display black on all boards simultaneously), and all swap to its frame 0 at the same boundary.  The beacon broadcasts the absolute effect index so a board that missed every epoch repeat corrects after two confirming beacons (up to 21 revolutions between beacons; recovery within 4 s, spec section 9.1), and a rebooted board rejoins at the correct effect — **fail-dark, never fail-wrong** (a board with no established identity shows black rather than a guessed effect).  Every one of those revolution budgets is absolute, so on a 304-revolution entry the 25-revolution rejoin bound still costs 8% of the effect's airtime.
 
 **Index beacon frame format.** The beacon is a **data** symbol (integrity by *rejection*, not by exactness).  Five base-8 digits at 1-column pitch, each digit a burst of `digit + 1` pulses, digits separated by 5 quiet columns (one past the gap timeout, so the decoder reliably terminates each digit):
 
@@ -1162,7 +1164,7 @@ Boundary symbols (`ZERO`/`HALF`) serve **two** layers at once: they snap the fly
         ┌┐          ┌┐┌┐┌┐           ┌┐┌┐                 ┌┐┌┐┌┐
  ───────┘└──/ /─────┘└┘└┘└──/ /──────┘└┘└──/ /───────────┘└┘└┘└──────────
         │←Dk+1 pulses→│   │←5-col quiet (terminates digit)→│
-        │←──────────── frame = 55 columns / 23.9 ms (≪ half-rev) ───────────→│
+        │←─────────── frame ≤ 55 columns / 23.9 ms (≪ half-rev) ──────────→│
 ```
 
 Any checksum mismatch, wrong digit count, out-of-range digit, or stale partial frame **drops the whole frame** — the next beacon is ≤ 16 revolutions (2 s) away, or ≤ 21 (~2.6 s) across a commit window.  Schedule: revolution 1 of every 16 (`rev ≡ 1 mod 16` — never rev 0, so a just-powered board meets clean isolated boundary symbols first), plus the first revs of a fresh effect; silent during a pending commit.
@@ -1281,8 +1283,9 @@ Shimmer above 0.4, and the unmodified palette use the procedural color path.
 Four antialiasing samples determine coverage from signed kernel mass relative to
 the visible B threshold. Two diagonal samples supply reciprocal total weights;
 their mean estimates the other two reciprocals for color concentration. A
-conservative center-support certificate and a signed-mass guard fall back to
-the complete four-weight kernel near numerical coverage boundaries.
+conservative center-support certificate falls back to the complete four-weight
+kernel when the refined center may lie outside kernel support, and a signed-mass
+guard does so near numerical coverage boundaries.
 The refined center supplies its packed two-palette pigment mixture; each
 contributing palette is evaluated once at the shared concentration. Bilinear
 RGB weights accumulate directly into the pixel, with one final quantization.

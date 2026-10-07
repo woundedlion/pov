@@ -1055,7 +1055,15 @@ concern.
           const void *state, uint8_t *prepared);
   run(const void *in, void *out, const FrameContext &,
       const uint8_t *params, const uint8_t *prepared);
+  // null unless the output carrier is PLANE:
+  plane_bound(const void *params, float input_bound) -> float;
   ```
+
+  `plane_bound` is a worst-case output plane magnitude over every phase,
+  given a bound on the input's. The chain host chains these bounds from the
+  projection through the warps and refuses any parameter state whose bound
+  exceeds `MAX_PLANE_BOUND` (single writes, atomic batches and snapshot
+  restore), with `PLANE_GROWTH_WARNING`.
 
   Snapshot callbacks capture and restore typed instance state; see
   [the chain snapshot contract](chain_snapshot_spec.md).
@@ -1221,7 +1229,7 @@ color policy families, the ray stage (`core/render/pullback/ray.h`), and the
 stage combinators. The chain interpreter
 (`core/render/pullback/interpreter.h`, `core/render/pullback/operators/model.h`,
 `core/render/pullback/operators/table.h`, `core/render/pullback/operators.h`
-with its per-family `operators_*.h` headers, and
+with its per-family headers under `core/render/pullback/operators/`, and
 `core/render/pullback/catalog_export.h`), the composed-effect base
 (`core/render/pullback/composed_effect.h`), and the shared runtime seeds
 (`core/render/pullback/runtime_seeds.h`) are not reachable from the umbrella;

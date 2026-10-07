@@ -21,7 +21,7 @@ The rasterizer and driver specs:
 | Document | Status and scope |
 |---|---|
 | [display_geometry.md](display_geometry.md) | IMPLEMENTED. Display latitude profiles and calibration. |
-| [spherical_perspective_spec.md](spherical_perspective_spec.md) | IMPLEMENTED architecture, revision 5; firmware admission is separate. Spherical ray rendering and independent patterns. |
+| [spherical_perspective_spec.md](spherical_perspective_spec.md) | IMPLEMENTED architecture, revision 6; firmware admission is separate. Spherical ray rendering and independent patterns. |
 | [segmented_stateful_effects_spec.md](segmented_stateful_effects_spec.md) | IMPLEMENTED. Cross-segment reach for history-reading effects: the compile-time filter traits, the `Effect::needs_full_frame()` query, and the two driver boundaries (`targets/wasm/engine_bindings.h` `setClip`, `hardware/pov_segmented.h` `clip_to_segment`) that honour it. |
 | [congruence_class_lut_spec.md](congruence_class_lut_spec.md) | FACILITY ONLY. Congruence-class clustering and canonical distance LUTs (`core/render/sdf/face_class_bake.h`); landed and gate-green but wired to no effect. §11–§12 carry the measurements behind the deformation restriction and why IslamicStars was unwired. |
 
