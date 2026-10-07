@@ -956,8 +956,9 @@ class BucketOrdering(unittest.TestCase):
 
 
 class TaggedCounterRows(unittest.TestCase):
-    """Rows the firmware tagged MIXED-PARENT / DUPLICATE-NAME (profiling.h).
+    """Rows tagged MIXED-PARENT / DUPLICATE-NAME.
 
+    Firmware emits the tags in core/platform/cycle_counting.h.
     The tag follows the cycle count on the row it annotates.
     """
 
