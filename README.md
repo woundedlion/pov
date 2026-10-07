@@ -547,7 +547,7 @@ files define line-ending policy and working-artifact exclusions.
 │   ├── docs_check.py           Markdown fence/link/anchor/path validator (CI)
 │   ├── docs_images.py          Resolves every documented `<img>`; `--stage` copies them into the Doxygen output (CI)
 │   ├── license_check.py        Checks every tracked C/C++ source against the terms LICENSE grants it (CI)
-│   ├── *_tests/                Host unit tests for the gate, build + git hooks, profile parser, bakes, build pins, docs and license checks
+│   ├── *_tests/                Host unit tests for the size and coverage gates, build + git hooks, profile parser, bakes, build pins, docs and license checks
 │   ├── docs_sync.py          Refreshes repository maps and source-derived documentation counts
 │   ├── engine_source_state.py Reports tracked edits and untracked non-ignored files
 │   ├── teensy_flash.sh       Uploads firmware to the USB location of the locked board
@@ -801,7 +801,7 @@ The filter pipeline operates across three stage domains. Each filter declares it
 `Canvas` is a RAII scope guard for one frame of rendering. Constructing it acquires the next write buffer; destroying it queues the finished frame for display.
 
 ```cpp
-void MyEffect::draw_frame() override {
+void draw_frame() override {
     Canvas canvas(*this);   // advance_buffer() — grab write buffer
                             // clear buffer if !persist_pixels
     // ... render here using canvas(x, y) = pixel ...
@@ -881,6 +881,7 @@ The tables below are the library surface, deliberately wider than the set of sta
 ```cpp
 // Declare a style member and use it in the pipeline:
 Feedback::Style style = Feedback::Style::Smoke();
+style.noise = &noise_params;  // effect-owned NoiseParams; noise_warp is a no-op while unbound
 Pipeline<W, H, Filter::World::Orient, Filter::Screen::AntiAlias<W, H>,
          Filter::Pixel::Feedback<W, H>> filters(
     ..., Filter::Pixel::Feedback<W, H>(style));

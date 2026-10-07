@@ -70,15 +70,16 @@ Hardware constants (`targets/Phantasm/phantasm_target.h`, `hardware/pov_segmente
 | Half-revolution     | 62.5 ms  | one full image (two arms, 180°)    |
 | Frame rate          | 16 fps   | 2 flips/rev                        |
 | Boards (N)          | 4        | seg 0 = phase reference / conductor   |
-| Effect duration     | 38–240 s | per-effect; 304–1,920 revolutions  |
+| Effect duration     | 38–300 s | per-effect; 304–2,400 revolutions  |
 
 **Effect duration is per-entry, not uniform.** `HS_PHANTASM_EFFECT_LIST`
 (`targets/Phantasm/phantasm_playlist.h`) carries a duration in seconds beside
 every roster name; `targets/Phantasm/Phantasm.ino` turns that column into
-`EFFECT_REVOLUTIONS[]` as `seconds · RPM / 60`, and `run_show()` counts down
-that entry's own budget. Across the 38-entry roster the durations run 38 s
-(304 revolutions, the shortest shader-group entries) to 240 s (1,920
-revolutions, `KaleidoscopeSmooth` and `AlienBrain`); 120 s / 960 revolutions is
+`EFFECT_REVOLUTIONS[]` as `seconds · RPM / 60`, `run_show()` installs that
+table in the sync `Config`, and the master counts down that entry's own budget.
+Across the 38-entry roster the durations run 38 s
+(304 revolutions, the shortest shader-group entries) to 300 s (2,400
+revolutions, `HyperLattice`); 120 s / 960 revolutions is
 the most common value but carries no special status in the protocol. Every
 fixed revolution budget below — the R = 3 announce repeats, the K = 2
 construction window, the ~16-rev epoch refractory, the 16-rev beacon cadence,
@@ -728,7 +729,7 @@ together."
 
 ### 6.3 Epoch reliability (resolved — four stacked mechanisms)
 
-Epoch is rare (once per roster entry, 38–240 s) but a *missed* epoch is very
+Epoch is rare (once per roster entry, 38–300 s) but a *missed* epoch is very
 visible (one segment
 stuck on the previous effect). Four mechanisms stack, each catching what the
 previous one cannot:
@@ -756,7 +757,7 @@ previous one cannot:
    repeat — or that booted late, or rebooted mid-show — corrects at the next
    beacon *pair* (§6.3.4), normally the rev-1/rev-2 post-commit beacons ~250 ms
    later, instead of staying on the wrong effect for the rest of that entry
-   (up to 240 s). No board ever
+   (up to 300 s). No board ever
    *assumes* index 0; the "all boot together at 0" assumption is gone. (A
    beacon-corrected joiner starts the effect's history
    fresh mid-flight — stateless and stateful alike, since there is no frame
@@ -892,8 +893,7 @@ Invariants:
 
 1. **Hot path stays time-light.** Each wake-up does one
    cycle-counter read and the 64-bit position computation; ~7 of 8 entries
-   end there (≈1 % CPU at 600 MHz — the foreground keeps the rest for
-   rendering), and a column change packs fresh pixels
+   end there (≈1 % CPU at 600 MHz for those near-empty entries), and a column change packs fresh pixels
    (2304 Hz, same as the previous per-column interrupt). A pending DMA submission
    can retry on following wakes while the transport remains busy. No `digitalRead` runs
    here. Classification runs when the mailbox yields a completed burst. Rising-edge
@@ -959,9 +959,9 @@ Invariants:
    busy, the start came too late to fit before HALF, or an overrun copy went
    stale at a boundary, boundary symbols dropped undrained at the next
    boundary, the longest coast (half-revs without a snap), and master fold
-   stalls re-seeded (§4.1) — and the foreground render loop reports changes
-   behind `hs::debug` at ≤1 Hz, exactly like the existing DMA-overrun counter
-   pattern. Nothing in any ISR formats or prints. Degradation that the
+   stalls re-seeded (§4.1) — and the foreground render loop reports them
+   behind `hs::debug` in a 1 Hz heartbeat, alongside the existing DMA-overrun
+   counter. Nothing in any ISR formats or prints. Degradation that the
    protocol absorbs silently (a discarded symbol, a rejected snap) must still
    be *visible* in one glance of debug output, or field diagnosis is
    guesswork.
@@ -1011,7 +1011,7 @@ construction window K = 2 revs (commit at B + repeats + K, §6.1), beacon every 
 the §10 old-design glitch estimate, deliberately pessimistic for a terminated
 hard line. Time anchors: 1 col = 434 µs; 144 col = ½ rev = 62.5 ms;
 4,608 col = 16 revs = 2 s; 7,200 col = 25 revs = 3.1 s; one effect = 304 revs
-= 38 s at the shortest roster entry and 1,920 revs = 240 s at the longest.
+= 38 s at the shortest roster entry and 2,400 revs = 300 s at the longest.
 The rejoin budget is 25 revs, not the 16-rev beacon cadence: beacons
 are suppressed for the whole commit window, so the widest beacon-to-beacon gap
 is 16 + 3 (EPOCH announce revs) + K = 21 revs, and a joiner then waits up to the
@@ -1027,7 +1027,7 @@ short entry is a worse case for rejoin visibility than a long one.
 | EMI on the sync wire | binding case: an edge within G of the matching predicted boundary → ≤G col (≈5°) seam on one board for ≤½ rev; all other cases rejected with no artifact | ≤144 col (next real symbol re-snaps) | accepted-case ≈ λ·2G/288 ≈ **1.7/hr**, and that is an upper bound — an edge that close to a boundary normally lands within the gap timeout of the *real* burst and merges into an invalid count (discarded), so acceptance also needs the real symbol absent; rejected ≈ λ ≈ 1/min (telemetry only); boundary misclassification (2 coincident errors) ≈ 1/2 yrs *and* gate-rejected — except the ZERO→ZERO_EPOCH case, budgeted in the spurious-EPOCH row |
 | Spurious EPOCH (two spurious edges inside one ZERO burst → a valid ZERO_EPOCH on the same boundary; gate-accepted) | one board commits to the next roster entry alone — a wrong effect, not a dark one — until the §6.3.4 two-beacon index correction rebuilds it | ≤9,216 col (~4 s, two beacon gaps) plus one rebuild-dark window; a no-op inside the 16-rev epoch refractory | ≈ 1/2 yrs (two coincident edge errors in one burst), the only gate-accepted two-error case |
 | Mis-snap despite the gate / corrupted timebase (incl. forged burst during ACQUIRE) | one board off by up to W/2 | ≤ ~750 col ≈ 325 ms (`reject_fallback` rejections at ½-rev pace, each registered after the 24-col suspect window since a far-landing real symbol is held as possible beacon data first → ACQUIRE → re-snap ≤144) | possible during ordinary mid-show acquisition: beacon digit 0 is a clean one-pulse burst and can satisfy the quiet-before gate without an edge error. Frequency depends on reboot phase and beacon contents; the rejection fallback bounds recovery |
-| Dropped render (effect misses the 62.5 ms budget) | stale frame for 1 period; 1-frame `t` seam vs neighbors | next epoch reset (remainder of effect, up to 240 s); same-index beacon does not advance frame time | ≈0 within budget; watched by the overrun/`ft` telemetry |
+| Dropped render (effect misses the 62.5 ms budget) | stale frame for 1 period; 1-frame `t` seam vs neighbors | next epoch reset (remainder of effect, up to 300 s); same-index beacon does not advance frame time | ≈0 within budget; watched by the overrun/`ft` telemetry |
 | Missed epoch (all R+1 copies) or corrupted beacon frame | one segment on the old effect ≤4 s; a dropped beacon alone is consequence-free redundancy | 576 col (~250 ms): the post-commit beacons ride consecutive revolutions, so the §6.3.4 confirming frame costs one extra revolution; ≤9,216 col (~4 s, two beacon gaps) if the post-commit train is lost too | ≈0 — requires 4 independent symbol losses; beacon bounds it regardless |
 | Board reboot mid-show | one segment dark (fail-dark, never wrong) | ≤7,200 col (~3.1 s, the enforced 25-rev bound): phase ≤144 col, index at the next beacon — up to a 21-rev gap across a commit window — then the §6.5 grid adds ≤4 revs before it goes live on the correct effect | per external reboot event |
 | Firmware invariant violation (init > K, flywheel wake-ups stop) | trap (`HS_CHECK` / `buffer_free()` watchdog) | none — fail-fast by design | 0 in correct firmware; a caught bug class, not a runtime mode |
@@ -1116,7 +1116,7 @@ strictly cleaner, not weaker.
 6. **Inter-board flip skew — RESOLVED by construction.** In normal operation
    downstream flips on its **own flywheel crossing** (within ⅛ column of the
    boundary under the oversampled wake grid, §4.1), and symbol
-   classification cannot complete before burst + gap timeout (≥ ~4.5
+   classification cannot complete before burst + gap timeout (≥ 4
    columns) — so the crossing always leads and skew is sub-column. The
    backstop case (a drifted flywheel letting the symbol flip first) lands at
    ≈13 columns / ~5.6 ms worst case for EPOCH; still ≪ 62.5 ms frame. The
@@ -1219,7 +1219,7 @@ Following the `pov_segment_map.h` precedent (pure, host-tested index math):
   edge within G with the real symbol censored): seam engages above
   truncation noise, stays ≤ G, recovered by the next real symbol ≤½ rev
   later. A corrupted timebase: `reject_fallback` suspect-window rejections →
-  ACQUIRE → re-snap, locked and sub-column again within ~2.8 revs, content
+  ACQUIRE → re-snap, locked and sub-column again within ~3.1 revs, content
   coherent at the next epoch with no trap. A corrupted beacon frame: rejected
   whole with nothing applied, next beacon decodes ≤ one period later, zero
   content or
@@ -1246,7 +1246,7 @@ Following the `pov_segment_map.h` precedent (pure, host-tested index math):
   index sensor into master would dominate the flywheel design on three fronts at
   once: (1) pin the image to physical rotation, removing the accepted precession;
   (2) give a crystal-drift-free revolution count, removing the §6.3 "never miss
-  an epoch across up to 1,920 revs of crystal drift" fragility; and (3) provide a
+  an epoch across up to 2,400 revs of crystal drift" fragility; and (3) provide a
   hardware boundary reference more robust than any wire symbol (§5.2). The whole
   flywheel-plus-snap apparatus exists to *approximate*, open-loop, what one
   sensor would give directly. If a sensor is ever fitted, this design is its
