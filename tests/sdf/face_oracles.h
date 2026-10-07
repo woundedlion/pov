@@ -219,15 +219,32 @@ inline void test_face_asymmetric_sector_matches_oracle() {
       SDF::Face face(vertices, indices, scratch, math::LatitudeGeometry(144),
                      144);
       HS_EXPECT_TRUE(face.sector_ok);
-      for (int x = -50; x <= 50; ++x)
-        for (int y = -50; y <= 50; ++y) {
-          const float px = x * 0.01f, py = y * 0.01f;
-          bool inside;
-          const float squared = face.plane_dsq_sector(px, py, inside);
-          const double expected = double_polygon_distance(face, px, py);
-          const double actual = (inside ? -1.0 : 1.0) * std::sqrt(squared);
-          HS_EXPECT_NEAR(actual, expected, 1e-5);
+      for (bool zero_radius : {false, true}) {
+        if (zero_radius) {
+          face.sector_min_radius_sq = 0.0f;
+          for (int i = 0; i < COUNT; ++i)
+            scratch.planes[i].z = 0.0f;
         }
+        for (int x = -50; x <= 50; ++x)
+          for (int y = -50; y <= 50; ++y) {
+            const float px = x * 0.01f, py = y * 0.01f;
+            bool inside;
+            const float squared = face.plane_dsq_sector(px, py, inside);
+            const double expected = double_polygon_distance(face, px, py);
+            const double actual = (inside ? -1.0 : 1.0) * std::sqrt(squared);
+            HS_EXPECT_NEAR(actual, expected, 1e-5);
+            for (float limit : {0.0f, 0.0001f, 0.01f}) {
+              bool capped_inside;
+              const float capped =
+                  face.plane_dsq_sector(px, py, capped_inside, limit);
+              HS_EXPECT_EQ(capped_inside, inside);
+              if (inside || squared < limit)
+                HS_EXPECT_NEAR(capped, squared, 1e-8f);
+              else
+                HS_EXPECT_GE(capped, limit);
+            }
+          }
+      }
     }
 }
 
