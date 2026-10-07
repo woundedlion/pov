@@ -1558,6 +1558,20 @@ class PackageVerificationTests(unittest.TestCase):
                                     "phantasm-CPL.csv: recorded but not"):
             fab.verify_package(str(directory), str(baseline))
 
+    def test_reports_a_missing_zipped_artifact(self):
+        directory, baseline = self.package()
+        (directory / "phantasm-F_Cu.gtl").unlink()
+        with self.assertRaisesRegex(fab.PackageVerificationError,
+                                    "phantasm-F_Cu.gtl: recorded but not in the package"):
+            fab.verify_package(str(directory), str(baseline))
+
+    def test_reports_an_unrecognized_package_file(self):
+        directory, baseline = self.package()
+        (directory / ".DS_Store").write_bytes(b"metadata")
+        with self.assertRaisesRegex(fab.PackageVerificationError,
+                                    "contains unrecognized package files: .DS_Store"):
+            fab.verify_package(str(directory), str(baseline))
+
     def test_rejects_a_manifest_that_skips_an_artifact(self):
         directory, baseline = self.package()
         manifest = directory / fab.SUMS_FILE
