@@ -205,7 +205,11 @@ class CaptureCheckoutState(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             other = Path(directory)
             cache = {"HS_PULLBACK_CAPTURE_SOURCE_ROOT": other.as_posix()}
-            with mock.patch.object(capture, "changed_sources", return_value=[]),                     mock.patch.object(capture, "_cache_values", return_value=cache),                     mock.patch.object(capture, "attest_toolchain") as attest:
+            with (
+                mock.patch.object(capture, "changed_sources", return_value=[]),
+                mock.patch.object(capture, "_cache_values", return_value=cache),
+                mock.patch.object(capture, "attest_toolchain") as attest,
+            ):
                 with self.assertRaisesRegex(capture.CaptureError, "different source root"):
                     capture.produce("native-debug", ROOT, ROOT / "build", MANIFEST_DIR,
                                     ROOT / "capture.json")
@@ -213,8 +217,12 @@ class CaptureCheckoutState(unittest.TestCase):
 
     def test_build_for_the_checkout_reaches_toolchain_attestation(self):
         cache = {"HS_PULLBACK_CAPTURE_SOURCE_ROOT": ROOT.as_posix()}
-        with mock.patch.object(capture, "changed_sources", return_value=[]),                 mock.patch.object(capture, "_cache_values", return_value=cache),                 mock.patch.object(capture, "attest_toolchain",
-                                  side_effect=capture.CaptureError("attested")) as attest:
+        with (
+            mock.patch.object(capture, "changed_sources", return_value=[]),
+            mock.patch.object(capture, "_cache_values", return_value=cache),
+            mock.patch.object(capture, "attest_toolchain",
+                              side_effect=capture.CaptureError("attested")) as attest,
+        ):
             with self.assertRaisesRegex(capture.CaptureError, "attested"):
                 capture.produce("native-debug", ROOT, ROOT / "build", MANIFEST_DIR,
                                 ROOT / "capture.json")
@@ -366,7 +374,7 @@ class ManifestValidation(unittest.TestCase):
         schema["$defs"].pop("sha")
         with self.assertRaisesRegex(generator.ManifestError,
                                     "missing schema definitions"):
-                generator._validate_schema_shape(schema, schema_path)
+            generator._validate_schema_shape(schema, schema_path)
 
     def test_schema_shape_rejects_unsupported_keywords(self):
         schema_path = MANIFEST_DIR / "schema.json"
