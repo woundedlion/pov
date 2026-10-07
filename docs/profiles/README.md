@@ -77,7 +77,7 @@ predate the October 5 shipping optimization.
 | [Voronoi](shipping/profile_voronoi_teensy_2026-10-06.md) / [O3](O3/profile_voronoi_teensy_2026-08-26.md) | `vo_shade` | 🟢 8.00 | 🟢 7.71 | 🟢 0/1087 (0.00%) | 🟢 0/1088 (0%) | +15,568 B | +12,688 B | ship 2026-10-06 18:25<br>O3 2026-08-26 01:39 |
 | [RingShower](shipping/profile_ringshower_teensy_2026-10-06.md) / [O3](O3/profile_ringshower_teensy_2026-08-26.md) | `rsh_draw_rings` | 🟢 4.32 | 🟢 3.86 | 🟢 0/1087 (0.00%) | 🟢 0/1088 (0%) | +16,336 B | +15,136 B | ship 2026-10-06 18:20<br>O3 2026-08-26 01:36 |
 
-Shipping columns re-captured 2026-10-06 at `e2f5b0a3d` (full roster, COM3 and COM4); setup frame 1 is excluded. The O3 columns, image deltas and O3 timestamps are unchanged and belong to each O3 capture's own source pair, not to the 2026-10-06 shipping capture. Captured times are local raw-log mtimes.
+Shipping columns re-captured 2026-10-06 at `e2f5b0a3d` (full roster, COM3 and COM4), except HyperLattice at `a13c149d4`; setup frame 1 is excluded. The O3 columns, image deltas and O3 timestamps are unchanged and belong to each O3 capture's own source pair, not to the 2026-10-06 shipping capture. Captured times are local raw-log mtimes.
 
 § Cyclers carry one aligned line per parser-owned colour bucket, worst first;
 (N) counts parser-owned preset, shape, or mode entries in that colour bucket.
