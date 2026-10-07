@@ -266,9 +266,7 @@ inline void run_project_parity(const char *op_id, ValueSet set) {
     params = OpParams{};
     params.coordinate_scale = 0.5f;
     auto changed = project_mirror(program, ctx);
-    changed.peirce.coordinate_scale = 1.0f;
     changed.peirce_fast.coordinate_scale = 1.0f;
-    changed.bonne.coordinate_scale = 1.0f;
     changed.airocean.coordinate_scale = 1.0f;
     expect_project_parameter_control<Bound>(program, ctx, changed);
   }
@@ -350,11 +348,17 @@ inline void run_gnomonic_variant(In::ChainProgram &program,
 template <bool North>
 inline void run_bonne_variant(In::ChainProgram &program,
                               const In::FrameContext &ctx) {
-  param_as<In::Op::ProjectBonneV3::Params>(program, 1).hemisphere =
-      North ? 0 : 1;
+  auto &params = param_as<In::Op::ProjectBonneV3::Params>(program, 1);
+  params.hemisphere = North ? 0 : 1;
   using Bound = typename PB::Stage::Project<PB::Projection::Bonne<
       BonneProjMirror, North>>::template Bind<ProjMirrorBinding>;
   expect_project_op_parity<Bound>(program, ctx);
+  params = {};
+  params.hemisphere = North ? 0 : 1;
+  params.coordinate_scale = 0.5f;
+  auto changed = project_mirror(program, ctx);
+  changed.bonne.coordinate_scale = 1.0f;
+  expect_project_parameter_control<Bound>(program, ctx, changed);
 }
 
 inline void test_shader_chain_parity_project_hemispheres() {
