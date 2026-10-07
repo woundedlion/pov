@@ -614,12 +614,30 @@ public:
     scale = other.scale;
     base = other.base;
     seed = other.seed;
+    if (!channel_phases)
+      channel_phases = persistent_arena.make_n<double>(8);
     std::copy_n(other.channel_phases, 8, channel_phases);
     return *this;
   }
 
-  MobiusWarpEvolving(MobiusWarpEvolving &&) = default;
-  MobiusWarpEvolving &operator=(MobiusWarpEvolving &&) = default;
+  MobiusWarpEvolving(MobiusWarpEvolving &&other) noexcept
+      : AnimationBase(std::move(other)), params(other.params),
+        speed(other.speed), scale(other.scale), base(other.base),
+        seed(other.seed),
+        channel_phases(std::exchange(other.channel_phases, nullptr)) {}
+
+  MobiusWarpEvolving &operator=(MobiusWarpEvolving &&other) noexcept {
+    if (this == &other)
+      return *this;
+    AnimationBase::operator=(std::move(other));
+    params = other.params;
+    speed = other.speed;
+    scale = other.scale;
+    base = other.base;
+    seed = other.seed;
+    channel_phases = std::exchange(other.channel_phases, nullptr);
+    return *this;
+  }
 
   /** @brief Sets the modulation speed (radians of phase per frame unit). */
   void set_speed(float speed) {

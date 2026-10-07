@@ -23,6 +23,7 @@
 
 #include <new> // std::launder
 #include <type_traits>
+#include <utility>
 #include "math/3dmath.h"
 #include "platform/platform.h"
 #include "vendor/FastNoiseLite.h"
