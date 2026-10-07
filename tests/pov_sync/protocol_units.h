@@ -67,16 +67,39 @@ inline void test_helpers() {
   // Every term moves the bound: a 16-rev cadence does not fit a 16-rev budget,
   // and the commit window and join grid each push it out further.
   Config rc = test_config();
+  rc.revs_per_effect = 48;
   rc.rejoin_budget_revs = 16;
   rc.beacon_period_revs = 16;
   expect_rejects(rc, "rejoin_bound_revs() <= rejoin_budget_revs");
   rc.rejoin_budget_revs = 25;
+  HS_EXPECT_EQ(rc.rejoin_bound_revs(), 25u);
   HS_EXPECT_TRUE(rc.valid() == nullptr);
   ++rc.commit_revs;
   expect_rejects(rc, "rejoin_bound_revs() <= rejoin_budget_revs");
   --rc.commit_revs;
   rc.join_grid_revs = 8;
   expect_rejects(rc, "rejoin_bound_revs() <= rejoin_budget_revs");
+
+  // The commit-window gap depends on the entry's duration mod the cadence: an
+  // entry one revolution past a multiple of it spends a full cadence after its
+  // last beacon before the epoch.
+  Config rd = test_config();
+  rd.beacon_period_revs = 16;
+  rd.rejoin_budget_revs = 25;
+  rd.revs_per_effect = 50;
+  HS_EXPECT_EQ(rd.commit_beacon_gap_revs(0), 7u);
+  HS_EXPECT_EQ(rd.rejoin_bound_revs(), 20u);
+  rd.revs_per_effect = 49;
+  HS_EXPECT_EQ(rd.commit_beacon_gap_revs(0), 22u);
+  expect_rejects(rd, "rejoin_bound_revs() <= rejoin_budget_revs");
+  // One such entry in a roster is enough.
+  const uint32_t mixed[4] = {48, 64, 49, 32};
+  rd.set_effect_revolutions(mixed);
+  expect_rejects(rd, "rejoin_bound_revs() <= rejoin_budget_revs");
+  // The boot repeats are the last beacon when the cadence never fires.
+  rd.revs_per_effect = 17;
+  rd.clear_effect_revolutions();
+  HS_EXPECT_EQ(rd.commit_beacon_gap_revs(0), 20u);
 
   // Demarcation: a wire timeout below the beacon's worst-case per-digit advance
   // splits a real digit train into isolated boundary symbols. The shipped

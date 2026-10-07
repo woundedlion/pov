@@ -1013,9 +1013,12 @@ hard line. Time anchors: 1 col = 434 µs; 144 col = ½ rev = 62.5 ms;
 4,608 col = 16 revs = 2 s; 7,200 col = 25 revs = 3.1 s; one effect = 304 revs
 = 38 s at the shortest roster entry and 2,400 revs = 300 s at the longest.
 The rejoin budget is 25 revs, not the 16-rev beacon cadence: beacons
-are suppressed for the whole commit window, so the widest beacon-to-beacon gap
-is 16 + 3 (EPOCH announce revs) + K = 21 revs, and a joiner then waits up to the
-4-rev join grid. `Config::valid()` enforces that bound. The 25 revs are
+are suppressed for the whole commit window, so the gap across a commit is an
+entry's revolutions after its last beacon + 3 (EPOCH announce revs) + K + 1
+(the new entry's revolution 0 carries none). Every shipped entry is a multiple
+of 8 revs, so that gap is at most 15 + 3 + 2 + 1 = 21 revs; an entry ≡ 1 mod 16
+would stretch it to 22. A joiner then waits up to the 4-rev join grid.
+`Config::valid()` computes the bound from the roster and enforces it. The 25 revs are
 absolute, not a fraction of the effect: against the shortest 304-revolution
 roster entry a rejoining board can be dark for about 8% of its airtime, so a
 short entry is a worse case for rejoin visibility than a long one.

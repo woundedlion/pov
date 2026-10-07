@@ -271,16 +271,43 @@ struct Config {
   constexpr int32_t beacon_frame_cols() const { return beacon_frame_cols(35); }
 
   /**
+   * @brief Revolutions from a roster entry's last beacon to the first beacon
+   * of the entry that follows it.
+   * @param effect_index Roster index in [0, effect_count).
+   * @return The beacon gap spanning the entry's commit window.
+   * @details Beacons fall due at revolutions ≡ 1 mod beacon_period_revs and
+   * at 1..epoch_repeats, are suppressed from the epoch at the entry's last
+   * revolution until the commit, and resume at revolution 1 of the next
+   * entry. Requires a duration of at least 2 revolutions, a nonzero
+   * beacon_period_revs and epoch_repeats >= 0.
+   */
+  constexpr uint32_t commit_beacon_gap_revs(int32_t effect_index) const {
+    const uint32_t revs = revolutions_for_effect(effect_index);
+    const uint32_t repeats = static_cast<uint32_t>(epoch_repeats);
+    uint32_t last_beacon =
+        (revs - 2u) / beacon_period_revs * beacon_period_revs + 1u;
+    const uint32_t last_repeat = repeats < revs - 1u ? repeats : revs - 1u;
+    if (last_repeat > last_beacon)
+      last_beacon = last_repeat;
+    return revs - last_beacon + repeats + commit_revs + 1u;
+  }
+
+  /**
    * @brief Worst-case revolutions from a mid-show join to going live on the
    * right effect (spec §9.1).
    * @return Widest beacon-to-beacon gap plus the join-grid wait.
-   * @details Beacons are suppressed for the commit window, so the widest gap
-   * is one cadence plus epoch_repeats + commit_revs. Requires
-   * epoch_repeats >= 0.
+   * @details The widest gap is the larger of one cadence and the widest
+   * commit_beacon_gap_revs() over the roster. Has the preconditions of
+   * commit_beacon_gap_revs() for every entry.
    */
   constexpr uint32_t rejoin_bound_revs() const {
-    return beacon_period_revs + join_grid_revs +
-           static_cast<uint32_t>(epoch_repeats) + commit_revs;
+    uint32_t gap = beacon_period_revs;
+    for (int32_t i = 0; i < effect_count; ++i) {
+      const uint32_t commit_gap = commit_beacon_gap_revs(i);
+      if (commit_gap > gap)
+        gap = commit_gap;
+    }
+    return gap + join_grid_revs;
   }
 
   /**
