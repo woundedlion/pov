@@ -169,6 +169,7 @@ inline int run_pov_sync_tests() {
   test_sim_eight_board_boot_and_phase();
   test_sim_epoch_commit();
   test_sim_variable_effect_durations();
+  test_sim_commit_beacon_gap();
   test_sim_commit_deadline_trap();
   test_sim_commit_pickup_budget();
   test_sim_masked_windows();

@@ -653,6 +653,43 @@ inline void test_sim_variable_effect_durations() {
 }
 
 /**
+ * @brief Verifies the widest beacon-to-beacon gap a receiver sees across
+ *        commits matches Config::commit_beacon_gap_revs().
+ */
+inline void test_sim_commit_beacon_gap() {
+  const uint32_t effect_revolutions[2] = {49, 50};
+  Config cfg = test_config(2);
+  cfg.beacon_period_revs = 16;
+  cfg.set_effect_revolutions(effect_revolutions);
+  cfg.rejoin_budget_revs = cfg.rejoin_bound_revs();
+  HS_EXPECT_TRUE(cfg.valid() == nullptr);
+  const int32_t ppm[2] = {0, 0};
+  Sim sim(cfg, 2, ppm);
+  HS_EXPECT_TRUE(boot_join(sim, cfg));
+
+  uint32_t seen = sim.boards[1].board.telemetry_snapshot().beacons_ok;
+  uint64_t last_at = 0;
+  uint64_t widest = 0;
+  HS_EXPECT_FALSE(sim.run_until(
+      [&](Sim &s) {
+        const uint32_t ok = s.boards[1].board.telemetry_snapshot().beacons_ok;
+        if (ok != seen) {
+          if (last_at != 0 && s.g - last_at > widest)
+            widest = s.g - last_at;
+          last_at = s.g;
+          seen = ok;
+        }
+        return false;
+      },
+      double(effect_revolutions[0] + effect_revolutions[1]) + 12));
+  const uint64_t rev = 2ull * PERIOD;
+  const uint64_t expected = cfg.commit_beacon_gap_revs(0);
+  HS_EXPECT_EQ(expected, 22u);
+  HS_EXPECT_EQ(cfg.commit_beacon_gap_revs(1), 7u);
+  HS_EXPECT_EQ((widest + rev / 2) / rev, expected);
+}
+
+/**
  * @brief Verifies an effect whose construction outruns the K-revolution window
  *        traps (HS_CHECK on the device) and never silently skews the show
  *        (§6.1).
