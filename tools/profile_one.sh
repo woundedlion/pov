@@ -1,7 +1,7 @@
 #!/bin/bash
 # profile_one.sh <Effect-or-ID> <env:profile|profile_o3> <seconds> <window> [extra flags...]
 # Builds+flashes the profile image for one effect and captures its serial dump
-# to build/prof/<effect>_<tag>.log, then verifies the capture header and, for a
+# to a log under build/prof/ by default, then verifies the capture header and, for a
 # cycling effect, a preset marker; on a mismatch it wipes the env build dir and
 # retries once. The shipping phantasm image must pass its size/layout gates and
 # supplies the ELF for compiler/ABI attestation. Host: Windows + Git Bash.
@@ -12,6 +12,9 @@
 #   HS_ARM_READELF          readelf for ELF attestation
 #   HS_PROFILE_DEEP=1       enable the HS_PROFILE_DEEP sub-scopes; writes _deep.log
 #   HS_PROFILE_TREE=<path>  checkout to build (default: the one holding this script)
+#   HS_PROFILE_OUT=<path>   capture log path; all per-run artifacts share its stem
+#   HS_PROFILE_EXPECT_SHAPE=<name> require "Spawning Shape: <name>" in the capture
+#                           (used by profile_islamic_big.sh for IslamicStars)
 #   HS_PROFILE_MINDSPLATTER=counts|stalls  MindSplatter instrumentation image with
 #                           a suffixed log; not valid for timing comparisons
 set -euo pipefail
