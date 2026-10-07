@@ -79,6 +79,7 @@ inline int run_animation_tests() {
 
   test_driver_increments_and_wraps();
   test_driver_no_wrap_accumulates();
+  test_driver_set_speed_ignores_non_finite();
   test_driver_nan_source_does_not_poison();
 
   test_lerp_drives_subject_to_target();
