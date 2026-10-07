@@ -548,6 +548,11 @@ async function main(probe) {
           } else if (!near(readBack(), t.min)) {
             fail(`write-seam: setParameter below min not clamped: read ${readBack()}, want ${t.min}`);
           }
+          if (engine.setParameter(`${t.name}\0suffix`, t.max) !== R.UNKNOWN_PARAM) {
+            fail('write-seam: setParameter(NUL-bearing name) did not report UNKNOWN_PARAM');
+          } else if (!near(readBack(), t.min)) {
+            fail(`write-seam: setParameter(NUL-bearing name) moved the value to ${readBack()}`);
+          }
           // A non-finite write names its reason and leaves the value in place.
           if (engine.setParameter(t.name, NaN) !== R.NON_FINITE) {
             fail(`write-seam: setParameter("${t.name}", NaN) did not report NON_FINITE`);

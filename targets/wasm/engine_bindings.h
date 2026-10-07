@@ -490,6 +490,8 @@ public:
   ParamSetResult setParameter(const std::string &name, float value) {
     if (!current_effect)
       return ParamSetResult::NO_EFFECT;
+    if (name.find('\0') != std::string::npos)
+      return ParamSetResult::UNKNOWN_PARAM;
     const ParamSetResult result =
         current_effect->updateParameter(name.c_str(), value);
     binding_state->paused = current_effect->animations_paused();
