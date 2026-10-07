@@ -477,17 +477,14 @@ inline void test_full_handoff_cycle() {
 }
 
 /**
- * @brief Display-window (clip) alternation publishes the swept half.
- * @details The window defaults to arm-A-left (1); a ZERO-crossing flip keeps it
- * 1, a HALF flip clears it to 0 — the value the foreground reads to clip the
- * next frame to the opposite quadrant.
+ * @brief The display window defaults to arm-A-left and follows setter updates.
  */
 inline void test_window_alternation() {
   EffectHandoff<FakeEffect> h;
-  HS_EXPECT_EQ(h.window_left(), 1u); // default: arm-A-left
-  h.set_window_left(false);          // HALF flip
+  HS_EXPECT_EQ(h.window_left(), 1u);
+  h.set_window_left(false);
   HS_EXPECT_EQ(h.window_left(), 0u);
-  h.set_window_left(true); // ZERO flip
+  h.set_window_left(true);
   HS_EXPECT_EQ(h.window_left(), 1u);
 }
 
