@@ -294,9 +294,9 @@ template <> inline constexpr float reject_margin<Line> = FLT_MAX;
 template <> inline constexpr float reject_margin<Ring> = 0.0f;
 template <> inline constexpr float reject_margin<DistortedRing> = 0.0f;
 template <> inline constexpr float reject_margin<FlatDistortedRing> = 0.0f;
-// The cull disk clears the polygon by BOUNDS_MARGIN_WIDE of gnomonic-plane
-// distance; a large face reports that as atan(BOUNDS_MARGIN_WIDE) radians,
-// bounded below by the alternating series' first two terms.
+// The cull disk clears the polygon by BOUNDS_MARGIN_WIDE in the gnomonic plane.
+// Large faces report that clearance as fast_atan2(BOUNDS_MARGIN_WIDE, 1),
+// which exceeds this margin at 0.1f. Linear faces report the plane clearance.
 template <>
 inline constexpr float reject_margin<Face> =
     BOUNDS_MARGIN_WIDE -
