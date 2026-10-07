@@ -31,6 +31,62 @@ struct ParticleDrawCapture {
   size_t plotted = 0;
 };
 
+/** @brief Optional fused deferred shaders preserve absent output. */
+inline void test_particle_system_fused_optional_deferred_shader() {
+  constexpr int W = 96, H = 48;
+  StubSystem sys;
+  sys.max_life = 100;
+  sys.active_count = 1;
+  StubParticle particle;
+  particle.life = 50;
+  particle.history.record(math::Vector(1, 0, 0));
+  particle.history.record(math::Vector(0, 0, 1));
+  sys.pool.push_back(particle);
+  std::vector<math::Vector> reference;
+  int deferred_calls = 0;
+  for (int form = 0; form < 4; ++form) {
+    hs_test::StubEffect fx(W, H);
+    CapturePipeline pipe;
+    int fragments = 0;
+    auto shade = [&](const math::Vector &, Fragment &f) {
+      ++fragments;
+      HS_EXPECT_EQ(f.v3, form == 3 ? 0.25f : 0.5f);
+    };
+    auto vertex = [](Fragment &) {};
+    auto deferred = [&](FragmentRegisters f, const math::Vector &) {
+      ++deferred_calls;
+      f.v3 = 0.25f;
+    };
+    {
+      Canvas canvas(fx);
+      if (form == 0)
+        Plot::ParticleSystem::draw_fused_vertex<W, H>(pipe, canvas, sys, shade,
+                                                      vertex);
+      else if (form == 1)
+        Plot::ParticleSystem::draw_fused_vertex<W, H>(pipe, canvas, sys, shade,
+                                                      vertex, nullptr);
+      else if (form == 2)
+        Plot::ParticleSystem::draw_fused_vertex<W, H>(
+            pipe, canvas, sys, shade, vertex, DeferredShaderRef{});
+      else
+        Plot::ParticleSystem::draw_fused_vertex<W, H>(pipe, canvas, sys, shade,
+                                                      vertex, deferred);
+    }
+    HS_EXPECT_GT(fragments, 0);
+    HS_EXPECT_EQ(deferred_calls, form == 3 ? 2 : 0);
+    if (form == 0)
+      reference = pipe.plotted;
+    else {
+      HS_EXPECT_SIZE_OR_RETURN(pipe.plotted, reference.size());
+      for (size_t i = 0; i < reference.size(); ++i) {
+        HS_EXPECT_EQ(pipe.plotted[i].x, reference[i].x);
+        HS_EXPECT_EQ(pipe.plotted[i].y, reference[i].y);
+        HS_EXPECT_EQ(pipe.plotted[i].z, reference[i].z);
+      }
+    }
+  }
+}
+
 /** @brief Draws one particle through every trail shader stage. */
 inline ParticleDrawCapture capture_particle_draw(const StubParticle &particle) {
   constexpr int W = 96, H = 48;
