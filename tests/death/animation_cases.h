@@ -43,16 +43,6 @@ inline void case_timeline_negative_delay() {
 }
 
 /**
- * @brief Death case: a timeline start past UINT32_MAX must trap.
- */
-inline void case_timeline_start_overflow() {
-  Timeline tl;
-  global_timeline_t = opaque<uint32_t>(UINT32_MAX - 1);
-  float value = 0.0f;
-  tl.add(opaque(2), Animation::Transition(value, 1.0f, 1, math::ease_linear));
-}
-
-/**
  * @brief Death case: a pinned animation that COMPLETES must trap.
  * @details Animation surface — the pin contract is pinned => infinite, so
  *          step()'s completion branch traps a pinned animation that completes.

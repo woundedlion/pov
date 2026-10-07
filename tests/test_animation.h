@@ -96,6 +96,9 @@ inline int run_animation_tests() {
   test_timeline_sequences_events_by_start_frame();
   test_timeline_pausable_event_uses_active_time();
   test_timeline_accepts_maximum_start_frame();
+  test_timeline_rollover_preserves_eligibility();
+  test_timeline_paused_rollover_preserves_active_time();
+  test_timers_rollover_preserves_intervals();
   test_timeline_repeating_animation_rewinds_each_cycle();
   test_timeline_cancel_removes_repeating_animation();
   test_timeline_cancel_suppresses_step_side_effects();
