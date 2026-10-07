@@ -277,14 +277,13 @@ inline void test_feedback_flush_melt_warp_displaces_south() {
   hs_test::StubEffect fx(W, H);
 
   // Zero hue_shift isolates the spatial warp; with noise unbound melt_warp is
-  // deterministic. speed=6 -> drip=0.24, a multi-pixel southward shift.
+  // deterministic. speed=6 gives a multi-pixel southward shift.
   ::Feedback::Style style{};
   style.space_fn = &::Feedback::melt_warp;
   style.noise = nullptr;
   style.speed = 6.0f;
   style.fade = 0.9f;
   style.downsample = 4;
-  const float drip = style.speed * 0.04f;
 
   Pipeline<W, H, Filter::Pixel::Feedback<W, H>> pipe{
       Filter::Pixel::Feedback<W, H>(style)};
@@ -309,10 +308,9 @@ inline void test_feedback_flush_melt_warp_displaces_south() {
   // Oracle: the output row that samples source row R. by(y) = warped source row
   // for output row y, computed with the production helpers (x-independent, so use
   // column 0). Pick the y whose source row is closest to the band center.
-  const math::Vector NORTH(0.0f, 1.0f, 0.0f);
   auto by = [&](int y) {
-    math::Vector v = math::pixel_to_vector<W, H>(0, y);
-    return math::phi_to_y<H>(math::Spherical(math::slerp(v, NORTH, drip)).phi);
+    const math::Vector v = math::pixel_to_vector<W, H>(0, y);
+    return math::phi_to_y<H>(math::Spherical(style.space_fn(v, style)).phi);
   };
   int oracle_y = R;
   float best = static_cast<float>(H);
