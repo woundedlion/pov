@@ -314,9 +314,7 @@ inline void test_stroke_aa_is_monotone_ramp() {
   math::Basis basis = math::make_basis(math::Quaternion(), math::Y_AXIS);
   SDF::Ring ring(basis, radius, thickness);
 
-  // March outward from the centerline along the az=0 meridian. raw distance to
-  // the centerline grows with the offset, so the signed distance crosses 0 at
-  // the surface and the alpha should fall 1 -> 0.
+  // March outward from the centerline along the az=0 meridian.
   const int N = 12;
   float prev = 1.0f;
   bool saw_one = false, saw_zero = false, saw_mid = false;

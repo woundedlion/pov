@@ -21,9 +21,8 @@ namespace Pixel {
  * @brief Splits RGB into per-channel copies offset by 1/2/3 spreads of columns,
  * producing a chromatic-aberration fringe.
  * @tparam W Canvas width in columns.
- * @tparam Spread Columns per fringe step. The fringe subtends
- *         3 * Spread / W of a turn, so scaling it with W holds the aberration
- *         at a fixed angular width across resolutions.
+ * @tparam Spread Columns per fringe step; scale it with W to hold the
+ *         fringe's angular width across resolutions.
  */
 template <int W, int Spread = 1> class ChromaticShift : public IsPixel {
   static_assert(Spread >= 1, "ChromaticShift requires a positive Spread");
@@ -33,8 +32,6 @@ template <int W, int Spread = 1> class ChromaticShift : public IsPixel {
                 "ChromaticShift requires W > 3 * Spread for fast_wrap offsets");
 
 public:
-  // Not emits_pixel_centers: the source tap keeps sub-pixel x and every tap
-  // keeps the caller's y.
   /** @brief Fringe taps land up to 3 * Spread columns from the plotted one. */
   static constexpr int segment_margin = 3 * Spread;
   /** @brief Constructs the chromatic-shift filter (stateless). */

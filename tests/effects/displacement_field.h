@@ -396,11 +396,8 @@ inline void test_displacement_field_hue_table_frame_fidelity() {
  * @brief Bounds DisplacementField's octave-grid noise bake against the exact
  *        noise field.
  * @details The bake evaluates each noise octave on every other knot and
- *          fills the rest with a Catmull-Rom spline. Knots on both octave
- *          grids reproduce the exact product field up to the recurrence's
- *          knot-position drift, and every knot stays within half a canvas
- *          column of it: the spline error is well inside the linear polyline's
- *          own deviation from the field between knots.
+ *          fills the rest with a Catmull-Rom spline; every knot stays within
+ *          half a canvas column of the exact field.
  */
 inline void test_displacement_field_octave_bake_tracks_noise() {
   constexpr int W = DEFAULT_W;
@@ -479,11 +476,7 @@ inline void test_displacement_field_zero_hue_scale_is_exact() {
  * @brief Verifies DisplacementField's clipped render tiles the full render:
  *        under a quadrant clip, every display-region pixel matches the
  *        full-canvas render within one 16-bit channel step, frame by frame.
- * @details Identical seeds and mock clock per run isolate the clip-only paths
- *          (the per-ring cap cull and the azimuth-chunk bake cull). The test
- *          enters the ball phase, and each quadrant runs at the registered
- *          defaults and again at the full ring pool with maximum thickness and
- *          displacement amplitudes.
+ * @details Identical seeds and mock clock per run isolate the clip-only paths.
  */
 inline void test_displacement_field_clip_tiles_full() {
   struct Quad {

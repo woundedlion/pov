@@ -26,8 +26,8 @@ struct RingShowerWhiteBox;
  *        fade in over a short lifetime, then recycle their fixed slot.
  * @tparam W Canvas width in pixels.
  * @tparam H Canvas height in pixels.
- * @details A RandomTimer drives spawning; each live ring is advanced and drawn
- *          purely from its `age` (see draw_frame).
+ * @details A RandomTimer drives spawning; each live ring is drawn purely from
+ *          its `age`.
  */
 template <int W, int H> class RingShower : public Effect {
 public:
@@ -113,12 +113,12 @@ private:
     static constexpr int SPAWN_MIN_FRAMES =
         4; /**< Minimum frames between spawns. */
     static constexpr int SPAWN_MAX_FRAMES =
-        48; /**< Maximum frames between spawns; with LIFE_MIN/LIFE_SPAN this sets the live-ring pressure on the MAX_RINGS pool. */
+        48; /**< Maximum frames between spawns. */
 
     math::Vector normal; /**< Plane normal fixing the ring's orientation. */
     /**
-     * @brief 256-entry palette LUT, allocated once in init() and rebaked in
-     *        place each spawn.
+     * @brief Palette LUT, allocated once in init() and rebaked in place each
+     *        spawn.
      */
     BakedPaletteStorage palette;
     int age = 0; /**< Frames elapsed since (re)spawn. */
@@ -168,9 +168,7 @@ private:
   /**
    * @brief Reinitializes the first free ring slot with a new orientation, life,
    *        and palette.
-   * @details Scans for a slot whose age has reached its life; if none is free,
-   *          the spawn is dropped, an expected transient rather than an invariant
-   *          violation.
+   * @details Drops the spawn when no slot is free.
    */
   HS_COLD_MEMBER void spawn_ring() {
     for (size_t i = 0; i < MAX_RINGS; ++i) {
@@ -191,16 +189,13 @@ private:
    * @param canvas Target canvas for this frame.
    * @param ring The slot to draw, at its current age.
    * @details Rings are never re-oriented after spawn, so the basis comes
-   *          straight from the ring's own normal (identity rotation) and the
-   *          palette's radial axis is the fixed X axis — both constant across
-   *          the ring's fragments.
+   *          straight from the ring's own normal.
    */
   void draw_ring(Canvas &canvas, const Ring &ring) {
     const float opacity = ring.opacity_at();
     math::Basis basis = math::make_basis(math::Quaternion(), ring.normal);
-    // v is unit (the rasterizer renormalizes every shaded position), so
-    // dot(X, v) is just v.x; the palette is baked in this cos domain (dot_keyed),
-    // folding the acos radial mapping into the bake.
+    // v is unit, so dot(X, v) is v.x; the palette is baked in this cos domain
+    // (dot_keyed).
     auto fragment_shader = [&](const math::Vector &v, Fragment &f) {
       f.color = ring.palette.get(dot_key(v.x));
       f.color.alpha *= opacity * params.alpha;
@@ -212,9 +207,7 @@ private:
   static constexpr size_t MAX_RINGS = 16; /**< Fixed pool of ring slots. */
   Ring rings[MAX_RINGS];                  /**< The recyclable ring slots. */
 
-  // init() bakes one palette LUT per ring slot into the persistent arena.
-  // Effect keeps the default arena split, so the total must fit the device
-  // persistent partition.
+  // One palette LUT per ring slot in the persistent arena.
   static constexpr size_t FOOTPRINT_BYTES =
       MAX_RINGS * BakedPalette::required_arena_bytes();
   static_assert(FOOTPRINT_BYTES <= DEVICE_PERSISTENT_BUDGET,

@@ -2,23 +2,16 @@
 # Advisory host-global, PER-BOARD lock for the bench Teensys. Source it, then
 # wrap any flash+capture in hs_device_acquire / hs_device_release.
 #
-# Host: Windows + Git Bash. Board enumeration shells out to the PlatformIO
-# loader's teensy_ports.exe and matches COMn names. Acquisition requires an
-# enumerated board so both flash and capture can pin the same device. An explicit
-# HS_TEENSY_PORT skips enumeration when the loader is absent.
-#
-# Lock scope spans build+flash+capture. Claims live outside worktrees at
-# "$HS_DEVICE_LOCK-<COMn>.d"; HS_DEVICE_LOCK defaults to
-# $TMPDIR/holosphere-teensy-device.
-#
-# Acquisition selects the first free enumerated board and exports HS_TEENSY_PORT
-# for flash and capture. A caller-supplied HS_TEENSY_PORT disables the search.
-# An OS file lock serializes claim creation/removal; `info` names the holder.
+# Windows + Git Bash. Boards are enumerated (COMn names) by the PlatformIO
+# loader's teensy_ports.exe; an explicit HS_TEENSY_PORT skips enumeration when
+# the loader is absent. Acquire claims the first free board and exports
+# HS_TEENSY_PORT so flash and capture pin the same device. Claims live outside
+# worktrees at "$HS_DEVICE_LOCK-<COMn>.d".
 #
 # Env knobs:
-#   HS_DEVICE_LOCK   override the lock path base (per-board suffix still added)
+#   HS_DEVICE_LOCK   lock path base (default $TMPDIR/holosphere-teensy-device)
 #   HS_DEVICE_WAIT   seconds to wait for a busy device (default 0 = fail fast)
-#   HS_DEVICE_FORCE  1 = break someone else's lock (see the warning below)
+#   HS_DEVICE_FORCE  1 = break someone else's live lock
 #   HS_DEVICE_STALE_GRACE  seconds before an incomplete claim expires (default 120)
 #   HS_SESSION      owner label recorded in the claim
 #   HS_PYTHON       Python interpreter for host lock operations
@@ -38,11 +31,9 @@ _hs_lock_dir() {
 _hs_now() { date +%s; }
 
 # Attached Teensys, one COM name per line, in teensy_ports.exe's enumeration
-# order (the authority the flash resolves against, not pyserial). Empty output
-# means no board is available. A caller-set HS_TEENSY_PORT is checked against
-# that enumeration before it is handed back.
-#
-# rc 1 = the pin is not attached; rc 2 = enumeration failed.
+# order (the authority the flash resolves against). A caller-set HS_TEENSY_PORT
+# is checked against it. rc 1 = the pin is not attached; rc 2 = enumeration
+# failed.
 hs_device_ports() {
   local tools=${HS_TEENSY_TOOLS:-${PLATFORMIO_CORE_DIR:-$HOME/.platformio}/packages/tool-teensy}
   local attached="" listing rc=0 enumerated=0
@@ -76,8 +67,8 @@ hs_device_ports() {
   return 0
 }
 
-# Our claim token: only the holder may release, so a stale-break followed by a
-# late release from the evicted owner cannot unlock the new holder's device.
+# Our claim token: only the holder may release, so an evicted owner's late
+# release cannot unlock the new holder.
 _HS_TOKEN=""
 _HS_LOCK_DIR=""
 # The board this process holds; also exported as HS_TEENSY_PORT on acquire.
@@ -158,9 +149,8 @@ _hs_break_stale() {
   fi
 }
 
-# _hs_try_claim <dir> <port> <effect> <env> <eta> — mkdir-or-fail, then record
-# the claim. Success also pins this shell's HS_TEENSY_PORT to the board won, so
-# the flash and the capture can never drift onto a peer's device.
+# _hs_try_claim <dir> <port> <effect> <env> <eta> — claim-or-fail; success
+# pins this shell's HS_TEENSY_PORT to the board won.
 _hs_try_claim() {
   local d=$1 port=$2 effect=$3 env=$4 eta=$5
   local token info now result
@@ -192,8 +182,7 @@ _hs_try_claim() {
     _hs_break_lock "$d" "$token" || :
     return 1
   fi
-  # Shell state only once the claim is on disk: a failed claim must leave no
-  # HS_TEENSY_PORT pin behind to steer the next board the caller tries.
+  # Shell state only once the claim is on disk; a failed claim leaves no pin.
   _HS_TOKEN="$token"
   _HS_LOCK_DIR="$d"
   HS_DEVICE_PORT="$port"
@@ -209,7 +198,6 @@ hs_device_acquire() {
   local effect=$1 env=$2 eta=$3
   local waited=0 wait_for=${HS_DEVICE_WAIT:-0} forced=0 p port d
   _hs_resolve_python || return 2
-  # A claim that cannot be recorded would read as a busy board.
   local root; root=$(dirname "$(_hs_lock_base)")
   if [ ! -d "$root" ]; then
     echo "device: lock root $root does not exist, so no claim can be recorded." >&2
@@ -217,10 +205,8 @@ hs_device_acquire() {
     return 2
   fi
   while :; do
-    # Re-enumerated every round: a board can be plugged in (or replugged onto a
-    # new COM name) while we wait, and that board is a free one.
-    # rc propagated, not flattened: 2 (enumeration broke) must stay tellable
-    # apart from 1 (a pin naming no attached board).
+    # Re-enumerated every round (a board can be replugged while we wait); rc 2
+    # (enumeration broke) must stay distinct from 1 (pin not attached).
     local ports; ports=$(hs_device_ports) || return $?
     if [ -z "$ports" ]; then
       if [ "$wait_for" -gt 0 ] && [ "$waited" -lt "$wait_for" ]; then
@@ -273,8 +259,7 @@ hs_device_acquire() {
         return 0
       fi
     fi
-    # hs_device_status returns 1 here; `|| :` keeps a caller's `set -e` from
-    # aborting the run.
+    # hs_device_status returns 1 here; `|| :` spares a caller's `set -e`.
     if [ "$wait_for" -gt 0 ] && [ "$waited" -lt "$wait_for" ]; then
       if [ "$waited" = 0 ]; then
         echo "ALL DEVICES BUSY — waiting up to ${wait_for}s" >&2
@@ -291,9 +276,7 @@ hs_device_acquire() {
   done
 }
 
-# Releasing only our own claim leaves a replacement holder untouched. The pin
-# acquire exported goes with it, so the next acquire in this shell is not
-# steered back onto the board just freed.
+# Releases only our own claim, and drops the pin acquire exported.
 hs_device_release() {
   local d=$_HS_LOCK_DIR
   [ -n "$_HS_TOKEN" ] && [ -n "$d" ] || return 0

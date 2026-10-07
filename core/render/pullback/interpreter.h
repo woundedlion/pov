@@ -244,11 +244,10 @@ public:
    * @param request Ordered {instance_id, operator_id} entries.
    * @return {OK, -1} on commit; otherwise the refusal, with the previous
    *         program, its parameter blocks and all live instance state intact.
-   * @details Order: shape checks against the request alone, then budgets
-   * against one arena's capacity, then layout into the inactive arena, then
-   * state migration/init (a failing migrate tears the candidate down as a
-   * unit), then loser teardown and the active-index flip. Parameter blocks
-   * are default-constructed; values re-apply through the value channel after
+   * @details Checks, budgets, layout into the inactive arena and state
+   * migration all precede the active-index flip; a failing migrate tears the
+   * candidate down as a unit. Parameter blocks are
+   * default-constructed; values re-apply through the value channel after
    * commit.
    */
   ChainRefusal compile(std::span<const ChainEntryRequest> request) {

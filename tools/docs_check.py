@@ -1,19 +1,12 @@
 #!/usr/bin/env python3
 """Validate fences, links, anchors, and path claims in tracked Markdown.
 
-Structure only. A green run means every fence closes, every anchor resolves,
-every link into this repository or a supplied sibling checkout resolves, every
-recognized backticked path under a tracked repository root exists, every tree
-fence matches the tracked tree it draws, the cardinalities CARDINALITY_CLAIMS
-names match their source macros, and the composed-effect roster in
-docs/effects.md matches each effect's PRESET_IDS and the product group -- not
-that the prose is true. Links to other hosts are never visited, and a sibling
-checkout no --checkout root supplies leaves its fences and links unvalidated.
-
-The Doxyfile's PREDEFINED names must also appear in tracked C/C++ source, and
-every code-spelled name or path a C/C++ comment puts in backticks must still
-occur in tracked code or the tracked tree.
-An explicit --retired-term scan rejects old behavior wording in tracked text.
+Structure only, not that the prose is true: fences close; anchors, repo links
+and supplied-checkout links resolve; backticked paths and tree fences match the
+tracked tree; CARDINALITY_CLAIMS and the docs/effects.md composed roster match
+their sources. Doxyfile PREDEFINED names and backticked names in C/C++ comments
+must occur in tracked code; --retired-term rejects old wording. Links to other
+hosts are never visited.
 """
 
 from __future__ import annotations
@@ -52,8 +45,7 @@ _EXPLICIT_HEADING_ID_RE = re.compile(r"[ \t]*\{#([^}\s]+)\}[ \t]*$")
 _HTML_TAG_RE = re.compile(r"<[^>]*>")
 _INLINE_LINK_TEXT_RE = re.compile(r"!?\[([^\]]*)\]\([^)]*\)|!?\[([^\]]*)\]\[[^\]]*\]")
 _SLUG_DROP_RE = re.compile(r"[^\w\- ]", re.UNICODE)
-# GitHub renders #L12 / #L12-L20 as a line range on a blob, not a document
-# anchor; a repo-relative link may not pin one.
+# A #L12 / #L12-L20 line-range fragment, which a repo-relative link may not pin.
 _LINE_FRAGMENT_RE = re.compile(r"^L\d+(?:-L?\d+)?$", re.IGNORECASE)
 
 # A backticked token is linted as a repo path only when it carries one of these
@@ -69,24 +61,19 @@ _SOURCE_SUFFIXES = frozenset({
 # Optional trailing :line or :line-line, as the ledgers cite source spans.
 _PATH_SPAN_RE = re.compile(r"^([A-Za-z0-9_.][\w.\-/]*)(?::\d+(?:-\d+)?)?$")
 
-# Directory trees drawn inside a fence are path claims too, and the largest
-# ones in the docs. The preceding directive says which repository a tree draws
-# and how completely: `tree [<checkout>] [exhaustive]`. Bare `tree` is this
-# repository, rooted at its root; `tree <checkout>` is a sibling repository,
-# validated against the root --checkout supplies, and left unvalidated only
-# when --skip-checkout names it. `exhaustive` adds the
-# reverse direction — every tracked path under a drawn directory must have a
-# row. An HTML comment carries the directive, so neither GitHub nor Doxygen
-# renders it.
+# Fenced directory trees are path claims. An HTML-comment directive
+# `tree [<checkout>] [exhaustive]` precedes the fence: bare `tree` is this
+# repository; `tree <checkout>` is validated against --checkout's root unless
+# --skip-checkout names it; `exhaustive` also requires a row for every tracked
+# path under a drawn directory.
 _DIRECTIVE_RE = re.compile(r"^ {0,3}<!--[ \t]*docs-check:[ \t]*(.*?)[ \t]*-->[ \t]*$")
 _TREE_TAG = "tree"
 _TREE_EXHAUSTIVE = "exhaustive"
 TREE_ROW_RE = re.compile(r"^(?P<indent>(?:│   |    )*)(?:├──|└──) +(?P<rest>\S.*)$")
 _TREE_INDENT = 4
-# A directory row may enumerate its children in prose rather than draw one row
-# apiece, wrapping onto continuation lines that carry the spine but no branch.
-# Within such a row every parenthesized group whose comma-separated parts are
-# all bare stems names children of it, gated in both directions like a row.
+# A directory row may list its children in prose, wrapping onto spine-only
+# continuation lines; each parenthesized group of bare stems names children,
+# gated both ways like a row.
 _TREE_CONT_RE = re.compile(r"^[│ \t]*(?P<rest>\S.*)$")
 TREE_LIST_RE = re.compile(r"\(([^()]*)\)")
 _TREE_STEM_RE = re.compile(r"[a-z0-9_]+")
@@ -95,14 +82,11 @@ _TREE_STEM_RE = re.compile(r"[a-z0-9_]+")
 _TREE_NAME_RE = re.compile(r"^(?![.…]+/?$)[A-Za-z0-9_.*?][\w.\-*?]*(?:/[\w.\-*?]+)*/?$")
 
 _SELF_REPO_HOSTS = frozenset({"github.com", "www.github.com"})
-# The README is installed into the sibling daydream checkout, where relative
-# paths break, so it cites this repository through absolute GitHub URLs. They
-# name tracked paths and are validated like any repo-relative link.
+# The README, also installed into daydream, cites this repository through
+# absolute GitHub URLs, validated like repo-relative links.
 _SELF_REPO_PATH_RE = re.compile(
     r"^/woundedlion/pov/(?:blob|tree|raw)/[^/]+/(.+)$")
-# A sibling repository's own GitHub URLs name paths that are real there. The
-# `tree <NAME>` fences already resolve such a repository against a --checkout
-# root, and the same root resolves these links.
+# A sibling repository's GitHub URLs resolve against its --checkout root.
 _CHECKOUT_REPO_PATH_RE = re.compile(
     r"^/woundedlion/(?!pov/)(?P<checkout>[^/]+)/(?:blob|tree|raw)/[^/]+/"
     r"(?P<path>.+)$")
@@ -118,14 +102,12 @@ EFFECTS_DIAGRAM_RE = re.compile(
 EFFECTS_DIR = PurePosixPath("effects")
 EFFECT_ROSTER_SOURCE = PurePosixPath("targets/effects.h")
 _EFFECT_ROSTER_DEFINE = "#define HS_EFFECT_LIST(X)"
-# X-row spelling mirrored by scripts/effect_roster.mjs; whitespace inside the
-# parens is tolerated. Comments, including multi-line block comments, are
-# stripped before matching.
+# X-row spelling mirrored by scripts/effect_roster.mjs; comments are stripped
+# before matching.
 _COMMENT_RE = re.compile(r"/\*.*?\*/|//[^\n]*", re.DOTALL)
 _EFFECT_ROSTER_ENTRY_RE = re.compile(r"X\(\s*(\w+)\s*\)")
 
-# README prose restates the device playlist's own cardinality (the roster minus
-# HS_PHANTASM_EXCLUDED_EFFECTS).
+# The device playlist: the roster minus HS_PHANTASM_EXCLUDED_EFFECTS.
 PHANTASM_PLAYLIST_SOURCE = PurePosixPath("targets/Phantasm/phantasm_playlist.h")
 _PHANTASM_ROSTER_DEFINE = "#define HS_PHANTASM_EFFECT_LIST(X)"
 # The shader promotion product group lives beside HS_EFFECT_LIST.
@@ -175,17 +157,15 @@ _PREDEFINED_NAME_RE = re.compile(r"^[A-Za-z_]\w*")
 # DOXYGEN enables doc-only branches and need not appear in source.
 _PREDEFINED_UNREFERENCED_ALLOWED = frozenset({"DOXYGEN"})
 
-# Path prefixes the docs cite that this repository will never track: the files
-# that live in the sibling daydream repository, where the same paths are real.
+# Path prefixes the docs cite that live only in the sibling daydream repository.
 UNTRACKED_ALLOWED = (
     ".github/workflows/deploy.yml",
 )
 _UNTRACKED_LIST = "untracked-allowed"
 _TREE_UNMAPPED_LIST = "tree-unmapped"
 
-# Tracked paths an exhaustive tree deliberately leaves without a row: VCS
-# metadata, the map's own document, and the test tree the map draws as one
-# summary row plus its shared fixtures. A trailing slash covers a subtree.
+# Tracked paths an exhaustive tree leaves without a row. A trailing slash
+# covers a subtree.
 TREE_UNMAPPED = (
     ".gitattributes",
     ".gitignore",
@@ -206,7 +186,7 @@ _IMPLICIT_PATH_ROOT = PurePosixPath("core")
 
 
 def _cited(allowlist: str, entry: str) -> str:
-    """One citation token, namespaced by allowlist so the three cannot collide."""
+    """One citation token, namespaced by allowlist."""
     return f"{allowlist}:{entry}"
 
 
@@ -225,11 +205,9 @@ def _stale_allowances(entries: set[PurePosixPath], used: set[str],
 ) -> list[str]:
     """Names allowlist entries the exemption no longer buys anything for.
 
-    An UNTRACKED_ALLOWED prefix exempts a path the docs cite and this
-    repository does not track, so tracking it makes the entry stale; a
-    TREE_UNMAPPED prefix exempts a tracked path from needing a tree row, so
-    untracking it does. A checkout allowance is judged only against a checkout
-    a --checkout root supplied, since nothing else can say what it tracks.
+    An UNTRACKED_ALLOWED path that became tracked, or a TREE_UNMAPPED path
+    that became untracked, is stale. A checkout allowance is judged only
+    against a supplied --checkout root.
     """
     stale = []
     for prefix in UNTRACKED_ALLOWED:
@@ -1120,11 +1098,9 @@ def composed_roster_issues(root: Path, effects_text: str,
     return issues
 
 
-# A C/C++ comment names code by its symbol in backticks; every such symbol
-# must still occur in tracked code, this repository's or a supplied sibling
-# checkout's. Comments in generated and vendored sources are not scanned, though
-# their code is indexed. Script comments are not scanned: JSDoc declares types
-# there that no code spells.
+# Every backticked symbol in a C/C++ comment must occur in tracked code, here
+# or in a supplied checkout. Generated, vendored and script comments are not
+# scanned; generated and vendored code is still indexed.
 SYMBOL_COMMENT_SUFFIXES = frozenset({".c", ".cc", ".cpp", ".h", ".hpp", ".inl",
                                      ".ino"})
 SCRIPT_SUFFIXES = frozenset({".cjs", ".js", ".mjs", ".mts", ".ts"})
@@ -1135,8 +1111,7 @@ SYMBOL_COMMENT_EXCLUDED_RE = re.compile(
     r"|^core/mesh/relax_bakes_generated\.h$"
     r"|^core/spatial/reaction_graph\.cpp$"
     r"|^tests/mindsplatter_replay_corpus\.h$")
-# Other tracked text whose every word counts as code: build files, tool
-# scripts, configuration, and suffixless hook scripts.
+# Other tracked text whose every word counts as code.
 _SYMBOL_INDEX_SUFFIXES = frozenset({
     "", ".cmake", ".def", ".in", ".ini", ".json", ".ld", ".py", ".sh",
     ".toml", ".yaml", ".yml",
@@ -1642,8 +1617,7 @@ def main(argv: list[str] | None = None) -> int:
             print(issue)
         print(f"[docs-check] FAIL - {len(issues)} issue(s)", file=sys.stderr)
         return 1
-    # No tracked Markdown means the checker was pointed somewhere it cannot see
-    # the repository (wrong --root, no git); passing would certify nothing.
+    # Zero tracked Markdown (wrong --root, no git) would certify nothing.
     if not markdown:
         print(f"[docs-check] tooling error: no tracked Markdown under "
               f"{args.root.resolve()}", file=sys.stderr)

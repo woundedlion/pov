@@ -29,15 +29,11 @@ import {
 import { sha256Hex } from './sha256.mjs';
 
 // scripts/shader_workbench.mjs and scripts/sha256.mjs are the sources of
-// daydream's shader/ mirrors: the engine install ships them there (see
-// CMakeLists.txt), and daydream's tests/wasm_provenance.test.js diffs its
-// installed copies against the engine checkout it pins.
-// engine_catalog.json states the wasm32 operator ABI, the one the browser
-// workbench's budget math models. tests/data/shader_chain_catalog.json is a
-// separate catalog stating the native ABI the C++ suite pins. Their
-// prepared-block sizes and alignments disagree by construction: the two files
-// are not to be reconciled, and copying either over the other retargets a
-// consumer's budget math.
+// daydream's shader/ mirrors.
+// engine_catalog.json states the wasm32 operator ABI;
+// tests/data/shader_chain_catalog.json states the native ABI. Their
+// prepared-block sizes and alignments disagree by construction: never copy
+// either over the other.
 const lf = (text) => text.replaceAll('\r\n', '\n');
 
 const CATALOG = JSON.parse(
@@ -195,12 +191,9 @@ test('SHA-256 matches Node across padding boundaries and multiblock inputs', () 
   assert.equal(sha256Hex(text), createHash('sha256').update(text).digest('hex'));
 });
 
-// The native suite golden-pins tests/data/shader_chain_catalog.json from an
-// LP64 host build; the source catalog above is the same emitter's output from the
-// wasm32 module, and is what an editor budgets arena bytes against. A
-// pointer-bearing `prepared` block is wider under LP64, so the two disagree
-// there by construction. This holds them to disagreeing about nothing else, so
-// a golden regenerated on an unrelated host cannot re-pin quietly.
+// tests/data/shader_chain_catalog.json is the same emitter's output from an
+// LP64 host build; a pointer-bearing `prepared` block is wider there, and
+// nothing else may differ from the wasm32 catalog.
 const POINTER_WIDENED_OPERATORS = 7;
 
 test('the native golden and the wasm source catalog differ only in pointer-block width', async () => {
@@ -284,8 +277,8 @@ test('every patterns/*.shader.json compiles and is accounted for', async () => {
   const manifest = JSON.parse(await readFile(
     new URL('catalog.json', directory), 'utf8'));
   const promoted = new Set(Object.values(manifest.source_documents));
-  // The sample a contributor copies is not in the manifest manifest, so the
-  // promoted-document gate above never reaches it.
+  // The sample a contributor copies is not in the manifest, so the
+  // promoted-document gate never reaches it.
   assert.deepEqual(documents.filter((name) => !promoted.has(name)),
     ['example.shader.json']);
   for (const name of documents) {
@@ -602,9 +595,6 @@ test('the descriptor digest survives reordering but not a label rename', () => {
   assert.notEqual(recompiled.descriptor_digest, baseline.descriptor_digest);
 });
 
-// v1's role-sorted canonicalizer collapsed on a repeated operator: two of the
-// same stage in either order digested identically. Position in the ordered
-// chain is what separates them.
 test('a duplicate-operator chain digests by position, not by operator set', () => {
   const baseline = compile(duplicateOperator());
   assert.equal(baseline.status, 'VALID');
@@ -652,9 +642,8 @@ test('serialization fields name every parameter once and do not order the digest
     ['INVALID_SERIALIZATION_FIELDS']);
 });
 
-// A parameter the shape pass rejected is dropped, so the path-policy,
-// serialization and preset-bank passes never read its fields off a malformed
-// object: import reports diagnostics and leaves the preview alone.
+// A parameter the shape pass rejected is dropped before later passes read its
+// fields.
 test('a malformed parameter reports diagnostics instead of a raw TypeError', () => {
   const diagnose = (mutate) => {
     const document = example();
@@ -754,8 +743,7 @@ test('export classification compares canonical descriptors after the digest', ()
   assert.deepEqual(classifyExport(compiled, registry, 'wasm-authoring'),
     { kind: 'ADD_PRESET_CANDIDATE', effect_id: 'lattice-melt' });
 
-  // Classifying a non-canonical spelling of the same program as a new effect
-  // would have the author duplicate an effect the registry already carries.
+  // A non-canonical spelling of the same program is not a new effect.
   const reordered = structuredClone(compiled.descriptor);
   reordered.parameters.reverse();
   reordered.serialization.fields.reverse();

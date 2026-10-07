@@ -84,12 +84,10 @@ enum class Reseed : uint8_t { NONE, ADOPT };
 
 /** Graph-edge sweep floor. */
 inline constexpr float T_EPS = 0.02f;
-/** Truncate clamp at the ambo (t = 0.5) end; its clean-swap gap is sub-pixel
- * at H = 144. */
+/** Truncate clamp at the ambo (t = 0.5) end. */
 inline constexpr float T_EPS_AMBO = 0.005f;
-/** Snub clamp at the jitterbug bridge's octahedron end (t = 0.5, where the 12
- * vertices merge pairwise onto the octahedron's 6): the collapsing edge
- * measures 0.02 chord here. */
+/** Snub clamp at the jitterbug bridge's octahedron end (t = 0.5), where the
+ * collapsing edge measures 0.02 chord. */
 inline constexpr float T_JITTERBUG_OCTA_MIN = 0.5104592f;
 
 /** Truncate birth-floor fraction of the arrival param: a recipe-step truncate
@@ -556,7 +554,7 @@ static_assert(ordered_tour_covers_heavy_legs());
 
 /**
  * @brief Deterministic edge choice for HS_PROFILE_ORDERED_CYCLE builds: one
- * pass of ORDERED_TOUR covers all 18 nodes, then the cycle repeats.
+ * pass of ORDERED_TOUR, then the cycle repeats.
  * @param node Current node id; unused (the tour is positional).
  * @param prev_edge Edge the walk arrived on; unused.
  * @param leg_index Monotonic leg counter.

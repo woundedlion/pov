@@ -78,15 +78,12 @@ public:
      * @brief Sample the (possibly blended) harmonic at world point p.
      * @param p World-space sample point.
      * @return Signed field value; zero-crossings are the lobe boundaries.
-     * @details Evaluates the first mode in the shape's local frame, blending the
-     * second only when blend exceeds 0.001.
      */
     float sample(const math::Vector &p) const {
       math::Vector local = orientation_conj.apply(p);
 
-      // The shape spins about an arbitrary axis, so the local frame varies
-      // across a screen row even though the WORLD latitude is row-constant.
-      // Hoisting any part of the harmonic to a per-row precompute is invalid.
+      // The local frame varies across a screen row, so no part of the
+      // harmonic can be hoisted to a per-row precompute.
       float val = SHMath::spherical_harmonic(l1, m1, local, N1);
       if (blend > 0.001f) {
         float val2 = SHMath::spherical_harmonic(l2, m2, local, N2);
@@ -301,8 +298,7 @@ private:
   BakedPaletteStorage
       baked_palette; /**< Precomputed color LUT for the shader. */
 
-  // init() bakes one palette LUT into the persistent arena. Effect keeps the
-  // default arena split, so the total must fit the device persistent partition.
+  // One palette LUT in the persistent arena.
   static constexpr size_t FOOTPRINT_BYTES =
       BakedPalette::required_arena_bytes();
   static_assert(
@@ -314,16 +310,13 @@ private:
   static constexpr int MAX_DEGREE = 4;
   static_assert(MAX_DEGREE <= 5,
                 "SampleSphere requires normalized harmonics bounded by one");
-  // Top flat index over those degrees: idx peaks at l = MAX_DEGREE, m = +MAX_DEGREE.
-  static constexpr int MAX_MODE_IDX =
-      (MAX_DEGREE + 1) * (MAX_DEGREE + 1) - 1; // 24
+  static constexpr int MAX_MODE_IDX = (MAX_DEGREE + 1) * (MAX_DEGREE + 1) - 1;
   static_assert(PRESET_IDS.size() == MAX_MODE_IDX);
   // Initial mode (l=2, m=0); the constant mode (idx 0) is excluded from the roll.
   static constexpr int SEED_MODE_IDX = 6;
   static_assert(SEED_MODE_IDX > 0 && SEED_MODE_IDX <= MAX_MODE_IDX,
                 "seed mode must be a valid, non-constant harmonic index");
-  // Looped continuous spin: SPIN_TURNS revolutions over SPIN_FRAMES frames,
-  // i.e. 0.01 turn (3.6 degrees) per frame.
+  // Looped continuous spin: SPIN_TURNS revolutions over SPIN_FRAMES frames.
   static constexpr float SPIN_TURNS = 100.0f;
   static constexpr int SPIN_FRAMES = 10000;
 

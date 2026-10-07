@@ -8,10 +8,9 @@
  * @brief JS-facing mesh editor bridge: the MeshOpsWrapper class and its embind
  *        registration.
  *
- * Owns the lazily-allocated tooling arenas, the wipe generation counter and the
- * re-entrancy guard the Conway/Goldberg operators run under, plus the boundary
- * guards that keep a JS-driven operator chain out of the engine's fail-fast
- * traps.
+ * Owns the lazily-allocated tooling arenas and the re-entrancy guard the
+ * operators run under, plus the boundary guards that keep a JS-driven operator
+ * chain out of the engine's fail-fast traps.
  */
 #pragma once
 

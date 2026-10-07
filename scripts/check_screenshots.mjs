@@ -15,12 +15,8 @@ export const SHOTS_DIR = join(REPO_ROOT, 'docs', 'screenshots');
 /**
  * Partitions gallery PNG basenames against the effect roster.
  *
- * Matching is case-insensitive so the result is identical on the
- * case-insensitive Windows dev FS and on Linux CI; a case-only divergence is
- * reported as its own class rather than masked on one FS and counted as both a
- * missing effect and an orphan PNG on the other. Every PNG sharing a roster
- * entry's lowercased name is judged, so a second spelling beside the exact one
- * is reported rather than shadowed.
+ * Matching is case-insensitive; a case-only divergence is its own class, and
+ * every PNG sharing a roster entry's lowercased name is judged.
  *
  * @param {string[]} roster Registered effect names.
  * @param {string[]} pngNames Gallery PNG basenames, without the extension.
@@ -63,8 +59,6 @@ export function invalidCaptureOffsets(roster, offsets = CAPTURE_OFFSETS_MS) {
     .map(([effect, ms]) => `${effect}=${ms}`);
 }
 
-// A name-only check would pass an empty or bit-rotted file, so every gallery
-// PNG is validated as a datastream and pinned to the stored gallery geometry.
 async function validateImages(shotsDir, pngNames) {
   const invalid = [];
   for (const name of pngNames) {
@@ -88,7 +82,7 @@ export async function checkScreenshots(shotsDir = SHOTS_DIR) {
     files = await readdir(shotsDir);
   } catch (err) {
     if (err.code !== 'ENOENT') throw err;
-    files = []; // no gallery dir at all — every roster effect reads as missing
+    files = [];
   }
   const pngNames = files
     .filter(f => f.endsWith('.png'))

@@ -32,8 +32,7 @@ inline void case_pullback_operator_invalid_brightness_envelope() {
 /**
  * @brief Death case: an operator table whose entry decreases carrier family
  *        rank must trap.
- * @details Interpreter surface — compile() only matches adjacent carriers, so
- *          a rank-decreasing entry would run a chain the type system forbids.
+ * @details compile() only matches adjacent carriers.
  */
 inline void case_chain_table_rank_decreases() {
   static Pullback::Interp::ChainProgram program;

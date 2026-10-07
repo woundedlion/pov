@@ -27,7 +27,7 @@ template <int H> static inline float y_to_screen_row(float y) {
  * @details The arc y(t) has a turning point inside the span iff the forward
  * tangent's y-component flips sign between the endpoints; the extremal |y| is
  * the great circle's peak latitude sqrt(1 - n.y²) (n = arc pole). The span is
- * the exact closed-form y range, so no one-row epsilon. A degenerate setup
+ * the exact closed-form y range. A degenerate setup
  * (no axis) keeps the endpoint rows.
  */
 template <int H>

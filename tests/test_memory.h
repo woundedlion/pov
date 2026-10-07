@@ -2,8 +2,7 @@
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
  * Licensed under the PolyForm Noncommercial License 1.0.0
  *
- * Unit tests for core/memory.h — Arena, ArenaVector, ArenaSpan,
- * ScratchScope, Persist<T>, and the scratch-scoped generate() wrapper.
+ * Unit tests for core/memory.h.
  */
 #pragma once
 
@@ -19,13 +18,11 @@ namespace memory_tests {
 
 /**
  * @brief Backing storage for arenas used in these tests.
- * @details Module-scope and reused by every test; each test constructs (or
- *   rebind()s) a fresh Arena over the buffer at entry. Do not retain an
- *   ArenaVector pointing into a buffer past its own test scope.
+ * @details Shared by every test; do not retain an ArenaVector into a buffer
+ *   past its own test.
  */
-inline uint8_t test_buf_a[64 * 1024]; /**< 64 KiB primary test arena buffer. */
-inline uint8_t
-    test_buf_b[16 * 1024]; /**< 16 KiB secondary test arena buffer. */
+inline uint8_t test_buf_a[64 * 1024];
+inline uint8_t test_buf_b[16 * 1024];
 
 struct MoveOnlyValue {
   int value;
@@ -428,19 +425,15 @@ inline void test_arena_repeated_rewind_to_same_mark() {
  * @brief Verifies configure_arenas() repartitions the global block into three
  *        arenas of exactly the requested sizes, packed contiguously and
  *        non-overlapping within the block.
- * @details Sizes are multiples of max_align_t so the
- *          inter-arena align_up() boundaries are no-ops and the three arenas tile
- *          the block exactly, which lets the bases be checked by exact arithmetic.
- *          Each base is recovered via a 1-byte, align-1 allocation (padding 0, so
- *          it returns buffer+0). Restores the default split on exit.
+ * @details Restores the default split on exit.
  */
 inline void test_configure_arenas_repartition() {
   static_assert(ArenaSplit{300, 200}.persistent(1000) == 500);
   static_assert(ArenaSplit{0, 0}.persistent(1000) == 1000);
 
-  constexpr size_t P = 60 * 1024; // multiples of alignof(max_align_t) so the
-  constexpr size_t A = 8 * 1024;  // boundary align_up()s are no-ops and the
-  constexpr size_t B = 4 * 1024;  // three arenas pack contiguously, no gaps.
+  constexpr size_t P = 60 * 1024;
+  constexpr size_t A = 8 * 1024;
+  constexpr size_t B = 4 * 1024;
   static_assert(
       P % alignof(std::max_align_t) == 0 &&
           A % alignof(std::max_align_t) == 0 &&
@@ -463,12 +456,10 @@ inline void test_configure_arenas_repartition() {
   auto *abase = static_cast<uint8_t *>(scratch_arena_a.allocate(1, 1));
   auto *bbase = static_cast<uint8_t *>(scratch_arena_b.allocate(1, 1));
 
-  // Contiguous: each arena's [base, base+cap) ends where the next begins.
   HS_EXPECT_EQ(abase, pbase + P);
   HS_EXPECT_EQ(bbase, abase + A);
   HS_EXPECT_TRUE(bbase + B <= pbase + GLOBAL_ARENA_SIZE);
 
-  // Leave the canonical split in place for subsequent tests.
   configure_arenas_default();
   HS_EXPECT_EQ(persistent_arena.get_capacity(), DEFAULT_PERSISTENT_SIZE);
   HS_EXPECT_EQ(scratch_arena_a.get_capacity(), DEFAULT_SCRATCH_A_SIZE);
@@ -478,11 +469,8 @@ inline void test_configure_arenas_repartition() {
 /**
  * @brief Verifies resplit_arenas() rebases the scratch arenas while the
  *        persistent arena keeps its base, offset, and live content.
- * @details Persistent survives untouched apart from its capacity boundary and
- *          a windowed high-water rebased to the live offset (the discarded
- *          window folded into the lifetime peak); both scratch arenas land on
- *          the new (empty) boundaries. Sizes are max_align_t multiples so the
- *          new bases can be checked by exact arithmetic. Restores the default
+ * @details The windowed high-water rebases to the live offset and the
+ *          discarded window folds into the lifetime peak. Restores the default
  *          split on exit.
  */
 inline void test_resplit_arenas_preserves_persistent() {
@@ -530,8 +518,7 @@ inline void test_resplit_arenas_preserves_persistent() {
   HS_EXPECT_EQ(scratch_arena_b.get_capacity(), DEFAULT_SCRATCH_B_SIZE);
 }
 
-/** Counters the ArenaResetHook probes bump; file-scope so the handlers match
-    the registry's plain function-pointer signature. */
+/** Counters the ArenaResetHook probes bump. */
 namespace reset_hook_probe {
 inline int outer_calls = 0;
 inline int inner_calls = 0;
@@ -852,8 +839,8 @@ inline void test_arenavec_rebind_reuses() {
 
 /**
  * @brief Verifies re-binding to a LARGER capacity is a supported grow.
- * @details It allocates a fresh block (abandoning the old one until the next
- *          arena reset — see bind()) and adopts the new capacity.
+ * @details It allocates a fresh block, abandoning the old one until the next
+ *          arena reset.
  */
 inline void test_arenavec_rebind_grows() {
   Arena a(test_buf_a, sizeof(test_buf_a));
@@ -1155,11 +1142,8 @@ inline void test_persist_scratch_offset_restored() {
 }
 
 /**
- * @brief Verifies compaction, which is not a bare reset.
- * @details It evacuates survivors, resets persistent, RE-LAYS the long-lived
- *          data more tightly, then restores. The survivor must come back intact
- *          at its NEW (relocated) address, sitting after the compacted data
- *          without clobbering it.
+ * @brief Verifies compaction restores a survivor intact at a relocated
+ *        address after the compacted data, without clobbering it.
  */
 inline void test_persist_compaction_relocates_survivor() {
   Arena persistent(test_buf_a, sizeof(test_buf_a));
@@ -1179,13 +1163,11 @@ inline void test_persist_compaction_relocates_survivor() {
   live.summary = 42;
   const int *base_before = &live.data[0];
 
-  ArenaVector<int> compacted_other; // outlives the Persist block
+  ArenaVector<int> compacted_other;
   {
     Persist<TestPayload> p(live, scratch, persistent);
     persistent.reset(); // free junk + survivor
     live = TestPayload();
-    // Place compacted data first, smaller than the old junk, so the restored
-    // survivor lands at a different address.
     compacted_other.bind(persistent, 2);
     compacted_other.push_back(7);
     compacted_other.push_back(8);
@@ -1206,10 +1188,6 @@ inline uint8_t gen_target_buf[8 * 1024];
 
 /**
  * @brief Verifies the full generate() contract in one pass.
- * @details Asserts the scratch arenas are reset before fn runs, fn receives the
- * two global scratch arenas plus the caller's target, scratch allocations roll
- * back on return, target allocations persist, and the extra arg and return
- * value are forwarded.
  */
 inline void test_generate_lifecycle_and_forwarding() {
   Arena target(gen_target_buf, sizeof(gen_target_buf));
@@ -1257,10 +1235,8 @@ inline void test_generate_lifecycle_and_forwarding() {
 }
 
 /**
- * @brief Confirms target allocations persist while scratch is rolled back.
- * @details A generator can write into target while using scratch; only scratch
- * is rolled back. Verifies that two sequential generate() calls accumulate
- * their target allocations.
+ * @brief Confirms sequential generate() calls accumulate target allocations
+ *        while scratch is rolled back.
  */
 inline void test_generate_nested_target_persists() {
   Arena target(gen_target_buf, sizeof(gen_target_buf));
@@ -1293,10 +1269,8 @@ inline void test_generate_nested_target_persists() {
 
 /**
  * @brief Verifies reentrant generate() does not clobber the outer frame.
- * @details generate() is reentrant: a callback may call generate() again. The
- * inner call must stack its scratch above the outer frame's live allocations
- * rather than resetting the arena out from under it. Checks that the outer
- * sentinel survives the nested call.
+ * @details The inner call must stack its scratch above the outer frame's live
+ * allocations.
  */
 inline void test_generate_reentrant_nesting_does_not_clobber() {
   Arena target(gen_target_buf, sizeof(gen_target_buf));
@@ -1345,11 +1319,8 @@ inline size_t g_deep_a_entry[DEEP_LEVELS];
 
 /**
  * @brief Recursive generate() body for the deep-nesting stress.
- * @details Each level claims distinct, level-sized scratch in BOTH arenas,
- * stamps a per-level sentinel into the first and last byte of each block,
- * recurses through generate() (which must stack above this frame, never reset
- * it), then on the way back asserts its own offsets and sentinels are exactly as
- * it left them — proving no deeper frame rewound or overwrote a shallower one.
+ * @details Each level stamps sentinels into level-sized scratch in both
+ * arenas, recurses, then asserts its offsets and sentinels are unchanged.
  */
 inline int gen_deep_level(Arena &t, Arena &a, Arena &b, int level,
                           int max_level) {
@@ -1379,10 +1350,8 @@ inline int gen_deep_level(Arena &t, Arena &a, Arena &b, int level,
 
 /**
  * @brief Stress-tests the reentrant scratch protocol across many nested levels.
- * @details Drives DEEP_LEVELS stacked frames and verifies each one stacked
- * strictly above the previous level's live high-water (the reset fires only at
- * the outermost call) and that the outermost scope rolled both arenas back to
- * empty. Per-level sentinel survival is asserted inside gen_deep_level.
+ * @details Each level stacks strictly above the previous level's live
+ * high-water, and the outermost scope rolls both arenas back to empty.
  */
 inline void test_generate_deep_nesting_stacks_and_unwinds() {
   Arena target(gen_target_buf, sizeof(gen_target_buf));

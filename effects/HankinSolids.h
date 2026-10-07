@@ -26,11 +26,9 @@ struct HankinPauseWhiteBox;
  * @brief Renders Hankin interlace patterns over Platonic/Archimedean solids.
  * @tparam W Canvas width in pixels.
  * @tparam H Canvas height in pixels.
- * @details Sweeps the interlace angle continuously, then transitions by
- * walking the Conway edge graph: each leg sweeps the destination solid's own
- * operator parameter, so faces visibly truncate, expand, and twist into the
- * next solid. Exactly one mesh is on screen at all times; faces are colored
- * by topology class via shuffled mesh palettes with per-leg crossfades.
+ * @details Sweeps the interlace angle, then transitions by walking the Conway
+ * edge graph, each leg sweeping the destination solid's operator parameter.
+ * Faces are colored by topology class.
  */
 template <int W, int H> class HankinSolids : public Effect {
 public:
@@ -288,9 +286,9 @@ private:
    * @param seed_base Held seed mesh.
    * @param a Output arena for even pipeline stages.
    * @param b Scratch arena for odd pipeline stages.
-   * @return The endpoint mesh: t = 0 yields the leg seed itself, t = 0.5 the
-   * clean ambo crossover form, a settled end the relax(50) canonical form,
-   * the jitterbug bridge's octahedron end the clean ambo(seed) octahedron.
+   * @return The endpoint mesh: the leg seed at t = 0, the ambo crossover at
+   * t = 0.5, the relaxed canonical form at a settled end, and ambo(seed) at
+   * the jitterbug bridge's octahedron end.
    */
   static HS_COLD_MEMBER PolyMesh node_mesh_at(const PolyMesh &seed_base,
                                               const ConwayGraph::EdgeSpec &e,
@@ -532,7 +530,6 @@ private:
                 MeshOps::update_hankin(compiled_hankin, hankin_mesh,
                                        persistent_arena, params.hankin_angle);
               }
-              // Grown counts would leak persistent_arena every frame.
               HS_CHECK(hankin_mesh.vertices.size() == hankin_vertex_count &&
                            hankin_mesh.face_counts.size() == hankin_face_count,
                        "HankinSolids: per-frame mesh counts changed; the "

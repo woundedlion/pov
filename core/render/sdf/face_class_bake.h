@@ -251,7 +251,7 @@ build_mesh_class_bake(const MeshState &mesh, Arena &scratch, Arena &persistent,
 
     if (out.classes.size() >= MAX_CONGRUENCE_CLASSES) {
       ++out.overflow_faces;
-      continue; // degrade to NO_CLASS; the exact path is always correct
+      continue; // degrade to NO_CLASS (exact path)
     }
 
     // Found a new class from this face's own centered projection.

@@ -1,12 +1,7 @@
-// A node:test reporter tallying each file's results for scripts/run_tests.mjs.
-// TAP attributes no result to a file, so its totals cannot identify an empty
-// file.
+// A node:test reporter tallying each file's results; TAP attributes no result
+// to a file. `ran` counts the unskipped tests that reached a result, excluding
+// suites.
 import { resolve } from 'node:path';
-
-// Reported per file, over `test:pass`/`test:fail`:
-//   ran     - tests that reached a result unskipped, which is the file's case
-//             count; suites are their tests' parents, not results of their own,
-//             so they are not counted.
 
 /**
  * @param {AsyncIterable<{type: string, data: Object}>} source - Runner events.

@@ -4,9 +4,6 @@
  */
 
 // ── §9.1 failure-mode budget: artifact bounds and recovery times ────────────
-//
-// Each scenario asserts both the worst-case artifact bound and the recovery
-// time of a spec §9.1 budget row.
 
 /**
  * @brief Steps the sim for @p revs, the §9.1 artifact probe.
@@ -65,10 +62,8 @@ inline void test_budget_spurious_epoch() {
 
 /**
  * @brief Verifies the §9.1 "lost boundary symbol" budget row: one dropped
- *        symbol costs a ≤1-revolution coast at crystal drift (~0.01 col at 40
- *        ppm — sub-integer on this probe), re-snapped by the very next symbol.
- * @details The crossing flip covers the missed backstop; nothing is rejected
- *          or misclassified — missed, never wrong.
+ *        symbol costs a sub-column coast, re-snapped by the next symbol.
+ * @details Nothing is rejected or misclassified: missed, never wrong.
  */
 inline void test_budget_lost_symbol() {
   const Config cfg = test_config();
@@ -78,8 +73,8 @@ inline void test_budget_lost_symbol() {
   HS_EXPECT_TRUE(
       sim.run_until([](Sim &s) { return s.board_pos(0) == 40; }, 1.1));
 
-  // Deafen board 1 for exactly one half-rev, aligned mid-half: it misses
-  // exactly one boundary symbol (the HALF, 104 columns ahead).
+  // Deafen board 1 for one half-rev, aligned mid-half: it misses exactly one
+  // boundary symbol.
   sim.boards[1].drop_from = sim.g;
   sim.boards[1].drop_to = sim.g + PERIOD;
   const uint32_t acc_before =
@@ -95,15 +90,11 @@ inline void test_budget_lost_symbol() {
 }
 
 /**
- * @brief Verifies the §9.1 "EMI on the sync wire" budget row, the binding
- *        ACCEPTED case: an isolated valid-count burst within G of a predicted
- *        boundary, accepted through the gate.
- * @details Requires the real symbol to be absent at that boundary — with the
- *          real burst present, a nearby forged edge merges inside the gap
- *          timeout into an invalid count and is discarded whole, so the shipped
- *          decoder is stricter than the budget's λ·2G/288 estimate. Artifact: a
- *          ≤G column seam on one board; recovery: the next real symbol, ≤½ rev
- *          later.
+ * @brief Verifies the §9.1 "EMI on the sync wire" budget row's accepted case:
+ *        an isolated valid-count burst within G of a predicted boundary costs
+ *        a ≤G column seam, repaired by the next real symbol.
+ * @details The real symbol must be absent: a forged edge near a real burst
+ *          merges into an invalid count and is discarded whole.
  */
 inline void test_budget_emi_accepted_seam() {
   const Config cfg = test_config();
@@ -114,9 +105,7 @@ inline void test_budget_emi_accepted_seam() {
   HS_EXPECT_TRUE(
       sim.run_until([](Sim &s) { return s.board_pos(0) == 40; }, 1.1));
 
-  // The master HALF boundary is 104 columns ahead. Censor the real symbol
-  // for board 1 and forge an edge 3 columns early: isolated, valid count,
-  // within G of the predicted boundary — the §9.1 accepted case.
+  // Censor board 1's next real HALF symbol and forge an edge 3 columns early.
   const uint64_t h = sim.g + 104ull * COL;
   sim.boards[1].drop_from = h - COL;
   sim.boards[1].drop_to = h + 8 * COL;
@@ -124,17 +113,15 @@ inline void test_budget_emi_accepted_seam() {
   sim.emi_pos = 0;
   std::sort(sim.emi.begin(), sim.emi.end());
 
-  // The seam engages (≥2 col — clear of truncation noise, proving the
-  // forged snap was really accepted) and is bounded by the gate.
+  // ≥2 col clears truncation noise, proving the forged snap was accepted.
   const double seam = max_err_over(sim, 0.45);
   HS_EXPECT_GE(seam, 2);
   HS_EXPECT_LE(seam, cfg.gate_cols);
-  // Recovery: the next real boundary symbol (err ≈ 3 ≤ G) re-snaps.
+  // The next real boundary symbol re-snaps.
   sim.run_revs(0.45);
   HS_EXPECT_LE(sim.max_phase_err(), 1);
   HS_EXPECT_EQ(lock(sim.boards[1].board), LockState::LOCKED);
-  // Layers 2/3 unharmed: the forged HALF's flip deduped against the
-  // crossing, so content stayed equal.
+  // The forged HALF's flip dedupes against the crossing: content stays equal.
   HS_EXPECT_TRUE(
       sim.run_until([](Sim &s) { return s.board_pos(0) == 72; }, 1.1));
   HS_EXPECT_EQ(sim.boards[1].t, sim.boards[0].t);
@@ -142,14 +129,10 @@ inline void test_budget_emi_accepted_seam() {
 
 /**
  * @brief Verifies the §9.1 "mis-snap despite the gate / corrupted timebase"
- *        budget row: reachable only via a two-coincident-error forge during
- *        ACQUIRE or a firmware bug; the fallback bounds it either way.
- * @details On a corrupted timebase every REAL boundary symbol lands far from a
- *          predicted boundary, so each is first held as a suspect and registers
- *          as a gate rejection only after the 24-column interdigit window (the
- *          §5.3 fallback path): R rejections at ½-rev pace → ACQUIRE → hard
- *          re-snap at the next symbol within about 750 columns (325 ms).
- *          A corruption between symbols adds at most 144 columns of wait.
+ *        budget row: R gate rejections drop a corrupted board to ACQUIRE and
+ *        it re-snaps within the row's recovery budget.
+ * @details Each real symbol is held as a suspect and counts as a gate
+ *          rejection only after the interdigit window (§5.3 fallback).
  */
 inline void test_budget_corrupted_timebase() {
   const Config cfg = test_config();
@@ -183,11 +166,8 @@ inline void test_budget_corrupted_timebase() {
                static_cast<uint32_t>(cfg.reject_fallback));
   HS_EXPECT_GE(b2.board.telemetry_snapshot().lock_transitions, 2u);
 
-  // Content recovers fully by the next epoch: any rev_in_effect hiccup from
-  // the phase jump is resynced by the beacon rev cross-check (§6.4) well
-  // before the train, so the commit is lockstep — same boundary, frame
-  // counters re-zeroed together, no trap. (t may carry ±1 from the hiccup
-  // only UNTIL that commit.)
+  // The beacon rev cross-check (§6.4) resyncs any rev_in_effect hiccup before
+  // the next epoch, so the commit is lockstep.
   HS_EXPECT_TRUE(sim.run_until(
       [](Sim &s) {
         for (auto &b : s.boards)
@@ -211,16 +191,11 @@ inline void test_budget_corrupted_timebase() {
 
 /**
  * @brief Verifies the §9.1 mis-snap row's forged-during-ACQUIRE sub-case: a
- *        board rebooted moments before a scheduled beacon train hard-snaps to
- *        the train's first digit, landing W/4 from the truth, and the
- *        R-rejection fallback still returns it to sub-column phase inside the
- *        row's ~750-column budget.
- * @details The head digit is preceded by wire silence exactly as a boundary
- *          symbol is, so the quiet-before guard cannot filter it and its
- *          1-pulse count reads as a HALF. Every real symbol then lands far from
- *          the broken predictions and is held as a suspect, counted only after
- *          the interdigit window: R rejections at half-rev pace, then ACQUIRE
- *          and a clean re-snap.
+ *        board rebooted just before a beacon train hard-snaps to the train's
+ *        head digit, and the R-rejection fallback returns it to sub-column
+ *        phase within the row's budget.
+ * @details The head digit is preceded by wire silence like a boundary symbol,
+ *          so the quiet-before guard cannot filter it.
  */
 inline void test_budget_acquire_mis_snap() {
   const Config cfg = test_config();
@@ -231,9 +206,8 @@ inline void test_budget_acquire_mis_snap() {
   HS_EXPECT_TRUE(sim.run_until(
       [](Sim &s) { return content(s.boards[0].board).rev_in_effect == 9; },
       16.0));
-  // Reboot past the rev's ZERO burst and a full quiet window ahead of the
-  // train, so the first wire event the fresh board meets is the train's head
-  // digit and the guard reads the silence before it as isolating.
+  // Reboot a full quiet window ahead of the train so its head digit is the
+  // first wire event the fresh board meets.
   HS_EXPECT_TRUE(
       sim.run_until([](Sim &s) { return s.board_pos(0) == 40; }, 1.1));
   SimBoard &b2 = sim.boards[2];
@@ -248,7 +222,7 @@ inline void test_budget_acquire_mis_snap() {
                  circ_dist(s.board_pos(2), s.board_pos(0), s.cfg.W) > 1);
   };
 
-  // The head digit captures it: locked on a beacon digit, a quarter turn out.
+  // Locked on the head digit, a quarter turn out.
   HS_EXPECT_TRUE(sim.run_until(
       [&](Sim &s) {
         check_dark(s);
@@ -277,26 +251,21 @@ inline void test_budget_acquire_mis_snap() {
 }
 
 /**
- * @brief Verifies the §9.1 "corrupted beacon frame" budget row: integrity is by
- *        rejection — a corrupted digit fails the checksum, the frame drops
- *        whole with no partial application, and the next beacon (≤ one period
- *        away) cross-checks clean.
- * @details A rejected beacon alone is consequence-free redundancy.
+ * @brief Verifies the §9.1 "corrupted beacon frame" budget row: a corrupted
+ *        digit fails the checksum, the frame drops whole, and the next beacon
+ *        cross-checks clean.
  */
 inline void test_budget_beacon_corruption() {
   const Config cfg = test_config();
   const int32_t ppm[4] = {0, 15, -20, 30};
   Sim sim(cfg, 4, ppm);
   HS_EXPECT_TRUE(boot_join(sim, cfg));
-  // Master beacons ride rev ≡ 1 (mod 8); park at the rev-9 ZERO crossing.
-  // The train starts when the master reaches x = W/4 = 72.
+  // Master beacons ride rev ≡ 1 (mod 8); the train starts at x = W/4 = 72.
   HS_EXPECT_TRUE(sim.run_until(
       [](Sim &s) { return content(s.boards[0].board).rev_in_effect == 9; },
       16.0));
-  // Beacon (index 0, rev 9) is digits [0,0,1,1,0]; its 4th burst is two
-  // pulses at relative columns 16 and 17. One EMI edge between them on
-  // board 1 (clear of the 100 µs glitch filter) makes that digit read 2:
-  // checksum mismatch, whole frame dropped.
+  // Beacon (index 0, rev 9) is digits [0,0,1,1,0]; its 4th burst pulses at
+  // train columns 16 and 17. One EMI edge between them makes that digit read 2.
   const uint64_t train = sim.g + 72ull * COL;
   sim.emi.push_back({train + 16ull * COL + COL / 2, 1});
   sim.emi_pos = 0;
@@ -375,26 +344,20 @@ inline void test_beacon_two_edge_substitution() {
 }
 
 /**
- * @brief Verifies the §9.1 "sync wire dead" and "master dead" budget rows
- *        (identical for downstream — the master is only the symbol source):
- *        flywheels free-run and keep flipping 2/rev, the playlist freezes on
- *        the current effect, then clears after its fade-out, and boards precess
- *        apart at the §4.5 crystal rate.
- * @details The precession constant τ = T0/δ_rel ≈ one column per 87 revs at 40
- *          ppm — a slow smear, never a break — and the §4.1 rebase rule keeps
- *          the arithmetic valid across a 32-bit cycle-counter wrap with no snaps
- *          at all.
+ * @brief Verifies the §9.1 "sync wire dead" and "master dead" budget rows:
+ *        flywheels free-run at 2 flips/rev, the playlist freezes on the current
+ *        effect, and boards precess apart at the §4.5 crystal rate.
+ * @details The coast crosses a 32-bit cycle-counter wrap (§4.1 rebase) with
+ *          no snaps.
  */
 inline void test_budget_wire_dead() {
   const Config cfg = test_config();
   const int32_t ppm[3] = {0, 40, -25};
-  // Local clocks start ~30 revs below the 32-bit wrap: the wrap lands ~22
-  // revs into the snap-free coast.
+  // Local clocks start below the 32-bit wrap so the wrap lands in the coast.
   Sim sim(cfg, 3, ppm, 0xFFFFFFFFull - 30ull * 2 * PERIOD + 999);
   HS_EXPECT_TRUE(boot_join(sim, cfg));
   sim.run_revs(2.0);
-  // Cut the wire at a quiet point (mid-half, no beacon this rev) so no
-  // burst is in flight.
+  // Cut the wire mid-half so no burst is in flight.
   HS_EXPECT_TRUE(
       sim.run_until([](Sim &s) { return s.board_pos(0) == 40; }, 1.1));
 
@@ -413,7 +376,7 @@ inline void test_budget_wire_dead() {
     HS_EXPECT_EQ(lock(sim.boards[i].board), LockState::LOCKED);
     HS_EXPECT_EQ(sim.boards[i].board.telemetry_snapshot().symbols_rejected_gate,
                  0u);
-    // Layer 2 self-sufficiency: ~2 flips/rev throughout, no stall.
+    // ~2 flips/rev throughout.
     const uint64_t df = sim.boards[i].flips - flips_before[i];
     HS_EXPECT_GE(df, 2 * static_cast<uint64_t>(coast) - 5);
     HS_EXPECT_LE(df, 2 * static_cast<uint64_t>(coast) + 5);

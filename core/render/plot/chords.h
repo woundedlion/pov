@@ -219,9 +219,7 @@ inline constexpr RasterConfig PLANAR_CHORD_RASTER_CONFIG{
  * anchors and walked at TARGET_STEP screen pixels, with no per-sample tangent or
  * pole scaling. Edges and samples that cannot reach the clip band are skipped
  * without moving any drawn sample. Anchor intervals within POLE_PIECE_ROWS of a
- * pole go to Plot::rasterize under PLANAR_CHORD_RASTER_CONFIG with balanced
- * sampling; when band.x_active, PlanarBandSplit divides those runs into
- * POLE_RUN_PIECES pieces.
+ * pole go to Plot::rasterize under PLANAR_CHORD_RASTER_CONFIG.
  */
 template <int W, int H> class PlanarChords {
 public:

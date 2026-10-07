@@ -1,9 +1,7 @@
 #!/usr/bin/env python3
 """Host tests for the Teensy 4 size/layout gate and its PlatformIO glue.
 
-Every layout invariant and region ceiling is proven to FAIL on a
-deliberately-broken fixture and PASS on the good one. No ARM toolchain or
-PlatformIO is required.
+No ARM toolchain or PlatformIO is required.
 
 Run:  python -m unittest discover -s tools/teensy_gate_tests
 """
@@ -32,8 +30,7 @@ FIX = Path(__file__).resolve().parent / "fixtures"
 REAL_DIR = FIX / "real"
 BUDGETS = tg.load_budgets(TOOLS / "teensy_budgets.json")
 
-# Verbatim toolchain output the synthetic fixtures cannot stand in for. All are
-# committed, so a missing one is a deleted fixture, not an optional capture.
+# Verbatim toolchain output; all committed, so a missing one is a deleted fixture.
 REAL_CAPTURES = (
     "holosphere_readelf_secs.txt",
     "holosphere_readelf_syms.txt",
@@ -182,10 +179,8 @@ class TestParsers(unittest.TestCase):
         self.assertEqual(sizes["ram2"]["free"], 26368)
 
     def test_parse_teensy_size_single_space_before_free(self):
-        # The "free for ..." separator width is not contractual; a single-space
-        # variant must still parse all three regions, not silently yield
-        # "region-missing". Internal single spaces in the component blob (", data:")
-        # must NOT be mistaken for the separator.
+        # The "free for ..." separator width is not contractual; the blob's own
+        # single spaces (", data:") are not the separator.
         text = (
             "teensy_size: FLASH: code:62788, data:13684, headers:8460 free for files: 1979136\n"
             "teensy_size: RAM1: variables:305152, code:62240, padding:30496 free for local variables: 88512\n"
@@ -306,9 +301,8 @@ class TestLayoutInvariantsFail(unittest.TestCase):
         self.assertIn("symbol-not-found", _codes(result))
 
     def test_und_reference_row_does_not_trip_magnitude_or_region(self):
-        # A same-named UND reference row (size 0, ndx UND, null address) alongside
-        # the real definition must NOT spuriously fire symbol-too-small (0 < floor)
-        # or symbol-wrong-region (addr 0 -> ITCM, not DTCM). Only defined rows count.
+        # A same-named UND row (size 0, addr 0) must not fire symbol-too-small or
+        # symbol-wrong-region.
         sizes = tg.parse_teensy_size(_read("good_teensy_size.txt"))
         sections = tg.parse_readelf_sections(_read("good_readelf_secs.txt"))
         symbols = tg.parse_readelf_symbols(_read("good_readelf_syms.txt"))
@@ -815,7 +809,7 @@ class TestComponentCeilings(unittest.TestCase):
 class TestDerivedComponentCeiling(unittest.TestCase):
     """The stack-floor-derived ITCM code ceiling: DTCM reserves
     ceil((variables + free_min_bytes) / bank) FlexRAM banks and code may fill
-    the remaining banks. phantasm's ram1.code uses this form."""
+    the remaining banks."""
 
     @staticmethod
     def _ts(variables, code):
@@ -927,8 +921,7 @@ class TestDerivedComponentCeiling(unittest.TestCase):
         self.assertIn("component-floor-missing", _codes(result))
 
     def test_informational_note_reports_growth_headroom(self):
-        # Measured, ceiling, remaining, and next-bank-boundary distance must all
-        # appear in the report so intra-bank growth is visible without failing.
+        # Measured, ceiling, remaining and next-bank distance all reach the report.
         result = self._eval_ts(self._ts(312704, 150200))
         note = next(n for n in result.notes if "derived ceiling" in n)
         self.assertIn("150,200", note)                     # measured
@@ -943,13 +936,10 @@ class TestDerivedComponentCeiling(unittest.TestCase):
 
 
 class TestRealCapture(unittest.TestCase):
-    """Parse REAL toolchain output from the two shipping images.
+    """Parse REAL toolchain output from `pio run -e holosphere -e phantasm`.
 
-    These exercise the toolchain quirks the synthetic fixtures can't: teensy_size
-    on stderr, readelf printing large sizes in HEX (0x4a800), and the arena's real
-    _ZL-mangled internal-linkage name. Captured from `pio run -e holosphere
-    -e phantasm` on the toolchain platformio.ini pins, so holosphere is the
-    96x20 canvas the env ships.
+    Covers teensy_size on stderr, readelf printing large sizes in HEX, and the
+    arena's _ZL-mangled internal-linkage name.
     """
 
     def test_real_holosphere_build_passes_the_calibrated_gate(self):
@@ -1141,11 +1131,7 @@ class TestSizeAFallback(unittest.TestCase):
 
 
 class TestNonUtf8Captures(unittest.TestCase):
-    """The size gate answers by exit code, and a decode error has none.
-
-    A Windows `pio run -v 2>&1 | tee` interleaves cp1252 bytes into the stream,
-    so a capture that is not valid UTF-8 must still produce a verdict.
-    """
+    """A capture with cp1252 bytes (a Windows tee capture) still gets a verdict."""
 
     # RIGHT SINGLE QUOTATION MARK in cp1252; not a valid UTF-8 sequence.
     CP1252 = b"don\x92t"

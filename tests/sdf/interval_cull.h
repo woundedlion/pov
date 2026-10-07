@@ -46,8 +46,7 @@ inline void cull_visited(const Shape &shape, std::vector<uint8_t> &visited) {
  * @param shape Shape under test.
  * @param label Caller-identifying label reported with each failing pixel.
  * @return Count of interior pixels (dist < -pixel_width) found.
- * @details Interior pixels are found by a brute-force full-canvas exact distance
- *   scan. Asserts at least one interior pixel.
+ * @details Asserts at least one interior pixel.
  */
 template <int W, int H, typename Shape>
 inline int expect_cull_covers_interior(const Shape &shape, const char *label) {
@@ -111,8 +110,7 @@ inline int expect_cull_covers_fringe(const Shape &shape, const char *label) {
  * @brief Verifies the Star / PlanarPolygon / SphericalPolygon cull covers the
  *   whole AA fringe.
  * @details All three read a shallow radial gradient at the tips, which the
- *   circumscribed-disc clamp in distance() bounds. The grid spans pole, equator
- *   and oblique axes at sub-pixel through near-hemisphere radii.
+ *   circumscribed-disc clamp in distance() bounds.
  */
 inline void test_star_polygon_cull_covers_aa_fringe() {
   constexpr int W = 96, H = 48;
@@ -158,7 +156,6 @@ inline void test_annular_angles_bound_reference() {
 inline void test_cull_covers_interior_over_orientation_grid() {
   constexpr int W = 96, H = 48;
 
-  // Poles, equator, and oblique tilts.
   const math::Vector axes[] = {
       math::Vector(0, 1, 0),          math::Vector(0, -1, 0),
       math::Vector(1, 0, 0),          math::Vector(0, 0, 1),
@@ -272,8 +269,7 @@ inline void test_intersection_cull_covers_interior_over_polygon_pairs() {
 /**
  * @brief Verifies the Subtract interval cull covers every interior pixel of a
  *        real leaf pair.
- * @details A star subtrahend's cap covers the notches the difference keeps.
- *   The last pose centers both on +X, so the minuend's spans straddle
+ * @details The last pose centers both on +X, so the minuend's spans straddle
  *   theta = 0.
  */
 inline void test_subtract_cull_covers_interior_over_leaf_pairs() {
@@ -309,7 +305,7 @@ inline void test_subtract_cull_covers_interior_over_leaf_pairs() {
  * @brief Verifies the SmoothUnion interval cull covers every AA-fringe pixel of a
  *        real leaf pair.
  * @details The weld bulges the surface outside both children, so the cull rests
- *   on the k pad, an equatorial column count divided by sin(phi). The last pose
+ *   on the k pad. The last pose
  *   centers both on +X so the padded spans straddle theta = 0.
  */
 inline void test_smooth_union_cull_covers_fringe_over_leaf_pairs() {
@@ -379,8 +375,6 @@ inline void test_smooth_union_scans_rows_past_both_children() {
  */
 inline void test_angular_repeat_non_y_axis_cull_covers_copies() {
   constexpr int W = 96, H = 48;
-  // Near-pole (+Y) arc folded into 4 sectors around X: copies rotate to
-  // +Z / -Y / -Z, far below the child's near-pole band.
   SDF::Line ln(math::Vector(0.25f, 1, 0).normalized(),
                math::Vector(-0.25f, 1, 0).normalized(), /*thickness=*/0.12f);
   SDF::AngularRepeat<SDF::Line> rep(ln, /*reps=*/4, math::Vector(1, 0, 0));
@@ -392,8 +386,7 @@ inline void test_angular_repeat_non_y_axis_cull_covers_copies() {
  * @brief Verifies a Y-axis AngularRepeat culls to its copies' columns without
  *        dropping any of them.
  * @details A Y-axis fold shifts azimuth by a whole sector and holds latitude,
- *   so the child's spans replayed once per copy bound every copy. The span count
- *   and visited-pixel budget pin that the row is actually narrowed.
+ *   so the child's spans replayed once per copy bound every copy.
  */
 inline void test_angular_repeat_y_axis_cull_narrows_rows() {
   constexpr int W = 288, H = 144;
@@ -436,7 +429,7 @@ inline void test_angular_repeat_tilted_axis_forfeits_cull() {
   constexpr int W = 288, H = 144;
   constexpr int REPS = 5;
   math::init_geometry_luts<W, H>();
-  // ~5e-3 rad off +Y exceeds the 1e-4 rad Y-fold axis tolerance.
+  // Exceeds the Y-fold axis tolerance (`ANGULAR_REPEAT_Y_AXIS_TOL_SQ`).
   const float tilt = 5e-3f;
   SDF::Line ln(math::Vector(0.25f, 1, 0).normalized(),
                math::Vector(-0.25f, 1, 0).normalized(), /*thickness=*/0.12f);
@@ -504,8 +497,6 @@ inline void test_line_thick_cap_past_pi_cull_covers_interior() {
 /**
  * @brief Verifies the Ring interval cull covers interior pixels for thin rings
  *        whose band wraps a pole while the centerline still takes the fast path.
- * @details Sweeps near-pole ring bands at both poles; emitted spans must
- * include every interior pixel.
  */
 inline void test_ring_pole_wrap_cull_covers_interior() {
   constexpr int W = 256, H = 128;
@@ -539,8 +530,6 @@ inline void test_ring_pole_wrap_cull_covers_interior() {
  */
 inline void test_distorted_ring_cull_covers_interior_high_freq() {
   constexpr int W = 256, H = 128;
-  // Spiky harmonic / off-grid-phase shift_fns; the bound passed is the exact
-  // analytic peak.
   struct Cfg {
     float amp;
     int harmonic;
@@ -570,8 +559,7 @@ inline void test_distorted_ring_cull_covers_interior_high_freq() {
       expect_cull_covers_interior<W, H>(ring, "distorted ring");
 
       // The knot overload's exact distance widens the interior toward the
-      // band edges; every extra pixel must still fall inside the emitted
-      // intervals.
+      // band edges.
       constexpr int LUT_N = 256;
       float knots[LUT_N + 1];
       for (int k = 0; k <= LUT_N; ++k)
@@ -601,8 +589,6 @@ inline void test_distorted_ring_cull_covers_interior_high_freq() {
  *        (including the outer AA fringe column at a silhouette edge).
  * @return The paintable-pixel count, so the caller confirms the case is non-trivial.
  * @details A pixel is paintable when its exact distance < pixel_width.
- *   Brute-forces the full canvas and asserts each paintable pixel is among
- *   those scan_region visits.
  */
 template <int W, int H>
 inline int expect_face_cull_covers_fringe(int sides, float rho,
@@ -822,9 +808,7 @@ inline std::pair<int, int> face_fringe_misses(const SDF::Face &face) {
 /**
  * @brief Pins the reduction from converting Face's AA reach to azimuth by row.
  * @details The widened mask closes at least 92% of the fixed-pad misses in this
- * deterministic sample and no configuration in it regresses. The bounds are
- * one-sided, so a cull that drops fewer pixels still passes, down to a residual
- * of zero.
+ * deterministic sample and no configuration in it regresses.
  */
 inline void test_face_latitude_pad_reduces_fringe_drops() {
   constexpr int W = 288, H = 144, HV = H + hs::H_OFFSET;
@@ -876,10 +860,8 @@ inline void test_face_latitude_pad_reduces_fringe_drops() {
  * @param pole_y +1 for the north pole, -1 for the south pole.
  * @return Count of pixels the scan expects painted.
  * @details The apex projects onto a polygon vertex, so the face classifies as
- *   PoleHit::BOUNDARY: it keeps its azimuth wedge, widens the pad per row, and
- *   rasterize_face rebuilds its runs per row rather than once for the band. The
- *   expectation covers the AA fringe, whose azimuth reach is what grows as the
- *   rows approach the apex.
+ *   PoleHit::BOUNDARY. The expectation covers the AA fringe, whose azimuth
+ *   reach grows as the rows approach the apex.
  */
 template <int W, int H>
 inline int expect_pole_vertex_face_matches_full_scan(float pole_y) {

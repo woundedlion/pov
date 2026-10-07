@@ -50,11 +50,6 @@ inline void test_col_span_rejects_ill_conditioned_pole() {
 /**
  * @brief Verifies the col-span helpers conservatively cover the rendered arc's
  *        screen-column sweep and stay within the half-width sweep bound.
- * @details Densely samples the renderer's own circle (same axis selection as
- *          rasterize_geodesic_strategy) and asserts modular containment of
- *          every sample column, plus the antipodal-symmetry bound: every span
- *          must fit W/2 plus padding. Non-vacuity counters require cullable
- *          spans, near-half sweeps, and samples.
  */
 inline void test_col_span_covers_arc() {
   constexpr int TW = 288;
@@ -77,8 +72,7 @@ inline void test_col_span_covers_arc() {
   for (int trial = 0; trial < 4000; ++trial) {
     math::Vector a, b;
     if (trial % 3 == 2) {
-      // Near-meridian circle: an axis close to the equator plane produces
-      // pole-grazing arcs whose longitude sweeps far past the endpoints.
+      // Near-meridian circle: pole-grazing arcs sweep far past the endpoints.
       const float adx = hs::rand_f(-1, 1);
       const float ady = hs::rand_f(-0.05f, 0.05f);
       const float adz = hs::rand_f(-1, 1);
@@ -101,11 +95,10 @@ inline void test_col_span_covers_arc() {
     int s, len;
     if (!Plot::geodesic_col_span<TW>(a, b, Plot::make_geodesic_edge_span(a, b),
                                      s, len)) {
-      fallbacks++; // meridian fallback skips the cull; nothing to verify
+      fallbacks++;
       continue;
     }
 
-    // Dense ground truth along the renderer's own circle.
     math::Vector axis = Plot::make_geodesic_edge_span(a, b).axis;
     math::Vector vperp = math::cross(axis, a);
     constexpr int N = 1000;
@@ -129,10 +122,10 @@ inline void test_col_span_covers_arc() {
   HS_EXPECT_EQ(over_bound, 0);
   HS_EXPECT_GT(cullable, 500);
   HS_EXPECT_GT(near_half, 50);
-  HS_EXPECT_LT(fallbacks, 400); // the guard must stay a rare escape hatch
+  HS_EXPECT_LT(fallbacks, 400);
 
-  // Exact-antipodal edges: the span must cover the semicircle the renderer
-  // bulges about stable_perpendicular_axis, not just the endpoint columns.
+  // Exact-antipodal edges must cover the semicircle about
+  // stable_perpendicular_axis, not just the endpoint columns.
   int antipodal_escapes = 0, antipodal_samples = 0;
   for (int trial = 0; trial < 500; ++trial) {
     math::Vector a = rand_unit();
@@ -154,9 +147,7 @@ inline void test_col_span_covers_arc() {
   HS_EXPECT_EQ(antipodal_escapes, 0);
   HS_EXPECT_GT(antipodal_samples, 400000);
 
-  // Planar (azimuthal-equidistant) edges: ground truth is the chart line the
-  // renderer walks, unprojected densely. Charts centered near a pole force the
-  // near-pole fallback; the rest must produce bounded, containing spans.
+  // Planar edges: ground truth is the unprojected chart line.
   int planar_bounded = 0, planar_fallbacks = 0;
   int planar_escapes = 0, planar_samples = 0;
   for (int trial = 0; trial < 3000; ++trial) {
@@ -191,8 +182,6 @@ inline void test_col_span_covers_arc() {
   }
   HS_EXPECT_EQ(planar_escapes, 0);
   HS_EXPECT_GT(planar_samples, 1500000);
-  // Both outcomes must be exercised: bounded spans (the cull works) and the
-  // near-pole/short-way fallbacks (the escape hatch fires when it must).
   HS_EXPECT_GT(planar_bounded, 1500);
   HS_EXPECT_GT(planar_fallbacks, 20);
 }
@@ -221,12 +210,6 @@ static_assert(Pipeline<96, 48, Filter::World::Orient>::has_world_stage);
 /**
  * @brief Verifies edge_visible_in_clip never culls an edge whose densely
  *        sampled arc lands an anti-alias tap in the clip, and still culls.
- * @details Clip bands cover the device quadrant shapes: seam-wrapping
- *          (margin pushes rs past the seam), interior non-wrapping, full-width
- *          x (XClip inactive), and the full canvas. The geodesic corpus
- *          includes antipodal, near-collapsed, and near-meridian edges; the
- *          planar corpus draws chart-line edges on random disks, including
- *          near-pole charts that force the col-span fallback.
  */
 inline void test_edge_visible_in_clip_is_conservative() {
   constexpr int TW = 288, TH = 144;
@@ -329,7 +312,6 @@ inline void test_edge_visible_in_clip_is_conservative() {
       (got ? visible : culled)++;
     }
   }
-  // Both verdicts must be exercised across the band topologies.
   HS_EXPECT_GT(visible, 2000);
   HS_EXPECT_GT(culled, 2000);
 }
@@ -338,12 +320,6 @@ inline void test_edge_visible_in_clip_is_conservative() {
  * @brief End-to-end conservativeness of the wireframe edge gate: a
  *        quadrant/wedge-clipped Plot::Mesh::draw reproduces the full render's
  *        strokes inside the render band, including its margin ring.
- * @details Covers the whole-edge reject and the per-piece bits that replace
- *          rasterize's own cull. Random orientations put edges across both
- *          poles and the seam.
- *
- *          Cut pieces collapse into one windowed segment, preserving the full
- *          edge's step schedule and sample positions inside the render band.
  */
 inline void test_mesh_edge_gate_pixel_parity() {
   constexpr int W = 96, H = 48;
@@ -378,7 +354,6 @@ inline void test_mesh_edge_gate_pixel_parity() {
     posed.vertices.push_back(mesh.vertices[i]);
 
   for (int trial = 0; trial < 12; ++trial) {
-    // Re-orient the shell so edges sweep the poles and the wrap seam.
     const float axis_x = hs::rand_f(-1, 1);
     const float axis_y = hs::rand_f(-1, 1);
     const float axis_z = hs::rand_f(-1, 1);
@@ -553,10 +528,6 @@ inline void test_rasterize_window_preserves_terminal_sample() {
  * @brief End-to-end conservativeness of the rasterizer's column cull: a
  *        quadrant/wedge-clipped render is pixel-identical to the full render
  *        inside the render band, including its margin ring.
- * @details Random trail-like geodesic polylines and planar disk polylines
- *          through the AntiAlias pipeline. Clips cover both device quadrants, a
- *          narrow interior wedge, and a seam-adjacent wedge whose margin
- *          expansion wraps (rs > re).
  */
 inline void test_rasterize_column_cull_pixel_parity() {
   constexpr int W = 96, H = 48;
@@ -576,7 +547,6 @@ inline void test_rasterize_column_cull_pixel_parity() {
     math::Basis chart;
 
     if (planar) {
-      // Planar polyline: points on a chart disk.
       chart = basis_from_normal(rand_unit());
       float radius = hs::rand_f(0.3f, 1.3f);
       float a0 = hs::rand_f(0, 2 * math::PI_F);
@@ -586,7 +556,6 @@ inline void test_rasterize_column_cull_pixel_parity() {
         walk[i] = (chart.v * cosf(radius) + dir * sinf(radius)).normalized();
       }
     } else {
-      // Trail-like random walk: successive short geodesic hops.
       walk[0] = rand_unit();
       for (size_t i = 1; i < WALK; ++i) {
         math::Vector step = math::cross(walk[i - 1], rand_unit());
@@ -639,19 +608,15 @@ inline void test_rasterize_column_cull_pixel_parity() {
       expect_render_band_parity("raster column cull", diff);
     }
   }
-  HS_EXPECT_GT(lit_total, 200); // the sweep must actually exercise the bands
+  HS_EXPECT_GT(lit_total, 200);
   HS_EXPECT_GT(margin_lit_total, 20);
   HS_EXPECT_GT(row_margin_lit_total, 0);
 }
 
 /**
  * @brief Pins the whole-trail column cull to the per-edge column bound.
- * @details An edge whose great-circle axis is near-horizontal has no bounded
- *          azimuth span, so the per-edge tier reports it visible. The
- *          whole-trail walk must not cull it from the endpoint columns, which
- *          do not bound it either. The geometry below has |axis.y| ~ 1e-4,
- *          just under geodesic_col_span_cols' threshold, and sits far enough
- *          from the poles to clear the cull's own sin(phi) guard.
+ * @details An edge with no bounded azimuth span must not be culled from its
+ *          endpoint columns.
  */
 inline void test_gate_trail_column_cull_honors_unbounded_edge() {
   constexpr int TW = 288, TH = 144;
@@ -671,7 +636,6 @@ inline void test_gate_trail_column_cull_honors_unbounded_edge() {
     trail.push_back(f);
   }
 
-  // Bands across the sphere, so at least one excludes the endpoint columns.
   for (int x0 = 0; x0 < TW; x0 += 24) {
     ClipRegion cr;
     cr.w = TW;
@@ -841,7 +805,6 @@ inline void test_finish_col_span_one_period() {
 
 /**
  * @brief The conditional-add column wrap is bit-exact with wrap() over (-W, W).
- * @details Probes aggregate into a divergence counter.
  */
 inline void test_wrap_one_period_matches_modulo() {
   constexpr int W = 288;
@@ -860,8 +823,7 @@ inline void test_wrap_one_period_matches_modulo() {
     }
   };
 
-  // Deltas as geodesic_col_span_cols forms them: two vector_to_theta results in
-  // [0, W) subtracted.
+  // Differences of two [0, W) column positions.
   for (int i = 0; i < 4 * W; ++i) {
     const float a = static_cast<float>(i) * 0.25f;
     for (int j = 0; j < 4 * W; j += 7)
@@ -961,9 +923,7 @@ inline void test_cartesian_quadrant_gate_classification() {
 
 /**
  * @brief Checks Cartesian rejections against per-edge bounds and dense arc taps.
- * @details Random tiny, ordinary, large, polar, seam, and antipodal edges are
- *          swept over all four hardware quadrants. A Cartesian rejection must
- *          contain no bilinear tap in the render region, including unbounded-pole cases.
+ * @details A rejected trail has no bilinear tap in the render region.
  */
 inline void test_cartesian_quadrant_gate_is_conservative() {
   for (int north : {0, 1}) {
@@ -1077,10 +1037,8 @@ inline void test_cartesian_quadrant_gate_is_conservative() {
 
 /**
  * @brief Pins gate_trail_edges to the per-edge edge_visible_in_clip verdicts.
- * @details Random geodesic step-walk trails over the device band shapes. A
- *          false return must leave every byte zero AND every edge individually
- *          invisible (the whole-trail bound is conservative); a true return's
- *          bytes must equal the per-edge predicate exactly.
+ * @details A false return leaves every byte zero and every edge invisible; a
+ *          true return's bytes equal the per-edge predicate.
  */
 inline void test_gate_trail_edges_matches_edge_visible() {
   constexpr int TW = 288, TH = 144;
@@ -1140,8 +1098,6 @@ inline void test_gate_trail_edges_matches_edge_visible() {
         ++rejects;
     }
   }
-  // All three outcomes must be exercised: whole-trail rejects, per-edge
-  // culls, and visible edges.
   HS_EXPECT_GT(rejects, 20);
   HS_EXPECT_GT(visible, 1000);
   HS_EXPECT_GT(culled, 1000);
@@ -1149,10 +1105,6 @@ inline void test_gate_trail_edges_matches_edge_visible() {
 
 /**
  * @brief Verifies visible arc samples belong to pieces the clip gate keeps.
- * @details Sweeps the rendered great circle of random edges against bands
- *          covering both seam topologies: a sample whose plotted pixel falls in
- *          the render region must belong to a kept piece. Kept and culled piece
- *          counts are floored.
  */
 inline void test_mesh_clip_cut_separates_band() {
   constexpr int TW = 288, TH = 144;
@@ -1228,15 +1180,13 @@ inline void test_mesh_clip_cut_separates_band() {
   HS_EXPECT_GT(cuts, 400);
   HS_EXPECT_GT(kept, 400);
   HS_EXPECT_GT(culled, 400);
-  // Tightness: the gate keeps any piece straddling the band edge, so a cut
-  // that stops separating shows only as drawn arc past what the region shows.
+  // Tightness: drawn arc stays near the arc the region shows.
   HS_EXPECT_LT(drawn_arc * 2, shown_arc * 3);
 }
 
 /**
- * @brief Pins rasterize's precomputed-bits path to its inline gate: rendering
- *        with gate_trail_edges bytes must be pixel-identical to rendering the
- *        same polyline with the per-edge cull evaluated in place.
+ * @brief Rendering with gate_trail_edges bytes is pixel-identical to the
+ *        inline per-edge cull.
  */
 inline void test_rasterize_gate_bits_pixel_parity() {
   constexpr int W = 96, H = 48;
@@ -1282,9 +1232,6 @@ inline void test_rasterize_gate_bits_pixel_parity() {
         if (use_bits) {
           const ClipRegion &cr = fx.clip();
           const auto xc = cr.x_clip();
-          // A whole-trail reject renders nothing; the inline-gate reference
-          // paints nothing for it too (per-edge conservativeness), so the
-          // buffers still compare equal.
           if (!Plot::gate_trail_edges<W, H>(filters, cr, xc, pts, bits))
             return;
           vis = {bits, pts.size() - 1};
@@ -1325,5 +1272,5 @@ inline void test_rasterize_gate_bits_pixel_parity() {
       }
     }
   }
-  HS_EXPECT_GT(lit_total, 200); // the sweep must actually light the bands
+  HS_EXPECT_GT(lit_total, 200);
 }

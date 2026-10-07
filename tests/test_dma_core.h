@@ -62,8 +62,6 @@ inline void test_transfer_len() {
 /**
  * @brief Pin the per-column transfer bound: exact where the division is whole,
  * rounded UP otherwise.
- * @details The POV drivers reject column periods below this bound. Single-board
- * overruns drop a column; the segmented driver retries its pending submission.
  */
 inline void test_transfer_us_bound() {
   static_assert(dma::transfer_us(600, 240000000) ==
@@ -113,7 +111,7 @@ inline void test_transfer_stale_bounds() {
 inline void test_transfer_stale_wraparound() {
   const unsigned long wd = dma::TRANSFER_WATCHDOG_US;
   const unsigned long max = std::numeric_limits<unsigned long>::max();
-  // start just before rollover, now just after: elapsed = (max - start) + 1 + now, below wd.
+  // start just before rollover, now just after: elapsed below wd.
   HS_EXPECT_FALSE(dma::transfer_stale(max - 10, 9, wd)); // elapsed 20
   // start before rollover, now far enough past it to exceed the watchdog.
   HS_EXPECT_TRUE(dma::transfer_stale(max - 10, wd, wd)); // elapsed wd + 11

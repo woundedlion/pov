@@ -437,8 +437,8 @@ inline void test_shader_chain_effect_refusal_keeps_schema() {
   HS_EXPECT_EQ(static_cast<int>(refusal.code),
                static_cast<int>(In::ChainStatus::UNKNOWN_OPERATOR));
   HS_EXPECT_EQ(refusal.entry_index, 1);
-  // Transactional at the effect layer too: definitions, generation, and the
-  // committed program all survive, and the effect still renders.
+  // Definitions, generation, and the committed program survive, and the
+  // effect still renders.
   HS_EXPECT_EQ(effect.getParameterSchemaGeneration(), committed);
   HS_EXPECT_EQ(effect.getParameters().size(), param_count);
   HS_EXPECT_TRUE(effect.getParameters().find("camera.wander") != nullptr);

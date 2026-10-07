@@ -32,8 +32,7 @@ export async function profileDirectories(profilesDir, errors) {
       directories.push(entry.name);
       continue;
     }
-    // A report set without an index is unreachable and unchecked; a
-    // directory holding no report at all is not a timing set.
+    // A directory holding no report at all is not a timing set.
     if (files.some(file => REPORT_RE.test(file)))
       errors.push(`${entry.name} has profile reports but no README.md index`);
   }

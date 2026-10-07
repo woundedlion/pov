@@ -65,9 +65,8 @@ struct SamplePT {
  * @brief Renormalizes a sampled position with one Newton step.
  * @param v A sampler position, unit up to the fast sin/cos residual.
  * @return v scaled to unit length to second order.
- * @details The fast sin/cos kernels leave a sampled position up to 2e-3 off
- * unit, which phi = acos(v.y) turns into a near-pole row offset. One Newton
- * step leaves 5e-6.
+ * @details The fast sin/cos residual would otherwise become a near-pole row
+ * offset through phi = acos(v.y).
  */
 static inline math::Vector newton_unit(const math::Vector &v) {
   const float norm2 = math::dot(v, v);
@@ -314,8 +313,7 @@ struct DegenerateEdgeSampler {
 /**
  * @brief Great-circle sampler for one edge.
  * @details v1 and v_perp are orthonormal, so pos and tan are near-unit
- * combinations of the same approximate sin/cos — the
- * screen-velocity sampler's tangent costs no extra trig.
+ * combinations of the same approximate sin/cos.
  */
 struct GeodesicEdgeSampler {
   /** @brief pos() is unit up to one newton_unit() correction. */

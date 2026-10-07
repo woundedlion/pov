@@ -107,8 +107,6 @@ inline void test_centered_sector_angle_matches_wrap() {
       float expected =
           math::wrap(angle + sector * 0.5f, sector) - sector * 0.5f;
       HS_EXPECT_NEAR(folded, expected, 1e-5f);
-      // Independent of both folds: the result lands in the centered sector and
-      // differs from the input by a whole number of sectors.
       HS_EXPECT_LE(folded, sector * 0.5f + 1e-5f);
       HS_EXPECT_GE(folded, -sector * 0.5f - 1e-5f);
       const float turns = (angle - folded) / sector;
@@ -248,7 +246,7 @@ inline void test_distorted_ring_constant_shift_moves_centerline() {
   HS_EXPECT_NEAR(rs.t, 0.0f, 5e-4f);
 
   // Same point, no shift: the centerline stays at π/2, so it now sits `shift`
-  // radians off (raw_dist ≈ shift) — the shift moved the centerline.
+  // radians off (raw_dist ≈ shift).
   SDF::DistortedRing plain(
       b, 1.0f, thickness, [](float) { return 0.0f; },
       /*max_distortion=*/shift, /*phase=*/0.0f);
@@ -475,11 +473,8 @@ inline void test_distorted_ring_past_reach_reports_far_sentinel() {
 /**
  * @brief Verifies distance_from_frame() lights exactly where distance() does,
  *        at the same distance.
- * @details distance_from_frame() skips the chunk prefilter and runs a
- *          fixed-window search when a knot cell spans at least half the stroke.
- *          Knot cells range from a sliver of the stroke to several strokes wide,
- *          down to the axis where the search budget caps. Where either lights
- *          (dist < 0) both must, with raw distances equal to float rounding.
+ * @details Where either lights (dist < 0) both must, with raw distances equal
+ *          to float rounding.
  */
 inline void test_distorted_ring_frame_distance_matches_distance() {
   const math::Basis basis = math::make_basis(
@@ -609,7 +604,7 @@ inline void test_spherical_polygon_center_and_edge_magnitude() {
  * @brief Bounds sine-domain distance error across the device-width AA band.
  * @details Where the edge dot wins, the paths differ only by sin(x) - x. Where
  *   the circumscribed-disc clamp wins, distance() uses fast_acos, so the gap
- *   widens to its ~5e-5 rad peak.
+ *   widens to fast_acos's error.
  */
 inline void test_spherical_polygon_sine_distance_aa_error() {
   constexpr int W = 288;
@@ -850,10 +845,8 @@ inline void test_solid_shape_unit_angle_and_no_uv_paths() {
 /**
  * @brief Verifies the inverted fill keeps a radius > 1 shape centered on its
  *        original axis instead of jumping to the antipode.
- * @details Builds each solid shape the way the Scan wrappers do for radius 1.5:
- *   antipode-folded basis, folded radius 0.5, invert = true. The fill must
- *   cover the shape's own center side and exclude the folded (small) shape;
- *   Flower's fill is centered on the antipode of its axis, so its sides swap.
+ * @details The fill must cover the shape's own center side and exclude the
+ *   folded (small) shape.
  */
 inline void test_inverted_fill_stays_centered() {
   math::Basis b = equator_basis();

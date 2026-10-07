@@ -213,7 +213,6 @@ inline void test_warped_volume_distance_is_sphere_trace_safe() {
  * @brief Verifies WarpedVolume::bounding_distance never over-estimates the
  *        distance to the warped surface, over randomized points and torus/twist
  *        parameter sets.
- * @details The fast path returns this bound directly.
  */
 inline void test_warped_volume_bounding_distance_never_over_estimates() {
   struct Case {

@@ -220,8 +220,7 @@ using DeferredShaderRef =
 using TweenFn = FunctionRef<void(const math::Quaternion &, float)>;
 using VectorTweenFn = FunctionRef<void(const math::Vector &, float)>;
 // Rasterizer's clip-cull predicate: does the (world-transformed) edge a-b, with
-// optional planar basis, intersect the clip band? Routed through the pipeline so
-// world stages transform the edge before it is tested.
+// optional planar basis, intersect the clip band?
 using CullEdgePredRef = FunctionRef<bool(
     const math::Vector &, const math::Vector &, const math::Basis *)>;
 

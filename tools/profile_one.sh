@@ -1,38 +1,25 @@
 #!/bin/bash
 # profile_one.sh <Effect-or-ID> <env:profile|profile_o3> <seconds> <window> [extra flags...]
 # Builds+flashes the profile image for one effect and captures its serial dump
-# to build/prof/<effect>_<tag>.log. Verifies the capture header, and for a
-# cycling effect that a preset marker appears (guards against a stale build
-# silently flashing old code). On a marker/header mismatch it wipes the env
-# build dir and retries once.
+# to build/prof/<effect>_<tag>.log, then verifies the capture header and, for a
+# cycling effect, a preset marker; on a mismatch it wipes the env build dir and
+# retries once. The shipping phantasm image must pass its size/layout gates and
+# supplies the ELF for compiler/ABI attestation. Host: Windows + Git Bash.
 #
-# Host: Windows + Git Bash. Flash uses the PlatformIO loader through cygpath.
-# ELF attestation runs the toolchain's arm-none-eabi-readelf.exe (override with
-# HS_ARM_READELF). device_lock.sh enumerates boards by COM name; acquisition
-# fails without an enumerated board, before building the images.
-#
-# tools/device_lock.sh holds a per-board lock through build+flash+capture.
-# HS_DEVICE_WAIT=<s> queues for a free board; HS_TEENSY_PORT=<COMn> pins one board.
-#
-# HS_PROFILE_DEEP=1 additionally enables the HS_PROFILE_DEEP sub-scopes (the
-# per-pixel/per-cell/per-face counters in shared render code) and writes its
-# own _deep.log.
-#
-# The checkout containing this script is built by default, so linked worktrees
-# keep their logs and object directories isolated. HS_PROFILE_TREE=<path>
-# explicitly selects another checkout.
-# Profiling requires the shipping phantasm image to pass its size/layout gates;
-# that image supplies the ELF used for compiler and ABI attestation.
-# HS_PROFILE_MINDSPLATTER=counts|stalls builds a dedicated MindSplatter
-# instrumentation image and writes a suffixed log. Count images also enable the
-# generic Plot counters; neither image is valid for timing comparisons.
+# Env knobs:
+#   HS_DEVICE_WAIT=<s>      queue for a free board (tools/device_lock.sh)
+#   HS_TEENSY_PORT=<COMn>   pin one board
+#   HS_ARM_READELF          readelf for ELF attestation
+#   HS_PROFILE_DEEP=1       enable the HS_PROFILE_DEEP sub-scopes; writes _deep.log
+#   HS_PROFILE_TREE=<path>  checkout to build (default: the one holding this script)
+#   HS_PROFILE_MINDSPLATTER=counts|stalls  MindSplatter instrumentation image with
+#                           a suffixed log; not valid for timing comparisons
 set -euo pipefail
 # shellcheck source-path=SCRIPTDIR source=device_lock.sh
 . "$(dirname "$0")/device_lock.sh"
 # shellcheck source-path=SCRIPTDIR source=teensy_flash.sh
 . "$(dirname "$0")/teensy_flash.sh"
-# Without this, a short/split argument list makes `shift 4` fail and set -e
-# aborts with no message.
+# Under set -e, `shift 4` on a short list would abort with no message.
 [ $# -ge 4 ] || {
   echo "usage: profile_one.sh <Effect-or-ID> <profile|profile_o3> <seconds> <window> [extra flags...]" >&2
   exit 1
@@ -94,8 +81,7 @@ case "${HS_PROFILE_MINDSPLATTER:-}" in
 esac
 MODE_SUFFIX="${REPLAY_SUFFIX}${MSP_SUFFIX}"
 OUT=${HS_PROFILE_OUT:-build/prof/${LOWER}_${TAG}${DEEP_SUFFIX}${MODE_SUFFIX}.log}
-# Every per-run artifact hangs off the log's own stem, so HS_PROFILE_OUT moves
-# the whole set.
+# Every per-run artifact shares the log's stem.
 STEM=${OUT%.log}
 PROVENANCE_OUT=$STEM.provenance
 PROFILE_BUILD_LOG=${STEM}_build.log
@@ -265,8 +251,7 @@ capture() {
   echo "=== $EFFECT [$ENV] board=${HS_TEENSY_PORT:-auto} window=$WINDOW seconds=$SECONDS_ARG deep=${DEEP:-off} extra='$EXTRA'"
   build_and_attest
   hs_teensy_flash "$ENV"
-  # Let the capture's stderr through: a device trap and a port held by a peer
-  # share an exit code.
+  # stderr passes through: a device trap and a peer-held port share an exit code.
   if ! "$_HS_LOCK_PYTHON" tools/profile_capture.py --seconds "$SECONDS_ARG" --out "$OUT" >/dev/null; then
     echo "CAPTURE FAILED (device trap, or port held by a peer?): $OUT" >&2
     return 1
@@ -329,9 +314,8 @@ verify() {
       echo "NO '$MSP_MARKER' INSTRUMENTATION; stale build?"; return 1;
     }
   fi
-  # A flash that did not take leaves the previous image running. A freshly
-  # flashed board starts at frame 1 and the capture attaches within the 30 s
-  # connect window, so a first frame past ~600 means no reboot happened.
+  # A flash that did not take leaves the previous image running; a freshly
+  # flashed board starts at frame 1.
   local first
   first=$(grep -m1 -oE "^f [0-9]+" "$OUT" | awk '{print $2}')
   [ -n "$first" ] || { echo "NO FRAME LINES in $OUT"; return 1; }
@@ -339,15 +323,13 @@ verify() {
   return 0
 }
 
-# Armed before the claim: hs_device_release is a no-op until this shell holds a
-# token. INT/TERM exit, leaving the release to the EXIT trap, so the script
-# never resumes onto a released board.
+# Armed before the claim (release is a no-op without a token); INT/TERM exit
+# and leave the release to the EXIT trap.
 trap cleanup EXIT
 trap 'exit 130' INT
 trap 'exit 143' TERM
 
-# ETA estimates a clean rebuild, capture, and one retry; passing the deadline
-# does not expire a live holder's claim.
+# ETA covers a clean rebuild, capture, and one retry.
 acquire_tree_lock "$((SECONDS_ARG * 2 + 900))" || exit $?
 
 hs_device_acquire "$EFFECT" "$ENV" $((SECONDS_ARG * 2 + 900)) || exit $?
@@ -360,8 +342,7 @@ if ! verify; then
   verify || { echo "FAILED after clean rebuild: $OUT"; exit 1; }
 fi
 NWIN=$(grep -c "=== profile $EFFECT " "$OUT")
-# grep -c prints 0 and exits 1 on no match, so a `||` fallback here would
-# append to the count instead of replacing it.
+# grep -c prints 0 and exits 1 on no match; a `||` fallback would append.
 NMARK="n/a"
 if [ -n "$MARKER" ]; then
   NMARK=$(grep -c "$MARKER" "$OUT" || true)

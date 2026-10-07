@@ -38,7 +38,7 @@ public:
   }
 
   /**
-   * @brief Retunes the trail length at runtime (e.g. from a "Trail Len" slider).
+   * @brief Retunes the trail length at runtime.
    * @param new_lifetime New fade divisor in frames; must be positive.
    * @details Shortening caps buffered points to the new remaining lifetime.
    */

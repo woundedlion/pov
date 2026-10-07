@@ -131,9 +131,8 @@ const codePointCompare = (left, right) => {
   return a.length - b.length;
 };
 
-// RFC 8259 insignificant whitespace. /\s/u would also skip NBSP, the Unicode
-// space separators, U+2028/U+2029 and U+FEFF, so this reader would accept
-// documents every conforming JSON parser rejects.
+// RFC 8259 insignificant whitespace; /\s/u would also accept NBSP, U+2028/U+2029
+// and U+FEFF.
 const JSON_WHITESPACE = new Set([' ', '\t', '\n', '\r']);
 const JSON_NUMBER_PATTERN = /-?(?:0|[1-9]\d*)(?:\.\d+)?(?:[eE][+-]?\d+)?/uy;
 
@@ -276,9 +275,8 @@ export function parseShaderDocument(source, limits = DEFAULT_LIMITS) {
   return new JsonReader(source, bounded).parse();
 }
 
-// An already-decoded document skipped the reader, so the reader's byte, depth
-// and string limits are enforced over the object graph instead. Bytes are
-// measured over the compact serialization, a lower bound on any text form.
+// A decoded document skipped the reader, so its limits are enforced over the
+// object graph; bytes are measured over the compact serialization.
 const checkDecodedDocumentLimits = (source, limits = DEFAULT_LIMITS) => {
   const bounded = { ...DEFAULT_LIMITS, ...limits };
   if (new TextEncoder().encode(JSON.stringify(source) ?? '').length > bounded.bytes)
@@ -347,8 +345,7 @@ const label = (value, path) => {
   return value;
 };
 
-// scripts/engine_catalog.json is exported from the WASM engine. Validation reads
-// operator existence, carriers, parameter schemas, enum values and budgets.
+// scripts/engine_catalog.json is exported from the WASM engine.
 export const requireCatalog = (catalog) => {
   const invalid = () => fail('semantic', 'CATALOG_REQUIRED', 'catalog',
     'Chain validation needs a complete operator catalog (options.catalog).');
@@ -958,11 +955,8 @@ const quantizeParameter = (parameter) => {
   };
 };
 
-// The canonical descriptor keeps the chain array in document order with its
-// labels: both are digest-bearing, so reordering stages or renaming an
-// instance is a descriptor change while re-serializing the same document is
-// not. Serialization fields are a set - a validated permutation of the
-// parameter ids - so they sort with the parameters.
+// Chain order and labels are digest-bearing and keep document order;
+// serialization fields are a set and sort with the parameters.
 export function canonicalDescriptor(document) {
   const source = document.descriptor;
   const descriptor = {
@@ -980,10 +974,7 @@ export function canonicalDescriptor(document) {
 
 /**
  * The descriptor reduced to what identifies the program: the canonical form
- * without `unit`. A unit is a display label for the editor; the engine reads a
- * parameter through its storage and domain and never sees it, so two chains
- * differing only in a unit are the same program and must digest alike. The
- * unit stays in the canonical document; this view exists only to be hashed.
+ * without `unit`, an editor display label the engine never reads.
  * @param {*} descriptor - A canonicalDescriptor() result.
  * @returns {*} The same descriptor with every parameter's unit removed.
  */
@@ -1105,9 +1096,8 @@ const requireRegistry = (registry) => {
   return registry.effects;
 };
 
-// A hand-maintained entry may spell the same program non-canonically, so the
-// match canonicalizes it the way the compiled side was canonicalized. An entry
-// too loose to canonicalize is compared as it stands.
+// Canonicalizes a hand-maintained entry like the compiled side; an entry too
+// loose to canonicalize is compared as it stands.
 const registryDescriptorIdentity = (descriptor) => {
   try {
     return stableStringify(descriptorIdentity(canonicalDescriptor({ descriptor })));
@@ -1255,8 +1245,7 @@ const titleWords = (value) => value.split('-')
  * on a compiled effect, most specific first.
  *
  * Composed effects register display names off their parameter families, not
- * off document labels, so the two spellings only meet through this table; the
- * simulator's fixed apply path imports this table.
+ * off document labels.
  *
  * @param {string} parameterId
  * @returns {string[]} The candidate control names.
@@ -1312,9 +1301,8 @@ export function bakedTopologyFields(catalog) {
 }
 
 /**
- * Parameter ids a composed effect holds as a compile-time constant: the
- * document carries the value so the chain interpreter reproduces the motion,
- * the compiled build registers no control, and a fixed apply has nothing to
- * write. AshCloud's CAMERA_SPIN_RATE is the only one.
+ * Parameter ids a composed effect holds as a compile-time constant (AshCloud's
+ * CAMERA_SPIN_RATE): the compiled build registers no control, so a fixed apply
+ * has nothing to write.
  */
 export const BAKED_CONSTANT_IDS = new Set(['camera.spin-speed']);

@@ -438,9 +438,7 @@ public:
 
     float max_delta = (2 * math::PI_F) / W;
 
-    // Swap-remove dead particles, re-testing the same index. The i-- relies on
-    // unsigned wraparound (i==0 -> SIZE_MAX -> ++i back to 0): keep i unsigned
-    // and do not read i between the decrement and the loop's ++i.
+    // i-- relies on unsigned wrap (0 -> SIZE_MAX -> ++i -> 0); keep i unsigned.
     for (size_t i = 0; i < active_count; ++i) {
       bool dead = step_particle(pool[i], max_delta);
       if (dead) {
@@ -511,15 +509,8 @@ private:
    * of one equatorial display column. Near a pole the same surface step can
    * cross several longitude columns.
    * @return True once the particle is dead, so the caller can remove it.
-   * @details Ages, drags velocity, applies attractor gravity/steering, rotates
-   * position+velocity along the surface, and updates the trail.
-   *
-   * Integration is forward Euler with implicit dt = 1 (one step == one frame).
-   *
-   * Ordering: friction damps the carried-in velocity BEFORE this frame's impulse
-   * (v <- friction*v + impulse), so the impulse is not damped the same frame.
-   * Attractor impulses use gravity * strength / distance_squared without an
-   * additional max_delta factor.
+   * @details Forward Euler with dt = 1 frame; friction damps the carried-in
+   * velocity before this frame's attractor impulse.
    */
   bool step_particle(Particle<TRAIL_LEN> &p, float max_delta) {
     bool active = p.life > 0;
@@ -632,9 +623,7 @@ private:
           }
           HS_PLOT_STALL_STOP(signed_axis_physics, axis_motion_start);
         } else {
-          // The surface-rotation axis cross(pos, velocity) vanishes for a purely
-          // radial velocity (no motion along the sphere), so skip rather than
-          // normalize a zero-length axis.
+          // cross(pos, velocity) vanishes for a radial velocity; skip it.
           float speed = p.velocity.magnitude();
           math::Vector axis = math::cross(pos, p.velocity);
           if (speed > MOTION_MIN_SPEED && axis.magnitude() > MOTION_MIN_SPEED) {

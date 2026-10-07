@@ -6,9 +6,8 @@
  *
  * Target: the shipping 4× Teensy 4.0 Phantasm rig, flashed to every board.
  * Runs BenchPattern alone: one colour across the whole canvas, holding on red,
- * green, blue and white with slow ramps between. It reads with the sphere at
- * rest: every LED on every segment shows the same colour at the same instant.
- * A stable wrong segment ID is indistinguishable under this uniform pattern.
+ * green, blue and white with slow ramps between, readable with the sphere at
+ * rest. A stable wrong segment ID is invisible under this uniform pattern.
  */
 
 #include "../Phantasm/phantasm_target.h"

@@ -205,7 +205,6 @@ public:
    * @tparam Source Type exposing Color4 get(float) const.
    * @param arena Arena to allocate the LUT from.
    * @param source Source palette or composition to sample.
-   * @details Works for a runtime Palette or a compile-time StaticPalette alike.
    */
   template <typename Source>
   HS_COLD_MEMBER void bake(Arena &arena, const Source &source) {
@@ -218,9 +217,9 @@ public:
    * @brief Refills the existing LUT without allocating. Use for animated palettes.
    * @tparam Source Type exposing Color4 get(float) const.
    * @param source Source palette or composition to sample.
-   * @details Entry i samples t = i / (BakedPalette::LUT_SIZE - 1), so the last entry lands on
-   * t = 1 exactly; wrapping sources are rejected. Mirrored sources copy the first half in reverse. Looping sources copy entry
-   * zero to entry 255 so the quantized seam is exact.
+   * @details Entry i samples t = i / (LUT_SIZE - 1); wrapping sources are
+   * rejected. Mirrored sources copy the first half in reverse; looping sources
+   * copy entry 0 to the last entry so the seam is exact.
    */
   template <typename Source> HS_COLD_MEMBER void rebake(const Source &source) {
     static_assert(!palette_wraps_coordinate<Source>(),
@@ -252,9 +251,9 @@ public:
    * @param from The w = 0 endpoint; must be baked.
    * @param to The w = 1 endpoint; must be baked.
    * @param w Blend weight in (0, 1).
-   * @details Walks the two source LUTs entry-wise with the fixed-point channel
-   * lerp — no per-entry float resampling. Neither endpoint may be this palette;
-   * the fresh allocation would retarget it before the blend reads it.
+   * @details Blends entry-wise with the fixed-point lerp. Neither endpoint may
+   * be this palette; the fresh allocation would retarget it before the blend
+   * reads it.
    */
   HS_COLD_MEMBER void bake_blend(Arena &arena, const BakedPalette &from,
                                  const BakedPalette &to, float w) {
@@ -351,10 +350,9 @@ private:
  * @brief Bake-time adapter mapping a LUT coordinate from the cos domain into a
  *        source palette's angle parameter.
  * @tparam Source Type exposing Color4 get(float) const over t = angle/PI.
- * @details Baking through this folds the d -> acos(d)/PI radial mapping into the
- * bake, so the fragment lookup keys the LUT by the raw dot product via
- * dot_key(d). dot_key inverts this mapping:
- * u -> d = 1 - 2u, get(u) returns the source at acos(d)/PI.
+ * @details Folds d -> acos(d)/PI into the bake so a lookup keys the LUT by
+ * the raw dot product via dot_key(d); get(u) returns the source at
+ * acos(1 - 2u)/PI.
  */
 template <typename Source> struct DotKeyed {
   static constexpr bool WRAPS_COORDINATE = palette_wraps_coordinate<Source>();

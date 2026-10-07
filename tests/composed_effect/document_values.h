@@ -550,11 +550,9 @@ apply_document_value(typename FX::Params &built, const DocumentSlot &slot,
  * @brief Pins one effect's authored parameter values to its shader document.
  * @tparam E Composed effect class template.
  * @param name Effect name, for the failure context.
- * @details Every preset in the effect's promoted shader document in patterns/ is
- * rebuilt into a Params through the engine's own field tables and compared
- * against the authored preset, both ways, family by family. Reciprocal lattice
- * cell scale allows 1e-6 rounding error; other values are compared bit-exactly.
- * The preset roster, dwell and segue durations are pinned too.
+ * @details Every preset in the effect's shader document is rebuilt into a
+ * Params through the engine's field tables and compared both ways. Reciprocal
+ * lattice cell scale allows rounding error; other values compare bit-exactly.
  */
 template <template <int, int> class E>
 inline void check_document_values(const char *name) {

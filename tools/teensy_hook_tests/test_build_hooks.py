@@ -25,9 +25,7 @@ import teensy_gate as tg   # noqa: E402
 
 GATE_SCRIPT = "post:tools/teensy_gate_extra.py"
 
-# Hooks every environment needs: without teensy_pre the sketch is never placed,
-# without teensy_map the size investigations lose their per-symbol source, and
-# without teensy_isystem the warning gate sees vendored diagnostics.
+# Hooks every environment needs.
 REQUIRED_SCRIPTS = (
     "pre:tools/teensy_pre.py",
     "pre:tools/teensy_map.py",
@@ -111,9 +109,8 @@ _INTERP = re.compile(r"\$\{([^.}]+)\.([^}]+)\}")
 
 
 def _option_lines(cfg, section, option, depth=0):
-    """One option's values as PlatformIO resolves them: [env] supplies the
-    default for an [env:X] that omits the option (list options do NOT merge),
-    and a ${section.option} line expands to that option's values."""
+    """One option's values as PlatformIO resolves them: [env] supplies an option
+    [env:X] omits (list options do NOT merge), and ${section.option} expands."""
     if depth > 8:
         raise RecursionError(f"[{section}] {option} interpolates cyclically")
     if not cfg.has_option(section, option) and section.startswith("env:"):
@@ -132,8 +129,7 @@ def _option_lines(cfg, section, option, depth=0):
 
 
 class TestExtraScriptsExist(unittest.TestCase):
-    """Every hook platformio.ini names must be a real file (a typo'd pre:/post:
-    path is accepted by PlatformIO's parser and only surfaces at build time)."""
+    """Every hook platformio.ini names must be a real file."""
 
     def test_every_extra_script_resolves(self):
         cfg = _pio_config()
@@ -151,9 +147,7 @@ class TestExtraScriptsExist(unittest.TestCase):
 
 
 class TestBudgetedEnvsWireTheGate(unittest.TestCase):
-    """The size/layout gate is a post hook, not a build step, and the envs that
-    skip it re-type their extra_scripts block by hand (list options do not
-    merge)."""
+    """The size/layout gate hook is wired to exactly the budgeted envs."""
 
     def test_configuration_uses_no_unresolved_extends(self):
         cfg = _pio_config()
@@ -184,15 +178,11 @@ class TestBudgetedEnvsWireTheGate(unittest.TestCase):
 
 
 class TestRequiredHooksReachEveryEnv(unittest.TestCase):
-    """PlatformIO cannot subtract from an inherited list, so the envs that
-    skip one hook re-type the whole block by hand. Adding a required hook to
-    [env] therefore reaches only the envs that inherit it, and those that do
-    not build green without it."""
+    """Every env carries the required hooks, including envs that re-type
+    extra_scripts (list options do not merge)."""
 
     def test_every_base_hook_but_the_gate_reaches_every_env(self):
-        # Derived from [env], not from REQUIRED_SCRIPTS, which only has to be a
-        # subset of what [env] declares. The gate hook is the one line those
-        # envs drop on purpose.
+        # Derived from [env]; the gate hook is the one line envs may drop.
         cfg = _pio_config()
         base = [s for s in _option_lines(cfg, "env", "extra_scripts")
                 if s != GATE_SCRIPT]
@@ -220,15 +210,12 @@ class TestRequiredHooksReachEveryEnv(unittest.TestCase):
                         f"shipping environments missing from source selection: {matched}")
 
     def test_base_env_declares_every_required_hook(self):
-        # The [env] block is where a new required hook is added; an entry missing
-        # here would make the assertion above pass vacuously for the inheritors.
         declared = _option_lines(_pio_config(), "env", "extra_scripts")
         for script in REQUIRED_SCRIPTS:
             self.assertIn(script, declared, f"[env] does not declare {script}")
 
     def test_no_env_wires_a_hook_twice(self):
-        # ${env.extra_scripts} plus a hand-listed copy runs the hook twice, which
-        # double-appends its flags.
+        # ${env.extra_scripts} plus a hand-listed copy double-appends its flags.
         cfg = _pio_config()
         for name in _pio_envs():
             resolved = _option_lines(cfg, f"env:{name}", "extra_scripts")
@@ -264,8 +251,7 @@ class TestHooksRegisterNoBuildActions(unittest.TestCase):
 
 
 class TestSketchSelection(unittest.TestCase):
-    """teensy_pre.py: PlatformIO globs $PROJECT_SRC_DIR/*.ino, so the sketch is
-    chosen here or setup()/loop() never link."""
+    """teensy_pre.py selects each env's sketch."""
 
     def _run(self, pioenv):
         env = FakeEnv(PIOENV=pioenv, PROJECT_DIR=str(REPO))
@@ -288,9 +274,8 @@ class TestSketchSelection(unittest.TestCase):
                 self.assertTrue(os.path.isabs(nodes[0]))
 
     def test_each_mapping_names_the_sketch_that_env_compiles(self):
-        # platformio.ini spells the same sketch a second time, as the
-        # .ino.cpp PlatformIO converts it into: an env mapped to the other
-        # target's sketch links the wrong setup()/loop() and builds green.
+        # A mapping to the other target's sketch links the wrong setup()/loop()
+        # and still builds green.
         mod, _ = self._run("phantasm")
         cfg = _pio_config()
         for name in _pio_envs():
@@ -330,8 +315,7 @@ class TestNanoSpecs(unittest.TestCase):
         self.assertEqual(env["LINKFLAGS"].count("--specs=nano.specs"), 1)
 
     def test_not_added_to_cxxflags(self):
-        # A C++ command is `$CXXFLAGS $CCFLAGS`; adding it to both duplicates the
-        # spec on one command line and gcc fatals ("spec 'link' already defined").
+        # A C++ command is `$CXXFLAGS $CCFLAGS`; a spec in both makes gcc fatal.
         env = FakeEnv(CCFLAGS=[], CXXFLAGS=[], LINKFLAGS=[])
         load_hook("teensy_nano.py", env=env)
         self.assertNotIn("--specs=nano.specs", env["CXXFLAGS"])
@@ -376,8 +360,6 @@ class TestIsystemDemotion(unittest.TestCase):
             self.assertEqual(builder.env["CCFLAGS"], ["-w"])
 
     def test_demoting_nothing_fails_loud(self):
-        # The silent no-op this guard exists for: the markers stop matching and
-        # the build quietly reverts to a vendored-warning flood.
         with self.assertRaises(SystemExit) as cm:
             self._run(FIRST_PARTY)
         self.assertIn("demoted 0 third-party include dirs", str(cm.exception))

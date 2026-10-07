@@ -2,24 +2,14 @@
 """Generates core/color/gamut_lut.h: the sRGB gamut boundary bracket table used
 by gamut_clip_preserve_chroma.
 
-Preserve-chroma clipping holds L and hue fixed and scales (a, b) uniformly.
-The table is indexed by the diamond angle of (b, a) (diamond_angle() in
-core/math/3dmath.h) and by L. Each cell stores guarded extrema of sampled
-first-exit chroma estimates, which the runtime refines against the channel
-cubics. Finite probes can miss a narrow out-of-gamut interval, so the brackets
-do not certify enclosure of every ray's exact first exit.
-
-BOUNDARY DEFINITION. C_max is the FIRST EXIT: the smallest C > 0 that leaves the
-gamut. That is not the same as "the largest in-gamut C" -- linear_rgb_in_gamut's
-+-1e-4 slack can make the in-gamut set along a ray disconnected.
+Cells are indexed by L and the diamond angle of (b, a) and hold guarded extrema
+of sampled C_max. C_max is the FIRST EXIT, the smallest C > 0 that leaves the
+gamut, not the largest in-gamut C: linear_rgb_in_gamut's slack can make the
+in-gamut set along a ray disconnected. Finite probes can miss a narrow gap, so
+the brackets do not certify enclosure of every ray's exact first exit.
 
 Usage: python tools/gen_gamut_lut.py [output_path]
-       python tools/gen_gamut_lut.py --check
-
---check regenerates the table in memory and diffs it against the committed
-header in full, pins the mirrored constants against core/color/color_space.h,
-pins the mirrored diamond angle against core/math/3dmath.h, and round-trips the
-angle parameterization.
+       python tools/gen_gamut_lut.py --check   (diff the header, pin the mirrors)
 """
 
 import argparse
@@ -31,12 +21,10 @@ import sys
 
 import numpy as np
 
-# Flash master resolution. init_gamut_lut() downsamples by integer factors, so
-# these bound the finest grid any effect can request.
+# Flash master resolution; init_gamut_lut() downsamples by integer factors.
 ANGLE_STEPS = 256
 L_STEPS = 128
-# 65535 / 0.5: OKLab chroma inside sRGB stays below 0.5, so this spends the full
-# uint16 range on the live domain at ~7.6e-6 resolution.
+# 65535 / 0.5: OKLab chroma inside sRGB stays below 0.5.
 SCALE = 131070.0
 # Sub-samples per cell per axis, closed at both ends.
 SUBSAMPLES = 16
@@ -47,8 +35,8 @@ GUARD = 1e-4
 C_HI = 0.45
 COARSE = 192
 BISECT_ITERS = 28
-# Connectivity probes below a candidate; narrow gaps can fall between them.
-# A ray with a failed probe re-solves with the full coarse scan.
+# Connectivity probes below a candidate; a failed probe re-solves with the
+# coarse scan.
 CONNECT_CHECKS = 24
 
 # Matches core/color/color_space.h linear_rgb_in_gamut(). --check pins these against
@@ -181,7 +169,7 @@ def build_table():
     table = np.zeros((L_STEPS, ANGLE_STEPS, 2), dtype=np.uint16)
     worst_width = 0.0
 
-    # Angle cells run in groups so one chunk stays a sane array size.
+    # Angle cells run in groups to bound array size.
     group = 32
     for a0 in range(0, ANGLE_STEPS, group):
         n_cells = min(group, ANGLE_STEPS - a0)
@@ -219,7 +207,7 @@ def render(table):
     """Returns the generated header text."""
     flat = table.ravel()
     lines = []
-    # 11 five-digit values plus indent stays inside the 80-column convention.
+    # Stays within 80 columns.
     per_line = 11
     for i in range(0, flat.size, per_line):
         lines.append("    " + ", ".join("%d" % v for v in flat[i:i + per_line])
@@ -435,12 +423,7 @@ def _cpp_float_fn(body, params, outputs=()):
 
 
 def check_angle_roundtrip():
-    """Pins diamond_direction() as the inverse of diamond_angle() above.
-
-    Every cell of the table is filled along a direction from
-    diamond_direction(), and every runtime lookup indexes it by the diamond
-    angle.
-    """
+    """Pins diamond_direction() as the inverse of diamond_angle()."""
     n = ANGLE_STEPS * SUBSAMPLES
     t = np.arange(n) * (4.0 / n)
     a_dir, b_dir = diamond_direction(t)
@@ -454,10 +437,7 @@ def check_angle_roundtrip():
 
 
 def check_diamond_angle_mirror(math_h_path):
-    """Diffs the mirrored diamond angle against 3dmath.h's definition.
-
-    Parses the C++ into a callable and sweeps it against the mirror.
-    """
+    """Diffs the mirrored diamond angle against 3dmath.h's, parsed to a callable."""
     with open(math_h_path, "r", encoding="utf-8") as f:
         text = f.read()
     try:
@@ -565,12 +545,7 @@ def check_mirrors(color_h_path, math_h_path):
 
 
 def check_provenance(committed_path):
-    """Diffs a fresh table against the committed header in full.
-
-    Whole text, not numeric tokens: the array names, the flash-section marker,
-    the constants, the includes and the doc comments are as much a divergence
-    as a shifted value.
-    """
+    """Diffs a fresh table against the committed header's whole text."""
     if not os.path.exists(committed_path):
         sys.stderr.write("missing %s\n" % committed_path)
         return False
@@ -616,8 +591,7 @@ def main():
         ok = check_provenance(args.output_path) and ok
         sys.exit(0 if ok else 1)
 
-    # The mirrored matrices and gamut slack are what the table is solved
-    # against, so drift bakes a wrong header. Refuse to write on a failure.
+    # Drifted mirrors would bake a wrong header; refuse to write.
     ok = check_angle_roundtrip()
     ok = check_mirrors(color_h, math_h) and ok
     if not ok:

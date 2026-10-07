@@ -15,7 +15,6 @@ namespace projections {
 /**
  * @brief Soft-limit for a stereographic coordinate fed (times a pattern
  * frequency) into fast_sinf/fast_cosf, beyond which range reduction bands.
- * @details Holds the range-reduction error to ~5e-4 rad in the pole cap.
  */
 inline constexpr float STEREO_PATTERN_ARG_LIMIT = 4096.0f;
 
@@ -24,9 +23,8 @@ inline constexpr float STEREO_PATTERN_ARG_LIMIT = 4096.0f;
  * @param r_sq Pre-computed |z|² (z.re² + z.im²).
  * @param singularity_fade Attenuation radius (larger = wider fade zone).
  * @return Falloff factor 1/(1 + r²/pf²), with pf = max(singularity_fade, 1e-3).
- * @details Stereographic projection sends the far pole to infinity, so |z|²
- * grows without bound near it; this falloff is 1 at the projection origin and
- * decays toward 0 with distance, taming that singularity.
+ * @details 1 at the projection origin, decaying toward 0 as |z|² grows
+ * unbounded near the far pole.
  */
 __attribute__((always_inline)) inline float
 pole_attenuation(float r_sq, float singularity_fade) {

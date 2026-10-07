@@ -155,11 +155,9 @@ __attribute__((always_inline)) void pack_edges(FaceScratchBuffer &scratch) {
    * @param scratch Scratch storage receiving half_planes.
    * @param area2 Twice the polygon's signed area, from the collapsed-face cull.
    * @details The maximum edge half-plane distance is exact inside a convex
-   * polygon and in exterior edge slabs. In a vertex's exterior normal cone it
-   * underestimates Euclidean distance; an offset w reaches w / sin(alpha / 2)
-   * along the bisector of a corner with interior angle alpha. Concave,
-   * degenerate-edged, or wrongly-oriented polygons leave convex false and
-   * distance() on the exact walk.
+   * polygon and in exterior edge slabs, and underestimates in a vertex's
+   * exterior normal cone. Concave, degenerate-edged, or wrongly-oriented
+   * polygons leave convex false and distance() on the exact walk.
    */
 __attribute__((always_inline)) void
 build_half_planes(FaceScratchBuffer &scratch, float area2) {
@@ -417,9 +415,7 @@ compute_azimuth_intervals(FaceScratchBuffer &scratch) {
 /**
    * @brief Necessary condition for apply_pole_containment to fire.
    * @return True when a pole falls within the gnomonic circumcircle of the
-   *         face's vertices. Both poles project to the same radius, so one
-   *         test covers each. pole_inside_polygon can only report inside for
-   *         points within the vertex convex hull, so a false here rules out
+   *         face's vertices (one test covers both poles); false rules out
    *         pole containment.
    */
 __attribute__((always_inline)) bool pole_within_circumcircle() const {
@@ -921,8 +917,8 @@ HS_O3_FN void distance(const math::Vector &p, DistanceResult &res,
    * @param res Output distance result.
    * @param reject_dsq Conservative squared plane-distance rejection threshold.
    * @param probe_flags Flags captured by probe_flags() after geometry/LUT updates.
-   * @details Takes a square root and reciprocal per call; the five-argument
-   * overload accepts a cached cosine for repeated probes.
+   * @details The five-argument overload accepts a cached cosine for repeated
+   * probes.
    */
 template <bool ComputeUVs = true>
 HS_O3_FN void distance_with_flags(const math::Vector &p, DistanceResult &res,
@@ -1033,8 +1029,7 @@ HS_O3_FN void distance_with_flags(const math::Vector &p, DistanceResult &res,
     }
   }
 
-  // Small faces skip the plane->angle conversion: tan(angle) ~ angle to
-  // within size^2/3 of the shading gradient (< 1.5% at the 0.2 threshold).
+  // Small faces skip the plane->angle conversion: tan(angle) ~ angle.
   float raw = (probe_flags & PROBE_LINEAR) ? plane_dist
                                            : math::fast_atan2(plane_dist, 1.0f);
   res = DistanceResult(raw, 0.0f, raw, 0.0f, size);

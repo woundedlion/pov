@@ -33,8 +33,6 @@ inline void expect_noise_grid(const float (&golden)[N], SampleFn sample,
 
 /**
  * @brief Checks a fixed 3D OpenSimplex2 sample grid.
- * @details Seed 1337 (FastNoiseLite default), frequency 0.125, a 5x5x5 grid over
- *          [-3, 3].
  */
 inline void test_noise3d_golden_grid() {
   static constexpr float GOLDEN[] = {
@@ -184,7 +182,6 @@ inline void test_noise3d_golden_grid() {
 
 /**
  * @brief Checks a fixed 2D OpenSimplex2 sample grid.
- * @details Same generator config, an 8x8 grid over [-3, 2.25].
  */
 inline void test_noise2d_golden_grid() {
   static constexpr float GOLDEN[] = {
@@ -225,8 +222,6 @@ inline void test_noise2d_golden_grid() {
  * @brief Pins noise_transform's displaced output for fixed params and inputs.
  * @details An oracle for 3-channel sampling, tangent projection and normalization
  *          with the displacement cap inactive.
- *          Re-derive the three outputs with noise_golden_gen under the native
- *          Clang tests preset (cmake/toolchain-native-clang.cmake).
  */
 inline void test_noise_transform_golden() {
   Animation::NoiseParams p;

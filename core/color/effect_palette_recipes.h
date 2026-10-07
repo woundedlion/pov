@@ -164,13 +164,11 @@ HS_FLASH_MEMBER inline PaletteRecipe raymarch() {
 }
 
 /** @brief The liquid recipe at an arbitrary hue rotation; every rotation is
- *  morph-compatible with every other
- *  (see test_standalone_palette_rotations_morph_compatible).
+ *  morph-compatible with every other.
  *  @param rotation_turns Hue rotation in turns applied to every key.
  *  @return The recipe.
- *  @details Palindromic keys: hue travels a half turn out to the complement
- *  and back while lightness dives bright-dark-bright; the wrapped
- *  palette coordinate crosses the 1 -> 0 seam without a hard line. */
+ *  @details Palindromic keys, so the wrapped palette coordinate crosses the
+ *  1 -> 0 seam without a hard line. */
 HS_FLASH_MEMBER inline PaletteRecipe
 standalone_liquid_at(float rotation_turns) {
   constexpr float BASE_TURNS = 0.2933125f;

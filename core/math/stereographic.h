@@ -88,7 +88,7 @@ inline math::Complex stereo(const math::Vector &v) {
  * @return The corresponding point on the unit sphere.
  */
 inline math::Vector inv_stereo(const math::Complex &z) {
-  // Sentinel, or within ~0.02° of the pole → north pole.
+  // The sentinel, or anything near the pole, maps to the north pole.
   float r2 = z.squared_magnitude();
   if (r2 >= STEREO_INF_RECOGNIZE * STEREO_INF_RECOGNIZE)
     return math::Vector(0.0f, 1.0f, 0.0f);
@@ -100,8 +100,8 @@ inline math::Vector inv_stereo(const math::Complex &z) {
  * @brief Gnomonic Projection: Sphere -> Plane (Equator at Infinity).
  * @param v Point on the unit sphere.
  * @return The projected plane coordinate (equator points clamp to the sentinel).
- * @details Projects from center (0,0,0) to the plane y=1 (tangent at the North
- * Pole (0,1,0), i.e. j=1).
+ * @details Projects from the origin onto the plane y = 1, tangent at the north
+ * pole.
  * @note Identifies antipodes: `v` and `-v` project to the same plane
  * coordinate, so the hemisphere is lost. A caller that round-trips through
  * inv_gnomonic must track the sign of `v.y` and pass it back via
@@ -151,7 +151,6 @@ inline math::Vector inv_gnomonic(const math::Complex &z,
   float len = sqrtf(z.squared_magnitude() + 1.0f);
   float inv_len = 1.0f / len;
 
-  // Restore hemisphere sign (Upper or Lower)
   return math::Vector(z.re * inv_len * hemisphere_sign, // i
                       inv_len * hemisphere_sign,        // j
                       z.im * inv_len * hemisphere_sign  // k

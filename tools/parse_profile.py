@@ -1,38 +1,20 @@
 """Parse an on-device HS_PROFILE capture log into per-window and per-preset views.
 
-Companion to targets/Profile/Profile.ino + tools/profile_capture.py.
-Reads a capture produced by `profile`/`profile_o3` and:
+Reads a `profile`/`profile_o3` capture (tools/profile_capture.py). Modes:
 
-  windows   per-window per-frame cost for one counter scope; the footer gives
-            the pass aggregate the READMEs quote (peak render + spilled)
-  presets   per-preset/-shape/-mode table, each row read from that preset's
-            clean-hold windows (modal draw-call count — transition windows,
-            whose call count differs, are excluded)
-  buckets   per-preset cadence buckets (how many presets lock / flap / slip a
-            tier) — fills a cycling effect's README cell. Unlike `presets`,
-            each preset owns the transition that follows it, so its counts are
-            stricter than the clean-hold view.
-  metrics   per-window scan-probe counts and their path split, from a capture
-            built with -D HS_SCAN_METRICS; shade columns also need
-            HS_PROFILE_DEEP=1. Counts only: every probe in such a
-            build pays a global increment, so its times are not comparable.
-  probe     per-probe stage cycle split, from a capture built with
-            -D HS_PROBE_BREAKDOWN. Ratios only: every stage boundary is a
-            cycle-counter read, whose measured cost the view subtracts.
-  plot      per-window Plot workload attribution, from a capture built with
-            -D HS_PLOT_COUNTS. Counts only; timings from this build are perturbed.
-  msp-counts MindSplatter particle/gate/raster counts from a dedicated count image.
-  msp-stalls MindSplatter short-batch CYCCNT/CPICNT/LSUCNT/EXCCNT attribution.
-  validate  sanity checks a capture: cycling preset markers, when present,
-            the cycle wraps back to its first index, the effect instance is
-            never torn down mid-capture (frame numbers stay monotonic), and the
-            root counter matches the wall clock
-
-The frames mode prints individual frame records.
+  windows    per-window per-frame cost for one scope; footer = peak render + spilled
+  presets    per-preset table from each preset's clean-hold (modal call count) windows
+  buckets    per-preset cadence buckets; each preset owns its following transition
+  metrics    scan-probe counts and path split (-D HS_SCAN_METRICS; counts only)
+  probe      per-probe stage cycle split (-D HS_PROBE_BREAKDOWN; ratios only)
+  plot       per-window Plot workload (-D HS_PLOT_COUNTS; counts only)
+  msp-counts MindSplatter particle/gate/raster counts from a dedicated count image
+  msp-stalls MindSplatter short-batch CYCCNT/CPICNT/LSUCNT/EXCCNT attribution
+  validate   sanity-check markers, cycle wrap, frame monotonicity, root vs wall
+  frames     individual frame records
 
 Counter lines are WINDOW TOTALS since the previous dump; per-frame = total /
-window frames, us -> ms / 1000. A display window is 62.5 ms at 480 RPM, so a
-draw_frame's wall time quantizes to whole 62.5 ms windows.
+window frames. A display window is 62.5 ms at 480 RPM.
 
 Preset markers are 1-based except the zero-based Profile marker:
   Profile preset: <i>/<N>    Profile target
@@ -179,13 +161,10 @@ class Window:
         return (root["us"] - wait) / self.frames / 1000.0
 
     def render_is_wall(self):
-        """The telemetry's render is really wall: the effect has no wait scope.
+        """The telemetry's render is really wall: no *_buffer_wait scope.
 
-        Profile.ino derives each frame's render as wall minus the effect's
-        *_buffer_wait counter delta, which is zero without such a scope.
-
-        Read from the counter tree, not from per-frame equality: a saturated
-        window legitimately carries render == wall.
+        Read from the counter tree: a saturated window legitimately carries
+        render == wall.
         """
         return not any(label.endswith("buffer_wait") for label in self.counters)
 
@@ -237,9 +216,7 @@ def parse_capture(path):
             m = HEADER_RE.search(line)
             if m:
                 f_start, f_end = int(m.group(4)), int(m.group(5))
-                # frames = f_end - f_start + 1 divides every per-frame figure:
-                # an equal pair is one frame, and anything below that is zero
-                # or negative frames, not a window.
+                # frames = f_end - f_start + 1 divides every per-frame figure.
                 if f_end < f_start:
                     raise ValueError(
                         f"{path}: window header frames {f_start}-{f_end} ends "
@@ -247,9 +224,8 @@ def parse_capture(path):
                 effect = effect or m.group(1)
                 nw = Window(m.group(1), int(m.group(2)), int(m.group(3)),
                             f_start, f_end, int(m.group(6)))
-                # Frame numbers restarting = the effect was torn down and
-                # reconstructed (epoch); the fresh instance is back on its
-                # first preset, so the old marker no longer applies.
+                # Frame numbers restarting = the effect was rebuilt (epoch);
+                # the old marker no longer applies.
                 if cur and nw.f_start <= cur.f_start:
                     active_marker = deferred_marker = frame_owner = None
                 cur = nw
@@ -340,9 +316,7 @@ def parse_capture(path):
                     # Between windows: no outgoing frames to protect.
                     active_marker = mk
                 break
-    # dump() logs the header, the wall/render stats and the counter tree in
-    # that order, so a capture cut mid-dump leaves a trailing header whose
-    # window was never measured.
+    # A capture cut mid-dump leaves a trailing header with no counters.
     if (len(windows) > 1 and not windows[-1].counters
             and any(w.counters for w in windows[:-1])):
         cut = windows.pop()
@@ -389,9 +363,8 @@ def spilled_frames(w):
         return sum(1 for f in w.frame_rows if f[2] > DISPLAY_WINDOW_US)
     if not w.wall:
         return 0
-    # Without usable per-frame render rows, the window's wall sum gives the
-    # extra windows consumed (= missed flips), an upper bound on spilled
-    # frames. Marked '~' at the callers.
+    # Without per-frame rows, the wall sum's extra windows (missed flips)
+    # upper-bound spilled frames; callers mark it '~'.
     extra = max(0, round(w.wall[3] / DISPLAY_WINDOW_US) - w.frames)
     return min(extra, w.frames)
 
@@ -511,14 +484,11 @@ def cmd_presets(windows, scope, gate):
 
 
 def cmd_buckets(windows, scope, gate):
-    """Per-preset cadence buckets: how many presets hold 16 fps vs spill.
+    """Per-preset cadence buckets: green = no spilled frame, red = any.
 
-    A preset owns the FRAMES its marker was in force for, including its
-    transitions in and out; without per-frame telemetry this falls back to the
-    window-level split. A clean-hold scope time above the peak render is
-    therefore impossible and fails the run.
-
-    Colour is binary: no spill anywhere is green; any spilled frame is red.
+    A preset owns the FRAMES its marker was in force for, transitions included
+    (window-level without per-frame telemetry). A clean-hold scope time above
+    its peak render fails the run.
     """
     # A scope no window carries yields no clean-hold rows for the ordering
     # guard to compare.
@@ -601,13 +571,10 @@ def cmd_buckets(windows, scope, gate):
 def cmd_metrics(windows):
     """Per-window scan-probe counts and the Face::distance path split.
 
-    Probes are Face::distance calls; culled are those the back-face / radius
-    guards reject before any edge work. lut/convex/sector/walk partition the
-    survivors. `cand` counts pixels passing the scan's d < pixel_width test and
-    `shade` the ones that then survived the alpha test, read from the
-    raster_shade scope's call count (the two differ by the alpha-rejected AA
-    fringe). This scope needs HS_PROFILE_DEEP=1 as well as HS_SCAN_METRICS.
-    Missing shade counts and ratios are n/a.
+    Probes are Face::distance calls; culled are rejected by the back-face /
+    radius guards; lut/convex/sector/walk partition the survivors. `cand`
+    counts pixels passing d < pixel_width, `shade` those surviving the alpha
+    test (raster_shade calls; needs HS_PROFILE_DEEP=1, else n/a).
     """
     have = [w for w in windows if w.scan]
     if not have:
@@ -670,14 +637,10 @@ PROBE_STAGES = (("point", "n_probe"), ("project", "n_probe"),
 def cmd_probe(windows):
     """Per-probe stage cycle split from an HS_PROBE_BREAKDOWN capture.
 
-    Each stage prints its mean cycles per event of its own denominator (`point`,
-    `project` and `pack` run once per probe; the edge stages once per probe on
-    that path; `alpha` once per shade candidate), the same mean with the
-    self-measured counter-read cost removed, and the share of the summed
-    per-probe cost it accounts for. `read` is that measured cost: `tick` sums a
-    back-to-back read pair per probe, so read = tick/(2*probes), and every stage
-    carries exactly one read. Ratios from this build are meaningful; absolute
-    times are not.
+    Per stage: mean cycles per event of its own denominator, the same less the
+    measured counter-read cost (read = tick / (2 * probes); each stage carries
+    one read), and its share of the per-probe total. Ratios are meaningful;
+    absolute times are not.
     """
     have = [w for w in windows if w.probe and "n_probe" in w.probe
             and "point" in w.probe]

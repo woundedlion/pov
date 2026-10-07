@@ -83,7 +83,6 @@ template <int S> void check_strip_tiling(int w, int x) {
       [&] { ++submits; }, [] {});
   HS_EXPECT_EQ(submits, 1);
 
-  // Top half strictly descends with y, bottom half strictly ascends.
   for (int y = 1; y < ROWS; ++y) {
     HS_EXPECT_TRUE(top_led[static_cast<size_t>(y)] <
                    top_led[static_cast<size_t>(y - 1)]);
@@ -91,7 +90,6 @@ template <int S> void check_strip_tiling(int w, int x) {
                    bot_led[static_cast<size_t>(y - 1)]);
   }
 
-  // Top half [0, ROWS) paints col_top; bottom half [ROWS, S) paints col_bot.
   for (int p = 0; p < ROWS; ++p)
     HS_EXPECT_EQ(led_col[static_cast<size_t>(p)], col_top);
   for (int p = ROWS; p < S; ++p)
@@ -114,7 +112,6 @@ inline void test_strip_derivation() {
   // Holosphere 96x20 config: S=40 -> ROWS=20.
   const int S = 40;
 
-  // The two halves partition [0, S) with no overlap.
   for (int y = 0; y < S / 2; ++y) {
     HS_EXPECT_TRUE(strip_top_led(y, S) < S / 2);
     HS_EXPECT_TRUE(strip_bottom_led(y, S) >= S / 2);
@@ -148,8 +145,7 @@ inline void test_column_interval() {
 
 /**
  * @brief Verify the shipped single-board column period clears the per-column
- * transfer bound; the <= 2x bound requires strobing effects to run unstrobed
- * on the FastLED path.
+ * transfer bound and stays within 2x of the FastLED show time.
  */
 inline void test_transfer_bound() {
   HS_EXPECT_EQ(pov::fastled_show_us(40, pov::FASTLED_CLOCK_MHZ), 1181UL);

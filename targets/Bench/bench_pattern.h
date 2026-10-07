@@ -17,9 +17,8 @@
  * @brief Whole-canvas colour cycle that holds on red, green, blue and white.
  * @tparam W Canvas width in pixels.
  * @tparam H Canvas height in pixels.
- * @details Uniform in x and y. The phase is the frame counter, so a board
- * whose sync has slipped reads as a mismatched arm; the holds on full
- * primaries expose a dead channel or a swapped LED colour order.
+ * @details The phase is the frame counter, so a board whose sync has slipped
+ * reads as a mismatched arm.
  */
 template <int W, int H> class BenchPattern : public Effect {
 public:

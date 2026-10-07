@@ -37,7 +37,6 @@ public:
    */
   Path &append_segment(PlotFn plot, float domain, int samples,
                        ScalarFn easing) {
-    // samples >= 1 also keeps the t / samples divide below non-zero.
     HS_CHECK(samples >= 1, "Path: samples must be positive");
     // A non-empty path drops its last point before appending samples + 1.
     size_t retained = points.is_empty() ? points.size() : points.size() - 1;
@@ -122,8 +121,7 @@ namespace Animation {
  * `max_angle` over a total sweep of `angle` radians.
  * @param angle Total sweep angle in radians.
  * @param max_angle Per-column smoothness threshold in radians.
- * @return Sub-step count, clamped to [1, MAX_SUBSTEPS] (tight ceil in range, no
- * extra subdivision).
+ * @return Sub-step count, clamped to [1, MAX_SUBSTEPS].
  * @details The caller upsamples the orientation trail to (result + 1) frames.
  * @note The upper clamp keeps the float->int conversion defined. A NaN or
  * non-positive quotient yields 1.
@@ -167,12 +165,10 @@ public:
         orientation(orientation),
         path_fn([&path_obj](float t) { return path_obj.get_point(t); }),
         space(space) {
-    // Reject the perpetual -1 the base permits: step() samples
-    // path_fn(t/duration).
+    // Rejects the base's perpetual -1: step() divides by duration.
     HS_CHECK(duration >= 0, "Motion duration must be >= 0");
   }
 
-  // path_fn borrows path_obj, so a temporary is rejected.
   template <typename P,
             typename = std::enable_if_t<!std::is_lvalue_reference_v<P>>>
   Motion(math::Orientation<CAP> &orientation, P &&path_obj, int duration,
@@ -223,10 +219,8 @@ public:
   /**
    * @brief Discards the carried baseline frame so the next step re-seeds it from
    * the current path.
-   * @details step() integrates the path as RELATIVE deltas off `prev_frame`.
-   * After the borrowed path is swapped, prev_frame still holds the old
-   * function's frame, so call this to re-seed the baseline and keep the first
-   * delta incremental.
+   * @details Call after swapping the borrowed path: step() integrates relative
+   * deltas off `prev_frame`, which still holds the old path's frame.
    */
   void reanchor() { have_prev_frame = false; }
 
@@ -264,7 +258,6 @@ public:
     math::Quaternion frame = prev_frame;
 
     for (int i = 1; i < len; ++i) {
-      // i maps the sub-interval [t-1, t]: i=0 is t-1, i=len-1 is t.
       float sub_t = t_prev + (static_cast<float>(i) / (len - 1));
       frame = path_frame(sub_t / this->duration);
 
@@ -278,7 +271,6 @@ public:
       }
       orientation.get().set_at_normalized(i, current_q);
     }
-    // Carry the final substep's frame as the next frame's baseline.
     prev_frame = frame;
   }
 
@@ -287,10 +279,8 @@ public:
    * @param s Normalized path parameter (the value passed to path_fn).
    * @return A unit quaternion mapping body +X to the point path(s), body +Y to
    * the travel direction tangent to the sphere, and body +Z to their cross.
-   * @details A pure function of s, so consecutive-frame deltas telescope (no
-   * drift). Tangent is a fixed-step forward difference; on a vanishing forward
-   * tangent it falls back to a backward difference, then to a deterministic
-   * perpendicular of the point.
+   * @details A pure function of s, so consecutive-frame deltas telescope
+   * without drift.
    */
   math::Quaternion path_frame(float s) const {
     math::Vector point = path_fn(s).normalized();
@@ -555,8 +545,7 @@ step_random_walk(math::Vector &position, math::Vector &direction,
                  const RandomWalkOptions &options, uint32_t t) {
   // noise_scale is applied by the caller via SetFrequency(); 100x is a fixed
   // base sample scale.
-  // Past t == 2^24 (~77 h at 60 fps), float cannot distinguish every
-  // consecutive frame, regardless of drift speed.
+  // Past t == 2^24, float cannot distinguish consecutive frames.
   const float target_pivot =
       noise.GetNoise(position.x * 100.0f, position.y * 100.0f,
                      position.z * 100.0f +

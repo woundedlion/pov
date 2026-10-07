@@ -38,8 +38,8 @@ static inline float chord2(const math::Vector &a, const math::Vector &b) {
 
 /**
  * @brief Upper bound on chord^2 from a node to any listed neighbor.
- * @details About 2x the shipped table's worst edge (chord^2 0.003808); a row
- *          shifted three rings (chord^2 ~0.015) exceeds it.
+ * @details About 2x the shipped table's worst edge; a row shifted three rings
+ *          exceeds it.
  */
 constexpr float MAX_NEIGHBOR_CHORD2 = 0.008f;
 
@@ -69,7 +69,6 @@ inline void test_nodes_on_unit_sphere() {
                                           std::fabs(node(i).length() - 1.0f));
   }
   HS_EXPECT_LT(worst_deviation, 1e-3f);
-  // Endpoints sit near the poles (y ~ +1 at i=0, y ~ -1 at i=RD_N-1).
   HS_EXPECT_GT(node(0).y, 0.999f);
   HS_EXPECT_LT(node(RD_N - 1).y, -0.999f);
 }
@@ -390,7 +389,6 @@ inline void test_cubemap_lut_offlattice() {
     } while (len2 < 0.01f);
     q = q.normalized();
 
-    // Brute-force argmin = the true nearest node.
     const LookupClass CLASSIFICATION = classify_lookup(lut, q);
     if (CLASSIFICATION == LookupClass::EXACT)
       ++exact;
@@ -402,7 +400,6 @@ inline void test_cubemap_lut_offlattice() {
   std::printf(
       "  [info] cubemap off-lattice: %d exact, %d neighbor, %d miss / %d\n",
       exact, near, miss, SAMPLES);
-  // 0 misses across the 400 fixed-seed off-lattice probes.
   HS_EXPECT_GT(exact + near, 0);
   HS_EXPECT_EQ(miss, 0);
 }

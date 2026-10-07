@@ -44,20 +44,14 @@ inline void test_pole_lod_clamp() {
 inline void test_clip_bounds() {
   constexpr int W = 96, H = 20;
 
-  // A typical sub-canvas band is accepted.
   HS_EXPECT_TRUE(hs_wasm::clip_bounds_valid(0, 48, 0, 10, W, H));
-  // Full-canvas band (exclusive ends equal the extent) is accepted.
   HS_EXPECT_TRUE(hs_wasm::clip_bounds_valid(0, W, 0, H, W, H));
-  // Empty but ordered band (x0 == x1) is accepted.
   HS_EXPECT_TRUE(hs_wasm::clip_bounds_valid(5, 5, 3, 3, W, H));
 
-  // Negative origin rejected (would feed ClipRegion modulo arithmetic).
   HS_EXPECT_TRUE(!hs_wasm::clip_bounds_valid(-1, 10, 0, 10, W, H));
   HS_EXPECT_TRUE(!hs_wasm::clip_bounds_valid(0, 10, -1, 10, W, H));
-  // Inverted order rejected on each axis.
   HS_EXPECT_TRUE(!hs_wasm::clip_bounds_valid(10, 5, 0, 10, W, H));
   HS_EXPECT_TRUE(!hs_wasm::clip_bounds_valid(0, 10, 10, 5, W, H));
-  // Out of canvas rejected on each axis.
   HS_EXPECT_TRUE(!hs_wasm::clip_bounds_valid(0, W + 1, 0, 10, W, H));
   HS_EXPECT_TRUE(!hs_wasm::clip_bounds_valid(0, 10, 0, H + 1, W, H));
   // A transposed (y-first) call that swaps the extents must fail the check
@@ -87,14 +81,11 @@ inline void test_clip_bounds() {
 inline void test_preset_index_valid() {
   constexpr size_t COUNT = 8;
 
-  // Every in-roster index is accepted, both endpoints included.
   HS_EXPECT_TRUE(hs_wasm::preset_index_valid(0, COUNT));
   HS_EXPECT_TRUE(hs_wasm::preset_index_valid(COUNT - 1, COUNT));
 
-  // Past the roster and negative are rejected.
   HS_EXPECT_TRUE(!hs_wasm::preset_index_valid(COUNT, COUNT));
   HS_EXPECT_TRUE(!hs_wasm::preset_index_valid(-1, COUNT));
-  // An effect with no presets accepts nothing.
   HS_EXPECT_TRUE(!hs_wasm::preset_index_valid(0, 0));
 
   // Fractional indices are rejected rather than truncated onto a neighbour.
@@ -116,11 +107,9 @@ inline void test_preset_index_valid() {
 inline void test_relax_clamp() {
   constexpr int MAX = 1000;
 
-  // In-range counts pass through unchanged.
   HS_EXPECT_EQ(hs_wasm::clamp_relax_iterations(0, MAX), 0);
   HS_EXPECT_EQ(hs_wasm::clamp_relax_iterations(1, MAX), 1);
   HS_EXPECT_EQ(hs_wasm::clamp_relax_iterations(MAX, MAX), MAX);
-  // Negative floors at 0.
   HS_EXPECT_EQ(hs_wasm::clamp_relax_iterations(-1, MAX), 0);
   HS_EXPECT_EQ(hs_wasm::clamp_relax_iterations(-1000000, MAX), 0);
   // Over-large counts clamp to the cap (relax(1e9) would freeze the thread).
@@ -147,7 +136,6 @@ inline void test_unit_fraction_clamp() {
   const float NAN_VALUE = std::numeric_limits<float>::quiet_NaN();
   HS_EXPECT_FALSE(hs_wasm::unit_fraction_out_of_range(NAN_VALUE));
   HS_EXPECT_TRUE(std::isnan(hs_wasm::clamp_unit_fraction(NAN_VALUE)));
-  // In-range fractions, including the boundaries, pass through unchanged.
   HS_EXPECT_TRUE(!hs_wasm::unit_fraction_out_of_range(0.0f));
   HS_EXPECT_TRUE(!hs_wasm::unit_fraction_out_of_range(0.5f));
   HS_EXPECT_TRUE(!hs_wasm::unit_fraction_out_of_range(1.0f));
@@ -215,7 +203,6 @@ inline void test_mesh_op_expansion_ceiling() {
   HS_EXPECT_EQ(hs_wasm::mesh_largest_element_count(70000, 6, 24), 70000u);
   HS_EXPECT_EQ(hs_wasm::mesh_largest_element_count(8, 70000, 24), 70000u);
 
-  // A cube is far inside every operator's bound.
   for (size_t e :
        {size_t(1), size_t(2), size_t(3), size_t(4), size_t(5), size_t(6)}) {
     HS_EXPECT_TRUE(!hs_wasm::mesh_op_expansion_over_ceiling(8, 6, 24, e, MAX));
@@ -246,7 +233,6 @@ inline void test_mesh_op_expansion_ceiling() {
   HS_EXPECT_TRUE(hs_wasm::mesh_op_expansion_over_ceiling(8, 30000, 24, 4, MAX));
   HS_EXPECT_TRUE(hs_wasm::mesh_op_expansion_over_ceiling(8, 6, 30000, 4, MAX));
 
-  // A zero expansion factor is malformed.
   HS_EXPECT_TRUE(hs_wasm::mesh_op_expansion_over_ceiling(8, 6, 24, 0, MAX));
 }
 
@@ -257,7 +243,6 @@ inline void test_mesh_op_arena_room() {
   constexpr size_t CAP = 8 * 1024 * 1024;
   constexpr size_t PER = 16;
 
-  // A cube's output is nothing next to an empty 8 MB arena.
   HS_EXPECT_TRUE(!hs_wasm::mesh_op_output_over_arena(8, 6, 24, 6, PER, 0, CAP));
   // Priced at expansion * bytes_per_element, a whole-arena mesh still fits.
   HS_EXPECT_TRUE(
@@ -275,7 +260,6 @@ inline void test_mesh_op_arena_room() {
   HS_EXPECT_TRUE(hs_wasm::mesh_op_output_over_arena(1, 1, 1024, 6, PER,
                                                     CAP - 2048 * PER, CAP));
 
-  // A zero expansion factor is malformed.
   HS_EXPECT_TRUE(hs_wasm::mesh_op_output_over_arena(8, 6, 24, 0, PER, 0, CAP));
   // A full or unbound (capacity 0) arena rejects everything.
   HS_EXPECT_TRUE(
@@ -297,12 +281,10 @@ inline void test_mesh_degree_measurements() {
   HS_EXPECT_EQ(hs_wasm::mesh_max_vertex_valence(cube_faces, 24, incidence, 8),
                3u);
 
-  // An empty mesh measures zero on both axes.
   HS_EXPECT_EQ(hs_wasm::mesh_max_face_degree(cube_counts, 0), 0u);
   HS_EXPECT_EQ(hs_wasm::mesh_max_vertex_valence(cube_faces, 0, incidence, 8),
                0u);
 
-  // A mixed-degree list reports the widest face.
   const uint8_t mixed[4] = {3, 200, 6, 3};
   HS_EXPECT_EQ(hs_wasm::mesh_max_face_degree(mixed, 4), 200u);
 
@@ -323,7 +305,6 @@ inline void test_mesh_degree_measurements() {
 inline void test_mesh_op_face_degree() {
   constexpr size_t MAX = 255; // PolyMesh's uint8_t per-face side count
 
-  // A cube is inside every operator's degree bound.
   HS_EXPECT_TRUE(!hs_wasm::mesh_op_face_degree_overflows(4, 3, 2, 2, MAX));
   // kis measures nothing and can never overflow: it emits only triangles.
   HS_EXPECT_TRUE(
@@ -469,9 +450,7 @@ inline void check_mesh_op_growth(const MeshOpProbe &probe, const PolyMesh &in,
                                      row->bounds.face_degree * in_degree,
                                      row->bounds.valence * in_valence}));
 
-  // The guard prices an operator's scratch at elements x
-  // TOOLING_BYTES_PER_MESH_ELEMENT and the scratch arenas hold exactly the
-  // 16-bit ceiling's worth, so the real high-water mark must fit that price.
+  // The real scratch high-water must fit the guard's per-element price.
   HS_EXPECT_LE(
       std::max(target.get_high_water_mark(), temp.get_high_water_mark()),
       hs_wasm::TOOLING_BYTES_PER_MESH_ELEMENT * row->bounds.elements *
@@ -514,8 +493,7 @@ inline void test_mesh_op_growth_factors() {
   Arena temp(mesh_op_temp_buf, sizeof(mesh_op_temp_buf));
   Arena finalized(mesh_op_finalized_buf, sizeof(mesh_op_finalized_buf));
 
-  // An operator on the roster with no probe here would ship an unmeasured
-  // factor.
+  // Every roster operator has exactly one probe.
   HS_EXPECT_EQ(std::size(MESH_OP_PROBES), hs_wasm::MESHOP_BOUNDS_COUNT);
   for (const auto &entry : hs_wasm::MESHOP_BOUNDS) {
     size_t matches = 0;
@@ -524,8 +502,8 @@ inline void test_mesh_op_growth_factors() {
     HS_EXPECT_EQ(matches, size_t{1});
   }
 
-  // Face degree and vertex valence differ across these five (3/3, 4/3, 3/4,
-  // 3/5, 5/3), so a factor keyed to the wrong measurement cannot pass on all.
+  // Face degree and vertex valence differ across these solids, so a factor
+  // keyed to the wrong measurement cannot pass on all.
   probe_solid_growth<Solids::Tetrahedron>(input, target, temp, finalized);
   probe_solid_growth<Solids::Cube>(input, target, temp, finalized);
   probe_solid_growth<Solids::Octahedron>(input, target, temp, finalized);

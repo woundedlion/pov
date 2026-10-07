@@ -331,7 +331,6 @@ inline void test_noise_field_simplex_curl_approximation() {
   }
   std::printf("  simplex curl error: max=%.9g mean=%.9g samples=%d\n",
               max_error, total_error / samples, samples);
-  // 816 samples: max 0.176433, mean 0.0279079; margins 2% and 7%.
   HS_EXPECT_LT(max_error, 0.18f);
   HS_EXPECT_LT(total_error / samples, 0.03f);
 }

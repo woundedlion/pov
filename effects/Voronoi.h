@@ -82,9 +82,8 @@ public:
 
       for (size_t i = 0; i < sites_buffer.size(); ++i) {
         auto &site = sites_buffer[i];
-        // Renormalize: rotate() drifts |pos| off the unit sphere over a long run,
-        // and the unit-site invariants (nearest-by-Euclidean == nearest-by-max-dot,
-        // and the border acosf(dot) staying in range) require unit vectors.
+        // Renormalize: rotate() drifts |pos| off the unit sphere, and the
+        // max-dot nearest search and border acosf(dot) need unit sites.
         const math::Quaternion q(half_cos, half_sin * site.axis);
         site.pos = math::rotate(site.pos, q).normalized();
       }
@@ -96,8 +95,7 @@ public:
     ScratchScope scope_guard(scratch_arena_a);
     math::Vector *positions =
         scratch_arena_a.allocate_n<math::Vector>(sites_buffer.size());
-    // IIFE times the per-frame KD build while keeping `tree` at frame scope
-    // (guaranteed copy elision on the prvalue return).
+    // IIFE scopes the profile node to the KD build; `tree` lives at frame scope.
     KDTree tree = [&]() -> KDTree {
       HS_PROFILE(vo_kdtree);
       for (size_t i = 0; i < sites_buffer.size(); ++i)
@@ -110,14 +108,10 @@ public:
     // scope inside the per-pixel loop.
     HS_PROFILE(vo_shade);
 
-    // Coarse-grid coherence: classify the nearest pair once per coarse-grid
-    // corner, then shade every pixel of a block from the deduped union of its
-    // four corners' pairs (<= 8 candidate sites) by an exact top-2 dot scan.
-    // A cell missed by all four corners is dropped.
-    // Voronoi cell pixel size falls as ~1/sqrt(num_sites), so shrink the block
-    // with the site count, floored at the edge MAX_SITES would give at this H.
-    // Full-sphere row-pitch estimate: an equal-area cell spans sqrt(4π/n)·H/π
-    // rows, and this edge is 1/sqrt(π) ≈ 0.56 of that estimate.
+    // Coarse-grid coherence: classify the nearest pair once per block corner,
+    // then shade the block's pixels from its corners' candidate sites by an
+    // exact top-2 dot scan. A cell missed by all four corners is dropped. The
+    // block shrinks with the site count, as cell size falls ~1/sqrt(n).
     const float cell_px = (2.0f * H / math::PI_F) /
                           sqrtf(static_cast<float>(sites_buffer.size()));
     const int B = hs::clamp(static_cast<int>(cell_px), COHERENCE_BLOCK_MIN,
@@ -287,8 +281,7 @@ private:
       "KD-tree + coarse-grid cells; raise SCRATCH_A_BYTES or lower MAX_SITES / "
       "coarsen COHERENCE_BLOCK");
 
-  // init() binds the MAX_SITES sites buffer from the persistent arena, which
-  // configure_arenas() sizes as the global arena less SCRATCH_A_BYTES.
+  // The MAX_SITES sites buffer lives in the persistent arena.
   static constexpr size_t FOOTPRINT_BYTES =
       size_t(MAX_SITES) * sizeof(Site) + alignof(Site);
   static_assert(FOOTPRINT_BYTES <=

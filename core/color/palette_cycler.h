@@ -18,12 +18,10 @@
 
 /**
  * @brief Cycles a display LUT through a sequence of palettes over time.
- * @details Dwells on each entry, then fades into the next over a fixed frame
- * count. Adjacent morph-compatible GenerativePalettes fade by key-space morph;
- * every other pair fades by baked-LUT crossfade. Entries are caller-owned,
- * must outlive the cycler, and must remain unchanged between init() calls;
- * morph compatibility and dwell display tables are cached. Outside a fade the
- * display LUT is a bit-exact bake of the current entry.
+ * @details Adjacent morph-compatible GenerativePalettes fade by key-space
+ * morph, other pairs by baked-LUT crossfade. Entries are caller-owned, must
+ * outlive the cycler, and must remain unchanged between init() calls. Outside a
+ * fade the display LUT is a bit-exact bake of the current entry.
  */
 class PaletteCycler {
 public:

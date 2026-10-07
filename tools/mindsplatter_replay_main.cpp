@@ -23,11 +23,9 @@ using WhiteBox = hs_test::effects_tests::MindSplatterWhiteBox;
 
 /**
  * @brief Visual bounds for the two replay oracles.
- * @details The reference terms bound single-pass sample phasing: the candidate
- * against a reference render produced by the same binary. The corpus terms
- * bound the candidate against the exact Clang 22 golden, so they admit
- * host-toolchain codegen drift. Every area bound is a whole-frame budget, so a
- * clipped pass spends it over fewer pixels.
+ * @details Reference terms bound the candidate against a same-binary reference
+ * render; corpus terms bound it against the Clang 22 golden, so they admit host
+ * codegen drift. Area bounds are whole-frame budgets, clipped passes included.
  */
 struct VisualGate {
   static constexpr uint32_t PIXELS = WIDTH * HEIGHT;
@@ -67,8 +65,7 @@ struct GateReport {
  *        recorded them: the restore blob, then every expanded golden channel.
  * @param corpus Corpus under replay.
  * @return FNV-1a over the state bytes followed by the whole framebuffer.
- * @details framebuffer_hash covers only the golden pixels; this also covers the
- * restore blob. Corpus metadata and the sparse pixel encoding are not hashed.
+ * @details Corpus metadata and the sparse pixel encoding are not hashed.
  */
 uint64_t rehash_corpus(const mindsplatter_replay::Corpus &corpus) {
   uint64_t hash = mindsplatter_replay::HASH_SEED;
@@ -98,10 +95,8 @@ uint64_t rehash_corpus(const mindsplatter_replay::Corpus &corpus) {
  * @param corpus Golden corpus the candidate is also measured against.
  * @param reference Scratch buffer holding the reference frame, WIDTH*HEIGHT.
  * @param label Pass label for the emitted line.
- * @param whole_frame True when the clip covers the whole frame, where the
- *        corpus's expanded pixels can be rehashed against the recorded hash to
- *        confirm the corpus itself is intact; the golden is recorded unclipped,
- *        so a partial pass rehashes only its own region.
+ * @param whole_frame True when the clip covers the whole frame; only then are
+ *        the expanded corpus pixels checked against the recorded hash.
  * @return True when every bound holds.
  */
 bool run_pass(ReplayEffect &effect, const mindsplatter_replay::Corpus &corpus,
@@ -233,8 +228,7 @@ int main() {
     accepted = run_pass(effect, corpus, reference, label, true) && accepted;
   }
 
-  // The corpus winner was scored under quadrant clips; replay the peak one so
-  // the clip-boundary splat path the search stresses is actually rendered.
+  // Replay the corpus's peak quadrant clip to render the clip-boundary splats.
   const ClipRegion peak =
       mindsplatter_replay::search_clip<WIDTH, HEIGHT>(corpus.peak_clip);
   effect.set_clip(peak.y_start, peak.y_end, peak.x_start, peak.x_end);

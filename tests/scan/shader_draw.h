@@ -76,17 +76,14 @@ inline void test_shader_constant_fills_canvas() {
 
 /**
  * @brief Verifies SAMPLES==4 SSAA premultiplies each sub-sample before averaging.
- * @details With two opaque red and two transparent black sub-samples per
- * pixel, premultiplied SSAA writes (sum of color*alpha) / N = red/2.
  */
 inline void test_shader_ssaa_premultiplies_partial_coverage() {
   constexpr int W = 16, H = 8;
   hs_test::StubEffect fx(W, H);
   {
     Canvas c(fx);
-    // Opacity keys on the sub-sample's position, not call order: the 2x2 grid's
-    // +0.25/-0.25 px x-offsets land at fractional theta-grid phase 0.25 vs 0.75,
-    // so two of the four samples per pixel are opaque regardless of iteration.
+    // Opacity keys on sub-sample position: the 2x2 grid's +/-0.25 px x-offsets
+    // land at theta-grid phase 0.25 vs 0.75, so two of four samples are opaque.
     Scan::Shader::draw<W, H, 4>(c, [](const math::Vector &v) -> Color4 {
       float theta = std::atan2(v.z, v.x);
       if (theta < 0.0f)
@@ -114,10 +111,8 @@ inline void test_shader_ssaa_premultiplies_partial_coverage() {
 /**
  * @brief Verifies the split vertex/fragment draw averages SAMPLES==4 sub-samples
  *        over one per-pixel vertex seed.
- * @details The vertex shader runs once at the pixel center and the fragment
- * shader four times at the sub-pixel offsets, each sub-fragment inheriting the
- * seeded registers. Two of the four sub-samples land opaque, so the written
- * pixel is half the seeded intensity.
+ * @details Each of the four sub-fragments inherits the registers the vertex
+ * shader seeded at the pixel center.
  */
 inline void test_shader_split_ssaa_averages_subsamples() {
   constexpr int W = 16, H = 8;
@@ -242,8 +237,6 @@ inline void test_shader_clip_arc_matches_predicate() {
                   1.0f);
   };
 
-  // 0/1: single-callback draw at 1x and 4x. 2/3: split vertex/fragment draw
-  // at 1x and 4x. 5/6: draw_cached. 7: walk_grid. Default (4): draw_grid.
   auto draw_variant = [&](Canvas &c, int variant) {
     switch (variant) {
     case 0:

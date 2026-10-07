@@ -57,13 +57,13 @@ inline void test_every_effect_renders_while_paused() {
  * @brief Module entry point for the roster-wide effect sweeps.
  * @return Module result code from hs_test::end_module (0 on success).
  * @details HS_EFFECTS_FULL=1 adds the smoke, determinism and paused-render
- * passes at the 288x144 production resolution.
+ * passes at the production resolution.
  */
 inline int run_effects_smoke_tests() {
   hs_test::ModuleFixture fixture("effects_smoke");
 
   if (effects_full_suite()) {
-    // Full production-resolution roster passes (288x144): smoke, then cross-run
+    // Full production-resolution roster passes: smoke, then cross-run
     // determinism under the injected clock.
 #define HS_SMOKE_ONE(name) smoke_one<name>(#name);
     HS_EFFECT_LIST(HS_SMOKE_ONE)

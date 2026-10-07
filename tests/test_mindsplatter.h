@@ -242,8 +242,7 @@ inline void test_mindsplatter_replay_snapshot_exact() {
  * pool.
  * @details Single-pass stepping omits the cached endpoint normalization, so
  * interior sample phases, one fringe pixel, and accumulated channels can
- * differ; the bounds are the measured worst case (exact at 96x20 under IEEE)
- * with headroom.
+ * differ.
  */
 inline void test_mindsplatter_saturated_quadrant_sink_parity() {
   constexpr int W = SMALL_W;
@@ -438,17 +437,14 @@ inline void test_mindsplatter_rotation_matrix_equivalence() {
   HS_EXPECT_EQ(sample_count, static_cast<size_t>(480192));
   HS_EXPECT_LE(max_component_error, 5e-7f);
   HS_EXPECT_LE(max_angular_error, 5e-7f);
-  // Host libm measurements: 236-237 coverage differences in 480192 samples.
   HS_EXPECT_LE(coverage_differences, 320);
-  // Subpixel coverage knife-edge: a ~2-ULP positional drift between the two
-  // rotation formulas can flip an anti-alias weight, and the amount depends on
-  // host libm rounding (Linux ~264 q16, Windows ~128).
+  // ULP-level drift between the two rotation formulas can flip an anti-alias
+  // weight; the amount depends on host libm rounding.
   HS_EXPECT_LE(max_q16_error, 512);
 }
 
 /**
  * @brief Bounds rendered output drift from the matrix orientation path.
- * @details IEEE host measurements differ in 19-20 pixels by one channel count.
  */
 inline void test_mindsplatter_rotation_matrix_framebuffer_error() {
   constexpr int W = SMALL_W;
@@ -685,9 +681,8 @@ inline void test_mindsplatter_clip_clear_display_parity() {
 
 /**
  * @brief Bounds full-lifetime render drift from signed-axis physics.
- * @details Particle count stays exact at every frame, and coverage stays exact
- * at every checkpoint: the two spellings agree on which particles live and which
- * pixels light. Per-checkpoint budgets bound accumulated integrator drift.
+ * @details Particle count and coverage stay exact; per-checkpoint budgets
+ * bound accumulated integrator drift.
  */
 inline void test_mindsplatter_signed_axis_framebuffer_error() {
   constexpr int W = SMALL_W;

@@ -20,11 +20,9 @@ inline constexpr float ALIGN_MAX_DEV_DIAGS = 0.25f;
  * @brief Canonical congruence-class signed-distance LUT, baked once per
  *        spawned mesh.
  * @details Distances are in canonical gnomonic plane units, quantized to int16
- * over the LUT box diameter (step ~1e-5 plane units). The domain is the
- * canonical polygon's bounding box + BOUNDS_MARGIN_WIDE, a different region
- * from the max_dist_sq cull disk (circumradius + the same margin): a probe can
- * survive the cull and still land outside the domain, so Face::distance's grid
- * clamp is required to keep the fetch in bounds.
+ * over the LUT box diameter. The domain (bounding box + BOUNDS_MARGIN_WIDE) is
+ * not a superset of the max_dist_sq cull disk, so Face::distance's grid clamp
+ * is required to keep the fetch in bounds.
  */
 struct ClassLut {
   const int16_t *data =
@@ -47,11 +45,8 @@ struct ClassLut {
  * @param out Storage for n*n quantized samples.
  * @param lut Receives the domain/quantization parameters, with data = out.
  * @details Exact per-edge walk with crossing-test sign, over the bounding box
- * + BOUNDS_MARGIN_WIDE. That box is not a superset of the runtime cull disk
- * (circumradius + the same margin), so probes landing outside the domain rely
- * on Face::distance's grid clamp. Quantization scale is the box diameter (an
- * upper bound on any in-box distance: the polygon meets its own bounding box),
- * giving a step of ~1e-5 plane units — far below the interpolation bound.
+ * + BOUNDS_MARGIN_WIDE. Quantization scale is the box diameter, an upper bound
+ * on any in-box distance.
  */
 inline void build_canonical_distance_lut(const float *poly_xy, int count, int n,
                                          int16_t *out, ClassLut &lut) {
@@ -141,10 +136,8 @@ struct AlignCorr {
  *        in a consistently-wound mesh).
  * @param get_z Centered-projection vertex accessor.
  * @param visit Per-correspondence sink.
- * @details Single source for the correspondence convention — the correlation
- * below, bake-time clustering (face_class_bake.h) and the per-frame
- * Face::bind_class_lut all route through it, so the (offset, reflected)
- * encoding cannot drift.
+ * @details The single source of the (offset, reflected) correspondence
+ * convention.
  */
 template <typename GetZ, typename Visit>
 inline void align_walk(int count, int vert_offset, bool reflected, GetZ get_z,

@@ -3,8 +3,7 @@
 # teensy_build.log for tools/teensy_warnings.py.
 #
 # A cached translation unit emits no warnings, so the object cache and
-# .pio/build go first and the whole firmware tree recompiles; budget tens of
-# minutes. pipefail so a failed build is not masked by tee's status.
+# .pio/build are wiped first; budget tens of minutes.
 #
 # usage: teensy_cold_build.sh [log]
 set -euo pipefail

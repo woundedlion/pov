@@ -20,22 +20,9 @@
  *        arena-compaction primitives effects need to swap between them, and a
  *        pluggable compile-time segue.
  * @tparam SegueT Segue policy (see namespace Segue) behind schedule_segue().
- * Clients that run their own transition animations keep the default and never
- * call it.
- * @details Holds two MeshState slots in `persistent_arena` and a front/back
- * index. Effects own generation and drawing (generate into a slot, flip the
- * front index, reclaim the old slot); the segue owns transition scheduling.
- *
- * Usage:
- *   MeshCarousel<Segue::Crossfade> carousel;  // in effect members
- *
- *   // Build the initial shape directly into the front slot:
- *   carousel.current().clear();
- *   MeshOps::compile(mesh, carousel.current(), persistent_arena,
- * scratch_arena_a);
- *
- *   // To transition: generate into the back slot, flip, then let the segue
- *   // schedule the animation via schedule_segue.
+ * @details Holds two MeshState slots in `persistent_arena`. Effects generate
+ * into the back slot, flip the front index, and reclaim the old slot; the
+ * segue owns transition scheduling.
  */
 template <typename SegueT = Segue::Crossfade> class MeshCarousel {
   static_assert(!Segue::HasFaceOffset<SegueT> || Segue::PerFace<SegueT>,

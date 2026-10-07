@@ -22,11 +22,8 @@ namespace Animation {
 /**
  * @brief Animates a Conway sweep, hankin sweep, relax slerp, medial slerp, or
  * gated partition swap (docs/specs/opchain_morph_spec.md, "Leg kinds").
- * @details Per frame: produce the swept mesh in scratch, compile, check the
- * face count against the hoisted classification, pre-blend ramps at w(frame),
- * and hand the mesh and per-face Shading table to the draw callback. Bulk
- * state lives in an arena-allocated Transients that no destructor reclaims;
- * the caller compacts the arena between legs.
+ * @details Bulk state lives in an arena-allocated Transients that no
+ * destructor reclaims; the caller compacts the arena between legs.
  */
 class OpLeg : public AnimationBase<OpLeg> {
 public:
@@ -58,8 +55,7 @@ public:
 
   /**
    * @brief Graph-edge Conway sweep: the edge's single op swept between the
-   * edge's endpoint parameters (docs/specs/opchain_morph_spec.md,
-   * "Leg kinds").
+   * edge's endpoint parameters.
    */
   struct EdgeSweepSpec {
     const ConwayGraph::EdgeSpec *edge =
@@ -72,8 +68,7 @@ public:
 
   /**
    * @brief Recipe-step Conway sweep: one primitive op swept t_start -> t_end
-   * on a fixed seed, no graph edge
-   * (docs/specs/opchain_morph_spec.md, "Leg kinds").
+   * on a fixed seed, no graph edge.
    */
   struct ParamSweepSpec {
     ConwayGraph::MorphOp op; /**< Swept operator. */
@@ -128,7 +123,7 @@ public:
 
   /**
    * @brief Relax leg: every vertex slerps from its seed position to its
-   * relaxed one (docs/specs/opchain_morph_spec.md, "Leg kinds").
+   * relaxed one.
    */
   struct RelaxSpec {
     int iterations = 0; /**< Spring-relaxation passes of the arrival form. */
@@ -181,9 +176,7 @@ public:
 
   /**
    * @brief Per-frame shading handed to the draw callback.
-   * @details The fragment path stays a single BakedPalette::get(t):
-   * ramps[face_ramp[face]] is the face's pre-blended LUT. Scratch-backed,
-   * valid for the current frame only.
+   * @details Scratch-backed; valid for the current frame only.
    */
   struct Shading {
     const BakedPalette *ramps; /**< One blended LUT per (from, to) pair. */
@@ -242,7 +235,7 @@ public:
   };
 
   /**
-   * @brief Bookend grouping of the arrival node (docs/specs/conway_morph_spec.md, sections 2.5/2.6).
+   * @brief Bookend grouping of the arrival node.
    * @details topology[f] is the class the effect displays arrival face f
    * with at the closing bookend. Color targets key on it, so faces it merges
    * converge to one color by w = 1. A null topology keys targets on the swept
@@ -345,8 +338,7 @@ public:
 
   /**
    * @brief Constructs a recipe-step Conway sweep leg: one primitive op swept
-   * t_start -> t_end on a fixed seed, no graph edge
-   * (docs/specs/opchain_morph_spec.md, "Leg kinds").
+   * t_start -> t_end on a fixed seed, no graph edge.
    * @param source Sweep mesh, cloned unless wrapped by SweepSeed::borrow().
    * @param spec Swept operator, parameter endpoints and frame count.
    * @param arena Leg arena backing the cloned seed and hoisted state.
@@ -375,7 +367,7 @@ public:
     tr.op = spec.op;
 
     // Truncate births below T_EPS when the larger endpoint is below
-    // T_EPS / TRUNCATE_BIRTH_FRAC (0.1).
+    // T_EPS / TRUNCATE_BIRTH_FRAC.
     const bool truncate = spec.op == ConwayGraph::MorphOp::TRUNCATE;
     // A far-side truncate leg (an endpoint > 0.5) sweeps through the ambo
     // pinch on the constant-topology truncate branch; a near-side leg is
@@ -434,9 +426,6 @@ public:
     Transients &tr = init_transients(LegKind::HANKIN_SWEEP, spec.sweep_frames,
                                      arena, handoff, blend_fn);
 
-    // No seed clone: the compiled hankin topology borrows the seed's vertices,
-    // so the seed must outlive the leg and must not move; hankin_at reads them
-    // every frame.
     tr.seed_faces = seed.face_counts.size();
 
     // Hankin legs sweep the slerp fraction from each star point's collapsed
@@ -462,9 +451,8 @@ public:
       tr.topo_is_bookend =
           hoist_arrival_topology(arrival, bookend, arena, tr.topo);
 
-      // Only the star points are stored: the midpoint prefix is already in the
-      // compiled topology, and each star point's collapsed position is its own
-      // corner, reachable through the same instruction hankin_at walks.
+      // Only the star points are stored; the midpoint prefix is already in the
+      // compiled topology.
       const size_t statics = tr.hankin.static_vertices.size();
       HS_CHECK(arrival.vertices.size() >= statics,
                "OpLeg hankin: arrival has fewer vertices than statics");
@@ -502,8 +490,7 @@ public:
 
   /**
    * @brief Constructs a relax leg: clones the seed, relaxes it once, and
-   * slerps every vertex from its seed position to its relaxed one
-   * (docs/specs/opchain_morph_spec.md, "Leg kinds").
+   * slerps every vertex from its seed position to its relaxed one.
    * @param seed Mesh being relaxed; its geometry is cloned, its class ids are
    * not.
    * @param spec Relaxation source (live iterations or bake) and frame count.
@@ -543,8 +530,6 @@ public:
       ScratchScope sa(scratch_arena_a);
       ScratchScope sb(scratch_arena_b);
 
-      // With a bake the leg lands on the shipped converged mesh; otherwise it
-      // runs `iterations` live steps.
       PolyMesh arrival =
           spec.bake ? MeshOps::relax_baked(tr.seed, scratch_arena_a, *spec.bake)
                     : MeshOps::relax(tr.seed, scratch_arena_a, scratch_arena_b,
@@ -584,10 +569,9 @@ public:
    * defaults to the swept-classification fallback.
    * @param blend_fn Crossfade-weight curve.
    * @param easing_fn Easing applied to the slerp fraction.
-   * @note The connectivity is ambo(P) exactly, so the leg holds one fixed
-   * emission order and every medial face keeps its identity across the slerp;
-   * only the vertex positions move. A degree-2 seed vertex makes the s=1
-   * positions many-to-one (a lossy dual), which leaves the faces well-formed.
+   * @note The connectivity is ambo(P), so every medial face keeps its identity
+   * across the slerp. A degree-2 seed vertex makes the s=1 positions
+   * many-to-one but leaves the faces well-formed.
    */
   HS_COLD_MEMBER
   OpLeg(const PolyMesh &seed, const MedialSpec &spec, Arena &arena,
@@ -644,8 +628,7 @@ public:
       tr.landing.arrival_point = tr.medial_b.data();
       tr.landing.arrival_points = tr.medial_b.size();
 
-      // Full correspondence: every medial face lives the whole bridge, so the
-      // survivor prefix is the whole face list.
+      // Every medial face survives the whole bridge.
       build_palette_mapping(tr, med, handoff, bookend, arena, start_centroid,
                             tr.seed_faces);
     }
@@ -1229,9 +1212,7 @@ private:
     }
     const PolyMesh &mesh = seed_side ? tr.seed : swapped;
 
-    // Colour holds at the departed palettes across the swap and most of the
-    // gate, so the children open in the colour already painted where they land,
-    // and converges to the arrival targets only over the final frames.
+    // Colour holds at the departed palettes until the final frames.
     finish_frame(
         canvas, mesh,
         trailing_blend(frame, duration,
@@ -1339,9 +1320,8 @@ private:
                                         Arena &temp, float t, float twist) {
     switch (op) {
     case ConwayGraph::MorphOp::TRUNCATE:
-      // A far-side leg sweeps through t = 0.5; nudge that one sample off the
-      // ambo short-circuit so the frame keeps the truncate topology (2E
-      // vertices) instead of popping to ambo (E vertices).
+      // Nudge t = 0.5 off the ambo short-circuit so a far-side leg keeps the
+      // truncate topology.
       return MeshOps::truncate(seed, target, temp,
                                ConwayGraph::truncate_off_pinch(t));
     case ConwayGraph::MorphOp::EXPAND:
@@ -1689,11 +1669,10 @@ private:
    * @param survivors Emission-order face-prefix length corresponding 1:1 to a
    * node base mesh at the boundary swaps.
    * @param forced_from Per-arrival-face from-palette, or nullptr to derive one.
-   * @details With centroids, provenance is geometric. On a full-correspondence
-   * departure (prev_faces == total) every face maps by nearest departed
-   * centroid, checked as a bijection. On a node-prefix departure
-   * (prev_faces == survivors) the prefix keeps emission identity and each
-   * newborn class inherits its first face's nearest departed palette.
+   * @details With centroids, a full-correspondence departure maps every face to
+   * its nearest departed centroid as a checked bijection; on a node-prefix
+   * departure each newborn class inherits its first face's nearest departed
+   * palette.
    */
   HS_COLD_MEMBER void
   build_palette_mapping(Transients &tr, const PolyMesh &arrival,
@@ -1716,10 +1695,8 @@ private:
       tr.landing.to_palette[i] = static_cast<uint8_t>(i);
     hs::shuffle(tr.landing.to_palette.begin(), tr.landing.to_palette.end());
 
-    // Either the whole face list corresponds (departing a mid-parameter node)
-    // or an emission prefix does: the survivor prefix departing a node form,
-    // the seed's primaries departing the seed form (the remaining faces are
-    // births).
+    // The whole face list corresponds, or an emission prefix (survivors or
+    // seed primaries) does and the remaining faces are births.
     HS_CHECK(handoff.prev_faces == total || handoff.prev_faces == survivors ||
                  handoff.prev_faces == primary,
              "OpLeg: handoff face count matches no mapping");
@@ -1782,7 +1759,7 @@ private:
     }
     tr.landing.blend_pairs = tr.num_ramps;
 
-    // finish_frame's per-frame peak: the ramp array plus one baked LUT per
+    // Per-frame scratch peak: the ramp array plus one baked LUT per
     // non-identity pair.
     int blended = 0;
     for (int r = 0; r < tr.num_ramps; ++r)
@@ -1813,7 +1790,7 @@ private:
 
   /**
    * @brief Stamps the watermark check_alive() tests past the leg's last
-   * allocation; called at the end of every constructor.
+   * allocation.
    */
   void seal_transients() {
 #ifndef NDEBUG

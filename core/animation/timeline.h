@@ -213,10 +213,8 @@ public:
    * @param animation The animation object.
    * @param paused Pause flag that must outlive the event.
    * @return Reference to the Timeline object.
-   * @note The gate a paused effect wants: a pending start delay is preserved,
-   * step() advancing e.start in lockstep. An animation's own `paused` pointer
-   * instead only early-returns from step(), so its event's delay keeps
-   * elapsing while the flag is set.
+   * @note Unlike an animation's own `paused` gate, this also freezes a pending
+   * start delay.
    */
   template <typename A>
   Timeline &add_pausable(int in_frames, A animation, const bool *paused) {
@@ -269,10 +267,8 @@ public:
       // under the caller's retained pointer.
       HS_CHECK(!animation.is_finite() || animation.repeats(),
                "pinned animation must be infinite or repeating");
-      // A finite, non-repeating predecessor is removed on completion and would
-      // relocate this pinned event, so reject it up front. A repeating/infinite
-      // predecessor can still be removed if cancel()ed later; move_into traps
-      // then.
+      // A finite, non-repeating predecessor would relocate this event when it
+      // completes.
       for (int i = 0; i < global_timeline_num_events; ++i) {
         IAnimation *prev = global_timeline_events[i].animation();
         HS_CHECK(!prev || !prev->is_finite() || prev->repeats(),
@@ -336,11 +332,9 @@ public:
   /**
    * @brief Event slots still free before add()/add_get() starts dropping.
    * @return MAX_EVENTS minus the current event count.
-   * @details step() runs a completing event's post_callback() before it destroys
-   * that event and recomputes the count, so a .then() re-arm issued from the
-   * callback is appended while the completing event still holds its slot. A
-   * chain that re-arms itself must budget against this count, not against the
-   * post-compaction one.
+   * @details A .then() re-arm issued from a completing event's callback is
+   * appended while that event still holds its slot, so a self-re-arming chain
+   * budgets against this count.
    */
   static int remaining() { return MAX_EVENTS - global_timeline_num_events; }
 
@@ -489,10 +483,7 @@ public:
     HS_CHECK(write_idx <= active_cnt,
              "timeline compaction wrote past the events it scanned");
     if (new_vals_count > 0 && write_idx < active_cnt) {
-      // The source span [active_cnt, ...) and the destination span
-      // [write_idx, ...) can overlap, but write_idx + i < active_cnt + i for
-      // every i, so this forward loop reads each source slot before a write
-      // reaches it.
+      // Overlapping spans: the forward loop reads each source before writing it.
       for (int i = 0; i < new_vals_count; ++i) {
         global_timeline_events[active_cnt + i].move_into(
             global_timeline_events[write_idx + i]);

@@ -7,7 +7,7 @@
  * Reads Arena::get_lifetime_high_water_mark() for the global arenas after each
  * effect's init + hs_test::smoke_frames() frames under the fixed-cadence clock,
  * to size DEVICE_GLOBAL_ARENA_SIZE (HS_DEVICE_ARENA_BYTES). The lifetime peak
- * survives mid-window arena re-splits. The host global arena is 8 MiB so
+ * survives mid-window arena re-splits. The host global arena is oversized so
  * nothing OOMs mid-measure.
  *
  * Gate: charges fixed partitions at capacity and the host-inflated remainder

@@ -90,8 +90,7 @@ inline void test_ring_sample_lut_matches_direct() {
  *        tracking the full-W control grid, for radii where the stride thins.
  * @details The lit set stays one 8-connected component (columns wrap), and
  *          each render's lit pixels have a lit pixel of the other within one
- *          pixel. The full-W grid's denser samples round onto adjacent pixels
- *          the strided grid skips.
+ *          pixel.
  */
 inline void test_ring_draw_stride_tracks_full_grid() {
   constexpr int W = 96, H = 48;

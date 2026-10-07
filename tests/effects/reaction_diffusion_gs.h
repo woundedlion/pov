@@ -955,13 +955,9 @@ inline void test_gs_hot_flags_match_directed_graph() {
  * @details The early-out returns the seed unwalked whenever the query lies
  *          within sqrt(safe_d2) of it, which is the nearest node only while
  *          safe_d2 stays at or under a quarter of the seed's true
- *          nearest-neighbor distance squared. The certificates are hand-measured
- *          properties of the generated lattice; this recomputes them from
- *          node().
- *
- *          The per-node minimum is exact: node()'s y is strictly decreasing in
- *          the index and chord distance is at least |dy|, so the outward scan
- *          stops once |dy| reaches the running best.
+ *          nearest-neighbor distance squared. node()'s y is strictly
+ *          decreasing in the index, so the outward scan stops once |dy|
+ *          reaches the running best.
  */
 inline void test_gs_render_certificates_bound_lattice() {
   const int n = GSWhiteBox::N;
@@ -1482,10 +1478,9 @@ inline void test_gs_inplace_frame_matches_jacobi() {
 /**
  * @brief Verifies one substep has the right reaction/diffusion signs and that
  *        the Q16 clamp is actually applied.
- * @details Seed a single saturated-B nucleus on the otherwise-rest field. After
- *          one step at effective dt = 2.5 * (10 / 6) = 4.17: A at the seed is consumed (the
- *          1 - dt update underflows and must clamp to 0, not wrap), and B
- *          diffuses into at least one neighbor that started empty.
+ * @details After one step from a single saturated-B nucleus, A at the seed
+ *          underflows and must clamp to 0, not wrap, and B diffuses into an
+ *          empty neighbor.
  */
 inline void test_gs_substep_signs_and_clamp() {
   std::vector<uint16_t> cA(GSWhiteBox::N, 65535), cB(GSWhiteBox::N, 0),
@@ -1496,8 +1491,7 @@ inline void test_gs_substep_signs_and_clamp() {
   GSWhiteBox::set_params(gs, 0.04f, 0.06f, 0.02f, 0.01f, 2.5f);
   GSWhiteBox::step(gs, cA.data(), cB.data(), nA.data(), nB.data());
 
-  // a + (dA·0 - 1 + feed·0)·dt = 1 - 4.17 < 0 → clamps to 0 (not an unclamped
-  // negative-float-to-uint16 wrap).
+  // 1 - dt < 0 clamps to 0, not a negative-float-to-uint16 wrap.
   HS_EXPECT_EQ((int)nA[seed], 0);
   // B diffuses outward: at least one initially-empty neighbor is now lit.
   int spread = 0;
@@ -1512,10 +1506,9 @@ inline void test_gs_substep_signs_and_clamp() {
 /**
  * @brief Verifies the explicit-Euler integrator does not diverge over many
  *        substeps at a high-diffusion stable setting.
- * @details The stability product dt·D·|λ|max = 5·0.03·12 = 1.8 ≤ 2, so the
- *          scheme must stay bounded: after 256 steps from seeded nuclei almost
- *          no node may sit at the upper rail. Whether B persists or decays is
- *          regime-dependent and not asserted.
+ * @details The stability product dt·D·|λ|max stays within the Euler bound, so
+ *          almost no node may sit at the upper rail. Whether B persists or
+ *          decays is regime-dependent and not asserted.
  */
 inline void test_gs_evolution_stays_bounded() {
   std::vector<uint16_t> a(GSWhiteBox::N, 65535), b(GSWhiteBox::N, 0),
@@ -1542,9 +1535,9 @@ inline void test_gs_evolution_stays_bounded() {
 /**
  * @brief Verifies the substep stays finite and inside [0, 1] at the joint
  *        feed/k corner of the slider box, past the Euler stability bound.
- * @details At top Speed/diffusion, 5 * 0.05 * 12 = 3 exceeds the Euler
- * bound of 2; the reaction term also exceeds it. Float fields remain finite
- * and in [0, 1] after 256 clamped substeps, before Q16 output conversion.
+ * @details At top Speed/diffusion both the diffusion and reaction terms exceed
+ * the Euler bound; float fields must stay finite and in [0, 1] before Q16
+ * output conversion.
  */
 inline void test_gs_reaction_corner_stays_bounded() {
   std::vector<float> a(GSWhiteBox::N, 1.0f), b(GSWhiteBox::N, 0.0f),

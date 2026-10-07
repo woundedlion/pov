@@ -221,7 +221,6 @@ noise_projected_coordinate(const math::Complex &p, float scale, float phase) {
  * @param basis Octave structure to apply.
  * @param q Lattice coordinate.
  * @return Noise value in [-1, 1].
- * @details Costs one generator sample for SIMPLEX and three for the others.
  */
 HS_O3_FN inline float sample_noise_octaves(const FastNoiseLite &noise,
                                            NoiseBasis basis,
@@ -416,8 +415,8 @@ sample_simplex_curl_tangent(const FastNoiseLite &noise, const math::Vector &q,
  * @param q Lattice coordinate.
  * @param v Unit point the tangent is taken at.
  * @return A tangent at @p v of length at most 1.
- * @details SIMPLEX takes the analytic CURL_ANALYTIC_V2 path at one generator
- * sample; the three-octave bases take the CURL_V1 stencil at twelve.
+ * @details SIMPLEX uses its analytic gradient; the other bases use a
+ * finite-difference stencil.
  */
 HS_O3_FN inline math::Vector sample_curl_tangent(const FastNoiseLite &noise,
                                                  NoiseBasis basis,
@@ -437,7 +436,7 @@ HS_O3_FN inline math::Vector sample_curl_tangent(const FastNoiseLite &noise,
  * @param v Unit point on the sphere.
  * @param tangent Tangent at @p v; its length is the arc travelled in radians.
  * @return The unit point reached after that arc.
- * @details Exact at any arc length; costs a length, a sinf and a cosf.
+ * @details Exact at any arc length.
  */
 inline math::Vector sphere_exp_map(const math::Vector &v,
                                    const math::Vector &tangent) {

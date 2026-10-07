@@ -204,8 +204,7 @@ inline float max_component_delta(const math::Vector &a, const math::Vector &b) {
  * @param a First vector (non-zero).
  * @param b Second vector (non-zero).
  * @return The angle in radians.
- * @details angle_between() quantizes near-parallel angles to ~3.4e-4 rad;
- * this differences the normalized endpoints in double and resolves 1e-8.
+ * @details Differences the normalized endpoints in double.
  */
 inline double small_angle_between(const math::Vector &a,
                                   const math::Vector &b) {

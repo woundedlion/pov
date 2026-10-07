@@ -123,9 +123,8 @@ inline constexpr float CHAMFER_T_STAR = Solids::CHAMFER_T_MAX;
 /**
  * @brief Measures chamfer's zero-area birth limit: newborn hexagon area and
  *        preserved-face displacement against t, on every chamfer seed.
- * @details The birth criterion needs the created faces to
- * reach zero area while the preserved faces are unchanged. Chamfer emits F
- * shrunk primaries then E hexagons, so the split is exact in emission order.
+ * @details Chamfer emits F shrunk primaries then E hexagons, so the split is
+ * exact in emission order.
  */
 inline void test_chamfer_zero_area_birth_limit() {
   constexpr float T[] = {1e-5f, 1e-4f, 1e-3f, 1e-2f, 1e-1f};
@@ -207,9 +206,7 @@ inline void test_chamfer_zero_area_birth_limit() {
 
 /**
  * @brief Steps a chamfer sweep from T_EPS to the shipping arrival on every
- *        chamfer seed, asserting constant raw and compiled face counts, two-face
- *        edge incidence, Euler characteristic 2, near-unit vertices, and outward
- *        face normals, and reporting the peak per-step vertex displacement.
+ *        chamfer seed, asserting topology and outward orientation hold.
  */
 inline void test_chamfer_sweep_holds_topology() {
   constexpr int SAMPLES = 32;
@@ -310,10 +307,8 @@ inline void test_chamfer_sweep_holds_topology() {
 }
 
 // ---------------------------------------------------------------------------
-// Truncate sub-T_EPS birth: the truncate001 recipes truncate their shared
-// truncatedIcosahedron.ambo().relax() seed at 0.01, below the T_EPS birth
-// floor. The leg births at min(T_EPS, 0.01 * TRUNCATE_BIRTH_FRAC) = 0.002 and
-// sweeps to 0.01.
+// Truncate sub-T_EPS birth: the truncate001 recipes arrive below the T_EPS
+// birth floor.
 // ---------------------------------------------------------------------------
 
 template <const Solids::Recipe &RECIPE, Solids::Op OP>
@@ -358,11 +353,8 @@ inline const float TRUNCATE001_T_STAR = [] {
 }();
 
 /**
- * @brief Steps the truncate001 leg from its derived birth floor to 0.01 on the
- *        shared truncate001 seed, asserting a real sweep (birth < arrival),
- *        constant raw and compiled face counts, two-face edge incidence,
- *        Euler characteristic 2, near-unit vertices, every face positive-area,
- *        and no face inverting across the sweep.
+ * @brief Steps the truncate001 leg from its derived birth floor to its
+ *        arrival, asserting topology holds and no face collapses or inverts.
  * @details The birth floor is OpLeg's recipe-step truncate_birth_floor.
  */
 inline void test_truncate001_birth_sweep_holds_topology() {
@@ -420,7 +412,6 @@ inline void test_truncate001_birth_sweep_holds_topology() {
       std::vector<math::Vector> normal(swept.face_counts.size());
       for (size_t f = 0; f < swept.face_counts.size(); ++f) {
         normal[f] = face_area_vector(swept, off[f], swept.face_counts[f]);
-        // Planar area: no face collapses anywhere in the sweep.
         min_area =
             std::min(min_area, std::sqrt(math::dot(normal[f], normal[f])));
         math::Vector c(0, 0, 0);
@@ -445,7 +436,6 @@ inline void test_truncate001_birth_sweep_holds_topology() {
       prev_normal = normal;
     }
 
-    // Every face keeps positive area and outward orientation across the sweep.
     HS_EXPECT_TRUE(min_area > 0.0f);
     HS_EXPECT_TRUE(min_outward > 0.0f);
     HS_EXPECT_TRUE(min_normal_dot > 0.0f);
@@ -465,10 +455,9 @@ inline void test_truncate001_birth_sweep_holds_topology() {
 }
 
 // ---------------------------------------------------------------------------
-// Far-side truncate sweep: the truncate50d recipes truncate at t = 0.873, past
-// the ambo pinch (t = 0.5). truncate's topology (2E vertices, F+V faces, 3I
-// indices) is constant for every t != 0.5; exact 0.5 short-circuits to ambo.
-// Past 0.5 the cut faces self-intersect, so only structural invariants hold.
+// Far-side truncate sweep: the truncate50d recipes arrive past the ambo pinch
+// (t = 0.5), where truncate short-circuits to ambo. Past 0.5 the cut faces
+// self-intersect, so only structural invariants hold.
 // ---------------------------------------------------------------------------
 
 inline PolyMesh probe_ticosidodeca(Arena &a, Arena &b) {
@@ -480,7 +469,7 @@ inline constexpr TruncateSite FAR_TRUNCATE_SITES[] = {
     {"truncatedIcosidodecahedron_truncate50d_ambo_dual", probe_ticosidodeca},
 };
 
-/** Arrival parameter of the truncate50d recipes: 0.873, past the pinch. */
+/** Arrival parameter of the truncate50d recipes, past the pinch. */
 inline constexpr float TRUNCATE50D_T_STAR =
     Solids::IslamicStarPatterns::TRUNCATE_T_FAR;
 /** Below this t, the truncate cut faces do not yet self-intersect, so positive
@@ -489,16 +478,13 @@ inline constexpr float FAR_SIDE_NEAR_LIMIT = 0.49f;
 
 /**
  * @brief Steps the far-side truncate leg from its near-side birth floor through
- *        the ambo pinch to 0.873 on both truncate50d seeds, asserting the leg
- *        does not trap and does not change topology across the pinch.
- * @details The leg births at OpLeg's truncate_birth_floor. Samples go through
- * ConwayGraph::truncate_off_pinch; past 0.5 only structural checks apply.
+ *        the ambo pinch on both truncate50d seeds, asserting the leg does not
+ *        trap and does not change topology across the pinch.
+ * @details Samples go through ConwayGraph::truncate_off_pinch.
  */
 inline void test_truncate50d_far_side_sweep_holds_topology() {
   constexpr int SAMPLES = 48;
   const float birth = ConwayGraph::truncate_birth_floor(TRUNCATE50D_T_STAR);
-  // A real animation across the pinch: birth on the near side, arrival past it,
-  // arrival unclamped (below the far-side cap).
   HS_EXPECT_TRUE(birth < 0.5f);
   HS_EXPECT_TRUE(TRUNCATE50D_T_STAR > 0.5f);
   HS_EXPECT_TRUE(TRUNCATE50D_T_STAR <= ConwayGraph::T_TRUNCATE_FAR_MAX);
@@ -530,7 +516,6 @@ inline void test_truncate50d_far_side_sweep_holds_topology() {
                       : birth + (TRUNCATE50D_T_STAR - birth) *
                                     (static_cast<float>(s) / (SAMPLES - 1));
       const float t = ConwayGraph::truncate_off_pinch(raw);
-      // No frame ever evaluates truncate at the exact ambo short-circuit.
       HS_EXPECT_TRUE(t != 0.5f);
 
       ScratchScope fa(a);
@@ -559,8 +544,7 @@ inline void test_truncate50d_far_side_sweep_holds_topology() {
         nonfinite += !std::isfinite(swept.vertices[i].length());
       HS_EXPECT_EQ(nonfinite, 0);
 
-      // Positive area is a near-side-only invariant: past the pinch the cut
-      // faces self-intersect by design and signed area legitimately flips.
+      // Positive area holds only on the near side of the pinch.
       if (t <= FAR_SIDE_NEAR_LIMIT) {
         face_offsets(swept, off);
         for (size_t f = 0; f < swept.face_counts.size(); ++f) {
@@ -593,8 +577,6 @@ inline void test_truncate50d_far_side_sweep_holds_topology() {
  * against T_EPS, which must clear the cull outright.
  */
 inline void test_chamfer_birth_epsilon() {
-  // Worst measured birth epsilon is 1.8e-6, two decades under this cap and
-  // four under T_EPS.
   constexpr float MAX_BIRTH_EPSILON = 1e-4f;
   for (const ChamferSite &site : CHAMFER_SITES) {
     Arena persist(probe_seed_buf, sizeof(probe_seed_buf));
@@ -649,8 +631,7 @@ inline void test_chamfer_birth_epsilon() {
     HS_EXPECT_EQ(cf_eps, raw_faces);
     HS_EXPECT_EQ(compiled_faces, raw_faces);
     HS_EXPECT_TRUE(clears_at_hi);
-    // The sweeps open at T_EPS, so every birth must already clear the cull
-    // there, and the boundary itself must stay decades below it.
+    // The sweeps open at T_EPS, so every birth must clear the cull there.
     HS_EXPECT_EQ(at_eps, static_cast<size_t>(0));
     HS_EXPECT_LT(hi, MAX_BIRTH_EPSILON);
     std::printf("  [chamfer-eps] %s: births clear the SDF cull at t>=%.2e "
@@ -986,9 +967,7 @@ inline void test_build_chain_provenance_ambiguity() {
 }
 
 // ---------------------------------------------------------------------------
-// Needle primitive lowering on the hankin(54 deg) test seed: direct DUAL then
-// KIS retain two-face edge incidence and Euler characteristic 2, and reproduce
-// MeshOps::needle.
+// Needle primitive lowering on the hankin(54 deg) test seed.
 // ---------------------------------------------------------------------------
 
 /**
@@ -1044,7 +1023,6 @@ inline void test_needle_partition_lowering_builds_on_hankin() {
     seed_compiled = c.face_counts.size();
   }
 
-  // DUAL primitive result on the hankin seed.
   PolyMesh dual_mesh;
   {
     ScratchScope fa(a);
@@ -1057,7 +1035,6 @@ inline void test_needle_partition_lowering_builds_on_hankin() {
     ScratchScope fb(b);
     dual_compiled = check_manifold_landing(dual_mesh, a, b);
   }
-  // Compilation retains every positive-area dual face.
   HS_EXPECT_EQ(dual_compiled, dual_mesh.face_counts.size());
 
   // KIS on the dual produces the needle result.

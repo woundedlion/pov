@@ -84,8 +84,8 @@ template <int W, int H> inline void verify_factory_lookup() {
  * @brief Builds, renders and destroys every registered effect at one resolution.
  * @tparam W Canvas width in pixels.
  * @tparam H Canvas height in pixels.
- * @details creator() -> init() -> frames -> reset(). Each instance is
- *          destroyed before the next is built: Effect permits one live instance.
+ * @details Each instance is destroyed before the next is built: Effect permits
+ *          one live instance.
  */
 template <int W, int H> inline void drive_factory_lifecycle() {
   std::printf("  -- factory create/render/destroy @ %dx%d --\n", W, H);

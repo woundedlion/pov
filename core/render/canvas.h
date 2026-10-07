@@ -282,10 +282,9 @@ public:
   }
   /**
    * @brief Advances the display buffer pointer to the next queued frame.
-   * @details The acquire load pairs with `queue_frame()`'s release store, so
-   * the queued frame's pixel writes are visible before any read through `prev`.
-   * The release store publishes the display flip and the caller's preceding
-   * display-window update to `buffer_free()`.
+   * @details The acquire load pairs with `queue_frame()`'s release store; the
+   * release store publishes the flip (and any preceding display-window update)
+   * to `buffer_free()`.
    */
   inline void advance_display() {
     int n = next.load(std::memory_order_acquire);
@@ -335,10 +334,9 @@ private:
 
   /**
    * @brief Queues the newly drawn frame to be displayed.
-   * @details Publishes `cur` as the new `next`. The release store orders the
-   * frame's pixel writes before the publish, pairing with the acquire load in
+   * @details The release store pairs with the acquire load in
    * `advance_display()`; the IRQ-off bracket keeps the publish atomic against
-   * the on-device display ISR.
+   * the display ISR.
    */
   inline void queue_frame() {
     hs::disable_interrupts();
@@ -410,8 +408,7 @@ public:
   explicit Canvas(Effect &owner) : effect(owner) {
     HS_CHECK(!effect.canvas_active, "Canvas already active for this Effect");
     wait_for_free_buffer();
-    // Ordering is load-bearing: the hook runs post-wait but pre-clear, so the
-    // clip it sets is the one clear_stale_pixels() honours.
+    // Hook runs post-wait, pre-clear: the clip it sets governs the clear.
     effect.notify_buffer_ready();
     effect.advance_buffer();
     if (!effect.persist_pixels) {
@@ -559,10 +556,9 @@ public:
 private:
   /**
    * @brief Spins until the effect has a free back buffer.
-   * @details The main loop writes cur/next and the ISR only sets prev = next,
-   * so the gate cannot be falsified between check and flip. Traps via the
-   * watchdog if the display ISR stalls. The counter's `_buffer_wait` suffix is
-   * load-bearing for profiling reports.
+   * @details Only the main loop writes cur/next; the ISR only sets
+   * prev = next. Traps via the watchdog if the display ISR stalls. Profiling
+   * reports match the counter's `_buffer_wait` suffix.
    */
   void wait_for_free_buffer() {
     HS_PROFILE(canvas_buffer_wait);
