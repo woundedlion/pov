@@ -4,7 +4,7 @@
  */
 
 // ============================================================================
-// Scan::Shader::draw — full-sphere per-pixel shader
+// Scan::Shader drawing, BoundingSphere setup, and MIN_ALPHA cutoff
 // ============================================================================
 
 /** @brief A standalone bounding sphere prepares its row lookup table. */
