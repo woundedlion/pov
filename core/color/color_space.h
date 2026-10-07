@@ -268,9 +268,10 @@ inline constinit GamutLut g_gamut_lut;
 inline constexpr GamutLut GAMUT_LUT_MASTER{};
 
 /** @brief Coarsest accepted downsample, an empirical clipping-quality limit.
- *  @details At any grid the GAMUT_SCAN_STEPS walk can stride a disconnected
- *  in-gamut interval on a few rays and land past the first exit by up to 0.05
- *  chroma; a finer grid lowers how many rays do that, not by how far. */
+ *  @details At any grid the GAMUT_SCAN_STEPS walk can stride over a narrow
+ *  out-of-gamut gap into a disconnected in-gamut interval on a few rays and
+ *  land past the first exit by up to 0.05 chroma; a finer grid lowers how many
+ *  rays do that, not by how far. */
 inline constexpr int GAMUT_LUT_MIN_ANGLE_STEPS = 128;
 inline constexpr int GAMUT_LUT_MIN_L_STEPS = 64;
 
