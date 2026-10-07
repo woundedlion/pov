@@ -2,8 +2,9 @@
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
  * Licensed under the PolyForm Noncommercial License 1.0.0
  *
- * Host unit tests for the WASM parameter-marshaling layer
- * (targets/wasm/param_marshal.h).
+ * Host unit tests for WASM parameter marshaling (targets/wasm/param_marshal.h)
+ * and core Control fields: ParamHost hooks and integer endpoints, described and
+ * typed fields, and authored snapshot range validation.
  */
 #pragma once
 
