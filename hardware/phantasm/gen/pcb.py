@@ -32,11 +32,6 @@ OUT = schematic_generator.OUT
 LOCAL_FOOTPRINT_DIR = os.path.join(OUT, "phantasm.pretty")
 TERMINAL_LIBIDS = tuple(
     f"phantasm:TerminalBlock_GCT_TBC05-0{pins}-1-G-G" for pins in (2, 3, 4))
-TERMINAL_LIBID = {
-    "1.2": {"J1": TERMINAL_LIBIDS[0], **dict.fromkeys(("J2", "J3A", "J3B"), TERMINAL_LIBIDS[1])},
-    "1.3": {"J1": TERMINAL_LIBIDS[0], "J2": TERMINAL_LIBIDS[1],
-            **dict.fromkeys(("J3A", "J3B"), TERMINAL_LIBIDS[2])},
-}
 SCH = os.path.join(OUT, "phantasm.kicad_sch")
 PCB_FILE = "phantasm.kicad_pcb"
 DRAFT_FILE = "phantasm-draft.kicad_pcb"
@@ -252,7 +247,7 @@ _GENERATION = ContextVar("phantasm_generation", default=(builder.REVISION, None)
 def revision_context(function):
     @wraps(function)
     def run(*args, revision=builder.REVISION, output_dir=None, **kwargs):
-        if revision not in ("1.2", "1.3"):
+        if revision not in REVISION_LAYOUTS:
             raise ValueError(f"unsupported board revision: {revision!r}")
         token = _GENERATION.set((revision, output_dir))
         try:
@@ -484,15 +479,15 @@ def embed(libid, ref, value, x, y, rot, pad_net, netid, path=None, locked=False,
                     c.insert(-1, [sexp.Sym("hide"), sexp.Sym("yes")])
             elif c[1] == "Value":
                 c[2] = value
-    if _GENERATION.get()[0] == "1.3":
-        for name, value in REV13_PARTS.get(ref, {}).items():
-            existing = next((p for p in F(node, "property") if p[1] == name), None)
-            if existing is not None:
-                existing[2] = value
-            else:
-                node.append(sexp.parse_one(
-                    f'(property {sexp.quote(name)} {sexp.quote(value)} (at 0 0 0) '
-                    '(layer "F.Fab") (hide yes) (effects (font (size 1 1) (thickness 0.15))))'))
+    properties = REVISION_LAYOUTS[_GENERATION.get()[0]]["part_properties"]
+    for name, value in properties.get(ref, {}).items():
+        existing = next((p for p in F(node, "property") if p[1] == name), None)
+        if existing is not None:
+            existing[2] = value
+        else:
+            node.append(sexp.parse_one(
+                f'(property {sexp.quote(name)} {sexp.quote(value)} (at 0 0 0) '
+                '(layer "F.Fab") (hide yes) (effects (font (size 1 1) (thickness 0.15))))'))
     # assign pad nets by name; `consumed` collects the (ref, pad) keys that matched
     for c in node:
         if isinstance(c, list) and c and c[0] == "pad":
@@ -697,17 +692,46 @@ TERMINAL_FIXED = {
     **SYNC_FILTER_PLACEMENTS,
 }
 
+REVISION_LAYOUTS = {
+    "1.2": {
+        "edge_placements": TERMINAL_EDGE_PLACEMENTS,
+        "fixed_refs": frozenset(TERMINAL_FIXED),
+        "local_route_count": 4,
+        "ground_route_count": 3,
+        "sync_marks": "SGH",
+        "terminal_libids": TERMINAL_LIBIDS[:2],
+        "terminal_by_ref": {
+            "J1": TERMINAL_LIBIDS[0],
+            **dict.fromkeys(("J2", "J3A", "J3B"), TERMINAL_LIBIDS[1]),
+        },
+        "part_properties": {},
+        "show_board_id": True,
+    },
+    "1.3": {
+        "edge_placements": TERMINAL_EDGE_PLACEMENTS_1_3,
+        "fixed_refs": frozenset(("JP_ID0", "JP_ID1", "JP_ID2", "JP_SHLD",
+                                 "C_IN", "U_MCU", "C_DEC1")),
+        "local_route_count": 1,
+        "ground_route_count": 1,
+        "sync_marks": "ABGH",
+        "terminal_libids": TERMINAL_LIBIDS,
+        "terminal_by_ref": {
+            "J1": TERMINAL_LIBIDS[0],
+            "J2": TERMINAL_LIBIDS[1],
+            **dict.fromkeys(("J3A", "J3B"), TERMINAL_LIBIDS[2]),
+        },
+        "part_properties": REV13_PARTS,
+        "show_board_id": False,
+    },
+}
+
 
 def fixed_placements(comps):
-    revision = _GENERATION.get()[0]
+    layout = REVISION_LAYOUTS[_GENERATION.get()[0]]
     fixed = {ref: placement for ref, placement in TERMINAL_FIXED.items()
-             if ref in comps}
-    if revision == "1.3":
-        fixed = {ref: placement for ref, placement in fixed.items()
-                 if ref in ("JP_ID0", "JP_ID1", "JP_ID2", "JP_SHLD", "C_IN", "U_MCU", "C_DEC1")}
-    edges = TERMINAL_EDGE_PLACEMENTS_1_3 if revision == "1.3" else TERMINAL_EDGE_PLACEMENTS
-    fixed.update({ref: placement for ref, placement in edges.items()
-                  if ref in comps and comps[ref][1] == TERMINAL_LIBID[revision][ref]})
+             if ref in comps and ref in layout["fixed_refs"]}
+    fixed.update({ref: placement for ref, placement in layout["edge_placements"].items()
+                  if ref in comps and comps[ref][1] == layout["terminal_by_ref"][ref]})
     return fixed
 
 
@@ -735,8 +759,8 @@ def local_routes(footprints):
         (("R2", "1"), ("C_SYNC", "1"),
          ((20.7875, 21.2), (19.175, 21.2))),
     )
-    if _GENERATION.get()[0] == "1.3":
-        routes = routes[:1]
+    layout = REVISION_LAYOUTS[_GENERATION.get()[0]]
+    routes = routes[:layout["local_route_count"]]
     lines = []
     for source, destination, bends in routes:
         start, net = terminal(*source)
@@ -752,8 +776,7 @@ def local_routes(footprints):
     ground_routes = ((("C_DEC1", "2"), (11.55, 1.35)),
                      (("C_SYNC", "2"), (19.925, 23.0)),
                      (("R2", "2"), (24.4125, 22.0)))
-    if _GENERATION.get()[0] == "1.3":
-        ground_routes = ground_routes[:1]
+    ground_routes = ground_routes[:layout["ground_route_count"]]
     for source, end in ground_routes:
         start, net = terminal(*source)
         if str(net[-1]).lstrip("/") != GROUND_NET:
@@ -920,6 +943,7 @@ def unplaced_layout(bxs, L, width, margin=2.0, gap=2.0):
 @revision_context
 def main(unplaced=False, force=False, force_teensy_library=False):
     selected, output_dir = _GENERATION.get()
+    layout = REVISION_LAYOUTS[selected]
     out = output_dir or (OUT if selected == builder.REVISION else os.path.join(
         os.path.dirname(OUT), selected))
     sch = SCH if output_dir is None and selected == builder.REVISION else os.path.join(
@@ -951,11 +975,10 @@ def main(unplaced=False, force=False, force_teensy_library=False):
     if unplaced:
         L = QUILTER_LENGTH
         fixed = fixed_placements(comps)
-        edge_map = (TERMINAL_EDGE_PLACEMENTS_1_3 if _GENERATION.get()[0] == "1.3"
-                    else TERMINAL_EDGE_PLACEMENTS)
+        edge_map = layout["edge_placements"]
         missing_edges = sorted(ref for ref, placement in edge_map.items()
                                if fixed.get(ref) != placement or ref not in comps or
-                               comps[ref][1] != TERMINAL_LIBID[_GENERATION.get()[0]][ref])
+                               comps[ref][1] != layout["terminal_by_ref"][ref])
         if missing_edges:
             sys.exit("ERROR connectors require verified edge placements: "
                      + ", ".join(missing_edges))
@@ -1097,9 +1120,8 @@ def main(unplaced=False, force=False, force_teensy_library=False):
             ("ID2", 54.3, 15.3, 90),
             ("SHLD", 54.3, 19.0, 90),
         ]
-        edge_placements = (TERMINAL_EDGE_PLACEMENTS if selected == "1.2" else
-                           TERMINAL_EDGE_PLACEMENTS_1_3)
-        sync_marks = "SGH" if selected == "1.2" else "ABGH"
+        edge_placements = layout["edge_placements"]
+        sync_marks = layout["sync_marks"]
         for ref, pin_marks in (("J2", "DGC"), ("J3A", sync_marks), ("J3B", sync_marks)):
             if fixed.get(ref) == edge_placements[ref]:
                 x, y, _ = fixed[ref]
@@ -1137,7 +1159,7 @@ def main(unplaced=False, force=False, force_teensy_library=False):
     ]
     legend_x = PLACE["U_MCU"][0]
     for text, y, size in back_silk:
-        if selected == "1.3" and text == "BOARD ID: ____":
+        if not layout["show_board_id"] and text == "BOARD ID: ____":
             continue
         lines.append(f'\t(gr_text {sexp.quote(text)} (at {fmt(legend_x)} {fmt(y)} 0)'
                      f' (layer "B.SilkS") (uuid "{uid()}") '
@@ -1176,7 +1198,7 @@ def main(unplaced=False, force=False, force_teensy_library=False):
     os.makedirs(pretty, exist_ok=True)
     if existing_mod_text != mod_text:
         atomic_write_text(mod_path, mod_text)
-    for libid in TERMINAL_LIBIDS[:2] if selected == "1.2" else TERMINAL_LIBIDS:
+    for libid in layout["terminal_libids"]:
         name = libid.split(":", 1)[1] + ".kicad_mod"
         source_dir = terminal_library_dir(libid)
         source = os.path.join(source_dir, name)
@@ -1198,7 +1220,7 @@ def main(unplaced=False, force=False, force_teensy_library=False):
 
 def parse_args(argv=None):
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    parser.add_argument("--revision", choices=("1.2", "1.3"), default=builder.REVISION)
+    parser.add_argument("--revision", choices=tuple(REVISION_LAYOUTS), default=builder.REVISION)
     parser.add_argument("--unplaced", action="store_true",
                         help="write the revisioned unplaced project for "
                              "the autoplacer instead")
