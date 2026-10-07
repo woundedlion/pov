@@ -1936,7 +1936,7 @@ inline constexpr GuardGapAllowance GUARD_GAP_ALLOW[] = {
     {"core/animation/recipe_build.h", 21},
     {"core/animation/segue.h", 1},
     {"core/animation/sprites.h", 10},
-    {"core/animation/timeline.h", 9},
+    {"core/animation/timeline.h", 8},
     {"core/animation/transformer.h", 3},
     {"core/color/baked_palette.h", 9},
     {"core/color/color_space.h", 1},
