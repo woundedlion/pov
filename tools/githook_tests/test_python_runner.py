@@ -29,15 +29,26 @@ class PythonRunner(unittest.TestCase):
                                   capture_output=True, text=True, check=False)
 
     def test_empty_repository_fails(self):
-        self.assertNotEqual(self.run_fixture().returncode, 0)
+        result = self.run_fixture()
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("no tracked Python test suites discovered", result.stderr)
+        self.assertNotIn("Traceback", result.stderr)
 
     def test_empty_suite_fails(self):
-        self.assertNotEqual(self.run_fixture("# no cases\n").returncode, 0)
+        result = self.run_fixture("# no cases\n")
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("no test cases discovered in", result.stderr)
+        self.assertIn("test_sample.py", result.stderr)
+        self.assertNotIn("Traceback", result.stderr)
 
     def test_empty_file_fails_beside_live_tests(self):
         live = ("import unittest\nclass Live(unittest.TestCase):\n"
                 "    def test_live(self): self.assertTrue(True)\n")
-        self.assertNotEqual(self.run_fixture(live, extra="# empty\n").returncode, 0)
+        result = self.run_fixture(live, extra="# empty\n")
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("no test cases discovered in", result.stderr)
+        self.assertIn("test_extra.py", result.stderr)
+        self.assertNotIn("Traceback", result.stderr)
 
     def test_optional_skipped_file_passes_beside_live_tests(self):
         live = ("import unittest\nclass Live(unittest.TestCase):\n"
