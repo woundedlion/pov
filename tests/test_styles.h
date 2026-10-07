@@ -287,6 +287,7 @@ inline void test_hue_fade_zero_shift_preserves_gray() {
   Pixel gray(20000, 20000, 20000);
   Feedback::Style s{};
   s.hue_shift = 0.0f;
+  s.sync_hue();
   Pixel out = Feedback::hue_fade(gray, 0.5f, s);
   HS_EXPECT_TRUE(out.r < gray.r);
   HS_EXPECT_TRUE(out.r > 0);
