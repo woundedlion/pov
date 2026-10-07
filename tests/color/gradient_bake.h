@@ -175,12 +175,12 @@ inline void test_gradient_hard_stop_is_abrupt() {
                 {0.5f, CPixel(255u, 0u, 0u)},
                 {0.5f, CPixel(0u, 0u, 255u)},
                 {1.0f, CPixel(0u, 0u, 255u)}};
-  // Below the boundary: essentially pure red.
-  Color4 lo = grad.get(0.4f);
+  // Entry immediately below the boundary is essentially pure red.
+  Color4 lo = grad.get(127.0f / 255.0f);
   HS_EXPECT_GT(lo.color.r, 60000);
   HS_EXPECT_LT(lo.color.b, 100);
-  // Above the boundary: essentially pure blue. No red/blue blend in between.
-  Color4 hi = grad.get(0.6f);
+  // Entry at the boundary is essentially pure blue.
+  Color4 hi = grad.get(128.0f / 255.0f);
   HS_EXPECT_GT(hi.color.b, 60000);
   HS_EXPECT_LT(hi.color.r, 100);
 }
