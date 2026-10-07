@@ -1217,6 +1217,56 @@ inline void test_octet_4d_canonical_trace() {
   HS_EXPECT_LE(differing, compared / 4000);
 }
 
+inline void test_octet_4d_canonical_boundary_directions() {
+  using Effect = HyperLatticeWhiteBox::Effect;
+  reset_globals();
+  Effect effect;
+  effect.init();
+  Trace::Settings settings;
+  settings.palette = HyperLatticeWhiteBox::depth_palette(effect);
+  settings.pixel_half_angle = HL::pixel_half_angle<288, 144>();
+  settings.domain = Raycast::SamplingDomain::SLICE_4D;
+  settings.center = {{.255f, .465f, .645f, .375f}};
+  const std::array<math::Vector, 10> DIRECTIONS{
+      math::X_AXIS,
+      -math::X_AXIS,
+      math::Y_AXIS,
+      -math::Y_AXIS,
+      math::Z_AXIS,
+      -math::Z_AXIS,
+      math::Vector{1, 1e-5f, 0}.normalized(),
+      math::Vector{1, 1, 0}.normalized(),
+      math::Vector{-1, 1, 0}.normalized(),
+      math::Vector{1, 1, 1}.normalized()};
+  size_t lit = 0;
+  for (int frame = 0; frame <= 8; ++frame) {
+    settings.embedding = math::Mat4::identity();
+    math::rotate_plane(settings.embedding, 0, 3, frame * math::PI_F / 16);
+    settings.radial_start = frame % 2 ? .5f : 0.0f;
+    const auto prepared = prepare_traced(settings);
+    HS_EXPECT_TRUE(prepared.valid);
+    for (const auto &direction : DIRECTIONS) {
+      const auto &camera = prepared.camera;
+      const SDF::OctetEvents4 events(
+          prepared.octet4, prepared.octet4_projection, direction,
+          camera.radial_start, camera.interval.near, prepared.footprint);
+      const auto EXPECTED = SDF::OctetTrace::trace_events(
+          events, camera.interval, prepared.limits, prepared.appearance);
+      const auto ACTUAL = SDF::OctetTrace::trace_4d(
+          direction, camera, prepared.octet4, prepared.octet4_projection,
+          prepared.footprint, prepared.limits, prepared.appearance,
+          *prepared.crossings);
+      HS_EXPECT_EQ(ACTUAL.status, EXPECTED.status);
+      HS_EXPECT_LE(std::max({abs(ACTUAL.color.r - EXPECTED.color.r),
+                             abs(ACTUAL.color.g - EXPECTED.color.g),
+                             abs(ACTUAL.color.b - EXPECTED.color.b)}),
+                   2);
+      lit += EXPECTED.color != Pixel{};
+    }
+  }
+  HS_EXPECT_GT(lit, size_t{0});
+}
+
 inline void test_traced_presets() {
   using Effect = HyperLatticeWhiteBox::Effect;
   reset_globals();
@@ -1662,6 +1712,7 @@ inline int run_hyper_lattice_tests() {
   test_family_segues();
   test_octet_prepared_projection();
   test_octet_4d_canonical_trace();
+  test_octet_4d_canonical_boundary_directions();
   test_regular_patterns();
   test_octet_continuous_flight();
   test_traced_presets();
