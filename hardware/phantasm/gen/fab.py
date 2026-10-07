@@ -16,9 +16,13 @@ KiCad; gen/out/ is gitignored.
 
 Exports only the committed, hand-routed rev 1.1 board.
 
+A run holds gen/out/.fab.lock until it finishes; a second run refuses while it
+exists. A lock left by a killed run must be removed by hand.
+
 kicad-cli is found via $KICAD_CLI, else common install paths, else PATH.
 """
 import argparse
+import contextlib
 import csv
 import hashlib
 import json
@@ -50,6 +54,8 @@ OUT = os.path.join(GEN, "out")
 JLC = os.path.join(OUT, "jlc")
 # Prefix of the per-run staging directory the exports are written into, under OUT.
 STAGE_PREFIX = "phantasm-jlc-"
+#: Lock file under OUT that serializes fabrication runs.
+LOCK_FILE = ".fab.lock"
 
 # Layers JLCPCB needs (this board names silk "F.SilkS" / "B.SilkS").
 GERBER_LAYERS = ("F.Cu,In1.Cu,In2.Cu,B.Cu,F.SilkS,B.SilkS,"
@@ -1347,7 +1353,29 @@ def promote_package(staged, destination):
         shutil.rmtree(backup)
 
 
+@contextlib.contextmanager
+def output_lock(directory):
+    """Hold the exclusive fabrication lock in ``directory`` for the duration."""
+    path = os.path.join(directory, LOCK_FILE)
+    try:
+        fd = os.open(path, os.O_CREAT | os.O_EXCL | os.O_WRONLY)
+    except FileExistsError:
+        sys.exit(f"another fabrication run holds {path}; remove it only if no run is active")
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as fh:
+            fh.write(f"{os.getpid()}\n")
+        yield
+    finally:
+        os.remove(path)
+
+
 def main():
+    os.makedirs(OUT, exist_ok=True)
+    with output_lock(OUT):
+        fabricate()
+
+
+def fabricate():
     print(f"kicad-cli: {kicad_cli()}")
     if not os.path.exists(PCB):
         sys.exit(f"board not found: {PCB}")
@@ -1390,7 +1418,6 @@ def main():
         f"  zone geometry: {num_zones} copper pours relieve their pads and "
         f"meet the {MIN_ZONE_GAP_MM:g} mm gap and "
         f"{MIN_THERMAL_SPOKE_MM:g} mm spoke / {MIN_ZONE_WIDTH_MM:g} mm fill minimums")
-    os.makedirs(OUT, exist_ok=True)
     print("[4/9] DRC + ERC reports and schematic parity")
     try:
         num_floors = validate_project_rules()
