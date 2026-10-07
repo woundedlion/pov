@@ -1,6 +1,6 @@
 # SphericalHarmonics on-device profile — Teensy 4.0, segmented mode (2026-08-26, **-O3**)
 
-Global-O3 capture. Current [shipping report](../shipping/profile_sphericalharmonics_teensy_2026-09-28.md).
+Global-O3 capture. Current [shipping report](../shipping/profile_sphericalharmonics_teensy_2026-10-06.md).
 Point-in-time snapshot (regenerate with `bash tools/profile_one.sh SphericalHarmonics profile_o3 220 16 "-D HS_PROFILE_ORDERED_CYCLE -D HS_PROFILE_EPOCH_REVS=2048"`). Raw capture:
 `build/prof/sphericalharmonics_o3.log`, captured 2026-08-26 01:57 local. This is the first archived global-O3 report for this effect.
 
