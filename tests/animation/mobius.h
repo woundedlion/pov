@@ -198,7 +198,7 @@ inline void test_mobiuswarp_evolving_wrapped_live_channels() {
   hs::random() = saved_rng;
 }
 
-/** @brief Copies keep independent phases; moves and assignment do not allocate. */
+/** @brief Copies keep independent phases; moves transfer their phase blocks. */
 inline void test_mobiuswarp_evolving_value_semantics() {
   const auto saved_rng = hs::random();
   hs::random().seed(1337);
@@ -235,11 +235,18 @@ inline void test_mobiuswarp_evolving_value_semantics() {
   assigned.step(fake_canvas());
   HS_EXPECT_TRUE(std::memcmp(&params, &expected_rewind, sizeof(params)) == 0);
 
+  Animation::MobiusWarpEvolving donor(params, 0.5f, 0.05f);
   const size_t before_move = persistent_arena.get_offset();
   Animation::MobiusWarpEvolving moved(std::move(copied));
   HS_EXPECT_EQ(persistent_arena.get_offset(), before_move);
+  copied = donor;
+  HS_EXPECT_GE(persistent_arena.get_offset() - before_move, 8 * sizeof(double));
+  const size_t before_move_assignment = persistent_arena.get_offset();
   assigned = std::move(moved);
-  HS_EXPECT_EQ(persistent_arena.get_offset(), before_move);
+  HS_EXPECT_EQ(persistent_arena.get_offset(), before_move_assignment);
+  moved = donor;
+  HS_EXPECT_GE(persistent_arena.get_offset() - before_move_assignment,
+               8 * sizeof(double));
   assigned.step(fake_canvas());
   HS_EXPECT_TRUE(std::memcmp(&params, &expected_assignment, sizeof(params)) ==
                  0);

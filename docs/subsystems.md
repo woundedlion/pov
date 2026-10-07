@@ -380,7 +380,8 @@ do not reseed the clock. Copies keep independent clock values.
 
 MobiusWarpEvolving allocates 64 bytes of channel phases in the persistent arena.
 Copy construction allocates an independent block; copy assignment reuses its
-destination block, and moves transfer the block without allocating. These
+destination block or allocates one when the destination was moved from. Moves
+transfer the block without allocating and leave the source empty. These
 blocks remain reserved until the arena is reset and must outlive their
 animations. GnomonicStars spawns one pinned warp per effect initialization.
 
