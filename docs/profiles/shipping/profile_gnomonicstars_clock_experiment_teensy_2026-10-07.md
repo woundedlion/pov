@@ -1,8 +1,10 @@
 # GnomonicStars on-device profile — Teensy 4.0, segmented mode (2026-10-07, **selective -O3**)
 
-Experimental A–B–A characterization. The bounded-clock candidate is not an applied shipping fix. This supplement compares a clean instrument-only baseline with eight bounded double-precision channel phases; it does not replace the canonical GnomonicStars shipping profile.
+Historical A-B-A characterization of the bounded-clock prototype. The user subsequently approved the measured performance cost, and the production fix adopts bounded channel phases. This supplement compares a clean instrument-only baseline with eight bounded double-precision channel phases; it does not replace the canonical GnomonicStars shipping profile.
 
 The measured `animation_mobius_step` scope costs **13.591323 us/frame** in B1 versus **14.263004 us/frame** pooled across A1/A2: **-0.671682 us (-4.709%)**. This is a net scope measurement including eight trig calls, scope overhead and interrupt time. It does not isolate the added clock arithmetic. The complete render is **+9.056578 us/frame** across post-setup frames; the experiment provides no whole-frame performance gain claim.
+
+The production implementation clones phase storage when copying an animation and reduces huge increments before adding the current phase. Its ordinary Mobius step matches the measured prototype. Noise and NoiseProduct additionally use a 4096-unit C2 loop with smooth reversals at sampling coordinates +/-1000; their clock cost is not measured by this GnomonicStars capture. Native regressions cover default-speed uptime beyond the original freeze, phase ownership, loop joins and actual noise sample continuity. All numerical results below describe the original captured images.
 
 ## Setup
 
@@ -181,7 +183,7 @@ GnomonicStars is a legitimate case with the most proposed clock work: eight inde
 - The candidate preserves the original binary32 channel frequencies, seed-derived offsets, sin/cos choice, scale/base coefficients and live finite speed/scale setters. Negative and zero finite speeds remain accepted; non-finite setter values retain the previous good value.
 - Float-max speed times the largest frequency remains finite after promotion to double. The ordinary shipping slider uses speed 0–1, so phase increments need at most one wrap; captures do not measure the large-speed fmod fallback.
 - Extremely small negative steps can round a wrapped phase to exactly the period, an equivalent endpoint angle. The prototype guarantees bounded phase magnitude, not mathematically exact advancement for every finite subnormal speed.
-- Eight doubles are persistent-arena owned. Copies share the phase block: independently stepping copies advances shared state. The normal pinned GnomonicStars timeline owns one active animation; general copy/respawn use requires attention to shared phase ownership, arena lifetime and allocation until reset.
+- In the measured prototype, eight doubles are persistent-arena owned and copies share the phase block: independently stepping copies advances shared state. The normal pinned GnomonicStars timeline owns one active animation; general copy/respawn use requires attention to shared phase ownership, arena lifetime and allocation until reset.
 - Phase integration changes numerical trajectories relative to unbounded binary32 accumulation. Tiny raster differences and ISR placement changes prevent treating the complete render delta as pure clock overhead. A 70-second pass does not reproduce days-long float freeze; native tests exercise large advances and wrapping.
 - `filter_blend` is nested beneath `gn_star_scan`; its calls approximate blended writes. Existing selective -O3 annotations remain active on the device build. No cycling, dwell compression or epoch crossing was used.
 
@@ -202,4 +204,4 @@ python C:/work/temp/finding4-profile-20261007/compare.py
 python C:/work/temp/finding4-profile-20261007/build_comparison_report.py
 ```
 
-Only completed, successfully validated captures were analyzed. The [canonical baseline report](profile_gnomonicstars_teensy_2026-10-07.md) retains the original float clock. This supplemental comparison does not adopt the experimental bounded implementation.
+Only completed, successfully validated captures were analyzed. The [canonical baseline report](profile_gnomonicstars_teensy_2026-10-07.md) retains the original float clock. The canonical report is a historical baseline; this supplement preserves the experiment that informed approval of the subsequent production implementation.

@@ -361,13 +361,28 @@ The fragments compile only inside `animation.h` (a direct include fails with an 
 | `Ripple` | Animates a `RippleParams` to expand a Ricker wavelet across the sphere |
 | `MobiusWarp` | Animates `MobiusParams` to apply and release a Möbius transformation |
 | `MobiusWarpCircular` | Animates `MobiusParams` for a circular warp that stays warped throughout, suitable for repeating effects |
-| `MobiusWarpEvolving` | Continuously modulates `MobiusParams` over multiple frequencies for a non-repeating, evolving warp |
+| `MobiusWarpEvolving` | Modulates `MobiusParams` through independently wrapped double-precision phases at multiple frequencies |
 | `MobiusFlow` | Animates `MobiusParams` for a continuous loxodromic flow |
-| `Noise` | Animates `NoiseParams` over time for flowing distortion fields |
+| `Noise` | Animates `NoiseParams` along a bounded, smoothly reversing time loop for flowing distortion fields |
 | `BallDrop` | Animates a `BumpParams` to drop one spherical-cap bump from the north pole to the south along a fixed meridian, ramping the footprint envelope so the bump emerges from and vanishes into the poles |
-| `NoiseProduct` | Integrates the time axis of a `NoiseProductParams` (`time += speed` per frame) to flow a two-octave product-noise field; perpetual |
+| `NoiseProduct` | Animates `NoiseProductParams` along the same bounded time loop to flow a two-octave product-noise field; perpetual |
 | `OpLeg` | Animates one leg of a mesh operator chain: a Conway-operator parameter sweep along a `ConwayGraph` edge or recipe step, a hankin contact-angle sweep on a fixed seed, a relax or medial slerp, or a gated partition swap. Each frame it rebuilds the swept mesh in scratch, compiles it, checks the compiled face count against the hoisted classification, maps faces to pre-blended ramps via the leg's hoisted topology classification, and hands the mesh and per-face ramp table (`Shading`) to a draw callback — exactly one mesh drawn per frame. Each leg's `.then()` completion handler schedules the next, so a run of legs walks a whole morph path. |
 | `MeshCarousel<SegueT>` | Owns two mesh states and schedules the selected segue. The effect builds the back slot, calls `set_front`, then `schedule_segue`; the schedule forwards the animation pause gate. Shipping rendering supports `Segue::TerminatorSweep` in IslamicStars and standalone `Segue::Crossfade` in DreamBalls (with zero overlap). The other seven policies are library prototypes without production render consumers: IrisBloom, Lace, Shockwave, Breakdown, SpinFlip, GoldConvergence and Dissolve. Their `warp`, `reorder`, `mask_pair`, and fragment hooks require a matching effect draw path; changing the policy alone does not wire those hooks. |
+
+Noise and NoiseProduct use a double-precision phase with a 4096-unit period.
+Their published time coordinate stays linear over the initial phase range
+[-960, 960], then reverses through C2 turns at coordinate extrema ±1000.
+The field eventually retraces its trajectory. Constructors interpret the
+current time as a phase seed modulo the period; a non-finite seed initializes
+the internal phase to zero. Zero and non-finite speeds preserve the published
+coordinate. Live configuration refresh and later writes to the published time
+do not reseed the clock. Copies keep independent clock values.
+
+MobiusWarpEvolving allocates 64 bytes of channel phases in the persistent arena.
+Copy construction allocates an independent block; copy assignment reuses its
+destination block, and moves transfer the block without allocating. These
+blocks remain reserved until the arena is reset and must outlive their
+animations. GnomonicStars spawns one pinned warp per effect initialization.
 
 ### Orientation and Motion Blur
 
@@ -416,7 +431,7 @@ Parameter and motion animations mutate external state that the rendering pipelin
 | `ColorWipe` | `GenerativePalette*` | Interpolates palette keys between caller-owned start and target snapshots in OKLCH; both snapshots must remain unchanged and outlive the animation |
 | `Ripple`, `MobiusWarp`, `Noise` | `RippleParams`, `MobiusParams`, `NoiseParams` | Animate transformer parameters (expansion radius, warp strength, noise time axis) which the transformer pool reads during `MeshOps::transform()` |
 | `BallDrop` | `BumpParams` | Walks the bump center down a meridian and re-derives the push axis from the stack's orientation, ramping the footprint envelope; the field pool sums the caps during `field()` |
-| `NoiseProduct` | `NoiseProductParams` | Advances the field time axis so the two-octave product noise keeps flowing under live speed edits; the field pool reads it during `field()` |
+| `NoiseProduct` | `NoiseProductParams` | Advances the bounded field time loop under live speed edits; the field pool reads it during `field()` |
 | `ParticleSystem` | `Vector[]` positions | Physics simulation updates particle positions; `QuantizedVectorTrail` records history for trail rendering |
 
 Effects can declare *what state exists* (orientations, floats, palettes) and schedule animations to drive it. The `Timeline` handles timing, easing, sequencing, and cleanup for those scheduled animations; effects can also advance state directly in `draw_frame()`:
