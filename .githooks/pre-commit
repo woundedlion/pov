@@ -48,11 +48,18 @@ if ! git checkout-index --all --force --prefix="$SNAPSHOT/"; then
 fi
 LOCAL_GIT_ENV="$(git rev-parse --local-env-vars)"
 INDEX_PATH="$(git rev-parse --path-format=absolute --git-path index)"
+# Fold a split index's shared index in while the source git dir resolves it.
+SNAPSHOT_INDEX="$SNAPSHOT_ROOT/index"
+cp "$INDEX_PATH" "$SNAPSHOT_INDEX"
+if ! GIT_INDEX_FILE="$SNAPSHOT_INDEX" git -c core.splitIndex=false update-index --no-split-index; then
+  echo "[pre-commit] cannot build a standalone snapshot index."
+  exit 1
+fi
 
 (
   for name in $LOCAL_GIT_ENV; do unset "$name"; done
   git -C "$SNAPSHOT" init --quiet
-  cp "$INDEX_PATH" "$SNAPSHOT/.git/index"
+  mv "$SNAPSHOT_INDEX" "$SNAPSHOT/.git/index"
 
   require_clang_format() {
     CF="${CLANG_FORMAT:-clang-format}"
