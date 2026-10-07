@@ -133,12 +133,13 @@ private:
     return math::coarse_pixel_pitch<W, H>() * 2.0f / math::PI_F;
   }
 
-  // Persistent allocations: warp pool, spiral lattice and palette LUT.
+  // Persistent allocations: warp pool and phases, spiral lattice, palette LUT.
   using MobiusEntity = typename MobiusWarpGnomonicTransformer<1>::Entity;
   static constexpr size_t FOOTPRINT_BYTES =
       sizeof(MobiusEntity) + alignof(MobiusEntity) + sizeof(int) +
       alignof(int) + MAX_POINTS * sizeof(math::Vector) + alignof(math::Vector) +
-      BakedPalette::required_arena_bytes();
+      BakedPalette::required_arena_bytes() + 8 * sizeof(double) +
+      alignof(double) - 1;
   static_assert(FOOTPRINT_BYTES <= DEVICE_PERSISTENT_BUDGET,
                 "GnomonicStars persistent footprint exceeds the default "
                 "partition; retune MAX_POINTS or carve arenas");

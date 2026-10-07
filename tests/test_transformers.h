@@ -1639,11 +1639,11 @@ inline void test_ball_drop_traverses_and_reclaims() {
 }
 
 // ============================================================================
-// Animation::NoiseProduct — time integrates by speed
+// Animation::NoiseProduct — initial linear trajectory
 // ============================================================================
 
 /**
- * @brief Verifies NoiseProduct advances params.time by speed each step.
+ * @brief NoiseProduct publishes its initial linear trajectory.
  */
 inline void test_noise_product_integrates_time() {
   hs_test::StubEffect fx(8, 8);

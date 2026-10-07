@@ -68,9 +68,7 @@ inline void test_ripple_envelope_and_done_boundary() {
 }
 
 /**
- * @brief Verifies the Noise animation integrates speed into params.time each
- * step and, being perpetual, never reports done().
- * @details A mid-run speed edit carries the phase on from where it was.
+ * @brief Noise publishes its initial linear trajectory and remains perpetual.
  */
 inline void test_noise_publishes_time_and_is_perpetual() {
   Animation::NoiseParams params;
@@ -87,6 +85,209 @@ inline void test_noise_publishes_time_and_is_perpetual() {
   params.speed = 0.25f;
   noise.step(fake_canvas());
   HS_EXPECT_NEAR(params.time, 5.25f, 1e-6f);
+}
+
+template <typename Params> float noise_loop_sample(const Params &params) {
+  const math::Vector direction = math::Vector(0.3f, 0.4f, 0.5f).normalized();
+  if constexpr (std::is_same_v<Params, Animation::NoiseParams>)
+    return noise_transform(direction, params).x;
+  else
+    return noise_product_field(direction, params);
+}
+
+/** @brief Noise samplers follow the loop's linear, turning, and seam coordinates. */
+template <typename Params, typename Driver>
+void test_noise_loop_coordinates_and_samples() {
+  struct Fixture {
+    float phase;
+    float coordinate;
+  };
+  constexpr Fixture FIXTURES[] = {
+      {0.0f, 0.0f},          {960.0f, 960.0f},   {992.0f, 988.5f},
+      {1008.0f, 997.03125f}, {1024.0f, 1000.0f}, {1040.0f, 997.03125f},
+      {1056.0f, 988.5f},     {1088.0f, 960.0f},  {2047.0f, 1.0f},
+      {2048.0f, 0.0f},       {2049.0f, -1.0f},   {3072.0f, -1000.0f},
+      {4095.0f, -1.0f},      {4096.0f, 0.0f},    {8193.0f, 1.0f}};
+  for (const auto &fixture : FIXTURES) {
+    for (float sign : {-1.0f, 1.0f}) {
+      Params params;
+      params.amplitude = 0.5f;
+      if constexpr (std::is_same_v<Params, Animation::NoiseParams>)
+        params.sync();
+      Driver animation(params);
+      params.speed = sign * fixture.phase;
+      animation.step(fake_canvas());
+      HS_EXPECT_NEAR(params.time, sign * fixture.coordinate, 1e-5f);
+      Params expected = params;
+      expected.time = sign * fixture.coordinate;
+      HS_EXPECT_NEAR(noise_loop_sample(params), noise_loop_sample(expected),
+                     1e-6f);
+    }
+  }
+
+  auto coordinate = [](float phase) {
+    Params params;
+    Driver animation(params);
+    params.speed = phase;
+    animation.step(fake_canvas());
+    return params.time;
+  };
+  auto sample = [](float phase) {
+    Params params;
+    params.amplitude = 0.5f;
+    if constexpr (std::is_same_v<Params, Animation::NoiseParams>)
+      params.sync();
+    Driver animation(params);
+    params.speed = phase;
+    animation.step(fake_canvas());
+    return noise_loop_sample(params);
+  };
+  for (float sign : {-1.0f, 1.0f}) {
+    for (const auto &fixture :
+         {Fixture{960.0f, 1.0f}, Fixture{1024.0f, 0.0f},
+          Fixture{1088.0f, -1.0f}, Fixture{2048.0f, -1.0f}}) {
+      const float phase = sign * fixture.phase;
+      const float before = coordinate(phase - 1.0f);
+      const float current = coordinate(phase);
+      const float after = coordinate(phase + 1.0f);
+      HS_EXPECT_NEAR((after - before) * 0.5f, fixture.coordinate, 0.001f);
+      if (fixture.phase != 1024.0f)
+        HS_EXPECT_NEAR(after - 2.0f * current + before, 0.0f, 0.001f);
+      else
+        HS_EXPECT_NEAR(after - 2.0f * current + before, sign * (-3.0f / 128.0f),
+                       0.0002f);
+      constexpr float SAMPLE_STEP = 1.0f / 256.0f;
+      const float sample_before = sample(phase - SAMPLE_STEP);
+      const float sample_current = sample(phase);
+      const float sample_after = sample(phase + SAMPLE_STEP);
+      constexpr float SAMPLE_BOUND =
+          std::is_same_v<Params, Animation::NoiseParams> ? 0.002f : 0.02f;
+      HS_EXPECT_LE(std::fabs(sample_after - sample_before), SAMPLE_BOUND);
+      HS_EXPECT_LE(
+          std::fabs(sample_after - 2.0f * sample_current + sample_before),
+          SAMPLE_BOUND);
+    }
+  }
+}
+
+/** @brief Live controls and held publications do not reseed the noise clock. */
+template <typename Params, typename Driver>
+void test_noise_loop_live_controls_and_value_semantics() {
+  Params params;
+  params.time = 7.25f;
+  params.speed = 0.25f;
+  Driver animation(params);
+  animation.step(fake_canvas());
+  HS_EXPECT_EQ(params.time, 7.5f);
+  params.speed = 0.0f;
+  animation.step(fake_canvas());
+  HS_EXPECT_EQ(params.time, 7.5f);
+  for (float speed : {std::numeric_limits<float>::quiet_NaN(),
+                      std::numeric_limits<float>::infinity(),
+                      -std::numeric_limits<float>::infinity()}) {
+    params.speed = speed;
+    animation.step(fake_canvas());
+    HS_EXPECT_EQ(params.time, 7.5f);
+  }
+  params.speed = -0.125f;
+  animation.step(fake_canvas());
+  HS_EXPECT_EQ(params.time, 7.375f);
+  params.time = 123.0f;
+  params.speed = 0.0f;
+  animation.step(fake_canvas());
+  HS_EXPECT_EQ(params.time, 123.0f);
+  params.speed = std::numeric_limits<float>::quiet_NaN();
+  animation.step(fake_canvas());
+  HS_EXPECT_EQ(params.time, 123.0f);
+  params.speed = 0.25f;
+  animation.step(fake_canvas());
+  HS_EXPECT_EQ(params.time, 7.625f);
+  Params config;
+  config.time = 888.0f;
+  config.speed = 0.5f;
+  params.refresh_from(config);
+  animation.step(fake_canvas());
+  HS_EXPECT_EQ(params.time, 8.125f);
+  animation.rewind();
+  animation.step(fake_canvas());
+  HS_EXPECT_EQ(params.time, 8.625f);
+
+  const size_t before_copy = persistent_arena.get_offset();
+  Driver copied(animation);
+  animation.step(fake_canvas());
+  const float expected_copy = params.time;
+  copied.step(fake_canvas());
+  HS_EXPECT_EQ(params.time, expected_copy);
+  Driver assigned(params);
+  assigned = animation;
+  animation.step(fake_canvas());
+  const float expected_assignment = params.time;
+  assigned.step(fake_canvas());
+  HS_EXPECT_EQ(params.time, expected_assignment);
+  HS_EXPECT_EQ(persistent_arena.get_offset(), before_copy);
+
+  for (float seed : {std::numeric_limits<float>::quiet_NaN(),
+                     std::numeric_limits<float>::infinity(),
+                     -std::numeric_limits<float>::infinity()}) {
+    Params seeded;
+    seeded.time = seed;
+    seeded.speed = 0.0f;
+    Driver seeded_animation(seeded);
+    seeded_animation.step(fake_canvas());
+    if (std::isnan(seed))
+      HS_EXPECT_TRUE(std::isnan(seeded.time));
+    else
+      HS_EXPECT_EQ(seeded.time, seed);
+    seeded.speed = 0.125f;
+    seeded_animation.step(fake_canvas());
+    HS_EXPECT_EQ(seeded.time, 0.125f);
+  }
+  for (float seed : {std::numeric_limits<float>::max(),
+                     -std::numeric_limits<float>::max()}) {
+    Params seeded;
+    seeded.time = seed;
+    seeded.speed = 0.0f;
+    Driver seeded_animation(seeded);
+    seeded_animation.step(fake_canvas());
+    HS_EXPECT_EQ(seeded.time, seed);
+    seeded.speed = 0.125f;
+    seeded_animation.step(fake_canvas());
+    HS_EXPECT_EQ(seeded.time, 0.125f);
+    seeded.speed = seed;
+    seeded_animation.step(fake_canvas());
+    HS_EXPECT_EQ(seeded.time, 0.125f);
+  }
+}
+
+/** @brief Default noise clocks continue moving after long continuous uptime. */
+template <typename Params, typename Driver> void test_noise_loop_long_uptime() {
+  Params params;
+  const float speed = params.speed;
+  Driver animation(params);
+  constexpr uint32_t FRAMES = (1u << 24) + 2;
+  for (uint32_t frame = 0; frame < FRAMES; ++frame)
+    animation.step(fake_canvas());
+  double expected = std::fmod(static_cast<double>(FRAMES) * speed, 4096.0);
+  if (expected >= 2048.0)
+    expected -= 4096.0;
+  HS_EXPECT_LE(std::fabs(expected), 960.0);
+  HS_EXPECT_NEAR(params.time, static_cast<float>(expected), 1e-4f);
+  const float aged = params.time;
+  animation.step(fake_canvas());
+  HS_EXPECT_NEAR(params.time, static_cast<float>(expected + speed), 1e-4f);
+  HS_EXPECT_TRUE(params.time != aged);
+}
+
+/** @brief Noise's finite duration still completes on its configured frame. */
+inline void test_noise_loop_preserves_finite_duration() {
+  Animation::NoiseParams params;
+  Animation::Noise animation(params, 2);
+  animation.step(fake_canvas());
+  HS_EXPECT_FALSE(animation.done());
+  HS_EXPECT_EQ(params.time, 1.0f);
+  animation.step(fake_canvas());
+  HS_EXPECT_TRUE(animation.done());
+  HS_EXPECT_EQ(params.time, 2.0f);
 }
 
 /** Frames the RandomWalk oracles drive. */

@@ -189,9 +189,24 @@ inline int run_animation_tests() {
   test_mobiuswarp_circular_traces_radius();
   test_mobiuswarp_circular_bind_scale_reads_live();
   test_mobiuswarp_evolving_bounded_and_perpetual();
+  test_mobiuswarp_evolving_wrapped_live_channels();
+  test_mobiuswarp_evolving_value_semantics();
+  test_mobiuswarp_evolving_long_uptime();
 
   test_ripple_envelope_and_done_boundary();
   test_noise_publishes_time_and_is_perpetual();
+  test_noise_loop_coordinates_and_samples<Animation::NoiseParams,
+                                          Animation::Noise>();
+  test_noise_loop_coordinates_and_samples<Animation::NoiseProductParams,
+                                          Animation::NoiseProduct>();
+  test_noise_loop_live_controls_and_value_semantics<Animation::NoiseParams,
+                                                    Animation::Noise>();
+  test_noise_loop_live_controls_and_value_semantics<
+      Animation::NoiseProductParams, Animation::NoiseProduct>();
+  test_noise_loop_long_uptime<Animation::NoiseParams, Animation::Noise>();
+  test_noise_loop_long_uptime<Animation::NoiseProductParams,
+                              Animation::NoiseProduct>();
+  test_noise_loop_preserves_finite_duration();
 
   test_random_walk_stays_unit_and_travels();
   test_random_walk_stable_rotation_matches_same_state();
