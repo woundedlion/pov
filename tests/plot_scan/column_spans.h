@@ -670,15 +670,10 @@ inline void test_raw_geodesic_edge_gate_parity() {
                        float ra, float rb, float ca, float cb,
                        const math::Vector &a, const math::Vector &b) {
     const Plot::GeodesicEdgeSpan es = Plot::make_geodesic_edge_span(a, b);
-    float row_lo, row_hi;
-    Plot::geodesic_row_span_rows<H>(ra, rb, a, b, es, row_lo, row_hi);
-    if (!cr.could_intersect_y(row_lo, row_hi + Plot::GEODESIC_ROW_AA_PAD))
-      return false;
-    if (!xc.active)
-      return true;
-    int col_s, col_len;
-    return !Plot::geodesic_col_span_cols<W>(ca, cb, a, es, col_s, col_len) ||
-           ClipRegion::arcs_overlap(xc.rs, xc.length(W), col_s, col_len, W);
+    return Plot::exact_geodesic_edge_visible<W, H>(
+        cr, xc, ra, rb, a, b, es, [&](int &s, int &l) {
+          return Plot::geodesic_col_span_cols<W>(ca, cb, a, es, s, l);
+        });
   };
   auto run = [&](const ClipRegion &cr, const math::Vector &a,
                  const math::Vector &b) {
