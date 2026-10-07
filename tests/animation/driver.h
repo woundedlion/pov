@@ -36,6 +36,22 @@ inline void test_driver_no_wrap_accumulates() {
   HS_EXPECT_NEAR(v, 2.5f, 1e-5f);
 }
 
+/** @brief A non-finite speed update keeps the last good increment. */
+inline void test_driver_set_speed_ignores_non_finite() {
+  float v = 0.0f;
+  Animation::Driver d(v, 0.25f, /*wrap=*/false);
+  d.set_speed(std::numeric_limits<float>::quiet_NaN());
+  HS_EXPECT_NEAR(d.get_speed(), 0.25f, 1e-5f);
+  d.step(fake_canvas());
+  HS_EXPECT_NEAR(v, 0.25f, 1e-5f);
+
+  d.set_speed(std::numeric_limits<float>::infinity());
+  HS_EXPECT_NEAR(d.get_speed(), 0.25f, 1e-5f);
+  d.set_speed(0.5f);
+  d.step(fake_canvas());
+  HS_EXPECT_NEAR(v, 0.75f, 1e-5f);
+}
+
 /**
  * @brief Verifies a live-bound Driver ignores a non-finite slider frame instead
  * of permanently poisoning the wrapped mutant via wrap_t(NaN).
