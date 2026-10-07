@@ -23,7 +23,7 @@ enum class Geometry : uint8_t { OCTET = 0, SHELLS = 5 };
 struct Settings {
   Raycast::SamplingDomain domain = Raycast::SamplingDomain::SPATIAL_3D;
   float cell_size = 1.0f;
-  float wire_radius = 0.055f;
+  float wire_radius = 0.055f; /**< Octet wire radius in world units. */
   float radial_start = 0.0f;
   float far_distance = 7.0f;
   float near_fade = 0.5f;
