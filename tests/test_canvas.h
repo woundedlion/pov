@@ -65,7 +65,7 @@ struct TestEffect : public Effect {
   /**
    * @brief Registers a float parameter with the base Effect.
    * @param n Parameter name.
-   * @param p Pointer to the float backing store (current value is the default).
+   * @param p Pointer to the float backing store.
    * @param mn Minimum allowed value.
    * @param mx Maximum allowed value.
    */
@@ -73,13 +73,13 @@ struct TestEffect : public Effect {
     register_param(n, p, mn, mx);
   }
   /**
-   * @brief Registers a bool parameter, seeding its default first.
+   * @brief Registers a bool parameter after setting its initial value.
    * @param n Parameter name.
    * @param p Pointer to the bool backing store.
-   * @param d Default value written into *p before registration.
+   * @param d Initial value written into *p before registration.
    */
   void add_bool(const char *n, bool *p, bool d) {
-    *p = d; // register_param(bool) captures *ptr as the default; set it first
+    *p = d;
     register_param(n, p);
   }
   /**
@@ -1138,8 +1138,8 @@ inline void test_canvas_2d_and_1d_access_and_prev() {
 // ============================================================================
 
 /**
- * @brief Verifies register_param captures each param's current pointee as its
- * default and exposes type, value, and min/max through getParameters().
+ * @brief Verifies registered parameters expose their live type, value, and
+ *        min/max through getParameters().
  * @details Also checks that find() of an unregistered name returns null.
  */
 inline void test_register_float_and_bool_params() {
@@ -1155,7 +1155,7 @@ inline void test_register_float_and_bool_params() {
   if (!sp)
     return;
   HS_EXPECT_FALSE(sp->is_bool());
-  HS_EXPECT_NEAR(sp->get(), 1.5f, 1e-6f); // captured current value as default
+  HS_EXPECT_NEAR(sp->get(), 1.5f, 1e-6f);
   HS_EXPECT_NEAR(sp->min, 0.0f, 1e-6f);
   HS_EXPECT_NEAR(sp->max, 10.0f, 1e-6f);
 
@@ -1164,9 +1164,8 @@ inline void test_register_float_and_bool_params() {
   if (!fl)
     return;
   HS_EXPECT_TRUE(fl->is_bool());
-  HS_EXPECT_NEAR(fl->get(), 1.0f,
-                 1e-6f);   // captured *ptr (true) → reads as 1.0
-  HS_EXPECT_TRUE(fx.flag); // register_param(bool) leaves *ptr as-is
+  HS_EXPECT_NEAR(fl->get(), 1.0f, 1e-6f);
+  HS_EXPECT_TRUE(fx.flag);
 
   HS_EXPECT_TRUE(params.find("Missing") == nullptr);
 }
@@ -1298,7 +1297,7 @@ inline void test_register_and_update_enum_param() {
   HS_EXPECT_TRUE(def->options == MODES);
   HS_EXPECT_NEAR(def->min, 0.0f, 1e-6f);
   HS_EXPECT_NEAR(def->max, 2.0f, 1e-6f);
-  HS_EXPECT_NEAR(def->get(), 1.0f, 1e-6f); // captured current value as default
+  HS_EXPECT_NEAR(def->get(), 1.0f, 1e-6f);
 
   HS_EXPECT_EQ(fx.updateParameter("Mode", 1.49f), ParamSetResult::APPLIED);
   HS_EXPECT_EQ(mode, 1.0f);

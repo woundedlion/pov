@@ -79,7 +79,6 @@ public:
     claim_face_palettes(persistent_arena);
     palette_bank.bake_all(persistent_arena);
 
-    // Set BEFORE registering: register_param snaps *ptr as the slider default.
     ripple_gen.template_params.amplitude = RIPPLE_AMP_MAX;
     ripple_gen.template_params.thickness = RIPPLE_THICKNESS;
     ripple_gen.template_params.decay = 0.1f;
