@@ -70,6 +70,13 @@ inline void case_hyperlattice_frame_without_crossings() {
   (void)HyperLatticeDetail::prepare_trace(frame);
 }
 
+/** @brief Death case: cubic-wire patterns have no lattice trace geometry. */
+inline void case_hyperlattice_cubic_trace_geometry() {
+  HyperLatticeDetail::FrameState frame{};
+  frame.params.pattern = opaque(HyperLatticeDetail::Pattern::CUBIC_WIRE);
+  (void)HyperLatticeDetail::trace_settings(frame, {});
+}
+
 inline void case_mindsplatter_profile_preset_oob() {
   MindSplatter<96, 20> effect;
   effect.profile_select_preset(opaque<size_t>(SIZE_MAX));
