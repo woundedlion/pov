@@ -203,8 +203,9 @@ public:
     assert((!bound || element_capacity == 0 ||
             (stamp.source_arena == &arena &&
              stamp.birth_generation == arena.get_generation())) &&
-           "ArenaVector::bind() on a stale binding: clear the handle before "
-           "resetting or changing its arena");
+           "ArenaVector::bind() on a stale binding: move-assign a "
+           "default-constructed ArenaVector before resetting or changing "
+           "its arena");
 #endif
     // Catches a rewind, which the generation check misses.
     check_alive();
@@ -371,7 +372,8 @@ public:
 
   /**
    * @brief Resets the vector to empty without destroying elements.
-   * @details A defined no-op on an unbound vector.
+   * @details Retains the arena binding and capacity; a defined no-op on an
+   * unbound vector.
    */
   void clear() {
     check_alive();
