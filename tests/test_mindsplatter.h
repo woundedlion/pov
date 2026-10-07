@@ -240,9 +240,9 @@ inline void test_mindsplatter_replay_snapshot_exact() {
  * @brief MindSplatter's single-pass direct-AA path matches the cached
  * AntiAlias-sink reference in every quadrant of a frozen saturated particle
  * pool.
- * @details Single-pass stepping omits the cached endpoint normalization, so
- * interior sample phases, one fringe pixel, and accumulated channels can
- * differ.
+ * @details Single-pass stepping omits cached endpoint normalization. Under
+ * fast-math, interior sample phases, one fringe pixel, and accumulated channels
+ * can differ; the IEEE framebuffer is identical.
  */
 inline void test_mindsplatter_saturated_quadrant_sink_parity() {
   constexpr int W = SMALL_W;
