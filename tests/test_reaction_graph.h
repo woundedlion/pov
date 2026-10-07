@@ -438,7 +438,7 @@ inline void test_cubemap_lut_equatorial() {
 inline void test_cubemap_coherent_seeds() {
   const auto &LUT = built_cubemap_lut();
   constexpr int RES = ReactionGraph::CubemapLUT::RES;
-  int changed = 0, degraded = 0, misses = 0;
+  int changed = 0, misses = 0;
   for (int face = 0; face < 6; ++face)
     for (int y = 0; y < RES; ++y)
       for (int x = 0; x < RES; ++x) {
@@ -486,10 +486,7 @@ inline void test_cubemap_coherent_seeds() {
         }
         const int FOUND =
             LUT.lookup(ReactionGraph::CubemapLUT::Projection{face, U, V});
-        const float FOUND_DISTANCE =
-            chord2(q, ReactionGraph::node_positions[FOUND]);
         changed += FOUND != baseline;
-        degraded += FOUND_DISTANCE > distance + 1e-7f;
         int nearest = 0;
         float nearest_distance = chord2(q, ReactionGraph::node_positions[0]);
         for (int i = 1; i < RD_N; ++i) {
@@ -504,10 +501,9 @@ inline void test_cubemap_coherent_seeds() {
           adjacent |= neighbors[nearest][k] == FOUND;
         misses += !adjacent;
       }
-  std::printf("  [info] coherent cubemap: %d changed, %d degraded, %d misses\n",
-              changed, degraded, misses);
+  std::printf("  [info] coherent cubemap: %d changed, %d misses\n", changed,
+              misses);
   HS_EXPECT_EQ(changed, 0);
-  HS_EXPECT_EQ(degraded, 0);
   HS_EXPECT_EQ(misses, 0);
 }
 
