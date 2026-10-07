@@ -56,15 +56,6 @@ struct OpCounts {
 };
 
 /**
- * @brief Reads a closed mesh's operand counts.
- * @param m Closed manifold mesh.
- * @return {V, F, I} of @p m.
- */
-inline OpCounts mesh_op_counts(const PolyMesh &m) {
-  return {m.vertices.size(), m.face_counts.size(), m.faces.size()};
-}
-
-/**
  * @brief Counts a closed mesh's degree-2 vertices.
  * @param m Closed manifold mesh; each index is one face incidence.
  * @return Vertices with exactly two incident faces.
