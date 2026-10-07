@@ -1177,6 +1177,7 @@ class PackagePromotionTests(unittest.TestCase):
             self.assertEqual({path.name for path in jlc.iterdir()}, expected_files)
             self.assertFalse((out / "jlc.previous").exists())
             self.assertFalse(any(path.name.startswith(fab.STAGE_PREFIX) for path in out.iterdir()))
+            self.assertFalse((out / fab.LOCK_FILE).exists())
             with (jlc / "phantasm-BOM.csv").open(newline="", encoding="utf-8") as stream:
                 bom = list(csv.reader(stream))
             self.assertEqual(bom[0], ["Comment", "Designator", "Footprint", "LCSC Part #",
@@ -1266,6 +1267,76 @@ class PackagePromotionTests(unittest.TestCase):
                                             "phantasm-In1_Cu.g1|unexpected-In1_Cu.g1|injected archive failure|recover previous package"):
                     fab.main()
                 self.assertEqual({p.name: p.read_bytes() for p in jlc.iterdir()}, previous)
+                self.assertFalse((out / fab.LOCK_FILE).exists())
+
+
+class OutputLockTests(unittest.TestCase):
+    GATES = {
+        "kicad_cli": "fixture-cli", "read_board": [],
+        "validate_plot_origin": None, "validate_via_geometry": 0,
+        "validate_solder_mask": None, "validate_zone_geometry": 0,
+        "validate_project_rules": 0, "run_drc": (0, 0),
+        "run_erc": 0, "run_parity": 0, "validate_netlist_spec": 0,
+        "parse_components": {}, "validate_assembled_refs": None,
+        "validate_rotation_refs": None, "validate_assembly_metadata": {},
+        "validate_part_catalog": None, "normalize_fab_timestamps": [],
+        "validate_fab_content": {"plated": 0, "unplated": 0},
+    }
+
+    def patch_run(self, stack, out, export):
+        for name, value in {"OUT": str(out), "JLC": str(out / "jlc")}.items():
+            stack.enter_context(mock.patch.object(fab, name, value))
+        for name, value in self.GATES.items():
+            stack.enter_context(mock.patch.object(fab, name, return_value=value))
+        stack.enter_context(mock.patch.object(fab, "run_export", side_effect=export))
+        stack.enter_context(contextlib.redirect_stdout(io.StringIO()))
+
+    def test_held_lock_refuses_without_touching_a_live_stage(self):
+        with tempfile.TemporaryDirectory() as directory, contextlib.ExitStack() as stack:
+            out = Path(directory)
+            live = out / (fab.STAGE_PREFIX + "live")
+            live.mkdir()
+            (live / "phantasm-F_Cu.gtl").write_text("in progress", encoding="utf-8")
+            (out / fab.LOCK_FILE).write_text("1\n", encoding="utf-8")
+
+            def export(stage, args):
+                self.fail(f"a refused run must not export {stage}")
+
+            self.patch_run(stack, out, export)
+            with self.assertRaisesRegex(SystemExit, "another fabrication run holds"):
+                fab.main()
+            self.assertEqual((live / "phantasm-F_Cu.gtl").read_text(encoding="utf-8"),
+                             "in progress")
+            self.assertEqual((out / fab.LOCK_FILE).read_text(encoding="utf-8"), "1\n")
+            self.assertFalse((out / "jlc").exists())
+
+    def test_a_run_started_during_export_keeps_the_live_stage(self):
+        with tempfile.TemporaryDirectory() as directory, contextlib.ExitStack() as stack:
+            out = Path(directory)
+            refusals = []
+
+            def export(stage, args):
+                target = Path(args[args.index("-o") + 1])
+                if stage == "netlist":
+                    target.write_text('(export (design (sheet (name "/") '
+                                      '(title_block (rev "1.1")))))', encoding="utf-8")
+                elif stage == "centroid":
+                    target.write_text("Ref,PosX,PosY,Rot,Side\n", encoding="utf-8")
+                elif stage == "gerber":
+                    with self.assertRaises(SystemExit) as refused:
+                        fab.main()
+                    refusals.append(str(refused.exception))
+                    for name in ZipMembershipTests.EXPORTED:
+                        (target / name).write_bytes(f"fixture export: {name}\n".encode())
+
+            self.patch_run(stack, out, export)
+            fab.main()
+            self.assertEqual(len(refusals), 1)
+            self.assertIn("another fabrication run holds", refusals[0])
+            self.assertEqual({path.name for path in (out / "jlc").iterdir()},
+                             set(ZipMembershipTests.EXPORTED)
+                             | {"phantasm-BOM.csv", "phantasm-CPL.csv", fab.ARCHIVE, fab.SUMS_FILE})
+            self.assertFalse((out / fab.LOCK_FILE).exists())
 
 
 class PackageManifestTests(unittest.TestCase):
