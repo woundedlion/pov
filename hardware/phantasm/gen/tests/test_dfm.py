@@ -67,7 +67,10 @@ class SolderMaskTests(unittest.TestCase):
 
     def test_failed_mask_gate_stops_before_exports(self):
         root = sexp.parse_one(MASK_BOARD.replace("(solder_mask_min_width 0.1)", ""))
-        with mock.patch.object(fab, "kicad_cli", return_value="fixture-cli"), \
+        with tempfile.TemporaryDirectory() as directory, \
+                mock.patch.object(fab, "OUT", directory), \
+                mock.patch.object(fab, "JLC", str(Path(directory) / "jlc")), \
+                mock.patch.object(fab, "kicad_cli", return_value="fixture-cli"), \
                 mock.patch.object(fab, "read_board", return_value=root), \
                 mock.patch.object(fab, "run_export") as export, \
                 contextlib.redirect_stdout(io.StringIO()):
