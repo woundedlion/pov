@@ -572,7 +572,7 @@ private:
 
 /**
  * @brief Continuously modulates Mobius parameters to create an evolving warp.
- * @details Uses multiple frequencies for non-repeating chaos.
+ * @details Uses independently wrapped channel phases at multiple frequencies.
  *
  * PERPETUAL (duration -1, no repeat): reaches done() only through cancel(),
  * which also fires any `.then()` callback.
@@ -586,6 +586,8 @@ public:
    * @param speed Speed of the animation.
    * @note `base` snapshots `params` at construction and is latched at spawn;
    * live edits require a respawn (live `scale`/`speed` go through the setters).
+   * @details Channel phases occupy 64 bytes in persistent_arena until its next
+   * reset. Copies allocate independent phases; moves transfer the phase block.
    */
   MobiusWarpEvolving(math::MobiusParams &params, float scale = 0.5f,
                      float speed = 0.01f)
@@ -593,7 +595,31 @@ public:
         seed(hs::random()()) {
     HS_CHECK(std::isfinite(scale) && std::isfinite(speed),
              "MobiusWarpEvolving scale and speed must be finite");
+    channel_phases = persistent_arena.make_n<double>(8);
   }
+
+  MobiusWarpEvolving(const MobiusWarpEvolving &other) noexcept
+      : AnimationBase(other), params(other.params), speed(other.speed),
+        scale(other.scale), base(other.base), seed(other.seed),
+        channel_phases(persistent_arena.make_n<double>(8)) {
+    std::copy_n(other.channel_phases, 8, channel_phases);
+  }
+
+  MobiusWarpEvolving &operator=(const MobiusWarpEvolving &other) noexcept {
+    if (this == &other)
+      return *this;
+    AnimationBase::operator=(other);
+    params = other.params;
+    speed = other.speed;
+    scale = other.scale;
+    base = other.base;
+    seed = other.seed;
+    std::copy_n(other.channel_phases, 8, channel_phases);
+    return *this;
+  }
+
+  MobiusWarpEvolving(MobiusWarpEvolving &&) = default;
+  MobiusWarpEvolving &operator=(MobiusWarpEvolving &&) = default;
 
   /** @brief Sets the modulation speed (radians of phase per frame unit). */
   void set_speed(float speed) {
@@ -623,23 +649,52 @@ public:
    */
   void step(Canvas &canvas) override {
     AnimationBase::step(canvas);
-    // Float accumulation freezes once |phase_time| ~ |speed| * 2^24.
-    phase_time += speed;
-    float time = phase_time;
+    HS_PROFILE(animation_mobius_step);
+    constexpr float FREQUENCIES[] = {1.0f,  1.13f, 1.27f, 1.39f,
+                                     0.71f, 0.83f, 0.97f, 1.09f};
+    constexpr double PERIOD = 6.283185307179586476925286766559;
+    for (int i = 0; i < 8; ++i) {
+      const double increment =
+          static_cast<double>(speed) * static_cast<double>(FREQUENCIES[i]);
+      double next = channel_phases[i] + increment;
+      if (next >= PERIOD) {
+        next -= PERIOD;
+        if (next >= PERIOD) {
+          next = channel_phases[i] + std::fmod(increment, PERIOD);
+          if (next >= PERIOD)
+            next -= PERIOD;
+        }
+      } else if (next < 0.0) {
+        next += PERIOD;
+        if (next < 0.0) {
+          next = channel_phases[i] + std::fmod(increment, PERIOD);
+          if (next < 0.0)
+            next += PERIOD;
+        }
+      }
+      channel_phases[i] = next;
+    }
     float s = scale;
 
-    // Use prime-ish number ratios for frequencies to minimize repetition cycle
-    params.get().a.re = base.a.re + sinf(time * 1.0f + phase(0)) * s;
-    params.get().a.im = base.a.im + cosf(time * 1.13f + phase(1)) * s;
+    params.get().a.re =
+        base.a.re + sinf(static_cast<float>(channel_phases[0]) + phase(0)) * s;
+    params.get().a.im =
+        base.a.im + cosf(static_cast<float>(channel_phases[1]) + phase(1)) * s;
 
-    params.get().b.re = base.b.re + sinf(time * 1.27f + phase(2)) * s;
-    params.get().b.im = base.b.im + cosf(time * 1.39f + phase(3)) * s;
+    params.get().b.re =
+        base.b.re + sinf(static_cast<float>(channel_phases[2]) + phase(2)) * s;
+    params.get().b.im =
+        base.b.im + cosf(static_cast<float>(channel_phases[3]) + phase(3)) * s;
 
-    params.get().c.re = base.c.re + sinf(time * 0.71f + phase(4)) * s;
-    params.get().c.im = base.c.im + cosf(time * 0.83f + phase(5)) * s;
+    params.get().c.re =
+        base.c.re + sinf(static_cast<float>(channel_phases[4]) + phase(4)) * s;
+    params.get().c.im =
+        base.c.im + cosf(static_cast<float>(channel_phases[5]) + phase(5)) * s;
 
-    params.get().d.re = base.d.re + sinf(time * 0.97f + phase(6)) * s;
-    params.get().d.im = base.d.im + cosf(time * 1.09f + phase(7)) * s;
+    params.get().d.re =
+        base.d.re + sinf(static_cast<float>(channel_phases[6]) + phase(6)) * s;
+    params.get().d.im =
+        base.d.im + cosf(static_cast<float>(channel_phases[7]) + phase(7)) * s;
   }
 
 private:
@@ -649,7 +704,7 @@ private:
   float scale; /**< Magnitude of the per-channel modulation. */
   math::MobiusParams base; /**< Baseline params captured at construction. */
   uint32_t seed;           /**< Seed for the per-channel phase offsets. */
-  float phase_time = 0.0f; /**< Accumulated modulation phase (radians). */
+  double *channel_phases;  /**< Arena-owned wrapped channel phases (radians). */
 };
 
 /**
@@ -772,13 +827,64 @@ private:
 };
 
 /**
- * @brief Parameters for noise transformation.
+ * @brief Periodic C2 trajectory for a nonperiodic noise field's time coordinate.
+ * @details A 4096-unit phase loop is linear over [-960, 960] and turns smoothly
+ * at coordinate extrema +/-1000. Finite seeds are interpreted modulo the
+ * loop; non-finite seeds initialize the clock to zero.
  */
+class NoiseTimeLoop {
+public:
+  explicit NoiseTimeLoop(float initial_time)
+      : phase(std::isfinite(initial_time) ? wrap(0.0, initial_time) : 0.0) {}
+
+  /** @brief Advances the trajectory. @pre speed is finite and nonzero. */
+  float advance(float speed) {
+    HS_PROFILE(animation_noise_clock);
+    phase = wrap(phase, speed);
+    const float magnitude = static_cast<float>(std::fabs(phase));
+    float value;
+    if (magnitude <= 960.0f) {
+      value = magnitude;
+    } else if (magnitude >= 1088.0f) {
+      value = 2048.0f - magnitude;
+    } else {
+      const float u = (magnitude - 1024.0f) * (1.0f / 64.0f);
+      const float u2 = u * u;
+      value = 1000.0f + 64.0f * u2 * (0.125f * u2 - 0.75f);
+    }
+    return phase < 0.0 ? -value : value;
+  }
+
+private:
+  static double wrap(double current, double increment) {
+    double phase = current + increment;
+    if (phase >= 2048.0) {
+      phase -= 4096.0;
+      if (phase >= 2048.0) {
+        phase = current + std::fmod(increment, 4096.0);
+        if (phase >= 2048.0)
+          phase -= 4096.0;
+      }
+    } else if (phase < -2048.0) {
+      phase += 4096.0;
+      if (phase < -2048.0) {
+        phase = current + std::fmod(increment, 4096.0);
+        if (phase < -2048.0)
+          phase += 4096.0;
+      }
+    }
+    return phase;
+  }
+
+  double phase;
+};
+
+/** @brief Parameters for noise transformation. */
 struct NoiseParams {
   float amplitude = 0.5f;      /**< Noise output amplitude. */
   float speed = 1.0f;          /**< Temporal evolution speed. */
   float frequency = 0.125f;    /**< Spatial frequency of the noise. */
-  float time = 0.0f;           /**< Current animation time. */
+  float time = 0.0f;           /**< Published noise sampling coordinate. */
   float scale = 4.0f;          /**< Spatial scale factor. */
   mutable FastNoiseLite noise; /**< Backing generator; mutable for lazy
                                   init/updates. */
@@ -826,7 +932,9 @@ struct NoiseParams {
 };
 
 /**
- * @brief Animates noise parameters by integrating their time axis.
+ * @brief Animates noise parameters along a bounded, smoothly reversing loop.
+ * @details Captures time as the initial loop phase; later writes to time do not
+ * reseed the clock. Zero and non-finite speeds preserve the published value.
  */
 class Noise : public AnimationBase<Noise> {
 public:
@@ -836,7 +944,7 @@ public:
    * @param duration Duration in frames (-1 for indefinite).
    */
   Noise(NoiseParams &params, int duration = -1)
-      : AnimationBase(duration, false), params(params) {}
+      : AnimationBase(duration, false), params(params), clock(params.time) {}
 
   /**
    * @brief Steps the animation, advancing the noise time field.
@@ -846,14 +954,14 @@ public:
    */
   void step(Canvas &canvas) override {
     AnimationBase::step(canvas);
-    // Float accumulation freezes once |time| ~ |speed| * 2^24.
     const float speed = params.get().speed;
-    if (std::isfinite(speed))
-      params.get().time += speed;
+    if (std::isfinite(speed) && speed != 0.0f)
+      params.get().time = clock.advance(speed);
   }
 
 private:
   std::reference_wrapper<NoiseParams> params; /**< Noise params to animate. */
+  NoiseTimeLoop clock;
 };
 
 /**
@@ -963,11 +1071,11 @@ private:
  * @brief Parameters for a two-octave product noise field.
  */
 struct NoiseProductParams {
-  float amplitude = 0.0f; /**< Field output amplitude. */
-  float scale1 = 1.5f;    /**< Spatial frequency of the envelope octave. */
-  float scale2 = 3.0f;    /**< Spatial frequency of the detail octave. */
-  float speed = 0.03f;    /**< Time advance per frame. */
-  float time = 0.0f; /**< Current field time, integrated by NoiseProduct. */
+  float amplitude = 0.0f;      /**< Field output amplitude. */
+  float scale1 = 1.5f;         /**< Spatial frequency of the envelope octave. */
+  float scale2 = 3.0f;         /**< Spatial frequency of the detail octave. */
+  float speed = 0.03f;         /**< Time advance per frame. */
+  float time = 0.0f;           /**< Published noise sampling coordinate. */
   mutable FastNoiseLite noise; /**< Backing generator. */
 
   /** @brief Spatial offset decorrelating octave 2 from octave 1 at equal scales. */
@@ -1008,9 +1116,9 @@ struct NoiseProductParams {
 };
 
 /**
- * @brief Animates a noise-product field by integrating its time axis.
- * @details time += speed per frame keeps the field phase continuous under live
- * speed edits.
+ * @brief Animates a noise-product field along a bounded, smoothly reversing loop.
+ * @details Captures time as the initial loop phase; later writes to time do not
+ * reseed the clock. Zero and non-finite speeds preserve the published value.
  */
 class NoiseProduct : public AnimationBase<NoiseProduct> {
 public:
@@ -1019,7 +1127,7 @@ public:
    * @param params Reference to the NoiseProductParams to animate.
    */
   NoiseProduct(NoiseProductParams &params)
-      : AnimationBase(-1, false), params(params) {}
+      : AnimationBase(-1, false), params(params), clock(params.time) {}
 
   /**
    * @brief Steps the animation, integrating the field time.
@@ -1030,13 +1138,14 @@ public:
   void step(Canvas &canvas) override {
     AnimationBase::step(canvas);
     const float speed = params.get().speed;
-    if (std::isfinite(speed))
-      params.get().time += speed;
+    if (std::isfinite(speed) && speed != 0.0f)
+      params.get().time = clock.advance(speed);
   }
 
 private:
   std::reference_wrapper<NoiseProductParams>
       params; /**< Noise params to animate. */
+  NoiseTimeLoop clock;
 };
 
 } // namespace Animation
