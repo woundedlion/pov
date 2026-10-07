@@ -499,8 +499,8 @@ struct ShadeSample {
 
 /**
  * @brief Per-channel slack, in 16-bit linear units, for a libm difference.
- * @details The palette lookup runs cbrtf/powf through the OKLab gamut search,
- * whose last bits differ between libm builds.
+ * @details The depth palette is baked through cbrtf/powf in the OKLab gamut
+ * search, whose last bits differ between libm builds.
  */
 constexpr uint16_t MAX_SHADE_CHANNEL_DELTA = 16;
 
