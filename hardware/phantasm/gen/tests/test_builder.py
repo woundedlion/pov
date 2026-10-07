@@ -8,6 +8,8 @@ sys.path.insert(0, str(GEN))
 
 import builder  # noqa: E402
 import sexp  # noqa: E402
+from kicad_common import F  # noqa: E402
+from pin_landing import dangling_pins, pin_positions  # noqa: E402
 
 SCHEMATIC = GEN.parent / "1.1" / "phantasm.kicad_sch"
 
@@ -62,10 +64,6 @@ def stub_symbol(angle, rot, mirror):
     sym = builder.Symbol("Test:Stub", "U1", "stub", 0, 0, rot=rot, mirror=mirror)
     sym._pins = {"1": {"x": 0.0, "y": 0.0, "angle": float(angle), "name": "1"}}
     return sym
-
-
-def grid_key(point):
-    return (round(point[0], 3), round(point[1], 3))
 
 
 class TransformMatrixTests(unittest.TestCase):
@@ -149,57 +147,17 @@ class SchematicPinnedTests(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
-        root = sexp.parse(SCHEMATIC.read_text(encoding="utf-8"))[0]
-        cls.placed = []
-        cls.anchors = set()
-        unit_pins = {}
-        for node in root:
-            if not (isinstance(node, list) and node):
-                continue
-            if node[0] == "lib_symbols":
-                for sym in node:
-                    if isinstance(sym, list) and sym and sym[0] == "symbol":
-                        unit_pins[sym[1]] = builder._index_unit_pins(sym)
-            elif node[0] == "symbol":
-                at = sexp.val(node, "at")
-                mirror = sexp.val(node, "mirror")
-                unit = sexp.val(node, "unit")
-                cls.placed.append(dict(
-                    lib_id=sexp.val(node, "lib_id")[0],
-                    x=float(at[0]), y=float(at[1]),
-                    rot=float(at[2]) if len(at) > 2 else 0.0,
-                    mirror=mirror[0] if mirror else None,
-                    unit=int(unit[0]) if unit else 1))
-            elif node[0] == "wire":
-                pts = [c for c in node
-                       if isinstance(c, list) and c and c[0] == "pts"][0]
-                for xy in pts:
-                    if isinstance(xy, list) and xy and xy[0] == "xy":
-                        cls.anchors.add(grid_key((float(xy[1]), float(xy[2]))))
-            elif node[0] in ("junction", "label"):
-                at = sexp.val(node, "at")
-                cls.anchors.add(grid_key((float(at[0]), float(at[1]))))
-        cls.pins = []
-        for sym in cls.placed:
-            pins = dict(unit_pins[sym["lib_id"]].get(0, {}))
-            pins.update(unit_pins[sym["lib_id"]].get(sym["unit"], {}))
-            for pin in pins.values():
-                where = builder.transform(sym["x"], sym["y"], sym["rot"],
-                                          sym["mirror"], pin["x"], pin["y"])
-                cls.pins.append((sym["rot"], where))
+        cls.root = sexp.parse(SCHEMATIC.read_text(encoding="utf-8"))[0]
+        cls.pins = pin_positions(cls.root)
+        cls.rotations = {float(sexp.val(node, "at")[2])
+                         for node in F(cls.root, "symbol")}
 
     def test_exercises_every_rotation(self):
-        self.assertEqual({rot for rot, _ in self.pins}, {0.0, 90.0, 180.0, 270.0})
+        self.assertEqual(self.rotations, {0.0, 90.0, 180.0, 270.0})
         self.assertGreaterEqual(len(self.pins), 100)
 
     def test_every_pin_lands_on_the_drawn_net(self):
-        touching = {}
-        for _, where in self.pins:
-            touching[grid_key(where)] = touching.get(grid_key(where), 0) + 1
-        floating = [(rot, where) for rot, where in self.pins
-                    if grid_key(where) not in self.anchors
-                    and touching[grid_key(where)] < 2]
-        self.assertEqual(floating, [])
+        self.assertEqual(dangling_pins(self.root), [])
 
 
 if __name__ == "__main__":

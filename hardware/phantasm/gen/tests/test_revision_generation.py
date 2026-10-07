@@ -19,7 +19,7 @@ import sexp  # noqa: E402
 import shorts  # noqa: E402
 from kicad_common import F, export_netlist, kicad_cli  # noqa: E402
 from courtyard_bounds import courtyard_box  # noqa: E402
-from test_board import dangling_pins  # noqa: E402
+from pin_landing import dangling_pins  # noqa: E402
 from test_check import committed_board_nets  # noqa: E402
 from test_pcb_generation import GENERATES, GENERATES_REASON  # noqa: E402
 
