@@ -122,6 +122,11 @@ _hs_warnings(color_header_checks)
 add_dependencies(run_tests color_header_checks)
 
 
+set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS
+  "${CMAKE_CURRENT_SOURCE_DIR}/guard_directories.txt"
+  "${HS_ROOT}/tools/teensy_budgets.json"
+  "${HS_ROOT}/core/platform/build_features.h")
+
 # Generated census of the engine's HS_CHECK sites, for the death harness's
 # coverage report.
 file(STRINGS "${CMAKE_CURRENT_SOURCE_DIR}/guard_directories.txt" HS_GUARD_DIRS)
